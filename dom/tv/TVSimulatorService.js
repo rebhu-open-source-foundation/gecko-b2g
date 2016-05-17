@@ -14,6 +14,7 @@ const Cr = Components.returnCode;
 
 Cu.importGlobalProperties(["File"]);
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
 const TV_SIMULATOR_DUMMY_DIRECTORY   = "dummy";
 const TV_SIMULATOR_DUMMY_FILE        = "settings.json";
@@ -30,38 +31,41 @@ function containInvalidSourceType(aElement, aIndex, aArray) {
 // See http://seanyhlin.github.io/TV-Manager-API/#idl-def-TVChannelType
 const TV_CHANNEL_TYPES = ["tv","radio","data"];
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-
 function TVSimulatorService() {
+  // This is used for saving the registered source listeners. The object literal
+  // is defined as below:
+  // {
+  //   "tunerId1": {
+  //     "sourceType1": [ /* source listeners */ ],
+  //     "sourceType2": [ /* source listeners */ ],
+  //     ...
+  //   },
+  //   ...
+  // }
+  this._sourceListeners = {};
   this._internalTuners = null;
-  this._scanCompleteTimer = null;
-  this._scanningWrapTunerData = null;
-  this._init();
+  try {
+    this.initData();
+  } catch (e) {
+    debug("Error: " + e + ", Cannot init the data.");
+  }
 }
 
 TVSimulatorService.prototype = {
   classID: Components.ID("{94b065ad-d45a-436a-b394-6dabc3cf110f}"),
   QueryInterface: XPCOMUtils.generateQI([Ci.nsITVSimulatorService,
-                                         Ci.nsITVService,
-                                         Ci.nsITimerCallback]),
+                                         Ci.nsITVService]),
 
-  _init: function TVSimInit() {
-    if (this._internalTuners) {
-      return;
-    }
-
-    // I try to load the testing mock data if related preference are already set.
-    // Otherwise, use to the simulation data from prefences.
-    // See /dom/tv/test/mochitest/head.js for more details.
-    let settingStr = "";
-    try {
-      settingStr = Services.prefs.getCharPref("dom.testing.tv_mock_data");
-    } catch(e) {
+  initData: function(aMockedData) {
+    // Use the passed-in mocked data. If it doesn't exist, then try to load the
+    // simulation data.
+    let settingStr = aMockedData;
+    if (!settingStr) {
       try {
         settingStr = this._getDummyData();
       } catch(e) {
         debug("TV Simulator service failed to load simulation data: " + e);
-        return;
+        throw Cr.NS_ERROR_FAILURE;
       }
     }
 
@@ -71,8 +75,7 @@ TVSimulatorService.prototype = {
        *
        * Setting JSON file format:
        *
-       * Note: This setting JSON is not allow empty array.
-       *       If set the empty array, _init() will fail.
+       * Note: Empty arrays are not allowed in the format.
        *       e.g.
        *        - "tuners": []
        *        - "channels":[]
@@ -111,13 +114,13 @@ TVSimulatorService.prototype = {
       settingsObj = JSON.parse(settingStr);
     } catch(e) {
       debug("File load error: " + e);
-      return;
+      throw Cr.NS_ERROR_FAILURE;
     }
 
     // validation
     if (!this._validateSettings(settingsObj)) {
       debug("Failed to validate settings.");
-      return;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     // Key is as follow
@@ -197,10 +200,59 @@ TVSimulatorService.prototype = {
     }
   },
 
-  getTuners: function TVSimGetTuners(aCallback) {
+  registerSourceListener: function(aTunerId, aSourceType, aListener) {
+    let tunerSourceListeners = this._sourceListeners[aTunerId];
+    if (!tunerSourceListeners) {
+      tunerSourceListeners = this._sourceListeners[aTunerId] = {};
+    }
+
+    let listeners = tunerSourceListeners[aSourceType];
+    if (!listeners) {
+      listeners = tunerSourceListeners[aSourceType] = [];
+    }
+
+    if (listeners.indexOf(aListener) < 0) {
+      listeners.push(aListener);
+    }
+  },
+
+  unregisterSourceListener: function(aTunerId, aSourceType, aListener) {
+    let tunerSourceListeners = this._sourceListeners[aTunerId];
+    if (!tunerSourceListeners) {
+      return;
+    }
+
+    let listeners = tunerSourceListeners[aSourceType];
+    if (!listeners) {
+      return;
+    }
+
+    let index = listeners.indexOf(aListener);
+    if (index < 0) {
+      return;
+    }
+
+    listeners.splice(index, 1);
+  },
+
+  _getSourceListeners: function(aTunerId, aSourceType) {
+    let tunerSourceListeners = this._sourceListeners[aTunerId];
+    if (!tunerSourceListeners) {
+      return [];
+    }
+
+    let listeners = tunerSourceListeners[aSourceType];
+    if (!listeners) {
+      return [];
+    }
+
+    return listeners;
+  },
+
+  getTuners: function(aCallback) {
     if (!aCallback) {
       debug("aCallback is null\n");
-      return Cr.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     let tuners = Cc["@mozilla.org/array;1"]
@@ -210,108 +262,67 @@ TVSimulatorService.prototype = {
       tuners.appendElement(wrapTunerData.tuner, false);
     }
 
-    return aCallback.notifySuccess(tuners);
+    aCallback.notifySuccess(tuners);
   },
 
-  setSource: function TVSimSetSource(aTunerId, aSourceType, aCallback) {
+  setSource: function(aTunerId, aSourceType, aCallback) {
     if (!aCallback) {
       debug("aCallback is null\n");
-      return NS_ERROR_INVALID_ARG;
+      throw NS_ERROR_INVALID_ARG;
     }
 
     let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
     if (!wrapTunerData) {
-      return aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      return;
     }
-    return aCallback.notifySuccess(null);
+
+    let streamHandle = Cc["@mozilla.org/tv/tvgonknativehandledata;1"]
+                         .createInstance(Ci.nsITVGonkNativeHandleData);
+    let streamHandles = Cc["@mozilla.org/array;1"]
+                          .createInstance(Ci.nsIMutableArray);
+    streamHandles.appendElement(streamHandle, false);
+
+    aCallback.notifySuccess(streamHandles);
   },
 
-  startScanningChannels: function TVSimStartScanningChannels(aTunerId, aSourceType, aCallback) {
+  startScanningChannels: function(aTunerId, aSourceType, aCallback) {
     if (!aCallback) {
       debug("aCallback is null\n");
-      return Cr.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
     if (!wrapTunerData || !wrapTunerData.channels) {
-      return aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
-    }
-
-    if (this._scanningWrapTunerData) {
-      return aCallback.notifyError(Cr.NS_ERROR_DOM_INVALID_STATE_ERR);
-    }
-
-    this._scanningWrapTunerData = wrapTunerData;
-
-    aCallback.notifySuccess(null);
-
-    for (let [key, wrapChannelData] of wrapTunerData.channels) {
-      this._sourceListener.notifyChannelScanned(
-                                        wrapTunerData.tuner.id,
-                                        wrapTunerData.sourceType,
-                                        wrapChannelData.channel);
-    }
-
-    this._scanCompleteTimer = Cc["@mozilla.org/timer;1"]
-                                .createInstance(Ci.nsITimer);
-    let rv = this._scanCompleteTimer.initWithCallback(this, 10,
-                                                      Ci.nsITimer.TYPE_ONE_SHOT);
-    return Cr.NS_OK;
-  },
-
-  notify: function TVSimTimerCallback(aTimer) {
-    if (!this._scanningWrapTunerData) {
+      aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
       return;
     }
 
-    this._scanCompleteTimer = null;
-    let notifyResult = this._sourceListener.notifyChannelScanComplete(
-                                                  this._scanningWrapTunerData.tuner.id,
-                                                  this._scanningWrapTunerData.sourceType);
-    this._scanningWrapTunerData = null;
-    return notifyResult;
+    aCallback.notifySuccess(null);
   },
 
-  stopScanningChannels: function TVSimStopScanningChannels(aTunerId, aSourceType, aCallback) {
+  stopScanningChannels: function(aTunerId, aSourceType, aCallback) {
+
     if (!aCallback) {
       debug("aCallback is null\n");
-      return Cr.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
-    if (!this._scanningWrapTunerData) {
-      return aCallback.notifyError(Cr.NS_ERROR_DOM_INVALID_STATE_ERR);
+    for (let listener of this._getSourceListeners(aTunerId, aSourceType)) {
+      listener.notifyChannelScanStopped(aTunerId, aSourceType);
     }
 
-    let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
-    if (!wrapTunerData) {
-      return aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
-    }
-
-    if (this._scanCompleteTimer) {
-      this._scanCompleteTimer.cancel();
-      this._scanCompleteTimer = null;
-    }
-
-    if (wrapTunerData.tuner.id === this._scanningWrapTunerData.tuner.id &&
-        wrapTunerData.sourceType === this._scanningWrapTunerData.sourceType) {
-      this._scanningWrapTunerData = null;
-      this._sourceListener.notifyChannelScanStopped(
-                                 wrapTunerData.tuner.id,
-                                 wrapTunerData.sourceType);
-    }
-
-    return aCallback.notifySuccess(null);
+    aCallback.notifySuccess(null);
   },
 
-  clearScannedChannelsCache: function TVSimClearScannedChannelsCache(aTunerId, aSourceType, aCallback) {
-    // Doesn't support for this method.
-    return Cr.NS_OK;
+  clearScannedChannelsCache: function(aTunerId, aSourceType, aCallback) {
+    // Simulator service doesn't support channel cache, so there's nothing to do here.
   },
 
-  setChannel: function TVSimSetChannel(aTunerId, aSourceType, aChannelNumber, aCallback) {
+  setChannel: function(aTunerId, aSourceType, aChannelNumber, aCallback) {
     if (!aCallback) {
       debug("aCallback is null\n");
-      return Cr.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     let channel = Cc["@mozilla.org/array;1"]
@@ -319,23 +330,24 @@ TVSimulatorService.prototype = {
 
     let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
     if (!wrapTunerData || !wrapTunerData.channels) {
-      return aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      return;
     }
 
     let wrapChannelData = wrapTunerData.channels.get(aChannelNumber);
     if (!wrapChannelData) {
-      return aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      return;
     }
 
     channel.appendElement(wrapChannelData.channel, false);
-    return aCallback.notifySuccess(channel);
-
+    aCallback.notifySuccess(channel);
   },
 
-  getChannels: function TVSimGetChannels(aTunerId, aSourceType, aCallback) {
+  getChannels: function(aTunerId, aSourceType, aCallback) {
     if (!aCallback) {
       debug("aCallback is null\n");
-      return Cr.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     let channelArray = Cc["@mozilla.org/array;1"]
@@ -343,66 +355,44 @@ TVSimulatorService.prototype = {
 
     let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
     if (!wrapTunerData || !wrapTunerData.channels) {
-      return aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      return;
     }
 
     for (let [key, wrapChannelData] of wrapTunerData.channels) {
       channelArray.appendElement(wrapChannelData.channel, false);
     }
 
-    return aCallback.notifySuccess(channelArray);
+    aCallback.notifySuccess(channelArray);
   },
 
-  getPrograms: function TVSimGetPrograms(aTunerId, aSourceType, aChannelNumber, aStartTime, aEndTime, aCallback) {
+  getPrograms: function(aTunerId, aSourceType, aChannelNumber, aStartTime, aEndTime, aCallback) {
     if (!aCallback) {
       debug("aCallback is null\n");
-      return Cr.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
     let programArray = Cc["@mozilla.org/array;1"]
                          .createInstance(Ci.nsIMutableArray);
 
     let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
     if (!wrapTunerData || !wrapTunerData.channels) {
-      return aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      aCallback.notifyError(Ci.nsITVServiceCallback.TV_ERROR_FAILURE);
+      return;
     }
 
     let wrapChannelData = wrapTunerData.channels.get(aChannelNumber);
     if (!wrapChannelData || !wrapChannelData.programs) {
-      return Cr.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     for (let program of wrapChannelData.programs) {
       programArray.appendElement(program, false);
     }
 
-    return aCallback.notifySuccess(programArray);
-
+    aCallback.notifySuccess(programArray);
   },
 
-  getOverlayId: function TVSimGetOverlayId(aTunerId, aCallback) {
-    if (!aCallback) {
-      debug("aCallback is null\n");
-      return Cr.NS_ERROR_INVALID_ARG;
-    }
-
-    // TVSimulatorService does not use this parameter.
-    overlayIds = Cc["@mozilla.org/array;1"]
-                  .createInstance(Ci.nsIMutableArray);
-    return aCallback.notifySuccess(overlayIds);
-  },
-
-  set sourceListener(aListener) {
-    this._sourceListener = aListener;
-  },
-
-  get sourceListener() {
-      return this._sourceListener;
-  },
-
-  getSimulatorVideoBlobURL: function TVSimGetSimulatorVideoBlob(aTunerId,
-                                                                aSourceType,
-                                                                aChannelNumber,
-                                                                aWin) {
+  getSimulatorVideoBlobURL: function(aTunerId, aSourceType, aChannelNumber, aWin) {
     let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
     if (!wrapTunerData || !wrapTunerData.channels) {
       return "";
@@ -419,7 +409,52 @@ TVSimulatorService.prototype = {
     return videoBlobURL;
   },
 
-  _getDummyData : function TVSimGetDummyData() {
+  simulateChannelScanned: function(aTunerId, aSourceType) {
+    let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
+    if (!wrapTunerData || !wrapTunerData.channels) {
+      throw Cr.NS_ERROR_INVALID_ARG;
+    }
+
+    let listeners = this._getSourceListeners(aTunerId, aSourceType);
+    for (let [key, wrapChannelData] of wrapTunerData.channels) {
+      for (let listener of listeners) {
+        listener.notifyChannelScanned(aTunerId, aSourceType, wrapChannelData.channel);
+      }
+    }
+  },
+
+  simulateChannelScanComplete: function(aTunerId, aSourceType) {
+    for (let listener of this._getSourceListeners(aTunerId, aSourceType)) {
+      listener.notifyChannelScanComplete(aTunerId, aSourceType);
+    }
+  },
+
+  simulateChannelScanError: function(aTunerId, aSourceType) {
+    for (let listener of this._getSourceListeners(aTunerId, aSourceType)) {
+      listener.notifyChannelScanStopped(aTunerId, aSourceType);
+    }
+  },
+
+  simulateEITBroadcasted: function(aTunerId, aSourceType, aChannelNumber) {
+    let wrapTunerData = this._getWrapTunerData(aTunerId, aSourceType);
+    if (!wrapTunerData || !wrapTunerData.channels) {
+      throw Cr.NS_ERROR_INVALID_ARG;
+    }
+
+    let wrapChannelData = wrapTunerData.channels.get(aChannelNumber);
+    if (!wrapChannelData || !wrapChannelData.programs) {
+      throw Cr.NS_ERROR_INVALID_ARG;
+    }
+
+    for (let listener of this._getSourceListeners(aTunerId, aSourceType)) {
+      listener.notifyEITBroadcasted(aTunerId, aSourceType,
+                                    wrapChannelData.channel,
+                                    wrapChannelData.programs,
+                                    wrapChannelData.programs.length);
+    }
+  },
+
+  _getDummyData : function() {
     // Load the setting file from local JSON file.
     // Synchrhronous File Reading.
     let file = Cc["@mozilla.org/file/local;1"]
@@ -454,18 +489,18 @@ TVSimulatorService.prototype = {
     return settingsStr;
   },
 
-  _getTunerMapKey: function TVSimGetTunerMapKey(aTunerId, aSourceType) {
+  _getTunerMapKey: function(aTunerId, aSourceType) {
     return JSON.stringify({'tunerId': aTunerId, 'sourceType': aSourceType});
   },
 
-  _getWrapTunerData: function TVSimGetWrapTunerData(aTunerId, aSourceType) {
+  _getWrapTunerData: function(aTunerId, aSourceType) {
     if (!this._internalTuners || this._internalTuners.size <= 0) {
       return null;
     }
     return this._internalTuners.get(this._getTunerMapKey(aTunerId, aSourceType));
   },
 
-  _getFilePath: function TVSimGetFilePathFromDummyDirectory(fileName) {
+  _getFilePath: function(fileName) {
     let dsFile = Cc["@mozilla.org/file/directory_service;1"]
                    .getService(Ci.nsIProperties)
                    .get("ProfD", Ci.nsIFile);
@@ -475,11 +510,11 @@ TVSimulatorService.prototype = {
     return dsFile.path;
   },
 
-  _validateSettings: function TVSimValidateSettings(aSettingsObject) {
+  _validateSettings: function(aSettingsObject) {
     return this._validateTuners(aSettingsObject.tuners);
   },
 
-  _validateTuners: function TVSimValidateTuners(aTunersObject) {
+  _validateTuners: function(aTunersObject) {
     let tunerIds = new Array();
     for (let tuner of aTunersObject) {
       if (!tuner.id ||
@@ -499,7 +534,7 @@ TVSimulatorService.prototype = {
     return true;
   },
 
-  _validateSources: function TVSimValidateSources(aSourcesObject) {
+  _validateSources: function(aSourcesObject) {
     for (let source of aSourcesObject) {
       if (!source.type ||
           !TV_SOURCE_TYPES.includes(source.type)) {
@@ -514,7 +549,7 @@ TVSimulatorService.prototype = {
     return true;
   },
 
-  _validateChannels: function TVSimValidateChannels(aChannelsObject) {
+  _validateChannels: function(aChannelsObject) {
     let channelNumbers = new Array();
     for (let channel of aChannelsObject) {
       if (!channel.networkId ||
@@ -537,7 +572,7 @@ TVSimulatorService.prototype = {
     return true;
   },
 
-  _validatePrograms: function TVSimValidatePrograms(aProgramsObject) {
+  _validatePrograms: function(aProgramsObject) {
     let eventIds = new Array();
     for (let program of aProgramsObject) {
       if (!program.eventId ||
