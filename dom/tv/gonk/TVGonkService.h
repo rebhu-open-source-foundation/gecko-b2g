@@ -15,6 +15,8 @@
 namespace mozilla {
 namespace dom {
 
+class TVDaemonInterface;
+
 class TVGonkService final : public nsITVService
 {
 public:
@@ -23,7 +25,25 @@ public:
 
   TVGonkService();
 
+  nsresult NotifyChannelScanned(const nsAString& aTunerId,
+                                const nsAString& aSourceType,
+                                nsITVChannelData* aChannelData);
+
+  nsresult NotifyChannelScanComplete(const nsAString& aTunerId,
+                                     const nsAString& aSourceType);
+
+  nsresult NotifyChannelScanStopped(const nsAString& aTunerId,
+                                    const nsAString& aSourceType);
+
+  nsresult NotifyEITBroadcasted(const nsAString& aTunerId,
+                                const nsAString& aSourceType,
+                                nsITVChannelData* aChannelData,
+                                nsITVProgramData** aProgramDataList,
+                                uint32_t aCount);
+
 private:
+  TVDaemonInterface* mInterface;
+
   ~TVGonkService();
 
   void GetSourceListeners(

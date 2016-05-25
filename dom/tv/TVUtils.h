@@ -18,10 +18,12 @@ namespace dom {
 inline nsString
 ToTVSourceTypeStr(const TVSourceType aSourceType)
 {
-  MOZ_ASSERT(uint32_t(aSourceType) < ArrayLength(TVSourceTypeValues::strings));
+  MOZ_ASSERT(static_cast<uint32_t>(aSourceType) <
+             ArrayLength(TVSourceTypeValues::strings));
 
   nsString str;
-  str.AssignASCII(TVSourceTypeValues::strings[uint32_t(aSourceType)].value);
+  str.AssignASCII(
+    TVSourceTypeValues::strings[static_cast<uint32_t>(aSourceType)].value);
   return str;
 }
 
@@ -131,6 +133,18 @@ ToTVChannelType(const nsAString& aStr)
   }
 
   return TVChannelType::EndGuard_;
+}
+
+inline nsString
+ToTVChannelTypeStr(const TVChannelType aChannelType)
+{
+  MOZ_ASSERT(static_cast<uint32_t>(aChannelType) <
+             ArrayLength(TVChannelTypeValues::strings));
+
+  nsString str;
+  str.AssignASCII(
+    TVChannelTypeValues::strings[static_cast<uint32_t>(aChannelType)].value);
+  return str;
 }
 
 } // namespace dom

@@ -7,7 +7,8 @@
 #include "TVParent.h"
 
 #include "mozilla/unused.h"
-#include "TVTypes.h"
+#include "nsArrayUtils.h"
+#include "nsServiceManagerUtils.h"
 #include "TVIPCHelper.h"
 
 namespace mozilla {
