@@ -254,6 +254,7 @@ const mockedSessionTransport = {
   },
   // in-process case
   buildDataChannelTransport: function(type, window, controlChannel, listener) {
+    dump("build data channel transport\n");
     this._listener = listener;
     this._type = type;
 

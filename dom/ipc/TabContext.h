@@ -130,12 +130,6 @@ public:
    */
   const nsACString& SignedPkgOriginNoSuffix() const;
 
-  /**
-   * Returns the presentation URL associated with the tab if this tab is
-   * created for presented content
-   */
-  const nsAString& PresentationURL() const;
-
 protected:
   friend class MaybeInvalidTabContext;
 
@@ -164,8 +158,7 @@ protected:
                      mozIApplication* aOwnApp,
                      mozIApplication* aAppFrameOwnerApp,
                      const DocShellOriginAttributes& aOriginAttributes,
-                     const nsACString& aSignedPkgOriginNoSuffix,
-                     const nsAString& aPresentationURL);
+                     const nsACString& aSignedPkgOriginNoSuffix);
 
 private:
   /**
@@ -211,11 +204,6 @@ private:
    * doesn't own a signed package, this value would be empty.
    */
   nsCString mSignedPkgOriginNoSuffix;
-
-  /**
-   * The requested presentation URL.
-   */
-  nsString mPresentationURL;
 };
 
 /**
@@ -236,15 +224,13 @@ public:
                 mozIApplication* aOwnApp,
                 mozIApplication* aAppFrameOwnerApp,
                 const DocShellOriginAttributes& aOriginAttributes,
-                const nsACString& aSignedPkgOriginNoSuffix = EmptyCString(),
-                const nsAString& aPresentationURL = EmptyString())
+                const nsACString& aSignedPkgOriginNoSuffix = EmptyCString())
   {
     return TabContext::SetTabContext(aIsMozBrowserElement,
                                      aOwnApp,
                                      aAppFrameOwnerApp,
                                      aOriginAttributes,
-                                     aSignedPkgOriginNoSuffix,
-                                     aPresentationURL);
+                                     aSignedPkgOriginNoSuffix);
   }
 };
 
