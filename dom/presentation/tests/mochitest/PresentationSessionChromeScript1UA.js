@@ -9,12 +9,15 @@ const { classes: Cc, interfaces: Ci, manager: Cm, utils: Cu, results: Cr } = Com
 
 Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 
+const uuidGenerator = Cc["@mozilla.org/uuid-generator;1"]
+                      .getService(Ci.nsIUUIDGenerator);
+
 function debug(str) {
   // dump('DEBUG -*- PresentationSessionChromeScript1UA -*-: ' + str + '\n');
 }
 
 const originalFactoryData = [];
-const sessionId = 'test-session-id';
+const sessionId = 'test-session-id-' + uuidGenerator.generateUUID().toString();
 const address = Cc["@mozilla.org/supports-cstring;1"]
                   .createInstance(Ci.nsISupportsCString);
 address.data = "127.0.0.1";
@@ -120,6 +123,16 @@ mockSessionTransport.prototype = {
   close: function(reason) {
     sendAsyncMessage('data-transport-closed', reason);
     this._callback.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyTransportClosed(reason);
+    if (this._role === Ci.nsIPresentationService.ROLE_CONTROLLER) {
+      if (mockSessionTransportOfReceiver._callback) {
+        mockSessionTransportOfReceiver._callback.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyTransportClosed(reason);
+      }
+    }
+    else if (this._role === Ci.nsIPresentationService.ROLE_RECEIVER) {
+      if (mockSessionTransportOfSender._callback) {
+        mockSessionTransportOfSender._callback.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyTransportClosed(reason);
+      }
+    }
   },
   simulateTransportReady: function() {
     this._callback.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyTransportReady();
