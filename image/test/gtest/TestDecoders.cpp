@@ -8,6 +8,7 @@
 #include "Decoder.h"
 #include "DecoderFactory.h"
 #include "decoders/nsBMPDecoder.h"
+#include "IDecodingTask.h"
 #include "imgIContainer.h"
 #include "imgITools.h"
 #include "ImageFactory.h"
@@ -107,29 +108,20 @@ CheckDecoderSingleChunk(const ImageTestCase& aTestCase)
     DecoderFactory::CreateAnonymousDecoder(decoderType, sourceBuffer,
                                            DefaultSurfaceFlags());
   ASSERT_TRUE(decoder != nullptr);
+  RefPtr<IDecodingTask> task = new AnonymousDecodingTask(decoder);
 
   // Run the full decoder synchronously.
-  decoder->Decode();
+  task->Run();
   
   CheckDecoderResults(aTestCase, decoder);
 }
-
-class NoResume : public IResumable
-{
-public:
-  NS_INLINE_DECL_REFCOUNTING(NoResume, override)
-  virtual void Resume() override { }
-
-private:
-  ~NoResume() { }
-};
 
 static void
 CheckDecoderMultiChunk(const ImageTestCase& aTestCase)
 {
   nsCOMPtr<nsIInputStream> inputStream = LoadFile(aTestCase.mPath);
   ASSERT_TRUE(inputStream != nullptr);
-
+Run the full decoder synchronously.
   // Figure out how much data we have.
   uint64_t length;
   nsresult rv = inputStream->Available(&length);
@@ -144,11 +136,8 @@ CheckDecoderMultiChunk(const ImageTestCase& aTestCase)
     DecoderFactory::CreateAnonymousDecoder(decoderType, sourceBuffer,
                                            DefaultSurfaceFlags());
   ASSERT_TRUE(decoder != nullptr);
+  RefPtr<IDecodingTask> task = new AnonymousDecodingTask(decoder);
 
-  // Decode synchronously, using a |NoResume| IResumable so the Decoder doesn't
-  // attempt to schedule itself on a nonexistent DecodePool when we write more
-  // data into the SourceBuffer.
-  RefPtr<NoResume> noResume = new NoResume();
   for (uint64_t read = 0; read < length ; ++read) {
     uint64_t available = 0;
     rv = inputStream->Available(&available);
@@ -158,11 +147,11 @@ CheckDecoderMultiChunk(const ImageTestCase& aTestCase)
     rv = sourceBuffer->AppendFromInputStream(inputStream, 1);
     ASSERT_TRUE(NS_SUCCEEDED(rv));
 
-    decoder->Decode(noResume);
+    task->Run();
   }
 
   sourceBuffer->Complete(NS_OK);
-  decoder->Decode(noResume);
+  task->Run();
   
   CheckDecoderResults(aTestCase, decoder);
 }
