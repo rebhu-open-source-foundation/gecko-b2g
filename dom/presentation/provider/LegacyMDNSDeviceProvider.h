@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_presentation_provider_MulticastDNSDeviceProvider_h
-#define mozilla_dom_presentation_provider_MulticastDNSDeviceProvider_h
+#ifndef mozilla_dom_presentation_provider_LegacyMDNSDeviceProvider_h
+#define mozilla_dom_presentation_provider_LegacyMDNSDeviceProvider_h
 
 #include "mozilla/RefPtr.h"
 #include "nsCOMPtr.h"
@@ -22,28 +22,25 @@
 namespace mozilla {
 namespace dom {
 namespace presentation {
+namespace legacy {
 
 class DNSServiceWrappedListener;
 class MulticastDNSService;
 
-class MulticastDNSDeviceProvider final
+class LegacyMDNSDeviceProvider final
   : public nsIPresentationDeviceProvider
   , public nsIDNSServiceDiscoveryListener
-  , public nsIDNSRegistrationListener
   , public nsIDNSServiceResolveListener
-  , public nsIPresentationControlServerListener
   , public nsIObserver
 {
 public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPRESENTATIONDEVICEPROVIDER
   NS_DECL_NSIDNSSERVICEDISCOVERYLISTENER
-  NS_DECL_NSIDNSREGISTRATIONLISTENER
   NS_DECL_NSIDNSSERVICERESOLVELISTENER
-  NS_DECL_NSIPRESENTATIONCONTROLSERVERLISTENER
   NS_DECL_NSIOBSERVER
 
-  explicit MulticastDNSDeviceProvider() = default;
+  explicit LegacyMDNSDeviceProvider() = default;
   nsresult Init();
   nsresult Uninit();
 
@@ -65,7 +62,7 @@ private:
                     const nsACString& aAddress,
                     const uint16_t aPort,
                     DeviceState aState,
-                    MulticastDNSDeviceProvider* aProvider)
+                    LegacyMDNSDeviceProvider* aProvider)
       : mId(aId)
       , mName(aName)
       , mType(aType)
@@ -121,7 +118,7 @@ private:
     nsCString mAddress;
     uint16_t mPort;
     DeviceState mState;
-    MulticastDNSDeviceProvider* mProvider;
+    LegacyMDNSDeviceProvider* mProvider;
   };
 
   struct DeviceIdComparator {
@@ -136,13 +133,10 @@ private:
     }
   };
 
-  virtual ~MulticastDNSDeviceProvider();
-  nsresult RegisterService();
-  nsresult UnregisterService(nsresult aReason);
+  virtual ~LegacyMDNSDeviceProvider();
   nsresult StopDiscovery(nsresult aReason);
   nsresult Connect(Device* aDevice,
                    nsIPresentationControlChannel** aRetVal);
-  bool IsCompatibleServer(nsIDNSServiceInfo* aServiceInfo);
 
   // device manipulation
   nsresult AddDevice(const nsACString& aId,
@@ -169,7 +163,6 @@ private:
   // preferences
   nsresult OnDiscoveryChanged(bool aEnabled);
   nsresult OnDiscoveryTimeoutChanged(uint32_t aTimeoutMs);
-  nsresult OnDiscoverableChanged(bool aEnabled);
   nsresult OnServiceNameChanged(const nsACString& aServiceName);
 
   bool mInitialized = false;
@@ -179,7 +172,6 @@ private:
   RefPtr<DNSServiceWrappedListener> mWrappedListener;
 
   nsCOMPtr<nsICancelable> mDiscoveryRequest;
-  nsCOMPtr<nsICancelable> mRegisterRequest;
 
   nsTArray<RefPtr<Device>> mDevices;
 
@@ -188,14 +180,12 @@ private:
   uint32_t mDiscveryTimeoutMs;
   nsCOMPtr<nsITimer> mDiscoveryTimer;
 
-  bool mDiscoverable = false;
-
   nsCString mServiceName;
-  nsCString mRegisteredName;
 };
 
+} // namespace legacy
 } // namespace presentation
 } // namespace dom
 } // namespace mozilla
 
-#endif // mozilla_dom_presentation_provider_MulticastDNSDeviceProvider_h
+#endif // mozilla_dom_presentation_provider_LegacyMDNSDeviceProvider_h
