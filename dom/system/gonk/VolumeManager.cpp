@@ -31,6 +31,19 @@ VolumeManager::STATE VolumeManager::mState = VolumeManager::UNINITIALIZED;
 VolumeManager::StateObserverList VolumeManager::mStateObserverList;
 
 /***************************************************************************/
+#if ANDROID_VERSION >= 23
+VoulmeInfo::VoulmeInfo(const nsACString& aId, int aType,
+                       const nsACString& aDiskId, int aState)
+    : mId(aId), mType(aType), mDiskId(aDiskId), mState(aState) {
+  // LOG("create VoulmeInfo Id=%s, diskId=%s state = %d, type = %d", mId.Data(),
+  // mDiskId.Data(), mState, mType);
+}
+
+void VoulmeInfo::setMountPoint(const nsACString& aMountPoint) {
+  this->mMountPoint = aMountPoint;
+}
+#endif
+/***************************************************************************/
 
 VolumeManager::VolumeManager()
     : LineWatcher('\0', kRcvBufSize), mSocket(-1), mCommandPending(false) {
@@ -274,6 +287,25 @@ void VolumeManager::DefaultConfig() {
   }
 }
 
+#if ANDROID_VERSION >= 23
+class VolumeResetCallback : public VolumeResponseCallback {
+  virtual void ResponseReceived(const VolumeCommand* aCommand) {
+    switch (ResponseCode()) {
+      case ::ResponseCode::CommandOkay: {
+        // We've received the reset of volumes. Now read the Volume.cfg
+        // file to perform customizations, and then tell everybody
+        // that we're ready for business.
+        VolumeManager::DefaultConfig();
+        VolumeManager::InitConfig();
+        VolumeManager::Dump("READY");
+        VolumeManager::SetState(VolumeManager::VOLUMES_READY);
+        break;
+      }
+    }
+  }
+};
+
+#else
 class VolumeListCallback : public VolumeResponseCallback {
   virtual void ResponseReceived(const VolumeCommand* aCommand) {
     switch (ResponseCode()) {
@@ -304,6 +336,7 @@ class VolumeListCallback : public VolumeResponseCallback {
     }
   }
 };
+#endif
 
 bool VolumeManager::OpenSocket() {
   SetState(STARTING);
@@ -332,7 +365,14 @@ bool VolumeManager::OpenSocket() {
   }
 
   LOG("Connected to vold");
+#if ANDROID_VERSION >= 23
+  PostCommand(new VolumeResetCommand(new VolumeResetCallback));
+  VolumeCommand* mVolumeCommand =
+      new VolumeCommand(NS_LITERAL_CSTRING("volume user_added 0 0"), NULL);
+  PostCommand(mVolumeCommand);
+#else
   PostCommand(new VolumeListCommand(new VolumeListCallback));
+#endif
   return true;
 }
 
@@ -441,6 +481,89 @@ void VolumeManager::OnFileCanWriteWithoutBlocking(int aFd) {
 
 void VolumeManager::HandleBroadcast(int aResponseCode,
                                     nsCString& aResponseLine) {
+#if ANDROID_VERSION >= 23
+  nsresult rv;
+  switch (aResponseCode) {
+    case ::ResponseCode::VolumeCreated: {
+      VolumeCommand* mVolumeCommand;
+      nsCWhitespaceTokenizer tokenizer(aResponseLine);
+      nsCString id(tokenizer.nextToken());
+
+      /*FIXME: Break emulated first to avoid umount FUSE error*/
+      if (id.Equals("emulated")) {
+        LOG("Break emulated");
+        break;
+      }
+
+      nsCString type_str(tokenizer.nextToken());
+      int type = type_str.ToInteger(&rv);
+
+      nsCString diskid(tokenizer.nextToken());
+
+      nsCString state_str(tokenizer.nextToken());
+      int state = state_str.ToInteger(&rv);
+
+      mVolumeInfoArray.AppendElement(new VoulmeInfo(id, type, diskid, state));
+
+      nsCString command(NS_LITERAL_CSTRING("volume mount"));
+      command.Append(" ");
+      command.Append(id);
+      command.Append(" 0 0");
+
+      mVolumeCommand = new VolumeCommand(command, NULL);
+      PostCommand(mVolumeCommand);
+      break;
+    }
+    case ::ResponseCode::VolumePathChanged: {
+      nsCWhitespaceTokenizer tokenizer(aResponseLine);
+      nsCString id(tokenizer.nextToken());
+      nsCString mountpoint(tokenizer.nextToken());
+
+      for (VoulmeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId()))
+          mVolumeInfoArray[volIndex]->setMountPoint(mountpoint);
+      }
+      break;
+    }
+    case ::ResponseCode::VolumeStateChanged: {
+      nsCWhitespaceTokenizer tokenizer(aResponseLine);
+      nsCString id(tokenizer.nextToken());
+      nsCString state_str(tokenizer.nextToken());
+      int state = state_str.ToInteger(&rv);
+
+      for (VoulmeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
+          mVolumeInfoArray[volIndex]->setState(state);
+          if (state == VoulmeInfo::STATE_MOUNTED) {
+            RefPtr<Volume> vol = VolumeManager::FindAddVolumeByName(
+                NS_LITERAL_CSTRING("sdcard"));
+            nsCString fakeResponseLine(id);
+            fakeResponseLine.Append(" ");
+            fakeResponseLine.Append(
+                mVolumeInfoArray[volIndex]->getMountPoint());
+            nsCWhitespaceTokenizer tokenizer_tmp(fakeResponseLine);
+            vol->HandleVoldResponse(aResponseCode, tokenizer_tmp);
+            return;
+          }
+        }
+      }
+      break;
+    }
+    case ::ResponseCode::VolumeDestroyed: {
+      nsCWhitespaceTokenizer tokenizer(aResponseLine);
+      nsCString id(tokenizer.nextToken());
+
+      for (VoulmeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId()))
+          mVolumeInfoArray.RemoveElementAt(volIndex);
+      }
+      break;
+    }
+  }
+#else
   // Format of the line is something like:
   //
   //  Volume sdcard /mnt/sdcard state changed from 7 (Shared-Unmounted) to 1
@@ -456,6 +579,8 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
     return;
   }
   vol->HandleVoldResponse(aResponseCode, tokenizer);
+
+#endif
 }
 
 void VolumeManager::Restart() {

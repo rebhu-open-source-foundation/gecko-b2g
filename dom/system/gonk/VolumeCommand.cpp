@@ -59,6 +59,17 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume, const char* aAction,
   SetCmd(cmd);
 }
 
+#if ANDROID_VERSION >= 23
+/***************************************************************************
+ *
+ * The VolumeResetCommand class is used to send the "volume reset" command to
+ * vold.
+ *
+ ***************************************************************************/
+
+VolumeResetCommand::VolumeResetCommand(VolumeResponseCallback* aCallback)
+    : VolumeCommand(NS_LITERAL_CSTRING("volume reset"), aCallback) {}
+#else
 /***************************************************************************
  *
  * The VolumeListCommand class is used to send the "volume list" command to
@@ -74,7 +85,8 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume, const char* aAction,
  ***************************************************************************/
 
 VolumeListCommand::VolumeListCommand(VolumeResponseCallback* aCallback)
-    : VolumeCommand(NS_LITERAL_CSTRING("volume list"), aCallback) {}
+    : VolumeCommand(NS_LITERAL_CSTRING("volume list"), aCallback){} {}
+#endif
 
 }  // namespace system
 }  // namespace mozilla

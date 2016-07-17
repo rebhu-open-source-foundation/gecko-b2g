@@ -28,6 +28,41 @@ namespace system {
  *
  ***************************************************************************/
 
+#if ANDROID_VERSION >= 23
+class VoulmeInfo final {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(VoulmeInfo)
+
+  VoulmeInfo(const nsACString& aId, int aType, const nsACString& aDiskId,
+             int aState);
+
+  const nsACString& getId() const { return mId; }
+  const nsACString& getMountPoint() const { return mMountPoint; }
+  void setMountPoint(const nsACString& aMountPoint);
+  void setState(int aState) { mState = aState; }
+
+  enum STATE {
+    STATE_UNMOUNTED = 0,
+    STATE_CHECKING,
+    STATE_MOUNTED,
+    STATE_MOUNTED_READ_ONLY,
+    STATE_FORMATTING,
+    STATE_EJECTING,
+    STATE_UNMOUNTABLE,
+    STATE_REMOVED,
+    STATE_BAD_REMOVAL
+  };
+
+ private:
+  ~VoulmeInfo() {}
+  const nsCString mId;
+  int mType;
+  const nsCString mDiskId;
+  nsCString mMountPoint;
+  int mState;
+};
+#endif
+
 /***************************************************************************
  *
  *   The VolumeManager class is a front-end for android's vold service.
@@ -80,6 +115,9 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   NS_INLINE_DECL_REFCOUNTING(VolumeManager)
 
   typedef nsTArray<RefPtr<Volume>> VolumeArray;
+#if ANDROID_VERSION >= 23
+  typedef nsTArray<RefPtr<VoulmeInfo>> VoulmeInfoArray;
+#endif
 
   VolumeManager();
 
@@ -136,7 +174,11 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
  private:
   bool OpenSocket();
 
+#if ANDROID_VERSION >= 23
+  friend class VolumeResetCallback;
+#else
   friend class VolumeListCallback;  // Calls SetState
+#endif
 
   static void SetState(STATE aNewState);
 
@@ -154,6 +196,9 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   VolumeArray mVolumeArray;
   CommandQueue mCommands;
   bool mCommandPending;
+#if ANDROID_VERSION >= 23
+  VoulmeInfoArray mVolumeInfoArray;
+#endif
   MessageLoopForIO::FileDescriptorWatcher mReadWatcher;
   MessageLoopForIO::FileDescriptorWatcher mWriteWatcher;
   RefPtr<VolumeResponseCallback> mBroadcastCallback;
