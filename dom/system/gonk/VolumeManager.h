@@ -29,17 +29,32 @@ namespace system {
  ***************************************************************************/
 
 #if ANDROID_VERSION >= 23
-class VoulmeInfo final {
+class VolumeInfo final {
  public:
-  NS_INLINE_DECL_REFCOUNTING(VoulmeInfo)
+  NS_INLINE_DECL_REFCOUNTING(VolumeInfo)
 
-  VoulmeInfo(const nsACString& aId, int aType, const nsACString& aDiskId,
+  VolumeInfo(const nsACString& aId, int aType, const nsACString& aDiskId,
              int aState);
 
+  const nsACString& getFsLabel() const { return mFsLabel; }
+  const nsACString& getFsType() const { return mFsType; }
   const nsACString& getId() const { return mId; }
+  const nsACString& getInternalMountPoint() const {
+    return mInternalMountPoint;
+  }
   const nsACString& getMountPoint() const { return mMountPoint; }
-  void setMountPoint(const nsACString& aMountPoint);
+  const nsACString& getUuid() const { return mUuid; }
+
+  void setFsLabel(const nsACString& aFsLabel) { mFsLabel = aFsLabel; }
+  void setFsType(const nsACString& aFsType) { mFsType = aFsType; }
+  void setInternalMountPoint(const nsACString& aInternalMountPoint) {
+    mInternalMountPoint = aInternalMountPoint;
+  }
+  void setMountPoint(const nsACString& aMountPoint) {
+    mMountPoint = aMountPoint;
+  }
   void setState(int aState) { mState = aState; }
+  void setUuid(const nsACString& aUuid) { mUuid = aUuid; }
 
   enum STATE {
     STATE_UNMOUNTED = 0,
@@ -54,12 +69,17 @@ class VoulmeInfo final {
   };
 
  private:
-  ~VoulmeInfo() {}
+  ~VolumeInfo() {}
   const nsCString mId;
   int mType;
   const nsCString mDiskId;
-  nsCString mMountPoint;
   int mState;
+
+  nsCString mFsLabel;
+  nsCString mFsType;
+  nsCString mInternalMountPoint;
+  nsCString mMountPoint;
+  nsCString mUuid;
 };
 #endif
 
@@ -116,7 +136,7 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
 
   typedef nsTArray<RefPtr<Volume>> VolumeArray;
 #if ANDROID_VERSION >= 23
-  typedef nsTArray<RefPtr<VoulmeInfo>> VoulmeInfoArray;
+  typedef nsTArray<RefPtr<VolumeInfo>> VolumeInfoArray;
 #endif
 
   VolumeManager();
@@ -197,7 +217,7 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   CommandQueue mCommands;
   bool mCommandPending;
 #if ANDROID_VERSION >= 23
-  VoulmeInfoArray mVolumeInfoArray;
+  VolumeInfoArray mVolumeInfoArray;
 #endif
   MessageLoopForIO::FileDescriptorWatcher mReadWatcher;
   MessageLoopForIO::FileDescriptorWatcher mWriteWatcher;

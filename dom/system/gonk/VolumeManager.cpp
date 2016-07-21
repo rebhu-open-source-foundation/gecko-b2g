@@ -32,15 +32,11 @@ VolumeManager::StateObserverList VolumeManager::mStateObserverList;
 
 /***************************************************************************/
 #if ANDROID_VERSION >= 23
-VoulmeInfo::VoulmeInfo(const nsACString& aId, int aType,
+VolumeInfo::VolumeInfo(const nsACString& aId, int aType,
                        const nsACString& aDiskId, int aState)
     : mId(aId), mType(aType), mDiskId(aDiskId), mState(aState) {
-  // LOG("create VoulmeInfo Id=%s, diskId=%s state = %d, type = %d", mId.Data(),
+  // LOG("create VolumeInfo Id=%s, diskId=%s state = %d, type = %d", mId.Data(),
   // mDiskId.Data(), mState, mType);
-}
-
-void VoulmeInfo::setMountPoint(const nsACString& aMountPoint) {
-  this->mMountPoint = aMountPoint;
 }
 #endif
 /***************************************************************************/
@@ -482,14 +478,14 @@ void VolumeManager::OnFileCanWriteWithoutBlocking(int aFd) {
 void VolumeManager::HandleBroadcast(int aResponseCode,
                                     nsCString& aResponseLine) {
 #if ANDROID_VERSION >= 23
+  nsCWhitespaceTokenizer tokenizer(aResponseLine);
   nsresult rv;
   switch (aResponseCode) {
     case ::ResponseCode::VolumeCreated: {
       VolumeCommand* mVolumeCommand;
-      nsCWhitespaceTokenizer tokenizer(aResponseLine);
       nsCString id(tokenizer.nextToken());
 
-      /*FIXME: Break emulated first to avoid umount FUSE error*/
+      /* FIXME: Break emulated first to avoid umount FUSE error */
       if (id.Equals("emulated")) {
         LOG("Break emulated");
         break;
@@ -497,13 +493,11 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
 
       nsCString type_str(tokenizer.nextToken());
       int type = type_str.ToInteger(&rv);
-
       nsCString diskid(tokenizer.nextToken());
-
       nsCString state_str(tokenizer.nextToken());
       int state = state_str.ToInteger(&rv);
 
-      mVolumeInfoArray.AppendElement(new VoulmeInfo(id, type, diskid, state));
+      mVolumeInfoArray.AppendElement(new VolumeInfo(id, type, diskid, state));
 
       nsCString command(NS_LITERAL_CSTRING("volume mount"));
       command.Append(" ");
@@ -514,29 +508,16 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
       PostCommand(mVolumeCommand);
       break;
     }
-    case ::ResponseCode::VolumePathChanged: {
-      nsCWhitespaceTokenizer tokenizer(aResponseLine);
-      nsCString id(tokenizer.nextToken());
-      nsCString mountpoint(tokenizer.nextToken());
-
-      for (VoulmeInfoArray::index_type volIndex = 0;
-           volIndex < mVolumeInfoArray.Length(); volIndex++) {
-        if (id.Equals(mVolumeInfoArray[volIndex]->getId()))
-          mVolumeInfoArray[volIndex]->setMountPoint(mountpoint);
-      }
-      break;
-    }
     case ::ResponseCode::VolumeStateChanged: {
-      nsCWhitespaceTokenizer tokenizer(aResponseLine);
       nsCString id(tokenizer.nextToken());
       nsCString state_str(tokenizer.nextToken());
       int state = state_str.ToInteger(&rv);
 
-      for (VoulmeInfoArray::index_type volIndex = 0;
+      for (VolumeInfoArray::index_type volIndex = 0;
            volIndex < mVolumeInfoArray.Length(); volIndex++) {
         if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
           mVolumeInfoArray[volIndex]->setState(state);
-          if (state == VoulmeInfo::STATE_MOUNTED) {
+          if (state == VolumeInfo::STATE_MOUNTED) {
             RefPtr<Volume> vol = VolumeManager::FindAddVolumeByName(
                 NS_LITERAL_CSTRING("sdcard"));
             nsCString fakeResponseLine(id);
@@ -551,14 +532,80 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
       }
       break;
     }
+    case ::ResponseCode::VolumeFsTypeChanged: {
+      nsCString id(tokenizer.nextToken());
+      nsCString fsType(tokenizer.nextToken());
+
+      for (VolumeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
+          mVolumeInfoArray[volIndex]->setFsType(fsType);
+          return;
+        }
+      }
+      break;
+    }
+    case ::ResponseCode::VolumeFsUuidChanged: {
+      nsCString id(tokenizer.nextToken());
+      nsCString uuid(tokenizer.nextToken());
+
+      for (VolumeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
+          mVolumeInfoArray[volIndex]->setUuid(uuid);
+          return;
+        }
+      }
+      break;
+    }
+    case ::ResponseCode::VolumeFsLabelChanged: {
+      nsCString id(tokenizer.nextToken());
+      nsCString fsLabel(tokenizer.nextToken());
+
+      for (VolumeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
+          mVolumeInfoArray[volIndex]->setFsLabel(fsLabel);
+          return;
+        }
+      }
+      break;
+    }
+    case ::ResponseCode::VolumePathChanged: {
+      nsCString id(tokenizer.nextToken());
+      nsCString mountpoint(tokenizer.nextToken());
+
+      for (VolumeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
+          mVolumeInfoArray[volIndex]->setMountPoint(mountpoint);
+          return;
+        }
+      }
+      break;
+    }
+    case ::ResponseCode::VolumeInternalPathChanged: {
+      nsCString id(tokenizer.nextToken());
+      nsCString internalMountpoint(tokenizer.nextToken());
+
+      for (VolumeInfoArray::index_type volIndex = 0;
+           volIndex < mVolumeInfoArray.Length(); volIndex++) {
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
+          mVolumeInfoArray[volIndex]->setInternalMountPoint(internalMountpoint);
+          return;
+        }
+      }
+      break;
+    }
     case ::ResponseCode::VolumeDestroyed: {
-      nsCWhitespaceTokenizer tokenizer(aResponseLine);
       nsCString id(tokenizer.nextToken());
 
-      for (VoulmeInfoArray::index_type volIndex = 0;
+      for (VolumeInfoArray::index_type volIndex = 0;
            volIndex < mVolumeInfoArray.Length(); volIndex++) {
-        if (id.Equals(mVolumeInfoArray[volIndex]->getId()))
+        if (id.Equals(mVolumeInfoArray[volIndex]->getId())) {
           mVolumeInfoArray.RemoveElementAt(volIndex);
+          return;
+        }
       }
       break;
     }
@@ -566,8 +613,8 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
 #else
   // Format of the line is something like:
   //
-  //  Volume sdcard /mnt/sdcard state changed from 7 (Shared-Unmounted) to 1
-  //  (Idle-Unmounted)
+  // Volume sdcard /mnt/sdcard state changed from 7 (Shared-Unmounted) to 1
+  // (Idle-Unmounted)
   //
   // So we parse out the volume name and the state after the string " to "
   nsCWhitespaceTokenizer tokenizer(aResponseLine);
