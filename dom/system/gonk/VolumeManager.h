@@ -179,6 +179,10 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   static already_AddRefed<Volume> GetVolume(VolumeArray::index_type aIndex);
   static already_AddRefed<Volume> FindVolumeByName(const nsACString& aName);
   static already_AddRefed<Volume> FindAddVolumeByName(const nsACString& aName);
+#if ANDROID_VERSION >= 23
+  static already_AddRefed<Volume> FindAddVolumeByName(const nsACString& aName,
+                                                      const nsACString& aUuid);
+#endif
   static bool RemoveVolumeByName(const nsACString& aName);
   static void InitConfig();
 

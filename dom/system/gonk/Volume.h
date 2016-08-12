@@ -42,6 +42,9 @@ class Volume final {
   NS_INLINE_DECL_REFCOUNTING(Volume)
 
   Volume(const nsACString& aVolumeName);
+#if ANDROID_VERSION >= 23
+  Volume(const nsACString& aVolumeName, const nsACString& aUuid);
+#endif
 
   typedef long STATE;  // States are now defined in nsIVolume.idl
 
@@ -52,6 +55,10 @@ class Volume final {
   STATE State() const { return mState; }
 
   const nsCString& Name() const { return mName; }
+
+#if ANDROID_VERSION >= 23
+  const nsCString& Uuid() const { return mUuid; }
+#endif
   const char* NameStr() const { return mName.get(); }
 
   void Dump(const char* aLabel) const;
@@ -140,6 +147,9 @@ class Volume final {
   bool mMediaPresent;
   STATE mState;
   const nsCString mName;
+#if ANDROID_VERSION >= 23
+  const nsCString mUuid;
+#endif
   nsCString mMountPoint;
   int32_t mMountGeneration;
   bool mMountLocked;

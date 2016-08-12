@@ -48,7 +48,11 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume, const char* aAction,
   cmd = "volume ";
   cmd += aAction;
   cmd += " ";
+#if ANDROID_VERSION >= 23
+  cmd += aVolume->Uuid().get() ? aVolume->Uuid().get() : aVolume->Name().get();
+#else
   cmd += aVolume->Name().get();
+#endif
 
   // vold doesn't like trailing white space, so only add it if we really need
   // to.
