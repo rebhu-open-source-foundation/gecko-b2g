@@ -380,6 +380,9 @@ bool VolumeManager::OpenSocket() {
   VolumeCommand* mVolumeCommand =
       new VolumeCommand(NS_LITERAL_CSTRING("volume user_added 0 0"), NULL);
   PostCommand(mVolumeCommand);
+  mVolumeCommand =
+      new VolumeCommand(NS_LITERAL_CSTRING("volume user_started 0"), NULL);
+  PostCommand(mVolumeCommand);
 #else
   PostCommand(new VolumeListCommand(new VolumeListCallback));
 #endif
@@ -516,7 +519,9 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
       nsCString command(NS_LITERAL_CSTRING("volume mount"));
       command.Append(" ");
       command.Append(id);
-      command.Append(" 0 0");
+      command.Append(" ");
+      command.AppendInt(VolumeInfo::kPrimary);
+      command.Append(" 0");
 
       mVolumeCommand = new VolumeCommand(command, NULL);
       PostCommand(mVolumeCommand);
