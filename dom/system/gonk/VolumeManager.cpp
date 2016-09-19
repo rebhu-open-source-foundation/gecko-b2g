@@ -502,20 +502,15 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
       VolumeCommand* mVolumeCommand;
       nsCString id(tokenizer.nextToken());
 
-      /* FIXME: Break emulated first to avoid umount FUSE error */
-      if (id.Equals("emulated")) {
-        LOG("Break emulated");
-        break;
-      }
-
       nsCString type_str(tokenizer.nextToken());
       int type = type_str.ToInteger(&rv);
       nsCString diskid(tokenizer.nextToken());
       nsCString state_str(tokenizer.nextToken());
       int state = state_str.ToInteger(&rv);
 
-      mVolumeInfoArray.AppendElement(new VolumeInfo(id, type, diskid, state));
-
+      if (!id.Equals("emulated")) {
+        mVolumeInfoArray.AppendElement(new VolumeInfo(id, type, diskid, state));
+      }
       nsCString command(NS_LITERAL_CSTRING("volume mount"));
       command.Append(" ");
       command.Append(id);
@@ -538,7 +533,7 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
           mVolumeInfoArray[volIndex]->setState(state);
           if (state == VolumeInfo::STATE_MOUNTED) {
             RefPtr<Volume> vol = VolumeManager::FindAddVolumeByName(
-                NS_LITERAL_CSTRING("sdcard"), id);
+                NS_LITERAL_CSTRING("sdcard1"), id);
             nsCString fakeResponseLine(id);
             fakeResponseLine.Append(" ");
             fakeResponseLine.Append(state_str);
@@ -549,7 +544,8 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
             vol->HandleVoldResponse(aResponseCode, tokenizer_tmp);
             return;
           } else {
-            RefPtr<Volume> vol = FindVolumeByName(NS_LITERAL_CSTRING("sdcard"));
+            RefPtr<Volume> vol =
+                FindVolumeByName(NS_LITERAL_CSTRING("sdcard1"));
             if (!vol) {
               return;
             }
