@@ -556,7 +556,7 @@ private:
 #endif
 public:
   media::CoatCheck<media::Pledge<nsCString>> mGetOriginKeyPledges;
-  UniquePtr<media::Parent<media::NonE10s>> mNonE10sParent;
+  RefPtr<media::Parent<media::NonE10s>> mNonE10sParent;
 };
 
 } // namespace mozilla

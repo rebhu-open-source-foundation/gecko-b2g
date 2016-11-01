@@ -1569,9 +1569,9 @@ media::Parent<media::NonE10s>*
 MediaManager::GetNonE10sParent()
 {
   if (!mNonE10sParent) {
-    mNonE10sParent = MakeUnique<media::Parent<media::NonE10s>>(true);
+    mNonE10sParent = new media::Parent<media::NonE10s>();
   }
-  return mNonE10sParent.get();
+  return mNonE10sParent;
 }
 
 /* static */ void
