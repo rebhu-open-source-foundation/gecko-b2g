@@ -382,11 +382,17 @@ static pthread_cond_t sForkWaitCond = PTHREAD_COND_INITIALIZER;
  */
 static bool sForkWaitCondChanged = false;
 
+/* Older Android release (e.g., ICS) don't provide the _NP define. */
+#ifndef PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP
+#define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP \
+  PTHREAD_ERRORCHECK_MUTEX_INITIALIZER
+#endif
+
 /**
  * This mutex protects the access to sTLSKeys, which keeps track of existing
  * TLS Keys.
  */
-static pthread_mutex_t sTLSKeyLock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER;
+static pthread_mutex_t sTLSKeyLock = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 static int sThreadSkipCount = 0;
 
 static thread_info_t *
@@ -755,10 +761,6 @@ static void *
 _thread_create_startup(void *arg) {
   thread_info_t *tinfo = (thread_info_t *)arg;
   void *r;
-
-  // Save thread info; especially, stackaddr & stacksize.
-  // Reuse the stack in the new thread.
-  pthread_getattr_np(REAL(pthread_self)(), &tinfo->threadAttr);
 
   SET_THREAD_INFO(tinfo);
   tinfo->origThreadID = REAL(pthread_self)();

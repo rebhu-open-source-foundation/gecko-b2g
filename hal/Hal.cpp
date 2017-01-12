@@ -394,6 +394,55 @@ NotifyBatteryChange(const BatteryInformation& aInfo)
   BatteryObservers().BroadcastCachedInformation();
 }
 
+class FlipObserversManager : public ObserversManager<bool>
+{
+protected:
+  void EnableNotifications() {
+    PROXY_IF_SANDBOXED(EnableFlipNotifications());
+  }
+
+  void DisableNotifications() {
+    PROXY_IF_SANDBOXED(DisableFlipNotifications());
+  }
+};
+
+static FlipObserversManager sFlipObservers;
+
+void
+RegisterFlipObserver(FlipObserver* aObserver)
+{
+  AssertMainThread();
+  sFlipObservers.AddObserver(aObserver);
+}
+
+void
+UnregisterFlipObserver(FlipObserver* aObserver)
+{
+  AssertMainThread();
+  sFlipObservers.RemoveObserver(aObserver);
+}
+
+void
+UpdateFlipState(const bool& aFlipState)
+{
+  AssertMainThread();
+  sFlipObservers.BroadcastInformation(aFlipState);
+}
+
+void
+NotifyFlipStateFromInputDevice(bool aFlipState)
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(NotifyFlipStateFromInputDevice(aFlipState));
+}
+
+void
+RequestCurrentFlipState()
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(RequestCurrentFlipState());
+}
+
 bool GetScreenEnabled()
 {
   AssertMainThread();
@@ -1240,6 +1289,12 @@ bool SystemServiceIsRunning(const char* aSvcName)
 {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(SystemServiceIsRunning(aSvcName), false);
+}
+
+bool IsFlipOpened()
+{
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(IsFlipOpened(), true);
 }
 
 } // namespace hal

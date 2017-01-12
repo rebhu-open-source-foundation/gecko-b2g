@@ -7,6 +7,7 @@
 // Needs to be first.
 #include "base/basictypes.h"
 
+#include <fcntl.h>
 #include "Navigator.h"
 #include "nsIXULAppInfo.h"
 #include "nsPluginArray.h"
@@ -48,6 +49,7 @@
 #include "mozilla/dom/Voicemail.h"
 #include "mozilla/dom/TVManager.h"
 #include "mozilla/dom/VRDevice.h"
+#include "mozilla/dom/FlipManager.h"
 #include "mozilla/dom/workers/RuntimeService.h"
 #include "mozilla/Hal.h"
 #include "nsISiteSpecificUserAgent.h"
@@ -192,6 +194,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mNotification)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBatteryManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBatteryPromise)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlipManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPowerManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCellBroadcast)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
@@ -260,6 +263,11 @@ Navigator::Invalidate()
   }
 
   mBatteryPromise = nullptr;
+
+  if (mFlipManager) {
+    mFlipManager->Shutdown();
+    mFlipManager = nullptr;
+  }
 
 #ifdef MOZ_B2G_FM
   if (mFMRadio) {
@@ -874,6 +882,17 @@ Navigator::RemoveIdleObserver(MozIdleObserver& aIdleObserver, ErrorResult& aRv)
   if (NS_FAILED(mWindow->UnregisterIdleObserver(obs))) {
     NS_WARNING("Failed to remove idle observer.");
   }
+}
+
+bool
+Navigator::GetFlipOpened(ErrorResult& aRv)
+{
+  if (!XRE_IsParentProcess()) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  return hal::IsFlipOpened();
 }
 
 bool
@@ -1517,6 +1536,23 @@ Navigator::GetDeprecatedBattery(ErrorResult& aRv)
   }
 
   return mBatteryManager;
+}
+
+already_AddRefed<Promise>
+Navigator::GetFlipManager(ErrorResult& aRv)
+{
+  if (!mWindow || !mWindow->GetDocShell()) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  if (!mFlipManager) {
+    mFlipManager = new FlipManager(mWindow);
+    mFlipManager->Init();
+  }
+
+  RefPtr<Promise> p = mFlipManager->GetPromise(aRv);
+  return p.forget();
 }
 
 /* static */ already_AddRefed<Promise>

@@ -11,6 +11,7 @@
 #include "base/platform_thread.h"
 #include "nsTArray.h"
 #include "mozilla/dom/battery/Types.h"
+#include "mozilla/dom/FlipManager.h"
 #include "mozilla/dom/MozPowerManagerBinding.h"
 #include "mozilla/dom/network/Types.h"
 #include "mozilla/dom/power/Types.h"
@@ -110,6 +111,36 @@ void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo);
  * @param aBatteryInfo The new battery information.
  */
 void NotifyBatteryChange(const hal::BatteryInformation& aBatteryInfo);
+
+/**
+ * Inform the flipmanager backend there is a new flip observer.
+ * @param aFlipObserver The observer that should be added.
+ */
+void RegisterFlipObserver(mozilla::dom::FlipObserver* aFlipObserver);
+
+/**
+ * Inform the flipmanager backend a flip observer unregistered.
+ * @param aPowerSupplyObserver The observer that should be removed.
+ */
+void UnregisterFlipObserver(mozilla::dom::FlipObserver* aFlipObserver);
+
+/**
+ * Notify of a change in the flip state from input device.
+ * @param aFlipState The new flip state.
+ */
+void NotifyFlipStateFromInputDevice(bool aFlipState);
+
+/**
+ * Request the current flip state. If the request is made by content process,
+ * result will be returned asynchronously.
+ */
+void RequestCurrentFlipState();
+
+/**
+ * Update the flip state in each flip observers.
+ * @param aFlipState The new flip state.
+ */
+void UpdateFlipState(const bool& aFlipState);
 
 /**
  * Determine whether the device's screen is currently enabled.
@@ -654,6 +685,11 @@ void StopSystemService(const char* aSvcName);
  * Determine whether the system service with the specified name is running.
  */
 bool SystemServiceIsRunning(const char* aSvcName);
+
+/**
+ * Determine the lid is open or not
+ */
+bool IsFlipOpened();
 
 } // namespace MOZ_HAL_NAMESPACE
 } // namespace mozilla

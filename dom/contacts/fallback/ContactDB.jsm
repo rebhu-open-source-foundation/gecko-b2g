@@ -6,7 +6,7 @@
 
 // Everything but "ContactDB" is only exported here for testing.
 this.EXPORTED_SYMBOLS = ["ContactDB", "DB_NAME", "STORE_NAME", "SAVED_GETALL_STORE_NAME",
-                         "REVISION_STORE", "DB_VERSION"];
+                         "SPEED_DIALS_STORE_NAME", "REVISION_STORE", "DB_VERSION"];
 
 const DEBUG = false;
 function debug(s) { dump("-*- ContactDB component: " + s + "\n"); }
@@ -24,9 +24,10 @@ Cu.importGlobalProperties(["indexedDB"]);
 
 /* all exported symbols need to be bound to this on B2G - Bug 961777 */
 this.DB_NAME = "contacts";
-this.DB_VERSION = 20;
+this.DB_VERSION = 21;
 this.STORE_NAME = "contacts";
 this.SAVED_GETALL_STORE_NAME = "getallcache";
+this.SPEED_DIALS_STORE_NAME = "speeddials";
 const CHUNK_SIZE = 20;
 this.REVISION_STORE = "revision";
 const REVISION_KEY = "revision";
@@ -178,7 +179,9 @@ ContactDB.prototype = {
       objectStore.createIndex("phoneticGivenName", "properties.phoneticGivenName", { multiEntry: true });
       objectStore.createIndex("phoneticFamilyNameLowerCase", "search.phoneticFamilyName", { multiEntry: true });
       objectStore.createIndex("phoneticGivenNameLowerCase",  "search.phoneticGivenName",  { multiEntry: true });
+      objectStore.createIndex("speedDial", "properties.speedDial", { unique: true });
       aDb.createObjectStore(SAVED_GETALL_STORE_NAME);
+      aDb.createObjectStore(SPEED_DIALS_STORE_NAME, {keyPath: "speedDial"});
       aDb.createObjectStore(REVISION_STORE).put(0, REVISION_KEY);
     }
 
@@ -723,6 +726,11 @@ ContactDB.prototype = {
         objectStore.createIndex("phoneticGivenName", "properties.phoneticGivenName", { multiEntry: true });
         objectStore.createIndex("phoneticFamilyNameLowerCase", "search.phoneticFamilyName", { multiEntry: true });
         objectStore.createIndex("phoneticGivenNameLowerCase",  "search.phoneticGivenName",  { multiEntry: true });
+        next();
+      },
+      function upgrade20to21() {
+        if (DEBUG) debug("Adding object store for speed dials");
+        db.createObjectStore(SPEED_DIALS_STORE_NAME, { keyPath: "speedDial" });
         next();
       },
     ];
@@ -1373,6 +1381,7 @@ ContactDB.prototype = {
     if (DEBUG) debug("ContactDB:_findAll:  " + JSON.stringify(options));
     if (!txn.result)
       txn.result = {};
+
     // Sorting functions takes care of limit if set.
     let limit = options.sortBy === 'undefined' ? options.filterLimit : null;
     store.mozGetAll(null, limit).onsuccess = function (event) {
@@ -1382,6 +1391,69 @@ ContactDB.prototype = {
         txn.result[event.target.result[i].id] = exportContact(event.target.result[i]);
       }
     }.bind(this);
+  },
+
+  getSpeedDials: function getSpeedDials(aSuccessCb, aFailureCb) {
+    this.newTxn("readonly", SPEED_DIALS_STORE_NAME, function (txn, store) {
+      if (!txn.result)
+        txn.result = {};
+
+      var req = store.mozGetAll();
+      req.onsuccess = function (event) {
+        let speedDials = event.target.result;
+        if (DEBUG) debug("Request successful. Speed Dials :" + speedDials.length);
+        speedDials.sort();
+        for (let i in speedDials) {
+          txn.result[speedDials[i].speedDial] = speedDials[i];
+        }
+      }.bind(this);
+      req.onerror = function(e) {
+        dump("getSpeedDials: " + e);
+      }.bind(this);
+    }, aSuccessCb, aFailureCb);
+  },
+
+  setSpeedDial: function setSpeedDial(aSpeedDial, aTel, aContactId, aSuccessCb, aFailureCb) {
+    if (DEBUG) debug("setSpeedDial: aSpeedDial " + aSpeedDial + " aTel " + aTel + " aContactId " + aContactId);
+
+    this.newTxn("readwrite", this.dbStoreNames, function (txn, stores) {
+      if (!aSpeedDial || !aTel) {
+        dump("ContactDB: speed dial or phone number are empty");
+        txn.abort();
+        return;
+      }
+      let speedDialObj = {
+        speedDial: aSpeedDial,
+        tel: aTel
+      };
+
+      if (aContactId) {
+        let req = txn.objectStore(STORE_NAME).get(aContactId);
+        req.onsuccess = function (event) {
+          if (!event.target.result) {
+            dump("ContactDB: contact with id " + aContactId + " does not exist!");
+            txn.abort();
+          }
+          speedDialObj.contactId = aContactId;
+          txn.objectStore(SPEED_DIALS_STORE_NAME).put(speedDialObj);
+          this.incrementRevision(txn);
+        }.bind(this);
+      } else {
+        txn.objectStore(SPEED_DIALS_STORE_NAME).put(speedDialObj);
+        this.incrementRevision(txn);
+      }
+    }.bind(this), aSuccessCb, aFailureCb);
+  },
+
+  removeSpeedDial: function removeSpeedDial(aSpeedDial, aSuccessCb, aFailureCb) {
+    if (DEBUG) debug("removeSpeedDial: aSpeedDial " + aSpeedDial);
+    this.newTxn("readwrite", this.dbStoreNames, function (txn, store) {
+      txn.objectStore(SPEED_DIALS_STORE_NAME).delete(aSpeedDial).onsuccess = function() {
+        aSuccessCb();
+      }.bind(this);
+
+      this.incrementRevision(txn);
+    }.bind(this), null, aFailureCb);
   },
 
   // Enable special phone number substring matching. Does not update existing DB entries.
@@ -1396,6 +1468,7 @@ ContactDB.prototype = {
   },
 
   init: function init() {
-    this.initDBHelper(DB_NAME, DB_VERSION, [STORE_NAME, SAVED_GETALL_STORE_NAME, REVISION_STORE]);
+    this.initDBHelper(DB_NAME, DB_VERSION, [STORE_NAME, SPEED_DIALS_STORE_NAME,
+                                            SAVED_GETALL_STORE_NAME, REVISION_STORE]);
   }
 };

@@ -99,6 +99,7 @@ class InputPortManager;
 class DeviceStorageAreaListener;
 class Presentation;
 class LegacyMozTCPSocket;
+class FlipManager;
 
 namespace time {
 class TimeManager;
@@ -167,6 +168,8 @@ public:
   Promise* GetBattery(ErrorResult& aRv);
   battery::BatteryManager* GetDeprecatedBattery(ErrorResult& aRv);
 
+  already_AddRefed<Promise> GetFlipManager(ErrorResult& aRv);
+
   static already_AddRefed<Promise> GetDataStores(nsPIDOMWindowInner* aWindow,
                                                  const nsAString& aName,
                                                  const nsAString& aOwner,
@@ -200,6 +203,7 @@ public:
   already_AddRefed<Promise> HasFeature(const nsAString &aName,
                                        ErrorResult& aRv);
 
+  bool GetFlipOpened(ErrorResult& aRv);
   bool Vibrate(uint32_t aDuration);
   bool Vibrate(const nsTArray<uint32_t>& aDuration);
   uint32_t MaxTouchPoints();
@@ -376,6 +380,7 @@ private:
   RefPtr<Geolocation> mGeolocation;
   RefPtr<DesktopNotificationCenter> mNotification;
   RefPtr<battery::BatteryManager> mBatteryManager;
+  RefPtr<FlipManager> mFlipManager;
   RefPtr<Promise> mBatteryPromise;
 #ifdef MOZ_B2G_FM
   RefPtr<FMRadio> mFMRadio;

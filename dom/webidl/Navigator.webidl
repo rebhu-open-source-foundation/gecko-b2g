@@ -139,6 +139,11 @@ partial interface Navigator {
   readonly attribute BatteryManager? battery;
 };
 
+partial interface Navigator {
+  [Throws, Pref="dom.flip.enabled", CheckAnyPermissions="flip", AvailableIn=CertifiedApps]
+  Promise<FlipManager> getFlipManager();
+};
+
 // https://wiki.mozilla.org/WebAPI/DataStore
 [NoInterfaceObject,
  Exposed=(Window,Worker)]
@@ -480,4 +485,12 @@ partial interface Navigator {
 [NoInterfaceObject, Exposed=(Window,Worker)]
 interface NavigatorConcurrentHardware {
   readonly attribute unsigned long long hardwareConcurrency;
+};
+
+partial interface Navigator {
+  // This is a safety catch for System App.
+  // Return the current flip status. This attribute is only available for apps
+  // who runs on the main process, and it should be accessed by System App only.
+  [Throws, Pref="dom.flip.enabled", CheckAnyPermissions="flip", AvailableIn=CertifiedApps]
+  readonly attribute boolean flipOpened;
 };
