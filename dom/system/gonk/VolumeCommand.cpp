@@ -51,7 +51,11 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume,
   cmd = "volume ";
   cmd += aAction;
   cmd += " ";
+#if ANDROID_VERSION >= 23
+  cmd += aVolume->Uuid().get() ? aVolume->Uuid().get():aVolume->Name().get();
+#else
   cmd += aVolume->Name().get();
+#endif
 
   // vold doesn't like trailing white space, so only add it if we really need to.
   if (aExtraArgs && (*aExtraArgs != '\0')) {
@@ -61,6 +65,19 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume,
   SetCmd(cmd);
 }
 
+#if ANDROID_VERSION >= 23
+/***************************************************************************
+*
+* The VolumeResetCommand class is used to send the "volume reset" command to
+* vold.
+*
+***************************************************************************/
+
+VolumeResetCommand::VolumeResetCommand(VolumeResponseCallback* aCallback)
+  : VolumeCommand(NS_LITERAL_CSTRING("volume reset"), aCallback)
+{
+}
+#else
 /***************************************************************************
 *
 * The VolumeListCommand class is used to send the "volume list" command to
@@ -79,6 +96,7 @@ VolumeListCommand::VolumeListCommand(VolumeResponseCallback* aCallback)
   : VolumeCommand(NS_LITERAL_CSTRING("volume list"), aCallback)
 {
 }
+#endif
 
 } // system
 } // mozilla

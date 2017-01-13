@@ -28,6 +28,81 @@ namespace system {
 *
 ***************************************************************************/
 
+#if ANDROID_VERSION >= 23
+class VolumeInfo final
+{
+public:
+  NS_INLINE_DECL_REFCOUNTING(VolumeInfo)
+
+  VolumeInfo(const nsCSubstring& aId, int aType, const nsCSubstring& aDiskId, int aState);
+
+  const nsCSubstring& getFsLabel() const { return mFsLabel; }
+  const nsCSubstring& getFsType() const { return mFsType; }
+  const nsCSubstring& getId() const { return mId; }
+  const nsCSubstring& getInternalMountPoint() const { return mInternalMountPoint; }
+  const nsCSubstring& getMountPoint() const { return mMountPoint; }
+  const nsCSubstring& getUuid() const { return mUuid; }
+
+  void setFsLabel(const nsACString& aFsLabel)
+  {
+    mFsLabel = aFsLabel;
+  }
+  void setFsType(const nsACString& aFsType)
+  {
+    mFsType = aFsType;
+  }
+  void setInternalMountPoint(const nsACString& aInternalMountPoint)
+  {
+    mInternalMountPoint = aInternalMountPoint;
+  }
+  void setMountPoint(const nsACString& aMountPoint)
+  {
+    mMountPoint = aMountPoint;
+  }
+  void setState(int aState)
+  {
+    mState = aState;
+  }
+  void setUuid(const nsACString& aUuid)
+  {
+    mUuid = aUuid;
+  }
+
+  enum MountFlags {
+    /* Flag that volume is primary external storage */
+    kPrimary = 1 << 0,
+    /* Flag that volume is visible to normal apps */
+    kVisible = 1 << 1,
+  };
+
+  enum STATE
+  {
+    STATE_UNMOUNTED = 0,
+    STATE_CHECKING,
+    STATE_MOUNTED,
+    STATE_MOUNTED_READ_ONLY,
+    STATE_FORMATTING,
+    STATE_EJECTING,
+    STATE_UNMOUNTABLE,
+    STATE_REMOVED,
+    STATE_BAD_REMOVAL
+  };
+
+private:
+  ~VolumeInfo() {}
+  const nsCString mId;
+  int mType;
+  const nsCString mDiskId;
+  int mState;
+
+  nsCString mFsLabel;
+  nsCString mFsType;
+  nsCString mInternalMountPoint;
+  nsCString mMountPoint;
+  nsCString mUuid;
+};
+#endif
+
 /***************************************************************************
 *
 *   The VolumeManager class is a front-end for android's vold service.
@@ -81,6 +156,9 @@ public:
   NS_INLINE_DECL_REFCOUNTING(VolumeManager)
 
   typedef nsTArray<RefPtr<Volume>> VolumeArray;
+#if ANDROID_VERSION >= 23
+  typedef nsTArray<RefPtr<VolumeInfo>> VolumeInfoArray;
+#endif
 
   VolumeManager();
 
@@ -128,6 +206,9 @@ public:
   static already_AddRefed<Volume> GetVolume(VolumeArray::index_type aIndex);
   static already_AddRefed<Volume> FindVolumeByName(const nsCSubstring& aName);
   static already_AddRefed<Volume> FindAddVolumeByName(const nsCSubstring& aName);
+#if ANDROID_VERSION >= 23
+  static already_AddRefed<Volume> FindAddVolumeByName(const nsCSubstring& aName, const nsCSubstring& aUuid);
+#endif
   static bool RemoveVolumeByName(const nsCSubstring& aName);
   static void InitConfig();
 
@@ -144,7 +225,11 @@ protected:
 private:
   bool OpenSocket();
 
+#if ANDROID_VERSION >= 23
+  friend class VolumeResetCallback;
+#else
   friend class VolumeListCallback; // Calls SetState
+#endif
 
   static void SetState(STATE aNewState);
 
@@ -162,6 +247,9 @@ private:
   VolumeArray         mVolumeArray;
   CommandQueue        mCommands;
   bool                mCommandPending;
+#if ANDROID_VERSION >= 23
+  VolumeInfoArray     mVolumeInfoArray;
+#endif
   MessageLoopForIO::FileDescriptorWatcher mReadWatcher;
   MessageLoopForIO::FileDescriptorWatcher mWriteWatcher;
   RefPtr<VolumeResponseCallback>          mBroadcastCallback;
