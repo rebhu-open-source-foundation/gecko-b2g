@@ -22,8 +22,9 @@ static const unsigned MP4_MIN_BYTES_COUNT = 12;
 static const uint32_t MAX_BYTES_SNIFFED = 512;
 // The maximum number of bytes to consider when attempting to sniff for a mp3
 // bitstream.
-// This is 320kbps * 144 / 32kHz + 1 padding byte + 4 bytes of capture pattern.
-static const uint32_t MAX_BYTES_SNIFFED_MP3 = 320 * 144 / 32 + 1 + 4;
+// This was 320kbps * 144 / 32kHz + 1 padding byte + 4 bytes of capture pattern, 
+// but still too small for some mp3 files, enlarge to 5KB
+static const uint32_t MAX_BYTES_SNIFFED_MP3 = 5 * 1024;
 
 NS_IMPL_ISUPPORTS(nsMediaSniffer, nsIContentSniffer)
 
@@ -33,7 +34,14 @@ nsMediaSnifferEntry nsMediaSniffer::sSnifferEntries[] = {
   // The string RIFF, followed by four bytes, followed by the string WAVE
   PATTERN_ENTRY("\xFF\xFF\xFF\xFF\x00\x00\x00\x00\xFF\xFF\xFF\xFF", "RIFF\x00\x00\x00\x00WAVE", AUDIO_WAV),
   // mp3 with ID3 tags, the string "ID3".
-  PATTERN_ENTRY("\xFF\xFF\xFF", "ID3", AUDIO_MP3)
+  PATTERN_ENTRY("\xFF\xFF\xFF", "ID3", AUDIO_MP3),
+  //The string "MThd" followed by four bytes representing the number 6 in 32 bits (big-endian), the MIDI signature.
+  //https://mimesniff.spec.whatwg.org/#matching-an-audio-or-video-type-pattern
+  PATTERN_ENTRY("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", "MThd\x00\x00\x00\x06", AUDIO_MIDI),
+  //The string "#!AMR-WB" followed by the null byte, the AMR-WB signature.
+  PATTERN_ENTRY("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", "#!AMR-WB", AUDIO_AMR),
+  //The string "#!AMR." followed by the null byte, the AMR-NB signature.
+  PATTERN_ENTRY("\xFF\xFF\xFF\xFF\xFF\xFF", "#!AMR\x0A", AUDIO_AMR)
 };
 
 // For a complete list of file types, see http://www.ftyps.com/index.html

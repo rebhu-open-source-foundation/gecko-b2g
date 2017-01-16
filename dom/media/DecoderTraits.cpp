@@ -195,6 +195,11 @@ static const char* const gOmxTypes[] = {
   "audio/amr",
   "audio/3gpp",
   "audio/flac",
+#if defined(KAIOS_MIDI) && ANDROID_VERSION >= 23
+  //We only supports midi playback after Android M 
+  "audio/midi",
+  "audio/x-midi",
+#endif
   "video/mp4",
   "video/x-m4v",
   "video/3gpp",
@@ -218,6 +223,7 @@ static const char* const gB2GOnlyTypes[] = {
   "video/mp2t",
   "video/avi",
   "video/x-matroska",
+  "audio/aac",
   nullptr
 };
 

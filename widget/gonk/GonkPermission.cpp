@@ -145,7 +145,8 @@ GonkPermissionService::checkPermission(const String16& permission, int32_t pid,
 
   // Only these permissions can be granted to apps through this service.
   if (perm8 != "android.permission.CAMERA" &&
-    perm8 != "android.permission.RECORD_AUDIO") {
+    perm8 != "android.permission.RECORD_AUDIO" &&
+    perm8 != "android.permission.CAPTURE_AUDIO_OUTPUT") {
     ALOGE("%s for pid=%d,uid=%d denied: unsupported permission",
       String8(permission).string(), pid, uid);
     return false;
@@ -195,8 +196,15 @@ GonkPermissionService::GetInstance()
 #if ANDROID_VERSION >= 23
 void
 GonkPermissionService::getPackagesForUid(
-  const uid_t uid, android::Vector<android::String16>& packages)
-{ }
+  const uid_t uid, android::Vector<android::String16>& name)
+{
+  // In Android AudioFlinger::openRecord(), recordingAllowed(in ServiceUtilities.cpp)
+  // checks the the package name(added in M).
+  // In H5OS, the only one to open the AudioRecord is b2g process,
+  // and the permissionController in GonkPermissionService should return something.
+  name.add(String16("b2g"));
+  return;
+}
 
 bool
 GonkPermissionService::isRuntimePermission(const android::String16& permission)
