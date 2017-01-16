@@ -406,7 +406,21 @@ setUpdateTrackingId();
   });
 })();
 
-// ================ Theming ============
+(function setupCaptionStyles() {
+  // accessibility.caption.theme is combined by values of basic styling,
+  // e.g. font-color:rgba(255, 255, 255, 1);box-color:rgba(0, 0, 0, 1)
+  SettingsListener.observe('accessibility.caption.theme', null, function(value) {
+    if (value) {
+      let properties = value.split(';');
+      properties.forEach(function(property) {
+        let rv = property.split(':');
+        Services.prefs.setCharPref('cue.' + rv[0], rv[1]);
+      });
+    }
+  });
+})();
+
+//================ Theming ============
 (function themingSettingsListener() {
   let themingPrefs = ['ui.menu', 'ui.menutext', 'ui.infobackground', 'ui.infotext',
                       'ui.window', 'ui.windowtext', 'ui.highlight'];
@@ -599,6 +613,10 @@ if (AppConstants.MOZ_B2G_RIL) {
 
 // =================== Various simple mapping  ======================
 var settingsToObserve = {
+  'accessibility.large_text': {
+    prefName: 'ui.largeText.enabled',
+    resetToPref: true
+  },
   'accessibility.screenreader_quicknav_modes': {
     prefName: 'accessibility.accessfu.quicknav_modes',
     resetToPref: true,
@@ -608,6 +626,26 @@ var settingsToObserve = {
     prefName: 'accessibility.accessfu.quicknav_index',
     resetToPref: true,
     defaultValue: 0
+  },
+  'accessibility.caption.font-size': {
+    prefName: 'cue.font-size',
+    defaultValue: '0.05'
+  },
+  'accessibility.caption.font-color': {
+    prefName: 'cue.font-color',
+    defaultValue: 'rgba(255, 255, 255, 1)'
+  },
+  'accessibility.caption.box-color': {
+    prefName: 'cue.box-color',
+    defaultValue: 'rgba(0, 0, 0, 1)'
+  },
+  'accessibility.caption.font-family': {
+    prefName: 'cue.font-family',
+    defaultValue: 'sans-serif'
+  },
+  'accessibility.caption.font-shadow': {
+    prefName: 'cue.font-shadow',
+    defaultValue: ''
   },
   'app.update.interval': 86400,
   'apz.overscroll.enabled': true,
