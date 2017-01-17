@@ -307,13 +307,11 @@ CompositorVsyncScheduler::Observer::Destroy()
 }
 
 CompositorVsyncScheduler::CompositorVsyncScheduler(CompositorBridgeParent* aCompositorBridgeParent, nsIWidget* aWidget)
-  : mCompositorBridgeParent(aCompositorBridgeParent)
-  , mLastCompose(TimeStamp::Now())
+  : CompositorScheduler(aCompositorBridgeParent)
   , mIsObservingVsync(false)
   , mNeedsComposite(0)
   , mVsyncNotificationsSkipped(0)
   , mCurrentCompositeTaskMonitor("CurrentCompositeTaskMonitor")
-  , mCurrentCompositeTask(nullptr)
   , mSetNeedsCompositeMonitor("SetNeedsCompositeMonitor")
   , mSetNeedsCompositeTask(nullptr)
 #ifdef MOZ_WIDGET_GONK
@@ -732,7 +730,8 @@ CompositorBridgeParent::CompositorBridgeParent(nsIWidget* aWidget,
     mApzcTreeManager = new APZCTreeManager();
   }
 
-  mCompositorScheduler = new CompositorVsyncScheduler(this, aWidget);
+  mCompositorScheduler = CompositorScheduler::Create(this, aWidget);
+
   LayerScope::SetPixelScale(mWidget->GetDefaultScale().scale);
 
   // mSelfRef is cleared in DeferredDestroy.

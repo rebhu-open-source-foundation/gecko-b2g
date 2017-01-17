@@ -99,6 +99,8 @@ public:
     android::DisplaySurface* GetDisplaySurface();
     int GetPrevDispAcquireFd();
 #endif
+    bool IsComposer2DSupported();
+    bool IsVsyncSupported();
     GonkDisplay::DisplayType GetDisplayType();
 
     void RegisterWindow(nsWindow* aWindow);
@@ -149,6 +151,8 @@ protected:
 #if ANDROID_VERSION >= 17
     android::sp<android::DisplaySurface> mDisplaySurface;
 #endif
+    bool mComposer2DSupported;
+    bool mVsyncSupported;
     bool mIsMirroring; // Non-primary screen only
     RefPtr<nsScreenGonk> mMirroringScreen; // Primary screen only
     mozilla::Atomic<CompositorBridgeParent*> mCompositorBridgeParent;
@@ -192,6 +196,7 @@ public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSISCREENMANAGER
 
+    static uint32_t GetIdFromType(GonkDisplay::DisplayType aDisplayType);
     static already_AddRefed<nsScreenManagerGonk> GetInstance();
     static already_AddRefed<nsScreenGonk> GetPrimaryScreen();
 
@@ -203,6 +208,7 @@ public:
                        NotifyDisplayChangedEvent aEventVisibility = NotifyDisplayChangedEvent::Observable);
 
     nsresult RemoveScreen(GonkDisplay::DisplayType aDisplayType);
+    bool IsScreenConnected(uint32_t aId);
 
 #if ANDROID_VERSION >= 19
     void SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncScheduler* aObserver);
@@ -211,8 +217,6 @@ public:
 protected:
     ~nsScreenManagerGonk();
     void VsyncControl(bool aEnabled);
-    uint32_t GetIdFromType(GonkDisplay::DisplayType aDisplayType);
-    bool IsScreenConnected(uint32_t aId);
 
     bool mInitialized;
     nsTArray<RefPtr<nsScreenGonk>> mScreens;

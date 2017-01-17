@@ -18,10 +18,10 @@ class CancelableTask;
 
 class SoftwareDisplay final : public mozilla::gfx::VsyncSource::Display
 {
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SoftwareDisplay)
-
 public:
   SoftwareDisplay();
+  // To simulate power on/off of a display
+  virtual void SetPowerMode(bool aEnable);
   virtual void EnableVsync() override;
   virtual void DisableVsync() override;
   virtual bool IsVsyncEnabled() override;
@@ -30,9 +30,12 @@ public:
   virtual mozilla::TimeDuration GetVsyncRate() override;
   void ScheduleNextVsync(mozilla::TimeStamp aVsyncTimestamp);
   void Shutdown();
+  virtual SoftwareDisplay* AsSoftwareDisplay() override { return this; }
 
 protected:
   ~SoftwareDisplay();
+  void EnableVsyncInternal(bool aEnable);
+  bool NeedNotifyVsync();
 
 private:
   mozilla::TimeDuration mVsyncRate;
@@ -40,6 +43,7 @@ private:
   base::Thread* mVsyncThread;
   CancelableTask* mCurrentVsyncTask; // only access on vsync thread
   bool mVsyncEnabled; // Only access on main thread
+  bool mPowerOn;
 }; // SoftwareDisplay
 
 // Fallback option to use a software timer to mimic vsync. Useful for gtests
@@ -58,7 +62,7 @@ public:
   }
 
 private:
-  RefPtr<SoftwareDisplay> mGlobalDisplay;
+  RefPtr<mozilla::gfx::VsyncSource::Display> mGlobalDisplay;
 };
 
 #endif /* GFX_SOFTWARE_VSYNC_SOURCE_H */

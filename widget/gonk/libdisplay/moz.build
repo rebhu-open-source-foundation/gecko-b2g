@@ -22,18 +22,21 @@ if CONFIG['ANDROID_VERSION'] >= '19':
     SOURCES += [
         'FramebufferSurface.cpp',
         'GonkDisplayJB.cpp',
+        'NativeFramebufferDevice.cpp',
         'VirtualDisplaySurface.cpp',
     ]
 elif CONFIG['ANDROID_VERSION'] == '18':
     SOURCES += [
         'FramebufferSurface.cpp',
         'GonkDisplayJB.cpp',
+        'NativeFramebufferDevice.cpp',
     ]
 elif CONFIG['ANDROID_VERSION'] == '17':
     SOURCES += [
         'FramebufferSurface.cpp',
         'GonkDisplayJB.cpp',
         'GraphicBufferAlloc.cpp',
+        'NativeFramebufferDevice.cpp',
     ]
 elif CONFIG['ANDROID_VERSION'] == '15':
     SOURCES += [
@@ -41,6 +44,10 @@ elif CONFIG['ANDROID_VERSION'] == '15':
     ]
 elif CONFIG['ANDROID_VERSION'] and CONFIG['COMPILE_ENVIRONMENT']:
     error('Unsupported platform version: %s' % (CONFIG['ANDROID_VERSION']))
+
+if CONFIG['ANDROID_VERSION'] >= '17' and CONFIG['CPU_ARCH'] == 'arm' and CONFIG['BUILD_ARM_NEON']:
+    SOURCES += ['rgb8888_to_rgb565_neon.cpp']
+    SOURCES['rgb8888_to_rgb565_neon.cpp'].flags += ['-mfpu=neon']
 
 Library('display')
 

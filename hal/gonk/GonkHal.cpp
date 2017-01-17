@@ -47,6 +47,7 @@
 #include "Hal.h"
 #include "HalImpl.h"
 #include "HalLog.h"
+#include "gfxPlatform.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/dom/battery/Constants.h"
@@ -73,6 +74,8 @@
 #include "OrientationObserver.h"
 #include "UeventPoller.h"
 #include "nsIWritablePropertyBag2.h"
+#include "SoftwareVsyncSource.h"
+#include "VsyncSource.h"
 #include <algorithm>
 
 #define NsecPerMsec  1000000LL
@@ -129,6 +132,7 @@ enum LightType {
   eHalLightID_Attention     = 5,
   eHalLightID_Bluetooth     = 6,
   eHalLightID_Wifi          = 7,
+  eHalLightID_ExtBacklight  = 8,
   eHalLightID_Count  // This should stay at the end
 };
 enum LightMode {
@@ -178,6 +182,7 @@ InitLights()
 
     err = hw_get_module(LIGHTS_HARDWARE_MODULE_ID, (hw_module_t const**)&module);
     if (err == 0) {
+      // device module name is defined in hardware/libhardware/include/hardware/lights.h
       sLights[eHalLightID_Backlight]
              = GetDevice(module, LIGHT_ID_BACKLIGHT);
       sLights[eHalLightID_Keyboard]
@@ -194,6 +199,10 @@ InitLights()
              = GetDevice(module, LIGHT_ID_BLUETOOTH);
       sLights[eHalLightID_Wifi]
              = GetDevice(module, LIGHT_ID_WIFI);
+#ifdef LIGHT_ID_SECOND_BACKLIGHT
+      sLights[eHalLightID_ExtBacklight]
+             = GetDevice(module, LIGHT_ID_SECOND_BACKLIGHT);
+#endif
         }
     }
 }
@@ -714,6 +723,7 @@ namespace {
 // we read, we always get "mem"!  So we have to keep track ourselves whether
 // the screen is on or not.
 bool sScreenEnabled = true;
+bool sExtScreenEnabled = true;
 
 // We can read wakeLockFilename to find out whether the cpu wake lock
 // is already acquired, but reading and parsing it is a lot more work
@@ -739,6 +749,70 @@ SetScreenEnabled(bool aEnabled)
 {
   GetGonkDisplay()->SetEnabled(aEnabled);
   sScreenEnabled = aEnabled;
+}
+
+bool
+GetExtScreenEnabled()
+{
+  return sExtScreenEnabled;
+}
+
+void
+SetExtScreenEnabled(bool aEnabled)
+{
+  uint32_t screenId =
+    nsScreenManagerGonk::GetIdFromType(GonkDisplay::DISPLAY_EXTERNAL);
+
+
+  mozilla::gfx::VsyncSource::Display &display =
+    gfxPlatform::GetPlatform()->GetHardwareVsync()->GetDisplayById(screenId);
+  SoftwareDisplay* softwareDisplay = display.AsSoftwareDisplay();
+
+  if (!aEnabled && softwareDisplay) {
+    softwareDisplay->SetPowerMode(aEnabled);
+  }
+
+  GetGonkDisplay()->SetExtEnabled(aEnabled);
+  sExtScreenEnabled = aEnabled;
+
+  if (aEnabled && softwareDisplay) {
+    softwareDisplay->SetPowerMode(aEnabled);
+  }
+}
+
+double
+GetExtScreenBrightness()
+{
+  LightConfiguration config;
+  LightType light = eHalLightID_ExtBacklight;
+
+  GetLight(light, &config);
+  // backlight is brightness only, so using one of the RGB elements as value.
+  int brightness = config.color & 0xFF;
+  return brightness / 255.0;
+}
+
+void
+SetExtScreenBrightness(double brightness)
+{
+  // Don't use De Morgan's law to push the ! into this expression; we want to
+  // catch NaN too.
+  if (!(0 <= brightness && brightness <= 1)) {
+    HAL_LOG("SetExtScreenBrightness: Dropping illegal brightness %f.", brightness);
+    return;
+  }
+
+  // Convert the value in [0, 1] to an int between 0 and 255 and convert to a color
+  // note that the high byte is FF, corresponding to the alpha channel.
+  uint32_t val = static_cast<int>(round(brightness * 255.0));
+  uint32_t color = (0xff<<24) + (val<<16) + (val<<8) + val;
+
+  LightConfiguration config;
+  config.mode = eHalLightMode_User;
+  config.flash = eHalLightFlash_None;
+  config.flashOnMS = config.flashOffMS = 0;
+  config.color = color;
+  SetLight(eHalLightID_ExtBacklight, config);
 }
 
 bool

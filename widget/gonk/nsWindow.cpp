@@ -97,34 +97,53 @@ nsWindow::DoDraw(void)
         return;
     }
 
-    RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
-    const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
+    uint32_t screenNums = 0;
+    RefPtr<nsScreenManagerGonk> screenManager = nsScreenManagerGonk::GetInstance();
+    screenManager->GetNumberOfScreens(&screenNums);
 
-    if (windows.IsEmpty()) {
-        LOG("  no window to draw, bailing");
-        return;
-    }
+    while (screenNums--) {
+        nsCOMPtr<nsIScreen> screen;
+        screenManager->ScreenForId(screenNums, getter_AddRefs(screen));
+        MOZ_ASSERT(screen);
+        if (!screen) {
+            continue;
+        }
 
-    nsWindow *targetWindow = (nsWindow *)windows[0];
-    while (targetWindow->GetLastChild()) {
-        targetWindow = (nsWindow *)targetWindow->GetLastChild();
-    }
+        const nsTArray<nsWindow*>& windows =
+          static_cast<nsScreenGonk*>(screen.get())->GetTopWindows();
+        if (windows.IsEmpty()) {
+            continue;
+        }
 
-    nsIWidgetListener* listener = targetWindow->GetWidgetListener();
-    if (listener) {
-        listener->WillPaintWindow(targetWindow);
-    }
+        /* Add external screen when the external fb is available. The AddScreen
+           should be called after shell.js is loaded to receive the
+           display-changed event. */
+        if (!screenManager->IsScreenConnected(GonkDisplay::DISPLAY_EXTERNAL) &&
+            screenNums == 0 && GetGonkDisplay()->IsExtFBDeviceEnabled()) {
+            screenManager->AddScreen(GonkDisplay::DISPLAY_EXTERNAL);
+        }
 
-    LayerManager* lm = targetWindow->GetLayerManager();
-    if (mozilla::layers::LayersBackend::LAYERS_CLIENT == lm->GetBackendType()) {
-        // No need to do anything, the compositor will handle drawing
-    } else {
-        NS_RUNTIMEABORT("Unexpected layer manager type");
-    }
+        nsWindow *targetWindow = (nsWindow *)windows[0];
+        while (targetWindow->GetLastChild()) {
+            targetWindow = (nsWindow *)targetWindow->GetLastChild();
+        }
 
-    listener = targetWindow->GetWidgetListener();
-    if (listener) {
-        listener->DidPaintWindow();
+        nsIWidgetListener* listener = targetWindow->GetWidgetListener();
+        if (listener) {
+            listener->WillPaintWindow(targetWindow);
+        }
+
+        LayerManager* lm = targetWindow->GetLayerManager();
+        if (mozilla::layers::LayersBackend::LAYERS_CLIENT == lm->GetBackendType()) {
+            // No need to do anything, the compositor will handle drawing
+        } else {
+           NS_RUNTIMEABORT("Unexpected layer manager type");
+        }
+
+        listener = targetWindow->GetWidgetListener();
+        if (listener) {
+            listener->DidPaintWindow();
+        }
     }
 }
 
@@ -684,6 +703,12 @@ float
 nsWindow::GetDPI()
 {
     return mScreen->GetDpi();
+}
+
+bool
+nsWindow::IsVsyncSupported()
+{
+    return mScreen->IsVsyncSupported();
 }
 
 double

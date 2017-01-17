@@ -126,6 +126,8 @@ nsScreenGonk::nsScreenGonk(uint32_t aId,
 #if ANDROID_VERSION >= 17
     , mDisplaySurface(aNativeData.mDisplaySurface)
 #endif
+    , mComposer2DSupported(aNativeData.mComposer2DSupported)
+    , mVsyncSupported(aNativeData.mVsyncSupported)
     , mIsMirroring(false)
     , mDisplayType(aDisplayType)
     , mEGLDisplay(EGL_NO_DISPLAY)
@@ -599,6 +601,18 @@ nsScreenGonk::GetPrevDispAcquireFd()
 }
 #endif
 
+bool
+nsScreenGonk::IsComposer2DSupported()
+{
+    return mComposer2DSupported;
+}
+
+bool
+nsScreenGonk::IsVsyncSupported()
+{
+  return mVsyncSupported;
+}
+
 GonkDisplay::DisplayType
 nsScreenGonk::GetDisplayType()
 {
@@ -799,6 +813,16 @@ nsScreenManagerGonk::GetPrimaryScreen()
         static_cast<nsScreenGonk*>(screen.forget().take()));
 }
 
+/* static */ uint32_t
+nsScreenManagerGonk::GetIdFromType(GonkDisplay::DisplayType aDisplayType)
+{
+    // This is the only place where we make the assumption that
+    // display type is equivalent to screen id.
+
+    // Bug 1138287 will address the conversion from type to id.
+    return aDisplayType;
+}
+
 void
 nsScreenManagerGonk::Initialize()
 {
@@ -918,16 +942,6 @@ nsScreenManagerGonk::VsyncControl(bool aEnabled)
     }
 }
 
-uint32_t
-nsScreenManagerGonk::GetIdFromType(GonkDisplay::DisplayType aDisplayType)
-{
-    // This is the only place where we make the assumption that
-    // display type is equivalent to screen id.
-
-    // Bug 1138287 will address the conversion from type to id.
-    return aDisplayType;
-}
-
 bool
 nsScreenManagerGonk::IsScreenConnected(uint32_t aId)
 {
@@ -1033,6 +1047,12 @@ nsScreenManagerGonk::AddScreen(GonkDisplay::DisplayType aDisplayType,
         screen->EnableMirroring();
     }
 
+    VsyncSource::VsyncType vsyncType = (screen->IsVsyncSupported()) ?
+      VsyncSource::VsyncType::HARDWARE_VYSNC :
+      VsyncSource::VsyncType::SORTWARE_VSYNC;
+
+    gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(id, vsyncType);
+
     return NS_OK;
 }
 
@@ -1062,6 +1082,9 @@ nsScreenManagerGonk::RemoveScreen(GonkDisplay::DisplayType aDisplayType)
     if (eventVisibility == NotifyDisplayChangedEvent::Observable) {
       NotifyDisplayChange(screenId, false);
     }
+
+    gfxPlatform::GetPlatform()->GetHardwareVsync()->RemoveDisplay(screenId);
+
     return NS_OK;
 }
 

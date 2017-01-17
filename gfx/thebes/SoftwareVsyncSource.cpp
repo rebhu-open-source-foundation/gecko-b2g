@@ -18,7 +18,6 @@ SoftwareVsyncSource::SoftwareVsyncSource()
 SoftwareVsyncSource::~SoftwareVsyncSource()
 {
   MOZ_ASSERT(NS_IsMainThread());
-  mGlobalDisplay->Shutdown();
   mGlobalDisplay = nullptr;
 }
 
@@ -34,7 +33,45 @@ SoftwareDisplay::SoftwareDisplay()
   MOZ_RELEASE_ASSERT(mVsyncThread->Start(), "Could not start software vsync thread");
 }
 
-SoftwareDisplay::~SoftwareDisplay() {}
+SoftwareDisplay::~SoftwareDisplay()
+{
+  Shutdown();
+}
+
+bool
+SoftwareDisplay::NeedNotifyVsync()
+{
+  return mPowerOn && mVsyncEnabled;
+}
+
+void
+SoftwareDisplay::EnableVsyncInternal(bool aEnable)
+{
+  MOZ_ASSERT(IsInSoftwareVsyncThread());
+  if (aEnable) {
+    NotifyVsync(mozilla::TimeStamp::Now());
+  } else {
+    if (mCurrentVsyncTask) {
+      mCurrentVsyncTask->Cancel();
+      mCurrentVsyncTask = nullptr;
+    }
+  }
+}
+
+void
+SoftwareDisplay::SetPowerMode(bool aEnable)
+{
+  if (NS_IsMainThread()) {
+    if (mPowerOn == aEnable) {
+      return;
+    }
+    mPowerOn = aEnable;
+    mVsyncThread->message_loop()->PostTask(FROM_HERE,
+      NewRunnableMethod(this, &SoftwareDisplay::EnableVsyncInternal,
+                        NeedNotifyVsync()));
+    return;
+  }
+}
 
 void
 SoftwareDisplay::EnableVsync()
@@ -47,12 +84,10 @@ SoftwareDisplay::EnableVsync()
     mVsyncEnabled = true;
 
     mVsyncThread->message_loop()->PostTask(FROM_HERE,
-      NewRunnableMethod(this, &SoftwareDisplay::EnableVsync));
+      NewRunnableMethod(this, &SoftwareDisplay::EnableVsyncInternal,
+                        NeedNotifyVsync()));
     return;
   }
-
-  MOZ_ASSERT(IsInSoftwareVsyncThread());
-  NotifyVsync(mozilla::TimeStamp::Now());
 }
 
 void
@@ -66,7 +101,8 @@ SoftwareDisplay::DisableVsync()
     mVsyncEnabled = false;
 
     mVsyncThread->message_loop()->PostTask(FROM_HERE,
-      NewRunnableMethod(this, &SoftwareDisplay::DisableVsync));
+      NewRunnableMethod(this, &SoftwareDisplay::EnableVsyncInternal,
+                        NeedNotifyVsync()));
     return;
   }
 
@@ -130,12 +166,12 @@ SoftwareDisplay::ScheduleNextVsync(mozilla::TimeStamp aVsyncTimestamp)
   }
 
   mCurrentVsyncTask = NewRunnableMethod(this,
-      &SoftwareDisplay::NotifyVsync,
-      nextVsync);
+    &SoftwareDisplay::NotifyVsync,
+    nextVsync);
 
   mVsyncThread->message_loop()->PostDelayedTask(FROM_HERE,
-      mCurrentVsyncTask,
-      delay.ToMilliseconds());
+    mCurrentVsyncTask,
+    delay.ToMilliseconds());
 }
 
 void
