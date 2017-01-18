@@ -84,6 +84,14 @@ const kEventConstructors = {
                                                           return new BluetoothPairingEvent(aName, aProps);
                                                        },
                                              },
+  BluetoothPbapConnectionReqEvent:           { create: function (aName, aProps) {
+                                                          return new BluetoothPbapConnectionReqEvent(aName, aProps);
+                                                       },
+                                             },
+  BluetoothMapConnectionReqEvent:           { create: function (aName, aProps) {
+                                                          return new BluetoothMapConnectionReqEvent(aName, aProps);
+                                                       },
+                                             },
   BluetoothMapFolderListingEvent:            { create: function (aName, aProps) {
                                                           return new BluetoothMapFolderListingEvent(aName, aProps);
                                                        },

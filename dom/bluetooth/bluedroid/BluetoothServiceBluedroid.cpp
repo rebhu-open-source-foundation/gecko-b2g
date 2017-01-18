@@ -297,13 +297,13 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
 
   // Disconnect all connected profiles
   for (uint8_t i = 0; i < MOZ_ARRAY_LENGTH(sProfiles); i++) {
-    nsCString profileName;
-    sProfiles[i]->GetName(profileName);
-
     if (NS_WARN_IF(!sProfiles[i])) {
-      BT_LOGR("Profile manager [%s] is null", profileName.get());
+      BT_LOGR("Profile manager sProfiles[%d] is null", i);
       return NS_ERROR_FAILURE;
     }
+
+    nsCString profileName;
+    sProfiles[i]->GetName(profileName);
 
     if (sProfiles[i]->IsConnected()) {
       sProfiles[i]->Disconnect(nullptr);
@@ -986,7 +986,7 @@ public:
 
 private:
   nsTArray<RefPtr<BluetoothReplyRunnable>>& mRunnableArray;
-  BluetoothReplyRunnable* mRunnable;
+  RefPtr<BluetoothReplyRunnable> mRunnable;
 };
 
 void
@@ -1302,7 +1302,7 @@ public:
   }
 
 private:
-  BluetoothReplyRunnable* mRunnable;
+  RefPtr<BluetoothReplyRunnable> mRunnable;
 };
 
 class BluetoothServiceBluedroid::CancelBondResultHandler final
@@ -1324,7 +1324,7 @@ public:
   }
 
 private:
-  BluetoothReplyRunnable* mRunnable;
+  RefPtr<BluetoothReplyRunnable> mRunnable;
 };
 
 void
@@ -1381,7 +1381,7 @@ public:
   }
 
 private:
-  BluetoothReplyRunnable* mRunnable;
+  RefPtr<BluetoothReplyRunnable> mRunnable;
 };
 
 void
@@ -1461,6 +1461,58 @@ BluetoothServiceBluedroid::Disconnect(
   BluetoothReplyRunnable* aRunnable)
 {
   ConnectDisconnect(false, aDeviceAddress, aRunnable, aServiceUuid);
+}
+
+void
+BluetoothServiceBluedroid::AcceptConnection(const uint16_t aServiceUuid,
+                                            BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aRunnable);
+
+  BluetoothProfileManagerBase* profile =
+    BluetoothUuidHelper::GetBluetoothProfileManager(aServiceUuid);
+  if (!profile) {
+    BT_WARNING("Can't find profile manager with uuid: %x", aServiceUuid);
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Failed to get profile manager"));
+    return;
+  }
+
+  if (profile->ReplyToConnectionRequest(true)) {
+    DispatchReplySuccess(aRunnable);
+  } else {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Calling AcceptConnection() failed"));
+  }
+
+  return;
+}
+
+void
+BluetoothServiceBluedroid::RejectConnection(const uint16_t aServiceUuid,
+                                            BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aRunnable);
+
+  BluetoothProfileManagerBase* profile =
+    BluetoothUuidHelper::GetBluetoothProfileManager(aServiceUuid);
+  if (!profile) {
+    BT_WARNING("Can't find profile manager with uuid: %x", aServiceUuid);
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Failed to get profile manager"));
+    return;
+  }
+
+  if (profile->ReplyToConnectionRequest(false)) {
+    DispatchReplySuccess(aRunnable);
+  } else {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Calling RejectConnection() failed"));
+  }
+
+  return;
 }
 
 void
@@ -1925,8 +1977,50 @@ BluetoothServiceBluedroid::SendInputMessage(const nsAString& aDeviceAddresses,
 }
 
 void
+BluetoothServiceBluedroid::SendMessageEvent(
+  uint8_t aMasId, BlobParent* aBlobParent, BlobChild* aBlobChild,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("SendMessageEvent failed"));
+    return;
+  }
+
+  map->SendMessageEvent(aMasId, aBlobParent);
+  DispatchReplySuccess(aRunnable);
+}
+
+void
+BluetoothServiceBluedroid::SendMessageEvent(
+  uint8_t aMasId, Blob* aBlob, BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("SendMessageEvent failed"));
+    return;
+  }
+
+  map->SendMessageEvent(aMasId, aBlob);
+  DispatchReplySuccess(aRunnable);
+}
+
+void
 BluetoothServiceBluedroid::AnswerWaitingCall(BluetoothReplyRunnable* aRunnable)
 {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+  if (!hfp) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Fail to get BluetoothHfpManager"));
+    return;
+  }
+
+  hfp->AnswerWaitingCall();
+  DispatchReplySuccess(aRunnable);
 }
 
 void

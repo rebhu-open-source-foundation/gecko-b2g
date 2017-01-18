@@ -26,12 +26,14 @@ public:
   BluetoothMapFolder* GetParentFolder();
   int GetSubFolderCount();
   // Format folder listing object string
-  void GetFolderListingObjectString(nsAString& aString, uint16_t aMaxListCount,
-                                    uint16_t aStartOffset);
+  void GetFolderListingObjectCString(nsACString& aString, uint16_t aMaxListCount,
+                                     uint16_t aStartOffset);
+  void GetPath(nsAString& aPath) const;
   void DumpFolderInfo();
 private:
   ~BluetoothMapFolder();
   nsString mName;
+  nsString mPath;
   RefPtr<BluetoothMapFolder> mParent;
   nsRefPtrHashtable<nsStringHashKey, BluetoothMapFolder> mSubFolders;
 };

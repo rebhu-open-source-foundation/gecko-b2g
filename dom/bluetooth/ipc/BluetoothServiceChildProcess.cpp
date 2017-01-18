@@ -302,6 +302,22 @@ BluetoothServiceChildProcess::Disconnect(
 }
 
 void
+BluetoothServiceChildProcess::AcceptConnection(
+  const uint16_t aServiceUuid,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, AcceptConnectionRequest(aServiceUuid));
+}
+
+void
+BluetoothServiceChildProcess::RejectConnection(
+  const uint16_t aServiceUuid,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, RejectConnectionRequest(aServiceUuid));
+}
+
+void
 BluetoothServiceChildProcess::SendFile(
   const BluetoothAddress& aDeviceAddress,
   BlobParent* aBlobParent,
@@ -563,6 +579,25 @@ BluetoothServiceChildProcess::SendPlayStatus(int64_t aDuration,
 {
   SendRequest(aRunnable,
               SendPlayStatusRequest(aDuration, aPosition, aPlayStatus));
+}
+
+void
+BluetoothServiceChildProcess::SendMessageEvent(uint8_t aMasId,
+                                               BlobParent* aBlobParent,
+                                               BlobChild* aBlobChild,
+                                               BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              SendMessageEventRequest(aMasId, nullptr, aBlobChild));
+}
+
+void
+BluetoothServiceChildProcess::SendMessageEvent(uint8_t aMasId,
+                                               Blob* aBlobChild,
+                                               BluetoothReplyRunnable* aRunnable)
+{
+  // Parent-process-only method
+  MOZ_CRASH("This should never be called!");
 }
 
 void

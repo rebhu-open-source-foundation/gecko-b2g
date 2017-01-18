@@ -202,7 +202,7 @@ BluetoothOppManager::BluetoothOppManager() : mConnected(false)
                                            , mAbortFlag(false)
                                            , mNewFileFlag(false)
                                            , mPutFinalFlag(false)
-                                           , mSendTransferCompleteFlag(false)
+                                           , mTransferCompleteFlag(true)
                                            , mSuccessFlag(false)
                                            , mIsServer(true)
                                            , mWaitingForConfirmationFlag(false)
@@ -1113,6 +1113,11 @@ BluetoothOppManager::ClientDataHandler(UnixSocketBuffer* aMessage)
   const uint8_t* data = aMessage->GetData();
   uint8_t opCode = data[0];
 
+  if (opCode == 0) {
+    BT_LOGR("Receive invalid OBEX response code 0x%X", opCode);
+    return;
+  }
+
   // Check response code and send out system message as finished if the response
   // code is somehow incorrect.
   uint8_t expectedOpCode = ObexResponseCode::Success;
@@ -1365,6 +1370,13 @@ BluetoothOppManager::IsConnected()
   return mConnected;
 }
 
+bool
+BluetoothOppManager::ReplyToConnectionRequest(bool aAccept)
+{
+  MOZ_ASSERT(false, "BluetoothOppManager hasn't implemented this function yet.");
+  return false;
+}
+
 void
 BluetoothOppManager::GetAddress(BluetoothAddress& aDeviceAddress)
 {
@@ -1475,7 +1487,7 @@ BluetoothOppManager::SendObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode,
 void
 BluetoothOppManager::FileTransferComplete()
 {
-  if (mSendTransferCompleteFlag) {
+  if (mTransferCompleteFlag) {
     return;
   }
 
@@ -1491,7 +1503,7 @@ BluetoothOppManager::FileTransferComplete()
 
   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(type, parameters);
 
-  mSendTransferCompleteFlag = true;
+  mTransferCompleteFlag = true;
 }
 
 void
@@ -1508,7 +1520,7 @@ BluetoothOppManager::StartFileTransfer()
 
   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(type, parameters);
 
-  mSendTransferCompleteFlag = false;
+  mTransferCompleteFlag = false;
 }
 
 void
@@ -1537,6 +1549,8 @@ BluetoothOppManager::ReceivingFileConfirmation()
   AppendNamedValue(parameters, "contentType", mContentType);
 
   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(type, parameters);
+
+  mTransferCompleteFlag = false;
 }
 
 void
@@ -1654,6 +1668,8 @@ void
 BluetoothOppManager::Disconnect(BluetoothProfileController* aController)
 {
   if (mSocket) {
+    SendDisconnectRequest();
+
     mSocket->Close();
   } else {
     BT_WARNING("%s: No ongoing file transfer to stop", __FUNCTION__);

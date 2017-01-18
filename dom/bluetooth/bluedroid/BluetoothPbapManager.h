@@ -154,18 +154,19 @@ private:
   void Uninit();
   void HandleShutdown();
 
-  void ReplyToConnect(const nsAString& aPassword = EmptyString());
+  bool ReplyToConnect(const nsAString& aPassword = EmptyString());
   void ReplyToDisconnectOrAbort();
   void ReplyToSetPath();
   bool ReplyToGet(uint16_t aPhonebookSize = 0);
-  void ReplyError(uint8_t aError);
-  void SendObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
-  void SendObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode, int aSize);
+  bool ReplyError(uint8_t aError);
+  bool SendObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
+  bool SendObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode, int aSize);
 
   ObexResponseCode SetPhoneBookPath(const ObexHeaderSet& aHeader,
                                     uint8_t flags);
+  ObexResponseCode NotifyConnectionRequest();
   ObexResponseCode NotifyPbapRequest(const ObexHeaderSet& aHeader);
-  ObexResponseCode NotifyPasswordRequest(const ObexHeaderSet& aHeader);
+  ObexResponseCode NotifyPasswordRequest();
   void AppendNamedValueByTagId(const ObexHeaderSet& aHeader,
                                InfallibleTArray<BluetoothNamedValue>& aValues,
                                const AppParameterTag aTagId);
@@ -175,6 +176,8 @@ private:
   bool IsLegalPath(const nsAString& aPath);
   bool IsLegalPhonebookName(const nsAString& aName);
   bool GetInputStreamFromBlob(Blob* aBlob);
+  void GetRemoteNonce(const ObexHeaderSet& aHeader);
+
   void AfterPbapConnected();
   void AfterPbapDisconnected();
   nsresult MD5Hash(char *buf, uint32_t len); // mHashRes stores the result
@@ -192,10 +195,23 @@ private:
    */
   bool mPhonebookSizeRequired;
 
+
+  /**
+   * Whether 'NewMissedCalls' is required for the OBEX response
+   */
+  bool mNewMissedCallsRequired;
+
   /**
    * OBEX session status. Set when OBEX session is established
    */
   bool mConnected;
+
+  /**
+   * Whether user input password request is required to reply to authentication
+   * challenge
+   */
+  bool mPasswordReqNeeded;
+
   BluetoothAddress mDeviceAddress;
 
   /**

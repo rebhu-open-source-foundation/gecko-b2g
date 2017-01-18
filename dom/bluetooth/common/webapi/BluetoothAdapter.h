@@ -86,6 +86,9 @@ public:
    * Event Handlers
    ***************************************************************************/
   IMPL_EVENT_HANDLER(attributechanged);
+  // Connection request
+  IMPL_EVENT_HANDLER(mapconnectionreq);
+  IMPL_EVENT_HANDLER(pbapconnectionreq);
   // PAIRING
   IMPL_EVENT_HANDLER(devicepaired);
   IMPL_EVENT_HANDLER(deviceunpaired);
@@ -177,6 +180,9 @@ public:
   already_AddRefed<DOMRequest>
     SendMediaPlayStatus(const MediaPlayStatus& aMediaPlayStatus,
                         ErrorResult& aRv);
+  // MAP SendEvent method
+  already_AddRefed<Promise> SendMessageEvent(uint8_t aMasId, Blob& aBlob,
+                                             ErrorResult& aRv);
 
   /****************************************************************************
    * Others
@@ -196,6 +202,30 @@ public:
 
   void GetPairedDeviceProperties(
     const nsTArray<BluetoothAddress>& aDeviceAddresses);
+
+  virtual void EventListenerAdded(nsIAtom* aType) override;
+
+  /**
+   * Listen to bluetooth PBAP signal if PBAP connection request event handler
+   * is ready.
+   *
+   * Listen to bluetooth PBAP signal if PBAP connection request event handler
+   * has been attached.
+   * All pending PBAP requests queued in BluetoothService would be fired when
+   * adapter starts listening to bluetooth PBAP signal.
+   */
+  void TryListeningToBluetoothPbapSignal();
+
+  /**
+   * Listen to bluetooth MAP signal if MAP connection request event handler
+   * is ready.
+   *
+   * Listen to bluetooth MAP signal if MAP connection request event handler
+   * has been attached.
+   * All pending MAP requests queued in BluetoothService would be fired when
+   * adapter starts listening to bluetooth MAP signal.
+   */
+  void TryListeningToBluetoothMapSignal();
 
   /**
    * Set this adapter's discovery handle in use (mDiscoveryHandleInUse).
@@ -264,6 +294,16 @@ private:
    * @param aDeviceAddresses [in] Addresses array of paired devices
    */
   void GetPairedDeviceProperties(const nsTArray<nsString>& aDeviceAddresses);
+
+   /**
+   * Handle PBAP_CONNECTION_REQ_ID bluetooth signal.
+   *
+   * @param aValue [in] Properties array of the profile connection request.
+   *                    The array should contain few properties:
+   *                    - nsString   'address'
+   *                    - uint16_t   'serviceUuid'
+   */
+  void HandlePbapConnectionReq(const BluetoothValue& aValue);
 
   /**
    * Handle "PropertyChanged" bluetooth signal.
@@ -366,6 +406,14 @@ private:
    *                    'vCardSelector_OR' or 'vCardSelector_AND'.
    */
   Sequence<vCardProperties> getVCardProperties(const BluetoothValue &aValue);
+
+  /**
+   * Handle MAP_CONNECTION_REQ_ID bluetooth signal.
+   *
+   * @param aValue [in] a BluetoothValue with 'TnsString' type
+   *                    as the 'address' property.
+   */
+  void HandleMapConnectionReq(const BluetoothValue& aValue);
 
    /**
    * Handle "MapFolderListing" bluetooth signal.
@@ -524,6 +572,18 @@ private:
    * Whether this adapter is discovering nearby devices.
    */
   bool mDiscovering;
+
+  /**
+   * Indicate whether or not this adapter has started listening to
+   * Bluetooth PBAP signal.
+   */
+  bool mHasListenedToPbapSignal;
+
+  /**
+   * Indicate whether or not this adapter has started listening to
+   * Bluetooth MAP signal.
+   */
+  bool mHasListenedToMapSignal;
 
   /**
    * GATT server object of this adapter.

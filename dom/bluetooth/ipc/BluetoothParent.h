@@ -195,6 +195,12 @@ protected:
   DoRequest(const DisconnectRequest& aRequest);
 
   bool
+  DoRequest(const AcceptConnectionRequest& aRequest);
+
+  bool
+  DoRequest(const RejectConnectionRequest& aRequest);
+
+  bool
   DoRequest(const SendFileRequest& aRequest);
 
   bool
@@ -264,6 +270,9 @@ protected:
 
   bool
   DoRequest(const SendPlayStatusRequest& aRequest);
+
+  bool
+  DoRequest(const SendMessageEventRequest& aRequest);
 
   bool
   DoRequest(const ConnectGattClientRequest& aRequest);

@@ -51,6 +51,11 @@ interface BluetoothAdapter : EventTarget {
   // Fired when a remote device gets paired with the adapter
            attribute EventHandler   ondevicepaired;
 
+  // Fired when map connection has been requested
+           attribute EventHandler   onmapconnectionreq;
+  // Fired when pbap connection has been requested
+           attribute EventHandler   onpbapconnectionreq;
+
   // Fired when a remote device gets unpaired from the adapter
            attribute EventHandler   ondeviceunpaired;
 
@@ -208,6 +213,10 @@ interface BluetoothAdapter : EventTarget {
   DOMRequest sendMediaMetaData(optional MediaMetaData mediaMetaData);
   [NewObject, Throws, AvailableIn=CertifiedApps]
   DOMRequest sendMediaPlayStatus(optional MediaPlayStatus mediaPlayStatus);
+
+  // MAP event report
+  [NewObject, Throws, AvailableIn=CertifiedApps]
+  Promise<void> sendMessageEvent(octet masId, Blob eventObject);
 };
 
 enum BluetoothAdapterState

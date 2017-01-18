@@ -17,6 +17,15 @@ BluetoothMapFolder::BluetoothMapFolder(const nsAString& aFolderName,
   : mName(aFolderName)
   , mParent(aParent)
 {
+  if (aParent) {
+    aParent->GetPath(mPath);
+    if (!mPath.IsEmpty()) {
+      mPath.AppendLiteral("/");
+    }
+    mPath.Append(mName);
+  } else {
+    mPath = mName;
+  }
 }
 
 BluetoothMapFolder*
@@ -51,9 +60,9 @@ BluetoothMapFolder::GetSubFolderCount()
 }
 
 void
-BluetoothMapFolder::GetFolderListingObjectString(nsAString& aString,
-                                                 uint16_t aMaxListCount,
-                                                 uint16_t aStartOffset)
+BluetoothMapFolder::GetFolderListingObjectCString(nsACString& aString,
+                                                  uint16_t aMaxListCount,
+                                                  uint16_t aStartOffset)
 {
   const char* folderListingPrefix =
     "<?xml version=\"1.0\"?>\n"
@@ -62,7 +71,7 @@ BluetoothMapFolder::GetFolderListingObjectString(nsAString& aString,
   const char* folderListingSuffix = "</folder-listing>";
 
   // Based on Element Specification, 9.1.1, IrObex 1.2
-  nsAutoCString folderListingObejct(folderListingPrefix);
+  nsCString folderListingObject(folderListingPrefix);
 
   int count = 0;
   for (auto iter = mSubFolders.Iter(); !iter.Done(); iter.Next()) {
@@ -75,21 +84,29 @@ BluetoothMapFolder::GetFolderListingObjectString(nsAString& aString,
     }
 
     const nsAString& key = iter.Key();
-    folderListingObejct.Append("<folder name=\"");
-    folderListingObejct.Append(NS_ConvertUTF16toUTF8(key).get());
-    folderListingObejct.Append("\"/>");
+    folderListingObject.Append("<folder name=\"");
+    folderListingObject.Append(NS_ConvertUTF16toUTF8(key).get());
+    folderListingObject.Append("\"/>");
     count++;
   }
 
-  folderListingObejct.Append(folderListingSuffix);
-  aString = NS_ConvertUTF8toUTF16(folderListingObejct);
+  folderListingObject.Append(folderListingSuffix);
+  aString = folderListingObject;
+}
+
+void
+BluetoothMapFolder::GetPath(nsAString& aPath) const
+{
+  aPath = mPath;
 }
 
 void
 BluetoothMapFolder::DumpFolderInfo()
 {
-  BT_LOGR("Folder name: %s, subfolder counts: %d",
-          NS_ConvertUTF16toUTF8(mName).get(), mSubFolders.Count());
+  BT_LOGR("Folder name: %s, subfolder counts: %d, path: %s",
+          NS_ConvertUTF16toUTF8(mName).get(),
+          mSubFolders.Count(),
+          NS_ConvertUTF16toUTF8(mPath).get());
 }
 
 END_BLUETOOTH_NAMESPACE

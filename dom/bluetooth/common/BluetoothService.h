@@ -337,6 +337,14 @@ public:
              BluetoothReplyRunnable* aRunnable) = 0;
 
   virtual void
+  AcceptConnection(const uint16_t aServiceUuid,
+                   BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual void
+  RejectConnection(const uint16_t aServiceUuid,
+                   BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual void
   SendFile(const BluetoothAddress& aDeviceAddress,
            BlobParent* aBlobParent,
            BlobChild* aBlobChild,
@@ -487,6 +495,17 @@ public:
   virtual nsresult
   SendInputMessage(const nsAString& aDeviceAddresses,
                    const nsAString& aMessage) = 0;
+
+  virtual void
+  SendMessageEvent(uint8_t aMasId,
+                   BlobParent* aBlobParent,
+                   BlobChild* aBlobChild,
+                   BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual void
+  SendMessageEvent(uint8_t aMasId,
+                   Blob* aBlob,
+                   BluetoothReplyRunnable* aRunnable) = 0;
 
   /**
    * Connect to a remote GATT server. (platform specific implementation)
@@ -786,6 +805,10 @@ protected:
   BluetoothSignalObserverTable mBluetoothSignalObserverTable;
 
   nsTArray<BluetoothSignal> mPendingPairReqSignals;
+
+  nsTArray<BluetoothSignal> mPendingPbapReqSignals;
+
+  nsTArray<BluetoothSignal> mPendingMapReqSignals;
 
   bool mEnabled;
 };

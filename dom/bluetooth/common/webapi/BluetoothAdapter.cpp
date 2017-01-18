@@ -16,6 +16,7 @@
 
 #include "mozilla/dom/BluetoothAdapterBinding.h"
 #include "mozilla/dom/BluetoothAttributeEvent.h"
+#include "mozilla/dom/BluetoothMapConnectionReqEvent.h"
 #include "mozilla/dom/BluetoothMapFolderListingEvent.h"
 #include "mozilla/dom/BluetoothMapGetMessageEvent.h"
 #include "mozilla/dom/BluetoothMapMessagesListingEvent.h"
@@ -23,6 +24,7 @@
 #include "mozilla/dom/BluetoothMapSetMessageStatusEvent.h"
 #include "mozilla/dom/BluetoothMapSendMessageEvent.h"
 #include "mozilla/dom/BluetoothObexAuthEvent.h"
+#include "mozilla/dom/BluetoothPbapConnectionReqEvent.h"
 #include "mozilla/dom/BluetoothPhonebookPullingEvent.h"
 #include "mozilla/dom/BluetoothStatusChangedEvent.h"
 #include "mozilla/dom/BluetoothVCardListingEvent.h"
@@ -33,6 +35,7 @@
 
 #include "mozilla/dom/bluetooth/BluetoothAdapter.h"
 #include "mozilla/dom/bluetooth/BluetoothClassOfDevice.h"
+#include "mozilla/dom/bluetooth/BluetoothConnectionHandle.h"
 #include "mozilla/dom/bluetooth/BluetoothDevice.h"
 #include "mozilla/dom/bluetooth/BluetoothDiscoveryHandle.h"
 #include "mozilla/dom/bluetooth/BluetoothGattServer.h"
@@ -63,6 +66,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter,
    * after unlinked. Please see Bug 1138267 for detail informations.
    */
   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_ADAPTER), tmp);
+  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), tmp);
+  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MAP), tmp);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter,
@@ -325,6 +330,8 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindowInner* aWindow,
   , mState(BluetoothAdapterState::Disabled)
   , mDiscoverable(false)
   , mDiscovering(false)
+  , mHasListenedToPbapSignal(false)
+  , mHasListenedToMapSignal(false)
   , mPairingReqs(nullptr)
   , mDiscoveryHandleInUse(nullptr)
 {
@@ -342,6 +349,9 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindowInner* aWindow,
   }
 
   RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_ADAPTER), this);
+
+  TryListeningToBluetoothPbapSignal();
+  TryListeningToBluetoothMapSignal();
 }
 
 BluetoothAdapter::~BluetoothAdapter()
@@ -360,6 +370,8 @@ void
 BluetoothAdapter::Cleanup()
 {
   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_ADAPTER), this);
+  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), this);
+  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MAP), this);
 
   // Stop ongoing LE scans and clear the LeScan handle array
   if (!mLeScanHandleArray.IsEmpty()) {
@@ -516,6 +528,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
   NS_ENSURE_TRUE_VOID(mSignalRegistered);
 
   BluetoothValue v = aData.value();
+
   if (aData.name().EqualsLiteral("PropertyChanged")) {
     HandlePropertyChanged(v);
   } else if (aData.name().EqualsLiteral("DeviceFound")) {
@@ -564,12 +577,16 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     DispatchEmptyEvent(aData.name());
   } else if (aData.name().EqualsLiteral(OBEX_PASSWORD_REQ_ID)) {
     HandleObexPasswordReq(aData.value());
+  } else if (aData.name().EqualsLiteral(PBAP_CONNECTION_REQ_ID)) {
+    HandlePbapConnectionReq(aData.value());
   } else if (aData.name().EqualsLiteral(PULL_PHONEBOOK_REQ_ID)) {
     HandlePullPhonebookReq(aData.value());
   } else if (aData.name().EqualsLiteral(PULL_VCARD_ENTRY_REQ_ID)) {
     HandlePullVCardEntryReq(aData.value());
   } else if (aData.name().EqualsLiteral(PULL_VCARD_LISTING_REQ_ID)) {
     HandlePullVCardListingReq(aData.value());
+  } else if (aData.name().EqualsLiteral(MAP_CONNECTION_REQ_ID)) {
+    HandleMapConnectionReq(aData.value());
   } else if (aData.name().EqualsLiteral(MAP_MESSAGES_LISTING_REQ_ID)) {
     HandleMapMessagesListing(aData.value());
   } else if (aData.name().EqualsLiteral(MAP_FOLDER_LISTING_REQ_ID)) {
@@ -1117,6 +1134,24 @@ BluetoothAdapter::SetAdapterState(BluetoothAdapterState aState)
 }
 
 void
+BluetoothAdapter::HandlePbapConnectionReq(const BluetoothValue& aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TnsString);
+
+  BluetoothPbapConnectionReqEventInit init;
+  init.mAddress = aValue.get_nsString();
+  init.mHandle =
+    BluetoothConnectionHandle::Create(GetOwner(),
+                                      BluetoothServiceClass::PBAP_PSE);
+
+  RefPtr<BluetoothPbapConnectionReqEvent> event =
+    BluetoothPbapConnectionReqEvent::Constructor(this,
+      NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID), init);
+
+  DispatchTrustedEvent(event);
+}
+
+void
 BluetoothAdapter::HandlePropertyChanged(const BluetoothValue& aValue)
 {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
@@ -1477,6 +1512,24 @@ BluetoothAdapter::HandleMapFolderListing(const BluetoothValue& aValue)
 }
 
 void
+BluetoothAdapter::HandleMapConnectionReq(const BluetoothValue& aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TnsString);
+
+  BluetoothMapConnectionReqEventInit init;
+  init.mAddress = aValue.get_nsString();
+  init.mHandle =
+    BluetoothConnectionHandle::Create(GetOwner(),
+                                      BluetoothServiceClass::MAP_MAS);
+
+  RefPtr<BluetoothMapConnectionReqEvent> event =
+    BluetoothMapConnectionReqEvent::Constructor(this,
+      NS_LITERAL_STRING(MAP_CONNECTION_REQ_ID), init);
+
+  DispatchTrustedEvent(event);
+}
+
+void
 BluetoothAdapter::HandleMapMessagesListing(const BluetoothValue& aValue)
 {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
@@ -1484,15 +1537,22 @@ BluetoothAdapter::HandleMapMessagesListing(const BluetoothValue& aValue)
   const InfallibleTArray<BluetoothNamedValue>& arr =
     aValue.get_ArrayOfBluetoothNamedValue();
 
-  MOZ_ASSERT(arr.Length() >= 1 &&
-    arr[0].value().type() == BluetoothValue::Tuint32_t);
+  // arr[0].name() is 'name' and arr[1].name() is 'maxListCount'
+  // 'name' and 'maxListCount' are mandatory under current implementation.
+  // 'name': the absolute path of the folder to be retrieved.
+  // 'maxListCount': the max. number of messages listed in the object.
+  MOZ_ASSERT(arr.Length() >= 2 &&
+             arr[0].value().type() == BluetoothValue::TnsString &&
+             arr[1].value().type() == BluetoothValue::Tuint32_t);
 
   BluetoothMapMessagesListingEventInit init;
 
   for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
     const nsString& name = arr[i].name();
     const BluetoothValue& value = arr[i].value();
-    if (name.EqualsLiteral("maxListCount")) {
+    if (name.EqualsLiteral("name")) {
+      init.mName = value.get_nsString();
+    } else if (name.EqualsLiteral("maxListCount")) {
       init.mMaxListCount = value.get_uint32_t();
     } else if (name.EqualsLiteral("startOffset")) {
       init.mListStartOffset = value.get_uint32_t();
@@ -1541,7 +1601,9 @@ BluetoothAdapter::HandleMapGetMessage(const BluetoothValue& aValue)
   for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
     const nsString& name = arr[i].name();
     const BluetoothValue& value = arr[i].value();
-    if (name.EqualsLiteral("hasAttachment")) {
+    if (name.EqualsLiteral("name")) {
+      init.mName = value.get_nsString();
+    } else if (name.EqualsLiteral("hasAttachment")) {
       init.mHasAttachment = value.get_bool();
     } else if (name.EqualsLiteral("charset")) {
       if (value.get_uint32_t() == 0) {
@@ -2099,8 +2161,88 @@ BluetoothAdapter::SendMediaPlayStatus(
   return request.forget();
 }
 
+already_AddRefed<Promise>
+
+BluetoothAdapter::SendMessageEvent(uint8_t aMasId, Blob& aBlob, ErrorResult& aRv)
+{
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
+  if (!global) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
+  NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
+
+  BluetoothService* bs = BluetoothService::Get();
+  BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
+
+  // Wrap runnable to handle result
+  RefPtr<BluetoothReplyRunnable> result =
+    new BluetoothVoidReplyRunnable(nullptr, promise);
+
+  if (XRE_IsParentProcess()) {
+    // In-process transfer
+    bs->SendMessageEvent(aMasId, &aBlob, result);
+  } else {
+    ContentChild *cc = ContentChild::GetSingleton();
+    if (!cc) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
+
+    BlobChild* actor = cc->GetOrCreateActorForBlob(&aBlob);
+    if (!actor) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
+
+    bs->SendMessageEvent(aMasId, nullptr, actor, result);
+  }
+
+  return promise.forget();
+}
+
 JSObject*
 BluetoothAdapter::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return BluetoothAdapterBinding::Wrap(aCx, this, aGivenProto);
+}
+
+void
+BluetoothAdapter::EventListenerAdded(nsIAtom* aType)
+{
+  DOMEventTargetHelper::EventListenerAdded(aType);
+
+  TryListeningToBluetoothPbapSignal();
+  TryListeningToBluetoothMapSignal();
+}
+
+void
+BluetoothAdapter::TryListeningToBluetoothPbapSignal()
+{
+  if (!mHasListenedToPbapSignal) {
+    // Listen to bluetooth PBAP signal if PBAP connection request event handler
+    // has been attached. All pending PBAP requests queued in BluetoothService
+    // would be fired when adapter starts listening to bluetooth PBAP signal.
+    if (HasListenersFor(nsGkAtoms::onpbapconnectionreq)) {
+      RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), this);
+      mHasListenedToPbapSignal = true;
+    }
+  }
+}
+
+void
+BluetoothAdapter::TryListeningToBluetoothMapSignal()
+{
+  if (!mHasListenedToMapSignal) {
+    // Listen to bluetooth MAP signal if MAP connection request event handler
+    // has been attached. All pending MAP requests queued in BluetoothService
+    // would be fired when adapter starts listening to bluetooth MAP signal.
+    if (HasListenersFor(nsGkAtoms::onmapconnectionreq)) {
+
+      RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MAP), this);
+      mHasListenedToMapSignal = true;
+    }
+  }
 }

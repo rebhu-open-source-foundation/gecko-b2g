@@ -99,7 +99,9 @@ BluetoothPbapManager::HandleShutdown()
 }
 
 BluetoothPbapManager::BluetoothPbapManager() : mPhonebookSizeRequired(false)
+                                             , mNewMissedCallsRequired(false)
                                              , mConnected(false)
+                                             , mPasswordReqNeeded(false)
                                              , mRemoteMaxPacketLength(0)
 {
   mCurrentPath.AssignLiteral("");
@@ -275,8 +277,11 @@ BluetoothPbapManager::ReceiveSocketData(BluetoothSocket* aSocket,
   const uint8_t* data = aMessage->GetData();
   uint8_t opCode = data[0];
   ObexHeaderSet pktHeaders;
+
   switch (opCode) {
-    case ObexRequestCode::Connect:
+    case ObexRequestCode::Connect: {
+      mPasswordReqNeeded = false;
+
       // Section 3.3.1 "Connect", IrOBEX 1.2
       // [opcode:1][length:2][version:1][flags:1][MaxPktSizeWeCanReceive:2]
       // [Headers:var]
@@ -293,32 +298,36 @@ BluetoothPbapManager::ReceiveSocketData(BluetoothSocket* aSocket,
         return;
       }
 
-      // Section 3.5 "Authentication Procedure", IrOBEX 1.2
-      // An user input password is required to reply to authentication
-      // challenge. The OBEX success response will be sent after gaia
-      // replies correct password.
-      if (pktHeaders.Has(ObexHeaderId::AuthChallenge)) {
-        ObexResponseCode response = NotifyPasswordRequest(pktHeaders);
-        if (response != ObexResponseCode::Success) {
-          ReplyError(response);
-        }
-        return;
-      }
-
       // Save the max packet length from remote information
-      mRemoteMaxPacketLength = BigEndian::readUint16(&data[5]);
+      mRemoteMaxPacketLength = ((static_cast<int>(data[5]) << 8) | data[6]);
 
       if (mRemoteMaxPacketLength < kObexLeastMaxSize) {
         BT_LOGR("Remote maximum packet length %d is smaller than %d bytes",
-          mRemoteMaxPacketLength, kObexLeastMaxSize);
+                mRemoteMaxPacketLength, kObexLeastMaxSize);
         mRemoteMaxPacketLength = 0;
         ReplyError(ObexResponseCode::BadRequest);
         return;
       }
 
-      ReplyToConnect();
-      AfterPbapConnected();
+      // Section 3.5 "Authentication Procedure", IrOBEX 1.2
+      // Get anthentication challenge data and nonce here and
+      // will request an user input password after user accept
+      // this OBEX connection.
+      if (pktHeaders.Has(ObexHeaderId::AuthChallenge)) {
+        GetRemoteNonce(pktHeaders);
+        mPasswordReqNeeded = true;
+      }
+
+      // The user consent is required. If user accept the connection request,
+      // the OBEX connection session will be processed;
+      // Otherwise, the session will be rejected.
+      ObexResponseCode response = NotifyConnectionRequest();
+      if (response != ObexResponseCode::Success) {
+        ReplyError(response);
+        return;
+      }
       break;
+    }
     case ObexRequestCode::Disconnect:
     case ObexRequestCode::Abort:
       // Section 3.3.2 "Disconnect" and Section 3.3.5 "Abort", IrOBEX 1.2
@@ -432,6 +441,31 @@ BluetoothPbapManager::CompareHeaderTarget(const ObexHeaderSet& aHeader)
 }
 
 ObexResponseCode
+BluetoothPbapManager::NotifyConnectionRequest()
+{
+  MOZ_ASSERT(NS_IsMainThread());
+
+  // Ensure bluetooth service is available
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    BT_LOGR("Failed to get Bluetooth service");
+    return ObexResponseCode::PreconditionFailed;
+  }
+
+  nsAutoString deviceAddressStr;
+  AddressToString(mDeviceAddress, deviceAddressStr);
+
+  bs->DistributeSignal(
+    BluetoothSignal(NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID),
+                    NS_LITERAL_STRING(KEY_PBAP),
+                    deviceAddressStr));
+
+  BT_LOGR("Notify front-end app of the PBAP connection request.");
+
+  return ObexResponseCode::Success;
+}
+
+ObexResponseCode
 BluetoothPbapManager::SetPhoneBookPath(const ObexHeaderSet& aHeader,
                                        uint8_t flags)
 {
@@ -497,6 +531,10 @@ BluetoothPbapManager::NotifyPbapRequest(const ObexHeaderSet& aHeader)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
+  // Clean up the flag of last PBAP request
+  mPhonebookSizeRequired = false;
+  mNewMissedCallsRequired = false;
+
   // Get content type and name
   nsString type, name;
   aHeader.GetContentType(type);
@@ -516,6 +554,13 @@ BluetoothPbapManager::NotifyPbapRequest(const ObexHeaderSet& aHeader)
       BT_LOGR("Illegal phone book object name [%s]",
               NS_ConvertUTF16toUTF8(name).get());
       return ObexResponseCode::NotFound;
+    } else {
+      BT_LOGD("Pull phonebook [%s]", NS_ConvertUTF16toUTF8(name).get());
+    }
+
+    // Handle missed calls history request
+    if (strstr(NS_ConvertUTF16toUTF8(name).get(), "mch")) {
+      mNewMissedCallsRequired = true;
     }
   } else if (type.EqualsLiteral("x-bt/vcard-listing")) {
     reqId.AssignLiteral(PULL_VCARD_LISTING_REQ_ID);
@@ -527,14 +572,29 @@ BluetoothPbapManager::NotifyPbapRequest(const ObexHeaderSet& aHeader)
     // may be sent to retrieve the vCard Listing object of the current folder.
     name = name.IsEmpty() ? mCurrentPath
                           : mCurrentPath + NS_LITERAL_STRING("/") + name;
+
+    BT_LOGD("List phonebook [%s]", NS_ConvertUTF16toUTF8(name).get());
+
+    // Handle missed calls history request
+    if (strstr(NS_ConvertUTF16toUTF8(name).get(), "mch")) {
+      mNewMissedCallsRequired = true;
+    }
   } else if (type.EqualsLiteral("x-bt/vcard")) {
     reqId.AssignLiteral(PULL_VCARD_ENTRY_REQ_ID);
     tagCount = MOZ_ARRAY_LENGTH(sVCardEntryTags);
     tags = sVCardEntryTags;
 
-    // Convert relative path to absolute path if it's not using X-BT-UID.
-    if (name.Find(NS_LITERAL_STRING("X-BT-UID")) == kNotFound) {
+    // Section 5.4 "PullvCardEntry Function", PBAP 1.2
+    // The value of header "Name" is object name (*.vcf) or
+    // X-BT-UID (X-BT-UID:*)
+    if (name.Find(NS_LITERAL_STRING(".vcf")) != kNotFound) {
+      // Convert relative path to absolute path if the object name is *.vcf
       name = mCurrentPath + NS_LITERAL_STRING("/") + name;
+    } else {
+      // H5OS curretly supports phonebook object with "vcf" format only
+      BT_LOGR("Uhacceptable phonebook object name: %s",
+              NS_ConvertUTF16toUTF8(name).get());
+       return ObexResponseCode::NotAcceptable;
     }
   } else {
     BT_LOGR("Unknown PBAP request type: %s",
@@ -556,36 +616,15 @@ BluetoothPbapManager::NotifyPbapRequest(const ObexHeaderSet& aHeader)
     AppendNamedValueByTagId(aHeader, data, tags[i]);
   }
 
-  bs->DistributeSignal(reqId, NS_LITERAL_STRING(KEY_ADAPTER), data);
+  bs->DistributeSignal(reqId, NS_LITERAL_STRING(KEY_PBAP), data);
 
   return ObexResponseCode::Success;
 }
 
 ObexResponseCode
-BluetoothPbapManager::NotifyPasswordRequest(const ObexHeaderSet& aHeader)
+BluetoothPbapManager::NotifyPasswordRequest()
 {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aHeader.Has(ObexHeaderId::AuthChallenge));
-
-  // Get authentication challenge data
-  const ObexHeader* authHeader = aHeader.GetHeader(ObexHeaderId::AuthChallenge);
-
-  // Get nonce from authentication challenge
-  // Section 3.5.1 "Digest Challenge", IrOBEX spec 1.2
-  // The tag-length-value triplet of nonce is
-  //   [tagId:1][length:1][nonce:16]
-  uint8_t offset = 0;
-  do {
-    uint8_t tagId = authHeader->mData[offset++];
-    uint8_t length = authHeader->mData[offset++];
-
-    BT_LOGR("AuthChallenge header includes tagId %d", tagId);
-    if (tagId == ObexDigestChallenge::Nonce) {
-      memcpy(mRemoteNonce, &authHeader->mData[offset], DIGEST_LENGTH);
-    }
-
-    offset += length;
-  } while (offset < authHeader->mDataLength);
 
   // Ensure bluetooth service is available
   BluetoothService* bs = BluetoothService::Get();
@@ -745,6 +784,7 @@ BluetoothPbapManager::AfterPbapDisconnected()
 
   mRemoteMaxPacketLength = 0;
   mPhonebookSizeRequired = false;
+  mNewMissedCallsRequired = false;
 
   if (mVCardDataStream) {
     mVCardDataStream->Close();
@@ -761,14 +801,19 @@ BluetoothPbapManager::IsConnected()
 void
 BluetoothPbapManager::GetAddress(BluetoothAddress& aDeviceAddress)
 {
+  if (!mSocket) {
+    aDeviceAddress.Clear();
+    return;
+  }
+
   return mSocket->GetAddress(aDeviceAddress);
 }
 
-void
+bool
 BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword)
 {
   if (mConnected) {
-    return;
+    return true;
   }
 
   // Section 3.3.1 "Connect", IrOBEX 1.2
@@ -783,10 +828,13 @@ BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword)
   res[6] = (uint8_t)BluetoothPbapManager::MAX_PACKET_LENGTH;
 
   // Section 6.4 "Establishing an OBEX Session", PBAP 1.2
-  // Headers: [Who:16][Connection ID]
+  // Headers: [Connection Id][Who:16]
+  //
+  // According to section 2.2.11 "Connection Identifie", IrOBEX 1.2,
+  // Connection Id header should be the first header.
+  index += AppendHeaderConnectionId(&res[index], 0x01);
   index += AppendHeaderWho(&res[index], kObexLeastMaxSize,
                            kPbapObexTarget.mUuid, sizeof(BluetoothUuid));
-  index += AppendHeaderConnectionId(&res[index], 0x01);
 
   // Authentication response
   if (!aPassword.IsEmpty()) {
@@ -817,7 +865,9 @@ BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword)
                                 digestResponse, offset);
   }
 
-  SendObexData(res, ObexResponseCode::Success, index);
+  BT_LOGR("Reply to PBAP connection request.");
+
+  return SendObexData(res, ObexResponseCode::Success, index);
 }
 
 nsresult
@@ -910,6 +960,8 @@ BluetoothPbapManager::PackPropertiesMask(uint8_t* aData, int aSize)
 void
 BluetoothPbapManager::ReplyToAuthChallenge(const nsAString& aPassword)
 {
+  mPasswordReqNeeded = false;
+
   // Cancel authentication
   if (aPassword.IsEmpty()) {
     ReplyError(ObexResponseCode::Unauthorized);
@@ -921,9 +973,39 @@ BluetoothPbapManager::ReplyToAuthChallenge(const nsAString& aPassword)
 }
 
 bool
+BluetoothPbapManager::ReplyToConnectionRequest(bool aAccept)
+{
+  if (!aAccept) {
+    return ReplyError(ObexResponseCode::Forbidden);
+  }
+
+  if (mPasswordReqNeeded) {
+    // An user input password is required to reply to authentication
+    // challenge. The OBEX success response will be sent after gaia
+    // replies correct password.
+    ObexResponseCode response = NotifyPasswordRequest();
+    if (response != ObexResponseCode::Success) {
+      ReplyError(response);
+      return false;
+    }
+
+    return true;
+  }
+
+  bool ret = ReplyToConnect();
+  if (ret) {
+    AfterPbapConnected();
+  }
+
+  return ret;
+}
+
+bool
 BluetoothPbapManager::ReplyToPullPhonebook(BlobParent* aActor,
                                            uint16_t aPhonebookSize)
 {
+  BT_LOGD("ReplyToPullPhonebook with %d contacts.", aPhonebookSize);
+
   RefPtr<BlobImpl> impl = aActor->GetBlobImpl();
   RefPtr<Blob> blob = Blob::Create(nullptr, impl);
 
@@ -955,6 +1037,8 @@ bool
 BluetoothPbapManager::ReplyToPullvCardListing(BlobParent* aActor,
                                               uint16_t aPhonebookSize)
 {
+  BT_LOGD("ReplyToPullvCardListing with %d contacts.", aPhonebookSize);
+
   RefPtr<BlobImpl> impl = aActor->GetBlobImpl();
   RefPtr<Blob> blob = Blob::Create(nullptr, impl);
 
@@ -1011,17 +1095,22 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
 {
   MOZ_ASSERT(mRemoteMaxPacketLength >= kObexLeastMaxSize);
 
+  if (!mConnected) {
+    return false;
+  }
+
   /**
    * This response consists of following parts:
    * - Part 1: [response code:1][length:2]
    *
    * If |mPhonebookSizeRequired| is true,
-   * - Part 2: [headerId:1][length:2][PhonebookSize:4]
+   * - Part 2: [headerId:1][length:2][AppParameters:var]
    * - Part 3: [headerId:1][length:2][EndOfBody:0]
    * Otherwise,
-   * - Part 2a: [headerId:1][length:2][EndOfBody:0]
+   * - Part 2(optional): [headerId:1][length:2][AppParameters:var]
+   * - Part 3a: [headerId:1][length:2][EndOfBody:0]
    *   or
-   * - Part 2b: [headerId:1][length:2][Body:var]
+   * - Part 3b: [headerId:1][length:2][Body:var]
    */
   auto res = MakeUnique<uint8_t[]>(mRemoteMaxPacketLength);
   uint8_t opcode;
@@ -1032,19 +1121,22 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
   unsigned int index = kObexRespHeaderSize;
 
   if (mPhonebookSizeRequired) {
-    // ---- Part 2: [headerId:1][length:2][PhonebookSize:4] ---- //
+    // ---- Part 2: [headerId:1][length:2][AppParameters:var] ---- //
+    // Section 6.2.1 "Application Parameters Header", PBAP 1.2
+    // appParameters: [headerId:1][length:2][PhonebookSize:4],
+    //                where [PhonebookSize:4]  = [tagId:1][length:1][value:2]
+    uint8_t appParameters[4];
+
     uint8_t phonebookSize[2];
     BigEndian::writeUint16(&phonebookSize[0], aPhonebookSize);
 
-    // Section 6.2.1 "Application Parameters Header", PBAP 1.2
-    // appParameters: [headerId:1][length:2][PhonebookSize:4], where
-    //                [PhonebookSize:4] = [tagId:1][length:1][value:2]
-    uint8_t appParameters[4];
     AppendAppParameter(appParameters,
                        sizeof(appParameters),
                        static_cast<uint8_t>(AppParameterTag::PhonebookSize),
                        phonebookSize,
                        sizeof(phonebookSize));
+
+    mPhonebookSizeRequired = false;
 
     index += AppendHeaderAppParameters(&res[index],
                                        mRemoteMaxPacketLength,
@@ -1054,8 +1146,6 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
     // ---- Part 3: [headerId:1][length:2][EndOfBody:0] ---- //
     opcode = ObexResponseCode::Success;
     index += AppendHeaderEndOfBody(&res[index]);
-
-    mPhonebookSizeRequired = false;
   } else {
     MOZ_ASSERT(mVCardDataStream);
 
@@ -1067,6 +1157,30 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
       return false;
     }
 
+    // ----  Part 2: [headerId:1][length:2][AppParameters:var] ---- //
+    // Section 6.2.1 "Application Parameters Header", PBAP 1.2
+    // appParameters: [headerId:1][length:2][NewMissedCalls:3],
+    //                where [NewMissedCalls:3] = [tagId:1][length:1][value:1]
+    if (mNewMissedCallsRequired) {
+      uint8_t appParameters[3];
+
+      // Since the frontend of H5OS don't support NewMissedCalls feature, set
+      // it to |aPhonebookSize| to pretend no missed call has been dismissed.
+      uint8_t dummyNewMissedCalls = aPhonebookSize;
+
+      AppendAppParameter(appParameters,
+                         sizeof(appParameters),
+                         static_cast<uint8_t>(AppParameterTag::NewMissedCalls),
+                         &dummyNewMissedCalls,
+                         sizeof(dummyNewMissedCalls));
+      mNewMissedCallsRequired = false;
+
+      index += AppendHeaderAppParameters(&res[index],
+                                         mRemoteMaxPacketLength,
+                                         appParameters,
+                                         sizeof(appParameters));
+    }
+
     /*
      * In practice, some platforms can only handle zero length End-of-Body
      * header separately with Body header.
@@ -1074,7 +1188,7 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
      * otherwise, send 'Continue' to request for next GET request.
      */
     if (!bytesAvailable) {
-      // ----  Part 2a: [headerId:1][length:2][EndOfBody:0] ---- //
+      // ----  Part 3a: [headerId:1][length:2][EndOfBody:0] ---- //
       index += AppendHeaderEndOfBody(&res[index]);
 
       // Close input stream
@@ -1100,9 +1214,9 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
       // |numRead| must be non-zero as |bytesAvailable| is non-zero
       MOZ_ASSERT(numRead);
 
-      // ----  Part 2b: [headerId:1][length:2][Body:var] ---- //
+      // ----  Part 3b: [headerId:1][length:2][Body:var] ---- //
       index += AppendHeaderBody(&res[index],
-                                remainingPacketSize,
+                                remainingPacketSize + kObexBodyHeaderSize,
                                 reinterpret_cast<uint8_t*>(buf.get()),
                                 numRead);
 
@@ -1110,9 +1224,7 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
     }
   }
 
-  SendObexData(Move(res), opcode, index);
-
-  return true;
+  return SendObexData(Move(res), opcode, index);
 }
 
 bool
@@ -1137,6 +1249,33 @@ BluetoothPbapManager::GetInputStreamFromBlob(Blob* aBlob)
 }
 
 void
+BluetoothPbapManager::GetRemoteNonce(const ObexHeaderSet& aHeader)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aHeader.Has(ObexHeaderId::AuthChallenge));
+
+  // Get authentication challenge data
+  const ObexHeader* authHeader = aHeader.GetHeader(ObexHeaderId::AuthChallenge);
+
+  // Get nonce from authentication challenge
+  // Section 3.5.1 "Digest Challenge", IrOBEX spec 1.2
+  // The tag-length-value triplet of nonce is
+  //   [tagId:1][length:1][nonce:16]
+  uint8_t offset = 0;
+  do {
+    uint8_t tagId = authHeader->mData[offset++];
+    uint8_t length = authHeader->mData[offset++];
+
+    BT_LOGR("AuthChallenge header includes tagId %d", tagId);
+    if (tagId == ObexDigestChallenge::Nonce) {
+      memcpy(mRemoteNonce, &authHeader->mData[offset], DIGEST_LENGTH);
+    }
+
+    offset += length;
+  } while (offset < authHeader->mDataLength);
+}
+
+bool
 BluetoothPbapManager::ReplyError(uint8_t aError)
 {
   BT_LOGR("[0x%x]", aError);
@@ -1144,22 +1283,31 @@ BluetoothPbapManager::ReplyError(uint8_t aError)
   // Section 3.2 "Response Format", IrOBEX 1.2
   // [response code:1][length:2][data:var]
   uint8_t res[kObexLeastMaxSize];
-  SendObexData(res, aError, kObexBodyHeaderSize);
+  return SendObexData(res, aError, kObexBodyHeaderSize);
 }
 
-void
+bool
 BluetoothPbapManager::SendObexData(uint8_t* aData, uint8_t aOpcode, int aSize)
 {
+  if (!mSocket) {
+    BT_LOGR("Failed to send PBAP obex data. aOpcode: [0x%x] ", aOpcode);
+    return false;
+  }
+
   SetObexPacketInfo(aData, aOpcode, aSize);
   mSocket->SendSocketData(new UnixSocketRawData(aData, aSize));
+
+  return true;
 }
 
-void
+bool
 BluetoothPbapManager::SendObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode,
                                    int aSize)
 {
   SetObexPacketInfo(aData.get(), aOpcode, aSize);
   mSocket->SendSocketData(new UnixSocketRawData(Move(aData), aSize));
+
+  return true;
 }
 
 void

@@ -14,6 +14,7 @@
 #include "BluetoothSocketObserver.h"
 #include "mozilla/ipc/SocketBase.h"
 #include "mozilla/UniquePtr.h"
+#include "ObexBase.h"
 
 class nsIInputStream;
 
@@ -192,6 +193,36 @@ public:
    */
   bool ReplyToMessageUpdate(long aMasId, bool aStatus);
 
+ /**
+  * SendEvent to MCE device. MSE shall use the SendEvent function to notify the
+  * MCE on events affecting the messages listings within the MSE's folders
+  * structure. The MSE shall notify the MCE of the sending status of these
+  * messages using the SendEvent function.
+  *
+  * @param aMasId [in]          MAS id
+  * @param aBlob [in]           a blob containing the MAP-event-report objects
+  *
+  * @return true if the blob has started to be sent to the remote device; false
+  * otherwise.
+  */
+ bool SendMessageEvent(uint8_t aMasId, Blob* aBlob);
+
+ /**
+  * SendEvent to MCE device. MSE shall use the SendEvent function to notify the
+  * MCE on events affecting the messages listings within the MSE's folders
+  * structure. The MSE shall notify the MCE of the sending status of these
+  * messages using the SendEvent function.
+  *
+  * @param aMasId [in]          MAS id
+  * @param aActor [in]          a blob actor containing the MAP-event-report
+  *                             objects
+  *
+  * @return true if the blob has started to be sent to the remote device; false
+  * otherwise.
+  */
+ bool SendMessageEvent(long aMasId, BlobParent* aActor);
+
+
 protected:
   virtual ~BluetoothMapSmsManager();
 
@@ -202,7 +233,7 @@ private:
   void Uninit();
   void HandleShutdown();
 
-  void ReplyToConnect();
+  bool ReplyToConnect();
   void ReplyToDisconnectOrAbort();
 
   /*
@@ -212,9 +243,16 @@ private:
    * after the Final bit is set in the request.
    */
   bool ReplyToGetWithHeaderBody(UniquePtr<uint8_t[]> aResponse, unsigned int aIndex);
+  /*
+   * This function sends multiple response packets, in case of a PUT operation
+   * returning an object larger than one response packet.
+   * If the operation requires multiple request packets to complete after the
+   * Final bit is set in the request.
+   */
+  bool MnsPutMultiRequest();
   void ReplyToSetPath();
-  void ReplyToPut();
-  void SendReply(uint8_t aResponse);
+  void ReplyToPut(uint8_t aResponse);
+  bool SendReply(uint8_t aResponse);
 
   void HandleNotificationRegistration(const ObexHeaderSet& aHeader);
   void HandleSetMessageStatus(const ObexHeaderSet& aHeader);
@@ -226,10 +264,12 @@ private:
   void AppendBtNamedValueByTagId(const ObexHeaderSet& aHeader,
     InfallibleTArray<BluetoothNamedValue>& aValues,
     const Map::AppParametersTagId aTagId);
-  void SendMasObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
-  void SendMasObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode, int aSize);
+  bool SendMasObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
+  bool SendMasObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode, int aSize);
   void SendMnsObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
   bool StatusResponse(bool aStatus);
+
+  ObexResponseCode NotifyConnectionRequest();
 
   uint8_t SetPath(uint8_t flags, const ObexHeaderSet& aHeader);
   bool CompareHeaderTarget(const ObexHeaderSet& aHeader);
@@ -237,13 +277,43 @@ private:
   void AfterMapSmsDisconnected();
   void CreateMnsObexConnection();
   void DestroyMnsObexConnection();
+  void SendPutFinalRequest();
   void SendMnsConnectRequest();
   void SendMnsDisconnectRequest();
   void MnsDataHandler(mozilla::ipc::UnixSocketBuffer* aMessage);
   void MasDataHandler(mozilla::ipc::UnixSocketBuffer* aMessage);
-  bool GetInputStreamFromBlob(Blob* aBlob);
+  bool GetInputStreamFromBlob(Blob* aBlob, bool aIsMas);
   InfallibleTArray<uint32_t> PackParameterMask(uint8_t* aData, int aSize);
 
+  /**
+   * Usually we won't get a full PUT packet in one operation, which means that
+   * a packet may be devided into several parts and BluetoothMapSmsManager
+   * should be in charge of assembling.
+   *
+   * @param aOpCode  [in] the opCode of the PUT packet (usually is Put/PutFinal).
+   * @param aMessage [in] the content of the PUT packet.
+   *
+   * @return true if a packet has been fully received.
+   *         false if the received length exceeds/not reaches the expected
+   *         length.
+   */
+  bool ComposePacket(uint8_t aOpCode,
+                     mozilla::ipc::UnixSocketBuffer* aMessage);
+
+  /**
+   * Parse the headers from the full PUT packet.
+   *
+   * @param aOpCode  [in] the opCode of the PUT packet (usually is Put/PutFinal).
+   * @param aMessage [in] the content of the PUT packet.
+   * @param aPktHeaders [out] the headers of the PUT packet.
+   *
+   * @return true if a headers is successfully parsed.
+   *         false if a put packet has not been fully received, or a headers is
+   *                  parsed with any error.
+   */
+  bool ParsePutPacketHeaders(uint8_t aOpCode,
+                             mozilla::ipc::UnixSocketBuffer* aMessage,
+                             ObexHeaderSet* aPktHeaders);
   /*
    * Build mandatory folders
    */
@@ -254,10 +324,6 @@ private:
   BluetoothMapFolder* mCurrentFolder;
   RefPtr<BluetoothMapFolder> mRootFolder;
 
-  /*
-   * Record the last command
-   */
-  int mLastCommand;
   // Whether header body is required for the current MessagesListing response.
   bool mBodyRequired;
   // Whether FractionDeliver is required for the current GetMessage response
@@ -267,6 +333,12 @@ private:
   // MNS OBEX session status. Set when MNS OBEX session is established.
   bool mMnsConnected;
   bool mNtfRequired;
+  // The connection ID is received during the connection establishment,
+  // in order to signal the recipient of the request which OBEX connection
+  // this request belongs to.
+  uint32_t mConnectionId;
+  // Record the last command
+  int mLastCommand;
 
   BluetoothAddress mDeviceAddress;
   unsigned int mRemoteMaxPacketLength;
@@ -287,10 +359,16 @@ private:
   int mBodySegmentLength;
   UniquePtr<uint8_t[]> mBodySegment;
 
-  /**
-   * The bMessage/message-listing data stream for current processing response
-   */
-  nsCOMPtr<nsIInputStream> mDataStream;
+  // The getMessage/messagesListing data stream for current processing response
+  nsCOMPtr<nsIInputStream> mMasDataStream;
+  // The notification data stream
+  nsCOMPtr<nsIInputStream> mMnsDataStream;
+
+  // Set when receiving a PutFinal packet
+  bool mPutFinalFlag;
+  int mPutPacketLength;
+  int mPutReceivedPacketLength;
+  UniquePtr<uint8_t[]> mPutReceivedDataBuffer;
 };
 
 END_BLUETOOTH_NAMESPACE

@@ -2587,6 +2587,21 @@ BluetoothDBusService::SendInputMessage(const nsAString& aDeviceAddress,
   return SendAsyncDBusMessage(objectPath, DBUS_INPUT_IFACE, aMessage, callback);
 }
 
+void
+SendMessageEvent(long aMasId,
+                 BlobParent* aBlobParent,
+                 BlobChild* aBlobChild,
+                 BluetoothReplyRunnable* aRunnable)
+{
+}
+
+void
+SendMessageEvent(long aMasId,
+                 nsIDOMBlob* aBlob,
+                 BluetoothReplyRunnable* aRunnable)
+{
+}
+
 class SendAsyncDBusMessageTask : public Task
 {
 public:
@@ -3477,6 +3492,16 @@ BluetoothDBusService::Disconnect(const BluetoothAddress& aDeviceAddress,
                                  BluetoothReplyRunnable* aRunnable)
 {
   ConnectDisconnect(false, aDeviceAddress, aRunnable, aServiceUuid);
+}
+
+void BluetoothDBusServie::AcceptConnection(const uint16_t aServiceUuid,
+                                           BluetoothReplyRunnable* aRunnable)
+{
+}
+
+void BluetoothDBusServie::RejectConnection(const uint16_t aServiceUuid,
+                                           BluetoothReplyRunnable* aRunnable)
+{
 }
 
 #ifdef MOZ_B2G_RIL

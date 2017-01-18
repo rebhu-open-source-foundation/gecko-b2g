@@ -133,6 +133,14 @@ public:
              BluetoothReplyRunnable* aRunnable) override;
 
   virtual void
+  AcceptConnection(const uint16_t aServiceUuid,
+                   BluetoothReplyRunnable* aRunnable) override;
+
+  virtual void
+  RejectConnection(const uint16_t aServiceUuid,
+                   BluetoothReplyRunnable* aRunnable) override;
+
+  virtual void
   SendFile(const BluetoothAddress& aDeviceAddress,
            BlobParent* aBlobParent,
            BlobChild* aBlobChild,
@@ -283,6 +291,17 @@ public:
   virtual nsresult
   SendInputMessage(const nsAString& aDeviceAddresses,
                    const nsAString& aMessage) override;
+
+  virtual void
+  SendMessageEvent(long aMasId,
+                   BlobParent* aBlobParent,
+                   BlobChild* aBlobChild,
+                   BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+
+  virtual void
+  SendMessageEvent(long aMasId,
+                   nsIDOMBlob* aBlob,
+                   BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
   virtual void
   StartLeScanInternal(const nsTArray<BluetoothUuid>& aServiceUuids,

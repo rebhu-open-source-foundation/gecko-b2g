@@ -1280,6 +1280,18 @@ void
 BluetoothOppManager::GetAddress(BluetoothAddress& aDeviceAddress)
 {
   return mSocket->GetAddress(aDeviceAddress);
+
+bool
+BluetoothOppManager::ReplyToConnectionRequest(bool aAccept)
+{
+  MOZ_ASSERT(false, "BluetoothOppManager hasn't implemented this function yet.");
+  return false;
+}
+
+void
+BluetoothOppManager::ReplyToConnectionRequest(bool aAccept)
+{
+  MOZ_ASSERT(false, "BluetoothOppManager hasn't implemented this function yet.");
 }
 
 void
