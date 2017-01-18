@@ -557,12 +557,20 @@ var gTestSuite = (function() {
     return requestWifiScan()
       .then(function (networks) {
         if (isScanResultExpected(networks, aExpectedNetworks)) {
+          log("GetExpected scan results");
           return networks;
         }
         if (aRetryCnt > 0) {
+          log("Scan failed: " + aRetryCnt);
           return testWifiScanWithRetry(aRetryCnt - 1, aExpectedNetworks);
         }
         throw 'Unexpected scan result!';
+      }, function () {
+        log("Scan failed: " + aRetryCnt);
+        if (aRetryCnt > 0) {
+          return testWifiScanWithRetry(aRetryCnt - 1, aExpectedNetworks);
+        }
+        throw "Unexpected scan result!";
       });
   }
 
@@ -775,6 +783,9 @@ var gTestSuite = (function() {
       return writeHostapdConfFile(configFileName, createConfigFromCommon(aIndex))
         .then(() => runEmulatorShellSafe(['hostapd', '-B', configFileName]))
         .then(function (reply) {
+          if (!reply[0]) {
+            return;
+          }
           // It may fail at the first time due to the previous ungracefully terminated one.
           if (reply.length === 0) {
             // The hostapd starts successfully
@@ -782,6 +793,7 @@ var gTestSuite = (function() {
           }
 
           if (reply[0].indexOf('bind(PF_UNIX): Address already in use') !== -1) {
+            log("Try to start hostapd ");
             return startOneHostapd(aIndex);
           }
         });
@@ -808,6 +820,13 @@ var gTestSuite = (function() {
           return runEmulatorShellSafe(['kill', '-9', runningHostapd.pid]);
         });
         return Promise.all(promises);
+      })
+      // Delete all the socket descriptors when kill hostapd process.
+      .then(function() {
+        runEmulatorShellSafe(['rm', '-f', '/data/misc/wifi/remote-hostapd/*'])
+      })
+      .then(function() {
+        runEmulatorShellSafe(['rm', '-f', '/data/misc/wifi/sockets/AP-*'])
       });
   }
 
@@ -1021,6 +1040,15 @@ var gTestSuite = (function() {
       }
     }
     return -1;
+  }
+
+  function isStockSSID(aSsid) {
+    for (let i = 0; i < HOSTAPD_CONFIG_LIST.length; i++) {
+      if (HOSTAPD_CONFIG_LIST[i].ssid === aSsid) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -1321,6 +1349,7 @@ var gTestSuite = (function() {
   suite.writeFile = writeFile;
   suite.exeAndParseNetcfg = exeAndParseNetcfg;
   suite.exeAndParseIpRoute = exeAndParseIpRoute;
+  suite.isStockSSID = isStockSSID;
 
   /**
    * Common test routine.
