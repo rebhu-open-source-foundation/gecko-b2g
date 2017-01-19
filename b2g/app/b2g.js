@@ -1163,4 +1163,6 @@ pref("extensions.blocklist.detailsURL", "https://www.mozilla.com/%LOCALE%/blockl
 // format as https://maps.googleapis.com/maps/api/geocode/json?latlng=<lat>,<lon>&key=<key>
 pref("google.geocoding.URL", "https://maps.googleapis.com/maps/api/geocode/json?latlng=");
 
+// GLCursor draws a cursor image if widget receives eMouseMove event. It is
+// usually enabled with SpatialNavigation.
 pref("gfx.glcursor.enabled", false);
