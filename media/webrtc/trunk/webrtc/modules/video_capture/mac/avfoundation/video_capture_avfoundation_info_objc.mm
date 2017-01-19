@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.
+ *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
  *
  *  Use of this source code is governed by a BSD-style license
  *  that can be found in the LICENSE file in the root of the source
@@ -10,7 +10,7 @@
 
 #pragma mark **** imports/includes
 
-#import "webrtc/modules/video_capture/mac/qtkit/video_capture_qtkit_info_objc.h"
+#import "webrtc/modules/video_capture/mac/avfoundation/video_capture_avfoundation_info_objc.h"
 
 #include "webrtc/system_wrappers/interface/trace.h"
 
@@ -18,7 +18,7 @@ using namespace webrtc;
 
 #pragma mark **** hidden class interface
 
-@implementation VideoCaptureMacQTKitInfoObjC
+@implementation VideoCaptureMacAVFoundationInfoObjC
 
 // ****************** over-written OS methods ***********************
 #pragma mark **** over-written OS methods
@@ -74,6 +74,92 @@ using namespace webrtc;
     return [NSNumber numberWithInt:_captureDeviceCountInfo];
 }
 
+- (NSNumber*)getCaptureCapabilityCount:(const char*)uniqueId {
+
+    AVCaptureDevice* captureDevice = nil;
+    if (uniqueId == nil || !strcmp("", uniqueId)) {
+        WEBRTC_TRACE(kTraceInfo, kTraceVideoCapture, 0,
+            "Incorrect capture id argument");
+        return [NSNumber numberWithInt:-1];
+    }
+
+    for (int index = 0; index < _captureDeviceCountInfo; index++) {
+        captureDevice = (AVCaptureDevice*)[_captureDevicesInfo objectAtIndex:index];
+        char captureDeviceId[1024] = "";
+        [[captureDevice uniqueID] getCString:captureDeviceId
+                                   maxLength:1024
+                                    encoding:NSUTF8StringEncoding];
+        if (strcmp(uniqueId, captureDeviceId) == 0) {
+            WEBRTC_TRACE(kTraceInfo, kTraceVideoCapture, 0,
+                "%s:%d Found capture device id %s as index %d",
+                __FUNCTION__, __LINE__, captureDeviceId, index);
+            break;
+        }
+        captureDevice = nil;
+    }
+
+    if (!captureDevice)
+        return [NSNumber numberWithInt:-1];
+
+    return [NSNumber numberWithInt:[captureDevice formats].count];
+}
+
+- (NSNumber*)getCaptureCapability:(const char*)uniqueId
+                     CapabilityId:(uint32_t)capabilityId
+                 Capability_width:(int32_t*)width
+                Capability_height:(int32_t*)height
+                Capability_maxFPS:(int32_t*)maxFPS
+                Capability_format:(webrtc::RawVideoType*)rawType
+{
+    AVCaptureDevice* captureDevice = nil;
+    if (uniqueId == nil || !strcmp("", uniqueId)) {
+        WEBRTC_TRACE(kTraceInfo, kTraceVideoCapture, 0,
+            "Incorrect capture id argument");
+        return [NSNumber numberWithInt:-1];
+    }
+
+    for (int index = 0; index < _captureDeviceCountInfo; index++) {
+        captureDevice = (AVCaptureDevice*)[_captureDevicesInfo objectAtIndex:index];
+        char captureDeviceId[1024] = "";
+        [[captureDevice uniqueID] getCString:captureDeviceId
+                                   maxLength:1024
+                                    encoding:NSUTF8StringEncoding];
+        if (strcmp(uniqueId, captureDeviceId) == 0) {
+            WEBRTC_TRACE(kTraceInfo, kTraceVideoCapture, 0,
+                "%s:%d Found capture device id %s as index %d",
+                __FUNCTION__, __LINE__, captureDeviceId, index);
+            break;
+        }
+        captureDevice = nil;
+    }
+
+    if (!captureDevice)
+        return [NSNumber numberWithInt:-1];
+
+    AVCaptureDeviceFormat* format = (AVCaptureDeviceFormat*)[[captureDevice formats]objectAtIndex:capabilityId];
+    CMVideoDimensions videoDimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
+    AVFrameRateRange* maxFrameRateRange = nil;
+
+    for ( AVFrameRateRange* range in format.videoSupportedFrameRateRanges ) {
+        if ( range.maxFrameRate > maxFrameRateRange.maxFrameRate ) {
+            maxFrameRateRange = range;
+        }
+    }
+
+    *width = videoDimensions.width;
+    *height = videoDimensions.height;
+
+    // This is to fix setCaptureHeight() which fails for some webcams supporting non-integer framerates.
+    // In setCaptureHeight(), we match the best framerate range by searching a range whose max framerate
+    // is most close to (but smaller than or equal to) the target. Since maxFPS of capability is integer,
+    // we fill in the capability maxFPS with the floor value (e.g., 29) of the real supported fps
+    // (e.g., 29.97). If the target is set to 29, we failed to match the best format with max framerate
+    // 29.97 since it is over the target. Therefore, we need to return a ceiling value as the maxFPS here.
+    *maxFPS = static_cast<int32_t>(ceil(maxFrameRateRange.maxFrameRate));
+    *rawType = [VideoCaptureMacAVFoundationUtility fourCCToRawVideoType:CMFormatDescriptionGetMediaSubType(format.formatDescription)];
+
+    return [NSNumber numberWithInt:0];
+}
 
 - (NSNumber*)getDeviceNamesFromIndex:(uint32_t)index
     DefaultName:(char*)deviceName
@@ -98,7 +184,7 @@ using namespace webrtc;
       return [NSNumber numberWithInt:-1];
     }
 
-    QTCaptureDevice* tempCaptureDevice = (QTCaptureDevice*)[_captureDevicesInfo objectAtIndex:index];
+    AVCaptureDevice* tempCaptureDevice = (AVCaptureDevice*)[_captureDevicesInfo objectAtIndex:index];
     if(!tempCaptureDevice)
     {
       return [NSNumber numberWithInt:-1];
@@ -109,7 +195,7 @@ using namespace webrtc;
 
     bool successful = NO;
 
-    NSString* tempString = [tempCaptureDevice localizedDisplayName];
+    NSString* tempString = [tempCaptureDevice localizedName];
     successful = [tempString getCString:(char*)deviceName
                   maxLength:deviceNameLength encoding:NSUTF8StringEncoding];
     if(NO == successful)
@@ -147,17 +233,17 @@ using namespace webrtc;
     return [NSNumber numberWithInt:0];
 }
 
-// ***** Checks to see if the QTCaptureSession framework is available in the OS
+// ***** Checks to see if the AVCaptureSession framework is available in the OS
 // ***** If it is not, isOSSupprted = NO
 // ***** Throughout the rest of the class isOSSupprted is checked and functions
 // ***** are/aren't called depending
-// ***** The user can use weak linking to the QTKit framework and run on older
+// ***** The user can use weak linking to the AVFoundation framework and run on older
 // ***** versions of the OS
 // ***** I.E. Backwards compaitibility
 // ***** Returns nothing. Sets member variable
 - (void)checkOSSupported
 {
-    Class osSupportedTest = NSClassFromString(@"QTCaptureSession");
+    Class osSupportedTest = NSClassFromString(@"AVCaptureSession");
     if(nil == osSupportedTest)
     {
       _OSSupportedInfo = NO;
@@ -183,8 +269,8 @@ using namespace webrtc;
         [_captureDevicesInfo release];
     }
     _captureDevicesInfo = [[NSArray alloc]
-                            initWithArray:[QTCaptureDevice
-                                           inputDevicesWithMediaType:QTMediaTypeVideo]];
+                            initWithArray:[AVCaptureDevice
+                                           devicesWithMediaType:AVMediaTypeVideo]];
 
     _captureDeviceCountInfo = _captureDevicesInfo.count;
 
