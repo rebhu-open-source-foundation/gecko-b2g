@@ -93,17 +93,22 @@ void
 TelephonyCallGroup::ChangeState()
 {
   MOZ_ASSERT(mCalls.Length() != 1);
-  if (mCalls.Length() == 0) {
+  if (!mConferenceParentCall && mCalls.Length() == 0) {
     ChangeStateInternal(TelephonyCallGroupState::_empty);
     return;
   }
 
-  TelephonyCallState state = mCalls[0]->State();
-  for (uint32_t i = 1; i < mCalls.Length(); i++) {
-    if (mCalls[i]->State() != state) {
-      MOZ_ASSERT(false, "Various call states are found in a call group!");
-      ChangeStateInternal(TelephonyCallGroupState::_empty);
-      return;
+  TelephonyCallState state = TelephonyCallState::Disconnected;
+  if (mConferenceParentCall) {
+    state = mConferenceParentCall->State();
+  } else {
+    state = mCalls[0]->State();
+    for (uint32_t i = 1; i < mCalls.Length(); i++) {
+      if (mCalls[i]->State() != state) {
+        MOZ_ASSERT(false, "Various call states are found in a call group!");
+        ChangeStateInternal(TelephonyCallGroupState::_empty);
+        return;
+      }
     }
   }
 
@@ -129,10 +134,10 @@ TelephonyCallGroup::ChangeStateInternal(TelephonyCallGroupState aState)
   if (mState == aState) {
     return;
   }
- 
+
   // Update Current State
   mState = aState;
- 
+
   // Dispatch related events
   NotifyStateChanged();
 }
@@ -249,6 +254,13 @@ TelephonyCallGroup::GetCall(uint32_t aServiceId, uint32_t aCallIndex)
         tempCall->CallIndex() == aCallIndex) {
       call = tempCall;
       break;
+    }
+  }
+
+  if (!call && mConferenceParentCall) {
+    if (mConferenceParentCall->ServiceId() == aServiceId &&
+      mConferenceParentCall->CallIndex() == aCallIndex) {
+      call = mConferenceParentCall;
     }
   }
 
@@ -466,4 +478,16 @@ TelephonyCallGroup::Resume(nsITelephonyCallback* aCallback)
   }
 
   return NS_OK;
+}
+
+void
+TelephonyCallGroup::SetConferenceParentCall(TelephonyCall* aCall)
+{
+  mConferenceParentCall = aCall;
+}
+
+already_AddRefed<TelephonyCall>
+TelephonyCallGroup::GetConferenceParentCall() {
+  RefPtr<TelephonyCall> call = mConferenceParentCall;
+  return call.forget();
 }

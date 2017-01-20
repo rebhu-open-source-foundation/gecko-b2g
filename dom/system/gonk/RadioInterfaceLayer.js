@@ -712,6 +712,10 @@ RadioInterface.prototype = {
         gTelephonyService.notifyCdmaCallWaiting(this.clientId,
                                                 message.waitingCall);
         break;
+      case "deviceIdentities":
+        gMobileConnectionService.notifyDeviceIdentities(this.clientId,
+                                                        message);
+        break;
       case "suppSvcNotification":
         gTelephonyService.notifySupplementaryService(this.clientId,
                                                      message.number,
@@ -726,6 +730,12 @@ RadioInterface.prototype = {
         gDataCallInterfaceService.notifyDataCallListChanged(this.clientId,
                                                             dataCalls.length,
                                                             dataCalls);
+        break;
+      case "ringbackTone":
+        gTelephonyService.notifyRingbackTone(this.clientId, message.playRingbackTone);
+        break;
+      case "datacallerror":
+        connHandler.handleDataCallError(message);
         break;
       case "emergencyCbModeChange":
         gMobileConnectionService.notifyEmergencyCallbackModeChanged(this.clientId,

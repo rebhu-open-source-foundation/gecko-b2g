@@ -4600,6 +4600,9 @@ pref("dom.vibrator.max_vibrate_list_len", 128);
 // Battery API
 pref("dom.battery.enabled", true);
 
+// Usb API
+pref("dom.usb.enabled", true);
+
 // Image srcset
 pref("dom.image.srcset.enabled", true);
 
@@ -4958,6 +4961,12 @@ pref("dom.voicemail.enabled", false);
 // parameter omitted.
 pref("dom.voicemail.defaultServiceId", 0);
 
+// DataCall API
+#ifdef MOZ_B2G_RIL
+pref("dom.datacall.enabled", true);
+#else
+pref("dom.datacall.enabled", false);
+#endif
 // DOM Inter-App Communication API.
 pref("dom.inter-app-communication-api.enabled", false);
 
@@ -5258,6 +5267,7 @@ pref("dom.details_element.enabled", true);
 pref("dom.secureelement.enabled", false);
 #endif
 
+<<<<<<< HEAD
 // Allow control characters appear in composition string.
 // When this is false, control characters except
 // CHARACTER TABULATION (horizontal tab) are removed from
@@ -5300,3 +5310,6 @@ pref("dom.mozBrowserFramesEnabled", false);
 
 // Is support for 'color-adjust' CSS property enabled?
 pref("layout.css.color-adjust.enabled", true);
+
+pref("google.geocoding.maxWaitingTime", 5000);
+pref("google.geocoding.maxRetryCount", 5);

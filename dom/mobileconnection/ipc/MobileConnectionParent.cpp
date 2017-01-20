@@ -91,6 +91,8 @@ MobileConnectionParent::RecvPMobileConnectionRequestConstructor(PMobileConnectio
       return actor->DoRequest(aRequest.get_ExitEmergencyCbModeRequest());
     case MobileConnectionRequest::TSetRadioEnabledRequest:
       return actor->DoRequest(aRequest.get_SetRadioEnabledRequest());
+    case MobileConnectionRequest::TGetDeviceIdentitiesRequest:
+      return actor->DoRequest(aRequest.get_GetDeviceIdentitiesRequest());
     default:
       MOZ_CRASH("Received invalid request type!");
   }
@@ -128,7 +130,8 @@ MobileConnectionParent::RecvInit(nsMobileConnectionInfo* aVoice,
                                  nsString* aLastKnownHomeNetwork,
                                  int32_t* aNetworkSelectionMode,
                                  int32_t* aRadioState,
-                                 nsTArray<int32_t>* aSupportedNetworkTypes)
+                                 nsTArray<int32_t>* aSupportedNetworkTypes,
+                                 bool* aEmergencyCbMode)
 {
   NS_ENSURE_TRUE(mMobileConnection, false);
 
@@ -138,6 +141,7 @@ MobileConnectionParent::RecvInit(nsMobileConnectionInfo* aVoice,
   NS_ENSURE_SUCCESS(mMobileConnection->GetLastKnownHomeNetwork(*aLastKnownHomeNetwork), false);
   NS_ENSURE_SUCCESS(mMobileConnection->GetNetworkSelectionMode(aNetworkSelectionMode), false);
   NS_ENSURE_SUCCESS(mMobileConnection->GetRadioState(aRadioState), false);
+  NS_ENSURE_SUCCESS(mMobileConnection->GetIsInEmergencyCbMode(aEmergencyCbMode), false);
 
   int32_t* types = nullptr;
   uint32_t length = 0;
@@ -486,6 +490,14 @@ MobileConnectionRequestParent::DoRequest(const SetRadioEnabledRequest& aRequest)
   return NS_SUCCEEDED(mMobileConnection->SetRadioEnabled(aRequest.enabled(), this));
 }
 
+bool
+MobileConnectionRequestParent::DoRequest(const GetDeviceIdentitiesRequest& aRequest)
+{
+  NS_ENSURE_TRUE(mMobileConnection, false);
+
+  return NS_SUCCEEDED(mMobileConnection->GetDeviceIdentities(this));
+}
+
 nsresult
 MobileConnectionRequestParent::SendReply(const MobileConnectionReply& aReply)
 {
@@ -568,6 +580,13 @@ NS_IMETHODIMP
 MobileConnectionRequestParent::NotifyGetRoamingPreferenceSuccess(int32_t aMode)
 {
   return SendReply(MobileConnectionReplySuccessRoamingPreference(aMode));
+}
+
+NS_IMETHODIMP
+MobileConnectionRequestParent::NotifyGetDeviceIdentitiesRequestSuccess(
+  nsIMobileDeviceIdentities* aResult)
+{
+  return SendReply(MobileConnectionReplySuccessDeviceIdentities(aResult));
 }
 
 NS_IMETHODIMP

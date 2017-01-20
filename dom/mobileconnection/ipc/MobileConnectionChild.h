@@ -112,6 +112,7 @@ private:
   nsString mLastHomeNetwork;
   int32_t mNetworkSelectionMode;
   nsTArray<int32_t> mSupportedNetworkTypes;
+  bool mEmergencyCbMode;
 };
 
 /******************************************************************************
@@ -138,6 +139,9 @@ public:
 
   bool
   DoReply(const MobileConnectionReplySuccessBoolean& aReply);
+
+  bool
+  DoReply(const MobileConnectionReplySuccessDeviceIdentities& aReply);
 
   bool
   DoReply(const MobileConnectionReplySuccessNetworks& aReply);

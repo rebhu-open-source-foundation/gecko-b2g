@@ -145,6 +145,7 @@ const CommandFunc NetworkUtils::sWifiEnableChain[] = {
   NetworkUtils::addInterfaceToLocalNetwork,
   NetworkUtils::addRouteToLocalNetwork,
   NetworkUtils::setIpForwardingEnabled,
+  NetworkUtils::setInterfaceForwardingEnabled,
   NetworkUtils::tetheringStatus,
   NetworkUtils::startTethering,
   NetworkUtils::setDnsForwarders,
@@ -163,6 +164,7 @@ const CommandFunc NetworkUtils::sWifiDisableChain[] = {
   NetworkUtils::postTetherInterfaceList,
   NetworkUtils::disableNat,
   NetworkUtils::setIpForwardingEnabled,
+  NetworkUtils::setInterfaceForwardingDisabled,
   NetworkUtils::stopTethering,
   NetworkUtils::wifiTetheringSuccess
 };
@@ -171,6 +173,7 @@ const CommandFunc NetworkUtils::sWifiFailChain[] = {
   NetworkUtils::clearWifiTetherParms,
   NetworkUtils::stopSoftAP,
   NetworkUtils::setIpForwardingEnabled,
+  NetworkUtils::setInterfaceForwardingDisabled,
   NetworkUtils::stopTethering
 };
 
@@ -189,6 +192,7 @@ const CommandFunc NetworkUtils::sWifiRetryChain[] = {
   NetworkUtils::addInterfaceToLocalNetwork,
   NetworkUtils::addRouteToLocalNetwork,
   NetworkUtils::setIpForwardingEnabled,
+  NetworkUtils::setInterfaceForwardingEnabled,
   NetworkUtils::tetheringStatus,
   NetworkUtils::startTethering,
   NetworkUtils::setDnsForwarders,
@@ -205,6 +209,7 @@ const CommandFunc NetworkUtils::sUSBEnableChain[] = {
   NetworkUtils::setConfig,
   NetworkUtils::enableNat,
   NetworkUtils::setIpForwardingEnabled,
+  NetworkUtils::setInterfaceForwardingEnabled,
   NetworkUtils::tetherInterface,
   NetworkUtils::addInterfaceToLocalNetwork,
   NetworkUtils::addRouteToLocalNetwork,
@@ -223,6 +228,7 @@ const CommandFunc NetworkUtils::sUSBDisableChain[] = {
   NetworkUtils::removeUpstreamInterface,
   NetworkUtils::disableNat,
   NetworkUtils::setIpForwardingEnabled,
+  NetworkUtils::setInterfaceForwardingDisabled,
   NetworkUtils::stopTethering,
   NetworkUtils::usbTetheringSuccess
 };
@@ -230,6 +236,7 @@ const CommandFunc NetworkUtils::sUSBDisableChain[] = {
 const CommandFunc NetworkUtils::sUSBFailChain[] = {
   NetworkUtils::stopSoftAP,
   NetworkUtils::setIpForwardingEnabled,
+  NetworkUtils::setInterfaceForwardingDisabled,
   NetworkUtils::stopTethering
 };
 
@@ -987,17 +994,53 @@ void NetworkUtils::setIpForwardingEnabled(CommandChain* aChain,
   char command[MAX_COMMAND_SIZE];
 
   if (GET_FIELD(mEnable)) {
-    snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd enable");
+    if (SDK_VERSION >= 23) {
+      // ipfwd enable <requester>
+      snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd enable tethering");
+    } else {
+      // ipfwd enable
+      snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd enable");
+    }
   } else {
     // Don't disable ip forwarding because others interface still need it.
     // Send the dummy command to continue the function chain.
     if (GET_FIELD(mInterfaceList).Length() > 1) {
       snprintf(command, MAX_COMMAND_SIZE - 1, "%s", DUMMY_COMMAND);
     } else {
-      snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd disable");
+      if (SDK_VERSION >= 23) {
+        // ipfwd disable <requester>
+        snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd disable tethering");
+      } else{
+        // ipfwd disable
+        snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd disable");
+      }
     }
   }
 
+  doCommand(command, aChain, aCallback);
+}
+
+void NetworkUtils::setInterfaceForwardingEnabled(CommandChain* aChain,
+                                                 CommandCallback aCallback,
+                                                 NetworkResultOptions& aResult)
+{
+  char command[MAX_COMMAND_SIZE];
+  NU_DBG("setInterfaceForwardingEnabled: internal=%s, external=%s", GET_CHAR(mInternalIfname), GET_CHAR(mExternalIfname));
+  // for ipfwd add internal external.
+  snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd add %s %s",
+    GET_CHAR(mInternalIfname), GET_CHAR(mExternalIfname));
+  doCommand(command, aChain, aCallback);
+}
+
+void NetworkUtils::setInterfaceForwardingDisabled(CommandChain* aChain,
+                                                  CommandCallback aCallback,
+                                                  NetworkResultOptions& aResult)
+{
+  char command[MAX_COMMAND_SIZE];
+  NU_DBG("setInterfaceForwardingDisabled: internal=%s, external=%s", GET_CHAR(mInternalIfname), GET_CHAR(mExternalIfname));
+  // for ipfwd remove internal external.
+  snprintf(command, MAX_COMMAND_SIZE - 1, "ipfwd remove %s %s",
+    GET_CHAR(mInternalIfname), GET_CHAR(mExternalIfname));
   doCommand(command, aChain, aCallback);
 }
 
@@ -1523,6 +1566,36 @@ void NetworkUtils::setMtu(CommandChain* aChain,
   doCommand(command, aChain, aCallback);
 }
 
+void NetworkUtils::startClatd(CommandChain* aChain,
+                              CommandCallback aCallback,
+                              NetworkResultOptions& aResult)
+{
+  char command[MAX_COMMAND_SIZE];
+  snprintf(command, MAX_COMMAND_SIZE - 1, "clatd start %s", GET_CHAR(mIfname));
+
+  doCommand(command, aChain, aCallback);
+}
+
+void NetworkUtils::stopClatd(CommandChain* aChain,
+                             CommandCallback aCallback,
+                             NetworkResultOptions& aResult)
+{
+  char command[MAX_COMMAND_SIZE];
+  snprintf(command, MAX_COMMAND_SIZE - 1, "clatd stop %s", GET_CHAR(mIfname));
+
+  doCommand(command, aChain, aCallback);
+}
+
+void NetworkUtils::isClatdRunning(CommandChain* aChain,
+                                  CommandCallback aCallback,
+                                  NetworkResultOptions& aResult)
+{
+  char command[MAX_COMMAND_SIZE];
+  snprintf(command, MAX_COMMAND_SIZE - 1, "clatd status %s", GET_CHAR(mIfname));
+
+  doCommand(command, aChain, aCallback);
+}
+
 #undef GET_CHAR
 #undef GET_FIELD
 
@@ -1839,6 +1912,9 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions)
     BUILD_ENTRY(getInterfaceConfig),
     BUILD_ENTRY(setInterfaceConfig),
     BUILD_ENTRY(setMtu),
+    BUILD_ENTRY(startClatd),
+    BUILD_ENTRY(stopClatd),
+    BUILD_ENTRY(isClatdRunning),
 
     #undef BUILD_ENTRY
   };
@@ -2657,8 +2733,6 @@ CommandResult NetworkUtils::setUSBTethering(NetworkParams& aOptions)
       aOptions.mDns2 = NS_ConvertUTF8toUTF16(interfaceProperties.dns2);
     }
   }
-  dumpParams(aOptions, "USB");
-
   if (SDK_VERSION >= 20) {
     NetIdManager::NetIdInfo netIdInfo;
     if (!mNetIdManager.lookup(aOptions.mExternalIfname, &netIdInfo)) {
@@ -2667,6 +2741,7 @@ CommandResult NetworkUtils::setUSBTethering(NetworkParams& aOptions)
     }
     aOptions.mNetId = netIdInfo.mNetId;
   }
+  dumpParams(aOptions, "USB");
 
   if (enable) {
     NU_DBG("Starting USB Tethering on %s <-> %s",
@@ -2949,6 +3024,63 @@ CommandResult NetworkUtils::setMtu(NetworkParams& aOptions)
   return CommandResult::Pending();
 }
 
+/**
+ * Request to start Clat464.
+ */
+CommandResult NetworkUtils::startClatd(NetworkParams& aOptions)
+{
+  NU_DBG("startClatd: %s", GET_CHAR(mIfname));
+  if (SDK_VERSION < 20) {
+    return SUCCESS;
+  }
+
+  static CommandFunc COMMAND_CHAIN[] = {
+    startClatd,
+    defaultAsyncSuccessHandler,
+  };
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+/**
+ * Request to stop Clat464.
+ */
+CommandResult NetworkUtils::stopClatd(NetworkParams& aOptions)
+{
+  NU_DBG("stopClatd: %s", GET_CHAR(mIfname));
+  if (SDK_VERSION < 20) {
+    return SUCCESS;
+  }
+
+  static CommandFunc COMMAND_CHAIN[] = {
+    stopClatd,
+    defaultAsyncSuccessHandler,
+  };
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+/**
+ * Request to check if Clat464 is currently running.
+ */
+CommandResult NetworkUtils::isClatdRunning(NetworkParams& aOptions)
+{
+  NU_DBG("isClatdRunning: %s", GET_CHAR(mIfname));
+  if (SDK_VERSION < 20) {
+    return SUCCESS;
+  }
+
+  static CommandFunc COMMAND_CHAIN[] = {
+    isClatdRunning,
+    defaultAsyncSuccessHandler,
+  };
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
 void NetworkUtils::sendBroadcastMessage(uint32_t code, char* reason)
 {
   NetworkResultOptions result;
@@ -3013,6 +3145,9 @@ void NetworkUtils::dumpParams(NetworkParams& aOptions, const char* aType)
   NU_DBG("     dnsserver2: %s", GET_CHAR(mDns2));
   NU_DBG("     internalIfname: %s", GET_CHAR(mInternalIfname));
   NU_DBG("     externalIfname: %s", GET_CHAR(mExternalIfname));
+  if (SDK_VERSION >= 20) {
+    NU_DBG("     netId: %d", GET_FIELD(mNetId));
+  }
   if (!strcmp(aType, "WIFI")) {
     NU_DBG("     wifictrlinterfacename: %s", GET_CHAR(mWifictrlinterfacename));
     NU_DBG("     ssid: %s", GET_CHAR(mSsid));

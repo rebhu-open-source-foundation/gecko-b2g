@@ -20,6 +20,7 @@ MobileConnectionChild::MobileConnectionChild(uint32_t aServiceId)
   , mLive(true)
   , mRadioState(0)
   , mNetworkSelectionMode(0)
+  , mEmergencyCbMode(false)
 {
   MOZ_COUNT_CTOR(MobileConnectionChild);
 }
@@ -31,7 +32,8 @@ MobileConnectionChild::Init()
   nsIMobileConnectionInfo* rawData;
 
   SendInit(&rawVoice, &rawData, &mLastNetwork, &mLastHomeNetwork,
-           &mNetworkSelectionMode, &mRadioState, &mSupportedNetworkTypes);
+           &mNetworkSelectionMode, &mRadioState, &mSupportedNetworkTypes,
+           &mEmergencyCbMode);
 
   // Use dont_AddRef here because this instances is already AddRef-ed in
   // MobileConnectionIPCSerializer.h
@@ -145,6 +147,13 @@ NS_IMETHODIMP
 MobileConnectionChild::GetLastKnownHomeNetwork(nsAString& aNetwork)
 {
   aNetwork = mLastHomeNetwork;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+MobileConnectionChild::GetIsInEmergencyCbMode(bool* aActive)
+{
+  *aActive = mEmergencyCbMode;
   return NS_OK;
 }
 
@@ -342,6 +351,13 @@ MobileConnectionChild::GetCellInfoList(nsICellInfoListCallback* aCallback)
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+NS_IMETHODIMP
+MobileConnectionChild::GetDeviceIdentities(nsIMobileConnectionCallback* aCallback)
+{
+  return SendRequest(GetDeviceIdentitiesRequest(), aCallback)
+    ? NS_OK : NS_ERROR_FAILURE;
+}
+
 bool
 MobileConnectionChild::SendRequest(const MobileConnectionRequest& aRequest,
                                    nsIMobileConnectionCallback* aCallback)
@@ -434,6 +450,8 @@ bool
 MobileConnectionChild::RecvNotifyEmergencyCbModeChanged(const bool& aActive,
                                                         const uint32_t& aTimeoutMs)
 {
+  mEmergencyCbMode = aActive;
+
   for (int32_t i = 0; i < mListeners.Count(); i++) {
     mListeners[i]->NotifyEmergencyCbModeChanged(aActive, aTimeoutMs);
   }
@@ -517,6 +535,13 @@ bool
 MobileConnectionRequestChild::DoReply(const MobileConnectionReplySuccessBoolean& aReply)
 {
   return NS_SUCCEEDED(mRequestCallback->NotifySuccessWithBoolean(aReply.result()));
+}
+
+bool
+MobileConnectionRequestChild::DoReply(const MobileConnectionReplySuccessDeviceIdentities& aReply)
+{
+  nsCOMPtr<nsIMobileDeviceIdentities> result = dont_AddRef(aReply.result());
+  return NS_SUCCEEDED(mRequestCallback->NotifyGetDeviceIdentitiesRequestSuccess(result));
 }
 
 bool
@@ -610,6 +635,8 @@ MobileConnectionRequestChild::Recv__delete__(const MobileConnectionReply& aReply
       return DoReply(aReply.get_MobileConnectionReplySuccessCallWaiting());
     case MobileConnectionReply::TMobileConnectionReplySuccessClirStatus:
       return DoReply(aReply.get_MobileConnectionReplySuccessClirStatus());
+    case MobileConnectionReply::TMobileConnectionReplySuccessDeviceIdentities:
+      return DoReply(aReply.get_MobileConnectionReplySuccessDeviceIdentities());
     case MobileConnectionReply::TMobileConnectionReplySuccessPreferredNetworkType:
       return DoReply(aReply.get_MobileConnectionReplySuccessPreferredNetworkType());
     case MobileConnectionReply::TMobileConnectionReplySuccessRoamingPreference:

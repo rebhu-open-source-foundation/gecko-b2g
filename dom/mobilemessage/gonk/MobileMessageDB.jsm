@@ -2674,7 +2674,7 @@ MobileMessageDB.prototype = {
       };
 
       if (error) {
-        notifyResult(error, null);
+        notifyResult(error, aMessageRecord);
         return;
       }
 
@@ -2692,7 +2692,7 @@ MobileMessageDB.prototype = {
         let error = (event.target.error.name === 'QuotaExceededError')
                     ? Cr.NS_ERROR_FILE_NO_DEVICE_SPACE
                     : Cr.NS_ERROR_FAILURE;
-        notifyResult(error, null);
+        notifyResult(error, aMessageRecord);
       };
 
       let messageStore = stores[0];
@@ -3185,13 +3185,12 @@ MobileMessageDB.prototype = {
       if (DEBUG) debug("Error! Cannot strip out user's own phone number!");
     }
 
-    threadParticipants =
-      threadParticipants.concat(slicedReceivers).map(function(aAddress) {
-        return {
-          address: aAddress,
-          type: MMS.Address.resolveType(aAddress)
-        };
+    slicedReceivers.forEach(function(aAddress) {
+      threadParticipants.push({
+        address: aAddress,
+        type: MMS.Address.resolveType(aAddress)
       });
+    });
   },
 
   /**

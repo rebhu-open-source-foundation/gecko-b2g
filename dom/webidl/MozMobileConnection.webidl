@@ -98,6 +98,12 @@ interface MozMobileConnection : EventTarget
   readonly attribute DOMString? iccId;
 
   /**
+   * The current state of emergency callback mode.
+   */
+  [Throws, CheckAnyPermissions="mobileconnection"]
+  readonly attribute boolean isInEmergencyCbMode;
+
+  /**
    * The selection mode of the voice and data networks.
    */
   [CheckAnyPermissions="mobileconnection"]
@@ -114,6 +120,20 @@ interface MozMobileConnection : EventTarget
    */
   [Cached, Pure, CheckAnyPermissions="mobileconnection"]
   readonly attribute sequence<MobileNetworkType> supportedNetworkTypes;
+
+  /**
+   * The mobile device identities.
+   */
+  [Throws, CheckAnyPermissions="mobileconnection"]
+  DOMRequest getDeviceIdentities();
+
+  /**
+   * IMS registration handler.
+   *
+   * Only available if supported.
+   */
+  [CheckAnyPermissions="mobileconnection"]
+  readonly attribute ImsRegHandler? imsHandler;
 
   /**
    * Search for available networks.
@@ -669,4 +689,12 @@ dictionary MozClirStatus
    * @see 3GPP TS 27.007 7.7 defined values.
    */
   unsigned short m;
+};
+
+dictionary MobileDeviceIds
+{
+  DOMString imei;
+  DOMString imeisv;
+  DOMString esn;
+  DOMString meid;
 };

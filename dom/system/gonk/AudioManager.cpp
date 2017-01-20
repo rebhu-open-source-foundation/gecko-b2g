@@ -25,6 +25,9 @@
 #include "nsIRadioInterfaceLayer.h"
 #endif
 #include "nsISettingsService.h"
+#ifdef MOZ_B2G_RIL
+#include "nsITelephonyService.h"
+#endif
 #include "nsPrintfCString.h"
 
 #include "mozilla/Hal.h"
@@ -364,6 +367,16 @@ BinderDeadCallback(status_t aErr)
     });
 
   NS_DispatchToMainThread(runnable);
+}
+
+static void SetAudioSystemParameters(audio_io_handle_t ioHandle,
+                                     const String8& keyValuePairs)
+{
+  status_t audioStatus = AudioSystem::setParameters(0, keyValuePairs);
+  if (audioStatus != NO_ERROR) {
+    LOG("Failed to set parameter: %s, error status: %d",
+        keyValuePairs.string(), audioStatus);
+  }
 }
 
 bool
@@ -852,7 +865,6 @@ AudioManager::GetMicrophoneMuted(bool* aMicrophoneMuted)
 NS_IMETHODIMP
 AudioManager::SetMicrophoneMuted(bool aMicrophoneMuted)
 {
-  if (!AudioSystem::muteMicrophone(aMicrophoneMuted)) {
 #ifdef MOZ_B2G_RIL
     if (mMuteCallToRIL) {
       // Extra mute request to RIL for specific platform.
@@ -860,11 +872,18 @@ AudioManager::SetMicrophoneMuted(bool aMicrophoneMuted)
       NS_ENSURE_TRUE(ril, NS_ERROR_FAILURE);
       ril->SetMicrophoneMuted(aMicrophoneMuted);
       mIsMicMuted = aMicrophoneMuted;
+      return NS_OK;
     }
 #endif
-    return NS_OK;
+
+  AudioSystem::muteMicrophone(aMicrophoneMuted);
+
+  bool micMuted;
+  AudioSystem::isMicrophoneMuted(&micMuted);
+  if(micMuted != aMicrophoneMuted) {
+    return NS_ERROR_FAILURE;
   }
-  return NS_ERROR_FAILURE;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -903,6 +922,44 @@ AudioManager::SetPhoneState(int32_t aState)
   MaybeUpdateVolumeSettingToDatabase();
 #endif
   mPhoneState = aState;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+AudioManager::GetHeadsetState(int32_t *aHeadsetState)
+{
+  MOZ_ASSERT(aHeadsetState);
+
+  hal::SwitchState state = GetCurrentSwitchState(hal::SWITCH_HEADPHONES);
+  if (state == hal::SWITCH_STATE_HEADSET) {
+    *aHeadsetState = nsIAudioManager::HEADSET_STATE_HEADSET;
+  } else if (state == hal::SWITCH_STATE_HEADPHONE) {
+    *aHeadsetState = nsIAudioManager::HEADSET_STATE_HEADPHONE;
+  } else if (state == hal::SWITCH_STATE_OFF) {
+    *aHeadsetState = nsIAudioManager::HEADSET_STATE_OFF;
+  } else {
+    *aHeadsetState = nsIAudioManager::HEADSET_STATE_UNKNOWN;
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+AudioManager::SetTtyMode(uint16_t aTtyMode)
+{
+  String8 cmd;
+  if (aTtyMode == nsIAudioManager::TTY_MODE_FULL) {
+    cmd.setTo("tty_mode=tty_full");
+  } else if (aTtyMode == nsIAudioManager::TTY_MODE_HCO) {
+    cmd.setTo("tty_mode=tty_hco");
+  } else if (aTtyMode == nsIAudioManager::TTY_MODE_VCO) {
+    cmd.setTo("tty_mode=tty_vco");
+  } else {
+    cmd.setTo("tty_mode=tty_off");
+  }
+
+  SetAudioSystemParameters(0, cmd);
+
   return NS_OK;
 }
 
@@ -1483,6 +1540,20 @@ AudioManager::VolumeStreamState::RestoreVolumeIndexToAllDevices()
     uint32_t& index = iter.Data();
     SetVolumeIndex(key, index, /* aUpdateCache */ false);
   }
+}
+
+nsresult
+AudioManager::SetHacMode(bool aHacMode) {
+  String8 cmd;
+  if (aHacMode) {
+    cmd.setTo("HACSetting=ON");
+  } else {
+    cmd.setTo("HACSetting=OFF");
+  }
+
+  SetAudioSystemParameters(0, cmd);
+
+  return NS_OK;
 }
 
 } /* namespace gonk */
