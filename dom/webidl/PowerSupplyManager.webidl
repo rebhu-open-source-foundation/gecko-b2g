@@ -4,10 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Pref="dom.usb.enabled"]
-interface UsbManager : EventTarget {
-    readonly attribute boolean             deviceAttached;
-    readonly attribute boolean             deviceConfigured;
+[Pref="dom.powersupply.enabled"]
+interface PowerSupplyManager : EventTarget {
+    readonly attribute boolean             powerSupplyOnline;
+    readonly attribute DOMString           powerSupplyType;
 
-    attribute EventHandler        onusbstatuschange;
+    attribute EventHandler                 onpowersupplystatuschanged;
 };
