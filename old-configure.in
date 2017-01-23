@@ -2848,6 +2848,16 @@ fi
 AC_SUBST(MOZ_BING_API_CLIENTID)
 AC_SUBST(MOZ_BING_API_KEY)
 
+# Allow to specify a TCL API key (JWT) file that contains the secret key to be
+# used for TCL location API requests.
+MOZ_ARG_WITH_STRING(tcl-api-keyfile,
+[  --with-tcl-api-keyfile=file   Use the secret key contained in the given keyfile for TCL location API requests],
+  KAI_TCL_GEO_API_KEY=`cat $withval`)
+if test -z "$KAI_TCL_GEO_API_KEY"; then
+    KAI_TCL_GEO_API_KEY=no-tcl-geo-api-key
+fi
+AC_SUBST(KAI_TCL_GEO_API_KEY)
+
 # Allow specifying an Adjust SDK key file that contains the app token used for
 # Adjust SDK requests.
 MOZ_ARG_WITH_STRING(adjust-sdk-keyfile,
@@ -6055,6 +6065,18 @@ if test -n "$DISABLE_MOZ_RIL_GEOLOC"; then
    AC_DEFINE(DISABLE_MOZ_RIL_GEOLOC)
 fi
 AC_SUBST(DISABLE_MOZ_RIL_GEOLOC)
+
+dnl ========================================================
+dnl = Use KaiOS Geolocation Provider
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(kai-geoloc,
+[  --enable-kai-geoloc         Enable KaiOS's geolocation],
+    KAI_GEOLOC=1,
+    KAI_GEOLOC= )
+if test -n "$KAI_GEOLOC"; then
+   AC_DEFINE(KAI_GEOLOC)
+fi
+AC_SUBST(KAI_GEOLOC)
 
 dnl ========================================================
 dnl = Disable camera HDR feature
