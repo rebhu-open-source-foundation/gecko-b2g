@@ -31,6 +31,8 @@
 #include "GLContextProvider.h"
 #include "GLContext.h"
 #include "GLContextEGL.h"
+#include "GLCursorImageManager.h"
+#include "nsLayoutUtils.h"
 #include "nsAppShell.h"
 #include "nsScreenManagerGonk.h"
 #include "nsTArray.h"
@@ -43,15 +45,20 @@
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/layers/APZCTreeManager.h"
 #include "mozilla/layers/APZThreadUtils.h"
+#include "mozilla/layers/CompositorOGL.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
+#include "mozilla/layers/LayerManagerComposite.h"
+#include "mozilla/layers/LayerTransactionChild.h"
 #include "mozilla/TouchEvents.h"
 #include "HwcComposer2D.h"
+#include "nsImageLoadingContent.h"
 
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Gonk" , ## args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ## args)
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, "Gonk", ## args)
 
 #define IS_TOPLEVEL() (mWindowType == eWindowType_toplevel || mWindowType == eWindowType_dialog)
+#define OFFSCREEN_CURSOR_POSITION LayoutDeviceIntPoint(-1, -1)
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -62,6 +69,7 @@ using namespace mozilla::layers;
 using namespace mozilla::widget;
 
 static nsWindow *gFocusedWindow = nullptr;
+static GLCursorImageManager sGLCursorImageManager;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
@@ -244,6 +252,30 @@ private:
     uint64_t mInputBlockId;
     nsEventStatus mApzResponse;
 };
+
+/*static*/ void
+nsWindow::KickOffComposition()
+{
+    MOZ_ASSERT(NS_IsMainThread());
+
+    // gFocusedWindow should only be accessed in main thread.
+    if (!gFocusedWindow ||
+        !gFocusedWindow->GetLayerManager()) {
+        return;
+    }
+
+    RefPtr<LayerTransactionChild> transaction;
+    ShadowLayerForwarder* forwarder =
+        gFocusedWindow->GetLayerManager()->AsShadowForwarder();
+    if (forwarder && forwarder->HasShadowManager()) {
+        transaction = forwarder->GetShadowManager();
+    }
+
+    if (transaction && transaction->IPCOpen()) {
+        //Trigger compostion to draw GL cursor
+        transaction->SendForceComposite();
+    }
+}
 
 void
 nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput)
@@ -630,10 +662,63 @@ nsWindow::SetNativeData(uint32_t aDataType, uintptr_t aVal)
 }
 
 NS_IMETHODIMP
+nsWindow::SetCursor(nsCursor aCursor)
+{
+    nsBaseWidget::SetCursor(aCursor);
+
+    // Prepare GLCursor if it doesn't exist
+    sGLCursorImageManager.PrepareCursorImage(aCursor, this);
+    sGLCursorImageManager.HasSetCursor();
+    KickOffComposition();
+
+    return NS_OK;
+}
+
+static void
+StopRenderWithHwc(bool aStop)
+{
+    MOZ_ASSERT(CompositorBridgeParent::IsInCompositorThread());
+    HwcComposer2D::GetInstance()->StopRenderWithHwc(aStop);
+}
+
+NS_IMETHODIMP
 nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
 {
+    if (aEvent->mMessage == eMouseMove) {
+        LayoutDeviceIntPoint position(aEvent->mRefPoint.x, aEvent->mRefPoint.y);
+
+        // Validate whether refPoint exceeds window boundary.
+        position.x = position.x < 0 ? 0 :
+            (position.x > (mBounds.width) ? (mBounds.width) : position.x);
+
+        position.y = position.y < 0 ? 0 :
+            (position.y > (mBounds.height) ? (mBounds.height) : position.y);
+
+        sGLCursorImageManager.SetGLCursorPosition(position);
+
+        if (gfxPrefs::GLCursorEnabled()) {
+            // Stop rendering with Hwc because virtual cursor is drawn on the
+            // overlay layer.
+            CompositorBridgeParent::CompositorLoop()->PostTask(
+                FROM_HERE, NewRunnableFunction(&StopRenderWithHwc, true));
+
+            KickOffComposition();
+        }
+    } else if (aEvent->mMessage == eMouseExitFromWidget) {
+        sGLCursorImageManager.SetGLCursorPosition(
+            GLCursorImageManager::kOffscreenCursorPosition);
+
+        if (gfxPrefs::GLCursorEnabled()) {
+            // Turn render-with-hwc back on.
+            CompositorBridgeParent::CompositorLoop()->PostTask(
+                FROM_HERE, NewRunnableFunction(&StopRenderWithHwc, false));
+
+            KickOffComposition();
+        }
+    }
+
     if (mWidgetListener) {
-      aStatus = mWidgetListener->HandleEvent(aEvent, mUseAttachedEvents);
+        aStatus = mWidgetListener->HandleEvent(aEvent, mUseAttachedEvents);
     }
     return NS_OK;
 }
@@ -684,6 +769,27 @@ nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*)
       listener->FullscreenChanged(aFullScreen);
     }
     return NS_OK;
+}
+
+void
+nsWindow::DrawWindowOverlay(LayerManagerComposite* aManager, LayoutDeviceIntRect aRect)
+{
+    if (aManager) {
+      CompositorOGL *compositor = static_cast<CompositorOGL*>(aManager->GetCompositor());
+      if (compositor) {
+        if (sGLCursorImageManager.ShouldDrawGLCursor() &&
+            sGLCursorImageManager.IsCursorImageReady(mCursor)) {
+            GLCursorImageManager::GLCursorImage cursorImage =
+                sGLCursorImageManager.GetGLCursorImage(mCursor);
+            LayoutDeviceIntPoint position =
+                sGLCursorImageManager.GetGLCursorPosition();
+            compositor->DrawGLCursor(aRect, position,
+                                     cursorImage.mSurface,
+                                     cursorImage.mImgSize,
+                                     cursorImage.mHotspot);
+        }
+      }
+    }
 }
 
 already_AddRefed<DrawTarget>
@@ -846,10 +952,10 @@ nsWindow::GetScreen()
 bool
 nsWindow::NeedsPaint()
 {
-  if (!mLayerManager) {
-    return false;
-  }
-  return nsIWidget::NeedsPaint();
+    if (!mLayerManager) {
+      return false;
+    }
+    return nsIWidget::NeedsPaint();
 }
 
 Composer2D*

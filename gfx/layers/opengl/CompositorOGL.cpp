@@ -1691,6 +1691,40 @@ CompositorOGL::GetTemporaryTexture(GLenum aTarget, GLenum aUnit)
   return mTexturePool->GetTexture(aTarget, aUnit);
 }
 
+void CompositorOGL::DrawGLCursor(LayoutDeviceIntRect aRect,
+                                 LayoutDeviceIntPoint aCursorPos,
+                                 RefPtr<DataSourceSurface> aSurface,
+                                 nsIntSize aImgSize, nsIntPoint aHotspot)
+{
+  if (!gfxPrefs::GLCursorEnabled() ||
+      !aRect.Contains(aCursorPos) ||
+      !aSurface) {
+    return;
+  }
+
+  if (aSurface != mCursorSurfaceCache) {
+    mCursorSurfaceCache = aSurface;
+
+    if (!mCursorTextureCache) {
+      mCursorTextureCache = CreateDataTextureSource();
+    }
+    mCursorTextureCache->Update(aSurface);
+  }
+
+  EffectChain effects;
+  float alpha = 1;
+  effects.mPrimaryEffect = CreateTexturedEffect(SurfaceFormat::B8G8R8A8,
+                                                mCursorTextureCache,
+                                                Filter::POINT,
+                                                true);
+  DrawQuad(gfx::Rect(aCursorPos.x - aHotspot.x,
+                     aCursorPos.y - aHotspot.y,
+                     aImgSize.width, aImgSize.height),
+           gfx::Rect(aRect.x, aRect.y, aRect.width, aRect.height),
+           effects, alpha, gfx::Matrix4x4(),
+           gfx::Rect(aCursorPos.x, aCursorPos.y, 30, 30));
+}
+
 GLuint
 PerUnitTexturePoolOGL::GetTexture(GLenum aTarget, GLenum aTextureUnit)
 {

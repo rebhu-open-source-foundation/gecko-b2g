@@ -25,6 +25,14 @@
 
 class ANativeWindowBuffer;
 
+namespace mozilla {
+namespace dom {
+class AnonymousContent;
+}
+namespace gfx {
+class SourceSurface;
+}
+}
 namespace widget {
 struct InputContext;
 struct InputContextAction;
@@ -48,6 +56,7 @@ public:
     static void DispatchTouchInput(mozilla::MultiTouchInput& aInput);
     static void SetMouseDevice(bool aMouse);
     static void NotifyHoverMove(const ScreenIntPoint& point);
+    static void KickOffComposition();
 
     using nsBaseWidget::Create; // for Create signature not overridden here
     NS_IMETHOD Create(nsIWidget* aParent,
@@ -110,7 +119,15 @@ public:
         StartRemoteDrawing() override;
     virtual void EndRemoteDrawing() override;
 
-    virtual float GetDPI() override;
+    NS_IMETHOD SetCursor(nsCursor aCursor) override;
+    NS_IMETHOD SetCursor(imgIContainer* aCursor,
+                     uint32_t aHotspotX,
+                     uint32_t aHotspotY) { return NS_ERROR_NOT_IMPLEMENTED; }
+
+    void UpdateCursorSourceMap(nsCursor aCursor);
+    already_AddRefed<mozilla::gfx::SourceSurface> RestyleCursorElement(nsCursor aCursor);
+
+    virtual float GetDPI();
     virtual bool IsVsyncSupported() override;
     virtual double GetDefaultScaleInternal();
     virtual mozilla::layers::LayerManager*
@@ -153,6 +170,8 @@ protected:
     // Call this function when the users activity is the direct cause of an
     // event (like a keypress or mouse click).
     void UserActivity();
+
+    void DrawWindowOverlay(mozilla::layers::LayerManagerComposite* aManager, LayoutDeviceIntRect aRect);
 
 private:
     // This is used by SynthesizeNativeTouchPoint to maintain state between

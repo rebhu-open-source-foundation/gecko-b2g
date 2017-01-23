@@ -340,6 +340,14 @@ public:
     return mRenderOffset;
   }
 
+  /**
+   * GLCursor draws a cursor image if widget receives eMouseMove event. It is
+   * usually enabled with SpatialNavigation.
+   */
+  void DrawGLCursor(LayoutDeviceIntRect aRect, LayoutDeviceIntPoint aCursorPos,
+                    RefPtr<gfx::DataSourceSurface> aSource,
+                    nsIntSize aCursorSize, nsIntPoint aHotspot);
+
 private:
   bool InitializeVR();
   void DestroyVR(GLContext *gl);
@@ -487,7 +495,8 @@ private:
   gfx::IntSize mViewportSize;
 
   ShaderProgramOGL *mCurrentProgram;
-
+  RefPtr<gfx::DataSourceSurface> mCursorSurfaceCache;
+  RefPtr<DataTextureSource> mCursorTextureCache;
   CompositorOGLVRObjects mVR;
 
 #if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21

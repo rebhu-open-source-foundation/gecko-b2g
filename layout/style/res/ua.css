@@ -342,6 +342,11 @@ parsererror|sourcetext {
   font-size: 12pt;
 }
 
+div:-moz-native-anonymous.kaios-cursor.std {
+  cursor: url("resource://gre/res/cur_default_24px.png") 4 5, default;
+  visibility: hidden;
+}
+
 div:-moz-native-anonymous.moz-accessiblecaret {
   /* Add transition effect to make caret size changing smoother. */
   transition-duration: 250ms;
