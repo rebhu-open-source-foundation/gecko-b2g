@@ -5,14 +5,10 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MozStumbler.h"
+
+#include "nsContentUtils.h"
 #include "nsDataHashtable.h"
 #include "nsGeoPosition.h"
-#include "nsNetCID.h"
-#include "nsPrintfCString.h"
-#include "StumblerLogging.h"
-#include "WriteStumbleOnThread.h"
-#include "../GeolocationUtil.h"
-
 #include "nsIInterfaceRequestor.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIMobileConnectionInfo.h"
@@ -21,6 +17,11 @@
 #include "nsIMobileNetworkInfo.h"
 #include "nsINetworkInterface.h"
 #include "nsIRadioInterfaceLayer.h"
+#include "nsNetCID.h"
+#include "nsPrintfCString.h"
+#include "StumblerLogging.h"
+#include "WriteStumbleOnThread.h"
+#include "../GeolocationUtil.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -177,6 +178,12 @@ StumblerInfo::LocationInfoToString(nsACString& aLocDesc)
     return NS_ERROR_FAILURE;
   }
 
+  // append timestamp of submitting location
+  aLocDesc += nsPrintfCString("\"timestamp\":%lld,", PR_Now() / PR_USEC_PER_MSEC).get();
+
+  // append position block
+  aLocDesc += "\"position\": {";
+
   nsDataHashtable<nsCStringHashKey, double> info;
 
   double val;
@@ -195,9 +202,12 @@ StumblerInfo::LocationInfoToString(nsACString& aLocDesc)
   coords->GetSpeed(&val);
   info.Put(TEXT_SPD, val);
 
+  // append position fields
   PrintLocationInfo(info, aLocDesc);
 
-  aLocDesc += nsPrintfCString("\"timestamp\":%lld,", PR_Now() / PR_USEC_PER_MSEC).get();
+  // replace the last ',' by "}"
+  aLocDesc.Replace(aLocDesc.Length() - 1, 1, "}");
+
   return NS_OK;
 }
 
@@ -236,7 +246,7 @@ PrintCellDesc(nsDataHashtable<nsCStringHashKey, int32_t>& info, nsACString& aCel
     const nsACString& key = it.Key();
     value = it.UserData();
     if (value != nsICellInfo::UNKNOWN_VALUE) {
-      aCellDesc += nsPrintfCString("\"%s\":%d,", key.BeginReading(), value);
+      aCellDesc += nsPrintfCString(",\"%s\":%d", key.BeginReading(), value);
     }
   }
 }
@@ -244,7 +254,7 @@ PrintCellDesc(nsDataHashtable<nsCStringHashKey, int32_t>& info, nsACString& aCel
 void
 StumblerInfo::CellNetworkInfoToString(nsACString& aCellDesc)
 {
-  aCellDesc += "\"cellTowers\": [";
+  aCellDesc += ",\"cellTowers\": [";
 
   for (uint32_t idx = 0; idx < mCellInfo.Length() ; idx++) {
     const char* radioType = 0;
@@ -324,6 +334,127 @@ StumblerInfo::CellNetworkInfoToString(nsACString& aCellDesc)
 }
 
 void
+StumblerInfo::MobileCellInfoToString(nsACString& aCellDesc)
+{
+  nsCOMPtr<nsIMobileConnectionService> service =
+    do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+
+  if (!service) {
+    nsContentUtils::LogMessageToConsole("Stumbler: can not get nsIMobileConnectionService\n");
+    return;
+  }
+
+  aCellDesc += ",\"cellTowers\": [";
+
+  nsDataHashtable<nsCStringHashKey, int32_t> info;
+  nsCOMPtr<nsIMobileConnection> connection;
+  uint32_t numberOfRilServices = 1;
+
+  info.Put(TEXT_REGISTERED, 1);
+
+  uint32_t numberOfInvalidInfo = 0;
+  service->GetNumItems(&numberOfRilServices);
+  for (uint32_t rilNum = 0; rilNum < numberOfRilServices; rilNum++) {
+    service->GetItemByServiceId(rilNum /* Client Id */, getter_AddRefs(connection));
+    if (!connection) {
+      nsContentUtils::LogMessageToConsole(nsPrintfCString(
+        "Stumbler: can not get nsIMobileConnection by ServiceId %d\n", rilNum).get());
+    } else {
+      nsCOMPtr<nsIMobileConnectionInfo> voice;
+      connection->GetVoice(getter_AddRefs(voice));
+      if (voice) {
+        nsCOMPtr<nsIMobileNetworkInfo> networkInfo;
+        voice->GetNetwork(getter_AddRefs(networkInfo));
+        if (networkInfo) {
+          nsresult result;
+          nsAutoString mcc, mnc;
+
+          result = networkInfo->GetMcc(mcc);
+          result = networkInfo->GetMnc(mnc);
+
+          int32_t mccInt = (result == NS_OK) ? mcc.ToInteger(&result) : 0;
+          int32_t mncInt = (result == NS_OK) ? mnc.ToInteger(&result) : 0;
+
+          info.Put(TEXT_MCC, mccInt);
+          info.Put(TEXT_MNC, mncInt);
+        }
+
+        nsCOMPtr<nsIMobileCellInfo> cell;
+        voice->GetCell(getter_AddRefs(cell));
+        if (cell) {
+          int32_t lac;
+          int64_t cid;
+
+          cell->GetGsmLocationAreaCode(&lac);
+          // The valid range of LAC is 0x0 to 0xffff which is defined in
+          // hardware/ril/include/telephony/ril.h
+          if (lac >= 0x0 && lac <= 0xffff) {
+            info.Put(TEXT_LAC, lac);
+          }
+
+          cell->GetGsmCellId(&cid);
+          // The valid range of cell id is 0x0 to 0xffffffff which is defined in
+          // hardware/ril/include/telephony/ril.h
+          if (cid >= 0x0 && cid <= 0xffffffff) {
+            info.Put(TEXT_CID, cid);
+          }
+        }
+
+        AutoJSContext cx;
+        //JS::Rooted<JS::Value> signalStrength(cx, JSVAL_VOID);
+        JS::Rooted<JS::Value> signalStrength(cx);
+        voice->GetSignalStrength(&signalStrength);
+        if (signalStrength.isNumber()) {
+          info.Put(TEXT_STRENGTH_DBM, static_cast<int32_t>(signalStrength.toNumber()));
+        }
+
+        const char* radioType = 0; // One of "gsm", "wcdma", "cdma" or "lte"
+        nsAutoString type;
+        voice->GetType(type);
+
+        if (type.EqualsLiteral("umts") || type.EqualsLiteral("hsdpa") ||
+            type.EqualsLiteral("hsupa") || type.EqualsLiteral("hspa") ||
+            type.EqualsLiteral("hspa+") || type.EqualsLiteral("scdma")) {
+          radioType = "wcdma";
+        } else if (type.EqualsLiteral("lte")) {
+          radioType = "lte";
+        } else if (type.EqualsLiteral("gsm") || type.EqualsLiteral("gprs") ||
+          type.EqualsLiteral("edge")) {
+          radioType = "gsm";
+        } else if (type.EqualsLiteral("is95a") || type.EqualsLiteral("is95b") ||
+            type.EqualsLiteral("1xrtt") || type.EqualsLiteral("evdo0") ||
+            type.EqualsLiteral("evdoa+") || type.EqualsLiteral("evdob") ||
+            type.EqualsLiteral("ehrpd")) {
+          radioType = "cdma";
+        } else { // unknown type
+          ++numberOfInvalidInfo;
+          continue;
+        }
+
+        if (rilNum) {
+          aCellDesc += ",{";
+        } else {
+          aCellDesc += "{";
+        }
+
+        aCellDesc += nsPrintfCString("\"%s\":\"%s\"", TEXT_RADIOTYPE.get(), radioType);
+        PrintCellDesc(info, aCellDesc);
+
+        aCellDesc += "}";
+      }
+    }
+  }
+
+  // Clear the Desc if there is no valid cell info.
+  if (numberOfInvalidInfo == numberOfRilServices) {
+    aCellDesc.Truncate();
+    return;
+  }
+
+  aCellDesc += "]";
+}
+
+void
 StumblerInfo::DumpStumblerInfo()
 {
   if (!mIsWifiInfoResponseReceived || mCellInfoResponsesReceived != mCellInfoResponsesExpected) {
@@ -341,7 +472,17 @@ StumblerInfo::DumpStumblerInfo()
     return;
   }
 
-  CellNetworkInfoToString(desc);
+  nsAutoCString cellInfoDesc;
+  if (mCellInfoResponsesExpected != 0) {
+    CellNetworkInfoToString(cellInfoDesc);
+  } else {
+    MobileCellInfoToString(cellInfoDesc);
+  }
+
+  if (cellInfoDesc.IsEmpty() && mWifiDesc.IsEmpty()) {
+    return;
+  }
+  desc += cellInfoDesc;
   desc += mWifiDesc;
 
   STUMBLER_DBG("dispatch write event to thread\n");

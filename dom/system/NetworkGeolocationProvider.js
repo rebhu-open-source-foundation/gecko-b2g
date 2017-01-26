@@ -496,56 +496,10 @@ WifiGeoPositionProvider.prototype = {
     this.sendLocationRequest(null);
   },
 
-  getDeviceInfo: function() {
-    let deferred = Promise.defer();
-
-    let prefDeviceType;
-    let prefDeviceBrand;
-    let prefDeviceModel;
-    let prefDeviceOs;
-    let prefDeviceVersion;
-    try {
-      prefDeviceType    = Services.prefs.getIntPref(PREF_SERVICE_DEVICE_TYPE);
-      prefDeviceBrand   = Services.prefs.getCharPref(PREF_SERVICE_DEVICE_BRAND);
-      prefDeviceModel   = Services.prefs.getCharPref(PREF_SERVICE_DEVICE_MODEL);
-      prefDeviceOs      = Services.prefs.getCharPref(PREF_B2G_OS_NAME);
-      prefDeviceVersion = Services.prefs.getCharPref(PREF_B2G_VERSION);
-    } catch (e) {
-      LOG("Failed to get device info. " + e);
-    }
-
-    let device_info = {
-      device_type : prefDeviceType,
-      brand       : prefDeviceBrand,
-      model       : prefDeviceModel,
-      reference   : DeviceUtils.getRefNumber(),
-      os          : prefDeviceOs,
-      os_version  : prefDeviceVersion,
-      device_id   : ""
-    };
-
-    // TODO: handle dual-SIM case properly
-    let conn = gMobileConnectionService.getItemByServiceId(0);
-    conn.getDeviceIdentities({
-      notifyGetDeviceIdentitiesRequestSuccess: function(aResult) {
-        if (aResult.imei && parseInt(aResult.imei) !== 0) {
-          device_info.device_id = aResult.imei;
-        } else if (aResult.meid && parseInt(aResult.meid) !== 0) {
-          device_info.device_id = aResult.meid;
-        } else {
-          device_info.device_id = aResult.esn;
-        }
-        deferred.resolve(device_info);
-      }
-    });
-
-    return deferred.promise;
-  },
-
   getAccessToken: function () {
     let deferred = Promise.defer();
 
-    this.getDeviceInfo().then((device_info) => {
+    DeviceUtils.getTDeviceObject().then((device_info) => {
       let url = Services.urlFormatter.formatURLPref("geo.token.uri");
 
       let xhr = Components.classes["@mozilla.org/xmlextras/xmlhttprequest;1"]
@@ -560,7 +514,7 @@ WifiGeoPositionProvider.prototype = {
       xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
 
       let authorizationKey =
-        Services.urlFormatter.formatURLPref("geo.authorization.jwt");
+        Services.urlFormatter.formatURLPref("geo.authorization.key");
 
       xhr.setRequestHeader("Authorization", "Key " + authorizationKey);
 
@@ -583,7 +537,7 @@ WifiGeoPositionProvider.prototype = {
         LOG("get access token returned status: " + xhr.status);
         // only accept status code 200 and 201.
         let isStatusInvalid = xhr.channel instanceof Ci.nsIHttpChannel &&
-          (xhr.status != HTTP_CODE_OK || xhr.status != HTTP_CODE_CREATED);
+          (xhr.status != HTTP_CODE_OK && xhr.status != HTTP_CODE_CREATED);
         if (isStatusInvalid || !xhr.response || !xhr.response.access_token) {
           deferred.reject(xhr.status);
         } else {
