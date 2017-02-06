@@ -16,7 +16,7 @@ const NETWORKMANAGER_CONTRACTID = "@mozilla.org/network/manager;1";
 const NETWORKMANAGER_CID =
   Components.ID("{1ba9346b-53b5-4660-9dc6-58f0b258d0a6}");
 
-const DEFAULT_PREFERRED_NETWORK_TYPE = Ci.nsINetworkInterface.NETWORK_TYPE_ETHERNET;
+const DEFAULT_PREFERRED_NETWORK_TYPE = Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET;
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"]
@@ -170,13 +170,13 @@ NetworkInterfaceLinks.prototype = {
   }
 };
 
-function Nat464Xlat(network) {
+function Nat464Xlat(aNetworkInfo) {
   this.clear();
-  this.network = network;
+  this.networkInfo = aNetworkInfo;
 }
 Nat464Xlat.prototype = {
   CLAT_PREFIX: "v4-",
-  network: null,
+  networkInfo: null,
   ifaceName: null,
   nat464Iface: null,
 
@@ -185,14 +185,14 @@ Nat464Xlat.prototype = {
   },
 
   clear: function() {
-    this.network = null;
+    this.networkInfo = null;
     this.ifaceName = null;
     this.nat464Iface = null;
   },
 
   start: function() {
     debug("Starting clatd");
-    this.ifaceName = this.network.name;
+    this.ifaceName = this.networkInfo.name;
     if (this.ifaceName == null) {
       debug("clatd: Can't start clatd without providing interface");
       return;
@@ -607,9 +607,9 @@ NetworkManager.prototype = {
 
   networkInterfaceLinks: null,
 
-  _networkTypePriorityList: [Ci.nsINetworkInterface.NETWORK_TYPE_ETHERNET,
-                             Ci.nsINetworkInterface.NETWORK_TYPE_WIFI,
-                             Ci.nsINetworkInterface.NETWORK_TYPE_MOBILE],
+  _networkTypePriorityList: [Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET,
+                             Ci.nsINetworkInfo.NETWORK_TYPE_WIFI,
+                             Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE],
   get networkTypePriorityList() {
     return this._networkTypePriorityList;
   },
@@ -621,9 +621,9 @@ NetworkManager.prototype = {
 
     // Check if types in new priority list are valid and also make sure there
     // are no duplicate types.
-    let list = [Ci.nsINetworkInterface.NETWORK_TYPE_ETHERNET,
-                Ci.nsINetworkInterface.NETWORK_TYPE_WIFI,
-                Ci.nsINetworkInterface.NETWORK_TYPE_MOBILE];
+    let list = [Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET,
+                Ci.nsINetworkInfo.NETWORK_TYPE_WIFI,
+                Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE];
     while (list.length) {
       let type = list.shift();
       if (val.indexOf(type) == -1) {
@@ -661,9 +661,9 @@ NetworkManager.prototype = {
     return this._preferredNetworkType;
   },
   set preferredNetworkType(val) {
-    if ([Ci.nsINetworkInterface.NETWORK_TYPE_WIFI,
-         Ci.nsINetworkInterface.NETWORK_TYPE_MOBILE,
-         Ci.nsINetworkInterface.NETWORK_TYPE_ETHERNET].indexOf(val) == -1) {
+    if ([Ci.nsINetworkInfo.NETWORK_TYPE_WIFI,
+         Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE,
+         Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET].indexOf(val) == -1) {
       throw "Invalid network type";
     }
     this._preferredNetworkType = val;
@@ -678,9 +678,9 @@ NetworkManager.prototype = {
   _overriddenActive: null,
 
   overrideActive: function(network) {
-    if ([Ci.nsINetworkInterface.NETWORK_TYPE_WIFI,
-         Ci.nsINetworkInterface.NETWORK_TYPE_MOBILE,
-         Ci.nsINetworkInterface.NETWORK_TYPE_ETHERNET].indexOf(val) == -1) {
+    if ([Ci.nsINetworkInfo.NETWORK_TYPE_WIFI,
+         Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE,
+         Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET].indexOf(val) == -1) {
       throw "Invalid network type";
     }
 
@@ -1089,9 +1089,9 @@ NetworkManager.prototype = {
     // If there is internal interface change (e.g., MOBILE_MMS, MOBILE_SUPL),
     // the function will return null so that it won't trigger type change event
     // in NetworkInformation API.
-    if (aNetworkInfo.type != Ci.nsINetworkInterface.NETWORK_TYPE_WIFI &&
-        aNetworkInfo.type != Ci.nsINetworkInterface.NETWORK_TYPE_MOBILE &&
-        aNetworkInfo.type != Ci.nsINetworkInterface.NETWORK_TYPE_ETHERNET) {
+    if (aNetworkInfo.type != Ci.nsINetworkInfo.NETWORK_TYPE_WIFI &&
+        aNetworkInfo.type != Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE &&
+        aNetworkInfo.type != Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET) {
       return null;
     }
 
@@ -1104,7 +1104,7 @@ NetworkManager.prototype = {
         return CONNECTION_TYPE_WIFI;
       case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE:
         return CONNECTION_TYPE_CELLULAR;
-      case Ci.nsINetworkInterface.NETWORK_TYPE_ETHERNET:
+      case Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET:
         return CONNECTION_TYPE_ETHERNET;
     }
   },
@@ -1211,7 +1211,7 @@ NetworkManager.prototype = {
   },
 
   requestClat: function(network) {
-    let connected = (network.state == Ci.nsINetworkInterface.NETWORK_STATE_CONNECTED);
+    let connected = (network.state == Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED);
     if (!connected) {
       return Promise.resolve(false);
     }
@@ -1220,7 +1220,7 @@ NetworkManager.prototype = {
       let hasIpv4 = false;
       let ips = {};
       let prefixLengths = {};
-      let length = network.getAddresses(ips, prefixLengths);
+      let length = network.info.getAddresses(ips, prefixLengths);
       for (let i = 0; i < length; i++) {
         debug("requestClat routes: " + ips.value[i] + "/" + prefixLengths.value[i]);
         if (ips.value[i].match(this.REGEXP_IPV4)) {
@@ -1234,15 +1234,15 @@ NetworkManager.prototype = {
   },
 
   updateClat: function(network) {
-    debug("UpdateClat Type = " + network.type);
-    if (!this.isNetworkTypeMobile(network.type) &&
-        (network.type != Ci.nsINetworkInterface.NETWORK_TYPE_WIFI)) {
+    debug("UpdateClat Type = " + network.info.type);
+    if (!this.isNetworkTypeMobile(network.info.type) &&
+        (network.info.type != Ci.nsINetworkInfo.NETWORK_TYPE_WIFI)) {
       return Promise.resolve();
     }
 
     return new Promise((aResolve, aReject) => {
       // Get network ID.
-      let networkId = this.getNetworkId(network);
+      let networkId = this.getNetworkId(network.info);
       if (!(networkId in this.networkInterfaces)) {
         throw Components.Exception("No network with that type registered.",
                                    Cr.NS_ERROR_INVALID_ARG);
@@ -1256,7 +1256,7 @@ NetworkManager.prototype = {
         .then( (shouldRun) => {
           debug("UpdateClat wasRunning = " + wasRunning + " , shouldRun = " + shouldRun);
           if (!wasRunning && shouldRun) {
-            currentIfaceLinks.clatd = new Nat464Xlat(network);
+            currentIfaceLinks.clatd = new Nat464Xlat(network.info);
             currentIfaceLinks.clatd.start();
           } else if (wasRunning && !shouldRun) {
             currentIfaceLinks.clatd.stop();
