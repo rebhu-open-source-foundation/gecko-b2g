@@ -281,6 +281,13 @@ GetCurrentWindow(nsIContent* aContent)
   return doc ? doc->GetWindow() : nullptr;
 }
 
+static nsPIDOMWindowOuter*
+GetCallerWindow()
+{
+  nsIDocument* doc = nsContentUtils::GetDocumentFromCaller();
+  return doc ? doc->GetWindow() : nullptr;
+}
+
 // static
 nsIContent*
 nsFocusManager::GetFocusedDescendant(nsPIDOMWindowOuter* aWindow, bool aDeep,
@@ -1212,7 +1219,22 @@ nsFocusManager::SetFocusInner(nsIContent* aNewContent, int32_t aFlags,
     }
     bool subsumes = false;
     focusedPrincipal->Subsumes(newPrincipal, &subsumes);
-    if (!subsumes && !nsContentUtils::LegacyIsCallerChromeOrNativeCode()) {
+
+    // Moving focus between in-process apps is denined because they are cross-
+    // origin and does not subsumes each other. Due to this block, System app
+    // can't shift focus from Homescreen to an App(or to System app itself) if
+    // both of them are in-processed. Focus should be granted if:
+    //   1. Caller has "embed-apps" permission.
+    //   2. Both focused window and new window are decendants of caller window.
+    bool isCallerAllowEmbedApps = nsContentUtils::IsSitePermAllow(
+      nsContentUtils::SubjectPrincipal(), "embed-apps");
+    nsCOMPtr<nsPIDOMWindowOuter> commonAncestor =
+      GetCommonAncestor(mFocusedWindow, newWindow);
+    bool isCommonAncestorChildOfCaller =
+      IsSameOrAncestor(GetCallerWindow(),commonAncestor);
+
+    if (!subsumes && !nsContentUtils::LegacyIsCallerChromeOrNativeCode() &&
+        !(isCallerAllowEmbedApps && isCommonAncestorChildOfCaller)) {
       NS_WARNING("Not allowed to focus the new window!");
       return;
     }
@@ -1276,23 +1298,26 @@ nsFocusManager::SetFocusInner(nsIContent* aNewContent, int32_t aFlags,
     sendFocusEvent = nsContentUtils::CanCallerAccess(domNode);
 
     // Current implementation satisfies moving focus between oop apps because
-    // they are actually moving between embed iframes of System app, however, it
-    // fails when trying to move focus from an in-process app to another oop app
-    // , return false by CanCallerAccess() due to cross-origin (System app and
-    // in-process app), but we should grant access if
-    //   1. The caller has embed-apps permission. ex: System app.
-    //   2. Caller is ancestor of current focused window.
+    // they are actually moving between embed iframes of System app.
+    // Moving focus between in-process apps is denined because they are cross-
+    // origin, return false by CanCallerAccess(). Due to this block, System app
+    // can't shift focus from Homescreen to an App(or to System app itself) if
+    // both of them are in-processed. Focus should be granted if:
+    //   1. Caller has "embed-apps" permission.
+    //   2. Both focused window and new window are decendants of caller window.
     if (!sendFocusEvent &&
         nsContentUtils::IsSitePermAllow(nsContentUtils::SubjectPrincipal(),
                                         "embed-apps")) {
-      LOGFOCUS(("caller window has permission of embed-apps"));
-      // To check whether caller window is the ancestor of current focused
-      // window.
-      nsCOMPtr<nsPIDOMWindowOuter> callerWin = GetCurrentWindow(aNewContent);
+      LOGFOCUS(("Caller window has permission of embed-apps."));
+
       nsCOMPtr<nsPIDOMWindowOuter> focusedWindow =
         mFocusedContent->OwnerDoc()->GetWindow();
-      if (IsSameOrAncestor(callerWin, focusedWindow)) {
-        LOGFOCUS(("caller window is the ancestor of current focused window."));
+      nsCOMPtr<nsPIDOMWindowOuter> commonAncestor =
+        GetCommonAncestor(focusedWindow, newWindow);
+      bool isCommonAncestorChildOfCaller =
+        IsSameOrAncestor(GetCallerWindow(),commonAncestor);
+      if (isCommonAncestorChildOfCaller) {
+        LOGFOCUS(("Both new window and current focused window are decendants of caller window."));
         sendFocusEvent = true;
       }
     }
@@ -1546,6 +1571,15 @@ nsFocusManager::CheckIfFocusable(nsIContent* aContent, uint32_t aFlags)
   nsIPresShell *shell = doc->GetShell();
   if (!shell)
     return nullptr;
+
+  // When trying to set focus to an iframe element, check if the value of
+  // canTakeFocus has set to false by its embedder. The default of
+  // canTakeFocus is true, and access to this api is provided by
+  // mozbrowser/mozapp iframe only.
+  if (!nsContentUtils::BrowserFrameCanTakeFocus(aContent)) {
+    LOGCONTENT("Cannot focus %s due to the block of its embedder.", aContent);
+    return nullptr;
+  }
 
   // the root content can always be focused,
   // except in userfocusignored context.
