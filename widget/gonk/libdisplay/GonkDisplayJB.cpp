@@ -37,7 +37,8 @@
 #include "mozilla/Assertions.h"
 
 #define DEFAULT_XDPI 75.0
-#define GET_FRAMEBUFFER_FORMAT_FROM_HWC
+// This define should be passed from gonk-misc and depends on device config.
+// #define GET_FRAMEBUFFER_FORMAT_FROM_HWC
 
 using namespace android;
 
@@ -54,8 +55,8 @@ GonkDisplayJB::GonkDisplayJB()
     , mPowerModule(nullptr)
     , mList(nullptr)
     , mEnabledCallback(nullptr)
-    , mFBEnabled(false)
-    , mExtFBEnabled(false)
+    , mFBEnabled(true)
+    , mExtFBEnabled(true)
 {
     int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &mFBModule);
     ALOGW_IF(err, "%s module not found", GRALLOC_HARDWARE_MODULE_ID);
@@ -422,8 +423,10 @@ GonkDisplayJB::Post(buffer_handle_t buf, int fence, DisplayType aDisplayType)
         // Only support fb1 for certain device, use hwc to control
         // external screen in general case.
         if (mExtFBDevice) {
-            if (fence >= 0)
-                close(fence);
+            if (fence >= 0) {
+                android::sp<Fence> fenceObj = new Fence(fence);
+                fenceObj->waitForever("GonkDisplayJB::Post");
+            }
             return mExtFBDevice->Post(buf);
         }
 
