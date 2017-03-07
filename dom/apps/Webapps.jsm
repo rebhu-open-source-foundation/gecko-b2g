@@ -199,6 +199,7 @@ this.DOMApplicationRegistry = {
   _updateHandlers: [ ],
   _pendingUninstalls: {},
   _contentActions: new Map(),
+  _updatedatamode: "all",
   dirKey: DIRECTORY_NAME,
 
   init: function() {
@@ -228,6 +229,7 @@ this.DOMApplicationRegistry = {
                      "Webapps:GetIcon",
                      "Webapps:ExtractManifest",
                      "Webapps:SetEnabled",
+                     "Webapps:UpdateDataMode",
                      "child-process-shutdown"];
 
     this.frameMessages = ["Webapps:ClearBrowserData"];
@@ -1303,6 +1305,7 @@ this.DOMApplicationRegistry = {
       case "Webapps:Import":
       case "Webapps:ExtractManifest":
       case "Webapps:SetEnabled":
+      case "Webapps:UpdateDataMode":
         allowed = checkPermission("webapps-manage");
         break;
 
@@ -1444,6 +1447,9 @@ this.DOMApplicationRegistry = {
           break;
         case "Webapps:SetEnabled":
           this.setEnabled(msg);
+          break;
+        case "Webapps:UpdateDataMode":
+          this._updatedatamode = msg.data;
           break;
       }
     });
@@ -1869,7 +1875,12 @@ this.DOMApplicationRegistry = {
       eventType: "downloadsuccess",
       manifestURL: aManifestURL
     });
-    if (app.installState == "pending") {
+
+    let autoUpdate = false;
+    try {
+      autoUpdate = Services.prefs.getBoolPref("dom.mozApps.auto_confirm_update");
+    } catch(e) {}
+    if (autoUpdate || app.installState == "pending") {
       // We restarted a failed download, apply it automatically.
       this.applyDownload(aManifestURL);
     }
@@ -2374,6 +2385,21 @@ this.DOMApplicationRegistry = {
       manifestURL: aApp.manifestURL,
       requestID: aData.requestID
     });
+
+    let autoUpdate = false;
+    let nm = Cc["@mozilla.org/network/manager;1"].getService(Ci.nsINetworkManager);
+    if (this._updatedatamode == "all" ||
+       (this._updatedatamode == "wifiOnly" && nm.active &&
+        nm.active.type == Ci.nsINetworkInterface.NETWORK_TYPE_WIFI)) {
+      // Check if auto update is enabled to start download
+      // only when active data connection type is allowed by setting.
+      try {
+        autoUpdate = Services.prefs.getBoolPref("dom.mozApps.auto_confirm_update");
+      } catch(e) {}
+    }
+    if (autoUpdate) {
+      this.startDownload(aApp.manifestURL);
+    }
   }),
 
   // A hosted app is updated if the app manifest or the appcache needs
@@ -3769,44 +3795,26 @@ this.DOMApplicationRegistry = {
 
     let root = TrustedRootCertificate.index;
 
-    let useReviewerCerts = false;
+    // Use dev certificate to install App from specific origin.
+    let devOrigins;
     try {
-      useReviewerCerts = Services.prefs.
-                           getBoolPref("dom.mozApps.use_reviewer_certs");
-    } catch (ex) { }
+      devOrigins = Services.prefs.getCharPref("apps.serviceCenter.devOrigins");
+    } catch(e) { }
+    // Use dev certificate to verify the app package's signature.
+    // When the app manifest is downloaded from specific url.
+    let manifestUri = Services.io.newURI(aManifestURL, null, null).prePath;
+    if (devOrigins.split(",").indexOf(manifestUri) > -1) {
+          root = Ci.nsIX509CertDB.AppServiceCenterDevPublicRoot;
+    }
 
-    // We'll use the reviewer and dev certificates only if the pref is set to
-    // true.
-    if (useReviewerCerts) {
-      let manifestPath = Services.io.newURI(aManifestURL, null, null).path;
-      let isReviewer = false;
-      // There are different reviewer paths for apps & addons so we keep
-      // them in a comma separated preference.
-      try {
-        let reviewerPaths =
-          Services.prefs.getCharPref("dom.apps.reviewer_paths").split(",");
-        isReviewer = reviewerPaths.some(path => { return manifestPath.startsWith(path); });
-      } catch(e) {}
-
-      switch (aInstallOrigin) {
-        case "https://marketplace.firefox.com":
-          root = isReviewer
-               ? Ci.nsIX509CertDB.AppMarketplaceProdReviewersRoot
-               : Ci.nsIX509CertDB.AppMarketplaceProdPublicRoot;
-          break;
-
-        case "https://marketplace-dev.allizom.org":
-          root = isReviewer
-               ? Ci.nsIX509CertDB.AppMarketplaceDevReviewersRoot
-               : Ci.nsIX509CertDB.AppMarketplaceDevPublicRoot;
-          break;
-
-        // The staging server uses the same certificate for both
-        // public and unreviewed apps.
-        case "https://marketplace.allizom.org":
-          root = Ci.nsIX509CertDB.AppMarketplaceStageRoot;
-          break;
-      }
+    // Use test certificate to verify the app package's signature.
+    // When the pref is set to true.
+    let useTestCert = false;
+    try {
+      useTestCert = Services.prefs.getBoolPref("apps.serviceCenter.use_test_key");
+    } catch (e) { }
+    if (useTestCert) {
+          root = Ci.nsIX509CertDB.AppServiceCenterTestRoot;
     }
 
     aCertDb.openSignedAppFileAsync(
@@ -3892,7 +3900,12 @@ this.DOMApplicationRegistry = {
       if (Services.prefs.getBoolPref("dom.apps.developer_mode")) {
         maxStatus = Ci.nsIPrincipal.APP_STATUS_CERTIFIED;
       }
-    } catch(e) {};
+      // service center (kaios-plus) is certified app and we need to update it.
+      let manifest = Services.prefs.getCharPref("apps.serviceCenter.manifest");
+      if (aOldApp.manifestURL == manifest) {
+        maxStatus = Ci.nsIPrincipal.APP_STATUS_CERTIFIED;
+      }
+    } catch(e) {}
 
     let allowUnsignedLangpack = false;
     try  {
@@ -3942,7 +3955,7 @@ this.DOMApplicationRegistry = {
     // we have a real story for handling multiple app stores signing
     // apps.
     let signedAppOriginsStr =
-      Services.prefs.getCharPref("dom.mozApps.signed_apps_installable_from");
+      Services.prefs.getCharPref("apps.serviceCenter.allowedOrigins");
     // If it's a local install and it's signed then we assume
     // the app origin is a valid signer.
     let isSignedAppOrigin = (aIsSigned && aIsLocalFileInstall) ||
@@ -4143,6 +4156,16 @@ this.DOMApplicationRegistry = {
     if (!aOldApp.downloadAvailable && aOldApp.staged) {
       delete aOldApp.staged;
     }
+    var removeApp = false;
+    if (this.webapps[aId] &&
+        aOldApp.installState != "installed") {
+      let dir = this._getAppDir(aId);
+      try {
+        dir.remove(true);
+      } catch (e) {}
+      removeApp = true;
+      delete this.webapps[aId];
+    }
 
     this._saveApps().then(() => {
       MessageBroadcaster.broadcastMessage("Webapps:UpdateState", {
@@ -4154,6 +4177,10 @@ this.DOMApplicationRegistry = {
         eventType: "downloaderror",
         manifestURL:  aNewApp.manifestURL
       });
+      if (removeApp) {
+        this.broadcastMessage("Webapps:Uninstall:Broadcast:Return:OK", aOldApp);
+        this.broadcastMessage("Webapps:RemoveApp", { id: aId });
+      }
     });
     AppDownloadManager.remove(aNewApp.manifestURL);
   },
