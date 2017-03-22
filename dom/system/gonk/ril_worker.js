@@ -1216,6 +1216,10 @@ RilObject.prototype = {
     this.context.Buf.simpleRequest(REQUEST_SIGNAL_STRENGTH);
   },
 
+  getIMEI: function(options) {
+    this.context.Buf.simpleRequest(REQUEST_GET_IMEI, options);
+  },
+
   getDeviceIdentity: function() {
     this.deviceIdentities || this.context.Buf.simpleRequest(REQUEST_DEVICE_IDENTITY);
   },
@@ -4458,7 +4462,12 @@ RilObject.prototype[REQUEST_SET_CALL_WAITING] = function REQUEST_SET_CALL_WAITIN
 RilObject.prototype[REQUEST_SMS_ACKNOWLEDGE] = null;
 RilObject.prototype[REQUEST_GET_IMEI] = function REQUEST_GET_IMEI(length, options) {
   let newIMEI = this.context.Buf.readString();
-
+  if (DEBUG) {
+    this.context.debug("REQUEST_GET_IMEI newIMEI:" + newIMEI);
+  }
+  if (!this.deviceIdentities) {
+    this.deviceIdentities = {};
+  }
   if (newIMEI != this.deviceIdentities.imei) {
     this.deviceIdentities.imei = newIMEI;
     this._notifyDeviceIdentities();
