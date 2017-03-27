@@ -16,9 +16,13 @@
 const {
   utils: Cu,
 } = Components;
-Cu.import("resource://gre/modules/ManifestObtainer.jsm");
-Cu.import("resource://gre/modules/ManifestFinder.jsm");
+Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Task.jsm");
+
+XPCOMUtils.defineLazyModuleGetter(this, "ManifestObtainer",
+          "resource://gre/modules/ManifestObtainer.jsm");
+XPCOMUtils.defineLazyModuleGetter(this, "ManifestFinder",
+          "resource://gre/modules/ManifestFinder.jsm");
 
 const MessageHandler = {
   registerListeners() {
