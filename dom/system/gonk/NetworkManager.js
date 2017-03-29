@@ -1190,13 +1190,7 @@ NetworkManager.prototype = {
       let gateways = networkInfo.getGateways();
 
       gNetworkService.setDefaultRoute(networkInfo.name, gateways.length, gateways,
-                                      (aSuccess) => {
-        if (!aSuccess) {
-          gNetworkService.destroyNetwork(networkInfo.name, function() {
-            aReject("setDefaultRoute failed");
-          });
-          return;
-        }
+                                      () => {
         this.setNetworkProxy(aNetwork);
         aResolve();
       });
