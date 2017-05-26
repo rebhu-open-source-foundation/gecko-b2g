@@ -6,9 +6,11 @@
 
 const Ci = Components.interfaces;
 const Cu = Components.utils;
+const Cc = Components.classes;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/DOMRequestHelper.jsm");
+Cu.import("resource://gre/modules/Services.jsm");
 
 const DATACALLMANAGER_CONTRACTID = "@mozilla.org/datacallmanager;1;"
 const DATACALLMANAGER_CID        = Components.ID("{73e0d4e0-bd62-489c-b67a-0140f95a1b24}");
