@@ -1806,6 +1806,7 @@ Notification::ShowInternal()
         ops.mData = mDataAsBase64;
         ops.mMozbehavior = mBehavior;
         ops.mMozbehavior.mSoundFile = soundUrl;
+        ops.mServiceWorkerRegistrationID = mScope;
 
         if (!ToJSValue(cx, ops, &val)) {
           NS_WARNING("Converting dict to object failed!");
@@ -2621,13 +2622,6 @@ Notification::ShowPersistentNotification(JSContext* aCx,
                                          ErrorResult& aRv)
 {
   MOZ_ASSERT(aGlobal);
-
-  // Reject showNotifcation if the service worker is running on content process.
-  // In this case, app is alive, sw can contact App by postMessage.
-  if (XRE_IsContentProcess()) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_ACCESS_ERR);
-    return nullptr;
-  }
 
   // Validate scope.
   // XXXnsm: This may be slow due to blocking the worker and waiting on the main
