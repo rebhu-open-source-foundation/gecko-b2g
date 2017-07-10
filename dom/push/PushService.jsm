@@ -237,6 +237,9 @@ this.PushService = {
         // if there are request waiting
         this._service.connect(records);
       }
+      this._dropExpiredRegistrations().catch(error => {
+        console.error("Failed to drop expired registrations on idle", error);
+      });
     });
   },
 
@@ -365,7 +368,17 @@ this.PushService = {
   _backgroundUnregister(record, reason) {
     console.debug("backgroundUnregister()");
 
-    if (!this._service.isConnected() || !record) {
+    if (!record) {
+      return;
+    }
+
+    this._db.getByKeyID(record.keyID, "unsubscribeDb").then(isExist => {
+      if (!isExist) {
+        this._db.put(record, "unsubscribeDb");
+      }
+    });
+
+    if (!this._service.isConnected()) {
       return;
     }
 
@@ -373,6 +386,8 @@ this.PushService = {
     this._sendUnregister(record, reason).catch(e => {
       console.error("backgroundUnregister: Error notifying server", e);
     });
+    // Try to unregister all records still pending in queue.
+    this.executeAllPendingUnregistering(record.keyID);
   },
 
   // utility function used to add/remove observers in startObservers() and
@@ -675,6 +690,7 @@ this.PushService = {
    */
   dropUnexpiredRegistrations: function() {
     let subscriptionChanges = [];
+    this._db.drop("unsubscribeDb");
     return this._db.clearIf(record => {
       if (record.isExpired()) {
         return false;
@@ -693,6 +709,10 @@ this.PushService = {
 
     Services.telemetry.getHistogramById("PUSH_API_NOTIFY_REGISTRATION_LOST").add();
     gPushNotifier.notifySubscriptionChange(record.scope, record.principal);
+  },
+
+  removePendingUnsubscribe: function(aKeyID) {
+    return this._db.delete(aKeyID, "unsubscribeDb");
   },
 
   /**
@@ -833,6 +853,7 @@ this.PushService = {
   _updateRecordAfterPush(keyID, updateFunc) {
     return this.getByKeyID(keyID).then(record => {
       if (!record) {
+        this.executePendingUnregisteringByKeyID(keyID);
         this._recordDidNotNotify(kDROP_NOTIFICATION_REASON_KEY_NOT_FOUND);
         throw new Error("No record for key ID " + keyID);
       }
@@ -858,6 +879,7 @@ this.PushService = {
           // this, we check if the record has expired before *and* after updating
           // the quota.
           if (newRecord.isExpired()) {
+            this.executePendingUnregisteringByKeyID(newRecord.keyID);
             return null;
           }
           newRecord.receivedPush(lastVisit);
@@ -1189,12 +1211,24 @@ this.PushService = {
         if (record === undefined) {
           return false;
         }
+        this._db.getByKeyID(record.keyID, "unsubscribeDb").then(isExist => {
+          if (!isExist) {
+            this._db.put(record, "unsubscribeDb");
+          }
+        });
 
         return Promise.all([
           this._sendUnregister(record,
                                Ci.nsIPushErrorReporter.UNSUBSCRIBE_MANUAL),
           this._db.delete(record.keyID),
-        ]).then(() => true);
+        ]).then(() => {
+          if (this._service.isConnected()) {
+            // Try to unregister all records still pending in queue
+            // if websocket is connected.
+            this.executeAllPendingUnregistering(record.keyID);
+          }
+          return true;
+        });
       });
   },
 
@@ -1280,6 +1314,9 @@ this.PushService = {
       return Promise.all(records.map(record =>
         record.quotaChanged().then(isChanged => {
           if (isChanged) {
+            if (this._state != PUSH_SERVICE_RUNNING) {
+              return;
+            }
             // If the user revisited the site, drop the expired push
             // registration and notify the associated service worker.
             return this.dropRegistrationAndNotifyApp(record.keyID);
@@ -1289,6 +1326,51 @@ this.PushService = {
             record.keyID, error);
         })
       ));
+    });
+  },
+
+  executePendingUnregisteringByKeyID: function(aKeyID) {
+    console.debug("executePendingUnregisteringByKeyID()");
+    this._db.getByKeyID(aKeyID, "unsubscribeDb").then(record => {
+      if (!record) {
+        return;
+      }
+      console.debug("channel ID: ", record.keyID);
+      if (!record.reachMaxRetryCounts()) {
+        this._db.update(record.keyID, record => {
+          record.retryCounts++;
+          return record;
+        }, "unsubscribeDb");
+        this._sendUnregister(record,
+                             Ci.nsIPushErrorReporter.UNSUBSCRIBE_PENDING_RECORD);
+      } else {
+        console.error("Retry count exceeded, drop the record");
+        this.removePendingUnsubscribe(record.keyID);
+      }
+    });
+  },
+
+  executeAllPendingUnregistering: function(newKeyID = null) {
+    console.debug("executeAllPendingUnregistering()");
+    return this._db.getAllKeyIDs("unsubscribeDb").then(records => {
+      return Promise.all(records.map(record => {
+        if (newKeyID && (record.keyID == newKeyID)) {
+          // Drop the this record becasue it is unregistering.
+          return;
+        }
+        console.debug("channel ID: ", record.keyID);
+        if (!record.reachMaxRetryCounts()) {
+          this._db.update(record.keyID, record => {
+            record.retryCounts++;
+            return record;
+          }, "unsubscribeDb");
+          this._sendUnregister(record,
+                               Ci.nsIPushErrorReporter.UNSUBSCRIBE_PENDING_RECORD);
+        } else {
+          console.error("Retry count exceeded, drop the record");
+          this.removePendingUnsubscribe(record.keyID);
+        }
+      }));
     });
   },
 
@@ -1402,6 +1484,9 @@ this.PushService = {
       return;
     }
     if (record.isExpired()) {
+      if (this._state != PUSH_SERVICE_RUNNING) {
+        return;
+      }
       // If the registration has expired, drop and notify the worker
       // unconditionally.
       subscriptionChanges.push(record);
