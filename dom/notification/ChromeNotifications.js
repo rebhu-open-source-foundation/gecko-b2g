@@ -74,6 +74,8 @@ ChromeNotifications.prototype = {
           timestamp: notification.timestamp,
           data: notification.data,
           mozbehavior: behavior,
+          requireInteraction: notification.requireInteraction || false,
+          actions: notification.actions || "[]",
           serviceWorkerRegistrationID: notification.serviceWorkerRegistrationID
         }
       );
