@@ -158,9 +158,6 @@ struct nsTArrayInfallibleAllocatorBase
   }
 };
 
-#if defined(MOZALLOC_HAVE_XMALLOC)
-#include "mozilla/mozalloc_abort.h"
-
 struct nsTArrayFallibleAllocator : nsTArrayFallibleAllocatorBase
 {
   static void* Malloc(size_t aSize) { return malloc(aSize); }
@@ -172,6 +169,9 @@ struct nsTArrayFallibleAllocator : nsTArrayFallibleAllocatorBase
   static void Free(void* aPtr) { free(aPtr); }
   static void SizeTooBig(size_t) {}
 };
+
+#if defined(MOZALLOC_HAVE_XMALLOC)
+#include "mozilla/mozalloc_abort.h"
 
 struct nsTArrayInfallibleAllocator : nsTArrayInfallibleAllocatorBase
 {
@@ -187,15 +187,6 @@ struct nsTArrayInfallibleAllocator : nsTArrayInfallibleAllocatorBase
 
 #else
 #include <stdlib.h>
-
-struct nsTArrayFallibleAllocator : nsTArrayFallibleAllocatorBase
-{
-  static void* Malloc(size_t aSize) { return malloc(aSize); }
-  static void* Realloc(void* aPtr, size_t aSize) { return realloc(aPtr, aSize); }
-
-  static void Free(void* aPtr) { free(aPtr); }
-  static void SizeTooBig(size_t) {}
-};
 
 struct nsTArrayInfallibleAllocator : nsTArrayInfallibleAllocatorBase
 {
@@ -531,9 +522,6 @@ public:
   bool Equals(const A& aA, const B& aB) const { return aA == aB; }
   bool LessThan(const A& aA, const B& aB) const { return aA < aB; }
 };
-
-template<class E> class InfallibleTArray;
-template<class E> class FallibleTArray;
 
 template<bool IsPod, bool IsSameType>
 struct AssignRangeAlgorithm

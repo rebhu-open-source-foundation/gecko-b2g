@@ -65,11 +65,6 @@ typedef CONTEXT tickcontext_t;
 typedef ucontext_t tickcontext_t;
 #endif
 
-#if defined(LINUX) || defined(XP_MACOSX)
-#include <sys/types.h>
-pid_t gettid();
-#endif
-
 #if defined(__arm__) && defined(ANDROID)
  // Should also work on ARM Linux, but not tested there yet.
  #define USE_EHABI_STACKWALK
@@ -285,6 +280,12 @@ GeckoSampler::~GeckoSampler()
   // Cancel any in-flight async profile gatherering
   // requests
   mGatherer->Cancel();
+
+#ifdef MOZ_TASK_TRACER
+  if (mTaskTracer) {
+    mozilla::tasktracer::StopLogging();
+  }
+#endif
 }
 
 void GeckoSampler::HandleSaveRequest()
@@ -310,7 +311,7 @@ void GeckoSampler::StreamTaskTracer(SpliceableJSONWriter& aWriter)
 {
 #ifdef MOZ_TASK_TRACER
   aWriter.StartArrayProperty("data");
-    nsAutoPtr<nsTArray<nsCString>> data(mozilla::tasktracer::GetLoggedData(sStartTime));
+    UniquePtr<nsTArray<nsCString>> data = mozilla::tasktracer::GetLoggedData(sStartTime);
     for (uint32_t i = 0; i < data->Length(); ++i) {
       aWriter.StringElement((data->ElementAt(i)).get());
     }
@@ -435,6 +436,15 @@ void GeckoSampler::ToJSObjectAsync(double aSinceTime,
   }
 
   mGatherer->Start(aSinceTime, aPromise);
+}
+
+void GeckoSampler::ToFileAsync(const nsACString& aFileName, double aSinceTime)
+{
+  if (NS_WARN_IF(!mGatherer)) {
+    return;
+  }
+
+  mGatherer->Start(aSinceTime, aFileName);
 }
 
 struct SubprocessClosure {
