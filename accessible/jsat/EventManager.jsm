@@ -12,6 +12,8 @@ const TEXT_NODE = 3;
 Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 XPCOMUtils.defineLazyModuleGetter(this, 'Services',
   'resource://gre/modules/Services.jsm');
+XPCOMUtils.defineLazyModuleGetter(this, 'SystemAppProxy',
+  'resource://gre/modules/SystemAppProxy.jsm');
 XPCOMUtils.defineLazyModuleGetter(this, 'Utils',
   'resource://gre/modules/accessibility/Utils.jsm');
 XPCOMUtils.defineLazyModuleGetter(this, 'Logger',
@@ -59,6 +61,8 @@ this.EventManager.prototype = {
         this.addEventListener('wheel', this, true);
         this.addEventListener('scroll', this, true);
         this.addEventListener('resize', this, true);
+        this.addEventListener('visibilitychange', this);
+        SystemAppProxy.addEventListener('mozContentEvent', this);
         this._preDialogPosition = new WeakMap();
       }
       this.present(Presentation.tabStateChanged(null, 'newtab'));
@@ -82,12 +86,16 @@ this.EventManager.prototype = {
       this.removeEventListener('wheel', this, true);
       this.removeEventListener('scroll', this, true);
       this.removeEventListener('resize', this, true);
+      this.removeEventListener('visibilitychange', this);
+      SystemAppProxy.removeEventListener('mozContentEvent', this);
     } catch (x) {
       // contentScope is dead.
     } finally {
       this._started = false;
     }
   },
+
+  queueEvent: null,
 
   handleEvent: function handleEvent(aEvent) {
     Logger.debug(() => {
@@ -96,6 +104,25 @@ this.EventManager.prototype = {
 
     try {
       switch (aEvent.type) {
+      case 'mozContentEvent':
+      {
+        if (aEvent.detail.type === 'custom-accessible') {
+          let domNode = aEvent.detail.node;
+          let acc = Utils.AccRetrieval.getAccessibleFor(domNode);
+          if (acc == null) {
+            // this event fires too early and the dom tree is still under
+            // constructed, postpone it.
+            this.queueEvent = aEvent.detail.node;
+          } else {
+            this.present(Presentation.selected(acc));
+          }
+        } else if (aEvent.detail.type === 'start-custom-access-output') {
+            this.customAccessOutput = true;
+        } else if (aEvent.detail.type === 'stop-custom-access-output') {
+            this.customAccessOutput = false;
+        }
+        break;
+      }
       case 'wheel':
       {
         let attempts = 0;
@@ -120,6 +147,13 @@ this.EventManager.prototype = {
         this.present(Presentation.viewportChanged(window));
         break;
       }
+      case 'visibilitychange':
+        // When the window is back to foreground, tells parent process the
+        // latest state.
+        if (!aEvent.target.hidden) {
+          this.present(Presentation.editingModeChanged(this.editState.editing));
+          this.sendMsgFunc("AccessFu:Input", this.editState);
+        }
       }
     } catch (x) {
       Logger.logException(x, 'Error handling DOM event');
@@ -146,6 +180,17 @@ this.EventManager.prototype = {
     switch (aEvent.eventType) {
       case Events.VIRTUALCURSOR_CHANGED:
       {
+        if (this.customAccessOutput) {
+          // when customAccessOutput is true, skip it.
+          // On bug 4294, when pop-up menu shows up, it isn't focused(if it
+          // takes focus, the menu will be closed). But readout module will fire
+          // EVENT_VIRTUALCURSOR_CHANGED and it reads the first item of the menu.
+          // This will conflict if user doesn't select the first item.
+          // For such use case, readout module reads the items that user selected
+          // by listening to 'custom-accessible' event.
+          return;
+        }
+
         let pivot = aEvent.accessible.
           QueryInterface(Ci.nsIAccessibleDocument).virtualCursor;
         let position = pivot.position;
@@ -158,7 +203,12 @@ this.EventManager.prototype = {
 
         if (this.editState.editing &&
             !Utils.getState(position).contains(States.FOCUSED)) {
-          aEvent.accessibleDocument.takeFocus();
+          // For the current UX spec, p. 8 of IME v1.0.3,
+          // we don't need to change focus.
+          // Readout module only needs to process the focus element.
+          if (Utils.widgetToolkit != 'gonk') {
+            aEvent.accessibleDocument.takeFocus();
+          }
         }
         this.present(
           Presentation.pivotChanged(position, oldAccessible, reason,
@@ -258,6 +308,11 @@ this.EventManager.prototype = {
       case Events.TEXT_INSERTED:
       case Events.TEXT_REMOVED:
       {
+        // We don't read the strings in password field.
+        if (aEvent.accessible.role == Ci.nsIAccessibleRole.ROLE_PASSWORD_TEXT) {
+          break;
+        }
+
         let {liveRegion, isPolite} = this._handleLiveRegion(aEvent,
           ['text', 'all']);
         if (aEvent.isFromUserInput || liveRegion) {
@@ -299,6 +354,12 @@ this.EventManager.prototype = {
         }
         this._preDialogPosition.set(aEvent.accessible.DOMNode, position);
         this.contentControl.autoMove(aEvent.accessible, { delay: 500 });
+        if (this.queueEvent) {
+          // Reads the event that FE sent too early.
+          let acc = Utils.AccRetrieval.getAccessibleFor(this.queueEvent);
+          this.present(Presentation.selected(acc));
+          this.queueEvent = null;
+        }
         break;
       }
       case Events.VALUE_CHANGE:
@@ -316,6 +377,7 @@ this.EventManager.prototype = {
             this.present(Presentation.valueChanged(target, isPolite));
           }
         }
+        break;
       }
     }
   },
@@ -447,6 +509,11 @@ this.EventManager.prototype = {
           modifiedText));
       }
     } else {
+      // bug 7239, when removing character from input field, we should read
+      // "clear" rather than the character that is going to be removed.
+      if (aEvent.eventType === Events.TEXT_REMOVED) {
+        modifiedText = 'clear';
+      }
       this.present(Presentation.textChanged(aEvent.accessible, isInserted,
         event.start, event.length, text, modifiedText));
     }

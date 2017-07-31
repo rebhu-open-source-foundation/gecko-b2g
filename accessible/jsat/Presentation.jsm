@@ -18,6 +18,8 @@ XPCOMUtils.defineLazyModuleGetter(this, 'PivotContext', // jshint ignore:line
   'resource://gre/modules/accessibility/Utils.jsm');
 XPCOMUtils.defineLazyModuleGetter(this, 'UtteranceGenerator', // jshint ignore:line
   'resource://gre/modules/accessibility/OutputGenerator.jsm');
+XPCOMUtils.defineLazyModuleGetter(this, 'BriefGenerator', // jshint ignore:line
+  'resource://gre/modules/accessibility/OutputGenerator.jsm');
 XPCOMUtils.defineLazyModuleGetter(this, 'BrailleGenerator', // jshint ignore:line
   'resource://gre/modules/accessibility/OutputGenerator.jsm');
 XPCOMUtils.defineLazyModuleGetter(this, 'Roles', // jshint ignore:line
@@ -47,7 +49,8 @@ Presenter.prototype = {
    *   See nsIAccessiblePivot.
    * @param {bool} aIsFromUserInput the pivot change was invoked by the user
    */
-  pivotChanged: function pivotChanged(aContext, aReason, aIsFromUserInput) {}, // jshint ignore:line
+  pivotChanged: function pivotChanged(aPosition, aOldPosition,
+    aStartOffset, aEndOffset, aReason, aIsUserInput) {}, // jshint ignore:line
 
   /**
    * An object's action has been invoked.
@@ -137,7 +140,14 @@ Presenter.prototype = {
    * @param  {string} aModifiedText Optional modified text.
    */
   liveRegion: function liveRegionShown(aContext, aIsPolite, aIsHide, // jshint ignore:line
-    aModifiedText) {} // jshint ignore:line
+    aModifiedText) {}, // jshint ignore:line
+
+  /**
+   * Explicitly read out by front-end
+   * @param {nsIAccessible} aAccessible the object that should be
+   *   read out explicitly (usually non-focused item).
+   */
+  selected: function selected(aAccessible) {}
 };
 
 /**
@@ -181,7 +191,10 @@ VisualPresenter.prototype.viewportChanged =
   };
 
 VisualPresenter.prototype.pivotChanged =
-  function VisualPresenter_pivotChanged(aContext) {
+  function VisualPresenter_pivotChanged(aPosition, aOldPosition,
+                                        aStartOffset, aEndOffset) {
+    let aContext = new PivotContext(
+      aPosition, aOldPosition, aStartOffset, aEndOffset);
     if (!aContext.accessible) {
       // XXX: Don't hide because another vc may be using the highlight.
       return null;
@@ -250,7 +263,10 @@ AndroidPresenter.prototype.ANDROID_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY =
   0x20000;
 
 AndroidPresenter.prototype.pivotChanged =
-  function AndroidPresenter_pivotChanged(aContext, aReason) {
+  function AndroidPresenter_pivotChanged(aPosition, aOldPosition,
+                                        aStartOffset, aEndOffset, aReason) {
+    let aContext = new PivotContext(
+      aPosition, aOldPosition, aStartOffset, aEndOffset);
     if (!aContext.accessible) {
       return null;
     }
@@ -506,7 +522,10 @@ B2GPresenter.prototype.pivotChangedReasons = ['none', 'next', 'prev', 'first',
                                               'last', 'text', 'point'];
 
 B2GPresenter.prototype.pivotChanged =
-  function B2GPresenter_pivotChanged(aContext, aReason, aIsUserInput) {
+  function B2GPresenter_pivotChanged(aPosition, aOldPosition, aStartOffset,
+                                     aEndOffset, aReason, aIsUserInput) {
+    let aContext = new PivotContext(
+      aPosition, aOldPosition, aStartOffset, aEndOffset);
     if (!aContext.accessible) {
       return null;
     }
@@ -640,6 +659,81 @@ B2GPresenter.prototype.noMove =
   };
 
 /**
+ * A B2G presenter for non-browser-framed app.
+ */
+function AppFramePresenter() {}
+AppFramePresenter.prototype = Object.create(B2GPresenter.prototype);
+
+AppFramePresenter.prototype.EMPHASIZED_ROLE = Ci.nsIAccessibleRole.ROLE_PAGETABLIST;
+
+AppFramePresenter.prototype.pivotChanged =
+  function AppFramePresenter_pivotChanged(aPosition, aOldPosition, aStartOffset,
+                                          aEndOffset, aReason, aIsUserInput) {
+    let aContext = new PivotContext(
+      aPosition, aOldPosition, aStartOffset, aEndOffset,
+      false, false, this.EMPHASIZED_ROLE);
+    if (!aContext.accessible) {
+      return null;
+    }
+
+    return {
+      type: this.type,
+      details: {
+        eventType: 'vc-change',
+        data: BriefGenerator.genForContext(aContext),
+        options: {
+          pattern: this.PIVOT_CHANGE_HAPTIC_PATTERN,
+          isKey: Utils.isActivatableOnFingerUp(aContext.accessible),
+          reason: this.pivotChangedReasons[aReason],
+          isUserInput: aIsUserInput,
+          hints: aContext.interactionHints
+        }
+      }
+    };
+  };
+
+AppFramePresenter.prototype.actionInvoked =
+  function AppFramePresenter_actionInvoked(aObject, aActionName) {
+    return {
+      type: this.type,
+      details: {
+        eventType: 'action',
+        data: BriefGenerator.genForAction(aObject, aActionName)
+      }
+    };
+  };
+
+AppFramePresenter.prototype.liveRegion =
+  function AppFramePresenter_liveRegion(
+    aContext, aIsPolite, aIsHide, aModifiedText) {
+
+    return {
+      type: this.type,
+      details: {
+        eventType: 'liveregion-change',
+        data: BriefGenerator.genForLiveRegion(aContext, aIsHide,
+          aModifiedText),
+        options: {enqueue: aIsPolite}
+      }
+    };
+  };
+
+AppFramePresenter.prototype.selected =
+  function AppFramePresenter_selected(aAccessible) {
+    let aContext = new PivotContext(aAccessible, null, -1, -1, true);
+    if (!aContext.accessible) {
+      return null;
+    }
+    return {
+      type: this.type,
+      details: {
+        eventType: 'front-end-selected',
+        data: BriefGenerator.genForContext(aContext)
+      }
+    };
+  };
+
+/**
  * A braille presenter
  */
 function BraillePresenter() {}
@@ -649,7 +743,10 @@ BraillePresenter.prototype = Object.create(Presenter.prototype);
 BraillePresenter.prototype.type = 'Braille';
 
 BraillePresenter.prototype.pivotChanged =
-  function BraillePresenter_pivotChanged(aContext) {
+  function BraillePresenter_pivotChanged(aPosition, aOldPosition, 
+                                         aStartOffset, aEndOffset) {
+    let aContext = new PivotContext(
+      aPosition, aOldPosition, aStartOffset, aEndOffset);
     if (!aContext.accessible) {
       return null;
     }
@@ -681,7 +778,8 @@ this.Presentation = { // jshint ignore:line
     delete this.presenters;
     let presenterMap = {
       'mobile/android': [VisualPresenter, AndroidPresenter],
-      'b2g': [VisualPresenter, B2GPresenter],
+      'b2g': [
+              Utils.isBrowserFrame ? B2GPresenter : AppFramePresenter],
       'browser': [VisualPresenter, B2GPresenter, AndroidPresenter]
     };
     this.presenters = presenterMap[Utils.MozBuildApp].map(P => new P());
@@ -702,7 +800,8 @@ this.Presentation = { // jshint ignore:line
       this.displayedAccessibles.set(context.accessible.document.window, context);
     }
 
-    return this.presenters.map(p => p.pivotChanged(context, aReason, aIsUserInput));
+    return this.presenters.map(p => p.pivotChanged(aPosition, aOldPosition,
+      aStartOffset, aEndOffset, aReason, aIsUserInput));
   },
 
   actionInvoked: function Presentation_actionInvoked(aObject, aActionName) {
@@ -765,5 +864,9 @@ this.Presentation = { // jshint ignore:line
     }
     return this.presenters.map(p => p.liveRegion(context, aIsPolite, aIsHide,
                                                  aModifiedText));
+  },
+
+  selected: function Presentation_selected(aAccessible) {
+    return [ p.selected(aAccessible) for (p of this.presenters) ]; // jshint ignore:line
   }
 };
