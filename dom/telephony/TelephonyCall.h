@@ -12,6 +12,7 @@
 #include "mozilla/dom/TelephonyCallBinding.h"
 #include "mozilla/dom/TelephonyCallId.h"
 #include "mozilla/dom/telephony/TelephonyCommon.h"
+#include "mozilla/dom/TelephonyCallCapabilities.h"
 
 #include "nsITelephonyService.h"
 
@@ -19,6 +20,8 @@ class nsPIDOMWindowInner;
 
 namespace mozilla {
 namespace dom {
+
+class DOMVideoCallProvider;
 
 class TelephonyCall final : public DOMEventTargetHelper
 {
@@ -41,6 +44,11 @@ class TelephonyCall final : public DOMEventTargetHelper
   bool mLive;
 
   TelephonyCallVoiceQuality mVoiceQuality;
+  TelephonyVideoCallState mVideoCallState;
+  RefPtr<TelephonyCallCapabilities> mCapabilities;
+  TelephonyCallRadioTech mRadioTech;
+  mutable RefPtr<DOMVideoCallProvider> mVideoCallProvider;
+
   bool mIsConferenceParent;
 
 public:
@@ -97,6 +105,21 @@ public:
     return mVoiceQuality;
   }
 
+  TelephonyVideoCallState
+  VideoCallState() const
+  {
+    return mVideoCallState;
+  }
+
+  already_AddRefed<TelephonyCallCapabilities>
+  Capabilities() const;
+
+  TelephonyCallRadioTech
+  RadioTech() const
+  {
+    return mRadioTech;
+  }
+
   bool
   IsActive() const
   {
@@ -121,6 +144,9 @@ public:
   Answer(ErrorResult& aRv);
 
   already_AddRefed<Promise>
+  AnswerVT(uint16_t aType, ErrorResult& aRv);
+
+  already_AddRefed<Promise>
   HangUp(ErrorResult& aRv);
 
   already_AddRefed<Promise>
@@ -128,6 +154,9 @@ public:
 
   already_AddRefed<Promise>
   Resume(ErrorResult& aRv);
+
+  already_AddRefed<DOMVideoCallProvider>
+  GetVideoCallProvider(ErrorResult& aRv);
 
   IMPL_EVENT_HANDLER(statechange)
   IMPL_EVENT_HANDLER(dialing)
@@ -144,6 +173,12 @@ public:
   static TelephonyCallVoiceQuality
   ConvertToTelephonyCallVoiceQuality(uint16_t aQuality);
 
+  static TelephonyVideoCallState
+  ConvertToTelephonyVideoCallState(uint16_t aState);
+
+  static TelephonyCallRadioTech
+  ConvertToTelephonyCallRadioTech(uint32_t aRadioTech);
+
   static already_AddRefed<TelephonyCall>
   Create(Telephony* aTelephony,
          TelephonyCallId* aId,
@@ -155,7 +190,11 @@ public:
          bool aConference = false,
          bool aSwitchable = true,
          bool aMergeable = true,
-         bool aConferenceParent = false);
+         bool aConferenceParent = false,
+         uint32_t aCapabilities = 0,
+         TelephonyVideoCallState aVideoCallState =  TelephonyVideoCallState::Voice,
+         TelephonyCallRadioTech aRadioTech = TelephonyCallRadioTech::Cs
+         );
 
   void
   ChangeState(TelephonyCallState aState)
@@ -202,6 +241,21 @@ public:
   void
   UpdateVoiceQuality(TelephonyCallVoiceQuality aVoiceQuality) {
     mVoiceQuality = aVoiceQuality;
+  }
+
+  void
+  UpdateVideoCallState(TelephonyVideoCallState aState) {
+    mVideoCallState = aState;
+  }
+
+  void
+  UpdateCapabilities(uint32_t aCapabilities) {
+    mCapabilities->Update(aCapabilities);
+  }
+
+  void
+  UpdateRadioTech(TelephonyCallRadioTech aRadioTech) {
+    mRadioTech = aRadioTech;
   }
 
   void

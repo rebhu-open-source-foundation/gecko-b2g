@@ -38,14 +38,44 @@ interface TelephonyCall : EventTarget {
   // Indicate whether the voice quality is Normal or HD(High Definition).
   readonly attribute TelephonyCallVoiceQuality voiceQuality;
 
+  /**
+   * Indicate current video call state.
+   */
+  readonly attribute TelephonyVideoCallState videoCallState;
+
+  /**
+   * Indicate current call capabilities.
+   */
+  readonly attribute TelephonyCallCapabilities capabilities;
+
+  /**
+   * To indicate current call's radio tech.
+   * ETA 3/24.
+   */
+  readonly attribute TelephonyCallRadioTech radioTech;
+
   [NewObject]
   Promise<void> answer();
+  /**
+   * To answer call with given type.
+   * @param type
+   *        The call type you are going to answer.
+   *        One of Telephony.CALL_TYPE_* values.
+   */
+  [NewObject]
+  Promise<void> answerVT(unsigned short type);
   [NewObject]
   Promise<void> hangUp();
   [NewObject]
   Promise<void> hold();
   [NewObject]
   Promise<void> resume();
+
+  /**
+   * To acquire the video call handler which helps app to operate video call related function.
+   */
+  [Throws]
+  readonly attribute VideoCallProvider? videoCallProvider;
 
   attribute EventHandler onstatechange;
   attribute EventHandler ondialing;
@@ -61,7 +91,7 @@ interface TelephonyCall : EventTarget {
 
 enum TelephonyCallVoiceQuality {
   "Normal",
-  "HD",
+  "HD"
 };
 
 enum TelephonyCallState {
@@ -138,4 +168,30 @@ enum TelephonyCallDisconnectedReason {
   "CdmaNotEmergency",
   "CdmaAccessBlocked",
   "Unspecified",
+};
+
+enum TelephonyVideoCallState {
+  // voice only call
+  "Voice",
+  // video transmitting + voice call
+  "TxEnabled",
+  // video receiving + voice call
+  "RxEnabled",
+  // bidirectional video + voice call
+  "Bidirectional",
+  // video is paused.
+  // differs to call state HELD, the voice could still active.
+  "Paused"
+};
+
+/**
+ * Current calls' bearer.
+ */
+enum TelephonyCallRadioTech {
+  // It is over circuit switch
+  "cs",
+  // It is over packet switch
+  "ps",
+  // It is over wifi.
+  "wifi"
 };

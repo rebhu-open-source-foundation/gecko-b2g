@@ -56,13 +56,20 @@ TelephonyDialCallback::NotifyDialCallSuccess(uint32_t aClientId,
                                              uint32_t aCallIndex,
                                              const nsAString& aNumber,
                                              bool aIsEmergency,
-                                             uint16_t aVoiceQuality)
+                                             uint16_t aVoiceQuality,
+                                             uint16_t aVideoCallState,
+                                             uint32_t aCapabilities,
+                                             uint16_t aRadioTech)
 {
   RefPtr<TelephonyCallId> id = mTelephony->CreateCallId(aNumber);
+
   RefPtr<TelephonyCall> call =
       mTelephony->CreateCall(id, aClientId, aCallIndex,
                              TelephonyCallState::Dialing,
                              TelephonyCall::ConvertToTelephonyCallVoiceQuality(aVoiceQuality),
+                             TelephonyCall::ConvertToTelephonyVideoCallState(aVideoCallState),
+                             aCapabilities,
+                             TelephonyCall::ConvertToTelephonyCallRadioTech(aRadioTech),
                              aIsEmergency);
 
   mPromise->MaybeResolve(call);

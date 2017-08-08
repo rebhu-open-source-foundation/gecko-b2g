@@ -14,6 +14,8 @@
 #include "nsIPermissionManager.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "DOMCameraControl.h"
+#include "DOMSurfaceControl.h"
+#include "IDOMSurfaceControlCallback.h"
 #include "nsDOMClassInfo.h"
 #include "CameraCommon.h"
 #include "CameraPreferences.h"
@@ -23,6 +25,12 @@
 
 using namespace mozilla;
 using namespace mozilla::dom;
+using namespace android;
+
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+#include <cutils/properties.h>
+#include "TestDataSourceCamera.h"
+#endif
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsDOMCameraManager, mWindow)
 
@@ -51,8 +59,107 @@ GetCameraLog()
 
 ::WindowTable* nsDOMCameraManager::sActiveWindows = nullptr;
 
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+
+class DOMSurfaceControlCallback : public IDOMSurfaceControlCallback
+{
+public:
+  DOMSurfaceControlCallback(nsDOMCameraManager* aCameraManager) : 
+    mDOMCameraManager(aCameraManager) {
+  }
+
+  virtual void OnProducerCreated(
+    android::sp<android::IGraphicBufferProducer> aProducer) override;
+  virtual void OnProducerDestroyed() override;
+
+  virtual ~DOMSurfaceControlCallback() { }
+
+private:
+  nsDOMCameraManager* mDOMCameraManager;
+};
+
+void DOMSurfaceControlCallback::OnProducerCreated(android::sp<android::IGraphicBufferProducer> aProducer)
+{
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+  char prop[128];
+  if (property_get("vt.surface.test", prop, NULL) != 0) {
+    if (strcmp(prop, "1") == 0) {
+      if(mDOMCameraManager) {
+
+        if (mDOMCameraManager->IsPreviewSurfaceNow()) {
+          mDOMCameraManager->mTestDataSource->SetPreviewSurface(aProducer, 
+                                                                mDOMCameraManager->mPreviewControl->GetConfiguration()->mPreviewSize.mWidth, 
+                                                                mDOMCameraManager->mPreviewControl->GetConfiguration()->mPreviewSize.mHeight);
+        } else {
+          mDOMCameraManager->mTestDataSource->SetDisplaySurface(aProducer, 
+                                                                mDOMCameraManager->mDisplayControl->GetConfiguration()->mPreviewSize.mWidth, 
+                                                                mDOMCameraManager->mDisplayControl->GetConfiguration()->mPreviewSize.mHeight);
+        }
+
+        mDOMCameraManager->mTestSurfaceCount ++; //Add counter after we set the correct surface producer.
+      }
+    }
+  }
+#endif
+}
+
+void DOMSurfaceControlCallback::OnProducerDestroyed()
+{
+
+}
+
+class TestDataSourceResolutionResultListener : public ITestDataSourceResolutionResultListener
+{
+public:
+  TestDataSourceResolutionResultListener()
+    : ITestDataSourceResolutionResultListener()
+  {
+  }
+
+  virtual void SetPreviewSurfaceControl(nsDOMSurfaceControl* aPreviewSurfaceControl)
+  {
+    mPreviewSurfaceControl = aPreviewSurfaceControl;
+  }
+
+  virtual void SetDisplaySurfaceControl(nsDOMSurfaceControl* aDisplaySurfaceControl)
+  {
+    mDisplaySurfaceControl = aDisplaySurfaceControl;
+  }
+
+  virtual void onChangeCameraCapabilities(unsigned int aResultWidth,
+                                          unsigned int aResultHeight)
+  {
+    if (mPreviewSurfaceControl) {
+      mPreviewSurfaceControl->SetDataSourceSize(aResultWidth, aResultHeight);
+    }
+  }
+
+  virtual void onChangePeerDimensions(unsigned int aResultWidth,
+                                      unsigned int aResultHeight)
+  {
+     if (mDisplaySurfaceControl) {
+      mDisplaySurfaceControl->SetDataSourceSize(aResultWidth, aResultHeight);
+    }   
+  }
+
+protected:
+  virtual ~TestDataSourceResolutionResultListener() { }
+
+private:
+  nsDOMSurfaceControl* mPreviewSurfaceControl;
+  nsDOMSurfaceControl* mDisplaySurfaceControl;
+};
+#endif
+
 nsDOMCameraManager::nsDOMCameraManager(nsPIDOMWindowInner* aWindow)
-  : mWindowId(aWindow->WindowID())
+  :
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+  mTestDataSource(NULL)
+  , mResolutionResultListener(NULL)
+  , mTestSurfaceCount(0)
+  ,
+#endif
+    mWindowId(aWindow->WindowID())
   , mPermission(nsIPermissionManager::DENY_ACTION)
   , mWindow(aWindow)
 {
@@ -63,6 +170,19 @@ nsDOMCameraManager::nsDOMCameraManager(nsPIDOMWindowInner* aWindow)
 
 nsDOMCameraManager::~nsDOMCameraManager()
 {
+  if (mDOMSurfaceControlCallback) {
+    delete mDOMSurfaceControlCallback;
+  }
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+
+  if (mTestDataSource) {
+    delete mTestDataSource;
+  }
+
+  if (mResolutionResultListener) {
+    delete mResolutionResultListener;
+  }
+#endif
   /* destructor code */
   MOZ_COUNT_DTOR(nsDOMCameraManager);
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
@@ -108,7 +228,7 @@ nsDOMCameraManager::CreateInstance(nsPIDOMWindowInner* aWindow)
   if (!sActiveWindows) {
     sActiveWindows = new ::WindowTable();
   }
-
+  
   RefPtr<nsDOMCameraManager> cameraManager =
     new nsDOMCameraManager(aWindow);
 
@@ -326,6 +446,92 @@ nsDOMCameraManager::GetCamera(const nsAString& aCamera,
   return promise.forget();
 }
 
+already_AddRefed<Promise>
+nsDOMCameraManager::GetPreviewStream(const SurfaceConfiguration& aInitialConfig, mozilla::ErrorResult& aRv)
+{
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
+  if (!global) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(mWindow);
+  if (!sop) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  // Creating this object will trigger the aOnSuccess callback
+  //  (or the aOnError one, if it fails).
+  mDOMSurfaceControlCallback = new DOMSurfaceControlCallback(this);
+  RefPtr<nsDOMSurfaceControl> surfaceControl =
+    new nsDOMSurfaceControl(aInitialConfig, promise, mWindow, mDOMSurfaceControlCallback);
+
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+
+  if (mResolutionResultListener == NULL) {
+    mResolutionResultListener = new TestDataSourceResolutionResultListener();
+  }
+
+  if (mTestDataSource == NULL) {
+    mTestDataSource = new TestDataSourceCamera(mResolutionResultListener);
+  }
+
+  mPreviewControl = surfaceControl;
+  mResolutionResultListener->SetPreviewSurfaceControl(mPreviewControl);
+
+#endif
+  return promise.forget();
+}
+
+already_AddRefed<Promise> 
+nsDOMCameraManager::GetDisplayStream(const SurfaceConfiguration& aInitialConfig, mozilla::ErrorResult& aRv)
+{
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
+  if (!global) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(mWindow);
+  if (!sop) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  // Creating this object will trigger the aOnSuccess callback
+  //  (or the aOnError one, if it fails).
+  mDOMSurfaceControlCallback = new DOMSurfaceControlCallback(this);
+  RefPtr<nsDOMSurfaceControl> surfaceControl =
+    new nsDOMSurfaceControl(aInitialConfig, promise, mWindow, mDOMSurfaceControlCallback);
+
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+
+  if (mResolutionResultListener == NULL) {
+    mResolutionResultListener = new TestDataSourceResolutionResultListener();
+  }
+
+  if (mTestDataSource == NULL) {
+    mTestDataSource = new TestDataSourceCamera(mResolutionResultListener);
+  }
+
+  mDisplayControl = surfaceControl;
+  mResolutionResultListener->SetDisplaySurfaceControl(mDisplayControl);
+
+#endif
+  return promise.forget();
+}
+
 void
 nsDOMCameraManager::PermissionAllowed(uint32_t aCameraId,
                                       const CameraConfiguration& aInitialConfig,
@@ -386,22 +592,34 @@ nsDOMCameraManager::Shutdown(uint64_t aWindowId)
   MOZ_ASSERT(NS_IsMainThread());
 
   CameraControls* controls = sActiveWindows->Get(aWindowId);
-  if (!controls) {
-    return;
-  }
-
-  uint32_t i = controls->Length();
-  while (i > 0) {
-    --i;
-    RefPtr<nsDOMCameraControl> cameraControl =
-      do_QueryReferent(controls->ElementAt(i));
-    if (cameraControl) {
-      cameraControl->Shutdown();
+  if (controls) {
+    uint32_t i = controls->Length();
+    while (i > 0) {
+      --i;
+      RefPtr<nsDOMCameraControl> cameraControl =
+        do_QueryReferent(controls->ElementAt(i));
+      if (cameraControl) {
+        cameraControl->Shutdown();
+      }
     }
+    controls->Clear();
+    sActiveWindows->Remove(aWindowId);
   }
-  controls->Clear();
 
-  sActiveWindows->Remove(aWindowId);
+  //==Surface test start==
+#ifdef FEED_TEST_DATA_TO_PRODUCER
+  //Stop test if any
+  mTestDataSource->Stop();
+
+  if (mDisplayControl != NULL) {
+    mDisplayControl->Shutdown();
+  }
+
+  if (mPreviewControl != NULL) {
+    mPreviewControl->Shutdown();
+  }
+#endif
+  //==Surface test end==
 }
 
 void
@@ -450,3 +668,4 @@ nsDOMCameraManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto
 {
   return CameraManagerBinding::Wrap(aCx, this, aGivenProto);
 }
+

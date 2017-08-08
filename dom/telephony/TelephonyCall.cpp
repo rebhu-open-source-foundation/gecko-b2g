@@ -9,6 +9,7 @@
 #include "mozilla/dom/telephony/TelephonyCallback.h"
 
 #include "mozilla/dom/DOMError.h"
+#include "mozilla/dom/DOMVideoCallProvider.h"
 #include "nsPrintfCString.h"
 
 #include "Telephony.h"
@@ -39,6 +40,10 @@
 
 #define TELEPHONY_CALL_STATE(_state) \
   (TelephonyCallStateValues::strings[static_cast<int32_t>(_state)].value)
+
+#include <android/log.h>
+#undef LOG
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "TelephonyCall" , ## args)
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::telephony;
@@ -71,14 +76,52 @@ TelephonyCallVoiceQuality
 TelephonyCall::ConvertToTelephonyCallVoiceQuality(uint16_t aQuality)
 {
   switch (aQuality) {
-  case nsITelephonyService::CALL_VOICE_QUALITY_HD:
-    return TelephonyCallVoiceQuality::HD;
-  case nsITelephonyService::CALL_VOICE_QUALITY_NORMAL:
-    return TelephonyCallVoiceQuality::Normal;
- }
+    case nsITelephonyService::CALL_VOICE_QUALITY_HD:
+      return TelephonyCallVoiceQuality::HD;
+    case nsITelephonyService::CALL_VOICE_QUALITY_NORMAL:
+      return TelephonyCallVoiceQuality::Normal;
+  }
 
   NS_NOTREACHED("Unknown quality!");
   return TelephonyCallVoiceQuality::Normal;
+}
+
+// static
+TelephonyVideoCallState
+TelephonyCall::ConvertToTelephonyVideoCallState(uint16_t aState)
+{
+  switch (aState) {
+    case nsITelephonyCallInfo::STATE_AUDIO_ONLY:
+      return TelephonyVideoCallState::Voice;
+    case nsITelephonyCallInfo::STATE_TX_ENABLED:
+      return TelephonyVideoCallState::TxEnabled;
+    case nsITelephonyCallInfo::STATE_RX_ENABLED:
+      return TelephonyVideoCallState::RxEnabled;
+    case nsITelephonyCallInfo::STATE_BIDIRECTIONAL:
+      return TelephonyVideoCallState::Bidirectional;
+    case nsITelephonyCallInfo::STATE_PAUSED:
+      return TelephonyVideoCallState::Paused;
+  }
+
+  NS_NOTREACHED("Unknown videocallstate!");
+  return TelephonyVideoCallState::Voice;
+}
+
+// static
+TelephonyCallRadioTech
+TelephonyCall::ConvertToTelephonyCallRadioTech(uint32_t aRadioTech)
+{
+  switch (aRadioTech) {
+    case nsITelephonyCallInfo::RADIO_TECH_CS:
+      return TelephonyCallRadioTech::Cs;
+    case nsITelephonyCallInfo::RADIO_TECH_PS:
+      return TelephonyCallRadioTech::Ps;
+    case nsITelephonyCallInfo::RADIO_TECH_WIFI:
+      return TelephonyCallRadioTech::Wifi;
+  }
+
+  NS_NOTREACHED("Unknown videocallstate!");
+  return TelephonyCallRadioTech::Cs;
 }
 
 // static
@@ -93,7 +136,10 @@ TelephonyCall::Create(Telephony* aTelephony,
                       bool aConference,
                       bool aSwitchable,
                       bool aMergeable,
-                      bool aConferenceParent)
+                      bool aConferenceParent,
+                      uint32_t aCapabilities,
+                      TelephonyVideoCallState aVideoCallState,
+                      TelephonyCallRadioTech aRadioTech)
 {
   NS_ASSERTION(aTelephony, "Null aTelephony pointer!");
   NS_ASSERTION(aId, "Null aId pointer!");
@@ -113,6 +159,11 @@ TelephonyCall::Create(Telephony* aTelephony,
   call->mError = nullptr;
   call->mIsConferenceParent = aConferenceParent;
 
+  call->mVideoCallState = aVideoCallState;
+  call->mCapabilities =
+      new TelephonyCallCapabilities(aTelephony->GetOwner(), aCapabilities);
+  call->mRadioTech = aRadioTech;
+
   call->ChangeStateInternal(aState, false);
   return call.forget();
 }
@@ -125,6 +176,7 @@ TelephonyCall::TelephonyCall(nsPIDOMWindowInner* aOwner)
 
 TelephonyCall::~TelephonyCall()
 {
+  LOG("~TelephonyCall");
 }
 
 JSObject*
@@ -294,7 +346,9 @@ NS_IMPL_CYCLE_COLLECTION_INHERITED(TelephonyCall,
                                    mError,
                                    mGroup,
                                    mId,
-                                   mSecondId);
+                                   mSecondId,
+                                   mCapabilities,
+                                   mVideoCallProvider);
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(TelephonyCall)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
@@ -325,6 +379,13 @@ TelephonyCall::GetError() const
   return error.forget();
 }
 
+already_AddRefed<TelephonyCallCapabilities>
+TelephonyCall::Capabilities() const
+{
+  RefPtr<TelephonyCallCapabilities> capabilities = mCapabilities;
+  return capabilities.forget();
+}
+
 already_AddRefed<TelephonyCallGroup>
 TelephonyCall::GetGroup() const
 {
@@ -334,6 +395,12 @@ TelephonyCall::GetGroup() const
 
 already_AddRefed<Promise>
 TelephonyCall::Answer(ErrorResult& aRv)
+{
+  return AnswerVT(nsITelephonyService::CALL_TYPE_VOICE_N_VIDEO, aRv);
+}
+
+already_AddRefed<Promise>
+TelephonyCall::AnswerVT(uint16_t aType, ErrorResult& aRv)
 {
   RefPtr<Promise> promise = CreatePromise(aRv);
   if (!promise) {
@@ -349,7 +416,7 @@ TelephonyCall::Answer(ErrorResult& aRv)
   }
 
   nsCOMPtr<nsITelephonyCallback> callback = new TelephonyCallback(promise);
-  aRv = mTelephony->Service()->AnswerCall(mServiceId, mCallIndex, callback);
+  aRv = mTelephony->Service()->AnswerCall(mServiceId, mCallIndex, aType, callback);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
   return promise.forget();
@@ -483,4 +550,29 @@ TelephonyCall::Resume(nsITelephonyCallback* aCallback)
   }
 
   return NS_OK;
+}
+
+already_AddRefed<DOMVideoCallProvider>
+TelephonyCall::GetVideoCallProvider(ErrorResult& aRv)
+{
+  LOG("GetVideoCallProvider");
+  if (mVideoCallProvider) {
+    LOG("return cached provider");
+    RefPtr<DOMVideoCallProvider> provider = mVideoCallProvider;
+      return provider.forget();
+  } else {
+    LOG("return new provider");
+    nsCOMPtr<nsIVideoCallProvider> handler;
+    mTelephony->Service()->GetVideoCallProvider(mServiceId, mCallIndex, getter_AddRefs(handler));
+    // if fail to acquire nsIVideoCallProvider, return nullptr
+    if (!handler) {
+      LOG("no handler");
+      return nullptr;
+    }
+
+    mVideoCallProvider = new DOMVideoCallProvider(GetOwner(), handler);
+    RefPtr<DOMVideoCallProvider> provider = mVideoCallProvider;
+
+    return provider.forget();
+  }
 }
