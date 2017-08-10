@@ -24,6 +24,7 @@
 #define CHARGINGCHANGE_EVENT_NAME        NS_LITERAL_STRING("chargingchange")
 #define DISCHARGINGTIMECHANGE_EVENT_NAME NS_LITERAL_STRING("dischargingtimechange")
 #define CHARGINGTIMECHANGE_EVENT_NAME    NS_LITERAL_STRING("chargingtimechange")
+#define BATTERYHEALTHCHANGE_EVENT_NAME   NS_LITERAL_STRING("batteryhealthchange")
 
 namespace mozilla {
 namespace dom {
@@ -34,6 +35,7 @@ BatteryManager::BatteryManager(nsPIDOMWindowInner* aWindow)
   , mLevel(kDefaultLevel)
   , mCharging(kDefaultCharging)
   , mRemainingTime(kDefaultRemainingTime)
+  , mHealth(kDefaultHealth)
 {
 }
 
@@ -128,6 +130,20 @@ BatteryManager::Level() const
   return mLevel;
 }
 
+double
+BatteryManager::Temperature() const
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  return hal::GetBatteryTemperature();
+}
+
+BatteryHealth
+BatteryManager::Health() const
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  return mHealth;
+}
+
 void
 BatteryManager::UpdateFromBatteryInfo(const hal::BatteryInformation& aBatteryInfo)
 {
@@ -142,6 +158,7 @@ BatteryManager::UpdateFromBatteryInfo(const hal::BatteryInformation& aBatteryInf
 
   mCharging = aBatteryInfo.charging();
   mRemainingTime = aBatteryInfo.remainingTime();
+  mHealth = aBatteryInfo.health();
 
   if (!nsContentUtils::IsChromeDoc(doc) &&
       status != nsIPrincipal::APP_STATUS_CERTIFIED)
@@ -167,6 +184,7 @@ BatteryManager::Notify(const hal::BatteryInformation& aBatteryInfo)
   double previousLevel = mLevel;
   bool previousCharging = mCharging;
   double previousRemainingTime = mRemainingTime;
+  BatteryHealth previousHealth = mHealth;
 
   UpdateFromBatteryInfo(aBatteryInfo);
 
@@ -178,6 +196,9 @@ BatteryManager::Notify(const hal::BatteryInformation& aBatteryInfo)
     DispatchTrustedEvent(LEVELCHANGE_EVENT_NAME);
   }
 
+  if (previousHealth != mHealth) {
+    DispatchTrustedEvent(BATTERYHEALTHCHANGE_EVENT_NAME);
+  }
   /*
    * There are a few situations that could happen here:
    * 1. Charging state changed:

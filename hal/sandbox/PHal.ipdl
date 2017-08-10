@@ -10,6 +10,7 @@ include protocol PBrowser;
 include "mozilla/GfxMessageUtils.h";
 
 using mozilla::dom::ScreenOrientationInternal from "mozilla/dom/ScreenOrientation.h";
+using mozilla::dom::BatteryHealth from "mozilla/dom/BatteryManagerBinding.h";
 using mozilla::hal::SensorType from "mozilla/HalSensor.h";
 using mozilla::hal::SensorAccuracyType from "mozilla/HalSensor.h";
 using mozilla::hal::WakeLockControl from "mozilla/HalTypes.h";
@@ -29,6 +30,8 @@ struct BatteryInformation {
   double level;
   bool   charging;
   double remainingTime;
+  double temperature;
+  BatteryHealth health;
 };
 
 struct PowerSupplyStatus {
@@ -185,6 +188,7 @@ parent:
       returns (SwitchState aState);
 
     async FactoryReset(nsString aReason);
+    sync GetBatteryTemperature() returns (double temperature);
 
 child:
     async NotifySensorChange(SensorData aSensorData);
