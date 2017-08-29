@@ -372,6 +372,44 @@ DataCallManager.prototype = {
   },
 };
 
+function convertToDataCallType(aNetworkType) {
+  switch (aNetworkType) {
+    case NETWORK_TYPE_MOBILE:
+      return "default";
+    case NETWORK_TYPE_MOBILE_MMS:
+      return "mms";
+    case NETWORK_TYPE_MOBILE_SUPL:
+      return "supl";
+    case NETWORK_TYPE_MOBILE_IMS:
+      return "ims";
+    case NETWORK_TYPE_MOBILE_DUN:
+      return "dun";
+    case NETWORK_TYPE_MOBILE_FOTA:
+      return "fota";
+    case NETWORK_TYPE_MOBILE_IA:
+      return "ia";
+    case NETWORK_TYPE_MOBILE_XCAP:
+      return "xcap";
+    default:
+      return "unknown";
+  }
+};
+
+function convertToDataCallState(aState) {
+  switch (aState) {
+    case NETWORK_STATE_CONNECTING:
+      return "connecting";
+    case NETWORK_STATE_CONNECTED:
+      return "connected";
+    case NETWORK_STATE_DISCONNECTING:
+      return "disconnecting";
+    case NETWORK_STATE_DISCONNECTED:
+      return "disconnected";
+    default:
+      return "unknown";
+  }
+};
+
 function DataCallHandler(aClientId) {
   // Initial owning attributes.
   this.clientId = aClientId;
@@ -675,6 +713,9 @@ DataCallHandler.prototype = {
   },
 
   updateRILNetworkInterface: function() {
+    if (DEBUG) {
+      this.debug("updateRILNetworkInterface");
+    }
     let networkInterface = this.dataNetworkInterfaces.get(NETWORK_TYPE_MOBILE);
     if (!networkInterface) {
       if (DEBUG) {
@@ -703,7 +744,7 @@ DataCallHandler.prototype = {
     // the new values and reconnect the data call.
     if (this.dataCallSettings.oldEnabled === this.dataCallSettings.enabled) {
       if (DEBUG) {
-        this.debug("No changes for ril.data.enabled flag. Nothing to do.");
+        this.debug("No changes for ril.data.enabled flag. Nothing to do. MobileEnable: " + this.dataCallSettings.enabled);
       }
       return;
     }
@@ -736,7 +777,10 @@ DataCallHandler.prototype = {
         (!this.dataCallSettings.enabled ||
          (dataInfo.roaming && !this.dataCallSettings.roamingEnabled))) {
       if (DEBUG) {
-        this.debug("Data call settings: disconnect data call.");
+        this.debug("MobileEnable: " + this.dataCallSettings.enabled
+          + " ,Roaming: " + dataInfo.roaming
+          + " ,RoamingEnabled: " + this.dataCallSettings.roamingEnabled
+          + " ,Data call settings: disconnect data call.");
       }
       networkInterface.disconnect();
       return;
@@ -752,7 +796,8 @@ DataCallHandler.prototype = {
 
     if (!this.dataCallSettings.enabled || defaultDataCallConnected) {
       if (DEBUG) {
-        this.debug("Data call settings: nothing to do.");
+        this.debug("Data call settings: nothing to do. MobileEnable: " + this.dataCallSettings.enabled
+          + " ,defaultDataCallConnected: " + defaultDataCallConnected);
       }
       return;
     }
@@ -817,7 +862,7 @@ DataCallHandler.prototype = {
 
   setupDataCallByType: function(aNetworkType) {
     if (DEBUG) {
-      this.debug("setupDataCallByType: " + aNetworkType);
+      this.debug("setupDataCallByType: " + convertToDataCallType(aNetworkType));
     }
 
     if (!this._isMobileNetworkType(aNetworkType)) {
@@ -828,7 +873,7 @@ DataCallHandler.prototype = {
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
     if (!networkInterface) {
       if (DEBUG) {
-        this.debug("No network interface for type: " + aNetworkType);
+        this.debug("No network interface for type: " + convertToDataCallType(aNetworkType));
       }
       return;
     }
@@ -838,7 +883,7 @@ DataCallHandler.prototype = {
 
   deactivateDataCallByType: function(aNetworkType) {
     if (DEBUG) {
-      this.debug("deactivateDataCallByType: " + aNetworkType);
+      this.debug("deactivateDataCallByType: " + convertToDataCallType(aNetworkType));
     }
 
     if (!this._isMobileNetworkType(aNetworkType)) {
@@ -849,7 +894,7 @@ DataCallHandler.prototype = {
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
     if (!networkInterface) {
       if (DEBUG) {
-        this.debug("No network interface for type: " + aNetworkType);
+        this.debug("No network interface for type: " + convertToDataCallType(aNetworkType));
       }
       return;
     }
@@ -860,6 +905,9 @@ DataCallHandler.prototype = {
   _deactivatingDataCalls: false,
 
   deactivateDataCalls: function(aReason, aCallback) {
+    if (DEBUG) {
+      this.debug("deactivateDataCalls: aReason=" + aReason);
+    }
     let dataDisconnecting = false;
     this.dataNetworkInterfaces.forEach(function(networkInterface) {
       if (networkInterface.enabled) {
@@ -1007,6 +1055,9 @@ DataCallHandler.prototype = {
   notifyVoiceChanged: function() {},
 
   notifyDataChanged: function () {
+    if (DEBUG) {
+      this.debug("notifyDataChanged");
+    }
     let connection = gMobileConnectionService.getItemByServiceId(this.clientId);
     let newDataInfo = connection.data;
 
@@ -1235,7 +1286,7 @@ DataCall.prototype = {
     if (this.state == NETWORK_STATE_CONNECTING ||
         this.state == NETWORK_STATE_DISCONNECTING) {
       if (DEBUG) {
-        this.debug("We are in connecting/disconnecting state, ignore any " +
+        this.debug("We are in " + convertToDataCallState(this.state) + ", ignore any " +
                    "unsolicited event for now.");
       }
       return;
@@ -1388,7 +1439,7 @@ DataCall.prototype = {
   },
 
   connect: function(aNetworkInterface) {
-    if (DEBUG) this.debug("connect: " + aNetworkInterface.info.type);
+    if (DEBUG) this.debug("connect: " + convertToDataCallType(aNetworkInterface.info.type));
 
     if (this.requestedNetworkIfaces.indexOf(aNetworkInterface) == -1) {
       this.requestedNetworkIfaces.push(aNetworkInterface);
@@ -1513,7 +1564,7 @@ DataCall.prototype = {
   },
 
   disconnect: function(aNetworkInterface) {
-    if (DEBUG) this.debug("disconnect: " + aNetworkInterface.info.type);
+    if (DEBUG) this.debug("disconnect: " + convertToDataCallType(aNetworkInterface.info.type));
 
     let index = this.requestedNetworkIfaces.indexOf(aNetworkInterface);
     if (index != -1) {
@@ -1578,6 +1629,7 @@ DataCall.prototype = {
 
   // Entry method for timer events. Used to reconnect to a failed APN
   notify: function(aTimer) {
+    this.debug("Received the retry notify.");
     this.setup();
   },
 
@@ -1805,8 +1857,8 @@ RILNetworkInterface.prototype = {
 
   notifyRILNetworkInterface: function() {
     if (DEBUG) {
-      this.debug("notifyRILNetworkInterface type: " + this.info.type +
-                 ", state: " + this.info.state + ", reason: " + this.info.reason);
+      this.debug("notifyRILNetworkInterface type: " + convertToDataCallType(this.info.type) +
+                 ", state: " + convertToDataCallState(this.info.state) + ", reason: " + this.info.reason);
     }
 
     gNetworkManager.updateNetworkInterface(this);
@@ -1819,7 +1871,11 @@ RILNetworkInterface.prototype = {
     this.dataCall.connect(this);
   },
 
+
   disconnect: function(aReason = Ci.nsINetworkInfo.REASON_NONE) {
+    if (DEBUG) {
+      this.debug("disconnect aReason: " + aReason);
+    }
     if (!this.enabled) {
       return;
     }
