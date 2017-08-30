@@ -106,20 +106,19 @@ updateDebugFlag();
 
 function DataCallManager() {
   this._connectionHandlers = [];
-
+  this.hasGetIccid = false;
   let numRadioInterfaces = gMobileConnectionService.numItems;
   for (let clientId = 0; clientId < numRadioInterfaces; clientId++) {
     this._connectionHandlers.push(new DataCallHandler(clientId));
   }
 
   let lock = gSettingsService.createLock();
-  // Read the APN data from the settings DB.
-  lock.get("ril.data.apnSettings", this);
   // Read the data enabled setting from DB.
   lock.get("ril.data.enabled", this);
   lock.get("ril.data.roaming_enabled", this);
   // Read the default client id for data call.
   lock.get("ril.data.defaultServiceId", this);
+  lock.get("operatorvariant.iccId", this);
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN, false);
   Services.obs.addObserver(this, TOPIC_MOZSETTINGS_CHANGED, false);
@@ -340,6 +339,24 @@ DataCallManager.prototype = {
         }
         this._handleDataClientIdChange(aResult);
         break;
+      // We only get operatorvariant.iccId once when the device starts up now.
+      // After modem gives us the hot swap event, we will get operatorvariant.iccId
+      // as old iccid and decide whether to get apn or not.
+      case "operatorvariant.iccId":
+        if (this.hasGetIccid === true) {
+          break;
+        }
+        aResult = aResult || 0;
+        let lock = gSettingsService.createLock();
+        let oldIccid = aResult[this._dataDefaultClientId];
+        let connectionHandler = this._connectionHandlers[this._dataDefaultClientId];
+        let newIccid = connectionHandler.newIccid;
+        connectionHandler.oldIccid = oldIccid;
+        if (!oldIccid && !newIccid && (oldIccid === newIccid)) {
+          lock.get("ril.data.apnSettings", this);
+        }
+        this.hasGetIccid = true;
+        break;
     }
   },
 
@@ -392,12 +409,17 @@ function DataCallHandler(aClientId) {
 
   let mobileConnection = gMobileConnectionService.getItemByServiceId(aClientId);
   mobileConnection.registerListener(this);
+  let icc = gIccService.getIccByServiceId(aClientId);
+  icc.registerListener(this);
 
   this._dataInfo = {
     state: mobileConnection.data.state,
     type: mobileConnection.data.type,
     roaming: mobileConnection.data.roaming
   }
+
+  this.newIccid = null;
+  this.oldIccid = null;
 }
 DataCallHandler.prototype = {
   classID:   DATACALLHANDLER_CID,
@@ -407,6 +429,7 @@ DataCallHandler.prototype = {
 
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIDataCallHandler,
                                          Ci.nsIDataCallInterfaceListener,
+                                         Ci.nsIIccListener,
                                          Ci.nsIMobileConnectionListener]),
 
   clientId: 0,
@@ -1000,6 +1023,28 @@ DataCallHandler.prototype = {
         });
       }
     }
+  },
+
+  /**
+   * nsIIccListener interface methods.
+   */
+  notifyStkCommand: function() {},
+
+  notifyStkSessionEnd: function() {},
+
+  notifyIsimInfoChanged: function() {},
+
+  notifyCardStateChanged: function() {},
+
+  notifyIccInfoChanged: function () {
+    let lock = gSettingsService.createLock();
+    let icc = gIccService.getIccByServiceId(this.clientId);
+    let iccInfo = icc && icc.iccInfo;
+    this.newIccid = iccInfo && iccInfo.iccid;
+    if (!this.newIccid && !this.oldIccid && (this.newIccid === this.oldIccid)) {
+      lock.get("ril.data.apnSettings", this);
+    }
+    icc.unregisterListener(this);
   },
 
   // nsIMobileConnectionListener
