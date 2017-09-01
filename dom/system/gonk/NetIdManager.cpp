@@ -4,6 +4,17 @@
 
 #include "NetIdManager.h"
 
+#define DEBUG 0
+
+#undef LOG
+#if DEBUG
+#define LOG(args...)  __android_log_print(ANDROID_LOG_DEBUG, "NetIdManager" , ## args)
+#else
+#define LOG(args...)
+#endif
+
+#define GET_STR(param) NS_ConvertUTF16toUTF8(param).get()
+
 NetIdManager::NetIdManager()
   : mNextNetId(MIN_NET_ID)
 {
@@ -24,15 +35,16 @@ int NetIdManager::getNextNetId()
 }
 
 void NetIdManager::acquire(const nsString& aInterfaceName,
-                           NetIdInfo* aNetIdInfo)
+                           NetIdInfo* aNetIdInfo, int aType)
 {
   // Lookup or create one.
   if (!mInterfaceToNetIdHash.Get(aInterfaceName, aNetIdInfo)) {
     aNetIdInfo->mNetId = getNextNetId();
-    aNetIdInfo->mRefCnt = 1;
-  } else {
-    aNetIdInfo->mRefCnt++;
+    aNetIdInfo->mTypes = 0;
   }
+
+  LOG("acquire: (%s/%d)", GET_STR(aInterfaceName), aType);
+  addType(aNetIdInfo->mTypes, aType);
 
   // Update hash and return.
   mInterfaceToNetIdHash.Put(aInterfaceName, *aNetIdInfo);
@@ -47,16 +59,17 @@ bool NetIdManager::lookup(const nsString& aInterfaceName,
 }
 
 bool NetIdManager::release(const nsString& aInterfaceName,
-                           NetIdInfo* aNetIdInfo)
+                           NetIdInfo* aNetIdInfo, int aType)
 {
   if (!mInterfaceToNetIdHash.Get(aInterfaceName, aNetIdInfo)) {
     return false; // No such key.
   }
 
-  aNetIdInfo->mRefCnt--;
+  LOG("release: (%s/%d)", GET_STR(aInterfaceName), aType);
+  removeType(aNetIdInfo->mTypes, aType);
 
   // Update the hash if still be referenced.
-  if (aNetIdInfo->mRefCnt > 0) {
+  if (aNetIdInfo->mTypes != 0){
     mInterfaceToNetIdHash.Put(aInterfaceName, *aNetIdInfo);
     return true;
   }
@@ -65,4 +78,42 @@ bool NetIdManager::release(const nsString& aInterfaceName,
   mInterfaceToNetIdHash.Remove(aInterfaceName);
 
   return true;
+}
+
+/**
+ * Using for adding the network type in bitmask.
+ *
+ * Refer to nsINetworkInfo interface.
+ *  NETWORK_TYPE_MOBILE(1) => 0x02
+ *  NETWORK_TYPE_MOBILE_MMS(2) => 0x04
+ *  NETWORK_TYPE_MOBILE_SUPL(3) => 0x08
+ *
+ *  @param aTypes
+ *         current network types.
+ *         type
+ *         network type need to add.
+**/
+void NetIdManager::addType(NetType& aTypes, int type)
+{
+  aTypes = aTypes | (0x01 << type);
+  LOG("%s: %d",__FUNCTION__,aTypes);
+}
+
+/**
+ * Using for adding the network type in bitmask.
+ *
+ * Refer to nsINetworkInfo interface.
+ *  NETWORK_TYPE_MOBILE(1) => 0x02
+ *  NETWORK_TYPE_MOBILE_MMS(2) => 0x04
+ *  NETWORK_TYPE_MOBILE_SUPL(3) => 0x08
+ *
+ *  @param aTypes
+ *         current network types.
+ *         type
+ *         network type need to add.
+**/
+void NetIdManager::removeType(NetType& aTypes, int type)
+{
+  aTypes = aTypes & ~(0x01 << type);
+  LOG("%s: %d",__FUNCTION__,aTypes);
 }
