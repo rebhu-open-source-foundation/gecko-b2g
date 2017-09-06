@@ -3085,6 +3085,27 @@ void nsDOMDeviceStorage::GetStorageName(nsAString& aStorageName) {
   aStorageName = mStorageName;
 }
 
+void nsDOMDeviceStorage::GetStoragePath(nsAString& aStoragePath) {
+  aStoragePath.AssignLiteral("unknown");
+#ifdef MOZ_WIDGET_GONK
+  nsresult rv;
+  nsString volMountPoint;
+  if (DeviceStorageTypeChecker::IsVolumeBased(mStorageType)) {
+    nsCOMPtr<nsIVolumeService> vs = do_GetService(NS_VOLUMESERVICE_CONTRACTID);
+    NS_ENSURE_TRUE_VOID(vs);
+    nsCOMPtr<nsIVolume> vol;
+    rv = vs->GetVolumeByName(mStorageName, getter_AddRefs(vol));
+    if (NS_FAILED(rv)) {
+      printf_stderr("##### DeviceStorage: GetVolumeByName('%s') failed\n",
+                    NS_LossyConvertUTF16toASCII(mStorageName).get());
+    }
+    NS_ENSURE_SUCCESS_VOID(rv);
+    vol->GetMountPoint(volMountPoint);
+    aStoragePath = volMountPoint;
+  }
+#endif
+}
+
 // TODO: Temporary comment out usage of DOMCursor.
 /*
 already_AddRefed<DOMCursor>
