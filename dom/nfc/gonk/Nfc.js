@@ -204,6 +204,8 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
 
     focusId: NFC.SYSTEM_APP_ID,
 
+    focusAppManifestUrl: "",
+
     init: function init(nfc) {
       this.nfc = nfc;
       Services.obs.addObserver(this, NFC.TOPIC_XPCOM_SHUTDOWN, false);
@@ -288,10 +290,13 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
                                                : NFC.SYSTEM_APP_ID;
     },
 
-    setFocusTab: function setFocusTab(id, isFocus) {
+    setFocusTab: function setFocusTab(id, focusAppManifestUrl, isFocus) {
       // if calling setNFCFocus(true) on the browser-element which is already
       // focused, or calling setNFCFocus(false) on the browser-element which has
       // lost focus already, ignore.
+      if (isFocus) {
+        this.focusAppManifestUrl = focusAppManifestUrl;
+      }
       if (isFocus == (id == this.focusId)) {
         return;
       }
@@ -512,7 +517,7 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
 
       switch (message.name) {
         case "NFC:SetFocusTab":
-          this.setFocusTab(message.data.tabId, message.data.isFocus);
+          this.setFocusTab(message.data.tabId, message.data.focusAppManifestUrl, message.data.isFocus);
           return null;
         case "NFC:AddEventListener":
           this.addEventListener(message.target, message.data.tabId);
@@ -1510,6 +1515,14 @@ Nfc.prototype = {
   unregisterListener: function(listener) {
     // TODO, wait for integration.
     debug("unregister listener");
+  },
+
+  get focusId() {
+    return gMessageManager.focusId;
+  },
+
+  get focusAppManifestUrl() {
+    return gMessageManager.focusAppManifestUrl;
   }
 };
 
