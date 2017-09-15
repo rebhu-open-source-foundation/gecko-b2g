@@ -430,6 +430,7 @@ partial interface Navigator {
                               optional DOMString callID = "");
 };
 
+#ifdef MOZ_B2G
 // Service Workers/Navigation Controllers
 partial interface Navigator {
   [Func="ServiceWorkerContainer::IsEnabled",
@@ -437,6 +438,13 @@ partial interface Navigator {
    SameObject]
   readonly attribute ServiceWorkerContainer serviceWorker;
 };
+#else
+// Service Workers/Navigation Controllers
+partial interface Navigator {
+  [Func="ServiceWorkerContainer::IsEnabled", SameObject]
+  readonly attribute ServiceWorkerContainer serviceWorker;
+};
+#endif
 
 partial interface Navigator {
   [Throws, Pref="beacon.enabled"]
