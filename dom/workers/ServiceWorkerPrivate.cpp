@@ -251,6 +251,7 @@ public:
     : mRegistration(aRegistration)
     , mNeedTimeCheck(aNeedTimeCheck)
   {
+    MOZ_DIAGNOSTIC_ASSERT(mRegistration);
   }
 
   NS_IMETHOD
@@ -340,9 +341,12 @@ public:
   void
   PostRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate, bool aRunResult)
   {
-    nsCOMPtr<nsIRunnable> runnable =
-      new RegistrationUpdateRunnable(mRegistration, true /* time check */);
-    NS_DispatchToMainThread(runnable.forget());
+    // Sub-class PreRun() or WorkerRun() methods could clear our mRegistration.
+    if (mRegistration) {
+      nsCOMPtr<nsIRunnable> runnable =
+        new RegistrationUpdateRunnable(mRegistration, true /* time check */);
+      NS_DispatchToMainThread(runnable.forget());
+    }
 
     ExtendableEventWorkerRunnable::PostRun(aCx, aWorkerPrivate, aRunResult);
   }
@@ -1413,7 +1417,7 @@ private:
       return false;
     }
 
-    event->PostInit(mInterceptedChannel, mScriptSpec);
+    event->PostInit(mInterceptedChannel, mRegistration, mScriptSpec);
     event->SetTrusted(true);
 
     RefPtr<EventTarget> target = do_QueryObject(aWorkerPrivate->GlobalScope());
@@ -1429,11 +1433,8 @@ private:
       }
 
       if (!runnable) {
-        nsCOMPtr<nsIRunnable> updateRunnable =
-          new RegistrationUpdateRunnable(mRegistration, false /* time check */);
-        NS_DispatchToMainThread(runnable.forget());
-
         runnable = new CancelChannelRunnable(mInterceptedChannel,
+                                             mRegistration,
                                              NS_ERROR_INTERCEPTION_FAILED);
       }
 
