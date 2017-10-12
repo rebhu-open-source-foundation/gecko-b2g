@@ -196,13 +196,13 @@ Telephony::GetServiceId(const Optional<uint32_t>& aServiceId,
   if (aServiceId.WasPassed()) {
     return aServiceId.Value();
   } else if (aGetIfActiveCall) {
-    nsTArray<RefPtr<TelephonyCall> > &calls = mCalls;
     if (mGroup->IsActive()) {
-      calls = mGroup->CallsArray();
+      return mGroup->GetServiceId();
     }
-    for (uint32_t i = 0; i < calls.Length(); i++) {
-      if (calls[i]->IsActive()) {
-        return calls[i]->mServiceId;
+
+    for (uint32_t i = 0; i < mCalls.Length(); i++) {
+      if (mCalls[i]->IsActive()) {
+        return mCalls[i]->mServiceId;
       }
     }
   }
