@@ -591,6 +591,7 @@ WEBIDL_FILES = [
     'UndoManager.webidl',
     'URL.webidl',
     'URLSearchParams.webidl',
+    'UsbManager.webidl',
     'USSDSession.webidl',
     'ValidityState.webidl',
     'VideoPlaybackQuality.webidl',
@@ -852,6 +853,7 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'TVEITBroadcastedEvent.webidl',
     'TVScanningStateChangedEvent.webidl',
     'UDPMessageEvent.webidl',
+    'UsbEvent.webidl',
     'UserProximityEvent.webidl',
     'USSDReceivedEvent.webidl',
 ]
