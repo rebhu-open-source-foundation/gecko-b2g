@@ -33,6 +33,7 @@ struct CreateFileOptions;
 class FileSystemBase;
 class Promise;
 class StringOrFileOrDirectory;
+class StringOrDirectory;
 
 class Directory final : public nsISupports, public nsWrapperCache {
  public:
@@ -75,6 +76,14 @@ class Directory final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<Promise> RemoveDeep(const StringOrFileOrDirectory& aPath,
                                        ErrorResult& aRv);
+
+  already_AddRefed<Promise> CopyTo(const StringOrFileOrDirectory& aSource,
+                                   const StringOrDirectory& aTarget,
+                                   ErrorResult& aRv);
+
+  already_AddRefed<Promise> MoveTo(const StringOrFileOrDirectory& aSource,
+                                   const StringOrDirectory& aTarget,
+                                   ErrorResult& aRv);
 
   // From
   // https://microsoftedge.github.io/directory-upload/proposal.html#directory-interface
@@ -132,6 +141,10 @@ class Directory final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<Promise> RemoveInternal(const StringOrFileOrDirectory& aPath,
                                            bool aRecursive, ErrorResult& aRv);
+
+  already_AddRefed<Promise> CopyOrMoveToInternal(
+      const StringOrFileOrDirectory& aSource, const StringOrDirectory& aTarget,
+      bool isCopy, ErrorResult& aRv);
 
   nsCOMPtr<nsISupports> mParent;
   RefPtr<FileSystemBase> mFileSystem;

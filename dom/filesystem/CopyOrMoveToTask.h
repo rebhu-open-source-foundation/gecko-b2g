@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_RemoveTask_h
-#define mozilla_dom_RemoveTask_h
+#ifndef mozilla_dom_CopyOrMoveToTask_h
+#define mozilla_dom_CopyOrMoveToTask_h
 
 #include "mozilla/dom/FileSystemTaskBase.h"
 #include "mozilla/ErrorResult.h"
@@ -13,19 +13,17 @@
 namespace mozilla {
 namespace dom {
 
-class FileSystemRemoveParams;
+class FileSystemCopyOrMoveToParams;
 class BlobImpl;
 class Promise;
 
-class RemoveTaskChild final : public FileSystemTaskChildBase {
+class CopyOrMoveToTaskChild final : public FileSystemTaskChildBase {
  public:
-  static already_AddRefed<RemoveTaskChild> Create(FileSystemBase* aFileSystem,
-                                                  nsIFile* aDirPath,
-                                                  nsIFile* aTargetPath,
-                                                  bool aRecursive,
-                                                  ErrorResult& aRv);
+  static already_AddRefed<CopyOrMoveToTaskChild> Create(
+      FileSystemBase* aFileSystem, nsIFile* aDirPath, nsIFile* aSrcPath,
+      nsIFile* aDstPath, bool aIsCopy, ErrorResult& aRv);
 
-  virtual ~RemoveTaskChild();
+  virtual ~CopyOrMoveToTaskChild();
 
   already_AddRefed<Promise> GetPromise();
 
@@ -41,25 +39,25 @@ class RemoveTaskChild final : public FileSystemTaskChildBase {
   virtual void HandlerCallback() override;
 
  private:
-  RemoveTaskChild(nsIGlobalObject* aGlobalObject, FileSystemBase* aFileSystem,
-                  nsIFile* aDirPath, nsIFile* aTargetPath, bool aRecursive);
+  CopyOrMoveToTaskChild(nsIGlobalObject* aGlobalObject,
+                        FileSystemBase* aFileSystem, nsIFile* aDirPath,
+                        nsIFile* aSrcPath, nsIFile* aDstPath, bool aIsCopy);
 
   RefPtr<Promise> mPromise;
 
   // This path is the Directory::mFile.
   nsCOMPtr<nsIFile> mDirPath;
+  nsCOMPtr<nsIFile> mSrcPath;
+  nsCOMPtr<nsIFile> mDstPath;
 
-  // This is what we want to remove. mTargetPath is discendant path of mDirPath.
-  nsCOMPtr<nsIFile> mTargetPath;
-
-  bool mRecursive;
+  bool mIsCopy;
   bool mReturnValue;
 };
 
-class RemoveTaskParent final : public FileSystemTaskParentBase {
+class CopyOrMoveToTaskParent final : public FileSystemTaskParentBase {
  public:
-  static already_AddRefed<RemoveTaskParent> Create(
-      FileSystemBase* aFileSystem, const FileSystemRemoveParams& aParam,
+  static already_AddRefed<CopyOrMoveToTaskParent> Create(
+      FileSystemBase* aFileSystem, const FileSystemCopyOrMoveToParams& aParam,
       FileSystemRequestParent* aParent, ErrorResult& aRv);
 
   nsresult GetTargetPath(nsAString& aPath) const override;
@@ -73,21 +71,21 @@ class RemoveTaskParent final : public FileSystemTaskParentBase {
   virtual nsresult IOWork() override;
 
  private:
-  RemoveTaskParent(FileSystemBase* aFileSystem,
-                   const FileSystemRemoveParams& aParam,
-                   FileSystemRequestParent* aParent);
+  CopyOrMoveToTaskParent(FileSystemBase* aFileSystem,
+                         const FileSystemCopyOrMoveToParams& aParam,
+                         FileSystemRequestParent* aParent);
 
   // This path is the Directory::mFile.
   nsCOMPtr<nsIFile> mDirPath;
 
-  // This is what we want to remove. mTargetPath is discendant path of mDirPath.
-  nsCOMPtr<nsIFile> mTargetPath;
+  nsCOMPtr<nsIFile> mSrcPath;
+  nsCOMPtr<nsIFile> mDstPath;
 
-  bool mRecursive;
+  bool mIsCopy;
   bool mReturnValue;
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_RemoveTask_h
+#endif  // mozilla_dom_CopyOrMoveToTask_h

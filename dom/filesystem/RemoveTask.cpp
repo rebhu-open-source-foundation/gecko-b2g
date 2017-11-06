@@ -12,10 +12,14 @@
 #include "mozilla/dom/PFileSystemParams.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/IPCBlobUtils.h"
+#include "mozilla/ipc/BackgroundParent.h"
 #include "nsIFile.h"
 #include "nsString.h"
 
 namespace mozilla {
+
+using namespace ipc;
+
 namespace dom {
 
 /**
