@@ -144,7 +144,7 @@ class Directory final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<Promise> CopyOrMoveToInternal(
       const StringOrFileOrDirectory& aSource, const StringOrDirectory& aTarget,
-      bool isCopy, ErrorResult& aRv);
+      bool aIsCopy, ErrorResult& aRv);
 
   nsCOMPtr<nsISupports> mParent;
   RefPtr<FileSystemBase> mFileSystem;

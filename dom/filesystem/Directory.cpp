@@ -334,7 +334,7 @@ already_AddRefed<Promise> Directory::MoveTo(
 
 already_AddRefed<Promise> Directory::CopyOrMoveToInternal(
     const StringOrFileOrDirectory& aSource, const StringOrDirectory& aTarget,
-    bool isCopy, ErrorResult& aRv) {
+    bool aIsCopy, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsresult error = NS_OK;
@@ -377,13 +377,14 @@ already_AddRefed<Promise> Directory::CopyOrMoveToInternal(
   }
 
   // both src and dst must be a descendant of this directory.
-  if (!FileSystemUtils::IsDescendantPath(mFile, srcRealPath) ||
-      !FileSystemUtils::IsDescendantPath(mFile, dstRealPath)) {
+  if (NS_SUCCEEDED(error) &&
+      (!FileSystemUtils::IsDescendantPath(mFile, srcRealPath) ||
+       !FileSystemUtils::IsDescendantPath(mFile, dstRealPath))) {
     error = NS_ERROR_DOM_FILESYSTEM_NO_MODIFICATION_ALLOWED_ERR;
   }
 
   RefPtr<CopyOrMoveToTaskChild> task = CopyOrMoveToTaskChild::Create(
-      fs, mFile, srcRealPath, dstRealPath, isCopy, aRv);
+      fs, mFile, srcRealPath, dstRealPath, aIsCopy, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
