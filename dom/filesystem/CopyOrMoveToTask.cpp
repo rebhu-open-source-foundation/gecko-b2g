@@ -29,7 +29,7 @@ namespace dom {
 /* static */ already_AddRefed<CopyOrMoveToTaskChild>
 CopyOrMoveToTaskChild::Create(FileSystemBase* aFileSystem, nsIFile* aDirPath,
                               nsIFile* aSrcPath, nsIFile* aDstPath,
-                              bool aIsCopy, ErrorResult& aRv)
+                              bool aKeepBoth, bool aIsCopy, ErrorResult& aRv)
 
 {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
@@ -45,8 +45,9 @@ CopyOrMoveToTaskChild::Create(FileSystemBase* aFileSystem, nsIFile* aDirPath,
     return nullptr;
   }
 
-  RefPtr<CopyOrMoveToTaskChild> task = new CopyOrMoveToTaskChild(
-      globalObject, aFileSystem, aDirPath, aSrcPath, aDstPath, aIsCopy);
+  RefPtr<CopyOrMoveToTaskChild> task =
+      new CopyOrMoveToTaskChild(globalObject, aFileSystem, aDirPath, aSrcPath,
+                                aDstPath, aKeepBoth, aIsCopy);
 
   task->mPromise = Promise::Create(globalObject, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
@@ -60,11 +61,13 @@ CopyOrMoveToTaskChild::CopyOrMoveToTaskChild(nsIGlobalObject* aGlobalObject,
                                              FileSystemBase* aFileSystem,
                                              nsIFile* aDirPath,
                                              nsIFile* aSrcPath,
-                                             nsIFile* aDstPath, bool aIsCopy)
+                                             nsIFile* aDstPath, bool aKeepBoth,
+                                             bool aIsCopy)
     : FileSystemTaskChildBase(aGlobalObject, aFileSystem),
       mDirPath(aDirPath),
       mSrcPath(aSrcPath),
       mDstPath(aDstPath),
+      mKeepBoth(aKeepBoth),
       mIsCopy(aIsCopy),
       mReturnValue(false) {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
@@ -94,6 +97,7 @@ FileSystemParams CopyOrMoveToTaskChild::GetRequestParams(
     return param;
   }
 
+  param.keepBoth() = mKeepBoth;
   param.isCopy() = mIsCopy;
 
   nsAutoString srcPath;
@@ -165,6 +169,7 @@ CopyOrMoveToTaskParent::Create(FileSystemBase* aFileSystem,
     return nullptr;
   }
 
+  task->mKeepBoth = aParam.keepBoth();
   task->mIsCopy = aParam.isCopy();
 
   aRv = NS_NewLocalFile(aParam.srcRealPath(), true,
@@ -192,6 +197,7 @@ CopyOrMoveToTaskParent::CopyOrMoveToTaskParent(
     FileSystemBase* aFileSystem, const FileSystemCopyOrMoveToParams& aParam,
     FileSystemRequestParent* aParent)
     : FileSystemTaskParentBase(aFileSystem, aParam, aParent),
+      mKeepBoth(false),
       mIsCopy(false),
       mReturnValue(false) {
   MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
@@ -261,6 +267,62 @@ nsresult CopyOrMoveToTaskParent::IOWork() {
   rv = mSrcPath->GetLeafName(fileName);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
+  }
+
+  if (mKeepBoth) {
+    nsString destPathStr;
+    nsString predictPathStr;
+    nsCOMPtr<nsIFile> predictPath;
+
+    rv = mDstPath->GetPath(destPathStr);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    predictPathStr = destPathStr + NS_ConvertASCIItoUTF16("/") + fileName;
+    rv = NS_NewLocalFile(predictPathStr, false, getter_AddRefs(predictPath));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    rv = predictPath->Exists(&exists);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    if (exists) {
+      nsString rootName, suffix;
+      const int32_t lastDot = fileName.RFindChar('.');
+      if (lastDot == kNotFound || lastDot == 0) {
+        rootName = fileName;
+      } else {
+        suffix = Substring(fileName, lastDot);
+        rootName = Substring(fileName, 0, lastDot);
+      }
+
+      for (int indx = 1; indx < 10000; indx++) {
+        predictPathStr = destPathStr + NS_ConvertASCIItoUTF16("/") + rootName +
+                         NS_ConvertASCIItoUTF16(nsPrintfCString("(%d)", indx)) +
+                         suffix;
+        rv =
+            NS_NewLocalFile(predictPathStr, false, getter_AddRefs(predictPath));
+        if (NS_WARN_IF(NS_FAILED(rv))) {
+          return rv;
+        }
+
+        rv = predictPath->Exists(&exists);
+        if (NS_WARN_IF(NS_FAILED(rv))) {
+          return rv;
+        }
+
+        if (!exists) {
+          fileName = rootName +
+                     NS_ConvertASCIItoUTF16(nsPrintfCString("(%d)", indx)) +
+                     suffix;
+          break;
+        }
+      }
+    }
   }
 
   if (mIsCopy) {

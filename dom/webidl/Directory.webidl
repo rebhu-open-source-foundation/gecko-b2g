@@ -109,7 +109,8 @@ interface Directory {
    */
   [Func="mozilla::dom::Directory::DeviceStorageEnabled", NewObject]
   Promise<boolean> copyTo((DOMString or File or Directory) source,
-                          (DOMString or Directory) target);
+                          (DOMString or Directory) target,
+                          optional boolean keepBoth = false);
 
    /*
     * Move files to the target directory. If source is a directory, will also
@@ -124,7 +125,8 @@ interface Directory {
     */
   [Func="mozilla::dom::Directory::DeviceStorageEnabled", NewObject]
   Promise<boolean> moveTo((DOMString or File or Directory) source,
-                          (DOMString or Directory) target);
+                          (DOMString or Directory) target,
+                          optional boolean keepBoth = false);
 
   /*
    * Rename a file or a directory. The oldName should

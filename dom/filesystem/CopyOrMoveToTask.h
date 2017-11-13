@@ -21,7 +21,7 @@ class CopyOrMoveToTaskChild final : public FileSystemTaskChildBase {
  public:
   static already_AddRefed<CopyOrMoveToTaskChild> Create(
       FileSystemBase* aFileSystem, nsIFile* aDirPath, nsIFile* aSrcPath,
-      nsIFile* aDstPath, bool aIsCopy, ErrorResult& aRv);
+      nsIFile* aDstPath, bool aKeepBoth, bool aIsCopy, ErrorResult& aRv);
 
   virtual ~CopyOrMoveToTaskChild();
 
@@ -41,7 +41,8 @@ class CopyOrMoveToTaskChild final : public FileSystemTaskChildBase {
  private:
   CopyOrMoveToTaskChild(nsIGlobalObject* aGlobalObject,
                         FileSystemBase* aFileSystem, nsIFile* aDirPath,
-                        nsIFile* aSrcPath, nsIFile* aDstPath, bool aIsCopy);
+                        nsIFile* aSrcPath, nsIFile* aDstPath, bool aKeepBoth,
+                        bool aIsCopy);
 
   RefPtr<Promise> mPromise;
 
@@ -50,6 +51,7 @@ class CopyOrMoveToTaskChild final : public FileSystemTaskChildBase {
   nsCOMPtr<nsIFile> mSrcPath;
   nsCOMPtr<nsIFile> mDstPath;
 
+  bool mKeepBoth;
   bool mIsCopy;
   bool mReturnValue;
 };
@@ -81,6 +83,7 @@ class CopyOrMoveToTaskParent final : public FileSystemTaskParentBase {
   nsCOMPtr<nsIFile> mSrcPath;
   nsCOMPtr<nsIFile> mDstPath;
 
+  bool mKeepBoth;
   bool mIsCopy;
   bool mReturnValue;
 };

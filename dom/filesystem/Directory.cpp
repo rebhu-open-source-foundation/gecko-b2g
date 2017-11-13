@@ -321,21 +321,21 @@ already_AddRefed<Promise> Directory::RemoveInternal(
 
 already_AddRefed<Promise> Directory::CopyTo(
     const StringOrFileOrDirectory& aSource, const StringOrDirectory& aTarget,
-    ErrorResult& aRv) {
+    bool akeepBoth, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
-  return CopyOrMoveToInternal(aSource, aTarget, true, aRv);
+  return CopyOrMoveToInternal(aSource, aTarget, akeepBoth, true, aRv);
 }
 
 already_AddRefed<Promise> Directory::MoveTo(
     const StringOrFileOrDirectory& aSource, const StringOrDirectory& aTarget,
-    ErrorResult& aRv) {
+    bool akeepBoth, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
-  return CopyOrMoveToInternal(aSource, aTarget, false, aRv);
+  return CopyOrMoveToInternal(aSource, aTarget, akeepBoth, false, aRv);
 }
 
 already_AddRefed<Promise> Directory::CopyOrMoveToInternal(
     const StringOrFileOrDirectory& aSource, const StringOrDirectory& aTarget,
-    bool aIsCopy, ErrorResult& aRv) {
+    bool aKeepBoth, bool aIsCopy, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsresult error = NS_OK;
@@ -385,7 +385,7 @@ already_AddRefed<Promise> Directory::CopyOrMoveToInternal(
   }
 
   RefPtr<CopyOrMoveToTaskChild> task = CopyOrMoveToTaskChild::Create(
-      fs, mFile, srcRealPath, dstRealPath, aIsCopy, aRv);
+      fs, mFile, srcRealPath, dstRealPath, aKeepBoth, aIsCopy, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
