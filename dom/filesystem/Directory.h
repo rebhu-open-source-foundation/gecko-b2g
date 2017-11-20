@@ -30,6 +30,7 @@ namespace mozilla {
 namespace dom {
 
 struct CreateFileOptions;
+struct CopyMoveOptions;
 class FileSystemBase;
 class Promise;
 class StringOrFileOrDirectory;
@@ -79,11 +80,13 @@ class Directory final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<Promise> CopyTo(const StringOrFileOrDirectory& aSource,
                                    const StringOrDirectory& aTarget,
-                                   bool akeepBoth, ErrorResult& aRv);
+                                   const CopyMoveOptions& aOptions,
+                                   ErrorResult& aRv);
 
   already_AddRefed<Promise> MoveTo(const StringOrFileOrDirectory& aSource,
                                    const StringOrDirectory& aTarget,
-                                   bool akeepBoth, ErrorResult& aRv);
+                                   const CopyMoveOptions& aOptions,
+                                   ErrorResult& aRv);
 
   already_AddRefed<Promise> RenameTo(const StringOrFileOrDirectory& aOldName,
                                      const nsAString& aNewName,
@@ -140,15 +143,23 @@ class Directory final : public nsISupports, public nsWrapperCache {
 
   /*
    * Convert relative DOM path to the absolute real path.
+   * aPath is relative to this (Directory::mFile).
    */
   nsresult DOMPathToRealPath(const nsAString& aPath, nsIFile** aFile) const;
+
+  /*
+   * Convert relative DOM path to the absolute real path.
+   * aPath is relative to aDirectory.
+   */
+  nsresult DOMPathToRealPath(nsIFile* aDirectory, const nsAString& aPath,
+                             nsIFile** aFile) const;
 
   already_AddRefed<Promise> RemoveInternal(const StringOrFileOrDirectory& aPath,
                                            bool aRecursive, ErrorResult& aRv);
 
   already_AddRefed<Promise> CopyOrMoveToInternal(
       const StringOrFileOrDirectory& aSource, const StringOrDirectory& aTarget,
-      bool aKeepBoth, bool aIsCopy, ErrorResult& aRv);
+      const CopyMoveOptions& aOptions, bool aIsCopy, ErrorResult& aRv);
 
   nsCOMPtr<nsISupports> mParent;
   RefPtr<FileSystemBase> mFileSystem;

@@ -27,14 +27,16 @@ namespace dom {
  */
 
 /* static */ already_AddRefed<CopyOrMoveToTaskChild>
-CopyOrMoveToTaskChild::Create(FileSystemBase* aFileSystem, nsIFile* aDirPath,
-                              nsIFile* aSrcPath, nsIFile* aDstPath,
-                              bool aKeepBoth, bool aIsCopy, ErrorResult& aRv)
+CopyOrMoveToTaskChild::Create(FileSystemBase* aFileSystem, nsIFile* aSrcDir,
+                              nsIFile* aDirDir, nsIFile* aSrcPath,
+                              nsIFile* aDstPath, bool aKeepBoth, bool aIsCopy,
+                              ErrorResult& aRv)
 
 {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
   MOZ_ASSERT(aFileSystem);
-  MOZ_ASSERT(aDirPath);
+  MOZ_ASSERT(aSrcDir);
+  MOZ_ASSERT(aDirDir);
   MOZ_ASSERT(aSrcPath);
   MOZ_ASSERT(aDstPath);
 
@@ -46,8 +48,8 @@ CopyOrMoveToTaskChild::Create(FileSystemBase* aFileSystem, nsIFile* aDirPath,
   }
 
   RefPtr<CopyOrMoveToTaskChild> task =
-      new CopyOrMoveToTaskChild(globalObject, aFileSystem, aDirPath, aSrcPath,
-                                aDstPath, aKeepBoth, aIsCopy);
+      new CopyOrMoveToTaskChild(globalObject, aFileSystem, aSrcDir, aDirDir,
+                                aSrcPath, aDstPath, aKeepBoth, aIsCopy);
 
   task->mPromise = Promise::Create(globalObject, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
@@ -59,12 +61,13 @@ CopyOrMoveToTaskChild::Create(FileSystemBase* aFileSystem, nsIFile* aDirPath,
 
 CopyOrMoveToTaskChild::CopyOrMoveToTaskChild(nsIGlobalObject* aGlobalObject,
                                              FileSystemBase* aFileSystem,
-                                             nsIFile* aDirPath,
+                                             nsIFile* aSrcDir, nsIFile* aDstDir,
                                              nsIFile* aSrcPath,
                                              nsIFile* aDstPath, bool aKeepBoth,
                                              bool aIsCopy)
     : FileSystemTaskChildBase(aGlobalObject, aFileSystem),
-      mDirPath(aDirPath),
+      mSrcDir(aSrcDir),
+      mDstDir(aDstDir),
       mSrcPath(aSrcPath),
       mDstPath(aDstPath),
       mKeepBoth(aKeepBoth),
@@ -72,7 +75,8 @@ CopyOrMoveToTaskChild::CopyOrMoveToTaskChild(nsIGlobalObject* aGlobalObject,
       mReturnValue(false) {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
   MOZ_ASSERT(aFileSystem);
-  MOZ_ASSERT(aDirPath);
+  MOZ_ASSERT(aSrcDir);
+  MOZ_ASSERT(aDstDir);
   MOZ_ASSERT(aSrcPath);
   MOZ_ASSERT(aDstPath);
 }
@@ -92,7 +96,12 @@ FileSystemParams CopyOrMoveToTaskChild::GetRequestParams(
   FileSystemCopyOrMoveToParams param;
   param.filesystem() = aSerializedDOMPath;
 
-  aRv = mDirPath->GetPath(param.directory());
+  aRv = mSrcDir->GetPath(param.srcDirectory());
+  if (NS_WARN_IF(aRv.Failed())) {
+    return param;
+  }
+
+  aRv = mDstDir->GetPath(param.dstDirectory());
   if (NS_WARN_IF(aRv.Failed())) {
     return param;
   }
@@ -163,8 +172,14 @@ CopyOrMoveToTaskParent::Create(FileSystemBase* aFileSystem,
   RefPtr<CopyOrMoveToTaskParent> task =
       new CopyOrMoveToTaskParent(aFileSystem, aParam, aParent);
 
-  aRv =
-      NS_NewLocalFile(aParam.directory(), true, getter_AddRefs(task->mDirPath));
+  aRv = NS_NewLocalFile(aParam.srcDirectory(), true,
+                        getter_AddRefs(task->mSrcDir));
+  if (NS_WARN_IF(aRv.Failed())) {
+    return nullptr;
+  }
+
+  aRv = NS_NewLocalFile(aParam.dstDirectory(), true,
+                        getter_AddRefs(task->mDstDir));
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -184,8 +199,8 @@ CopyOrMoveToTaskParent::Create(FileSystemBase* aFileSystem,
     return nullptr;
   }
 
-  if (!FileSystemUtils::IsDescendantPath(task->mDirPath, task->mSrcPath) ||
-      !FileSystemUtils::IsDescendantPath(task->mDirPath, task->mDstPath)) {
+  if (!FileSystemUtils::IsDescendantPath(task->mSrcDir, task->mSrcPath) ||
+      !FileSystemUtils::IsDescendantPath(task->mDstDir, task->mDstPath)) {
     aRv.Throw(NS_ERROR_DOM_FILESYSTEM_NO_MODIFICATION_ALLOWED_ERR);
     return nullptr;
   }
@@ -220,8 +235,8 @@ nsresult CopyOrMoveToTaskParent::IOWork() {
     return NS_ERROR_FAILURE;
   }
 
-  MOZ_ASSERT(FileSystemUtils::IsDescendantPath(mDirPath, mSrcPath));
-  MOZ_ASSERT(FileSystemUtils::IsDescendantPath(mDirPath, mDstPath));
+  MOZ_ASSERT(FileSystemUtils::IsDescendantPath(mSrcDir, mSrcPath));
+  MOZ_ASSERT(FileSystemUtils::IsDescendantPath(mDstDir, mDstPath));
 
   nsString fileName;
 

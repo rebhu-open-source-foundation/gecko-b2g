@@ -70,7 +70,8 @@ struct FileSystemRemoveParams
 struct FileSystemCopyOrMoveToParams
 {
   nsString filesystem;
-  nsString directory;
+  nsString srcDirectory;
+  nsString dstDirectory;
   nsString srcRealPath;
   nsString dstRealPath;
   bool keepBoth;

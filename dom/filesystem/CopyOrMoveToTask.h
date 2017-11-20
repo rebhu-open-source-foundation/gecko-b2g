@@ -20,8 +20,9 @@ class Promise;
 class CopyOrMoveToTaskChild final : public FileSystemTaskChildBase {
  public:
   static already_AddRefed<CopyOrMoveToTaskChild> Create(
-      FileSystemBase* aFileSystem, nsIFile* aDirPath, nsIFile* aSrcPath,
-      nsIFile* aDstPath, bool aKeepBoth, bool aIsCopy, ErrorResult& aRv);
+      FileSystemBase* aFileSystem, nsIFile* aSrcDir, nsIFile* aDstDir,
+      nsIFile* aSrcPath, nsIFile* aDstPath, bool aKeepBoth, bool aIsCopy,
+      ErrorResult& aRv);
 
   virtual ~CopyOrMoveToTaskChild();
 
@@ -40,14 +41,18 @@ class CopyOrMoveToTaskChild final : public FileSystemTaskChildBase {
 
  private:
   CopyOrMoveToTaskChild(nsIGlobalObject* aGlobalObject,
-                        FileSystemBase* aFileSystem, nsIFile* aDirPath,
-                        nsIFile* aSrcPath, nsIFile* aDstPath, bool aKeepBoth,
-                        bool aIsCopy);
+                        FileSystemBase* aFileSystem, nsIFile* aSrcDir,
+                        nsIFile* aDstDir, nsIFile* aSrcPath, nsIFile* aDstPath,
+                        bool aKeepBoth, bool aIsCopy);
 
   RefPtr<Promise> mPromise;
 
   // This path is the Directory::mFile.
-  nsCOMPtr<nsIFile> mDirPath;
+  nsCOMPtr<nsIFile> mSrcDir;
+
+  // Directory::mFile, or the root directory of given DeviceStorage
+  nsCOMPtr<nsIFile> mDstDir;
+
   nsCOMPtr<nsIFile> mSrcPath;
   nsCOMPtr<nsIFile> mDstPath;
 
@@ -78,7 +83,10 @@ class CopyOrMoveToTaskParent final : public FileSystemTaskParentBase {
                          FileSystemRequestParent* aParent);
 
   // This path is the Directory::mFile.
-  nsCOMPtr<nsIFile> mDirPath;
+  nsCOMPtr<nsIFile> mSrcDir;
+
+  // Directory::mFile, or the root directory of given DeviceStorage
+  nsCOMPtr<nsIFile> mDstDir;
 
   nsCOMPtr<nsIFile> mSrcPath;
   nsCOMPtr<nsIFile> mDstPath;
