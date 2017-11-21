@@ -302,7 +302,7 @@ function TelephonyCallInfo(aCall) {
 
   this.isVt = aCall.isVt || false;
   this.capabilities = aCall.capabilities || Ci.nsITelephonyCallInfo.CAPABILITY_SUPPORTS_NONE;
-  this.videoCallState = aCall.videoCallState || Ci.nsITelephonCallInfo.STATE_AUDIO_ONLY;
+  this.videoCallState = aCall.videoCallState || Ci.nsITelephonyCallInfo.STATE_AUDIO_ONLY;
   this.radioTech = aCall.radioTech || Ci.nsITelephonyCallInfo.RADIO_TECH_CS;
   this.vowifiCallQuality = aCall.vowifiCallQuality || nsITelephonyCallInfo.VOWIFI_QUALITY_NONE;
 }
@@ -2479,10 +2479,14 @@ TelephonyService.prototype = {
         // Handle ongoingDial.
         if (this._ongoingDial && this._ongoingDial.clientId === aClientId &&
             call.state !== nsITelephonyService.CALL_STATE_INCOMING) {
-          this._ongoingDial.callback.notifyDialCallSuccess(aClientId, i,
-                                                           call.number,
-                                                           this._ongoingDial.isEmergency,
-                                                           nsITelephonyService.CALL_VOICE_QUALITY_NORMAL);
+          this._ongoingDial.callback.notifyDialCallSucces(aClientId,
+                                                          i,
+                                                          call.number,
+                                                          this._ongoingDial.isEmergency,
+                                                          call.voiceQuality,
+                                                          call.capabilities,
+                                                          call.videoCallState,
+                                                          call.radioTech);
           this._ongoingDial = null;
         }
       }
