@@ -200,7 +200,7 @@ CopyOrMoveToTaskParent::Create(FileSystemBase* aFileSystem,
   }
 
   if (!FileSystemUtils::IsDescendantPath(task->mSrcDir, task->mSrcPath) ||
-      !FileSystemUtils::IsDescendantPath(task->mDstDir, task->mDstPath)) {
+      !FileSystemUtils::IsDescendantPath(task->mDstDir, task->mDstPath, true)) {
     aRv.Throw(NS_ERROR_DOM_FILESYSTEM_NO_MODIFICATION_ALLOWED_ERR);
     return nullptr;
   }
@@ -236,7 +236,7 @@ nsresult CopyOrMoveToTaskParent::IOWork() {
   }
 
   MOZ_ASSERT(FileSystemUtils::IsDescendantPath(mSrcDir, mSrcPath));
-  MOZ_ASSERT(FileSystemUtils::IsDescendantPath(mDstDir, mDstPath));
+  MOZ_ASSERT(FileSystemUtils::IsDescendantPath(mDstDir, mDstPath, true));
 
   nsString fileName;
 

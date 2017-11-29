@@ -28,7 +28,8 @@ class FileSystemUtils {
   static bool IsDescendantPath(const nsAString& aPath,
                                const nsAString& aDescendantPath);
 
-  static bool IsDescendantPath(nsIFile* aPath, nsIFile* aDescendantPath);
+  static bool IsDescendantPath(nsIFile* aPath, nsIFile* aDescendantPath,
+                               bool aAllowSamePath = false);
 
   /**
    * Return true if this is valid DOMPath. It also splits the path in

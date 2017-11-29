@@ -28,8 +28,8 @@ bool FileSystemUtils::IsDescendantPath(const nsAString& aPath,
 }
 
 /* static */
-bool FileSystemUtils::IsDescendantPath(nsIFile* aFile,
-                                       nsIFile* aDescendantFile) {
+bool FileSystemUtils::IsDescendantPath(nsIFile* aFile, nsIFile* aDescendantFile,
+                                       bool aAllowSamePath) {
   if (!aFile || !aDescendantFile) {
     return false;
   }
@@ -44,6 +44,10 @@ bool FileSystemUtils::IsDescendantPath(nsIFile* aFile,
   rv = aDescendantFile->GetPath(descendantPath);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
+  }
+
+  if (aAllowSamePath && path.Equals(descendantPath)) {
+    return true;
   }
 
   return FileSystemUtils::IsDescendantPath(path, descendantPath);

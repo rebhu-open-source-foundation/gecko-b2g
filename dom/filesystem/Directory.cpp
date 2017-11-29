@@ -392,8 +392,10 @@ already_AddRefed<Promise> Directory::CopyOrMoveToInternal(
     }
   }
 
+  // Pass if dstDir equals to dstRealPath, meaning that copy/move to the root
+  // directory of target storage is allowed.
   if (NS_SUCCEEDED(error) &&
-      !FileSystemUtils::IsDescendantPath(dstDir, dstRealPath)) {
+      !FileSystemUtils::IsDescendantPath(dstDir, dstRealPath, true)) {
     error = NS_ERROR_DOM_FILESYSTEM_NO_MODIFICATION_ALLOWED_ERR;
   }
 
