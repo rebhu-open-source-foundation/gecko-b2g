@@ -252,6 +252,7 @@ struct DeviceStorageLocationInfo {
   nsString sdcard;
   nsString apps;
   nsString crashes;
+  nsString appsstorage;
 };
 
 // Used on Linux to pass list of font patterns from chrome to content.

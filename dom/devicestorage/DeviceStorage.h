@@ -23,6 +23,7 @@
 #define DEVICESTORAGE_APPS "apps"
 #define DEVICESTORAGE_SDCARD "sdcard"
 #define DEVICESTORAGE_CRASHES "crashes"
+#define DEVICESTORAGE_APPS_STORAGE "apps-storage"
 
 class nsIInputStream;
 class nsIOutputStream;

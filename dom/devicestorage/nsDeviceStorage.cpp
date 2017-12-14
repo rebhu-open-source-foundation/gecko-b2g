@@ -251,6 +251,7 @@ bool DeviceStorageTypeChecker::Check(const nsAString& aType, BlobImpl* aBlob) {
   }
 
   if (aType.EqualsLiteral(DEVICESTORAGE_APPS) ||
+      aType.EqualsLiteral(DEVICESTORAGE_APPS_STORAGE) ||
       aType.EqualsLiteral(DEVICESTORAGE_SDCARD) ||
       aType.EqualsLiteral(DEVICESTORAGE_CRASHES)) {
     // Apps, crashes and sdcard have no restriction on mime types
@@ -274,6 +275,7 @@ bool DeviceStorageTypeChecker::Check(const nsAString& aType, nsIFile* aFile) {
 bool DeviceStorageTypeChecker::Check(const nsAString& aType,
                                      const nsString& aPath) {
   if (aType.EqualsLiteral(DEVICESTORAGE_APPS) ||
+      aType.EqualsLiteral(DEVICESTORAGE_APPS_STORAGE) ||
       aType.EqualsLiteral(DEVICESTORAGE_SDCARD) ||
       aType.EqualsLiteral(DEVICESTORAGE_CRASHES)) {
     // Apps, crashes and sdcard have no restrictions on what file extensions
@@ -346,6 +348,7 @@ nsresult DeviceStorageTypeChecker::GetPermissionForType(
       !aType.EqualsLiteral(DEVICESTORAGE_VIDEOS) &&
       !aType.EqualsLiteral(DEVICESTORAGE_MUSIC) &&
       !aType.EqualsLiteral(DEVICESTORAGE_APPS) &&
+      !aType.EqualsLiteral(DEVICESTORAGE_APPS_STORAGE) &&
       !aType.EqualsLiteral(DEVICESTORAGE_SDCARD) &&
       !aType.EqualsLiteral(DEVICESTORAGE_CRASHES)) {
     // unknown type
@@ -594,6 +597,8 @@ void DeviceStorageFile::GetRootDirectoryForType(const nsAString& aStorageType,
     f = DeviceStorageStatics::GetCrashesDir();
   } else if (aStorageType.EqualsLiteral(DEVICESTORAGE_SDCARD)) {
     f = DeviceStorageStatics::GetSdcardDir();
+  } else if (aStorageType.EqualsLiteral(DEVICESTORAGE_APPS_STORAGE)) {
+    f = DeviceStorageStatics::GetAppsStorageDir();
   } else {
     printf_stderr("##### DeviceStorage: Unrecognized StorageType: '%s'\n",
                   NS_LossyConvertUTF16toASCII(aStorageType).get());

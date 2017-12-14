@@ -147,6 +147,8 @@ void DeviceStorageStatics::InitDirs() {
                     getter_AddRefs(sInstance->mDirs[TYPE_MUSIC]));
     NS_NewLocalFile(locationInfo.sdcard(), true,
                     getter_AddRefs(sInstance->mDirs[TYPE_SDCARD]));
+    NS_NewLocalFile(locationInfo.appsstorage(), true,
+                    getter_AddRefs(sInstance->mDirs[TYPE_APPSSTORAGE]));
 
     sInstance->mInitialized = true;
     return;
@@ -250,6 +252,11 @@ void DeviceStorageStatics::InitDirs() {
   }
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+  NS_NewLocalFile(NS_LITERAL_STRING("/data/local/storage"), false,
+                  getter_AddRefs(mDirs[TYPE_APPSSTORAGE]));
+#endif
+
   // Directories which don't depend on a volume should be calculated once
   // here. Directories which depend on the root directory of a volume
   // should be calculated in DeviceStorageFile::GetRootDirectoryForType.
@@ -312,6 +319,7 @@ void DeviceStorageStatics::Shutdown() {
   GetDirPath(TYPE_VIDEOS, aLocationInfo->videos());
   GetDirPath(TYPE_MUSIC, aLocationInfo->music());
   GetDirPath(TYPE_SDCARD, aLocationInfo->sdcard());
+  GetDirPath(TYPE_APPSSTORAGE, aLocationInfo->appsstorage());
 }
 
 /* static */ already_AddRefed<nsIFile> DeviceStorageStatics::GetDir(
@@ -328,6 +336,7 @@ void DeviceStorageStatics::Shutdown() {
     case TYPE_APPS:
     case TYPE_CRASHES:
     case TYPE_OVERRIDE:
+    case TYPE_APPSSTORAGE:
       file = sInstance->mDirs[aType];
       return file.forget();
     default:
@@ -387,6 +396,11 @@ void DeviceStorageStatics::Shutdown() {
 
 /* static */ already_AddRefed<nsIFile> DeviceStorageStatics::GetSdcardDir() {
   return GetDir(TYPE_SDCARD);
+}
+
+/* static */ already_AddRefed<nsIFile>
+DeviceStorageStatics::GetAppsStorageDir() {
+  return GetDir(TYPE_APPSSTORAGE);
 }
 
 /* static */ bool DeviceStorageStatics::IsPromptTesting() {
