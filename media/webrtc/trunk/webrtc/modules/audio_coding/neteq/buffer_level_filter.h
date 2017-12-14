@@ -34,13 +34,13 @@ class BufferLevelFilter {
   // filter coefficient.
   virtual void SetTargetBufferLevel(int target_buffer_level);
 
-  virtual int filtered_current_level() const { return filtered_current_level_; }
+  virtual int filtered_current_level() const;
 
  private:
   int level_factor_;  // Filter factor for the buffer level filter in Q8.
   int filtered_current_level_;  // Filtered current buffer level in Q8.
 
-  DISALLOW_COPY_AND_ASSIGN(BufferLevelFilter);
+  RTC_DISALLOW_COPY_AND_ASSIGN(BufferLevelFilter);
 };
 
 }  // namespace webrtc

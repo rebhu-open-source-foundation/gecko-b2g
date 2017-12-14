@@ -17,7 +17,6 @@ extern "C" {
 #include "opus_private.h"
 }
 
-#include "webrtc/base/scoped_ptr.h"
 #include "webrtc/typedefs.h"
 
 namespace webrtc {
@@ -37,7 +36,7 @@ class AudioClassifier {
   bool Analysis(const int16_t* input, int input_length, int channels);
 
   // Gets the current classification : true = music, false = speech.
-  virtual bool is_music() const { return is_music_; }
+  virtual bool is_music() const;
 
   // Gets the current music probability.
   float music_probability() const { return music_probability_; }

@@ -34,8 +34,6 @@ class Accelerate : public TimeStretch {
       : TimeStretch(sample_rate_hz, num_channels, background_noise) {
   }
 
-  virtual ~Accelerate() {}
-
   // This method performs the actual Accelerate operation. The samples are
   // read from |input|, of length |input_length| elements, and are written to
   // |output|. The number of samples removed through time-stretching is
@@ -63,7 +61,7 @@ class Accelerate : public TimeStretch {
                                       AudioMultiVector* output) const override;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(Accelerate);
+  RTC_DISALLOW_COPY_AND_ASSIGN(Accelerate);
 };
 
 struct AccelerateFactory {

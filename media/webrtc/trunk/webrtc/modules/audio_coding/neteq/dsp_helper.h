@@ -67,6 +67,13 @@ class DspHelper {
 
   // Same as above, but processes |length| samples from |signal|, starting at
   // |start_index|.
+  static int RampSignal(AudioVector* signal,
+                        size_t start_index,
+                        size_t length,
+                        int factor,
+                        int increment);
+
+  // Same as above, but for an AudioMultiVector.
   static int RampSignal(AudioMultiVector* signal,
                         size_t start_index,
                         size_t length,
@@ -129,7 +136,7 @@ class DspHelper {
   // Table of constants used in method DspHelper::ParabolicFit().
   static const int16_t kParabolaCoefficients[17][3];
 
-  DISALLOW_COPY_AND_ASSIGN(DspHelper);
+  RTC_DISALLOW_COPY_AND_ASSIGN(DspHelper);
 };
 
 }  // namespace webrtc
