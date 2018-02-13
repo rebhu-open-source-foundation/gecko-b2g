@@ -326,6 +326,7 @@ private:
   DECL_GFX_PREF(Once, "image.mem.surfacecache.size_factor",    ImageMemSurfaceCacheSizeFactor, uint32_t, 64);
   DECL_GFX_PREF(Live, "image.mozsamplesize.enabled",           ImageMozSampleSizeEnabled, bool, false);
   DECL_GFX_PREF(Once, "image.multithreaded_decoding.limit",    ImageMTDecodingLimit, int32_t, -1);
+  DECL_GFX_PREF(Once, "image.multithreaded_decoding.idle_timeout", ImageMTDecodingIdleTimeout, int32_t, -1);
   DECL_GFX_PREF(Live, "image.single-color-optimization.enabled", ImageSingleColorOptimizationEnabled, bool, true);
 
   DECL_GFX_PREF(Live, "layers.child-process-shutdown",         ChildProcessShutdown, bool, true);

@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/DebugOnly.h"
 #include "mozilla/Monitor.h"
 #include "nsCOMPtr.h"
 #include "nsIObserverService.h"
@@ -77,9 +78,13 @@ public:
   MOZ_DECLARE_REFCOUNTED_TYPENAME(DecodePoolImpl)
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DecodePoolImpl)
 
-  DecodePoolImpl(uint8_t aMaxThreads)
+  DecodePoolImpl(uint8_t aMaxThreads,
+                 uint8_t aMaxIdleThreads,
+                 PRIntervalTime aIdleTimeout)
     : mMonitor("DecodePoolImpl")
     , mThreads(aMaxThreads)
+    , mIdleTimeout(aIdleTimeout)
+    , mMaxIdleThreads(aMaxIdleThreads)
     , mAvailableThreads(aMaxThreads)
     , mIdleThreads(0)
     , mShuttingDown(false)
@@ -104,8 +109,21 @@ public:
   }
 
   /// Shut down the provided decode pool thread.
-  static void ShutdownThread(nsIThread* aThisThread)
+  void ShutdownThread(nsIThread* aThisThread, bool aShutdownIdle)
   {
+    {
+      // If this is an idle thread shutdown, then we need to remove it from the
+      // worker array. Process shutdown will move the entire array.
+      MonitorAutoLock lock(mMonitor);
+      if (!mShuttingDown) {
+        ++mAvailableThreads;
+        DebugOnly<bool> removed = mThreads.RemoveElement(aThisThread);
+        MOZ_ASSERT(aShutdownIdle);
+        MOZ_ASSERT(mAvailableThreads < mThreads.Capacity());
+        MOZ_ASSERT(removed);
+      }
+    }
+
     // Threads have to be shut down from another thread, so we'll ask the
     // main thread to do it for us.
     nsCOMPtr<nsIRunnable> runnable =
@@ -166,7 +184,7 @@ public:
     mMonitor.Notify();
   }
 
-  Work StartWork()
+  Work StartWork(bool aShutdownIdle)
   {
     MonitorAutoLock lock(mMonitor);
 
@@ -175,21 +193,22 @@ public:
     // it blocks on the monitor once again.
     MOZ_ASSERT(mIdleThreads > 0);
     --mIdleThreads;
-    return PopWorkLocked();
+    return PopWorkLocked(aShutdownIdle);
   }
 
-  Work PopWork()
+  Work PopWork(bool aShutdownIdle)
   {
     MonitorAutoLock lock(mMonitor);
-    return PopWorkLocked();
+    return PopWorkLocked(aShutdownIdle);
   }
 
 private:
   /// Pops a new work item, blocking if necessary.
-  Work PopWorkLocked()
+  Work PopWorkLocked(bool aShutdownIdle)
   {
     mMonitor.AssertCurrentThreadOwns();
 
+    PRIntervalTime timeout = mIdleTimeout;
     do {
       if (!mHighPriorityQueue.IsEmpty()) {
         return PopWorkFromQueue(mHighPriorityQueue);
@@ -200,15 +219,37 @@ private:
       }
 
       if (mShuttingDown) {
-        Work work;
-        work.mType = Work::Type::SHUTDOWN;
-        return work;
+        return CreateShutdownWork();
       }
 
       // Nothing to do; block until some work is available.
-      ++mIdleThreads;
-      MOZ_ASSERT(mIdleThreads <= mThreads.Capacity());
-      mMonitor.Wait();
+      if (!aShutdownIdle) {
+        // This thread was created before we hit the idle thread maximum. It
+        // will never shutdown until the process itself is torn down.
+        ++mIdleThreads;
+        MOZ_ASSERT(mIdleThreads <= mThreads.Capacity());
+        mMonitor.Wait();
+      } else {
+        // This thread should shutdown if it is idle. If we have waited longer
+        // than the timeout period without having done any work, then we should
+        // shutdown the thread.
+        if (timeout == 0) {
+          return CreateShutdownWork();
+        }
+
+        ++mIdleThreads;
+        MOZ_ASSERT(mIdleThreads <= mThreads.Capacity());
+
+        PRIntervalTime now = PR_IntervalNow();
+        mMonitor.Wait(timeout);
+        PRIntervalTime delta = PR_IntervalNow() - now;
+        if (delta > timeout) {
+          timeout = 0;
+        } else {
+          timeout -= delta;
+        }
+      }
+
       MOZ_ASSERT(mIdleThreads > 0);
       --mIdleThreads;
     } while (true);
@@ -228,6 +269,13 @@ private:
     return work;
   }
 
+  Work CreateShutdownWork() const
+  {
+    Work work;
+    work.mType = Work::Type::SHUTDOWN;
+    return work;
+  }
+
   nsThreadPoolNaming mThreadNaming;
 
   // mMonitor guards everything below.
@@ -235,6 +283,8 @@ private:
   nsTArray<RefPtr<IDecodingTask>> mHighPriorityQueue;
   nsTArray<RefPtr<IDecodingTask>> mLowPriorityQueue;
   nsTArray<nsCOMPtr<nsIThread>> mThreads;
+  PRIntervalTime mIdleTimeout;
+  uint8_t mMaxIdleThreads;   // Maximum number of workers when idle.
   uint8_t mAvailableThreads; // How many new threads can be created.
   uint8_t mIdleThreads; // How many created threads are waiting.
   bool mShuttingDown;
@@ -243,7 +293,11 @@ private:
 class DecodePoolWorker final : public nsRunnable
 {
 public:
-  explicit DecodePoolWorker(DecodePoolImpl* aImpl) : mImpl(aImpl) { }
+  explicit DecodePoolWorker(DecodePoolImpl* aImpl,
+                            bool aShutdownIdle)
+    : mImpl(aImpl)
+    , mShutdownIdle(aShutdownIdle)
+  { }
 
   NS_IMETHOD Run()
   {
@@ -254,7 +308,7 @@ public:
     nsCOMPtr<nsIThread> thisThread;
     nsThreadManager::get()->GetCurrentThread(getter_AddRefs(thisThread));
 
-    Work work = mImpl->StartWork();
+    Work work = mImpl->StartWork(mShutdownIdle);
     do {
       switch (work.mType) {
         case Work::Type::TASK:
@@ -263,14 +317,14 @@ public:
           break;
 
         case Work::Type::SHUTDOWN:
-          DecodePoolImpl::ShutdownThread(thisThread);
+          mImpl->ShutdownThread(thisThread, mShutdownIdle);
           return NS_OK;
 
         default:
           MOZ_ASSERT_UNREACHABLE("Unknown work type");
       }
 
-      work = mImpl->PopWork();
+      work = mImpl->PopWork(mShutdownIdle);
     } while (true);
 
     MOZ_ASSERT_UNREACHABLE("Exiting thread without Work::Type::SHUTDOWN");
@@ -279,6 +333,7 @@ public:
 
 private:
   RefPtr<DecodePoolImpl> mImpl;
+  bool mShutdownIdle;
 };
 
 bool DecodePoolImpl::CreateThread()
@@ -286,9 +341,10 @@ bool DecodePoolImpl::CreateThread()
   mMonitor.AssertCurrentThreadOwns();
   MOZ_ASSERT(mAvailableThreads > 0);
 
-  nsCOMPtr<nsIRunnable> worker = new DecodePoolWorker(this);
+  bool shutdownIdle = mThreads.Length() >= mMaxIdleThreads;
+  nsCOMPtr<nsIRunnable> worker = new DecodePoolWorker(this, shutdownIdle);
   nsCOMPtr<nsIThread> thread;
-  nsresult rv = NS_NewNamedThread(mThreadNaming.GetNextThreadName("ImgDecoder"),
+  nsresult rv = NS_NewNamedThread("ImgDecoder",
                                   getter_AddRefs(thread), worker);
   if (NS_FAILED(rv) || !thread) {
     MOZ_ASSERT_UNREACHABLE("Should successfully create image decoding threads");
@@ -353,8 +409,22 @@ DecodePool::DecodePool()
     limit = 32;
   }
 
+  // The maximum number of idle threads allowed.
+  uint32_t idleLimit;
+
+  // The timeout period before shutting down idle threads.
+  int32_t prefIdleTimeout = gfxPrefs::ImageMTDecodingIdleTimeout();
+  PRIntervalTime idleTimeout;
+  if (prefIdleTimeout <= 0) {
+    idleTimeout = PR_INTERVAL_NO_TIMEOUT;
+    idleLimit = limit;
+  } else {
+    idleTimeout = PR_MillisecondsToInterval(static_cast<uint32_t>(prefIdleTimeout));
+    idleLimit = (limit + 1) / 2;
+  }
+
   // Initialize the thread pool.
-  mImpl = new DecodePoolImpl(limit);
+  mImpl = new DecodePoolImpl(limit, idleLimit, idleTimeout);
 
   // Initialize the I/O thread.
   nsresult rv = NS_NewNamedThread("ImageIO", getter_AddRefs(mIOThread));
