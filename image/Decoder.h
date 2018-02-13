@@ -9,7 +9,6 @@
 #include "FrameAnimator.h"
 #include "RasterImage.h"
 #include "mozilla/RefPtr.h"
-#include "DecodePool.h"
 #include "DecoderFlags.h"
 #include "Downscaler.h"
 #include "ImageMetadata.h"

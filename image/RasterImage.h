@@ -25,7 +25,6 @@
 #include "imgFrame.h"
 #include "LookupResult.h"
 #include "nsThreadUtils.h"
-#include "DecodePool.h"
 #include "DecoderFactory.h"
 #include "Orientation.h"
 #include "nsIObserver.h"
