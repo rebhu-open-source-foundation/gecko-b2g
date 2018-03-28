@@ -96,6 +96,7 @@ public:
     , mIDType(eUnknown)
     , mOuterIDNumber(0)
     , mInnerIDNumber(0)
+    , mStatus(eUnused)
 #ifdef DEBUG
     , mOwningThread(PR_GetCurrentThread())
 #endif
@@ -312,7 +313,7 @@ private:
 };
 
 class ConsoleRunnable : public nsRunnable
-                      , public WorkerFeature
+                      , public WorkerHolder
                       , public StructuredCloneHolderBase
 {
 public:
@@ -380,7 +381,7 @@ private:
       return false;
     }
 
-    if (NS_WARN_IF(!mWorkerPrivate->AddFeature(this))) {
+    if (NS_WARN_IF(!HoldWorker(mWorkerPrivate))) {
       return false;
     }
 
@@ -412,8 +413,7 @@ private:
       nsresult
       Cancel() override
       {
-        mRunnable->ReleaseData();
-        mRunnable->mConsole = nullptr;
+        WorkerRun(nullptr, mWorkerPrivate);
         return NS_OK;
       }
 
@@ -423,9 +423,10 @@ private:
         MOZ_ASSERT(aWorkerPrivate);
         aWorkerPrivate->AssertIsOnWorkerThread();
 
-        Cancel();
+        mRunnable->ReleaseData();
+        mRunnable->mConsole = nullptr;
 
-        aWorkerPrivate->RemoveFeature(mRunnable);
+        mRunnable->ReleaseWorker();
         return true;
       }
 
