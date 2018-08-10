@@ -82,6 +82,7 @@ static const int kDefaultPeriod = 1000; // ms
 static bool gDebug_isLoggingEnabled = false;
 static bool gDebug_isGPSLocationIgnored = false;
 static bool gHasAuthorizationKey = false;
+
 #ifdef MOZ_B2G_RIL
 static const char* kNetworkConnStateChangedTopic = "network-connection-state-changed";
 #endif
@@ -625,6 +626,7 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
   , mObservingSettingsChange(false)
   , mSupportsSingleShot(false)
   , mSupportsTimeInjection(false)
+  , mGpsMode(0)
   , mGpsInterface(nullptr)
 {
 }
@@ -1090,6 +1092,7 @@ GonkGPSGeolocationProvider::StartGPS()
   mGpsInterface->delete_aiding_data(GPS_DELETE_ALL);
 #endif
 
+  DeleteGpsData(mGpsMode);
   LOG("Starts GPS");
   mGpsInterface->start();
 }
@@ -1294,6 +1297,7 @@ GonkGPSGeolocationProvider::Shutdown()
     return NS_OK;
   }
 
+  mGpsMode = 0;
   mStarted = false;
   if (mNetworkLocationProvider) {
     mNetworkLocationProvider->Shutdown();
@@ -1327,6 +1331,38 @@ GonkGPSGeolocationProvider::ShutdownGPS()
     LOG("Stops GPS");
     mGpsInterface->stop();
   }
+}
+
+//Check if data needs to be deleted
+NS_IMETHODIMP
+GonkGPSGeolocationProvider::DeleteGpsData(uint16_t gpsMode)
+{
+  switch (gpsMode) {
+    case GPS_DELETE_ALL:
+      mGpsMode = GPS_DELETE_ALL;
+      break;
+    case GPS_DELETE_EPHEMERIS:
+      mGpsMode = GPS_DELETE_EPHEMERIS;
+      break;
+    default:
+      LOG("Received unsupported GPS data type 0x%x for deleting", gpsMode);
+      mGpsMode = 0;
+      break;
+  }
+
+  if (mGpsInterface && mInitialized && mGpsMode) {
+    mGpsInterface->delete_aiding_data(mGpsMode);
+    mGpsMode = 0;
+  }
+
+  return NS_OK;
+}
+
+ NS_IMETHODIMP
+GonkGPSGeolocationProvider::SetGpsDeleteType(uint16_t gpsMode)
+{
+  mGpsMode = gpsMode;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1449,6 +1485,7 @@ GonkGPSGeolocationProvider::Observe(nsISupports* aSubject,
         if (mInitialized && mGpsInterface &&
             Preferences::GetBool(kPrefOndemandCleanup)) {
           // Cleanup GPS HAL when Geolocation setting is turned off
+          mGpsInterface->stop();
           mGpsInterface->cleanup();
           mInitialized = false;
         }

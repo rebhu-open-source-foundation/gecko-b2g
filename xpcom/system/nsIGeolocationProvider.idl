@@ -72,6 +72,13 @@ interface nsIGeolocationProvider : nsISupports {
    */
   void setHighAccuracy(in boolean enable);
 
+%{C++
+  #if defined(MOZ_WIDGET_GONK) && !defined(KAI_GEOLOC)
+    /* void SetGpsDeleteType (in unsigned short gpsMode); */
+    NS_IMETHOD SetGpsDeleteType(uint16_t gpsMode);
+  #endif
+%}
+
 };
 
 %{C++

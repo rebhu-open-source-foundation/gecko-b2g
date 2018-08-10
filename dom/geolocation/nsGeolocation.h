@@ -73,6 +73,7 @@ public:
 
   nsGeolocationService() {
       mHigherAccuracy = false;
+      mGpsMode = 0;
   }
 
   nsresult Init();
@@ -101,6 +102,10 @@ public:
   void     UpdateAccuracy(bool aForceHigh = false);
   bool     HighAccuracyRequested();
 
+//Pass gpsMode to nsGeolocationService if in cold or warm test.
+  void SetGpsDeleteType(uint16_t gpsMode);
+uint16_t GetGpsDeleteType();
+
 #ifdef HAS_KOOST_MODULES
   // Notify GnssMonitor about the NMEA update
   void     NotifyGnssNmeaUpdate(const int64_t aTimestamp, const nsCString& aNmea);
@@ -127,6 +132,9 @@ private:
 
   // Current state of requests for higher accuracy
   bool mHigherAccuracy;
+
+  // Delete specified aiding data for GPS testing
+  uint16_t mGpsMode;
 };
 
 namespace mozilla {
