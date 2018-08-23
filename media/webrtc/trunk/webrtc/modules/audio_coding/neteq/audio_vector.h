@@ -12,10 +12,10 @@
 #define WEBRTC_MODULES_AUDIO_CODING_NETEQ_AUDIO_VECTOR_H_
 
 #include <string.h>  // Access to size_t.
-#include <memory>
 
 #include "webrtc/base/checks.h"
 #include "webrtc/base/constructormagic.h"
+#include "webrtc/base/scoped_ptr.h"
 #include "webrtc/typedefs.h"
 
 namespace webrtc {
@@ -150,7 +150,7 @@ class AudioVector {
 
   void InsertZerosByPushFront(size_t length, size_t position);
 
-  std::unique_ptr<int16_t[]> array_;
+  rtc::scoped_ptr<int16_t[]> array_;
 
   size_t capacity_;  // Allocated number of samples in the array.
 

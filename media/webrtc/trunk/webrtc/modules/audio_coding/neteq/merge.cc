@@ -14,8 +14,8 @@
 #include <string.h>  // memmove, memcpy, memset, size_t
 
 #include <algorithm>  // min, max
-#include <memory>
 
+#include "webrtc/base/scoped_ptr.h"
 #include "webrtc/common_audio/signal_processing/include/signal_processing_library.h"
 #include "webrtc/modules/audio_coding/neteq/audio_multi_vector.h"
 #include "webrtc/modules/audio_coding/neteq/dsp_helper.h"
@@ -60,9 +60,9 @@ int Merge::Process(int16_t* input, size_t input_length,
   int16_t best_correlation_index = 0;
   size_t output_length = 0;
 
-  std::unique_ptr<int16_t[]> input_channel(
+  rtc::scoped_ptr<int16_t[]> input_channel(
       new int16_t[input_length_per_channel]);
-  std::unique_ptr<int16_t[]> expanded_channel(new int16_t[expanded_length]);
+  rtc::scoped_ptr<int16_t[]> expanded_channel(new int16_t[expanded_length]);
   for (size_t channel = 0; channel < num_channels_; ++channel) {
     input_vector[channel].CopyTo(
         input_length_per_channel, 0, input_channel.get());
@@ -328,7 +328,7 @@ int16_t Merge::CorrelateAndPeakSearch(int16_t expanded_max, int16_t input_max,
   // Normalize correlation to 14 bits and copy to a 16-bit array.
   const int pad_length = static_cast<int>(expand_->overlap_length() - 1);
   const int correlation_buffer_size = 2 * pad_length + kMaxCorrelationLength;
-  std::unique_ptr<int16_t[]> correlation16(
+  rtc::scoped_ptr<int16_t[]> correlation16(
       new int16_t[correlation_buffer_size]);
   memset(correlation16.get(), 0, correlation_buffer_size * sizeof(int16_t));
   int16_t* correlation_ptr = &correlation16[pad_length];
