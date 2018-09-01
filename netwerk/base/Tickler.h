@@ -27,7 +27,7 @@
 // The tickler only applies to wifi on mobile right now. Hopefully it
 // can also be restricted to particular handset models in the future.
 
-#if defined(ANDROID) && !defined(MOZ_PROXY_BYPASS_PROTECTION)
+#if defined(ANDROID) && !defined(MOZ_PROXY_BYPASS_PROTECTION) && !defined(MOZ_WIDGET_GONK)
 #  define MOZ_USE_WIFI_TICKLER
 #endif
 
