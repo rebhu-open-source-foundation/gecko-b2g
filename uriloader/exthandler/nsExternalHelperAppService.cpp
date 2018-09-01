@@ -313,7 +313,7 @@ static nsresult GetDownloadDirectory(nsIFile** _directory,
                                          getter_AddRefs(dir));
     NS_ENSURE_SUCCESS(rv, rv);
   }
-#elif defined(ANDROID)
+#elif defined(MOZ_WIDGET_ANDROID)
   // We ask Java for the temporary download directory. The directory will be
   // different depending on whether we have the permission to write to the
   // public download directory or not.
