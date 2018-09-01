@@ -245,7 +245,7 @@
 #  include "mozilla/Hal.h"
 #endif
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
 #  include "gfxAndroidPlatform.h"
 #endif
 
@@ -2744,7 +2744,7 @@ void ContentParent::OnVarChanged(const GfxVarUpdate& aVar) {
 
 mozilla::ipc::IPCResult ContentParent::RecvReadFontList(
     InfallibleTArray<FontListEntry>* retValue) {
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
   gfxAndroidPlatform::GetPlatform()->GetSystemFontList(retValue);
 #endif
   return IPC_OK();
