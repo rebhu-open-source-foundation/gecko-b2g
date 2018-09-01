@@ -23,7 +23,7 @@ VRGPUParent::VRGPUParent(ProcessId aChildProcessId) : mClosed(false) {
 VRGPUParent::~VRGPUParent() { MOZ_COUNT_DTOR(VRGPUParent); }
 
 void VRGPUParent::ActorDestroy(ActorDestroyReason aWhy) {
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   if (mVRService) {
     mVRService->Stop();
     mVRService = nullptr;
@@ -57,7 +57,7 @@ void VRGPUParent::Bind(Endpoint<PVRGPUParent>&& aEndpoint) {
 }
 
 mozilla::ipc::IPCResult VRGPUParent::RecvStartVRService() {
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   mVRService = VRService::Create();
   MOZ_ASSERT(mVRService);
 
@@ -68,7 +68,7 @@ mozilla::ipc::IPCResult VRGPUParent::RecvStartVRService() {
 }
 
 mozilla::ipc::IPCResult VRGPUParent::RecvStopVRService() {
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   if (mVRService) {
     mVRService->Stop();
     mVRService = nullptr;

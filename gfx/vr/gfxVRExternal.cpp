@@ -417,7 +417,7 @@ void VRDisplayExternal::PushState(bool aNotifyCond) {
   manager->PushState(&mBrowserState, aNotifyCond);
 }
 
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
 bool VRDisplayExternal::PullState(const std::function<bool()>& aWaitCondition) {
   VRManager* vm = VRManager::Get();
   VRSystemManagerExternal* manager = vm->GetExternalManager();
@@ -459,7 +459,7 @@ VRSystemManagerExternal::VRSystemManagerExternal(
   mShmemFD = 0;
 #elif defined(XP_WIN)
   mShmemFile = NULL;
-#elif defined(MOZ_WIDGET_ANDROID)
+#elif defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   mExternalStructFailed = false;
   mEnumerationCompleted = false;
 #endif
@@ -687,7 +687,7 @@ void VRSystemManagerExternal::Enumerate() {
       // We must block until enumeration has completed in order
       // to signal that the WebVR promise should be resolved at the
       // right time.
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
       PullState(&displayState, nullptr, nullptr,
                 [&]() { return mEnumerationCompleted; });
 #else
@@ -799,7 +799,7 @@ void VRSystemManagerExternal::RemoveControllers() {
   // VRSystemManagerExternal
 }
 
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
 bool VRSystemManagerExternal::PullState(
     VRDisplayState* aDisplayState,
     VRHMDSensorState* aSensorState /* = nullptr */,
@@ -902,7 +902,7 @@ void VRSystemManagerExternal::PushState(VRBrowserState* aBrowserState,
                                         bool aNotifyCond) {
   MOZ_ASSERT(aBrowserState);
   if (mExternalShmem) {
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
     if (pthread_mutex_lock((pthread_mutex_t*)&(mExternalShmem->geckoMutex)) ==
         0) {
       memcpy((void*)&(mExternalShmem->geckoState), aBrowserState,

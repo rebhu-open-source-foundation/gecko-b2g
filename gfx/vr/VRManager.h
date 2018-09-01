@@ -24,7 +24,7 @@ namespace gfx {
 class VRLayerParent;
 class VRManagerParent;
 class VRDisplayHost;
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
 class VRService;
 #endif
 class VRSystemManagerPuppet;

@@ -63,7 +63,7 @@ class VRDisplayExternal : public VRDisplayHost {
                             VRLayerTextureHandle* aTextureHandle,
                             IntSize_POD* aTextureSize);
   void PushState(bool aNotifyCond = false);
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   bool PullState(const std::function<bool()>& aWaitCondition = nullptr);
 #else
   bool PullState();
@@ -103,7 +103,7 @@ class VRSystemManagerExternal : public VRSystemManager {
                      double aIntensity, double aDuration,
                      const VRManagerPromise& aPromise) override;
   void StopVibrateHaptic(uint32_t aControllerIdx) override;
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   bool PullState(VRDisplayState* aDisplayState,
                  VRHMDSensorState* aSensorState = nullptr,
                  VRControllerState* aControllerState = nullptr,
@@ -126,7 +126,7 @@ class VRSystemManagerExternal : public VRSystemManager {
   int mShmemFD;
 #elif defined(XP_WIN)
   base::ProcessHandle mShmemFile;
-#elif defined(MOZ_WIDGET_ANDROID)
+#elif defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
 
   bool mExternalStructFailed;
   bool mEnumerationCompleted;

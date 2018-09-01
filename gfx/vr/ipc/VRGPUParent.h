@@ -35,7 +35,7 @@ class VRGPUParent final : public PVRGPUParent {
   void DeferredDestroy();
 
   RefPtr<VRGPUParent> mSelfRef;
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   RefPtr<VRService> mVRService;
 #endif
   bool mClosed;

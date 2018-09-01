@@ -21,7 +21,7 @@
 
 #include "gfxVRPuppet.h"
 #include "ipc/VRLayerParent.h"
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
 #  include "service/VRService.h"
 #  include "service/VRServiceManager.h"
 #endif
@@ -76,7 +76,7 @@ VRManager::VRManager()
 
   RefPtr<VRSystemManager> mgr;
 
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   // The VR Service accesses all hardware from a separate process
   // and replaces the other VRSystemManager when enabled.
   if (!StaticPrefs::VRProcessEnabled() || !XRE_IsGPUProcess()) {
@@ -123,7 +123,7 @@ void VRManager::Destroy() {
   for (uint32_t i = 0; i < mManagers.Length(); ++i) {
     mManagers[i]->Destroy();
   }
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   if (VRServiceManager::Get().IsServiceValid()) {
     VRServiceManager::Get().Shutdown();
   }
@@ -138,7 +138,7 @@ void VRManager::Shutdown() {
   for (uint32_t i = 0; i < mManagers.Length(); ++i) {
     mManagers[i]->Shutdown();
   }
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   if (VRServiceManager::Get().IsServiceValid()) {
     VRServiceManager::Get().Stop();
   }
