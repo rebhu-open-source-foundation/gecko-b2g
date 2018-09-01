@@ -203,7 +203,7 @@ def toolkit_choices(target):
     elif target.os == 'iOS':
         return ('cairo-uikit',)
     elif target.os == 'Android':
-        return ('cairo-android',)
+        return ('cairo-android', 'cairo-gonk')
     else:
         return ('cairo-gtk3', 'cairo-gtk3-wayland')
 
