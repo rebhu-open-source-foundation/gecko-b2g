@@ -1,20 +1,13 @@
 
-# LINEAGE=/media/fabrice/c13a996b-93e3-43ce-a1ab-9fb508c2cdbb/lineageos
-
-# PATH=$LINEAGE/prebuilts/clang/host/linux-x86/clang-stable/bin/:$LINEAGE/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin:$PATH
-
-# ac_add_options CC=clang CXX=clang++ AS=llvm-as AR=llvm-ar NM=llvm-nm RANLIB=llvm-ranlib
-# ac_add_options --enable-linker=gold
-
 ac_add_options --enable-application=b2g
 ac_add_options --target=arm-linux-androideabi
 
 ac_add_options --disable-webrtc
 ac_add_options --with-gonk-gfx
 
-# ac_add_options --with-gonk="$GONK_PATH"
+#ac_add_options --with-gonk="$GONK_PATH"
 
 ac_add_options --with-android-ndk=/home/fabrice/.mozbuild/android-ndk-r15c
 
-# ANDROID_SOURCE="$GONK_PATH"
-# ANDROID_VERSION=23
+ANDROID_SOURCE="$GONK_PATH"
+ANDROID_VERSION=23

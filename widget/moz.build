@@ -36,7 +36,7 @@ with Files("*FontRange*"):
 
 toolkit = CONFIG['MOZ_WIDGET_TOOLKIT']
 
-if toolkit in ('cocoa', 'android', 'uikit'):
+if toolkit in ('cocoa', 'android', 'uikit', 'gonk'):
     DIRS += [toolkit]
 
 if toolkit == 'windows':
@@ -275,7 +275,7 @@ if toolkit in {'gtk3', 'cocoa', 'windows',
         'nsBaseFilePicker.cpp',
     ]
 
-if toolkit in ('gtk3', 'windows', 'cocoa', 'android'):
+if toolkit in ('gtk3', 'windows', 'cocoa', 'android', 'gonk'):
     UNIFIED_SOURCES += [
         'nsNativeTheme.cpp',
     ]

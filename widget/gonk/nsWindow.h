@@ -65,13 +65,13 @@ public:
                       void* aNativeParent,
                       const LayoutDeviceIntRect& aRect,
                       nsWidgetInitData* aInitData) override;
-    NS_IMETHOD Destroy(void);
+    NS_IMETHOD Destroy(void) override;
 
-    NS_IMETHOD Show(bool aState);
-    virtual bool IsVisible() const;
+    NS_IMETHOD Show(bool aState) override;
+    virtual bool IsVisible() const override;
     NS_IMETHOD ConstrainPosition(bool aAllowSlop,
                                  int32_t *aX,
-                                 int32_t *aY);
+                                 int32_t *aY) override;
     NS_IMETHOD Move(double aX,
                     double aY);
     NS_IMETHOD Resize(double aWidth,
@@ -157,7 +157,7 @@ public:
     nsScreenGonk* GetScreen();
 
     // Call this function after remote control use nsContentUtils::SendMouseEvent
-    virtual void SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint) override;
+    virtual void SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint);
 
 protected:
     nsWindow* mParent;

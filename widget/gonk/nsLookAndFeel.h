@@ -33,6 +33,8 @@ public:
     virtual uint32_t GetPasswordMaskDelayImpl();
     virtual char16_t GetPasswordCharacterImpl();
 
+    void NativeInit() final {};
+
 protected:
     virtual nsresult NativeGetColor(ColorID aID, nscolor &aColor);
 };
