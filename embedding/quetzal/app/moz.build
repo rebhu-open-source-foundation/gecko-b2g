@@ -17,5 +17,5 @@ LOCAL_INCLUDES += [
 DisableStlWrapping()
 
 JS_PREFERENCE_FILES += [
-    'graphene.js',
+    'quetzal.js',
 ]

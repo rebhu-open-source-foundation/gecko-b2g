@@ -6,5 +6,5 @@ include('/toolkit/toolkit.mozbuild')
 
 DIRS += [
     '/%s' % CONFIG['MOZ_BRANDING_DIRECTORY'],
-    '/embedding/graphene'
+    '/embedding/quetzal'
 ]
