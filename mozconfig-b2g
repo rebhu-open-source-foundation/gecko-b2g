@@ -9,5 +9,7 @@ ac_add_options --with-gonk-gfx
 
 ac_add_options --with-android-ndk=/home/fabrice/.mozbuild/android-ndk-r15c
 
+mk_add_options AUTOCLOBBER=1
+
 ANDROID_SOURCE="$GONK_PATH"
 ANDROID_VERSION=23
