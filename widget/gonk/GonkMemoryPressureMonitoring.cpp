@@ -100,7 +100,7 @@ public:
   }
 
   NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
-                     const char16_t* aData)
+                     const char16_t* aData) override
   {
     MOZ_ASSERT(strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID) == 0);
     LOG("Observed XPCOM shutdown.");
@@ -119,7 +119,7 @@ public:
     return NS_OK;
   }
 
-  NS_IMETHOD Run()
+  NS_IMETHOD Run() override
   {
     MOZ_ASSERT(!NS_IsMainThread());
 
@@ -201,7 +201,7 @@ public:
             LOG("shutting down (2)");
             return NS_OK;
           }
-          mMonitor.Wait(PR_MillisecondsToInterval(mPollMS));
+          mMonitor.Wait(TimeDuration::FromMilliseconds(mPollMS));
         }
 
         LOG("Checking to see if memory pressure is over.");
@@ -225,7 +225,7 @@ public:
       LOG("Memory pressure is over.");
     }
 
-    return NS_OK;
+    // return NS_OK;
   }
 
 protected:

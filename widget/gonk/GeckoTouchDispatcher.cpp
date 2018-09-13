@@ -19,7 +19,7 @@
 #include "GeckoProfiler.h"
 #include "GeckoTouchDispatcher.h"
 #include "InputData.h"
-#include "ProfilerMarkers.h"
+// #include "ProfilerMarkers.h"
 #include "base/basictypes.h"
 #include "gfxPrefs.h"
 #include "libui/Input.h"
@@ -366,7 +366,7 @@ GeckoTouchDispatcher::DispatchTouchEvent(MultiTouchInput aMultiTouch)
 
     const ScreenIntPoint& touchPoint = aMultiTouch.mTouches[0].mScreenPoint;
     TouchDataPayload* payload = new TouchDataPayload(touchPoint);
-    PROFILER_MARKER_PAYLOAD(touchAction, payload);
+    // PROFILER_MARKER_PAYLOAD(touchAction, payload);
   }
 }
 

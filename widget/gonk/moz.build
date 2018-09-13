@@ -15,7 +15,7 @@
 # limitations under the License.
 
 EXPORTS += [
-    'GeckoTouchDispatcher.h',
+    # 'GeckoTouchDispatcher.h',
     'GonkPermission.h',
     'OrientationObserver.h',
 ]
@@ -56,7 +56,7 @@ elif CONFIG['ANDROID_VERSION'] == '15':
     ]
 
 SOURCES += [
-    'GeckoTouchDispatcher.cpp',
+    # 'GeckoTouchDispatcher.cpp',
     'GfxInfo.cpp',
     'GLCursorImageManager.cpp',
     'GonkClipboardData.cpp',
@@ -110,5 +110,6 @@ LOCAL_INCLUDES += [
     '%' + '%s/%s' % (CONFIG['ANDROID_SOURCE'], d) for d in [
         'hardware/libhardware/include',
         'hardware/libhardware_legacy/include',
+        'system/core/include',
     ]
 ]
