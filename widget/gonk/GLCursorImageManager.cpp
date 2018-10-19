@@ -82,12 +82,13 @@ MapCursorState(nsCursor aCursor)
 
 } // namespace
 
-class RemoveLoadCursorTaskOnMainThread final : public nsRunnable {
+class RemoveLoadCursorTaskOnMainThread final : public Runnable {
 public:
   RemoveLoadCursorTaskOnMainThread(nsCursor aCursor,
                                    GLCursorImageManager* aManager)
       : mCursor(aCursor)
       , mManager(aManager)
+      , Runnable("RemoveLoadCursorTask")
   { }
 
   NS_IMETHOD Run() override {
@@ -235,7 +236,7 @@ GLCursorImageManager::PrepareCursorImage(nsCursor aCursor, nsWindow* aWindow)
       if (!frame) {
         // Force the document to construct a primary frame immediately if
         // it hasn't constructed yet.
-        doc->FlushPendingNotifications(Flush_Frames);
+        doc->FlushPendingNotifications(FlushType::Frames);
         frame = element->GetPrimaryFrame();
       }
       MOZ_ASSERT(frame);

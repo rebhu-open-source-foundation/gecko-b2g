@@ -147,7 +147,9 @@ public:
   virtual LayoutDeviceIntRect GetNaturalBounds() override;
   virtual bool NeedsPaint() override;
 
+#if defined(MOZ_COMPOSITOR_2D)
   virtual Composer2D* GetComposer2D() override;
+#endif
 
   void ConfigureAPZControllerThread() override;
 
@@ -193,7 +195,7 @@ private:
   //    above. On the other hand the timing it becomes nullptr is inside
   //    destructor of nsWindow and the one access it on compositor thread owns
   //    strong reference of nsWindow so it is impossible to be happened.
-  nsAutoPtr<GLCursorImageManager> mGLCursorImageManager;
+  // nsAutoPtr<GLCursorImageManager> mGLCursorImageManager;
 
   virtual bool IsBelongedToPrimaryScreen();
 };

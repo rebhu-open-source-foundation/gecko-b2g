@@ -74,7 +74,7 @@ static nsWindow* gFocusedWindow = nullptr;
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
 nsWindow::nsWindow()
-  : mGLCursorImageManager(nullptr)
+ // : mGLCursorImageManager(nullptr)
 {
   RefPtr<nsScreenManagerGonk> screenManager =
     nsScreenManagerGonk::GetInstance();
@@ -647,11 +647,11 @@ nsWindow::SetNativeData(uint32_t aDataType, uintptr_t aVal)
 void
 nsWindow::EnsureGLCursorImageManager()
 {
-  if (mGLCursorImageManager) {
-    return;
-  }
+  // if (mGLCursorImageManager) {
+  //   return;
+  // }
 
-  mGLCursorImageManager = new GLCursorImageManager();
+  // mGLCursorImageManager = new GLCursorImageManager();
 }
 
 void
@@ -659,12 +659,12 @@ nsWindow::SetCursor(nsCursor aCursor)
 {
   nsBaseWidget::SetCursor(aCursor);
 
-  if (mGLCursorImageManager) {
-    // Prepare GLCursor if it doesn't exist
-    mGLCursorImageManager->PrepareCursorImage(aCursor, this);
-    mGLCursorImageManager->HasSetCursor();
-    KickOffComposition();
-  }
+  // if (mGLCursorImageManager) {
+  //   // Prepare GLCursor if it doesn't exist
+  //   mGLCursorImageManager->PrepareCursorImage(aCursor, this);
+  //   mGLCursorImageManager->HasSetCursor();
+  //   KickOffComposition();
+  // }
 }
 
 static void
@@ -692,7 +692,7 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
         : (position.y > (mBounds.height) ? (mBounds.height) : position.y);
 
     EnsureGLCursorImageManager();
-    mGLCursorImageManager->SetGLCursorPosition(position);
+    // mGLCursorImageManager->SetGLCursorPosition(position);
 
     if (gfxPrefs::GLCursorEnabled()) {
       // Stop rendering with Hwc because virtual cursor is drawn on the
@@ -704,8 +704,8 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
     }
   } else if (aEvent->mMessage == eMouseExitFromWidget) {
     EnsureGLCursorImageManager();
-    mGLCursorImageManager->SetGLCursorPosition(
-      GLCursorImageManager::kOffscreenCursorPosition);
+    // mGLCursorImageManager->SetGLCursorPosition(
+    //   GLCursorImageManager::kOffscreenCursorPosition);
 
     if (gfxPrefs::GLCursorEnabled()) {
       // Turn render-with-hwc back on.
@@ -778,24 +778,24 @@ void
 nsWindow::DrawWindowOverlay(LayerManagerComposite* aManager,
                             LayoutDeviceIntRect aRect)
 {
-  if (aManager && mGLCursorImageManager) {
-    CompositorOGL* compositor =
-      static_cast<CompositorOGL*>(aManager->GetCompositor());
-    if (compositor) {
-      if (mGLCursorImageManager->ShouldDrawGLCursor() &&
-          mGLCursorImageManager->IsCursorImageReady(mCursor)) {
-        GLCursorImageManager::GLCursorImage cursorImage =
-          mGLCursorImageManager->GetGLCursorImage(mCursor);
-        LayoutDeviceIntPoint position =
-          mGLCursorImageManager->GetGLCursorPosition();
-        compositor->DrawGLCursor(aRect,
-                                 position,
-                                 cursorImage.mSurface,
-                                 cursorImage.mImgSize,
-                                 cursorImage.mHotspot);
-      }
-    }
-  }
+  // if (aManager && mGLCursorImageManager) {
+  //   CompositorOGL* compositor =
+  //     static_cast<CompositorOGL*>(aManager->GetCompositor());
+  //   if (compositor) {
+  //     if (mGLCursorImageManager->ShouldDrawGLCursor() &&
+  //         mGLCursorImageManager->IsCursorImageReady(mCursor)) {
+  //       GLCursorImageManager::GLCursorImage cursorImage =
+  //         mGLCursorImageManager->GetGLCursorImage(mCursor);
+  //       LayoutDeviceIntPoint position =
+  //         mGLCursorImageManager->GetGLCursorPosition();
+  //       compositor->DrawGLCursor(aRect,
+  //                                position,
+  //                                cursorImage.mSurface,
+  //                                cursorImage.mImgSize,
+  //                                cursorImage.mHotspot);
+  //     }
+  //   }
+  // }
 }
 
 already_AddRefed<DrawTarget>
@@ -970,6 +970,7 @@ nsWindow::NeedsPaint()
   return nsIWidget::NeedsPaint();
 }
 
+#if defined(MOZ_COMPOSITOR_2D)
 Composer2D*
 nsWindow::GetComposer2D()
 {
@@ -979,6 +980,7 @@ nsWindow::GetComposer2D()
 
   return mComposer2D;
 }
+#endif
 
 bool
 nsWindow::IsBelongedToPrimaryScreen()
