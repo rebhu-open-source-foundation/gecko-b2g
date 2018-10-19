@@ -62,8 +62,6 @@ SOURCES += [
     'GonkClipboardData.cpp',
     'GonkMemoryPressureMonitoring.cpp',
     'GonkPermission.cpp',
-    'HwcComposer2D.cpp',
-    'HwcUtils.cpp',
     'nsAppShell.cpp',
     'nsClipboard.cpp',
     'nsIdleServiceGonk.cpp',
@@ -74,6 +72,12 @@ SOURCES += [
     'OrientationObserver.cpp',
     'ProcessOrientation.cpp',
 ]
+
+if CONFIG['MOZ_COMPOSER_2D']:
+    SOURCES += [
+       'HwcComposer2D.cpp',
+       'HwcUtils.cpp',
+    ]
 
 if CONFIG['MOZ_INSTRUMENT_EVENT_LOOP']:
     SOURCES += [

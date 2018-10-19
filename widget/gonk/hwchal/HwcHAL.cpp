@@ -119,8 +119,9 @@ HwcHAL::SupportTransparency() const
 {
 #if ANDROID_VERSION >= 18
     return true;
-#endif
+#else
     return false;
+#endif
 }
 
 uint32_t
@@ -208,7 +209,7 @@ HwcHAL::GetAPIVersion() const
 UniquePtr<HwcHALBase>
 HwcHALBase::CreateHwcHAL()
 {
-    return Move(MakeUnique<HwcHAL>());
+    return MakeUnique<HwcHAL>();
 }
 
 } // namespace mozilla
