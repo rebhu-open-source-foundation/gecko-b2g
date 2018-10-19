@@ -329,9 +329,11 @@ private:
    */
   nsresult DispatchMemoryPressure(MemoryPressureState state)
   {
-    if (ProcessPriorityManager::AnyProcessHasHighPriority()) {
-      return NS_OK;
-    }
+    // TODO: fixme.
+    printf_stderr("*** FIXME GonkMemoryPressureMonitoring.cpp::DispatchMemoryPressure\n***\n***");
+    // if (ProcessPriorityManager::AnyProcessHasHighPriority()) {
+    //   return NS_OK;
+    // }
 
     return NS_DispatchMemoryPressure(state);
   }
