@@ -73,8 +73,12 @@ SOURCES += [
     'nsWindow.cpp',
     'OrientationObserver.cpp',
     'ProcessOrientation.cpp',
-    'WidgetTraceEvent.cpp'
 ]
+
+if CONFIG['MOZ_INSTRUMENT_EVENT_LOOP']:
+    SOURCES += [
+        'WidgetTraceEvent.cpp',
+    ]
 
 include('/ipc/chromium/chromium-config.mozbuild')
 
