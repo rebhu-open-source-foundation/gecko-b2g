@@ -268,7 +268,7 @@ private:
    */
   void SetLowMemTrigger(uint32_t aValue) {
     if (XRE_IsParentProcess()) {
-      nsPrintfCString str("%ld", (aValue * 1024) / mPageSize);
+      nsPrintfCString str("%u", (aValue * 1024) / mPageSize);
       if (WriteSysFile("/sys/module/lowmemorykiller/parameters/notify_trigger",
                        str.get())) {
         mLowMemTriggerKB = aValue;
