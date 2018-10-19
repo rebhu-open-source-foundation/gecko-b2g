@@ -21,7 +21,8 @@
 #include "mozilla/Unused.h"
 #include "nsIScreen.h"
 #include "nsIScreenManager.h"
-#include "OrientationObserver.h"
+// TODO: fixme
+// #include "OrientationObserver.h"
 #include "ProcessOrientation.h"
 #include "mozilla/HalSensor.h"
 #include "math.h"
@@ -164,7 +165,7 @@ ProcessOrientation::GetProposedRotation()
 }
 
 int
-ProcessOrientation::OnSensorChanged(const SensorData& event,
+ProcessOrientation::OnSensorChanged(const hal::SensorData& event,
                                     int deviceCurrentRotation)
 {
   // The vector given in the SensorEvent points straight up (towards the sky)

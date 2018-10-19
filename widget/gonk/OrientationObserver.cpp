@@ -37,10 +37,10 @@ struct OrientationMapping {
 };
 
 static OrientationMapping sOrientationMappings[] = {
-  {nsIScreen::ROTATION_0_DEG,   eScreenOrientation_PortraitPrimary},
-  {nsIScreen::ROTATION_180_DEG, eScreenOrientation_PortraitSecondary},
-  {nsIScreen::ROTATION_90_DEG,  eScreenOrientation_LandscapePrimary},
-  {nsIScreen::ROTATION_270_DEG, eScreenOrientation_LandscapeSecondary},
+  {nsIScreen::ROTATION_0_DEG,   hal::eScreenOrientation_PortraitPrimary},
+  {nsIScreen::ROTATION_180_DEG, hal::eScreenOrientation_PortraitSecondary},
+  {nsIScreen::ROTATION_90_DEG,  hal::eScreenOrientation_LandscapePrimary},
+  {nsIScreen::ROTATION_270_DEG, hal::eScreenOrientation_LandscapeSecondary},
 };
 
 const static uint32_t sDefaultLandscape = 2;

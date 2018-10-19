@@ -69,7 +69,8 @@ SOURCES += [
     'nsScreenManagerGonk.cpp',
     'nsWidgetFactory.cpp',
     'nsWindow.cpp',
-    'OrientationObserver.cpp',
+# TODO: fixme
+#    'OrientationObserver.cpp',
     'ProcessOrientation.cpp',
 ]
 

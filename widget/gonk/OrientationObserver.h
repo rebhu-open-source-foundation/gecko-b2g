@@ -62,10 +62,10 @@ private:
   mozilla::UniquePtr<mozilla::ProcessOrientation> mOrientation;
 
   static const uint32_t sDefaultOrientations =
-      mozilla::dom::eScreenOrientation_PortraitPrimary |
-      mozilla::dom::eScreenOrientation_PortraitSecondary |
-      mozilla::dom::eScreenOrientation_LandscapePrimary |
-      mozilla::dom::eScreenOrientation_LandscapeSecondary;
+      mozilla::hal::eScreenOrientation_PortraitPrimary |
+      mozilla::hal::eScreenOrientation_PortraitSecondary |
+      mozilla::hal::eScreenOrientation_LandscapePrimary |
+      mozilla::hal::eScreenOrientation_LandscapeSecondary;
 };
 
 #endif
