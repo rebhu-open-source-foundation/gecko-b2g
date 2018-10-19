@@ -67,21 +67,21 @@ public:
                     nsWidgetInitData* aInitData) override;
   void Destroy(void) override;
 
-  NS_IMETHOD Show(bool aState) override;
+  void Show(bool aState) override;
   virtual bool IsVisible() const override;
   void ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) override;
   void Move(double aX, double aY) override;
-  NS_IMETHOD Resize(double aWidth, double aHeight, bool aRepaint) override;
-  NS_IMETHOD Resize(double aX,
+  void Resize(double aWidth, double aHeight, bool aRepaint) override;
+  void Resize(double aX,
                     double aY,
                     double aWidth,
                     double aHeight,
                     bool aRepaint) override;
-  NS_IMETHOD Enable(bool aState) override;
+  void Enable(bool aState) override;
   virtual bool IsEnabled() const override;
   NS_IMETHOD SetFocus(bool aRaise = false) override;
   NS_IMETHOD ConfigureChildren(const nsTArray<nsIWidget::Configuration>&) override;
-  NS_IMETHOD Invalidate(const LayoutDeviceIntRect& aRect) override;
+  void Invalidate(const LayoutDeviceIntRect& aRect) override;
   virtual void* GetNativeData(uint32_t aDataType) override;
   virtual void SetNativeData(uint32_t aDataType, uintptr_t aVal) override;
   NS_IMETHOD SetTitle(const nsAString& aTitle)  override { return NS_OK; }
@@ -100,11 +100,10 @@ public:
                                               uint32_t aPointerOrientation,
                                               nsIObserver* aObserver) override;
 
-  NS_IMETHOD CaptureRollupEvents(nsIRollupListener* aListener, bool aDoCapture) override
+  void CaptureRollupEvents(nsIRollupListener* aListener, bool aDoCapture) override
   {
-    return NS_ERROR_NOT_IMPLEMENTED;
   }
-  NS_IMETHOD ReparentNativeWidget(nsIWidget* aNewParent) override;
+  void ReparentNativeWidget(nsIWidget* aNewParent) override;
 
   NS_IMETHOD MakeFullScreen(bool aFullScreen,
                             nsIScreen* aTargetScreen = nullptr) override;

@@ -513,16 +513,15 @@ nsWindow::ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) {}
 void
 nsWindow::Move(double aX, double aY)
 {
-  return NS_OK;
 }
 
-NS_IMETHODIMP
+void
 nsWindow::Resize(double aWidth, double aHeight, bool aRepaint)
 {
-  return Resize(0, 0, aWidth, aHeight, aRepaint);
+  Resize(0, 0, aWidth, aHeight, aRepaint);
 }
 
-NS_IMETHODIMP
+void
 nsWindow::Resize(double aX,
                  double aY,
                  double aWidth,
@@ -540,14 +539,11 @@ nsWindow::Resize(double aX,
   if (aRepaint) {
     Invalidate(mBounds);
   }
-
-  return NS_OK;
 }
 
-NS_IMETHODIMP
+void
 nsWindow::Enable(bool aState)
 {
-  return NS_OK;
 }
 
 bool
@@ -577,7 +573,7 @@ nsWindow::ConfigureChildren(const nsTArray<nsIWidget::Configuration>&)
   return NS_OK;
 }
 
-NS_IMETHODIMP
+void
 nsWindow::Invalidate(const LayoutDeviceIntRect& aRect)
 {
   nsWindow* top = mParent;
@@ -586,12 +582,11 @@ nsWindow::Invalidate(const LayoutDeviceIntRect& aRect)
   }
   const nsTArray<nsWindow*>& windows = mScreen->GetTopWindows();
   if (top != windows[0] && this != windows[0]) {
-    return NS_OK;
+    return;
   }
 
   gDrawRequest = true;
   mozilla::NotifyEvent();
-  return NS_OK;
 }
 
 LayoutDeviceIntPoint
@@ -740,10 +735,10 @@ nsWindow::GetInputContext()
   return mInputContext;
 }
 
-NS_IMETHODIMP
+void
 nsWindow::ReparentNativeWidget(nsIWidget* aNewParent)
 {
-  return NS_OK;
+  
 }
 
 NS_IMETHODIMP
