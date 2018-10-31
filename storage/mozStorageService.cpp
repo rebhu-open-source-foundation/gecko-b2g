@@ -321,26 +321,33 @@ Service::unregisterConnection(Connection *aConnection)
   // alive.  So ensure that Service is destroyed only after the Connection is
   // cleanly unregistered and destroyed.
   RefPtr<Service> kungFuDeathGrip(this);
+  RefPtr<Connection> forgettingRef;
   {
     mRegistrationMutex.AssertNotCurrentThreadOwns();
     MutexAutoLock mutex(mRegistrationMutex);
 
     for (uint32_t i = 0 ; i < mConnections.Length(); ++i) {
       if (mConnections[i] == aConnection) {
-        nsCOMPtr<nsIThread> thread = mConnections[i]->threadOpenedOn;
-
-        // Ensure the connection is released on its opening thread.  Note, we
-        // must use .forget().take() so that we can manually cast to an
-        // unambiguous nsISupports type.
-        NS_ProxyRelease(thread, mConnections[i].forget());
-
+        // Because dropping the final reference can potentially result in
+        // spinning a nested event loop if the connection was not properly
+        // shutdown, we want to do that outside this loop so that we can finish
+        // mutating the array and drop our mutex.
+        forgettingRef = mConnections[i].forget();
         mConnections.RemoveElementAt(i);
-        return;
+        break;
       }
     }
-
-    MOZ_ASSERT_UNREACHABLE("Attempt to unregister unknown storage connection!");
   }
+
+  MOZ_ASSERT(forgettingRef,
+             "Attempt to unregister unknown storage connection!");
+
+  // Do not proxy the release anywhere, just let this reference drop here.  (We
+  // previously did proxy the release, but that was because we invoked Close()
+  // in the destructor and Close() likes to complain if it's not invoked on the
+  // opener thread, so it was essential that the last reference be dropped on
+  // the opener thread.  We now enqueue Close() inside our caller, Release(), so
+  // it doesn't actually matter what thread our reference drops on.)
 }
 
 void

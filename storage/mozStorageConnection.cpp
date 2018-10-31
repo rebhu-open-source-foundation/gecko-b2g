@@ -481,6 +481,7 @@ Connection::Connection(Service *aService,
 #endif
 , mConnectionClosed(false)
 , mTransactionInProgress(false)
+, mDestroying(false)
 , mProgressHandler(nullptr)
 , mFlags(aFlags)
 , mStorageService(aService)
@@ -491,8 +492,9 @@ Connection::Connection(Service *aService,
 
 Connection::~Connection()
 {
-  (void)Close();
-
+  // Failsafe Close() occurs in our custom Release method because of
+  // complications related to Close() potentially invoking AsyncClose() which
+  // will increment our refcount.
   MOZ_ASSERT(!mAsyncExecutionThread,
              "AsyncClose has not been invoked on this connection!");
   MOZ_ASSERT(!mAsyncExecutionThreadIsAlive,
@@ -516,10 +518,53 @@ NS_IMETHODIMP_(MozExternalRefCountType) Connection::Release(void)
   nsrefcnt count = --mRefCnt;
   NS_LOG_RELEASE(this, count, "Connection");
   if (1 == count) {
-    // If the refcount is 1, the single reference must be from
-    // gService->mConnections (in class |Service|).  Which means we can
-    // unregister it safely.
-    mStorageService->unregisterConnection(this);
+    // If the refcount went to 1, the single reference must be from
+    // gService->mConnections (in class |Service|).  And the code calling
+    // Release is either:
+    // - The "user" code that had created the connection, releasing on any
+    //   thread.
+    // - One of Service's getConnections() callers had acquired a strong
+    //   reference to the Connection that out-lived the last "user" reference,
+    //   and now that just got dropped.  Note that this reference could be
+    //   getting dropped on the main thread or Connection->threadOpenedOn
+    //   (because of the NewRunnableMethod used by minimizeMemory).
+    //
+    // Either way, we should now perform our failsafe Close() and unregister.
+    // However, we only want to do this once, and the reality is that our
+    // refcount could go back up above 1 and down again at any time if we are
+    // off the main thread and getConnections() gets called on the main thread,
+    // so we use an atomic here to do this exactly once.
+    if (mDestroying.compareExchange(false, true)) {
+      // Close the connection, dispatching to the opening thread if we're not
+      // on that thread already and that thread is still accepting runnables.
+      // We do this because it's possible we're on the main thread because of
+      // getConnections(), and we REALLY don't want to transfer I/O to the main
+      // thread if we can avoid it.
+      bool onCurrentThread = false;
+      threadOpenedOn->IsOnCurrentThread(&onCurrentThread);
+      if (onCurrentThread) {
+        // This could cause SpinningSynchronousClose() to be invoked and AddRef
+        // triggered for AsyncCloseConnection's strong ref if the conn was ever
+        // use for async purposes.  (Main-thread only, though.)
+        Unused << Close();
+      } else {
+        nsCOMPtr<nsIRunnable> event =
+          NS_NewRunnableMethod(this, &Connection::Close);
+        if (NS_FAILED(threadOpenedOn->Dispatch(event.forget(),
+                                               NS_DISPATCH_NORMAL))) {
+          // The target thread was dead and so we've just leaked our runnable.
+          // This should not happen because our non-main-thread consumers should
+          // be explicitly closing their connections, not relying on us to close
+          // them for them.  (It's okay to let a statement go out of scope for
+          // automatic cleanup, but not a Connection.)
+          MOZ_ASSERT(false, "Leaked Connection::Close(), ownership fail.");
+          Unused << Close();
+        }
+      }
+
+      // This will drop its strong reference right here, right now.
+      mStorageService->unregisterConnection(this);
+    }
   } else if (0 == count) {
     mRefCnt = 1; /* stabilize */
 #if 0 /* enable this to find non-threadsafe destructors: */
