@@ -1402,7 +1402,8 @@ gfxPlatform::CreateOffscreenContentDrawTarget(const IntSize& aSize, SurfaceForma
 }
 
 already_AddRefed<DrawTarget>
-gfxPlatform::CreateDrawTargetForData(unsigned char* aData, const IntSize& aSize, int32_t aStride, SurfaceFormat aFormat)
+gfxPlatform::CreateDrawTargetForData(unsigned char* aData, const IntSize& aSize,
+  int32_t aStride, SurfaceFormat aFormat, bool aUninitialized)
 {
   NS_ASSERTION(mContentBackend != BackendType::NONE, "No backend.");
 
@@ -1414,7 +1415,8 @@ gfxPlatform::CreateDrawTargetForData(unsigned char* aData, const IntSize& aSize,
 
   RefPtr<DrawTarget> dt = Factory::CreateDrawTargetForData(backendType,
                                                            aData, aSize,
-                                                           aStride, aFormat);
+                                                           aStride, aFormat,
+                                                           aUninitialized);
 
   return dt.forget();
 }

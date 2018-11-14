@@ -10,6 +10,7 @@
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/fallible.h"
+#include "gfxPlatform.h"                // for gfxPlatform
 #include <algorithm>
 
 #ifdef MOZ_WIDGET_GTK
@@ -233,12 +234,6 @@ BufferTextureData::SupportsMoz2D() const
 already_AddRefed<gfx::DrawTarget>
 BufferTextureData::BorrowDrawTarget()
 {
-  if (mDrawTarget) {
-    mDrawTarget->SetTransform(gfx::Matrix());
-    RefPtr<gfx::DrawTarget> dt = mDrawTarget;
-    return dt.forget();
-  }
-
   if (mDescriptor.type() != BufferDescriptor::TRGBDescriptor) {
     return nullptr;
   }
@@ -246,28 +241,25 @@ BufferTextureData::BorrowDrawTarget()
   const RGBDescriptor& rgb = mDescriptor.get_RGBDescriptor();
 
   uint32_t stride = ImageDataSerializer::GetRGBStride(rgb);
-  mDrawTarget = gfx::Factory::CreateDrawTargetForData(mMoz2DBackend,
-                                                      GetBuffer(), rgb.size(),
-                                                      stride, rgb.format(), true);
-
-  if (mDrawTarget) {
-    RefPtr<gfx::DrawTarget> dt = mDrawTarget;
-    return dt.forget();
+  RefPtr<gfx::DrawTarget> dt;
+  if (gfx::Factory::DoesBackendSupportDataDrawtarget(mMoz2DBackend)) {
+    dt = gfx::Factory::CreateDrawTargetForData(mMoz2DBackend,
+                                               GetBuffer(), rgb.size(),
+                                               stride, rgb.format(), true);
   }
 
-  // TODO - should we warn? should we really fallback to cairo? perhaps
-  // at least update mMoz2DBackend...
-  if (mMoz2DBackend != gfx::BackendType::CAIRO) {
-    mDrawTarget = gfx::Factory::CreateDrawTargetForData(gfx::BackendType::CAIRO,
-                                                        GetBuffer(), rgb.size(),
-                                                        stride, rgb.format(), true);
+  if (!dt) {
+    // Fall back to supported platform backend.  Note that mMoz2DBackend
+    // does not match the draw target type.
+    dt = gfxPlatform::GetPlatform()->CreateDrawTargetForData(GetBuffer(), rgb.size(),
+                                                             stride, rgb.format(),
+                                                             true);
   }
 
-  if (!mDrawTarget) {
+  if (!dt) {
     gfxCriticalNote << "BorrowDrawTarget failure, original backend " << (int)mMoz2DBackend;
   }
 
-  RefPtr<gfx::DrawTarget> dt = mDrawTarget;
   return dt.forget();
 }
 

@@ -225,7 +225,8 @@ public:
 
     virtual already_AddRefed<DrawTarget>
       CreateDrawTargetForData(unsigned char* aData, const mozilla::gfx::IntSize& aSize,
-                              int32_t aStride, mozilla::gfx::SurfaceFormat aFormat);
+                              int32_t aStride, mozilla::gfx::SurfaceFormat aFormat,
+                              bool aUninitialized = false);
 
     /**
      * Returns true if rendering to data surfaces produces the same results as
