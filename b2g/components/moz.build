@@ -54,6 +54,7 @@ EXTRA_JS_MODULES += [
     "B2GProcessSelector.jsm",
     "ChromeNotifications.jsm",
     "ContentPermissionPrompt.jsm",
+    "CustomHeaderInjector.jsm",
     "dbg-browser-actors.js",
     "ErrorPage.jsm",
     "GeckoBridge.jsm",
