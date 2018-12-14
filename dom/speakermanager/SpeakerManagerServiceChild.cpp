@@ -49,13 +49,16 @@ SpeakerManagerServiceChild::GetSpeakerManagerService()
 }
 
 void
-SpeakerManagerServiceChild::ForceSpeaker(bool aEnable, bool aVisible)
+SpeakerManagerServiceChild::ForceSpeaker(bool aEnable,
+                                         bool aVisible,
+                                         bool aChannelActive,
+                                         uint64_t aWindowID,
+                                         uint64_t aChildID)
 {
-  mVisible = aVisible;
   mOrgSpeakerStatus = aEnable;
   ContentChild *cc = ContentChild::GetSingleton();
   if (cc) {
-    cc->SendSpeakerManagerForceSpeaker(aEnable && aVisible);
+    cc->SendSpeakerManagerForceSpeaker(aEnable, aVisible, aChannelActive, aWindowID);
   }
 }
 
@@ -88,8 +91,9 @@ SpeakerManagerServiceChild::SetAudioChannelActive(bool aIsActive)
 {
   // Content process and switch to background with no audio and speaker forced.
   // Then disable speaker
-  for (uint32_t i = 0; i < mRegisteredSpeakerManagers.Length(); i++) {
-    mRegisteredSpeakerManagers[i]->SetAudioChannelActive(aIsActive);
+  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done(); iter.Next()) {
+    RefPtr<SpeakerManager> sm = iter.Data();
+    sm->SetAudioChannelActive(aIsActive);
   }
 }
 
@@ -115,7 +119,8 @@ SpeakerManagerServiceChild::~SpeakerManagerServiceChild()
 void
 SpeakerManagerServiceChild::Notify()
 {
-  for (uint32_t i = 0; i < mRegisteredSpeakerManagers.Length(); i++) {
-    mRegisteredSpeakerManagers[i]->DispatchSimpleEvent(NS_LITERAL_STRING("speakerforcedchange"));
+  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done(); iter.Next()) {
+    RefPtr<SpeakerManager> sm = iter.Data();
+    sm->DispatchSimpleEvent(NS_LITERAL_STRING("speakerforcedchange"));
   }
 }
