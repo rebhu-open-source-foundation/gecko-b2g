@@ -132,6 +132,8 @@ class nsFrameMessageManager : public nsIMessageSender {
   void RemoveWeakMessageListener(const nsAString& aMessageName,
                                  mozilla::dom::MessageListener& aListener,
                                  mozilla::ErrorResult& aError);
+  void RemoveMessageListenerHashEntry(const nsAString& aMessageName,
+                                      mozilla::ErrorResult& aError);
 
   // MessageSender
   void SendAsyncMessage(JSContext* aCx, const nsAString& aMessageName,

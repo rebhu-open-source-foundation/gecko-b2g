@@ -360,6 +360,21 @@ void nsFrameMessageManager::RemoveWeakMessageListener(
   }
 }
 
+void
+nsFrameMessageManager::RemoveMessageListenerHashEntry(const nsAString& aMessageName,
+                                                      ErrorResult& aError) {
+  nsAutoTObserverArray<nsMessageListenerInfo, 1>* listeners =
+    mListeners.Get(aMessageName);
+  if (!listeners) {
+    return;
+  }
+
+  // Remove the message entry from hash table when its listener length is 0.
+  if (!listeners->Length()) {
+    mListeners.Remove(aMessageName);
+  }
+}
+
 void nsFrameMessageManager::LoadScript(const nsAString& aURL,
                                        bool aAllowDelayedLoad,
                                        bool aRunInGlobalScope,
