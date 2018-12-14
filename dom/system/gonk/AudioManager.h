@@ -70,13 +70,22 @@ public:
       return mStreamType;
     }
     bool IsDevicesChanged(bool aFromCache = true);
+    // Returns true if this stream stores separate volume index for each output device.
+    // For example, speaker volume of media stream is different from headset volume of
+    // media stream.
+    // Returns false if this stream shares one volume setting among all output devices,
+    // e.g., notification and alarm streams.
+    bool IsDeviceSpecificVolume()
+    {
+      return mIsDeviceSpecificVolume;
+    }
     void ClearDevicesChanged();
+    void ClearDevicesWithVolumeChange();
+    uint32_t GetDevicesWithVolumeChange();
     uint32_t GetLastDevices()
     {
       return mLastDevices;
     }
-    bool IsVolumeIndexesChanged();
-    void ClearVolumeIndexesChanged();
     void InitStreamVolume();
     uint32_t GetMaxIndex();
     uint32_t GetDefaultIndex();
@@ -96,8 +105,9 @@ public:
     AudioManager& mManager;
     const int32_t mStreamType;
     uint32_t mLastDevices;
+    uint32_t mDevicesWithVolumeChange;
     bool mIsDevicesChanged;
-    bool mIsVolumeIndexesChanged;
+    bool mIsDeviceSpecificVolume;
     nsDataHashtable<nsUint32HashKey, uint32_t> mVolumeIndexes;
   };
 
@@ -165,8 +175,6 @@ private:
   // Promise functions.
   void InitDeviceVolumeSucceeded();
   void InitDeviceVolumeFailed(const char* aError);
-
-  void AudioOutDeviceUpdated(uint32_t aDevice);
 
   void UpdateHeadsetConnectionState(hal::SwitchState aState);
   void UpdateDeviceConnectionState(bool aIsConnected, uint32_t aDevice, const nsCString& aDeviceName);
