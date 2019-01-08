@@ -43,6 +43,7 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
 Cu.import('resource://gre/modules/ActivitiesService.jsm');
+Cu.import("resource://gre/modules/AppsUpdater.jsm");
 Cu.import("resource://gre/modules/AppsUtils.jsm");
 Cu.import("resource://gre/modules/AppDownloadManager.jsm");
 Cu.import("resource://gre/modules/osfile.jsm");
@@ -268,6 +269,7 @@ this.DOMApplicationRegistry = {
 
     // whether this module is currently fetching for restricted access token
     this.isFetchingToken = false;
+    AppsUpdater.register();
   },
 
   // loads the current registry, that could be empty on first run.
@@ -1764,8 +1766,27 @@ this.DOMApplicationRegistry = {
 
   clearStorage: function (aData, aMm) {
     let app = this.getAppByManifestURL(aData.manifestURL);
-    this._clearPrivateData(app.localId, false, aData);
     let appURI = NetUtil.newURI(app.origin, null, null);
+
+    // Clear localStorage
+    Services.obs.notifyObservers(null, "browser:purge-domain-data", appURI.host);
+
+    // Delete dataStore & alarm & IAC connection
+    let subject = {
+      appId: app.localId,
+      browserOnly: false,
+      QueryInterface: XPCOMUtils.generateQI([Ci.mozIApplicationClearPrivateDataParams])
+    };
+    this._notifyCategoryAndObservers(subject, "webapps-clear-data", null, aData);
+
+    // Create DataStore entries per app
+    this.updateDataStoreEntriesFromLocalId(app.localId);
+    // Update IAC connection
+    this.getManifestFor(aData.manifestURL).then((aManifest) => {
+      this.updateAppHandlers(null, aManifest, app);
+    });
+
+    // Clear indexedDB files
     let principal =
       Services.scriptSecurityManager.createCodebasePrincipal(appURI,
                                                              {appId: app.localId});
@@ -2298,7 +2319,68 @@ this.DOMApplicationRegistry = {
     function onload(xhr, oldManifest) {
       debug("Got http status=" + xhr.status + " for " + aData.manifestURL);
       let oldHash = app.manifestHash;
-      let isPackage = app.kind == DOMApplicationRegistry.kPackaged;
+      let oldVersion = oldManifest.version ? oldManifest.version : 0;
+
+      let updateApp = (function(manifest, app) {
+        let hash = this.computeManifestHash(manifest);
+        let version = manifest.version ? manifest.version : 0;
+        let oldHash = app.manifestHash;
+        let isPackage = app.kind == DOMApplicationRegistry.kPackaged;
+        debug("Manifest hash = " + hash);
+        if (isPackage) {
+          if (!app.staged) {
+            app.staged = { };
+          }
+          app.staged.manifestHash = hash;
+          app.staged.etag = xhr.getResponseHeader("Etag");
+        } else {
+          app.manifestHash = hash;
+          app.etag = xhr.getResponseHeader("Etag");
+        }
+
+        let vc = Cc["@mozilla.org/xpcom/version-comparator;1"]
+                 .getService(Ci.nsIVersionComparator);
+
+        app.lastCheckedUpdate = Date.now();
+        if (isPackage) {
+          // If app defines vesion number check version number,
+          // otherwise use manifest hash to check for update.
+          if ((version == 0 && oldVersion == 0 && oldHash != hash ) ||
+               vc.compare(version, oldVersion) > 0) {
+            this.updatePackagedApp(aData, id, app, manifest);
+          } else {
+            this._saveApps().then(() => {
+              // Like if we got a 304, just send a 'downloadapplied'
+              // or downloadavailable event.
+              let eventType = app.downloadAvailable ? "downloadavailable"
+                                                    : "downloadapplied";
+              aMm.sendAsyncMessage("Webapps:UpdateState", {
+                app: app,
+                id: app.id
+              });
+              aMm.sendAsyncMessage("Webapps:FireEvent", {
+                eventType: eventType,
+                manifestURL: app.manifestURL,
+                requestID: aData.requestID
+              });
+            });
+          }
+        } else {
+          // Update only the appcache if the manifest has not changed.
+          // If app defines vesion number check version number,
+          // otherwise use manifest hash to check for update.
+          if ((version == 0 && oldVersion == 0 && oldHash == hash ) ||
+               vc.compare(version, oldVersion) == 0) {
+            debug("Update - oldhash");
+            this.updateHostedApp(aData, id, app, oldManifest, null);
+            return;
+          }
+
+          // For hosted apps and hosted apps with appcache, use the
+          // manifest "as is".
+          this.updateHostedApp(aData, id, app, oldManifest, manifest);
+        }
+      }).bind(this);
 
       if (xhr.status == 200) {
         let manifest = xhr.response;
@@ -2314,53 +2396,16 @@ this.DOMApplicationRegistry = {
           sendError("INSTALL_FROM_DENIED");
           return;
         } else {
-
-          let hash = this.computeManifestHash(manifest);
-          debug("Manifest hash = " + hash);
-          if (isPackage) {
-            if (!app.staged) {
-              app.staged = { };
-            }
-            app.staged.manifestHash = hash;
-            app.staged.etag = xhr.getResponseHeader("Etag");
+          if (manifest.dependencies) {
+            AppsUpdater.checkDependencies(manifest.dependencies)
+            .then( result => {
+              updateApp(manifest, app);
+            })
+            .catch(error => {
+              sendError("CHECK_DEPENDENCIES_ERROR");
+            });
           } else {
-            app.manifestHash = hash;
-            app.etag = xhr.getResponseHeader("Etag");
-          }
-
-          app.lastCheckedUpdate = Date.now();
-          if (isPackage) {
-            if (oldHash != hash) {
-              this.updatePackagedApp(aData, id, app, manifest);
-            } else {
-              this._saveApps().then(() => {
-                // Like if we got a 304, just send a 'downloadapplied'
-                // or downloadavailable event.
-                let eventType = app.downloadAvailable ? "downloadavailable"
-                                                      : "downloadapplied";
-                aMm.sendAsyncMessage("Webapps:UpdateState", {
-                  app: app,
-                  id: app.id
-                });
-                aMm.sendAsyncMessage("Webapps:FireEvent", {
-                  eventType: eventType,
-                  manifestURL: app.manifestURL,
-                  requestID: aData.requestID
-                });
-              });
-            }
-          } else {
-            // Update only the appcache if the manifest has not changed
-            // based on the hash value.
-            if (oldHash == hash) {
-              debug("Update - oldhash");
-              this.updateHostedApp(aData, id, app, oldManifest, null);
-              return;
-            }
-
-            // For hosted apps and hosted apps with appcache, use the
-            // manifest "as is".
-            this.updateHostedApp(aData, id, app, oldManifest, manifest);
+            updateApp(manifest, app);
           }
         }
       } else if (xhr.status == 304) {
@@ -2435,7 +2480,7 @@ this.DOMApplicationRegistry = {
     // Read the current app manifest file
     // read account for hawk token
     Promise.all([ this._readManifests([{ id: id }]),
-      this._prepareKaiHeaders(aData.manifestURL) ])
+      this._prepareKaiHeaders(aData.manifestURL, aData.allowedAuto) ])
     .then((aResult) => {
       doRequest.call(this, aResult[0][0].manifest, aResult[1]);
     })
@@ -2528,7 +2573,7 @@ this.DOMApplicationRegistry = {
     return new Promise((resolve) => setTimeout(resolve, time));
   },
 
-  _prepareKaiHeaders: function(url){
+  _prepareKaiHeaders: function(url, autoMode = false){
     // Prepare KaiHeaders if the URL is hosted by KaiOS
     let kaiApiURLs;
     try {
@@ -2563,27 +2608,40 @@ this.DOMApplicationRegistry = {
     kaiHeaders.push({ 'name' : KAIAPIVERSION, 'value' : kaiapiVer});
 
     let KAIAPIDEVICEINFO = 'Kai-Device-Info';
+    // imei and cuRef are static info once they are get,
+    // do not need to get them again.
     if (!this.imei) {
-      let mobileConnectionService = Cc["@mozilla.org/mobileconnection/mobileconnectionservice;1"]
-            .createInstance(Ci.nsIMobileConnectionService);
-      let defaultProvider = 0;
-      let mobile = mobileConnectionService.getItemByServiceId(defaultProvider);
-      if (mobile && mobile.deviceIdentities) {
-        this.imei = mobile.deviceIdentities.imei;
+      this.imei = DeviceUtils.imei;
+      this.cuRef = DeviceUtils.cuRef || '40440-2AJIIN1';
+    }
+
+    kaiHeaders.push({ 'name' : KAIAPIDEVICEINFO,
+      'value' : 'imei="' + this.imei + '", curef="' + this.cuRef + '"'});
+
+    if (!this.mnc || !this.mcc) {
+      let iccInfo = DeviceUtils.iccInfo;
+      if (iccInfo) {
+        this.mnc = iccInfo.mnc;
+        this.mcc = iccInfo.mcc;
       }
     }
-    let imei = this.imei || '123456789012345';
-    let cuRef;
-    try {
-      cuRef = Services.prefs.getCharPref("device.commercial.ref");
-    } catch (e) {
-      debug("get Commercial Unit Reference error: " + e);
-    };
-    cuRef = cuRef || '40440-2AJIIN1';
-    function formatDeviceInfoHeader(imei, cuRef) {
-      return 'imei="' + imei + '", curef="' + cuRef + '"';
-    };
-    kaiHeaders.push({ 'name' : KAIAPIDEVICEINFO, 'value' : formatDeviceInfoHeader(imei, cuRef) });
+    let networkType = DeviceUtils.networkType;
+    let downloadMode = autoMode ? 'auto' : 'manual';
+    let netMnc = DeviceUtils.networkMnc;
+    let netMcc = DeviceUtils.networkMcc;
+    let utc  = Date.now();
+    let utcOff = - (new Date()).getTimezoneOffset()/60;
+
+    kaiHeaders.push({ 'name' : 'Kai-Request-Info',
+                      'value' : 'ct="' + networkType
+                              + '", rt="' + downloadMode
+                              + '", utc="' + utc
+                              + '", utc_off="' + utcOff
+                              + '", mnc="' + this.mnc
+                              + '", mcc="' + this.mcc
+                              + '", net_mnc="' + netMnc
+                              + '", net_mcc="' + netMcc
+                              + '"'});
 
     this._hawkHeader(url).then( hawkHeader => {
       kaiHeaders.push(hawkHeader);
@@ -2858,7 +2916,17 @@ this.DOMApplicationRegistry = {
     if (app.manifest) {
       if (checkManifest()) {
         debug("Installed manifest check OK");
-        installApp();
+        if (app.manifest.dependencies) {
+          AppsUpdater.checkDependencies(app.manifest.dependencies)
+          .then( msg => {
+            installApp();
+          })
+          .catch(e => {
+            sendError("CHECK_DEPENDENCIES_ERROR");
+          });
+        } else {
+          installApp();
+        }
       } else {
         debug("Installed manifest check failed");
         // checkManifest() sends error before return
@@ -2878,7 +2946,17 @@ this.DOMApplicationRegistry = {
         if (checkManifest()) {
           debug("Downloaded manifest check OK");
           app.etag = xhr.getResponseHeader("Etag");
-          installApp();
+          if (app.manifest.dependencies) {
+            AppsUpdater.checkDependencies(app.manifest.dependencies)
+            .then( result => {
+              installApp();
+            })
+            .catch(error => {
+              sendError("CHECK_DEPENDENCIES_ERROR");
+            });
+          } else {
+            installApp();
+          }
           return;
         } else {
           debug("Downloaded manifest check failed");
@@ -2995,7 +3073,18 @@ this.DOMApplicationRegistry = {
     // in which case we don't need to load it.
     if (app.updateManifest) {
       if (checkUpdateManifest()) {
-        installApp();
+        debug("at install package got app etag=" + app.etag);
+        if (app.updateManifest.dependencies) {
+          AppsUpdater.checkDependencies(app.updateManifest.dependencies)
+          .then( result => {
+            installApp();
+          })
+          .catch(error => {
+            sendError("CHECK_DEPENDENCIES_ERROR");
+          });
+        } else {
+          installApp();
+        }
       }
       return;
     }
@@ -3015,7 +3104,17 @@ this.DOMApplicationRegistry = {
         if (checkUpdateManifest()) {
           app.etag = xhr.getResponseHeader("Etag");
           debug("at install package got app etag=" + app.etag);
-          installApp();
+          if (app.updateManifest.dependencies) {
+            AppsUpdater.checkDependencies(app.updateManifest.dependencies)
+            .then( result => {
+              installApp();
+            })
+            .catch(error => {
+              sendError("CHECK_DEPENDENCIES_ERROR");
+            });
+          } else {
+            installApp();
+          }
         }
       }
       else {

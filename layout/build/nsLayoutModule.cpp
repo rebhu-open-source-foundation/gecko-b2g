@@ -109,6 +109,7 @@
 #endif
 
 #ifdef MOZ_WIDGET_GONK
+#include "mozilla/dom/AppsUpdater.h"
 #include "SystemWorkerManager.h"
 using mozilla::dom::gonk::SystemWorkerManager;
 #define SYSTEMWORKERMANAGER_CID \
@@ -405,6 +406,7 @@ NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(GamepadServiceTest,
 #endif
 
 #ifdef MOZ_WIDGET_GONK
+NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(AppsUpdater,AppsUpdater::GetSingleton)
 #if !defined(DISABLE_MOZ_RIL_GEOLOC) && !defined(KAI_GEOLOC) && !defined(DISABLE_MOZ_GEOLOC)
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsIGeolocationProvider,
                                          GonkGPSGeolocationProvider::GetSingleton)
@@ -826,6 +828,7 @@ NS_DEFINE_NAMED_CID(SYSTEMWORKERMANAGER_CID);
 NS_DEFINE_NAMED_CID(BLUETOOTHSERVICE_CID);
 #endif
 #ifdef MOZ_WIDGET_GONK
+NS_DEFINE_NAMED_CID(APPSUPDATER_CID);
 NS_DEFINE_NAMED_CID(NS_AUDIOMANAGER_CID);
 NS_DEFINE_NAMED_CID(NS_VOLUMESERVICE_CID);
 #endif
@@ -1151,6 +1154,7 @@ static const mozilla::Module::CIDEntry kLayoutCIDs[] = {
   { &kBLUETOOTHSERVICE_CID, true, nullptr, BluetoothServiceConstructor },
 #endif
 #ifdef MOZ_WIDGET_GONK
+  { &kAPPSUPDATER_CID, false, nullptr, AppsUpdaterConstructor },
   { &kNS_AUDIOMANAGER_CID, true, nullptr, AudioManagerConstructor },
   { &kNS_VOLUMESERVICE_CID, true, nullptr, nsVolumeServiceConstructor },
 #endif
@@ -1334,6 +1338,7 @@ static const mozilla::Module::ContractIDEntry kLayoutContracts[] = {
   { BLUETOOTHSERVICE_CONTRACTID, &kBLUETOOTHSERVICE_CID },
 #endif
 #ifdef MOZ_WIDGET_GONK
+  { APPSUPDATER_CONTRACTID, &kAPPSUPDATER_CID },
   { NS_AUDIOMANAGER_CONTRACTID, &kNS_AUDIOMANAGER_CID },
   { NS_VOLUMESERVICE_CONTRACTID, &kNS_VOLUMESERVICE_CID },
 #endif

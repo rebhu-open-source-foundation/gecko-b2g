@@ -81,7 +81,7 @@ static const uint32_t sMaxStreamVolumeTbl[AUDIO_STREAM_CNT] = {
   15,  // enforced audible
   15,  // DTMF
   15,  // TTS
-#if ANDROID_VERSION < 19
+#if ANDROID_VERSION < 19 || defined(PRODUCT_MANUFACTURER_MTK)
   15,  // FM
 #endif
 };
@@ -97,7 +97,7 @@ static const uint32_t sDefaultStreamVolumeTbl[AUDIO_STREAM_CNT] = {
   15, // enforced audible  // XXX Handle as fixed maximum audio setting
   8,  // DTMF
   8,  // TTS
-#if ANDROID_VERSION < 19
+#if ANDROID_VERSION < 19 || defined(PRODUCT_MANUFACTURER_MTK)
   8,  // FM
 #endif
 };
@@ -113,7 +113,7 @@ static const int32_t sStreamVolumeAliasTbl[AUDIO_STREAM_CNT] = {
   AUDIO_STREAM_ENFORCED_AUDIBLE,// enforced audible
   AUDIO_STREAM_DTMF,            // DTMF
   AUDIO_STREAM_TTS,             // TTS
-#if ANDROID_VERSION < 19
+#if ANDROID_VERSION < 19 || defined(PRODUCT_MANUFACTURER_MTK)
   AUDIO_STREAM_MUSIC,           // FM
 #endif
 };
@@ -390,10 +390,13 @@ static void SetAudioSystemParameters(audio_io_handle_t ioHandle,
 bool
 AudioManager::IsFmOutConnected()
 {
-#ifndef PRODUCT_MANUFACTURER_SPRD
-  return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM, nullptr);
+#if defined(PRODUCT_MANUFACTURER_SPRD)
+  return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_HEADSET, nullptr) ||
+         mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_SPEAKER, nullptr);
+#elif defined(PRODUCT_MANUFACTURER_MTK)
+  return mConnectedDevices.Get(AUDIO_DEVICE_IN_FM, nullptr);
 #else
-  return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_HEADSET, nullptr) ||mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_SPEAKER, nullptr);
+  return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM, nullptr);
 #endif
 }
 
@@ -791,7 +794,7 @@ AudioManager::AudioManager()
     mStreamStates.AppendElement(streamState);
   }
   // Initialize stream volumes with default values
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_MAX; streamType++) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
       uint32_t volIndex = sDefaultStreamVolumeTbl[streamType];
       SetStreamVolumeForDevice(streamType, volIndex, AUDIO_DEVICE_OUT_DEFAULT);
   }
@@ -1022,6 +1025,13 @@ AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce)
                AUDIO_POLICY_FORCE_FOR_FM,
                (audio_policy_forced_cfg_t)aForce);
   }
+#elif defined(PRODUCT_MANUFACTURER_MTK)
+  // Sync force use between MEDIA and FM
+  if (aUsage == USE_MEDIA && status == NO_ERROR) {
+    status = AudioSystem::setForceUse(
+               AUDIO_POLICY_FORCE_FOR_PROPRIETARY,
+               (audio_policy_forced_cfg_t)aForce);
+  }
 #endif
 
   bool enableRadio = false;
@@ -1069,14 +1079,22 @@ AudioManager::GetFmRadioAudioEnabled(bool *aFmRadioAudioEnabled)
   return NS_OK;
 }
 
+void
+AudioManager::SetVendorFmVolumeIndex()
+{
+#if defined(PRODUCT_MANUFACTURER_SPRD)
+  uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex();
+  String8 cmd;
+  cmd.appendFormat("FM_Volume=%d", volIndex);
+  LOG("At %d, cmd %s", __LINE__, cmd.string());
+  SetAudioSystemParameters(0, cmd);
+#endif
+}
+
 NS_IMETHODIMP
 AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled)
 {
-#ifndef PRODUCT_MANUFACTURER_SPRD
-  UpdateDeviceConnectionState(aFmRadioAudioEnabled,
-                              AUDIO_DEVICE_OUT_FM,
-                              NS_LITERAL_CSTRING(""));
-#else
+#if defined(PRODUCT_MANUFACTURER_SPRD)
   UpdateDeviceConnectionState(aFmRadioAudioEnabled,
                               AUDIO_DEVICE_OUT_FM_HEADSET,
                               NS_LITERAL_CSTRING(""));
@@ -1084,31 +1102,20 @@ AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled)
   UpdateDeviceConnectionState(aFmRadioAudioEnabled,
                               AUDIO_DEVICE_OUT_FM_SPEAKER,
                               NS_LITERAL_CSTRING(""));
-  if(aFmRadioAudioEnabled) {
-    String8 cmd;
-    char strTmp[13]={0};
-    uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex();
-    snprintf(strTmp, sizeof(strTmp),"FM_Volume=%d", volIndex);
-    cmd.setTo(strTmp);
-    SetAudioSystemParameters(0, cmd);
-  }
+#elif defined(PRODUCT_MANUFACTURER_MTK)
+  UpdateDeviceConnectionState(aFmRadioAudioEnabled,
+                              AUDIO_DEVICE_IN_FM,
+                              NS_LITERAL_CSTRING(""));
+#else
+  UpdateDeviceConnectionState(aFmRadioAudioEnabled,
+                              AUDIO_DEVICE_OUT_FM,
+                              NS_LITERAL_CSTRING(""));
 #endif
 
-#ifdef PRODUCT_MANUFACTURER_MTK
   if(aFmRadioAudioEnabled) {
-    String8 cmd;
-    uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex();
-    cmd.appendFormat("SetFmVolume=%d", volIndex);
-    LOG("At %d,cmd %s,", __LINE__,cmd.string());
-    SetAudioSystemParameters(0, cmd);
-
-    LOG("At %d,setParameters FM_Volume=%d,add more here for FM?", __LINE__,volIndex);
-    cmd.clear();
-    cmd.appendFormat("AudioSetFmDigitalEnable=%d",1);
-    LOG("At %d,cmd %s,", __LINE__,cmd.string());
-    SetAudioSystemParameters(0, cmd);
+    SetVendorFmVolumeIndex();
   }
-#endif
+
   // AUDIO_STREAM_FM is not used on recent gonk.
   // AUDIO_STREAM_MUSIC is used for FM radio volume control.
 #if ANDROID_VERSION < 19
@@ -1167,7 +1174,7 @@ AudioManager::GetMaxAudioChannelVolume(uint32_t aChannel, uint32_t* aMaxIndex)
 nsresult
 AudioManager::ValidateVolumeIndex(int32_t aStream, uint32_t aIndex) const
 {
-  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_MAX) {
+  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_CNT) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -1183,7 +1190,7 @@ AudioManager::SetStreamVolumeForDevice(int32_t aStream,
                                        uint32_t aIndex,
                                        uint32_t aDevice)
 {
-  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_MAX) {
+  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_CNT) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -1195,14 +1202,14 @@ AudioManager::SetStreamVolumeForDevice(int32_t aStream,
 nsresult
 AudioManager::SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex)
 {
-  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_MAX) {
+  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_CNT) {
     return NS_ERROR_INVALID_ARG;
   }
 
   int32_t streamAlias = sStreamVolumeAliasTbl[aStream];
 
   nsresult rv;
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_MAX; streamType++) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
     if (streamAlias == sStreamVolumeAliasTbl[streamType]) {
       rv = mStreamStates[streamType]->SetVolumeIndexToActiveDevices(aIndex);
       if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -1223,18 +1230,10 @@ AudioManager::SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex)
   }
 #endif
 
-#ifdef PRODUCT_MANUFACTURER_SPRD
   // Bug 17613, Sync FM volume with MUSIC volume for SPRD.
   if(streamAlias == AUDIO_STREAM_MUSIC && IsFmOutConnected()) {
-      String8 cmd;
-      char strTmp[13]={0};
-      uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex();
-      LOG("Sync FM volume with MUSIC %d", volIndex);
-      snprintf(strTmp, sizeof(strTmp),"FM_Volume=%d", volIndex);
-      cmd.setTo(strTmp);
-      SetAudioSystemParameters(0, cmd);
+    SetVendorFmVolumeIndex();
   }
-#endif
 
   MaybeUpdateVolumeSettingToDatabase();
   return NS_OK;
@@ -1247,7 +1246,7 @@ AudioManager::GetStreamVolumeIndex(int32_t aStream, uint32_t *aIndex)
     return NS_ERROR_INVALID_ARG;
   }
 
-  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_MAX) {
+  if (aStream <= AUDIO_STREAM_DEFAULT || aStream >= AUDIO_STREAM_CNT) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -1393,7 +1392,7 @@ AudioManager::UpdateCachedActiveDevicesForStreams()
   // Before L, onAudioPortListUpdate() does not exist and GetDevicesForStream()
   // does not use the cache. Therefore this function do nothing.
 #if ANDROID_VERSION >= 21
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_MAX; streamType++) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
     // Update cached active devices of stream
     mStreamStates[streamType]->IsDevicesChanged(false /* aFromCache */);
   }
@@ -1596,7 +1595,7 @@ AudioManager::VolumeStreamState::SetVolumeIndexToAliasStreams(uint32_t aIndex,
     return rv;
   }
 
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_MAX; streamType++) {
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
     if ((streamType != mStreamType) &&
          sStreamVolumeAliasTbl[streamType] == mStreamType) {
       // Rescaling of index is not necessary.
@@ -1653,17 +1652,10 @@ AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
          aDevice);
 
   //when changing music volume,  also set FMradio volume.Just for SPRD FMradio.
-  #ifdef PRODUCT_MANUFACTURER_SPRD
   if( (AUDIO_STREAM_MUSIC == mStreamType) && mManager.IsFmOutConnected() )
   {
-    String8 cmd;
-    char strTmp[15]={0};
-    uint32_t volIndex = mManager.mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex();
-    snprintf(strTmp, sizeof(strTmp),"FM_Volume=%d", volIndex);
-    cmd.setTo(strTmp);
-    SetAudioSystemParameters(0, cmd);
+    mManager.SetVendorFmVolumeIndex();
   }
-  #endif
 
   return rv ? NS_ERROR_FAILURE : NS_OK;
 #else
