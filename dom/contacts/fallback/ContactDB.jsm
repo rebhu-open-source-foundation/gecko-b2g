@@ -1254,6 +1254,18 @@ ContactDB.prototype = {
     }
   },
 
+  compare: function(aReferenceStr, aCompareStr, aLanguage) {
+    try {
+      return new Intl.Collator(aLanguage).compare(aReferenceStr, aCompareStr);
+    } catch(e) {
+      if (!aLanguage || aLanguage.includes("en")) {
+        return aReferenceStr.localeCompare(aCompareStr);
+      } else {
+        return aReferenceStr.localeCompare(aCompareStr, aLanguage);
+      }
+    }
+  },
+
   /*
    * Sorting the contacts by sortBy field. aSortBy can either be familyName or givenName.
    * If 2 entries have the same sortyBy field or no sortBy field is present, we continue
@@ -1267,6 +1279,7 @@ ContactDB.prototype = {
       const sortBy = this.getSortByParam(aFindOptions);
       const sortLanguage = aFindOptions.sortLanguage;
 
+      let self = this;
       aResults.sort(function (a, b) {
         let x, y;
         let result = 0;
@@ -1294,7 +1307,7 @@ ContactDB.prototype = {
               px = JSON.stringify(a.published);
               py = JSON.stringify(b.published);
               if (px && py) {
-                return px.localeCompare(py, sortLanguage);
+                return self.compare(px, py, sortLanguage);
               }
             } else {
               return sortOrder == 'descending' ? 1 : -1;
@@ -1304,7 +1317,7 @@ ContactDB.prototype = {
             return sortOrder == "ascending" ? 1 : -1;
           }
 
-          result = x.localeCompare(y, sortLanguage);
+          result = self.compare(x, y, sortLanguage);
           x = null;
           y = null;
         } while (result == 0);
@@ -1762,8 +1775,9 @@ ContactDB.prototype = {
   _sortGroups: function _sortGroups(aGroups, aOptions) {
     if (aOptions.sortOrder) {
       let ascending = aOptions.sortOrder == 'ascending';
+      let self = this;
       aGroups.sort(function(a, b) {
-        let result = a.search.name.localeCompare(b.search.name, aOptions.sortLanguage);
+        let result = self.compare(a.search.name, b.search.name, aOptions.sortLanguage);
         return ascending ? result : -result;
       });
     }
