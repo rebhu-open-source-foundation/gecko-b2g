@@ -2458,6 +2458,11 @@ this.DOMApplicationRegistry = {
           xhr.setRequestHeader(aHeader.name, aHeader.value);
         });
       }
+
+      if (oldManifest.version) {
+        xhr.setRequestHeader('Kai-App-Info', 'version="' + oldManifest.version + '"');
+      }
+
       xhr.responseType = "json";
       if (app.etag) {
         debug("adding manifest etag:" + app.etag);
