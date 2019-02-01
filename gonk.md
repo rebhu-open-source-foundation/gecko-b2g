@@ -1,4 +1,4 @@
-# Gecko on Gonk, the return of the revenge.
+# Gecko on Gonk
 
 This is an experiment to see what it takes to build current Gecko on Gonk (M base).
 
