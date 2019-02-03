@@ -108,7 +108,7 @@ VRManager::VRManager()
 VRManager::~VRManager() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mInitialized);
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   if (VRServiceManager::Get().IsServiceValid()) {
     VRServiceManager::Get().Shutdown();
   }
@@ -454,7 +454,7 @@ void VRManager::EnumerateVRDisplays() {
    * no hardware is found or a VR software update
    * is in progress
    */
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   if (!mVRServiceStarted) {
     if (XRE_IsGPUProcess() && StaticPrefs::VRProcessEnabled()) {
       VRServiceManager::Get().CreateVRProcess();
@@ -520,7 +520,7 @@ void VRManager::RefreshVRDisplays(bool aMustDispatch) {
   if (mVRDisplaysRequested || aMustDispatch) {
     EnumerateVRDisplays();
   }
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   VRServiceManager::Get().Refresh();
 #endif
 
