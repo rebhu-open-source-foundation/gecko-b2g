@@ -18,8 +18,8 @@ this.Runtime = {
             "extrachrome",
             "resizable",
             "scrollbars",
-            "width=1024",
-            "height=740",
+            "width=240",
+            "height=320",
             "titlebar=no",
         ];
 
