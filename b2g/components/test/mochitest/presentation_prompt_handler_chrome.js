@@ -25,7 +25,7 @@ function TestPresentationDevice(options) {
 }
 
 TestPresentationDevice.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIPresentationDevice]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevice]),
   establishSessionTransport: function() {
     return null;
   },
@@ -37,7 +37,7 @@ function TestPresentationRequest(options) {
 }
 
 TestPresentationRequest.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIPresentationDeviceRequest]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDeviceRequest]),
   select: function(device) {
     let result = {
       type: 'select',

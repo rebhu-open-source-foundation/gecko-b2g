@@ -76,7 +76,7 @@ function toggleUnrestrictedDevtools(unrestricted) {
 }
 
 ConsoleMessage.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIConsoleMessage]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIConsoleMessage]),
   toString: function() { return this.msg; }
 };
 
@@ -85,7 +85,7 @@ const gFactoryResetFile = "__post_reset_cmd__";
 function ProcessGlobal() {}
 ProcessGlobal.prototype = {
   classID: Components.ID('{1a94c87a-5ece-4d11-91e1-d29c29f21b28}'),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIObserver,
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver,
                                          Ci.nsISupportsWeakReference]),
 
   wipeDir: function(path) {

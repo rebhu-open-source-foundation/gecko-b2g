@@ -110,7 +110,7 @@ PresentationRequestUIGlue.prototype = {
 
   classID: Components.ID("{ccc8a839-0b64-422b-8a60-fb2af0e376d0}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIPresentationRequestUIGlue])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationRequestUIGlue])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([PresentationRequestUIGlue]);

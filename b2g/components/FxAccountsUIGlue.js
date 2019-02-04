@@ -32,7 +32,7 @@ FxAccountsUIGlue.prototype = {
 
   classID: Components.ID("{51875c14-91d7-4b8c-b65d-3549e101228c}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIFxAccountsUIGlue])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIFxAccountsUIGlue])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([FxAccountsUIGlue]);

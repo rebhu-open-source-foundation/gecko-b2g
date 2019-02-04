@@ -85,7 +85,7 @@ InterAppCommUIGlue.prototype = {
 
   classID: Components.ID("{879ee66c-e246-11e3-9910-74d02b97e723}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIInterAppCommUIGlue])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIInterAppCommUIGlue])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([InterAppCommUIGlue]);

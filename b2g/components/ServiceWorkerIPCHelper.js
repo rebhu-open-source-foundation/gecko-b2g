@@ -113,7 +113,7 @@ ServiceWorkerIPCHelper.prototype = {
 
   classID: Components.ID(NS_SERVICEWORKER_IPCHELPER_CID),
   contractID: NS_SERVICEWORKER_IPCHELPER_CONTRACTID,
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIServiceWorkerIPCHelper]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIServiceWorkerIPCHelper]),
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([ServiceWorkerIPCHelper]);

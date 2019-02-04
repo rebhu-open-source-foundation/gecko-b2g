@@ -36,7 +36,7 @@ SystemMessageGlue.prototype = {
 
   classID: Components.ID("{2846f034-e614-11e3-93cd-74d02b97e723}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsISystemMessageGlue])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsISystemMessageGlue])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SystemMessageGlue]);

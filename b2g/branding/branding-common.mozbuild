@@ -17,7 +17,7 @@ def B2GBranding():
             'disk.icns',
             'dsstore',
         ]
-    elif 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
-        BRANDING_FILES += [
-            'default.png',
-        ]
+    # elif 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
+    #    BRANDING_FILES += [
+    #        'default.png',
+    #    ]

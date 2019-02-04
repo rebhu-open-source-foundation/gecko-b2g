@@ -4,61 +4,138 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsXULAppAPI.h"
+#include "mozilla/XREAppData.h"
 #include "application.ini.h"
-#include "nsXPCOMGlue.h"
+#include "mozilla/Bootstrap.h"
 #if defined(XP_WIN)
 #include <windows.h>
 #include <stdlib.h>
 #elif defined(XP_UNIX)
-#include <sys/time.h>
 #include <sys/resource.h>
 #include <unistd.h>
 #endif
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <string.h>
+#include <time.h>
 
 #include "nsCOMPtr.h"
 #include "nsIFile.h"
-#include "nsStringGlue.h"
 
 #ifdef XP_WIN
-// we want a wmain entry point
-#define XRE_DONT_SUPPORT_XPSP2 // See https://bugzil.la/1023941#c32
-#include "nsWindowsWMain.cpp"
-#if defined(_MSC_VER) && (_MSC_VER < 1900)
-#define snprintf _snprintf
-#endif
+#include "LauncherProcessWin.h"
+
+#define XRE_WANT_ENVIRON
 #define strcasecmp _stricmp
+#ifdef MOZ_SANDBOX
+#include "mozilla/sandboxing/SandboxInitialization.h"
 #endif
-
-#ifdef MOZ_WIDGET_GONK
-#include "BootAnimation.h"
 #endif
-
 #include "BinaryPath.h"
 
 #include "nsXPCOMPrivate.h" // for MAXPATHLEN and XPCOM_DLL
 
-#ifdef MOZ_WIDGET_GONK
-# include <binder/ProcessState.h>
-#endif
-
-#include "mozilla/Telemetry.h"
+#include "mozilla/Sprintf.h"
+#include "mozilla/StartupTimeline.h"
 #include "mozilla/WindowsDllBlocklist.h"
 
-static void Output(const char *fmt, ... )
+#ifdef LIBFUZZER
+#include "FuzzerDefs.h"
+#endif
+
+#ifdef MOZ_LINUX_32_SSE2_STARTUP_ERROR
+#include <cpuid.h>
+#include "mozilla/Unused.h"
+
+static bool
+IsSSE2Available()
+{
+  // The rest of the app has been compiled to assume that SSE2 is present
+  // unconditionally, so we can't use the normal copy of SSE.cpp here.
+  // Since SSE.cpp caches the results and we need them only transiently,
+  // instead of #including SSE.cpp here, let's just inline the specific check
+  // that's needed.
+  unsigned int level = 1u;
+  unsigned int eax, ebx, ecx, edx;
+  unsigned int bits = (1u<<26);
+  unsigned int max = __get_cpuid_max(0, nullptr);
+  if (level > max) {
+    return false;
+  }
+  __cpuid_count(level, 0, eax, ebx, ecx, edx);
+  return (edx & bits) == bits;
+}
+
+static const char sSSE2Message[] =
+    "This browser version requires a processor with the SSE2 instruction "
+    "set extension.\nYou may be able to obtain a version that does not "
+    "require SSE2 from your Linux distribution.\n";
+
+__attribute__((constructor))
+static void
+SSE2Check()
+{
+  if (IsSSE2Available()) {
+    return;
+  }
+  // Using write() in order to avoid jemalloc-based buffering. Ignoring return
+  // values, since there isn't much we could do on failure and there is no
+  // point in trying to recover from errors.
+  MOZ_UNUSED(write(STDERR_FILENO,
+                   sSSE2Message,
+                   MOZ_ARRAY_LENGTH(sSSE2Message) - 1));
+  // _exit() instead of exit() to avoid running the usual "at exit" code.
+  _exit(255);
+}
+#endif
+
+#if !defined(MOZ_WIDGET_COCOA) && !defined(MOZ_WIDGET_ANDROID)
+#define MOZ_BROWSER_CAN_BE_CONTENTPROC
+#include "../../ipc/contentproc/plugin-container.cpp"
+#endif
+
+using namespace mozilla;
+
+#ifdef XP_MACOSX
+#define kOSXResourcesFolder "Resources"
+#endif
+#define kDesktopFolder "browser"
+
+static MOZ_FORMAT_PRINTF(1, 2) void Output(const char *fmt, ... )
 {
   va_list ap;
   va_start(ap, fmt);
 
-#if defined(XP_WIN) && !MOZ_WINCONSOLE
-  wchar_t msg[2048];
-  _vsnwprintf(msg, sizeof(msg)/sizeof(msg[0]), NS_ConvertUTF8toUTF16(fmt).get(), ap);
-  MessageBoxW(nullptr, msg, L"XULRunner", MB_OK | MB_ICONERROR);
-#else
+#ifndef XP_WIN
   vfprintf(stderr, fmt, ap);
+#else
+  char msg[2048];
+  vsnprintf_s(msg, _countof(msg), _TRUNCATE, fmt, ap);
+
+  wchar_t wide_msg[2048];
+  MultiByteToWideChar(CP_UTF8,
+                      0,
+                      msg,
+                      -1,
+                      wide_msg,
+                      _countof(wide_msg));
+#if MOZ_WINCONSOLE
+  fwprintf_s(stderr, wide_msg);
+#else
+  // Linking user32 at load-time interferes with the DLL blocklist (bug 932100).
+  // This is a rare codepath, so we can load user32 at run-time instead.
+  HMODULE user32 = LoadLibraryW(L"user32.dll");
+  if (user32) {
+    decltype(MessageBoxW)* messageBoxW =
+      (decltype(MessageBoxW)*) GetProcAddress(user32, "MessageBoxW");
+    if (messageBoxW) {
+      messageBoxW(nullptr, wide_msg, L"Firefox", MB_OK
+                                               | MB_ICONERROR
+                                               | MB_SETFOREGROUND);
+    }
+    FreeLibrary(user32);
+  }
+#endif
 #endif
 
   va_end(ap);
@@ -84,231 +161,167 @@ static bool IsArg(const char* arg, const char* s)
   return false;
 }
 
-/**
- * A helper class which calls NS_LogInit/NS_LogTerm in its scope.
- */
-class ScopedLogging
+Bootstrap::UniquePtr gBootstrap;
+
+static int do_main(int argc, char* argv[], char* envp[])
 {
-public:
-  ScopedLogging() { NS_LogInit(); }
-  ~ScopedLogging() { NS_LogTerm(); }
-};
-
-XRE_GetFileFromPathType XRE_GetFileFromPath;
-XRE_CreateAppDataType XRE_CreateAppData;
-XRE_FreeAppDataType XRE_FreeAppData;
-#ifdef MOZ_TELEMETRY
-XRE_TelemetryAccumulateType XRE_TelemetryAccumulate;
-#endif
-XRE_mainType XRE_main;
-
-static const nsDynamicFunctionLoad kXULFuncs[] = {
-    { "XRE_GetFileFromPath", (NSFuncPtr*) &XRE_GetFileFromPath },
-    { "XRE_CreateAppData", (NSFuncPtr*) &XRE_CreateAppData },
-    { "XRE_FreeAppData", (NSFuncPtr*) &XRE_FreeAppData },
-#ifdef MOZ_TELEMETRY
-    { "XRE_TelemetryAccumulate", (NSFuncPtr*) &XRE_TelemetryAccumulate },
-#endif
-    { "XRE_main", (NSFuncPtr*) &XRE_main },
-    { nullptr, nullptr }
-};
-
-static int do_main(int argc, char* argv[])
-{
-  nsCOMPtr<nsIFile> appini;
-  nsresult rv;
-
   // Allow firefox.exe to launch XULRunner apps via -app <application.ini>
   // Note that -app must be the *first* argument.
   const char *appDataFile = getenv("XUL_APP_FILE");
-  if (appDataFile && *appDataFile) {
-    rv = XRE_GetFileFromPath(appDataFile, getter_AddRefs(appini));
-    if (NS_FAILED(rv)) {
-      Output("Invalid path found: '%s'", appDataFile);
-      return 255;
-    }
-  }
-  else if (argc > 1 && IsArg(argv[1], "app")) {
+  if ((!appDataFile || !*appDataFile) &&
+      (argc > 1 && IsArg(argv[1], "app"))) {
     if (argc == 2) {
       Output("Incorrect number of arguments passed to -app");
       return 255;
     }
-
-    rv = XRE_GetFileFromPath(argv[2], getter_AddRefs(appini));
-    if (NS_FAILED(rv)) {
-      Output("application.ini path not recognized: '%s'", argv[2]);
-      return 255;
-    }
+    appDataFile = argv[2];
 
     char appEnv[MAXPATHLEN];
-    snprintf(appEnv, MAXPATHLEN, "XUL_APP_FILE=%s", argv[2]);
-    if (putenv(appEnv)) {
+    SprintfLiteral(appEnv, "XUL_APP_FILE=%s", argv[2]);
+    if (putenv(strdup(appEnv))) {
       Output("Couldn't set %s.\n", appEnv);
       return 255;
     }
     argv[2] = argv[0];
     argv += 2;
     argc -= 2;
-  }
+  } else if (argc > 1 && IsArg(argv[1], "xpcshell")) {
+    for (int i = 1; i < argc; i++) {
+      argv[i] = argv[i + 1];
+    }
 
-#ifdef MOZ_WIDGET_GONK
-  /* Start boot animation */
-  mozilla::StartBootAnimation();
+    XREShellData shellData;
+#if defined(XP_WIN) && defined(MOZ_SANDBOX)
+    shellData.sandboxBrokerServices =
+      sandboxing::GetInitializedBrokerServices();
 #endif
 
-  if (appini) {
-    nsXREAppData *appData;
-    rv = XRE_CreateAppData(appini, &appData);
-    if (NS_FAILED(rv)) {
-      Output("Couldn't read application.ini");
-      return 255;
-    }
-    int result = XRE_main(argc, argv, appData, 0);
-    XRE_FreeAppData(appData);
-    return result;
+    return gBootstrap->XRE_XPCShellMain(--argc, argv, envp, &shellData);
   }
 
-  return XRE_main(argc, argv, &sAppData, 0);
+  BootstrapConfig config;
+
+  if (appDataFile && *appDataFile) {
+    config.appData = nullptr;
+    config.appDataPath = appDataFile;
+  } else {
+    // no -app flag so we use the compiled-in app data
+    config.appData = &sAppData;
+    config.appDataPath = kDesktopFolder;
+  }
+
+#if defined(XP_WIN) && defined(MOZ_SANDBOX)
+  sandbox::BrokerServices* brokerServices =
+    sandboxing::GetInitializedBrokerServices();
+  sandboxing::PermissionsService* permissionsService =
+    sandboxing::GetPermissionsService();
+#if defined(MOZ_CONTENT_SANDBOX)
+  if (!brokerServices) {
+    Output("Couldn't initialize the broker services.\n");
+    return 255;
+  }
+#endif
+  config.sandboxBrokerServices = brokerServices;
+  config.sandboxPermissionsService = permissionsService;
+#endif
+
+#ifdef LIBFUZZER
+  if (getenv("LIBFUZZER"))
+    gBootstrap->XRE_LibFuzzerSetDriver(fuzzer::FuzzerDriver);
+#endif
+
+  return gBootstrap->XRE_main(argc, argv, config);
 }
 
-#ifdef MOZ_B2G_LOADER
-/*
- * The main() in B2GLoader.cpp is the new main function instead of the
- * main() here if it is enabled.  So, rename it to b2g_man().
- */
-#define main b2g_main
-#define _CONST const
-#else
-#define _CONST
-#endif
-
-int main(int argc, _CONST char* argv[])
+static nsresult
+InitXPCOMGlue()
 {
-#ifndef MOZ_B2G_LOADER
-  char exePath[MAXPATHLEN];
-#endif
-
-#ifdef MOZ_WIDGET_GONK
-  // This creates a ThreadPool for binder ipc. A ThreadPool is necessary to
-  // receive binder calls, though not necessary to send binder calls.
-  // ProcessState::Self() also needs to be called once on the main thread to
-  // register the main thread with the binder driver.
-  android::ProcessState::self()->startThreadPool();
-#endif
-
-  nsresult rv;
-#ifndef MOZ_B2G_LOADER
-  rv = mozilla::BinaryPath::Get(argv[0], exePath);
-  if (NS_FAILED(rv)) {
-    Output("Couldn't calculate the application directory.\n");
-    return 255;
+  UniqueFreePtr<char> exePath = BinaryPath::Get();
+  if (!exePath) {
+    Output("Couldn't find the application directory.\n");
+    return NS_ERROR_FAILURE;
   }
 
-  char *lastSlash = strrchr(exePath, XPCOM_FILE_PATH_SEPARATOR[0]);
-  if (!lastSlash || ((lastSlash - exePath) + sizeof(XPCOM_DLL) + 1 > MAXPATHLEN))
-    return 255;
+  gBootstrap = mozilla::GetBootstrap(exePath.get());
+  if (!gBootstrap) {
+    Output("Couldn't load XPCOM.\n");
+    return NS_ERROR_FAILURE;
+  }
 
-  strcpy(++lastSlash, XPCOM_DLL);
-#endif // MOZ_B2G_LOADER
+  // This will set this thread as the main thread.
+  gBootstrap->NS_LogInit();
 
-#if defined(XP_UNIX)
-  // If the b2g app is launched from adb shell, then the shell will wind
-  // up being the process group controller. This means that we can't send
-  // signals to the process group (useful for profiling).
-  // We ignore the return value since setsid() fails if we're already the
-  // process group controller (the normal situation).
-  (void)setsid();
+  return NS_OK;
+}
+
+#ifdef HAS_DLL_BLOCKLIST
+// NB: This must be extern, as this value is checked elsewhere
+uint32_t gBlocklistInitFlags = eDllBlocklistInitFlagDefault;
 #endif
 
-  int gotCounters;
-#if defined(XP_UNIX)
-  struct rusage initialRUsage;
-  gotCounters = !getrusage(RUSAGE_SELF, &initialRUsage);
-#elif defined(XP_WIN)
-  IO_COUNTERS ioCounters;
-  gotCounters = GetProcessIoCounters(GetCurrentProcess(), &ioCounters);
-#else
-  #error "Unknown platform"  // having this here keeps cppcheck happy
+int main(int argc, char* argv[], char* envp[])
+{
+  mozilla::TimeStamp start = mozilla::TimeStamp::Now();
+
+#ifdef MOZ_BROWSER_CAN_BE_CONTENTPROC
+  // We are launching as a content process, delegate to the appropriate
+  // main
+  if (argc > 1 && IsArg(argv[1], "contentproc")) {
+#ifdef HAS_DLL_BLOCKLIST
+    DllBlocklist_Initialize(eDllBlocklistInitFlagIsChildProcess);
+#endif
+#if defined(XP_WIN) && defined(MOZ_SANDBOX)
+    // We need to initialize the sandbox TargetServices before InitXPCOMGlue
+    // because we might need the sandbox broker to give access to some files.
+    if (IsSandboxedProcess() && !sandboxing::GetInitializedTargetServices()) {
+      Output("Failed to initialize the sandbox target services.");
+      return 255;
+    }
+#endif
+
+    nsresult rv = InitXPCOMGlue();
+    if (NS_FAILED(rv)) {
+      return 255;
+    }
+
+    int result = content_process_main(gBootstrap.get(), argc, argv);
+
+    // InitXPCOMGlue calls NS_LogInit, so we need to balance it here.
+    gBootstrap->NS_LogTerm();
+
+    return result;
+  }
 #endif
 
 #ifdef HAS_DLL_BLOCKLIST
-  DllBlocklist_Initialize();
+  DllBlocklist_Initialize(gBlocklistInitFlags);
 #endif
 
-  // B2G loader has already initialized Gecko so we can't initialize
-  // it again here.
-#ifndef MOZ_B2G_LOADER
-  // We do this because of data in bug 771745
-  XPCOMGlueEnablePreload();
-
-  rv = XPCOMGlueStartup(exePath);
+  nsresult rv = InitXPCOMGlue();
   if (NS_FAILED(rv)) {
-    Output("Couldn't load XPCOM.\n");
-    return 255;
-  }
-  // Reset exePath so that it is the directory name and not the xpcom dll name
-  *lastSlash = 0;
-#endif // MOZ_B2G_LOADER
-
-  rv = XPCOMGlueLoadXULFunctions(kXULFuncs);
-  if (NS_FAILED(rv)) {
-    Output("Couldn't load XRE functions.\n");
     return 255;
   }
 
-  if (gotCounters) {
-#ifdef MOZ_TELEMETRY
-#if defined(XP_WIN)
-    XRE_TelemetryAccumulate(mozilla::Telemetry::EARLY_GLUESTARTUP_READ_OPS,
-                            int(ioCounters.ReadOperationCount));
-    XRE_TelemetryAccumulate(mozilla::Telemetry::EARLY_GLUESTARTUP_READ_TRANSFER,
-                            int(ioCounters.ReadTransferCount / 1024));
-    IO_COUNTERS newIoCounters;
-    if (GetProcessIoCounters(GetCurrentProcess(), &newIoCounters)) {
-      XRE_TelemetryAccumulate(mozilla::Telemetry::GLUESTARTUP_READ_OPS,
-                              int(newIoCounters.ReadOperationCount - ioCounters.ReadOperationCount));
-      XRE_TelemetryAccumulate(mozilla::Telemetry::GLUESTARTUP_READ_TRANSFER,
-                              int((newIoCounters.ReadTransferCount - ioCounters.ReadTransferCount) / 1024));
-    }
-#elif defined(XP_UNIX)
-    XRE_TelemetryAccumulate(mozilla::Telemetry::EARLY_GLUESTARTUP_HARD_FAULTS,
-                            int(initialRUsage.ru_majflt));
-    struct rusage newRUsage;
-    if (!getrusage(RUSAGE_SELF, &newRUsage)) {
-      XRE_TelemetryAccumulate(mozilla::Telemetry::GLUESTARTUP_HARD_FAULTS,
-                              int(newRUsage.ru_majflt - initialRUsage.ru_majflt));
-    }
-#else
-  #error "Unknown platform"  // having this here keeps cppcheck happy
+  gBootstrap->XRE_StartupTimelineRecord(mozilla::StartupTimeline::START, start);
+
+#ifdef MOZ_BROWSER_CAN_BE_CONTENTPROC
+  gBootstrap->XRE_EnableSameExecutableForContentProc();
 #endif
+
+  int result = do_main(argc, argv, envp);
+
+  gBootstrap->NS_LogTerm();
+
+#ifdef XP_MACOSX
+  // Allow writes again. While we would like to catch writes from static
+  // destructors to allow early exits to use _exit, we know that there is
+  // at least one such write that we don't control (see bug 826029). For
+  // now we enable writes again and early exits will have to use exit instead
+  // of _exit.
+  gBootstrap->XRE_StopLateWriteChecks();
 #endif
-  }
 
-  int result;
-  {
-    ScopedLogging log;
-    char **_argv;
-
-    /*
-     * Duplicate argument vector to conform non-const argv of
-     * do_main() since XRE_main() is very stupid with non-const argv.
-     */
-    _argv = new char *[argc + 1];
-    for (int i = 0; i < argc; i++) {
-      size_t len = strlen(argv[i]) + 1;
-      _argv[i] = new char[len];
-      MOZ_ASSERT(_argv[i] != nullptr);
-      memcpy(_argv[i], argv[i], len);
-    }
-    _argv[argc] = nullptr;
-
-    result = do_main(argc, _argv);
-
-    for (int i = 0; i < argc; i++) {
-      delete[] _argv[i];
-    }
-    delete[] _argv;
-  }
+  gBootstrap.reset();
 
   return result;
 }

@@ -55,7 +55,7 @@ function PaymentSettings() {
 }
 
 PaymentSettings.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsISettingsServiceCallback,
+  QueryInterface: ChromeUtils.generateQI([Ci.nsISettingsServiceCallback,
                                          Ci.nsIObserver]),
 
   dataServiceId: 0,
@@ -172,7 +172,7 @@ PaymentProviderStrategy.prototype = {
 
   classID: Components.ID("{4834b2e1-2c91-44ea-b020-e2581ed279a4}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIPaymentProviderStrategy])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIPaymentProviderStrategy])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([PaymentProviderStrategy]);

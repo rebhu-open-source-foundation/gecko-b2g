@@ -54,7 +54,7 @@ TelProtocolHandler.prototype = {
   },
 
   classID: Components.ID("{782775dd-7351-45ea-aff1-0ffa872cfdd2}"),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([TelProtocolHandler]);

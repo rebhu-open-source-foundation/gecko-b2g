@@ -78,7 +78,7 @@ function hookScreen(window) {
 function SimulatorScreen() {}
 SimulatorScreen.prototype = {
   classID:         Components.ID('{c83c02c0-5d43-4e3e-987f-9173b313e880}'),
-  QueryInterface:  XPCOMUtils.generateQI([Ci.nsIObserver,
+  QueryInterface:  ChromeUtils.generateQI([Ci.nsIObserver,
                                           Ci.nsISupportsWeakReference]),
   _windows: new Map(),
 

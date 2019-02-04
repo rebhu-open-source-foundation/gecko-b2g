@@ -4,6 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+console.log(`Starting shell.js isGonk=${window.isGonk}`);
+
+try {
+ 
 window.performance.mark('gecko-shell-loadstart');
 
 if (!isGonk) {
@@ -12,15 +16,15 @@ if (!isGonk) {
   Services.prefs.setBoolPref("dom.apps.reset-permissions", false);
 }
 
-Cu.import('resource://gre/modules/DataStoreChangeNotifier.jsm');
-Cu.import('resource://gre/modules/ActivitiesService.jsm');
+// Cu.import('resource://gre/modules/DataStoreChangeNotifier.jsm');
+// Cu.import('resource://gre/modules/ActivitiesService.jsm');
 Cu.import('resource://gre/modules/NotificationDB.jsm');
-Cu.import("resource://gre/modules/AppsUtils.jsm");
-Cu.import('resource://gre/modules/Keyboard.jsm');
+// Cu.import("resource://gre/modules/AppsUtils.jsm");
+// Cu.import('resource://gre/modules/Keyboard.jsm');
 Cu.import('resource://gre/modules/ErrorPage.jsm');
 Cu.import('resource://gre/modules/AlertsHelper.jsm');
 // TODO Bug #22792
-Cu.import('resource://gre/modules/ContactService.jsm');
+// Cu.import('resource://gre/modules/ContactService.jsm');
 
 if (isGonk) {
   Cu.import('resource://gre/modules/NetworkStatsService.jsm');
@@ -29,18 +33,16 @@ if (isGonk) {
 }
 
 Cu.import('resource://gre/modules/KillSwitchMain.jsm');
-Cu.import('resource://gre/modules/KaiAccountsMgmtService.jsm');
+// Cu.import('resource://gre/modules/KaiAccountsMgmtService.jsm');
 // import DownloadsAPI.jsm at the start to ensure download list cleanup.
-Cu.import('resource://gre/modules/DownloadsAPI.jsm');
-Cu.import('resource://gre/modules/MobileIdentityManager.jsm');
+// Cu.import('resource://gre/modules/DownloadsAPI.jsm');
+// Cu.import('resource://gre/modules/MobileIdentityManager.jsm');
 
 XPCOMUtils.defineLazyModuleGetter(this, "SystemAppProxy",
                                   "resource://gre/modules/SystemAppProxy.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "Screenshot",
                                   "resource://gre/modules/Screenshot.jsm");
-
-Cu.import('resource://gre/modules/Webapps.jsm');
 
 XPCOMUtils.defineLazyServiceGetter(Services, 'env',
                                    '@mozilla.org/process/environment;1',
@@ -260,10 +262,6 @@ var shell = {
     return Services.prefs.getCharPref('b2g.system_startup_url');
   },
 
-  get manifestURL() {
-    return Services.prefs.getCharPref('b2g.system_manifest_url');
-  },
-
   _started: false,
   hasStarted: function shell_hasStarted() {
     return this._started;
@@ -367,7 +365,7 @@ var shell = {
       alert(msg);
       return;
     }
-    let manifestURL = this.manifestURL;
+    
     // <html:iframe id="systemapp"
     //              mozbrowser="true" allowfullscreen="true"
     //              style="overflow: hidden; height: 100%; width: 100%; border: none;"
@@ -376,7 +374,6 @@ var shell = {
       document.createElementNS('http://www.w3.org/1999/xhtml', 'html:iframe');
     systemAppFrame.setAttribute('id', 'systemapp');
     systemAppFrame.setAttribute('mozbrowser', 'true');
-    systemAppFrame.setAttribute('mozapp', manifestURL);
     systemAppFrame.setAttribute('allowfullscreen', 'true');
     systemAppFrame.setAttribute('src', 'blank.html');
     let container = document.getElementById('container');
@@ -391,14 +388,11 @@ var shell = {
 
     this.contentBrowser = container.appendChild(systemAppFrame);
 
-    let webNav = systemAppFrame.contentWindow
-                               .QueryInterface(Ci.nsIInterfaceRequestor)
-                               .getInterface(Ci.nsIWebNavigation);
-    webNav.sessionHistory = Cc["@mozilla.org/browser/shistory;1"].createInstance(Ci.nsISHistory);
-
-    if (AppConstants.MOZ_GRAPHENE) {
-      webNav.QueryInterface(Ci.nsIDocShell).windowDraggingAllowed = true;
-    }
+    // TODO(fabrice): fixme
+    // let webNav = systemAppFrame.contentWindow
+    //                            .QueryInterface(Ci.nsIInterfaceRequestor)
+    //                            .getInterface(Ci.nsIWebNavigation);
+    // webNav.sessionHistory = Cc["@mozilla.org/browser/shistory;1"].createInstance(Ci.nsISHistory);
 
     let audioChannels = systemAppFrame.allowedAudioChannels;
     audioChannels && audioChannels.forEach(function(audioChannel) {
@@ -437,12 +431,12 @@ var shell = {
     CaptivePortalLoginHelper.init();
     VolumeRequestHelper.init();
     HangMonitorHelper.init();
-    Services.spatialNavigationService.init(window);
+    // TODO(fabrice): fixme
+    // Services.spatialNavigationService.init(window);
 
     this.contentBrowser.src = homeURL;
     this._isEventListenerReady = false;
-
-    window.performance.mark('gecko-shell-system-frame-set');
+    window.performance.mark('geko-shell-system-frame-set');
 
     ppmm.addMessageListener("content-handler", this);
     ppmm.addMessageListener("dial-handler", this);
@@ -845,15 +839,6 @@ Services.obs.addObserver(function onFullscreenOriginChange(subject, topic, data)
   shell.sendChromeEvent({ type: "fullscreenoriginchange",
                           fullscreenorigin: data });
 }, "fullscreen-origin-change", false);
-
-DOMApplicationRegistry.registryReady.then(function () {
-  // This event should be sent before System app returns with
-  // system-message-listener-ready mozContentEvent, because it's on
-  // the critical launch path of the app.
-  SystemAppProxy._sendCustomEvent('mozChromeEvent', {
-    type: 'webapps-registry-ready'
-  }, /* noPending */ true);
-});
 
 Services.obs.addObserver(function onBluetoothVolumeChange(subject, topic, data) {
   shell.sendChromeEvent({
@@ -1548,4 +1533,22 @@ if (AppConstants.MOZ_GRAPHENE) {
   });
 
   hideNativeWindow();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Give the browser permission to the shell and the system app.
+  Services.perms.add(Services.io.newURI("chrome://b2g/content/shell.html"), "browser", Services.perms.ALLOW_ACTION);
+  Services.perms.add(Services.io.newURI(shell.homeURL), "browser", Services.perms.ALLOW_ACTION);
+
+  if (!shell.hasStarted()) {
+    shell.bootstrap();
+    if (!isGonk) {
+      InitDebuggerSettings();
+    }
+  }
+});
+
+} catch(e) {
+  console.error("shell.js error: " + e);
+  e.stack.split("\n").forEach(item => { if (item.length > 0) console.error(item); });
 }

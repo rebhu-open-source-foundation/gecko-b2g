@@ -168,7 +168,7 @@ this.AboutServiceWorkers = {
             self.sendError(message.id, "UnregisterError");
           },
 
-          QueryInterface: XPCOMUtils.generateQI([
+          QueryInterface: ChromeUtils.generateQI([
             Ci.nsIServiceWorkerUnregisterCallback
           ])
         };

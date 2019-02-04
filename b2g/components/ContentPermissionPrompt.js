@@ -445,7 +445,7 @@ ContentPermissionPrompt.prototype = {
 
   classID: Components.ID("{8c719f03-afe0-4aac-91ff-6c215895d467}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIContentPermissionPrompt])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIContentPermissionPrompt])
 };
 
 //TODO: Re-enable "Not allow audio-capture permission while in call
@@ -459,7 +459,7 @@ ContentPermissionPrompt.prototype = {
     try {
       // nsITelephonyService.enumerateCalls is synchronous.
       TelephonyService.enumerateCalls({
-        QueryInterface: XPCOMUtils.generateQI([Ci.nsITelephonyListener]),
+        QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
         enumerateCallStateComplete: function() {},
         enumerateCallState: function(callInfo) {
           if (callInfo.callState == Ci.nsITelephonyService.CALL_STATE_CONNECTED) {

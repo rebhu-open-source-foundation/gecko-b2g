@@ -26,7 +26,7 @@ function HelperAppLauncherDialog() { }
 
 HelperAppLauncherDialog.prototype = {
   classID: Components.ID("{710322af-e6ae-4b0c-b2c9-1474a87b077e}"),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIHelperAppLauncherDialog]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIHelperAppLauncherDialog]),
 
   show: function(aLauncher, aContext, aReason) {
     aLauncher.MIMEInfo.preferredAction = Ci.nsIMIMEInfo.saveToDisk;

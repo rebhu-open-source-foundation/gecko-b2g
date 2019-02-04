@@ -25,7 +25,7 @@ B2GPresentationDevicePrompt.prototype = {
   classID: kB2GPRESENTATIONDEVICEPROMPT_CID,
   contractID: kB2GPRESENTATIONDEVICEPROMPT_CONTRACTID,
   classDescription: "B2G Presentation Device Prompt",
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIPresentationDevicePrompt]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevicePrompt]),
 
   // nsIPresentationDevicePrompt
   promptDeviceSelection: function(aRequest) {

@@ -4,7 +4,6 @@
 
 const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/AppsUtils.jsm");
 
 function BootstrapCommandlineHandler() {
   this.wrappedJSObject = this;
@@ -46,7 +45,7 @@ BootstrapCommandlineHandler.prototype = {
 
     helpInfo: "--start-manifest=manifest_url",
     classID: Components.ID("{fd663ec8-cf3f-4c2b-aacb-17a6915ccb44}"),
-    QueryInterface: XPCOMUtils.generateQI([Ci.nsICommandLineHandler])
+    QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([BootstrapCommandlineHandler]);

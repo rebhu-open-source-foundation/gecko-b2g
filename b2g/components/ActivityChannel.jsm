@@ -60,5 +60,5 @@ this.ActivityChannel.prototype = {
     this.asyncOpen(outListener, null);
   },
 
-  QueryInterface2: XPCOMUtils.generateQI([Ci.nsIChannel])
+  QueryInterface2: ChromeUtils.generateQI([Ci.nsIChannel])
 }

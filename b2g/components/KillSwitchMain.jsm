@@ -19,10 +19,6 @@ XPCOMUtils.defineLazyServiceGetter(this, "settings",
                    "@mozilla.org/settingsService;1",
                    "nsISettingsService");
 
-XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
-                   "@mozilla.org/parentprocessmessagemanager;1",
-                   "nsIMessageBroadcaster");
-
 XPCOMUtils.defineLazyGetter(this, "permMgr", function() {
   return Cc["@mozilla.org/permissionmanager;1"]
            .getService(Ci.nsIPermissionManager);
@@ -105,7 +101,7 @@ this.KillSwitchMain = {
     }
 
     kMessages.forEach(m => {
-      ppmm.addMessageListener(m, this);
+      Services.ppmm.addMessageListener(m, this);
     });
 
     Services.obs.addObserver(this, kXpcomShutdownObserverTopic, false);
@@ -115,7 +111,7 @@ this.KillSwitchMain = {
 
   uninit: function() {
     kMessages.forEach(m => {
-      ppmm.removeMessageListener(m, this);
+      Services.ppmm.removeMessageListener(m, this);
     });
 
     Services.obs.removeObserver(this, kXpcomShutdownObserverTopic);

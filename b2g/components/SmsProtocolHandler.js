@@ -68,7 +68,7 @@ SmsProtocolHandler.prototype = {
   },
 
   classID: Components.ID("{81ca20cb-0dad-4e32-8566-979c8998bd73}"),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SmsProtocolHandler]);

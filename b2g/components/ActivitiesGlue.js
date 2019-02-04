@@ -84,7 +84,7 @@ ActivitiesDialog.prototype = {
 
   classID: Components.ID("{3a54788b-48cc-4ab4-93d6-0d6a8ef74f8e}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIActivityUIGlue, Ci.nsIRunnable])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIActivityUIGlue, Ci.nsIRunnable])
 }
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([ActivitiesDialog]);

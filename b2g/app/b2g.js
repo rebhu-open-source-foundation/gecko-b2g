@@ -954,8 +954,9 @@ pref("general.useragent.device_id", "");
 // Add Mozilla AudioChannel APIs.
 pref("media.useAudioChannelAPI", true);
 
-pref("b2g.version", @MOZ_B2G_VERSION@);
-pref("b2g.osName", @MOZ_B2G_OS_NAME@);
+// TODO(fabrice): fixme to not hardcode
+pref("b2g.version", "3.0");
+pref("b2g.osName", "b2gOS");
 
 // Disable console buffering to save memory.
 pref("consoleservice.buffered", false);
@@ -1335,3 +1336,5 @@ pref("dom.app_cb_configuration", false);
 
 // reboot reason
 pref("device.rebootReason", "normal");
+
+pref("b2g.system_startup_url", "http://localhost:8081/system/index.html");

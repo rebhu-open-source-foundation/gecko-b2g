@@ -196,7 +196,7 @@ PaymentUI.prototype = {
 
   classID: Components.ID("{8b83eabc-7929-47f4-8b48-4dea8d887e4b}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIPaymentUIGlue])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIPaymentUIGlue])
 }
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([PaymentUI]);

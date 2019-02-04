@@ -106,7 +106,7 @@ KillSwitch.prototype = {
 
   classID : Components.ID(KILLSWITCH_CID),
   contractID : KILLSWITCH_CONTRACTID,
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIKillSwitch,
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIKillSwitch,
                                          Ci.nsIDOMGlobalPropertyInitializer,
                                          Ci.nsIObserver,
                                          Ci.nsIMessageListener,

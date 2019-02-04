@@ -40,7 +40,7 @@ MailtoProtocolHandler.prototype = {
   },
 
   classID: Components.ID("{50777e53-0331-4366-a191-900999be386c}"),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([MailtoProtocolHandler]);

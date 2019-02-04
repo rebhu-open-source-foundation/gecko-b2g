@@ -39,7 +39,7 @@ function WebappsUpdateTimer() {
 
 WebappsUpdateTimer.prototype = {
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsITimerCallback]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsITimerCallback]),
 
   classID: Components.ID("{637b0f77-2429-49a0-915f-abf5d0db8b9a}"),
 

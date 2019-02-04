@@ -156,7 +156,7 @@ MobileIdentityUIGlue.prototype = {
 
   classID: Components.ID("{83dbe26a-81f3-4a75-9541-3d0b7ca496b5}"),
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIMobileIdentityUIGlue])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileIdentityUIGlue])
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([MobileIdentityUIGlue]);

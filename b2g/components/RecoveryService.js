@@ -62,7 +62,7 @@ function RecoveryService() {}
 
 RecoveryService.prototype = {
   classID: RECOVERYSERVICE_CID,
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIRecoveryService]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIRecoveryService]),
   classInfo: XPCOMUtils.generateCI({
     classID: RECOVERYSERVICE_CID,
     contractID: RECOVERYSERVICE_CONTRACTID,

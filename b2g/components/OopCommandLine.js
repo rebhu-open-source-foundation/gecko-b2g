@@ -40,7 +40,7 @@ oopCommandlineHandler.prototype = {
 
     helpInfo: "  --oop        Use out-of-process model in B2G\n",
     classID: Components.ID("{e30b0e13-2d12-4cb0-bc4c-4e617a1bf76e}"),
-    QueryInterface: XPCOMUtils.generateQI([Ci.nsICommandLineHandler]),
+    QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([oopCommandlineHandler]);

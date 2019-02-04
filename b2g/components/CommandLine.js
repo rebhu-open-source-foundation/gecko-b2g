@@ -23,7 +23,7 @@ CommandlineHandler.prototype = {
 
     helpInfo: "",
     classID: Components.ID("{385993fe-8710-4621-9fb1-00a09d8bec37}"),
-    QueryInterface: XPCOMUtils.generateQI([Ci.nsICommandLineHandler]),
+    QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([CommandlineHandler]);

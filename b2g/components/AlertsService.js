@@ -60,7 +60,7 @@ function AlertsService() {
 
 AlertsService.prototype = {
   classID: Components.ID("{fe33c107-82a4-41d6-8c64-5353267e04c9}"),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIAlertsService,
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIAlertsService,
                                          Ci.nsIAppNotificationService,
                                          Ci.nsIObserver]),
 

@@ -70,7 +70,7 @@ function UpdateCheckListener(updatePrompt) {
 }
 
 UpdateCheckListener.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIUpdateCheckListener]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIUpdateCheckListener]),
 
   _updatePrompt: null,
 
@@ -144,7 +144,7 @@ function UpdatePrompt() {
 
 UpdatePrompt.prototype = {
   classID: Components.ID("{88b3eb21-d072-4e3b-886d-f89d8c49fe59}"),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIUpdatePrompt,
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIUpdatePrompt,
                                          Ci.nsIUpdateCheckListener,
                                          Ci.nsIRequestObserver,
                                          Ci.nsIProgressEventSink,

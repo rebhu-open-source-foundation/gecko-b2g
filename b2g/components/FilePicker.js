@@ -43,7 +43,7 @@ function FilePicker() {
 
 FilePicker.prototype = {
   classID: Components.ID('{436ff8f9-0acc-4b11-8ec7-e293efba3141}'),
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIFilePicker]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIFilePicker]),
 
   /* members */
 
@@ -138,7 +138,7 @@ FilePicker.prototype = {
 
   fireSuccess: function(file) {
     this.mFilesEnumerator = {
-      QueryInterface: XPCOMUtils.generateQI([Ci.nsISimpleEnumerator]),
+      QueryInterface: ChromeUtils.generateQI([Ci.nsISimpleEnumerator]),
 
       mFiles: [file],
       mIndex: 0,

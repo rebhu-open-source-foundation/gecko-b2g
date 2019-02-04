@@ -40,7 +40,7 @@ SSLExceptions.prototype = {
     return this.QueryInterface(aIID);
   },
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIBadCertListener2]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIBadCertListener2]),
 
   /**
    * To collect the SSL status we intercept the certificate error here

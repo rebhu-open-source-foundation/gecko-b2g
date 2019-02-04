@@ -34,7 +34,7 @@ var modules = {
 
 function B2GAboutRedirector() {}
 B2GAboutRedirector.prototype = {
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIAboutModule]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIAboutModule]),
   classID: Components.ID("{920400b1-cf8f-4760-a9c4-441417b15134}"),
 
   _getModuleInfo: function (aURI) {

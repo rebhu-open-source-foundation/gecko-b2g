@@ -51,7 +51,7 @@ OMAContentHandler.prototype = {
     aRequest.cancel(Cr.NS_BINDING_ABORTED);
   },
 
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIContentHandler])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIContentHandler])
 }
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([OMAContentHandler]);

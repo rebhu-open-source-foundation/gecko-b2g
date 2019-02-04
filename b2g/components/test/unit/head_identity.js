@@ -121,7 +121,7 @@ function makeObserver(aObserveTopic, aObserveFunc) {
   let observer = {
     // nsISupports provides type management in C++
     // nsIObserver is to be an observer
-    QueryInterface: XPCOMUtils.generateQI([Ci.nsISupports, Ci.nsIObserver]),
+    QueryInterface: ChromeUtils.generateQI([Ci.nsISupports, Ci.nsIObserver]),
 
     observe: function (aSubject, aTopic, aData) {
       if (aTopic == aObserveTopic) {

@@ -6,6 +6,10 @@
 
 "use strict";
 
+console.log("Starting settings.js");
+
+try {
+
 window.performance.mark('gecko-settings-loadstart');
 
 var Cc = Components.classes;
@@ -17,12 +21,13 @@ var Cr = Components.results;
 // prior to using SettingsListener otherwise there is a race in acquiring the
 // lock and fulfilling it. If we ever move SettingsListener or this file down in
 // the load order of shell.html things will likely break.
-Cu.import('resource://gre/modules/SettingsRequestManager.jsm');
+// Cu.import('resource://gre/modules/SettingsRequestManager.jsm');
 Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 Cu.import('resource://gre/modules/Services.jsm');
 Cu.import('resource://gre/modules/AppConstants.jsm');
 
 const isGonk = AppConstants.platform === 'gonk';
+window.isGonk = isGonk;
 
 if (isGonk) {
   XPCOMUtils.defineLazyGetter(this, "libcutils", function () {
@@ -805,4 +810,8 @@ for (let key in settingsToObserve) {
                            settingObserver(setPref, prefName, setting));
 };
 
+}
+
+} catch(e) {
+  console.error("settings.js error: " + e);
 }

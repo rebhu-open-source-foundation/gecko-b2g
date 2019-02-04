@@ -23,34 +23,32 @@
   <!-- Add raptor performance marker -->
   window.performance.mark('gecko-shell-html-load');
   </script>
-  <script type="application/javascript;version=1.8"
-          src="chrome://b2g/content/settings.js"> </script>
-  <script type="application/javascript;version=1.8"
-          src="chrome://b2g/content/shell.js"> </script>
+  <script src="chrome://b2g/content/settings.js"> </script>
+  <script src="chrome://b2g/content/shell.js"> </script>
 
 #ifndef ANDROID
 #ifndef MOZ_GRAPHENE
   <!-- various task that has to happen only on desktop -->
-  <script type="application/javascript;version=1.8"
+  <script 
           src="chrome://b2g/content/desktop.js"> </script>
   <!-- this script handles the screen argument for desktop builds -->
-  <script type="application/javascript;version=1.8"
+  <script 
           src="chrome://b2g/content/screen.js"> </script>
   <!-- this script handles the "runapp" argument for desktop builds -->
-  <script type="application/javascript;version=1.8"
+  <script 
           src="chrome://b2g/content/runapp.js"> </script>
 #endif
 #else
   <!-- this file is only loaded on Gonk to manage ADB state -->
-  <script type="application/javascript;version=1.8"
+  <script 
           src="chrome://b2g/content/devtools/adb.js"> </script>
 #endif
   <!-- manages DevTools server state -->
-  <script type="application/javascript;version=1.8"
+  <script 
           src="chrome://b2g/content/devtools/debugger.js"> </script>
 #ifdef MOZ_B2G_REMOTECONTROLSERVICE
  <!-- this script handles remote control service -->
- <script type="application/javascript;version=1.8"
+ <script 
          src="chrome://b2g/content/remote_control.js"> </script>
 #endif
 </head>

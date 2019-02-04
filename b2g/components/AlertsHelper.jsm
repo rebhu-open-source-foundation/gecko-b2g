@@ -12,7 +12,7 @@ const Cc = Components.classes;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/AppsUtils.jsm");
+// Cu.import("resource://gre/modules/AppsUtils.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gSystemMessenger",
                                    "@mozilla.org/system-message-internal;1",
@@ -34,8 +34,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "serviceWorkerManager",
                                    "nsIServiceWorkerManager");
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
-  return Cc["@mozilla.org/parentprocessmessagemanager;1"]
-         .getService(Ci.nsIMessageListenerManager);
+  return Services.ppmm;
 });
 
 function debug(str) {
