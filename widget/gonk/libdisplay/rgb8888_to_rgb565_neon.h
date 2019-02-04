@@ -16,6 +16,8 @@
 #ifndef RGB8888_TO_RGB565_NEON_H
 #define RGB8888_TO_RGB565_NEON_H
 
+#include <inttypes.h>
+
 namespace mozilla {
 
 void Transform8888To565_NEON(uint8_t* outbuf, const uint8_t* inbuf, int PixelNum);

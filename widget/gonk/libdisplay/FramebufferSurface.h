@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <mozilla/DebugOnly.h>
+
 #include "DisplaySurface.h"
 
 // ---------------------------------------------------------------------------
@@ -71,7 +73,7 @@ private:
     status_t nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>& outFence);
 
     // mDisplayType must match one of the HWC display types
-    int mDisplayType;
+    mozilla::DebugOnly<int> mDisplayType;
 
     // mCurrentBufferIndex is the slot index of the current buffer or
     // INVALID_BUFFER_SLOT to indicate that either there is no current buffer

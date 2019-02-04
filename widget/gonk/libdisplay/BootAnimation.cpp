@@ -349,20 +349,20 @@ GetFormatBPP(int aFormat)
     uint16_t bpp = 0;
 
     switch (aFormat) {
-    case HAL_PIXEL_FORMAT_BGRA_8888:
-    case HAL_PIXEL_FORMAT_RGBA_8888:
+    case HAL_PIXEL_FORMAT_BGRA_8888: MOZ_FALLTHROUGH;
+    case HAL_PIXEL_FORMAT_RGBA_8888: MOZ_FALLTHROUGH;
     case HAL_PIXEL_FORMAT_RGBX_8888:
         bpp = 4;
         break;
     case HAL_PIXEL_FORMAT_RGB_888:
         bpp = 3;
         break;
-    default:
-        LOGW("Unknown pixel format %d. Assuming RGB 565.", aFormat);
-        // FALL THROUGH
     case HAL_PIXEL_FORMAT_RGB_565:
         bpp = 2;
         break;
+    default:
+        LOGW("Unknown pixel format %d. Assuming RGB 565.", aFormat);
+        bpp = 2;
     }
 
     return bpp;
@@ -445,21 +445,22 @@ AnimationFrame::ReadPngFrame(int outputFormat)
     switch (outputFormat) {
     case HAL_PIXEL_FORMAT_BGRA_8888:
         png_set_bgr(pngread);
-        // FALL THROUGH
-    case HAL_PIXEL_FORMAT_RGBA_8888:
+        MOZ_FALLTHROUGH;
+    case HAL_PIXEL_FORMAT_RGBA_8888: MOZ_FALLTHROUGH;
     case HAL_PIXEL_FORMAT_RGBX_8888:
         png_set_filler(pngread, 0xFF, PNG_FILLER_AFTER);
         break;
     case HAL_PIXEL_FORMAT_RGB_888:
         png_set_strip_alpha(pngread);
         break;
-    default:
-        LOGW("Unknown pixel format %d. Assuming RGB 565.", outputFormat);
-        // FALL THROUGH
     case HAL_PIXEL_FORMAT_RGB_565:
         png_set_strip_alpha(pngread);
         png_set_read_user_transform_fn(pngread, TransformTo565);
         break;
+    default:
+        LOGW("Unknown pixel format %d. Assuming RGB 565.", outputFormat);
+        png_set_strip_alpha(pngread);
+        png_set_read_user_transform_fn(pngread, TransformTo565);
     }
 
     // An extra row is added to give libpng enough space when
@@ -643,7 +644,7 @@ AsBackgroundFill(const png_color_16& color16, int outputFormat)
     color.x8 = 0xFF;
 
     switch (outputFormat) {
-    case HAL_PIXEL_FORMAT_RGBA_8888:
+    case HAL_PIXEL_FORMAT_RGBA_8888: MOZ_FALLTHROUGH;
     case HAL_PIXEL_FORMAT_RGBX_8888:
         return color.r8g8b8;
 
@@ -698,30 +699,35 @@ ShowSolidColorFrame(GonkDisplay *aDisplay,
 static bool
 DrawFrame(AnimationFrame &aFrame, ANativeWindowBuffer *aBuf, int32_t format, void *aVaddr)
 {
-    if (!aBuf || !aFrame.buf)
+    if (!aBuf || !aFrame.buf) {
         return false;
+    }
+
+    uint32_t bufWidth = aBuf->width;
+    uint32_t bufHeight = aBuf->height;
+    uint32_t bufStride = aBuf->stride;
 
     if (aFrame.has_bgcolor) {
         wchar_t bgfill = AsBackgroundFill(aFrame.bgcolor, format);
         wmemset((wchar_t*)aVaddr, bgfill,
-                (aBuf->height * aBuf->stride * aFrame.bytepp) / sizeof(wchar_t));
+                (bufHeight * bufStride * aFrame.bytepp) / sizeof(wchar_t));
     }
 
-    if (aBuf->height == aFrame.height && aBuf->stride == aFrame.width) {
+    if (bufHeight == aFrame.height && bufStride == aFrame.width) {
         memcpy(aVaddr, aFrame.buf,
                aFrame.width * aFrame.height * aFrame.bytepp);
-    } else if (aBuf->height >= aFrame.height &&
-               aBuf->width >= aFrame.width) {
-        int startx = (aBuf->width - aFrame.width) / 2;
-        int starty = (aBuf->height - aFrame.height) / 2;
+    } else if (bufHeight >= aFrame.height &&
+               bufWidth >= aFrame.width) {
+        int startx = (bufWidth - aFrame.width) / 2;
+        int starty = (bufHeight - aFrame.height) / 2;
 
         int src_stride = aFrame.width * aFrame.bytepp;
-        int dst_stride = aBuf->stride * aFrame.bytepp;
+        int dst_stride = bufStride * aFrame.bytepp;
 
         char *src = aFrame.buf;
         char *dst = (char *) aVaddr + starty * dst_stride + startx * aFrame.bytepp;
 
-        for (int i = 0; i < aFrame.height; i++) {
+        for (uint32_t i = 0; i < aFrame.height; i++) {
             memcpy(dst, src, src_stride);
             src += src_stride;
             dst += dst_stride;
@@ -798,7 +804,7 @@ AnimationThread(void *)
 
     // Reref primary in case implicit data manipulate of vector
     Animation &mainAnim = animVec.front();
-    uint32_t frameDelayUs = 1000000 / mainAnim.fps;
+    long frameDelayUs = 1000000 / mainAnim.fps;
     uint32_t numAnim = animVec.size();
 
     for (uint32_t i = 0; i < mainAnim.parts.size(); i++) {
