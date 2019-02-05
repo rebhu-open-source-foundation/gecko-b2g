@@ -1535,6 +1535,13 @@ if (AppConstants.MOZ_GRAPHENE) {
   hideNativeWindow();
 }
 
+window.addEventListener("keypress", event => {
+  console.log(`Got key event: ${event.key}`);
+  if (event.key == "r") {
+    shell.contentBrowser.reload();
+  }
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   // Give the browser permission to the shell and the system app.
   Services.perms.add(Services.io.newURI("chrome://b2g/content/shell.html"), "browser", Services.perms.ALLOW_ACTION);

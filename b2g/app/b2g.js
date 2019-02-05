@@ -1338,3 +1338,5 @@ pref("dom.app_cb_configuration", false);
 pref("device.rebootReason", "normal");
 
 pref("b2g.system_startup_url", "http://localhost:8081/system/index.html");
+
+pref("devtools.console.stdout.content", true);
