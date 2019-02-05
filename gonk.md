@@ -9,7 +9,7 @@ Currently the setup is:
   `cd B2G`
   `env REPO_INIT_FLAGS="--depth=1" REPO_SYNC_FLAGS="-j16 --force-sync" GITREPO=../b2g-manifest BRANCH=emulator-m ./config.sh emulator-m`
 
-- modify mozconfig-b2g to point to an android NDK & SDK (I used 15c since 17b crashes compiling SpiderMonkey on my machine).
+- modify mozconfig-b2g to point to an android NDK r17b & SDK
 - `export MOZCONFIG=mozconfig-b2g`
 - `export GONK_PATH=../B2G`
 - run `./mach build`
