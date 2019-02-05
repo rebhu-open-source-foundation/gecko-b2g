@@ -1,15 +1,20 @@
-
+# Build B2G
 ac_add_options --enable-application=b2g
 ac_add_options --target=arm-linux-androideabi
 
+# Disable crash reporting, WebRTC
+ac_add_options --disable-crashreporter
 ac_add_options --disable-webrtc
-ac_add_options --with-gonk-gfx
 
-#ac_add_options --with-gonk="$GONK_PATH"
-
+# With the following Android SDK and NDK:
 ac_add_options --with-android-ndk=/home/fabrice/.mozbuild/android-ndk-r15c
+ac_add_options --with-android-sdk="/home/fabrice/.mozbuild/android-sdk-linux"
+ac_add_options --with-android-version=23
 
 mk_add_options AUTOCLOBBER=1
 
+# Gonk-specific stuff
+ac_add_options --with-gonk-gfx
+#ac_add_options --with-gonk="$GONK_PATH"
 ANDROID_SOURCE="$GONK_PATH"
 ANDROID_VERSION=23

@@ -3,9 +3,15 @@
 This is an experiment to see what it takes to build current Gecko on Gonk (M base).
 
 Currently the setup is:
-- modify mozconfig-b2g to point to an android NDK (I used 15c since 17b crashes compiling SpiderMonkey on my machine).
+- get an Android M clone of B2G
+  `git clone --branch emulator-m https://github.com/gabrielesvelto/B2G`
+  `git clone --branch emulator-m https://github.com/gabrielesvelto/b2g-manifest`
+  `cd B2G`
+  `env REPO_INIT_FLAGS="--depth=1" REPO_SYNC_FLAGS="-j16 --force-sync" GITREPO=../b2g-manifest BRANCH=emulator-m ./config.sh emulator-m`
+
+- modify mozconfig-b2g to point to an android NDK & SDK (I used 15c since 17b crashes compiling SpiderMonkey on my machine).
 - `export MOZCONFIG=mozconfig-b2g`
-- `export GONK_PATH=<path_to_you_gonk_repo>`
+- `export GONK_PATH=../B2G`
 - run `./mach build`
 
 The build fails because of mismatches between includes from the NDK and local ones from Gonk, like:
