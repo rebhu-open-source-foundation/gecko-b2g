@@ -954,9 +954,8 @@ pref("general.useragent.device_id", "");
 // Add Mozilla AudioChannel APIs.
 pref("media.useAudioChannelAPI", true);
 
-// TODO(fabrice): fixme to not hardcode
-pref("b2g.version", "3.0");
-pref("b2g.osName", "b2gOS");
+pref("b2g.version", @MOZ_B2G_VERSION@);
+pref("b2g.osName", @MOZ_B2G_OS_NAME@);
 
 // Disable console buffering to save memory.
 pref("consoleservice.buffered", false);
