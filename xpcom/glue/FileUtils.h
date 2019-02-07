@@ -164,7 +164,7 @@ void ReadAhead(filedesc_t aFd, const size_t aOffset = 0,
 #if defined(XP_UNIX) || defined(MOZ_WIDGET_GONK)
 #  define MOZ_TEMP_FAILURE_RETRY(exp)        \
     (__extension__({                         \
-      typeof(exp) _rc;                       \
+      decltype(exp) _rc;                       \
       do {                                   \
         _rc = (exp);                         \
       } while (_rc == -1 && errno == EINTR); \

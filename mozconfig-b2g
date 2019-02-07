@@ -7,7 +7,7 @@ ac_add_options --disable-crashreporter
 ac_add_options --disable-webrtc
 
 # With the following Android SDK and NDK:
-ac_add_options --with-android-ndk="/home/fabrice/.mozbuild/android-ndk-r17b"
+ac_add_options --with-android-ndk="$HOME/work/android-ndk-r17b"
 ac_add_options --with-android-version=23
 
 # Auto-clobber

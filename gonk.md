@@ -12,6 +12,16 @@ Currently the setup is:
 - modify mozconfig-b2g to point to an android NDK r17b & SDK
 - `export MOZCONFIG=mozconfig-b2g`
 - `export GONK_PATH=../B2G`
+- cd to directory `$NDK_DIR/sysroot/usr/lib` and run:
+```bash
+for i in $NDK_DIR/platforms/android-23/arch-arm/usr/lib/*; do ln -s $i .; done
+```
+- edit `$NDK_DIR/sysroot/usr/include/bits/signal_types.h`
+- insert these lines in the line `69`:
+```c
+#undef sa_handler
+#undef sa_sigaction
+```
 - run `./mach build`
 
 The build fails because of mismatches between includes from the NDK and local ones from Gonk, like:
