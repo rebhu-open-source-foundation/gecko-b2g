@@ -71,7 +71,7 @@ public:
 
     NS_IMETHOD Exit() override;
 
-    virtual bool ProcessNextNativeEvent(bool maywait);
+    bool ProcessNextNativeEvent(bool maywait) override;
 
     void NotifyNativeEvent();
 
@@ -83,7 +83,7 @@ public:
 protected:
     virtual ~nsAppShell();
 
-    virtual void ScheduleNativeEventCallback();
+    void ScheduleNativeEventCallback() override;
 
 private:
     nsresult AddFdHandler(int fd, FdHandlerCallback handlerFunc,

@@ -57,8 +57,7 @@ nsClipboard::SetData(nsITransferable *aTransferable,
     nsCOMPtr<nsISupports> clip;
     uint32_t len;
     nsresult rv = aTransferable->GetTransferData(kUnicodeMime,
-                                                 getter_AddRefs(clip),
-                                                 &len);
+                                                 getter_AddRefs(clip));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -203,7 +202,7 @@ nsClipboard::GetData(nsITransferable *aTransferable,
   // ones obtained through conversion).
   // Note: We don't need to call nsITransferable::AddDataFlavor here
   //       because ContentParent already did.
-  nsCOMPtr<nsISupportsArray> flavorList;
+  nsCOMPtr<nsIArrayExtensions> flavorList;
   nsresult rv = aTransferable->FlavorsTransferableCanImport(getter_AddRefs(flavorList));
 
   if (!flavorList || NS_FAILED(rv)) {

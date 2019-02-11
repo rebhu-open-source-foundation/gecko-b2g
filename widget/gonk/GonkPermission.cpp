@@ -88,6 +88,9 @@ GonkPermissionChecker::Run()
     return NS_OK;
   }
 
+
+// TODO: implement permission check
+#if 0
   // Now iterate its apps...
   const ManagedContainer<dom::PBrowserParent>& browsers =
     contentParent->ManagedPBrowserParent();
@@ -107,6 +110,8 @@ GonkPermissionChecker::Run()
       return NS_OK;
     }
   }
+#endif
+  mCanUseCamera = true;
   return NS_OK;
 }
 

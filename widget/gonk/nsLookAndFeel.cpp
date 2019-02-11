@@ -386,12 +386,15 @@ nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
             aResult = 0;
             break;
 
+// TODO: implement physical home button??
+#if 0
         case eIntID_PhysicalHomeButton: {
             char propValue[PROPERTY_VALUE_MAX];
             property_get("ro.moz.has_home_button", propValue, "1");
             aResult = atoi(propValue);
             break;
         }
+#endif
             
         case eIntID_ContextMenuOffsetVertical:
         case eIntID_ContextMenuOffsetHorizontal:
@@ -435,9 +438,9 @@ nsLookAndFeel::GetFontImpl(FontID aID, nsString& aFontName,
                            float aDevPixPerCSSPixel)
 {
     aFontName.AssignLiteral("\"Fira Sans\"");
-    aFontStyle.style = NS_FONT_STYLE_NORMAL;
-    aFontStyle.weight = NS_FONT_WEIGHT_NORMAL;
-    aFontStyle.stretch = NS_FONT_STRETCH_NORMAL;
+    aFontStyle.style = FontSlantStyle::Normal();
+    aFontStyle.weight = FontWeight::Normal();
+    aFontStyle.stretch = FontStretch::Normal();
     aFontStyle.size = 9.0 * 96.0f / 72.0f;
     aFontStyle.systemFont = true;
     return true;
