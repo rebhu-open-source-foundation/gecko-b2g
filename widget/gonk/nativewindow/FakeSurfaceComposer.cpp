@@ -101,10 +101,10 @@ sp<IGraphicBufferAlloc> FakeSurfaceComposer::createGraphicBufferAlloc()
     return gba;
 }
 
-class DestroyDisplayRunnable : public nsRunnable {
+class DestroyDisplayRunnable : public mozilla::Runnable {
 public:
     DestroyDisplayRunnable(FakeSurfaceComposer* aComposer, ssize_t aIndex)
-        : mComposer(aComposer), mIndex(aIndex) { }
+        : mozilla::Runnable("DestroyDisplayRunnable"), mComposer(aComposer), mIndex(aIndex) { }
     NS_IMETHOD Run() override {
         MOZ_ASSERT(NS_IsMainThread(), "Must be on main thread.");
         Mutex::Autolock _l(mComposer->mStateLock);
