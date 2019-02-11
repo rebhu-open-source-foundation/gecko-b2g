@@ -433,7 +433,7 @@ FakeSurfaceComposer::captureScreen(const sp<IBinder>& display
     sp<IGraphicBufferProducer> fakeProducer = IGraphicBufferProducer::asInterface(wrapper);
 
     nsCOMPtr<nsIRunnable> runnable =
-        NS_NewRunnableFunction("Screen Capture", [&]() {
+        NS_NewRunnableFunction("ScreenCapture", [&]() {
             captureScreenImp(fakeProducer, reqWidth, reqHeight, wrapper.get());
         });
     NS_DispatchToMainThread(runnable);
@@ -442,19 +442,6 @@ FakeSurfaceComposer::captureScreen(const sp<IBinder>& display
 
     return result;
 }
-
-class RunnableCallTask : public Task {
-public:
-    explicit RunnableCallTask(nsIRunnable* aRunnable)
-        : mRunnable(aRunnable) {}
-
-    void Run() override
-    {
-        mRunnable->Run();
-    }
-protected:
-    nsCOMPtr<nsIRunnable> mRunnable;
-};
 
 void
 FakeSurfaceComposer::captureScreenImp(const sp<IGraphicBufferProducer>& producer,
@@ -483,7 +470,7 @@ FakeSurfaceComposer::captureScreenImp(const sp<IGraphicBufferProducer>& producer
     reqHeight = (!reqHeight) ? hw_h : reqHeight;
 
     nsCOMPtr<nsIRunnable> runnable =
-        NS_NewRunnableFunction([screen, reqWidth, reqHeight, producer, wrapper]() {
+        NS_NewRunnableFunction("CaptureScreen", [screen, reqWidth, reqHeight, producer, wrapper]() {
             // create a surface (because we're a producer, and we need to
             // dequeue/queue a buffer)
             sp<Surface> sur = new Surface(producer);
@@ -493,7 +480,7 @@ FakeSurfaceComposer::captureScreenImp(const sp<IGraphicBufferProducer>& producer
 
             if (native_window_api_connect(window, NATIVE_WINDOW_API_EGL) != NO_ERROR) {
                 static_cast<GraphicProducerWrapper*>(producer->asBinder(producer).get())->exit(BAD_VALUE);
-                NS_ReleaseOnMainThread(screenAlias.forget());
+                NS_ReleaseOnMainThreadSystemGroup(screenAlias.forget());
                 return;
             }
             uint32_t usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN |
@@ -521,11 +508,10 @@ FakeSurfaceComposer::captureScreenImp(const sp<IGraphicBufferProducer>& producer
             }
             native_window_api_disconnect(window, NATIVE_WINDOW_API_EGL);
             static_cast<GraphicProducerWrapper*>(producer->asBinder(producer).get())->exit(result);
-            NS_ReleaseOnMainThread(screenAlias.forget());
+            NS_ReleaseOnMainThreadSystemGroup(screenAlias.forget());
         });
 
-    mozilla::layers::CompositorBridgeParent::CompositorLoop()->PostTask(
-        FROM_HERE, new RunnableCallTask(runnable));
+    MessageLoop::current()->PostTask(runnable.forget());
 }
 
 #if ANDROID_VERSION >= 21
@@ -550,7 +536,7 @@ FakeSurfaceComposer::getDisplayConfigs(const sp<IBinder>& display, Vector<Displa
     DisplayInfo info = DisplayInfo();
 
     nsCOMPtr<nsIRunnable> runnable =
-        NS_NewRunnableFunction([&]() {
+        NS_NewRunnableFunction("DisplayInfo", [&]() {
             MOZ_ASSERT(NS_IsMainThread());
             getPrimaryDisplayInfo(&info);
         });
