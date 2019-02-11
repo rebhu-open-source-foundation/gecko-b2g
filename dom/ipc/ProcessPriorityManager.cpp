@@ -1068,9 +1068,13 @@ ParticularProcessPriorityManager::ComputePriority()
   }
 
   if (isVisible) {
-    return HasAppType("inputmethod") ?
-      PROCESS_PRIORITY_FOREGROUND_KEYBOARD :
-      PROCESS_PRIORITY_FOREGROUND;
+    if (HasAppType("inputmethod")) {
+      return PROCESS_PRIORITY_FOREGROUND_KEYBOARD;
+    } else if (HasAppType("critical")) {
+      return PROCESS_PRIORITY_FOREGROUND_HIGH;
+    } else {
+      return PROCESS_PRIORITY_FOREGROUND;
+    }
   }
 
   if ((mHoldsCPUWakeLock || mHoldsHighPriorityWakeLock) &&
