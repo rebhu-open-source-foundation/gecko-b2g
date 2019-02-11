@@ -69,11 +69,11 @@ public:
 
   static void instantiate();
 
-  virtual android::status_t dump(int fd, const android::Vector<android::String16>& args) {
+  android::status_t dump(int fd, const android::Vector<android::String16>& args) override {
     return android::NO_ERROR;
   }
-  virtual bool checkPermission(const android::String16& permission, int32_t pid,
-      int32_t uid);
+  bool checkPermission(const android::String16& permission, int32_t pid,
+      int32_t uid) override;
 
 #if ANDROID_VERSION >= 23
   virtual void getPackagesForUid(const uid_t uid,
