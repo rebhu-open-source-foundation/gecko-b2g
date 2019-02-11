@@ -207,6 +207,7 @@ check_and_add_gcc_warning('-Wno-noexcept-type', cxx_compiler,
 
 # B2G errors
 check_and_add_gcc_warning('-Wno-mismatched-tags')
+check_and_add_gcc_warning('-Wno-unused-private-field')
 
 # Please keep these last in this file
 add_old_configure_assignment('_WARNINGS_CFLAGS', warnings_flags.cflags)
