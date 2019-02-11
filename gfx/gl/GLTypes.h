@@ -106,6 +106,14 @@ typedef uint64_t EGLTime;
 typedef HDC EGLNativeDisplayType;
 typedef HBITMAP EGLNativePixmapType;
 typedef HWND EGLNativeWindowType;
+#elif defined(__ANDROID__) || defined(ANDROID)
+
+struct ANativeWindow;
+struct egl_native_pixmap_t;
+
+typedef struct ANativeWindow*           EGLNativeWindowType;
+typedef struct egl_native_pixmap_t*     EGLNativePixmapType;
+typedef void*                           EGLNativeDisplayType;
 #else
 typedef void* EGLNativeDisplayType;
 typedef void* EGLNativePixmapType;
