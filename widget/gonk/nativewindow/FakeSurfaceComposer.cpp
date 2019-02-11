@@ -252,7 +252,7 @@ uint32_t FakeSurfaceComposer::setDisplayStateLocked(const DisplayState& s)
 
     if (what & DisplayState::eSurfaceChanged) {
         nsCOMPtr<nsIRunnable> runnable =
-            NS_NewRunnableFunction([&]() {
+            NS_NewRunnableFunction("GonkDisplay", [&]() {
                 MOZ_ASSERT(NS_IsMainThread(), "Must be on main thread.");
                 RefPtr<nsScreenManagerGonk> screenManager = nsScreenManagerGonk::GetInstance();
                 screenManager->AddScreen(GonkDisplay::DISPLAY_VIRTUAL, disp.surface.get());
@@ -433,7 +433,7 @@ FakeSurfaceComposer::captureScreen(const sp<IBinder>& display
     sp<IGraphicBufferProducer> fakeProducer = IGraphicBufferProducer::asInterface(wrapper);
 
     nsCOMPtr<nsIRunnable> runnable =
-        NS_NewRunnableFunction([&]() {
+        NS_NewRunnableFunction("Screen Capture", [&]() {
             captureScreenImp(fakeProducer, reqWidth, reqHeight, wrapper.get());
         });
     NS_DispatchToMainThread(runnable);
