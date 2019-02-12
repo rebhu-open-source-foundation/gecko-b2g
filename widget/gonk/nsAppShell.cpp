@@ -317,7 +317,7 @@ KeyEventDispatcher::DispatchKeyEventInternal(EventMessage aEventMessage,
     }
     event.mCodeNameIndex = mDOMCodeNameIndex;
     event.mModifiers = getDOMModifiers(mData.metaState);
-    event.location = mDOMKeyLocation;
+    event.mLocation = mDOMKeyLocation;
     event.mTime = mData.timeMs;
 
     nsEventStatus status =
@@ -376,10 +376,14 @@ KeyEventDispatcher::DispatchKeyUpEvent()
     DispatchKeyEventInternal(eKeyUp);
 }
 
-class SwitchEventRunnable : public nsRunnable {
+// TODO: FIXME
+#if 0
+class SwitchEventRunnable : public mozilla::Runnable {
 public:
-    SwitchEventRunnable(hal::SwitchEvent& aEvent) : mEvent(aEvent)
-    {}
+    SwitchEventRunnable(hal::SwitchEvent& aEvent)
+      : mozilla::Runnable("SwitchEventRunnable")
+      , mEvent(aEvent)
+      {}
 
     NS_IMETHOD Run()
     {
@@ -390,10 +394,13 @@ public:
 private:
     hal::SwitchEvent mEvent;
 };
+#endif
 
 static void
 updateHeadphoneSwitch()
 {
+// TODO: FIXME
+#if 0
     hal::SwitchEvent event;
 
     switch (sHeadphoneState) {
@@ -410,6 +417,7 @@ updateHeadphoneSwitch()
 
     event.device() = hal::SWITCH_HEADPHONES;
     NS_DispatchToMainThread(new SwitchEventRunnable(event));
+#endif
 }
 
 class GeckoPointerController : public PointerControllerInterface {
@@ -844,7 +852,7 @@ NS_INTERFACE_MAP_END
 void
 GeckoInputReaderPolicy::setDisplayInfo()
 {
-    static_assert(static_cast<int>(nsIScreen::ROTATION_0_DEG) ==
+    static_assert(static_cast<int>(ROTATION_0) ==
                   static_cast<int>(DISPLAY_ORIENTATION_0),
                   "Orientation enums not matched!");
     static_assert(static_cast<int>(nsIScreen::ROTATION_90_DEG) ==
@@ -856,10 +864,11 @@ GeckoInputReaderPolicy::setDisplayInfo()
     static_assert(static_cast<int>(nsIScreen::ROTATION_270_DEG) ==
                   static_cast<int>(DISPLAY_ORIENTATION_270),
                   "Orientation enums not matched!");
+#endif
 
     RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
 
-    uint32_t rotation = nsIScreen::ROTATION_0_DEG;
+    uint32_t rotation = ROTATION_0;
     DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
     LayoutDeviceIntRect screenBounds = screen->GetNaturalBounds();
@@ -1220,7 +1229,7 @@ nsAppShell::Init()
 
         // Causes the kernel timezone to be set, which in turn causes the
         // timestamps on SD cards to have the local time rather than UTC time.
-        hal::SetTimezone(hal::GetTimezone());
+        // TODO: FIXME hal::SetTimezone(hal::GetTimezone());
     }
 
     nsCOMPtr<nsIObserverService> obsServ = GetObserverService();
@@ -1275,7 +1284,7 @@ nsAppShell::Observe(nsISupports* aSubject,
     if (!strcmp(aTopic, "network-connection-state-changed")) {
         NS_ConvertUTF16toUTF8 type(aData);
         if (!type.IsEmpty()) {
-            hal::NotifyNetworkChange(hal::NetworkInformation(atoi(type.get()), 0, 0));
+            // TODO: FIXME: hal::NotifyNetworkChange(hal::NetworkInformation(atoi(type.get()), 0, 0));
         }
         return NS_OK;
     } else if (!strcmp(aTopic, "browser-ui-startup-complete")) {
@@ -1311,7 +1320,7 @@ nsAppShell::Exit()
 void
 nsAppShell::InitInputDevices()
 {
-    sDevInputAudioJack = hal::IsHeadphoneEventFromInputDev();
+    sDevInputAudioJack = false; // TODO: FIXME: hal::IsHeadphoneEventFromInputDev();
     sHeadphoneState = AKEY_STATE_UNKNOWN;
     sMicrophoneState = AKEY_STATE_UNKNOWN;
 
@@ -1415,5 +1424,5 @@ nsAppShell::NotifyScreenRotation()
     gAppShell->mReader->requestRefreshConfiguration(InputReaderConfiguration::CHANGE_DISPLAY_INFO);
 
     RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
-    hal::NotifyScreenConfigurationChange(screen->GetConfiguration());
+    // TODO: FIXME: hal::NotifyScreenConfigurationChange(screen->GetConfiguration());
 }
