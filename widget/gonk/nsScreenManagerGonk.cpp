@@ -911,6 +911,8 @@ nsScreenManagerGonk::GetPrimaryScreen(nsIScreen **outScreen)
     return NS_OK;
 }
 
+// TODO: FIXME
+#if 0
 NS_IMETHODIMP
 nsScreenManagerGonk::ScreenForId(uint32_t aId,
                                  nsIScreen **outScreen)
@@ -925,6 +927,7 @@ nsScreenManagerGonk::ScreenForId(uint32_t aId,
     *outScreen = nullptr;
     return NS_OK;
 }
+#endif
 
 NS_IMETHODIMP
 nsScreenManagerGonk::ScreenForRect(int32_t inLeft,
@@ -938,6 +941,8 @@ nsScreenManagerGonk::ScreenForRect(int32_t inLeft,
     return GetPrimaryScreen(outScreen);
 }
 
+// TODO: FIXME
+#if 0
 NS_IMETHODIMP
 nsScreenManagerGonk::ScreenForNativeWidget(void *aWidget, nsIScreen **outScreen)
 {
@@ -965,6 +970,7 @@ nsScreenManagerGonk::GetSystemDefaultScale(float *aDefaultScale)
     *aDefaultScale = 1.0f;
     return NS_OK;
 }
+#endif
 
 void
 nsScreenManagerGonk::VsyncControl(bool aEnabled)
