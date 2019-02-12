@@ -17,6 +17,7 @@
 #ifndef nsScreenManagerGonk_h___
 #define nsScreenManagerGonk_h___
 
+#include "base/task.h" // NewRunnableFunction
 #include "cutils/properties.h"
 #include "hardware/hwcomposer.h"
 
@@ -29,6 +30,8 @@
 #include "nsIScreenManager.h"
 #include "nsProxyRelease.h"
 #include "mozilla/layers/CompositorVsyncScheduler.h"
+#include "mozilla/layers/CompositorThread.h"
+#include "mozilla/widget/ScreenManager.h"
 
 #include <android/native_window.h>
 

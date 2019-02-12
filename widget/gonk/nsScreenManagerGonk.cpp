@@ -171,9 +171,8 @@ nsScreenGonk::~nsScreenGonk()
 {
     // Release GLContext on compositor thread
     if (mGLContext) {
-        CompositorBridgeParent::CompositorLoop()->PostTask(
-            FROM_HERE,
-            NewRunnableFunction(&ReleaseGLContextSync,
+        layers::CompositorThreadHolder::Loop()->PostTask(
+            NewRunnableFunction("nsScreenGonk::~nsScreenGonk", &ReleaseGLContextSync,
                                 mGLContext.forget().take()));
         mGLContext = nullptr;
     }
@@ -697,9 +696,8 @@ nsScreenGonk::EnableMirroring()
     // Update mMirroringWidget on compositor thread
     nsMainThreadPtrHandle<nsScreenGonk> primary =
       nsMainThreadPtrHandle<nsScreenGonk>(new nsMainThreadPtrHolder<nsScreenGonk>(primaryScreen, false));
-    CompositorBridgeParent::CompositorLoop()->PostTask(
-        FROM_HERE,
-        NewRunnableFunction(&UpdateMirroringWidgetSync,
+    layers::CompositorThreadHolder::Loop()->PostTask(
+        NewRunnableFunction("nsScreenGonk::EnableMirroring", &UpdateMirroringWidgetSync,
                             primary,
                             window.forget().take()));
 
@@ -723,9 +721,8 @@ nsScreenGonk::DisableMirroring()
     // Update mMirroringWidget on compositor thread
     nsMainThreadPtrHandle<nsScreenGonk> primary =
       nsMainThreadPtrHandle<nsScreenGonk>(new nsMainThreadPtrHolder<nsScreenGonk>(primaryScreen, false));
-    CompositorBridgeParent::CompositorLoop()->PostTask(
-        FROM_HERE,
-        NewRunnableFunction(&UpdateMirroringWidgetSync,
+    layers::CompositorThreadHolder::Loop()->PostTask(
+        NewRunnableFunction("nsScreenGonk::DisableMirroring", &UpdateMirroringWidgetSync,
                             primary,
                             nullptr));
     return true;
