@@ -78,6 +78,11 @@ if CONFIG['ANDROID_VERSION'] >= '18':
 if CONFIG['GNU_CC']:
   CXXFLAGS += ['-Wno-error=attributes', '-Wno-overloaded-virtual']
 
+CXXFLAGS += [
+    '-Wno-macro-redefined',
+    '-Wno-mismatched-tags',
+]
+
 FINAL_LIBRARY = 'xul'
 
 DisableStlWrapping()

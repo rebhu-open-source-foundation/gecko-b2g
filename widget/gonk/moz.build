@@ -93,8 +93,6 @@ FINAL_LIBRARY = 'xul'
 LOCAL_INCLUDES += [
     '/dom/base',
     '/dom/system/android',
-    '/gfx/skia/skia/include/config',
-    '/gfx/skia/skia/include/core',
     '/image',
     '/layout/base',
     '/layout/generic',
@@ -115,6 +113,15 @@ if CONFIG['ANDROID_VERSION'] > '15':
     LOCAL_INCLUDES += [
         '%' + '%s/frameworks/native/opengl/include' % CONFIG['ANDROID_SOURCE'],
     ]
+
+CXXFLAGS += [
+    '-Wno-macro-redefined',
+    '-Wno-mismatched-tags',
+    '-Wno-inconsistent-missing-override',
+    '-Wno-pointer-bool-conversion',
+    '-Wno-unused-private-field',
+    '-Wno-overloaded-virtual',
+]
 
 LOCAL_INCLUDES += [
     '%' + '%s/%s' % (CONFIG['ANDROID_SOURCE'], d) for d in [

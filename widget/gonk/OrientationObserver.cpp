@@ -33,7 +33,7 @@ namespace {
 
 struct OrientationMapping {
   uint32_t mScreenRotation;
-  ScreenOrientationInternal mDomOrientation;
+  ScreenOrientation mDomOrientation;
 };
 
 static OrientationMapping sOrientationMappings[] = {
@@ -106,7 +106,7 @@ DetectDefaultOrientation()
  * @return NS_OK on success. NS_ILLEGAL_VALUE on failure.
  */
 static nsresult
-ConvertToScreenRotation(ScreenOrientationInternal aOrientation, uint32_t *aResult)
+ConvertToScreenRotation(ScreenOrientation aOrientation, uint32_t *aResult)
 {
   for (uint32_t i = 0; i < ArrayLength(sOrientationMappings); i++) {
     if (aOrientation & sOrientationMappings[i].mDomOrientation) {
@@ -132,7 +132,7 @@ ConvertToScreenRotation(ScreenOrientationInternal aOrientation, uint32_t *aResul
  * @return NS_OK on success. NS_ILLEGAL_VALUE on failure.
  */
 nsresult
-ConvertToDomOrientation(uint32_t aRotation, ScreenOrientationInternal *aResult)
+ConvertToDomOrientation(uint32_t aRotation, ScreenOrientation *aResult)
 {
   for (uint32_t i = 0; i < ArrayLength(sOrientationMappings); i++) {
     if (aRotation == sOrientationMappings[i].mScreenRotation) {
@@ -217,7 +217,7 @@ OrientationObserver::Notify(const hal::SensorData& aSensorData)
     return;
   }
 
-  ScreenOrientationInternal orientation;
+  ScreenOrientation orientation;
   if (NS_FAILED(ConvertToDomOrientation(rotation, &orientation))) {
     return;
   }
@@ -259,7 +259,7 @@ OrientationObserver::DisableAutoOrientation()
 }
 
 bool
-OrientationObserver::LockScreenOrientation(ScreenOrientationInternal aOrientation)
+OrientationObserver::LockScreenOrientation(ScreenOrientation aOrientation)
 {
   MOZ_ASSERT(aOrientation | (eScreenOrientation_PortraitPrimary |
                              eScreenOrientation_PortraitSecondary |
@@ -295,7 +295,7 @@ OrientationObserver::LockScreenOrientation(ScreenOrientationInternal aOrientatio
   nsresult rv = screen->GetRotation(&currRotation);
   NS_ENSURE_SUCCESS(rv, false);
 
-  ScreenOrientationInternal currOrientation = eScreenOrientation_None;
+  ScreenOrientation currOrientation = eScreenOrientation_None;
   rv = ConvertToDomOrientation(currRotation, &currOrientation);
   NS_ENSURE_SUCCESS(rv, false);
 
@@ -314,7 +314,7 @@ OrientationObserver::LockScreenOrientation(ScreenOrientationInternal aOrientatio
   NS_ENSURE_SUCCESS(rv, false);
 
   // This conversion will disambiguate aOrientation.
-  ScreenOrientationInternal orientation;
+  ScreenOrientation orientation;
   rv = ConvertToDomOrientation(rotation, &orientation);
   NS_ENSURE_SUCCESS(rv, false);
 

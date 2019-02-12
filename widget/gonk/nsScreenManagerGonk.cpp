@@ -317,7 +317,7 @@ nsScreenGonk::EffectiveScreenRotation()
 
 // NB: This isn't gonk-specific, but gonk is the only widget backend
 // that does this calculation itself, currently.
-static ScreenOrientationInternal
+static ScreenOrientation
 ComputeOrientation(uint32_t aRotation, const LayoutDeviceIntSize& aScreenSize)
 {
     bool naturallyPortrait = (aScreenSize.height > aScreenSize.width);
@@ -352,7 +352,7 @@ RotationToAngle(uint32_t aRotation)
 ScreenConfiguration
 nsScreenGonk::GetConfiguration()
 {
-    ScreenOrientationInternal orientation =
+    ScreenOrientation orientation =
         ComputeOrientation(mScreenRotation, mNaturalBounds.Size());
 
     // NB: perpetuating colorDepth == pixelDepth illusion here, for

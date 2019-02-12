@@ -303,12 +303,13 @@ KeyEventDispatcher::DispatchKeyEventInternal(EventMessage aEventMessage,
     if (aEventMessage == eKeyPress) {
         // XXX If the charCode is not a printable character, the charCode
         //     should be computed without Ctrl/Alt/Meta modifiers.
-        event.charCode = static_cast<uint32_t>(mChar);
+        event.mCharCode = static_cast<uint32_t>(mChar);
     }
-    if (!event.charCode) {
-        event.keyCode = mDOMKeyCode;
+    if (!event.mCharCode) {
+        event.mKeyCode = mDOMKeyCode;
     }
-    event.isChar = !!event.charCode;
+    // TODO: FIXME ... removed ...
+    // event.isChar = !!event.mCharCode;
     event.mIsRepeat = IsRepeat();
     event.mKeyNameIndex = mDOMKeyNameIndex;
     if (mDOMPrintableKeyValue) {
@@ -322,9 +323,12 @@ KeyEventDispatcher::DispatchKeyEventInternal(EventMessage aEventMessage,
     nsEventStatus status =
       nsWindow::DispatchKeyInput(event);
 
+    // TODO: FIXME
+#if 0
     if (aHandledByIME) {
       *aHandledByIME = event.mFlags.mHandledByIME;
     }
+#endif
     return status;
 }
 
@@ -341,10 +345,13 @@ KeyEventDispatcher::Dispatch()
         return;
     }
 
+    // TODO: FIXME
+    #if 0
     if (mDOMKeyNameIndex == KEY_NAME_INDEX_Flip){
         hal::NotifyFlipStateFromInputDevice(!IsKeyPress());
         return;
     }
+    #endif
 
     if (IsKeyPress()) {
         DispatchKeyDownEvent();

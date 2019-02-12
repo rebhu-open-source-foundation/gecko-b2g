@@ -616,7 +616,7 @@ void EHAddrSpace::Update() {
 }
 
 EHState::EHState(const mcontext_t& context) {
-#ifdef linux
+#if defined(linux) || defined(MOZ_WIDGET_GONK)
   mRegs[0] = context.arm_r0;
   mRegs[1] = context.arm_r1;
   mRegs[2] = context.arm_r2;

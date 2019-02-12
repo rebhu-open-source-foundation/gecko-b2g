@@ -34,6 +34,7 @@
 using namespace android;
 using namespace mozilla;
 
+#if 0
 // Checking permissions needs to happen on the main thread, but the
 // binder callback is called on a special binder thread, so we use
 // this runnable for that.
@@ -114,6 +115,7 @@ GonkPermissionChecker::Run()
   mCanUseCamera = true;
   return NS_OK;
 }
+#endif
 
 bool
 GonkPermissionService::checkPermission(const String16& permission, int32_t pid,
@@ -167,9 +169,11 @@ GonkPermissionService::checkPermission(const String16& permission, int32_t pid,
 
   // Camera/audio record permissions are allowed for apps with the
   // "camera" permission.
-  RefPtr<GonkPermissionChecker> checker =
-    GonkPermissionChecker::Inspect(pid);
-  bool canUseCamera = checker->CanUseCamera();
+  
+  // TODO: FIXME
+  // RefPtr<GonkPermissionChecker> checker =
+  //   GonkPermissionChecker::Inspect(pid);
+  bool canUseCamera = true; // checker->CanUseCamera();
   if (!canUseCamera) {
     ALOGE("%s for pid=%d,uid=%d denied: not granted by user or app manifest",
       String8(permission).string(), pid, uid);
