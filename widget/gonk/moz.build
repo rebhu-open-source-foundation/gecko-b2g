@@ -76,11 +76,12 @@ SOURCES += [
     'ProcessOrientation.cpp',
 ]
 
-if CONFIG['MOZ_COMPOSER_2D']:
-    SOURCES += [
-       'HwcComposer2D.cpp',
-       'HwcUtils.cpp',
-    ]
+# TODO: FIXME: Disabled HWC
+#if CONFIG['MOZ_COMPOSER_2D']:
+#    SOURCES += [
+#       'HwcComposer2D.cpp',
+#       'HwcUtils.cpp',
+#    ]
 
 if CONFIG['MOZ_INSTRUMENT_EVENT_LOOP']:
     SOURCES += [

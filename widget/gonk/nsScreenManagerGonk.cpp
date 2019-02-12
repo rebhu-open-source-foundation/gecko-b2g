@@ -24,7 +24,7 @@
 #include "libdisplay/GonkDisplay.h"
 #include "nsScreenManagerGonk.h"
 #include "nsThreadUtils.h"
-#include "HwcComposer2D.h"
+// TODO: FIXME: #include "HwcComposer2D.h"
 #include "VsyncSource.h"
 #include "nsWindow.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -611,7 +611,8 @@ nsScreenGonk::GetPrevDispAcquireFd()
 bool
 nsScreenGonk::IsComposer2DSupported()
 {
-    return mComposer2DSupported;
+    // TODO: FIXME
+    return false;
 }
 
 bool
