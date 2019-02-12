@@ -125,6 +125,8 @@ CXXFLAGS += [
     '-Wno-overloaded-virtual',
     '-Wno-unused-result',
     '-Wno-unused-function',
+    '-Wno-unused-value',
+    '-Wno-comma',
 ]
 
 LOCAL_INCLUDES += [
