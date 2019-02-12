@@ -781,7 +781,7 @@ NS_IMPL_ISUPPORTS(nsScreenManagerGonk, nsIScreenManager)
 nsScreenManagerGonk::nsScreenManagerGonk()
     : mInitialized(false)
 #if ANDROID_VERSION >= 19
-    , mDisplayEnabled(hal::GetScreenEnabled())
+    , mDisplayEnabled(true /* TODO: FIXME: hal::GetScreenEnabled() */ )
 #endif
 {
 }
@@ -834,6 +834,11 @@ nsScreenManagerGonk::GetIdFromType(GonkDisplay::DisplayType aDisplayType)
     // Bug 1138287 will address the conversion from type to id.
     return aDisplayType;
 }
+
+// TODO: FIXME
+#define MOZ_B2G_OS_NAME "B2GOS"
+#define MOZ_B2G_VERSION "1.0"
+#define KAI_RELEASE_TAG "gonk-m"
 
 void
 nsScreenManagerGonk::Initialize()
