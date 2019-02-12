@@ -1064,7 +1064,6 @@ GeckoInputDispatcher::notifyMotion(const NotifyMotionArgs* args)
     case AMOTION_EVENT_ACTION_HOVER_MOVE:
         touchType = MultiTouchInput::MULTITOUCH_MOVE;
         break;
-#endif
     case AMOTION_EVENT_ACTION_HOVER_EXIT:
     case AMOTION_EVENT_ACTION_HOVER_ENTER:
     case AMOTION_EVENT_ACTION_SCROLL:
