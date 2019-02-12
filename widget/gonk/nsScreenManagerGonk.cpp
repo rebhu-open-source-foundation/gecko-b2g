@@ -968,7 +968,7 @@ nsScreenManagerGonk::VsyncControl(bool aEnabled)
 {
     if (!NS_IsMainThread()) {
         NS_DispatchToMainThread(
-            NS_NewRunnableMethodWithArgs<bool>(this,
+            NewRunnableMethod<bool>("sScreenManagerGonk::VsyncControl", this,
                                                &nsScreenManagerGonk::VsyncControl,
                                                aEnabled));
         return;
