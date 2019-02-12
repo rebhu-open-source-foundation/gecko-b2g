@@ -973,3 +973,13 @@ nsWindow::IsBelongedToPrimaryScreen()
 {
   return mScreen->IsPrimaryScreen();
 }
+
+already_AddRefed<nsIWidget> nsIWidget::CreateTopLevelWindow() {
+  nsCOMPtr<nsIWidget> window = new nsWindow();
+  return window.forget();
+}
+
+already_AddRefed<nsIWidget> nsIWidget::CreateChildWindow() {
+  nsCOMPtr<nsIWidget> window = new nsWindow();
+  return window.forget();
+}
