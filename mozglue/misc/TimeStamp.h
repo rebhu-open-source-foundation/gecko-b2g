@@ -413,7 +413,7 @@ class TimeStamp {
    * compositors.
    * UNTESTED ON OTHER PLATFORMS
    */
-#if defined(XP_DARWIN) || defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GTK)
+#if defined(XP_DARWIN) || defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_GONK)
   static TimeStamp FromSystemTime(int64_t aSystemTime) {
     static_assert(sizeof(aSystemTime) == sizeof(TimeStampValue),
                   "System timestamp should be same units as TimeStampValue");
