@@ -54,6 +54,7 @@
 #include "nsImageLoadingContent.h"
 #include "mozilla/layers/IAPZCTreeManager.h"
 #include "mozilla/layers/APZInputBridge.h"
+#include "mozilla/layers/CompositorBridgeParent.h"
 
 #define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "Gonk", ##args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ##args)
@@ -127,7 +128,7 @@ nsWindow::DoDraw(void)
 #endif
 
   while (screenNums--) {
-    nsCOMPtr<nsScreenGonk> screen = screenManager->GetPrimaryScreen();
+    RefPtr<nsScreenGonk> screen = screenManager->GetPrimaryScreen();
     //screenManager->ScreenForId(screenNums, getter_AddRefs(screen));
     MOZ_ASSERT(screen);
     if (!screen) {
@@ -343,20 +344,22 @@ nsWindow::DispatchTouchEventForAPZ(const MultiTouchInput& aInput,
   ProcessUntransformedAPZEvent(&event, aGuid, aInputBlockId, aApzResponse);
 }
 
-class DispatchTouchInputOnControllerThread : public Task
+class DispatchTouchInputOnControllerThread : public mozilla::Runnable
 {
 public:
   DispatchTouchInputOnControllerThread(const MultiTouchInput& aInput)
-    : Task()
+    : mozilla::Runnable("DispatchTouchInputOnController")
     , mInput(aInput)
   {
   }
 
-  virtual void Run() override
+  NS_IMETHOD Run() override
   {
     if (gFocusedWindow) {
       gFocusedWindow->DispatchTouchInputViaAPZ(mInput);
     }
+
+    return NS_OK;
   }
 
 private:
@@ -451,12 +454,13 @@ nsWindow::Create(nsIWidget* aParent,
 
   nsCOMPtr<nsIScreen> screen;
 
-  uint32_t screenId =
-    aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
+  //uint32_t screenId =
+  //  aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
 
   RefPtr<nsScreenManagerGonk> screenManager =
     nsScreenManagerGonk::GetInstance();
-  screenManager->ScreenForId(screenId, getter_AddRefs(screen));
+  //screenManager->ScreenForId(screenId, getter_AddRefs(screen));
+  screen = screenManager->GetPrimaryScreen();
 
   mScreen = static_cast<nsScreenGonk*>(screen.get());
 
@@ -530,7 +534,7 @@ nsWindow::IsVisible() const
   return mVisible;
 }
 
-NS_IMETHODIMP
+void
 nsWindow::ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) {}
 
 void
@@ -704,6 +708,7 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
     EnsureGLCursorImageManager();
     // mGLCursorImageManager->SetGLCursorPosition(position);
 
+#if 0
     if (gfxPrefs::GLCursorEnabled()) {
       // Stop rendering with Hwc because virtual cursor is drawn on the
       // overlay layer.
@@ -712,11 +717,12 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
 
       KickOffComposition();
     }
+#endif
   } else if (aEvent->mMessage == eMouseExitFromWidget) {
     EnsureGLCursorImageManager();
     // mGLCursorImageManager->SetGLCursorPosition(
     //   GLCursorImageManager::kOffscreenCursorPosition);
-
+#if 0
     if (gfxPrefs::GLCursorEnabled()) {
       // Turn render-with-hwc back on.
       CompositorBridgeParent::CompositorLoop()->PostTask(
@@ -724,6 +730,7 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
 
       KickOffComposition();
     }
+#endif
   }
 
   if (mWidgetListener) {
@@ -855,9 +862,9 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
                           LayersBackend aBackendHint,
                           LayerManagerPersistence aPersistence)
 {
-  if (aAllowRetaining) {
+  /*if (aAllowRetaining) {
     *aAllowRetaining = true;
-  }
+  }*/
   if (mLayerManager) {
     // This layer manager might be used for painting outside of DoDraw(), so we
     // need to set the correct rotation on it.
@@ -880,6 +887,7 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
   }
 
   CreateCompositor();
+  auto mCompositorBridgeParent = CompositorBridgeParent::GetCompositorBridgeParent(0);
   if (mCompositorBridgeParent) {
     mScreen->SetCompositorBridgeParent(mCompositorBridgeParent);
     if (mScreen->IsPrimaryScreen()) {
@@ -896,6 +904,7 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
 void
 nsWindow::DestroyCompositor()
 {
+  auto mCompositorBridgeParent = CompositorBridgeParent::GetCompositorBridgeParent(0);
   if (mCompositorBridgeParent) {
     mScreen->SetCompositorBridgeParent(nullptr);
     if (mScreen->IsPrimaryScreen()) {
@@ -909,11 +918,13 @@ nsWindow::DestroyCompositor()
   nsBaseWidget::DestroyCompositor();
 }
 
+#if 0
 CompositorBridgeParent*
 nsWindow::NewCompositorBridgeParent(int aSurfaceWidth, int aSurfaceHeight)
 {
   return new CompositorBridgeParent(this, true, aSurfaceWidth, aSurfaceHeight);
 }
+#endif
 
 void
 nsWindow::BringToTop()

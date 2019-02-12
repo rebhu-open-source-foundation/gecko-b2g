@@ -178,7 +178,7 @@ private:
 
   RefPtr<nsScreenGonk> mScreen;
 
-  RefPtr<mozilla::HwcComposer2D> mComposer2D;
+  //RefPtr<mozilla::HwcComposer2D> mComposer2D;
 
   // 1. This member variable would be accessed by main and compositor thread.
   // 2. Currently there is a lock in GLCursorImageManager to protect it's data
