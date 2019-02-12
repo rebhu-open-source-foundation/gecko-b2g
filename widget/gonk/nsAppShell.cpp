@@ -1366,15 +1366,13 @@ nsAppShell::ScheduleNativeEventCallback()
 bool
 nsAppShell::ProcessNextNativeEvent(bool mayWait)
 {
-    PROFILER_LABEL("nsAppShell", "ProcessNextNativeEvent",
-        js::ProfileEntry::Category::EVENTS);
+    AUTO_PROFILER_LABEL("nsAppShell::ProcessNextNativeEvent", OTHER);
 
     epoll_event events[16] = {{ 0 }};
 
     int event_count;
     {
-        PROFILER_LABEL("nsAppShell", "ProcessNextNativeEvent::Wait",
-            js::ProfileEntry::Category::EVENTS);
+        AUTO_PROFILER_LABEL("nsAppShell::ProcessNextNativeEvent::Wait", IDLE);
 
         if ((event_count = epoll_wait(epollfd, events, 16,  mayWait ? -1 : 0)) <= 0)
             return true;
