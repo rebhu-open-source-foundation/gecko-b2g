@@ -864,7 +864,6 @@ GeckoInputReaderPolicy::setDisplayInfo()
     static_assert(static_cast<int>(ROTATION_270) ==
                   static_cast<int>(DISPLAY_ORIENTATION_270),
                   "Orientation enums not matched!");
-#endif
 
     RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
 
