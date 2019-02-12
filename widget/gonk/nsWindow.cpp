@@ -43,7 +43,7 @@
 #include "mozilla/TextEvents.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Logging.h"
-//#include "mozilla/layers/APZCTreeManager.h"
+#include "mozilla/layers/IAPZCTreeManager.h"
 #include "mozilla/layers/APZThreadUtils.h"
 #include "mozilla/layers/CompositorOGL.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
@@ -95,7 +95,10 @@ nsWindow::nsWindow()
 nsWindow::~nsWindow()
 {
   if (mScreen->IsPrimaryScreen()) {
+// TODO: FIXME
+#if 0
     mComposer2D->SetCompositorBridgeParent(nullptr);
+#endif
   }
 }
 
@@ -860,7 +863,10 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
   if (mCompositorBridgeParent) {
     mScreen->SetCompositorBridgeParent(mCompositorBridgeParent);
     if (mScreen->IsPrimaryScreen()) {
+// TODO: FIXME
+#if 0
       mComposer2D->SetCompositorBridgeParent(mCompositorBridgeParent);
+#endif
     }
   }
   MOZ_ASSERT(mLayerManager);
@@ -874,7 +880,10 @@ nsWindow::DestroyCompositor()
     mScreen->SetCompositorBridgeParent(nullptr);
     if (mScreen->IsPrimaryScreen()) {
       // Unset CompositorBridgeParent
+// TODO: FIXME
+#if 0
       mComposer2D->SetCompositorBridgeParent(nullptr);
+#endif
     }
   }
   nsBaseWidget::DestroyCompositor();
@@ -956,6 +965,8 @@ nsWindow::NeedsPaint()
   return nsIWidget::NeedsPaint();
 }
 
+// TODO: FIXME
+#if 0
 #if defined(MOZ_COMPOSITOR_2D)
 Composer2D*
 nsWindow::GetComposer2D()
@@ -966,6 +977,7 @@ nsWindow::GetComposer2D()
 
   return mComposer2D;
 }
+#endif
 #endif
 
 bool
