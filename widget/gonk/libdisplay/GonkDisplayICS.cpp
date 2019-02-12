@@ -159,7 +159,7 @@ GonkDisplayICS::OnEnabled(OnEnabledCallbackType callback)
     // Watching screen on/off state by using a pthread
     // which implicitly calls exit() when the main thread ends
     if (pthread_create(&sFramebufferWatchThread, NULL, frameBufferWatcher, NULL)) {
-        NS_RUNTIMEABORT("Failed to create framebufferWatcherThread, aborting...");
+        MOZ_CRASH("Failed to create framebufferWatcherThread, aborting...");
     }
 }
 

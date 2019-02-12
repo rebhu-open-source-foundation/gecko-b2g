@@ -151,7 +151,7 @@ nsWindow::DoDraw(void)
           lm->GetBackendType()) {
         // No need to do anything, the compositor will handle drawing
       } else {
-        NS_RUNTIMEABORT("Unexpected layer manager type");
+        MOZ_CRASH("Unexpected layer manager type");
       }
       listener->DidPaintWindow();
     }
