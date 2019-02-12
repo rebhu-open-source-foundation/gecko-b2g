@@ -111,9 +111,9 @@ static uint32_t
 SurfaceFormatToColorDepth(int32_t aSurfaceFormat)
 {
     switch (aSurfaceFormat) {
-    case GGL_PIXEL_FORMAT_RGB_565:
+    case HAL_PIXEL_FORMAT_RGB_565:
         return 16;
-    case GGL_PIXEL_FORMAT_RGBA_8888:
+    case HAL_PIXEL_FORMAT_RGBA_8888:
         return 32;
     }
     return 24; // GGL_PIXEL_FORMAT_RGBX_8888
@@ -695,7 +695,7 @@ nsScreenGonk::EnableMirroring()
 
     // Update mMirroringWidget on compositor thread
     nsMainThreadPtrHandle<nsScreenGonk> primary =
-      nsMainThreadPtrHandle<nsScreenGonk>(new nsMainThreadPtrHolder<nsScreenGonk>(primaryScreen, false));
+      nsMainThreadPtrHandle<nsScreenGonk>(new nsMainThreadPtrHolder<nsScreenGonk>("ScreenGonk", primaryScreen, false));
     layers::CompositorThreadHolder::Loop()->PostTask(
         NewRunnableFunction("nsScreenGonk::EnableMirroring", &UpdateMirroringWidgetSync,
                             primary,
@@ -720,7 +720,7 @@ nsScreenGonk::DisableMirroring()
 
     // Update mMirroringWidget on compositor thread
     nsMainThreadPtrHandle<nsScreenGonk> primary =
-      nsMainThreadPtrHandle<nsScreenGonk>(new nsMainThreadPtrHolder<nsScreenGonk>(primaryScreen, false));
+      nsMainThreadPtrHandle<nsScreenGonk>(new nsMainThreadPtrHolder<nsScreenGonk>("ScreenGonk", primaryScreen, false));
     layers::CompositorThreadHolder::Loop()->PostTask(
         NewRunnableFunction("nsScreenGonk::DisableMirroring", &UpdateMirroringWidgetSync,
                             primary,
@@ -762,7 +762,7 @@ nsScreenGonk::UpdateMirroringWidget(already_AddRefed<nsWindow>& aWindow)
 
     if (mMirroringWidget) {
         nsCOMPtr<nsIWidget> widget = mMirroringWidget.forget();
-        NS_ReleaseOnMainThread(widget.forget());
+        NS_ReleaseOnMainThreadSystemGroup(widget.forget());
     }
     mMirroringWidget = aWindow;
 }
