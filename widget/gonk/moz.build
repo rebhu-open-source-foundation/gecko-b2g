@@ -64,7 +64,8 @@ SOURCES += [
     'GonkMemoryPressureMonitoring.cpp',
     'GonkPermission.cpp',
     'nsAppShell.cpp',
-    'nsClipboard.cpp',
+# TODO: FIXME
+#   'nsClipboard.cpp',
     'nsIdleServiceGonk.cpp',
     'nsLookAndFeel.cpp',
     'nsScreenManagerGonk.cpp',
