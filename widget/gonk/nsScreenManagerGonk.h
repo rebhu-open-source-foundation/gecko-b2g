@@ -31,7 +31,6 @@
 
 #include <android/native_window.h>
 
-class nsRunnable;
 class nsWindow;
 
 namespace android {
@@ -220,8 +219,8 @@ protected:
 
     bool mInitialized;
     nsTArray<RefPtr<nsScreenGonk>> mScreens;
-    RefPtr<nsRunnable> mScreenOnEvent;
-    RefPtr<nsRunnable> mScreenOffEvent;
+    RefPtr<nsIRunnable> mScreenOnEvent;
+    RefPtr<nsIRunnable> mScreenOffEvent;
 
 #if ANDROID_VERSION >= 19
     bool mDisplayEnabled;

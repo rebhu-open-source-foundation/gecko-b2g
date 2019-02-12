@@ -166,7 +166,7 @@ protected:
   // event (like a keypress or mouse click).
   void UserActivity();
 
-  void DrawWindowOverlay(mozilla::layers::LayerManagerComposite* aManager,
+  void DrawWindowOverlay(mozilla::widget::WidgetRenderingContext* aContext,
                          LayoutDeviceIntRect aRect) override;
 
 private:

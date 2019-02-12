@@ -762,7 +762,7 @@ nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*)
 }
 
 void
-nsWindow::DrawWindowOverlay(LayerManagerComposite* aManager,
+nsWindow::DrawWindowOverlay(mozilla::widget::WidgetRenderingContext* aContext,
                             LayoutDeviceIntRect aRect)
 {
   // if (aManager && mGLCursorImageManager) {
