@@ -129,8 +129,8 @@ nsScreenGonk::nsScreenGonk(uint32_t aId,
     , mEventVisibility(aEventVisibility)
     , mNativeWindow(aNativeData.mNativeWindow)
     , mDpi(aNativeData.mXdpi)
-    , mScreenRotation(nsIScreen::ROTATION_0_DEG)
-    , mPhysicalScreenRotation(nsIScreen::ROTATION_0_DEG)
+    , mScreenRotation(ROTATION_0) // TODO: FIXME
+    , mPhysicalScreenRotation(ROTATION_0) // TODO: FIXME
 #if ANDROID_VERSION >= 17
     , mDisplaySurface(aNativeData.mDisplaySurface)
 #endif
@@ -274,6 +274,8 @@ nsScreenGonk::GetNativeWindow()
 NS_IMETHODIMP
 nsScreenGonk::SetRotation(uint32_t aRotation)
 {
+// TODO: FIXME
+#if 0
     if (!(aRotation <= ROTATION_270_DEG)) {
         return NS_ERROR_ILLEGAL_VALUE;
     }
@@ -300,7 +302,7 @@ nsScreenGonk::SetRotation(uint32_t aRotation)
                                mVirtualBounds.height,
                                true);
     }
-
+#endif
     return NS_OK;
 }
 
@@ -321,6 +323,8 @@ nsScreenGonk::EffectiveScreenRotation()
 static ScreenOrientation
 ComputeOrientation(uint32_t aRotation, const LayoutDeviceIntSize& aScreenSize)
 {
+// TODO: FIXME
+#if 0
     bool naturallyPortrait = (aScreenSize.height > aScreenSize.width);
     switch (aRotation) {
     case nsIScreen::ROTATION_0_DEG:
@@ -340,6 +344,8 @@ ComputeOrientation(uint32_t aRotation, const LayoutDeviceIntSize& aScreenSize)
     default:
         MOZ_CRASH("Gonk screen must always have a known rotation");
     }
+#endif
+    return eScreenOrientation_PortraitPrimary;
 }
 
 static uint16_t
