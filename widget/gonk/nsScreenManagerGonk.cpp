@@ -892,9 +892,12 @@ nsScreenManagerGonk::DisplayEnabled(bool aEnabled)
      * To avoid this issue, keep the value stored in |mDisplayEnabled|.
      */
     mDisplayEnabled = aEnabled;
+// TODO: FIXME
+#if 0
     if (mCompositorVsyncScheduler) {
         mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
     }
+#endif
 #endif
 
     VsyncControl(aEnabled);
@@ -1140,6 +1143,8 @@ nsScreenManagerGonk::RemoveScreen(GonkDisplay::DisplayType aDisplayType)
 void
 nsScreenManagerGonk::SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncScheduler *aObserver)
 {
+// TODO: FIXME
+#if 0
     MOZ_ASSERT(NS_IsMainThread());
 
     // We assume on b2g that there is only 1 CompositorBridgeParent
@@ -1147,5 +1152,6 @@ nsScreenManagerGonk::SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyn
     MOZ_ASSERT(aObserver);
     mCompositorVsyncScheduler = aObserver;
     mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
+#endif
 }
 #endif
