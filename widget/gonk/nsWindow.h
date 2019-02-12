@@ -125,8 +125,7 @@ public:
   virtual mozilla::layers::LayerManager* GetLayerManager(
     PLayerTransactionChild* aShadowManager = nullptr,
     LayersBackend aBackendHint = mozilla::layers::LayersBackend::LAYERS_NONE,
-    LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT,
-    bool* aAllowRetaining = nullptr) override;
+    LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT) override;
   virtual void DestroyCompositor() override;
 
   virtual CompositorBridgeParent* NewCompositorBridgeParent(int aSurfaceWidth,

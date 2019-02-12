@@ -654,19 +654,6 @@ nsWindow::EnsureGLCursorImageManager()
   // mGLCursorImageManager = new GLCursorImageManager();
 }
 
-void
-nsWindow::SetCursor(nsCursor aCursor)
-{
-  nsBaseWidget::SetCursor(aCursor);
-
-  // if (mGLCursorImageManager) {
-  //   // Prepare GLCursor if it doesn't exist
-  //   mGLCursorImageManager->PrepareCursorImage(aCursor, this);
-  //   mGLCursorImageManager->HasSetCursor();
-  //   KickOffComposition();
-  // }
-}
-
 static void
 StopRenderWithHwc(bool aStop)
 {
@@ -843,8 +830,7 @@ nsWindow::GetDefaultScaleInternal()
 LayerManager*
 nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
                           LayersBackend aBackendHint,
-                          LayerManagerPersistence aPersistence,
-                          bool* aAllowRetaining)
+                          LayerManagerPersistence aPersistence)
 {
   if (aAllowRetaining) {
     *aAllowRetaining = true;

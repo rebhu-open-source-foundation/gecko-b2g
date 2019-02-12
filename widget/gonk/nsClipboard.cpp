@@ -55,7 +55,6 @@ nsClipboard::SetData(nsITransferable *aTransferable,
   // Use a pref to toggle rich text/non-text support.
   if (Preferences::GetBool("clipboard.plainTextOnly")) {
     nsCOMPtr<nsISupports> clip;
-    uint32_t len;
     nsresult rv = aTransferable->GetTransferData(kUnicodeMime,
                                                  getter_AddRefs(clip));
     if (NS_FAILED(rv)) {
@@ -72,7 +71,7 @@ nsClipboard::SetData(nsITransferable *aTransferable,
   }
 
   // Get the types of supported flavors.
-  nsCOMPtr<nsISupportsArray> flavorList;
+  nsCOMPtr<nsIArrayExtensions> flavorList;
   nsresult rv = aTransferable->FlavorsTransferableCanExport(getter_AddRefs(flavorList));
   if (!flavorList || NS_FAILED(rv)) {
     return NS_ERROR_FAILURE;
