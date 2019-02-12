@@ -978,12 +978,15 @@ nsScreenManagerGonk::VsyncControl(bool aEnabled)
     }
 
     MOZ_ASSERT(NS_IsMainThread());
+// TODO: FIXME
+#if 0
     VsyncSource::Display &display = gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
     if (aEnabled) {
         display.EnableVsync();
     } else {
         display.DisableVsync();
     }
+#endif
 }
 
 bool
