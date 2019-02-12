@@ -1025,8 +1025,8 @@ addMultiTouch(MultiTouchInput& aMultiTouch,
       radiusY = coords.getAxisValue(AMOTION_EVENT_AXIS_TOUCH_MINOR) / 2;
     }
 
-    ScreenIntPoint point(floor(coords.getX() + 0.5),
-                         floor(coords.getY() + 0.5));
+    ScreenIntPoint point(int(floor(coords.getX() + 0.5)),
+                         int(floor(coords.getY() + 0.5)));
 
     SingleTouchData touchData(id, point, ScreenSize(radiusX, radiusY),
                               rotationAngle, force);
@@ -1064,6 +1064,7 @@ GeckoInputDispatcher::notifyMotion(const NotifyMotionArgs* args)
     case AMOTION_EVENT_ACTION_HOVER_MOVE:
         touchType = MultiTouchInput::MULTITOUCH_MOVE;
         break;
+#endif
     case AMOTION_EVENT_ACTION_HOVER_EXIT:
     case AMOTION_EVENT_ACTION_HOVER_ENTER:
     case AMOTION_EVENT_ACTION_SCROLL:

@@ -34,6 +34,7 @@
 #include "nsDebug.h"
 #include "nsThreadUtils.h"
 #include "nsWindow.h"
+#include "mozilla/layers/CompositorVsyncScheduler.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <utils/Timers.h>

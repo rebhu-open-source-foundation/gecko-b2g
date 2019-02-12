@@ -28,6 +28,7 @@
 #include "nsCOMPtr.h"
 #include "nsIScreenManager.h"
 #include "nsProxyRelease.h"
+#include "mozilla/layers/CompositorVsyncScheduler.h"
 
 #include <android/native_window.h>
 
