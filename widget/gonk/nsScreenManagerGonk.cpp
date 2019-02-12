@@ -1137,7 +1137,10 @@ nsScreenManagerGonk::RemoveScreen(GonkDisplay::DisplayType aDisplayType)
       NotifyDisplayChange(screenId, false);
     }
 
+// TODO: FIXME
+#if 0
     gfxPlatform::GetPlatform()->GetHardwareVsync()->RemoveDisplay(screenId);
+#endif
 
     return NS_OK;
 }
