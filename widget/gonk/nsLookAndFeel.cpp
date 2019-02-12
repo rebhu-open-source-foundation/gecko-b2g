@@ -438,9 +438,9 @@ nsLookAndFeel::GetFontImpl(FontID aID, nsString& aFontName,
                            float aDevPixPerCSSPixel)
 {
     aFontName.AssignLiteral("\"Fira Sans\"");
-    aFontStyle.style = FontSlantStyle::Normal();
-    aFontStyle.weight = FontWeight::Normal();
-    aFontStyle.stretch = FontStretch::Normal();
+    aFontStyle.style = mozilla::FontSlantStyle::Normal();
+    aFontStyle.weight = mozilla::FontWeight::Normal();
+    aFontStyle.stretch = mozilla::FontStretch::Normal();
     aFontStyle.size = 9.0 * 96.0f / 72.0f;
     aFontStyle.systemFont = true;
     return true;

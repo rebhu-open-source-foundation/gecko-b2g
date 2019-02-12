@@ -81,4 +81,4 @@ export LDFLAGS="-L$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 -Wl,-rpath-link=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 --sysroot=$NDK_DIR/sysroot $GCC_LIB -ldl -lstdc++"
 
-./mach build
+./mach build $@

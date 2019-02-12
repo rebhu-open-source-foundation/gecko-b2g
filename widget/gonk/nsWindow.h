@@ -112,13 +112,8 @@ public:
     override;
   virtual void EndRemoteDrawing() override;
 
-  void SetCursor(nsCursor aCursor) override;
-  NS_IMETHOD SetCursor(imgIContainer* aCursor,
-                       uint32_t aHotspotX,
-                       uint32_t aHotspotY) override
-  {
-    return NS_ERROR_NOT_IMPLEMENTED;
-  }
+  void SetCursor(nsCursor aDefaultCursor, imgIContainer* aImageCursor,
+                 uint32_t aHotspotX, uint32_t aHotspotY) override {}
 
   void UpdateCursorSourceMap(nsCursor aCursor);
   already_AddRefed<mozilla::gfx::SourceSurface> RestyleCursorElement(
