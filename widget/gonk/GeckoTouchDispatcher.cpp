@@ -109,7 +109,7 @@ GeckoTouchDispatcher::NotifyTouch(MultiTouchInput& aTouch, TimeStamp aEventTime)
     mCompositorVsyncScheduler->SetNeedsComposite();
   }
 
-  if (aTouch.mType == MultiTouchInput::MULTITOUCH_HOVER_MOVE) {
+  if (aTouch.mType == MultiTouchInput::MULTITOUCH_MOVE) {
     // NB: we could dispatch this to content as a mousemove event, if
     // we really wanted to.  But for now we just use this to draw a
     // mouse cursor so keep it internal to gecko.
@@ -355,7 +355,7 @@ GeckoTouchDispatcher::DispatchTouchEvent(MultiTouchInput aMultiTouch)
         touchAction = "Touch_Event_Down";
         break;
       case MultiTouchInput::MULTITOUCH_MOVE:
-      case MultiTouchInput::MULTITOUCH_HOVER_MOVE:
+      case MultiTouchInput::MULTITOUCH_MOVE:
         touchAction = "Touch_Event_Move";
         break;
       case MultiTouchInput::MULTITOUCH_END:
