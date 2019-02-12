@@ -1083,17 +1083,23 @@ nsScreenManagerGonk::AddScreen(GonkDisplay::DisplayType aDisplayType,
         NotifyDisplayChange(id, true);
     }
 
+// TODO: FIXME
+#if 0
     // By default, non primary screen does mirroring.
     if (aDisplayType != GonkDisplay::DISPLAY_PRIMARY &&
         gfxPrefs::ScreenMirroringEnabled()) {
         screen->EnableMirroring();
     }
+#endif
 
+// TODO: FIXME
+#if 0
     VsyncSource::VsyncType vsyncType = (screen->IsVsyncSupported()) ?
       VsyncSource::VsyncType::HARDWARE_VYSNC :
       VsyncSource::VsyncType::SORTWARE_VSYNC;
 
     gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(id, vsyncType);
+#endif
 
     return NS_OK;
 }
