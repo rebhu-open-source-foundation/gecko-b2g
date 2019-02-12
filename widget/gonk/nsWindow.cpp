@@ -105,10 +105,13 @@ nsWindow::~nsWindow()
 void
 nsWindow::DoDraw(void)
 {
+// TODO: FIXME
+#if 0
   if (!hal::GetScreenEnabled()) {
     gDrawRequest = true;
     return;
   }
+#endif
 
   uint32_t screenNums = 0;
   RefPtr<nsScreenManagerGonk> screenManager =
