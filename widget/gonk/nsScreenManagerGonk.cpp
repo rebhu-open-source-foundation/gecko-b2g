@@ -36,7 +36,7 @@
 #include "nsAppShell.h"
 #include "nsProxyRelease.h"
 #include "nsTArray.h"
-#include "pixelflinger/format.h"
+//#include "pixelflinger/format.h"
 #include "nsIDisplayInfo.h"
 #include "libui/cutils_log.h"
 
