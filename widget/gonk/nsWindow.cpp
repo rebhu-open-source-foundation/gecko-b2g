@@ -239,7 +239,8 @@ public:
                                  const ScrollableLayerGuid& aGuid,
                                  const uint64_t& aInputBlockId,
                                  nsEventStatus aApzResponse)
-    : mInput(aInput)
+    : mozilla::Runnable("DispatchTouchInputOnMainThread")
+    , mInput(aInput)
     , mGuid(aGuid)
     , mInputBlockId(aInputBlockId)
     , mApzResponse(aApzResponse)
