@@ -775,7 +775,7 @@ nsRepeatKeyTimer::Stop()
     if (mTimer)
     {
         mTimer->Cancel();
-        mTimer = 0;
+        mTimer = nullptr;
     }
 
     return NS_OK;
@@ -855,13 +855,13 @@ GeckoInputReaderPolicy::setDisplayInfo()
     static_assert(static_cast<int>(ROTATION_0) ==
                   static_cast<int>(DISPLAY_ORIENTATION_0),
                   "Orientation enums not matched!");
-    static_assert(static_cast<int>(nsIScreen::ROTATION_90_DEG) ==
+    static_assert(static_cast<int>(ROTATION_90) ==
                   static_cast<int>(DISPLAY_ORIENTATION_90),
                   "Orientation enums not matched!");
-    static_assert(static_cast<int>(nsIScreen::ROTATION_180_DEG) ==
+    static_assert(static_cast<int>(ROTATION_180) ==
                   static_cast<int>(DISPLAY_ORIENTATION_180),
                   "Orientation enums not matched!");
-    static_assert(static_cast<int>(nsIScreen::ROTATION_270_DEG) ==
+    static_assert(static_cast<int>(ROTATION_270) ==
                   static_cast<int>(DISPLAY_ORIENTATION_270),
                   "Orientation enums not matched!");
 #endif

@@ -18,6 +18,10 @@
 #include "mozilla/dom/Selection.h"
 #include "InputData.h"
 
+#ifdef KEY_DOWN
+#undef KEY_DOWN
+#endif
+
 namespace IPC {
 
 template <>
