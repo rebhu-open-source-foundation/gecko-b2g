@@ -229,7 +229,7 @@ nsWindow::NotifyHoverMove(const ScreenIntPoint& point)
   }
 }
 
-class DispatchTouchInputOnMainThread : public nsRunnable
+class DispatchTouchInputOnMainThread : public mozilla::Runnable
 {
 public:
   DispatchTouchInputOnMainThread(const MultiTouchInput& aInput,
