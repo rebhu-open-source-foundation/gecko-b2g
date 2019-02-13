@@ -10,7 +10,7 @@ with Files("**"):
 if CONFIG['MOZ_LINKER']:
     DIRS += ['linker']
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     DIRS += ['android']
 
 DIRS += [

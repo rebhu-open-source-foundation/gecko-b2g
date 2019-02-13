@@ -76,6 +76,7 @@ export ANDROID_NDK=$NDK_DIR
 export ANDROID_PLATFORM=android-23
 
 export LDFLAGS="-L$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
+-Wl,-v \
 -Wl,-rpath-link=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 --sysroot=$NDK_DIR/sysroot $GCC_LIB -ldl -lstdc++"
 

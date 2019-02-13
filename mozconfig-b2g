@@ -17,7 +17,9 @@ ac_add_options --with-ccache=sccache
 mk_add_options AUTOCLOBBER=1
 
 # sccache
-# ac_add_options --with-ccache=sccache
+ac_add_options --with-ccache=sccache
+
+ac_add_options --disable-replace-malloc
 
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
