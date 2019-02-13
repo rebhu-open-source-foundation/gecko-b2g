@@ -1048,7 +1048,7 @@ system_headers = [
     'zmouse.h',
 ]
 
-if CONFIG['OS_TARGET'] == 'Android':
+if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     system_headers += [
         'android/api-level.h',
         'android/ashmem.h',
