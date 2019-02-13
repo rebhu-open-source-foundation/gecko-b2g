@@ -29,9 +29,6 @@
 #include <SkCanvas.h>
 #include <SkColor.h>
 #include <SkPaint.h>
-#include <SkInstCnt.h>
-#include <SkModeColorFilter.h>
-#include <SkXfermode.h>
 
 namespace android {
 

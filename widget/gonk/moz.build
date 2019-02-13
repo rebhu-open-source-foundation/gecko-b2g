@@ -131,11 +131,14 @@ CXXFLAGS += [
 
 LOCAL_INCLUDES += [
     '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'external/skia/include/core',
-        'external/skia/include/effects',
         'frameworks/native/include',
         'hardware/libhardware/include',
         'hardware/libhardware_legacy/include',
         'system/core/include',
     ]
+]
+
+LOCAL_INCLUDES += [
+    '/gfx/skia/skia/include/config',
+    '/gfx/skia/skia/include/core',
 ]
