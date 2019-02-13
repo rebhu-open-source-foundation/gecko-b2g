@@ -13,7 +13,7 @@ Currently the setup is:
 - modify build-b2g.sh to point to an android NDK r17b & SDK
 - cd to directory `$NDK_DIR/sysroot/usr/lib` and run:
 ```bash
-for i in $NDK_DIR/platforms/android-23/arch-arm/usr/lib/*; do ln -s $i .; done
+for i in $NDK_DIR/platforms/android-23/arch-arm/usr/lib/*; do ln -snf $i .; done
 ```
 - edit `$NDK_DIR/sysroot/usr/include/bits/signal_types.h`
 - insert these lines in the line `69`:

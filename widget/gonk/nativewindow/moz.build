@@ -64,7 +64,7 @@ include('/ipc/chromium/chromium-config.mozbuild')
 
 if CONFIG['ANDROID_VERSION'] >= '18':
     LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['ANDROID_SOURCE'], d) for d in [
+        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
             'frameworks/native/include',
             'frameworks/native/opengl/include',
             'hardware/libhardware/include',

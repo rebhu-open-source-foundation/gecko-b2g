@@ -113,7 +113,7 @@ if CONFIG['MOZ_OMX_DECODER']:
 
 if CONFIG['ANDROID_VERSION'] > '15':
     LOCAL_INCLUDES += [
-        '%' + '%s/frameworks/native/opengl/include' % CONFIG['ANDROID_SOURCE'],
+        '%' + '%s/frameworks/native/opengl/include' % CONFIG['GONK_PATH'],
     ]
 
 CXXFLAGS += [
@@ -130,7 +130,9 @@ CXXFLAGS += [
 ]
 
 LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['ANDROID_SOURCE'], d) for d in [
+    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+        'external/skia/include/core',
+        'external/skia/include/effects',
         'frameworks/native/include',
         'hardware/libhardware/include',
         'hardware/libhardware_legacy/include',

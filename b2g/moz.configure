@@ -11,13 +11,10 @@ option('--with-gonk-gfx', nargs=0, help='Use the gonk widget layer')
 def gonkdir(value):
     return value[0]
 
-add_old_configure_assignment('gonkdir', gonkdir)
-# TODO: Fixme
-set_config('ANDROID_NDK__',
-           depends_if(gonkdir)(lambda x: os.path.join(x, 'ndk')))
+set_config('GONK_PATH', gonkdir)
+set_define('GONK_PATH', gonkdir)
 
-# TODO: Fixme
-set_define('ANDROID_VERSION', 23)
+add_old_configure_assignment('gonkdir', gonkdir)
 
 @depends_if('--with-gonk-gfx')
 def gonk_toolkit(_):
