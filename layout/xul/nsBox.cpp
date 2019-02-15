@@ -61,10 +61,12 @@ nsBox::nsBox(ComputedStyle* aStyle, nsPresContext* aPresContext, ClassID aID)
     : nsIFrame(aStyle, aPresContext, aID) {
   MOZ_COUNT_CTOR(nsBox);
   if (!gGotTheme) {
+#ifndef MOZ_WIDGET_GONK
     gTheme = do_GetNativeTheme();
     if (gTheme) {
       gGotTheme = true;
     }
+#endif
   }
 }
 
