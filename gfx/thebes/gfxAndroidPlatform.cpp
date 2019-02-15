@@ -30,7 +30,9 @@
 #include FT_FREETYPE_H
 #include FT_MODULE_H
 
+#ifdef MOZ_WIDGET_ANDROID
 #include "GeneratedJNINatives.h"
+#endif
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -284,6 +286,7 @@ bool gfxAndroidPlatform::RequiresLinearZoom() {
   return gfxPlatform::RequiresLinearZoom();
 }
 
+#ifdef MOZ_WIDGET_ANDROID
 class AndroidVsyncSource final : public VsyncSource {
  public:
   class JavaVsyncSupport final
@@ -364,15 +367,19 @@ class AndroidVsyncSource final : public VsyncSource {
   }
 };
 
+#endif
+
 already_AddRefed<mozilla::gfx::VsyncSource>
 gfxAndroidPlatform::CreateHardwareVsyncSource() {
   // Vsync was introduced since JB (API 16~18) but inaccurate. Enable only for
   // KK (API 19) and later.
+#ifdef MOZ_WIDGET_ANDROID
   if (AndroidBridge::Bridge() &&
       AndroidBridge::Bridge()->GetAPIVersion() >= 19) {
     RefPtr<AndroidVsyncSource> vsyncSource = new AndroidVsyncSource();
     return vsyncSource.forget();
   }
+#endif
 
   NS_WARNING("Vsync not supported. Falling back to software vsync");
   return gfxPlatform::CreateHardwareVsyncSource();
