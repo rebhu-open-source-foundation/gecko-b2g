@@ -1307,7 +1307,7 @@ nsAppShell::Observe(nsISupports* aSubject,
 NS_IMETHODIMP
 nsAppShell::Exit()
 {
-    OrientationObserver::ShutDown();
+    // OrientationObserver::ShutDown();
     nsCOMPtr<nsIObserverService> obsServ = GetObserverService();
     if (obsServ) {
         obsServ->RemoveObserver(this, "browser-ui-startup-complete");
@@ -1411,7 +1411,7 @@ nsAppShell::NotifyScreenInitialized()
     gAppShell->InitInputDevices();
 
     // Getting the instance of OrientationObserver to initialize it.
-    OrientationObserver::GetInstance();
+    // OrientationObserver::GetInstance();
 }
 
 /* static */ void
