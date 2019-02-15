@@ -20,7 +20,7 @@ using namespace Elf;
 
 /* Function used to report library mappings from the custom linker to Gecko
  * crash reporter */
-#ifdef ANDROID
+#if defined(ANDROID) && !defined(MOZ_WIDGET_GONK)
 extern "C" {
 void report_mapping(char* name, void* base, uint32_t len, uint32_t offset);
 void delete_mapping(const char* name);

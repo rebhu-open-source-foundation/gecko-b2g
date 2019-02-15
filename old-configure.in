@@ -2617,12 +2617,8 @@ dnl =
 dnl ========================================================
 MOZ_ARG_HEADER(Static build options)
 
-if test -z "$MOZ_SYSTEM_ZLIB"; then
-if test -n "$JS_SHARED_LIBRARY" -o -n "$MOZ_LINKER"; then
-  ZLIB_IN_MOZGLUE=1
-  AC_DEFINE(ZLIB_IN_MOZGLUE)
-fi
-fi
+ZLIB_IN_MOZGLUE=1
+AC_DEFINE(ZLIB_IN_MOZGLUE)
 
 AC_SUBST(ZLIB_IN_MOZGLUE)
 
