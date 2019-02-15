@@ -51,7 +51,7 @@
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
-// Tag used by SLOGI
+// Tag used by LOGE
 #define LOG_TAG "Gecko"
 
 using namespace mozilla;
@@ -850,16 +850,16 @@ nsScreenManagerGonk::Initialize()
     char propValue[PROPERTY_VALUE_MAX];
     property_get("ro.build.type", propValue, NULL);
     if (strcmp(propValue, "user") != 0) {
-        SLOGI("============ KaiOS device information ============");
+        LOGE("============ KaiOS device information ============");
 
         property_get("ro.build.kaios_uid", propValue, NULL);
-        SLOGI("Build UID         = %s", propValue);
+        LOGE("Build UID         = %s", propValue);
 
         property_get("ro.build.description", propValue, NULL);
-        SLOGI("Build Description = %s", propValue);
+        LOGE("Build Description = %s", propValue);
 
         property_get("ro.bootloader", propValue, NULL);
-        SLOGI("Bootloader        = %s", propValue);
+        LOGE("Bootloader        = %s", propValue);
 
         nsCString osVersion = NS_LITERAL_CSTRING(MOZ_B2G_OS_NAME " "
                                                  MOZ_B2G_VERSION);
@@ -867,9 +867,9 @@ nsScreenManagerGonk::Initialize()
         if (!releaseTag.IsEmpty()) {
             osVersion += NS_LITERAL_CSTRING(" {" KAI_RELEASE_TAG "}");
         }
-        SLOGI("OS Version        = %s", osVersion.get());
+        LOGE("OS Version        = %s", osVersion.get());
 
-        SLOGI("==================================================");
+        LOGE("==================================================");
     }
     mScreenOnEvent = new ScreenOnOffEvent(true);
     mScreenOffEvent = new ScreenOnOffEvent(false);
