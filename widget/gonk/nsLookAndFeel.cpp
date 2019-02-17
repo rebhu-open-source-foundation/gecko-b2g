@@ -434,8 +434,7 @@ nsLookAndFeel::GetFloatImpl(FloatID aID, float &aResult)
 /*virtual*/
 bool
 nsLookAndFeel::GetFontImpl(FontID aID, nsString& aFontName,
-                           gfxFontStyle& aFontStyle,
-                           float aDevPixPerCSSPixel)
+                           gfxFontStyle& aFontStyle)
 {
     aFontName.AssignLiteral("\"Fira Sans\"");
     aFontStyle.style = mozilla::FontSlantStyle::Normal();
