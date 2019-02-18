@@ -3,7 +3,7 @@
 set -e
 
 export MOZCONFIG=mozconfig-b2g
-export GONK_PATH=$HOME/work/B2G
+export GONK_PATH=$HOME/projects/B2G
 export GONK_PRODUCT_NAME=generic
 
 # Check that the GONK_PATH environment variable is set.
@@ -26,7 +26,7 @@ fi
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-export NDK_DIR=/home/walac/work/android-ndk-r17b
+export NDK_DIR=/home/gsvelto/.mozbuild/android-ndk-r17b
 
 export PATH=$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
 
