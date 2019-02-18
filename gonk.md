@@ -3,11 +3,12 @@
 This is an experiment to see what it takes to build current Gecko on Gonk (M base).
 
 Currently the setup is:
-- get an Android M clone of B2G
+- get an Android M clone of B2G and build it:
   `git clone --branch emulator-m https://github.com/gabrielesvelto/B2G`
   `git clone --branch emulator-m https://github.com/gabrielesvelto/b2g-manifest`
   `cd B2G`
   `env REPO_INIT_FLAGS="--depth=1" REPO_SYNC_FLAGS="-j16 --force-sync" GITREPO=../b2g-manifest BRANCH=emulator-m ./config.sh emulator-m`
+  `./build.sh`
 
 - modify mozconfig-b2g to point to an android NDK r17b & SDK
 - modify build-b2g.sh to point to an android NDK r17b & SDK
@@ -22,5 +23,12 @@ for i in $NDK_DIR/platforms/android-23/arch-arm/usr/lib/*; do ln -snf $i .; done
 #undef sa_sigaction
 ```
 - run `./build-b2g.sh`
+
+Package the build in the emulator:
+- create a tarball with `./build-b2g.sh package`
+- unpack the resulting tarball in the B2G folder `tar -x -v -f obj-arm-unknown-linux-androideabi/dist/b2g-*.tar.gz -C ../B2G/out/target/product/generic/system/`
+- go into the B2G folder
+- rebuild the emulator with `./build.sh`
+- run the emulator with `./run-emulator.sh`
 
 Note that Gecko now builds with clang > 3.8 instead of gcc. It's unclear if it's mandatory for now but it's likely that gcc builds will break sooner or later.
