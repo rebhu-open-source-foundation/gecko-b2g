@@ -835,11 +835,6 @@ nsScreenManagerGonk::GetIdFromType(GonkDisplay::DisplayType aDisplayType)
     return aDisplayType;
 }
 
-// TODO: FIXME
-#define MOZ_B2G_OS_NAME "B2GOS"
-#define MOZ_B2G_VERSION "1.0"
-#define KAI_RELEASE_TAG "gonk-m"
-
 void
 nsScreenManagerGonk::Initialize()
 {
@@ -863,10 +858,6 @@ nsScreenManagerGonk::Initialize()
 
         nsCString osVersion = NS_LITERAL_CSTRING(MOZ_B2G_OS_NAME " "
                                                  MOZ_B2G_VERSION);
-        nsCString releaseTag = NS_LITERAL_CSTRING(KAI_RELEASE_TAG);
-        if (!releaseTag.IsEmpty()) {
-            osVersion += NS_LITERAL_CSTRING(" {" KAI_RELEASE_TAG "}");
-        }
         LOGE("OS Version        = %s", osVersion.get());
 
         LOGE("==================================================");
