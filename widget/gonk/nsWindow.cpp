@@ -684,7 +684,7 @@ nsWindow::EnsureGLCursorImageManager()
 static void
 StopRenderWithHwc(bool aStop)
 {
-  MOZ_ASSERT(CompositorBridgeParent::IsInCompositorThread());
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   // TODO: FIXME: HwcComposer2D::GetInstance()->StopRenderWithHwc(aStop);
 }
 

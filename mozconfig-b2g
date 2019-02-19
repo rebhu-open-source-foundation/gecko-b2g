@@ -2,9 +2,15 @@
 ac_add_options --enable-application=b2g
 ac_add_options --target=arm-linux-androideabi
 
-# Disable crash reporting, WebRTC
+# Disable a bunch of non critical stuff
 ac_add_options --disable-crashreporter
 ac_add_options --disable-webrtc
+ac_add_options --disable-replace-malloc
+ac_add_options --disable-av1
+ac_add_options --disable-accessibility
+
+# Enable debugging
+ac_add_options --enable-debug
 
 # With the following Android SDK and NDK:
 ac_add_options --with-android-ndk="$HOME/.mozbuild/android-ndk-r17b"
@@ -18,10 +24,6 @@ mk_add_options AUTOCLOBBER=1
 
 # sccache
 ac_add_options --with-ccache=sccache
-
-ac_add_options --disable-replace-malloc
-ac_add_options --disable-av1
-ac_add_options --disable-accessibility
 
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
