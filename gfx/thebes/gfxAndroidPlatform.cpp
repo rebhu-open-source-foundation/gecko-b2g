@@ -255,7 +255,7 @@ bool gfxAndroidPlatform::FontHintingEnabled() {
   // In "mobile" builds, we sometimes use non-reflow-zoom, so we
   // might not want hinting.  Let's see.
 
-#ifdef MOZ_WIDGET_ANDROID
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   // On Android, we currently only use gecko to render web
   // content that can always be be non-reflow-zoomed.  So turn off
   // hinting.
