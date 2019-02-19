@@ -856,8 +856,8 @@ nsScreenManagerGonk::Initialize()
         property_get("ro.bootloader", propValue, NULL);
         LOGE("Bootloader        = %s", propValue);
 
-        nsCString osVersion = NS_LITERAL_CSTRING(MOZ_B2G_OS_NAME " "
-                                                 MOZ_B2G_VERSION);
+        nsCString osVersion = NS_LITERAL_CSTRING(
+          NS_STRINGIFY(MOZ_B2G_OS_NAME) " " NS_STRINGIFY(MOZ_B2G_VERSION));
         LOGE("OS Version        = %s", osVersion.get());
 
         LOGE("==================================================");

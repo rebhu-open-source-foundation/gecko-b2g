@@ -17,9 +17,6 @@ MOZ_GRAPHENE=1
 MOZ_APP_VERSION=$FIREFOX_VERSION
 MOZ_APP_UA_NAME=Firefox
 
-MOZ_B2G_VERSION=2.6.0.0-prerelease
-MOZ_B2G_OS_NAME=Boot2Gecko
-
 MOZ_BRANDING_DIRECTORY=b2g/branding/unofficial
 MOZ_OFFICIAL_BRANDING_DIRECTORY=b2g/branding/official
 # MOZ_APP_DISPLAYNAME is set by branding/configure.sh

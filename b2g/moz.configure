@@ -4,6 +4,36 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+option('--with-b2g-version',
+       nargs=1,
+       help='B2G version number',
+       default='3.0')
+
+
+@depends('--with-b2g-version')
+def b2g_version(value):
+    return value[0]
+
+
+set_config('MOZ_B2G_VERSION', b2g_version)
+set_define('MOZ_B2G_VERSION', b2g_version)
+
+
+option('--with-b2g-os-name',
+       nargs=1,
+       help='B2G OS name',
+       default='B2GOS')
+
+
+@depends('--with-b2g-os-name')
+def b2g_os_name(value):
+    return value[0]
+
+
+set_config('MOZ_B2G_OS_NAME', b2g_os_name)
+set_define('MOZ_B2G_OS_NAME', b2g_os_name)
+
+
 option('--with-gonk', nargs=1, help='Path to the gonk base directory')
 option('--with-gonk-gfx', nargs=0, help='Use the gonk widget layer')
 
