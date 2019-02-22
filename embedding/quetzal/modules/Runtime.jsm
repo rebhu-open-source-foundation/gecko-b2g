@@ -18,45 +18,46 @@ this.Runtime = {
             "extrachrome",
             "resizable",
             "scrollbars",
-            "width=240",
-            "height=320",
+            "width=480",
+            "height=640",
             "titlebar=no",
         ];
 
         this._maybeEnableBrowserElementForURI(uri);
-        let window = Services.ww.openWindow(null, uri.spec, "_blank", features.join(","), null);
 
-        window.addEventListener("mozContentEvent", function(event) {
-            switch (event.detail.type) {
-                case "shutdown-application":
-                    Services.startup.quit(Services.startup.eAttemptQuit);
-                    break;
-                case "minimize-native-window":
-                    window.minimize();
-                    break;
-                case "toggle-fullscreen-native-window":
-                    window.fullScreen = !window.fullScreen;
-                    break;
-                    // Warn if we receive an event that isn't supported.  This handles
-                    // both named events that Browser.html is known to generate and others
-                    // that we don't know about.
-                case "restart":
-                case "clear-cache-and-restart":
-                case "clear-cache-and-reload":
-                default:
-                    console.warn(event.detail.type + " event not supported");
-                    break;
-            }
-        }, false, true);
+        let window = Services.ww.openWindow(null, "chrome://quetzal/content/shell.html", "_blank", features.join(","), null);
+
+        // window.addEventListener("mozContentEvent", function(event) {
+        //     switch (event.detail.type) {
+        //         case "shutdown-application":
+        //             Services.startup.quit(Services.startup.eAttemptQuit);
+        //             break;
+        //         case "minimize-native-window":
+        //             window.minimize();
+        //             break;
+        //         case "toggle-fullscreen-native-window":
+        //             window.fullScreen = !window.fullScreen;
+        //             break;
+        //             // Warn if we receive an event that isn't supported.  This handles
+        //             // both named events that Browser.html is known to generate and others
+        //             // that we don't know about.
+        //         case "restart":
+        //         case "clear-cache-and-restart":
+        //         case "clear-cache-and-reload":
+        //         default:
+        //             console.warn(event.detail.type + " event not supported");
+        //             break;
+        //     }
+        // }, false, true);
     },
 
     _maybeEnableBrowserElementForURI: function(uri) {
         if (uri.scheme !== 'https' && uri.scheme !== 'file' && !uri.spec.startsWith("http://localhost")) {
-            console.warn(`not enabling mozbrowser for non-https/file URL ${uri.spec}`);
+            console.warn(`not enabling mozbrowser for non-secure contexts`);
             return;
         }
 
-        console.log(`enabling mozbrowser for https/file URL ${uri.spec}`);
+        console.log(`enabling mozbrowser for ${uri.spec}`);
         Services.perms.add(uri, "browser", Services.perms.ALLOW_ACTION);
 
         // TODO: remove permission once BrowserWindow is closed?

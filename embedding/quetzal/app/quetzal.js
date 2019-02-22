@@ -10,4 +10,5 @@ pref("devtools.debugger.remote-enabled", true);
 pref("devtools.chrome.enabled", true);
 pref("devtools.debugger.prompt-connection", false);
 pref("dom.w3c_touch_events.enabled", 1);
+pref("dom.w3c_pointer_events.enabled", true);
 pref("devtools.console.stdout.content", true);
