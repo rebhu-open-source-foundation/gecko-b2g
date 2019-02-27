@@ -6201,6 +6201,20 @@ if test x"$MOZ_WIDGET_TOOLKIT" = x"gonk"; then
 fi
 
 dnl ========================================================
+dnl Enable Support for Vendor-gecko-component
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(vendor-gecko-component,
+[  --enable-vendor-gecko-component   Enable vendor-gecko-component],
+VENDER_GECKO_COMPONENT=1,
+VENDER_GECKO_COMPONENT= )
+if test x"$MOZ_WIDGET_TOOLKIT" = x"gonk"; then
+    if test -n "$VENDER_GECKO_COMPONENT"; then
+        AC_DEFINE(VENDER_GECKO_COMPONENT)
+    fi
+    AC_SUBST(VENDER_GECKO_COMPONENT)
+fi
+
+dnl ========================================================
 dnl = Enable Browser Support for Activities
 dnl ========================================================
 if test -n "$MOZ_ACTIVITIES"; then

@@ -118,6 +118,11 @@ DIRS += [
     'usb',
 ]
 
+if CONFIG['VENDER_GECKO_COMPONENT']:
+    DIRS += [
+        'vendor',
+    ]
+
 if CONFIG['OS_ARCH'] == 'WINNT':
     DIRS += ['plugins/ipc/hangui']
 
