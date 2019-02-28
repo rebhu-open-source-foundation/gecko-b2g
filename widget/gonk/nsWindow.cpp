@@ -34,11 +34,11 @@
 #include "GLCursorImageManager.h"
 #include "nsLayoutUtils.h"
 #include "nsAppShell.h"
-#include "nsScreenManagerGonk.h"
 #include "nsTArray.h"
 #include "nsIWidgetListener.h"
 #include "ClientLayerManager.h"
 #include "BasicLayers.h"
+#include "ScreenHelperGonk.h"
 #include "libdisplay/GonkDisplay.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/gfx/2D.h"
@@ -79,10 +79,6 @@ NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 nsWindow::nsWindow()
  // : mGLCursorImageManager(nullptr)
 {
-  RefPtr<nsScreenManagerGonk> screenManager =
-    nsScreenManagerGonk::GetInstance();
-  screenManager->Initialize();
-
   // This is a hack to force initialization of the compositor
   // resources, if we're going to use omtc.
   //
@@ -120,23 +116,23 @@ nsWindow::DoDraw(void)
   gDrawRequest = true;
 #endif
 
+// TODO: FIXME
+#if 0
   uint32_t screenNums = 1;
-  RefPtr<nsScreenManagerGonk> screenManager =
-    nsScreenManagerGonk::GetInstance();
+#endif
+  ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
+// TODO: FIXME
 #if 0
   screenManager->GetNumberOfScreens(&screenNums);
-#endif
 
   while (screenNums--) {
-    RefPtr<nsScreenGonk> screen = screenManager->GetPrimaryScreen();
-    //screenManager->ScreenForId(screenNums, getter_AddRefs(screen));
+    RefPtr<nsIScreen> screen = screenHelper->ScreenForId(screenNums);
     MOZ_ASSERT(screen);
     if (!screen) {
       continue;
     }
 
-    const nsTArray<nsWindow*>& windows =
-      static_cast<nsScreenGonk*>(screen.get())->GetTopWindows();
+    const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
     if (windows.IsEmpty()) {
       continue;
     }
@@ -148,7 +144,10 @@ nsWindow::DoDraw(void)
         screenNums == 0 && GetGonkDisplay()->IsExtFBDeviceEnabled()) {
       screenManager->AddScreen(GonkDisplay::DISPLAY_EXTERNAL);
     }
+#endif
 
+    RefPtr<nsScreenGonk> screen = screenHelper->GetPrimaryScreen();
+    const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
     RefPtr<nsWindow> targetWindow = (nsWindow*)windows[0];
     while (targetWindow->GetLastChild()) {
       targetWindow = (nsWindow*)targetWindow->GetLastChild();
@@ -170,7 +169,9 @@ nsWindow::DoDraw(void)
       }
       listener->DidPaintWindow();
     }
+#if 0
   }
+#endif
 }
 
 void
@@ -452,17 +453,12 @@ nsWindow::Create(nsIWidget* aParent,
 {
   BaseCreate(aParent, aInitData);
 
-  nsCOMPtr<nsIScreen> screen;
-
   //uint32_t screenId =
   //  aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
 
-  RefPtr<nsScreenManagerGonk> screenManager =
-    nsScreenManagerGonk::GetInstance();
+  ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
   //screenManager->ScreenForId(screenId, getter_AddRefs(screen));
-  screen = screenManager->GetPrimaryScreen();
-
-  mScreen = static_cast<nsScreenGonk*>(screen.get());
+  mScreen = screenHelper->GetPrimaryScreen();
 
   mBounds = aRect;
 

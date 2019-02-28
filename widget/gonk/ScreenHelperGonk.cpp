@@ -22,7 +22,7 @@
 #include "mozilla/Hal.h"
 #include "libdisplay/BootAnimation.h"
 #include "libdisplay/GonkDisplay.h"
-#include "nsScreenManagerGonk.h"
+#include "ScreenHelperGonk.h"
 #include "nsThreadUtils.h"
 // TODO: FIXME: #include "HwcComposer2D.h"
 #include "VsyncSource.h"
@@ -31,11 +31,13 @@
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "mozilla/Services.h"
 #include "mozilla/ProcessPriorityManager.h"
+#include "mozilla/widget/ScreenManager.h"
 #include "nsIdleService.h"
 #include "nsIObserverService.h"
 #include "nsAppShell.h"
 #include "nsProxyRelease.h"
 #include "nsTArray.h"
+#include "nsWindow.h"
 //#include "pixelflinger/format.h"
 #include "nsIDisplayInfo.h"
 #include "libui/cutils_log.h"
@@ -60,8 +62,7 @@ using namespace mozilla::gfx;
 using namespace mozilla::gl;
 using namespace mozilla::layers;
 using namespace mozilla::dom;
-
-namespace {
+using namespace mozilla::widget;
 
 class ScreenOnOffEvent : public mozilla::Runnable {
 public:
@@ -80,7 +81,7 @@ public:
           );
         }
 
-        RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
+        RefPtr<nsScreenGonk> screen = ScreenHelperGonk::GetPrimaryScreen();
         const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
 
         for (uint32_t i = 0; i < windows.Length(); i++) {
@@ -101,11 +102,9 @@ private:
 static void
 displayEnabledCallback(bool enabled)
 {
-    RefPtr<nsScreenManagerGonk> screenManager = nsScreenManagerGonk::GetInstance();
-    screenManager->DisplayEnabled(enabled);
+    ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
+    screenHelper->DisplayEnabled(enabled);
 }
-
-} // namespace
 
 static uint32_t
 SurfaceFormatToColorDepth(int32_t aSurfaceFormat)
@@ -680,7 +679,7 @@ nsScreenGonk::EnableMirroring()
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(!IsPrimaryScreen());
 
-    RefPtr<nsScreenGonk> primaryScreen = nsScreenManagerGonk::GetPrimaryScreen();
+    RefPtr<nsScreenGonk> primaryScreen = ScreenHelperGonk::GetPrimaryScreen();
     NS_ENSURE_TRUE(primaryScreen, false);
 
     bool ret = primaryScreen->SetMirroringScreen(this);
@@ -712,7 +711,7 @@ nsScreenGonk::DisableMirroring()
     MOZ_ASSERT(!IsPrimaryScreen());
 
     mIsMirroring = false;
-    RefPtr<nsScreenGonk> primaryScreen = nsScreenManagerGonk::GetPrimaryScreen();
+    RefPtr<nsScreenGonk> primaryScreen = ScreenHelperGonk::GetPrimaryScreen();
     NS_ENSURE_TRUE(primaryScreen, false);
 
     bool ret = primaryScreen->ClearMirroringScreen(this);
@@ -776,230 +775,6 @@ nsScreenGonk::GetMirroringWidget()
     return mMirroringWidget;
 }
 
-NS_IMPL_ISUPPORTS(nsScreenManagerGonk, nsIScreenManager)
-
-nsScreenManagerGonk::nsScreenManagerGonk()
-    : mInitialized(false)
-#if ANDROID_VERSION >= 19
-    , mDisplayEnabled(true /* TODO: FIXME: hal::GetScreenEnabled() */ )
-#endif
-{
-}
-
-nsScreenManagerGonk::~nsScreenManagerGonk()
-{
-}
-
-static StaticRefPtr<nsScreenManagerGonk> sScreenManagerGonk;
-
-/* static */ already_AddRefed<nsScreenManagerGonk>
-nsScreenManagerGonk::GetInstance()
-{
-    MOZ_ASSERT(NS_IsMainThread());
-
-    // Avoid creating nsScreenManagerGonk from content process.
-    if (!XRE_IsParentProcess()) {
-        MOZ_CRASH("Non-chrome processes should not get here.");
-    }
-
-    // Avoid creating multiple nsScreenManagerGonk instance inside main process.
-    if (!sScreenManagerGonk) {
-      sScreenManagerGonk = new nsScreenManagerGonk();
-      ClearOnShutdown(&sScreenManagerGonk);
-    }
-
-    RefPtr<nsScreenManagerGonk> screenMgr = sScreenManagerGonk.get();
-    return screenMgr.forget();
-}
-
-/* static */ already_AddRefed< nsScreenGonk>
-nsScreenManagerGonk::GetPrimaryScreen()
-{
-    MOZ_ASSERT(NS_IsMainThread());
-
-    RefPtr<nsScreenManagerGonk> manager = nsScreenManagerGonk::GetInstance();
-    nsCOMPtr<nsIScreen> screen;
-    manager->GetPrimaryScreen(getter_AddRefs(screen));
-    MOZ_ASSERT(screen);
-    return already_AddRefed<nsScreenGonk>(
-        static_cast<nsScreenGonk*>(screen.forget().take()));
-}
-
-/* static */ uint32_t
-nsScreenManagerGonk::GetIdFromType(GonkDisplay::DisplayType aDisplayType)
-{
-    // This is the only place where we make the assumption that
-    // display type is equivalent to screen id.
-
-    // Bug 1138287 will address the conversion from type to id.
-    return aDisplayType;
-}
-
-void
-nsScreenManagerGonk::Initialize()
-{
-    if (mInitialized) {
-        return;
-    }
-
-    char propValue[PROPERTY_VALUE_MAX];
-    property_get("ro.build.type", propValue, NULL);
-    if (strcmp(propValue, "user") != 0) {
-        LOGE("============ KaiOS device information ============");
-
-        property_get("ro.build.kaios_uid", propValue, NULL);
-        LOGE("Build UID         = %s", propValue);
-
-        property_get("ro.build.description", propValue, NULL);
-        LOGE("Build Description = %s", propValue);
-
-        property_get("ro.bootloader", propValue, NULL);
-        LOGE("Bootloader        = %s", propValue);
-
-        nsCString osVersion = NS_LITERAL_CSTRING(
-          NS_STRINGIFY(MOZ_B2G_OS_NAME) " " NS_STRINGIFY(MOZ_B2G_VERSION));
-        LOGE("OS Version        = %s", osVersion.get());
-
-        LOGE("==================================================");
-    }
-    mScreenOnEvent = new ScreenOnOffEvent(true);
-    mScreenOffEvent = new ScreenOnOffEvent(false);
-    GetGonkDisplay()->OnEnabled(displayEnabledCallback);
-
-    AddScreen(GonkDisplay::DISPLAY_PRIMARY);
-
-    nsAppShell::NotifyScreenInitialized();
-    mInitialized = true;
-}
-
-void
-nsScreenManagerGonk::DisplayEnabled(bool aEnabled)
-{
-    MOZ_ASSERT(NS_IsMainThread());
-
-#if ANDROID_VERSION >= 19
-    /* Bug 1244044
-     * This function could be called before |mCompositorVsyncScheduler| is set.
-     * To avoid this issue, keep the value stored in |mDisplayEnabled|.
-     */
-    mDisplayEnabled = aEnabled;
-// TODO: FIXME
-#if 0
-    if (mCompositorVsyncScheduler) {
-        mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
-    }
-#endif
-#endif
-
-    VsyncControl(aEnabled);
-    NS_DispatchToMainThread(aEnabled ? mScreenOnEvent : mScreenOffEvent);
-}
-
-NS_IMETHODIMP
-nsScreenManagerGonk::GetPrimaryScreen(nsIScreen **outScreen)
-{
-    NS_IF_ADDREF(*outScreen = mScreens[0].get());
-    return NS_OK;
-}
-
-// TODO: FIXME
-#if 0
-NS_IMETHODIMP
-nsScreenManagerGonk::ScreenForId(uint32_t aId,
-                                 nsIScreen **outScreen)
-{
-    for (size_t i = 0; i < mScreens.Length(); i++) {
-        if (mScreens[i]->GetId() == aId) {
-            NS_IF_ADDREF(*outScreen = mScreens[i].get());
-            return NS_OK;
-        }
-    }
-
-    *outScreen = nullptr;
-    return NS_OK;
-}
-#endif
-
-NS_IMETHODIMP
-nsScreenManagerGonk::ScreenForRect(int32_t inLeft,
-                                   int32_t inTop,
-                                   int32_t inWidth,
-                                   int32_t inHeight,
-                                   nsIScreen **outScreen)
-{
-    // Since all screens have independent coordinate system, we could
-    // only return the primary screen no matter what rect is given.
-    return GetPrimaryScreen(outScreen);
-}
-
-// TODO: FIXME
-#if 0
-NS_IMETHODIMP
-nsScreenManagerGonk::ScreenForNativeWidget(void *aWidget, nsIScreen **outScreen)
-{
-    for (size_t i = 0; i < mScreens.Length(); i++) {
-        if (aWidget == mScreens[i]->GetNativeWindow()) {
-            NS_IF_ADDREF(*outScreen = mScreens[i].get());
-            return NS_OK;
-        }
-    }
-
-    *outScreen = nullptr;
-    return NS_OK;
-}
-
-NS_IMETHODIMP
-nsScreenManagerGonk::GetNumberOfScreens(uint32_t *aNumberOfScreens)
-{
-    *aNumberOfScreens = mScreens.Length();
-    return NS_OK;
-}
-
-NS_IMETHODIMP
-nsScreenManagerGonk::GetSystemDefaultScale(float *aDefaultScale)
-{
-    *aDefaultScale = 1.0f;
-    return NS_OK;
-}
-#endif
-
-void
-nsScreenManagerGonk::VsyncControl(bool aEnabled)
-{
-    if (!NS_IsMainThread()) {
-        NS_DispatchToMainThread(
-            NewRunnableMethod<bool>("sScreenManagerGonk::VsyncControl", this,
-                                               &nsScreenManagerGonk::VsyncControl,
-                                               aEnabled));
-        return;
-    }
-
-    MOZ_ASSERT(NS_IsMainThread());
-// TODO: FIXME
-#if 0
-    VsyncSource::Display &display = gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
-    if (aEnabled) {
-        display.EnableVsync();
-    } else {
-        display.DisableVsync();
-    }
-#endif
-}
-
-bool
-nsScreenManagerGonk::IsScreenConnected(uint32_t aId)
-{
-    for (size_t i = 0; i < mScreens.Length(); ++i) {
-        if (mScreens[i]->GetId() == aId) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-namespace {
-
 // A concrete class as a subject for 'display-changed' observer event.
 class DisplayInfo : public nsIDisplayInfo {
 public:
@@ -1059,102 +834,181 @@ NotifyDisplayChange(uint32_t aId, bool aConnected)
     NS_DispatchToMainThread(new NotifyTask(aId, aConnected));
 }
 
-} // end of unnamed namespace.
+namespace mozilla {
+namespace widget {
 
-nsresult
-nsScreenManagerGonk::AddScreen(GonkDisplay::DisplayType aDisplayType,
-                               android::IGraphicBufferProducer* aSink,
-                               NotifyDisplayChangedEvent aEventVisibility)
+static ScreenHelperGonk* gHelper = nullptr;
+
+ScreenHelperGonk::ScreenHelperGonk()
+    : mInitialized(false)
+#if ANDROID_VERSION >= 19
+    , mDisplayEnabled(true /* TODO: FIXME: hal::GetScreenEnabled() */ )
+#endif
 {
-    MOZ_ASSERT(NS_IsMainThread());
+  char propValue[PROPERTY_VALUE_MAX];
+  property_get("ro.build.type", propValue, NULL);
+  if (strcmp(propValue, "user") != 0) {
+    LOGE("============ KaiOS device information ============");
 
-    NS_ENSURE_TRUE(aDisplayType < GonkDisplay::DisplayType::NUM_DISPLAY_TYPES,
-                   NS_ERROR_FAILURE);
+    property_get("ro.build.kaios_uid", propValue, NULL);
+    LOGE("Build UID         = %s", propValue);
 
-    uint32_t id = GetIdFromType(aDisplayType);
-    NS_ENSURE_TRUE(!IsScreenConnected(id), NS_ERROR_FAILURE);
+    property_get("ro.build.description", propValue, NULL);
+    LOGE("Build Description = %s", propValue);
 
-    GonkDisplay::NativeData nativeData =
-        GetGonkDisplay()->GetNativeData(aDisplayType, aSink);
-    nsScreenGonk* screen = new nsScreenGonk(id,
-                                            aDisplayType,
-                                            nativeData,
-                                            aEventVisibility);
-    mScreens.AppendElement(screen);
+    property_get("ro.bootloader", propValue, NULL);
+    LOGE("Bootloader        = %s", propValue);
 
-    if (aEventVisibility == NotifyDisplayChangedEvent::Observable) {
-        NotifyDisplayChange(id, true);
-    }
+    nsCString osVersion = NS_LITERAL_CSTRING(
+      NS_STRINGIFY(MOZ_B2G_OS_NAME) " " NS_STRINGIFY(MOZ_B2G_VERSION));
+    LOGE("OS Version        = %s", osVersion.get());
 
-// TODO: FIXME
-#if 0
-    // By default, non primary screen does mirroring.
-    if (aDisplayType != GonkDisplay::DISPLAY_PRIMARY &&
-        gfxPrefs::ScreenMirroringEnabled()) {
-        screen->EnableMirroring();
-    }
-#endif
+    LOGE("==================================================");
+  }
+  mScreenOnEvent = new ScreenOnOffEvent(true);
+  mScreenOffEvent = new ScreenOnOffEvent(false);
+  GetGonkDisplay()->OnEnabled(displayEnabledCallback);
 
-// TODO: FIXME
-#if 0
-    VsyncSource::VsyncType vsyncType = (screen->IsVsyncSupported()) ?
-      VsyncSource::VsyncType::HARDWARE_VYSNC :
-      VsyncSource::VsyncType::SORTWARE_VSYNC;
+  nsAppShell::NotifyScreenInitialized();
+  mInitialized = true;
 
-    gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(id, vsyncType);
-#endif
+  // Generic
+  MOZ_ASSERT(!gHelper);
+  gHelper = this;
 
-    return NS_OK;
+  Refresh();
 }
 
-nsresult
-nsScreenManagerGonk::RemoveScreen(GonkDisplay::DisplayType aDisplayType)
-{
-    MOZ_ASSERT(NS_IsMainThread());
+ScreenHelperGonk::~ScreenHelperGonk() { gHelper = nullptr; }
 
-    NS_ENSURE_TRUE(aDisplayType < GonkDisplay::DisplayType::NUM_DISPLAY_TYPES,
-                   NS_ERROR_FAILURE);
+/* static */ ScreenHelperGonk* ScreenHelperGonk::GetSingleton() {
+  return gHelper;
+}
 
-    NotifyDisplayChangedEvent eventVisibility = NotifyDisplayChangedEvent::Observable;
-    uint32_t screenId = GetIdFromType(aDisplayType);
-    NS_ENSURE_TRUE(IsScreenConnected(screenId), NS_ERROR_FAILURE);
+already_AddRefed<Screen> ScreenHelperGonk::MakePrimaryScreen() {
+  MOZ_ASSERT(XRE_IsParentProcess());
 
-    for (size_t i = 0; i < mScreens.Length(); i++) {
-        if (mScreens[i]->GetId() == screenId) {
-            if (mScreens[i]->IsMirroring()) {
-                mScreens[i]->DisableMirroring();
-            }
-            eventVisibility = mScreens[i]->GetEventVisibility();
-            mScreens.RemoveElementAt(i);
-            break;
-        }
-    }
+  // From nsScreenManagerGonk
+  mozilla::GonkDisplay::DisplayType displayType = GonkDisplay::DISPLAY_PRIMARY;
+  uint32_t id = GetIdFromType(displayType);
+  NS_ENSURE_TRUE(!IsScreenConnected(id), nullptr);
 
-    if (eventVisibility == NotifyDisplayChangedEvent::Observable) {
-      NotifyDisplayChange(screenId, false);
-    }
+  GonkDisplay::NativeData nativeData =
+      GetGonkDisplay()->GetNativeData(displayType, nullptr);
+  mPrimaryScreen = new nsScreenGonk(id,
+                                    displayType,
+                                    nativeData,
+                                    NotifyDisplayChangedEvent::Observable);
+
+  // FIXME: if (aEventVisibility == NotifyDisplayChangedEvent::Observable) {
+      NotifyDisplayChange(id, true);
+  // }
 
 // TODO: FIXME
 #if 0
-    gfxPlatform::GetPlatform()->GetHardwareVsync()->RemoveDisplay(screenId);
+  // By default, non primary screen does mirroring.
+  if (aDisplayType != GonkDisplay::DISPLAY_PRIMARY &&
+      gfxPrefs::ScreenMirroringEnabled()) {
+      screen->EnableMirroring();
+  }
+
+  VsyncSource::VsyncType vsyncType = (screen->IsVsyncSupported()) ?
+    VsyncSource::VsyncType::HARDWARE_VYSNC :
+    VsyncSource::VsyncType::SORTWARE_VSYNC;
+
+  gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(id, vsyncType);
 #endif
 
-    return NS_OK;
+  LayoutDeviceIntRect bounds = mPrimaryScreen->GetNaturalBounds();
+  int32_t depth;
+  mPrimaryScreen->GetColorDepth(&depth);
+  float density = 160.0f; // FIXME: This is the default density
+  float dpi = mPrimaryScreen->GetDpi();
+  RefPtr<Screen> screen = new Screen(bounds, bounds, depth, depth,
+                                     DesktopToLayoutDeviceScale(density),
+                                     CSSToLayoutDeviceScale(1.0f), dpi);
+  return screen.forget();
 }
+
+void ScreenHelperGonk::Refresh() {
+  mScreens.Remove(0);
+
+  AutoTArray<RefPtr<Screen>, 1> screenList;
+  RefPtr<Screen> screen = MakePrimaryScreen();
+  if (screen) {
+    mScreens.Put(0, screen);
+  }
+
+  for (auto iter = mScreens.ConstIter(); !iter.Done(); iter.Next()) {
+    screenList.AppendElement(iter.Data());
+  }
+
+  ScreenManager& manager = ScreenManager::GetSingleton();
+  manager.Refresh(std::move(screenList));
+}
+
+void ScreenHelperGonk::AddScreen(uint32_t aScreenId,
+                                 DisplayType aDisplayType,
+                                 LayoutDeviceIntRect aRect, float aDensity) {
+  MOZ_ASSERT(aScreenId > 0);
+  MOZ_ASSERT(!mScreens.Get(aScreenId, nullptr));
+
+  RefPtr<Screen> screen =
+      new Screen(aRect, aRect, 24, 24, DesktopToLayoutDeviceScale(aDensity),
+                 CSSToLayoutDeviceScale(1.0f), 160.0f);
+
+  mScreens.Put(aScreenId, screen);
+  Refresh();
+}
+
+void ScreenHelperGonk::RemoveScreen(uint32_t aScreenId) {
+  mScreens.Remove(aScreenId);
+  Refresh();
+}
+
+/* static */ uint32_t
+ScreenHelperGonk::GetIdFromType(GonkDisplay::DisplayType aDisplayType)
+{
+    // This is the only place where we make the assumption that
+    // display type is equivalent to screen id.
+
+    // Bug 1138287 will address the conversion from type to id.
+    return aDisplayType;
+}
+
+already_AddRefed<Screen> ScreenHelperGonk::ScreenForId(uint32_t aScreenId) {
+  RefPtr<Screen> screen = mScreens.Get(aScreenId);
+  return screen.forget();
+}
+
+void
+ScreenHelperGonk::DisplayEnabled(bool aEnabled)
+{
+    MOZ_ASSERT(NS_IsMainThread());
 
 #if ANDROID_VERSION >= 19
-void
-nsScreenManagerGonk::SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncScheduler *aObserver)
-{
+    /* Bug 1244044
+     * This function could be called before |mCompositorVsyncScheduler| is set.
+     * To avoid this issue, keep the value stored in |mDisplayEnabled|.
+     */
+    mDisplayEnabled = aEnabled;
 // TODO: FIXME
 #if 0
-    MOZ_ASSERT(NS_IsMainThread());
+    if (mCompositorVsyncScheduler) {
+        mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
+    }
+#endif
+#endif
 
-    // We assume on b2g that there is only 1 CompositorBridgeParent
-    MOZ_ASSERT(mCompositorVsyncScheduler == nullptr);
-    MOZ_ASSERT(aObserver);
-    mCompositorVsyncScheduler = aObserver;
-    mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
-#endif
+    VsyncControl(aEnabled);
+    NS_DispatchToMainThread(aEnabled ? mScreenOnEvent : mScreenOffEvent);
 }
-#endif
+
+bool
+ScreenHelperGonk::IsScreenConnected(uint32_t aId)
+{
+  return mScreens.Get(aId) != nullptr;
+}
+
+} // widget
+} // mozilla

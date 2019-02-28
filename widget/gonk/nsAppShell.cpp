@@ -34,6 +34,7 @@
 
 #include "base/basictypes.h"
 #include "GonkPermission.h"
+#include "ScreenHelperGonk.h"
 #include "libdisplay/BootAnimation.h"
 #include "nscore.h"
 #include "mozilla/TouchEvents.h"
@@ -43,6 +44,7 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/Services.h"
 #include "mozilla/TextEvents.h"
+#include "mozilla/widget/ScreenManager.h"
 #if ANDROID_VERSION >= 18
 #include "nativewindow/FakeSurfaceComposer.h"
 #endif
@@ -52,7 +54,6 @@
 #include "nsGkAtoms.h"
 #include "nsIObserverService.h"
 #include "nsIScreen.h"
-#include "nsScreenManagerGonk.h"
 #include "nsThreadUtils.h"
 #include "nsWindow.h"
 #include "OrientationObserver.h"
@@ -62,10 +63,6 @@
 #include "libui/EventHub.h"
 #include "libui/InputReader.h"
 #include "libui/InputDispatcher.h"
-
-#ifdef MOZ_NUWA_PROCESS
-#include "ipc/Nuwa.h"
-#endif
 
 #include "mozilla/Preferences.h"
 #include "GeckoProfiler.h"
@@ -865,25 +862,27 @@ GeckoInputReaderPolicy::setDisplayInfo()
                   static_cast<int>(DISPLAY_ORIENTATION_270),
                   "Orientation enums not matched!");
 
-    RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
+    nsCOMPtr<nsIScreen> screen;
+    ScreenManager& screenManager = ScreenManager::GetSingleton();
+    screenManager.GetPrimaryScreen(getter_AddRefs(screen));
 
     uint32_t rotation = ROTATION_0;
-    DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
-    MOZ_ASSERT(NS_SUCCEEDED(rv));
-    LayoutDeviceIntRect screenBounds = screen->GetNaturalBounds();
+    // FIXME: DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
+    // FIXME: MOZ_ASSERT(NS_SUCCEEDED(rv));
+    // FIXME: LayoutDeviceIntRect screenBounds = screen->GetNaturalBounds();
 
     DisplayViewport viewport;
     viewport.displayId = 0;
     viewport.orientation = rotation;
-    viewport.physicalRight = viewport.deviceWidth = screenBounds.width;
-    viewport.physicalBottom = viewport.deviceHeight = screenBounds.height;
+    viewport.physicalRight = viewport.deviceWidth = 320; // FIXME: screenBounds.width;
+    viewport.physicalBottom = viewport.deviceHeight = 480; // FIXME: screenBounds.height;
     if (viewport.orientation == DISPLAY_ORIENTATION_90 ||
         viewport.orientation == DISPLAY_ORIENTATION_270) {
-        viewport.logicalRight = screenBounds.height;
-        viewport.logicalBottom = screenBounds.width;
+        viewport.logicalRight = viewport.physicalBottom;
+        viewport.logicalBottom = viewport.physicalRight;
     } else {
-        viewport.logicalRight = screenBounds.width;
-        viewport.logicalBottom = screenBounds.height;
+        viewport.logicalRight = viewport.physicalRight;
+        viewport.logicalBottom = viewport.physicalBottom;
     }
     mConfig.setDisplayInfo(false, viewport);
 }
@@ -1226,6 +1225,9 @@ nsAppShell::Init()
 #endif
         GonkPermissionService::instantiate();
 
+        ScreenManager& screenManager = ScreenManager::GetSingleton();
+        screenManager.SetHelper(mozilla::MakeUnique<ScreenHelperGonk>());
+
         // Causes the kernel timezone to be set, which in turn causes the
         // timestamps on SD cards to have the local time rather than UTC time.
         // TODO: FIXME hal::SetTimezone(hal::GetTimezone());
@@ -1236,11 +1238,6 @@ nsAppShell::Init()
         obsServ->AddObserver(this, "browser-ui-startup-complete", false);
         obsServ->AddObserver(this, "network-connection-state-changed", false);
     }
-
-#ifdef MOZ_NUWA_PROCESS
-    // Make sure main thread was woken up after Nuwa fork.
-    NuwaAddConstructor((void (*)(void *))&NotifyEvent, nullptr);
-#endif
 
     // Delay initializing input devices until the screen has been
     // initialized (and we know the resolution).
@@ -1420,6 +1417,8 @@ nsAppShell::NotifyScreenRotation()
     gAppShell->mReaderPolicy->setDisplayInfo();
     gAppShell->mReader->requestRefreshConfiguration(InputReaderConfiguration::CHANGE_DISPLAY_INFO);
 
-    RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
+    nsCOMPtr<nsIScreen> screen;
+    ScreenManager& screenManager = ScreenManager::GetSingleton();
+    screenManager.GetPrimaryScreen(getter_AddRefs(screen));
     // TODO: FIXME: hal::NotifyScreenConfigurationChange(screen->GetConfiguration());
 }

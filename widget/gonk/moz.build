@@ -64,15 +64,15 @@ SOURCES += [
     'GonkMemoryPressureMonitoring.cpp',
     'GonkPermission.cpp',
     'nsAppShell.cpp',
-   'nsClipboard.cpp',
+    'nsClipboard.cpp',
     'nsIdleServiceGonk.cpp',
     'nsLookAndFeel.cpp',
-    'nsScreenManagerGonk.cpp',
     'nsWidgetFactory.cpp',
     'nsWindow.cpp',
 # TODO: fixme
 #    'OrientationObserver.cpp',
     'ProcessOrientation.cpp',
+    'ScreenHelperGonk.cpp',
 ]
 
 # TODO: FIXME: Disabled HWC

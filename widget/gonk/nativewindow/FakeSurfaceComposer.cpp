@@ -36,7 +36,7 @@
 #endif
 
 #include "../libdisplay/GonkDisplay.h"
-#include "../nsScreenManagerGonk.h"
+#include "../ScreenHelperGonk.h"
 #include "FakeSurfaceComposer.h"
 #include "gfxPrefs.h"
 #include "MainThreadUtils.h"
@@ -46,6 +46,7 @@
 #include "nsThreadUtils.h"
 
 using namespace mozilla;
+using namespace mozilla::widget;
 
 namespace android {
 
@@ -108,9 +109,8 @@ public:
     NS_IMETHOD Run() override {
         MOZ_ASSERT(NS_IsMainThread(), "Must be on main thread.");
         Mutex::Autolock _l(mComposer->mStateLock);
-        RefPtr<nsScreenManagerGonk> screenManager =
-            nsScreenManagerGonk::GetInstance();
-        screenManager->RemoveScreen(GonkDisplay::DISPLAY_VIRTUAL);
+        ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
+        screenHelper->RemoveScreen(GonkDisplay::DISPLAY_VIRTUAL);
         mComposer->mDisplays.removeItemsAt(mIndex);
         return NS_OK;
     }
@@ -254,8 +254,8 @@ uint32_t FakeSurfaceComposer::setDisplayStateLocked(const DisplayState& s)
         nsCOMPtr<nsIRunnable> runnable =
             NS_NewRunnableFunction("GonkDisplay", [&]() {
                 MOZ_ASSERT(NS_IsMainThread(), "Must be on main thread.");
-                RefPtr<nsScreenManagerGonk> screenManager = nsScreenManagerGonk::GetInstance();
-                screenManager->AddScreen(GonkDisplay::DISPLAY_VIRTUAL, disp.surface.get());
+                ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
+                screenHelper->AddScreen(GonkDisplay::DISPLAY_VIRTUAL, disp.surface.get());
             });
         NS_DispatchToMainThread(runnable, NS_DISPATCH_SYNC);
     }
@@ -452,7 +452,7 @@ FakeSurfaceComposer::captureScreenImp(const sp<IGraphicBufferProducer>& producer
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(wrapper.get());
 
-    RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
+    RefPtr<nsScreenGonk> screen = ScreenHelperGonk::GetPrimaryScreen();
 
     // get screen geometry
     nsIntRect screenBounds = screen->GetNaturalBounds().ToUnknownRect();
@@ -639,7 +639,7 @@ FakeSurfaceComposer::getPrimaryDisplayInfo(DisplayInfo* info)
             return getDensityFromProperty("ro.sf.lcd_density"); }
     };
 
-    RefPtr<nsScreenGonk> screen = nsScreenManagerGonk::GetPrimaryScreen();
+    RefPtr<nsScreenGonk> screen = ScreenHelperGonk::GetPrimaryScreen();
 
     float xdpi = screen->GetDpi();
     float ydpi = screen->GetDpi();

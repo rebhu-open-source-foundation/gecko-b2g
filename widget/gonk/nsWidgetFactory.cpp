@@ -17,6 +17,7 @@
 #include "base/basictypes.h"
 
 #include "mozilla/ModuleUtils.h"
+#include "mozilla/widget/ScreenManager.h"
 #include "mozilla/WidgetUtils.h"
 
 #include "nsCOMPtr.h"
@@ -26,7 +27,6 @@
 #include "nsWindow.h"
 #include "nsLookAndFeel.h"
 #include "nsAppShellSingleton.h"
-#include "nsScreenManagerGonk.h"
 #include "nsIdleServiceGonk.h"
 #include "nsTransferable.h"
 #include "nsClipboard.h"
@@ -49,7 +49,7 @@ NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(GfxInfo, Init)
 }
 }
 
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsScreenManagerGonk, nsScreenManagerGonk::GetInstance)
+NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(ScreenManager, ScreenManager::GetAddRefedSingleton)
 NS_GENERIC_FACTORY_CONSTRUCTOR(PuppetScreenManager)
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsHTMLFormatConverter)
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsIdleServiceGonk, nsIdleServiceGonk::GetInstance)
@@ -68,17 +68,7 @@ NS_DEFINE_NAMED_CID(NS_GFXINFO_CID);
 NS_DEFINE_NAMED_CID(NS_CLIPBOARD_CID);
 NS_DEFINE_NAMED_CID(NS_CLIPBOARDHELPER_CID);
 
-static nsresult
-ScreenManagerConstructor(nsISupports *aOuter, REFNSIID aIID, void **aResult)
-{
-    return (XRE_IsParentProcess()) ?
-        nsScreenManagerGonkConstructor(aOuter, aIID, aResult) :
-        PuppetScreenManagerConstructor(aOuter, aIID, aResult);
-}
-
 static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
-    //{ &kNS_WINDOW_CID, false, nullptr, nsWindowConstructor },
-    //{ &kNS_CHILD_CID, false, nullptr, nsWindowConstructor },
     { &kNS_APPSHELL_CID, false, nullptr, nsAppShellConstructor },
     { &kNS_SCREENMANAGER_CID, false, nullptr, ScreenManagerConstructor },
     { &kNS_HTMLFORMATCONVERTER_CID, false, nullptr, nsHTMLFormatConverterConstructor },
@@ -91,8 +81,6 @@ static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
 };
 
 static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
-    //{ "@mozilla.org/widgets/window/gonk;1", &kNS_WINDOW_CID },
-    //{ "@mozilla.org/widgets/child_window/gonk;1", &kNS_CHILD_CID },
     { "@mozilla.org/widget/appshell/gonk;1", &kNS_APPSHELL_CID },
     { "@mozilla.org/gfx/screenmanager;1", &kNS_SCREENMANAGER_CID },
     { "@mozilla.org/widget/htmlformatconverter;1", &kNS_HTMLFORMATCONVERTER_CID },
