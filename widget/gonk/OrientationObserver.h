@@ -19,7 +19,6 @@
 #define OrientationObserver_h
 
 #include "mozilla/Observer.h"
-#include "mozilla/dom/ScreenOrientation.h"
 #include "mozilla/UniquePtr.h"
 
 namespace mozilla {
@@ -32,7 +31,7 @@ typedef mozilla::Observer<SensorData> ISensorObserver;
 
 using mozilla::hal::ISensorObserver;
 using mozilla::hal::SensorData;
-using mozilla::dom::ScreenOrientation;
+using mozilla::hal::ScreenOrientation;
 
 class OrientationObserver : public ISensorObserver {
 public:

@@ -149,6 +149,12 @@ void CancelVibrate(const WindowIdentifier& id) {
   }
 }
 
+void SetScreenBrightness(double aBrightness)
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(SetScreenBrightness(clamped(aBrightness, 0.0, 1.0)));
+}
+
 template <class InfoType>
 class ObserversManager {
  public:

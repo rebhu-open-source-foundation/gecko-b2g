@@ -47,6 +47,29 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
     SOURCES += [
         'android/AndroidHal.cpp',
     ]
+elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    UNIFIED_SOURCES += [
+        # TODO: FIXME 'gonk/GonkDiskSpaceWatcher.cpp',
+        # TODO: FIXME 'gonk/GonkFMRadio.cpp',
+        # TODO: FIXME 'gonk/GonkSensor.cpp',
+        # TODO: FIXME 'gonk/GonkSensorsHelpers.cpp',
+        # TODO: FIXME 'gonk/GonkSensorsInterface.cpp',
+        # TODO: FIXME 'gonk/GonkSensorsPollInterface.cpp',
+        # TODO: FIXME 'gonk/GonkSensorsRegistryInterface.cpp',
+        # TODO: FIXME 'gonk/GonkSwitch.cpp',
+        # TODO: FIXME 'gonk/SystemService.cpp',
+        # TODO: FIXME 'gonk/UeventPoller.cpp',
+        'fallback/FallbackBattery.cpp',
+        'fallback/FallbackProcessPriority.cpp',
+        'fallback/FallbackScreenConfiguration.cpp',
+        'fallback/FallbackSensor.cpp',
+        'linux/LinuxMemory.cpp',
+        # TODO: FIXME 'linux/LinuxPower.cpp',
+    ]
+    # GonkHal.cpp cannot be built in unified mode because it relies on HalImpl.h.
+    SOURCES += [
+        'gonk/GonkHal.cpp',
+    ]
 elif CONFIG['OS_TARGET'] == 'Linux':
     UNIFIED_SOURCES += [
         'fallback/FallbackProcessPriority.cpp',
@@ -127,6 +150,17 @@ FINAL_LIBRARY = 'xul'
 LOCAL_INCLUDES += [
     '/dom/base',
 ]
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    # So that we can call nsScreenManagerGonk::GetConfiguration().
+    LOCAL_INCLUDES += [
+        '/widget',
+        '/widget/gonk',
+    ]
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    LOCAL_INCLUDES += ['%' + '%s/hardware/libhardware/include' % CONFIG['GONK_PATH']]
+    LOCAL_INCLUDES += ['%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH']]
 
 CFLAGS += CONFIG['GLIB_CFLAGS']
 CFLAGS += CONFIG['MOZ_DBUS_GLIB_CFLAGS']

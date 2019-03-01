@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <ui/Fence.h>
+
 #include <mozilla/DebugOnly.h>
 
 #include "DisplaySurface.h"

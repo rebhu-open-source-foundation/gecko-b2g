@@ -311,14 +311,19 @@ struct RawReadState {
 static void
 setBacklight(double aBrightness)
 {
+#if 0 // TODO: FIXME
   hal_impl::SetScreenBrightness(aBrightness);
+#endif
 }
 
 static void
 setExtBacklight(double aBrightness)
 {
+#if 0 // TODO: FIXME
   hal_impl::SetExtScreenBrightness(aBrightness);
+#endif
 }
+
 
 static void
 RawReader(png_structp png_ptr, png_bytep data, png_size_t length)
@@ -893,7 +898,7 @@ StartBootAnimation()
 {
     GetGonkDisplay(); // Ensure GonkDisplay exist
     sRunAnimation = true;
-    HookSetVsyncAlwaysEnabled(true);
+    // TODO: FIXME HookSetVsyncAlwaysEnabled(true);
     pthread_create(&sAnimationThread, nullptr, AnimationThread, nullptr);
 }
 
@@ -903,7 +908,7 @@ StopBootAnimation()
 {
     if (sRunAnimation) {
         sRunAnimation = false;
-        HookSetVsyncAlwaysEnabled(false);
+        // TODO: FIXME HookSetVsyncAlwaysEnabled(false);
         pthread_join(sAnimationThread, nullptr);
         GetGonkDisplay()->NotifyBootAnimationStopped();
     }

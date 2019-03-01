@@ -866,18 +866,24 @@ ScreenHelperGonk::ScreenHelperGonk()
     LOGE("==================================================");
   }
 
+  LOGE("Setting the global pointer");
   // Generic
   MOZ_ASSERT(!gHelper);
   gHelper = this;
 
+  LOGE("Building the events");
   mScreenOnEvent = new ScreenOnOffEvent(true);
   mScreenOffEvent = new ScreenOnOffEvent(false);
+  LOGE("Getting the gonk display");
   GetGonkDisplay()->OnEnabled(displayEnabledCallback);
 
+  LOGE("Refreshing screens");
   Refresh();
 
+  LOGE("Notifying screen initialization");
   nsAppShell::NotifyScreenInitialized();
   mInitialized = true;
+  LOGE("Done");
 }
 
 ScreenHelperGonk::~ScreenHelperGonk() { gHelper = nullptr; }
