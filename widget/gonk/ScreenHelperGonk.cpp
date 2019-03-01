@@ -121,7 +121,7 @@ SurfaceFormatToColorDepth(int32_t aSurfaceFormat)
 // nsScreenGonk.cpp
 
 nsScreenGonk::nsScreenGonk(uint32_t aId,
-                           GonkDisplay::DisplayType aDisplayType,
+                           DisplayType aDisplayType,
                            const GonkDisplay::NativeData& aNativeData,
                            NotifyDisplayChangedEvent aEventVisibility)
     : mId(aId)
@@ -180,7 +180,7 @@ nsScreenGonk::~nsScreenGonk()
 bool
 nsScreenGonk::IsPrimaryScreen()
 {
-    return mDisplayType == GonkDisplay::DISPLAY_PRIMARY;
+    return mDisplayType == DisplayType::DISPLAY_PRIMARY;
 }
 
 NS_IMETHODIMP
@@ -626,7 +626,7 @@ nsScreenGonk::IsVsyncSupported()
   return mVsyncSupported;
 }
 
-GonkDisplay::DisplayType
+DisplayType
 nsScreenGonk::GetDisplayType()
 {
     return mDisplayType;
@@ -885,11 +885,17 @@ ScreenHelperGonk::~ScreenHelperGonk() { gHelper = nullptr; }
   return gHelper;
 }
 
+/* static */ already_AddRefed<nsScreenGonk> ScreenHelperGonk::GetPrimaryScreen() {
+  ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
+  RefPtr<nsScreenGonk> screen = screenHelper->mPrimaryScreen;
+  return screen.forget();
+}
+
 already_AddRefed<Screen> ScreenHelperGonk::MakePrimaryScreen() {
   MOZ_ASSERT(XRE_IsParentProcess());
 
   // From nsScreenManagerGonk
-  mozilla::GonkDisplay::DisplayType displayType = GonkDisplay::DISPLAY_PRIMARY;
+  DisplayType displayType = DisplayType::DISPLAY_PRIMARY;
   uint32_t id = GetIdFromType(displayType);
   NS_ENSURE_TRUE(!IsScreenConnected(id), nullptr);
 
@@ -907,7 +913,7 @@ already_AddRefed<Screen> ScreenHelperGonk::MakePrimaryScreen() {
 // TODO: FIXME
 #if 0
   // By default, non primary screen does mirroring.
-  if (aDisplayType != GonkDisplay::DISPLAY_PRIMARY &&
+  if (aDisplayType != DisplayType::DISPLAY_PRIMARY &&
       gfxPrefs::ScreenMirroringEnabled()) {
       screen->EnableMirroring();
   }
@@ -967,13 +973,13 @@ void ScreenHelperGonk::RemoveScreen(uint32_t aScreenId) {
 }
 
 /* static */ uint32_t
-ScreenHelperGonk::GetIdFromType(GonkDisplay::DisplayType aDisplayType)
+ScreenHelperGonk::GetIdFromType(DisplayType aDisplayType)
 {
     // This is the only place where we make the assumption that
     // display type is equivalent to screen id.
 
     // Bug 1138287 will address the conversion from type to id.
-    return aDisplayType;
+    return (uint32_t)aDisplayType;
 }
 
 already_AddRefed<Screen> ScreenHelperGonk::ScreenForId(uint32_t aScreenId) {
@@ -1008,6 +1014,29 @@ bool
 ScreenHelperGonk::IsScreenConnected(uint32_t aId)
 {
   return mScreens.Get(aId) != nullptr;
+}
+
+void
+ScreenHelperGonk::VsyncControl(bool aEnabled)
+{
+// TODO: FIXME
+#if 0
+    if (!NS_IsMainThread()) {
+        NS_DispatchToMainThread(
+            NewRunnableMethod<bool>("ScreenHelperGonk::VsyncControl", this,
+                                    &ScreenHelperGonk::VsyncControl,
+                                    aEnabled));
+        return;
+    }
+
+    MOZ_ASSERT(NS_IsMainThread());
+    VsyncSource::Display &display = gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
+    if (aEnabled) {
+        display.EnableVsync();
+    } else {
+        display.DisableVsync();
+    }
+#endif
 }
 
 } // widget

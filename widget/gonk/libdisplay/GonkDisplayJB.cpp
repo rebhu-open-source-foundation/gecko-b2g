@@ -69,7 +69,7 @@ GonkDisplayJB::GonkDisplayJB()
         ALOGW_IF(err, "could not open framebuffer");
     }
 
-    DisplayNativeData &dispData = mDispNativeData[DISPLAY_PRIMARY];
+    DisplayNativeData &dispData = mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY];
     if (!err && mFBDevice) {
         dispData.mWidth = mFBDevice->width;
         dispData.mHeight = mFBDevice->height;
@@ -157,7 +157,7 @@ GonkDisplayJB::GonkDisplayJB()
     // ro.h5.display.fb1_backlightdev=__full_backlight_device_path__
     //
     // ex: Octans will set this prop in device/t2m/octans/octans.mk
-    DisplayNativeData &extDispData = mDispNativeData[DISPLAY_EXTERNAL];
+    DisplayNativeData &extDispData = mDispNativeData[(uint32_t)DisplayType::DISPLAY_EXTERNAL];
     mExtFBDevice = NativeFramebufferDevice::Create();
 
     if (mExtFBDevice) {
@@ -372,7 +372,7 @@ GonkDisplayJB::IsExtFBDeviceEnabled()
 bool
 GonkDisplayJB::SwapBuffers(DisplayType aDisplayType)
 {
-    if (aDisplayType == DISPLAY_PRIMARY) {
+    if (aDisplayType == DisplayType::DISPLAY_PRIMARY) {
         // Should be called when composition rendering is complete for a frame.
         // Only HWC v1.0 needs this call.
         // HWC > v1.0 case, do not call compositionComplete().
@@ -382,13 +382,13 @@ GonkDisplayJB::SwapBuffers(DisplayType aDisplayType)
         }
         return Post(mDispSurface->lastHandle,
                     mDispSurface->GetPrevDispAcquireFd(),
-                    DISPLAY_PRIMARY);
+                    DisplayType::DISPLAY_PRIMARY);
 
-    } else if (aDisplayType == DISPLAY_EXTERNAL) {
+    } else if (aDisplayType == DisplayType::DISPLAY_EXTERNAL) {
         if (mExtFBDevice) {
             return Post(mExtDispSurface->lastHandle,
                         mExtDispSurface->GetPrevDispAcquireFd(),
-                        DISPLAY_EXTERNAL);
+                        DisplayType::DISPLAY_EXTERNAL);
         }
 
         return false;
@@ -400,7 +400,7 @@ GonkDisplayJB::SwapBuffers(DisplayType aDisplayType)
 bool
 GonkDisplayJB::Post(buffer_handle_t buf, int fence, DisplayType aDisplayType)
 {
-    if (aDisplayType == DISPLAY_PRIMARY) {
+    if (aDisplayType == DisplayType::DISPLAY_PRIMARY) {
         if (!mHwc) {
             if (fence >= 0) {
                 android::sp<Fence> fenceObj = new Fence(fence);
@@ -409,7 +409,7 @@ GonkDisplayJB::Post(buffer_handle_t buf, int fence, DisplayType aDisplayType)
             return !mFBDevice->post(mFBDevice, buf);
         }
 
-        DisplayNativeData &dispData = mDispNativeData[DISPLAY_PRIMARY];
+        DisplayNativeData &dispData = mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY];
 
         hwc_display_contents_1_t *displays[HWC_NUM_DISPLAY_TYPES] = {NULL};
         const hwc_rect_t r = { 0, 0, static_cast<int>(dispData.mWidth), static_cast<int>(dispData.mHeight) };
@@ -468,7 +468,7 @@ GonkDisplayJB::Post(buffer_handle_t buf, int fence, DisplayType aDisplayType)
           close(mList->retireFenceFd);
       return !err;
 
-    } else if (aDisplayType == DISPLAY_EXTERNAL) {
+    } else if (aDisplayType == DisplayType::DISPLAY_EXTERNAL) {
         // Only support fb1 for certain device, use hwc to control
         // external screen in general case.
         if (mExtFBDevice) {
@@ -490,10 +490,10 @@ GonkDisplayJB::DequeueBuffer(DisplayType aDisplayType)
 {
     // Check for bootAnim or normal display flow.
     sp<ANativeWindow> nativeWindow;
-    if (aDisplayType == DISPLAY_PRIMARY) {
+    if (aDisplayType == DisplayType::DISPLAY_PRIMARY) {
         nativeWindow =
             !mBootAnimSTClient.get() ? mSTClient : mBootAnimSTClient;
-    } else if (aDisplayType == DISPLAY_EXTERNAL) {
+    } else if (aDisplayType == DisplayType::DISPLAY_EXTERNAL) {
         if (mExtFBDevice) {
             nativeWindow = mExtSTClient;
         }
@@ -524,10 +524,10 @@ GonkDisplayJB::QueueBuffer(ANativeWindowBuffer* buf, DisplayType aDisplayType)
     int error = DoQueueBuffer(buf, aDisplayType);
 
     sp<DisplaySurface> displaySurface;
-    if (aDisplayType == DISPLAY_PRIMARY) {
+    if (aDisplayType == DisplayType::DISPLAY_PRIMARY) {
         displaySurface =
             !mBootAnimSTClient.get() ? mDispSurface : mBootAnimDispSurface;
-    } else if (aDisplayType == DISPLAY_EXTERNAL) {
+    } else if (aDisplayType == DisplayType::DISPLAY_EXTERNAL) {
         if (mExtFBDevice) {
             displaySurface = mExtDispSurface;
         }
@@ -549,10 +549,10 @@ GonkDisplayJB::DoQueueBuffer(ANativeWindowBuffer* buf, DisplayType aDisplayType)
 {
     int error = 0;
     sp<ANativeWindow> nativeWindow;
-    if (aDisplayType == DISPLAY_PRIMARY) {
+    if (aDisplayType == DisplayType::DISPLAY_PRIMARY) {
         nativeWindow =
             !mBootAnimSTClient.get() ? mSTClient : mBootAnimSTClient;
-    } else if (aDisplayType == DISPLAY_EXTERNAL) {
+    } else if (aDisplayType == DisplayType::DISPLAY_EXTERNAL) {
         if (mExtFBDevice) {
             nativeWindow = mExtSTClient;
         }
@@ -575,8 +575,8 @@ GonkDisplayJB::UpdateDispSurface(EGLDisplay dpy, EGLSurface sur)
     } else {
       // When BasicCompositor is used as Compositor,
       // EGLSurface does not exit.
-      ANativeWindowBuffer* buf = DequeueBuffer(DISPLAY_PRIMARY);
-      DoQueueBuffer(buf, DISPLAY_PRIMARY);
+      ANativeWindowBuffer* buf = DequeueBuffer(DisplayType::DISPLAY_PRIMARY);
+      DoQueueBuffer(buf, DisplayType::DISPLAY_PRIMARY);
     }
 }
 
@@ -605,22 +605,22 @@ GonkDisplayJB::PowerOnDisplay(int aDpy)
 }
 
 GonkDisplay::NativeData
-GonkDisplayJB::GetNativeData(GonkDisplay::DisplayType aDisplayType,
+GonkDisplayJB::GetNativeData(DisplayType aDisplayType,
                              android::IGraphicBufferProducer* aSink)
 {
     NativeData data;
 
-    if (aDisplayType == DISPLAY_PRIMARY) {
+    if (aDisplayType == DisplayType::DISPLAY_PRIMARY) {
         data.mNativeWindow = mSTClient;
         data.mDisplaySurface = mDispSurface;
-        data.mXdpi = mDispNativeData[DISPLAY_PRIMARY].mXdpi;
+        data.mXdpi = mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY].mXdpi;
         data.mComposer2DSupported = true;
         data.mVsyncSupported = true;
-    } else if (aDisplayType == DISPLAY_EXTERNAL) {
+    } else if (aDisplayType == DisplayType::DISPLAY_EXTERNAL) {
         if (mExtFBDevice) {
             data.mNativeWindow = mExtSTClient;
             data.mDisplaySurface = mExtDispSurface;
-            data.mXdpi = mDispNativeData[DISPLAY_EXTERNAL].mXdpi;
+            data.mXdpi = mDispNativeData[(uint32_t)DisplayType::DISPLAY_EXTERNAL].mXdpi;
             data.mComposer2DSupported = false;
             data.mVsyncSupported = false;
         } else {
@@ -631,7 +631,7 @@ GonkDisplayJB::GetNativeData(GonkDisplay::DisplayType aDisplayType,
                 HWC_DISPLAY_DPI_X,
                 HWC_DISPLAY_NO_ATTRIBUTE
             };
-            mHwc->getDisplayAttributes(mHwc, aDisplayType, 0, attrs, values);
+            mHwc->getDisplayAttributes(mHwc, (uint32_t)aDisplayType, 0, attrs, values);
             int width = values[0];
             int height = values[1];
             // FIXME!! values[2] returns 0 for external display, which doesn't
@@ -644,10 +644,10 @@ GonkDisplayJB::GetNativeData(GonkDisplay::DisplayType aDisplayType,
                                      data.mDisplaySurface,
                                      width,
                                      height,
-                                     mDispNativeData[DISPLAY_PRIMARY].mSurfaceformat);
+                                     mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY].mSurfaceformat);
         }
-    } else if (aDisplayType == DISPLAY_VIRTUAL) {
-        data.mXdpi = mDispNativeData[DISPLAY_PRIMARY].mXdpi;
+    } else if (aDisplayType == DisplayType::DISPLAY_VIRTUAL) {
+        data.mXdpi = mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY].mXdpi;
         CreateVirtualDisplaySurface(aSink,
                                     data.mNativeWindow,
                                     data.mDisplaySurface);

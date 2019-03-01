@@ -491,7 +491,7 @@ struct Animation {
 
     // Set by user
     int32_t format;
-    GonkDisplay::DisplayType dpy;
+    DisplayType dpy;
 
     Animation();
 
@@ -505,7 +505,7 @@ Animation::Animation()
     , height(480)
     , fps(12)
     , format(HAL_PIXEL_FORMAT_RGBX_8888)
-    , dpy(GonkDisplay::DISPLAY_PRIMARY)
+    , dpy(DisplayType::DISPLAY_PRIMARY)
 {}
 
 bool Animation::LoadAnimations(const char* aFileName)
@@ -671,7 +671,7 @@ static void
 ShowSolidColorFrame(GonkDisplay *aDisplay,
                     const gralloc_module_t *grallocModule,
                     int32_t aFormat,
-                    GonkDisplay::DisplayType aDpy)
+                    DisplayType aDpy)
 {
     LOGW("Show solid color frame for bootAnim");
 
@@ -743,10 +743,10 @@ AnimationThread(void *)
     GonkDisplay *display = GetGonkDisplay();
 
     const GonkDisplay::DisplayNativeData& dispData
-        = display->GetDispNativeData(GonkDisplay::DISPLAY_PRIMARY);
+        = display->GetDispNativeData(DisplayType::DISPLAY_PRIMARY);
 
     const GonkDisplay::DisplayNativeData& extDispData
-        = display->GetDispNativeData(GonkDisplay::DISPLAY_EXTERNAL);
+        = display->GetDispNativeData(DisplayType::DISPLAY_EXTERNAL);
 
     vector<Animation> animVec;
 
@@ -761,33 +761,33 @@ AnimationThread(void *)
     // Load boot animation for primary screen
     animVec.push_back(Animation());
     Animation &primAnimation = animVec.back();
-    primAnimation.dpy = GonkDisplay::DISPLAY_PRIMARY;
+    primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
     primAnimation.format = dispData.mSurfaceformat;
     if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
         LOGW("Failed to load boot animation file for primary screen");
         ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
-                            GonkDisplay::DISPLAY_PRIMARY);
+                            DisplayType::DISPLAY_PRIMARY);
         return nullptr;
     }
 
     if (display->IsExtFBDeviceEnabled()) {
         animVec.push_back(Animation());
         Animation &extAnimation = animVec.back();
-        extAnimation.dpy = GonkDisplay::DISPLAY_EXTERNAL;
+        extAnimation.dpy = DisplayType::DISPLAY_EXTERNAL;
         extAnimation.format = extDispData.mSurfaceformat;
         if (!extAnimation.LoadAnimations("/system/media/bootanimation_external.zip") ||
             !animVec[0].CanPlaySimultaneously(extAnimation)) {
 
             LOGW("Failed to load boot animation file for external screen");
             ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
-                                GonkDisplay::DISPLAY_EXTERNAL);
+                                DisplayType::DISPLAY_EXTERNAL);
             animVec.pop_back();
         }
         else {
             // Turn on external screen backlight before playing animation and
             // draw a solid frame to clear noise on panel.
             ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
-                            GonkDisplay::DISPLAY_EXTERNAL);
+                            DisplayType::DISPLAY_EXTERNAL);
             usleep(20000);
             setExtBacklight(1);
         }
@@ -875,10 +875,10 @@ AnimationThread(void *)
 
     if (!animPlayed) {
         ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
-                            GonkDisplay::DISPLAY_PRIMARY);
+                            DisplayType::DISPLAY_PRIMARY);
         if (display->IsExtFBDeviceEnabled()) {
             ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
-                                GonkDisplay::DISPLAY_EXTERNAL);
+                                DisplayType::DISPLAY_EXTERNAL);
         }
     }
 

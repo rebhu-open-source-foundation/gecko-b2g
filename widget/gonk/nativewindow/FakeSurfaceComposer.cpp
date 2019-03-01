@@ -110,7 +110,7 @@ public:
         MOZ_ASSERT(NS_IsMainThread(), "Must be on main thread.");
         Mutex::Autolock _l(mComposer->mStateLock);
         ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-        screenHelper->RemoveScreen(GonkDisplay::DISPLAY_VIRTUAL);
+        screenHelper->RemoveScreen(DisplayType::DISPLAY_VIRTUAL);
         mComposer->mDisplays.removeItemsAt(mIndex);
         return NS_OK;
     }
@@ -145,7 +145,7 @@ sp<IBinder> FakeSurfaceComposer::createDisplay(const String8& displayName,
     Mutex::Autolock _l(mStateLock);
     DisplayDeviceState info(HWC_DISPLAY_VIRTUAL);
     info.displayName = displayName;
-    info.displayId = GonkDisplay::DISPLAY_VIRTUAL;
+    info.displayId = DisplayType::DISPLAY_VIRTUAL;
     info.isSecure = secure;
     mDisplays.add(token, info);
     return token;
@@ -255,7 +255,7 @@ uint32_t FakeSurfaceComposer::setDisplayStateLocked(const DisplayState& s)
             NS_NewRunnableFunction("GonkDisplay", [&]() {
                 MOZ_ASSERT(NS_IsMainThread(), "Must be on main thread.");
                 ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-                screenHelper->AddScreen(GonkDisplay::DISPLAY_VIRTUAL, disp.surface.get());
+                screenHelper->AddScreen(DisplayType::DISPLAY_VIRTUAL, disp.surface.get());
             });
         NS_DispatchToMainThread(runnable, NS_DISPATCH_SYNC);
     }

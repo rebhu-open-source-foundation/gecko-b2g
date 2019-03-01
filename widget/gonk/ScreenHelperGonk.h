@@ -67,7 +67,7 @@ class nsScreenGonk : public nsBaseScreen
 
 public:
     nsScreenGonk(uint32_t aId,
-                 GonkDisplay::DisplayType aDisplayType,
+                 DisplayType aDisplayType,
                  const GonkDisplay::NativeData& aNativeData,
                  NotifyDisplayChangedEvent aEventVisibility);
 
@@ -104,7 +104,7 @@ public:
 #endif
     bool IsComposer2DSupported();
     bool IsVsyncSupported();
-    GonkDisplay::DisplayType GetDisplayType();
+    DisplayType GetDisplayType();
 
     void RegisterWindow(nsWindow* aWindow);
     void UnregisterWindow(nsWindow* aWindow);
@@ -161,7 +161,7 @@ protected:
     mozilla::Atomic<CompositorBridgeParent*> mCompositorBridgeParent;
 
     // Accessed and updated only on compositor thread
-    GonkDisplay::DisplayType mDisplayType;
+    DisplayType mDisplayType;
     hwc_display_t mEGLDisplay;
     hwc_surface_t mEGLSurface;
     RefPtr<mozilla::gl::GLContext> mGLContext;
@@ -208,7 +208,7 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
   already_AddRefed<Screen> ScreenForId(uint32_t aScreenId);
 
   // nsScreenManagerGonk
-  static uint32_t GetIdFromType(GonkDisplay::DisplayType aDisplayType);
+  static uint32_t GetIdFromType(DisplayType aDisplayType);
   static already_AddRefed<nsScreenGonk> GetPrimaryScreen();
 
   void DisplayEnabled(bool aEnabled);
@@ -219,7 +219,7 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
   nsDataHashtable<nsUint32HashKey, RefPtr<Screen>> mScreens;
 
   // FIXME: We should have a nsScreenGonk per Screen, not just one
-  nsScreenGonk *mPrimaryScreen;
+  RefPtr<nsScreenGonk> mPrimaryScreen;
 
   // nsScreenManagerGonk
   void VsyncControl(bool aEnabled);

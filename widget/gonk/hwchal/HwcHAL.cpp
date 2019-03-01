@@ -19,6 +19,7 @@
 #include "HwcHAL.h"
 #include "libdisplay/GonkDisplay.h"
 #include "mozilla/Assertions.h"
+#include "nsIScreen.h"
 
 namespace mozilla {
 

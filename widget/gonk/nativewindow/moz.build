@@ -55,10 +55,11 @@ if CONFIG['MOZ_B2G_CAMERA'] or CONFIG['MOZ_OMX_DECODER'] or CONFIG['MOZ_WEBRTC']
     else:
         error('KaiOS only supports ANDROID_VERSION >= 23')
 
-if CONFIG['ANDROID_VERSION'] >= '18':
-    SOURCES += [
-        'FakeSurfaceComposer.cpp',
-    ]
+# TODO: FIXME
+# if CONFIG['ANDROID_VERSION'] >= '18':
+#     SOURCES += [
+#         'FakeSurfaceComposer.cpp',
+#     ]
 
 include('/ipc/chromium/chromium-config.mozbuild')
 
