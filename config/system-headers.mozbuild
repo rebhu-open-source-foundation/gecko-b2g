@@ -1094,6 +1094,7 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'foundation/AString.h',
         'foundation/base64.h',
         'foundation/hexdump.h',
+        'gui/BufferItem.h',
         'gui/BufferQueue.h',
         'gui/ConsumerBase.h',
         'gui/GraphicBufferAlloc.h',

@@ -60,7 +60,7 @@ DEFINES['HAVE_SYS_UIO_H'] = True
 
 AllowCompilerWarnings()
 
-DisableStlWrapping()
+# DisableStlWrapping()
 
 if CONFIG['ANDROID_VERSION'] > '15':
     LOCAL_INCLUDES += [
@@ -78,4 +78,9 @@ LOCAL_INCLUDES += [
         'hardware/libhardware/include',
         'hardware/libhardware_legacy/include',
     ]
+]
+
+OS_LIBS += [
+    'suspend',
+    'ui',
 ]
