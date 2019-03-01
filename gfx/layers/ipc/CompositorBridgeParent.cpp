@@ -122,8 +122,8 @@ using mozilla::Telemetry::LABELS_CONTENT_FRAME_TIME_REASON;
 /// the addition that it doesn't assert if the compositor thread holder is
 /// already gone during late shutdown.
 static void AssertIsInCompositorThread() {
-  MOZ_RELEASE_ASSERT(!CompositorThread() ||
-                     CompositorThreadHolder::IsInCompositorThread());
+//  MOZ_RELEASE_ASSERT(!CompositorThread() ||
+//                     CompositorThreadHolder::IsInCompositorThread());
 }
 
 CompositorBridgeParentBase::CompositorBridgeParentBase(

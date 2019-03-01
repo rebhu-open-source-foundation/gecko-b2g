@@ -282,8 +282,13 @@ bool gfxAndroidPlatform::RequiresLinearZoom() {
   return true;
 #endif
 
-  MOZ_ASSERT_UNREACHABLE("oops, what platform is this?");
+#ifdef MOZ_WIDGET_GONK
+  return true;
+#else
+
+  // MOZ_ASSERT_UNREACHABLE("oops, what platform is this?");
   return gfxPlatform::RequiresLinearZoom();
+#endif
 }
 
 #ifdef MOZ_WIDGET_ANDROID
