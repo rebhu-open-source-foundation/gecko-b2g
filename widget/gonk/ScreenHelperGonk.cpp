@@ -865,18 +865,19 @@ ScreenHelperGonk::ScreenHelperGonk()
 
     LOGE("==================================================");
   }
-  mScreenOnEvent = new ScreenOnOffEvent(true);
-  mScreenOffEvent = new ScreenOnOffEvent(false);
-  GetGonkDisplay()->OnEnabled(displayEnabledCallback);
-
-  nsAppShell::NotifyScreenInitialized();
-  mInitialized = true;
 
   // Generic
   MOZ_ASSERT(!gHelper);
   gHelper = this;
 
+  mScreenOnEvent = new ScreenOnOffEvent(true);
+  mScreenOffEvent = new ScreenOnOffEvent(false);
+  GetGonkDisplay()->OnEnabled(displayEnabledCallback);
+
   Refresh();
+
+  nsAppShell::NotifyScreenInitialized();
+  mInitialized = true;
 }
 
 ScreenHelperGonk::~ScreenHelperGonk() { gHelper = nullptr; }
