@@ -55,7 +55,7 @@ nsresult nsResProtocolHandler::Init() {
     mAppURI = mGREURI;
   }
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
   rv = GetApkURI(mApkURI);
 #endif
 
@@ -69,7 +69,7 @@ nsresult nsResProtocolHandler::Init() {
   return rv;
 }
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
 nsresult nsResProtocolHandler::GetApkURI(nsACString& aResult) {
   nsCString::const_iterator start, iter;
   mGREURI.BeginReading(start);
