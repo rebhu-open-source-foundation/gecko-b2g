@@ -72,6 +72,7 @@ SOURCES += [
 # TODO: fixme
 #    'OrientationObserver.cpp',
     'ProcessOrientation.cpp',
+    'ProcInfo.cpp',
     'ScreenHelperGonk.cpp',
 ]
 
