@@ -22,15 +22,19 @@ XPCOMUtils.defineLazyModuleGetter(this, "AlarmService",
 
 var debug;
 function debugPrefObserver() {
+  try {
   debug = Services.prefs.getBoolPref("dom.mozApps.debug")
-            ? (aMsg) => dump("--*-- WebappsUpdateTimer: " + aMsg)
+            ? (aMsg) => dump(`--*-- WebappsUpdateTimer: ${aMsg}\n`)
             : (aMsg) => {};
+  } catch(e) {
+    debug = (aMsg) => {};
+  }
 }
 debugPrefObserver();
 Services.prefs.addObserver("dom.mozApps.debug", debugPrefObserver, false);
 
 function WebappsUpdateTimer() {
-  dump('WebappsUpdateTimer Start');
+  dump('WebappsUpdateTimer Start\n');
   let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
   timer.initWithCallback(this, 1000 * 60,
                          Ci.nsITimer.TYPE_ONE_SHOT);

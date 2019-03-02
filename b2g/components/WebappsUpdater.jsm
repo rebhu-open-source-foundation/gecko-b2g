@@ -26,9 +26,13 @@ XPCOMUtils.defineLazyServiceGetter(this, "powerManagerService",
 
 var debug;
 function debugPrefObserver() {
-  debug = Services.prefs.getBoolPref("dom.mozApps.debug")
-            ? (aMsg) => dump("--*-- WebappsUpdater: " + aMsg)
-            : (aMsg) => {};
+  try {
+    debug = Services.prefs.getBoolPref("dom.mozApps.debug")
+              ? (aMsg) => dump(`--*-- WebappsUpdater: ${aMsg}\n`)
+              : (aMsg) => {};
+  } catch(e) {
+    debug = (aMsg) => {};
+  }
 }
 debugPrefObserver();
 Services.prefs.addObserver("dom.mozApps.debug", debugPrefObserver, false);
