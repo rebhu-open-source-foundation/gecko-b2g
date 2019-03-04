@@ -781,7 +781,14 @@ pref("hal.processPriorityManager.gonk.MASTER.OomScoreAdjust", 0);
 pref("hal.processPriorityManager.gonk.MASTER.KillUnderKB", 4096);
 pref("hal.processPriorityManager.gonk.MASTER.cgroup", "");
 
+// Increase the OomScoreAdjust of preallocated process to 400 on 256MB device,
+// this change results in killing preallocated process before foreground app to
+// gain more memory for memory sensitive apps.
+#ifdef KAIOS_256MB_SUPPORT
+pref("hal.processPriorityManager.gonk.PREALLOC.OomScoreAdjust", 400);
+#else
 pref("hal.processPriorityManager.gonk.PREALLOC.OomScoreAdjust", 67);
+#endif
 pref("hal.processPriorityManager.gonk.PREALLOC.cgroup", "apps/bg_non_interactive");
 
 pref("hal.processPriorityManager.gonk.FOREGROUND_HIGH.OomScoreAdjust", 67);
