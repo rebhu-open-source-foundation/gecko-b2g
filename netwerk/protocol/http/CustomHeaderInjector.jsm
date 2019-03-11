@@ -28,6 +28,13 @@ function debug(msg) {
 const kPrefCustomHeaderHosts = "network.http.customheader.hosts";
 const kCustomHeaderVersion = "v1";
 
+XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
+                                   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
+                                   "nsIMobileConnectionService");
+XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
+                                   "@mozilla.org/icc/iccservice;1",
+                                   "nsIIccService");
+
 var gCustomHeaderValue;
 var gDeviceUid;
 var gComRef;
@@ -39,6 +46,9 @@ var gNetType;
 var gKaiServiceHosts;
 
 this.CustomHeaderInjector = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.nsIMobileConnectionListener,
+                                         Ci.nsIIccListener]),
+
   init: function() {
     this.buildKaiServiceHosts();
     if (DEBUG) debug("Hosts require injection: " + JSON.stringify(gKaiServiceHosts));
@@ -52,11 +62,15 @@ this.CustomHeaderInjector = {
     });
     Services.obs.addObserver(this, "http-on-custom-header-inject-request", false);
     Services.obs.addObserver(this, "network-active-changed", false);
+    gMobileConnectionService.getItemByServiceId(0).registerListener(this);
+    gIccService.getIccByServiceId(0).registerListener(this);
   },
 
   uninit: function() {
     Services.obs.removeObserver(this, "http-on-custom-header-inject-request");
     Services.obs.removeObserver(this, "network-active-changed");
+    gMobileConnectionService.getItemByServiceId(0).unregisterListener(this);
+    gIccService.getIccByServiceId(0).unregisterListener(this);
   },
 
   buildKaiServiceHosts: function() {
@@ -116,7 +130,7 @@ this.CustomHeaderInjector = {
     });
   },
 
-  updateCustomHeaderValue: function() {
+  updateCustomHeaderNetValue: function() {
     // Network mnc, network mcc, network connection type may varies.
     // Otherwise, no need to rebuild the custom header.
     let net_mnc = DeviceUtils.networkMnc;
@@ -126,6 +140,20 @@ this.CustomHeaderInjector = {
       gNetMnc = net_mnc;
       gNetMcc = net_mcc;
       gNetType = net_type;
+      gCustomHeaderValue = this.buildCustomHeader();
+    }
+  },
+
+  updateCustomHeaderIccValue: function() {
+    // Icc mnc, Icc mcc may varies.
+    // Otherwise, no need to rebuild the custom header.
+    let iccInfo = DeviceUtils.iccInfo;
+    let mnc = iccInfo.mnc;
+    let mcc = iccInfo.mcc;
+
+    if (gMnc != mnc || gMcc != mcc) {
+      gMnc = mnc;
+      gMcc = mcc;
       gCustomHeaderValue = this.buildCustomHeader();
     }
   },
@@ -153,9 +181,35 @@ this.CustomHeaderInjector = {
         break;
       }
       case "network-active-changed": {
-        this.updateCustomHeaderValue();
+        this.updateCustomHeaderNetValue();
         break;
       }
     }
-  }
+  },
+
+  // nsIMobileConnectionListener
+  notifyVoiceChanged: function() {
+    this.updateCustomHeaderNetValue();
+  },
+  notifyDataChanged: function() {},
+  notifyDataError: function(message) {},
+  notifyCFStateChanged: function(action, reason, number, timeSeconds, serviceClass) {},
+  notifyEmergencyCbModeChanged: function(active, timeoutMs) {},
+  notifyOtaStatusChanged: function(status) {},
+  notifyRadioStateChanged: function() {},
+  notifyClirModeChanged: function(mode) {},
+  notifyLastKnownNetworkChanged: function() {},
+  notifyLastKnownHomeNetworkChanged: function() {},
+  notifyNetworkSelectionModeChanged: function() {},
+  notifyDeviceIdentitiesChanged: function() {},
+  notifySignalStrengthChanged: function() {},
+
+  // nsIIccListener
+  notifyStkCommand(aStkProactiveCmd){},
+  notifyStkSessionEnd() {},
+  notifyCardStateChanged() {
+    this.updateCustomHeaderIccValue();
+  },
+  notifyIccInfoChanged() {},
+  notifyIsimInfoChanged() {}
 }
