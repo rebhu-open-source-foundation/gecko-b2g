@@ -1,3 +1,10 @@
+# Compiler
+export CC=/home/gsvelto/.mozbuild/clang/bin/clang
+export CXX=/home/gsvelto/.mozbuild/clang/bin/clang++
+export LLVMCONFIG=/home/gsvelto/.mozbuild/clang/bin/llvm-config
+export LLVM_CONFIG=/home/gsvelto/.mozbuild/clang/bin/llvm-config
+export CBINDGEN=/home/gsvelto/.mozbuild/cbindgen-0.7.1/cbindgen
+
 # Build B2G
 ac_add_options --enable-application=b2g
 ac_add_options --target=arm-linux-androideabi
@@ -21,9 +28,6 @@ ac_add_options --with-ccache=sccache
 
 # Auto-clobber
 mk_add_options AUTOCLOBBER=1
-
-# sccache
-ac_add_options --with-ccache=sccache
 
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
