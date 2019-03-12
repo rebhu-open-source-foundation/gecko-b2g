@@ -27,8 +27,8 @@ EXPORTS += [
     'D3D9SurfaceImage.h',
     'FrameMetrics.h',
     'GLImages.h',
-    'GrallocImages.h',
     'GPUVideoImage.h',
+    'GrallocImages.h',
     'ImageContainer.h',
     'ImageLayers.h',
     'ImageTypes.h',
@@ -335,7 +335,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     LOCAL_INCLUDES += ['/widget/gonk']
     if CONFIG['ANDROID_VERSION'] >= '21':
         LOCAL_INCLUDES += [
-             '%' + '%s/%s' % (CONFIG['ANDROID_SOURCE'], d) for d in [
+             '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
                  'system/core/libsync/include'
              ]
         ]

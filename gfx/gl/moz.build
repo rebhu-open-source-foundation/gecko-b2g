@@ -160,7 +160,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     UNIFIED_SOURCES += ['SharedSurfaceGralloc.cpp']
     EXPORTS += ['SharedSurfaceGralloc.h']
     LOCAL_INCLUDES += ['/widget/gonk']
-    LOCAL_INCLUDES += ['%' + '%s/%s' % (CONFIG['ANDROID_SOURCE'], 'hardware/libhardware/include')]
+    LOCAL_INCLUDES += ['%' + '%s/%s' % (CONFIG['GONK_PATH'], 'hardware/libhardware/include')]
 
 if CONFIG['CC_TYPE'] in ('clang', 'gcc'):
     CXXFLAGS += ['-Wno-error=shadow']
