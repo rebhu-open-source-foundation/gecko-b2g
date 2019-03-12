@@ -1294,7 +1294,7 @@ void gfxFT2FontList::FindFonts() {
     // Look for fonts in /system/fonts/hidden and preload them to the
     // user-font cache as data: URIs
     root.AppendLiteral("/hidden");
-    FindFontsInDir(root, mFontNameCache.get(), FT2FontFamily::kHidden);
+    FindFontsInDir(root, mFontNameCache.get());
 #endif
 
   // Look for fonts stored in omnijar, unless we're on a low-memory
