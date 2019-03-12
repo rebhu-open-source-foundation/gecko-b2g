@@ -7,7 +7,7 @@
 
 #include "GonkNativeHandleUtils.h"
 #include "mozilla/UniquePtr.h"
-#include "mozilla/unused.h"
+#include "mozilla/Unused.h"
 
 using namespace mozilla::layers;
 
@@ -38,7 +38,8 @@ ParamTraits<GonkNativeHandle>::Write(Message* aMsg,
   native_handle_t* nativeHandle = nhObj->GetAndResetNativeHandle();
 
   size_t nbytes = nativeHandle->numInts * sizeof(int);
-  aMsg->WriteSize(nbytes);
+  // TODO: verify this is correct after bug 1525199.
+  aMsg->WriteUInt32(nbytes);
   aMsg->WriteBytes((nativeHandle->data + nativeHandle->numFds), nbytes);
 
   for (size_t i = 0; i < static_cast<size_t>(nativeHandle->numFds); ++i) {
@@ -51,7 +52,8 @@ ParamTraits<GonkNativeHandle>::Read(const Message* aMsg,
                                PickleIterator* aIter, paramType* aResult)
 {
   size_t nbytes;
-  if (!aMsg->ReadSize(aIter, &nbytes)) {
+  // TODO: verify this is correct after bug 1525199.
+  if (!aMsg->ReadUInt32(aIter, &nbytes)) {
     return false;
   }
 
