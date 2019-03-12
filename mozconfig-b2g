@@ -24,7 +24,7 @@ ac_add_options --with-android-ndk="$HOME/.mozbuild/android-ndk-r17b"
 ac_add_options --with-android-version=23
 
 # Use sccache
-ac_add_options --with-ccache=sccache
+# ac_add_options --with-ccache=sccache
 
 # Auto-clobber
 mk_add_options AUTOCLOBBER=1

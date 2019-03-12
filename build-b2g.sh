@@ -3,7 +3,7 @@
 set -e
 
 export MOZCONFIG=mozconfig-b2g
-export GONK_PATH=$HOME/projects/B2G
+export GONK_PATH=/home/alexandre/Documents/codaz/Mozilla/GeckoGonk/B2G
 export GONK_PRODUCT_NAME=generic
 
 # Check that the GONK_PATH environment variable is set.
@@ -26,7 +26,7 @@ fi
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-export NDK_DIR=/home/gsvelto/.mozbuild/android-ndk-r17b
+export NDK_DIR=$HOME/.mozbuild/android-ndk-r17b/
 
 export PATH=$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
 
@@ -80,6 +80,6 @@ export ANDROID_PLATFORM=android-23
 export LDFLAGS="-L$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 -Wl,-rpath-link=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 --sysroot=$NDK_DIR/sysroot $GCC_LIB -ldl -lstdc++ -Wl,--no-as-needed \
--llog -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lpower -lui -lgui"
+-llog -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lpower -lui -lgui -lsuspend"
 
 ./mach build $@

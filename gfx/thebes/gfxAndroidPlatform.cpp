@@ -34,6 +34,10 @@
 #include "GeneratedJNINatives.h"
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#include <cutils/properties.h>
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::gfx;
