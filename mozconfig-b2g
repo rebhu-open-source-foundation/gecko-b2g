@@ -1,9 +1,9 @@
 # Compiler
-export CC=/home/gsvelto/.mozbuild/clang/bin/clang
-export CXX=/home/gsvelto/.mozbuild/clang/bin/clang++
-export LLVMCONFIG=/home/gsvelto/.mozbuild/clang/bin/llvm-config
-export LLVM_CONFIG=/home/gsvelto/.mozbuild/clang/bin/llvm-config
-export CBINDGEN=/home/gsvelto/.mozbuild/cbindgen-0.7.1/cbindgen
+export CC=$HOME/.mozbuild/clang/bin/clang
+export CXX=$HOME/.mozbuild/clang/bin/clang++
+export LLVMCONFIG=$HOME/.mozbuild/clang/bin/llvm-config
+export LLVM_CONFIG=$HOME/.mozbuild/clang/bin/llvm-config
+export CBINDGEN=$HOME/.mozbuild/cbindgen-0.7.1/cbindgen
 
 # Build B2G
 ac_add_options --enable-application=b2g
