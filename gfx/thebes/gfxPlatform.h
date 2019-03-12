@@ -610,6 +610,8 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
 
   static void PurgeSkiaFontCache();
 
+  virtual bool IsInGonkEmulator() const { return false; }
+
   static bool UsesOffMainThreadCompositing();
 
   /**

@@ -1290,6 +1290,13 @@ void gfxFT2FontList::FindFonts() {
     MOZ_CRASH("Could not read the system fonts directory");
   }
 
+#ifdef MOZ_WIDGET_GONK
+    // Look for fonts in /system/fonts/hidden and preload them to the
+    // user-font cache as data: URIs
+    root.AppendLiteral("/hidden");
+    FindFontsInDir(root, mFontNameCache.get(), FT2FontFamily::kHidden);
+#endif
+
   // Look for fonts stored in omnijar, unless we're on a low-memory
   // device where we don't want to spend the RAM to decompress them.
   // (Prefs may disable this, or force-enable it even with low memory.)
@@ -1511,7 +1518,9 @@ searchDone:
 FontFamily gfxFT2FontList::GetDefaultFontForPlatform(
     const gfxFontStyle* aStyle) {
   FontFamily ff;
-#if defined(MOZ_WIDGET_ANDROID)
+#ifdef MOZ_WIDGET_GONK
+  ff = FindFamily(NS_LITERAL_STRING("Fira Sans"));
+#elif defined(MOZ_WIDGET_ANDROID)
   ff = FindFamily(NS_LITERAL_CSTRING("Roboto"));
   if (ff.IsNull()) {
     ff = FindFamily(NS_LITERAL_CSTRING("Droid Sans"));

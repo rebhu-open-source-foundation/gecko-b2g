@@ -98,6 +98,12 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
   if (StaticPrefs::AndroidRGB16Force()) {
     mOffscreenFormat = SurfaceFormat::R5G6B5_UINT16;
   }
+
+#ifdef MOZ_WIDGET_GONK
+    char propQemu[PROPERTY_VALUE_MAX];
+    property_get("ro.kernel.qemu", propQemu, "");
+    mIsInGonkEmulator = !strncmp(propQemu, "1", 1);
+#endif
 }
 
 gfxAndroidPlatform::~gfxAndroidPlatform() {
@@ -150,6 +156,9 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
   static const char kMotoyaLMaru[] = "MotoyaLMaru";
   static const char kNotoSansCJKJP[] = "Noto Sans CJK JP";
   static const char kNotoColorEmoji[] = "Noto Color Emoji";
+#ifdef MOZ_WIDGET_GONK
+    static const char kFirefoxEmoji[] = "Firefox Emoji";
+#endif
 
   EmojiPresentation emoji = GetEmojiPresentation(aCh);
   if (emoji != EmojiPresentation::TextOnly) {
@@ -157,6 +166,9 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
         (aNextCh != kVariationSelector15 &&
          emoji == EmojiPresentation::EmojiDefault)) {
       // if char is followed by VS16, try for a color emoji glyph
+#ifdef MOZ_WIDGET_GONK
+      aFontList.AppendElement(kFirefoxEmoji);
+#endif
       aFontList.AppendElement(kNotoColorEmoji);
     }
   }
@@ -255,7 +267,7 @@ bool gfxAndroidPlatform::FontHintingEnabled() {
   // In "mobile" builds, we sometimes use non-reflow-zoom, so we
   // might not want hinting.  Let's see.
 
-#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
+#if defined(MOZ_WIDGET_ANDROID)
   // On Android, we currently only use gecko to render web
   // content that can always be be non-reflow-zoomed.  So turn off
   // hinting.
@@ -264,6 +276,12 @@ bool gfxAndroidPlatform::FontHintingEnabled() {
   // want to re-enable hinting for non-browser processes there.
   return false;
 #endif  //  MOZ_WIDGET_ANDROID
+
+#ifdef MOZ_WIDGET_GONK
+    // On B2G, the UX preference is currently to keep hinting disabled
+    // for all text (see bug 829523).
+    return false;
+#endif
 
   // Currently, we don't have any other targets, but if/when we do,
   // decide how to handle them here.
