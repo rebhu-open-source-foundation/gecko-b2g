@@ -226,6 +226,8 @@ EXPORTS.mozilla.layers += [
     'mlgpu/UtilityMLGPU.h',
     'opengl/CompositingRenderTargetOGL.h',
     'opengl/CompositorOGL.h',
+    'opengl/GrallocTextureClient.h',
+    'opengl/GrallocTextureHost.h',
     'opengl/MacIOSurfaceTextureClientOGL.h',
     'opengl/MacIOSurfaceTextureHostOGL.h',
     'opengl/TextureClientOGL.h',
