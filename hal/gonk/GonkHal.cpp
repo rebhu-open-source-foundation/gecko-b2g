@@ -224,8 +224,7 @@ SetLight(LightType light, const LightConfiguration& aConfig)
 
   InitLights();
 
-  if (light < 0 || light >= eHalLightID_Count ||
-      sLights[light] == nullptr) {
+  if (light >= eHalLightID_Count || sLights[light] == nullptr) {
     return false;
   }
 
@@ -250,8 +249,7 @@ GetLight(LightType light, LightConfiguration* aConfig)
 {
   light_state_t state;
 
-  if (light < 0 || light >= eHalLightID_Count ||
-      sLights[light] == nullptr) {
+  if (light >= eHalLightID_Count || sLights[light] == nullptr) {
     return false;
   }
 
