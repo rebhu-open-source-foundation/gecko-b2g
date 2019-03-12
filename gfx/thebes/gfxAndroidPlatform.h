@@ -56,7 +56,7 @@ class gfxAndroidPlatform : public gfxPlatform {
       override;
 
 #ifdef MOZ_WIDGET_GONK
-    virtual bool IsInGonkEmulator() const { return mIsInGonkEmulator; }
+    virtual bool IsInGonkEmulator() const override { return mIsInGonkEmulator; }
 #endif
 
  protected:
