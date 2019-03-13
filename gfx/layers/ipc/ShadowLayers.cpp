@@ -30,6 +30,7 @@
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor, etc
 #include "mozilla/layers/LayersTypes.h"     // for MOZ_LAYERS_LOG
 #include "mozilla/layers/LayerTransactionChild.h"
+#include "mozilla/layers/SharedBufferManagerChild.h"
 #include "mozilla/layers/PTextureChild.h"
 #include "mozilla/layers/SyncObject.h"
 #ifdef XP_DARWIN

@@ -10,8 +10,6 @@ include ProtocolTypes;
 
 include "mozilla/GfxMessageUtils.h";
 
-using mozilla::layers::MaybeMagicGrallocBufferHandle from "mozilla/layers/ShadowLayerUtilsGralloc.h";
-
 namespace mozilla {
 namespace layers {
 

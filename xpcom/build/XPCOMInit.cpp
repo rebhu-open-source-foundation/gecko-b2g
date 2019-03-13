@@ -26,6 +26,7 @@
 
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
+#include "mozilla/layers/SharedBufferManagerChild.h"
 
 #include "prlink.h"
 
