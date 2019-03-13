@@ -3,7 +3,6 @@
 set -e
 
 export MOZCONFIG=mozconfig-b2g
-export GONK_PATH=/home/alexandre/Documents/codaz/Mozilla/GeckoGonk/B2G
 export GONK_PRODUCT_NAME=generic
 
 # Check that the GONK_PATH environment variable is set.
