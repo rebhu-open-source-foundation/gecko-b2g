@@ -55,8 +55,8 @@ public:
    */
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool RecvAllocateGrallocBuffer(const IntSize&, const uint32_t&, const uint32_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*) override;
-  virtual bool RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle) override;
+  virtual bool RecvAllocateGrallocBuffer(const IntSize&, const uint32_t&, const uint32_t&, mozilla::layers::MaybeMagicGrallocBufferHandle*);
+  virtual bool RecvDropGrallocBuffer(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle);
 
   /**
    * Break the buffer's sharing state, decrease buffer reference for both side
@@ -67,7 +67,7 @@ public:
   IToplevelProtocol*
   CloneToplevel(const InfallibleTArray<ProtocolFdMapping>& aFds,
                 base::ProcessHandle aPeerProcess,
-                mozilla::ipc::ProtocolCloneContext* aCtx) override;
+                mozilla::ipc::ProtocolCloneContext* aCtx);
   MessageLoop* GetMessageLoop();
 
 protected:
