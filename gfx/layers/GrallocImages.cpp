@@ -7,7 +7,7 @@
 #include "GrallocImages.h"
 #include <stddef.h>                     // for size_t
 #include <stdint.h>                     // for int8_t, uint8_t, uint32_t, etc
-#include "nsDebug.h"                    // for NS_WARNING, NS_PRECONDITION
+#include "nsDebug.h"                    // for NS_WARNING, NS_ASSERTION
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/GrallocTextureClient.h"
 #include "gfx2DGlue.h"
@@ -61,9 +61,9 @@ bool
 GrallocImage::SetData(const Data& aData)
 {
   MOZ_ASSERT(!mTextureClient, "TextureClient is already set");
-  NS_PRECONDITION(aData.mYSize.width % 2 == 0, "Image should have even width");
-  NS_PRECONDITION(aData.mYSize.height % 2 == 0, "Image should have even height");
-  NS_PRECONDITION(aData.mYStride % 16 == 0, "Image should have stride of multiple of 16 pixels");
+  NS_ASSERTION(aData.mYSize.width % 2 == 0, "Image should have even width");
+  NS_ASSERTION(aData.mYSize.height % 2 == 0, "Image should have even height");
+  NS_ASSERTION(aData.mYStride % 16 == 0, "Image should have stride of multiple of 16 pixels");
 
   mData = aData;
   mSize = aData.mPicSize;

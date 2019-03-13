@@ -97,7 +97,8 @@ ParamTraits<MagicGrallocBufferHandle>::Write(Message* aMsg,
 #endif
   aMsg->WriteInt(aParam.mRef.mOwner);
   aMsg->WriteInt64(aParam.mRef.mKey);
-  aMsg->WriteSize(nbytes);
+  // TODO: verify this is correct after bug 1525199.
+  aMsg->WriteUInt32(nbytes);
   aMsg->WriteBytes(data, nbytes);
   for (size_t n = 0; n < nfds; ++n) {
     // These buffers can't die in transit because they're created
@@ -121,7 +122,8 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
 
   if (!aMsg->ReadInt(aIter, &owner) ||
       !aMsg->ReadInt64(aIter, &index) ||
-      !aMsg->ReadSize(aIter, &nbytes)) {
+      // TODO: verify this is correct after bug 1525199.
+      !aMsg->ReadUInt32(aIter, &nbytes)) {
     printf_stderr("ParamTraits<MagicGrallocBufferHandle>::Read() failed to read a message\n");
     return false;
   }
