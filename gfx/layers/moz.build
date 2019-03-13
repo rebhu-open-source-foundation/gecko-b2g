@@ -621,6 +621,22 @@ if CONFIG['MOZ_DEBUG']:
 if CONFIG['MOZ_ENABLE_D3D10_LAYER']:
     DEFINES['MOZ_ENABLE_D3D10_LAYER'] = True
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    if CONFIG['ANDROID_VERSION'] >= '17':
+        includes = [
+            'frameworks/av/include/media/stagefright',
+            'frameworks/native/include/media/openmax',
+        ]
+    else:
+        includes = [
+            'frameworks/base/include/media/stagefright',
+            'frameworks/base/include/media/stagefright/openmax',
+        ]
+
+    LOCAL_INCLUDES += [
+        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in includes
+    ]
+
 if CONFIG['ENABLE_TESTS']:
     DIRS += ['apz/test/gtest']
     DIRS += ['apz/test/gtest/mvm']
