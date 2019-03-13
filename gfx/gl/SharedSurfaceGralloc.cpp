@@ -58,7 +58,7 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
     DEBUG_PRINT("SharedSurface_Gralloc::Create -------\n");
 
     if (!HasExtensions(egl, prodGL))
-        return Move(ret);
+        return ret;
 
     gfxContentType type = hasAlpha ? gfxContentType::COLOR_ALPHA
                                    : gfxContentType::COLOR;
@@ -68,7 +68,7 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
     );
 
     if (!texData) {
-        return Move(ret);
+        return ret;
     }
 
     RefPtr<TextureClient> grallocTC = new TextureClient(texData, flags, allocator);
@@ -85,7 +85,7 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
                                        LOCAL_EGL_NATIVE_BUFFER_ANDROID,
                                        clientBuffer, attrs);
     if (!image) {
-        return Move(ret);
+        return ret;
     }
 
     prodGL->MakeCurrent();
@@ -110,7 +110,7 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
                 " GraphicBuffer %p.\n",
                 ret.get(), buffer.get());
 
-    return Move(ret);
+    return ret;
 }
 
 

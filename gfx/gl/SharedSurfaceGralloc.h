@@ -94,7 +94,7 @@ public:
             ret = SharedSurface_Gralloc::Create(mGL, mFormats, size, hasAlpha,
                                                 mFlags, mAllocator);
         }
-        return Move(ret);
+        return ret;
     }
 };
 
