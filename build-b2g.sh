@@ -64,6 +64,7 @@ export CFLAGS="-DANDROID -DTARGET_OS_GONK \
 -I$GONK_PATH/external/skia/include/core \
 -I$GONK_PATH/external/skia/include/effects \
 -I$GONK_PATH/system/core/libpixelflinger/include \
+-I$GONK_PATH/hardware/libhardware/include/ \
 -I$(pwd)/modules/freetype2/include"
 
 export CPPFLAGS="-O2 -fPIC \
