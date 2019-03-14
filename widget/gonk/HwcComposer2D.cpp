@@ -25,19 +25,21 @@
 #include "HwcComposer2D.h"
 #include "LayerScope.h"
 #include "Units.h"
+#include "libdisplay/GonkDisplay.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/PLayerTransaction.h"
-#include "mozilla/layers/ShadowLayerUtilsGralloc.h"
+//#include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include "mozilla/layers/TextureHostOGL.h"  // for TextureHostOGL
 #include "mozilla/StaticPtr.h"
+#include "nsIScreen.h"
 #include "nsThreadUtils.h"
 #include "cutils/properties.h"
 #include "gfx2DGlue.h"
 #include "gfxPlatform.h"
 #include "VsyncSource.h"
-#include "nsScreenManagerGonk.h"
+#include "ScreenHelperGonk.h"
 #include "nsWindow.h"
 
 #if ANDROID_VERSION >= 17
@@ -122,7 +124,7 @@ HwcComposer2D::HwcComposer2D()
 
     nsIntSize screenSize;
 
-    GonkDisplay::NativeData data = GetGonkDisplay()->GetNativeData(GonkDisplay::DISPLAY_PRIMARY);
+    GonkDisplay::NativeData data = GetGonkDisplay()->GetNativeData(DisplayType::DISPLAY_PRIMARY);
     ANativeWindow *win = data.mNativeWindow.get();
     win->query(win, NATIVE_WINDOW_WIDTH, &screenSize.width);
     win->query(win, NATIVE_WINDOW_HEIGHT, &screenSize.height);
@@ -228,16 +230,19 @@ HwcComposer2D::Invalidate()
 }
 
 namespace {
-class HotplugEvent : public nsRunnable {
+class HotplugEvent : public mozilla::Runnable {
 public:
-    HotplugEvent(GonkDisplay::DisplayType aType, bool aConnected)
-        : mType(aType)
+    HotplugEvent(DisplayType aType, bool aConnected)
+        : mozilla::Runnable("HotplugEvent")
+        , mType(aType)
         , mConnected(aConnected)
     {
     }
 
     NS_IMETHOD Run()
     {
+// TODO: FIXME
+#if 0
         RefPtr<nsScreenManagerGonk> screenManager =
             nsScreenManagerGonk::GetInstance();
         if (mConnected) {
@@ -245,10 +250,11 @@ public:
         } else {
             screenManager->RemoveScreen(mType);
         }
+#endif
         return NS_OK;
     }
 private:
-    GonkDisplay::DisplayType mType;
+    DisplayType mType;
     bool mConnected;
 };
 } // namespace
@@ -256,7 +262,7 @@ private:
 void
 HwcComposer2D::Hotplug(int aDisplay, int aConnected)
 {
-    NS_DispatchToMainThread(new HotplugEvent(GonkDisplay::DISPLAY_EXTERNAL,
+    NS_DispatchToMainThread(new HotplugEvent(DisplayType::DISPLAY_EXTERNAL,
                                              aConnected));
 }
 
@@ -296,6 +302,9 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
                                 const Matrix& aParentTransform,
                                 bool aFindSidebandStreams)
 {
+// TODO: FIXME
+    return false;
+#if 0
     // NB: we fall off this path whenever there are container layers
     // that require intermediate surfaces.  That means all the
     // GetEffective*() coordinates are relative to the framebuffer.
@@ -698,6 +707,7 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
     mHwcLayerMap.AppendElement(static_cast<LayerComposite*>(aLayer->ImplData()));
     mList->numHwLayers++;
     return true;
+#endif
 }
 
 
@@ -705,6 +715,9 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
 bool
 HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen)
 {
+// TODO: FIXME
+    return false;
+#if 0
     DisplaySurface* dispSurface = aScreen->GetDisplaySurface();
 
     if (!(dispSurface && dispSurface->lastHandle)) {
@@ -802,11 +815,17 @@ HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen)
 
     // BLIT or full OVERLAY Composition
     return Commit(aScreen);
+#endif
 }
 
 bool
 HwcComposer2D::Render(nsIWidget* aWidget)
 {
+    nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
+    return GetGonkDisplay()->SwapBuffers(screen->GetDisplayType());
+
+// TODO: FIXME
+#if 0
     nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
 
     // HWC module does not exist or mList is not created yet.
@@ -854,6 +873,7 @@ HwcComposer2D::Render(nsIWidget* aWidget)
 
     // GPU or partial HWC Composition
     return Commit(screen);
+#endif
 }
 
 void
@@ -863,13 +883,16 @@ HwcComposer2D::Prepare(buffer_handle_t dispHandle, int fence, nsScreenGonk* scre
         LOGE("Multiple hwc prepare calls!");
     }
     hwc_rect_t dispRect = {0, 0, mScreenRect.width, mScreenRect.height};
-    mHal->Prepare(mList, screen->GetDisplayType(), dispRect, dispHandle, fence);
+    mHal->Prepare(mList, (uint32_t)screen->GetDisplayType(), dispRect, dispHandle, fence);
     mPrepared = true;
 }
 
 bool
 HwcComposer2D::Commit(nsScreenGonk* aScreen)
 {
+// TODO: FIXME
+    return false;
+#if 0
     for (uint32_t j=0; j < (mList->numHwLayers - 1); j++) {
         mList->hwLayers[j].acquireFenceFd = -1;
         if (mHwcLayerMap.IsEmpty() ||
@@ -917,6 +940,7 @@ HwcComposer2D::Commit(nsScreenGonk* aScreen)
 
     mPrepared = false;
     return !err;
+#endif
 }
 #else
 bool
@@ -940,6 +964,9 @@ HwcComposer2D::TryRenderWithHwc(Layer* aRoot,
                                 bool aGeometryChanged,
                                 bool aHasImageHostOverlays)
 {
+// TODO: FIXME
+    return false;
+#if 0
     if (!mHal->HasHwc()) {
         return false;
     }
@@ -1010,11 +1037,14 @@ HwcComposer2D::TryRenderWithHwc(Layer* aRoot,
 
     LOGD("Frame rendered");
     return true;
+#endif
 }
 
 void
 HwcComposer2D::SendtoLayerScope()
 {
+// TODO: FIXME
+#if 0
     if (!LayerScope::CheckSendable()) {
         return;
     }
@@ -1025,6 +1055,7 @@ HwcComposer2D::SendtoLayerScope()
         const hwc_rect_t r = mList->hwLayers[i].displayFrame;
         LayerScope::SendLayer(layer, r.right - r.left, r.bottom - r.top);
     }
+#endif
 }
 
 void

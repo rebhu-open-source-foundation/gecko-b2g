@@ -36,6 +36,7 @@ class WinCompositorWidget;
 class GtkCompositorWidget;
 class AndroidCompositorWidget;
 class CompositorWidgetInitData;
+class GonkCompositorWidget;
 
 // Gecko widgets usually need to communicate with the CompositorWidget with
 // platform-specific messages (for example to update the window size or
@@ -263,6 +264,7 @@ class CompositorWidget {
   virtual WinCompositorWidget* AsWindows() { return nullptr; }
   virtual GtkCompositorWidget* AsX11() { return nullptr; }
   virtual AndroidCompositorWidget* AsAndroid() { return nullptr; }
+  virtual GonkCompositorWidget* AsGonk() { return nullptr; }
 
   /**
    * Return the platform-specific delegate for the widget, if any.

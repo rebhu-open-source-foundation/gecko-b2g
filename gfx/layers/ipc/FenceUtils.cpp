@@ -5,10 +5,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// TODO: FIXME
+#if 0
+
 #if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
 #pragma GCC visibility push(default)
 #include "sync/sync.h"       // for sync_merge
 #pragma GCC visibility pop
+#endif
+
 #endif
 
 #include "FenceUtils.h"
@@ -63,6 +68,9 @@ FenceHandle::FenceHandle(FdObj* aFdObj)
 void
 FenceHandle::Merge(const FenceHandle& aFenceHandle)
 {
+// TODO: FIXME
+#if 0
+
 #if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
   if (!aFenceHandle.IsValid()) {
     return;
@@ -78,6 +86,8 @@ FenceHandle::Merge(const FenceHandle& aFenceHandle)
       mFence = new FdObj(result);
     }
   }
+#endif
+
 #endif
 }
 

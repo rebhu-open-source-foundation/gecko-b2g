@@ -18,6 +18,11 @@
     ((EGLNativeWindowType)aWidget->GetNativeData(NS_NATIVE_WINDOW))
 #  define GET_NATIVE_WINDOW_FROM_COMPOSITOR_WIDGET(aWidget) \
     ((EGLNativeWindowType)aWidget->AsWindows()->GetHwnd())
+#elif defined(MOZ_WIDGET_GONK)
+#  define GET_NATIVE_WINDOW_FROM_REAL_WIDGET(aWidget) \
+    ((EGLNativeWindowType)aWidget->GetNativeData(NS_NATIVE_WINDOW))
+#  define GET_NATIVE_WINDOW_FROM_COMPOSITOR_WIDGET(aWidget) \
+    (aWidget->AsGonk()->GetEGLNativeWindow())
 #else
 #  define GET_NATIVE_WINDOW_FROM_REAL_WIDGET(aWidget) \
     ((EGLNativeWindowType)aWidget->GetNativeData(NS_NATIVE_WINDOW))
@@ -27,6 +32,10 @@
 #endif
 
 #if defined(XP_UNIX)
+#  ifdef MOZ_WIDGET_GONK
+#    include "mozilla/widget/GonkCompositorWidget.h"
+#  endif
+
 #  ifdef MOZ_WIDGET_ANDROID
 #    include <android/native_window.h>
 #    include <android/native_window_jni.h>

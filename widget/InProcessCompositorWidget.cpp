@@ -11,6 +11,10 @@
 #  include "mozilla/widget/AndroidCompositorWidget.h"
 #endif
 
+#if defined(MOZ_WIDGET_GONK) && !defined(MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING)
+#  include "mozilla/widget/GonkCompositorWidget.h"
+#endif
+
 namespace mozilla {
 namespace widget {
 
@@ -25,6 +29,9 @@ RefPtr<CompositorWidget> CompositorWidget::CreateLocal(
 #  ifdef MOZ_WIDGET_ANDROID
   return new AndroidCompositorWidget(aOptions,
                                      static_cast<nsBaseWidget*>(aWidget));
+#elif defined(MOZ_WIDGET_GONK)
+  return new GonkCompositorWidget(aOptions,
+                                  static_cast<nsBaseWidget*>(aWidget));
 #  else
   return new InProcessCompositorWidget(aOptions,
                                        static_cast<nsBaseWidget*>(aWidget));

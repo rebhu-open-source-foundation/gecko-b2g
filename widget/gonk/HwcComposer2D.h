@@ -19,10 +19,11 @@
 #ifndef mozilla_HwcComposer2D
 #define mozilla_HwcComposer2D
 
-//#include "Composer2D.h"
 #include "hwchal/HwcHALBase.h"              // for HwcHAL
 #include "HwcUtils.h"                       // for RectVector
 #include "Layers.h"
+#include "mozilla/layers/Composer2D.h"
+#include "mozilla/layers/FenceUtils.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/UniquePtr.h"              // for HwcHAL
 
@@ -116,7 +117,7 @@ private:
     layers::FenceHandle mPrevRetireFence;
     layers::FenceHandle mPrevDisplayFence;
     nsTArray<HwcLayer>      mCachedSidebandLayers;
-    nsTArray<layers::LayerComposite*> mHwcLayerMap;
+    //nsTArray<layers::LayerComposite*> mHwcLayerMap;
     bool                    mPrepared;
     bool                    mHasHWVsync;
     bool                    mStopRenderWithHwc;

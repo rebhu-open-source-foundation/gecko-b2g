@@ -38,6 +38,7 @@
 #include "mozilla/gfx/Point.h"          // for IntSize, Point
 #include "mozilla/gfx/Rect.h"           // for Rect
 #include "mozilla/gfx/Types.h"          // for Color, SurfaceFormat
+#include "mozilla/layers/Composer2D.h"
 #include "mozilla/layers/Compositor.h"  // for Compositor
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/layers/Effects.h"              // for Effect, EffectChain, etc
@@ -72,6 +73,10 @@
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "TreeTraversal.h"  // for ForEachNode
 #include "CompositionRecorder.h"
+
+#ifdef MOZ_WIDGET_GONK
+#  include "mozilla/widget/GonkCompositorWidget.h"
+#endif
 
 #ifdef USE_SKIA
 #  include "PaintCounter.h"  // For PaintCounter
@@ -935,6 +940,12 @@ void LayerManagerComposite::Render(const nsIntRegion& aInvalidRegion,
   widgetContext.mCompositor = GetCompositor();
 #endif
 
+  /** Our more efficient but less powerful alter ego, if one is available. */
+  RefPtr<Composer2D> composer2D;
+#ifdef MOZ_WIDGET_GONK
+  composer2D = mCompositor->GetWidget()->AsGonk()->GetComposer2D();
+#endif
+
   {
     AUTO_PROFILER_LABEL("LayerManagerComposite::Render:Prerender", GRAPHICS);
 
@@ -1068,6 +1079,10 @@ void LayerManagerComposite::Render(const nsIntRegion& aInvalidRegion,
     AUTO_PROFILER_LABEL("LayerManagerComposite::Render:EndFrame", GRAPHICS);
 
     mCompositor->EndFrame();
+  }
+
+  if (composer2D) {
+    composer2D->Render(mCompositor->GetWidget()->RealWidget());
   }
 
   mCompositor->GetWidget()->PostRender(&widgetContext);
