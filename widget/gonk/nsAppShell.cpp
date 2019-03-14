@@ -1175,6 +1175,9 @@ nsAppShell::nsAppShell()
     , mPowerKeyChecked(false)
 {
     gAppShell = this;
+
+    hal::Init();
+
     if (XRE_IsParentProcess()) {
         Preferences::SetCString("b2g.safe_mode", "unset");
     }
