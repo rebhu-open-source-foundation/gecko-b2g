@@ -1228,6 +1228,9 @@ nsAppShell::Init()
 #endif
         GonkPermissionService::instantiate();
 
+        /* Start boot animation */
+        mozilla::StartBootAnimation();
+
         ScreenManager& screenManager = ScreenManager::GetSingleton();
         screenManager.SetHelper(mozilla::MakeUnique<ScreenHelperGonk>());
 
@@ -1295,7 +1298,7 @@ nsAppShell::Observe(nsISupports* aSubject,
         mEnableDraw = true;
 
         // System is almost booting up. Stop the bootAnim now.
-        StopBootAnimation();
+        mozilla::StopBootAnimation();
 
         NotifyEvent();
         return NS_OK;

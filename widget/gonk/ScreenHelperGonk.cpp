@@ -454,7 +454,7 @@ nsScreenGonk::StartRemoteDrawing()
     }
     SurfaceFormat format = HalFormatToSurfaceFormat(GetSurfaceFormat());
     mFramebufferTarget = Factory::CreateDrawTargetForData(
-        BackendType::CAIRO,
+        BackendType::SKIA,
         mMappedBuffer,
         IntSize(width, height),
         mFramebuffer->stride * gfx::BytesPerPixel(format),

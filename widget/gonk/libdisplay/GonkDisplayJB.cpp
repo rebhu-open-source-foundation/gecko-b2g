@@ -137,7 +137,7 @@ GonkDisplayJB::GonkDisplayJB()
 
     mList = (hwc_display_contents_1_t *)calloc(1, sizeof(*mList) + (sizeof(hwc_layer_1_t)*2));
 
-    uint32_t usage = GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_COMPOSER;
+    uint32_t usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE;
 
     if (mHwc) {
         PowerOnDisplay(HWC_DISPLAY_PRIMARY);
@@ -148,7 +148,7 @@ GonkDisplayJB::GonkDisplayJB()
                                  dispData.mSurfaceformat);
     } else if (mFBDevice) {
         // If display uses fb, they can not use single buffer for boot animation
-        mSTClient->perform(mSTClient.get(), NATIVE_WINDOW_SET_BUFFER_COUNT, 2);
+        mSTClient->perform(mSTClient.get(), NATIVE_WINDOW_SET_BUFFER_COUNT, 4);
         mSTClient->perform(mSTClient.get(), NATIVE_WINDOW_SET_USAGE, usage);
     }
 
@@ -173,7 +173,7 @@ GonkDisplayJB::GonkDisplayJB()
                                      extDispData.mWidth,
                                      extDispData.mHeight,
                                      extDispData.mSurfaceformat);
-            mExtSTClient->perform(mExtSTClient.get(), NATIVE_WINDOW_SET_BUFFER_COUNT, 2);
+            mExtSTClient->perform(mExtSTClient.get(), NATIVE_WINDOW_SET_BUFFER_COUNT, 4);
             mExtSTClient->perform(mExtSTClient.get(), NATIVE_WINDOW_SET_USAGE, usage);
         } else {
             delete mExtFBDevice;

@@ -483,8 +483,7 @@ FakeSurfaceComposer::captureScreenImp(const sp<IGraphicBufferProducer>& producer
                 NS_ReleaseOnMainThreadSystemGroup(screenAlias.forget());
                 return;
             }
-            uint32_t usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN |
-                             GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE;
+            uint32_t usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
             int err = 0;
             err = native_window_set_buffers_dimensions(window, reqWidth, reqHeight);

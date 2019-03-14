@@ -25,6 +25,10 @@
 #ifdef XP_WIN
 #include "LauncherProcessWin.h"
 
+#ifdef MOZ_WIDGET_GONK
+#include "BootAnimation.h"
+#endif
+
 #define XRE_WANT_ENVIRON
 #define strcasecmp _stricmp
 #ifdef MOZ_SANDBOX

@@ -53,7 +53,7 @@ VirtualDisplaySurface::VirtualDisplaySurface(int32_t dispId,
 :   DisplaySurface(bqConsumer),
     mDisplayId(dispId),
     mDisplayName(name),
-    mOutputUsage(GRALLOC_USAGE_HW_COMPOSER),
+    mOutputUsage(GRALLOC_USAGE_HW_FB),
     mProducerSlotSource(0),
     mDbgState(DBG_STATE_IDLE),
     mDbgLastCompositionType(COMPOSITION_UNKNOWN),
@@ -87,7 +87,7 @@ VirtualDisplaySurface::VirtualDisplaySurface(int32_t dispId,
 
     ConsumerBase::mName = String8::format("VDS: %s", mDisplayName.string());
     mConsumer->setConsumerName(ConsumerBase::mName);
-    mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_COMPOSER);
+    mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB);
     mConsumer->setDefaultBufferSize(sinkWidth, sinkHeight);
     mConsumer->setDefaultMaxBufferCount(2);
 }
@@ -130,14 +130,14 @@ status_t VirtualDisplaySurface::prepareFrame(CompositionType compositionType) {
     }
 
     if (mCompositionType != mDbgLastCompositionType) {
-        VDS_LOGV("prepareFrame: composition type changed to %s",
+        VDS_LOGE("prepareFrame: composition type changed to %s",
                 dbgCompositionTypeStr(mCompositionType));
         mDbgLastCompositionType = mCompositionType;
     }
 
     if (mCompositionType != COMPOSITION_GLES &&
             (mOutputFormat != mDefaultOutputFormat ||
-             mOutputUsage != GRALLOC_USAGE_HW_COMPOSER)) {
+             mOutputUsage != GRALLOC_USAGE_HW_FB)) {
         // We must have just switched from GLES-only to MIXED or HWC
         // composition. Stop using the format and usage requested by the GLES
         // driver; they may be suboptimal when HWC is writing to the output
@@ -149,7 +149,7 @@ status_t VirtualDisplaySurface::prepareFrame(CompositionType compositionType) {
         // format/usage and get a new buffer when the GLES driver calls
         // dequeueBuffer().
         mOutputFormat = mDefaultOutputFormat;
-        mOutputUsage = GRALLOC_USAGE_HW_COMPOSER;
+        mOutputUsage = GRALLOC_USAGE_HW_FB;
         refreshOutputBuffer();
     }
 
@@ -369,7 +369,7 @@ status_t VirtualDisplaySurface::dequeueBuffer(int* pslot, sp<Fence>* fence, bool
         // prepare and set, but since we're in GLES-only mode already it
         // shouldn't matter.
 
-        usage |= GRALLOC_USAGE_HW_COMPOSER;
+        usage |= GRALLOC_USAGE_HW_FB;
         const sp<GraphicBuffer>& buf = mProducerBuffers[mOutputProducerSlot];
         if ((usage & ~buf->getUsage()) != 0 ||
                 (format != 0 && format != (uint32_t)buf->getPixelFormat()) ||

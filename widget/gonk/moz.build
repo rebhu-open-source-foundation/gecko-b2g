@@ -20,6 +20,10 @@ EXPORTS += [
     'OrientationObserver.h',
 ]
 
+EXPORTS.mozilla += [
+    'libdisplay/BootAnimation.h',
+]
+
 DIRS += ['libdisplay', 'nativewindow']
 
 # libui files

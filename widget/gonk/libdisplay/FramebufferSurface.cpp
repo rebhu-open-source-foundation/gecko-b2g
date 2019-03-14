@@ -41,7 +41,7 @@
 #include "GraphicBufferAlloc.h"
 
 #ifndef NUM_FRAMEBUFFER_SURFACE_BUFFERS
-#define NUM_FRAMEBUFFER_SURFACE_BUFFERS (3)
+#define NUM_FRAMEBUFFER_SURFACE_BUFFERS (6)
 #endif
 
 // ----------------------------------------------------------------------------
@@ -71,9 +71,7 @@ FramebufferSurface::FramebufferSurface(int disp,
     consumer->setSynchronousMode(true);
 #endif
     consumer->setConsumerName(mName);
-    consumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB |
-                                   GRALLOC_USAGE_HW_RENDER |
-                                   GRALLOC_USAGE_HW_COMPOSER);
+    consumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB);
     consumer->setDefaultBufferFormat(format);
     consumer->setDefaultBufferSize(width, height);
     consumer->setDefaultMaxBufferCount(NUM_FRAMEBUFFER_SURFACE_BUFFERS);
