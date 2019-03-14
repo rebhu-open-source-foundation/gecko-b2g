@@ -58,7 +58,7 @@ XPCOMUtils.defineLazyServiceGetter(this, 'gSystemMessenger',
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"]
-         .getService(Ci.nsIMessageListenerManager);
+         .getService();
 });
 
 if (isGonk) {
