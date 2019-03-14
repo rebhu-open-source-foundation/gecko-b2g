@@ -23,6 +23,7 @@ for i in $NDK_DIR/platforms/android-23/arch-arm/usr/lib/*; do ln -snf $i .; done
 #undef sa_sigaction
 ```
 - run `./build-b2g.sh`
+- if you encounter issues building try running `./mach bootstrap` first and choose option 4 (GeckoView/Firefox for Android)
 
 Package the build in the emulator:
 - create a tarball with `./build-b2g.sh package`
