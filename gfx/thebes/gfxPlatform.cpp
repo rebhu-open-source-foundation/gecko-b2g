@@ -107,10 +107,6 @@
 #include "GLContextProvider.h"
 #include "mozilla/gfx/Logging.h"
 
-#ifdef MOZ_WIDGET_GONK
-#include "mozilla/layers/GrallocTextureHost.h"
-#endif
-
 #ifdef USE_SKIA
 #  ifdef __GNUC__
 #    pragma GCC diagnostic push
@@ -150,9 +146,6 @@ static const uint32_t kDefaultGlyphCacheSize = -1;
 
 namespace mozilla {
 namespace layers {
-#ifdef MOZ_WIDGET_GONK
-void InitGralloc();
-#endif
 void ShutdownTileCache();
 } // namespace layers
 } // namespace mozilla
@@ -1057,10 +1050,6 @@ void gfxPlatform::Init() {
 
   GLContext::PlatformStartup();
 
-#ifdef MOZ_WIDGET_GONK
-    mozilla::layers::InitGralloc();
-#endif
-
   Preferences::RegisterCallbackAndCall(RecordingPrefChanged,
                                        "gfx.2d.recording");
 
@@ -1291,9 +1280,6 @@ void gfxPlatform::InitLayersIPC() {
     }
 
     layers::CompositorThreadHolder::Start();
-#ifdef MOZ_WIDGET_GONK
-    SharedBufferManagerChild::StartUp();
-#endif
   }
 }
 
@@ -1322,9 +1308,6 @@ void gfxPlatform::ShutdownLayersIPC() {
     gfx::VRManagerChild::ShutDown();
     layers::CompositorManagerChild::Shutdown();
     layers::ImageBridgeChild::ShutDown();
-#ifdef MOZ_WIDGET_GONK
-    layers::SharedBufferManagerChild::ShutDown();
-#endif
 
     // This has to happen after shutting down the child protocols.
     layers::CompositorThreadHolder::Shutdown();
@@ -1584,17 +1567,17 @@ void gfxPlatform::ComputeTileSize() {
       w = h = clamped(int32_t(RoundUpPow2(screenSize.width)) / 4, 256, 1024);
     }
 
-#ifdef MOZ_WIDGET_GONK
-    android::sp<android::GraphicBuffer> alloc =
-          new android::GraphicBuffer(w, h, android::PIXEL_FORMAT_RGBA_8888,
-                                     android::GraphicBuffer::USAGE_SW_READ_OFTEN |
-                                     android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
-                                     android::GraphicBuffer::USAGE_HW_TEXTURE);
-
-    if (alloc.get()) {
-      w = alloc->getStride(); // We want the tiles to be gralloc stride aligned.
-    }
-#endif
+//#ifdef MOZ_WIDGET_GONK
+//    android::sp<android::GraphicBuffer> alloc =
+//          new android::GraphicBuffer(w, h, android::PIXEL_FORMAT_RGBA_8888,
+//                                     android::GraphicBuffer::USAGE_SW_READ_OFTEN |
+//                                     android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
+//                                     android::GraphicBuffer::USAGE_HW_TEXTURE);
+//
+//    if (alloc.get()) {
+//      w = alloc->getStride(); // We want the tiles to be gralloc stride aligned.
+//    }
+//#endif
   }
 
   // Don't allow changing the tile size after we've set it.
