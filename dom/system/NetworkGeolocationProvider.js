@@ -43,15 +43,16 @@ XPCOMUtils.defineLazyServiceGetter(this, "gSystemWorkerManager",
                                    "@mozilla.org/telephony/system-worker-manager;1",
                                    "nsIInterfaceRequestor");
 
+#ifdef HAS_KOOST_MODULES
+// it's ok to use lazy getter here since other module would use hawkHelper first
+XPCOMUtils.defineLazyServiceGetter(this, "hawkHelper",
+                                   "@kaiostech.com/kaiauth/hawk-helper;1",
+                                   "nsIHawkHelper");
+#endif
+
 XPCOMUtils.defineLazyServiceGetter(this, "gNetworkManager",
                                    "@mozilla.org/network/manager;1",
                                    "nsINetworkManager");
-
-XPCOMUtils.defineLazyModuleGetter(this, "CryptoUtils",
-                                  "resource://services-crypto/utils.js");
-
-XPCOMUtils.defineLazyModuleGetter(this, "CommonUtils",
-                                  "resource://services-common/utils.js");
 
 XPCOMUtils.defineLazyModuleGetter(this, "Preferences",
                                   "resource://gre/modules/Preferences.jsm");
@@ -86,6 +87,12 @@ function LOG(aMsg) {
     Cc["@mozilla.org/consoleservice;1"].getService(Ci.nsIConsoleService).logStringMessage(aMsg);
     dump(aMsg);
   }
+}
+
+function ERR(aMsg) {
+    aMsg = "*** WIFI GEO ERR: " + aMsg + "\n";
+    Cc["@mozilla.org/consoleservice;1"].getService(Ci.nsIConsoleService).logStringMessage(aMsg);
+    dump(aMsg);
 }
 
 function CachedRequest(loc, cellInfo, wifiList) {
@@ -610,26 +617,6 @@ WifiGeoPositionProvider.prototype = {
       }); // end of fetchAccessToken
   },
 
-  // compute the Hawk header for a HTTP POST request
-  computeHawkHeader: function(restrictedToken, requestUrl, requestBody) {
-    let hawkCredentials = {
-      id:  restrictedToken.kid,
-      key: CommonUtils.safeAtoB(restrictedToken.mac_key),
-      algorithm: 'sha256'
-    };
-
-    let options = {
-      credentials: hawkCredentials,
-      payload: requestBody,
-      contentType: 'application/json' // only support json
-    };
-
-    let uri = Services.io.newURI(requestUrl, null, null);
-    let hawkHeader = CryptoUtils.computeHAWK(uri, "POST", options);
-
-    return hawkHeader.field;
-  },
-
   // whether the server take HTTP POST as location request
   isPostReq: function () {
     switch (this.serverUri) {
@@ -814,8 +801,16 @@ WifiGeoPositionProvider.prototype = {
       Services.prefs.getBoolPref("geo.provider.need_authorization");
     if (needAuthorization) {
       if (gRestrictedToken != null) {
-        let hawkHeader = this.computeHawkHeader(gRestrictedToken, this.serverUri, requestData);
+        // compute the Hawk header for GeoSubmit
+#ifdef HAS_KOOST_MODULES
+        let hawkHeader = hawkHelper.computeHawkHeader(
+          "POST",
+          gRestrictedToken.kid,
+          gRestrictedToken.mac_key,
+          this.serverUri,
+          requestData);
         xhr.setRequestHeader("Authorization", hawkHeader);
+#endif
       } else {
         this.sendLocationRequestWithRefreshedToken(wifiData);
         return;

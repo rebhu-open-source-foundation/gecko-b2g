@@ -38,10 +38,13 @@ UNIFIED_SOURCES += [
 ]
 
 EXTRA_COMPONENTS += [
-    'NetworkGeolocationProvider.js',
     'NetworkGeolocationProvider.manifest',
     'SystemUpdate.manifest',
     'SystemUpdateManager.js',
+]
+
+EXTRA_PP_COMPONENTS += [
+    'NetworkGeolocationProvider.js',
 ]
 
 EXTRA_JS_MODULES += [

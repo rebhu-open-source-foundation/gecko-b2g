@@ -83,14 +83,9 @@ XPCOMUtils.defineLazyModuleGetter(this, "AppConstants",
 XPCOMUtils.defineLazyModuleGetter(this, "Messaging",
                                   "resource://gre/modules/Messaging.jsm");
 
-XPCOMUtils.defineLazyModuleGetter(this, "CryptoUtils",
-                                  "resource://services-crypto/utils.js");
-
 XPCOMUtils.defineLazyModuleGetter(this, 'setTimeout', // jshint ignore:line
                                   'resource://gre/modules/Timer.jsm');
 
-XPCOMUtils.defineLazyModuleGetter(this, "CommonUtils",
-                                  "resource://services-common/utils.js");
 #ifdef MOZ_WIDGET_GONK
 XPCOMUtils.defineLazyGetter(this, "libcutils", function() {
   Cu.import("resource://gre/modules/systemlibs.js");
@@ -170,6 +165,12 @@ XPCOMUtils.defineLazyGetter(this, "permMgr", function() {
   return Cc["@mozilla.org/permissionmanager;1"]
            .getService(Ci.nsIPermissionManager);
 });
+
+#ifdef HAS_KOOST_MODULES
+// Don't use lazy getter since it needs time to communicate with NTP server.
+const hawkHelper = Cc['@kaiostech.com/kaiauth/hawk-helper;1']
+                   .getService(Ci.nsIHawkHelper);
+#endif
 
 #ifdef MOZ_WIDGET_GONK
   const DIRECTORY_NAME = "webappsDir";
@@ -2511,19 +2512,20 @@ this.DOMApplicationRegistry = {
 
   _computeHawkHeader: function(credential, url) {
     let deferred = Promise.defer();
-    let authHeader = [];
-    let hawkCredentials = {
-      id: credential.kid,
-      key: CommonUtils.safeAtoB(credential.mac_key),
-      algorithm: 'sha256'
-    };
-    this.cachedHawkCredentials = hawkCredentials;
 
-    let options = { credentials : hawkCredentials };
-    let uri = Services.io.newURI(url, null, null);
-    let hawkHeader = CryptoUtils.computeHAWK(uri, "GET", options);
-    authHeader = { 'name' : 'Authorization', 'value' : hawkHeader.field };
+    this.cachedHawkCredentials = {
+      kid: credential.kid,
+      mac_key: credential.mac_key
+    };
+
+#ifdef HAS_KOOST_MODULES
+    let hawkHeader = hawkHelper.computeHawkHeader(
+      "GET", credential.kid, credential.mac_key, url, "");
+    let authHeader = { 'name' : 'Authorization', 'value' : hawkHeader };
     deferred.resolve(authHeader);
+#else
+    deferred.reject();
+#endif
     return deferred.promise;
   },
 
@@ -3899,10 +3901,15 @@ this.DOMApplicationRegistry = {
         for (let i in splits) {
           if (aFullPackagePath.indexOf(splits[i].trim()) > -1) {
             // add Authorization header for Hawk
-            let options = { credentials : this.cachedHawkCredentials };
-            let uri = Services.io.newURI(aFullPackagePath, null, null);
-            let hawkHeader = CryptoUtils.computeHAWK(uri, "GET", options);
-            requestChannel.setRequestHeader("Authorization", hawkHeader.field, false);
+#ifdef HAS_KOOST_MODULES
+            let hawkHeader = hawkHelper.computeHawkHeader(
+              "GET",
+              this.cachedHawkCredentials.kid,
+              this.cachedHawkCredentials.mac_key,
+              aFullPackagePath,
+              "");
+            requestChannel.setRequestHeader("Authorization", hawkHeader, false);
+#endif
             break;
           }
         }
