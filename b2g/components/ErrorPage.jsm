@@ -175,7 +175,7 @@ var ErrorPage = {
   },
 
   observe: function errorPageObserve(aSubject, aTopic, aData) {
-    let frameLoader = aSubject.QueryInterface(Ci.nsIFrameLoader);
+    let frameLoader = aSubject;
     // Ignore notifications that aren't from a BrowserOrApp
     if (!frameLoader.ownerIsMozBrowserOrAppFrame) {
       return;

@@ -93,14 +93,9 @@ nsWindow::nsWindow()
 
 nsWindow::~nsWindow()
 {
-#if 0
   if (mScreen->IsPrimaryScreen()) {
-// TODO: FIXME
-#if 0
     mComposer2D->SetCompositorBridgeParent(nullptr);
-#endif
   }
-#endif
 }
 
 void
@@ -887,10 +882,7 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
   if (mCompositorBridgeParent) {
     mScreen->SetCompositorBridgeParent(mCompositorBridgeParent);
     if (mScreen->IsPrimaryScreen()) {
-// TODO: FIXME
-#if 0
       mComposer2D->SetCompositorBridgeParent(mCompositorBridgeParent);
-#endif
     }
   }
   MOZ_ASSERT(mLayerManager);
@@ -905,10 +897,7 @@ nsWindow::DestroyCompositor()
     mScreen->SetCompositorBridgeParent(nullptr);
     if (mScreen->IsPrimaryScreen()) {
       // Unset CompositorBridgeParent
-// TODO: FIXME
-#if 0
       mComposer2D->SetCompositorBridgeParent(nullptr);
-#endif
     }
   }
   nsBaseWidget::DestroyCompositor();
