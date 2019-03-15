@@ -60,4 +60,6 @@ MOZ_JSDOWNLOADS=1
 
 MOZ_BUNDLED_FONTS=1
 
+BROWSER_CHROME_URL=chrome://b2g/content/shell.html
+
 export JS_GC_SMALL_CHUNK_SIZE=1
