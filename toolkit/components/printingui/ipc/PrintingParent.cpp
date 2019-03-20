@@ -318,7 +318,7 @@ nsresult PrintingParent::SerializeAndEnsureRemotePrintJob(
 
 PrintingParent::PrintingParent() {
   mPrintSettingsSvc = do_GetService("@mozilla.org/gfx/printsettings-service;1");
-  MOZ_ASSERT(mPrintSettingsSvc);
+  // MOZ_ASSERT(mPrintSettingsSvc);
 }
 
 PrintingParent::~PrintingParent() {}
