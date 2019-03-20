@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>System UI</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
+    <meta charset="utf-8">
+    <script>
+        function debug(msg) {
+            console.log(`SystemApp: ${msg}`);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            debug("Adding event listeners");
+            window.browser.addEventListener("mozbrowserloadstart", () => {
+                debug("mozbrowserloadstart");
+            });
+            window.browser.addEventListener("mozbrowserloadend", () => {
+                debug("mozbrowserloadend");
+            });
+            window.browser.src = "http://example.com";
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Simplest System App</h1>
+    <iframe mozbrowser="true" remote="true" id="browser"></iframe>
+</body>
+
+</html>
