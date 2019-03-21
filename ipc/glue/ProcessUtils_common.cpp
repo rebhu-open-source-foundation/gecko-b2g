@@ -150,7 +150,7 @@ bool SharedPreferenceDeserializer::DeserializeFromSharedMemory(
     return false;
   }
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
   // Android is different; get the FD via gPrefsFd instead of a fixed fd.
   MOZ_RELEASE_ASSERT(gPrefsFd != -1);
   mPrefsHandle = Some(base::FileDescriptor(gPrefsFd, /* auto_close */ true));
