@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Simple App</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
+    <meta charset="utf-8">
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            setInterval(() => {
+                console.log("tick");
+                window.time.textContent = new Date().toLocaleString();
+            }, 1000);
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Clock</h1>
+    <h3 id="time"></h3>
+</body>
+
+</html>
