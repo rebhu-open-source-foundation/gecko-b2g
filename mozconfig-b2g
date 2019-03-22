@@ -3,7 +3,7 @@ export CC=$HOME/.mozbuild/clang/bin/clang
 export CXX=$HOME/.mozbuild/clang/bin/clang++
 export LLVMCONFIG=$HOME/.mozbuild/clang/bin/llvm-config
 export LLVM_CONFIG=$HOME/.mozbuild/clang/bin/llvm-config
-export CBINDGEN=$HOME/.mozbuild/cbindgen/cbindgen
+#export CBINDGEN=$HOME/.mozbuild/cbindgen/cbindgen
 
 # Build B2G
 ac_add_options --enable-application=b2g
@@ -12,7 +12,6 @@ ac_add_options --target=arm-linux-androideabi
 # Disable a bunch of non critical stuff
 ac_add_options --disable-crashreporter
 ac_add_options --disable-webrtc
-ac_add_options --disable-replace-malloc
 ac_add_options --disable-av1
 ac_add_options --disable-accessibility
 
@@ -32,3 +31,8 @@ mk_add_options AUTOCLOBBER=1
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
 ac_add_options --with-gonk="$GONK_PATH"
+
+# Customize the objdir.
+if [ -f "$GECKO_OBJDIR" ]; then
+mk_add_options MOZ_OBJDIR="$GECKO_OBJDIR"
+fi
