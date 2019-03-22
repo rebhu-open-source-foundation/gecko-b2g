@@ -32,4 +32,12 @@ Package the build in the emulator:
 - rebuild the emulator with `./build.sh ENABLE_DEFAULT_BOOTANIMATION=true`
 - run the emulator with `./run-emulator.sh`
 
-Note that Gecko now builds with clang > 3.8 instead of gcc. It's unclear if it's mandatory for now but it's likely that gcc builds will break sooner or later.
+# Serving test content.
+
+A basic system app loading a page in remote iframe is in b2g/system. The shell is for now hardcoded to load http://localhost:8081/system/index.html as a system UI.
+
+If you can't run a http server on device, remote the port 8081 to your host:
+- `adb root`
+- `adb reverse tcp:8081 tcp:8081`
+- `cd $path-to-gecko-dev/b2g`
+- `python -m SimpleHTTPServer 8081`
