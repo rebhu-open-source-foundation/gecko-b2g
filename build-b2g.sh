@@ -3,7 +3,6 @@
 set -e
 
 export MOZCONFIG=mozconfig-b2g
-export GONK_PRODUCT_NAME=generic
 
 # Check that the GONK_PATH environment variable is set.
 if [ -z ${GONK_PATH+x} ];
@@ -23,6 +22,20 @@ else
     echo "Product is '$GONK_PRODUCT_NAME'";
 fi
 
+if [ -z ${GECKO_OBJDIR+x} ]; then
+    echo "Using default objdir"
+else
+    export MOZ_OBJDIR="$GECKO_OBJDIR"
+    echo "Building in $MOZ_OBJDIR"
+fi
+
+if [ -z ${GET_FRAMEBUFFER_FORMAT_FROM_HWC+x} ]; then
+    echo "GET_FRAMEBUFFER_FORMAT_FROM_HWC is not set"
+else
+    HWC_DEFINE="-DGET_FRAMEBUFFER_FORMAT_FROM_HWC"
+    echo "Setting -DGET_FRAMEBUFFER_FORMAT_FROM_HWC"
+fi
+
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
 export NDK_DIR=$HOME/.mozbuild/android-ndk-r17b/
@@ -39,7 +52,9 @@ export GONK_PRODUCT=$GONK_PRODUCT_NAME
 # ld --version
 
 export CFLAGS="-DANDROID -DTARGET_OS_GONK \
+-Oz \
 -DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
+$HWC_DEFINE \
 -D__SOFTFP__ \
 -D_USING_LIBCXX \
 -Wno-nullability-completeness \
@@ -66,11 +81,13 @@ export CFLAGS="-DANDROID -DTARGET_OS_GONK \
 -I$GONK_PATH/hardware/libhardware/include/ \
 -I$(pwd)/modules/freetype2/include"
 
-export CPPFLAGS="-O2 -fPIC \
+export CPPFLAGS="-fPIC \
 -isystem $GONK_PATH/api/cpp/include \
 $CFLAGS"
 
 export CXXFLAGS="$CPPFLAGS -std=c++14"
+
+export RUSTC_OPT_LEVEL=z
 
 GCC_LIB="-L$GONK_PATH/prebuilts/gcc/darwin-x86/arm/arm-linux-androideabi-4.9/lib/gcc/arm-linux-androideabi/4.9.x-google/"
 
