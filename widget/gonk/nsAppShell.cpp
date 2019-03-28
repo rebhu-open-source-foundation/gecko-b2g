@@ -874,8 +874,8 @@ GeckoInputReaderPolicy::setDisplayInfo()
     DisplayViewport viewport;
     viewport.displayId = 0;
     viewport.orientation = rotation;
-    viewport.physicalRight = viewport.deviceWidth = 320; // FIXME: screenBounds.width;
-    viewport.physicalBottom = viewport.deviceHeight = 480; // FIXME: screenBounds.height;
+    viewport.physicalRight = viewport.deviceWidth = 240; // FIXME: screenBounds.width;
+    viewport.physicalBottom = viewport.deviceHeight = 320; // FIXME: screenBounds.height;
     if (viewport.orientation == DISPLAY_ORIENTATION_90 ||
         viewport.orientation == DISPLAY_ORIENTATION_270) {
         viewport.logicalRight = viewport.physicalBottom;
