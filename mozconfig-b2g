@@ -3,6 +3,9 @@ export CC=$HOME/.mozbuild/clang/bin/clang
 export CXX=$HOME/.mozbuild/clang/bin/clang++
 export LLVMCONFIG=$HOME/.mozbuild/clang/bin/llvm-config
 export LLVM_CONFIG=$HOME/.mozbuild/clang/bin/llvm-config
+export AR=$HOME/.mozbuild/clang/bin/llvm-ar
+export NM=$HOME/.mozbuild/clang/bin/llvm-nm
+export RANLIB=$HOME/.mozbuild/clang/bin/llvm-ranlib
 #export CBINDGEN=$HOME/.mozbuild/cbindgen/cbindgen
 
 # Build B2G
@@ -14,9 +17,17 @@ ac_add_options --disable-crashreporter
 ac_add_options --disable-webrtc
 ac_add_options --disable-av1
 ac_add_options --disable-accessibility
+# ac_add_options --disable-printing # see https://bugzilla.mozilla.org/show_bug.cgi?id=1537586
+ac_add_options --disable-updater
 
 # Enable debugging
 ac_add_options --enable-debug
+
+# Optimize the build
+ac_add_options --enable-lto
+ac_add_options --disable-profiling
+ac_add_options --enable-small-chunk-size
+ac_add_options --disable-webrender # for now...
 
 # With the following Android SDK and NDK:
 ac_add_options --with-android-ndk="$HOME/.mozbuild/android-ndk-r17b"
