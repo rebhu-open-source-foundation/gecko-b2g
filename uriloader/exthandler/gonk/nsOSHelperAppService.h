@@ -24,16 +24,16 @@ class nsOSHelperAppService : public nsExternalHelperAppService {
   virtual ~nsOSHelperAppService();
 
   // method overrides for mime.types and mime.info look up steps
-  already_AddRefed<nsIMIMEInfo> GetMIMEInfoFromOS(const nsACString& aMimeType,
-                                                  const nsACString& aFileExt,
-                                                  bool* aFound) override;
+  nsresult GetMIMEInfoFromOS(const nsACString& aMIMEType,
+                             const nsACString& aFileExt, bool* aFound,
+                             nsIMIMEInfo** aMIMEInfo) override;
   NS_IMETHOD GetProtocolHandlerInfoFromOS(const nsACString& aScheme,
                                           bool* found,
                                           nsIHandlerInfo** _retval) override;
 
   // override nsIExternalProtocolService methods
-  nsresult OSProtocolHandlerExists(const char* aProtocolScheme,
-                                   bool* aHandlerExists) override;
+  MOZ_MUST_USE nsresult OSProtocolHandlerExists(const char* aProtocolScheme,
+                                                bool* aHandlerExists) override;
   NS_IMETHOD GetApplicationDescription(const nsACString& aScheme,
                                        nsAString& _retval) override;
 
