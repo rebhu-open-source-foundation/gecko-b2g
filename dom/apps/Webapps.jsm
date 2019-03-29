@@ -2066,6 +2066,7 @@ this.DOMApplicationRegistry = {
     app.installState = "installed";
     app.readyToApplyDownload = false;
     app.userAgentInfo = newManifest.userAgentInfo || "";
+    app.oldVersion = oldManifest.version ? oldManifest.version : "";
 
     // Update the staged properties.
     if (app.staged) {
@@ -2702,6 +2703,7 @@ this.DOMApplicationRegistry = {
       new ManifestHelper(aApp.manifest, aApp.origin, aApp.manifestURL);
     aApp.role = manifest.role || "";
     aApp.userAgentInfo = manifest.userAgentInfo || "";
+    aApp.oldVersion = aOldManifest.version ? aOldManifest.version : "";
 
     if (!AppsUtils.checkAppRole(aApp.role, aApp.appStatus)) {
       MessageBroadcaster.broadcastMessage("Webapps:UpdateState", {

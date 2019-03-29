@@ -53,6 +53,7 @@ interface DOMApplication : EventTarget {
   readonly attribute DOMString manifestURL;
   readonly attribute DOMString origin;
   readonly attribute DOMString installOrigin;
+  readonly attribute DOMString oldVersion;
   readonly attribute DOMTimeStamp installTime;
   readonly attribute boolean removable;
   readonly attribute boolean enabled;

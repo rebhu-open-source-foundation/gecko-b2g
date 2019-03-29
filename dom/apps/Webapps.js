@@ -485,6 +485,10 @@ WebappsApplication.prototype = {
     return this._proxy.updateTime;
   },
 
+  get oldVersion() {
+    return this._proxy.oldVersion;
+  },
+
   get manifest() {
     return WrappedManifestCache.get(this.manifestURL,
                                     this._proxy.manifest,

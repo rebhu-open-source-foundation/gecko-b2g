@@ -133,6 +133,7 @@ function _setAppProperties(aObj, aApp) {
     aApp.blockedStatus !== undefined ? aApp.blockedStatus
                                      : Ci.nsIBlocklistService.STATE_NOT_BLOCKED;
   aObj.blocklistId = aApp.blocklistId;
+  aObj.oldVersion = aApp.oldVersion;
 }
 
 this.AppsUtils = {
