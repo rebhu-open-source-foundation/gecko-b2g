@@ -486,6 +486,8 @@
 @RESPATH@/components/PresentationDataChannelSessionTransport.js
 @RESPATH@/components/PresentationDataChannelSessionTransport.manifest
 #endif
+@RESPATH@/components/servicesComponents.manifest
+@RESPATH@/components/servicesSettings.manifest
 
 #ifdef MOZ_SECUREELEMENT
 @RESPATH@/components/ACEService.js
