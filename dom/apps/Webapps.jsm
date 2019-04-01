@@ -456,6 +456,7 @@ this.DOMApplicationRegistry = {
         app.csp = aResult.manifest.csp || "";
         app.role = aResult.manifest.role || "";
         app.userAgentInfo = aResult.manifest.userAgentInfo || "";
+        app.oldVersion = aResult.manifest.version || "";
 
         let localeManifest = new ManifestHelper(aResult.manifest, app.origin, app.manifestURL);
         this._saveWidgetsFullPath(localeManifest, app);
@@ -2576,7 +2577,56 @@ this.DOMApplicationRegistry = {
     return new Promise((resolve) => setTimeout(resolve, time));
   },
 
-  _prepareKaiHeaders: function(url, autoMode = false){
+  _getDeviceInfoHeaders: function(autoMode = false) {
+    let deviceInfoHeaders = [];
+    let KAIAPIVERSION = 'Kai-API-Version';
+    let prefName = 'app.kaiapi.version';
+    let kaiapiVer = '3.0';
+    try {
+      kaiapiVer = Services.prefs.getCharPref(prefName);
+    } catch(e) {}
+    deviceInfoHeaders.push({ 'name' : KAIAPIVERSION, 'value' : kaiapiVer});
+
+    let KAIAPIDEVICEINFO = 'Kai-Device-Info';
+    // imei and cuRef are static info once they are get,
+    // do not need to get them again.
+    if (!this.imei) {
+      this.imei = DeviceUtils.imei;
+      this.cuRef = DeviceUtils.cuRef || '40440-2AJIIN1';
+    }
+
+    deviceInfoHeaders.push({ 'name' : KAIAPIDEVICEINFO,
+      'value' : 'imei="' + this.imei + '", curef="' + this.cuRef + '"'});
+
+    if (!this.mnc || !this.mcc) {
+      let iccInfo = DeviceUtils.iccInfo;
+      if (iccInfo) {
+        this.mnc = iccInfo.mnc;
+        this.mcc = iccInfo.mcc;
+      }
+    }
+    let networkType = DeviceUtils.networkType;
+    let downloadMode = autoMode ? 'auto' : 'manual';
+    let netMnc = DeviceUtils.networkMnc;
+    let netMcc = DeviceUtils.networkMcc;
+    let utc  = Date.now();
+    let utcOff = - (new Date()).getTimezoneOffset()/60;
+
+    deviceInfoHeaders.push({ 'name' : 'Kai-Request-Info',
+                      'value' : 'ct="' + networkType
+                              + '", rt="' + downloadMode
+                              + '", utc="' + utc
+                              + '", utc_off="' + utcOff
+                              + '", mnc="' + this.mnc
+                              + '", mcc="' + this.mcc
+                              + '", net_mnc="' + netMnc
+                              + '", net_mcc="' + netMcc
+                              + '"'});
+
+    return deviceInfoHeaders;
+  },
+
+  _prepareKaiHeaders: function(url, autoMode = false) {
     // Prepare KaiHeaders if the URL is hosted by KaiOS
     let kaiApiURLs;
     try {
@@ -2601,50 +2651,7 @@ this.DOMApplicationRegistry = {
     }
 
     let deferred = Promise.defer();
-    let kaiHeaders = [];
-    let KAIAPIVERSION = 'Kai-API-Version';
-    let prefName = 'app.kaiapi.version';
-    let kaiapiVer = '3.0';
-    try {
-      kaiapiVer = Services.prefs.getCharPref(prefName);
-    } catch(e) {}
-    kaiHeaders.push({ 'name' : KAIAPIVERSION, 'value' : kaiapiVer});
-
-    let KAIAPIDEVICEINFO = 'Kai-Device-Info';
-    // imei and cuRef are static info once they are get,
-    // do not need to get them again.
-    if (!this.imei) {
-      this.imei = DeviceUtils.imei;
-      this.cuRef = DeviceUtils.cuRef || '40440-2AJIIN1';
-    }
-
-    kaiHeaders.push({ 'name' : KAIAPIDEVICEINFO,
-      'value' : 'imei="' + this.imei + '", curef="' + this.cuRef + '"'});
-
-    if (!this.mnc || !this.mcc) {
-      let iccInfo = DeviceUtils.iccInfo;
-      if (iccInfo) {
-        this.mnc = iccInfo.mnc;
-        this.mcc = iccInfo.mcc;
-      }
-    }
-    let networkType = DeviceUtils.networkType;
-    let downloadMode = autoMode ? 'auto' : 'manual';
-    let netMnc = DeviceUtils.networkMnc;
-    let netMcc = DeviceUtils.networkMcc;
-    let utc  = Date.now();
-    let utcOff = - (new Date()).getTimezoneOffset()/60;
-
-    kaiHeaders.push({ 'name' : 'Kai-Request-Info',
-                      'value' : 'ct="' + networkType
-                              + '", rt="' + downloadMode
-                              + '", utc="' + utc
-                              + '", utc_off="' + utcOff
-                              + '", mnc="' + this.mnc
-                              + '", mcc="' + this.mcc
-                              + '", net_mnc="' + netMnc
-                              + '", net_mcc="' + netMcc
-                              + '"'});
+    let kaiHeaders = this._getDeviceInfoHeaders(autoMode);
 
     this._hawkHeader(url).then( hawkHeader => {
       kaiHeaders.push(hawkHeader);
@@ -3600,6 +3607,7 @@ this.DOMApplicationRegistry = {
     app.downloading = false;
     app.downloadAvailable = false;
     app.userAgentInfo = aManifest.userAgentInfo || "";
+    app.oldVersion = aManifest.version || "";
 
     yield this._saveApps();
 
@@ -3909,6 +3917,21 @@ this.DOMApplicationRegistry = {
               aFullPackagePath,
               "");
             requestChannel.setRequestHeader("Authorization", hawkHeader, false);
+
+            if (aOldApp.oldVersion && aOldApp.oldVersion !== "") {
+              requestChannel.setRequestHeader('Kai-App-Info',
+                                              'version="' + aOldApp.oldVersion + '"',
+                                              false);
+              debug('Adding Kai header for app package: ' +
+                    'Kai-App-Info' + ': ' + 'version="' + aOldApp.oldVersion + '"');
+            }
+
+            debug("Allowed Auto Download " + aOldApp.allowedAutoDownload);
+            let deviceInfoHeaders = this._getDeviceInfoHeaders(aOldApp.allowedAutoDownload);
+            deviceInfoHeaders.forEach(function(aHeader) {
+              debug("Adding Kai header for app package: " + aHeader.name + ": " + aHeader.value);
+              requestChannel.setRequestHeader(aHeader.name, aHeader.value, false);
+            });
 #endif
             break;
           }
