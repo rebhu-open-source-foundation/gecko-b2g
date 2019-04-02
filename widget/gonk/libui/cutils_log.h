@@ -38,9 +38,12 @@
 #endif
 #include <stdarg.h>
 
-#if ANDROID_VERSION >= 19
+#if ANDROID_VERSION >= 28
+#include <log/log.h>
+#include <android/log.h>
+#elif ANDROID_VERSION >= 19
 #include <log/uio.h>
-#include <log/logd.h>
+#include <log/log.h>
 #else
 #include <cutils/uio.h>
 #include <cutils/logd.h>
@@ -87,7 +90,7 @@ extern "C" {
 #endif
 #endif
 
-#define CONDITION(cond)     (__builtin_expect((cond)!=0, 0))
+#define CONDITION(cond)       (__builtin_expect((cond)!=0, 0))
 
 #ifndef ALOGV_IF
 #if LOG_NDEBUG
@@ -216,7 +219,7 @@ extern "C" {
 #endif
 #endif
 
-#define CONDITION(cond)     (__builtin_expect((cond)!=0, 0))
+#define CONDITION(cond)    (__builtin_expect((cond)!=0, 0))
 
 #ifndef SLOGV_IF
 #if LOG_NDEBUG
@@ -298,7 +301,7 @@ extern "C" {
 #endif
 #endif
 
-#define CONDITION(cond)     (__builtin_expect((cond)!=0, 0))
+#define CONDITION(cond)   (__builtin_expect((cond)!=0, 0))
 
 #ifndef RLOGV_IF
 #if LOG_NDEBUG
@@ -367,7 +370,6 @@ extern "C" {
     : (void)0 )
 #endif
 
-
 // ---------------------------------------------------------------------
 
 /*
@@ -418,7 +420,7 @@ extern "C" {
  */
 #ifndef ALOG_ASSERT
 #define ALOG_ASSERT(cond, ...) LOG_FATAL_IF(!(cond), ## __VA_ARGS__)
-//#define ALOG_ASSERT(cond) LOG_FATAL_IF(!(cond), "Assertion failed: " #cond)
+#define ALOG_ASSERT(cond) LOG_FATAL_IF(!(cond), "Assertion failed: " #cond)
 #endif
 
 // ---------------------------------------------------------------------
@@ -518,24 +520,24 @@ typedef enum {
 /* Returns 2nd arg.  Used to substitute default value if caller's vararg list
  * is empty.
  */
-#define __android_second(dummy, second, ...)     second
+#define __android_second(dummy, second, ...) second
 
 /* If passed multiple args, returns ',' followed by all but 1st arg, otherwise
  * returns nothing.
  */
-#define __android_rest(first, ...)               , ## __VA_ARGS__
+#define __android_rest(first, ...) , ## __VA_ARGS__
 
 #define android_printAssert(cond, tag, fmt...) \
-    __android_log_assert(cond, tag, \
+        __android_log_assert(cond, tag, \
         __android_second(0, ## fmt, NULL) __android_rest(fmt))
 
 #define android_writeLog(prio, tag, text) \
-    __android_log_write(prio, tag, text)
+        __android_log_write(prio, tag, text)
 
 #define android_bWriteLog(tag, payload, len) \
-    __android_log_bwrite(tag, payload, len)
+        __android_log_bwrite(tag, payload, len)
 #define android_btWriteLog(tag, type, payload, len) \
-    __android_log_btwrite(tag, type, payload, len)
+        __android_log_btwrite(tag, type, payload, len)
 
 // TODO: remove these prototypes and their users
 #define android_testLog(prio, tag) (1)
@@ -546,14 +548,14 @@ typedef enum {
 #define android_logToFile(tag, file) (0)
 #define android_logToFd(tag, fd) (0)
 
-typedef enum {
-    LOG_ID_MAIN = 0,
-    LOG_ID_RADIO = 1,
-    LOG_ID_EVENTS = 2,
-    LOG_ID_SYSTEM = 3,
+//typedef enum {
+//    LOG_ID_MAIN = 0,
+//    LOG_ID_RADIO = 1,
+//    LOG_ID_EVENTS = 2,
+//    LOG_ID_SYSTEM = 3,
 
-    LOG_ID_MAX
-} log_id_t;
+//    LOG_ID_MAX
+//} log_id_t;
 
 /*
  * Send a simple string to the log.

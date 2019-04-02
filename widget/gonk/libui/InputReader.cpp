@@ -4131,8 +4131,8 @@ void TouchInputMapper::cookPointerData() {
                 size = mRawPointerAxes.toolMinor.valid
                         ? avg(in.toolMajor, in.toolMinor) : in.toolMajor;
             } else {
-                ALOG_ASSERT(false, "No touch or tool axes.  "
-                        "Size calibration should have been resolved to NONE.");
+                //ALOG_ASSERT(false, "No touch or tool axes.  "
+                //        "Size calibration should have been resolved to NONE.");
                 touchMajor = 0;
                 touchMinor = 0;
                 toolMajor = 0;

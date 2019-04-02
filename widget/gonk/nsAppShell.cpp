@@ -33,7 +33,7 @@
 #include <utils/BitSet.h>
 
 #include "base/basictypes.h"
-#include "GonkPermission.h"
+//#include "GonkPermission.h"
 #include "ScreenHelperGonk.h"
 #include "libdisplay/BootAnimation.h"
 #include "nscore.h"
@@ -46,7 +46,7 @@
 #include "mozilla/TextEvents.h"
 #include "mozilla/widget/ScreenManager.h"
 #if ANDROID_VERSION >= 18
-#include "nativewindow/FakeSurfaceComposer.h"
+//#include "nativewindow/FakeSurfaceComposer.h"
 #endif
 #include "nsAppShell.h"
 #include "mozilla/DebugOnly.h"
@@ -1226,7 +1226,7 @@ nsAppShell::Init()
 #if ANDROID_VERSION >= 18 && (defined(MOZ_OMX_DECODER) || defined(MOZ_B2G_CAMERA))
         android::FakeSurfaceComposer::instantiate();
 #endif
-        GonkPermissionService::instantiate();
+        //GonkPermissionService::instantiate();
 
         /* Start boot animation */
         mozilla::StartBootAnimation();

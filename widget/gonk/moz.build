@@ -16,7 +16,7 @@
 
 EXPORTS += [
     # 'GeckoTouchDispatcher.h',
-    'GonkPermission.h',
+    #'GonkPermission.h',
     'OrientationObserver.h',
 ]
 
@@ -71,7 +71,7 @@ SOURCES += [
     'GonkClipboardData.cpp',
     'GonkCompositorWidget.cpp',
     'GonkMemoryPressureMonitoring.cpp',
-    'GonkPermission.cpp',
+    #'GonkPermission.cpp',
     'nsAppShell.cpp',
     'nsClipboard.cpp',
     'nsIdleServiceGonk.cpp',
@@ -107,6 +107,10 @@ LOCAL_INCLUDES += [
     '/layout/generic',
     '/layout/style',
     '/widget',
+]
+
+OS_LIBS += [
+    'utils',
 ]
 
 DEFINES['HAVE_OFF64_T'] = True

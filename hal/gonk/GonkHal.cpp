@@ -18,7 +18,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/android_alarm.h>
+//#include <linux/android_alarm.h>
 #include <math.h>
 #include <regex.h>
 #include <sched.h>
@@ -37,8 +37,8 @@
 #include "hardware/hardware.h"
 #include "hardware/lights.h"
 #include "hardware_legacy/uevent.h"
-#include "hardware_legacy/vibrator.h"
-#include "hardware_legacy/power.h"
+//#include "hardware_legacy/vibrator.h"
+//#include "hardware_legacy/power.h"
 #include "libdisplay/GonkDisplay.h"
 #include "utils/threads.h"
 
@@ -342,7 +342,7 @@ VibratorRunnable::Run()
     if (mIndex < mPattern.Length()) {
       uint32_t duration = mPattern[mIndex];
       if (mIndex % 2 == 0) {
-        vibrator_on(duration);
+        ;//vibrator_on(duration);
       }
       mIndex++;
       mMonitor.Wait(TimeDuration::FromMilliseconds(duration));

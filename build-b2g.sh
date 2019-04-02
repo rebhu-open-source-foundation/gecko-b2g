@@ -3,6 +3,8 @@
 set -e
 
 export MOZCONFIG=mozconfig-b2g
+export GONK_PRODUCT_NAME=braun
+export GONK_PATH=/home/parallels/project/amlogicgcc49
 
 # Check that the GONK_PATH environment variable is set.
 if [ -z ${GONK_PATH+x} ];
@@ -42,7 +44,7 @@ export NDK_DIR=$HOME/.mozbuild/android-ndk-r17b/
 
 export PATH=$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
 
-SYSROOT=$NDK_DIR/platforms/android-23/arch-arm/
+SYSROOT=$NDK_DIR/platforms/android-28/arch-arm/
 GONK_LIBS=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib/
 
 ARCH_DIR="arch-arm"
@@ -55,13 +57,14 @@ export CFLAGS="-DANDROID -DTARGET_OS_GONK \
 -Oz \
 -DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
 $HWC_DEFINE \
+-DANDROID_VERSION=28 \
 -D__SOFTFP__ \
 -D_USING_LIBCXX \
 -Wno-nullability-completeness \
 -DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
 -isystem $GONK_PATH/bionic \
 -isystem $GONK_PATH/bionic/libc/$ARCH_DIR/include \
--isystem $NDK_DIR/platforms/android-23/arch-arm/usr/include \
+-isystem $NDK_DIR/platforms/android-28/arch-arm/usr/include \
 -isystem $GONK_PATH/bionic/libc/include/ \
 -isystem $GONK_PATH/bionic/libc/kernel/common \
 -isystem $GONK_PATH/bionic/libc/kernel/$ARCH_DIR \
@@ -70,9 +73,14 @@ $HWC_DEFINE \
 -isystem $GONK_PATH/bionic/libm/include \
 -I$GONK_PATH/system/core/libpixelflinger/include/ \
 -I$GONK_PATH/frameworks/native/include \
+-I$GONK_PATH/frameworks/native/include/android \
+-I$GONK_PATH/frameworks/native/libs/nativewindow/include \
+-I$GONK_PATH/frameworks/native/libs/nativebase/include \
+-I$GONK_PATH/frameworks/native/libs/nativebase \
 -I$GONK_PATH/system \
 -I$(pwd)/modules/freetype2/include \
 -I$GONK_PATH/system/core/include \
+-I$GONK_PATH/system/core/base/include \
 -I$GONK_PATH/external/zlib \
 -I$GONK_PATH/external/skia/include/config \
 -I$GONK_PATH/external/skia/include/core \
@@ -89,14 +97,14 @@ export CXXFLAGS="$CPPFLAGS -std=c++14"
 
 export RUSTC_OPT_LEVEL=z
 
-GCC_LIB="-L$GONK_PATH/prebuilts/gcc/darwin-x86/arm/arm-linux-androideabi-4.9/lib/gcc/arm-linux-androideabi/4.9.x-google/"
+GCC_LIB="-L$GONK_PATH/prebuilts/gcc/darwin-x86/arm/arm-linux-androideabi-4.9/lib/gcc/arm-linux-androideabi/4.9.x/"
 
 export ANDROID_NDK=$NDK_DIR
-export ANDROID_PLATFORM=android-23
+export ANDROID_PLATFORM=android-28
 
 export LDFLAGS="-L$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 -Wl,-rpath-link=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
---sysroot=$NDK_DIR/sysroot $GCC_LIB -ldl -lstdc++ -Wl,--no-as-needed \
--llog -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lpower -lui -lgui -lsuspend"
+--sysroot=$SYSROOT $GCC_LIB -ldl -lstdc++ -Wl,--no-as-needed \
+-llog -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lui -lgui -lsuspend"
 
 ./mach build $@

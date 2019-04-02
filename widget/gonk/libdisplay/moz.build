@@ -18,12 +18,15 @@ SOURCES += [
     'BootAnimation.cpp',
 ]
 
-if CONFIG['ANDROID_VERSION'] >= '19':
+if CONFIG['ANDROID_VERSION'] >= '28':
     SOURCES += [
-        'FramebufferSurface.cpp',
-        'GonkDisplayJB.cpp',
-        'NativeFramebufferDevice.cpp',
-        'VirtualDisplaySurface.cpp',
+    ]
+elif CONFIG['ANDROID_VERSION'] >= '19':
+    SOURCES += [
+	'FramebufferSurface.cpp',
+	'GonkDisplayJB.cpp',
+	'NativeFramebufferDevice.cpp',
+	'VirtualDisplaySurface.cpp',
     ]
 elif CONFIG['ANDROID_VERSION'] == '18':
     SOURCES += [
@@ -61,6 +64,10 @@ DEFINES['HAVE_SYS_UIO_H'] = True
 AllowCompilerWarnings()
 
 DisableStlWrapping()
+
+OS_LIBS += [
+#    'kdisplay',
+]
 
 if CONFIG['ANDROID_VERSION'] > '15':
     LOCAL_INCLUDES += [
