@@ -78,6 +78,10 @@ this.DeviceUtils = {
   get iccInfo() {
     let icc = gIccService.getIccByServiceId(0);
     let iccInfo = icc && icc.iccInfo;
+    if (!iccInfo && gMobileConnectionService.numItems > 1) {
+      icc = gIccService.getIccByServiceId(1);
+      iccInfo = icc && icc.iccInfo;
+    }
     return iccInfo;
   },
 
@@ -103,25 +107,31 @@ this.DeviceUtils = {
     }
   },
 
-  get networkMcc() {
-    let connection = gMobileConnectionService.getItemByServiceId(0);
-    let voice = connection && connection.voice;
-    let netMcc;
-    if (voice && voice.network) {
-      netMcc = voice.network.mcc;
+  getConn: function(id) {
+    let conn = gMobileConnectionService.getItemByServiceId(id);
+    if (conn && conn.voice) {
+      return conn.voice.network;
     }
+    return null;
+  },
 
+  get networkMcc() {
+    let network = this.getConn(0);
+    let netMcc = network && network.mcc;
+    if (!netMcc && gMobileConnectionService.numItems > 1) {
+      network = this.getConn(1);
+      netMcc = network && network.mcc;
+    }
     return (!netMcc) ? "" : netMcc;
   },
 
   get networkMnc() {
-    let connection = gMobileConnectionService.getItemByServiceId(0);
-    let voice = connection && connection.voice;
-    let netMnc;
-    if (voice && voice.network) {
-      netMnc = voice.network.mnc;
+    let network = this.getConn(0);
+    let netMnc = network && network.mnc;
+    if (!netMnc && gMobileConnectionService.numItems > 1) {
+      network = this.getConn(1);
+      netMnc = network && network.mnc;
     }
-
     return (!netMnc) ? "" : netMnc;
   },
 
