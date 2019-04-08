@@ -3,8 +3,8 @@
 set -e
 
 export MOZCONFIG=mozconfig-b2g
-export GONK_PRODUCT_NAME=braun
-export GONK_PATH=/home/parallels/project/amlogicgcc49
+export GONK_PRODUCT_NAME=msm8909
+export GONK_PATH=/home/vincent/project/bb
 
 # Check that the GONK_PATH environment variable is set.
 if [ -z ${GONK_PATH+x} ];

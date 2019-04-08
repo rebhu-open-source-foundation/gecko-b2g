@@ -109,10 +109,6 @@ LOCAL_INCLUDES += [
     '/widget',
 ]
 
-OS_LIBS += [
-    'utils',
-]
-
 DEFINES['HAVE_OFF64_T'] = True
 DEFINES['SK_BUILD_FOR_ANDROID_NDK'] = True
 
