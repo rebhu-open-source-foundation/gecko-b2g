@@ -38,6 +38,28 @@ else
     echo "Setting -DGET_FRAMEBUFFER_FORMAT_FROM_HWC"
 fi
 
+# Check if the JS shell is available. If not, download it
+# to make sure we can minify JS code when packaging.
+if [ -f "./jsshell/js" ]; then
+	echo "JS shell found."
+else
+    echo "Downloading JS shell..."
+    HOST_OS=$(uname -s)
+    if [ "$HOST_OS" == "Darwin" ]; then
+        SHELL_ARCH=mac
+    else
+        SHELL_ARCH=linux-x86_64
+    fi
+
+    mkdir -p jsshell
+    curl https://ftp.mozilla.org/pub/firefox/releases/67.0b8/jsshell/jsshell-${SHELL_ARCH}.zip > /tmp/jsshell-${SHELL_ARCH}.zip
+    cd jsshell
+    unzip /tmp/jsshell-${SHELL_ARCH}.zip
+    rm /tmp/jsshell-${SHELL_ARCH}.zip
+    cd ..
+fi
+export JS_BINARY=`pwd`/jsshell/js
+
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
 export NDK_DIR=$HOME/.mozbuild/android-ndk-r17b/
