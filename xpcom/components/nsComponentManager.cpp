@@ -353,7 +353,7 @@ nsComponentManagerImpl::nsComponentManagerImpl()
 extern const mozilla::Module kNeckoModule;
 extern const mozilla::Module kPowerManagerModule;
 extern const mozilla::Module kContentProcessWidgetModule;
-#if defined(MOZ_WIDGET_COCOA) || defined(MOZ_WIDGET_UIKIT)
+#if defined(MOZ_WIDGET_COCOA) || defined(MOZ_WIDGET_UIKIT) || defined(MOZ_WIDGET_GONK)
 extern const mozilla::Module kWidgetModule;
 #endif
 extern const mozilla::Module kLayoutModule;
@@ -441,7 +441,7 @@ nsresult nsComponentManagerImpl::Init() {
   RegisterModule(&kNeckoModule);
   RegisterModule(&kPowerManagerModule);
   RegisterModule(&kContentProcessWidgetModule);
-#if defined(MOZ_WIDGET_COCOA) || defined(MOZ_WIDGET_UIKIT)
+#if defined(MOZ_WIDGET_COCOA) || defined(MOZ_WIDGET_UIKIT) || defined(MOZ_WIDGET_GONK)
   RegisterModule(&kWidgetModule);
 #endif
   RegisterModule(&kLayoutModule);

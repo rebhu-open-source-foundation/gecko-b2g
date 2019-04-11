@@ -102,7 +102,7 @@ nsWidgetGonkModuleDtor()
     nsAppShellShutdown();
 }
 
-static const mozilla::Module kWidgetModule = {
+extern const mozilla::Module kWidgetModule = {
     mozilla::Module::kVersion,
     kWidgetCIDs,
     kWidgetContracts,
@@ -111,5 +111,3 @@ static const mozilla::Module kWidgetModule = {
     nsAppShellInit,
     nsWidgetGonkModuleDtor
 };
-
-NSMODULE_DEFN(nsWidgetGonkModule) = &kWidgetModule;
