@@ -31,9 +31,6 @@ relativesrcdir toolkit/locales:
 #  locale/@AB_CD@/b2g-l10n/overrides/crashreporter/crashes.properties  (%crashreporter/crashes.properties)
 #about:mozilla
   locale/@AB_CD@/b2g-l10n/overrides/global/mozilla.dtd                (%chrome/global/mozilla.dtd)
-#about:telemetry
-  locale/@AB_CD@/b2g-l10n/overrides/global/aboutTelemetry.dtd         (%chrome/global/aboutTelemetry.dtd)
-  locale/@AB_CD@/b2g-l10n/overrides/global/aboutTelemetry.properties  (%chrome/global/aboutTelemetry.properties)
 #about:webrtc
   locale/@AB_CD@/b2g-l10n/overrides/global/aboutWebrtc.properties  (%chrome/global/aboutWebrtc.properties)
 
@@ -48,8 +45,6 @@ relativesrcdir toolkit/locales:
 % override chrome://global/locale/crashes.dtd chrome://b2g-l10n/locale/overrides/crashreporter/crashes.dtd
 % override chrome://global/locale/crashes.properties chrome://b2g-l10n/locale/overrides/crashreporter/crashes.properties
 % override chrome://global/locale/mozilla.dtd chrome://b2g-l10n/locale/overrides/global/mozilla.dtd
-% override chrome://global/locale/aboutTelemetry.dtd chrome://b2g-l10n/locale/overrides/global/aboutTelemetry.dtd
-% override chrome://global/locale/aboutTelemetry.properties chrome://b2g-l10n/locale/overrides/global/aboutTelemetry.properties
 % override chrome://global/locale/aboutWebrtc.properties chrome://b2g-l10n/locale/overrides/global/aboutWebrtc.properties
 
 # overrides for dom l10n, also for en-US
