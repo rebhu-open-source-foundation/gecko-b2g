@@ -65,9 +65,10 @@ AllowCompilerWarnings()
 
 DisableStlWrapping()
 
-OS_LIBS += [
-#    'kdisplay',
-]
+if CONFIG['ANDROID_VERSION'] >= '28':
+    OS_LIBS += [
+        'carthage',
+    ]
 
 if CONFIG['ANDROID_VERSION'] > '15':
     LOCAL_INCLUDES += [

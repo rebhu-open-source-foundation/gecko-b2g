@@ -39,7 +39,7 @@
 #include "hardware_legacy/uevent.h"
 //#include "hardware_legacy/vibrator.h"
 //#include "hardware_legacy/power.h"
-#include "libdisplay/GonkDisplay.h"
+#include "libdisplay/GonkKDisplay.h"
 #include "utils/threads.h"
 
 #include "base/message_loop.h"
@@ -743,7 +743,7 @@ GetScreenEnabled()
 void
 SetScreenEnabled(bool aEnabled)
 {
-  GetGonkDisplay()->SetEnabled(aEnabled);
+  android::GetGonkDisplay()->SetEnabled(aEnabled);
   sScreenEnabled = aEnabled;
 }
 

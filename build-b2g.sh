@@ -126,6 +126,6 @@ export ANDROID_PLATFORM=android-28
 export LDFLAGS="-L$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 -Wl,-rpath-link=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
 --sysroot=$SYSROOT $GCC_LIB -ldl -lstdc++ -Wl,--no-as-needed \
--llog -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lui -lgui -lsuspend"
+-llog -lcarthage -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lui -lgui -lsuspend"
 
 ./mach build $@

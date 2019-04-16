@@ -39,7 +39,7 @@
 #include "ClientLayerManager.h"
 #include "BasicLayers.h"
 #include "ScreenHelperGonk.h"
-#include "libdisplay/GonkDisplay.h"
+#include "libdisplay/GonkKDisplay.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Logging.h"
@@ -746,7 +746,7 @@ nsWindow::GetInputContext()
 void
 nsWindow::ReparentNativeWidget(nsIWidget* aNewParent)
 {
-  
+
 }
 
 NS_IMETHODIMP
@@ -988,7 +988,7 @@ nsWindow::NeedsPaint()
 mozilla::layers::Composer2D*
 nsWindow::GetComposer2D()
 {
-  if (mScreen->GetDisplayType() == DisplayType::DISPLAY_VIRTUAL) {
+  if (mScreen->GetDisplayType() == android::GonkDisplay::DisplayType::DISPLAY_VIRTUAL) {
     return nullptr;
   }
 

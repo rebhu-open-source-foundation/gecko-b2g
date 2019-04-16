@@ -25,9 +25,10 @@
 #include "png.h"
 
 #include "android/log.h"
-#include "GonkDisplay.h"
+#include "GonkKDisplay.h"
 #include "hardware/gralloc.h"
 #include "cutils/properties.h"
+#include "hybris-gralloc.h"
 
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Gonk" , ## args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ## args)
@@ -496,7 +497,7 @@ struct Animation {
 
     // Set by user
     int32_t format;
-    DisplayType dpy;
+    android::GonkDisplay::DisplayType dpy;
 
     Animation();
 
@@ -510,7 +511,7 @@ Animation::Animation()
     , height(480)
     , fps(12)
     , format(HAL_PIXEL_FORMAT_RGBX_8888)
-    , dpy(DisplayType::DISPLAY_PRIMARY)
+    , dpy(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY)
 {}
 
 bool Animation::LoadAnimations(const char* aFileName)
@@ -673,10 +674,9 @@ AsBackgroundFill(const png_color_16& color16, int outputFormat)
 }
 
 static void
-ShowSolidColorFrame(GonkDisplay *aDisplay,
-                    const gralloc_module_t *grallocModule,
+ShowSolidColorFrame(android::GonkDisplay *aDisplay,
                     int32_t aFormat,
-                    DisplayType aDpy)
+                    android::GonkDisplay::DisplayType aDpy)
 {
     LOGW("Show solid color frame for bootAnim");
 
@@ -688,14 +688,14 @@ ShowSolidColorFrame(GonkDisplay *aDisplay,
         return;
     }
 
-    if (!grallocModule->lock(grallocModule, buffer->handle,
+    if (!hybris_gralloc_lock(buffer->handle,
                              GRALLOC_USAGE_SW_READ_NEVER |
                              GRALLOC_USAGE_SW_WRITE_OFTEN |
                              GRALLOC_USAGE_HW_FB,
                              0, 0, buffer->width, buffer->height, &mappedAddress)) {
         // Just show a black solid color frame.
         memset(mappedAddress, 0, buffer->height * buffer->stride * GetFormatBPP(aFormat));
-        grallocModule->unlock(grallocModule, buffer->handle);
+        hybris_gralloc_unlock(buffer->handle);
     }
 
     aDisplay->QueueBuffer(buffer, aDpy);
@@ -745,16 +745,15 @@ DrawFrame(AnimationFrame &aFrame, ANativeWindowBuffer *aBuf, int32_t format, voi
 static void *
 AnimationThread(void *)
 {
-    GonkDisplay *display = GetGonkDisplay();
+    android::GonkDisplay *display = android::GetGonkDisplay();
 
-    const GonkDisplay::DisplayNativeData& dispData
-        = display->GetDispNativeData(DisplayType::DISPLAY_PRIMARY);
-
-    const GonkDisplay::DisplayNativeData& extDispData
-        = display->GetDispNativeData(DisplayType::DISPLAY_EXTERNAL);
-
+    const android::GonkDisplay::DisplayNativeData& dispData
+        = display->GetDispNativeData(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
+    const android::GonkDisplay::DisplayNativeData& extDispData
+        = display->GetDispNativeData(android::GonkDisplay::DisplayType::DISPLAY_EXTERNAL);
     vector<Animation> animVec;
 
+/*
     const hw_module_t *module = nullptr;
     if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module)) {
         LOGW("Could not get gralloc module");
@@ -762,19 +761,19 @@ AnimationThread(void *)
     }
     const gralloc_module_t *grmodule =
         reinterpret_cast<gralloc_module_t const*>(module);
-
+*/
     // Load boot animation for primary screen
     animVec.push_back(Animation());
     Animation &primAnimation = animVec.back();
-    primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
-    primAnimation.format = dispData.mSurfaceformat;
+    primAnimation.dpy = android::GonkDisplay::DisplayType::DISPLAY_PRIMARY;
+    primAnimation.format = HAL_PIXEL_FORMAT_RGBX_8888;//dispData.mSurfaceformat;
     if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
         LOGW("Failed to load boot animation file for primary screen");
-        ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
-                            DisplayType::DISPLAY_PRIMARY);
+        ShowSolidColorFrame(display, dispData.mSurfaceformat,
+                            android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
         return nullptr;
     }
-
+/*
     if (display->IsExtFBDeviceEnabled()) {
         animVec.push_back(Animation());
         Animation &extAnimation = animVec.back();
@@ -797,9 +796,9 @@ AnimationThread(void *)
             setExtBacklight(1);
         }
     }
+*/
     // Turn on primary screen backlight before playing animation,
     setBacklight(1);
-
     bool animPlayed = false;
 
     /* We assume boot animation for external screen would have the same
@@ -836,11 +835,11 @@ AnimationThread(void *)
                     }
 
                     void *vaddr = nullptr;
-                    if (grmodule->lock(grmodule, buf->handle,
-                                       GRALLOC_USAGE_SW_READ_NEVER |
-                                       GRALLOC_USAGE_SW_WRITE_OFTEN |
-                                       GRALLOC_USAGE_HW_FB,
-                                       0, 0, anim.width, anim.height, &vaddr)) {
+                    if (hybris_gralloc_lock(buf->handle,
+                                            GRALLOC_USAGE_SW_READ_NEVER |
+                                            GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                            GRALLOC_USAGE_HW_FB,
+                                            0, 0, anim.width, anim.height, &vaddr)) {
                         LOGW("Failed to lock buffer_handle_t");
                         display->QueueBuffer(buf, anim.dpy);
                         buf = nullptr;
@@ -853,7 +852,7 @@ AnimationThread(void *)
                     animPlayed = true;
 
                     if (buf) {
-                        grmodule->unlock(grmodule, buf->handle);
+                        hybris_gralloc_unlock(buf->handle);
                         display->QueueBuffer(buf, anim.dpy);
                     }
 
@@ -879,12 +878,8 @@ AnimationThread(void *)
     }
 
     if (!animPlayed) {
-        ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
-                            DisplayType::DISPLAY_PRIMARY);
-        if (display->IsExtFBDeviceEnabled()) {
-            ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
-                                DisplayType::DISPLAY_EXTERNAL);
-        }
+        ShowSolidColorFrame(display, dispData.mSurfaceformat,
+                            android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
     }
 
     return nullptr;
@@ -896,7 +891,7 @@ __attribute__ ((visibility ("default")))
 void
 StartBootAnimation()
 {
-    GetGonkDisplay(); // Ensure GonkDisplay exist
+    android::GetGonkDisplay(); // Ensure GonkDisplay exist
     sRunAnimation = true;
     // TODO: FIXME HookSetVsyncAlwaysEnabled(true);
     pthread_create(&sAnimationThread, nullptr, AnimationThread, nullptr);
@@ -910,7 +905,7 @@ StopBootAnimation()
         sRunAnimation = false;
         // TODO: FIXME HookSetVsyncAlwaysEnabled(false);
         pthread_join(sAnimationThread, nullptr);
-        GetGonkDisplay()->NotifyBootAnimationStopped();
+        android::GetGonkDisplay()->NotifyBootAnimationStopped();
     }
 }
 
