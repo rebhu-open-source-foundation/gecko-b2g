@@ -28,7 +28,7 @@
 #include "GonkKDisplay.h"
 #include "hardware/gralloc.h"
 #include "cutils/properties.h"
-#include "hybris-gralloc.h"
+#include "NativeGralloc.h"
 
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Gonk" , ## args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ## args)
@@ -36,6 +36,8 @@
 
 using namespace mozilla;
 using namespace std;
+
+extern android::GonkDisplay * getGonkDisplay();
 
 namespace mozilla {
 namespace hal_impl {
@@ -688,14 +690,14 @@ ShowSolidColorFrame(android::GonkDisplay *aDisplay,
         return;
     }
 
-    if (!hybris_gralloc_lock(buffer->handle,
+    if (!native_gralloc_lock(buffer->handle,
                              GRALLOC_USAGE_SW_READ_NEVER |
                              GRALLOC_USAGE_SW_WRITE_OFTEN |
                              GRALLOC_USAGE_HW_FB,
                              0, 0, buffer->width, buffer->height, &mappedAddress)) {
         // Just show a black solid color frame.
         memset(mappedAddress, 0, buffer->height * buffer->stride * GetFormatBPP(aFormat));
-        hybris_gralloc_unlock(buffer->handle);
+        native_gralloc_unlock(buffer->handle);
     }
 
     aDisplay->QueueBuffer(buffer, aDpy);
@@ -745,7 +747,7 @@ DrawFrame(AnimationFrame &aFrame, ANativeWindowBuffer *aBuf, int32_t format, voi
 static void *
 AnimationThread(void *)
 {
-    android::GonkDisplay *display = android::GetGonkDisplay();
+    android::GonkDisplay *display = getGonkDisplay();
 
     const android::GonkDisplay::DisplayNativeData& dispData
         = display->GetDispNativeData(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
@@ -835,7 +837,7 @@ AnimationThread(void *)
                     }
 
                     void *vaddr = nullptr;
-                    if (hybris_gralloc_lock(buf->handle,
+                    if (native_gralloc_lock(buf->handle,
                                             GRALLOC_USAGE_SW_READ_NEVER |
                                             GRALLOC_USAGE_SW_WRITE_OFTEN |
                                             GRALLOC_USAGE_HW_FB,
@@ -852,7 +854,7 @@ AnimationThread(void *)
                     animPlayed = true;
 
                     if (buf) {
-                        hybris_gralloc_unlock(buf->handle);
+                        native_gralloc_unlock(buf->handle);
                         display->QueueBuffer(buf, anim.dpy);
                     }
 
@@ -891,10 +893,13 @@ __attribute__ ((visibility ("default")))
 void
 StartBootAnimation()
 {
+//TODO, disable to prevent double allocate HWC issue.
+#if 0
     android::GetGonkDisplay(); // Ensure GonkDisplay exist
     sRunAnimation = true;
     // TODO: FIXME HookSetVsyncAlwaysEnabled(true);
     pthread_create(&sAnimationThread, nullptr, AnimationThread, nullptr);
+#endif
 }
 
 __attribute__ ((visibility ("default")))

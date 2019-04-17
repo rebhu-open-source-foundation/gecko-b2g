@@ -71,6 +71,8 @@ using namespace android;
 using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
+extern android::GonkDisplay * getGonkDisplay();
+
 namespace mozilla {
 
 static void
@@ -123,7 +125,7 @@ HwcComposer2D::HwcComposer2D()
 
     nsIntSize screenSize;
 
-    android::GonkDisplay::NativeData data = android::GetGonkDisplay()->GetNativeData(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
+    android::GonkDisplay::NativeData data = getGonkDisplay()->GetNativeData(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
     ANativeWindow *win = data.mNativeWindow.get();
     win->query(win, NATIVE_WINDOW_WIDTH, &screenSize.width);
     win->query(win, NATIVE_WINDOW_HEIGHT, &screenSize.height);
@@ -821,7 +823,7 @@ bool
 HwcComposer2D::Render(nsIWidget* aWidget)
 {
     nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
-    return android::GetGonkDisplay()->SwapBuffers(screen->GetDisplayType());
+    return getGonkDisplay()->SwapBuffers(screen->GetDisplayType());
 
 // TODO: FIXME
 #if 0
@@ -953,7 +955,7 @@ bool
 HwcComposer2D::Render(nsIWidget* aWidget)
 {
     nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
-    return android::GetGonkDisplay()->SwapBuffers(screen->GetEGLDisplay(), screen->GetEGLSurface());
+    return getGonkDisplay()->SwapBuffers(screen->GetEGLDisplay(), screen->GetEGLSurface());
 }
 #endif
 

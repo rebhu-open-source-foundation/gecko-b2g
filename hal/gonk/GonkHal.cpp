@@ -77,6 +77,7 @@
 #include "UeventPoller.h"
 #include "nsIWritablePropertyBag2.h"
 #include <algorithm>
+#include <dlfcn.h>
 
 #define NsecPerMsec  1000000LL
 #define NsecPerSec   1000000000
@@ -114,6 +115,25 @@
 using namespace mozilla;
 using namespace mozilla::hal;
 using namespace mozilla::dom;
+
+extern android::GonkDisplay * getGonkDisplay();
+
+typedef android::GonkDisplay* (*fnGetGonkDisplay)();
+android::GonkDisplay * getGonkDisplay() {
+  android::GonkDisplay *display = NULL;
+  void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
+  if (lib == NULL) {
+    HAL_LOG("Could not dlopen(\"libcarthage.so\"):");
+  } else {
+    fnGetGonkDisplay getGonkDisPlay = (fnGetGonkDisplay) dlsym(lib, "GetGonkDisplay") ;
+    if (getGonkDisPlay == NULL) {
+      HAL_LOG("Symbol 'GetGonkDisplay' is missing from shared library!!\n");
+    } else {
+      display = getGonkDisPlay();
+    }
+  }
+  return display;
+}
 
 namespace mozilla {
 namespace hal_impl {
@@ -743,7 +763,7 @@ GetScreenEnabled()
 void
 SetScreenEnabled(bool aEnabled)
 {
-  android::GetGonkDisplay()->SetEnabled(aEnabled);
+  getGonkDisplay()->SetEnabled(aEnabled);
   sScreenEnabled = aEnabled;
 }
 

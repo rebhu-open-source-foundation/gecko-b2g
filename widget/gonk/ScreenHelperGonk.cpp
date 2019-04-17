@@ -64,6 +64,8 @@ using namespace mozilla::layers;
 using namespace mozilla::dom;
 using namespace mozilla::widget;
 
+extern android::GonkDisplay * getGonkDisplay();
+
 class ScreenOnOffEvent : public mozilla::Runnable {
 public:
     ScreenOnOffEvent(bool on)
@@ -875,7 +877,7 @@ ScreenHelperGonk::ScreenHelperGonk()
   mScreenOnEvent = new ScreenOnOffEvent(true);
   mScreenOffEvent = new ScreenOnOffEvent(false);
   LOGE("Getting the gonk display");
-  android::GetGonkDisplay()->OnEnabled(displayEnabledCallback);
+  getGonkDisplay()->OnEnabled(displayEnabledCallback);
 
   LOGE("Refreshing screens");
   Refresh();
@@ -907,7 +909,7 @@ already_AddRefed<Screen> ScreenHelperGonk::MakePrimaryScreen() {
   NS_ENSURE_TRUE(!IsScreenConnected(id), nullptr);
 
   android::GonkDisplay::NativeData nativeData =
-      android::GetGonkDisplay()->GetNativeData(displayType, nullptr);
+      getGonkDisplay()->GetNativeData(displayType, nullptr);
   mPrimaryScreen = new nsScreenGonk(id,
                                     displayType,
                                     nativeData,
