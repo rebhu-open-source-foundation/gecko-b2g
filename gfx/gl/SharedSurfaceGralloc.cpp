@@ -50,7 +50,7 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
                               layers::TextureFlags flags,
                               LayersIPCChannel* allocator)
 {
-    auto* egl = gl::GLLibraryEGL::Get();
+    GLLibraryEGL* egl = &sEGLLibrary;
     MOZ_ASSERT(egl);
 
     UniquePtr<SharedSurface_Gralloc> ret;
@@ -58,19 +58,20 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
     DEBUG_PRINT("SharedSurface_Gralloc::Create -------\n");
 
     if (!HasExtensions(egl, prodGL))
-        return nullptr;
+        return ret;
 
     gfxContentType type = hasAlpha ? gfxContentType::COLOR_ALPHA
                                    : gfxContentType::COLOR;
 
-    UniquePtr<GrallocTextureData> texData = UniquePtr<GrallocTextureData>(
-        GrallocTextureData::CreateForGLRendering(
-            size, gfxPlatform::GetPlatform()->Optimal2DFormatForContent(type), allocator
-    ));
+    GrallocTextureData* texData = GrallocTextureData::CreateForGLRendering(
+        size, gfxPlatform::GetPlatform()->Optimal2DFormatForContent(type), allocator
+    );
 
     if (!texData) {
-        return nullptr;
+        return ret;
     }
+
+    RefPtr<TextureClient> grallocTC = new TextureClient(texData, flags, allocator);
 
     sp<GraphicBuffer> buffer = texData->GetGraphicBuffer();
 
@@ -84,7 +85,7 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
                                        LOCAL_EGL_NATIVE_BUFFER_ANDROID,
                                        clientBuffer, attrs);
     if (!image) {
-        return nullptr;
+        return ret;
     }
 
     prodGL->MakeCurrent();
@@ -102,7 +103,7 @@ SharedSurface_Gralloc::Create(GLContext* prodGL,
     egl->fDestroyImage(display, image);
 
     ret.reset( new SharedSurface_Gralloc(prodGL, size, hasAlpha, egl,
-                                         allocator, std::move(texData),
+                                         allocator, grallocTC,
                                          prodTex) );
 
     DEBUG_PRINT("SharedSurface_Gralloc::Create: success -- surface %p,"
@@ -118,7 +119,7 @@ SharedSurface_Gralloc::SharedSurface_Gralloc(GLContext* prodGL,
                                              bool hasAlpha,
                                              GLLibraryEGL* egl,
                                              layers::LayersIPCChannel* allocator,
-                                             UniquePtr<layers::GrallocTextureData> textureData,
+                                             layers::TextureClient* textureClient,
                                              GLuint prodTex)
     : SharedSurface(SharedSurfaceType::Gralloc,
                     AttachmentType::GLTexture,
@@ -129,7 +130,7 @@ SharedSurface_Gralloc::SharedSurface_Gralloc(GLContext* prodGL,
     , mEGL(egl)
     , mSync(0)
     , mAllocator(allocator)
-    , mTextureData(std::move(textureData))
+    , mTextureClient(textureClient)
     , mProdTex(prodTex)
 {
 }
@@ -187,7 +188,7 @@ SharedSurface_Gralloc::ProducerReleaseImpl()
             int fenceFd = mEGL->fDupNativeFenceFDANDROID(mEGL->Display(), sync);
             if (fenceFd != -1) {
                 mEGL->fDestroySync(mEGL->Display(), sync);
-                mTextureData->SetAcquireFenceHandle(FenceHandle(new FenceHandle::FdObj(fenceFd)));
+                mTextureClient->SetAcquireFenceHandle(FenceHandle(new FenceHandle::FdObj(fenceFd)));
             } else {
                 mSync = sync;
             }
@@ -224,20 +225,23 @@ SharedSurface_Gralloc::ProducerReleaseImpl()
 void
 SharedSurface_Gralloc::WaitForBufferOwnership()
 {
-    mTextureData->WaitForBufferOwnership();
+    mTextureClient->WaitForBufferOwnership();
 }
 
 bool
 SharedSurface_Gralloc::ToSurfaceDescriptor(layers::SurfaceDescriptor* const out_descriptor)
 {
-    return mTextureData->Serialize(*out_descriptor);
+    mTextureClient->mWorkaroundAnnoyingSharedSurfaceOwnershipIssues = true;
+    return mTextureClient->ToSurfaceDescriptor(*out_descriptor);
 }
 
 bool
 SharedSurface_Gralloc::ReadbackBySharedHandle(gfx::DataSourceSurface* out_surface)
 {
     MOZ_ASSERT(out_surface);
-    sp<GraphicBuffer> buffer = mTextureData->GetGraphicBuffer();
+    sp<GraphicBuffer> buffer = static_cast<GrallocTextureData*>(
+        mTextureClient->GetInternalData()
+    )->GetGraphicBuffer();
 
     const uint8_t* grallocData = nullptr;
     auto result = buffer->lock(

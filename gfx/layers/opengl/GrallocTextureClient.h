@@ -41,9 +41,7 @@ public:
 
   virtual bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
 
-  // FIXME
-  //virtual bool Lock(OpenMode aMode, FenceHandle* aFence) override;
-  virtual bool Lock(OpenMode aMode) override;
+  virtual bool Lock(OpenMode aMode, FenceHandle* aFence) override;
 
   virtual void Unlock() override;
 
@@ -59,8 +57,7 @@ public:
 
   static GrallocTextureData* CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
                                               gfx::BackendType aMoz2dBackend,
-                                              LayersIPCChannel* aAllocator,
-                                              TextureAllocationFlags aAllocFlags);
+                                              LayersIPCChannel* aAllocator);
 
   static GrallocTextureData* CreateForYCbCr(gfx::IntSize aYSize, gfx::IntSize aCbCrSize,
                                             LayersIPCChannel* aAllocator);
@@ -72,10 +69,14 @@ public:
                                     gfx::BackendType aMoz2DBackend, uint32_t aUsage,
                                     LayersIPCChannel* aAllocator);
 
-  virtual TextureData* CreateSimilar(
-      LayersIPCChannel* aAllocator, LayersBackend aLayersBackend,
-      TextureFlags aFlags = TextureFlags::DEFAULT,
-      TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT) const override;
+
+  static already_AddRefed<TextureClient>
+  TextureClientFromSharedSurface(gl::SharedSurface* abstractSurf, TextureFlags flags);
+
+  virtual TextureData*
+  CreateSimilar(LayersIPCChannel* aAllocator,
+                TextureFlags aFlags = TextureFlags::DEFAULT,
+                TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT) const override;
 
   // use TextureClient's default implementation
   virtual bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
@@ -91,37 +92,13 @@ public:
 
   android::sp<android::GraphicBuffer> GetGraphicBuffer() { return mGraphicBuffer; }
 
-  void WaitForBufferOwnership();
-
-  void WaitForFence(FenceHandle* aFence);
+  virtual void WaitForFence(FenceHandle* aFence) override;
 
   ~GrallocTextureData();
 
   virtual TextureFlags GetTextureFlags() const override;
 
-  virtual GrallocTextureData* AsGrallocTextureData() override { return this; }
-
-  virtual void SetReleaseFenceHandle(const FenceHandle& aReleaseFenceHandle)
-  {
-    mReleaseFenceHandle.Merge(aReleaseFenceHandle);
-  }
-
-  virtual FenceHandle GetAndResetReleaseFenceHandle()
-  {
-    FenceHandle fence;
-    mReleaseFenceHandle.TransferToAnotherFenceHandle(fence);
-    return fence;
-  }
-
-  virtual void SetAcquireFenceHandle(const FenceHandle& aAcquireFenceHandle)
-  {
-    mAcquireFenceHandle = aAcquireFenceHandle;
-  }
-
-  virtual const FenceHandle& GetAcquireFenceHandle() const
-  {
-    return mAcquireFenceHandle;
-  }
+  virtual GrallocTextureData* AsGrallocTextureData() { return this; }
 
 protected:
   GrallocTextureData(MaybeMagicGrallocBufferHandle aGrallocHandle,
@@ -134,9 +111,6 @@ protected:
 
   MaybeMagicGrallocBufferHandle mGrallocHandle;
   android::sp<android::GraphicBuffer> mGraphicBuffer;
-
-  FenceHandle mReleaseFenceHandle;
-  FenceHandle mAcquireFenceHandle;
 
   // Points to a mapped gralloc buffer between calls to lock and unlock.
   // Should be null outside of the lock-unlock pair.

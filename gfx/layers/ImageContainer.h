@@ -145,7 +145,6 @@ namespace mozilla {
 
 namespace layers {
 
-class GrallocImage;
 class ImageClient;
 class ImageCompositeNotification;
 class ImageContainer;
@@ -215,8 +214,6 @@ class Image {
   int32_t GetSerial() const { return mSerial; }
 
   virtual already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() = 0;
-
-  virtual GrallocImage* AsGrallocImage() { return nullptr; }
 
   virtual bool IsValid() const { return true; }
 

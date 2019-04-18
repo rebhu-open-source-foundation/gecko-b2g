@@ -33,7 +33,6 @@ class CompositorUpdateObserver;
 class PCompositorBridgeChild;
 class PCompositorManagerChild;
 class PImageBridgeChild;
-class PSharedBufferManagerChild;
 class RemoteCompositorSession;
 class InProcessCompositorSession;
 class UiCompositorControllerChild;
@@ -72,7 +71,6 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   typedef layers::PCompositorBridgeChild PCompositorBridgeChild;
   typedef layers::PCompositorManagerChild PCompositorManagerChild;
   typedef layers::PImageBridgeChild PImageBridgeChild;
-  typedef layers::PSharedBufferManagerChild PSharedBufferManagerChild;
   typedef layers::RemoteCompositorSession RemoteCompositorSession;
   typedef layers::InProcessCompositorSession InProcessCompositorSession;
   typedef layers::UiCompositorControllerChild UiCompositorControllerChild;
@@ -105,12 +103,6 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
       mozilla::ipc::Endpoint<PVRManagerChild>* aOutVRBridge,
       mozilla::ipc::Endpoint<PVideoDecoderManagerChild>* aOutVideoManager,
       nsTArray<uint32_t>* aNamespaces);
-
-#ifdef MOZ_WIDGET_GONK
-  bool CreateBufferManager(
-      base::ProcessId aOtherProcess,
-      mozilla::ipc::Endpoint<PSharedBufferManagerChild>* aOutBufferManager);
-#endif
 
   // Maps the layer tree and process together so that aOwningPID is allowed
   // to access aLayersId across process.
@@ -202,12 +194,6 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
       base::ProcessId aOtherProcess,
       mozilla::ipc::Endpoint<PVideoDecoderManagerChild>* aOutEndPoint);
 
-#ifdef MOZ_WIDGET_GONK
-  bool CreateContentSharedBufferManager(
-      base::ProcessId aOtherProcess,
-      mozilla::ipc::Endpoint<PSharedBufferManagerChild>* aOutEndpoint);
-#endif
-
   // Called from RemoteCompositorSession. We track remote sessions so we can
   // notify their owning widgets that the session must be restarted.
   void RegisterRemoteProcessSession(RemoteCompositorSession* aSession);
@@ -240,10 +226,6 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
 
   void EnsureProtocolsReady();
   void EnsureCompositorManagerChild();
-
-#ifdef MOZ_WIDGET_GONK
-  void EnsureSharedBufferManagerChild();
-#endif
   void EnsureImageBridgeChild();
   void EnsureVRManager();
 

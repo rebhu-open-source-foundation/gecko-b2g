@@ -127,20 +127,17 @@ GrallocTextureHostOGL::~GrallocTextureHostOGL()
   DestroyEGLImage();
 }
 
-void GrallocTextureHostOGL::SetTextureSourceProvider(
-    TextureSourceProvider* aProvider) {
-  if (mCompositor == aProvider) {
-    return;
-  }
-
+void
+GrallocTextureHostOGL::SetCompositor(Compositor* aCompositor)
+{
+  mCompositor = AssertGLCompositor(aCompositor);
   if (mGLTextureSource) {
-    mGLTextureSource->SetTextureSourceProvider(aProvider);
+    mGLTextureSource->SetCompositor(mCompositor);
   }
 
-  if (mCompositor) {
+  if (mCompositor && aCompositor != mCompositor) {
     DestroyEGLImage();
   }
-  mCompositor = aProvider ? aProvider->AsCompositorOGL() : nullptr;
 }
 
 bool
@@ -407,11 +404,10 @@ GrallocTextureHostOGL::WaitAcquireFenceHandleSyncComplete()
               LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fenceFd,
               LOCAL_EGL_NONE
           };
-  auto* egl = gl::GLLibraryEGL::Get();
 
-  EGLSync sync = egl->fCreateSync(EGL_DISPLAY(),
-                                  LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID,
-                                  attribs);
+  EGLSync sync = sEGLLibrary.fCreateSync(EGL_DISPLAY(),
+                                         LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID,
+                                         attribs);
   if (!sync) {
     NS_WARNING("failed to create native fence sync");
     return;
@@ -420,14 +416,14 @@ GrallocTextureHostOGL::WaitAcquireFenceHandleSyncComplete()
   // Wait sync complete with timeout.
   // If a source of the fence becomes invalid because of error,
   // fene complete is not signaled. See Bug 1061435.
-  EGLint status = egl->fClientWaitSync(EGL_DISPLAY(),
+  EGLint status = sEGLLibrary.fClientWaitSync(EGL_DISPLAY(),
                                               sync,
                                               0,
                                               400000000 /*400 msec*/);
   if (status != LOCAL_EGL_CONDITION_SATISFIED) {
     NS_ERROR("failed to wait native fence sync");
   }
-  MOZ_ALWAYS_TRUE( egl->fDestroySync(EGL_DISPLAY(), sync) );
+  MOZ_ALWAYS_TRUE( sEGLLibrary.fDestroySync(EGL_DISPLAY(), sync) );
 }
 
 void

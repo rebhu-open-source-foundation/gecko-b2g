@@ -28,8 +28,9 @@ public:
 
   virtual void Unlock() override;
 
-  virtual void SetTextureSourceProvider(
-      TextureSourceProvider* aProvider) override;
+  virtual void SetCompositor(Compositor* aCompositor) override;
+
+  virtual Compositor* GetCompositor() override { return mCompositor; }
 
   virtual void DeallocateSharedData() override;
 
@@ -37,7 +38,7 @@ public:
 
   virtual void DeallocateDeviceData() override;
 
-  virtual gfx::SurfaceFormat GetFormat() const override;
+  virtual gfx::SurfaceFormat GetFormat() const;
 
   virtual gfx::IntSize GetSize() const override { return mCropSize; }
 
@@ -61,7 +62,7 @@ public:
 
   gl::GLContext* GetGLContext() const { return mCompositor ? mCompositor->gl() : nullptr; }
 
-  bool NeedsFenceHandle()
+  virtual bool NeedsFenceHandle() override
   {
 #if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
     return true;
@@ -70,7 +71,7 @@ public:
 #endif
   }
 
-  FenceHandle GetCompositorReleaseFence();
+  virtual FenceHandle GetCompositorReleaseFence() override;
 
   virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() override { return this; }
 

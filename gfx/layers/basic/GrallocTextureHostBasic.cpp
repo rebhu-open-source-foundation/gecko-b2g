@@ -178,19 +178,24 @@ GrallocTextureHostBasic::ClearTextureSource()
   }
 }
 
-void GrallocTextureHostBasic::SetTextureSourceProvider(
-    TextureSourceProvider* aProvider) {
-  if (!aProvider->AsCompositor() ||
-      !aProvider->AsCompositor()->AsBasicCompositor()) {
-    mTextureSource = nullptr;
+void
+GrallocTextureHostBasic::SetCompositor(Compositor* aCompositor)
+{
+  BasicCompositor* compositor = AssertBasicCompositor(aCompositor);
+  if (!compositor) {
     return;
   }
 
-  mProvider = aProvider;
-
+  mCompositor = compositor;
   if (mTextureSource) {
-    mTextureSource->SetTextureSourceProvider(aProvider);
+    mTextureSource->SetCompositor(compositor);
   }
+}
+
+Compositor*
+GrallocTextureHostBasic::GetCompositor()
+{
+  return mCompositor;
 }
 
 gfx::SurfaceFormat

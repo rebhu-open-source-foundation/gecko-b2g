@@ -32,10 +32,6 @@
 #  include "mozilla/webrender/RenderAndroidSurfaceTextureHostOGL.h"
 #endif
 
-#ifdef MOZ_WIDGET_GONK
-#  include "mozilla/layers/GrallocTextureHost.h"
-#endif
-
 using namespace mozilla::gl;
 using namespace mozilla::gfx;
 
@@ -87,15 +83,6 @@ already_AddRefed<TextureHost> CreateTextureHostOGL(
       const SurfaceDescriptorMacIOSurface& desc =
           aDesc.get_SurfaceDescriptorMacIOSurface();
       result = new MacIOSurfaceTextureHostOGL(aFlags, desc);
-      break;
-    }
-#endif
-
-#ifdef MOZ_WIDGET_GONK
-    case SurfaceDescriptor::TSurfaceDescriptorGralloc: {
-      const SurfaceDescriptorGralloc& desc =
-        aDesc.get_SurfaceDescriptorGralloc();
-      result = new GrallocTextureHostOGL(aFlags, desc);
       break;
     }
 #endif

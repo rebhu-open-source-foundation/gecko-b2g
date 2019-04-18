@@ -108,10 +108,6 @@
 #  include "mozilla/Omnijar.h"
 #endif
 
-#ifdef MOZ_WIDGET_GONK
-#include "mozilla/layers/SharedBufferManagerChild.h"
-#endif
-
 #ifdef MOZ_GECKO_PROFILER
 #  include "ChildProfilerController.h"
 #endif
@@ -1466,25 +1462,6 @@ extern "C" {
 void CGSShutdownServerConnections();
 };
 #endif
-mozilla::ipc::IPCResult ContentChild::RecvInitBufferManager(
-      Endpoint<PSharedBufferManagerChild> aBufferManager) {
-#ifdef MOZ_WIDGET_GONK
-  if (!SharedBufferManagerChild::InitForContent(std::move(aBufferManager))) {
-    return IPC_FAIL(this, "SharedBufferManagerChild::InitForContent failed!");
-  }
-#endif
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ContentChild::RecvReinitBufferManager(
-      Endpoint<PSharedBufferManagerChild> aBufferManager) {
-#ifdef MOZ_WIDGET_GONK
-  if (!SharedBufferManagerChild::ReinitForContent(std::move(aBufferManager))) {
-    return IPC_FAIL(this, "SharedBufferManagerChild::ReinitForContent failed!");
-  }
-#endif
-  return IPC_OK();
-}
 
 mozilla::ipc::IPCResult ContentChild::RecvInitRendering(
     Endpoint<PCompositorManagerChild>&& aCompositor,

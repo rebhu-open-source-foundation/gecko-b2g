@@ -225,10 +225,6 @@ class D3D11TextureData;
 class DXGIYCbCrTextureData;
 #endif
 
-#ifdef MOZ_WIDGET_GONK
-class GrallocTextureData;
-#endif
-
 class TextureData {
  public:
   struct Info {
@@ -304,10 +300,6 @@ class TextureData {
   virtual BufferTextureData* AsBufferTextureData() { return nullptr; }
 
   virtual GPUVideoTextureData* AsGPUVideoTextureData() { return nullptr; }
-
-#ifdef MOZ_WIDGET_GONK
-  virtual GrallocTextureData* AsGrallocTextureData() { return nullptr; }
-#endif
 };
 
 /**

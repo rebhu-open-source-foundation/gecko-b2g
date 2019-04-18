@@ -17,10 +17,12 @@ class Thread;
 } // namespace base
 
 namespace mozilla {
+#ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
+class Mutex;
+#endif
 
 namespace layers {
 class SharedBufferManagerParent;
-class SynchronousTask;
 
 struct GrallocParam {
   gfx::IntSize size;
@@ -39,13 +41,8 @@ struct GrallocParam {
   {}
 };
 
-// Since Android O, SharedBufferManagerChild should not be necessary.
-// android::Graphic buffer could be allocated via Binderized HAL.
-
 class SharedBufferManagerChild : public PSharedBufferManagerChild {
 public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedBufferManagerChild);
-
   SharedBufferManagerChild();
   /**
    * Creates the gralloc buffer manager with a dedicated thread for SharedBufferManagerChild.
@@ -53,14 +50,15 @@ public:
    * We may want to use a specific thread in the future. In this case, use
    * CreateWithThread instead.
    */
-
-  static void InitSameProcess();
-
-  static bool InitForContent(Endpoint<PSharedBufferManagerChild>&& aEndpoint);
-  static bool ReinitForContent(Endpoint<PSharedBufferManagerChild>&& aEndpoint);
+  static void StartUp();
 
   static PSharedBufferManagerChild*
   StartUpInChildProcess(Transport* aTransport, ProcessId aOtherProcess);
+
+  /**
+   * Creates the SharedBufferManagerChild manager protocol.
+   */
+  static bool StartUpOnThread(base::Thread* aThread);
 
   /**
    * Destroys The SharedBufferManager protocol.
@@ -69,7 +67,7 @@ public:
    * which means that if this function is called from another thread, the current
    * thread will be paused until the destruction is done.
    */
-  void DestroyManager();
+  static void DestroyManager();
 
   /**
    * Destroys the grallob buffer manager calling DestroyManager, and destroys the
@@ -121,29 +119,11 @@ public:
 
   static bool IsCreated();
 
-  // Singleton
-  static StaticMutex sSharedBufferManagerSingletonLock;
   static base::Thread* sSharedBufferManagerChildThread;
   static SharedBufferManagerChild* sSharedBufferManagerChildSingleton;
+  static SharedBufferManagerParent* sSharedBufferManagerParentSingleton; // Only available in Chrome process
 
 protected:
-
-  /**
-   * This must be called by the static function DeleteSharedBufferManagerSync defined
-   * in ImageBridgeChild.cpp ONLY.
-   */
-  ~SharedBufferManagerChild() { }
-
-  void ActorDestroy(ActorDestroyReason aWhy) override;
-
-  bool CanSend() const;
-  void MarkShutDown();
-
-  void Bind(Endpoint<PSharedBufferManagerChild>&& aEndpoint);
-  void BindSameProcess(RefPtr<SharedBufferManagerParent> aParent);
-
-  void DoShutdown(SynchronousTask* aTask);
-
   /**
    * Part of the allocation of gralloc SurfaceDescriptor that is
    * executed on the SharedBufferManagerChild thread after invoking
@@ -158,9 +138,10 @@ protected:
                         mozilla::layers::MaybeMagicGrallocBufferHandle* aBuffer);
 
   // Dispatched function
-  void
+  static void
   AllocGrallocBufferSync(const GrallocParam& aParam,
-                         SynchronousTask* aTask);
+                         Monitor* aBarrier,
+                         bool* aDone);
 
   /**
    * Part of the deallocation of gralloc SurfaceDescriptor that is
@@ -173,10 +154,8 @@ protected:
   DeallocGrallocBufferNow(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle);
 
   // dispatched function
-  void
+  static void
   DeallocGrallocBufferSync(const mozilla::layers::MaybeMagicGrallocBufferHandle& handle);
-
-  bool mCanSend;
 
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   std::map<int64_t, android::sp<android::GraphicBuffer> > mBuffers;
