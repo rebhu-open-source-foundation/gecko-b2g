@@ -22,7 +22,7 @@
 #include "GonkPermission.h"
 
 #include "mozilla/dom/ContentParent.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "mozilla/SyncRunnable.h"
 #include "nsThreadUtils.h"
 
