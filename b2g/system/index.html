@@ -19,12 +19,47 @@
                 debug("mozbrowserloadend");
             });
             window.browser.src = "app.html";
+
+            window.addEventListener("keydown", event => {
+                debug(`keydown ${event.key}`);
+            });
+
+            window.setInterval(() => {
+                window.clock.textContent = (new Date()).toLocaleString();
+            }, 1000);
         });
     </script>
+
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+        }
+
+        body {
+            background-image: url(evgeni-savchenko-1508554-unsplash.jpg);
+            background-size: cover;
+        }
+
+        #statusbar {
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 0.2em;
+            font-size: 1.2em;
+            display: flex;
+        }
+
+        #title {
+            flex: 1;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Simplest System App</h1>
+    <div id="statusbar"><span id="title">System App</span><span id="clock"></span></div>
     <iframe mozbrowser="true" remote="true" id="browser"></iframe>
 </body>
 
