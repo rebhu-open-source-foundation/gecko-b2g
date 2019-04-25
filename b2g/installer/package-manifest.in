@@ -614,6 +614,7 @@
 @RESPATH@/components/nsUpdateService.js
 @RESPATH@/components/nsUpdateServiceStub.js
 #endif
+@RESPATH@/components/ProcessSingleton.manifest
 @RESPATH@/components/nsUpdateTimerManager.manifest
 @RESPATH@/components/nsUpdateTimerManager.js
 @RESPATH@/components/pluginGlue.manifest

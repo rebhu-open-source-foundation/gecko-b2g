@@ -191,7 +191,7 @@ ProcessGlobal.prototype = {
         args.push('\n' + stackTrace);
       }
 
-      let msg = 'Content JS ' + message.level.toUpperCase() + ': ' + Array.join(args, ' ');
+      let msg = 'Content JS ' + message.level.toUpperCase() + ': ' + Array.prototype.join(args, ' ');
       Services.console.logMessage(new ConsoleMessage(msg, message.level));
       break;
     }

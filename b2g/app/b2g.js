@@ -6,33 +6,8 @@
 
 // For the all MOZ_MULET ifdef conditions in this file: see bug 1174234
 
-#ifndef MOZ_MULET
-pref("toolkit.defaultChromeURI", "chrome://b2g/content/shell.html");
+pref("toolkit.defaultChromeURI", "chrome://b2g/content/shell.xul");
 pref("browser.chromeURL", "chrome://b2g/content/");
-#endif
-
-#ifdef MOZ_MULET
-// Set FxOS as the default homepage
-// bug 1000122: this pref is fetched as a complex value,
-// so that it can't be set a just a string.
-// data: url is a workaround this.
-pref("browser.startup.homepage", "data:text/plain,browser.startup.homepage=chrome://b2g/content/shell.html");
-pref("b2g.is_mulet", true);
-// Prevent having the firstrun page
-pref("startup.homepage_welcome_url", "");
-pref("browser.shell.checkDefaultBrowser", false);
-// Automatically open devtools on the firefox os panel
-pref("devtools.toolbox.host", "side");
-pref("devtools.toolbox.sidebar.width", 800);
-// Disable session store to ensure having only one tab opened
-pref("browser.sessionstore.max_tabs_undo", 0);
-pref("browser.sessionstore.max_windows_undo", 0);
-pref("browser.sessionstore.restore_on_demand", false);
-pref("browser.sessionstore.resume_from_crash", false);
-// No e10s on mulet
-pref("browser.tabs.remote.autostart.1", false);
-pref("browser.tabs.remote.autostart.2", false);
-#endif
 
 // Bug 945235: Prevent all bars to be considered visible:
 pref("toolkit.defaultChromeFeatures", "chrome,dialog=no,close,resizable,scrollbars,extrachrome");
@@ -1210,10 +1185,6 @@ pref("extensions.blocklist.interval", 86400);
 pref("extensions.blocklist.url", "https://blocklist.addons.mozilla.org/blocklist/3/%APP_ID%/%APP_VERSION%/%PRODUCT%/%BUILD_ID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/%PING_COUNT%/%TOTAL_PING_COUNT%/%DAYS_SINCE_LAST_PING%/");
 pref("extensions.blocklist.detailsURL", "https://www.mozilla.com/%LOCALE%/blocklist/");
 
-// Because we can't have nice things.
-#ifdef MOZ_GRAPHENE
-#include ../graphene/graphene.js
-#endif
 // Google geoCoding URL.
 // format as https://maps.googleapis.com/maps/api/geocode/json?latlng=<lat>,<lon>&key=<key>
 pref("google.geocoding.URL", "https://maps.googleapis.com/maps/api/geocode/json?latlng=");
@@ -1328,10 +1299,6 @@ pref("ril.support.primarysim.switch", false);
 
 // Enable app cell broadcast list configuration (apn.json)
 pref("dom.app_cb_configuration", false);
-
-#ifdef FXOS_SIMULATOR
-#include ../simulator/prefs.js
-#endif
 
 // reboot reason
 pref("device.rebootReason", "normal");

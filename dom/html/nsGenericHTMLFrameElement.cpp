@@ -268,35 +268,14 @@ int32_t nsGenericHTMLFrameElement::MapScrollingAttribute(
 }
 
 static bool PrincipalAllowsBrowserFrame(nsIPrincipal* aPrincipal) {
-  printf("PrincipalAllowsBrowserFrame aPrincipal=%p\n", aPrincipal);
-
   nsCOMPtr<nsIPermissionManager> permMgr =
       mozilla::services::GetPermissionManager();
   NS_ENSURE_TRUE(permMgr, false);
   uint32_t permission = nsIPermissionManager::DENY_ACTION;
-
-  nsAutoCString cautoStr;
-  aPrincipal->GetOrigin(cautoStr);
-  printf("PrincipalAllowsBrowserFrame for %s\n", cautoStr.get());
-
-  // nsCOMPtr<nsIURI> uri;
-  // aPrincipal->GetURI(getter_AddRefs(uri));
-  // printf("PrincipalAllowsBrowserFrame Ok 1\n");
-
-  // if (uri) {
-  // nsAutoCString cautoStr;
-  // uri->GetOrigin(cautoStr);
-  // printf("PrincipalAllowsBrowserFrame Ok 2\n");
-  // printf("PrincipalAllowsBrowserFrame for %s\n", cautoStr.get());
-  // } else {
-  //   printf("PrincipalAllowsBrowserFrame Ko\n");
-  // }
-
   nsresult rv = permMgr->TestPermissionFromPrincipal(
       aPrincipal, NS_LITERAL_CSTRING("browser"), &permission);
   NS_ENSURE_SUCCESS(rv, false);
-  printf("PrincipalAllowsBrowserFrame permission=%d (ALLOW=%d)\n", permission, nsIPermissionManager::ALLOW_ACTION);
-  return true; //permission == nsIPermissionManager::ALLOW_ACTION;
+  return permission == nsIPermissionManager::ALLOW_ACTION;
 }
 
 /* virtual */
