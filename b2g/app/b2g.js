@@ -4,8 +4,6 @@
 
 #filter substitution
 
-// For the all MOZ_MULET ifdef conditions in this file: see bug 1174234
-
 pref("toolkit.defaultChromeURI", "chrome://b2g/content/shell.xul");
 pref("browser.chromeURL", "chrome://b2g/content/");
 
@@ -465,9 +463,7 @@ pref("dom.ipc.processCount", 100000);
 
 pref("dom.ipc.browser_frames.oop_by_default", false);
 
-#if !defined(MOZ_MULET) && !defined(MOZ_GRAPHENE)
 pref("dom.meta-viewport.enabled", true);
-#endif
 
 // SMS/MMS
 pref("dom.sms.enabled", true);
@@ -875,15 +871,6 @@ pref("network.activity.blipIntervalMilliseconds", 250);
 // connectivity, this is not desireable, however, in which case this pref
 // can be flipped to false.
 pref("network.gonk.manage-offline-status", true);
-
-// On Firefox Mulet, we can't enable shared JSM scope
-// as it breaks most Firefox JSMs (see bug 961777)
-#ifndef MOZ_MULET
-// Break any JSMs or JS components that rely on shared scope
-#ifndef DEBUG
-pref("jsloader.reuseGlobal", true);
-#endif
-#endif
 
 // Enable font inflation for browser tab content.
 pref("font.size.inflation.minTwips", 120);
