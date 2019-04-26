@@ -145,6 +145,11 @@ nsScreenGonk::nsScreenGonk(uint32_t aId,
     , mFramebuffer(nullptr)
     , mMappedBuffer(nullptr)
 {
+    if (mDpi == 0) {
+        NS_WARNING("aNativeData.mXdpi should not be 0!! Defaulting to 96.0");
+        mDpi = 96.0;
+    }
+
     if (mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_WIDTH, &mVirtualBounds.width) ||
         mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_HEIGHT, &mVirtualBounds.height) ||
         mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_FORMAT, &mSurfaceFormat)) {
