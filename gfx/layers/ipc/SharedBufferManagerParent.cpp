@@ -8,20 +8,20 @@
 #include "base/message_loop.h"          // for MessageLoop
 #include "base/process.h"               // for ProcessId
 #include "base/task.h"                  // for CancelableTask, DeleteTask, etc
-#include "base/tracked.h"               // for FROM_HERE
 #include "base/thread.h"
 #include "mozilla/ipc/MessageChannel.h" // for MessageChannel, etc
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/ipc/Transport.h"      // for Transport
 #include "mozilla/UniquePtr.h"          // for UniquePtr
-#include "mozilla/unused.h"
+#include "mozilla/Unused.h"
 #include "nsIMemoryReporter.h"
 #ifdef MOZ_WIDGET_GONK
-#include "mozilla/LinuxUtils.h"
 #include "ui/PixelFormat.h"
 #endif
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
+#include <dlfcn.h>
+#include "android/hardware_buffer.h"
 
 using namespace mozilla::ipc;
 #ifdef MOZ_WIDGET_GONK
@@ -36,6 +36,8 @@ map<base::ProcessId, SharedBufferManagerParent* > SharedBufferManagerParent::sMa
 StaticAutoPtr<Monitor> SharedBufferManagerParent::sManagerMonitor;
 uint64_t SharedBufferManagerParent::sBufferKey(0);
 
+// FIXME
+#if 0
 #ifdef MOZ_WIDGET_GONK
 class GrallocReporter final : public nsIMemoryReporter
 {
@@ -111,24 +113,61 @@ void InitGralloc() {
   RegisterStrongMemoryReporter(new GrallocReporter());
 #endif
 }
+#endif
 
 /**
  * Task that deletes SharedBufferManagerParent on a specified thread.
  */
-class DeleteSharedBufferManagerParentTask : public Task
+class DeleteSharedBufferManagerParentTask : public Runnable
 {
 public:
-    explicit DeleteSharedBufferManagerParentTask(UniquePtr<SharedBufferManagerParent> aSharedBufferManager)
-        : mSharedBufferManager(Move(aSharedBufferManager)) {
+    explicit DeleteSharedBufferManagerParentTask(RefPtr<SharedBufferManagerParent> aSharedBufferManager)
+        : Runnable("DeleteSharedBufferManagerParentTask")
+        , mSharedBufferManager(aSharedBufferManager) {
     }
-    virtual void Run() override {}
+    NS_IMETHOD Run() override { return NS_OK; }
 private:
-    UniquePtr<SharedBufferManagerParent> mSharedBufferManager;
+    RefPtr<SharedBufferManagerParent> mSharedBufferManager;
 };
 
-SharedBufferManagerParent::SharedBufferManagerParent(Transport* aTransport, base::ProcessId aOwner, base::Thread* aThread)
-  : mTransport(aTransport)
-  , mThread(aThread)
+/* static */
+SharedBufferManagerParent* SharedBufferManagerParent::CreateSameProcess() {
+  base::ProcessId pid = base::GetCurrentProcId();
+
+  char thrname[128];
+  base::snprintf(thrname, 128, "BufMgrParent#%d", pid);
+
+  RefPtr<SharedBufferManagerParent> parent =
+      new SharedBufferManagerParent(pid, new base::Thread(thrname));
+  parent->mSelfRef = parent;
+  return parent;
+}
+
+/* static */
+bool SharedBufferManagerParent::CreateForContent(
+    Endpoint<PSharedBufferManagerParent>&& aEndpoint) {
+  base::Thread* thread = nullptr;
+  char thrname[128];
+  base::snprintf(thrname, 128, "BufMgrParent#%d", aEndpoint.OtherPid());
+  thread = new base::Thread(thrname);
+
+  RefPtr<SharedBufferManagerParent> bridge =
+      new SharedBufferManagerParent(aEndpoint.OtherPid(), thread);
+  MOZ_ASSERT(thread->IsRunning());
+  thread->message_loop()->PostTask(NewRunnableMethod<Endpoint<PSharedBufferManagerParent>&&>(
+      "layers::SharedBufferManagerParent::Bind", bridge, &SharedBufferManagerParent::Bind,
+      std::move(aEndpoint)));
+
+  return true;
+}
+
+void SharedBufferManagerParent::Bind(Endpoint<PSharedBufferManagerParent>&& aEndpoint) {
+  if (!aEndpoint.Bind(this)) return;
+  mSelfRef = this;
+}
+
+SharedBufferManagerParent::SharedBufferManagerParent(base::ProcessId aOwner, base::Thread* aThread)
+  : mThread(aThread)
   , mMainMessageLoop(MessageLoop::current())
   , mDestroyed(false)
   , mLock("SharedBufferManagerParent.mLock")
@@ -154,10 +193,6 @@ SharedBufferManagerParent::SharedBufferManagerParent(Transport* aTransport, base
 SharedBufferManagerParent::~SharedBufferManagerParent()
 {
   MonitorAutoLock lock(*sManagerMonitor.get());
-  if (mTransport) {
-    XRE_GetIOMessageLoop()->PostTask(FROM_HERE,
-                                     new DeleteTask<Transport>(mTransport));
-  }
   sManagers.erase(mOwner);
   delete mThread;
 }
@@ -170,35 +205,9 @@ SharedBufferManagerParent::ActorDestroy(ActorDestroyReason aWhy)
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   mBuffers.clear();
 #endif
-  DeleteSharedBufferManagerParentTask* task =
-    new DeleteSharedBufferManagerParentTask(UniquePtr<SharedBufferManagerParent>(this));
-  mMainMessageLoop->PostTask(FROM_HERE, task);
-}
-
-static void
-ConnectSharedBufferManagerInParentProcess(SharedBufferManagerParent* aManager,
-                                          Transport* aTransport,
-                                          base::ProcessId aOtherPid)
-{
-  aManager->Open(aTransport, aOtherPid, XRE_GetIOMessageLoop(), ipc::ParentSide);
-}
-
-PSharedBufferManagerParent* SharedBufferManagerParent::Create(Transport* aTransport,
-                                                              ProcessId aOtherPid)
-{
-  base::Thread* thread = nullptr;
-  char thrname[128];
-  base::snprintf(thrname, 128, "BufMgrParent#%d", aOtherPid);
-  thread = new base::Thread(thrname);
-
-  SharedBufferManagerParent* manager = new SharedBufferManagerParent(aTransport, aOtherPid, thread);
-  if (!thread->IsRunning()) {
-    thread->Start();
-  }
-  thread->message_loop()->PostTask(FROM_HERE,
-                                   NewRunnableFunction(ConnectSharedBufferManagerInParentProcess,
-                                                       manager, aTransport, aOtherPid));
-  return manager;
+  RefPtr<Runnable> task = new DeleteSharedBufferManagerParentTask(this);
+  mSelfRef = nullptr;
+  mMainMessageLoop->PostTask(task.forget());
 }
 
 bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, const uint32_t& aFormat, const uint32_t& aUsage, mozilla::layers::MaybeMagicGrallocBufferHandle* aHandle)
@@ -226,26 +235,61 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
     return false;
   }
 
-  sp<GraphicBuffer> outgoingBuffer = new GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
-  if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != NO_ERROR) {
-    printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
-    return true;
+  //sp<GraphicBuffer> outgoingBuffer = new GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
+  typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
+  typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
+                                                AHardwareBuffer_Desc* outDesc);
+  void* lib = dlopen("/system/lib/libandroid.so", RTLD_NOW);
+  if (lib == NULL) {
+    printf_stderr("Could not dlopen(\"libandroid.so\"):");
+  } else {
+    fnAHardwareBuffer_allocate fAHardwareBuffer_allocate = (fnAHardwareBuffer_allocate) dlsym(lib, "AHardwareBuffer_allocate") ;
+    fnAHardwareBuffer_describe fAHardwareBuffer_describe = (fnAHardwareBuffer_describe) dlsym(lib, "AHardwareBuffer_describe") ;
+    if (fAHardwareBuffer_allocate == NULL || fAHardwareBuffer_describe == NULL) {
+      printf_stderr("Symbol 'AHardwareBuffer_allocate' is missing from shared library!!\n");
+    } else {
+      AHardwareBuffer* graphicBuf;
+      AHardwareBuffer_Desc usage;
+
+      // filling in the usage for HardwareBuffer
+      usage.format = aFormat;
+      usage.height = aSize.height;
+      usage.width = aSize.width;
+      usage.layers = 1;
+      usage.rfu0 = 0;
+      usage.rfu1 = 0;
+      usage.stride = 10;
+      usage.usage = aUsage;
+
+      fAHardwareBuffer_allocate(&usage, &graphicBuf);
+      // ACTUAL parameters of the AHardwareBuffer which it reports
+      AHardwareBuffer_Desc usage1;
+
+      fAHardwareBuffer_describe(graphicBuf, &usage1);
+      sp<GraphicBuffer> outgoingBuffer = reinterpret_cast< GraphicBuffer*>(graphicBuf);
+
+      if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != NO_ERROR) {
+        printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
+        return true;
+      }
+
+      int64_t bufferKey;
+      {
+        MonitorAutoLock lock(*sManagerMonitor.get());
+        bufferKey = ++sBufferKey;
+      }
+      GrallocBufferRef ref;
+      ref.mOwner = mOwner;
+      ref.mKey = bufferKey;
+      *aHandle = MagicGrallocBufferHandle(outgoingBuffer, ref);
+
+      {
+        MutexAutoLock lock(mLock);
+        mBuffers[bufferKey] = outgoingBuffer;
+      }
+    }
   }
 
-  int64_t bufferKey;
-  {
-    MonitorAutoLock lock(*sManagerMonitor.get());
-    bufferKey = ++sBufferKey; 
-  }
-  GrallocBufferRef ref;
-  ref.mOwner = mOwner;
-  ref.mKey = bufferKey;
-  *aHandle = MagicGrallocBufferHandle(outgoingBuffer, ref);
-
-  {
-    MutexAutoLock lock(mLock);
-    mBuffers[bufferKey] = outgoingBuffer;
-  }
 #endif
   return true;
 }
@@ -270,10 +314,9 @@ bool SharedBufferManagerParent::RecvDropGrallocBuffer(const mozilla::layers::May
   return true;
 }
 
-/*static*/
-void SharedBufferManagerParent::DropGrallocBufferSync(SharedBufferManagerParent* mgr, mozilla::layers::SurfaceDescriptor aDesc)
+void SharedBufferManagerParent::DropGrallocBufferSync(mozilla::layers::SurfaceDescriptor aDesc)
 {
-  mgr->DropGrallocBufferImpl(aDesc);
+  DropGrallocBufferImpl(aDesc);
 }
 
 /*static*/
@@ -297,8 +340,9 @@ void SharedBufferManagerParent::DropGrallocBuffer(ProcessId id, mozilla::layers:
   if (PlatformThread::CurrentId() == mgr->mThread->thread_id()) {
     MOZ_CRASH("GFX: SharedBufferManagerParent::DropGrallocBuffer should not be called on SharedBufferManagerParent thread");
   } else {
-    mgr->mThread->message_loop()->PostTask(FROM_HERE,
-                                      NewRunnableFunction(&DropGrallocBufferSync, mgr, aDesc));
+    RefPtr<Runnable> runnable =
+        WrapRunnable(RefPtr<SharedBufferManagerParent>(mgr),
+                     &SharedBufferManagerParent::DropGrallocBufferSync, aDesc);
   }
   return;
 }
@@ -371,24 +415,6 @@ SharedBufferManagerParent::GetGraphicBuffer(GrallocBufferRef aRef)
   return parent->GetGraphicBuffer(aRef.mKey);
 }
 #endif
-
-IToplevelProtocol*
-SharedBufferManagerParent::CloneToplevel(const InfallibleTArray<ProtocolFdMapping>& aFds,
-                                 base::ProcessHandle aPeerProcess,
-                                 mozilla::ipc::ProtocolCloneContext* aCtx)
-{
-  for (unsigned int i = 0; i < aFds.Length(); i++) {
-    if (aFds[i].protocolId() == unsigned(GetProtocolId())) {
-      Transport* transport = OpenDescriptor(aFds[i].fd(),
-                                            Transport::MODE_SERVER);
-      PSharedBufferManagerParent* bufferManager = Create(transport, base::GetProcId(aPeerProcess));
-      bufferManager->CloneManagees(this, aCtx);
-      bufferManager->IToplevelProtocol::SetTransport(transport);
-      return bufferManager;
-    }
-  }
-  return nullptr;
-}
 
 } /* namespace layers */
 } /* namespace mozilla */

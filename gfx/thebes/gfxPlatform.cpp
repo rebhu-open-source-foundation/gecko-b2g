@@ -143,6 +143,13 @@ static const uint32_t kDefaultGlyphCacheSize = -1;
 #include "mozilla/gfx/GPUParent.h"
 #include "mozilla/layers/MemoryReportingMLGPU.h"
 #include "prsystem.h"
+#include <dlfcn.h>
+
+#ifdef MOZ_WIDGET_GONK
+#include "mozilla/layers/SharedBufferManagerChild.h"
+#include "android/hardware_buffer.h"
+#endif
+
 
 namespace mozilla {
 namespace layers {
@@ -1296,6 +1303,9 @@ void gfxPlatform::ShutdownLayersIPC() {
     if (StaticPrefs::ChildProcessShutdown()) {
       layers::CompositorManagerChild::Shutdown();
       layers::ImageBridgeChild::ShutDown();
+#ifdef MOZ_WIDGET_GONK
+      layers::SharedBufferManagerChild::ShutDown();
+#endif
     }
 
     if (gfxVars::UseOMTP() && !recordreplay::IsRecordingOrReplaying()) {
@@ -1308,6 +1318,9 @@ void gfxPlatform::ShutdownLayersIPC() {
     gfx::VRManagerChild::ShutDown();
     layers::CompositorManagerChild::Shutdown();
     layers::ImageBridgeChild::ShutDown();
+#ifdef MOZ_WIDGET_GONK
+    layers::SharedBufferManagerChild::ShutDown();
+#endif
 
     // This has to happen after shutting down the child protocols.
     layers::CompositorThreadHolder::Shutdown();
@@ -1567,17 +1580,56 @@ void gfxPlatform::ComputeTileSize() {
       w = h = clamped(int32_t(RoundUpPow2(screenSize.width)) / 4, 256, 1024);
     }
 
-//#ifdef MOZ_WIDGET_GONK
-//    android::sp<android::GraphicBuffer> alloc =
-//          new android::GraphicBuffer(w, h, android::PIXEL_FORMAT_RGBA_8888,
-//                                     android::GraphicBuffer::USAGE_SW_READ_OFTEN |
-//                                     android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
-//                                     android::GraphicBuffer::USAGE_HW_TEXTURE);
-//
-//    if (alloc.get()) {
-//      w = alloc->getStride(); // We want the tiles to be gralloc stride aligned.
-//    }
-//#endif
+#ifdef MOZ_WIDGET_GONK
+    //android::sp<android::GraphicBuffer> alloc =
+    //      new android::GraphicBuffer(w, h, android::PIXEL_FORMAT_RGBA_8888,
+    //                                 android::GraphicBuffer::USAGE_SW_READ_OFTEN |
+    //                                 android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
+    //                                 android::GraphicBuffer::USAGE_HW_TEXTURE);
+    //
+    //if (alloc.get()) {
+    //  w = alloc->getStride(); // We want the tiles to be gralloc stride aligned.
+    //}
+    typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
+    typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
+                                                AHardwareBuffer_Desc* outDesc);
+    void* lib = dlopen("/system/lib/libandroid.so", RTLD_NOW);
+    if (lib == NULL) {
+        printf_stderr("ZZZ Could not dlopen(\"libandroid.so\"):");
+    } else {
+      printf_stderr("ZZZ libandroid.so dlopen OK");
+      fnAHardwareBuffer_allocate fAHardwareBuffer_allocate = (fnAHardwareBuffer_allocate) dlsym(lib, "AHardwareBuffer_allocate") ;
+      fnAHardwareBuffer_describe fAHardwareBuffer_describe = (fnAHardwareBuffer_describe) dlsym(lib, "AHardwareBuffer_describe") ;
+      if (fAHardwareBuffer_allocate == NULL || fAHardwareBuffer_describe == NULL) {
+        printf_stderr("ZZZ Symbol 'AHardwareBuffer_allocate' is missing from shared library!!\n");
+      } else {
+        printf_stderr("ZZZ found expected symbols OK");
+        AHardwareBuffer* graphicBuf;
+        AHardwareBuffer_Desc usage;
+
+        // filling in the usage for HardwareBuffer
+        usage.format = android::PIXEL_FORMAT_RGBA_8888;
+        usage.height = h;
+        usage.width = w;
+        usage.layers = 1;
+        usage.rfu0 = 0;
+        usage.rfu1 = 0;
+        usage.stride = 10;
+        usage.usage = android::GraphicBuffer::USAGE_SW_READ_OFTEN |
+                                         android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
+                                         android::GraphicBuffer::USAGE_HW_TEXTURE;
+        fAHardwareBuffer_allocate(&usage, &graphicBuf);
+        // ACTUAL parameters of the AHardwareBuffer which it reports
+        AHardwareBuffer_Desc usage1;
+
+        // for stride, see below
+        fAHardwareBuffer_describe(graphicBuf, &usage1);
+        int stride = usage1.stride;
+        w = stride;
+      }
+    }
+
+#endif
   }
 
   // Don't allow changing the tile size after we've set it.

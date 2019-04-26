@@ -47,6 +47,11 @@
 #  include "mozilla/layers/UiCompositorControllerChild.h"
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
+#ifdef MOZ_WIDGET_GONK
+#  include "mozilla/layers/SharedBufferManagerChild.h"
+#  include "mozilla/layers/SharedBufferManagerParent.h"
+#endif
+
 namespace mozilla {
 namespace gfx {
 
@@ -234,6 +239,9 @@ bool GPUProcessManager::EnsureGPUReady() {
 
 void GPUProcessManager::EnsureProtocolsReady() {
   EnsureCompositorManagerChild();
+#ifdef MOZ_WIDGET_GONK
+  EnsureSharedBufferManagerChild();
+#endif
   EnsureImageBridgeChild();
   EnsureVRManager();
 }
@@ -262,6 +270,20 @@ void GPUProcessManager::EnsureCompositorManagerChild() {
   CompositorManagerChild::Init(std::move(childPipe), AllocateNamespace(),
                                mProcessToken);
 }
+
+#ifdef MOZ_WIDGET_GONK
+void GPUProcessManager::EnsureSharedBufferManagerChild() {
+  if (SharedBufferManagerChild::GetSingleton()) {
+    return;
+  }
+
+  if (!EnsureGPUReady()) {
+    SharedBufferManagerChild::InitSameProcess();
+    return;
+  }
+  MOZ_ASSERT_UNREACHABLE("GPU process is not supported on gonk");
+}
+#endif
 
 void GPUProcessManager::EnsureImageBridgeChild() {
   if (ImageBridgeChild::GetSingleton()) {
@@ -815,6 +837,17 @@ bool GPUProcessManager::CreateContentBridges(
   return true;
 }
 
+#ifdef MOZ_WIDGET_GONK
+bool GPUProcessManager::CreateBufferManager(
+    base::ProcessId aOtherProcess,
+    mozilla::ipc::Endpoint<PSharedBufferManagerChild>* aOutBufferManager) {
+  if (!CreateContentSharedBufferManager(aOtherProcess, aOutBufferManager)) {
+    return false;
+  }
+  return true;
+}
+#endif
+
 bool GPUProcessManager::CreateContentCompositorManager(
     base::ProcessId aOtherProcess,
     ipc::Endpoint<PCompositorManagerChild>* aOutEndpoint) {
@@ -872,6 +905,39 @@ bool GPUProcessManager::CreateContentImageBridge(
   *aOutEndpoint = std::move(childPipe);
   return true;
 }
+
+#ifdef MOZ_WIDGET_GONK
+bool GPUProcessManager::CreateContentSharedBufferManager(
+      base::ProcessId aOtherProcess,
+      mozilla::ipc::Endpoint<PSharedBufferManagerChild>* aOutEndpoint) {
+  EnsureSharedBufferManagerChild();
+
+  base::ProcessId parentPid =
+      EnsureGPUReady() ? mGPUChild->OtherPid() : base::GetCurrentProcId();
+
+  ipc::Endpoint<PSharedBufferManagerParent> parentPipe;
+  ipc::Endpoint<PSharedBufferManagerChild> childPipe;
+  nsresult rv = PSharedBufferManager::CreateEndpoints(parentPid, aOtherProcess,
+                                                      &parentPipe, &childPipe);
+  if (NS_FAILED(rv)) {
+    gfxCriticalNote << "Could not create content compositor bridge: "
+                    << hexa(int(rv));
+    return false;
+  }
+
+  if (mGPUChild) {
+    MOZ_ASSERT_UNREACHABLE("GPU process is not supported on gonk");
+    return false;
+  } else {
+    if (!SharedBufferManagerParent::CreateForContent(std::move(parentPipe))) {
+      return false;
+    }
+  }
+
+  *aOutEndpoint = std::move(childPipe);
+  return true;
+}
+#endif
 
 base::ProcessId GPUProcessManager::GPUProcessPid() {
   base::ProcessId gpuPid = mGPUChild ? mGPUChild->OtherPid() : -1;
