@@ -171,6 +171,15 @@ UrlClassifierDBServiceWorkerProxy::ResetDatabase()
 }
 
 NS_IMETHODIMP
+UrlClassifierDBServiceWorkerProxy::ClearCache()
+{
+  nsCOMPtr<nsIRunnable> r =
+    NS_NewRunnableMethod(mTarget,
+                      &nsUrlClassifierDBServiceWorker::ClearCache);
+  return DispatchToWorkerThread(r);
+}
+
+NS_IMETHODIMP
 UrlClassifierDBServiceWorkerProxy::OpenDb()
 {
   nsCOMPtr<nsIRunnable> r =

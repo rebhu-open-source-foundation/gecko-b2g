@@ -66,6 +66,7 @@ this.SafeBrowsing = {
 
     Services.prefs.addObserver("browser.safebrowsing", this.readPrefs.bind(this), false);
     Services.prefs.addObserver("privacy.trackingprotection", this.readPrefs.bind(this), false);
+    Services.obs.addObserver(this, "memory-pressure", false);
     this.readPrefs();
     this.addMozEntries();
 
@@ -73,6 +74,15 @@ this.SafeBrowsing = {
     this.initialized = true;
 
     log("init() finished");
+  },
+
+  observe(aSubject, aTopic, aData) {
+    if (aTopic == "memory-pressure") {
+      log("Memory-pressure, perform clearCache");
+      let db = Cc["@mozilla.org/url-classifier/dbservice;1"].
+        getService(Ci.nsIUrlClassifierDBService);
+      db.clearCache();
+    }
   },
 
   registerTableWithURLs: function(listname) {

@@ -119,8 +119,9 @@ public:
                bool* aHas, bool* aComplete);
   bool IsPrimed();
 
-private:
   void ClearAll();
+
+private:
   nsresult Reset();
   void UpdateHeader();
   nsresult ReadHeader(nsIInputStream* aInputStream);

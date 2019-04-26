@@ -31,6 +31,8 @@ public:
   void Close();
   void Reset();
 
+  void ResetTables(const nsTArray<nsCString>& aTables);
+
   /**
    * Get the list of active tables and their chunks in a format
    * suitable for an update request.

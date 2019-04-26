@@ -193,6 +193,9 @@ LookupCache::Has(const Completion& aCompletion,
   uint32_t prefix = aCompletion.ToUint32();
 
   bool found;
+  if (!mPrimed) {
+    Open();
+  }
   nsresult rv = mPrefixSet->Contains(prefix, &found);
   NS_ENSURE_SUCCESS(rv, rv);
 

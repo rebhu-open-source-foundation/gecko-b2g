@@ -613,6 +613,18 @@ nsUrlClassifierDBServiceWorker::ResetDatabase()
 }
 
 NS_IMETHODIMP
+nsUrlClassifierDBServiceWorker::ClearCache() {
+  LOG(("nsUrlClassifierDBServiceWorker::ClearCache"));
+  nsTArray<nsCString> tables;
+  nsresult rv = mClassifier->ActiveTables(tables);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  mClassifier->ResetTables(tables);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsUrlClassifierDBServiceWorker::CancelUpdate()
 {
   LOG(("nsUrlClassifierDBServiceWorker::CancelUpdate"));
@@ -1592,6 +1604,13 @@ nsUrlClassifierDBService::ResetDatabase()
   NS_ENSURE_TRUE(gDbBackgroundThread, NS_ERROR_NOT_INITIALIZED);
 
   return mWorkerProxy->ResetDatabase();
+}
+
+NS_IMETHODIMP
+nsUrlClassifierDBService::ClearCache() {
+  NS_ENSURE_TRUE(gDbBackgroundThread, NS_ERROR_NOT_INITIALIZED);
+
+  return mWorkerProxy->ClearCache();
 }
 
 nsresult

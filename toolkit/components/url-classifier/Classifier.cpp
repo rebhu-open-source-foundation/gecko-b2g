@@ -172,6 +172,17 @@ Classifier::Reset()
 }
 
 void
+Classifier::ResetTables(const nsTArray<nsCString>& aTables) {
+  for (uint32_t i = 0; i < aTables.Length(); i++) {
+    LOG(("Resetting table: %s", aTables[i].get()));
+    LookupCache *cache = GetLookupCache(aTables[i]);
+    if (cache) {
+      cache->ClearAll();
+    }
+  }
+}
+
+void
 Classifier::TableRequest(nsACString& aResult)
 {
   nsTArray<nsCString> tables;
@@ -596,6 +607,9 @@ Classifier::ApplyTableUpdates(nsTArray<TableUpdate*>* aUpdates,
   if (!prefixSet) {
     return NS_ERROR_FAILURE;
   }
+  if (!prefixSet->IsPrimed()) {
+    prefixSet->Open();
+  }
   FallibleTArray<uint32_t> AddPrefixHashes;
   rv = prefixSet->GetPrefixes(AddPrefixHashes);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -719,6 +733,9 @@ Classifier::ReadNoiseEntries(const Prefix& aPrefix,
     return NS_ERROR_FAILURE;
   }
 
+  if (!cache->IsPrimed()) {
+    cache->Open();
+  }
   FallibleTArray<uint32_t> prefixes;
   nsresult rv = cache->GetPrefixes(prefixes);
   NS_ENSURE_SUCCESS(rv, rv);
