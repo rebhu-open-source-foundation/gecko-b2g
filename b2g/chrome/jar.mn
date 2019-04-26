@@ -7,14 +7,11 @@
 chrome.jar:
 % content branding %content/branding/ contentaccessible=yes
 % content b2g %content/
-% content kaios-sdk %kaios-sdk/
 
   content/arrow.svg                     (content/arrow.svg)
   content/settings.js                   (content/settings.js)
 * content/shell.xul                     (content/shell.xul)
   content/shell.js                      (content/shell.js)
-  content/shell_remote.html             (content/shell_remote.html)
-  content/shell_remote.js               (content/shell_remote.js)
   content/shell.css                     (content/shell.css)
   content/blank.html                    (content/blank.html)
   content/blank.css                     (content/blank.css)
@@ -23,23 +20,10 @@ chrome.jar:
 #endif
   content/devtools/debugger.js          (content/devtools/debugger.js)
   content/devtools/hud.js               (content/devtools/hud.js)
-#ifndef MOZ_WIDGET_GONK
-  content/desktop.css                   (content/desktop.css)
-  content/images/desktop/home-black.png (content/images/desktop/home-black.png)
-  content/images/desktop/home-white.png (content/images/desktop/home-white.png)
-  content/images/desktop/rotate.png     (content/images/desktop/rotate.png)
-  content/desktop.js                    (content/desktop.js)
-  content/screen.js                     (content/screen.js)
-  content/runapp.js                     (content/runapp.js)
-#endif
 * content/content.css                   (content/content.css)
   content/touchcontrols.css             (content/touchcontrols.css)
 
   content/identity.js                   (content/identity.js)
-#ifdef MOZ_B2G_REMOTECONTROLSERVICE
-* content/remote_control.js             (content/remote_control.js)
-  content/remote_command.js             (content/remote_command.js)
-#endif
 
 % override chrome://global/skin/media/videocontrols.css chrome://b2g/content/touchcontrols.css
 % override chrome://global/content/aboutCertError.xhtml chrome://b2g/content/aboutCertError.xhtml
