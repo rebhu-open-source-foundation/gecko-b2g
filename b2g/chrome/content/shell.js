@@ -178,7 +178,7 @@ var CustomEventManager = {
 
 document.addEventListener("DOMContentLoaded", function dom_loaded() {
   document.removeEventListener("DOMContentLoaded", dom_loaded);
-  
+
   if (!shell.hasStarted()) {
     // Give the browser permission to the system app.
     Services.perms.add(Services.io.newURI(shell.startURL), "browser", Services.perms.ALLOW_ACTION);

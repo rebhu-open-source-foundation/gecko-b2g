@@ -6,15 +6,42 @@
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
     <meta charset="utf-8">
     <script>
+        function handler(event) {
+            console.log(`Box event: ${event.type}`);
+        }
+    
+        function add_box_event(event_name) {
+            window.box.addEventListener(event_name, handler);
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
-            window.time.textContent = navigator.userAgent;
+            window.ua.textContent = navigator.userAgent;
+
+            add_box_event("touchstart");
+            add_box_event("touchend");
+            add_box_event("pointerdown");
+            add_box_event("pointerup");
+            add_box_event("mousedown");
+            add_box_event("mouseup");
+            add_box_event("click");
         });
     </script>
+
+    <style>
+        #box {
+            background-color: slateblue;
+            width: 300px;
+            height: 300px;
+        }
+    </style>
 </head>
 
 <body>
     <h1>App</h1>
-    <h3 id="time"></h3>
+    <h3 id="ua"></h3>
+    <h2><a href="http://localhost:8081/system/akirodic.com/p/jellyfish/">WebGL demo</a></h2>
+    <h2>Input: <input type="text"></h2>
+    <div id="box"></div>
 </body>
 
 </html>

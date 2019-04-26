@@ -11,6 +11,8 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
+            debug(`Screen size is ${screen.width}x${screen.height}`);
+
             debug("Adding event listeners");
             window.browser.addEventListener("mozbrowserloadstart", () => {
                 debug("mozbrowserloadstart");
@@ -20,13 +22,17 @@
             });
             window.browser.src = "app.html";
 
-            window.addEventListener("keydown", event => {
+            document.addEventListener("keydown", event => {
                 debug(`keydown ${event.key}`);
             });
 
-            window.addEventListener("touchstart", event => {
-                let touch = event.touches[0];
-                debug(`touchstart id #${touch.identifier} at ${touch.pageX},${touch.pageY}`);
+            window.navbar.addEventListener("pointerdown", event => {
+                debug(`pointerdown ${event.key}`);
+            });
+
+            window.home.addEventListener("click", event => {
+                debug(`Going back home...`);
+                window.browser.src = "app.html";
             });
 
             window.setInterval(() => {
@@ -49,9 +55,9 @@
             background-size: auto;
         }
 
-        #statusbar {
+        #statusbar, #navbar {
             color: white;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.5);
             padding: 0.2em;
             font-size: 1.2em;
             display: flex;
@@ -60,12 +66,35 @@
         #title {
             flex: 1;
         }
+
+        #navbar {
+            font-size: 2em;
+        }
+
+        .filler {
+            flex: 1;
+        }
+
+        #screen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        iframe {
+            flex: 1;
+            border: none;
+        }
     </style>
 </head>
 
 <body>
-    <div id="statusbar"><span id="title">System App</span><span id="clock"></span></div>
-    <iframe mozbrowser="true" remote="true" id="browser"></iframe>
+    <div id="screen">
+        <div id="statusbar"><span id="title">System App</span><span id="clock"></span></div>
+        <iframe mozbrowser="true" remote="true" id="browser" transparent="true"></iframe>
+        <div id="navbar"><span class="filler"></span><span id="home">&#8962;</span><span class="filler"></span></div>
+    </div>
 </body>
 
 </html>

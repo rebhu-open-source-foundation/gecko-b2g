@@ -1293,3 +1293,7 @@ pref("device.rebootReason", "normal");
 pref("b2g.system_startup_url", "http://localhost:8081/system/index.html");
 
 pref("devtools.console.stdout.content", true);
+
+// Enable touch events and pointer events by default.
+pref("dom.w3c_touch_events.enabled", 1);
+pref("dom.w3c_pointer_events.enabled", true);
