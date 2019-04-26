@@ -6,8 +6,14 @@
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
     <meta charset="utf-8">
     <script>
+        var clicks = 0;
+
         function handler(event) {
             console.log(`Box event: ${event.type}`);
+            if (event.type == "click") {
+                clicks += 1;
+                window.click_count.textContent = `${clicks} click${clicks > 1 ? "s" : ""}`;
+            }
         }
     
         function add_box_event(event_name) {
@@ -24,6 +30,7 @@
             add_box_event("mousedown");
             add_box_event("mouseup");
             add_box_event("click");
+            add_box_event("contextmenu");
         });
     </script>
 
@@ -42,6 +49,7 @@
     <h2><a href="http://localhost:8081/system/akirodic.com/p/jellyfish/">WebGL demo</a></h2>
     <h2>Input: <input type="text"></h2>
     <div id="box"></div>
+    <div id="click_count"></div>
 </body>
 
 </html>
