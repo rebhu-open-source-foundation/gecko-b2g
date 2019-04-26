@@ -24,6 +24,11 @@
                 debug(`keydown ${event.key}`);
             });
 
+            window.addEventListener("touchstart", event => {
+                let touch = event.touches[0];
+                debug(`touchstart id #${touch.identifier} at ${touch.pageX},${touch.pageY}`);
+            });
+
             window.setInterval(() => {
                 window.clock.textContent = (new Date()).toLocaleString();
             }, 1000);
@@ -40,8 +45,8 @@
         }
 
         body {
-            background-image: url(evgeni-savchenko-1508554-unsplash.jpg);
-            background-size: cover;
+            background-image: url(jeremy-bishop-1419580-unsplash.jpg);
+            background-size: auto;
         }
 
         #statusbar {
