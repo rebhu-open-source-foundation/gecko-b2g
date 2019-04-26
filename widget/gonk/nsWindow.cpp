@@ -169,11 +169,11 @@ nsWindow::DoDraw(void)
 #endif
 }
 
-void
-nsWindow::ConfigureAPZControllerThread()
-{
-  //FIXME APZThreadUtils::SetControllerThread(CompositorBridgeParent::CompositorLoop());
-}
+// void
+// nsWindow::ConfigureAPZControllerThread()
+// {
+//   //FIXME APZThreadUtils::SetControllerThread(CompositorBridgeParent::CompositorLoop());
+// }
 
 void
 nsWindow::SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint)

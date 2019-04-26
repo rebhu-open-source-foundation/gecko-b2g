@@ -145,7 +145,7 @@ public:
 
   mozilla::layers::Composer2D* GetComposer2D();
 
-  void ConfigureAPZControllerThread() override;
+  // FIXME void ConfigureAPZControllerThread() override;
 
   nsScreenGonk* GetScreen();
 
