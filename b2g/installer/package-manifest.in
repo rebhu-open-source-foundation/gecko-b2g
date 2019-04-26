@@ -986,7 +986,6 @@ bin/libfreebl_32int64_3.so
 #ifdef MOZ_UPDATER
 @RESPATH@/components/UpdatePrompt.js
 #endif
-@RESPATH@/components/WebappsUpdateTimer.js
 @RESPATH@/components/DirectoryProvider.js
 @RESPATH@/components/ActivitiesGlue.js
 @RESPATH@/components/ProcessGlobal.js

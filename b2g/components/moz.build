@@ -27,7 +27,6 @@ EXTRA_COMPONENTS += [
     'SmsProtocolHandler.js',
     'SystemMessageGlue.js',
     'TelProtocolHandler.js',
-    'WebappsUpdateTimer.js',
 ]
 
 if CONFIG['MOZ_PRESENTATION']:
@@ -75,7 +74,6 @@ EXTRA_JS_MODULES += [
     'Screenshot.jsm',
     'SystemAppProxy.jsm',
     'TelURIParser.jsm',
-    'WebappsUpdater.jsm',
 ]
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] != 'gonk':
