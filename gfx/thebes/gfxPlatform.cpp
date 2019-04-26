@@ -1595,15 +1595,12 @@ void gfxPlatform::ComputeTileSize() {
                                                 AHardwareBuffer_Desc* outDesc);
     void* lib = dlopen("/system/lib/libandroid.so", RTLD_NOW);
     if (lib == NULL) {
-        printf_stderr("ZZZ Could not dlopen(\"libandroid.so\"):");
+        printf_stderr("Could not dlopen(\"libandroid.so\"):");
     } else {
-      printf_stderr("ZZZ libandroid.so dlopen OK");
       fnAHardwareBuffer_allocate fAHardwareBuffer_allocate = (fnAHardwareBuffer_allocate) dlsym(lib, "AHardwareBuffer_allocate") ;
       fnAHardwareBuffer_describe fAHardwareBuffer_describe = (fnAHardwareBuffer_describe) dlsym(lib, "AHardwareBuffer_describe") ;
       if (fAHardwareBuffer_allocate == NULL || fAHardwareBuffer_describe == NULL) {
-        printf_stderr("ZZZ Symbol 'AHardwareBuffer_allocate' is missing from shared library!!\n");
       } else {
-        printf_stderr("ZZZ found expected symbols OK");
         AHardwareBuffer* graphicBuf;
         AHardwareBuffer_Desc usage;
 

@@ -869,13 +869,15 @@ GeckoInputReaderPolicy::setDisplayInfo()
     uint32_t rotation = ROTATION_0;
     // FIXME: DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
     // FIXME: MOZ_ASSERT(NS_SUCCEEDED(rv));
-    // FIXME: LayoutDeviceIntRect screenBounds = screen->GetNaturalBounds();
+
+    int32_t x, y, width, height;
+    screen->GetAvailRect(&x, &y, &width, &height);
 
     DisplayViewport viewport;
     viewport.displayId = 0;
     viewport.orientation = rotation;
-    viewport.physicalRight = viewport.deviceWidth = 240; // FIXME: screenBounds.width;
-    viewport.physicalBottom = viewport.deviceHeight = 320; // FIXME: screenBounds.height;
+    viewport.physicalRight = viewport.deviceWidth = width;
+    viewport.physicalBottom = viewport.deviceHeight = height;
     if (viewport.orientation == DISPLAY_ORIENTATION_90 ||
         viewport.orientation == DISPLAY_ORIENTATION_270) {
         viewport.logicalRight = viewport.physicalBottom;
