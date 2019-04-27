@@ -9,7 +9,8 @@
         var clicks = 0;
 
         function handler(event) {
-            console.log(`Box event: ${event.type}`);
+            // console.log(`Box event: ${event.type}`);
+            window.events.textContent += `${event.type}\n`;
             if (event.type == "click") {
                 clicks += 1;
                 window.click_count.textContent = `${clicks} click${clicks > 1 ? "s" : ""}`;
@@ -50,6 +51,7 @@
     <h2>Input: <input type="text"></h2>
     <div id="box"></div>
     <div id="click_count"></div>
+    <pre id="events"></pre>
 </body>
 
 </html>
