@@ -112,6 +112,8 @@ GeckoTouchDispatcher::NotifyTouch(MultiTouchInput& aTouch, TimeStamp aEventTime)
   }
 #endif
 
+// FIXME: why were we doing that???
+#if 0
   if (aTouch.mType == MultiTouchInput::MULTITOUCH_MOVE) {
     // NB: we could dispatch this to content as a mousemove event, if
     // we really wanted to.  But for now we just use this to draw a
@@ -120,7 +122,7 @@ GeckoTouchDispatcher::NotifyTouch(MultiTouchInput& aTouch, TimeStamp aEventTime)
     nsWindow::NotifyHoverMove(point);
     return;
   }
-
+#endif
 
   if (aTouch.mType == MultiTouchInput::MULTITOUCH_MOVE) {
     MutexAutoLock lock(mTouchQueueLock);
