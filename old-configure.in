@@ -3328,3 +3328,5 @@ rm -fr confdefs* $ac_clean_files
 if test -n "$MOZ_B2G"; then
     AC_DEFINE(MOZ_B2G)
 fi
+# FIXME(fabrice)
+AC_DEFINE(MOZ_B2G)

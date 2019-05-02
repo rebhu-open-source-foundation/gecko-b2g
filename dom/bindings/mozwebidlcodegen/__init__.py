@@ -148,7 +148,7 @@ class WebIDLCodegenManager(LoggingMixin):
         'PrototypeList.cpp',
     }
 
-    def __init__(self, config_path, webidl_root, inputs, exported_header_dir,
+    def __init__(self, config_path, webidl_root, extra_webidl_root, inputs, exported_header_dir,
                  codegen_dir, state_path, cache_dir=None, make_deps_path=None,
                  make_deps_target=None):
         """Create an instance that manages WebIDLs in the build system.
@@ -175,6 +175,7 @@ class WebIDLCodegenManager(LoggingMixin):
 
         self._config_path = config_path
         self._webidl_root = webidl_root
+        self._extra_webidl_root = extra_webidl_root
         self._input_paths = set(input_paths)
         self._exported_stems = set(exported_stems)
         self._generated_events_stems = set(generated_events_stems)
@@ -346,6 +347,8 @@ class WebIDLCodegenManager(LoggingMixin):
             os.path.dirname(self._config_path),
             # The objdir sub-directory which contains generated WebIDL files.
             self._codegen_dir,
+            # Extra directory where we can add web exposed interfaces.
+            self._extra_webidl_root,
         )
 
         self._parser_results = parser.finish()
@@ -564,6 +567,7 @@ def create_build_system_manager(topsrcdir, topobjdir, dist_dir):
     src_dir = os.path.join(topsrcdir, 'dom', 'bindings')
     obj_dir = os.path.join(topobjdir, 'dom', 'bindings')
     webidl_root = os.path.join(topsrcdir, 'dom', 'webidl')
+    extra_webidl_root = os.path.join(topsrcdir, 'b2g', 'apis')
 
     with open(os.path.join(obj_dir, 'file-lists.json'), 'rb') as fh:
         files = json.load(fh)
@@ -581,6 +585,7 @@ def create_build_system_manager(topsrcdir, topobjdir, dist_dir):
     return WebIDLCodegenManager(
         os.path.join(src_dir, 'Bindings.conf'),
         webidl_root,
+        extra_webidl_root,
         inputs,
         os.path.join(dist_dir, 'include', 'mozilla', 'dom'),
         obj_dir,

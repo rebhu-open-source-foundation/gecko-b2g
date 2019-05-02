@@ -8,6 +8,10 @@ const Cc = Components.classes;
 const Ci = Components.interfaces;
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+
+ChromeUtils.defineModuleGetter(this, "ActorManagerParent",
+                               "resource://gre/modules/ActorManagerParent.jsm");
 
 function debug(str) {
   console.log(`-*- Shell.js: ${str}`);
@@ -17,7 +21,9 @@ var shell = {
 
   get startURL() {
     let url = Services.prefs.getCharPref("b2g.system_startup_url");
-    debug(`startURL is ${url}`);
+    if (!url) {
+      console.error(`Please set the b2g.system_startup_url preference properly`);
+    }
     return url;
   },
 
@@ -163,11 +169,6 @@ var CustomEventManager = {
       case "captive-portal-login-cancel":
         CaptivePortalLoginHelper.handleEvent(detail);
         break;
-      case "inputmethod-update-layouts":
-      case "inputregistry-add":
-      case "inputregistry-remove":
-        KeyboardHelper.handleEvent(detail);
-        break;
       case "copypaste-do-command":
         Services.obs.notifyObservers({ wrappedJSObject: shell.contentBrowser },
                                      "ask-children-to-execute-copypaste-command", detail.cmd);
@@ -179,9 +180,34 @@ var CustomEventManager = {
 document.addEventListener("DOMContentLoaded", function dom_loaded() {
   document.removeEventListener("DOMContentLoaded", dom_loaded);
 
-  if (!shell.hasStarted()) {
-    // Give the browser permission to the system app.
-    Services.perms.add(Services.io.newURI(shell.startURL), "browser", Services.perms.ALLOW_ACTION);
-    shell.start();
+  if (shell.hasStarted()) {
+    // Shoudl never happen!
+    console.error("Shell has already started but didn't initialize!!!");
+    return;
   }
+
+  // Initialize the ActorManagerParent
+  ActorManagerParent.flush();
+
+  // Loads the Keyboard API.
+  if (Services.prefs.getBoolPref("dom.mozInputMethod.enabled")) {
+    debug(`Loading Keyboard API`);
+    ChromeUtils.import("resource://gre/modules/Keyboard.jsm");
+
+    let mm = Services.mm;
+    mm.loadFrameScript("chrome://global/content/forms.js", false, true);
+    mm.loadFrameScript("chrome://global/content/formsVoiceInput.js", false, true);
+  }
+
+  debug(`Input Method API enabled: ${Services.prefs.getBoolPref("dom.mozInputMethod.enabled")}`);
+  debug(`Input Method implementation: ${Cc["@mozilla.org/b2g-inputmethod;1"].createInstance()}`);
+  
+  // Give the needed permissions to the system app.
+  ["browser", "input", "input-manage"].forEach(permission => {
+    Services.perms.add(Services.io.newURI(shell.startURL), permission, Services.perms.ALLOW_ACTION);
+  });
+
+  RemoteDebugger.init(window);
+
+  shell.start();
 });

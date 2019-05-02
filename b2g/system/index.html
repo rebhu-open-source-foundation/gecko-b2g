@@ -10,16 +10,63 @@
             console.log(`SystemApp: ${msg}`);
         }
 
+        var input_method = navigator.mozInputMethod;
+
+        function setup_keyboard() {
+            input_method.setActive(true);
+            let mgmt = input_method.mgmt;
+
+            mgmt.oninputcontextfocus = event => {
+                debug(`Focusing ${event}`);
+            }
+
+            mgmt.oninputcontextblur = event => {
+                debug(`Bluring ${event}`);
+            }
+
+            mgmt.oninputcontextfocus = event => {
+                debug(`Input Context Focused: ${event}`);
+                debug(`Input context is now ${input_method.inputcontext}`);
+                let keyboard = window.keyboard;
+                if (!keyboard.hasAttribute("src")) {
+                    keyboard.setAttribute("src", "keyboard.html");
+                }
+                keyboard.classList.add("open");
+                event.preventDefault();
+            }
+
+            mgmt.oninputcontextblur = event => {
+                debug(`Input Context Blured: ${event}`);
+                debug(`Input context is now ${input_method.inputcontext}`);
+                window.keyboard.classList.remove("open");
+                event.preventDefault();
+            }
+
+            window.keyboard.addEventListener("focusin", event => {
+                debug(`About to focus the keyboard`);
+                event.preventDefault();
+                event.stopPropagation();
+            }, true);
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             debug(`Screen size is ${screen.width}x${screen.height}`);
 
+            setup_keyboard();
+
             debug("Adding event listeners");
+            window.browser.addEventListener("mozbrowsertitlechange", (event) => {
+                window.title.textContent = event.detail;
+            });
+
             window.browser.addEventListener("mozbrowserloadstart", () => {
                 debug("mozbrowserloadstart");
             });
+
             window.browser.addEventListener("mozbrowserloadend", () => {
                 debug("mozbrowserloadend");
             });
+
             window.browser.src = "app.html";
 
             document.addEventListener("keydown", event => {
@@ -32,7 +79,7 @@
 
             window.home.addEventListener("click", event => {
                 debug(`Going back home...`);
-                window.browser.src = "app.html";
+                window.browser.src = "https://google.com";
             });
 
             window.setInterval(() => {
@@ -48,6 +95,7 @@
             height: 100%;
             margin: 0;
             font-family: sans-serif;
+            overflow: hidden;
         }
 
         body {
@@ -59,16 +107,18 @@
             color: white;
             background-color: rgba(0, 0, 0, 0.5);
             padding: 0.2em;
-            font-size: 1.2em;
+            font-size: 0.8em;
             display: flex;
+            white-space: nowrap;
         }
 
         #title {
             flex: 1;
+            text-overflow: ellipsis;
         }
 
         #navbar {
-            font-size: 2em;
+            font-size: 1.5em;
         }
 
         .filler {
@@ -86,15 +136,31 @@
             flex: 1;
             border: none;
         }
+
+        #keyboard {
+            position: absolute;
+            width: 100%;
+            height: 150px;
+            bottom: 0;
+            left: 0;
+
+            transform: translateY(100%);
+            transition: transform 0.2s;
+        }
+
+        #keyboard.open {
+            transform: none;
+        }
     </style>
 </head>
 
 <body>
     <div id="screen">
-        <div id="statusbar"><span id="title">System App</span><span id="clock"></span></div>
+        <div id="statusbar"><div id="title">System App</div><div id="clock"></div></div>
         <iframe mozbrowser="true" remote="true" id="browser" transparent="true"></iframe>
         <div id="navbar"><span class="filler"></span><span id="home">&#8962;</span><span class="filler"></span></div>
     </div>
+    <iframe mozbrowser="true" remote="true" ignoreuserfocus="true" id="keyboard"></iframe>
 </body>
 
 </html>

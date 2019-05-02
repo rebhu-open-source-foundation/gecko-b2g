@@ -962,6 +962,9 @@ pref("dom.mozInputMethod.enabled", true);
 // Absolute path to the devtool unix domain socket file used
 // to communicate with a usb cable via adb forward
 pref("devtools.debugger.unix-domain-socket", "/data/local/debugger-socket");
+pref("devtools.remote.usb.enabled", true);
+pref("devtools.remote.wifi.enabled", false);
+pref("devtools.inspector.inactive.css.enabled", false);
 
 // enable Skia/GL (OpenGL-accelerated 2D drawing) for large enough 2d canvases,
 // falling back to Skia/software for smaller canvases
@@ -1297,3 +1300,6 @@ pref("devtools.console.stdout.content", true);
 // Enable touch events and pointer events by default.
 pref("dom.w3c_touch_events.enabled", 1);
 pref("dom.w3c_pointer_events.enabled", true);
+
+// Useful to debug.
+pref("layers.acceleration.draw-fps", false);

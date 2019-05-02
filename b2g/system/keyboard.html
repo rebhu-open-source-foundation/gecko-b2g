@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Basic Keyboard</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
+    <meta charset="utf-8">
+    <style>
+        html,
+        body {
+            margin: 0;
+            background-color: lightgray;
+            color: black;
+            font-family: sans-serif;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #keys {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+        }
+
+        .key {
+            text-align: center;
+            padding: 0.3em 0.2em 0.3em 0.2em;
+            border: 1px solid grey;
+        }
+
+        .key:active {
+            background-color: white;
+        }
+    </style>
+    <script>
+        function debug(str) {
+            console.log(`Keyboard app: ${str}`);
+        }
+
+        var input_context = null;
+
+        const layout = [
+            "a", "b", "c", "d",
+            "e", "f", "g", "h",
+            "i", "j", "k", "l",
+            "m", "n", "o", "p",
+            "q", "r", "s", "t",
+            "u", "v", "w", "x",
+            "y", "z",
+            { disp: "―", key: "Space" },
+            { disp: "⌫", key: "Backspace" },
+            { disp: "⏎", key: "Enter" }
+        ];
+
+        document.addEventListener("DOMContentLoaded", function init() {
+            
+            document.removeEventListener("DOMContentLoaded", init);
+
+            let wrapper = window.keys;
+
+            // Create the layout.
+            layout.forEach(key_desc => {
+                if (!key_desc.disp) {
+                    desc = { disp: key_desc, key: key_desc };
+                    key_desc = desc;
+                }
+
+                let elem = document.createElement("div");
+                elem.classList.add("key");
+                elem.textContent = key_desc.disp;
+                elem.setAttribute("data-key", key_desc.key);
+                wrapper.appendChild(elem);
+            });
+
+            wrapper.addEventListener("touchstart", event => {
+                debug(`Will dispatch key ${event.target.getAttribute("data-key")}`);
+            });
+
+            let input_method = navigator.mozInputMethod;
+            input_method.setActive(true);
+
+            if (input_method.inputcontext) {
+                debug(`Using existing input context`);
+                input_context = input_method.inputcontext;
+            } else {
+                debug(`No current input context`);
+            }
+
+            input_method.oninputcontextchange = event => {
+                input_context = input_method.inputcontext;
+                debug(`Changing input context ${input_context}`);
+                input_context.sendKey({ key: "A" })
+            }
+
+        });
+    </script>
+</head>
+
+<body>
+    <div id="keys"></div>
+</body>
+
+</html>

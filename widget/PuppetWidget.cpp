@@ -317,12 +317,19 @@ nsresult PuppetWidget::DispatchEvent(WidgetGUIEvent* aEvent,
   MOZ_ASSERT(!mChild || mChild->mWindowType == eWindowType_popup,
              "Unexpected event dispatch!");
 
+#ifndef MOZ_B2G
   MOZ_ASSERT(!aEvent->AsKeyboardEvent() ||
                  aEvent->mFlags.mIsSynthesizedForTests ||
                  aEvent->AsKeyboardEvent()->AreAllEditCommandsInitialized(),
              "Non-sysnthesized keyboard events should have edit commands for "
              "all types "
              "before dispatched");
+#else
+    auto keyboardEvent = aEvent->AsKeyboardEvent();
+    if (keyboardEvent && !keyboardEvent->AreAllEditCommandsInitialized()) {
+      NS_WARNING("B2G FIXME: !keyboardEvent->AreAllEditCommandsInitialized()");
+    }
+#endif
 
   if (aEvent->mClass == eCompositionEventClass) {
     // If we've already requested to commit/cancel the latest composition,
