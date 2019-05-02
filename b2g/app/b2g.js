@@ -1303,3 +1303,5 @@ pref("dom.w3c_pointer_events.enabled", true);
 
 // Useful to debug.
 pref("layers.acceleration.draw-fps", false);
+
+pref("extensions.systemAddon.update.enabled", false);

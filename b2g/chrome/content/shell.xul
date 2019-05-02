@@ -16,6 +16,7 @@
   orient="vertical">
 
   <script type="application/javascript" src="shell.js"></script>
-  
+  <script type="application/javascript" src="devtools/RemoteDebugger.js"></script>
+
   <browser id="systemapp" type="content" flex="1"></browser>
 </window>

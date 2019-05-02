@@ -18,8 +18,7 @@ chrome.jar:
 #ifdef MOZ_WIDGET_GONK
   content/devtools/adb.js               (content/devtools/adb.js)
 #endif
-  content/devtools/debugger.js          (content/devtools/debugger.js)
-  content/devtools/hud.js               (content/devtools/hud.js)
+  content/devtools/RemoteDebugger.js    (content/devtools/RemoteDebugger.js)
 * content/content.css                   (content/content.css)
   content/touchcontrols.css             (content/touchcontrols.css)
 
