@@ -158,7 +158,7 @@ const Keyboard = {
 
     this.debug(`observing ${topic} (subject is ${subject})`);
 
-    if (topic === 'remote-browser-shown') {
+    if (topic === 'remote-browser-shown' || topic === 'inprocess-browser-shown') {
       let mm = subject.messageManager;
       mm.loadFrameScript("chrome://global/content/forms.js", false, true);
       mm.loadFrameScript("chrome://global/content/formsVoiceInput.js", false, true);
