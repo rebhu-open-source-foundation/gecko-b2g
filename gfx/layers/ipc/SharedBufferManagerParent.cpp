@@ -17,11 +17,11 @@
 #include "nsIMemoryReporter.h"
 #ifdef MOZ_WIDGET_GONK
 #include "ui/PixelFormat.h"
+#include "android/hardware_buffer.h"
 #endif
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
 #include <dlfcn.h>
-#include "android/hardware_buffer.h"
 
 using namespace mozilla::ipc;
 #ifdef MOZ_WIDGET_GONK
