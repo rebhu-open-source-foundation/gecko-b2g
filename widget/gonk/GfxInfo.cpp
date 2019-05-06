@@ -72,6 +72,19 @@ GfxInfo::GetAdapterDriver2(nsAString & aAdapterDriver)
   return NS_ERROR_FAILURE;
 }
 
+/* readonly attribute DOMString adapterDriverVendor; */
+NS_IMETHODIMP
+GfxInfo::GetAdapterDriverVendor(nsAString& aAdapterDriverVendor) {
+  aAdapterDriverVendor.Truncate();
+  return NS_OK;
+}
+
+/* readonly attribute DOMString adapterDriverVendor2; */
+NS_IMETHODIMP
+GfxInfo::GetAdapterDriverVendor2(nsAString& aAdapterDriverVendor) {
+  return NS_ERROR_FAILURE;
+}
+
 NS_IMETHODIMP
 GfxInfo::GetAdapterDriverVersion(nsAString & aAdapterDriverVersion)
 {
