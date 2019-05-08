@@ -2454,6 +2454,18 @@ if test -z "$SKIP_LIBRARY_CHECKS"; then
 fi
 
 dnl ========================================================
+dnl = Disable WIFI Support feature
+dnl ========================================================
+MOZ_ARG_DISABLE_BOOL(wifi-support,
+[  --disable-wifi-support       Set compile flag necessary for disabling Wifi],
+    DISABLE_WIFI=1,
+    DISABLE_WIFI= )
+if test -n "$DISABLE_WIFI"; then
+   AC_DEFINE(DISABLE_WIFI)
+fi
+AC_SUBST(DISABLE_WIFI)
+
+dnl ========================================================
 dnl JIT observers
 dnl ========================================================
 

@@ -966,6 +966,10 @@ WEBIDL_FILES = [
     'WebSocket.webidl',
     'WheelEvent.webidl',
     'WidevineCDMManifest.webidl',
+    'WifiCapabilities.webidl',
+    'WifiManager.webidl',
+    'WifiOptions.webidl',
+    'WifiP2pManager.webidl',
     'WindowOrWorkerGlobalScope.webidl',
     'WindowRoot.webidl',
     'Worker.webidl',
@@ -1118,6 +1122,13 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'UDPMessageEvent.webidl',
     'UserProximityEvent.webidl',
     'WebGLContextEvent.webidl',
+    'WifiConnectionInfoEvent.webidl',
+    'WifiHasInternetEvent.webidl',
+    'WifiOpenNetworkEvent.webidl',
+    'WifiP2pStatusChangeEvent.webidl',
+    'WifiScanResultEvent.webidl',
+    'WifiStationInfoEvent.webidl',
+    'WifiStatusChangeEvent.webidl',
 ]
 
 if CONFIG['MOZ_WEBRTC']:

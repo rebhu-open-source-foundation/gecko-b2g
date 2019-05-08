@@ -1,0 +1,87 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+interface nsIWifiInfo;
+
+[scriptable, uuid(732d4a2e-c881-40d9-93a7-a3151fe1a579)]
+interface nsIWifiScanResult : nsISupports {
+    readonly attribute AString ssid;
+    readonly attribute AString bssid;
+
+    const int32_t WPA_PSK = 0x01;
+    const int32_t WPA_EAP = 0x02;
+    const int32_t WEP = 0x04;
+    const int32_t WAPI_PSK = 0x08;
+    const int32_t WAPI_CERT = 0x10;
+    readonly attribute uint32_t capabilities;
+
+    /**
+     * Strength of the signal to network.
+     */
+    readonly attribute int32_t signalStrength;
+
+    readonly attribute uint32_t relSignalStrength;
+    readonly attribute boolean connected;
+    readonly attribute uint32_t frequency;
+};
+
+[scriptable, uuid(a6931ebf-8493-4014-90e2-99f406999982)]
+interface nsIWifiScanResultsReady : nsISupports {
+
+    /**
+     * Callback with list of networks.
+     */
+    void onready(in uint32_t count, [array, size_is(count)] in nsIWifiScanResult results);
+
+    /**
+     * Callback if scanning for networks failed after 3 retry attempts.
+     */
+    void onfailure();
+};
+
+[scriptable, uuid(c10c6762-8035-4318-9039-5e3f53e2abaa)]
+interface nsIWifiWorkerListener : nsISupports {
+  void notifyIpChanged(in AString ipAddress);
+  void notifyRssiChanged(in long rssi);
+};
+
+[scriptable, uuid(0597e1f7-1dbb-474e-8a66-dd9fb39d04dd)]
+interface nsIWifi : nsISupports
+{
+    /**
+     * Shutdown the wifi system.
+     */
+    void shutdown();
+
+    /**
+     * Returns the list of currently available networks as well as the list of
+     * currently configured networks.
+     *
+     * On success a callback is notified with the list of networks.
+     * On failure after 3 scan retry attempts a callback is notified of failure.
+     */
+    void getWifiScanResults(in nsIWifiScanResultsReady callback);
+
+    /**
+     * Returns the device WIFI MAC address.
+     */
+    readonly attribute AString macAddress;
+
+    /**
+     * Called to register wifi-related changed.
+     */
+    void registerListener(in nsIWifiWorkerListener aListener);
+
+    /**
+     * Called to unregister wifi-related changed.
+     */
+    void unregisterListener(in nsIWifiWorkerListener aListener);
+
+    /**
+     * Returns the WIFI connection informations.
+     */
+    readonly attribute nsIWifiInfo wifiNetworkInfo;
+};

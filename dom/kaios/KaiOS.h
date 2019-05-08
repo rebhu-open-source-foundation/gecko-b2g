@@ -22,6 +22,9 @@
 #ifdef MOZ_B2G_RIL
 #  include "mozilla/dom/Telephony.h"
 #endif
+#ifndef DISABLE_WIFI
+#  include "mozilla/dom/WifiManagerBinding.h"
+#endif
 
 #include "mozilla/dom/TetheringManagerBinding.h"
 #include "mozilla/ErrorResult.h"
@@ -65,6 +68,12 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 #endif  // MOZ_B2G_RIL
 
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
+
+#ifndef DISABLE_WIFI
+  WifiManager* GetWifiManager(ErrorResult& aRv);
+#endif
+  static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+
  private:
   virtual ~KaiOS();
 
@@ -81,6 +90,10 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   RefPtr<Telephony> mTelephony;
 #endif
   RefPtr<TetheringManager> mTetheringManager;
+
+#ifndef DISABLE_WIFI
+  RefPtr<WifiManager> mWifiManager;
+#endif
 };
 
 }  // namespace dom

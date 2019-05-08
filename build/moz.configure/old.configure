@@ -250,6 +250,7 @@ def old_configure_options(*options):
     '--enable-system-sqlite',
     '--enable-universalchardet',
     '--enable-updater',
+    '--enable-wifi-support',
     '--enable-xul',
     '--enable-zipwriter',
     '--includedir',

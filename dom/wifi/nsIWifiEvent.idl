@@ -1,0 +1,15 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsIWifiElement.idl"
+
+interface nsIStateChanged;
+
+[scriptable, uuid(bf7e37fa-0a80-4c37-888c-deaf25c980b6)]
+interface nsIWifiEvent : nsISupports
+{
+  readonly attribute AString name;
+  readonly attribute nsIStateChanged stateChanged;
+};

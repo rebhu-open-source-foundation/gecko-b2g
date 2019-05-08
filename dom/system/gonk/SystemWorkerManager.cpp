@@ -20,10 +20,10 @@
 
 #if 0
 #  include "nsINetworkService.h"
-#  include "nsIWifi.h"
-#  include "nsIWorkerHolder.h"
 #  include "nsIXPConnect.h"
 #endif
+#include "nsIWifi.h"
+#include "nsIWorkerHolder.h"
 
 #if 0
 #  include "jsfriendapi.h"
@@ -38,9 +38,10 @@
 #  include "mozilla/ipc/KeyStore.h"
 #  include "nsServiceManagerUtils.h"
 #  include "nsThreadUtils.h"
-#  include "WifiWorker.h"
 #  include "mozilla/Services.h"
 #endif
+#include "WifiWorker.h"
+#include "nsComponentManagerUtils.h"
 
 #define WORKERS_SHUTDOWN_TOPIC "web-workers-shutdown"
 
@@ -50,9 +51,7 @@ using namespace mozilla::system;
 
 namespace {
 
-#if 0
 NS_DEFINE_CID(kWifiWorkerCID, NS_WIFIWORKER_CID);
-#endif
 
 // Doesn't carry a reference, we're owned by services.
 SystemWorkerManager* gInstance = nullptr;
@@ -80,13 +79,15 @@ nsresult SystemWorkerManager::Init() {
   NS_ASSERTION(!mShutdown, "Already shutdown!");
 
   nsresult rv;
-#if 0
-  nsresult rv = InitWifi();
+#ifndef DISABLE_WIFI
+  rv = InitWifi();
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to initialize WiFi Networking!");
     return rv;
   }
+#endif
 
+#if 0
   InitKeyStore();
 #endif
 
@@ -118,16 +119,18 @@ void SystemWorkerManager::Shutdown() {
 
   mShutdown = true;
 
-#if 0
   ShutdownAutoMounter();
 
+#ifndef DISABLE_WIFI
   nsCOMPtr<nsIWifi> wifi(do_QueryInterface(mWifiWorker));
   if (wifi) {
     wifi->Shutdown();
     wifi = nullptr;
   }
   mWifiWorker = nullptr;
+#endif
 
+#if 0
   if (mKeyStore) {
     mKeyStore->Shutdown();
     mKeyStore = nullptr;
@@ -168,12 +171,14 @@ NS_IMETHODIMP
 SystemWorkerManager::GetInterface(const nsIID& aIID, void** aResult) {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
 
-#if 0
   if (aIID.Equals(NS_GET_IID(nsIWifi))) {
+#ifndef DISABLE_WIFI
     return CallQueryInterface(mWifiWorker,
                               reinterpret_cast<nsIWifi**>(aResult));
-  }
+#else
+    return NS_ERROR_NOT_IMPLEMENTED;
 #endif
+  }
 
   NS_WARNING("Got nothing for the requested IID!");
   return NS_ERROR_NO_INTERFACE;
@@ -184,7 +189,7 @@ nsresult SystemWorkerManager::RegisterRilWorker(unsigned int aClientId,
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-#if 0
+#ifndef DISABLE_WIFI
 nsresult
 SystemWorkerManager::InitWifi()
 {
@@ -194,7 +199,9 @@ SystemWorkerManager::InitWifi()
   mWifiWorker = worker;
   return NS_OK;
 }
+#endif
 
+#if 0
 nsresult
 SystemWorkerManager::InitKeyStore()
 {

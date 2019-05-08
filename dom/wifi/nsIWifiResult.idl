@@ -1,0 +1,20 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsIWifiElement.idl"
+
+interface nsIScanResult;
+
+[scriptable, uuid(885183af-9a56-42e2-974a-151e96422e00)]
+interface nsIWifiResult : nsISupports
+{
+  readonly attribute unsigned long id;
+  readonly attribute boolean status;
+
+  readonly attribute unsigned long capabilities;
+  readonly attribute unsigned long debugLevel;
+  void getScanResults([optional] out unsigned long count,
+                      [array, size_is(count), retval] out nsIScanResult scanResults);
+};

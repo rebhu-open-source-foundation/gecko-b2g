@@ -257,8 +257,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   // WebIDL helper methods
   static bool HasCameraSupport(JSContext* /* unused */,
                                JSObject* aGlobal);
-  static bool HasWifiManagerSupport(JSContext* /* unused */,
-                                  JSObject* aGlobal);
 #ifdef MOZ_NFC
   static bool HasNFCSupport(JSContext* /* unused */, JSObject* aGlobal);
 #endif // MOZ_NFC

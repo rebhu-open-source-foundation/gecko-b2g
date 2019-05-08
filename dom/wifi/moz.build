@@ -1,0 +1,76 @@
+# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
+# vim: set filetype=python:
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+XPIDL_SOURCES += [
+    'nsIWifi.idl',
+]
+
+XPIDL_MODULE = 'dom_wifi'
+
+if not CONFIG['DISABLE_WIFI']:
+  XPIDL_SOURCES += [
+      'nsIWifiCommand.idl',
+      'nsIWifiElement.idl',
+      'nsIWifiEvent.idl',
+      'nsIWifiInfo.idl',
+      'nsIWifiResult.idl',
+      'nsIWifiService.idl',
+  ]
+
+  EXTRA_COMPONENTS += [
+      'DOMWifiManager.js',
+      'DOMWifiManager.manifest',
+      'DOMWifiP2pManager.js',
+      'DOMWifiP2pManager.manifest',
+      'WifiWorker.js',
+      'WifiWorker.manifest',
+  ]
+
+  EXTRA_JS_MODULES += [
+      'OpenNetworkNotifier.jsm',
+      'StateMachine.jsm',
+      'WifiCommand.jsm',
+      'WifiConfigManager.jsm',
+      'WifiConfigStore.jsm',
+      'WifiConfiguration.jsm',
+      'WifiInfo.jsm',
+      'WifiNetUtil.jsm',
+      'WifiNetworkSelector.jsm',
+      'WifiP2pManager.jsm',
+      'WifiP2pWorkerObserver.jsm',
+  ]
+
+  if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+      UNIFIED_SOURCES = [
+          'hal/SupplicantStaManager.cpp',
+          'hal/SupplicantStaNetwork.cpp',
+          'hal/WifiCommon.cpp',
+          'hal/WificondControl.cpp',
+          'hal/WificondEventService.cpp',
+          'hal/WifiHalManager.cpp',
+          'hal/WifiNative.cpp',
+          'nsWifiElement.cpp',
+          'nsWifiEvent.cpp',
+          'nsWifiResult.cpp',
+          'WifiProxyService.cpp',
+      ]
+      LOCAL_INCLUDES += [
+          '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+              'out/soong/.intermediates/hardware/interfaces/wifi/1.0/android.hardware.wifi@1.0_genc++_headers/gen',
+              'out/soong/.intermediates/hardware/interfaces/wifi/1.2/android.hardware.wifi@1.2_genc++_headers/gen',
+              'out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.0/android.hardware.wifi.supplicant@1.0_genc++_headers/gen',
+              'out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.1/android.hardware.wifi.supplicant@1.1_genc++_headers/gen',
+              'out/soong/.intermediates/hardware/interfaces/wifi/supplicant/1.2/android.hardware.wifi.supplicant@1.2_genc++_headers/gen',
+              'out/soong/.intermediates/system/connectivity/wificond/libwificond_ipc/android_arm_armv8-a_cortex-a53_core_static/gen/aidl',
+              'system/connectivity',
+          ]
+      ]
+      LOCAL_INCLUDES += [
+          'hal',
+      ]
+      DEFINES['CERT_AddTempCertToPerm'] = '__CERT_AddTempCertToPerm'
+
+FINAL_LIBRARY = 'xul'

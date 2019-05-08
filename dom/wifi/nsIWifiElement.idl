@@ -1,0 +1,148 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(4a4d867d-8b00-44e9-abc5-8426063978e6)]
+interface nsIWifiConfiguration: nsISupports
+{
+  // ParamSizeLimits
+  const long SSID_MAX_LEN_IN_BYTES = 32; // 32
+  const long PSK_PASSPHRASE_MIN_LEN_IN_BYTES = 8; // 8
+  const long PSK_PASSPHRASE_MAX_LEN_IN_BYTES = 63; // 63
+  const long WEP_KEYS_MAX_NUM = 4; // 4
+  const long WEP40_KEY_LEN_IN_BYTES = 5; // 5
+  const long WEP104_KEY_LEN_IN_BYTES = 13; // 13
+
+  // KeyMgmtMask
+  const long KEYMGMT_WPA_EAP   = (1 << 0);
+  const long KEYMGMT_WPA_PSK   = (1 << 1);
+  const long KEYMGMT_NONE      = (1 << 2);
+  const long KEYMGMT_IEEE8021X = (1 << 3);
+  const long KEYMGMT_FT_EAP    = (1 << 5);
+  const long KEYMGMT_FT_PSK    = (1 << 6);
+  const long KEYMGMT_OSEN      = (1 << 15);
+
+  // ProtoMask
+  const long PROTO_WPA  = (1 << 0);
+  const long PROTO_RSN  = (1 << 1);
+  const long PROTO_OSEN = (1 << 3);
+
+  // AuthAlgMask
+  const long AUTHALG_OPEN   = (1 << 0);
+  const long AUTHALG_SHARED = (1 << 1);
+  const long AUTHALG_LEAP   = (1 << 2);
+
+  // GroupCipherMask
+  const long GROUPCIPHER_WEP40        = (1 << 1);
+  const long GROUPCIPHER_WEP104       = (1 << 2);
+  const long GROUPCIPHER_TKIP         = (1 << 3);
+  const long GROUPCIPHER_CCMP         = (1 << 4);
+  const long GROUPCIPHER_GTK_NOT_USED = (1 << 14);
+
+  // PairwiseCipherMask
+  const long PAIRWISECIPHER_NONE = (1 << 0);
+  const long PAIRWISECIPHER_TKIP = (1 << 3);
+  const long PAIRWISECIPHER_CCMP = (1 << 4);
+
+  // EapMethod
+  const long EAP_PEAP           = 0;
+  const long EAP_TLS            = 1;
+  const long EAP_TTLS           = 2;
+  const long EAP_PWD            = 3;
+  const long EAP_SIM            = 4;
+  const long EAP_AKA            = 5;
+  const long EAP_AKA_PRIME      = 6;
+  const long EAP_WFA_UNAUTH_TLS = 7;
+
+  // EapPhase2Method
+  const long PHASE2_NONE      = 0;
+  const long PHASE2_PAP       = 1;
+  const long PHASE2_MSPAP     = 2;
+  const long PHASE2_MSPAPV2   = 3;
+  const long PHASE2_GTC       = 4;
+  const long PHASE2_SIM       = 5;
+  const long PHASE2_AKA       = 6;
+  const long PHASE2_AKA_PRIME = 7;
+
+
+  readonly attribute AString ssid;
+  readonly attribute AString bssid;
+  readonly attribute AString psk;
+  readonly attribute AString wepKey;
+  readonly attribute long    wepTxKeyIndex;
+  readonly attribute boolean scanSsid;
+  readonly attribute boolean pmf;
+  readonly attribute unsigned long keyManagement;
+
+  readonly attribute long    proto;
+  readonly attribute long    authAlg;
+  readonly attribute long    groupCipher;
+  readonly attribute long    pairwiseCipher;
+
+  readonly attribute long    eap;
+  readonly attribute long    eapPhase2;
+  readonly attribute AString identity;
+  readonly attribute AString anonymousId;
+  readonly attribute AString password;
+  readonly attribute AString clientCert;
+  readonly attribute AString caCert;
+  readonly attribute AString caPath;
+  readonly attribute AString subjectMatch;
+  readonly attribute AString engineId;
+  readonly attribute boolean engine;
+  readonly attribute AString privateKeyId;
+  readonly attribute AString altSubjectMatch;
+  readonly attribute AString domainSuffixMatch;
+  readonly attribute boolean proactiveKeyCaching;
+};
+
+[scriptable, uuid(9fb6b90f-1e28-41b2-96be-e1a2839ffd38)]
+interface nsISupplicantDebugLevel : nsISupports
+{
+  const long EXCESSIVE = 0;
+  const long MSGDUMP   = 1;
+  const long DEBUG     = 2;
+  const long INFO      = 3;
+  const long WARNING   = 4;
+  const long ERROR     = 5;
+
+  readonly attribute unsigned long logLevel;
+  readonly attribute boolean showTimeStamp;
+  readonly attribute boolean showKeys;
+};
+
+[scriptable, uuid(7f9267b3-a018-4ddc-95c4-b2ecc4ad975e)]
+interface nsIScanResult : nsISupports
+{
+  readonly attribute AString ssid;
+  readonly attribute AString bssid;
+  readonly attribute AString infoElement;
+  readonly attribute unsigned long frequency;
+  readonly attribute unsigned long tsf;
+  readonly attribute unsigned long capability;
+  readonly attribute long signal;
+  readonly attribute boolean associated;
+};
+
+[scriptable, uuid(29980f77-f5a2-4ab7-8bff-68772c60e370)]
+interface nsIStateChanged : nsISupports
+{
+  // State
+  const long STATE_DISCONNECTED      = 0;
+  const long STATE_IFACE_DISABLED    = 1;
+  const long STATE_INACTIVE          = 2;
+  const long STATE_SCANNING          = 3;
+  const long STATE_AUTHENTICATING    = 4;
+  const long STATE_ASSOCIATING       = 5;
+  const long STATE_ASSOCIATED        = 6;
+  const long STATE_FOURWAY_HANDSHAKE = 7;
+  const long STATE_GROUP_HANDSHAKE   = 8;
+  const long STATE_COMPLETED         = 9;
+
+  readonly attribute unsigned long state;
+  readonly attribute unsigned long id;
+  readonly attribute AString bssid;
+  readonly attribute AString ssid;
+};

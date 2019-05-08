@@ -1,0 +1,32 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsIWifiElement.idl"
+
+interface nsIWifiConfiguration;
+
+[scriptable, uuid(3425fcd1-4b0c-4962-abab-7a9ad8a291af)]
+interface nsIWifiCommand: nsISupports
+{
+  const unsigned long INITIALIZE                  = 0;
+  const unsigned long START_WIFI                  = 1;
+  const unsigned long STOP_WIFI                   = 2;
+  const unsigned long GET_STA_CAPABILITIES        = 3;
+  const unsigned long GET_DEBUG_LEVEL             = 4;
+  const unsigned long SET_DEBUG_LEVEL             = 5;
+  const unsigned long SET_POWER_SAVE              = 6;
+  const unsigned long SET_SUSPEND_MODE            = 7;
+  const unsigned long SET_EXTERNAL_SIM            = 8;
+  const unsigned long SET_AUTO_RECONNECT          = 9;
+  const unsigned long SET_COUNTRY_CODE            = 10;
+  const unsigned long SET_BT_COEXIST_MODE         = 11;
+  const unsigned long SET_BT_COEXIST_SCAN_MODE    = 12;
+  const unsigned long START_SINGLE_SCAN           = 13;
+  const unsigned long STOP_SINGLE_SCAN            = 14;
+  const unsigned long START_PNO_SCAN              = 15;
+  const unsigned long STOP_PNO_SCAN               = 16;
+  const unsigned long GET_SCAN_RESULTS            = 17;
+  const unsigned long CONNECT                     = 18;
+};

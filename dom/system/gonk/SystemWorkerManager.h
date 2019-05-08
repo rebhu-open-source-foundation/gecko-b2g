@@ -55,12 +55,13 @@ class SystemWorkerManager final : public nsIObserver,
   SystemWorkerManager();
   ~SystemWorkerManager();
 
-#if 0
+#ifndef DISABLE_WIFI
   nsresult InitWifi();
-  nsresult InitKeyStore();
-
   nsCOMPtr<nsIWorkerHolder> mWifiWorker;
+#endif
 
+#if 0
+  nsresult InitKeyStore();
   RefPtr<mozilla::ipc::KeyStore> mKeyStore;
 #endif
 
