@@ -16,6 +16,11 @@
 #include "mozilla/ipc/IOThreadChild.h"
 #include "mozilla/ipc/ProcessChild.h"
 
+#ifdef MOZ_B2G
+#include "android/log.h"
+#define LOGPC(...) __android_log_print(ANDROID_LOG_INFO, "ProcessChild", ## __VA_ARGS__)
+#endif
+
 namespace mozilla {
 namespace ipc {
 
@@ -45,6 +50,9 @@ ProcessChild::QuickExit()
   // termination.
   TerminateProcess(GetCurrentProcess(), 0);
 #else
+#ifdef MOZ_B2G
+  LOGPC("ProcessChild::QuickExit content process");
+#endif
   _exit(0);
 #endif
 }

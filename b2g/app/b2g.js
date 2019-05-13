@@ -1400,3 +1400,6 @@ pref("dom.app_cb_configuration", false);
 #ifdef FXOS_SIMULATOR
 #include ../simulator/prefs.js
 #endif
+
+// Bug 59998 - reduce timeout to 1 second to force kill if content process can't exit.
+pref("dom.ipc.tabs.shutdownTimeoutSecs", 1);

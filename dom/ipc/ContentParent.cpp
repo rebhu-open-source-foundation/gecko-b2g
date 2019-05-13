@@ -338,6 +338,11 @@ int32_t ContentParent::sNuwaPid = 0;
 bool ContentParent::sNuwaReady = false;
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#include "android/log.h"
+#define LOGCP(...) __android_log_print(ANDROID_LOG_INFO, "ContentParent", ## __VA_ARGS__)
+#endif
+
 #define NS_IPC_IOSERVICE_SET_OFFLINE_TOPIC "ipc:network:set-offline"
 #define NS_IPC_IOSERVICE_SET_CONNECTIVITY_TOPIC "ipc:network:set-connectivity"
 
@@ -1752,6 +1757,9 @@ ContentParent::ShutDownProcess(ShutDownMethod aMethod)
       mShutdownPending = true;
       // Start the force-kill timer if we haven't already.
       StartForceKillTimer();
+#ifdef MOZ_WIDGET_GONK
+      LOGCP("ShutdownProcess method: SEND_SHUTDOWN_MESSAGE");
+#endif
     }
 
     // If call was not successful, the channel must have been broken
@@ -1774,6 +1782,9 @@ ContentParent::ShutDownProcess(ShutDownMethod aMethod)
     // sequence.
     mCalledClose = true;
     Close();
+#ifdef MOZ_WIDGET_GONK
+    LOGCP("ShutdownProcess method: CLOSE_CHANNEL");
+#endif
 #ifdef MOZ_NUWA_PROCESS
     // Kill Nuwa process forcibly to break its IPC channels and finalize
     // corresponding parents.
@@ -1787,6 +1798,9 @@ ContentParent::ShutDownProcess(ShutDownMethod aMethod)
     MessageChannel* channel = GetIPCChannel();
     if (channel) {
       mCalledCloseWithError = true;
+#ifdef MOZ_WIDGET_GONK
+      LOGCP("ShutdownProcess method: CLOSE_CHANNEL_WITH_ERROR");
+#endif
       channel->CloseWithError();
     }
   }
@@ -2030,11 +2044,6 @@ struct DelayedDeleteContentParentTask : public nsRunnable
 void
 ContentParent::ActorDestroy(ActorDestroyReason why)
 {
-  if (mForceKillTimer) {
-    mForceKillTimer->Cancel();
-    mForceKillTimer = nullptr;
-  }
-
   // Signal shutdown completion regardless of error state, so we can
   // finish waiting in the xpcom-shutdown/profile-before-change observer.
   mIPCOpen = false;
@@ -2494,6 +2503,7 @@ ContentParent::~ContentParent()
 {
   if (mForceKillTimer) {
     mForceKillTimer->Cancel();
+    mForceKillTimer = nullptr;
   }
 
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
@@ -3574,6 +3584,9 @@ ContentParent::ForceKillTimerCallback(nsITimer* aTimer, void* aClosure)
   }
 
   auto self = static_cast<ContentParent*>(aClosure);
+#ifdef MOZ_WIDGET_GONK
+  LOGCP("ForceKillTimerCallback force kill content process.");
+#endif
   self->KillHard("ShutDownKill");
 }
 
@@ -3581,7 +3594,9 @@ void
 ContentParent::KillHard(const char* aReason)
 {
   PROFILER_LABEL_FUNC(js::ProfileEntry::Category::OTHER);
-
+#ifdef MOZ_WIDGET_GONK
+  LOGCP("KillHard");
+#endif
   // On Windows, calling KillHard multiple times causes problems - the
   // process handle becomes invalid on the first call, causing a second call
   // to crash our process - more details in bug 890840.
