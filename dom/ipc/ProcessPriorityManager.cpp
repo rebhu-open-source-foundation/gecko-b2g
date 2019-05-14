@@ -1070,15 +1070,15 @@ ParticularProcessPriorityManager::ComputePriority()
   if (isVisible) {
     if (HasAppType("inputmethod")) {
       return PROCESS_PRIORITY_FOREGROUND_KEYBOARD;
-    } else if (HasAppType("critical")) {
+    } else if (HasAppType("hipri")) {
       return PROCESS_PRIORITY_FOREGROUND_HIGH;
     } else {
       return PROCESS_PRIORITY_FOREGROUND;
     }
   }
 
-  if ((mHoldsCPUWakeLock || mHoldsHighPriorityWakeLock) &&
-      IsExpectingSystemMessage()) {
+  if (((mHoldsCPUWakeLock || mHoldsHighPriorityWakeLock) && IsExpectingSystemMessage()) ||
+      HasAppType("hipri")) {
     return PROCESS_PRIORITY_BACKGROUND_PERCEIVABLE;
   }
 
