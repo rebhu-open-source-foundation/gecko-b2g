@@ -1,22 +1,25 @@
-<?xml version="1.0"?>
+<!DOCTYPE html>
 <!-- This Source Code Form is subject to the terms of the Mozilla Public
    - License, v. 2.0. If a copy of the MPL was not distributed with this
    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 
-<?xml-stylesheet href="shell.css"?>
-<window
-  xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-  type="navigator:browser"
+<html xmlns="http://www.w3.org/1999/xhtml"
+      windowtype="navigator:browser"
 #ifdef ANDROID
-  sizemode="fullscreen"
+      sizemode="fullscreen"
 #else
-  width="240"
-  height="320"
+      width="240"
+      height="320"
 #endif
-  orient="vertical">
+      >
 
+<head>
+  <link rel="stylesheet" type="text/css" href="shell.css">
   <script type="application/javascript" src="shell.js"></script>
   <script type="application/javascript" src="devtools/RemoteDebugger.js"></script>
+</head>
 
-  <browser id="systemapp" type="content" flex="1"></browser>
-</window>
+<body>
+</body>
+
+</html>

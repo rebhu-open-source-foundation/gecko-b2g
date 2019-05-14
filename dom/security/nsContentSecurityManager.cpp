@@ -832,7 +832,7 @@ static void AssertSystemPrincipalMustNotLoadRemoteDocuments(
   static bool recvdPrefValue = false;
   if (!recvdPrefValue) {
     nsAutoCString discoveryURLString;
-    Preferences::GetCString("extensions.webservice.discoverURL",
+    Preferences::GetCString("b2g.system_startup_url",
                             discoveryURLString);
     // discoverURL is by default suffixed with parameters in path like
     // /%LOCALE%/ so, we use the prePath for comparison

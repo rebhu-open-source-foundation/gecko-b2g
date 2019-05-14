@@ -42,10 +42,12 @@ var shell = {
 
     let startURL = this.startURL;
     
-    let systemAppFrame = document.getElementById("systemapp");
+    let systemAppFrame = document.createXULElement("browser");
+    systemAppFrame.setAttribute("id", "systemapp");
     systemAppFrame.setAttribute("src", "blank.html");
 
     debug(`Loading blank.html`);
+    document.body.appendChild(systemAppFrame);
 
     this.contentBrowser = systemAppFrame;
 
@@ -186,6 +188,14 @@ document.addEventListener("DOMContentLoaded", function dom_loaded() {
     return;
   }
 
+  document.addEventListener("keydown", event => {
+      if (event.key == "AudioVolumeUp") {
+        console.log("Toggle fps display");
+        let current = Services.prefs.getBoolPref("layers.acceleration.draw-fps");
+        Services.prefs.setBoolPref("layers.acceleration.draw-fps", !current);
+      }
+  }, true);
+
   // Initialize the ActorManagerParent
   ActorManagerParent.flush();
 
@@ -199,8 +209,8 @@ document.addEventListener("DOMContentLoaded", function dom_loaded() {
     mm.loadFrameScript("chrome://global/content/formsVoiceInput.js", false, true);
   }
 
-  debug(`Input Method API enabled: ${Services.prefs.getBoolPref("dom.mozInputMethod.enabled")}`);
-  debug(`Input Method implementation: ${Cc["@mozilla.org/b2g-inputmethod;1"].createInstance()}`);
+  // debug(`Input Method API enabled: ${Services.prefs.getBoolPref("dom.mozInputMethod.enabled")}`);
+  // debug(`Input Method implementation: ${Cc["@mozilla.org/b2g-inputmethod;1"].createInstance()}`);
   
   // Give the needed permissions to the system app.
   ["browser", "input", "input-manage"].forEach(permission => {
