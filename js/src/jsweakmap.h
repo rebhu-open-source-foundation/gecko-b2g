@@ -382,6 +382,8 @@ class ObjectValueMap : public WeakMap<RelocatablePtrObject, RelocatableValue,
     {}
 
     virtual bool findZoneEdges();
+
+    size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf);
 };
 
 
