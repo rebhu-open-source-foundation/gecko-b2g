@@ -149,6 +149,7 @@ nsScreenGonk::nsScreenGonk(uint32_t aId,
         NS_WARNING("aNativeData.mXdpi should not be 0!! Defaulting to 96.0");
         mDpi = 96.0;
     }
+    mDpi = 210;
 
     if (mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_WIDTH, &mVirtualBounds.width) ||
         mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_HEIGHT, &mVirtualBounds.height) ||
@@ -325,7 +326,7 @@ nsScreenGonk::EffectiveScreenRotation()
 
 // NB: This isn't gonk-specific, but gonk is the only widget backend
 // that does this calculation itself, currently.
-static ScreenOrientation
+static hal::ScreenOrientation
 ComputeOrientation(uint32_t aRotation, const LayoutDeviceIntSize& aScreenSize)
 {
 // TODO: FIXME
@@ -350,7 +351,7 @@ ComputeOrientation(uint32_t aRotation, const LayoutDeviceIntSize& aScreenSize)
         MOZ_CRASH("Gonk screen must always have a known rotation");
     }
 #endif
-    return eScreenOrientation_PortraitPrimary;
+    return hal::eScreenOrientation_PortraitPrimary;
 }
 
 static uint16_t
@@ -364,7 +365,7 @@ RotationToAngle(uint32_t aRotation)
 ScreenConfiguration
 nsScreenGonk::GetConfiguration()
 {
-    ScreenOrientation orientation =
+    auto orientation =
         ComputeOrientation(mScreenRotation, mNaturalBounds.Size());
 
     // NB: perpetuating colorDepth == pixelDepth illusion here, for
