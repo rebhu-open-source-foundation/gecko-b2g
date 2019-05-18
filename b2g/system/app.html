@@ -16,7 +16,7 @@
                 window.click_count.textContent = `${clicks} click${clicks > 1 ? "s" : ""}`;
             }
         }
-    
+
         function add_box_event(event_name) {
             window.box.addEventListener(event_name, handler);
         }
@@ -33,6 +33,32 @@
             add_box_event("click");
             add_box_event("contextmenu");
         });
+
+        // From https://developer.mozilla.org/en-US/docs/Web/API/notification
+        function show_notification() {
+            console.log(`About to show a notification. Permission status: ${Notification.permission}`)
+
+            // Let's check whether notification permissions have already been granted
+            if (Notification.permission === "granted") {
+                // If it's okay let's create a notification
+                var notification = new Notification("Hi there!");
+            }
+
+            // Otherwise, we need to ask the user for permission
+            else if (Notification.permission !== "denied") {
+                console.log(`Requesting permission...`);
+                Notification.requestPermission().then(function (permission) {
+                    console.log(`Permission is now ${permission}`);
+                    // If the user accepts, let's create a notification
+                    if (permission === "granted") {
+                        var notification = new Notification("Hi there!");
+                    }
+                });
+            }
+
+            // At last, if the user has denied notifications, and you 
+            // want to be respectful there is no need to bother them any more.
+        }
     </script>
 
     <style>
@@ -48,6 +74,7 @@
     <h1>App</h1>
     <h3 id="ua"></h3>
     <h2><a href="http://localhost:8081/system/akirodic.com/p/jellyfish/">WebGL demo</a></h2>
+    <h2><button onclick="show_notification()">Notification</button></h2>
     <h2>Input: <input type="text"></h2>
     <div id="box"></div>
     <div id="click_count"></div>

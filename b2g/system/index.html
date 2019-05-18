@@ -43,6 +43,34 @@
             }
         }
 
+        function update_nav_ui() {
+            // let browser = window.browser;
+            // console.log(browser);
+            // console.log(browser.getCanGoBack);
+            // for (prop in window.browser) {
+            //     console.log(prop);
+            // }
+            // console.log(window.browser.goBack);
+            console.log("ZZZ update_nav_ui");
+            window.browser.getCanGoBack().then(value => {
+                console.log(`ZZZ canGoBack is ${value}`);
+                if (value) {
+                    window.go_back.classList.remove("disabled");
+                } else {
+                    window.go_back.classList.add("disabled");
+                }
+            }, console.error);
+
+            window.browser.getCanGoForward().then(value => {
+                console.log(`ZZZ canGoForward is ${value}`);
+                if (value) {
+                    window.go_forward.classList.remove("disabled");
+                } else {
+                    window.go_forward.classList.add("disabled");
+                }
+            }, console.error)
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             debug(`Screen size is ${screen.width}x${screen.height}`);
 
@@ -59,6 +87,7 @@
 
             window.browser.addEventListener("mozbrowserloadend", () => {
                 debug("mozbrowserloadend");
+                update_nav_ui();
             });
 
             window.browser.src = "app.html";
@@ -80,8 +109,18 @@
             });
 
             window.home.addEventListener("click", event => {
-                debug(`Going back home...`);
+                debug(`Going home.`);
                 window.browser.src = "https://google.com";
+            });
+
+            window.go_back.addEventListener("click", event => {
+                debug(`Going back.`);
+                window.browser.goBack();
+            });
+
+            window.go_forward.addEventListener("click", event => {
+                debug(`Going forward.`);
+                window.browser.goForward();
             });
 
             window.setInterval(() => {
@@ -113,6 +152,7 @@
             font-size: 0.8em;
             display: flex;
             white-space: nowrap;
+            align-items:center;
         }
 
         #title {
@@ -129,10 +169,15 @@
             flex: 1;
         }
 
-        #tools {
-            flex: 1;
-            text-align: left;
-            padding-left: 0.1em;
+        #go_back, #go_forward {
+            font-weight: bold;
+            font-size: larger;
+            padding: 0.2em;
+        }
+
+        .disabled {
+            color: grey;
+            pointer-events: none;
         }
 
         #screen {
@@ -171,7 +216,11 @@
             <div id="clock"></div>
         </div>
         <iframe mozbrowser="true" remote="true" id="browser" transparent="true"></iframe>
-        <div id="navbar"><span class="filler"></span><span id="home">&#8962;</span><span class="filler"></span></div>
+        <div id="navbar">
+            <span class="filler"><span id="go_back">&#8678;</span><span id="go_forward">&#8658;</span></span>
+            <span id="home">&#8962;</span>
+            <span class="filler"></span>
+        </div>
     </div>
     <iframe mozbrowser="true" remote="true" ignoreuserfocus="true" id="keyboard"></iframe>
 </body>
