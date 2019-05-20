@@ -48,7 +48,6 @@ def android_version(value, min_version):
     return version
 
 
-set_config('ANDROID_VERSION', str(android_version))
 set_define('ANDROID_VERSION', android_version)
 add_old_configure_assignment('android_version', android_version)
 

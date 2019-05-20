@@ -24,9 +24,11 @@ case "$target" in
 
     LDFLAGS="-L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib --sysroot=$android_platform $LDFLAGS"
     ANDROID_PLATFORM="${android_platform}"
+    ANDROID_VERSION="${android_version}"
 
     AC_DEFINE(ANDROID)
     AC_SUBST(ANDROID_PLATFORM)
+    AC_SUBST(ANDROID_VERSION)
 
     ;;
 esac
