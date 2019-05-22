@@ -1403,3 +1403,12 @@ pref("dom.app_cb_configuration", false);
 
 // Bug 59998 - reduce timeout to 1 second to force kill if content process can't exit.
 pref("dom.ipc.tabs.shutdownTimeoutSecs", 1);
+
+// Update warning watermark/stop threshold to 10MB/20MB on 256MB projects
+#ifdef KAIOS_256MB_SUPPORT
+pref("disk_space_watcher.low_threshold", 10);
+pref("disk_space_watcher.high_threshold", 12);
+pref("disk_space_watcher.warning_threshold", 20);
+pref("disk_space_watcher.free_space_low_threshold", 20);
+pref("disk_space_watcher.free_space_high_threshold", 22);
+#endif
