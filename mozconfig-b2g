@@ -16,8 +16,6 @@ ac_add_options --enable-linker=lld
 # Disable a bunch of non critical stuff
 ac_add_options --disable-crashreporter
 ac_add_options --disable-webrtc
-ac_add_options --disable-av1
-ac_add_options --disable-accessibility
 # ac_add_options --disable-printing # see https://bugzilla.mozilla.org/show_bug.cgi?id=1537586
 ac_add_options --disable-updater
 ac_add_options --disable-jemalloc

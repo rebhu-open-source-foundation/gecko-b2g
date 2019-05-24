@@ -94,7 +94,7 @@ if CONFIG['OS_TARGET'] == 'Android':
     # the OS they're on, so do it for them.
     DEFINES['__linux__'] = True
 
-    if not CONFIG['MOZ_WEBRTC']:
+    if not CONFIG['MOZ_WEBRTC'] and not CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         SOURCES += [
             '%%%s/sources/android/cpufeatures/cpu-features.c' % CONFIG['ANDROID_NDK'],
         ]
