@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include "nsStringFwd.h"
 
-#if defined(ANDROID)
+#if defined(MOZ_WIDGET_ANDROID)
 #  include "nsTArray.h"
 #  include "nsRect.h"
 #endif
@@ -108,7 +108,7 @@ void ProxyShowHideEvent(ProxyAccessible* aTarget, ProxyAccessible* aParent,
 void ProxySelectionEvent(ProxyAccessible* aTarget, ProxyAccessible* aWidget,
                          uint32_t aType);
 
-#if defined(ANDROID)
+#if defined(MOZ_WIDGET_ANDROID)
 MOZ_CAN_RUN_SCRIPT
 void ProxyVirtualCursorChangeEvent(ProxyAccessible* aTarget,
                                    ProxyAccessible* aOldPosition,
