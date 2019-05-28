@@ -14,8 +14,6 @@ Cu.import("resource://gre/modules/systemlibs.js");
 Cu.import("resource://gre/modules/FileUtils.jsm");
 Cu.import("resource://gre/modules/WifiCommand.jsm");
 Cu.import("resource://gre/modules/WifiNetUtil.jsm");
-Cu.import("resource://gre/modules/WifiP2pManager.jsm");
-Cu.import("resource://gre/modules/WifiP2pWorkerObserver.jsm");
 Cu.import("resource://gre/modules/Timer.jsm");
 
 var DEBUG = false; // set to true to show debug messages.
@@ -129,9 +127,6 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
                                    "@mozilla.org/mobileconnection/mobileconnectionservice;1",
                                    "nsIMobileConnectionService");
 
-XPCOMUtils.defineLazyModuleGetter(this, "PhoneNumberUtils",
-                                  "resource://gre/modules/PhoneNumberUtils.jsm");
-
 XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
                                    "@mozilla.org/icc/iccservice;1",
                                    "nsIIccService");
@@ -143,6 +138,15 @@ XPCOMUtils.defineLazyServiceGetter(this, "gPowerManagerService",
 XPCOMUtils.defineLazyServiceGetter(this, "gImsRegService",
                                    "@mozilla.org/mobileconnection/imsregservice;1",
                                    "nsIImsRegService");
+
+XPCOMUtils.defineLazyModuleGetter(this, "PhoneNumberUtils",
+                                  "resource://gre/modules/PhoneNumberUtils.jsm");
+
+XPCOMUtils.defineLazyModuleGetter(this, "WifiP2pManager",
+                                  "resource://gre/modules/WifiP2pManager.jsm");
+
+XPCOMUtils.defineLazyModuleGetter(this, "WifiP2pWorkerObserver",
+                                  "resource://gre/modules/WifiP2pWorkerObserver.jsm");
 
 const INVALID_RSSI = -127;
 const INVALID_NETWORK_ID = -1;
