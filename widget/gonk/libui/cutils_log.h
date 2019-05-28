@@ -43,7 +43,7 @@
 #include <android/log.h>
 #elif ANDROID_VERSION >= 19
 #include <log/uio.h>
-#include <log/log.h>
+#include <log/logd.h>
 #else
 #include <cutils/uio.h>
 #include <cutils/logd.h>

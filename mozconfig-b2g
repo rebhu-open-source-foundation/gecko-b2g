@@ -31,7 +31,7 @@ ac_add_options --disable-webrender # for now...
 
 # With the following Android SDK and NDK:
 ac_add_options --with-android-ndk="$HOME/.mozbuild/android-ndk-r17b"
-ac_add_options --with-android-version=28
+ac_add_options --with-android-version=$PLATFORM_VERSION
 
 # Use sccache
 ac_add_options --with-ccache=sccache
