@@ -12,7 +12,6 @@ DIRS += [
     'locales',
     'modules',
     'mozapps/downloads',
-    'mozapps/extensions',
     'mozapps/handling',
     'mozapps/preferences',
     'obsolete',
