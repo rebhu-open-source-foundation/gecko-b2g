@@ -65,8 +65,9 @@ ThreadCountForCPUCount(size_t cpuCount)
 {
     // Create additional threads on top of the number of cores available, to
     // provide some excess capacity in case threads pause each other.
-    static const uint32_t EXCESS_THREADS = 4;
-    return cpuCount + EXCESS_THREADS;
+    // Set thread number to max value of `cpu number + 1` and `4`.
+    static const uint32_t EXCESS_THREADS = 1;
+    return Max<size_t>(cpuCount + EXCESS_THREADS, 4);
 }
 
 void
