@@ -394,7 +394,7 @@ def write_mozbuild(sources):
   f.write("if CONFIG['MOZ_ENABLE_SKIA_PDF']:\n")
   write_sources(f, sources['pdf'], 4)
 
-  f.write("if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':\n")
+  f.write("if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('android', 'gonk'):\n")
   write_sources(f, sources['android'], 4)
 
   f.write("if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('cocoa', 'uikit'):\n")
