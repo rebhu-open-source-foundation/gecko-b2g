@@ -2943,13 +2943,6 @@ VARCACHE_PREF(
 
 VARCACHE_PREF(
   Live,
-  "gfx.webrender.blob.invalidation",
-  WebRenderBlobInvalidation,
-  RelaxedAtomicBool, false
-)
-
-VARCACHE_PREF(
-  Live,
   "gfx.webrender.blob.paint-flashing",
   WebRenderBlobPaintFlashing,
   RelaxedAtomicBool, false
@@ -3393,6 +3386,15 @@ VARCACHE_PREF(
   "javascript.options.streams",
   javascript_options_streams,
   RelaxedAtomicBool, false
+)
+
+// Whether ISO-2022-JP is a permitted content-based encoding detection
+// outcome.
+VARCACHE_PREF(
+  Live,
+  "intl.charset.detector.iso2022jp.allowed",
+   intl_charset_detector_iso2022jp_allowed,
+  bool, true
 )
 
 //---------------------------------------------------------------------------
