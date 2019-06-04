@@ -409,7 +409,11 @@ a11y::DocAccessibleParent* BrowserParent::GetTopLevelDocAccessible() const {
       ManagedPDocAccessibleParent();
   for (auto iter = docs.ConstIter(); !iter.Done(); iter.Next()) {
     auto doc = static_cast<a11y::DocAccessibleParent*>(iter.Get()->GetKey());
-    if (doc->IsTopLevel()) {
+    // We want the document for this BrowserParent even if it's for an
+    // embedded out-of-process iframe. Therefore, we use
+    // IsTopLevelInContentProcess. In contrast, using IsToplevel would only
+    // include documents that aren't embedded; e.g. tab documents.
+    if (doc->IsTopLevelInContentProcess()) {
       return doc;
     }
   }
@@ -1122,6 +1126,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
     // In this case, we don't get aParentDoc and aParentID.
     MOZ_ASSERT(!aParentDoc && !aParentID);
     MOZ_ASSERT(embedderID);
+    doc->SetTopLevelInContentProcess();
 #  ifdef XP_WIN
     MOZ_ASSERT(!aDocCOMProxy.IsNull());
     RefPtr<IAccessible> proxy(aDocCOMProxy.Get());
@@ -1136,9 +1141,11 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
 #  endif
     }
 #  ifdef XP_WIN
-    if (a11y::nsWinUtils::IsWindowEmulationStarted()) {
-      doc->SetEmulatedWindowHandle(embedderDoc->GetEmulatedWindowHandle());
-    }
+    // This *must* be called after AddChildDoc because AddChildDoc
+    // calls ProxyCreated and WrapperFor will fail before that.
+    a11y::AccessibleWrap* wrapper = a11y::WrapperFor(doc);
+    MOZ_ASSERT(wrapper);
+    wrapper->SetID(aMsaaID);
 #  endif
     return IPC_OK();
   } else {
@@ -1159,7 +1166,9 @@ mozilla::ipc::IPCResult BrowserParent::RecvPDocAccessibleConstructor(
     RefPtr<IAccessible> proxy(aDocCOMProxy.Get());
     doc->SetCOMInterface(proxy);
     doc->MaybeInitWindowEmulation();
-    doc->SendParentCOMProxy();
+    if (a11y::Accessible* outerDoc = doc->OuterDocOfRemoteBrowser()) {
+      doc->SendParentCOMProxy(outerDoc);
+    }
 #  endif
   }
 #endif
