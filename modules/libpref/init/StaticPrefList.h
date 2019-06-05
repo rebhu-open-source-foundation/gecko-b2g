@@ -1590,12 +1590,11 @@ VARCACHE_PREF(
 
 // WHATWG promise rejection events. See
 // https://html.spec.whatwg.org/multipage/webappapis.html#promiserejectionevent
-// TODO: Enable the event interface once actually firing it (bug 1362272).
 VARCACHE_PREF(
   Live,
   "dom.promise_rejection_events.enabled",
   dom_promise_rejection_events_enabled,
-  RelaxedAtomicBool, false
+  RelaxedAtomicBool, true
 )
 
 // This currently only affects XHTML. For XUL the cache is always allowed.
@@ -4161,6 +4160,14 @@ VARCACHE_PREF(
   bool, false
 )
 
+// text underline offset
+VARCACHE_PREF(
+  Live,
+  "layout.css.text-underline-offset.enabled",
+  layout_css_text_underline_offset_enabled,
+  bool, false
+)
+
 // Is support for CSS column-span enabled?
 VARCACHE_PREF(
   Live,
@@ -5753,6 +5760,20 @@ VARCACHE_PREF(
   "network.cookie.lifetimePolicy",
   network_cookie_lifetimePolicy,
   RelaxedAtomicInt32, 0
+)
+
+VARCACHE_PREF(
+  Live,
+  "network.cookie.sameSite.laxByDefault",
+   network_cookie_sameSite_laxByDefault,
+  bool, false
+)
+
+VARCACHE_PREF(
+  Live,
+  "network.cookie.sameSite.noneRequiresSecure",
+   network_cookie_sameSite_noneRequiresSecure,
+  bool, false
 )
 
 VARCACHE_PREF(
