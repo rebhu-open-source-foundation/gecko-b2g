@@ -9,7 +9,6 @@
 #include "FrameAnimator.h"
 #include "RasterImage.h"
 #include "mozilla/RefPtr.h"
-#include "DecodePool.h"
 #include "DecoderFlags.h"
 #include "Downscaler.h"
 #include "ImageMetadata.h"
@@ -25,9 +24,10 @@ namespace Telemetry {
 
 namespace image {
 
-class Decoder : public IResumable
+class Decoder
 {
 public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Decoder)
 
   explicit Decoder(RasterImage* aImage);
 
@@ -40,9 +40,7 @@ public:
    * Decodes, reading all data currently available in the SourceBuffer.
    *
    * If more data is needed, Decode() will schedule @aOnResume to be called when
-   * more data is available. If @aOnResume is null or unspecified, the default
-   * implementation resumes decoding on a DecodePool thread. Most callers should
-   * use the default implementation.
+   * more data is available.
    *
    * Any errors are reported by setting the appropriate state on the decoder.
    */
@@ -86,12 +84,6 @@ public:
   {
     return mProgress != NoProgress || !mInvalidRect.IsEmpty();
   }
-
-  // We're not COM-y, so we don't get refcounts by default
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Decoder, override)
-
-  // Implement IResumable.
-  virtual void Resume() override;
 
   /*
    * State.
