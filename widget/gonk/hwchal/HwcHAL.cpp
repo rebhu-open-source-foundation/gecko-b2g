@@ -17,11 +17,14 @@
  */
 
 #include "HwcHAL.h"
-#include "libdisplay/GonkKDisplay.h"
+#include "libdisplay/GonkDisplay.h"
 #include "mozilla/Assertions.h"
 #include "nsIScreen.h"
 
-extern android::GonkDisplay * getGonkDisplay();
+#if ANDROID_VERSION >= 27
+typedef android::GonkDisplay GonkDisplay;
+extern GonkDisplay * GetGonkDisplay();
+#endif
 
 namespace mozilla {
 
@@ -30,7 +33,7 @@ HwcHAL::HwcHAL()
 {
     // Some HALs don't want to open hwc twice.
     // If GetDisplay already load hwc module, we don't need to load again
-    mHwc = (HwcDevice*)getGonkDisplay()->GetHWCDevice();
+    mHwc = (HwcDevice*)GetGonkDisplay()->GetHWCDevice();
     if (!mHwc) {
         printf_stderr("HwcHAL Error: Cannot load hwcomposer");
         return;

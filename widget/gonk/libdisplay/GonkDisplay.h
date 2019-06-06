@@ -18,15 +18,21 @@
 
 #include <system/window.h>
 #include <utils/StrongPointer.h>
+#if ANDROID_VERSION >= 27
+#include "DisplaySurface.h"
+#else
 #include "mozilla/Types.h"
+#endif
 #include "nsIScreen.h"
 
 namespace android {
+#if ANDROID_VERSION < 27
 class DisplaySurface;
 class IGraphicBufferProducer;
 }
 
 namespace mozilla {
+#endif
 
 typedef void * EGLDisplay;
 typedef void * EGLSurface;
@@ -59,6 +65,8 @@ public:
         uint32_t mWidth;
         uint32_t mHeight;
     };
+
+    virtual ~GonkDisplay() {};
 
     virtual void SetEnabled(bool enabled) = 0;
 
@@ -110,8 +118,13 @@ protected:
     DisplayNativeData mDispNativeData[NUM_DISPLAY_TYPES];
 };
 
+#if ANDROID_VERSION >= 27
+extern "C" MOZ_EXPORT __attribute__ ((weak))
+GonkDisplay* GetGonkDisplayP();
+#else
 MOZ_EXPORT __attribute__ ((weak))
 GonkDisplay* GetGonkDisplay();
+#endif
 
 }
 #endif /* GONKDISPLAY_H */

@@ -39,7 +39,8 @@
 #include "hardware_legacy/uevent.h"
 //#include "hardware_legacy/vibrator.h"
 //#include "hardware_legacy/power.h"
-#include "libdisplay/GonkKDisplay.h"
+#include "libdisplay/GonkDisplay.h"
+
 #include "utils/threads.h"
 
 #include "base/message_loop.h"
@@ -116,24 +117,27 @@ using namespace mozilla;
 using namespace mozilla::hal;
 using namespace mozilla::dom;
 
-extern android::GonkDisplay * getGonkDisplay();
+#if ANDROID_VERSION >= 27
+typedef android::GonkDisplay GonkDisplay;
+extern GonkDisplay * GetGonkDisplay();
 
 typedef android::GonkDisplay* (*fnGetGonkDisplay)();
-android::GonkDisplay * getGonkDisplay() {
-  android::GonkDisplay *display = NULL;
+GonkDisplay * GetGonkDisplay() {
+  GonkDisplay *display = NULL;
   void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
   if (lib == NULL) {
     HAL_LOG("Could not dlopen(\"libcarthage.so\"):");
   } else {
-    fnGetGonkDisplay getGonkDisPlay = (fnGetGonkDisplay) dlsym(lib, "GetGonkDisplay") ;
-    if (getGonkDisPlay == NULL) {
-      HAL_LOG("Symbol 'GetGonkDisplay' is missing from shared library!!\n");
+    fnGetGonkDisplay func = (fnGetGonkDisplay) dlsym(lib, "GetGonkDisplayP") ;
+    if (func == NULL) {
+      HAL_LOG("Symbol 'GetGonkDisplayP' is missing from shared library!!\n");
     } else {
-      display = getGonkDisPlay();
+      display = func();
     }
   }
   return display;
 }
+#endif
 
 namespace mozilla {
 namespace hal_impl {
@@ -763,7 +767,7 @@ GetScreenEnabled()
 void
 SetScreenEnabled(bool aEnabled)
 {
-  getGonkDisplay()->SetEnabled(aEnabled);
+  GetGonkDisplay()->SetEnabled(aEnabled);
   sScreenEnabled = aEnabled;
 }
 

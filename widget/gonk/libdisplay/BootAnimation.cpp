@@ -25,10 +25,12 @@
 #include "png.h"
 
 #include "android/log.h"
-#include "GonkKDisplay.h"
 #include "hardware/gralloc.h"
 #include "cutils/properties.h"
+#if ANDROID_VERSION >= 27
 #include "NativeGralloc.h"
+#endif
+#include "GonkDisplay.h"
 
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Gonk" , ## args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ## args)
@@ -37,7 +39,10 @@
 using namespace mozilla;
 using namespace std;
 
-extern android::GonkDisplay * getGonkDisplay();
+#if ANDROID_VERSION >= 27
+typedef android::GonkDisplay GonkDisplay;
+extern GonkDisplay * GetGonkDisplay();
+#endif
 
 namespace mozilla {
 namespace hal_impl {
@@ -499,7 +504,7 @@ struct Animation {
 
     // Set by user
     int32_t format;
-    android::GonkDisplay::DisplayType dpy;
+    DisplayType dpy;
 
     Animation();
 
@@ -513,7 +518,7 @@ Animation::Animation()
     , height(480)
     , fps(12)
     , format(HAL_PIXEL_FORMAT_RGBX_8888)
-    , dpy(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY)
+    , dpy(DisplayType::DISPLAY_PRIMARY)
 {}
 
 bool Animation::LoadAnimations(const char* aFileName)
@@ -676,9 +681,12 @@ AsBackgroundFill(const png_color_16& color16, int outputFormat)
 }
 
 static void
-ShowSolidColorFrame(android::GonkDisplay *aDisplay,
+ShowSolidColorFrame(GonkDisplay *aDisplay,
+                #if ANDROID_VERSION < 27
+                    const gralloc_module_t *grallocModule,
+                #endif
                     int32_t aFormat,
-                    android::GonkDisplay::DisplayType aDpy)
+                    DisplayType aDpy)
 {
     LOGW("Show solid color frame for bootAnim");
 
@@ -689,15 +697,22 @@ ShowSolidColorFrame(android::GonkDisplay *aDisplay,
         LOGW("Failed to get an ANativeWindowBuffer");
         return;
     }
-
+#if ANDROID_VERSION >= 27
     if (!native_gralloc_lock(buffer->handle,
+#else
+    if (!grallocModule->lock(grallocModule, buffer->handle,
+#endif
                              GRALLOC_USAGE_SW_READ_NEVER |
                              GRALLOC_USAGE_SW_WRITE_OFTEN |
                              GRALLOC_USAGE_HW_FB,
                              0, 0, buffer->width, buffer->height, &mappedAddress)) {
         // Just show a black solid color frame.
         memset(mappedAddress, 0, buffer->height * buffer->stride * GetFormatBPP(aFormat));
+#if ANDROID_VERSION >= 27
         native_gralloc_unlock(buffer->handle);
+#else
+        grallocModule->unlock(grallocModule, buffer->handle);
+#endif
     }
 
     aDisplay->QueueBuffer(buffer, aDpy);
@@ -747,15 +762,17 @@ DrawFrame(AnimationFrame &aFrame, ANativeWindowBuffer *aBuf, int32_t format, voi
 static void *
 AnimationThread(void *)
 {
-    android::GonkDisplay *display = getGonkDisplay();
+    GonkDisplay *display = GetGonkDisplay();
 
-    const android::GonkDisplay::DisplayNativeData& dispData
-        = display->GetDispNativeData(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
-    const android::GonkDisplay::DisplayNativeData& extDispData
-        = display->GetDispNativeData(android::GonkDisplay::DisplayType::DISPLAY_EXTERNAL);
+    const GonkDisplay::DisplayNativeData& dispData
+        = display->GetDispNativeData(DisplayType::DISPLAY_PRIMARY);
+
+    const GonkDisplay::DisplayNativeData& extDispData
+        = display->GetDispNativeData(DisplayType::DISPLAY_EXTERNAL);
+
     vector<Animation> animVec;
 
-/*
+#if ANDROID_VERSION < 27
     const hw_module_t *module = nullptr;
     if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module)) {
         LOGW("Could not get gralloc module");
@@ -763,19 +780,30 @@ AnimationThread(void *)
     }
     const gralloc_module_t *grmodule =
         reinterpret_cast<gralloc_module_t const*>(module);
-*/
+#endif
+
     // Load boot animation for primary screen
     animVec.push_back(Animation());
     Animation &primAnimation = animVec.back();
-    primAnimation.dpy = android::GonkDisplay::DisplayType::DISPLAY_PRIMARY;
+#if ANDROID_VERSION >= 27
+    primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
     primAnimation.format = HAL_PIXEL_FORMAT_RGBX_8888;//dispData.mSurfaceformat;
     if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
         LOGW("Failed to load boot animation file for primary screen");
         ShowSolidColorFrame(display, dispData.mSurfaceformat,
-                            android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
+                            DisplayType::DISPLAY_PRIMARY);
         return nullptr;
     }
-/*
+#else
+    primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
+    primAnimation.format = dispData.mSurfaceformat;
+    if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
+        LOGW("Failed to load boot animation file for primary screen");
+        ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
+                            DisplayType::DISPLAY_PRIMARY);
+        return nullptr;
+    }
+
     if (display->IsExtFBDeviceEnabled()) {
         animVec.push_back(Animation());
         Animation &extAnimation = animVec.back();
@@ -798,7 +826,7 @@ AnimationThread(void *)
             setExtBacklight(1);
         }
     }
-*/
+#endif
     // Turn on primary screen backlight before playing animation,
     setBacklight(1);
     bool animPlayed = false;
@@ -837,7 +865,11 @@ AnimationThread(void *)
                     }
 
                     void *vaddr = nullptr;
+#if ANDROID_VERSION >= 27
                     if (native_gralloc_lock(buf->handle,
+#else
+                    if (grmodule->lock(grmodule, buf->handle,
+#endif
                                             GRALLOC_USAGE_SW_READ_NEVER |
                                             GRALLOC_USAGE_SW_WRITE_OFTEN |
                                             GRALLOC_USAGE_HW_FB,
@@ -854,7 +886,11 @@ AnimationThread(void *)
                     animPlayed = true;
 
                     if (buf) {
+#if ANDROID_VERSION >= 27
                         native_gralloc_unlock(buf->handle);
+#else
+                        grmodule->unlock(grmodule, buf->handle);
+#endif
                         display->QueueBuffer(buf, anim.dpy);
                     }
 
@@ -880,8 +916,17 @@ AnimationThread(void *)
     }
 
     if (!animPlayed) {
+#if ANDROID_VERSION >= 27
         ShowSolidColorFrame(display, dispData.mSurfaceformat,
-                            android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
+                            DisplayType::DISPLAY_PRIMARY);
+#else
+        ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
+                            DisplayType::DISPLAY_PRIMARY);
+        if (display->IsExtFBDeviceEnabled()) {
+            ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
+                                DisplayType::DISPLAY_EXTERNAL);
+        }
+#endif
     }
 
     return nullptr;
@@ -894,8 +939,8 @@ void
 StartBootAnimation()
 {
 //TODO, disable to prevent double allocate HWC issue.
-#if 0
-    android::GetGonkDisplay(); // Ensure GonkDisplay exist
+#if ANDROID_VERSION < 27
+    GetGonkDisplay(); // Ensure GonkDisplay exist
     sRunAnimation = true;
     // TODO: FIXME HookSetVsyncAlwaysEnabled(true);
     pthread_create(&sAnimationThread, nullptr, AnimationThread, nullptr);
@@ -908,9 +953,13 @@ StopBootAnimation()
 {
     if (sRunAnimation) {
         sRunAnimation = false;
+    #if ANDROID_VERSION >= 27
         // TODO: FIXME HookSetVsyncAlwaysEnabled(false);
+    #else
+        HookSetVsyncAlwaysEnabled(false);
+    #endif
         pthread_join(sAnimationThread, nullptr);
-        android::GetGonkDisplay()->NotifyBootAnimationStopped();
+        GetGonkDisplay()->NotifyBootAnimationStopped();
     }
 }
 

@@ -353,10 +353,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'ipc/GonkNativeHandleUtils.cpp',
         'ipc/ShadowLayerUtilsGralloc.cpp',
     ]
-    OS_LIBS +=[
-         'android',
-         'nativewindow',
-    ]
+
 
 UNIFIED_SOURCES += [
     'AnimationHelper.cpp',

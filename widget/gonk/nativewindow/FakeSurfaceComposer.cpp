@@ -35,7 +35,7 @@
 #include <ui/Rect.h>
 #endif
 
-#include "../libdisplay/GonkKDisplay.h"
+#include "../libdisplay/GonkDisplay.h"
 #include "../ScreenHelperGonk.h"
 #include "FakeSurfaceComposer.h"
 #include "gfxPrefs.h"

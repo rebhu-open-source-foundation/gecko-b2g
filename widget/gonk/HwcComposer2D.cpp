@@ -20,7 +20,7 @@
 #include <string.h>
 
 #include "ImageLayers.h"
-#include "libdisplay/GonkKDisplay.h"
+#include "libdisplay/GonkDisplay.h"
 #include "HwcComposer2D.h"
 #include "LayerScope.h"
 #include "Units.h"
@@ -70,7 +70,10 @@ using namespace android;
 using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
-extern android::GonkDisplay * getGonkDisplay();
+#if ANDROID_VERSION >= 27
+typedef android::GonkDisplay GonkDisplay;
+extern GonkDisplay * GetGonkDisplay();
+#endif
 
 namespace mozilla {
 
@@ -124,7 +127,7 @@ HwcComposer2D::HwcComposer2D()
 
     nsIntSize screenSize;
 
-    android::GonkDisplay::NativeData data = getGonkDisplay()->GetNativeData(android::GonkDisplay::DisplayType::DISPLAY_PRIMARY);
+    GonkDisplay::NativeData data = GetGonkDisplay()->GetNativeData(DisplayType::DISPLAY_PRIMARY);
     ANativeWindow *win = data.mNativeWindow.get();
     win->query(win, NATIVE_WINDOW_WIDTH, &screenSize.width);
     win->query(win, NATIVE_WINDOW_HEIGHT, &screenSize.height);
@@ -232,7 +235,7 @@ HwcComposer2D::Invalidate()
 namespace {
 class HotplugEvent : public mozilla::Runnable {
 public:
-    HotplugEvent(android::GonkDisplay::DisplayType aType, bool aConnected)
+    HotplugEvent(DisplayType aType, bool aConnected)
         : mozilla::Runnable("HotplugEvent")
         , mType(aType)
         , mConnected(aConnected)
@@ -254,7 +257,8 @@ public:
         return NS_OK;
     }
 private:
-    android::GonkDisplay::DisplayType mType;
+    DisplayType mType;
+
     bool mConnected;
 };
 } // namespace
@@ -262,7 +266,7 @@ private:
 void
 HwcComposer2D::Hotplug(int aDisplay, int aConnected)
 {
-    NS_DispatchToMainThread(new HotplugEvent(android::GonkDisplay::DisplayType::DISPLAY_EXTERNAL,
+    NS_DispatchToMainThread(new HotplugEvent(DisplayType::DISPLAY_EXTERNAL,
                                              aConnected));
 }
 
@@ -822,7 +826,7 @@ bool
 HwcComposer2D::Render(nsIWidget* aWidget)
 {
     nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
-    return getGonkDisplay()->SwapBuffers(screen->GetDisplayType());
+    return GetGonkDisplay()->SwapBuffers(screen->GetDisplayType());
 
 // TODO: FIXME
 #if 0
@@ -954,7 +958,7 @@ bool
 HwcComposer2D::Render(nsIWidget* aWidget)
 {
     nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
-    return getGonkDisplay()->SwapBuffers(screen->GetEGLDisplay(), screen->GetEGLSurface());
+    return GetGonkDisplay()->SwapBuffers(screen->GetEGLDisplay(), screen->GetEGLSurface());
 }
 #endif
 

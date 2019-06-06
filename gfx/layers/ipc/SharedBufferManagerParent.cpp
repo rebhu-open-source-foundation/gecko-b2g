@@ -235,7 +235,8 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
     return false;
   }
 
-  //sp<GraphicBuffer> outgoingBuffer = new GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
+  sp<GraphicBuffer> outgoingBuffer;
+#if ANDROID_VERSION >= 27
   typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
   typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
                                                 AHardwareBuffer_Desc* outDesc);
@@ -266,28 +267,31 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
       AHardwareBuffer_Desc usage1;
 
       fAHardwareBuffer_describe(graphicBuf, &usage1);
-      sp<GraphicBuffer> outgoingBuffer = reinterpret_cast< GraphicBuffer*>(graphicBuf);
-
-      if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != NO_ERROR) {
-        printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
-        return true;
-      }
-
-      int64_t bufferKey;
-      {
-        MonitorAutoLock lock(*sManagerMonitor.get());
-        bufferKey = ++sBufferKey;
-      }
-      GrallocBufferRef ref;
-      ref.mOwner = mOwner;
-      ref.mKey = bufferKey;
-      *aHandle = MagicGrallocBufferHandle(outgoingBuffer, ref);
-
-      {
-        MutexAutoLock lock(mLock);
-        mBuffers[bufferKey] = outgoingBuffer;
-      }
+      outgoingBuffer = reinterpret_cast< GraphicBuffer*>(graphicBuf);
     }
+  }
+#else
+  // for old ANDROID_VERSION, use original GraphicBuffer
+  outgoingBuffer = new GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
+#endif
+  if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != NO_ERROR) {
+    printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
+    return true;
+  }
+
+  int64_t bufferKey;
+  {
+    MonitorAutoLock lock(*sManagerMonitor.get());
+    bufferKey = ++sBufferKey;
+  }
+  GrallocBufferRef ref;
+  ref.mOwner = mOwner;
+  ref.mKey = bufferKey;
+  *aHandle = MagicGrallocBufferHandle(outgoingBuffer, ref);
+
+  {
+    MutexAutoLock lock(mLock);
+    mBuffers[bufferKey] = outgoingBuffer;
   }
 
 #endif
