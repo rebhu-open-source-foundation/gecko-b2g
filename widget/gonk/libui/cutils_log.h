@@ -38,7 +38,7 @@
 #endif
 #include <stdarg.h>
 
-#if ANDROID_VERSION >= 28
+#if ANDROID_VERSION >= 27
 #include <log/log.h>
 #include <android/log.h>
 #elif ANDROID_VERSION >= 19

@@ -3,8 +3,6 @@
 set -e
 
 export MOZCONFIG=mozconfig-b2g
-export PLATFORM_VERSION=28
-export ANDROID_PLATFORM=android-${PLATFORM_VERSION}
 
 # Check that the GONK_PATH environment variable is set.
 if [ -z ${GONK_PATH+x} ];
@@ -30,6 +28,18 @@ else
     export MOZ_OBJDIR="$GECKO_OBJDIR"
     echo "Building in $MOZ_OBJDIR"
 fi
+
+if [ -z ${PLATFORM_VERSION+x} ]; then
+    echo "Please set PLATFORM_VERSION to the android version of the device"
+    exit 1;
+elif [ $PLATFORM_VERSION -lt 27 ]; then
+    echo "This script is not supporting platform version less than 27"
+    exit 1;
+else
+    echo "Building in platform version $PLATFORM_VERSION"
+fi
+
+export ANDROID_PLATFORM=android-${PLATFORM_VERSION}
 
 if [ -z ${GET_FRAMEBUFFER_FORMAT_FROM_HWC+x} ]; then
     echo "GET_FRAMEBUFFER_FORMAT_FROM_HWC is not set"
