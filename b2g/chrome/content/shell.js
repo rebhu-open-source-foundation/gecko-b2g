@@ -10,9 +10,6 @@ const Ci = Components.interfaces;
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
-ChromeUtils.defineModuleGetter(this, "ActorManagerParent",
-                               "resource://gre/modules/ActorManagerParent.jsm");
-
 function debug(str) {
   console.log(`-*- Shell.js: ${str}`);
 }
@@ -43,6 +40,7 @@ var shell = {
     let startURL = this.startURL;
     
     let systemAppFrame = document.createXULElement("browser");
+    systemAppFrame.setAttribute("type", "chrome");
     systemAppFrame.setAttribute("id", "systemapp");
     systemAppFrame.setAttribute("src", "blank.html");
 
@@ -195,9 +193,6 @@ document.addEventListener("DOMContentLoaded", function dom_loaded() {
         Services.prefs.setBoolPref("layers.acceleration.draw-fps", !current);
       }
   }, true);
-
-  // Initialize the ActorManagerParent
-  ActorManagerParent.flush();
 
   // Loads the Keyboard API.
   if (Services.prefs.getBoolPref("dom.mozInputMethod.enabled")) {

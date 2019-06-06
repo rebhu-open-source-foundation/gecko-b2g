@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-'use strict';
+"use strict";
 
 /**
  * This code exists to be a "grab bag" of global code that needs to be
@@ -19,8 +19,8 @@ const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cu = Components.utils;
 
-Cu.import('resource://gre/modules/Services.jsm');
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
+Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(this, "settings",
                                    "@mozilla.org/settingsService;1",
@@ -31,14 +31,14 @@ function debug(msg) {
 }
 function log(msg) {
   // This file implements console.log(), so use dump().
-  //dump('ProcessGlobal: ' + msg + '\n');
+  //dump("ProcessGlobal: " + msg + "\n");
 }
 
 function formatStackFrame(aFrame) {
-  let functionName = aFrame.functionName || '<anonymous>';
-  return '    at ' + functionName +
-         ' (' + aFrame.filename + ':' + aFrame.lineNumber +
-         ':' + aFrame.columnNumber + ')';
+  let functionName = aFrame.functionName || "<anonymous>";
+  return "    at " + functionName +
+         " (" + aFrame.filename + ":" + aFrame.lineNumber +
+         ":" + aFrame.columnNumber + ")";
 }
 
 function ConsoleMessage(aMsg, aLevel) {
@@ -46,15 +46,15 @@ function ConsoleMessage(aMsg, aLevel) {
   this.msg = aMsg;
 
   switch (aLevel) {
-    case 'error':
-    case 'assert':
+    case "error":
+    case "assert":
       this.logLevel = Ci.nsIConsoleMessage.error;
       break;
-    case 'warn':
+    case "warn":
       this.logLevel = Ci.nsIConsoleMessage.warn;
       break;
-    case 'log':
-    case 'info':
+    case "log":
+    case "info":
       this.logLevel = Ci.nsIConsoleMessage.info;
       break;
     default:
@@ -84,7 +84,7 @@ const gFactoryResetFile = "__post_reset_cmd__";
 
 function ProcessGlobal() {}
 ProcessGlobal.prototype = {
-  classID: Components.ID('{1a94c87a-5ece-4d11-91e1-d29c29f21b28}'),
+  classID: Components.ID("{1a94c87a-5ece-4d11-91e1-d29c29f21b28}"),
   QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver,
                                          Ci.nsISupportsWeakReference]),
 
@@ -159,12 +159,16 @@ ProcessGlobal.prototype = {
 
   observe: function pg_observe(subject, topic, data) {
     switch (topic) {
-    case 'app-startup': {
-      Services.obs.addObserver(this, 'console-api-log-event', false);
+    case "app-startup": {
+      Services.obs.addObserver(this, "console-api-log-event", false);
       let inParent = Cc["@mozilla.org/xre/app-info;1"]
                        .getService(Ci.nsIXULRuntime)
                        .processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
       if (inParent) {
+        // Initialize the ActorManagerParent
+        Cu.import("resource://gre/modules/ActorManagerParent.jsm");
+        ActorManagerParent.flush();
+
         Services.ppmm.addMessageListener("getProfD", function(message) {
           return Services.dirsvc.get("ProfD", Ci.nsIFile).path;
         });
@@ -173,25 +177,25 @@ ProcessGlobal.prototype = {
       }
       break;
     }
-    case 'console-api-log-event': {
+    case "console-api-log-event": {
       // Pipe `console` log messages to the nsIConsoleService which
       // writes them to logcat on Gonk.
       let message = subject.wrappedJSObject;
       let args = message.arguments;
-      let stackTrace = '';
+      let stackTrace = "";
 
       if (message.stacktrace &&
-          (message.level == 'assert' || message.level == 'error' || message.level == 'trace')) {
-        stackTrace = Array.map(message.stacktrace, formatStackFrame).join('\n');
+          (message.level == "assert" || message.level == "error" || message.level == "trace")) {
+        stackTrace = Array.map(message.stacktrace, formatStackFrame).join("\n");
       } else {
         stackTrace = formatStackFrame(message);
       }
 
       if (stackTrace) {
-        args.push('\n' + stackTrace);
+        args.push("\n" + stackTrace);
       }
 
-      let msg = 'Content JS ' + message.level.toUpperCase() + ': ' + Array.prototype.join(args, ' ');
+      let msg = "Content JS " + message.level.toUpperCase() + ": " + Array.prototype.join(args, " ");
       Services.console.logMessage(new ConsoleMessage(msg, message.level));
       break;
     }

@@ -772,6 +772,7 @@
 
 ; Modules
 @RESPATH@/modules/*
+@RESPATH@/actors/*
 
 ; Safe Browsing
 @RESPATH@/components/nsURLClassifier.manifest

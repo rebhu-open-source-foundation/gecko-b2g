@@ -60,3 +60,8 @@ chrome.jar:
   content/images/controls/keypad_number.png        (content/images/controls/keypad_number.png)
   content/images/controls/keypad_number_normal.png (content/images/controls/keypad_number_normal.png)
   content/images/controls/keypad_number_press.png  (content/images/controls/keypad_number_press.png)
+
+# System app
+  content/system/index.html                   (content/system-app/index.html)
+  content/system/js                           (content/system-app/js/*)
+  content/system/images                       (content/system-app/images/*)

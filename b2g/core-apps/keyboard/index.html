@@ -2,33 +2,35 @@
 <html>
 
 <head>
-    <title>Basic Keyboard</title>
+    <title>Keyboard</title>
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
     <meta charset="utf-8">
     <style>
         html,
         body {
             margin: 0;
-            background-color: lightgray;
+            background-color: beige;
             color: black;
             font-family: sans-serif;
             width: 100%;
             height: 100%;
+            user-select: none;
         }
 
         #keys {
             display: grid;
-            grid-template-columns: repeat(9, 1fr);
+            grid-template-columns: repeat(10, 1fr);
+            border-top: 1px solid grey;
         }
 
         .key {
             text-align: center;
             padding: 0.3em 0.2em 0.3em 0.2em;
-            border: 1px solid grey;
         }
 
         .key:active {
-            background-color: white;
+            background-color: black;
+            color: beige;
         }
     </style>
     <script>
@@ -39,14 +41,11 @@
         var input_context = null;
 
         const layout = [
-            "a", "b", "c", "d",
-            "e", "f", "g", "h",
-            "i", "j", "k", "l",
-            "m", "n", "o", "p",
-            "q", "r", "s", "t",
-            "u", "v", "w", "x",
-            "y", "z",
-            { disp: "―", key: "Space" },
+            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+            "k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
+            "u", "v", "w", "x", "y", "z",
+            { disp: "―", key: " " },
             { disp: "⌫", key: "Backspace" },
             { disp: "⏎", key: "Enter" }
         ];
@@ -71,12 +70,17 @@
                 wrapper.appendChild(elem);
             });
 
-            wrapper.addEventListener("touchstart", event => {
-                debug(`Will dispatch key ${event.target.getAttribute("data-key")}`);
-            });
-
             let input_method = navigator.mozInputMethod;
             input_method.setActive(true);
+
+            wrapper.addEventListener("touchstart", event => {
+                let key = event.target.getAttribute("data-key");
+                debug(`Will dispatch key ${key}`);
+                input_context = input_method.inputcontext;
+                if (input_context) {
+                    input_context.sendKey({ key })
+                }
+            });
 
             if (input_method.inputcontext) {
                 debug(`Using existing input context`);
@@ -88,7 +92,6 @@
             input_method.oninputcontextchange = event => {
                 input_context = input_method.inputcontext;
                 debug(`Changing input context ${input_context}`);
-                input_context.sendKey({ key: "A" })
             }
 
         });
