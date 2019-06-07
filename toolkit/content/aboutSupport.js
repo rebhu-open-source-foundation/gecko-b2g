@@ -47,6 +47,7 @@ var snapshotFormatters = {
     $("application-box").textContent = data.name;
     $("useragent-box").textContent = data.userAgent;
     $("os-box").textContent = data.osVersion;
+    $("binary-box").textContent = Services.dirsvc.get("XREExeF", Ci.nsIFile).path;
     $("supportLink").href = data.supportURL;
     let version = AppConstants.MOZ_APP_VERSION_DISPLAY;
     if (data.vendor)
@@ -343,9 +344,11 @@ var snapshotFormatters = {
       apzInfo = formatApzInfo(data.info);
 
       let trs = sortedArrayFromObject(data.info).map(function([prop, val]) {
+        let td = $.new("td", String(val));
+        td.style["word-break"] = "break-all";
         return $.new("tr", [
           $.new("th", prop, "column"),
-          $.new("td", String(val)),
+          td,
         ]);
       });
       addRows("diagnostics", trs);
@@ -1225,8 +1228,10 @@ function setupEventListeners() {
   let button = $("show-update-history-button");
   if (button) {
     button.addEventListener("click", function(event) {
-      var prompter = Cc["@mozilla.org/updates/update-prompt;1"].createInstance(Ci.nsIUpdatePrompt);
-      prompter.showUpdateHistory(window);
+      let uri = "chrome://mozapps/content/update/history.xul";
+      let features = "chrome,centerscreen,resizable=no,titlebar,toolbar=no," +
+                     "dialog=yes,modal";
+      Services.ww.openWindow(window, uri, "Update:History", features, null);
     });
   }
   button = $("reset-box-button");

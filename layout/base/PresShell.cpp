@@ -67,7 +67,7 @@
 #include "nsWindowSizes.h"
 #include "nsCOMPtr.h"
 #include "nsReadableUtils.h"
-#include "nsIPageSequenceFrame.h"
+#include "nsPageSequenceFrame.h"
 #include "nsIPermissionManager.h"
 #include "nsIMozBrowserFrame.h"
 #include "nsCaret.h"
@@ -2440,9 +2440,8 @@ nsIScrollableFrame* PresShell::GetRootScrollFrameAsScrollable() const {
   return scrollableFrame;
 }
 
-nsIPageSequenceFrame* PresShell::GetPageSequenceFrame() const {
-  nsIFrame* frame = mFrameConstructor->GetPageSequenceFrame();
-  return do_QueryFrame(frame);
+nsPageSequenceFrame* PresShell::GetPageSequenceFrame() const {
+  return mFrameConstructor->GetPageSequenceFrame();
 }
 
 nsCanvasFrame* PresShell::GetCanvasFrame() const {
@@ -5021,24 +5020,23 @@ already_AddRefed<SourceSurface> PresShell::RenderSelection(
                              aScreenRect, aFlags);
 }
 
-void PresShell::AddPrintPreviewBackgroundItem(nsDisplayListBuilder& aBuilder,
-                                              nsDisplayList& aList,
+void PresShell::AddPrintPreviewBackgroundItem(nsDisplayListBuilder* aBuilder,
+                                              nsDisplayList* aList,
                                               nsIFrame* aFrame,
                                               const nsRect& aBounds) {
-  aList.AppendNewToBottom<nsDisplaySolidColor>(&aBuilder, aFrame, aBounds,
-                                               NS_RGB(115, 115, 115));
+  aList->AppendNewToBottom<nsDisplaySolidColor>(aBuilder, aFrame, aBounds,
+                                                NS_RGB(115, 115, 115));
 }
 
-static bool AddCanvasBackgroundColor(const nsDisplayList& aList,
+static bool AddCanvasBackgroundColor(const nsDisplayList* aList,
                                      nsIFrame* aCanvasFrame, nscolor aColor,
                                      bool aCSSBackgroundColor) {
-  for (nsDisplayItem* i = aList.GetBottom(); i; i = i->GetAbove()) {
+  for (nsDisplayItem* i = aList->GetBottom(); i; i = i->GetAbove()) {
     const DisplayItemType type = i->GetType();
 
     if (i->Frame() == aCanvasFrame &&
         type == DisplayItemType::TYPE_CANVAS_BACKGROUND_COLOR) {
-      nsDisplayCanvasBackgroundColor* bg =
-          static_cast<nsDisplayCanvasBackgroundColor*>(i);
+      auto* bg = static_cast<nsDisplayCanvasBackgroundColor*>(i);
       bg->SetExtraBackgroundColor(aColor);
       return true;
     }
@@ -5049,7 +5047,7 @@ static bool AddCanvasBackgroundColor(const nsDisplayList& aList,
 
     nsDisplayList* sublist = i->GetSameCoordinateSystemChildren();
     if (sublist && !(isBlendContainer && !aCSSBackgroundColor) &&
-        AddCanvasBackgroundColor(*sublist, aCanvasFrame, aColor,
+        AddCanvasBackgroundColor(sublist, aCanvasFrame, aColor,
                                  aCSSBackgroundColor))
       return true;
   }
@@ -5057,7 +5055,7 @@ static bool AddCanvasBackgroundColor(const nsDisplayList& aList,
 }
 
 void PresShell::AddCanvasBackgroundColorItem(
-    nsDisplayListBuilder& aBuilder, nsDisplayList& aList, nsIFrame* aFrame,
+    nsDisplayListBuilder* aBuilder, nsDisplayList* aList, nsIFrame* aFrame,
     const nsRect& aBounds, nscolor aBackstopColor,
     AddCanvasBackgroundColorFlags aFlags) {
   if (aBounds.IsEmpty()) {
@@ -5113,8 +5111,8 @@ void PresShell::AddCanvasBackgroundColorItem(
   }
 
   if (!addedScrollingBackgroundColor || forceUnscrolledItem) {
-    aList.AppendNewToBottom<nsDisplaySolidColor>(&aBuilder, aFrame, aBounds,
-                                                 bgcolor);
+    aList->AppendNewToBottom<nsDisplaySolidColor>(aBuilder, aFrame, aBounds,
+                                                  bgcolor);
   }
 }
 
@@ -7318,11 +7316,19 @@ nsIFrame* PresShell::EventHandler::MaybeFlushThrottledStyles(
     return aFrameForPresShell;
   }
 
+  PresShell* rootPresShell = mPresShell->GetRootPresShell();
+  if (NS_WARN_IF(!rootPresShell)) {
+    return nullptr;
+  }
+  Document* rootDocument = rootPresShell->GetDocument();
+  if (NS_WARN_IF(!rootDocument)) {
+    return nullptr;
+  }
+
   AutoWeakFrame weakFrameForPresShell(aFrameForPresShell);
   {  // scope for scriptBlocker.
     nsAutoScriptBlocker scriptBlocker;
-    FlushThrottledStyles(mPresShell->GetRootPresShell()->GetDocument(),
-                         nullptr);
+    FlushThrottledStyles(rootDocument, nullptr);
   }
 
   if (weakFrameForPresShell.IsAlive()) {

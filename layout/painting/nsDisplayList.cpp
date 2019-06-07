@@ -61,6 +61,7 @@
 #include "ImageLayers.h"
 #include "ImageContainer.h"
 #include "nsCanvasFrame.h"
+#include "nsSubDocumentFrame.h"
 #include "StickyScrollContainer.h"
 #include "mozilla/AnimationPerformanceWarning.h"
 #include "mozilla/AnimationUtils.h"
@@ -102,7 +103,6 @@
 #include "mozilla/layers/WebRenderLayerManager.h"
 #include "mozilla/layers/WebRenderMessages.h"
 #include "mozilla/layers/WebRenderScrollData.h"
-#include "mozilla/layout/RenderFrame.h"
 
 using namespace mozilla;
 using namespace mozilla::layers;
@@ -281,9 +281,9 @@ static Translation GetTranslate(const StyleTranslate& aValue,
   return result;
 }
 
-static void AddTransformFunctions(
-    const StyleTransform& aTransform, TransformReferenceBox& aRefBox,
-    InfallibleTArray<TransformFunction>& aFunctions) {
+static void AddTransformFunctions(const StyleTransform& aTransform,
+                                  TransformReferenceBox& aRefBox,
+                                  nsTArray<TransformFunction>& aFunctions) {
   for (const StyleTransformOperation& op : aTransform.Operations()) {
     switch (op.tag) {
       case StyleTransformOperation::Tag::RotateX: {
@@ -593,6 +593,7 @@ static void AddAnimationForProperty(nsIFrame* aFrame,
   animation->iterationComposite() = static_cast<uint8_t>(
       aAnimation->GetEffect()->AsKeyframeEffect()->IterationComposite());
   animation->isNotPlaying() = !aAnimation->IsPlaying();
+  animation->isNotAnimating() = false;
 
   TransformReferenceBox refBox(aFrame);
 
@@ -683,11 +684,12 @@ GroupAnimationsByProperty(const nsTArray<RefPtr<dom::Animation>>& aAnimations,
   return groupedAnims;
 }
 
-static void AddAnimationsForProperty(
+static bool AddAnimationsForProperty(
     nsIFrame* aFrame, const EffectSet* aEffects,
     const nsTArray<RefPtr<dom::Animation>>& aCompositorAnimations,
     const Maybe<TransformData>& aData, nsCSSPropertyID aProperty,
     Send aSendFlag, AnimationInfo& aAnimationInfo) {
+  bool addedAny = false;
   // Add from first to last (since last overrides)
   for (dom::Animation* anim : aCompositorAnimations) {
     if (!anim->IsRelevant()) {
@@ -732,7 +734,9 @@ static void AddAnimationsForProperty(
     AddAnimationForProperty(aFrame, *property, anim, aData, aSendFlag,
                             aAnimationInfo);
     keyframeEffect->SetIsRunningOnCompositor(aProperty, true);
+    addedAny = true;
   }
+  return addedAny;
 }
 
 static Maybe<TransformData> CreateAnimationData(
@@ -782,6 +786,58 @@ static Maybe<TransformData> CreateAnimationData(
                             hasPerspectiveParent));
 }
 
+static void AddNonAnimatingTransformLikePropertiesStyles(
+    const nsCSSPropertyIDSet& aNonAnimatingProperties, nsIFrame* aFrame,
+    const Maybe<TransformData>& aData, Send aSendFlag,
+    AnimationInfo& aAnimationInfo) {
+  auto appendFakeAnimation = [&aAnimationInfo, &aData, aSendFlag](
+                                 nsCSSPropertyID aProperty,
+                                 Animatable&& aBaseStyle) {
+    layers::Animation* animation =
+        (aSendFlag == Send::NextTransaction)
+            ? aAnimationInfo.AddAnimationForNextTransaction()
+            : aAnimationInfo.AddAnimation();
+    animation->property() = aProperty;
+    animation->baseStyle() = std::move(aBaseStyle);
+    animation->data() = aData;
+    animation->easingFunction() = null_t();
+    animation->isNotAnimating() = true;
+  };
+
+  for (nsCSSPropertyID id : aNonAnimatingProperties) {
+    switch (id) {
+      case eCSSProperty_transform:
+        if (!aFrame->StyleDisplay()->mTransform.IsNone()) {
+          TransformReferenceBox refBox(aFrame);
+          nsTArray<TransformFunction> transformFunctions;
+          AddTransformFunctions(aFrame->StyleDisplay()->mTransform, refBox,
+                                transformFunctions);
+          appendFakeAnimation(id, Animatable(std::move(transformFunctions)));
+        }
+        break;
+      case eCSSProperty_translate:
+        if (!aFrame->StyleDisplay()->mTranslate.IsNone()) {
+          TransformReferenceBox refBox(aFrame);
+          appendFakeAnimation(
+              id, GetTranslate(aFrame->StyleDisplay()->mTranslate, refBox));
+        }
+        break;
+      case eCSSProperty_rotate:
+        if (!aFrame->StyleDisplay()->mRotate.IsNone()) {
+          appendFakeAnimation(id, GetRotate(aFrame->StyleDisplay()->mRotate));
+        }
+        break;
+      case eCSSProperty_scale:
+        if (!aFrame->StyleDisplay()->mScale.IsNone()) {
+          appendFakeAnimation(id, GetScale(aFrame->StyleDisplay()->mScale));
+        }
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("Unsupported transform-like properties");
+    }
+  }
+}
+
 static void AddAnimationsForDisplayItem(nsIFrame* aFrame,
                                         nsDisplayListBuilder* aBuilder,
                                         nsDisplayItem* aItem,
@@ -829,9 +885,38 @@ static void AddAnimationsForDisplayItem(nsIFrame* aFrame,
   const HashMap<nsCSSPropertyID, nsTArray<RefPtr<dom::Animation>>>
       compositorAnimations =
           GroupAnimationsByProperty(matchedAnimations, propertySet);
+  // Bug 1424900: Drop this pref check after shipping individual transforms.
+  const bool hasMultipleTransformLikeProperties =
+      StaticPrefs::IndividualTransform() &&
+      aType == DisplayItemType::TYPE_TRANSFORM;
+  nsCSSPropertyIDSet nonAnimatingProperties =
+      nsCSSPropertyIDSet::TransformLikeProperties();
   for (auto iter = compositorAnimations.iter(); !iter.done(); iter.next()) {
-    AddAnimationsForProperty(aFrame, effects, iter.get().value(), data,
-                             iter.get().key(), aSendFlag, aAnimationInfo);
+    bool added =
+        AddAnimationsForProperty(aFrame, effects, iter.get().value(), data,
+                                 iter.get().key(), aSendFlag, aAnimationInfo);
+    if (hasMultipleTransformLikeProperties && added) {
+      nonAnimatingProperties.RemoveProperty(iter.get().key());
+    }
+  }
+
+  // If some transform-like properties have animations, but others not, and
+  // those non-animating transform-like properties have non-none
+  // transform/translate/rotate/scale styles, we also pass their styles into
+  // the compositor, so the final transform matrix (on the compositor) could
+  // take them into account.
+  if (hasMultipleTransformLikeProperties &&
+      // For these cases we don't need to send the property style values to
+      // the compositor:
+      // 1. No property has running animations on the compositor. (i.e. All
+      //    properties should be handled by main thread)
+      // 2. All properties have running animations on the compositor.
+      //    (i.e. Those running animations should override the styles.)
+      !nonAnimatingProperties.Equals(
+          nsCSSPropertyIDSet::TransformLikeProperties()) &&
+      !nonAnimatingProperties.IsEmpty()) {
+    AddNonAnimatingTransformLikePropertiesStyles(
+        nonAnimatingProperties, aFrame, data, aSendFlag, aAnimationInfo);
   }
 }
 
@@ -1286,7 +1371,7 @@ void nsDisplayListBuilder::SetGlassDisplayItem(nsDisplayItem* aItem) {
         NS_WARNING("Multiple glass backgrounds found?");
       } else
 #endif
-      if (!mHasGlassItemDuringPartial) {
+          if (!mHasGlassItemDuringPartial) {
         mHasGlassItemDuringPartial = true;
         aItem->SetIsGlassItem();
       }
@@ -1300,7 +1385,7 @@ void nsDisplayListBuilder::SetGlassDisplayItem(nsDisplayItem* aItem) {
       NS_WARNING("Multiple glass backgrounds found?");
     } else
 #endif
-    if (!mGlassDisplayItem) {
+        if (!mGlassDisplayItem) {
       mGlassDisplayItem = aItem;
       mGlassDisplayItem->SetIsGlassItem();
     }
@@ -8639,22 +8724,26 @@ void nsDisplayTransform::UpdateBounds(nsDisplayListBuilder* aBuilder) {
     return;
   }
 
-  if (!Combines3DTransformWithAncestors()) {
-    if (mFrame->Extend3DContext()) {
+  if (mFrame->Extend3DContext()) {
+    if (!Combines3DTransformWithAncestors()) {
       // The transform establishes a 3D context. |UpdateBoundsFor3D()| will
       // collect the bounds from the child transforms.
       UpdateBoundsFor3D(aBuilder);
     } else {
-      // A stand-alone transform.
-      mBounds = TransformUntransformedBounds(aBuilder, GetTransform());
+      // With nested 3D transforms, the 2D bounds might not be useful.
+      mBounds = nsRect();
     }
 
     return;
   }
 
-  // With nested 3D transforms, the 2D bounds might not be useful.
-  MOZ_ASSERT(mFrame->Combines3DTransformWithAncestors());
-  mBounds = nsRect();
+  MOZ_ASSERT(!mFrame->Extend3DContext());
+
+  // We would like to avoid calculating 2D bounds here for nested 3D transforms,
+  // but mix-blend-mode relies on having bounds set. See bug 1556956.
+
+  // A stand-alone transform.
+  mBounds = TransformUntransformedBounds(aBuilder, GetTransform());
 }
 
 void nsDisplayTransform::UpdateBoundsFor3D(nsDisplayListBuilder* aBuilder) {

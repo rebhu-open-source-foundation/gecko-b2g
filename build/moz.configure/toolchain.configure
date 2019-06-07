@@ -700,10 +700,10 @@ def toolchain_search_path_for(host_or_target):
         target: vc_compiler_path,
     }[host_or_target]
 
-    @depends(vc_path, original_path)
+    @depends(vc_path, original_path, developer_options)
     @imports('os')
     @imports(_from='os', _import='environ')
-    def toolchain_search_path(vc_compiler_path, original_path):
+    def toolchain_search_path(vc_compiler_path, original_path, developer_options):
         result = list(original_path)
 
         if vc_compiler_path:
@@ -719,20 +719,24 @@ def toolchain_search_path_for(host_or_target):
         # `mach artifact toolchain` installs clang.
         mozbuild_state_dir = environ.get('MOZBUILD_STATE_PATH',
                                          os.path.expanduser(os.path.join('~', '.mozbuild')))
+        bootstrapped = []
+
         bootstrap_clang_path = os.path.join(mozbuild_state_dir, 'clang', 'bin')
-        result.append(bootstrap_clang_path)
+        bootstrapped.append(bootstrap_clang_path)
 
         bootstrap_cbindgen_path = os.path.join(mozbuild_state_dir, 'cbindgen')
-        result.append(bootstrap_cbindgen_path)
+        bootstrapped.append(bootstrap_cbindgen_path)
 
         bootstrap_nasm_path = os.path.join(mozbuild_state_dir, 'nasm')
-        result.append(bootstrap_nasm_path)
+        bootstrapped.append(bootstrap_nasm_path)
 
         # Also add the rustup install directory for cargo/rustc.
         rustup_path = os.path.expanduser(os.path.join('~', '.cargo', 'bin'))
         result.append(rustup_path)
 
-        return result
+        if developer_options:
+            return bootstrapped + result
+        return result + bootstrapped
     return toolchain_search_path
 
 
@@ -772,10 +776,9 @@ def default_c_compilers(host_or_target, other_c_compiler=None):
 
     other_c_compiler = () if other_c_compiler is None else (other_c_compiler,)
 
-    @depends(host_or_target, target, toolchain_prefix, android_clang_compiler,
-             *other_c_compiler)
+    @depends(host_or_target, target, toolchain_prefix, *other_c_compiler)
     def default_c_compilers(host_or_target, target, toolchain_prefix,
-                            android_clang_compiler, *other_c_compiler):
+                            *other_c_compiler):
         if host_or_target.kernel == 'WINNT':
             supported = types = ('clang-cl', 'gcc', 'clang')
         elif host_or_target.kernel == 'Darwin':
@@ -798,10 +801,6 @@ def default_c_compilers(host_or_target, other_c_compiler=None):
                     # -m32/-m64 for the host, it's probably toolchain-prefixed,
                     # so we prioritize a raw 'gcc' instead.
                     prioritized = info.type
-            elif info.type == 'clang' and android_clang_compiler:
-                # Android NDK clangs do not function as host compiler, so
-                # prioritize a raw 'clang' instead.
-                prioritized = info.type
 
             types = [prioritized] + [t for t in types if t != info.type]
 
@@ -811,12 +810,7 @@ def default_c_compilers(host_or_target, other_c_compiler=None):
 
         result = []
         for type in types:
-            # Android sets toolchain_prefix and android_clang_compiler, but
-            # we want the latter to take precedence, because the latter can
-            # point at clang, which is what we want to use.
-            if type == 'clang' and android_clang_compiler and host_or_target is target:
-                result.append(android_clang_compiler)
-            elif type == 'gcc':
+            if type == 'gcc':
                 result.extend(gcc)
             else:
                 result.append(type)
@@ -2078,10 +2072,10 @@ def select_linker(linker, c_compiler, developer_options, enable_gold,
         die("Failed to find a linker")
 
     if (linker is None and enable_gold.origin == 'default' and
-            developer_options and result.KIND == 'bfd'):
+            developer_options and result.KIND in ('bfd', 'gold')):
         # try and use lld if available.
         tried = try_linker('lld')
-        if tried is None or tried.KIND != 'lld':
+        if result.KIND != 'gold' and (tried is None or tried.KIND != 'lld'):
             tried = try_linker('gold')
             if tried is None or tried.KIND != 'gold':
                 tried = None

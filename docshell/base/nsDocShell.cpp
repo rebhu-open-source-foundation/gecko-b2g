@@ -5072,9 +5072,11 @@ nsDocShell::Destroy() {
     mSessionHistory = nullptr;
   }
 
-  // This will be skipped in cases where we want to preserve the browsing
-  // context between loads.
-  if (!mSkipBrowsingContextDetachOnDestroy) {
+  // Either `Detach` our BrowsingContext if this window is closing, or prepare
+  // the BrowsingContext for the switch to continue.
+  if (mSkipBrowsingContextDetachOnDestroy) {
+    mBrowsingContext->PrepareForProcessChange();
+  } else {
     mBrowsingContext->Detach();
   }
 
@@ -6935,7 +6937,7 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
 
           LoadURIOptions loadURIOptions;
           loadURIOptions.mTriggeringPrincipal = triggeringPrincipal;
-          loadURIOptions.mCsp = loadInfo->GetCsp();
+          loadURIOptions.mCsp = loadInfo->GetCspToInherit();
           loadURIOptions.mPostData = newPostData;
           return LoadURI(newSpecW, loadURIOptions);
         }
@@ -10059,16 +10061,16 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
       }
     }
 
-    if (CSP_ShouldResponseInheritCSP(channel)) {
-      // If the new load needs to inherit the CSP, temporarily store the CSP
-      // on the loadinfo, and transfer it to the new Document within
-      // Document::InitCSP(). Please create an actual copy of the CSP (do not
-      // share the same reference) otherwise a Meta CSP of an opaque origin
-      // will incorrectly be propagated to the embedding document.
-      RefPtr<nsCSPContext> cspToInherit = new nsCSPContext();
-      cspToInherit->InitFromOther(static_cast<nsCSPContext*>(csp.get()));
-      loadInfo->SetCSPToInherit(cspToInherit);
-    }
+    // For document loads we store the CSP that potentially needs to
+    // be inherited by the new document, e.g. in case we are loading
+    // an opaque origin like a data: URI. The actual inheritance
+    // check happens within Document::InitCSP().
+    // Please create an actual copy of the CSP (do not share the same
+    // reference) otherwise a Meta CSP of an opaque origin will
+    // incorrectly be propagated to the embedding document.
+    RefPtr<nsCSPContext> cspToInherit = new nsCSPContext();
+    cspToInherit->InitFromOther(static_cast<nsCSPContext*>(csp.get()));
+    loadInfo->SetCSPToInherit(cspToInherit);
   }
 
   nsCOMPtr<nsIApplicationCacheChannel> appCacheChannel =
@@ -11469,7 +11471,7 @@ nsresult nsDocShell::AddToSessionHistory(nsIURI* aURI, nsIChannel* aChannel,
       triggeringPrincipal = loadInfo->TriggeringPrincipal();
     }
     if (!csp) {
-      csp = static_cast<net::LoadInfo*>(loadInfo.get())->GetCSPToInherit();
+      csp = loadInfo->GetCspToInherit();
     }
 
     loadInfo->GetResultPrincipalURI(getter_AddRefs(resultPrincipalURI));
@@ -12679,7 +12681,8 @@ nsDocShell::OnLinkClickSync(
   }
 
   uint32_t flags = INTERNAL_LOAD_FLAGS_NONE;
-  if (IsElementAnchorOrArea(aContent)) {
+  bool isElementAnchorOrArea = IsElementAnchorOrArea(aContent);
+  if (isElementAnchorOrArea) {
     MOZ_ASSERT(aContent->IsHTMLElement());
     nsAutoString relString;
     aContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::rel,
@@ -12745,20 +12748,6 @@ nsDocShell::OnLinkClickSync(
     return NS_OK;
   }
 
-  nsCOMPtr<nsIURI> referrer = referrerDoc->GetDocumentURI();
-  uint32_t referrerPolicy = referrerDoc->GetReferrerPolicy();
-
-  // get referrer attribute from clicked link and parse it
-  // if per element referrer is enabled, the element referrer overrules
-  // the document wide referrer
-  if (IsElementAnchorOrArea(aContent)) {
-    net::ReferrerPolicy refPolEnum =
-        aContent->AsElement()->GetReferrerPolicyAsEnum();
-    if (refPolEnum != RP_Unset) {
-      referrerPolicy = refPolEnum;
-    }
-  }
-
   // referrer could be null here in some odd cases, but that's ok,
   // we'll just load the link w/o sending a referrer in those cases.
 
@@ -12783,9 +12772,13 @@ nsDocShell::OnLinkClickSync(
     flags |= INTERNAL_LOAD_FLAGS_IS_USER_TRIGGERED;
   }
 
-  bool sendReferrer = !(flags & INTERNAL_LOAD_FLAGS_DONT_SEND_REFERRER);
-  nsCOMPtr<nsIReferrerInfo> referrerInfo =
-      new ReferrerInfo(referrer, referrerPolicy, sendReferrer);
+  nsCOMPtr<nsIReferrerInfo> referrerInfo = new ReferrerInfo();
+  if (isElementAnchorOrArea) {
+    referrerInfo->InitWithNode(aContent);
+  } else {
+    referrerInfo->InitWithDocument(referrerDoc);
+  }
+
   RefPtr<nsDocShellLoadState> loadState = new nsDocShellLoadState(aURI);
   loadState->SetReferrerInfo(referrerInfo);
   loadState->SetTriggeringPrincipal(triggeringPrincipal);

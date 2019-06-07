@@ -838,8 +838,8 @@ static nsresult GetCreateWindowParams(mozIDOMWindowProxy* aParent,
   }
 
   if (!referrerInfo) {
-    referrerInfo =
-        new ReferrerInfo(doc->GetDocBaseURI(), doc->GetReferrerPolicy());
+    referrerInfo = new ReferrerInfo();
+    referrerInfo->InitWithDocument(doc);
   }
 
   referrerInfo.swap(*aReferrerInfo);
@@ -2080,13 +2080,14 @@ already_AddRefed<RemoteBrowser> ContentChild::CreateBrowser(
     chromeFlags |= nsIWebBrowserChrome::CHROME_PRIVATE_LIFETIME;
   }
 
+  TabId tabId(nsContentUtils::GenerateTabId());
   RefPtr<BrowserBridgeChild> browserBridge =
-      new BrowserBridgeChild(aFrameLoader, aBrowsingContext);
+      new BrowserBridgeChild(aFrameLoader, aBrowsingContext, tabId);
   // Reference is freed in BrowserChild::DeallocPBrowserBridgeChild.
   browserChild->SendPBrowserBridgeConstructor(
       do_AddRef(browserBridge).take(),
       PromiseFlatString(aContext.PresentationURL()), aRemoteType,
-      aBrowsingContext, chromeFlags);
+      aBrowsingContext, chromeFlags, tabId);
   browserBridge->mIPCOpen = true;
 
   RefPtr<BrowserBridgeHost> browserBridgeHost =

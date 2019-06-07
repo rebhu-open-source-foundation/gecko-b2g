@@ -2542,6 +2542,13 @@ VARCACHE_PREF(
 
 VARCACHE_PREF(
   Live,
+  "gfx.canvas.remote",
+  CanvasRemote,
+  RelaxedAtomicBool, false
+)
+
+VARCACHE_PREF(
+  Live,
   "gfx.color_management.enablev4",
   CMSEnableV4,
   RelaxedAtomicBool, false
@@ -4168,6 +4175,14 @@ VARCACHE_PREF(
   bool, false
 )
 
+// text decoration width
+VARCACHE_PREF(
+  Live,
+  "layout.css.text-decoration-width.enabled",
+  layout_css_text_decoration_width_enabled,
+  bool, false
+)
+
 // Is support for CSS column-span enabled?
 VARCACHE_PREF(
   Live,
@@ -4288,6 +4303,14 @@ VARCACHE_PREF(
 )
 #undef PREF_VALUE
 
+// Is support for CSS individual transform enabled?
+VARCACHE_PREF(
+  Live,
+  "layout.css.individual-transform.enabled",
+  IndividualTransform,
+  bool, false
+)
+
 // Pref to control whether line-height: -moz-block-height is exposed to content.
 VARCACHE_PREF(
   Live,
@@ -4342,21 +4365,11 @@ VARCACHE_PREF(
   bool, true
 )
 
-// Are "-webkit-{min|max}-device-pixel-ratio" media queries supported? (Note:
-// this pref has no effect if the master 'layout.css.prefixes.webkit' pref is
-// set to false.)
+// Are "-webkit-{min|max}-device-pixel-ratio" media queries supported?
 VARCACHE_PREF(
   Live,
   "layout.css.prefixes.device-pixel-ratio-webkit",
   layout_css_prefixes_device_pixel_ratio_webkit,
-  bool, true
-)
-
-// Are webkit-prefixed properties & property-values supported?
-VARCACHE_PREF(
-  Live,
-  "layout.css.prefixes.webkit",
-  layout_css_prefixes_webkit,
   bool, true
 )
 
@@ -4373,15 +4386,6 @@ VARCACHE_PREF(
   "layout.css.scroll-behavior.damping-ratio",
   ScrollBehaviorDampingRatio,
   AtomicFloat, 1.0f
-)
-
-// Are -moz-prefixed gradients restricted to a simpler syntax? (with an optional
-// <angle> or <position>, but not both)?
-VARCACHE_PREF(
-  Live,
-  "layout.css.simple-moz-gradient.enabled",
-  layout_css_simple_moz_gradient_enabled,
-  bool, true
 )
 
 #ifdef NIGHTLY_BUILD
@@ -4736,6 +4740,13 @@ VARCACHE_PREF(
 
 // These prefs use camel case instead of snake case for the getter because one
 // reviewer had an unshakeable preference for that. Who could that be?
+
+VARCACHE_PREF(
+  Live,
+  "media.autoplay.enabled.user-gestures-needed",
+  MediaAutoplayUserGesturesNeeded,
+  bool, false
+)
 
 VARCACHE_PREF(
   Live,

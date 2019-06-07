@@ -2925,7 +2925,7 @@ void InitUsageForOrigin(const nsACString& aOrigin, int64_t aUsage) {
     gUsages = new UsageHashtable();
   }
 
-  MOZ_DIAGNOSTIC_ASSERT(!gUsages->Contains(aOrigin));
+  MOZ_ASSERT(!gUsages->Contains(aOrigin));
   gUsages->Put(aOrigin, aUsage);
 }
 
@@ -8632,7 +8632,7 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
       }
     }
 
-    MOZ_DIAGNOSTIC_ASSERT(usage >= 0);
+    MOZ_ASSERT(usage >= 0);
 
     if (!aForGetUsage) {
       InitUsageForOrigin(aOrigin, usage);

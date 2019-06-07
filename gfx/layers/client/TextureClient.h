@@ -249,7 +249,16 @@ class TextureData {
           canConcurrentlyReadLock(true) {}
   };
 
-  TextureData() { MOZ_COUNT_CTOR(TextureData); }
+  static TextureData* Create(TextureForwarder* aAllocator,
+                             gfx::SurfaceFormat aFormat,
+                             gfx::IntSize aSize,
+                             LayersBackend aLayersBackend,
+                             int32_t aMaxTextureSize,
+                             BackendSelector aSelector,
+                             TextureFlags aTextureFlags,
+                             TextureAllocationFlags aAllocFlags);
+
+  static bool IsRemote(LayersBackend aLayersBackend, BackendSelector aSelector);
 
   virtual ~TextureData() { MOZ_COUNT_DTOR(TextureData); }
 
@@ -260,6 +269,10 @@ class TextureData {
   virtual void Unlock() = 0;
 
   virtual already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() {
+    return nullptr;
+  }
+
+  virtual already_AddRefed<gfx::SourceSurface> BorrowSnapshot() {
     return nullptr;
   }
 
@@ -308,6 +321,8 @@ class TextureData {
 #ifdef MOZ_WIDGET_GONK
   virtual GrallocTextureData* AsGrallocTextureData() { return nullptr; }
 #endif
+protected:
+  TextureData() { MOZ_COUNT_CTOR(TextureData); }
 };
 
 /**
@@ -437,6 +452,8 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
    *
    */
   gfx::DrawTarget* BorrowDrawTarget();
+
+  already_AddRefed<gfx::SourceSurface> BorrowSnapshot();
 
   /**
    * Similar to BorrowDrawTarget but provides direct access to the texture's

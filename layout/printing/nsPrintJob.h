@@ -29,7 +29,7 @@ class nsIDocShell;
 class nsIDocumentViewerPrint;
 class nsPrintObject;
 class nsIDocShell;
-class nsIPageSequenceFrame;
+class nsPageSequenceFrame;
 
 namespace mozilla {
 class PresShell;
@@ -113,10 +113,8 @@ class nsPrintJob final : public nsIObserver,
 
   bool IsDoingPrint() const { return mIsDoingPrinting; }
   bool IsDoingPrintPreview() const { return mIsDoingPrintPreview; }
-  bool IsFramesetDocument() const;
   bool IsIFrameSelected();
   bool IsRangeSelection();
-  bool IsFramesetFrameSelected() const;
   /// If the returned value is not greater than zero, an error occurred.
   int32_t GetPrintPreviewNumPages();
   /// Callers are responsible for free'ing aResult.
@@ -172,16 +170,11 @@ class nsPrintJob final : public nsIObserver,
   bool DonePrintingPages(nsPrintObject* aPO, nsresult aResult);
 
   //---------------------------------------------------------------------
-  void BuildDocTree(nsIDocShell* aParentNode,
-                    nsTArray<nsPrintObject*>* aDocList,
-                    const mozilla::UniquePtr<nsPrintObject>& aPO);
   nsresult ReflowDocList(const mozilla::UniquePtr<nsPrintObject>& aPO,
                          bool aSetPixelScale);
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsresult ReflowPrintObject(const mozilla::UniquePtr<nsPrintObject>& aPO);
-
-  void CheckForChildFrameSets(const mozilla::UniquePtr<nsPrintObject>& aPO);
 
   void CalcNumPrintablePages(int32_t& aNumPages);
   void ShowPrintProgress(bool aIsForPrinting, bool& aDoNotify);
@@ -216,7 +209,7 @@ class nsPrintJob final : public nsIObserver,
                              eDocTitleDefault aDefType);
 
   bool CheckBeforeDestroy();
-  nsresult Cancelled();
+  nsresult Cancel();
 
   mozilla::PresShell* GetPrintPreviewPresShell() {
     return mPrtPreview->mPrintObject->mPresShell;

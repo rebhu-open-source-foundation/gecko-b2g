@@ -51,9 +51,10 @@ class gfxVarReceiver;
   _(AllowD3D11KeyedMutex, bool, false)                             \
   _(SystemTextQuality, int32_t, 5 /* CLEARTYPE_QUALITY */)         \
   _(LayersWindowRecordingPath, nsCString, nsCString())             \
+  _(RemoteCanvasEnabled, bool, false)                              \
   _(DisableGralloc, bool, false)                                   \
   _(GrallocFenceWithReadPixels, bool, false)
-
+  
 /* Add new entries above this line. */
 
 // Some graphics settings are computed on the UI process and must be

@@ -1256,6 +1256,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleTextReset {
   nscoord mInitialLetterSink;    // 0 means normal
   float mInitialLetterSize;      // 0.0f means normal
   mozilla::StyleColor mTextDecorationColor;
+  mozilla::StyleLengthOrAuto mTextDecorationWidth;
 };
 
 struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleText {
@@ -1745,8 +1746,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
            mozilla::StyleDisplay::RubyBase == mDisplay ||
            mozilla::StyleDisplay::RubyBaseContainer == mDisplay ||
            mozilla::StyleDisplay::RubyText == mDisplay ||
-           mozilla::StyleDisplay::RubyTextContainer == mDisplay ||
-           mozilla::StyleDisplay::Contents == mDisplay;
+           mozilla::StyleDisplay::RubyTextContainer == mDisplay;
   }
 
   bool IsBlockOutsideStyle() const {
@@ -1773,8 +1773,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleDisplay {
            mozilla::StyleDisplay::RubyBase == aDisplay ||
            mozilla::StyleDisplay::RubyBaseContainer == aDisplay ||
            mozilla::StyleDisplay::RubyText == aDisplay ||
-           mozilla::StyleDisplay::RubyTextContainer == aDisplay ||
-           mozilla::StyleDisplay::Contents == aDisplay;
+           mozilla::StyleDisplay::RubyTextContainer == aDisplay;
   }
 
   bool IsInlineOutsideStyle() const {

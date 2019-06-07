@@ -25,6 +25,7 @@
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Unused.h"
 #include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/Base64.h"
 
 #include "mozilla/Logging.h"
 #include "mozilla/Services.h"
@@ -475,6 +476,7 @@ gfxPlatform::gfxPlatform()
       mApzSupportCollector(this, &gfxPlatform::GetApzSupportInfo),
       mTilesInfoCollector(this, &gfxPlatform::GetTilesSupportInfo),
       mFrameStatsCollector(this, &gfxPlatform::GetFrameStats),
+      mCMSInfoCollector(this, &gfxPlatform::GetCMSSupportInfo),
       mCompositorBackend(layers::LayersBackend::LAYERS_NONE),
       mScreenDepth(0) {
   mAllowDownloadableFonts = UNINITIALIZED_VALUE;
@@ -2491,6 +2493,9 @@ void gfxPlatform::InitAcceleration() {
         VideoDecodingFailedChangedCallback,
         "media.hardware-video-decoding.failed");
     InitGPUProcessPrefs();
+
+    gfxVars::SetRemoteCanvasEnabled(StaticPrefs::CanvasRemote() &&
+                                    gfxConfig::IsEnabled(Feature::GPU_PROCESS));
   }
 }
 
@@ -3328,6 +3333,26 @@ void gfxPlatform::GetFrameStats(mozilla::widget::InfoObject& aObj) {
   }
 }
 
+void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
+  void* profile = nullptr;
+  size_t size = 0;
+
+  GetCMSOutputProfileData(profile, size);
+  if (!profile) {
+    return;
+  }
+
+  char* encodedProfile = nullptr;
+  nsresult rv =
+      Base64Encode(reinterpret_cast<char*>(profile), size, &encodedProfile);
+  if (NS_SUCCEEDED(rv)) {
+    aObj.DefineProperty("CMSOutputProfile", encodedProfile);
+    free(encodedProfile);
+  }
+
+  free(profile);
+}
+
 class FrameStatsComparator {
  public:
   bool Equals(const FrameStats& aA, const FrameStats& aB) const {
@@ -3442,6 +3467,8 @@ void gfxPlatform::NotifyGPUProcessDisabled() {
             NS_LITERAL_CSTRING("FEATURE_FAILURE_GPU_PROCESS_DISABLED"));
     gfxVars::SetUseWebRender(false);
   }
+
+  gfxVars::SetRemoteCanvasEnabled(false);
 }
 
 void gfxPlatform::FetchAndImportContentDeviceData() {

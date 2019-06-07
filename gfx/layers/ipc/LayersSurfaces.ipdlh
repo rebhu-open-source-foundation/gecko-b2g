@@ -157,6 +157,10 @@ struct SurfaceDescriptorShared
   Handle handle;
 };
 
+struct SurfaceDescriptorRecorded {
+  uintptr_t drawTarget;
+};
+
 union SurfaceDescriptor {
   SurfaceDescriptorBuffer;
   SurfaceDescriptorDIB;
@@ -170,6 +174,7 @@ union SurfaceDescriptor {
   SurfaceDescriptorGralloc;
   SurfaceDescriptorSharedGLTexture;
   SurfaceDescriptorGPUVideo;
+  SurfaceDescriptorRecorded;
   null_t;
 };
 
