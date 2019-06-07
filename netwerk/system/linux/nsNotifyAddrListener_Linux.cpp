@@ -231,10 +231,10 @@ void nsNotifyAddrListener::checkLink(void) {
 void nsNotifyAddrListener::OnNetlinkMessage(int aNetlinkSocket) {
   struct nlmsghdr* nlh;
 
-  // The buffer size below, (4095) was chosen partly based on testing and
+  // The buffer size below, (8192) was chosen partly based on testing and
   // partly on existing sample source code using this size. It needs to be
   // large enough to hold the netlink messages from the kernel.
-  char buffer[4095];
+  char buffer[8192];
   struct rtattr* attr;
   int attr_len;
   const struct ifaddrmsg* newifam;
