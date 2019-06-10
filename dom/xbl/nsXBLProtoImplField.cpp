@@ -17,6 +17,7 @@
 #include "nsIURI.h"
 #include "nsXBLSerialize.h"
 #include "nsXBLPrototypeBinding.h"
+#include "mozilla/AddonPathService.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
@@ -405,7 +406,7 @@ nsXBLProtoImplField::InstallField(JS::Handle<JSObject*> aBoundNode,
   NS_ASSERTION(!::JS_IsExceptionPending(cx),
                "Shouldn't get here when an exception is pending!");
 
-  JSAddonId* addonId = nullptr;
+  JSAddonId* addonId = MapURIToAddonID(aBindingDocURI);
 
   Element* boundElement = nullptr;
   nsresult rv = UNWRAP_OBJECT(Element, aBoundNode, boundElement);

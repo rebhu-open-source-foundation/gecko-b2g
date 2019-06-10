@@ -198,6 +198,7 @@
 #include "nsRefreshDriver.h"
 #include "Layers.h"
 
+#include "mozilla/AddonPathService.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/Services.h"
 #include "mozilla/Telemetry.h"
@@ -2361,7 +2362,7 @@ CreateNativeGlobalForInner(JSContext* aCx,
   // windows or inside a browser element. In such cases we want to tag the
   // window's compartment with the add-on ID. See bug 1092156.
   if (nsContentUtils::IsSystemPrincipal(aPrincipal)) {
-    options.creationOptions().setAddonId(nullptr);
+    options.creationOptions().setAddonId(MapURIToAddonID(aURI));
   }
 
   if (top && top->GetGlobalJSObject()) {

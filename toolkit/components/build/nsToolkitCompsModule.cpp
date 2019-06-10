@@ -37,6 +37,8 @@
 #include "nsBrowserStatusFilter.h"
 #include "mozilla/FinalizationWitnessService.h"
 #include "mozilla/NativeOSFileInternals.h"
+#include "mozilla/AddonContentPolicy.h"
+#include "mozilla/AddonPathService.h"
 
 #if defined(XP_WIN)
 #include "NativeFileWatcherWin.h"
@@ -124,6 +126,9 @@ NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(FinalizationWitnessService, Init)
 NS_GENERIC_FACTORY_CONSTRUCTOR(NativeOSFileInternalsService)
 NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(NativeFileWatcherService, Init)
 
+NS_GENERIC_FACTORY_CONSTRUCTOR(AddonContentPolicy)
+NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(AddonPathService, AddonPathService::GetInstance)
+
 NS_DEFINE_NAMED_CID(NS_TOOLKIT_APPSTARTUP_CID);
 #if defined(MOZ_HAS_PERFSTATS)
 NS_DEFINE_NAMED_CID(NS_TOOLKIT_PERFORMANCESTATSSERVICE_CID);
@@ -156,6 +161,8 @@ NS_DEFINE_NAMED_CID(NS_UPDATEPROCESSOR_CID);
 #endif
 NS_DEFINE_NAMED_CID(FINALIZATIONWITNESSSERVICE_CID);
 NS_DEFINE_NAMED_CID(NATIVE_OSFILE_INTERNALS_SERVICE_CID);
+NS_DEFINE_NAMED_CID(NS_ADDONCONTENTPOLICY_CID);
+NS_DEFINE_NAMED_CID(NS_ADDON_PATH_SERVICE_CID);
 NS_DEFINE_NAMED_CID(NATIVE_FILEWATCHER_SERVICE_CID);
 
 static const Module::CIDEntry kToolkitCIDs[] = {
@@ -190,6 +197,8 @@ static const Module::CIDEntry kToolkitCIDs[] = {
 #endif
   { &kFINALIZATIONWITNESSSERVICE_CID, false, nullptr, FinalizationWitnessServiceConstructor },
   { &kNATIVE_OSFILE_INTERNALS_SERVICE_CID, false, nullptr, NativeOSFileInternalsServiceConstructor },
+  { &kNS_ADDONCONTENTPOLICY_CID, false, nullptr, AddonContentPolicyConstructor },
+  { &kNS_ADDON_PATH_SERVICE_CID, false, nullptr, AddonPathServiceConstructor },
   { &kNATIVE_FILEWATCHER_SERVICE_CID, false, nullptr, NativeFileWatcherServiceConstructor },
   { nullptr }
 };
@@ -226,6 +235,8 @@ static const Module::ContractIDEntry kToolkitContracts[] = {
 #endif
   { FINALIZATIONWITNESSSERVICE_CONTRACTID, &kFINALIZATIONWITNESSSERVICE_CID },
   { NATIVE_OSFILE_INTERNALS_SERVICE_CONTRACTID, &kNATIVE_OSFILE_INTERNALS_SERVICE_CID },
+  { NS_ADDONCONTENTPOLICY_CONTRACTID, &kNS_ADDONCONTENTPOLICY_CID },
+  { NS_ADDONPATHSERVICE_CONTRACTID, &kNS_ADDON_PATH_SERVICE_CID },
   { NATIVE_FILEWATCHER_SERVICE_CONTRACTID, &kNATIVE_FILEWATCHER_SERVICE_CID },
   { nullptr }
 };

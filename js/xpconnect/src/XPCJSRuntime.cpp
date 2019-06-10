@@ -22,6 +22,7 @@
 #include "nsIObserverService.h"
 #include "nsIDebug2.h"
 #include "nsIDocShell.h"
+#include "amIAddonManager.h"
 #include "nsPIDOMWindow.h"
 #include "nsPrintfCString.h"
 #include "mozilla/Preferences.h"
@@ -2241,6 +2242,7 @@ ReportClassStats(const ClassInfo& classInfo, const nsACString& path,
 static nsresult
 ReportCompartmentStats(const JS::CompartmentStats& cStats,
                        const xpc::CompartmentStatsExtras& extras,
+                       amIAddonManager* addonManager,
                        nsIMemoryReporterCallback* cb,
                        nsISupports* closure, size_t* gcTotalOut = nullptr)
 {
@@ -2252,6 +2254,25 @@ ReportCompartmentStats(const JS::CompartmentStats& cStats,
     nsresult rv;
 
     MOZ_ASSERT(!gcTotalOut == cStats.isTotals);
+
+    // Only attempt to prefix if we got a location and the path wasn't already
+    // prefixed.
+    if (extras.location && addonManager &&
+        cJSPathPrefix.Find(addonPrefix, false, 0, 0) != 0) {
+        nsAutoCString addonId;
+        bool ok;
+        if (NS_SUCCEEDED(addonManager->MapURIToAddonID(extras.location,
+                                                        addonId, &ok))
+            && ok) {
+            // Insert the add-on id as "add-ons/@id@/" after "explicit/" to
+            // aggregate add-on compartments.
+            static const size_t explicitLength = strlen("explicit/");
+            addonId.Insert(NS_LITERAL_CSTRING("add-ons/"), 0);
+            addonId += "/";
+            cJSPathPrefix.Insert(addonId, explicitLength);
+            cDOMPathPrefix.Insert(addonId, explicitLength);
+        }
+    }
 
     nsCString nonNotablePath = cJSPathPrefix;
     nonNotablePath += cStats.isTotals
@@ -2406,8 +2427,9 @@ ReportScriptSourceStats(const ScriptSourceInfo& scriptSourceInfo,
 }
 
 static nsresult
-_ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
+ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
                                  const nsACString& rtPath,
+                                 amIAddonManager* addonManager,
                                  nsIMemoryReporterCallback* cb,
                                  nsISupports* closure,
                                  bool anonymize,
@@ -2430,7 +2452,8 @@ _ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
         const xpc::CompartmentStatsExtras* extras =
             static_cast<const xpc::CompartmentStatsExtras*>(cStats.extra);
 
-        rv = ReportCompartmentStats(cStats, *extras, cb, closure, &gcTotal);
+        rv = ReportCompartmentStats(cStats, *extras, addonManager, cb, closure,
+                                    &gcTotal);
         NS_ENSURE_SUCCESS(rv, rv);
     }
 
@@ -2611,8 +2634,13 @@ ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
                                  bool anonymize,
                                  size_t* rtTotalOut)
 {
-    return _ReportJSRuntimeExplicitTreeStats(rtStats, rtPath, cb, closure,
-                                             anonymize, rtTotalOut);
+    nsCOMPtr<amIAddonManager> am;
+    if (XRE_IsParentProcess()) {
+        // Only try to access the service from the main process.
+        am = do_GetService("@mozilla.org/addons/integration;1");
+    }
+    return ReportJSRuntimeExplicitTreeStats(rtStats, rtPath, am.get(),
+                                            cb, closure, anonymize, rtTotalOut);
 }
 
 
@@ -2866,7 +2894,13 @@ JSReporter::CollectReports(WindowPaths* windowPaths,
     // the callback.  Separating these steps is important because the
     // callback may be a JS function, and executing JS while getting these
     // stats seems like a bad idea.
-    bool getLocations = false;
+
+    nsCOMPtr<amIAddonManager> addonManager;
+    if (XRE_IsParentProcess()) {
+        // Only try to access the service from the main process.
+        addonManager = do_GetService("@mozilla.org/addons/integration;1");
+    }
+    bool getLocations = !!addonManager;
     XPCJSRuntimeStats rtStats(windowPaths, topWindowPaths, getLocations,
                               anonymize);
     OrphanReporter orphanReporter(XPCConvert::GetISupportsFromJSObject);
@@ -2893,7 +2927,7 @@ JSReporter::CollectReports(WindowPaths* windowPaths,
     size_t rtTotal = 0;
     rv = xpc::ReportJSRuntimeExplicitTreeStats(rtStats,
                                                NS_LITERAL_CSTRING("explicit/js-non-window/"),
-                                               cb, closure,
+                                               addonManager, cb, closure,
                                                anonymize, &rtTotal);
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -2901,7 +2935,8 @@ JSReporter::CollectReports(WindowPaths* windowPaths,
     xpc::CompartmentStatsExtras cExtrasTotal;
     cExtrasTotal.jsPathPrefix.AssignLiteral("js-main-runtime/compartments/");
     cExtrasTotal.domPathPrefix.AssignLiteral("window-objects/dom/");
-    rv = ReportCompartmentStats(rtStats.cTotals, cExtrasTotal, cb, closure);
+    rv = ReportCompartmentStats(rtStats.cTotals, cExtrasTotal, addonManager,
+                                cb, closure);
     NS_ENSURE_SUCCESS(rv, rv);
 
     xpc::ZoneStatsExtras zExtrasTotal;

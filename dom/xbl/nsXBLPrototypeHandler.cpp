@@ -36,6 +36,7 @@
 #include "nsReadableUtils.h"
 #include "nsGkAtoms.h"
 #include "nsIXPConnect.h"
+#include "mozilla/AddonPathService.h"
 #include "nsDOMCID.h"
 #include "nsUnicharUtils.h"
 #include "nsCRT.h"
@@ -279,7 +280,7 @@ nsXBLPrototypeHandler::ExecuteHandler(EventTarget* aTarget,
   rv = EnsureEventHandler(jsapi, onEventAtom, &handler);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  JSAddonId* addonId = nullptr;
+  JSAddonId* addonId = MapURIToAddonID(mPrototypeBinding->DocURI());
 
   JS::Rooted<JSObject*> globalObject(cx, boundGlobal->GetGlobalJSObject());
   JS::Rooted<JSObject*> scopeObject(cx, xpc::GetScopeForXBLExecution(cx, globalObject, addonId));
@@ -349,7 +350,7 @@ nsXBLPrototypeHandler::EnsureEventHandler(AutoJSAPI& jsapi, nsIAtom* aName,
   nsDependentString handlerText(mHandlerText);
   NS_ENSURE_TRUE(!handlerText.IsEmpty(), NS_ERROR_FAILURE);
 
-  JSAddonId* addonId = nullptr;
+  JSAddonId* addonId = MapURIToAddonID(mPrototypeBinding->DocURI());
 
   JS::Rooted<JSObject*> scopeObject(cx, xpc::GetScopeForXBLExecution(cx, globalObject, addonId));
   NS_ENSURE_TRUE(scopeObject, NS_ERROR_OUT_OF_MEMORY);

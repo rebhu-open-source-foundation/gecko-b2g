@@ -6,6 +6,7 @@
 
 #include "WorkerPrivate.h"
 
+#include "amIAddonManager.h"
 #include "nsIClassInfo.h"
 #include "nsIContentSecurityPolicy.h"
 #include "nsIConsoleService.h"
@@ -2170,6 +2171,7 @@ public:
       }
       path.AppendPrintf(", 0x%p)/", static_cast<void*>(mWorkerPrivate));
 
+      TryToMapAddon(path);
 
       if (!mWorkerPrivate->BlockAndCollectRuntimeStats(&rtStats, aAnonymize)) {
         // Returning NS_OK here will effectively report 0 memory.
@@ -2194,6 +2196,47 @@ private:
 
     NS_ASSERTION(mWorkerPrivate, "Disabled more than once!");
     mWorkerPrivate = nullptr;
+  }
+
+  // Only call this from the main thread and under mMutex lock.
+  void
+  TryToMapAddon(nsACString &path)
+  {
+    AssertIsOnMainThread();
+    mMutex.AssertCurrentThreadOwns();
+
+    if (mAlreadyMappedToAddon || !mWorkerPrivate) {
+      return;
+    }
+
+    nsCOMPtr<nsIURI> scriptURI;
+    if (NS_FAILED(NS_NewURI(getter_AddRefs(scriptURI),
+                            mWorkerPrivate->ScriptURL()))) {
+      return;
+    }
+
+    mAlreadyMappedToAddon = true;
+
+    if (!XRE_IsParentProcess()) {
+      // Only try to access the service from the main process.
+      return;
+    }
+
+    nsAutoCString addonId;
+    bool ok;
+    nsCOMPtr<amIAddonManager> addonManager =
+      do_GetService("@mozilla.org/addons/integration;1");
+
+    if (!addonManager ||
+        NS_FAILED(addonManager->MapURIToAddonID(scriptURI, addonId, &ok)) ||
+        !ok) {
+      return;
+    }
+
+    static const size_t explicitLength = strlen("explicit/");
+    addonId.Insert(NS_LITERAL_CSTRING("add-ons/"), 0);
+    addonId += "/";
+    path.Insert(addonId, explicitLength);
   }
 };
 

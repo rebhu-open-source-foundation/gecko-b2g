@@ -40,6 +40,7 @@
 #include "nsXULAppAPI.h"
 #include "WrapperFactory.h"
 
+#include "mozilla/AddonPathService.h"
 #include "mozilla/scache/StartupCache.h"
 #include "mozilla/scache/StartupCacheUtils.h"
 #include "mozilla/MacroForEach.h"
@@ -541,7 +542,7 @@ mozJSComponentLoader::PrepareObjectForLocation(JSContext* aCx,
 
         options.creationOptions()
                .setZone(SystemZone)
-               .setAddonId(nullptr);
+               .setAddonId(aReuseLoaderGlobal ? nullptr : MapURIToAddonID(aURI));
 
         options.behaviors().setVersion(JSVERSION_LATEST);
 

@@ -7,6 +7,7 @@
 // Microsoft's API Name hackery sucks
 #undef CreateEvent
 
+#include "mozilla/AddonPathService.h"
 #include "mozilla/BasicEvents.h"
 #include "mozilla/CycleCollectedJSRuntime.h"
 #include "mozilla/DOMEventTargetHelper.h"
@@ -988,7 +989,7 @@ EventListenerManager::CompileEventHandlerInternal(Listener* aListener,
                                    typeAtom, win,
                                    &argCount, &argNames);
 
-  JSAddonId *addonId = nullptr;
+  JSAddonId *addonId = MapURIToAddonID(uri);
 
   // Wrap the event target, so that we can use it as the scope for the event
   // handler. Note that mTarget is different from aElement in the <body> case,

@@ -78,6 +78,7 @@
 #include "nsXULPopupManager.h"
 #include "nsCCUncollectableMarker.h"
 #include "nsURILoader.h"
+#include "mozilla/AddonPathService.h"
 #include "mozilla/BasicEvents.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/NodeInfoInlines.h"
@@ -3511,7 +3512,7 @@ XULDocument::ExecuteScript(nsXULPrototypeScript *aScript)
     JS::Rooted<JSObject*> baseGlobal(cx, JS::CurrentGlobalOrNull(cx));
     NS_ENSURE_TRUE(nsContentUtils::GetSecurityManager()->ScriptAllowed(baseGlobal), NS_OK);
 
-    JSAddonId* addonId = nullptr;
+    JSAddonId* addonId = mCurrentPrototype ? MapURIToAddonID(mCurrentPrototype->GetURI()) : nullptr;
     JS::Rooted<JSObject*> global(cx, xpc::GetAddonScope(cx, baseGlobal, addonId));
     NS_ENSURE_TRUE(global, NS_ERROR_FAILURE);
 
