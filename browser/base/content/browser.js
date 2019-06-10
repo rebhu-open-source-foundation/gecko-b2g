@@ -124,8 +124,7 @@ XPCOMUtils.defineLazyScriptGetter(this, "gSync",
                                   "chrome://browser/content/browser-sync.js");
 XPCOMUtils.defineLazyScriptGetter(this, "gBrowserThumbnails",
                                   "chrome://browser/content/browser-thumbnails.js");
-XPCOMUtils.defineLazyScriptGetter(this, ["setContextMenuContentData",
-                                         "openContextMenu", "nsContextMenu"],
+XPCOMUtils.defineLazyScriptGetter(this, ["openContextMenu", "nsContextMenu"],
                                   "chrome://browser/content/nsContextMenu.js");
 XPCOMUtils.defineLazyScriptGetter(this, ["DownloadsPanel",
                                          "DownloadsOverlayLoader",
@@ -1199,13 +1198,14 @@ function _loadURI(browser, uri, params = {}) {
   }
 
   let {
-    flags = Ci.nsIWebNavigation.LOAD_FLAGS_NONE,
     triggeringPrincipal,
     referrerInfo,
     postData,
     userContextId,
     csp,
   } = params || {};
+  let loadFlags = params.loadFlags || params.flags ||
+                  Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
 
   if (!triggeringPrincipal) {
     throw new Error("Must load with a triggering Principal");
@@ -1217,7 +1217,7 @@ function _loadURI(browser, uri, params = {}) {
     mustChangeProcess,
     newFrameloader,
   } = E10SUtils.shouldLoadURIInBrowser(browser, uri, gMultiProcessBrowser,
-                                       gFissionBrowser, flags);
+                                       gFissionBrowser, loadFlags);
   if (uriObject && handleUriInChrome(browser, uriObject)) {
     // If we've handled the URI in Chrome then just return here.
     return;
@@ -1235,7 +1235,7 @@ function _loadURI(browser, uri, params = {}) {
   let loadURIOptions = {
     triggeringPrincipal,
     csp,
-    loadFlags: flags,
+    loadFlags,
     referrerInfo,
     postData,
   };
@@ -1264,7 +1264,7 @@ function _loadURI(browser, uri, params = {}) {
         triggeringPrincipal: triggeringPrincipal
           ? E10SUtils.serializePrincipal(triggeringPrincipal)
           : null,
-        flags,
+        flags: loadFlags,
         referrerInfo: E10SUtils.serializeReferrerInfo(referrerInfo),
         remoteType: requiredRemoteType,
         postData,
@@ -5010,24 +5010,6 @@ var XULBrowserWindow = {
   onLocationChange(aWebProgress, aRequest, aLocationURI, aFlags, aIsSimulated) {
     var location = aLocationURI ? aLocationURI.spec : "";
 
-    let pageTooltip = document.getElementById("aHTMLTooltip");
-    let tooltipNode = pageTooltip.triggerNode;
-    if (tooltipNode) {
-      // Optimise for the common case
-      if (aWebProgress.isTopLevel) {
-        pageTooltip.hidePopup();
-      } else {
-        for (let tooltipWindow = tooltipNode.ownerGlobal;
-             tooltipWindow != tooltipWindow.parent;
-             tooltipWindow = tooltipWindow.parent) {
-          if (tooltipWindow == aWebProgress.DOMWindow) {
-            pageTooltip.hidePopup();
-            break;
-          }
-        }
-      }
-    }
-
     this.hideOverLinkImmediately = true;
     this.setOverLink("", null);
     this.hideOverLinkImmediately = false;
@@ -5038,6 +5020,12 @@ var XULBrowserWindow = {
     // Do not update urlbar if there was a subframe navigation
 
     if (aWebProgress.isTopLevel) {
+      let pageTooltip = document.getElementById("aHTMLTooltip");
+      if (pageTooltip.state != "closed") {
+        // TODO: this misses cases where a subframe navigates.
+        pageTooltip.hidePopup();
+      }
+
       if ((location == "about:blank" && checkEmptyPageOrigin()) ||
           location == "") { // Second condition is for new tabs, otherwise
                              // reload function is enabled until tab is refreshed.
@@ -7629,27 +7617,11 @@ function BrowserOpenAddonsMgr(aView) {
 }
 
 function AddKeywordForSearchField() {
-  let mm = gBrowser.selectedBrowser.messageManager;
+  if (!gContextMenu) {
+    throw new Error("Context menu doesn't seem to be open.");
+  }
 
-  let onMessage = (message) => {
-    mm.removeMessageListener("ContextMenu:SearchFieldBookmarkData:Result", onMessage);
-
-    let bookmarkData = message.data;
-    let title = gNavigatorBundle.getFormattedString("addKeywordTitleAutoFill",
-                                                    [bookmarkData.title]);
-    PlacesUIUtils.showBookmarkDialog({ action: "add",
-                                       type: "bookmark",
-                                       uri: makeURI(bookmarkData.spec),
-                                       title,
-                                       keyword: "",
-                                       postData: bookmarkData.postData,
-                                       charSet: bookmarkData.charset,
-                                       hiddenRows: [ "location", "tags" ],
-                                     }, window);
-  };
-  mm.addMessageListener("ContextMenu:SearchFieldBookmarkData:Result", onMessage);
-
-  mm.sendAsyncMessage("ContextMenu:SearchFieldBookmarkData", {}, { target: gContextMenu.target });
+  gContextMenu.addKeywordForSearchField();
 }
 
 /**

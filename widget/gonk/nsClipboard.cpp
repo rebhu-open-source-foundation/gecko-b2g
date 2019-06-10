@@ -302,9 +302,8 @@ nsClipboard::EmptyClipboard(int32_t aWhichClipboard)
 }
 
 NS_IMETHODIMP
-nsClipboard::HasDataMatchingFlavors(const char **aFlavorList,
-                                    uint32_t aLength, int32_t aWhichClipboard,
-                                    bool *aHasType)
+nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
+                                    int32_t aWhichClipboard, bool *aHasType)
 {
   *aHasType = false;
   if (aWhichClipboard != kGlobalClipboard) {
@@ -312,8 +311,8 @@ nsClipboard::HasDataMatchingFlavors(const char **aFlavorList,
   }
   if (XRE_IsParentProcess()) {
     // Retrieve the union of all aHasType in aFlavorList
-    for (uint32_t i = 0; i < aLength; ++i) {
-      const char *flavor = aFlavorList[i];
+    for (auto& item : aFlavorList) {
+      const char *flavor = item.get();
       if (!flavor) {
         continue;
       }
@@ -333,7 +332,7 @@ nsClipboard::HasDataMatchingFlavors(const char **aFlavorList,
     }
   } else {
     RefPtr<nsClipboardProxy> clipboardProxy = new nsClipboardProxy();
-    return clipboardProxy->HasDataMatchingFlavors(aFlavorList, aLength, aWhichClipboard, aHasType);
+    return clipboardProxy->HasDataMatchingFlavors(aFlavorList, aWhichClipboard, aHasType);
   }
   return NS_OK;
 }

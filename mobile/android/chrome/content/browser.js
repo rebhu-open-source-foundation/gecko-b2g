@@ -7,7 +7,6 @@
 var {AddonManager} = ChromeUtils.import("resource://gre/modules/AddonManager.jsm");
 var {AppConstants} = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
 var {DelayedInit} = ChromeUtils.import("resource://gre/modules/DelayedInit.jsm");
-var {FileSource, L10nRegistry} = ChromeUtils.import("resource://gre/modules/L10nRegistry.jsm");
 var {EventDispatcher} = ChromeUtils.import("resource://gre/modules/Messaging.jsm");
 var {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 var {XPCOMUtils} = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
@@ -404,11 +403,6 @@ var BrowserApp = {
       "Session:Stop",
       "Telemetry:CustomTabsPing",
     ]);
-
-    // Initialize the default l10n resource sources for L10nRegistry.
-    let locales = Services.locale.packagedLocales;
-    const greSource = new FileSource("toolkit", locales, "resource://gre/localization/{locale}/");
-    L10nRegistry.registerSource(greSource);
 
     // Provide compatibility for add-ons like QuitNow that send "Browser:Quit"
     // as an observer notification.
@@ -3833,15 +3827,15 @@ Tab.prototype = {
     // We need LOAD_FLAGS_BYPASS_CACHE here since we're changing the User-Agent
     // string, and servers typically don't use the Vary: User-Agent header, so
     // not doing this means that we'd get some of the previously cached content.
-    let flags = Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE |
-                Ci.nsIWebNavigation.LOAD_FLAGS_REPLACE_HISTORY;
+    let loadFlags = Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE |
+                    Ci.nsIWebNavigation.LOAD_FLAGS_REPLACE_HISTORY;
     if (this.originalURI && !this.originalURI.equals(currentURI)) {
       // We were redirected; reload the original URL
       url = this.originalURI.spec;
     }
     let loadURIOptions = {
       triggeringPrincipal: this.browser.contentPrincipal,
-      loadFlags: flags,
+      loadFlags,
     };
     this.browser.docShell.loadURI(url, loadURIOptions);
   },
