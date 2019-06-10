@@ -286,6 +286,7 @@
 @RESPATH@/components/filepicker.xpt
 #endif
 @RESPATH@/components/find.xpt
+@RESPATH@/components/gaia_chrome.xpt
 @RESPATH@/components/geocoding.xpt
 @RESPATH@/components/gfx.xpt
 @RESPATH@/components/hal.xpt
