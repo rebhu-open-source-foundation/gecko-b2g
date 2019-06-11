@@ -3300,6 +3300,17 @@ if test -n "$A11Y_LOG"; then
     AC_DEFINE(A11Y_LOG)
 fi
 
+dnl ========================================================
+dnl Build koost modules if the dir exists
+dnl ========================================================
+if test -d "$_topsrcdir/koost" ; then
+  HAS_KOOST_MODULES=1
+  AC_DEFINE(HAS_KOOST_MODULES)
+else
+  HAS_KOOST_MODULES=
+fi
+AC_SUBST(HAS_KOOST_MODULES)
+
 dnl Spit out some output
 dnl ========================================================
 

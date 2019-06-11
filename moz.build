@@ -137,6 +137,9 @@ if CONFIG['MOZ_BUILD_APP']:
 else:
     include('/toolkit/toolkit.mozbuild')
 
+if CONFIG['HAS_KOOST_MODULES']:
+    DIRS += ['koost']
+
 CONFIGURE_SUBST_FILES += ['.cargo/config']
 
 include('build/templates.mozbuild')
