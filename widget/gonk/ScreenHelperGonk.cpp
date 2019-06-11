@@ -151,6 +151,18 @@ nsScreenGonk::nsScreenGonk(uint32_t aId,
         mDpi = 96.0;
     }
 
+    // If the property persist.b2g.dpi is set, use that for the dpi value.
+    char propValue[PROPERTY_VALUE_MAX];
+    property_get("persist.b2g.dpi", propValue, "");
+    if (strlen(propValue)) {
+        auto val = strtof(propValue, nullptr);
+        if (val > 0) {
+            // val is 0 in case of conversion errors and can also be a valid strtof()
+            // but that's not a usable dpi so we don't have to check errno.
+            mDpi = val;
+        }
+    }
+
     if (mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_WIDTH, &mVirtualBounds.width) ||
         mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_HEIGHT, &mVirtualBounds.height) ||
         mNativeWindow->query(mNativeWindow.get(), NATIVE_WINDOW_FORMAT, &mSurfaceFormat)) {
