@@ -189,7 +189,7 @@ class ContentChild final : public PContentChild,
       Endpoint<PCompositorManagerChild>&& aCompositor,
       Endpoint<PImageBridgeChild>&& aImageBridge,
       Endpoint<PVRManagerChild>&& aVRBridge,
-      Endpoint<PVideoDecoderManagerChild>&& aVideoManager,
+      Endpoint<PRemoteDecoderManagerChild>&& aVideoManager,
       nsTArray<uint32_t>&& namespaces);
 
   mozilla::ipc::IPCResult RecvRequestPerformanceMetrics(const nsID& aID);
@@ -198,7 +198,7 @@ class ContentChild final : public PContentChild,
       Endpoint<PCompositorManagerChild>&& aCompositor,
       Endpoint<PImageBridgeChild>&& aImageBridge,
       Endpoint<PVRManagerChild>&& aVRBridge,
-      Endpoint<PVideoDecoderManagerChild>&& aVideoManager,
+      Endpoint<PRemoteDecoderManagerChild>&& aVideoManager,
       nsTArray<uint32_t>&& namespaces);
 
   mozilla::ipc::IPCResult RecvAudioDefaultDeviceChange();

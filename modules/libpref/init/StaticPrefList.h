@@ -72,10 +72,12 @@
 //   * Skip: Set the value to <default-value>, skip any Preferences calls. This
 //     policy should be rarely used and its use is discouraged.
 //
-//   * Once: Evaluate the pref once, and unchanged during the session once
-//     enterprise policies have been loaded. This is useful for features where
-//     you want to ignore any pref changes until the start of the next browser
-//     session.
+//   * Once: Set the value once at startup, and then leave it unchanged after
+//     that. (The exact point at which all Once pref values is set is when the
+//     first Once getter is called.) This is useful for graphics prefs where we
+//     often don't want a new pref value to apply until restart. Otherwise, this
+//     update policy is best avoided because its behaviour can cause confusion
+//     and bugs.
 //
 // - <pref-name-string> is the same as for normal prefs.
 //
@@ -671,6 +673,15 @@ VARCACHE_PREF(
   bool, true
 )
 
+// When this pref is set, parent documents may consider child iframes've loaded
+// while they are still loading
+VARCACHE_PREF(
+  Live,
+  "dom.cross_origin_iframes_loaded_in_background",
+   dom_cross_origin_iframes_loaded_in_background,
+  bool, false
+)
+
 //---------------------------------------------------------------------------
 // Prefs starting with "browser."
 //---------------------------------------------------------------------------
@@ -885,6 +896,17 @@ VARCACHE_PREF(
   Live,
   "browser.tabs.remote.useCrossOriginPolicy",
   browser_tabs_remote_useCrossOriginPolicy,
+  bool, false
+)
+
+// When this pref is enabled, the browser will check no-cors responses that
+// have the Cross-Origin-Resource-Policy header and will fail the request if
+// the origin of the resource's loading document doesn't match the origin
+// (or base domain) of the loaded resource.
+VARCACHE_PREF(
+  Live,
+  "browser.tabs.remote.useCORP",
+  browser_tabs_remote_useCORP,
   bool, false
 )
 
@@ -2278,6 +2300,19 @@ VARCACHE_PREF(
 )
 
 //---------------------------------------------------------------------------
+// Prefs starting with "fission."
+//---------------------------------------------------------------------------
+
+// This pref has no effect within fission windows, it only controls the
+// behaviour within non-fission windows.
+VARCACHE_PREF(
+  Live,
+  "fission.preserve_browsing_contexts",
+  fission_preserve_browsing_contexts,
+  bool, false
+)
+
+//---------------------------------------------------------------------------
 // Prefs starting with "full-screen-api."
 //---------------------------------------------------------------------------
 
@@ -2720,7 +2755,7 @@ VARCACHE_PREF(
   Live,
   "gfx.downloadable_fonts.sanitize_omt",
   gfx_downloadable_fonts_sanitize_omt,
-  RelaxedAtomicBool, false
+  RelaxedAtomicBool, true
 )
 
 VARCACHE_PREF(
@@ -3585,15 +3620,16 @@ VARCACHE_PREF(
 #ifdef MOZ_DUMP_PAINTING
 VARCACHE_PREF(
   Live,
-  "layers.dump-client-layers",
-  DumpClientLayers,
+  "layers.dump-decision",
+  LayersDumpDecision,
   RelaxedAtomicBool, false
 )
+#endif
 
 VARCACHE_PREF(
   Live,
-  "layers.dump-decision",
-  LayersDumpDecision,
+  "layers.dump-client-layers",
+  DumpClientLayers,
   RelaxedAtomicBool, false
 )
 
@@ -3603,7 +3639,6 @@ VARCACHE_PREF(
   DumpHostLayers,
   RelaxedAtomicBool, false
 )
-#endif
 
 // 0 is "no change" for contrast, positive values increase it, negative values
 // decrease it until we hit mid gray at -1 contrast, after that it gets weird.
@@ -4728,6 +4763,19 @@ VARCACHE_PREF(
 #endif
 VARCACHE_PREF(
   Live,
+  "layout.css.shadow-parts.enabled",
+   layout_css_shadow_parts_enabled,
+  bool, PREF_VALUE
+)
+#undef PREF_VALUE
+
+#ifdef NIGHTLY_BUILD
+# define PREF_VALUE true
+#else
+# define PREF_VALUE false
+#endif
+VARCACHE_PREF(
+  Live,
   "layout.css.resizeobserver.enabled",
   layout_css_resizeobserver_enabled,
   bool, PREF_VALUE
@@ -4902,6 +4950,19 @@ VARCACHE_PREF(
   bool, PREF_VALUE
 )
 #undef PREF_VALUE
+
+// Whether we expose the functionality proposed in
+// https://github.com/WICG/encrypted-media-encryption-scheme/blob/master/explainer.md
+// I.e. if true, apps calling navigator.requestMediaKeySystemAccess() can pass
+// an optional encryption scheme as part of MediaKeySystemMediaCapability
+// objects. If a scheme is present when we check for support, we must ensure we
+// support that scheme in order to provide key system access.
+VARCACHE_PREF(
+  Live,
+  "media.eme.encrypted-media-encryption-scheme.enabled",
+  media_eme_encrypted_media_encryption_scheme_enabled,
+  bool, false
+)
 
 VARCACHE_PREF(
   Live,
@@ -6029,6 +6090,18 @@ VARCACHE_PREF(
 
 PREF("preferences.allow.omt-write", bool, true)
 
+#ifdef DEBUG
+// If set to true, setting a Preference matched to a `Once` StaticPref will
+// assert that the value matches. Such assertion being broken is a clear flag
+// that the Once policy shouldn't be used.
+VARCACHE_PREF(
+  Live,
+  "preferences.check.once.policy",
+  preferences_check_once_policy,
+  bool, false
+)
+#endif
+
 //---------------------------------------------------------------------------
 // Prefs starting with "print."
 //---------------------------------------------------------------------------
@@ -6542,7 +6615,7 @@ VARCACHE_PREF(
 )
 
 VARCACHE_PREF(
-  Once,
+  Live,
   "webgl.force-layers-readback",
   WebGLForceLayersReadback,
   bool, false

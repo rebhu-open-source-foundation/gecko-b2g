@@ -2792,10 +2792,10 @@ nsresult NS_ShouldSecureUpgrade(
         NS_ConvertUTF8toUTF16 reportScheme(scheme);
 
         if (aLoadInfo->GetUpgradeInsecureRequests()) {
-          const char16_t* params[] = {reportSpec.get(), reportScheme.get()};
+          AutoTArray<nsString, 2> params = {reportSpec, reportScheme};
           uint32_t innerWindowId = aLoadInfo->GetInnerWindowID();
           CSP_LogLocalizedStr(
-              "upgradeInsecureRequest", params, ArrayLength(params),
+              "upgradeInsecureRequest", params,
               EmptyString(),  // aSourceFile
               EmptyString(),  // aScriptSample
               0,              // aLineNumber
@@ -2816,14 +2816,13 @@ nsresult NS_ShouldSecureUpgrade(
           nsresult rv = nsContentUtils::GetLocalizedString(
               nsContentUtils::eBRAND_PROPERTIES, "brandShortName", brandName);
           if (NS_SUCCEEDED(rv)) {
-            const char16_t* params[] = {brandName.get(), reportSpec.get(),
-                                        reportScheme.get()};
+            AutoTArray<nsString, 3> params = {brandName, reportSpec,
+                                              reportScheme};
             nsContentUtils::ReportToConsole(
                 nsIScriptError::warningFlag,
                 NS_LITERAL_CSTRING("DATA_URI_BLOCKED"), doc,
                 nsContentUtils::eSECURITY_PROPERTIES,
-                "BrowserUpgradeInsecureDisplayRequest", params,
-                ArrayLength(params));
+                "BrowserUpgradeInsecureDisplayRequest", params);
           }
           Telemetry::AccumulateCategorical(
               Telemetry::LABELS_HTTP_SCHEME_UPGRADE_TYPE::BrowserDisplay);

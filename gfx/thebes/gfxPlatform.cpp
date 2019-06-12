@@ -73,7 +73,7 @@
 #endif
 
 #ifdef MOZ_WAYLAND
-#  include "mozilla/widget/nsWaylandDisplayShutdown.h"
+#  include "mozilla/widget/nsWaylandDisplay.h"
 #endif
 
 #include "nsGkAtoms.h"
@@ -3342,12 +3342,24 @@ void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
     return;
   }
 
-  char* encodedProfile = nullptr;
-  nsresult rv =
-      Base64Encode(reinterpret_cast<char*>(profile), size, &encodedProfile);
-  if (NS_SUCCEEDED(rv)) {
-    aObj.DefineProperty("CMSOutputProfile", encodedProfile);
-    free(encodedProfile);
+  // Some profiles can be quite large. We don't want to include giant profiles
+  // by default in about:support. For now, we only accept less than 8kiB.
+  const size_t kMaxProfileSize = 8192;
+  if (size < kMaxProfileSize) {
+    char* encodedProfile = nullptr;
+    nsresult rv =
+        Base64Encode(reinterpret_cast<char*>(profile), size, &encodedProfile);
+    if (NS_SUCCEEDED(rv)) {
+      aObj.DefineProperty("CMSOutputProfile", encodedProfile);
+      free(encodedProfile);
+    } else {
+      nsPrintfCString msg("base64 encode failed 0x%08x",
+                          static_cast<uint32_t>(rv));
+      aObj.DefineProperty("CMSOutputProfile", msg.get());
+    }
+  } else {
+    nsPrintfCString msg("%zu bytes, too large", size);
+    aObj.DefineProperty("CMSOutputProfile", msg.get());
   }
 
   free(profile);

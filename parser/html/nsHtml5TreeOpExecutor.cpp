@@ -168,21 +168,22 @@ nsHtml5TreeOpExecutor::DidBuildModel(bool aTerminated) {
   // forced termination.
   DidBuildModelImpl(aTerminated || NS_FAILED(IsBroken()));
 
-  if (!mLayoutStarted) {
-    // We never saw the body, and layout never got started. Force
-    // layout *now*, to get an initial reflow.
+  bool destroying = true;
+  if (mDocShell) {
+    mDocShell->IsBeingDestroyed(&destroying);
+  }
 
-    // NOTE: only force the layout if we are NOT destroying the
-    // docshell. If we are destroying it, then starting layout will
-    // likely cause us to crash, or at best waste a lot of time as we
-    // are just going to tear it down anyway.
-    bool destroying = true;
-    if (mDocShell) {
-      mDocShell->IsBeingDestroyed(&destroying);
-    }
+  if (!destroying) {
+    mDocument->TriggerInitialDocumentTranslation();
 
-    if (!destroying) {
-      mDocument->TriggerInitialDocumentTranslation();
+    if (!mLayoutStarted) {
+      // We never saw the body, and layout never got started. Force
+      // layout *now*, to get an initial reflow.
+
+      // NOTE: only force the layout if we are NOT destroying the
+      // docshell. If we are destroying it, then starting layout will
+      // likely cause us to crash, or at best waste a lot of time as we
+      // are just going to tear it down anyway.
       nsContentSink::StartLayout(false);
     }
   }
@@ -807,8 +808,8 @@ void nsHtml5TreeOpExecutor::MaybeComplainAboutCharset(const char* aMsgId,
   nsContentUtils::ReportToConsole(
       aError ? nsIScriptError::errorFlag : nsIScriptError::warningFlag,
       NS_LITERAL_CSTRING("HTML parser"), mDocument,
-      nsContentUtils::eHTMLPARSER_PROPERTIES, aMsgId, nullptr, 0, nullptr,
-      EmptyString(), aLineNumber);
+      nsContentUtils::eHTMLPARSER_PROPERTIES, aMsgId, nsTArray<nsString>(),
+      nullptr, EmptyString(), aLineNumber);
 }
 
 void nsHtml5TreeOpExecutor::ComplainAboutBogusProtocolCharset(Document* aDoc) {
@@ -827,8 +828,8 @@ void nsHtml5TreeOpExecutor::MaybeComplainAboutDeepTree(uint32_t aLineNumber) {
   mAlreadyComplainedAboutDeepTree = true;
   nsContentUtils::ReportToConsole(
       nsIScriptError::errorFlag, NS_LITERAL_CSTRING("HTML parser"), mDocument,
-      nsContentUtils::eHTMLPARSER_PROPERTIES, "errDeepTree", nullptr, 0,
-      nullptr, EmptyString(), aLineNumber);
+      nsContentUtils::eHTMLPARSER_PROPERTIES, "errDeepTree",
+      nsTArray<nsString>(), nullptr, EmptyString(), aLineNumber);
 }
 
 nsHtml5Parser* nsHtml5TreeOpExecutor::GetParser() {

@@ -26,7 +26,7 @@
 #include "mozilla/Unused.h"
 #include "mozilla/StaticPrefs.h"
 #include "mozilla/TelemetryIPC.h"
-#include "mozilla/VideoDecoderManagerChild.h"
+#include "mozilla/RemoteDecoderManagerChild.h"
 #include "mozilla/devtools/HeapSnapshotTempFileHelperChild.h"
 #include "mozilla/docshell/OfflineCacheUpdateChild.h"
 #include "mozilla/dom/BrowsingContext.h"
@@ -1219,7 +1219,7 @@ void ContentChild::LaunchRDDProcess() {
         Endpoint<PRemoteDecoderManagerChild> endpoint;
         Unused << SendLaunchRDDProcess(&rv, &endpoint);
         if (rv == NS_OK) {
-          RemoteDecoderManagerChild::InitForContent(std::move(endpoint));
+          RemoteDecoderManagerChild::InitForRDDProcess(std::move(endpoint));
         }
       }));
   task.Wait();
@@ -1495,7 +1495,7 @@ mozilla::ipc::IPCResult ContentChild::RecvInitRendering(
     Endpoint<PCompositorManagerChild>&& aCompositor,
     Endpoint<PImageBridgeChild>&& aImageBridge,
     Endpoint<PVRManagerChild>&& aVRBridge,
-    Endpoint<PVideoDecoderManagerChild>&& aVideoManager,
+    Endpoint<PRemoteDecoderManagerChild>&& aVideoManager,
     nsTArray<uint32_t>&& namespaces) {
   MOZ_ASSERT(namespaces.Length() == 3);
 
@@ -1519,7 +1519,7 @@ mozilla::ipc::IPCResult ContentChild::RecvInitRendering(
   if (!gfx::VRManagerChild::InitForContent(std::move(aVRBridge))) {
     return GetResultForRenderingInitFailure(aVRBridge.OtherPid());
   }
-  VideoDecoderManagerChild::InitForContent(std::move(aVideoManager));
+  RemoteDecoderManagerChild::InitForGPUProcess(std::move(aVideoManager));
 
 #if defined(XP_MACOSX) && !defined(MOZ_SANDBOX)
   // Close all current connections to the WindowServer. This ensures that the
@@ -1537,7 +1537,7 @@ mozilla::ipc::IPCResult ContentChild::RecvReinitRendering(
     Endpoint<PCompositorManagerChild>&& aCompositor,
     Endpoint<PImageBridgeChild>&& aImageBridge,
     Endpoint<PVRManagerChild>&& aVRBridge,
-    Endpoint<PVideoDecoderManagerChild>&& aVideoManager,
+    Endpoint<PRemoteDecoderManagerChild>&& aVideoManager,
     nsTArray<uint32_t>&& namespaces) {
   MOZ_ASSERT(namespaces.Length() == 3);
   nsTArray<RefPtr<BrowserChild>> tabs = BrowserChild::GetAll();
@@ -1572,7 +1572,7 @@ mozilla::ipc::IPCResult ContentChild::RecvReinitRendering(
     }
   }
 
-  VideoDecoderManagerChild::InitForContent(std::move(aVideoManager));
+  RemoteDecoderManagerChild::InitForGPUProcess(std::move(aVideoManager));
   return IPC_OK();
 }
 
@@ -3975,15 +3975,9 @@ mozilla::ipc::IPCResult ContentChild::RecvWindowPostMessage(
     return IPC_OK();
   }
 
-  RefPtr<BrowsingContext> sourceBc = aData.source();
-  if (!sourceBc) {
-    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
-            ("ChildIPC: Trying to use a dead or detached context"));
-    return IPC_OK();
-  }
-
   // Create and asynchronously dispatch a runnable which will handle actual DOM
   // event creation and dispatch.
+  RefPtr<BrowsingContext> sourceBc = aData.source();
   RefPtr<PostMessageEvent> event = new PostMessageEvent(
       sourceBc, aData.origin(), window, providedPrincipal,
       aData.callerDocumentURI(), aData.isFromPrivateWindow());

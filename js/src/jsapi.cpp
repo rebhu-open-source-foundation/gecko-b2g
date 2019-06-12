@@ -1172,7 +1172,7 @@ JS_PUBLIC_API void JS::AddAssociatedMemory(JSObject* obj, size_t nbytes,
 
   Zone* zone = obj->zone();
   zone->addCellMemory(obj, nbytes, js::MemoryUse(use));
-  zone->maybeAllocTriggerZoneGC();
+  zone->maybeMallocTriggerZoneGC();
 }
 
 JS_PUBLIC_API void JS::RemoveAssociatedMemory(JSObject* obj, size_t nbytes,
@@ -3032,6 +3032,12 @@ JS_PUBLIC_API Value JS_GetReservedSlot(JSObject* obj, uint32_t index) {
 JS_PUBLIC_API void JS_SetReservedSlot(JSObject* obj, uint32_t index,
                                       const Value& value) {
   obj->as<NativeObject>().setReservedSlot(index, value);
+}
+
+JS_PUBLIC_API void JS_InitReservedSlot(JSObject* obj, uint32_t index, void* ptr,
+                                       size_t nbytes, JS::MemoryUse use) {
+  InitReservedSlot(&obj->as<NativeObject>(), index, ptr, nbytes,
+                   js::MemoryUse(use));
 }
 
 JS_PUBLIC_API JSObject* JS_NewArrayObject(

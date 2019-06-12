@@ -350,7 +350,7 @@ nsContextMenu.prototype = {
         ContextualIdentityService.getUserContextLabel(gContextMenuContentData.userContextId);
       item.setAttribute("label",
          gBrowserBundle.formatStringFromName("userContextOpenLink.label",
-                                             [label], 1));
+                                             [label]));
     }
 
     var shouldShow = this.onSaveableLink || isMailtoInternal || this.onPlainTextLink;
@@ -1458,7 +1458,7 @@ nsContextMenu.prototype = {
   },
 
   switchPageDirection: function CM_switchPageDirection() {
-    this.browser.messageManager.sendAsyncMessage("SwitchDocumentDirection");
+    gBrowser.selectedBrowser.sendMessageToActor("SwitchDocumentDirection", {}, "SwitchDocumentDirection", true);
   },
 
   mediaCommand: function CM_mediaCommand(command, data) {

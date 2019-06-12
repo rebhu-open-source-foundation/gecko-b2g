@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import {recordTelemetryEvent} from "chrome://browser/content/aboutlogins/aboutLoginsUtils.js";
+
 let gElements = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,8 +18,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   gElements.newLoginButton.addEventListener("click", () => {
-    gElements.loginItem.setLogin({});
-    gElements.loginList.clearSelection();
+    window.dispatchEvent(new CustomEvent("AboutLoginsLoginSelected", {
+      detail: {},
+    }));
+
+    recordTelemetryEvent({object: "new_login", method: "new"});
   });
 
   document.dispatchEvent(new CustomEvent("AboutLoginsInit", {bubbles: true}));

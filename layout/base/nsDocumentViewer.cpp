@@ -78,7 +78,7 @@
 #include "nsIScrollableFrame.h"
 #include "nsStyleSheetService.h"
 #include "nsILoadContext.h"
-
+#include "mozilla/ThrottledEventQueue.h"
 #include "nsIPrompt.h"
 #include "imgIContainer.h"  // image animation mode constants
 
@@ -379,8 +379,6 @@ class nsDocumentViewer final : public nsIContentViewer,
                                    bool aIsPrintingOrPP, bool aStartAtTop);
 #endif  // NS_PRINTING
 
-  void ReturnToGalleyPresentation();
-
   // Whether we should attach to the top level widget. This is true if we
   // are sharing/recycling a single base widget and not creating multiple
   // child widgets.
@@ -538,6 +536,9 @@ already_AddRefed<nsIContentViewer> NS_NewContentViewer() {
 }
 
 void nsDocumentViewer::PrepareToStartLoad() {
+  MOZ_DIAGNOSTIC_ASSERT(!GetIsPrintPreview(),
+                        "Print preview tab should never navigate");
+
   mStopped = false;
   mLoaded = false;
   mAttachedToParent = false;
@@ -552,9 +553,6 @@ void nsDocumentViewer::PrepareToStartLoad() {
   if (mPrintJob) {
     mPrintJob->Destroy();
     mPrintJob = nullptr;
-#  ifdef NS_PRINT_PREVIEW
-    SetIsPrintPreview(false);
-#  endif
   }
 
 #endif  // NS_PRINTING
@@ -1103,14 +1101,68 @@ nsDocumentViewer::LoadComplete(nsresult aStatus) {
             docShell, MakeUnique<DocLoadingTimelineMarker>("document::Load"));
       }
 
+      nsPIDOMWindowInner* innerWindow = window->GetCurrentInnerWindow();
+      RefPtr<DocGroup> docGroup = mDocument->GetDocGroup();
+      // It is possible that the parent document's load event fires earlier than
+      // childs' load event, and in this case we need to fire some artificial
+      // load events to make the parent thinks the load events for child has
+      // been done
+      if (innerWindow && DocGroup::TryToLoadIframesInBackground()) {
+        nsTArray<nsCOMPtr<nsIDocShell>> docShells;
+        nsCOMPtr<nsIDocShell> container(mContainer);
+        if (container) {
+          int32_t count;
+          container->GetChildCount(&count);
+          // We first find all background loading iframes that need to
+          // fire artificial load events, and instead of firing them as
+          // soon as we find them, we store them in an array, to prevent
+          // us from skipping some events.
+          for (int32_t i = 0; i < count; ++i) {
+            nsCOMPtr<nsIDocShellTreeItem> child;
+            container->GetChildAt(i, getter_AddRefs(child));
+            nsCOMPtr<nsIDocShell> childIDocShell = do_QueryInterface(child);
+            RefPtr<nsDocShell> docShell = nsDocShell::Cast(childIDocShell);
+            if (docShell && docShell->TreatAsBackgroundLoad() &&
+                docShell->GetDocument()->GetReadyStateEnum() <
+                Document::READYSTATE_COMPLETE) {
+              docShells.AppendElement(childIDocShell);
+            }
+          }
+
+          // Re-iterate the stored docShells to fire artificial load events
+          for (size_t i = 0; i < docShells.Length(); ++i) {
+            RefPtr<nsDocShell> docShell = nsDocShell::Cast(docShells[i]);
+            if (docShell && docShell->TreatAsBackgroundLoad() &&
+                docShell->GetDocument()->GetReadyStateEnum() <
+                Document::READYSTATE_COMPLETE) {
+              nsEventStatus status = nsEventStatus_eIgnore;
+              WidgetEvent event(true, eLoad);
+              event.mFlags.mBubbles = false;
+              event.mFlags.mCancelable = false;
+
+              nsCOMPtr<nsPIDOMWindowOuter> win = docShell->GetWindow();
+              nsCOMPtr<Element> element = win->GetFrameElementInternal();
+
+              docShell->SetFakeOnLoadDispatched();
+              EventDispatcher::Dispatch(element, nullptr, &event, nullptr, &status);
+            }
+          }
+        }
+      }
+
       d->SetLoadEventFiring(true);
       EventDispatcher::Dispatch(window, mPresContext, &event, nullptr, &status);
       d->SetLoadEventFiring(false);
+
+      RefPtr<nsDocShell> dShell = nsDocShell::Cast(docShell);
+      if (dShell->TreatAsBackgroundLoad()) {
+        docGroup->TryFlushIframePostMessages(dShell->GetOuterWindowID());
+      }
+
       if (timing) {
         timing->NotifyLoadEventEnd();
       }
 
-      nsPIDOMWindowInner* innerWindow = window->GetCurrentInnerWindow();
       if (innerWindow) {
         innerWindow->QueuePerformanceNavigationTiming();
       }
@@ -1158,7 +1210,6 @@ nsDocumentViewer::LoadComplete(nsresult aStatus) {
       }
     }
   }
-
   // Release the JS bytecode cache from its wait on the load event, and
   // potentially dispatch the encoding of the bytecode.
   if (mDocument && mDocument->ScriptLoader()) {
@@ -3628,7 +3679,7 @@ nsDocumentViewer::PrintPreview(nsIPrintSettings* aPrintSettings,
 
 //----------------------------------------------------------------------
 NS_IMETHODIMP
-nsDocumentViewer::PrintPreviewNavigate(int16_t aType, int32_t aPageNum) {
+nsDocumentViewer::PrintPreviewScrollToPage(int16_t aType, int32_t aPageNum) {
   if (!GetIsPrintPreview() || mPrintJob->GetIsCreatingPrintPreview())
     return NS_ERROR_FAILURE;
 
@@ -3762,14 +3813,67 @@ nsDocumentViewer::Cancel() {
   return mPrintJob->Cancel();
 }
 
+#  if defined(NS_PRINTING) && defined(NS_PRINT_PREVIEW)
+// Reset ESM focus for all descendent doc shells.
+static void ResetFocusState(nsIDocShell* aDocShell) {
+  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+  if (!fm) {
+    return;
+  }
+
+  nsCOMPtr<nsISimpleEnumerator> docShellEnumerator;
+  aDocShell->GetDocShellEnumerator(nsIDocShellTreeItem::typeContent,
+                                   nsIDocShell::ENUMERATE_FORWARDS,
+                                   getter_AddRefs(docShellEnumerator));
+
+  nsCOMPtr<nsISupports> currentContainer;
+  bool hasMoreDocShells;
+  while (NS_SUCCEEDED(docShellEnumerator->HasMoreElements(&hasMoreDocShells)) &&
+         hasMoreDocShells) {
+    docShellEnumerator->GetNext(getter_AddRefs(currentContainer));
+    nsCOMPtr<nsPIDOMWindowOuter> win = do_GetInterface(currentContainer);
+    if (win) {
+      fm->ClearFocus(win);
+    }
+  }
+}
+#  endif  // NS_PRINTING && NS_PRINT_PREVIEW
+
 NS_IMETHODIMP
 nsDocumentViewer::ExitPrintPreview() {
-  if (GetIsPrinting()) return NS_ERROR_FAILURE;
   NS_ENSURE_TRUE(mPrintJob, NS_ERROR_FAILURE);
 
-  if (GetIsPrintPreview()) {
-    ReturnToGalleyPresentation();
+  if (GetIsPrinting()) {
+    // Block exiting the print preview window if we're in the middle of an
+    // actual print.
+    return NS_ERROR_FAILURE;
   }
+
+  if (!GetIsPrintPreview()) {
+    NS_ERROR("Wow, we should never get here!");
+    return NS_OK;
+  }
+
+#  if defined(NS_PRINTING) && defined(NS_PRINT_PREVIEW)
+  mPrintJob->TurnScriptingOn(true);
+  mPrintJob->Destroy();
+  mPrintJob = nullptr;
+
+  // Nowadays we use a static clone document for printing, and print preview is
+  // in a separate tab that gets closed after print preview finishes.  Probably
+  // nothing below this line is necessary anymore.
+
+  SetIsPrintPreview(false);
+
+  nsCOMPtr<nsIDocShell> docShell(mContainer);
+  ResetFocusState(docShell);
+
+  SetTextZoom(mTextZoom);
+  SetFullZoom(mPageZoom);
+  SetOverrideDPPX(mOverrideDPPX);
+  Show();
+#  endif  // NS_PRINTING && NS_PRINT_PREVIEW
+
   return NS_OK;
 }
 
@@ -3973,55 +4077,6 @@ void nsDocumentViewer::IncrementDestroyBlockedCount() {
 
 void nsDocumentViewer::DecrementDestroyBlockedCount() {
   --mDestroyBlockedCount;
-}
-
-//------------------------------------------------------------
-
-#if defined(NS_PRINTING) && defined(NS_PRINT_PREVIEW)
-//------------------------------------------------------------
-// Reset ESM focus for all descendent doc shells.
-static void ResetFocusState(nsIDocShell* aDocShell) {
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (!fm) return;
-
-  nsCOMPtr<nsISimpleEnumerator> docShellEnumerator;
-  aDocShell->GetDocShellEnumerator(nsIDocShellTreeItem::typeContent,
-                                   nsIDocShell::ENUMERATE_FORWARDS,
-                                   getter_AddRefs(docShellEnumerator));
-
-  nsCOMPtr<nsISupports> currentContainer;
-  bool hasMoreDocShells;
-  while (NS_SUCCEEDED(docShellEnumerator->HasMoreElements(&hasMoreDocShells)) &&
-         hasMoreDocShells) {
-    docShellEnumerator->GetNext(getter_AddRefs(currentContainer));
-    nsCOMPtr<nsPIDOMWindowOuter> win = do_GetInterface(currentContainer);
-    if (win) fm->ClearFocus(win);
-  }
-}
-#endif  // NS_PRINTING && NS_PRINT_PREVIEW
-
-void nsDocumentViewer::ReturnToGalleyPresentation() {
-#if defined(NS_PRINTING) && defined(NS_PRINT_PREVIEW)
-  if (!GetIsPrintPreview()) {
-    NS_ERROR("Wow, we should never get here!");
-    return;
-  }
-
-  SetIsPrintPreview(false);
-
-  mPrintJob->TurnScriptingOn(true);
-  mPrintJob->Destroy();
-  mPrintJob = nullptr;
-
-  nsCOMPtr<nsIDocShell> docShell(mContainer);
-  ResetFocusState(docShell);
-
-  SetTextZoom(mTextZoom);
-  SetFullZoom(mPageZoom);
-  SetOverrideDPPX(mOverrideDPPX);
-  Show();
-
-#endif  // NS_PRINTING && NS_PRINT_PREVIEW
 }
 
 //------------------------------------------------------------

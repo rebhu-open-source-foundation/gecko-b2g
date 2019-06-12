@@ -47,7 +47,7 @@ pref("extensions.getAddons.langpacks.url", "https://services.addons.mozilla.org/
 pref("extensions.getAddons.discovery.api_url", "https://services.addons.mozilla.org/api/v4/discovery/?lang=%LOCALE%");
 
 // Enable the HTML-based discovery panel at about:addons.
-pref("extensions.htmlaboutaddons.discover.enabled", false);
+pref("extensions.htmlaboutaddons.discover.enabled", true);
 
 // The URL for the privacy policy related to recommended extensions.
 pref("extensions.recommendations.privacyPolicyUrl", "https://www.mozilla.org/privacy/firefox/?utm_source=firefox-browser&utm_medium=firefox-browser&utm_content=privacy-policy-link#addons");
@@ -988,9 +988,6 @@ pref("security.certerrors.mitm.auto_enable_enterprise_roots", true);
 // Whether to start the private browsing mode at application startup
 pref("browser.privatebrowsing.autostart", false);
 
-// Whether to show the new private browsing UI with in-content search box.
-pref("browser.privatebrowsing.searchUI", true);
-
 // Whether the bookmark panel should be shown when bookmarking a page.
 pref("browser.bookmarks.editDialog.showForNewBookmarks", true);
 
@@ -1293,7 +1290,6 @@ pref("browser.newtab.preload", true);
 pref("browser.newtabpage.enabled", true);
 
 // Activity Stream prefs that control to which page to redirect
-pref("browser.newtabpage.activity-stream.prerender", true);
 #ifndef RELEASE_OR_BETA
 pref("browser.newtabpage.activity-stream.debug", false);
 #endif
