@@ -204,6 +204,7 @@
 
             window.home.addEventListener("click", event => {
                 debug(`Going home.`);
+                navigator.vibrate(100);
                 window.launcher.src = "https://google.com";
             });
 

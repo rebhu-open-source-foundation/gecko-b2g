@@ -157,8 +157,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         '/widget',
         '/widget/gonk',
     ]
-
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     LOCAL_INCLUDES += ['%' + '%s/hardware/libhardware/include' % CONFIG['GONK_PATH']]
     LOCAL_INCLUDES += ['%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH']]
 

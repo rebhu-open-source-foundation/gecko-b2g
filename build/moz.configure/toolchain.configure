@@ -97,7 +97,7 @@ set_config('YASM_ASFLAGS', yasm_asflags)
 
 @depends('--disable-compile-environment', target)
 def compiling_android(compile_env, target):
-    return compile_env and target.os in ('Android', 'b2g')
+    return compile_env and target.os in ('Android')
 
 
 include('android-ndk.configure', when=compiling_android)

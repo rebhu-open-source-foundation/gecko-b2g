@@ -2,8 +2,6 @@
 
 set -e
 
-export MOZCONFIG=mozconfig-b2g
-
 # Check that the GONK_PATH environment variable is set.
 if [ -z ${GONK_PATH+x} ];
 then
@@ -72,18 +70,19 @@ export JS_BINARY=`pwd`/jsshell/js
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-export NDK_DIR=$HOME/.mozbuild/android-ndk-r17b/
+export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r17c
 
-export PATH=$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
+export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
 
-SYSROOT=$NDK_DIR/platforms/$ANDROID_PLATFORM/arch-arm/
+SYSROOT=$ANDROID_NDK/platforms/$ANDROID_PLATFORM/arch-arm/
 GONK_LIBS=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib/
 
 ARCH_DIR="arch-arm"
 
 export GONK_PRODUCT=$GONK_PRODUCT_NAME
 
-# ld --version
+HIDL_HW=$GONK_PATH/out/soong/.intermediates/hardware/interfaces
+HIDL_TRANSPORT=$GONK_PATH/out/soong/.intermediates/system/libhidl/transport
 
 export CFLAGS="-DANDROID -DTARGET_OS_GONK \
 -Oz \
@@ -96,7 +95,7 @@ $HWC_DEFINE \
 -DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
 -isystem $GONK_PATH/bionic \
 -isystem $GONK_PATH/bionic/libc/$ARCH_DIR/include \
--isystem $NDK_DIR/platforms/$ANDROID_PLATFORM/arch-arm/usr/include \
+-isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/arch-arm/usr/include \
 -isystem $GONK_PATH/bionic/libc/include/ \
 -isystem $GONK_PATH/bionic/libc/kernel/common \
 -isystem $GONK_PATH/bionic/libc/kernel/$ARCH_DIR \
@@ -118,7 +117,11 @@ $HWC_DEFINE \
 -I$GONK_PATH/external/skia/include/core \
 -I$GONK_PATH/external/skia/include/effects \
 -I$GONK_PATH/system/core/libpixelflinger/include \
--I$GONK_PATH/hardware/libhardware/include/"
+-I$GONK_PATH/hardware/libhardware/include/ \
+-I$GONK_PATH/system/libhidl/base/include \
+-I$HIDL_TRANSPORT/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
+-I$HIDL_TRANSPORT/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
+-I$HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"
 
 export CPPFLAGS="-fPIC \
 -isystem $GONK_PATH/api/cpp/include \
@@ -130,12 +133,13 @@ export RUSTC_OPT_LEVEL=z
 
 GCC_LIB="-L$GONK_PATH/prebuilts/gcc/darwin-x86/arm/arm-linux-androideabi-4.9/lib/gcc/arm-linux-androideabi/4.9.x/"
 
-export ANDROID_NDK=$NDK_DIR
 export ANDROID_PLATFORM=$ANDROID_PLATFORM
 
-export LDFLAGS="-L$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
--Wl,-rpath-link=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib \
+OBJ_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib
+
+export LDFLAGS="-L$OBJ_LIB -Wl,-rpath-link=$OBJ_LIB \
 --sysroot=$SYSROOT $GCC_LIB -ldl -lstdc++ -Wl,--no-as-needed \
--llog -landroid -lnativewindow -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lui -lgui -lsuspend"
+-llog -landroid -lnativewindow -lbinder -lutils -lcutils -lhardware_legacy -lhardware -lui -lgui -lsuspend \
+-lhidlbase $OBJ_LIB/android.hardware.vibrator@1.0.so"
 
 ./mach build $@

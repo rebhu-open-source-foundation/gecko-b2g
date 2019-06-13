@@ -37,8 +37,12 @@
 #include "hardware/hardware.h"
 #include "hardware/lights.h"
 #include "hardware_legacy/uevent.h"
-//#include "hardware_legacy/vibrator.h"
-//#include "hardware_legacy/power.h"
+#if ANDROID_VERSION < 27
+#include "hardware_legacy/vibrator.h"
+#include "hardware_legacy/power.h"
+#else
+#include "android/hardware/vibrator/1.0/IVibrator.h"
+#endif
 #include "libdisplay/GonkDisplay.h"
 
 #include "utils/threads.h"
@@ -365,7 +369,14 @@ VibratorRunnable::Run()
     if (mIndex < mPattern.Length()) {
       uint32_t duration = mPattern[mIndex];
       if (mIndex % 2 == 0) {
-        ;//vibrator_on(duration);
+#if ANDROID_VERSION < 27
+        vibrator_on(duration);
+#else
+        MOZ_DBG(duration);
+        // Get a handle to the HIDL vibrator service.
+        auto vibrator = android::hardware::vibrator::V1_0::IVibrator::getService();
+        vibrator->on(duration);
+#endif
       }
       mIndex++;
       mMonitor.Wait(TimeDuration::FromMilliseconds(duration));
