@@ -237,7 +237,7 @@
         }
 
         static get observedAttributes() {
-            return ["src", "remote", "ignoreuserfocus"];
+            return ["src", "remote", "ignoreuserfocus", "transparent"];
         }
 
         attributeChangedCallback(name, old_value, new_value) {
