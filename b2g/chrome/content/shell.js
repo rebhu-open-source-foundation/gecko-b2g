@@ -214,5 +214,14 @@ document.addEventListener("DOMContentLoaded", function dom_loaded() {
 
   RemoteDebugger.init(window);
 
+  Services.obs.addObserver(() => {
+    debug("New web embedder created.");
+    // Notify the the shell is ready at the next event loop tick to
+    // let the embedder user a chance to add event listeners.
+    window.setTimeout(() => {
+      Services.obs.notifyObservers(null, "shell-ready");
+    }, 0);
+  }, "web-embedder-created");
+
   shell.start();
 });

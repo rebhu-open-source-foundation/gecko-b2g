@@ -6,12 +6,19 @@
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
     <meta charset="utf-8">
     <script src="js/web-view.js"></script>
+    <script src="js/web-embedder.js"></script>
     <script>
         function debug(msg) {
             console.log(`SystemApp: ${msg}`);
         }
 
         var input_method = navigator.mozInputMethod;
+
+        const embedder = new WebEmbedder();
+        embedder.addEventListener("runtime-ready", e => {
+            debug(`Embedder event: ${e.type}`);
+            embedder.launch_preallocated_process();
+        });
 
         function setup_keyboard() {
             input_method.setActive(true);
