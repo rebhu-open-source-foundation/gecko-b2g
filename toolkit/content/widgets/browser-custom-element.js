@@ -250,6 +250,8 @@ class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
 
     this._contentPrincipal = null;
 
+    this._contentStoragePrincipal = null;
+
     this._csp = null;
 
     this._contentRequestContextID = null;
@@ -634,6 +636,10 @@ class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
 
   get contentPrincipal() {
     return this.isRemoteBrowser ? this._contentPrincipal : this.contentDocument.nodePrincipal;
+  }
+
+  get contentStoragePrincipal() {
+    return this.isRemoteBrowser ? this._contentStoragePrincipal : this.contentDocument.effectiveStoragePrincipal;
   }
 
   get csp() {
@@ -1422,6 +1428,52 @@ class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
     }
   }
 
+  updateWebNavigationForLocationChange(aCanGoBack, aCanGoForward) {
+    if (this.isRemoteBrowser && this.messageManager) {
+      let remoteWebNav = this._remoteWebNavigationImpl;
+      remoteWebNav.canGoBack = aCanGoBack;
+      remoteWebNav.canGoForward = aCanGoForward;
+    }
+  }
+
+  updateForLocationChange(aLocation,
+                          aCharset,
+                          aMayEnableCharacterEncodingMenu,
+                          aCharsetAutodetected,
+                          aDocumentURI,
+                          aTitle,
+                          aContentPrincipal,
+                          aContentStoragePrincipal,
+                          aCSP,
+                          aIsSynthetic,
+                          aInnerWindowID,
+                          aHaveRequestContextID,
+                          aRequestContextID,
+                          aContentType) {
+    if (this.isRemoteBrowser && this.messageManager) {
+      if (aCharset != null) {
+        this._characterSet = aCharset;
+        this._mayEnableCharacterEncodingMenu = aMayEnableCharacterEncodingMenu;
+        this._charsetAutodetected = aCharsetAutodetected;
+      }
+
+      if (aContentType != null) {
+        this._documentContentType = aContentType;
+      }
+
+      this._remoteWebNavigationImpl._currentURI = aLocation;
+      this._documentURI = aDocumentURI;
+      this._contentTile = aTitle;
+      this._imageDocument = null;
+      this._contentPrincipal = aContentPrincipal;
+      this._contentStoragePrincipal = aContentStoragePrincipal;
+      this._csp = aCSP;
+      this._isSyntheticDocument = aIsSynthetic;
+      this._innerWindowID = aInnerWindowID;
+      this._contentRequestContextID = aHaveRequestContextID ? aRequestContextID : null;
+    }
+  }
+
   purgeSessionHistory() {
     if (this.isRemoteBrowser) {
       try {
@@ -1439,7 +1491,7 @@ class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
     this.messageManager.sendAsyncMessage("Browser:PurgeSessionHistory");
   }
 
-  createAboutBlankContentViewer(aPrincipal) {
+  createAboutBlankContentViewer(aPrincipal, aStoragePrincipal) {
     if (this.isRemoteBrowser) {
       // Ensure that the content process has the permissions which are
       // needed to create a document with the given principal.
@@ -1460,11 +1512,13 @@ class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
       // So we'll continue to use the message manager until we come up with a better
       // solution.
       this.messageManager.sendAsyncMessage("BrowserElement:CreateAboutBlank",
-                                           aPrincipal);
+                                           {principal: aPrincipal,
+                                            storagePrincipal: aStoragePrincipal});
       return;
     }
     let principal = BrowserUtils.principalWithMatchingOA(aPrincipal, this.contentPrincipal);
-    this.docShell.createAboutBlankContentViewer(principal);
+    let storagePrincipal = BrowserUtils.principalWithMatchingOA(aStoragePrincipal, this.contentStoragePrincipal);
+    this.docShell.createAboutBlankContentViewer(principal, storagePrincipal);
   }
 
   stopScroll() {

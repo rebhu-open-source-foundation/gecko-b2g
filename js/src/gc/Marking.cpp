@@ -150,9 +150,9 @@ static inline bool IsThingPoisoned(T* thing) {
   return false;
 }
 
-static bool IsMovingTracer(JSTracer* trc) {
-  return trc->isCallbackTracer() && trc->asCallbackTracer()->getTracerKind() ==
-                                        JS::CallbackTracer::TracerKind::Moving;
+bool js::IsTracerKind(JSTracer* trc, JS::CallbackTracer::TracerKind kind) {
+  return trc->isCallbackTracer() &&
+         trc->asCallbackTracer()->getTracerKind() == kind;
 }
 #endif
 
@@ -202,7 +202,8 @@ void js::CheckTracedThing(JSTracer* trc, T* thing) {
     return;
   }
 
-  MOZ_ASSERT_IF(!IsMovingTracer(trc) && !trc->isTenuringTracer(),
+  MOZ_ASSERT_IF(!IsTracerKind(trc, JS::CallbackTracer::TracerKind::Moving) &&
+                    !trc->isTenuringTracer(),
                 !IsForwarded(thing));
 
   /*
@@ -216,8 +217,9 @@ void js::CheckTracedThing(JSTracer* trc, T* thing) {
   Zone* zone = thing->zoneFromAnyThread();
   JSRuntime* rt = trc->runtime();
 
-  if (!IsMovingTracer(trc) && !IsBufferGrayRootsTracer(trc) &&
-      !IsClearEdgesTracer(trc)) {
+  if (!IsTracerKind(trc, JS::CallbackTracer::TracerKind::Moving) &&
+      !IsTracerKind(trc, JS::CallbackTracer::TracerKind::GrayBuffering) &&
+      !IsTracerKind(trc, JS::CallbackTracer::TracerKind::ClearEdges)) {
     MOZ_ASSERT(CurrentThreadCanAccessZone(zone));
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
   }
@@ -232,15 +234,14 @@ void js::CheckTracedThing(JSTracer* trc, T* thing) {
       MapTypeToTraceKind<typename mozilla::RemovePointer<T>::Type>::kind ==
       thing->getTraceKind());
 
-  /*
-   * Do not check IsMarkingTracer directly -- it should only be used in paths
-   * where we cannot be the gray buffering tracer.
-   */
   bool isGcMarkingTracer = trc->isMarkingTracer();
 
-  MOZ_ASSERT_IF(zone->requireGCTracer(),
-                isGcMarkingTracer || IsBufferGrayRootsTracer(trc) ||
-                    IsUnmarkGrayTracer(trc) || IsClearEdgesTracer(trc));
+  MOZ_ASSERT_IF(
+      zone->requireGCTracer(),
+      isGcMarkingTracer ||
+          IsTracerKind(trc, JS::CallbackTracer::TracerKind::GrayBuffering) ||
+          IsTracerKind(trc, JS::CallbackTracer::TracerKind::UnmarkGray) ||
+          IsTracerKind(trc, JS::CallbackTracer::TracerKind::ClearEdges));
 
   if (isGcMarkingTracer) {
     GCMarker* gcMarker = GCMarker::fromTracer(trc);
@@ -3504,6 +3505,10 @@ struct AssertNonGrayTracer final : public JS::CallbackTracer {
   void onChild(const JS::GCCellPtr& thing) override {
     MOZ_ASSERT(!thing.asCell()->isMarkedGray());
   }
+  // This is used by the UnmarkGray tracer only, and needs to report itself
+  // as the non-gray tracer to not trigger assertions.  Do not use it in another
+  // context without making this more generic.
+  TracerKind getTracerKind() const override { return TracerKind::UnmarkGray; }
 };
 #endif
 
@@ -3598,14 +3603,6 @@ void UnmarkGrayTracer::unmark(JS::GCCellPtr cell) {
     return;
   }
 }
-
-#ifdef DEBUG
-bool js::IsUnmarkGrayTracer(JSTracer* trc) {
-  return trc->isCallbackTracer() &&
-         trc->asCallbackTracer()->getTracerKind() ==
-             JS::CallbackTracer::TracerKind::UnmarkGray;
-}
-#endif
 
 static bool UnmarkGrayGCThing(JSRuntime* rt, JS::GCCellPtr thing) {
   MOZ_ASSERT(thing);

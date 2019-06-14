@@ -36,7 +36,6 @@
 #include "mozilla/dom/ClientOpenWindowOpActors.h"
 #include "mozilla/dom/ChildProcessMessageManager.h"
 #include "mozilla/dom/ContentProcessMessageManager.h"
-#include "mozilla/dom/DOMPrefs.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "mozilla/dom/DocGroup.h"
@@ -229,6 +228,9 @@
 #  ifdef XP_WIN
 #    include "mozilla/a11y/AccessibleWrap.h"
 #  endif
+#  include "mozilla/a11y/DocAccessible.h"
+#  include "mozilla/a11y/DocManager.h"
+#  include "mozilla/a11y/OuterDocAccessible.h"
 #endif
 
 #include "mozilla/dom/File.h"
@@ -1352,8 +1354,6 @@ void ContentChild::InitXPCOM(
 
   // Set the dynamic scalar definitions for this process.
   TelemetryIPC::AddDynamicScalarDefinitions(aXPCOMInit.dynamicScalarDefs());
-
-  DOMPrefs::Initialize();
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvRequestMemoryReport(
@@ -2089,6 +2089,20 @@ already_AddRefed<RemoteBrowser> ContentChild::CreateBrowser(
       PromiseFlatString(aContext.PresentationURL()), aRemoteType,
       aBrowsingContext, chromeFlags, tabId);
   browserBridge->mIPCOpen = true;
+
+#if defined(ACCESSIBILITY)
+  a11y::DocAccessible* docAcc =
+      a11y::GetExistingDocAccessible(owner->OwnerDoc());
+  if (docAcc) {
+    a11y::Accessible* ownerAcc = docAcc->GetAccessible(owner);
+    if (ownerAcc) {
+      a11y::OuterDocAccessible* outerAcc = ownerAcc->AsOuterDoc();
+      if (outerAcc) {
+        outerAcc->SendEmbedderAccessible(browserBridge);
+      }
+    }
+  }
+#endif  // defined(ACCESSIBILITY)
 
   RefPtr<BrowserBridgeHost> browserBridgeHost =
       new BrowserBridgeHost(browserBridge);
@@ -3865,6 +3879,15 @@ mozilla::ipc::IPCResult ContentChild::RecvDetachBrowsingContext(
   MOZ_RELEASE_ASSERT(aContext);
 
   aContext->Detach(/* aFromIPC */ true);
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvDetachBrowsingContextChildren(
+    BrowsingContext* aContext) {
+  MOZ_RELEASE_ASSERT(aContext);
+
+  aContext->DetachChildren(/* aFromIPC */ true);
 
   return IPC_OK();
 }

@@ -10313,7 +10313,8 @@ void Document::Destroy() {
   if (mIsGoingAway) return;
 
   // Make sure to report before IPC closed.
-  if (!nsContentUtils::IsInPrivateBrowsing(this)) {
+  if (!nsContentUtils::IsInPrivateBrowsing(this) &&
+      IsTopLevelContentDocument()) {
     mContentBlockingLog.ReportLog(NodePrincipal());
     mContentBlockingLog.ReportOrigins();
   }
@@ -11022,12 +11023,8 @@ void Document::SetReadyStateInternal(ReadyState rs,
 
   if (READYSTATE_INTERACTIVE == rs) {
     if (nsContentUtils::IsSystemPrincipal(NodePrincipal())) {
-      Element* root = GetRootElement();
-      if ((root && root->HasAttr(kNameSpaceID_None, nsGkAtoms::mozpersist)) ||
-          IsXULDocument()) {
-        mXULPersist = new XULPersist(this);
-        mXULPersist->Init();
-      }
+      mXULPersist = new XULPersist(this);
+      mXULPersist->Init();
     }
   }
 
@@ -15453,15 +15450,8 @@ void Document::RecordNavigationTiming(ReadyState aReadyState) {
 }
 
 bool Document::ModuleScriptsEnabled() {
-  static bool sEnabledForContent = false;
-  static bool sCachedPref = false;
-  if (!sCachedPref) {
-    sCachedPref = true;
-    Preferences::AddBoolVarCache(&sEnabledForContent,
-                                 "dom.moduleScripts.enabled", false);
-  }
-
-  return nsContentUtils::IsChromeDoc(this) || sEnabledForContent;
+  return nsContentUtils::IsChromeDoc(this) ||
+         StaticPrefs::dom_moduleScripts_enabled();
 }
 
 void Document::ReportShadowDOMUsage() {

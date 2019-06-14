@@ -33,6 +33,7 @@
 #include "mozilla/gfx/CrossProcessPaint.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/IMEStateManager.h"
+#include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/ipc/URIUtils.h"
 #include "mozilla/layers/APZChild.h"
 #include "mozilla/layers/APZCCallbackHelper.h"
@@ -57,9 +58,11 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/StaticPrefs.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/TouchEvents.h"
 #include "mozilla/Unused.h"
+#include "Units.h"
 #include "nsBrowserStatusFilter.h"
 #include "nsContentUtils.h"
 #include "nsDocShell.h"
@@ -83,6 +86,7 @@
 #include "nsIDocShell.h"
 #include "nsIFrame.h"
 #include "nsIURI.h"
+#include "nsIURIMutator.h"
 #include "nsIURIFixup.h"
 #include "nsIWebBrowser.h"
 #include "nsIWebProgress.h"
@@ -436,7 +440,7 @@ BrowserChild::Observe(nsISupports* aSubject, const char* aTopic,
       nsCOMPtr<Document> subject(do_QueryInterface(aSubject));
       nsCOMPtr<Document> doc(GetTopLevelDocument());
 
-      if (subject == doc) {
+      if (subject == doc && doc->IsTopLevelContentDocument()) {
         RefPtr<PresShell> presShell = doc->GetPresShell();
         if (presShell) {
           presShell->SetIsFirstPaint(true);
@@ -521,8 +525,8 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent) {
 
   const uint32_t notifyMask =
       nsIWebProgress::NOTIFY_STATE_ALL | nsIWebProgress::NOTIFY_PROGRESS |
-      nsIWebProgress::NOTIFY_STATUS | nsIWebProgress::NOTIFY_REFRESH |
-      nsIWebProgress::NOTIFY_CONTENT_BLOCKING;
+      nsIWebProgress::NOTIFY_STATUS | nsIWebProgress::NOTIFY_LOCATION |
+      nsIWebProgress::NOTIFY_REFRESH | nsIWebProgress::NOTIFY_CONTENT_BLOCKING;
 
   mStatusFilter = new nsBrowserStatusFilter();
 
@@ -1790,7 +1794,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealTouchEvent(
 
   if (localEvent.mMessage == eTouchStart && AsyncPanZoomEnabled()) {
     nsCOMPtr<Document> document = GetTopLevelDocument();
-    if (StaticPrefs::TouchActionEnabled()) {
+    if (StaticPrefs::layout_css_touch_action_enabled()) {
       APZCCallbackHelper::SendSetAllowedTouchBehaviorNotification(
           mPuppetWidget, document, localEvent, aInputBlockId,
           mSetAllowedTouchBehaviorCallback);
@@ -2741,7 +2745,7 @@ bool BrowserChild::IsVisible() {
 }
 
 void BrowserChild::UpdateVisibility(bool aForceRepaint) {
-  bool shouldBeVisible = mIsTopLevel ? mRenderLayers : mEffectsInfo.mVisible;
+  bool shouldBeVisible = mIsTopLevel ? mRenderLayers : mEffectsInfo.IsVisible();
   bool isVisible = IsVisible();
 
   if (shouldBeVisible != isVisible) {
@@ -3328,6 +3332,16 @@ ScreenIntSize BrowserChild::GetInnerSize() {
       innerSize, PixelCastJustification::LayoutDeviceIsScreenForTabDims);
 };
 
+nsRect BrowserChild::GetVisibleRect() {
+  if (mIsTopLevel) {
+    // We are conservative about visible rects for top-level browsers to avoid
+    // artifacts when resizing
+    return nsRect(nsPoint(), CSSPixel::ToAppUnits(mUnscaledInnerSize));
+  } else {
+    return mEffectsInfo.mVisibleRect;
+  }
+}
+
 ScreenIntRect BrowserChild::GetOuterRect() {
   LayoutDeviceIntRect outerRect =
       RoundedToInt(mUnscaledOuterRect * mPuppetWidget->GetDefaultScale());
@@ -3512,8 +3526,7 @@ NS_IMETHODIMP BrowserChild::OnStateChange(nsIWebProgress* aWebProgress,
     stateChangeData->isNavigating() = docShell->GetIsNavigating();
     stateChangeData->mayEnableCharacterEncodingMenu() =
         docShell->GetMayEnableCharacterEncodingMenu();
-    stateChangeData->charsetAutodetected() =
-        docShell->GetCharsetAutodetected();
+    stateChangeData->charsetAutodetected() = docShell->GetCharsetAutodetected();
 
     if (document && aStateFlags & nsIWebProgressListener::STATE_STOP) {
       document->GetContentType(stateChangeData->contentType());
@@ -3559,7 +3572,100 @@ NS_IMETHODIMP BrowserChild::OnLocationChange(nsIWebProgress* aWebProgress,
                                              nsIRequest* aRequest,
                                              nsIURI* aLocation,
                                              uint32_t aFlags) {
-  return NS_ERROR_NOT_IMPLEMENTED;
+  if (!IPCOpen() || !mShouldSendWebProgressEventsToParent) {
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsIWebNavigation> webNav = WebNavigation();
+  nsCOMPtr<nsIDocShell> docShell = do_GetInterface(webNav);
+  if (!docShell) {
+    return NS_OK;
+  }
+
+  RefPtr<Document> document;
+  if (nsCOMPtr<nsPIDOMWindowOuter> outerWindow = do_GetInterface(docShell)) {
+    document = outerWindow->GetExtantDoc();
+  } else {
+    return NS_OK;
+  }
+
+  if (!document) {
+    return NS_OK;
+  }
+
+  Maybe<WebProgressData> webProgressData;
+  RequestData requestData;
+
+  MOZ_TRY(PrepareProgressListenerData(aWebProgress, aRequest, webProgressData,
+                                      requestData));
+
+  Maybe<WebProgressLocationChangeData> locationChangeData;
+
+  bool canGoBack = false;
+  bool canGoForward = false;
+
+  MOZ_TRY(webNav->GetCanGoBack(&canGoBack));
+  MOZ_TRY(webNav->GetCanGoForward(&canGoForward));
+
+  if (aWebProgress && webProgressData->isTopLevel()) {
+    locationChangeData.emplace();
+
+    document->GetContentType(locationChangeData->contentType());
+    locationChangeData->isNavigating() = docShell->GetIsNavigating();
+    locationChangeData->documentURI() = document->GetDocumentURIObject();
+    document->GetTitle(locationChangeData->title());
+    document->GetCharacterSet(locationChangeData->charset());
+
+    locationChangeData->mayEnableCharacterEncodingMenu() =
+        docShell->GetMayEnableCharacterEncodingMenu();
+    locationChangeData->charsetAutodetected() =
+        docShell->GetCharsetAutodetected();
+
+    MOZ_TRY(PrincipalToPrincipalInfo(
+        document->EffectiveStoragePrincipal(),
+        &locationChangeData->contentStoragePrincipal(), false));
+
+    MOZ_TRY(PrincipalToPrincipalInfo(document->NodePrincipal(),
+                                     &locationChangeData->contentPrincipal(),
+                                     false));
+
+    if (const nsCOMPtr<nsIContentSecurityPolicy> csp = document->GetCsp()) {
+      locationChangeData->csp().emplace();
+      MOZ_TRY(CSPToCSPInfo(csp, &locationChangeData->csp().ref()));
+    }
+
+    locationChangeData->isSyntheticDocument() = document->IsSyntheticDocument();
+
+    if (nsCOMPtr<nsILoadGroup> loadGroup = document->GetDocumentLoadGroup()) {
+      uint64_t requestContextID = 0;
+      MOZ_TRY(loadGroup->GetRequestContextID(&requestContextID));
+      locationChangeData->requestContextID() = Some(requestContextID);
+    }
+
+#ifdef MOZ_CRASHREPORTER
+    if (CrashReporter::GetEnabled()) {
+      nsCOMPtr<nsIURI> annotationURI;
+
+      nsresult rv = NS_MutateURI(aLocation)
+                        .SetUserPass(EmptyCString())
+                        .Finalize(annotationURI);
+
+      if (NS_FAILED(rv)) {
+        // Ignore failures on about: URIs.
+        annotationURI = aLocation;
+      }
+
+      CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::URL,
+                                         annotationURI->GetSpecOrDefault());
+    }
+#endif
+  }
+
+  Unused << SendOnLocationChange(webProgressData, requestData, aLocation,
+                                 aFlags, canGoBack, canGoForward,
+                                 locationChangeData);
+
+  return NS_OK;
 }
 
 NS_IMETHODIMP BrowserChild::OnStatusChange(nsIWebProgress* aWebProgress,
@@ -3626,6 +3732,11 @@ NS_IMETHODIMP BrowserChild::OnRefreshAttempted(nsIWebProgress* aWebProgress,
   NS_ENSURE_ARG_POINTER(aOut);
   *aOut = true;
 
+  return NS_OK;
+}
+
+NS_IMETHODIMP BrowserChild::NotifyNavigationFinished() {
+  Unused << SendNavigationFinished();
   return NS_OK;
 }
 

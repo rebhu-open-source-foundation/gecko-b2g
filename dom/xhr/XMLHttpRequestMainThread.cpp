@@ -2255,22 +2255,15 @@ void XMLHttpRequestMainThread::ChangeStateToDone(bool aWasSync) {
     mChannel->GetLoadFlags(&loadFlags);
     if (loadFlags & nsIRequest::LOAD_BACKGROUND) {
       nsPIDOMWindowInner* owner = GetOwner();
-      Document* doc = owner ? owner->GetExtantDoc() : nullptr;
-      doc = doc ? doc->GetTopLevelContentDocument() : nullptr;
-      if (doc &&
-          (doc->GetReadyStateEnum() > Document::READYSTATE_UNINITIALIZED &&
-           doc->GetReadyStateEnum() < Document::READYSTATE_COMPLETE)) {
-        nsPIDOMWindowInner* topWin = doc->GetInnerWindow();
-        if (topWin) {
-          MOZ_ASSERT(!mDelayedDoneNotifier);
-          RefPtr<XMLHttpRequestDoneNotifier> notifier =
-              new XMLHttpRequestDoneNotifier(this);
-          mDelayedDoneNotifier = notifier;
-          topWin->AddAfterLoadRunner(notifier);
-          NS_DispatchToCurrentThreadQueue(notifier.forget(), 5000,
-                                          EventQueuePriority::Idle);
-          return;
-        }
+      nsPIDOMWindowInner* topWin =
+          owner ? owner->GetWindowForDeprioritizedLoadRunner() : nullptr;
+      if (topWin) {
+        MOZ_ASSERT(!mDelayedDoneNotifier);
+        RefPtr<XMLHttpRequestDoneNotifier> notifier =
+            new XMLHttpRequestDoneNotifier(this);
+        mDelayedDoneNotifier = notifier;
+        topWin->AddDeprioritizedLoadRunner(notifier);
+        return;
       }
     }
   }
@@ -2483,10 +2476,9 @@ nsresult XMLHttpRequestMainThread::InitiateFetch(
     if (!IsSystemXHR()) {
       nsCOMPtr<nsPIDOMWindowInner> owner = GetOwner();
       nsCOMPtr<Document> doc = owner ? owner->GetExtantDoc() : nullptr;
-      mozilla::net::ReferrerPolicy referrerPolicy =
-          doc ? doc->GetReferrerPolicy() : mozilla::net::RP_Unset;
-      nsContentUtils::SetFetchReferrerURIWithPolicy(
-          mPrincipal, doc, httpChannel, referrerPolicy);
+      nsCOMPtr<nsIReferrerInfo> referrerInfo =
+          ReferrerInfo::CreateForFetch(mPrincipal, doc);
+      Unused << httpChannel->SetReferrerInfoWithoutClone(referrerInfo);
     }
 
     // Some extensions override the http protocol handler and provide their own
