@@ -9,6 +9,7 @@ const Ci = Components.interfaces;
 const Cu = Components.utils;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+Cu.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(this, "FreeSpaceWatcher",
                                   "resource://gre/modules/FreeSpaceWatcher.jsm");
@@ -22,7 +23,16 @@ function debug(aMsg) {
 this.AppDownloadManager = {
   // Minimum disk free space we want to keep, in bytes.
   // Keep synchronized with Webapps.jsm
-  MIN_REMAINING_FREESPACE: 5 * 1024 * 1024,
+  get MIN_REMAINING_FREESPACE() {
+    let minFree = 30 * 1024 * 1024;
+
+    try {
+      let low = Services.prefs.getIntPref("disk_space_watcher.low_threshold");
+      minFree = low * 1024 * 1024;
+    } catch(e) {}
+
+    return minFree;
+  },
 
   downloads: {},
   count: 0,
