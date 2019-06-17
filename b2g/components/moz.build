@@ -61,6 +61,7 @@ EXTRA_JS_MODULES += [
     'AboutServiceWorkers.jsm',
     'ActivityChannel.jsm',
     'AlertsHelper.jsm',
+    'B2GProcessSelector.jsm',
     'Bootstraper.jsm',
     'ContentRequestHelper.jsm',
     'dbg-browser-actors.js',
@@ -93,6 +94,10 @@ UNIFIED_SOURCES += [
 
 LOCAL_INCLUDES += [
     '/chrome'
+]
+
+XPCOM_MANIFESTS += [
+    'components.conf',
 ]
 
 FINAL_LIBRARY = 'xul'

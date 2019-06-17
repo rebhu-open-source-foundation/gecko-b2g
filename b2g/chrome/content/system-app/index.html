@@ -14,7 +14,78 @@
 
         var input_method = navigator.mozInputMethod;
 
-        const embedder = new WebEmbedder();
+        const windowProvider = {
+            openURI: function(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
+                debug(`browserWindow::openURI ${aURI.spec}`);
+                throw "NOT IMPLEMENTED";
+            },
+
+            createContentWindow: function(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
+                debug(`browserWindow::createContentWindow ${aURI.spec}`);
+                throw "NOT IMPLEMENTED";
+            },
+
+            openURIInFrame: function(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
+                // We currently ignore aNextRemoteTabId on mobile.  This needs to change
+                // when Fennec starts to support e10s.  Assertions will fire if this code
+                // isn't fixed by then.
+                //
+                // We also ignore aName if it is set, as it is currently only used on the
+                // e10s codepath.
+                debug(`browserWindow::openURIInFrame ${aURI.spec}`);
+                let webview = document.createElement("web-view");
+                webview.setAttribute("remote", true);
+                webview.setAttribute("src", aURI.spec);
+                webview.classList.add("website");
+
+                window["launcher-container"].append(webview);
+                
+                return webview;
+            },
+
+            createContentWindowInFrame: function(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
+                debug(`browserWindow::createContentWindowInFrame ${aURI.spec}`);
+                let webview = document.createElement("web-view");
+                webview.setAttribute("remote", true);
+                webview.setAttribute("src", aURI.spec);
+                webview.classList.add("website");
+
+                window["launcher-container"].append(webview);
+
+                return webview;
+            },
+
+            isTabContentWindow: function(aWindow) {
+                debug(`browserWindow::isTabContentWindow`);
+                return false;
+            },
+
+            canClose() {
+                debug(`browserWindow::canClose`);
+                return true;
+            },
+        };
+
+        const processSelector = {
+            NEW_PROCESS: -1,
+
+            provideProcess: function(aType, aOpener, aProcesses, aMaxCount) {
+                debug(`provideProcess ${JSON.stringify(aProcesses)}`);
+
+                // If we find an existing process with no tab, use it.
+                for (let i = 0; i < aProcesses.length; i++) {
+                    if (aProcesses[i].tabCount == 0) {
+                        debug(`MozDbg re-using process #${i}`);
+                        return i;
+                    }
+                }
+
+                // Fallback to creating a new process.
+                return processSelector.NEW_PROCESS;
+            },
+        };
+
+        const embedder = new WebEmbedder(windowProvider, processSelector);
         embedder.addEventListener("runtime-ready", e => {
             debug(`Embedder event: ${e.type}`);
             embedder.launch_preallocated_process();
@@ -214,11 +285,18 @@
         #launcher-container {
             flex: 1;
             border: none;
+            display: flex;
+            flex-direction: column;
         }
 
         #launcher {
-            width: 100%;
-            height: 100%;
+            /* width: 100%;
+            height: 100%; */
+            flex: 1;
+        }
+
+        .website {
+            flex: 1;
         }
 
         #keyboard {

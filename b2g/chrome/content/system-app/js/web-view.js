@@ -330,6 +330,10 @@
           }
         }
 
+        get frame() {
+          return this.browser;
+        }
+
         set src(url) {
             this.log(`set src to ${url}`);
             !!this.browser && this.browser.setAttribute("src", url);
