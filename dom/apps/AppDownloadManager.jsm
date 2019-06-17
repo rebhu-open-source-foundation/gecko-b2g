@@ -22,16 +22,7 @@ function debug(aMsg) {
 this.AppDownloadManager = {
   // Minimum disk free space we want to keep, in bytes.
   // Keep synchronized with Webapps.jsm
-  get MIN_REMAINING_FREESPACE() {
-    let minFree = 30 * 1024 * 1024;
-
-    try {
-      let low = Services.prefs.getCharPref("disk_space_watcher.low_threshold");
-      minFree = low * 1024 * 1024;
-    } catch(e) {}
-
-    return minFree;
-  },
+  MIN_REMAINING_FREESPACE: 5 * 1024 * 1024,
 
   downloads: {},
   count: 0,
