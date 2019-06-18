@@ -13,6 +13,10 @@
 #define mozilla_dom_KaiOS_h
 
 #include "mozilla/dom/BindingDeclarations.h"
+#ifdef HAS_KOOST_MODULES
+#  include "mozilla/dom/ExternalAPI.h"
+#endif
+#include "mozilla/ErrorResult.h"
 #include "mozilla/MemoryReporting.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
@@ -34,15 +38,23 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   nsPIDOMWindowInner* GetWindow() const { return mWindow; }
   nsPIDOMWindowInner* GetParentObject() const { return GetWindow(); }
 
+  void Invalidate();
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
   virtual JSObject* WrapObject(JSContext* cx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
+#ifdef HAS_KOOST_MODULES
+  ExternalAPI* GetExternalapi(ErrorResult& aRv);
+#endif
+
  private:
   virtual ~KaiOS();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
+#ifdef HAS_KOOST_MODULES
+  RefPtr<ExternalAPI> mExternalAPI;
+#endif
 };
 
 }  // namespace dom

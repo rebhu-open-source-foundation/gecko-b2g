@@ -1123,6 +1123,7 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   }
 
   if (mKaiOS) {
+    mKaiOS->Invalidate();
     mKaiOS = nullptr;
   }
 

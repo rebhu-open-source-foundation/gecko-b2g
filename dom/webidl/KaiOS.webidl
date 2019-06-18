@@ -12,3 +12,10 @@ interface KaiOS {
   // objects implementing this interface also implement the interfaces given
   // below
 };
+
+#ifdef HAS_KOOST_MODULES
+partial interface KaiOS {
+  [Throws]
+  readonly attribute ExternalAPI externalapi;
+};
+#endif

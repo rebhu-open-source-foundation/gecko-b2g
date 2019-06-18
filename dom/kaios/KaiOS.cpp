@@ -29,14 +29,26 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(KaiOS)
 NS_IMPL_CYCLE_COLLECTION_CLASS(KaiOS)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(KaiOS)
+  tmp->Invalidate();
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mWindow)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
+#ifdef HAS_KOOST_MODULES
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(KaiOS)
+
+void KaiOS::Invalidate() {
+#ifdef HAS_KOOST_MODULES
+  if (mExternalAPI) {
+    mExternalAPI = nullptr;
+  }
+#endif
+}
 
 size_t KaiOS::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
   size_t n = aMallocSizeOf(this);
@@ -47,6 +59,21 @@ size_t KaiOS::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
 JSObject* KaiOS::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
   return KaiOS_Binding::Wrap(cx, this, aGivenProto);
 }
+
+#ifdef HAS_KOOST_MODULES
+ExternalAPI* KaiOS::GetExternalapi(ErrorResult& aRv) {
+  if (!mExternalAPI) {
+    nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
+    if (!global) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mExternalAPI = ExternalAPI::Create(global);
+  }
+
+  return mExternalAPI;
+}
+#endif
 
 }  // namespace dom
 }  // namespace mozilla

@@ -354,8 +354,10 @@ GENERATED_WEBIDL_FILES = [
 ]
 
 PREPROCESSED_WEBIDL_FILES = [
+    'KaiOS.webidl',
     'Node.webidl',
     'Window.webidl',
+    'WorkerKaiOS.webidl',
 ]
 
 WEBIDL_FILES = [
@@ -628,7 +630,6 @@ WEBIDL_FILES = [
     'IntersectionObserver.webidl',
     'IntlUtils.webidl',
     'IterableIterator.webidl',
-    'KaiOS.webidl',
     'KeyAlgorithm.webidl',
     'KeyboardEvent.webidl',
     'KeyEvent.webidl',
@@ -943,7 +944,6 @@ WEBIDL_FILES = [
     'Worker.webidl',
     'WorkerDebuggerGlobalScope.webidl',
     'WorkerGlobalScope.webidl',
-    'WorkerKaiOS.webidl',
     'WorkerLocation.webidl',
     'WorkerNavigator.webidl',
     'Worklet.webidl',
@@ -1106,4 +1106,9 @@ if CONFIG['MOZ_BUILD_APP'] in ['browser', 'mobile/android', 'xulrunner']:
 if CONFIG['ACCESSIBILITY']:
     WEBIDL_FILES += [
         'AccessibleNode.webidl',
+    ]
+
+if CONFIG['HAS_KOOST_MODULES']:
+    WEBIDL_FILES += [
+        'ExternalAPI.webidl',
     ]
