@@ -16,6 +16,7 @@
 interface WorkerGlobalScope : EventTarget {
   [Constant, Cached]
   readonly attribute WorkerGlobalScope self;
+  readonly attribute WorkerKaiOS kaiOS;
   readonly attribute WorkerLocation location;
   readonly attribute WorkerNavigator navigator;
 

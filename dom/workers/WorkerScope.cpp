@@ -30,6 +30,7 @@
 #include "mozilla/dom/TimeoutHandler.h"
 #include "mozilla/dom/WorkerDebuggerGlobalScopeBinding.h"
 #include "mozilla/dom/WorkerGlobalScopeBinding.h"
+#include "mozilla/dom/WorkerKaiOS.h"
 #include "mozilla/dom/WorkerLocation.h"
 #include "mozilla/dom/WorkerNavigator.h"
 #include "mozilla/dom/cache/CacheStorage.h"
@@ -134,6 +135,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(WorkerGlobalScope)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(WorkerGlobalScope,
                                                   DOMEventTargetHelper)
   tmp->mWorkerPrivate->AssertIsOnWorkerThread();
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mKaiOS)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConsole)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCrypto)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPerformance)
@@ -149,6 +151,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(WorkerGlobalScope,
                                                 DOMEventTargetHelper)
   tmp->mWorkerPrivate->AssertIsOnWorkerThread();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mKaiOS)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mConsole)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCrypto)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPerformance)
@@ -238,6 +241,18 @@ already_AddRefed<WorkerLocation> WorkerGlobalScope::Location() {
 
   RefPtr<WorkerLocation> location = mLocation;
   return location.forget();
+}
+
+already_AddRefed<WorkerKaiOS> WorkerGlobalScope::KaiOS() {
+  mWorkerPrivate->AssertIsOnWorkerThread();
+
+  if (!mKaiOS) {
+    mKaiOS = WorkerKaiOS::Create();
+    MOZ_ASSERT(mKaiOS);
+  }
+
+  RefPtr<WorkerKaiOS> kaiOS = mKaiOS;
+  return kaiOS.forget();
 }
 
 already_AddRefed<WorkerNavigator> WorkerGlobalScope::Navigator() {

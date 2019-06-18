@@ -26,6 +26,7 @@
 #include "mozilla/AntiTrackingCommon.h"
 #include "mozilla/dom/ContentFrameMessageManager.h"
 #include "mozilla/dom/EventTarget.h"
+#include "mozilla/dom/KaiOS.h"
 #include "mozilla/dom/LocalStorage.h"
 #include "mozilla/dom/LSObject.h"
 #include "mozilla/dom/Storage.h"
@@ -232,6 +233,7 @@
 #include "mozilla/dom/MediaQueryList.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/NavigatorBinding.h"
+#include "mozilla/dom/KaiOSBinding.h"
 #include "mozilla/dom/ImageBitmap.h"
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/dom/ServiceWorkerRegistration.h"
@@ -2830,6 +2832,8 @@ void nsPIDOMWindowOuter::SetFrameElementInternal(Element* aFrameElement) {
 Navigator* nsGlobalWindowOuter::GetNavigator() {
   FORWARD_TO_INNER(Navigator, (), nullptr);
 }
+
+KaiOS* nsGlobalWindowOuter::GetKaiOS() { FORWARD_TO_INNER(KaiOS, (), nullptr); }
 
 nsScreen* nsGlobalWindowOuter::GetScreen() {
   FORWARD_TO_INNER(GetScreen, (IgnoreErrors()), nullptr);

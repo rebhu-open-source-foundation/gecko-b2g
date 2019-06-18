@@ -37,6 +37,7 @@ class Performance;
 struct PostMessageOptions;
 class Promise;
 class RequestOrUSVString;
+class WorkerKaiOS;
 class WorkerLocation;
 class WorkerNavigator;
 class WorkerPrivate;
@@ -55,6 +56,7 @@ class WorkerGlobalScope : public DOMEventTargetHelper,
 
   RefPtr<Console> mConsole;
   RefPtr<Crypto> mCrypto;
+  RefPtr<WorkerKaiOS> mKaiOS;
   RefPtr<WorkerLocation> mLocation;
   RefPtr<WorkerNavigator> mNavigator;
   RefPtr<Performance> mPerformance;
@@ -107,6 +109,8 @@ class WorkerGlobalScope : public DOMEventTargetHelper,
   Console* GetConsoleIfExists() const { return mConsole; }
 
   Crypto* GetCrypto(ErrorResult& aError);
+
+  already_AddRefed<WorkerKaiOS> KaiOS();
 
   already_AddRefed<WorkerLocation> Location();
 
