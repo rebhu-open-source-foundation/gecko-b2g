@@ -1549,7 +1549,7 @@ pref("network.http.response.timeout", 300);
 // Note: the socket transport service will clamp the number below this if the OS
 // cannot allocate that many FDs
 #ifdef ANDROID
-pref("network.http.max-connections", 256);
+pref("network.http.max-connections", 40);
 #else
 pref("network.http.max-connections", 900);
 #endif
@@ -2515,7 +2515,7 @@ pref("security.dialog_enable_delay", 1000);
 pref("security.notification_enable_delay", 500);
 
 #if defined(DEBUG) && !defined(ANDROID)
-pref("csp.about_uris_without_csp", "blank,printpreview,srcdoc,addons,cache-entry,config,debugging,devtools,downloads,home,networking,newtab,performance,plugins,profiles,preferences,restartrequired,serviceworkers,sessionrestore,support,sync-log,telemetry,url-classifier,welcomeback");
+pref("csp.about_uris_without_csp", "blank,printpreview,srcdoc,addons,cache-entry,config,debugging,devtools,downloads,home,newtab,performance,plugins,profiles,preferences,restartrequired,serviceworkers,sessionrestore,support,sync-log,telemetry,url-classifier,welcomeback");
 // the following prefs are for testing purposes only.
 pref("csp.overrule_about_uris_without_csp_whitelist", false);
 pref("csp.skip_about_page_has_csp_assert", false);
@@ -3183,10 +3183,6 @@ pref("browser.tabs.remote.separatePrivilegedMozillaWebContentProcess", false);
 // The domains we will isolate into the Mozilla Content Process. Comma-separated
 // full domains: any subdomains of the domains listed will also be allowed.
 pref("browser.tabs.remote.separatedMozillaDomains", "addons.mozilla.org,accounts.firefox.com");
-
-// When this pref is enabled top level loads with a mismatched
-// Cross-Origin-Opener-Policy header will be loaded in a separate process.
-pref("browser.tabs.remote.useCrossOriginOpenerPolicy", false);
 
 // Enable the use of display-lists for SVG hit-testing and painting.
 pref("svg.display-lists.hit-testing.enabled", true);
@@ -4632,12 +4628,6 @@ pref("image.webp.enabled", true);
 pref("canvas.image.cache.limit", 0);
 
 // WebGL prefs
-#ifdef ANDROID
-// Disable MSAA on mobile.
-pref("gl.msaa-level", 0);
-#else
-pref("gl.msaa-level", 2);
-#endif
 pref("gl.require-hardware", false);
 #ifdef XP_MACOSX
 pref("gl.multithreaded", true);

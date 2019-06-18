@@ -1011,7 +1011,7 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
 
   if (mode == XDR_DECODE) {
     /* see BytecodeEmitter::tellDebuggerAboutCompiledScript */
-    if (!fun && !cx->helperThread()) {
+    if (!fun && !cx->isHelperThreadContext()) {
       Debugger::onNewScript(cx, script);
     }
   }
@@ -1344,9 +1344,13 @@ void JSScript::setIonScript(JSRuntime* rt, js::jit::IonScript* ionScript) {
                 !baselineScript()->hasPendingIonBuilder());
   if (hasIonScript()) {
     js::jit::IonScript::writeBarrierPre(zone(), ion);
+    clearIonScript();
   }
   ion = ionScript;
   MOZ_ASSERT_IF(hasIonScript(), hasBaselineScript());
+  if (hasIonScript()) {
+    AddCellMemory(this, ion->allocBytes(), js::MemoryUse::IonScript);
+  }
   updateJitCodeRaw(rt);
 }
 
@@ -3243,7 +3247,7 @@ bool ScriptSource::setDisplayURL(JSContext* cx, const char16_t* displayURL) {
   MOZ_ASSERT(displayURL);
   if (hasDisplayURL()) {
     // FIXME: filename_.get() should be UTF-8 (bug 987069).
-    if (!cx->helperThread() &&
+    if (!cx->isHelperThreadContext() &&
         !JS_ReportErrorFlagsAndNumberLatin1(
             cx, JSREPORT_WARNING, GetErrorMessage, nullptr,
             JSMSG_ALREADY_HAS_PRAGMA, filename_.get(), "//# sourceURL")) {
@@ -3940,6 +3944,7 @@ bool JSScript::fullyInitFromEmitter(JSContext* cx, HandleScript script,
   script->setFlag(ImmutableFlags::Strict, bce->sc->strict());
   script->setFlag(ImmutableFlags::BindingsAccessedDynamically,
                   bce->sc->bindingsAccessedDynamically());
+  script->setFlag(ImmutableFlags::HasCallSiteObj, bce->hasCallSiteObj);
   script->setFlag(ImmutableFlags::HasSingletons, bce->hasSingletons);
   script->setFlag(ImmutableFlags::IsForEval, bce->sc->isEvalContext());
   script->setFlag(ImmutableFlags::IsModule, bce->sc->isModuleContext());
@@ -4107,7 +4112,8 @@ void JSScript::finalize(FreeOp* fop) {
 
   if (data_) {
     size_t size = computedSizeOfData();
-    AlwaysPoison(data_, 0xdb, size, MemCheckKind::MakeNoAccess);
+    AlwaysPoison(data_, JS_POISONED_JSSCRIPT_DATA_PATTERN, size,
+                 MemCheckKind::MakeNoAccess);
     fop->free_(this, data_, size, MemoryUse::ScriptPrivateData);
   }
 

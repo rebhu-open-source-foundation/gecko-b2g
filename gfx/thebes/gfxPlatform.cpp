@@ -41,6 +41,8 @@
 #include "VRProcessManager.h"
 #include "VRThread.h"
 
+#include "mozilla/arm.h"
+
 #ifdef XP_WIN
 #  include <process.h>
 #  define getpid _getpid
@@ -2057,6 +2059,11 @@ eCMSMode gfxPlatform::GetCMSMode() {
     if (enableV4) {
       qcms_enable_iccv4();
     }
+#ifdef MOZILLA_MAY_SUPPORT_NEON
+    if (mozilla::supports_neon()) {
+      qcms_enable_neon();
+    }
+#endif
     gCMSInitialized = true;
   }
   return gCMSMode;
@@ -2715,12 +2722,7 @@ static FeatureState& WebRenderHardwareQualificationStatus(
               (deviceID >= 0x9830 && deviceID < 0x9870) ||
               (deviceID >= 0x9900 && deviceID < 0x9a00)) {
             // we have a desktop CAYMAN, SI, CIK, VI, or GFX9 device
-#ifndef EARLY_BETA_OR_EARLIER
-            featureWebRenderQualified.Disable(
-                FeatureStatus::BlockedReleaseChannelAMD,
-                "Release channel and AMD",
-                NS_LITERAL_CSTRING("FEATURE_FAILURE_RELEASE_CHANNEL_AMD"));
-#endif  // !EARLY_BETA_OR_EARLIER
+            // so treat the device as qualified.
           } else {
             featureWebRenderQualified.Disable(
                 FeatureStatus::BlockedDeviceTooOld, "Device too old",

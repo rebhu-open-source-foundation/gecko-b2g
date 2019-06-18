@@ -16,11 +16,22 @@ export default class MenuButton extends ReflectedFluentElement {
 
     this.reflectFluentStrings();
 
+    if (navigator.platform == "Win32") {
+      // We can't add navigator.platform in all cases
+      // because some platforms, such as Ubuntu 64-bit,
+      // use "Linux x86_64" which is an invalid className.
+      this.classList.add(navigator.platform);
+    }
+
     this.shadowRoot.querySelector(".menu-button").addEventListener("click", this);
   }
 
   static get reflectedFluentIDs() {
-    return ["button-title", "menuitem-preferences"];
+    return [
+      "button-title",
+      "menuitem-import",
+      "menuitem-preferences",
+    ];
   }
 
   static get observedAttributes() {
@@ -46,12 +57,15 @@ export default class MenuButton extends ReflectedFluentElement {
             event.originalTarget == this.shadowRoot.querySelector(".menu-button")) {
           return;
         }
-        if (event.originalTarget.classList.contains("menuitem-preferences")) {
-          document.dispatchEvent(new CustomEvent("AboutLoginsOpenPreferences", {
+        let classList = event.originalTarget.classList;
+        if (classList.contains("menuitem-import") ||
+            classList.contains("menuitem-preferences")) {
+          let eventName = event.originalTarget.dataset.eventName;
+          document.dispatchEvent(new CustomEvent(eventName, {
             bubbles: true,
           }));
           this.hideMenu();
-          return;
+          break;
         }
         this.toggleMenu();
         break;
@@ -60,7 +74,7 @@ export default class MenuButton extends ReflectedFluentElement {
   }
 
   toggleMenu() {
-    let wasHidden = this.shadowRoot.querySelector(".menu").getAttribute("aria-hidden") == "true";
+    let wasHidden = this.shadowRoot.querySelector(".menu").hidden;
     if (wasHidden) {
       this.showMenu();
     } else {
@@ -69,12 +83,12 @@ export default class MenuButton extends ReflectedFluentElement {
   }
 
   hideMenu() {
-    this.shadowRoot.querySelector(".menu").setAttribute("aria-hidden", "true");
+    this.shadowRoot.querySelector(".menu").hidden = true;
     document.documentElement.removeEventListener("click", this, true);
   }
 
   showMenu() {
-    this.shadowRoot.querySelector(".menu").setAttribute("aria-hidden", "false");
+    this.shadowRoot.querySelector(".menu").hidden = false;
 
     // Add a catch-all event listener to close the menu.
     document.documentElement.addEventListener("click", this, true);

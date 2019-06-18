@@ -923,6 +923,15 @@ VARCACHE_PREF(
   bool, false
 )
 
+// When this pref is enabled top level loads with a mismatched
+// Cross-Origin-Opener-Policy header will be loaded in a separate process.
+VARCACHE_PREF(
+  Live,
+  "browser.tabs.remote.useCrossOriginOpenerPolicy",
+  browser_tabs_remote_useCrossOriginOpenerPolicy,
+  bool, false
+)
+
 // When this pref is enabled, the browser will check no-cors responses that
 // have the Cross-Origin-Resource-Policy header and will fail the request if
 // the origin of the resource's loading document doesn't match the origin
@@ -3522,13 +3531,6 @@ VARCACHE_PREF(
   RelaxedAtomicBool, false
 )
 
-VARCACHE_PREF(
-  Live,
-  "gl.msaa-level",
-  MSAALevel,
-  RelaxedAtomicUint32, 2
-)
-
 #if defined(XP_MACOSX)
 VARCACHE_PREF(
   Live,
@@ -4777,7 +4779,7 @@ VARCACHE_PREF(
   Live,
   "layout.css.DOMMatrix.enabled",
   layout_css_DOMMatrix_enabled,
-  bool, true
+  RelaxedAtomicBool, true
 )
 
 // Is support for DOMQuad enabled?
@@ -4785,7 +4787,7 @@ VARCACHE_PREF(
   Live,
   "layout.css.DOMQuad.enabled",
   layout_css_DOMQuad_enabled,
-  bool, true
+  RelaxedAtomicBool, true
 )
 
 // Is support for DOMPoint enabled?
@@ -4793,7 +4795,7 @@ VARCACHE_PREF(
   Live,
   "layout.css.DOMPoint.enabled",
   layout_css_DOMPoint_enabled,
-  bool, true
+  RelaxedAtomicBool, true
 )
 
 // Are we emulating -moz-{inline}-box layout using CSS flexbox?
@@ -4954,6 +4956,13 @@ VARCACHE_PREF(
   Live,
   "layout.css.overscroll-behavior.enabled",
   layout_css_overscroll_behavior_enabled,
+  bool, true
+)
+
+VARCACHE_PREF(
+  Live,
+  "layout.css.overflow-logical.enabled",
+  layout_css_overflow_logical_enabled,
   bool, true
 )
 
@@ -7242,6 +7251,19 @@ VARCACHE_PREF(
   WebGLCanLoseContextInForeground,
   RelaxedAtomicBool, true
 )
+
+#ifdef MOZ_WIDGET_ANDROID
+# define PREF_VALUE false
+#else
+# define PREF_VALUE true
+#endif
+VARCACHE_PREF(
+  Live,
+  "webgl.default-antialias",
+  WebGLDefaultAntialias,
+  RelaxedAtomicBool, PREF_VALUE
+)
+#undef PREF_VALUE
 
 VARCACHE_PREF(
   Live,
