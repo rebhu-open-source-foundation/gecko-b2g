@@ -1389,7 +1389,10 @@ nsAppShell::ProcessNextNativeEvent(bool mayWait)
 void
 nsAppShell::NotifyNativeEvent()
 {
-    write(signalfds[1], "w", 1);
+    ssize_t bytes;
+    do {
+        bytes = write(signalfds[1], "w", 1);
+    } while (bytes == -1 && errno == EINTR);
 }
 
 /* static */ void
