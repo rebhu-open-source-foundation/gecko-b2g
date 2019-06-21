@@ -3736,7 +3736,11 @@ static size_t GetKernelPageSize() {
     GetSystemInfo(&info);
     return info.dwPageSize;
 #else
-    long result = sysconf(_SC_PAGESIZE);
+    // XXX: sysconf() is not ready before libc is initialized properly.
+    //      Use getpagesize() instead.
+    //      Bionic gets sysconf(_SC_PAGESIZE) from getauxval(),
+    //      which is initialized by linker with a vector from kernel.
+    long result = getpagesize();
     MOZ_ASSERT(result != -1);
     return result;
 #endif

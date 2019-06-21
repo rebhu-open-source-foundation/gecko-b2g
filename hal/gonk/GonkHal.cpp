@@ -125,9 +125,8 @@ typedef android::GonkDisplay* (*fnGetGonkDisplay)();
 GonkDisplay * GetGonkDisplay() {
   GonkDisplay *display = NULL;
   void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
-  if (lib == NULL) {
-    HAL_LOG("Could not dlopen(\"libcarthage.so\"):");
-  } else {
+  MOZ_ASSERT(lib != NULL, "libcarthage.so is not found!");
+  {
     fnGetGonkDisplay func = (fnGetGonkDisplay) dlsym(lib, "GetGonkDisplayP") ;
     if (func == NULL) {
       HAL_LOG("Symbol 'GetGonkDisplayP' is missing from shared library!!\n");

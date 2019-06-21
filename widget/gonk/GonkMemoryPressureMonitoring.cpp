@@ -90,7 +90,9 @@ public:
     os->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, /* holdsWeak */ false);
 
     // Initialize the internal state
-    mPageSize = sysconf(_SC_PAGESIZE);
+    // XXX: sysconf() is not ready before libc is initialized properly.
+    //      Use getpagesize() instead.
+    mPageSize = getpagesize();
     ReadPrefs();
     nsresult rv = OpenFiles();
     NS_ENSURE_SUCCESS(rv, rv);

@@ -2,3 +2,17 @@ libmozglue.so {
 global:
   *;
 };
+LIBC {
+global:
+  malloc;
+  calloc;
+  realloc;
+  free;
+  memalign;
+
+  posix_memalign;
+  aligned_alloc;
+  valloc;
+  malloc_usable_size;
+  malloc_good_size;
+};

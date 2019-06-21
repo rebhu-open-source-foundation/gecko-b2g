@@ -43,7 +43,9 @@ static uintptr_t GetPageMask() {
   static uintptr_t mask = 0;
 
   if (mask == 0) {
-    uintptr_t pageSize = sysconf(_SC_PAGESIZE);
+    // XXX: sysconf() is not ready before libc is initialized properly.
+    //      Use getpagesize() instead.
+    uintptr_t pageSize = getpagesize();
     mask = ~(pageSize - 1);
     MOZ_ASSERT((pageSize & (pageSize - 1)) == 0,
                "Page size must be a power of 2!");
