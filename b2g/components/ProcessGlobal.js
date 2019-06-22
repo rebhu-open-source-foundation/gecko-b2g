@@ -186,7 +186,7 @@ ProcessGlobal.prototype = {
 
       if (message.stacktrace &&
           (message.level == "assert" || message.level == "error" || message.level == "trace")) {
-        stackTrace = Array.map(message.stacktrace, formatStackFrame).join("\n");
+        stackTrace = Array.prototype.map.call(message.stacktrace, formatStackFrame).join("\n");
       } else {
         stackTrace = formatStackFrame(message);
       }

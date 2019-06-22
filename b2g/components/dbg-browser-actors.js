@@ -71,9 +71,27 @@ MobileTabList.prototype = Object.create(BrowserTabList.prototype);
 MobileTabList.prototype.constructor = MobileTabList;
 
 MobileTabList.prototype._getSelectedBrowser = function(aWindow) {
-  return aWindow.BrowserApp.selectedBrowser;
+  // Always return the system app as "selected browser" for now.
+  // TODO: switch to the current foreground app.
+  return aWindow.document.getElementById("systemapp");
 };
 
 MobileTabList.prototype._getChildren = function(aWindow) {
-  return aWindow.BrowserApp.tabs.map(tab => tab.browser);
+  // aWindow is the chrome shell window, so we build a list with all apps included in the system app.
+  // Note: including the system app itself in the list doesn't work but the system app is accessible
+  // by inspecting the Main Process.
+
+  let system_app = aWindow.document.getElementById("systemapp");
+  if (!system_app) {
+    return [];
+  }
+
+  let web_views = system_app.contentWindow.document.querySelectorAll("web-view");
+
+  let res = [];
+  for (let web_view of web_views) {
+    res.push(web_view.browser);
+  }
+
+  return res;
 };
