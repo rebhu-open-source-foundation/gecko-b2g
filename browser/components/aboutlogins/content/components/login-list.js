@@ -29,7 +29,7 @@ export default class LoginList extends ReflectedFluentElement {
     this.attachShadow({mode: "open"})
         .appendChild(loginListTemplate.content.cloneNode(true));
 
-    this.reflectFluentStrings();
+    this._list = this.shadowRoot.querySelector("ol");
 
     this.render();
 
@@ -37,11 +37,12 @@ export default class LoginList extends ReflectedFluentElement {
                    .addEventListener("change", this);
     window.addEventListener("AboutLoginsLoginSelected", this);
     window.addEventListener("AboutLoginsFilterLogins", this);
+
+    super.connectedCallback();
   }
 
   render() {
-    let list = this.shadowRoot.querySelector("ol");
-    list.textContent = "";
+    this._list.textContent = "";
 
     if (!this._logins.length) {
       document.l10n.setAttributes(this, "login-list", {count: 0});
@@ -50,7 +51,7 @@ export default class LoginList extends ReflectedFluentElement {
 
     if (!this._selectedGuid) {
       this._blankLoginListItem.classList.add("selected");
-      list.append(this._blankLoginListItem);
+      this._list.append(this._blankLoginListItem);
     }
 
     for (let login of this._logins) {
@@ -59,39 +60,11 @@ export default class LoginList extends ReflectedFluentElement {
       if (login.guid == this._selectedGuid) {
         listItem.classList.add("selected");
       }
-      list.append(listItem);
+      this._list.append(listItem);
     }
 
     let visibleLoginCount = this._applyFilter();
     document.l10n.setAttributes(this, "login-list", {count: visibleLoginCount});
-  }
-
-  _applyFilter() {
-    let matchingLoginGuids;
-    if (this._filter) {
-      matchingLoginGuids = this._logins.filter(login => {
-        return login.origin.toLocaleLowerCase().includes(this._filter) ||
-               login.username.toLocaleLowerCase().includes(this._filter);
-      }).map(login => login.guid);
-    } else {
-      matchingLoginGuids = this._logins.map(login => login.guid);
-    }
-
-    for (let listItem of this.shadowRoot.querySelectorAll("login-list-item")) {
-      if (!listItem.hasAttribute("guid")) {
-        // Don't hide the 'New Login' item if it is present.
-        continue;
-      }
-      if (matchingLoginGuids.includes(listItem.getAttribute("guid"))) {
-        if (listItem.hidden) {
-          listItem.hidden = false;
-        }
-      } else if (!listItem.hidden) {
-        listItem.hidden = true;
-      }
-    }
-
-    return matchingLoginGuids.length;
   }
 
   handleEvent(event) {
@@ -150,16 +123,26 @@ export default class LoginList extends ReflectedFluentElement {
     return true;
   }
 
+  /**
+   * @param {login[]} logins An array of logins used for displaying in the list.
+   */
   setLogins(logins) {
     this._logins = logins;
     this.render();
   }
 
+  /**
+   * @param {login} login A login that was added to storage.
+   */
   loginAdded(login) {
     this._logins.push(login);
     this.render();
   }
 
+  /**
+   * @param {login} login A login that was modified in storage. The related login-list-item
+   *                       will get updated.
+   */
   loginModified(login) {
     for (let i = 0; i < this._logins.length; i++) {
       if (this._logins[i].guid == login.guid) {
@@ -170,9 +153,46 @@ export default class LoginList extends ReflectedFluentElement {
     this.render();
   }
 
+  /**
+   * @param {login} login A login that was removed from storage. The related login-list-item
+   *                      will get removed. The login object is a plain JS object
+   *                      representation of nsILoginInfo/nsILoginMetaInfo.
+   */
   loginRemoved(login) {
     this._logins = this._logins.filter(l => l.guid != login.guid);
     this.render();
+  }
+
+  /**
+   * Filters the displayed logins in the list to only those matching the
+   * cached filter value.
+   */
+  _applyFilter() {
+    let matchingLoginGuids;
+    if (this._filter) {
+      matchingLoginGuids = this._logins.filter(login => {
+        return login.origin.toLocaleLowerCase().includes(this._filter) ||
+               login.username.toLocaleLowerCase().includes(this._filter);
+      }).map(login => login.guid);
+    } else {
+      matchingLoginGuids = this._logins.map(login => login.guid);
+    }
+
+    for (let listItem of this._list.querySelectorAll("login-list-item")) {
+      if (!listItem.dataset.guid) {
+        // Don't hide the 'New Login' item if it is present.
+        continue;
+      }
+      if (matchingLoginGuids.includes(listItem.dataset.guid)) {
+        if (listItem.hidden) {
+          listItem.hidden = false;
+        }
+      } else if (!listItem.hidden) {
+        listItem.hidden = true;
+      }
+    }
+
+    return matchingLoginGuids.length;
   }
 }
 customElements.define("login-list", LoginList);

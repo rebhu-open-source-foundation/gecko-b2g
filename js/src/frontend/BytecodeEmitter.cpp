@@ -923,25 +923,34 @@ bool BytecodeEmitter::emitAtomOp(uint32_t atomIndex, JSOp op) {
 
 bool BytecodeEmitter::emitInternedScopeOp(uint32_t index, JSOp op) {
   MOZ_ASSERT(JOF_OPTYPE(op) == JOF_SCOPE);
-  MOZ_ASSERT(index < perScriptData().scopeList().length());
+  MOZ_ASSERT(index < perScriptData().gcThingList().length());
   return emitIndex32(op, index);
 }
 
 bool BytecodeEmitter::emitInternedObjectOp(uint32_t index, JSOp op) {
   MOZ_ASSERT(JOF_OPTYPE(op) == JOF_OBJECT);
-  MOZ_ASSERT(index < perScriptData().objectList().length);
+  MOZ_ASSERT(index < perScriptData().gcThingList().length());
   return emitIndex32(op, index);
 }
 
 bool BytecodeEmitter::emitObjectOp(ObjectBox* objbox, JSOp op) {
-  return emitInternedObjectOp(perScriptData().objectList().add(objbox), op);
+  uint32_t index;
+  if (!perScriptData().gcThingList().append(objbox, &index)) {
+    return false;
+  }
+
+  return emitInternedObjectOp(index, op);
 }
 
 bool BytecodeEmitter::emitObjectPairOp(ObjectBox* objbox1, ObjectBox* objbox2,
                                        JSOp op) {
-  uint32_t index = perScriptData().objectList().add(objbox1);
-  perScriptData().objectList().add(objbox2);
-  return emitInternedObjectOp(index, op);
+  uint32_t index1, index2;
+  if (!perScriptData().gcThingList().append(objbox1, &index1) ||
+      !perScriptData().gcThingList().append(objbox2, &index2)) {
+    return false;
+  }
+
+  return emitInternedObjectOp(index1, op);
 }
 
 bool BytecodeEmitter::emitRegExp(uint32_t index) {
@@ -1678,7 +1687,7 @@ bool BytecodeEmitter::emitNewInit() {
   return true;
 }
 
-bool BytecodeEmitter::iteratorResultShape(unsigned* shape) {
+bool BytecodeEmitter::iteratorResultShape(uint32_t* shape) {
   // No need to do any guessing for the object kind, since we know exactly how
   // many properties we plan to have.
   gc::AllocKind kind = gc::GetGCObjectKind(2);
@@ -1704,13 +1713,11 @@ bool BytecodeEmitter::iteratorResultShape(unsigned* shape) {
     return false;
   }
 
-  *shape = perScriptData().objectList().add(objbox);
-
-  return true;
+  return perScriptData().gcThingList().append(objbox, shape);
 }
 
 bool BytecodeEmitter::emitPrepareIteratorResult() {
-  unsigned shape;
+  uint32_t shape;
   if (!iteratorResultShape(&shape)) {
     return false;
   }
@@ -5006,10 +5013,11 @@ bool BytecodeEmitter::emitCopyDataProperties(CopyOption option) {
 }
 
 bool BytecodeEmitter::emitBigIntOp(BigInt* bigint) {
-  if (!perScriptData().bigIntList().append(bigint)) {
+  uint32_t index;
+  if (!perScriptData().gcThingList().append(bigint, &index)) {
     return false;
   }
-  return emitIndex32(JSOP_BIGINT, perScriptData().bigIntList().length() - 1);
+  return emitIndex32(JSOP_BIGINT, index);
 }
 
 bool BytecodeEmitter::emitIterator() {
@@ -8062,7 +8070,9 @@ bool BytecodeEmitter::emitCreateFieldKeys(ListNode* obj) {
   return true;
 }
 
-bool BytecodeEmitter::emitCreateFieldInitializers(ListNode* obj) {
+bool BytecodeEmitter::emitCreateFieldInitializers(ClassEmitter& ce,
+                                                  ListNode* obj) {
+  //          [stack] HOMEOBJ HERITAGE?
   FieldInitializers fieldInitializers = setupFieldInitializers(obj);
   MOZ_ASSERT(fieldInitializers.valid);
   size_t numFields = fieldInitializers.numFieldInitializers;
@@ -8071,50 +8081,35 @@ bool BytecodeEmitter::emitCreateFieldInitializers(ListNode* obj) {
     return true;
   }
 
-  // .initializers is a variable that stores an array of lambdas containing
-  // code (the initializer) for each field. Upon an object's construction,
-  // these lambdas will be called, defining the values.
-
-  NameOpEmitter noe(this, cx->names().dotInitializers,
-                    NameOpEmitter::Kind::Initialize);
-  if (!noe.prepareForRhs()) {
+  if (!ce.prepareForFieldInitializers(numFields)) {
+    //          [stack] HOMEOBJ HERITAGE? ARRAY
     return false;
   }
 
-  if (!emitUint32Operand(JSOP_NEWARRAY, numFields)) {
-    //              [stack] CTOR? OBJ ARRAY
-    return false;
-  }
-
-  size_t curFieldIndex = 0;
   for (ParseNode* propdef : obj->contents()) {
     if (propdef->is<ClassField>()) {
-      FunctionNode* initializer = propdef->as<ClassField>().initializer();
-      if (initializer == nullptr) {
-        continue;
+      if (FunctionNode* initializer = propdef->as<ClassField>().initializer()) {
+        if (!emitTree(initializer)) {
+          //          [stack] HOMEOBJ HERITAGE? ARRAY LAMBDA
+          return false;
+        }
+        if (initializer->funbox()->needsHomeObject()) {
+          MOZ_ASSERT(initializer->funbox()->function()->allowSuperProperty());
+          if (!ce.emitFieldInitializerHomeObject()) {
+            //          [stack] CTOR OBJ ARRAY LAMBDA
+            return false;
+          }
+        }
+        if (!ce.emitStoreFieldInitializer()) {
+          //          [stack] HOMEOBJ HERITAGE? ARRAY
+          return false;
+        }
       }
-
-      if (!emitTree(initializer)) {
-        //          [stack] CTOR? OBJ ARRAY LAMBDA
-        return false;
-      }
-
-      if (!emitUint32Operand(JSOP_INITELEM_ARRAY, curFieldIndex)) {
-        //          [stack] CTOR? OBJ ARRAY
-        return false;
-      }
-
-      curFieldIndex++;
     }
   }
 
-  if (!noe.emitAssignment()) {
-    //              [stack] CTOR? OBJ ARRAY
-    return false;
-  }
-
-  if (!emit1(JSOP_POP)) {
-    //              [stack] CTOR? OBJ
+  if (!ce.emitFieldInitializersEnd()) {
+    //              [stack] HOMEOBJ HERITAGE?
     return false;
   }
 
@@ -8246,7 +8241,11 @@ bool BytecodeEmitter::replaceNewInitWithNewObject(JSObject* obj,
       JSOP_NEWINIT_LENGTH == JSOP_NEWOBJECT_LENGTH,
       "newinit and newobject must have equal length to edit in-place");
 
-  uint32_t index = perScriptData().objectList().add(objbox);
+  uint32_t index;
+  if (!perScriptData().gcThingList().append(objbox, &index)) {
+    return false;
+  }
+
   jsbytecode* code = bytecodeSection().code(offset);
 
   MOZ_ASSERT(code[0] == JSOP_NEWINIT);
@@ -8788,7 +8787,7 @@ bool BytecodeEmitter::emitClass(
         }
 
         // Any class with field initializers will have a constructor
-        if (!emitCreateFieldInitializers(classMembers)) {
+        if (!emitCreateFieldInitializers(ce, classMembers)) {
           return false;
         }
       }
@@ -9339,12 +9338,17 @@ bool BytecodeEmitter::emitTree(
       }
       break;
 
-    case ParseNodeKind::RegExpExpr:
-      if (!emitRegExp(perScriptData().objectList().add(
-              pn->as<RegExpLiteral>().objbox()))) {
+    case ParseNodeKind::RegExpExpr: {
+      ObjectBox* obj = pn->as<RegExpLiteral>().objbox();
+      uint32_t index;
+      if (!perScriptData().gcThingList().append(obj, &index)) {
+        return false;
+      }
+      if (!emitRegExp(index)) {
         return false;
       }
       break;
+    }
 
     case ParseNodeKind::TrueExpr:
       if (!emit1(JSOP_TRUE)) {

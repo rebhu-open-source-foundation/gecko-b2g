@@ -60,7 +60,6 @@ from results import RaptorResultsHandler
 from utils import view_gecko_profile
 from cpu import generate_android_cpu_profile
 
-
 LOG = RaptorLogger(component='raptor-main')
 
 
@@ -192,15 +191,29 @@ class Raptor(object):
         raise NotImplementedError()
 
     def wait_for_test_finish(self, test, timeout):
+        # this is a 'back-stop' i.e. if for some reason Raptor doesn't finish for some
+        # serious problem; i.e. the test was unable to send a 'page-timeout' to the control
+        # server, etc. Therefore since this is a 'back-stop' we want to be generous here;
+        # we don't want this timeout occurring unless abosultely necessary
+
         # convert timeout to seconds and account for page cycles
         timeout = int(timeout / 1000) * int(test.get('page_cycles', 1))
         # account for the pause the raptor webext runner takes after browser startup
         # and the time an exception is propagated through the framework
         timeout += (int(self.post_startup_delay / 1000) + 10)
 
+        # for page-load tests we don't start the page-timeout timer until the pageload.js content
+        # is successfully injected and invoked; which differs per site being tested; therefore we
+        # need to be generous here - let's add 10 seconds extra per page-cycle
+        if test.get('type') == "pageload":
+            timeout += (10 * int(test.get('page_cycles', 1)))
+
         # if geckoProfile enabled, give browser more time for profiling
         if self.config['gecko_profile'] is True:
             timeout += 5 * 60
+
+        # we also need to give time for results processing, not just page/browser cycles!
+        timeout += 60
 
         elapsed_time = 0
         while not self.control_server._finished:
@@ -321,14 +334,8 @@ class Raptor(object):
     def get_proxy_command_for_mitm(self, test, version):
         # Generate Mitmproxy playback args
         script = os.path.join(here, "playback", "alternate-server-replay-{}.py".format(version))
-        recordings = test.get("playback_recordings")
-        if recordings:
-            recording_paths = []
-            proxy_dir = self.playback.mozproxy_dir
-            for recording in recordings.split():
-                if not recording:
-                    continue
-                recording_paths.append(os.path.join(proxy_dir, recording))
+
+        recording_paths = self.get_recording_paths(test)
 
         # this part is platform-specific
         if mozinfo.os == "win":
@@ -374,6 +381,38 @@ class Raptor(object):
 
         # let's start it!
         self.playback.start()
+
+        self.log_recording_dates(test)
+
+    def get_recording_paths(self, test):
+        recordings = test.get("playback_recordings")
+
+        if recordings:
+            recording_paths = []
+            proxy_dir = self.playback.mozproxy_dir
+
+            for recording in recordings.split():
+                if not recording:
+                    continue
+                recording_paths.append(os.path.join(proxy_dir, recording))
+
+            return recording_paths
+
+    def log_recording_dates(self, test):
+        for r in self.get_recording_paths(test):
+            json_path = '{}.json'.format(r.split('.')[0])
+
+            if os.path.exists(json_path):
+                with open(json_path) as f:
+                    recording_date = json.loads(f.read()).get('recording_date')
+
+                    if recording_date is not None:
+                        LOG.info('Playback recording date: {} '.
+                                 format(recording_date.split(' ')[0]))
+                    else:
+                        LOG.info('Playback recording date not available')
+            else:
+                LOG.info('Playback recording information not available')
 
     def delete_proxy_settings_from_profile(self):
         # Must delete the proxy settings from the profile if running

@@ -331,6 +331,8 @@ pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
 // Enable the new Address Bar code.
 pref("browser.urlbar.quantumbar", true);
 
+pref("browser.urlbar.openViewOnFocus", false);
+
 pref("browser.altClickSave", false);
 
 // Enable logging downloads operations to the Console.
@@ -1210,7 +1212,6 @@ pref("services.sync.prefs.sync.browser.safebrowsing.downloads.enabled", true);
 pref("services.sync.prefs.sync.browser.safebrowsing.passwords.enabled", true);
 pref("services.sync.prefs.sync.browser.search.update", true);
 pref("services.sync.prefs.sync.browser.search.widget.inNavBar", true);
-pref("services.sync.prefs.sync.browser.sessionstore.restore_on_demand", true);
 pref("services.sync.prefs.sync.browser.startup.homepage", true);
 pref("services.sync.prefs.sync.browser.startup.page", true);
 pref("services.sync.prefs.sync.browser.tabs.loadInBackground", true);
@@ -1319,11 +1320,7 @@ pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", tru
 pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", false);
 #endif
 
-#ifdef NIGHTLY_BUILD
 pref("trailhead.firstrun.branches", "join-privacy");
-#else
-pref("trailhead.firstrun.branches", "control");
-#endif
 
 // Enable the DOM fullscreen API.
 pref("full-screen-api.enabled", true);

@@ -406,6 +406,15 @@ VARCACHE_PREF(
   RelaxedAtomicBool, false
 )
 
+#ifdef MOZ_WIDGET_GTK
+VARCACHE_PREF(
+  Live,
+  "apz.gtk.kinetic_scroll.enabled",
+  APZGTKKineticScrollEnabled,
+  RelaxedAtomicBool, false
+)
+#endif
+
 #if !defined(MOZ_WIDGET_ANDROID)
 # define PREF_VALUE true
 #else
@@ -1288,6 +1297,13 @@ VARCACHE_PREF(
   Live,
   "dom.disable_open_during_load",
   dom_disable_open_during_load,
+  bool, false
+)
+
+VARCACHE_PREF(
+  Live,
+  "dom.element.transform-getters.enabled",
+  dom_element_transform_getters_enabled,
   bool, false
 )
 

@@ -1177,9 +1177,7 @@ window._gBrowser = {
     // if the tab is a blank one.
     if (newBrowser._urlbarFocused && gURLBar) {
       // Explicitly close the popup if the URL bar retains focus
-      if (!gURLBar.openViewOnFocus) {
-        gURLBar.closePopup();
-      }
+      gURLBar.closePopup();
 
       // If the user happened to type into the URL bar for this browser
       // by the time we got here, focusing will cause the text to be
@@ -4290,8 +4288,20 @@ window._gBrowser = {
             tab.linkedBrowser.frameLoader) {
           label += " (pid " + tab.linkedBrowser.frameLoader.remoteTab.osPid + ")";
 
-          if (window.docShell.QueryInterface(Ci.nsILoadContext).useRemoteSubframes) {
-            label += " [F]";
+          // If we're running with fission enabled, try to include PID
+          // information for every remote subframe.
+          if (gFissionBrowser) {
+            let pids = new Set();
+            let stack = [tab.linkedBrowser.browsingContext];
+            while (stack.length) {
+              let bc = stack.pop();
+              stack.push(...bc.getChildren());
+              if (bc.currentWindowGlobal) {
+                pids.add(bc.currentWindowGlobal.osPid);
+              }
+            }
+
+            label += " [F " + Array.from(pids).join(", ") + "]";
           }
         }
       }

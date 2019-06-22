@@ -2515,7 +2515,7 @@ pref("security.dialog_enable_delay", 1000);
 pref("security.notification_enable_delay", 500);
 
 #if defined(DEBUG) && !defined(ANDROID)
-pref("csp.about_uris_without_csp", "blank,printpreview,srcdoc,addons,cache-entry,config,debugging,devtools,downloads,home,newtab,performance,plugins,profiles,preferences,restartrequired,serviceworkers,sessionrestore,support,sync-log,telemetry,url-classifier,welcomeback");
+pref("csp.about_uris_without_csp", "blank,printpreview,srcdoc,addons,cache-entry,config,debugging,devtools,downloads,home,newtab,plugins,profiles,preferences,restartrequired,serviceworkers,sessionrestore,support,sync-log,telemetry,url-classifier,welcomeback");
 // the following prefs are for testing purposes only.
 pref("csp.overrule_about_uris_without_csp_whitelist", false);
 pref("csp.skip_about_page_has_csp_assert", false);
@@ -3159,6 +3159,9 @@ pref("dom.largeAllocationHeader.enabled", true);
 
 // Disable e10s for Gecko by default. This is overridden in firefox.js.
 pref("browser.tabs.remote.autostart", false);
+
+// Disable fission for Gecko by default.
+pref("fission.autostart", false);
 
 // Pref to control whether we use separate content processes for top-level load
 // of file:// URIs.

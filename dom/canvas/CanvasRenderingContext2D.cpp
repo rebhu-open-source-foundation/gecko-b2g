@@ -1227,7 +1227,7 @@ bool CanvasRenderingContext2D::EnsureTarget(const gfx::Rect* aCoveredRect,
   }
 
   if (mTarget) {
-    return true;
+    return mTarget != sErrorTarget;
   }
 
   // Check that the dimensions are sane
@@ -1666,25 +1666,26 @@ CanvasRenderingContext2D::GetInputStream(const char* aMimeType,
 
 already_AddRefed<mozilla::gfx::SourceSurface>
 CanvasRenderingContext2D::GetSurfaceSnapshot(gfxAlphaType* aOutAlphaType) {
-  if (!mBufferProvider) {
-    if (!EnsureTarget()) {
-      return nullptr;
-    }
-  }
-
-  RefPtr<SourceSurface> snapshot = mBufferProvider->BorrowSnapshot();
-  if (!snapshot) {
-    return nullptr;
-  }
-
-  RefPtr<DataSourceSurface> dataSurface = snapshot->GetDataSurface();
-  mBufferProvider->ReturnSnapshot(snapshot.forget());
-
   if (aOutAlphaType) {
     *aOutAlphaType = (mOpaque ? gfxAlphaType::Opaque : gfxAlphaType::Premult);
   }
 
-  return dataSurface.forget();
+  if (!mBufferProvider) {
+    if (!EnsureTarget()) {
+      MOZ_ASSERT(
+          mTarget == sErrorTarget,
+          "On EnsureTarget failure mTarget should be set to sErrorTarget.");
+      return mTarget->Snapshot();
+    }
+  }
+
+  // The concept of BorrowSnapshot seems a bit broken here, but the original
+  // code in GetSurfaceSnapshot just returned a snapshot from mTarget, which
+  // amounts to breaking the concept implicitly.
+  RefPtr<SourceSurface> snapshot = mBufferProvider->BorrowSnapshot();
+  RefPtr<SourceSurface> retSurface = snapshot;
+  mBufferProvider->ReturnSnapshot(snapshot.forget());
+  return retSurface.forget();
 }
 
 SurfaceFormat CanvasRenderingContext2D::GetSurfaceFormat() const {
@@ -4937,7 +4938,7 @@ nsresult CanvasRenderingContext2D::GetImageDataArray(
 
   if (!mBufferProvider) {
     if (!EnsureTarget()) {
-      return NS_ERROR_OUT_OF_MEMORY;
+      return NS_ERROR_FAILURE;
     }
   }
 

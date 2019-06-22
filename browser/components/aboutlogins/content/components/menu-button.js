@@ -14,8 +14,6 @@ export default class MenuButton extends ReflectedFluentElement {
     this.attachShadow({mode: "open"})
         .appendChild(MenuButtonTemplate.content.cloneNode(true));
 
-    this.reflectFluentStrings();
-
     if (navigator.platform == "Win32") {
       // We can't add navigator.platform in all cases
       // because some platforms, such as Ubuntu 64-bit,
@@ -23,7 +21,12 @@ export default class MenuButton extends ReflectedFluentElement {
       this.classList.add(navigator.platform);
     }
 
-    this.shadowRoot.querySelector(".menu-button").addEventListener("click", this);
+    this._menu = this.shadowRoot.querySelector(".menu");
+    this._menuButton = this.shadowRoot.querySelector(".menu-button");
+
+    this._menuButton.addEventListener("click", this);
+
+    super.connectedCallback();
   }
 
   static get reflectedFluentIDs() {
@@ -39,11 +42,12 @@ export default class MenuButton extends ReflectedFluentElement {
   }
 
   handleSpecialCaseFluentString(attrName) {
-    if (attrName != "button-title") {
+    if (!this.shadowRoot ||
+        attrName != "button-title") {
       return false;
     }
 
-    this.shadowRoot.querySelector(".menu-button").setAttribute("title", this.getAttribute(attrName));
+    this._menuButton.setAttribute("title", this.getAttribute(attrName));
     return true;
   }
 
@@ -54,7 +58,7 @@ export default class MenuButton extends ReflectedFluentElement {
         // that was clicked on.
         if (event.currentTarget == document.documentElement &&
             event.target == this &&
-            event.originalTarget == this.shadowRoot.querySelector(".menu-button")) {
+            event.originalTarget == this._menuButton) {
           return;
         }
         let classList = event.originalTarget.classList;
@@ -64,34 +68,37 @@ export default class MenuButton extends ReflectedFluentElement {
           document.dispatchEvent(new CustomEvent(eventName, {
             bubbles: true,
           }));
-          this.hideMenu();
+          this._hideMenu();
           break;
         }
-        this.toggleMenu();
+        this._toggleMenu();
         break;
       }
     }
   }
 
-  toggleMenu() {
-    let wasHidden = this.shadowRoot.querySelector(".menu").hidden;
-    if (wasHidden) {
-      this.showMenu();
-    } else {
-      this.hideMenu();
-    }
-  }
-
-  hideMenu() {
-    this.shadowRoot.querySelector(".menu").hidden = true;
+  _hideMenu() {
+    this._menu.hidden = true;
     document.documentElement.removeEventListener("click", this, true);
   }
 
-  showMenu() {
-    this.shadowRoot.querySelector(".menu").hidden = false;
+  _showMenu() {
+    this._menu.hidden = false;
 
     // Add a catch-all event listener to close the menu.
     document.documentElement.addEventListener("click", this, true);
+  }
+
+  /**
+   * Toggles the visibility of the menu.
+   */
+  _toggleMenu() {
+    let wasHidden = this._menu.hidden;
+    if (wasHidden) {
+      this._showMenu();
+    } else {
+      this._hideMenu();
+    }
   }
 }
 customElements.define("menu-button", MenuButton);
