@@ -147,16 +147,6 @@ impl StyleSource {
         block.read_with(guard)
     }
 
-    /// Indicates if this StyleSource is a style rule.
-    pub fn is_rule(&self) -> bool {
-        self.0.is_first()
-    }
-
-    /// Indicates if this StyleSource is a PropertyDeclarationBlock.
-    pub fn is_declarations(&self) -> bool {
-        self.0.is_second()
-    }
-
     /// Returns the style rule if applicable, otherwise None.
     pub fn as_rule(&self) -> Option<ArcBorrow<Locked<StyleRule>>> {
         self.0.as_first()
@@ -1215,7 +1205,7 @@ impl StrongRuleNode {
     /// Returns whether this node has any child, only intended for testing
     /// purposes, and called on a single-threaded fashion only.
     pub unsafe fn has_children_for_testing(&self) -> bool {
-        self.get().children.read().is_empty()
+        !self.get().children.read().is_empty()
     }
 
     unsafe fn pop_from_free_list(&self) -> Option<WeakRuleNode> {
