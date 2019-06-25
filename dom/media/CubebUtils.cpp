@@ -444,7 +444,7 @@ ipc::FileDescriptor CreateAudioIPCConnection() {
 #endif
 }
 
-#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
+#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
 void InitAudioThreads() {
   AudioIpcInitParams initParams;
   initParams.mPoolSize = sAudioIPCPoolSize;
