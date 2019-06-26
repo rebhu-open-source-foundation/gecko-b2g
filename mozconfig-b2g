@@ -18,7 +18,6 @@ ac_add_options --disable-crashreporter
 ac_add_options --disable-webrtc
 ac_add_options --disable-printing
 ac_add_options --disable-updater
-ac_add_options --disable-jemalloc
 
 # Enable debugging
 ac_add_options --enable-debug
