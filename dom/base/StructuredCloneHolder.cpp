@@ -766,6 +766,14 @@ bool WriteFormData(JSStructuredCloneWriter* aWriter, FormData* aFormData,
 
       if (aValue.IsDirectory()) {
         Directory* directory = aValue.GetAsDirectory();
+
+        if (closure->mHolder->CloneScope() !=
+                StructuredCloneHolder::StructuredCloneScope::
+                    SameProcessSameThread &&
+            !directory->ClonableToDifferentThreadOrProcess()) {
+          return false;
+        }
+
         return WriteDirectory(closure->mWriter, directory);
       }
 
@@ -940,6 +948,12 @@ bool StructuredCloneHolder::CustomWriteHandler(JSContext* aCx,
   {
     Directory* directory = nullptr;
     if (NS_SUCCEEDED(UNWRAP_OBJECT(Directory, &obj, directory))) {
+      if (mStructuredCloneScope !=
+              StructuredCloneScope::SameProcessSameThread &&
+          !directory->ClonableToDifferentThreadOrProcess()) {
+        return false;
+      }
+
       return WriteDirectory(aWriter, directory);
     }
   }

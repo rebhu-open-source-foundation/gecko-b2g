@@ -83,6 +83,9 @@ class Directory final : public nsISupports, public nsWrapperCache {
 
   FileSystemBase* GetFileSystem(ErrorResult& aRv);
 
+  bool
+  ClonableToDifferentThreadOrProcess() const;
+
   nsIFile* GetInternalNsIFile() const { return mFile; }
 
  private:

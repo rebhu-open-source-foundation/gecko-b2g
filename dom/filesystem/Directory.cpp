@@ -191,5 +191,18 @@ FileSystemBase* Directory::GetFileSystem(ErrorResult& aRv) {
   return mFileSystem;
 }
 
+
+bool
+Directory::ClonableToDifferentThreadOrProcess() const
+{
+  // If we don't have a fileSystem we are going to create a OSFileSystem that is
+  // clonable everywhere.
+  if (!mFileSystem) {
+    return true;
+  }
+
+  return mFileSystem->ClonableToDifferentThreadOrProcess();
+}
+
 }  // namespace dom
 }  // namespace mozilla
