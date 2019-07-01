@@ -1128,15 +1128,6 @@ pref("dom.serviceWorkers.enabled", true);
 pref("dom.webnotifications.serviceworker.enabled", true);
 pref("dom.webnotifications.serviceworker.maxActions", 2);
 pref("dom.push.enabled", true);
-pref("dom.push.serverURL", "wss://push.kaiostech.com/");
-// Enable Adaptive ping
-pref("dom.push.adaptive.enabled", true);
-// Set first pingInterval as adaptive pingInterval.default if adaptive.enabled is set
-pref("dom.push.pingInterval", 180000); // 3 minutes
-// KaiOS push service needs authorization
-pref("dom.push.authorization.enabled", true);
-// The end point to get a access token for KaiOS push service
-pref("dom.push.token.uri", "https://api.kaiostech.com/v3.0/applications/cuo3fxgK6DeXodwsXvLY/tokens");
 
 // Retain at most 10 processes' layers buffers
 pref("layers.compositor-lru-size", 10);
