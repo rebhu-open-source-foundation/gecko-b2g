@@ -16,7 +16,6 @@ namespace dom {
 
 class BlobImpl;
 class FileSystemGetDirectoryListingParams;
-class OwningFileOrDirectory;
 
 class GetDirectoryListingTaskChild final : public FileSystemTaskChildBase {
  public:
@@ -27,6 +26,8 @@ class GetDirectoryListingTaskChild final : public FileSystemTaskChildBase {
   virtual ~GetDirectoryListingTaskChild();
 
   already_AddRefed<Promise> GetPromise();
+
+  virtual void GetPermissionAccessType(nsCString& aAccess) const override;
 
  private:
   // If aDirectoryOnly is set, we should ensure that the target is a directory.
@@ -59,6 +60,8 @@ class GetDirectoryListingTaskParent final : public FileSystemTaskParentBase {
       FileSystemRequestParent* aParent, ErrorResult& aRv);
 
   nsresult GetTargetPath(nsAString& aPath) const override;
+
+  virtual void GetPermissionAccessType(nsCString& aAccess) const override;
 
  private:
   GetDirectoryListingTaskParent(

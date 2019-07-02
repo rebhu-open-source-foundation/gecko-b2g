@@ -14,9 +14,7 @@
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/PFileSystemParams.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/dom/UnionTypes.h"
 #include "nsIFile.h"
-#include "nsISimpleEnumerator.h"
 #include "nsString.h"
 
 namespace mozilla {
@@ -166,6 +164,11 @@ void GetDirectoryListingTaskChild::HandlerCallback() {
 
   mPromise->MaybeResolve(mTargetData);
   mPromise = nullptr;
+}
+
+void GetDirectoryListingTaskChild::GetPermissionAccessType(
+    nsCString& aAccess) const {
+  aAccess.AssignLiteral(DIRECTORY_READ_PERMISSION);
 }
 
 /**
@@ -364,6 +367,11 @@ nsresult GetDirectoryListingTaskParent::IOWork() {
 
 nsresult GetDirectoryListingTaskParent::GetTargetPath(nsAString& aPath) const {
   return mTargetPath->GetPath(aPath);
+}
+
+void GetDirectoryListingTaskParent::GetPermissionAccessType(
+    nsCString& aAccess) const {
+  aAccess.AssignLiteral(DIRECTORY_READ_PERMISSION);
 }
 
 }  // namespace dom

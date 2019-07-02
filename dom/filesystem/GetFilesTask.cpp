@@ -133,6 +133,10 @@ void GetFilesTaskChild::HandlerCallback() {
   mPromise = nullptr;
 }
 
+void GetFilesTaskChild::GetPermissionAccessType(nsCString& aAccess) const {
+  aAccess.AssignLiteral("read");
+}
+
 /**
  * GetFilesTaskParent
  */
@@ -235,6 +239,10 @@ nsresult GetFilesTaskParent::IOWork() {
 
 nsresult GetFilesTaskParent::GetTargetPath(nsAString& aPath) const {
   return mTargetPath->GetPath(aPath);
+}
+
+void GetFilesTaskParent::GetPermissionAccessType(nsCString& aAccess) const {
+  aAccess.AssignLiteral(DIRECTORY_READ_PERMISSION);
 }
 
 }  // namespace dom

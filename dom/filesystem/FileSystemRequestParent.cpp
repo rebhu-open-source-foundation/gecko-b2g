@@ -3,9 +3,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 #include "mozilla/dom/FileSystemRequestParent.h"
-#include "mozilla/dom/PFileSystemParams.h"
 
 #include "GetDirectoryListingTask.h"
 #include "GetFileOrDirectoryTask.h"
@@ -13,11 +11,8 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/FileSystemBase.h"
 #include "mozilla/dom/FileSystemSecurity.h"
-#include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/Unused.h"
 #include "nsProxyRelease.h"
-
-using namespace mozilla::ipc;
 
 namespace mozilla {
 namespace dom {
@@ -30,17 +25,17 @@ FileSystemRequestParent::~FileSystemRequestParent() {
   AssertIsOnBackgroundThread();
 }
 
-#define FILESYSTEM_REQUEST_PARENT_DISPATCH_ENTRY(name)          \
-  case FileSystemParams::TFileSystem##name##Params: {           \
-    const FileSystem##name##Params& p = aParams;                \
-    mFileSystem = new OSFileSystemParent(p.filesystem());       \
-    MOZ_ASSERT(mFileSystem);                                    \
-    mTask = name##TaskParent::Create(mFileSystem, p, this, rv); \
-    if (NS_WARN_IF(rv.Failed())) {                              \
-      rv.SuppressException();                                   \
-      return false;                                             \
-    }                                                           \
-    break;                                                      \
+#define FILESYSTEM_REQUEST_PARENT_DISPATCH_ENTRY(name)                \
+  case FileSystemParams::TFileSystem##name##Params: {                 \
+    const FileSystem##name##Params& p = aParams;                      \
+    mFileSystem = FileSystemBase::DeserializeDOMPath(p.filesystem()); \
+    MOZ_ASSERT(mFileSystem);                                          \
+    mTask = name##TaskParent::Create(mFileSystem, p, this, rv);       \
+    if (NS_WARN_IF(rv.Failed())) {                                    \
+      rv.SuppressException();                                         \
+      return false;                                                   \
+    }                                                                 \
+    break;                                                            \
   }
 
 bool FileSystemRequestParent::Initialize(const FileSystemParams& aParams) {
@@ -62,6 +57,16 @@ bool FileSystemRequestParent::Initialize(const FileSystemParams& aParams) {
   if (NS_WARN_IF(!mTask || !mFileSystem)) {
     // Should never reach here.
     return false;
+  }
+
+  if (mFileSystem->PermissionCheckType() !=
+      FileSystemBase::ePermissionCheckNotRequired) {
+    nsAutoCString access;
+    mTask->GetPermissionAccessType(access);
+
+    mPermissionName = mFileSystem->GetPermission();
+    mPermissionName.Append('-');
+    mPermissionName.Append(access);
   }
 
   return true;

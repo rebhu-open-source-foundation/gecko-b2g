@@ -26,6 +26,8 @@ class GetFileOrDirectoryTaskChild final : public FileSystemTaskChildBase {
 
   already_AddRefed<Promise> GetPromise();
 
+  virtual void GetPermissionAccessType(nsCString& aAccess) const override;
+
  protected:
   virtual FileSystemParams GetRequestParams(const nsString& aSerializedDOMPath,
                                             ErrorResult& aRv) const override;
@@ -54,6 +56,8 @@ class GetFileOrDirectoryTaskParent final : public FileSystemTaskParentBase {
       FileSystemRequestParent* aParent, ErrorResult& aRv);
 
   nsresult GetTargetPath(nsAString& aPath) const override;
+
+  virtual void GetPermissionAccessType(nsCString& aAccess) const override;
 
  protected:
   virtual FileSystemResponseValue GetSuccessRequestResult(

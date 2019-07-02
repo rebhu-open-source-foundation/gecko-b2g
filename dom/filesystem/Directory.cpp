@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/Directory.h"
 
+#include "FileSystemPermissionRequest.h"
 #include "GetDirectoryListingTask.h"
 #include "GetFilesTask.h"
 
@@ -144,8 +145,7 @@ already_AddRefed<Promise> Directory::GetFilesAndDirectories(ErrorResult& aRv) {
     return nullptr;
   }
 
-  task->Start();
-
+  FileSystemPermissionRequest::RequestForTask(task);
   return task->GetPromise();
 }
 
@@ -165,8 +165,7 @@ already_AddRefed<Promise> Directory::GetFiles(bool aRecursiveFlag,
     return nullptr;
   }
 
-  task->Start();
-
+  FileSystemPermissionRequest::RequestForTask(task);
   return task->GetPromise();
 }
 
@@ -191,10 +190,7 @@ FileSystemBase* Directory::GetFileSystem(ErrorResult& aRv) {
   return mFileSystem;
 }
 
-
-bool
-Directory::ClonableToDifferentThreadOrProcess() const
-{
+bool Directory::ClonableToDifferentThreadOrProcess() const {
   // If we don't have a fileSystem we are going to create a OSFileSystem that is
   // clonable everywhere.
   if (!mFileSystem) {

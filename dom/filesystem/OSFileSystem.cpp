@@ -18,13 +18,14 @@ namespace mozilla {
 namespace dom {
 
 OSFileSystem::OSFileSystem(const nsAString& aRootDir) {
-  mLocalRootPath = aRootDir;
+  mLocalOrDeviceStorageRootPath = aRootDir;
+  mPermissionCheckType = ePermissionCheckNotRequired;
 }
 
 already_AddRefed<FileSystemBase> OSFileSystem::Clone() {
   AssertIsOnOwningThread();
 
-  RefPtr<OSFileSystem> fs = new OSFileSystem(mLocalRootPath);
+  RefPtr<OSFileSystem> fs = new OSFileSystem(mLocalOrDeviceStorageRootPath);
   if (mParent) {
     fs->Init(mParent);
   }
@@ -80,7 +81,7 @@ void OSFileSystem::Traverse(nsCycleCollectionTraversalCallback& cb) {
 
 void OSFileSystem::SerializeDOMPath(nsAString& aOutput) const {
   AssertIsOnOwningThread();
-  aOutput = mLocalRootPath;
+  aOutput = mLocalOrDeviceStorageRootPath;
 }
 
 /**
@@ -88,7 +89,8 @@ void OSFileSystem::SerializeDOMPath(nsAString& aOutput) const {
  */
 
 OSFileSystemParent::OSFileSystemParent(const nsAString& aRootDir) {
-  mLocalRootPath = aRootDir;
+  mLocalOrDeviceStorageRootPath = aRootDir;
+  mPermissionCheckType = ePermissionCheckNotRequired;
 }
 
 }  // namespace dom

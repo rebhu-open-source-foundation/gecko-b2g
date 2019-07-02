@@ -12,9 +12,7 @@
 #include "mozilla/dom/FileSystemRequestParent.h"
 #include "mozilla/dom/FileSystemUtils.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/BackgroundParent.h"
-#include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/Unused.h"
 #include "nsProxyRelease.h"
 
@@ -256,15 +254,11 @@ void FileSystemTaskParentBase::SetError(const nsresult& aErrorValue) {
   mErrorValue = FileSystemErrorFromNsError(aErrorValue);
 }
 
-bool
-FileSystemTaskParentBase::NeedToGoToMainThread() const
-{
+bool FileSystemTaskParentBase::NeedToGoToMainThread() const {
   return mFileSystem->NeedToGoToMainThread();
 }
 
-nsresult
-FileSystemTaskParentBase::MainThreadWork()
-{
+nsresult FileSystemTaskParentBase::MainThreadWork() {
   MOZ_ASSERT(NS_IsMainThread());
   return mFileSystem->MainThreadWork();
 }

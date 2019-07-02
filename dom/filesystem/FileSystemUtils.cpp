@@ -28,6 +28,24 @@ bool FileSystemUtils::IsDescendantPath(const nsAString& aPath,
 }
 
 /* static */
+bool FileSystemUtils::IsDescendantPath(nsIFile* aFile,
+                                       nsIFile* aDescendantFile) {
+  nsAutoString path;
+  nsresult rv = aFile->GetPath(path);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return false;
+  }
+
+  nsAutoString descendantPath;
+  rv = aDescendantFile->GetPath(descendantPath);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return false;
+  }
+
+  return FileSystemUtils::IsDescendantPath(path, descendantPath);
+}
+
+/* static */
 bool FileSystemUtils::IsValidRelativeDOMPath(const nsAString& aPath,
                                              nsTArray<nsString>& aParts) {
   // We don't allow empty relative path to access the root.

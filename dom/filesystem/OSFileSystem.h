@@ -37,8 +37,9 @@ class OSFileSystem final : public FileSystemBase {
 
   virtual void SerializeDOMPath(nsAString& aOutput) const override;
 
-  virtual bool
-  ClonableToDifferentThreadOrProcess() const override { return true; }
+  virtual bool ClonableToDifferentThreadOrProcess() const override {
+    return true;
+  }
 
   // CC methods
   virtual void Unlink() override;
