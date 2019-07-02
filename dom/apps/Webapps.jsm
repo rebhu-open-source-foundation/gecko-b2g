@@ -1263,6 +1263,7 @@ this.DOMApplicationRegistry = {
         app.csp = manifest.csp || "";
         app.role = localeManifest.role;
         app.userAgentInfo = manifest.userAgentInfo || "";
+        app.oldVersion = aResult.manifest.version || "";
         this._saveWidgetsFullPath(localeManifest, app);
 
         if (app.appStatus >= Ci.nsIPrincipal.APP_STATUS_PRIVILEGED) {
