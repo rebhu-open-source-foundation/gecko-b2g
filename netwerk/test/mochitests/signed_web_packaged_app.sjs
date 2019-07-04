@@ -36,6 +36,9 @@ Content-Type: application/x-web-app-manifest+json\r
     {
       "systemXHR": {
         "description": "Needed to download stuff"
+      },
+      "devicestorage:pictures": {
+        "description": "Need to load pictures"
       }
     }
   ],

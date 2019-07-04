@@ -40,6 +40,7 @@ toolkit.jar:
    content/global/buildconfig.css
    content/global/contentAreaUtils.js
    content/global/datepicker.xhtml
+   content/global/devicestorage.properties
 #ifndef MOZ_FENNEC
    content/global/editMenuOverlay.js
 #endif

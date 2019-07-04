@@ -13,6 +13,7 @@ include protocol PCycleCollectWithLogs;
 include protocol PPSMContentDownloader;
 include protocol PExternalHelperApp;
 include protocol PHandlerService;
+include protocol PDeviceStorageRequest;
 include protocol PFileDescriptorSet;
 include protocol PHal;
 include protocol PHeapSnapshotTempFileHelper;
@@ -135,6 +136,120 @@ struct FontListEntry {
 struct FontFamilyListEntry {
     nsCString familyName;
     uint8_t   entryType;
+};
+
+struct DeviceStorageFreeSpaceParams
+{
+  nsString type;
+  nsString storageName;
+};
+
+struct DeviceStorageUsedSpaceParams
+{
+  nsString type;
+  nsString storageName;
+};
+
+struct DeviceStorageAvailableParams
+{
+  nsString type;
+  nsString storageName;
+};
+
+struct DeviceStorageStatusParams
+{
+  nsString type;
+  nsString storageName;
+};
+
+struct DeviceStorageFormatParams
+{
+  nsString type;
+  nsString storageName;
+};
+
+struct DeviceStorageMountParams
+{
+  nsString type;
+  nsString storageName;
+};
+
+struct DeviceStorageUnmountParams
+{
+  nsString type;
+  nsString storageName;
+};
+
+struct DeviceStorageAddParams
+{
+  nsString type;
+  nsString storageName;
+  nsString relpath;
+  IPCBlob blob;
+};
+
+struct DeviceStorageAppendParams
+{
+  nsString type;
+  nsString storageName;
+  nsString relpath;
+  IPCBlob blob;
+};
+
+struct DeviceStorageCreateFdParams
+{
+  nsString type;
+  nsString storageName;
+  nsString relpath;
+};
+
+struct DeviceStorageGetParams
+{
+  nsString type;
+  nsString storageName;
+  nsString rootDir;
+  nsString relpath;
+};
+
+struct DeviceStorageDeleteParams
+{
+  nsString type;
+  nsString storageName;
+  nsString relpath;
+};
+
+struct DeviceStorageEnumerationParams
+{
+  nsString type;
+  nsString storageName;
+  nsString rootdir;
+  uint64_t since;
+};
+
+union DeviceStorageParams
+{
+  DeviceStorageAddParams;
+  DeviceStorageAppendParams;
+  DeviceStorageCreateFdParams;
+  DeviceStorageGetParams;
+  DeviceStorageDeleteParams;
+  DeviceStorageEnumerationParams;
+  DeviceStorageFreeSpaceParams;
+  DeviceStorageUsedSpaceParams;
+  DeviceStorageAvailableParams;
+  DeviceStorageStatusParams;
+  DeviceStorageFormatParams;
+  DeviceStorageMountParams;
+  DeviceStorageUnmountParams;
+};
+
+struct DeviceStorageLocationInfo {
+  nsString music;
+  nsString pictures;
+  nsString videos;
+  nsString sdcard;
+  nsString apps;
+  nsString crashes;
 };
 
 // Used on Linux to pass list of font patterns from chrome to content.
@@ -346,6 +461,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PClientOpenWindowOp;
     manages PContentPermissionRequest;
     manages PCycleCollectWithLogs;
+    manages PDeviceStorageRequest;
     manages PPSMContentDownloader;
     manages PExternalHelperApp;
     manages PFileDescriptorSet;
@@ -619,6 +735,8 @@ child:
 
     // Notify volume is removed.
     async VolumeRemoved(nsString fsName);
+    async FilePathUpdate(nsString storageType, nsString storageName, nsString filepath,
+                         nsCString reasons);
 
     async NotifyProcessPriorityChanged(ProcessPriority priority);
     async MinimizeMemoryUsage();
@@ -884,6 +1002,7 @@ parent:
     async PJavaScript();
 
     async PRemoteSpellcheckEngine();
+    async PDeviceStorageRequest(DeviceStorageParams params);
 
     async InitCrashReporter(Shmem shmem, NativeThreadId tid);
 
@@ -1044,6 +1163,10 @@ parent:
     async CreateFakeVolume(nsString fsName, nsString mountPoint);
     async SetFakeVolumeState(nsString fsName, int32_t fsState);
     async RemoveFakeVolume(nsString fsName);
+    async FilePathUpdateNotify(nsString aType,
+                               nsString aStorageName,
+                               nsString aFilepath,
+                               nsCString aReason);
 
     sync KeywordToURI(nsCString keyword)
         returns (nsString providerName, nsIInputStream postData, URIParams? uri);
@@ -1342,6 +1465,12 @@ parent:
       nsIPrincipal aTriggeringPrincipal,
       nsIContentSecurityPolicy aCsp,
       nsIReferrerInfo aReferrerInfo);
+
+    sync GetDeviceStorageLocation(nsString type)
+        returns (nsString path);
+
+    sync GetDeviceStorageLocations()
+	returns (DeviceStorageLocationInfo info);
 
     /**
      * Tells the parent to ungrab the pointer on the default display.

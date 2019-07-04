@@ -283,6 +283,41 @@ var DownloadIntegration = {
   },
 
   /**
+    * Finds the default download directory which can be either in the
+    * internal storage or on the sdcard.
+    *
+    * @return {Promise}
+    * @resolves The downloads directory string path.
+    */
+  _getDefaultDownloadDirectory: Task.async(function* () {
+    let directoryPath;
+    let win = Services.wm.getMostRecentWindow("navigator:browser");
+    let storages = win.navigator.getDeviceStorages("sdcard");
+    let preferredStorageName;
+    // Use the first one or the default storage.
+    storages.forEach((aStorage) => {
+      if (aStorage.default || !preferredStorageName) {
+        preferredStorageName = aStorage.storageName;
+      }
+    });
+
+    // Now get the path for this storage area.
+    if (preferredStorageName) {
+      let volume = volumeService.getVolumeByName(preferredStorageName);
+      if (volume && volume.state === Ci.nsIVolume.STATE_MOUNTED){
+        directoryPath = OS.Path.join(volume.mountPoint, "downloads");
+        yield OS.File.makeDir(directoryPath, { ignoreExisting: true });
+      }
+    }
+    if (directoryPath) {
+      return directoryPath;
+    } else {
+      throw new Components.Exception("No suitable storage for downloads.",
+                                     Cr.NS_ERROR_FILE_UNRECOGNIZED_PATH);
+    }
+  }),
+
+  /**
    * Determines if a Download object from the list of persistent downloads
    * should be saved into a file, so that it can be restored across sessions.
    *
@@ -335,6 +370,8 @@ var DownloadIntegration = {
           Cr.NS_ERROR_FILE_UNRECOGNIZED_PATH
         );
       }
+    } else if (AppConstants.platform == "gonk") {
+      directoryPath = this._getDefaultDownloadDirectory();
     } else {
       try {
         this._downloadsDirectory = this._getDirectory("DfltDwnld");
@@ -355,38 +392,40 @@ var DownloadIntegration = {
    */
   async getPreferredDownloadsDirectory() {
     let directoryPath = null;
-    let prefValue = Services.prefs.getIntPref("browser.download.folderList", 1);
+    if (AppConstants.platform == "gonk") {
+      directoryPath = this._getDefaultDownloadDirectory();
+    } else {
+      let prefValue = Services.prefs.getIntPref("browser.download.folderList", 1);
 
-    switch (prefValue) {
-      case 0: // Desktop
-        directoryPath = this._getDirectory("Desk");
-        break;
-      case 1: // Downloads
-        directoryPath = await this.getSystemDownloadsDirectory();
-        break;
-      case 2: // Custom
-        try {
-          let directory = Services.prefs.getComplexValue(
-            "browser.download.dir",
-            Ci.nsIFile
-          );
-          directoryPath = directory.path;
-          await OS.File.makeDir(directoryPath, { ignoreExisting: true });
-        } catch (ex) {
-          // Either the preference isn't set or the directory cannot be created.
+      switch (prefValue) {
+        case 0: // Desktop
+          directoryPath = this._getDirectory("Desk");
+          break;
+        case 1: // Downloads
           directoryPath = await this.getSystemDownloadsDirectory();
-        }
-        break;
-      case 3: // Cloud Storage
-        try {
-          directoryPath = await CloudStorage.getDownloadFolder();
-        } catch (ex) {}
-        if (!directoryPath) {
+          break;
+        case 2: // Custom
+          try {
+            let directory = Services.prefs.getComplexValue("browser.download.dir",
+                                                           Ci.nsIFile);
+            directoryPath = directory.path;
+            await OS.File.makeDir(directoryPath, { ignoreExisting: true });
+          } catch (ex) {
+            // Either the preference isn't set or the directory cannot be created.
+            directoryPath = await this.getSystemDownloadsDirectory();
+          }
+          break;
+        case 3: // Cloud Storage
+          try {
+            directoryPath = await CloudStorage.getDownloadFolder();
+          } catch (ex) {}
+          if (!directoryPath) {
+            directoryPath = await this.getSystemDownloadsDirectory();
+          }
+          break;
+        default:
           directoryPath = await this.getSystemDownloadsDirectory();
-        }
-        break;
-      default:
-        directoryPath = await this.getSystemDownloadsDirectory();
+      }
     }
     return directoryPath;
   },

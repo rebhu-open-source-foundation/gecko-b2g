@@ -111,6 +111,7 @@
 #include "mozilla/EditorController.h"
 #include "mozilla/Fuzzyfox.h"
 #include "mozilla/HTMLEditorController.h"
+#include "mozilla/dom/devicestorage/DeviceStorageStatics.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/StaticPresData.h"
 #include "mozilla/dom/Document.h"
@@ -283,6 +284,8 @@ nsresult nsLayoutStatics::Initialize() {
   MediaDecoder::InitStatics();
 
   PromiseDebugging::Init();
+
+  mozilla::dom::devicestorage::DeviceStorageStatics::Initialize();
 
   mozilla::dom::WebCryptoThreadPool::Initialize();
 

@@ -26,7 +26,7 @@
 #include "chrome/common/process_watcher.h"
 
 #include "mozilla/a11y/PDocAccessible.h"
-#include "GeckoProfiler.h"
+#include "DeviceStorageStatics.h"
 #include "GMPServiceParent.h"
 #include "HandlerServiceParent.h"
 #include "IHistory.h"
@@ -67,6 +67,7 @@
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
 #include "mozilla/dom/PositionError.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
+#include "mozilla/dom/devicestorage/DeviceStorageRequestParent.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/Permissions.h"
 #include "mozilla/dom/PresentationParent.h"
@@ -327,6 +328,7 @@ static NS_DEFINE_CID(kCClipboardCID, NS_CLIPBOARD_CID);
 using base::KillProcess;
 
 using namespace CrashReporter;
+using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::power;
 using namespace mozilla::media;
 using namespace mozilla::embedding;
@@ -3124,6 +3126,12 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
     Unused << SendUnlinkGhosts();
   } else if (!strcmp(aTopic, "last-pb-context-exited")) {
     Unused << SendLastPrivateDocShellDestroyed();
+  } else if (!strcmp(aTopic, "file-watcher-update")) {
+    nsCString creason;
+    CopyUTF16toUTF8(MakeStringSpan(aData), creason);
+    DeviceStorageFile* file = static_cast<DeviceStorageFile*>(aSubject);
+    Unused << SendFilePathUpdate(file->mStorageType, file->mStorageName,
+                                 file->mPath, creason);
   }
 #ifdef MOZ_WIDGET_GONK
   else if (!strcmp(aTopic, NS_VOLUME_STATE_CHANGED)) {
@@ -3381,6 +3389,22 @@ bool ContentParent::CanOpenBrowser(const IPCTabContext& aContext) {
 
 bool ContentParent::DeallocPBrowserParent(PBrowserParent* frame) {
   BrowserParent* parent = BrowserParent::GetFrom(frame);
+  NS_RELEASE(parent);
+  return true;
+}
+
+PDeviceStorageRequestParent* ContentParent::AllocPDeviceStorageRequestParent(
+    const DeviceStorageParams& aParams) {
+  RefPtr<DeviceStorageRequestParent> result =
+      new DeviceStorageRequestParent(aParams);
+  result->Dispatch();
+  return result.forget().take();
+}
+
+bool ContentParent::DeallocPDeviceStorageRequestParent(
+    PDeviceStorageRequestParent* doomed) {
+  DeviceStorageRequestParent* parent =
+      static_cast<DeviceStorageRequestParent*>(doomed);
   NS_RELEASE(parent);
   return true;
 }
@@ -4128,6 +4152,21 @@ mozilla::ipc::IPCResult ContentParent::RecvAsyncMessage(
     ppm->ReceiveMessage(ppm, nullptr, aMsg, false, &data, &cpows, aPrincipal,
                         nullptr, IgnoreErrors());
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvFilePathUpdateNotify(
+    const nsString& aType, const nsString& aStorageName,
+    const nsString& aFilePath, const nsCString& aReason) {
+  RefPtr<DeviceStorageFile> dsf =
+      new DeviceStorageFile(aType, aStorageName, aFilePath);
+
+  nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+  if (!obs) {
+    return IPC_FAIL_NO_REASON(this);
+  }
+  obs->NotifyObservers(dsf, "file-watcher-update",
+                       NS_ConvertASCIItoUTF16(aReason).get());
   return IPC_OK();
 }
 
@@ -5311,6 +5350,22 @@ mozilla::ipc::IPCResult ContentParent::RecvBeginDriverCrashGuard(
 mozilla::ipc::IPCResult ContentParent::RecvEndDriverCrashGuard(
     const uint32_t& aGuardType) {
   mDriverCrashGuard = nullptr;
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvGetDeviceStorageLocation(
+    const nsString& aType, nsString* aPath) {
+#ifdef MOZ_WIDGET_ANDROID
+  mozilla::AndroidBridge::GetExternalPublicDirectory(aType, *aPath);
+  return IPC_OK();
+#else
+  return IPC_FAIL_NO_REASON(this);
+#endif
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvGetDeviceStorageLocations(
+    DeviceStorageLocationInfo* info) {
+  DeviceStorageStatics::GetDeviceStorageLocationsForIPC(info);
   return IPC_OK();
 }
 

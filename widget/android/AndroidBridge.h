@@ -171,6 +171,9 @@ class AndroidBridge final {
   static nsresult InputStreamRead(jni::Object::Param obj, char* aBuf,
                                   uint32_t aCount, uint32_t* aRead);
 
+  static nsresult GetExternalPublicDirectory(const nsAString& aType,
+                                             nsAString& aPath);
+
  protected:
   static nsDataHashtable<nsStringHashKey, nsString> sStoragePaths;
 

@@ -237,6 +237,19 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer,
       }
     }
 #  endif
+    if (mozilla::Preferences::GetBool("device.storage.enabled", true)) {
+      // Tell DeviceStorage that a new file may have been added.
+      nsCOMPtr<nsIObserverService> obs =
+          mozilla::services::GetObserverService();
+      nsCOMPtr<nsISupportsString> pathString =
+          do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID);
+      if (obs && pathString) {
+        if (NS_SUCCEEDED(pathString->SetData(path))) {
+          (void)obs->NotifyObservers(pathString, "download-watcher-notify",
+                                     u"modified");
+        }
+      }
+    }
   }
 
 #endif

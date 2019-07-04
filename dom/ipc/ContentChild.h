@@ -186,6 +186,11 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvRequestPerformanceMetrics(const nsID& aID);
 
+  PDeviceStorageRequestChild* AllocPDeviceStorageRequestChild(
+      const DeviceStorageParams&);
+
+  bool DeallocPDeviceStorageRequestChild(PDeviceStorageRequestChild*);
+
   mozilla::ipc::IPCResult RecvReinitRendering(
       Endpoint<PCompositorManagerChild>&& aCompositor,
       Endpoint<PImageBridgeChild>&& aImageBridge,
@@ -420,6 +425,10 @@ class ContentChild final : public PContentChild,
       const nsCString& sourceURL);
 
   virtual mozilla::ipc::IPCResult RecvVolumeRemoved(const nsString& aFsName);
+  mozilla::ipc::IPCResult RecvFilePathUpdate(const nsString& aStorageType,
+                                             const nsString& aStorageName,
+                                             const nsString& aPath,
+                                             const nsCString& aReason);
 
   mozilla::ipc::IPCResult RecvRemoteType(const nsString& aRemoteType);
 

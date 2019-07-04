@@ -841,6 +841,11 @@ class ContentParent final : public PContentParent,
 
   bool DeallocPBrowserParent(PBrowserParent* frame);
 
+  PDeviceStorageRequestParent* AllocPDeviceStorageRequestParent(
+      const DeviceStorageParams&);
+
+  bool DeallocPDeviceStorageRequestParent(PDeviceStorageRequestParent*);
+
   mozilla::ipc::IPCResult RecvConstructPopupBrowser(
       ManagedEndpoint<PBrowserParent>&& actor, const TabId& tabId,
       const IPCTabContext& context, BrowsingContext* aBrowsingContext,
@@ -1046,6 +1051,11 @@ class ContentParent final : public PContentParent,
       const bool& aIsFromChromeContext,
       const ClonedMessageData* aStack = nullptr);
 
+  mozilla::ipc::IPCResult RecvFilePathUpdateNotify(const nsString& aType,
+                                                   const nsString& aStorageName,
+                                                   const nsString& aFilePath,
+                                                   const nsCString& aReason);
+
  public:
   mozilla::ipc::IPCResult RecvPrivateDocShellsExist(const bool& aExist);
 
@@ -1135,6 +1145,12 @@ class ContentParent final : public PContentParent,
   mozilla::ipc::IPCResult RecvSetupFamilyCharMap(
       const uint32_t& aGeneration,
       const mozilla::fontlist::Pointer& aFamilyPtr);
+
+  mozilla::ipc::IPCResult RecvGetDeviceStorageLocation(const nsString& aType,
+                                                       nsString* aPath);
+
+  mozilla::ipc::IPCResult RecvGetDeviceStorageLocations(
+      DeviceStorageLocationInfo* info);
 
   mozilla::ipc::IPCResult RecvNotifyBenchmarkResult(const nsString& aCodecName,
                                                     const uint32_t& aDecodeFPS);

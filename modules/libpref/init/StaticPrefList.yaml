@@ -1003,6 +1003,11 @@
   value: false
   mirror: always
 
+- name: device.storage.enabled
+  type: bool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "devtools."
 #---------------------------------------------------------------------------

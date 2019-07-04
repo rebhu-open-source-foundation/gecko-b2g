@@ -463,6 +463,7 @@ WEBIDL_FILES = [
     'DedicatedWorkerGlobalScope.webidl',
     'DelayNode.webidl',
     'DeviceMotionEvent.webidl',
+    'DeviceStorage.webidl',
     'Directory.webidl',
     'Document.webidl',
     'DocumentFragment.webidl',

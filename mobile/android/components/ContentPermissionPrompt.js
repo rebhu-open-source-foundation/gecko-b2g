@@ -28,6 +28,10 @@ ChromeUtils.defineModuleGetter(
 const kEntities = {
   contacts: "contacts",
   "desktop-notification": "desktopNotification2",
+  "device-storage:music": "deviceStorageMusic",
+  "device-storage:pictures": "deviceStoragePictures",
+  "device-storage:sdcard": "deviceStorageSdcard",
+  "device-storage:videos": "deviceStorageVideos",
   geolocation: "geolocation",
 };
 

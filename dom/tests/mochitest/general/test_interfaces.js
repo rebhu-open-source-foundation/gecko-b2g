@@ -304,6 +304,10 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "DeviceProximityEvent", insecureContext: true, disabled: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "DeviceStorageAreaListener", desktop: false},
+  // IMPORTANT: Do not change this list without review from a DOM peer!
+  { name: "DeviceStorage", desktop: false},
+  // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Directory", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Document", insecureContext: true },
