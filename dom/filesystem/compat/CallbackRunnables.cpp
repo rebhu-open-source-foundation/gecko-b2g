@@ -144,7 +144,7 @@ void GetEntryHelper::Run() {
   }
 
   RefPtr<GetFileOrDirectoryTaskChild> task =
-      GetFileOrDirectoryTaskChild::Create(fs, realPath, rv);
+      GetFileOrDirectoryTaskChild::Create(fs, realPath, false, rv);
   if (NS_WARN_IF(rv.Failed())) {
     rv.SuppressException();
     Error(NS_ERROR_DOM_INVALID_STATE_ERR);

@@ -8,6 +8,7 @@
 
 #include "FileSystemPermissionRequest.h"
 #include "GetDirectoryListingTask.h"
+#include "GetFileOrDirectoryTask.h"
 #include "GetFilesTask.h"
 
 #include "nsCharSeparatedTokenizer.h"
@@ -47,6 +48,29 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Directory)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
+
+/* static */ already_AddRefed<Promise> Directory::GetRoot(
+    FileSystemBase* aFileSystem, ErrorResult& aRv) {
+  // Only exposed for DeviceStorage.
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aFileSystem);
+
+  nsCOMPtr<nsIFile> path;
+  aRv = NS_NewLocalFile(aFileSystem->LocalOrDeviceStorageRootPath(), true,
+                        getter_AddRefs(path));
+  if (NS_WARN_IF(aRv.Failed())) {
+    return nullptr;
+  }
+
+  RefPtr<GetFileOrDirectoryTaskChild> task =
+      GetFileOrDirectoryTaskChild::Create(aFileSystem, path, true, aRv);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return nullptr;
+  }
+
+  FileSystemPermissionRequest::RequestForTask(task);
+  return task->GetPromise();
+}
 
 /* static */
 already_AddRefed<Directory> Directory::Constructor(const GlobalObject& aGlobal,

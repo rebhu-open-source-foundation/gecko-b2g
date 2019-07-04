@@ -26,6 +26,9 @@ class Directory final : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Directory)
 
+  static already_AddRefed<Promise> GetRoot(FileSystemBase* aFileSystem,
+                                           ErrorResult& aRv);
+
   static already_AddRefed<Directory> Constructor(const GlobalObject& aGlobal,
                                                  const nsAString& aRealPath,
                                                  ErrorResult& aRv);

@@ -26,7 +26,8 @@ namespace dom {
 /* static */
 already_AddRefed<GetFileOrDirectoryTaskChild>
 GetFileOrDirectoryTaskChild::Create(FileSystemBase* aFileSystem,
-                                    nsIFile* aTargetPath, ErrorResult& aRv) {
+                                    nsIFile* aTargetPath, bool aDirectoryOnly,
+                                    ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
   MOZ_ASSERT(aFileSystem);
 
@@ -37,8 +38,8 @@ GetFileOrDirectoryTaskChild::Create(FileSystemBase* aFileSystem,
     return nullptr;
   }
 
-  RefPtr<GetFileOrDirectoryTaskChild> task =
-      new GetFileOrDirectoryTaskChild(globalObject, aFileSystem, aTargetPath);
+  RefPtr<GetFileOrDirectoryTaskChild> task = new GetFileOrDirectoryTaskChild(
+      globalObject, aFileSystem, aTargetPath, aDirectoryOnly);
 
   // aTargetPath can be null. In this case SetError will be called.
 
@@ -52,7 +53,7 @@ GetFileOrDirectoryTaskChild::Create(FileSystemBase* aFileSystem,
 
 GetFileOrDirectoryTaskChild::GetFileOrDirectoryTaskChild(
     nsIGlobalObject* aGlobalObject, FileSystemBase* aFileSystem,
-    nsIFile* aTargetPath)
+    nsIFile* aTargetPath, bool aDirectoryOnly)
     : FileSystemTaskChildBase(aGlobalObject, aFileSystem),
       mTargetPath(aTargetPath) {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");

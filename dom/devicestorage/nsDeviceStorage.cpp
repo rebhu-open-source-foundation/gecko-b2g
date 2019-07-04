@@ -3071,7 +3071,7 @@ already_AddRefed<Promise> nsDOMDeviceStorage::GetRoot(ErrorResult& aRv) {
     mFileSystem = new DeviceStorageFileSystem(mStorageType, mStorageName);
     mFileSystem->Init(this);
   }
-  return nullptr;
+  return mozilla::dom::Directory::GetRoot(mFileSystem, aRv);
 }
 
 void nsDOMDeviceStorage::GetStorageName(nsAString& aStorageName) {

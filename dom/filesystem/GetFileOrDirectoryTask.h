@@ -20,7 +20,8 @@ class FileSystemGetFileOrDirectoryParams;
 class GetFileOrDirectoryTaskChild final : public FileSystemTaskChildBase {
  public:
   static already_AddRefed<GetFileOrDirectoryTaskChild> Create(
-      FileSystemBase* aFileSystem, nsIFile* aTargetPath, ErrorResult& aRv);
+      FileSystemBase* aFileSystem, nsIFile* aTargetPath, bool aDirectoryOnly,
+      ErrorResult& aRv);
 
   virtual ~GetFileOrDirectoryTaskChild();
 
@@ -38,8 +39,8 @@ class GetFileOrDirectoryTaskChild final : public FileSystemTaskChildBase {
 
  private:
   GetFileOrDirectoryTaskChild(nsIGlobalObject* aGlobalObject,
-                              FileSystemBase* aFileSystem,
-                              nsIFile* aTargetPath);
+                              FileSystemBase* aFileSystem, nsIFile* aTargetPath,
+                              bool aDirectoryOnly);
 
   RefPtr<Promise> mPromise;
   nsCOMPtr<nsIFile> mTargetPath;
