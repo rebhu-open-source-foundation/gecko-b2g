@@ -26,6 +26,8 @@ class Directory final : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Directory)
 
+  static bool DeviceStorageEnabled(JSContext* aCx, JSObject* aObj);
+
   static already_AddRefed<Promise> GetRoot(FileSystemBase* aFileSystem,
                                            ErrorResult& aRv);
 
@@ -45,6 +47,8 @@ class Directory final : public nsISupports, public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
 
   void GetName(nsAString& aRetval, ErrorResult& aRv);
+
+  already_AddRefed<Promise> Get(const nsAString& aPath, ErrorResult& aRv);
 
   // From
   // https://microsoftedge.github.io/directory-upload/proposal.html#directory-interface
