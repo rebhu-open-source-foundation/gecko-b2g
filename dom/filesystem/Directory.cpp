@@ -10,6 +10,7 @@
 #include "GetDirectoryListingTask.h"
 #include "GetFileOrDirectoryTask.h"
 #include "GetFilesTask.h"
+#include "RemoveTask.h"
 
 #include "nsCharSeparatedTokenizer.h"
 #include "nsString.h"
@@ -155,6 +156,71 @@ already_AddRefed<Promise> Directory::Get(const nsAString& aPath,
 
   RefPtr<GetFileOrDirectoryTaskChild> task =
       GetFileOrDirectoryTaskChild::Create(fs, realPath, false, aRv);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return nullptr;
+  }
+
+  task->SetError(error);
+  FileSystemPermissionRequest::RequestForTask(task);
+  return task->GetPromise();
+}
+
+already_AddRefed<Promise> Directory::Remove(
+    const StringOrFileOrDirectory& aPath, ErrorResult& aRv) {
+  // Only exposed for DeviceStorage.
+  MOZ_ASSERT(NS_IsMainThread());
+  return RemoveInternal(aPath, false, aRv);
+}
+
+already_AddRefed<Promise> Directory::RemoveDeep(
+    const StringOrFileOrDirectory& aPath, ErrorResult& aRv) {
+  // Only exposed for DeviceStorage.
+  MOZ_ASSERT(NS_IsMainThread());
+  return RemoveInternal(aPath, true, aRv);
+}
+
+already_AddRefed<Promise> Directory::RemoveInternal(
+    const StringOrFileOrDirectory& aPath, bool aRecursive, ErrorResult& aRv) {
+  // Only exposed for DeviceStorage.
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsresult error = NS_OK;
+  nsCOMPtr<nsIFile> realPath;
+
+  // Check and get the target path.
+
+  RefPtr<FileSystemBase> fs = GetFileSystem(aRv);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return nullptr;
+  }
+
+  // If this is a File
+  if (aPath.IsFile()) {
+    if (!fs->GetRealPath(aPath.GetAsFile().Impl(), getter_AddRefs(realPath))) {
+      error = NS_ERROR_DOM_SECURITY_ERR;
+    }
+
+    // If this is a string
+  } else if (aPath.IsString()) {
+    error = DOMPathToRealPath(aPath.GetAsString(), getter_AddRefs(realPath));
+
+    // Directory
+  } else {
+    MOZ_ASSERT(aPath.IsDirectory());
+    if (!fs->IsSafeDirectory(&aPath.GetAsDirectory())) {
+      error = NS_ERROR_DOM_SECURITY_ERR;
+    } else {
+      realPath = aPath.GetAsDirectory().mFile;
+    }
+  }
+
+  // The target must be a descendant of this directory.
+  if (!FileSystemUtils::IsDescendantPath(mFile, realPath)) {
+    error = NS_ERROR_DOM_FILESYSTEM_NO_MODIFICATION_ALLOWED_ERR;
+  }
+
+  RefPtr<RemoveTaskChild> task =
+      RemoveTaskChild::Create(fs, mFile, realPath, aRecursive, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }

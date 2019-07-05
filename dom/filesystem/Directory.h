@@ -50,6 +50,12 @@ class Directory final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<Promise> Get(const nsAString& aPath, ErrorResult& aRv);
 
+  already_AddRefed<Promise> Remove(const StringOrFileOrDirectory& aPath,
+                                   ErrorResult& aRv);
+
+  already_AddRefed<Promise> RemoveDeep(const StringOrFileOrDirectory& aPath,
+                                       ErrorResult& aRv);
+
   // From
   // https://microsoftedge.github.io/directory-upload/proposal.html#directory-interface
   // :
@@ -103,6 +109,9 @@ class Directory final : public nsISupports, public nsWrapperCache {
    * Convert relative DOM path to the absolute real path.
    */
   nsresult DOMPathToRealPath(const nsAString& aPath, nsIFile** aFile) const;
+
+  already_AddRefed<Promise> RemoveInternal(const StringOrFileOrDirectory& aPath,
+                                           bool aRecursive, ErrorResult& aRv);
 
   nsCOMPtr<nsISupports> mParent;
   RefPtr<FileSystemBase> mFileSystem;
