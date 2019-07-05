@@ -15,7 +15,6 @@ namespace mozilla {
 namespace dom {
 
 class BlobImpl;
-class FileSystemGetDirectoryListingParams;
 
 class GetDirectoryListingTaskChild final : public FileSystemTaskChildBase {
  public:

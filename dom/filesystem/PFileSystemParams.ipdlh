@@ -19,6 +19,14 @@ union FileSystemFileDataValue
   IPCBlob;
 };
 
+struct FileSystemCreateFileParams
+{
+  nsString filesystem;
+  nsString realPath;
+  FileSystemFileDataValue data;
+  bool replace;
+};
+
 struct FileSystemGetDirectoryListingParams
 {
   nsString filesystem;
@@ -62,6 +70,7 @@ struct FileSystemRemoveParams
 union FileSystemParams
 {
   FileSystemCreateDirectoryParams;
+  FileSystemCreateFileParams;
   FileSystemGetDirectoryListingParams;
   FileSystemGetFilesParams;
   FileSystemGetFileOrDirectoryParams;

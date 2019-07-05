@@ -16,7 +16,6 @@ namespace mozilla {
 namespace dom {
 
 class BlobImpl;
-class FileSystemGetFilesParams;
 
 class GetFilesTaskChild final : public FileSystemTaskChildBase {
  public:
