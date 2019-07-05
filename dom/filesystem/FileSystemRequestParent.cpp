@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "mozilla/dom/FileSystemRequestParent.h"
 
+#include "CreateDirectoryTask.h"
 #include "GetDirectoryListingTask.h"
 #include "GetFileOrDirectoryTask.h"
 #include "RemoveTask.h"
@@ -45,6 +46,7 @@ bool FileSystemRequestParent::Initialize(const FileSystemParams& aParams) {
   ErrorResult rv;
 
   switch (aParams.type()) {
+    FILESYSTEM_REQUEST_PARENT_DISPATCH_ENTRY(CreateDirectory)
     FILESYSTEM_REQUEST_PARENT_DISPATCH_ENTRY(GetDirectoryListing)
     FILESYSTEM_REQUEST_PARENT_DISPATCH_ENTRY(GetFileOrDirectory)
     FILESYSTEM_REQUEST_PARENT_DISPATCH_ENTRY(GetFiles)

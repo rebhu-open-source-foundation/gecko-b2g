@@ -7,6 +7,12 @@ include IPCBlob;
 namespace mozilla {
 namespace dom {
 
+struct FileSystemCreateDirectoryParams
+{
+  nsString filesystem;
+  nsString realPath;
+};
+
 union FileSystemFileDataValue
 {
   uint8_t[];
@@ -55,6 +61,7 @@ struct FileSystemRemoveParams
 
 union FileSystemParams
 {
+  FileSystemCreateDirectoryParams;
   FileSystemGetDirectoryListingParams;
   FileSystemGetFilesParams;
   FileSystemGetFileOrDirectoryParams;
