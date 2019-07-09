@@ -71,6 +71,7 @@
 #include "nsIStringStream.h"
 #include "nsIHttpChannel.h"
 #include "nsIHttpChannelInternal.h"
+#include "DeviceStorage.h"
 #include "nsStreamUtils.h"
 #include "WidgetUtils.h"
 #include "nsIPresentationService.h"
@@ -201,6 +202,15 @@ void Navigator::Invalidate() {
   }
 
   mMediaDevices = nullptr;
+
+  uint32_t len = mDeviceStorageStores.Length();
+  for (uint32_t i = 0; i < len; ++i) {
+    RefPtr<nsDOMDeviceStorage> ds = do_QueryReferent(mDeviceStorageStores[i]);
+    if (ds) {
+      ds->Shutdown();
+    }
+  }
+  mDeviceStorageStores.Clear();
 
   if (mPresentation) {
     mPresentation = nullptr;
@@ -986,6 +996,105 @@ void Navigator::RegisterProtocolHandler(const nsAString& aScheme,
     aRv = registrar->RegisterProtocolHandler(aScheme, handlerURI, aTitle,
                                              docURI, mWindow->GetOuterWindow());
   }
+}
+
+already_AddRefed<nsDOMDeviceStorage> Navigator::FindDeviceStorage(
+    const nsAString& aName, const nsAString& aType) {
+  auto i = mDeviceStorageStores.Length();
+  while (i > 0) {
+    --i;
+    RefPtr<nsDOMDeviceStorage> storage =
+        do_QueryReferent(mDeviceStorageStores[i]);
+    if (storage) {
+      if (storage->Equals(mWindow, aName, aType)) {
+        return storage.forget();
+      }
+    } else {
+      mDeviceStorageStores.RemoveElementAt(i);
+    }
+  }
+  return nullptr;
+}
+
+already_AddRefed<nsDOMDeviceStorage> Navigator::GetDeviceStorage(
+    const nsAString& aType, ErrorResult& aRv) {
+  if (!mWindow || !mWindow->GetOuterWindow() || !mWindow->GetDocShell()) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  nsString name;
+  nsDOMDeviceStorage::GetDefaultStorageName(aType, name);
+  RefPtr<nsDOMDeviceStorage> storage = FindDeviceStorage(name, aType);
+  if (storage) {
+    return storage.forget();
+  }
+
+  nsDOMDeviceStorage::CreateDeviceStorageFor(mWindow, aType,
+                                             getter_AddRefs(storage));
+
+  if (!storage) {
+    return nullptr;
+  }
+
+  mDeviceStorageStores.AppendElement(
+      do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
+  return storage.forget();
+}
+
+void Navigator::GetDeviceStorages(const nsAString& aType,
+                                  nsTArray<RefPtr<nsDOMDeviceStorage>>& aStores,
+                                  ErrorResult& aRv) {
+  if (!mWindow || !mWindow->GetOuterWindow() || !mWindow->GetDocShell()) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return;
+  }
+
+  nsDOMDeviceStorage::VolumeNameArray volumes;
+  nsDOMDeviceStorage::GetOrderedVolumeNames(aType, volumes);
+  if (volumes.IsEmpty()) {
+    RefPtr<nsDOMDeviceStorage> storage = GetDeviceStorage(aType, aRv);
+    if (storage) {
+      aStores.AppendElement(storage.forget());
+    }
+  } else {
+    uint32_t len = volumes.Length();
+    aStores.SetCapacity(len);
+    for (uint32_t i = 0; i < len; ++i) {
+      RefPtr<nsDOMDeviceStorage> storage =
+          GetDeviceStorageByNameAndType(volumes[i], aType, aRv);
+      if (aRv.Failed()) {
+        break;
+      }
+
+      if (storage) {
+        aStores.AppendElement(storage.forget());
+      }
+    }
+  }
+}
+
+already_AddRefed<nsDOMDeviceStorage> Navigator::GetDeviceStorageByNameAndType(
+    const nsAString& aName, const nsAString& aType, ErrorResult& aRv) {
+  if (!mWindow || !mWindow->GetOuterWindow() || !mWindow->GetDocShell()) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<nsDOMDeviceStorage> storage = FindDeviceStorage(aName, aType);
+  if (storage) {
+    return storage.forget();
+  }
+  nsDOMDeviceStorage::CreateDeviceStorageByNameAndType(mWindow, aName, aType,
+                                                       getter_AddRefs(storage));
+
+  if (!storage) {
+    return nullptr;
+  }
+
+  mDeviceStorageStores.AppendElement(
+      do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
+  return storage.forget();
 }
 
 Geolocation* Navigator::GetGeolocation(ErrorResult& aRv) {
