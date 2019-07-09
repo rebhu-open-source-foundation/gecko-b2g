@@ -77,7 +77,7 @@ this.DeviceUtils = {
 
   get iccInfo() {
     let icc = gIccService.getIccByServiceId(0);
-    let iccInfo = icc && icc.iccInfo;
+    let iccInfo = icc && icc.cardState !== Ci.nsIIcc.CARD_STATE_UNDETECTED && icc.iccInfo;
     if (!iccInfo && gMobileConnectionService.numItems > 1) {
       icc = gIccService.getIccByServiceId(1);
       iccInfo = icc && icc.iccInfo;
