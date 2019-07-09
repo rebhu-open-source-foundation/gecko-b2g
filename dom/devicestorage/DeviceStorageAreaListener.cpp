@@ -122,9 +122,20 @@ void DeviceStorageAreaListener::DispatchStorageAreaChangedEvent(
     return;
   }
 
+  DeviceStorageAreaChangedEventInit init;
+  init.mOperation = aOperation;
+  init.mStorageName = aStorageName;
+
+  RefPtr<DeviceStorageAreaChangedEvent> event =
+      DeviceStorageAreaChangedEvent::Constructor(
+          this, NS_LITERAL_STRING("storageareachanged"), init);
+  event->SetTrusted(true);
+
   mStorageAreaStateMap[aStorageName] = aOperation;
 
   nsDOMDeviceStorage::InvalidateVolumeCaches();
+
+  DOMEventTargetHelper::DispatchEvent(*event);
 }
 
 }  // namespace dom
