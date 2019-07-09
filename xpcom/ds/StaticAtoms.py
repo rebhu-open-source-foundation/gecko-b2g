@@ -881,6 +881,7 @@ STATIC_ATOMS = [
     Atom("onshow", "onshow"),
     Atom("onstatechange", "onstatechange"),
     Atom("onstorage", "onstorage"),
+    Atom("onstorageareachanged", "onstorageareachanged"),
     Atom("onsubmit", "onsubmit"),
     Atom("onsuccess", "onsuccess"),
     Atom("ontypechange", "ontypechange"),

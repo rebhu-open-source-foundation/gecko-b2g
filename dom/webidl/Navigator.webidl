@@ -194,6 +194,11 @@ partial interface Navigator {
   boolean javaEnabled();
 };
 
+partial interface Navigator {
+  [Throws, Pref="device.storage.enabled"]
+  readonly attribute DeviceStorageAreaListener deviceStorageAreaListener;
+};
+
 // nsIDOMNavigatorDeviceStorage
 partial interface Navigator {
   [Throws, Pref="device.storage.enabled"]

@@ -464,6 +464,7 @@ WEBIDL_FILES = [
     'DelayNode.webidl',
     'DeviceMotionEvent.webidl',
     'DeviceStorage.webidl',
+    'DeviceStorageAreaListener.webidl',
     'Directory.webidl',
     'Document.webidl',
     'DocumentFragment.webidl',

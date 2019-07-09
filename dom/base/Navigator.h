@@ -70,6 +70,7 @@ namespace network {
 class Connection;
 }  // namespace network
 
+class DeviceStorageAreaListener;
 class Presentation;
 class LegacyMozTCPSocket;
 class VRDisplay;
@@ -162,6 +163,8 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   bool JavaEnabled() { return false; }
   uint64_t HardwareConcurrency();
   bool TaintEnabled() { return false; }
+
+  DeviceStorageAreaListener* GetDeviceStorageAreaListener(ErrorResult& aRv);
 
   already_AddRefed<nsDOMDeviceStorage> GetDeviceStorage(const nsAString& aType,
                                                         ErrorResult& aRv);
@@ -274,6 +277,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   nsTArray<nsWeakPtr> mDeviceStorageStores;
   RefPtr<ServiceWorkerContainer> mServiceWorkerContainer;
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
+  RefPtr<DeviceStorageAreaListener> mDeviceStorageAreaListener;
   RefPtr<Presentation> mPresentation;
   RefPtr<GamepadServiceTest> mGamepadServiceTest;
   nsTArray<RefPtr<Promise>> mVRGetDisplaysPromises;
