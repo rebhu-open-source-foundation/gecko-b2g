@@ -15,6 +15,7 @@
 # limitations under the License.
 
 XPIDL_SOURCES += [
+    'nsISystemWorkerManager.idl',
     'nsIVolume.idl',
     'nsIVolumeMountLock.idl',
     'nsIVolumeService.idl',
@@ -26,6 +27,7 @@ XPIDL_MODULE = 'dom_system_gonk'
 EXPORTS += [
     'nsVolume.h',
     'nsVolumeService.h',
+    'SystemWorkerManager.h',
 ]
 UNIFIED_SOURCES += [
     'AutoMounter.cpp',
@@ -38,6 +40,7 @@ UNIFIED_SOURCES += [
     'nsVolumeService.cpp',
     'nsVolumeStat.cpp',
     #'OpenFileFinder.cpp',
+    'SystemWorkerManager.cpp',
     'Volume.cpp',
     'VolumeCommand.cpp',
     'VolumeManager.cpp',

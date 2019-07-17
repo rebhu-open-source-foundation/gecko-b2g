@@ -264,6 +264,8 @@
 #  include "nsVolumeService.h"
 #  include "nsIVolumeService.h"
 using namespace mozilla::system;
+#  include "nsISystemWorkerManager.h"
+#  include "SystemWorkerManager.h"
 #endif
 
 #ifdef MOZ_WIDGET_GTK
@@ -1372,6 +1374,10 @@ void ContentParent::ForwardKnownInfo() {
   */
 #ifdef MOZ_WIDGET_GONK
   nsTArray<VolumeInfo> volumeInfo;
+  // TODO: SystemWorkerManager::FactoryCreate() was originally called by
+  // RadioInterfaceLayer.js in gecko48.
+  RefPtr<nsISystemWorkerManager> sm =
+      gonk::SystemWorkerManager::FactoryCreate();
   RefPtr<nsVolumeService> vs = nsVolumeService::GetSingleton();
   if (vs) {
     vs->GetVolumesForIPC(&volumeInfo);
