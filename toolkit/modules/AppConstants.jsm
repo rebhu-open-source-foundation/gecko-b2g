@@ -162,6 +162,8 @@ this.AppConstants = Object.freeze({
   "macosx",
 #elif MOZ_WIDGET_ANDROID
   "android",
+#elif MOZ_WIDGET_GONK
+  "gonk",
 #elif XP_LINUX
   "linux",
 #else
