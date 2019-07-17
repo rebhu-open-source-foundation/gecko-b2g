@@ -9,6 +9,9 @@ const Ci = Components.interfaces;
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { AppConstants } = ChromeUtils.import('resource://gre/modules/AppConstants.jsm');
+
+const isGonk = AppConstants.platform === 'gonk';
 
 function debug(str) {
   console.log(`-*- Shell.js: ${str}`);
@@ -38,7 +41,7 @@ var shell = {
     let cookies = Cc["@mozilla.org/cookieService;1"];
 
     let startURL = this.startURL;
-    
+
     let systemAppFrame = document.createXULElement("browser");
     systemAppFrame.setAttribute("type", "chrome");
     systemAppFrame.setAttribute("id", "systemapp");
@@ -93,6 +96,10 @@ var shell = {
     debug(`Setting system url to ${startURL}`);
 
     this.contentBrowser.src = startURL;
+
+    if (isGonk) {
+      ChromeUtils.import('resource://gre/modules/ExternalAPIService.jsm');
+    }
   },
 
   stop: function() {
@@ -206,7 +213,7 @@ document.addEventListener("DOMContentLoaded", function dom_loaded() {
 
   // debug(`Input Method API enabled: ${Services.prefs.getBoolPref("dom.mozInputMethod.enabled")}`);
   // debug(`Input Method implementation: ${Cc["@mozilla.org/b2g-inputmethod;1"].createInstance()}`);
-  
+
   // Give the needed permissions to the system app.
   ["browser", "input", "input-manage"].forEach(permission => {
     Services.perms.add(Services.io.newURI(shell.startURL), permission, Services.perms.ALLOW_ACTION);
