@@ -104,11 +104,9 @@ GeckoTouchDispatcher::NotifyVsync(TimeStamp aVsyncTimestamp)
 void
 GeckoTouchDispatcher::NotifyTouch(MultiTouchInput& aTouch, TimeStamp aEventTime)
 {
-#if 0
   if (mCompositorVsyncScheduler) {
     mCompositorVsyncScheduler->SetNeedsComposite();
   }
-#endif
 
 // FIXME: why were we doing that???
 #if 0

@@ -77,7 +77,7 @@ static nsWindow* gFocusedWindow = nullptr;
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
 nsWindow::nsWindow()
- // : mGLCursorImageManager(nullptr)
+  // : mGLCursorImageManager(nullptr)
 {
   // This is a hack to force initialization of the compositor
   // resources, if we're going to use omtc.
@@ -101,24 +101,14 @@ nsWindow::~nsWindow()
 void
 nsWindow::DoDraw(void)
 {
-// TODO: FIXME
-#if 0
   if (!hal::GetScreenEnabled()) {
     gDrawRequest = true;
     return;
   }
-#else
-  gDrawRequest = true;
-#endif
 
-// TODO: FIXME
-#if 0
-  uint32_t screenNums = 1;
-#endif
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-// TODO: FIXME
-#if 0
-  screenManager->GetNumberOfScreens(&screenNums);
+#if 0 // TODO: FIXME: for multi-display support
+  uint32_t screenNums = screenHelper->GetNumberOfScreens();
 
   while (screenNums--) {
     RefPtr<nsIScreen> screen = screenHelper->ScreenForId(screenNums);
@@ -127,7 +117,8 @@ nsWindow::DoDraw(void)
       continue;
     }
 
-    const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
+    const nsTArray<nsWindow*>& windows =
+      static_cast<nsScreenGonk*>(screen.get())->GetTopWindows();
     if (windows.IsEmpty()) {
       continue;
     }
@@ -135,14 +126,14 @@ nsWindow::DoDraw(void)
     /* Add external screen when the external fb is available. The AddScreen
        should be called after shell.js is loaded to receive the
        display-changed event. */
-    if (!screenManager->IsScreenConnected(GonkDisplay::DISPLAY_EXTERNAL) &&
+    if (!screenHelper->IsScreenConnected(DISPLAY_EXTERNAL) &&
         screenNums == 0 && GetGonkDisplay()->IsExtFBDeviceEnabled()) {
-      screenManager->AddScreen(GonkDisplay::DISPLAY_EXTERNAL);
+      screenHelper->AddScreen(DISPLAY_EXTERNAL);
     }
-#endif
-
+#else
     RefPtr<nsScreenGonk> screen = screenHelper->GetPrimaryScreen();
     const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
+#endif
     RefPtr<nsWindow> targetWindow = (nsWindow*)windows[0];
     while (targetWindow->GetLastChild()) {
       targetWindow = (nsWindow*)targetWindow->GetLastChild();
@@ -169,11 +160,11 @@ nsWindow::DoDraw(void)
 #endif
 }
 
-// void
-// nsWindow::ConfigureAPZControllerThread()
-// {
-//   //FIXME APZThreadUtils::SetControllerThread(CompositorBridgeParent::CompositorLoop());
-// }
+void
+nsWindow::ConfigureAPZControllerThread()
+{
+  APZThreadUtils::SetControllerThread(CompositorBridgeParent::CompositorLoop());
+}
 
 void
 nsWindow::SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint)
@@ -452,8 +443,12 @@ nsWindow::Create(nsIWidget* aParent,
   //  aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
 
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-  //screenManager->ScreenForId(screenId, getter_AddRefs(screen));
+#if 0 // TODO: FIXME: for multi-display support
+  RefPtr<nsIScreen> screen = screenHelper->ScreenForId(screenId);
+  mScreen = static_cast<nsScreenGonk*>(screen.get());
+#else
   mScreen = screenHelper->GetPrimaryScreen();
+#endif
 
   mBounds = aRect;
 
@@ -674,7 +669,7 @@ static void
 StopRenderWithHwc(bool aStop)
 {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  // TODO: FIXME: HwcComposer2D::GetInstance()->StopRenderWithHwc(aStop);
+  HwcComposer2D::GetInstance()->StopRenderWithHwc(aStop);
 }
 
 NS_IMETHODIMP

@@ -37,7 +37,11 @@ class String8;
 
 class FramebufferSurface : public DisplaySurface {
 public:
+#if ANDROID_VERSION < 26
     FramebufferSurface(int disp, uint32_t width, uint32_t height, uint32_t format, const sp<StreamConsumer>& sc);
+#else
+    FramebufferSurface(int disp, uint32_t width, uint32_t height, const sp<StreamConsumer>& sc);
+#endif
 
     // From DisplaySurface
     virtual status_t beginFrame(bool mustRecompose);
@@ -47,7 +51,11 @@ public:
     virtual void onFrameCommitted();
     // Cannot resize a buffers in a FramebufferSurface. Only works with virtual
     // displays.
+#if ANDROID_VERSION < 26
     virtual void resizeBuffers(const uint32_t /*w*/, const uint32_t /*h*/) { };
+#else
+    virtual void resizeBuffers(const uint32_t width, const uint32_t height);
+#endif
 
     // setReleaseFenceFd stores a fence file descriptor that will signal when the
     // current buffer is no longer being read. This fence will be returned to

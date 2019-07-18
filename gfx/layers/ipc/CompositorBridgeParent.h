@@ -486,6 +486,14 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   void InvalidateRemoteLayers();
 
   /**
+   * Returns the compositor thread's message loop.
+   *
+   * This message loop is used by CompositorBridgeParent, ImageBridgeParent,
+   * and VRManagerParent
+   */
+  static MessageLoop* CompositorLoop();
+
+  /**
    * Returns a pointer to the CompositorBridgeParent corresponding to the given
    * ID.
    */

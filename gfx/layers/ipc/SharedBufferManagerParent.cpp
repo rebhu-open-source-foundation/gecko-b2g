@@ -236,7 +236,7 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
   }
 
   sp<GraphicBuffer> outgoingBuffer;
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
   typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
   typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
                                                 AHardwareBuffer_Desc* outDesc);

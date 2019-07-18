@@ -23,6 +23,11 @@
 #include "nsRect.h"
 
 #include <hardware/hwcomposer.h>
+#if ANDROID_VERSION >= 28
+#include "pie/HWC2.h"
+#elif ANDROID_VERSION >= 26
+#include "oreo/HWC2.h"
+#endif
 
 #ifndef HWC_BLIT
 #if ANDROID_VERSION >= 21
@@ -38,7 +43,11 @@
 
 namespace mozilla {
 
-#if ANDROID_VERSION >= 17
+#if ANDROID_VERSION >= 26
+using HwcDevice = HWC2::Device;
+using HwcList   = hwc_display_contents_1_t;
+using HwcLayer  = hwc_layer_1_t;
+#elif ANDROID_VERSION >= 17
 using HwcDevice = hwc_composer_device_1_t;
 using HwcList   = hwc_display_contents_1_t;
 using HwcLayer  = hwc_layer_1_t;
@@ -55,9 +64,15 @@ using HwcLayer  = hwc_layer_t;
 //       we don't have to register callback functions on ICS, so
 //       there is no callbacks for ICS in HwcHALProcs.
 typedef struct HwcHALProcs {
+#if ANDROID_VERSION >= 26
+    void (*invalidate)();
+    void (*vsync)(int disp, int64_t timestamp);
+    void (*hotplug)(int disp, int connected);
+#else
     void (*invalidate)(const struct hwc_procs* procs);
     void (*vsync)(const struct hwc_procs* procs, int disp, int64_t timestamp);
     void (*hotplug)(const struct hwc_procs* procs, int disp, int connected);
+#endif
 } HwcHALProcs_t;
 
 // HwcHAL class

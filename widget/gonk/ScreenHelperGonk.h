@@ -60,7 +60,7 @@ enum class NotifyDisplayChangedEvent : int8_t {
 class nsScreenGonk : public nsBaseScreen
 {
     typedef mozilla::hal::ScreenConfiguration ScreenConfiguration;
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
     typedef android::GonkDisplay GonkDisplay;
 #else
     typedef mozilla::GonkDisplay GonkDisplay;
@@ -212,6 +212,7 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
        float aDensity = 1.0f);
   void RemoveScreen(uint32_t aId);
   already_AddRefed<Screen> ScreenForId(uint32_t aScreenId);
+  uint32_t GetNumberOfScreens();
 
   // nsScreenManagerGonk
   static uint32_t GetIdFromType(DisplayType aDisplayType);
@@ -221,6 +222,10 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
   void DisplayEnabled(bool aEnabled);
 
   bool IsScreenConnected(uint32_t aId);
+
+#if ANDROID_VERSION >= 19
+  void SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncScheduler* aObserver);
+#endif
 
  private:
   nsDataHashtable<nsUint32HashKey, RefPtr<Screen>> mScreens;

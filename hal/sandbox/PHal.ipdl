@@ -79,6 +79,9 @@ parent:
     sync GetCurrentNetworkInformation()
       returns (NetworkInformation aNetworkInfo);
 
+    sync GetScreenEnabled() returns (bool enabled);
+    async SetScreenEnabled(bool aEnabled);
+
     async SetScreenBrightness(double aBrightness);
 
     async ModifyWakeLock(nsString aTopic,

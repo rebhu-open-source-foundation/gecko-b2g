@@ -115,6 +115,17 @@ void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo);
  */
 void NotifyBatteryChange(const hal::BatteryInformation& aBatteryInfo);
 
+/**
+ * Determine whether the device's screen is currently enabled.
+ */
+bool GetScreenEnabled();
+
+/**
+ * Enable or disable the device's screen.
+ *
+ * Note that it may take a few seconds for the screen to turn on or off.
+ */
+void SetScreenEnabled(bool aEnabled);
 
 /**
  * Set the brightness of the device's screen's backlight, on a scale from 0

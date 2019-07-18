@@ -27,7 +27,7 @@
 #include "android/log.h"
 #include "hardware/gralloc.h"
 #include "cutils/properties.h"
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
 #include "NativeGralloc.h"
 #endif
 #include "GonkDisplay.h"
@@ -39,7 +39,7 @@
 using namespace mozilla;
 using namespace std;
 
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
 #endif
@@ -682,7 +682,7 @@ AsBackgroundFill(const png_color_16& color16, int outputFormat)
 
 static void
 ShowSolidColorFrame(GonkDisplay *aDisplay,
-                #if ANDROID_VERSION < 27
+                #if ANDROID_VERSION < 26
                     const gralloc_module_t *grallocModule,
                 #endif
                     int32_t aFormat,
@@ -697,7 +697,7 @@ ShowSolidColorFrame(GonkDisplay *aDisplay,
         LOGW("Failed to get an ANativeWindowBuffer");
         return;
     }
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
     if (!native_gralloc_lock(buffer->handle,
 #else
     if (!grallocModule->lock(grallocModule, buffer->handle,
@@ -708,7 +708,7 @@ ShowSolidColorFrame(GonkDisplay *aDisplay,
                              0, 0, buffer->width, buffer->height, &mappedAddress)) {
         // Just show a black solid color frame.
         memset(mappedAddress, 0, buffer->height * buffer->stride * GetFormatBPP(aFormat));
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
         native_gralloc_unlock(buffer->handle);
 #else
         grallocModule->unlock(grallocModule, buffer->handle);
@@ -772,7 +772,7 @@ AnimationThread(void *)
 
     vector<Animation> animVec;
 
-#if ANDROID_VERSION < 27
+#if ANDROID_VERSION < 26
     const hw_module_t *module = nullptr;
     if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module)) {
         LOGW("Could not get gralloc module");
@@ -785,7 +785,7 @@ AnimationThread(void *)
     // Load boot animation for primary screen
     animVec.push_back(Animation());
     Animation &primAnimation = animVec.back();
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
     primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
     primAnimation.format = HAL_PIXEL_FORMAT_RGBX_8888;//dispData.mSurfaceformat;
     if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
@@ -865,7 +865,7 @@ AnimationThread(void *)
                     }
 
                     void *vaddr = nullptr;
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
                     if (native_gralloc_lock(buf->handle,
 #else
                     if (grmodule->lock(grmodule, buf->handle,
@@ -886,7 +886,7 @@ AnimationThread(void *)
                     animPlayed = true;
 
                     if (buf) {
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
                         native_gralloc_unlock(buf->handle);
 #else
                         grmodule->unlock(grmodule, buf->handle);
@@ -916,7 +916,7 @@ AnimationThread(void *)
     }
 
     if (!animPlayed) {
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
         ShowSolidColorFrame(display, dispData.mSurfaceformat,
                             DisplayType::DISPLAY_PRIMARY);
 #else
@@ -939,7 +939,7 @@ void
 StartBootAnimation()
 {
 //TODO, disable to prevent double allocate HWC issue.
-#if ANDROID_VERSION < 27
+#if ANDROID_VERSION < 26
     GetGonkDisplay(); // Ensure GonkDisplay exist
     sRunAnimation = true;
     // TODO: FIXME HookSetVsyncAlwaysEnabled(true);
@@ -953,7 +953,7 @@ StopBootAnimation()
 {
     if (sRunAnimation) {
         sRunAnimation = false;
-    #if ANDROID_VERSION >= 27
+    #if ANDROID_VERSION >= 26
         // TODO: FIXME HookSetVsyncAlwaysEnabled(false);
     #else
         HookSetVsyncAlwaysEnabled(false);

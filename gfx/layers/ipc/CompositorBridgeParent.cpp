@@ -173,10 +173,6 @@ void CompositorBridgeParentBase::DeallocShmem(ipc::Shmem& aShmem) {
   PCompositorBridgeParent::DeallocShmem(aShmem);
 }
 
-static inline MessageLoop* CompositorLoop() {
-  return CompositorThreadHolder::Loop();
-}
-
 base::ProcessId CompositorBridgeParentBase::RemotePid() { return OtherPid(); }
 
 bool CompositorBridgeParentBase::StartSharingMetrics(
@@ -184,8 +180,8 @@ bool CompositorBridgeParentBase::StartSharingMetrics(
     CrossProcessMutexHandle aMutexHandle, LayersId aLayersId,
     uint32_t aApzcId) {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
-    MOZ_ASSERT(CompositorLoop());
-    CompositorLoop()->PostTask(
+    MOZ_ASSERT(CompositorBridgeParent::CompositorLoop());
+    CompositorBridgeParent::CompositorLoop()->PostTask(
         NewRunnableMethod<ipc::SharedMemoryBasic::Handle,
                           CrossProcessMutexHandle, LayersId, uint32_t>(
             "layers::CompositorBridgeParent::StartSharingMetrics", this,
@@ -205,8 +201,8 @@ bool CompositorBridgeParentBase::StartSharingMetrics(
 bool CompositorBridgeParentBase::StopSharingMetrics(
     ScrollableLayerGuid::ViewID aScrollId, uint32_t aApzcId) {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
-    MOZ_ASSERT(CompositorLoop());
-    CompositorLoop()->PostTask(
+    MOZ_ASSERT(CompositorBridgeParent::CompositorLoop());
+    CompositorBridgeParent::CompositorLoop()->PostTask(
         NewRunnableMethod<ScrollableLayerGuid::ViewID, uint32_t>(
             "layers::CompositorBridgeParent::StopSharingMetrics", this,
             &CompositorBridgeParentBase::StopSharingMetrics, aScrollId,
@@ -288,6 +284,10 @@ void CompositorBridgeParent::FinishShutdown() {
 
   // TODO: this should be empty by now...
   sIndirectLayerTrees.clear();
+}
+
+MessageLoop* CompositorBridgeParent::CompositorLoop() {
+  return CompositorThreadHolder::Loop();
 }
 
 #ifdef COMPOSITOR_PERFORMANCE_WARNING

@@ -330,6 +330,18 @@ void NotifyBatteryChange(const BatteryInformation& aInfo) {
   BatteryObservers()->BroadcastCachedInformation();
 }
 
+bool GetScreenEnabled()
+{
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(GetScreenEnabled(), false);
+}
+
+void SetScreenEnabled(bool aEnabled)
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(SetScreenEnabled(aEnabled));
+}
+
 void EnableSensorNotifications(SensorType aSensor) {
   AssertMainThread();
   PROXY_IF_SANDBOXED(EnableSensorNotifications(aSensor));

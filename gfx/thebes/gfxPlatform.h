@@ -620,7 +620,15 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
    * Should only exist and be valid on the parent process
    */
   virtual mozilla::gfx::VsyncSource* GetHardwareVsync() {
+#ifndef MOZ_WIDGET_GONK
+    /**
+      * KaiOS Bug 761: In Gonk platform, Vsync will be enabled then disabled
+      * shortly for testing whether Vsync is supported before really setting
+      * mVsyncSource. So it is possible that mVsyncSource is nullptr during
+      * vsync fired.
+      */
     MOZ_ASSERT(mVsyncSource != nullptr);
+#endif
     MOZ_ASSERT(XRE_IsParentProcess() ||
                mozilla::recordreplay::IsRecordingOrReplaying());
     return mVsyncSource;

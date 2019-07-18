@@ -126,6 +126,27 @@ private:
     Mutex mLock;
 };
 
+class HWComposerCallback : public HWC2::ComposerCallback
+{
+    public:
+        HWComposerCallback(HWC2::Device* device) {
+            hwcDevice = device;
+        }
+
+        void onVsyncReceived(int32_t sequenceId, hwc2_display_t display,
+                            int64_t timestamp) override;
+        void onHotplugReceived(int32_t sequenceId, hwc2_display_t display,
+                            HWC2::Connection connection
+#if ANDROID_VERSION < 28 /* Android O only */
+                            , bool primaryDisplay
+#endif
+                            ) override;
+        void onRefreshReceived(int32_t sequenceId, hwc2_display_t display) override;
+
+    private:
+        HWC2::Device* hwcDevice;
+};
+
 } // namespace mozilla
 
 #endif // mozilla_HwcComposer2D

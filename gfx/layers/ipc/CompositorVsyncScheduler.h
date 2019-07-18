@@ -43,6 +43,19 @@ class CompositorVsyncScheduler {
   CompositorVsyncScheduler(CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
                            widget::CompositorWidget* aWidget);
 
+#ifdef MOZ_WIDGET_GONK
+  // emulator-ics never trigger the display on/off, so compositor will always
+  // skip composition request at that device. Only check the display status
+  // with kk device and upon.
+#if ANDROID_VERSION >= 19
+  // SetDisplay() and CancelSetDisplayTask() are used for the display on/off.
+  // It will clear all composition related task and flag, and skip another
+  // composition task during the display off. That could prevent the problem
+  // that compositor might show the old content at the first frame of display on.
+  void SetDisplay(bool aDisplayEnable);
+#endif
+#endif
+
   /**
    * Notify this class of a vsync. This will trigger a composite if one is
    * needed. This must be called from the vsync dispatch thread.
@@ -60,6 +73,8 @@ class CompositorVsyncScheduler {
    * compositor thread.
    */
   void ScheduleComposition();
+
+  void SetNeedsComposite();
 
   /**
    * Cancel any composite task that has been scheduled but hasn't run yet.
@@ -132,7 +147,15 @@ class CompositorVsyncScheduler {
   void ObserveVsync();
   void UnobserveVsync();
 
+  void DispatchTouchEvents(TimeStamp aVsyncTimestamp);
   void DispatchVREvents(TimeStamp aVsyncTimestamp);
+
+  void CancelCurrentSetNeedsCompositeTask();
+#ifdef MOZ_WIDGET_GONK
+#if ANDROID_VERSION >= 19
+  void CancelSetDisplayTask();
+#endif
+#endif
 
   class Observer final : public VsyncObserver {
    public:
@@ -165,6 +188,17 @@ class CompositorVsyncScheduler {
 
   mozilla::Monitor mCurrentVRTaskMonitor;
   RefPtr<CancelableRunnable> mCurrentVRTask;
+
+  mozilla::Monitor mSetNeedsCompositeMonitor;
+  RefPtr<CancelableRunnable> mSetNeedsCompositeTask;
+
+#ifdef MOZ_WIDGET_GONK
+#if ANDROID_VERSION >= 19
+  bool mDisplayEnabled;
+  mozilla::Monitor mSetDisplayMonitor;
+  RefPtr<CancelableRunnable> mSetDisplayTask;
+#endif
+#endif
 };
 
 }  // namespace layers

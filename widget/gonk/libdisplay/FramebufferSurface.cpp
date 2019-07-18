@@ -35,13 +35,21 @@
 #if ANDROID_VERSION == 17
 #include <gui/SurfaceTextureClient.h>
 #endif
+
+#if ANDROID_VERSION >= 26
+#include <gui/BufferQueue.h>
+#include <gui/Surface.h>
+#endif
+
 #include <ui/GraphicBuffer.h>
 
 #include "FramebufferSurface.h"
+#if ANDROID_VERSION < 26
 #include "GraphicBufferAlloc.h"
+#endif
 
 #ifndef NUM_FRAMEBUFFER_SURFACE_BUFFERS
-#define NUM_FRAMEBUFFER_SURFACE_BUFFERS (6)
+#define NUM_FRAMEBUFFER_SURFACE_BUFFERS (3)
 #endif
 
 // ----------------------------------------------------------------------------
@@ -55,7 +63,9 @@ namespace android {
 FramebufferSurface::FramebufferSurface(int disp,
                                        uint32_t width,
                                        uint32_t height,
+#if ANDROID_VERSION < 26
                                        uint32_t format,
+#endif
                                        const sp<StreamConsumer>& sc)
     : DisplaySurface(sc)
     , mDisplayType(disp)
@@ -71,11 +81,25 @@ FramebufferSurface::FramebufferSurface(int disp,
     consumer->setSynchronousMode(true);
 #endif
     consumer->setConsumerName(mName);
+#if ANDROID_VERSION >= 26
+    consumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB |
+                                   GRALLOC_USAGE_HW_RENDER |
+                                   GRALLOC_USAGE_HW_COMPOSER);
+    consumer->setDefaultBufferSize(width, height);
+    consumer->setMaxAcquiredBufferCount(NUM_FRAMEBUFFER_SURFACE_BUFFERS);
+#else
     consumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB);
     consumer->setDefaultBufferFormat(format);
     consumer->setDefaultBufferSize(width, height);
     consumer->setDefaultMaxBufferCount(NUM_FRAMEBUFFER_SURFACE_BUFFERS);
+#endif
 }
+
+#if ANDROID_VERSION >= 26
+void FramebufferSurface::resizeBuffers(const uint32_t width, const uint32_t height) {
+    mConsumer->setDefaultBufferSize(width, height);
+}
+#endif
 
 status_t FramebufferSurface::beginFrame(bool /*mustRecompose*/) {
     return NO_ERROR;
@@ -86,10 +110,28 @@ status_t FramebufferSurface::prepareFrame(CompositionType /*compositionType*/) {
 }
 
 status_t FramebufferSurface::advanceFrame() {
+#if ANDROID_VERSION >= 26
+    sp<GraphicBuffer> buf;
+    sp<Fence> acquireFence;
+    status_t result = nextBuffer(buf, acquireFence);
+    if (result != NO_ERROR) {
+        ALOGE("error latching next FramebufferSurface buffer: %s (%d)",
+                strerror(-result), result);
+    }
+    if (acquireFence.get() && acquireFence->isValid())
+        mPrevFBAcquireFence = new Fence(acquireFence->dup());
+    else
+        mPrevFBAcquireFence = Fence::NO_FENCE;
+
+    lastHandle = buf->handle;
+
+	return result;
+#else
     // Once we remove FB HAL support, we can call nextBuffer() from here
     // instead of using onFrameAvailable(). No real benefit, except it'll be
     // more like VirtualDisplaySurface.
     return NO_ERROR;
+#endif
 }
 
 status_t FramebufferSurface::nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>& outFence) {
@@ -121,8 +163,13 @@ status_t FramebufferSurface::nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>&
     // been overwritten with the new buffer all we have to do is skip the
     // releaseBuffer call and we should be in the same state we'd be in if we
     // had released the old buffer first.
+#if ANDROID_VERSION >= 26
+    if (mCurrentBufferSlot != BufferQueue::INVALID_BUFFER_SLOT &&
+        item.mSlot != mCurrentBufferSlot) {
+#else
     if (mCurrentBufferSlot != BufferQueue::INVALID_BUFFER_SLOT &&
         item.mBuf != mCurrentBufferSlot) {
+#endif
         // Release the previous buffer.
 #if ANDROID_VERSION >= 19
         err = releaseBufferLocked(mCurrentBufferSlot, mCurrentBuffer,
@@ -136,7 +183,11 @@ status_t FramebufferSurface::nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>&
             return err;
         }
     }
+#if ANDROID_VERSION >= 26
+    mCurrentBufferSlot = item.mSlot;
+#else
     mCurrentBufferSlot = item.mBuf;
+#endif
     mCurrentBuffer = mSlots[mCurrentBufferSlot].mGraphicBuffer;
     outFence = item.mFence;
     outBuffer = mCurrentBuffer;

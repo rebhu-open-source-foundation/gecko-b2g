@@ -70,13 +70,32 @@ using namespace android;
 using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
 #endif
 
 namespace mozilla {
 
+#if ANDROID_VERSION >= 26
+static void
+HookInvalidate()
+{
+    HwcComposer2D::GetInstance()->Invalidate();
+}
+
+static void
+HookVsync(int aDisplay, int64_t aTimestamp)
+{
+    HwcComposer2D::GetInstance()->Vsync(aDisplay, aTimestamp);
+}
+
+static void
+HookHotplug(int aDisplay, int aConnected)
+{
+    HwcComposer2D::GetInstance()->Hotplug(aDisplay, aConnected);
+}
+#else
 static void
 HookInvalidate(const struct hwc_procs* aProcs)
 {
@@ -96,6 +115,7 @@ HookHotplug(const struct hwc_procs* aProcs, int aDisplay,
 {
     HwcComposer2D::GetInstance()->Hotplug(aDisplay, aConnected);
 }
+#endif
 
 __attribute__ ((visibility ("default")))
 void
@@ -152,7 +172,6 @@ HwcComposer2D::GetInstance()
         ++timesCreated;
         MOZ_ASSERT(timesCreated == 1);
 #endif
-        LOGI("Creating new instance");
         sInstance = new HwcComposer2D();
 
         // If anyone uses the compositor thread to create HwcComposer2D,
@@ -235,8 +254,9 @@ HwcComposer2D::Invalidate()
 namespace {
 class HotplugEvent : public mozilla::Runnable {
 public:
-    HotplugEvent(DisplayType aType, bool aConnected)
+    HotplugEvent(int displayId, DisplayType aType, bool aConnected)
         : mozilla::Runnable("HotplugEvent")
+        , mId(displayId)
         , mType(aType)
         , mConnected(aConnected)
     {
@@ -244,21 +264,18 @@ public:
 
     NS_IMETHOD Run()
     {
-// TODO: FIXME
-#if 0
-        RefPtr<nsScreenManagerGonk> screenManager =
-            nsScreenManagerGonk::GetInstance();
+        widget::ScreenHelperGonk* screenHelper =
+            widget::ScreenHelperGonk::GetSingleton();
         if (mConnected) {
-            screenManager->AddScreen(mType);
+            screenHelper->AddScreen(mId, mType);
         } else {
-            screenManager->RemoveScreen(mType);
+            screenHelper->RemoveScreen(mId);
         }
-#endif
         return NS_OK;
     }
 private:
+    int mId;
     DisplayType mType;
-
     bool mConnected;
 };
 } // namespace
@@ -266,7 +283,8 @@ private:
 void
 HwcComposer2D::Hotplug(int aDisplay, int aConnected)
 {
-    NS_DispatchToMainThread(new HotplugEvent(DisplayType::DISPLAY_EXTERNAL,
+    NS_DispatchToMainThread(new HotplugEvent(aDisplay,
+                                             DisplayType::DISPLAY_EXTERNAL,
                                              aConnected));
 }
 

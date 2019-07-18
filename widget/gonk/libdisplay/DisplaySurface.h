@@ -17,7 +17,17 @@
 #ifndef ANDROID_SF_DISPLAY_SURFACE_H
 #define ANDROID_SF_DISPLAY_SURFACE_H
 
+// Do not treat compiler warnings from ConsumerBase.h as errors since it's from
+// an external repository.
+#pragma GCC diagnostic push
+#if defined(__clang__)
+#pragma GCC diagnostic warning "-Winconsistent-missing-override"
+#else
+#pragma GCC diagnostic warning "-Wsuggest-override"
+#endif
 #include <gui/ConsumerBase.h>
+#pragma GCC diagnostic pop
+
 #include <system/window.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>

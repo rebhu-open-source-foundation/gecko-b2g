@@ -63,7 +63,7 @@ using namespace mozilla::layers;
 using namespace mozilla::dom;
 using namespace mozilla::widget;
 
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
 #endif
@@ -131,8 +131,8 @@ nsScreenGonk::nsScreenGonk(uint32_t aId,
     , mEventVisibility(aEventVisibility)
     , mNativeWindow(aNativeData.mNativeWindow)
     , mDpi(aNativeData.mXdpi)
-    , mScreenRotation(ROTATION_0) // TODO: FIXME
-    , mPhysicalScreenRotation(ROTATION_0) // TODO: FIXME
+    , mScreenRotation(ROTATION_0)
+    , mPhysicalScreenRotation(ROTATION_0)
 #if ANDROID_VERSION >= 17
     , mDisplaySurface(aNativeData.mDisplaySurface)
 #endif
@@ -292,9 +292,7 @@ nsScreenGonk::GetNativeWindow()
 NS_IMETHODIMP
 nsScreenGonk::SetRotation(uint32_t aRotation)
 {
-// TODO: FIXME
-#if 0
-    if (!(aRotation <= ROTATION_270_DEG)) {
+    if (!(aRotation <= ROTATION_270)) {
         return NS_ERROR_ILLEGAL_VALUE;
     }
 
@@ -304,8 +302,8 @@ nsScreenGonk::SetRotation(uint32_t aRotation)
 
     mScreenRotation = aRotation;
     uint32_t rotation = EffectiveScreenRotation();
-    if (rotation == nsIScreen::ROTATION_90_DEG ||
-        rotation == nsIScreen::ROTATION_270_DEG) {
+    if (rotation == ROTATION_90 ||
+        rotation == ROTATION_270) {
         mVirtualBounds = LayoutDeviceIntRect(0, 0,
                                              mNaturalBounds.height,
                                              mNaturalBounds.width);
@@ -320,7 +318,6 @@ nsScreenGonk::SetRotation(uint32_t aRotation)
                                mVirtualBounds.height,
                                true);
     }
-#endif
     return NS_OK;
 }
 
@@ -341,28 +338,25 @@ nsScreenGonk::EffectiveScreenRotation()
 static hal::ScreenOrientation
 ComputeOrientation(uint32_t aRotation, const LayoutDeviceIntSize& aScreenSize)
 {
-// TODO: FIXME
-#if 0
     bool naturallyPortrait = (aScreenSize.height > aScreenSize.width);
     switch (aRotation) {
-    case nsIScreen::ROTATION_0_DEG:
+    case ROTATION_0:
         return (naturallyPortrait ? eScreenOrientation_PortraitPrimary :
                 eScreenOrientation_LandscapePrimary);
-    case nsIScreen::ROTATION_90_DEG:
+    case ROTATION_90:
         // Arbitrarily choosing 90deg to be primary "unnatural"
         // rotation.
         return (naturallyPortrait ? eScreenOrientation_LandscapePrimary :
                 eScreenOrientation_PortraitPrimary);
-    case nsIScreen::ROTATION_180_DEG:
+    case ROTATION_180:
         return (naturallyPortrait ? eScreenOrientation_PortraitSecondary :
                 eScreenOrientation_LandscapeSecondary);
-    case nsIScreen::ROTATION_270_DEG:
+    case ROTATION_270:
         return (naturallyPortrait ? eScreenOrientation_LandscapeSecondary :
                 eScreenOrientation_PortraitSecondary);
     default:
         MOZ_CRASH("Gonk screen must always have a known rotation");
     }
-#endif
     return hal::eScreenOrientation_PortraitPrimary;
 }
 
@@ -636,14 +630,13 @@ nsScreenGonk::GetPrevDispAcquireFd()
 bool
 nsScreenGonk::IsComposer2DSupported()
 {
-    // TODO: FIXME
-    return false;
+    return mComposer2DSupported;
 }
 
 bool
 nsScreenGonk::IsVsyncSupported()
 {
-  return mVsyncSupported;
+    return mVsyncSupported;
 }
 
 DisplayType
@@ -862,7 +855,7 @@ static ScreenHelperGonk* gHelper = nullptr;
 ScreenHelperGonk::ScreenHelperGonk()
     : mInitialized(false)
 #if ANDROID_VERSION >= 19
-    , mDisplayEnabled(true /* TODO: FIXME: hal::GetScreenEnabled() */ )
+    , mDisplayEnabled(hal::GetScreenEnabled())
 #endif
 {
   char propValue[PROPERTY_VALUE_MAX];
@@ -939,8 +932,7 @@ already_AddRefed<Screen> ScreenHelperGonk::MakePrimaryScreen() {
 // TODO: FIXME
 #if 0
   // By default, non primary screen does mirroring.
-  if (aDisplayType != DisplayType::DISPLAY_PRIMARY &&
-      gfxPrefs::ScreenMirroringEnabled()) {
+  if (aDisplayType != DisplayType::DISPLAY_PRIMARY) {
       screen->EnableMirroring();
   }
 
@@ -1013,6 +1005,12 @@ already_AddRefed<Screen> ScreenHelperGonk::ScreenForId(uint32_t aScreenId) {
   return screen.forget();
 }
 
+uint32_t
+ScreenHelperGonk::GetNumberOfScreens()
+{
+    return mScreens.Count();
+}
+
 void
 ScreenHelperGonk::DisplayEnabled(bool aEnabled)
 {
@@ -1024,12 +1022,9 @@ ScreenHelperGonk::DisplayEnabled(bool aEnabled)
      * To avoid this issue, keep the value stored in |mDisplayEnabled|.
      */
     mDisplayEnabled = aEnabled;
-// TODO: FIXME
-#if 0
     if (mCompositorVsyncScheduler) {
         mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
     }
-#endif
 #endif
 
     VsyncControl(aEnabled);
@@ -1045,16 +1040,6 @@ ScreenHelperGonk::IsScreenConnected(uint32_t aId)
 void
 ScreenHelperGonk::VsyncControl(bool aEnabled)
 {
-// TODO: FIXME
-#if 0
-    if (!NS_IsMainThread()) {
-        NS_DispatchToMainThread(
-            NewRunnableMethod<bool>("ScreenHelperGonk::VsyncControl", this,
-                                    &ScreenHelperGonk::VsyncControl,
-                                    aEnabled));
-        return;
-    }
-
     MOZ_ASSERT(NS_IsMainThread());
     VsyncSource::Display &display = gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
     if (aEnabled) {
@@ -1062,8 +1047,21 @@ ScreenHelperGonk::VsyncControl(bool aEnabled)
     } else {
         display.DisableVsync();
     }
-#endif
 }
+
+#if ANDROID_VERSION >= 19
+void
+ScreenHelperGonk::SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncScheduler *aObserver)
+{
+    MOZ_ASSERT(NS_IsMainThread());
+
+    // We assume on b2g that there is only 1 CompositorBridgeParent
+    MOZ_ASSERT(mCompositorVsyncScheduler == nullptr);
+    MOZ_ASSERT(aObserver);
+    mCompositorVsyncScheduler = aObserver;
+    mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
+}
+#endif
 
 } // widget
 } // mozilla

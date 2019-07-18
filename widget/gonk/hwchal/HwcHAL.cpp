@@ -20,10 +20,49 @@
 #include "libdisplay/GonkDisplay.h"
 #include "mozilla/Assertions.h"
 #include "nsIScreen.h"
+#include <dlfcn.h>
 
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
+
+typedef HWC2::Display* (*fnGetDisplayById)(HWC2::Device *, hwc2_display_t);
+HWC2::Display* hwc2_getDisplayById(HWC2::Device *p, hwc2_display_t id) {
+  HWC2::Display *display = nullptr;
+  void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
+  if (lib == nullptr) {
+    ALOGE("Could not dlopen(\"libcarthage.so\"):");
+    return display;
+  }
+
+  fnGetDisplayById func = (fnGetDisplayById) dlsym(lib, "hwc2_getDisplayById") ;
+  if (func == nullptr) {
+    ALOGE("Symbol 'hwc2_getDisplayById' is missing from shared library!!\n");
+    return display;
+  }
+
+  display = func(p, id);
+  return display;
+}
+
+typedef HWC2::Error (*fnSetVsyncEnabled)(HWC2::Display *, HWC2::Vsync);
+HWC2::Error hwc2_setVsyncEnabled(HWC2::Display *p, HWC2::Vsync enabled) {
+  HWC2::Error err = HWC2::Error::None;
+  void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
+  if (lib == nullptr) {
+    ALOGE("Could not dlopen(\"libcarthage.so\"):");
+    return HWC2::Error::BadDisplay;
+  }
+
+  fnSetVsyncEnabled func = (fnSetVsyncEnabled) dlsym(lib, "hwc2_setVsyncEnabled") ;
+  if (func == nullptr) {
+    ALOGE("Symbol 'hwc2_setVsyncEnabled' is missing from shared library!!\n");
+    return HWC2::Error::BadDisplay;
+  }
+
+  err = func(p, enabled);
+  return err;
+}
 #endif
 
 namespace mozilla {
@@ -34,6 +73,7 @@ HwcHAL::HwcHAL()
     // Some HALs don't want to open hwc twice.
     // If GetDisplay already load hwc module, we don't need to load again
     mHwc = (HwcDevice*)GetGonkDisplay()->GetHWCDevice();
+
     if (!mHwc) {
         printf_stderr("HwcHAL Error: Cannot load hwcomposer");
         return;
@@ -48,6 +88,9 @@ HwcHAL::~HwcHAL()
 bool
 HwcHAL::Query(QueryType aType)
 {
+#if ANDROID_VERSION >= 26
+    return false;
+#else
     if (!mHwc || !mHwc->query) {
         return false;
     }
@@ -58,12 +101,16 @@ HwcHAL::Query(QueryType aType)
         value = !!supported;
     }
     return value;
+#endif
 }
 
 int
 HwcHAL::Set(HwcList *aList,
             uint32_t aDisp)
 {
+#if ANDROID_VERSION >= 26
+    return -1;
+#else
     MOZ_ASSERT(mHwc);
     if (!mHwc) {
         return -1;
@@ -72,6 +119,7 @@ HwcHAL::Set(HwcList *aList,
     HwcList *displays[HWC_NUM_DISPLAY_TYPES] = { nullptr };
     displays[aDisp] = aList;
     return mHwc->set(mHwc, HWC_NUM_DISPLAY_TYPES, displays);
+#endif
 }
 
 int
@@ -87,6 +135,9 @@ HwcHAL::Prepare(HwcList *aList,
                 buffer_handle_t aHandle,
                 int aFenceFd)
 {
+#if ANDROID_VERSION >= 26
+    return -1;
+#else
     MOZ_ASSERT(mHwc);
     if (!mHwc) {
         printf_stderr("HwcHAL Error: HwcDevice doesn't exist. A fence might be leaked.");
@@ -118,6 +169,7 @@ HwcHAL::Prepare(HwcList *aList,
     aList->hwLayers[idx].planeAlpha = 0xFF;
 #endif
     return mHwc->prepare(mHwc, HWC_NUM_DISPLAY_TYPES, displays);
+#endif
 }
 
 bool
@@ -159,17 +211,29 @@ HwcHAL::SetCrop(HwcLayer &aLayer,
 bool
 HwcHAL::EnableVsync(bool aEnable)
 {
-    // Only support hardware vsync on kitkat, L and up due to inaccurate timings
-    // with JellyBean.
-#if (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
     if (!mHwc) {
+        printf_stderr("Failed to get hwc\n");
         return false;
     }
+#if ANDROID_VERSION >= 26
+    HWC2::Display *hwcDisplay = hwc2_getDisplayById(mHwc, HWC_DISPLAY_PRIMARY);
+    auto error = hwc2_setVsyncEnabled(hwcDisplay, aEnable? HWC2::Vsync::Enable : HWC2::Vsync::Disable);
+    if (error != HWC2::Error::None) {
+        printf_stderr("setVsyncEnabled: Failed to set vsync to %d on %d/%" PRIu64
+                ": %s (%d)", aEnable, HWC_DISPLAY_PRIMARY,
+                hwcDisplay->getId(), to_string(error).c_str(),
+                static_cast<int32_t>(error));
+        return false;
+    }
+    return true;
+#elif (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
     return !mHwc->eventControl(mHwc,
                                HWC_DISPLAY_PRIMARY,
                                HWC_EVENT_VSYNC,
                                aEnable);
 #else
+    // Only support hardware vsync on kitkat, L and up due to inaccurate timings
+    // with JellyBean.
     return false;
 #endif
 }
@@ -177,11 +241,19 @@ HwcHAL::EnableVsync(bool aEnable)
 bool
 HwcHAL::RegisterHwcEventCallback(const HwcHALProcs_t &aProcs)
 {
-    if (!mHwc || !mHwc->registerProcs) {
+    if (!mHwc) {
         printf_stderr("Failed to get hwc\n");
         return false;
     }
+#if ANDROID_VERSION >= 26
+    EnableVsync(false);
 
+    // Register Vsync and Invalidate Callback only
+    GetGonkDisplay()->registerVsyncCallBack(aProcs.vsync);
+    GetGonkDisplay()->registerInvalidateCallBack(aProcs.invalidate);
+
+    return true;
+#elif (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
     // Disable Vsync first, and then register callback functions.
     mHwc->eventControl(mHwc,
                        HWC_DISPLAY_PRIMARY,
@@ -192,11 +264,10 @@ HwcHAL::RegisterHwcEventCallback(const HwcHALProcs_t &aProcs)
                                             aProcs.hotplug};
     mHwc->registerProcs(mHwc, &sHwcJBProcs);
 
-    // Only support hardware vsync on kitkat, L and up due to inaccurate timings
-    // with JellyBean.
-#if (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
     return true;
 #else
+    // Only support hardware vsync on kitkat, L and up due to inaccurate timings
+    // with JellyBean.
     return false;
 #endif
 }
@@ -204,11 +275,15 @@ HwcHAL::RegisterHwcEventCallback(const HwcHALProcs_t &aProcs)
 uint32_t
 HwcHAL::GetAPIVersion() const
 {
+#if ANDROID_VERSION >= 26
+    return HWC_DEVICE_API_VERSION_2_0;
+#else
     if (!mHwc) {
         // default value: HWC_MODULE_API_VERSION_0_1
         return 1;
     }
     return mHwc->common.version;
+#endif
 }
 
 // Create HwcHAL

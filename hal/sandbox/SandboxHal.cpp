@@ -98,6 +98,20 @@ void UnlockScreenOrientation() {
   }
 }
 
+bool
+GetScreenEnabled()
+{
+  bool enabled = false;
+  Hal()->SendGetScreenEnabled(&enabled);
+  return enabled;
+}
+
+void
+SetScreenEnabled(bool aEnabled)
+{
+  Hal()->SendSetScreenEnabled(aEnabled);
+}
+
 void
 SetScreenBrightness(double aBrightness)
 {
@@ -271,9 +285,30 @@ class HalParent : public PHalParent,
     Unused << SendNotifyScreenConfigurationChange(aScreenConfiguration);
   }
 
-  virtual mozilla::ipc::IPCResult
-  RecvSetScreenBrightness(const double& aBrightness) override
-  {
+  virtual mozilla::ipc::IPCResult RecvGetScreenEnabled(
+      bool* aEnabled) override {
+#if 0 // TODO: FIXME
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
+#endif
+    *aEnabled = hal::GetScreenEnabled();
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvSetScreenEnabled(
+      const bool& aEnabled) override {
+#if 0 // TODO: FIXME
+    if (!AssertAppProcessPermission(this, "power")) {
+      return false;
+    }
+#endif
+    hal::SetScreenEnabled(aEnabled);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvSetScreenBrightness(
+      const double& aBrightness) override {
 #if 0 // TODO: FIXME
     if (!AssertAppProcessPermission(this, "power")) {
       return false;

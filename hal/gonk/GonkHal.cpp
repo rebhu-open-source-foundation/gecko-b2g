@@ -121,7 +121,7 @@ using namespace mozilla;
 using namespace mozilla::hal;
 using namespace mozilla::dom;
 
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
 
