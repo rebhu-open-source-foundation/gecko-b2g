@@ -4398,7 +4398,7 @@ this.DOMApplicationRegistry = {
   _checkOrigin: function(aIsSigned, aOldApp, aManifest, aIsUpdate) {
     // Check if the app declares which origin it will use.
     if (aIsSigned &&
-        aOldApp.appStatus >= Ci.nsIPrincipal.APP_STATUS_PRIVILEGED &&
+        aOldApp.appStatus >= Ci.nsIPrincipal.APP_STATUS_INSTALLED &&
         aManifest.origin !== undefined) {
       let uri;
       try {
