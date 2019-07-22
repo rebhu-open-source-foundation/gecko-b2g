@@ -34,17 +34,46 @@ NS_IMPL_ISUPPORTS(nsContentSecurityManager, nsIContentSecurityManager,
 
 static mozilla::LazyLogModule sCSMLog("CSMLog");
 
+// This whitelist contains files that are permanently allowed to use eval()-like
+// functions. It is supposed to be restricted to files that are exclusively used
+// in testing contexts.
+static nsLiteralCString evalWhitelist[] = {
+    // Test-only third-party library
+    NS_LITERAL_CSTRING("resource://testing-common/sinon-7.2.7.js"),
+    // Test-only third-party library
+    NS_LITERAL_CSTRING("resource://testing-common/ajv-4.1.1.js"),
+    // Test-only utility
+    NS_LITERAL_CSTRING("resource://testing-common/content-task.js"),
+
+    // The following files are NOT supposed to stay on this whitelist.
+    // Bug numbers indicate planned removal of each file.
+
+    // Bug 1498560
+    NS_LITERAL_CSTRING("chrome://global/content/bindings/autocomplete.xml"),
+    // Bug 1550485
+    NS_LITERAL_CSTRING("resource://devtools/client/shared/vendor/redux.js"),
+    // Bug 1550489
+    NS_LITERAL_CSTRING(
+        "resource://devtools/client/shared/vendor/react-redux.js"),
+    // Bug 1550463
+    NS_LITERAL_CSTRING("resource://devtools/client/shared/vendor/lodash.js"),
+    // Bug 1550471
+    NS_LITERAL_CSTRING("resource://devtools/client/shared/vendor/jszip.js"),
+    // Bug 1550476
+    NS_LITERAL_CSTRING("resource://devtools/client/shared/vendor/jsol.js"),
+};
+
 /* static */
 bool nsContentSecurityManager::AllowTopLevelNavigationToDataURI(
     nsIChannel* aChannel) {
   // Let's block all toplevel document navigations to a data: URI.
   // In all cases where the toplevel document is navigated to a
-  // data: URI the triggeringPrincipal is a codeBasePrincipal, or
+  // data: URI the triggeringPrincipal is a contentPrincipal, or
   // a NullPrincipal. In other cases, e.g. typing a data: URL into
   // the URL-Bar, the triggeringPrincipal is a SystemPrincipal;
   // we don't want to block those loads. Only exception, loads coming
   // from an external applicaton (e.g. Thunderbird) don't load
-  // using a codeBasePrincipal, but we want to block those loads.
+  // using a contentPrincipal, but we want to block those loads.
   if (!mozilla::net::nsIOService::BlockToplevelDataUriNavigations()) {
     return true;
   }
@@ -167,42 +196,35 @@ void nsContentSecurityManager::AssertEvalNotUsingSystemPrincipal(
     return;
   }
 
-  if (Preferences::GetBool("security.allow_eval_with_system_principal")) {
+  // Use static pref for performance reasons.
+  if (StaticPrefs::security_allow_eval_with_system_principal()) {
     return;
   }
 
-  static StaticAutoPtr<nsTArray<nsCString>> sUrisAllowEval;
+  nsAutoCString fileName;
   JS::AutoFilename scriptFilename;
   if (JS::DescribeScriptedCaller(cx, &scriptFilename)) {
-    if (!sUrisAllowEval) {
-      sUrisAllowEval = new nsTArray<nsCString>();
-      nsAutoCString urisAllowEval;
-      Preferences::GetCString("security.uris_using_eval_with_system_principal",
-                              urisAllowEval);
-      for (const nsACString& filenameString : urisAllowEval.Split(',')) {
-        sUrisAllowEval->AppendElement(filenameString);
-      }
-      ClearOnShutdown(&sUrisAllowEval);
-    }
-
-    nsAutoCString fileName;
-    fileName = nsAutoCString(scriptFilename.get());
+    nsDependentCSubstring fileName_(scriptFilename.get(),
+                                    strlen(scriptFilename.get()));
+    ToLowerCase(fileName_);
     // Extract file name alone if scriptFilename contains line number
     // separated by multiple space delimiters in few cases.
-    int32_t fileNameIndex = fileName.FindChar(' ');
+    int32_t fileNameIndex = fileName_.FindChar(' ');
     if (fileNameIndex != -1) {
-      fileName = Substring(fileName, 0, fileNameIndex);
+      fileName_.SetLength(fileNameIndex);
     }
-    ToLowerCase(fileName);
 
-    for (auto& uriEntry : *sUrisAllowEval) {
-      if (StringEndsWith(fileName, uriEntry)) {
+    for (const nsLiteralCString& whitelistEntry : evalWhitelist) {
+      if (fileName_.Equals(whitelistEntry)) {
         return;
       }
     }
+
+    fileName = fileName_;
   }
 
-  MOZ_ASSERT(false, "do not use eval with system privileges");
+  MOZ_CRASH_UNSAFE_PRINTF("do not use eval with system privileges: %s",
+                          fileName.get());
 }
 
 /* static */
@@ -328,8 +350,20 @@ static bool IsImageLoadInEditorAppType(nsILoadInfo* aLoadInfo) {
 }
 
 static nsresult DoCheckLoadURIChecks(nsIURI* aURI, nsILoadInfo* aLoadInfo) {
-  // Bug 1228117: determine the correct security policy for DTD loads
-  if (aLoadInfo->GetExternalContentPolicyType() == nsIContentPolicy::TYPE_DTD) {
+  // In practice, these DTDs are just used for localization, so applying the
+  // same principal check as Fluent.
+  if (aLoadInfo->InternalContentPolicyType() ==
+      nsIContentPolicy::TYPE_INTERNAL_DTD) {
+    return nsContentUtils::PrincipalAllowsL10n(aLoadInfo->TriggeringPrincipal())
+               ? NS_OK
+               : NS_ERROR_DOM_BAD_URI;
+  }
+
+  // This is used in order to allow a privileged DOMParser to parse documents
+  // that need to access localization DTDs. We just allow through
+  // TYPE_INTERNAL_FORCE_ALLOWED_DTD no matter what the triggering principal is.
+  if (aLoadInfo->InternalContentPolicyType() ==
+      nsIContentPolicy::TYPE_INTERNAL_FORCE_ALLOWED_DTD) {
     return NS_OK;
   }
 
@@ -826,10 +860,14 @@ static void AssertSystemPrincipalMustNotLoadRemoteDocuments(
   }
 
   // FIXME The discovery feature in about:addons uses the SystemPrincpal.
-  // We should remove this exception with bug 1544011.
+  // We should remove the exception for AMO with bug 1544011.
+  // We should remove the exception for Firefox Accounts with bug 1561318.
   static nsAutoCString sDiscoveryPrePath;
-  static bool recvdPrefValue = false;
-  if (!recvdPrefValue) {
+#  ifdef ANDROID
+  static nsAutoCString sFxaSPrePath;
+#  endif
+  static bool recvdPrefValues = false;
+  if (!recvdPrefValues) {
     nsAutoCString discoveryURLString;
     Preferences::GetCString("b2g.system_startup_url",
                             discoveryURLString);
@@ -840,14 +878,29 @@ static void AssertSystemPrincipalMustNotLoadRemoteDocuments(
     if (discoveryURL) {
       discoveryURL->GetPrePath(sDiscoveryPrePath);
     }
-    recvdPrefValue = true;
+#  ifdef ANDROID
+    nsAutoCString fxaURLString;
+    Preferences::GetCString("identity.fxaccounts.remote.webchannel.uri",
+                            fxaURLString);
+    nsCOMPtr<nsIURI> fxaURL;
+    NS_NewURI(getter_AddRefs(fxaURL), fxaURLString);
+    if (fxaURL) {
+      fxaURL->GetPrePath(sFxaSPrePath);
+    }
+#  endif
+    recvdPrefValues = true;
   }
   nsAutoCString requestedPrePath;
   finalURI->GetPrePath(requestedPrePath);
+
   if (requestedPrePath.Equals(sDiscoveryPrePath)) {
     return;
   }
-
+#  ifdef ANDROID
+  if (requestedPrePath.Equals(sFxaSPrePath)) {
+    return;
+  }
+#  endif
   if (xpc::AreNonLocalConnectionsDisabled()) {
     bool disallowSystemPrincipalRemoteDocuments = Preferences::GetBool(
         "security.disallow_non_local_systemprincipal_in_tests");
@@ -1082,7 +1135,7 @@ nsContentSecurityManager::IsOriginPotentiallyTrustworthy(
     return NS_OK;
   }
 
-  MOZ_ASSERT(aPrincipal->GetIsCodebasePrincipal(),
+  MOZ_ASSERT(aPrincipal->GetIsContentPrincipal(),
              "Nobody is expected to call us with an nsIExpandedPrincipal");
 
   nsCOMPtr<nsIURI> uri;

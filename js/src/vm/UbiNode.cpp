@@ -14,6 +14,7 @@
 
 #include "builtin/String.h"
 
+#include "debugger/Debugger.h"
 #include "jit/IonCode.h"
 #include "js/Debug.h"
 #include "js/TracingAPI.h"
@@ -23,7 +24,6 @@
 #include "js/Vector.h"
 #include "util/Text.h"
 #include "vm/BigIntType.h"
-#include "vm/Debugger.h"
 #include "vm/EnvironmentObject.h"
 #include "vm/GlobalObject.h"
 #include "vm/JSContext.h"
@@ -34,7 +34,7 @@
 #include "vm/StringType.h"
 #include "vm/SymbolType.h"
 
-#include "vm/Debugger-inl.h"
+#include "debugger/Debugger-inl.h"
 #include "vm/JSObject-inl.h"
 
 using namespace js;
@@ -523,6 +523,23 @@ void SetConstructUbiNodeForDOMObjectCallback(JSContext* cx,
                                                               JSObject*)) {
   cx->runtime()->constructUbiNodeForDOMObjectCallback = callback;
 }
+
+JS_PUBLIC_API const char* CoarseTypeToString(CoarseType type) {
+  switch (type) {
+    case CoarseType::Other:
+      return "Other";
+    case CoarseType::Object:
+      return "Object";
+    case CoarseType::Script:
+      return "Script";
+    case CoarseType::String:
+      return "String";
+    case CoarseType::DOMNode:
+      return "DOMNode";
+    default:
+      return "Unknown";
+  }
+};
 
 }  // namespace ubi
 }  // namespace JS

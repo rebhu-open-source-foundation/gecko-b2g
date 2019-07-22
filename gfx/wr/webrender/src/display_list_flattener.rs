@@ -5,7 +5,7 @@
 use api::{AlphaType, BorderDetails, BorderDisplayItem, BuiltDisplayListIter};
 use api::{ClipId, ColorF, CommonItemProperties, ComplexClipRegion, RasterSpace};
 use api::{DisplayItem, DisplayItemRef, ExtendMode, ExternalScrollId};
-use api::{FilterOp, FontInstanceKey, GlyphInstance, GlyphOptions, GradientStop};
+use api::{FilterOp, FilterPrimitive, FontInstanceKey, GlyphInstance, GlyphOptions, GradientStop};
 use api::{IframeDisplayItem, ImageKey, ImageRendering, ItemRange, ColorDepth};
 use api::{LineOrientation, LineStyle, NinePatchBorderSource, PipelineId};
 use api::{PropertyBinding, ReferenceFrame, ReferenceFrameKind, ScrollFrameDisplayItem, ScrollSensitivity};
@@ -542,130 +542,44 @@ impl<'a> DisplayListFlattener<'a> {
         let mid_index = preceding_prims.len();
         let post_index = mid_index + remaining_prims.len();
 
-        #[derive(Debug, Copy, Clone)]
-        enum ClipLocation {
-            Pre,        // The prims preceding the picture cache content slice.
-            Mid,        // Prims in the content / cache slice.
-            Post,       // Prims trailing the cache slice.
-        }
-
         // Step through each clip chain pair, and see if it crosses a slice boundary.
         for clip_chain_instance in clip_chain_instances {
-            // Get the location of the push / pop for this clip chain.
-            let push_location = if clip_chain_instance.push_index < mid_index {
-                ClipLocation::Pre
-            } else if clip_chain_instance.push_index < post_index {
-                ClipLocation::Mid
-            } else {
-                ClipLocation::Post
-            };
+            if clip_chain_instance.push_index < mid_index && clip_chain_instance.pop_index >= mid_index {
+                preceding_prims.push(
+                    create_clip_prim_instance(
+                        clip_chain_instance.spatial_node_index,
+                        clip_chain_instance.clip_chain_id,
+                        PrimitiveInstanceKind::PopClipChain,
+                    )
+                );
 
-            let pop_location = if clip_chain_instance.pop_index < mid_index {
-                ClipLocation::Pre
-            } else if clip_chain_instance.pop_index < post_index {
-                ClipLocation::Mid
-            } else {
-                ClipLocation::Post
-            };
+                remaining_prims.insert(
+                    0,
+                    create_clip_prim_instance(
+                        clip_chain_instance.spatial_node_index,
+                        clip_chain_instance.clip_chain_id,
+                        PrimitiveInstanceKind::PushClipChain,
+                    )
+                );
+            }
 
-            // Apply fixups for any clip chain instances as required. Although this
-            // code can result in memcpys, it's unlikely to be a problem. The case
-            // itself where this occurs is rare, and the prim lists are typically
-            // quite short here. Nonetheless, we'll want to improve this as part
-            // of the changes to clip chain instances + picture cache slice splitting.
-            match (push_location, pop_location) {
-                (ClipLocation::Pre, ClipLocation::Pre) |
-                (ClipLocation::Mid, ClipLocation::Mid) |
-                (ClipLocation::Post, ClipLocation::Post) => {
-                    // If the clip exists within a slice, no fixup needed. This is the
-                    // common case for clip chain instances at the top level.
-                    continue;
-                }
-                (ClipLocation::Pre, ClipLocation::Post) => {
-                    // Close off the pre list, enclose the cache slice and
-                    // open a clip chain for the trailing prims.
+            if clip_chain_instance.push_index < post_index && clip_chain_instance.pop_index >= post_index {
+                remaining_prims.push(
+                    create_clip_prim_instance(
+                        clip_chain_instance.spatial_node_index,
+                        clip_chain_instance.clip_chain_id,
+                        PrimitiveInstanceKind::PopClipChain,
+                    )
+                );
 
-                    preceding_prims.push(
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PopClipChain,
-                        )
-                    );
-
-                    remaining_prims.insert(
-                        0,
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PushClipChain,
-                        )
-                    );
-
-                    remaining_prims.push(
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PopClipChain,
-                        )
-                    );
-
-                    trailing_prims.insert(
-                        0,
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PushClipChain,
-                        )
-                    );
-                }
-                (ClipLocation::Pre, ClipLocation::Mid) => {
-                    // Close off the preceding prims, and open a clip for the
-                    // content cache slice.
-
-                    preceding_prims.push(
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PopClipChain,
-                        )
-                    );
-
-                    remaining_prims.insert(
-                        0,
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PushClipChain,
-                        )
-                    );
-                }
-                (ClipLocation::Mid, ClipLocation::Post) => {
-                    // Close off the cache content slice, and open up a clip for
-                    // the trailing prims.
-
-                    remaining_prims.push(
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PopClipChain,
-                        )
-                    );
-
-                    trailing_prims.insert(
-                        0,
-                        create_clip_prim_instance(
-                            clip_chain_instance.spatial_node_index,
-                            clip_chain_instance.clip_chain_id,
-                            PrimitiveInstanceKind::PushClipChain,
-                        )
-                    );
-                }
-                (ClipLocation::Mid, ClipLocation::Pre) |
-                (ClipLocation::Post, ClipLocation::Pre) |
-                (ClipLocation::Post, ClipLocation::Mid) => {
-                    unreachable!();
-                }
+                trailing_prims.insert(
+                    0,
+                    create_clip_prim_instance(
+                        clip_chain_instance.spatial_node_index,
+                        clip_chain_instance.clip_chain_id,
+                        PrimitiveInstanceKind::PushClipChain,
+                    )
+                );
             }
         }
 
@@ -790,7 +704,7 @@ impl<'a> DisplayListFlattener<'a> {
         parent_node_index: SpatialNodeIndex,
     ) {
         let current_offset = self.current_offset(parent_node_index);
-        let frame_rect = info.bounds.translate(&current_offset);
+        let frame_rect = info.bounds.translate(current_offset);
         let sticky_frame_info = StickyFrameInfo::new(
             frame_rect,
             info.margins,
@@ -882,6 +796,7 @@ impl<'a> DisplayListFlattener<'a> {
         origin: LayoutPoint,
         filters: ItemRange<FilterOp>,
         filter_datas: &[TempFilterData],
+        filter_primitives: ItemRange<FilterPrimitive>,
         is_backface_visible: bool,
         apply_pipeline_clip: bool,
     ) {
@@ -895,6 +810,7 @@ impl<'a> DisplayListFlattener<'a> {
             CompositeOps::new(
                 stacking_context.filter_ops_for_compositing(filters),
                 stacking_context.filter_datas_for_compositing(filter_datas),
+                stacking_context.filter_primitives_for_compositing(filter_primitives),
                 stacking_context.mix_blend_mode_for_compositing(),
             )
         };
@@ -1050,8 +966,8 @@ impl<'a> DisplayListFlattener<'a> {
 
         let current_offset = self.current_offset(clip_and_scroll.spatial_node_index);
 
-        let clip_rect = common.clip_rect.translate(&current_offset);
-        let rect = bounds.translate(&current_offset);
+        let clip_rect = common.clip_rect.translate(current_offset);
+        let rect = bounds.translate(current_offset);
         let layout = LayoutPrimitiveInfo {
             rect,
             clip_rect,
@@ -1266,6 +1182,7 @@ impl<'a> DisplayListFlattener<'a> {
                     info.origin,
                     item.filters(),
                     item.filter_datas(),
+                    item.filter_primitives(),
                     info.is_backface_visible,
                     apply_pipeline_clip,
                 );
@@ -1395,9 +1312,10 @@ impl<'a> DisplayListFlattener<'a> {
             }
 
             // Do nothing; these are dummy items for the display list parser
-            DisplayItem::SetGradientStops => {}
-            DisplayItem::SetFilterOps => {}
-            DisplayItem::SetFilterData => {}
+            DisplayItem::SetGradientStops |
+            DisplayItem::SetFilterOps |
+            DisplayItem::SetFilterData |
+            DisplayItem::SetFilterPrimitives => {}
 
             DisplayItem::PopReferenceFrame |
             DisplayItem::PopStackingContext => {
@@ -2063,6 +1981,71 @@ impl<'a> DisplayListFlattener<'a> {
             self.prim_store.optimize_picture_if_possible(current_pic_index);
         }
 
+        if !stacking_context.composite_ops.filter_primitives.is_empty() {
+            let filter_datas = stacking_context.composite_ops.filter_datas.iter()
+                .map(|filter_data| filter_data.sanitize())
+                .map(|filter_data| {
+                    SFilterData {
+                        r_func: SFilterDataComponent::from_functype_values(
+                            filter_data.func_r_type, &filter_data.r_values),
+                        g_func: SFilterDataComponent::from_functype_values(
+                            filter_data.func_g_type, &filter_data.g_values),
+                        b_func: SFilterDataComponent::from_functype_values(
+                            filter_data.func_b_type, &filter_data.b_values),
+                        a_func: SFilterDataComponent::from_functype_values(
+                            filter_data.func_a_type, &filter_data.a_values),
+                    }
+                })
+                .collect();
+
+            // Sanitize filter inputs
+            for primitive in &mut stacking_context.composite_ops.filter_primitives {
+                primitive.sanitize();
+            }
+
+            let composite_mode = PictureCompositeMode::SvgFilter(
+                stacking_context.composite_ops.filter_primitives,
+                filter_datas,
+            );
+
+            let filter_pic_index = PictureIndex(self.prim_store.pictures
+                .alloc()
+                .init(PicturePrimitive::new_image(
+                    Some(composite_mode.clone()),
+                    Picture3DContext::Out,
+                    None,
+                    true,
+                    stacking_context.is_backface_visible,
+                    stacking_context.requested_raster_space,
+                    PrimitiveList::new(
+                        vec![cur_instance.clone()],
+                        &self.interners,
+                    ),
+                    stacking_context.spatial_node_index,
+                    None,
+                    PictureOptions::default(),
+                ))
+            );
+
+            current_pic_index = filter_pic_index;
+            cur_instance = create_prim_instance(
+                current_pic_index,
+                Some(composite_mode).into(),
+                stacking_context.is_backface_visible,
+                ClipChainId::NONE,
+                stacking_context.spatial_node_index,
+                &mut self.interners,
+            );
+
+            if cur_instance.is_chased() {
+                println!("\tis a composite picture for a stacking context with an SVG filter");
+            }
+
+            // Run the optimize pass on this picture, to see if we can
+            // collapse opacity and avoid drawing to an off-screen surface.
+            self.prim_store.optimize_picture_if_possible(current_pic_index);
+        }
+
         // Same for mix-blend-mode, except we can skip if this primitive is the first in the parent
         // stacking context.
         // From https://drafts.fxtf.org/compositing-1/#generalformula, the formula for blending is:
@@ -2547,9 +2530,9 @@ impl<'a> DisplayListFlattener<'a> {
     {
         // Offset the local rect and clip rect by the shadow offset.
         let mut info = pending_primitive.info.clone();
-        info.rect = info.rect.translate(&pending_shadow.shadow.offset);
+        info.rect = info.rect.translate(pending_shadow.shadow.offset);
         info.clip_rect = info.clip_rect.translate(
-            &pending_shadow.shadow.offset
+            pending_shadow.shadow.offset
         );
 
         // Construct and add a primitive for the given shadow.
@@ -3146,6 +3129,11 @@ impl FlattenedStackingContext {
 
         // If there are filters / mix-blend-mode
         if !self.composite_ops.filters.is_empty() {
+            return false;
+        }
+
+        // If there are svg filters
+        if !self.composite_ops.filter_primitives.is_empty() {
             return false;
         }
 

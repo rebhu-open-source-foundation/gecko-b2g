@@ -163,8 +163,9 @@ pref("app.update.service.enabled", true);
 #endif
 
 #ifdef XP_WIN
-// This pref prevents BITS from being used by Firefox to download updates.
-pref("app.update.BITS.enabled", false);
+// If set to true, the Update Service will attempt to use Windows BITS to
+// download updates and will fallback to downloading internally if that fails.
+pref("app.update.BITS.enabled", true);
 #endif
 
 // Symmetric (can be overridden by individual extensions) update preferences.
@@ -491,6 +492,9 @@ pref("browser.tabs.remote.separatePrivilegedContentProcess", true);
 // for certain mozilla webpages (which are listed in the pref
 // browser.tabs.remote.separatedMozillaDomains).
 pref("browser.tabs.remote.separatePrivilegedMozillaWebContentProcess", false);
+// This pref will cause assertions when a remoteType triggers a process switch
+// to a new remoteType it should not be able to trigger.
+pref("browser.tabs.remote.enforceRemoteTypeRestrictions", true);
 #endif
 
 #ifdef NIGHTLY_BUILD
@@ -661,7 +665,6 @@ pref("mousewheel.with_meta.action", 1); // win key on Win, Super/Hyper on Linux
 pref("mousewheel.with_control.action",3);
 pref("mousewheel.with_win.action", 1);
 
-pref("browser.xul.error_pages.enabled", true);
 pref("browser.xul.error_pages.expert_bad_cert", false);
 pref("browser.xul.error_pages.show_safe_browsing_details_on_load", false);
 
@@ -985,6 +988,7 @@ pref("security.certerrors.permanentOverride", true);
 pref("security.certerrors.mitm.priming.enabled", true);
 pref("security.certerrors.mitm.priming.endpoint", "https://mitmdetection.services.mozilla.com/");
 pref("security.certerrors.mitm.auto_enable_enterprise_roots", true);
+pref("security.aboutcertificate.enabled", false);
 
 // Whether to start the private browsing mode at application startup
 pref("browser.privatebrowsing.autostart", false);
@@ -1005,11 +1009,7 @@ pref("browser.flash-protected-mode-flip.enable", false);
 pref("browser.flash-protected-mode-flip.done", false);
 
 // Dark in-content pages
-#ifdef NIGHTLY_BUILD
 pref("browser.in-content.dark-mode", true);
-#else
-pref("browser.in-content.dark-mode", false);
-#endif
 
 pref("dom.ipc.shims.enabledWarnings", false);
 
@@ -1183,7 +1183,6 @@ pref("services.sync.prefs.sync.app.shield.optoutstudies.enabled", true);
 // uncompromised Sync-connected devices.
 pref("services.sync.prefs.sync.browser.contentblocking.category", true);
 pref("services.sync.prefs.sync.browser.contentblocking.features.strict", true);
-pref("services.sync.prefs.sync.browser.contentblocking.introCount", true);
 pref("services.sync.prefs.sync.browser.crashReports.unsubmittedCheck.autoSubmit2", true);
 pref("services.sync.prefs.sync.browser.ctrlTab.recentlyUsedOrder", true);
 pref("services.sync.prefs.sync.browser.discovery.enabled", true);
@@ -1206,10 +1205,6 @@ pref("services.sync.prefs.sync.browser.newtabpage.activity-stream.section.highli
 pref("services.sync.prefs.sync.browser.newtabpage.enabled", true);
 pref("services.sync.prefs.sync.browser.newtabpage.pinned", true);
 pref("services.sync.prefs.sync.browser.offline-apps.notify", true);
-pref("services.sync.prefs.sync.browser.safebrowsing.phishing.enabled", true);
-pref("services.sync.prefs.sync.browser.safebrowsing.malware.enabled", true);
-pref("services.sync.prefs.sync.browser.safebrowsing.downloads.enabled", true);
-pref("services.sync.prefs.sync.browser.safebrowsing.passwords.enabled", true);
 pref("services.sync.prefs.sync.browser.search.update", true);
 pref("services.sync.prefs.sync.browser.search.widget.inNavBar", true);
 pref("services.sync.prefs.sync.browser.startup.homepage", true);
@@ -1228,8 +1223,8 @@ pref("services.sync.prefs.sync.dom.disable_open_during_load", true);
 pref("services.sync.prefs.sync.dom.disable_window_flip", true);
 pref("services.sync.prefs.sync.dom.disable_window_move_resize", true);
 pref("services.sync.prefs.sync.dom.event.contextmenu.enabled", true);
-pref("services.sync.prefs.sync.extensions.personas.current", true);
 pref("services.sync.prefs.sync.extensions.update.enabled", true);
+pref("services.sync.prefs.sync.extensions.activeThemeID", true);
 pref("services.sync.prefs.sync.intl.accept_languages", true);
 pref("services.sync.prefs.sync.layout.spellcheckDefault", true);
 pref("services.sync.prefs.sync.media.autoplay.default", true);
@@ -1238,8 +1233,6 @@ pref("services.sync.prefs.sync.network.cookie.cookieBehavior", true);
 pref("services.sync.prefs.sync.network.cookie.lifetimePolicy", true);
 pref("services.sync.prefs.sync.network.cookie.thirdparty.sessionOnly", true);
 pref("services.sync.prefs.sync.permissions.default.image", true);
-pref("services.sync.prefs.sync.pref.advanced.images.disable_button.view_image", true);
-pref("services.sync.prefs.sync.pref.advanced.javascript.disable_button.advanced", true);
 pref("services.sync.prefs.sync.pref.downloads.disable_button.edit_actions", true);
 pref("services.sync.prefs.sync.pref.privacy.disable_button.cookie_exceptions", true);
 pref("services.sync.prefs.sync.privacy.clearOnShutdown.cache", true);
@@ -1264,15 +1257,16 @@ pref("services.sync.prefs.sync.privacy.resistFingerprinting", true);
 pref("services.sync.prefs.sync.privacy.reduceTimerPrecision", true);
 pref("services.sync.prefs.sync.privacy.resistFingerprinting.reduceTimerPrecision.microseconds", true);
 pref("services.sync.prefs.sync.privacy.resistFingerprinting.reduceTimerPrecision.jitter", true);
-pref("services.sync.prefs.sync.security.OCSP.enabled", true);
-pref("services.sync.prefs.sync.security.OCSP.require", true);
 pref("services.sync.prefs.sync.security.default_personal_cert", true);
-pref("services.sync.prefs.sync.security.tls.version.min", true);
-pref("services.sync.prefs.sync.security.tls.version.max", true);
 pref("services.sync.prefs.sync.services.sync.syncedTabs.showRemoteIcons", true);
 pref("services.sync.prefs.sync.signon.rememberSignons", true);
 pref("services.sync.prefs.sync.spellchecker.dictionary", true);
-pref("services.sync.prefs.sync.xpinstall.whitelist.required", true);
+
+// A preference which, if false, means sync will only apply incoming preference
+// changes if there's already a local services.sync.prefs.sync.* control pref.
+// If true, all incoming preferences will be applied and the local "control
+// pref" updated accordingly.
+pref("services.sync.prefs.dangerously_allow_arbitrary", false);
 
 // A preference that controls whether we should show the icon for a remote tab.
 // This pref has no UI but exists because some people may be concerned that
@@ -1322,6 +1316,9 @@ pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", fal
 
 pref("trailhead.firstrun.branches", "join-privacy");
 
+// The pref that controls if the What's New panel is enabled.
+pref("browser.messaging-system.whatsNewPanel.enabled", false);
+
 // Enable the DOM fullscreen API.
 pref("full-screen-api.enabled", true);
 
@@ -1362,14 +1359,10 @@ pref("security.insecure_password.ui.enabled", true);
 // Show in-content login form warning UI for insecure login fields
 pref("security.insecure_field_warning.contextual.enabled", true);
 
-// Show degraded UI for http pages; disabled for now
-pref("security.insecure_connection_icon.enabled", false);
-// Show degraded UI for http pages in private mode only for Nightly: Bug 1434626
-#if defined(NIGHTLY_BUILD)
+// Show degraded UI for http pages.
+pref("security.insecure_connection_icon.enabled", true);
+// Show degraded UI for http pages in private mode.
 pref("security.insecure_connection_icon.pbmode.enabled", true);
-#else
-pref("security.insecure_connection_icon.pbmode.enabled", false);
-#endif
 
 // Show "Not Secure" text for http pages; disabled for now
 pref("security.insecure_connection_text.enabled", false);
@@ -1378,9 +1371,6 @@ pref("security.insecure_connection_text.pbmode.enabled", false);
 // 1 = allow MITM for certificate pinning checks.
 pref("security.cert_pinning.enforcement_level", 1);
 
-
-// Override the Gecko-default value of false for Firefox.
-pref("plain_text.wrap_long_lines", true);
 
 // If this turns true, Moz*Gesture events are not called stopPropagation()
 // before content.
@@ -1501,6 +1491,13 @@ pref("media.autoplay.block-webaudio", true);
 pref("media.autoplay.block-webaudio", false);
 #endif
 
+#if defined(XP_WIN)
+#if defined(EARLY_BETA_OR_EARLIER) || defined(MOZ_DEV_EDITION)
+pref("media.videocontrols.picture-in-picture.enabled", true);
+pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
+#endif
+#endif
+
 // Play with different values of the decay time and get telemetry,
 // 0 means to randomize (and persist) the experiment value in users' profiles,
 // -1 means no experiment is run and we use the preferred value for frecency (6h)
@@ -1552,9 +1549,10 @@ pref("media.gmp-provider.enabled", true);
 pref("network.cookie.cookieBehavior", 4 /* BEHAVIOR_REJECT_TRACKER */);
 // Enable fingerprinting blocking by default only in nightly and early beta.
 pref("privacy.trackingprotection.fingerprinting.enabled", true);
-// Enable cryptomining blocking by default only in nightly and early beta.
-pref("privacy.trackingprotection.cryptomining.enabled", true);
 #endif
+
+// Enable cryptomining blocking by default for all channels, only on desktop.
+pref("privacy.trackingprotection.cryptomining.enabled", true);
 
 pref("browser.contentblocking.allowlist.storage.enabled", true);
 
@@ -1609,18 +1607,16 @@ pref("browser.contentblocking.rejecttrackers.reportBreakage.enabled", true);
 
 pref("browser.contentblocking.reportBreakage.url", "https://tracking-protection-issues.herokuapp.com/new");
 
-pref("browser.contentblocking.introCount", 0);
+// Enable Protections report's Lockwise card by default.
+pref("browser.contentblocking.report.lockwise.enabled", true);
 
-pref("browser.contentblocking.maxIntroCount", 5);
-// 1800 = 30 min in seconds
-pref("browser.contentblocking.introDelaySeconds", 1800);
+// Enable Protections report's Monitor card by default.
+pref("browser.contentblocking.report.monitor.enabled", true);
 
 // Enables the new Protections Panel.
 #ifdef NIGHTLY_BUILD
 pref("browser.protections_panel.enabled", true);
 #endif
-
-pref("privacy.trackingprotection.introURL", "https://www.mozilla.org/%LOCALE%/firefox/%VERSION%/content-blocking/start/");
 
 // Always enable newtab segregation using containers
 pref("privacy.usercontext.about_newtab_segregation.enabled", true);
@@ -1643,6 +1639,23 @@ pref("privacy.userContext.extension", "");
 // Start the browser in e10s mode
 pref("browser.tabs.remote.autostart", true);
 pref("browser.tabs.remote.desktopbehavior", true);
+
+// Run media transport in a separate process?
+#ifdef NIGHTLY_BUILD
+pref("media.peerconnection.mtransport_process", true);
+#else
+pref("media.peerconnection.mtransport_process", false);
+#endif
+
+// Start a separate socket process. Performing networking on the socket process
+// is control by a sepparate pref
+// ("network.http.network_access_on_socket_process.enabled").
+// Changing these prefs requires a restart.
+#ifdef NIGHTLY_BUILD
+pref("network.process.enabled", true);
+#else
+pref("network.process.enabled", false);
+#endif
 
 // For speculatively warming up tabs to improve perceived
 // performance while using the async tab switcher.
@@ -1729,12 +1742,26 @@ pref("extensions.pocket.enabled", true);
 pref("extensions.pocket.oAuthConsumerKey", "40249-e88c401e1b1f2242d9e441c4");
 pref("extensions.pocket.site", "getpocket.com");
 
+pref("signon.generation.available", true);
+pref("signon.generation.enabled", true);
 pref("signon.schemeUpgrades", true);
 pref("signon.privateBrowsingCapture.enabled", true);
 pref("signon.showAutoCompleteFooter", true);
+#ifdef NIGHTLY_BUILD
+pref("signon.management.page.enabled", true);
+pref("signon.management.overrideURI", "about:logins?filter=%DOMAIN%");
+#else
 pref("signon.management.page.enabled", false);
+#endif
+pref("signon.management.page.breach-alerts.enabled", false);
+#ifdef NIGHTLY_BUILD
+// Bug 1563330 tracks shipping this by default.
 pref("signon.showAutoCompleteOrigins", true);
 pref("signon.includeOtherSubdomainsInLookup", true);
+#endif
+pref("signon.management.page.faqURL", "https://lockwise.firefox.com/faq.html");
+pref("signon.management.page.feedbackURL",
+     "https://www.surveygizmo.com/s3/5036102/Lockwise-feedback?ver=%VERSION%");
 
 // Enable the "Simplify Page" feature in Print Preview. This feature
 // is disabled by default in toolkit.
@@ -1826,7 +1853,7 @@ pref("app.shield.optoutstudies.enabled", false);
 #endif
 
 // Multi-lingual preferences
-#ifdef RELEASE_OR_BETA
+#if defined(RELEASE_OR_BETA) && !defined(MOZ_DEV_EDITION)
 pref("intl.multilingual.enabled", true);
 pref("intl.multilingual.downloadEnabled", true);
 #else

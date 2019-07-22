@@ -221,8 +221,8 @@ mozilla::gfx::Config* Factory::sConfig = nullptr;
 
 static void PrefChanged(const char* aPref, void*) {
   mozilla::gfx::LoggingPrefs::sGfxLogLevel =
-      Preferences::GetInt(StaticPrefs::GetGfxLoggingLevelPrefName(),
-                          StaticPrefs::GetGfxLoggingLevelPrefDefault());
+      Preferences::GetInt(StaticPrefs::GetPrefName_gfx_logging_level(),
+                          StaticPrefs::GetPrefDefault_gfx_logging_level());
 }
 
 void Factory::Init(const Config& aConfig) {
@@ -230,7 +230,7 @@ void Factory::Init(const Config& aConfig) {
   sConfig = new Config(aConfig);
   Preferences::RegisterCallback(
       PrefChanged,
-      nsDependentCString(StaticPrefs::GetGfxLoggingLevelPrefName()));
+      nsDependentCString(StaticPrefs::GetPrefName_gfx_logging_level()));
 }
 
 void Factory::ShutDown() {
@@ -411,8 +411,8 @@ already_AddRefed<DrawTarget> Factory::CreateWrapAndRecordDrawTarget(
 }
 
 already_AddRefed<DrawTarget> Factory::CreateRecordingDrawTarget(
-    DrawEventRecorder* aRecorder, DrawTarget* aDT, IntSize aSize) {
-  return MakeAndAddRef<DrawTargetRecording>(aRecorder, aDT, aSize);
+    DrawEventRecorder* aRecorder, DrawTarget* aDT, IntRect aRect) {
+  return MakeAndAddRef<DrawTargetRecording>(aRecorder, aDT, aRect);
 }
 
 already_AddRefed<DrawTargetCapture> Factory::CreateCaptureDrawTargetForTarget(
@@ -959,10 +959,11 @@ void Factory::D2DCleanup() {
 already_AddRefed<ScaledFont> Factory::CreateScaledFontForDWriteFont(
     IDWriteFontFace* aFontFace, const gfxFontStyle* aStyle,
     const RefPtr<UnscaledFont>& aUnscaledFont, float aSize,
-    bool aUseEmbeddedBitmap, bool aForceGDIMode,
+    bool aUseEmbeddedBitmap, int aRenderingMode,
     IDWriteRenderingParams* aParams, Float aGamma, Float aContrast) {
   return MakeAndAddRef<ScaledFontDWrite>(aFontFace, aUnscaledFont, aSize,
-                                         aUseEmbeddedBitmap, aForceGDIMode,
+                                         aUseEmbeddedBitmap,
+                                         (DWRITE_RENDERING_MODE)aRenderingMode,
                                          aParams, aGamma, aContrast, aStyle);
 }
 

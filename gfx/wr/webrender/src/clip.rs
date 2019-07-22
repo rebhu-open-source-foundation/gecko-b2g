@@ -297,6 +297,20 @@ impl ClipSpaceConversion {
             )
         }
     }
+
+    fn to_flags(&self) -> ClipNodeFlags {
+        match *self {
+            ClipSpaceConversion::Local => {
+                ClipNodeFlags::SAME_SPATIAL_NODE | ClipNodeFlags::SAME_COORD_SYSTEM
+            }
+            ClipSpaceConversion::ScaleOffset(..) => {
+                ClipNodeFlags::SAME_COORD_SYSTEM
+            }
+            ClipSpaceConversion::Transform(..) => {
+                ClipNodeFlags::empty()
+            }
+        }
+    }
 }
 
 // Temporary information that is cached and reused
@@ -322,17 +336,7 @@ impl ClipNodeInfo {
     ) -> Option<ClipNodeInstance> {
         // Calculate some flags that are required for the segment
         // building logic.
-        let mut flags = match self.conversion {
-            ClipSpaceConversion::Local => {
-                ClipNodeFlags::SAME_SPATIAL_NODE | ClipNodeFlags::SAME_COORD_SYSTEM
-            }
-            ClipSpaceConversion::ScaleOffset(..) => {
-                ClipNodeFlags::SAME_COORD_SYSTEM
-            }
-            ClipSpaceConversion::Transform(..) => {
-                ClipNodeFlags::empty()
-            }
-        };
+        let mut flags = self.conversion.to_flags();
 
         // Some clip shaders support a fast path mode for simple clips.
         // For now, the fast path is only selected if:
@@ -817,11 +821,15 @@ impl ClipStore {
         world_rect: &WorldRect,
         clip_data_store: &mut ClipDataStore,
         request_resources: bool,
+        is_chased: bool,
     ) -> Option<ClipChainInstance> {
         let local_clip_rect = match self.active_local_clip_rect {
             Some(rect) => rect,
             None => return None,
         };
+        if is_chased {
+            println!("\tbuilding clip chain instance with local rect {:?}", local_prim_rect);
+        }
 
         let local_bounding_rect = local_prim_rect.intersection(&local_clip_rect)?;
         let pic_clip_rect = prim_to_pic_mapper.map(&local_bounding_rect)?;
@@ -859,6 +867,11 @@ impl ClipStore {
                     )
                 }
             };
+
+            if is_chased {
+                println!("\t\tclip {:?} at {:?} in space {:?}", node.item, node_info.local_pos, node_info.spatial_node_index);
+                println!("\t\tflags {:?}, resulted in {:?}", node_info.conversion.to_flags(), clip_result);
+            }
 
             match clip_result {
                 ClipResult::Accept => {
@@ -945,7 +958,7 @@ impl<I: Iterator<Item = ComplexClipRegion>> Iterator for ComplexTranslateIter<I>
         self.source
             .next()
             .map(|mut complex| {
-                complex.rect = complex.rect.translate(&self.offset);
+                complex.rect = complex.rect.translate(self.offset);
                 complex
             })
     }
@@ -969,11 +982,11 @@ impl<J> ClipRegion<ComplexTranslateIter<J>> {
         J: Iterator<Item = ComplexClipRegion>
     {
         if let Some(ref mut image_mask) = image_mask {
-            image_mask.rect = image_mask.rect.translate(reference_frame_relative_offset);
+            image_mask.rect = image_mask.rect.translate(*reference_frame_relative_offset);
         }
 
         ClipRegion {
-            main: rect.translate(reference_frame_relative_offset),
+            main: rect.translate(*reference_frame_relative_offset),
             image_mask,
             complex_clips: ComplexTranslateIter {
                 source: complex_clips,
@@ -989,7 +1002,7 @@ impl ClipRegion<Option<ComplexClipRegion>> {
         reference_frame_relative_offset: &LayoutVector2D
     ) -> Self {
         ClipRegion {
-            main: local_clip.translate(reference_frame_relative_offset),
+            main: local_clip.translate(*reference_frame_relative_offset),
             image_mask: None,
             complex_clips: None,
         }
@@ -1325,8 +1338,11 @@ impl ClipItem {
         });
 
         if let Some(inner_clip_rect) = inner_clip_rect {
-            if inner_clip_rect.contains_rect(prim_world_rect) {
-                return ClipResult::Accept;
+            match prim_world_rect.intersection(world_rect) {
+                Some(ref rect) if inner_clip_rect.contains_rect(rect) =>
+                    return ClipResult::Accept,
+                Some(_) => (),
+                None => return ClipResult::Reject,
             }
         }
 
@@ -1478,7 +1494,7 @@ pub fn rounded_rectangle_contains_point(
     rect: &LayoutRect,
     radii: &BorderRadius
 ) -> bool {
-    if !rect.contains(point) {
+    if !rect.contains(*point) {
         return false;
     }
 
@@ -1516,10 +1532,10 @@ pub fn project_inner_rect(
     rect: &LayoutRect,
 ) -> Option<WorldRect> {
     let points = [
-        transform.transform_point2d(&rect.origin)?,
-        transform.transform_point2d(&rect.top_right())?,
-        transform.transform_point2d(&rect.bottom_left())?,
-        transform.transform_point2d(&rect.bottom_right())?,
+        transform.transform_point2d(rect.origin)?,
+        transform.transform_point2d(rect.top_right())?,
+        transform.transform_point2d(rect.bottom_left())?,
+        transform.transform_point2d(rect.bottom_right())?,
     ];
 
     let mut xs = [points[0].x, points[1].x, points[2].x, points[3].x];

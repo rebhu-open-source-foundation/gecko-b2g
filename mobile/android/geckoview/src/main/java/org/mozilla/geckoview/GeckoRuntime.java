@@ -161,6 +161,12 @@ public final class GeckoRuntime implements Parcelable {
     private RuntimeTelemetry mTelemetry;
     private WebExtensionEventDispatcher mWebExtensionDispatcher;
     private StorageController mStorageController;
+    private WebExtensionController mWebExtensionController;
+
+    public GeckoRuntime() {
+        mWebExtensionDispatcher = new WebExtensionEventDispatcher();
+        mWebExtensionController = new WebExtensionController(this, mWebExtensionDispatcher);
+    }
 
     /**
      * Attach the runtime to the given context.
@@ -188,7 +194,7 @@ public final class GeckoRuntime implements Parcelable {
             if ("Gecko:Exited".equals(event) && mDelegate != null) {
                 mDelegate.onShutdown();
                 EventDispatcher.getInstance().unregisterUiThreadListener(mEventListener, "Gecko:Exited");
-            } else if ("GeckoView:ContentCrash".equals(event) && crashHandler != null) {
+            } else if ("GeckoView:ContentCrashReport".equals(event) && crashHandler != null) {
                 final Context context = GeckoAppShell.getApplicationContext();
                 Intent i = new Intent(ACTION_CRASHED, null,
                         context, crashHandler);
@@ -238,7 +244,7 @@ public final class GeckoRuntime implements Parcelable {
                     throw new IllegalArgumentException("Crash handler service must run in a separate process");
                 }
 
-                EventDispatcher.getInstance().registerUiThreadListener(mEventListener, "GeckoView:ContentCrash");
+                EventDispatcher.getInstance().registerUiThreadListener(mEventListener, "GeckoView:ContentCrashReport");
 
                 flags |= GeckoThread.FLAG_ENABLE_NATIVE_CRASHREPORTER;
             } catch (PackageManager.NameNotFoundException e) {
@@ -252,8 +258,6 @@ public final class GeckoRuntime implements Parcelable {
         GeckoAppShell.setScreenSizeOverride(settings.getScreenSizeOverride());
         GeckoAppShell.setCrashHandlerService(settings.getCrashHandler());
         GeckoFontScaleListener.getInstance().attachToContext(context, settings);
-
-        mWebExtensionDispatcher = new WebExtensionEventDispatcher();
 
         final GeckoThread.InitInfo info = new GeckoThread.InitInfo();
         info.args = settings.getArguments();
@@ -327,6 +331,16 @@ public final class GeckoRuntime implements Parcelable {
     public static @NonNull GeckoRuntime create(final @NonNull Context context) {
         ThreadUtils.assertOnUiThread();
         return create(context, new GeckoRuntimeSettings());
+    }
+
+    /**
+     * Returns a WebExtensionController for this GeckoRuntime.
+     *
+     * @return an instance of {@link WebExtensionController}.
+     */
+    @UiThread
+    public @NonNull WebExtensionController getWebExtensionController() {
+        return mWebExtensionController;
     }
 
     /**

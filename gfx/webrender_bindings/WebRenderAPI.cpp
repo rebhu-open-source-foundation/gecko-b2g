@@ -77,8 +77,9 @@ class NewRenderer : public RendererEvent {
     if (!wr_window_new(
             aWindowId, mSize.width, mSize.height,
             supportLowPriorityTransactions,
-            StaticPrefs::WebRenderPictureCaching() && supportPictureCaching,
-            StaticPrefs::WebRenderStartDebugServer(), compositor->gl(),
+            StaticPrefs::gfx_webrender_picture_caching() &&
+                supportPictureCaching,
+            StaticPrefs::gfx_webrender_start_debug_server(), compositor->gl(),
             aRenderThread.GetProgramCache()
                 ? aRenderThread.GetProgramCache()->Raw()
                 : nullptr,
@@ -621,8 +622,10 @@ void TransactionBuilder::AddImage(ImageKey key,
 
 void TransactionBuilder::AddBlobImage(BlobImageKey key,
                                       const ImageDescriptor& aDescriptor,
-                                      wr::Vec<uint8_t>& aBytes) {
-  wr_resource_updates_add_blob_image(mTxn, key, &aDescriptor, &aBytes.inner);
+                                      wr::Vec<uint8_t>& aBytes,
+                                      const wr::DeviceIntRect& aVisibleRect) {
+  wr_resource_updates_add_blob_image(mTxn, key, &aDescriptor, &aBytes.inner,
+                                     aVisibleRect);
 }
 
 void TransactionBuilder::AddExternalImage(ImageKey key,
@@ -651,9 +654,10 @@ void TransactionBuilder::UpdateImageBuffer(ImageKey aKey,
 void TransactionBuilder::UpdateBlobImage(BlobImageKey aKey,
                                          const ImageDescriptor& aDescriptor,
                                          wr::Vec<uint8_t>& aBytes,
+                                         const wr::DeviceIntRect& aVisibleRect,
                                          const wr::LayoutIntRect& aDirtyRect) {
   wr_resource_updates_update_blob_image(mTxn, aKey, &aDescriptor, &aBytes.inner,
-                                        aDirtyRect);
+                                        aVisibleRect, aDirtyRect);
 }
 
 void TransactionBuilder::UpdateExternalImage(ImageKey aKey,
@@ -673,8 +677,8 @@ void TransactionBuilder::UpdateExternalImageWithDirtyRect(
       mTxn, aKey, &aDescriptor, aExtID, &aImageType, aChannelIndex, aDirtyRect);
 }
 
-void TransactionBuilder::SetImageVisibleArea(BlobImageKey aKey,
-                                             const wr::DeviceIntRect& aArea) {
+void TransactionBuilder::SetBlobImageVisibleArea(
+    BlobImageKey aKey, const wr::DeviceIntRect& aArea) {
   wr_resource_updates_set_blob_image_visible_area(mTxn, aKey, &aArea);
 }
 
@@ -1121,44 +1125,39 @@ void DisplayListBuilder::PushBorder(const wr::LayoutRect& aBounds,
                     aSides[1], aSides[2], aSides[3], aRadius);
 }
 
-void DisplayListBuilder::PushBorderImage(
-    const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
-    bool aIsBackfaceVisible, const wr::LayoutSideOffsets& aWidths,
-    wr::ImageKey aImage, const int32_t aWidth, const int32_t aHeight,
-    const wr::SideOffsets2D<int32_t>& aSlice,
-    const wr::SideOffsets2D<float>& aOutset,
-    const wr::RepeatMode& aRepeatHorizontal,
-    const wr::RepeatMode& aRepeatVertical) {
+void DisplayListBuilder::PushBorderImage(const wr::LayoutRect& aBounds,
+                                         const wr::LayoutRect& aClip,
+                                         bool aIsBackfaceVisible,
+                                         const wr::WrBorderImage& aParams) {
   wr_dp_push_border_image(mWrState, aBounds, MergeClipLeaf(aClip),
                           aIsBackfaceVisible, &mCurrentSpaceAndClipChain,
-                          aWidths, aImage, aWidth, aHeight, aSlice, aOutset,
-                          aRepeatHorizontal, aRepeatVertical);
+                          &aParams);
 }
 
 void DisplayListBuilder::PushBorderGradient(
     const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
     bool aIsBackfaceVisible, const wr::LayoutSideOffsets& aWidths,
-    const int32_t aWidth, const int32_t aHeight,
-    const wr::SideOffsets2D<int32_t>& aSlice,
-    const wr::LayoutPoint& aStartPoint, const wr::LayoutPoint& aEndPoint,
-    const nsTArray<wr::GradientStop>& aStops, wr::ExtendMode aExtendMode,
-    const wr::SideOffsets2D<float>& aOutset) {
-  wr_dp_push_border_gradient(
-      mWrState, aBounds, MergeClipLeaf(aClip), aIsBackfaceVisible,
-      &mCurrentSpaceAndClipChain, aWidths, aWidth, aHeight, aSlice, aStartPoint,
-      aEndPoint, aStops.Elements(), aStops.Length(), aExtendMode, aOutset);
+    const int32_t aWidth, const int32_t aHeight, bool aFill,
+    const wr::DeviceIntSideOffsets& aSlice, const wr::LayoutPoint& aStartPoint,
+    const wr::LayoutPoint& aEndPoint, const nsTArray<wr::GradientStop>& aStops,
+    wr::ExtendMode aExtendMode, const wr::LayoutSideOffsets& aOutset) {
+  wr_dp_push_border_gradient(mWrState, aBounds, MergeClipLeaf(aClip),
+                             aIsBackfaceVisible, &mCurrentSpaceAndClipChain,
+                             aWidths, aWidth, aHeight, aFill, aSlice,
+                             aStartPoint, aEndPoint, aStops.Elements(),
+                             aStops.Length(), aExtendMode, aOutset);
 }
 
 void DisplayListBuilder::PushBorderRadialGradient(
     const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
-    bool aIsBackfaceVisible, const wr::LayoutSideOffsets& aWidths,
+    bool aIsBackfaceVisible, const wr::LayoutSideOffsets& aWidths, bool aFill,
     const wr::LayoutPoint& aCenter, const wr::LayoutSize& aRadius,
     const nsTArray<wr::GradientStop>& aStops, wr::ExtendMode aExtendMode,
-    const wr::SideOffsets2D<float>& aOutset) {
+    const wr::LayoutSideOffsets& aOutset) {
   wr_dp_push_border_radial_gradient(
       mWrState, aBounds, MergeClipLeaf(aClip), aIsBackfaceVisible,
-      &mCurrentSpaceAndClipChain, aWidths, aCenter, aRadius, aStops.Elements(),
-      aStops.Length(), aExtendMode, aOutset);
+      &mCurrentSpaceAndClipChain, aWidths, aFill, aCenter, aRadius,
+      aStops.Elements(), aStops.Length(), aExtendMode, aOutset);
 }
 
 void DisplayListBuilder::PushText(const wr::LayoutRect& aBounds,

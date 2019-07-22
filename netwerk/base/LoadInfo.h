@@ -52,7 +52,7 @@ typedef nsTArray<nsCOMPtr<nsIRedirectHistoryEntry>> RedirectHistoryArray;
  */
 class LoadInfo final : public nsILoadInfo {
  public:
-  NS_DECL_ISUPPORTS
+  NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSILOADINFO
 
   // aLoadingPrincipal MUST NOT BE NULL.
@@ -173,6 +173,16 @@ class LoadInfo final : public nsILoadInfo {
   // from anywhere else!
   void SetIncludeCookiesSecFlag();
   friend class mozilla::dom::XMLHttpRequestMainThread;
+
+  // nsDocShell::OpenInitializedChannel needs to update the loadInfo with
+  // the correct browsingContext.
+  friend class ::nsDocShell;
+  void UpdateBrowsingContextID(uint64_t aBrowsingContextID) {
+    mBrowsingContextID = aBrowsingContextID;
+  }
+  void UpdateFrameBrowsingContextID(uint64_t aFrameBrowsingContextID) {
+    mFrameBrowsingContextID = aFrameBrowsingContextID;
+  }
 
   // if you add a member, please also update the copy constructor and consider
   // if it should be merged from parent channel through

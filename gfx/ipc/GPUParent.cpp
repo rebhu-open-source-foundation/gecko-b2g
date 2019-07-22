@@ -264,7 +264,7 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
   }
 #ifdef XP_WIN
   else {
-    if (StaticPrefs::Direct3D11UseDoubleBuffering() && IsWin10OrLater()) {
+    if (gfxVars::UseDoubleBufferingWithCompositor()) {
       // This is needed to avoid freezing the window on a device crash on double
       // buffering, see bug 1549674.
       widget::WinCompositorWindowThread::Start();
@@ -478,7 +478,7 @@ mozilla::ipc::IPCResult GPUParent::RecvRequestMemoryReport(
 }
 
 mozilla::ipc::IPCResult GPUParent::RecvShutdownVR() {
-  if (StaticPrefs::VRProcessEnabled()) {
+  if (StaticPrefs::dom_vr_process_enabled()) {
     VRGPUChild::Shutdown();
   }
   return IPC_OK();

@@ -231,6 +231,10 @@ already_AddRefed<TextureHost> TextureHost::Create(
       MOZ_CRASH("GFX: Unsupported Surface type host");
   }
 
+  if (!result) {
+    gfxCriticalNote << "TextureHost creation failure type=" << aDesc.type();
+  }
+
   if (result && WrapWithWebRenderTextureHost(aDeallocator, aBackend, aFlags)) {
     MOZ_ASSERT(aExternalImageId.isSome());
     result =
@@ -440,7 +444,7 @@ void TextureHost::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   }
   AppendToString(aStream, mFlags, " [flags=", "]");
 #ifdef MOZ_DUMP_PAINTING
-  if (StaticPrefs::LayersDumpTexture()) {
+  if (StaticPrefs::layers_dump_texture()) {
     nsAutoCString pfx(aPrefix);
     pfx += "  ";
 

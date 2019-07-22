@@ -18,7 +18,6 @@
 #include "VRChild.h"
 #include "VRManager.h"
 #include "VRThread.h"
-#include "gfxVRPuppet.h"
 
 #include "nsAppRunner.h"  // for IToplevelProtocol
 #include "mozilla/ipc/ProtocolUtils.h"
@@ -82,7 +81,7 @@ bool VRProcessParent::WaitForLaunch() {
     return !!mVRChild;
   }
 
-  int32_t timeoutMs = StaticPrefs::VRProcessTimeoutMs();
+  int32_t timeoutMs = StaticPrefs::dom_vr_process_startup_timeout_ms();
 
   // If one of the following environment variables are set we can effectively
   // ignore the timeout - as we can guarantee the compositor process will be
@@ -160,7 +159,8 @@ void VRProcessParent::InitAfterConnect(bool aSucceeded) {
 
     // Make vr-gpu process connection
     GPUChild* gpuChild = GPUProcessManager::Get()->GetGPUChild();
-    MOZ_ASSERT(gpuChild);
+    // Add logs for Bug 1565000 to figure out why gpuChild can't be access.
+    MOZ_RELEASE_ASSERT(gpuChild, "gpuChild is null.");
 
     Endpoint<PVRGPUChild> vrGPUBridge;
     VRProcessManager* vpm = VRProcessManager::Get();

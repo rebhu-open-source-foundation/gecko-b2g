@@ -198,8 +198,8 @@ TEST_VARIANTS = {
         'merge': {
             'mozharness': {
                 'extra-options': [
-                    '--setpref="media.peerconnection.mtransport_process=true"',
-                    '--setpref="network.process.enabled=true"',
+                    '--setpref=media.peerconnection.mtransport_process=true',
+                    '--setpref=network.process.enabled=true',
                 ],
             }
         }
@@ -1038,6 +1038,25 @@ def split_variants(config, tests):
 
 
 @transforms.add
+def ensure_spi_disabled_on_all_but_spi(config, tests):
+    for test in tests:
+        variant = test['attributes'].get('unittest_variant', '')
+        has_setpref = ('gtest' not in test['suite'] and
+                       'cppunit' not in test['suite'] and
+                       'jittest' not in test['suite'] and
+                       'junit' not in test['suite'] and
+                       'raptor' not in test['suite'])
+
+        if has_setpref and variant != 'socketprocess':
+            test['mozharness']['extra-options'].append(
+                    '--setpref=media.peerconnection.mtransport_process=false')
+            test['mozharness']['extra-options'].append(
+                    '--setpref=network.process.enabled=false')
+
+        yield test
+
+
+@transforms.add
 def split_e10s(config, tests):
     for test in tests:
         e10s = test['e10s']
@@ -1128,11 +1147,6 @@ def enable_webrender(config, tests):
         if test.get('webrender'):
             test['mozharness'].setdefault('extra-options', [])\
                               .append("--enable-webrender")
-        # Explicitly disable WebRender on non-WR AWSY, since that job runs on
-        # virtual-with-gpu and thus is considered qualified hardware.
-        elif test['suite'] == 'awsy':
-            test['mozharness'].setdefault('extra-options', [])\
-                              .append("--disable-webrender")
 
         yield test
 

@@ -118,6 +118,7 @@ enum class ZealMode {
   _(ObjectGroupAddendum)                   \
   _(ScriptDebugScript)                     \
   _(BreakpointSite)                        \
+  _(Breakpoint)                            \
   _(ForOfPIC)                              \
   _(ForOfPICStub)                          \
   _(WasmInstanceExports)                   \
@@ -126,7 +127,16 @@ enum class ZealMode {
   _(WasmInstanceInstance)                  \
   _(WasmMemoryObservers)                   \
   _(WasmGlobalCell)                        \
-  _(WasmResolveResponseClosure)
+  _(WasmResolveResponseClosure)            \
+  _(WasmModule)                            \
+  _(WasmTableTable)                        \
+  _(FileObjectFile)                        \
+  _(Debugger)                              \
+  _(DebuggerFrameGeneratorInfo)            \
+  _(DebuggerFrameIterData)                 \
+  _(DebuggerOnStepHandler)                 \
+  _(DebuggerOnPopHandler)                  \
+  _(GlobalDebuggerVector)
 
 #define JS_FOR_EACH_MEMORY_USE(_)  \
   JS_FOR_EACH_PUBLIC_MEMORY_USE(_) \

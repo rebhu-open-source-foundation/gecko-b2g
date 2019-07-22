@@ -9,23 +9,24 @@
 // Test hitting breakpoints when rewinding past the point where the breakpoint
 // script was created.
 add_task(async function() {
-  const dbg = await attachRecordingDebugger(
-    "doc_rr_basic.html",
-    { waitForRecording: true }
-  );
+  const dbg = await attachRecordingDebugger("doc_rr_basic.html", {
+    waitForRecording: true,
+  });
 
-  const {threadClient, tab, toolbox, target} = dbg;
+  const { threadFront, tab, toolbox, target } = dbg;
+
+  await threadFront.interrupt();
 
   // Rewind to the beginning of the recording.
-  await rewindToLine(threadClient, undefined);
+  await rewindToLine(threadFront, undefined);
 
-  const bp = await setBreakpoint(threadClient, "doc_rr_basic.html", 21);
-  await resumeToLine(threadClient, 21);
+  const bp = await setBreakpoint(threadFront, "doc_rr_basic.html", 21);
+  await resumeToLine(threadFront, 21);
   await checkEvaluateInTopFrame(target, "number", 1);
-  await resumeToLine(threadClient, 21);
+  await resumeToLine(threadFront, 21);
   await checkEvaluateInTopFrame(target, "number", 2);
 
-  await threadClient.removeBreakpoint(bp);
+  await threadFront.removeBreakpoint(bp);
   await toolbox.destroy();
   await gBrowser.removeTab(tab);
 });

@@ -20,7 +20,6 @@ from distutils.spawn import find_executable
 import psutil
 import six.moves.urllib as urllib
 from mozdevice import ADBHost, ADBDevice
-from six.moves.urllib.parse import urlparse
 
 EMULATOR_HOME_DIR = os.path.join(os.path.expanduser('~'), '.mozbuild', 'android-device')
 
@@ -68,15 +67,13 @@ AVD_DICT = {
                    ['-skip-adb-auth', '-verbose', '-show-kernel',
                     '-qemu', '-m', '1024', '-enable-kvm'],
                    True),
-    'x86-7.0': AvdInfo('Android 7.0 x86',
+    'x86-7.0': AvdInfo('Android 7.0 x86/x86_64',
                        'mozemulator-x86-7.0',
                        'testing/config/tooltool-manifests/androidx86_7_0/mach-emulator.manifest',
                        ['-skip-adb-auth', '-verbose', '-show-kernel',
                         '-ranchu',
-                        '-engine', 'qemu2',
                         '-selinux', 'permissive',
-                        '-memory', '3072', '-cores', '4',
-                        '-qemu', '-enable-kvm'],
+                        '-memory', '3072', '-cores', '4'],
                        True)
 }
 
@@ -226,7 +223,7 @@ def verify_android_device(build_obj, install=False, xre=False, debugger=False,
         #  - it prevents testing against other builds (downloaded apk)
         #  - installation may take a couple of minutes.
         if not app:
-            app = build_obj.substs["ANDROID_PACKAGE_NAME"]
+            app = "org.mozilla.geckoview.test"
         device = _get_device(build_obj.substs, device_serial)
         response = ''
         action = 'Re-install'
@@ -331,43 +328,10 @@ def get_adb_path(build_obj):
     return _find_sdk_exe(build_obj.substs, 'adb', False)
 
 
-def run_firefox_for_android(build_obj, params, **kwargs):
-    """
-       Launch Firefox for Android on the connected device.
-       Optional 'params' allow parameters to be passed to Firefox.
-    """
-    device = _get_device(build_obj.substs)
-    try:
-        #
-        # Construct an adb command similar to:
-        #
-        # $ adb shell am start -a android.activity.MAIN \
-        #   -n org.mozilla.fennec_$USER \
-        #   -d <url param> \
-        #   --es args "<params>"
-        #
-        app = build_obj.substs['ANDROID_PACKAGE_NAME']
-
-        msg = "URL specified as '{}'; dropping URL-like parameter '{}'"
-        if params:
-            for p in params:
-                if urlparse.urlparse(p).scheme != "":
-                    params.remove(p)
-                    if kwargs.get('url'):
-                        _log_warning(msg.format(kwargs['url'], p))
-                    else:
-                        kwargs['url'] = p
-        device.launch_fennec(app, extra_args=params, **kwargs)
-    except Exception:
-        _log_warning("unable to launch Firefox for Android")
-        return 1
-    return 0
-
-
 def grant_runtime_permissions(build_obj, app, device_serial=None):
     """
     Grant required runtime permissions to the specified app
-    (typically org.mozilla.fennec_$USER).
+    (eg. org.mozilla.geckoview.test).
     """
     device = _get_device(build_obj.substs, device_serial)
     try:
@@ -506,7 +470,7 @@ class AndroidEmulator(object):
         env['ANDROID_AVD_HOME'] = os.path.join(EMULATOR_HOME_DIR, "avd")
         command = [self.emulator_path, "-avd", self.avd_info.name]
         if self.gpu:
-            command += ['-gpu', 'swiftshader_indirect']
+            command += ['-gpu', 'on']
         if self.avd_info.extra_args:
             # -enable-kvm option is not valid on OSX and Windows
             if _get_host_platform() in ('macosx64', 'win32') and \

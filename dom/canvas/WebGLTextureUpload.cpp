@@ -328,7 +328,7 @@ UniquePtr<webgl::TexUnpackBlob> WebGLContext::FromDomElem(
   uint32_t elemWidth = 0;
   uint32_t elemHeight = 0;
   layers::Image* layersImage = nullptr;
-  if (!StaticPrefs::WebGLDisableDOMBlitUploads() && sfer.mLayersImage) {
+  if (!StaticPrefs::webgl_disable_DOM_blit_uploads() && sfer.mLayersImage) {
     layersImage = sfer.mLayersImage;
     elemWidth = layersImage->GetSize().width;
     elemHeight = layersImage->GetSize().height;
@@ -1670,12 +1670,14 @@ ScopedCopyTexImageSource::ScopedCopyTexImageSource(
       if (webgl->IsExtensionEnabled(
               WebGLExtensionID::WEBGL_color_buffer_float)) {
         sizedFormat = LOCAL_GL_RGBA32F;
+        webgl->WarnIfImplicit(WebGLExtensionID::WEBGL_color_buffer_float);
         break;
       }
 
       if (webgl->IsExtensionEnabled(
               WebGLExtensionID::EXT_color_buffer_half_float)) {
         sizedFormat = LOCAL_GL_RGBA16F;
+        webgl->WarnIfImplicit(WebGLExtensionID::EXT_color_buffer_half_float);
         break;
       }
       MOZ_CRASH("GFX: Should be able to request CopyTexImage from Float.");

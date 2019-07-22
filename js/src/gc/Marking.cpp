@@ -16,6 +16,7 @@
 #include "jsfriendapi.h"
 
 #include "builtin/ModuleObject.h"
+#include "debugger/Debugger.h"
 #include "gc/GCInternals.h"
 #include "gc/Policy.h"
 #include "jit/IonCode.h"
@@ -23,7 +24,6 @@
 #include "vm/ArgumentsObject.h"
 #include "vm/ArrayObject.h"
 #include "vm/BigIntType.h"
-#include "vm/Debugger.h"
 #include "vm/EnvironmentObject.h"
 #include "vm/RegExpShared.h"
 #include "vm/Scope.h"
@@ -431,6 +431,11 @@ JS_PUBLIC_API void JS::UnsafeTraceRoot(JSTracer* trc, T* thingp,
   js::TraceNullableRoot(trc, thingp, name);
 }
 
+namespace js {
+class SavedFrame;
+class AbstractGeneratorObject;
+}  // namespace js
+
 // Instantiate a copy of the Tracing templates for each public GC pointer type.
 #define INSTANTIATE_PUBLIC_TRACE_FUNCTIONS(type)                          \
   template JS_PUBLIC_API void JS::UnsafeTraceRoot<type>(JSTracer*, type*, \
@@ -441,6 +446,8 @@ JS_PUBLIC_API void JS::UnsafeTraceRoot(JSTracer* trc, T* thingp,
       JSTracer*, type*, const char*);
 FOR_EACH_PUBLIC_GC_POINTER_TYPE(INSTANTIATE_PUBLIC_TRACE_FUNCTIONS)
 FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(INSTANTIATE_PUBLIC_TRACE_FUNCTIONS)
+INSTANTIATE_PUBLIC_TRACE_FUNCTIONS(SavedFrame*);
+INSTANTIATE_PUBLIC_TRACE_FUNCTIONS(AbstractGeneratorObject*);
 #undef INSTANTIATE_PUBLIC_TRACE_FUNCTIONS
 
 namespace js {
@@ -954,17 +961,20 @@ bool js::GCMarker::mark(T* thing) {
 // out-of-line, generic tracing code for comparison. Both paths must end up
 // traversing equivalent subgraphs.
 
+void BaseScript::traceChildren(JSTracer* trc) {
+  TraceNullableEdge(trc, &sourceObject_, "sourceObject");
+}
+
 void LazyScript::traceChildren(JSTracer* trc) {
+  // Trace base class fields.
+  BaseScript::traceChildren(trc);
+
   if (trc->traceWeakEdges()) {
     TraceNullableEdge(trc, &script_, "script");
   }
 
   if (function_) {
     TraceEdge(trc, &function_, "function");
-  }
-
-  if (sourceObject_) {
-    TraceEdge(trc, &sourceObject_, "sourceObject");
   }
 
   if (enclosingLazyScriptOrScope_) {
@@ -993,14 +1003,14 @@ void LazyScript::traceChildren(JSTracer* trc) {
   }
 }
 inline void js::GCMarker::eagerlyMarkChildren(LazyScript* thing) {
+  if (thing->sourceObject_) {
+    traverseEdge(thing, static_cast<JSObject*>(thing->sourceObject_));
+  }
+
   // script_ is weak so is not traced here.
 
   if (thing->function_) {
     traverseEdge(thing, static_cast<JSObject*>(thing->function_));
-  }
-
-  if (thing->sourceObject_) {
-    traverseEdge(thing, static_cast<JSObject*>(thing->sourceObject_));
   }
 
   if (thing->enclosingLazyScriptOrScope_) {
@@ -1276,7 +1286,8 @@ inline void js::GCMarker::eagerlyMarkChildren(Scope* scope) {
       case ScopeKind::SimpleCatch:
       case ScopeKind::Catch:
       case ScopeKind::NamedLambda:
-      case ScopeKind::StrictNamedLambda: {
+      case ScopeKind::StrictNamedLambda:
+      case ScopeKind::FunctionLexical: {
         LexicalScope::Data& data = scope->as<LexicalScope>().data();
         names = &data.trailingNames;
         length = data.length;

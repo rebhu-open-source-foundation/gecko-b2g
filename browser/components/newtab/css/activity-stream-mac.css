@@ -279,16 +279,6 @@ h2 {
 a {
   text-decoration: none; }
 
-.sr-only {
-  border: 0;
-  clip: rect(0, 0, 0, 0);
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  padding: 0;
-  position: absolute;
-  width: 1px; }
-
 .inner-border {
   border: 1px solid var(--newtab-border-secondary-color);
   border-radius: 3px;
@@ -1586,6 +1576,7 @@ main {
     font-size: 13px;
     font-weight: bold;
     margin: 0; }
+    .collapsible-section .section-title.grey-title,
     .collapsible-section .section-title span {
       color: var(--newtab-section-header-text-color);
       display: inline-block;
@@ -1625,7 +1616,7 @@ main {
       transition-property: opacity;
       width: 27px; }
       .collapsible-section .section-top-bar .context-menu-button:-moz-any(:active, :focus, :hover) {
-        fill: #0C0C0D;
+        fill: var(--newtab-section-header-text-color);
         opacity: 1; }
     .collapsible-section .section-top-bar .context-menu {
       top: 16px; }
@@ -1645,7 +1636,7 @@ main {
   .collapsible-section .learn-more-link {
     font-size: 11px;
     margin-inline-start: 12px; }
-    .collapsible-section .learn-more-link a span {
+    .collapsible-section .learn-more-link a {
       color: var(--newtab-link-secondary-color); }
   .collapsible-section .section-body-fallback {
     height: 266px; }
@@ -1917,10 +1908,10 @@ main {
   width: 986px; }
   .collapsible-section.ds-layout .section-top-bar {
     margin-bottom: 0; }
-    .collapsible-section.ds-layout .section-top-bar .learn-more-link a span {
+    .collapsible-section.ds-layout .section-top-bar .learn-more-link a {
       color: var(--newtab-link-primary-color);
       font-weight: normal; }
-      .collapsible-section.ds-layout .section-top-bar .learn-more-link a span:-moz-any(:focus, :hover) {
+      .collapsible-section.ds-layout .section-top-bar .learn-more-link a:-moz-any(:focus, :hover) {
         text-decoration: underline; }
 
 .ds-card-grid {
@@ -2465,7 +2456,7 @@ main {
     .ds-navigation ul li:last-child::after {
       content: none; }
     .ds-navigation ul li a:hover {
-      border-bottom: 1px solid #45A1FF; }
+      border-bottom: 1px solid var(--newtab-link-primary-color); }
       .ds-navigation ul li a:hover:active {
         border-bottom: 1px solid #003EAA; }
     .ds-navigation ul li a:active {
@@ -2686,7 +2677,9 @@ main {
       [lwt-newtab-brighttext] .ds-card:not(.placeholder):hover .ds-card-link header {
         color: #45A1FF; }
   .ds-card .ds-card-link {
-    height: 100%; }
+    height: 100%;
+    display: flex;
+    flex-direction: column; }
     .ds-card .ds-card-link:focus {
       box-shadow: 0 0 0 5px rgba(10, 132, 255, 0.3);
       transition: box-shadow 150ms;
@@ -2708,10 +2701,12 @@ main {
   .ds-card .meta {
     display: flex;
     flex-direction: column;
-    padding: 12px 16px; }
+    padding: 12px 16px;
+    flex-grow: 1; }
     .ds-card .meta .info-wrap {
-      flex-grow: 1;
-      margin: 0 0 12px; }
+      flex-grow: 1; }
+    .ds-card .meta .context {
+      margin: 12px 0 0; }
     .ds-card .meta .title {
       font-size: 17px;
       -webkit-line-clamp: 3;
@@ -3011,12 +3006,20 @@ body[lwt-newtab-brighttext] .scene2Icon .icon-light-theme {
   .modalOverlayOuter.active {
     display: block; }
 
+.modal-scroll {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: auto; }
+
+.modal-height {
+  padding-top: 80px; }
+
 .modalOverlayInner {
   width: 960px;
   position: fixed;
-  top: 20%;
+  top: 15%;
   left: calc(50% - 480px);
-  max-height: calc(100% - 100px);
   background: #FFF;
   box-shadow: 0 1px 15px 0 rgba(0, 0, 0, 0.3);
   border-radius: 4px;
@@ -3030,12 +3033,9 @@ body[lwt-newtab-brighttext] .scene2Icon .icon-light-theme {
       left: 0;
       box-shadow: none;
       border-radius: 0; } }
-  @media (max-width: 850px) and (max-height: 730px) {
+  @media (max-height: 730px) {
     .modalOverlayInner {
-      overflow-y: scroll; } }
-  @media (max-width: 650px) and (max-height: 600px) {
-    .modalOverlayInner {
-      overflow-y: scroll; } }
+      top: 5%; } }
   .modalOverlayInner.active {
     display: block; }
   .modalOverlayInner h2 {
@@ -3525,7 +3525,7 @@ body[lwt-newtab-brighttext] .scene2Icon .icon-light-theme {
   background-repeat: no-repeat;
   display: inline-block;
   vertical-align: middle; }
-  @media (max-width: 850px) {
+  @media (max-width: 865px) {
     .onboardingMessageImage {
       height: 75px;
       min-width: 80px;
@@ -3861,8 +3861,7 @@ a.firstrun-link {
 .trailhead {
   background: url("../data/content/assets/trailhead/accounts-form-bg.jpg") bottom/cover;
   color: #FFF;
-  height: auto;
-  top: 100px; }
+  height: auto; }
   .trailhead a {
     color: #FFF;
     text-decoration: underline; }
@@ -4023,7 +4022,6 @@ a.firstrun-link {
 
 .trailheadCards {
   background: var(--trailhead-cards-background-color);
-  max-height: 1000px;
   overflow: hidden;
   text-align: center;
   transition: max-height 0.5s cubic-bezier(0.07, 0.95, 0, 1); }
@@ -4064,7 +4062,8 @@ a.firstrun-link {
   margin: 0;
   opacity: 0;
   transition: opacity 0.4s;
-  transition-delay: 0.1s; }
+  transition-delay: 0.1s;
+  grid-auto-rows: 1fr; }
   .trailheadCardGrid.show {
     opacity: 1; }
   @media (min-width: 610px) {
@@ -4121,7 +4120,7 @@ a.firstrun-link {
     text-align: center; }
 
 .inline-onboarding.activity-stream.welcome {
-  overflow-y: scroll; }
+  overflow-y: hidden; }
 
 .inline-onboarding .modalOverlayInner {
   position: absolute; }

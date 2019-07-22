@@ -74,11 +74,11 @@
         },
         "awscli": {
             "hashes": [
-                "sha256:42cc603a0b488af28557655372eda096f1e2ffd18beef01c3f8709e8cba630a0",
-                "sha256:753bc4bf21b1d58fb2b64814b90f1dd34af5c79244f35868e74057af7c3f25e5"
+                "sha256:2480a14ff3dfcfa757546b27fd2cffc6143d377c7728cee75417ef843157b269",
+                "sha256:f6797733dfb1ce063c824631661411a0ddf49d1850980c2b2ee4ed80b3bc6547"
             ],
             "index": "pypi",
-            "version": "==1.16.184"
+            "version": "==1.16.198"
         },
         "backports.lzma": {
             "hashes": [
@@ -88,10 +88,10 @@
         },
         "botocore": {
             "hashes": [
-                "sha256:3356e72901d5a4259b8858785e415a895641454971e3fa67b4076b4c9bed543d",
-                "sha256:f7220c6dd551724d4af796fb7ddfef6d423bade92e78c3cc2282953b38dfb259"
+                "sha256:140ab03867d912b9cf44421861e6191681cbc065e36ccb51ece865b0ee30b5f3",
+                "sha256:f9c54673beb91ea21c718f1c1fef64862851c561a3810a18b39d3fdbd62ce32c"
             ],
-            "version": "==1.12.174"
+            "version": "==1.12.188"
         },
         "certifi": {
             "hashes": [
@@ -329,9 +329,9 @@
         },
         "pyrsistent": {
             "hashes": [
-                "sha256:16692ee739d42cf5e39cef8d27649a8c1fdb7aa99887098f1460057c5eb75c3a"
+                "sha256:50cffebc87ca91b9d4be2dcc2e479272bcb466b5a0487b6c271f7ddea6917e14"
             ],
-            "version": "==0.15.2"
+            "version": "==0.15.3"
         },
         "python-dateutil": {
             "hashes": [
@@ -390,11 +390,11 @@
         },
         "scriptworker": {
             "hashes": [
-                "sha256:9d420ba93b0d79401f0347c32c61af0b91507e0437c798d7e78898ff7d7245ce",
-                "sha256:b6a3ad1623a2cf400373f6996632c53edf710f79b71d48acc795b43041156be0"
+                "sha256:7cf4fe04d937b1e41e90ba8fb523e5f45180fc124047eb168cf36e1bf605ec7e",
+                "sha256:9ca7ba4a1bf299791a585c954333071028bbd72e09e03fb327296d53ba430fd7"
             ],
             "index": "pypi",
-            "version": "==23.0.10"
+            "version": "==23.4.0"
         },
         "sh": {
             "hashes": [

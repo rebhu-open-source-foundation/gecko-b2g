@@ -249,7 +249,7 @@ class MachCommands(MachCommandBase):
         for report in reports:
             f = open(os.path.join(
                 self.topobjdir,
-                'gradle/build/mobile/android/app/reports/lint-results-{}.xml'.format(report)),
+                'gradle/build/mobile/android/geckoview/reports/lint-results-{}.xml'.format(report)),  # NOQA: E501
                      'rt')
             tree = ET.parse(f)
             root = tree.getroot()
@@ -419,6 +419,7 @@ class MachCommands(MachCommandBase):
         if ret != 0:
             return ret
 
+        # TODO Bug 1563711 - Remove target.maven.zip
         # The zip archive is passed along in CI to ship geckoview onto a maven repo
         _craft_maven_zip_archive(self.topobjdir)
 

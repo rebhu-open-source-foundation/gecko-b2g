@@ -29,6 +29,7 @@
 #include "gc/GCRuntime.h"
 #include "gc/Tracer.h"
 #include "irregexp/RegExpStack.h"
+#include "js/AllocationRecording.h"
 #include "js/BuildId.h"  // JS::BuildIdOp
 #include "js/Debug.h"
 #include "js/experimental/SourceHook.h"  // js::SourceHook
@@ -215,6 +216,23 @@ using ScriptAndCountsVector = GCVector<ScriptAndCounts, 0, SystemAllocPolicy>;
 
 class AutoLockScriptData;
 
+// Self-hosted lazy functions do not maintain a LazyScript as we can compile
+// from the copy in the self-hosting zone. To allow these functions to be
+// called by the JITs, we need a minimal script object. There is one instance
+// per runtime.
+struct SelfHostedLazyScript {
+  SelfHostedLazyScript() = default;
+
+  // Pointer to interpreter trampoline. This field is stored at same location
+  // as in JSScript, allowing the JIT to directly call LazyScripts in the same
+  // way as JSScripts.
+  uint8_t* jitCodeRaw_ = nullptr;
+
+  static constexpr size_t offsetOfJitCodeRaw() {
+    return offsetof(SelfHostedLazyScript, jitCodeRaw_);
+  }
+};
+
 }  // namespace js
 
 struct JSRuntime : public js::MallocProvider<JSRuntime> {
@@ -383,6 +401,11 @@ struct JSRuntime : public js::MallocProvider<JSRuntime> {
   /* Optional warning reporter. */
   js::MainThreadData<JS::WarningReporter> warningReporter;
 
+  // Lazy self-hosted functions use a shared SelfHostedLazyScript instead
+  // instead of a LazyScript. This contains the minimal trampolines for the
+  // scripts to perform direct calls.
+  js::UnprotectedData<js::SelfHostedLazyScript> selfHostedLazyScript;
+
  private:
   /* Gecko profiling metadata */
   js::UnprotectedData<js::GeckoProfilerRuntime> geckoProfiler_;
@@ -524,6 +547,11 @@ struct JSRuntime : public js::MallocProvider<JSRuntime> {
   // number of realms visited by RealmsIter.
   js::MainThreadData<size_t> numRealms;
 
+  // The Gecko Profiler may want to sample the allocations happening across the
+  // browser. This callback can be registered to record the allocation.
+  js::MainThreadData<JS::RecordAllocationsCallback> recordAllocationCallback;
+  js::MainThreadData<double> allocationSamplingProbability;
+
  private:
   // Number of debuggee realms in the runtime.
   js::MainThreadData<size_t> numDebuggeeRealms_;
@@ -539,6 +567,11 @@ struct JSRuntime : public js::MallocProvider<JSRuntime> {
 
   void incrementNumDebuggeeRealmsObservingCoverage();
   void decrementNumDebuggeeRealmsObservingCoverage();
+
+  void startRecordingAllocations(double probability,
+                                 JS::RecordAllocationsCallback callback);
+  void stopRecordingAllocations();
+  void ensureRealmIsRecordingAllocations(JS::Handle<js::GlobalObject*> global);
 
   /* Locale-specific callbacks for string conversion. */
   js::MainThreadData<const JSLocaleCallbacks*> localeCallbacks;
@@ -794,16 +827,13 @@ struct JSRuntime : public js::MallocProvider<JSRuntime> {
   // within the runtime. This may be modified by threads using
   // AutoLockScriptData.
  private:
-  js::ScriptDataLockData<js::ScriptDataTable> scriptDataTable_;
+  js::ScriptDataLockData<js::RuntimeScriptDataTable> scriptDataTable_;
 
  public:
-  js::ScriptDataTable& scriptDataTable(const js::AutoLockScriptData& lock) {
+  js::RuntimeScriptDataTable& scriptDataTable(
+      const js::AutoLockScriptData& lock) {
     return scriptDataTable_.ref();
   }
-
-  js::WriteOnceData<bool> jitSupportsFloatingPoint;
-  js::WriteOnceData<bool> jitSupportsUnalignedAccesses;
-  js::WriteOnceData<bool> jitSupportsSimd;
 
  private:
   static mozilla::Atomic<size_t> liveRuntimesCount;
@@ -1082,6 +1112,10 @@ extern mozilla::Atomic<JS::LargeAllocationFailureCallback>
 // This callback is set by JS::SetBuildIdOp and may be null. See comment in
 // jsapi.h.
 extern mozilla::Atomic<JS::BuildIdOp> GetBuildId;
+
+// This callback is set by js::SetHelperThreadTaskCallback and may be null.
+// See comment in jsapi.h.
+extern void (*HelperThreadTaskCallback)(js::RunnableTask*);
 
 } /* namespace js */
 

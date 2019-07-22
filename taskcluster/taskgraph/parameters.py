@@ -162,7 +162,7 @@ class Parameters(ReadOnlyDict):
             'tasks_for': 'hg-push',
             'try_mode': None,
             'try_options': None,
-            'try_task_config': None,
+            'try_task_config': {},
             'version': get_version(),
         }
 
@@ -195,13 +195,14 @@ class Parameters(ReadOnlyDict):
         """
         return 'try' in self['project'] or self['try_mode'] == 'try_select'
 
-    def file_url(self, path):
+    def file_url(self, path, pretty=False):
         """
         Determine the VCS URL for viewing a file in the tree, suitable for
         viewing by a human.
 
         :param basestring path: The path, relative to the root of the repository.
-
+        :param bool pretty: Whether to return a link to a formatted version of the
+            file, or the raw file version.
         :return basestring: The URL displaying the given path.
         """
         if path.startswith('comm/'):
@@ -212,7 +213,8 @@ class Parameters(ReadOnlyDict):
             repo = self['head_repository']
             rev = self['head_rev']
 
-        return '{}/file/{}/{}'.format(repo, rev, path)
+        endpoint = 'file' if pretty else 'raw-file'
+        return '{}/{}/{}/{}'.format(repo, endpoint, rev, path)
 
     def release_level(self):
         """

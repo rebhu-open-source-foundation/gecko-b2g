@@ -74,7 +74,8 @@ static uint32_t SiteAutoplayPerm(const Document* aDocument) {
   NS_ENSURE_TRUE(permMgr, nsIPermissionManager::DENY_ACTION);
 
   uint32_t perm;
-  nsresult rv = permMgr->TestExactPermissionFromPrincipal(principal, NS_LITERAL_CSTRING("autoplay-media"), &perm);
+  nsresult rv = permMgr->TestExactPermissionFromPrincipal(
+      principal, NS_LITERAL_CSTRING("autoplay-media"), &perm);
   NS_ENSURE_SUCCESS(rv, nsIPermissionManager::DENY_ACTION);
   return perm;
 }
@@ -154,7 +155,7 @@ static bool IsAudioContextAllowedToPlay(const AudioContext& aContext) {
 static bool IsEnableBlockingWebAudioByUserGesturePolicy() {
   return DefaultAutoplayBehaviour() != nsIAutoplay::ALLOWED &&
          Preferences::GetBool("media.autoplay.block-webaudio", false) &&
-         StaticPrefs::MediaAutoplayUserGesturesNeeded();
+         StaticPrefs::media_autoplay_enabled_user_gestures_needed();
 }
 
 /* static */
@@ -171,9 +172,9 @@ bool AutoplayPolicy::WouldBeAllowedToPlayIfAutoplayDisabled(
 }
 
 static bool IsAllowedToPlayByBlockingModel(const HTMLMediaElement& aElement) {
-  if (!StaticPrefs::MediaAutoplayUserGesturesNeeded()) {
-  // If element is blessed, it would always be allowed to play().
-  return aElement.IsBlessed() || EventStateManager::IsHandlingUserInput();
+  if (!StaticPrefs::media_autoplay_enabled_user_gestures_needed()) {
+    // If element is blessed, it would always be allowed to play().
+    return aElement.IsBlessed() || EventStateManager::IsHandlingUserInput();
   }
   return IsWindowAllowedToPlay(aElement.OwnerDoc()->GetInnerWindow());
 }
@@ -187,9 +188,10 @@ static bool IsAllowedToPlayInternal(const HTMLMediaElement& aElement) {
   uint32_t defaultBehaviour = DefaultAutoplayBehaviour();
   uint32_t sitePermission = SiteAutoplayPerm(approver);
 
-  AUTOPLAY_LOG("IsAllowedToPlayInternal, isInaudible=%d,"
-    "isUsingAutoplayModel=%d, sitePermission=%d, defaultBehaviour=%d",
-    isInaudible, isUsingAutoplayModel, sitePermission, defaultBehaviour);
+  AUTOPLAY_LOG(
+      "IsAllowedToPlayInternal, isInaudible=%d,"
+      "isUsingAutoplayModel=%d, sitePermission=%d, defaultBehaviour=%d",
+      isInaudible, isUsingAutoplayModel, sitePermission, defaultBehaviour);
 
   // For site permissions we store permissionManager values except
   // for BLOCKED_ALL, for the default pref values we store

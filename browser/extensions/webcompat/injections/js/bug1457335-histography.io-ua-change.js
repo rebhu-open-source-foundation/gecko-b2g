@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
 /**
@@ -11,7 +15,9 @@
 
 /* globals exportFunction */
 
-console.info("The user agent has been overridden for compatibility reasons. See https://webcompat.com/issues/1804 for details.");
+console.info(
+  "The user agent has been overridden for compatibility reasons. See https://webcompat.com/issues/1804 for details."
+);
 
 const CHROME_UA = navigator.userAgent + " Chrome for WebCompat";
 

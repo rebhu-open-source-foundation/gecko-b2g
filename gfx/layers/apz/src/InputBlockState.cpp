@@ -150,7 +150,7 @@ bool InputBlockState::IsDownchainOf(AsyncPanZoomController* aA,
 
 void InputBlockState::SetScrolledApzc(AsyncPanZoomController* aApzc) {
   // An input block should only have one scrolled APZC.
-  MOZ_ASSERT(!mScrolledApzc || (StaticPrefs::APZAllowImmediateHandoff()
+  MOZ_ASSERT(!mScrolledApzc || (StaticPrefs::apz_allow_immediate_handoff()
                                     ? IsDownchainOf(mScrolledApzc, aApzc)
                                     : mScrolledApzc == aApzc));
 
@@ -406,7 +406,7 @@ bool WheelBlockState::MaybeTimeout(const ScrollWheelInput& aEvent) {
     // early.
     TimeDuration duration = TimeStamp::Now() - mLastMouseMove;
     if (duration.ToMilliseconds() >=
-        StaticPrefs::MouseWheelIgnoreMoveDelayMs()) {
+        StaticPrefs::mousewheel_transaction_ignoremovedelay()) {
       TBS_LOG("%p wheel transaction timed out after mouse move\n", this);
       EndTransaction();
       return true;
@@ -423,13 +423,13 @@ bool WheelBlockState::MaybeTimeout(const TimeStamp& aTimeStamp) {
   // seen wheel event.
   TimeDuration duration = aTimeStamp - mLastEventTime;
   if (duration.ToMilliseconds() <
-      StaticPrefs::MouseWheelTransactionTimeoutMs()) {
+      StaticPrefs::mousewheel_transaction_timeout()) {
     return false;
   }
 
   TBS_LOG("%p wheel transaction timed out\n", this);
 
-  if (StaticPrefs::MouseScrollTestingEnabled()) {
+  if (StaticPrefs::test_mousescroll()) {
     RefPtr<AsyncPanZoomController> apzc = GetTargetApzc();
     apzc->NotifyMozMouseScrollEvent(
         NS_LITERAL_STRING("MozMouseScrollTransactionTimeout"));
@@ -454,7 +454,7 @@ void WheelBlockState::OnMouseMove(const ScreenIntPoint& aPoint) {
     TimeStamp now = TimeStamp::Now();
     TimeDuration duration = now - mLastEventTime;
     if (duration.ToMilliseconds() >=
-        StaticPrefs::MouseWheelIgnoreMoveDelayMs()) {
+        StaticPrefs::mousewheel_transaction_ignoremovedelay()) {
       mLastMouseMove = now;
     }
   }
@@ -783,8 +783,8 @@ Maybe<ScrollDirection> TouchBlockState::GetBestGuessPanDirection(
   angle = fabs(angle);                       // range [0, pi]
 
   double angleThreshold = TouchActionAllowsPanningXY()
-                              ? StaticPrefs::APZAxisLockAngle()
-                              : StaticPrefs::APZAllowedDirectPanAngle();
+                              ? StaticPrefs::apz_axis_lock_lock_angle()
+                              : StaticPrefs::apz_axis_lock_direct_pan_angle();
   if (apz::IsCloseToHorizontal(angle, angleThreshold)) {
     return Some(ScrollDirection::eHorizontal);
   }

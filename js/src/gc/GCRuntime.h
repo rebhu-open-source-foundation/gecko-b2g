@@ -51,14 +51,16 @@ class WeakCacheSweepIterator;
 enum IncrementalProgress { NotFinished = 0, Finished };
 
 // Interface to a sweep action.
-//
-// Note that we don't need perfect forwarding for args here because the
-// types are not deduced but come ultimately from the type of a function pointer
-// passed to SweepFunc.
-template <typename... Args>
 struct SweepAction {
+  // The arguments passed to each action.
+  struct Args {
+    GCRuntime* gc;
+    FreeOp* fop;
+    SliceBudget& budget;
+  };
+
   virtual ~SweepAction() {}
-  virtual IncrementalProgress run(Args... args) = 0;
+  virtual IncrementalProgress run(Args& state) = 0;
   virtual void assertFinished() const = 0;
   virtual bool shouldSkip() { return false; }
 };
@@ -317,6 +319,9 @@ class GCRuntime {
     return uid;
   }
 
+  void setLowMemoryState(bool newState) { lowMemoryState = newState; }
+  bool systemHasLowMemory() const { return lowMemoryState; }
+
 #ifdef DEBUG
   bool shutdownCollectedEverything() const { return arenasEmptyAtShutdown; }
 #endif
@@ -408,7 +413,6 @@ class GCRuntime {
       JS::GCNurseryCollectionCallback callback);
   JS::DoCycleCollectionCallback setDoCycleCollectionCallback(
       JS::DoCycleCollectionCallback callback);
-  void callDoCycleCollectionCallback(JSContext* cx);
 
   void setFullCompartmentChecks(bool enable);
 
@@ -428,7 +432,7 @@ class GCRuntime {
   uint64_t majorGCCount() const { return majorGCNumber; }
   void incMajorGcNumber() { ++majorGCNumber; }
 
-  int64_t defaultSliceBudget() const { return defaultTimeBudget_; }
+  int64_t defaultSliceBudgetMS() const { return defaultTimeBudgetMS_; }
 
   bool isIncrementalGc() const { return isIncremental; }
   bool isFullGc() const { return isFull; }
@@ -650,16 +654,13 @@ class GCRuntime {
   void sweepJitDataOnMainThread(FreeOp* fop);
   IncrementalProgress endSweepingSweepGroup(FreeOp* fop, SliceBudget& budget);
   IncrementalProgress performSweepActions(SliceBudget& sliceBudget);
-  IncrementalProgress sweepTypeInformation(FreeOp* fop, SliceBudget& budget,
-                                           Zone* zone);
+  IncrementalProgress sweepTypeInformation(FreeOp* fop, SliceBudget& budget);
   IncrementalProgress releaseSweptEmptyArenas(FreeOp* fop, SliceBudget& budget);
   void startSweepingAtomsTable();
   IncrementalProgress sweepAtomsTable(FreeOp* fop, SliceBudget& budget);
   IncrementalProgress sweepWeakCaches(FreeOp* fop, SliceBudget& budget);
-  IncrementalProgress finalizeAllocKind(FreeOp* fop, SliceBudget& budget,
-                                        Zone* zone, AllocKind kind);
-  IncrementalProgress sweepShapeTree(FreeOp* fop, SliceBudget& budget,
-                                     Zone* zone);
+  IncrementalProgress finalizeAllocKind(FreeOp* fop, SliceBudget& budget);
+  IncrementalProgress sweepShapeTree(FreeOp* fop, SliceBudget& budget);
   void endSweepPhase(bool lastGC);
   bool allCCVisibleZonesWereCollected() const;
   void sweepZones(FreeOp* fop, bool destroyingRuntime);
@@ -705,6 +706,7 @@ class GCRuntime {
   void callFinalizeCallbacks(FreeOp* fop, JSFinalizeStatus status) const;
   void callWeakPointerZonesCallbacks() const;
   void callWeakPointerCompartmentCallbacks(JS::Compartment* comp) const;
+  void callDoCycleCollectionCallback(JSContext* cx);
 
  public:
   JSRuntime* const rt;
@@ -897,9 +899,9 @@ class GCRuntime {
 
   MainThreadData<JS::Zone*> sweepGroups;
   MainThreadOrGCTaskData<JS::Zone*> currentSweepGroup;
-  MainThreadData<UniquePtr<SweepAction<GCRuntime*, FreeOp*, SliceBudget&>>>
-      sweepActions;
+  MainThreadData<UniquePtr<SweepAction>> sweepActions;
   MainThreadOrGCTaskData<JS::Zone*> sweepZone;
+  MainThreadOrGCTaskData<AllocKind> sweepAllocKind;
   MainThreadData<mozilla::Maybe<AtomsTable::SweepIterator>> maybeAtomsToSweep;
   MainThreadOrGCTaskData<JS::detail::WeakCacheBase*> sweepCache;
   MainThreadData<bool> hasMarkedGrayRoots;
@@ -931,10 +933,10 @@ class GCRuntime {
   /*
    * Default budget for incremental GC slice. See js/SliceBudget.h.
    *
-   * JSGC_SLICE_TIME_BUDGET
+   * JSGC_SLICE_TIME_BUDGET_MS
    * pref: javascript.options.mem.gc_incremental_slice_ms,
    */
-  MainThreadData<int64_t> defaultTimeBudget_;
+  MainThreadData<int64_t> defaultTimeBudgetMS_;
 
   /*
    * We disable incremental GC if we encounter a Class with a trace hook
@@ -1014,6 +1016,8 @@ class GCRuntime {
 
   /* Always preserve JIT code during GCs, for testing. */
   MainThreadData<bool> alwaysPreserveCode;
+
+  MainThreadData<bool> lowMemoryState;
 
 #ifdef DEBUG
   MainThreadData<bool> arenasEmptyAtShutdown;

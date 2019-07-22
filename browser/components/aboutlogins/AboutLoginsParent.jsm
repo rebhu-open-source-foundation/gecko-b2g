@@ -6,35 +6,66 @@
 
 var EXPORTED_SYMBOLS = ["AboutLoginsParent"];
 
-const {XPCOMUtils} = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "E10SUtils",
-                               "resource://gre/modules/E10SUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "Localization",
-                               "resource://gre/modules/Localization.jsm");
-ChromeUtils.defineModuleGetter(this, "LoginHelper",
-                               "resource://gre/modules/LoginHelper.jsm");
-ChromeUtils.defineModuleGetter(this, "MigrationUtils",
-                               "resource:///modules/MigrationUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "E10SUtils",
+  "resource://gre/modules/E10SUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "LoginHelper",
+  "resource://gre/modules/LoginHelper.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "MigrationUtils",
+  "resource:///modules/MigrationUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "RemoteSettings",
+  "resource://services-settings/remote-settings.js"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
 
 XPCOMUtils.defineLazyGetter(this, "log", () => {
   return LoginHelper.createLogger("AboutLoginsParent");
 });
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "BREACH_ALERTS_ENABLED",
+  "signon.management.page.breach-alerts.enabled",
+  false
+);
 
 const ABOUT_LOGINS_ORIGIN = "about:logins";
 const MASTER_PASSWORD_NOTIFICATION_ID = "master-password-login-required";
 
 const PRIVILEGEDABOUT_PROCESS_PREF =
   "browser.tabs.remote.separatePrivilegedContentProcess";
-const PRIVILEGEDABOUT_PROCESS_ENABLED =
-  Services.prefs.getBoolPref(PRIVILEGEDABOUT_PROCESS_PREF, false);
+const PRIVILEGEDABOUT_PROCESS_ENABLED = Services.prefs.getBoolPref(
+  PRIVILEGEDABOUT_PROCESS_PREF,
+  false
+);
+
+const FEEDBACK_URL_PREF = "signon.management.page.feedbackURL";
+const FEEDBACK_URL = Services.urlFormatter.formatURLPref(FEEDBACK_URL_PREF);
+
+const FAQ_URL_PREF = "signon.management.page.faqURL";
+const FAQ_URL = Services.prefs.getStringPref(FAQ_URL_PREF);
 
 // When the privileged content process is enabled, we expect about:logins
 // to load in it. Otherwise, it's in a normal web content process.
-const EXPECTED_ABOUTLOGINS_REMOTE_TYPE =
-  PRIVILEGEDABOUT_PROCESS_ENABLED ? E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE
-                                  : E10SUtils.DEFAULT_REMOTE_TYPE;
+const EXPECTED_ABOUTLOGINS_REMOTE_TYPE = PRIVILEGEDABOUT_PROCESS_ENABLED
+  ? E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE
+  : E10SUtils.DEFAULT_REMOTE_TYPE;
 
 const isValidLogin = login => {
   return !(login.origin || "").startsWith("chrome://");
@@ -49,15 +80,16 @@ const convertSubjectToLogin = subject => {
   return augmentVanillaLoginObject(login);
 };
 
+const SCHEME_REGEX = new RegExp(/^http(s)?:\/\//);
+const SUBDOMAIN_REGEX = new RegExp(/^www\d*\./);
 const augmentVanillaLoginObject = login => {
   let title;
   try {
-    title = (new URL(login.origin)).host;
+    title = new URL(login.origin).host;
   } catch (ex) {
-    title = login.origin;
+    title = login.origin.replace(SCHEME_REGEX, "");
   }
-  title = title.replace(/^http(s)?:\/\//, "").
-                replace(/^www\d*\./, "");
+  title = title.replace(SUBDOMAIN_REGEX, "");
   return Object.assign({}, login, {
     title,
   });
@@ -68,10 +100,12 @@ var AboutLoginsParent = {
   _subscribers: new WeakSet(),
 
   // Listeners are added in BrowserGlue.jsm
-  receiveMessage(message) {
+  async receiveMessage(message) {
     // Only respond to messages sent from about:logins.
-    if (message.target.remoteType != EXPECTED_ABOUTLOGINS_REMOTE_TYPE ||
-        message.target.contentPrincipal.originNoSuffix != ABOUT_LOGINS_ORIGIN) {
+    if (
+      message.target.remoteType != EXPECTED_ABOUTLOGINS_REMOTE_TYPE ||
+      message.target.contentPrincipal.originNoSuffix != ABOUT_LOGINS_ORIGIN
+    ) {
       return;
     }
 
@@ -81,7 +115,9 @@ var AboutLoginsParent = {
         // Remove the path from the origin, if it was provided.
         let origin = LoginHelper.getLoginOrigin(newLogin.origin);
         if (!origin) {
-          Cu.reportError("AboutLogins:CreateLogin: Unable to get an origin from the login details.");
+          Cu.reportError(
+            "AboutLogins:CreateLogin: Unable to get an origin from the login details."
+          );
           return;
         }
         newLogin.origin = origin;
@@ -100,11 +136,24 @@ var AboutLoginsParent = {
       }
       case "AboutLogins:Import": {
         try {
-          MigrationUtils.showMigrationWizard(message.target.ownerGlobal,
-                                             [MigrationUtils.MIGRATION_ENTRYPOINT_PASSWORDS]);
+          MigrationUtils.showMigrationWizard(message.target.ownerGlobal, [
+            MigrationUtils.MIGRATION_ENTRYPOINT_PASSWORDS,
+          ]);
         } catch (ex) {
           Cu.reportError(ex);
         }
+        break;
+      }
+      case "AboutLogins:OpenFeedback": {
+        message.target.ownerGlobal.openWebLinkIn(FEEDBACK_URL, "tab", {
+          relatedToCurrent: true,
+        });
+        break;
+      }
+      case "AboutLogins:OpenFAQ": {
+        message.target.ownerGlobal.openWebLinkIn(FAQ_URL, "tab", {
+          relatedToCurrent: true,
+        });
         break;
       }
       case "AboutLogins:OpenPreferences": {
@@ -113,17 +162,25 @@ var AboutLoginsParent = {
       }
       case "AboutLogins:OpenSite": {
         let guid = message.data.login.guid;
-        let logins = LoginHelper.searchLoginsWithObject({guid});
+        let logins = LoginHelper.searchLoginsWithObject({ guid });
         if (logins.length != 1) {
-          log.warn(`AboutLogins:OpenSite: expected to find a login for guid: ${guid} but found ${logins.length}`);
+          log.warn(
+            `AboutLogins:OpenSite: expected to find a login for guid: ${guid} but found ${
+              logins.length
+            }`
+          );
           return;
         }
 
-        message.target.ownerGlobal.openWebLinkIn(logins[0].origin, "tab", {relatedToCurrent: true});
+        message.target.ownerGlobal.openWebLinkIn(logins[0].origin, "tab", {
+          relatedToCurrent: true,
+        });
         break;
       }
       case "AboutLogins:Subscribe": {
-        if (!ChromeUtils.nondeterministicGetWeakSetKeys(this._subscribers).length) {
+        if (
+          !ChromeUtils.nondeterministicGetWeakSetKeys(this._subscribers).length
+        ) {
           Services.obs.addObserver(this, "passwordmgr-crypto-login");
           Services.obs.addObserver(this, "passwordmgr-crypto-loginCanceled");
           Services.obs.addObserver(this, "passwordmgr-storage-changed");
@@ -131,14 +188,35 @@ var AboutLoginsParent = {
         this._subscribers.add(message.target);
 
         let messageManager = message.target.messageManager;
-        messageManager.sendAsyncMessage("AboutLogins:AllLogins", this.getAllLogins());
+        this.getAllLogins().then(async logins => {
+          messageManager.sendAsyncMessage("AboutLogins:AllLogins", logins);
+          if (!BREACH_ALERTS_ENABLED) {
+            return;
+          }
+
+          const breaches = await RemoteSettings("fxmonitor-breaches").get();
+          const breachesByLoginGUID = await this.getBreachesForLogins(
+            logins,
+            breaches
+          );
+          messageManager.sendAsyncMessage(
+            "AboutLogins:UpdateBreaches",
+            breachesByLoginGUID
+          );
+        });
         break;
       }
       case "AboutLogins:UpdateLogin": {
         let loginUpdates = message.data.login;
-        let logins = LoginHelper.searchLoginsWithObject({guid: loginUpdates.guid});
+        let logins = LoginHelper.searchLoginsWithObject({
+          guid: loginUpdates.guid,
+        });
         if (logins.length != 1) {
-          log.warn(`AboutLogins:UpdateLogin: expected to find a login for guid: ${loginUpdates.guid} but found ${logins.length}`);
+          log.warn(
+            `AboutLogins:UpdateLogin: expected to find a login for guid: ${
+              loginUpdates.guid
+            } but found ${logins.length}`
+          );
           return;
         }
 
@@ -156,7 +234,7 @@ var AboutLoginsParent = {
     }
   },
 
-  observe(subject, topic, type) {
+  async observe(subject, topic, type) {
     if (!ChromeUtils.nondeterministicGetWeakSetKeys(this._subscribers).length) {
       Services.obs.removeObserver(this, "passwordmgr-crypto-login");
       Services.obs.removeObserver(this, "passwordmgr-crypto-loginCanceled");
@@ -166,7 +244,10 @@ var AboutLoginsParent = {
 
     if (topic == "passwordmgr-crypto-login") {
       this.removeMasterPasswordLoginNotifications();
-      this.messageSubscribers("AboutLogins:AllLogins", this.getAllLogins());
+      this.messageSubscribers(
+        "AboutLogins:AllLogins",
+        await this.getAllLogins()
+      );
       return;
     }
 
@@ -207,17 +288,17 @@ var AboutLoginsParent = {
   },
 
   async showMasterPasswordLoginNotifications() {
-    if (!this._l10n) {
-      this._l10n = new Localization(["browser/aboutLogins.ftl"]);
-    }
-
-    let messageString = await this._l10n.formatValue("master-password-notification-message");
     for (let subscriber of this._subscriberIterator()) {
+      let MozXULElement = subscriber.ownerGlobal.MozXULElement;
+      MozXULElement.insertFTLIfNeeded("browser/aboutLogins.ftl");
+
       // If there's already an existing notification bar, don't do anything.
-      let {gBrowser} = subscriber.ownerGlobal;
+      let { gBrowser } = subscriber.ownerGlobal;
       let browser = subscriber;
       let notificationBox = gBrowser.getNotificationBox(browser);
-      let notification = notificationBox.getNotificationWithValue(MASTER_PASSWORD_NOTIFICATION_ID);
+      let notification = notificationBox.getNotificationWithValue(
+        MASTER_PASSWORD_NOTIFICATION_ID
+      );
       if (notification) {
         continue;
       }
@@ -225,27 +306,41 @@ var AboutLoginsParent = {
       // Configure the notification bar
       let priority = notificationBox.PRIORITY_WARNING_MEDIUM;
       let iconURL = "chrome://browser/skin/login.svg";
-      let reloadLabel = await this._l10n.formatValue("master-password-reload-button-label");
-      let reloadKey = await this._l10n.formatValue("master-password-reload-button-accesskey");
 
-      let buttons = [{
-        label: reloadLabel,
-        accessKey: reloadKey,
-        popup: null,
-        callback() { browser.reload(); },
-      }];
+      let doc = subscriber.ownerDocument;
+      let messageFragment = doc.createDocumentFragment();
+      let message = doc.createElement("span");
+      doc.l10n.setAttributes(message, "master-password-notification-message");
+      messageFragment.appendChild(message);
 
-      notification = notificationBox.appendNotification(messageString, MASTER_PASSWORD_NOTIFICATION_ID,
-                                                        iconURL, priority, buttons);
+      let buttons = [
+        {
+          "l10n-id": "master-password-reload-button",
+          popup: null,
+          callback() {
+            browser.reload();
+          },
+        },
+      ];
+
+      notification = notificationBox.appendNotification(
+        messageFragment,
+        MASTER_PASSWORD_NOTIFICATION_ID,
+        iconURL,
+        priority,
+        buttons
+      );
     }
   },
 
   removeMasterPasswordLoginNotifications() {
     for (let subscriber of this._subscriberIterator()) {
-      let {gBrowser} = subscriber.ownerGlobal;
+      let { gBrowser } = subscriber.ownerGlobal;
       let browser = subscriber;
       let notificationBox = gBrowser.getNotificationBox(browser);
-      let notification = notificationBox.getNotificationWithValue(MASTER_PASSWORD_NOTIFICATION_ID);
+      let notification = notificationBox.getNotificationWithValue(
+        MASTER_PASSWORD_NOTIFICATION_ID
+      );
       if (!notification) {
         continue;
       }
@@ -253,12 +348,16 @@ var AboutLoginsParent = {
     }
   },
 
-  * _subscriberIterator() {
-    let subscribers = ChromeUtils.nondeterministicGetWeakSetKeys(this._subscribers);
+  *_subscriberIterator() {
+    let subscribers = ChromeUtils.nondeterministicGetWeakSetKeys(
+      this._subscribers
+    );
     for (let subscriber of subscribers) {
-      if (subscriber.remoteType != EXPECTED_ABOUTLOGINS_REMOTE_TYPE ||
-          !subscriber.contentPrincipal ||
-          subscriber.contentPrincipal.originNoSuffix != ABOUT_LOGINS_ORIGIN) {
+      if (
+        subscriber.remoteType != EXPECTED_ABOUTLOGINS_REMOTE_TYPE ||
+        !subscriber.contentPrincipal ||
+        subscriber.contentPrincipal.originNoSuffix != ABOUT_LOGINS_ORIGIN
+      ) {
         this._subscribers.delete(subscriber);
         continue;
       }
@@ -274,11 +373,38 @@ var AboutLoginsParent = {
     }
   },
 
-  getAllLogins() {
-    return Services.logins
-                   .getAllLogins()
-                   .filter(isValidLogin)
-                   .map(LoginHelper.loginToVanillaObject)
-                   .map(augmentVanillaLoginObject);
+  async getAllLogins() {
+    try {
+      let logins = await Services.logins.getAllLoginsAsync();
+      return logins
+        .filter(isValidLogin)
+        .map(LoginHelper.loginToVanillaObject)
+        .map(augmentVanillaLoginObject);
+    } catch (e) {
+      if (e.result == Cr.NS_ERROR_ABORT) {
+        // If the user cancels the MP prompt then return no logins.
+        return [];
+      }
+      throw e;
+    }
+  },
+
+  async getBreachesForLogins(logins, breaches) {
+    const breachesByLoginGUID = new Map();
+    for (const login of logins) {
+      const loginURI = Services.io.newURI(login.origin);
+      for (const breach of breaches) {
+        if (!breach.Domain) {
+          continue;
+        }
+        if (
+          Services.eTLD.hasRootDomain(loginURI.host, breach.Domain) &&
+          login.timePasswordChanged < new Date(breach.BreachDate).getTime()
+        ) {
+          breachesByLoginGUID.set(login.guid, breach);
+        }
+      }
+    }
+    return breachesByLoginGUID;
   },
 };

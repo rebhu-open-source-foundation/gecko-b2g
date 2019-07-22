@@ -1,4 +1,8 @@
-import {ModalOverlay} from "../../components/ModalOverlay/ModalOverlay";
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+import { ModalOverlay } from "../../components/ModalOverlay/ModalOverlay";
 import React from "react";
 
 const FLUENT_FILES = [
@@ -14,7 +18,7 @@ export class OnboardingCard extends React.PureComponent {
   }
 
   onClick() {
-    const {props} = this;
+    const { props } = this;
     const ping = {
       event: "CLICK_BUTTON",
       message_id: props.id,
@@ -25,20 +29,28 @@ export class OnboardingCard extends React.PureComponent {
   }
 
   render() {
-    const {content} = this.props;
+    const { content } = this.props;
     const className = this.props.className || "onboardingMessage";
     return (
       <div className={className}>
         <div className={`onboardingMessageImage ${content.icon}`} />
         <div className="onboardingContent">
           <span>
-            <h3 className="onboardingTitle" data-l10n-id={content.title.string_id} />
-            <p className="onboardingText" data-l10n-id={content.text.string_id} />
+            <h3
+              className="onboardingTitle"
+              data-l10n-id={content.title.string_id}
+            />
+            <p
+              className="onboardingText"
+              data-l10n-id={content.text.string_id}
+            />
           </span>
           <span className="onboardingButtonContainer">
-            <button data-l10n-id={content.primary_button.label.string_id}
+            <button
+              data-l10n-id={content.primary_button.label.string_id}
               className="button onboardingButton"
-              onClick={this.onClick} />
+              onClick={this.onClick}
+            />
           </span>
         </div>
       </div>
@@ -56,17 +68,19 @@ export class OnboardingMessage extends React.PureComponent {
   }
 
   render() {
-    const {props} = this;
-    const {button_label, header} = props.extraTemplateStrings;
+    const { props } = this;
+    const { button_label, header } = props.extraTemplateStrings;
     return (
-      <ModalOverlay {...props} button_label={button_label} title={header} >
+      <ModalOverlay {...props} button_label={button_label} title={header}>
         <div className="onboardingMessageContainer">
           {props.bundle.map(message => (
-            <OnboardingCard key={message.id}
+            <OnboardingCard
+              key={message.id}
               sendUserActionTelemetry={props.sendUserActionTelemetry}
               onAction={props.onAction}
               UISurface={props.UISurface}
-              {...message} />
+              {...message}
+            />
           ))}
         </div>
       </ModalOverlay>

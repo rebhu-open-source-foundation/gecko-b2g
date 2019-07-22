@@ -145,7 +145,6 @@ nsPresContext::nsPresContext(dom::Document* aDocument, nsPresContextType aType)
       mDocument(aDocument),
       mMedium(aType == eContext_Galley ? nsGkAtoms::screen : nsGkAtoms::print),
       mMediaEmulated(mMedium),
-      mLinkHandler(nullptr),
       mInflationDisabledForShrinkWrap(false),
       mSystemFontScale(1.0),
       mTextZoom(1.0),
@@ -1015,7 +1014,6 @@ static bool CheckOverflow(ComputedStyle* aComputedStyle,
                           ScrollStyles* aStyles) {
   const nsStyleDisplay* display = aComputedStyle->StyleDisplay();
   if (display->mOverflowX == StyleOverflow::Visible &&
-      display->mScrollBehavior == NS_STYLE_SCROLL_BEHAVIOR_AUTO &&
       display->mOverscrollBehaviorX == StyleOverscrollBehavior::Auto &&
       display->mOverscrollBehaviorY == StyleOverscrollBehavior::Auto &&
       display->mScrollSnapType.strictness == StyleScrollSnapStrictness::None) {
@@ -1132,9 +1130,6 @@ nsISupports* nsPresContext::GetContainerWeak() const { return GetDocShell(); }
 nsIDocShell* nsPresContext::GetDocShell() const {
   return mDocument->GetDocShell();
 }
-
-/* virtual */
-void nsPresContext::Detach() { SetLinkHandler(nullptr); }
 
 bool nsPresContext::BidiEnabled() const { return Document()->GetBidiEnabled(); }
 
@@ -2475,12 +2470,6 @@ nsRootPresContext::~nsRootPresContext() {
   CancelApplyPluginGeometryTimer();
 }
 
-/* virtual */
-void nsRootPresContext::Detach() {
-  // XXXmats maybe also CancelApplyPluginGeometryTimer(); ?
-  nsPresContext::Detach();
-}
-
 void nsRootPresContext::RegisterPluginForGeometryUpdates(nsIContent* aPlugin) {
   mRegisteredPlugins.PutEntry(aPlugin);
 }
@@ -2713,6 +2702,27 @@ void nsRootPresContext::CollectPluginGeometryUpdates(
 #endif  // #ifndef XP_MACOSX
 }
 
+void nsRootPresContext::AddWillPaintObserver(nsIRunnable* aRunnable) {
+  if (!mWillPaintFallbackEvent.IsPending()) {
+    mWillPaintFallbackEvent = new RunWillPaintObservers(this);
+    Document()->Dispatch(TaskCategory::Other,
+                         do_AddRef(mWillPaintFallbackEvent));
+  }
+  mWillPaintObservers.AppendElement(aRunnable);
+}
+
+/**
+ * Run all runnables that need to get called before the next paint.
+ */
+void nsRootPresContext::FlushWillPaintObservers() {
+  mWillPaintFallbackEvent = nullptr;
+  nsTArray<nsCOMPtr<nsIRunnable>> observers;
+  observers.SwapElements(mWillPaintObservers);
+  for (uint32_t i = 0; i < observers.Length(); ++i) {
+    observers[i]->Run();
+  }
+}
+
 size_t nsRootPresContext::SizeOfExcludingThis(
     MallocSizeOf aMallocSizeOf) const {
   return nsPresContext::SizeOfExcludingThis(aMallocSizeOf);
@@ -2720,4 +2730,6 @@ size_t nsRootPresContext::SizeOfExcludingThis(
   // Measurement of the following members may be added later if DMD finds it is
   // worthwhile:
   // - mRegisteredPlugins
+  // - mWillPaintObservers
+  // - mWillPaintFallbackEvent
 }

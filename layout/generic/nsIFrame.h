@@ -600,6 +600,7 @@ class nsIFrame : public nsQueryFrame {
         mMayHaveTransformAnimation(false),
         mMayHaveOpacityAnimation(false),
         mAllDescendantsAreInvisible(false),
+        mHasBSizeChange(false),
         mInScrollAnchorChain(false) {
     MOZ_ASSERT(mComputedStyle);
     MOZ_ASSERT(mPresContext);
@@ -2128,12 +2129,10 @@ class nsIFrame : public nsQueryFrame {
   /**
    * Flow member functions
    */
-  virtual nsIFrame* GetPrevInFlowVirtual() const = 0;
-  nsIFrame* GetPrevInFlow() const { return GetPrevInFlowVirtual(); }
+  virtual nsIFrame* GetPrevInFlow() const = 0;
   virtual void SetPrevInFlow(nsIFrame*) = 0;
 
-  virtual nsIFrame* GetNextInFlowVirtual() const = 0;
-  nsIFrame* GetNextInFlow() const { return GetNextInFlowVirtual(); }
+  virtual nsIFrame* GetNextInFlow() const = 0;
   virtual void SetNextInFlow(nsIFrame*) = 0;
 
   /**
@@ -2157,6 +2156,12 @@ class nsIFrame : public nsQueryFrame {
    * directly; PresShell::FrameNeedsReflow() will call it instead.
    */
   virtual void MarkIntrinsicISizesDirty() = 0;
+
+  /**
+   * Make this frame and all descendants dirty (if not already).
+   * Exceptions: XULBoxFrame and TableColGroupFrame children.
+   */
+  void MarkSubtreeDirty();
 
   /**
    * Get the min-content intrinsic inline size of the frame.  This must be
@@ -4182,6 +4187,11 @@ class nsIFrame : public nsQueryFrame {
     mMayHaveWillChangeBudget = aHasBudget;
   }
 
+  bool HasBSizeChange() const { return mHasBSizeChange; }
+  void SetHasBSizeChange(bool aHasBSizeChange) {
+    mHasBSizeChange = aHasBSizeChange;
+  }
+
   /**
    * Returns the hit test area of the frame.
    */
@@ -4400,6 +4410,8 @@ class nsIFrame : public nsQueryFrame {
    * child. This flag is stil false in such case.
    */
   bool mAllDescendantsAreInvisible : 1;
+
+  bool mHasBSizeChange : 1;
 
   /**
    * True if we are or contain the scroll anchor for a scrollable frame.

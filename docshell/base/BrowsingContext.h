@@ -51,6 +51,7 @@ template <typename>
 struct Nullable;
 template <typename T>
 class Sequence;
+class StructuredCloneHolder;
 struct WindowPostMessageOptions;
 class WindowProxyHolder;
 
@@ -104,6 +105,13 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
     return Get(aId);
   }
 
+  static already_AddRefed<BrowsingContext> GetFromWindow(
+      WindowProxyHolder& aProxy);
+  static already_AddRefed<BrowsingContext> GetFromWindow(
+      GlobalObject&, WindowProxyHolder& aProxy) {
+    return GetFromWindow(aProxy);
+  }
+
   // Create a brand-new BrowsingContext object.
   static already_AddRefed<BrowsingContext> Create(BrowsingContext* aParent,
                                                   BrowsingContext* aOpener,
@@ -117,6 +125,11 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // process? This may be true with a null mDocShell after the Window has been
   // closed.
   bool IsInProcess() const { return mIsInProcess; }
+
+  // Has this BrowsingContext been discarded. A discarded browsing context has
+  // been destroyed, and may not be available on the other side of an IPC
+  // message.
+  bool IsDiscarded() const { return mIsDiscarded; }
 
   // Get the DocShell for this BrowsingContext if it is in-process, or
   // null if it's not.
@@ -148,10 +161,6 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // Prepare this BrowsingContext to leave the current process.
   void PrepareForProcessChange();
 
-  // Detach the current BrowsingContext's children, in both the child
-  // and the parent process.
-  void DetachChildren(bool aFromIPC = false);
-
   // Remove all children from the current BrowsingContext and cache
   // them to allow them to be attached again.
   void CacheChildren(bool aFromIPC = false);
@@ -162,6 +171,10 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // Determine if the current BrowsingContext was 'cached' by the logic in
   // CacheChildren.
   bool IsCached();
+
+  // Check that this browsing context is targetable for navigations (i.e. that
+  // it is neither closed, cached, nor discarded).
+  bool IsTargetable();
 
   const nsString& Name() const { return mName; }
   void GetName(nsAString& aName) { aName = mName; }
@@ -269,6 +282,12 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
                       nsIPrincipal& aSubjectPrincipal, ErrorResult& aError);
 
   JSObject* WrapObject(JSContext* aCx);
+
+  static JSObject* ReadStructuredClone(JSContext* aCx,
+                                       JSStructuredCloneReader* aReader,
+                                       StructuredCloneHolder* aHolder);
+  bool WriteStructuredClone(JSContext* aCx, JSStructuredCloneWriter* aWriter,
+                            StructuredCloneHolder* aHolder);
 
   void StartDelayedAutoplayMediaComponents();
 
@@ -382,8 +401,6 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // Performs access control to check that 'this' can access 'aContext'.
   bool CanAccess(BrowsingContext* aContext);
 
-  bool IsActive() const;
-
   // Removes the context from its group and sets mIsDetached to true.
   void Unregister();
 
@@ -469,8 +486,8 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // closed.
   bool mIsInProcess : 1;
 
-  // Has this browsing context been detached? BrowsingContexts should
-  // only be detached once.
+  // Has this browsing context been discarded? BrowsingContexts should
+  // only be discarded once.
   bool mIsDiscarded : 1;
 };
 
@@ -482,8 +499,13 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
  * lives in this process, and a same-process WindowProxy should be used (see
  * nsGlobalWindowOuter). This should only be called by bindings code, ToJSValue
  * is the right API to get a WindowProxy for a BrowsingContext.
+ *
+ * If aTransplantTo is non-null, then the WindowProxy object will eventually be
+ * transplanted onto it. Therefore it should be used as the value in the remote
+ * proxy map.
  */
 extern bool GetRemoteOuterWindowProxy(JSContext* aCx, BrowsingContext* aContext,
+                                      JS::Handle<JSObject*> aTransplantTo,
                                       JS::MutableHandle<JSObject*> aRetVal);
 
 typedef BrowsingContext::Transaction BrowsingContextTransaction;

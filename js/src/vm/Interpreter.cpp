@@ -26,6 +26,7 @@
 #include "builtin/ModuleObject.h"
 #include "builtin/Promise.h"
 #include "builtin/String.h"
+#include "debugger/Debugger.h"
 #include "jit/AtomicOperations.h"
 #include "jit/BaselineJIT.h"
 #include "jit/Ion.h"
@@ -37,7 +38,6 @@
 #include "vm/AsyncIteration.h"
 #include "vm/BigIntType.h"
 #include "vm/BytecodeUtil.h"
-#include "vm/Debugger.h"
 #include "vm/EqualityOperations.h"  // js::StrictlyEqual
 #include "vm/GeneratorObject.h"
 #include "vm/Iteration.h"
@@ -54,8 +54,8 @@
 #include "vm/TraceLogging.h"
 
 #include "builtin/Boolean-inl.h"
+#include "debugger/Debugger-inl.h"
 #include "jit/JitFrames-inl.h"
-#include "vm/Debugger-inl.h"
 #include "vm/EnvironmentObject-inl.h"
 #include "vm/GeckoProfiler-inl.h"
 #include "vm/JSAtom-inl.h"
@@ -973,6 +973,7 @@ static void PopEnvironment(JSContext* cx, EnvironmentIter& ei) {
     case ScopeKind::Catch:
     case ScopeKind::NamedLambda:
     case ScopeKind::StrictNamedLambda:
+    case ScopeKind::FunctionLexical:
       if (MOZ_UNLIKELY(cx->realm()->isDebuggee())) {
         DebugEnvironments::onPopLexical(cx, ei);
       }
@@ -1971,18 +1972,12 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
 
     CASE(JSOP_LOOPENTRY) {
       COUNT_COVERAGE();
-      // Attempt on-stack replacement with Baseline code.
-      if (jit::IsBaselineEnabled(cx)) {
+      // Attempt on-stack replacement into the Baseline Interpreter.
+      if (jit::IsBaselineInterpreterEnabled()) {
         script->incWarmUpCounter();
 
-        using Tier = jit::BaselineTier;
-        bool tryBaselineInterpreter = (jit::JitOptions.baselineInterpreter &&
-                                       !script->hasBaselineScript());
         jit::MethodStatus status =
-            tryBaselineInterpreter
-                ? jit::CanEnterBaselineAtBranch<Tier::Interpreter>(cx,
-                                                                   REGS.fp())
-                : jit::CanEnterBaselineAtBranch<Tier::Compiler>(cx, REGS.fp());
+            jit::CanEnterBaselineInterpreterAtBranch(cx, REGS.fp());
         if (status == jit::Method_Error) {
           goto error;
         }
@@ -1992,7 +1987,8 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
           jit::JitExecStatus maybeOsr;
           {
             GeckoProfilerBaselineOSRMarker osr(cx, wasProfiler);
-            maybeOsr = jit::EnterBaselineAtBranch(cx, REGS.fp(), REGS.pc);
+            maybeOsr =
+                jit::EnterBaselineInterpreterAtBranch(cx, REGS.fp(), REGS.pc);
           }
 
           // We failed to call into baseline at all, so treat as an error.

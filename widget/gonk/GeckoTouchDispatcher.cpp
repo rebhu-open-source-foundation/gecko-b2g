@@ -77,7 +77,7 @@ GeckoTouchDispatcher::GeckoTouchDispatcher()
   MOZ_ASSERT(sTouchDispatcher == nullptr);
   MOZ_ASSERT(NS_IsMainThread());
 
-  mEnabledUniformityInfo = StaticPrefs::UniformityInfo();
+  mEnabledUniformityInfo = true; /* StaticPrefs::UniformityInfo(); */
   mVsyncAdjust = TimeDuration::FromMilliseconds(0/*gfxPrefs::TouchVsyncSampleAdjust()*/);
   mMaxPredict = TimeDuration::FromMilliseconds(0/*gfxPrefs::TouchResampleMaxPredict()*/);
   mMinDelta = TimeDuration::FromMilliseconds(0/*gfxPrefs::TouchResampleMinDelta()*/);

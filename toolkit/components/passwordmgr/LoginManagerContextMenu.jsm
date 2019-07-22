@@ -6,13 +6,24 @@
 
 const EXPORTED_SYMBOLS = ["LoginManagerContextMenu"];
 
-const {XPCOMUtils} = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-ChromeUtils.defineModuleGetter(this, "LoginHelper",
-                               "resource://gre/modules/LoginHelper.jsm");
-ChromeUtils.defineModuleGetter(this, "LoginManagerParent",
-                               "resource://gre/modules/LoginManagerParent.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "LoginHelper",
+  "resource://gre/modules/LoginHelper.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "LoginManagerParent",
+  "resource://gre/modules/LoginManagerParent.jsm"
+);
+XPCOMUtils.defineLazyGetter(this, "log", () => {
+  return LoginHelper.createLogger("LoginManagerContextMenu");
+});
 
 /**
  * Password manager object for the browser contextual menu.
@@ -50,16 +61,26 @@ this.LoginManagerContextMenu = {
           username = this._getLocalizedString("noUsername");
         }
         let meta = login.QueryInterface(Ci.nsILoginMetaInfo);
-        let time = this.dateAndTimeFormatter.format(new Date(meta.timePasswordChanged));
+        let time = this.dateAndTimeFormatter.format(
+          new Date(meta.timePasswordChanged)
+        );
         username = this._getLocalizedString("loginHostAge", [username, time]);
       }
       item.setAttribute("label", username);
       item.setAttribute("class", "context-login-item");
 
       // login is bound so we can keep the reference to each object.
-      item.addEventListener("command", function(login, event) {
-        this._fillTargetField(login, inputElementIdentifier, browser, documentURI);
-      }.bind(this, login));
+      item.addEventListener(
+        "command",
+        function(login, event) {
+          this._fillTargetField(
+            login,
+            inputElementIdentifier,
+            browser,
+            documentURI
+          );
+        }.bind(this, login)
+      );
 
       fragment.appendChild(item);
     }
@@ -80,6 +101,34 @@ this.LoginManagerContextMenu = {
     }
   },
 
+  async fillGeneratedPassword(inputElementIdentifier, documentURI, browser) {
+    let password = LoginManagerParent.getGeneratedPassword(
+      inputElementIdentifier.browsingContextId
+    );
+    let origin = LoginHelper.getLoginOrigin(documentURI.spec);
+    log.debug("fillGeneratedPassword into:", inputElementIdentifier, origin);
+
+    let recipes = [];
+    let formHost;
+    try {
+      formHost = documentURI.hostPort;
+      let recipeManager = await LoginManagerParent.recipeParentPromise;
+      recipes = recipeManager.getRecipesForHost(formHost);
+    } catch (ex) {
+      // Some schemes e.g. chrome aren't supported by URL
+      log.debug("Couldnt get recipes for formHost:", formHost, ex);
+    }
+    browser.messageManager.sendAsyncMessage(
+      "PasswordManager:fillGeneratedPassword",
+      {
+        password,
+        origin,
+        inputElementIdentifier,
+        recipes,
+      }
+    );
+  },
+
   /**
    * Find logins for the current URI.
    *
@@ -96,11 +145,13 @@ this.LoginManagerContextMenu = {
       schemeUpgrades: LoginHelper.schemeUpgrades,
     };
     let logins = LoginHelper.searchLoginsWithObject(searchParams);
-    let resolveBy = [
-      "scheme",
-      "timePasswordChanged",
-    ];
-    logins = LoginHelper.dedupeLogins(logins, ["username", "password"], resolveBy, documentURI.displayPrePath);
+    let resolveBy = ["scheme", "timePasswordChanged"];
+    logins = LoginHelper.dedupeLogins(
+      logins,
+      ["username", "password"],
+      resolveBy,
+      documentURI.displayPrePath
+    );
 
     // Sort logins in alphabetical order and by date.
     logins.sort((loginA, loginB) => {
@@ -184,13 +235,22 @@ this.LoginManagerContextMenu = {
   },
 };
 
-XPCOMUtils.defineLazyGetter(LoginManagerContextMenu, "_stringBundle", function() {
-  return Services.strings.
-         createBundle("chrome://passwordmgr/locale/passwordmgr.properties");
-});
+XPCOMUtils.defineLazyGetter(
+  LoginManagerContextMenu,
+  "_stringBundle",
+  function() {
+    return Services.strings.createBundle(
+      "chrome://passwordmgr/locale/passwordmgr.properties"
+    );
+  }
+);
 
-XPCOMUtils.defineLazyGetter(LoginManagerContextMenu, "dateAndTimeFormatter", function() {
-  return new Services.intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-  });
-});
+XPCOMUtils.defineLazyGetter(
+  LoginManagerContextMenu,
+  "dateAndTimeFormatter",
+  function() {
+    return new Services.intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+    });
+  }
+);

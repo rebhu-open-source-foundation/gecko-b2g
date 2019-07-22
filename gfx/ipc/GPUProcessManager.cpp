@@ -406,8 +406,8 @@ void GPUProcessManager::OnProcessLaunchComplete(GPUProcessHost* aHost) {
 static bool ShouldLimitDeviceResets(uint32_t count, int32_t deltaMilliseconds) {
   // We decide to limit by comparing the amount of resets that have happened
   // and time since the last reset to two prefs.
-  int32_t timeLimit = StaticPrefs::DeviceResetThresholdMilliseconds();
-  int32_t countLimit = StaticPrefs::DeviceResetLimitCount();
+  int32_t timeLimit = StaticPrefs::gfx_device_reset_threshold_ms();
+  int32_t countLimit = StaticPrefs::gfx_device_reset_limit();
 
   bool hasTimeLimit = timeLimit >= 0;
   bool hasCountLimit = countLimit >= 0;
@@ -472,6 +472,11 @@ void GPUProcessManager::DisableWebRender(wr::WebRenderError aError) {
         .ForceDisable(gfx::FeatureStatus::Unavailable,
                       "Failed to render WebRender",
                       NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_RENDER"));
+  } else if (aError == wr::WebRenderError::NEW_SURFACE) {
+    gfx::gfxConfig::GetFeature(gfx::Feature::WEBRENDER)
+        .ForceDisable(
+            gfx::FeatureStatus::Unavailable, "Failed to create new surface",
+            NS_LITERAL_CSTRING("FEATURE_FAILURE_WEBRENDER_NEW_SURFACE"));
   } else {
     MOZ_ASSERT_UNREACHABLE("Invalid value");
   }
@@ -506,6 +511,11 @@ void GPUProcessManager::OnRemoteProcessDeviceReset(GPUProcessHost* aHost) {
   // Detect whether the device is resetting too quickly or too much
   // indicating that we should give up and use software
   mDeviceResetCount++;
+
+  // Disable double buffering when device reset happens.
+  if (!gfxVars::UseWebRender() && gfxVars::UseDoubleBufferingWithCompositor()) {
+    gfxVars::SetUseDoubleBufferingWithCompositor(false);
+  }
 
   auto newTime = TimeStamp::Now();
   auto delta = (int32_t)(newTime - mDeviceResetLastTime).ToMilliseconds();
@@ -544,13 +554,15 @@ void GPUProcessManager::OnProcessUnexpectedShutdown(GPUProcessHost* aHost) {
   CompositorManagerChild::OnGPUProcessLost(aHost->GetProcessToken());
   DestroyProcess();
 
-  if (mNumProcessAttempts > uint32_t(StaticPrefs::GPUProcessMaxRestarts())) {
+  if (mNumProcessAttempts >
+      uint32_t(StaticPrefs::layers_gpu_process_max_restarts())) {
     char disableMessage[64];
     SprintfLiteral(disableMessage, "GPU process disabled after %d attempts",
                    mNumProcessAttempts);
     DisableGPUProcess(disableMessage);
   } else if (mNumProcessAttempts >
-                 uint32_t(StaticPrefs::GPUProcessMaxRestartsWithDecoder()) &&
+                 uint32_t(StaticPrefs::
+                              layers_gpu_process_max_restarts_with_decoder()) &&
              mDecodeVideoOnGpuProcess) {
     mDecodeVideoOnGpuProcess = false;
     Telemetry::Accumulate(Telemetry::GPU_PROCESS_CRASH_FALLBACKS,
@@ -1000,7 +1012,7 @@ bool GPUProcessManager::CreateContentVRManager(
 void GPUProcessManager::CreateContentRemoteDecoderManager(
     base::ProcessId aOtherProcess,
     ipc::Endpoint<PRemoteDecoderManagerChild>* aOutEndpoint) {
-  if (!EnsureGPUReady() || !StaticPrefs::MediaGpuProcessDecoder() ||
+  if (!EnsureGPUReady() || !StaticPrefs::media_gpu_process_decoder() ||
       !mDecodeVideoOnGpuProcess) {
     return;
   }

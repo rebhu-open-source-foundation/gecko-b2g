@@ -542,7 +542,7 @@ interface MozInputContext: EventTarget {
   Promise<boolean> setComposition(DOMString text,
                                   optional long cursor,
                                   optional sequence<CompositionClauseParameters> clauses,
-                                  optional MozInputMethodKeyboardEventDict dict);
+                                  optional MozInputMethodKeyboardEventDict dict = {});
 
   /**
    * End composition, clear the composing text and commit given text to
@@ -562,7 +562,7 @@ interface MozInputContext: EventTarget {
    * cursor, changing the focus, etc.
    */
   Promise<boolean> endComposition(optional DOMString text,
-                                  optional MozInputMethodKeyboardEventDict dict);
+                                  optional MozInputMethodKeyboardEventDict dict = {});
 
   /**
    * Delete a text/node/selection before the cursor

@@ -38,6 +38,7 @@ EXPORTS.mozilla.intl += [
     'LocaleService.h',
     'MozLocale.h',
     'OSPreferences.h',
+    'Quotes.h',
 ]
 
 UNIFIED_SOURCES += [
@@ -49,6 +50,7 @@ UNIFIED_SOURCES += [
     'nsLanguageAtomService.cpp',
     'nsUConvPropertySearch.cpp',
     'OSPreferences.cpp',
+    'Quotes.cpp',
 ]
 
 EXTRA_JS_MODULES += [

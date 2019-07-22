@@ -213,11 +213,11 @@
 }
 
 #toolbox-buttons-start > .devtools-separator {
-  --separator-inline-margin: 0;
+  margin-inline: 0;
 }
 
 #toolbox-buttons-end > .devtools-separator {
-  --separator-inline-margin: 5px;
+  margin-inline: 5px;
 }
 
 #toolbox-close::before {
@@ -390,6 +390,15 @@
  */
 .toolbox-panel[selected] * {
   -moz-user-focus: normal;
+}
+
+/* Let the component gain focus when a click hits an empty area */
+#toolbox-container {
+  -moz-user-focus: normal;
+}
+
+#toolbox-container:focus {
+  outline: 0;
 }
 
 /* Toolbox tabs reordering */

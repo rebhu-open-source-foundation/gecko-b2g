@@ -834,13 +834,15 @@ static bool RecomputePosition(nsIFrame* aFrame) {
   LogicalSize lcbSize(frameWM, cbSize);
   ReflowInput reflowInput(aFrame->PresContext(), parentReflowInput, aFrame,
                           availSize, Some(lcbSize));
-  nsSize computedSize(reflowInput.ComputedWidth(),
-                      reflowInput.ComputedHeight());
-  computedSize.width += reflowInput.ComputedPhysicalBorderPadding().LeftRight();
-  if (computedSize.height != NS_UNCONSTRAINEDSIZE) {
-    computedSize.height +=
-        reflowInput.ComputedPhysicalBorderPadding().TopBottom();
+  nscoord computedISize = reflowInput.ComputedISize();
+  nscoord computedBSize = reflowInput.ComputedBSize();
+  computedISize +=
+      reflowInput.ComputedLogicalBorderPadding().IStartEnd(frameWM);
+  if (computedBSize != NS_UNCONSTRAINEDSIZE) {
+    computedBSize +=
+        reflowInput.ComputedLogicalBorderPadding().BStartEnd(frameWM);
   }
+  LogicalSize logicalSize = aFrame->GetLogicalSize(frameWM);
   nsSize size = aFrame->GetSize();
   // The RecomputePosition hint is not used if any offset changed between auto
   // and non-auto. If computedSize.height == NS_UNCONSTRAINEDSIZE then the new
@@ -848,11 +850,14 @@ static bool RecomputePosition(nsIFrame* aFrame) {
   // auto-ness hasn't changed, the old height must also be its intrinsic
   // height, which we can assume hasn't changed (or reflow would have
   // been triggered).
-  if (computedSize.width == size.width &&
-      (computedSize.height == NS_UNCONSTRAINEDSIZE ||
-       computedSize.height == size.height)) {
+  if (computedISize == logicalSize.ISize(frameWM) &&
+      (computedBSize == NS_UNCONSTRAINEDSIZE ||
+       computedBSize == logicalSize.BSize(frameWM))) {
     // If we're solving for 'left' or 'top', then compute it here, in order to
     // match the reflow code path.
+    //
+    // TODO(emilio): It'd be nice if this did logical math instead, but it seems
+    // to me the math should work out on vertical writing modes as well.
     if (NS_AUTOOFFSET == reflowInput.ComputedPhysicalOffsets().left) {
       reflowInput.ComputedPhysicalOffsets().left =
           cbSize.width - reflowInput.ComputedPhysicalOffsets().right -
@@ -1071,10 +1076,8 @@ static void DoApplyRenderingChangeToTree(nsIFrame* aFrame,
         aFrame->InvalidateFrameSubtree();
       }
     }
-    nsIFrame* primaryFrame =
-        nsLayoutUtils::GetPrimaryFrameFromStyleFrame(aFrame);
     if ((aChange & nsChangeHint_UpdateTransformLayer) &&
-        primaryFrame->IsTransformed()) {
+        aFrame->IsTransformed()) {
       // Note: All the transform-like properties should map to the same
       // layer activity index, so does the restyle count. Therefore, using
       // eCSSProperty_transform should be fine.
@@ -1085,15 +1088,14 @@ static void DoApplyRenderingChangeToTree(nsIFrame* aFrame,
       // paint.
       if (!needInvalidatingPaint) {
         nsDisplayItem::Layer* layer;
-        needInvalidatingPaint |= !primaryFrame->TryUpdateTransformOnly(&layer);
+        needInvalidatingPaint |= !aFrame->TryUpdateTransformOnly(&layer);
 
         if (!needInvalidatingPaint) {
           // Since we're not going to paint, we need to resend animation
           // data to the layer.
           MOZ_ASSERT(layer, "this can't happen if there's no layer");
           nsDisplayListBuilder::AddAnimationsAndTransitionsToLayer(
-              layer, nullptr, nullptr, primaryFrame,
-              DisplayItemType::TYPE_TRANSFORM);
+              layer, nullptr, nullptr, aFrame, DisplayItemType::TYPE_TRANSFORM);
         }
       }
     }
@@ -1192,10 +1194,10 @@ static void ApplyRenderingChangeToTree(PresShell* aPresShell, nsIFrame* aFrame,
                                        nsChangeHint aChange) {
   // We check StyleDisplay()->HasTransformStyle() in addition to checking
   // IsTransformed() since we can get here for some frames that don't support
-  // CSS transforms.
+  // CSS transforms, and table frames, which are their own odd-ball, since the
+  // transform is handled by their wrapper, which _also_ gets a separate hint.
   NS_ASSERTION(!(aChange & nsChangeHint_UpdateTransformLayer) ||
-                   nsLayoutUtils::GetPrimaryFrameFromStyleFrame(aFrame)
-                       ->IsTransformed() ||
+                   aFrame->IsTransformed() ||
                    aFrame->StyleDisplay()->HasTransformStyle(),
                "Unexpected UpdateTransformLayer hint");
 
@@ -1269,6 +1271,10 @@ static void StyleChangeReflow(nsIFrame* aFrame, nsChangeHint aHint) {
     dirtyType = IntrinsicDirty::TreeChange;
   } else {
     dirtyType = IntrinsicDirty::Resize;
+  }
+
+  if (aHint & nsChangeHint_UpdateComputedBSize) {
+    aFrame->SetHasBSizeChange(true);
   }
 
   nsFrameState dirtyBits;
@@ -1526,15 +1532,9 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
       }
     }
 
-    // Transforms are applied to the primary frame only but transform-related
-    // change hints (e.g. those due to animation) are generally only applied to
-    // the style frame. As a result, we need to look up the primary frame so we
-    // can apply the appropriate frame bits there.
-    nsIFrame* primaryFrame = content ? content->GetPrimaryFrame() : nullptr;
-
-    if (primaryFrame && (hint & nsChangeHint_AddOrRemoveTransform) &&
+    if ((hint & nsChangeHint_AddOrRemoveTransform) && frame &&
         !(hint & nsChangeHint_ReconstructFrame)) {
-      for (nsIFrame* cont = primaryFrame; cont;
+      for (nsIFrame* cont = frame; cont;
            cont = nsLayoutUtils::GetNextContinuationOrIBSplitSibling(cont)) {
         if (cont->StyleDisplay()->HasTransform(cont)) {
           cont->AddStateBits(NS_FRAME_MAY_BE_TRANSFORMED);
@@ -1571,17 +1571,16 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
               nsChangeHint_UpdateSubtreeOverflow);
       }
 
-      if (primaryFrame &&
-          !(primaryFrame->GetStateBits() & NS_FRAME_MAY_BE_TRANSFORMED)) {
+      if (!(frame->GetStateBits() & NS_FRAME_MAY_BE_TRANSFORMED)) {
         // Frame can not be transformed, and thus a change in transform will
         // have no effect and we should not use the
         // nsChangeHint_UpdatePostTransformOverflow hint.
         hint &= ~nsChangeHint_UpdatePostTransformOverflow;
       }
 
-      if ((hint & nsChangeHint_UpdateTransformLayer) && primaryFrame &&
-          !(primaryFrame->GetStateBits() & NS_FRAME_MAY_BE_TRANSFORMED) &&
-          primaryFrame->HasAnimationOfTransform()) {
+      if ((hint & nsChangeHint_UpdateTransformLayer) &&
+          !(frame->GetStateBits() & NS_FRAME_MAY_BE_TRANSFORMED) &&
+          frame->HasAnimationOfTransform()) {
         // If we have an nsChangeHint_UpdateTransformLayer hint but no
         // corresponding frame bit, we most likely have a transform animation
         // that was added or updated after this frame was created (otherwise
@@ -1591,7 +1590,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
         // hint).
         //
         // In that case we should set the frame bit.
-        for (nsIFrame* cont = primaryFrame; cont;
+        for (nsIFrame* cont = frame; cont;
              cont = nsLayoutUtils::GetNextContinuationOrIBSplitSibling(cont)) {
           cont->AddStateBits(NS_FRAME_MAY_BE_TRANSFORMED);
         }
@@ -1702,7 +1701,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
                    nsChangeHint_UpdateParentOverflow |
                    nsChangeHint_UpdateSubtreeOverflow))) {
         if (hint & nsChangeHint_UpdateSubtreeOverflow) {
-          for (nsIFrame* cont = primaryFrame; cont;
+          for (nsIFrame* cont = frame; cont;
                cont =
                    nsLayoutUtils::GetNextContinuationOrIBSplitSibling(cont)) {
             AddSubtreeToOverflowTracker(cont, mOverflowChangedTracker);
@@ -1762,8 +1761,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
         }
         // If |frame| is dirty or has dirty children, we don't bother updating
         // overflows since that will happen when it's reflowed.
-        if (primaryFrame &&
-            !(primaryFrame->GetStateBits() &
+        if (!(frame->GetStateBits() &
               (NS_FRAME_IS_DIRTY | NS_FRAME_HAS_DIRTY_CHILDREN))) {
           if (hint & (nsChangeHint_UpdateOverflow |
                       nsChangeHint_UpdatePostTransformOverflow)) {
@@ -1777,7 +1775,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
             } else {
               changeKind = OverflowChangedTracker::TRANSFORM_CHANGED;
             }
-            for (nsIFrame* cont = primaryFrame; cont;
+            for (nsIFrame* cont = frame; cont;
                  cont =
                      nsLayoutUtils::GetNextContinuationOrIBSplitSibling(cont)) {
               mOverflowChangedTracker.AddFrame(cont, changeKind);
@@ -1790,7 +1788,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
           if (hint & nsChangeHint_UpdateParentOverflow) {
             MOZ_ASSERT(frame->GetParent(),
                        "shouldn't get style hints for the root frame");
-            for (nsIFrame* cont = primaryFrame; cont;
+            for (nsIFrame* cont = frame; cont;
                  cont =
                      nsLayoutUtils::GetNextContinuationOrIBSplitSibling(cont)) {
               mOverflowChangedTracker.AddFrame(
@@ -1835,9 +1833,12 @@ void RestyleManager::IncrementAnimationGeneration() {
 
 /* static */
 void RestyleManager::AddLayerChangesForAnimation(
-    nsIFrame* aStyleFrame, nsIContent* aContent, nsChangeHint aHintForThisFrame,
+    nsIFrame* aStyleFrame, nsIFrame* aPrimaryFrame,
+    Element* aElement, nsChangeHint aHintForThisFrame,
     nsStyleChangeList& aChangeListToProcess) {
-  if (!aStyleFrame || !aContent) {
+  MOZ_ASSERT(aElement);
+  MOZ_ASSERT(!!aStyleFrame == !!aPrimaryFrame);
+  if (!aStyleFrame) {
     return;
   }
 
@@ -1918,11 +1919,13 @@ void RestyleManager::AddLayerChangesForAnimation(
   };
 
   AnimationInfo::EnumerateGenerationOnFrame(
-      aStyleFrame, aContent, LayerAnimationInfo::sDisplayItemTypes,
+      aStyleFrame, aElement, LayerAnimationInfo::sDisplayItemTypes,
       maybeApplyChangeHint);
 
   if (hint) {
-    aChangeListToProcess.AppendChange(aStyleFrame, aContent, hint);
+    // We apply the hint to the primary frame, not the style frame. Transform
+    // and opacity hints apply to the table wrapper box, not the table box.
+    aChangeListToProcess.AppendChange(aPrimaryFrame, aElement, hint);
   }
 }
 
@@ -2431,7 +2434,7 @@ struct RestyleManager::TextPostTraversalState {
   ComputedStyle& ParentStyle() {
     if (!mParentContext) {
       mLazilyResolvedParentContext =
-          mParentRestyleState.StyleSet().ResolveServoStyle(mParentElement);
+          ServoStyleSet::ResolveServoStyle(mParentElement);
       mParentContext = mLazilyResolvedParentContext;
     }
     return *mParentContext;
@@ -2668,8 +2671,7 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
       static_cast<nsChangeHint>(Servo_TakeChangeHint(aElement, &wasRestyled));
 
   RefPtr<ComputedStyle> upToDateStyleIfRestyled =
-      wasRestyled ? aRestyleState.StyleSet().ResolveServoStyle(*aElement)
-                  : nullptr;
+      wasRestyled ? ServoStyleSet::ResolveServoStyle(*aElement) : nullptr;
 
   // We should really fix the weird primary frame mapping for image maps
   // (bug 135040)...
@@ -2739,11 +2741,24 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
   // XXXbholley: We should teach the frame constructor how to clear the dirty
   // descendants bit to avoid the traversal here.
   if (changeHint & nsChangeHint_ReconstructFrame) {
-    if (wasRestyled && styleFrame &&
-        styleFrame->StyleDisplay()->IsAbsolutelyPositionedStyle() !=
-            upToDateStyleIfRestyled->StyleDisplay()
-                ->IsAbsolutelyPositionedStyle()) {
-      aRestyleState.AddPendingScrollAnchorSuppression(styleFrame);
+    if (wasRestyled && styleFrame) {
+      auto* oldDisp = styleFrame->StyleDisplay();
+      auto* newDisp = upToDateStyleIfRestyled->StyleDisplay();
+      // https://drafts.csswg.org/css-scroll-anchoring/#suppression-triggers
+      //
+      // We need to do the position check here rather than in
+      // DidSetComputedStyle because changing position reframes.
+      //
+      // Don't suppress adjustments when going back to display: none, regardless
+      // of whether we're abspos changes.
+      //
+      // TODO(emilio): I _think_ chrome won't suppress adjustments whenever
+      // `display` changes. But ICBW.
+      if (newDisp->mDisplay != StyleDisplay::None &&
+          oldDisp->IsAbsolutelyPositionedStyle() !=
+              newDisp->IsAbsolutelyPositionedStyle()) {
+        aRestyleState.AddPendingScrollAnchorSuppression(styleFrame);
+      }
     }
     ClearRestyleStateFromSubtree(aElement);
     return true;
@@ -2767,8 +2782,7 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
   const bool isDisplayContents = !styleFrame && aElement->HasServoData() &&
                                  Servo_Element_IsDisplayContents(aElement);
   if (isDisplayContents) {
-    oldOrDisplayContentsStyle =
-        aRestyleState.StyleSet().ResolveServoStyle(*aElement);
+    oldOrDisplayContentsStyle = ServoStyleSet::ResolveServoStyle(*aElement);
   }
 
   Maybe<ServoRestyleState> thisFrameRestyleState;
@@ -2832,7 +2846,7 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
     // Since AddLayerChangesForAnimation checks if |styleFrame| has a transform
     // style or not, we need to call it *after* setting |newStyle| to
     // |styleFrame| to ensure the animated transform has been removed first.
-    AddLayerChangesForAnimation(styleFrame, aElement, changeHint,
+    AddLayerChangesForAnimation(styleFrame, primaryFrame, aElement, changeHint,
                                 aRestyleState.ChangeList());
 
     childrenFlags |=

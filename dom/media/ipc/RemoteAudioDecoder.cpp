@@ -6,7 +6,10 @@
 #include "RemoteAudioDecoder.h"
 
 #include "RemoteDecoderManagerChild.h"
+#include "OpusDecoder.h"
 #include "VorbisDecoder.h"
+#include "WAVDecoder.h"
+
 #include "mozilla/PodOperations.h"
 
 namespace mozilla {
@@ -58,9 +61,8 @@ MediaResult RemoteAudioDecoderChild::InitIPDL(
   nsCString errorDescription;
   nsCString blacklistedD3D11Driver;
   nsCString blacklistedD3D9Driver;
-  layers::TextureFactoryIdentifier defaultIdent;
   if (manager->SendPRemoteDecoderConstructor(
-          this, aAudioInfo, aOptions, defaultIdent, &success,
+          this, aAudioInfo, aOptions, Nothing(), &success,
           &blacklistedD3D11Driver, &blacklistedD3D9Driver, &errorDescription)) {
     mCanSend = true;
   }
@@ -84,6 +86,10 @@ RemoteAudioDecoderParent::RemoteAudioDecoderParent(
 
   if (VorbisDataDecoder::IsVorbis(params.mConfig.mMimeType)) {
     mDecoder = new VorbisDataDecoder(params);
+  } else if (OpusDataDecoder::IsOpus(params.mConfig.mMimeType)) {
+    mDecoder = new OpusDataDecoder(params);
+  } else if (WaveDataDecoder::IsWave(params.mConfig.mMimeType)) {
+    mDecoder = new WaveDataDecoder(params);
   }
 
   if (NS_FAILED(error)) {

@@ -125,9 +125,9 @@ typedef enum JSGCParamKey {
    * Max milliseconds to spend in an incremental GC slice.
    *
    * Pref: javascript.options.mem.gc_incremental_slice_ms
-   * Default: DefaultTimeBudget.
+   * Default: DefaultTimeBudgetMS.
    */
-  JSGC_SLICE_TIME_BUDGET = 9,
+  JSGC_SLICE_TIME_BUDGET_MS = 9,
 
   /**
    * Maximum size the GC mark stack can grow to.
@@ -921,6 +921,8 @@ class JS_PUBLIC_API AutoCheckCannotGC : public AutoRequireNoGC {
   explicit AutoCheckCannotGC(JSContext* cx = nullptr) {}
 } JS_HAZ_GC_INVALIDATED;
 #endif
+
+extern JS_PUBLIC_API void SetLowMemoryState(JSContext* cx, bool newState);
 
 /*
  * Internal to Firefox.

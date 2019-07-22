@@ -23,15 +23,19 @@ namespace dom {
 
 class WeakWorkerRef;
 
-class BodyStreamHolder {
+class BodyStreamHolder : public nsISupports {
  public:
-  NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_CLASS(BodyStreamHolder)
 
   virtual void NullifyStream() = 0;
 
   virtual void MarkAsRead() = 0;
 
-  virtual JSObject* ReadableStreamBody() = 0;
+  virtual JSObject* GetReadableStreamBody() = 0;
+
+ protected:
+  virtual ~BodyStreamHolder() = default;
 };
 
 class BodyStream final : public nsIInputStreamCallback,
@@ -43,6 +47,16 @@ class BodyStream final : public nsIInputStreamCallback,
   NS_DECL_NSIINPUTSTREAMCALLBACK
   NS_DECL_NSIOBSERVER
 
+  // This method creates a JS ReadableStream object and it makes a CC cycle
+  // between it and the aStreamHolder.
+  // The aStreamHolder must do the following operations after calling this
+  // method:
+  // - it must store the JS ReadableStream and returns it in
+  //   BodyStreamHolder::GetReadableStreamBody().
+  // - it must trace the JS ReadableStream.
+  // - if the operation has to be aborted, or the stream has to be released for
+  //   any reason, the aStreamHolder must call
+  //   JS::ReadableStreamReleaseCCObject().
   static void Create(JSContext* aCx, BodyStreamHolder* aStreamHolder,
                      nsIGlobalObject* aGlobal, nsIInputStream* aInputStream,
                      JS::MutableHandle<JSObject*> aStream, ErrorResult& aRv);

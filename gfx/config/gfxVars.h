@@ -40,8 +40,9 @@ class gfxVarReceiver;
   _(DXP016Blocked, bool, false)                                    \
   _(UseWebRender, bool, false)                                     \
   _(UseWebRenderANGLE, bool, false)                                \
+  _(UseWebRenderFlipSequentialWin, bool, false)                    \
   _(UseWebRenderDCompWin, bool, false)                             \
-  _(UseWebRenderDCompWinTripleBuffering, bool, false)              \
+  _(UseWebRenderTripleBufferingWin, bool, false)                   \
   _(UseWebRenderProgramBinaryDisk, bool, false)                    \
   _(WebRenderDebugFlags, int32_t, 0)                               \
   _(ScreenDepth, int32_t, 0)                                       \
@@ -53,8 +54,9 @@ class gfxVarReceiver;
   _(LayersWindowRecordingPath, nsCString, nsCString())             \
   _(RemoteCanvasEnabled, bool, false)                              \
   _(DisableGralloc, bool, false)                                   \
-  _(GrallocFenceWithReadPixels, bool, false)
-  
+  _(GrallocFenceWithReadPixels, bool, false)                       \
+  _(UseDoubleBufferingWithCompositor, bool, false)
+
 /* Add new entries above this line. */
 
 // Some graphics settings are computed on the UI process and must be

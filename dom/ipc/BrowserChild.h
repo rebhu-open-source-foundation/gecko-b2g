@@ -239,6 +239,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     return mBrowserChildMessageManager;
   }
 
+  bool IsTopLevel() const { return mIsTopLevel; }
+
   /**
    * MessageManagerCallback methods that we override.
    */
@@ -254,9 +256,9 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                                       JS::Handle<JSObject*> aCpows,
                                       nsIPrincipal* aPrincipal) override;
 
-  bool DoUpdateZoomConstraints(
-      const uint32_t& aPresShellId, const ViewID& aViewId,
-      const Maybe<ZoomConstraints>& aConstraints);
+  bool DoUpdateZoomConstraints(const uint32_t& aPresShellId,
+                               const ViewID& aViewId,
+                               const Maybe<ZoomConstraints>& aConstraints);
 
   mozilla::ipc::IPCResult RecvLoadURL(const nsCString& aURI,
                                       const ShowInfo& aInfo);
@@ -357,6 +359,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   mozilla::ipc::IPCResult RecvFlushTabState(const uint32_t& aFlushId,
                                             const bool& aIsFinal);
 
+  mozilla::ipc::IPCResult RecvUpdateEpoch(const uint32_t& aEpoch);
+
   mozilla::ipc::IPCResult RecvNativeSynthesisResponse(
       const uint64_t& aObserverId, const nsCString& aResponse);
 
@@ -389,7 +393,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                                                const bool& aRunInGlobalScope);
 
   mozilla::ipc::IPCResult RecvAsyncMessage(const nsString& aMessage,
-                                           InfallibleTArray<CpowEntry>&& aCpows,
+                                           nsTArray<CpowEntry>&& aCpows,
                                            nsIPrincipal* aPrincipal,
                                            const ClonedMessageData& aData);
   mozilla::ipc::IPCResult RecvSwappedWithOtherRemoteLoader(
@@ -419,14 +423,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   bool IsTransparent() const { return mIsTransparent; }
 
   const EffectsInfo& GetEffectsInfo() const { return mEffectsInfo; }
-
-  void GetMaxTouchPoints(uint32_t* aTouchPoints) {
-    *aTouchPoints = mMaxTouchPoints;
-  }
-
-  void SetMaxTouchPoints(uint32_t aMaxTouchPoints) {
-    mMaxTouchPoints = aMaxTouchPoints;
-  }
 
   hal::ScreenOrientation GetOrientation() const { return mOrientation; }
 
@@ -549,7 +545,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   ScreenIntSize GetInnerSize();
 
-  LayoutDeviceIntRect GetVisibleRect();
+  Maybe<LayoutDeviceIntRect> GetVisibleRect() const;
 
   // Call RecvShow(nsIntSize(0, 0)) and block future calls to RecvShow().
   void DoFakeShow(const ShowInfo& aShowInfo);
@@ -683,14 +679,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
       const bool& aEnabled, const bool& aForce,
       const layers::LayersObserverEpoch& aEpoch);
 
-  mozilla::ipc::IPCResult RecvRequestRootPaint(
-      const IntRect& aRect, const float& aScale,
-      const nscolor& aBackgroundColor, RequestRootPaintResolver&& aResolve);
-
-  mozilla::ipc::IPCResult RecvRequestSubPaint(
-      const float& aScale, const nscolor& aBackgroundColor,
-      RequestSubPaintResolver&& aResolve);
-
   mozilla::ipc::IPCResult RecvNavigateByKey(const bool& aForward,
                                             const bool& aForDocumentNavigation);
 
@@ -817,7 +805,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   uint32_t mChromeFlags;
   uint32_t mMaxTouchPoints;
   layers::LayersId mLayersId;
-  int64_t mBeforeUnloadListeners;
   CSSRect mUnscaledOuterRect;
   Maybe<bool> mLayersConnected;
   EffectsInfo mEffectsInfo;

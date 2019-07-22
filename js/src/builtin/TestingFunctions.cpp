@@ -37,6 +37,7 @@
 #  include "irregexp/RegExpEngine.h"
 #  include "irregexp/RegExpParser.h"
 #endif
+#include "debugger/Debugger.h"
 #include "gc/Heap.h"
 #include "jit/BaselineJIT.h"
 #include "jit/InlinableNatives.h"
@@ -65,7 +66,6 @@
 #include "util/Text.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
-#include "vm/Debugger.h"
 #include "vm/GlobalObject.h"
 #include "vm/Interpreter.h"
 #include "vm/Iteration.h"
@@ -84,8 +84,8 @@
 #include "wasm/WasmTextToBinary.h"
 #include "wasm/WasmTypes.h"
 
+#include "debugger/Debugger-inl.h"
 #include "vm/Compartment-inl.h"
-#include "vm/Debugger-inl.h"
 #include "vm/EnvironmentObject-inl.h"
 #include "vm/JSContext-inl.h"
 #include "vm/JSObject-inl.h"
@@ -503,7 +503,7 @@ static bool MinorGC(JSContext* cx, unsigned argc, Value* vp) {
   _("mode", JSGC_MODE, true)                                                 \
   _("unusedChunks", JSGC_UNUSED_CHUNKS, false)                               \
   _("totalChunks", JSGC_TOTAL_CHUNKS, false)                                 \
-  _("sliceTimeBudget", JSGC_SLICE_TIME_BUDGET, true)                         \
+  _("sliceTimeBudgetMS", JSGC_SLICE_TIME_BUDGET_MS, true)                    \
   _("markStackLimit", JSGC_MARK_STACK_LIMIT, true)                           \
   _("highFrequencyTimeLimit", JSGC_HIGH_FREQUENCY_TIME_LIMIT, true)          \
   _("highFrequencyLowLimit", JSGC_HIGH_FREQUENCY_LOW_LIMIT, true)            \
@@ -730,7 +730,8 @@ static bool WasmBulkMemSupported(JSContext* cx, unsigned argc, Value* vp) {
   }
 #  endif
 #else
-  bool isSupported = false;
+  bool isSupported =
+      cx->realm()->creationOptions().getSharedMemoryAndAtomicsEnabled();
 #endif
   args.rval().setBoolean(isSupported);
   return true;
@@ -2811,7 +2812,7 @@ static_assert(JitWarmupResetLimit <=
 static bool testingFunc_inJit(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  if (!jit::IsBaselineEnabled(cx)) {
+  if (!jit::IsBaselineJitEnabled()) {
     return ReturnStringCopy(cx, args, "Baseline is disabled.");
   }
 
@@ -2839,7 +2840,7 @@ static bool testingFunc_inJit(JSContext* cx, unsigned argc, Value* vp) {
 static bool testingFunc_inIon(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  if (!jit::IsIonEnabled(cx)) {
+  if (!jit::IsIonEnabled()) {
     return ReturnStringCopy(cx, args, "Ion is disabled.");
   }
 
@@ -3675,7 +3676,7 @@ struct FindPathHandler {
     // Have we reached our final target node?
     if (edge.referent == target) {
       // Record the path that got us here, which must be a shortest path.
-      if (!recordPath(traversal)) {
+      if (!recordPath(traversal, backEdge)) {
         return false;
       }
       foundPath = true;
@@ -3688,17 +3689,24 @@ struct FindPathHandler {
   // We've found a path to our target. Walk the backlinks to produce the
   // (reversed) path, saving the path in |nodes| and |edges|. |nodes| is
   // rooted, so it can hold the path's nodes as we leave the scope of
-  // the AutoCheckCannotGC.
-  bool recordPath(Traversal& traversal) {
+  // the AutoCheckCannotGC. Note that nodes are added to |visited| after we
+  // return from operator() so we have to pass the target BackEdge* to this
+  // function.
+  bool recordPath(Traversal& traversal, BackEdge* targetBackEdge) {
     JS::ubi::Node here = target;
 
     do {
-      Traversal::NodeMap::Ptr p = traversal.visited.lookup(here);
-      MOZ_ASSERT(p);
-      JS::ubi::Node predecessor = p->value().predecessor();
+      BackEdge* backEdge = targetBackEdge;
+      if (here != target) {
+        Traversal::NodeMap::Ptr p = traversal.visited.lookup(here);
+        MOZ_ASSERT(p);
+        backEdge = &p->value();
+      }
+      JS::ubi::Node predecessor = backEdge->predecessor();
       if (!nodes.append(predecessor.exposeToJS()) ||
-          !edges.append(p->value().forgetName()))
+          !edges.append(backEdge->forgetName())) {
         return false;
+      }
       here = predecessor;
     } while (here != start);
 
@@ -5709,7 +5717,7 @@ static bool BaselineCompile(JSContext* cx, unsigned argc, Value* vp) {
       return true;
     }
 
-    if (!jit::IsBaselineEnabled(cx)) {
+    if (!jit::IsBaselineJitEnabled()) {
       returnedStr = "baseline disabled";
       break;
     }

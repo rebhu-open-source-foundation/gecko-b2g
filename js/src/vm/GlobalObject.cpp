@@ -25,10 +25,10 @@
 #include "builtin/TypedObject.h"
 #include "builtin/WeakMapObject.h"
 #include "builtin/WeakSetObject.h"
+#include "debugger/Debugger.h"
 #include "gc/FreeOp.h"
 #include "js/ProtoKey.h"
 #include "vm/DateObject.h"
-#include "vm/Debugger.h"
 #include "vm/EnvironmentObject.h"
 #include "vm/HelperThreads.h"
 #include "vm/JSContext.h"
@@ -36,6 +36,7 @@
 #include "vm/RegExpStatics.h"
 #include "vm/RegExpStaticsObject.h"
 
+#include "gc/FreeOp-inl.h"
 #include "vm/JSObject-inl.h"
 #include "vm/JSScript-inl.h"
 #include "vm/NativeObject-inl.h"
@@ -842,8 +843,9 @@ bool js::DefineToStringTag(JSContext* cx, HandleObject obj, JSAtom* tag) {
 
 static void GlobalDebuggees_finalize(FreeOp* fop, JSObject* obj) {
   MOZ_ASSERT(fop->maybeOnHelperThread());
-  fop->delete_(
-      (GlobalObject::DebuggerVector*)obj->as<NativeObject>().getPrivate());
+  void* ptr = obj->as<NativeObject>().getPrivate();
+  auto debuggers = static_cast<GlobalObject::DebuggerVector*>(ptr);
+  fop->delete_(obj, debuggers, MemoryUse::GlobalDebuggerVector);
 }
 
 static const ClassOps GlobalDebuggees_classOps = {nullptr,
@@ -880,11 +882,11 @@ GlobalObject::DebuggerVector* GlobalObject::getDebuggers() const {
   if (!obj) {
     return nullptr;
   }
-  debuggers = cx->new_<DebuggerVector>();
+  debuggers = cx->new_<DebuggerVector>(cx->zone());
   if (!debuggers) {
     return nullptr;
   }
-  obj->setPrivate(debuggers);
+  InitObjectPrivate(obj, debuggers, MemoryUse::GlobalDebuggerVector);
   global->setReservedSlot(DEBUGGERS, ObjectValue(*obj));
   return debuggers;
 }

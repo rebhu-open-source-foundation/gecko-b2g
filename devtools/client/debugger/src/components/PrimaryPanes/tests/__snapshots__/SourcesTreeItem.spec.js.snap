@@ -15,6 +15,7 @@ Object {
     <Connect(SourceIcon)
       source={
         Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -48,6 +49,7 @@ Object {
       "focusItem": [MockFunction],
       "item": Object {
         "contents": Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -66,6 +68,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -84,6 +87,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -97,6 +101,7 @@ Object {
           item={
             Object {
               "contents": Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -117,6 +122,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -152,6 +158,7 @@ Object {
           <Connect(SourceIcon)
             source={
               Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -175,6 +182,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -183,6 +191,7 @@ Object {
     "focusItem": [MockFunction],
     "item": Object {
       "contents": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -201,6 +210,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -236,6 +246,7 @@ Object {
     <Connect(SourceIcon)
       source={
         Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -275,6 +286,7 @@ Object {
       "hasMatchingGeneratedSource": true,
       "item": Object {
         "contents": Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -294,6 +306,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -312,6 +325,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -326,6 +340,7 @@ Object {
           item={
             Object {
               "contents": Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -347,6 +362,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -382,6 +398,7 @@ Object {
           <Connect(SourceIcon)
             source={
               Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -410,6 +427,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -419,6 +437,7 @@ Object {
     "hasMatchingGeneratedSource": true,
     "item": Object {
       "contents": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -438,6 +457,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -473,6 +493,7 @@ Object {
     <Connect(SourceIcon)
       source={
         Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -507,6 +528,7 @@ Object {
       "focusItem": [MockFunction],
       "item": Object {
         "contents": Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -526,6 +548,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -544,6 +567,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -558,6 +582,7 @@ Object {
           item={
             Object {
               "contents": Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -579,6 +604,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -614,6 +640,7 @@ Object {
           <Connect(SourceIcon)
             source={
               Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -637,6 +664,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -646,6 +674,7 @@ Object {
     "focusItem": [MockFunction],
     "item": Object {
       "contents": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -665,6 +694,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -731,6 +761,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -749,6 +780,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -774,6 +806,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -820,6 +853,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -838,6 +872,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -905,6 +940,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -923,6 +959,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -949,6 +986,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -995,6 +1033,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -1014,6 +1053,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -1089,6 +1129,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -1149,6 +1190,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -1223,6 +1265,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -1241,6 +1284,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -1265,6 +1309,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -1311,6 +1356,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -1328,6 +1374,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -1401,6 +1448,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -1459,6 +1507,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -1541,6 +1590,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -1601,6 +1651,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -1676,6 +1727,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -1694,6 +1746,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -1719,6 +1772,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -1765,6 +1819,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -1783,6 +1838,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -1848,6 +1904,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -1866,6 +1923,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -1890,6 +1948,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -1936,6 +1995,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -1953,6 +2013,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -1988,6 +2049,7 @@ Object {
     <Connect(SourceIcon)
       source={
         Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -2021,6 +2083,7 @@ Object {
       "focusItem": [MockFunction],
       "item": Object {
         "contents": Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -2040,6 +2103,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -2058,6 +2122,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -2071,6 +2136,7 @@ Object {
           item={
             Object {
               "contents": Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -2092,6 +2158,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -2127,6 +2194,7 @@ Object {
           <Connect(SourceIcon)
             source={
               Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -2150,6 +2218,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -2158,6 +2227,7 @@ Object {
     "focusItem": [MockFunction],
     "item": Object {
       "contents": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -2177,6 +2247,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -2212,6 +2283,7 @@ Object {
     <Connect(SourceIcon)
       source={
         Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -2247,6 +2319,7 @@ Object {
       "focused": true,
       "item": Object {
         "contents": Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -2265,6 +2338,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -2283,6 +2357,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -2298,6 +2373,7 @@ Object {
           item={
             Object {
               "contents": Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -2318,6 +2394,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -2353,6 +2430,7 @@ Object {
           <Connect(SourceIcon)
             source={
               Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -2376,6 +2454,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -2386,6 +2465,7 @@ Object {
     "focused": true,
     "item": Object {
       "contents": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -2404,6 +2484,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,
@@ -2439,6 +2520,7 @@ Object {
     <Connect(SourceIcon)
       source={
         Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -2472,6 +2554,7 @@ Object {
       "focusItem": [MockFunction],
       "item": Object {
         "contents": Object {
+          "extensionName": null,
           "id": "server1.conn13.child1/39",
           "introductionType": undefined,
           "introductionUrl": null,
@@ -2491,6 +2574,7 @@ Object {
       "setExpanded": [MockFunction],
       "setProjectDirectoryRoot": [MockFunction],
       "source": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -2509,6 +2593,7 @@ Object {
       "toggleBlackBox": [MockFunction],
     },
     "refs": Object {},
+    "setState": [Function],
     "state": null,
     "updater": Updater {
       "_callbacks": Array [],
@@ -2522,6 +2607,7 @@ Object {
           item={
             Object {
               "contents": Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -2543,6 +2629,7 @@ Object {
           setProjectDirectoryRoot={[MockFunction]}
           source={
             Object {
+              "extensionName": null,
               "id": "server1.conn13.child1/39",
               "introductionType": undefined,
               "introductionUrl": null,
@@ -2578,6 +2665,7 @@ Object {
           <Connect(SourceIcon)
             source={
               Object {
+                "extensionName": null,
                 "id": "server1.conn13.child1/39",
                 "introductionType": undefined,
                 "introductionUrl": null,
@@ -2601,6 +2689,7 @@ Object {
         "_updater": [Circular],
       },
     },
+    Symbol(enzyme.__setState__): [Function],
   },
   "props": Object {
     "clearProjectDirectoryRoot": [MockFunction],
@@ -2609,6 +2698,7 @@ Object {
     "focusItem": [MockFunction],
     "item": Object {
       "contents": Object {
+        "extensionName": null,
         "id": "server1.conn13.child1/39",
         "introductionType": undefined,
         "introductionUrl": null,
@@ -2628,6 +2718,7 @@ Object {
     "setExpanded": [MockFunction],
     "setProjectDirectoryRoot": [MockFunction],
     "source": Object {
+      "extensionName": null,
       "id": "server1.conn13.child1/39",
       "introductionType": undefined,
       "introductionUrl": null,

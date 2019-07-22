@@ -5,6 +5,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import argparse
+import errno
 import json
 import logging
 import os
@@ -24,7 +25,6 @@ from mozbuild.base import (
     MachCommandBase,
     MachCommandConditions as conditions,
 )
-from moztest.resolve import TEST_SUITES
 
 UNKNOWN_TEST = '''
 I was unable to find tests from the given argument(s).
@@ -49,9 +49,8 @@ TEST_HELP = '''
 Test or tests to run. Tests can be specified by filename, directory, suite
 name or suite alias.
 
-The following test suites and aliases are supported: %s
-''' % ', '.join(sorted(TEST_SUITES))
-TEST_HELP = TEST_HELP.strip()
+The following test suites and aliases are supported: {}
+'''.strip()
 
 
 @SettingsProvider
@@ -73,8 +72,10 @@ class TestConfig(object):
 
 def get_test_parser():
     from mozlog.commandline import add_logging_group
+    from moztest.resolve import TEST_SUITES
     parser = argparse.ArgumentParser()
-    parser.add_argument('what', default=None, nargs='+', help=TEST_HELP)
+    parser.add_argument('what', default=None, nargs='+',
+                        help=TEST_HELP.format(', '.join(sorted(TEST_SUITES))))
     parser.add_argument('extra_args', default=None, nargs=argparse.REMAINDER,
                         help="Extra arguments to pass to the underlying test command(s). "
                              "If an underlying command doesn't recognize the argument, it "
@@ -138,6 +139,7 @@ class AddTest(MachCommandBase):
     def addtest(self, suite=None, test=None, doc=None, overwrite=False,
                 editor=MISSING_ARG, **kwargs):
         import addtest
+        from moztest.resolve import TEST_SUITES
 
         if not suite and not test:
             return create_parser_addtest().parse_args(["--help"])
@@ -374,6 +376,9 @@ class Test(MachCommandBase):
 class MachCommands(MachCommandBase):
     @Command('cppunittest', category='testing',
              description='Run cpp unit tests (C++ tests).')
+    @CommandArgument('--enable-webrender', action='store_true', default=False,
+                     dest='enable_webrender',
+                     help='Enable the WebRender compositor in Gecko.')
     @CommandArgument('test_files', nargs='*', metavar='N',
                      help='Test to run. Can be specified as one or more files or '
                      'directories, or omitted. If omitted, the entire test suite is '
@@ -487,7 +492,7 @@ class CheckSpiderMonkeyCommand(MachCommandBase):
             python,
             os.path.join(self.topsrcdir, 'js', 'src', 'tests', 'jstests.py'),
             js,
-            '--jitflags=all',
+            '--jitflags=jstests',
         ] + params
         return subprocess.call(jstest_cmd)
 
@@ -664,9 +669,8 @@ class TestInfoCommand(MachCommandBase):
     @CommandArgument('--verbose', action='store_true',
                      help='Enable debug logging.')
     def test_info(self, **params):
-
-        import which
         from mozbuild.base import MozbuildObject
+        from mozfile import which
 
         self.branches = params['branches']
         self.start = params['start']
@@ -695,17 +699,15 @@ class TestInfoCommand(MachCommandBase):
 
         self._hg = None
         if conditions.is_hg(build_obj):
-            if self._is_windows():
-                self._hg = which.which('hg.exe')
-            else:
-                self._hg = which.which('hg')
+            self._hg = which('hg')
+            if not self._hg:
+                raise OSError(errno.ENOENT, "Could not find 'hg' on PATH.")
 
         self._git = None
         if conditions.is_git(build_obj):
-            if self._is_windows():
-                self._git = which.which('git.exe')
-            else:
-                self._git = which.which('git')
+            self._git = which('git')
+            if not self._git:
+                raise OSError(errno.ENOENT, "Could not find 'git' on PATH.")
 
         for test_name in params['test_names']:
             print("===== %s =====" % test_name)

@@ -307,6 +307,8 @@ struct MOZ_STACK_CLASS BidiParagraphData {
 
   static bool IsFrameInCurrentLine(nsBlockInFlowLineIterator* aLineIter,
                                    nsIFrame* aPrevFrame, nsIFrame* aFrame) {
+    MOZ_ASSERT(!aPrevFrame || aLineIter->GetLine()->Contains(aPrevFrame),
+               "aPrevFrame must be in aLineIter's current line");
     nsIFrame* endFrame = aLineIter->IsLastLineInList()
                              ? nullptr
                              : aLineIter->GetLine().next()->mFirstChild;
@@ -512,12 +514,14 @@ static nsresult SplitInlineAncestors(nsContainerFrame* aParent,
       }
 
       // The parent's continuation adopts the siblings after the split.
-      newParent->InsertFrames(nsIFrame::kNoReflowPrincipalList, nullptr, tail);
+      newParent->InsertFrames(nsIFrame::kNoReflowPrincipalList, nullptr,
+                              nullptr, tail);
 
       // The list name kNoReflowPrincipalList would indicate we don't want
       // reflow
       nsFrameList temp(newParent, newParent);
-      grandparent->InsertFrames(nsIFrame::kNoReflowPrincipalList, parent, temp);
+      grandparent->InsertFrames(nsIFrame::kNoReflowPrincipalList, parent,
+                                nullptr, temp);
     }
 
     frame = parent;
@@ -603,7 +607,7 @@ static nsresult CreateContinuation(nsIFrame* aFrame, nsIFrame** aNewFrame,
   // The list name kNoReflowPrincipalList would indicate we don't want reflow
   // XXXbz this needs higher-level framelist love
   nsFrameList temp(*aNewFrame, *aNewFrame);
-  parent->InsertFrames(nsIFrame::kNoReflowPrincipalList, aFrame, temp);
+  parent->InsertFrames(nsIFrame::kNoReflowPrincipalList, aFrame, nullptr, temp);
 
   if (!aIsFluid) {
     // Split inline ancestor frames
@@ -884,6 +888,33 @@ nsresult nsBidiPresUtils::ResolveParagraph(BidiParagraphData* aBpd) {
                                          contentOffset + fragmentLength);
           frame = nextBidi;
           contentOffset = runEnd;
+
+          // We might have gotten here because we called
+          // ResolveParagraphWithinBlock in the middle of TraverseFrames.  If
+          // so, once that's done, we're going to continue on with
+          // TraverseFrames.
+          //
+          // TraverseFrames uses aBpd->mPrevFrame as an optimization to help
+          // advance its line iterator correctly.  The way this optimization
+          // works relies on the invariant that mPrevFrame is within the line
+          // pointed to by the line iterator.
+          //
+          // Calling EnsureBidiContinuation above may have caused a line to
+          // split when we added a continuation (since nsBlockFrame, by
+          // default, creates new lines for frame insertions).  This means
+          // that our work here resolving the sub-paragraph might have split a
+          // line in a way that the current mPrevFrame is in the second half
+          // of the split.  This means we need to null out mPrevFrame so that
+          // the next call to AdvanceLineIteratorToFrame won't start from an
+          // mPrevFrame that is *ahead* of the line iterator.  If that
+          // happens, we'll never advance the line again until something nulls
+          // out mPrevFrame.
+          //
+          // On the other hand, if this wasn't called from
+          // ResolveParagraphWithinBlock, then nothing will care about
+          // mPrevFrame in the future, so nulling it out doesn't hurt
+          // anything.
+          aBpd->mPrevFrame = nullptr;
         }  // if (runLength < fragmentLength)
         else {
           if (contentOffset + fragmentLength == contentTextLength) {
@@ -969,6 +1000,11 @@ nsresult nsBidiPresUtils::ResolveParagraph(BidiParagraphData* aBpd) {
           }
           if (parent && IsBidiSplittable(parent)) {
             SplitInlineAncestors(parent, child);
+
+            // See above comment about the call to EnsureBidiContinuation.
+            // The SplitInlineAncestors call here might do the same thing, so
+            // again we need to set aBpd->mPrevFrame to null.
+            aBpd->mPrevFrame = nullptr;
           }
         }
       } else if (frame != NS_BIDI_CONTROL_FRAME) {

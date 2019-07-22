@@ -101,7 +101,12 @@ static constexpr uint32_t BaselineMaxScriptLength = 0x0fffffffu;
 
 // Limit the locals on a given script so that stack check on baseline frames
 // doesn't overflow a uint32_t value.
-// (MAX_JSSCRIPT_SLOTS * sizeof(Value)) must fit within a uint32_t.
+// (BaselineMaxScriptSlots * sizeof(Value)) must fit within a uint32_t.
+//
+// This also applies to the Baseline Interpreter: it ensures we don't run out
+// of stack space (and throw over-recursion exceptions) for scripts with a huge
+// number of locals. The C++ interpreter avoids this by having heap-allocated
+// stack frames.
 static constexpr uint32_t BaselineMaxScriptSlots = 0xffffu;
 
 // An entry in the BaselineScript return address table. These entries are used
@@ -162,7 +167,9 @@ class RetAddrEntry {
 
  public:
   RetAddrEntry(uint32_t pcOffset, Kind kind, CodeOffset retOffset)
-      : returnOffset_(uint32_t(retOffset.offset())), pcOffset_(pcOffset) {
+      : returnOffset_(uint32_t(retOffset.offset())),
+        pcOffset_(pcOffset),
+        kind_(uint32_t(kind)) {
     MOZ_ASSERT(returnOffset_ == retOffset.offset(),
                "retOffset must fit in returnOffset_");
 
@@ -171,14 +178,9 @@ class RetAddrEntry {
     MOZ_ASSERT(pcOffset_ == pcOffset);
     JS_STATIC_ASSERT(BaselineMaxScriptLength <= (1u << 28) - 1);
     MOZ_ASSERT(pcOffset <= BaselineMaxScriptLength);
-    setKind(kind);
-  }
 
-  // Set the kind and asserts that it's sane.
-  void setKind(Kind kind) {
     MOZ_ASSERT(kind < Kind::Invalid);
-    kind_ = uint32_t(kind);
-    MOZ_ASSERT(this->kind() == kind);
+    MOZ_ASSERT(this->kind() == kind, "kind must fit in kind_ bit field");
   }
 
   CodeOffset returnOffset() const { return CodeOffset(returnOffset_); }
@@ -527,12 +529,16 @@ static_assert(
     sizeof(BaselineScript) % sizeof(uintptr_t) == 0,
     "The data attached to the script must be aligned for fast JIT access.");
 
-inline bool IsBaselineEnabled(JSContext* cx) {
+inline bool IsBaselineInterpreterEnabled() {
 #ifdef JS_CODEGEN_NONE
   return false;
 #else
-  return cx->options().baseline() && cx->runtime()->jitSupportsFloatingPoint;
+  return JitOptions.baselineInterpreter && JitOptions.supportsFloatingPoint;
 #endif
+}
+
+inline bool IsBaselineJitEnabled() {
+  return IsBaselineInterpreterEnabled() && JitOptions.baselineJit;
 }
 
 enum class BaselineTier { Interpreter, Compiler };
@@ -540,11 +546,14 @@ enum class BaselineTier { Interpreter, Compiler };
 template <BaselineTier Tier>
 MethodStatus CanEnterBaselineMethod(JSContext* cx, RunState& state);
 
-template <BaselineTier Tier>
-MethodStatus CanEnterBaselineAtBranch(JSContext* cx, InterpreterFrame* fp);
+MethodStatus CanEnterBaselineInterpreterAtBranch(JSContext* cx,
+                                                 InterpreterFrame* fp);
 
-JitExecStatus EnterBaselineAtBranch(JSContext* cx, InterpreterFrame* fp,
-                                    jsbytecode* pc);
+JitExecStatus EnterBaselineInterpreterAtBranch(JSContext* cx,
+                                               InterpreterFrame* fp,
+                                               jsbytecode* pc);
+
+bool CanBaselineInterpretScript(JSScript* script);
 
 // Called by the Baseline Interpreter to compile a script for the Baseline JIT.
 // |res| is set to the native code address in the BaselineScript to jump to, or
@@ -631,17 +640,19 @@ class BaselineInterpreter {
   // Offset of the code to start interpreting a bytecode op.
   uint32_t interpretOpOffset_ = 0;
 
+  // Like interpretOpOffset_ but skips the debug trap for the current op.
+  uint32_t interpretOpNoDebugTrapOffset_ = 0;
+
   // The offsets for the toggledJump instructions for profiler instrumentation.
   uint32_t profilerEnterToggleOffset_ = 0;
   uint32_t profilerExitToggleOffset_ = 0;
 
-  // The offset for the toggledJump instruction for the debugger's
-  // IsDebuggeeCheck code in the prologue.
-  uint32_t debuggeeCheckOffset_ = 0;
+  // The offsets of toggled jumps for debugger instrumentation.
+  using CodeOffsetVector = Vector<uint32_t, 0, SystemAllocPolicy>;
+  CodeOffsetVector debugInstrumentationOffsets_;
 
   // Offsets of toggled calls to the DebugTrapHandler trampoline (for
   // breakpoints and stepping).
-  using CodeOffsetVector = Vector<uint32_t, 0, SystemAllocPolicy>;
   CodeOffsetVector debugTrapOffsets_;
 
   // Offsets of toggled jumps for code coverage.
@@ -654,8 +665,10 @@ class BaselineInterpreter {
   void operator=(const BaselineInterpreter&) = delete;
 
   void init(JitCode* code, uint32_t interpretOpOffset,
+            uint32_t interpretOpNoDebugTrapOffset,
             uint32_t profilerEnterToggleOffset,
-            uint32_t profilerExitToggleOffset, uint32_t debuggeeCheckOffset,
+            uint32_t profilerExitToggleOffset,
+            CodeOffsetVector&& debugInstrumentationOffsets,
             CodeOffsetVector&& debugTrapOffsets,
             CodeOffsetVector&& codeCoverageOffsets);
 
@@ -663,6 +676,9 @@ class BaselineInterpreter {
 
   TrampolinePtr interpretOpAddr() const {
     return TrampolinePtr(codeRaw() + interpretOpOffset_);
+  }
+  TrampolinePtr interpretOpNoDebugTrapAddr() const {
+    return TrampolinePtr(codeRaw() + interpretOpNoDebugTrapOffset_);
   }
 
   void toggleProfilerInstrumentation(bool enable);

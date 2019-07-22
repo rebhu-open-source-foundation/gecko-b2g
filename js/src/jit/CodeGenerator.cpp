@@ -31,7 +31,7 @@
 #include "gc/Nursery.h"
 #include "irregexp/NativeRegExpMacroAssembler.h"
 #include "jit/AtomicOperations.h"
-#include "jit/BaselineCompiler.h"
+#include "jit/BaselineCodeGen.h"
 #include "jit/IonBuilder.h"
 #include "jit/IonIC.h"
 #include "jit/IonOptimizationLevels.h"
@@ -1569,7 +1569,7 @@ void CodeGenerator::visitDoubleToString(LDoubleToString* lir) {
       lir, ArgList(input), StoreRegisterTo(output));
 
   // Try double to integer conversion and run integer to string code.
-  masm.convertDoubleToInt32(input, temp, ool->entry(), true);
+  masm.convertDoubleToInt32(input, temp, ool->entry(), false);
   emitIntToString(temp, output, ool->entry());
 
   masm.bind(ool->rejoin());
@@ -4971,8 +4971,13 @@ void CodeGenerator::visitCallGeneric(LCallGeneric* call) {
   if (call->mir()->isConstructing()) {
     masm.branchIfNotInterpretedConstructor(calleereg, nargsreg, &invoke);
   } else {
-    masm.branchIfFunctionHasNoJitEntry(calleereg, /* isConstructing */ false,
-                                       &invoke);
+    // See visitCallKnown.
+    if (call->mir()->needsArgCheck()) {
+      masm.branchIfFunctionHasNoJitEntry(calleereg, /* isConstructing */ false,
+                                         &invoke);
+    } else {
+      masm.branchIfFunctionHasNoScript(calleereg, &invoke);
+    }
     masm.branchFunctionKind(Assembler::Equal, JSFunction::ClassConstructor,
                             calleereg, objreg, &invoke);
   }
@@ -5098,14 +5103,6 @@ void CodeGenerator::visitCallKnown(LCallKnown* call) {
 
   MOZ_ASSERT_IF(target->isClassConstructor(), call->isConstructing());
 
-  Label uncompiled;
-  if (!target->isNativeWithJitEntry()) {
-    // The calleereg is known to be a non-native function, but might point
-    // to a LazyScript instead of a JSScript.
-    masm.branchIfFunctionHasNoJitEntry(calleereg, call->isConstructing(),
-                                       &uncompiled);
-  }
-
   if (call->mir()->maybeCrossRealm()) {
     masm.switchToObjectRealm(calleereg, objreg);
   }
@@ -5113,7 +5110,22 @@ void CodeGenerator::visitCallKnown(LCallKnown* call) {
   if (call->mir()->needsArgCheck()) {
     masm.loadJitCodeRaw(calleereg, objreg);
   } else {
+    // In order to use the jitCodeNoArgCheck entry point, we must ensure the
+    // JSFunction is pointing to the canonical JSScript. Due to lambda cloning,
+    // we may still be referencing the original LazyScript.
+    //
+    // NOTE: We checked that canonical function script had a valid JitScript.
+    // This will not be tossed without all Ion code being tossed first.
+
+    Label uncompiled, end;
+    masm.branchIfFunctionHasNoScript(calleereg, &uncompiled);
     masm.loadJitCodeNoArgCheck(calleereg, objreg);
+    masm.jump(&end);
+
+    // jitCodeRaw is still valid even if uncompiled.
+    masm.bind(&uncompiled);
+    masm.loadJitCodeRaw(calleereg, objreg);
+    masm.bind(&end);
   }
 
   // Nestle the StackPointer up to the argument vector.
@@ -5140,24 +5152,6 @@ void CodeGenerator::visitCallKnown(LCallKnown* call) {
   // The return address has already been removed from the Ion frame.
   int prefixGarbage = sizeof(JitFrameLayout) - sizeof(void*);
   masm.adjustStack(prefixGarbage - unusedStack);
-
-  if (uncompiled.used()) {
-    Label end;
-    masm.jump(&end);
-
-    // Handle uncompiled functions.
-    masm.bind(&uncompiled);
-    if (call->isConstructing() && target->nargs() > call->numActualArgs()) {
-      emitCallInvokeFunctionShuffleNewTarget(call, calleereg, target->nargs(),
-                                             unusedStack);
-    } else {
-      emitCallInvokeFunction(call, calleereg, call->isConstructing(),
-                             call->ignoresReturnValue(), call->numActualArgs(),
-                             unusedStack);
-    }
-
-    masm.bind(&end);
-  }
 
   // If the return value of the constructing function is Primitive,
   // replace the return value with the Object from CreateThis.
@@ -9182,32 +9176,6 @@ void CodeGenerator::visitStringConvertCase(LStringConvertCase* lir) {
   } else {
     callVM<Fn, js::StringToUpperCase>(lir);
   }
-}
-
-void CodeGenerator::visitSinCos(LSinCos* lir) {
-  Register temp = ToRegister(lir->temp());
-  Register params = ToRegister(lir->temp2());
-  FloatRegister input = ToFloatRegister(lir->input());
-  FloatRegister outputSin = ToFloatRegister(lir->outputSin());
-  FloatRegister outputCos = ToFloatRegister(lir->outputCos());
-
-  masm.reserveStack(sizeof(double) * 2);
-  masm.moveStackPtrTo(params);
-
-  masm.setupUnalignedABICall(temp);
-
-  masm.passABIArg(input, MoveOp::DOUBLE);
-  masm.passABIArg(
-      MoveOperand(params, sizeof(double), MoveOperand::EFFECTIVE_ADDRESS),
-      MoveOp::GENERAL);
-  masm.passABIArg(MoveOperand(params, 0, MoveOperand::EFFECTIVE_ADDRESS),
-                  MoveOp::GENERAL);
-
-  masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, js::math_sincos_impl));
-
-  masm.loadDouble(Address(masm.getStackPointer(), 0), outputCos);
-  masm.loadDouble(Address(masm.getStackPointer(), sizeof(double)), outputSin);
-  masm.freeStack(sizeof(double) * 2);
 }
 
 void CodeGenerator::visitStringSplit(LStringSplit* lir) {
@@ -13803,8 +13771,9 @@ void CodeGenerator::visitFinishBoundFunctionInit(
     // Load the length property of an interpreted function.
     masm.loadPtr(Address(target, JSFunction::offsetOfScript()), temp1);
     masm.loadPtr(Address(temp1, JSScript::offsetOfScriptData()), temp1);
-    masm.load16ZeroExtend(Address(temp1, SharedScriptData::offsetOfFunLength()),
-                          temp1);
+    masm.loadPtr(Address(temp1, RuntimeScriptData::offsetOfISD()), temp1);
+    masm.load16ZeroExtend(
+        Address(temp1, ImmutableScriptData::offsetOfFunLength()), temp1);
   }
   masm.bind(&lengthLoaded);
 

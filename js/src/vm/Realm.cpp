@@ -12,6 +12,7 @@
 
 #include "jsfriendapi.h"
 
+#include "debugger/Debugger.h"
 #include "gc/Policy.h"
 #include "gc/PublicIterators.h"
 #include "jit/JitOptions.h"
@@ -22,7 +23,6 @@
 #include "js/Wrapper.h"
 #include "proxy/DeadObjectProxy.h"
 #include "vm/DateTime.h"
-#include "vm/Debugger.h"
 #include "vm/Iteration.h"
 #include "vm/JSContext.h"
 #include "vm/WrapperObject.h"
@@ -37,7 +37,8 @@
 
 using namespace js;
 
-ObjectRealm::ObjectRealm(JS::Zone* zone) : innerViews(zone) {}
+ObjectRealm::ObjectRealm(JS::Zone* zone)
+    : innerViews(zone, zone), iteratorCache(zone) {}
 
 ObjectRealm::~ObjectRealm() {
   MOZ_ASSERT(enumerators == iteratorSentinel_.get());
@@ -50,6 +51,7 @@ Realm::Realm(Compartment* comp, const JS::RealmOptions& options)
       creationOptions_(options.creationOptions()),
       behaviors_(options.behaviors()),
       objects_(zone_),
+      varNames_(zone_),
       randomKeyGenerator_(runtime_->forkRandomKeyGenerator()),
       wasm(runtime_) {
   MOZ_ASSERT_IF(creationOptions_.mergeable(),
@@ -613,6 +615,11 @@ void Realm::clearTables() {
   varNames_.clear();
 }
 
+// Check to see if this individual realm is recording allocations. Debuggers or
+// runtimes can try and record allocations, so this method can check to see if
+// any initialization is needed.
+bool Realm::isRecordingAllocations() { return !!allocationMetadataBuilder_; }
+
 void Realm::setAllocationMetadataBuilder(
     const js::AllocationMetadataBuilder* builder) {
   // Clear any jitcode in the runtime, which behaves differently depending on
@@ -695,8 +702,8 @@ static bool AddLazyFunctionsForRealm(JSContext* cx,
       continue;
     }
 
-    if (fun->isInterpretedLazy()) {
-      LazyScript* lazy = fun->lazyScriptOrNull();
+    if (fun->hasLazyScript()) {
+      LazyScript* lazy = fun->maybeLazyScript();
       if (lazy && lazy->enclosingScriptHasEverBeenCompiled()) {
         if (!lazyFunctions.append(fun)) {
           return false;

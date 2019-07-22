@@ -38,7 +38,6 @@
 #include "mozilla/dom/DocumentInlines.h"
 #include "nsIDocumentEncoder.h"
 #include "nsFocusManager.h"
-#include "nsILinkHandler.h"
 #include "nsIScriptGlobalObject.h"
 #include "nsIURL.h"
 #include "nsNetUtil.h"
@@ -328,19 +327,14 @@ nsAtom* nsIContent::GetLang() const {
   return nullptr;
 }
 
-already_AddRefed<nsIURI> nsIContent::GetBaseURI(
-    bool aTryUseXHRDocBaseURI) const {
+nsIURI* nsIContent::GetBaseURI(bool aTryUseXHRDocBaseURI) const {
   if (SVGUseElement* use = GetContainingSVGUseShadowHost()) {
     if (URLExtraData* data = use->GetContentURLData()) {
-      return do_AddRef(data->BaseURI());
+      return data->BaseURI();
     }
   }
 
-  Document* doc = OwnerDoc();
-  // Start with document base
-  nsCOMPtr<nsIURI> base = doc->GetBaseURI(aTryUseXHRDocBaseURI);
-
-  return base.forget();
+  return OwnerDoc()->GetBaseURI(aTryUseXHRDocBaseURI);
 }
 
 nsIURI* nsIContent::GetBaseURIForStyleAttr() const {
@@ -363,9 +357,10 @@ already_AddRefed<URLExtraData> nsIContent::GetURLDataForStyleAttr(
   }
   if (aSubjectPrincipal && aSubjectPrincipal != NodePrincipal()) {
     // TODO: Cache this?
-    return MakeAndAddRef<URLExtraData>(
-        OwnerDoc()->GetDocBaseURI(), OwnerDoc()->GetDocumentURI(),
-        aSubjectPrincipal, OwnerDoc()->GetReferrerPolicy());
+    nsCOMPtr<nsIReferrerInfo> referrerInfo =
+        ReferrerInfo::CreateForInternalCSSResources(OwnerDoc());
+    return MakeAndAddRef<URLExtraData>(OwnerDoc()->GetDocBaseURI(),
+                                       referrerInfo, aSubjectPrincipal);
   }
   // This also ignores the case that SVG inside XBL binding.
   // But it is probably fine.
@@ -393,13 +388,9 @@ static bool NeedsScriptTraverse(nsINode* aNode) {
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsAttrChildContentList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsAttrChildContentList)
 
-// If nsAttrChildContentList is changed so that any additional fields are
-// traversed by the cycle collector, then CAN_SKIP must be updated to
-// check that the additional fields are null.
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(nsAttrChildContentList)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsAttrChildContentList, mNode)
 
-// nsAttrChildContentList only ever has a single child, its wrapper, so if
-// the wrapper is known-live, the list can't be part of a garbage cycle.
+// If the wrapper is known-live, the list can't be part of a garbage cycle.
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_BEGIN(nsAttrChildContentList)
   return tmp->HasKnownLiveWrapper();
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_END
@@ -408,7 +399,6 @@ NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_IN_CC_BEGIN(nsAttrChildContentList)
   return tmp->HasKnownLiveWrapperAndDoesNotNeedTracing(tmp);
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_IN_CC_END
 
-// CanSkipThis returns false to avoid problems with incomplete unlinking.
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_BEGIN(nsAttrChildContentList)
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_END
 
@@ -770,7 +760,7 @@ static nsINode* FindChromeAccessOnlySubtreeOwner(nsINode* aNode) {
     aNode = aNode->GetParentNode();
   }
 
-  return aNode ? aNode->GetParentOrHostNode() : nullptr;
+  return aNode ? aNode->GetParentOrShadowHostNode() : nullptr;
 }
 
 already_AddRefed<nsINode> FindChromeAccessOnlySubtreeOwner(
@@ -1001,8 +991,8 @@ void nsIContent::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
           // dispatching event to Window object in a content page and
           // propagating the event to a chrome Element.
           if (targetInKnownToBeHandledScope &&
-              nsContentUtils::ContentIsShadowIncludingDescendantOf(
-                  this, targetInKnownToBeHandledScope->SubtreeRoot())) {
+              IsShadowIncludingInclusiveDescendantOf(
+                  targetInKnownToBeHandledScope->SubtreeRoot())) {
             // Part of step 11.4.
             // "If target's root is a shadow-including inclusive ancestor of
             //  parent, then"

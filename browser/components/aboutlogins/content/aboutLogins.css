@@ -21,13 +21,16 @@ header {
 }
 
 login-filter {
-  flex: auto;
+  flex-grow: 1;
   align-self: center;
+}
+
+menu-button {
+  margin-inline-start: 18px;
 }
 
 login-list {
   grid-area: logins;
-  overflow: hidden auto;
 }
 
 login-item {
@@ -40,9 +43,17 @@ login-item {
   margin-inline-end: 18px;
 }
 
-#create-login-button {
-  margin-inline-start: 18px;
-  margin-inline-end: 18px;
+#branding-logo {
+  -moz-context-properties: fill;
+  fill: #20123a;
+}
+
+@supports -moz-bool-pref("browser.in-content.dark-mode") {
+  @media (prefers-color-scheme: dark) {
+    #branding-logo {
+      fill: #fff;
+    }
+  }
 }
 
 :root:not(.official-branding) #branding-logo {

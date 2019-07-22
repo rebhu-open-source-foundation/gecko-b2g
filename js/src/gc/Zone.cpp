@@ -8,6 +8,7 @@
 
 #include "jsutil.h"
 
+#include "debugger/Debugger.h"
 #include "gc/FreeOp.h"
 #include "gc/Policy.h"
 #include "gc/PublicIterators.h"
@@ -15,7 +16,6 @@
 #include "jit/BaselineJIT.h"
 #include "jit/Ion.h"
 #include "jit/JitRealm.h"
-#include "vm/Debugger.h"
 #include "vm/Runtime.h"
 #include "wasm/WasmInstance.h"
 
@@ -36,10 +36,7 @@ ZoneAllocator::ZoneAllocator(JSRuntime* rt)
       zoneSize(&rt->gc.heapSize),
       gcMallocBytes(nullptr) {
   AutoLockGC lock(rt);
-  threshold.updateAfterGC(8192, GC_NORMAL, rt->gc.tunables,
-                          rt->gc.schedulingState, lock);
-  gcMallocThreshold.updateAfterGC(8192, rt->gc.tunables, rt->gc.schedulingState,
-                                  lock);
+  updateAllGCThresholds(rt->gc, GC_NORMAL, lock);
   setGCMaxMallocBytes(rt->gc.tunables.maxMallocBytes(), lock);
   jitCodeCounter.setMax(jit::MaxCodeBytesPerProcess * 0.8, lock);
 }
@@ -73,11 +70,12 @@ void js::ZoneAllocator::updateAllGCMallocCountersOnGCEnd(
 }
 
 void js::ZoneAllocator::updateAllGCThresholds(GCRuntime& gc,
+                                              JSGCInvocationKind invocationKind,
                                               const js::AutoLockGC& lock) {
-  threshold.updateAfterGC(zoneSize.gcBytes(), GC_NORMAL, gc.tunables,
+  threshold.updateAfterGC(zoneSize.gcBytes(), invocationKind, gc.tunables,
                           gc.schedulingState, lock);
-  gcMallocThreshold.updateAfterGC(gcMallocBytes.gcBytes(), gc.tunables,
-                                  gc.schedulingState, lock);
+  gcMallocThreshold.updateAfterGC(gcMallocBytes.gcBytes(),
+                                  gc.tunables.maxMallocBytes(), lock);
 }
 
 js::gc::TriggerKind js::ZoneAllocator::shouldTriggerGCForTooMuchMalloc() {
@@ -593,9 +591,9 @@ void Zone::purgeAtomCache() {
 void Zone::traceAtomCache(JSTracer* trc) {
   MOZ_ASSERT(hasKeptAtoms());
   for (auto r = atomCache().all(); !r.empty(); r.popFront()) {
-    JSAtom* atom = r.front().unbarrieredGet();
+    JSAtom* atom = r.front().asPtrUnbarriered();
     TraceRoot(trc, &atom, "kept atom");
-    MOZ_ASSERT(r.front().unbarrieredGet() == atom);
+    MOZ_ASSERT(r.front().asPtrUnbarriered() == atom);
   }
 }
 
@@ -702,7 +700,8 @@ inline bool MemoryTracker::allowMultipleAssociations(MemoryUse use) const {
   // For most uses only one association is possible for each GC thing. Allow a
   // one-to-many relationship only where necessary.
   return use == MemoryUse::RegExpSharedBytecode ||
-         use == MemoryUse::BreakpointSite || use == MemoryUse::ForOfPICStub;
+         use == MemoryUse::BreakpointSite || use == MemoryUse::Breakpoint ||
+         use == MemoryUse::ForOfPICStub;
 }
 
 void MemoryTracker::trackMemory(Cell* cell, size_t nbytes, MemoryUse use) {
@@ -796,12 +795,12 @@ void MemoryTracker::registerPolicy(ZoneAllocPolicy* policy) {
 
   auto ptr = policyMap.lookupForAdd(policy);
   if (ptr) {
-    MOZ_CRASH_UNSAFE_PRINTF("ZoneAllocPolicy %p already registeredd", policy);
+    MOZ_CRASH_UNSAFE_PRINTF("ZoneAllocPolicy %p already registered", policy);
   }
 
   AutoEnterOOMUnsafeRegion oomUnsafe;
   if (!policyMap.add(ptr, policy, 0)) {
-    oomUnsafe.crash("MemoryTracker::incTrackedPolicyMemory");
+    oomUnsafe.crash("MemoryTracker::registerPolicy");
   }
 }
 
@@ -819,6 +818,28 @@ void MemoryTracker::unregisterPolicy(ZoneAllocPolicy* policy) {
   }
 
   policyMap.remove(ptr);
+}
+
+void MemoryTracker::movePolicy(ZoneAllocPolicy* dst, ZoneAllocPolicy* src) {
+  LockGuard<Mutex> lock(mutex);
+
+  auto srcPtr = policyMap.lookup(src);
+  if (!srcPtr) {
+    MOZ_CRASH_UNSAFE_PRINTF("ZoneAllocPolicy %p not found", src);
+  }
+
+  size_t nbytes = srcPtr->value();
+  policyMap.remove(srcPtr);
+
+  auto dstPtr = policyMap.lookupForAdd(dst);
+  if (dstPtr) {
+    MOZ_CRASH_UNSAFE_PRINTF("ZoneAllocPolicy %p already registered", dst);
+  }
+
+  AutoEnterOOMUnsafeRegion oomUnsafe;
+  if (!policyMap.add(dstPtr, dst, nbytes)) {
+    oomUnsafe.crash("MemoryTracker::movePolicy");
+  }
 }
 
 void MemoryTracker::incPolicyMemory(ZoneAllocPolicy* policy, size_t nbytes) {

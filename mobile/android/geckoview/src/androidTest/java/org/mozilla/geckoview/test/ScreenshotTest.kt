@@ -10,13 +10,13 @@ import android.support.test.filters.MediumTest
 import android.support.test.runner.AndroidJUnit4
 import android.view.Surface
 import org.hamcrest.Matchers.*
+import org.junit.Ignore
 import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ExpectedException
 import org.junit.runner.RunWith
 import org.mozilla.geckoview.GeckoResult
-import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.ReuseSession
 import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.WithDisplay
 import java.nio.ByteBuffer
 
@@ -25,7 +25,6 @@ private const val SCREEN_WIDTH = 100
 
 @RunWith(AndroidJUnit4::class)
 @MediumTest
-@ReuseSession(false)
 class ScreenshotTest : BaseSessionTest() {
 
     @get:Rule
@@ -101,6 +100,7 @@ class ScreenshotTest : BaseSessionTest() {
         }
     }
 
+    @Ignore //Disable test for frequent failures Bug 1557569
     @Test
     fun capturePixelsThrowsCompositorNotReady() {
         expectedEx.expect(IllegalStateException::class.java)

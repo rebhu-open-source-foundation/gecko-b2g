@@ -344,32 +344,6 @@ nsDOMWindowUtils::GetDocumentMetadata(const nsAString& aName,
 }
 
 NS_IMETHODIMP
-nsDOMWindowUtils::Redraw(uint32_t aCount, uint32_t* aDurationOut) {
-  if (aCount == 0) aCount = 1;
-
-  if (PresShell* presShell = GetPresShell()) {
-    nsIFrame* rootFrame = presShell->GetRootFrame();
-
-    if (rootFrame) {
-      PRIntervalTime iStart = PR_IntervalNow();
-
-      for (uint32_t i = 0; i < aCount; i++) rootFrame->InvalidateFrame();
-
-#if defined(MOZ_X11) && defined(MOZ_WIDGET_GTK)
-      if (!gfxPlatform::IsHeadless()) {
-        XSync(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), False);
-      }
-#endif
-
-      *aDurationOut = PR_IntervalToMilliseconds(PR_IntervalNow() - iStart);
-
-      return NS_OK;
-    }
-  }
-  return NS_ERROR_FAILURE;
-}
-
-NS_IMETHODIMP
 nsDOMWindowUtils::UpdateLayerTree() {
   if (RefPtr<PresShell> presShell = GetPresShell()) {
     // Don't flush throttled animations since it might fire MozAfterPaint event
@@ -470,7 +444,7 @@ nsDOMWindowUtils::SetDisplayPortForElement(float aXPx, float aYPx,
                         new DisplayPortPropertyData(displayport, aPriority),
                         nsINode::DeleteProperty<DisplayPortPropertyData>);
 
-  if (StaticPrefs::LayoutUseContainersForRootFrames()) {
+  if (StaticPrefs::layout_scroll_root_frame_containers()) {
     nsIFrame* rootScrollFrame = presShell->GetRootScrollFrame();
     if (rootScrollFrame && aElement == rootScrollFrame->GetContent() &&
         nsLayoutUtils::UsesAsyncScrolling(rootScrollFrame)) {
@@ -555,6 +529,24 @@ nsDOMWindowUtils::SetDisplayPortBaseForElement(int32_t aX, int32_t aY,
   }
 
   nsLayoutUtils::SetDisplayPortBase(aElement, nsRect(aX, aY, aWidth, aHeight));
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::GetScrollbarSizes(Element* aElement,
+                                    uint32_t* aOutVerticalScrollbarWidth,
+                                    uint32_t* aOutHorizontalScrollbarHeight) {
+  nsIScrollableFrame* scrollFrame =
+      nsLayoutUtils::FindScrollableFrameFor(aElement);
+  if (!scrollFrame) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  CSSIntMargin scrollbarSizes = RoundedToInt(
+      CSSMargin::FromAppUnits(scrollFrame->GetActualScrollbarSizes()));
+  *aOutVerticalScrollbarWidth = scrollbarSizes.LeftRight();
+  *aOutHorizontalScrollbarHeight = scrollbarSizes.TopBottom();
 
   return NS_OK;
 }
@@ -2142,16 +2134,6 @@ nsDOMWindowUtils::GetUsingAdvancedLayers(bool* retval) {
   if (KnowsCompositor* fwd = mgr->AsKnowsCompositor()) {
     *retval = fwd->GetTextureFactoryIdentifier().mUsingAdvancedLayers;
   }
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDOMWindowUtils::GetIsWebRenderBuilt(bool* retval) {
-#ifdef MOZ_BUILD_WEBRENDER
-  *retval = true;
-#else
-  *retval = false;
-#endif
   return NS_OK;
 }
 
@@ -4167,4 +4149,18 @@ nsDOMWindowUtils::IsCssPropertyRecordedInUseCounter(const nsACString& aPropName,
   *aRecorded = Servo_IsCssPropertyRecordedInUseCounter(
       doc->GetStyleUseCounters(), &aPropName, &knownProp);
   return knownProp ? NS_OK : NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::GetLayersId(uint64_t* aOutLayersId) {
+  nsIWidget* widget = GetWidget();
+  if (!widget) {
+    return NS_ERROR_FAILURE;
+  }
+  BrowserChild* child = widget->GetOwningBrowserChild();
+  if (!child) {
+    return NS_ERROR_FAILURE;
+  }
+  *aOutLayersId = (uint64_t)child->GetLayersId();
+  return NS_OK;
 }

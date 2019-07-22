@@ -406,6 +406,7 @@ export type Source = {|
   +relativeUrl: string,
   +introductionUrl: ?string,
   +introductionType: ?string,
+  +extensionName: ?string,
   +isExtension: boolean,
   +isWasm: boolean,
 |};
@@ -456,6 +457,7 @@ export type Scope = {|
     parameterNames: string[],
   },
   type: string,
+  scopeKind: string,
 |};
 
 export type MainThread = {

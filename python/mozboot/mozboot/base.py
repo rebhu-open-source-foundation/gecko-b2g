@@ -143,9 +143,7 @@ ac_add_options --enable-artifact-builds
 '''
 
 # Upgrade Mercurial older than this.
-# This should match OLDEST_NON_LEGACY_VERSION from
-# the hg setup wizard in version-control-tools.
-MODERN_MERCURIAL_VERSION = LooseVersion('4.3.3')
+MODERN_MERCURIAL_VERSION = LooseVersion('4.8')
 
 # Upgrade Python older than this.
 MODERN_PYTHON_VERSION = LooseVersion('2.7.3')
@@ -299,7 +297,8 @@ class BaseBootstrapper(object):
             os.mkdir(clang_tools_path)
         self.install_toolchain_artifact(clang_tools_path, checkout_root, toolchain_job)
 
-    def install_toolchain_artifact(self, state_dir, checkout_root, toolchain_job):
+    def install_toolchain_artifact(self, state_dir, checkout_root, toolchain_job,
+                                   no_unpack=False):
         mach_binary = os.path.join(checkout_root, 'mach')
         mach_binary = os.path.abspath(mach_binary)
         if not os.path.exists(mach_binary):
@@ -313,6 +312,9 @@ class BaseBootstrapper(object):
 
         cmd = [sys.executable, mach_binary, 'artifact', 'toolchain',
                '--from-build', toolchain_job]
+
+        if no_unpack:
+            cmd += ['--no-unpack']
 
         subprocess.check_call(cmd, cwd=state_dir)
 

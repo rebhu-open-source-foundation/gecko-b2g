@@ -420,6 +420,7 @@ nsWindow::nsWindow() {
 
 #ifdef MOZ_WAYLAND
   mNeedsUpdatingEGLSurface = false;
+  mCompositorInitiallyPaused = false;
 #endif
 
   if (!gGlobalsInitialized) {
@@ -1316,7 +1317,24 @@ void nsWindow::NativeMoveResizeWaylandPopup(GdkPoint* aPosition,
     hints = GdkAnchorHints(hints | GDK_ANCHOR_RESIZE);
   }
 
+  // A workaround for https://gitlab.gnome.org/GNOME/gtk/issues/1986
+  // gdk_window_move_to_rect() does not reposition visible windows.
+  static auto sGtkWidgetIsVisible =
+      (gboolean(*)(GtkWidget*))dlsym(RTLD_DEFAULT, "gtk_widget_is_visible");
+
+  bool isWidgetVisible =
+      (sGtkWidgetIsVisible != nullptr) && sGtkWidgetIsVisible(mShell);
+  if (isWidgetVisible) {
+    HideWaylandWindow();
+  }
+
   sGdkWindowMoveToRect(gdkWindow, &rect, rectAnchor, menuAnchor, hints, 0, 0);
+
+  if (isWidgetVisible) {
+    // We show the popup with the same configuration so no need to call
+    // ConfigureWaylandPopupWindows() before gtk_widget_show().
+    gtk_widget_show(mShell);
+  }
 }
 
 void nsWindow::NativeMove() {
@@ -2089,8 +2107,10 @@ void nsWindow::WaylandEGLSurfaceForceRedraw() {
   if (CompositorBridgeChild* remoteRenderer = GetRemoteRenderer()) {
     MOZ_ASSERT(mCompositorWidgetDelegate);
     if (mCompositorWidgetDelegate) {
+      mCompositorInitiallyPaused = false;
       mNeedsUpdatingEGLSurface = false;
       mCompositorWidgetDelegate->RequestsUpdatingEGLSurface();
+      remoteRenderer->SendResumeAsync();
     }
     remoteRenderer->SendForcePresent();
   }
@@ -3057,7 +3077,7 @@ void nsWindow::OnScrollEvent(GdkEventScroll* aEvent) {
       GdkDevice* device = gdk_event_get_source_device((GdkEvent*)aEvent);
       GdkInputSource source = gdk_device_get_source(device);
       if (source == GDK_SOURCE_TOUCHSCREEN || source == GDK_SOURCE_TOUCHPAD) {
-        if (StaticPrefs::APZGTKKineticScrollEnabled() &&
+        if (StaticPrefs::apz_gtk_kinetic_scroll_enabled() &&
             gtk_check_version(3, 20, 0) == nullptr) {
           static auto sGdkEventIsScrollStopEvent =
               (gboolean(*)(const GdkEvent*))dlsym(
@@ -3736,6 +3756,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
       mContainer = MOZ_CONTAINER(container);
 #ifdef MOZ_WAYLAND
       if (!mIsX11Display && ComputeShouldAccelerate()) {
+        mCompositorInitiallyPaused = true;
         RefPtr<nsWindow> self(this);
         moz_container_set_initial_draw_callback(mContainer, [self]() -> void {
           self->mNeedsUpdatingEGLSurface = true;

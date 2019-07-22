@@ -171,7 +171,8 @@ class OverlayImage;
 class DOMMediaStream
     : public DOMEventTargetHelper,
       public dom::PrincipalChangeObserver<dom::MediaStreamTrack>,
-      public RelativeTimeline {
+      public RelativeTimeline,
+      public SupportsWeakPtr<DOMMediaStream> {
   friend class dom::MediaStreamTrack;
   typedef dom::MediaStreamTrack MediaStreamTrack;
   typedef dom::AudioStreamTrack AudioStreamTrack;
@@ -184,6 +185,8 @@ class DOMMediaStream
 
  public:
   typedef dom::MediaTrackConstraints MediaTrackConstraints;
+
+  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(DOMMediaStream)
 
   class TrackListener {
    public:
@@ -637,7 +640,6 @@ class DOMMediaStream
   nsCOMPtr<nsIPrincipal> mVideoPrincipal;
   nsTArray<dom::PrincipalChangeObserver<DOMMediaStream>*>
       mPrincipalChangeObservers;
-  CORSMode mCORSMode;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(DOMMediaStream, NS_DOMMEDIASTREAM_IID)

@@ -250,11 +250,9 @@ class TextureData {
   };
 
   static TextureData* Create(TextureForwarder* aAllocator,
-                             gfx::SurfaceFormat aFormat,
-                             gfx::IntSize aSize,
+                             gfx::SurfaceFormat aFormat, gfx::IntSize aSize,
                              LayersBackend aLayersBackend,
-                             int32_t aMaxTextureSize,
-                             BackendSelector aSelector,
+                             int32_t aMaxTextureSize, BackendSelector aSelector,
                              TextureFlags aTextureFlags,
                              TextureAllocationFlags aAllocFlags);
 
@@ -321,7 +319,7 @@ class TextureData {
 #ifdef MOZ_WIDGET_GONK
   virtual GrallocTextureData* AsGrallocTextureData() { return nullptr; }
 #endif
-protected:
+ protected:
   TextureData() { MOZ_COUNT_CTOR(TextureData); }
 };
 

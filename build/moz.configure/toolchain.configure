@@ -123,29 +123,47 @@ with only_when(target_is_osx):
     set_config('MACOSX_DEPLOYMENT_TARGET', macos_target)
     add_old_configure_assignment('MACOSX_DEPLOYMENT_TARGET', macos_target)
 
+
+@depends(host)
+def host_is_osx(host):
+    if host.os == 'OSX':
+        return True
+
+
+with only_when(host_is_osx | target_is_osx):
     # MacOS SDK
     # =========
-
     js_option('--with-macos-sdk', env='MACOS_SDK_DIR', nargs=1,
            help='Location of platform SDK to use')
 
-    @depends_if('--with-macos-sdk')
+    @depends('--with-macos-sdk', host)
     @imports(_from='os.path', _import='isdir')
     @imports(_from='biplist', _import='readPlist')
-    def macos_sdk(value):
+    def macos_sdk(sdk, host):
         sdk_min_version = Version('10.11')
         sdk_max_version = Version('10.14')
 
-        if not isdir(value[0]):
+        if sdk:
+            sdk = sdk[0]
+        elif host.os == 'OSX':
+            sdk = check_cmd_output('xcrun', '--show-sdk-path', onerror=lambda: '').rstrip()
+            if not sdk:
+                die('Could not find the macOS SDK. Please use --with-macos-sdk to give '
+                    'the path to a macOS SDK.')
+        else:
+            die('Need a macOS SDK when targeting macOS. Please use --with-macos-sdk '
+                'to give the path to a macOS SDK.')
+
+        if not isdir(sdk):
             die('SDK not found in %s. When using --with-macos-sdk, you must specify a '
                 'valid SDK. SDKs are installed when the optional cross-development '
                 'tools are selected during the Xcode/Developer Tools installation.'
-                % value[0])
-        obj = readPlist(os.path.join(value[0], 'SDKSettings.plist'))
+                % sdk)
+        obj = readPlist(os.path.join(sdk, 'SDKSettings.plist'))
         if not obj:
-            die('Error parsing SDKSettings.plist in the SDK directory: %s' % value[0])
+            die('Error parsing SDKSettings.plist in the SDK directory: %s' % sdk)
         if 'Version' not in obj:
-            die('Error finding Version information in SDKSettings.plist from the SDK: %s' % value[0])
+            die('Error finding Version information in SDKSettings.plist from the SDK: %s' % sdk)
         version = Version(obj['Version'])
         if version < sdk_min_version:
             die('SDK version "%s" is too old. Please upgrade to at least %s. '
@@ -157,10 +175,12 @@ with only_when(target_is_osx):
                 '%s. You may need to point to it using --with-macos-sdk=<path> in '
                 'your mozconfig. Various SDK versions are available from '
                 'https://github.com/phracker/MacOSX-SDKs' % (version, sdk_max_version))
-        return value[0]
+        return sdk
 
     set_config('MACOS_SDK_DIR', macos_sdk)
 
+
+with only_when(target_is_osx):
     with only_when(cross_compiling):
         option('--with-macos-private-frameworks',
                env="MACOS_PRIVATE_FRAMEWORKS_DIR", nargs=1,
@@ -184,49 +204,49 @@ with only_when(target_is_osx):
     set_config('MACOS_PRIVATE_FRAMEWORKS_DIR', macos_private_frameworks)
 
 
-# Xcode state
-# ===========
-
-js_option('--disable-xcode-checks',
-          help='Do not check that Xcode is installed and properly configured')
-
-
-@depends(host, '--disable-xcode-checks')
-def xcode_path(host, xcode_checks):
-    if host.kernel != 'Darwin' or not xcode_checks:
-        return
-
-    # xcode-select -p prints the path to the installed Xcode. It
-    # should exit 0 and return non-empty result if Xcode is installed.
-
-    def bad_xcode_select():
-        die('Could not find installed Xcode; install Xcode from the App '
-            'Store, run it once to perform initial configuration, and then '
-            'try again; in the rare case you wish to build without Xcode '
-            'installed, add the --disable-xcode-checks configure flag')
-
-    xcode_path = check_cmd_output('xcode-select', '--print-path',
-                                  onerror=bad_xcode_select).strip()
-
-    if not xcode_path:
-        bad_xcode_select()
-
-    # Now look for the Command Line Tools.
-    def no_cltools():
-        die('Could not find installed Xcode Command Line Tools; '
-            'run `xcode-select --install` and follow the instructions '
-            'to install them then try again; if you wish to build without '
-            'Xcode Command Line Tools installed, '
-            'add the --disable-xcode-checks configure flag')
-
-    check_cmd_output('pkgutil', '--pkg-info',
-                     'com.apple.pkg.CLTools_Executables',
-                     onerror=no_cltools)
-
-    return xcode_path
+with only_when(host_is_osx):
+    # Xcode state
+    # ===========
+    js_option('--disable-xcode-checks',
+	      help='Do not check that Xcode is installed and properly configured')
 
 
-set_config('XCODE_PATH', xcode_path)
+    @depends(host, '--disable-xcode-checks')
+    def xcode_path(host, xcode_checks):
+	if host.kernel != 'Darwin' or not xcode_checks:
+	    return
+
+	# xcode-select -p prints the path to the installed Xcode. It
+	# should exit 0 and return non-empty result if Xcode is installed.
+
+	def bad_xcode_select():
+	    die('Could not find installed Xcode; install Xcode from the App '
+		'Store, run it once to perform initial configuration, and then '
+		'try again; in the rare case you wish to build without Xcode '
+		'installed, add the --disable-xcode-checks configure flag')
+
+	xcode_path = check_cmd_output('xcode-select', '--print-path',
+				      onerror=bad_xcode_select).strip()
+
+	if not xcode_path:
+	    bad_xcode_select()
+
+	# Now look for the Command Line Tools.
+	def no_cltools():
+	    die('Could not find installed Xcode Command Line Tools; '
+		'run `xcode-select --install` and follow the instructions '
+		'to install them then try again; if you wish to build without '
+		'Xcode Command Line Tools installed, '
+		'add the --disable-xcode-checks configure flag')
+
+	check_cmd_output('pkgutil', '--pkg-info',
+			 'com.apple.pkg.CLTools_Executables',
+			 onerror=no_cltools)
+
+	return xcode_path
+
+
+    set_config('XCODE_PATH', xcode_path)
 
 
 # Compiler wrappers
@@ -400,11 +420,9 @@ def get_compiler_info(compiler, language):
     # the feature check, so that an unsupported version of clang would have
     # no version number.
     check = dedent('''\
-        #if defined(_MSC_VER)
-        #if defined(__clang__)
+        #if defined(_MSC_VER) && defined(__clang__) && defined(_MT)
         %COMPILER "clang-cl"
         %VERSION __clang_major__.__clang_minor__.__clang_patchlevel__
-        #endif
         #elif defined(__clang__)
         %COMPILER "clang"
         #  if __has_attribute(diagnose_if)
@@ -562,8 +580,7 @@ def check_compiler(compiler, language, target):
         elif (info.cpu, target.cpu) in same_arch:
             flags.append('-m64')
         elif info.type == 'clang-cl' and target.cpu == 'aarch64':
-            # clang-cl uses a different name for this target
-            flags.append('--target=aarch64-windows-msvc')
+            flags.append('--target=%s' % target.toolchain)
         elif info.type == 'clang':
             flags.append('--target=%s' % target.toolchain)
 
@@ -1359,26 +1376,31 @@ set_config('WRAP_SYSTEM_INCLUDES', wrap_system_includes)
 set_config('VISIBILITY_FLAGS', visibility_flags)
 
 
-@depends(c_compiler)
-def depend_cflags(info):
-    if info.type != 'clang-cl':
-        return ['-MD', '-MP', '-MF $(MDDEPDIR)/$(@F).pp']
-    else:
-        # clang-cl doesn't accept the normal -MD -MP -MF options that clang
-        # does, but the underlying cc1 binary understands how to generate
-        # dependency files.  These options are based on analyzing what the
-        # normal clang driver sends to cc1 when given the "correct"
-        # dependency options.
-        return [
-            '-Xclang', '-MP',
-            '-Xclang', '-dependency-file',
-            '-Xclang', '$(MDDEPDIR)/$(@F).pp',
-            '-Xclang', '-MT',
-            '-Xclang', '$@'
-        ]
+@template
+def depend_cflags(host_or_target_c_compiler):
+    @depends(host_or_target_c_compiler)
+    def depend_cflags(host_or_target_c_compiler):
+        if host_or_target_c_compiler.type != 'clang-cl':
+            return ['-MD', '-MP', '-MF $(MDDEPDIR)/$(@F).pp']
+        else:
+            # clang-cl doesn't accept the normal -MD -MP -MF options that clang
+            # does, but the underlying cc1 binary understands how to generate
+            # dependency files.  These options are based on analyzing what the
+            # normal clang driver sends to cc1 when given the "correct"
+            # dependency options.
+            return [
+                '-Xclang', '-MP',
+                '-Xclang', '-dependency-file',
+                '-Xclang', '$(MDDEPDIR)/$(@F).pp',
+                '-Xclang', '-MT',
+                '-Xclang', '$@'
+            ]
+
+    return depend_cflags
 
 
-set_config('_DEPEND_CFLAGS', depend_cflags)
+set_config('_DEPEND_CFLAGS', depend_cflags(c_compiler))
+set_config('_HOST_DEPEND_CFLAGS', depend_cflags(host_c_compiler))
 
 
 @depends(c_compiler, check_build_environment, target)
@@ -1485,7 +1507,7 @@ set_config('MOZ_PROFILE_USE',
            depends_if('--enable-profile-use')(lambda _: True))
 
 
-@depends('--with-pgo-profile-path', '--enable-profile-use', 'LLVM_PROFDATA')
+@depends('--with-pgo-profile-path', '--enable-profile-use', llvm_profdata)
 @imports('os')
 def pgo_profile_path(path, pgo_use, profdata):
     if not path:
@@ -1520,17 +1542,17 @@ js_option('--enable-lto',
           help='Enable LTO')
 
 
-@depends('--enable-lto', 'MOZ_PGO', c_compiler)
+@depends('--enable-lto', 'MOZ_PGO', '--enable-profile-generate', c_compiler)
 @imports('multiprocessing')
-def lto(value, pgo, c_compiler):
+def lto(value, pgo, profile_generate, c_compiler):
     cflags = []
     ldflags = []
     enabled = None
     rust_lto = False
 
     # MSVC's implementation of PGO implies LTO. Make clang-cl match this.
-    if c_compiler.type == 'clang-cl' and pgo and value.origin == 'default':
-        value = ['thin']
+    if c_compiler.type == 'clang-cl' and pgo and not profile_generate and value.origin == 'default':
+        value = ['cross']
 
     if value:
         enabled = True
@@ -1764,6 +1786,44 @@ add_old_configure_assignment('MOZ_HARDENING_LDFLAGS', security_hardening_cflags.
 add_old_configure_assignment('MOZ_HARDENING_CFLAGS_JS', security_hardening_cflags.js_flags)
 add_old_configure_assignment('MOZ_HARDENING_LDFLAGS_JS', security_hardening_cflags.js_ldflags)
 
+
+# Frame pointers
+# ==============================================================
+@depends(c_compiler)
+def frame_pointer_flags(compiler):
+    if compiler.type == 'clang-cl':
+        return namespace(
+            enable=['-Oy-'],
+            disable=['-Oy'],
+        )
+    return namespace(
+        enable=['-fno-omit-frame-pointer', '-funwind-tables'],
+        disable=['-fomit-frame-pointer', '-funwind-tables'],
+    )
+
+
+@depends(moz_optimize.optimize, moz_debug, target,
+         '--enable-memory-sanitizer', '--enable-address-sanitizer',
+         '--enable-undefined-sanitizer')
+def frame_pointer_default(optimize, debug, target, msan, asan, ubsan):
+    return bool(not optimize or debug or msan or asan or ubsan or \
+        (target.os == 'WINNT' and target.cpu in ('x86', 'aarch64')))
+
+
+js_option('--enable-frame-pointers', default=frame_pointer_default,
+          help='{Enable|Disable} frame pointers')
+
+
+@depends('--enable-frame-pointers', frame_pointer_flags)
+def frame_pointer_flags(enable, flags):
+    if enable:
+        return flags.enable
+    return flags.disable
+
+
+set_config('MOZ_FRAMEPTR_FLAGS', frame_pointer_flags)
+
+
 # nasm detection
 # ==============================================================
 nasm = check_prog('NASM', ['nasm'], allow_missing=True, paths=toolchain_search_path)
@@ -1926,8 +1986,8 @@ def rustc_opt_level(opt_level_option, moz_optimize):
         return '1' if moz_optimize.optimize else '0'
 
 
-@depends(rustc_opt_level, debug_rust, '--enable-debug-symbols')
-def rust_compile_flags(opt_level, debug_rust, debug_symbols):
+@depends(rustc_opt_level, debug_rust, '--enable-debug-symbols', '--enable-frame-pointers')
+def rust_compile_flags(opt_level, debug_rust, debug_symbols, frame_pointers):
     # Cargo currently supports only two interesting profiles for building:
     # development and release. Those map (roughly) to --enable-debug and
     # --disable-debug in Gecko, respectively.
@@ -1960,6 +2020,8 @@ def rust_compile_flags(opt_level, debug_rust, debug_symbols):
                     ('yes' if debug_assertions else 'no'))
     if debug_info is not None:
         opts.append('debuginfo=%s' % debug_info)
+    if frame_pointers:
+        opts.append('force-frame-pointers=yes')
 
     flags = []
     for opt in opts:
@@ -2481,45 +2543,3 @@ ar = check_prog('AR', ar_config.names, paths=toolchain_search_path)
 add_old_configure_assignment('AR', ar)
 
 set_config('AR_FLAGS', ar_config.flags)
-
-# Frame pointers
-# ==============================================================
-@depends(c_compiler, target)
-def frame_pointer_flags(compiler, target):
-    if compiler.type == 'clang-cl':
-        if target.cpu == 'aarch64':
-            # Some version of clang-cl don't support -Oy-; accomodate them.
-            return namespace(
-                enable=['-Xclang', '-mdisable-fp-elim'],
-                disable=['-Xclang', '-mdisable-fp-elim'],
-            )
-        return namespace(
-            enable=['-Oy-'],
-            disable=['-Oy'],
-        )
-    return namespace(
-        enable=['-fno-omit-frame-pointer', '-funwind-tables'],
-        disable=['-fomit-frame-pointer', '-funwind-tables'],
-    )
-
-
-@depends(moz_optimize.optimize, moz_debug, target,
-         '--enable-memory-sanitizer', '--enable-address-sanitizer',
-         '--enable-undefined-sanitizer')
-def frame_pointer_default(optimize, debug, target, msan, asan, ubsan):
-    return bool(not optimize or debug or msan or asan or ubsan or \
-        (target.os == 'WINNT' and target.cpu in ('x86', 'aarch64')))
-
-
-js_option('--enable-frame-pointers', default=frame_pointer_default,
-          help='{Enable|Disable} frame pointers')
-
-
-@depends('--enable-frame-pointers', frame_pointer_flags)
-def frame_pointer_flags(enable, flags):
-    if enable:
-        return flags.enable
-    return flags.disable
-
-
-set_config('MOZ_FRAMEPTR_FLAGS', frame_pointer_flags)

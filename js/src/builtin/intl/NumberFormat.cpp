@@ -9,11 +9,13 @@
 #include "builtin/intl/NumberFormat.h"
 
 #include "mozilla/Assertions.h"
+#include "mozilla/Casting.h"
 #include "mozilla/FloatingPoint.h"
 
 #include <algorithm>
 #include <stddef.h>
 #include <stdint.h>
+#include <type_traits>
 
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/ICUStubs.h"
@@ -25,6 +27,8 @@
 #include "js/RootingAPI.h"
 #include "js/StableStringChars.h"
 #include "js/TypeDecls.h"
+#include "js/Vector.h"
+#include "vm/BigIntType.h"
 #include "vm/JSContext.h"
 #include "vm/SelfHosting.h"
 #include "vm/Stack.h"
@@ -41,6 +45,7 @@ using mozilla::SpecificNaN;
 
 using js::intl::CallICU;
 using js::intl::DateTimeFormatOptions;
+using js::intl::FieldType;
 using js::intl::GetAvailableLocales;
 using js::intl::IcuLocale;
 
@@ -108,10 +113,9 @@ static bool NumberFormat(JSContext* cx, const CallArgs& args, bool construct) {
     return false;
   }
 
-  numberFormat->setReservedSlot(NumberFormatObject::INTERNALS_SLOT,
-                                NullValue());
-  numberFormat->setReservedSlot(NumberFormatObject::UNUMBER_FORMAT_SLOT,
-                                PrivateValue(nullptr));
+  numberFormat->setFixedSlot(NumberFormatObject::INTERNALS_SLOT, NullValue());
+  numberFormat->setNumberFormatter(nullptr);
+  numberFormat->setFormattedNumber(nullptr);
 
   RootedValue thisValue(cx,
                         construct ? ObjectValue(*numberFormat) : args.thisv());
@@ -142,10 +146,15 @@ bool js::intl_NumberFormat(JSContext* cx, unsigned argc, Value* vp) {
 void js::NumberFormatObject::finalize(FreeOp* fop, JSObject* obj) {
   MOZ_ASSERT(fop->onMainThread());
 
-  const Value& slot = obj->as<NumberFormatObject>().getReservedSlot(
-      NumberFormatObject::UNUMBER_FORMAT_SLOT);
-  if (UNumberFormat* nf = static_cast<UNumberFormat*>(slot.toPrivate())) {
-    unum_close(nf);
+  auto* numberFormat = &obj->as<NumberFormatObject>();
+  UNumberFormatter* nf = numberFormat->getNumberFormatter();
+  UFormattedNumber* formatted = numberFormat->getFormattedNumber();
+
+  if (nf) {
+    unumf_close(nf);
+  }
+  if (formatted) {
+    unumf_closeResult(formatted);
   }
 }
 
@@ -242,11 +251,81 @@ bool js::intl_numberingSystem(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+bool js::intl::NumberFormatterSkeleton::currency(CurrencyDisplay display,
+                                                 JSLinearString* currency) {
+  MOZ_ASSERT(currency->length() == 3,
+             "IsWellFormedCurrencyCode permits only length-3 strings");
+
+  char16_t currencyChars[] = {currency->latin1OrTwoByteChar(0),
+                              currency->latin1OrTwoByteChar(1),
+                              currency->latin1OrTwoByteChar(2), '\0'};
+
+  if (!(append(u"currency/") && append(currencyChars) && append(' '))) {
+    return false;
+  }
+
+  switch (display) {
+    case CurrencyDisplay::Code:
+      return appendToken(u"unit-width-iso-code");
+    case CurrencyDisplay::Name:
+      return appendToken(u"unit-width-full-name");
+    case CurrencyDisplay::Symbol:
+      // Default, no additional tokens needed.
+      return true;
+  }
+
+  MOZ_CRASH("unexpected currency display type");
+}
+
+bool js::intl::NumberFormatterSkeleton::percent() {
+  return appendToken(u"percent scale/100");
+}
+
+bool js::intl::NumberFormatterSkeleton::fractionDigits(uint32_t min,
+                                                       uint32_t max) {
+  // Note: |min| can be zero here.
+  MOZ_ASSERT(min <= max);
+  return append('.') && appendN('0', min) && appendN('#', max - min) &&
+         append(' ');
+}
+
+bool js::intl::NumberFormatterSkeleton::integerWidth(uint32_t min) {
+  MOZ_ASSERT(min > 0);
+  return append(u"integer-width/+") && appendN('0', min) && append(' ');
+}
+
+bool js::intl::NumberFormatterSkeleton::significantDigits(uint32_t min,
+                                                          uint32_t max) {
+  MOZ_ASSERT(min > 0);
+  MOZ_ASSERT(min <= max);
+  return appendN('@', min) && appendN('#', max - min) && append(' ');
+}
+
+bool js::intl::NumberFormatterSkeleton::useGrouping(bool on) {
+  return on || appendToken(u"group-off");
+}
+
+bool js::intl::NumberFormatterSkeleton::roundingModeHalfUp() {
+  return appendToken(u"rounding-mode-half-up");
+}
+
+UNumberFormatter* js::intl::NumberFormatterSkeleton::toFormatter(
+    JSContext* cx, const char* locale) {
+  UErrorCode status = U_ZERO_ERROR;
+  UNumberFormatter* nf = unumf_openForSkeletonAndLocale(
+      vector_.begin(), vector_.length(), locale, &status);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return nullptr;
+  }
+  return nf;
+}
+
 /**
- * Returns a new UNumberFormat with the locale and number formatting options
+ * Returns a new UNumberFormatter with the locale and number formatting options
  * of the given NumberFormat.
  */
-static UNumberFormat* NewUNumberFormat(
+static UNumberFormatter* NewUNumberFormatter(
     JSContext* cx, Handle<NumberFormatObject*> numberFormat) {
   RootedValue value(cx);
 
@@ -263,19 +342,7 @@ static UNumberFormat* NewUNumberFormat(
     return nullptr;
   }
 
-  // UNumberFormat options with default values
-  UNumberFormatStyle uStyle = UNUM_DECIMAL;
-  const UChar* uCurrency = nullptr;
-  uint32_t uMinimumIntegerDigits = 1;
-  uint32_t uMinimumFractionDigits = 0;
-  uint32_t uMaximumFractionDigits = 3;
-  int32_t uMinimumSignificantDigits = -1;
-  int32_t uMaximumSignificantDigits = -1;
-  bool uUseGrouping = true;
-
-  // Sprinkle appropriate rooting flavor over things the GC might care about.
-  RootedString currency(cx);
-  AutoStableStringChars stableChars(cx);
+  intl::NumberFormatterSkeleton skeleton(cx);
 
   // We don't need to look at numberingSystem - it can only be set via
   // the Unicode locale extension and is therefore already set on locale.
@@ -291,18 +358,7 @@ static UNumberFormat* NewUNumberFormat(
     }
 
     if (StringEqualsAscii(style, "currency")) {
-      if (!GetProperty(cx, internals, internals, cx->names().currency,
-                       &value)) {
-        return nullptr;
-      }
-      currency = value.toString();
-      MOZ_ASSERT(currency->length() == 3,
-                 "IsWellFormedCurrencyCode permits only length-3 strings");
-      if (!stableChars.initTwoByte(cx, currency)) {
-        return nullptr;
-      }
-      // uCurrency remains owned by stableChars.
-      uCurrency = stableChars.twoByteRange().begin().get();
+      using CurrencyDisplay = intl::NumberFormatterSkeleton::CurrencyDisplay;
 
       if (!GetProperty(cx, internals, internals, cx->names().currencyDisplay,
                        &value)) {
@@ -312,119 +368,213 @@ static UNumberFormat* NewUNumberFormat(
       if (!currencyDisplay) {
         return nullptr;
       }
+
+      CurrencyDisplay display;
       if (StringEqualsAscii(currencyDisplay, "code")) {
-        uStyle = UNUM_CURRENCY_ISO;
+        display = CurrencyDisplay::Code;
       } else if (StringEqualsAscii(currencyDisplay, "symbol")) {
-        uStyle = UNUM_CURRENCY;
+        display = CurrencyDisplay::Symbol;
       } else {
         MOZ_ASSERT(StringEqualsAscii(currencyDisplay, "name"));
-        uStyle = UNUM_CURRENCY_PLURAL;
+        display = CurrencyDisplay::Name;
+      }
+
+      if (!GetProperty(cx, internals, internals, cx->names().currency,
+                       &value)) {
+        return nullptr;
+      }
+      JSLinearString* currency = value.toString()->ensureLinear(cx);
+      if (!currency) {
+        return nullptr;
+      }
+
+      if (!skeleton.currency(display, currency)) {
+        return nullptr;
       }
     } else if (StringEqualsAscii(style, "percent")) {
-      uStyle = UNUM_PERCENT;
+      if (!skeleton.percent()) {
+        return nullptr;
+      }
     } else {
       MOZ_ASSERT(StringEqualsAscii(style, "decimal"));
-      uStyle = UNUM_DECIMAL;
     }
   }
 
-  bool hasP;
+  bool hasMinimumSignificantDigits;
   if (!HasProperty(cx, internals, cx->names().minimumSignificantDigits,
-                   &hasP)) {
+                   &hasMinimumSignificantDigits)) {
     return nullptr;
   }
 
-  if (hasP) {
+  if (hasMinimumSignificantDigits) {
     if (!GetProperty(cx, internals, internals,
                      cx->names().minimumSignificantDigits, &value)) {
       return nullptr;
     }
-    uMinimumSignificantDigits = value.toInt32();
+    uint32_t minimumSignificantDigits = AssertedCast<uint32_t>(value.toInt32());
 
     if (!GetProperty(cx, internals, internals,
                      cx->names().maximumSignificantDigits, &value)) {
       return nullptr;
     }
-    uMaximumSignificantDigits = value.toInt32();
+    uint32_t maximumSignificantDigits = AssertedCast<uint32_t>(value.toInt32());
+
+    if (!skeleton.significantDigits(minimumSignificantDigits,
+                                    maximumSignificantDigits)) {
+      return nullptr;
+    }
   } else {
     if (!GetProperty(cx, internals, internals, cx->names().minimumIntegerDigits,
                      &value)) {
       return nullptr;
     }
-    uMinimumIntegerDigits = AssertedCast<uint32_t>(value.toInt32());
+    uint32_t minimumIntegerDigits = AssertedCast<uint32_t>(value.toInt32());
 
     if (!GetProperty(cx, internals, internals,
                      cx->names().minimumFractionDigits, &value)) {
       return nullptr;
     }
-    uMinimumFractionDigits = AssertedCast<uint32_t>(value.toInt32());
+    uint32_t minimumFractionDigits = AssertedCast<uint32_t>(value.toInt32());
 
     if (!GetProperty(cx, internals, internals,
                      cx->names().maximumFractionDigits, &value)) {
       return nullptr;
     }
-    uMaximumFractionDigits = AssertedCast<uint32_t>(value.toInt32());
+    uint32_t maximumFractionDigits = AssertedCast<uint32_t>(value.toInt32());
+
+    if (!skeleton.fractionDigits(minimumFractionDigits,
+                                 maximumFractionDigits)) {
+      return nullptr;
+    }
+    if (!skeleton.integerWidth(minimumIntegerDigits)) {
+      return nullptr;
+    }
   }
 
   if (!GetProperty(cx, internals, internals, cx->names().useGrouping, &value)) {
     return nullptr;
   }
-  uUseGrouping = value.toBoolean();
+  if (!skeleton.useGrouping(value.toBoolean())) {
+    return nullptr;
+  }
 
+  if (!skeleton.roundingModeHalfUp()) {
+    return nullptr;
+  }
+
+  return skeleton.toFormatter(cx, locale.get());
+}
+
+static UFormattedNumber* NewUFormattedNumber(JSContext* cx) {
   UErrorCode status = U_ZERO_ERROR;
-  UNumberFormat* nf =
-      unum_open(uStyle, nullptr, 0, IcuLocale(locale.get()), nullptr, &status);
+  UFormattedNumber* formatted = unumf_openResult(&status);
   if (U_FAILURE(status)) {
     intl::ReportInternalError(cx);
     return nullptr;
   }
-  ScopedICUObject<UNumberFormat, unum_close> toClose(nf);
+  return formatted;
+}
 
-  if (uCurrency) {
-    unum_setTextAttribute(nf, UNUM_CURRENCY_CODE, uCurrency, 3, &status);
-    if (U_FAILURE(status)) {
-      intl::ReportInternalError(cx);
-      return nullptr;
+// We also support UFormattedNumber in addition to UFormattedValue, in case
+// we're compiling against a system ICU which doesn't expose draft APIs.
+
+#ifndef U_HIDE_DRAFT_API
+using PartitionNumberPatternResult = const UFormattedValue*;
+#else
+using PartitionNumberPatternResult = const UFormattedNumber*;
+#endif
+
+static PartitionNumberPatternResult PartitionNumberPattern(
+    JSContext* cx, const UNumberFormatter* nf, UFormattedNumber* formatted,
+    HandleValue x) {
+  UErrorCode status = U_ZERO_ERROR;
+  if (x.isNumber()) {
+    double num = x.toNumber();
+
+    // ICU incorrectly formats NaN values with the sign bit set, as if they
+    // were negative.  Replace all NaNs with a single pattern with sign bit
+    // unset ("positive", that is) until ICU is fixed.
+    if (MOZ_UNLIKELY(IsNaN(num))) {
+      num = SpecificNaN<double>(0, 1);
+    }
+
+    unumf_formatDouble(nf, num, formatted, &status);
+  } else {
+    RootedBigInt bi(cx, x.toBigInt());
+
+    int64_t num;
+    if (BigInt::isInt64(bi, &num)) {
+      unumf_formatInt(nf, num, formatted, &status);
+    } else {
+      JSLinearString* str = BigInt::toString<CanGC>(cx, bi, 10);
+      if (!str) {
+        return nullptr;
+      }
+      MOZ_ASSERT(str->hasLatin1Chars());
+
+      // Tell the analysis the |unumf_formatDecimal| function can't GC.
+      JS::AutoSuppressGCAnalysis nogc;
+
+      const char* chars = reinterpret_cast<const char*>(str->latin1Chars(nogc));
+      unumf_formatDecimal(nf, chars, str->length(), formatted, &status);
     }
   }
-  if (uMinimumSignificantDigits != -1) {
-    unum_setAttribute(nf, UNUM_SIGNIFICANT_DIGITS_USED, true);
-    unum_setAttribute(nf, UNUM_MIN_SIGNIFICANT_DIGITS,
-                      uMinimumSignificantDigits);
-    unum_setAttribute(nf, UNUM_MAX_SIGNIFICANT_DIGITS,
-                      uMaximumSignificantDigits);
-  } else {
-    unum_setAttribute(nf, UNUM_MIN_INTEGER_DIGITS, uMinimumIntegerDigits);
-    unum_setAttribute(nf, UNUM_MIN_FRACTION_DIGITS, uMinimumFractionDigits);
-    unum_setAttribute(nf, UNUM_MAX_FRACTION_DIGITS, uMaximumFractionDigits);
-  }
-  unum_setAttribute(nf, UNUM_GROUPING_USED, uUseGrouping);
-  unum_setAttribute(nf, UNUM_ROUNDING_MODE, UNUM_ROUND_HALFUP);
-
-  return toClose.forget();
-}
-
-static JSString* PartitionNumberPattern(JSContext* cx, UNumberFormat* nf,
-                                        double* x,
-                                        UFieldPositionIterator* fpositer) {
-  // ICU incorrectly formats NaN values with the sign bit set, as if they
-  // were negative.  Replace all NaNs with a single pattern with sign bit
-  // unset ("positive", that is) until ICU is fixed.
-  if (MOZ_UNLIKELY(IsNaN(*x))) {
-    *x = SpecificNaN<double>(0, 1);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return nullptr;
   }
 
-  return CallICU(cx, [nf, d = *x, fpositer](UChar* chars, int32_t size,
-                                            UErrorCode* status) {
-    return unum_formatDoubleForFields(nf, d, chars, size, fpositer, status);
-  });
+#ifndef U_HIDE_DRAFT_API
+  const UFormattedValue* formattedValue =
+      unumf_resultAsValue(formatted, &status);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return nullptr;
+  }
+  return formattedValue;
+#else
+  return formatted;
+#endif
 }
 
-static bool intl_FormatNumber(JSContext* cx, UNumberFormat* nf, double x,
-                              MutableHandleValue result) {
-  // Passing null for |fpositer| will just not compute partition information,
-  // letting us common up all ICU number-formatting code.
-  JSString* str = PartitionNumberPattern(cx, nf, &x, nullptr);
+static JSString* FormattedNumberToString(
+    JSContext* cx, PartitionNumberPatternResult formattedValue) {
+#ifndef U_HIDE_DRAFT_API
+  static_assert(
+      std::is_same<PartitionNumberPatternResult, const UFormattedValue*>::value,
+      "UFormattedValue arm");
+
+  UErrorCode status = U_ZERO_ERROR;
+  int32_t strLength;
+  const char16_t* str = ufmtval_getString(formattedValue, &strLength, &status);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return nullptr;
+  }
+
+  return NewStringCopyN<CanGC>(cx, str, AssertedCast<uint32_t>(strLength));
+#else
+  static_assert(std::is_same<PartitionNumberPatternResult,
+                             const UFormattedNumber*>::value,
+                "UFormattedNumber arm");
+
+  return CallICU(cx,
+                 [formatted](UChar* chars, int32_t size, UErrorCode* status) {
+                   return unumf_resultToString(formatted, chars, size, status);
+                 });
+#endif
+}
+
+static bool FormatNumeric(JSContext* cx, const UNumberFormatter* nf,
+                          UFormattedNumber* formatted, HandleValue x,
+                          MutableHandleValue result) {
+  PartitionNumberPatternResult formattedValue =
+      PartitionNumberPattern(cx, nf, formatted, x);
+  if (!formattedValue) {
+    return false;
+  }
+
+  JSString* str = FormattedNumberToString(cx, formattedValue);
   if (!str) {
     return false;
   }
@@ -433,10 +583,8 @@ static bool intl_FormatNumber(JSContext* cx, UNumberFormat* nf, double x,
   return true;
 }
 
-using FieldType = ImmutablePropertyNamePtr JSAtomState::*;
-
 static FieldType GetFieldTypeForNumberField(UNumberFormatFields fieldName,
-                                            double d) {
+                                            HandleValue x) {
   // See intl/icu/source/i18n/unicode/unum.h for a detailed field list.  This
   // list is deliberately exhaustive: cases might have to be added/removed if
   // this code is compiled with a different ICU with more UNumberFormatFields
@@ -444,11 +592,14 @@ static FieldType GetFieldTypeForNumberField(UNumberFormatFields fieldName,
   // version-testing #ifdefs, should cross-version divergence occur.
   switch (fieldName) {
     case UNUM_INTEGER_FIELD:
-      if (IsNaN(d)) {
-        return &JSAtomState::nan;
-      }
-      if (!IsFinite(d)) {
-        return &JSAtomState::infinity;
+      if (x.isNumber()) {
+        double d = x.toNumber();
+        if (IsNaN(d)) {
+          return &JSAtomState::nan;
+        }
+        if (!IsFinite(d)) {
+          return &JSAtomState::infinity;
+        }
       }
       return &JSAtomState::integer;
 
@@ -465,12 +616,14 @@ static FieldType GetFieldTypeForNumberField(UNumberFormatFields fieldName,
       // Manual trawling through the ICU call graph appears to indicate that
       // the basic formatting we request will never include a positive sign.
       // But this analysis may be mistaken, so don't absolutely trust it.
-      MOZ_ASSERT(!IsNaN(d),
+      MOZ_ASSERT(!x.isNumber() || !IsNaN(x.toNumber()),
                  "ICU appearing not to produce positive-sign among fields, "
                  "plus our coercing all NaNs to one with sign bit unset "
                  "(i.e. \"positive\"), means we shouldn't reach here with a "
                  "NaN value");
-      return IsNegative(d) ? &JSAtomState::minusSign : &JSAtomState::plusSign;
+      bool isNegative =
+          x.isNumber() ? IsNegative(x.toNumber()) : x.toBigInt()->isNegative();
+      return isNegative ? &JSAtomState::minusSign : &JSAtomState::plusSign;
     }
 
     case UNUM_PERCENT_FIELD:
@@ -496,7 +649,6 @@ static FieldType GetFieldTypeForNumberField(UNumberFormatFields fieldName,
       break;
 
 #ifndef U_HIDE_DRAFT_API
-#  if U_ICU_VERSION_MAJOR_NUM >= 64
     case UNUM_MEASURE_UNIT_FIELD:
       MOZ_ASSERT_UNREACHABLE(
           "unexpected measure unit field found, even though "
@@ -510,7 +662,6 @@ static FieldType GetFieldTypeForNumberField(UNumberFormatFields fieldName,
           "we don't use any user-defined patterns that "
           "would require a compact number notation");
       break;
-#  endif
 #endif
 
 #ifndef U_HIDE_DEPRECATED_API
@@ -528,72 +679,57 @@ static FieldType GetFieldTypeForNumberField(UNumberFormatFields fieldName,
   return nullptr;
 }
 
-static bool intl_FormatNumberToParts(JSContext* cx, UNumberFormat* nf, double x,
-                                     MutableHandleValue result) {
-  UErrorCode status = U_ZERO_ERROR;
+struct Field {
+  uint32_t begin;
+  uint32_t end;
+  FieldType type;
 
-  UFieldPositionIterator* fpositer = ufieldpositer_open(&status);
-  if (U_FAILURE(status)) {
-    intl::ReportInternalError(cx);
-    return false;
-  }
+  // Needed for vector-resizing scratch space.
+  Field() = default;
 
-  MOZ_ASSERT(fpositer);
-  ScopedICUObject<UFieldPositionIterator, ufieldpositer_close> toClose(
-      fpositer);
+  Field(uint32_t begin, uint32_t end, FieldType type)
+      : begin(begin), end(end), type(type) {}
+};
 
-  RootedString overallResult(cx, PartitionNumberPattern(cx, nf, &x, fpositer));
-  if (!overallResult) {
-    return false;
-  }
-
-  RootedArrayObject partsArray(cx, NewDenseEmptyArray(cx));
-  if (!partsArray) {
-    return false;
-  }
-
-  // First, vacuum up fields in the overall formatted string.
-
-  struct Field {
-    uint32_t begin;
-    uint32_t end;
-    FieldType type;
-
-    // Needed for vector-resizing scratch space.
-    Field() = default;
-
-    Field(uint32_t begin, uint32_t end, FieldType type)
-        : begin(begin), end(end), type(type) {}
-  };
-
+class NumberFormatFields {
   using FieldsVector = Vector<Field, 16>;
-  FieldsVector fields(cx);
 
-  int32_t fieldInt, beginIndexInt, endIndexInt;
-  while ((fieldInt = ufieldpositer_next(fpositer, &beginIndexInt,
-                                        &endIndexInt)) >= 0) {
-    MOZ_ASSERT(beginIndexInt >= 0);
-    MOZ_ASSERT(endIndexInt >= 0);
-    MOZ_ASSERT(beginIndexInt < endIndexInt,
-               "erm, aren't fields always non-empty?");
+  FieldsVector fields_;
+  HandleValue number_;
 
-    FieldType type =
-        GetFieldTypeForNumberField(UNumberFormatFields(fieldInt), x);
-    if (!fields.emplaceBack(uint32_t(beginIndexInt), uint32_t(endIndexInt),
-                            type)) {
-      return false;
-    }
-  }
+ public:
+  NumberFormatFields(JSContext* cx, HandleValue number)
+      : fields_(cx), number_(number) {}
 
-  // Second, merge sort the fields vector.  Expand the vector to have scratch
-  // space for performing the sort.
-  size_t fieldsLen = fields.length();
-  if (!fields.resizeUninitialized(fieldsLen * 2)) {
-    return false;
+  MOZ_MUST_USE bool append(int32_t field, int32_t begin, int32_t end);
+
+  MOZ_MUST_USE ArrayObject* toArray(JSContext* cx,
+                                    JS::HandleString overallResult,
+                                    FieldType unitType);
+};
+
+bool NumberFormatFields::append(int32_t field, int32_t begin, int32_t end) {
+  MOZ_ASSERT(begin >= 0);
+  MOZ_ASSERT(end >= 0);
+  MOZ_ASSERT(begin < end, "erm, aren't fields always non-empty?");
+
+  FieldType type =
+      GetFieldTypeForNumberField(UNumberFormatFields(field), number_);
+  return fields_.emplaceBack(uint32_t(begin), uint32_t(end), type);
+}
+
+ArrayObject* NumberFormatFields::toArray(JSContext* cx,
+                                         HandleString overallResult,
+                                         FieldType unitType) {
+  // Merge sort the fields vector.  Expand the vector to have scratch space for
+  // performing the sort.
+  size_t fieldsLen = fields_.length();
+  if (!fields_.growByUninitialized(fieldsLen)) {
+    return nullptr;
   }
 
   MOZ_ALWAYS_TRUE(MergeSort(
-      fields.begin(), fieldsLen, fields.begin() + fieldsLen,
+      fields_.begin(), fieldsLen, fields_.begin() + fieldsLen,
       [](const Field& left, const Field& right, bool* lessOrEqual) {
         // Sort first by begin index, then to place
         // enclosing fields before nested fields.
@@ -602,14 +738,12 @@ static bool intl_FormatNumberToParts(JSContext* cx, UNumberFormat* nf, double x,
         return true;
       }));
 
-  // Deallocate the scratch space.
-  if (!fields.resize(fieldsLen)) {
-    return false;
-  }
+  // Delete the elements in the scratch space.
+  fields_.shrinkBy(fieldsLen);
 
-  // Third, iterate over the sorted field list to generate a sequence of
-  // parts (what ECMA-402 actually exposes).  A part is a maximal character
-  // sequence entirely within no field or a single most-nested field.
+  // Then iterate over the sorted field list to generate a sequence of parts
+  // (what ECMA-402 actually exposes).  A part is a maximal character sequence
+  // entirely within no field or a single most-nested field.
   //
   // Diagrams may be helpful to illustrate how fields map to parts.  Consider
   // formatting -19,766,580,028,249.41, the US national surplus (negative
@@ -814,12 +948,17 @@ static bool intl_FormatNumberToParts(JSContext* cx, UNumberFormat* nf, double x,
   RootedObject singlePart(cx);
   RootedValue propVal(cx);
 
-  PartGenerator gen(cx, fields, overallResult->length());
+  RootedArrayObject partsArray(cx, NewDenseEmptyArray(cx));
+  if (!partsArray) {
+    return nullptr;
+  }
+
+  PartGenerator gen(cx, fields_, overallResult->length());
   do {
     bool hasPart;
     Part part;
     if (!gen.nextPart(&hasPart, &part)) {
-      return false;
+      return nullptr;
     }
 
     if (!hasPart) {
@@ -833,28 +972,35 @@ static bool intl_FormatNumberToParts(JSContext* cx, UNumberFormat* nf, double x,
 
     singlePart = NewBuiltinClassInstance<PlainObject>(cx);
     if (!singlePart) {
-      return false;
+      return nullptr;
     }
 
     propVal.setString(cx->names().*type);
     if (!DefineDataProperty(cx, singlePart, cx->names().type, propVal)) {
-      return false;
+      return nullptr;
     }
 
     JSLinearString* partSubstr = NewDependentString(
         cx, overallResult, lastEndIndex, endIndex - lastEndIndex);
     if (!partSubstr) {
-      return false;
+      return nullptr;
     }
 
     propVal.setString(partSubstr);
     if (!DefineDataProperty(cx, singlePart, cx->names().value, propVal)) {
-      return false;
+      return nullptr;
+    }
+
+    if (unitType != nullptr && type != &JSAtomState::literal) {
+      propVal.setString(cx->names().*unitType);
+      if (!DefineDataProperty(cx, singlePart, cx->names().unit, propVal)) {
+        return nullptr;
+      }
     }
 
     propVal.setObject(*singlePart);
     if (!DefineDataElement(cx, partsArray, partIndex, propVal)) {
-      return false;
+      return nullptr;
     }
 
     lastEndIndex = endIndex;
@@ -864,38 +1010,171 @@ static bool intl_FormatNumberToParts(JSContext* cx, UNumberFormat* nf, double x,
   MOZ_ASSERT(lastEndIndex == overallResult->length(),
              "result array must partition the entire string");
 
-  result.setObject(*partsArray);
+  return partsArray;
+}
+
+#ifndef U_HIDE_DRAFT_API
+bool js::intl::FormattedNumberToParts(JSContext* cx,
+                                      const UFormattedValue* formattedValue,
+                                      HandleValue number, FieldType unitType,
+                                      MutableHandleValue result) {
+  RootedString overallResult(cx, FormattedNumberToString(cx, formattedValue));
+  if (!overallResult) {
+    return false;
+  }
+
+  UErrorCode status = U_ZERO_ERROR;
+  UConstrainedFieldPosition* fpos = ucfpos_open(&status);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return false;
+  }
+  ScopedICUObject<UConstrainedFieldPosition, ucfpos_close> toCloseFpos(fpos);
+
+  // We're only interested in UFIELD_CATEGORY_NUMBER fields.
+  ucfpos_constrainCategory(fpos, UFIELD_CATEGORY_NUMBER, &status);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return false;
+  }
+
+  // Vacuum up fields in the overall formatted string.
+
+  NumberFormatFields fields(cx, number);
+
+  while (true) {
+    bool hasMore = ufmtval_nextPosition(formattedValue, fpos, &status);
+    if (U_FAILURE(status)) {
+      intl::ReportInternalError(cx);
+      return false;
+    }
+    if (!hasMore) {
+      break;
+    }
+
+    int32_t field = ucfpos_getField(fpos, &status);
+    if (U_FAILURE(status)) {
+      intl::ReportInternalError(cx);
+      return false;
+    }
+
+    int32_t beginIndex, endIndex;
+    ucfpos_getIndexes(fpos, &beginIndex, &endIndex, &status);
+    if (U_FAILURE(status)) {
+      intl::ReportInternalError(cx);
+      return false;
+    }
+
+    if (!fields.append(field, beginIndex, endIndex)) {
+      return false;
+    }
+  }
+
+  ArrayObject* array = fields.toArray(cx, overallResult, unitType);
+  if (!array) {
+    return false;
+  }
+
+  result.setObject(*array);
   return true;
+}
+#else
+static ArrayObject* LegacyFormattedNumberToParts(
+    JSContext* cx, const UFormattedNumber* formatted, HandleValue x,
+    MutableHandleValue result) {
+  RootedString overallResult(cx, FormattedNumberToString(cx, formatted));
+  if (!overallResult) {
+    return false;
+  }
+
+  UErrorCode status = U_ZERO_ERROR;
+  UFieldPositionIterator* fpositer = ufieldpositer_open(&status);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return false;
+  }
+
+  MOZ_ASSERT(fpositer);
+  ScopedICUObject<UFieldPositionIterator, ufieldpositer_close> toClose(
+      fpositer);
+
+  unumf_resultGetAllFieldPositions(formatted, fpositer, &status);
+  if (U_FAILURE(status)) {
+    intl::ReportInternalError(cx);
+    return false;
+  }
+
+  // Vacuum up fields in the overall formatted string.
+
+  NumberFormatFields fields(cx, x);
+
+  int32_t field, beginIndex, endIndex;
+  while ((field = ufieldpositer_next(fpositer, &beginIndex, &endIndex)) >= 0) {
+    if (!fields.append(field, beginIndex, endIndex)) {
+      return false;
+    }
+  }
+
+  ArrayObject* array = fields.toArray(cx, overallResult, nullptr);
+  if (!array) {
+    return false;
+  }
+
+  result.setObject(*array);
+  return true;
+}
+#endif
+
+static bool FormatNumericToParts(JSContext* cx, const UNumberFormatter* nf,
+                                 UFormattedNumber* formatted, HandleValue x,
+                                 MutableHandleValue result) {
+  PartitionNumberPatternResult formattedValue =
+      PartitionNumberPattern(cx, nf, formatted, x);
+  if (!formattedValue) {
+    return false;
+  }
+
+#ifndef U_HIDE_DRAFT_API
+  return intl::FormattedNumberToParts(cx, formattedValue, x, nullptr, result);
+#else
+  return LegacyFormattedNumberToParts(cx, formattedValue, x, result);
+#endif
 }
 
 bool js::intl_FormatNumber(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 3);
   MOZ_ASSERT(args[0].isObject());
-  MOZ_ASSERT(args[1].isNumber());
+  MOZ_ASSERT(args[1].isNumeric());
   MOZ_ASSERT(args[2].isBoolean());
 
   Rooted<NumberFormatObject*> numberFormat(
       cx, &args[0].toObject().as<NumberFormatObject>());
 
-  // Obtain a cached UNumberFormat object.
-  void* priv =
-      numberFormat->getReservedSlot(NumberFormatObject::UNUMBER_FORMAT_SLOT)
-          .toPrivate();
-  UNumberFormat* nf = static_cast<UNumberFormat*>(priv);
+  // Obtain a cached UNumberFormatter object.
+  UNumberFormatter* nf = numberFormat->getNumberFormatter();
   if (!nf) {
-    nf = NewUNumberFormat(cx, numberFormat);
+    nf = NewUNumberFormatter(cx, numberFormat);
     if (!nf) {
       return false;
     }
-    numberFormat->setReservedSlot(NumberFormatObject::UNUMBER_FORMAT_SLOT,
-                                  PrivateValue(nf));
+    numberFormat->setNumberFormatter(nf);
   }
 
-  // Use the UNumberFormat to actually format the number.
+  // Obtain a cached UFormattedNumber object.
+  UFormattedNumber* formatted = numberFormat->getFormattedNumber();
+  if (!formatted) {
+    formatted = NewUFormattedNumber(cx);
+    if (!formatted) {
+      return false;
+    }
+    numberFormat->setFormattedNumber(formatted);
+  }
+
+  // Use the UNumberFormatter to actually format the number.
   if (args[2].toBoolean()) {
-    return intl_FormatNumberToParts(cx, nf, args[1].toNumber(), args.rval());
+    return FormatNumericToParts(cx, nf, formatted, args[1], args.rval());
   }
 
-  return intl_FormatNumber(cx, nf, args[1].toNumber(), args.rval());
+  return FormatNumeric(cx, nf, formatted, args[1], args.rval());
 }

@@ -511,6 +511,10 @@ class MediaStream : public mozilla::LinkedListElement<MediaStream> {
   void DecrementSuspendCount();
 
  protected:
+  // Called on graph thread before handing control to the main thread to
+  // release streams.
+  virtual void NotifyForcedShutdown() {}
+
   // |AdvanceTimeVaryingValuesToCurrentTime| will be override in
   // SourceMediaStream.
   virtual void AdvanceTimeVaryingValuesToCurrentTime(GraphTime aCurrentTime,
@@ -1271,6 +1275,8 @@ class MediaStreamGraph {
    * Returns graph sample rate in Hz.
    */
   TrackRate GraphRate() const { return mSampleRate; }
+
+  double AudioOutputLatency();
 
   void RegisterCaptureStreamForWindow(uint64_t aWindowId,
                                       ProcessedMediaStream* aCaptureStream);

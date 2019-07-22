@@ -1,20 +1,68 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
- :root {
-   --card-box-shadow: 0 1px 4px 0 rgba(12,12,13,0.1), 0 1px 0 0 rgba(0,0,0,0.05);
-   --card-background:  #FFF;
-   --clickable-text-hover: hsla(0,0%,70%,.2);
-   --clickable-text-active: hsla(0,0%,70%,.3);
-   --card-divider: rgba(12,12,13,0.1) 1px solid;
-   --report-background: #FAFAFC;
-   --card-padding: 22px;
+:root {
+  --card-box-shadow: 0 1px 4px 0 rgba(12,12,13,0.1), 0 1px 0 0 rgba(0,0,0,0.05);
+  --card-background:  #FFF;
+  --clickable-text-hover: hsla(0,0%,70%,.2);
+  --clickable-text-active: hsla(0,0%,70%,.3);
+  --card-divider: rgba(12,12,13,0.1) 1px solid;
+  --report-background: #FAFAFC;
+  --card-padding: 24px;
+  --social-color: #9059FF;
+  --social-color-darker: #7F40FF;
+  --cookie-color: #0090F4;
+  --cookie-color-darker: #0073C3;
+  --tracker-color: #2AC3A2;
+  --tracker-color-darker: #229C82;
+  --orange: #FFA436;
+  --dark-orange: #FF981D;
+  --grey: #8F8F9D;
+  --dark-grey: #818191;
+  --tab-highlight: var(--social-color); /* start with social selected */
+  --blue-60: #0060DF;
+  --blue-70: #003eaa;
+  --blue-80: #002275;
+  --column-width: 16px;
+}
+
+ a {
+  color: var(--blue-60);
+  text-decoration: none;
+ }
+
+ a:active {
+  color: var(--blue-70);
+ }
+
+ a:hover, a:active {
+  text-decoration: underline;
  }
 
 body {
   background-color: var(--report-background);
   font: message-box;
   margin-top: 82px;
+}
+
+body[focuseddatatype=social] {
+  --tab-highlight: var(--social-color);
+}
+
+body[focuseddatatype=cookie] {
+  --tab-highlight: var(--cookie-color);
+}
+
+body[focuseddatatype=tracker] {
+  --tab-highlight: var(--tracker-color);
+}
+
+body[focuseddatatype=fingerprinter] {
+  --tab-highlight: var(--orange);
+}
+
+body[focuseddatatype=cryptominer] {
+  --tab-highlight: var(--grey);
 }
 
 #report-title {
@@ -28,12 +76,64 @@ body {
   margin: 0 auto;
 }
 
-.etp-card .icon {
+.card-header button {
+  font-size: 0.95rem;
+  background-color: var(--blue-60);
+  border-radius: 2px;
+  border: none;
+  color: #FFFFFF;
+  cursor: pointer;
+  margin-inline-end: 15px;
+  margin-inline-start: 15px;
+  padding: 10px;
+  align-self: center;
+}
+
+.card-header button:hover {
+  background-color: var(--blue-70);
+}
+
+.card-header button:active {
+  background-color: var(--blue-80);
+}
+
+.report-card.lockwise-card .card-header,
+.report-card.monitor-card.no-logins .card-header {
+  grid-template-columns: 2fr 6fr 7fr;
+}
+
+
+/* We want to hide certain components depending on its state. */
+a.hidden,
+.card-body.hidden,
+.lockwise-card.hidden,
+#lockwise-body-content .has-logins.hidden,
+#lockwise-body-content .no-logins.hidden,
+.monitor-card.hidden,
+.monitor-card.no-logins .card-body,
+.monitor-card.no-logins #monitor-header-content a,
+.monitor-card.no-logins .inline-text-icon.monitor-scanned-text,
+.monitor-card.has-logins #sign-up-for-monitor-button {
+  display: none;
+}
+
+.icon {
   width: 60px;
   height: 60px;
-  background: url("chrome://browser/skin/controlcenter/tracking-protection.svg") no-repeat center/cover;
   grid-column: 1;
   margin: 0 auto;
+}
+
+.etp-card .icon {
+  background: url("chrome://browser/skin/controlcenter/tracking-protection.svg") no-repeat center/cover;
+}
+
+.lockwise-card .icon {
+  background: url("chrome://browser/content/logos/lockwise.svg") no-repeat center/cover;
+}
+
+.monitor-card .icon {
+  background: url("chrome://browser/content/logos/monitor.svg") no-repeat center/cover;
 }
 
 .report-card {
@@ -43,9 +143,11 @@ body {
   border-radius: 3px;
   background-color: var(--card-background);
   box-shadow: var(--card-box-shadow);
+  margin-bottom: 25px;
 }
 
-.report-card .card-header {
+.report-card .card-header,
+.report-card .card-body {
   display: grid;
   grid-template-columns: 1fr 7fr;
   padding: var(--card-padding);
@@ -53,7 +155,7 @@ body {
 }
 
 .report-card .card-title {
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 22px;
   margin: 0;
   cursor: default;
@@ -62,14 +164,14 @@ body {
 .report-card .content {
   margin-bottom: 24px;
   margin-top: 5px;
-  font-size: 14px;
+  font-size: 0.85rem;
   cursor: default;
 }
 
 #protection-details {
   background: url("chrome://browser/skin/settings.svg") no-repeat 3px 3px;
   padding: 4px 4px 4px 24px;
-  font-size: 12px;
+  font-size: 0.75rem;
   display: inline;
   cursor: default;
 }
@@ -86,9 +188,372 @@ body {
   font-weight: bold;
 }
 
-.card-body {
+.report-card .card-body {
   border-top: var(--card-divider);
   grid-column: span 2;
   grid-row: 2;
-  margin-bottom: 24px;
+}
+
+.body-wrapper {
+  grid-column: 2;
+}
+
+#graph-week-summary,
+#graph-total-summary {
+  font-size: 0.8rem;
+}
+
+#graph-week-summary {
+  font-weight: bold;
+}
+
+#graph-wrapper {
+  width: 100%;
+  margin-top: 40px;
+  margin-bottom: 25px;
+}
+
+#graph {
+  display: grid;
+  grid: repeat(10, 1fr) max-content / repeat(7, 1fr);
+  height: 175px;
+  margin-bottom: 10px;
+}
+
+/* Graph Bars */
+.graph-bar {
+  grid-row: 1 / -2;
+  justify-self: center;
+  align-self: flex-end;
+  width: var(--column-width);
+  position: relative;
+}
+
+.graph-bar div:nth-child(2){
+  border-radius: 2px 2px 0 0;
+}
+
+.graph-bar div:last-child{
+  border-radius: 0 0 2px 2px;
+}
+
+.graph-bar:hover {
+  cursor: pointer;
+}
+
+.graph-bar.empty {
+  height: 0;
+  border: 1px rgba(12,12,13,0.2) solid;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.social-bar {
+  background-color: var(--social-color);
+}
+
+.hover-social .social-bar {
+  background-color: var(--social-color-darker);
+}
+
+.cookie-bar {
+  background-color: var(--cookie-color);
+}
+
+.hover-cookie .cookie-bar {
+  background-color: var(--cookie-color-darker);
+}
+
+.tracker-bar {
+  background-color: var(--tracker-color);
+}
+
+.hover-tracker .tracker-bar {
+  background-color: var(--tracker-color-darker);
+}
+
+.fingerprinter-bar {
+  background-color: var(--orange);
+}
+
+.hover-fingerprinter .fingerprinter-bar {
+  background-color: var(--dark-orange);
+}
+
+.cryptominer-bar {
+  background-color: var(--grey);
+}
+
+.hover-cryptominer .cryptominer-bar {
+  background-color: var(--dark-grey);
+}
+
+.column-label {
+  justify-self: center;
+  margin-top: 5px;
+  font-size: 0.9rem;
+  width: var(--column-width);
+}
+
+.bar-count {
+  position: absolute;
+  top: -25px;
+	color: #0C0C0D;
+  font-size: .8rem;
+}
+
+/* Legend */
+input {
+  display: none;
+}
+
+#legend label {
+  display: inline-block;
+  margin: 0 0 -1px;
+  padding: 15px 23px;
+  border: 3px solid transparent;
+  -moz-context-properties: fill;
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 16px;
+}
+
+label[data-type="social"] {
+  background-image: url(chrome://browser/skin/controlcenter/socialblock.svg);
+  fill: var(--social-color);
+  color: var(--social-color);
+}
+
+label[data-type="cookie"] {
+  color: var(--cookie-color);
+  background-image: url(chrome://browser/skin/controlcenter/3rdpartycookies.svg);
+  fill: var(--cookie-color);
+  color: var(--cookie-color);
+}
+
+label[data-type="tracker"] {
+  background-image: url(chrome://browser/skin/controlcenter/tracker-image.svg);
+  fill: var(--tracker-color);
+  color: var(--tracker-color);
+}
+
+label[data-type="fingerprinter"] {
+  background-image: url(chrome://browser/skin/controlcenter/fingerprinters.svg);
+  fill: var(--orange);
+  color: var(--orange);
+}
+
+label[data-type="cryptominer"] {
+  background-image: url(chrome://browser/skin/controlcenter/cryptominers.svg);
+  fill: var(--grey);
+  color: var(--grey);
+}
+
+.hover-social label[for="tab-social"],
+.hover-cookie label[for="tab-cookie"],
+.hover-tracker label[for="tab-tracker"],
+.hover-fingerprinter label[for="tab-fingerprinter"],
+.hover-cryptominer label[for="tab-cryptominer"],
+label:hover {
+  background-color: var(--clickable-text-hover);
+  cursor: pointer;
+}
+
+#legend input:checked + label {
+  border-bottom: 3px solid var(--tab-highlight);
+}
+
+.tab-content {
+  display: none;
+  padding: 22px 20px 20px;
+  border-top: 1px solid var(--tab-highlight);
+  background-color: #F9F9FB;
+  color: #737373;
+  font-size: 0.8rem;
+  line-height: 20px;
+  min-height: 130px;
+}
+
+.tab-content .content-title {
+  font-weight: bold;
+}
+
+.tab-content p {
+  margin: 0;
+}
+
+#tab-social:checked ~ #social,
+#tab-cookie:checked ~ #cookie,
+#tab-tracker:checked ~ #tracker,
+#tab-fingerprinter:checked ~ #fingerprinter,
+#tab-cryptominer:checked ~ #cryptominer {
+  display: block;
+}
+
+/* Lockwise Card */
+
+#lockwise-body-content > .no-logins,
+#lockwise-body-content > .has-logins {
+  display: grid;
+  font-size: 0.875rem;
+  align-items: center;
+}
+
+#lockwise-body-content > .no-logins {
+  grid: 1fr / 50px 275px;
+  grid-gap: 0;
+}
+
+#lockwise-body-content > .has-logins {
+  grid: 1fr 1fr / minmax(70px, auto) 1fr;
+  grid-gap: 10px;
+}
+
+.number-of-logins {
+  background-color: var(--dark-grey);
+}
+
+.number-of-synced-devices {
+  background-color: var(--orange);
+}
+
+.inline-text-icon {
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position-x: 3px;
+  background-position-y: 5px;
+  padding: 4px 4px 4px 24px;
+  display: inline;
+}
+
+.lockwise-mobile-app-icon {
+  background: url("chrome://browser/content/logos/lockwise-mobile-app.svg") no-repeat center/cover;
+  width: 38px;
+  height: 35px;
+}
+
+.passwords-stored-text {
+  background-image: url("chrome://browser/skin/login.svg");
+}
+
+.synced-devices-text {
+  background-image: url("chrome://browser/skin/sync.svg");
+}
+
+.block {
+  border-radius: 4px;
+  text-align: center;
+  font-size: 1.125rem;
+  color: var(--card-background);
+  padding: 7px;
+  line-height: 18px;
+}
+
+#lockwise-body-content .has-logins a {
+  margin-inline-start: 10px;
+}
+
+/* Monitor card */
+
+#monitor-body-content .monitor-breached-passwords {
+  grid: 1fr / minmax(70px, auto) 1fr;
+  grid-row: 3;
+  grid-column: span 3;
+  display: grid;
+  align-items: center;
+  font-size: 0.85rem;
+  border-top: var(--card-divider);
+  padding-top: 20px;
+  line-height: 18px;
+  grid-column-gap: 10px;
+}
+
+.monitor-scanned-text {
+  background-image: url("chrome://browser/skin/reload.svg");
+  font-size: 0.85rem;
+}
+
+.monitor-card #monitor-header-content > a {
+  display: block;
+  margin-block-start: 5px;
+}
+
+.monitor-card.has-logins #monitor-body-content {
+  display: grid;
+  grid: 2fr 1fr auto / repeat(3, 160px);
+  grid-column-gap: 12px;
+  align-items: center;
+}
+
+.monitor-block {
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  color: #FFFFFF;
+  text-align: center;
+  padding: 25px 5px 25px 5px;
+}
+
+.email {
+  background: linear-gradient(162.33deg, #AB71FF 0%, #9059FF 100%);
+}
+
+.email .monitor-icon {
+  background-image: url(chrome://browser/skin/mail.svg);
+}
+
+.breaches {
+  background: linear-gradient(162.33deg, #9059FF 0%, #7542E5 100%);
+}
+
+.breaches .monitor-icon {
+  background-image: url(chrome://browser/skin/fxa/avatar.svg);
+}
+
+.passwords {
+  background: linear-gradient(162.33deg, #7542E5 0%, #592ACB 100%);
+}
+
+.passwords .monitor-icon {
+  background-image: url(chrome://browser/skin/login.svg);
+}
+
+.monitor-view-full-report {
+  grid-row: 2;
+  grid-column: span 2;
+  font-size: 0.85rem;
+}
+
+.monitor-stat {
+  display: flex;
+  font-size: 1.75rem;
+  font-weight: bold;
+  margin-block-end: 5px;
+  word-break: break-all;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.monitor-stat .monitor-icon {
+  background-size: 24px 24px;
+  background-repeat: no-repeat;
+  -moz-context-properties: fill,fill-opacity;
+  fill: white;
+  fill-opacity: 0.65;
+  width: 24px;
+  height: 24px;
+  display: block;
+  padding: 5px;
+  background-position-y: center;
+}
+
+.info-text {
+  font-size: .69rem;
+  line-height: 13px;
+  margin-block-start: 5px;
+}
+
+.number-of-breaches.block {
+  background-color: var(--orange);
+  padding: 15px;
 }

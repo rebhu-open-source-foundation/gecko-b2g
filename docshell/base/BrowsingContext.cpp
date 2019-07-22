@@ -16,6 +16,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Location.h"
 #include "mozilla/dom/LocationBinding.h"
+#include "mozilla/dom/StructuredCloneTags.h"
 #include "mozilla/dom/WindowBinding.h"
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "mozilla/dom/WindowGlobalParent.h"
@@ -60,6 +61,16 @@ static void Register(BrowsingContext* aBrowsingContext) {
   aBrowsingContext->Group()->Register(aBrowsingContext);
 }
 
+void BrowsingContext::Unregister() {
+  MOZ_DIAGNOSTIC_ASSERT(mGroup);
+  mGroup->Unregister(this);
+  mIsDiscarded = true;
+
+  // NOTE: Doesn't use SetClosed, as it will be set in all processes
+  // automatically by calls to Detach()
+  mClosed = true;
+}
+
 BrowsingContext* BrowsingContext::Top() {
   BrowsingContext* bc = this;
   while (bc->mParent) {
@@ -82,6 +93,12 @@ LogModule* BrowsingContext::GetLog() { return gBrowsingContextLog; }
 /* static */
 already_AddRefed<BrowsingContext> BrowsingContext::Get(uint64_t aId) {
   return do_AddRef(sBrowsingContexts->Get(aId));
+}
+
+/* static */
+already_AddRefed<BrowsingContext> BrowsingContext::GetFromWindow(
+    WindowProxyHolder& aProxy) {
+  return do_AddRef(aProxy.get());
 }
 
 CanonicalBrowsingContext* BrowsingContext::Canonical() {
@@ -283,7 +300,7 @@ void BrowsingContext::Detach(bool aFromIPC) {
     return;
   }
 
-  RefPtr<BrowsingContext> kungFuDeathGrip(this);
+  RefPtr<BrowsingContext> self(this);
 
   if (!mGroup->EvictCachedContext(this)) {
     Children* children = nullptr;
@@ -301,33 +318,12 @@ void BrowsingContext::Detach(bool aFromIPC) {
   if (!aFromIPC && XRE_IsContentProcess()) {
     auto cc = ContentChild::GetSingleton();
     MOZ_DIAGNOSTIC_ASSERT(cc);
-    cc->SendDetachBrowsingContext(this);
-  }
-}
-
-void BrowsingContext::DetachChildren(bool aFromIPC) {
-  if (mChildren.IsEmpty()) {
-    return;
-  }
-
-  MOZ_LOG(GetLog(), LogLevel::Debug,
-          ("%s: Detaching all children of 0x%08" PRIx64 "",
-           XRE_IsParentProcess() ? "Parent" : "Child", Id()));
-
-  // TODO(farre). Watch out! Notice the missing call to
-  // BrowsingContextGroup::Unregister here, this is intentional. If we
-  // unregister and set the detached flag here, tests will fail
-  // because not being able to look up Window.top. (Un-)Fortunately
-  // nsDocShell::Destroy will still call BrowsingContext::Detach,
-  // which will set the detached flag at that point. Bug 1558176 would
-  // clean this up.
-
-  mChildren.Clear();
-
-  if (!aFromIPC && XRE_IsContentProcess()) {
-    auto cc = ContentChild::GetSingleton();
-    MOZ_DIAGNOSTIC_ASSERT(cc);
-    cc->SendDetachBrowsingContextChildren(this);
+    // Tell our parent that the BrowsingContext has been detached. A strong
+    // reference to this is held until the promise is resolved to ensure it
+    // doesn't die before the parent receives the message.
+    auto resolve = [self](bool) {};
+    auto reject = [self](mozilla::ipc::ResponseRejectReason) {};
+    cc->SendDetachBrowsingContext(Id(), resolve, reject);
   }
 }
 
@@ -337,18 +333,24 @@ void BrowsingContext::PrepareForProcessChange() {
            XRE_IsParentProcess() ? "Parent" : "Child", Id()));
 
   MOZ_ASSERT(mIsInProcess, "Must currently be an in-process frame");
-  MOZ_ASSERT(!mClosed, "We're already closed?");
+  MOZ_ASSERT(!mIsDiscarded, "We're already closed?");
 
   mIsInProcess = false;
-
-  // XXX: We should transplant our WindowProxy into a Cross-Process WindowProxy
-  // if mWindowProxy is non-nullptr. (bug 1510760)
-  mWindowProxy = nullptr;
 
   // NOTE: For now, clear our nsDocShell reference, as we're primarily in a
   // different process now. This may need to change in the future with
   // Cross-Process BFCache.
   mDocShell = nullptr;
+
+  if (!mWindowProxy) {
+    return;
+  }
+
+  // We have to go through mWindowProxy rather than calling GetDOMWindow() on
+  // mDocShell because the mDocshell reference gets cleared immediately after
+  // the window is closed.
+  nsGlobalWindowOuter::PrepareForProcessChange(mWindowProxy);
+  MOZ_ASSERT(!mWindowProxy);
 }
 
 void BrowsingContext::CacheChildren(bool aFromIPC) {
@@ -386,6 +388,10 @@ void BrowsingContext::RestoreChildren(Children&& aChildren, bool aFromIPC) {
 }
 
 bool BrowsingContext::IsCached() { return mGroup->IsContextCached(this); }
+
+bool BrowsingContext::IsTargetable() {
+  return !mClosed && !mIsDiscarded && !IsCached();
+}
 
 bool BrowsingContext::HasOpener() const {
   return sBrowsingContexts->Contains(mOpenerId);
@@ -436,7 +442,7 @@ BrowsingContext* BrowsingContext::FindWithName(const nsAString& aName) {
         // contexts in the same browsing context group.
         siblings = &mGroup->Toplevels();
       } else if (parent->NameEquals(aName) && CanAccess(parent) &&
-                 parent->IsActive()) {
+                 parent->IsTargetable()) {
         found = parent;
         break;
       } else {
@@ -475,7 +481,7 @@ BrowsingContext* BrowsingContext::FindChildWithName(const nsAString& aName) {
   }
 
   for (BrowsingContext* child : mChildren) {
-    if (child->NameEquals(aName) && CanAccess(child) && child->IsActive()) {
+    if (child->NameEquals(aName) && CanAccess(child) && child->IsTargetable()) {
       return child;
     }
   }
@@ -508,7 +514,8 @@ BrowsingContext* BrowsingContext::FindWithNameInSubtree(
     const nsAString& aName, BrowsingContext* aRequestingContext) {
   MOZ_DIAGNOSTIC_ASSERT(!aName.IsEmpty());
 
-  if (NameEquals(aName) && aRequestingContext->CanAccess(this) && IsActive()) {
+  if (NameEquals(aName) && aRequestingContext->CanAccess(this) &&
+      IsTargetable()) {
     return this;
   }
 
@@ -529,32 +536,6 @@ bool BrowsingContext::CanAccess(BrowsingContext* aContext) {
   return aContext && nsDocShell::CanAccessItem(aContext->mDocShell, mDocShell);
 }
 
-bool BrowsingContext::IsActive() const {
-  // TODO(farre): Mimicking the bahaviour from
-  // ItemIsActive(nsIDocShellTreeItem* aItem) is temporary, we should
-  // implement a replacement for this using mClosed only. See Bug
-  // 1527321.
-
-  if (!mDocShell) {
-    return mClosed;
-  }
-
-  if (nsCOMPtr<nsPIDOMWindowOuter> window = mDocShell->GetWindow()) {
-    auto* win = nsGlobalWindowOuter::Cast(window);
-    if (!win->GetClosedOuter()) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-void BrowsingContext::Unregister() {
-  MOZ_DIAGNOSTIC_ASSERT(mGroup);
-  mGroup->Unregister(this);
-  mIsDiscarded = true;
-}
-
 BrowsingContext::~BrowsingContext() {
   MOZ_DIAGNOSTIC_ASSERT(!mParent || !mParent->mChildren.Contains(this));
   MOZ_DIAGNOSTIC_ASSERT(!mGroup || !mGroup->Toplevels().Contains(this));
@@ -572,6 +553,45 @@ nsISupports* BrowsingContext::GetParentObject() const {
 JSObject* BrowsingContext::WrapObject(JSContext* aCx,
                                       JS::Handle<JSObject*> aGivenProto) {
   return BrowsingContext_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+bool BrowsingContext::WriteStructuredClone(JSContext* aCx,
+                                           JSStructuredCloneWriter* aWriter,
+                                           StructuredCloneHolder* aHolder) {
+  return (JS_WriteUint32Pair(aWriter, SCTAG_DOM_BROWSING_CONTEXT, 0) &&
+          JS_WriteUint32Pair(aWriter, uint32_t(Id()), uint32_t(Id() >> 32)));
+}
+
+/* static */
+JSObject* BrowsingContext::ReadStructuredClone(JSContext* aCx,
+                                               JSStructuredCloneReader* aReader,
+                                               StructuredCloneHolder* aHolder) {
+  uint32_t idLow = 0;
+  uint32_t idHigh = 0;
+  if (!JS_ReadUint32Pair(aReader, &idLow, &idHigh)) {
+    return nullptr;
+  }
+  uint64_t id = uint64_t(idHigh) << 32 | idLow;
+
+  // Note: Do this check after reading our ID data. Returning null will abort
+  // the decode operation anyway, but we should at least be as safe as possible.
+  if (NS_WARN_IF(!NS_IsMainThread())) {
+    MOZ_DIAGNOSTIC_ASSERT(false,
+                          "We shouldn't be trying to decode a BrowsingContext "
+                          "on a background thread.");
+    return nullptr;
+  }
+
+  JS::RootedValue val(aCx, JS::NullValue());
+  // We'll get rooting hazard errors from the RefPtr destructor if it isn't
+  // destroyed before we try to return a raw JSObject*, so create it in its own
+  // scope.
+  if (RefPtr<BrowsingContext> context = Get(id)) {
+    if (!GetOrCreateDOMReflector(aCx, context, &val) || !val.isObject()) {
+      return nullptr;
+    }
+  }
+  return val.toObjectOrNull();
 }
 
 void BrowsingContext::NotifyUserGestureActivation() {
@@ -659,7 +679,8 @@ void BrowsingContext::Location(JSContext* aCx,
                                JS::MutableHandle<JSObject*> aLocation,
                                ErrorResult& aError) {
   aError.MightThrowJSException();
-  sSingleton.GetProxyObject(aCx, &mLocation, aLocation);
+  sSingleton.GetProxyObject(aCx, &mLocation, /* aTransplantTo = */ nullptr,
+                            aLocation);
   if (!aLocation) {
     aError.StealExceptionFromJSContext(aCx);
   }
@@ -928,12 +949,24 @@ void IPDLParamTraits<dom::BrowsingContext*>::Write(
     IPC::Message* aMsg, IProtocol* aActor, dom::BrowsingContext* aParam) {
   uint64_t id = aParam ? aParam->Id() : 0;
   WriteIPDLParam(aMsg, aActor, id);
+  if (!aParam) {
+    return;
+  }
 
-  // If his is an in-process send. We want to make sure that our BrowsingContext
-  // object lives long enough to make it to the other side, so we take an extra
-  // reference. This reference is freed in ::Read().
-  if (!aActor->GetIPCChannel()->IsCrossProcess()) {
-    NS_IF_ADDREF(aParam);
+  // Make sure that the other side will still have our BrowsingContext around
+  // when it tries to perform deserialization.
+  if (aActor->GetIPCChannel()->IsCrossProcess()) {
+    // If we're sending the message between processes, we only know the other
+    // side will still have a copy if we've not been discarded yet. As
+    // serialization cannot fail softly, fail loudly by crashing.
+    MOZ_RELEASE_ASSERT(
+        !aParam->IsDiscarded(),
+        "Cannot send discarded BrowsingContext between processes!");
+  } else {
+    // If we're in-process, we can take an extra reference to ensure it lives
+    // long enough to make it to the other side. This reference is freed in
+    // `::Read()`.
+    aParam->AddRef();
   }
 }
 
@@ -950,16 +983,26 @@ bool IPDLParamTraits<dom::BrowsingContext*>::Read(
     return true;
   }
 
-  *aResult = dom::BrowsingContext::Get(id);
-  MOZ_ASSERT(*aResult, "Deserialized absent BrowsingContext!");
-
-  // If this is an in-process actor, free the reference taken in ::Write().
-  if (!aActor->GetIPCChannel()->IsCrossProcess()) {
-    dom::BrowsingContext* bc = *aResult;
-    NS_IF_RELEASE(bc);
+  RefPtr<dom::BrowsingContext> browsingContext = dom::BrowsingContext::Get(id);
+  if (!browsingContext) {
+    // NOTE: We could fail softly by returning `false` if the `BrowsingContext`
+    // isn't present, but doing so will cause a crash anyway. Let's improve
+    // diagnostics by reliably crashing here.
+    //
+    // If we can recover from failures to deserialize in the future, this crash
+    // should be removed or modified.
+    MOZ_CRASH("Attempt to deserialize absent BrowsingContext");
+    *aResult = nullptr;
+    return false;
   }
 
-  return *aResult != nullptr;
+  if (!aActor->GetIPCChannel()->IsCrossProcess()) {
+    // Release the reference taken in `::Write()` for in-process actors.
+    browsingContext.get()->Release();
+  }
+
+  *aResult = browsingContext.forget();
+  return true;
 }
 
 void IPDLParamTraits<dom::BrowsingContext::Transaction>::Write(

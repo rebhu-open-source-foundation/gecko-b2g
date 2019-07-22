@@ -256,8 +256,9 @@ nsEventStatus InputQueue::ReceiveScrollWheelInput(
 
   if (!block) {
     block = new WheelBlockState(aTarget, aFlags, aEvent);
-    INPQ_LOG("started new scroll wheel block %p id %" PRIu64 " for target %p\n",
-             block, block->GetBlockId(), aTarget.get());
+    INPQ_LOG("started new scroll wheel block %p id %" PRIu64 " for %starget %p\n",
+             block, block->GetBlockId(),
+             aFlags.mTargetConfirmed ? "confirmed " : "", aTarget.get());
 
     mActiveWheelBlock = block;
 
@@ -319,7 +320,7 @@ nsEventStatus InputQueue::ReceiveKeyboardInput(
 
   // If APZ is allowing passive listeners then we must dispatch the event to
   // content, otherwise we can consume the event.
-  return StaticPrefs::APZKeyboardPassiveListeners()
+  return StaticPrefs::apz_keyboard_passive_listeners()
              ? nsEventStatus_eConsumeDoDefault
              : nsEventStatus_eConsumeNoDefault;
 }
@@ -552,7 +553,7 @@ void InputQueue::ScheduleMainThreadTimeout(
   RefPtr<Runnable> timeoutTask = NewRunnableMethod<uint64_t>(
       "layers::InputQueue::MainThreadTimeout", this,
       &InputQueue::MainThreadTimeout, aBlock->GetBlockId());
-  int32_t timeout = StaticPrefs::APZContentResponseTimeout();
+  int32_t timeout = StaticPrefs::apz_content_response_timeout();
   if (timeout == 0) {
     // If the timeout is zero, treat it as a request to ignore any main
     // thread confirmation and unconditionally use fallback behaviour for

@@ -11,14 +11,16 @@ add_task(async function() {
   waitForExplicitFinish();
 
   const recordingFile = newRecordingFile();
-  const recordingTab = BrowserTestUtils.addTab(gBrowser, null, { recordExecution: "*" });
+  const recordingTab = BrowserTestUtils.addTab(gBrowser, null, {
+    recordExecution: "*",
+  });
   gBrowser.selectedTab = recordingTab;
   openTrustedLinkIn(EXAMPLE_URL + "doc_rr_continuous.html", "current");
 
   const firstTab = await attachDebugger(recordingTab);
   let toolbox = firstTab.toolbox;
   let target = firstTab.target;
-  let client = toolbox.threadClient;
+  let client = toolbox.threadFront;
   await client.interrupt();
   let bp = await setBreakpoint(client, "doc_rr_continuous.html", 14);
   await resumeToLine(client, 14);
@@ -35,15 +37,16 @@ add_task(async function() {
   await toolbox.destroy();
   await gBrowser.removeTab(recordingTab);
 
-  const replayingTab = BrowserTestUtils.addTab(gBrowser, null,
-                                               { replayExecution: recordingFile });
+  const replayingTab = BrowserTestUtils.addTab(gBrowser, null, {
+    replayExecution: recordingFile,
+  });
   gBrowser.selectedTab = replayingTab;
   await once(Services.ppmm, "HitRecordingEndpoint");
 
   const rplyTab = await attachDebugger(replayingTab);
   toolbox = rplyTab.toolbox;
   target = rplyTab.target;
-  client = toolbox.threadClient;
+  client = toolbox.threadFront;
   await client.interrupt();
 
   // The recording does not actually end at the point where we saved it, but

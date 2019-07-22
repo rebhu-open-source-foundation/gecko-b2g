@@ -444,6 +444,10 @@ impl Builder {
             output_vector.push("--no-prepend-enum-name".into());
         }
 
+        if self.options.array_pointers_in_arguments {
+            output_vector.push("--use-array-pointers-in-arguments".into());
+        }
+
         self.options
             .opaque_types
             .get_items()
@@ -630,7 +634,7 @@ impl Builder {
     /// implement some processing on comments to work around issues as described
     /// in:
     ///
-    /// https://github.com/rust-lang-nursery/rust-bindgen/issues/426
+    /// https://github.com/rust-lang/rust-bindgen/issues/426
     pub fn generate_comments(mut self, doit: bool) -> Self {
         self.options.generate_comments = doit;
         self
@@ -694,7 +698,7 @@ impl Builder {
     /// However, some old libclang versions seem to return incorrect results in
     /// some cases for non-mangled functions, see [1], so we allow disabling it.
     ///
-    /// [1]: https://github.com/rust-lang-nursery/rust-bindgen/issues/528
+    /// [1]: https://github.com/rust-lang/rust-bindgen/issues/528
     pub fn trust_clang_mangling(mut self, doit: bool) -> Self {
         self.options.enable_mangling = doit;
         self
@@ -1310,6 +1314,12 @@ impl Builder {
         self.options.no_hash_types.insert(arg.into());
         self
     }
+
+    /// Set whether `arr[size]` should be treated as `*mut T` or `*mut [T; size]` (same for mut)
+    pub fn array_pointers_in_arguments(mut self, doit: bool) -> Self {
+        self.options.array_pointers_in_arguments = doit;
+        self
+    }
 }
 
 /// Configuration options for generated bindings.
@@ -1507,7 +1517,7 @@ struct BindgenOptions {
     /// However, some old libclang versions seem to return incorrect results in
     /// some cases for non-mangled functions, see [1], so we allow disabling it.
     ///
-    /// [1]: https://github.com/rust-lang-nursery/rust-bindgen/issues/528
+    /// [1]: https://github.com/rust-lang/rust-bindgen/issues/528
     enable_mangling: bool,
 
     /// Whether to detect include paths using clang_sys.
@@ -1544,6 +1554,9 @@ struct BindgenOptions {
 
     /// The set of types that we should not derive `Hash` for.
     no_hash_types: RegexSet,
+
+    /// Decide if C arrays should be regular pointers in rust or array pointers
+    array_pointers_in_arguments: bool,
 }
 
 /// TODO(emilio): This is sort of a lie (see the error message that results from
@@ -1656,6 +1669,7 @@ impl Default for BindgenOptions {
             no_partialeq_types: Default::default(),
             no_copy_types: Default::default(),
             no_hash_types: Default::default(),
+            array_pointers_in_arguments: false,
         }
     }
 }

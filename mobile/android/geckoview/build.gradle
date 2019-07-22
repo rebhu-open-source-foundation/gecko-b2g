@@ -165,6 +165,10 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
     // Translate Kotlin messages like "w: ..." and "e: ..." into
     // "...: warning: ..." and "...: error: ...", to make Treeherder understand.
     def listener = {
+        if (it.startsWith("e: warnings found")) {
+            return
+        }
+
         if (it.startsWith('w: ') || it.startsWith('e: ')) {
             def matches = (it =~ /([ew]): (.+): \((\d+), (\d+)\): (.*)/)
             if (!matches) {
@@ -273,7 +277,9 @@ android.libraryVariants.all { variant ->
             file("${System.properties['java.home']}/lib/rt.jar")] + android.bootClasspath
         options.memberLevel = JavadocMemberLevel.PROTECTED
         options.source = 8
-        options.links("https://d.android.com/reference/")
+        // Bug 1555255: don't require a network connection to produce Javadoc.
+        // See https://stackoverflow.com/a/24026735.
+        options.linksOffline("https://d.android.com/reference/", "${android.sdkDirectory}/docs/reference");
 
         options.docTitle = "GeckoView ${mozconfig.substs.MOZ_APP_VERSION} API"
         options.header = "GeckoView ${mozconfig.substs.MOZ_APP_VERSION} API"
@@ -382,7 +388,7 @@ publishing {
                     }
                 }
 
-                artifact tasks["bundle${variant.name.capitalize()}"]
+                artifact tasks["bundle${variant.name.capitalize()}Aar"]
 
                 // Javadoc and sources for developer ergononomics.
                 artifact tasks["javadocJar${variant.name.capitalize()}"]
@@ -403,7 +409,7 @@ afterEvaluate {
     // The bundle tasks are only present when the particular configuration is
     // being built, so this task might not exist.  (This is due to the way the
     // Android Gradle plugin defines things during configuration.)
-    def bundleWithGeckoBinaries = tasks.findByName('bundleWithGeckoBinariesRelease')
+    def bundleWithGeckoBinaries = tasks.findByName('bundleWithGeckoBinariesReleaseAar')
     if (!bundleWithGeckoBinaries) {
         return
     }

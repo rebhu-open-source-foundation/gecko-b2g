@@ -2,14 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{WindowWrapper, NotifierEvent};
-use crate::blob;
 use euclid::{point2, size2, rect};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::mpsc::Receiver;
 use webrender::api::*;
 use webrender::api::units::*;
+use crate::{WindowWrapper, NotifierEvent};
+use crate::blob;
+use crate::reftest::{ReftestImage, ReftestImageComparison};
 use crate::wrench::Wrench;
 
 pub struct RawtestHarness<'a> {
@@ -51,6 +52,41 @@ impl<'a> RawtestHarness<'a> {
         self.rx.recv().unwrap();
         self.wrench.render();
         self.wrench.renderer.read_pixels_rgba8(window_rect)
+    }
+
+    fn compare_pixels(&self, reference: Vec<u8>, test: Vec<u8>, size: FramebufferIntSize) {
+        let size = DeviceIntSize::new(size.width, size.height);
+        let reference = ReftestImage {
+            data: reference,
+            size,
+        };
+        let test = ReftestImage {
+            data: test,
+            size,
+        };
+
+        match reference.compare(&test) {
+            ReftestImageComparison::Equal => {}
+            ReftestImageComparison::NotEqual { max_difference, count_different } => {
+                let t = "rawtest";
+                println!(
+                    "{} | {} | {}: {}, {}: {}",
+                    "REFTEST TEST-UNEXPECTED-FAIL",
+                    t,
+                    "image comparison, max difference",
+                    max_difference,
+                    "number of differing pixels",
+                    count_different
+                );
+                println!("REFTEST   IMAGE 1 (TEST): {}", test.create_data_uri());
+                println!(
+                    "REFTEST   IMAGE 2 (REFERENCE): {}",
+                    reference.create_data_uri()
+                );
+                println!("REFTEST TEST-END | {}", t);
+                panic!();
+            }
+        }
     }
 
     fn submit_dl(
@@ -213,6 +249,7 @@ impl<'a> RawtestHarness<'a> {
             blob_img,
             ImageDescriptor::new(151, 56, ImageFormat::BGRA8, true, false),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 151, 56),
             Some(128),
         );
 
@@ -269,6 +306,7 @@ impl<'a> RawtestHarness<'a> {
             blob_img,
             ImageDescriptor::new(1510, 111256, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 15010, 111256),
             Some(31),
         );
 
@@ -401,6 +439,7 @@ impl<'a> RawtestHarness<'a> {
                 false
             ),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, image_size.width as i32, image_size.height as i32),
             Some(100),
         );
 
@@ -432,14 +471,14 @@ impl<'a> RawtestHarness<'a> {
                 false
             ),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            // Set a visible rectangle that is too small.
+            // This will force sync rasterization of the missing tiles during frame building.
+            DeviceIntRect {
+                origin: point2(200, 200),
+                size: size2(80, 80),
+            },
             Some(100),
         );
-        // Set a visible rectangle that is too small.
-        // This will force sync rasterization of the missing tiles during frame building.
-        txn.set_blob_image_visible_area(blob_img2, DeviceIntRect {
-            origin: point2(200, 200),
-            size: size2(80, 80),
-        });
 
         builder.push_image(
             &info,
@@ -485,6 +524,7 @@ impl<'a> RawtestHarness<'a> {
             blob_img,
             ImageDescriptor::new(1510, 1510, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 1510, 1510),
             None,
         );
 
@@ -542,6 +582,7 @@ impl<'a> RawtestHarness<'a> {
             blob_img,
             ImageDescriptor::new(1510, 1510, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 1510, 1510),
             &rect(10, 10, 100, 100).into(),
         );
 
@@ -569,7 +610,7 @@ impl<'a> RawtestHarness<'a> {
 
         let pixels = self.render_and_get_pixels(window_rect);
 
-        assert!(pixels == original_pixels);
+        self.compare_pixels(original_pixels, pixels, window_rect.size);
 
         // Leaving a tiled blob image in the resource cache
         // confuses the `test_capture`. TODO: remove this
@@ -599,6 +640,7 @@ impl<'a> RawtestHarness<'a> {
                 blob_img,
                 ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
                 blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
         }
@@ -661,7 +703,6 @@ impl<'a> RawtestHarness<'a> {
         // use png;
         // png::save_flipped("out1.png", &pixels_first, window_rect.size);
         // png::save_flipped("out2.png", &pixels_second, window_rect.size);
-
         assert!(pixels_first != pixels_second);
 
         // cleanup
@@ -689,6 +730,7 @@ impl<'a> RawtestHarness<'a> {
                 blob_img,
                 ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
                 blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
             blob_img2 = api.generate_blob_image_key();
@@ -696,6 +738,7 @@ impl<'a> RawtestHarness<'a> {
                 blob_img2,
                 ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
                 blob::serialize_blob(ColorU::new(80, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
             (blob_img, blob_img2)
@@ -753,19 +796,20 @@ impl<'a> RawtestHarness<'a> {
         self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
         let _pixels_first = self.render_and_get_pixels(window_rect);
 
-
         // update and redraw both images
         let mut txn = Transaction::new();
         txn.update_blob_image(
             blob_img,
             ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(100, 100, 100, 100).into(),
         );
         txn.update_blob_image(
             blob_img2,
             ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(59, 50, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(100, 100, 100, 100).into(),
         );
 
@@ -774,13 +818,13 @@ impl<'a> RawtestHarness<'a> {
         self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
         let _pixels_second = self.render_and_get_pixels(window_rect);
 
-
         // only update the first image
         let mut txn = Transaction::new();
         txn.update_blob_image(
             blob_img,
             ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(50, 150, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(200, 200, 100, 100).into(),
         );
 
@@ -816,6 +860,7 @@ impl<'a> RawtestHarness<'a> {
                 img,
                 ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
                 blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
             img
@@ -847,6 +892,7 @@ impl<'a> RawtestHarness<'a> {
             blob_img,
             ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(100, 100, 100, 100).into(),
         );
 
@@ -873,6 +919,7 @@ impl<'a> RawtestHarness<'a> {
             blob_img,
             ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
             blob::serialize_blob(ColorU::new(50, 150, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(200, 200, 100, 100).into(),
         );
 
@@ -893,8 +940,8 @@ impl<'a> RawtestHarness<'a> {
         self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
         let pixels_third = self.render_and_get_pixels(window_rect);
 
-        assert!(pixels_first == pixels_second);
         assert!(pixels_first != pixels_third);
+        self.compare_pixels(pixels_first, pixels_second, window_rect.size);
     }
 
     // Ensures that content doing a save-restore produces the same results as not
@@ -1000,7 +1047,7 @@ impl<'a> RawtestHarness<'a> {
         let first = do_test(false);
         let second = do_test(true);
 
-        assert_eq!(first, second);
+        self.compare_pixels(first, second, window_rect.size);
     }
 
     // regression test for #2769
@@ -1129,7 +1176,7 @@ impl<'a> RawtestHarness<'a> {
 
         // 5. render the built frame and compare
         let pixels1 = self.render_and_get_pixels(window_rect);
-        assert!(pixels0 == pixels1);
+        self.compare_pixels(pixels0.clone(), pixels1, window_rect.size);
 
         // 6. rebuild the scene and compare again
         let mut txn = Transaction::new();
@@ -1137,7 +1184,7 @@ impl<'a> RawtestHarness<'a> {
         txn.generate_frame();
         self.wrench.api.send_transaction(captured.document_id, txn);
         let pixels2 = self.render_and_get_pixels(window_rect);
-        assert!(pixels0 == pixels2);
+        self.compare_pixels(pixels0, pixels2, window_rect.size);
     }
 
     fn test_zero_height_window(&mut self) {

@@ -134,19 +134,21 @@ class MachBrowsertime(MachCommandBase):
         if host_platform().startswith('linux'):
             # On Linux ImageMagick needs to be installed manually, and `mach bootstrap` doesn't
             # do that (yet).  Provide some guidance.
-            import which
-            im_programs = ('compare', 'convert', 'mogrify')
             try:
-                for im_program in im_programs:
-                    which.which(im_program)
-            except which.WhichError as e:
-                print('Error: {} On Linux, ImageMagick must be on the PATH. '
-                      'Install ImageMagick manually and try again (or update PATH). '
-                      'On Ubuntu and Debian, try `sudo apt-get install imagemagick`. '
-                      'On Fedora, try `sudo dnf install imagemagick`. '
-                      'On CentOS, try `sudo yum install imagemagick`.'
-                      .format(e))
-                return 1
+                from shutil import which
+            except ImportError:
+                from shutil_which import which
+
+            im_programs = ('compare', 'convert', 'mogrify')
+            for im_program in im_programs:
+                prog = which(im_program)
+                if not prog:
+                    print('Error: On Linux, ImageMagick must be on the PATH. '
+                          'Install ImageMagick manually and try again (or update PATH). '
+                          'On Ubuntu and Debian, try `sudo apt-get install imagemagick`. '
+                          'On Fedora, try `sudo dnf install imagemagick`. '
+                          'On CentOS, try `sudo yum install imagemagick`.')
+                    return 1
 
         # Download the visualmetrics.py requirements.
         artifact_cache = ArtifactCache(self.artifact_cache_path,
@@ -273,12 +275,18 @@ class MachBrowsertime(MachCommandBase):
         node_dir = os.path.dirname(self.node_path)
         path = [node_dir] + path
 
-        # Ensure that `/usr/bin/env python` in `visualmetrics.py` finds our
-        # virtualenv Python.
-        path = [os.path.dirname(self.virtualenv_manager.python_path)] + path
-
         append_env = {
             'PATH': os.pathsep.join(path),
+
+            # Bug 1560193: The JS library browsertime uses to execute commands
+            # (execa) will muck up the PATH variable and put the directory that
+            # node is in first in path. If this is globally-installed node,
+            # that means `/usr/bin` will be inserted first which means that we
+            # will get `/usr/bin/python` for `python`.
+            #
+            # Our fork of browsertime supports a `PYTHON` environment variable
+            # that points to the exact python executable to use.
+            'PYTHON': self.virtualenv_manager.python_path,
         }
 
         if path_to_imagemagick:

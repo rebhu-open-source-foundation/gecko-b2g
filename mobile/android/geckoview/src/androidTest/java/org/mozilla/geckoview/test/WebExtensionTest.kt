@@ -5,7 +5,6 @@
 package org.mozilla.geckoview.test
 
 import android.support.test.InstrumentationRegistry
-import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.ReuseSession
 
 import android.support.test.filters.MediumTest
 import android.support.test.runner.AndroidJUnit4
@@ -19,7 +18,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.geckoview.*
 import org.mozilla.geckoview.test.rule.GeckoSessionTestRule
-import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.WithDevToolsAPI
 import org.mozilla.geckoview.test.util.Callbacks
 import org.mozilla.geckoview.test.util.HttpBin
 import java.net.URI
@@ -28,23 +26,22 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 @MediumTest
-@ReuseSession(false)
 class WebExtensionTest : BaseSessionTest() {
     companion object {
         val TEST_ENDPOINT: String = "http://localhost:4243"
+        val TABS_BACKGROUND: String = "resource://android/assets/web_extensions/tabs/"
         val MESSAGING_BACKGROUND: String = "resource://android/assets/web_extensions/messaging/"
         val MESSAGING_CONTENT: String = "resource://android/assets/web_extensions/messaging-content/"
     }
 
     @Test
-    @WithDevToolsAPI
     fun registerWebExtension() {
         mainSession.loadUri("example.com")
         sessionRule.waitForPageStop()
 
         // First let's check that the color of the border is empty before loading
         // the WebExtension
-        val colorBefore = sessionRule.evaluateJS(mainSession, "document.body.style.borderColor")
+        val colorBefore = mainSession.evaluateJS("document.body.style.borderColor")
         assertThat("The border color should be empty when loading without extensions.",
                 colorBefore as String, equalTo(""))
 
@@ -57,7 +54,7 @@ class WebExtensionTest : BaseSessionTest() {
         sessionRule.waitForPageStop()
 
         // Check that the WebExtension was applied by checking the border color
-        val color = sessionRule.evaluateJS(mainSession, "document.body.style.borderColor")
+        val color = mainSession.evaluateJS("document.body.style.borderColor")
         assertThat("Content script should have been applied",
                 color as String, equalTo("red"))
 
@@ -68,7 +65,7 @@ class WebExtensionTest : BaseSessionTest() {
         sessionRule.waitForPageStop()
 
         // Check that the WebExtension was not applied after being unregistered
-        val colorAfter = sessionRule.evaluateJS(mainSession, "document.body.style.borderColor")
+        val colorAfter = mainSession.evaluateJS("document.body.style.borderColor")
         assertThat("Content script should have been applied",
                 colorAfter as String, equalTo(""))
     }
@@ -120,6 +117,31 @@ class WebExtensionTest : BaseSessionTest() {
         sessionRule.waitForResult(sessionRule.runtime.unregisterWebExtension(messaging))
     }
 
+    // This test
+    // - Listen for a new tab request from a web extension
+    // - Registers a web extension
+    @Test
+    fun testBrowserTabsCreate() {
+        val tabsCreateResult = GeckoResult<Void>()
+        var tabsExtension : WebExtension? = null
+
+        val tabDelegate = object : WebExtensionController.TabDelegate {
+            override fun onNewTab(source: WebExtension?, uri: String?): GeckoResult<GeckoSession> {
+                Assert.assertEquals(uri, "https://www.mozilla.org/en-US/")
+                Assert.assertEquals(tabsExtension, source)
+                tabsCreateResult.complete(null)
+                return GeckoResult.fromValue(GeckoSession(sessionRule.session.settings))
+            }
+        }
+        sessionRule.runtime.webExtensionController.tabDelegate = tabDelegate
+        tabsExtension = WebExtension(TABS_BACKGROUND)
+
+        sessionRule.waitForResult(sessionRule.runtime.registerWebExtension(tabsExtension))
+        sessionRule.waitForResult(tabsCreateResult)
+
+        sessionRule.waitForResult(sessionRule.runtime.unregisterWebExtension(tabsExtension))
+    }
+
     private fun createWebExtension(background: Boolean,
                                    messageDelegate: WebExtension.MessageDelegate): WebExtension {
         val webExtension: WebExtension
@@ -131,14 +153,13 @@ class WebExtensionTest : BaseSessionTest() {
         } else {
             webExtension = WebExtension(MESSAGING_CONTENT, uuid,
                     WebExtension.Flags.ALLOW_CONTENT_MESSAGING)
-            sessionRule.session.setMessageDelegate(messageDelegate, "browser");
+            sessionRule.session.setMessageDelegate(webExtension, messageDelegate, "browser");
         }
 
         return webExtension
     }
 
     @Test
-    @WithDevToolsAPI
     fun contentMessaging() {
         mainSession.loadUri("example.com")
         sessionRule.waitForPageStop()
@@ -146,7 +167,6 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
-    @WithDevToolsAPI
     fun backgroundMessaging() {
         testOnMessage(true)
     }
@@ -213,7 +233,6 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
-    @WithDevToolsAPI
     fun contentPortMessaging() {
         mainSession.loadUri("example.com")
         sessionRule.waitForPageStop()
@@ -221,7 +240,6 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
-    @WithDevToolsAPI
     fun backgroundPortMessaging() {
         testPortMessage(true)
     }
@@ -295,7 +313,6 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
-    @WithDevToolsAPI
     fun contentPortDisconnect() {
         mainSession.loadUri("example.com")
         sessionRule.waitForPageStop()
@@ -308,7 +325,6 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
-    @WithDevToolsAPI
     fun contentPortDisconnectAfterRefresh() {
         mainSession.loadUri("example.com")
         sessionRule.waitForPageStop()
@@ -375,7 +391,6 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
-    @WithDevToolsAPI
     fun contentPortDisconnectFromApp() {
         mainSession.loadUri("example.com")
         sessionRule.waitForPageStop()
@@ -437,7 +452,7 @@ class WebExtensionTest : BaseSessionTest() {
 
         messaging = WebExtension("resource://android/assets/web_extensions/messaging-iframe/",
                 "{${UUID.randomUUID()}}", WebExtension.Flags.ALLOW_CONTENT_MESSAGING)
-        sessionRule.session.setMessageDelegate(messageDelegate, "browser");
+        sessionRule.session.setMessageDelegate(messaging, messageDelegate, "browser");
 
         sessionRule.waitForResult(sessionRule.runtime.registerWebExtension(messaging))
         sessionRule.waitForResult(portTopLevel)
@@ -448,7 +463,6 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
-    @WithDevToolsAPI
     fun iframeTopLevel() {
         val httpBin = HttpBin(InstrumentationRegistry.getTargetContext(), URI.create(TEST_ENDPOINT))
 
@@ -483,7 +497,7 @@ class WebExtensionTest : BaseSessionTest() {
         extension = WebExtension("resource://android/assets/web_extensions/extension-page-update/")
 
         sessionRule.waitForResult(sessionRule.runtime.registerWebExtension(extension))
-        mainSession.setMessageDelegate(messageDelegate, "browser")
+        mainSession.setMessageDelegate(extension, messageDelegate, "browser")
 
         mainSession.loadUri("http://example.com");
 

@@ -8,6 +8,7 @@
 
 #include "builtin/Promise.h"
 #include "builtin/TypedObject.h"
+#include "debugger/Debugger.h"
 #include "frontend/BytecodeCompiler.h"
 #include "jit/arm/Simulator-arm.h"
 #include "jit/BaselineIC.h"
@@ -16,16 +17,15 @@
 #include "jit/mips32/Simulator-mips32.h"
 #include "jit/mips64/Simulator-mips64.h"
 #include "vm/ArrayObject.h"
-#include "vm/Debugger.h"
 #include "vm/EqualityOperations.h"  // js::StrictlyEqual
 #include "vm/Interpreter.h"
 #include "vm/SelfHosting.h"
 #include "vm/TraceLogging.h"
 
+#include "debugger/Debugger-inl.h"
 #include "jit/BaselineFrame-inl.h"
 #include "jit/JitFrames-inl.h"
 #include "jit/VMFunctionList-inl.h"
-#include "vm/Debugger-inl.h"
 #include "vm/Interpreter-inl.h"
 #include "vm/JSScript-inl.h"
 #include "vm/NativeObject-inl.h"
@@ -297,7 +297,7 @@ bool InvokeFromInterpreterStub(JSContext* cx,
   return true;
 }
 
-bool CheckOverRecursed(JSContext* cx) {
+static bool CheckOverRecursedImpl(JSContext* cx, size_t extra) {
   // We just failed the jitStackLimit check. There are two possible reasons:
   //  1) jitStackLimit was the real stack limit and we're over-recursed
   //  2) jitStackLimit was set to UINTPTR_MAX by JSContext::requestInterrupt
@@ -305,12 +305,12 @@ bool CheckOverRecursed(JSContext* cx) {
 
   // This handles 1).
 #ifdef JS_SIMULATOR
-  if (cx->simulator()->overRecursedWithExtra(0)) {
+  if (cx->simulator()->overRecursedWithExtra(extra)) {
     ReportOverRecursed(cx);
     return false;
   }
 #else
-  if (!CheckRecursionLimit(cx)) {
+  if (!CheckRecursionLimitWithExtra(cx, extra)) {
     return false;
   }
 #endif
@@ -320,19 +320,13 @@ bool CheckOverRecursed(JSContext* cx) {
   return cx->handleInterrupt();
 }
 
-// This function gets called when the overrecursion check fails for a Baseline
-// frame. This is just like CheckOverRecursed, with an extra check to handle
-// early stack check failures.
-bool CheckOverRecursedBaseline(JSContext* cx, BaselineFrame* frame) {
-  // The OVERRECURSED flag may have already been set on the frame by an
-  // early over-recursed check (before pushing the locals).  If so, throw
-  // immediately.
-  if (frame->overRecursed()) {
-    ReportOverRecursed(cx);
-    return false;
-  }
+bool CheckOverRecursed(JSContext* cx) { return CheckOverRecursedImpl(cx, 0); }
 
-  return CheckOverRecursed(cx);
+bool CheckOverRecursedBaseline(JSContext* cx, BaselineFrame* frame) {
+  // The stack check in Baseline happens before pushing locals so we have to
+  // account for that by including script->nslots() in the C++ recursion check.
+  size_t extra = frame->script()->nslots() * sizeof(Value);
+  return CheckOverRecursedImpl(cx, extra);
 }
 
 bool MutatePrototype(JSContext* cx, HandlePlainObject obj, HandleValue value) {
@@ -922,6 +916,7 @@ bool DebugEpilogue(JSContext* cx, BaselineFrame* frame, jsbytecode* pc,
   if (!ok) {
     // Pop this frame by updating packedExitFP, so that the exception
     // handling code will start at the previous frame.
+    frame->deleteDebugModeOSRInfo();
     JitFrameLayout* prefix = frame->framePrefix();
     EnsureBareExitFrame(cx->activation()->asJit(), prefix);
     return false;
@@ -1014,12 +1009,21 @@ bool DebugAfterYield(JSContext* cx, BaselineFrame* frame, jsbytecode* pc,
 bool GeneratorThrowOrReturn(JSContext* cx, BaselineFrame* frame,
                             Handle<AbstractGeneratorObject*> genObj,
                             HandleValue arg, uint32_t resumeKindArg) {
-  // Set the frame's pc to the current resume pc, so that frame iterators
-  // work. This function always returns false, so we're guaranteed to enter
-  // the exception handler where we will clear the pc.
   JSScript* script = frame->script();
   uint32_t offset = script->resumeOffsets()[genObj->resumeIndex()];
   jsbytecode* pc = script->offsetToPC(offset);
+
+  // Initialize interpreter frame fields if needed. Doing this here is
+  // simpler than doing it in JIT code.
+  if (!script->hasBaselineScript()) {
+    MOZ_ASSERT(IsBaselineInterpreterEnabled());
+    MOZ_ASSERT(!frame->runningInInterpreter());
+    frame->initInterpFieldsForGeneratorThrowOrReturn(script, pc);
+  }
+
+  // Set the frame's pc to the current resume pc, so that frame iterators
+  // work. This function always returns false, so we're guaranteed to enter
+  // the exception handler where we will clear the pc.
   frame->setOverridePc(pc);
 
   // In the interpreter, AbstractGeneratorObject::resume marks the generator as
@@ -1120,6 +1124,15 @@ bool HandleDebugTrap(JSContext* cx, BaselineFrame* frame, uint8_t* retAddr,
     pc = blScript->retAddrEntryFromReturnAddress(retAddr).pc(script);
   }
 
+  // The Baseline Interpreter calls HandleDebugTrap for every op when the script
+  // is in step mode or has breakpoints. The Baseline Compiler can toggle
+  // breakpoints more granularly for specific bytecode PCs.
+  if (frame->runningInInterpreter()) {
+    MOZ_ASSERT(script->hasAnyBreakpointsOrStepMode());
+  } else {
+    MOZ_ASSERT(script->stepModeEnabled() || script->hasBreakpointsAt(pc));
+  }
+
   if (*pc == JSOP_AFTERYIELD) {
     // JSOP_AFTERYIELD will set the frame's debuggee flag and call the
     // onEnterFrame handler, but if we set a breakpoint there we have to do
@@ -1132,18 +1145,15 @@ bool HandleDebugTrap(JSContext* cx, BaselineFrame* frame, uint8_t* retAddr,
     if (*mustReturn) {
       return true;
     }
+
+    // If the frame is not a debuggee we're done. This can happen, for instance,
+    // if the onEnterFrame hook called removeDebuggee.
+    if (!frame->isDebuggee()) {
+      return true;
+    }
   }
 
   MOZ_ASSERT(frame->isDebuggee());
-
-  // The Baseline Interpreter calls HandleDebugTrap for every op when the script
-  // is in step mode or has breakpoints. The Baseline Compiler can toggle
-  // breakpoints more granularly for specific bytecode PCs.
-  if (frame->runningInInterpreter()) {
-    MOZ_ASSERT(script->hasAnyBreakpointsOrStepMode());
-  } else {
-    MOZ_ASSERT(script->stepModeEnabled() || script->hasBreakpointsAt(pc));
-  }
 
   RootedValue rval(cx);
   ResumeMode resumeMode = ResumeMode::Continue;
@@ -1309,7 +1319,7 @@ bool RecompileImpl(JSContext* cx, bool force) {
   RootedScript script(cx, frame.script());
   MOZ_ASSERT(script->hasIonScript());
 
-  if (!IsIonEnabled(cx)) {
+  if (!IsIonEnabled()) {
     return true;
   }
 

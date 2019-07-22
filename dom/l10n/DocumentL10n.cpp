@@ -5,12 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "DocumentL10n.h"
+#include "nsIContentSink.h"
 #include "mozilla/dom/DocumentL10nBinding.h"
-#include "mozilla/dom/Promise.h"
-#include "mozilla/dom/ScriptSettings.h"
-#include "nsQueryObject.h"
-#include "nsISupports.h"
-#include "nsContentUtils.h"
 
 using namespace mozilla::dom;
 
@@ -29,11 +25,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_ADDREF_INHERITED(DocumentL10n, DOMLocalization)
 NS_IMPL_RELEASE_INHERITED(DocumentL10n, DOMLocalization)
+
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DocumentL10n)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIObserver)
-  NS_INTERFACE_MAP_ENTRY(nsIObserver)
-  NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
 NS_INTERFACE_MAP_END_INHERITING(DOMLocalization)
 
 DocumentL10n::DocumentL10n(Document* aDocument)
@@ -41,6 +34,11 @@ DocumentL10n::DocumentL10n(Document* aDocument)
       mDocument(aDocument),
       mState(DocumentL10nState::Initialized) {
   mContentSink = do_QueryInterface(aDocument->GetCurrentContentSink());
+
+  Element* elem = mDocument->GetDocumentElement();
+  if (elem) {
+    mIsSync = elem->HasAttr(kNameSpaceID_None, nsGkAtoms::datal10nsync);
+  }
 }
 
 void DocumentL10n::Init(nsTArray<nsString>& aResourceIds, ErrorResult& aRv) {
@@ -139,6 +137,14 @@ void DocumentL10n::InitialDocumentTranslationCompleted() {
   // In XUL scenario contentSink is nullptr.
   if (mContentSink) {
     mContentSink->InitialDocumentTranslationCompleted();
+  }
+
+  // If sync was true, we want to change the state of
+  // mozILocalization to async now.
+  if (mIsSync) {
+    mIsSync = false;
+
+    mLocalization->SetIsSync(mIsSync);
   }
 }
 

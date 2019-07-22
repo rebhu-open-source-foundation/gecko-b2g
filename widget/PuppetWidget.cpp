@@ -1169,18 +1169,16 @@ LayoutDeviceIntRect PuppetWidget::GetScreenBounds() {
 }
 
 LayoutDeviceIntSize PuppetWidget::GetCompositionSize() {
-  if (!mBrowserChild) {
+  Maybe<LayoutDeviceIntRect> visibleRect =
+      mBrowserChild ? mBrowserChild->GetVisibleRect() : Nothing();
+  if (!visibleRect) {
     return nsBaseWidget::GetCompositionSize();
   }
-  return mBrowserChild->GetVisibleRect().Size();
+  return visibleRect->Size();
 }
 
 uint32_t PuppetWidget::GetMaxTouchPoints() const {
-  uint32_t maxTouchPoints = 0;
-  if (mBrowserChild) {
-    mBrowserChild->GetMaxTouchPoints(&maxTouchPoints);
-  }
-  return maxTouchPoints;
+  return mBrowserChild ? mBrowserChild->MaxTouchPoints() : 0;
 }
 
 void PuppetWidget::StartAsyncScrollbarDrag(

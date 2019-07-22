@@ -13,7 +13,6 @@ ${helpers.predefined_type(
     "computed::TextOverflow::get_initial_value()",
     animation_value_type="discrete",
     boxed=True,
-    flags="APPLIES_TO_PLACEHOLDER",
     spec="https://drafts.csswg.org/css-ui/#propdef-text-overflow",
     servo_restyle_damage="rebuild_and_reflow",
 )}
@@ -32,7 +31,6 @@ ${helpers.predefined_type(
     "specified::TextDecorationLine::none()",
     initial_specified_value="specified::TextDecorationLine::none()",
     animation_value_type="discrete",
-    flags="APPLIES_TO_FIRST_LETTER APPLIES_TO_FIRST_LINE APPLIES_TO_PLACEHOLDER",
     spec="https://drafts.csswg.org/css-text-decor/#propdef-text-decoration-line",
     servo_restyle_damage="rebuild_and_reflow",
 )}
@@ -42,7 +40,6 @@ ${helpers.single_keyword(
     "solid double dotted dashed wavy -moz-none",
     products="gecko",
     animation_value_type="discrete",
-    flags="APPLIES_TO_FIRST_LETTER APPLIES_TO_FIRST_LINE APPLIES_TO_PLACEHOLDER",
     spec="https://drafts.csswg.org/css-text-decor/#propdef-text-decoration-style",
 )}
 
@@ -54,7 +51,6 @@ ${helpers.predefined_type(
     products="gecko",
     animation_value_type="AnimatedColor",
     ignored_when_colors_disabled=True,
-    flags="APPLIES_TO_FIRST_LETTER APPLIES_TO_FIRST_LINE APPLIES_TO_PLACEHOLDER",
     spec="https://drafts.csswg.org/css-text-decor/#propdef-text-decoration-color",
 )}
 
@@ -65,17 +61,16 @@ ${helpers.predefined_type(
     initial_specified_value="specified::InitialLetter::normal()",
     animation_value_type="discrete",
     products="gecko",
-    flags="APPLIES_TO_FIRST_LETTER",
     gecko_pref="layout.css.initial-letter.enabled",
     spec="https://drafts.csswg.org/css-inline/#sizing-drop-initials",
 )}
 
 ${helpers.predefined_type(
-   "text-decoration-width",
+   "text-decoration-thickness",
    "LengthOrAuto",
    "computed::LengthOrAuto::auto()",
    products="gecko",
    animation_value_type="ComputedValue",
-   gecko_pref="layout.css.text-decoration-width.enabled",
+   gecko_pref="layout.css.text-decoration-thickness.enabled",
    spec="https://drafts.csswg.org/css-text-decor-4/#text-decoration-width-property"
 )}

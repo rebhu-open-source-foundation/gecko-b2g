@@ -46,7 +46,7 @@ dictionary MediaTrackConstraintSet {
     ConstrainLong height;
     ConstrainDouble frameRate;
     ConstrainDOMString facingMode;
-    DOMString mediaSource = "camera";
+    DOMString mediaSource;
     long long browserWindow;
     boolean scrollWithPage;
     ConstrainDOMString deviceId;
@@ -89,7 +89,7 @@ interface MediaStreamTrack : EventTarget {
     MediaTrackSettings     getSettings ();
 
     [Throws, NeedsCallerType]
-    Promise<void>          applyConstraints (optional MediaTrackConstraints constraints);
+    Promise<void>          applyConstraints (optional MediaTrackConstraints constraints = {});
 //              attribute EventHandler          onoverconstrained;
 
     [ChromeOnly]

@@ -12,9 +12,8 @@ ${helpers.predefined_type(
     "Opacity",
     "1.0",
     animation_value_type="ComputedValue",
-    flags="CREATES_STACKING_CONTEXT APPLIES_TO_PLACEHOLDER \
-           CAN_ANIMATE_ON_COMPOSITOR",
-    spec="https://drafts.csswg.org/css-color/#opacity",
+    flags="CREATES_STACKING_CONTEXT CAN_ANIMATE_ON_COMPOSITOR",
+    spec="https://drafts.csswg.org/css-color/#transparency",
     servo_restyle_damage = "reflow_out_of_flow",
 )}
 
@@ -28,7 +27,6 @@ ${helpers.predefined_type(
     vector_animation_type="with_zero",
     extra_prefixes="webkit",
     ignored_when_colors_disabled=True,
-    flags="APPLIES_TO_FIRST_LETTER",
     spec="https://drafts.csswg.org/css-backgrounds/#box-shadow",
 )}
 
@@ -55,6 +53,21 @@ ${helpers.predefined_type(
     extra_prefixes="webkit",
     flags="CREATES_STACKING_CONTEXT FIXPOS_CB",
     spec="https://drafts.fxtf.org/filters/#propdef-filter",
+)}
+
+${helpers.predefined_type(
+    "backdrop-filter",
+    "Filter",
+    None,
+    vector=True,
+    simple_vector_bindings=True,
+    gecko_ffi_name="mBackdropFilters",
+    separator="Space",
+    animation_value_type="AnimatedFilterList",
+    vector_animation_type="with_zero",
+    flags="CREATES_STACKING_CONTEXT FIXPOS_CB",
+    gecko_pref="layout.css.backdrop-filter.enabled",
+    spec="https://drafts.fxtf.org/filter-effects-2/#propdef-backdrop-filter",
 )}
 
 ${helpers.single_keyword(

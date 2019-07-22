@@ -528,7 +528,7 @@ void nsImageLoadingContent::MaybeForceSyncDecoding(
     // attribute on a timer.
     TimeStamp now = TimeStamp::Now();
     TimeDuration threshold = TimeDuration::FromMilliseconds(
-        StaticPrefs::ImageInferSrcAnimationThresholdMS());
+        StaticPrefs::image_infer_src_animation_threshold_ms());
 
     // If the length of time between request changes is less than the threshold,
     // then force sync decoding to eliminate flicker from the animation.
@@ -1146,7 +1146,6 @@ nsresult nsImageLoadingContent::LoadImage(nsIURI* aNewURI, bool aForce,
   nsLoadFlags loadFlags =
       aLoadFlags | nsContentUtils::CORSModeToLoadImageFlags(GetCORSMode());
 
-
   RefPtr<imgRequestProxy>& req = PrepareNextRequest(aImageLoadType);
   nsCOMPtr<nsIContent> content =
       do_QueryInterface(static_cast<nsIImageLoadingContent*>(this));
@@ -1168,10 +1167,8 @@ nsresult nsImageLoadingContent::LoadImage(nsIURI* aNewURI, bool aForce,
   referrerInfo->InitWithNode(thisNode);
   nsCOMPtr<nsIURI> referrer = referrerInfo->GetOriginalReferrer();
   nsresult rv = nsContentUtils::LoadImage(
-      aNewURI, thisNode, aDocument, triggeringPrincipal, 0, referrer,
-      static_cast<mozilla::net::ReferrerPolicy>(
-          referrerInfo->GetReferrerPolicy()),
-      this, loadFlags, content->LocalName(), getter_AddRefs(req), policyType,
+      aNewURI, thisNode, aDocument, triggeringPrincipal, 0, referrerInfo, this,
+      loadFlags, content->LocalName(), getter_AddRefs(req), policyType,
       mUseUrgentStartForChannel);
 
   // Reset the flag to avoid loading from XPCOM or somewhere again else without
@@ -1354,14 +1351,13 @@ nsresult nsImageLoadingContent::StringToURI(const nsAString& aSpec,
 
   // (1) Get the base URI
   nsIContent* thisContent = AsContent();
-  nsCOMPtr<nsIURI> baseURL = thisContent->GetBaseURI();
+  nsIURI* baseURL = thisContent->GetBaseURI();
 
   // (2) Get the charset
   auto encoding = aDocument->GetDocumentCharacterSet();
 
   // (3) Construct the silly thing
-  return NS_NewURI(aURI, aSpec, encoding, baseURL,
-                   nsContentUtils::GetIOService());
+  return NS_NewURI(aURI, aSpec, encoding, baseURL);
 }
 
 nsresult nsImageLoadingContent::FireEvent(const nsAString& aEventType,

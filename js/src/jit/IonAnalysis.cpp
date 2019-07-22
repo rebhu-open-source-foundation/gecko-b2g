@@ -3234,7 +3234,6 @@ static bool IsResumableMIRType(MIRType type) {
     case MIRType::Shape:
     case MIRType::ObjectGroup:
     case MIRType::Doublex2:  // NYI, see also RSimdBox::recover
-    case MIRType::SinCosDouble:
     case MIRType::Int64:
     case MIRType::RefOrNull:
       return false;
@@ -4520,7 +4519,7 @@ bool jit::AnalyzeNewScriptDefiniteProperties(
     return false;
   }
 
-  if (!jit::IsIonEnabled(cx) || !jit::IsBaselineEnabled(cx) ||
+  if (!jit::IsIonEnabled() || !jit::IsBaselineJitEnabled() ||
       !script->canBaselineCompile()) {
     return true;
   }
@@ -4786,7 +4785,7 @@ bool jit::AnalyzeArgumentsUsage(JSContext* cx, JSScript* scriptArg) {
     return true;
   }
 
-  if (!jit::IsIonEnabled(cx)) {
+  if (!jit::IsIonEnabled()) {
     return true;
   }
 

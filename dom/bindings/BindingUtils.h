@@ -720,6 +720,9 @@ struct NamedConstructor {
  * isGlobal if true, we're creating interface objects for a [Global] or
  *        [PrimaryGlobal] interface, and hence shouldn't define properties on
  *        the prototype object.
+ * legacyWindowAliases if not null it points to a null-terminated list of const
+ *                     char* names of the legacy window aliases for this
+ *                     interface.
  *
  * At least one of protoClass, constructorClass or constructor should be
  * non-null. If constructorClass or constructor are non-null, the resulting
@@ -736,7 +739,8 @@ void CreateInterfaceObjects(
     JS::Heap<JSObject*>* constructorCache,
     const NativeProperties* regularProperties,
     const NativeProperties* chromeOnlyProperties, const char* name,
-    bool defineOnGlobal, const char* const* unscopableNames, bool isGlobal);
+    bool defineOnGlobal, const char* const* unscopableNames, bool isGlobal,
+    const char* const* legacyWindowAliases);
 
 /**
  * Define the properties (regular and chrome-only) on obj.
@@ -887,15 +891,9 @@ bool MaybeWrapObjectValue(JSContext* cx, JS::MutableHandle<JS::Value> rval) {
     return JS_WrapValue(cx, rval);
   }
 
-  // We're same-compartment, but even then we might need to wrap
-  // objects specially.  Check for that.
-  if (IsDOMObject(obj)) {
-    return TryToOuterize(rval);
-  }
-
-  // It's not a WebIDL object, so it's OK to just leave it as-is: only WebIDL
-  // objects (specifically only windows) require outerization.
-  return true;
+  // We're same-compartment, but we might still need to outerize if we
+  // have a Window.
+  return TryToOuterize(rval);
 }
 
 // Like MaybeWrapObjectValue, but working with a
@@ -906,15 +904,9 @@ bool MaybeWrapObject(JSContext* cx, JS::MutableHandle<JSObject*> obj) {
     return JS_WrapObject(cx, obj);
   }
 
-  // We're same-compartment, but even then we might need to wrap
-  // objects specially.  Check for that.
-  if (IsDOMObject(obj)) {
-    return TryToOuterize(obj);
-  }
-
-  // It's not a WebIDL object, so it's OK to just leave it as-is: only WebIDL
-  // objects (specifically only windows) require outerization.
-  return true;
+  // We're same-compartment, but we might still need to outerize if we
+  // have a Window.
+  return TryToOuterize(obj);
 }
 
 // Like MaybeWrapObjectValue, but also allows null
@@ -928,14 +920,16 @@ bool MaybeWrapObjectOrNullValue(JSContext* cx,
   return MaybeWrapObjectValue(cx, rval);
 }
 
-// Wrapping for objects that are known to not be DOM or XPConnect objects
+// Wrapping for objects that are known to not be DOM objects
 MOZ_ALWAYS_INLINE
 bool MaybeWrapNonDOMObjectValue(JSContext* cx,
                                 JS::MutableHandle<JS::Value> rval) {
   MOZ_ASSERT(rval.isObject());
+  // Compared to MaybeWrapObjectValue we just skip the TryToOuterize call.  The
+  // only reason it would be needed is if we have a Window object, which would
+  // have a DOM class.  Assert that we don't have any DOM-class objects coming
+  // through here.
   MOZ_ASSERT(!GetDOMClass(&rval.toObject()));
-  MOZ_ASSERT(!(js::GetObjectClass(&rval.toObject())->flags &
-               JSCLASS_PRIVATE_IS_NSISUPPORTS));
 
   JSObject* obj = &rval.toObject();
   if (js::GetObjectCompartment(obj) == js::GetContextCompartment(cx)) {
@@ -1917,7 +1911,7 @@ inline bool ConvertJSValueToByteString(JSContext* cx, JS::Handle<JS::Value> v,
 template <typename T>
 void DoTraceSequence(JSTracer* trc, FallibleTArray<T>& seq);
 template <typename T>
-void DoTraceSequence(JSTracer* trc, InfallibleTArray<T>& seq);
+void DoTraceSequence(JSTracer* trc, nsTArray<T>& seq);
 
 // Class used to trace sequences, with specializations for various
 // sequence types.
@@ -2070,7 +2064,7 @@ void DoTraceSequence(JSTracer* trc, FallibleTArray<T>& seq) {
 }
 
 template <typename T>
-void DoTraceSequence(JSTracer* trc, InfallibleTArray<T>& seq) {
+void DoTraceSequence(JSTracer* trc, nsTArray<T>& seq) {
   SequenceTracer<T>::TraceSequence(trc, seq.Elements(),
                                    seq.Elements() + seq.Length());
 }
@@ -2088,7 +2082,7 @@ class MOZ_RAII SequenceRooter final : private JS::CustomAutoRooter {
 
   template <typename CX>
   SequenceRooter(const CX& cx,
-                 InfallibleTArray<T>* aSequence MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+                 nsTArray<T>* aSequence MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
       : JS::CustomAutoRooter(cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT),
         mInfallibleArray(aSequence),
         mSequenceType(eInfallibleArray) {}
@@ -2117,7 +2111,7 @@ class MOZ_RAII SequenceRooter final : private JS::CustomAutoRooter {
   }
 
   union {
-    InfallibleTArray<T>* mInfallibleArray;
+    nsTArray<T>* mInfallibleArray;
     FallibleTArray<T>* mFallibleArray;
     Nullable<nsTArray<T>>* mNullableArray;
   };

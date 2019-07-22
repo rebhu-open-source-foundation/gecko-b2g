@@ -25,6 +25,7 @@
 #include "jstypes.h"  // JS_BIT
 #include "jsutil.h"   // Min
 
+#include "debugger/Debugger.h"                   // Debugger
 #include "ds/Nestable.h"                         // Nestable
 #include "frontend/BytecodeControlStructures.h"  // NestableControl, BreakableControl, LabelControl, LoopControl, TryFinallyControl
 #include "frontend/CallOrNewEmitter.h"           // CallOrNewEmitter
@@ -55,7 +56,6 @@
 #include "js/CompileOptions.h"       // TransitiveCompileOptions, CompileOptions
 #include "vm/AsyncFunction.h"        // AsyncFunctionResolveKind
 #include "vm/BytecodeUtil.h"  // IsArgOp, IsLocalOp, SET_UINT24, SET_ICINDEX, BytecodeFallsThrough, BytecodeIsJumpTarget
-#include "vm/Debugger.h"      // Debugger
 #include "vm/GeneratorObject.h"  // AbstractGeneratorObject
 #include "vm/JSAtom.h"           // JSAtom, js_*_str
 #include "vm/JSContext.h"        // JSContext
@@ -1521,11 +1521,7 @@ bool BytecodeEmitter::isInLoop() {
 }
 
 bool BytecodeEmitter::checkSingletonContext() {
-  if (!script->treatAsRunOnce() || sc->isFunctionBox() || isInLoop()) {
-    return false;
-  }
-  hasSingletons = true;
-  return true;
+  return script->treatAsRunOnce() && !sc->isFunctionBox() && !isInLoop();
 }
 
 bool BytecodeEmitter::checkRunOnceContext() {
@@ -1826,8 +1822,6 @@ bool BytecodeEmitter::emitPropLHS(PropertyAccess* prop) {
   }
 
   while (true) {
-    // TODO(khyperia): Implement private field access.
-
     // Walk back up the list, emitting annotated name ops.
     if (!emitAtomOp(pndot->key().atom(), JSOP_GETPROP)) {
       return false;
@@ -1847,7 +1841,6 @@ bool BytecodeEmitter::emitPropLHS(PropertyAccess* prop) {
 
 bool BytecodeEmitter::emitPropIncDec(UnaryNode* incDec) {
   PropertyAccess* prop = &incDec->kid()->as<PropertyAccess>();
-  // TODO(khyperia): Implement private field access.
   bool isSuper = prop->isSuper();
   ParseNodeKind kind = incDec->getKind();
   PropOpEmitter poe(
@@ -2003,7 +1996,7 @@ bool BytecodeEmitter::emitCallIncDec(UnaryNode* incDec) {
 
   // The increment/decrement has no side effects, so proceed to throw for
   // invalid assignment target.
-  return emitUint16Operand(JSOP_THROWMSG, JSMSG_BAD_LEFTSIDE_OF_ASS);
+  return emitUint16Operand(JSOP_THROWMSG, JSMSG_ASSIGN_TO_CALL);
 }
 
 bool BytecodeEmitter::emitDouble(double d) {
@@ -2222,18 +2215,16 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitSwitch(SwitchStatement* switchStmt) {
 }
 
 bool BytecodeEmitter::isRunOnceLambda() {
-  // The run once lambda flags set by the parser are approximate, and we look
-  // at properties of the function itself before deciding to emit a function
-  // as a run once lambda.
-
-  if (!(parent && parent->emittingRunOnceLambda) &&
-      (emitterMode != LazyFunction || !lazyScript->treatAsRunOnce())) {
-    return false;
+  if (lazyScript) {
+    // NOTE: The TreatAsRunOnce flag on LazyScript was computed without a
+    // complete 'funbox' so we must compute the shouldSuppressRunOnce
+    // conditions now that we have the full parse info.
+    return lazyScript->treatAsRunOnce() &&
+           !sc->asFunctionBox()->shouldSuppressRunOnce();
   }
 
-  FunctionBox* funbox = sc->asFunctionBox();
-  return !funbox->argumentsHasLocalBinding() && !funbox->isGenerator() &&
-         !funbox->isAsync() && !funbox->explicitName();
+  return parent && parent->emittingRunOnceLambda &&
+         !sc->asFunctionBox()->shouldSuppressRunOnce();
 }
 
 bool BytecodeEmitter::allocateResumeIndex(BytecodeOffset offset,
@@ -2739,7 +2730,6 @@ bool BytecodeEmitter::emitSetOrInitializeDestructuring(
         //          [stack] # otherwise
         //          [stack] OBJ VAL
         PropertyAccess* prop = &target->as<PropertyAccess>();
-        // TODO(khyperia): Implement private field access.
         bool isSuper = prop->isSuper();
         PropOpEmitter poe(this, PropOpEmitter::Kind::SimpleAssignment,
                           isSuper ? PropOpEmitter::ObjKind::Super
@@ -4252,7 +4242,7 @@ bool BytecodeEmitter::emitAssignmentOrInit(ParseNodeKind kind, ParseNode* lhs,
 
       // Assignment to function calls is forbidden, but we have to make the
       // call first.  Now we can throw.
-      if (!emitUint16Operand(JSOP_THROWMSG, JSMSG_BAD_LEFTSIDE_OF_ASS)) {
+      if (!emitUint16Operand(JSOP_THROWMSG, JSMSG_ASSIGN_TO_CALL)) {
         return false;
       }
 
@@ -4270,7 +4260,6 @@ bool BytecodeEmitter::emitAssignmentOrInit(ParseNodeKind kind, ParseNode* lhs,
     switch (lhs->getKind()) {
       case ParseNodeKind::DotExpr: {
         PropertyAccess* prop = &lhs->as<PropertyAccess>();
-        // TODO(khyperia): Implement private field access.
         if (!poe->emitGet(prop->key().atom())) {
           //        [stack] # if Super
           //        [stack] THIS SUPERBASE PROP
@@ -4371,7 +4360,6 @@ bool BytecodeEmitter::emitAssignmentOrInit(ParseNodeKind kind, ParseNode* lhs,
   switch (lhs->getKind()) {
     case ParseNodeKind::DotExpr: {
       PropertyAccess* prop = &lhs->as<PropertyAccess>();
-      // TODO(khyperia): Implement private field access.
       if (!poe->emitAssignment(prop->key().atom())) {
         //          [stack] VAL
         return false;
@@ -4900,7 +4888,7 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitLexicalScope(
             ? ScopeKind::SimpleCatch
             : ScopeKind::Catch;
   } else {
-    kind = ScopeKind::Lexical;
+    kind = lexicalScope->kind();
   }
 
   if (!lse.emitScope(kind, lexicalScope->scopeBindings())) {
@@ -6837,7 +6825,6 @@ bool BytecodeEmitter::emitDeleteProperty(UnaryNode* deleteNode) {
   MOZ_ASSERT(deleteNode->isKind(ParseNodeKind::DeletePropExpr));
 
   PropertyAccess* propExpr = &deleteNode->kid()->as<PropertyAccess>();
-  // TODO(khyperia): Implement private field access.
   PropOpEmitter poe(this, PropOpEmitter::Kind::Delete,
                     propExpr->as<PropertyAccess>().isSuper()
                         ? PropOpEmitter::ObjKind::Super
@@ -7229,7 +7216,6 @@ bool BytecodeEmitter::emitCalleeAndThis(ParseNode* callee, ParseNode* call,
     case ParseNodeKind::DotExpr: {
       MOZ_ASSERT(emitterMode != BytecodeEmitter::SelfHosting);
       PropertyAccess* prop = &callee->as<PropertyAccess>();
-      // TODO(khyperia): Implement private field access.
       bool isSuper = prop->isSuper();
 
       PropOpEmitter& poe = cone.prepareForPropCallee(isSuper);
@@ -9192,7 +9178,6 @@ bool BytecodeEmitter::emitTree(
 
     case ParseNodeKind::DotExpr: {
       PropertyAccess* prop = &pn->as<PropertyAccess>();
-      // TODO(khyperia): Implement private field access.
       bool isSuper = prop->isSuper();
       PropOpEmitter poe(this, PropOpEmitter::Kind::Get,
                         isSuper ? PropOpEmitter::ObjKind::Super
@@ -9580,14 +9565,6 @@ bool BytecodeEmitter::setSrcNoteOffset(unsigned index, unsigned which,
   }
   *sn = (jssrcnote)offsetValue;
   return true;
-}
-
-void BytecodeEmitter::copySrcNotes(jssrcnote* destination, uint32_t nsrcnotes) {
-  unsigned count = bytecodeSection().notes().length();
-  // nsrcnotes includes SN_MAKE_TERMINATOR in addition to the srcnotes.
-  MOZ_ASSERT(nsrcnotes == count + 1);
-  PodCopy(destination, bytecodeSection().notes().begin(), count);
-  SN_MAKE_TERMINATOR(&destination[count]);
 }
 
 const JSSrcNoteSpec js_SrcNoteSpec[] = {

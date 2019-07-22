@@ -95,12 +95,29 @@
 
 var EXPORTED_SYMBOLS = ["ActorManagerParent"];
 
-const {ExtensionUtils} = ChromeUtils.import("resource://gre/modules/ExtensionUtils.jsm");
-const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { ExtensionUtils } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-const {DefaultMap} = ExtensionUtils;
+const { DefaultMap } = ExtensionUtils;
 
 let ACTORS = {
+  Autoplay: {
+    parent: {
+      moduleURI: "resource://gre/actors/AutoplayParent.jsm",
+    },
+
+    child: {
+      moduleURI: "resource://gre/actors/AutoplayChild.jsm",
+      events: {
+        GloballyAutoplayBlocked: {},
+      },
+    },
+
+    allFrames: true,
+  },
+
   BrowserElement: {
     parent: {
       moduleURI: "resource://gre/actors/BrowserElementParent.jsm",
@@ -109,7 +126,24 @@ let ACTORS = {
     child: {
       moduleURI: "resource://gre/actors/BrowserElementChild.jsm",
       events: {
-        "DOMWindowClose": {},
+        DOMWindowClose: {},
+      },
+    },
+
+    allFrames: true,
+  },
+
+  DateTimePicker: {
+    parent: {
+      moduleURI: "resource://gre/actors/DateTimePickerParent.jsm",
+    },
+
+    child: {
+      moduleURI: "resource://gre/actors/DateTimePickerChild.jsm",
+      events: {
+        MozOpenDateTimePicker: {},
+        MozUpdateDateTimePicker: {},
+        MozCloseDateTimePicker: {},
       },
     },
 
@@ -136,9 +170,50 @@ let ACTORS = {
     child: {
       moduleURI: "resource://gre/actors/SelectChild.jsm",
       events: {
-        "mozshowdropdown": {},
+        mozshowdropdown: {},
         "mozshowdropdown-sourcetouch": {},
-        "mozhidedropdown": { mozSystemGroup: true },
+        mozhidedropdown: { mozSystemGroup: true },
+      },
+    },
+
+    allFrames: true,
+  },
+
+  Zoom: {
+    parent: {
+      moduleURI: "resource://gre/actors/ZoomParent.jsm",
+      messages: [
+        "FullZoomChange",
+        "TextZoomChange",
+        "ZoomChangeUsingMouseWheel",
+      ],
+    },
+    child: {
+      moduleURI: "resource://gre/actors/ZoomChild.jsm",
+      events: {
+        FullZoomChange: {},
+        TextZoomChange: {},
+        ZoomChangeUsingMouseWheel: {},
+      },
+      messages: ["FullZoom", "TextZoom"],
+    },
+
+    allFrames: true,
+  },
+
+  // UAWidgetsDateTimeBox is a _duplicate_ of UAWidgetsChild
+  // that handles only the datetime box widget. The original
+  // intention to port all all UAWidgets to JSWindowActor
+  // at once is blocked by some jUnit tests related to
+  // the video element failing in
+  // mobile/android/geckoview/src/androidTest/java/org/mozilla/geckoview/test/MediaElementTest.kt
+  // when running on android API 16 (debug & pgo) platforms.
+  UAWidgetsDateTimeBox: {
+    child: {
+      moduleURI: "resource://gre/actors/UAWidgetsDateTimeBoxChild.jsm",
+      events: {
+        UAWidgetSetupOrChange: {},
+        UAWidgetTeardown: {},
       },
     },
 
@@ -150,40 +225,15 @@ let LEGACY_ACTORS = {
   AudioPlayback: {
     child: {
       module: "resource://gre/actors/AudioPlaybackChild.jsm",
-      messages: [
-        "AudioPlayback",
-      ],
-      observers: [
-        "audio-playback",
-      ],
-    },
-  },
-
-  Autoplay: {
-    child: {
-      module: "resource://gre/actors/AutoplayChild.jsm",
-      events: {
-        "GloballyAutoplayBlocked": {},
-      },
+      messages: ["AudioPlayback"],
+      observers: ["audio-playback"],
     },
   },
 
   Controllers: {
     child: {
       module: "resource://gre/actors/ControllersChild.jsm",
-      messages: [
-        "ControllerCommands:Do",
-        "ControllerCommands:DoWithParams",
-      ],
-    },
-  },
-
-  DateTimePicker: {
-    child: {
-      module: "resource://gre/actors/DateTimePickerChild.jsm",
-      events: {
-        "MozOpenDateTimePicker": {},
-      },
+      messages: ["ControllerCommands:Do", "ControllerCommands:DoWithParams"],
     },
   },
 
@@ -202,7 +252,7 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/FindBarChild.jsm",
       events: {
-        "keypress": {mozSystemGroup: true},
+        keypress: { mozSystemGroup: true },
       },
     },
   },
@@ -210,9 +260,7 @@ let LEGACY_ACTORS = {
   Finder: {
     child: {
       module: "resource://gre/actors/FinderChild.jsm",
-      messages: [
-        "Finder:Initialize",
-      ],
+      messages: ["Finder:Initialize"],
     },
   },
 
@@ -221,7 +269,7 @@ let LEGACY_ACTORS = {
       module: "resource://gre/actors/FormSubmitChild.jsm",
       allFrames: true,
       events: {
-        "DOMFormBeforeSubmit": {},
+        DOMFormBeforeSubmit: {},
       },
     },
   },
@@ -230,7 +278,7 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/KeyPressEventModelCheckerChild.jsm",
       events: {
-        "CheckKeyPressEventModel": {capture: true, mozSystemGroup: true},
+        CheckKeyPressEventModel: { capture: true, mozSystemGroup: true },
       },
     },
   },
@@ -251,7 +299,7 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/PictureInPictureChild.jsm",
       events: {
-        "MozTogglePictureInPicture": {capture: true},
+        MozTogglePictureInPicture: { capture: true },
       },
 
       messages: [
@@ -267,8 +315,8 @@ let LEGACY_ACTORS = {
       allFrames: true,
       module: "resource://gre/actors/PictureInPictureChild.jsm",
       events: {
-        "canplay": {capture: true, mozSystemGroup: true},
-        "pagehide": {capture: true},
+        canplay: { capture: true, mozSystemGroup: true },
+        pagehide: { capture: true },
       },
     },
   },
@@ -277,7 +325,7 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/PopupBlockingChild.jsm",
       events: {
-        "DOMPopupBlocked": {capture: true},
+        DOMPopupBlocked: { capture: true },
       },
     },
   },
@@ -286,8 +334,8 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/PrintingChild.jsm",
       events: {
-        "PrintingError": {capture: true},
-        "printPreviewUpdate": {capture: true},
+        PrintingError: { capture: true },
+        printPreviewUpdate: { capture: true },
       },
       messages: [
         "Printing:Preview:Enter",
@@ -302,18 +350,14 @@ let LEGACY_ACTORS = {
   PurgeSessionHistory: {
     child: {
       module: "resource://gre/actors/PurgeSessionHistoryChild.jsm",
-      messages: [
-        "Browser:PurgeSessionHistory",
-      ],
+      messages: ["Browser:PurgeSessionHistory"],
     },
   },
 
   SelectionSource: {
     child: {
       module: "resource://gre/actors/SelectionSourceChild.jsm",
-      messages: [
-        "ViewSource:GetSelection",
-      ],
+      messages: ["ViewSource:GetSelection"],
     },
   },
 
@@ -332,8 +376,8 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/UAWidgetsChild.jsm",
       events: {
-        "UAWidgetSetupOrChange": {},
-        "UAWidgetTeardown": {},
+        UAWidgetSetupOrChange: {},
+        UAWidgetTeardown: {},
       },
     },
   },
@@ -345,9 +389,7 @@ let LEGACY_ACTORS = {
         "UnselectedTabHover:Enable": {},
         "UnselectedTabHover:Disable": {},
       },
-      messages: [
-        "Browser:UnselectedTabHover",
-      ],
+      messages: ["Browser:UnselectedTabHover"],
     },
   },
 
@@ -355,11 +397,9 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/WebChannelChild.jsm",
       events: {
-        "WebChannelMessageToChrome": {capture: true, wantUntrusted: true},
+        WebChannelMessageToChrome: { capture: true, wantUntrusted: true },
       },
-      messages: [
-        "WebChannelMessageToContent",
-      ],
+      messages: ["WebChannelMessageToContent"],
     },
   },
 
@@ -374,21 +414,6 @@ let LEGACY_ACTORS = {
         "WebNavigation:Reload",
         "WebNavigation:SetOriginAttributes",
         "WebNavigation:Stop",
-      ],
-    },
-  },
-
-  Zoom: {
-    child: {
-      module: "resource://gre/actors/ZoomChild.jsm",
-      events: {
-        "FullZoomChange": {},
-        "TextZoomChange": {},
-        "ZoomChangeUsingMouseWheel": {},
-      },
-      messages: [
-        "FullZoom",
-        "TextZoom",
       ],
     },
   },
@@ -407,11 +432,11 @@ class ActorSet {
 
   addActor(actorName, actor) {
     actorName += this.actorSide;
-    this.actors.set(actorName, {module: actor.module});
+    this.actors.set(actorName, { module: actor.module });
 
     if (actor.events) {
       for (let [event, options] of Object.entries(actor.events)) {
-        this.events.push({actor: actorName, event, options});
+        this.events.push({ actor: actorName, event, options });
       }
     }
     for (let msg of actor.messages || []) {
@@ -423,7 +448,7 @@ class ActorSet {
   }
 }
 
-const {sharedData} = Services.ppmm;
+const { sharedData } = Services.ppmm;
 
 var ActorManagerParent = {
   // Actor sets which should be loaded in the child side, keyed by
@@ -446,13 +471,15 @@ var ActorManagerParent = {
 
   addLegacyActors(actors) {
     for (let [actorName, actor] of Object.entries(actors)) {
-      let {child} = actor;
+      let { child } = actor;
       {
         let actorSet;
         if (child.matches || child.allFrames) {
-          actorSet = this.singletons.get({matches: child.matches || ["<all_urls>"],
-                                          allFrames: child.allFrames,
-                                          matchAboutBlank: child.matchAboutBlank});
+          actorSet = this.singletons.get({
+            matches: child.matches || ["<all_urls>"],
+            allFrames: child.allFrames,
+            matchAboutBlank: child.matchAboutBlank,
+          });
         } else {
           actorSet = this.childGroups.get(child.group || null);
         }
@@ -461,9 +488,8 @@ var ActorManagerParent = {
       }
 
       if (actor.parent) {
-        let {parent} = actor;
-        this.parentGroups.get(parent.group || null).addActor(
-          actorName, parent);
+        let { parent } = actor;
+        this.parentGroups.get(parent.group || null).addActor(actorName, parent);
       }
     }
   },

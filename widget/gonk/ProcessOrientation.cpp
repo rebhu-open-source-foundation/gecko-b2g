@@ -171,7 +171,7 @@ ProcessOrientation::OnSensorChanged(const hal::SensorData& event,
   // The vector given in the SensorEvent points straight up (towards the sky)
   // under ideal conditions (the phone is not accelerating). I'll call this up
   // vector elsewhere.
-  const InfallibleTArray<float>& values = event.values();
+  const nsTArray<float>& values = event.values();
   float x = values[ACCELEROMETER_DATA_X];
   float y = values[ACCELEROMETER_DATA_Y];
   float z = values[ACCELEROMETER_DATA_Z];

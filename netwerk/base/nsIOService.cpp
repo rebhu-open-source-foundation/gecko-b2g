@@ -299,9 +299,9 @@ nsresult nsIOService::InitializeCaptivePortalService() {
         ->Initialize();
   }
 
+  // Instantiate and initialize the service
   RefPtr<NetworkConnectivityService> ncs =
       NetworkConnectivityService::GetSingleton();
-  ncs->Init();
 
   return NS_OK;
 }
@@ -402,6 +402,11 @@ nsresult nsIOService::LaunchSocketProcess() {
   }
 
   if (mSocketProcess) {
+    return NS_OK;
+  }
+
+  if (!XRE_IsE10sParentProcess()) {
+    LOG(("nsIOService skipping LaunchSocketProcess because e10s is disabled"));
     return NS_OK;
   }
 
@@ -796,7 +801,7 @@ class AutoIncrement {
 
 nsresult nsIOService::NewURI(const nsACString& aSpec, const char* aCharset,
                              nsIURI* aBaseURI, nsIURI** result) {
-  return NS_NewURI(result, aSpec, aCharset, aBaseURI, nullptr);
+  return NS_NewURI(result, aSpec, aCharset, aBaseURI);
 }
 
 NS_IMETHODIMP

@@ -75,6 +75,8 @@ static const char* GetActionCauseName(InputContextAction::Cause aCause) {
       return "CAUSE_MOUSE";
     case InputContextAction::CAUSE_TOUCH:
       return "CAUSE_TOUCH";
+    case InputContextAction::CAUSE_LONGPRESS:
+      return "CAUSE_LONGPRESS";
     default:
       return "illegal value";
   }
@@ -388,7 +390,7 @@ nsresult IMEStateManager::OnRemoveContent(nsPresContext* aPresContext,
   }
 
   if (!sPresContext || !sContent ||
-      !nsContentUtils::ContentIsDescendantOf(sContent, aContent)) {
+      !sContent->IsInclusiveDescendantOf(aContent)) {
     return NS_OK;
   }
 

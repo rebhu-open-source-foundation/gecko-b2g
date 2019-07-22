@@ -132,9 +132,6 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   // Script contains JSOP_CALLSITEOBJ.
   bool hasCallSiteObj = false;
 
-  // Script contains singleton initializer JSOP_OBJECT.
-  bool hasSingletons = false;
-
   // Script contains finally block.
   bool hasTryFinally = false;
 
@@ -375,7 +372,6 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   MOZ_MUST_USE bool newSrcNote3(SrcNoteType type, ptrdiff_t offset1,
                                 ptrdiff_t offset2, unsigned* indexp = nullptr);
 
-  void copySrcNotes(jssrcnote* destination, uint32_t nsrcnotes);
   MOZ_MUST_USE bool setSrcNoteOffset(unsigned index, unsigned which,
                                      BytecodeOffsetDiff offset);
 

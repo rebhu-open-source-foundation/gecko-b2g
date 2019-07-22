@@ -6,16 +6,35 @@
 
 "use strict";
 
-const { Ci } = require("chrome");
-const { setBreakpointAtEntryPoints } = require("devtools/server/actors/breakpoint");
+const { Ci, Cu } = require("chrome");
+const {
+  setBreakpointAtEntryPoints,
+} = require("devtools/server/actors/breakpoint");
 const { ActorClassWithSpec } = require("devtools/shared/protocol");
 const DevToolsUtils = require("devtools/shared/DevToolsUtils");
 const { assert, fetch } = DevToolsUtils;
 const { joinURI } = require("devtools/shared/path");
 const { sourceSpec } = require("devtools/shared/specs/source");
 
-loader.lazyRequireGetter(this, "ArrayBufferActor", "devtools/server/actors/array-buffer", true);
-loader.lazyRequireGetter(this, "LongStringActor", "devtools/server/actors/string", true);
+loader.lazyRequireGetter(
+  this,
+  "ArrayBufferActor",
+  "devtools/server/actors/array-buffer",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "LongStringActor",
+  "devtools/server/actors/string",
+  true
+);
+
+loader.lazyRequireGetter(this, "Services");
+loader.lazyGetter(
+  this,
+  "WebExtensionPolicy",
+  () => Cu.getGlobalForObject(Cu).WebExtensionPolicy
+);
 
 function isEvalSource(source) {
   const introType = source.introductionType;
@@ -29,12 +48,14 @@ function isEvalSource(source) {
 
   // These are all the sources that are essentially eval-ed (either
   // by calling eval or passing a string to one of these functions).
-  return (introType === "eval" ||
-          introType === "debugger eval" ||
-          introType === "Function" ||
-          introType === "eventHandler" ||
-          introType === "setTimeout" ||
-          introType === "setInterval");
+  return (
+    introType === "eval" ||
+    introType === "debugger eval" ||
+    introType === "Function" ||
+    introType === "eventHandler" ||
+    introType === "setTimeout" ||
+    introType === "setInterval"
+  );
 }
 
 exports.isEvalSource = isEvalSource;
@@ -91,7 +112,7 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     this._contentType = contentType;
     this._isInlineSource = isInlineSource;
 
-    this.onSource = this.onSource.bind(this);
+    this.source = this.source.bind(this);
     this._getSourceText = this._getSourceText.bind(this);
 
     this._init = null;
@@ -110,17 +131,38 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
   get dbg() {
     return this.threadActor.dbg;
   },
-  get source() {
-    return this._source;
-  },
   get breakpointActorMap() {
     return this.threadActor.breakpointActorMap;
   },
   get url() {
     if (!this._url) {
-      this._url = getSourceURL(this.source, this.threadActor._parent.window);
+      this._url = getSourceURL(this._source, this.threadActor._parent.window);
     }
     return this._url;
+  },
+
+  get extensionName() {
+    if (this._extensionName === undefined) {
+      this._extensionName = null;
+
+      // Cu is not available for workers and so we are not able to get a
+      // WebExtensionPolicy object
+      if (!isWorker && this.url) {
+        try {
+          const extURI = Services.io.newURI(this.url);
+          if (extURI) {
+            const policy = WebExtensionPolicy.getByURI(extURI);
+            if (policy) {
+              this._extensionName = policy.name;
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+
+    return this._extensionName;
   },
 
   get isCacheEnabled() {
@@ -131,7 +173,7 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
   },
 
   form: function() {
-    const source = this.source;
+    const source = this._source;
 
     let introductionUrl = null;
     if (source.introductionScript) {
@@ -140,10 +182,13 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
 
     return {
       actor: this.actorID,
+      extensionName: this.extensionName,
       url: this.url ? this.url.split(" -> ").pop() : null,
       isBlackBoxed: this.threadActor.sources.isBlackBoxed(this.url),
       sourceMapURL: source ? source.sourceMapURL : null,
-      introductionUrl: introductionUrl ? introductionUrl.split(" -> ").pop() : null,
+      introductionUrl: introductionUrl
+        ? introductionUrl.split(" -> ").pop()
+        : null,
       introductionType: source ? source.introductionType : null,
     };
   },
@@ -161,7 +206,7 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
       "Debuggee source and URL are set automatically"
     );
 
-    query.source = this.source;
+    query.source = this._source;
     return this.dbg.findScripts(query);
   },
 
@@ -169,7 +214,8 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     try {
       DevToolsUtils.reportException("SourceActor", error);
 
-      JSON.stringify(this.form(), null, 4).split(/\n/g)
+      JSON.stringify(this.form(), null, 4)
+        .split(/\n/g)
         .forEach(line => console.error("\t", line));
     } catch (e) {
       // ignore
@@ -181,10 +227,10 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
       content: t,
       contentType: this._contentType,
     });
-    const isWasm = this.source.introductionType === "wasm";
+    const isWasm = this._source.introductionType === "wasm";
 
     if (isWasm) {
-      const wasm = this.source.binary;
+      const wasm = this._source.binary;
       const buffer = wasm.buffer;
       assert(
         wasm.byteOffset === 0 && wasm.byteLength === buffer.byteLength,
@@ -207,12 +253,14 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     // the source because sources were discarded
     // (javascript.options.discardSystemSource == true). Re-fetch non-JS
     // sources to get the contentType from the headers.
-    if (this.source &&
-        this.source.text !== "[no source]" &&
-        this._contentType &&
-        (this._contentType.includes("javascript") ||
-          this._contentType === "text/wasm")) {
-      return toResolvedContent(this.source.text);
+    if (
+      this._source &&
+      this._source.text !== "[no source]" &&
+      this._contentType &&
+      (this._contentType.includes("javascript") ||
+        this._contentType === "text/wasm")
+    ) {
+      return toResolvedContent(this._source.text);
     }
 
     // Only load the HTML page source from cache (which exists when
@@ -237,8 +285,10 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
 
       // Retrieve the cacheKey in order to load POST requests from cache
       // Note that chrome:// URLs don't support this interface.
-      if (loadFromCache &&
-        docShell.currentDocumentChannel instanceof Ci.nsICacheInfoChannel) {
+      if (
+        loadFromCache &&
+        docShell.currentDocumentChannel instanceof Ci.nsICacheInfoChannel
+      ) {
         cacheKey = docShell.currentDocumentChannel.cacheKey;
       }
     }
@@ -250,14 +300,16 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     });
 
     // Record the contentType we just learned during fetching
-    return sourceFetched
-      .then(result => {
+    return sourceFetched.then(
+      result => {
         this._contentType = result.contentType;
         return result;
-      }, error => {
+      },
+      error => {
         this._reportLoadSourceError(error);
         throw error;
-      });
+      }
+    );
   },
 
   getBreakableLines() {
@@ -274,14 +326,8 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
 
   getBreakpointPositions(query) {
     const {
-      start: {
-        line: startLine = 0,
-        column: startColumn = 0,
-      } = {},
-      end: {
-        line: endLine = Infinity,
-        column: endColumn = Infinity,
-      } = {},
+      start: { line: startLine = 0, column: startColumn = 0 } = {},
+      end: { line: endLine = Infinity, column: endColumn = Infinity } = {},
     } = query || {};
 
     const scripts = this._findDebuggeeScripts();
@@ -315,12 +361,14 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
       }
     }
 
-    return positions
-      // Sort the items by location.
-      .sort((a, b) => {
-        const lineDiff = a.line - b.line;
-        return lineDiff === 0 ? a.column - b.column : lineDiff;
-      });
+    return (
+      positions
+        // Sort the items by location.
+        .sort((a, b) => {
+          const lineDiff = a.line - b.line;
+          return lineDiff === 0 ? a.column - b.column : lineDiff;
+        })
+    );
   },
 
   getBreakpointPositionsCompressed(query) {
@@ -342,12 +390,16 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
    *         a field `source`. `source` can either be an ArrayBuffer or
    *         a LongString.
    */
-  onSource: function() {
+  source: function() {
     return Promise.resolve(this._init)
       .then(this._getSourceText)
       .then(({ content, contentType }) => {
-        if (typeof content === "object" && content && content.constructor &&
-            content.constructor.name === "ArrayBuffer") {
+        if (
+          typeof content === "object" &&
+          content &&
+          content.constructor &&
+          content.constructor.name === "ArrayBuffer"
+        ) {
           return {
             source: new ArrayBufferActor(this.threadActor.conn, content),
             contentType,
@@ -361,8 +413,12 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
       })
       .catch(error => {
         reportError(error, "Got an exception during SA_onSource: ");
-        throw new Error("Could not load the source for " + this.url + ".\n" +
-                        DevToolsUtils.safeErrorString(error));
+        throw new Error(
+          "Could not load the source for " +
+            this.url +
+            ".\n" +
+            DevToolsUtils.safeErrorString(error)
+        );
       });
   },
 
@@ -371,9 +427,11 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
    */
   blackbox: function(range) {
     this.threadActor.sources.blackBox(this.url, range);
-    if (this.threadActor.state == "paused"
-        && this.threadActor.youngestFrame
-        && this.threadActor.youngestFrame.script.url == this.url) {
+    if (
+      this.threadActor.state == "paused" &&
+      this.threadActor.youngestFrame &&
+      this.threadActor.youngestFrame.script.url == this.url
+    ) {
       return true;
     }
     return false;
@@ -434,8 +492,9 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     if (column === undefined) {
       // Find all scripts that match the given source actor and line
       // number.
-      const scripts = this._findDebuggeeScripts({ line })
-        .filter((script) => !actor.hasScript(script));
+      const scripts = this._findDebuggeeScripts({ line }).filter(
+        script => !actor.hasScript(script)
+      );
 
       // This is a line breakpoint, so we add a breakpoint on the first
       // breakpoint on the line.
@@ -454,8 +513,9 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
         // so we explicitly want to take all of the matches for the matched
         // column number.
         const firstColumn = lineMatches[0].columnNumber;
-        const firstColumnMatches = lineMatches
-          .filter(m => m.columnNumber === firstColumn);
+        const firstColumnMatches = lineMatches.filter(
+          m => m.columnNumber === firstColumn
+        );
 
         for (const { script, offset } of firstColumnMatches) {
           entryPoints.push({ script, offsets: [offset] });
@@ -464,17 +524,20 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     } else {
       // Find all scripts that match the given source actor, line,
       // and column number.
-      const scripts = this._findDebuggeeScripts({ line, column })
-        .filter((script) => !actor.hasScript(script));
+      const scripts = this._findDebuggeeScripts({ line, column }).filter(
+        script => !actor.hasScript(script)
+      );
 
       for (const script of scripts) {
         // Check to see if the script contains a breakpoint position at
         // this line and column.
-        const possibleBreakpoint = script.getPossibleBreakpoints({
-          line,
-          minColumn: column,
-          maxColumn: column + 1,
-        }).pop();
+        const possibleBreakpoint = script
+          .getPossibleBreakpoints({
+            line,
+            minColumn: column,
+            maxColumn: column + 1,
+          })
+          .pop();
 
         if (possibleBreakpoint) {
           const { offset } = possibleBreakpoint;

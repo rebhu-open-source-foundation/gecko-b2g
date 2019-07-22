@@ -99,7 +99,7 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
   mOffscreenFormat = GetScreenDepth() == 16 ? SurfaceFormat::R5G6B5_UINT16
                                             : SurfaceFormat::X8R8G8B8_UINT32;
 
-  if (StaticPrefs::AndroidRGB16Force()) {
+  if (StaticPrefs::gfx_android_rgb16_force()) {
     mOffscreenFormat = SurfaceFormat::R5G6B5_UINT16;
   }
 
@@ -243,8 +243,7 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
   aFontList.AppendElement("Droid Sans Fallback");
 }
 
-void gfxAndroidPlatform::GetSystemFontList(
-    InfallibleTArray<FontListEntry>* retValue) {
+void gfxAndroidPlatform::GetSystemFontList(nsTArray<FontListEntry>* retValue) {
   gfxFT2FontList::PlatformFontList()->GetSystemFontList(retValue);
 }
 

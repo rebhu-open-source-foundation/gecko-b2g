@@ -8,12 +8,12 @@
 
 #include <utility>
 
+#include "debugger/Debugger.h"
 #include "gc/Marking.h"
 #include "jit/BaselineFrame.h"
 #include "jit/JitcodeMap.h"
 #include "jit/JitRealm.h"
 #include "jit/shared/CodeGenerator-shared.h"
-#include "vm/Debugger.h"
 #include "vm/JSContext.h"
 #include "vm/Opcodes.h"
 #include "wasm/WasmInstance.h"
@@ -122,6 +122,7 @@ static inline void AssertScopeMatchesEnvironment(Scope* scope,
         case ScopeKind::Catch:
         case ScopeKind::NamedLambda:
         case ScopeKind::StrictNamedLambda:
+        case ScopeKind::FunctionLexical:
           MOZ_ASSERT(&env->as<LexicalEnvironmentObject>().scope() ==
                      si.scope());
           env = &env->as<LexicalEnvironmentObject>().enclosingEnvironment();
