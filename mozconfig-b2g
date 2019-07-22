@@ -20,7 +20,7 @@ ac_add_options --disable-printing
 ac_add_options --disable-updater
 
 # Enable debugging
-ac_add_options --enable-debug
+# ac_add_options --enable-debug
 
 # Optimize the build
 ac_add_options --enable-lto
@@ -40,6 +40,9 @@ mk_add_options AUTOCLOBBER=1
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
 ac_add_options --with-gonk="$GONK_PATH"
+
+# Enable Rust <-> C++ LTO
+export MOZ_LTO=cross
 
 # Customize the objdir.
 if [ -f "$GECKO_OBJDIR" ]; then
