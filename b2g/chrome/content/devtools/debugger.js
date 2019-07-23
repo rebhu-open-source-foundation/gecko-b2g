@@ -23,11 +23,10 @@ XPCOMUtils.defineLazyGetter(this, "B2GTabList", function() {
   return B2GTabList;
 });
 
-XPCOMUtils.defineLazyGetter(this, "Discovery", function() {
-  const { Discovery } =
-    devtools.require("devtools/shared/discovery/discovery");
-  return Discovery;
-});
+// Load the discovery module eagerly, so that it can set a device name at
+// startup.  This does not cause discovery to start listening for packets, as
+// that only happens once DevTools is enabled.
+devtools.require("devtools/shared/discovery/discovery");
 
 var RemoteDebugger = {
   _listening: false,
@@ -360,9 +359,6 @@ function InitDebuggerSettings() {
            e + "\n" + e.stack + "\n");
     }
 
-    if (value == "adb-devtools") {
-      new Discovery();
-    }
     isGonk && AdbController.setRemoteDebuggerState(value != "disabled");
   });
 
