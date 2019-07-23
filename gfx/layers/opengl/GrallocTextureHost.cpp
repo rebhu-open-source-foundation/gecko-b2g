@@ -19,7 +19,6 @@
 namespace mozilla {
 namespace layers {
 
-using namespace android;
 using namespace mozilla::gl;
 
 static gfx::SurfaceFormat

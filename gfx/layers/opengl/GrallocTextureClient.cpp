@@ -25,7 +25,6 @@ namespace mozilla {
 namespace layers {
 
 using namespace mozilla::gfx;
-using namespace android;
 
 static bool
 DisableGralloc(SurfaceFormat aFormat, const gfx::IntSize& aSizeHint)
@@ -44,13 +43,13 @@ gfx::SurfaceFormat
 SurfaceFormatForPixelFormat(android::PixelFormat aFormat)
 {
   switch (aFormat) {
-  case PIXEL_FORMAT_RGBA_8888:
+  case android::PIXEL_FORMAT_RGBA_8888:
     return gfx::SurfaceFormat::R8G8B8A8;
-  case PIXEL_FORMAT_BGRA_8888:
+  case android::PIXEL_FORMAT_BGRA_8888:
     return gfx::SurfaceFormat::B8G8R8A8;
-  case PIXEL_FORMAT_RGBX_8888:
+  case android::PIXEL_FORMAT_RGBX_8888:
     return gfx::SurfaceFormat::R8G8B8X8;
-  case PIXEL_FORMAT_RGB_565:
+  case android::PIXEL_FORMAT_RGB_565:
     return gfx::SurfaceFormat::R5G6B5_UINT16;
   case HAL_PIXEL_FORMAT_YV12:
     return gfx::SurfaceFormat::YUV;
@@ -159,7 +158,7 @@ GrallocTextureData::WaitForBufferOwnership()
 #if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
    if (mReleaseFenceHandle.IsValid()) {
      RefPtr<FenceHandle::FdObj> fdObj = mReleaseFenceHandle.GetAndResetFdObj();
-     android::sp<Fence> fence = new Fence(fdObj->GetAndResetFd());
+     android::sp<android::Fence> fence = new android::Fence(fdObj->GetAndResetFd());
 #if ANDROID_VERSION == 17
      fence->waitForever(1000, "GrallocTextureClientOGL::Lock");
      // 1000 is what Android uses. It is a warning timeout in ms.
@@ -353,12 +352,12 @@ GrallocTextureData::Create(gfx::IntSize aSize, AndroidFormat aAndroidFormat,
     return nullptr;
   }
 
-  sp<GraphicBuffer> graphicBuffer = GetGraphicBufferFrom(handle);
+  android::sp<android::GraphicBuffer> graphicBuffer = GetGraphicBufferFrom(handle);
   if (!graphicBuffer.get()) {
     return nullptr;
   }
 
-  if (graphicBuffer->initCheck() != NO_ERROR) {
+  if (graphicBuffer->initCheck() != android::NO_ERROR) {
     return nullptr;
   }
 
@@ -403,9 +402,9 @@ GrallocTextureData::CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFor
       (aAllocFlags & ALLOC_CLEAR_BUFFER_BLACK)) {
     if (aFormat == gfx::SurfaceFormat::B8G8R8X8) {
       uint8_t* buffer;
-      status_t rv = data->mGraphicBuffer->lock(android::GraphicBuffer::USAGE_SW_WRITE_OFTEN,
+      android::status_t rv = data->mGraphicBuffer->lock(android::GraphicBuffer::USAGE_SW_WRITE_OFTEN,
                                                reinterpret_cast<void**>(&buffer));
-      if (rv != OK) {
+      if (rv != android::OK) {
         return nullptr;
       }
 
