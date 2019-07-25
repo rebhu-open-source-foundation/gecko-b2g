@@ -460,6 +460,8 @@ namespace {
 
 class BatteryUpdater : public Runnable {
 public:
+explicit BatteryUpdater()
+      : Runnable("hal::BatteryUpdater") {}
   NS_IMETHOD Run() override
   {
     hal::BatteryInformation info;
@@ -511,7 +513,6 @@ public:
 
 } // namespace
 
-#if 0 // TODO: FIXME
 class BatteryObserver final : public IUeventObserver
 {
 public:
@@ -561,7 +562,7 @@ void
 EnableBatteryNotifications()
 {
   XRE_GetIOMessageLoop()->PostTask(
-      NewRunnableFunction(RegisterBatteryObserverIOThread));
+      NewRunnableFunction("RegisterBatteryObserver", RegisterBatteryObserverIOThread));
 }
 
 static void
@@ -578,7 +579,7 @@ void
 DisableBatteryNotifications()
 {
   XRE_GetIOMessageLoop()->PostTask(
-      NewRunnableFunction(UnregisterBatteryObserverIOThread));
+      NewRunnableFunction("UnregisterBatteryObserver", UnregisterBatteryObserverIOThread));
 }
 
 static bool
@@ -741,8 +742,6 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
   previousCharging = aBatteryInfo->charging();
   previousLevel = aBatteryInfo->level();
 }
-
-#endif
 
 namespace {
 

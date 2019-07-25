@@ -164,6 +164,11 @@ static StaticAutoPtr<NetlinkPoller> sPoller;
 
 class UeventInitTask : public Runnable
 {
+public:
+  explicit UeventInitTask() : Runnable("UeventInitTask") {}
+  ~UeventInitTask() {}
+
+private:
   NS_IMETHOD Run() override
   {
     if (!sPoller) {
@@ -220,7 +225,7 @@ public:
       MonitorAutoLock lock(*sMonitor);
 
       XRE_GetIOMessageLoop()->PostTask(
-          NewRunnableFunction(ShutdownUeventIOThread));
+          NewRunnableFunction("hal:ShutdownUeventIOThread", ShutdownUeventIOThread));
 
       while (!sShutdown) {
         lock.Wait();
@@ -243,7 +248,7 @@ public:
     {
       ShutdownNetlinkPoller* shutdownPoller = new ShutdownNetlinkPoller();
 
-      nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction([=] () -> void
+      nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction("hal:ShutdownNetlinkPoller", [=] () -> void
       {
         sShutdownPoller = shutdownPoller;
         ClearOnShutdown(&sShutdownPoller); // Must run on the main thread.

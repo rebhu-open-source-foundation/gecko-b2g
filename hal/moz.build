@@ -58,11 +58,10 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         # TODO: FIXME 'gonk/GonkSensorsRegistryInterface.cpp',
         # TODO: FIXME 'gonk/GonkSwitch.cpp',
         # TODO: FIXME 'gonk/SystemService.cpp',
-        # TODO: FIXME 'gonk/UeventPoller.cpp',
-        'fallback/FallbackBattery.cpp',
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
         'fallback/FallbackSensor.cpp',
+        'gonk/UeventPoller.cpp',
         'linux/LinuxMemory.cpp',
         # TODO: FIXME 'linux/LinuxPower.cpp',
     ]
