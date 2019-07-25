@@ -14,6 +14,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+XPIDL_SOURCES += [
+    'nsIVolume.idl',
+    'nsIVolumeMountLock.idl',
+    'nsIVolumeService.idl',
+    'nsIVolumeStat.idl',
+]
+
+XPIDL_MODULE = 'dom_system_gonk'
+
+EXPORTS += [
+    'nsVolume.h',
+    'nsVolumeService.h',
+]
+UNIFIED_SOURCES += [
+    #'AutoMounter.cpp',
+    #'AutoMounterSetting.cpp',
+    #'MozMtpDatabase.cpp',
+    #'MozMtpServer.cpp',
+    #'MozMtpStorage.cpp',
+    'nsVolume.cpp',
+    'nsVolumeMountLock.cpp',
+    'nsVolumeService.cpp',
+    'nsVolumeStat.cpp',
+    #'OpenFileFinder.cpp',
+    'Volume.cpp',
+    'VolumeCommand.cpp',
+    'VolumeManager.cpp',
+    'VolumeServiceIOThread.cpp',
+    'VolumeServiceTest.cpp',
+]
+
 EXTRA_JS_MODULES += [
     'systemlibs.js',
 ]
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+DEFINES['HAVE_ANDROID_OS'] = True
+
+LOCAL_INCLUDES += [
+    '/dom/base',
+]
+
+FINAL_LIBRARY = 'xul'
