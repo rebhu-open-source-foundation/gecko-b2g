@@ -19,11 +19,15 @@ ac_add_options --disable-webrtc
 ac_add_options --disable-printing
 ac_add_options --disable-updater
 
-# Enable debugging
-ac_add_options --enable-debug
+if [ "${B2G_DEBUG:-0}" != "0" ]; then
+  ac_add_options --enable-debug
+else
+# Enable Rust <-> C++ LTO
+  ac_add_options --enable-lto
+  export MOZ_LTO=cross
+fi
 
 # Optimize the build
-ac_add_options --enable-lto
 ac_add_options --disable-profiling
 ac_add_options --enable-small-chunk-size
 
@@ -40,9 +44,6 @@ mk_add_options AUTOCLOBBER=1
 # Gonk-specific stuff
 ac_add_options --with-gonk-gfx
 ac_add_options --with-gonk="$GONK_PATH"
-
-# Enable Rust <-> C++ LTO
-export MOZ_LTO=cross
 
 # Customize the objdir.
 if [ -f "$GECKO_OBJDIR" ]; then
