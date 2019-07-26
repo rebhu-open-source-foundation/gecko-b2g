@@ -8,7 +8,7 @@
 #include "RetainedDisplayListBuilder.h"
 
 #include "DisplayListChecker.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "nsPlaceholderFrame.h"
 #include "nsSubDocumentFrame.h"
 #include "nsViewManager.h"
@@ -1423,7 +1423,6 @@ void RetainedDisplayListBuilder::ClearFramesWithProps() {
 PartialUpdateResult RetainedDisplayListBuilder::AttemptPartialUpdate(
     nscolor aBackstop, mozilla::DisplayListChecker* aChecker) {
   mBuilder.RemoveModifiedWindowRegions();
-  mBuilder.ClearWindowOpaqueRegion();
 
   if (mBuilder.ShouldSyncDecodeImages()) {
     MarkFramesWithItemsAndImagesModified(&mList);

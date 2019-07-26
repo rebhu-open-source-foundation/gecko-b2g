@@ -134,7 +134,7 @@ textarea {
   user-select: text;
   white-space: pre-wrap;
   word-wrap: break-word;
-  overflow-clip-box: content-box;
+  overflow-clip-box: padding-box content-box;
   /* A few properties that we don't want to inherit by default: */
   text-align: initial;
   text-indent: initial;
@@ -171,6 +171,17 @@ input > .anonymous-div,
 input::placeholder,
 input > .preview-div {
   white-space: pre;
+}
+
+input[type=password] > .anonymous-div,
+input[type=password] > .preview-div {
+  /*
+   * In password fields, any character should be put same direction.  Otherwise,
+   * caret position at typing tells everybody whether the character is an RTL
+   * or an LTR character.  Unfortunately, this makes odd rendering when bidi
+   * text is unmasked.
+   */
+  unicode-bidi: bidi-override;
 }
 
 textarea > .anonymous-div {

@@ -2047,15 +2047,6 @@ class nsContentUtils {
    */
   static bool IsInStableOrMetaStableState();
 
-  /* Process viewport META data. This gives us information for the scale
-   * and zoom of a page on mobile devices. We stick the information in
-   * the document header and use it later on after rendering.
-   *
-   * See Bug #436083
-   */
-  static nsresult ProcessViewportInfo(Document* aDocument,
-                                      const nsAString& viewportInfo);
-
   static JSContext* GetCurrentJSContext();
 
   /**
@@ -2644,6 +2635,14 @@ class nsContentUtils {
    * Note that this does not return editor in descendant documents.
    */
   static mozilla::TextEditor* GetActiveEditor(nsPresContext* aPresContext);
+
+  /**
+   * Returns `TextEditor` which manages `aAnonymousContent` if there is.
+   * Note that this method returns `nullptr` if `TextEditor` for the
+   * `aAnonymousContent` hasn't been created yet.
+   */
+  static mozilla::TextEditor* GetTextEditorFromAnonymousNodeWithoutCreation(
+      nsIContent* aAnonymousContent);
 
   /**
    * Returns a LogModule that dump calls from content script are logged to.

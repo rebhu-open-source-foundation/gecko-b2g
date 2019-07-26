@@ -24,7 +24,6 @@
 #include "libui/Input.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Mutex.h"
-#include "mozilla/StaticPrefs.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/TouchEvents.h"
 #include "mozilla/dom/Touch.h"

@@ -61,7 +61,10 @@
 #include "nsIFrameInlines.h"
 #include "nsILayoutHistoryState.h"
 #include "gfxPlatform.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_apz.h"
+#include "mozilla/StaticPrefs_general.h"
+#include "mozilla/StaticPrefs_layers.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "ScrollAnimationPhysics.h"
 #include "ScrollAnimationBezierPhysics.h"
 #include "ScrollAnimationMSDPhysics.h"
@@ -2101,7 +2104,7 @@ ScrollFrameHelper::ScrollFrameHelper(nsContainerFrame* aOuter, bool aIsRoot)
 
   EnsureFrameVisPrefsCached();
 
-  if (IsAlwaysActive() && StaticPrefs::layers_enable_tiles() &&
+  if (IsAlwaysActive() && StaticPrefs::layers_enable_tiles_AtStartup() &&
       !nsLayoutUtils::UsesAsyncScrolling(mOuter) && mOuter->GetContent()) {
     // If we have tiling but no APZ, then set a 0-margin display port on
     // active scroll containers so that we paint by whole tile increments
@@ -6654,10 +6657,10 @@ void ScrollFrameHelper::FireScrolledAreaEvent() {
   }
 }
 
-uint32_t nsIScrollableFrame::GetPerceivedScrollingDirections() const {
+uint32_t nsIScrollableFrame::GetAvailableScrollingDirections() const {
   nscoord oneDevPixel =
       GetScrolledFrame()->PresContext()->AppUnitsPerDevPixel();
-  uint32_t directions = GetScrollbarVisibility();
+  uint32_t directions = 0;
   nsRect scrollRange = GetScrollRange();
   if (scrollRange.width >= oneDevPixel) {
     directions |= HORIZONTAL;

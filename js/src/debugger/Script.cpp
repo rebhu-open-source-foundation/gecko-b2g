@@ -7,6 +7,7 @@
 #include "debugger/Script-inl.h"
 
 #include "debugger/Debugger.h"
+#include "debugger/DebugScript.h"
 #include "wasm/WasmInstance.h"
 
 #include "vm/BytecodeUtil-inl.h"
@@ -1749,7 +1750,8 @@ struct DebuggerScript::SetBreakpointMatcher {
     }
 
     jsbytecode* pc = script->offsetToPC(offset_);
-    BreakpointSite* site = script->getOrCreateBreakpointSite(cx_, pc);
+    BreakpointSite* site =
+        DebugScript::getOrCreateBreakpointSite(cx_, script, pc);
     if (!site) {
       return false;
     }
@@ -1844,7 +1846,8 @@ bool DebuggerScript::getBreakpoints(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   for (unsigned i = 0; i < script->length(); i++) {
-    BreakpointSite* site = script->getBreakpointSite(script->offsetToPC(i));
+    BreakpointSite* site =
+        DebugScript::getBreakpointSite(script, script->offsetToPC(i));
     if (!site) {
       continue;
     }
@@ -1874,7 +1877,8 @@ class DebuggerScript::ClearBreakpointMatcher {
   using ReturnType = bool;
 
   ReturnType match(HandleScript script) {
-    script->clearBreakpointsIn(cx_->runtime()->defaultFreeOp(), dbg_, handler_);
+    DebugScript::clearBreakpointsIn(cx_->runtime()->defaultFreeOp(), script,
+                                    dbg_, handler_);
     return true;
   }
   ReturnType match(Handle<LazyScript*> lazyScript) {
@@ -2080,6 +2084,28 @@ bool DebuggerScript::getOffsetsCoverage(JSContext* cx, unsigned argc,
 }
 
 /* static */
+bool DebuggerScript::setInstrumentationId(JSContext* cx, unsigned argc,
+                                          Value* vp) {
+  THIS_DEBUGSCRIPT_SCRIPT_MAYBE_LAZY(cx, argc, vp, "setInstrumentationId", args,
+                                     obj);
+
+  if (!obj->getInstrumentationId().isUndefined()) {
+    JS_ReportErrorASCII(cx, "Script instrumentation ID is already set");
+    return false;
+  }
+
+  if (!args.get(0).isNumber()) {
+    JS_ReportErrorASCII(cx, "Script instrumentation ID must be a number");
+    return false;
+  }
+
+  obj->setReservedSlot(INSTRUMENTATION_ID_SLOT, args.get(0));
+
+  args.rval().setUndefined();
+  return true;
+}
+
+/* static */
 bool DebuggerScript::construct(JSContext* cx, unsigned argc, Value* vp) {
   JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_NO_CONSTRUCTOR,
                             "Debugger.Script");
@@ -2115,6 +2141,7 @@ const JSFunctionSpec DebuggerScript::methods_[] = {
     JS_FN("getOffsetsCoverage", getOffsetsCoverage, 0, 0),
     JS_FN("getSuccessorOffsets", getSuccessorOffsets, 1, 0),
     JS_FN("getPredecessorOffsets", getPredecessorOffsets, 1, 0),
+    JS_FN("setInstrumentationId", setInstrumentationId, 1, 0),
 
     // The following APIs are deprecated due to their reliance on the
     // under-defined 'entrypoint' concept. Make use of getPossibleBreakpoints,

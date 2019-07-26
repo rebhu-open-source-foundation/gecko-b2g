@@ -430,7 +430,7 @@ browser.usage:
       - 1381591
     description: >-
       The number of plugin instances that were created.
-    expires: never # Jan-2021 but we don't have a version number for that
+    expires: never  # Jan-2021 but we don't have a version number for that
     kind: uint
     notification_emails:
       - bsmedberg@mozilla.com
@@ -1583,11 +1583,13 @@ devtools.copy.unique.css.selector:
     bug_numbers:
       - 1323700
       - 1352115
+      - 1566395
     description: Number of times the DevTools copy unique CSS selector has been used.
-    expires: "59"
+    expires: never
     kind: uint
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
+      - mbalfanz@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -1601,11 +1603,13 @@ devtools.copy.full.css.selector:
     bug_numbers:
       - 1323700
       - 1352115
+      - 1566395
     description: Number of times the DevTools copy full CSS selector has been used.
-    expires: "59"
+    expires: never
     kind: uint
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
+      - mbalfanz@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -1618,11 +1622,13 @@ devtools.copy.xpath:
   opened:
     bug_numbers:
       - 987877
+      - 1566395
     description: Number of times the DevTools copy XPath has been used.
-    expires: "59"
+    expires: never
     kind: uint
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
+      - mbalfanz@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -1797,15 +1803,17 @@ devtools.inspector:
   three_pane_enabled:
     bug_numbers:
       - 1437881
+      - 1566395
     description: >
       Number of times the DevTools inspector was opened with the 3 pane inspector enabled,
       keyed by true/false.
-    expires: "65"
+    expires: never
     kind: uint
     keyed: true
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
       - gl@mozilla.com
+      - mbalfanz@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -1855,9 +1863,10 @@ devtools.shadowdom:
   shadow_root_displayed:
     bug_numbers:
       - 1470128
+      - 1566393
     description: >
       Whether the markup view displayed any #shadow-root element in the UI.
-    expires: "66"
+    expires: "never"
     kind: boolean
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
@@ -1873,9 +1882,10 @@ devtools.shadowdom:
   shadow_root_expanded:
     bug_numbers:
       - 1470128
+      - 1566393
     description: >
       Whether the user expanded any #shadow-root element.
-    expires: "66"
+    expires: "never"
     kind: boolean
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
@@ -1891,10 +1901,11 @@ devtools.shadowdom:
   reveal_link_clicked:
     bug_numbers:
       - 1470128
+      - 1566393
     description: >
       Whether the user clicked on any "reveal" link. "reveal" links are displayed in
       shadow dom trees in the markup view.
-    expires: "66"
+    expires: "never"
     kind: boolean
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
@@ -2192,15 +2203,17 @@ devtools.toolbox:
   tabs_reordered:
     bug_numbers:
       - 1456551
+      - 1566362
     description: >
       Number of times the DevTools tab was reordered.
       Keyed by tab's id.
-    expires: "65"
+    expires: never
     kind: uint
     keyed: true
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
       - daisuke@mozilla.com
+      - hkirschner@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -2212,83 +2225,83 @@ devtools.toolbox:
 devtools.webreplay:
   new_recording:
     bug_numbers:
-     - 1495910
+      - 1495910
     description: >
       Number of times a blank recording tab was created.
     expires: never
     kind: uint
     notification_emails:
-     - bhackett@mozilla.com
+      - bhackett@mozilla.com
     products:
       - 'firefox'
       - 'fennec'
       - 'geckoview'
     record_in_processes:
-     - 'main'
+      - 'main'
 
   reload_recording:
     bug_numbers:
-     - 1495910
+      - 1495910
     description: >
       Number of times a non-recording tab was reloaded to create a recording tab.
     expires: never
     kind: uint
     notification_emails:
-     - bhackett@mozilla.com
+      - bhackett@mozilla.com
     products:
       - 'firefox'
       - 'fennec'
       - 'geckoview'
     record_in_processes:
-     - 'main'
+      - 'main'
 
   stop_recording:
     bug_numbers:
-     - 1495910
+      - 1495910
     description: >
       Number of times a recording tab was reloaded to create a non-recording tab.
     expires: never
     kind: uint
     notification_emails:
-     - bhackett@mozilla.com
+      - bhackett@mozilla.com
     products:
       - 'firefox'
       - 'fennec'
       - 'geckoview'
     record_in_processes:
-     - 'main'
+      - 'main'
 
   save_recording:
     bug_numbers:
-     - 1495910
+      - 1495910
     description: >
       Number of times a recording was saved.
     expires: never
     kind: uint
     notification_emails:
-     - bhackett@mozilla.com
+      - bhackett@mozilla.com
     products:
       - 'firefox'
       - 'fennec'
       - 'geckoview'
     record_in_processes:
-     - 'main'
+      - 'main'
 
   load_recording:
     bug_numbers:
-     - 1495910
+      - 1495910
     description: >
       Number of times a recording was loaded.
     expires: never
     kind: uint
     notification_emails:
-     - bhackett@mozilla.com
+      - bhackett@mozilla.com
     products:
       - 'firefox'
       - 'fennec'
       - 'geckoview'
     record_in_processes:
-     - 'main'
+      - 'main'
 
 devtools.changesview:
   opened_count:
@@ -2314,7 +2327,7 @@ devtools.changesview:
       - 1532583
     description: >
       Number of times the Copy All Changes button is used in the Changes panel.
-    expires: "70"
+    expires: "73"
     kind: uint
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
@@ -2332,7 +2345,7 @@ devtools.changesview:
       - 1532583
     description: >
       Number of times the Copy Rule button is used in the Changes panel.
-    expires: "70"
+    expires: "73"
     kind: uint
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
@@ -2351,7 +2364,7 @@ devtools.changesview:
     description: >
       Number of times the Copy Declaration option is picked from the Changes panel
       context menu.
-    expires: "70"
+    expires: "73"
     kind: uint
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
@@ -2370,7 +2383,7 @@ devtools.changesview:
     description: >
       Number of times the Copy Rule option is picked from the Changes panel
       context menu.
-    expires: "70"
+    expires: "73"
     kind: uint
     notification_emails:
       - dev-developer-tools@lists.mozilla.org
@@ -4840,10 +4853,6 @@ telemetry.test:
     kind: uint
     notification_emails:
       - telemetry-client-dev@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - 'all'
     products:
@@ -4858,10 +4867,6 @@ telemetry.test:
     keyed: true
     notification_emails:
       - telemetry-client-dev@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - 'all'
     products:
@@ -4875,10 +4880,6 @@ telemetry.test:
     kind: uint
     notification_emails:
       - telemetry-client-dev@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - 'all'
     products:
@@ -4894,10 +4895,6 @@ telemetry.test:
     kind: uint
     notification_emails:
       - telemetry-client-dev@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - 'all'
     products:
@@ -4912,10 +4909,6 @@ telemetry.test:
     kind: uint
     notification_emails:
       - telemetry-client-dev@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - 'all'
     products:
@@ -4930,10 +4923,6 @@ telemetry.test:
     keyed: true
     notification_emails:
       - telemetry-client-dev@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - 'all'
     products:

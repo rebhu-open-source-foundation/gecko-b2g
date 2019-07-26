@@ -9128,16 +9128,6 @@
     "description": "Killed, likely due to an OOM condition",
     "operating_systems": ["android"]
   },
-  "FIPS_ENABLED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["seceng@mozilla.org"],
-    "expires_in_version": "54",
-    "kind": "flag",
-    "bug_numbers": [1241317],
-    "releaseChannelCollection": "opt-out",
-    "description": "Has FIPS mode been enabled?"
-  },
   "SECURITY_UI": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -9456,17 +9446,6 @@
     "expires_in_version": "never",
     "kind": "boolean",
     "description": "The number of times the click-to-activate notification was shown: false: shown by in-content activation true: shown by location bar activation",
-    "bug_numbers": [902075, 1345894],
-    "alert_emails": ["flashvideo-2015@mozilla.com"]
-  },
-  "PLUGINS_NOTIFICATION_PLUGIN_COUNT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "releaseChannelCollection": "opt-out",
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 5,
-    "description": "The number of plugins present in the click-to-activate notification, minus one (1, 2, 3, 4, more than 4)",
     "bug_numbers": [902075, 1345894],
     "alert_emails": ["flashvideo-2015@mozilla.com"]
   },
@@ -16374,5 +16353,18 @@
     "n_buckets": 100,
     "keyed": true,
     "description": "How many milliseconds it took before 100 wakeups for the thread was done because of new Runnables."
+  },
+  "REFRESH_DRIVER_TICK_PHASE_WEIGHT": {
+      "record_in_processes": ["main", "content"],
+      "products": ["firefox", "fennec", "geckoview"],
+      "alert_emails": ["dglastonbury@mozilla.com"],
+      "bug_numbers": [1568107],
+      "expires_in_version": "76",
+      "keyed": true,
+      "keys": ["Event", "Style", "Reflow", "Display", "Paint", "Other"],
+      "kind": "linear",
+      "high": 100,
+      "n_buckets": 12,
+      "description": "Percentages of times for phases in an expensive refresh tick relative to the time spent in the entire tick (REFRESH_DRIVER_TICK)."
   }
 }

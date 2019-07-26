@@ -32,7 +32,11 @@
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/ScrollTypes.h"
 #include "mozilla/Services.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_extensions.h"
+#include "mozilla/StaticPrefs_privacy.h"
+#include "mozilla/StaticPrefs_ui.h"
 #include "mozilla/StartupTimeline.h"
 #include "mozilla/StorageAccess.h"
 #include "mozilla/Telemetry.h"
@@ -9608,18 +9612,6 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
           }
         }
       }
-#ifdef MOZ_LAYOUT_DEBUGGER
-      // Also allow loads in the layout debugger window.
-      nsCOMPtr<nsIDocShellTreeItem> rootItem;
-      GetRootTreeItem(getter_AddRefs(rootItem));
-      nsCOMPtr<nsIWebNavigation> root = do_QueryInterface(rootItem);
-      nsCOMPtr<nsIURI> rootURL;
-      root->GetCurrentURI(getter_AddRefs(rootURL));
-      if (rootURL && rootURL->GetSpecOrDefault().EqualsLiteral(
-                         "chrome://layoutdebug/content/layoutdebug.xul")) {
-        break;
-      }
-#endif
       // Final exception for some legacy automated tests:
       if (xpc::IsInAutomation() &&
           Preferences::GetBool("security.allow_unsafe_parent_loads", false)) {
@@ -10157,6 +10149,11 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
 
   if (aLoadState->GetIsFromProcessingFrameAttributes()) {
     loadInfo->SetIsFromProcessingFrameAttributes();
+  }
+
+  // Propagate the IsFormSubmission flag to the loadInfo.
+  if (aLoadState->IsFormSubmission()) {
+    loadInfo->SetIsFormSubmission(true);
   }
 
   nsIURI* baseURI = aLoadState->BaseURI();
@@ -12968,6 +12965,7 @@ nsresult nsDocShell::OnLinkClickSync(
   loadState->SetLoadType(loadType);
   loadState->SetFirstParty(true);
   loadState->SetSourceDocShell(this);
+  loadState->SetIsFormSubmission(aContent->IsHTMLElement(nsGkAtoms::form));
   nsresult rv = InternalLoad(loadState, aDocShell, aRequest);
 
   if (NS_SUCCEEDED(rv)) {
@@ -13658,9 +13656,9 @@ NS_IMETHODIMP
 nsDocShell::SetColorMatrix(const nsTArray<float>& aMatrix) {
   if (aMatrix.Length() == MATRIX_LENGTH) {
     mColorMatrix.reset(new gfx::Matrix5x4());
-    static_assert(MATRIX_LENGTH * sizeof(float) ==
-                  sizeof(mColorMatrix->components),
-                  "Size mismatch for our memcpy");
+    static_assert(
+        MATRIX_LENGTH * sizeof(float) == sizeof(mColorMatrix->components),
+        "Size mismatch for our memcpy");
     memcpy(mColorMatrix->components, aMatrix.Elements(),
            sizeof(mColorMatrix->components));
   } else if (aMatrix.Length() == 0) {
@@ -13688,9 +13686,9 @@ NS_IMETHODIMP
 nsDocShell::GetColorMatrix(nsTArray<float>& aMatrix) {
   if (mColorMatrix) {
     aMatrix.SetLength(MATRIX_LENGTH);
-    static_assert(MATRIX_LENGTH * sizeof(float) ==
-                  sizeof(mColorMatrix->components),
-                  "Size mismatch for our memcpy");
+    static_assert(
+        MATRIX_LENGTH * sizeof(float) == sizeof(mColorMatrix->components),
+        "Size mismatch for our memcpy");
     memcpy(aMatrix.Elements(), mColorMatrix->components,
            MATRIX_LENGTH * sizeof(float));
   }

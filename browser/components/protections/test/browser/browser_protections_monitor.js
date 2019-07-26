@@ -7,7 +7,6 @@
 const { AboutProtectionsHandler } = ChromeUtils.import(
   "resource:///modules/aboutpages/AboutProtectionsHandler.jsm"
 );
-
 const nsLoginInfo = new Components.Constructor(
   "@mozilla.org/login-manager/loginInfo;1",
   Ci.nsILoginInfo,
@@ -28,7 +27,7 @@ let fakeDataWithNoError = {
   monitoredEmails: 1,
   numBreaches: 11,
   passwords: 8,
-  lockwisePasswords: 2,
+  potentiallyBreachedLogins: 2,
   error: false,
 };
 
@@ -36,12 +35,12 @@ let fakeDataWithError = {
   monitoredEmails: null,
   numBreaches: null,
   passwords: null,
-  lockwisePasswords: null,
+  potentiallyBreachedLogins: null,
   error: true,
 };
 
-// Modify AboutProtectionsHandler's getMonitorData method to fake returning a specified
-// number of devices.
+// Modify AboutProtectionsHandler's getMonitorData method to fake returning data from the
+// Monitor endpoint.
 const mockGetMonitorData = data => async () => data;
 
 // Modify AboutProtectionsHandler's getLoginData method to fake being logged in with Fxa.
@@ -108,10 +107,47 @@ add_task(async function() {
     const breaches = content.document.querySelector(
       ".monitor-stat span[data-type='known-breaches']"
     );
+    const breachedLockwisePasswords = content.document.querySelector(
+      ".monitor-breached-passwords span[data-type='breached-lockwise-passwords']"
+    );
 
     is(emails.textContent, 1, "1 monitored email is displayed");
-    is(passwords.textContent, 8, "8 exposed stored passwords is displayed");
-    is(breaches.textContent, 11, "11 known data breaches is displayed.");
+    is(passwords.textContent, 8, "8 exposed passwords are displayed");
+    is(breaches.textContent, 11, "11 known data breaches are displayed.");
+    is(
+      breachedLockwisePasswords.textContent,
+      2,
+      "2 saved passwords are displayed."
+    );
+  });
+
+  info("Make sure Lockwise section is hidden if no passwords are returned.");
+  const noBreachedLoginsData = {
+    ...fakeDataWithNoError,
+    potentiallyBreachedLogins: 0,
+  };
+  AboutProtectionsHandler.getMonitorData = mockGetMonitorData(
+    noBreachedLoginsData
+  );
+
+  await reloadTab(tab);
+
+  await ContentTask.spawn(tab.linkedBrowser, {}, async function() {
+    await ContentTaskUtils.waitForCondition(() => {
+      const noLogins = content.document.querySelector(
+        ".monitor-card.has-logins"
+      );
+      return ContentTaskUtils.is_visible(noLogins);
+    }, "Monitor card for user with stored logins is shown.");
+
+    const lockwiseSection = content.document.querySelector(
+      ".monitor-breached-passwords"
+    );
+
+    ok(
+      ContentTaskUtils.is_hidden(lockwiseSection),
+      "Lockwise section is hidden."
+    );
   });
 
   info(
@@ -138,7 +174,7 @@ add_task(async function() {
     }, "Monitor card is not enabled.");
 
     const monitorCard = content.document.querySelector(".monitor-card");
-    ok(ContentTaskUtils.is_hidden(monitorCard), "Lockwise card is hidden.");
+    ok(ContentTaskUtils.is_hidden(monitorCard), "Monitor card is hidden.");
   });
 
   // set the pref back to displaying the card.
@@ -157,11 +193,11 @@ add_task(async function() {
   await BrowserTestUtils.removeTab(tab);
 });
 
-async function checkNoLoginsContentIsDisplayed(tab, expectedButtonContent) {
+async function checkNoLoginsContentIsDisplayed(tab, expectedLinkContent) {
   await ContentTask.spawn(
     tab.linkedBrowser,
-    { buttonText: expectedButtonContent },
-    async function({ buttonText }) {
+    { linkText: expectedLinkContent },
+    async function({ linkText }) {
       await ContentTaskUtils.waitForCondition(() => {
         const noLogins = content.document.querySelector(
           ".monitor-card.no-logins"
@@ -175,9 +211,7 @@ async function checkNoLoginsContentIsDisplayed(tab, expectedButtonContent) {
       const cardBody = content.document.querySelector(
         ".monitor-card .card-body"
       );
-      const button = content.document.getElementById(
-        "sign-up-for-monitor-button"
-      );
+      const link = content.document.getElementById("sign-up-for-monitor-link");
 
       ok(
         ContentTaskUtils.is_hidden(cardBody),
@@ -188,7 +222,7 @@ async function checkNoLoginsContentIsDisplayed(tab, expectedButtonContent) {
         "Check Firefox Monitor to see if you've been part of a data breach and get alerts about new breaches.",
         "Header content for user with no logins is correct"
       );
-      is(button.textContent, buttonText, "Text content for button is correct");
+      is(link.textContent, linkText, "Text content for link is correct");
     }
   );
 }

@@ -1035,6 +1035,12 @@ nsContextMenu.prototype = {
     this.showItem("fill-login-generated-password", canFillGeneratedPassword);
     this.showItem("generated-password-separator", canFillGeneratedPassword);
 
+    this.setItemAttr(
+      "fill-login-generated-password",
+      "disabled",
+      PrivateBrowsingUtils.isWindowPrivate(window)
+    );
+
     if (!fragment) {
       return;
     }
@@ -1695,11 +1701,11 @@ nsContextMenu.prototype = {
   },
 
   playPlugin() {
-    gPluginHandler.contextMenuCommand(this.browser, this.target, "play");
+    this.actor.pluginCommand("play", this.targetIdentifier);
   },
 
   hidePlugin() {
-    gPluginHandler.contextMenuCommand(this.browser, this.target, "hide");
+    this.actor.pluginCommand("hide", this.targetIdentifier);
   },
 
   // Generate email address and put it on clipboard.

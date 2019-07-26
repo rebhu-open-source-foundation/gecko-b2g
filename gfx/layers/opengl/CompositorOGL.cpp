@@ -20,7 +20,8 @@
 #include "gfxUtils.h"               // for gfxUtils, etc
 #include "mozilla/ArrayUtils.h"     // for ArrayLength
 #include "mozilla/Preferences.h"    // for Preferences
-#include "mozilla/StaticPrefs.h"    // for StaticPrefs
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/gfx/BasePoint.h"  // for BasePoint
 #include "mozilla/gfx/Matrix.h"     // for Matrix4x4, Matrix
 #include "mozilla/gfx/Triangle.h"   // for Triangle
@@ -1781,7 +1782,7 @@ void CompositorOGL::InsertFrameDoneSync() {
 #ifdef XP_MACOSX
   // Only do this on macOS.
   // On other platforms, SwapBuffers automatically applies back-pressure.
-  if (StaticPrefs::gfx_core_animation_enabled()) {
+  if (StaticPrefs::gfx_core_animation_enabled_AtStartup()) {
     if (mThisFrameDoneSync) {
       mGLContext->fDeleteSync(mThisFrameDoneSync);
     }
@@ -2016,7 +2017,7 @@ GLuint CompositorOGL::GetTemporaryTexture(GLenum aTarget, GLenum aUnit) {
 }
 
 bool CompositorOGL::SupportsTextureDirectMapping() {
-  if (!StaticPrefs::gfx_allow_texture_direct_mapping()) {
+  if (!StaticPrefs::gfx_allow_texture_direct_mapping_AtStartup()) {
     return false;
   }
 

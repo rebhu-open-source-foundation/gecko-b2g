@@ -10,7 +10,7 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/MemoryReporting.h"
 
-#include "debugger/Debugger.h"
+#include "debugger/DebugAPI.h"
 #include "gc/FreeOp.h"
 #include "jit/BaselineCodeGen.h"
 #include "jit/BaselineIC.h"
@@ -22,6 +22,7 @@
 #include "vm/Interpreter.h"
 #include "vm/TraceLogging.h"
 
+#include "debugger/DebugAPI-inl.h"
 #include "gc/PrivateIterators-inl.h"
 #include "jit/JitFrames-inl.h"
 #include "jit/MacroAssembler-inl.h"
@@ -259,7 +260,7 @@ static MethodStatus CanEnterBaselineJIT(JSContext* cx, HandleScript script,
   // code. This is incorrect as h's baseline script does not have debug
   // instrumentation.
   if (osrSourceFrame && osrSourceFrame.isDebuggee() &&
-      !Debugger::ensureExecutionObservabilityOfOsrFrame(cx, osrSourceFrame)) {
+      !DebugAPI::ensureExecutionObservabilityOfOsrFrame(cx, osrSourceFrame)) {
     return Method_Error;
   }
 
@@ -440,8 +441,7 @@ bool jit::BaselineCompileFromBaselineInterpreter(JSContext* cx,
 
 BaselineScript* BaselineScript::New(
     JSScript* jsscript, uint32_t bailoutPrologueOffset,
-    uint32_t warmUpCheckPrologueOffset, uint32_t debugOsrPrologueOffset,
-    uint32_t debugOsrEpilogueOffset, uint32_t profilerEnterToggleOffset,
+    uint32_t warmUpCheckPrologueOffset, uint32_t profilerEnterToggleOffset,
     uint32_t profilerExitToggleOffset, size_t retAddrEntries,
     size_t pcMappingIndexEntries, size_t pcMappingSize, size_t resumeEntries,
     size_t traceLoggerToggleOffsetEntries) {
@@ -473,7 +473,6 @@ BaselineScript* BaselineScript::New(
   }
   new (script)
       BaselineScript(bailoutPrologueOffset, warmUpCheckPrologueOffset,
-                     debugOsrPrologueOffset, debugOsrEpilogueOffset,
                      profilerEnterToggleOffset, profilerExitToggleOffset);
 
   size_t offsetCursor = sizeof(BaselineScript);
@@ -857,7 +856,8 @@ void BaselineScript::toggleDebugTraps(JSScript* script, jsbytecode* pc) {
 
       if (!pc || pc == curPC) {
         bool enabled =
-            script->stepModeEnabled() || script->hasBreakpointsAt(curPC);
+            DebugAPI::stepModeEnabled(script) ||
+            DebugAPI::hasBreakpointsAt(script, curPC);
 
         // Patch the trap.
         CodeLocationLabel label(method(), CodeOffset(nativeOffset));
@@ -1120,7 +1120,8 @@ void BaselineInterpreter::init(JitCode* code, uint32_t interpretOpOffset,
                                uint32_t profilerExitToggleOffset,
                                CodeOffsetVector&& debugInstrumentationOffsets,
                                CodeOffsetVector&& debugTrapOffsets,
-                               CodeOffsetVector&& codeCoverageOffsets) {
+                               CodeOffsetVector&& codeCoverageOffsets,
+                               const CallVMOffsets& callVMOffsets) {
   code_ = code;
   interpretOpOffset_ = interpretOpOffset;
   interpretOpNoDebugTrapOffset_ = interpretOpNoDebugTrapOffset;
@@ -1129,6 +1130,7 @@ void BaselineInterpreter::init(JitCode* code, uint32_t interpretOpOffset,
   debugInstrumentationOffsets_ = std::move(debugInstrumentationOffsets);
   debugTrapOffsets_ = std::move(debugTrapOffsets);
   codeCoverageOffsets_ = std::move(codeCoverageOffsets);
+  callVMOffsets_ = callVMOffsets;
 }
 
 bool jit::GenerateBaselineInterpreter(JSContext* cx,

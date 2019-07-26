@@ -59,20 +59,17 @@ class UrlbarInput {
     // In the future this may be moved to the view, so it can customize
     // the container element.
     let MozXULElement = this.window.MozXULElement;
-    this.document.getElementById("mainPopupSet").appendChild(
+    // TODO Bug 1567377: urlbarView-body-inner possibly doesn't need the
+    // role="combobox" once bug 1551598 is fixed.
+    this.textbox.after(
       MozXULElement.parseXULToFragment(`
-        <panel id="urlbar-results"
-               role="group"
-               tooltip="aHTMLTooltip"
-               noautofocus="true"
-               hidden="true"
-               flip="none"
-               consumeoutsideclicks="never"
-               norolluponanchor="true"
-               rolluponmousewheel="true"
-               level="parent">
+        <vbox id="urlbar-results"
+              role="group"
+              tooltip="aHTMLTooltip"
+              hidden="true">
           <html:div class="urlbarView-body-outer">
-            <html:div class="urlbarView-body-inner">
+            <html:div class="urlbarView-body-inner"
+                      role="combobox">
               <html:div id="urlbarView-results"
                         role="listbox"/>
             </html:div>
@@ -81,7 +78,7 @@ class UrlbarInput {
                 compact="true"
                 includecurrentengine="true"
                 disabletab="true"/>
-        </panel>
+        </vbox>
       `)
     );
     this.panel = this.document.getElementById("urlbar-results");
@@ -90,6 +87,7 @@ class UrlbarInput {
       options.controller ||
       new UrlbarController({
         browserWindow: this.window,
+        eventTelemetryCategory: options.eventTelemetryCategory,
       });
     this.controller.setInput(this);
     this.view = new UrlbarView(this);
@@ -201,8 +199,9 @@ class UrlbarInput {
 
     this.dropmarker.addEventListener("mousedown", this);
 
-    this.view.panel.addEventListener("popupshowing", this);
-    this.view.panel.addEventListener("popuphidden", this);
+    // This is used to detect commands launched from the panel, to avoid
+    // recording abandonment events when the command causes a blur event.
+    this.view.panel.addEventListener("command", this, true);
 
     this._copyCutController = new CopyCutController(this);
     this.inputField.controllers.insertControllerAt(0, this._copyCutController);
@@ -360,7 +359,7 @@ class UrlbarInput {
   /**
    * Handles an event which would cause a url or text to be opened.
    *
-   * @param {Event} event The event triggering the open.
+   * @param {Event} [event] The event triggering the open.
    * @param {string} [openWhere] Where we expect the result to be opened.
    * @param {object} [openParams]
    *   The parameters related to where the result will be opened.
@@ -387,6 +386,7 @@ class UrlbarInput {
       }
       // Do the command of the selected one-off if it's not an engine.
       if (selectedOneOff && !selectedOneOff.engine) {
+        this.controller.engagementEvent.discard();
         selectedOneOff.doCommand();
         return;
       }
@@ -401,7 +401,11 @@ class UrlbarInput {
     }
 
     let url;
+    let selType = this.controller.engagementEvent.typeFromResult(result);
+    let numChars = this.textValue.length;
     if (selectedOneOff) {
+      selType = "oneoff";
+      numChars = this._lastSearchString.length;
       // If there's a selected one-off button then load a search using
       // the button's engine.
       result = this._resultForCurrentValue;
@@ -432,6 +436,12 @@ class UrlbarInput {
     let where = openWhere || this._whereToOpen(event);
     openParams.allowInheritPrincipal = false;
     url = this._maybeCanonizeURL(event, url) || url.trim();
+
+    this.controller.engagementEvent.record(event, {
+      numChars,
+      selIndex: this.view.selectedIndex,
+      selType,
+    });
 
     try {
       new URL(url);
@@ -476,6 +486,7 @@ class UrlbarInput {
       allowInheritPrincipal: false,
     };
 
+    let selIndex = this.view.selectedIndex;
     if (!result.payload.isKeywordOffer) {
       this.view.close();
     }
@@ -483,6 +494,11 @@ class UrlbarInput {
     this.controller.recordSelectedResult(event, result);
 
     if (isCanonized) {
+      this.controller.engagementEvent.record(event, {
+        numChars: this._lastSearchString.length,
+        selIndex,
+        selType: "canonized",
+      });
       this._loadURL(this.value, where, openParams);
       return;
     }
@@ -511,14 +527,18 @@ class UrlbarInput {
           ),
         };
 
-        if (
-          this.window.switchToTabHavingURI(
-            Services.io.newURI(url),
-            false,
-            loadOpts
-          ) &&
-          prevTab.isEmpty
-        ) {
+        this.controller.engagementEvent.record(event, {
+          numChars: this._lastSearchString.length,
+          selIndex,
+          selType: "tabswitch",
+        });
+
+        let switched = this.window.switchToTabHavingURI(
+          Services.io.newURI(url),
+          false,
+          loadOpts
+        );
+        if (switched && prevTab.isEmpty) {
           this.window.gBrowser.removeTab(prevTab);
         }
         return;
@@ -529,6 +549,12 @@ class UrlbarInput {
           // to the end of it. Because there's a trailing space in the value,
           // the user can directly start typing a query string at that point.
           this.selectionStart = this.selectionEnd = this.value.length;
+
+          this.controller.engagementEvent.record(event, {
+            numChars: this._lastSearchString.length,
+            selIndex,
+            selType: "keywordoffer",
+          });
 
           // Picking a keyword offer just fills it in the input and doesn't
           // visit anything.  The user can then type a search string.  Also
@@ -546,6 +572,12 @@ class UrlbarInput {
         break;
       }
       case UrlbarUtils.RESULT_TYPE.OMNIBOX: {
+        this.controller.engagementEvent.record(event, {
+          numChars: this._lastSearchString.length,
+          selIndex,
+          selType: "extension",
+        });
+
         // The urlbar needs to revert to the loaded url when a command is
         // handled by the extension.
         this.handleRevert();
@@ -574,6 +606,12 @@ class UrlbarInput {
         Cu.reportError
       );
     }
+
+    this.controller.engagementEvent.record(event, {
+      numChars: this._lastSearchString.length,
+      selIndex,
+      selType: this.controller.engagementEvent.typeFromResult(result),
+    });
 
     this._loadURL(url, where, openParams, {
       source: result.source,
@@ -727,7 +765,7 @@ class UrlbarInput {
   }
 
   /**
-   * Sets the input's value, starts a search, and opens the popup.
+   * Sets the input's value, starts a search, and opens the view.
    *
    * @param {string} value
    *   The input's value will be set to this value, and the search will
@@ -1390,7 +1428,23 @@ class UrlbarInput {
 
   // Event handlers below.
 
+  _on_command(event) {
+    // Something is executing a command, likely causing a focus change. This
+    // should not be recorded as an abandonment.
+    this.controller.engagementEvent.discard();
+  }
+
   _on_blur(event) {
+    // We cannot count every blur events after a missed engagement as abandoment
+    // because the user may have clicked on some view element that executes
+    // a command causing a focus change. For example opening preferences from
+    // the oneoff settings button, or from a contextual tip button.
+    // For now we detect that case by discarding the event on command, but we
+    // may want to figure out a more robust way to detect abandonment.
+    this.controller.engagementEvent.record(event, {
+      numChars: this._lastSearchString.length,
+    });
+
     this.removeAttribute("focused");
     this.formatValue();
     this._resetSearchState();
@@ -1466,6 +1520,7 @@ class UrlbarInput {
         this.editor.selectAll();
         event.preventDefault();
       } else if (this.openViewOnFocus && !this.view.isOpen) {
+        this.controller.engagementEvent.start(event);
         this.startQuery({
           allowAutofill: false,
         });
@@ -1478,6 +1533,7 @@ class UrlbarInput {
         this.view.close();
       } else {
         this.focus();
+        this.controller.engagementEvent.start(event);
         this.startQuery({
           allowAutofill: false,
         });
@@ -1531,12 +1587,13 @@ class UrlbarInput {
       return;
     }
 
+    this.controller.engagementEvent.start(event);
+
     // Autofill only when text is inserted (i.e., event.data is not empty) and
     // it's not due to pasting.
     let allowAutofill =
       !!event.data &&
-      !event.inputType.startsWith("insertFromPaste") &&
-      event.inputType != "insertFromYank" &&
+      !UrlbarUtils.isPasteEvent(event) &&
       this._maybeAutofillOnInput(value);
 
     this.startQuery({
@@ -1697,14 +1754,6 @@ class UrlbarInput {
       : UrlbarUtils.COMPOSITION.CANCELED;
   }
 
-  _on_popupshowing() {
-    this.dropmarker.setAttribute("open", "true");
-  }
-
-  _on_popuphidden() {
-    this.dropmarker.removeAttribute("open");
-  }
-
   _on_dragstart(event) {
     // Drag only if the gesture starts from the input field.
     let nodePosition = this.inputField.compareDocumentPosition(
@@ -1751,6 +1800,9 @@ class UrlbarInput {
       this.value = droppedURL;
       this.window.SetPageProxyState("invalid");
       this.focus();
+      // To simplify tracking of events, register an initial event for event
+      // telemetry, to replace the missing input event.
+      this.controller.engagementEvent.start(event);
       this.handleCommand(null, undefined, undefined, principal);
       // For safety reasons, in the drop case we don't want to immediately show
       // the the dropped value, instead we want to keep showing the current page

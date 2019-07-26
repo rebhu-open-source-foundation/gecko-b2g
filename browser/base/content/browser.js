@@ -309,7 +309,10 @@ var gURLBarHandler = {
   get urlbar() {
     if (!this._urlbar) {
       let textbox = document.getElementById("urlbar");
-      this._urlbar = new UrlbarInput({ textbox });
+      this._urlbar = new UrlbarInput({
+        textbox,
+        eventTelemetryCategory: "urlbar",
+      });
       if (this._lastValue) {
         this._urlbar.value = this._lastValue;
         delete this._lastValue;
@@ -1739,11 +1742,6 @@ var gBrowserInit = {
   onLoad() {
     gBrowser.addEventListener("DOMUpdateBlockedPopups", gPopupBlockerObserver);
 
-    Services.obs.addObserver(
-      gPluginHandler.NPAPIPluginCrashed,
-      "plugin-crashed"
-    );
-
     window.addEventListener("AppCommand", HandleAppCommandEvent, true);
 
     // These routines add message listeners. They must run before
@@ -2418,11 +2416,6 @@ var gBrowserInit = {
     gSync.uninit();
 
     gExtensionsNotifications.uninit();
-
-    Services.obs.removeObserver(
-      gPluginHandler.NPAPIPluginCrashed,
-      "plugin-crashed"
-    );
 
     try {
       gBrowser.removeProgressListener(window.XULBrowserWindow);
@@ -8166,8 +8159,7 @@ var CanvasPermissionPromptHelper = {
 
     let browser;
     if (aSubject instanceof Ci.nsIDOMWindow) {
-      let contentWindow = aSubject.QueryInterface(Ci.nsIDOMWindow);
-      browser = contentWindow.docShell.chromeEventHandler;
+      browser = aSubject.docShell.chromeEventHandler;
     } else {
       browser = aSubject;
     }
@@ -8613,7 +8605,6 @@ function BrowserOpenAddonsMgr(aView) {
       if (aView) {
         aSubject.loadView(aView);
       }
-      aSubject.QueryInterface(Ci.nsIDOMWindow);
       aSubject.focus();
       resolve(aSubject);
     }, "EM-loaded");

@@ -617,6 +617,9 @@ void SurfaceTextureHost::SetTextureSourceProvider(
 
 void SurfaceTextureHost::NotifyNotUsed() {
   if (mSurfTex && mSurfTex->IsSingleBuffer()) {
+    if (!EnsureAttached()) {
+      return;
+    }
     mSurfTex->ReleaseTexImage();
   }
 

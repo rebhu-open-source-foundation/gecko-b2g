@@ -20,6 +20,11 @@ ChromeUtils.defineModuleGetter(
   "fxAccounts",
   "resource://gre/modules/FxAccounts.jsm"
 );
+ChromeUtils.defineModuleGetter(
+  this,
+  "LoginHelper",
+  "resource://gre/modules/LoginHelper.jsm"
+);
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -65,13 +70,7 @@ var AboutProtectionsHandler = {
     "FetchContentBlockingEvents",
     "FetchMonitorData",
     "FetchUserLoginsData",
-    // Getting prefs
-    "GetEnabledPrefs",
   ],
-  _prefs: {
-    LockwiseCard: "browser.contentblocking.report.lockwise.enabled",
-    MonitorCard: "browser.contentblocking.report.monitor.enabled",
-  },
 
   init() {
     this.receiveMessage = this.receiveMessage.bind(this);
@@ -126,6 +125,7 @@ var AboutProtectionsHandler = {
       // Check the reason for the error
       switch (response.status) {
         case 400:
+        case 401:
           monitorResponse = new Error(INVALID_OAUTH_TOKEN);
           break;
         case 404:
@@ -176,15 +176,23 @@ var AboutProtectionsHandler = {
    * @return {{ monitoredEmails: Number,
    *            numBreaches: Number,
    *            passwords: Number,
+   *            userEmail: String|null,
+   *            potentiallyBreachedLogins: Number,
    *            error: Boolean }}
    *         Monitor data.
    */
   async getMonitorData() {
     let monitorData = {};
+    let potentiallyBreachedLogins = null;
+    let userEmail = null;
     const hasFxa = await fxAccounts.accountStatus();
 
     if (hasFxa) {
-      let token = await fxAccounts.getOAuthToken({ scope: SCOPE_MONITOR });
+      let token = await this.getMonitorScopedOAuthToken();
+
+      if (!token) {
+        return { error: true };
+      }
 
       try {
         monitorData = await this.fetchUserBreachStats(token);
@@ -195,7 +203,7 @@ var AboutProtectionsHandler = {
         // will simply show the "no logins" UI version.
         if (e.message === INVALID_OAUTH_TOKEN) {
           await fxAccounts.removeCachedOAuthToken({ token });
-          token = await fxAccounts.getOAuthToken({ scope: SCOPE_MONITOR });
+          token = await await this.getMonitorScopedOAuthToken();
 
           try {
             monitorData = await this.fetchUserBreachStats(token);
@@ -207,6 +215,22 @@ var AboutProtectionsHandler = {
           monitorData.errorMessage = e.message;
         }
       }
+
+      // Get the stats for number of potentially breached Lockwise passwords if no master
+      // password is set.
+      if (!LoginHelper.isMasterPasswordSet()) {
+        const logins = await LoginHelper.getAllUserFacingLogins();
+        potentiallyBreachedLogins = await LoginHelper.getBreachesForLogins(
+          logins
+        );
+
+        // If the user isn't subscribed to Monitor, then send back their email so the
+        // protections report can direct them to the proper OAuth flow on Monitor.
+        if (monitorData.errorMessage) {
+          const { email } = await fxAccounts.getSignedInUser();
+          userEmail = email;
+        }
+      }
     } else {
       // If no account exists, then the user is not logged in with an fxAccount.
       monitorData = {
@@ -216,8 +240,27 @@ var AboutProtectionsHandler = {
 
     return {
       ...monitorData,
+      userEmail,
+      potentiallyBreachedLogins: potentiallyBreachedLogins
+        ? potentiallyBreachedLogins.size
+        : 0,
       error: !!monitorData.errorMessage,
     };
+  },
+
+  async getMonitorScopedOAuthToken() {
+    let token = null;
+
+    try {
+      token = await fxAccounts.getOAuthToken({ scope: SCOPE_MONITOR });
+    } catch (e) {
+      Cu.reportError(
+        "There was an error fetching the user's token: ",
+        e.message
+      );
+    }
+
+    return token;
   },
 
   /**
@@ -296,18 +339,6 @@ var AboutProtectionsHandler = {
           "SendUserLoginsData",
           await this.getLoginData()
         );
-        break;
-      case "GetEnabledPrefs":
-        const prefs = Object.keys(this._prefs);
-
-        // Get all the enabled prefs and send separate messages depending on their names.
-        for (let name of prefs) {
-          const message = `SendEnabled${name}Pref`;
-          const isEnabled = Services.prefs.getBoolPref(this._prefs[name]);
-          this.sendMessage(aMessage.target, message, {
-            isEnabled,
-          });
-        }
         break;
     }
   },

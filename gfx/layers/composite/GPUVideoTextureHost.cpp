@@ -118,12 +118,12 @@ void GPUVideoTextureHost::CreateRenderTexture(
   EnsureWrappedTextureHost()->CreateRenderTexture(aExternalImageId);
 }
 
-uint32_t GPUVideoTextureHost::NumSubTextures() const {
-  MOZ_ASSERT(mWrappedTextureHost);
-  if (!mWrappedTextureHost) {
+uint32_t GPUVideoTextureHost::NumSubTextures() {
+  MOZ_ASSERT(EnsureWrappedTextureHost());
+  if (!EnsureWrappedTextureHost()) {
     return 0;
   }
-  return mWrappedTextureHost->NumSubTextures();
+  return EnsureWrappedTextureHost()->NumSubTextures();
 }
 
 void GPUVideoTextureHost::PushResourceUpdates(
@@ -149,14 +149,6 @@ void GPUVideoTextureHost::PushDisplayItems(
 
   EnsureWrappedTextureHost()->PushDisplayItems(aBuilder, aBounds, aClip,
                                                aFilter, aImageKeys);
-}
-
-bool GPUVideoTextureHost::SupportsWrNativeTexture() {
-  MOZ_ASSERT(EnsureWrappedTextureHost());
-  if (!EnsureWrappedTextureHost()) {
-    return false;
-  }
-  return EnsureWrappedTextureHost()->SupportsWrNativeTexture();
 }
 
 }  // namespace layers

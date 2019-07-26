@@ -42,7 +42,6 @@
 #ifdef ENABLE_TYPED_OBJECTS
 #  include "builtin/TypedObject.h"
 #endif
-#include "debugger/Debugger.h"
 #include "frontend/BytecodeCompiler.h"
 #include "gc/FreeOp.h"
 #include "gc/Marking.h"
@@ -79,6 +78,7 @@
 #include "vm/EnvironmentObject.h"
 #include "vm/ErrorObject.h"
 #include "vm/HelperThreads.h"
+#include "vm/Instrumentation.h"
 #include "vm/Interpreter.h"
 #include "vm/Iteration.h"
 #include "vm/JSAtom.h"
@@ -96,6 +96,7 @@
 #include "vm/Xdr.h"
 #include "wasm/WasmModule.h"
 
+#include "debugger/DebugAPI-inl.h"
 #include "vm/Compartment-inl.h"
 #include "vm/Interpreter-inl.h"
 #include "vm/JSAtom-inl.h"
@@ -1704,7 +1705,7 @@ JS_PUBLIC_API void JS_FireOnNewGlobalObject(JSContext* cx,
   // we'll likely run up into them again soon in a fallible context.
   cx->check(global);
   Rooted<js::GlobalObject*> globalObject(cx, &global->as<GlobalObject>());
-  Debugger::onNewGlobalObject(cx, globalObject);
+  DebugAPI::onNewGlobalObject(cx, globalObject);
   cx->runtime()->ensureRealmIsRecordingAllocations(globalObject);
 }
 
@@ -3585,6 +3586,11 @@ JS::CompileOptions::CompileOptions(JSContext* cx)
   forceFullParse_ = cx->realm()->behaviors().disableLazyParsing() ||
                     coverage::IsLCovEnabled() ||
                     mozilla::recordreplay::IsRecordingOrReplaying();
+
+  // If instrumentation is enabled in the realm, the compiler should insert the
+  // requested kinds of instrumentation into all scripts.
+  instrumentationKinds =
+      RealmInstrumentation::getInstrumentationKinds(cx->global());
 }
 
 CompileOptions& CompileOptions::setIntroductionInfoToCaller(

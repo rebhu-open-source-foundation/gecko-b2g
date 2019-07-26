@@ -43,7 +43,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ProcessHangMonitor.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/TouchEvents.h"
 #include "mozilla/UniquePtr.h"
@@ -2580,8 +2580,23 @@ bool BrowserParent::GetWebProgressListener(
   MOZ_ASSERT(aOutManager);
   MOZ_ASSERT(aOutListener);
 
-  nsCOMPtr<nsIBrowser> browser =
-      mFrameElement ? mFrameElement->AsBrowser() : nullptr;
+  nsCOMPtr<nsIBrowser> browser;
+  RefPtr<Element> currentElement = mFrameElement;
+
+  // In Responsive Design Mode, mFrameElement will be the <iframe mozbrowser>,
+  // but we want the <xul:browser> that it is embedded in.
+  while (currentElement) {
+    browser = currentElement->AsBrowser();
+    if (browser) {
+      break;
+    }
+
+    BrowsingContext* browsingContext =
+        currentElement->OwnerDoc()->GetBrowsingContext();
+    currentElement =
+        browsingContext ? browsingContext->GetEmbedderElement() : nullptr;
+  }
+
   if (!browser) {
     return false;
   }
@@ -2654,7 +2669,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvSessionStoreUpdate(
 
   nsCOMPtr<nsISessionStoreFunctions> funcs =
       do_ImportModule("resource://gre/modules/SessionStoreFunctions.jsm");
-  MOZ_ALWAYS_TRUE(funcs);
+  NS_ENSURE_TRUE(funcs, IPC_OK());
   nsCOMPtr<nsIXPConnectWrappedJS> wrapped = do_QueryInterface(funcs);
   AutoJSAPI jsapi;
   MOZ_ALWAYS_TRUE(jsapi.Init(wrapped->GetJSObjectGlobal()));

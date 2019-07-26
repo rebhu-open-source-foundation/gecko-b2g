@@ -83,7 +83,6 @@ fi # COMPILE_ENVIRONMENT
 
 case "$target" in
 *-android*|*-linuxandroid*)
-    AC_DEFINE(ANDROID)
     ;;
 *-linux*)
     AC_PATH_PROG(OBJCOPY,objcopy)
@@ -96,7 +95,6 @@ case "$target" in
     ;;
 esac
 
-AC_SUBST(ANDROID_SOURCE)
 AC_SUBST(ANDROID_PACKAGE_NAME)
 AC_SUBST(OBJCOPY)
 
@@ -1849,9 +1847,6 @@ AC_SUBST(MOZ_ENABLE_STARTUP_NOTIFICATION)
 
 AC_SUBST_LIST(TK_CFLAGS)
 AC_SUBST_LIST(TK_LIBS)
-
-AC_SUBST(MOC)
-AC_SUBST(RCC)
 
 dnl ========================================================
 dnl =

@@ -29,7 +29,9 @@
 #include "mozilla/dom/UIEvent.h"
 #include "mozilla/dom/UIEventBinding.h"
 #include "mozilla/dom/WheelEventBinding.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_layout.h"
+#include "mozilla/StaticPrefs_ui.h"
 
 #include "ContentEventHandler.h"
 #include "IMEContentObserver.h"
@@ -1792,11 +1794,20 @@ void EventStateManager::GenerateDragGesture(nsPresContext* aPresContext,
       nsCOMPtr<nsIContent> eventContent, targetContent;
       nsCOMPtr<nsIPrincipal> principal;
       mCurrentTarget->GetContentForEvent(aEvent, getter_AddRefs(eventContent));
-      if (eventContent)
+      if (eventContent) {
+        // If the content is a text node in a password field, we shouldn't
+        // allow to drag its raw text.  Note that we've supported drag from
+        // password fields but dragging data was masked text.  So, it doesn't
+        // make sense anyway.
+        if (eventContent->IsText() && eventContent->HasFlag(NS_MAYBE_MASKED)) {
+          StopTrackingDragGesture();
+          return;
+        }
         DetermineDragTargetAndDefaultData(
             window, eventContent, dataTransfer, getter_AddRefs(selection),
             getter_AddRefs(remoteDragStartData), getter_AddRefs(targetContent),
             getter_AddRefs(principal));
+      }
 
       // Stop tracking the drag gesture now. This should stop us from
       // reentering GenerateDragGesture inside DOM event processing.
@@ -5470,9 +5481,14 @@ void EventStateManager::RemoveNodeFromChainIfNeeded(EventStates aState,
   MOZ_ASSERT(leaf);
   // XBL Likes to unbind content without notifying, thus the
   // NODE_IS_ANONYMOUS_ROOT check...
-  MOZ_ASSERT(nsContentUtils::ContentIsFlattenedTreeDescendantOf(
-                 leaf, aContentRemoved) ||
-             leaf->SubtreeRoot()->HasFlag(NODE_IS_ANONYMOUS_ROOT));
+  //
+  // This can also happen for Shadow DOM sometimes, and it's not clear how to
+  // best handle it, see https://github.com/whatwg/html/issues/4795 and
+  // bug 1551621.
+  NS_ASSERTION(nsContentUtils::ContentIsFlattenedTreeDescendantOf(
+                   leaf, aContentRemoved) ||
+                   leaf->SubtreeRoot()->HasFlag(NODE_IS_ANONYMOUS_ROOT),
+               "Flat tree and active / hover chain got out of sync");
 
   nsIContent* newLeaf = aContentRemoved->GetFlattenedTreeParent();
   MOZ_ASSERT_IF(newLeaf, newLeaf->IsElement() &&

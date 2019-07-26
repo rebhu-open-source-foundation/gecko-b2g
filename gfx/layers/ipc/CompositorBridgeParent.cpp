@@ -27,7 +27,9 @@
 #include "mozilla/AutoRestore.h"      // for AutoRestore
 #include "mozilla/ClearOnShutdown.h"  // for ClearOnShutdown
 #include "mozilla/DebugOnly.h"        // for DebugOnly
-#include "mozilla/StaticPrefs.h"      // for StaticPrefs
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/StaticPrefs_layers.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/gfx/2D.h"         // for DrawTarget
 #include "mozilla/gfx/Point.h"      // for IntSize
@@ -1792,7 +1794,7 @@ PWebRenderBridgeParent* CompositorBridgeParent::AllocPWebRenderBridgeParent(
     return mWrBridge;
   }
 
-  if (StaticPrefs::gfx_webrender_split_render_roots()) {
+  if (StaticPrefs::gfx_webrender_split_render_roots_AtStartup()) {
     apis.AppendElement(
         apis[0]->CreateDocument(aSize, 1, wr::RenderRoot::Content));
     apis.AppendElement(

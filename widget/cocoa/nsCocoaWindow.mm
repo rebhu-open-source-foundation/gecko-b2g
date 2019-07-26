@@ -21,6 +21,7 @@
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIXULWindow.h"
 #include "nsToolkit.h"
+#include "nsTouchBarNativeAPIDefines.h"
 #include "nsIDOMWindow.h"
 #include "nsPIDOMWindow.h"
 #include "nsThreadUtils.h"
@@ -41,7 +42,8 @@
 #include "mozilla/AutoRestore.h"
 #include "mozilla/BasicEvents.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/PresShell.h"
 #include <algorithm>
 
@@ -2739,7 +2741,7 @@ static NSMutableSet* gSwizzledFrameViewClasses = nil;
       nsToolkit::SwizzleMethods(frameViewClass, @selector(_fullScreenButtonOrigin),
                                 @selector(FrameView__fullScreenButtonOrigin));
     }
-    if (!StaticPrefs::gfx_core_animation_enabled()) {
+    if (!StaticPrefs::gfx_core_animation_enabled_AtStartup()) {
       // When we're not using CoreAnimation, we need to override the
       // _wantsFloatingTitlebar method to return NO, because the "floating
       // titlebar" overlaps in a glitchy way with the NSOpenGLContext when we're

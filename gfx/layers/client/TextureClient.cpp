@@ -11,7 +11,8 @@
 #include "gfxPlatform.h"  // for gfxPlatform
 #include "MainThreadUtils.h"
 #include "mozilla/Atomics.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/SystemGroup.h"
 #include "mozilla/ipc/SharedMemory.h"  // for SharedMemory, etc
 #include "mozilla/layers/CompositableForwarder.h"
@@ -295,13 +296,13 @@ static TextureType GetTextureType(gfx::SurfaceFormat aFormat,
 #endif
 
 #ifdef XP_MACOSX
-  if (StaticPrefs::gfx_use_iosurface_textures()) {
+  if (StaticPrefs::gfx_use_iosurface_textures_AtStartup()) {
     return TextureType::MacIOSurface;
   }
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID
-  if (StaticPrefs::gfx_use_surfacetexture_textures()) {
+  if (StaticPrefs::gfx_use_surfacetexture_textures_AtStartup()) {
     return TextureType::AndroidNativeWindow;
   }
 #endif

@@ -2857,7 +2857,7 @@ nsresult nsFrameLoader::CreateStaticClone(nsFrameLoader* aDest) {
 
   nsCOMPtr<Document> clonedDoc = doc->CreateStaticClone(aDest->GetDocShell());
 
-  viewer->SetDocument(clonedDoc);
+  MOZ_ASSERT(viewer->GetDocument() == clonedDoc);
   return NS_OK;
 }
 
@@ -3002,12 +3002,14 @@ nsresult nsFrameLoader::EnsureMessageManager() {
         GetDocShell(), mOwnerContent, mMessageManager);
     NS_ENSURE_TRUE(mChildMessageManager, NS_ERROR_UNEXPECTED);
 
+#if !defined(MOZ_WIDGET_ANDROID)
     // Set up a TabListener for sessionStore
     if (XRE_IsParentProcess()) {
       mSessionStoreListener = new TabListener(GetDocShell(), mOwnerContent);
       rv = mSessionStoreListener->Init();
       NS_ENSURE_SUCCESS(rv, rv);
     }
+#endif
   }
   return NS_OK;
 }

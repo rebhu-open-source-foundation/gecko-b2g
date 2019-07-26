@@ -8,7 +8,7 @@
  * such as browser/app/profile/firefox.js or mobile/android/app/mobile.js.
  *
  * NOTE: Not all prefs should be defined in this (or any other) data file.
- * Static prefs, especially VarCache prefs, are defined in StaticPrefList.h.
+ * Static prefs, especially VarCache prefs, are defined in StaticPrefList.yaml.
  * Those prefs should *not* appear in this file.
  *
  * For the syntax used by this file, consult the comments at the top of
@@ -465,7 +465,7 @@ pref("media.cubeb.logging_level", "");
 // Cubeb sandbox (remoting) control
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
 pref("media.cubeb.sandbox", true);
-pref("media.audioipc.pool_size", 2);
+pref("media.audioipc.pool_size", 1);
 // 64 * 4 kB stack per pool thread.
 pref("media.audioipc.stack_size", 262144);
 #else
@@ -894,9 +894,10 @@ pref("toolkit.asyncshutdown.log", false);
 pref("toolkit.content-background-hang-monitor.disabled", false);
 
 // Enable JS dump() function.
-// IMPORTANT: Keep this in condition in sync with StaticPrefList.h. The value
-// of MOZILLA_OFFICIAL is different between full and artifact builds, so without
-// it being specified, dump is disabled in artifact builds (see Bug 1490412).
+// IMPORTANT: These prefs must be here even though they're also defined in
+// StaticPrefList.yaml. They are required because MOZILLA_OFFICIAL is false in
+// local full builds but true in artifact builds. Without these definitions
+// here, dumping is disabled in artifact builds (see Bug 1490412).
 #ifdef MOZILLA_OFFICIAL
 pref("browser.dom.window.dump.enabled", false, sticky);
 pref("devtools.console.stdout.chrome", false, sticky);
@@ -1214,7 +1215,7 @@ pref("javascript.options.blinterp",         true);
 pref("javascript.options.blinterp.threshold", 10);
 pref("javascript.options.baselinejit",      true);
 // Duplicated in JitOptions - ensure both match.
-pref("javascript.options.baselinejit.threshold", 50);
+pref("javascript.options.baselinejit.threshold", 100);
 pref("javascript.options.ion",              true);
 // Duplicated in JitOptions - ensure both match.
 pref("javascript.options.ion.threshold",    1000);
@@ -2448,7 +2449,7 @@ pref("security.dialog_enable_delay", 1000);
 pref("security.notification_enable_delay", 500);
 
 #if defined(DEBUG) && !defined(ANDROID)
-pref("csp.about_uris_without_csp", "blank,printpreview,srcdoc,devtools-toolbox,addons,config,downloads,home,newtab,preferences,sync-log");
+pref("csp.about_uris_without_csp", "blank,printpreview,srcdoc,devtools-toolbox,addons,config,downloads,preferences,sync-log");
 // the following prefs are for testing purposes only.
 pref("csp.overrule_about_uris_without_csp_whitelist", false);
 pref("csp.skip_about_page_has_csp_assert", false);
@@ -2477,6 +2478,9 @@ pref("security.block_script_with_wrong_mime", true);
 
 // Block scripts with wrong MIME type when loading via importScripts() in workers.
 pref("security.block_importScripts_with_wrong_mime", true);
+
+// Block Worker scripts with wrong MIME type.
+pref("security.block_Worker_with_wrong_mime", true);
 
 // OCSP must-staple
 pref("security.ssl.enable_ocsp_must_staple", true);

@@ -342,7 +342,7 @@ class DXGITextureHostD3D11 : public TextureHost {
   void CreateRenderTexture(
       const wr::ExternalImageId& aExternalImageId) override;
 
-  uint32_t NumSubTextures() const override;
+  uint32_t NumSubTextures() override;
 
   void PushResourceUpdates(wr::TransactionBuilder& aResources,
                            ResourceUpdateOp aOp,
@@ -353,8 +353,6 @@ class DXGITextureHostD3D11 : public TextureHost {
                         const wr::LayoutRect& aBounds,
                         const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
                         const Range<wr::ImageKey>& aImageKeys) override;
-
-  bool SupportsWrNativeTexture() override { return true; }
 
  protected:
   bool LockInternal();
@@ -411,7 +409,7 @@ class DXGIYCbCrTextureHostD3D11 : public TextureHost {
   void CreateRenderTexture(
       const wr::ExternalImageId& aExternalImageId) override;
 
-  uint32_t NumSubTextures() const override;
+  uint32_t NumSubTextures() override;
 
   void PushResourceUpdates(wr::TransactionBuilder& aResources,
                            ResourceUpdateOp aOp,
@@ -422,8 +420,6 @@ class DXGIYCbCrTextureHostD3D11 : public TextureHost {
                         const wr::LayoutRect& aBounds,
                         const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
                         const Range<wr::ImageKey>& aImageKeys) override;
-
-  bool SupportsWrNativeTexture() override { return true; }
 
  private:
   bool EnsureTextureSource();

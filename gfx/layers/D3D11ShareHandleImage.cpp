@@ -11,7 +11,7 @@
 #include "d3d11.h"
 #include "gfxImageSurface.h"
 #include "gfxWindowsPlatform.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/gfx/DeviceManagerDx.h"
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/CompositableForwarder.h"
@@ -256,7 +256,7 @@ already_AddRefed<TextureClient> D3D11RecycleAllocator::CreateOrRecycleClient(
   mImageDevice = device;
 
   TextureAllocationFlags allocFlags = TextureAllocationFlags::ALLOC_DEFAULT;
-  if (StaticPrefs::media_wmf_use_sync_texture() ||
+  if (StaticPrefs::media_wmf_use_sync_texture_AtStartup() ||
       mDevice == DeviceManagerDx::Get()->GetCompositorDevice()) {
     // If our device is the compositor device, we don't need any synchronization
     // in practice.

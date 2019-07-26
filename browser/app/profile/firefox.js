@@ -403,6 +403,8 @@ pref("permissions.desktop-notification.postPrompt.enabled", true);
 pref("permissions.desktop-notification.postPrompt.enabled", false);
 #endif
 
+pref("permissions.fullscreen.allowed", false);
+
 pref("permissions.postPrompt.animate", true);
 
 // This is primarily meant to be enabled for studies.
@@ -1596,15 +1598,6 @@ pref("browser.contentblocking.fingerprinting.preferences.ui.enabled", true);
 // One value from each section must be included in the browser.contentblocking.features.strict pref.
 pref("browser.contentblocking.features.strict", "tp,tpPrivate,cookieBehavior4,cm,fp");
 
-// Enable the Report Breakage UI on Nightly and Beta but not on Release yet.
-#ifdef EARLY_BETA_OR_EARLIER
-pref("browser.contentblocking.reportBreakage.enabled", true);
-#else
-pref("browser.contentblocking.reportBreakage.enabled", false);
-#endif
-// Show report breakage for tracking cookies in all channels.
-pref("browser.contentblocking.rejecttrackers.reportBreakage.enabled", true);
-
 pref("browser.contentblocking.reportBreakage.url", "https://tracking-protection-issues.herokuapp.com/new");
 
 // Enable Protections report's Lockwise card by default.
@@ -1762,7 +1755,8 @@ pref("signon.includeOtherSubdomainsInLookup", true);
 pref("signon.management.page.faqURL", "https://lockwise.firefox.com/faq.html");
 pref("signon.management.page.feedbackURL",
      "https://www.surveygizmo.com/s3/5036102/Lockwise-feedback?ver=%VERSION%");
-
+pref("signon.management.page.mobileAndroidURL", "https://app.adjust.com/6tteyjo?redirect=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dmozilla.lockbox&utm_campaign=Desktop&utm_adgroup=InProduct&utm_creative=Elipsis_Menu");
+pref("signon.management.page.mobileAppleURL", "https://app.adjust.com/6tteyjo?redirect=https%3A%2F%2Fitunes.apple.com%2Fapp%2Fid1314000270%3Fmt%3D8&utm_campaign=Desktop&utm_adgroup=InProduct&utm_creative=Elipsis_Menu");
 // Enable the "Simplify Page" feature in Print Preview. This feature
 // is disabled by default in toolkit.
 pref("print.use_simplify_page", true);

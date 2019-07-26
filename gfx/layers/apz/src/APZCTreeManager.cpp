@@ -37,8 +37,9 @@
 #include "mozilla/MouseEvents.h"
 #include "mozilla/mozalloc.h"     // for operator new
 #include "mozilla/Preferences.h"  // for Preferences
-#include "mozilla/StaticPrefs.h"  // for StaticPrefs
 #include "mozilla/StaticPrefs_accessibility.h"
+#include "mozilla/StaticPrefs_apz.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/TouchEvents.h"
 #include "mozilla/EventStateManager.h"  // for WheelPrefs
 #include "mozilla/webrender/WebRenderAPI.h"
@@ -611,7 +612,7 @@ void APZCTreeManager::UpdateFocusState(LayersId aRootLayerTreeId,
                                        const FocusTarget& aFocusTarget) {
   AssertOnUpdaterThread();
 
-  if (!StaticPrefs::apz_keyboard_enabled()) {
+  if (!StaticPrefs::apz_keyboard_enabled_AtStartup()) {
     return;
   }
 
@@ -1548,7 +1549,7 @@ nsEventStatus APZCTreeManager::ReceiveInputEvent(
     case KEYBOARD_INPUT: {
       // Disable async keyboard scrolling when accessibility.browsewithcaret is
       // enabled
-      if (!StaticPrefs::apz_keyboard_enabled() ||
+      if (!StaticPrefs::apz_keyboard_enabled_AtStartup() ||
           StaticPrefs::accessibility_browsewithcaret()) {
         APZ_KEY_LOG("Skipping key input from invalid prefs\n");
         return result;

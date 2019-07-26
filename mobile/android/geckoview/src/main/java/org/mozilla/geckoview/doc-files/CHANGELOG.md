@@ -8,6 +8,20 @@ exclude: true
 
 <h1> GeckoView API Changelog. </h1>
 
+## v70
+
+- Added API for session context assignment
+  [`GeckoSessionSettings.Builder.contextId`][70.1] and deletion of data
+  related to a session context
+  [`StorageController.clearDataForSessionContext`][70.2].
+
+[70.1]: ../GeckoSessionSettings.Builder.html#contextId-java.lang.String-
+[70.2]: ../StorageController.html#clearDataForSessionContext-java.lang.String-
+
+- Removed `setSession(session, runtime)` from `GeckoView`. With this change, `GeckoView` will no longer
+  manage opening/closing of the `GeckoSession` and instead leave that up to the app. It's also now allowed
+  to call `setSession` with a closed `GeckoSession`.
+
 ## v69
 - Modified behavior of ['setAutomaticFontSizeAdjustment'][69.1] so that it no 
   longer has any effect on ['setFontInflationEnabled'][69.2]
@@ -142,7 +156,6 @@ exclude: true
 - Removed redundant constants in [`MediaSource`][68.28]
 
 [68.28]: ./GeckoSession.MediaSource.html
-
 
 ## v67
 - Added [`setAutomaticFontSizeAdjustment`][67.2] to
@@ -350,4 +363,4 @@ exclude: true
 [65.24]: ../CrashReporter.html#sendCrashReport-android.content.Context-android.os.Bundle-java.lang.String-
 [65.25]: ../GeckoResult.html
 
-[api-version]: b202be24f2a6f5fae68aff8bd8f8d0cfcf44a3ef
+[api-version]: d770e67f7e5b87640574810468c76208ce4c1a43

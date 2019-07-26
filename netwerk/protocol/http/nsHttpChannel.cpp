@@ -61,6 +61,9 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StaticPrefs_privacy.h"
 #include "nsISSLSocketControl.h"
 #include "sslt.h"
 #include "nsContentUtils.h"
@@ -1652,6 +1655,29 @@ nsresult EnsureMIMEOfScript(nsHttpChannel* aChannel, nsIURI* aURI,
 
     ReportMimeTypeMismatch(aChannel, "BlockImportScriptsWithWrongMimeType",
                            aURI, contentType, Report::Error);
+    return NS_ERROR_CORRUPTED_CONTENT;
+  }
+
+  if (internalType == nsIContentPolicy::TYPE_INTERNAL_WORKER ||
+      internalType == nsIContentPolicy::TYPE_INTERNAL_SHARED_WORKER) {
+    // Instead of consulting Preferences::GetBool() all the time we
+    // can cache the result to speed things up.
+    static bool sCachedBlockWorkerWithWrongMime = false;
+    static bool sIsInited = false;
+    if (!sIsInited) {
+      sIsInited = true;
+      Preferences::AddBoolVarCache(&sCachedBlockWorkerWithWrongMime,
+                                   "security.block_Worker_with_wrong_mime",
+                                   true);
+    }
+
+    // Do not block the load if the feature is not enabled.
+    if (!sCachedBlockWorkerWithWrongMime) {
+      return NS_OK;
+    }
+
+    ReportMimeTypeMismatch(aChannel, "BlockWorkerWithWrongMimeType", aURI,
+                           contentType, Report::Error);
     return NS_ERROR_CORRUPTED_CONTENT;
   }
 
