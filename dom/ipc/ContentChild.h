@@ -419,6 +419,8 @@ class ContentChild final : public PContentChild,
       const nsCString& UAName, const nsCString& ID, const nsCString& vendor,
       const nsCString& sourceURL);
 
+  virtual mozilla::ipc::IPCResult RecvVolumeRemoved(const nsString& aFsName);
+
   mozilla::ipc::IPCResult RecvRemoteType(const nsString& aRemoteType);
 
   // Call RemoteTypePrefix() on the result to remove URIs if you want to use
@@ -438,6 +440,15 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvLastPrivateDocShellDestroyed();
 
+  mozilla::ipc::IPCResult RecvVolumes(nsTArray<VolumeInfo>&& aVolumes);
+
+  virtual mozilla::ipc::IPCResult RecvFileSystemUpdate(
+      const nsString& aFsName, const nsString& aVolumeName,
+      const int32_t& aState, const int32_t& aMountGeneration,
+      const bool& aIsMediaPresent, const bool& aIsSharing,
+      const bool& aIsFormatting, const bool& aIsFake, const bool& aIsUnmounting,
+      const bool& aIsRemovable, const bool& aIsHotSwappable);
+
   mozilla::ipc::IPCResult RecvNotifyProcessPriorityChanged(
       const hal::ProcessPriority& aPriority);
 
@@ -448,6 +459,8 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvUnregisterSheet(const URIParams& aURI,
                                               const uint32_t& aType);
+
+  mozilla::ipc::IPCResult RecvNotifyPhoneStateChange(const nsString& aState);
 
   void AddIdleObserver(nsIObserver* aObserver, uint32_t aIdleTimeInS);
 

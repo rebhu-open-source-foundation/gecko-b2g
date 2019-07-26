@@ -1057,6 +1057,14 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvDeviceReset();
 
+  mozilla::ipc::IPCResult RecvCreateFakeVolume(const nsString& aFsName,
+                                               const nsString& aMountPoint);
+
+  mozilla::ipc::IPCResult RecvSetFakeVolumeState(const nsString& aFsName,
+                                                 const int32_t& aFsState);
+
+  mozilla::ipc::IPCResult RecvRemoveFakeVolume(const nsString& fsName);
+
   mozilla::ipc::IPCResult RecvKeywordToURI(const nsCString& aKeyword,
                                            nsString* aProviderName,
                                            RefPtr<nsIInputStream>* aPostData,
@@ -1269,6 +1277,10 @@ class ContentParent final : public PContentParent,
   };
 
   LifecycleState mLifecycleState;
+
+  // True only the if process is already a browser or has
+  // been transformed into one.
+  bool mMetamorphosed;
 
   bool mIsForBrowser;
 

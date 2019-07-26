@@ -161,6 +161,22 @@ struct DataStorageEntry {
   nsString filename;
 };
 
+// Note: Any changes to this structure should also be changed in
+// FileSystemUpdate below.
+struct VolumeInfo {
+  nsString name;
+  nsString mountPoint;
+  int32_t volState;
+  int32_t mountGeneration;
+  bool isMediaPresent;
+  bool isSharing;
+  bool isFormatting;
+  bool isFake;
+  bool isUnmounting;
+  bool isRemovable;
+  bool isHotSwappable;
+};
+
 struct ClipboardCapabilities {
   bool supportsSelectionClipboard;
   bool supportsFindClipboard;
@@ -532,6 +548,8 @@ child:
     async AddPermission(Permission permission);
     async RemoveAllPermissions();
 
+    async Volumes(VolumeInfo[] volumes);
+
     async FlushMemory(nsString reason);
 
     async GarbageCollect();
@@ -592,6 +610,16 @@ child:
     // Notify child that last-pb-context-exited notification was observed
     async LastPrivateDocShellDestroyed();
 
+    // Note: Any changes to this structure should also be changed in
+    // VolumeInfo above.
+    async FileSystemUpdate(nsString fsName, nsString mountPoint, int32_t fsState,
+                           int32_t mountGeneration, bool isMediaPresent,
+                           bool isSharing, bool isFormatting, bool isFake,
+                           bool isUnmounting, bool isRemovable, bool isHotSwappable);
+
+    // Notify volume is removed.
+    async VolumeRemoved(nsString fsName);
+
     async NotifyProcessPriorityChanged(ProcessPriority priority);
     async MinimizeMemoryUsage();
 
@@ -600,6 +628,8 @@ child:
      */
     async LoadAndRegisterSheet(URIParams uri, uint32_t type);
     async UnregisterSheet(URIParams uri, uint32_t type);
+
+    async NotifyPhoneStateChange(nsString newState);
 
     /**
      * Notify idle observers in the child
@@ -1009,6 +1039,11 @@ parent:
     async FirstIdle();
 
     async DeviceReset();
+
+    // called by the child (test code only) to propagate volume changes to the parent
+    async CreateFakeVolume(nsString fsName, nsString mountPoint);
+    async SetFakeVolumeState(nsString fsName, int32_t fsState);
+    async RemoveFakeVolume(nsString fsName);
 
     sync KeywordToURI(nsCString keyword)
         returns (nsString providerName, nsIInputStream postData, URIParams? uri);

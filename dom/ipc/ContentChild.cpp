@@ -2875,6 +2875,64 @@ mozilla::ipc::IPCResult ContentChild::RecvLastPrivateDocShellDestroyed() {
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentChild::RecvVolumes(
+    nsTArray<VolumeInfo>&& aVolumes) {
+#ifdef MOZ_WIDGET_GONK
+  RefPtr<nsVolumeService> vs = nsVolumeService::GetSingleton();
+  if (vs) {
+    vs->RecvVolumesFromParent(aVolumes);
+  }
+#endif
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvFileSystemUpdate(
+    const nsString& aFsName, const nsString& aVolumeName, const int32_t& aState,
+    const int32_t& aMountGeneration, const bool& aIsMediaPresent,
+    const bool& aIsSharing, const bool& aIsFormatting, const bool& aIsFake,
+    const bool& aIsUnmounting, const bool& aIsRemovable,
+    const bool& aIsHotSwappable) {
+#ifdef MOZ_WIDGET_GONK
+  RefPtr<nsVolume> volume =
+      new nsVolume(aFsName, aVolumeName, aState, aMountGeneration,
+                   aIsMediaPresent, aIsSharing, aIsFormatting, aIsFake,
+                   aIsUnmounting, aIsRemovable, aIsHotSwappable);
+
+  RefPtr<nsVolumeService> vs = nsVolumeService::GetSingleton();
+  if (vs) {
+    vs->UpdateVolume(volume);
+  }
+#else
+  // Remove warnings about unused arguments
+  Unused << aFsName;
+  Unused << aVolumeName;
+  Unused << aState;
+  Unused << aMountGeneration;
+  Unused << aIsMediaPresent;
+  Unused << aIsSharing;
+  Unused << aIsFormatting;
+  Unused << aIsFake;
+  Unused << aIsUnmounting;
+  Unused << aIsRemovable;
+  Unused << aIsHotSwappable;
+#endif
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvVolumeRemoved(
+    const nsString& aFsName) {
+#ifdef MOZ_WIDGET_GONK
+  RefPtr<nsVolumeService> vs = nsVolumeService::GetSingleton();
+  if (vs) {
+    vs->RemoveVolumeByName(aFsName);
+  }
+#else
+  // Remove warnings about unused arguments
+  Unused << aFsName;
+#endif
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult ContentChild::RecvNotifyProcessPriorityChanged(
     const hal::ProcessPriority& aPriority) {
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
@@ -2895,6 +2953,15 @@ mozilla::ipc::IPCResult ContentChild::RecvMinimizeMemoryUsage() {
   NS_ENSURE_TRUE(mgr, IPC_OK());
 
   Unused << mgr->MinimizeMemoryUsage(/* callback = */ nullptr);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvNotifyPhoneStateChange(
+    const nsString& aState) {
+  nsCOMPtr<nsIObserverService> os = services::GetObserverService();
+  if (os) {
+    os->NotifyObservers(nullptr, "phone-state-changed", aState.get());
+  }
   return IPC_OK();
 }
 
