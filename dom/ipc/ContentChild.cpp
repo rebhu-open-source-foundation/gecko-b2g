@@ -205,6 +205,11 @@
 #  include "APKOpen.h"
 #endif
 
+#if defined(MOZ_WIDGET_GONK)
+#  include "nsVolume.h"
+#  include "nsVolumeService.h"
+#endif
+
 #ifdef XP_WIN
 #  include <process.h>
 #  define getpid _getpid
@@ -286,6 +291,10 @@ using namespace mozilla::layout;
 using namespace mozilla::net;
 using namespace mozilla::jsipc;
 using namespace mozilla::psm;
+using namespace mozilla::widget;
+#if defined(MOZ_WIDGET_GONK)
+using namespace mozilla::system;
+#endif
 using namespace mozilla::widget;
 using mozilla::loader::PScriptCacheChild;
 
@@ -1743,6 +1752,11 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
 #if defined(MOZ_SANDBOX)
   bool sandboxEnabled = true;
 #  if defined(XP_LINUX)
+#    if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 19
+  // For B2G >= KitKat, sandboxing is mandatory; this has already
+  // been enforced by ContentParent::StartUp().
+  MOZ_ASSERT(SandboxInfo::Get().CanSandboxContent());
+#    else
   // On Linux, we have to support systems that can't use any sandboxing.
   if (!SandboxInfo::Get().CanSandboxContent()) {
     sandboxEnabled = false;
@@ -1751,12 +1765,13 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
     if (!Preferences::GetBool("media.cubeb.sandbox")) {
       Unused << CubebUtils::GetCubebContext();
     }
-#    if defined(XP_LINUX)
+#      if defined(XP_LINUX)
     else {
       CubebUtils::InitAudioThreads();
     }
-#    endif
+#      endif
   }
+#    endif /* MOZ_WIDGET_GONK && ANDROID_VERSION >= 19 */
 
   if (sandboxEnabled) {
     sandboxEnabled = SetContentProcessSandbox(
