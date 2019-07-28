@@ -3300,13 +3300,13 @@ HAVE_SYS_MOUNT_H
 # Avoid using obsolete NSPR features
 AC_DEFINE(NO_NSPR_10_SUPPORT)
 
-MOZ_CREATE_CONFIG_STATUS()
-
-rm -fr confdefs* $ac_clean_files
-
 # B2G additions.
 if test -n "$MOZ_B2G"; then
     AC_DEFINE(MOZ_B2G)
 fi
 # FIXME(fabrice)
-AC_DEFINE(MOZ_B2G)
+# AC_DEFINE(MOZ_B2G)
+
+MOZ_CREATE_CONFIG_STATUS()
+
+rm -fr confdefs* $ac_clean_files

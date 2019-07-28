@@ -963,7 +963,12 @@ pref("dom.mozInputMethod.enabled", true);
 // to communicate with a usb cable via adb forward
 // Firefox's devtools expect a socket path containing "firefox-debugger-socket", see
 // https://hg.mozilla.org/mozilla-central/file/99f1b315fa89db68ef3e7f8875bbd0a4b818423d/devtools/shared/adb/adb-device.js#l36
+#ifdef MOZ_WIDGET_GONK
 pref("devtools.debugger.unix-domain-socket", "/data/local/firefox-debugger-socket");
+#else
+pref("devtools.debugger.unix-domain-socket", "");
+pref("devtools.debugger.remote-port", 6222);
+#endif
 pref("devtools.remote.usb.enabled", true);
 pref("devtools.remote.wifi.enabled", false);
 pref("devtools.inspector.inactive.css.enabled", false);
