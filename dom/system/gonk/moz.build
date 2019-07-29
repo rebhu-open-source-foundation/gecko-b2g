@@ -28,7 +28,7 @@ EXPORTS += [
     'nsVolumeService.h',
 ]
 UNIFIED_SOURCES += [
-    #'AutoMounter.cpp',
+    'AutoMounter.cpp',
     #'AutoMounterSetting.cpp',
     #'MozMtpDatabase.cpp',
     #'MozMtpServer.cpp',
