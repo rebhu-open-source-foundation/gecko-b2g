@@ -125,7 +125,7 @@ private:
     layers::CompositorBridgeParent* mCompositorBridgeParent;
     Mutex mLock;
 };
-
+#if ANDROID_VERSION >= 26
 class HWComposerCallback : public HWC2::ComposerCallback
 {
     public:
@@ -146,7 +146,7 @@ class HWComposerCallback : public HWC2::ComposerCallback
     private:
         HWC2::Device* hwcDevice;
 };
-
+#endif
 } // namespace mozilla
 
 #endif // mozilla_HwcComposer2D

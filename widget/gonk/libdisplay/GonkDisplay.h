@@ -20,10 +20,11 @@
 #include <utils/StrongPointer.h>
 #if ANDROID_VERSION >= 26
 #include "DisplaySurface.h"
-#include "nsIScreen.h"
 #else
 #include "mozilla/Types.h"
 #endif
+
+#include "nsIScreen.h"
 
 namespace android {
 #if ANDROID_VERSION < 27
