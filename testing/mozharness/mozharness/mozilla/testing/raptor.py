@@ -47,6 +47,32 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
     """
     install and run raptor tests
     """
+
+    # Options to browsertime that take a path.  Such paths are made
+    # absolute before passing through to browsertime itself.
+    browsertime_path_options = [
+        [["--browsertime-node"], {
+            "dest": "browsertime_node",
+            "default": None,
+            "help": argparse.SUPPRESS
+        }],
+        [["--browsertime-browsertimejs"], {
+            "dest": "browsertime_browsertimejs",
+            "default": None,
+            "help": argparse.SUPPRESS
+        }],
+        [["--browsertime-chromedriver"], {
+            "dest": "browsertime_chromedriver",
+            "default": None,
+            "help": argparse.SUPPRESS
+        }],
+        [["--browsertime-geckodriver"], {
+            "dest": "browsertime_geckodriver",
+            "default": None,
+            "help": argparse.SUPPRESS
+        }],
+    ]
+
     config_options = [
         [["--test"],
          {"action": "store",
@@ -136,6 +162,11 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
             "help": "The number of times a cold load test is repeated (for cold load tests only, "
                     "where the browser is shutdown and restarted between test iterations)"
         }],
+        [["--test-url-params"], {
+            "action": "store",
+            "dest": "test_url_params",
+            "help": "Parameters to add to the test_url query string"
+        }],
         [["--host"], {
             "dest": "host",
             "help": "Hostname from which to serve urls (default: 127.0.0.1). "
@@ -168,6 +199,12 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
             "default": False,
             "help": "Run Raptor in debug mode (open browser console, limited page-cycles, etc.)",
         }],
+        [["--noinstall"], {
+            "dest": "noinstall",
+            "action": "store_true",
+            "default": False,
+            "help": "Do not offer to install Android APK",
+        }],
         [["--disable-e10s"], {
             "dest": "e10s",
             "action": "store_false",
@@ -175,7 +212,9 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
             "help": "Run without multiple processes (e10s).",
         }],
 
-    ] + testing_config_options + copy.deepcopy(code_coverage_config_options)
+    ] + testing_config_options + \
+        copy.deepcopy(code_coverage_config_options) + \
+        browsertime_path_options
 
     def __init__(self, **kwargs):
         kwargs.setdefault('config_options', self.config_options)
@@ -210,29 +249,26 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
             # which are passed in from mach inside 'raptor_cmd_line_args'
             # cmd line args can be in two formats depending on how user entered them
             # i.e. "--app=geckoview" or separate as "--app", "geckoview" so we have to
-            # check each cmd line arg individually
+            # parse carefully.  It's simplest to use `argparse` to parse partially.
             self.app = "firefox"
             if 'raptor_cmd_line_args' in self.config:
-                for app in ['chrome', 'geckoview', 'fennec', 'refbrow', 'fenix']:
-                    for next_arg in self.config['raptor_cmd_line_args']:
-                        if app in next_arg:
-                            self.app = app
-                            break
-                # repeat and get 'activity' argument
-                for activity in ['GeckoViewActivity',
-                                 'BrowserTestActivity',
-                                 'browser.BrowserPerformanceTestActivity']:
-                    for next_arg in self.config['raptor_cmd_line_args']:
-                        if activity in next_arg:
-                            self.activity = activity
-                            break
-                # repeat and get 'intent' argument
-                for intent in ['android.intent.action.MAIN',
-                               'android.intent.action.VIEW']:
-                    for next_arg in self.config['raptor_cmd_line_args']:
-                        if intent in next_arg:
-                            self.intent = intent
-                            break
+                sub_parser = argparse.ArgumentParser()
+                # It's not necessary to limit the allowed values: each value
+                # will be parsed and verifed by raptor/raptor.py.
+                sub_parser.add_argument('--app', default=None, dest='app')
+                sub_parser.add_argument('-i', '--intent', default=None, dest='intent')
+                sub_parser.add_argument('-a', '--activity', default=None, dest='activity')
+
+                # We'd prefer to use `parse_known_intermixed_args`, but that's
+                # new in Python 3.7.
+                known, unknown = sub_parser.parse_known_args(self.config['raptor_cmd_line_args'])
+
+                if known.app:
+                    self.app = known.app
+                if known.intent:
+                    self.intent = known.intent
+                if known.activity:
+                    self.activity = known.activity
         else:
             # raptor initiated in production via mozharness
             self.test = self.config['test']
@@ -254,6 +290,7 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
         self.gecko_profile_interval = self.config.get('gecko_profile_interval')
         self.gecko_profile_entries = self.config.get('gecko_profile_entries')
         self.test_packages_url = self.config.get('test_packages_url')
+        self.test_url_params = self.config.get('test_url_params')
         self.host = self.config.get('host')
         if self.host == 'HOST_IP':
             self.host = os.environ['HOST_IP']
@@ -263,6 +300,12 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
         self.is_release_build = self.config.get('is_release_build')
         self.debug_mode = self.config.get('debug_mode', False)
         self.firefox_android_browsers = ["fennec", "geckoview", "refbrow", "fenix"]
+
+        for (arg,), details in Raptor.browsertime_path_options:
+            # Allow to override defaults on the `./mach raptor-test ...` command line.
+            value = self.config.get(details['dest'])
+            if value and arg not in self.config.get("raptor_cmd_line_args", []):
+                setattr(self, details['dest'], value)
 
     # We accept some configuration options from the try commit message in the
     # format mozharness: <options>. Example try commit message: mozharness:
@@ -375,6 +418,9 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
             kw_options['symbolsPath'] = self.symbols_path
         if self.config.get('obj_path', None) is not None:
             kw_options['obj-path'] = self.config['obj_path']
+        if self.test_url_params:
+            kw_options['test-url-params'] = self.test_url_params
+
         kw_options.update(kw)
         if self.host:
             kw_options['host'] = self.host
@@ -399,6 +445,16 @@ class Raptor(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidMixin):
             options.extend(['--cpu-test'])
         if self.config.get('enable_webrender', False):
             options.extend(['--enable-webrender'])
+
+        for (arg,), details in Raptor.browsertime_path_options:
+            # Allow to override defaults on the `./mach raptor-test ...` command line.
+            value = self.config.get(details['dest'])
+            if value and arg not in self.config.get("raptor_cmd_line_args", []):
+                # Right now all the browsertime options are paths.  Turn relative paths into
+                # absolute paths.
+                value = os.path.normpath(os.path.abspath(value))
+                options.extend([arg, value])
+
         for key, value in kw_options.items():
             options.extend(['--%s' % key, value])
 

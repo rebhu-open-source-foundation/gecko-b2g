@@ -1172,7 +1172,8 @@ JS_PUBLIC_API void JS::RemoveAssociatedMemory(JSObject* obj, size_t nbytes,
     return;
   }
 
-  obj->zoneFromAnyThread()->removeCellMemory(obj, nbytes, js::MemoryUse(use));
+  JSRuntime* rt = obj->runtimeFromAnyThread();
+  rt->defaultFreeOp()->removeCellMemory(obj, nbytes, js::MemoryUse(use));
 }
 
 #undef JS_AddRoot
@@ -1294,7 +1295,6 @@ JS_PUBLIC_API void JS_SetGCParametersBasedOnAvailableMemory(JSContext* cx,
   };
 
   static const JSGCConfig minimal[] = {
-      {JSGC_MAX_MALLOC_BYTES, 6 * 1024 * 1024},
       {JSGC_SLICE_TIME_BUDGET_MS, 30},
       {JSGC_HIGH_FREQUENCY_TIME_LIMIT, 1500},
       {JSGC_HIGH_FREQUENCY_HIGH_LIMIT, 40},
@@ -1309,7 +1309,6 @@ JS_PUBLIC_API void JS_SetGCParametersBasedOnAvailableMemory(JSContext* cx,
       {JSGC_MODE, JSGC_MODE_ZONE_INCREMENTAL}};
 
   static const JSGCConfig nominal[] = {
-      {JSGC_MAX_MALLOC_BYTES, 6 * 1024 * 1024},
       {JSGC_SLICE_TIME_BUDGET_MS, 30},
       {JSGC_HIGH_FREQUENCY_TIME_LIMIT, 1000},
       {JSGC_HIGH_FREQUENCY_HIGH_LIMIT, 500},
@@ -3312,7 +3311,7 @@ static JSObject* CloneFunctionObject(JSContext* cx, HandleObject funobj,
   // Only allow cloning normal, interpreted functions.
   RootedFunction fun(cx, &funobj->as<JSFunction>());
   if (fun->isNative() || fun->isBoundFunction() ||
-      fun->kind() != JSFunction::NormalFunction || fun->isExtended() ||
+      fun->kind() != FunctionFlags::NormalFunction || fun->isExtended() ||
       fun->isSelfHostedBuiltin()) {
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                               JSMSG_CANT_CLONE_OBJECT);
@@ -3580,12 +3579,9 @@ JS::CompileOptions::CompileOptions(JSContext* cx)
   bigIntEnabledOption = cx->realm()->creationOptions().getBigIntEnabled();
   fieldsEnabledOption = cx->realm()->creationOptions().getFieldsEnabled();
 
-  // Certain modes of operation disallow syntax parsing in general. The replay
-  // debugger requires scripts to be constructed in a consistent order, which
-  // might not happen with lazy parsing.
+  // Certain modes of operation disallow syntax parsing in general.
   forceFullParse_ = cx->realm()->behaviors().disableLazyParsing() ||
-                    coverage::IsLCovEnabled() ||
-                    mozilla::recordreplay::IsRecordingOrReplaying();
+                    coverage::IsLCovEnabled();
 
   // If instrumentation is enabled in the realm, the compiler should insert the
   // requested kinds of instrumentation into all scripts.

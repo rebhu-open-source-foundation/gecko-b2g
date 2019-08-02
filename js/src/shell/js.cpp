@@ -1260,6 +1260,10 @@ static bool AddIntlExtras(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
+  if (!js::AddLocaleConstructor(cx, intl)) {
+    return false;
+  }
+
   args.rval().setUndefined();
   return true;
 }
@@ -7119,6 +7123,8 @@ struct BufferStreamState {
 static ExclusiveWaitableData<BufferStreamState>* bufferStreamState;
 
 static void BufferStreamMain(BufferStreamJob* job) {
+  auto mutexShutdown = MakeScopeExit([] { Mutex::ShutDown(); });
+
   const uint8_t* bytes;
   size_t byteLength;
   JS::OptimizedEncodingListener* listener;
@@ -11248,8 +11254,8 @@ int main(int argc, char** argv, char** envp) {
   if (cpuCount < 0) {
     cpuCount = op.getIntOption("thread-count");  // Legacy name
   }
-  if (cpuCount >= 0) {
-    SetFakeCPUCount(cpuCount);
+  if (cpuCount >= 0 && !SetFakeCPUCount(cpuCount)) {
+      return 1;
   }
 
   size_t nurseryBytes = JS::DefaultNurseryBytes;

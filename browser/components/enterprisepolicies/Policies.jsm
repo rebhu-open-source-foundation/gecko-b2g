@@ -752,7 +752,11 @@ var Policies = {
       }
       if (blockAllExtensions) {
         for (let addon of addons) {
-          if (addon.isSystem || addon.isBuiltin) {
+          if (
+            addon.isSystem ||
+            addon.isBuiltin ||
+            !(addon.scope & AddonManager.SCOPE_PROFILE)
+          ) {
             continue;
           }
           if (!allowedExtensions.includes(addon.id)) {
@@ -1582,12 +1586,20 @@ function installAddonFromURL(url, extensionID) {
       },
       onDownloadFailed: () => {
         install.removeListener(listener);
-        log.error(`Download failed - ${url}`);
+        log.error(
+          `Download failed - ${AddonManager.errorToString(
+            install.error
+          )} - ${url}`
+        );
         clearRunOnceModification("extensionsInstall");
       },
       onInstallFailed: () => {
         install.removeListener(listener);
-        log.error(`Installation failed - ${url}`);
+        log.error(
+          `Installation failed - ${AddonManager.errorToString(
+            install.error
+          )} - {url}`
+        );
       },
       onInstallEnded: () => {
         install.removeListener(listener);

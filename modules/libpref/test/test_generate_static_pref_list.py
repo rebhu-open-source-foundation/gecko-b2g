@@ -89,61 +89,55 @@ good_input = '''
 
 # The corresponding output for good_input.
 good_output = '''\
-PREF("my.bool", bool, false)
+NEVER_PREF("my.bool", bool, false)
 
-VARCACHE_PREF(
-  Once,
+ONCE_PREF(
   "my.int",
    my_int,
    my_int_AtStartup,
   int32_t, -123
 )
 
-VARCACHE_PREF(
-  Live,
+ALWAYS_PREF(
   "my.uint",
    my_uint,
    my_uint,
   uint32_t, 999
 )
 
-VARCACHE_PREF(
-  Once,
+ONCE_PREF(
   "my.float",
    my_float,
    my_float_AtStartup_DoNotUseDirectly,
   float, 0.0f
 )
 
-PREF("my.string", String, "foo\\"bar")
+NEVER_PREF("my.string", String, "foo\\"bar")
 
-PREF("my.string2", String, "foobar")
+NEVER_PREF("my.string2", String, "foobar")
 
-VARCACHE_PREF(
-  Live,
+ALWAYS_PREF(
   "my.atomic.bool",
    my_atomic_bool,
    my_atomic_bool,
   RelaxedAtomicBool, true
 )
 
-VARCACHE_PREF(
-  Live,
+ALWAYS_PREF(
   "my.atomic.int",
    my_atomic_int,
    my_atomic_int_DoNotUseDirectly,
   ReleaseAcquireAtomicInt32, 10 + 10 * 20
 )
 
-VARCACHE_PREF(
-  Once,
+ONCE_PREF(
   "my.atomic.uint",
    my_atomic_uint,
    my_atomic_uint_AtStartup,
   SequentiallyConsistentAtomicUint32, 68
 )
 
-PREF("my.atomic.float", AtomicFloat, 0.4455667)
+NEVER_PREF("my.atomic.float", AtomicFloat, 0.4455667)
 '''
 
 # A lot of bad inputs, each with an accompanying error message. Listed in order
@@ -173,6 +167,17 @@ bad_inputs = [
     ('''
 - name: name_with_no_dot
 ''', '`name` value `name_with_no_dot` lacks a \'.\''),
+
+    ('''
+- name: pref.is.defined.more.than.once
+  type: bool
+  value: false
+  mirror: never
+- name: pref.is.defined.more.than.once
+  type: int32_t
+  value: 111
+  mirror: always
+''', '`pref.is.defined.more.than.once` pref is defined more than once'),
 
     ('''
 - name: your.pref

@@ -34,24 +34,17 @@ export PATH="${VSWINPATH}/VC/bin/Hostx64/x64:${VSWINPATH}/SDK/bin/10.0.17134.0/x
 export INCLUDE="${VSWINPATH}/VC/include:${VSWINPATH}/VC/atlmfc/include:${VSWINPATH}/SDK/Include/10.0.17134.0/ucrt:${VSWINPATH}/SDK/Include/10.0.17134.0/shared:${VSWINPATH}/SDK/Include/10.0.17134.0/um:${VSWINPATH}/SDK/Include/10.0.17134.0/winrt:${VSWINPATH}/DIA SDK/include"
 export LIB="${VSWINPATH}/VC/lib/x64:${VSWINPATH}/VC/atlmfc/lib/x64:${VSWINPATH}/SDK/Lib/10.0.17134.0/ucrt/x64:${VSWINPATH}/SDK/Lib/10.0.17134.0/um/x64:${VSWINPATH}/DIA SDK/lib/amd64"
 
-export PATH="$(cd svn && pwd)/bin:${PATH}"
+# Add git.exe to the path
+export PATH="$(pwd)/cmd:${PATH}"
 export PATH="$(cd cmake && pwd)/bin:${PATH}"
 export PATH="$(cd ninja && pwd)/bin:${PATH}"
-
-# We use |mach python| to set up a virtualenv automatically for us.  We create
-# a dummy mozconfig, because the default machinery for config.guess-choosing
-# of the objdir doesn't work very well.
-MOZCONFIG="$(pwd)/mozconfig"
-cat > ${MOZCONFIG} <<EOF
-mk_add_options MOZ_OBJDIR=$(pwd)/objdir
-EOF
 
 # gets a bit too verbose here
 set +x
 
 BUILD_CLANG_DIR=build/src/build/build-clang
 cd ${BUILD_CLANG_DIR}
-MOZCONFIG=${MOZCONFIG} ../../mach python ./build-clang.py -c ./${1}
+python3 ./build-clang.py -c ./${1}
 cd -
 
 

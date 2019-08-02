@@ -45,7 +45,7 @@ namespace net {
 static uint64_t FindTopOuterWindowID(nsPIDOMWindowOuter* aOuter) {
   nsCOMPtr<nsPIDOMWindowOuter> outer = aOuter;
   while (nsCOMPtr<nsPIDOMWindowOuter> parent =
-             outer->GetScriptableParentOrNull()) {
+             outer->GetInProcessScriptableParentOrNull()) {
     outer = parent;
   }
   return outer->WindowID();
@@ -97,6 +97,7 @@ LoadInfo::LoadInfo(
       mServiceWorkerTaintingSynthesized(false),
       mDocumentHasUserInteracted(false),
       mDocumentHasLoaded(false),
+      mSkipContentSniffing(false),
       mIsFromProcessingFrameAttributes(false) {
   MOZ_ASSERT(mLoadingPrincipal);
   MOZ_ASSERT(mTriggeringPrincipal);
@@ -165,7 +166,8 @@ LoadInfo::LoadInfo(
     if (contextOuter) {
       ComputeIsThirdPartyContext(contextOuter);
       mOuterWindowID = contextOuter->WindowID();
-      nsCOMPtr<nsPIDOMWindowOuter> parent = contextOuter->GetScriptableParent();
+      nsCOMPtr<nsPIDOMWindowOuter> parent =
+          contextOuter->GetInProcessScriptableParent();
       mParentOuterWindowID = parent ? parent->WindowID() : mOuterWindowID;
       mTopOuterWindowID = FindTopOuterWindowID(contextOuter);
       RefPtr<dom::BrowsingContext> bc = contextOuter->GetBrowsingContext();
@@ -205,7 +207,7 @@ LoadInfo::LoadInfo(
           // top-level document's flag, not the iframe document's.
           mDocumentHasLoaded = false;
           nsGlobalWindowOuter* topOuter =
-              innerWindow->GetScriptableTopInternal();
+              innerWindow->GetInProcessScriptableTopInternal();
           if (topOuter) {
             nsGlobalWindowInner* topInner =
                 nsGlobalWindowInner::Cast(topOuter->GetCurrentInnerWindow());
@@ -357,6 +359,7 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
       mServiceWorkerTaintingSynthesized(false),
       mDocumentHasUserInteracted(false),
       mDocumentHasLoaded(false),
+      mSkipContentSniffing(false),
       mIsFromProcessingFrameAttributes(false) {
   // Top-level loads are never third-party
   // Grab the information we can out of the window.
@@ -377,7 +380,8 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
 
   // TODO We can have a parent without a frame element in some cases dealing
   // with the hidden window.
-  nsCOMPtr<nsPIDOMWindowOuter> parent = aOuterWindow->GetScriptableParent();
+  nsCOMPtr<nsPIDOMWindowOuter> parent =
+      aOuterWindow->GetInProcessScriptableParent();
   mParentOuterWindowID = parent ? parent->WindowID() : 0;
   mTopOuterWindowID = FindTopOuterWindowID(aOuterWindow);
 
@@ -473,6 +477,7 @@ LoadInfo::LoadInfo(const LoadInfo& rhs)
       mDocumentHasUserInteracted(rhs.mDocumentHasUserInteracted),
       mDocumentHasLoaded(rhs.mDocumentHasLoaded),
       mCspNonce(rhs.mCspNonce),
+      mSkipContentSniffing(rhs.mSkipContentSniffing),
       mIsFromProcessingFrameAttributes(rhs.mIsFromProcessingFrameAttributes) {}
 
 LoadInfo::LoadInfo(
@@ -506,7 +511,7 @@ LoadInfo::LoadInfo(
     bool aIsPreflight, bool aLoadTriggeredFromExternal,
     bool aServiceWorkerTaintingSynthesized, bool aDocumentHasUserInteracted,
     bool aDocumentHasLoaded, const nsAString& aCspNonce,
-    uint32_t aRequestBlockingReason)
+    bool aSkipContentSniffing, uint32_t aRequestBlockingReason)
     : mLoadingPrincipal(aLoadingPrincipal),
       mTriggeringPrincipal(aTriggeringPrincipal),
       mPrincipalToInherit(aPrincipalToInherit),
@@ -557,6 +562,7 @@ LoadInfo::LoadInfo(
       mDocumentHasUserInteracted(aDocumentHasUserInteracted),
       mDocumentHasLoaded(aDocumentHasLoaded),
       mCspNonce(aCspNonce),
+      mSkipContentSniffing(aSkipContentSniffing),
       mIsFromProcessingFrameAttributes(false) {
   // Only top level TYPE_DOCUMENT loads can have a null loadingPrincipal
   MOZ_ASSERT(mLoadingPrincipal ||
@@ -1316,6 +1322,18 @@ LoadInfo::SetCspNonce(const nsAString& aCspNonce) {
   MOZ_ASSERT(!mInitialSecurityCheckDone,
              "setting the nonce is only allowed before any sec checks");
   mCspNonce = aCspNonce;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetSkipContentSniffing(bool* aSkipContentSniffing) {
+  *aSkipContentSniffing = mSkipContentSniffing;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetSkipContentSniffing(bool aSkipContentSniffing) {
+  mSkipContentSniffing = aSkipContentSniffing;
   return NS_OK;
 }
 

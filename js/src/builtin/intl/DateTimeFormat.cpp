@@ -231,13 +231,8 @@ bool js::intl_DateTimeFormat_availableLocales(JSContext* cx, unsigned argc,
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 0);
 
-  RootedValue result(cx);
-  if (!GetAvailableLocales(cx, udat_countAvailable, udat_getAvailable,
-                           &result)) {
-    return false;
-  }
-  args.rval().set(result);
-  return true;
+  return GetAvailableLocales(cx, udat_countAvailable, udat_getAvailable,
+                             args.rval());
 }
 
 static bool DefaultCalendar(JSContext* cx, const UniqueChars& locale,
@@ -781,6 +776,13 @@ static FieldType GetFieldTypeForFormatField(UDateFormatField fieldName) {
       return &JSAtomState::timeZoneName;
 
     case UDAT_FRACTIONAL_SECOND_FIELD:
+#ifdef NIGHTLY_BUILD
+      return &JSAtomState::fractionalSecond;
+#else
+      // Currently restricted to Nightly.
+      return &JSAtomState::unknown;
+#endif
+
     case UDAT_DAY_OF_YEAR_FIELD:
     case UDAT_WEEK_OF_YEAR_FIELD:
     case UDAT_WEEK_OF_MONTH_FIELD:
@@ -802,7 +804,7 @@ static FieldType GetFieldTypeForFormatField(UDateFormatField fieldName) {
     case UDAT_TIME_SEPARATOR_FIELD:
 #endif
       // These fields are all unsupported.
-      return nullptr;
+      return &JSAtomState::unknown;
 
 #ifndef U_HIDE_DEPRECATED_API
     case UDAT_FIELD_COUNT:

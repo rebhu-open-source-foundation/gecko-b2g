@@ -256,7 +256,6 @@ static void PatchBaselineFramesForDebugMode(
   //  G. From the debug prologue.
   //  H. From the debug epilogue.
   //  I. From a JSOP_AFTERYIELD instruction.
-  //  J. From GeneratorThrowOrReturn
   //
   // In general, we patch the return address from VM calls and ICs to the
   // corresponding entry in the recompiled BaselineScript. For entries that are
@@ -373,13 +372,12 @@ static void PatchBaselineFramesForDebugMode(
             break;
           }
           case RetAddrEntry::Kind::Invalid: {
-            // Cases E and J above.
+            // Case E above.
             //
             // We are recompiling a frame with an override pc.
             // This may occur from inside the exception handler,
             // by way of an onExceptionUnwind invocation, on a pc
-            // without a RetAddrEntry. It may also happen if we call
-            // GeneratorThrowOrReturn and trigger onEnterFrame.
+            // without a RetAddrEntry.
             //
             // If profiling is off, patch the resume address to nullptr,
             // to ensure the old address is not used anywhere.
@@ -453,7 +451,7 @@ static void SkipInterpreterFrameEntries(
 }
 
 static bool RecompileBaselineScriptForDebugMode(
-    JSContext* cx, JSScript* script, bool observing) {
+    JSContext* cx, JSScript* script, DebugAPI::IsObserving observing) {
   BaselineScript* oldBaselineScript = script->baselineScript();
 
   // If a script is on the stack multiple times, it may have already
@@ -535,7 +533,7 @@ static void UndoRecompileBaselineScriptsForDebugMode(
 
 bool jit::RecompileOnStackBaselineScriptsForDebugMode(
     JSContext* cx, const DebugAPI::ExecutionObservableSet& obs,
-    bool observing) {
+    DebugAPI::IsObserving observing) {
   // First recompile the active scripts on the stack and patch the live
   // frames.
   Vector<DebugModeOSREntry> entries(cx);

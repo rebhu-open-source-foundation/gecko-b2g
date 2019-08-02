@@ -8,22 +8,11 @@ var Services = require("Services");
 loader.lazyRequireGetter(this, "Tools", "devtools/client/definitions", true);
 loader.lazyRequireGetter(
   this,
-  "gDevTools",
-  "devtools/client/framework/devtools",
-  true
-);
-loader.lazyRequireGetter(
-  this,
   "DebuggerClient",
   "devtools/shared/client/debugger-client",
   true
 );
 loader.lazyRequireGetter(this, "l10n", "devtools/client/webconsole/utils/l10n");
-loader.lazyRequireGetter(
-  this,
-  "WebConsole",
-  "devtools/client/webconsole/webconsole"
-);
 loader.lazyRequireGetter(
   this,
   "BrowserConsole",
@@ -33,19 +22,11 @@ loader.lazyRequireGetter(
 const BC_WINDOW_FEATURES =
   "chrome,titlebar,toolbar,centerscreen,resizable,dialog=no";
 
-function HUDService() {
-  this.consoles = new Map();
-}
+function HUDService() {}
 
 HUDService.prototype = {
-  _browserConsoleID: null,
+  _browserConsole: null,
   _browserConsoleInitializing: null,
-
-  /**
-   * Keeps a reference for each Web Console / Browser Console that is created.
-   * @type Map
-   */
-  consoles: null,
 
   _browerConsoleSessionState: false,
 
@@ -58,35 +39,6 @@ HUDService.prototype = {
   },
 
   /**
-   * Get the current context, which is the main application window.
-   *
-   * @returns nsIDOMWindow
-   */
-  currentContext() {
-    return Services.wm.getMostRecentWindow(gDevTools.chromeWindowType);
-  },
-
-  /**
-   * Open a Web Console for the given target.
-   *
-   * @see devtools/framework/target.js for details about targets.
-   *
-   * @param object target
-   *        The target that the web console will connect to.
-   * @param nsIDOMWindow iframeWindow
-   *        The window where the web console UI is already loaded.
-   * @param nsIDOMWindow chromeWindow
-   *        The window of the web console owner.
-   * @return object
-   *         A promise object for the opening of the new WebConsole instance.
-   */
-  openWebConsole(target, iframeWindow, chromeWindow) {
-    const hud = new WebConsole(target, iframeWindow, chromeWindow, this);
-    this.consoles.set(hud.hudId, hud);
-    return hud.init();
-  },
-
-  /**
    * Open a Browser Console for the given target.
    *
    * @see devtools/framework/target.js for details about targets.
@@ -95,40 +47,37 @@ HUDService.prototype = {
    *        The target that the browser console will connect to.
    * @param nsIDOMWindow iframeWindow
    *        The window where the browser console UI is already loaded.
-   * @param nsIDOMWindow chromeWindow
-   *        The window of the browser console owner.
+   * @param Boolean fissionSupport
    * @return object
    *         A promise object for the opening of the new BrowserConsole instance.
    */
-  openBrowserConsole(target, iframeWindow, chromeWindow) {
-    const hud = new BrowserConsole(target, iframeWindow, chromeWindow, this);
-    this._browserConsoleID = hud.hudId;
-    this.consoles.set(hud.hudId, hud);
-    return hud.init();
-  },
-
-  /**
-   * Returns the console instance for a given id.
-   *
-   * @param string id
-   * @returns Object
-   */
-  getHudReferenceById(id) {
-    return this.consoles.get(id);
+  async openBrowserConsole(target, win, fissionSupport = false) {
+    const hud = new BrowserConsole(target, win, win, this, fissionSupport);
+    this._browserConsole = hud;
+    hud.once("destroyed", () => {
+      this._browserConsole = null;
+    });
+    await hud.init();
+    return hud;
   },
 
   /**
    * Toggle the Browser Console.
    */
   async toggleBrowserConsole() {
-    if (this._browserConsoleID) {
-      const hud = this.getHudReferenceById(this._browserConsoleID);
+    if (this._browserConsole) {
+      const hud = this._browserConsole;
       return hud.destroy();
     }
 
     if (this._browserConsoleInitializing) {
       return this._browserConsoleInitializing;
     }
+
+    const fissionSupport = Services.prefs.getBoolPref(
+      "devtools.browsertoolbox.fission",
+      false
+    );
 
     async function connect() {
       // The Browser console ends up using the debugger in autocomplete.
@@ -174,9 +123,11 @@ HUDService.prototype = {
         win.addEventListener("DOMContentLoaded", resolve, { once: true });
       });
 
-      win.document.title = l10n.getStr("browserConsole.title");
-
-      return { iframeWindow: win, chromeWindow: win };
+      const title = fissionSupport
+        ? `💥 Fission Browser Console 💥`
+        : l10n.getStr("browserConsole.title");
+      win.document.title = title;
+      return win;
     }
 
     // Temporarily cache the async startup sequence so that if toggleBrowserConsole
@@ -184,11 +135,11 @@ HUDService.prototype = {
     this._browserConsoleInitializing = (async () => {
       const target = await connect();
       await target.attach();
-      const { iframeWindow, chromeWindow } = await openWindow(target);
+      const win = await openWindow(target);
       const browserConsole = await this.openBrowserConsole(
         target,
-        iframeWindow,
-        chromeWindow
+        win,
+        fissionSupport
       );
       return browserConsole;
     })();
@@ -219,7 +170,7 @@ HUDService.prototype = {
    *         open.
    */
   getBrowserConsole() {
-    return this.getHudReferenceById(this._browserConsoleID);
+    return this._browserConsole;
   },
 };
 

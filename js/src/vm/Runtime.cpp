@@ -444,7 +444,7 @@ static bool HandleInterrupt(JSContext* cx, bool invokeCallback) {
           case ResumeMode::Continue:
             return true;
           case ResumeMode::Return:
-            // See note in Debugger::propagateForcedReturn.
+            // See note in DebugAPI::propagateForcedReturn.
             DebugAPI::propagateForcedReturn(cx, iter.abstractFramePtr(), rval);
             mozilla::recordreplay::InvalidateRecording(
                 "Debugger single-step forced return");
@@ -568,7 +568,7 @@ void JSRuntime::traceSharedIntlData(JSTracer* trc) {
 }
 
 FreeOp::FreeOp(JSRuntime* maybeRuntime, bool isDefault)
-    : JSFreeOp(maybeRuntime), isDefault(isDefault) {
+    : JSFreeOp(maybeRuntime), isDefault(isDefault), isCollecting_(!isDefault) {
   MOZ_ASSERT_IF(maybeRuntime, CurrentThreadCanAccessRuntime(maybeRuntime));
 }
 
@@ -689,10 +689,6 @@ js::HashNumber JSRuntime::randomHashCode() {
   }
 
   return HashNumber(randomHashCodeGenerator_->next());
-}
-
-void JSRuntime::updateMallocCounter(size_t nbytes) {
-  gc.updateMallocCounter(nbytes);
 }
 
 JS_FRIEND_API void* JSRuntime::onOutOfMemory(AllocFunction allocFunc,
@@ -836,7 +832,8 @@ bool js::CurrentThreadCanAccessZone(Zone* zone) {
 
 #ifdef DEBUG
 bool js::CurrentThreadIsPerformingGC() {
-  return TlsContext.get()->performingGC;
+  JSContext* cx = TlsContext.get();
+  return cx->defaultFreeOp()->isCollecting();
 }
 #endif
 

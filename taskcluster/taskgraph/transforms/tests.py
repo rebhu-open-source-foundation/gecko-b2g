@@ -664,6 +664,43 @@ def setup_raptor(config, tests):
         if test['require-signed-extensions']:
             extra_options.append('--is-release-build')
 
+        # add urlparams based on platform, test names and projects
+        testurlparams_by_platform_and_project = {
+            "android-hw-g5": [
+                {
+                    "branches": [],  # For all branches
+                    "testnames": ["youtube-playback"],
+                    "urlparams": [
+                        # param used for excluding youtube-playback tests from executing
+                        # it excludes the tests with videos >1080p
+                        "exclude=1,2,9,10,17,18,21,22,26,28,30,32,39,40,47,"
+                        "48,55,56,63,64,71,72,79,80,83,84,89,90,95,96",
+                    ]
+                },
+            ]
+        }
+
+        for platform, testurlparams_by_project_definitions \
+                in testurlparams_by_platform_and_project.items():
+
+            if test['test-platform'].startswith(platform):
+                # For every platform it may have several definitions
+                for testurlparams_by_project in testurlparams_by_project_definitions:
+                    # The test should contain at least one defined testname
+                    if any(
+                        testname in test['test-name']
+                        for testname in testurlparams_by_project['testnames']
+                    ):
+                        branches = testurlparams_by_project['branches']
+                        if (
+                            branches == [] or
+                            config.params.get('project') in branches or
+                            config.params.is_try() and 'try' in branches
+                        ):
+                            params_query = '&'.join(testurlparams_by_project['urlparams'])
+                            add_extra_params_option = "--test-url-params={}".format(params_query)
+                            extra_options.append(add_extra_params_option)
+
         yield test
 
 
@@ -1038,6 +1075,33 @@ def split_variants(config, tests):
 
 
 @transforms.add
+def enable_fission_on_central(config, tests):
+    """Enable select fission tasks on mozilla-central."""
+    for test in tests:
+        if test['attributes'].get('unittest_variant') != 'fission':
+            yield test
+            continue
+
+        # Mochitest only (with exceptions)
+        exceptions = ('gpu', 'remote', 'screenshots')
+        if (test['attributes']['unittest_category'] != 'mochitest' or
+                any(s in test['attributes']['unittest_suite'] for s in exceptions)):
+            yield test
+            continue
+
+        # Linux and Windows (except debug) 64 bit only.
+        platform = test['build-attributes']['build_platform']
+        btype = test['build-attributes']['build_type']
+        if not (platform == 'linux64' or (platform == 'win64' and btype != 'debug')):
+            yield test
+            continue
+
+        if not runs_on_central(test):
+            test['run-on-projects'].append('mozilla-central')
+        yield test
+
+
+@transforms.add
 def ensure_spi_disabled_on_all_but_spi(config, tests):
     for test in tests:
         variant = test['attributes'].get('unittest_variant', '')
@@ -1148,6 +1212,16 @@ def enable_webrender(config, tests):
             test['mozharness'].setdefault('extra-options', [])\
                               .append("--enable-webrender")
 
+        yield test
+
+
+@transforms.add
+def set_schedules_for_webrender_android(config, tests):
+    """android-hw has limited resources, we need webrender on phones"""
+    for test in tests:
+        if test['suite'] in ['crashtest', 'reftest'] and \
+           test['test-platform'].startswith('android-hw'):
+            test['schedules-component'] = 'android-hw-gfx'
         yield test
 
 
@@ -1273,7 +1347,12 @@ def make_job_description(config, tests):
     taskgraph.transforms.job)"""
 
     for test in tests:
-        label = '{}-{}-{}'.format(config.kind, test['test-platform'], test['test-name'])
+        mobile = get_mobile_project(test)
+        if mobile and (mobile not in test['test-name']):
+            label = '{}-{}-{}-{}'.format(config.kind, test['test-platform'], mobile,
+                                         test['test-name'])
+        else:
+            label = '{}-{}-{}'.format(config.kind, test['test-platform'], test['test-name'])
         if test['chunks'] > 1:
             label += '-{}'.format(test['this-chunk'])
 

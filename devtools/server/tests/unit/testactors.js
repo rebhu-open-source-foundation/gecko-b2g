@@ -16,6 +16,8 @@ const {
 const { TabSources } = require("devtools/server/actors/utils/TabSources");
 const makeDebugger = require("devtools/server/actors/utils/make-debugger");
 
+const noop = () => {};
+
 var gTestGlobals = new Set();
 DebuggerServer.addTestGlobal = function(global) {
   gTestGlobals.add(global);
@@ -122,6 +124,8 @@ function TestTargetActor(connection, global) {
 TestTargetActor.prototype = {
   constructor: TestTargetActor,
   actorPrefix: "TestTargetActor",
+  on: noop,
+  off: noop,
 
   get window() {
     return this._global;
@@ -166,6 +170,7 @@ TestTargetActor.prototype = {
     if (!this._attached) {
       return { error: "wrongState" };
     }
+    this.threadActor.exit();
     return { type: "detached" };
   },
 

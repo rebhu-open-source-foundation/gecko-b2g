@@ -494,10 +494,10 @@ static bool MinorGC(JSContext* cx, unsigned argc, Value* vp) {
 
 #define FOR_EACH_GC_PARAM(_)                                                 \
   _("maxBytes", JSGC_MAX_BYTES, true)                                        \
-  _("maxMallocBytes", JSGC_MAX_MALLOC_BYTES, true)                           \
   _("minNurseryBytes", JSGC_MIN_NURSERY_BYTES, true)                         \
   _("maxNurseryBytes", JSGC_MAX_NURSERY_BYTES, true)                         \
   _("gcBytes", JSGC_BYTES, false)                                            \
+  _("nurseryBytes", JSGC_NURSERY_BYTES, false)                               \
   _("gcNumber", JSGC_NUMBER, false)                                          \
   _("mode", JSGC_MODE, true)                                                 \
   _("unusedChunks", JSGC_UNUSED_CHUNKS, false)                               \
@@ -526,7 +526,9 @@ static bool MinorGC(JSContext* cx, unsigned argc, Value* vp) {
     JSGC_NURSERY_FREE_THRESHOLD_FOR_IDLE_COLLECTION_PERCENT, true)           \
   _("pretenureThreshold", JSGC_PRETENURE_THRESHOLD, true)                    \
   _("pretenureGroupThreshold", JSGC_PRETENURE_GROUP_THRESHOLD, true)         \
-  _("zoneAllocDelayKB", JSGC_ZONE_ALLOC_DELAY_KB, true)
+  _("zoneAllocDelayKB", JSGC_ZONE_ALLOC_DELAY_KB, true)                      \
+  _("mallocThresholdBase", JSGC_MALLOC_THRESHOLD_BASE, true)                 \
+  _("mallocGrowthFactor", JSGC_MALLOC_GROWTH_FACTOR, true)
 
 static const struct ParamInfo {
   const char* name;
@@ -584,7 +586,6 @@ static bool GCParameter(JSContext* cx, unsigned argc, Value* vp) {
   if (disableOOMFunctions) {
     switch (param) {
       case JSGC_MAX_BYTES:
-      case JSGC_MAX_MALLOC_BYTES:
       case JSGC_MAX_NURSERY_BYTES:
         args.rval().setUndefined();
         return true;
@@ -1466,10 +1467,11 @@ class HasChildTracer final : public JS::CallbackTracer {
   RootedValue child_;
   bool found_;
 
-  void onChild(const JS::GCCellPtr& thing) override {
+  bool onChild(const JS::GCCellPtr& thing) override {
     if (thing.asCell() == child_.toGCThing()) {
       found_ = true;
     }
+    return true;
   }
 
  public:
@@ -2032,8 +2034,6 @@ bool RunIterativeFailureTest(JSContext* cx,
                                 HandleValueArray::empty(), &result);
 
       failureWasSimulated = simulator.stopSimulating();
-
-      MOZ_ASSERT_IF(ok, !cx->isExceptionPending());
 
       if (ok) {
         MOZ_ASSERT(!cx->isExceptionPending(),

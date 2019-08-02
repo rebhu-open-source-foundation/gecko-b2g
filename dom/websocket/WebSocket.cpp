@@ -1178,7 +1178,8 @@ class AsyncOpenRunnable final : public WebSocketMainThreadRunnable {
     }
 
     uint64_t windowID = 0;
-    nsCOMPtr<nsPIDOMWindowOuter> topWindow = aWindow->GetScriptableTop();
+    nsCOMPtr<nsPIDOMWindowOuter> topWindow =
+        aWindow->GetInProcessScriptableTop();
     nsCOMPtr<nsPIDOMWindowInner> topInner;
     if (topWindow) {
       topInner = topWindow->GetCurrentInnerWindow();
@@ -1400,7 +1401,8 @@ already_AddRefed<WebSocket> WebSocket::ConstructorCommon(
     }
 
     uint64_t windowID = 0;
-    nsCOMPtr<nsPIDOMWindowOuter> topWindow = outerWindow->GetScriptableTop();
+    nsCOMPtr<nsPIDOMWindowOuter> topWindow =
+        outerWindow->GetInProcessScriptableTop();
     nsCOMPtr<nsPIDOMWindowInner> topInner;
     if (topWindow) {
       topInner = topWindow->GetCurrentInnerWindow();
@@ -1645,14 +1647,8 @@ nsresult WebSocketImpl::Init(JSContext* aCx, nsIPrincipal* aLoadingPrincipal,
       aLoadingPrincipal->GetURI(getter_AddRefs(originURI));
     }
 
-    if (originURI) {
-      bool originIsHttps = false;
-      rv = originURI->SchemeIs("https", &originIsHttps);
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      if (originIsHttps) {
-        return NS_ERROR_DOM_SECURITY_ERR;
-      }
+    if (originURI && originURI->SchemeIs("https")) {
+      return NS_ERROR_DOM_SECURITY_ERR;
     }
   }
 
@@ -2719,7 +2715,7 @@ nsresult WebSocketImpl::GetLoadingPrincipal(nsIPrincipal** aPrincipal) {
     }
 
     nsCOMPtr<nsPIDOMWindowOuter> parentWindow =
-        innerWindow->GetScriptableParent();
+        innerWindow->GetInProcessScriptableParent();
     if (NS_WARN_IF(!parentWindow)) {
       return NS_ERROR_DOM_SECURITY_ERR;
     }
@@ -2744,7 +2740,8 @@ nsresult WebSocketImpl::GetLoadingPrincipal(nsIPrincipal** aPrincipal) {
         break;
       }
 
-      if (parentWindow->GetScriptableTop() == innerWindow->GetScriptableTop()) {
+      if (parentWindow->GetInProcessScriptableTop() ==
+          innerWindow->GetInProcessScriptableTop()) {
         break;
       }
 

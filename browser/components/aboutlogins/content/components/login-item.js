@@ -58,6 +58,7 @@ export default class LoginItem extends HTMLElement {
     this._timeCreated = this.shadowRoot.querySelector(".time-created");
     this._timeChanged = this.shadowRoot.querySelector(".time-changed");
     this._timeUsed = this.shadowRoot.querySelector(".time-used");
+    this._breachAlert = this.shadowRoot.querySelector(".breach-alert");
 
     this.render();
 
@@ -76,7 +77,16 @@ export default class LoginItem extends HTMLElement {
     window.addEventListener("AboutLoginsLoginSelected", this);
   }
 
-  render() {
+  async render() {
+    this._breachAlert.hidden = true;
+    if (this._breachesMap && this._breachesMap.has(this._login.guid)) {
+      const breachDetails = this._breachesMap.get(this._login.guid);
+      const breachAlertLink = this._breachAlert.querySelector(
+        ".breach-alert-link"
+      );
+      breachAlertLink.href = breachDetails.breachAlertURL;
+      this._breachAlert.hidden = false;
+    }
     document.l10n.setAttributes(this._timeCreated, "login-item-time-created", {
       timeCreated: this._login.timeCreated || "",
     });
@@ -97,10 +107,15 @@ export default class LoginItem extends HTMLElement {
         ? "login-item-save-new-button"
         : "login-item-save-changes-button"
     );
-    this._updatePasswordRevealState();
+    await this._updatePasswordRevealState();
   }
 
-  handleEvent(event) {
+  updateBreaches(breachesByLoginGUID) {
+    this._breachesMap = breachesByLoginGUID;
+    this.render();
+  }
+
+  async handleEvent(event) {
     switch (event.type) {
       case "AboutLoginsCreateLogin": {
         this.setLogin({});
@@ -111,7 +126,23 @@ export default class LoginItem extends HTMLElement {
         break;
       }
       case "AboutLoginsLoginSelected": {
-        this.setLogin(event.detail);
+        let login = event.detail;
+        if (this.hasPendingChanges()) {
+          event.preventDefault();
+          this.showConfirmationDialog("discard-changes", () => {
+            // Clear any pending changes
+            this.setLogin(login);
+
+            window.dispatchEvent(
+              new CustomEvent("AboutLoginsLoginSelected", {
+                detail: login,
+                cancelable: true,
+              })
+            );
+          });
+        } else {
+          this.setLogin(login);
+        }
         break;
       }
       case "blur": {
@@ -128,7 +159,7 @@ export default class LoginItem extends HTMLElement {
       case "click": {
         let classList = event.currentTarget.classList;
         if (classList.contains("reveal-password-checkbox")) {
-          this._updatePasswordRevealState();
+          await this._updatePasswordRevealState();
 
           let method = this._revealCheckbox.checked ? "show" : "hide";
           recordTelemetryEvent({ object: "password", method });
@@ -138,7 +169,13 @@ export default class LoginItem extends HTMLElement {
         if (classList.contains("cancel-button")) {
           let wasExistingLogin = !!this._login.guid;
           if (wasExistingLogin) {
-            this.setLogin(this._login);
+            if (this.hasPendingChanges()) {
+              this.showConfirmationDialog("discard-changes", () => {
+                this.setLogin(this._login);
+              });
+            } else {
+              this.setLogin(this._login);
+            }
           } else {
             window.dispatchEvent(new CustomEvent("AboutLoginsClearSelection"));
           }
@@ -154,18 +191,30 @@ export default class LoginItem extends HTMLElement {
           classList.contains("copy-username-button")
         ) {
           let copyButton = event.currentTarget;
+          if (copyButton.dataset.copyLoginProperty == "password") {
+            let masterPasswordAuth = await new Promise(resolve => {
+              window.AboutLoginsUtils.promptForMasterPassword(resolve);
+            });
+            if (!masterPasswordAuth) {
+              return;
+            }
+          }
+
           copyButton.disabled = true;
-          let propertyToCopy = copyButton.dataset.copyLoginProperty;
-          navigator.clipboard.writeText(this._login[propertyToCopy]).then(
-            () => {
-              copyButton.dataset.copied = true;
-              setTimeout(() => {
-                copyButton.disabled = false;
-                delete copyButton.dataset.copied;
-              }, LoginItem.COPY_BUTTON_RESET_TIMEOUT);
-            },
-            () => (copyButton.disabled = false)
+          copyButton.dataset.copied = true;
+          let propertyToCopy = this._login[
+            copyButton.dataset.copyLoginProperty
+          ];
+          document.dispatchEvent(
+            new CustomEvent("AboutLoginsCopyLoginDetail", {
+              bubbles: true,
+              detail: propertyToCopy,
+            })
           );
+          setTimeout(() => {
+            copyButton.disabled = false;
+            delete copyButton.dataset.copied;
+          }, LoginItem.COPY_BUTTON_RESET_TIMEOUT);
 
           recordTelemetryEvent({
             object: copyButton.dataset.telemetryObject,
@@ -233,23 +282,61 @@ export default class LoginItem extends HTMLElement {
   }
 
   /**
+   * Shows a confirmation dialog.
+   * @param {string} type The type of confirmation dialog to display.
+   * @param {boolean} onConfirm Optional, the function to execute when the confirm button is clicked.
+   */
+  showConfirmationDialog(type, onConfirm = () => {}) {
+    const dialog = document.querySelector("confirmation-dialog");
+    let options;
+    switch (type) {
+      case "delete": {
+        options = {
+          title: "confirm-delete-dialog-title",
+          message: "confirm-delete-dialog-message",
+          confirmButtonLabel: "confirm-delete-dialog-confirm-button",
+        };
+        break;
+      }
+      case "discard-changes": {
+        options = {
+          title: "confirm-discard-changes-dialog-title",
+          message: "confirm-discard-changes-dialog-message",
+          confirmButtonLabel: "confirm-discard-changes-dialog-confirm-button",
+        };
+        break;
+      }
+    }
+    let dialogPromise = dialog.show(options);
+    dialogPromise.then(onConfirm, () => {});
+    return dialogPromise;
+  }
+
+  /**
    * Toggles the confirm delete dialog, completing the deletion if the user
    * agrees.
    */
   confirmDelete() {
-    const dialog = document.querySelector("confirm-delete-dialog");
-    dialog.show().then(
-      () => {
-        document.dispatchEvent(
-          new CustomEvent("AboutLoginsDeleteLogin", {
-            bubbles: true,
-            detail: this._login,
-          })
-        );
-        recordTelemetryEvent({ object: "existing_login", method: "delete" });
-      },
-      () => {}
+    this.showConfirmationDialog("delete", () => {
+      document.dispatchEvent(
+        new CustomEvent("AboutLoginsDeleteLogin", {
+          bubbles: true,
+          detail: this._login,
+        })
+      );
+      recordTelemetryEvent({ object: "existing_login", method: "delete" });
+    });
+  }
+
+  hasPendingChanges() {
+    let { origin = "", username = "", password = "" } = this._login || {};
+
+    let valuesChanged = !window.AboutLoginsUtils.doLoginsMatch(
+      { origin, username, password },
+      this._loginFromForm()
     );
+
+    return this.dataset.editing && valuesChanged;
   }
 
   /**
@@ -405,7 +492,17 @@ export default class LoginItem extends HTMLElement {
     }
   }
 
-  _updatePasswordRevealState() {
+  async _updatePasswordRevealState() {
+    if (this._revealCheckbox.checked) {
+      let masterPasswordAuth = await new Promise(resolve => {
+        window.AboutLoginsUtils.promptForMasterPassword(resolve);
+      });
+      if (!masterPasswordAuth) {
+        this._revealCheckbox.checked = false;
+        return;
+      }
+    }
+
     let titleId = this._revealCheckbox.checked
       ? "login-item-password-reveal-checkbox-hide"
       : "login-item-password-reveal-checkbox-show";

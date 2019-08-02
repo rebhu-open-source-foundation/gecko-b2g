@@ -647,16 +647,20 @@ void JitCodeHeader::init(JitCode* jitCode) {
 }
 
 template <AllowGC allowGC>
-JitCode* JitCode::New(JSContext* cx, uint8_t* code, uint32_t bufferSize,
+JitCode* JitCode::New(JSContext* cx, uint8_t* code, uint32_t totalSize,
                       uint32_t headerSize, ExecutablePool* pool,
                       CodeKind kind) {
   JitCode* codeObj = Allocate<JitCode, allowGC>(cx);
   if (!codeObj) {
-    pool->release(headerSize + bufferSize, kind);
+    pool->release(totalSize, kind);
     return nullptr;
   }
 
+  uint32_t bufferSize = totalSize - headerSize;
   new (codeObj) JitCode(code, bufferSize, headerSize, pool, kind);
+
+  cx->zone()->incJitMemory(totalSize);
+
   return codeObj;
 }
 
@@ -742,6 +746,8 @@ void JitCode::finalize(FreeOp* fop) {
   if (!PerfEnabled()) {
     pool_->release(headerSize_ + bufferSize_, CodeKind(kind_));
   }
+
+  zone()->decJitMemory(headerSize_ + bufferSize_);
 
   pool_ = nullptr;
 }
@@ -2827,7 +2833,7 @@ void jit::FinishInvalidation(FreeOp* fop, JSScript* script) {
 
   // In all cases, null out script->ion to avoid re-entry.
   IonScript* ion = script->ionScript();
-  script->setIonScript(fop->runtime(), nullptr);
+  script->setIonScript(fop, nullptr);
 
   // If this script has Ion code on the stack, invalidated() will return
   // true. In this case we have to wait until destroying it.
@@ -3017,18 +3023,18 @@ size_t jit::SizeOfIonData(JSScript* script,
 void jit::DestroyJitScripts(FreeOp* fop, JSScript* script) {
   if (script->hasIonScript()) {
     IonScript* ion = script->ionScript();
-    script->clearIonScript();
+    script->clearIonScript(fop);
     jit::IonScript::Destroy(fop, ion);
   }
 
   if (script->hasBaselineScript()) {
     BaselineScript* baseline = script->baselineScript();
-    script->clearBaselineScript();
+    script->clearBaselineScript(fop);
     jit::BaselineScript::Destroy(fop, baseline);
   }
 
   if (script->hasJitScript()) {
-    script->releaseJitScript();
+    script->releaseJitScript(fop);
   }
 }
 

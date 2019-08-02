@@ -35,7 +35,6 @@ testGetParam("unusedChunks");
 testGetParam("totalChunks");
 
 testChangeParam("maxBytes");
-testChangeParam("maxMallocBytes");
 testChangeParam("mode");
 testChangeParam("sliceTimeBudgetMS");
 testChangeParam("markStackLimit");
@@ -51,6 +50,8 @@ testChangeParam("allocationThreshold");
 testChangeParam("minEmptyChunkCount");
 testChangeParam("maxEmptyChunkCount");
 testChangeParam("compactingEnabled");
+testChangeParam("mallocThresholdBase");
+testChangeParam("mallocGrowthFactor");
 
 testMBParamValue("highFrequencyLowLimit");
 testMBParamValue("highFrequencyHighLimit");

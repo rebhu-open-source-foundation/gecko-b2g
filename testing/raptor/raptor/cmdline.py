@@ -128,6 +128,8 @@ def create_parser(mach_interface=False):
     add_arg('--browser-cycles', dest="browser_cycles", type=int,
             help="The number of times a cold load test is repeated (for cold load tests only, "
             "where the browser is shutdown and restarted between test iterations)")
+    add_arg('--test-url-params', dest='test_url_params',
+            help="Parameters to add to the test_url query string")
     add_arg('--print-tests', action=_PrintTests,
             help="Print all available Raptor tests")
     add_arg('--debug-mode', dest="debug_mode", action="store_true",
@@ -141,6 +143,18 @@ def create_parser(mach_interface=False):
                 help="Flag which indicates if Raptor is running locally or in production")
         add_arg('--obj-path', dest="obj_path", default=None,
                 help="Browser-build obj_path (received when running in production)")
+    add_arg('--noinstall', dest="noinstall", default=False, action="store_true",
+            help="Flag which indicates if Raptor should not offer to install Android APK.")
+
+    # Arguments for invoking browsertime.
+    add_arg('--browsertime-node', dest='browsertime_node',
+            help="path to Node.js executable")
+    add_arg('--browsertime-browsertimejs', dest='browsertime_browsertimejs',
+            help="path to browsertime.js script")
+    add_arg('--browsertime-chromedriver', dest='browsertime_chromedriver',
+            help="path to chromedriver executable")
+    add_arg('--browsertime-geckodriver', dest='browsertime_geckodriver',
+            help="path to geckodriver executable")
 
     add_logging_group(parser)
     return parser

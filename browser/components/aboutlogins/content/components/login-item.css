@@ -11,22 +11,11 @@
   --success-color: #00c100;
 }
 
-@supports -moz-bool-pref("browser.in-content.dark-mode") {
-@media (prefers-color-scheme: dark) {
-  :host {
-    --reveal-checkbox-opacity: .8;
-    --reveal-checkbox-opacity-hover: 1;
-    --reveal-checkbox-opacity-active: .6;
-    --success-color: #86DE74;
-  }
-}
-}
-
 :host([data-editing]) .edit-button,
-:host([data-is-new-login]) .copy-button,
+:host([data-editing]) .copy-button,
+:host([data-editing]) .open-site-button,
 :host([data-is-new-login]) .delete-button,
 :host([data-is-new-login]) .origin-saved-value,
-:host([data-is-new-login]) .open-site-button,
 :host([data-is-new-login]) .meta-info,
 :host([data-is-new-login]) .login-item-title,
 :host(:not([data-is-new-login])) .new-login-title,
@@ -100,13 +89,14 @@
   color: var(--in-content-link-color-active) !important;
 }
 
-.detail-row,
 .reveal-password-wrapper {
   display: flex;
   align-items: center;
 }
 
 .detail-row {
+  display: flex;
+  align-items: end;
   margin-bottom: 40px;
 }
 
@@ -119,6 +109,10 @@
   font-size: smaller;
   color: var(--in-content-deemphasized-text);
   margin-bottom: 5px;
+}
+
+:host([data-editing]) .detail-cell input:not([type="checkbox"]) {
+  width: 280px;
 }
 
 .copy-button:not([data-copied]) .copied-button-text,
@@ -137,17 +131,25 @@
   box-shadow: none;
 }
 
+.copied-button-text {
+  background-image: url(chrome://global/skin/icons/check.svg);
+  background-repeat: no-repeat;
+  -moz-context-properties: fill;
+  fill: currentColor;
+  padding-inline-start: 22px;
+}
+
 .meta-info {
   font-size: smaller;
   color: var(--in-content-deemphasized-text);
 }
 
-.meta-info:first-of-type {
-  padding-top: 1em;
+.meta-info:first-of-type::before {
+  content: "";
+  display: block;
+  margin-bottom: 20px;
   border-top: 1px solid var(--in-content-box-border-color);
   width: 40px;
-  /* Show a non-full length border but constrain the text to this width */
-  white-space: nowrap;
 }
 
 :host(:not([editing])) input[name='password'] {
@@ -186,4 +188,49 @@
    * to make the thicker outline corners look smooth */
   -moz-outline-radius: 3px;
   box-shadow: 0 0 0 4px var(--in-content-border-active-shadow);
+}
+
+.breach-alert {
+  border-radius: 8px;
+  border: 1px solid var(--in-content-border-color);
+  background-color: #FFFF98;
+  background-image: url("chrome://global/skin/icons/warning.svg");
+  background-repeat: no-repeat;
+  background-position: left 10px top 10px;
+  -moz-context-properties: fill;
+  fill: var(--red-90);
+  box-shadow: 0 2px 8px 0 rgba(12,12,13,0.1);
+  font-size: .9em;
+  font-weight: 300;
+  line-height: 1.4;
+  padding-block: 12px;
+  padding-inline-start: 36px;
+  padding-inline-end: 92px;
+  margin-block-end: 40px;
+}
+
+.breach-alert:dir(rtl) {
+  background-position: right 10px top 10px;
+}
+
+a.breach-alert-link {
+  color: inherit;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+@supports -moz-bool-pref("browser.in-content.dark-mode") {
+  @media (prefers-color-scheme: dark) {
+    :host {
+      --reveal-checkbox-opacity: .8;
+      --reveal-checkbox-opacity-hover: 1;
+      --reveal-checkbox-opacity-active: .6;
+      --success-color: #86DE74;
+    }
+  
+    .breach-alert {
+      box-shadow: 0 2px 8px 0 rgba(249,249,250,0.1);
+      color: #0C0C0D;
+    }
+  }
 }

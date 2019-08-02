@@ -2452,7 +2452,9 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowInput& aState) {
     // FIXME: What about a deltaBCoord or block-size change that forces us to
     // push lines?  Why does that work?
     if (!line->IsDirty() &&
-        aState.mReflowInput.AvailableBSize() != NS_UNCONSTRAINEDSIZE &&
+        (aState.mReflowInput.AvailableBSize() != NS_UNCONSTRAINEDSIZE ||
+         // last column can be reflowed unconstrained during column balancing
+         GetPrevInFlow() || GetNextInFlow() || HasPushedFloats()) &&
         (deltaBCoord != 0 || aState.mReflowInput.IsBResize() ||
          aState.mReflowInput.mFlags.mMustReflowPlaceholders) &&
         (line->IsBlock() || line->HasFloats() || line->HadFloatPushed())) {
@@ -3573,6 +3575,8 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
           availSize.BSize(wm) -= aState.BorderPadding().BEnd(wm);
         }
 
+        // Bug 1569701: We need to use GetEffectiveComputedBSize() to get
+        // correct block-size if ColumnSetWrapper is fragmented.
         nscoord contentBSize = aState.mReflowInput.ComputedBSize();
         if (aState.mReflowInput.ComputedMaxBSize() != NS_UNCONSTRAINEDSIZE) {
           contentBSize =
@@ -3914,6 +3918,13 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
                aState.mPrevBEndMargin.get());
 #endif
       } else {
+        if (!frameReflowStatus.IsFullyComplete()) {
+          // The frame reported an incomplete status, but then it also didn't
+          // fit.  This means we need to reflow it again so that it can
+          // (again) report the incomplete status.
+          frame->AddStateBits(NS_FRAME_HAS_DIRTY_CHILDREN);
+        }
+
         if ((aLine == mLines.front() && !GetPrevInFlow()) ||
             ShouldAvoidBreakInside(aState.mReflowInput)) {
           // If it's our very first line *or* we're not at the top of the page
@@ -7408,6 +7419,21 @@ nscoord nsBlockFrame::ComputeFinalBSize(const ReflowInput& aReflowInput,
     // overflow-incomplete.
     aStatus.SetOverflowIncomplete();
     return finalBSize;
+  }
+
+  if (FirstInFlow()->GetProperty(nsIFrame::HasColumnSpanSiblings())) {
+    MOZ_ASSERT(LastInFlow()->GetNextContinuation(),
+               "Frame constructor should've created column-span siblings!");
+
+    // If a block is split by any column-spans, we calculate the final
+    // block-size by shrinkwrapping our children's block-size for all the
+    // fragments except for those after the final column-span, but we should
+    // take no more than our leftover block-size. If there's any leftover
+    // block-size, our next continuations will take up rest.
+    //
+    // We don't need to adjust aStatus because our children's status is the same
+    // as ours.
+    return std::min(finalBSize, aBEndEdgeOfChildren);
   }
 
   if (statusFromChildren.IsComplete()) {

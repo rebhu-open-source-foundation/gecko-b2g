@@ -6,8 +6,6 @@
 
 #include "gc/Zone-inl.h"
 
-#include "jsutil.h"
-
 #include "gc/FreeOp.h"
 #include "gc/Policy.h"
 #include "gc/PublicIterators.h"
@@ -34,11 +32,11 @@ Zone* const Zone::NotOnList = reinterpret_cast<Zone*>(1);
 ZoneAllocator::ZoneAllocator(JSRuntime* rt)
     : JS::shadow::Zone(rt, &rt->gc.marker),
       zoneSize(&rt->gc.heapSize),
-      gcMallocBytes(nullptr) {
+      gcMallocBytes(nullptr),
+      gcJitBytes(nullptr),
+      gcJitThreshold(jit::MaxCodeBytesPerProcess * 0.8) {
   AutoLockGC lock(rt);
-  updateAllGCThresholds(rt->gc, GC_NORMAL, lock);
-  setGCMaxMallocBytes(rt->gc.tunables.maxMallocBytes(), lock);
-  jitCodeCounter.setMax(jit::MaxCodeBytesPerProcess * 0.8, lock);
+  updateGCThresholds(rt->gc, GC_NORMAL, lock);
 }
 
 ZoneAllocator::~ZoneAllocator() {
@@ -47,6 +45,7 @@ ZoneAllocator::~ZoneAllocator() {
     gcMallocTracker.checkEmptyOnDestroy();
     MOZ_ASSERT(zoneSize.gcBytes() == 0);
     MOZ_ASSERT(gcMallocBytes.gcBytes() == 0);
+    MOZ_ASSERT(gcJitBytes.gcBytes() == 0);
   }
 #endif
 }
@@ -57,31 +56,29 @@ void ZoneAllocator::fixupAfterMovingGC() {
 #endif
 }
 
-void js::ZoneAllocator::updateAllGCMallocCountersOnGCStart() {
-  gcMallocCounter.updateOnGCStart();
-  jitCodeCounter.updateOnGCStart();
+void js::ZoneAllocator::updateMemoryCountersOnGCStart() {
+  zoneSize.updateOnGCStart();
+  gcMallocBytes.updateOnGCStart();
 }
 
-void js::ZoneAllocator::updateAllGCMallocCountersOnGCEnd(
-    const js::AutoLockGC& lock) {
-  auto& gc = runtimeFromAnyThread()->gc;
-  gcMallocCounter.updateOnGCEnd(gc.tunables, lock);
-  jitCodeCounter.updateOnGCEnd(gc.tunables, lock);
-}
-
-void js::ZoneAllocator::updateAllGCThresholds(GCRuntime& gc,
-                                              JSGCInvocationKind invocationKind,
-                                              const js::AutoLockGC& lock) {
-  threshold.updateAfterGC(zoneSize.gcBytes(), invocationKind, gc.tunables,
+void js::ZoneAllocator::updateGCThresholds(GCRuntime& gc,
+                                           JSGCInvocationKind invocationKind,
+                                           const js::AutoLockGC& lock) {
+  // This is called repeatedly during a GC to update thresholds as memory is
+  // freed.
+  threshold.updateAfterGC(zoneSize.retainedBytes(), invocationKind, gc.tunables,
                           gc.schedulingState, lock);
-  gcMallocThreshold.updateAfterGC(gcMallocBytes.gcBytes(),
-                                  gc.tunables.maxMallocBytes(), lock);
+  gcMallocThreshold.updateAfterGC(gcMallocBytes.retainedBytes(),
+                                  gc.tunables.mallocThresholdBase(),
+                                  gc.tunables.mallocGrowthFactor(), lock);
 }
 
-js::gc::TriggerKind js::ZoneAllocator::shouldTriggerGCForTooMuchMalloc() {
-  auto& gc = runtimeFromAnyThread()->gc;
-  return std::max(gcMallocCounter.shouldTriggerGC(gc.tunables),
-                  jitCodeCounter.shouldTriggerGC(gc.tunables));
+void ZoneAllocPolicy::decMemory(size_t nbytes) {
+  // Unfortunately we don't have enough context here to know whether we're being
+  // called on behalf of the collector so we have to do a TLS lookup to find
+  // out.
+  JSContext* cx = TlsContext.get();
+  zone_->decPolicyMemory(this, nbytes, cx->defaultFreeOp()->isCollecting());
 }
 
 JS::Zone::Zone(JSRuntime* rt)
@@ -126,6 +123,7 @@ JS::Zone::Zone(JSRuntime* rt)
       gcScheduledSaved_(false),
       gcPreserveCode_(false),
       keepShapeCaches_(this, false),
+      wasCollected_(false),
       listNext_(NotOnList) {
   /* Ensure that there are no vtables to mess us up here. */
   MOZ_ASSERT(reinterpret_cast<JS::shadow::Zone*>(this) ==
@@ -321,14 +319,9 @@ void Zone::discardJitCode(FreeOp* fop,
     jit::FinishInvalidation(fop, script);
 
     // Discard baseline script if it's not marked as active.
-    if (discardBaselineCode && script->hasBaselineScript()) {
-      if (script->jitScript()->active()) {
-        // ICs will be purged so the script will need to warm back up before it
-        // can be inlined during Ion compilation.
-        script->baselineScript()->clearIonCompiledOrInlined();
-      } else {
-        jit::FinishDiscardBaselineScript(fop, script);
-      }
+    if (discardBaselineCode && script->hasBaselineScript() &&
+        !script->jitScript()->active()) {
+      jit::FinishDiscardBaselineScript(fop, script);
     }
 
     // Warm-up counter for scripts are reset on GC. After discarding code we
@@ -336,17 +329,11 @@ void Zone::discardJitCode(FreeOp* fop,
     // opcodes are setting array holes or accessing getter properties.
     script->resetWarmUpCounterForGC();
 
-    // Clear the BaselineScript's control flow graph. The LifoAlloc is purged
-    // below.
-    if (script->hasBaselineScript()) {
-      script->baselineScript()->setControlFlowGraph(nullptr);
-    }
-
     // Try to release the script's JitScript. This should happen after
     // releasing JIT code because we can't do this when the script still has
     // JIT code.
     if (discardJitScripts) {
-      script->maybeReleaseJitScript();
+      script->maybeReleaseJitScript(fop);
     }
 
     if (jit::JitScript* jitScript = script->jitScript()) {
@@ -354,7 +341,15 @@ void Zone::discardJitCode(FreeOp* fop,
       // stubs because the optimizedStubSpace will be purged below.
       if (discardBaselineCode) {
         jitScript->purgeOptimizedStubs(script);
+
+        // ICs were purged so the script will need to warm back up before it can
+        // be inlined during Ion compilation.
+        jitScript->clearIonCompiledOrInlined();
       }
+
+      // Clear the JitScript's control flow graph. The LifoAlloc is purged
+      // below.
+      jitScript->clearControlFlowGraph();
 
       // Finally, reset the active flag.
       jitScript->resetActive();
@@ -560,29 +555,6 @@ void* ZoneAllocator::onOutOfMemory(js::AllocFunction allocFunc,
 
 void ZoneAllocator::reportAllocationOverflow() const {
   js::ReportAllocationOverflow(nullptr);
-}
-
-void ZoneAllocator::maybeTriggerGCForTooMuchMalloc(
-    js::gc::MemoryCounter& counter, TriggerKind trigger) {
-  JSRuntime* rt = runtimeFromAnyThread();
-
-  if (!js::CurrentThreadCanAccessRuntime(rt)) {
-    return;
-  }
-
-  auto zone = JS::Zone::from(this);
-  bool wouldInterruptGC =
-      rt->gc.isIncrementalGCInProgress() && !zone->isCollecting();
-  if (wouldInterruptGC && !counter.shouldResetIncrementalGC(rt->gc.tunables)) {
-    return;
-  }
-
-  if (!rt->gc.triggerZoneGC(zone, JS::GCReason::TOO_MUCH_MALLOC,
-                            counter.bytes(), counter.maxBytes())) {
-    return;
-  }
-
-  counter.recordTrigger(trigger);
 }
 
 #ifdef DEBUG

@@ -100,6 +100,7 @@ public final class GeckoRuntime implements Parcelable {
     public static final String EXTRA_CRASH_FATAL = "fatal";
 
     private final class LifecycleListener implements LifecycleObserver {
+        private boolean mPaused = false;
         public LifecycleListener() {
         }
 
@@ -116,6 +117,11 @@ public final class GeckoRuntime implements Parcelable {
         @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
         void onResume() {
             Log.d(LOGTAG, "Lifecycle: onResume");
+            if (mPaused) {
+                // Do not trigger the first onResume event because it breaks nsAppShell::sPauseCount counter thresholds.
+                GeckoThread.onResume();
+            }
+            mPaused = false;
             // Monitor network status and send change notifications to Gecko
             // while active.
             GeckoNetworkManager.getInstance().start(GeckoAppShell.getApplicationContext());
@@ -124,8 +130,10 @@ public final class GeckoRuntime implements Parcelable {
         @OnLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         void onPause() {
             Log.d(LOGTAG, "Lifecycle: onPause");
+            mPaused = true;
             // Stop monitoring network status while inactive.
             GeckoNetworkManager.getInstance().stop();
+            GeckoThread.onPause();
         }
     }
 
@@ -159,9 +167,9 @@ public final class GeckoRuntime implements Parcelable {
     private GeckoRuntimeSettings mSettings;
     private Delegate mDelegate;
     private RuntimeTelemetry mTelemetry;
-    private WebExtensionEventDispatcher mWebExtensionDispatcher;
+    private final WebExtensionEventDispatcher mWebExtensionDispatcher;
     private StorageController mStorageController;
-    private WebExtensionController mWebExtensionController;
+    private final WebExtensionController mWebExtensionController;
 
     public GeckoRuntime() {
         mWebExtensionDispatcher = new WebExtensionEventDispatcher();
@@ -427,7 +435,7 @@ public final class GeckoRuntime implements Parcelable {
         return result;
     }
 
-    /* protected */ WebExtensionEventDispatcher getWebExtensionDispatcher() {
+    /* protected */ @NonNull WebExtensionEventDispatcher getWebExtensionDispatcher() {
         return mWebExtensionDispatcher;
     }
 

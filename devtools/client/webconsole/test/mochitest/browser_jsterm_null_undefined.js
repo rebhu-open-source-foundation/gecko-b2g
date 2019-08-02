@@ -16,16 +16,16 @@ add_task(async function() {
 
 async function performTests() {
   const hud = await openNewTabAndConsole(TEST_URI);
-  const jsterm = hud.jsterm;
 
   // Check that an evaluated null produces "null". See Bug 650780.
-  let onMessage = waitForMessage(hud, `null`);
-  jsterm.execute("null");
-  let message = await onMessage;
+  let message = await executeAndWaitForMessage(hud, "null", "null", ".result");
   ok(message, "`null` returned the expected value");
 
-  onMessage = waitForMessage(hud, "undefined");
-  jsterm.execute("undefined");
-  message = await onMessage;
+  message = await executeAndWaitForMessage(
+    hud,
+    "undefined",
+    "undefined",
+    ".result"
+  );
   ok(message, "`undefined` returned the expected value");
 }

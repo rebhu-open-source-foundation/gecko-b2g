@@ -1649,8 +1649,8 @@ already_AddRefed<nsIContent> nsCSSFrameConstructor::CreateGeneratedContent(
         }
 
         nsAutoString temp;
-        nsContentUtils::GetLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
-                                           "Submit", temp);
+        nsContentUtils::GetLocalizedString(
+            nsContentUtils::eFORMS_PROPERTIES_MAYBESPOOF, "Submit", temp);
         return CreateGenConTextNode(aState, temp, nullptr);
       }
 
@@ -4159,7 +4159,7 @@ nsCSSFrameConstructor::FindXULMenubarData(const Element& aElement,
   nsCOMPtr<nsIDocShell> treeItem = aElement.OwnerDoc()->GetDocShell();
   if (treeItem && nsIDocShellTreeItem::typeChrome == treeItem->ItemType()) {
     nsCOMPtr<nsIDocShellTreeItem> parent;
-    treeItem->GetParent(getter_AddRefs(parent));
+    treeItem->GetInProcessParent(getter_AddRefs(parent));
     if (!parent) {
       // This is the root.  Suppress the menubar, since on Mac
       // window menus are not attached to the window.
@@ -7956,8 +7956,8 @@ void nsCSSFrameConstructor::GetAlternateTextFor(Element* aElement, nsAtom* aTag,
 
     // If there's no "value" attribute either, then use the localized string for
     // "Submit" as the alternate text.
-    nsContentUtils::GetLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
-                                       "Submit", aAltText);
+    nsContentUtils::GetLocalizedString(
+        nsContentUtils::eFORMS_PROPERTIES_MAYBESPOOF, "Submit", aAltText);
   }
 }
 
@@ -10803,6 +10803,9 @@ void nsCSSFrameConstructor::FinishBuildingColumns(
 
   nsFrameList finalList;
   while (aColumnContentSiblings.NotEmpty()) {
+    // Tag every ColumnSet except the last one.
+    prevColumnSet->SetProperty(nsIFrame::HasColumnSpanSiblings(), true);
+
     nsIFrame* f = aColumnContentSiblings.RemoveFirstChild();
     if (f->IsColumnSpan()) {
       // Do nothing for column-span wrappers. Just move it to the final
@@ -10854,14 +10857,16 @@ nsFrameList nsCSSFrameConstructor::CreateColumnSpanSiblings(
   nsIContent* const content = aInitialBlock->GetContent();
   nsContainerFrame* const parentFrame = aInitialBlock->GetParent();
 
-  aInitialBlock->SetProperty(nsIFrame::HasColumnSpanSiblings(), true);
-
   nsFrameList siblings;
   nsContainerFrame* lastNonColumnSpanWrapper = aInitialBlock;
   do {
     MOZ_ASSERT(aChildList.NotEmpty(), "Why call this if child list is empty?");
     MOZ_ASSERT(aChildList.FirstChild()->IsColumnSpan(),
                "Must have the child starting with column-span!");
+
+    // Tag every non-column-span wrapper except the last one.
+    lastNonColumnSpanWrapper->SetProperty(nsIFrame::HasColumnSpanSiblings(),
+                                          true);
 
     // Grab the consecutive column-span kids, and reparent them into a
     // block frame.

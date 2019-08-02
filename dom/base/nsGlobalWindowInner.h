@@ -410,10 +410,10 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   void GetOwnPropertyNames(JSContext* aCx, JS::MutableHandleVector<jsid> aNames,
                            bool aEnumerableOnly, mozilla::ErrorResult& aRv);
 
-  nsPIDOMWindowOuter* GetScriptableTop() override;
-  inline nsGlobalWindowOuter* GetTopInternal();
+  nsPIDOMWindowOuter* GetInProcessScriptableTop() override;
+  inline nsGlobalWindowOuter* GetInProcessTopInternal();
 
-  inline nsGlobalWindowOuter* GetScriptableTopInternal();
+  inline nsGlobalWindowOuter* GetInProcessScriptableTopInternal();
 
   already_AddRefed<mozilla::dom::BrowsingContext> GetChildWindow(
       const nsAString& aName);
@@ -632,7 +632,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   void GetEvent(JSContext* aCx, JS::MutableHandle<JS::Value> aRetval);
   mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> GetParent(
       mozilla::ErrorResult& aError);
-  nsPIDOMWindowOuter* GetScriptableParent() override;
+  nsPIDOMWindowOuter* GetInProcessScriptableParent() override;
   mozilla::dom::Element* GetFrameElement(nsIPrincipal& aSubjectPrincipal,
                                          mozilla::ErrorResult& aError);
   mozilla::dom::Element* GetFrameElement() override;
@@ -654,8 +654,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
 
   void GetSidebar(mozilla::dom::OwningExternalOrWindowProxy& aResult,
                   mozilla::ErrorResult& aRv);
-  already_AddRefed<mozilla::dom::External> GetExternal(
-      mozilla::ErrorResult& aRv);
+  mozilla::dom::External* GetExternal(mozilla::ErrorResult& aRv);
 
   mozilla::dom::Worklet* GetPaintWorklet(mozilla::ErrorResult& aRv);
 
@@ -947,7 +946,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
 
   bool ShouldReportForServiceWorkerScope(const nsAString& aScope);
 
-  already_AddRefed<mozilla::dom::InstallTriggerImpl> GetInstallTrigger();
+  mozilla::dom::InstallTriggerImpl* GetInstallTrigger();
 
   nsIDOMWindowUtils* GetWindowUtils(mozilla::ErrorResult& aRv);
 
@@ -1038,7 +1037,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   nsresult DefineArgumentsProperty(nsIArray* aArguments);
 
   // Get the parent, returns null if this is a toplevel window
-  nsPIDOMWindowOuter* GetParentInternal();
+  nsPIDOMWindowOuter* GetInProcessParentInternal();
 
  public:
   // popup tracking
@@ -1499,17 +1498,18 @@ inline nsIGlobalObject* nsGlobalWindowInner::GetOwnerGlobal() const {
   return const_cast<nsGlobalWindowInner*>(this);
 }
 
-inline nsGlobalWindowOuter* nsGlobalWindowInner::GetTopInternal() {
+inline nsGlobalWindowOuter* nsGlobalWindowInner::GetInProcessTopInternal() {
   nsGlobalWindowOuter* outer = GetOuterWindowInternal();
-  nsCOMPtr<nsPIDOMWindowOuter> top = outer ? outer->GetTop() : nullptr;
+  nsCOMPtr<nsPIDOMWindowOuter> top = outer ? outer->GetInProcessTop() : nullptr;
   if (top) {
     return nsGlobalWindowOuter::Cast(top);
   }
   return nullptr;
 }
 
-inline nsGlobalWindowOuter* nsGlobalWindowInner::GetScriptableTopInternal() {
-  nsPIDOMWindowOuter* top = GetScriptableTop();
+inline nsGlobalWindowOuter*
+nsGlobalWindowInner::GetInProcessScriptableTopInternal() {
+  nsPIDOMWindowOuter* top = GetInProcessScriptableTop();
   return nsGlobalWindowOuter::Cast(top);
 }
 
@@ -1535,7 +1535,7 @@ inline bool nsGlobalWindowInner::IsPopupSpamWindow() {
 }
 
 inline bool nsGlobalWindowInner::IsFrame() {
-  return GetParentInternal() != nullptr;
+  return GetInProcessParentInternal() != nullptr;
 }
 
 #endif /* nsGlobalWindowInner_h___ */

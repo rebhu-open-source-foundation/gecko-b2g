@@ -130,10 +130,7 @@ PerformanceTimingData::PerformanceTimingData(nsITimedChannel* aChannel,
   }
 
   if (uri) {
-    nsresult rv = uri->SchemeIs("https", &mSecureConnection);
-    if (NS_FAILED(rv)) {
-      mSecureConnection = false;
-    }
+    mSecureConnection = uri->SchemeIs("https");
   }
 
   if (aChannel) {
@@ -623,7 +620,8 @@ bool PerformanceTiming::IsTopLevelContentDocument() const {
     return false;
   }
   nsCOMPtr<nsIDocShellTreeItem> rootItem;
-  Unused << docShell->GetSameTypeRootTreeItem(getter_AddRefs(rootItem));
+  Unused << docShell->GetInProcessSameTypeRootTreeItem(
+      getter_AddRefs(rootItem));
   if (rootItem.get() != static_cast<nsIDocShellTreeItem*>(docShell.get())) {
     return false;
   }

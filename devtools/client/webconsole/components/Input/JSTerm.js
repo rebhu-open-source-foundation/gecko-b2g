@@ -8,12 +8,6 @@ const { Utils: WebConsoleUtils } = require("devtools/client/webconsole/utils");
 const Services = require("Services");
 const { debounce } = require("devtools/shared/debounce");
 
-loader.lazyServiceGetter(
-  this,
-  "clipboardHelper",
-  "@mozilla.org/widget/clipboardhelper;1",
-  "nsIClipboardHelper"
-);
 loader.lazyRequireGetter(this, "Debugger", "Debugger");
 loader.lazyRequireGetter(this, "EventEmitter", "devtools/shared/event-emitter");
 loader.lazyRequireGetter(
@@ -37,22 +31,12 @@ loader.lazyRequireGetter(
   "Editor",
   "devtools/client/shared/sourceeditor/editor"
 );
-loader.lazyRequireGetter(this, "Telemetry", "devtools/client/shared/telemetry");
-loader.lazyRequireGetter(
-  this,
-  "saveScreenshot",
-  "devtools/shared/screenshot/save"
-);
 loader.lazyRequireGetter(
   this,
   "focusableSelector",
   "devtools/client/shared/focus",
   true
 );
-
-const l10n = require("devtools/client/webconsole/utils/l10n");
-
-const HELP_URL = "https://developer.mozilla.org/docs/Tools/Web_Console/Helpers";
 
 // React & Redux
 const { Component } = require("devtools/client/shared/vendor/react");
@@ -67,8 +51,7 @@ const {
 const {
   getAutocompleteState,
 } = require("devtools/client/webconsole/selectors/autocomplete");
-const historyActions = require("devtools/client/webconsole/actions/history");
-const autocompleteActions = require("devtools/client/webconsole/actions/autocomplete");
+const actions = require("devtools/client/webconsole/actions/index");
 
 // Constants used for defining the direction of JSTerm input history navigation.
 const {
@@ -100,6 +83,8 @@ class JSTerm extends Component {
       // Handler for clipboard 'paste' event (also used for 'drop' event, callback).
       onPaste: PropTypes.func,
       codeMirrorEnabled: PropTypes.bool,
+      // Evaluate provided expression.
+      evaluateExpression: PropTypes.func.isRequired,
       // Update position in the history after executing an expression (action).
       updateHistoryPosition: PropTypes.func.isRequired,
       // Update autocomplete popup state.
@@ -124,7 +109,6 @@ class JSTerm extends Component {
 
     this._keyPress = this._keyPress.bind(this);
     this._inputEventHandler = this._inputEventHandler.bind(this);
-    this._blurEventHandler = this._blurEventHandler.bind(this);
     this.onContextMenu = this.onContextMenu.bind(this);
     this.imperativeUpdate = this.imperativeUpdate.bind(this);
 
@@ -142,8 +126,6 @@ class JSTerm extends Component {
     this.autocompletePopup = null;
     this.inputNode = null;
     this.completeNode = null;
-
-    this._telemetry = new Telemetry();
 
     EventEmitter.decorate(this);
     webConsoleUI.jsterm = this;
@@ -183,14 +165,11 @@ class JSTerm extends Component {
             return null;
           }
 
-          if (this.canCaretGoPrevious()) {
+          if (this.props.editorMode === false && this.canCaretGoPrevious()) {
             inputUpdated = this.historyPeruse(HISTORY_BACK);
           }
 
-          if (!inputUpdated) {
-            return "CodeMirror.Pass";
-          }
-          return null;
+          return inputUpdated ? null : "CodeMirror.Pass";
         };
 
         const onArrowDown = () => {
@@ -200,14 +179,11 @@ class JSTerm extends Component {
             return null;
           }
 
-          if (this.canCaretGoNext()) {
+          if (this.props.editorMode === false && this.canCaretGoNext()) {
             inputUpdated = this.historyPeruse(HISTORY_FORWARD);
           }
 
-          if (!inputUpdated) {
-            return "CodeMirror.Pass";
-          }
-          return null;
+          return inputUpdated ? null : "CodeMirror.Pass";
         };
 
         const onArrowLeft = () => {
@@ -234,7 +210,7 @@ class JSTerm extends Component {
             return this.acceptProposedCompletion();
           }
 
-          this.execute();
+          this._execute();
           return null;
         };
 
@@ -267,7 +243,7 @@ class JSTerm extends Component {
               }
 
               if (!this.props.editorMode) {
-                this.execute();
+                this._execute();
                 return null;
               }
               return "CodeMirror.Pass";
@@ -349,6 +325,7 @@ class JSTerm extends Component {
               // multiline text.
               if (
                 Services.appinfo.OS === "Darwin" &&
+                this.props.editorMode === false &&
                 this.canCaretGoNext() &&
                 this.historyPeruse(HISTORY_FORWARD)
               ) {
@@ -365,6 +342,7 @@ class JSTerm extends Component {
               // multiline text.
               if (
                 Services.appinfo.OS === "Darwin" &&
+                this.props.editorMode === false &&
                 this.canCaretGoPrevious() &&
                 this.historyPeruse(HISTORY_BACK)
               ) {
@@ -507,7 +485,6 @@ class JSTerm extends Component {
       ? null
       : this._getInputPaddingInlineStart();
 
-    this.webConsoleUI.window.addEventListener("blur", this._blurEventHandler);
     this.lastInputValue && this._setValue(this.lastInputValue);
   }
 
@@ -569,14 +546,6 @@ class JSTerm extends Component {
     }
   }
 
-  /**
-   * Getter for the element that holds the messages we display.
-   * @type Element
-   */
-  get outputNode() {
-    return this.webConsoleUI.outputNode;
-  }
-
   focus() {
     if (this.editor) {
       this.editor.focus();
@@ -611,203 +580,19 @@ class JSTerm extends Component {
   }
 
   /**
-   * The JavaScript evaluation response handler.
-   *
-   * @private
-   * @param {Object} response
-   *        The message received from the server.
-   */
-  /* eslint-disable complexity */
-  async _executeResultCallback(response) {
-    if (!this.webConsoleUI) {
-      return null;
-    }
-
-    if (response.error) {
-      console.error(
-        "Evaluation error " + response.error + ": " + response.message
-      );
-      return null;
-    }
-
-    // If the evaluation was a top-level await expression that was rejected, there will
-    // be an uncaught exception reported, so we don't want need to print anything here.
-    if (response.topLevelAwaitRejected === true) {
-      return null;
-    }
-
-    let errorMessage = response.exceptionMessage;
-
-    // Wrap thrown strings in Error objects, so `throw "foo"` outputs "Error: foo"
-    if (typeof response.exception === "string") {
-      errorMessage = new Error(errorMessage).toString();
-    }
-    const result = response.result;
-    const helperResult = response.helperResult;
-    const helperHasRawOutput = !!(helperResult || {}).rawOutput;
-
-    if (helperResult && helperResult.type) {
-      switch (helperResult.type) {
-        case "clearOutput":
-          this.webConsoleUI.clearOutput();
-          break;
-        case "clearHistory":
-          this.props.clearHistory();
-          break;
-        case "inspectObject":
-          this.webConsoleUI.inspectObjectActor(helperResult.object);
-          break;
-        case "error":
-          try {
-            errorMessage = l10n.getStr(helperResult.message);
-          } catch (ex) {
-            errorMessage = helperResult.message;
-          }
-          break;
-        case "help":
-          this.webConsoleUI.hud.openLink(HELP_URL);
-          break;
-        case "copyValueToClipboard":
-          clipboardHelper.copyString(helperResult.value);
-          break;
-        case "screenshotOutput":
-          const { args, value } = helperResult;
-          const results = await saveScreenshot(
-            this.webConsoleUI.window,
-            args,
-            value
-          );
-          this.screenshotNotify(results);
-          // early return as screenshot notify has dispatched all necessary messages
-          return null;
-      }
-    }
-
-    // Hide undefined results coming from JSTerm helper functions.
-    if (
-      !errorMessage &&
-      result &&
-      typeof result == "object" &&
-      result.type == "undefined" &&
-      helperResult &&
-      !helperHasRawOutput
-    ) {
-      return null;
-    }
-
-    if (this.webConsoleUI.wrapper) {
-      return this.webConsoleUI.wrapper.dispatchMessageAdd(response, true);
-    }
-
-    return null;
-  }
-  /* eslint-enable complexity */
-
-  screenshotNotify(results) {
-    const wrappedResults = results.map(message => ({
-      message,
-      type: "logMessage",
-    }));
-    this.webConsoleUI.wrapper.dispatchMessagesAdd(wrappedResults);
-  }
-
-  /**
    * Execute a string. Execution happens asynchronously in the content process.
-   *
-   * @param {String} executeString
-   *        The string you want to execute. If this is not provided, the current
-   *        user input is used - taken from |this._getValue()|.
-   * @returns {Promise}
-   *          Resolves with the message once the result is displayed.
    */
-  async execute(executeString) {
-    // attempt to execute the content of the inputNode
-    executeString = executeString || this._getValue();
+  _execute() {
+    const executeString = this._getValue();
     if (!executeString) {
-      return null;
+      return;
     }
-
-    // Append executed expression into the history list.
-    this.props.appendToHistory(executeString);
-
-    WebConsoleUtils.usageCount++;
 
     if (!this.props.editorMode) {
       this._setValue("");
     }
-
     this.clearCompletion();
-
-    let selectedNodeActor = null;
-    const inspectorSelection = this.webConsoleUI.hud.getInspectorSelection();
-    if (inspectorSelection && inspectorSelection.nodeFront) {
-      selectedNodeActor = inspectorSelection.nodeFront.actorID;
-    }
-
-    const { ConsoleCommand } = require("devtools/client/webconsole/types");
-    const cmdMessage = new ConsoleCommand({
-      messageText: executeString,
-      timeStamp: Date.now(),
-    });
-    this.webConsoleUI.proxy.dispatchMessageAdd(cmdMessage);
-
-    let mappedExpressionRes = null;
-    try {
-      mappedExpressionRes = await this.webConsoleUI.hud.getMappedExpression(
-        executeString
-      );
-    } catch (e) {
-      console.warn("Error when calling getMappedExpression", e);
-    }
-
-    executeString = mappedExpressionRes
-      ? mappedExpressionRes.expression
-      : executeString;
-
-    const options = {
-      selectedNodeActor,
-      mapped: mappedExpressionRes ? mappedExpressionRes.mapped : null,
-    };
-
-    // Even if requestEvaluation rejects (because of webConsoleClient.evaluateJSAsync),
-    // we still need to pass the error response to executeResultCallback.
-    const onEvaluated = this.requestEvaluation(executeString, options).then(
-      res => res,
-      res => res
-    );
-    const response = await onEvaluated;
-    return this._executeResultCallback(response);
-  }
-
-  /**
-   * Request a JavaScript string evaluation from the server.
-   *
-   * @param string str
-   *        String to execute.
-   * @param object [options]
-   *        Options for evaluation:
-   *        - selectedNodeActor: tells the NodeActor ID of the current selection
-   *        in the Inspector, if such a selection exists. This is used by
-   *        helper functions that can evaluate on the current selection.
-   *        - mapped: basically getMappedExpression().mapped. An object that indicates
-   *        which modifications were done to the input entered by the user.
-   * @return object
-   *         A promise object that is resolved when the server response is
-   *         received.
-   */
-  requestEvaluation(str, options = {}) {
-    // Send telemetry event. If we are in the browser toolbox we send -1 as the
-    // toolbox session id.
-    this.props.serviceContainer.recordTelemetryEvent("execute_js", {
-      lines: str.split(/\n/).length,
-    });
-
-    const { frameActor, client } = this.props.serviceContainer.getFrameActor();
-
-    return client.evaluateJSAsync(str, {
-      frameActor,
-      ...options,
-    });
+    this.props.evaluateExpression(executeString);
   }
 
   /**
@@ -951,16 +736,6 @@ class JSTerm extends Component {
     }
   }
 
-  /**
-   * The window "blur" event handler.
-   * @private
-   */
-  _blurEventHandler() {
-    if (this.autocompletePopup) {
-      this.clearCompletion();
-    }
-  }
-
   /* eslint-disable complexity */
   /**
    * The inputNode "keypress" event handler.
@@ -995,6 +770,7 @@ class JSTerm extends Component {
           // multiline text.
           if (
             Services.appinfo.OS == "Darwin" &&
+            this.props.editorMode === false &&
             this.canCaretGoNext() &&
             this.historyPeruse(HISTORY_FORWARD)
           ) {
@@ -1013,6 +789,7 @@ class JSTerm extends Component {
           // multiline text.
           if (
             Services.appinfo.OS == "Darwin" &&
+            this.props.editorMode === false &&
             this.canCaretGoPrevious() &&
             this.historyPeruse(HISTORY_BACK)
           ) {
@@ -1056,7 +833,7 @@ class JSTerm extends Component {
         if (this.hasAutocompletionSuggestion()) {
           this.acceptProposedCompletion();
         } else if (this.props.editorMode) {
-          this.execute();
+          this._execute();
         }
         event.preventDefault();
       }
@@ -1069,7 +846,7 @@ class JSTerm extends Component {
         if (this.hasAutocompletionSuggestion()) {
           this.acceptProposedCompletion();
         } else if (this.props.editorMode) {
-          this.execute();
+          this._execute();
         }
         event.preventDefault();
       }
@@ -1105,7 +882,7 @@ class JSTerm extends Component {
         if (this.hasAutocompletionSuggestion()) {
           this.acceptProposedCompletion();
         } else if (!props.editorMode) {
-          this.execute();
+          this._execute();
         } else {
           this.insertStringAtCursor("\n");
         }
@@ -1116,7 +893,10 @@ class JSTerm extends Component {
         if (this.autocompletePopup.isOpen) {
           this.autocompletePopup.selectPreviousItem();
           event.preventDefault();
-        } else if (this.canCaretGoPrevious()) {
+        } else if (
+          this.props.editorMode === false &&
+          this.canCaretGoPrevious()
+        ) {
           inputUpdated = this.historyPeruse(HISTORY_BACK);
         }
         if (inputUpdated) {
@@ -1128,7 +908,7 @@ class JSTerm extends Component {
         if (this.autocompletePopup.isOpen) {
           this.autocompletePopup.selectNextItem();
           event.preventDefault();
-        } else if (this.canCaretGoNext()) {
+        } else if (this.props.editorMode === false && this.canCaretGoNext()) {
           inputUpdated = this.historyPeruse(HISTORY_FORWARD);
         }
         if (inputUpdated) {
@@ -1437,7 +1217,6 @@ class JSTerm extends Component {
     } else if (items.length < minimumAutoCompleteLength && popup.isOpen) {
       popup.hidePopup();
     }
-
     this.emit("autocomplete-updated");
   }
 
@@ -1489,8 +1268,8 @@ class JSTerm extends Component {
         });
         this.autocompletePopup.hidePopup();
       }
+      this.emit("autocomplete-updated");
     }
-    this.emit("autocomplete-updated");
   }
 
   /**
@@ -1730,12 +1509,6 @@ class JSTerm extends Component {
   }
 
   destroy() {
-    if (this.webConsoleUI.outputNode) {
-      // We do this because it's much faster than letting React handle the ConsoleOutput
-      // unmounting.
-      this.webConsoleUI.outputNode.innerHTML = "";
-    }
-
     if (this.autocompletePopup) {
       this.autocompletePopup.destroy();
       this.autocompletePopup = null;
@@ -1745,10 +1518,6 @@ class JSTerm extends Component {
       this.inputNode.removeEventListener("keypress", this._keyPress);
       this.inputNode.removeEventListener("input", this._inputEventHandler);
       this.inputNode.removeEventListener("keyup", this._inputEventHandler);
-      this.webConsoleUI.window.removeEventListener(
-        "blur",
-        this._blurEventHandler
-      );
     }
 
     if (this.editor) {
@@ -1829,13 +1598,15 @@ function mapStateToProps(state) {
 
 function mapDispatchToProps(dispatch) {
   return {
-    appendToHistory: expr => dispatch(historyActions.appendToHistory(expr)),
-    clearHistory: () => dispatch(historyActions.clearHistory()),
+    appendToHistory: expr => dispatch(actions.appendToHistory(expr)),
+    clearHistory: () => dispatch(actions.clearHistory()),
     updateHistoryPosition: (direction, expression) =>
-      dispatch(historyActions.updateHistoryPosition(direction, expression)),
+      dispatch(actions.updateHistoryPosition(direction, expression)),
     autocompleteUpdate: (force, getterPath) =>
-      dispatch(autocompleteActions.autocompleteUpdate(force, getterPath)),
-    autocompleteClear: () => dispatch(autocompleteActions.autocompleteClear()),
+      dispatch(actions.autocompleteUpdate(force, getterPath)),
+    autocompleteClear: () => dispatch(actions.autocompleteClear()),
+    evaluateExpression: expression =>
+      dispatch(actions.evaluateExpression(expression)),
   };
 }
 

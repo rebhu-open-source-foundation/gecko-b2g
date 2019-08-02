@@ -1087,9 +1087,8 @@ void XMLHttpRequestMainThread::GetAllResponseHeaders(
 
   // Don't provide Content-Length for data URIs
   nsCOMPtr<nsIURI> uri;
-  bool isDataURI;
   if (NS_FAILED(mChannel->GetURI(getter_AddRefs(uri))) ||
-      NS_FAILED(uri->SchemeIs("data", &isDataURI)) || !isDataURI) {
+      !uri->SchemeIs("data")) {
     int64_t length;
     if (NS_SUCCEEDED(mChannel->GetContentLength(&length))) {
       aResponseHeaders.AppendLiteral("Content-Length: ");
@@ -2890,7 +2889,7 @@ nsresult XMLHttpRequestMainThread::SendInternal(const BodyExtractorBase* aBody,
 
     if (GetOwner()) {
       if (nsCOMPtr<nsPIDOMWindowOuter> topWindow =
-              GetOwner()->GetOuterWindow()->GetTop()) {
+              GetOwner()->GetOuterWindow()->GetInProcessTop()) {
         if (nsCOMPtr<nsPIDOMWindowInner> topInner =
                 topWindow->GetCurrentInnerWindow()) {
           mSuspendedDoc = topWindow->GetExtantDoc();
@@ -2967,20 +2966,6 @@ bool XMLHttpRequestMainThread::IsMappedArrayBufferEnabled() {
   }
 
   return sIsMappedArrayBufferEnabled;
-}
-
-/* static */
-bool XMLHttpRequestMainThread::IsLowercaseResponseHeader() {
-  static bool sLowercaseResponseHeaderAdded = false;
-  static bool sIsLowercaseResponseHeaderEnabled;
-
-  if (!sLowercaseResponseHeaderAdded) {
-    Preferences::AddBoolVarCache(&sIsLowercaseResponseHeaderEnabled,
-                                 "dom.xhr.lowercase_header.enabled", false);
-    sLowercaseResponseHeaderAdded = true;
-  }
-
-  return sIsLowercaseResponseHeaderEnabled;
 }
 
 // http://dvcs.w3.org/hg/xhr/raw-file/tip/Overview.html#dom-xmlhttprequest-setrequestheader
@@ -3572,14 +3557,6 @@ NS_IMPL_ISUPPORTS(XMLHttpRequestMainThread::nsHeaderVisitor,
 NS_IMETHODIMP XMLHttpRequestMainThread::nsHeaderVisitor::VisitHeader(
     const nsACString& header, const nsACString& value) {
   if (mXHR.IsSafeHeader(header, mHttpChannel)) {
-    if (!IsLowercaseResponseHeader()) {
-      if (!mHeaderList.InsertElementSorted(HeaderEntry(header, value),
-                                           fallible)) {
-        return NS_ERROR_OUT_OF_MEMORY;
-      }
-      return NS_OK;
-    }
-
     nsAutoCString lowerHeader(header);
     ToLowerCase(lowerHeader);
     if (!mHeaderList.InsertElementSorted(HeaderEntry(lowerHeader, value),

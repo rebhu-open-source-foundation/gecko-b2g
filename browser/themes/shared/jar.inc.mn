@@ -38,6 +38,7 @@
   skin/classic/browser/controlcenter/info.svg                  (../shared/controlcenter/info.svg)
   skin/classic/browser/controlcenter/permissions.svg           (../shared/controlcenter/permissions.svg)
   skin/classic/browser/controlcenter/socialblock.svg           (../shared/controlcenter/socialblock.svg)
+  skin/classic/browser/controlcenter/socialblock-disabled.svg  (../shared/controlcenter/socialblock-disabled.svg)
   skin/classic/browser/controlcenter/tracker-image.svg         (../shared/controlcenter/tracker-image.svg)
   skin/classic/browser/controlcenter/trackers.svg              (../shared/controlcenter/trackers.svg)
   skin/classic/browser/controlcenter/trackers-disabled.svg     (../shared/controlcenter/trackers-disabled.svg)
@@ -95,6 +96,8 @@
   skin/classic/browser/notification-icons/webauthn.svg                      (../shared/notification-icons/webauthn.svg)
   skin/classic/browser/notification-icons/images.svg                        (../shared/notification-icons/images.svg)
   skin/classic/browser/notification-icons/images-blocked.svg                (../shared/notification-icons/images-blocked.svg)
+  skin/classic/browser/notification-icons/block-social-dark.svg             (../shared/notification-icons/block-social-dark.svg)
+  skin/classic/browser/notification-icons/block-social.svg                  (../shared/notification-icons/block-social.svg)
 
   skin/classic/browser/tracking-protection.svg                 (../shared/identity-block/tracking-protection.svg)
   skin/classic/browser/tracking-protection-disabled.svg        (../shared/identity-block/tracking-protection-disabled.svg)

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use api::{AlphaType, ClipMode, ExternalImageType, ImageRendering};
-use api::{YuvColorSpace, YuvFormat, ColorDepth, PremultipliedColorF, RasterSpace};
+use api::{YuvColorSpace, YuvFormat, ColorDepth, ColorRange, PremultipliedColorF, RasterSpace};
 use api::units::*;
 use crate::clip::{ClipDataStore, ClipNodeFlags, ClipNodeRange, ClipItem, ClipStore, ClipNodeInstance};
 use crate::clip_scroll_tree::{ClipScrollTree, ROOT_SPATIAL_NODE_INDEX, SpatialNodeIndex, CoordinateSystemId};
@@ -13,7 +13,7 @@ use crate::gpu_types::{BrushFlags, BrushInstance, PrimitiveHeaders, ZBufferId, Z
 use crate::gpu_types::{ClipMaskInstance, SplitCompositeInstance, SnapOffsets};
 use crate::gpu_types::{PrimitiveInstanceData, RasterizationSpace, GlyphInstance};
 use crate::gpu_types::{PrimitiveHeader, PrimitiveHeaderIndex, TransformPaletteId, TransformPalette};
-use crate::internal_types::{FastHashMap, SavedTargetIndex, TextureSource, Filter};
+use crate::internal_types::{FastHashMap, SavedTargetIndex, Swizzle, TextureSource, Filter};
 use crate::picture::{Picture3DContext, PictureCompositeMode, PicturePrimitive};
 use crate::prim_store::{DeferredResolve, EdgeAaSegmentMask, PrimitiveInstanceKind, PrimitiveVisibilityIndex, PrimitiveVisibilityMask};
 use crate::prim_store::{VisibleGradientTile, PrimitiveInstance, PrimitiveOpacity, SegmentInstanceIndex};
@@ -55,7 +55,7 @@ pub enum BrushBatchKind {
         source_id: RenderTaskId,
         backdrop_id: RenderTaskId,
     },
-    YuvImage(ImageBufferKind, YuvFormat, ColorDepth, YuvColorSpace),
+    YuvImage(ImageBufferKind, YuvFormat, ColorDepth, YuvColorSpace, ColorRange),
     RadialGradient,
     LinearGradient,
 }
@@ -1309,14 +1309,18 @@ impl BatchBuilder {
                                         // Gets the saved render task ID of the content, which is
                                         // deeper in the render task graph than the direct child.
                                         let secondary_id = picture.secondary_render_task_id.expect("no secondary!?");
-                                        let saved_index = render_tasks[secondary_id].saved_index.expect("no saved index!?");
-                                        debug_assert_ne!(saved_index, SavedTargetIndex::PENDING);
+                                        let content_source = {
+                                            let secondary_task = &render_tasks[secondary_id];
+                                            let saved_index = secondary_task.saved_index.expect("no saved index!?");
+                                            debug_assert_ne!(saved_index, SavedTargetIndex::PENDING);
+                                            TextureSource::RenderTaskCache(saved_index, Swizzle::default())
+                                        };
 
                                         // Build BatchTextures for shadow/content
                                         let shadow_textures = BatchTextures::render_target_cache();
                                         let content_textures = BatchTextures {
                                             colors: [
-                                                TextureSource::RenderTaskCache(saved_index),
+                                                content_source,
                                                 TextureSource::Invalid,
                                                 TextureSource::Invalid,
                                             ],
@@ -1897,6 +1901,7 @@ impl BatchBuilder {
                     yuv_image_data.format,
                     yuv_image_data.color_depth,
                     yuv_image_data.color_space,
+                    yuv_image_data.color_range,
                 );
 
                 let batch_params = BrushBatchParameters::shared(

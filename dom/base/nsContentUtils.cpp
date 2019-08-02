@@ -2184,7 +2184,7 @@ nsINode* nsContentUtils::GetCrossDocParentNode(nsINode* aChild) {
   }
 
   Document* doc = aChild->AsDocument();
-  Document* parentDoc = doc->GetParentDocument();
+  Document* parentDoc = doc->GetInProcessParentDocument();
   return parentDoc ? parentDoc->FindContentForSubDocument(doc) : nullptr;
 }
 
@@ -3560,7 +3560,7 @@ void nsContentUtils::GetEventArgNames(int32_t aNameSpaceID, nsAtom* aEventName,
 
 // Note: The list of content bundles in nsStringBundle.cpp should be updated
 // whenever entries are added or removed from this list.
-static const char gPropertiesFiles[nsContentUtils::PropertiesFile_COUNT][56] = {
+static const char* gPropertiesFiles[nsContentUtils::PropertiesFile_COUNT] = {
     // Must line up with the enum values in |PropertiesFile| enum.
     "chrome://global/locale/css.properties",
     "chrome://global/locale/xbl.properties",
@@ -3575,7 +3575,9 @@ static const char gPropertiesFiles[nsContentUtils::PropertiesFile_COUNT][56] = {
     "chrome://global/locale/commonDialogs.properties",
     "chrome://global/locale/mathml/mathml.properties",
     "chrome://global/locale/security/security.properties",
-    "chrome://necko/locale/necko.properties"};
+    "chrome://necko/locale/necko.properties",
+    "chrome://global/locale/layout/HtmlForm.properties",
+    "resource://gre/res/locale/layout/HtmlForm.properties"};
 
 /* static */
 nsresult nsContentUtils::EnsureStringBundle(PropertiesFile aFile) {
@@ -3624,10 +3626,22 @@ void nsContentUtils::AsyncPrecreateStringBundles() {
   }
 }
 
+static bool SpoofLocaleEnglish() {
+  // 0 - will prompt
+  // 1 - don't spoof
+  // 2 - spoof
+  return StaticPrefs::privacy_spoof_english() == 2;
+}
+
 /* static */
 nsresult nsContentUtils::GetLocalizedString(PropertiesFile aFile,
                                             const char* aKey,
                                             nsAString& aResult) {
+  // When we spoof English, use en-US default strings in HTML forms.
+  if (aFile == eFORMS_PROPERTIES_MAYBESPOOF && SpoofLocaleEnglish()) {
+    aFile = eFORMS_PROPERTIES_en_US;
+  }
+
   nsresult rv = EnsureStringBundle(aFile);
   NS_ENSURE_SUCCESS(rv, rv);
   nsIStringBundle* bundle = sStringBundles[aFile];
@@ -3638,6 +3652,11 @@ nsresult nsContentUtils::GetLocalizedString(PropertiesFile aFile,
 nsresult nsContentUtils::FormatLocalizedString(
     PropertiesFile aFile, const char* aKey, const nsTArray<nsString>& aParams,
     nsAString& aResult) {
+  // When we spoof English, use en-US default strings in HTML forms.
+  if (aFile == eFORMS_PROPERTIES_MAYBESPOOF && SpoofLocaleEnglish()) {
+    aFile = eFORMS_PROPERTIES_en_US;
+  }
+
   nsresult rv = EnsureStringBundle(aFile);
   NS_ENSURE_SUCCESS(rv, rv);
   nsIStringBundle* bundle = sStringBundles[aFile];
@@ -3767,7 +3786,7 @@ bool nsContentUtils::IsChildOfSameType(Document* aDoc) {
   nsCOMPtr<nsIDocShellTreeItem> docShellAsItem(aDoc->GetDocShell());
   nsCOMPtr<nsIDocShellTreeItem> sameTypeParent;
   if (docShellAsItem) {
-    docShellAsItem->GetSameTypeParent(getter_AddRefs(sameTypeParent));
+    docShellAsItem->GetInProcessSameTypeParent(getter_AddRefs(sameTypeParent));
   }
   return sameTypeParent != nullptr;
 }
@@ -5001,9 +5020,7 @@ void nsContentUtils::NotifyInstalledMenuKeyboardListener(bool aInstalling) {
 bool nsContentUtils::SchemeIs(nsIURI* aURI, const char* aScheme) {
   nsCOMPtr<nsIURI> baseURI = NS_GetInnermostURI(aURI);
   NS_ENSURE_TRUE(baseURI, false);
-
-  bool isScheme = false;
-  return NS_SUCCEEDED(baseURI->SchemeIs(aScheme, &isScheme)) && isScheme;
+  return baseURI->SchemeIs(aScheme);
 }
 
 bool nsContentUtils::IsSystemPrincipal(nsIPrincipal* aPrincipal) {
@@ -5124,11 +5141,13 @@ nsIWidget* nsContentUtils::GetTopLevelWidget(nsIWidget* aWidget) {
 const nsDependentString nsContentUtils::GetLocalizedEllipsis() {
   static char16_t sBuf[4] = {0, 0, 0, 0};
   if (!sBuf[0]) {
-    nsAutoString tmp;
-    Preferences::GetLocalizedString("intl.ellipsis", tmp);
-    uint32_t len =
-        std::min(uint32_t(tmp.Length()), uint32_t(ArrayLength(sBuf) - 1));
-    CopyUnicodeTo(tmp, 0, sBuf, len);
+    if (!SpoofLocaleEnglish()) {
+      nsAutoString tmp;
+      Preferences::GetLocalizedString("intl.ellipsis", tmp);
+      uint32_t len =
+          std::min(uint32_t(tmp.Length()), uint32_t(ArrayLength(sBuf) - 1));
+      CopyUnicodeTo(tmp, 0, sBuf, len);
+    }
     if (!sBuf[0]) sBuf[0] = char16_t(0x2026);
   }
   return nsDependentString(sBuf);
@@ -5420,7 +5439,7 @@ bool nsContentUtils::CheckForSubFrameDrop(nsIDragSession* aDragSession,
     // Get each successive parent of the source document and compare it to
     // the drop document. If they match, then this is a drag from a child frame.
     do {
-      doc = doc->GetParentDocument();
+      doc = doc->GetInProcessParentDocument();
       if (doc == targetDoc) {
         // The drag is from a child frame.
         return true;
@@ -5692,18 +5711,14 @@ nsresult nsContentUtils::GetASCIIOrigin(nsIPrincipal* aPrincipal,
 nsresult nsContentUtils::GetASCIIOrigin(nsIURI* aURI, nsACString& aOrigin) {
   MOZ_ASSERT(aURI, "missing uri");
 
-  bool isBlobURL = false;
-  nsresult rv = aURI->SchemeIs(BLOBURI_SCHEME, &isBlobURL);
-  NS_ENSURE_SUCCESS(rv, rv);
-
   // For Blob URI, the path is the URL of the owning page.
-  if (isBlobURL) {
+  if (aURI->SchemeIs(BLOBURI_SCHEME)) {
     nsAutoCString path;
-    rv = aURI->GetPathQueryRef(path);
+    nsresult rv = aURI->GetPathQueryRef(path);
     NS_ENSURE_SUCCESS(rv, rv);
 
     nsCOMPtr<nsIURI> uri;
-    nsresult rv = NS_NewURI(getter_AddRefs(uri), path);
+    rv = NS_NewURI(getter_AddRefs(uri), path);
     if (NS_FAILED(rv)) {
       aOrigin.AssignLiteral("null");
       return NS_OK;
@@ -5718,7 +5733,7 @@ nsresult nsContentUtils::GetASCIIOrigin(nsIURI* aURI, nsACString& aOrigin) {
   NS_ENSURE_TRUE(uri, NS_ERROR_UNEXPECTED);
 
   nsAutoCString host;
-  rv = uri->GetAsciiHost(host);
+  nsresult rv = uri->GetAsciiHost(host);
 
   if (NS_SUCCEEDED(rv) && !host.IsEmpty()) {
     nsAutoCString userPass;
@@ -6053,10 +6068,11 @@ void nsContentUtils::FlushLayoutForTree(nsPIDOMWindowOuter* aWindow) {
 
   if (nsCOMPtr<nsIDocShell> docShell = aWindow->GetDocShell()) {
     int32_t i = 0, i_end;
-    docShell->GetChildCount(&i_end);
+    docShell->GetInProcessChildCount(&i_end);
     for (; i < i_end; ++i) {
       nsCOMPtr<nsIDocShellTreeItem> item;
-      if (docShell->GetChildAt(i, getter_AddRefs(item)) == NS_OK && item) {
+      if (docShell->GetInProcessChildAt(i, getter_AddRefs(item)) == NS_OK &&
+          item) {
         if (nsCOMPtr<nsPIDOMWindowOuter> win = item->GetWindow()) {
           FlushLayoutForTree(win);
         }
@@ -6132,7 +6148,7 @@ PresShell* nsContentUtils::FindPresShellForDocument(const Document* aDocument) {
       return presShell;
     }
     nsCOMPtr<nsIDocShellTreeItem> parent;
-    docShellTreeItem->GetParent(getter_AddRefs(parent));
+    docShellTreeItem->GetInProcessParent(getter_AddRefs(parent));
     docShellTreeItem = parent;
   }
 
@@ -6518,8 +6534,8 @@ Document* nsContentUtils::GetRootDocument(Document* aDoc) {
     return nullptr;
   }
   Document* doc = aDoc;
-  while (doc->GetParentDocument()) {
-    doc = doc->GetParentDocument();
+  while (doc->GetInProcessParentDocument()) {
+    doc = doc->GetInProcessParentDocument();
   }
   return doc;
 }
@@ -6537,8 +6553,8 @@ bool nsContentUtils::IsInPointerLockContext(nsPIDOMWindowOuter* aWin) {
   }
 
   nsCOMPtr<nsPIDOMWindowOuter> lockTop =
-      pointerLockedDoc->GetWindow()->GetScriptableTop();
-  nsCOMPtr<nsPIDOMWindowOuter> top = aWin->GetScriptableTop();
+      pointerLockedDoc->GetWindow()->GetInProcessScriptableTop();
+  nsCOMPtr<nsPIDOMWindowOuter> top = aWin->GetInProcessScriptableTop();
 
   return top == lockTop;
 }
@@ -6934,7 +6950,7 @@ bool nsContentUtils::PrefetchPreloadEnabled(nsIDocShell* aDocShell) {
       return false;  // do not prefetch, preload, preconnect from mailnews
     }
 
-    docshell->GetParent(getter_AddRefs(parentItem));
+    docshell->GetInProcessParent(getter_AddRefs(parentItem));
     if (parentItem) {
       docshell = do_QueryInterface(parentItem);
       if (!docshell) {
@@ -7815,11 +7831,11 @@ void nsContentUtils::FirePageHideEvent(nsIDocShellTreeItem* aItem,
   doc->OnPageHide(true, aChromeEventHandler, aOnlySystemGroup);
 
   int32_t childCount = 0;
-  aItem->GetChildCount(&childCount);
+  aItem->GetInProcessChildCount(&childCount);
   AutoTArray<nsCOMPtr<nsIDocShellTreeItem>, 8> kids;
   kids.AppendElements(childCount);
   for (int32_t i = 0; i < childCount; ++i) {
-    aItem->GetChildAt(i, getter_AddRefs(kids[i]));
+    aItem->GetInProcessChildAt(i, getter_AddRefs(kids[i]));
   }
 
   for (uint32_t i = 0; i < kids.Length(); ++i) {
@@ -7839,11 +7855,11 @@ void nsContentUtils::FirePageShowEvent(nsIDocShellTreeItem* aItem,
                                        bool aFireIfShowing,
                                        bool aOnlySystemGroup) {
   int32_t childCount = 0;
-  aItem->GetChildCount(&childCount);
+  aItem->GetInProcessChildCount(&childCount);
   AutoTArray<nsCOMPtr<nsIDocShellTreeItem>, 8> kids;
   kids.AppendElements(childCount);
   for (int32_t i = 0; i < childCount; ++i) {
-    aItem->GetChildAt(i, getter_AddRefs(kids[i]));
+    aItem->GetInProcessChildAt(i, getter_AddRefs(kids[i]));
   }
 
   for (uint32_t i = 0; i < kids.Length(); ++i) {
@@ -7980,7 +7996,7 @@ bool nsContentUtils::IsThirdPartyWindowOrChannel(nsPIDOMWindowInner* aWindow,
     // want to check the channel URI against the loading principal as well.
     nsresult rv =
         thirdPartyUtil->IsThirdPartyChannel(aChannel, nullptr, &thirdParty);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
+    if (NS_FAILED(rv)) {
       // Assume third-party in case of failure
       thirdParty = true;
     }
@@ -8690,9 +8706,7 @@ bool nsContentUtils::IsSpecificAboutPage(JSObject* aGlobal, const char* aUri) {
   }
 
   // First check the scheme to avoid getting long specs in the common case.
-  bool isAbout = false;
-  uri->SchemeIs("about", &isAbout);
-  if (!isAbout) {
+  if (!uri->SchemeIs("about")) {
     return false;
   }
 
@@ -8755,7 +8769,7 @@ void nsContentUtils::GetPresentationURL(nsIDocShell* aDocShell,
 
   if (XRE_IsContentProcess()) {
     nsCOMPtr<nsIDocShellTreeItem> sameTypeRoot;
-    aDocShell->GetSameTypeRootTreeItem(getter_AddRefs(sameTypeRoot));
+    aDocShell->GetInProcessSameTypeRootTreeItem(getter_AddRefs(sameTypeRoot));
     nsCOMPtr<nsIDocShellTreeItem> root;
     aDocShell->GetRootTreeItem(getter_AddRefs(root));
     if (sameTypeRoot.get() == root.get()) {
@@ -9354,13 +9368,9 @@ bool nsContentUtils::AttemptLargeAllocationLoad(nsIHttpChannel* aChannel) {
   NS_ENSURE_SUCCESS(rv, false);
   NS_ENSURE_TRUE(uri, false);
 
-  nsCOMPtr<nsIURI> referrer;
   nsCOMPtr<nsIReferrerInfo> referrerInfo;
   rv = aChannel->GetReferrerInfo(getter_AddRefs(referrerInfo));
   NS_ENSURE_SUCCESS(rv, false);
-  if (referrerInfo) {
-    referrer = referrerInfo->GetComputedReferrer();
-  }
 
   nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
   nsCOMPtr<nsIPrincipal> triggeringPrincipal = loadInfo->TriggeringPrincipal();
@@ -9382,8 +9392,9 @@ bool nsContentUtils::AttemptLargeAllocationLoad(nsIHttpChannel* aChannel) {
 
   // Actually perform the cross process load
   bool reloadSucceeded = false;
-  rv = wbc3->ReloadInFreshProcess(docShell, uri, referrer, triggeringPrincipal,
-                                  webnavLoadFlags, csp, &reloadSucceeded);
+  rv = wbc3->ReloadInFreshProcess(docShell, uri, referrerInfo,
+                                  triggeringPrincipal, webnavLoadFlags, csp,
+                                  &reloadSucceeded);
   NS_ENSURE_SUCCESS(rv, false);
 
   return reloadSucceeded;
@@ -9596,7 +9607,7 @@ bool nsContentUtils::ShouldBlockReservedKeys(WidgetKeyboardEvent* aKeyEvent) {
         if (docShell &&
             docShell->ItemType() == nsIDocShellTreeItem::typeContent) {
           nsCOMPtr<nsIDocShellTreeItem> rootItem;
-          docShell->GetSameTypeRootTreeItem(getter_AddRefs(rootItem));
+          docShell->GetInProcessSameTypeRootTreeItem(getter_AddRefs(rootItem));
           if (rootItem && rootItem->GetDocument()) {
             principal = rootItem->GetDocument()->NodePrincipal();
           }

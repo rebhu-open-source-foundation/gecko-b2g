@@ -1031,7 +1031,7 @@ nsresult ContentChild::ProvideWindowCommon(
   nsCOMPtr<nsPIDOMWindowInner> parentTopInnerWindow;
   if (aParent) {
     nsCOMPtr<nsPIDOMWindowOuter> parentTopWindow =
-        nsPIDOMWindowOuter::From(aParent)->GetTop();
+        nsPIDOMWindowOuter::From(aParent)->GetInProcessTop();
     if (parentTopWindow) {
       parentTopInnerWindow = parentTopWindow->GetCurrentInnerWindow();
     }
@@ -2113,10 +2113,8 @@ already_AddRefed<RemoteBrowser> ContentChild::CreateBrowser(
   TabId tabId(nsContentUtils::GenerateTabId());
   RefPtr<BrowserBridgeChild> browserBridge =
       new BrowserBridgeChild(aFrameLoader, aBrowsingContext, tabId);
-  // Reference is freed in BrowserChild::DeallocPBrowserBridgeChild.
   browserChild->SendPBrowserBridgeConstructor(
-      do_AddRef(browserBridge).take(),
-      PromiseFlatString(aContext.PresentationURL()), aRemoteType,
+      browserBridge, PromiseFlatString(aContext.PresentationURL()), aRemoteType,
       aBrowsingContext, chromeFlags, tabId);
   browserBridge->mIPCOpen = true;
 

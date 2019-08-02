@@ -77,15 +77,7 @@ BaselineCodeGen<Handler>::BaselineCodeGen(JSContext* cx, HandlerArgs&&... args)
     : handler(cx, masm, std::forward<HandlerArgs>(args)...),
       cx(cx),
       frame(handler.frame()),
-      traceLoggerToggleOffsets_(cx),
-      profilerEnterFrameToggleOffset_(),
-      profilerExitFrameToggleOffset_(),
-      pushedBeforeCall_(0),
-#ifdef DEBUG
-      inCall_(false),
-#endif
-      modifiesArguments_(false) {
-}
+      traceLoggerToggleOffsets_(cx) {}
 
 BaselineCompiler::BaselineCompiler(JSContext* cx, TempAllocator& alloc,
                                    JSScript* script)
@@ -257,28 +249,6 @@ MethodStatus BaselineCompiler::compile() {
     return Method_Error;
   }
 
-  Rooted<EnvironmentObject*> templateEnv(cx);
-  if (script->functionNonDelazifying()) {
-    RootedFunction fun(cx, script->functionNonDelazifying());
-
-    if (fun->needsNamedLambdaEnvironment()) {
-      templateEnv =
-          NamedLambdaObject::createTemplateObject(cx, fun, gc::TenuredHeap);
-      if (!templateEnv) {
-        return Method_Error;
-      }
-    }
-
-    if (fun->needsCallObject()) {
-      RootedScript scriptRoot(cx, script);
-      templateEnv = CallObject::createTemplateObject(
-          cx, scriptRoot, templateEnv, gc::TenuredHeap);
-      if (!templateEnv) {
-        return Method_Error;
-      }
-    }
-  }
-
   // Encode the pc mapping table. See PCMappingIndexEntry for
   // more information.
   Vector<PCMappingIndexEntry> pcMappingIndexEntries(cx);
@@ -322,8 +292,7 @@ MethodStatus BaselineCompiler::compile() {
   }
 
   UniquePtr<BaselineScript> baselineScript(
-      BaselineScript::New(script, bailoutPrologueOffset_.offset(),
-                          warmUpCheckPrologueOffset_.offset(),
+      BaselineScript::New(script, warmUpCheckPrologueOffset_.offset(),
                           profilerEnterFrameToggleOffset_.offset(),
                           profilerExitFrameToggleOffset_.offset(),
                           handler.retAddrEntries().length(),
@@ -337,7 +306,6 @@ MethodStatus BaselineCompiler::compile() {
   }
 
   baselineScript->setMethod(code);
-  baselineScript->setTemplateEnvironment(templateEnv);
 
   JitSpew(JitSpew_BaselineScripts,
           "Created BaselineScript %p (raw %p) for %s:%u:%u",
@@ -360,13 +328,6 @@ MethodStatus BaselineCompiler::compile() {
   if (cx->runtime()->jitRuntime()->isProfilerInstrumentationEnabled(
           cx->runtime())) {
     baselineScript->toggleProfilerInstrumentation(true);
-  }
-
-  if (modifiesArguments_) {
-    baselineScript->setModifiesArguments();
-  }
-  if (handler.analysis().usesEnvironmentChain()) {
-    baselineScript->setUsesEnvironmentChain();
   }
 
 #ifdef JS_TRACE_LOGGING
@@ -655,14 +616,14 @@ bool BaselineCompilerCodeGen::emitNextIC() {
   MOZ_RELEASE_ASSERT(entry->pcOffset() == pcOffset);
   MOZ_ASSERT_IF(!entry->isForPrologue(), BytecodeOpHasIC(JSOp(*handler.pc())));
 
-  CodeOffset callOffset;
-  EmitCallIC(masm, entry, &callOffset);
+  CodeOffset returnOffset;
+  EmitCallIC(masm, entry, &returnOffset);
 
   RetAddrEntry::Kind kind = entry->isForPrologue()
                                 ? RetAddrEntry::Kind::PrologueIC
                                 : RetAddrEntry::Kind::IC;
 
-  if (!handler.retAddrEntries().emplaceBack(pcOffset, kind, callOffset)) {
+  if (!handler.retAddrEntries().emplaceBack(pcOffset, kind, returnOffset)) {
     ReportOutOfMemory(cx);
     return false;
   }
@@ -676,7 +637,21 @@ bool BaselineInterpreterCodeGen::emitNextIC() {
   masm.loadPtr(frame.addressOfInterpreterICEntry(), ICStubReg);
   masm.loadPtr(Address(ICStubReg, ICEntry::offsetOfFirstStub()), ICStubReg);
   masm.call(Address(ICStubReg, ICStub::offsetOfStubCode()));
+  uint32_t returnOffset = masm.currentOffset();
   restoreInterpreterPCReg();
+
+  // If this is an IC for a bytecode op where Ion may inline scripts, we need to
+  // record the return offset for Ion bailouts.
+  if (handler.currentOp()) {
+    JSOp op = *handler.currentOp();
+    MOZ_ASSERT(BytecodeOpHasIC(op));
+    if (IsIonInlinableOp(op)) {
+      if (!handler.icReturnOffsets().emplaceBack(returnOffset, op)) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
@@ -1578,9 +1553,8 @@ bool BaselineCompiler::emitDebugTrap() {
   MOZ_ASSERT(frame.numUnsyncedSlots() == 0);
 
   JSScript* script = handler.script();
-  bool enabled =
-      DebugAPI::stepModeEnabled(script) ||
-      DebugAPI::hasBreakpointsAt(script, handler.pc());
+  bool enabled = DebugAPI::stepModeEnabled(script) ||
+                 DebugAPI::hasBreakpointsAt(script, handler.pc());
 
 #if defined(JS_CODEGEN_ARM64)
   // Flush any pending constant pools to prevent incorrect
@@ -3204,7 +3178,7 @@ bool BaselineCodeGen<Handler>::emit_JSOP_GETELEM_SUPER() {
     return false;
   }
 
-  frame.pop();  // This value is also popped in InitFromBailout.
+  frame.pop();
   frame.push(R0);
   return true;
 }
@@ -4398,15 +4372,6 @@ bool BaselineCodeGen<Handler>::emit_JSOP_GETARG() {
 
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_JSOP_SETARG() {
-  // Ionmonkey can't inline functions with SETARG with magic arguments.
-  if (JSScript* script = handler.maybeScript()) {
-    if (!script->argsObjAliasesFormals() && script->argumentsAliasesFormals()) {
-      script->setUninlineable();
-    }
-  }
-
-  modifiesArguments_ = true;
-
   return emitFormalArgAccess(JSOP_SETARG);
 }
 
@@ -4495,8 +4460,9 @@ bool BaselineInterpreterCodeGen::emit_JSOP_NEWTARGET() {
 
   Label notArrow;
   masm.andPtr(Imm32(uint32_t(CalleeTokenMask)), scratch1);
-  masm.branchFunctionKind(Assembler::NotEqual, JSFunction::FunctionKind::Arrow,
-                          scratch1, scratch2, &notArrow);
+  masm.branchFunctionKind(Assembler::NotEqual,
+                          FunctionFlags::FunctionKind::Arrow, scratch1,
+                          scratch2, &notArrow);
   {
     // Case 2: arrow function.
     masm.pushValue(
@@ -4837,11 +4803,6 @@ bool BaselineCodeGen<Handler>::emit_JSOP_THROW() {
 
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_JSOP_TRY() {
-  // Ionmonkey can't inline function with JSOP_TRY.
-  if (JSScript* script = handler.maybeScript()) {
-    script->setUninlineable();
-  }
-
   return true;
 }
 
@@ -5781,7 +5742,7 @@ bool BaselineCodeGen<Handler>::emit_JSOP_SUPERFUN() {
 
   // Use VMCall if not constructor
   masm.load16ZeroExtend(Address(proto, JSFunction::offsetOfFlags()), scratch);
-  masm.branchTest32(Assembler::Zero, scratch, Imm32(JSFunction::CONSTRUCTOR),
+  masm.branchTest32(Assembler::Zero, scratch, Imm32(FunctionFlags::CONSTRUCTOR),
                     &needVMCall);
 
   // Valid constructor
@@ -6072,29 +6033,18 @@ bool BaselineCodeGen<Handler>::emitEnterGeneratorCode(Register script,
                                                       Register scratch) {
   Address baselineAddr(script, JSScript::offsetOfBaselineScript());
 
-  auto emitEnterBaseline = [&]() {
-    masm.loadPtr(baselineAddr, script);
-    masm.load32(Address(script, BaselineScript::offsetOfResumeEntriesOffset()),
-                scratch);
-    masm.addPtr(scratch, script);
-    masm.loadPtr(
-        BaseIndex(script, resumeIndex, ScaleFromElemWidth(sizeof(uintptr_t))),
-        scratch);
-    masm.jump(scratch);
-  };
-
-  if (!IsBaselineInterpreterEnabled()) {
-    // We must have a BaselineScript.
-    emitEnterBaseline();
-    return true;
-  }
-
-  // If the Baseline Interpreter is enabled we resume in either the
-  // BaselineScript (if present) or Baseline Interpreter.
+  // Resume in either the BaselineScript (if present) or Baseline Interpreter.
   Label noBaselineScript;
   masm.branchPtr(Assembler::BelowOrEqual, baselineAddr,
                  ImmPtr(BASELINE_DISABLED_SCRIPT), &noBaselineScript);
-  emitEnterBaseline();
+  masm.loadPtr(baselineAddr, script);
+  masm.load32(Address(script, BaselineScript::offsetOfResumeEntriesOffset()),
+              scratch);
+  masm.addPtr(scratch, script);
+  masm.loadPtr(
+      BaseIndex(script, resumeIndex, ScaleFromElemWidth(sizeof(uintptr_t))),
+      scratch);
+  masm.jump(scratch);
 
   masm.bind(&noBaselineScript);
 
@@ -6135,25 +6085,22 @@ bool BaselineCodeGen<Handler>::emitGeneratorResume(
   ValueOperand retVal = regs.takeAnyValue();
   masm.loadValue(frame.addressOfStackValue(-1), retVal);
 
-  // Branch to interpret if the script does not have a JitScript or
-  // BaselineScript (depending on whether the Baseline Interpreter is enabled).
-  // Note that we don't relazify generator scripts, so the function is
+  // Branch to |interpret| to resume the generator in the C++ interpreter if the
+  // script does not have a JitScript. Note that we don't relazify generator
+  // scripts (asserted in JSFunction::maybeRelazify) so the function is
   // guaranteed to be non-lazy.
   Label interpret;
   Register scratch1 = regs.takeAny();
   masm.loadPtr(Address(callee, JSFunction::offsetOfScript()), scratch1);
-  Address baselineAddr(scratch1, JSScript::offsetOfBaselineScript());
-  if (IsBaselineInterpreterEnabled()) {
-    Address jitScriptAddr(scratch1, JSScript::offsetOfJitScript());
-    masm.branchPtr(Assembler::Equal, jitScriptAddr, ImmPtr(nullptr),
-                   &interpret);
-  } else {
-    masm.branchPtr(Assembler::BelowOrEqual, baselineAddr,
-                   ImmPtr(BASELINE_DISABLED_SCRIPT), &interpret);
-  }
+  masm.branchPtr(Assembler::Equal,
+                 Address(scratch1, JSScript::offsetOfJitScript()),
+                 ImmPtr(nullptr), &interpret);
 
 #ifdef JS_TRACE_LOGGING
   if (JS::TraceLoggerSupported()) {
+    // TODO (bug 1565788): add Baseline Interpreter support.
+    MOZ_CRASH("Unimplemented Baseline Interpreter TraceLogger support");
+    Address baselineAddr(scratch1, JSScript::offsetOfBaselineScript());
     masm.loadPtr(baselineAddr, scratch1);
     if (!emitTraceLoggerResume(scratch1, regs)) {
       return false;
@@ -6349,9 +6296,9 @@ bool BaselineCodeGen<Handler>::emitGeneratorResume(
     // self-hosted code, instead of the generator code that we are
     // pretending we are already executing. Instead, we push a
     // dummy return address. In jit::GeneratorThrowOrReturn,
-    // we will set the baseline frame's overridePc. Frame iterators
-    // will use the override pc instead of relying on the return
-    // address.
+    // we will make this an interpreter frame so frame iterators
+    // will use the frame's interpreter pc field instead of relying
+    // on the return address.
 
     // On ARM64, the callee will push a bogus return address. On
     // other architectures, we push a null return address.
@@ -6365,8 +6312,8 @@ bool BaselineCodeGen<Handler>::emitGeneratorResume(
     masm.implicitPop((fun.explicitStackSlots() + 1) * sizeof(void*));
   }
 
-  // Call into the VM to run in the C++ interpreter if there's no JitScript or
-  // BaselineScript.
+  // Call into the VM to resume the generator in the C++ interpreter if there's
+  // no JitScript.
   masm.bind(&interpret);
 
   prepareVMCall();
@@ -6779,8 +6726,7 @@ template <>
 bool BaselineCompilerCodeGen::emit_JSOP_INSTRUMENTATION_SCRIPT_ID() {
   int32_t scriptId;
   RootedScript script(cx, handler.script());
-  if (!RealmInstrumentation::getScriptId(cx, cx->global(), script,
-                                         &scriptId)) {
+  if (!RealmInstrumentation::getScriptId(cx, cx->global(), script, &scriptId)) {
     return false;
   }
   frame.push(Int32Value(scriptId));
@@ -6848,8 +6794,8 @@ bool BaselineCodeGen<Handler>::emitPrologue() {
   }
 #endif
 
-  // Record prologue offset for Ion bailouts.
-  bailoutPrologueOffset_ = CodeOffset(masm.currentOffset());
+  // Ion prologue bailouts will enter here in the Baseline Interpreter.
+  masm.bind(&bailoutPrologue_);
 
   frame.assertSyncedStack();
 
@@ -7103,12 +7049,14 @@ bool BaselineInterpreterGenerator::emitInterpreterLoop() {
 #define EMIT_OP(OP)                     \
   {                                     \
     masm.bind(&opLabels[OP]);           \
+    handler.setCurrentOp(OP);           \
     if (!this->emit_##OP()) {           \
       return false;                     \
     }                                   \
     if (!opEpilogue(OP, OP##_LENGTH)) { \
       return false;                     \
     }                                   \
+    handler.resetCurrentOp();           \
   }
   OPCODE_LIST(EMIT_OP)
 #undef EMIT_OP
@@ -7126,6 +7074,11 @@ bool BaselineInterpreterGenerator::emitInterpreterLoop() {
   interpretOpNoDebugTrapOffset_ = masm.currentOffset();
   restoreInterpreterPCReg();
   masm.jump(&interpretOpAfterDebugTrap);
+
+  // External entry point for Ion prologue bailouts.
+  bailoutPrologueOffset_ = CodeOffset(masm.currentOffset());
+  restoreInterpreterPCReg();
+  masm.jump(&bailoutPrologue_);
 
   // Emit code for JSOP_UNUSED* ops.
   Label invalidOp;
@@ -7256,13 +7209,14 @@ bool BaselineInterpreterGenerator::generate(BaselineInterpreter& interpreter) {
     vtune::MarkStub(code, "BaselineInterpreter");
 #endif
 
-    interpreter.init(code, interpretOpOffset_, interpretOpNoDebugTrapOffset_,
-                     profilerEnterFrameToggleOffset_.offset(),
-                     profilerExitFrameToggleOffset_.offset(),
-                     std::move(handler.debugInstrumentationOffsets()),
-                     std::move(debugTrapOffsets_),
-                     std::move(handler.codeCoverageOffsets()),
-                     handler.callVMOffsets());
+    interpreter.init(
+        code, interpretOpOffset_, interpretOpNoDebugTrapOffset_,
+        bailoutPrologueOffset_.offset(),
+        profilerEnterFrameToggleOffset_.offset(),
+        profilerExitFrameToggleOffset_.offset(),
+        std::move(handler.debugInstrumentationOffsets()),
+        std::move(debugTrapOffsets_), std::move(handler.codeCoverageOffsets()),
+        std::move(handler.icReturnOffsets()), handler.callVMOffsets());
   }
 
   if (cx->runtime()->geckoProfiler().enabled()) {

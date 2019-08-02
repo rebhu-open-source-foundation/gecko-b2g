@@ -48,7 +48,8 @@ class WebConsoleUI {
   constructor(hud) {
     this.hud = hud;
     this.hudId = this.hud.hudId;
-    this.isBrowserConsole = this.hud._browserConsole;
+    this.isBrowserConsole = this.hud.isBrowserConsole;
+    this.fissionSupport = this.hud.fissionSupport;
     this.window = this.hud.iframeWindow;
 
     this._onPanelSelected = this._onPanelSelected.bind(this);
@@ -89,6 +90,13 @@ class WebConsoleUI {
     }
 
     this.React = this.ReactDOM = this.FrameView = null;
+
+    if (this.outputNode) {
+      // We do this because it's much faster than letting React handle the ConsoleOutput
+      // unmounting.
+      this.outputNode.innerHTML = "";
+    }
+
     if (this.jsterm) {
       this.jsterm.destroy();
       this.jsterm = null;
@@ -205,7 +213,12 @@ class WebConsoleUI {
     }
 
     this._initDefer = defer();
-    this.proxy = new WebConsoleConnectionProxy(this, this.hud.target);
+    this.proxy = new WebConsoleConnectionProxy(
+      this,
+      this.hud.target,
+      this.isBrowserConsole,
+      this.fissionSupport
+    );
 
     this.proxy.connect().then(
       () => {
@@ -328,21 +341,6 @@ class WebConsoleUI {
   }
 
   /**
-   * Handler for page location changes.
-   *
-   * @param string uri
-   *        New page location.
-   * @param string title
-   *        New page title.
-   */
-  onLocationChange(uri, title) {
-    this.contentLocation = uri;
-    if (this.hud.onLocationChange) {
-      this.hud.onLocationChange(uri, title);
-    }
-  }
-
-  /**
    * Release an actor.
    *
    * @private
@@ -381,10 +379,6 @@ class WebConsoleUI {
    *        Notification packet received from the server.
    */
   async handleTabNavigated(packet) {
-    if (packet.url) {
-      this.onLocationChange(packet.url, packet.title);
-    }
-
     if (!packet.nativeConsoleAPI) {
       this.logWarningAboutReplacedAPI();
     }
@@ -397,9 +391,6 @@ class WebConsoleUI {
 
   handleTabWillNavigate(packet) {
     this.wrapper.dispatchTabWillNavigate(packet);
-    if (packet.url) {
-      this.onLocationChange(packet.url, packet.title);
-    }
   }
 }
 

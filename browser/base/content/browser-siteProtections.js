@@ -10,6 +10,13 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/ContentBlockingAllowList.jsm"
 );
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "TrackingDBService",
+  "@mozilla.org/tracking-db-service;1",
+  "nsITrackingDBService"
+);
+
 var Fingerprinting = {
   PREF_ENABLED: "privacy.trackingprotection.fingerprinting.enabled",
   reportBreakageLabel: "fingerprinting",
@@ -894,6 +901,255 @@ var ThirdPartyCookies = {
   },
 };
 
+var SocialTracking = {
+  PREF_ENABLED: "privacy.trackingprotection.socialtracking.annotate.enabled",
+  PREF_NOTIFICATION_UI_ENABLED: "privacy.socialtracking.notification.enabled",
+  PREF_SESSION_PAGELOAD_MIN:
+    "privacy.socialtracking.notification.session.pageload.min",
+  PREF_LAST_SEEN: "privacy.socialtracking.notification.lastSeen",
+  PREF_PERIOD_MIN: "privacy.socialtracking.notification.period.min",
+  PREF_COUNTER: "privacy.socialtracking.notification.counter",
+  PREF_MAX: "privacy.socialtracking.notification.max",
+
+  strings: {
+    get subViewBlocked() {
+      delete this.subViewBlocked;
+      return (this.subViewBlocked = gNavigatorBundle.getString(
+        "contentBlocking.fingerprintersView.blocked.label"
+      ));
+    },
+  },
+
+  sessionPageLoad: 0,
+
+  // points to the object of current showing popup, this is used to avoid
+  // another popup from showing when it's still visible.
+  currentPopup: null,
+
+  init() {
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "enabled",
+      this.PREF_ENABLED,
+      false
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "uiEnabled",
+      this.PREF_NOTIFICATION_UI_ENABLED
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "sessionPageLoadMin",
+      this.PREF_SESSION_PAGELOAD_MIN
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "lastSeen",
+      this.PREF_LAST_SEEN
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "periodMinMillisec",
+      this.PREF_PERIOD_MIN
+    );
+
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "numNotifications",
+      this.PREF_COUNTER
+    );
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "maxNotifications",
+      this.PREF_MAX
+    );
+  },
+
+  isBlocking(state) {
+    return (
+      (state &
+        Ci.nsIWebProgressListener.STATE_BLOCKED_SOCIALTRACKING_CONTENT) !=
+      0
+    );
+  },
+
+  isAllowing(state) {
+    return (
+      this.enabled &&
+      (state & Ci.nsIWebProgressListener.STATE_LOADED_SOCIALTRACKING_CONTENT) !=
+        0
+    );
+  },
+
+  isDetected(state) {
+    return this.isBlocking(state) || this.isAllowing(state);
+  },
+
+  get categoryItem() {
+    delete this.categoryItem;
+    return (this.categoryItem = document.getElementById(
+      "protections-popup-category-socialblock"
+    ));
+  },
+
+  get categoryLabel() {
+    delete this.categoryLabel;
+    return (this.categoryLabel = document.getElementById(
+      "protections-popup-socialblock-state-label"
+    ));
+  },
+
+  get subViewList() {
+    delete this.subViewList;
+    return (this.subViewList = document.getElementById(
+      "protections-popup-socialblockView-list"
+    ));
+  },
+
+  async updateSubView() {
+    let contentBlockingLog = await gBrowser.selectedBrowser.getContentBlockingLog();
+    contentBlockingLog = JSON.parse(contentBlockingLog);
+
+    let fragment = document.createDocumentFragment();
+    for (let [origin, actions] of Object.entries(contentBlockingLog)) {
+      let listItem = this._createListItem(origin, actions);
+      if (listItem) {
+        fragment.appendChild(listItem);
+      }
+    }
+
+    this.subViewList.textContent = "";
+    this.subViewList.append(fragment);
+  },
+
+  _createListItem(origin, actions) {
+    let isAllowed = actions.some(([state]) => this.isAllowing(state));
+    let isDetected =
+      isAllowed || actions.some(([state]) => this.isBlocking(state));
+
+    if (!isDetected) {
+      return null;
+    }
+
+    let uri = Services.io.newURI(origin);
+
+    let listItem = document.createXULElement("hbox");
+    listItem.className = "protections-popup-list-item";
+    // Repeat the host in the tooltip in case it's too long
+    // and overflows in our panel.
+    listItem.tooltipText = uri.host;
+
+    let label = document.createXULElement("label");
+    label.value = uri.host;
+    label.className = "protections-popup-list-host-label";
+    label.setAttribute("crop", "end");
+    listItem.append(label);
+
+    return listItem;
+  },
+
+  onBlocked() {
+    let now = Date.now();
+    // The heuristics to show the pop-up are:
+    //   0. a social media tracker is blocked
+    //   1. user didn't disable notification UI by:
+    //      - check "don't show again"
+    //      - press "See Protections" button
+    //   2. only after the 4th page load
+    //   3. at most 1 time every 2 days
+    //   4. at most 5 times per profile
+    //   5. no other popup is showing
+    if (
+      !this.uiEnabled ||
+      this.sessionPageLoad <= this.sessionPageLoadMin ||
+      now - this.lastSeen < this.periodMinMillisec ||
+      this.numNotifications >= this.maxNotifications ||
+      this.currentPopup
+    ) {
+      return;
+    }
+
+    Services.prefs.setIntPref(this.PREF_LAST_SEEN, now);
+    Services.prefs.setIntPref(this.PREF_COUNTER, this.numNotifications + 1);
+
+    let browser = gBrowser.selectedBrowser;
+    let learnMoreURL =
+      Services.urlFormatter.formatURLPref("app.support.baseURL") +
+      "social-media-tracking-report";
+
+    let mainAction = {
+      label: gNavigatorBundle.getString(
+        "contentBlocking.socialblock.primaryButton.label"
+      ),
+      accessKey: gNavigatorBundle.getString(
+        "contentBlocking.socialblock.primaryButton.accesskey"
+      ),
+      callback: arg => {
+        let { event } = arg;
+
+        Services.prefs.setBoolPref(this.PREF_NOTIFICATION_UI_ENABLED, false);
+
+        gProtectionsHandler.showProtectionsPopup({ event });
+      },
+    };
+
+    let secondaryAction = {
+      label: gNavigatorBundle.getString(
+        "contentBlocking.socialblock.secondaryButton.label"
+      ),
+      accessKey: gNavigatorBundle.getString(
+        "contentBlocking.socialblock.secondaryButton.accessKey"
+      ),
+      callback: arg => {
+        Services.prefs.setBoolPref(this.PREF_NOTIFICATION_UI_ENABLED, false);
+      },
+    };
+
+    let brandBundle = document.getElementById("bundle_brand");
+    let brandShortName = brandBundle.getString("brandShortName");
+    let options = {
+      hideClose: true,
+      removeOnDismissal: true,
+      learnMoreURL,
+      name: gNavigatorBundle.getFormattedString(
+        "contentBlocking.socialblock.title",
+        [brandShortName]
+      ),
+
+      eventCallback: state => {
+        switch (state) {
+          case "showing":
+            let doc = browser.ownerDocument;
+            let message = doc.getElementById("socialblock-message");
+            message.textContent = gNavigatorBundle.getFormattedString(
+              "contentBlocking.socialblock.prompt",
+              [brandShortName]
+            );
+            break;
+          case "removed":
+            this.currentPopup = null;
+            break;
+        }
+      },
+    };
+
+    // Make gIdentityHandler._trackingProtectionIconContainer as anchor object.
+    let anchorId = "stp";
+    browser[anchorId + "popupnotificationanchor"] = gProtectionsHandler.iconBox;
+
+    this.currentPopup = PopupNotifications.show(
+      browser,
+      "socialblock",
+      "",
+      anchorId,
+      mainAction,
+      [secondaryAction],
+      options
+    );
+  },
+};
+
 /**
  * Utility object to handle manipulations of the protections indicators in the UI
  */
@@ -927,7 +1183,9 @@ var gProtectionsHandler = {
   },
   get appMenuLabel() {
     delete this.appMenuLabel;
-    return (this.appMenuLabel = document.getElementById("appMenu-tp-label"));
+    return (this.appMenuLabel = document.getElementById(
+      "appMenu-protection-report-text"
+    ));
   },
   get _protectionsIconBox() {
     delete this._protectionsIconBox;
@@ -971,21 +1229,27 @@ var gProtectionsHandler = {
       "protections-popup-tp-switch"
     ));
   },
-  get _protectionPopupSettingsButton() {
-    delete this._protectionPopupSettingsButton;
-    return (this._protectionPopupSettingsButton = document.getElementById(
+  get _protectionsPopupSettingsButton() {
+    delete this._protectionsPopupSettingsButton;
+    return (this._protectionsPopupSettingsButton = document.getElementById(
       "protections-popup-settings-button"
     ));
   },
-  get _protectionPopupFooter() {
-    delete this._protectionPopupFooter;
-    return (this._protectionPopupFooter = document.getElementById(
+  get _protectionsPopupFooter() {
+    delete this._protectionsPopupFooter;
+    return (this._protectionsPopupFooter = document.getElementById(
       "protections-popup-footer"
     ));
   },
-  get _protectionPopupTrackersCounterDescription() {
-    delete this._protectionPopupTrackersCounterDescription;
-    return (this._protectionPopupTrackersCounterDescription = document.getElementById(
+  get _protectionsPopupTrackersCounterBox() {
+    delete this._protectionsPopupTrackersCounterBox;
+    return (this._protectionsPopupTrackersCounterBox = document.getElementById(
+      "protections-popup-trackers-blocked-counter-box"
+    ));
+  },
+  get _protectionsPopupTrackersCounterDescription() {
+    delete this._protectionsPopupTrackersCounterDescription;
+    return (this._protectionsPopupTrackersCounterDescription = document.getElementById(
       "protections-popup-trackers-blocked-counter-description"
     ));
   },
@@ -1007,24 +1271,29 @@ var gProtectionsHandler = {
       "protections-popup-sendReportView-collection-url"
     ));
   },
+  get _socialblockPopupNotification() {
+    delete this._socialblockPopupNotification;
+    return (this._socialblockPopupNotification = document.getElementById(
+      "socialblock-notification"
+    ));
+  },
+
+  get _socialTrackingSessionPageLoad() {
+    return SocialTracking.sessionPageLoad;
+  },
 
   strings: {
     get appMenuTitle() {
       delete this.appMenuTitle;
       return (this.appMenuTitle = gNavigatorBundle.getString(
-        "contentBlocking.title"
+        "protectionReport.title"
       ));
     },
 
     get appMenuTooltip() {
       delete this.appMenuTooltip;
-      if (AppConstants.platform == "win") {
-        return (this.appMenuTooltip = gNavigatorBundle.getString(
-          "contentBlocking.tooltipWin"
-        ));
-      }
       return (this.appMenuTooltip = gNavigatorBundle.getString(
-        "contentBlocking.tooltipOther"
+        "protectionReport.tooltip"
       ));
     },
 
@@ -1055,6 +1324,7 @@ var gProtectionsHandler = {
   // on gProtectionsHandler.init() and gProtectionsHandler.uninit().
   blockers: [
     TrackingProtection,
+    SocialTracking,
     ThirdPartyCookies,
     Fingerprinting,
     Cryptomining,
@@ -1121,12 +1391,8 @@ var gProtectionsHandler = {
     this.appMenuLabel.setAttribute("value", this.strings.appMenuTitle);
     this.appMenuLabel.setAttribute("tooltiptext", this.strings.appMenuTooltip);
 
-    this.updateCBCategoryLabel = this.updateCBCategoryLabel.bind(this);
-    this.updateCBCategoryLabel();
-    Services.prefs.addObserver(
-      this.PREF_CB_CATEGORY,
-      this.updateCBCategoryLabel
-    );
+    // Add an observer to observe that the history has been cleared.
+    Services.obs.addObserver(this, "browser:purge-session-history");
   },
 
   uninit() {
@@ -1140,42 +1406,33 @@ var gProtectionsHandler = {
       this.PREF_ANIMATIONS_ENABLED,
       this.updateAnimationsEnabled
     );
-    Services.prefs.removeObserver(
-      this.PREF_CB_CATEGORY,
-      this.updateCBCategoryLabel
-    );
-  },
 
-  updateCBCategoryLabel() {
-    if (!Services.prefs.prefHasUserValue(this.PREF_CB_CATEGORY)) {
-      // Fallback to not setting a label, it's preferable to not set a label than to set an incorrect one.
-      return;
-    }
-    let appMenuCategoryLabel = document.getElementById("appMenu-tp-category");
-    let label;
-    let category = Services.prefs.getStringPref(this.PREF_CB_CATEGORY);
-    switch (category) {
-      case "standard":
-        label = gNavigatorBundle.getString("contentBlocking.category.standard");
-        break;
-      case "strict":
-        label = gNavigatorBundle.getString("contentBlocking.category.strict");
-        break;
-      case "custom":
-        label = gNavigatorBundle.getString("contentBlocking.category.custom");
-        break;
-    }
-    appMenuCategoryLabel.value = label;
+    Services.obs.removeObserver(this, "browser:purge-session-history");
   },
 
   openPreferences(origin) {
     openPreferences("privacy-trackingprotection", { origin });
   },
 
+  openProtections(relatedToCurrent = false) {
+    switchToTabHavingURI("about:protections", true, {
+      replaceQueryString: true,
+      relatedToCurrent,
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    });
+  },
+
   async showTrackersSubview() {
     await TrackingProtection.updateSubView();
     this._protectionsPopupMultiView.showSubView(
       "protections-popup-trackersView"
+    );
+  },
+
+  async showSocialblockerSubview() {
+    await SocialTracking.updateSubView();
+    this._protectionsPopupMultiView.showSubView(
+      "protections-popup-socialblockView"
     );
   },
 
@@ -1238,13 +1495,6 @@ var gProtectionsHandler = {
   onPopupShown(event) {
     if (event.target == this._protectionsPopup) {
       window.addEventListener("focus", this, true);
-
-      // Add the "open" attribute to the tracking protection icon container
-      // for styling.
-      gIdentityHandler._trackingProtectionIconContainer.setAttribute(
-        "open",
-        "true"
-      );
     }
   },
 
@@ -1252,6 +1502,12 @@ var gProtectionsHandler = {
     if (event.target == this._protectionsPopup) {
       window.removeEventListener("focus", this, true);
       gIdentityHandler._trackingProtectionIconContainer.removeAttribute("open");
+
+      // Hide the tracker counter when the popup get hidden.
+      this._protectionsPopupTrackersCounterBox.toggleAttribute(
+        "showing",
+        false
+      );
     }
   },
 
@@ -1266,8 +1522,31 @@ var gProtectionsHandler = {
     }
   },
 
+  async onTrackingProtectionIconHoveredOrFocused() {
+    // We would try to pre-fetch the data whenever the shield icon is hovered or
+    // focused. We check focus event here due to the keyboard navigation.
+    if (this._updatingFooter) {
+      return;
+    }
+    this._updatingFooter = true;
+
+    // Get the tracker count and set it to the counter in the footer.
+    const trackerCount = await TrackingDBService.sumAllEvents();
+    this.setTrackersBlockedCounter(trackerCount);
+
+    // Try to get the earliest recorded date in case that there was no record
+    // during the initiation but new records come after that.
+    await this.maybeUpdateEarliestRecordedDateTooltip();
+
+    this._updatingFooter = false;
+  },
+
   // This triggers from top level location changes.
   onLocationChange() {
+    if (["http", "https"].includes(gBrowser.currentURI.scheme)) {
+      SocialTracking.sessionPageLoad += 1;
+    }
+
     if (this._showToastAfterRefresh) {
       this._showToastAfterRefresh = false;
 
@@ -1377,6 +1656,10 @@ var gProtectionsHandler = {
       this.iconBox.removeAttribute("tooltiptext");
     }
 
+    if (SocialTracking.isBlocking(event)) {
+      SocialTracking.onBlocked();
+    }
+
     // We report up to one instance of fingerprinting and cryptomining
     // blocking and/or allowing per page load.
     let fingerprintingBlocking =
@@ -1420,13 +1703,25 @@ var gProtectionsHandler = {
     }
   },
 
+  observe(subject, topic, data) {
+    switch (topic) {
+      case "browser:purge-session-history":
+        // We need to update the earliest recorded date if history has been
+        // cleared.
+        this._hasEarliestRecord = false;
+        this.maybeUpdateEarliestRecordedDateTooltip();
+        break;
+    }
+  },
+
   refreshProtectionsPopup() {
     let host = gIdentityHandler.getHostForDisplay();
 
     // Push the appropriate strings out to the UI.
-    this._protectionsPopupMainViewHeaderLabel.textContent =
-      // gNavigatorBundle.getFormattedString("protections.header", [host]);
-      `Tracking Protections for ${host}`;
+    this._protectionsPopupMainViewHeaderLabel.textContent = gNavigatorBundle.getFormattedString(
+      "protections.header",
+      [host]
+    );
 
     let currentlyEnabled = !this._protectionsPopup.hasAttribute("hasException");
 
@@ -1451,11 +1746,8 @@ var gProtectionsHandler = {
       !currentlyEnabled
     );
 
-    // Set the counter of the 'Trackers blocked This Week'.
-    // We need to get the statistics of trackers. So far, we haven't implemented
-    // this yet. So we use a fake number here. Should be resolved in
-    // Bug 1555231.
-    this.setTrackersBlockedCounter(244051);
+    // Update the tooltip of the blocked tracker counter.
+    this.maybeUpdateEarliestRecordedDateTooltip();
   },
 
   disableForCurrentPage() {
@@ -1515,10 +1807,19 @@ var gProtectionsHandler = {
   },
 
   setTrackersBlockedCounter(trackerCount) {
-    this._protectionPopupTrackersCounterDescription.textContent =
-      // gNavigatorBundle.getFormattedString(
-      //   "protections.trackers_counter", [cnt]);
-      `Trackers blocked this week: ${trackerCount.toLocaleString()}`;
+    let forms = gNavigatorBundle.getString(
+      "protections.footer.blockedTrackerCounter.description"
+    );
+    this._protectionsPopupTrackersCounterDescription.textContent = PluralForm.get(
+      trackerCount,
+      forms
+    ).replace("#1", trackerCount);
+
+    // Show the counter if the number of tracker is not zero.
+    this._protectionsPopupTrackersCounterBox.toggleAttribute(
+      "showing",
+      trackerCount != 0
+    );
   },
 
   /**
@@ -1565,6 +1866,13 @@ var gProtectionsHandler = {
         { once: true }
       );
     }
+
+    // Add the "open" attribute to the tracking protection icon container
+    // for styling.
+    gIdentityHandler._trackingProtectionIconContainer.setAttribute(
+      "open",
+      "true"
+    );
 
     // Check the panel state of the identity panel. Hide it if needed.
     if (gIdentityHandler._identityPopup.state != "closed") {
@@ -1714,5 +2022,36 @@ var gProtectionsHandler = {
   onSendReportClicked() {
     this._protectionsPopup.hidePopup();
     this.submitBreakageReport(this.reportURI);
+  },
+
+  async maybeUpdateEarliestRecordedDateTooltip() {
+    if (this._hasEarliestRecord) {
+      return;
+    }
+
+    let date = await TrackingDBService.getEarliestRecordedDate();
+
+    // If there is no record for any blocked tracker, we don't have to do anything
+    // since the tracker counter won't be shown.
+    if (!date) {
+      return;
+    }
+    this._hasEarliestRecord = true;
+
+    const dateLocaleStr = new Date(date).toLocaleDateString("default", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const tooltipStr = gNavigatorBundle.getFormattedString(
+      "protections.footer.blockedTrackerCounter.tooltip",
+      [dateLocaleStr]
+    );
+
+    this._protectionsPopupTrackersCounterDescription.setAttribute(
+      "tooltiptext",
+      tooltipStr
+    );
   },
 };

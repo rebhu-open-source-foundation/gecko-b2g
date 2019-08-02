@@ -23,7 +23,7 @@
 # Please follow the existing prefs naming convention when considering adding a
 # new pref, and don't create a new pref group unless it's appropriate and there
 # are likely to be multiple prefs within that group. (If you do, you'll need to
-# update the `groups` variable in modules/libpref/moz.build.)
+# update the `pref_groups` variable in modules/libpref/moz.build.)
 #
 # Definitions
 # -----------
@@ -695,12 +695,13 @@
   value: 2
   mirror: always
 
-# Whether Content Blocking Third-Party Cookies UI has been enabled.
+# Whether Content Blocking allow list is respected for ETP interventions.
 - name: browser.contentblocking.allowlist.storage.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
+# Whether Content Blocking allow list is respected for tracking annotations.
 - name: browser.contentblocking.allowlist.annotations.enabled
   type: bool
   value: true
@@ -974,6 +975,99 @@
 #endif
 
 #---------------------------------------------------------------------------
+# Prefs starting with "content."
+#---------------------------------------------------------------------------
+
+# Back off timer notification after count.
+# -1 means never.
+- name: content.notify.backoffcount
+  type: int32_t
+  value: -1
+  mirror: always
+
+# Notification interval in microseconds.
+# The notification interval has a dramatic effect on how long it takes to
+# initially display content for slow connections. The current value
+# provides good incremental display of content without causing an increase
+# in page load time. If this value is set below 1/10 of a second it starts
+# to impact page load performance.
+# See bugzilla bug 72138 for more info.
+- name: content.notify.interval
+  type: int32_t
+  value: 120000
+  mirror: always
+
+# Do we notify based on time?
+- name: content.notify.ontimer
+  type: bool
+  value: true
+  mirror: always
+
+# How many times to deflect in interactive mode.
+- name: content.sink.interactive_deflect_count
+  type: int32_t
+  value: 0
+  mirror: always
+
+# How many times to deflect in perf mode.
+- name: content.sink.perf_deflect_count
+  type: int32_t
+  value: 200
+  mirror: always
+
+# Parse mode for handling pending events.
+# 0 = don't check for pending events
+# 1 = don't deflect if there are pending events
+# 2 = bail if there are pending events
+- name: content.sink.pending_event_mode
+  type: int32_t
+# ifdef XP_WIN
+  value: 1
+# else
+  value: 0
+# endif
+  mirror: always
+
+# How often to probe for pending events. 1 = every token.
+- name: content.sink.event_probe_rate
+  type: int32_t
+  value: 1
+  mirror: always
+
+# How long to stay off the event loop in interactive mode.
+- name: content.sink.interactive_parse_time
+  type: int32_t
+  value: 3000
+  mirror: always
+
+# How long to stay off the event loop in perf mode.
+- name: content.sink.perf_parse_time
+  type: int32_t
+  value: 360000
+  mirror: always
+
+#  How long to be in interactive mode after an event.
+- name: content.sink.interactive_time
+  type: uint32_t
+  value: 750000
+  mirror: always
+
+# How long to stay in perf mode after initial loading.
+- name: content.sink.initial_perf_time
+  type: uint32_t
+  value: 2000000
+  mirror: always
+
+# Should we switch between perf-mode and interactive-mode?
+# 0 = Switch
+# 1 = Interactive mode
+# 2 = Perf mode
+- name: content.sink.enable_perf_mode
+  type: int32_t
+  value: 0
+  mirror: always
+
+#---------------------------------------------------------------------------
 # Prefs starting with "device."
 #---------------------------------------------------------------------------
 
@@ -1114,6 +1208,12 @@
   value: false
   mirror: always
 
+# Disable capture attribute for input elements; only supported on GeckoView.
+- name: dom.capture.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether Mozilla specific "text" event should be dispatched only in the
 # system group or not in content.
 - name: dom.compositionevent.text.dispatch_only_system_group_in_content
@@ -1132,6 +1232,13 @@
 - name: dom.dialog_element.enabled
   type: bool
   value: false
+  mirror: always
+
+# Only propagate the open window click permission if the setTimeout() is equal
+# to or less than this value.
+- name: dom.disable_open_click_delay
+  type: int32_t
+  value: 1000
   mirror: always
 
 - name: dom.disable_open_during_load
@@ -1308,6 +1415,21 @@
   value: false
   mirror: always
 
+- name: dom.ipc.tabs.disabled
+  type: bool
+  value: false
+  mirror: always
+
+- name: dom.ipc.processPriorityManager.enabled
+  type: bool
+  value: false
+  mirror: always
+
+- name: dom.ipc.processPriorityManager.testMode
+  type: bool
+  value: false
+  mirror: always
+
 # Is support for input type=date and type=time enabled?
 - name: dom.forms.datetime
   type: bool
@@ -1426,6 +1548,18 @@
 - name: dom.metaElement.setCookie.allowed
   type: bool
   value: false
+  mirror: always
+
+# Timeout clamp in ms for timeouts we clamp.
+- name: dom.min_timeout_value
+  type: int32_t
+  value: 4
+  mirror: always
+
+# Timeout clamp in ms for background windows.
+- name: dom.min_background_timeout_value
+  type: int32_t
+  value: 1000
   mirror: always
 
 # Is support for module scripts (<script type="module">) enabled for content?
@@ -1607,6 +1741,26 @@
 # Push
 - name: dom.push.enabled
   type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Preference that users can set to override temporary storage smart limit
+# calculation.
+- name: dom.quotaManager.temporaryStorage.fixedLimit
+  type: RelaxedAtomicInt32
+  value: -1
+  mirror: always
+
+# Preference that users can set to override temporary storage smart limit
+# calculation.
+- name: dom.quotaManager.temporaryStorage.chunkSize
+  type: RelaxedAtomicUint32
+  value: 10 * 1024
+  mirror: always
+
+# A pref that is used to enable testing features.
+- name: dom.quotaManager.testing
+  type: SequentiallyConsistentAtomicBool
   value: false
   mirror: always
 
@@ -1817,6 +1971,44 @@
   value: false
   mirror: always
 
+# Time (in ms) that it takes to regenerate 1ms.
+- name: dom.timeout.background_budget_regeneration_rate
+  type: int32_t
+  value: 100
+  mirror: always
+
+# Time (in ms) that it takes to regenerate 1ms.
+- name: dom.timeout.foreground_budget_regeneration_rate
+  type: int32_t
+  value: 1
+  mirror: always
+
+# Maximum value (in ms) for the background budget. Only valid for
+# values greater than 0.
+- name: dom.timeout.background_throttling_max_budget
+  type: int32_t
+  value: 50
+  mirror: always
+
+# Maximum value (in ms) for the foreground budget. Only valid for
+# values greater than 0.
+- name: dom.timeout.foreground_throttling_max_budget
+  type: int32_t
+  value: -1
+  mirror: always
+
+# The maximum amount a timeout can be delayed by budget throttling.
+- name: dom.timeout.budget_throttling_max_delay
+  type: int32_t
+  value: 15000
+  mirror: always
+
+# Turn on budget throttling by default.
+- name: dom.timeout.enable_budget_timer_throttling
+  type: bool
+  value: true
+  mirror: always
+
 # Should we defer timeouts and intervals while loading a page.  Released
 # on Idle or when the page is loaded.
 - name: dom.timeout.defer_during_load
@@ -1824,10 +2016,23 @@
   value: true
   mirror: always
 
+# Maximum amount of time in milliseconds consecutive setTimeout()/setInterval()
+# callback are allowed to run before yielding the event loop.
+- name: dom.timeout.max_consecutive_callbacks_ms
+  type: uint32_t
+  value: 4
+  mirror: always
+
 # Maximum deferral time for setTimeout/Interval in milliseconds
 - name: dom.timeout.max_idle_defer_ms
   type: uint32_t
   value: 10*1000
+  mirror: always
+
+# Delay in ms from document load until we start throttling background timeouts.
+- name: dom.timeout.throttling_delay
+  type: int32_t
+  value: 30000
   mirror: always
 
 # UDPSocket API
@@ -1991,6 +2196,13 @@
 - name: dom.maxtouchpoints.testing.value
   type: int32_t
   value: -1
+  mirror: always
+
+# If the pref is set to true, pointer events are enabled on GeckoView, but only
+# in the case it is using separate child processes.
+- name: dom.w3c_pointer_events.multiprocess.android.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Is support for Navigator.webdriver enabled?
@@ -3915,11 +4127,6 @@
   value: true
   mirror: always
 
-- name: layout.css.paint-order.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # Is parallel CSS parsing enabled?
 - name: layout.css.parsing.parallel
   type: bool
@@ -5336,6 +5543,18 @@
   value: false
   mirror: always
 
+
+#---------------------------------------------------------------------------
+# Prefs starting with "page_load."
+#---------------------------------------------------------------------------
+
+# Time in milliseconds during which certain tasks are deprioritized during
+# page load.
+- name: page_load.deprioritization_period
+  type: uint32_t
+  value: 5000
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "plain_text."
 #---------------------------------------------------------------------------
@@ -5412,6 +5631,25 @@
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+# First Party Isolation (double keying), disabled by default.
+- name: privacy.firstparty.isolate
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# If false, two windows in the same domain with different first party domains
+# (top level URLs) can access resources through window.opener. This pref is
+# effective only when "privacy.firstparty.isolate" is true.
+- name: privacy.firstparty.isolate.restrict_opener_access
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: privacy.firstparty.isolate.block_post_message
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Enforce tracking protection in all modes.
 - name: privacy.trackingprotection.enabled
   type: bool
@@ -5466,6 +5704,13 @@
   value: false
   mirror: always
 
+# Consider socialtracking annotation as trackers (see ETP)
+- name: privacy.socialtracking.block_cookies.enabled
+  type: bool
+  value: false
+  mirror: always
+
+
 # Whether origin telemetry should be enabled
 # NOTE: if telemetry.origin_telemetry_test_mode.enabled is enabled, this pref
 #       won't have any effect.
@@ -5474,7 +5719,7 @@
   value: false
   mirror: always
 
-# Spoof user locale to English
+# Whether to spoof user locale to English (used as part of Resist Fingerprinting)
 - name: privacy.spoof_english
   type: RelaxedAtomicUint32
   value: 0
@@ -5495,10 +5740,65 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# The resistFingerprinting variables are marked with 'Relaxed' memory ordering.
+# We don't particurally care that threads have a percently consistent view of
+# the values of these prefs. They are not expected to change often, and having
+# an outdated view is not particurally harmful. They will eventually become
+# consistent.
+#
+# The variables will, however, be read often (specifically .microseconds on
+# each timer rounding) so performance is important.
+
 - name: privacy.resistFingerprinting
-  type: bool
+  type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# We automatically decline canvas permission requests if they are not initiated
+# from user input. Just in case that breaks something, we allow the user to revert
+# this behavior with this obscure pref. We do not intend to support this long term.
+# If you do set it, to work around some broken website, please file a bug with
+# information so we can understand why it is needed.
+- name: privacy.resistFingerprinting.autoDeclineNoUserInputCanvasPrompts
+  type: bool
+  value: true
+  mirror: always
+
+# The log level for browser console messages logged in RFPHelper.jsm
+# Change to 'All' and restart to see the messages
+- name: privacy.resistFingerprinting.jsmloglevel
+  type: String
+  value: "Warn"
   mirror: never
+
+# A subset of Resist Fingerprinting protections focused specifically on timers for testing
+# This affects the Animation API, the performance APIs, Date.getTime, Event.timestamp,
+#   File.lastModified, audioContext.currentTime, canvas.captureStream.currentTime
+- name: privacy.reduceTimerPrecision
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# If privacy.reduceTimerPrecision is false, this pref controls whether or not to
+# clamp all timers at a fixed 20 microsconds. It should always be enabled, and is
+# only specified as a pref to enable an emergency disabling in the event of catastrophic
+# failure
+- name: privacy.reduceTimerPrecision.unconditional
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Dynamically tune the resolution of the timer reduction for both of the two above prefs
+- name: privacy.resistFingerprinting.reduceTimerPrecision.microseconds
+  type: RelaxedAtomicUint32
+  value: 1000
+  mirror: always
+
+# Enable jittering the clock one precision value forward
+- name : privacy.resistFingerprinting.reduceTimerPrecision.jitter
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 # Anti-tracking permission expiration
 - name: privacy.restrict3rdpartystorage.expiration
@@ -5527,17 +5827,6 @@
 #else
   value: 0
 #endif
-  mirror: always
-
-# Anti-fingerprinting, disabled by default
-- name: privacy.resistFingerprinting
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: privacy.resistFingerprinting.autoDeclineNoUserInputCanvasPrompts
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
 
 - name: privacy.storagePrincipal.enabledForTrackers
@@ -5569,6 +5858,13 @@
 # Prefs starting with "security."
 #---------------------------------------------------------------------------
 
+# Mochitests that need to load resource:// URIs not declared content-accessible
+# in manifests should set this pref.
+- name: security.all_resource_uri_content_accessible
+  type: bool
+  value: false
+  mirror: always
+
 - name: security.csp.enable
   type: bool
   value: true
@@ -5584,6 +5880,8 @@
   value: 40
   mirror: always
 
+# Disabled by default so it doesn't affect Thunderbird/SeaMonkey, but
+# enabled in firefox.js
 - name: security.allow_eval_with_system_principal
   type: bool
   value: true
@@ -5594,6 +5892,15 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+#if defined(XP_WIN) && defined(MOZ_SANDBOX)
+# Whether win32k is disabled for content processes.
+# true means win32k system calls are not permitted.
+- name: security.sandbox.content.win32k-disable
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+#endif
 
 # Hardware Origin-bound Second Factor Support
 - name: security.webauth.webauthn
@@ -5609,6 +5916,24 @@
 #else
   value: true
 #endif
+  mirror: always
+
+# Block scripts with _some_ wrong MIME types such as image/, video/ or text/csv
+- name: security.block_script_with_wrong_mime
+  type: bool
+  value: true
+  mirror: always
+
+# Block scripts with wrong MIME type when loading via importScripts().
+- name: security.block_importScripts_with_wrong_mime
+  type: bool
+  value: true
+  mirror: always
+
+# Block Worker/SharedWorker scripts with wrong MIME type.
+- name: security.block_Worker_with_wrong_mime
+  type: bool
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5684,6 +6009,30 @@
 - name: toolkit.scrollbox.verticalScrollDistance
   type: RelaxedAtomicInt32
   value: 3
+  mirror: always
+
+# Sending each remote accumulation immediately places undue strain on the IPC
+# subsystem. Batch the remote accumulations for a period of time before sending
+# them all at once. This value was chosen as a balance between data timeliness
+# and performance (see bug 1218576).
+- name: toolkit.telemetry.ipcBatchTimeout
+  type: uint32_t
+  value: 2000
+  mirror: always
+
+- name: toolkit.telemetry.isGeckoViewMode
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: toolkit.telemetry.geckoview.batchDurationMS
+  type: uint32_t
+  value: 5000
+  mirror: always
+
+- name: toolkit.telemetry.geckoview.streaming
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

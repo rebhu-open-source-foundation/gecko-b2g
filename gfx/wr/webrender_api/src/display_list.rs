@@ -740,6 +740,11 @@ impl<'de> Deserialize<'de> for BuiltDisplayList {
             data.extend(temp.drain(..));
         }
 
+        // Add `DisplayItem::max_size` zone of zeroes to the end of display list
+        // so there is at least this amount available in the display list during
+        // serialization.
+        ensure_red_zone::<di::DisplayItem>(&mut data);
+
         Ok(BuiltDisplayList {
             data,
             descriptor: BuiltDisplayListDescriptor {
@@ -1023,6 +1028,7 @@ impl DisplayListBuilder {
         yuv_data: di::YuvData,
         color_depth: ColorDepth,
         color_space: di::YuvColorSpace,
+        color_range: di::ColorRange,
         image_rendering: di::ImageRendering,
     ) {
         let item = di::DisplayItem::YuvImage(di::YuvImageDisplayItem {
@@ -1031,6 +1037,7 @@ impl DisplayListBuilder {
             yuv_data,
             color_depth,
             color_space,
+            color_range,
             image_rendering,
         });
         self.push_item(&item);

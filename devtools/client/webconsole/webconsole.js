@@ -34,6 +34,7 @@ loader.lazyRequireGetter(
   "devtools/client/shared/link",
   true
 );
+const EventEmitter = require("devtools/shared/event-emitter");
 
 var gHudId = 0;
 const isMacOS = Services.appinfo.OS === "Darwin";
@@ -56,31 +57,33 @@ class WebConsole {
    *        The window where the web console UI is already loaded.
    * @param nsIDOMWindow chromeWindow
    *        The window of the web console owner.
-   * @param object hudService
-   *        The parent HUD Service
    * @param bool isBrowserConsole
    */
   constructor(
     target,
     iframeWindow,
     chromeWindow,
-    hudService,
-    isBrowserConsole = false
+    isBrowserConsole = false,
+    fissionSupport = false
   ) {
     this.iframeWindow = iframeWindow;
     this.chromeWindow = chromeWindow;
     this.hudId = "hud_" + ++gHudId;
     this.target = target;
     this.browserWindow = this.chromeWindow.top;
-    this.hudService = hudService;
-    this._browserConsole = isBrowserConsole;
+    this.isBrowserConsole = isBrowserConsole;
+    this.fissionSupport = fissionSupport;
 
     const element = this.browserWindow.document.documentElement;
     if (element.getAttribute("windowtype") != gDevTools.chromeWindowType) {
-      this.browserWindow = this.hudService.currentContext();
+      this.browserWindow = Services.wm.getMostRecentWindow(
+        gDevTools.chromeWindowType
+      );
     }
     this.ui = new WebConsoleUI(this);
     this._destroyer = null;
+
+    EventEmitter.decorate(this);
   }
 
   /**
@@ -98,14 +101,6 @@ class WebConsole {
     return this.chromeWindow.top;
   }
 
-  /**
-   * Getter for the output element that holds messages we display.
-   * @type Element
-   */
-  get outputNode() {
-    return this.ui ? this.ui.outputNode : null;
-  }
-
   get gViewSourceUtils() {
     return this.chromeUtilsWindow.gViewSourceUtils;
   }
@@ -117,7 +112,7 @@ class WebConsole {
    *         A promise for the initialization.
    */
   init() {
-    return this.ui.init().then(() => this);
+    return this.ui.init();
   }
 
   /**
@@ -380,36 +375,25 @@ class WebConsole {
    * @return object
    *         A promise object that is resolved once the Web Console is closed.
    */
-  async destroy() {
-    if (this._destroyer) {
-      return this._destroyer;
+  destroy() {
+    if (!this.hudId) {
+      return;
     }
 
-    this._destroyer = (async () => {
-      this.hudService.consoles.delete(this.hudId);
+    if (this.ui) {
+      this.ui.destroy();
+    }
 
-      if (this.ui) {
-        this.ui.destroy();
-      }
+    if (this._parserService) {
+      this._parserService.stop();
+      this._parserService = null;
+    }
 
-      if (!this._browserConsole) {
-        try {
-          await this.target.focus();
-        } catch (ex) {
-          // Tab focus can fail if the tab or target is closed.
-        }
-      }
+    const id = Utils.supportsString(this.hudId);
+    Services.obs.notifyObservers(id, "web-console-destroyed");
+    this.hudId = null;
 
-      if (this._parserService) {
-        this._parserService.stop();
-        this._parserService = null;
-      }
-
-      const id = Utils.supportsString(this.hudId);
-      Services.obs.notifyObservers(id, "web-console-destroyed");
-    })();
-
-    return this._destroyer;
+    this.emit("destroyed");
   }
 }
 

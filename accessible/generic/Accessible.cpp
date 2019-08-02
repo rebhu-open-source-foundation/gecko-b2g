@@ -310,7 +310,7 @@ uint64_t Accessible::VisibilityState() const {
   if (!frame) {
     // Element having display:contents is considered visible semantically,
     // despite it doesn't have a visually visible box.
-    if (mContent->IsElement() && mContent->AsElement()->IsDisplayContents()) {
+    if (nsCoreUtils::IsDisplayContents(mContent)) {
       return states::OFFSCREEN;
     }
     return states::INVISIBLE;
@@ -1077,10 +1077,11 @@ already_AddRefed<nsIPersistentProperties> Accessible::NativeAttributes() {
     if (!docShellTreeItem) break;
 
     nsCOMPtr<nsIDocShellTreeItem> sameTypeParent;
-    docShellTreeItem->GetSameTypeParent(getter_AddRefs(sameTypeParent));
+    docShellTreeItem->GetInProcessSameTypeParent(
+        getter_AddRefs(sameTypeParent));
     if (!sameTypeParent || sameTypeParent == docShellTreeItem) break;
 
-    dom::Document* parentDoc = doc->GetParentDocument();
+    dom::Document* parentDoc = doc->GetInProcessParentDocument();
     if (!parentDoc) break;
 
     startContent = parentDoc->FindContentForSubDocument(doc);
@@ -1788,7 +1789,7 @@ Relation Accessible::RelationByType(RelationType aType) const {
         // Walk up the parent chain without crossing the boundary at which item
         // types change, preventing us from walking up out of tab content.
         nsCOMPtr<nsIDocShellTreeItem> root;
-        docShell->GetSameTypeRootTreeItem(getter_AddRefs(root));
+        docShell->GetInProcessSameTypeRootTreeItem(getter_AddRefs(root));
         if (root) {
           // If the item type is typeContent, we assume we are in browser tab
           // content. Note, this includes content such as about:addons,
@@ -1917,7 +1918,7 @@ void Accessible::AppendTextTo(nsAString& aText, uint32_t aStartOffset,
 
   nsIFrame* frame = GetFrame();
   if (!frame) {
-    if (mContent->IsElement() && mContent->AsElement()->IsDisplayContents()) {
+    if (nsCoreUtils::IsDisplayContents(mContent)) {
       aText += kEmbeddedObjectChar;
     }
     return;

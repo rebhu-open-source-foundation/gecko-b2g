@@ -138,6 +138,13 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     this._onOpeningRequest = this._onOpeningRequest.bind(this);
     this._onNewDebuggee = this._onNewDebuggee.bind(this);
     this._eventBreakpointListener = this._eventBreakpointListener.bind(this);
+    this._onWindowReady = this._onWindowReady.bind(this);
+    this._onWillNavigate = this._onWillNavigate.bind(this);
+    this._onNavigate = this._onNavigate.bind(this);
+
+    this._parent.on("window-ready", this._onWindowReady);
+    this._parent.on("will-navigate", this._onWillNavigate);
+    this._parent.on("navigate", this._onNavigate);
 
     this._debuggerNotificationObserver = new DebuggerNotificationObserver();
 
@@ -163,20 +170,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
         this._dbg.replayingOnForcedPause = this.replayingOnForcedPause.bind(
           this
         );
-        const sendProgress = throttle((recording, executionPoint) => {
-          if (this.attached) {
-            this.conn.send({
-              type: "progress",
-              from: this.actorID,
-              recording,
-              executionPoint,
-            });
-          }
-        }, 100);
-        this._dbg.replayingOnPositionChange = this.replayingOnPositionChange.bind(
-          this,
-          sendProgress
-        );
+        this._dbg.replayingOnPositionChange = this._makeReplayingOnPositionChange();
       }
       // Keep the debugger disabled until a client attaches.
       this._dbg.enabled = this._state != "detached";
@@ -295,6 +289,10 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
       } catch (e) {}
     }
 
+    this._parent.off("window-ready", this._onWindowReady);
+    this._parent.off("will-navigate", this._onWillNavigate);
+    this._parent.off("navigate", this._onNavigate);
+
     this.sources.off("newSource", this.onNewSourceEvent);
     this.clearDebuggees();
     this.conn.removeActorPool(this._threadLifetimePool);
@@ -349,8 +347,6 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     // Initialize an event loop stack. This can't be done in the constructor,
     // because this.conn is not yet initialized by the actor pool at that time.
     this._nestedEventLoops = new EventLoopStack({
-      hooks: this._parent,
-      connection: this.conn,
       thread: this,
     });
 
@@ -963,15 +959,10 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     const thread = this;
     return function() {
       // onStep is called with 'this' set to the current frame.
-
       const location = thread.sources.getFrameLocation(this);
 
-      // Always continue execution if either:
-      //
-      // 1. We are in a source mapped region, but inside a null mapping
-      //    (doesn't correlate to any region of source)
-      // 2. The source we are in is black boxed.
-      if (location.url == null || thread.sources.isBlackBoxed(location.url)) {
+      // Continue if the source is black boxed.
+      if (thread.sources.isBlackBoxed(location.url)) {
         return undefined;
       }
 
@@ -1216,14 +1207,12 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     // only allow resumption in a LIFO order.
     if (
       this._nestedEventLoops.size &&
-      this._nestedEventLoops.lastPausedUrl &&
-      (this._nestedEventLoops.lastPausedUrl !== this._parent.url ||
-        this._nestedEventLoops.lastConnection !== this.conn)
+      this._nestedEventLoops.lastPausedThreadActor &&
+      this._nestedEventLoops.lastPausedThreadActor !== this
     ) {
       return {
         error: "wrongOrder",
         message: "trying to resume in the wrong order.",
-        lastPausedUrl: this._nestedEventLoops.lastPausedUrl,
       };
     }
 
@@ -1770,6 +1759,43 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     return {};
   },
 
+  _onWindowReady: function({ isTopLevel, window }) {
+    if (isTopLevel && this.state != "detached") {
+      this.sources.reset();
+      this.clearDebuggees();
+      this.dbg.enabled = true;
+      this.maybePauseOnExceptions();
+      // Update the global no matter if the debugger is on or off,
+      // otherwise the global will be wrong when enabled later.
+      this.global = window;
+    }
+
+    // Refresh the debuggee list when a new window object appears (top window or
+    // iframe).
+    if (this.attached) {
+      this.dbg.addDebuggees();
+    }
+  },
+
+  _onWillNavigate: function({ isTopLevel }) {
+    if (!isTopLevel) {
+      return;
+    }
+
+    // Proceed normally only if the debuggee is not paused.
+    if (this.state == "paused") {
+      this.unsafeSynchronize(Promise.resolve(this.doResume()));
+      this.dbg.enabled = false;
+    }
+    this.disableAllBreakpoints();
+  },
+
+  _onNavigate: function() {
+    if (this.state == "running") {
+      this.dbg.enabled = true;
+    }
+  },
+
   // JS Debugger API hooks.
 
   /**
@@ -1849,10 +1875,23 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
    * changed its position: a checkpoint was reached or a switch between a
    * recording and replaying child process occurred.
    */
-  replayingOnPositionChange: function(sendProgress) {
-    const recording = this.dbg.replayIsRecording();
-    const executionPoint = this.dbg.replayCurrentExecutionPoint();
-    sendProgress(recording, executionPoint);
+  _makeReplayingOnPositionChange() {
+    return throttle(() => {
+      if (this.attached) {
+        const recording = this.dbg.replayIsRecording();
+        const executionPoint = this.dbg.replayCurrentExecutionPoint();
+        const unscannedRegions = this.dbg.replayUnscannedRegions();
+        const cachedPoints = this.dbg.replayCachedPoints();
+        this.conn.send({
+          type: "progress",
+          from: this.actorID,
+          recording,
+          executionPoint,
+          unscannedRegions,
+          cachedPoints,
+        });
+      }
+    }, 100);
   },
 
   /**
@@ -2115,8 +2154,8 @@ exports.ChromeDebuggerActor = ChromeDebuggerActor;
  */
 var oldReportError = reportError;
 this.reportError = function(error, prefix = "") {
-  assert(error instanceof Error, "Must pass Error objects to reportError");
-  const msg = prefix + error.message + ":\n" + error.stack;
+  const message = error.message ? error.message : String(error);
+  const msg = prefix + message + ":\n" + error.stack;
   oldReportError(msg);
   dumpn(msg);
 };

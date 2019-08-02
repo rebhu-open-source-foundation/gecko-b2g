@@ -21,11 +21,22 @@ const PREF_CONNECTION_TIMEOUT = "devtools.debugger.remote-timeout";
  *        A WebConsoleUI instance that owns this connection proxy.
  * @param RemoteTarget target
  *        The target that the console will connect to.
+ * @param Boolean isBrowserConsole
+ *        Indicates if we're setting up the connection for a browser console
+ * @param Boolean fissionSupport
+ *        Indicates if the console should support a "Fission architecture".
  */
-function WebConsoleConnectionProxy(webConsoleUI, target) {
+function WebConsoleConnectionProxy(
+  webConsoleUI,
+  target,
+  isBrowserConsole,
+  fissionSupport
+) {
   this.webConsoleUI = webConsoleUI;
   this.target = target;
   this.webConsoleClient = target.activeConsole;
+  this.isBrowserConsole = isBrowserConsole;
+  this.fissionSupport = fissionSupport;
 
   this._onPageError = this._onPageError.bind(this);
   this._onLogMessage = this._onLogMessage.bind(this);
@@ -123,9 +134,6 @@ WebConsoleConnectionProxy.prototype = {
     this.target.on("will-navigate", this._onTabWillNavigate);
     this.target.on("navigate", this._onTabNavigated);
 
-    if (this.target.isBrowsingContext) {
-      this.webConsoleUI.onLocationChange(this.target.url, this.target.title);
-    }
     this._attachConsole();
 
     return connPromise;
@@ -234,10 +242,10 @@ WebConsoleConnectionProxy.prototype = {
   dispatchRequestUpdate: function(id, data) {
     // Some request might try to update while we are closing the toolbox.
     if (!this.webConsoleUI) {
-      return;
+      return Promise.resolve();
     }
 
-    this.webConsoleUI.wrapper.dispatchRequestUpdate(id, data);
+    return this.webConsoleUI.wrapper.dispatchRequestUpdate(id, data);
   },
 
   /**
@@ -385,10 +393,6 @@ WebConsoleConnectionProxy.prototype = {
    *        The message received from the server.
    */
   _onTabNavigated: function(packet) {
-    if (!this.webConsoleUI) {
-      return;
-    }
-
     this.webConsoleUI.handleTabNavigated(packet);
   },
 
@@ -400,10 +404,6 @@ WebConsoleConnectionProxy.prototype = {
    *        The message received from the server.
    */
   _onTabWillNavigate: function(packet) {
-    if (!this.webConsoleUI) {
-      return;
-    }
-
     this.webConsoleUI.handleTabWillNavigate(packet);
   },
 

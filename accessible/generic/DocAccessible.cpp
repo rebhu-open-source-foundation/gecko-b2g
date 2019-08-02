@@ -193,7 +193,7 @@ role DocAccessible::NativeRole() const {
   nsCOMPtr<nsIDocShell> docShell = nsCoreUtils::GetDocShellFor(mDocumentNode);
   if (docShell) {
     nsCOMPtr<nsIDocShellTreeItem> sameTypeRoot;
-    docShell->GetSameTypeRootTreeItem(getter_AddRefs(sameTypeRoot));
+    docShell->GetInProcessSameTypeRootTreeItem(getter_AddRefs(sameTypeRoot));
     int32_t itemType = docShell->ItemType();
     if (sameTypeRoot == docShell) {
       // Root of content or chrome tree
@@ -498,7 +498,7 @@ nsRect DocAccessible::RelativeBounds(nsIFrame** aRelativeFrame) const {
       bounds = scrollPort;
     }
 
-    document = parentDoc = document->GetParentDocument();
+    document = parentDoc = document->GetInProcessParentDocument();
   }
 
   return bounds;
@@ -1266,12 +1266,36 @@ void DocAccessible::ContentInserted(nsIContent* aStartChildNode,
                                     nsIContent* aEndChildNode) {
   // Ignore content insertions until we constructed accessible tree. Otherwise
   // schedule tree update on content insertion after layout.
-  if (mNotificationController && HasLoadState(eTreeConstructed)) {
-    // Update the whole tree of this document accessible when the container is
-    // null (document element is inserted or removed).
-    mNotificationController->ScheduleContentInsertion(aStartChildNode,
-                                                      aEndChildNode);
+  if (!mNotificationController || !HasLoadState(eTreeConstructed)) {
+    return;
   }
+
+  // The frame constructor guarantees that only ranges with the same parent
+  // arrive here in presence of dynamic changes to the page, see
+  // nsCSSFrameConstructor::IssueSingleInsertNotifications' callers.
+  nsINode* parent = aStartChildNode->GetFlattenedTreeParentNode();
+  if (!parent) {
+    return;
+  }
+
+  Accessible* container = AccessibleOrTrueContainer(parent);
+  if (!container) {
+    return;
+  }
+
+  AutoTArray<nsCOMPtr<nsIContent>, 10> list;
+  for (nsIContent* node = aStartChildNode; node != aEndChildNode;
+       node = node->GetNextSibling()) {
+    MOZ_ASSERT(parent == node->GetFlattenedTreeParentNode());
+    // Notification triggers for content insertion even if no content was
+    // actually inserted (like if the content is display: none). Try to catch
+    // this case early.
+    if (node->GetPrimaryFrame() || nsCoreUtils::IsDisplayContents(node)) {
+      list.AppendElement(node);
+    }
+  }
+
+  mNotificationController->ScheduleContentInsertion(container, list);
 }
 
 void DocAccessible::RecreateAccessible(nsIContent* aContent) {
@@ -2276,7 +2300,7 @@ bool DocAccessible::IsLoadEventTarget() const {
   NS_ASSERTION(treeItem, "No document shell for document!");
 
   nsCOMPtr<nsIDocShellTreeItem> parentTreeItem;
-  treeItem->GetParent(getter_AddRefs(parentTreeItem));
+  treeItem->GetInProcessParent(getter_AddRefs(parentTreeItem));
 
   // Not a root document.
   if (parentTreeItem) {

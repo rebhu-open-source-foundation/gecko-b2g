@@ -94,17 +94,49 @@ class TextEditor : public EditorBase,
    */
   MOZ_CAN_RUN_SCRIPT nsresult CutAsAction(nsIPrincipal* aPrincipal = nullptr);
 
-  bool CanCut() const;
+  /**
+   * IsCutCommandEnabled() returns whether cut command can be enabled or
+   * disabled.  This always returns true if we're in non-chrome HTML/XHTML
+   * document.  Otherwise, same as the result of `IsCopyToClipboardAllowed()`.
+   */
+  bool IsCutCommandEnabled() const;
+
   NS_IMETHOD Copy() override;
-  bool CanCopy() const;
-  bool CanDelete() const;
+
+  /**
+   * IsCopyCommandEnabled() returns copy command can be enabled or disabled.
+   * This always returns true if we're in non-chrome HTML/XHTML document.
+   * Otherwise, same as the result of `IsCopyToClipboardAllowed()`.
+   */
+  bool IsCopyCommandEnabled() const;
+
+  /**
+   * IsCopyToClipboardAllowed() returns true if the selected content can
+   * be copied into the clipboard.  This returns true when:
+   * - `Selection` is not collapsed and we're not a password editor.
+   * - `Selection` is not collapsed and we're a password editor but selection
+   *   range is in unmasked range.
+   */
+  bool IsCopyToClipboardAllowed() const {
+    AutoEditActionDataSetter editActionData(*this, EditAction::eNotEditing);
+    if (NS_WARN_IF(!editActionData.CanHandle())) {
+      return false;
+    }
+    return IsCopyToClipboardAllowedInternal();
+  }
+
+  /**
+   * CanDeleteSelection() returns true if `Selection` is not collapsed and
+   * it's allowed to be removed.
+   */
+  bool CanDeleteSelection() const;
+
   virtual bool CanPaste(int32_t aClipboardType) const;
 
   // Shouldn't be used internally, but we need these using declarations for
   // avoiding warnings of clang.
   using EditorBase::CanCopy;
   using EditorBase::CanCut;
-  using EditorBase::CanDelete;
   using EditorBase::CanPaste;
 
   /**
@@ -135,9 +167,9 @@ class TextEditor : public EditorBase,
                         const nsAString& aValue) override;
 
   /**
-   * IsEmpty() checks whether the editor is empty.  If editor has only bogus
-   * node, returns true.  If editor's root element has non-empty text nodes or
-   * other nodes like <br>, returns false.
+   * IsEmpty() checks whether the editor is empty.  If editor has only padding
+   * <br> element for empty editor, returns true.  If editor's root element has
+   * non-empty text nodes or other nodes like <br>, returns false.
    */
   nsresult IsEmpty(bool* aIsEmpty) const;
   bool IsEmpty() const {
@@ -435,24 +467,6 @@ class TextEditor : public EditorBase,
   nsresult ReplaceSelectionAsSubAction(const nsAString& aString);
 
   /**
-   * InsertBrElementWithTransaction() creates a <br> element and inserts it
-   * before aPointToInsert.  Then, tries to collapse selection at or after the
-   * new <br> node if aSelect is not eNone.
-   *
-   * @param aPointToInsert      The DOM point where should be <br> node inserted
-   *                            before.
-   * @param aSelect             If eNone, this won't change selection.
-   *                            If eNext, selection will be collapsed after
-   *                            the <br> element.
-   *                            If ePrevious, selection will be collapsed at
-   *                            the <br> element.
-   * @return                    The new <br> node.  If failed to create new
-   *                            <br> node, returns nullptr.
-   */
-  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> InsertBrElementWithTransaction(
-      const EditorDOMPoint& aPointToInsert, EDirection aSelect = eNone);
-
-  /**
    * Extends the selection for given deletion operation
    * If done, also update aAction to what's actually left to do after the
    * extension.
@@ -692,8 +706,11 @@ class TextEditor : public EditorBase,
   nsresult SharedOutputString(uint32_t aFlags, bool* aIsCollapsed,
                               nsAString& aResult);
 
-  enum PasswordFieldAllowed { ePasswordFieldAllowed, ePasswordFieldNotAllowed };
-  bool CanCutOrCopy(PasswordFieldAllowed aPasswordFieldAllowed) const;
+  /**
+   * See comment of IsCopyToClipboardAllowed() for the detail.
+   */
+  bool IsCopyToClipboardAllowedInternal() const;
+
   bool FireClipboardEvent(EventMessage aEventMessage, int32_t aSelectionType,
                           bool* aActionTaken = nullptr);
 

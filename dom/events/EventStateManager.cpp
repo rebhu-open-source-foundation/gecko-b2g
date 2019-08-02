@@ -460,8 +460,9 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
       Document* doc = node->OwnerDoc();
       while (doc) {
         doc->SetUserHasInteracted();
-        doc = nsContentUtils::IsChildOfSameType(doc) ? doc->GetParentDocument()
-                                                     : nullptr;
+        doc = nsContentUtils::IsChildOfSameType(doc)
+                  ? doc->GetInProcessParentDocument()
+                  : nullptr;
       }
     }
   }
@@ -1140,11 +1141,11 @@ bool EventStateManager::WalkESMTreeToHandleAccessKey(
   }
 
   int32_t childCount;
-  docShell->GetChildCount(&childCount);
+  docShell->GetInProcessChildCount(&childCount);
   for (int32_t counter = 0; counter < childCount; counter++) {
     // Not processing the child which bubbles up the handling
     nsCOMPtr<nsIDocShellTreeItem> subShellItem;
-    docShell->GetChildAt(counter, getter_AddRefs(subShellItem));
+    docShell->GetInProcessChildAt(counter, getter_AddRefs(subShellItem));
     if (aAccessKeyState == eAccessKeyProcessingUp &&
         subShellItem == aBubbledFrom) {
       continue;
@@ -1180,7 +1181,7 @@ bool EventStateManager::WalkESMTreeToHandleAccessKey(
   // bubble up the process to the parent docshell if necessary
   if (eAccessKeyProcessingDown != aAccessKeyState) {
     nsCOMPtr<nsIDocShellTreeItem> parentShellItem;
-    docShell->GetParent(getter_AddRefs(parentShellItem));
+    docShell->GetInProcessParent(getter_AddRefs(parentShellItem));
     nsCOMPtr<nsIDocShell> parentDS = do_QueryInterface(parentShellItem);
     if (parentDS) {
       // Guarantee parentPresShell lifetime while we're handling access key
@@ -1800,8 +1801,18 @@ void EventStateManager::GenerateDragGesture(nsPresContext* aPresContext,
         // password fields but dragging data was masked text.  So, it doesn't
         // make sense anyway.
         if (eventContent->IsText() && eventContent->HasFlag(NS_MAYBE_MASKED)) {
-          StopTrackingDragGesture();
-          return;
+          // However, it makes sense to allow to drag selected password text
+          // when copying selected password is allowed because users may want
+          // to use drag and drop rather than copy and paste when web apps
+          // request to input password twice for conforming new password but
+          // they used password generator.
+          TextEditor* textEditor =
+              nsContentUtils::GetTextEditorFromAnonymousNodeWithoutCreation(
+                  eventContent);
+          if (!textEditor || !textEditor->IsCopyToClipboardAllowed()) {
+            StopTrackingDragGesture();
+            return;
+          }
         }
         DetermineDragTargetAndDefaultData(
             window, eventContent, dataTransfer, getter_AddRefs(selection),
@@ -3253,8 +3264,8 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
               !nsContentUtils::IsChromeDoc(mDocument)) {
             nsCOMPtr<nsPIDOMWindowOuter> currentTop;
             nsCOMPtr<nsPIDOMWindowOuter> newTop;
-            currentTop = currentWindow->GetTop();
-            newTop = mDocument->GetWindow()->GetTop();
+            currentTop = currentWindow->GetInProcessTop();
+            newTop = mDocument->GetWindow()->GetInProcessTop();
             nsCOMPtr<Document> currentDoc = currentWindow->GetExtantDoc();
             if (nsContentUtils::IsChromeDoc(currentDoc) ||
                 (currentTop && newTop && currentTop != newTop)) {
@@ -3937,8 +3948,6 @@ nsresult EventStateManager::SetCursor(StyleCursorKind aCursor,
   NS_ENSURE_TRUE(mDocument, NS_ERROR_FAILURE);
   sMouseOverDocument = mDocument.get();
 
-  nsCursor c;
-
   NS_ENSURE_TRUE(aWidget, NS_ERROR_FAILURE);
   if (aLockCursor) {
     if (StyleCursorKind::Auto != aCursor) {
@@ -3948,8 +3957,8 @@ nsresult EventStateManager::SetCursor(StyleCursorKind aCursor,
       mLockCursor = kInvalidCursorKind;
     }
   }
+  nsCursor c;
   switch (aCursor) {
-    default:
     case StyleCursorKind::Auto:
     case StyleCursorKind::Default:
       c = eCursor_standard;
@@ -4055,6 +4064,10 @@ nsresult EventStateManager::SetCursor(StyleCursorKind aCursor,
       break;
     case StyleCursorKind::None:
       c = eCursor_none;
+      break;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown cursor kind");
+      c = eCursor_standard;
       break;
   }
 
@@ -4389,7 +4402,7 @@ void EventStateManager::NotifyMouseOver(WidgetMouseEvent* aMouseEvent,
   // document's ESM state to indicate that the mouse is over the
   // content associated with our subdocument.
   EnsureDocument(mPresContext);
-  if (Document* parentDoc = mDocument->GetParentDocument()) {
+  if (Document* parentDoc = mDocument->GetInProcessParentDocument()) {
     if (nsCOMPtr<nsIContent> docContent =
             parentDoc->FindContentForSubDocument(mDocument)) {
       if (PresShell* parentPresShell = parentDoc->GetPresShell()) {
@@ -6318,16 +6331,12 @@ void EventStateManager::Prefs::Init() {
     return;
   }
 
-  DebugOnly<nsresult> rv = Preferences::AddBoolVarCache(
-      &sKeyCausesActivation, "accessibility.accesskeycausesactivation",
-      sKeyCausesActivation);
-  MOZ_ASSERT(NS_SUCCEEDED(rv),
-             "Failed to observe \"accessibility.accesskeycausesactivation\"");
-  rv = Preferences::AddBoolVarCache(&sClickHoldContextMenu,
-                                    "ui.click_hold_context_menus",
-                                    sClickHoldContextMenu);
-  MOZ_ASSERT(NS_SUCCEEDED(rv),
-             "Failed to observe \"ui.click_hold_context_menus\"");
+  Preferences::AddBoolVarCache(&sKeyCausesActivation,
+                               "accessibility.accesskeycausesactivation",
+                               sKeyCausesActivation);
+  Preferences::AddBoolVarCache(&sClickHoldContextMenu,
+                               "ui.click_hold_context_menus",
+                               sClickHoldContextMenu);
   sPrefsAlreadyCached = true;
 }
 

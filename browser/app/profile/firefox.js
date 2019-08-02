@@ -500,6 +500,9 @@ pref("browser.tabs.remote.enforceRemoteTypeRestrictions", true);
 #endif
 
 #ifdef NIGHTLY_BUILD
+// allow_eval_with_system_principal is enabled on Firefox Desktop only at this
+// point in time
+pref("security.allow_eval_with_system_principal", false);
 pref("browser.tabs.remote.useHTTPResponseProcessSelection", true);
 #else
 // Disabled outside of nightly due to bug 1554217
@@ -1320,6 +1323,8 @@ pref("trailhead.firstrun.branches", "join-privacy");
 
 // The pref that controls if the What's New panel is enabled.
 pref("browser.messaging-system.whatsNewPanel.enabled", false);
+// Whether to use Messaging System to add a badge to the FxA toolbar button
+pref("browser.messaging-system.fxatoolbarbadge.enabled", true);
 
 // Enable the DOM fullscreen API.
 pref("full-screen-api.enabled", true);
@@ -1545,18 +1550,15 @@ pref("browser.ping-centre.production.endpoint", "https://tiles.services.mozilla.
 // Enable GMP support in the addon manager.
 pref("media.gmp-provider.enabled", true);
 
-#ifdef EARLY_BETA_OR_EARLIER
-// Enable blocking access to storage from tracking resources only in nightly
-// and early beta. By default the value is 0: BEHAVIOR_ACCEPT
+// Enable blocking access to storage from tracking resources by default.
 pref("network.cookie.cookieBehavior", 4 /* BEHAVIOR_REJECT_TRACKER */);
+#ifdef EARLY_BETA_OR_EARLIER
 // Enable fingerprinting blocking by default only in nightly and early beta.
 pref("privacy.trackingprotection.fingerprinting.enabled", true);
 #endif
 
 // Enable cryptomining blocking by default for all channels, only on desktop.
 pref("privacy.trackingprotection.cryptomining.enabled", true);
-
-pref("browser.contentblocking.allowlist.storage.enabled", true);
 
 pref("browser.contentblocking.database.enabled", true);
 
@@ -1740,12 +1742,8 @@ pref("signon.generation.enabled", true);
 pref("signon.schemeUpgrades", true);
 pref("signon.privateBrowsingCapture.enabled", true);
 pref("signon.showAutoCompleteFooter", true);
-#ifdef NIGHTLY_BUILD
 pref("signon.management.page.enabled", true);
 pref("signon.management.overrideURI", "about:logins?filter=%DOMAIN%");
-#else
-pref("signon.management.page.enabled", false);
-#endif
 pref("signon.management.page.breach-alerts.enabled", false);
 #ifdef NIGHTLY_BUILD
 // Bug 1563330 tracks shipping this by default.
@@ -1757,6 +1755,9 @@ pref("signon.management.page.feedbackURL",
      "https://www.surveygizmo.com/s3/5036102/Lockwise-feedback?ver=%VERSION%");
 pref("signon.management.page.mobileAndroidURL", "https://app.adjust.com/6tteyjo?redirect=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dmozilla.lockbox&utm_campaign=Desktop&utm_adgroup=InProduct&utm_creative=Elipsis_Menu");
 pref("signon.management.page.mobileAppleURL", "https://app.adjust.com/6tteyjo?redirect=https%3A%2F%2Fitunes.apple.com%2Fapp%2Fid1314000270%3Fmt%3D8&utm_campaign=Desktop&utm_adgroup=InProduct&utm_creative=Elipsis_Menu");
+pref("signon.management.page.breachAlertUrl",
+     "https://monitor.firefox.com/breach-details/");
+
 // Enable the "Simplify Page" feature in Print Preview. This feature
 // is disabled by default in toolkit.
 pref("print.use_simplify_page", true);
@@ -1894,3 +1895,16 @@ pref("corroborator.enabled", false);
 #else
 pref("corroborator.enabled", true);
 #endif
+
+// Show notification popup for social tracking protection.
+pref("privacy.socialtracking.notification.enabled", true);
+// minimum number of page loads until showing popup.
+pref("privacy.socialtracking.notification.session.pageload.min", 4);
+// timestamp of last popup was shown.
+pref("privacy.socialtracking.notification.lastSeen", 0);
+// don't show popup again within 2 days (2 * 86400 * 1000 milliseconds)
+pref("privacy.socialtracking.notification.period.min", 172800000);
+// current number of popup shown in the profile.
+pref("privacy.socialtracking.notification.counter", 0);
+// maximum number of popup shown in the profile.
+pref("privacy.socialtracking.notification.max", 2);

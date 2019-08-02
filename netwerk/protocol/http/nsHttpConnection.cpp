@@ -1699,7 +1699,13 @@ nsresult nsHttpConnection::ResumeRecv() {
   // may get done before the ResumeRecv() call
   mLastReadTime = PR_IntervalNow();
 
-  if (mSocketIn) return mSocketIn->AsyncWait(this, 0, 0, nullptr);
+  if (mSocketIn) {
+    if (!mTLSFilter || !mTLSFilter->HasDataToRecv() ||
+        NS_FAILED(ForceRecv())) {
+      return mSocketIn->AsyncWait(this, 0, 0, nullptr);
+    }
+    return NS_OK;
+  }
 
   MOZ_ASSERT_UNREACHABLE("no socket input stream");
   return NS_ERROR_UNEXPECTED;

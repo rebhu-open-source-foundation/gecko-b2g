@@ -51,16 +51,6 @@ const MESSAGES = () => [
     trigger: { id: "bookmark-panel" },
   },
   {
-    id: "FXA_ACCOUNTS_BADGE",
-    template: "toolbar_badge",
-    content: {
-      target: "fxa-toolbar-menu-button",
-    },
-    // Never accessed the FxA panel && doesn't use Firefox sync & has FxA enabled
-    targeting: `!hasAccessedFxAPanel && !usesFirefoxSync && isFxAEnabled == true`,
-    trigger: { id: "toolbarBadgeUpdate" },
-  },
-  {
     id: `WHATS_NEW_BADGE_${FIREFOX_VERSION}`,
     template: "toolbar_badge",
     content: {
@@ -79,9 +69,9 @@ const MESSAGES = () => [
     // Never saw this message or saw it in the past 4 days or more recent
     targeting: `isWhatsNewPanelEnabled &&
       (earliestFirefoxVersion && firefoxVersion > earliestFirefoxVersion) &&
-        messageImpressions[.id == 'WHATS_NEW_BADGE_${FIREFOX_VERSION}']|length == 0 ||
-      (messageImpressions[.id == 'WHATS_NEW_BADGE_${FIREFOX_VERSION}']|length >= 1 &&
-        currentDate|date - messageImpressions[.id == 'WHATS_NEW_BADGE_${FIREFOX_VERSION}'][0] <= 4 * 24 * 3600 * 1000)`,
+        (!messageImpressions['WHATS_NEW_BADGE_${FIREFOX_VERSION}'] ||
+      (messageImpressions['WHATS_NEW_BADGE_${FIREFOX_VERSION}']|length >= 1 &&
+        currentDate|date - messageImpressions['WHATS_NEW_BADGE_${FIREFOX_VERSION}'][0] <= 4 * 24 * 3600 * 1000))`,
   },
   {
     id: "WHATS_NEW_70_1",

@@ -1954,7 +1954,7 @@ void nsJSContext::MaybeRunNextCollectorSlice(nsIDocShell* aDocShell,
   }
 
   nsCOMPtr<nsIDocShellTreeItem> root;
-  aDocShell->GetSameTypeRootTreeItem(getter_AddRefs(root));
+  aDocShell->GetInProcessSameTypeRootTreeItem(getter_AddRefs(root));
   if (root == aDocShell) {
     // We don't want to run collectors when loading the top level page.
     return;
@@ -2502,10 +2502,6 @@ void nsJSContext::EnsureStatics() {
                                 FetchUtil::ReportJSStreamError);
 
   // Set these global xpconnect options...
-  Preferences::RegisterCallbackAndCall(SetMemoryPrefChangedCallbackMB,
-                                       "javascript.options.mem.high_water_mark",
-                                       (void*)JSGC_MAX_MALLOC_BYTES);
-
   Preferences::RegisterCallbackAndCall(SetMemoryPrefChangedCallbackMB,
                                        "javascript.options.mem.max",
                                        (void*)JSGC_MAX_BYTES);

@@ -1107,6 +1107,7 @@ var DownloadObserver = {
     for (let download of this._canceledOfflineDownloads) {
       download.start().catch(() => {});
     }
+    this._canceledOfflineDownloads.clear();
   },
 
   // nsIObserver
