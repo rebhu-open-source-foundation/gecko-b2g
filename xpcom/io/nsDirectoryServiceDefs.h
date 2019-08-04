@@ -92,6 +92,9 @@
 #elif defined(XP_UNIX)
 #  define NS_UNIX_HOME_DIR NS_OS_HOME_DIR
 #  define NS_UNIX_DEFAULT_DOWNLOAD_DIR "DfltDwnld"
+#  define NS_UNIX_XDG_MUSIC_DIR        "XDGMusic"
+#  define NS_UNIX_XDG_PICTURES_DIR     "XDGPict"
+#  define NS_UNIX_XDG_VIDEOS_DIR       "XDGVids"
 #endif
 
 #endif

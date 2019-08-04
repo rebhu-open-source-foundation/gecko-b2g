@@ -22,5 +22,19 @@ bool LockScreenOrientation(const ScreenOrientation& aOrientation) {
 
 void UnlockScreenOrientation() {}
 
+#if !defined MOZ_WIDGET_GONK
+bool
+GetScreenEnabled()
+{
+  return true;
+}
+
+void
+SetScreenEnabled(bool)
+{
+  
+}
+#endif
+
 }  // namespace hal_impl
 }  // namespace mozilla
