@@ -300,6 +300,7 @@ void VolumeManager::DefaultConfig() {
 #if ANDROID_VERSION >= 23
 class VolumeResetCallback : public VolumeResponseCallback {
   virtual void ResponseReceived(const VolumeCommand* aCommand) {
+#if ANDROID_VERSION < 28
     switch (ResponseCode()) {
       case ::ResponseCode::CommandOkay: {
         // We've received the reset of volumes. Now read the Volume.cfg
@@ -312,6 +313,7 @@ class VolumeResetCallback : public VolumeResponseCallback {
         break;
       }
     }
+#endif // #if ANDROID_VERSION < 28
   }
 };
 
@@ -453,6 +455,7 @@ void VolumeManager::WriteCommandData() {
 }
 
 void VolumeManager::OnLineRead(int aFd, nsDependentCSubstring& aMessage) {
+#if ANDROID_VERSION < 28
   MOZ_ASSERT(aFd == mSocket.get());
   char* endPtr;
   int responseCode = strtol(aMessage.Data(), &endPtr, 10);
@@ -485,6 +488,7 @@ void VolumeManager::OnLineRead(int aFd, nsDependentCSubstring& aMessage) {
       ERR("Response with no command");
     }
   }
+#endif // #if ANDROID_VERSION < 28
 }
 
 void VolumeManager::OnFileCanWriteWithoutBlocking(int aFd) {
@@ -494,6 +498,7 @@ void VolumeManager::OnFileCanWriteWithoutBlocking(int aFd) {
 
 void VolumeManager::HandleBroadcast(int aResponseCode,
                                     nsCString& aResponseLine) {
+#if ANDROID_VERSION < 28
 #if ANDROID_VERSION >= 23
   nsCWhitespaceTokenizer tokenizer(aResponseLine);
   nsresult rv;
@@ -656,6 +661,7 @@ void VolumeManager::HandleBroadcast(int aResponseCode,
   vol->HandleVoldResponse(aResponseCode, tokenizer);
 
 #endif
+#endif // #if ANDROID_VERSION < 28
 }
 
 void VolumeManager::Restart() {

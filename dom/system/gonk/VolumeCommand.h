@@ -9,7 +9,10 @@
 #include "nsISupportsImpl.h"
 #include "mozilla/RefPtr.h"
 #include <algorithm>
+
+#if ANDROID_VERSION < 28
 #include <vold/ResponseCode.h>
+#endif
 
 namespace mozilla {
 namespace system {
@@ -45,12 +48,20 @@ class VolumeResponseCallback {
     // Response codes from the 200, 400, and 500 series all indicated that
     // the command has completed.
 
+#if ANDROID_VERSION < 28
     return (mResponseCode >= ::ResponseCode::CommandOkay) &&
            (mResponseCode < ::ResponseCode::UnsolicitedInformational);
+#else
+    return false;
+#endif
   }
 
   bool WasSuccessful() const {
+#if ANDROID_VERSION < 28
     return mResponseCode == ::ResponseCode::CommandOkay;
+#else
+    return false;
+#endif
   }
 
   bool IsPending() const { return mPending; }
@@ -73,10 +84,12 @@ class VolumeResponseCallback {
 #else
     mResponseStr = aResponseStr;
 #endif
+#if ANDROID_VERSION < 28
     if (mResponseCode >= ::ResponseCode::CommandOkay) {
       // This is a final response.
       mPending = false;
     }
+#endif // #if ANDROID_VERSION < 28
     ResponseReceived(aCommand);
   }
 

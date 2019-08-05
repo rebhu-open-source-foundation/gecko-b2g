@@ -9,7 +9,9 @@
 #include "nsIVolume.h"
 #include "nsXULAppAPI.h"
 
+#if ANDROID_VERSION < 28
 #include <vold/ResponseCode.h>
+#endif
 
 namespace mozilla {
 namespace system {
@@ -496,6 +498,7 @@ void Volume::HandleVoldResponse(int aResponseCode,
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
+#if ANDROID_VERSION < 28
   // The volume name will have already been parsed, and the tokenizer will point
   // to the token after the volume name
   switch (aResponseCode) {
@@ -583,6 +586,7 @@ void Volume::HandleVoldResponse(int aResponseCode,
       LOG("Volume: %s unrecognized reponse code (ignored)", NameStr());
       break;
   }
+#endif // if ANDROID_VERSION < 28
 }
 
 }  // namespace system
