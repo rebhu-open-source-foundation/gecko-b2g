@@ -2219,9 +2219,11 @@ class DeviceStoragePermissionCheck final : public ContentPermissionRequestBase,
       return rv;
     }
 
+    // For example, device-storage:pictures:read
+    type.AppendASCII(":");
+    type.Append(access);
+
     nsTArray<nsString> emptyOptions;
-    // TODO: nsIContentPermissionType.access is removed, and we do not plan to
-    // add it back, instead, we should deal with access type in some other ways.
     return nsContentPermissionUtils::CreatePermissionArray(type, emptyOptions,
                                                            aTypes);
   }

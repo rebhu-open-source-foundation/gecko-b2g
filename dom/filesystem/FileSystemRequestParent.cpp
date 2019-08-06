@@ -71,7 +71,7 @@ bool FileSystemRequestParent::Initialize(const FileSystemParams& aParams) {
     mTask->GetPermissionAccessType(access);
 
     mPermissionName = mFileSystem->GetPermission();
-    mPermissionName.Append('-');
+    mPermissionName.Append(':');
     mPermissionName.Append(access);
   }
 

@@ -141,11 +141,14 @@ FileSystemPermissionRequest::FileSystemPermissionRequest(
 
 NS_IMETHODIMP
 FileSystemPermissionRequest::GetTypes(nsIArray** aTypes) {
+  nsCString type;
+  type.Append(mPermissionType);
+  type.AppendASCII(":");
+  type.Append(mPermissionAccess);
+
   nsTArray<nsString> emptyOptions;
-  // TODO: nsIContentPermissionType.access is removed, and we do not plan to
-  // add it back, instead, we should deal with access type in some other ways.
-  return nsContentPermissionUtils::CreatePermissionArray(mPermissionType,
-                                                         emptyOptions, aTypes);
+  return nsContentPermissionUtils::CreatePermissionArray(type, emptyOptions,
+                                                         aTypes);
 }
 
 NS_IMETHODIMP
