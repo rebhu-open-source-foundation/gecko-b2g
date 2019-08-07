@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 # This file defines static prefs, i.e. those that are defined at startup and
-# used entirely or mostly from C++ code.
+# used entirely or mostly from C++ and/or Rust code.
 #
 # The file is separated into sections, where each section contains a group of
 # prefs that all share the same first segment of their name -- all the "gfx.*"
@@ -33,8 +33,9 @@
 #     type: <cpp-type>                     # mandatory
 #     value: <default-value>               # mandatory
 #     mirror: <never | once | always>      # mandatory
-#     do_not_use_directly: <True | False>  # optional
+#     do_not_use_directly: <true | false>  # optional
 #     include: <header-file>               # optional
+#     rust: <true | false>                 # optional
 #
 # - `name` is the name of the pref, without double-quotes, as it appears
 #   in about:config. It is used in most libpref API functions (from both C++
@@ -81,12 +82,20 @@
 #   Note that Rust code must access the mirror variable directly, rather than
 #   via the getter function.
 #
-# - `do_not_use_directly` dictates if `_DoNotUseDirectly` should be appended to
+# - `do_not_use_directly` indicates if `_DoNotUseDirectly` should be appended to
 #   the name of the getter function. This is simply a naming convention
 #   indicating that there is some other wrapper getter function that should be
 #   used in preference to the normal static pref getter. Defaults to `false` if
 #   not present. Cannot be used with a `never` mirror value, because there is
 #   no getter function in that case.
+#
+# - `include` names a header file that must be included for the pref value to
+#   compile correctly, e.g. because it refers to a code constant. System
+#   headers should be surrounded with angle brackets, e.g. `<cmath>`.
+#
+# - `rust` indicates if the mirror variable is used by Rust code. If so, it
+#   will be usable via the `static_prefs::pref!` macro, e.g.
+#   `static_prefs::pref!("layout.css.font-display.enabled")`.
 #
 # The getter function's base name is the same as the pref's name, but with
 # '.' or '-' chars converted to '_', to make a valid identifier. For example,
@@ -99,10 +108,6 @@
 #
 # - If the `do_not_use_directly` value is true, `_DoNotUseDirectly` is
 #   appended.
-#
-# - `include` names a header file that must be included for the pref value to
-#   compile correctly, e.g. because it refers to a code constant. System
-#   headers should be surrounded with angle brackets, e.g. `<cmath>`.
 #
 # Preprocessor
 # ------------
@@ -160,6 +165,11 @@
 
 - name: accessibility.browsewithcaret
   type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: accessibility.AOM.enabled
+  type: bool
   value: false
   mirror: always
 
@@ -736,6 +746,7 @@
   type: uint32_t
   value: 0
   mirror: always
+  rust: true
 
 - name: browser.display.focus_ring_on_anything
   type: bool
@@ -851,6 +862,11 @@
 - name: browser.sessionstore.dom_storage_limit
   type: uint32_t
   value: 2048
+  mirror: always
+
+- name: browser.tabs.remote.force-paint
+  type: bool
+  value: true
   mirror: always
 
 # When this pref is enabled document loads with a mismatched
@@ -1097,6 +1113,11 @@
   value: false
   mirror: always
 
+- name: device.sensors.test.events
+  type: bool
+  value: false
+  mirror: always
+
 - name: device.storage.enabled
   type: bool
   value: false
@@ -1129,6 +1150,11 @@
 - name: dom.allow_cut_copy
   type: bool
   value: true
+  mirror: always
+
+- name: dom.allow_XUL_XBL_for_file
+  type: bool
+  value: false
   mirror: always
 
 # Is support for automatically removing replaced filling animations enabled?
@@ -1197,6 +1223,25 @@
   value: true
   mirror: always
 
+# Whether window.location.reload() and window.history.go(0) should be blocked
+# if called directly from a window resize event handler.
+#
+# This used to be necessary long ago to prevent terrible UX when using stuff
+# like TypeAheadFind (bug 258917), but it also causes compat issues on mobile
+# (bug 1570566).
+#
+# So for now disable it on Android and Desktop Nightly, to see if we have any
+# desktop regression before removing it completely. Note that this means that
+# non-nightly RDM behaves different than Android in this case.
+- name: dom.block_reload_from_resize_event_handler
+  type: bool
+#if defined(MOZ_WIDGET_ANDROID) || defined(NIGHTLY_BUILD)
+  value: false
+#else
+  value: true
+#endif
+  mirror: always
+
 # SW Cache API
 - name: dom.caches.enabled
   type: RelaxedAtomicBool
@@ -1244,6 +1289,15 @@
 - name: dom.disable_open_during_load
   type: bool
   value: false
+  mirror: always
+
+- name: dom.enable_window_print
+  type: bool
+#ifdef ANDROID
+  value: false
+#else
+  value: true
+#endif
   mirror: always
 
 - name: dom.element.transform-getters.enabled
@@ -1305,6 +1359,15 @@
 
 # Disable clipboard read() and write() by default
 - name: dom.events.asyncClipboard.dataTransfer
+  type: bool
+  value: false
+  mirror: always
+
+# This pref controls whether or not the `protected` dataTransfer state is
+# enabled. If the `protected` dataTransfer stae is disabled, then the
+# DataTransfer will be read-only whenever it should be protected, and will not
+# be disconnected after a drag event is completed.
+- name: dom.events.dataTransfer.protected.enabled
   type: bool
   value: false
   mirror: always
@@ -1870,6 +1933,11 @@
   value: true
   mirror: always
 
+- name: dom.securecontext.whitelist_onions
+  type: bool
+  value: false
+  mirror: always
+
 # This pref enables FeaturePolicy logic and the parsing of 'allow' attribute in
 # HTMLIFrameElement objects.
 - name: dom.security.featurePolicy.enabled
@@ -1968,6 +2036,11 @@
 
 - name: dom.testing.structuredclonetester.enabled
   type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: dom.testing.sync-content-blocking-notifications
+  type: bool
   value: false
   mirror: always
 
@@ -2379,6 +2452,24 @@
   value: false
   mirror: always
 
+# General prefs for editor, indicating whether Gecko-specific editing UI is
+# enabled by default. Those UIs are not implemented by any other browsers.  So,
+# only Firefox users can change some styles with them. This means that Firefox
+# users may get unexpected result of some web apps if they assume that users
+# cannot change such styles.
+- name: editor.resizing.enabled_by_default
+  type: bool
+  value: false
+  mirror: always
+- name: editor.inline_table_editing.enabled_by_default
+  type: bool
+  value: false
+  mirror: always
+- name: editor.positioning.enabled_by_default
+  type: bool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "extensions."
 #---------------------------------------------------------------------------
@@ -2584,6 +2675,12 @@
 - name: geo.enabled
   type: bool
   value: true
+  mirror: always
+
+# Time, in milliseconds, to wait for the location provider to spin up.
+- name: geo.timeout
+  type: int32_t
+  value: 6000
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -4381,6 +4478,11 @@
   value: true
   mirror: once
 
+- name: layout.reflow.synthMouseMove
+  type: bool
+  value: true
+  mirror: always
+
 # This and code dependent on it should be removed once containerless scrolling looks stable.
 - name: layout.scroll.root-frame-containers
   type: RelaxedAtomicBool
@@ -4461,11 +4563,6 @@
 # keyword rather than a pixel value based on the first available font.
 #
 # Only enabled on Nightly and early beta, at least for now.
-#
-# NOTE(emilio): If / when removing this pref, the GETCS_NEEDS_LAYOUT_FLUSH flag
-# should be removed from line-height (and we should let -moz-block-height
-# compute to the keyword as well, which shouldn't be observable anyway since
-# it's an internal value).
 #
 # It'd be nice to make numbers compute also to themselves, but it looks like
 # everybody agrees on turning them into pixels, see the discussion starting
@@ -4554,6 +4651,17 @@
   value: 30
   mirror: always
 
+# MediaCapabilities
+- name: media.mediacapabilities.drop-threshold
+  type: RelaxedAtomicInt32
+  value: 95
+  mirror: always
+
+- name: media.mediacapabilities.from-database
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # AudioSink
 - name: media.resampling.enabled
   type: RelaxedAtomicBool
@@ -4640,6 +4748,11 @@
   mirror: always
 
 - name: media.clearkey.persistent-license.enabled
+  type: bool
+  value: false
+  mirror: always
+
+- name: media.cloneElementVisually.testing
   type: bool
   value: false
   mirror: always
@@ -4916,6 +5029,12 @@
   value: false
   mirror: always
 
+# This pref disables the reception of RTCP. It is used for testing.
+- name: media.webrtc.net.force_disable_rtcp_reception
+  type: ReleaseAcquireAtomicBool
+  value: false
+  mirror: always
+
 # TextTrack WebVTT Region extension support.
 - name: media.webvtt.regions.enabled
   type: bool
@@ -4994,6 +5113,12 @@
 # Zero tolerance in pre-release builds to detect any decoder regression.
   value: 0
 #endif
+  mirror: always
+
+# Are video stats enabled? (Disabling can help prevent fingerprinting.)
+- name: media.video_stats.enabled
+  type: bool
+  value: true
   mirror: always
 
 # Opus
@@ -5674,32 +5799,14 @@
   value: false
   mirror: always
 
-# Annotate fingerprinting resources.
-- name: privacy.trackingprotection.fingerprinting.annotate.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Block 3rd party cryptomining resources.
 - name: privacy.trackingprotection.cryptomining.enabled
   type: bool
   value: false
   mirror: always
 
-# Annotate cryptomining resources.
-- name: privacy.trackingprotection.cryptomining.annotate.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Block 3rd party socialtracking resources.
 - name: privacy.trackingprotection.socialtracking.enabled
-  type: bool
-  value: false
-  mirror: always
-
-# Annotate socialtracking resources.
-- name: privacy.trackingprotection.socialtracking.annotate.enabled
   type: bool
   value: false
   mirror: always
@@ -5883,6 +5990,13 @@
 # Disabled by default so it doesn't affect Thunderbird/SeaMonkey, but
 # enabled in firefox.js
 - name: security.allow_eval_with_system_principal
+  type: bool
+  value: true
+  mirror: always
+
+# Disabled by default so it doesn't affect Thunderbird/SeaMonkey, but
+# enabled in firefox.js
+- name: security.allow_eval_in_parent_process
   type: bool
   value: true
   mirror: always

@@ -161,6 +161,17 @@ def use_fetches(config, jobs):
     artifact_names = {}
     aliases = {}
 
+    if config.kind == 'toolchain':
+        jobs = list(jobs)
+        for job in jobs:
+            run = job.get('run', {})
+            label = 'toolchain-{}'.format(job['name'])
+            get_attribute(
+                artifact_names, label, run, 'toolchain-artifact')
+            value = run.get('toolchain-alias')
+            if value:
+                aliases['toolchain-{}'.format(value)] = label
+
     for task in config.kind_dependencies_tasks:
         if task.kind in ('fetch', 'toolchain'):
             get_attribute(
@@ -233,19 +244,10 @@ def use_fetches(config, jobs):
 
         env = worker.setdefault('env', {})
         env['MOZ_FETCHES'] = {'task-reference': json.dumps(job_fetches, sort_keys=True)}
-        env.setdefault('MOZ_FETCHES_DIR', get_default_moz_fetches_dir(job))
+        # The path is normalized to an absolute path in run-task
+        env.setdefault('MOZ_FETCHES_DIR', 'fetches')
 
         yield job
-
-
-def get_default_moz_fetches_dir(job):
-    if job.get('worker', {}).get('os') in ('windows', 'macosx'):
-        moz_fetches_dir = 'fetches'
-    else:
-        workdir = job['run'].get('workdir', '/builds/worker')
-        moz_fetches_dir = '{}/fetches'.format(workdir)
-
-    return moz_fetches_dir
 
 
 @transforms.add

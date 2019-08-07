@@ -26,22 +26,13 @@
 requestLongerTimeout(2);
 
 add_task(async function() {
-  // Run test with legacy JsTerm
-  await pushPref("devtools.webconsole.jsterm.codeMirror", false);
-  await performTests();
-  // And then run it with the CodeMirror-powered one.
-  await pushPref("devtools.webconsole.jsterm.codeMirror", true);
-  await performTests();
-});
-
-async function performTests() {
   let browserConsole, webConsole, objInspector;
 
   // We don't use `pushPref()` because we need to revert the same pref later
   // in the test.
   Services.prefs.setBoolPref("devtools.chrome.enabled", true);
 
-  browserConsole = await HUDService.toggleBrowserConsole();
+  browserConsole = await BrowserConsoleManager.toggleBrowserConsole();
   objInspector = await logObject(browserConsole);
   testJSTermIsVisible(browserConsole);
   await testObjectInspectorPropertiesAreSet(objInspector);
@@ -53,10 +44,10 @@ async function performTests() {
   await testObjectInspectorPropertiesAreSet(objInspector);
   await closeConsole(browserTab);
 
-  await HUDService.toggleBrowserConsole();
+  await BrowserConsoleManager.toggleBrowserConsole();
   Services.prefs.setBoolPref("devtools.chrome.enabled", false);
 
-  browserConsole = await HUDService.toggleBrowserConsole();
+  browserConsole = await BrowserConsoleManager.toggleBrowserConsole();
   objInspector = await logObject(browserConsole);
   testJSTermIsNotVisible(browserConsole);
 
@@ -67,8 +58,8 @@ async function performTests() {
 
   info("Close webconsole and browser console");
   await closeConsole(browserTab);
-  await HUDService.toggleBrowserConsole();
-}
+  await BrowserConsoleManager.toggleBrowserConsole();
+});
 
 async function logObject(hud) {
   const prop = "browser_console_hide_jsterm_test";

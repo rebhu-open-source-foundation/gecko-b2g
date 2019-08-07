@@ -377,6 +377,7 @@ pref("media.peerconnection.ice.stun_client_maximum_transmits", 7);
 pref("media.peerconnection.ice.trickle_grace_period", 5000);
 pref("media.peerconnection.ice.no_host", false);
 pref("media.peerconnection.ice.default_address_only", false);
+pref("media.peerconnection.ice.proxy_only_if_behind_proxy", false);
 pref("media.peerconnection.ice.proxy_only", false);
 pref("media.peerconnection.turn.disable", false);
 
@@ -454,9 +455,6 @@ pref("media.video-queue.default-size", 10);
 // The maximum number of queued frames to send to the compositor.
 // By default, send all of them.
 pref("media.video-queue.send-to-compositor-size", 9999);
-
-// Whether to disable the video stats to prevent fingerprinting
-pref("media.video_stats.enabled", true);
 
 // Log level for cubeb, the audio input/output system. Valid values are
 // "verbose", "normal" and "" (log disabled).
@@ -801,8 +799,6 @@ pref("ui.scrollToClick", 0);
 // further checks.
 pref("accessibility.force_disabled", 0);
 
-pref("accessibility.AOM.enabled", false);
-
 #ifdef XP_WIN
 // Some accessibility tools poke at windows in the plugin process during setup
 // which can cause hangs.  To hack around this set accessibility.delay_plugins
@@ -1018,16 +1014,6 @@ pref("print.font-variations-as-paths", true);
 // maximum number of misspelled words that will be underlined
 // in a document.
 pref("extensions.spellcheck.inline.max-misspellings", 500);
-
-// General prefs for editor.
-// Whether Gecko specific editing UI is enabled by default.
-// Those UIs are not impelemnted by any other browsers.  So, only Firefox users
-// can change some styles with them.  This means that only Firefox users may
-// get unexpected result of some web apps if they assume that users cannot
-// change such styles.
-pref("editor.resizing.enabled_by_default", false);
-pref("editor.inline_table_editing.enabled_by_default", false);
-pref("editor.positioning.enabled_by_default", false);
 
 // Whether inserting <div> when typing Enter in a block element which can
 // contain <div>.  If false, inserts <br> instead.
@@ -2829,9 +2815,6 @@ pref("layout.display-list.rebuild-frame-limit", 500);
 
 // pref to control whether layout warnings that are hit quite often are enabled
 pref("layout.spammy_warnings.enabled", false);
-
-// Should we fragment floats inside CSS column layout?
-pref("layout.float-fragments-inside-column.enabled", true);
 
 // The number of frames times the frame rate is the time required to
 // pass without painting used to guess that we'll not paint again soon

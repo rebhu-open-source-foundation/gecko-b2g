@@ -17,6 +17,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/BackgroundHangMonitor.h"
+#include "mozilla/BenchmarkStorageChild.h"
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/MemoryTelemetry.h"
 #include "mozilla/NullPrincipal.h"
@@ -787,7 +788,7 @@ ContentChild::ProvideWindow(mozIDOMWindowProxy* aParent, uint32_t aChromeFlags,
                             const nsAString& aName, const nsACString& aFeatures,
                             bool aForceNoOpener, bool aForceNoReferrer,
                             nsDocShellLoadState* aLoadState, bool* aWindowIsNew,
-                            mozIDOMWindowProxy** aReturn) {
+                            BrowsingContext** aReturn) {
   return ProvideWindowCommon(
       nullptr, aParent, false, aChromeFlags, aCalledFromJS, aPositionSpecified,
       aSizeSpecified, aURI, aName, aFeatures, aForceNoOpener, aForceNoReferrer,
@@ -876,7 +877,7 @@ nsresult ContentChild::ProvideWindowCommon(
     bool aSizeSpecified, nsIURI* aURI, const nsAString& aName,
     const nsACString& aFeatures, bool aForceNoOpener, bool aForceNoReferrer,
     nsDocShellLoadState* aLoadState, bool* aWindowIsNew,
-    mozIDOMWindowProxy** aReturn) {
+    BrowsingContext** aReturn) {
   *aReturn = nullptr;
 
   nsAutoPtr<IPCTabContext> ipcContext;
@@ -1120,9 +1121,7 @@ nsresult ContentChild::ProvideWindowCommon(
       newChild->RecvLoadURL(urlToLoad, showInfo);
     }
 
-    nsCOMPtr<mozIDOMWindowProxy> win =
-        do_GetInterface(newChild->WebNavigation());
-    win.forget(aReturn);
+    browsingContext.forget(aReturn);
   };
 
   // NOTE: Capturing by reference here is safe, as this function won't return
@@ -2283,6 +2282,15 @@ media::PMediaChild* ContentChild::AllocPMediaChild() {
 
 bool ContentChild::DeallocPMediaChild(media::PMediaChild* aActor) {
   return media::DeallocPMediaChild(aActor);
+}
+
+PBenchmarkStorageChild* ContentChild::AllocPBenchmarkStorageChild() {
+  return BenchmarkStorageChild::Instance();
+}
+
+bool ContentChild::DeallocPBenchmarkStorageChild(PBenchmarkStorageChild* aActor) {
+  delete aActor;
+  return true;
 }
 
 PSpeechSynthesisChild* ContentChild::AllocPSpeechSynthesisChild() {

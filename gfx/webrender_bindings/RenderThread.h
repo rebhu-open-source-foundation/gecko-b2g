@@ -167,8 +167,10 @@ class RenderThread final {
 
   // RenderNotifier implementation
 
-  /// Automatically forwarded to the render thread.
-  void HandleFrame(wr::WindowId aWindowId, bool aRender);
+  /// Automatically forwarded to the render thread. Will trigger a render for
+  /// the current pending frame once one call per document in that pending
+  // frame has been received.
+  void HandleFrameOneDoc(wr::WindowId aWindowId, bool aRender);
 
   /// Automatically forwarded to the render thread.
   void WakeUp(wr::WindowId aWindowId);
@@ -223,11 +225,6 @@ class RenderThread final {
   void IncPendingFrameCount(wr::WindowId aWindowId, const VsyncId& aStartId,
                             const TimeStamp& aStartTime,
                             uint8_t aDocFrameCount);
-  /// Can be called from any thread.
-  mozilla::Pair<bool, bool> IncRenderingFrameCount(wr::WindowId aWindowId,
-                                                   bool aRender);
-  /// Can be called from any thread.
-  void FrameRenderingComplete(wr::WindowId aWindowId);
 
   void NotifySlowFrame(wr::WindowId aWindowId);
 
@@ -300,17 +297,24 @@ class RenderThread final {
   std::map<wr::WindowId, UniquePtr<layers::WebRenderCompositionRecorder>>
       mCompositionRecorders;
 
-  struct WindowInfo {
-    bool mIsDestroyed = false;
-    bool mRender = false;
-    int64_t mPendingCount = 0;
-    int64_t mRenderingCount = 0;
+  struct PendingFrameInfo {
+    TimeStamp mStartTime;
+    VsyncId mStartId;
     uint8_t mDocFramesSeen = 0;
-    // One entry in this queue for each pending frame, so the length
-    // should always equal mPendingCount
-    std::queue<TimeStamp> mStartTimes;
-    std::queue<VsyncId> mStartIds;
-    std::queue<uint8_t> mDocFrameCounts;
+    uint8_t mDocFramesTotal = 0;
+    bool mFrameNeedsRender = false;
+  };
+
+  struct WindowInfo {
+    // PendingCount() >= RenderingCount() at all times.
+    int64_t PendingCount() { return mPendingFrames.size(); }
+    int64_t RenderingCount() { return mIsRendering ? 1 : 0; }
+
+    // If mIsRendering is true, mPendingFrames.front() is currently being
+    // rendered.
+    std::queue<PendingFrameInfo> mPendingFrames;
+    bool mIsRendering = false;
+    bool mIsDestroyed = false;
     bool mHadSlowFrame = false;
   };
 

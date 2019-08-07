@@ -494,11 +494,6 @@ JSScript* frontend::ScriptCompiler<Unit>::compileScript(
 
   TokenStreamPosition startPosition(info.keepAtoms, parser->tokenStream);
 
-  Maybe<BytecodeEmitter> emitter;
-  if (!emplaceEmitter(info, emitter, sc)) {
-    return nullptr;
-  }
-
   JSContext* cx = info.cx;
 
   for (;;) {
@@ -517,6 +512,16 @@ JSScript* frontend::ScriptCompiler<Unit>::compileScript(
     AutoGeckoProfilerEntry pseudoFrame(cx, "script emit",
                                        JS::ProfilingCategoryPair::JS_Parsing);
     if (pn) {
+      // Publish deferred items
+      if (!parser->publishDeferredItems()) {
+        return nullptr;
+      }
+
+      Maybe<BytecodeEmitter> emitter;
+      if (!emplaceEmitter(info, emitter, sc)) {
+        return nullptr;
+      }
+
       if (!emitter->emitScript(pn)) {
         return nullptr;
       }
@@ -528,8 +533,9 @@ JSScript* frontend::ScriptCompiler<Unit>::compileScript(
       return nullptr;
     }
 
-    // Reset UsedNameTracker state before trying again.
+    // Reset preserved state before trying again.
     info.usedNames->reset();
+    parser->getTreeHolder().resetFunctionTree();
   }
 
   // We have just finished parsing the source. Inform the source so that we
@@ -571,10 +577,15 @@ ModuleObject* frontend::ModuleCompiler<Unit>::compile(ModuleInfo& info) {
     return nullptr;
   }
 
+  if (!parser->publishDeferredItems()) {
+    return nullptr;
+  }
+
   Maybe<BytecodeEmitter> emitter;
   if (!emplaceEmitter(info, emitter, &modulesc)) {
     return nullptr;
   }
+
   if (!emitter->emitScript(pn->as<ModuleNode>().body())) {
     return nullptr;
   }
@@ -648,6 +659,9 @@ bool frontend::StandaloneFunctionCompiler<Unit>::compile(
       return false;
     }
 
+    if (!parser->publishDeferredItems()) {
+      return false;
+    }
     Maybe<BytecodeEmitter> emitter;
     if (!emplaceEmitter(info, emitter, funbox)) {
       return false;

@@ -127,6 +127,7 @@ EXPORTS.mozilla += [
     'NSPRLogModulesParser.h',
     'OwningNonNull.h',
     'SizeOfState.h',
+    'StaticLocalPtr.h',
     'StaticMonitor.h',
     'StaticMutex.h',
     'StaticPtr.h',

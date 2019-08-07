@@ -294,6 +294,30 @@ extensions.data:
       These events are sent when an extension is migrating its data to the new IndexedDB backend,
       the value of this event is the addon id.
 
+homepage:
+  preference:
+    objects: ["ignore"]
+    release_channel_collection: opt-out
+    products:
+      - "firefox"
+      - "fennec"
+    record_in_processes: ["main"]
+    description: >
+      This is recorded whenever the homepage preference is either reset due to
+      being on the ignore list, or setting is blocked due to being on the same
+      list.
+      The value field records the reason for the ignore. "saved_reset" for
+      when a saved preference value is reset. "set_blocked" for when the setting
+      was blocked and "set_blocked_extension" for when we know a WebExtension
+      attempting to set it was blocked.
+    bug_numbers: [1535049]
+    notification_emails:
+      - "mdeboer@mozilla.com"
+      - "rharter@mozilla.com"
+    expiry_version: never
+    extra_keys:
+      webExtensionId: The identifier of the webextension, if known.
+
 navigation:
   search:
     objects: ["about_home", "about_newtab", "contextmenu", "oneoff",
@@ -511,7 +535,7 @@ normandy:
 
 pwmgr:
   open_management:
-    objects: ["autocomplete", "capturedoorhanger", "contextmenu", "pageinfo", "preferences", "mainmenu"]
+    objects: ["autocomplete", "capturedoorhanger", "contextmenu", "pageinfo", "preferences", "mainmenu", "fxamenu"]
     methods: ["open_management"]
     description: >
       Sent when opening the password management UI.
@@ -598,8 +622,10 @@ fxa_avatar_menu:
       "sync_tabs",
       "sync_tabs_sidebar",
       "toolbar_icon",
-      "unver_sync_settings"
-    ]
+      "unver_sync_settings",
+      "open_monitor",
+      "open_send"
+      ]
     methods: ["click"]
     release_channel_collection: opt-out
     products:
@@ -622,13 +648,17 @@ fxa_app_menu:
     objects: [
       "account_settings",
       "cad",
+      "login",
       "send_tab",
       "sync_now",
       "sync_settings",
       "sync_tabs",
       "sync_tabs_sidebar",
-      "toolbar_icon"
-    ]
+      "toolbar_icon",
+      "unver_sync_settings",
+      "open_monitor",
+      "open_send"
+      ]
     methods: ["click"]
     release_channel_collection: opt-out
     products:
@@ -1563,11 +1593,12 @@ intl.ui.browserLanguage:
 
 security:
   evalUsage:
-    objects: ["systemContext"]
+    objects: ["systemContext", "parentProcess"]
     bug_numbers:
       - 1567623
     description: >
-      eval() (or an eval()-like method) was called while running in the System Principal Context.
+      eval() (or an eval()-like method) was called while running in the System Principal
+      context or the Parent Process.
       Expected values are:
         chromeuri - chrome:// file
         resourceuri - resource:// file

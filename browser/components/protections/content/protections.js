@@ -23,9 +23,13 @@ document.addEventListener("DOMContentLoaded", e => {
   ];
 
   let protectionDetails = document.getElementById("protection-details");
-  protectionDetails.addEventListener("click", () => {
-    RPMSendAsyncMessage("OpenContentBlockingPreferences");
-  });
+  let protectionDetailsEvtHandler = evt => {
+    if (evt.keyCode == evt.DOM_VK_RETURN || evt.type == "click") {
+      RPMSendAsyncMessage("OpenContentBlockingPreferences");
+    }
+  };
+  protectionDetails.addEventListener("click", protectionDetailsEvtHandler);
+  protectionDetails.addEventListener("keypress", protectionDetailsEvtHandler);
 
   let cbCategory = RPMGetStringPref("browser.contentblocking.category");
   if (cbCategory == "custom") {
@@ -172,6 +176,10 @@ document.addEventListener("DOMContentLoaded", e => {
     true
   );
   if (lockwiseEnabled) {
+    const lockwiseUI = document.querySelector(".lockwise-card");
+    lockwiseUI.classList.remove("hidden");
+    lockwiseUI.classList.add("loading");
+
     const lockwiseCard = new LockwiseCard(document);
     lockwiseCard.init();
   }
@@ -185,6 +193,11 @@ document.addEventListener("DOMContentLoaded", e => {
     true
   );
   if (monitorEnabled) {
+    // Show the Monitor card.
+    const monitorUI = document.querySelector(".card.monitor-card.hidden");
+    monitorUI.classList.remove("hidden");
+    monitorUI.classList.add("loading");
+
     const monitorCard = new MonitorCard(document);
     monitorCard.init();
   }

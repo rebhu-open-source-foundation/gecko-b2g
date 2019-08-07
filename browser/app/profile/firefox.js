@@ -500,9 +500,10 @@ pref("browser.tabs.remote.enforceRemoteTypeRestrictions", true);
 #endif
 
 #ifdef NIGHTLY_BUILD
-// allow_eval_with_system_principal is enabled on Firefox Desktop only at this
+// allow_eval_* is enabled on Firefox Desktop only at this
 // point in time
 pref("security.allow_eval_with_system_principal", false);
+pref("security.allow_eval_in_parent_process", false);
 pref("browser.tabs.remote.useHTTPResponseProcessSelection", true);
 #else
 // Disabled outside of nightly due to bug 1554217
@@ -987,7 +988,6 @@ pref("app.productInfo.baseURL", "https://www.mozilla.org/firefox/features/");
 // Name of alternate about: page for certificate errors (when undefined, defaults to about:neterror)
 pref("security.alternate_certificate_error_page", "certerror");
 
-pref("browser.security.newcerterrorpage.mitm.enabled", true);
 pref("security.certerrors.recordEventTelemetry", true);
 pref("security.certerrors.permanentOverride", true);
 pref("security.certerrors.mitm.priming.enabled", true);
@@ -1254,9 +1254,7 @@ pref("services.sync.prefs.sync.privacy.fuzzyfox.clockgrainus", false);
 pref("services.sync.prefs.sync.privacy.sanitize.sanitizeOnShutdown", true);
 pref("services.sync.prefs.sync.privacy.trackingprotection.enabled", true);
 pref("services.sync.prefs.sync.privacy.trackingprotection.cryptomining.enabled", true);
-pref("services.sync.prefs.sync.privacy.trackingprotection.cryptomining.annotate.enabled", true);
 pref("services.sync.prefs.sync.privacy.trackingprotection.fingerprinting.enabled", true);
-pref("services.sync.prefs.sync.privacy.trackingprotection.fingerprinting.annotate.enabled", true);
 pref("services.sync.prefs.sync.privacy.trackingprotection.pbmode.enabled", true);
 pref("services.sync.prefs.sync.privacy.resistFingerprinting", true);
 pref("services.sync.prefs.sync.privacy.reduceTimerPrecision", true);
@@ -1370,6 +1368,9 @@ pref("security.insecure_field_warning.contextual.enabled", true);
 pref("security.insecure_connection_icon.enabled", true);
 // Show degraded UI for http pages in private mode.
 pref("security.insecure_connection_icon.pbmode.enabled", true);
+
+// For secure connections, show gray instead of green lock icon
+pref("security.secure_connection_icon_color_gray", false);
 
 // Show "Not Secure" text for http pages; disabled for now
 pref("security.insecure_connection_text.enabled", false);
@@ -1599,6 +1600,12 @@ pref("browser.contentblocking.fingerprinting.preferences.ui.enabled", true);
 //     "cookieBehavior5": cookie behaviour BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
 // One value from each section must be included in the browser.contentblocking.features.strict pref.
 pref("browser.contentblocking.features.strict", "tp,tpPrivate,cookieBehavior4,cm,fp");
+
+// Hide the "Change Block List" link for trackers/tracking content in the custom
+// Content Blocking/ETP panel. By default, it will not be visible. There is also
+// an UI migration in place to set this pref to true if a user has a custom block
+// lists enabled.
+pref("browser.contentblocking.customBlockList.preferences.ui.enabled", false);
 
 pref("browser.contentblocking.reportBreakage.url", "https://tracking-protection-issues.herokuapp.com/new");
 
@@ -1888,6 +1895,10 @@ pref("browser.toolbars.keyboard_navigation", true);
 // quick access to sign-in and manage your Firefox Account.
 pref("identity.fxaccounts.toolbar.enabled", true);
 pref("identity.fxaccounts.toolbar.accessed", false);
+
+// Prefs for different services supported by Firefox Account
+pref("identity.fxaccounts.service.sendLoginUrl", "https://send.firefox.com/login/");
+pref("identity.fxaccounts.service.monitorLoginUrl", "https://monitor.firefox.com/");
 
 // Check bundled JAR and XPI files for corruption.
 #ifdef RELEASE_OR_BETA

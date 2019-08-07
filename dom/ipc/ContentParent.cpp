@@ -37,6 +37,7 @@
 #endif
 #include "mozilla/AntiTrackingCommon.h"
 #include "mozilla/BasePrincipal.h"
+#include "mozilla/BenchmarkStorageParent.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Components.h"
 #include "mozilla/StyleSheetInlines.h"
@@ -1954,6 +1955,25 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateReplayingProcess(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentParent::RecvGenerateReplayCrashReport(
+    const uint32_t& aChannelId) {
+  if (aChannelId >= mReplayingChildren.length()) {
+    return IPC_FAIL(this, "invalid channel ID");
+  }
+
+  GeckoChildProcessHost* child = mReplayingChildren[aChannelId];
+  if (!child) {
+    return IPC_FAIL(this, "invalid channel ID");
+  }
+
+  if (mCrashReporter) {
+    ProcessId pid = base::GetProcId(child->GetChildProcessHandle());
+    mCrashReporter->GenerateCrashReport(pid);
+  }
+
+  return IPC_OK();
+}
+
 jsipc::CPOWManager* ContentParent::GetCPOWManager() {
   if (PJavaScriptParent* p =
           LoneManagedOrNullAsserts(ManagedPJavaScriptParent())) {
@@ -3864,6 +3884,15 @@ bool ContentParent::DeallocPMediaParent(media::PMediaParent* aActor) {
   return media::DeallocPMediaParent(aActor);
 }
 
+PBenchmarkStorageParent* ContentParent::AllocPBenchmarkStorageParent() {
+  return new BenchmarkStorageParent;
+}
+
+bool ContentParent::DeallocPBenchmarkStorageParent(PBenchmarkStorageParent* aActor) {
+  delete aActor;
+  return true;
+}
+
 PPresentationParent* ContentParent::AllocPPresentationParent() {
   RefPtr<PresentationParent> actor = new PresentationParent();
   return actor.forget().take();
@@ -5089,11 +5118,11 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
       aResult = NS_ERROR_ABORT;
       return IPC_OK();
     }
-    nsCOMPtr<mozIDOMWindowProxy> win;
+    RefPtr<BrowsingContext> bc;
     aResult = newBrowserDOMWin->OpenURI(
         aURIToLoad, openerWindow, nsIBrowserDOMWindow::OPEN_CURRENTWINDOW,
         nsIBrowserDOMWindow::OPEN_NEW, aTriggeringPrincipal, aCsp,
-        getter_AddRefs(win));
+        getter_AddRefs(bc));
   }
 
   return IPC_OK();
