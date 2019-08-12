@@ -1122,33 +1122,33 @@ void gfxPlatform::Init() {
   }
 }
 
-static bool IsFeatureSupported(long aFeature) {
+static bool IsFeatureSupported(long aFeature, bool aDefault) {
   nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
   nsCString blockId;
   int32_t status;
   if (!NS_SUCCEEDED(gfxInfo->GetFeatureStatus(aFeature, blockId, &status))) {
-    return true;
+    return aDefault;
   }
-  return status != nsIGfxInfo::FEATURE_STATUS_OK;
+  return status == nsIGfxInfo::FEATURE_STATUS_OK;
 }
 /* static*/
 bool gfxPlatform::IsDXInterop2Blocked() {
-  return IsFeatureSupported(nsIGfxInfo::FEATURE_DX_INTEROP2);
+  return !IsFeatureSupported(nsIGfxInfo::FEATURE_DX_INTEROP2, false);
 }
 
 /* static*/
 bool gfxPlatform::IsDXNV12Blocked() {
-  return IsFeatureSupported(nsIGfxInfo::FEATURE_DX_NV12);
+  return !IsFeatureSupported(nsIGfxInfo::FEATURE_DX_NV12, false);
 }
 
 /* static*/
 bool gfxPlatform::IsDXP010Blocked() {
-  return IsFeatureSupported(nsIGfxInfo::FEATURE_DX_P010);
+  return !IsFeatureSupported(nsIGfxInfo::FEATURE_DX_P010, false);
 }
 
 /* static*/
 bool gfxPlatform::IsDXP016Blocked() {
-  return IsFeatureSupported(nsIGfxInfo::FEATURE_DX_P016);
+  return !IsFeatureSupported(nsIGfxInfo::FEATURE_DX_P016, false);
 }
 
 /* static */
@@ -2307,8 +2307,7 @@ int32_t gfxPlatform::GetBidiNumeralOption() {
 void gfxPlatform::FlushFontAndWordCaches() {
   gfxFontCache* fontCache = gfxFontCache::GetCache();
   if (fontCache) {
-    fontCache->AgeAllGenerations();
-    fontCache->FlushShapedWordCaches();
+    fontCache->Flush();
   }
 
   gfxPlatform::PurgeSkiaFontCache();
@@ -2348,10 +2347,12 @@ void gfxPlatform::FontsPrefsChanged(const char* aPref) {
   } else if (!strcmp(GFX_PREF_GRAPHITE_SHAPING, aPref)) {
     mGraphiteShapingEnabled = UNINITIALIZED_VALUE;
     FlushFontAndWordCaches();
+  } else if (
 #if defined(XP_MACOSX)
-  } else if (!strcmp(GFX_PREF_CORETEXT_SHAPING, aPref)) {
-    FlushFontAndWordCaches();
+      !strcmp(GFX_PREF_CORETEXT_SHAPING, aPref) ||
 #endif
+      !strcmp("gfx.font_rendering.ahem_antialias_none", aPref)) {
+    FlushFontAndWordCaches();
   } else if (!strcmp(BIDI_NUMERAL_PREF, aPref)) {
     mBidiNumeralOption = UNINITIALIZED_VALUE;
   } else if (!strcmp(GFX_PREF_OPENTYPE_SVG, aPref)) {
@@ -3185,6 +3186,10 @@ void gfxPlatform::InitWebRenderConfig() {
     }
   }
 #endif
+
+  // Set features that affect WR's RendererOptions
+  gfxVars::SetUseGLSwizzle(IsFeatureSupported(nsIGfxInfo::FEATURE_GL_SWIZZLE, true));
+
   // The RemoveShaderCacheFromDiskIfNecessary() needs to be called after
   // WebRenderConfig initialization.
   gfxUtils::RemoveShaderCacheFromDiskIfNecessary();

@@ -2139,8 +2139,8 @@ void ZoneHeapThreshold::updateAfterGC(size_t lastBytes,
                                       const AutoLockGC& lock) {
   float growthFactor =
       computeZoneHeapGrowthFactorForHeapSize(lastBytes, tunables, state);
-  gcTriggerBytes_ = computeZoneTriggerBytes(growthFactor, lastBytes, gckind,
-                                            tunables, lock);
+  gcTriggerBytes_ =
+      computeZoneTriggerBytes(growthFactor, lastBytes, gckind, tunables, lock);
 }
 
 /* static */
@@ -2987,7 +2987,7 @@ void GCRuntime::updateRuntimePointersToRelocatedCells(AutoGCSession& session) {
   gcstats::AutoPhase ap1(stats(), gcstats::PhaseKind::COMPACT_UPDATE);
   MovingTracer trc(rt);
 
-  Compartment::fixupCrossCompartmentWrappersAfterMovingGC(&trc);
+  Zone::fixupAllCrossCompartmentWrappersAfterMovingGC(&trc);
 
   rt->geckoProfiler().fixupStringsMapAfterMovingGC();
 
@@ -4223,9 +4223,8 @@ static bool InCrossCompartmentMap(JSRuntime* rt, JSObject* src,
   Compartment* srccomp = src->compartment();
 
   if (dst.is<JSObject>()) {
-    Value key = ObjectValue(dst.as<JSObject>());
-    if (WrapperMap::Ptr p = srccomp->lookupWrapper(key)) {
-      if (*p->value().unsafeGet() == ObjectValue(*src)) {
+    if (ObjectWrapperMap::Ptr p = srccomp->lookupWrapper(&dst.as<JSObject>())) {
+      if (*p->value().unsafeGet() == src) {
         return true;
       }
     }
@@ -4614,8 +4613,8 @@ void GCRuntime::markCompartments() {
 
   while (!workList.empty()) {
     Compartment* comp = workList.popCopy();
-    for (Compartment::NonStringWrapperEnum e(comp); !e.empty(); e.popFront()) {
-      Compartment* dest = e.front().mutableKey().compartment();
+    for (Compartment::ObjectWrapperEnum e(comp); !e.empty(); e.popFront()) {
+      Compartment* dest = e.front().key()->compartment();
       if (dest && !dest->gcState.maybeAlive) {
         dest->gcState.maybeAlive = true;
         if (!workList.append(dest)) {
@@ -5014,11 +5013,8 @@ static void DropStringWrappers(JSRuntime* rt) {
    * us to sweep the wrappers in all compartments every time we sweep a
    * compartment group.
    */
-  for (CompartmentsIter c(rt); !c.done(); c.next()) {
-    for (Compartment::StringWrapperEnum e(c); !e.empty(); e.popFront()) {
-      MOZ_ASSERT(e.front().key().is<JSString*>());
-      e.removeFront();
-    }
+  for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next()) {
+    zone->dropStringWrappersOnGC();
   }
 }
 
@@ -5041,11 +5037,10 @@ static void DropStringWrappers(JSRuntime* rt) {
 
 bool Compartment::findSweepGroupEdges() {
   Zone* source = zone();
-  for (WrapperMap::Enum e(crossCompartmentWrappers); !e.empty(); e.popFront()) {
-    CrossCompartmentKey& key = e.front().mutableKey();
-    MOZ_ASSERT(!key.is<JSString*>());
+  for (ObjectWrapperEnum e(this); !e.empty(); e.popFront()) {
+    JSObject* key = e.front().mutableKey();
 
-    Zone* target = key.zone();
+    Zone* target = key->zone();
     if (!target->isGCMarking()) {
       continue;
     }
@@ -5054,8 +5049,7 @@ bool Compartment::findSweepGroupEdges() {
     // is not still being marked when we start sweeping the wrapped zone. As an
     // optimization, if the wrapped object is already marked black there is no
     // danger of later marking and we can skip this.
-    if (key.is<JSObject*>() &&
-        key.as<JSObject*>()->asTenured().isMarkedBlack()) {
+    if (key->asTenured().isMarkedBlack()) {
       continue;
     }
 
@@ -5268,8 +5262,8 @@ static void AssertNoWrappersInGrayList(JSRuntime* rt) {
 #ifdef DEBUG
   for (CompartmentsIter c(rt); !c.done(); c.next()) {
     MOZ_ASSERT(!c->gcIncomingGrayPointers);
-    for (Compartment::NonStringWrapperEnum e(c); !e.empty(); e.popFront()) {
-      AssertNotOnGrayList(&e.front().value().unbarrieredGet().toObject());
+    for (Compartment::ObjectWrapperEnum e(c); !e.empty(); e.popFront()) {
+      AssertNotOnGrayList(e.front().value().unbarrieredGet());
     }
   }
 #endif
@@ -5589,8 +5583,8 @@ static void UpdateAtomsBitmap(JSRuntime* runtime) {
 static void SweepCCWrappers(GCParallelTask* task) {
   AutoSetThreadIsSweeping threadIsSweeping;
   JSRuntime* runtime = task->runtime();
-  for (SweepGroupCompartmentsIter c(runtime); !c.done(); c.next()) {
-    c->sweepCrossCompartmentWrappers();
+  for (SweepGroupZonesIter zone(runtime); !zone.done(); zone.next()) {
+    zone->sweepAllCrossCompartmentWrappers();
   }
 }
 
@@ -6180,7 +6174,8 @@ void GCRuntime::startSweepingAtomsTable() {
   // Create secondary tables to hold new atoms added while we're sweeping the
   // main tables incrementally.
   if (!atomsTable->startIncrementalSweep()) {
-    atomsTable->sweepAll(rt);
+    SweepingTracer trc(rt);
+    atomsTable->traceWeak(&trc);
     return;
   }
 
@@ -6201,7 +6196,9 @@ IncrementalProgress GCRuntime::sweepAtomsTable(FreeOp* fop,
     return Finished;
   }
 
-  if (!rt->atomsForSweeping()->sweepIncrementally(maybeAtoms.ref(), budget)) {
+  SweepingTracer trc(rt);
+  if (!rt->atomsForSweeping()->traceWeakIncrementally(&trc, maybeAtoms.ref(),
+                                                      budget)) {
     return NotFinished;
   }
 
@@ -6367,9 +6364,8 @@ IncrementalProgress GCRuntime::sweepShapeTree(FreeOp* fop,
     return NotFinished;
   }
 
-  if (!SweepArenaList<AccessorShape>(fop,
-                                     &al.gcAccessorShapeArenasToUpdate.ref(),
-                                     budget)) {
+  if (!SweepArenaList<AccessorShape>(
+          fop, &al.gcAccessorShapeArenasToUpdate.ref(), budget)) {
     return NotFinished;
   }
 
@@ -8640,6 +8636,7 @@ void js::gc::CheckHashTablesAfterMovingGC(JSRuntime* rt) {
     zone->checkUniqueIdTableAfterMovingGC();
     zone->checkInitialShapesTableAfterMovingGC();
     zone->checkBaseShapeTableAfterMovingGC();
+    zone->checkAllCrossCompartmentWrappersAfterMovingGC();
 
     JS::AutoCheckCannotGC nogc;
     for (auto baseShape = zone->cellIterUnsafe<BaseShape>(); !baseShape.done();
@@ -8650,8 +8647,6 @@ void js::gc::CheckHashTablesAfterMovingGC(JSRuntime* rt) {
   }
 
   for (CompartmentsIter c(rt); !c.done(); c.next()) {
-    c->checkWrapperMapAfterMovingGC();
-
     for (RealmsInCompartmentIter r(c); !r.done(); r.next()) {
       r->checkObjectGroupTablesAfterMovingGC();
       r->dtoaCache.checkCacheAfterMovingGC();

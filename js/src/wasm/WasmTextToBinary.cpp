@@ -25,7 +25,6 @@
 
 #include "jsnum.h"
 
-#include "builtin/String.h"
 #include "ds/LifoAlloc.h"
 #include "js/CharacterEncoding.h"
 #include "js/HashTable.h"
@@ -907,7 +906,7 @@ WasmToken WasmTokenStream::next() {
     case '+':
     case '-':
       cur_++;
-      if (consume(u"infinity")) {
+      if (consume(u"infinity") || consume(u"inf")) {
         return WasmToken(WasmToken::Infinity, begin, cur_);
       }
       if (consume(u"nan")) {

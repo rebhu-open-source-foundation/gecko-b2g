@@ -10,6 +10,7 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 XPCOMUtils.defineLazyModuleGetters(this, {
+  UrlbarContextualTip: "resource:///modules/UrlbarContextualTip.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
   UrlbarTokenizer: "resource:///modules/UrlbarTokenizer.jsm",
   UrlbarUtils: "resource:///modules/UrlbarUtils.jsm",
@@ -47,6 +48,62 @@ class UrlbarView {
 
     this.controller.setView(this);
     this.controller.addQueryListener(this);
+  }
+
+  /**
+   * Sets the title, button's title, and link's title
+   * for the contextual tip. If a contextual tip has not
+   * been created, then it will be created.
+   *
+   * @param {object} details
+   * @param {string} details.title
+   *   Main title displayed by the contextual tip.
+   * @param {string} [details.buttonTitle]
+   *   Title of the button on the contextual tip.
+   *   If omitted then the button will be hidden.
+   * @param {string} [details.linkTitle]
+   *   Title of the link on the contextual tip.
+   *   If omitted then the link will be hidden.
+   */
+  setContextualTip(details) {
+    if (!this.contextualTip) {
+      this.contextualTip = new UrlbarContextualTip(this);
+    }
+    this.contextualTip.set(details);
+
+    // Disable one off search buttons from appearing if
+    // the contextual tip is the only item in the urlbar view.
+    if (this.visibleItemCount == 0) {
+      this._enableOrDisableOneOffSearches(false);
+    }
+
+    this._openPanel();
+    this.input.focus();
+  }
+
+  /**
+   * Hides the contextual tip.
+   */
+  hideContextualTip() {
+    if (this.contextualTip) {
+      this.contextualTip.hide();
+
+      // If there's no results then close the popup.
+      if (this.visibleItemCount == 0) {
+        this.close();
+      }
+    }
+  }
+
+  /**
+   * Removes the contextual tip from the DOM.
+   */
+  removeContextualTip() {
+    if (!this.contextualTip) {
+      return;
+    }
+    this.contextualTip.remove();
+    this.contextualTip = null;
   }
 
   get oneOffSearchButtons() {
@@ -220,6 +277,9 @@ class UrlbarView {
     this.input.textbox.removeEventListener("mousedown", this);
 
     this.controller.notify(this.controller.NOTIFICATIONS.VIEW_CLOSE);
+    if (this.contextualTip) {
+      this.contextualTip.hide();
+    }
   }
 
   // UrlbarController listener methods.
@@ -385,11 +445,22 @@ class UrlbarView {
         // of the navigation toolbar to reclaim space for results.
         endOffset = startOffset;
       }
-      let identityIcon = this.document.getElementById("identity-icon");
-      let identityRect = this._getBoundsWithoutFlushing(identityIcon);
+
+      // We need to align with the tracking protection icon if the
+      // 'pageproxystate' is valid since the tracking protection icon would be
+      // at the first position instead of the identity icon in this case.
+      let alignIcon;
+      if (this.input.getAttribute("pageproxystate") === "valid") {
+        alignIcon = this.document.getElementById(
+          "tracking-protection-icon-box"
+        );
+      } else {
+        alignIcon = this.document.getElementById("identity-icon");
+      }
+      let alignRect = this._getBoundsWithoutFlushing(alignIcon);
       let start = this.window.RTL_UI
-        ? documentRect.right - identityRect.right
-        : identityRect.left;
+        ? documentRect.right - alignRect.right
+        : alignRect.left;
 
       this.panel.style.setProperty("--item-padding-start", px(start));
       this.panel.style.setProperty("--item-padding-end", px(endOffset));
@@ -586,7 +657,7 @@ class UrlbarView {
 
     if (
       result.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
-      !result.payload.isKeywordOffer
+      !result.payload.keywordOffer
     ) {
       item.setAttribute("type", "search");
     } else if (result.type == UrlbarUtils.RESULT_TYPE.REMOTE_TAB) {

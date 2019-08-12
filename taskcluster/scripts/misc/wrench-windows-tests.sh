@@ -28,5 +28,4 @@ export CARGOFLAGS='--verbose --frozen'
 export FREETYPE_CMAKE_GENERATOR=Ninja
 cmd.exe /c 'ci-scripts\windows-tests.cmd'
 
-# Diagnostic for bug 1571986.
-tasklist -M
+. $GECKO_PATH/taskcluster/scripts/misc/vs-cleanup.sh

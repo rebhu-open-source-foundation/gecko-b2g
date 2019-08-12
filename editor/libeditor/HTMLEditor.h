@@ -426,7 +426,7 @@ class HTMLEditor final : public TextEditor,
 
   nsresult GetInlineProperty(nsAtom* aProperty, nsAtom* aAttribute,
                              const nsAString& aValue, bool* aFirst, bool* aAny,
-                             bool* aAll);
+                             bool* aAll) const;
   nsresult GetInlinePropertyWithAttrValue(nsAtom* aProperty, nsAtom* aAttr,
                                           const nsAString& aValue, bool* aFirst,
                                           bool* aAny, bool* aAll,
@@ -823,7 +823,7 @@ class HTMLEditor final : public TextEditor,
                                                           int32_t aChange,
                                                           int32_t* aReturn);
 
-  virtual bool IsBlockNode(nsINode* aNode) override;
+  virtual bool IsBlockNode(nsINode* aNode) const override;
   using EditorBase::IsBlockNode;
 
   /**
@@ -835,7 +835,7 @@ class HTMLEditor final : public TextEditor,
   /**
    * Returns true if aNode is a container.
    */
-  virtual bool IsContainer(nsINode* aNode) override;
+  virtual bool IsContainer(nsINode* aNode) const override;
 
   /**
    * Join together any adjacent editable text nodes in the range.
@@ -846,13 +846,13 @@ class HTMLEditor final : public TextEditor,
    * IsInVisibleTextFrames() returns true if all text in aText is in visible
    * text frames.  Callers have to guarantee that there is no pending reflow.
    */
-  bool IsInVisibleTextFrames(dom::Text& aText);
+  bool IsInVisibleTextFrames(dom::Text& aText) const;
 
   /**
    * IsVisibleTextNode() returns true if aText has visible text.  If it has
    * only whitespaces and they are collapsed, returns false.
    */
-  bool IsVisibleTextNode(Text& aText);
+  bool IsVisibleTextNode(Text& aText) const;
 
   /**
    * aNode must be a non-null text node.
@@ -861,10 +861,10 @@ class HTMLEditor final : public TextEditor,
   nsresult IsEmptyNode(nsINode* aNode, bool* outIsEmptyBlock,
                        bool aSingleBRDoesntCount = false,
                        bool aListOrCellNotEmpty = false,
-                       bool aSafeToAskFrames = false);
+                       bool aSafeToAskFrames = false) const;
   nsresult IsEmptyNodeImpl(nsINode* aNode, bool* outIsEmptyBlock,
                            bool aSingleBRDoesntCount, bool aListOrCellNotEmpty,
-                           bool aSafeToAskFrames, bool* aSeenBR);
+                           bool aSafeToAskFrames, bool* aSeenBR) const;
 
   static bool HasAttributes(Element* aElement) {
     MOZ_ASSERT(aElement);
@@ -893,9 +893,10 @@ class HTMLEditor final : public TextEditor,
    *
    * The nsIContent variant returns aIsSet instead of using an out parameter.
    */
-  bool IsTextPropertySetByContent(nsINode* aNode, nsAtom* aProperty,
-                                  nsAtom* aAttribute, const nsAString* aValue,
-                                  nsAString* outValue = nullptr);
+  static bool IsTextPropertySetByContent(nsINode* aNode, nsAtom* aProperty,
+                                         nsAtom* aAttribute,
+                                         const nsAString* aValue,
+                                         nsAString* outValue = nullptr);
 
   static dom::Element* GetLinkElement(nsINode* aNode);
 
@@ -1075,7 +1076,8 @@ class HTMLEditor final : public TextEditor,
 
   nsresult GetInlinePropertyBase(nsAtom& aProperty, nsAtom* aAttribute,
                                  const nsAString* aValue, bool* aFirst,
-                                 bool* aAny, bool* aAll, nsAString* outValue);
+                                 bool* aAny, bool* aAll,
+                                 nsAString* outValue) const;
 
   MOZ_CAN_RUN_SCRIPT
   nsresult ClearStyle(nsCOMPtr<nsINode>* aNode, int32_t* aOffset,
@@ -2495,7 +2497,7 @@ class HTMLEditor final : public TextEditor,
    * IsEmptyTextNode() returns true if aNode is a text node and does not have
    * any visible characters.
    */
-  bool IsEmptyTextNode(nsINode& aNode);
+  bool IsEmptyTextNode(nsINode& aNode) const;
 
   MOZ_CAN_RUN_SCRIPT bool IsSimpleModifiableNode(nsIContent* aContent,
                                                  nsAtom* aProperty,
@@ -2657,6 +2659,7 @@ class HTMLEditor final : public TextEditor,
   friend class SlurpBlobEventListener;
   friend class TextEditor;
   friend class WSRunObject;
+  friend class WSRunScanner;
 };
 
 }  // namespace mozilla

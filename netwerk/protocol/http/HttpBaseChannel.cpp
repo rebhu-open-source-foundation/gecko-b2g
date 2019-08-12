@@ -354,12 +354,9 @@ nsresult HttpBaseChannel::Init(nsIURI* aURI, uint32_t aCaps,
   // Construct connection info object
   nsAutoCString host;
   int32_t port = -1;
-  bool isHTTPS = false;
+  bool isHTTPS = mURI->SchemeIs("https");
 
-  nsresult rv = mURI->SchemeIs("https", &isHTTPS);
-  if (NS_FAILED(rv)) return rv;
-
-  rv = mURI->GetAsciiHost(host);
+  nsresult rv = mURI->GetAsciiHost(host);
   if (NS_FAILED(rv)) return rv;
 
   // Reject the URL if it doesn't specify a host
@@ -1227,9 +1224,7 @@ HttpBaseChannel::DoApplyContentConversions(nsIStreamListener* aNextListener,
       break;
     }
 
-    bool isHTTPS = false;
-    mURI->SchemeIs("https", &isHTTPS);
-    if (gHttpHandler->IsAcceptableEncoding(val, isHTTPS)) {
+    if (gHttpHandler->IsAcceptableEncoding(val, mURI->SchemeIs("https"))) {
       nsCOMPtr<nsIStreamConverterService> serv;
       rv = gHttpHandler->GetStreamConverterService(getter_AddRefs(serv));
 
@@ -3128,8 +3123,7 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
   // set, then allow the flag to apply to the redirected channel as well.
   // since we force set INHIBIT_PERSISTENT_CACHING on all HTTPS channels,
   // we only need to check if the original channel was using SSL.
-  bool usingSSL = false;
-  rv = mURI->SchemeIs("https", &usingSSL);
+  bool usingSSL = mURI->SchemeIs("https");
   if (NS_SUCCEEDED(rv) && usingSSL) newLoadFlags &= ~INHIBIT_PERSISTENT_CACHING;
 
   // Do not pass along LOAD_CHECK_OFFLINE_CACHE
@@ -4265,8 +4259,7 @@ HttpBaseChannel::GetNativeServerTiming(
     nsTArray<nsCOMPtr<nsIServerTiming>>& aServerTiming) {
   aServerTiming.Clear();
 
-  bool isHTTPS = false;
-  if (NS_SUCCEEDED(mURI->SchemeIs("https", &isHTTPS)) && isHTTPS) {
+  if (mURI->SchemeIs("https")) {
     ParseServerTimingHeader(mResponseHead, aServerTiming);
     ParseServerTimingHeader(mResponseTrailers, aServerTiming);
   }
@@ -4284,6 +4277,27 @@ HttpBaseChannel::CancelByURLClassifier(nsresult aErrorCode) {
 void HttpBaseChannel::SetIPv4Disabled() { mCaps |= NS_HTTP_DISABLE_IPV4; }
 
 void HttpBaseChannel::SetIPv6Disabled() { mCaps |= NS_HTTP_DISABLE_IPV6; }
+
+nsresult HttpBaseChannel::GetResponseEmbedderPolicy(
+    nsILoadInfo::CrossOriginEmbedderPolicy* aResponseEmbedderPolicy) {
+  if (!mResponseHead) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  nsILoadInfo::CrossOriginEmbedderPolicy policy =
+      nsILoadInfo::EMBEDDER_POLICY_NULL;
+
+  nsAutoCString content;
+  Unused << mResponseHead->GetHeader(nsHttp::Cross_Origin_Embedder_Policy,
+                                     content);
+
+  if (content.EqualsLiteral("require-corp")) {
+    policy = nsILoadInfo::EMBEDDER_POLICY_REQUIRE_CORP;
+  }
+
+  *aResponseEmbedderPolicy = policy;
+  return NS_OK;
+}
 
 NS_IMETHODIMP HttpBaseChannel::GetCrossOriginOpenerPolicy(
     nsILoadInfo::CrossOriginOpenerPolicy* aPolicy) {
@@ -4332,6 +4346,18 @@ NS_IMETHODIMP HttpBaseChannel::GetCrossOriginOpenerPolicy(
     policy = nsILoadInfo::OPENER_POLICY_SAME_SITE;
     if (allowOutgoing) {
       policy = nsILoadInfo::OPENER_POLICY_SAME_SITE_ALLOW_OUTGOING;
+    }
+  }
+
+  // Step 9 in obtain a cross-origin opener-policy
+  // https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
+  if (policy == nsILoadInfo::OPENER_POLICY_SAME_ORIGIN) {
+    nsILoadInfo::CrossOriginEmbedderPolicy coep =
+        nsILoadInfo::EMBEDDER_POLICY_NULL;
+    if (NS_SUCCEEDED(GetResponseEmbedderPolicy(&coep)) &&
+        coep == nsILoadInfo::EMBEDDER_POLICY_REQUIRE_CORP) {
+      policy =
+          nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_EMBEDDER_POLICY_REQUIRE_CORP;
     }
   }
 

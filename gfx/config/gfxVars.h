@@ -55,7 +55,8 @@ class gfxVarReceiver;
   _(RemoteCanvasEnabled, bool, false)                              \
   _(DisableGralloc, bool, false)                                   \
   _(GrallocFenceWithReadPixels, bool, false)                       \
-  _(UseDoubleBufferingWithCompositor, bool, false)
+  _(UseDoubleBufferingWithCompositor, bool, false)                 \
+  _(UseGLSwizzle, bool, true)
 
 /* Add new entries above this line. */
 
