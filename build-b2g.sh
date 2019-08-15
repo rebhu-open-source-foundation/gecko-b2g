@@ -136,13 +136,14 @@ GCC_LIB="-L$GONK_PATH/prebuilts/gcc/darwin-x86/arm/arm-linux-androideabi-4.9/lib
 export ANDROID_PLATFORM=$ANDROID_PLATFORM
 
 OBJ_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib
+SYS_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/system/lib
 
-export LDFLAGS="-L$OBJ_LIB -Wl,-rpath-link=$OBJ_LIB \
+export LDFLAGS="-L$SYS_LIB -Wl,-rpath-link=$OBJ_LIB \
 --sysroot=$SYSROOT $GCC_LIB -ldl -lstdc++ -Wl,--no-as-needed \
 -llog -landroid -lnativewindow -lbinder \
 -lui -lgui \
 -lutils -lcutils -lsysutils \
 -lhardware_legacy -lhardware -lsuspend \
--lhidlbase $OBJ_LIB/android.hardware.vibrator@1.0.so"
+-lhidlbase $SYS_LIB/android.hardware.vibrator@1.0.so"
 
 ./mach build $@
