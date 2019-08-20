@@ -1164,11 +1164,18 @@ typedef Vector<GlobalDesc, 0, SystemAllocPolicy> GlobalDescVector;
 // individually atomically ref-counted.
 
 struct ElemSegment : AtomicRefCounted<ElemSegment> {
+  enum class Kind {
+    Active,
+    Passive,
+    Declared,
+  };
+
+  Kind kind;
   uint32_t tableIndex;
   Maybe<InitExpr> offsetIfActive;
   Uint32Vector elemFuncIndices;  // Element may be NullFuncIndex
 
-  bool active() const { return !!offsetIfActive; }
+  bool active() const { return kind == Kind::Active; }
 
   InitExpr offset() const { return *offsetIfActive; }
 
@@ -1892,6 +1899,7 @@ enum class SymbolicAddress {
   TableInit,
   TableSet,
   TableSize,
+  FuncRef,
   PostBarrier,
   PostBarrierFiltering,
   StructNew,
@@ -2513,6 +2521,8 @@ bool IsCodegenDebugEnabled(DebugChannel channel);
 
 void DebugCodegen(DebugChannel channel, const char* fmt, ...)
     MOZ_FORMAT_PRINTF(2, 3);
+
+typedef void (*PrintCallback)(const char* text);
 
 }  // namespace wasm
 }  // namespace js

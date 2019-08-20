@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { normalizeToKebabCase } from "../utils.js";
+
 export class InfoItem extends HTMLElement {
   constructor(item) {
     super();
@@ -23,8 +25,10 @@ export class InfoItem extends HTMLElement {
 
   render() {
     let label = this.shadowRoot.querySelector("label");
-    let labelText = this.item.label.replace(/\s+/g, "-").toLowerCase();
+    let labelText = normalizeToKebabCase(this.item.label);
     label.setAttribute("data-l10n-id", "certificate-viewer-" + labelText);
+
+    this.classList.add(labelText);
 
     let info = this.shadowRoot.querySelector(".info");
     info.textContent = this.item.info;
@@ -32,6 +36,9 @@ export class InfoItem extends HTMLElement {
     // TODO: Use Fluent-friendly condition.
     if (this.item.label === "Modulus") {
       info.classList.add("long-hex");
+      this.addEventListener("click", () => {
+        info.classList.toggle("long-hex-open");
+      });
     }
   }
 }

@@ -18,9 +18,13 @@
 
 namespace mozilla {
 
-// Thread-safe Ring buffer that can store blocks of different sizes.
+// Thread-safe Ring buffer that can store blocks of different sizes during
+// defined sessions.
 // Each *block* contains an *entry* and the entry size:
 // [ entry_size | entry ] [ entry_size | entry ] ...
+// *In-session* is a period of time during which `BlocksRingBuffer` allows
+// reading and writing. *Out-of-session*, the `BlocksRingBuffer` object is
+// still valid, but contains no data, and gracefully denies accesses.
 //
 // To write an entry, the buffer reserves a block of sufficient size (to contain
 // user data of predetermined size), writes the entry size, and lets the caller
@@ -28,12 +32,10 @@ namespace mozilla {
 // specific APIs. E.g.:
 // ```
 // BlockRingsBuffer brb(PowerOfTwo<BlockRingsBuffer::Length>(1024));
-// brb.Put([&](BlocksRingBuffer::EntryReserver aER) {
-//   aER.Reserve([&](BlocksRingBuffer::EntryWriter aEW) {
-//     /* Use EntryWriter functions to serialize objects into entry. */
-//     aEW.WriteObject(123);
-//   });
-// });
+// brb.ReserveAndPut([]() { return sizeof(123); },
+//                   [&](BlocksRingBuffer::EntryWriter& aEW) {
+//                     aEW.WriteObject(123);
+//                   });
 // ```
 // Other `Put...` functions may be used as shortcuts for simple objects.
 // The objects given to the caller's callbacks should only be used inside the
@@ -126,20 +128,26 @@ class BlocksRingBuffer {
     Index mBlockIndex;
   };
 
+  // Default constructor starts out-of-session (nothing to read or write).
+  BlocksRingBuffer() = default;
+
   // Constructors with no entry destructor, the oldest entries will be silently
   // overwritten/destroyed.
 
   // Create a buffer of the given length.
-  explicit BlocksRingBuffer(PowerOfTwo<Length> aLength) : mBuffer(aLength) {}
+  explicit BlocksRingBuffer(PowerOfTwo<Length> aLength)
+      : mMaybeUnderlyingBuffer(Some(UnderlyingBuffer(aLength))) {}
 
   // Take ownership of an existing buffer.
   BlocksRingBuffer(UniquePtr<Buffer::Byte[]> aExistingBuffer,
                    PowerOfTwo<Length> aLength)
-      : mBuffer(std::move(aExistingBuffer), aLength) {}
+      : mMaybeUnderlyingBuffer(
+            Some(UnderlyingBuffer(std::move(aExistingBuffer), aLength))) {}
 
   // Use an externally-owned buffer.
   BlocksRingBuffer(Buffer::Byte* aExternalBuffer, PowerOfTwo<Length> aLength)
-      : mBuffer(aExternalBuffer, aLength) {}
+      : mMaybeUnderlyingBuffer(
+            Some(UnderlyingBuffer(aExternalBuffer, aLength))) {}
 
   // Constructors with an entry destructor, which will be called with an
   // `EntryReader` before the oldest entries get overwritten/destroyed.
@@ -151,24 +159,26 @@ class BlocksRingBuffer {
   template <typename EntryDestructor>
   explicit BlocksRingBuffer(PowerOfTwo<Length> aLength,
                             EntryDestructor&& aEntryDestructor)
-      : mBuffer(aLength),
-        mEntryDestructor(std::forward<EntryDestructor>(aEntryDestructor)) {}
+      : mMaybeUnderlyingBuffer(Some(UnderlyingBuffer(
+            aLength, std::forward<EntryDestructor>(aEntryDestructor)))) {}
 
   // Take ownership of an existing buffer.
   template <typename EntryDestructor>
   explicit BlocksRingBuffer(UniquePtr<Buffer::Byte[]> aExistingBuffer,
                             PowerOfTwo<Length> aLength,
                             EntryDestructor&& aEntryDestructor)
-      : mBuffer(std::move(aExistingBuffer), aLength),
-        mEntryDestructor(std::forward<EntryDestructor>(aEntryDestructor)) {}
+      : mMaybeUnderlyingBuffer(Some(UnderlyingBuffer(
+            std::move(aExistingBuffer), aLength,
+            std::forward<EntryDestructor>(aEntryDestructor)))) {}
 
   // Use an externally-owned buffer.
   template <typename EntryDestructor>
   explicit BlocksRingBuffer(Buffer::Byte* aExternalBuffer,
                             PowerOfTwo<Length> aLength,
                             EntryDestructor&& aEntryDestructor)
-      : mBuffer(aExternalBuffer, aLength),
-        mEntryDestructor(std::forward<EntryDestructor>(aEntryDestructor)) {}
+      : mMaybeUnderlyingBuffer(Some(UnderlyingBuffer(
+            aExternalBuffer, aLength,
+            std::forward<EntryDestructor>(aEntryDestructor)))) {}
 
   // Destructor explictly destroys all remaining entries, this may invoke the
   // caller-provided entry destructor.
@@ -180,8 +190,73 @@ class BlocksRingBuffer {
     DestroyAllEntries();
   }
 
-  // Buffer length, constant. No need for locking.
-  PowerOfTwo<Length> BufferLength() const { return mBuffer.BufferLength(); }
+  // Remove underlying buffer, if any.
+  void Reset() {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    ResetUnderlyingBuffer();
+  }
+
+  // Create a buffer of the given length.
+  void Set(PowerOfTwo<Length> aLength) {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    ResetUnderlyingBuffer();
+    mMaybeUnderlyingBuffer.emplace(aLength);
+  }
+
+  // Take ownership of an existing buffer.
+  void Set(UniquePtr<Buffer::Byte[]> aExistingBuffer,
+           PowerOfTwo<Length> aLength) {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    ResetUnderlyingBuffer();
+    mMaybeUnderlyingBuffer.emplace(std::move(aExistingBuffer), aLength);
+  }
+
+  // Use an externally-owned buffer.
+  void Set(Buffer::Byte* aExternalBuffer, PowerOfTwo<Length> aLength) {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    ResetUnderlyingBuffer();
+    mMaybeUnderlyingBuffer.emplace(aExternalBuffer, aLength);
+  }
+
+  // Create a buffer of the given length, with entry destructor.
+  template <typename EntryDestructor>
+  void Set(PowerOfTwo<Length> aLength, EntryDestructor&& aEntryDestructor) {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    ResetUnderlyingBuffer();
+    mMaybeUnderlyingBuffer.emplace(
+        aLength, std::forward<EntryDestructor>(aEntryDestructor));
+  }
+
+  // Take ownership of an existing buffer, with entry destructor.
+  template <typename EntryDestructor>
+  void Set(UniquePtr<Buffer::Byte[]> aExistingBuffer,
+           PowerOfTwo<Length> aLength, EntryDestructor&& aEntryDestructor) {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    ResetUnderlyingBuffer();
+    mMaybeUnderlyingBuffer.emplace(
+        std::move(aExistingBuffer), aLength,
+        std::forward<EntryDestructor>(aEntryDestructor));
+  }
+
+  // Use an externally-owned buffer, with entry destructor.
+  template <typename EntryDestructor>
+  void Set(Buffer::Byte* aExternalBuffer, PowerOfTwo<Length> aLength,
+           EntryDestructor&& aEntryDestructor) {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    ResetUnderlyingBuffer();
+    mMaybeUnderlyingBuffer.emplace(
+        aExternalBuffer, aLength,
+        std::forward<EntryDestructor>(aEntryDestructor));
+  }
+
+  // Buffer length in bytes.
+  Maybe<PowerOfTwo<Length>> BufferLength() const {
+    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    return mMaybeUnderlyingBuffer.map([](const UnderlyingBuffer& aBuffer) {
+      return aBuffer.mBuffer.BufferLength();
+    });
+    ;
+  }
 
   // Snapshot of the buffer state.
   struct State {
@@ -200,12 +275,17 @@ class BlocksRingBuffer {
   };
 
   // Get a snapshot of the current state.
+  // When out-of-session, mFirstReadIndex==mNextWriteIndex, and
+  // mPushedBlockCount==mClearedBlockCount==0.
   // Note that these may change right after this thread-safe call, so they
   // should only be used for statistical purposes.
   State GetState() const {
     baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
-    return {mFirstReadIndex, mNextWriteIndex, mPushedBlockCount,
-            mClearedBlockCount};
+    return {
+        mFirstReadIndex, mNextWriteIndex,
+        mMaybeUnderlyingBuffer ? mMaybeUnderlyingBuffer->mPushedBlockCount : 0,
+        mMaybeUnderlyingBuffer ? mMaybeUnderlyingBuffer->mClearedBlockCount
+                               : 0};
   }
 
   // Iterator-like class used to read from an entry.
@@ -293,7 +373,8 @@ class BlocksRingBuffer {
     friend class BlocksRingBuffer;
 
     explicit EntryReader(const BlocksRingBuffer& aRing, BlockIndex aBlockIndex)
-        : BufferReader(aRing.mBuffer.ReaderAt(Index(aBlockIndex))),
+        : BufferReader(aRing.mMaybeUnderlyingBuffer->mBuffer.ReaderAt(
+              Index(aBlockIndex))),
           mRing(aRing),
           mEntryBytes(BufferReader::ReadULEB128<Length>()),
           mEntryStart(CurrentIndex()) {
@@ -355,7 +436,8 @@ class BlocksRingBuffer {
     // Index past the end of this block, which is the start of the next block.
     BlockIndex NextBlockIndex() const {
       MOZ_ASSERT(!IsAtEnd());
-      BufferReader reader = mRing->mBuffer.ReaderAt(Index(mBlockIndex));
+      BufferReader reader =
+          mRing->mMaybeUnderlyingBuffer->mBuffer.ReaderAt(Index(mBlockIndex));
       Length entrySize = reader.ReadULEB128<Length>();
       return BlockIndex(reader.CurrentIndex() + entrySize);
     }
@@ -385,29 +467,32 @@ class BlocksRingBuffer {
 
   // Class that can create `BlockIterator`s (e.g., for range-for), or just
   // iterate through entries; lives within a lock guard lifetime.
-  class Reader {
+  class MOZ_RAII Reader {
    public:
+    Reader(const Reader&) = delete;
+    Reader& operator=(const Reader&) = delete;
+    Reader(Reader&&) = delete;
+    Reader& operator=(Reader&&) = delete;
+
 #ifdef DEBUG
     ~Reader() {
       // No Reader should live outside of a mutexed call.
-      mRing->mMutex.AssertCurrentThreadOwns();
+      mRing.mMutex.AssertCurrentThreadOwns();
     }
 #endif  // DEBUG
 
     // Index of the first block in the whole buffer.
-    BlockIndex BufferRangeStart() const { return mRing->mFirstReadIndex; }
+    BlockIndex BufferRangeStart() const { return mRing.mFirstReadIndex; }
 
     // Index past the last block in the whole buffer.
-    BlockIndex BufferRangeEnd() const { return mRing->mNextWriteIndex; }
+    BlockIndex BufferRangeEnd() const { return mRing.mNextWriteIndex; }
 
     // Iterators to the first and past-the-last blocks.
     // Compatible with range-for (see `ForEach` below as example).
     BlockIterator begin() const {
-      return BlockIterator(*mRing, BufferRangeStart());
+      return BlockIterator(mRing, BufferRangeStart());
     }
-    BlockIterator end() const {
-      return BlockIterator(*mRing, BufferRangeEnd());
-    }
+    BlockIterator end() const { return BlockIterator(mRing, BufferRangeEnd()); }
 
     // Run `aCallback(EntryReader&)` on each entry from first to last.
     // Callback should not store `EntryReader`, as it may become invalid after
@@ -422,74 +507,72 @@ class BlocksRingBuffer {
    private:
     friend class BlocksRingBuffer;
 
-    explicit Reader(const BlocksRingBuffer& aRing)
-        : mRing(WrapNotNull(&aRing)) {
+    explicit Reader(const BlocksRingBuffer& aRing) : mRing(aRing) {
       // No Reader should live outside of a mutexed call.
-      mRing->mMutex.AssertCurrentThreadOwns();
+      mRing.mMutex.AssertCurrentThreadOwns();
     }
 
-    // Using a non-null pointer instead of a reference, to allow copying.
     // This Reader should only live inside one of the thread-safe
     // BlocksRingBuffer functions, for this reference to stay valid.
-    NotNull<const BlocksRingBuffer*> mRing;
+    const BlocksRingBuffer& mRing;
   };
 
-  // Call `aCallback(BlocksRingBuffer::Reader)` with temporary Reader, and
-  // return whatever `aCallback` returns.
-  // Callback should not store `Reader`, as it may become invalid after this
-  // call.
+  // Call `aCallback(BlocksRingBuffer::Reader*)` (nullptr when out-of-session),
+  // and return whatever `aCallback` returns. Callback should not store
+  // `Reader`, because it may become invalid after this call.
   template <typename Callback>
   auto Read(Callback&& aCallback) const {
-    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
-    return std::forward<Callback>(aCallback)(Reader(*this));
+    {
+      baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+      if (MOZ_LIKELY(mMaybeUnderlyingBuffer)) {
+        Reader reader(*this);
+        return std::forward<Callback>(aCallback)(&reader);
+      }
+    }
+    return std::forward<Callback>(aCallback)(nullptr);
   }
 
   // Call `aCallback(BlocksRingBuffer::EntryReader&)` on each item.
-  // Callback should not store `EntryReader`, as it may become invalid after
-  // this thread-safe call.
+  // Callback should not store `EntryReader`, because it may become invalid
+  // after this call.
   template <typename Callback>
   void ReadEach(Callback&& aCallback) const {
-    Read([&](const Reader& aReader) { aReader.ForEach(aCallback); });
+    Read([&](Reader* aReader) {
+      if (MOZ_LIKELY(aReader)) {
+        aReader->ForEach(aCallback);
+      }
+    });
   }
 
   // Call `aCallback(Maybe<BlocksRingBuffer::EntryReader>&&)` on the entry at
-  // the given BlockIndex; The `Maybe` will be `Nothing` if that entry doesn't
-  // exist anymore, or if we've reached just past the last entry. Return
-  // whatever `aCallback` returns.
-  // Callback should not store `EntryReader`, as it may become invalid after
-  // this thread-safe call.
+  // the given BlockIndex; The `Maybe` will be `Nothing` if out-of-session, or
+  // if that entry doesn't exist anymore, or if we've reached just past the
+  // last entry. Return whatever `aCallback` returns. Callback should not
+  // store `EntryReader`, because it may become invalid after this call.
   template <typename Callback>
   auto ReadAt(BlockIndex aBlockIndex, Callback&& aCallback) const {
     baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
     MOZ_ASSERT(aBlockIndex <= mNextWriteIndex);
-    Maybe<EntryReader> maybeReader;
-    if (aBlockIndex >= mFirstReadIndex && aBlockIndex < mNextWriteIndex) {
+    Maybe<EntryReader> maybeEntryReader;
+    if (MOZ_LIKELY(mMaybeUnderlyingBuffer) && aBlockIndex >= mFirstReadIndex &&
+        aBlockIndex < mNextWriteIndex) {
       AssertBlockIndexIsValid(aBlockIndex);
-      maybeReader.emplace(ReaderInBlockAt(aBlockIndex));
+      maybeEntryReader.emplace(ReaderInBlockAt(aBlockIndex));
     }
-    return std::forward<Callback>(aCallback)(std::move(maybeReader));
+    return std::forward<Callback>(aCallback)(std::move(maybeEntryReader));
   }
 
-  class EntryReserver;
-
   // Class used to write an entry contents.
-  // Created through `EntryReserver`, lives within a lock guard lifetime.
-  class EntryWriter : public BufferWriter {
+  // Created through `Put()`, lives within a lock guard lifetime.
+  class MOZ_RAII EntryWriter : public BufferWriter {
    public:
-    // Allow move-construction.
-#ifdef DEBUG
-    EntryWriter(EntryWriter&& aOther)
-        : BufferWriter(std::move(aOther)),
-          mRing(aOther.mRing),
-          mEntryBytes(aOther.mEntryBytes),
-          mEntryStart(aOther.mEntryStart) {
-      // No EntryWriter should live outside of a mutexed call.
-      mRing.mMutex.AssertCurrentThreadOwns();
-      // In DEBUG, we need to move the moved-from EntryWriter to the end of the
-      // entry, so as not to trip the MOZ_ASSERT() in the destructor below.
-      aOther += aOther.RemainingBytes();
-    }
+    // Disallow copying, moving, and assignments.
+    EntryWriter(const EntryWriter& aOther) = delete;
+    EntryWriter& operator=(const EntryWriter& aOther) = delete;
+    EntryWriter(EntryWriter&& aOther) = delete;
+    EntryWriter& operator=(EntryWriter&& aOther) = delete;
 
+#ifdef DEBUG
     ~EntryWriter() {
       // We expect the caller to completely fill the entry.
       // (Or at least pretend to, by moving this iterator to the end.)
@@ -497,13 +580,7 @@ class BlocksRingBuffer {
       // No EntryWriter should live outside of a mutexed call.
       mRing.mMutex.AssertCurrentThreadOwns();
     }
-#else   // DEBUG
-    EntryWriter(EntryWriter&& aOther) = default;
-#endif  // DEBUG else
-    // Disallow copying and assignments.
-    EntryWriter(const EntryWriter& aOther) = delete;
-    EntryWriter& operator=(const EntryWriter& aOther) = delete;
-    EntryWriter& operator=(EntryWriter&& aOther) = delete;
+#endif  // DEBUG
 
     // All BufferWriter (aka ModuloBuffer<uint32_t, Index>::Writer) APIs are
     // available to read/write data from/to this entry.
@@ -555,8 +632,8 @@ class BlocksRingBuffer {
     }
 
    private:
-    // Only an EntryReserver can instantiate an EntryWriter.
-    friend class EntryReserver;
+    // Only a BlocksRingBuffer can instantiate an EntryWriter.
+    friend class BlocksRingBuffer;
 
     // Compute space needed for a block that can contain an entry of size
     // `aEntryBytes`.
@@ -567,7 +644,8 @@ class BlocksRingBuffer {
 
     EntryWriter(BlocksRingBuffer& aRing, BlockIndex aBlockIndex,
                 Length aEntryBytes)
-        : BufferWriter(aRing.mBuffer.WriterAt(Index(aBlockIndex))),
+        : BufferWriter(aRing.mMaybeUnderlyingBuffer->mBuffer.WriterAt(
+              Index(aBlockIndex))),
           mRing(aRing),
           mEntryBytes(aEntryBytes),
           mEntryStart([&]() {
@@ -587,140 +665,79 @@ class BlocksRingBuffer {
     const Index mEntryStart;
   };
 
-  // Class used to reserve space for new blocks, and to create `EntryWriter`s
-  // for them; lives within a lock guard lifetime.
-  class EntryReserver {
-   public:
-#ifdef DEBUG
-    ~EntryReserver() {
-      // No EntryReserver should live outside of a mutexed call.
-      mRing->mMutex.AssertCurrentThreadOwns();
-    }
-#endif  // DEBUG
-
-    // Reserve `aBytes`, call `aCallback` with a temporary EntryWriter, and
-    // return whatever `aCallback` returns.
-    // Callback should not store `EntryWriter`, as it may become invalid after
-    // this thread-safe call.
-    template <typename Callback>
-    auto Reserve(Length aBytes, Callback&& aCallback) {
-      // Don't allow even half of the buffer length. More than that would
-      // probably be unreasonable, and much more would risk having an entry
-      // wrapping around and overwriting itself!
-      MOZ_RELEASE_ASSERT(aBytes < mRing->BufferLength().Value() / 2);
-      // COmpute block size from the requested entry size.
-      const Length blockBytes = EntryWriter::BlockSizeForEntrySize(aBytes);
-      // We will put this new block at the end of the current buffer.
-      const BlockIndex blockIndex = mRing->mNextWriteIndex;
-      // Compute the end of this new block...
-      const Index blockEnd = Index(blockIndex) + blockBytes;
-      // ... which is where the following block will go.
-      mRing->mNextWriteIndex = BlockIndex(blockEnd);
-      while (blockEnd >
-             Index(mRing->mFirstReadIndex) + mRing->BufferLength().Value()) {
-        // About to trample on an old block.
-        EntryReader reader = mRing->ReaderInBlockAt(mRing->mFirstReadIndex);
-        // Call provided entry destructor for that entry.
-        if (mRing->mEntryDestructor) {
-          mRing->mEntryDestructor(reader);
+  // Main function to write entries.
+  // Reserve `aCallbackBytes()` bytes, call `aCallback()` with a pointer to an
+  // on-stack temporary EntryWriter (nullptr when out-of-session), and return
+  // whatever `aCallback` returns. Callback should not store `EntryWriter`,
+  // because it may become invalid after this thread-safe call.
+  // Note: `aCallbackBytes` is a callback instead of a simple value, to delay
+  // this potentially-expensive computation until after we're checked that we're
+  // in-session; use `Put(Length, Callback)` below if you know the size already.
+  template <typename CallbackBytes, typename Callback>
+  auto ReserveAndPut(CallbackBytes aCallbackBytes, Callback&& aCallback) {
+    {  // Locked block.
+      baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+      if (MOZ_LIKELY(mMaybeUnderlyingBuffer)) {
+        Length bytes = std::forward<CallbackBytes>(aCallbackBytes)();
+        // Don't allow even half of the buffer length. More than that would
+        // probably be unreasonable, and much more would risk having an entry
+        // wrapping around and overwriting itself!
+        MOZ_RELEASE_ASSERT(
+            bytes < mMaybeUnderlyingBuffer->mBuffer.BufferLength().Value() / 2);
+        // COmpute block size from the requested entry size.
+        const Length blockBytes = EntryWriter::BlockSizeForEntrySize(bytes);
+        // We will put this new block at the end of the current buffer.
+        const BlockIndex blockIndex = mNextWriteIndex;
+        // Compute the end of this new block...
+        const Index blockEnd = Index(blockIndex) + blockBytes;
+        // ... which is where the following block will go.
+        mNextWriteIndex = BlockIndex(blockEnd);
+        while (blockEnd >
+               Index(mFirstReadIndex) +
+                   mMaybeUnderlyingBuffer->mBuffer.BufferLength().Value()) {
+          // About to trample on an old block.
+          EntryReader reader = ReaderInBlockAt(mFirstReadIndex);
+          // Call provided entry destructor for that entry.
+          if (mMaybeUnderlyingBuffer->mEntryDestructor) {
+            mMaybeUnderlyingBuffer->mEntryDestructor(reader);
+          }
+          mMaybeUnderlyingBuffer->mClearedBlockCount += 1;
+          MOZ_ASSERT(reader.CurrentIndex() <= Index(reader.NextBlockIndex()));
+          // Move the buffer reading start past this cleared block.
+          mFirstReadIndex = reader.NextBlockIndex();
         }
-        mRing->mClearedBlockCount += 1;
-        MOZ_ASSERT(reader.CurrentIndex() <= Index(reader.NextBlockIndex()));
-        // Move the buffer reading start past this cleared block.
-        mRing->mFirstReadIndex = reader.NextBlockIndex();
+        mMaybeUnderlyingBuffer->mPushedBlockCount += 1;
+        // Finally, let aCallback write into the entry.
+        EntryWriter entryWriter(*this, blockIndex, bytes);
+        return std::forward<Callback>(aCallback)(&entryWriter);
       }
-      mRing->mPushedBlockCount += 1;
-      // Finally, let aCallback write into the entry.
-      return std::forward<Callback>(aCallback)(
-          EntryWriter(*mRing, blockIndex, aBytes));
-    }
-
-    // Write a new entry copied from the given buffer, return block index.
-    BlockIndex Write(const void* aSrc, Length aBytes) {
-      return Reserve(aBytes, [&](EntryWriter aEW) {
-        aEW.Write(aSrc, aBytes);
-        return aEW.CurrentBlockIndex();
-      });
-    }
-
-    // Write a new entry copied from the given object, return block index.
-    // Restricted to trivially-copyable types.
-    // TODO: Allow more types (follow-up patches in progress).
-    template <typename T>
-    BlockIndex WriteObject(const T& aOb) {
-      return Write(&aOb, sizeof(T));
-    }
-
-    // Index of the first block in the whole buffer.
-    BlockIndex BufferRangeStart() const { return mRing->mFirstReadIndex; }
-
-    // Index past the last block in the whole buffer.
-    BlockIndex BufferRangeEnd() const { return mRing->mNextWriteIndex; }
-
-    // Get another entry based on a {Current,Next}BlockIndex(). This may fail if
-    // the buffer has already looped around and destroyed that block.
-    Maybe<EntryReader> GetEntryAt(BlockIndex aBlockIndex) {
-      // Don't accept a not-yet-written index.
-      MOZ_ASSERT(aBlockIndex <= BufferRangeEnd());
-      if (aBlockIndex >= BufferRangeStart() && aBlockIndex < BufferRangeEnd()) {
-        // Block is still alive -> Return reader for it.
-        mRing->AssertBlockIndexIsValid(aBlockIndex);
-        return Some(EntryReader(*mRing, aBlockIndex));
-      }
-      // Block has been overwritten/cleared.
-      return Nothing();
-    }
-
-   private:
-    // Only a BlocksRingBuffer can instantiate an EntryReserver.
-    friend class BlocksRingBuffer;
-
-    explicit EntryReserver(BlocksRingBuffer& aRing)
-        : mRing(WrapNotNull(&aRing)) {
-      // No EntryReserver should live outside of a mutexed call.
-      mRing->mMutex.AssertCurrentThreadOwns();
-    }
-
-    // Using a non-null pointer instead of a reference, to allow copying.
-    // This EntryReserver should only live inside one of the thread-safe
-    // BlocksRingBuffer functions, for this reference to stay valid.
-    NotNull<BlocksRingBuffer*> mRing;
-  };
-
-  // Add a new entry, call `aCallback` with a temporary EntryReserver (so that
-  // `aCallback` can reserve an entry or just write something), and return
-  // whatever `aCallback` returns.
-  // Callback should not store `EntryReserver`, as it may become invalid after
-  // this thread-safe call.
-  template <typename Callback>
-  auto Put(Callback&& aCallback) {
-    // Implementation note: We are locking during the whole operation (reserving
-    // and writing entry), which means slow writers could block the buffer for a
-    // while. It should be possible to only lock when reserving the space, and
-    // then letting the callback write the entry without a need for the lock, as
-    // it's the only thread that should be accessing this particular entry.
-    // Extra safety would be necessary to ensure the entry cannot be read, and
-    // fast writers going around the ring cannot trample on this entry until it
-    // is fully written.
-    // TODO: Investigate this potential improvement as part of bug 1562604.
-    baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
-    return std::forward<Callback>(aCallback)(EntryReserver(*this));
+    }  // End of locked block.
+    // Out-of-session, just invoke the callback with nullptr, no need to hold
+    // the lock.
+    return std::forward<Callback>(aCallback)(nullptr);
   }
 
-  // Add a new entry of known size, call `aCallback` with a temporary
-  // EntryWriter, and return whatever `aCallback` returns.
-  // Callback should not store `EntryWriter`, as it may become invalid after
-  // this thread-safe call.
+  // Add a new entry of known size, call `aCallback` with a pointer to a
+  // temporary EntryWriter (can be null when out-of-session), and return
+  // whatever `aCallback` returns. Callback should not store the `EntryWriter`,
+  // as it may become invalid after this thread-safe call.
   template <typename Callback>
-  auto Put(Length aLength, Callback&& aCallback) {
-    return Put([&](EntryReserver aER) {
-      return aER.Reserve(aLength, std::forward<Callback>(aCallback));
-    });
+  auto Put(Length aBytes, Callback&& aCallback) {
+    return ReserveAndPut([aBytes]() { return aBytes; },
+                         std::forward<Callback>(aCallback));
   }
 
   // Add a new entry copied from the given buffer, return block index.
   BlockIndex PutFrom(const void* aSrc, Length aBytes) {
-    return Put([&](EntryReserver aER) { return aER.Write(aSrc, aBytes); });
+    return ReserveAndPut([aBytes]() { return aBytes; },
+                         [&](EntryWriter* aEntryWriter) {
+                           if (MOZ_LIKELY(aEntryWriter)) {
+                             aEntryWriter->Write(aSrc, aBytes);
+                             return aEntryWriter->CurrentBlockIndex();
+                           }
+                           // Out-of-session, return "empty" BlockIndex.
+                           return BlockIndex{};
+                         });
   }
 
   // Add a new entry copied from the given object, return block index.
@@ -728,7 +745,15 @@ class BlocksRingBuffer {
   // TODO: Allow more types (follow-up patches in progress, see bug 1562604).
   template <typename T>
   BlockIndex PutObject(const T& aOb) {
-    return Put([&](EntryReserver aER) { return aER.WriteObject<T>(aOb); });
+    return ReserveAndPut([]() { return sizeof(T); },
+                         [&](EntryWriter* aEntryWriter) {
+                           if (MOZ_LIKELY(aEntryWriter)) {
+                             aEntryWriter->WriteObject(aOb);
+                             return aEntryWriter->CurrentBlockIndex();
+                           }
+                           // Out-of-session, return "empty" BlockIndex.
+                           return BlockIndex{};
+                         });
   }
 
   // Clear all entries, calling entry destructor (if any), and move read index
@@ -743,6 +768,9 @@ class BlocksRingBuffer {
   // cannot be read anymore.
   void ClearBefore(BlockIndex aBlockIndex) {
     baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    if (!mMaybeUnderlyingBuffer) {
+      return;
+    }
     // Don't accept a not-yet-written index. One-past-the-end is ok.
     MOZ_ASSERT(aBlockIndex <= mNextWriteIndex);
     if (aBlockIndex <= mFirstReadIndex) {
@@ -756,15 +784,15 @@ class BlocksRingBuffer {
     }
     // Otherwise we need to clear a subset of entries.
     AssertBlockIndexIsValid(aBlockIndex);
-    if (mEntryDestructor) {
+    if (mMaybeUnderlyingBuffer->mEntryDestructor) {
       // We have an entry destructor, destroy entries before aBlockIndex.
       Reader reader(*this);
       BlockIterator it = reader.begin();
       for (; it.CurrentBlockIndex() < aBlockIndex; ++it) {
         MOZ_ASSERT(it.CurrentBlockIndex() < reader.end().CurrentBlockIndex());
         EntryReader reader = *it;
-        mEntryDestructor(reader);
-        mClearedBlockCount += 1;
+        mMaybeUnderlyingBuffer->mEntryDestructor(reader);
+        mMaybeUnderlyingBuffer->mClearedBlockCount += 1;
       }
       MOZ_ASSERT(it.CurrentBlockIndex() == aBlockIndex);
     } else {
@@ -773,7 +801,7 @@ class BlocksRingBuffer {
       BlockIterator it = reader.begin();
       for (; it.CurrentBlockIndex() < aBlockIndex; ++it) {
         MOZ_ASSERT(it.CurrentBlockIndex() < reader.end().CurrentBlockIndex());
-        mClearedBlockCount += 1;
+        mMaybeUnderlyingBuffer->mClearedBlockCount += 1;
       }
       MOZ_ASSERT(it.CurrentBlockIndex() == aBlockIndex);
     }
@@ -785,12 +813,18 @@ class BlocksRingBuffer {
 #ifdef DEBUG
   void Dump() const {
     baseprofiler::detail::BaseProfilerAutoLock lock(mMutex);
+    if (!mMaybeUnderlyingBuffer) {
+      printf("empty BlocksRingBuffer\n");
+      return;
+    }
     using ULL = unsigned long long;
     printf("start=%llu (%llu) end=%llu (%llu) - ", ULL(Index(mFirstReadIndex)),
-           ULL(Index(mFirstReadIndex) & (BufferLength().Value() - 1)),
+           ULL(Index(mFirstReadIndex) &
+               (mMaybeUnderlyingBuffer->mBuffer.BufferLength().Value() - 1)),
            ULL(Index(mNextWriteIndex)),
-           ULL(Index(mNextWriteIndex) & (BufferLength().Value() - 1)));
-    mBuffer.Dump();
+           ULL(Index(mNextWriteIndex) &
+               (mMaybeUnderlyingBuffer->mBuffer.BufferLength().Value() - 1)));
+    mMaybeUnderlyingBuffer->mBuffer.Dump();
   }
 #endif  // DEBUG
 
@@ -808,11 +842,13 @@ class BlocksRingBuffer {
 #  if 1
     // Quick check that this looks like a valid block start.
     // Read the entry size at the start of the block.
-    BufferReader br = mBuffer.ReaderAt(Index(aBlockIndex));
+    BufferReader br =
+        mMaybeUnderlyingBuffer->mBuffer.ReaderAt(Index(aBlockIndex));
     Length entryBytes = br.ReadULEB128<Length>();
     // It should be between 1 and half of the buffer length max.
     MOZ_ASSERT(entryBytes > 0);
-    MOZ_ASSERT(entryBytes < BufferLength().Value() / 2);
+    MOZ_ASSERT(entryBytes <
+               mMaybeUnderlyingBuffer->mBuffer.BufferLength().Value() / 2);
     // The end of the block should be inside the live buffer range.
     MOZ_ASSERT(Index(aBlockIndex) + BufferReader::ULEB128Size(entryBytes) +
                    entryBytes <=
@@ -844,18 +880,27 @@ class BlocksRingBuffer {
   // destructor or ClearAllEntries.
   void DestroyAllEntries() {
     mMutex.AssertCurrentThreadOwns();
-    if (mEntryDestructor) {
-      // We have an entry destructor, destroy all the things!
-      Reader(*this).ForEach(
-          [this](EntryReader& aReader) { mEntryDestructor(aReader); });
+    if (!mMaybeUnderlyingBuffer) {
+      return;
     }
-    mClearedBlockCount = mPushedBlockCount;
+    if (mMaybeUnderlyingBuffer->mEntryDestructor) {
+      // We have an entry destructor, destroy all the things!
+      Reader reader(*this);
+      reader.ForEach([this](EntryReader& aReader) {
+        mMaybeUnderlyingBuffer->mEntryDestructor(aReader);
+      });
+    }
+    mMaybeUnderlyingBuffer->mClearedBlockCount =
+        mMaybeUnderlyingBuffer->mPushedBlockCount;
   }
 
   // Clear all entries, calling entry destructor (if any), and move read index
   // to the end so that these entries cannot be read anymore.
   void ClearAllEntries() {
     mMutex.AssertCurrentThreadOwns();
+    if (!mMaybeUnderlyingBuffer) {
+      return;
+    }
     DestroyAllEntries();
     // Move read index to write index, so there's effectively no more entries
     // that can be read. (Not setting both to 0, in case user is keeping
@@ -863,23 +908,90 @@ class BlocksRingBuffer {
     mFirstReadIndex = mNextWriteIndex;
   }
 
+  // If there is an underlying buffer (with optional entry destructor), destroy
+  // all entries, move read index to the end, and discard the buffer and entry
+  // destructor. This BlocksRingBuffer will now gracefully reject all API calls,
+  // and is in a state where a new underlying buffer&entry deleter may be
+  // installed.
+  void ResetUnderlyingBuffer() {
+    if (!mMaybeUnderlyingBuffer) {
+      return;
+    }
+    ClearAllEntries();
+    mMaybeUnderlyingBuffer.reset();
+  }
+
   // Mutex guarding the following members.
   mutable baseprofiler::detail::BaseProfilerMutex mMutex;
 
-  // Underlying circular byte buffer.
-  Buffer mBuffer;
+  struct UnderlyingBuffer {
+    // Create a buffer of the given length.
+    explicit UnderlyingBuffer(PowerOfTwo<Length> aLength) : mBuffer(aLength) {}
+
+    // Take ownership of an existing buffer.
+    UnderlyingBuffer(UniquePtr<Buffer::Byte[]> aExistingBuffer,
+                     PowerOfTwo<Length> aLength)
+        : mBuffer(std::move(aExistingBuffer), aLength) {}
+
+    // Use an externally-owned buffer.
+    UnderlyingBuffer(Buffer::Byte* aExternalBuffer, PowerOfTwo<Length> aLength)
+        : mBuffer(aExternalBuffer, aLength) {}
+
+    // Create a buffer of the given length.
+    template <typename EntryDestructor>
+    explicit UnderlyingBuffer(PowerOfTwo<Length> aLength,
+                              EntryDestructor&& aEntryDestructor)
+        : mBuffer(aLength),
+          mEntryDestructor(std::forward<EntryDestructor>(aEntryDestructor)) {}
+
+    // Take ownership of an existing buffer.
+    template <typename EntryDestructor>
+    explicit UnderlyingBuffer(UniquePtr<Buffer::Byte[]> aExistingBuffer,
+                              PowerOfTwo<Length> aLength,
+                              EntryDestructor&& aEntryDestructor)
+        : mBuffer(std::move(aExistingBuffer), aLength),
+          mEntryDestructor(std::forward<EntryDestructor>(aEntryDestructor)) {}
+
+    // Use an externally-owned buffer.
+    template <typename EntryDestructor>
+    explicit UnderlyingBuffer(Buffer::Byte* aExternalBuffer,
+                              PowerOfTwo<Length> aLength,
+                              EntryDestructor&& aEntryDestructor)
+        : mBuffer(aExternalBuffer, aLength),
+          mEntryDestructor(std::forward<EntryDestructor>(aEntryDestructor)) {}
+
+    // Only allow move-construction.
+    UnderlyingBuffer(UnderlyingBuffer&&) = default;
+
+    // Copies and move-assignment are explictly disallowed.
+    UnderlyingBuffer(const UnderlyingBuffer&) = delete;
+    UnderlyingBuffer& operator=(const UnderlyingBuffer&) = delete;
+    UnderlyingBuffer& operator=(UnderlyingBuffer&&) = delete;
+
+    // Underlying circular byte buffer.
+    Buffer mBuffer;
+    // If set, function to call for each entry that is about to be destroyed.
+    std::function<void(EntryReader&)> mEntryDestructor;
+
+    // Statistics.
+    uint64_t mPushedBlockCount = 0;
+    uint64_t mClearedBlockCount = 0;
+  };
+
+  // Underlying buffer, with entry destructor and stats.
+  // Only valid during in-session period.
+  Maybe<UnderlyingBuffer> mMaybeUnderlyingBuffer;
+
   // Index to the first block to be read (or cleared). Initialized to 1 because
-  // 0 is reserved for the "empty" BlockIndex value.
+  // 0 is reserved for the "empty" BlockIndex value. Kept between sessions, so
+  // that stored indices from one session will be gracefully denied in future
+  // sessions.
   BlockIndex mFirstReadIndex = BlockIndex(Index(1));
   // Index where the next new block should be allocated. Initialized to 1
-  // because 0 is reserved for the "empty" BlockIndex value.
+  // because 0 is reserved for the "empty" BlockIndex value. Kept between
+  // sessions, so that stored indices from one session will be gracefully denied
+  // in future sessions.
   BlockIndex mNextWriteIndex = BlockIndex(Index(1));
-  // If set, function to call for each entry that is about to be destroyed.
-  std::function<void(EntryReader&)> mEntryDestructor;
-
-  // Statistics.
-  uint64_t mPushedBlockCount = 0;
-  uint64_t mClearedBlockCount = 0;
 };
 
 }  // namespace mozilla

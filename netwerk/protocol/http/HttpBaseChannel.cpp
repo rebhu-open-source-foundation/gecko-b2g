@@ -298,6 +298,7 @@ void HttpBaseChannel::ReleaseMainThreadOnlyReferences() {
   arrayToRelease.AppendElement(mProxyURI.forget());
   arrayToRelease.AppendElement(mPrincipal.forget());
   arrayToRelease.AppendElement(mTopWindowURI.forget());
+  arrayToRelease.AppendElement(mContentBlockingAllowListPrincipal.forget());
   arrayToRelease.AppendElement(mListener.forget());
   arrayToRelease.AppendElement(mCompressListener.forget());
 
@@ -2052,6 +2053,12 @@ nsresult HttpBaseChannel::GetTopWindowURI(nsIURI* aURIBeingLoaded,
         }
       }
 #endif
+
+      if (!mContentBlockingAllowListPrincipal) {
+        Unused << util->GetContentBlockingAllowListPrincipalFromWindow(
+            win, aURIBeingLoaded,
+            getter_AddRefs(mContentBlockingAllowListPrincipal));
+      }
     }
   }
   NS_IF_ADDREF(*aTopWindowURI = mTopWindowURI);
@@ -2063,6 +2070,27 @@ HttpBaseChannel::GetDocumentURI(nsIURI** aDocumentURI) {
   NS_ENSURE_ARG_POINTER(aDocumentURI);
   *aDocumentURI = mDocumentURI;
   NS_IF_ADDREF(*aDocumentURI);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+HttpBaseChannel::GetContentBlockingAllowListPrincipal(
+    nsIPrincipal** aPrincipal) {
+  NS_ENSURE_ARG_POINTER(aPrincipal);
+  if (!mContentBlockingAllowListPrincipal) {
+    if (!mTopWindowURI) {
+      // If mTopWindowURI is null, it's possible that these two fields haven't
+      // been initialized yet.  GetTopWindowURI will lazily initilize both
+      // fields for us.
+      nsCOMPtr<nsIURI> throwAway;
+      Unused << GetTopWindowURI(getter_AddRefs(throwAway));
+    } else {
+      // Otherwise, the content blocking allow list principal is null (which is
+      // possible), so just return what we have...
+    }
+  }
+  nsCOMPtr<nsIPrincipal> copy = mContentBlockingAllowListPrincipal;
+  copy.forget(aPrincipal);
   return NS_OK;
 }
 
@@ -2903,7 +2931,7 @@ already_AddRefed<nsILoadInfo> HttpBaseChannel::CloneLoadInfoForRedirect(
         docShellAttrs.mPrivateBrowsingId == attrs.mPrivateBrowsingId,
         "docshell and necko should have the same privateBrowsingId attribute.");
     MOZ_ASSERT(docShellAttrs.mGeckoViewSessionContextId ==
-                 attrs.mGeckoViewSessionContextId,
+                   attrs.mGeckoViewSessionContextId,
                "docshell and necko should have the same "
                "geckoViewSessionContextId attribute");
 
@@ -4299,69 +4327,115 @@ nsresult HttpBaseChannel::GetResponseEmbedderPolicy(
   return NS_OK;
 }
 
+namespace {
+
+nsILoadInfo::CrossOriginOpenerPolicy GetSameness(
+    nsILoadInfo::CrossOriginOpenerPolicy aPolicy) {
+  uint8_t sameness = aPolicy & nsILoadInfo::OPENER_POLICY_SAMENESS_MASK;
+  return nsILoadInfo::CrossOriginOpenerPolicy(sameness);
+}
+
+nsILoadInfo::CrossOriginOpenerPolicy CreateCrossOriginOpenerPolicy(
+    nsILoadInfo::CrossOriginOpenerPolicy aSameness, bool aUnsafeAllowOutgoing,
+    bool aEmbedderPolicy) {
+  uint8_t policy = aSameness;
+
+  if (aUnsafeAllowOutgoing) {
+    policy |= nsILoadInfo::OPENER_POLICY_UNSAFE_ALLOW_OUTGOING_FLAG;
+  }
+
+  if (aEmbedderPolicy) {
+    policy |= nsILoadInfo::OPENER_POLICY_EMBEDDER_POLICY_REQUIRE_CORP_FLAG;
+  }
+
+  return nsILoadInfo::CrossOriginOpenerPolicy(policy);
+}
+
+}  // anonymous namespace
+
+// Obtain a cross-origin opener-policy from a response response and a
+// cross-origin opener policy initiator.
+// https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
 NS_IMETHODIMP HttpBaseChannel::GetCrossOriginOpenerPolicy(
-    nsILoadInfo::CrossOriginOpenerPolicy* aPolicy) {
+    nsILoadInfo::CrossOriginOpenerPolicy aInitiatorPolicy,
+    nsILoadInfo::CrossOriginOpenerPolicy* aOutPolicy) {
+  MOZ_ASSERT(aOutPolicy);
+  *aOutPolicy = nsILoadInfo::OPENER_POLICY_NULL;
+
   if (!mResponseHead) {
     return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  // A document delivered over insecure HTTP will always lack COOP.
+  if (!mURI->SchemeIs("https")) {
+    return NS_OK;
   }
 
   nsAutoCString openerPolicy;
   Unused << mResponseHead->GetHeader(nsHttp::Cross_Origin_Opener_Policy,
                                      openerPolicy);
 
-  // Cross-Origin-Opener-Policy = sameness [ RWS outgoing ]
+  // Cross-Origin-Opener-Policy = sameness [ RWS outgoing ] / inherit
   // sameness = %s"same-origin" / %s"same-site" ; case-sensitive
   // outgoing = %s"unsafe-allow-outgoing" ; case-sensitive
+  // inherit  = %s"unsafe-inherit" ; case-sensitive
 
-  Tokenizer t(openerPolicy);
-  nsAutoCString sameness;
-  nsAutoCString outgoing;
+  nsILoadInfo::CrossOriginOpenerPolicy sameness =
+      nsILoadInfo::OPENER_POLICY_NULL;
+  bool unsafeAllowOutgoing = false;
+  bool embedderPolicy = false;
+  if (openerPolicy.EqualsLiteral("unsafe-inherit")) {
+    // Step 6
+    sameness = GetSameness(aInitiatorPolicy);
+    unsafeAllowOutgoing =
+        !!(aInitiatorPolicy &
+           nsILoadInfo::OPENER_POLICY_UNSAFE_ALLOW_OUTGOING_FLAG);
+  } else {
+    // Step 7
+    Tokenizer t(openerPolicy);
+    nsAutoCString samenessString;
+    nsAutoCString outgoingString;
 
-  // The return value will be true if we find any whitespace. If there is
-  // whitespace, then it must be followed by "unsafe-allow-outgoing" otherwise
-  // this is a malformed header value.
-  bool allowOutgoing = t.ReadUntil(Tokenizer::Token::Whitespace(), sameness);
-  if (allowOutgoing) {
-    t.SkipWhites();
-    bool foundEOF = t.ReadUntil(Tokenizer::Token::EndOfFile(), outgoing);
-    if (!foundEOF) {
-      // Malformed response. There should be no text after the second token.
-      *aPolicy = nsILoadInfo::OPENER_POLICY_NULL;
-      return NS_OK;
+    // The return value will be true if we find any whitespace. If there is
+    // whitespace, then it must be followed by "unsafe-allow-outgoing" otherwise
+    // this is a malformed header value.
+    bool unsafeAllowOutgoing =
+        t.ReadUntil(Tokenizer::Token::Whitespace(), samenessString);
+    if (unsafeAllowOutgoing) {
+      t.SkipWhites();
+      bool foundEOF =
+          t.ReadUntil(Tokenizer::Token::EndOfFile(), outgoingString);
+      if (!foundEOF) {
+        // Malformed response. There should be no text after the second token.
+        return NS_OK;
+      }
+      if (!outgoingString.EqualsLiteral("unsafe-allow-outgoing")) {
+        // Malformed response. Only one allowed value for the second token.
+        return NS_OK;
+      }
     }
-    if (!outgoing.EqualsLiteral("unsafe-allow-outgoing")) {
-      // Malformed response. Only one allowed value for the second token.
-      *aPolicy = nsILoadInfo::OPENER_POLICY_NULL;
-      return NS_OK;
-    }
-  }
 
-  nsILoadInfo::CrossOriginOpenerPolicy policy = nsILoadInfo::OPENER_POLICY_NULL;
-  if (sameness.EqualsLiteral("same-origin")) {
-    policy = nsILoadInfo::OPENER_POLICY_SAME_ORIGIN;
-    if (allowOutgoing) {
-      policy = nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_ALLOW_OUTGOING;
-    }
-  } else if (sameness.EqualsLiteral("same-site")) {
-    policy = nsILoadInfo::OPENER_POLICY_SAME_SITE;
-    if (allowOutgoing) {
-      policy = nsILoadInfo::OPENER_POLICY_SAME_SITE_ALLOW_OUTGOING;
+    if (samenessString.EqualsLiteral("same-origin")) {
+      sameness = nsILoadInfo::OPENER_POLICY_SAME_ORIGIN;
+    } else if (samenessString.EqualsLiteral("same-site")) {
+      sameness = nsILoadInfo::OPENER_POLICY_SAME_SITE;
     }
   }
 
   // Step 9 in obtain a cross-origin opener-policy
   // https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
-  if (policy == nsILoadInfo::OPENER_POLICY_SAME_ORIGIN) {
+  if (sameness == nsILoadInfo::OPENER_POLICY_SAME_ORIGIN &&
+      !unsafeAllowOutgoing) {
     nsILoadInfo::CrossOriginEmbedderPolicy coep =
         nsILoadInfo::EMBEDDER_POLICY_NULL;
     if (NS_SUCCEEDED(GetResponseEmbedderPolicy(&coep)) &&
         coep == nsILoadInfo::EMBEDDER_POLICY_REQUIRE_CORP) {
-      policy =
-          nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_EMBEDDER_POLICY_REQUIRE_CORP;
+      embedderPolicy = true;
     }
   }
 
-  *aPolicy = policy;
+  *aOutPolicy = CreateCrossOriginOpenerPolicy(sameness, unsafeAllowOutgoing,
+                                              embedderPolicy);
   return NS_OK;
 }
 

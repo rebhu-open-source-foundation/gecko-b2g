@@ -26,12 +26,13 @@
 
 #include "builtin/Array.h"
 #include "builtin/Boolean.h"
-#include "builtin/intl/CommonFunctions.h"
-#include "builtin/intl/ICUStubs.h"
+#if ENABLE_INTL_API
+#  include "builtin/intl/CommonFunctions.h"
+#endif
 #include "builtin/RegExp.h"
 #include "jit/InlinableNatives.h"
 #include "js/Conversions.h"
-#if !EXPOSE_INTL_API
+#if !ENABLE_INTL_API
 #  include "js/LocaleSensitive.h"
 #endif
 #include "js/PropertySpec.h"
@@ -40,6 +41,8 @@
 #if ENABLE_INTL_API
 #  include "unicode/uchar.h"
 #  include "unicode/unorm2.h"
+#  include "unicode/ustring.h"
+#  include "unicode/utypes.h"
 #endif
 #include "util/StringBuffer.h"
 #include "util/Unicode.h"
@@ -439,13 +442,13 @@ static bool str_resolve(JSContext* cx, HandleObject obj, HandleId id,
   return true;
 }
 
-static const ClassOps StringObjectClassOps = {
+static const JSClassOps StringObjectClassOps = {
     nullptr,                /* addProperty */
     nullptr,                /* delProperty */
     str_enumerate, nullptr, /* newEnumerate */
     str_resolve,   str_mayResolve};
 
-const Class StringObject::class_ = {
+const JSClass StringObject::class_ = {
     js_String_str,
     JSCLASS_HAS_RESERVED_SLOTS(StringObject::RESERVED_SLOTS) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_String),
@@ -885,6 +888,10 @@ bool js::str_toLowerCase(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+#if ENABLE_INTL_API
+// String.prototype.toLocaleLowerCase is self-hosted when Intl is exposed,
+// with core functionality performed by the intrinsic below.
+
 static const char* CaseMappingLocale(JSContext* cx, JSString* str) {
   JSLinearString* locale = str->ensureLinear(cx);
   if (!locale) {
@@ -973,11 +980,6 @@ bool js::intl_toLocaleLowerCase(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#if EXPOSE_INTL_API
-
-// String.prototype.toLocaleLowerCase is self-hosted when Intl is exposed,
-// with core functionality performed by the intrinsic above.
-
 #else
 
 // When the Intl API is not exposed, String.prototype.toLowerCase is implemented
@@ -1019,7 +1021,7 @@ static bool str_toLocaleLowerCase(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#endif  // EXPOSE_INTL_API
+#endif  // ENABLE_INTL_API
 
 static inline bool ToUpperCaseHasSpecialCasing(Latin1Char charCode) {
   // U+00DF LATIN SMALL LETTER SHARP S is the only Latin-1 code point with
@@ -1328,6 +1330,10 @@ bool js::str_toUpperCase(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+#if ENABLE_INTL_API
+// String.prototype.toLocaleUpperCase is self-hosted when Intl is exposed,
+// with core functionality performed by the intrinsic below.
+
 bool js::intl_toLocaleUpperCase(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 2);
@@ -1390,11 +1396,6 @@ bool js::intl_toLocaleUpperCase(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#if EXPOSE_INTL_API
-
-// String.prototype.toLocaleUpperCase is self-hosted when Intl is exposed,
-// with core functionality performed by the intrinsic above.
-
 #else
 
 // When the Intl API is not exposed, String.prototype.toUpperCase is implemented
@@ -1436,9 +1437,9 @@ static bool str_toLocaleUpperCase(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#endif  // EXPOSE_INTL_API
+#endif  // ENABLE_INTL_API
 
-#if EXPOSE_INTL_API
+#if ENABLE_INTL_API
 
 // String.prototype.localeCompare is self-hosted when Intl functionality is
 // exposed, and the only intrinsics it requires are provided in the
@@ -1481,9 +1482,9 @@ static bool str_localeCompare(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#endif  // EXPOSE_INTL_API
+#endif  // ENABLE_INTL_API
 
-#if EXPOSE_INTL_API
+#if ENABLE_INTL_API
 
 // ES2017 draft rev 45e890512fd77add72cc0ee742785f9f6f6482de
 // 21.1.3.12 String.prototype.normalize ( [ form ] )
@@ -1619,7 +1620,7 @@ static bool str_normalize(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#endif  // EXPOSE_INTL_API
+#endif  // ENABLE_INTL_API
 
 static bool str_charAt(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -3377,7 +3378,7 @@ static const JSFunctionSpec string_methods[] = {
     JS_FN("endsWith", str_endsWith, 1, 0), JS_FN("trim", str_trim, 0, 0),
     JS_FN("trimStart", str_trimStart, 0, 0),
     JS_FN("trimEnd", str_trimEnd, 0, 0),
-#if EXPOSE_INTL_API
+#if ENABLE_INTL_API
     JS_SELF_HOSTED_FN("toLocaleLowerCase", "String_toLocaleLowerCase", 0, 0),
     JS_SELF_HOSTED_FN("toLocaleUpperCase", "String_toLocaleUpperCase", 0, 0),
     JS_SELF_HOSTED_FN("localeCompare", "String_localeCompare", 1, 0),
@@ -3387,7 +3388,7 @@ static const JSFunctionSpec string_methods[] = {
     JS_FN("localeCompare", str_localeCompare, 1, 0),
 #endif
     JS_SELF_HOSTED_FN("repeat", "String_repeat", 1, 0),
-#if EXPOSE_INTL_API
+#if ENABLE_INTL_API
     JS_FN("normalize", str_normalize, 0, 0),
 #endif
 

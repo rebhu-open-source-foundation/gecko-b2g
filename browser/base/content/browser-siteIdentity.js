@@ -268,6 +268,12 @@ var gIdentityHandler = {
     }
     return (this._permissionAnchors = permissionAnchors);
   },
+  get _permissionGrantedIndicator() {
+    delete this._permissionGrantedIndicator;
+    return (this._permissionGrantedIndicator = document.getElementById(
+      "identity-popup-permissions-granted-indicator"
+    ));
+  },
   get _trackingProtectionIconContainer() {
     delete this._trackingProtectionIconContainer;
     return (this._trackingProtectionIconContainer = document.getElementById(
@@ -624,6 +630,14 @@ var gIdentityHandler = {
       host = this.getEffectiveHost();
     } catch (e) {
       // Some URIs might have no hosts.
+    }
+
+    if (this._uri.schemeIs("about")) {
+      // For example in about:certificate the original URL is
+      // about:certificate?cert=<large base64 encoded data>&cert=<large base64 encoded data>&cert=...
+      // So, instead of showing that large string in the identity panel header, we are just showing
+      // about:certificate now. For the other about pages we are just showing about:<page>
+      host = "about:" + this._uri.filePath;
     }
 
     let readerStrippedURI = ReaderMode.getOriginalUrlObjectForDisplay(
@@ -1241,6 +1255,7 @@ var gIdentityHandler = {
       )
     ) {
       this.refreshIdentityBlock();
+      this.updateSitePermissionsGrantedIndicator();
     }
   },
 
@@ -1397,6 +1412,31 @@ var gIdentityHandler = {
     } else {
       this._permissionEmptyHint.setAttribute("hidden", "true");
     }
+
+    this.updateSitePermissionsGrantedIndicator();
+  },
+
+  updateSitePermissionsGrantedIndicator() {
+    let hasGrantedPermissions = false;
+
+    let permissions = SitePermissions.getAllPermissionDetailsForBrowser(
+      gBrowser.selectedBrowser
+    );
+
+    for (let permission of permissions) {
+      if (
+        permission.state === SitePermissions.ALLOW ||
+        permission.state === SitePermissions.ALLOW_COOKIES_FOR_SESSION
+      ) {
+        hasGrantedPermissions = true;
+      }
+    }
+
+    // Display the permission granted indicator if necessary.
+    this._permissionGrantedIndicator.toggleAttribute(
+      "show",
+      hasGrantedPermissions
+    );
   },
 
   _createPermissionItem(aPermission) {

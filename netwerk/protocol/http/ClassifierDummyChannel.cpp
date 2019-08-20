@@ -77,11 +77,12 @@ NS_INTERFACE_MAP_BEGIN(ClassifierDummyChannel)
   NS_INTERFACE_MAP_ENTRY_CONCRETE(ClassifierDummyChannel)
 NS_INTERFACE_MAP_END
 
-ClassifierDummyChannel::ClassifierDummyChannel(nsIURI* aURI,
-                                               nsIURI* aTopWindowURI,
-                                               nsresult aTopWindowURIResult,
-                                               nsILoadInfo* aLoadInfo)
+ClassifierDummyChannel::ClassifierDummyChannel(
+    nsIURI* aURI, nsIURI* aTopWindowURI,
+    nsIPrincipal* aContentBlockingAllowListPrincipal,
+    nsresult aTopWindowURIResult, nsILoadInfo* aLoadInfo)
     : mTopWindowURI(aTopWindowURI),
+      mContentBlockingAllowListPrincipal(aContentBlockingAllowListPrincipal),
       mTopWindowURIResult(aTopWindowURIResult),
       mClassificationFlags(0) {
   MOZ_ASSERT(XRE_IsParentProcess());
@@ -97,6 +98,9 @@ ClassifierDummyChannel::~ClassifierDummyChannel() {
                                     mURI.forget());
   NS_ReleaseOnMainThreadSystemGroup("ClassifierDummyChannel::mTopWindowURI",
                                     mTopWindowURI.forget());
+  NS_ReleaseOnMainThreadSystemGroup(
+      "ClassifierDummyChannel::mContentBlockingAllowListPrincipal",
+      mContentBlockingAllowListPrincipal.forget());
 }
 
 uint32_t ClassifierDummyChannel::ClassificationFlags() const {
@@ -556,6 +560,14 @@ ClassifierDummyChannel::GetTopWindowURI(nsIURI** aTopWindowURI) {
 }
 
 NS_IMETHODIMP
+ClassifierDummyChannel::GetContentBlockingAllowListPrincipal(
+    nsIPrincipal** aPrincipal) {
+  nsCOMPtr<nsIPrincipal> copy = mContentBlockingAllowListPrincipal;
+  copy.forget(aPrincipal);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 ClassifierDummyChannel::SetTopWindowURIIfUnknown(nsIURI* aTopWindowURI) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -636,7 +648,8 @@ void ClassifierDummyChannel::SetHasSandboxedAuxiliaryNavigations(
     bool aHasSandboxedAuxiliaryNavigations) {}
 
 NS_IMETHODIMP ClassifierDummyChannel::GetCrossOriginOpenerPolicy(
-    nsILoadInfo::CrossOriginOpenerPolicy* aPolicy) {
+    nsILoadInfo::CrossOriginOpenerPolicy aInitiatorPolicy,
+    nsILoadInfo::CrossOriginOpenerPolicy* aOutPolicy) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 

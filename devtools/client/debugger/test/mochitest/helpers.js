@@ -241,8 +241,8 @@ function waitForSelectedSource(dbg, url) {
   return waitForState(
     dbg,
     state => {
-      const { source, content } = getSelectedSourceWithContent() || {};
-      if (!content) {
+      const source = getSelectedSourceWithContent() || {};
+      if (!source.content) {
         return false;
       }
 
@@ -318,9 +318,8 @@ function assertPausedLocation(dbg) {
 function assertDebugLine(dbg, line) {
   // Check the debug line
   const lineInfo = getCM(dbg).lineInfo(line - 1);
-  const { source, content } =
-    dbg.selectors.getSelectedSourceWithContent() || {};
-  if (source && !content) {
+  const source = dbg.selectors.getSelectedSourceWithContent() || {};
+  if (source && !source.content) {
     const url = source.url;
     ok(
       false,
@@ -424,9 +423,9 @@ function assertPausedAtSourceAndLine(dbg, expectedSourceId, expectedLine) {
 }
 
 // Get any workers associated with the debugger.
-async function getWorkers(dbg) {
-  await dbg.actions.updateWorkers();
-  return dbg.selectors.getWorkers();
+async function getThreads(dbg) {
+  await dbg.actions.updateThreads();
+  return dbg.selectors.getThreads();
 }
 
 async function waitForLoadedScopes(dbg) {
@@ -515,14 +514,9 @@ function isSelectedFrameSelected(dbg, state) {
   // Make sure the source text is completely loaded for the
   // source we are paused in.
   const sourceId = frame.location.sourceId;
-  const { source, content } =
-    dbg.selectors.getSelectedSourceWithContent() || {};
+  const source = dbg.selectors.getSelectedSourceWithContent() || {};
 
-  if (!source) {
-    return false;
-  }
-
-  if (!content) {
+  if (!source || !source.content) {
     return false;
   }
 
@@ -1291,7 +1285,8 @@ const selectors = {
   threadsPaneItem: i => `.workers-pane .worker:nth-child(${i})`,
   threadsPaneItemPause: i => `${selectors.threadsPaneItem(i)} .pause-badge`,
   CodeMirrorLines: ".CodeMirror-lines",
-  inlinePreviewWidget: ".CodeMirror-linewidget .inline-preview",
+  inlinePreviewLables: ".CodeMirror-linewidget .inline-preview-label",
+  inlinePreviewValues: ".CodeMirror-linewidget .inline-preview-value",
 };
 
 function getSelector(elementName, ...args) {

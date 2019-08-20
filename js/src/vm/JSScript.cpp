@@ -1149,7 +1149,7 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
     script->column_ = column;
     script->immutableFlags_ = immutableFlags;
 
-    if (script->hasFlag(ImmutableFlags::ArgsHasVarBinding)) {
+    if (script->argumentsHasVarBinding()) {
       // Call setArgumentsHasVarBinding to initialize the
       // NeedsArgsAnalysis flag.
       script->setArgumentsHasVarBinding();
@@ -1511,25 +1511,6 @@ size_t ScriptCounts::sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
          ionCounts_->sizeOfIncludingThis(mallocSizeOf);
 }
 
-void JSScript::setIonScript(JSRuntime* rt, js::jit::IonScript* ionScript) {
-  setIonScript(rt->defaultFreeOp(), ionScript);
-}
-
-void JSScript::setIonScript(FreeOp* fop, js::jit::IonScript* ionScript) {
-  MOZ_ASSERT_IF(ionScript != ION_DISABLED_SCRIPT,
-                !baselineScript()->hasPendingIonBuilder());
-  if (hasIonScript()) {
-    js::jit::IonScript::writeBarrierPre(zone(), ion);
-    clearIonScript(fop);
-  }
-  ion = ionScript;
-  MOZ_ASSERT_IF(hasIonScript(), hasBaselineScript());
-  if (hasIonScript()) {
-    AddCellMemory(this, ion->allocBytes(), js::MemoryUse::IonScript);
-  }
-  updateJitCodeRaw(fop->runtime());
-}
-
 js::PCCounts* JSScript::maybeGetPCCounts(jsbytecode* pc) {
   MOZ_ASSERT(containsPC(pc));
   return getScriptCounts().maybeGetPCCounts(pcToOffset(pc));
@@ -1651,7 +1632,7 @@ bool JSScript::hasScriptName() {
   return p.found();
 }
 
-void ScriptSourceObject::finalize(FreeOp* fop, JSObject* obj) {
+void ScriptSourceObject::finalize(JSFreeOp* fop, JSObject* obj) {
   MOZ_ASSERT(fop->onMainThread());
   ScriptSourceObject* sso = &obj->as<ScriptSourceObject>();
   sso->source()->decref();
@@ -1669,7 +1650,7 @@ void ScriptSourceObject::trace(JSTracer* trc, JSObject* obj) {
   }
 }
 
-static const ClassOps ScriptSourceObjectClassOps = {
+static const JSClassOps ScriptSourceObjectClassOps = {
     nullptr, /* addProperty */
     nullptr, /* delProperty */
     nullptr, /* enumerate */
@@ -1682,7 +1663,7 @@ static const ClassOps ScriptSourceObjectClassOps = {
     nullptr, /* construct */
     ScriptSourceObject::trace};
 
-const Class ScriptSourceObject::class_ = {
+const JSClass ScriptSourceObject::class_ = {
     "ScriptSource",
     JSCLASS_HAS_RESERVED_SLOTS(RESERVED_SLOTS) | JSCLASS_FOREGROUND_FINALIZE,
     &ScriptSourceObjectClassOps};
@@ -3667,46 +3648,6 @@ void js::SweepScriptData(JSRuntime* rt) {
   }
 }
 
-void js::FreeScriptData(JSRuntime* rt) {
-  AutoLockScriptData lock(rt);
-
-  RuntimeScriptDataTable& table = rt->scriptDataTable(lock);
-
-  // The table should be empty unless the embedding leaked GC things.
-  MOZ_ASSERT_IF(rt->gc.shutdownCollectedEverything(), table.empty());
-
-#ifdef DEBUG
-  size_t numLive = 0;
-  size_t maxCells = 5;
-  char* env = getenv("JS_GC_MAX_LIVE_CELLS");
-  if (env && *env) {
-    maxCells = atol(env);
-  }
-#endif
-
-  for (RuntimeScriptDataTable::Enum e(table); !e.empty(); e.popFront()) {
-#ifdef DEBUG
-    if (++numLive <= maxCells) {
-      RuntimeScriptData* scriptData = e.front();
-      fprintf(stderr,
-              "ERROR: GC found live RuntimeScriptData %p with ref count %d at "
-              "shutdown\n",
-              scriptData, scriptData->refCount());
-    }
-#endif
-    js_free(e.front());
-  }
-
-#ifdef DEBUG
-  if (numLive > 0) {
-    fprintf(stderr, "ERROR: GC found %zu live RuntimeScriptData at shutdown\n",
-            numLive);
-  }
-#endif
-
-  table.clear();
-}
-
 /* static */
 size_t PrivateScriptData::AllocationSize(uint32_t ngcthings) {
   size_t size = sizeof(PrivateScriptData);
@@ -4179,17 +4120,17 @@ size_t JSScript::sizeOfData(mozilla::MallocSizeOf mallocSizeOf) const {
 void JSScript::addSizeOfJitScript(mozilla::MallocSizeOf mallocSizeOf,
                                   size_t* sizeOfJitScript,
                                   size_t* sizeOfBaselineFallbackStubs) const {
-  if (!jitScript_) {
+  if (!hasJitScript()) {
     return;
   }
 
-  jitScript_->addSizeOfIncludingThis(mallocSizeOf, sizeOfJitScript,
-                                     sizeOfBaselineFallbackStubs);
+  jitScript()->addSizeOfIncludingThis(mallocSizeOf, sizeOfJitScript,
+                                      sizeOfBaselineFallbackStubs);
 }
 
 js::GlobalObject& JSScript::uninlinedGlobal() const { return global(); }
 
-void JSScript::finalize(FreeOp* fop) {
+void JSScript::finalize(JSFreeOp* fop) {
   // NOTE: this JSScript may be partially initialized at this point.  E.g. we
   // may have created it and partially initialized it with
   // JSScript::Create(), but not yet finished initializing it with
@@ -4205,7 +4146,9 @@ void JSScript::finalize(FreeOp* fop) {
 
   fop->runtime()->geckoProfiler().onScriptFinalized(this);
 
-  jit::DestroyJitScripts(fop, this);
+  if (hasJitScript()) {
+    releaseJitScriptOnFinalize(fop);
+  }
 
   destroyScriptCounts();
   DebugAPI::destroyDebugScript(fop, this);
@@ -4860,6 +4803,10 @@ void JSScript::traceChildren(JSTracer* trc) {
     scriptData()->traceChildren(trc);
   }
 
+  if (jit::JitScript* jitScript = maybeJitScript()) {
+    jitScript->trace(trc);
+  }
+
   if (maybeLazyScript()) {
     TraceManuallyBarrieredEdge(trc, &lazyScript, "lazyScript");
   }
@@ -4868,14 +4815,12 @@ void JSScript::traceChildren(JSTracer* trc) {
   MOZ_ASSERT(global);
   TraceManuallyBarrieredEdge(trc, &global, "script_global");
 
-  jit::TraceJitScripts(trc, this);
-
   if (trc->isMarkingTracer()) {
     GCMarker::fromTracer(trc)->markImplicitEdges(this);
   }
 }
 
-void LazyScript::finalize(FreeOp* fop) {
+void LazyScript::finalize(JSFreeOp* fop) {
   if (lazyData_) {
     fop->free_(this, lazyData_, lazyData_->allocationSize(),
                MemoryUse::LazyScriptData);
@@ -4971,7 +4916,7 @@ Scope* JSScript::innermostScope(jsbytecode* pc) {
 }
 
 void JSScript::setArgumentsHasVarBinding() {
-  setFlag(ImmutableFlags::ArgsHasVarBinding);
+  setFlag(ImmutableFlags::ArgumentsHasVarBinding);
   setFlag(MutableFlags::NeedsArgsAnalysis);
 }
 
@@ -5357,17 +5302,18 @@ LazyScript* LazyScript::CreateForXDR(
 void JSScript::updateJitCodeRaw(JSRuntime* rt) {
   MOZ_ASSERT(rt);
   uint8_t* jitCodeSkipArgCheck;
-  if (hasBaselineScript() && baseline->hasPendingIonBuilder()) {
+  if (hasBaselineScript() && baselineScript()->hasPendingIonBuilder()) {
     MOZ_ASSERT(!isIonCompilingOffThread());
     jitCodeRaw_ = rt->jitRuntime()->lazyLinkStub().value;
     jitCodeSkipArgCheck = jitCodeRaw_;
   } else if (hasIonScript()) {
+    jit::IonScript* ion = ionScript();
     jitCodeRaw_ = ion->method()->raw();
     jitCodeSkipArgCheck = jitCodeRaw_ + ion->getSkipArgCheckEntryOffset();
   } else if (hasBaselineScript()) {
-    jitCodeRaw_ = baseline->method()->raw();
+    jitCodeRaw_ = baselineScript()->method()->raw();
     jitCodeSkipArgCheck = jitCodeRaw_;
-  } else if (jitScript() && js::jit::IsBaselineInterpreterEnabled()) {
+  } else if (hasJitScript() && js::jit::IsBaselineInterpreterEnabled()) {
     jitCodeRaw_ = rt->jitRuntime()->baselineInterpreter().codeRaw();
     jitCodeSkipArgCheck = jitCodeRaw_;
   } else {
@@ -5377,8 +5323,8 @@ void JSScript::updateJitCodeRaw(JSRuntime* rt) {
   MOZ_ASSERT(jitCodeRaw_);
   MOZ_ASSERT(jitCodeSkipArgCheck);
 
-  if (jitScript_) {
-    jitScript_->jitCodeSkipArgCheck_ = jitCodeSkipArgCheck;
+  if (hasJitScript()) {
+    jitScript()->jitCodeSkipArgCheck_ = jitCodeSkipArgCheck;
   }
 }
 

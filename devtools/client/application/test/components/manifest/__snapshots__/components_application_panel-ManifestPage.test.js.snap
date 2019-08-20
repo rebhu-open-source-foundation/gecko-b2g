@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ManifestPage renders the expected snapshot 1`] = `
+<section
+  className="manifest-page"
+>
+  <Connect(ManifestLoader) />
+</section>
+`;

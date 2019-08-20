@@ -15,8 +15,8 @@ Services.scriptloader.loadSubScript(
 add_task(async function test() {
   Assert.ok(adjustedCerts, "adjustedCerts found");
 
-  let tabName = adjustedCerts.tabName;
-  let certItems = adjustedCerts.certItems;
+  let tabName = adjustedCerts[0].tabName;
+  let certItems = adjustedCerts[0].certItems;
 
   await BrowserTestUtils.withNewTab(url, async function(browser) {
     await ContentTask.spawn(browser, [certItems, tabName], async function([
@@ -83,6 +83,9 @@ add_task(async function test() {
           }
           adjustedCertsElemLabel = adjustedCertsElemLabel
             .replace(/\s+/g, "-")
+            .replace(/\./g, "")
+            .replace(/\//g, "")
+            .replace(/--/g, "-")
             .toLowerCase();
 
           let adjustedCertsElemInfo = adjustedCertsElem.sectionItems[i].info;

@@ -21,7 +21,6 @@
 
 namespace mozilla {
 
-class AutoLockRulesSniffing;
 class EditSubActionInfo;
 class HTMLEditor;
 class HTMLEditRules;
@@ -57,8 +56,7 @@ class Selection;
 class TextEditRules {
  protected:
   typedef EditorBase::AutoSelectionRestorer AutoSelectionRestorer;
-  typedef EditorBase::AutoTopLevelEditSubActionNotifier
-      AutoTopLevelEditSubActionNotifier;
+  typedef EditorBase::AutoEditSubActionNotifier AutoEditSubActionNotifier;
   typedef EditorBase::AutoTransactionsConserveSelection
       AutoTransactionsConserveSelection;
 
@@ -69,8 +67,7 @@ class TextEditRules {
   template <typename T>
   using OwningNonNull = OwningNonNull<T>;
 
-  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(TextEditRules)
-  NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(TextEditRules)
+  NS_INLINE_DECL_REFCOUNTING(TextEditRules)
 
   TextEditRules();
 
@@ -80,11 +77,8 @@ class TextEditRules {
   MOZ_CAN_RUN_SCRIPT
   virtual nsresult Init(TextEditor* aTextEditor);
   virtual nsresult DetachEditor();
-  virtual nsresult BeforeEdit(EditSubAction aEditSubAction,
-                              nsIEditor::EDirection aDirection);
-  MOZ_CAN_RUN_SCRIPT
-  virtual nsresult AfterEdit(EditSubAction aEditSubAction,
-                             nsIEditor::EDirection aDirection);
+  virtual nsresult BeforeEdit();
+  MOZ_CAN_RUN_SCRIPT virtual nsresult AfterEdit();
   // NOTE: Don't mark WillDoAction() nor DidDoAction() as MOZ_CAN_RUN_SCRIPT
   //       because they are too generic and doing it makes a lot of public
   //       editor methods marked as MOZ_CAN_RUN_SCRIPT too, but some of them
@@ -130,10 +124,6 @@ class TextEditRules {
    * @param aString the string to be modified in place.
    */
   void HandleNewLines(nsString& aString);
-
-  bool HasPaddingBRElementForEmptyEditor() const {
-    return !!mPaddingBRElementForEmptyEditor;
-  }
 
  protected:
   void InitFields();
@@ -189,16 +179,6 @@ class TextEditRules {
                                     int32_t aMaxLength);
 
   /**
-   * Called before inserting something into the editor.
-   * This method may removes mBougsNode if there is.  Therefore, this method
-   * might cause destroying the editor.
-   *
-   * @param aCancel             Returns true if the operation is canceled.
-   *                            This can be nullptr.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult WillInsert(bool* aCancel = nullptr);
-
-  /**
    * Called before deleting selected content.
    * This method may actually remove the selected content with
    * DeleteSelectionWithTransaction().  So, this might cause destroying the
@@ -238,12 +218,6 @@ class TextEditRules {
 
   nsresult WillRemoveTextProperty(bool* aCancel, bool* aHandled);
 
-  nsresult WillUndo(bool* aCancel, bool* aHandled);
-  nsresult DidUndo(nsresult aResult);
-
-  nsresult WillRedo(bool* aCancel, bool* aHandled);
-  nsresult DidRedo(nsresult aResult);
-
   /**
    * Called prior to nsIEditor::OutputToString.
    *
@@ -254,11 +228,6 @@ class TextEditRules {
    */
   nsresult WillOutputText(const nsAString* aInFormat, nsAString* aOutText,
                           uint32_t aFlags, bool* aOutCancel, bool* aHandled);
-
-  /**
-   * Check for and replace a redundant trailing break.
-   */
-  MOZ_MUST_USE nsresult RemoveRedundantTrailingBR();
 
   /**
    * Creates a trailing break in the text doc if there is not one already.
@@ -388,25 +357,11 @@ class TextEditRules {
    */
   inline already_AddRefed<nsINode> GetTextNodeAroundSelectionStartContainer();
 
-  // mPaddingBRElementForEmptyEditor should be used for placing caret
-  // at proper position when editor is empty.
-  RefPtr<dom::HTMLBRElement> mPaddingBRElementForEmptyEditor;
-  // Cached selected node.
-  nsCOMPtr<nsINode> mCachedSelectionNode;
-  // Cached selected offset.
-  uint32_t mCachedSelectionOffset;
-  uint32_t mActionNesting;
-  bool mLockRulesSniffing;
-  bool mDidExplicitlySetInterline;
-  // In bidirectional text, delete characters not visually adjacent to the
-  // caret without moving the caret first.
-  bool mDeleteBidiImmediately;
-  bool mIsHTMLEditRules;
-  // The top level editor action.
-  EditSubAction mTopLevelEditSubAction;
+#ifdef DEBUG
+  bool mIsHandling;
+#endif  // #ifdef DEBUG
 
-  // friends
-  friend class AutoLockRulesSniffing;
+  bool mIsHTMLEditRules;
 };
 
 /**
@@ -455,53 +410,6 @@ class MOZ_STACK_CLASS EditSubActionInfo final {
 
   // EditSubAction::eCreateOrRemoveBlock
   const nsAString* blockType;
-};
-
-/**
- * Stack based helper class for managing TextEditRules::mLockRluesSniffing.
- * This class sets a bool letting us know to ignore any rules sniffing
- * that tries to occur reentrantly.
- */
-class MOZ_STACK_CLASS AutoLockRulesSniffing final {
- public:
-  explicit AutoLockRulesSniffing(TextEditRules* aRules) : mRules(aRules) {
-    if (mRules) {
-      mRules->mLockRulesSniffing = true;
-    }
-  }
-
-  ~AutoLockRulesSniffing() {
-    if (mRules) {
-      mRules->mLockRulesSniffing = false;
-    }
-  }
-
- protected:
-  TextEditRules* mRules;
-};
-
-/**
- * Stack based helper class for turning on/off the edit listener.
- */
-class MOZ_STACK_CLASS AutoLockListener final {
- public:
-  explicit AutoLockListener(bool* aEnabled)
-      : mEnabled(aEnabled), mOldState(false) {
-    if (mEnabled) {
-      mOldState = *mEnabled;
-      *mEnabled = false;
-    }
-  }
-
-  ~AutoLockListener() {
-    if (mEnabled) {
-      *mEnabled = mOldState;
-    }
-  }
-
- protected:
-  bool* mEnabled;
-  bool mOldState;
 };
 
 }  // namespace mozilla

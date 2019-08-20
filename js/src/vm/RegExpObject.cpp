@@ -166,7 +166,7 @@ void RegExpObject::trace(JSTracer* trc) {
   TraceNullableEdge(trc, &sharedRef(), "RegExpObject shared");
 }
 
-static const ClassOps RegExpObjectClassOps = {
+static const JSClassOps RegExpObjectClassOps = {
     nullptr, /* addProperty */
     nullptr, /* delProperty */
     nullptr, /* enumerate */
@@ -188,14 +188,14 @@ static const ClassSpec RegExpObjectClassSpec = {
     js::regexp_methods,
     js::regexp_properties};
 
-const Class RegExpObject::class_ = {
+const JSClass RegExpObject::class_ = {
     js_RegExp_str,
     JSCLASS_HAS_PRIVATE |
         JSCLASS_HAS_RESERVED_SLOTS(RegExpObject::RESERVED_SLOTS) |
         JSCLASS_HAS_CACHED_PROTO(JSProto_RegExp),
     &RegExpObjectClassOps, &RegExpObjectClassSpec};
 
-const Class RegExpObject::protoClass_ = {
+const JSClass RegExpObject::protoClass_ = {
     js_Object_str, JSCLASS_HAS_CACHED_PROTO(JSProto_RegExp), JS_NULL_CLASS_OPS,
     &RegExpObjectClassSpec};
 
@@ -925,7 +925,7 @@ void RegExpShared::discardJitCode() {
   tables.clearAndFree();
 }
 
-void RegExpShared::finalize(FreeOp* fop) {
+void RegExpShared::finalize(JSFreeOp* fop) {
   for (auto& comp : compilationArray) {
     if (comp.byteCode) {
       size_t length = comp.byteCodeLength();

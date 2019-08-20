@@ -6,12 +6,30 @@
 
 var EXPORTED_SYMBOLS = ["UrlbarContextualTip"];
 
+// These are global listeners; all instances of the contextual tip will
+// have click listeners executed when their button or link is clicked.
+let clickListeners = new Map([["button", new Set()], ["link", new Set()]]);
+
+/**
+ * Calls all the click listeners for the specified element.
+ *
+ * @param {string} element Either "button" or "link"
+ *   Corresponds to the button or link on the contextual tip.
+ * @param {object} window The window
+ */
+function callClickListeners(element, window) {
+  for (let clickListener of clickListeners.get(element)) {
+    clickListener(window);
+  }
+}
+
 /**
  * Consumers of this class can create, set, remove, and hide a contextual tip.
  */
 class UrlbarContextualTip {
   /**
    * Creates the contextual tip and sets it in the urlbar's view.
+   *
    * @param {object} view The urlbar's view
    */
   constructor(view) {
@@ -50,6 +68,14 @@ class UrlbarContextualTip {
 
     fragment.appendChild(this._elements.container);
     this.view.panel.prepend(fragment);
+
+    this._elements.button.addEventListener("click", () => {
+      callClickListeners("button", this.document.ownerGlobal);
+    });
+
+    this._elements.link.addEventListener("click", () => {
+      callClickListeners("link", this.document.ownerGlobal);
+    });
   }
 
   /**
@@ -61,7 +87,7 @@ class UrlbarContextualTip {
   }
 
   /**
-   * Sets the title, button's title, and link's title
+   * Sets the icon, title, button's title, and link's title
    * for the contextual tip.
    *
    * @param {object} details
@@ -73,9 +99,20 @@ class UrlbarContextualTip {
    * @param {string} [details.linkTitle]
    *   Title of the link on the contextual tip.
    *   If omitted then the link will be hidden.
+   * @param {string} [details.iconStyle]
+   *   A non-empty string of styles to add to the icon's style attribute.
+   *   These styles set CSS variables to URLs of images;
+   *   the CSS variables responsible for the icon's background image are
+   *   the variable names containing `--webextension-contextual-tip-icon`
+   *   in `browser/base/content/browser.css`.
+   *   If ommited, no changes are made to the icon.
    */
   set(details) {
-    let { title, buttonTitle, linkTitle } = details;
+    let { iconStyle, title, buttonTitle, linkTitle } = details;
+
+    if (iconStyle) {
+      this._elements.icon.setAttribute("style", iconStyle);
+    }
 
     this._elements.title.textContent = title;
 
@@ -96,5 +133,33 @@ class UrlbarContextualTip {
     if (!this._elements.container.classList.contains("hidden")) {
       this._elements.container.classList.add("hidden");
     }
+  }
+
+  /**
+   * Add a click listener to the specified element (either a button or link)
+   * on all windows (both existing and new windows).
+   *
+   * @param {string} element
+   *   The clickListener will be added to the specified element.
+   *   Must be either "button" or "link".
+   * @param {function} clickListener
+   *   The click listener to add to the specified element.
+   */
+  static addClickListener(element, clickListener) {
+    clickListeners.get(element).add(clickListener);
+  }
+
+  /**
+   * Remove a click listener from the specified element (either a button or
+   * link) on all windows (both existing and new windows).
+   *
+   * @param {string} element
+   *   The clickListener will be removed from the specified element.
+   *   Must be either "button" or "link".
+   * @param {function} clickListener
+   *   The click listener to remove from the specified element.
+   */
+  static removeClickListener(element, clickListener) {
+    clickListeners.get(element).delete(clickListener);
   }
 }

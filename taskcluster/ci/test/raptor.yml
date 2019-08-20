@@ -286,28 +286,6 @@ raptor-tp6m-1-geckoview:
             - --binary=org.mozilla.geckoview_example
             - --activity=org.mozilla.geckoview_example.GeckoViewActivity
 
-raptor-tp6m-1-fenix:
-    description: "Raptor tp6m-1 on Fenix"
-    try-name: raptor-tp6m-1-fenix
-    treeherder-symbol: Rap-fenix(tp6m-1)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-1
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
 raptor-tp6m-1-refbrow:
     description: "Raptor tp6m-1 on the reference browser"
     treeherder-symbol: Rap-refbrow(tp6m-1)
@@ -327,28 +305,6 @@ raptor-tp6m-1-refbrow:
             - --app=refbrow
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
-
-raptor-tp6m-2-fenix:
-    description: "Raptor tp6m-2 on Fenix"
-    try-name: raptor-tp6m-2-fenix
-    treeherder-symbol: Rap-fenix(tp6m-2)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-2
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
 
 raptor-tp6m-2-geckoview:
     description: "Raptor tp6m-2 on GeckoView"
@@ -417,28 +373,6 @@ raptor-tp6m-3-refbrow:
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
 
-raptor-tp6m-3-fenix:
-    description: "Raptor tp6m-3 on Fenix"
-    try-name: raptor-tp6m-3-fenix
-    treeherder-symbol: Rap-fenix(tp6m-3)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-3
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
 raptor-tp6m-4-geckoview:
     description: "Raptor tp6m-4 on GeckoView"
     try-name: raptor-tp6m-4-geckoview
@@ -471,28 +405,6 @@ raptor-tp6m-4-refbrow:
             - --app=refbrow
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
-
-raptor-tp6m-4-fenix:
-    description: "Raptor tp6m-4 on Fenix"
-    try-name: raptor-tp6m-4-fenix
-    treeherder-symbol: Rap-fenix(tp6m-4)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-4
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
 
 raptor-tp6m-5-geckoview:
     description: "Raptor tp6m-5 on GeckoView"
@@ -528,28 +440,6 @@ raptor-tp6m-5-refbrow:
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
 
-raptor-tp6m-5-fenix:
-    description: "Raptor tp6m-5 on Fenix"
-    try-name: raptor-tp6m-5-fenix
-    treeherder-symbol: Rap-fenix(tp6m-5)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-5
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
 raptor-tp6m-6-geckoview:
     description: "Raptor tp6m-6 on GeckoView"
     try-name: raptor-tp6m-6-geckoview
@@ -582,28 +472,6 @@ raptor-tp6m-6-refbrow:
             - --app=refbrow
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
-
-raptor-tp6m-6-fenix:
-    description: "Raptor tp6m-6 on Fenix"
-    try-name: raptor-tp6m-6-fenix
-    treeherder-symbol: Rap-fenix(tp6m-6)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-6
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
 
 raptor-tp6m-7-geckoview:
     description: "Raptor tp6m-7 on GeckoView"
@@ -639,28 +507,6 @@ raptor-tp6m-7-refbrow:
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
 
-raptor-tp6m-7-fenix:
-    description: "Raptor tp6m-7 on Fenix"
-    try-name: raptor-tp6m-7-fenix
-    treeherder-symbol: Rap-fenix(tp6m-7)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-7
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
 raptor-tp6m-8-geckoview:
     description: "Raptor tp6m-8 on GeckoView"
     try-name: raptor-tp6m-8-geckoview
@@ -693,28 +539,6 @@ raptor-tp6m-8-refbrow:
             - --app=refbrow
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
-
-raptor-tp6m-8-fenix:
-    description: "Raptor tp6m-8 on Fenix"
-    try-name: raptor-tp6m-8-fenix
-    treeherder-symbol: Rap-fenix(tp6m-8)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-8
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
 
 raptor-tp6m-9-geckoview:
     description: "Raptor tp6m-9 on GeckoView"
@@ -750,28 +574,6 @@ raptor-tp6m-9-refbrow:
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
 
-raptor-tp6m-9-fenix:
-    description: "Raptor tp6m-9 on Fenix"
-    try-name: raptor-tp6m-9-fenix
-    treeherder-symbol: Rap-fenix(tp6m-9)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-9
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
 raptor-tp6m-10-geckoview:
     description: "Raptor tp6m-10 on GeckoView"
     try-name: raptor-tp6m-10-geckoview
@@ -805,752 +607,6 @@ raptor-tp6m-10-refbrow:
             - --app=refbrow
             - --binary-path=org.mozilla.reference.browser.raptor
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
-
-raptor-tp6m-10-fenix:
-    description: "Raptor tp6m-10 on Fenix"
-    try-name: raptor-tp6m-10-fenix
-    treeherder-symbol: Rap-fenix(tp6m-10)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-10
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-1-fennec:
-    description: "Raptor tp6m-1 on Fennec"
-    try-name: raptor-tp6m-1-fennec
-    treeherder-symbol: Rap(tp6m-1)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-1
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-2-fennec:
-    description: "Raptor tp6m-2 on Fennec"
-    try-name: raptor-tp6m-2-fennec
-    treeherder-symbol: Rap(tp6m-2)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-2
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-3-fennec:
-    description: "Raptor tp6m-3 on Fennec"
-    try-name: raptor-tp6m-3-fennec
-    treeherder-symbol: Rap(tp6m-3)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-3
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-4-fennec:
-    description: "Raptor tp6m-4 on Fennec"
-    try-name: raptor-tp6m-4-fennec
-    treeherder-symbol: Rap(tp6m-4)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-4
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-5-fennec:
-    description: "Raptor tp6m-5 on Fennec"
-    try-name: raptor-tp6m-5-fennec
-    treeherder-symbol: Rap(tp6m-5)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-5
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-6-fennec:
-    description: "Raptor tp6m-6 on Fennec"
-    try-name: raptor-tp6m-6-fennec
-    treeherder-symbol: Rap(tp6m-6)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-6
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-7-fennec:
-    description: "Raptor tp6m-7 on Fennec"
-    try-name: raptor-tp6m-7-fennec
-    treeherder-symbol: Rap(tp6m-7)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-7
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-8-fennec:
-    description: "Raptor tp6m-8 on Fennec"
-    try-name: raptor-tp6m-8-fennec
-    treeherder-symbol: Rap(tp6m-8)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-8
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-9-fennec:
-    description: "Raptor tp6m-9 on Fennec"
-    try-name: raptor-tp6m-9-fennec
-    treeherder-symbol: Rap(tp6m-9)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-9
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-10-fennec:
-    description: "Raptor tp6m-10 on Fennec"
-    try-name: raptor-tp6m-10-fennec
-    treeherder-symbol: Rap(tp6m-10)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-10
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-1-fenix-cold:
-    description: "Raptor tp6m-1 cold page-load on Fenix"
-    try-name: raptor-tp6m-1-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-1)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-1
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-2-fenix-cold:
-    description: "Raptor tp6m-2 cold page-load on Fenix"
-    try-name: raptor-tp6m-2-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-2)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-2
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-3-fenix-cold:
-    description: "Raptor tp6m-3 cold page-load on Fenix"
-    try-name: raptor-tp6m-3-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-3)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-3
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-4-fenix-cold:
-    description: "Raptor tp6m-4 cold page-load on Fenix"
-    try-name: raptor-tp6m-4-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-4)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-4
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-5-fenix-cold:
-    description: "Raptor tp6m-5 cold page-load on Fenix"
-    try-name: raptor-tp6m-5-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-5)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-5
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-6-fenix-cold:
-    description: "Raptor tp6m-6 cold page-load on Fenix"
-    try-name: raptor-tp6m-6-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-6)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-6
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-7-fenix-cold:
-    description: "Raptor tp6m-7 cold page-load on Fenix"
-    try-name: raptor-tp6m-7-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-7)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-7
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-8-fenix-cold:
-    description: "Raptor tp6m-8 cold page-load on Fenix"
-    try-name: raptor-tp6m-8-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-8)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-8
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-9-fenix-cold:
-    description: "Raptor tp6m-9 cold page-load on Fenix"
-    try-name: raptor-tp6m-9-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-9)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-9
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-10-fenix-cold:
-    description: "Raptor tp6m-10 cold page-load on Fenix"
-    try-name: raptor-tp6m-10-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-10)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-10
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-11-fenix-cold:
-    description: "Raptor tp6m-11 cold page-load on Fenix"
-    try-name: raptor-tp6m-11-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-11)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-11
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-12-fenix-cold:
-    description: "Raptor tp6m-12 cold page-load on Fenix"
-    try-name: raptor-tp6m-12-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-12)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-12
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-13-fenix-cold:
-    description: "Raptor tp6m-13 cold page-load on Fenix"
-    try-name: raptor-tp6m-13-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-13)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-13
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-14-fenix-cold:
-    description: "Raptor tp6m-14 cold page-load on Fenix"
-    try-name: raptor-tp6m-14-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-14)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-14
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-15-fenix-cold:
-    description: "Raptor tp6m-15 cold page-load on Fenix"
-    try-name: raptor-tp6m-15-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-15)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-15
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-16-fenix-cold:
-    description: "Raptor tp6m-16 cold page-load on Fenix"
-    try-name: raptor-tp6m-16-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-16)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-16
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-17-fenix-cold:
-    description: "Raptor tp6m-17 cold page-load on Fenix"
-    try-name: raptor-tp6m-17-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-17)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-17
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-18-fenix-cold:
-    description: "Raptor tp6m-18 cold page-load on Fenix"
-    try-name: raptor-tp6m-18-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-18)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-18
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-19-fenix-cold:
-    description: "Raptor tp6m-19 cold page-load on Fenix"
-    try-name: raptor-tp6m-19-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-19)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-19
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-20-fenix-cold:
-    description: "Raptor tp6m-20 cold page-load on Fenix"
-    try-name: raptor-tp6m-20-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-20)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-20
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-21-fenix-cold:
-    description: "Raptor tp6m-21 cold page-load on Fenix"
-    try-name: raptor-tp6m-21-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-21)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-21
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-22-fenix-cold:
-    description: "Raptor tp6m-22 cold page-load on Fenix"
-    try-name: raptor-tp6m-22-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-22)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-22
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-23-fenix-cold:
-    description: "Raptor tp6m-23 cold page-load on Fenix"
-    try-name: raptor-tp6m-23-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-23)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-23
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-24-fenix-cold:
-    description: "Raptor tp6m-24 cold page-load on Fenix"
-    try-name: raptor-tp6m-24-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-24)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-24
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-25-fenix-cold:
-    description: "Raptor tp6m-25 cold page-load on Fenix"
-    try-name: raptor-tp6m-25-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-25)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-25
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-26-fenix-cold:
-    description: "Raptor tp6m-26 cold page-load on Fenix"
-    try-name: raptor-tp6m-26-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-26)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-26
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-tp6m-27-fenix-cold:
-    description: "Raptor tp6m-27 cold page-load on Fenix"
-    try-name: raptor-tp6m-27-fenix-cold
-    treeherder-symbol: Rap-fenix(tp6m-c-27)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-27
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
 
 raptor-speedometer-firefox:
     description: "Raptor Speedometer on Firefox"
@@ -1611,47 +667,6 @@ raptor-speedometer-geckoview-power:
             - --host HOST_IP
             - --activity=org.mozilla.geckoview_example.GeckoViewActivity
 
-raptor-scn-power-idle-fenix:
-    description: "Raptor idle-browser power-usage test on Fenix"
-    try-name: raptor-scn-power-idle-fenix
-    treeherder-symbol: Rap-fenix(idl-p)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 3
-    max-run-time: 1800
-    mozharness:
-        extra-options:
-            - --test=raptor-scn-power-idle
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --power-test
-            - --host HOST_IP
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-scn-power-idle-fennec:
-    description: "Raptor idle-browser power-use measurement on Fennec"
-    try-name: raptor-scn-power-idle-fennec
-    treeherder-symbol: Rap-fennec(idl-p)
-    target: target.apk
-    run-on-projects: []
-    tier: 3
-    max-run-time: 1800
-    mozharness:
-        extra-options:
-            - --test=raptor-scn-power-idle
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-            - --power-test
-            - --host HOST_IP
-
 raptor-scn-power-idle-geckoview:
     description: "Raptor idle-browser power-use measurement on GeckoView"
     try-name: raptor-scn-power-idle-geckoview
@@ -1693,47 +708,6 @@ raptor-scn-power-idle-refbrow:
             - --host HOST_IP
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
 
-raptor-scn-power-idle-bg-fenix:
-    description: "Raptor idle-browser (backgrounded) power-usage measurement on Fenix"
-    try-name: raptor-scn-power-idle-bg-fenix
-    treeherder-symbol: Rap-fenix(idlbg-p)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    tier: 3
-    max-run-time: 1800
-    mozharness:
-        extra-options:
-            - --test=raptor-scn-power-idle-bg
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --power-test
-            - --host HOST_IP
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-
-raptor-scn-power-idle-bg-fennec:
-    description: "Raptor idle-browser (backgrounded) power-use measurement on Fennec"
-    try-name: raptor-scn-power-idle-bg-fennec
-    treeherder-symbol: Rap-fennec(idlbg-p)
-    target: target.apk
-    run-on-projects: []
-    tier: 3
-    max-run-time: 1800
-    mozharness:
-        extra-options:
-            - --test=raptor-scn-power-idle-bg
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-            - --power-test
-            - --host HOST_IP
-
 raptor-scn-power-idle-bg-geckoview:
     description: "Raptor idle-browser (backgrounded) power-use measurement on GeckoView"
     try-name: raptor-scn-power-idle-bg-geckoview
@@ -1774,24 +748,6 @@ raptor-scn-power-idle-bg-refbrow:
             - --power-test
             - --host HOST_IP
             - --activity=org.mozilla.reference.browser.BrowserTestActivity
-
-raptor-speedometer-fennec:
-    description: "Raptor Speedometer on Fennec"
-    try-name: raptor-speedometer-fennec
-    treeherder-symbol: Rap(sp)
-    target: target.apk
-    run-on-projects:
-        by-test-platform:
-            android-hw-.*-api-16/opt: []
-            android-hw.*/pgo: ['trunk', 'mozilla-beta']
-            default: ['mozilla-central', 'mozilla-beta']
-    tier: 2
-    max-run-time: 900
-    mozharness:
-        extra-options:
-            - --test=raptor-speedometer-fennec
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
 
 raptor-speedometer-refbrow:
     description: "Raptor Speedometer on the reference browser"
@@ -2257,32 +1213,6 @@ raptor-youtube-playback-geckoview:
             # - --test-url-params is dynamically added from setup_raptor transform depending
             # on platform and project
 
-raptor-youtube-playback-fenix:
-    description: "Raptor YouTube Playback on Fenix"
-    try-name: raptor-youtube-playback-fenix
-    treeherder-symbol: Rap-fenix(ytp)
-    run-on-projects: []
-    e10s: true
-    target:
-        by-test-platform:
-            android-hw.*-aarch64.*/.*:
-                index: project.mobile.fenix.v2.performance-test.latest.aarch64
-                name: target.apk
-            default:
-                index: project.mobile.fenix.v2.performance-test.latest.arm
-                name: target.apk
-    max-run-time: 3600
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-youtube-playback
-            - --app=fenix
-            - --binary-path=org.mozilla.fenix.performancetest
-            - --activity=org.mozilla.fenix.IntentReceiverActivity
-            # Bug 1558456 - Stop tracking youtube-playback-test on motoG5 for >1080p cases
-            # - --test-url-params is dynamically added from setup_raptor transform depending
-            # on platform and project
-
 raptor-tp6-1-firefox-cold:
     description: "Raptor tp6-1 cold page-load on Firefox"
     try-name: raptor-tp6-1-firefox-cold
@@ -2330,13 +1260,14 @@ raptor-tp6m-1-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
     tier:
         by-test-platform:
             android-hw-p2-8-0-arm7.*: 2
+            android-hw-g5.*: 2
             default: 1
     mozharness:
         extra-options:
@@ -2355,13 +1286,14 @@ raptor-tp6m-2-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
     tier:
         by-test-platform:
             android-hw-p2-8-0-arm7.*: 2
+            android-hw-g5.*: 2
             default: 1
     mozharness:
         extra-options:
@@ -2380,13 +1312,14 @@ raptor-tp6m-3-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
     tier:
         by-test-platform:
             android-hw-p2-8-0-arm7.*: 2
+            android-hw-g5.*: 2
             default: 1
     mozharness:
         extra-options:
@@ -2405,13 +1338,14 @@ raptor-tp6m-4-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
     tier:
         by-test-platform:
             android-hw-p2-8-0-arm7.*: 2
+            android-hw-g5.*: 2
             default: 1
     mozharness:
         extra-options:
@@ -2430,13 +1364,14 @@ raptor-tp6m-5-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
     tier:
         by-test-platform:
             android-hw-p2-8-0-arm7.*: 2
+            android-hw-g5.*: 2
             default: 1
     mozharness:
         extra-options:
@@ -2455,13 +1390,14 @@ raptor-tp6m-6-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
     tier:
         by-test-platform:
             android-hw-p2-8-0-arm7.*: 2
+            android-hw-g5.*: 2
             default: 1
     mozharness:
         extra-options:
@@ -2480,7 +1416,7 @@ raptor-tp6m-7-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2502,7 +1438,7 @@ raptor-tp6m-8-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2524,7 +1460,7 @@ raptor-tp6m-9-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2546,7 +1482,7 @@ raptor-tp6m-10-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2568,7 +1504,7 @@ raptor-tp6m-11-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2590,7 +1526,7 @@ raptor-tp6m-12-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2612,7 +1548,7 @@ raptor-tp6m-13-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2634,7 +1570,7 @@ raptor-tp6m-14-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2656,7 +1592,7 @@ raptor-tp6m-15-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2678,7 +1614,7 @@ raptor-tp6m-16-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2700,7 +1636,7 @@ raptor-tp6m-17-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2722,7 +1658,7 @@ raptor-tp6m-18-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2744,7 +1680,7 @@ raptor-tp6m-19-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2766,7 +1702,7 @@ raptor-tp6m-20-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2788,7 +1724,7 @@ raptor-tp6m-21-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2810,7 +1746,7 @@ raptor-tp6m-22-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2832,7 +1768,7 @@ raptor-tp6m-23-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2854,7 +1790,7 @@ raptor-tp6m-24-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2876,7 +1812,7 @@ raptor-tp6m-25-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2898,7 +1834,7 @@ raptor-tp6m-26-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2920,7 +1856,7 @@ raptor-tp6m-27-geckoview-cold:
             android-hw-.*/opt: ['mozilla-central']
             android-hw-p2-.*-api-16/pgo: ['trunk']
             android-hw-p2-.*aarch64.*/pgo: ['trunk', 'mozilla-beta']
-            android-hw-g5.*/pgo: ['trunk', 'mozilla-beta']
+            android-hw-g5.*/pgo: ['mozilla-central']
             default: ['trunk', 'mozilla-beta']
     e10s: true
     target: geckoview_example.apk
@@ -2931,384 +1867,6 @@ raptor-tp6m-27-geckoview-cold:
             - --app=geckoview
             - --binary=org.mozilla.geckoview_example
             - --activity=org.mozilla.geckoview_example.GeckoViewActivity
-
-raptor-tp6m-1-fennec-cold:
-    description: "Raptor tp6m-1 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-1-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-1)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-1
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-2-fennec-cold:
-    description: "Raptor tp6m-2 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-2-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-2)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-2
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-3-fennec-cold:
-    description: "Raptor tp6m-3 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-3-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-3)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-3
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-4-fennec-cold:
-    description: "Raptor tp6m-4 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-4-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-4)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-4
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-5-fennec-cold:
-    description: "Raptor tp6m-5 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-5-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-5)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-5
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-6-fennec-cold:
-    description: "Raptor tp6m-6 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-6-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-6)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-6
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-7-fennec-cold:
-    description: "Raptor tp6m-7 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-7-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-7)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-7
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-8-fennec-cold:
-    description: "Raptor tp6m-8 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-8-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-8)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-8
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-9-fennec-cold:
-    description: "Raptor tp6m-9 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-9-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-9)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-9
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-10-fennec-cold:
-    description: "Raptor tp6m-10 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-10-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-10)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-10
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-11-fennec-cold:
-    description: "Raptor tp6m-11 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-11-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-11)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-11
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-12-fennec-cold:
-    description: "Raptor tp6m-12 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-12-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-12)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-12
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-13-fennec-cold:
-    description: "Raptor tp6m-13 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-13-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-13)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-13
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-14-fennec-cold:
-    description: "Raptor tp6m-14 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-14-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-14)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-14
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-15-fennec-cold:
-    description: "Raptor tp6m-15 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-15-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-15)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-15
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-16-fennec-cold:
-    description: "Raptor tp6m-16 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-16-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-16)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-16
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-17-fennec-cold:
-    description: "Raptor tp6m-17 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-17-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-17)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-17
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-18-fennec-cold:
-    description: "Raptor tp6m-18 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-18-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-18)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-18
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-19-fennec-cold:
-    description: "Raptor tp6m-19 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-19-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-19)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-19
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-20-fennec-cold:
-    description: "Raptor tp6m-20 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-20-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-20)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-20
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-21-fennec-cold:
-    description: "Raptor tp6m-21 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-21-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-21)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-21
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-22-fennec-cold:
-    description: "Raptor tp6m-22 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-22-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-22)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-22
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-23-fennec-cold:
-    description: "Raptor tp6m-23 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-23-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-23)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-23
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-24-fennec-cold:
-    description: "Raptor tp6m-24 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-24-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-24)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-24
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-25-fennec-cold:
-    description: "Raptor tp6m-25 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-25-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-25)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-25
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-26-fennec-cold:
-    description: "Raptor tp6m-26 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-26-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-26)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-26
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
-
-raptor-tp6m-27-fennec-cold:
-    description: "Raptor tp6m-27 cold page-load on Fennec"
-    max-run-time: 2700
-    try-name: raptor-tp6m-27-fennec-cold
-    treeherder-symbol: Rap(tp6m-c-27)
-    target: target.apk
-    run-on-projects: []
-    tier: 2
-    mozharness:
-        extra-options:
-            - --test=raptor-tp6m-cold-27
-            - --app=fennec
-            - --binary=org.mozilla.fennec_aurora
 
 raptor-tp6m-1-fennec64:
     description: "Raptor tp6m-1 on Fennec64"

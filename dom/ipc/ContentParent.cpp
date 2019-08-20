@@ -1440,6 +1440,32 @@ RemoteWindowContext::GetUsePrivateBrowsing(bool* aUsePrivateBrowsing) {
 
 }  // namespace
 
+void ContentParent::MaybeAsyncSendShutDownMessage() {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(!TryToRecycle());
+
+#ifdef DEBUG
+  // Calling this below while the lock is acquired will deadlock.
+  bool shouldKeepProcessAlive = ShouldKeepProcessAlive();
+#endif
+
+  auto lock = mRemoteWorkerActorData.Lock();
+  MOZ_ASSERT_IF(!lock->mCount, !shouldKeepProcessAlive);
+
+  if (lock->mCount) {
+    return;
+  }
+
+  MOZ_ASSERT(!lock->mShutdownStarted);
+  lock->mShutdownStarted = true;
+
+  // In the case of normal shutdown, send a shutdown message to child to
+  // allow it to perform shutdown tasks.
+  MessageLoop::current()->PostTask(NewRunnableMethod<ShutDownMethod>(
+      "dom::ContentParent::ShutDownProcess", this,
+      &ContentParent::ShutDownProcess, SEND_SHUTDOWN_MESSAGE));
+}
+
 void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
   if (mScriptableHelper) {
     static_cast<ScriptableCPInfo*>(mScriptableHelper.get())->ProcessDied();
@@ -1784,14 +1810,17 @@ bool ContentParent::TryToRecycle() {
   return true;
 }
 
-bool ContentParent::ShouldKeepProcessAlive() const {
+bool ContentParent::ShouldKeepProcessAlive() {
   if (IsForJSPlugin()) {
     return true;
   }
 
   // If we have active workers, we need to stay alive.
-  if (mRemoteWorkerActors) {
-    return true;
+  {
+    const auto lock = mRemoteWorkerActorData.Lock();
+    if (lock->mCount) {
+      return true;
+    }
   }
 
   if (!sBrowserContentParents) {
@@ -1903,11 +1932,7 @@ void ContentParent::NotifyTabDestroyed(const TabId& aTabId,
   // us down.
   if (ManagedPBrowserParent().Count() == 1 && !ShouldKeepProcessAlive() &&
       !TryToRecycle()) {
-    // In the case of normal shutdown, send a shutdown message to child to
-    // allow it to perform shutdown tasks.
-    MessageLoop::current()->PostTask(NewRunnableMethod<ShutDownMethod>(
-        "dom::ContentParent::ShutDownProcess", this,
-        &ContentParent::ShutDownProcess, SEND_SHUTDOWN_MESSAGE));
+    MaybeAsyncSendShutDownMessage();
   }
 }
 
@@ -2332,7 +2357,7 @@ ContentParent::ContentParent(ContentParent* aOpener,
       mChildID(gContentChildID++),
       mGeolocationWatchID(-1),
       mJSPluginID(aJSPluginID),
-      mRemoteWorkerActors(0),
+      mRemoteWorkerActorData("ContentParent::mRemoteWorkerActorData"),
       mNumDestroyingTabs(0),
       mLifecycleState(LifecycleState::LAUNCHING),
       mMetamorphosed(false),
@@ -5929,6 +5954,13 @@ mozilla::ipc::IPCResult ContentParent::RecvBHRThreadHang(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentParent::RecvAutomaticStorageAccessCanBeGranted(
+    const Principal& aPrincipal,
+    AutomaticStorageAccessCanBeGrantedResolver&& aResolver) {
+  aResolver(Document::AutomaticStorageAccessCanBeGranted(aPrincipal));
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult
 ContentParent::RecvFirstPartyStorageAccessGrantedForOrigin(
     const Principal& aParentPrincipal, const Principal& aTrackingPrincipal,
@@ -6132,23 +6164,25 @@ mozilla::ipc::IPCResult ContentParent::RecvRestoreBrowsingContextChildren(
   return IPC_OK();
 }
 
-void ContentParent::RegisterRemoteWorkerActor() { ++mRemoteWorkerActors; }
+void ContentParent::RegisterRemoteWorkerActor() {
+  auto lock = mRemoteWorkerActorData.Lock();
+  ++lock->mCount;
+}
 
 void ContentParent::UnregisterRemoveWorkerActor() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (--mRemoteWorkerActors) {
-    return;
+  {
+    auto lock = mRemoteWorkerActorData.Lock();
+    if (--lock->mCount) {
+      return;
+    }
   }
 
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
   if (!cpm->GetBrowserParentCountByProcessId(ChildID()) &&
       !ShouldKeepProcessAlive() && !TryToRecycle()) {
-    // In the case of normal shutdown, send a shutdown message to child to
-    // allow it to perform shutdown tasks.
-    MessageLoop::current()->PostTask(NewRunnableMethod<ShutDownMethod>(
-        "dom::ContentParent::ShutDownProcess", this,
-        &ContentParent::ShutDownProcess, SEND_SHUTDOWN_MESSAGE));
+    MaybeAsyncSendShutDownMessage();
   }
 }
 

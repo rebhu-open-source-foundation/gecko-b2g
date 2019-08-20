@@ -109,13 +109,11 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(TextEditor, EditorBase)
   if (tmp->mMaskTimer) {
     tmp->mMaskTimer->Cancel();
   }
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mRules)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCachedDocumentEncoder)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMaskTimer)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(TextEditor, EditorBase)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRules)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCachedDocumentEncoder)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMaskTimer)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -656,7 +654,7 @@ nsresult TextEditor::DeleteSelectionAsSubAction(EDirection aDirection,
   // Protect the edit rules object from dying
   RefPtr<TextEditRules> rules(mRules);
 
-  AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+  AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eDeleteSelectedContent, aDirection);
   EditSubActionInfo subActionInfo(EditSubAction::eDeleteSelectedContent);
   subActionInfo.collapsedAction = aDirection;
@@ -698,7 +696,7 @@ nsresult TextEditor::DeleteSelectionWithTransaction(
 
   RefPtr<CharacterData> deleteCharData =
       CharacterData::FromNodeOrNull(deleteNode);
-  AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+  AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eDeleteSelectedContent, aDirection);
 
   if (mRules && mRules->AsHTMLEditRules()) {
@@ -917,8 +915,8 @@ nsresult TextEditor::InsertTextAsSubAction(const nsAString& aStringToInsert) {
                                     ? EditSubAction::eInsertTextComingFromIME
                                     : EditSubAction::eInsertText;
 
-  AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
-      *this, editSubAction, nsIEditor::eNext);
+  AutoEditSubActionNotifier startToHandleEditSubAction(*this, editSubAction,
+                                                       nsIEditor::eNext);
 
   nsAutoString resultString;
   // XXX can we trust instring to outlive subActionInfo,
@@ -977,7 +975,7 @@ nsresult TextEditor::InsertLineBreakAsSubAction() {
   // Protect the edit rules object from dying
   RefPtr<TextEditRules> rules(mRules);
 
-  AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+  AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eInsertLineBreak, nsIEditor::eNext);
 
   EditSubActionInfo subActionInfo(EditSubAction::eInsertLineBreak);
@@ -1033,7 +1031,7 @@ nsresult TextEditor::ReplaceTextAsAction(const nsAString& aString,
   AutoPlaceholderBatch treatAsOneTransaction(*this);
 
   // This should emulates inserting text for better undo/redo behavior.
-  AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+  AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eInsertText, nsIEditor::eNext);
 
   if (!aReplaceRange) {
@@ -1084,7 +1082,7 @@ nsresult TextEditor::SetTextAsSubAction(const nsAString& aString) {
   // Protect the edit rules object from dying
   RefPtr<TextEditRules> rules(mRules);
 
-  AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+  AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eSetText, nsIEditor::eNext);
 
   EditSubActionInfo subActionInfo(EditSubAction::eSetText);
@@ -1342,7 +1340,7 @@ nsresult TextEditor::IsEmpty(bool* aIsEmpty) const {
 
   *aIsEmpty = true;
 
-  if (mRules->HasPaddingBRElementForEmptyEditor()) {
+  if (mPaddingBRElementForEmptyEditor) {
     return NS_OK;
   }
 
@@ -1514,6 +1512,10 @@ TextEditor::SetNewlineHandling(int32_t aNewlineHandling) {
 }
 
 nsresult TextEditor::UndoAsAction(uint32_t aCount, nsIPrincipal* aPrincipal) {
+  if (aCount == 0 || IsReadonly() || IsDisabled()) {
+    return NS_OK;
+  }
+
   // If we don't have transaction in the undo stack, we shouldn't notify
   // anybody of trying to undo since it's not useful notification but we
   // need to pay some runtime cost.
@@ -1534,9 +1536,6 @@ nsresult TextEditor::UndoAsAction(uint32_t aCount, nsIPrincipal* aPrincipal) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  // Protect the edit rules object from dying.
-  RefPtr<TextEditRules> rules(mRules);
-
   AutoUpdateViewBatch preventSelectionChangeEvent(*this);
 
   NotifyEditorObservers(eNotifyEditorObserversOfBefore);
@@ -1544,26 +1543,36 @@ nsresult TextEditor::UndoAsAction(uint32_t aCount, nsIPrincipal* aPrincipal) {
     return NS_ERROR_FAILURE;
   }
 
-  nsresult rv;
+  nsresult rv = NS_OK;
   {
-    AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+    AutoEditSubActionNotifier startToHandleEditSubAction(
         *this, EditSubAction::eUndo, nsIEditor::eNone);
 
-    EditSubActionInfo subActionInfo(EditSubAction::eUndo);
-    bool cancel, handled;
-    rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
-    if (!cancel && NS_SUCCEEDED(rv)) {
-      RefPtr<TransactionManager> transactionManager(mTransactionManager);
-      for (uint32_t i = 0; i < aCount; ++i) {
-        rv = transactionManager->Undo();
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          break;
-        }
-        DoAfterUndoTransaction();
+    RefPtr<TransactionManager> transactionManager(mTransactionManager);
+    for (uint32_t i = 0; i < aCount; ++i) {
+      if (NS_WARN_IF(NS_FAILED(transactionManager->Undo()))) {
+        break;
       }
-      rv = rules->DidDoAction(subActionInfo, rv);
-      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "TextEditRules::DidDoAction() failed");
+      DoAfterUndoTransaction();
+    }
+
+    if (NS_WARN_IF(!mRootElement)) {
+      rv = NS_ERROR_FAILURE;
+    } else {
+      // The idea here is to see if the magic empty node has suddenly
+      // reappeared as the result of the undo.  If it has, set our state
+      // so we remember it.  There is a tradeoff between doing here and
+      // at redo, or doing it everywhere else that might care.  Since undo
+      // and redo are relatively rare, it makes sense to take the (small)
+      // performance hit here.
+      nsIContent* leftMostChild = GetLeftmostChild(mRootElement);
+      if (leftMostChild &&
+          EditorBase::IsPaddingBRElementForEmptyEditor(*leftMostChild)) {
+        mPaddingBRElementForEmptyEditor =
+            static_cast<HTMLBRElement*>(leftMostChild);
+      } else {
+        mPaddingBRElementForEmptyEditor = nullptr;
+      }
     }
   }
 
@@ -1575,6 +1584,10 @@ nsresult TextEditor::UndoAsAction(uint32_t aCount, nsIPrincipal* aPrincipal) {
 }
 
 nsresult TextEditor::RedoAsAction(uint32_t aCount, nsIPrincipal* aPrincipal) {
+  if (aCount == 0 || IsReadonly() || IsDisabled()) {
+    return NS_OK;
+  }
+
   // If we don't have transaction in the redo stack, we shouldn't notify
   // anybody of trying to redo since it's not useful notification but we
   // need to pay some runtime cost.
@@ -1595,9 +1608,6 @@ nsresult TextEditor::RedoAsAction(uint32_t aCount, nsIPrincipal* aPrincipal) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  // Protect the edit rules object from dying.
-  RefPtr<TextEditRules> rules(mRules);
-
   AutoUpdateViewBatch preventSelectionChangeEvent(*this);
 
   NotifyEditorObservers(eNotifyEditorObserversOfBefore);
@@ -1605,26 +1615,38 @@ nsresult TextEditor::RedoAsAction(uint32_t aCount, nsIPrincipal* aPrincipal) {
     return NS_ERROR_FAILURE;
   }
 
-  nsresult rv;
+  nsresult rv = NS_OK;
   {
-    AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+    AutoEditSubActionNotifier startToHandleEditSubAction(
         *this, EditSubAction::eRedo, nsIEditor::eNone);
 
-    EditSubActionInfo subActionInfo(EditSubAction::eRedo);
-    bool cancel, handled;
-    rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
-    if (!cancel && NS_SUCCEEDED(rv)) {
-      RefPtr<TransactionManager> transactionManager(mTransactionManager);
-      for (uint32_t i = 0; i < aCount; ++i) {
-        nsresult rv = transactionManager->Redo();
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          break;
-        }
-        DoAfterRedoTransaction();
+    RefPtr<TransactionManager> transactionManager(mTransactionManager);
+    for (uint32_t i = 0; i < aCount; ++i) {
+      if (NS_WARN_IF(NS_FAILED(transactionManager->Redo()))) {
+        break;
       }
-      rv = rules->DidDoAction(subActionInfo, rv);
-      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "TextEditRules::DidDoAction() failed");
+      DoAfterRedoTransaction();
+    }
+
+    if (NS_WARN_IF(!mRootElement)) {
+      rv = NS_ERROR_FAILURE;
+    } else {
+      // We may take empty <br> element for empty editor back with this redo.
+      // We need to store it again.
+      // XXX Looks like that this is too slow if there are a lot of nodes.
+      //     Shouldn't we just scan children in the root?
+      nsCOMPtr<nsIHTMLCollection> nodeList =
+          mRootElement->GetElementsByTagName(NS_LITERAL_STRING("br"));
+      MOZ_ASSERT(nodeList);
+      Element* brElement =
+          nodeList->Length() == 1 ? nodeList->Item(0) : nullptr;
+      if (brElement &&
+          EditorBase::IsPaddingBRElementForEmptyEditor(*brElement)) {
+        mPaddingBRElementForEmptyEditor =
+            static_cast<HTMLBRElement*>(brElement);
+      } else {
+        mPaddingBRElementForEmptyEditor = nullptr;
+      }
     }
   }
 
@@ -1977,13 +1999,10 @@ nsresult TextEditor::InsertWithQuotationsAsSubAction(
     quotedStuff.Append(char16_t('\n'));
   }
 
-  AutoTopLevelEditSubActionNotifier maybeTopLevelEditSubAction(
+  AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eInsertText, nsIEditor::eNext);
 
-  // XXX This WillDoAction() usage is hacky.  If it returns as handled,
-  //     this method cannot work as expected.  So, this should have specific
-  //     sub-action rather than using eInsertElement.
-  EditSubActionInfo subActionInfo(EditSubAction::eInsertElement);
+  EditSubActionInfo subActionInfo(EditSubAction::eInsertQuotedText);
   bool cancel, handled;
   rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -1993,11 +2012,9 @@ nsresult TextEditor::InsertWithQuotationsAsSubAction(
     return NS_OK;  // Rules canceled the operation.
   }
   MOZ_ASSERT(!handled, "WillDoAction() shouldn't handle in this case");
-  if (!handled) {
-    rv = InsertTextAsSubAction(quotedStuff);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+  rv = InsertTextAsSubAction(quotedStuff);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
   }
   // XXX Why don't we call TextEditRules::DidDoAction()?
   return NS_OK;
@@ -2018,6 +2035,8 @@ nsresult TextEditor::SharedOutputString(uint32_t aFlags, bool* aIsCollapsed,
 
 void TextEditor::OnStartToHandleTopLevelEditSubAction(
     EditSubAction aEditSubAction, nsIEditor::EDirection aDirection) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+
   // Protect the edit rules object from dying
   RefPtr<TextEditRules> rules(mRules);
 
@@ -2028,23 +2047,50 @@ void TextEditor::OnStartToHandleTopLevelEditSubAction(
 
   MOZ_ASSERT(GetTopLevelEditSubAction() == aEditSubAction);
   MOZ_ASSERT(GetDirectionOfTopLevelEditSubAction() == aDirection);
-  DebugOnly<nsresult> rv = rules->BeforeEdit(aEditSubAction, aDirection);
+
+  if (aEditSubAction == EditSubAction::eSetText) {
+    // SetText replaces all text, so spell checker handles starting from the
+    // start of new value.
+    SetSpellCheckRestartPoint(EditorDOMPoint(mRootElement, 0));
+  } else {
+    bool useSelectionAnchor = true;
+    if (aEditSubAction == EditSubAction::eInsertText ||
+        aEditSubAction == EditSubAction::eInsertTextComingFromIME) {
+      // For spell checker, previous selected node should be text node if
+      // possible. If anchor is root of editor, it may become invalid offset
+      // after inserting text.
+      EditorRawDOMPoint point = FindBetterInsertionPoint(
+          EditorRawDOMPoint(SelectionRefPtr()->AnchorRef()));
+      if (point.IsSet()) {
+        SetSpellCheckRestartPoint(point);
+        useSelectionAnchor = false;
+      }
+    }
+    if (useSelectionAnchor && SelectionRefPtr()->AnchorRef().IsSet()) {
+      SetSpellCheckRestartPoint(
+          EditorRawDOMPoint(SelectionRefPtr()->AnchorRef()));
+    }
+  }
+
+  DebugOnly<nsresult> rv = rules->BeforeEdit();
   NS_WARNING_ASSERTION(
       NS_SUCCEEDED(rv),
       "TextEditRules::BeforeEdit() failed to handle something");
 }
 
 void TextEditor::OnEndHandlingTopLevelEditSubAction() {
-  // Protect the edit rules object from dying
-  RefPtr<TextEditRules> rules(mRules);
+  MOZ_ASSERT(IsEditActionDataAvailable());
 
-  // post processing
-  DebugOnly<nsresult> rv =
-      rules ? rules->AfterEdit(GetTopLevelEditSubAction(),
-                               GetDirectionOfTopLevelEditSubAction())
-            : NS_OK;
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "TextEditRules::AfterEdit() failed to handle something");
+  if (mRules) {
+    // Protect the edit rules object from dying
+    RefPtr<TextEditRules> rules(mRules);
+
+    // post processing
+    DebugOnly<nsresult> rv = rules->AfterEdit();
+    NS_WARNING_ASSERTION(
+        NS_SUCCEEDED(rv),
+        "TextEditRules::AfterEdit() failed to handle something");
+  }
   EditorBase::OnEndHandlingTopLevelEditSubAction();
   MOZ_ASSERT(!GetTopLevelEditSubAction());
   MOZ_ASSERT(GetDirectionOfTopLevelEditSubAction() == eNone);
@@ -2143,6 +2189,59 @@ nsresult TextEditor::RemoveAttributeOrEquivalent(Element* aElement,
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return EditorBase::ToGenericNSResult(rv);
   }
+  return NS_OK;
+}
+
+nsresult TextEditor::EnsurePaddingBRElementForEmptyEditor() {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(!AsHTMLEditor());
+
+  // If there is padding <br> element for empty editor, we have no work to do.
+  if (mPaddingBRElementForEmptyEditor) {
+    return NS_OK;
+  }
+
+  // Likewise, nothing to be done if we could never have inserted a trailing
+  // <br> element.
+  // XXX Why don't we use same path for <textarea> and <input>?
+  if (IsSingleLineEditor()) {
+    nsresult rv = MaybeCreatePaddingBRElementForEmptyEditor();
+    NS_WARNING_ASSERTION(
+        NS_SUCCEEDED(rv),
+        "Failed to create padding <br> element for empty editor");
+    return rv;
+  }
+
+  if (NS_WARN_IF(!mRootElement)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  uint32_t childCount = mRootElement->GetChildCount();
+  if (childCount == 0) {
+    nsresult rv = MaybeCreatePaddingBRElementForEmptyEditor();
+    NS_WARNING_ASSERTION(
+        NS_SUCCEEDED(rv),
+        "Failed to create padding <br> element for empty editor");
+    return rv;
+  }
+
+  if (childCount > 1) {
+    return NS_OK;
+  }
+
+  RefPtr<HTMLBRElement> brElement =
+      HTMLBRElement::FromNodeOrNull(mRootElement->GetFirstChild());
+  if (!brElement ||
+      !EditorBase::IsPaddingBRElementForEmptyLastLine(*brElement)) {
+    return NS_OK;
+  }
+
+  // Rather than deleting this node from the DOM tree we should instead
+  // morph this <br> element into the padding <br> element for editor.
+  mPaddingBRElementForEmptyEditor = std::move(brElement);
+  mPaddingBRElementForEmptyEditor->UnsetFlags(NS_PADDING_FOR_EMPTY_LAST_LINE);
+  mPaddingBRElementForEmptyEditor->SetFlags(NS_PADDING_FOR_EMPTY_EDITOR);
+
   return NS_OK;
 }
 

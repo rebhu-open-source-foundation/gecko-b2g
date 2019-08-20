@@ -16,7 +16,7 @@ const FAKE_TRIPLETS = [
       text: { string_id: "onboarding-private-browsing-text" },
       icon: "icon",
       primary_button: {
-        label: { string_id: "onboarding-button-label-try-now" },
+        label: { string_id: "onboarding-button-label-get-started" },
         action: {
           type: "OPEN_URL",
           data: { args: "https://example.com/" },
@@ -211,6 +211,13 @@ describe("<FirstRun>", () => {
         .hasClass("show"),
       "Show triplet content"
     );
+  });
+
+  it("should hide the interrupt when props.interruptCleared changes to true", () => {
+    assert.lengthOf(wrapper.find(Interrupt), 1, "Interrupt shown");
+    wrapper.setProps({ interruptCleared: true });
+
+    assert.lengthOf(wrapper.find(Interrupt), 0, "Interrupt hidden");
   });
 
   it("should hide triplets when closeTriplets is called and block extended triplets after 500ms", () => {

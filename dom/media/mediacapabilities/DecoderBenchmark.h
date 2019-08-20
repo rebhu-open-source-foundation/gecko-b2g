@@ -33,6 +33,12 @@ class DecoderBenchmark final {
   static RefPtr<BenchmarkScorePromise> Get(
       const DecoderBenchmarkInfo& aBenchInfo);
 
+  /* For the specific decoder, specified by aDecoderName, it compares the
+   * version number, from a static list of versions, to the version number
+   * found in the database. If those numbers are different all benchmark
+   * entries for that decoder are deleted. */
+  static void CheckVersion(const nsACString& aDecoderName);
+
  private:
   void StoreScore(const nsACString& aDecoderName, const nsACString& aKey,
                   RefPtr<FrameStatistics> aStats);
@@ -54,6 +60,16 @@ class DecoderBenchmark final {
   // last call.
   uint64_t mLastParsedFrames = 0;
   uint64_t mLastDroppedFrames = 0;
+};
+
+class KeyUtil {
+ public:
+  static nsCString CreateKey(const DecoderBenchmarkInfo& aBenchInfo);
+
+ private:
+  static nsCString BitDepthToStr(uint8_t aBitDepth);
+  static nsCString FindLevel(const uint32_t aLevels[], const size_t length,
+                             uint32_t aValue);
 };
 
 }  // namespace mozilla

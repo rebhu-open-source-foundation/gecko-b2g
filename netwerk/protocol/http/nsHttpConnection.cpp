@@ -1700,8 +1700,7 @@ nsresult nsHttpConnection::ResumeRecv() {
   mLastReadTime = PR_IntervalNow();
 
   if (mSocketIn) {
-    if (!mTLSFilter || !mTLSFilter->HasDataToRecv() ||
-        NS_FAILED(ForceRecv())) {
+    if (!mTLSFilter || !mTLSFilter->HasDataToRecv() || NS_FAILED(ForceRecv())) {
       return mSocketIn->AsyncWait(this, 0, 0, nullptr);
     }
     return NS_OK;
@@ -1831,9 +1830,10 @@ void nsHttpConnection::CloseTransaction(nsAHttpTransaction* trans,
     // latter case we simply must close the transaction given to us via the
     // argument.
     if (!mTLSFilter->Transaction()) {
-      LOG(("  closing transaction directly"));
-      MOZ_ASSERT(trans);
-      trans->Close(reason);
+      if (trans) {
+        LOG(("  closing transaction directly"));
+        trans->Close(reason);
+      }
     } else {
       LOG(("  closing transactin hanging of off mTLSFilter"));
       mTLSFilter->Close(reason);

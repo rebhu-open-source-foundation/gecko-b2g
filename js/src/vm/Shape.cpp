@@ -181,7 +181,7 @@ bool Shape::hashify(JSContext* cx, Shape* shape) {
   return true;
 }
 
-void ShapeCachePtr::maybePurgeCache(FreeOp* fop, BaseShape* base) {
+void ShapeCachePtr::maybePurgeCache(JSFreeOp* fop, BaseShape* base) {
   if (isTable()) {
     ShapeTable* table = getTablePointer();
     if (table->freeList() == SHAPE_INVALID_SLOT) {
@@ -305,7 +305,7 @@ void ShapeTable::trace(JSTracer* trc) {
   }
 }
 
-inline void ShapeCachePtr::destroy(FreeOp* fop, BaseShape* base) {
+inline void ShapeCachePtr::destroy(JSFreeOp* fop, BaseShape* base) {
   if (isTable()) {
     fop->delete_(base, getTablePointer(), MemoryUse::ShapeCache);
   } else if (isIC()) {
@@ -1683,7 +1683,7 @@ void Zone::checkBaseShapeTableAfterMovingGC() {
 
 #endif  // JSGC_HASH_TABLE_CHECKS
 
-void BaseShape::finalize(FreeOp* fop) {
+void BaseShape::finalize(JSFreeOp* fop) {
   if (cache_.isInitialized()) {
     cache_.destroy(fop, this);
   }
@@ -1794,7 +1794,7 @@ bool PropertyTree::insertChild(JSContext* cx, Shape* parent, Shape* child) {
   return true;
 }
 
-void Shape::removeChild(FreeOp* fop, Shape* child) {
+void Shape::removeChild(JSFreeOp* fop, Shape* child) {
   MOZ_ASSERT(!child->inDictionary());
   MOZ_ASSERT(child->parent == this);
 
@@ -1882,7 +1882,7 @@ Shape* PropertyTree::getChild(JSContext* cx, Shape* parent,
   return inlinedGetChild(cx, parent, child);
 }
 
-void Shape::sweep(FreeOp* fop) {
+void Shape::sweep(JSFreeOp* fop) {
   /*
    * We detach the child from the parent if the parent is reachable.
    *
@@ -1903,7 +1903,7 @@ void Shape::sweep(FreeOp* fop) {
   }
 }
 
-void Shape::finalize(FreeOp* fop) {
+void Shape::finalize(JSFreeOp* fop) {
   if (!inDictionary() && kids.isHash()) {
     fop->delete_(this, kids.toHash(), MemoryUse::ShapeKids);
   }
@@ -2153,7 +2153,7 @@ void Shape::dumpSubtree(int level, js::GenericPrinter& out) const {
 #endif
 
 /* static */
-Shape* EmptyShape::getInitialShape(JSContext* cx, const Class* clasp,
+Shape* EmptyShape::getInitialShape(JSContext* cx, const JSClass* clasp,
                                    TaggedProto proto, size_t nfixed,
                                    uint32_t objectFlags) {
   MOZ_ASSERT_IF(proto.isObject(),
@@ -2190,7 +2190,7 @@ Shape* EmptyShape::getInitialShape(JSContext* cx, const Class* clasp,
 }
 
 /* static */
-Shape* EmptyShape::getInitialShape(JSContext* cx, const Class* clasp,
+Shape* EmptyShape::getInitialShape(JSContext* cx, const JSClass* clasp,
                                    TaggedProto proto, gc::AllocKind kind,
                                    uint32_t objectFlags) {
   return getInitialShape(cx, clasp, proto, GetGCKindSlots(kind, clasp),
@@ -2199,7 +2199,7 @@ Shape* EmptyShape::getInitialShape(JSContext* cx, const Class* clasp,
 
 void NewObjectCache::invalidateEntriesForShape(JSContext* cx, HandleShape shape,
                                                HandleObject proto) {
-  const Class* clasp = shape->getObjectClass();
+  const JSClass* clasp = shape->getObjectClass();
 
   gc::AllocKind kind = gc::GetGCObjectKind(shape->numFixedSlots());
   if (CanBeFinalizedInBackground(kind, clasp)) {

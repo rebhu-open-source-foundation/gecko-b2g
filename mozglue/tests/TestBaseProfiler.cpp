@@ -524,10 +524,13 @@ void TestBlocksRingBufferAPI() {
     //   - S[4 |    int(1)    ]E
     VERIFY_START_END_DESTROYED(1, 6, 0);
 
-    // Push `2` through EntryReserver, check output BlockIndex.
-    auto bi2 = rb.Put([](BlocksRingBuffer::EntryReserver aER) {
-      return aER.WriteObject(uint32_t(2));
-    });
+    // Push `2` through ReserveAndPut, check output BlockIndex.
+    auto bi2 = rb.ReserveAndPut([]() { return sizeof(uint32_t); },
+                                [](BlocksRingBuffer::EntryWriter* aEW) {
+                                  MOZ_RELEASE_ASSERT(!!aEW);
+                                  aEW->WriteObject(uint32_t(2));
+                                  return aEW->CurrentBlockIndex();
+                                });
     static_assert(
         std::is_same<decltype(bi2), BlocksRingBuffer::BlockIndex>::value,
         "All index-returning functions should return a "
@@ -599,15 +602,14 @@ void TestBlocksRingBufferAPI() {
     MOZ_RELEASE_ASSERT(!(bi2Next < bi2));
     MOZ_RELEASE_ASSERT(!(bi2Next <= bi2));
 
-    // Push `3` through EntryReserver and then EntryWriter, check writer output
+    // Push `3` through Put, check writer output
     // is returned to the initial caller.
-    auto put3 = rb.Put([&](BlocksRingBuffer::EntryReserver aER) {
-      return aER.Reserve(
-          sizeof(uint32_t), [&](BlocksRingBuffer::EntryWriter aEW) {
-            aEW.WriteObject(uint32_t(3));
-            return float(ExtractBlockIndex(aEW.CurrentBlockIndex()));
-          });
-    });
+    auto put3 =
+        rb.Put(sizeof(uint32_t), [&](BlocksRingBuffer::EntryWriter* aEW) {
+          MOZ_RELEASE_ASSERT(!!aEW);
+          aEW->WriteObject(uint32_t(3));
+          return float(ExtractBlockIndex(aEW->CurrentBlockIndex()));
+        });
     static_assert(std::is_same<decltype(put3), float>::value,
                   "Expect float as returned by callback.");
     MOZ_RELEASE_ASSERT(put3 == 11.0);
@@ -665,21 +667,19 @@ void TestBlocksRingBufferAPI() {
     });
     MOZ_RELEASE_ASSERT(count == 4);
 
-    // Push 5 through EntryReserver then EntryWriter, no returns.
+    // Push 5 through Put, no returns.
     // This will destroy the second entry.
     // Check that the EntryWriter can access bi4 but not bi2.
-    auto bi5_6 = rb.Put([&](BlocksRingBuffer::EntryReserver aER) {
-      return aER.Reserve(
-          sizeof(uint32_t), [&](BlocksRingBuffer::EntryWriter aEW) {
-            aEW.WriteObject(uint32_t(5));
-            MOZ_RELEASE_ASSERT(aEW.GetEntryAt(bi2).isNothing());
-            MOZ_RELEASE_ASSERT(aEW.GetEntryAt(bi4).isSome());
-            MOZ_RELEASE_ASSERT(aEW.GetEntryAt(bi4)->CurrentBlockIndex() == bi4);
-            MOZ_RELEASE_ASSERT(aEW.GetEntryAt(bi4)->ReadObject<uint32_t>() ==
-                               4);
-            return MakePair(aEW.CurrentBlockIndex(), aEW.BlockEndIndex());
-          });
-    });
+    auto bi5_6 =
+        rb.Put(sizeof(uint32_t), [&](BlocksRingBuffer::EntryWriter* aEW) {
+          MOZ_RELEASE_ASSERT(!!aEW);
+          aEW->WriteObject(uint32_t(5));
+          MOZ_RELEASE_ASSERT(aEW->GetEntryAt(bi2).isNothing());
+          MOZ_RELEASE_ASSERT(aEW->GetEntryAt(bi4).isSome());
+          MOZ_RELEASE_ASSERT(aEW->GetEntryAt(bi4)->CurrentBlockIndex() == bi4);
+          MOZ_RELEASE_ASSERT(aEW->GetEntryAt(bi4)->ReadObject<uint32_t>() == 4);
+          return MakePair(aEW->CurrentBlockIndex(), aEW->BlockEndIndex());
+        });
     auto& bi5 = bi5_6.first();
     auto& bi6 = bi5_6.second();
     //  16  17  18  19  20  21  22  23  24  25  26  11  12  13  14  15 (16)
@@ -774,6 +774,205 @@ void TestBlocksRingBufferAPI() {
   printf("TestBlocksRingBufferAPI done\n");
 }
 
+void TestBlocksRingBufferUnderlyingBufferChanges() {
+  printf("TestBlocksRingBufferUnderlyingBufferChanges...\n");
+
+  // Out-of-session BlocksRingBuffer to start with.
+  BlocksRingBuffer rb;
+
+  // Block index to read at. Initially "null", but may be changed below.
+  BlocksRingBuffer::BlockIndex bi;
+
+  // Test all rb APIs when rb is out-of-session and therefore doesn't have an
+  // underlying buffer.
+  auto testOutOfSession = [&]() {
+    MOZ_RELEASE_ASSERT(rb.BufferLength().isNothing());
+    BlocksRingBuffer::State state = rb.GetState();
+    // When out-of-session, range start and ends are the same, and there are no
+    // pushed&cleared blocks.
+    MOZ_RELEASE_ASSERT(state.mRangeStart == state.mRangeEnd);
+    MOZ_RELEASE_ASSERT(state.mPushedBlockCount == 0);
+    MOZ_RELEASE_ASSERT(state.mClearedBlockCount == 0);
+    // `Put()` functions run the callback with `Nothing`.
+    int32_t ran = 0;
+    rb.Put(1, [&](BlocksRingBuffer::EntryWriter* aMaybeEntryWriter) {
+      MOZ_RELEASE_ASSERT(!aMaybeEntryWriter);
+      ++ran;
+    });
+    MOZ_RELEASE_ASSERT(ran == 1);
+    // `PutFrom` won't do anything, and returns the null BlockIndex.
+    MOZ_RELEASE_ASSERT(rb.PutFrom(&ran, sizeof(ran)) ==
+                       BlocksRingBuffer::BlockIndex{});
+    MOZ_RELEASE_ASSERT(rb.PutObject(ran) == BlocksRingBuffer::BlockIndex{});
+    // `Read()` functions run the callback with `Nothing`.
+    ran = 0;
+    rb.Read([&](BlocksRingBuffer::Reader* aReader) {
+      MOZ_RELEASE_ASSERT(!aReader);
+      ++ran;
+    });
+    MOZ_RELEASE_ASSERT(ran == 1);
+    ran = 0;
+    rb.ReadAt(BlocksRingBuffer::BlockIndex{},
+              [&](Maybe<BlocksRingBuffer::EntryReader>&& aMaybeEntryReader) {
+                MOZ_RELEASE_ASSERT(aMaybeEntryReader.isNothing());
+                ++ran;
+              });
+    MOZ_RELEASE_ASSERT(ran == 1);
+    ran = 0;
+    rb.ReadAt(bi,
+              [&](Maybe<BlocksRingBuffer::EntryReader>&& aMaybeEntryReader) {
+                MOZ_RELEASE_ASSERT(aMaybeEntryReader.isNothing());
+                ++ran;
+              });
+    MOZ_RELEASE_ASSERT(ran == 1);
+    // `ReadEach` shouldn't run the callback (nothing to read).
+    rb.ReadEach([](auto&&) { MOZ_RELEASE_ASSERT(false); });
+  };
+
+  // As `testOutOfSession()` attempts to modify the buffer, we run it twice to
+  // make sure one run doesn't influence the next one.
+  testOutOfSession();
+  testOutOfSession();
+
+  rb.ClearBefore(bi);
+  testOutOfSession();
+  testOutOfSession();
+
+  rb.Clear();
+  testOutOfSession();
+  testOutOfSession();
+
+  rb.Reset();
+  testOutOfSession();
+  testOutOfSession();
+
+  constexpr uint32_t MBSize = 32;
+
+  rb.Set(MakePowerOfTwo<BlocksRingBuffer::Length, MBSize>());
+
+  constexpr bool EMPTY = true;
+  constexpr bool NOT_EMPTY = false;
+  // Test all rb APIs when rb has an underlying buffer.
+  auto testInSession = [&](bool aExpectEmpty) {
+    MOZ_RELEASE_ASSERT(rb.BufferLength().isSome());
+    BlocksRingBuffer::State state = rb.GetState();
+    if (aExpectEmpty) {
+      MOZ_RELEASE_ASSERT(state.mRangeStart == state.mRangeEnd);
+      MOZ_RELEASE_ASSERT(state.mPushedBlockCount == 0);
+      MOZ_RELEASE_ASSERT(state.mClearedBlockCount == 0);
+    } else {
+      MOZ_RELEASE_ASSERT(state.mRangeStart < state.mRangeEnd);
+      MOZ_RELEASE_ASSERT(state.mPushedBlockCount > 0);
+      MOZ_RELEASE_ASSERT(state.mClearedBlockCount <= state.mPushedBlockCount);
+    }
+    int32_t ran = 0;
+    // The following three `Put...` will write three int32_t of value 1.
+    bi = rb.Put(sizeof(ran),
+                [&](BlocksRingBuffer::EntryWriter* aMaybeEntryWriter) {
+                  MOZ_RELEASE_ASSERT(!!aMaybeEntryWriter);
+                  ++ran;
+                  aMaybeEntryWriter->WriteObject(ran);
+                  return aMaybeEntryWriter->CurrentBlockIndex();
+                });
+    MOZ_RELEASE_ASSERT(ran == 1);
+    MOZ_RELEASE_ASSERT(rb.PutFrom(&ran, sizeof(ran)) !=
+                       BlocksRingBuffer::BlockIndex{});
+    MOZ_RELEASE_ASSERT(rb.PutObject(ran) != BlocksRingBuffer::BlockIndex{});
+    ran = 0;
+    rb.Read([&](BlocksRingBuffer::Reader* aReader) {
+      MOZ_RELEASE_ASSERT(!!aReader);
+      ++ran;
+    });
+    MOZ_RELEASE_ASSERT(ran == 1);
+    ran = 0;
+    rb.ReadEach([&](BlocksRingBuffer::EntryReader& aEntryReader) {
+      MOZ_RELEASE_ASSERT(aEntryReader.RemainingBytes() == sizeof(ran));
+      MOZ_RELEASE_ASSERT(aEntryReader.ReadObject<decltype(ran)>() == 1);
+      ++ran;
+    });
+    MOZ_RELEASE_ASSERT(ran >= 3);
+    ran = 0;
+    rb.ReadAt(BlocksRingBuffer::BlockIndex{},
+              [&](Maybe<BlocksRingBuffer::EntryReader>&& aMaybeEntryReader) {
+                MOZ_RELEASE_ASSERT(aMaybeEntryReader.isNothing());
+                ++ran;
+              });
+    MOZ_RELEASE_ASSERT(ran == 1);
+    ran = 0;
+    rb.ReadAt(bi,
+              [&](Maybe<BlocksRingBuffer::EntryReader>&& aMaybeEntryReader) {
+                MOZ_RELEASE_ASSERT(aMaybeEntryReader.isNothing() == !bi);
+                ++ran;
+              });
+    MOZ_RELEASE_ASSERT(ran == 1);
+  };
+
+  testInSession(EMPTY);
+  testInSession(NOT_EMPTY);
+
+  rb.Set(MakePowerOfTwo<BlocksRingBuffer::Length, 32>());
+  MOZ_RELEASE_ASSERT(rb.BufferLength().isSome());
+  rb.ReadEach([](auto&&) { MOZ_RELEASE_ASSERT(false); });
+
+  testInSession(EMPTY);
+  testInSession(NOT_EMPTY);
+
+  rb.Reset();
+  testOutOfSession();
+  testOutOfSession();
+
+  uint8_t buffer[MBSize * 3];
+  for (size_t i = 0; i < MBSize * 3; ++i) {
+    buffer[i] = uint8_t('A' + i);
+  }
+
+  rb.Set(&buffer[MBSize], MakePowerOfTwo<BlocksRingBuffer::Length, MBSize>());
+  MOZ_RELEASE_ASSERT(rb.BufferLength().isSome());
+  rb.ReadEach([](auto&&) { MOZ_RELEASE_ASSERT(false); });
+
+  testInSession(EMPTY);
+  testInSession(NOT_EMPTY);
+
+  rb.Reset();
+  testOutOfSession();
+  testOutOfSession();
+
+  int cleared = 0;
+  rb.Set(&buffer[MBSize], MakePowerOfTwo<BlocksRingBuffer::Length, MBSize>(),
+         [&](auto&&) { ++cleared; });
+  MOZ_RELEASE_ASSERT(rb.BufferLength().isSome());
+  rb.ReadEach([](auto&&) { MOZ_RELEASE_ASSERT(false); });
+
+  testInSession(EMPTY);
+  testInSession(NOT_EMPTY);
+
+  // Remove the current underlying buffer, this should clear all entries.
+  rb.Reset();
+  // The above should clear all entries (2 tests, three entries each).
+  MOZ_RELEASE_ASSERT(cleared == 2 * 3);
+
+  // Check that only the provided stack-based sub-buffer was modified.
+  uint32_t changed = 0;
+  for (size_t i = MBSize; i < MBSize * 2; ++i) {
+    changed += (buffer[i] == uint8_t('A' + i)) ? 0 : 1;
+  }
+  // Expect at least 75% changes.
+  MOZ_RELEASE_ASSERT(changed >= MBSize * 6 / 8);
+
+  // Everything around the sub-buffer should be unchanged.
+  for (size_t i = 0; i < MBSize; ++i) {
+    MOZ_RELEASE_ASSERT(buffer[i] == uint8_t('A' + i));
+  }
+  for (size_t i = MBSize * 2; i < MBSize * 3; ++i) {
+    MOZ_RELEASE_ASSERT(buffer[i] == uint8_t('A' + i));
+  }
+
+  testOutOfSession();
+  testOutOfSession();
+
+  printf("TestBlocksRingBufferUnderlyingBufferChanges done\n");
+}
+
 void TestBlocksRingBufferThreading() {
   printf("TestBlocksRingBufferThreading...\n");
 
@@ -827,9 +1026,10 @@ void TestBlocksRingBufferThreading() {
             // Reserve as many bytes as the thread number (but at least enough
             // to store an int), and write an increasing int.
             rb.Put(std::max(aThreadNo, int(sizeof(push))),
-                   [&](BlocksRingBuffer::EntryWriter aEW) {
-                     aEW.WriteObject(aThreadNo * 1000000 + push);
-                     aEW += aEW.RemainingBytes();
+                   [&](BlocksRingBuffer::EntryWriter* aEW) {
+                     MOZ_RELEASE_ASSERT(!!aEW);
+                     aEW->WriteObject(aThreadNo * 1000000 + push);
+                     *aEW += aEW->RemainingBytes();
                    });
           }
         },
@@ -870,23 +1070,37 @@ static constexpr size_t NextDepth(size_t aDepth) {
   return (aDepth < MAX_DEPTH) ? (aDepth + 1) : aDepth;
 }
 
+Atomic<bool, Relaxed, recordreplay::Behavior::DontPreserve> sStopFibonacci;
+
 // Compute fibonacci the hard way (recursively: `f(n)=f(n-1)+f(n-2)`), and
 // prevent inlining.
 // The template parameter makes each depth be a separate function, to better
 // distinguish them in the profiler output.
 template <size_t DEPTH = 0>
 MOZ_NEVER_INLINE unsigned long long Fibonacci(unsigned long long n) {
+  AUTO_BASE_PROFILER_LABEL_DYNAMIC_STRING("fib", OTHER, std::to_string(DEPTH));
   if (n == 0) {
     return 0;
   }
   if (n == 1) {
     return 1;
   }
+  if (DEPTH < 5 && sStopFibonacci) {
+    return 1'000'000'000;
+  }
+  TimeStamp start = TimeStamp::NowUnfuzzed();
+  static constexpr size_t MAX_MARKER_DEPTH = 10;
   unsigned long long f2 = Fibonacci<NextDepth(DEPTH)>(n - 2);
   if (DEPTH == 0) {
     BASE_PROFILER_ADD_MARKER("Half-way through Fibonacci", OTHER);
   }
   unsigned long long f1 = Fibonacci<NextDepth(DEPTH)>(n - 1);
+  if (DEPTH < MAX_MARKER_DEPTH) {
+    baseprofiler::profiler_add_text_marker(
+        "fib", std::to_string(DEPTH),
+        baseprofiler::ProfilingCategoryPair::OTHER, start,
+        TimeStamp::NowUnfuzzed());
+  }
   return f2 + f1;
 }
 
@@ -902,6 +1116,7 @@ void TestProfiler() {
   TestLEB128();
   TestModuloBuffer();
   TestBlocksRingBufferAPI();
+  TestBlocksRingBufferUnderlyingBufferChanges();
   TestBlocksRingBufferThreading();
 
   {
@@ -927,14 +1142,53 @@ void TestProfiler() {
     MOZ_RELEASE_ASSERT(baseprofiler::profiler_thread_is_being_profiled());
     MOZ_RELEASE_ASSERT(!baseprofiler::profiler_thread_is_sleeping());
 
-    {
+    sStopFibonacci = false;
+
+    std::thread threadFib([]() {
+      AUTO_BASE_PROFILER_REGISTER_THREAD("fibonacci");
+      SleepMilli(5);
       AUTO_BASE_PROFILER_TEXT_MARKER_CAUSE("fibonacci", "First leaf call",
                                            OTHER, nullptr);
-      static const unsigned long long fibStart = 40;
+      static const unsigned long long fibStart = 37;
       printf("Fibonacci(%llu)...\n", fibStart);
       AUTO_BASE_PROFILER_LABEL("Label around Fibonacci", OTHER);
       unsigned long long f = Fibonacci(fibStart);
       printf("Fibonacci(%llu) = %llu\n", fibStart, f);
+    });
+
+    std::thread threadCancelFib([]() {
+      AUTO_BASE_PROFILER_REGISTER_THREAD("fibonacci canceller");
+      SleepMilli(5);
+      AUTO_BASE_PROFILER_TEXT_MARKER_CAUSE("fibonacci", "Canceller", OTHER,
+                                           nullptr);
+      static const int waitMaxSeconds = 10;
+      for (int i = 0; i < waitMaxSeconds; ++i) {
+        if (sStopFibonacci) {
+          AUTO_BASE_PROFILER_LABEL_DYNAMIC_STRING("fibCancel", OTHER,
+                                                  std::to_string(i));
+          return;
+        }
+        AUTO_BASE_PROFILER_THREAD_SLEEP;
+        SleepMilli(1000);
+      }
+      AUTO_BASE_PROFILER_LABEL_DYNAMIC_STRING("fibCancel", OTHER,
+                                              "Cancelling!");
+      sStopFibonacci = true;
+    });
+
+    {
+      AUTO_BASE_PROFILER_TEXT_MARKER_CAUSE(
+          "main thread", "joining fibonacci thread", OTHER, nullptr);
+      AUTO_BASE_PROFILER_THREAD_SLEEP;
+      threadFib.join();
+    }
+
+    {
+      AUTO_BASE_PROFILER_TEXT_MARKER_CAUSE(
+          "main thread", "joining fibonacci-canceller thread", OTHER, nullptr);
+      sStopFibonacci = true;
+      AUTO_BASE_PROFILER_THREAD_SLEEP;
+      threadCancelFib.join();
     }
 
     printf("Sleep 1s...\n");

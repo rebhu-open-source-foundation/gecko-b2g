@@ -17,7 +17,7 @@
 #include "debugger/Debugger.h"  // for BreakpointSite, Breakpoint
 #include "gc/Barrier.h"         // for GCPtrNativeObject, WriteBarriered
 #include "gc/Cell.h"            // for TenuredCell
-#include "gc/FreeOp.h"          // for FreeOp
+#include "gc/FreeOp.h"          // for JSFreeOp
 #include "gc/GCEnum.h"          // for MemoryUse, MemoryUse::BreakpointSite
 #include "gc/Marking.h"         // for IsAboutToBeFinalized
 #include "gc/Zone.h"            // for Zone
@@ -30,10 +30,11 @@
 #include "vm/Runtime.h"         // for ReportOutOfMemory
 #include "vm/Stack.h"           // for ActivationIterator, Activation
 
-#include "gc/FreeOp-inl.h"     // for FreeOp::free_
+#include "gc/FreeOp-inl.h"     // for JSFreeOp::free_
 #include "gc/GC-inl.h"         // for ZoneCellIter
 #include "gc/Marking-inl.h"    // for CheckGCThingAfterMovingGC
 #include "vm/JSContext-inl.h"  // for JSContext::check
+#include "vm/JSScript-inl.h"   // for JSScript::hasBaselineScript
 #include "vm/Realm-inl.h"      // for AutoRealm::AutoRealm
 
 namespace js {
@@ -128,7 +129,7 @@ BreakpointSite* DebugScript::getOrCreateBreakpointSite(JSContext* cx,
 }
 
 /* static */
-void DebugScript::destroyBreakpointSite(FreeOp* fop, JSScript* script,
+void DebugScript::destroyBreakpointSite(JSFreeOp* fop, JSScript* script,
                                         jsbytecode* pc) {
   DebugScript* debug = get(script);
   BreakpointSite*& site = debug->breakpoints[script->pcToOffset(pc)];
@@ -147,7 +148,7 @@ void DebugScript::destroyBreakpointSite(FreeOp* fop, JSScript* script,
 }
 
 /* static */
-void DebugScript::clearBreakpointsIn(FreeOp* fop, Realm* realm, Debugger* dbg,
+void DebugScript::clearBreakpointsIn(JSFreeOp* fop, Realm* realm, Debugger* dbg,
                                      JSObject* handler) {
   for (auto script = realm->zone()->cellIter<JSScript>(); !script.done();
        script.next()) {
@@ -158,7 +159,7 @@ void DebugScript::clearBreakpointsIn(FreeOp* fop, Realm* realm, Debugger* dbg,
 }
 
 /* static */
-void DebugScript::clearBreakpointsIn(FreeOp* fop, JSScript* script,
+void DebugScript::clearBreakpointsIn(JSFreeOp* fop, JSScript* script,
                                      Debugger* dbg, JSObject* handler) {
   if (!script->hasDebugScript()) {
     return;
@@ -210,7 +211,7 @@ bool DebugScript::incrementStepperCount(JSContext* cx, JSScript* script) {
 }
 
 /* static */
-void DebugScript::decrementStepperCount(FreeOp* fop, JSScript* script) {
+void DebugScript::decrementStepperCount(JSFreeOp* fop, JSScript* script) {
   DebugScript* debug = get(script);
   MOZ_ASSERT(debug);
   MOZ_ASSERT(debug->stepperCount > 0);
@@ -254,7 +255,7 @@ bool DebugScript::incrementGeneratorObserverCount(JSContext* cx,
 }
 
 /* static */
-void DebugScript::decrementGeneratorObserverCount(FreeOp* fop,
+void DebugScript::decrementGeneratorObserverCount(JSFreeOp* fop,
                                                   JSScript* script) {
   DebugScript* debug = get(script);
   MOZ_ASSERT(debug);
@@ -268,7 +269,7 @@ void DebugScript::decrementGeneratorObserverCount(FreeOp* fop,
 }
 
 /* static */
-void DebugAPI::destroyDebugScript(FreeOp* fop, JSScript* script) {
+void DebugAPI::destroyDebugScript(JSFreeOp* fop, JSScript* script) {
   if (script->hasDebugScript()) {
     DebugScriptMap* map = script->realm()->debugScriptMap.get();
     MOZ_ASSERT(map);
@@ -296,7 +297,7 @@ void DebugAPI::checkDebugScriptAfterMovingGC(DebugScript* ds) {
 #endif  // JSGC_HASH_TABLE_CHECKS
 
 /* static */
-void DebugAPI::sweepBreakpointsSlow(FreeOp* fop, JSScript* script) {
+void DebugAPI::sweepBreakpointsSlow(JSFreeOp* fop, JSScript* script) {
   bool scriptGone = IsAboutToBeFinalizedUnbarriered(&script);
   for (unsigned i = 0; i < script->length(); i++) {
     BreakpointSite* site =

@@ -2718,8 +2718,7 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
     // If we don't have a ::marker pseudo-element, but need it, then
     // reconstruct the frame.  (The opposite situation implies 'display'
     // changes so doesn't need to be handled explicitly here.)
-    if (wasRestyled &&
-        styleFrame->StyleDisplay()->mDisplay == StyleDisplay::ListItem &&
+    if (wasRestyled && styleFrame->StyleDisplay()->IsListItem() &&
         styleFrame->IsBlockFrameOrSubclass() &&
         !nsLayoutUtils::GetMarkerPseudo(aElement)) {
       RefPtr<ComputedStyle> pseudoStyle =
@@ -2748,7 +2747,8 @@ bool RestyleManager::ProcessPostTraversal(Element* aElement,
   if (changeHint & nsChangeHint_ReconstructFrame) {
     if (wasRestyled) {
       const bool wasAbsPos =
-        styleFrame && styleFrame->StyleDisplay()->IsAbsolutelyPositionedStyle();
+          styleFrame &&
+          styleFrame->StyleDisplay()->IsAbsolutelyPositionedStyle();
       auto* newDisp = upToDateStyleIfRestyled->StyleDisplay();
       // https://drafts.csswg.org/css-scroll-anchoring/#suppression-triggers
       //

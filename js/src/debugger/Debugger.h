@@ -65,7 +65,6 @@ class AutoRealm;
 class CrossCompartmentKey;
 class Debugger;
 class DebuggerEnvironment;
-class FreeOp;
 class PromiseObject;
 namespace gc {
 struct Cell;
@@ -302,8 +301,8 @@ extern void CheckDebuggeeThing(JSObject* obj, bool invisibleOk);
  * because they are not deleted when a compartment is no longer a debuggee: the
  * values need to maintain object identity across add/remove/add
  * transitions. (Frames are an exception to the rule. Existing Debugger.Frame
- * objects are killed when debugging is disabled for their compartment, and if
- * it's re-enabled later, new Frame objects are created.)
+ * objects are killed if their realm is removed as a debugger; if the realm
+ * beacomes a debuggee again later, new Frame objects are created.)
  */
 template <class Referent, class Wrapper, bool InvisibleKeysOk = false>
 class DebuggerWeakMap : private WeakMap<HeapPtr<Referent*>, HeapPtr<Wrapper*>> {
@@ -364,10 +363,9 @@ class DebuggerWeakMap : private WeakMap<HeapPtr<Referent*>, HeapPtr<Wrapper*>> {
   }
 
  public:
-  template <void(traceValueEdges)(JSTracer*, JSObject*)>
   void traceCrossCompartmentEdges(JSTracer* tracer) {
     for (Enum e(*this); !e.empty(); e.popFront()) {
-      traceValueEdges(tracer, e.front().value());
+      e.front().value()->trace(tracer);
       Key key = e.front().key();
       TraceEdge(tracer, &key, "Debugger WeakMap key");
       if (key != e.front().key()) {
@@ -511,8 +509,6 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
     return observedGCs.put(majorGCNumber);
   }
 
-  bool isEnabled() const { return enabled; }
-
   static SavedFrame* getObjectAllocationSite(JSObject& obj);
 
   struct AllocationsLogEntry {
@@ -558,7 +554,6 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
       debuggees; /* Debuggee globals. Cross-compartment weak references. */
   JS::ZoneSet debuggeeZones; /* Set of zones that we have debuggees in. */
   js::GCPtrObject uncaughtExceptionHook; /* Strong reference. */
-  bool enabled;
   bool allowUnobservedAsmJS;
 
   // Whether to enable code coverage on the Debuggee.
@@ -612,7 +607,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   /*
    * Add allocations tracking for objects allocated within the given
    * debuggee's compartment. The given debuggee global must be observed by at
-   * least one Debugger that is enabled and tracking allocations.
+   * least one Debugger that is tracking allocations.
    */
   static MOZ_MUST_USE bool addAllocationsTracking(
       JSContext* cx, Handle<GlobalObject*> debuggee);
@@ -631,7 +626,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   void removeAllocationsTrackingForAllDebuggees();
 
   /*
-   * If this Debugger is enabled, and has a onNewGlobalObject handler, then
+   * If this Debugger has a onNewGlobalObject handler, then
    * this link is inserted into the list headed by
    * JSRuntime::onNewGlobalObjectWatchers.
    */
@@ -668,9 +663,10 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
    * onEnterFrame handler on resume, and to retain onStep and onPop hooks.
    *
    * An entry is present in this table when:
-   * -   both the debuggee generator object and the Debugger.Frame object exist
-   * -   the Debugger.Frame's owner is still an enabled debugger of
-   *     the debuggee compartment
+   *  - both the debuggee generator object and the Debugger.Frame object exists
+   *  - the debuggee generator object belongs to a relam that is a debuggee of
+   *    the Debugger.Frame's owner.
+   *
    * regardless of whether the frame is currently suspended. (This list is
    * meant to explain why we update the table in the particular places where
    * we do so.)
@@ -734,7 +730,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   enum class FromSweep { No, Yes };
 
   MOZ_MUST_USE bool addDebuggeeGlobal(JSContext* cx, Handle<GlobalObject*> obj);
-  void removeDebuggeeGlobal(FreeOp* fop, GlobalObject* global,
+  void removeDebuggeeGlobal(JSFreeOp* fop, GlobalObject* global,
                             WeakGlobalObjectSet::Enum* debugEnum,
                             FromSweep fromSweep);
 
@@ -836,10 +832,10 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   void traceForMovingGC(JSTracer* trc);
   void traceCrossCompartmentEdges(JSTracer* tracer);
 
-  static const ClassOps classOps_;
+  static const JSClassOps classOps_;
 
  public:
-  static const Class class_;
+  static const JSClass class_;
 
  private:
   static MOZ_MUST_USE bool getHookImpl(JSContext* cx, CallArgs& args,
@@ -847,8 +843,6 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
   static MOZ_MUST_USE bool setHookImpl(JSContext* cx, CallArgs& args,
                                        Debugger& dbg, Hook which);
 
-  static bool getEnabled(JSContext* cx, unsigned argc, Value* vp);
-  static bool setEnabled(JSContext* cx, unsigned argc, Value* vp);
   static bool getOnDebuggerStatement(JSContext* cx, unsigned argc, Value* vp);
   static bool setOnDebuggerStatement(JSContext* cx, unsigned argc, Value* vp);
   static bool getOnExceptionUnwind(JSContext* cx, unsigned argc, Value* vp);
@@ -1059,7 +1053,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
 
   WeakGlobalObjectSet::Range allDebuggees() const { return debuggees.all(); }
 
-  static void detachAllDebuggersFromGlobal(FreeOp* fop, GlobalObject* global);
+  static void detachAllDebuggersFromGlobal(JSFreeOp* fop, GlobalObject* global);
 #ifdef DEBUG
   static bool isDebuggerCrossCompartmentEdge(JSObject* obj,
                                              const js::gc::Cell* cell);
@@ -1237,7 +1231,7 @@ struct Handler {
   virtual void hold(JSObject* owner) = 0;
 
   /* Report that this Handler is no longer held by owner. See comment above. */
-  virtual void drop(js::FreeOp* fop, JSObject* owner) = 0;
+  virtual void drop(JSFreeOp* fop, JSObject* owner) = 0;
 
   /*
    * Trace the reference to the handler. This method will be called by the
@@ -1281,7 +1275,7 @@ class BreakpointSite {
   size_t allocSize();
 
  protected:
-  virtual void recompile(FreeOp* fop) = 0;
+  virtual void recompile(JSFreeOp* fop) = 0;
   bool isEnabled() const { return enabledCount > 0; }
 
  public:
@@ -1291,10 +1285,10 @@ class BreakpointSite {
   bool hasBreakpoint(Breakpoint* bp);
   Type type() const { return type_; }
 
-  void inc(FreeOp* fop);
-  void dec(FreeOp* fop);
+  void inc(JSFreeOp* fop);
+  void dec(JSFreeOp* fop);
   bool isEmpty() const;
-  virtual void destroyIfEmpty(FreeOp* fop) = 0;
+  virtual void destroyIfEmpty(JSFreeOp* fop) = 0;
 
   inline JSBreakpointSite* asJS();
   inline WasmBreakpointSite* asWasm();
@@ -1305,7 +1299,7 @@ class BreakpointSite {
  * site's list.
  *
  * GC rules:
- *   - script is live, breakpoint exists, and debugger is enabled
+ *   - script is live and breakpoint exists
  *      ==> debugger is live
  *   - script is live, breakpoint exists, and debugger is live
  *      ==> retain the breakpoint and the handler object is live
@@ -1344,7 +1338,7 @@ class Breakpoint {
   Breakpoint(Debugger* debugger, BreakpointSite* site, JSObject* handler);
 
   enum MayDestroySite { False, True };
-  void destroy(FreeOp* fop,
+  void destroy(JSFreeOp* fop,
                MayDestroySite mayDestroySite = MayDestroySite::True);
 
   Breakpoint* nextInDebugger();
@@ -1361,12 +1355,12 @@ class JSBreakpointSite : public BreakpointSite {
   jsbytecode* const pc;
 
  protected:
-  void recompile(FreeOp* fop) override;
+  void recompile(JSFreeOp* fop) override;
 
  public:
   JSBreakpointSite(JSScript* script, jsbytecode* pc);
 
-  void destroyIfEmpty(FreeOp* fop) override;
+  void destroyIfEmpty(JSFreeOp* fop) override;
 };
 
 inline JSBreakpointSite* BreakpointSite::asJS() {
@@ -1380,12 +1374,12 @@ class WasmBreakpointSite : public BreakpointSite {
   uint32_t offset;
 
  private:
-  void recompile(FreeOp* fop) override;
+  void recompile(JSFreeOp* fop) override;
 
  public:
   WasmBreakpointSite(wasm::Instance* instance, uint32_t offset);
 
-  void destroyIfEmpty(FreeOp* fop) override;
+  void destroyIfEmpty(JSFreeOp* fop) override;
 };
 
 inline WasmBreakpointSite* BreakpointSite::asWasm() {
@@ -1424,16 +1418,12 @@ js::GCPtrNativeObject& Debugger::toJSObjectRef() {
   return object;
 }
 
-bool Debugger::observesEnterFrame() const {
-  return enabled && getHook(OnEnterFrame);
-}
+bool Debugger::observesEnterFrame() const { return getHook(OnEnterFrame); }
 
-bool Debugger::observesNewScript() const {
-  return enabled && getHook(OnNewScript);
-}
+bool Debugger::observesNewScript() const { return getHook(OnNewScript); }
 
 bool Debugger::observesNewGlobalObject() const {
-  return enabled && getHook(OnNewGlobalObject);
+  return getHook(OnNewGlobalObject);
 }
 
 bool Debugger::observesGlobal(GlobalObject* global) const {

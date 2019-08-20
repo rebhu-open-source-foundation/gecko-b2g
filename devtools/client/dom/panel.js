@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -89,19 +87,15 @@ DomPanel.prototype = {
   },
 
   destroy() {
-    if (this._destroying) {
-      return this._destroying;
+    if (this._destroyed) {
+      return;
     }
+    this._destroyed = true;
 
-    this._destroying = new Promise(resolve => {
-      this.target.off("navigate", this.onTabNavigated);
-      this._toolbox.off("select", this.onPanelVisibilityChange);
+    this.target.off("navigate", this.onTabNavigated);
+    this._toolbox.off("select", this.onPanelVisibilityChange);
 
-      this.emit("destroyed");
-      resolve();
-    });
-
-    return this._destroying;
+    this.emit("destroyed");
   },
 
   // Events

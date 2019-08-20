@@ -17,6 +17,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   PerTestCoverageUtils: "resource://testing-common/PerTestCoverageUtils.jsm",
   ServiceWorkerCleanUp: "resource://gre/modules/ServiceWorkerCleanUp.jsm",
   SpecialPowersSandbox: "resource://specialpowers/SpecialPowersSandbox.jsm",
+  HiddenFrame: "resource://gre/modules/HiddenFrame.jsm",
 });
 
 class SpecialPowersError extends Error {
@@ -448,6 +449,15 @@ class SpecialPowersAPIParent extends JSWindowActorParent {
     throw new Error(`Unexpected preference type: ${type}`);
   }
 
+  _toggleMuteAudio(aMuted) {
+    let browser = this.browsingContext.top.embedderElement;
+    if (aMuted) {
+      browser.mute();
+    } else {
+      browser.unmute();
+    }
+  }
+
   /**
    * messageManager callback function
    * This will get requests from our API in the window and process them in chrome for it
@@ -458,6 +468,8 @@ class SpecialPowersAPIParent extends JSWindowActorParent {
     // doesn't trigger a flurry of warnings about "does not always return
     // a value".
     switch (aMessage.name) {
+      case "SPToggleMuteAudio":
+        return this._toggleMuteAudio(aMessage.data.mute);
       case "PushPrefEnv":
         return this.pushPrefEnv(aMessage.data);
 
@@ -859,6 +871,28 @@ class SpecialPowersAPIParent extends JSWindowActorParent {
           });
       }
 
+      case "Snapshot": {
+        let { browsingContext, rect, background } = aMessage.data;
+
+        return browsingContext.currentWindowGlobal
+          .drawSnapshot(rect, 1.0, background)
+          .then(async image => {
+            let hiddenFrame = new HiddenFrame();
+            let win = await hiddenFrame.get();
+
+            let canvas = win.document.createElement("canvas");
+            canvas.width = image.width;
+            canvas.height = image.height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(image, 0, 0);
+
+            let data = ctx.getImageData(0, 0, image.width, image.height);
+            hiddenFrame.destroy();
+            return data;
+          });
+      }
+
       case "ProxiedAssert": {
         let { taskId, data } = aMessage.data;
         let actor = this._taskActors.get(taskId);
@@ -874,6 +908,9 @@ class SpecialPowersAPIParent extends JSWindowActorParent {
       case "SPRemoveServiceWorkerDataForExampleDomain": {
         return ServiceWorkerCleanUp.removeFromHost("example.com");
       }
+
+      case "Wakeup":
+        return undefined;
 
       default:
         throw new SpecialPowersError(

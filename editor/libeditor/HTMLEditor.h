@@ -372,7 +372,7 @@ class HTMLEditor final : public TextEditor,
    * returns the deepest absolutely positioned container of the selection
    * if it exists or null.
    */
-  already_AddRefed<Element> GetAbsolutelyPositionedSelectionContainer();
+  already_AddRefed<Element> GetAbsolutelyPositionedSelectionContainer() const;
 
   Element* GetPositionedElement() const { return mAbsolutelyPositionedObject; }
 
@@ -788,14 +788,14 @@ class HTMLEditor final : public TextEditor,
   MOZ_CAN_RUN_SCRIPT
   nsresult DeleteTableCellContentsWithTransaction();
 
-  void IsNextCharInNodeWhitespace(nsIContent* aContent, int32_t aOffset,
-                                  bool* outIsSpace, bool* outIsNBSP,
-                                  nsIContent** outNode = nullptr,
-                                  int32_t* outOffset = 0);
-  void IsPrevCharInNodeWhitespace(nsIContent* aContent, int32_t aOffset,
-                                  bool* outIsSpace, bool* outIsNBSP,
-                                  nsIContent** outNode = nullptr,
-                                  int32_t* outOffset = 0);
+  static void IsNextCharInNodeWhitespace(nsIContent* aContent, int32_t aOffset,
+                                         bool* outIsSpace, bool* outIsNBSP,
+                                         nsIContent** outNode = nullptr,
+                                         int32_t* outOffset = 0);
+  static void IsPrevCharInNodeWhitespace(nsIContent* aContent, int32_t aOffset,
+                                         bool* outIsSpace, bool* outIsNBSP,
+                                         nsIContent** outNode = nullptr,
+                                         int32_t* outOffset = 0);
 
   /**
    * @param aElement        Must not be null.
@@ -1039,20 +1039,20 @@ class HTMLEditor final : public TextEditor,
    * On the other hand, methods which take |nsINode&| start to search from
    * next node of aNode.
    */
-  nsIContent* GetNextEditableHTMLNode(nsINode& aNode) {
+  nsIContent* GetNextEditableHTMLNode(nsINode& aNode) const {
     return GetNextEditableHTMLNodeInternal(aNode, false);
   }
-  nsIContent* GetNextEditableHTMLNodeInBlock(nsINode& aNode) {
+  nsIContent* GetNextEditableHTMLNodeInBlock(nsINode& aNode) const {
     return GetNextEditableHTMLNodeInternal(aNode, true);
   }
   template <typename PT, typename CT>
   nsIContent* GetNextEditableHTMLNode(
-      const EditorDOMPointBase<PT, CT>& aPoint) {
+      const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextEditableHTMLNodeInternal(aPoint, false);
   }
   template <typename PT, typename CT>
   nsIContent* GetNextEditableHTMLNodeInBlock(
-      const EditorDOMPointBase<PT, CT>& aPoint) {
+      const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextEditableHTMLNodeInternal(aPoint, true);
   }
 
@@ -1061,10 +1061,10 @@ class HTMLEditor final : public TextEditor,
    * of above methods.  Please don't use this method directly.
    */
   nsIContent* GetNextEditableHTMLNodeInternal(nsINode& aNode,
-                                              bool aNoBlockCrossing);
+                                              bool aNoBlockCrossing) const;
   template <typename PT, typename CT>
   nsIContent* GetNextEditableHTMLNodeInternal(
-      const EditorDOMPointBase<PT, CT>& aPoint, bool aNoBlockCrossing);
+      const EditorDOMPointBase<PT, CT>& aPoint, bool aNoBlockCrossing) const;
 
   bool IsFirstEditableChild(nsINode* aNode);
   bool IsLastEditableChild(nsINode* aNode);
@@ -1092,7 +1092,7 @@ class HTMLEditor final : public TextEditor,
    * HTMLEditRules::OnModifyDocument() with AutoEditActionDataSetter
    * instance.
    */
-  MOZ_CAN_RUN_SCRIPT void OnModifyDocument();
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult OnModifyDocument();
 
  protected:  // Called by helper classes.
   virtual void OnStartToHandleTopLevelEditSubAction(
@@ -2538,9 +2538,50 @@ class HTMLEditor final : public TextEditor,
   static nsresult SlurpBlob(dom::Blob* aBlob, nsPIDOMWindowOuter* aWindow,
                             BlobReader* aBlobReader);
 
+  /**
+   * OnModifyDocumentInternal() is called by OnModifyDocument().
+   */
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult OnModifyDocumentInternal();
+
+  /**
+   * For saving allocation cost in the constructor of
+   * EditorBase::TopLevelEditSubActionData, we should reuse same RangeItem
+   * instance with all top level edit sub actions.
+   * The instance is always cleared when TopLevelEditSubActionData is
+   * destructed and the class is stack only class so that we don't need
+   * to (and also should not) add the RangeItem into the cycle collection.
+   */
+  already_AddRefed<RangeItem> GetSelectedRangeItemForTopLevelEditSubAction()
+      const {
+    if (!mSelectedRangeForTopLevelEditSubAction) {
+      mSelectedRangeForTopLevelEditSubAction = new RangeItem();
+    }
+    return do_AddRef(mSelectedRangeForTopLevelEditSubAction);
+  }
+
+  /**
+   * For saving allocation cost in the constructor of
+   * EditorBase::TopLevelEditSubActionData, we should reuse same nsRange
+   * instance with all top level edit sub actions.
+   * The instance is always cleared when TopLevelEditSubActionData is
+   * destructed, but AbstractRange::mOwner keeps grabbing the owner document
+   * so that we need to make it in the cycle collection.
+   */
+  already_AddRefed<nsRange> GetChangedRangeForTopLevelEditSubAction() const {
+    if (!mChangedRangeForTopLevelEditSubAction) {
+      mChangedRangeForTopLevelEditSubAction = new nsRange(GetDocument());
+    }
+    return do_AddRef(mChangedRangeForTopLevelEditSubAction);
+  }
+
  protected:
   RefPtr<TypeInState> mTypeInState;
   RefPtr<ComposerCommandsUpdater> mComposerCommandsUpdater;
+
+  // Used by TopLevelEditSubActionData::mSelectedRange.
+  mutable RefPtr<RangeItem> mSelectedRangeForTopLevelEditSubAction;
+  // Used by TopLevelEditSubActionData::mChangedRange.
+  mutable RefPtr<nsRange> mChangedRangeForTopLevelEditSubAction;
 
   bool mCRInParagraphCreatesParagraph;
 

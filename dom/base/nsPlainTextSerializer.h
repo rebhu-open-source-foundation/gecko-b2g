@@ -88,9 +88,16 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   void EnsureVerticalSpace(int32_t noOfRows);
   void FlushLine();
   void OutputQuotesAndIndent(bool stripTrailingSpaces = false);
+
+  void MaybeReplaceNbspsForOutput(nsString& aString) const;
+
   void Output(nsString& aString);
   void Write(const nsAString& aString);
-  bool IsInPre();
+
+  // @return true, iff the elements' whitespace and newline characters have to
+  //         be preserved according to its style or because it's a `<pre>`
+  //         element.
+  bool IsElementPreformatted() const;
   bool IsInOL();
   bool IsCurrentNodeConverted();
   bool MustSuppressLeaf();
@@ -114,7 +121,7 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
     return !(mFlags & nsIDocumentEncoder::OutputDisallowLineBreaking);
   }
 
-  inline bool DoOutput() { return mHeadLevel == 0; }
+  inline bool DoOutput() const { return mHeadLevel == 0; }
 
   inline bool IsQuotedLine(const nsAString& aLine) {
     return !aLine.IsEmpty() && aLine.First() == char16_t('>');
@@ -126,11 +133,15 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   void PushBool(nsTArray<bool>& aStack, bool aValue);
   bool PopBool(nsTArray<bool>& aStack);
 
-  bool ShouldReplaceContainerWithPlaceholder(nsAtom* aTag);
   bool IsIgnorableRubyAnnotation(nsAtom* aTag);
 
-  bool IsElementPreformatted(mozilla::dom::Element* aElement);
-  bool IsElementBlock(mozilla::dom::Element* aElement);
+  // @return true, iff the elements' whitespace and newline characters have to
+  //         be preserved according to its style or because it's a `<pre>`
+  //         element.
+  static bool IsElementPreformatted(mozilla::dom::Element* aElement);
+
+  // https://drafts.csswg.org/css-display/#block-level
+  static bool IsCssBlockLevelElement(mozilla::dom::Element* aElement);
 
  private:
   nsString mCurrentLine;
@@ -171,7 +182,6 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   bool mInWhitespace;
   bool mPreFormattedMail;  // we're dealing with special DOM
                            // used by Thunderbird code.
-  bool mStartedOutput;     // we've produced at least a character
 
   // While handling a new tag, this variable should remind if any line break
   // is due because of a closing tag. Setting it to "TRUE" while closing the
@@ -234,8 +244,6 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   // variable, but that causes issues with OpenBSD and module unloading.
   const nsString kSpace;
 
-  // If nsIDocumentEncoder::OutputNonTextContentAsPlaceholder is set, the child
-  // nodes of specific nodes - <iframe>, <canvas>, etc. should be ignored.
   // mIgnoredChildNodeLevel is used to tell if current node is an ignorable
   // child node. The initial value of mIgnoredChildNodeLevel is 0. When
   // serializer enters those specific nodes, mIgnoredChildNodeLevel increases

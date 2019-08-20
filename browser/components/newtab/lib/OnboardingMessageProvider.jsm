@@ -3,10 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 /* globals Localization */
-const { AttributionCode } = ChromeUtils.import(
+ChromeUtils.defineModuleGetter(
+  this,
+  "AttributionCode",
   "resource:///modules/AttributionCode.jsm"
 );
-const { AddonRepository } = ChromeUtils.import(
+ChromeUtils.defineModuleGetter(
+  this,
+  "AddonRepository",
   "resource://gre/modules/addons/AddonRepository.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
@@ -395,10 +399,9 @@ const ONBOARDING_MESSAGES = () => [
     id: "PROTECTIONS_PANEL_1",
     template: "protections_panel",
     content: {
-      title: "Browse without being followed",
-      body:
-        "Keep your data to yourself. Firefox protects you from many of the most common trackers that follow what you do online.",
-      link_text: "Learn more",
+      title: { string_id: "cfr-protections-panel-header" },
+      body: { string_id: "cfr-protections-panel-body" },
+      link_text: { string_id: "cfr-protections-panel-link-text" },
       cta_url: `${Services.urlFormatter.formatURLPref(
         "app.support.baseURL"
       )}etp-promotions?as=u&utm_source=inproduct`,

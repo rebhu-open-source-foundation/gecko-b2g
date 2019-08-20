@@ -105,8 +105,9 @@ const uint32_t FrameRateLevels[] = {
 };
 const size_t FrameRateLevelsSize = NELEMS(FrameRateLevels);
 
-nsCString FindLevel(const uint32_t aLevels[], const size_t length,
-                    uint32_t aValue) {
+/* static */
+nsCString KeyUtil::FindLevel(const uint32_t aLevels[], const size_t length,
+                             uint32_t aValue) {
   MOZ_ASSERT(aValue);
   if (aValue <= aLevels[0]) {
     return NS_LITERAL_CSTRING("Level0");
@@ -132,7 +133,8 @@ nsCString FindLevel(const uint32_t aLevels[], const size_t length,
   return NS_LITERAL_CSTRING("");
 }
 
-nsCString BitDepthToStr(uint8_t aBitDepth) {
+/* static */
+nsCString KeyUtil::BitDepthToStr(uint8_t aBitDepth) {
   switch (aBitDepth) {
     case 8:  // ColorDepth::COLOR_8
       return NS_LITERAL_CSTRING("-8bit");
@@ -145,7 +147,8 @@ nsCString BitDepthToStr(uint8_t aBitDepth) {
   return NS_LITERAL_CSTRING("");
 }
 
-nsCString CreateStoreKey(const DecoderBenchmarkInfo& aBenchInfo) {
+/* static */
+nsCString KeyUtil::CreateKey(const DecoderBenchmarkInfo& aBenchInfo) {
   nsAutoCString key("Resolution");
   key.Append(FindLevel(PixelLevels, PixelLevelsSize,
                        aBenchInfo.mWidth * aBenchInfo.mHeight));
@@ -162,23 +165,73 @@ nsCString CreateStoreKey(const DecoderBenchmarkInfo& aBenchInfo) {
 void DecoderBenchmark::Store(const DecoderBenchmarkInfo& aBenchInfo,
                              RefPtr<FrameStatistics> aStats) {
   if (!XRE_IsContentProcess()) {
-    NS_WARNING("Storing a benchmark allowed only from the content process.");
+    NS_WARNING(
+        "Storing a benchmark is only allowed only from the content process.");
     return;
   }
-  StoreScore(aBenchInfo.mContentType, CreateStoreKey(aBenchInfo), aStats);
+  StoreScore(aBenchInfo.mContentType, KeyUtil::CreateKey(aBenchInfo), aStats);
 }
 
 /* static */
 RefPtr<BenchmarkScorePromise> DecoderBenchmark::Get(
     const DecoderBenchmarkInfo& aBenchInfo) {
   if (!XRE_IsContentProcess()) {
-    NS_WARNING("Getting a benchmark allowed only from the content process.");
+    NS_WARNING(
+        "Getting a benchmark is only allowed only from the content process.");
     return BenchmarkScorePromise::CreateAndReject(NS_ERROR_FAILURE, __func__);
   }
   // There is no need for any of the data members to query the database, thus
   // it can be a static method.
   auto bench = MakeRefPtr<DecoderBenchmark>();
-  return bench->GetScore(aBenchInfo.mContentType, CreateStoreKey(aBenchInfo));
+  return bench->GetScore(aBenchInfo.mContentType,
+                         KeyUtil::CreateKey(aBenchInfo));
+}
+
+static nsDataHashtable<nsCStringHashKey, int32_t> DecoderVersionTable() {
+  nsDataHashtable<nsCStringHashKey, int32_t> decoderVersionTable;
+
+  /*
+   * For the decoders listed here, the benchmark version number will be checked.
+   * If the version number does not exist in the database or is different than
+   * the version number listed here, all the benchmark entries for this decoder
+   * will be erased. An example of assigning the version number `1` for AV1
+   * decoder is:
+   *
+   * decoderVersionTable.Put(NS_LITERAL_CSTRING("video/av1"), 1);
+   *
+   * For the decoders not listed here the `CheckVersion` method exits early, to
+   * avoid sending unecessary IPC messages.
+   */
+
+  return decoderVersionTable;
+}
+
+/* static */
+void DecoderBenchmark::CheckVersion(const nsACString& aDecoderName) {
+  if (!XRE_IsContentProcess()) {
+    NS_WARNING(
+        "Checking version is only allowed only from the content process.");
+    return;
+  }
+
+  nsCString name(aDecoderName);
+  int32_t version;
+  if (!DecoderVersionTable().Get(name, &version)) {
+    // A version is not set for that decoder ignore.
+    return;
+  }
+
+  if (NS_IsMainThread()) {
+    BenchmarkStorageChild::Instance()->SendCheckVersion(name, version);
+    return;
+  }
+
+  DebugOnly<nsresult> rv =
+      GetMainThreadEventTarget()->Dispatch(NS_NewRunnableFunction(
+          "DecoderBenchmark::CheckVersion", [name, version]() {
+            BenchmarkStorageChild::Instance()->SendCheckVersion(name, version);
+          }));
+  MOZ_ASSERT(NS_SUCCEEDED(rv));
 }
 
 }  // namespace mozilla

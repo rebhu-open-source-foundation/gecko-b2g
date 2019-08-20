@@ -560,7 +560,7 @@ nsDOMWindowUtils::SetResolutionAndScaleTo(float aResolution) {
   }
 
   presShell->SetResolutionAndScaleTo(aResolution,
-                                     ResolutionChangeOrigin::MainThread);
+                                     ResolutionChangeOrigin::MainThreadRestore);
 
   return NS_OK;
 }
@@ -3685,41 +3685,6 @@ nsDOMWindowUtils::SetMediaSuspend(uint32_t aSuspend) {
 }
 
 NS_IMETHODIMP
-nsDOMWindowUtils::GetAudioMuted(bool* aMuted) {
-  nsCOMPtr<nsPIDOMWindowOuter> window = do_QueryReferent(mWindow);
-  NS_ENSURE_STATE(window);
-
-  *aMuted = window->GetAudioMuted();
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDOMWindowUtils::SetAudioMuted(bool aMuted) {
-  nsCOMPtr<nsPIDOMWindowOuter> window = do_QueryReferent(mWindow);
-  NS_ENSURE_STATE(window);
-
-  window->SetAudioMuted(aMuted);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDOMWindowUtils::GetAudioVolume(float* aVolume) {
-  nsCOMPtr<nsPIDOMWindowOuter> window = do_QueryReferent(mWindow);
-  NS_ENSURE_STATE(window);
-
-  *aVolume = window->GetAudioVolume();
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDOMWindowUtils::SetAudioVolume(float aVolume) {
-  nsCOMPtr<nsPIDOMWindowOuter> window = do_QueryReferent(mWindow);
-  NS_ENSURE_STATE(window);
-
-  return window->SetAudioVolume(aVolume);
-}
-
-NS_IMETHODIMP
 nsDOMWindowUtils::SetChromeMargin(int32_t aTop, int32_t aRight, int32_t aBottom,
                                   int32_t aLeft) {
   nsCOMPtr<nsPIDOMWindowOuter> window = do_QueryReferent(mWindow);
@@ -4209,5 +4174,11 @@ nsDOMWindowUtils::GetLayersId(uint64_t* aOutLayersId) {
     return NS_ERROR_FAILURE;
   }
   *aOutLayersId = (uint64_t)child->GetLayersId();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::GetUsesOverlayScrollbars(bool* aResult) {
+  *aResult = Document::UseOverlayScrollbars(GetDocument());
   return NS_OK;
 }

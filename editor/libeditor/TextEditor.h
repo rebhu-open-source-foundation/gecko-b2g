@@ -477,6 +477,15 @@ class TextEditor : public EditorBase,
                                     int32_t& aCaretStyle);
 
   /**
+   * MaybeDoAutoPasswordMasking() may mask password if we're doing auto-masking.
+   */
+  void MaybeDoAutoPasswordMasking() {
+    if (IsPasswordEditor() && IsMaskingPassword()) {
+      MaskAllCharacters();
+    }
+  }
+
+  /**
    * SetUnmaskRange() is available only when the instance is a password
    * editor.  This just updates unmask range.  I.e., caller needs to
    * guarantee to update the layout.
@@ -574,6 +583,28 @@ class TextEditor : public EditorBase,
   void BeginEditorInit();
   MOZ_CAN_RUN_SCRIPT
   nsresult EndEditorInit();
+
+  /**
+   * EnsurePaddingBRElementForEmptyEditor() creates padding <br> element for
+   * empty editor or changes padding <br> element for empty last line to for
+   * empty editor when we're empty.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult EnsurePaddingBRElementForEmptyEditor();
+
+  /**
+   * HandleInlineSpellCheckAfterEdit() does spell-check after handling top level
+   * edit subaction.
+   */
+  nsresult HandleInlineSpellCheckAfterEdit() {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    if (!GetSpellCheckRestartPoint().IsSet()) {
+      return NS_OK;  // Maybe being initialized.
+    }
+    nsresult rv = HandleInlineSpellCheck(GetSpellCheckRestartPoint());
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Failed to spellcheck");
+    ClearSpellCheckRestartPoint();
+    return rv;
+  }
 
  protected:  // Shouldn't be used by friend classes
   virtual ~TextEditor();

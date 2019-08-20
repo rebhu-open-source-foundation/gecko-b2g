@@ -5,6 +5,8 @@
 "use strict";
 
 const actionTypes = {
+  // manifest substate
+  UPDATE_MANIFEST: "UPDATE_MANIFEST",
   // page substate
   UPDATE_DOMAIN: "UPDATE_DOMAIN",
   // ui substate
@@ -15,10 +17,11 @@ const actionTypes = {
 };
 
 const PAGE_TYPES = {
+  MANIFEST: "manifest",
   SERVICE_WORKERS: "service-workers",
 };
 
-const DEFAULT_PAGE = PAGE_TYPES.SERVICE_WORKERS;
+const DEFAULT_PAGE = PAGE_TYPES.MANIFEST;
 
 // flatten constants
 module.exports = Object.assign({}, { DEFAULT_PAGE, PAGE_TYPES }, actionTypes);

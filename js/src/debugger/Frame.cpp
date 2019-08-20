@@ -34,7 +34,7 @@
 #include "debugger/Script.h"               // for DebuggerScript
 #include "frontend/BytecodeCompilation.h"  // for CompileEvalScript
 #include "gc/Barrier.h"                    // for HeapPtr
-#include "gc/FreeOp.h"                     // for FreeOp
+#include "gc/FreeOp.h"                     // for JSFreeOp
 #include "gc/GC.h"                         // for MemoryUse
 #include "gc/Marking.h"                    // for IsAboutToBeFinalized
 #include "gc/Rooting.h"                    // for RootedDebuggerFrame
@@ -105,7 +105,7 @@ void ScriptedOnStepHandler::hold(JSObject* owner) {
   AddCellMemory(owner, allocSize(), MemoryUse::DebuggerOnStepHandler);
 }
 
-void ScriptedOnStepHandler::drop(FreeOp* fop, JSObject* owner) {
+void ScriptedOnStepHandler::drop(JSFreeOp* fop, JSObject* owner) {
   fop->delete_(owner, this, allocSize(), MemoryUse::DebuggerOnStepHandler);
 }
 
@@ -137,7 +137,7 @@ void ScriptedOnPopHandler::hold(JSObject* owner) {
   AddCellMemory(owner, allocSize(), MemoryUse::DebuggerOnPopHandler);
 }
 
-void ScriptedOnPopHandler::drop(FreeOp* fop, JSObject* owner) {
+void ScriptedOnPopHandler::drop(JSFreeOp* fop, JSObject* owner) {
   fop->delete_(owner, this, allocSize(), MemoryUse::DebuggerOnPopHandler);
 }
 
@@ -172,21 +172,21 @@ inline js::Debugger* js::DebuggerFrame::owner() const {
   return Debugger::fromJSObject(dbgobj);
 }
 
-const ClassOps DebuggerFrame::classOps_ = {
-    nullptr,  /* addProperty */
-    nullptr,  /* delProperty */
-    nullptr,  /* enumerate   */
-    nullptr,  /* newEnumerate */
-    nullptr,  /* resolve     */
-    nullptr,  /* mayResolve  */
-    finalize, /* finalize */
-    nullptr,  /* call        */
-    nullptr,  /* hasInstance */
-    nullptr,  /* construct   */
-    trace,    /* trace */
+const JSClassOps DebuggerFrame::classOps_ = {
+    nullptr,                        /* addProperty */
+    nullptr,                        /* delProperty */
+    nullptr,                        /* enumerate   */
+    nullptr,                        /* newEnumerate */
+    nullptr,                        /* resolve     */
+    nullptr,                        /* mayResolve  */
+    finalize,                       /* finalize */
+    nullptr,                        /* call        */
+    nullptr,                        /* hasInstance */
+    nullptr,                        /* construct   */
+    CallTraceMethod<DebuggerFrame>, /* trace */
 };
 
-const Class DebuggerFrame::class_ = {
+const JSClass DebuggerFrame::class_ = {
     "Frame",
     JSCLASS_HAS_PRIVATE | JSCLASS_HAS_RESERVED_SLOTS(RESERVED_SLOTS) |
         // We require foreground finalization so we can destruct GeneratorInfo's
@@ -196,7 +196,7 @@ const Class DebuggerFrame::class_ = {
 
 enum { JSSLOT_DEBUGARGUMENTS_FRAME, JSSLOT_DEBUGARGUMENTS_COUNT };
 
-const Class DebuggerArguments::class_ = {
+const JSClass DebuggerArguments::class_ = {
     "Arguments", JSCLASS_HAS_RESERVED_SLOTS(JSSLOT_DEBUGARGUMENTS_COUNT)};
 
 bool DebuggerFrame::resume(const FrameIter& iter) {
@@ -368,7 +368,7 @@ bool DebuggerFrame::setGenerator(JSContext* cx,
   return true;
 }
 
-void DebuggerFrame::clearGenerator(FreeOp* fop) {
+void DebuggerFrame::clearGenerator(JSFreeOp* fop) {
   if (!hasGenerator()) {
     return;
   }
@@ -400,7 +400,7 @@ void DebuggerFrame::clearGenerator(FreeOp* fop) {
 }
 
 void DebuggerFrame::clearGenerator(
-    FreeOp* fop, Debugger* owner,
+    JSFreeOp* fop, Debugger* owner,
     Debugger::GeneratorWeakMap::Enum* maybeGeneratorFramesEnum) {
   if (!hasGenerator()) {
     return;
@@ -675,7 +675,7 @@ bool DebuggerFrame::setOnStepHandler(JSContext* cx, HandleDebuggerFrame frame,
     return true;
   }
 
-  FreeOp* fop = cx->defaultFreeOp();
+  JSFreeOp* fop = cx->defaultFreeOp();
   AbstractFramePtr referent = DebuggerFrame::getReferent(frame);
 
   // Adjust execution observability and step counts on whatever code (JS or
@@ -691,7 +691,7 @@ bool DebuggerFrame::setOnStepHandler(JSContext* cx, HandleDebuggerFrame frame,
       }
     } else if (!handler && prior) {
       // Single stepping toggled on->off.
-      FreeOp* fop = cx->runtime()->defaultFreeOp();
+      JSFreeOp* fop = cx->runtime()->defaultFreeOp();
       if (!instance->debug().decrementStepperCount(fop,
                                                    wasmFrame->funcIndex())) {
         return false;
@@ -970,7 +970,7 @@ void DebuggerFrame::setOnPopHandler(JSContext* cx, OnPopHandler* handler) {
     return;
   }
 
-  FreeOp* fop = cx->defaultFreeOp();
+  JSFreeOp* fop = cx->defaultFreeOp();
 
   if (prior) {
     prior->drop(fop, this);
@@ -1030,7 +1030,7 @@ void DebuggerFrame::setFrameIterData(FrameIter::Data* data) {
   InitObjectPrivate(this, data, MemoryUse::DebuggerFrameIterData);
 }
 
-void DebuggerFrame::freeFrameIterData(FreeOp* fop) {
+void DebuggerFrame::freeFrameIterData(JSFreeOp* fop) {
   if (FrameIter::Data* data = frameIterData()) {
     fop->delete_(this, data, MemoryUse::DebuggerFrameIterData);
     setPrivate(nullptr);
@@ -1038,7 +1038,7 @@ void DebuggerFrame::freeFrameIterData(FreeOp* fop) {
 }
 
 void DebuggerFrame::maybeDecrementFrameScriptStepperCount(
-    FreeOp* fop, AbstractFramePtr frame) {
+    JSFreeOp* fop, AbstractFramePtr frame) {
   // If this frame has an onStep handler, decrement the script's count.
   OnStepHandler* handler = onStepHandler();
   if (!handler) {
@@ -1060,7 +1060,7 @@ void DebuggerFrame::maybeDecrementFrameScriptStepperCount(
 }
 
 /* static */
-void DebuggerFrame::finalize(FreeOp* fop, JSObject* obj) {
+void DebuggerFrame::finalize(JSFreeOp* fop, JSObject* obj) {
   MOZ_ASSERT(fop->onMainThread());
   DebuggerFrame& frameobj = obj->as<DebuggerFrame>();
   frameobj.freeFrameIterData(fop);
@@ -1075,20 +1075,18 @@ void DebuggerFrame::finalize(FreeOp* fop, JSObject* obj) {
   }
 }
 
-/* static */
-void DebuggerFrame::trace(JSTracer* trc, JSObject* obj) {
-  OnStepHandler* onStepHandler = obj->as<DebuggerFrame>().onStepHandler();
+void DebuggerFrame::trace(JSTracer* trc) {
+  OnStepHandler* onStepHandler = this->onStepHandler();
   if (onStepHandler) {
     onStepHandler->trace(trc);
   }
-  OnPopHandler* onPopHandler = obj->as<DebuggerFrame>().onPopHandler();
+  OnPopHandler* onPopHandler = this->onPopHandler();
   if (onPopHandler) {
     onPopHandler->trace(trc);
   }
 
-  DebuggerFrame& frameObj = obj->as<DebuggerFrame>();
-  if (frameObj.hasGenerator()) {
-    frameObj.generatorInfo()->trace(trc, frameObj);
+  if (hasGenerator()) {
+    generatorInfo()->trace(trc, *this);
   }
 }
 

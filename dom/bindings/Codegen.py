@@ -509,7 +509,7 @@ class CGDOMJSClass(CGThing):
 
         return fill(
             """
-            static const js::ClassOps sClassOps = {
+            static const JSClassOps sClassOps = {
               ${addProperty}, /* addProperty */
               nullptr,               /* delProperty */
               nullptr,               /* enumerate */
@@ -781,7 +781,7 @@ class CGInterfaceObjectJSClass(CGThing):
         else:
             ret = fill(
                 """
-                static const js::ClassOps sInterfaceObjectClassOps = {
+                static const JSClassOps sInterfaceObjectClassOps = {
                     nullptr,               /* addProperty */
                     nullptr,               /* delProperty */
                     nullptr,               /* enumerate */
@@ -1764,7 +1764,7 @@ def finalizeHook(descriptor, hookName, freeOp, obj):
     if descriptor.wrapperCache:
         finalize += "ClearWrapper(self, self, %s);\n" % obj
     if descriptor.isGlobal():
-        finalize += "mozilla::dom::FinalizeGlobal(CastToJSFreeOp(%s), %s);\n" % (freeOp, obj)
+        finalize += "mozilla::dom::FinalizeGlobal(%s, %s);\n" % (freeOp, obj)
     finalize += fill(
         """
         if (size_t mallocBytes = BindingJSObjectMallocBytes(self)) {
@@ -1783,7 +1783,7 @@ class CGClassFinalizeHook(CGAbstractClassHook):
     A hook for finalize, used to release our native object.
     """
     def __init__(self, descriptor):
-        args = [Argument('js::FreeOp*', 'fop'), Argument('JSObject*', 'obj')]
+        args = [Argument('JSFreeOp*', 'fop'), Argument('JSObject*', 'obj')]
         CGAbstractClassHook.__init__(self, descriptor, FINALIZE_HOOK_NAME,
                                      'void', args)
 
@@ -2932,7 +2932,7 @@ class CGNativeProperties(CGList):
                 post = fill(
                     """
                     $*{post}
-                    static_assert(${propertyInfoCount} < 1ull << CHAR_BIT * sizeof(${name}.propertyInfoCount),
+                    static_assert(${propertyInfoCount} < 1ull << (CHAR_BIT * sizeof(${name}.propertyInfoCount)),
                         "We have a property info count that is oversized");
                     """,
                     post=post,

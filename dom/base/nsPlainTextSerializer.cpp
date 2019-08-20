@@ -108,7 +108,6 @@ nsPlainTextSerializer::nsPlainTextSerializer()
   mEmptyLines = 1;  // The start of the document is an "empty line" in itself,
   mInWhitespace = false;
   mPreFormattedMail = false;
-  mStartedOutput = false;
 
   mPreformattedBlockBoundary = false;
   mWithRubyAnnotation = false;  // will be read from pref and flag later
@@ -240,21 +239,6 @@ bool nsPlainTextSerializer::PopBool(nsTArray<bool>& aStack) {
     aStack.RemoveElementAt(size - 1);
   }
   return returnValue;
-}
-
-bool nsPlainTextSerializer::ShouldReplaceContainerWithPlaceholder(
-    nsAtom* aTag) {
-  // If nsIDocumentEncoder::OutputNonTextContentAsPlaceholder is set,
-  // non-textual container element should be serialized as placeholder
-  // character and its child nodes should be ignored. See bug 895239.
-  if (!(mFlags & nsIDocumentEncoder::OutputNonTextContentAsPlaceholder)) {
-    return false;
-  }
-
-  return (aTag == nsGkAtoms::audio) || (aTag == nsGkAtoms::canvas) ||
-         (aTag == nsGkAtoms::iframe) || (aTag == nsGkAtoms::meter) ||
-         (aTag == nsGkAtoms::progress) || (aTag == nsGkAtoms::object) ||
-         (aTag == nsGkAtoms::svg) || (aTag == nsGkAtoms::video);
 }
 
 bool nsPlainTextSerializer::IsIgnorableRubyAnnotation(nsAtom* aTag) {
@@ -453,17 +437,6 @@ nsPlainTextSerializer::AppendDocumentStart(Document* aDocument,
 }
 
 nsresult nsPlainTextSerializer::DoOpenContainer(nsAtom* aTag) {
-  // Check if we need output current node as placeholder character and ignore
-  // child nodes.
-  if (ShouldReplaceContainerWithPlaceholder(mElement->NodeInfo()->NameAtom())) {
-    if (mIgnoredChildNodeLevel == 0) {
-      // Serialize current node as placeholder character
-      Write(NS_LITERAL_STRING(u"\xFFFC"));
-    }
-    // Ignore child nodes.
-    mIgnoredChildNodeLevel++;
-    return NS_OK;
-  }
   if (IsIgnorableRubyAnnotation(aTag)) {
     // Ignorable ruby annotation shouldn't be replaced by a placeholder
     // character, neither any of its descendants.
@@ -694,7 +667,7 @@ nsresult nsPlainTextSerializer::DoOpenContainer(nsAtom* aTag) {
 
   // Else make sure we'll separate block level tags,
   // even if we're about to leave, before doing any other formatting.
-  else if (IsElementBlock(mElement)) {
+  else if (IsCssBlockLevelElement(mElement)) {
     EnsureVerticalSpace(0);
   }
 
@@ -774,10 +747,6 @@ nsresult nsPlainTextSerializer::DoOpenContainer(nsAtom* aTag) {
 }
 
 nsresult nsPlainTextSerializer::DoCloseContainer(nsAtom* aTag) {
-  if (ShouldReplaceContainerWithPlaceholder(mElement->NodeInfo()->NameAtom())) {
-    mIgnoredChildNodeLevel--;
-    return NS_OK;
-  }
   if (IsIgnorableRubyAnnotation(aTag)) {
     mIgnoredChildNodeLevel--;
     return NS_OK;
@@ -788,7 +757,8 @@ nsresult nsPlainTextSerializer::DoCloseContainer(nsAtom* aTag) {
   }
 
   if (mFlags & nsIDocumentEncoder::OutputForPlainTextClipboardCopy) {
-    if (DoOutput() && IsInPre() && IsElementBlock(mElement)) {
+    if (DoOutput() && IsElementPreformatted() &&
+        IsCssBlockLevelElement(mElement)) {
       // If we're closing a preformatted block element, output a line break
       // when we find a new container.
       mPreformattedBlockBoundary = true;
@@ -898,7 +868,7 @@ nsresult nsPlainTextSerializer::DoCloseContainer(nsAtom* aTag) {
     mLineBreakDue = true;
   } else if (aTag == nsGkAtoms::q) {
     Write(NS_LITERAL_STRING("\""));
-  } else if (IsElementBlock(mElement)) {
+  } else if (IsCssBlockLevelElement(mElement)) {
     // All other blocks get 1 vertical space after them
     // in formatted mode, otherwise 0.
     // This is hard. Sometimes 0 is a better number, but
@@ -1005,7 +975,7 @@ void nsPlainTextSerializer::DoAddText(bool aIsLineBreak,
     // prettyprinting to mimic the html format, and in neither case
     // does the formatting of the html source help us.
     if ((mFlags & nsIDocumentEncoder::OutputPreformatted) ||
-        (mPreFormattedMail && !mWrapColumn) || IsInPre()) {
+        (mPreFormattedMail && !mWrapColumn) || IsElementPreformatted()) {
       EnsureVerticalSpace(mEmptyLines + 1);
     } else if (!mInWhitespace) {
       Write(kSpace);
@@ -1062,8 +1032,6 @@ nsresult nsPlainTextSerializer::DoAddLeaf(nsAtom* aTag) {
     Write(line);
 
     EnsureVerticalSpace(0);
-  } else if (mFlags & nsIDocumentEncoder::OutputNonTextContentAsPlaceholder) {
-    Write(NS_LITERAL_STRING(u"\xFFFC"));
   } else if (aTag == nsGkAtoms::img) {
     /* Output (in decreasing order of preference)
        alt, title or nothing */
@@ -1122,6 +1090,7 @@ void nsPlainTextSerializer::FlushLine() {
       OutputQuotesAndIndent();  // XXX: Should we always do this? Bug?
     }
 
+    MaybeReplaceNbspsForOutput(mCurrentLine);
     Output(mCurrentLine);
     mAtFirstColumn = mAtFirstColumn && mCurrentLine.IsEmpty();
     mCurrentLine.Truncate();
@@ -1129,22 +1098,16 @@ void nsPlainTextSerializer::FlushLine() {
   }
 }
 
-/**
- * Prints the text to output to our current output device (the string
- * mOutputString). The only logic here is to replace non breaking spaces with a
- * normal space since most (all?) receivers of the result won't understand the
- * nbsp and even be confused by it.
- */
-void nsPlainTextSerializer::Output(nsString& aString) {
-  if (!aString.IsEmpty()) {
-    mStartedOutput = true;
-  }
-
+void nsPlainTextSerializer::MaybeReplaceNbspsForOutput(
+    nsString& aString) const {
   if (!(mFlags & nsIDocumentEncoder::OutputPersistNBSP)) {
     // First, replace all nbsp characters with spaces,
     // which the unicode encoder won't do for us.
     aString.ReplaceChar(kNBSP, kSPACE);
   }
+}
+
+void nsPlainTextSerializer::Output(nsString& aString) {
   mOutputString->Append(aString);
 }
 
@@ -1164,7 +1127,7 @@ static bool IsSpaceStuffable(const char16_t* s) {
  */
 void nsPlainTextSerializer::AddToLine(const char16_t* aLineFragment,
                                       int32_t aLineFragmentLength) {
-  uint32_t prefixwidth =
+  const uint32_t prefixwidth =
       (mCiteQuoteLevel > 0 ? mCiteQuoteLevel + 1 : 0) + mIndent;
 
   if (mLineBreakDue) EnsureVerticalSpace(mFloatingLines);
@@ -1198,6 +1161,7 @@ void nsPlainTextSerializer::AddToLine(const char16_t* aLineFragment,
   }
 
   mCurrentLine.Append(aLineFragment, aLineFragmentLength);
+
   if (MayWrap()) {
     mCurrentLineWidth +=
         GetUnicharStringWidth(aLineFragment, aLineFragmentLength);
@@ -1207,12 +1171,9 @@ void nsPlainTextSerializer::AddToLine(const char16_t* aLineFragment,
             (int32_t)mCurrentLineWidth,
         "mCurrentLineWidth and reality out of sync!");
 #endif
-  }
 
-  linelength = mCurrentLine.Length();
+    linelength = mCurrentLine.Length();
 
-  //  Wrap?
-  if (MayWrap()) {
 #ifdef DEBUG_wrapping
     NS_ASSERTION(
         GetUnicharstringWidth(mCurrentLine.get(), mCurrentLine.Length()) ==
@@ -1296,7 +1257,7 @@ void nsPlainTextSerializer::AddToLine(const char16_t* aLineFragment,
           mCurrentLine.Right(restOfLine, linelength - goodSpace);
         }
         // if breaker was U+0020, it has to consider for delsp=yes support
-        bool breakBySpace = mCurrentLine.CharAt(goodSpace) == ' ';
+        const bool breakBySpace = mCurrentLine.CharAt(goodSpace) == ' ';
         mCurrentLine.Truncate(goodSpace);
         EndLine(true, breakBySpace);
         mCurrentLine.Truncate();
@@ -1321,8 +1282,6 @@ void nsPlainTextSerializer::AddToLine(const char16_t* aLineFragment,
         break;
       }
     }
-  } else {
-    // No wrapping.
   }
 }
 
@@ -1347,7 +1306,6 @@ void nsPlainTextSerializer::EndLine(bool aSoftlinebreak, bool aBreakBySpace) {
    * signed messages according to the OpenPGP standard (RFC 2440).
    */
   if (!(mFlags & nsIDocumentEncoder::OutputPreformatted) &&
-      !(mFlags & nsIDocumentEncoder::OutputDontRemoveLineEndingSpaces) &&
       (aSoftlinebreak || !(mCurrentLine.EqualsLiteral("-- ") ||
                            mCurrentLine.EqualsLiteral("- -- ")))) {
     // Remove spaces from the end of the line.
@@ -1392,6 +1350,7 @@ void nsPlainTextSerializer::EndLine(bool aSoftlinebreak, bool aBreakBySpace) {
   }
 
   mCurrentLine.Append(mLineBreak);
+  MaybeReplaceNbspsForOutput(mCurrentLine);
   Output(mCurrentLine);
   mCurrentLine.Truncate();
   mCurrentLineWidth = 0;
@@ -1498,13 +1457,14 @@ void nsPlainTextSerializer::Write(const nsAString& aStr) {
   // that does normal formatted text. The one for preformatted text calls
   // Output directly while the other code path goes through AddToLine.
   if ((mPreFormattedMail && !mWrapColumn) ||
-      (IsInPre() && !mPreFormattedMail) ||
+      (IsElementPreformatted() && !mPreFormattedMail && !MayWrap()) ||
       (mSpanLevel > 0 && mEmptyLines >= 0 && IsQuotedLine(str))) {
     // No intelligent wrapping.
 
     // This mustn't be mixed with intelligent wrapping without clearing
     // the mCurrentLine buffer before!!!
-    NS_ASSERTION(mCurrentLine.IsEmpty() || (IsInPre() && !mPreFormattedMail),
+    NS_ASSERTION(mCurrentLine.IsEmpty() ||
+                     (IsElementPreformatted() && !mPreFormattedMail),
                  "Mixed wrapping data and nonwrapping data on the same line");
     if (!mCurrentLine.IsEmpty()) {
       FlushLine();
@@ -1586,6 +1546,7 @@ void nsPlainTextSerializer::Write(const nsAString& aStr) {
         OutputQuotesAndIndent();
       }
 
+      MaybeReplaceNbspsForOutput(mCurrentLine);
       Output(mCurrentLine);
       if (outputLineBreak) {
         Output(mLineBreak);
@@ -1711,7 +1672,7 @@ nsAtom* nsPlainTextSerializer::GetIdForContent(nsIContent* aContent) {
   return localName->IsStatic() ? localName : nullptr;
 }
 
-bool nsPlainTextSerializer::IsInPre() {
+bool nsPlainTextSerializer::IsElementPreformatted() const {
   return !mPreformatStack.empty() && mPreformatStack.top();
 }
 
@@ -1726,7 +1687,7 @@ bool nsPlainTextSerializer::IsElementPreformatted(Element* aElement) {
   return GetIdForContent(aElement) == nsGkAtoms::pre;
 }
 
-bool nsPlainTextSerializer::IsElementBlock(Element* aElement) {
+bool nsPlainTextSerializer::IsCssBlockLevelElement(Element* aElement) {
   RefPtr<ComputedStyle> computedStyle =
       nsComputedDOMStyle::GetComputedStyleNoFlush(aElement, nullptr);
   if (computedStyle) {
@@ -1734,7 +1695,7 @@ bool nsPlainTextSerializer::IsElementBlock(Element* aElement) {
     return displayStyle->IsBlockOutsideStyle();
   }
   // Fall back to looking at the tag, in case there is no style information.
-  return nsContentUtils::IsHTMLBlock(aElement);
+  return nsContentUtils::IsHTMLBlockLevelElement(aElement);
 }
 
 /**

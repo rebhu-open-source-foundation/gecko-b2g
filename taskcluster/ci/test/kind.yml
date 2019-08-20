@@ -34,6 +34,8 @@ jobs-from:
     - mochitest.yml
     - raptor.yml
     - raptor-chromium.yml
+    - raptor-fenix.yml
+    - raptor-fennec.yml
     - reftest.yml
     - talos.yml
     - web-platform.yml

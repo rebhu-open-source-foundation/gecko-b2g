@@ -1809,6 +1809,14 @@ class nsIFrame : public nsQueryFrame {
                                 Matrix* aFromParentTransforms = nullptr) const;
 
   /**
+   * Return true if this frame should form a backdrop root container.
+   * See: https://drafts.fxtf.org/filter-effects-2/#BackdropRootTriggers
+   */
+  bool FormsBackdropRoot(const nsStyleDisplay* aStyleDisplay,
+                         const nsStyleEffects* aStyleEffects,
+                         const nsStyleSVGReset* aStyleSvgReset);
+
+  /**
    * Returns whether this frame will attempt to extend the 3d transforms of its
    * children. This requires transform-style: preserve-3d, as well as no
    * clipping or svg effects.
@@ -3948,7 +3956,6 @@ class nsIFrame : public nsQueryFrame {
    */
   inline bool IsTableCaption() const;
 
-  inline bool IsBlockInside() const;
   inline bool IsBlockOutside() const;
   inline bool IsInlineOutside() const;
   inline mozilla::StyleDisplay GetDisplay() const;

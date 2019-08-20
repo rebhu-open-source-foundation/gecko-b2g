@@ -302,8 +302,7 @@ nsComputedDOMStyle::nsComputedDOMStyle(dom::Element* aElement,
       mPresShell(nullptr),
       mStyleType(aStyleType),
       mExposeVisitedStyle(false),
-      mResolvedComputedStyle(false)
-{
+      mResolvedComputedStyle(false) {
   MOZ_ASSERT(aElement);
   MOZ_ASSERT(aDocument);
   // TODO(emilio, bug 548397, https://github.com/w3c/csswg-drafts/issues/2403):
@@ -799,8 +798,11 @@ static nsIFrame* StyleFrame(nsIFrame* aOuterFrame) {
 }
 
 static bool IsNonReplacedInline(nsIFrame* aFrame) {
-  return aFrame->StyleDisplay()->mDisplay == StyleDisplay::Inline &&
-    !aFrame->IsFrameOfType(nsIFrame::eReplaced);
+  // FIXME: this should be IsInlineInsideStyle() since width/height
+  // doesn't apply to ruby boxes.
+  return aFrame->StyleDisplay()->DisplayInside() ==
+             StyleDisplayInside::Inline &&
+         !aFrame->IsFrameOfType(nsIFrame::eReplaced);
 }
 
 static Side SideForPaddingOrMarginOrInsetProperty(nsCSSPropertyID aPropID) {
@@ -890,8 +892,8 @@ bool nsComputedDOMStyle::NeedsToFlushLayout(nsCSSPropertyID aPropID) const {
       // TODO(emilio): If we make GetUsedPadding() stop returning 0 for an
       // unreflowed frame, or something of that sort, then we can stop flushing
       // layout for themed frames.
-      return PaddingNeedsUsedValue(
-             style->StylePadding()->mPadding.Get(side), *style);
+      return PaddingNeedsUsedValue(style->StylePadding()->mPadding.Get(side),
+                                   *style);
     }
     case eCSSProperty_margin_top:
     case eCSSProperty_margin_right:
@@ -1004,8 +1006,7 @@ void nsComputedDOMStyle::UpdateCurrentStyleSources(nsCSSPropertyID aPropID) {
   uint64_t currentGeneration =
       mPresShell->GetPresContext()->GetUndisplayedRestyleGeneration();
 
-  if (mComputedStyle &&
-      mComputedStyleGeneration == currentGeneration &&
+  if (mComputedStyle && mComputedStyleGeneration == currentGeneration &&
       mPresShellId == mPresShell->GetPresShellId()) {
     // Our cached style is still valid.
     return;
@@ -1031,8 +1032,7 @@ void nsComputedDOMStyle::UpdateCurrentStyleSources(nsCSSPropertyID aPropID) {
     // Need to resolve a style.
     RefPtr<ComputedStyle> resolvedComputedStyle = DoGetComputedStyleNoFlush(
         mElement, mPseudo,
-        presShellForContent ? presShellForContent : mPresShell,
-        mStyleType);
+        presShellForContent ? presShellForContent : mPresShell, mStyleType);
     if (!resolvedComputedStyle) {
       ClearComputedStyle();
       return;

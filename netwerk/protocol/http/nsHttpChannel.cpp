@@ -1441,12 +1441,14 @@ nsresult ProcessXCTO(nsHttpChannel* aChannel, nsIURI* aURI,
                            Report::Error);
     return NS_ERROR_CORRUPTED_CONTENT;
   }
+
   auto policyType = aLoadInfo->GetExternalContentPolicyType();
-  if (policyType == nsIContentPolicy::TYPE_DOCUMENT ||
-      policyType == nsIContentPolicy::TYPE_SUBDOCUMENT) {
+  if ((policyType == nsIContentPolicy::TYPE_DOCUMENT ||
+       policyType == nsIContentPolicy::TYPE_SUBDOCUMENT) &&
+      gHttpHandler->IsDocumentNosniffEnabled()) {
     // If the header XCTO nosniff is set for any browsing context, then
     // we set the skipContentSniffing flag on the Loadinfo. Within
-    // NS_SniffContent we then bail early and do not do any sniffing.
+    // GetMIMETypeFromContent we then bail early and do not do any sniffing.
     aLoadInfo->SetSkipContentSniffing(true);
     return NS_OK;
   }
@@ -2254,9 +2256,7 @@ void nsHttpChannel::ProcessSecurityReport(nsresult status) {
   }
 }
 
-bool nsHttpChannel::IsHTTPS() {
-  return mURI->SchemeIs("https");
-}
+bool nsHttpChannel::IsHTTPS() { return mURI->SchemeIs("https"); }
 
 void nsHttpChannel::ProcessSSLInformation() {
   // If this is HTTPS, record any use of RSA so that Key Exchange Algorithm
@@ -2895,7 +2895,8 @@ nsresult nsHttpChannel::ContinueProcessResponse4(nsresult rv) {
   bool doNotRender = DoNotRender3xxBody(rv);
 
   if (rv == NS_ERROR_DOM_BAD_URI && mRedirectURI) {
-    bool isHTTP = mRedirectURI->SchemeIs("http") || mRedirectURI->SchemeIs("https");
+    bool isHTTP =
+        mRedirectURI->SchemeIs("http") || mRedirectURI->SchemeIs("https");
     if (!isHTTP) {
       // This was a blocked attempt to redirect and subvert the system by
       // redirecting to another protocol (perhaps javascript:)
@@ -7420,7 +7421,7 @@ nsresult nsHttpChannel::ComputeCrossOriginOpenerPolicyMismatch() {
   nsILoadInfo::CrossOriginOpenerPolicy documentPolicy = ctx->GetOpenerPolicy();
   nsILoadInfo::CrossOriginOpenerPolicy resultPolicy =
       nsILoadInfo::OPENER_POLICY_NULL;
-  GetCrossOriginOpenerPolicy(&resultPolicy);
+  Unused << GetCrossOriginOpenerPolicy(documentPolicy, &resultPolicy);
 
   if (!ctx->Canonical()->GetCurrentWindowGlobal()) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -7567,7 +7568,8 @@ nsresult nsHttpChannel::ProcessCrossOriginResourcePolicyHeader() {
     // Note that we treat invalid value as "cross-origin", which spec indicates.
     // We might want to make that stricter.
     if ((content.IsEmpty() && ctx &&
-        ctx->GetEmbedderPolicy() == nsILoadInfo::EMBEDDER_POLICY_REQUIRE_CORP)) {
+         ctx->GetEmbedderPolicy() ==
+             nsILoadInfo::EMBEDDER_POLICY_REQUIRE_CORP)) {
       content = NS_LITERAL_CSTRING("same-origin");
     }
   }
@@ -7679,8 +7681,10 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
              "Unexpected request");
 
   MOZ_ASSERT(mRaceCacheWithNetwork || !(mTransactionPump && mCachePump) ||
-                 mCachedContentIsPartial,
-             "If we have both pumps, the cache content must be partial");
+                 mCachedContentIsPartial || mTransactionReplaced,
+             "If we have both pumps, we're racing cache with network, the cache"
+             " content is partial, or the cache entry was revalidated and "
+             "OnStopRequest was not called yet for the transaction pump.");
 
   mAfterOnStartRequestBegun = true;
   if (mOnStartRequestTimestamp.IsNull()) {
@@ -9634,12 +9638,6 @@ void nsHttpChannel::MaybeWarnAboutAppCache() {
   GetCallback(warner);
   if (warner) {
     warner->IssueWarning(Document::eAppCache, false);
-    // When the page is insecure and the API is still enabled
-    // provide an additional warning for developers of removal
-    if (!IsHTTPS() &&
-        Preferences::GetBool("browser.cache.offline.insecure.enable")) {
-      warner->IssueWarning(Document::eAppCacheInsecure, true);
-    }
   }
 }
 
