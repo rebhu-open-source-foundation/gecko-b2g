@@ -53,3 +53,10 @@ If you can't run a http server on device, remote the port 8081 to your host:
 - `adb reverse tcp:8081 tcp:8081`
 - `cd $path-to-gecko-dev/b2g`
 - `python -m SimpleHTTPServer 8081`
+
+## Download Build Artifacts
+- Click the pipeline status will redirect to the latest commit of the default branch.
+- In the lastest commit page, click the related build to be downloaded.
+- In the jobs page, the job artifacts are available at the right menu.
+
+Note: Will keep the artifacts for two weeks only.
