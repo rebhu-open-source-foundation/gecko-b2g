@@ -3305,6 +3305,15 @@ fi
 # FIXME(fabrice)
 # AC_DEFINE(MOZ_B2G)
 
+dnl bug 988880: disable startup cache on b2g
+if test -n "$MOZ_B2G"; then
+  MOZ_DISABLE_STARTUPCACHE=1
+fi
+if test -n "$MOZ_DISABLE_STARTUPCACHE"; then
+  AC_DEFINE(MOZ_DISABLE_STARTUPCACHE)
+fi
+AC_SUBST(MOZ_DISABLE_STARTUPCACHE)
+
 MOZ_CREATE_CONFIG_STATUS()
 
 rm -fr confdefs* $ac_clean_files
