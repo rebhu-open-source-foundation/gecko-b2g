@@ -4,7 +4,7 @@
 == 347496-1.xhtml 347496-1-ref.xhtml
 random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == 355548-1.xml 355548-1-ref.xml # Bug 1392106
 random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == 355548-2.xml 355548-2-ref.xml # Bug 1392106
-pref(mathml.nonzero_unitless_lengths.disabled,false) pref(mathml.mathsize_names.disabled,false) random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == 355548-3.xml 355548-3-ref.xml # Bug 1392106
+pref(mathml.legacy_number_syntax.disabled,false) pref(mathml.nonzero_unitless_lengths.disabled,false) pref(mathml.mathsize_names.disabled,false) random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == 355548-3.xml 355548-3-ref.xml # Bug 1392106
 random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == 355548-4.xml 355548-4-ref.xml # Bug 1392106
 random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == 355548-5.xml 355548-5-ref.xml # Bug 1392106
 == 370692-1.xhtml 370692-1-ref.xhtml
@@ -155,11 +155,11 @@ random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == munderover-align-accent-
 pref(mathml.mfrac_linethickness_names.disabled,false) == mfrac-linethickness-1.xhtml mfrac-linethickness-1-ref.xhtml
 pref(mathml.nonzero_unitless_lengths.disabled,false) == mfrac-linethickness-2.xhtml mfrac-linethickness-2-ref.xhtml
 == mfrac-linethickness-3.xhtml mfrac-linethickness-3-ref.xhtml
-== mathml-negativespace.html mathml-negativespace-ref.html
+pref(mathml.mathspace_names.disabled,false) == mathml-negativespace.html mathml-negativespace-ref.html
 == negative-mspace-1.html negative-mspace-1-ref.html
 != link-1.xhtml link-ref.xhtml
 == munderover-empty-scripts.html munderover-empty-scripts-ref.html
-== positive-namedspace.html positive-namedspace-ref.html
+pref(mathml.mathspace_names.disabled,false) == positive-namedspace.html positive-namedspace-ref.html
 == mtable-align-whitespace.html mtable-align-whitespace-ref.html
 == mtable-width.html mtable-width-ref.html
 == mtable-rowlines-single-mtable-dynamic.html mtable-rowlines-single-ref.html

@@ -51,7 +51,7 @@ elif toolkit == 'android':
     DIRS += ['android']
 elif toolkit == 'gonk':
     DIRS += ['gonk']
-elif toolkit == 'gtk3':
+elif toolkit == 'gtk':
     DIRS += ['linux']
 
 if toolkit != 'cocoa':

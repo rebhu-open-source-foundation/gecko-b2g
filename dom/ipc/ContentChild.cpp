@@ -816,8 +816,7 @@ static nsresult GetCreateWindowParams(mozIDOMWindowProxy* aParent,
 
   nsCOMPtr<nsIReferrerInfo> referrerInfo;
   if (aForceNoReferrer) {
-    referrerInfo = new ReferrerInfo(
-        nullptr, mozilla::net::ReferrerPolicy::RP_Unset, false);
+    referrerInfo = new ReferrerInfo(nullptr, ReferrerPolicy::_empty, false);
   }
   if (aLoadState && !referrerInfo) {
     referrerInfo = aLoadState->GetReferrerInfo();
@@ -828,8 +827,7 @@ static nsresult GetCreateWindowParams(mozIDOMWindowProxy* aParent,
     nsCOMPtr<nsIPrincipal> nullPrincipal =
         NullPrincipal::CreateWithoutOriginAttributes();
     if (!referrerInfo) {
-      referrerInfo =
-          new ReferrerInfo(nullptr, mozilla::net::ReferrerPolicy::RP_Unset);
+      referrerInfo = new ReferrerInfo(nullptr, ReferrerPolicy::_empty);
     }
 
     referrerInfo.swap(*aReferrerInfo);

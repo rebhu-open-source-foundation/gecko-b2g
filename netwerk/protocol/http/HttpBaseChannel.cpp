@@ -3246,7 +3246,7 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
   }
 
   if (mReferrerInfo) {
-    ReferrerPolicy referrerPolicy = RP_Unset;
+    dom::ReferrerPolicy referrerPolicy = dom::ReferrerPolicy::_empty;
     nsAutoCString tRPHeaderCValue;
     Unused << GetResponseHeader(NS_LITERAL_CSTRING("referrer-policy"),
                                 tRPHeaderCValue);
@@ -3254,11 +3254,11 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
 
     if (!tRPHeaderValue.IsEmpty()) {
       referrerPolicy =
-          nsContentUtils::GetReferrerPolicyFromHeader(tRPHeaderValue);
+          dom::ReferrerInfo::ReferrerPolicyFromHeaderString(tRPHeaderValue);
     }
 
     DebugOnly<nsresult> success;
-    if (referrerPolicy != RP_Unset) {
+    if (referrerPolicy != dom::ReferrerPolicy::_empty) {
       // We may reuse computed referrer in redirect, so if referrerPolicy
       // changes, we must not use the old computed value, and have to compute
       // again.
@@ -4399,7 +4399,7 @@ NS_IMETHODIMP HttpBaseChannel::GetCrossOriginOpenerPolicy(
     // The return value will be true if we find any whitespace. If there is
     // whitespace, then it must be followed by "unsafe-allow-outgoing" otherwise
     // this is a malformed header value.
-    bool unsafeAllowOutgoing =
+    unsafeAllowOutgoing =
         t.ReadUntil(Tokenizer::Token::Whitespace(), samenessString);
     if (unsafeAllowOutgoing) {
       t.SkipWhites();

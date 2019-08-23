@@ -978,11 +978,12 @@ void nsSocketTransport::SendStatus(nsresult status) {
 }
 
 nsresult nsSocketTransport::ResolveHost() {
-  SOCKET_LOG(("nsSocketTransport::ResolveHost [this=%p %s:%d%s]\n", this,
-              SocketHost().get(), SocketPort(),
-              mConnectionFlags & nsSocketTransport::BYPASS_CACHE
-                  ? " bypass cache"
-                  : ""));
+  SOCKET_LOG((
+      "nsSocketTransport::ResolveHost [this=%p %s:%d%s] "
+      "mProxyTransparentResolvesHost=%d\n",
+      this, SocketHost().get(), SocketPort(),
+      mConnectionFlags & nsSocketTransport::BYPASS_CACHE ? " bypass cache" : "",
+      mProxyTransparentResolvesHost));
 
   nsresult rv;
 
@@ -1062,7 +1063,7 @@ nsresult nsSocketTransport::ResolveHost() {
       esniHost.Append("_esni.");
       // This might end up being the SocketHost
       // see https://github.com/ekr/draft-rescorla-tls-esni/issues/61
-      esniHost.Append(mOriginHost);
+      esniHost.Append(SocketHost());
       rv = dns->AsyncResolveByTypeNative(
           esniHost, nsIDNSService::RESOLVE_TYPE_TXT, dnsFlags, this,
           mSocketTransportService, mOriginAttributes,

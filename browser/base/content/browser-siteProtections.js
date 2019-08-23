@@ -311,13 +311,6 @@ var TrackingProtection = {
     ));
   },
 
-  get strictInfo() {
-    delete this.strictInfo;
-    return (this.strictInfo = document.getElementById(
-      "protections-popup-trackersView-strict-info"
-    ));
-  },
-
   strings: {
     get subViewBlocked() {
       delete this.subViewBlocked;
@@ -410,9 +403,6 @@ var TrackingProtection = {
 
     let contentBlockingLog = await gBrowser.selectedBrowser.getContentBlockingLog();
     contentBlockingLog = JSON.parse(contentBlockingLog);
-
-    // Don't tell the user to turn on TP if they are already blocking trackers.
-    this.strictInfo.hidden = this.enabled;
 
     let fragment = document.createDocumentFragment();
     for (let [origin, actions] of Object.entries(contentBlockingLog)) {
@@ -1622,12 +1612,6 @@ var gProtectionsHandler = {
     if (event.target == this._protectionsPopup) {
       window.removeEventListener("focus", this, true);
       gIdentityHandler._trackingProtectionIconContainer.removeAttribute("open");
-
-      // Hide the tracker counter when the popup get hidden.
-      this._protectionsPopupTrackersCounterBox.toggleAttribute(
-        "showing",
-        false
-      );
     }
   },
 
@@ -1920,12 +1904,6 @@ var gProtectionsHandler = {
       );
     }
 
-    // Show the blocked tracker counter if it is not updating. We can sure the
-    // data in the tracker counter is up-to-date here, so we can show it.
-    if (!this._updatingFooter) {
-      this._protectionsPopupTrackersCounterBox.toggleAttribute("showing", true);
-    }
-
     // Update the tooltip of the blocked tracker counter.
     this.maybeUpdateEarliestRecordedDateTooltip();
   },
@@ -1998,7 +1976,10 @@ var gProtectionsHandler = {
     this._protectionsPopupTrackersCounterDescription.textContent = PluralForm.get(
       trackerCount,
       forms
-    ).replace("#1", trackerCount);
+    ).replace(
+      "#1",
+      trackerCount.toLocaleString(Services.locale.appLocalesAsBCP47)
+    );
 
     // Show the counter if the number of tracker is not zero.
     this._protectionsPopupTrackersCounterBox.toggleAttribute(

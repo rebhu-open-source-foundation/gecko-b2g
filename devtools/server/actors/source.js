@@ -240,10 +240,19 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
       (this._contentType.includes("javascript") ||
         this._contentType === "text/wasm")
     ) {
-      return toResolvedContent(this._source.text);
+      // If the source doesn't start at line 1, line numbers in the client will
+      // not match up with those in the source. Pad the text with blank lines to
+      // fix this. This can show up for sources associated with inline scripts
+      // in HTML created via document.write() calls: the script's source line
+      // number is relative to the start of the written HTML, but we show the
+      // source's content by itself.
+      const padding = this._source.startLine
+        ? "\n".repeat(this._source.startLine - 1)
+        : "";
+      return toResolvedContent(padding + this._source.text);
     }
 
-    const result = await this.sources.htmlFileContents(
+    const result = await this.sources.urlContents(
       this.url,
       /* partial */ false,
       /* canUseCache */ this.isInlineSource
@@ -285,7 +294,7 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     // attaches to an existing page. In this case we don't need to get the
     // displacement synchronously, so it's OK if we yield to the event loop
     // while the promise resolves.
-    const fileContents = this.sources.htmlFileContents(
+    const fileContents = this.sources.urlContents(
       this.url,
       /* partial */ true,
       /* canUseCache */ this.isInlineSource
@@ -305,13 +314,7 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
   },
 
   _calculateStartLineColumnDisplacement(fileContents) {
-    const scripts = this._findDebuggeeScripts();
-    if (!scripts.length) {
-      return {};
-    }
-
-    const sorted = scripts.sort((a, b) => b.startLine < a.startLine);
-    const startLine = sorted[0].startLine;
+    const startLine = this._source.startLine;
 
     const lineBreak = /\r\n?|\n|\u2028|\u2029/;
     const fileStartLine =
@@ -380,6 +383,35 @@ const SourceActor = ActorClassWithSpec(sourceSpec, {
     } = query || {};
 
     const scripts = this._findDebuggeeScripts();
+
+    // We need to find all breakpoint positions, even if scripts associated with
+    // this source have been GC'ed. We detect this by looking for a script which
+    // does not have a function: a source will typically have a top level
+    // non-function script. If this top level script still exists, then it keeps
+    // all its child scripts alive and we will find all breakpoint positions by
+    // scanning the existing scripts. If the top level script has been GC'ed
+    // then we won't find its breakpoint positions, and inner functions may have
+    // been GC'ed as well. In this case we reparse the source and generate a new
+    // and complete set of scripts to look for the breakpoint positions.
+    // Note that in some cases like "new Function(stuff)" there might not be a
+    // top level non-function script, but if there is a non-function script then
+    // it must be at the top level and will keep all other scripts in the source
+    // alive.
+    const isWasm = this._source.introductionType === "wasm";
+    if (!isWasm && !scripts.some(script => !script.isFunction)) {
+      scripts.length = 0;
+      function addScripts(script) {
+        scripts.push(script);
+        script.getChildScripts().forEach(addScripts);
+      }
+      try {
+        addScripts(this._source.reparse());
+      } catch (e) {
+        // reparse() will throw if the source is not valid JS. This can happen
+        // if this source is the resurrection of a GC'ed source and there are
+        // parse errors in the refetched contents.
+      }
+    }
 
     const positions = [];
     for (const script of scripts) {
