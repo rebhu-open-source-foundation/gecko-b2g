@@ -4687,11 +4687,16 @@ nsresult nsContentUtils::ParseFragmentHTML(const nsAString& aSourceBuffer,
     // Don't fire mutation events for nodes removed by the sanitizer.
     nsAutoScriptBlockerSuppressNodeRemoved scriptBlocker;
 
+#if !defined(MOZ_B2G)
+    // The sanitizer removes some attributes used by lit-element, breaking
+    // the system app UI.
+    // See https://bugzilla.mozilla.org/show_bug.cgi?id=1576045 for details.
     nsTreeSanitizer sanitizer(nsIParserUtils::SanitizerAllowStyle |
                               nsIParserUtils::SanitizerAllowComments |
                               nsIParserUtils::SanitizerDropForms |
                               nsIParserUtils::SanitizerLogRemovals);
     sanitizer.Sanitize(fragment);
+#endif
 
     ErrorResult error;
     aTargetNode->AppendChild(*fragment, error);

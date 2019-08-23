@@ -277,7 +277,7 @@
                 });
                 this.attrs = [];
 
-                // Hack around failing to add the progress listener befor construct() runs.
+                // Hack around failing to add the progress listener before construct() runs.
                 this.browser.delayConnectedCallback = () => {
                     return false;
                 }
@@ -336,7 +336,13 @@
 
         set src(url) {
             this.log(`set src to ${url}`);
-            !!this.browser && this.browser.setAttribute("src", url);
+            // If we are not yet connected to the DOM, add that action to the list
+            // of attribute changes.
+            if (!this.browser) {
+              this.attrs.push({ name: "src", new_value: url});
+            } else {
+              this.browser.setAttribute("src", url);
+            }
         }
 
         get canGoBack() {
