@@ -87,7 +87,7 @@
 @RESPATH@/res/drawable-hdpi
 @RESPATH@/res/layout
 #endif
-#ifdef MOZ_GTK3
+#ifdef MOZ_GTK
 @BINPATH@/@DLL_PREFIX@mozgtk@DLL_SUFFIX@
 @BINPATH@/gtk2/@DLL_PREFIX@mozgtk@DLL_SUFFIX@
 #endif
