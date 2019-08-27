@@ -89,8 +89,6 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   void FlushLine();
   void OutputQuotesAndIndent(bool stripTrailingSpaces = false);
 
-  void MaybeReplaceNbspsForOutput(nsString& aString) const;
-
   void Output(nsString& aString);
   void Write(const nsAString& aString);
 
@@ -110,21 +108,24 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   nsresult DoOpenContainer(nsAtom* aTag);
   nsresult DoCloseContainer(nsAtom* aTag);
   nsresult DoAddLeaf(nsAtom* aTag);
-  void DoAddText(bool aIsWhitespace, const nsAString& aText);
+
+  void DoAddText();
+  // @param aText Ignored if aIsLineBreak is true.
+  void DoAddText(bool aIsLineBreak, const nsAString& aText);
 
   // Inlined functions
-  inline bool MayWrap() {
+  inline bool MayWrap() const {
     return mWrapColumn &&
-           ((mSettings.mFlags & nsIDocumentEncoder::OutputFormatted) ||
-            (mSettings.mFlags & nsIDocumentEncoder::OutputWrap));
+           mSettings.HasFlag(nsIDocumentEncoder::OutputFormatted |
+                             nsIDocumentEncoder::OutputWrap);
   }
-  inline bool MayBreakLines() {
-    return !(mSettings.mFlags & nsIDocumentEncoder::OutputDisallowLineBreaking);
+  inline bool MayBreakLines() const {
+    return !mSettings.HasFlag(nsIDocumentEncoder::OutputDisallowLineBreaking);
   }
 
   inline bool DoOutput() const { return mHeadLevel == 0; }
 
-  inline bool IsQuotedLine(const nsAString& aLine) {
+  static inline bool IsQuotedLine(const nsAString& aLine) {
     return !aLine.IsEmpty() && aLine.First() == char16_t('>');
   }
 
@@ -134,7 +135,7 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   void PushBool(nsTArray<bool>& aStack, bool aValue);
   bool PopBool(nsTArray<bool>& aStack);
 
-  bool IsIgnorableRubyAnnotation(nsAtom* aTag);
+  bool IsIgnorableRubyAnnotation(nsAtom* aTag) const;
 
   // @return true, iff the elements' whitespace and newline characters have to
   //         be preserved according to its style or because it's a `<pre>`
@@ -148,7 +149,30 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   uint32_t mHeadLevel;
   bool mAtFirstColumn;
 
-  struct Settings {
+  class Settings {
+   public:
+    // May adapt the flags.
+    //
+    // @param aFlags As defined in nsIDocumentEncoder.idl.
+    void Init(int32_t aFlags);
+
+    // Pref: converter.html2txt.structs.
+    bool GetStructs() const { return mStructs; }
+
+    // Pref: converter.html2txt.header_strategy.
+    int32_t GetHeaderStrategy() const { return mHeaderStrategy; }
+
+    // @return As defined in nsIDocumentEncoder.idl.
+    int32_t GetFlags() const { return mFlags; }
+
+    // @param aFlag As defined in nsIDocumentEncoder.idl. May consist of
+    // multiple bitwise or'd flags.
+    bool HasFlag(int32_t aFlag) const { return mFlags & aFlag; }
+
+    // Whether the output should include ruby annotations.
+    bool GetWithRubyAnnotation() const { return mWithRubyAnnotation; }
+
+   private:
     // Pref: converter.html2txt.structs.
     bool mStructs = true;
 
@@ -168,12 +192,26 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
 
   Settings mSettings;
 
-  struct CurrentLineContent {
-    // Excludes indentation and quotes.
+  // Excludes indentation and quotes.
+  class CurrentLineContent {
+   public:
+    // @param aFlags As defined in nsIDocumentEncoder.idl.
+    explicit CurrentLineContent(int32_t aFlags);
+
+    void MaybeReplaceNbsps();
+
+    void AppendLineBreak();
+
     nsString mValue;
 
     // The width of the line as it will appear on the screen (approx.).
     uint32_t mWidth = 0;
+
+   private:
+    // As defined in nsIDocumentEncoder.idl.
+    int32_t mFlags;
+
+    nsString mLineBreak;
   };
 
   CurrentLineContent mCurrentLineContent;
@@ -253,7 +291,6 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
 
   uint32_t mULCount;
 
-  nsString mLineBreak;
   RefPtr<mozilla::intl::LineBreaker> mLineBreaker;
 
   // Conveniance constant. It would be nice to have it as a const static

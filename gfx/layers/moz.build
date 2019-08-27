@@ -412,7 +412,6 @@ UNIFIED_SOURCES += [
     'AxisPhysicsMSDModel.cpp',
     'basic/BasicCanvasLayer.cpp',
     'basic/BasicColorLayer.cpp',
-    'basic/BasicCompositor.cpp',
     'basic/BasicContainerLayer.cpp',
     'basic/BasicImages.cpp',
     'basic/BasicLayerManager.cpp',
@@ -575,6 +574,7 @@ UNIFIED_SOURCES += [
 ]
 
 SOURCES += [
+    'basic/BasicCompositor.cpp',
     'basic/BasicImageLayer.cpp',
     'ImageContainer.cpp',
     'PersistentBufferProvider.cpp',

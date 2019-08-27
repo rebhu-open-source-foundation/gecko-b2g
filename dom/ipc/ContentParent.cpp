@@ -1224,6 +1224,12 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
   if (loadContext && loadContext->UsePrivateBrowsing()) {
     chromeFlags |= nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW;
   }
+  if (loadContext && loadContext->UseRemoteTabs()) {
+    chromeFlags |= nsIWebBrowserChrome::CHROME_REMOTE_WINDOW;
+  }
+  if (loadContext && loadContext->UseRemoteSubframes()) {
+    chromeFlags |= nsIWebBrowserChrome::CHROME_FISSION_WINDOW;
+  }
   if (docShell->GetAffectPrivateSessionLifetime()) {
     chromeFlags |= nsIWebBrowserChrome::CHROME_PRIVATE_LIFETIME;
   }
@@ -3476,11 +3482,11 @@ mozilla::ipc::IPCResult ContentParent::RecvConstructPopupBrowser(
     if (!loadContext) {
       return IPC_FAIL(this, "Missing Opener LoadContext");
     }
-
-    bool isPrivate;
-    loadContext->GetUsePrivateBrowsing(&isPrivate);
-    if (isPrivate) {
+    if (loadContext->UsePrivateBrowsing()) {
       chromeFlags |= nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW;
+    }
+    if (loadContext->UseRemoteSubframes()) {
+      chromeFlags |= nsIWebBrowserChrome::CHROME_FISSION_WINDOW;
     }
   }
 
@@ -4739,14 +4745,13 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyTabDestroying(
   return IPC_OK();
 }
 
-mozilla::docshell::POfflineCacheUpdateParent*
+already_AddRefed<mozilla::docshell::POfflineCacheUpdateParent>
 ContentParent::AllocPOfflineCacheUpdateParent(
     const URIParams& aManifestURI, const URIParams& aDocumentURI,
     const PrincipalInfo& aLoadingPrincipalInfo, const bool& aStickDocument) {
   RefPtr<mozilla::docshell::OfflineCacheUpdateParent> update =
       new mozilla::docshell::OfflineCacheUpdateParent();
-  // Use this reference as the IPDL reference.
-  return update.forget().take();
+  return update.forget();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPOfflineCacheUpdateConstructor(
@@ -4766,14 +4771,6 @@ mozilla::ipc::IPCResult ContentParent::RecvPOfflineCacheUpdateConstructor(
   }
 
   return IPC_OK();
-}
-
-bool ContentParent::DeallocPOfflineCacheUpdateParent(
-    POfflineCacheUpdateParent* aActor) {
-  // Reclaim the IPDL reference.
-  RefPtr<mozilla::docshell::OfflineCacheUpdateParent> update = dont_AddRef(
-      static_cast<mozilla::docshell::OfflineCacheUpdateParent*>(aActor));
-  return true;
 }
 
 PWebrtcGlobalParent* ContentParent::AllocPWebrtcGlobalParent() {
@@ -4903,11 +4900,10 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 
 {
   // The content process should never be in charge of computing whether or
-  // not a window should be private or remote - the parent will do that.
+  // not a window should be private - the parent will do that.
   const uint32_t badFlags = nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW |
                             nsIWebBrowserChrome::CHROME_NON_PRIVATE_WINDOW |
-                            nsIWebBrowserChrome::CHROME_PRIVATE_LIFETIME |
-                            nsIWebBrowserChrome::CHROME_REMOTE_WINDOW;
+                            nsIWebBrowserChrome::CHROME_PRIVATE_LIFETIME;
   if (!!(aChromeFlags & badFlags)) {
     return IPC_FAIL(this, "Forbidden aChromeFlags passed");
   }
@@ -4916,6 +4912,23 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   BrowserHost* thisBrowserHost =
       thisBrowserParent ? thisBrowserParent->GetBrowserHost() : nullptr;
   MOZ_ASSERT(!thisBrowserParent == !thisBrowserHost);
+
+  // The content process should not have set its remote or fission flags if the
+  // parent doesn't also have these set.
+  if (thisBrowserHost) {
+    nsCOMPtr<nsILoadContext> context = thisBrowserHost->GetLoadContext();
+
+    // TODO: This failure condition is more relaxed than it should be, since
+    // there are some cases where the child process still fails to set the
+    // correct chrome flags. See bug 1576204.
+    if (((aChromeFlags & nsIWebBrowserChrome::CHROME_REMOTE_WINDOW) &&
+         !context->UseRemoteTabs()) ||
+        ((aChromeFlags & nsIWebBrowserChrome::CHROME_FISSION_WINDOW) &&
+         !context->UseRemoteSubframes())) {
+      return IPC_FAIL(this, "Unexpected aChromeFlags passed");
+    }
+  }
+
   nsCOMPtr<nsIContent> frame;
   if (thisBrowserParent) {
     frame = thisBrowserParent->GetOwnerElement();

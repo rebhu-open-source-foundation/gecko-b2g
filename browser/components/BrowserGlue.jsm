@@ -128,18 +128,6 @@ let ACTORS = {
 
     allFrames: true,
   },
-
-  SubframeCrash: {
-    parent: {
-      moduleURI: "resource:///actors/SubframeCrashParent.jsm",
-    },
-
-    child: {
-      moduleURI: "resource:///actors/SubframeCrashChild.jsm",
-    },
-
-    allFrames: true,
-  },
 };
 
 let LEGACY_ACTORS = {
@@ -514,6 +502,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   Corroborate: "resource://gre/modules/Corroborate.jsm",
   Discovery: "resource:///modules/Discovery.jsm",
   ExtensionsUI: "resource:///modules/ExtensionsUI.jsm",
+  FirefoxMonitor: "resource:///modules/FirefoxMonitor.jsm",
   FxAccounts: "resource://gre/modules/FxAccounts.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
   HybridContentTelemetry: "resource://gre/modules/HybridContentTelemetry.jsm",
@@ -533,6 +522,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   PluralForm: "resource://gre/modules/PluralForm.jsm",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
   ProcessHangMonitor: "resource:///modules/ProcessHangMonitor.jsm",
+  PublicSuffixList: "resource://gre/modules/netwerk-dns/PublicSuffixList.jsm",
   RemoteSettings: "resource://services-settings/remote-settings.js",
   RemoteSecuritySettings:
     "resource://gre/modules/psm/RemoteSecuritySettings.jsm",
@@ -621,6 +611,8 @@ const listeners = {
     "update-error": ["UpdateListener"],
     "gmp-plugin-crash": ["PluginManager"],
     "plugin-crashed": ["PluginManager"],
+    "passwordmgr-storage-changed": ["LoginManagerParent"],
+    "passwordmgr-autosaved-login-merged": ["LoginManagerParent"],
   },
 
   ppmm: {
@@ -1998,6 +1990,8 @@ BrowserGlue.prototype = {
     if (pService.createdAlternateProfile) {
       this._showNewInstallModal();
     }
+
+    FirefoxMonitor.init();
   },
 
   /**
@@ -2198,6 +2192,10 @@ BrowserGlue.prototype = {
 
     Services.tm.idleDispatchToMainThread(() => {
       RemoteSettings.init();
+    });
+
+    Services.tm.idleDispatchToMainThread(() => {
+      PublicSuffixList.init();
     });
 
     Services.tm.idleDispatchToMainThread(() => {

@@ -118,8 +118,6 @@ class HTMLEditRules : public TextEditRules {
     return mData->HTMLEditorRef();
   }
 
-  enum RulesEndpoint { kStart, kEnd };
-
   /**
    * WillInsertParagraphSeparator() is called when insertParagraph command is
    * executed or something equivalent.  This method actually tries to insert
@@ -409,7 +407,7 @@ class HTMLEditRules : public TextEditRules {
 
   /**
    * WillMakeBasicBlock() called before changing block style around Selection.
-   * This method actually does something with calling MakeBasicBlock().
+   * This method actually does something with calling FormatBlockContainer().
    *
    * @param aBlockType          Necessary block style as string.
    * @param aCancel             Returns true if the operation is canceled.
@@ -418,22 +416,6 @@ class HTMLEditRules : public TextEditRules {
   MOZ_CAN_RUN_SCRIPT
   MOZ_MUST_USE nsresult WillMakeBasicBlock(const nsAString& aBlockType,
                                            bool* aCancel, bool* aHandled);
-
-  /**
-   * MakeBasicBlock() applies or clears block style around Selection.
-   * This method creates AutoSelectionRestorer.  Therefore, each caller
-   * need to check if the editor is still available even if this returns
-   * NS_OK.
-   *
-   * @param aBlockType          New block tag name.
-   *                            If nsGkAtoms::normal or nsGkAtoms::_empty,
-   *                            RemoveBlockStyle() will be called.
-   *                            If nsGkAtoms::blockquote, MakeBlockquote()
-   *                            will be called.
-   *                            Otherwise, ApplyBlockStyle() will be called.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult MakeBasicBlock(nsAtom& aBlockType);
 
   /**
    * Called after creating a basic block, indenting, outdenting or aligning
@@ -524,20 +506,6 @@ class HTMLEditRules : public TextEditRules {
   nsresult AppendInnerFormatNodes(nsTArray<OwningNonNull<nsINode>>& aArray,
                                   nsINode* aNode);
   nsresult GetFormatString(nsINode* aNode, nsAString& outFormat);
-
-  /**
-   * aLists and aTables allow the caller to specify what kind of content to
-   * "look inside".  If aTables is Tables::yes, look inside any table content,
-   * and insert the inner content into the supplied nsTArray at offset
-   * aIndex.  Similarly with aLists and list content.  aIndex is updated to
-   * point past inserted elements.
-   */
-  enum class Lists { no, yes };
-  enum class Tables { no, yes };
-  void GetInnerContent(nsINode& aNode,
-                       nsTArray<OwningNonNull<nsINode>>& aOutArrayOfNodes,
-                       int32_t* aIndex, Lists aLists = Lists::yes,
-                       Tables aTables = Tables::yes) const;
 
   /**
    * If aNode is the descendant of a listitem, return that li.  But table
@@ -651,43 +619,6 @@ class HTMLEditRules : public TextEditRules {
   MOZ_MUST_USE SplitRangeOffFromNodeResult OutdentAroundSelection();
 
   /**
-   * SplitRangeOffFromBlockAndRemoveMiddleContainer() splits the nodes
-   * between aStartOfRange and aEndOfRange, then, removes the middle element
-   * and moves its content to where the middle element was.
-   *
-   * @param aBlockElement           The node which will be split.
-   * @param aStartOfRange           The first node which will be unwrapped
-   *                                from aBlockElement.
-   * @param aEndOfRange             The last node which will be unwrapped from
-   *                                aBlockElement.
-   * @return                        The left content is new created left
-   *                                element of aBlockElement.
-   *                                The right content is split element,
-   *                                i.e., must be aBlockElement.
-   *                                The middle content is nullptr since
-   *                                removing it is the job of this method.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE SplitRangeOffFromNodeResult
-  SplitRangeOffFromBlockAndRemoveMiddleContainer(Element& aBlockElement,
-                                                 nsIContent& aStartOfRange,
-                                                 nsIContent& aEndOfRange);
-
-  /**
-   * SplitRangeOffFromBlock() splits aBlock at two points, before aStartChild
-   * and after aEndChild.  If they are very start or very end of aBlcok, this
-   * won't create empty block.
-   *
-   * @param aBlockElement           A block element which will be split.
-   * @param aStartOfMiddleElement   Start node of middle block element.
-   * @param aEndOfMiddleElement     End node of middle block element.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE SplitRangeOffFromNodeResult SplitRangeOffFromBlock(
-      Element& aBlockElement, nsIContent& aStartOfMiddleElement,
-      nsIContent& aEndOfMiddleElement);
-
-  /**
    * OutdentPartOfBlock() outdents the nodes between aStartOfOutdent and
    * aEndOfOutdent.  This splits the range off from aBlockElement first.
    * Then, removes the middle element if aIsBlockIndentedWithCSS is false.
@@ -793,101 +724,11 @@ class HTMLEditRules : public TextEditRules {
   MOZ_CAN_RUN_SCRIPT
   MOZ_MUST_USE nsresult ExpandSelectionForDeletion();
 
-  /**
-   * NormalizeSelection() adjust Selection if it's not collapsed and there is
-   * only one range.  If range start and/or end point is <br> node or something
-   * non-editable point, they should be moved to nearest text node or something
-   * where the other methods easier to handle edit action.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult NormalizeSelection();
-
-  /**
-   * GetPromotedPoint() figures out where a start or end point for a block
-   * operation really is.
-   */
-  EditorDOMPoint GetPromotedPoint(RulesEndpoint aWhere, nsINode& aNode,
-                                  int32_t aOffset,
-                                  EditSubAction aEditSubAction) const;
-
-  /**
-   * GetPromotedRanges() runs all the selection range endpoint through
-   * GetPromotedPoint().
-   */
-  void GetPromotedRanges(nsTArray<RefPtr<nsRange>>& outArrayOfRanges,
-                         EditSubAction aEditSubAction) const;
-
-  /**
-   * PromoteRange() expands a range to include any parents for which all
-   * editable children are already in range.
-   */
-  void PromoteRange(nsRange& aRange, EditSubAction aEditSubAction) const;
-
-  /**
-   * GetNodesForOperation() runs through the ranges in the array and construct a
-   * new array of nodes to be acted on.
-   *
-   * XXX This name stats with "Get" but actually this modifies the DOM tree with
-   *     transaction.  We should rename this to making clearer what this does.
-   */
-  enum class TouchContent { no, yes };
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult GetNodesForOperation(
-      nsTArray<RefPtr<nsRange>>& aArrayOfRanges,
-      nsTArray<OwningNonNull<nsINode>>& aOutArrayOfNodes,
-      EditSubAction aEditSubAction, TouchContent aTouchContent) const;
-
-  void GetChildNodesForOperation(
-      nsINode& aNode, nsTArray<OwningNonNull<nsINode>>& outArrayOfNodes);
-
-  /**
-   * GetNodesFromPoint() constructs a list of nodes from a point that will be
-   * operated on.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult
-  GetNodesFromPoint(const EditorDOMPoint& aPoint, EditSubAction aEditSubAction,
-                    nsTArray<OwningNonNull<nsINode>>& outArrayOfNodes,
-                    TouchContent aTouchContent) const;
-
-  /**
-   * GetNodesFromSelection() constructs a list of nodes from the selection that
-   * will be operated on.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult
-  GetNodesFromSelection(EditSubAction aEditSubAction,
-                        nsTArray<OwningNonNull<nsINode>>& outArrayOfNodes,
-                        TouchContent aTouchContent) const;
-
-  enum class EntireList { no, yes };
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult
-  GetListActionNodes(nsTArray<OwningNonNull<nsINode>>& aOutArrayOfNodes,
-                     EntireList aEntireList, TouchContent aTouchContent) const;
   void GetDefinitionListItemTypes(Element* aElement, bool* aDT,
                                   bool* aDD) const;
   MOZ_CAN_RUN_SCRIPT
   nsresult GetParagraphFormatNodes(
       nsTArray<OwningNonNull<nsINode>>& outArrayOfNodes);
-  void LookInsideDivBQandList(
-      nsTArray<OwningNonNull<nsINode>>& aNodeArray) const;
-
-  /**
-   * BustUpInlinesAtBRs() splits before all <br> elements in aNode.  All <br>
-   * nodes will be moved before right node at splitting its parent.  Finally,
-   * this returns all <br> elements, every left node and aNode with
-   * aOutArrayNodes.
-   *
-   * @param aNode               An inline container element.
-   * @param aOutArrayOfNodes    All found <br> elements, left nodes (may not
-   *                            be set if <br> is at start edge of aNode) and
-   *                            aNode itself.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult
-  BustUpInlinesAtBRs(nsIContent& aNode,
-                     nsTArray<OwningNonNull<nsINode>>& aOutArrayOfNodes) const;
 
   /**
    * MakeTransitionList() detects all the transitions in the array, where a
@@ -896,71 +737,6 @@ class HTMLEditRules : public TextEditRules {
    */
   void MakeTransitionList(nsTArray<OwningNonNull<nsINode>>& aNodeArray,
                           nsTArray<bool>& aTransitionArray);
-
-  /**
-   * RemoveBlockStyle() removes all format blocks, table related element,
-   * etc in aNodeArray.
-   * If aNodeArray has a format node, it will be removed and its contents
-   * will be moved to where it was.
-   * If aNodeArray has a table related element, <li>, <blockquote> or <div>,
-   * it will removed and its contents will be moved to where it was.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  nsresult RemoveBlockStyle(nsTArray<OwningNonNull<nsINode>>& aNodeArray);
-
-  /**
-   * ApplyBlockStyle() formats all nodes in aNodeArray with block elements
-   * whose name is aBlockTag.
-   * If aNodeArray has an inline element, a block element is created and the
-   * inline element and following inline elements are moved into the new block
-   * element.
-   * If aNodeArray has <br> elements, they'll be removed from the DOM tree and
-   * new block element will be created when there are some remaining inline
-   * elements.
-   * If aNodeArray has a block element, this calls itself with children of
-   * the block element.  Then, new block element will be created when there
-   * are some remaining inline elements.
-   *
-   * @param aNodeArray      Must be descendants of a node.
-   * @param aBlockTag       The element name of new block elements.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult ApplyBlockStyle(
-      nsTArray<OwningNonNull<nsINode>>& aNodeArray, nsAtom& aBlockTag);
-
-  /**
-   * MakeBlockquote() inserts at least one <blockquote> element and moves
-   * nodes in aNodeArray into new <blockquote> elements.  If aNodeArray
-   * includes a table related element except <table>, this calls itself
-   * recursively to insert <blockquote> into the cell.
-   *
-   * @param aNodeArray          Nodes which will be moved into created
-   *                            <blockquote> elements.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult
-  MakeBlockquote(nsTArray<OwningNonNull<nsINode>>& aNodeArray);
-
-  /**
-   * MaybeSplitAncestorsForInsertWithTransaction() does nothing if container of
-   * aStartOfDeepestRightNode can have an element whose tag name is aTag.
-   * Otherwise, looks for an ancestor node which is or is in active editing
-   * host and can have an element whose name is aTag.  If there is such
-   * ancestor, its descendants are split.
-   *
-   * Note that this may create empty elements while splitting ancestors.
-   *
-   * @param aTag                        The name of element to be inserted
-   *                                    after calling this method.
-   * @param aStartOfDeepestRightNode    The start point of deepest right node.
-   *                                    This point must be descendant of
-   *                                    active editing host.
-   * @return                            When succeeded, SplitPoint() returns
-   *                                    the point to insert the element.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE SplitNodeResult
-  MaybeSplitAncestorsForInsertWithTransaction(
-      nsAtom& aTag, const EditorDOMPoint& aStartOfDeepestRightNode);
 
   /**
    * JoinNearestEditableNodesWithTransaction() joins two editable nodes which

@@ -158,6 +158,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaDevices)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mServiceWorkerContainer)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaCapabilities)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAddonManager)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindow)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaKeySystemAccessManager)
@@ -242,6 +243,7 @@ void Navigator::Invalidate() {
   }
 
   mMediaCapabilities = nullptr;
+  mAddonManager = nullptr;
 }
 
 void Navigator::GetUserAgent(nsAString& aUserAgent, CallerType aCallerType,
@@ -1954,6 +1956,24 @@ Clipboard* Navigator::Clipboard() {
     mClipboard = new dom::Clipboard(GetWindow());
   }
   return mClipboard;
+}
+
+AddonManager* Navigator::GetMozAddonManager(ErrorResult& aRv) {
+  if (!mAddonManager) {
+    nsPIDOMWindowInner* win = GetWindow();
+    if (!win) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mAddonManager = ConstructJSImplementation<AddonManager>(
+        "@mozilla.org/addon-web-api/manager;1", win->AsGlobal(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+
+  return mAddonManager;
 }
 
 /* static */

@@ -884,16 +884,18 @@ class UrlbarInput {
     );
     this._layoutBreakoutPlaceholder.style.height = px(inputRect.height);
     this.textbox.before(this._layoutBreakoutPlaceholder);
+    this.setAttribute("breakout", "true");
   }
 
   endLayoutBreakout(force) {
     if (
       !force &&
-      (this.isOpen ||
+      (this.view.isOpen ||
         (this.focused && !this.textbox.classList.contains("hidden-focus")))
     ) {
       return;
     }
+    this.removeAttribute("breakout");
     if (this._layoutBreakoutPlaceholder) {
       this._layoutBreakoutPlaceholder.remove();
       this._layoutBreakoutPlaceholder = null;

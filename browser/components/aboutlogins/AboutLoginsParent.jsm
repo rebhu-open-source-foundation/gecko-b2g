@@ -70,17 +70,10 @@ const convertSubjectToLogin = subject => {
   return augmentVanillaLoginObject(login);
 };
 
-const SCHEME_REGEX = new RegExp(/^http(s)?:\/\//);
 const SUBDOMAIN_REGEX = new RegExp(/^www\d*\./);
 const augmentVanillaLoginObject = login => {
-  let title;
-  try {
-    // file:// URIs don't have a host property
-    title = new URL(login.origin).host || login.origin;
-  } catch (ex) {
-    title = login.origin.replace(SCHEME_REGEX, "");
-  }
-  title = title.replace(SUBDOMAIN_REGEX, "");
+  // Note that `displayOrigin` can also include a httpRealm.
+  let title = login.displayOrigin.replace(SUBDOMAIN_REGEX, "");
   return Object.assign({}, login, {
     title,
   });
@@ -92,12 +85,17 @@ var AboutLoginsParent = {
 
   // Listeners are added in BrowserGlue.jsm
   async receiveMessage(message) {
-    // Only respond to messages sent from about:logins.
-    if (
-      message.target.remoteType != EXPECTED_ABOUTLOGINS_REMOTE_TYPE ||
-      message.target.contentPrincipal.originNoSuffix != ABOUT_LOGINS_ORIGIN
-    ) {
-      return;
+    // Only respond to messages sent from a privlegedabout process. Ideally
+    // we would also check the contentPrincipal.originNoSuffix but this
+    // check has been removed due to bug 1576722.
+    if (message.target.remoteType != EXPECTED_ABOUTLOGINS_REMOTE_TYPE) {
+      throw new Error(
+        `AboutLoginsParent: Received ${
+          message.name
+        } message the remote type didn't match expectations: ${
+          message.target.remoteType
+        } == ${EXPECTED_ABOUTLOGINS_REMOTE_TYPE}`
+      );
     }
 
     switch (message.name) {
@@ -733,10 +731,17 @@ var AboutLoginsParent = {
     // authenticated. More diagnostics and error states can be handled
     // by other more Sync-specific pages.
     const loggedIn = state.status != UIState.STATUS_NOT_CONFIGURED;
+
+    // Pass the pref set if user has dismissed mobile promo footer
+    const dismissedMobileFooter = Services.prefs.getBoolPref(
+      HIDE_MOBILE_FOOTER_PREF
+    );
+
     return {
       loggedIn,
       email: state.email,
       avatarURL: state.avatarURL,
+      hideMobileFooter: !loggedIn || dismissedMobileFooter,
     };
   },
 

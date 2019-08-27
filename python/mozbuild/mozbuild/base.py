@@ -24,7 +24,10 @@ from mozversioncontrol import (
     InvalidRepoPath,
 )
 
-from .backend.configenvironment import ConfigEnvironment
+from .backend.configenvironment import (
+    ConfigEnvironment,
+    ConfigStatusFailure,
+)
 from .configure import ConfigureSandbox
 from .controller.clobber import Clobberer
 from .mozconfig import (
@@ -336,8 +339,12 @@ class MozbuildObject(ProcessExecutionMixin):
         if not os.path.exists(config_status) or not os.path.getsize(config_status):
             raise BuildEnvironmentNotFoundException('config.status not available. Run configure.')
 
-        self._config_environment = \
-            ConfigEnvironment.from_config_status(config_status)
+        try:
+            self._config_environment = \
+                ConfigEnvironment.from_config_status(config_status)
+        except ConfigStatusFailure as e:
+            six.raise_from(BuildEnvironmentNotFoundException(
+                'config.status is outdated or broken. Run configure.'), e)
 
         return self._config_environment
 
@@ -383,23 +390,6 @@ class MozbuildObject(ProcessExecutionMixin):
             platform_name = "macosx" + bits
 
         return platform_name, bits + 'bit'
-
-    @memoized_property
-    def extra_environment_variables(self):
-        '''Some extra environment variables are stored in .mozconfig.mk.
-        This functions extracts and returns them.'''
-        from mozbuild import shellutil
-        mozconfig_mk = os.path.join(self.topobjdir, '.mozconfig.mk')
-        env = {}
-        with open(mozconfig_mk) as fh:
-            for line in fh:
-                if line.startswith('export '):
-                    exports = shellutil.split(line)[1:]
-                    for e in exports:
-                        if '=' in e:
-                            key, value = e.split('=')
-                            env[key] = value
-        return env
 
     @memoized_property
     def repository(self):
@@ -620,7 +610,7 @@ class MozbuildObject(ProcessExecutionMixin):
                                   'Mozilla Build System', msg], ensure_exit_code=False)
         except Exception as e:
             self.log(logging.WARNING, 'notifier-failed',
-                     {'error': e.message}, 'Notification center failed: {error}')
+                     {'error': e}, 'Notification center failed: {error}')
 
     def _ensure_objdir_exists(self):
         if os.path.isdir(self.statedir):
@@ -890,16 +880,7 @@ class MachCommandBase(MozbuildObject):
             sys.exit(1)
 
         except MozconfigLoadException as e:
-            print('Error loading mozconfig: ' + e.path)
-            print('')
-            print(e.message)
-            if e.output:
-                print('')
-                print('mozconfig output:')
-                print('')
-                for line in e.output:
-                    print(line)
-
+            print(e)
             sys.exit(1)
 
         MozbuildObject.__init__(self, topsrcdir, context.settings,
@@ -914,20 +895,11 @@ class MachCommandBase(MozbuildObject):
             self.mozconfig
 
         except MozconfigFindException as e:
-            print(e.message)
+            print(e)
             sys.exit(1)
 
         except MozconfigLoadException as e:
-            print('Error loading mozconfig: ' + e.path)
-            print('')
-            print(e.message)
-            if e.output:
-                print('')
-                print('mozconfig output:')
-                print('')
-                for line in e.output:
-                    print(line)
-
+            print(e)
             sys.exit(1)
 
         # Always keep a log of the last command, but don't do that for mach

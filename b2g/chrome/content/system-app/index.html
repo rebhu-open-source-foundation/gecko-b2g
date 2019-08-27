@@ -92,6 +92,10 @@
         });
 
         function setup_keyboard() {
+            if (!input_method) {
+                return;
+            }
+
             input_method.setActive(true);
             let mgmt = input_method.mgmt;
 
