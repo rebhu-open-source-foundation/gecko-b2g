@@ -5,6 +5,9 @@
 (function() {
     const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
+    // Use a prefix to help with backward compatibility and ease UI porting.
+    const EVENT_PREFIX = "mozbrowser";
+
     // The progress listener attached to the webview, managing some events.
     function ProgressListener(webview) {
         this.webview = webview;
@@ -21,7 +24,7 @@
 
         dispatchEvent(name, detail) {
             this.log(`dispatching ${name}`);
-            let event = new CustomEvent(name, { detail });
+            let event = new CustomEvent(`${EVENT_PREFIX}${name}`, { detail });
             this.webview.dispatchEvent(event);
         },
 
@@ -41,7 +44,7 @@
           // Remove password from uri.
           location = Services.uriFixup.createExposableURI(location);
     
-          this.dispatchEvent("locationchange", { url: location.spec,
+          this.dispatchEvent(`locationchange`, { url: location.spec,
                                            canGoBack: this.webview.canGoBack,
                                            canGoForward: this.webview.canGoForward });
         },
@@ -306,7 +309,7 @@
         }
 
         dispatchCustomEvent(name, detail) {
-          let event = new CustomEvent(name, { detail });
+          let event = new CustomEvent(`${EVENT_PREFIX}${name}`, { detail });
           this.dispatchEvent(event);
         }
 
