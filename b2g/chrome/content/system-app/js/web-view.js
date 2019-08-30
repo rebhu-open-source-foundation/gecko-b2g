@@ -244,6 +244,10 @@
         }
 
         attributeChangedCallback(name, old_value, new_value) {
+            if (old_value === new_value) {
+              return;
+            }
+
             this.log(`attribute ${name} changed from ${old_value} to ${new_value}`);
             // If we have not created the browser yet, buffer the attribute modification.
             if (!this.browser) {

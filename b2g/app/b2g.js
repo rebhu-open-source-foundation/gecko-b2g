@@ -304,16 +304,9 @@ pref("editor.singleLine.pasteNewlines", 2);
 pref("ui.dragThresholdX", 25);
 pref("ui.dragThresholdY", 25);
 
-// Layers Acceleration.  We can only have nice things on gonk, because
-// they're not maintained anywhere else.
-#ifndef MOZ_WIDGET_GONK
-pref("dom.ipc.tabs.disabled", true);
-#else
 pref("dom.ipc.tabs.disabled", false);
 pref("layers.acceleration.disabled", false);
 pref("layers.async-pan-zoom.enabled", true);
-pref("gfx.content.azure.backends", "cairo");
-#endif
 
 // Web Notifications
 pref("notification.feature.enabled", true);
