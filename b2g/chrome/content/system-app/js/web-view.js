@@ -23,14 +23,15 @@
         },
 
         dispatchEvent(name, detail) {
-            this.log(`dispatching ${name}`);
-            let event = new CustomEvent(`${EVENT_PREFIX}${name}`, { detail });
+            this.log(`dispatching ${EVENT_PREFIX}${name}`);
+            let event = new CustomEvent(`${EVENT_PREFIX}${name}`, { bubbles: true, detail });
             this.webview.dispatchEvent(event);
         },
 
         QueryInterface: ChromeUtils.generateQI([Ci.nsIWebProgressListener,
                                                 Ci.nsISupportsWeakReference]),
         _seenLoadStart: false,
+        _seenLoadEnd: false,
     
         onLocationChange(webProgress, request, location, flags) {
           this.log(`onLocationChange ${location.spec}`);
@@ -38,6 +39,7 @@
           // Ignore locationchange events which occur before the first loadstart.
           // These are usually about:blank loads we don't care about.
           if (!this._seenLoadStart) {
+            this.log(`loadstart not seen yet, not dispatching locationchange`);
             return;
           }
     
@@ -54,8 +56,8 @@
           // this.log(`onStateChange ${stateFlags}`);
 
           if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
+            !this._seenLoadStart && this.dispatchEvent("loadstart");
             this._seenLoadStart = true;
-            this.dispatchEvent("loadstart");
           }
     
           if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
@@ -65,8 +67,11 @@
             //     backgroundColor = content.getComputedStyle(content.document.body)
             //                              .getPropertyValue("background-color");
             // } catch (e) { this.error(e); }
-            this.dispatchEvent("loadend", { backgroundColor });
-    
+            if (this._seenLoadStart && !this._seenLoadEnd) {
+              this.dispatchEvent("loadend", { backgroundColor });
+              this._seenLoadEnd = true;
+            }
+
             switch (status) {
               case Cr.NS_OK :
               case Cr.NS_BINDING_ABORTED :
@@ -196,7 +201,7 @@
           } else if (state & Ci.nsIWebProgressListener.STATE_IS_INSECURE) {
             securityStateDesc = "insecure";
           } else {
-            debug(`Unexpected securitychange state: ${state}`);
+            this.error(`Unexpected securitychange state: ${state}`);
             securityStateDesc = "???";
           }
     
@@ -232,11 +237,11 @@
         }
 
         log(msg) {
-            console.log(`<web-view>: ${msg}`);
+            console.log(`<web-view> ${msg}`);
         }
 
         error(msg) {
-            console.error(`<web-view>: ${msg}`);
+            console.error(`<web-view> ${msg}`);
         }
 
         static get observedAttributes() {
@@ -273,14 +278,22 @@
         connectedCallback() {
             this.log(`connectedCallback`);
             if (!this.browser) {
+                this.log(`creating xul:browser`);
                 // Creates a xul:browser with default attributes.
                 this.browser = document.createXULElement("browser");
+                this.browser.setAttribute("src", "about:blank");
                 this.browser.setAttribute("type", "content");
                 this.browser.setAttribute("style", "border: none; width: 100%; height: 100%");
 
+                let src = null;
+
                 // Apply buffered attribute changes.
                 this.attrs.forEach(attr => {
-                    this.update_attr(attr.name, attr.old_value, attr.new_value);
+                  if (attr.name == "src") {
+                    src = attr.new_value;
+                    return;
+                  }
+                  this.update_attr(attr.name, attr.old_value, attr.new_value);
                 });
                 this.attrs = [];
 
@@ -298,6 +311,10 @@
                 } else {
                   this.browser.addEventListener("DOMTitleChanged", this, false);
                 }
+
+                // Set the src to load once we have setup all listeners to not miss progress events
+                // like loadstart.
+                src && this.browser.setAttribute("src", src);
             }
         }
 
@@ -313,7 +330,8 @@
         }
 
         dispatchCustomEvent(name, detail) {
-          let event = new CustomEvent(`${EVENT_PREFIX}${name}`, { detail });
+          this.log(`dispatching ${EVENT_PREFIX}${name}`);
+          let event = new CustomEvent(`${EVENT_PREFIX}${name}`, { bubbles: true, detail });
           this.dispatchEvent(event);
         }
 
