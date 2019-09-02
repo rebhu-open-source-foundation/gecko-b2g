@@ -67,8 +67,8 @@ build:arm:
     - export GONK_PRODUCT_NAME=msm8909
     - export GET_FRAMEBUFFER_FORMAT_FROM_HWC=1
     - export PLATFORM_VERSION=27
-    - ./build-b2g.sh > /dev/null
-    - ./build-b2g.sh package > /dev/null
+    - ./build-b2g.sh
+    - ./build-b2g.sh package
   artifacts:
     expire_in: 2 week
     paths:

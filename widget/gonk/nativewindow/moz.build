@@ -14,17 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-EXPORTS += [
-    'GonkBufferQueue.h',
-    'GonkNativeWindow.h',
-]
+if CONFIG['ANDROID_VERSION'] < '26':
+    EXPORTS += [
+        'GonkBufferQueue.h',
+        'GonkNativeWindow.h',
+    ]
 
-if CONFIG['ANDROID_VERSION'] >= '19':
+if CONFIG['ANDROID_VERSION'] >= '19' and CONFIG['ANDROID_VERSION'] < '26':
     EXPORTS += [
         'IGonkGraphicBufferConsumer.h',
     ]
 
-if CONFIG['ANDROID_VERSION'] >= '23':
+if CONFIG['ANDROID_VERSION'] >= '26':
+    EXPORTS += [
+        'GonkBufferQueueO/GonkBufferQueue.h',
+        'GonkBufferQueueO/GonkBufferQueueDefs.h',
+        'GonkBufferQueueO/GonkBufferQueueProducer.h',
+        'GonkBufferQueueO/GonkBufferSlot.h',
+        'GonkBufferQueueO/GonkConsumerBase.h',
+        'GonkBufferQueueO/GonkNativeWindow.h',
+        'GonkBufferQueueO/GonkNativeWindowClient.h',
+        'GonkBufferQueueO/IGonkGraphicBufferConsumer.h',
+    ]
+elif CONFIG['ANDROID_VERSION'] >= '23':
     EXPORTS += [
         'GonkBufferQueueM/GonkBufferQueueDefs.h',
         'GonkBufferQueueM/GonkBufferQueueM.h',
@@ -39,7 +51,20 @@ else:
     error('KaiOS only supports ANDROID_VERSION >= 23 : %s' % CONFIG['ANDROID_VERSION'])
 
 if CONFIG['MOZ_B2G_CAMERA'] or CONFIG['MOZ_OMX_DECODER'] or CONFIG['MOZ_WEBRTC']:
-    if CONFIG['ANDROID_VERSION'] >= '23':
+    if CONFIG['ANDROID_VERSION'] >= '26':
+        SOURCES += [
+            'GonkBufferQueueO/GonkBufferItem.cpp',
+            'GonkBufferQueueO/GonkBufferQueue.cpp',
+            'GonkBufferQueueO/GonkBufferQueueConsumer.cpp',
+            'GonkBufferQueueO/GonkBufferQueueCore.cpp',
+            'GonkBufferQueueO/GonkBufferQueueProducer.cpp',
+            'GonkBufferQueueO/GonkBufferSlot.cpp',
+            'GonkBufferQueueO/GonkConsumerBase.cpp',
+            'GonkBufferQueueO/GonkNativeWindow.cpp',
+            'GonkBufferQueueO/GonkNativeWindowClient.cpp',
+            'GonkBufferQueueO/IGonkGraphicBufferConsumer.cpp',
+        ]
+    elif CONFIG['ANDROID_VERSION'] >= '23':
         SOURCES += [
             'GonkBufferQueueM/GonkBufferItem.cpp',
             'GonkBufferQueueM/GonkBufferQueueConsumer.cpp',
@@ -73,11 +98,41 @@ if CONFIG['ANDROID_VERSION'] >= '18':
         ]
     ]
 
+if CONFIG['ANDROID_VERSION'] >= '29':
+    LOCAL_INCLUDES += [
+        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+            'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
+        ]
+    ]
+
+if CONFIG['ANDROID_VERSION'] >= '28':
+    LOCAL_INCLUDES += [
+        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
+        ]
+    ]
+
+if CONFIG['ANDROID_VERSION'] >= '26':
+    LOCAL_INCLUDES += [
+        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+            'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen',
+            'system/libhidl/transport/token/1.0/utils/include',
+	    ]
+    ]
+
 # Suppress some GCC warnings being treated as errors:
 #  - about attributes on forward declarations for types that are already
 #    defined, which complains about an important MOZ_EXPORT for android::AString
 if CONFIG['GNU_CC']:
   CXXFLAGS += ['-Wno-error=attributes', '-Wno-overloaded-virtual']
+
+if CONFIG['ANDROID_VERSION'] >= '29':
+    CXXFLAGS += [
+        '-std=c++17',
+    ]
 
 CXXFLAGS += [
     '-Wno-macro-redefined',

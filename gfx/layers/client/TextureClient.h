@@ -22,6 +22,7 @@
 #include "mozilla/ipc/Shmem.h"  // for Shmem
 #include "mozilla/layers/AtomicRefCountedWithFinalize.h"
 #include "mozilla/layers/CompositorTypes.h"  // for TextureFlags, etc
+#include "mozilla/layers/FenceUtils.h" // for FenceHandle
 #include "mozilla/layers/ISurfaceAllocator.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor
@@ -319,8 +320,25 @@ class TextureData {
 #ifdef MOZ_WIDGET_GONK
   virtual GrallocTextureData* AsGrallocTextureData() { return nullptr; }
 #endif
+
+  virtual void SetReleaseFenceHandle(const FenceHandle& aReleaseFenceHandle) {}
+
+  virtual FenceHandle GetAndResetReleaseFenceHandle() { return FenceHandle(); }
+
+  virtual void SetAcquireFenceHandle(const FenceHandle& aAcquireFenceHandle)
+  {
+    mAcquireFenceHandle = aAcquireFenceHandle;
+  }
+
+  virtual const FenceHandle& GetAcquireFenceHandle() const
+  {
+    return mAcquireFenceHandle;
+  }
+
  protected:
   TextureData() { MOZ_COUNT_CTOR(TextureData); }
+
+  FenceHandle mAcquireFenceHandle;
 };
 
 /**

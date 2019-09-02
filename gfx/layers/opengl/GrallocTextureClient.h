@@ -101,24 +101,24 @@ public:
 
   virtual GrallocTextureData* AsGrallocTextureData() override { return this; }
 
-  virtual void SetReleaseFenceHandle(const FenceHandle& aReleaseFenceHandle)
+  virtual void SetReleaseFenceHandle(const FenceHandle& aReleaseFenceHandle) override
   {
     mReleaseFenceHandle.Merge(aReleaseFenceHandle);
   }
 
-  virtual FenceHandle GetAndResetReleaseFenceHandle()
+  virtual FenceHandle GetAndResetReleaseFenceHandle() override
   {
     FenceHandle fence;
     mReleaseFenceHandle.TransferToAnotherFenceHandle(fence);
     return fence;
   }
 
-  virtual void SetAcquireFenceHandle(const FenceHandle& aAcquireFenceHandle)
+  virtual void SetAcquireFenceHandle(const FenceHandle& aAcquireFenceHandle) override
   {
     mAcquireFenceHandle = aAcquireFenceHandle;
   }
 
-  virtual const FenceHandle& GetAcquireFenceHandle() const
+  virtual const FenceHandle& GetAcquireFenceHandle() const override
   {
     return mAcquireFenceHandle;
   }
