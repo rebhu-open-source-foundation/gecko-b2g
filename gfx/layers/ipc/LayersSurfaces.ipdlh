@@ -78,6 +78,16 @@ struct SurfaceDescriptorMacIOSurface {
   YUVColorSpace yUVColorSpace;
 };
 
+struct SurfaceDescriptorDMABuf {
+  uint32_t width;
+  uint32_t height;
+  uint32_t format;
+  uint32_t flags;
+  FileDescriptor fd;
+  uint32_t stride;
+  uint32_t offset;
+};
+
 struct SurfaceTextureDescriptor {
   uint64_t handle;
   IntSize size;
@@ -172,6 +182,7 @@ union SurfaceDescriptor {
   SurfaceDescriptorFileMapping;
   SurfaceDescriptorDXGIYCbCr;
   SurfaceDescriptorX11;
+  SurfaceDescriptorDMABuf;
   SurfaceTextureDescriptor;
   EGLImageDescriptor;
   SurfaceDescriptorMacIOSurface;

@@ -237,6 +237,11 @@ panelview {
   padding: 0;
 }
 
+/* Remove padding on xul:arrowscrollbox to avoid extra padding on footer */
+#BMB_bookmarksPopup menupopup::part(popupbox) {
+  padding-bottom: 0px;
+}
+
 #confirmation-hint {
   --arrowpanel-background: #0060df;
   --arrowpanel-border-color: #0060df;
@@ -1699,14 +1704,13 @@ toolbarpaletteitem[place="menu-panel"] > .subviewbutton-nav::after {
   border-bottom: 1px solid var(--panel-separator-color);
   display: flex;
   flex: 1 auto;
-  height: 40px; /* fixed item height to prevent flex sizing; height + 2*4px padding */
   padding: 4px;
 }
 
 .panel-header > label {
   flex: auto;
   font-weight: 600;
-  margin: 0;
+  margin: 4px 0;
   text-align: center;
 }
 
@@ -1863,6 +1867,10 @@ toolbarpaletteitem[place="menu-panel"] > .subviewbutton-nav::after {
   display: block;
   height: 1px;
   background: var(--panel-separator-color);
+}
+
+#PanelUI-whatsNew .whatsNew-message:last-child {
+  border-bottom: none;
 }
 
 #PanelUI-whatsNew .whatsNew-message-date {

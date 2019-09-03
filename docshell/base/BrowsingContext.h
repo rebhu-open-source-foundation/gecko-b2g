@@ -209,12 +209,21 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
 
   BrowsingContext* Top();
 
-  already_AddRefed<BrowsingContext> GetOpener() const { return Get(mOpenerId); }
+  already_AddRefed<BrowsingContext> GetOpener() const {
+    RefPtr<BrowsingContext> opener(Get(mOpenerId));
+    if (!mIsDiscarded && opener && !opener->mIsDiscarded) {
+      return opener.forget();
+    }
+    return nullptr;
+  }
   void SetOpener(BrowsingContext* aOpener) {
+    MOZ_DIAGNOSTIC_ASSERT(!aOpener || aOpener->Group() == Group());
     SetOpenerId(aOpener ? aOpener->Id() : 0);
   }
 
   bool HasOpener() const;
+
+  bool HadOriginalOpener() const { return mHadOriginalOpener; }
 
   /**
    * When a new browsing context is opened by a sandboxed document, it needs to
@@ -269,9 +278,6 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // This function would be called when we want to reset the user gesture
   // activation flag of the top level browsing context.
   void NotifyResetUserGestureActivation();
-
-  // Return true if it corresponding document is activated by user gesture.
-  bool GetUserGestureActivation();
 
   // Return the window proxy object that corresponds to this browsing context.
   inline JSObject* GetWindowProxy() const { return mWindowProxy; }
@@ -481,9 +487,7 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
           uintptr_t(this) - offsetof(BrowsingContext, mLocation));
     }
 
-    already_AddRefed<nsIDocShell> GetDocShell() override {
-      return nullptr;
-    }
+    already_AddRefed<nsIDocShell> GetDocShell() override { return nullptr; }
   };
 
   // Ensure that opener is in the same BrowsingContextGroup.

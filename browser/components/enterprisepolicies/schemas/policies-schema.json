@@ -497,12 +497,20 @@
       "type": "boolean"
     },
 
+    "OfferToSaveLoginsDefault": {
+      "type": "boolean"
+    },
+
     "OverrideFirstRunPage": {
       "type": "URLorEmpty"
     },
 
     "OverridePostUpdatePage": {
       "type": "URLorEmpty"
+    },
+
+    "PasswordManagerEnabled": {
+      "type": "boolean"
     },
 
     "Permissions": {

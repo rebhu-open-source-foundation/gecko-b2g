@@ -25,7 +25,6 @@
 #include "HTMLEditorEventListener.h"
 #include "HTMLEditRules.h"
 #include "HTMLEditUtils.h"
-#include "HTMLURIRefObject.h"
 #include "TextEditUtils.h"
 #include "TypeInState.h"
 
@@ -38,7 +37,6 @@
 #include "mozilla/css/Loader.h"
 
 #include "nsIContent.h"
-#include "nsIMutableArray.h"
 #include "nsContentUtils.h"
 #include "nsIDocumentEncoder.h"
 #include "nsGenericHTMLElement.h"
@@ -1800,9 +1798,9 @@ nsresult HTMLEditor::SetParagraphFormatAsAction(
                          "MakeDefinitionListItemWithTransaction() failed");
     return EditorBase::ToGenericNSResult(rv);
   }
-  nsresult rv = InsertBasicBlockWithTransaction(*tagName);
+  nsresult rv = FormatBlockContainerAsSubAction(*tagName);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "InsertBasicBlockWithTransaction() failed");
+                       "FormatBlockContainerAsSubAction() failed");
   return EditorBase::ToGenericNSResult(rv);
 }
 
@@ -2266,7 +2264,7 @@ nsresult HTMLEditor::MakeDefinitionListItemWithTransaction(nsAtom& aTagName) {
   return NS_OK;
 }
 
-nsresult HTMLEditor::InsertBasicBlockWithTransaction(nsAtom& aTagName) {
+nsresult HTMLEditor::FormatBlockContainerAsSubAction(nsAtom& aTagName) {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
   if (!mRules) {
@@ -2275,83 +2273,39 @@ nsresult HTMLEditor::InsertBasicBlockWithTransaction(nsAtom& aTagName) {
 
   MOZ_ASSERT(&aTagName != nsGkAtoms::dd && &aTagName != nsGkAtoms::dt);
 
-  // Protect the edit rules object from dying
-  RefPtr<TextEditRules> rules(mRules);
-
-  bool cancel, handled;
-
   AutoPlaceholderBatch treatAsOneTransaction(*this);
   AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eCreateOrRemoveBlock, nsIEditor::eNext);
 
-  nsDependentAtomString tagName(&aTagName);
-  EditSubActionInfo subActionInfo(EditSubAction::eCreateOrRemoveBlock);
-  subActionInfo.blockType = &tagName;
-  nsresult rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
-  if (cancel || NS_FAILED(rv)) {
-    return rv;
+  EditActionResult result = CanHandleHTMLEditSubAction();
+  if (result.Canceled() || NS_WARN_IF(result.Failed())) {
+    return result.Rv();
   }
 
-  if (!handled && SelectionRefPtr()->IsCollapsed()) {
-    nsRange* firstRange = SelectionRefPtr()->GetRangeAt(0);
-    if (NS_WARN_IF(!firstRange)) {
-      return NS_ERROR_FAILURE;
-    }
-
-    EditorDOMPoint atStartOfSelection(firstRange->StartRef());
-    if (NS_WARN_IF(!atStartOfSelection.IsSet()) ||
-        NS_WARN_IF(!atStartOfSelection.GetContainerAsContent())) {
-      return NS_ERROR_FAILURE;
-    }
-
-    // Have to find a place to put the block.
-    EditorDOMPoint pointToInsertBlock(atStartOfSelection);
-
-    while (!CanContainTag(*pointToInsertBlock.GetContainer(), aTagName)) {
-      pointToInsertBlock.Set(pointToInsertBlock.GetContainer());
-      if (NS_WARN_IF(!pointToInsertBlock.IsSet()) ||
-          NS_WARN_IF(!pointToInsertBlock.GetContainerAsContent())) {
-        return NS_ERROR_FAILURE;
-      }
-    }
-
-    if (pointToInsertBlock.GetContainer() !=
-        atStartOfSelection.GetContainer()) {
-      // We need to split up to the child of the point to insert a block.
-      SplitNodeResult splitBlockResult = SplitNodeDeepWithTransaction(
-          MOZ_KnownLive(*pointToInsertBlock.GetChild()), atStartOfSelection,
-          SplitAtEdges::eAllowToCreateEmptyContainer);
-      if (NS_WARN_IF(splitBlockResult.Failed())) {
-        return splitBlockResult.Rv();
-      }
-      pointToInsertBlock = splitBlockResult.SplitPoint();
-      if (NS_WARN_IF(!pointToInsertBlock.IsSet())) {
-        return NS_ERROR_FAILURE;
-      }
-    }
-
-    // Create a block and insert it before the right node if we split some
-    // parents of start of selection above, or just start of selection
-    // otherwise.
-    RefPtr<Element> newBlock =
-        CreateNodeWithTransaction(aTagName, pointToInsertBlock);
-    if (NS_WARN_IF(!newBlock)) {
-      return NS_ERROR_FAILURE;
-    }
-
-    // reposition selection to inside the block
-    ErrorResult error;
-    SelectionRefPtr()->Collapse(RawRangeBoundary(newBlock, 0), error);
-    if (NS_WARN_IF(error.Failed())) {
-      return error.StealNSResult();
-    }
+  // FYI: Ignore cancel result of WillInsert() since we've already checked
+  //      whether we can or cannot edit current selection range.
+  nsresult rv = WillInsert();
+  if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+    return NS_ERROR_EDITOR_DESTROYED;
   }
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "WillInsert() failed, but ignored");
 
-  rv = rules->DidDoAction(subActionInfo, rv);
+  // FormatBlockContainerWithTransaction() creates AutoSelectionRestorer.
+  // Therefore, even if it returns NS_OK, editor might have been destroyed
+  // at restoring Selection.
+  rv = FormatBlockContainerWithTransaction(aTagName);
+  if (NS_WARN_IF(Destroyed())) {
+    return NS_ERROR_EDITOR_DESTROYED;
+  }
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-  return NS_OK;
+
+  rv = MaybeInsertPaddingBRElementForEmptyLastLineAtSelection();
+  NS_WARNING_ASSERTION(
+      NS_SUCCEEDED(rv),
+      "MaybeInsertPaddingBRElementForEmptyLastLineAtSelection() failed");
+  return rv;
 }
 
 NS_IMETHODIMP
@@ -3045,39 +2999,6 @@ nsresult HTMLEditor::SetHTMLBackgroundColorWithTransaction(
                                                 *nsGkAtoms::bgcolor, aColor)
                   : RemoveAttributeWithTransaction(
                         *rootElementOfBackgroundColor, *nsGkAtoms::bgcolor);
-}
-
-NS_IMETHODIMP
-HTMLEditor::GetLinkedObjects(nsIArray** aNodeList) {
-  NS_ENSURE_TRUE(aNodeList, NS_ERROR_NULL_POINTER);
-
-  nsresult rv;
-  nsCOMPtr<nsIMutableArray> nodes = do_CreateInstance(NS_ARRAY_CONTRACTID, &rv);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  RefPtr<Document> doc = GetDocument();
-  NS_ENSURE_TRUE(doc, NS_ERROR_UNEXPECTED);
-
-  PostContentIterator postOrderIter;
-  postOrderIter.Init(doc->GetRootElement());
-
-  // loop through the content iterator for each content node
-  for (; !postOrderIter.IsDone(); postOrderIter.Next()) {
-    nsCOMPtr<nsINode> node = postOrderIter.GetCurrentNode();
-    if (node) {
-      // Let nsURIRefObject make the hard decisions:
-      nsCOMPtr<nsIURIRefObject> refObject;
-      rv = NS_NewHTMLURIRefObject(getter_AddRefs(refObject), node);
-      if (NS_SUCCEEDED(rv)) {
-        nodes->AppendElement(refObject);
-      }
-    }
-  }
-
-  nodes.forget(aNodeList);
-  return NS_OK;
 }
 
 NS_IMETHODIMP

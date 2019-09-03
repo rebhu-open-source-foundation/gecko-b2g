@@ -978,6 +978,12 @@ var Policies = {
     },
   },
 
+  OfferToSaveLoginsDefault: {
+    onBeforeUIStartup(manager, param) {
+      setDefaultPref("signon.rememberSignons", param);
+    },
+  },
+
   OverrideFirstRunPage: {
     onProfileAfterChange(manager, param) {
       let url = param ? param.href : "";
@@ -994,6 +1000,17 @@ var Policies = {
       // as a fallback when the update.xml file hasn't provided
       // a specific post-update URL.
       manager.disallowFeature("postUpdateCustomPage");
+    },
+  },
+
+  PasswordManagerEnabled: {
+    onBeforeUIStartup(manager, param) {
+      if (!param) {
+        blockAboutPage(manager, "about:logins", true);
+        gBlockedChromePages.push("passwordManager.xul");
+        setAndLockPref("pref.privacy.disable_button.view_passwords", true);
+      }
+      setAndLockPref("signon.rememberSignons", param);
     },
   },
 

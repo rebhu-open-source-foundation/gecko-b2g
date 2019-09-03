@@ -544,8 +544,8 @@ add_task(async function testSubViewTelemetry() {
 
   for (let [item, telemetryId] of items) {
     await BrowserTestUtils.withNewTab("http://www.example.com", async () => {
-      await openProtectionsPanel();
       item.classList.remove("notFound"); // Force visible for test
+      await openProtectionsPanel();
       let viewShownEvent = BrowserTestUtils.waitForEvent(
         gProtectionsHandler._protectionsPopupMultiView,
         "ViewShown"
@@ -614,6 +614,9 @@ add_task(async function testQuickSwitchTabAfterTogglingTPSwitch() {
     ContentBlockingAllowList.includes(tabTwo.linkedBrowser),
     "The ETP state of the second tab has been changed to disabled."
   );
+
+  // Clean up the state of the allow list for the second tab.
+  ContentBlockingAllowList.remove(tabTwo.linkedBrowser);
 
   BrowserTestUtils.removeTab(tabOne);
   BrowserTestUtils.removeTab(tabTwo);

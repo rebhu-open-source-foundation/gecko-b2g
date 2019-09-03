@@ -4291,7 +4291,7 @@ mozilla::ipc::IPCResult ContentParent::RecvScriptError(
     const nsString& aSourceLine, const uint32_t& aLineNumber,
     const uint32_t& aColNumber, const uint32_t& aFlags,
     const nsCString& aCategory, const bool& aFromPrivateWindow,
-    const bool& aFromChromeContext) {
+    const uint64_t& aInnerWindowId, const bool& aFromChromeContext) {
   return RecvScriptErrorInternal(aMessage, aSourceName, aSourceLine,
                                  aLineNumber, aColNumber, aFlags, aCategory,
                                  aFromPrivateWindow, aFromChromeContext);
@@ -4918,13 +4918,10 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   if (thisBrowserHost) {
     nsCOMPtr<nsILoadContext> context = thisBrowserHost->GetLoadContext();
 
-    // TODO: This failure condition is more relaxed than it should be, since
-    // there are some cases where the child process still fails to set the
-    // correct chrome flags. See bug 1576204.
-    if (((aChromeFlags & nsIWebBrowserChrome::CHROME_REMOTE_WINDOW) &&
-         !context->UseRemoteTabs()) ||
-        ((aChromeFlags & nsIWebBrowserChrome::CHROME_FISSION_WINDOW) &&
-         !context->UseRemoteSubframes())) {
+    if ((!!(aChromeFlags & nsIWebBrowserChrome::CHROME_REMOTE_WINDOW) !=
+         context->UseRemoteTabs()) ||
+        (!!(aChromeFlags & nsIWebBrowserChrome::CHROME_FISSION_WINDOW) !=
+         context->UseRemoteSubframes())) {
       return IPC_FAIL(this, "Unexpected aChromeFlags passed");
     }
   }

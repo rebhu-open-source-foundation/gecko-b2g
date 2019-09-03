@@ -159,45 +159,6 @@ class HTMLEditRules : public TextEditRules {
   MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult DidDeleteSelection();
 
   /**
-   * InsertBRIfNeeded() determines if a br is needed for current selection to
-   * not be spastic.  If so, it inserts one.  Callers responsibility to only
-   * call with collapsed selection.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult InsertBRIfNeeded();
-
-  /**
-   * Insert normal <br> element into aNode when aNode is a block and it has
-   * no children.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult InsertBRIfNeeded(nsINode& aNode) {
-    return InsertBRIfNeededInternal(aNode, false);
-  }
-
-  /**
-   * Insert padding <br> element for empty last line into aNode when aNode is a
-   * block and it has no children.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult
-  InsertPaddingBRElementForEmptyLastLineIfNeeded(nsINode& aNode) {
-    return InsertBRIfNeededInternal(aNode, true);
-  }
-
-  /**
-   * Insert a normal <br> element or a padding <br> element for empty last line
-   * to aNode when aNode is a block and it has no children.  Use
-   * InsertBRIfNeeded() or InsertPaddingBRElementForEmptyLastLineIfNeeded()
-   * instead.
-   *
-   * @param aNode               Reference to a block parent.
-   * @param aForPadding         true if this should insert a <br> element for
-   *                            placing caret at empty last line.
-   *                            Otherwise, i.e., this should insert a normal
-   *                            <br> element, false.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult
-  InsertBRIfNeededInternal(nsINode& aNode, bool aForPadding);
-
-  /**
    * GetGoodSelPointForNode() finds where at a node you would want to set the
    * selection if you were trying to have a caret next to it.  Always returns a
    * valid value (unless mHTMLEditor has gone away).
@@ -406,25 +367,6 @@ class HTMLEditRules : public TextEditRules {
                                             bool* aHandled);
 
   /**
-   * WillMakeBasicBlock() called before changing block style around Selection.
-   * This method actually does something with calling FormatBlockContainer().
-   *
-   * @param aBlockType          Necessary block style as string.
-   * @param aCancel             Returns true if the operation is canceled.
-   * @param aHandled            Returns true if the edit action is handled.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult WillMakeBasicBlock(const nsAString& aBlockType,
-                                           bool* aCancel, bool* aHandled);
-
-  /**
-   * Called after creating a basic block, indenting, outdenting or aligning
-   * contents.  This method inserts a padding <br> element for empty last line
-   * if start container of Selection needs it.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult DidMakeBasicBlock();
-
-  /**
    * Called before changing an element to absolute positioned.
    * This method only prepares the operation since DidAbsolutePosition() will
    * change it actually later.  mNewBlockElement of TopLevelEditSubActionData
@@ -514,8 +456,6 @@ class HTMLEditRules : public TextEditRules {
    */
   Element* IsInListItem(nsINode* aNode);
 
-  nsAtom& DefaultParagraphSeparator();
-
   /**
    * ReturnInHeader() handles insertParagraph command (i.e., handling Enter
    * key press) in a heading element.  This splits aHeader element at
@@ -546,23 +486,6 @@ class HTMLEditRules : public TextEditRules {
    */
   MOZ_CAN_RUN_SCRIPT
   MOZ_MUST_USE EditActionResult ReturnInParagraph(Element& aParentDivOrP);
-
-  /**
-   * SplitParagraph() splits the parent block, aPara, at aSelNode - aOffset.
-   *
-   * @param aParentDivOrP       The parent block to be split.  This must be <p>
-   *                            or <div> element.
-   * @param aStartOfRightNode   The point to be start of right node after
-   *                            split.  This must be descendant of
-   *                            aParentDivOrP.
-   * @param aNextBRNode         Next <br> node if there is.  Otherwise, nullptr.
-   *                            If this is not nullptr, the <br> node may be
-   *                            removed.
-   */
-  template <typename PT, typename CT>
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult SplitParagraph(
-      Element& aParentDivOrP,
-      const EditorDOMPointBase<PT, CT>& aStartOfRightNode, nsIContent* aBRNode);
 
   /**
    * ReturnInListItem() handles insertParagraph command (i.e., handling
@@ -675,13 +598,6 @@ class HTMLEditRules : public TextEditRules {
   MOZ_MUST_USE CreateElementResult ConvertListType(Element& aListElement,
                                                    nsAtom& aListType,
                                                    nsAtom& aItemType);
-
-  /**
-   * IsEmptyBlockElement() returns true if aElement is a block level element
-   * and it doesn't have any visible content.
-   */
-  enum class IgnoreSingleBR { eYes, eNo };
-  bool IsEmptyBlockElement(Element& aElement, IgnoreSingleBR aIgnoreSingleBR);
 
   /**
    * MaybeDeleteTopMostEmptyAncestor() looks for top most empty block ancestor

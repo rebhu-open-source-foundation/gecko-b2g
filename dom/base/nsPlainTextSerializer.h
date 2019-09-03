@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+
 /* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -14,6 +15,7 @@
 #define nsPlainTextSerializer_h__
 
 #include "mozilla/Attributes.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/intl/LineBreaker.h"
 #include "nsCOMPtr.h"
 #include "nsAtom.h"
@@ -44,36 +46,38 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   // nsIContentSerializer
   NS_IMETHOD Init(uint32_t flags, uint32_t aWrapColumn,
                   const mozilla::Encoding* aEncoding, bool aIsCopying,
-                  bool aIsWholeDocument,
-                  bool* aNeedsPreformatScanning) override;
+                  bool aIsWholeDocument, bool* aNeedsPreformatScanning,
+                  nsAString& aOutput) override;
 
   NS_IMETHOD AppendText(nsIContent* aText, int32_t aStartOffset,
-                        int32_t aEndOffset, nsAString& aStr) override;
+                        int32_t aEndOffset) override;
   NS_IMETHOD AppendCDATASection(nsIContent* aCDATASection, int32_t aStartOffset,
-                                int32_t aEndOffset, nsAString& aStr) override;
+                                int32_t aEndOffset) override;
   NS_IMETHOD AppendProcessingInstruction(
       mozilla::dom::ProcessingInstruction* aPI, int32_t aStartOffset,
-      int32_t aEndOffset, nsAString& aStr) override {
+      int32_t aEndOffset) override {
     return NS_OK;
   }
   NS_IMETHOD AppendComment(mozilla::dom::Comment* aComment,
-                           int32_t aStartOffset, int32_t aEndOffset,
-                           nsAString& aStr) override {
+                           int32_t aStartOffset, int32_t aEndOffset) override {
     return NS_OK;
   }
-  NS_IMETHOD AppendDoctype(mozilla::dom::DocumentType* aDoctype,
-                           nsAString& aStr) override {
+  NS_IMETHOD AppendDoctype(mozilla::dom::DocumentType* aDoctype) override {
     return NS_OK;
   }
-  NS_IMETHOD AppendElementStart(mozilla::dom::Element* aElement,
-                                mozilla::dom::Element* aOriginalElement,
-                                nsAString& aStr) override;
+  NS_IMETHOD AppendElementStart(
+      mozilla::dom::Element* aElement,
+      mozilla::dom::Element* aOriginalElement) override;
   NS_IMETHOD AppendElementEnd(mozilla::dom::Element* aElement,
-                              nsAString& aStr) override;
-  NS_IMETHOD Flush(nsAString& aStr) override;
+                              mozilla::dom::Element* aOriginalElement) override;
 
-  NS_IMETHOD AppendDocumentStart(mozilla::dom::Document* aDocument,
-                                 nsAString& aStr) override;
+  NS_IMETHOD FlushAndFinish() override;
+
+  NS_IMETHOD Finish() override;
+
+  NS_IMETHOD GetOutputLength(uint32_t& aLength) const override;
+
+  NS_IMETHOD AppendDocumentStart(mozilla::dom::Document* aDocument) override;
 
   NS_IMETHOD ScanElementForPreformat(mozilla::dom::Element* aElement) override;
   NS_IMETHOD ForgetElementForPreformat(
@@ -147,7 +151,6 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
 
  private:
   uint32_t mHeadLevel;
-  bool mAtFirstColumn;
 
   class Settings {
    public:
@@ -200,8 +203,6 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
 
     void MaybeReplaceNbsps();
 
-    void AppendLineBreak();
-
     nsString mValue;
 
     // The width of the line as it will appear on the screen (approx.).
@@ -210,11 +211,38 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
    private:
     // As defined in nsIDocumentEncoder.idl.
     int32_t mFlags;
+  };
+
+  CurrentLineContent mCurrentLineContent;
+
+  class OutputManager {
+   public:
+    /**
+     *  @param aFlags As defined in nsIDocumentEncoder.idl.
+     *  @param aOutput An empty string.
+     */
+    OutputManager(int32_t aFlags, nsAString& aOutput);
+
+    /**
+     * @param aString Last character is expected to not be a line break.
+     */
+    void Append(const nsAString& aString);
+
+    void AppendLineBreak();
+
+    bool IsAtFirstColumn() const { return mAtFirstColumn; }
+
+    uint32_t GetOutputLength() const;
+
+   private:
+    nsAString& mOutput;
+
+    bool mAtFirstColumn;
 
     nsString mLineBreak;
   };
 
-  CurrentLineContent mCurrentLineContent;
+  mozilla::Maybe<OutputManager> mOutputManager;
 
   // If we've just written out a cite blockquote, we need to remember it
   // so we don't duplicate spaces before a <pre wrap> (which mail uses to quote
@@ -268,8 +296,8 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   // Values gotten in OpenContainer that is (also) needed in CloseContainer
   AutoTArray<bool, 8> mIsInCiteBlockquote;
 
-  // The output data
-  nsAString* mOutputString;
+  // Non-owning.
+  nsAString* mOutput;
 
   // The tag stack: the stack of tags we're operating on, so we can nest.
   // The stack only ever points to static atoms, so they don't need to be

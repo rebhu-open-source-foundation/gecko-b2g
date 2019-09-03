@@ -36,13 +36,6 @@ let ACTORS = {
         "MozDOMPointerLock:Entered": {},
         "MozDOMPointerLock:Exited": {},
       },
-      messages: [
-        "Browser:Reload",
-        "Browser:AppTab",
-        "Browser:HasSiblings",
-        "MixedContent:ReenableProtection",
-        "UpdateCharacterSet",
-      ],
     },
   },
 
@@ -71,7 +64,6 @@ let ACTORS = {
       events: {
         MozInvalidForm: {},
       },
-      messages: ["FormValidation:ShowPopup", "FormValidation:HidePopup"],
     },
 
     allFrames: true,
@@ -80,14 +72,6 @@ let ACTORS = {
   Plugin: {
     parent: {
       moduleURI: "resource:///actors/PluginParent.jsm",
-      messages: [
-        "PluginContent:ShowClickToPlayNotification",
-        "PluginContent:RemoveNotification",
-        "PluginContent:ShowPluginCrashedNotification",
-        "PluginContent:SubmitReport",
-        "PluginContent:LinkClickCallback",
-        "PluginContent:GetCrashData",
-      ],
     },
     child: {
       moduleURI: "resource:///actors/PluginChild.jsm",
@@ -99,11 +83,6 @@ let ACTORS = {
         PluginRemoved: { capture: true },
         HiddenPlugin: { capture: true },
       },
-
-      messages: [
-        "PluginParent:ActivatePlugins",
-        "PluginParent:Test:ClearCrashData",
-      ],
 
       observers: ["decoder-doctor-notification"],
     },
@@ -122,8 +101,6 @@ let ACTORS = {
   SwitchDocumentDirection: {
     child: {
       moduleURI: "resource:///actors/SwitchDocumentDirectionChild.jsm",
-
-      messages: ["SwitchDocumentDirection"],
     },
 
     allFrames: true,
@@ -143,8 +120,7 @@ let LEGACY_ACTORS = {
         AboutLoginsHideFooter: { wantUntrusted: true },
         AboutLoginsImport: { wantUntrusted: true },
         AboutLoginsInit: { wantUntrusted: true },
-        AboutLoginsOpenFAQ: { wantUntrusted: true },
-        AboutLoginsOpenFeedback: { wantUntrusted: true },
+        AboutLoginsGetHelp: { wantUntrusted: true },
         AboutLoginsOpenMobileAndroid: { wantUntrusted: true },
         AboutLoginsOpenMobileIos: { wantUntrusted: true },
         AboutLoginsOpenPreferences: { wantUntrusted: true },
@@ -162,6 +138,7 @@ let LEGACY_ACTORS = {
         "AboutLogins:LoginRemoved",
         "AboutLogins:MasterPasswordResponse",
         "AboutLogins:SendFavicons",
+        "AboutLogins:ShowLoginItemError",
         "AboutLogins:SyncState",
         "AboutLogins:UpdateBreaches",
       ],
@@ -507,6 +484,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   HomePage: "resource:///modules/HomePage.jsm",
   HybridContentTelemetry: "resource://gre/modules/HybridContentTelemetry.jsm",
   Integration: "resource://gre/modules/Integration.jsm",
+  LoginBreaches: "resource:///modules/LoginBreaches.jsm",
   LiveBookmarkMigrator: "resource:///modules/LiveBookmarkMigrator.jsm",
   NewTabUtils: "resource://gre/modules/NewTabUtils.jsm",
   Normandy: "resource://normandy/Normandy.jsm",
@@ -639,7 +617,7 @@ const listeners = {
     "AboutLogins:Import": ["AboutLoginsParent"],
     "AboutLogins:MasterPasswordRequest": ["AboutLoginsParent"],
     "AboutLogins:OpenFAQ": ["AboutLoginsParent"],
-    "AboutLogins:OpenFeedback": ["AboutLoginsParent"],
+    "AboutLogins:GetHelp": ["AboutLoginsParent"],
     "AboutLogins:OpenPreferences": ["AboutLoginsParent"],
     "AboutLogins:OpenMobileAndroid": ["AboutLoginsParent"],
     "AboutLogins:OpenMobileIos": ["AboutLoginsParent"],
@@ -979,6 +957,8 @@ BrowserGlue.prototype = {
               "migrateMatchBucketsPrefForUI66-done"
             );
           });
+        } else if (data == "add-breaches-sync-handler") {
+          this._addBreachesSyncHandler();
         }
         break;
       case "initial-migration-will-import-default-bookmarks":
@@ -2055,6 +2035,11 @@ BrowserGlue.prototype = {
       }
     }, 3000);
 
+    // Add breach alerts pref observer reasonably early so the pref flip works
+    Services.tm.idleDispatchToMainThread(() => {
+      this._addBreachAlertsPrefObserver();
+    });
+
     // It's important that SafeBrowsing is initialized reasonably
     // early, so we use a maximum timeout for it.
     Services.tm.idleDispatchToMainThread(() => {
@@ -2192,6 +2177,7 @@ BrowserGlue.prototype = {
 
     Services.tm.idleDispatchToMainThread(() => {
       RemoteSettings.init();
+      this._addBreachesSyncHandler();
     });
 
     Services.tm.idleDispatchToMainThread(() => {
@@ -2201,6 +2187,36 @@ BrowserGlue.prototype = {
     Services.tm.idleDispatchToMainThread(() => {
       RemoteSecuritySettings.init();
     });
+  },
+
+  _addBreachesSyncHandler() {
+    if (
+      Services.prefs.getBoolPref(
+        "signon.management.page.breach-alerts.enabled",
+        false
+      )
+    ) {
+      RemoteSettings(LoginBreaches.REMOTE_SETTINGS_COLLECTION).on(
+        "sync",
+        async event => {
+          await LoginBreaches.update(event.data.current);
+        }
+      );
+    }
+  },
+
+  _addBreachAlertsPrefObserver() {
+    const BREACH_ALERTS_PREF = "signon.management.page.breach-alerts.enabled";
+    const clearVulnerablePasswordsIfBreachAlertsDisabled = async function() {
+      if (!Services.prefs.getBoolPref(BREACH_ALERTS_PREF)) {
+        await LoginBreaches.clearAllPotentiallyVulnerablePasswords();
+      }
+    };
+    clearVulnerablePasswordsIfBreachAlertsDisabled();
+    Services.prefs.addObserver(
+      BREACH_ALERTS_PREF,
+      clearVulnerablePasswordsIfBreachAlertsDisabled
+    );
   },
 
   _onQuitRequest: function BG__onQuitRequest(aCancelQuit, aQuitType) {

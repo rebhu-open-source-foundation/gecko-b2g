@@ -98,22 +98,6 @@ static bool IsStyleCachePreservingSubAction(EditSubAction aEditSubAction) {
   }
 }
 
-static nsAtom& ParagraphSeparatorElement(ParagraphSeparator separator) {
-  switch (separator) {
-    default:
-      MOZ_FALLTHROUGH_ASSERT("Unexpected paragraph separator!");
-
-    case ParagraphSeparator::div:
-      return *nsGkAtoms::div;
-
-    case ParagraphSeparator::p:
-      return *nsGkAtoms::p;
-
-    case ParagraphSeparator::br:
-      return *nsGkAtoms::br;
-  }
-}
-
 class TableCellAndListItemFunctor final : public BoolDomIterFunctor {
  public:
   // Used to build list of all li's, td's & th's iterator covers
@@ -498,7 +482,10 @@ nsresult HTMLEditRules::AfterEditInner() {
         !HTMLEditorRef()
              .TopLevelEditSubActionDataRef()
              .mDidDeleteEmptyParentBlocks) {
-      nsresult rv = InsertBRIfNeeded();
+      nsresult rv =
+          MOZ_KnownLive(HTMLEditorRef())
+              .InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
+                  EditorBase::GetStartPoint(*SelectionRefPtr()));
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -697,6 +684,52 @@ nsresult HTMLEditRules::AfterEditInner() {
   return NS_OK;
 }
 
+EditActionResult HTMLEditor::CanHandleHTMLEditSubAction() const {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+
+  if (NS_WARN_IF(Destroyed())) {
+    return EditActionResult(NS_ERROR_EDITOR_DESTROYED);
+  }
+
+  // If there is not selection ranges, we should ignore the result.
+  if (!SelectionRefPtr()->RangeCount()) {
+    return EditActionCanceled();
+  }
+
+  nsRange* range = SelectionRefPtr()->GetRangeAt(0);
+  nsINode* selStartNode = range->GetStartContainer();
+  if (NS_WARN_IF(!selStartNode)) {
+    return EditActionResult(NS_ERROR_FAILURE);
+  }
+
+  if (!IsModifiableNode(*selStartNode)) {
+    return EditActionCanceled();
+  }
+
+  nsINode* selEndNode = range->GetEndContainer();
+  if (NS_WARN_IF(!selEndNode)) {
+    return EditActionResult(NS_ERROR_FAILURE);
+  }
+
+  if (selStartNode == selEndNode) {
+    return EditActionIgnored();
+  }
+
+  if (!IsModifiableNode(*selEndNode)) {
+    return EditActionCanceled();
+  }
+
+  nsINode* commonAncestor = range->GetCommonAncestor();
+  if (NS_WARN_IF(!commonAncestor)) {
+    return EditActionResult(NS_ERROR_FAILURE);
+  }
+  if (!IsModifiableNode(*commonAncestor)) {
+    return EditActionCanceled();
+  }
+
+  return EditActionIgnored();
+}
+
 nsresult HTMLEditRules::WillDoAction(EditSubActionInfo& aInfo, bool* aCancel,
                                      bool* aHandled) {
   if (NS_WARN_IF(!CanHandleEditAction())) {
@@ -717,41 +750,18 @@ nsresult HTMLEditRules::WillDoAction(EditSubActionInfo& aInfo, bool* aCancel,
 
   AutoSafeEditorData setData(*this, *mHTMLEditor);
 
-  // Nothing to do if there's no selection to act on
-  if (NS_WARN_IF(!SelectionRefPtr()->RangeCount())) {
-    return NS_OK;
+  EditActionResult result = HTMLEditorRef().CanHandleHTMLEditSubAction();
+  if (NS_WARN_IF(result.Failed())) {
+    return result.Rv();
   }
-
-  RefPtr<nsRange> range = SelectionRefPtr()->GetRangeAt(0);
-  nsCOMPtr<nsINode> selStartNode = range->GetStartContainer();
-  if (NS_WARN_IF(!selStartNode)) {
-    return NS_ERROR_FAILURE;
-  }
-
-  if (!HTMLEditorRef().IsModifiableNode(*selStartNode)) {
+  if (result.Canceled()) {
+    if (!SelectionRefPtr()->RangeCount()) {
+      // Special case.  If there is no selection range, we do nothing here,
+      // but return as not handled nor canceled.
+      return NS_OK;
+    }
     *aCancel = true;
     return NS_OK;
-  }
-
-  nsCOMPtr<nsINode> selEndNode = range->GetEndContainer();
-  if (NS_WARN_IF(!selEndNode)) {
-    return NS_ERROR_FAILURE;
-  }
-
-  if (selStartNode != selEndNode) {
-    if (!HTMLEditorRef().IsModifiableNode(*selEndNode)) {
-      *aCancel = true;
-      return NS_OK;
-    }
-
-    nsINode* commonAncestor = range->GetCommonAncestor();
-    if (NS_WARN_IF(!commonAncestor)) {
-      return NS_ERROR_FAILURE;
-    }
-    if (!HTMLEditorRef().IsModifiableNode(*commonAncestor)) {
-      *aCancel = true;
-      return NS_OK;
-    }
   }
 
   switch (aInfo.mEditSubAction) {
@@ -788,8 +798,6 @@ nsresult HTMLEditRules::WillDoAction(EditSubActionInfo& aInfo, bool* aCancel,
       return WillRemoveAbsolutePosition(aCancel, aHandled);
     case EditSubAction::eSetOrClearAlignment:
       return WillAlign(*aInfo.alignType, aCancel, aHandled);
-    case EditSubAction::eCreateOrRemoveBlock:
-      return WillMakeBasicBlock(*aInfo.blockType, aCancel, aHandled);
     case EditSubAction::eRemoveList: {
       nsresult rv = WillRemoveList(aCancel, aHandled);
       if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED) ||
@@ -817,6 +825,7 @@ nsresult HTMLEditRules::WillDoAction(EditSubActionInfo& aInfo, bool* aCancel,
       return WillRelativeChangeZIndex(-1, aCancel, aHandled);
     case EditSubAction::eIncreaseZIndex:
       return WillRelativeChangeZIndex(1, aCancel, aHandled);
+    case EditSubAction::eCreateOrRemoveBlock:
     case EditSubAction::eInsertHTMLSource:
     case EditSubAction::eUndo:
     case EditSubAction::eRedo:
@@ -843,13 +852,15 @@ nsresult HTMLEditRules::DidDoAction(EditSubActionInfo& aInfo,
       return NS_OK;
     case EditSubAction::eDeleteSelectedContent:
       return DidDeleteSelection();
-    case EditSubAction::eCreateOrRemoveBlock:
     case EditSubAction::eIndent:
     case EditSubAction::eOutdent:
     case EditSubAction::eSetOrClearAlignment:
-      return DidMakeBasicBlock();
+      return MOZ_KnownLive(HTMLEditorRef())
+          .MaybeInsertPaddingBRElementForEmptyLastLineAtSelection();
     case EditSubAction::eSetPositionToAbsolute: {
-      nsresult rv = DidMakeBasicBlock();
+      nsresult rv =
+          MOZ_KnownLive(HTMLEditorRef())
+              .MaybeInsertPaddingBRElementForEmptyLastLineAtSelection();
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -858,6 +869,7 @@ nsresult HTMLEditRules::DidDoAction(EditSubActionInfo& aInfo,
     case EditSubAction::eInsertElement:
     case EditSubAction::eInsertQuotedText:
       return NS_OK;
+    case EditSubAction::eCreateOrRemoveBlock:
     case EditSubAction::eInsertHTMLSource:
     case EditSubAction::eUndo:
     case EditSubAction::eRedo:
@@ -1845,20 +1857,21 @@ EditActionResult HTMLEditRules::WillInsertParagraphSeparator() {
     // Insert a new block first
     MOZ_ASSERT(separator == ParagraphSeparator::div ||
                separator == ParagraphSeparator::p);
-    // FormatBlockContainer() creates AutoSelectionRestorer.
+    // FormatBlockContainerWithTransaction() creates AutoSelectionRestorer.
     // Therefore, even if it returns NS_OK, editor might have been destroyed
     // at restoring Selection.
     nsresult rv = MOZ_KnownLive(HTMLEditorRef())
-                      .FormatBlockContainer(
-                          MOZ_KnownLive(ParagraphSeparatorElement(separator)));
+                      .FormatBlockContainerWithTransaction(MOZ_KnownLive(
+                          HTMLEditor::ToParagraphSeparatorTagName(separator)));
     if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED) ||
         NS_WARN_IF(!CanHandleEditAction())) {
       return EditActionIgnored(NS_ERROR_EDITOR_DESTROYED);
     }
     // We warn on failure, but don't handle it, because it might be harmless.
     // Instead we just check that a new block was actually created.
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "HTMLEditor::FormatBlockContainer() failed");
+    NS_WARNING_ASSERTION(
+        NS_SUCCEEDED(rv),
+        "HTMLEditor::FormatBlockContainerWithTransaction() failed");
 
     firstRange = SelectionRefPtr()->GetRangeAt(0);
     if (NS_WARN_IF(!firstRange)) {
@@ -1887,10 +1900,10 @@ EditActionResult HTMLEditRules::WillInsertParagraphSeparator() {
     // Now, mNewBlockElement is last created block element for wrapping inline
     // elements around the caret position and AfterEditInner() will move
     // caret into it.  However, it may be different from block parent of
-    // the caret position.  E.g., FormatBlockContainer() may wrap following
-    // inline elements of a <br> element which is next sibling of container
-    // of the caret.  So, we need to adjust mNewBlockElement here for avoiding
-    // jumping caret to odd position.
+    // the caret position.  E.g., FormatBlockContainerWithTransaction() may
+    // wrap following inline elements of a <br> element which is next sibling
+    // of container of the caret.  So, we need to adjust mNewBlockElement here
+    // for avoiding jumping caret to odd position.
     HTMLEditorRef().TopLevelEditSubActionDataRef().mNewBlockElement =
         blockParent;
   }
@@ -1899,7 +1912,8 @@ EditActionResult HTMLEditRules::WillInsertParagraphSeparator() {
   // contains the word "text".  The user selects "text" and types return.
   // "Text" is deleted leaving an empty block.  We want to put in one br to
   // make block have a line.  Then code further below will put in a second br.)
-  if (IsEmptyBlockElement(*blockParent, IgnoreSingleBR::eNo)) {
+  if (HTMLEditorRef().IsEmptyBlockElement(*blockParent,
+                                          HTMLEditor::IgnoreSingleBR::No)) {
     AutoEditorDOMPointChildInvalidator lockOffset(atStartOfSelection);
     EditorDOMPoint endOfBlockParent;
     endOfBlockParent.SetToEndOf(blockParent);
@@ -2462,11 +2476,13 @@ nsresult HTMLEditRules::WillDeleteSelection(
           return rv;
         }
       }
-      rv = InsertBRIfNeeded();
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
-      return NS_OK;
+      rv = MOZ_KnownLive(HTMLEditorRef())
+               .InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
+                   EditorBase::GetStartPoint(*SelectionRefPtr()));
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary() failed");
+      return rv;
     }
 
     if (wsType == WSType::text) {
@@ -2540,7 +2556,9 @@ nsresult HTMLEditRules::WillDeleteSelection(
       }
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Failed to remove collapsed text");
 
-      rv = InsertBRIfNeeded();
+      rv = MOZ_KnownLive(HTMLEditorRef())
+               .InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
+                   EditorBase::GetStartPoint(*SelectionRefPtr()));
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -2734,11 +2752,13 @@ nsresult HTMLEditRules::WillDeleteSelection(
           return error.StealNSResult();
         }
       }
-      rv = InsertBRIfNeeded();
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
-      return NS_OK;
+      rv = MOZ_KnownLive(HTMLEditorRef())
+               .InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
+                   EditorBase::GetStartPoint(*SelectionRefPtr()));
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary() failed");
+      return rv;
     }
 
     if (wsType == WSType::otherBlock) {
@@ -3267,43 +3287,41 @@ nsresult HTMLEditRules::DeleteNodeIfCollapsedText(nsINode& aNode) {
   return NS_OK;
 }
 
-nsresult HTMLEditRules::InsertBRIfNeeded() {
-  MOZ_ASSERT(IsEditorDataAvailable());
+nsresult HTMLEditor::InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
+    const EditorDOMPoint& aPointToInsert) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(aPointToInsert.IsSet());
 
-  EditorDOMPoint atStartOfSelection(
-      EditorBase::GetStartPoint(*SelectionRefPtr()));
-  if (NS_WARN_IF(!atStartOfSelection.IsSet())) {
-    return NS_ERROR_FAILURE;
-  }
-
-  // inline elements don't need any br
-  if (!HTMLEditor::NodeIsBlockStatic(*atStartOfSelection.GetContainer())) {
+  // If container of the point is not in a block, we don't need to put a
+  // `<br>` element here.
+  if (!HTMLEditor::NodeIsBlockStatic(*aPointToInsert.GetContainer())) {
     return NS_OK;
   }
 
-  // examine selection
-  WSRunObject wsObj(&HTMLEditorRef(), atStartOfSelection);
-  if (((wsObj.mStartReason & WSType::block) ||
-       (wsObj.mStartReason & WSType::br)) &&
-      (wsObj.mEndReason & WSType::block)) {
-    // if we are tucked between block boundaries then insert a br
-    // first check that we are allowed to
-    if (HTMLEditorRef().CanContainTag(*atStartOfSelection.GetContainer(),
-                                      *nsGkAtoms::br)) {
-      RefPtr<Element> brElement =
-          MOZ_KnownLive(HTMLEditorRef())
-              .InsertBRElementWithTransaction(atStartOfSelection,
-                                              nsIEditor::ePrevious);
-      if (NS_WARN_IF(!CanHandleEditAction())) {
-        return NS_ERROR_EDITOR_DESTROYED;
-      }
-      if (NS_WARN_IF(!brElement)) {
-        return NS_ERROR_FAILURE;
-      }
-      return NS_OK;
-    }
+  WSRunObject wsObj(this, aPointToInsert);
+  // If the point is not start of a hard line, we don't need to put a `<br>`
+  // element here.
+  if (!(wsObj.mStartReason & (WSType::block | WSType::br))) {
+    return NS_OK;
   }
-  return NS_OK;
+  // If the point is not end of a hard line or the hard line does not end with
+  // block boundary, we don't need to put a `<br>` element here.
+  if (!(wsObj.mEndReason & WSType::block)) {
+    return NS_OK;
+  }
+
+  // If we cannot insert a `<br>` element here, do nothing.
+  if (!CanContainTag(*aPointToInsert.GetContainer(), *nsGkAtoms::br)) {
+    return NS_OK;
+  }
+
+  RefPtr<Element> brElement =
+      InsertBRElementWithTransaction(aPointToInsert, nsIEditor::ePrevious);
+  if (NS_WARN_IF(Destroyed())) {
+    return NS_ERROR_EDITOR_DESTROYED;
+  }
+  NS_WARNING_ASSERTION(brElement, "Failed to insert <br> element");
+  return brElement ? NS_OK : NS_ERROR_FAILURE;
 }
 
 EditorDOMPoint HTMLEditRules::GetGoodSelPointForNode(
@@ -4528,37 +4546,7 @@ nsresult HTMLEditRules::WillMakeDefListItem(const nsAString* aItemType,
   return NS_OK;
 }
 
-nsresult HTMLEditRules::WillMakeBasicBlock(const nsAString& aBlockType,
-                                           bool* aCancel, bool* aHandled) {
-  MOZ_ASSERT(IsEditorDataAvailable());
-  MOZ_ASSERT(aCancel && aHandled);
-
-  OwningNonNull<nsAtom> blockType = NS_Atomize(aBlockType);
-
-  // FYI: Ignore cancel result of WillInsert().
-  nsresult rv = MOZ_KnownLive(HTMLEditorRef()).WillInsert();
-  if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
-    return NS_ERROR_EDITOR_DESTROYED;
-  }
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "WillInsert() failed");
-
-  *aCancel = false;
-  *aHandled = true;
-
-  // FormatBlockContainer() creates AutoSelectionRestorer.
-  // Therefore, even if it returns NS_OK, editor might have been destroyed
-  // at restoring Selection.
-  rv = MOZ_KnownLive(HTMLEditorRef()).FormatBlockContainer(blockType);
-  if (NS_WARN_IF(!CanHandleEditAction())) {
-    return NS_ERROR_EDITOR_DESTROYED;
-  }
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-  return NS_OK;
-}
-
-nsresult HTMLEditor::FormatBlockContainer(nsAtom& blockType) {
+nsresult HTMLEditor::FormatBlockContainerWithTransaction(nsAtom& blockType) {
   MOZ_ASSERT(IsTopLevelEditSubActionDataAvailable());
 
   if (!SelectionRefPtr()->IsCollapsed()) {
@@ -4725,10 +4713,9 @@ nsresult HTMLEditor::FormatBlockContainer(nsAtom& blockType) {
   return rv;
 }
 
-nsresult HTMLEditRules::DidMakeBasicBlock() {
-  MOZ_ASSERT(IsEditorDataAvailable());
+nsresult HTMLEditor::MaybeInsertPaddingBRElementForEmptyLastLineAtSelection() {
+  MOZ_ASSERT(IsEditActionDataAvailable());
 
-  // check for empty block.  if so, put a moz br in it.
   if (!SelectionRefPtr()->IsCollapsed()) {
     return NS_OK;
   }
@@ -4741,12 +4728,17 @@ nsresult HTMLEditRules::DidMakeBasicBlock() {
   if (NS_WARN_IF(!atStartOfSelection.IsSet())) {
     return NS_ERROR_FAILURE;
   }
-  nsresult rv = InsertPaddingBRElementForEmptyLastLineIfNeeded(
-      MOZ_KnownLive(*atStartOfSelection.Container()));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  if (!atStartOfSelection.Container()->IsElement()) {
+    return NS_OK;
   }
-  return NS_OK;
+  OwningNonNull<Element> startContainerElement =
+      *atStartOfSelection.Container()->AsElement();
+  nsresult rv =
+      InsertPaddingBRElementForEmptyLastLineIfNeeded(startContainerElement);
+  NS_WARNING_ASSERTION(
+      NS_SUCCEEDED(rv),
+      "InsertPaddingBRElementForEmptyLastLineIfNeeded() failed");
+  return rv;
 }
 
 nsresult HTMLEditRules::WillIndent(bool* aCancel, bool* aHandled) {
@@ -6079,20 +6071,16 @@ nsresult HTMLEditor::CreateStyleForInsertText(AbstractRange& aAbstractRange) {
   return rv;
 }
 
-bool HTMLEditRules::IsEmptyBlockElement(Element& aElement,
-                                        IgnoreSingleBR aIgnoreSingleBR) {
-  MOZ_ASSERT(IsEditorDataAvailable());
-
-  if (NS_WARN_IF(!HTMLEditor::NodeIsBlockStatic(aElement))) {
+bool HTMLEditor::IsEmptyBlockElement(Element& aElement,
+                                     IgnoreSingleBR aIgnoreSingleBR) const {
+  if (!HTMLEditor::NodeIsBlockStatic(aElement)) {
     return false;
   }
   bool isEmpty = true;
-  nsresult rv = HTMLEditorRef().IsEmptyNode(
-      &aElement, &isEmpty, aIgnoreSingleBR == IgnoreSingleBR::eYes);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return false;
-  }
-  return isEmpty;
+  nsresult rv =
+      IsEmptyNode(&aElement, &isEmpty, aIgnoreSingleBR == IgnoreSingleBR::Yes);
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "IsEmptyNode() failed");
+  return NS_SUCCEEDED(rv) && isEmpty;
 }
 
 nsresult HTMLEditRules::WillAlign(const nsAString& aAlignType, bool* aCancel,
@@ -7965,12 +7953,6 @@ Element* HTMLEditRules::IsInListItem(nsINode* aNode) {
   return nullptr;
 }
 
-nsAtom& HTMLEditRules::DefaultParagraphSeparator() {
-  MOZ_ASSERT(IsEditorDataAvailable());
-  return ParagraphSeparatorElement(
-      HTMLEditorRef().GetDefaultParagraphSeparator());
-}
-
 nsresult HTMLEditRules::ReturnInHeader(Element& aHeader, nsINode& aNode,
                                        int32_t aOffset) {
   MOZ_ASSERT(IsEditorDataAvailable());
@@ -8027,7 +8009,8 @@ nsresult HTMLEditRules::ReturnInHeader(Element& aHeader, nsINode& aNode,
   }
 
   // If the new (righthand) header node is empty, delete it
-  if (IsEmptyBlockElement(aHeader, IgnoreSingleBR::eYes)) {
+  if (HTMLEditorRef().IsEmptyBlockElement(aHeader,
+                                          HTMLEditor::IgnoreSingleBR::Yes)) {
     rv = MOZ_KnownLive(HTMLEditorRef()).DeleteNodeWithTransaction(aHeader);
     if (NS_WARN_IF(!CanHandleEditAction())) {
       return NS_ERROR_EDITOR_DESTROYED;
@@ -8048,7 +8031,8 @@ nsresult HTMLEditRules::ReturnInHeader(Element& aHeader, nsINode& aNode,
       HTMLEditorRef().mTypeInState->ClearAllProps();
 
       // Create a paragraph
-      nsAtom& paraAtom = DefaultParagraphSeparator();
+      nsStaticAtom& paraAtom =
+          HTMLEditorRef().DefaultParagraphSeparatorTagName();
       // We want a wrapper element even if we separate with <br>
       EditorDOMPoint nextToHeader(headerParent, offset + 1);
       RefPtr<Element> pNode =
@@ -8297,7 +8281,8 @@ EditActionResult HTMLEditRules::ReturnInParagraph(Element& aParentDivOrP) {
     }
   }
   EditActionResult result(
-      SplitParagraph(aParentDivOrP, pointToSplitParentDivOrP, brContent));
+      MOZ_KnownLive(HTMLEditorRef())
+          .SplitParagraph(aParentDivOrP, pointToSplitParentDivOrP, brContent));
   result.MarkAsHandled();
   if (NS_WARN_IF(result.Failed())) {
     return result;
@@ -8306,18 +8291,16 @@ EditActionResult HTMLEditRules::ReturnInParagraph(Element& aParentDivOrP) {
 }
 
 template <typename PT, typename CT>
-nsresult HTMLEditRules::SplitParagraph(
+nsresult HTMLEditor::SplitParagraph(
     Element& aParentDivOrP, const EditorDOMPointBase<PT, CT>& aStartOfRightNode,
     nsIContent* aNextBRNode) {
-  MOZ_ASSERT(IsEditorDataAvailable());
+  MOZ_ASSERT(IsEditActionDataAvailable());
 
-  // split para
-  // get ws code to adjust any ws
   nsCOMPtr<nsINode> selNode = aStartOfRightNode.GetContainer();
   int32_t selOffset = aStartOfRightNode.Offset();
   nsresult rv = WSRunObject::PrepareToSplitAcrossBlocks(
-      MOZ_KnownLive(&HTMLEditorRef()), address_of(selNode), &selOffset);
-  if (NS_WARN_IF(!CanHandleEditAction())) {
+      this, address_of(selNode), &selOffset);
+  if (NS_WARN_IF(Destroyed())) {
     return NS_ERROR_EDITOR_DESTROYED;
   }
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -8328,12 +8311,10 @@ nsresult HTMLEditRules::SplitParagraph(
   }
 
   // Split the paragraph.
-  SplitNodeResult splitDivOrPResult =
-      MOZ_KnownLive(HTMLEditorRef())
-          .SplitNodeDeepWithTransaction(
-              aParentDivOrP, EditorDOMPoint(selNode, selOffset),
-              SplitAtEdges::eAllowToCreateEmptyContainer);
-  if (NS_WARN_IF(!CanHandleEditAction())) {
+  SplitNodeResult splitDivOrPResult = SplitNodeDeepWithTransaction(
+      aParentDivOrP, EditorDOMPoint(selNode, selOffset),
+      SplitAtEdges::eAllowToCreateEmptyContainer);
+  if (NS_WARN_IF(Destroyed())) {
     return NS_ERROR_EDITOR_DESTROYED;
   }
   if (NS_WARN_IF(splitDivOrPResult.Failed())) {
@@ -8345,9 +8326,9 @@ nsresult HTMLEditRules::SplitParagraph(
 
   // Get rid of the break, if it is visible (otherwise it may be needed to
   // prevent an empty p).
-  if (aNextBRNode && HTMLEditorRef().IsVisibleBRElement(aNextBRNode)) {
-    rv = MOZ_KnownLive(HTMLEditorRef()).DeleteNodeWithTransaction(*aNextBRNode);
-    if (NS_WARN_IF(!CanHandleEditAction())) {
+  if (aNextBRNode && IsVisibleBRElement(aNextBRNode)) {
+    rv = DeleteNodeWithTransaction(*aNextBRNode);
+    if (NS_WARN_IF(Destroyed())) {
       return NS_ERROR_EDITOR_DESTROYED;
     }
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -8356,9 +8337,8 @@ nsresult HTMLEditRules::SplitParagraph(
   }
 
   // Remove ID attribute on the paragraph from the existing right node.
-  rv = MOZ_KnownLive(HTMLEditorRef())
-           .RemoveAttributeWithTransaction(aParentDivOrP, *nsGkAtoms::id);
-  if (NS_WARN_IF(!CanHandleEditAction())) {
+  rv = RemoveAttributeWithTransaction(aParentDivOrP, *nsGkAtoms::id);
+  if (NS_WARN_IF(Destroyed())) {
     return NS_ERROR_EDITOR_DESTROYED;
   }
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -8371,37 +8351,44 @@ nsresult HTMLEditRules::SplitParagraph(
   // it'll be exposed as <br> with Element.innerHTML.  Therefore, we can use
   // normal <br> elements for placeholder in this case.  Note that Chromium
   // also behaves so.
-  rv = InsertBRIfNeeded(MOZ_KnownLive(*splitDivOrPResult.GetPreviousNode()));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  if (splitDivOrPResult.GetPreviousNode()->IsElement()) {
+    rv = InsertBRElementIfEmptyBlockElement(
+        MOZ_KnownLive(*splitDivOrPResult.GetPreviousNode()->AsElement()));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
   }
-  rv = InsertBRIfNeeded(MOZ_KnownLive(*splitDivOrPResult.GetNextNode()));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  if (splitDivOrPResult.GetNextNode()->IsElement()) {
+    rv = InsertBRElementIfEmptyBlockElement(
+        MOZ_KnownLive(*splitDivOrPResult.GetNextNode()->AsElement()));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
   }
 
   // selection to beginning of right hand para;
   // look inside any containers that are up front.
-  nsIContent* child = HTMLEditorRef().GetLeftmostChild(&aParentDivOrP, true);
-  if (EditorBase::IsTextNode(child) || HTMLEditorRef().IsContainer(child)) {
+  nsIContent* child = GetLeftmostChild(&aParentDivOrP, true);
+  if (EditorBase::IsTextNode(child) || IsContainer(child)) {
     EditorRawDOMPoint atStartOfChild(child, 0);
     IgnoredErrorResult ignoredError;
     SelectionRefPtr()->Collapse(atStartOfChild, ignoredError);
-    if (NS_WARN_IF(!CanHandleEditAction())) {
+    if (NS_WARN_IF(Destroyed())) {
       return NS_ERROR_EDITOR_DESTROYED;
     }
     NS_WARNING_ASSERTION(
         !ignoredError.Failed(),
-        "Failed to collapse selection at the end of the child");
+        "Failed to collapse selection at the end of the child, but ignored");
   } else {
     EditorRawDOMPoint atChild(child);
     IgnoredErrorResult ignoredError;
     SelectionRefPtr()->Collapse(atChild, ignoredError);
-    if (NS_WARN_IF(!CanHandleEditAction())) {
+    if (NS_WARN_IF(Destroyed())) {
       return NS_ERROR_EDITOR_DESTROYED;
     }
-    NS_WARNING_ASSERTION(!ignoredError.Failed(),
-                         "Failed to collapse selection at the child");
+    NS_WARNING_ASSERTION(
+        !ignoredError.Failed(),
+        "Failed to collapse selection at the child, but ignored");
   }
   return NS_OK;
 }
@@ -8418,7 +8405,8 @@ nsresult HTMLEditRules::ReturnInListItem(Element& aListItem, nsINode& aNode,
   // only if prefs say it's okay and if the parent isn't the active editing
   // host.
   if (host != aListItem.GetParentElement() &&
-      IsEmptyBlockElement(aListItem, IgnoreSingleBR::eYes)) {
+      HTMLEditorRef().IsEmptyBlockElement(aListItem,
+                                          HTMLEditor::IgnoreSingleBR::Yes)) {
     nsCOMPtr<nsIContent> leftListNode = aListItem.GetParent();
     // Are we the last list item in the list?
     if (!HTMLEditorRef().IsLastEditableChild(&aListItem)) {
@@ -8473,7 +8461,8 @@ nsresult HTMLEditRules::ReturnInListItem(Element& aListItem, nsINode& aNode,
       }
 
       // Time to insert a paragraph
-      nsAtom& paraAtom = DefaultParagraphSeparator();
+      nsStaticAtom& paraAtom =
+          HTMLEditorRef().DefaultParagraphSeparatorTagName();
       // We want a wrapper even if we separate with <br>
       RefPtr<Element> pNode =
           MOZ_KnownLive(HTMLEditorRef())
@@ -10228,16 +10217,16 @@ nsresult HTMLEditRules::ConfirmSelectionInBody() {
   return NS_OK;
 }
 
-nsresult HTMLEditRules::InsertBRIfNeededInternal(nsINode& aNode,
-                                                 bool aForPadding) {
-  MOZ_ASSERT(IsEditorDataAvailable());
+nsresult HTMLEditor::InsertPaddingBRElementForEmptyLastLineIfNeeded(
+    Element& aElement) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
 
-  if (!HTMLEditor::NodeIsBlockStatic(aNode)) {
+  if (!HTMLEditor::NodeIsBlockStatic(aElement)) {
     return NS_OK;
   }
 
-  bool isEmpty;
-  nsresult rv = HTMLEditorRef().IsEmptyNode(&aNode, &isEmpty);
+  bool isEmpty = false;
+  nsresult rv = IsEmptyNode(&aElement, &isEmpty);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -10245,23 +10234,36 @@ nsresult HTMLEditRules::InsertBRIfNeededInternal(nsINode& aNode,
     return NS_OK;
   }
 
-  if (aForPadding) {
-    CreateElementResult createBRResult =
-        MOZ_KnownLive(HTMLEditorRef())
-            .InsertPaddingBRElementForEmptyLastLineWithTransaction(
-                EditorDOMPoint(&aNode, 0));
-    NS_WARNING_ASSERTION(createBRResult.Succeeded(),
-                         "Failed to create padding <br> element");
-    return createBRResult.Rv();
+  CreateElementResult createBRResult =
+      InsertPaddingBRElementForEmptyLastLineWithTransaction(
+          EditorDOMPoint(&aElement, 0));
+  NS_WARNING_ASSERTION(createBRResult.Succeeded(),
+                       "Failed to create padding <br> element");
+  return createBRResult.Rv();
+}
+
+nsresult HTMLEditor::InsertBRElementIfEmptyBlockElement(Element& aElement) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+
+  if (!HTMLEditor::NodeIsBlockStatic(aElement)) {
+    return NS_OK;
+  }
+
+  bool isEmpty;
+  nsresult rv = IsEmptyNode(&aElement, &isEmpty);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+  if (!isEmpty) {
+    return NS_OK;
   }
 
   RefPtr<Element> brElement =
-      MOZ_KnownLive(HTMLEditorRef())
-          .InsertBRElementWithTransaction(EditorDOMPoint(&aNode, 0));
-  if (NS_WARN_IF(!CanHandleEditAction())) {
+      InsertBRElementWithTransaction(EditorDOMPoint(&aElement, 0));
+  if (NS_WARN_IF(Destroyed())) {
     return NS_ERROR_EDITOR_DESTROYED;
   }
-  NS_WARNING_ASSERTION(brElement, "Failed to create <br> element");
+  NS_WARNING_ASSERTION(brElement, "InsertBRElementWithTransaction() failed");
   return brElement ? NS_OK : NS_ERROR_FAILURE;
 }
 
