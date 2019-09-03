@@ -85,7 +85,10 @@
             },
         };
 
-        const embedder = new WebEmbedder(windowProvider, processSelector);
+        const embedder = new WebEmbedder({
+            window_provider: windowProvider,
+            process_selector: processSelector
+        });
         embedder.addEventListener("runtime-ready", e => {
             debug(`Embedder event: ${e.type}`);
             embedder.launch_preallocated_process();

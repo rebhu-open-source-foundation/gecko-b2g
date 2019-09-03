@@ -28,7 +28,8 @@ class nsOpenURIInFrameParams final : public nsIOpenURIInFrameParams {
 
   explicit nsOpenURIInFrameParams(
       const mozilla::OriginAttributes& aOriginAttributes,
-      mozilla::dom::Element* aOpener);
+      mozilla::dom::Element* aOpener,
+      const nsCString& aFeatures);
 
  private:
   ~nsOpenURIInFrameParams();
@@ -38,4 +39,5 @@ class nsOpenURIInFrameParams final : public nsIOpenURIInFrameParams {
   nsCOMPtr<nsIReferrerInfo> mReferrerInfo;
   nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
   nsCOMPtr<nsIContentSecurityPolicy> mCsp;
+  nsAutoCString mFeatures;
 };

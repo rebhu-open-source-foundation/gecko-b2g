@@ -12,6 +12,10 @@ function _webembed_log(msg) {
     console.log(`WebEmbedder: ${msg}`);
 }
 
+function _webembed_error(msg) {
+  console.error(`WebEmbedder: ${msg}`);
+}
+
 function BrowserDOMWindow(embedder) {
     _webembed_log(`Creating BrowserDOMWindow implementing ${Ci.nsIBrowserDOMWindow}`);
     this.embedder = embedder;
@@ -25,6 +29,7 @@ BrowserDOMWindow.prototype = {
     if (this.embedder && this.embedder.browserDomWindow) {
         return this.embedder.browserDomWindow.openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp);
     }
+    _webembed_error("NOT IMPLEMENTED");
     throw "NOT IMPLEMENTED";
   },
 
@@ -33,6 +38,7 @@ BrowserDOMWindow.prototype = {
     if (this.embedder && this.embedder.browserDomWindow) {
         return this.embedder.browserDomWindow.createContentWindow(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp);
     }
+    _webembed_error("NOT IMPLEMENTED");
     throw "NOT IMPLEMENTED";
   },
 
@@ -47,9 +53,10 @@ BrowserDOMWindow.prototype = {
     if (this.embedder && this.embedder.browserDomWindow) {
         let res = this.embedder.browserDomWindow.openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName);
         if (res) {
-            return res.frame();
+            return res.frame;
         }
     }
+    _webembed_error("NOT IMPLEMENTED");
     throw "NOT IMPLEMENTED";
   },
 
@@ -58,9 +65,10 @@ BrowserDOMWindow.prototype = {
     if (this.embedder && this.embedder.browserDomWindow) {
         let res = this.embedder.browserDomWindow.createContentWindowInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName);
         if (res) {
-            return res.frame();
+            return res.frame;
         }
     }
+    _webembed_error("NOT IMPLEMENTED");
     throw "NOT IMPLEMENTED";
   },
 
@@ -82,12 +90,12 @@ BrowserDOMWindow.prototype = {
 };
 
 class WebEmbedder extends EventTarget {
-    constructor(windowProviderImpl, processSelectorImpl) {
+    constructor(delegates) {
         super();
 
         _webembed_log(`constructor in ${window}`);
 
-        this.browserDomWindow = windowProviderImpl;
+        this.browserDomWindow = delegates.window_provider;
 
         Services.obs.addObserver((shell_window) => {
             this.dispatchEvent(new CustomEvent("runtime-ready"));
@@ -96,7 +104,7 @@ class WebEmbedder extends EventTarget {
         // Hook up the process provider implementation.
         // First make sure the service was started so it can receive the observer notification.
         let _ = Cc["@mozilla.org/ipc/processselector;1"].getService(Ci.nsIContentProcessProvider);
-        Services.obs.notifyObservers({ wrappedJSObject: processSelectorImpl }, "web-embedder-set-process-selector");
+        Services.obs.notifyObservers({ wrappedJSObject: delegates.process_selector }, "web-embedder-set-process-selector");
 
         // Notify the shell that a new embedder was created and send it the window provider.
         Services.obs.notifyObservers(new BrowserDOMWindow(this), "web-embedder-created");

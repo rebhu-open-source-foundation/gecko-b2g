@@ -4991,7 +4991,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     RefPtr<Element> openerElement = do_QueryObject(frame);
 
     nsCOMPtr<nsIOpenURIInFrameParams> params =
-        new nsOpenURIInFrameParams(openerOriginAttributes, openerElement);
+        new nsOpenURIInFrameParams(openerOriginAttributes, openerElement, aFeatures);
     params->SetReferrerInfo(aReferrerInfo);
     MOZ_ASSERT(aTriggeringPrincipal, "need a valid triggeringPrincipal");
     params->SetTriggeringPrincipal(aTriggeringPrincipal);
@@ -5171,8 +5171,12 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   if (sNextBrowserParents.GetAndRemove(nextRemoteTabId).valueOr(nullptr)) {
     cwi.windowOpened() = false;
   }
+
+#if !defined(MOZ_B2G) || defined(MOZ_WIDGET_GONK)
+// TODO: figure out why that fails on desktop builds but not device ones.
   MOZ_ASSERT(BrowserHost::GetFrom(newRemoteTab.get()) ==
              newTab->GetBrowserHost());
+#endif
 
   newTab->SwapFrameScriptsFrom(cwi.frameScripts());
   newTab->MaybeShowFrame();

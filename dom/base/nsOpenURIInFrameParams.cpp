@@ -21,8 +21,9 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(nsOpenURIInFrameParams)
 
 nsOpenURIInFrameParams::nsOpenURIInFrameParams(
     const mozilla::OriginAttributes& aOriginAttributes,
-    mozilla::dom::Element* aOpener)
-    : mOpenerOriginAttributes(aOriginAttributes), mOpenerBrowser(aOpener) {}
+    mozilla::dom::Element* aOpener,
+    const nsCString& aFeatures)
+    : mOpenerOriginAttributes(aOriginAttributes), mOpenerBrowser(aOpener), mFeatures(aFeatures) {}
 
 nsOpenURIInFrameParams::~nsOpenURIInFrameParams() {}
 
@@ -85,5 +86,11 @@ nsOpenURIInFrameParams::GetOpenerOriginAttributes(
     JSContext* aCx, JS::MutableHandle<JS::Value> aValue) {
   bool ok = ToJSValue(aCx, mOpenerOriginAttributes, aValue);
   NS_ENSURE_TRUE(ok, NS_ERROR_FAILURE);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsOpenURIInFrameParams::GetFeatures(nsACString& aFeatures) {
+  aFeatures = mFeatures;
   return NS_OK;
 }

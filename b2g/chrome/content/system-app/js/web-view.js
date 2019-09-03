@@ -370,6 +370,10 @@
             }
         }
 
+        get src() {
+          return this.browser ? this.browser.getAttribute("src") : null;
+        }
+
         get canGoBack() {
             return !!this.browser && this.browser.canGoBack;
         }

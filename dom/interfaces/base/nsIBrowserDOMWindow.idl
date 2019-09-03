@@ -28,6 +28,9 @@ interface nsIOpenURIInFrameParams : nsISupports
 
   [implicit_jscontext]
   readonly attribute jsval openerOriginAttributes;
+
+  // The window features, if any were passed to window.open()
+  readonly attribute ACString features;
 };
 
 /**
