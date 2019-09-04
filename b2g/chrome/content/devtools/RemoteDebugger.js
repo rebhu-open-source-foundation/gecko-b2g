@@ -31,13 +31,6 @@ var RemoteDebugger = {
         return;
       }
 
-      const newType =
-        event.type === "activate" ? "navigator:browser" : "navigator:geckoview";
-      if (this._windowType === newType) {
-        return;
-      }
-
-      this._windowType = newType;
       if (this.isAnyEnabled) {
         this.initServer();
       }
