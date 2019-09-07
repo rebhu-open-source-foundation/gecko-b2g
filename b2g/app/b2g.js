@@ -434,9 +434,6 @@ pref("browser.dom.window.dump.enabled", false);
 // If you change this CSP, make sure to update the fast path in nsCSPService.cpp
 pref("security.apps.certified.CSP.default", "default-src * data: blob:; script-src 'self' http://127.0.0.1:8081 http://local-device.kaiostech.com:8081 app://theme.gaiamobile.org; object-src 'none'; style-src 'self' 'unsafe-inline' app://theme.gaiamobile.org app://shared.gaiamobile.org");
 
-// Set local domain pref to be local-device.kaiostech.com.
-pref("network.dns.localDomains", "local-device.kaiostech.com");
-
 // handle links targeting new windows
 // 1=current window/tab, 2=new window, 3=new tab in most recent window
 pref("browser.link.open_newwindow", 3);
@@ -1289,6 +1286,10 @@ pref("device.rebootReason", "normal");
 // We keep the internal one has default to ensure we start.
 // pref("b2g.system_startup_url", "chrome://b2g/content/system/index.html");
 pref("b2g.system_startup_url", "chrome://gaia/content/system/index.html");
+
+// Set local domains to the list of vhosts we need for apps.
+// TODO: remove once we package the UI properly and set that pref under /system/b2g/defaults/pref
+pref("network.dns.localDomains", "keyboard.kaios-ui.com,customization.kaios-ui.com,gaia.kaios-ui.com,darktheme.kaios-ui.com,mocks.kaios-ui.com,calculator.kaios-ui.com,launcher.kaios-ui.com,shared.kaios-ui.com, gallery.kaios-ui.com, filemanager.kaios-ui.com");
 
 pref("devtools.console.stdout.content", true);
 
