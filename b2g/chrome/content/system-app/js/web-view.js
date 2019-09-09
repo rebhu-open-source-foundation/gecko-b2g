@@ -234,6 +234,13 @@
 
             this.browser = null;
             this.attrs = [];
+
+            // Mark some functions used by the UI as unimplemented for now.
+            ["addNextPaintListener",
+             "removeNextPaintListener",
+             "getScreenshot"].forEach(name => {
+              this[name] = () => { this.log(`Unimplemented: ${name}`); }
+            });
         }
 
         log(msg) {
@@ -390,7 +397,15 @@
             !!this.browser && this.browser.goForward();
         }
 
+        focus() {
+          this.log(`focus() browser available: ${!!this.browser}`);
+          !!this.browser && this.browser.focus();
+        }
 
+        blur() {
+          this.log(`blur() browser available: ${!!this.browser}`);
+          !!this.browser && this.browser.blur();
+        }
     };
 
     console.log(`Setting up <web-view> custom element`);
