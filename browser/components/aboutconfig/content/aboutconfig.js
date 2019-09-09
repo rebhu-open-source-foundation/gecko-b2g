@@ -253,12 +253,11 @@ class PrefRow {
           radio.type = "radio";
           radio.name = "type";
           radio.value = type;
-          radio.id = `add-type-${type}`;
           radio.checked = this.type == type;
-          form.appendChild(radio);
+          let radioSpan = document.createElement("span");
+          document.l10n.setAttributes(radioSpan, STRINGS_ADD_BY_TYPE[type]);
           let radioLabel = document.createElement("label");
-          radioLabel.setAttribute("for", radio.id);
-          document.l10n.setAttributes(radioLabel, STRINGS_ADD_BY_TYPE[type]);
+          radioLabel.append(radio, radioSpan);
           form.appendChild(radioLabel);
         }
         form.addEventListener("click", event => {
@@ -296,13 +295,13 @@ class PrefRow {
           this.resetButton,
           "about-config-pref-delete-button"
         );
-        this.resetButton.className = "button-delete";
+        this.resetButton.className = "button-delete ghost-button";
       } else {
         document.l10n.setAttributes(
           this.resetButton,
           "about-config-pref-reset-button"
         );
-        this.resetButton.className = "button-reset";
+        this.resetButton.className = "button-reset ghost-button";
       }
     } else if (this.resetButton) {
       this.resetButton.remove();
@@ -398,6 +397,11 @@ if (!Preferences.get("browser.aboutConfig.showWarning")) {
     },
     { once: true }
   );
+} else {
+  document.addEventListener("DOMContentLoaded", function() {
+    let warningButton = document.getElementById("warningButton");
+    warningButton.addEventListener("click", onWarningButtonClick);
+  });
 }
 
 function onWarningButtonClick() {

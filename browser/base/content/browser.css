@@ -610,7 +610,7 @@ toolbar:not(#TabsToolbar) > #personal-bookmarks {
 
 /* Visible if the urlbar is not focused and it overflows at the start.
    Uses the required-valid trick to check if it contains a value */
-#urlbar[textoverflow="start"]:not([focused]) > #urlbar-input-container > .urlbar-input-box > #urlbar-scheme:valid {
+#urlbar[textoverflow="start"][hasrtldomain]:not([focused]) > #urlbar-input-container > .urlbar-input-box > #urlbar-scheme:valid {
   visibility: visible;
 }
 
@@ -621,7 +621,7 @@ toolbar:not(#TabsToolbar) > #personal-bookmarks {
   mask-image: linear-gradient(to left, transparent, black 3ch);
 }
 
-#urlbar[textoverflow="start"]:not([focused]) > #urlbar-input-container > .urlbar-input-box > #urlbar-input {
+#urlbar[textoverflow="start"][hasrtldomain]:not([focused]) > #urlbar-input-container > .urlbar-input-box > #urlbar-input {
   mask-image: linear-gradient(to right, transparent var(--urlbar-scheme-size), black calc(var(--urlbar-scheme-size) + 3ch));
 }
 
@@ -807,10 +807,6 @@ toolbarspring {
 
   .bookmark-item > .toolbarbutton-icon,
   .bookmark-item > .menu-iconic-left > .menu-iconic-icon {
-    image-rendering: -moz-crisp-edges;
-  }
-  /* Synced Tabs sidebar */
-  html|*.tabs-container html|*.item-tabs-list html|*.item-icon-container {
     image-rendering: -moz-crisp-edges;
   }
 }

@@ -27,11 +27,12 @@
 #include "android/log.h"
 #include "hardware/gralloc.h"
 #include "cutils/properties.h"
+
 #if ANDROID_VERSION >= 26
 #include "NativeGralloc.h"
 #include <dlfcn.h>
-
 #endif
+
 #include "GonkDisplay.h"
 
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Gonk" , ## args)
@@ -97,8 +98,6 @@ int native_gralloc_unlock(buffer_handle_t handle) {
   result = func(handle);
   return result;
 }
-
-
 #endif
 
 namespace mozilla {

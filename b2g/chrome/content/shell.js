@@ -56,6 +56,8 @@ var shell = {
     window.addEventListener("sizemodechange", this);
     window.addEventListener("unload", this);
 
+    let stop_url = null;
+
     // Listen for loading events on the system app xul:browser
     let listener = {
       onLocationChange: (webProgress, request, location, flags) => {
@@ -72,9 +74,15 @@ var shell = {
 
       onStateChange: (webProgress, request, stateFlags, status) => {
         // debug(`StateChange ${stateFlags}`);
+        if (stateFlags &  Ci.nsIWebProgressListener.STATE_START) {
+          if (!stop_url) {
+            stop_url = request.name;
+          }
+        }
+
         if (stateFlags &  Ci.nsIWebProgressListener.STATE_STOP) {
           // debug(`Done loading ${request.name}`);
-          if (request.name == startURL) {
+          if (stop_url && request.name == stop_url) {
             this.contentBrowser.removeProgressListener(listener);
             this.notifyContentWindowLoaded();
           }
@@ -137,14 +145,6 @@ var shell = {
     }
   },
 
-  sendCustomEvent: function(type, details) {
-    SystemAppProxy._sendCustomEvent(type, details);
-  },
-
-  sendChromeEvent: function(details) {
-    this.sendCustomEvent("mozChromeEvent", details);
-  },
-
   // This gets called when window.onload fires on the System app content window,
   // which means things in <html> are parsed and statically referenced <script>s
   // and <script defer>s are loaded and run.
@@ -155,8 +155,6 @@ var shell = {
     // This will cause Gonk Widget to remove boot animation from the screen
     // and reveals the page.
     Services.obs.notifyObservers(null, "browser-ui-startup-complete", "");
-
-    // SystemAppProxy.setIsLoaded();
   },
 };
 

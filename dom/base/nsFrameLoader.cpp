@@ -87,6 +87,7 @@
 #include "mozilla/dom/FrameLoaderBinding.h"
 #include "mozilla/dom/MozFrameLoaderOwnerBinding.h"
 #include "mozilla/dom/SessionStoreListener.h"
+#include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/gfx/CrossProcessPaint.h"
 #include "mozilla/jsipc/CrossProcessObjectWrappers.h"
 #include "nsGenericHTMLFrameElement.h"
@@ -155,7 +156,8 @@ typedef ScrollableLayerGuid::ViewID ViewID;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsFrameLoader, mBrowsingContext,
                                       mMessageManager, mChildMessageManager,
-                                      mParentSHistory, mRemoteBrowser)
+                                      mParentSHistory, mRemoteBrowser,
+                                      mStaticCloneOf)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsFrameLoader)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsFrameLoader)
 
@@ -1962,13 +1964,6 @@ bool nsFrameLoader::ShouldUseRemoteProcess() {
     return false;
   }
 
-  // Check if the force fission test attribute is enabled.
-  if (XRE_IsContentProcess() &&
-      Preferences::GetBool("fission.oopif.attribute", false) &&
-      mOwnerContent->HasAttr(kNameSpaceID_None, nsGkAtoms::fission)) {
-    return true;
-  }
-
   if (XRE_IsContentProcess() &&
       !(PR_GetEnv("MOZ_NESTED_OOP_TABS") ||
         Preferences::GetBool("dom.ipc.tabs.nested.enabled", false))) {
@@ -2591,6 +2586,16 @@ bool nsFrameLoader::TryRemoteBrowserInternal() {
 
     // Try to get the related content parent from our browser element.
     Tie(openerContentParent, sameTabGroupAs) = GetContentParent(mOwnerContent);
+    // If we have an opener, it may be in the same process as our new child, and
+    // therefore needs to be in the same tab group. The long term solution to
+    // this problem is to get rid of TabGroups entirely. In the short term, the
+    // following hack deals with the specific problem that when a window has an
+    // opener, it asserts that its BrowserChild is bound to the same tab group
+    // as its opener. There are likely other mismatches that it does not handle,
+    // but those will all be fixed by the removal of TabGroups.
+    if (RefPtr<BrowsingContext> openerBC = mBrowsingContext->GetOpener()) {
+      sameTabGroupAs = openerBC->Canonical()->GetCurrentWindowGlobal()->GetBrowserParent();
+    }
   }
 
   uint32_t chromeFlags = 0;
@@ -2804,25 +2809,44 @@ void nsFrameLoader::ActivateFrameEvent(const nsAString& aType, bool aCapture,
 }
 
 nsresult nsFrameLoader::CreateStaticClone(nsFrameLoader* aDest) {
-  aDest->MaybeCreateDocShell();
-  NS_ENSURE_STATE(aDest->GetDocShell());
+  if (NS_WARN_IF(IsRemoteFrame())) {
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
 
-  nsCOMPtr<Document> kungFuDeathGrip = aDest->GetDocShell()->GetDocument();
+  // Ensure that the embedder element is set correctly.
+  aDest->mBrowsingContext->SetEmbedderElement(aDest->mOwnerContent);
+  aDest->mStaticCloneOf = this;
+  return NS_OK;
+}
+
+nsresult nsFrameLoader::FinishStaticClone() {
+  // After cloning is complete, discard the reference to the original
+  // nsFrameLoader, as it is no longer needed.
+  auto exitGuard = MakeScopeExit([&] { mStaticCloneOf = nullptr; });
+
+  if (NS_WARN_IF(!mStaticCloneOf || IsDead())) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  MaybeCreateDocShell();
+  NS_ENSURE_STATE(GetDocShell());
+
+  nsCOMPtr<Document> kungFuDeathGrip = GetDocShell()->GetDocument();
   Unused << kungFuDeathGrip;
 
   nsCOMPtr<nsIContentViewer> viewer;
-  aDest->GetDocShell()->GetContentViewer(getter_AddRefs(viewer));
+  GetDocShell()->GetContentViewer(getter_AddRefs(viewer));
   NS_ENSURE_STATE(viewer);
 
-  nsIDocShell* origDocShell = GetDocShell(IgnoreErrors());
+  nsIDocShell* origDocShell = mStaticCloneOf->GetDocShell(IgnoreErrors());
   NS_ENSURE_STATE(origDocShell);
 
   nsCOMPtr<Document> doc = origDocShell->GetDocument();
   NS_ENSURE_STATE(doc);
 
-  nsCOMPtr<Document> clonedDoc = doc->CreateStaticClone(aDest->GetDocShell());
+  nsCOMPtr<Document> clonedDoc = doc->CreateStaticClone(GetDocShell());
 
-  MOZ_ASSERT(viewer->GetDocument() == clonedDoc);
+  viewer->SetDocument(clonedDoc);
   return NS_OK;
 }
 
@@ -3412,7 +3436,29 @@ void nsFrameLoader::SkipBrowsingContextDetach() {
   if (IsRemoteFrame()) {
     // OOP Browser - Go directly over Browser Parent
     if (auto* browserParent = GetBrowserParent()) {
-      Unused << browserParent->SendSkipBrowsingContextDetach();
+      RefPtr<BrowsingContext> bc(GetBrowsingContext());
+      // We're going to be synchronously changing the owner of the
+      // BrowsingContext in the parent process while the current owner may still
+      // have in-flight requests which only the owner is allowed to make. Those
+      // requests will typically trigger assertions if they come from a child
+      // other than the owner.
+      //
+      // To work around this, we record the previous owner at the start of the
+      // process switch, and clear it when we've received a reply from the
+      // child, treating ownership mismatches as warnings in the interim.
+      //
+      // In the future, this sort of issue will probably need to be handled
+      // using ownership epochs, which should be more both flexible and
+      // resilient. For the moment, though, the surrounding process switch code
+      // is enough in flux that we're better off with a workable interim
+      // solution.
+      bc->Canonical()->SetInFlightProcessId(
+          browserParent->Manager()->ChildID());
+      browserParent->SendSkipBrowsingContextDetach(
+          [bc](bool aSuccess) { bc->Canonical()->SetInFlightProcessId(0); },
+          [bc](mozilla::ipc::ResponseRejectReason aReason) {
+            bc->Canonical()->SetInFlightProcessId(0);
+          });
     }
     // OOP IFrame - Through Browser Bridge Parent, set on browser child
     else if (auto* browserBridgeChild = GetBrowserBridgeChild()) {

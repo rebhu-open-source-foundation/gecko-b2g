@@ -160,9 +160,11 @@ static uint32_t sRCWNMinWaitMs = 0;
 static uint32_t sRCWNMaxWaitMs = 500;
 
 // True if the local cache should be bypassed when processing a request.
-#define BYPASS_LOCAL_CACHE(loadFlags)           \
-  (loadFlags & (nsIRequest::LOAD_BYPASS_CACHE | \
-                nsICachingChannel::LOAD_BYPASS_LOCAL_CACHE))
+#define BYPASS_LOCAL_CACHE(loadFlags, isPreferCacheLoadOverBypass) \
+  (loadFlags & (nsIRequest::LOAD_BYPASS_CACHE |                    \
+                nsICachingChannel::LOAD_BYPASS_LOCAL_CACHE) &&     \
+   !((loadFlags & nsIRequest::LOAD_FROM_CACHE) &&                  \
+     isPreferCacheLoadOverBypass))
 
 #define RECOVER_FROM_CACHE_FILE_ERROR(result) \
   ((result) == NS_ERROR_FILE_NOT_FOUND ||     \
@@ -4005,12 +4007,14 @@ nsresult nsHttpChannel::OpenCacheEntryInternal(
   }
 
   if (offline || (mLoadFlags & INHIBIT_CACHING)) {
-    if (BYPASS_LOCAL_CACHE(mLoadFlags) && !offline) {
+    if (BYPASS_LOCAL_CACHE(mLoadFlags, mPreferCacheLoadOverBypass) &&
+        !offline) {
       goto bypassCacheEntryOpen;
     }
     cacheEntryOpenFlags = nsICacheStorage::OPEN_READONLY;
     mCacheEntryIsReadOnly = true;
-  } else if (BYPASS_LOCAL_CACHE(mLoadFlags) && !applicationCache) {
+  } else if (BYPASS_LOCAL_CACHE(mLoadFlags, mPreferCacheLoadOverBypass) &&
+             !applicationCache) {
     cacheEntryOpenFlags = nsICacheStorage::OPEN_TRUNCATE;
   } else {
     cacheEntryOpenFlags =
@@ -6474,8 +6478,6 @@ nsHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
 
 nsresult nsHttpChannel::AsyncOpenFinal(TimeStamp aTimeStamp) {
   // Added due to PauseTask/DelayHttpChannel
-  nsresult rv;
-
   if (mLoadGroup) mLoadGroup->AddRequest(this, nullptr);
 
   // record asyncopen time unconditionally and clear it if we
@@ -6489,6 +6491,41 @@ nsresult nsHttpChannel::AsyncOpenFinal(TimeStamp aTimeStamp) {
   // Remember we have Authorization header set here.  We need to check on it
   // just once and early, AsyncOpen is the best place.
   mCustomAuthHeader = mRequestHead.HasHeader(nsHttp::Authorization);
+
+  if (!NS_ShouldClassifyChannel(this)) {
+    return MaybeResolveProxyAndBeginConnect();
+  }
+
+  // We are about to do an async lookup to check if the URI is a tracker. If
+  // yes, this channel will be canceled by channel classifier.  Chances are the
+  // lookup is not needed so CheckIsTrackerWithLocalTable() will return an
+  // error and then we can MaybeResolveProxyAndBeginConnect() right away.
+  RefPtr<nsHttpChannel> self = this;
+  bool willCallback = NS_SUCCEEDED(
+      AsyncUrlChannelClassifier::CheckChannel(this, [self]() -> void {
+        nsresult rv = self->MaybeResolveProxyAndBeginConnect();
+        if (NS_FAILED(rv)) {
+          // Since this error is thrown asynchronously so that the caller
+          // of BeginConnect() will not do clean up for us. We have to do
+          // it on our own.
+          self->CloseCacheEntry(false);
+          Unused << self->AsyncAbort(rv);
+        }
+      }));
+
+  if (!willCallback) {
+    // We can do MaybeResolveProxyAndBeginConnect immediately if
+    // CheckIsTrackerWithLocalTable is failed. Note that we don't need to
+    // handle the failure because BeginConnect() will return synchronously and
+    // the caller will be responsible for handling it.
+    return MaybeResolveProxyAndBeginConnect();
+  }
+
+  return NS_OK;
+}
+
+nsresult nsHttpChannel::MaybeResolveProxyAndBeginConnect() {
+  nsresult rv;
 
   // The common case for HTTP channels is to begin proxy resolution and return
   // at this point. The only time we know mProxyInfo already is if we're
@@ -6526,8 +6563,9 @@ nsHttpChannel::GetOrCreateChannelClassifier() {
 }
 
 // BeginConnect() SHOULD NOT call AsyncAbort(). AsyncAbort will be called by
-// functions that called BeginConnect if needed. Only AsyncOpen and
-// OnProxyAvailable ever call BeginConnect.
+// functions that called BeginConnect if needed. Only AsyncOpenFinal,
+// MaybeResolveProxyAndBeginConnect and OnProxyAvailable ever call
+// BeginConnect.
 nsresult nsHttpChannel::BeginConnect() {
   LOG(("nsHttpChannel::BeginConnect [this=%p]\n", this));
   nsresult rv;
@@ -6672,7 +6710,8 @@ nsresult nsHttpChannel::BeginConnect() {
   // if this somehow fails we can go on without it
   Unused << gHttpHandler->AddConnectionHeader(&mRequestHead, mCaps);
 
-  if (mLoadFlags & VALIDATE_ALWAYS || BYPASS_LOCAL_CACHE(mLoadFlags))
+  if (mLoadFlags & VALIDATE_ALWAYS ||
+      BYPASS_LOCAL_CACHE(mLoadFlags, mPreferCacheLoadOverBypass))
     mCaps |= NS_HTTP_REFRESH_DNS;
 
   // Adjust mCaps according to our request headers:
@@ -6718,55 +6757,34 @@ nsresult nsHttpChannel::BeginConnect() {
     return mStatus;
   }
 
-  if (!NS_ShouldClassifyChannel(this)) {
-    MaybeStartDNSPrefetch();
-    return ContinueBeginConnectWithResult();
+  bool shouldBeClassified = NS_ShouldClassifyChannel(this);
+
+  if (shouldBeClassified) {
+    if (mChannelClassifierCancellationPending) {
+      LOG(
+          ("Waiting for safe-browsing protection cancellation in BeginConnect "
+           "[this=%p]\n",
+           this));
+      return NS_OK;
+    }
+
+    ReEvaluateReferrerAfterTrackingStatusIsKnown();
   }
 
-  // We are about to do an async lookup to check if the URI is a
-  // tracker. If yes, this channel will be canceled by channel classifier.
-  // Chances are the lookup is not needed so CheckIsTrackerWithLocalTable()
-  // will return an error and then we can BeginConnectActual() right away.
-  RefPtr<nsHttpChannel> self = this;
-  bool willCallback = NS_SUCCEEDED(
-      AsyncUrlChannelClassifier::CheckChannel(this, [self]() -> void {
-        auto nextFunc = [self]() -> void {
-          nsresult rv = self->BeginConnectActual();
-          if (NS_FAILED(rv)) {
-            // Since this error is thrown asynchronously so that the caller
-            // of BeginConnect() will not do clean up for us. We have to do
-            // it on our own.
-            self->CloseCacheEntry(false);
-            Unused << self->AsyncAbort(rv);
-          }
-        };
+  MaybeStartDNSPrefetch();
 
-        uint32_t delayMillisec = StaticPrefs::network_delay_tracking_load();
-        if (self->IsThirdPartyTrackingResource() && delayMillisec) {
-          nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction(
-              "nsHttpChannel::BeginConnect-delayed", nextFunc);
-          nsresult rv = NS_DelayedDispatchToCurrentThread(runnable.forget(),
-                                                          delayMillisec);
-          if (NS_SUCCEEDED(rv)) {
-            LOG(
-                ("nsHttpChannel::BeginConnect delaying 3rd-party tracking "
-                 "resource for %u ms [this=%p]",
-                 delayMillisec, self.get()));
-            return;
-          }
-          LOG(("nsHttpChannel::BeginConnect unable to delay loading. [this=%p]",
-               self.get()));
-        }
+  rv = ContinueBeginConnectWithResult();
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
-        nextFunc();
-      }));
-
-  if (!willCallback) {
-    // We can do BeginConnectActual immediately if CheckIsTrackerWithLocalTable
-    // is failed. Note that we don't need to handle the failure because
-    // BeginConnect() will return synchronously and the caller will be
-    // responsible for handling it.
-    return BeginConnectActual();
+  if (shouldBeClassified) {
+    // Start nsChannelClassifier to catch phishing and malware URIs.
+    RefPtr<nsChannelClassifier> channelClassifier =
+        GetOrCreateChannelClassifier();
+    LOG(("nsHttpChannel::Starting nsChannelClassifier %p [this=%p]",
+         channelClassifier.get(), this));
+    channelClassifier->Start();
   }
 
   return NS_OK;
@@ -6796,40 +6814,6 @@ void nsHttpChannel::MaybeStartDNSPrefetch() {
         new nsDNSPrefetch(mURI, originAttributes, this, mTimingEnabled);
     mDNSPrefetch->PrefetchHigh(mCaps & NS_HTTP_REFRESH_DNS);
   }
-}
-
-nsresult nsHttpChannel::BeginConnectActual() {
-  if (mCanceled) {
-    return mStatus;
-  }
-
-  AUTO_PROFILER_LABEL("nsHttpChannel::BeginConnectActual", NETWORK);
-
-  if (mChannelClassifierCancellationPending) {
-    LOG(
-        ("Waiting for safe-browsing protection cancellation in "
-         "BeginConnectActual [this=%p]\n",
-         this));
-    return NS_OK;
-  }
-
-  ReEvaluateReferrerAfterTrackingStatusIsKnown();
-
-  MaybeStartDNSPrefetch();
-
-  nsresult rv = ContinueBeginConnectWithResult();
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  // Start nsChannelClassifier to catch phishing and malware URIs.
-  RefPtr<nsChannelClassifier> channelClassifier =
-      GetOrCreateChannelClassifier();
-  LOG(("nsHttpChannel::Starting nsChannelClassifier %p [this=%p]",
-       channelClassifier.get(), this));
-  channelClassifier->Start();
-
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -8092,7 +8076,12 @@ nsresult nsHttpChannel::ContinueOnStopRequestAfterAuthRetry(
     nsresult rv = gHttpHandler->ConnMgr()->CompleteUpgrade(
         aTransWithStickyConn, mUpgradeProtocolCallback);
     if (NS_FAILED(rv)) {
-      LOG(("  CompleteUpgrade failed with %08x", static_cast<uint32_t>(rv)));
+      LOG(("  CompleteUpgrade failed with %" PRIx32,
+           static_cast<uint32_t>(rv)));
+
+      // This ensures that WebSocketChannel::OnStopRequest will be
+      // called with an error so the session is properly aborted.
+      aStatus = rv;
     }
   }
 
@@ -8674,6 +8663,18 @@ NS_IMETHODIMP
 nsHttpChannel::GetAllowStaleCacheContent(bool* aAllowStaleCacheContent) {
   NS_ENSURE_ARG(aAllowStaleCacheContent);
   *aAllowStaleCacheContent = mAllowStaleCacheContent;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsHttpChannel::SetPreferCacheLoadOverBypass(bool aPreferCacheLoadOverBypass) {
+  mPreferCacheLoadOverBypass = aPreferCacheLoadOverBypass;
+  return NS_OK;
+}
+NS_IMETHODIMP
+nsHttpChannel::GetPreferCacheLoadOverBypass(bool* aPreferCacheLoadOverBypass) {
+  NS_ENSURE_ARG(aPreferCacheLoadOverBypass);
+  *aPreferCacheLoadOverBypass = mPreferCacheLoadOverBypass;
   return NS_OK;
 }
 

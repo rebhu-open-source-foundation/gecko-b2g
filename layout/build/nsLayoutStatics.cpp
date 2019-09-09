@@ -362,7 +362,6 @@ void nsLayoutStatics::Shutdown() {
   nsCSSKeywords::ReleaseTable();
   nsRepeatService::Shutdown();
   nsStackLayout::Shutdown();
-  nsBox::Shutdown();
 
 #ifdef MOZ_XUL
   nsXULContentUtils::Finish();

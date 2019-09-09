@@ -351,8 +351,7 @@ class ContentParent final : public PContentParent,
                                       nsIPrincipal* aPrincipal) override;
 
   /** Notify that a tab is beginning its destruction sequence. */
-  static void NotifyTabDestroying(const TabId& aTabId,
-                                  const ContentParentId& aCpId);
+  void NotifyTabDestroying();
 
   /** Notify that a tab was destroyed during normal operation. */
   void NotifyTabDestroyed(const TabId& aTabId, bool aNotifiedDestroying);
@@ -640,6 +639,9 @@ class ContentParent final : public PContentParent,
   FORWARD_SHMEM_ALLOCATOR_TO(PContentParent)
 
  protected:
+  bool CheckBrowsingContextOwnership(BrowsingContext* aBC,
+                                     const char* aOperation) const;
+
   void OnChannelConnected(int32_t pid) override;
 
   void ActorDestroy(ActorDestroyReason why) override;

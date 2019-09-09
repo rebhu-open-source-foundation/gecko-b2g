@@ -861,7 +861,7 @@ ScreenHelperGonk::ScreenHelperGonk()
   char propValue[PROPERTY_VALUE_MAX];
   property_get("ro.build.type", propValue, NULL);
   if (strcmp(propValue, "user") != 0) {
-    LOGE("============ KaiOS device information ============");
+    LOGE("============ B2G device information ============");
 
     property_get("ro.build.kaios_uid", propValue, NULL);
     LOGE("Build UID         = %s", propValue);
@@ -872,8 +872,7 @@ ScreenHelperGonk::ScreenHelperGonk()
     property_get("ro.bootloader", propValue, NULL);
     LOGE("Bootloader        = %s", propValue);
 
-    nsCString osVersion = NS_LITERAL_CSTRING(
-      NS_STRINGIFY(MOZ_B2G_OS_NAME) " " NS_STRINGIFY(MOZ_B2G_VERSION));
+    nsCString osVersion = NS_LITERAL_CSTRING(MOZ_STRINGIFY(MOZ_B2G_OS_NAME) " " MOZ_STRINGIFY(MOZ_B2G_VERSION));
     LOGE("OS Version        = %s", osVersion.get());
 
     LOGE("==================================================");
