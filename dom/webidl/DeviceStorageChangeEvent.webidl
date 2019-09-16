@@ -4,10 +4,10 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Constructor(DOMString type, optional DeviceStorageChangeEventInit eventInitDict = {}),
- Pref="device.storage.enabled"]
+[Pref="device.storage.enabled"]
 interface DeviceStorageChangeEvent : Event
 {
+  constructor(DOMString type, optional DeviceStorageChangeEventInit eventInitDict = {});
   readonly attribute DOMString? path;
   readonly attribute DOMString? reason;
 };

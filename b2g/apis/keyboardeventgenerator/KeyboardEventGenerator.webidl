@@ -4,8 +4,9 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Constructor]
 interface KeyboardEventGenerator {
+  [Throws]
+  constructor();
   [Throws]
   void generate(KeyboardEvent event);
 };

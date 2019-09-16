@@ -465,3 +465,8 @@ nsLookAndFeel::GetPasswordCharacterImpl()
 {
     return UNICODE_BULLET;
 }
+
+// No native theme on Gonk.
+already_AddRefed<nsITheme> do_GetNativeTheme() {
+  return nullptr;
+}
