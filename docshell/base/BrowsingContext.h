@@ -357,8 +357,10 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
     // in all processes. This method will call the correct `MaySet` and
     // `DidSet` methods, as well as move the value.
     //
+    // If the target has been discarded, changes will be ignored.
+    //
     // NOTE: This method mutates `this`, resetting all members to `Nothing()`
-    void Commit(BrowsingContext* aOwner);
+    nsresult Commit(BrowsingContext* aOwner);
 
     // This method should be called before invoking `Apply` on this transaction
     // object.
@@ -450,9 +452,6 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // 'aRequestingContext'.
   BrowsingContext* FindWithNameInSubtree(const nsAString& aName,
                                          BrowsingContext& aRequestingContext);
-
-  // Removes the context from its group and sets mIsDetached to true.
-  void Unregister();
 
   friend class ::nsOuterWindowProxy;
   friend class ::nsGlobalWindowOuter;

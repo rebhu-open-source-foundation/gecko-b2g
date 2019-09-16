@@ -94,12 +94,6 @@ const threadSpec = generateActorSpec({
         skip: Arg(0, "json"),
       },
     },
-    threadGrips: {
-      request: {
-        actors: Arg(0, "array:string"),
-      },
-      response: RetVal("json"),
-    },
     dumpThread: {
       request: {},
       response: RetVal("json"),
@@ -153,6 +147,16 @@ const threadSpec = generateActorSpec({
         pauseOnExceptions: Arg(0, "string"),
         ignoreCaughtExceptions: Arg(1, "string"),
       },
+    },
+
+    paint: {
+      request: {
+        point: Arg(0, "json"),
+      },
+    },
+
+    paintCurrentPoint: {
+      request: {},
     },
 
     // For testing.

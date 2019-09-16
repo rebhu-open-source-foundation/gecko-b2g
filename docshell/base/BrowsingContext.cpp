@@ -61,16 +61,6 @@ static void Register(BrowsingContext* aBrowsingContext) {
   aBrowsingContext->Group()->Register(aBrowsingContext);
 }
 
-void BrowsingContext::Unregister() {
-  MOZ_DIAGNOSTIC_ASSERT(mGroup);
-  mGroup->Unregister(this);
-  mIsDiscarded = true;
-
-  // NOTE: Doesn't use SetClosed, as it will be set in all processes
-  // automatically by calls to Detach()
-  mClosed = true;
-}
-
 BrowsingContext* BrowsingContext::Top() {
   BrowsingContext* bc = this;
   while (bc->mParent) {
@@ -140,7 +130,7 @@ already_AddRefed<BrowsingContext> BrowsingContext::Create(
 
   BrowsingContext* inherit = aParent ? aParent : aOpener;
   if (inherit) {
-    context->mOpenerPolicy = inherit->mOpenerPolicy;
+    context->mOpenerPolicy = inherit->Top()->mOpenerPolicy;
     // CORPP 3.1.3 https://mikewest.github.io/corpp/#integration-html
     context->mEmbedderPolicy = inherit->mEmbedderPolicy;
   }
@@ -361,7 +351,17 @@ void BrowsingContext::Detach(bool aFromIPC) {
     children->RemoveElement(this);
   }
 
-  Unregister();
+  if (!mChildren.IsEmpty()) {
+    mGroup->CacheContexts(mChildren);
+    mChildren.Clear();
+  }
+
+  mGroup->Unregister(this);
+  mIsDiscarded = true;
+
+  // NOTE: Doesn't use SetClosed, as it will be set in all processes
+  // automatically by calls to Detach()
+  mClosed = true;
 
   if (!aFromIPC && XRE_IsContentProcess()) {
     auto cc = ContentChild::GetSingleton();
@@ -792,8 +792,13 @@ void BrowsingContext::Location(JSContext* aCx,
 
 nsresult BrowsingContext::LoadURI(BrowsingContext* aAccessor,
                                   nsDocShellLoadState* aLoadState) {
-  MOZ_DIAGNOSTIC_ASSERT(!IsDiscarded());
-  MOZ_DIAGNOSTIC_ASSERT(!aAccessor || !aAccessor->IsDiscarded());
+  // Per spec, most load attempts are silently ignored when a BrowsingContext is
+  // null (which in our code corresponds to discarded), so we simply fail
+  // silently in those cases. Regardless, we cannot trigger loads in/from
+  // discarded BrowsingContexts via IPC, so we need to abort in any case.
+  if (IsDiscarded() || (aAccessor && aAccessor->IsDiscarded())) {
+    return NS_OK;
+  }
 
   if (mDocShell) {
     return mDocShell->LoadURI(aLoadState);
@@ -945,7 +950,12 @@ void BrowsingContext::PostMessageMoz(JSContext* aCx,
                  aSubjectPrincipal, aError);
 }
 
-void BrowsingContext::Transaction::Commit(BrowsingContext* aBrowsingContext) {
+nsresult BrowsingContext::Transaction::Commit(
+    BrowsingContext* aBrowsingContext) {
+  if (NS_WARN_IF(aBrowsingContext->IsDiscarded())) {
+    return NS_ERROR_FAILURE;
+  }
+
   if (!Validate(aBrowsingContext, nullptr)) {
     MOZ_CRASH("Cannot commit invalid BrowsingContext transaction");
   }
@@ -973,7 +983,9 @@ void BrowsingContext::Transaction::Commit(BrowsingContext* aBrowsingContext) {
   }
 
   Apply(aBrowsingContext);
+  return NS_OK;
 }
+
 bool BrowsingContext::Transaction::Validate(BrowsingContext* aBrowsingContext,
                                             ContentParent* aSource) {
 #define MOZ_BC_FIELD(name, ...)                                        \

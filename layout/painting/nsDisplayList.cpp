@@ -1230,7 +1230,6 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
       mCaretFrame(nullptr),
       mScrollInfoItemsForHoisting(nullptr),
       mFirstClipChainToDestroy(nullptr),
-      mActiveScrolledRootForRootScrollframe(nullptr),
       mMode(aMode),
       mTableBackgroundSet(nullptr),
       mCurrentScrollParentId(ScrollableLayerGuid::NULL_SCROLL_ID),
@@ -1507,8 +1506,7 @@ AnimatedGeometryRoot* nsDisplayListBuilder::FindAnimatedGeometryRootFor(
 void nsDisplayListBuilder::UpdateShouldBuildAsyncZoomContainer() {
   Document* document = mReferenceFrame->PresContext()->Document();
   mBuildAsyncZoomContainer =
-      nsLayoutUtils::AllowZoomingForDocument(document) &&
-      !StaticPrefs::layout_scroll_root_frame_containers();
+      nsLayoutUtils::AllowZoomingForDocument(document);
 }
 
 void nsDisplayListBuilder::UpdateShouldBuildBackdropRootContainer() {
@@ -2729,9 +2727,6 @@ bool nsDisplayList::ComputeVisibilityForRoot(nsDisplayListBuilder* aBuilder,
 
   nsRegion r;
   const ActiveScrolledRoot* rootASR = nullptr;
-  if (StaticPrefs::layout_scroll_root_frame_containers()) {
-    rootASR = aBuilder->ActiveScrolledRootForRootScrollframe();
-  }
   r.And(*aVisibleRegion, GetClippedBoundsWithRespectToASR(aBuilder, rootASR));
   return ComputeVisibilityForSublist(aBuilder, aVisibleRegion, r.GetBounds());
 }
@@ -2910,9 +2905,7 @@ FrameLayerBuilder* nsDisplayList::BuildLayers(nsDisplayListBuilder* aBuilder,
       rootLayer->SetScrollMetadata(nsTArray<ScrollMetadata>());
     }
 
-    float resolutionUniform = StaticPrefs::layout_scroll_root_frame_containers()
-                                  ? presShell->GetResolution()
-                                  : 1.0f;
+    float resolutionUniform = 1.0f;
     float resolutionX = resolutionUniform;
     float resolutionY = resolutionUniform;
 
@@ -2947,9 +2940,6 @@ FrameLayerBuilder* nsDisplayList::BuildLayers(nsDisplayListBuilder* aBuilder,
     }
     // Root is being scaled up by the X/Y resolution. Scale it back down.
     root->SetPostScale(1.0f / resolutionX, 1.0f / resolutionY);
-    if (StaticPrefs::layout_scroll_root_frame_containers()) {
-      root->SetScaleToResolution(resolutionUniform);
-    }
 
     auto callback = [root](ScrollableLayerGuid::ViewID aScrollId) -> bool {
       return nsLayoutUtils::ContainsMetricsWithId(root, aScrollId);
@@ -3603,9 +3593,7 @@ Maybe<nsRect> nsDisplayItem::GetClipWithRespectToASR(
     return Some(clip->GetClipRect());
   }
 #ifdef DEBUG
-  if (!StaticPrefs::layout_scroll_root_frame_containers()) {
-    MOZ_ASSERT(false, "item should have finite clip with respect to aASR");
-  }
+  MOZ_ASSERT(false, "item should have finite clip with respect to aASR");
 #endif
   return Nothing();
 }
@@ -3866,16 +3854,16 @@ bool nsDisplaySolidColor::CreateWebRenderCommands(
         LayoutDeviceRect renderRootRect =
             aDisplayListBuilder->GetRenderRootRect(renderRoot);
         wr::LayoutRect intersection =
-            wr::ToRoundedLayoutRect(bounds.Intersect(renderRootRect));
+            wr::ToLayoutRect(bounds.Intersect(renderRootRect));
         aBuilder.SubBuilder(renderRoot)
             .PushRect(intersection, intersection, !BackfaceIsHidden(),
                       wr::ToColorF(ToDeviceColor(mColor)));
       }
     }
   } else {
-    wr::LayoutRect roundedRect = wr::ToRoundedLayoutRect(bounds);
+    wr::LayoutRect r = wr::ToLayoutRect(bounds);
 
-    aBuilder.PushRect(roundedRect, roundedRect, !BackfaceIsHidden(),
+    aBuilder.PushRect(r, r, !BackfaceIsHidden(),
                       wr::ToColorF(ToDeviceColor(mColor)));
   }
 
@@ -3915,8 +3903,8 @@ bool nsDisplaySolidColorRegion::CreateWebRenderCommands(
     nsRect rect = iter.Get();
     LayoutDeviceRect layerRects = LayoutDeviceRect::FromAppUnits(
         rect, mFrame->PresContext()->AppUnitsPerDevPixel());
-    wr::LayoutRect roundedRect = wr::ToRoundedLayoutRect(layerRects);
-    aBuilder.PushRect(roundedRect, roundedRect, !BackfaceIsHidden(),
+    wr::LayoutRect r = wr::ToLayoutRect(layerRects);
+    aBuilder.PushRect(r, r, !BackfaceIsHidden(),
                       wr::ToColorF(ToDeviceColor(mColor)));
   }
 
@@ -5181,9 +5169,9 @@ bool nsDisplayBackgroundColor::CreateWebRenderCommands(
 
   LayoutDeviceRect bounds = LayoutDeviceRect::FromAppUnits(
       mBackgroundRect, mFrame->PresContext()->AppUnitsPerDevPixel());
-  wr::LayoutRect roundedRect = wr::ToRoundedLayoutRect(bounds);
+  wr::LayoutRect r = wr::ToLayoutRect(bounds);
 
-  aBuilder.PushRect(roundedRect, roundedRect, !BackfaceIsHidden(),
+  aBuilder.PushRect(r, r, !BackfaceIsHidden(),
                     wr::ToColorF(ToDeviceColor(mColor)));
 
   return true;
@@ -5366,7 +5354,7 @@ bool nsDisplayClearBackground::CreateWebRenderCommands(
       nsRect(ToReferenceFrame(), mFrame->GetSize()),
       mFrame->PresContext()->AppUnitsPerDevPixel());
 
-  aBuilder.PushClearRect(wr::ToRoundedLayoutRect(bounds));
+  aBuilder.PushClearRect(wr::ToLayoutRect(bounds));
 
   return true;
 }
@@ -5539,7 +5527,7 @@ bool nsDisplayCompositorHitTestInfo::CreateWebRenderCommands(
   const LayoutDeviceRect devRect =
       LayoutDeviceRect::FromAppUnits(HitTestArea(), mAppUnitsPerDevPixel);
 
-  const wr::LayoutRect rect = wr::ToRoundedLayoutRect(devRect);
+  const wr::LayoutRect rect = wr::ToLayoutRect(devRect);
 
   aBuilder.PushHitTest(rect, rect, !BackfaceIsHidden());
   aBuilder.ClearHitTestInfo();
@@ -5611,8 +5599,8 @@ bool nsDisplayCaret::CreateWebRenderCommands(
   LayoutDeviceRect devHookRect = LayoutDeviceRect::FromAppUnits(
       hookRect + ToReferenceFrame(), appUnitsPerDevPixel);
 
-  wr::LayoutRect caret = wr::ToRoundedLayoutRect(devCaretRect);
-  wr::LayoutRect hook = wr::ToRoundedLayoutRect(devHookRect);
+  wr::LayoutRect caret = wr::ToLayoutRect(devCaretRect);
+  wr::LayoutRect hook = wr::ToLayoutRect(devHookRect);
 
   // Note, WR will pixel snap anything that is layout aligned.
   aBuilder.PushRect(caret, caret, !BackfaceIsHidden(), wr::ToColorF(color));
@@ -5886,8 +5874,8 @@ bool nsDisplayBoxShadowOuter::CreateWebRenderCommands(
 
       LayoutDeviceRect deviceBox =
           LayoutDeviceRect::FromAppUnits(shadowRect, appUnitsPerDevPixel);
-      wr::LayoutRect deviceBoxRect = wr::ToRoundedLayoutRect(deviceBox);
-      wr::LayoutRect deviceClipRect = wr::ToRoundedLayoutRect(clipRect);
+      wr::LayoutRect deviceBoxRect = wr::ToLayoutRect(deviceBox);
+      wr::LayoutRect deviceClipRect = wr::ToLayoutRect(clipRect);
 
       LayoutDeviceSize zeroSize;
       wr::BorderRadius borderRadius =
@@ -6015,7 +6003,7 @@ void nsDisplayBoxShadowInner::CreateInsetBoxShadowWebRenderCommands(
       // Now translate everything to device pixels.
       LayoutDeviceRect deviceBoxRect =
           LayoutDeviceRect::FromAppUnits(shadowRect, appUnitsPerDevPixel);
-      wr::LayoutRect deviceClipRect = wr::ToRoundedLayoutRect(clipRect);
+      wr::LayoutRect deviceClipRect = wr::ToLayoutRect(clipRect);
       Color shadowColor =
           nsCSSRendering::GetShadowColor(shadow.base, aFrame, 1.0);
 
@@ -7303,22 +7291,13 @@ void nsDisplayResolution::HitTest(nsDisplayListBuilder* aBuilder,
 already_AddRefed<Layer> nsDisplayResolution::BuildLayer(
     nsDisplayListBuilder* aBuilder, LayerManager* aManager,
     const ContainerLayerParameters& aContainerParameters) {
-  PresShell* presShell = mFrame->PresShell();
-  float rootLayerResolution = StaticPrefs::layout_scroll_root_frame_containers()
-                                  ? presShell->GetResolution()
-                                  : 1.0f;
+  float rootLayerResolution = 1.0f;
   ContainerLayerParameters containerParameters(
       rootLayerResolution, rootLayerResolution, nsIntPoint(),
       aContainerParameters);
 
   RefPtr<Layer> layer =
       nsDisplaySubDocument::BuildLayer(aBuilder, aManager, containerParameters);
-
-  if (StaticPrefs::layout_scroll_root_frame_containers()) {
-    layer->SetPostScale(1.0f / presShell->GetResolution(),
-                        1.0f / presShell->GetResolution());
-    layer->AsContainerLayer()->SetScaleToResolution(presShell->GetResolution());
-  }
 
   return layer.forget();
 }
@@ -7736,7 +7715,7 @@ bool nsDisplayStickyPosition::CreateWebRenderCommands(
         NSAppUnitsToFloatPixels(appliedOffset.x, auPerDevPixel),
         NSAppUnitsToFloatPixels(appliedOffset.y, auPerDevPixel)};
     wr::WrSpatialId spatialId = aBuilder.DefineStickyFrame(
-        wr::ToRoundedLayoutRect(bounds), topMargin.ptrOr(nullptr),
+        wr::ToLayoutRect(bounds), topMargin.ptrOr(nullptr),
         rightMargin.ptrOr(nullptr), bottomMargin.ptrOr(nullptr),
         leftMargin.ptrOr(nullptr), vBounds, hBounds, applied);
 
@@ -10031,7 +10010,7 @@ static Maybe<wr::WrClipId> CreateSimpleClipRegion(
             wr::ToComplexClipRegion(insetRect, radii, appUnitsPerDevPixel));
       }
 
-      rect = wr::ToRoundedLayoutRect(
+      rect = wr::ToLayoutRect(
           LayoutDeviceRect::FromAppUnits(insetRect, appUnitsPerDevPixel));
       break;
     }
@@ -10060,7 +10039,7 @@ static Maybe<wr::WrClipId> CreateSimpleClipRegion(
       clipRegions.AppendElement(wr::ToComplexClipRegion(
           ellipseRect, ellipseRadii, appUnitsPerDevPixel));
 
-      rect = wr::ToRoundedLayoutRect(
+      rect = wr::ToLayoutRect(
           LayoutDeviceRect::FromAppUnits(ellipseRect, appUnitsPerDevPixel));
       break;
     }
@@ -10099,7 +10078,7 @@ static Maybe<Pair<wr::WrClipId, HandleOpacity>> CreateWRClipPathAndMasks(
   }
 
   wr::WrClipId clipId = aBuilder.DefineClip(
-      Nothing(), wr::ToRoundedLayoutRect(aBounds), nullptr, mask.ptr());
+      Nothing(), wr::ToLayoutRect(aBounds), nullptr, mask.ptr());
 
   return Some(MakePair(clipId, HandleOpacity::No));
 }
@@ -10162,9 +10141,7 @@ Maybe<nsRect> nsDisplayMasksAndClipPaths::GetClipWithRespectToASR(
     return Some(childList->GetClippedBoundsWithRespectToASR(aBuilder, aASR));
   }
 #ifdef DEBUG
-  if (!StaticPrefs::layout_scroll_root_frame_containers()) {
-    MOZ_ASSERT(false, "item should have finite clip with respect to aASR");
-  }
+  MOZ_ASSERT(false, "item should have finite clip with respect to aASR");
 #endif
   return Nothing();
 }
@@ -10512,7 +10489,7 @@ bool nsDisplayFilters::CreateWebRenderCommands(
     auto devPxRect = LayoutDeviceRect::FromAppUnits(
         filterClip.value() + ToReferenceFrame(), auPerDevPixel);
     wr::WrClipId clipId =
-        aBuilder.DefineClip(Nothing(), wr::ToRoundedLayoutRect(devPxRect));
+        aBuilder.DefineClip(Nothing(), wr::ToLayoutRect(devPxRect));
     clip = wr::WrStackingContextClip::ClipId(clipId);
   } else {
     clip = wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());

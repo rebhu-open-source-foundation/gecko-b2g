@@ -102,65 +102,9 @@ class TextEditRules {
  protected:
   virtual ~TextEditRules() = default;
 
- public:
-  /**
-   * Handles the newline characters according to the default system prefs
-   * (editor.singleLine.pasteNewlines).
-   * Each value means:
-   *   nsIPlaintextEditor::eNewlinesReplaceWithSpaces (2, Firefox default):
-   *     replace newlines with spaces.
-   *   nsIPlaintextEditor::eNewlinesStrip (3):
-   *     remove newlines from the string.
-   *   nsIPlaintextEditor::eNewlinesReplaceWithCommas (4, Thunderbird default):
-   *     replace newlines with commas.
-   *   nsIPlaintextEditor::eNewlinesStripSurroundingWhitespace (5):
-   *     collapse newlines and surrounding whitespace characters and
-   *     remove them from the string.
-   *   nsIPlaintextEditor::eNewlinesPasteIntact (0):
-   *     only remove the leading and trailing newlines.
-   *   nsIPlaintextEditor::eNewlinesPasteToFirst (1) or any other value:
-   *     remove the first newline and all characters following it.
-   *
-   * @param aString the string to be modified in place.
-   */
-  void HandleNewLines(nsString& aString);
-
- protected:
   void InitFields();
 
   // TextEditRules implementation methods
-
-  /**
-   * Called before inserting text.
-   * This method may actually inserts text into the editor.  Therefore, this
-   * might cause destroying the editor.
-   *
-   * @param aEditSubAction      Must be EditSubAction::eInsertTextComingFromIME
-   *                            or EditSubAction::eInsertText.
-   * @param aCancel             Returns true if the operation is canceled.
-   * @param aHandled            Returns true if the edit action is handled.
-   * @param inString            String to be inserted.
-   * @param outString           String actually inserted.
-   * @param aMaxLength          The maximum string length which the editor
-   *                            allows to set.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult WillInsertText(EditSubAction aEditSubAction,
-                                       bool* aCancel, bool* aHandled,
-                                       const nsAString* inString,
-                                       nsAString* outString,
-                                       int32_t aMaxLength);
-
-  /**
-   * Called before inserting a line break into the editor.
-   * This method removes selected text if selection isn't collapsed.
-   * Therefore, this might cause destroying the editor.
-   *
-   * @param aMaxLength          The maximum string length which the editor
-   *                            allows to set.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE EditActionResult WillInsertLineBreak(int32_t aMaxLength);
 
   /**
    * Called before setting text to the text editor.
@@ -179,57 +123,6 @@ class TextEditRules {
                                     int32_t aMaxLength);
 
   /**
-   * Called before deleting selected content.
-   * This method may actually remove the selected content with
-   * DeleteSelectionWithTransaction().  So, this might cause destroying the
-   * editor.
-   *
-   * @param aCaollapsedAction   Direction to extend the selection.
-   * @param aCancel             Returns true if the operation is canceled.
-   * @param aHandled            Returns true if the edit action is handled.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult WillDeleteSelection(
-      nsIEditor::EDirection aCollapsedAction, bool* aCancel, bool* aHandled);
-
-  /**
-   * DeleteSelectionWithTransaction() is internal method of
-   * WillDeleteSelection() since it needs to create SelectionBatcher in
-   * big scope and destroying it might causes destroying the editor.
-   * So, after calling this method, callers need to check CanHandleEditAction()
-   * manually.
-   *
-   * @param aCaollapsedAction   Direction to extend the selection.
-   * @param aCancel             Returns true if the operation is canceled.
-   * @param aHandled            Returns true if the edit action is handled.
-   */
-  MOZ_CAN_RUN_SCRIPT
-  MOZ_MUST_USE nsresult DeleteSelectionWithTransaction(
-      nsIEditor::EDirection aCollapsedAction, bool* aCancel, bool* aHandled);
-
-  /**
-   * Called after deleted selected content.
-   * This method may remove empty text node and makes guarantee that caret
-   * is never at left of <br> element.
-   */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult DidDeleteSelection();
-
-  nsresult WillSetTextProperty(bool* aCancel, bool* aHandled);
-
-  nsresult WillRemoveTextProperty(bool* aCancel, bool* aHandled);
-
-  /**
-   * Called prior to nsIEditor::OutputToString.
-   *
-   * @param aInFormat  The format requested for the output, a MIME type.
-   * @param aOutText   The string to use for output, if aCancel is set to true.
-   * @param aOutCancel If set to true, the caller should cancel the operation
-   *                   and use aOutText as the result.
-   */
-  nsresult WillOutputText(const nsAString* aInFormat, nsAString* aOutText,
-                          uint32_t aFlags, bool* aOutCancel, bool* aHandled);
-
-  /**
    * Creates a trailing break in the text doc if there is not one already.
    */
   MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult CreateTrailingBRIfNeeded();
@@ -240,14 +133,6 @@ class TextEditRules {
    */
   MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult
   CreatePaddingBRElementForEmptyEditorIfNeeded();
-
-  /**
-   * Returns a truncated insertion string if insertion would place us over
-   * aMaxLength
-   */
-  nsresult TruncateInsertionIfNeeded(const nsAString* aInString,
-                                     nsAString* aOutString, int32_t aMaxLength,
-                                     bool* aTruncated);
 
   /**
    * CollapseSelectionToTrailingBRIfNeeded() collapses selection after the
@@ -342,14 +227,6 @@ class TextEditRules {
 #ifdef DEBUG
   bool IsEditorDataAvailable() const { return !!mData; }
 #endif  // #ifdef DEBUG
-
-  /**
-   * GetTextNodeAroundSelectionStartContainer() may return a Text node around
-   * start container of Selection.  If current selection container is not
-   * a text node, this will look for descendants and next siblings of the
-   * container.
-   */
-  inline already_AddRefed<nsINode> GetTextNodeAroundSelectionStartContainer();
 
 #ifdef DEBUG
   bool mIsHandling;

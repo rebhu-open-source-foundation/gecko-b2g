@@ -23,7 +23,7 @@
 
 const CC = Components.Constructor;
 
-// Create a sandbox with the resources we need. require() doesn't work here.
+// Create a sandbox with the resources we need.
 const sandbox = Cu.Sandbox(
   CC("@mozilla.org/systemprincipal;1", "nsIPrincipal")(),
   {
@@ -45,17 +45,17 @@ const {
   CSSRule,
   pointPrecedes,
   pointEquals,
+  pointArrayIncludes,
   findClosestPoint,
 } = sandbox;
 
-function formatDisplayName(frame) {
-  if (frame.type === "call") {
-    const callee = frame.callee;
-    return callee.name || callee.userDisplayName || callee.displayName;
-  }
+const { require } = ChromeUtils.import("resource://devtools/shared/Loader.jsm");
+const jsmScope = require("resource://devtools/shared/Loader.jsm");
+const { DebuggerNotificationObserver } = Cu.getGlobalForObject(jsmScope);
 
-  return `(${frame.type})`;
-}
+const {
+  eventBreakpointForNotification,
+} = require("devtools/server/actors/utils/event-breakpoints");
 
 const dbg = new Debugger();
 const gFirstGlobal = dbg.makeGlobalObjectReference(sandbox);
@@ -68,6 +68,7 @@ dbg.onNewGlobalObject = function(global) {
     gAllGlobals.push(global);
 
     scanningOnNewGlobal(global);
+    eventListenerOnNewGlobal(global);
   } catch (e) {
     // Ignore errors related to adding a same-compartment debuggee.
     // See bug 1523755.
@@ -384,6 +385,40 @@ function NewTimeWarpTarget() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Event State
+///////////////////////////////////////////////////////////////////////////////
+
+const gNewEvents = [];
+
+const gDebuggerNotificationObserver = new DebuggerNotificationObserver();
+gDebuggerNotificationObserver.addListener(eventBreakpointListener);
+
+function eventListenerOnNewGlobal(global) {
+  try {
+    gDebuggerNotificationObserver.connect(global.unsafeDereference());
+  } catch (e) {}
+}
+
+function eventBreakpointListener(notification) {
+  const event = eventBreakpointForNotification(dbg, notification);
+  if (!event) {
+    return;
+  }
+
+  // Advance the progress counter before and after each event, so that we can
+  // determine later if any JS ran between the two points.
+  RecordReplayControl.advanceProgressCounter();
+
+  if (notification.phase == "pre") {
+    const progress = RecordReplayControl.progressCounter();
+
+    if (gManifest.kind == "resume") {
+      gNewEvents.push({ event, checkpoint: gLastCheckpoint, progress });
+    }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Recording Scanning
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -598,6 +633,16 @@ function findFrameSteps({ targetPoint, breakpointOffsets }) {
   });
 
   return steps;
+}
+
+function findEventFrameEntry({ checkpoint, progress }) {
+  const entryHits = findChangeFrames(checkpoint, 0, "EnterFrame", 0);
+  for (const hit of entryHits) {
+    if (hit.progress == progress + 1) {
+      return hit;
+    }
+  }
+  return null;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -885,7 +930,7 @@ function ClearPausedState() {
 ///////////////////////////////////////////////////////////////////////////////
 
 // The manifest that is currently being processed.
-let gManifest;
+let gManifest = { kind: "primordial" };
 
 // When processing certain manifests this tracks the execution time when the
 // manifest started executing.
@@ -897,33 +942,41 @@ const gNewDebuggerStatements = [];
 // Whether to pause on debugger statements when running forward.
 let gPauseOnDebuggerStatement = false;
 
+function ensureRunToPointPositionHandlers({ endpoint, snapshotPoints }) {
+  if (gLastCheckpoint == endpoint.checkpoint) {
+    assert(endpoint.position);
+    ensurePositionHandler(endpoint.position);
+  }
+  snapshotPoints.forEach(snapshot => {
+    if (gLastCheckpoint == snapshot.checkpoint && snapshot.position) {
+      ensurePositionHandler(snapshot.position);
+    }
+  });
+}
+
 // Handlers that run when a manifest is first received. This must be specified
 // for all manifests.
 const gManifestStartHandlers = {
   resume({ breakpoints, pauseOnDebuggerStatement }) {
     RecordReplayControl.resumeExecution();
-    gManifestStartTime = RecordReplayControl.currentExecutionTime();
     breakpoints.forEach(ensurePositionHandler);
 
     gPauseOnDebuggerStatement = pauseOnDebuggerStatement;
     dbg.onDebuggerStatement = debuggerStatementHit;
   },
 
-  restoreCheckpoint({ target }) {
-    RecordReplayControl.restoreCheckpoint(target);
+  restoreSnapshot({ numSnapshots }) {
+    RecordReplayControl.restoreSnapshot(numSnapshots);
     throwError("Unreachable!");
   },
 
-  runToPoint({ needSaveCheckpoints }) {
-    for (const checkpoint of needSaveCheckpoints) {
-      RecordReplayControl.saveCheckpoint(checkpoint);
-    }
+  runToPoint(manifest) {
+    ensureRunToPointPositionHandlers(manifest);
     RecordReplayControl.resumeExecution();
   },
 
-  scanRecording(manifest) {
-    gManifestStartTime = RecordReplayControl.currentExecutionTime();
-    gManifestStartHandlers.runToPoint(manifest);
+  scanRecording() {
+    RecordReplayControl.resumeExecution();
   },
 
   findHits({ position, startpoint, endpoint }) {
@@ -934,6 +987,10 @@ const gManifestStartHandlers = {
 
   findFrameSteps(info) {
     RecordReplayControl.manifestFinished(findFrameSteps(info));
+  },
+
+  findEventFrameEntry(progress) {
+    RecordReplayControl.manifestFinished({ rv: findEventFrameEntry(progress) });
   },
 
   flushRecording() {
@@ -958,7 +1015,9 @@ const gManifestStartHandlers = {
     for (const request of requests) {
       processRequest(request);
     }
-    RecordReplayControl.manifestFinished();
+    RecordReplayControl.manifestFinished({
+      divergedFromRecording: gDivergedFromRecording,
+    });
   },
 
   getPauseData() {
@@ -968,7 +1027,7 @@ const gManifestStartHandlers = {
     RecordReplayControl.manifestFinished(data);
   },
 
-  hitLogpoint({ text, condition }) {
+  hitLogpoint({ text, condition, skipPauseData }) {
     divergeFromRecording();
 
     const frame = scriptFrameForIndex(countScriptFrames() - 1);
@@ -983,9 +1042,12 @@ const gManifestStartHandlers = {
     const displayName = formatDisplayName(frame);
     const rv = frame.evalWithBindings(`[${text}]`, { displayName });
 
-    const pauseData = getPauseData();
-    pauseData.paintData = RecordReplayControl.repaint();
-    ClearPausedState();
+    let pauseData;
+    if (!skipPauseData) {
+      pauseData = getPauseData();
+      pauseData.paintData = RecordReplayControl.repaint();
+      ClearPausedState();
+    }
 
     let result;
     if (rv.return) {
@@ -1006,6 +1068,7 @@ const gManifestStartHandlers = {
 function ManifestStart(manifest) {
   try {
     gManifest = manifest;
+    gManifestStartTime = RecordReplayControl.currentExecutionTime();
 
     if (gManifestStartHandlers[manifest.kind]) {
       gManifestStartHandlers[manifest.kind](manifest);
@@ -1015,12 +1078,6 @@ function ManifestStart(manifest) {
   } catch (e) {
     printError("ManifestStart", e);
   }
-}
-
-// eslint-disable-next-line no-unused-vars
-function BeforeCheckpoint() {
-  clearPositionHandlers();
-  stopScanningAllScripts();
 }
 
 const FirstCheckpointId = 1;
@@ -1057,28 +1114,48 @@ function finishResume(point) {
     consoleMessages: gNewConsoleMessages,
     scripts: gNewScripts,
     debuggerStatements: gNewDebuggerStatements,
+    events: gNewEvents,
   });
   gNewConsoleMessages.length = 0;
   gNewScripts.length = 0;
   gNewDebuggerStatements.length = 0;
+  gNewEvents.length = 0;
 }
 
 // Handlers that run after a checkpoint is reached to see if the manifest has
 // finished. This does not need to be specified for all manifests.
 const gManifestFinishedAfterCheckpointHandlers = {
+  primordial(_, point) {
+    // The primordial manifest runs forward to the first checkpoint, saves it,
+    // and then finishes.
+    assert(point.checkpoint == FirstCheckpointId);
+    if (!newSnapshot(point)) {
+      return;
+    }
+    RecordReplayControl.manifestFinished({ point });
+  },
+
   resume(_, point) {
+    clearPositionHandlers();
     finishResume(point);
   },
 
-  runToPoint({ endpoint }, point) {
+  runToPoint({ endpoint, snapshotPoints }, point) {
     assert(endpoint.checkpoint >= point.checkpoint);
+    if (pointArrayIncludes(snapshotPoints, point) && !newSnapshot(point)) {
+      return;
+    }
     if (!endpoint.position && point.checkpoint == endpoint.checkpoint) {
       RecordReplayControl.manifestFinished({ point });
     }
   },
 
-  scanRecording({ endpoint }, point) {
-    if (point.checkpoint == endpoint) {
+  scanRecording({ endpoint, snapshotPoints }, point) {
+    stopScanningAllScripts();
+    if (pointArrayIncludes(snapshotPoints, point) && !newSnapshot(point)) {
+      return;
+    }
+    if (point.checkpoint == endpoint.checkpoint) {
       const duration =
         RecordReplayControl.currentExecutionTime() - gManifestStartTime;
       RecordReplayControl.manifestFinished({
@@ -1097,32 +1174,16 @@ const gManifestFinishedAfterCheckpointHandlers = {
 // one is able to prepare to execute. These handlers must therefore not finish
 // the current manifest.
 const gManifestPrepareAfterCheckpointHandlers = {
-  runToPoint({ endpoint }, point) {
-    if (point.checkpoint == endpoint.checkpoint) {
-      assert(endpoint.position);
-      ensurePositionHandler(endpoint.position);
-    }
-  },
+  runToPoint: ensureRunToPointPositionHandlers,
 
-  scanRecording() {
+  scanRecording({ endpoint }) {
+    assert(!endpoint.position);
     startScanningAllScripts();
   },
 };
 
-function processManifestAfterCheckpoint(point, restoredCheckpoint) {
-  // After rewinding gManifest won't be correct, so we always mark the current
-  // manifest as finished and rely on the middleman to give us a new one.
-  if (restoredCheckpoint) {
-    RecordReplayControl.manifestFinished({ restoredCheckpoint, point });
-  }
-
-  if (!gManifest) {
-    // The process is considered to have an initial manifest to run forward to
-    // the first checkpoint.
-    assert(point.checkpoint == FirstCheckpointId);
-    RecordReplayControl.manifestFinished({ point });
-    assert(gManifest);
-  } else if (gManifestFinishedAfterCheckpointHandlers[gManifest.kind]) {
+function processManifestAfterCheckpoint(point, restoredSnapshot) {
+  if (gManifestFinishedAfterCheckpointHandlers[gManifest.kind]) {
     gManifestFinishedAfterCheckpointHandlers[gManifest.kind](gManifest, point);
   }
 
@@ -1132,12 +1193,12 @@ function processManifestAfterCheckpoint(point, restoredCheckpoint) {
 }
 
 // eslint-disable-next-line no-unused-vars
-function AfterCheckpoint(id, restoredCheckpoint) {
+function HitCheckpoint(id) {
   gLastCheckpoint = id;
   const point = currentExecutionPoint();
 
   try {
-    processManifestAfterCheckpoint(point, restoredCheckpoint);
+    processManifestAfterCheckpoint(point);
   } catch (e) {
     printError("AfterCheckpoint", e);
   }
@@ -1151,7 +1212,13 @@ const gManifestPositionHandlers = {
     finishResume(point);
   },
 
-  runToPoint({ endpoint }, point) {
+  runToPoint({ endpoint, snapshotPoints }, point) {
+    if (pointArrayIncludes(snapshotPoints, point)) {
+      clearPositionHandlers();
+      if (newSnapshot(point)) {
+        ensureRunToPointPositionHandlers({ endpoint, snapshotPoints });
+      }
+    }
     if (pointEquals(point, endpoint)) {
       clearPositionHandlers();
       RecordReplayControl.manifestFinished({ point });
@@ -1180,6 +1247,18 @@ function debuggerStatementHit() {
   }
 }
 
+function newSnapshot(point) {
+  if (RecordReplayControl.newSnapshot()) {
+    return true;
+  }
+
+  // After rewinding gManifest won't be correct, so we always mark the current
+  // manifest as finished and rely on the middleman to give us a new one.
+  RecordReplayControl.manifestFinished({ restoredSnapshot: true, point });
+
+  return false;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Handler Helpers
 ///////////////////////////////////////////////////////////////////////////////
@@ -1196,6 +1275,7 @@ function getScriptData(id) {
     displayName: script.displayName,
     url: script.url,
     format: script.format,
+    mainOffset: script.mainOffset,
   };
 }
 
@@ -1645,6 +1725,15 @@ function getPauseData() {
   return rv;
 }
 
+function formatDisplayName(frame) {
+  if (frame.type === "call") {
+    const callee = frame.callee;
+    return callee.name || callee.userDisplayName || callee.displayName;
+  }
+
+  return `(${frame.type})`;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Handlers
 ///////////////////////////////////////////////////////////////////////////////
@@ -1885,8 +1974,7 @@ function printError(why, e) {
 // eslint-disable-next-line no-unused-vars
 var EXPORTED_SYMBOLS = [
   "ManifestStart",
-  "BeforeCheckpoint",
-  "AfterCheckpoint",
+  "HitCheckpoint",
   "NewTimeWarpTarget",
   "ScriptResumeFrame",
 ];

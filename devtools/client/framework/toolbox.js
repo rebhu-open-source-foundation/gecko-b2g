@@ -131,8 +131,7 @@ loader.lazyRequireGetter(
 loader.lazyRequireGetter(
   this,
   "ResponsiveUIManager",
-  "devtools/client/responsive/manager",
-  true
+  "devtools/client/responsive/manager"
 );
 loader.lazyRequireGetter(
   this,
@@ -603,6 +602,9 @@ Toolbox.prototype = {
       ),
       skipBreakpoints: Services.prefs.getBoolPref(
         "devtools.debugger.skip-pausing"
+      ),
+      logEventBreakpoints: Services.prefs.getBoolPref(
+        "devtools.debugger.features.log-event-breakpoints"
       ),
     });
 

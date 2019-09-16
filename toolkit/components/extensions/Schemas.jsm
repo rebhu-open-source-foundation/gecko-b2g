@@ -3160,7 +3160,7 @@ class SchemaRoots extends Namespaces {
       return results[0];
     }
 
-    if (results.length > 0) {
+    if (results.length) {
       return new Namespaces(this.root, name, name.split("."), results);
     }
     return null;

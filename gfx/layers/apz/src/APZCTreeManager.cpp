@@ -930,6 +930,17 @@ void APZCTreeManager::NotifyAutoscrollRejected(
 }
 
 template <class ScrollNode>
+void SetHitTestData(HitTestingTreeNode* aNode, HitTestingTreeNode* aParent,
+                    const ScrollNode& aLayer,
+                    const Maybe<ParentLayerIntRegion>& aClipRegion) {
+  aNode->SetHitTestData(
+      GetEventRegions(aLayer), aLayer.GetVisibleRegion(),
+      aLayer.GetRemoteDocumentRect(), aLayer.GetTransformTyped(), aClipRegion,
+      GetEventRegionsOverride(aParent, aLayer), aLayer.IsBackfaceHidden(),
+      !!aLayer.IsAsyncZoomContainer());
+}
+
+template <class ScrollNode>
 HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
     const RecursiveMutexAutoLock& aProofOfTreeLock, const ScrollNode& aLayer,
     const FrameMetrics& aMetrics, LayersId aLayersId,
@@ -969,14 +980,10 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
     // when those properties change.
     node = RecycleOrCreateNode(aProofOfTreeLock, aState, nullptr, aLayersId);
     AttachNodeToTree(node, aParent, aNextSibling);
-    node->SetHitTestData(GetEventRegions(aLayer), aLayer.GetVisibleRegion(),
-                         aLayer.GetTransformTyped(),
-                         (!parentHasPerspective && aLayer.GetClipRect())
-                             ? Some(ParentLayerIntRegion(*aLayer.GetClipRect()))
-                             : Nothing(),
-                         GetEventRegionsOverride(aParent, aLayer),
-                         aLayer.IsBackfaceHidden(),
-                         !!aLayer.IsAsyncZoomContainer());
+    SetHitTestData(node, aParent, aLayer,
+                   (!parentHasPerspective && aLayer.GetClipRect())
+                       ? Some(ParentLayerIntRegion(*aLayer.GetClipRect()))
+                       : Nothing());
     node->SetScrollbarData(aLayer.GetScrollbarAnimationId(),
                            aLayer.GetScrollbarData());
     node->SetFixedPosData(aLayer.GetFixedPositionScrollContainerId());
@@ -1095,11 +1102,7 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
 
     Maybe<ParentLayerIntRegion> clipRegion =
         parentHasPerspective ? Nothing() : ComputeClipRegion(aLayer);
-    node->SetHitTestData(GetEventRegions(aLayer), aLayer.GetVisibleRegion(),
-                         aLayer.GetTransformTyped(), clipRegion,
-                         GetEventRegionsOverride(aParent, aLayer),
-                         aLayer.IsBackfaceHidden(),
-                         !!aLayer.IsAsyncZoomContainer());
+    SetHitTestData(node, aParent, aLayer, clipRegion);
     apzc->SetAncestorTransform(aAncestorTransform);
 
     PrintAPZCInfo(aLayer, apzc);
@@ -1199,11 +1202,7 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
 
     Maybe<ParentLayerIntRegion> clipRegion =
         parentHasPerspective ? Nothing() : ComputeClipRegion(aLayer);
-    node->SetHitTestData(GetEventRegions(aLayer), aLayer.GetVisibleRegion(),
-                         aLayer.GetTransformTyped(), clipRegion,
-                         GetEventRegionsOverride(aParent, aLayer),
-                         aLayer.IsBackfaceHidden(),
-                         !!aLayer.IsAsyncZoomContainer());
+    SetHitTestData(node, aParent, aLayer, clipRegion);
   }
 
   // Note: if layer properties must be propagated to nodes, RecvUpdate in
@@ -3321,14 +3320,16 @@ void APZCTreeManager::SendSubtreeTransformsToChromeMainThread(
           LayersId layersId = aNode->GetLayersId();
           HitTestingTreeNode* parent = aNode->GetParent();
           if (!parent) {
-            messages.AppendElement(
-                MatrixMessage(Some(LayerToScreenMatrix4x4()), layersId));
+            messages.AppendElement(MatrixMessage(Some(LayerToScreenMatrix4x4()),
+                                                 ScreenRect(), layersId));
           } else if (layersId != parent->GetLayersId()) {
             if (mDetachedLayersIds.find(layersId) != mDetachedLayersIds.end()) {
-              messages.AppendElement(MatrixMessage(Nothing(), layersId));
-            } else {
               messages.AppendElement(
-                  MatrixMessage(Some(parent->GetTransformToGecko()), layersId));
+                  MatrixMessage(Nothing(), ScreenRect(), layersId));
+            } else {
+              messages.AppendElement(MatrixMessage(
+                  Some(parent->GetTransformToGecko()),
+                  parent->GetRemoteDocumentScreenRect(), layersId));
             }
           }
         },
@@ -3363,12 +3364,6 @@ LayerToParentLayerMatrix4x4 APZCTreeManager::ComputeTransformForScrollThumb(
 
   AsyncTransformComponentMatrix asyncTransform =
       aApzc->GetCurrentAsyncTransform(AsyncPanZoomController::eForCompositing);
-
-  // With container scrolling, the RCD-RSF scrollbars are subject to the
-  // content resolution, which requires some special handling.
-  bool scrollbarSubjectToResolution =
-      aMetrics.IsRootContent() &&
-      StaticPrefs::layout_scroll_root_frame_containers();
 
   // |asyncTransform| represents the amount by which we have scrolled and
   // zoomed since the last paint. Because the scrollbar was sized and positioned
@@ -3416,16 +3411,6 @@ LayerToParentLayerMatrix4x4 APZCTreeManager::ComputeTransformForScrollThumb(
         thumbOriginDelta * effectiveZoom;
     yTranslation -= thumbOriginDeltaPL;
 
-    if (scrollbarSubjectToResolution) {
-      // Scrollbar for the root are painted at the same resolution as the
-      // content. Since the coordinate space we apply this transform in includes
-      // the resolution, we need to adjust for it as well here. Note that in
-      // another metrics.IsRootContent() hunk below we apply a
-      // resolution-cancelling transform which ensures the scroll thumb isn't
-      // actually rendered at a larger scale.
-      yTranslation *= aMetrics.GetPresShellResolution();
-    }
-
     scrollbarTransform.PostScale(1.f, yScale, 1.f);
     scrollbarTransform.PostTranslate(0, yTranslation, 0);
   }
@@ -3451,10 +3436,6 @@ LayerToParentLayerMatrix4x4 APZCTreeManager::ComputeTransformForScrollThumb(
         thumbOriginDelta * effectiveZoom;
     xTranslation -= thumbOriginDeltaPL;
 
-    if (scrollbarSubjectToResolution) {
-      xTranslation *= aMetrics.GetPresShellResolution();
-    }
-
     scrollbarTransform.PostScale(xScale, 1.f, 1.f);
     scrollbarTransform.PostTranslate(xTranslation, 0, 0);
   }
@@ -3463,17 +3444,6 @@ LayerToParentLayerMatrix4x4 APZCTreeManager::ComputeTransformForScrollThumb(
       aCurrentTransform * scrollbarTransform;
 
   AsyncTransformComponentMatrix compensation;
-  // If the scrollbar layer is for the root then the content's resolution
-  // applies to the scrollbar as well. Since we don't actually want the scroll
-  // thumb's size to vary with the zoom (other than its length reflecting the
-  // fraction of the scrollable length that's in view, which is taken care of
-  // above), we apply a transform to cancel out this resolution.
-  if (scrollbarSubjectToResolution) {
-    compensation = AsyncTransformComponentMatrix::Scaling(
-                       aMetrics.GetPresShellResolution(),
-                       aMetrics.GetPresShellResolution(), 1.0f)
-                       .Inverse();
-  }
   // If the scrollbar layer is a child of the content it is a scrollbar for,
   // then we need to adjust for any async transform (including an overscroll
   // transform) on the content. This needs to be cancelled out because layout

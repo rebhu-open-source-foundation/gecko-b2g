@@ -6,6 +6,7 @@
 
 import LockwiseCard from "./lockwise-card.js";
 import MonitorCard from "./monitor-card.js";
+import ProxyCard from "./proxy-card.js";
 
 // We need to send the close telemetry before unload while we still have a connection to RPM.
 window.addEventListener("beforeunload", () => {
@@ -69,17 +70,12 @@ document.addEventListener("DOMContentLoaded", e => {
   document.sendTelemetryEvent("show", "protection_report");
 
   let createGraph = data => {
-    // All of our dates are recorded as 00:00 GMT, add 12 hours to the timestamp
-    // to ensure we display the correct date no matter the user's location.
-    let hoursInMS12 = 12 * 60 * 60 * 1000;
-    let dateInMS = data.earliestDate
-      ? new Date(data.earliestDate).getTime() + hoursInMS12
-      : Date.now();
+    let earliestDate = data.earliestDate || Date.now();
 
     let summary = document.getElementById("graph-total-summary");
     summary.setAttribute(
       "data-l10n-args",
-      JSON.stringify({ count: data.sumEvents, earliestDate: dateInMS })
+      JSON.stringify({ count: data.sumEvents, earliestDate })
     );
     summary.setAttribute("data-l10n-id", "graph-total-tracker-summary");
 
@@ -313,6 +309,20 @@ document.addEventListener("DOMContentLoaded", e => {
   // For tests
   const monitorUI = document.querySelector(".monitor-card");
   monitorUI.dataset.enabled = monitorEnabled;
+
+  const proxyEnabled = RPMGetBoolPref(
+    "browser.contentblocking.report.proxy.enabled",
+    true
+  );
+
+  if (proxyEnabled) {
+    const proxyCard = new ProxyCard(document);
+    proxyCard.init();
+  }
+
+  // For tests
+  const proxyUI = document.querySelector(".proxy-card");
+  proxyUI.dataset.enabled = proxyEnabled;
 
   // Dispatch messages to retrieve data for the Lockwise & Monitor
   // cards.

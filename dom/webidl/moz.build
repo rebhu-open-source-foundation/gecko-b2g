@@ -1050,6 +1050,7 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'DeviceStorageChangeEvent.webidl',
     'ErrorEvent.webidl',
     'FontFaceSetLoadEvent.webidl',
+    'FormDataEvent.webidl',
     'FrameCrashedEvent.webidl',
     'GamepadAxisMoveEvent.webidl',
     'GamepadButtonEvent.webidl',

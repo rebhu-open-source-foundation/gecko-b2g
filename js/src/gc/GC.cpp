@@ -863,7 +863,8 @@ GCRuntime::GCRuntime(JSRuntime* rt)
       numArenasFreeCommitted(0),
       verifyPreData(nullptr),
       chunkAllocationSinceLastGC(false),
-      lastGCTime_(ReallyNow()),
+      lastGCStartTime_(ReallyNow()),
+      lastGCEndTime_(ReallyNow()),
       mode(TuningDefaults::Mode),
       numActiveZoneIters(0),
       cleanUpEverything(false),
@@ -4094,25 +4095,8 @@ void GCRuntime::findDeadCompartments() {
 
   while (!workList.empty()) {
     Compartment* comp = workList.popCopy();
-
-    // Check the cross compartment map.
     for (Compartment::WrappedObjectCompartmentEnum e(comp); !e.empty();
          e.popFront()) {
-      Compartment* dest = e.front();
-      if (!dest->gcState.maybeAlive) {
-        dest->gcState.maybeAlive = true;
-        if (!workList.append(dest)) {
-          return;
-        }
-      }
-    }
-
-    // Check debugger cross compartment edges.
-    CompartmentSet debuggerTargets;
-    if (!DebugAPI::findCrossCompartmentTargets(rt, comp, debuggerTargets)) {
-      return;
-    }
-    for (auto e = debuggerTargets.all(); !e.empty(); e.popFront()) {
       Compartment* dest = e.front();
       if (!dest->gcState.maybeAlive) {
         dest->gcState.maybeAlive = true;
@@ -4582,7 +4566,7 @@ bool Zone::findSweepGroupEdges(Zone* atomsZone) {
     }
   }
 
-  return WeakMapBase::findSweepGroupEdges(this);
+  return WeakMapBase::findSweepGroupEdgesForZone(this);
 }
 
 static bool AddEdgesForMarkQueue(GCMarker& marker) {
@@ -6371,7 +6355,8 @@ void GCRuntime::finishCollection() {
   clearBufferedGrayRoots();
 
   auto currentTime = ReallyNow();
-  schedulingState.updateHighFrequencyMode(lastGCTime_, currentTime, tunables);
+  schedulingState.updateHighFrequencyMode(lastGCEndTime_, currentTime,
+                                          tunables);
 
   for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next()) {
     if (zone->isCollecting()) {
@@ -6388,7 +6373,7 @@ void GCRuntime::finishCollection() {
   MOZ_ASSERT(zonesToMaybeCompact.ref().isEmpty());
   MOZ_ASSERT(cellsToAssertNotGray.ref().empty());
 
-  lastGCTime_ = currentTime;
+  lastGCEndTime_ = currentTime;
 }
 
 static const char* HeapStateToLabel(JS::HeapState heapState) {
@@ -6647,6 +6632,7 @@ void GCRuntime::incrementalSlice(SliceBudget& budget,
       isCompacting = shouldCompact();
       MOZ_ASSERT(!lastMarkSlice);
       rootsRemoved = false;
+      lastGCStartTime_ = ReallyNow();
 
 #ifdef DEBUG
       for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next()) {
@@ -6875,6 +6861,21 @@ static inline void CheckZoneIsScheduled(Zone* zone, JS::GCReason reason,
 #endif
 }
 
+static double LinearInterpolate(double x, double x0, double y0, double x1,
+                                double y1) {
+  MOZ_ASSERT(x0 < x1);
+
+  if (x < x0) {
+    return y0;
+  }
+
+  if (x < x1) {
+    return y0 + (y1 - y0) * ((x - x0) / (x1 - x0));
+  }
+
+  return y1;
+}
+
 GCRuntime::IncrementalResult GCRuntime::budgetIncrementalGC(
     bool nonincrementalByAPI, JS::GCReason reason, SliceBudget& budget) {
   if (nonincrementalByAPI) {
@@ -6960,6 +6961,33 @@ GCRuntime::IncrementalResult GCRuntime::budgetIncrementalGC(
   if (resetReason != AbortReason::None) {
     return resetIncrementalGC(resetReason);
   }
+
+#ifndef JS_MORE_DETERMINISTIC
+  // Increase time budget for long-running incremental collections. Enforce a
+  // minimum time budget that increases linearly with time/slice count up to a
+  // maximum.
+
+  if (budget.isTimeBudget() && !budget.isUnlimited() &&
+      isIncrementalGCInProgress()) {
+    // All times are in milliseconds.
+    struct BudgetAtTime {
+      double time;
+      double budget;
+    };
+    const BudgetAtTime MinBudgetStart{1500, 0.0};
+    const BudgetAtTime MinBudgetEnd{2500, 100.0};
+
+    double totalTime = (ReallyNow() - lastGCStartTime()).ToMilliseconds();
+
+    double minBudget =
+        LinearInterpolate(totalTime, MinBudgetStart.time, MinBudgetStart.budget,
+                          MinBudgetEnd.time, MinBudgetEnd.budget);
+
+    if (budget.timeBudget.budget < minBudget) {
+      budget = SliceBudget(TimeBudget(minBudget));
+    }
+  }
+#endif  // JS_MORE_DETERMINISTIC
 
   return IncrementalResult::Ok;
 }

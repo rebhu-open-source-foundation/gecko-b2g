@@ -98,6 +98,8 @@ const EXTRA_BORDER = {
  *        Preferred position for the tooltip. Possible values: "top" or "bottom".
  * @param {Number} offset
  *        Offset between the top of the anchor and the tooltip.
+ * @param {Document} [doc]
+ *        The current document (optional).
  * @return {Object}
  *         - {Number} top: the top offset for the tooltip.
  *         - {Number} height: the height to use for the tooltip container.
@@ -109,7 +111,8 @@ const calculateVerticalPosition = (
   viewportRect,
   height,
   pos,
-  offset
+  offset,
+  doc = null
 ) => {
   const { TOP, BOTTOM } = POSITION;
 
@@ -147,6 +150,14 @@ const calculateVerticalPosition = (
   // Translate back to absolute coordinates by re-including viewport top margin.
   top += viewportRect.top;
 
+  if (doc && doc.defaultView.devicePixelRatio === 2) {
+    // On hidpi screens our calculations are off by 2 vertical pixels.
+    top += 2;
+  } else {
+    // On non-hidpi screens our calculations are off by 1 vertical pixel.
+    top += 1;
+  }
+
   return { top, height, computedPosition: pos };
 };
 
@@ -177,6 +188,8 @@ const calculateVerticalPosition = (
  *        platform.
  * @param {Boolean} isRtl
  *        If the anchor is in RTL, the tooltip should be aligned to the right.
+ * @param {Document} [doc]
+ *        The current document (optional).
  * @return {Object}
  *         - {Number} left: the left offset for the tooltip.
  *         - {Number} width: the width to use for the tooltip container.
@@ -190,7 +203,8 @@ const calculateHorizontalPosition = (
   type,
   offset,
   borderRadius,
-  isRtl
+  isRtl,
+  doc = null
 ) => {
   // Which direction should the tooltip go?
   //
@@ -260,7 +274,7 @@ const calculateHorizontalPosition = (
   }
 
   // Convert from logical coordinates to physical
-  const left =
+  let left =
     hangDirection === "right"
       ? viewportRect.left + tooltipStart
       : viewportRect.right - tooltipStart - tooltipWidth;
@@ -268,6 +282,11 @@ const calculateHorizontalPosition = (
     hangDirection === "right"
       ? arrowStart
       : tooltipWidth - arrowWidth - arrowStart;
+
+  if (doc && doc.defaultView.devicePixelRatio !== 2) {
+    // On hidpi screens our calculations are off by 1 horizontal pixel.
+    left += 1;
+  }
 
   return { left, width: tooltipWidth, arrowLeft };
 };
@@ -280,7 +299,13 @@ const calculateHorizontalPosition = (
 const getRelativeRect = function(node, relativeTo) {
   // getBoxQuads is a non-standard WebAPI which will not work on non-firefox
   // browser when running launchpad on Chrome.
-  if (!node.getBoxQuads || !node.getBoxQuads({ relativeTo })[0]) {
+  if (
+    !node.getBoxQuads ||
+    !node.getBoxQuads({
+      relativeTo,
+      createFramesForSuppressedWhitespace: false,
+    })[0]
+  ) {
     const { top, left, width, height } = node.getBoundingClientRect();
     const right = left + width;
     const bottom = top + height;
@@ -290,7 +315,9 @@ const getRelativeRect = function(node, relativeTo) {
   // Width and Height can be taken from the rect.
   const { width, height } = node.getBoundingClientRect();
 
-  const quadBounds = node.getBoxQuads({ relativeTo })[0].getBounds();
+  const quadBounds = node
+    .getBoxQuads({ relativeTo, createFramesForSuppressedWhitespace: false })[0]
+    .getBounds();
   const top = quadBounds.top;
   const left = quadBounds.left;
 
@@ -558,7 +585,8 @@ HTMLTooltip.prototype = {
       this.type,
       x,
       borderRadius,
-      isRtl
+      isRtl,
+      this.doc
     );
 
     // If we constrained the width, then any measured height we have is no
@@ -607,7 +635,8 @@ HTMLTooltip.prototype = {
       viewportRect,
       preferredHeight,
       position,
-      y
+      y,
+      this.doc
     );
 
     this._position = computedPosition;

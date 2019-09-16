@@ -1117,10 +1117,10 @@ void HttpChannelChild::OnStopRequest(
   if (profiler_is_active()) {
     int32_t priority = PRIORITY_NORMAL;
     GetPriority(&priority);
-    profiler_add_network_marker(mURI, priority, mChannelId,
-                                NetworkLoadType::LOAD_STOP, mLastStatusReported,
-                                TimeStamp::Now(), mTransferSize, kCacheUnknown,
-                                &mTransactionTimings);
+    profiler_add_network_marker(
+        mURI, priority, mChannelId, NetworkLoadType::LOAD_STOP,
+        mLastStatusReported, TimeStamp::Now(), mTransferSize, kCacheUnknown,
+        &mTransactionTimings, nullptr, std::move(mSource));
   }
 #endif
 
@@ -1785,10 +1785,10 @@ void HttpChannelChild::Redirect1Begin(
   nsCOMPtr<nsIURI> uri = DeserializeURI(newOriginalURI);
 
   mTransactionTimings = timing;
-  PROFILER_ADD_NETWORK_MARKER(mURI, mPriority, mChannelId,
-                              NetworkLoadType::LOAD_REDIRECT,
-                              mLastStatusReported, TimeStamp::Now(), 0,
-                              kCacheUnknown, &mTransactionTimings, uri);
+  PROFILER_ADD_NETWORK_MARKER(
+      mURI, mPriority, mChannelId, NetworkLoadType::LOAD_REDIRECT,
+      mLastStatusReported, TimeStamp::Now(), 0, kCacheUnknown,
+      &mTransactionTimings, uri, std::move(mSource));
 
   if (!securityInfoSerialization.IsEmpty()) {
     rv = NS_DeserializeObject(securityInfoSerialization,
@@ -2843,17 +2843,10 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
 
   SerializeURI(mTopWindowURI, openArgs.topWindowURI());
 
-  if (mContentBlockingAllowListPrincipal) {
-    PrincipalInfo principalInfo;
-    rv = PrincipalToPrincipalInfo(mContentBlockingAllowListPrincipal,
-                                  &principalInfo);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-    openArgs.contentBlockingAllowListPrincipal() = principalInfo;
-  } else {
-    openArgs.contentBlockingAllowListPrincipal() = void_t();
-  }
+  openArgs.contentBlockingAllowListPrincipal() =
+      mContentBlockingAllowListPrincipal
+          ? Some(RefPtr<nsIPrincipal>(mContentBlockingAllowListPrincipal))
+          : Nothing();
 
   openArgs.preflightArgs() = optionalCorsPreflightArgs;
 

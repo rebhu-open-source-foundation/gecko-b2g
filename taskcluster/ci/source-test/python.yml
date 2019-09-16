@@ -152,7 +152,7 @@ mozlint:
         - windows10-64/opt
     python-version: [2]
     treeherder:
-        symbol: ml
+        symbol: mozlint
     run:
         using: python-test
         subsuite: mozlint
@@ -270,6 +270,13 @@ tryselect:
             - 'taskcluster/ci/test/**'
             - 'taskcluster/taskgraph/transforms/**'
             - 'tools/tryselect/**'
+    fetches:
+        toolchain:
+            by-platform:
+                linux64.*:
+                    - linux64-node
+                windows10-64.*:
+                    - win64-node
 
 mozbuild:
     description: mozbuild unit tests

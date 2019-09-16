@@ -400,6 +400,13 @@ nsresult gfxPlatformFontList::InitFontList() {
 
   gfxPlatform::PurgeSkiaFontCache();
 
+  nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+  if (obs) {
+    // Notify any current presContexts that fonts are being updated, so existing
+    // caches will no longer be valid.
+    obs->NotifyObservers(nullptr, "font-info-updated", nullptr);
+  }
+
   mAliasTable.Clear();
   mLocalNameTable.Clear();
 
@@ -428,6 +435,8 @@ nsresult gfxPlatformFontList::InitFontList() {
   for (unsigned i = 0; i <= 0x100000; i += 0x10000) {
     mCodepointsWithNoFonts.SetRange(i + 0xfffe, i + 0xffff);  // noncharacters
   }
+  // Forget any font family we previously chose for U+FFFD.
+  mReplacementCharFallbackFamily = FontFamily();
 
   sPlatformFontList = this;
 

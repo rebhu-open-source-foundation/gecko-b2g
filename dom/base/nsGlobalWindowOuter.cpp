@@ -6302,7 +6302,9 @@ void nsGlobalWindowOuter::FinalClose() {
   // Flag that we were closed.
   mIsClosed = true;
 
-  GetBrowsingContext()->SetClosed(true);
+  if (!mBrowsingContext->IsDiscarded()) {
+    mBrowsingContext->SetClosed(true);
+  }
 
   // If we get here from CloseOuter then it means that the parent process is
   // going to close our window for us. It's just important to set mIsClosed.

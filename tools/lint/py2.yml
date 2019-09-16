@@ -4,7 +4,6 @@ py2:
     include: ['.']
     exclude:
         - build
-        - client.py
         - dom
         - editor
         - gfx
@@ -27,7 +26,6 @@ py2:
         - testing/tools
         - testing/web-platform
         - toolkit
-        - tools/profiler
         - tools/rb
         - tools/update-packaging
         - xpcom

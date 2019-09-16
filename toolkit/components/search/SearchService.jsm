@@ -1151,12 +1151,10 @@ SearchService.prototype = {
 
   async _loadEnginesFromConfig(engineConfigs) {
     for (let config of engineConfigs) {
-      // TODO: Support multiple locales per engine
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=1575555
       SearchUtils.log("_loadEnginesFromConfig: " + JSON.stringify(config));
       let locales =
-        "webExtensionLocale" in config
-          ? [config.webExtensionLocale]
+        "webExtensionLocales" in config
+          ? config.webExtensionLocales
           : [DEFAULT_TAG];
       await this.ensureBuiltinExtension(config.webExtensionId, locales);
     }
@@ -1816,7 +1814,7 @@ SearchService.prototype = {
         e => !ignoredJAREngines.includes(e)
       );
       // Don't allow all engines to be hidden
-      if (filteredEngineNames.length > 0) {
+      if (filteredEngineNames.length) {
         engineNames = filteredEngineNames;
       }
     }

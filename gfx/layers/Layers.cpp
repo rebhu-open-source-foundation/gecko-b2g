@@ -541,16 +541,6 @@ bool Layer::HasScrollableFrameMetrics() const {
   return false;
 }
 
-bool Layer::HasRootScrollableFrameMetrics() const {
-  for (uint32_t i = 0; i < GetScrollMetadataCount(); i++) {
-    if (GetFrameMetrics(i).IsScrollable() &&
-        GetFrameMetrics(i).IsRootContent()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 bool Layer::IsScrollableWithoutContent() const {
   // A scrollable container layer with no children
   return AsContainerLayer() && HasScrollableFrameMetrics() && !GetFirstChild();
@@ -1312,7 +1302,8 @@ void ContainerLayer::DidInsertChild(Layer* aLayer) {
 }
 
 void RefLayer::FillSpecificAttributes(SpecificLayerAttributes& aAttrs) {
-  aAttrs = RefLayerAttributes(GetReferentId(), mEventRegionsOverride);
+  aAttrs = RefLayerAttributes(GetReferentId(), mEventRegionsOverride,
+                              mRemoteDocumentRect);
 }
 
 /**

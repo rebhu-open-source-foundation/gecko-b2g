@@ -249,6 +249,10 @@ class HttpBaseChannel : public nsHashPropertyBag,
 
   using nsIHttpChannel::IsThirdPartyTrackingResource;
 
+  virtual void SetSource(UniqueProfilerBacktrace aSource) override {
+    mSource = std::move(aSource);
+  }
+
   // nsIHttpChannelInternal
   NS_IMETHOD GetDocumentURI(nsIURI** aDocumentURI) override;
   NS_IMETHOD SetDocumentURI(nsIURI* aDocumentURI) override;
@@ -490,6 +494,10 @@ class HttpBaseChannel : public nsHashPropertyBag,
     Maybe<nsCString> method;
     nsCOMPtr<nsIReferrerInfo> referrerInfo;
     Maybe<dom::TimedChannelInfo> timedChannel;
+    nsCOMPtr<nsIInputStream> uploadStream;
+    bool uploadStreamHasHeaders;
+    Maybe<nsCString> contentType;
+    Maybe<nsCString> contentLength;
 
     dom::ReplacementChannelConfigInit Serialize();
   };
@@ -500,8 +508,15 @@ class HttpBaseChannel : public nsHashPropertyBag,
       bool aPreserveMethod, uint32_t aRedirectFlags,
       uint32_t aExtraLoadFlags = 0);
 
+  enum class ConfigureReason {
+    Redirect,
+    InternalRedirect,
+    DocumentChannelReplacement,
+  };
+
   static void ConfigureReplacementChannel(nsIChannel*,
-                                          const ReplacementChannelConfig&);
+                                          const ReplacementChannelConfig&,
+                                          ConfigureReason);
 
   // Called before we create the redirect target channel.
   already_AddRefed<nsILoadInfo> CloneLoadInfoForRedirect(
@@ -720,6 +735,8 @@ class HttpBaseChannel : public nsHashPropertyBag,
   Atomic<uint32_t, ReleaseAcquire> mFirstPartyClassificationFlags;
   Atomic<uint32_t, ReleaseAcquire> mThirdPartyClassificationFlags;
   Atomic<uint32_t, ReleaseAcquire> mFlashPluginState;
+
+  UniqueProfilerBacktrace mSource;
 
   uint32_t mLoadFlags;
   uint32_t mCaps;

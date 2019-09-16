@@ -951,10 +951,6 @@ pref("places.frecency.unvisitedTypedBonus", 200);
 // 2 - pre-populate site URL and pre-fetch certificate
 pref("browser.ssl_override_behavior", 2);
 
-// True if the user should be prompted when a web application supports
-// offline apps.
-pref("browser.offline-apps.notify", true);
-
 // if true, use full page zoom instead of text zoom
 pref("browser.zoom.full", true);
 
@@ -1625,10 +1621,14 @@ pref("browser.contentblocking.report.lockwise.enabled", true);
 // Enable Protections report's Monitor card by default.
 pref("browser.contentblocking.report.monitor.enabled", true);
 
+// Disable Protections report's Proxy card by default.
+pref("browser.contentblocking.report.proxy.enabled", false);
+
 pref("browser.contentblocking.report.monitor.url", "https://monitor.firefox.com/?entrypoint=protection_report_monitor&utm_source=about-protections");
 pref("browser.contentblocking.report.monitor.sign_in_url", "https://monitor.firefox.com/oauth/init?entrypoint=protection_report_monitor&utm_source=about-protections&email=");
 pref("browser.contentblocking.report.lockwise.url", "https://lockwise.firefox.com/");
 pref("browser.contentblocking.report.manage_devices.url", "https://accounts.firefox.com/settings/clients");
+pref("browser.contentblocking.report.proxy_extension.url", "https://private-network.firefox.com/");
 
 // Protection Report's SUMO urls
 pref("browser.contentblocking.report.monitor.how_it_works.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/monitor-faq");
@@ -1936,19 +1936,6 @@ pref("identity.fxaccounts.service.monitorLoginUrl", "https://monitor.firefox.com
   pref("corroborator.enabled", true);
 #endif
 
-// Show notification popup for social tracking protection.
-pref("privacy.socialtracking.notification.enabled", true);
-// minimum number of page loads until showing popup.
-pref("privacy.socialtracking.notification.session.pageload.min", 4);
-// timestamp of last popup was shown.
-pref("privacy.socialtracking.notification.lastShown", "0");
-// don't show popup again within 2 days (2 * 86400 * 1000 milliseconds)
-pref("privacy.socialtracking.notification.period.min", 172800000);
-// current number of popup shown in the profile.
-pref("privacy.socialtracking.notification.counter", 0);
-// maximum number of popup shown in the profile.
-pref("privacy.socialtracking.notification.max", 2);
-
 // Disable WebIDE and ConnectPage by default (Bug 1539451)
 pref("devtools.webide.enabled", false);
 pref("devtools.connectpage.enabled", false);
@@ -2247,8 +2234,8 @@ pref("devtools.webconsole.timestampMessages", false);
   pref("devtools.webconsole.sidebarToggle", false);
 #endif
 
-// Enable editor mode in the console in Nightly builds.
-#if defined(NIGHTLY_BUILD)
+// Enable editor mode in the console in Nightly and DevEdition builds.
+#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
   pref("devtools.webconsole.features.editor", true);
 #else
   pref("devtools.webconsole.features.editor", false);

@@ -299,6 +299,14 @@ ReplayDebugger.prototype = {
     return [];
   },
 
+  replayGetExecutionPointPosition({ position }) {
+    const script = this._getScript(position.script);
+    if (position.kind == "EnterFrame") {
+      return { script, offset: script.mainOffset };
+    }
+    return { script, offset: position.offset };
+  },
+
   /////////////////////////////////////////////////////////
   // Paused/running state
   /////////////////////////////////////////////////////////
@@ -503,7 +511,20 @@ ReplayDebugger.prototype = {
     }
   },
 
-  // Reset the per-pause pool when the child unpauses.
+  replayPaint(data) {
+    this._control.paint(data);
+  },
+
+  replayPaintCurrentPoint() {
+    if (this.replayIsRecording()) {
+      return RecordReplayControl.restoreMainGraphics();
+    }
+
+    const point = this._control.lastPausePoint();
+    return this._control.paint(point);
+  },
+
+  // Clear out all data that becomes invalid when the child unpauses.
   _invalidateAfterUnpause() {
     this._pool = new ReplayPool(this);
   },
@@ -607,7 +628,9 @@ ReplayDebugger.prototype = {
     if (rv) {
       return rv;
     }
-    return this._addScript(this._sendRequest({ type: "getScript", id }));
+    return this._addScript(
+      this._sendRequestMainChild({ type: "getScript", id })
+    );
   },
 
   _addScript(data) {
@@ -730,11 +753,32 @@ ReplayDebugger.prototype = {
     return message;
   },
 
+  _newConsoleMessage(message) {
+    if (this.onConsoleMessage) {
+      this.onConsoleMessage(this._convertConsoleMessage(message));
+    }
+  },
+
   findAllConsoleMessages() {
     const messages = this._sendRequestMainChild({
       type: "findConsoleMessages",
     });
     return messages.map(this._convertConsoleMessage.bind(this));
+  },
+
+  /////////////////////////////////////////////////////////
+  // Event Breakpoint methods
+  /////////////////////////////////////////////////////////
+
+  replaySetActiveEventBreakpoints(events, callback) {
+    this._control.setActiveEventBreakpoints(
+      events,
+      (point, result, resultData) => {
+        const pool = new ReplayPool(this, resultData);
+        const converted = result.map(v => pool.convertValue(v));
+        callback(point, converted);
+      }
+    );
   },
 
   /////////////////////////////////////////////////////////
@@ -789,6 +833,9 @@ ReplayDebuggerScript.prototype = {
   get format() {
     return this._data.format;
   },
+  get mainOffset() {
+    return this._data.mainOffset;
+  },
 
   _forward(type, value) {
     return this._dbg._sendRequestMainChild({ type, id: this._data.id, value });
@@ -798,6 +845,7 @@ ReplayDebuggerScript.prototype = {
     return this._forward("getLineOffsets", line);
   },
   getOffsetLocation(pc) {
+    assert(pc !== undefined);
     return this._forward("getOffsetLocation", pc);
   },
   getSuccessorOffsets(pc) {

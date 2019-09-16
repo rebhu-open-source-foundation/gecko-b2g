@@ -86,30 +86,39 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
  private:
   ~nsPlainTextSerializer();
 
-  nsresult GetAttributeValue(nsAtom* aName, nsString& aValueRet);
+  nsresult GetAttributeValue(const nsAtom* aName, nsString& aValueRet) const;
   void AddToLine(const char16_t* aStringToAdd, int32_t aLength);
-  void EndLine(bool softlinebreak, bool aBreakBySpace = false);
+
+  void MaybeWrapAndOutputCompleteLines();
+
+  // @param aSoftLineBreak A soft line break is a space followed by a linebreak
+  // (cf. https://www.ietf.org/rfc/rfc3676.txt, section 4.2).
+  void EndLine(bool aSoftLineBreak, bool aBreakBySpace = false);
+
   void EnsureVerticalSpace(int32_t noOfRows);
 
-  void Output(nsString& aString);
+  void ConvertToLinesAndOutput(const nsAString& aString);
+
   void Write(const nsAString& aString);
 
   // @return true, iff the elements' whitespace and newline characters have to
   //         be preserved according to its style or because it's a `<pre>`
   //         element.
   bool IsElementPreformatted() const;
-  bool IsInOL();
-  bool IsCurrentNodeConverted();
-  bool MustSuppressLeaf();
+  bool IsInOL() const;
+  bool IsCurrentNodeConverted() const;
+  bool MustSuppressLeaf() const;
 
   /**
    * Returns the local name of the element as an atom if the element is an
    * HTML element and the atom is a static atom. Otherwise, nullptr is returned.
    */
   static nsAtom* GetIdForContent(nsIContent* aContent);
-  nsresult DoOpenContainer(nsAtom* aTag);
-  nsresult DoCloseContainer(nsAtom* aTag);
-  nsresult DoAddLeaf(nsAtom* aTag);
+  nsresult DoOpenContainer(const nsAtom* aTag);
+  void OpenContainerForOutputFormatted(const nsAtom* aTag);
+  nsresult DoCloseContainer(const nsAtom* aTag);
+  void CloseContainerForOutputFormatted(const nsAtom* aTag);
+  nsresult DoAddLeaf(const nsAtom* aTag);
 
   void DoAddText();
   // @param aText Ignored if aIsLineBreak is true.
@@ -137,7 +146,7 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   void PushBool(nsTArray<bool>& aStack, bool aValue);
   bool PopBool(nsTArray<bool>& aStack);
 
-  bool IsIgnorableRubyAnnotation(nsAtom* aTag) const;
+  bool IsIgnorableRubyAnnotation(const nsAtom* aTag) const;
 
   // @return true, iff the elements' whitespace and newline characters have to
   //         be preserved according to its style or because it's a `<pre>`
@@ -152,6 +161,12 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
 
   class Settings {
    public:
+    enum class HeaderStrategy {
+      kNoIndentation,
+      kIndentIncreasedWithHeaderLevel,
+      kNumberHeadingsAndIndentSlightly
+    };
+
     // May adapt the flags.
     //
     // @param aFlags As defined in nsIDocumentEncoder.idl.
@@ -161,7 +176,7 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
     bool GetStructs() const { return mStructs; }
 
     // Pref: converter.html2txt.header_strategy.
-    int32_t GetHeaderStrategy() const { return mHeaderStrategy; }
+    HeaderStrategy GetHeaderStrategy() const { return mHeaderStrategy; }
 
     // @return As defined in nsIDocumentEncoder.idl.
     int32_t GetFlags() const { return mFlags; }
@@ -174,15 +189,15 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
     bool GetWithRubyAnnotation() const { return mWithRubyAnnotation; }
 
    private:
+    // @param aPrefHeaderStrategy Pref: converter.html2txt.header_strategy.
+    static HeaderStrategy Convert(int32_t aPrefHeaderStrategy);
+
     // Pref: converter.html2txt.structs.
     bool mStructs = true;
 
     // Pref: converter.html2txt.header_strategy.
-    int32_t mHeaderStrategy = 1; /* Header strategy (pref)
-                                  0 = no indention
-                                  1 = indention, increased with
-                                      header level (default)
-                                  2 = numbering and slight indention */
+    HeaderStrategy mHeaderStrategy =
+        HeaderStrategy::kIndentIncreasedWithHeaderLevel;
 
     // Flags defined in nsIDocumentEncoder.idl.
     int32_t mFlags = 0;
@@ -194,35 +209,39 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   Settings mSettings;
 
   struct Indentation {
-    // The number of space characters to be inserted including the number of
-    // characters in mHeader.
-    int32_t mWidth = 0;
+    // The number of space characters to be inserted including the length of
+    // mHeader.
+    int32_t mLength = 0;
 
     // The header that has to be written in the indent.
     // That could be, for instance, the bullet in a bulleted list.
     nsString mHeader;
   };
 
-  // Excludes indentation and quotes.
-  class CurrentLineContent {
-   public:
-    // @param aFlags As defined in nsIDocumentEncoder.idl.
-    void MaybeReplaceNbsps(int32_t aFlags);
-
-    nsString mValue;
-
-    // The width of the line as it will appear on the screen (approx.).
-    uint32_t mWidth = 0;
-  };
-
   class CurrentLine {
    public:
     void ResetContentAndIndentationHeader();
 
+    // @param aFlags As defined in nsIDocumentEncoder.idl.
+    void MaybeReplaceNbspsInContent(int32_t aFlags);
+
     void CreateQuotesAndIndent(nsAString& aResult) const;
 
     bool HasContentOrIndentationHeader() const {
-      return !mContent.mValue.IsEmpty() || !mIndentation.mHeader.IsEmpty();
+      return !mContent.IsEmpty() || !mIndentation.mHeader.IsEmpty();
+    }
+
+    // @param aContentWidth Has to be the unichar string width of mContent.
+    // @param aLineBreaker May be nullptr.
+    int32_t FindWrapIndexForContent(
+        uint32_t aWrapColumn, uint32_t aContentWidth,
+        mozilla::intl::LineBreaker* aLineBreaker) const;
+
+    // @return Combined width of cite quote level and indentation.
+    uint32_t DeterminePrefixWidth() const {
+      // XXX: Should calculate prefixwidth with GetUnicharStringWidth
+      return (mCiteQuoteLevel > 0 ? mCiteQuoteLevel + 1 : 0) +
+             mIndentation.mLength;
     }
 
     Indentation mIndentation;
@@ -230,7 +249,8 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
     // The number of '>' characters.
     int32_t mCiteQuoteLevel = 0;
 
-    CurrentLineContent mContent;
+    // Excludes indentation and quotes.
+    nsString mContent;
   };
 
   CurrentLine mCurrentLine;
@@ -314,7 +334,6 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
 
   bool mPreformattedBlockBoundary;
 
-  nsString mURL;
   int32_t mHeaderCounter[7]; /* For header-numbering:
                                 Number of previous headers of
                                 the same depth and in the same
@@ -329,13 +348,10 @@ class nsPlainTextSerializer final : public nsIContentSerializer {
   // Values gotten in OpenContainer that is (also) needed in CloseContainer
   AutoTArray<bool, 8> mIsInCiteBlockquote;
 
-  // Non-owning.
-  nsAString* mOutput;
-
   // The tag stack: the stack of tags we're operating on, so we can nest.
   // The stack only ever points to static atoms, so they don't need to be
   // refcounted.
-  nsAtom** mTagStack;
+  const nsAtom** mTagStack;
   uint32_t mTagStackIndex;
 
   // The stack indicating whether the elements we've been operating on are

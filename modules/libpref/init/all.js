@@ -228,9 +228,6 @@ pref("browser.cache.frecency_half_life_hours", 6);
 // AppCache over insecure connection is disabled by default
 pref("browser.cache.offline.insecure.enable",  false);
 
-// enable offline apps by default, disable prompt
-pref("offline-apps.allow_by_default",          true);
-
 // offline cache capacity in kilobytes
 pref("browser.cache.offline.capacity",         512000);
 
@@ -2253,7 +2250,7 @@ pref("security.directory",              "");
 pref("security.dialog_enable_delay", 1000);
 pref("security.notification_enable_delay", 500);
 
-#if defined(DEBUG) && !defined(ANDROID)
+#if defined(DEBUG)
   // For testing purposes only: Flipping this pref to true allows
   // to skip the assertion that every about page ships with a CSP.
   pref("csp.skip_about_page_has_csp_assert", false);
@@ -2588,8 +2585,6 @@ pref("input_event_queue.default_duration_per_event", 1);
 // The number of processed input events we use to predict the amount of time
 // required to process the following input events.
 pref("input_event_queue.count_for_prediction", 9);
-
-pref("plugins.load_appdir_plugins", false);
 
 // This only supports one hidden ctp plugin, edit nsPluginArray.cpp if adding a second
 pref("plugins.navigator.hidden_ctp_plugin", "");
@@ -4281,7 +4276,8 @@ pref("network.trr.disable-ECS", true);
 // After this many failed TRR requests in a row, consider TRR borked
 pref("network.trr.max-fails", 5);
 // Comma separated list of domains that we should not use TRR for
-pref("network.trr.excluded-domains", "localhost,local");
+pref("network.trr.excluded-domains", "");
+pref("network.trr.builtin-excluded-domains", "localhost,local");
 
 pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/success.txt");
 pref("captivedetect.canonicalContent", "success\n");

@@ -1209,17 +1209,6 @@ bool nsLayoutUtils::SetDisplayPortMargins(nsIContent* aContent,
       GetHighResolutionDisplayPort(aContent, &newDisplayPort);
   MOZ_ASSERT(hasDisplayPort);
 
-  if (StaticPrefs::layout_scroll_root_frame_containers()) {
-    nsIFrame* rootScrollFrame = aPresShell->GetRootScrollFrame();
-    if (rootScrollFrame && aContent == rootScrollFrame->GetContent() &&
-        nsLayoutUtils::UsesAsyncScrolling(rootScrollFrame)) {
-      // We are setting a root displayport for a document.
-      // If we have APZ, then set a special flag on the pres shell so
-      // that we don't get scrollbars drawn.
-      aPresShell->SetIgnoreViewportScrolling(true);
-    }
-  }
-
   InvalidateForDisplayPortChange(aContent, hadDisplayPort, oldDisplayPort,
                                  newDisplayPort, aRepaintMode);
 
@@ -2261,8 +2250,8 @@ static void ConstrainToCoordValues(float& aStart, float& aSize) {
   // can't return a value greater than nscoord_MAX. If aSize is greater than
   // nscoord_MAX then we reduce it to nscoord_MAX while keeping the rect
   // centered:
-  if (aSize > nscoord_MAX) {
-    float excess = aSize - nscoord_MAX;
+  if (aSize > float(nscoord_MAX)) {
+    float excess = aSize - float(nscoord_MAX);
     excess /= 2;
     aStart += excess;
     aSize = (float)nscoord_MAX;
@@ -6967,17 +6956,46 @@ IntSize nsLayoutUtils::ComputeImageContainerDrawingParameters(
     }
   }
 
-  // Compute our size in layer pixels. We may need to revisit this for Android
-  // because mobile websites are rarely displayed at a 1:1
-  // LayoutPixel:ScreenPixel ratio and the snapping here may be insufficient.
-  const LayerIntSize layerSize =
-      RoundedToInt(LayerSize(aDestRect.Width() * scaleFactors.width,
-                             aDestRect.Height() * scaleFactors.height));
+  // Attempt to snap pixels, the same as ComputeSnappedImageDrawingParameters.
+  // Any changes to the algorithm here will need to be reflected there.
+  bool snapped = false;
+  gfxSize gfxLayerSize;
+  const gfx::Matrix& itm = aSc.GetInheritedTransform();
+  if (!itm.HasNonAxisAlignedTransform() && itm._11 > 0.0 && itm._22 > 0.0) {
+    gfxRect rect(gfxPoint(aDestRect.X(), aDestRect.Y()),
+                 gfxSize(aDestRect.Width(), aDestRect.Height()));
 
-  // An empty size is unacceptable so we ensure our suggested size is at least
-  // 1 pixel wide/tall.
-  gfxSize gfxLayerSize =
-      gfxSize(std::max(layerSize.width, 1), std::max(layerSize.height, 1));
+    gfxPoint p1 = ThebesPoint(itm.TransformPoint(ToPoint(rect.TopLeft())));
+    gfxPoint p2 = ThebesPoint(itm.TransformPoint(ToPoint(rect.TopRight())));
+    gfxPoint p3 = ThebesPoint(itm.TransformPoint(ToPoint(rect.BottomRight())));
+
+    if (p2 == gfxPoint(p1.x, p3.y) || p2 == gfxPoint(p3.x, p1.y)) {
+      p1.Round();
+      p3.Round();
+
+      rect.MoveTo(gfxPoint(std::min(p1.x, p3.x), std::min(p1.y, p3.y)));
+      rect.SizeTo(gfxSize(std::max(p1.x, p3.x) - rect.X(),
+                          std::max(p1.y, p3.y) - rect.Y()));
+
+      // An empty size is unacceptable so we ensure our suggested size is at
+      // least 1 pixel wide/tall.
+      gfxLayerSize =
+          gfxSize(std::max(rect.Width(), 1.0), std::max(rect.Height(), 1.0));
+      snapped = true;
+    }
+  }
+
+  if (!snapped) {
+    // Compute our size in layer pixels.
+    const LayerIntSize layerSize =
+        RoundedToInt(LayerSize(aDestRect.Width() * scaleFactors.width,
+                               aDestRect.Height() * scaleFactors.height));
+
+    // An empty size is unacceptable so we ensure our suggested size is at least
+    // 1 pixel wide/tall.
+    gfxLayerSize =
+        gfxSize(std::max(layerSize.width, 1), std::max(layerSize.height, 1));
+  }
 
   return aImage->OptimalImageSizeForDest(
       gfxLayerSize, imgIContainer::FRAME_CURRENT, samplingFilter, aFlags);
@@ -8977,9 +8995,6 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
               aScrollFrame->GetParent()));
     }
 
-    metadata.SetUsesContainerScrolling(
-        scrollableFrame->UsesContainerScrolling());
-
     metadata.SetSnapInfo(scrollableFrame->GetScrollSnapInfo());
 
     ScrollStyles scrollStyles = scrollableFrame->GetScrollStyles();
@@ -9200,18 +9215,16 @@ Maybe<ScrollMetadata> nsLayoutUtils::GetRootMetadata(
   PresShell* presShell = presContext->PresShell();
   Document* document = presShell->GetDocument();
 
-  // If we're using containerless scrolling, there is still one case where we
-  // want the root container layer to have metrics. If the parent process is
-  // using XUL windows, there is no root scrollframe, and without explicitly
-  // creating metrics there will be no guaranteed top-level APZC.
-  bool addMetrics = StaticPrefs::layout_scroll_root_frame_containers() ||
-                    (XRE_IsParentProcess() && !presShell->GetRootScrollFrame());
+  // There is one case where we want the root container layer to have metrics.
+  // If the parent process is using XUL windows, there is no root scrollframe,
+  // and without explicitly creating metrics there will be no guaranteed top-level
+  // APZC.
+  bool addMetrics = XRE_IsParentProcess() && !presShell->GetRootScrollFrame();
 
   // Add metrics if there are none in the layer tree with the id (create an id
   // if there isn't one already) of the root scroll frame/root content.
   bool ensureMetricsForRootId =
       nsLayoutUtils::AsyncPanZoomEnabled(frame) &&
-      !StaticPrefs::layout_scroll_root_frame_containers() &&
       aBuilder->IsPaintingToWindow() && !presContext->GetParentPresContext();
 
   nsIContent* content = nullptr;
@@ -10085,4 +10098,83 @@ Maybe<MotionPathData> nsLayoutUtils::ResolveMotionPath(const nsIFrame* aFrame) {
 
   return Some(
       MotionPathData{point - anchorPoint.ToUnknownPoint(), angle, shift});
+}
+
+static Maybe<ScreenRect> GetFrameVisibleRectOnScreen(const nsIFrame* aFrame) {
+  // We actually want the in-process top prescontext here.
+  nsPresContext* topContextInProcess =
+      aFrame->PresContext()->GetToplevelContentDocumentPresContext();
+  if (!topContextInProcess) {
+    // We are in chrome process.
+    return Nothing();
+  }
+
+  if (topContextInProcess->Document()->IsTopLevelContentDocument()) {
+    // We are in the top of content document.
+    return Nothing();
+  }
+
+  nsIDocShell* docShell = topContextInProcess->GetDocShell();
+  BrowserChild* browserChild = BrowserChild::GetFrom(docShell);
+  if (!browserChild) {
+    // We are not in out-of-process iframe.
+    return Nothing();
+  }
+
+  if (!browserChild->GetEffectsInfo().IsVisible()) {
+    // There is no visible rect on this iframe at all.
+    return Nothing();
+  }
+
+  nsIFrame* rootFrame = topContextInProcess->PresShell()->GetRootFrame();
+  nsRect transformedToIFrame = nsLayoutUtils::TransformFrameRectToAncestor(
+      aFrame, aFrame->GetRectRelativeToSelf(), rootFrame);
+
+  LayoutDeviceRect rectInLayoutDevicePixel = LayoutDeviceRect::FromAppUnits(
+      transformedToIFrame, topContextInProcess->AppUnitsPerDevPixel());
+
+  ScreenRect transformedToRoot = ViewAs<ScreenPixel>(
+      browserChild->GetChildToParentConversionMatrix().TransformBounds(
+          rectInLayoutDevicePixel),
+      PixelCastJustification::ContentProcessIsLayerInUiProcess);
+
+  return Some(
+      browserChild->GetRemoteDocumentRect().Intersect(transformedToRoot));
+}
+
+// static
+bool nsLayoutUtils::FrameIsScrolledOutOfViewInCrossProcess(
+    const nsIFrame* aFrame) {
+  Maybe<ScreenRect> visibleRect = GetFrameVisibleRectOnScreen(aFrame);
+  if (visibleRect.isNothing()) {
+    return false;
+  }
+
+  return visibleRect->IsEmpty();
+}
+
+// static
+bool nsLayoutUtils::FrameIsMostlyScrolledOutOfViewInCrossProcess(
+    const nsIFrame* aFrame, nscoord aMargin) {
+  Maybe<ScreenRect> visibleRect = GetFrameVisibleRectOnScreen(aFrame);
+  if (visibleRect.isNothing()) {
+    return false;
+  }
+
+  nsPresContext* topContextInProcess =
+      aFrame->PresContext()->GetToplevelContentDocumentPresContext();
+  MOZ_ASSERT(topContextInProcess);
+
+  nsIDocShell* docShell = topContextInProcess->GetDocShell();
+  BrowserChild* browserChild = BrowserChild::GetFrom(docShell);
+  MOZ_ASSERT(browserChild);
+
+  Size scale =
+      browserChild->GetChildToParentConversionMatrix().As2D().ScaleFactors(
+          true);
+  ScreenSize margin(scale.width * CSSPixel::FromAppUnits(aMargin),
+                    scale.height * CSSPixel::FromAppUnits(aMargin));
+
+  return visibleRect->width < margin.width ||
+         visibleRect->height < margin.height;
 }

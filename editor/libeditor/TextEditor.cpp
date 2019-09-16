@@ -634,13 +634,11 @@ nsresult TextEditor::DeleteSelectionAsAction(EDirection aDirection,
   // delete placeholder txns merge.
   AutoPlaceholderBatch treatAsOneTransaction(*this, *nsGkAtoms::DeleteTxnName);
   nsresult rv = DeleteSelectionAsSubAction(aDirection, aStripWrappers);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return EditorBase::ToGenericNSResult(rv);
-  }
-  return NS_OK;
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "DeleteSelectionAsSubAction() failed");
+  return EditorBase::ToGenericNSResult(rv);
 }
 
-nsresult TextEditor::DeleteSelectionAsSubAction(EDirection aDirection,
+nsresult TextEditor::DeleteSelectionAsSubAction(EDirection aDirectionAndAmount,
                                                 EStripWrappers aStripWrappers) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_ASSERT(mPlaceholderBatch);
@@ -651,29 +649,51 @@ nsresult TextEditor::DeleteSelectionAsSubAction(EDirection aDirection,
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  // Protect the edit rules object from dying
-  RefPtr<TextEditRules> rules(mRules);
-
   AutoEditSubActionNotifier startToHandleEditSubAction(
-      *this, EditSubAction::eDeleteSelectedContent, aDirection);
+      *this, EditSubAction::eDeleteSelectedContent, aDirectionAndAmount);
   EditSubActionInfo subActionInfo(EditSubAction::eDeleteSelectedContent);
-  subActionInfo.collapsedAction = aDirection;
-  subActionInfo.stripWrappers = aStripWrappers;
-  bool cancel, handled;
-  nsresult rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+
+  EditActionResult result =
+      HandleDeleteSelection(aDirectionAndAmount, aStripWrappers);
+  if (NS_WARN_IF(result.Failed()) || result.Canceled()) {
+    return result.Rv();
   }
-  if (!cancel && !handled) {
-    rv = DeleteSelectionWithTransaction(aDirection, aStripWrappers);
+
+  // XXX This is odd.  We just tries to remove empty text node here but we
+  //     refer `Selection`.  It may be modified by mutation event listeners
+  //     so that we should remove the empty text node when we make it empty.
+  EditorDOMPoint atNewStartOfSelection(
+      EditorBase::GetStartPoint(*SelectionRefPtr()));
+  if (NS_WARN_IF(!atNewStartOfSelection.IsSet())) {
+    // XXX And also it seems that we don't need to return error here.
+    //     Why don't we just ignore?  `Selection::RemoveAllRanges()` may
+    //     have been called by mutation event listeners.
+    return NS_ERROR_FAILURE;
   }
-  if (!cancel) {
-    // post-process
-    rv = rules->DidDoAction(subActionInfo, rv);
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "TextEditRules::DidDoAction() failed");
+  if (atNewStartOfSelection.IsInTextNode() &&
+      !atNewStartOfSelection.GetContainer()->Length()) {
+    nsresult rv = DeleteNodeWithTransaction(
+        MOZ_KnownLive(*atNewStartOfSelection.GetContainer()));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
   }
-  return rv;
+
+  // XXX I don't think that this is necessary in anonymous `<div>` element of
+  //     TextEditor since there should be at most one text node and at most
+  //     one padding `<br>` element so that `<br>` element won't be before
+  //     caret.
+  if (!TopLevelEditSubActionDataRef().mDidExplicitlySetInterLine) {
+    // We prevent the caret from sticking on the left of previous `<br>`
+    // element (i.e. the end of previous line) after this deletion. Bug 92124.
+    ErrorResult error;
+    SelectionRefPtr()->SetInterlinePosition(true, error);
+    if (NS_WARN_IF(error.Failed())) {
+      return error.StealNSResult();
+    }
+  }
+
+  return NS_OK;
 }
 
 nsresult TextEditor::DeleteSelectionWithTransaction(
@@ -908,9 +928,6 @@ nsresult TextEditor::InsertTextAsSubAction(const nsAString& aStringToInsert) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  // Protect the edit rules object from dying.
-  RefPtr<TextEditRules> rules(mRules);
-
   EditSubAction editSubAction = ShouldHandleIMEComposition()
                                     ? EditSubAction::eInsertTextComingFromIME
                                     : EditSubAction::eInsertText;
@@ -918,32 +935,9 @@ nsresult TextEditor::InsertTextAsSubAction(const nsAString& aStringToInsert) {
   AutoEditSubActionNotifier startToHandleEditSubAction(*this, editSubAction,
                                                        nsIEditor::eNext);
 
-  nsAutoString resultString;
-  // XXX can we trust instring to outlive subActionInfo,
-  // XXX and subActionInfo not to refer to instring in its dtor?
-  // nsAutoString instring(aStringToInsert);
-  EditSubActionInfo subActionInfo(editSubAction);
-  subActionInfo.inString = &aStringToInsert;
-  subActionInfo.outString = &resultString;
-  subActionInfo.maxLength = mMaxTextLength;
-
-  bool cancel, handled;
-  nsresult rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-  if (!cancel && !handled) {
-    // we rely on rules code for now - no default implementation
-  }
-  if (cancel) {
-    return NS_OK;
-  }
-  // post-process
-  rv = rules->DidDoAction(subActionInfo, NS_OK);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-  return NS_OK;
+  EditActionResult result = HandleInsertText(editSubAction, aStringToInsert);
+  NS_WARNING_ASSERTION(result.Succeeded(), "HandleInsertText() failed");
+  return result.Rv();
 }
 
 NS_IMETHODIMP
@@ -972,28 +966,17 @@ nsresult TextEditor::InsertLineBreakAsSubAction() {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  // Protect the edit rules object from dying
-  RefPtr<TextEditRules> rules(mRules);
-
   AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eInsertLineBreak, nsIEditor::eNext);
 
-  EditSubActionInfo subActionInfo(EditSubAction::eInsertLineBreak);
-  subActionInfo.maxLength = mMaxTextLength;
-  bool cancel, handled;
-  nsresult rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
-  if (cancel) {
-    return rv;  // We don't need to call DidDoAction() if canceled.
+  EditActionResult result = InsertLineFeedCharacterAtSelection();
+  if (result.EditorDestroyed()) {
+    return NS_ERROR_EDITOR_DESTROYED;
   }
-  // XXX DidDoAction() does nothing for eInsertParagraphSeparator.  However,
-  //     we should call it until we keep using this style.  Perhaps, each
-  //     editor method should call necessary method of
-  //     TextEditRules/HTMLEditRules directly.
-  rv = rules->DidDoAction(subActionInfo, rv);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-  return NS_OK;
+  NS_WARNING_ASSERTION(
+      result.Succeeded(),
+      "InsertLineFeedCharacterAtSelection() failed, but ignored");
+  return result.Rv();
 }
 
 nsresult TextEditor::SetTextAsAction(const nsAString& aString,
@@ -1723,7 +1706,12 @@ nsresult TextEditor::CutAsAction(nsIPrincipal* aPrincipal) {
     //     so that we need to keep using it here.
     AutoPlaceholderBatch treatAsOneTransaction(*this,
                                                *nsGkAtoms::DeleteTxnName);
-    DeleteSelectionAsSubAction(eNone, eStrip);
+    nsresult rv = DeleteSelectionAsSubAction(eNone, eStrip);
+    if (NS_WARN_IF(rv == NS_ERROR_EDITOR_DESTROYED)) {
+      return EditorBase::ToGenericNSResult(NS_ERROR_EDITOR_DESTROYED);
+    }
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "DeleteSelectionAsSubAction() failed, but ignored");
   }
   return EditorBase::ToGenericNSResult(
       actionTaken ? NS_OK : NS_ERROR_EDITOR_ACTION_CANCELED);
@@ -1863,12 +1851,10 @@ TextEditor::OutputToString(const nsAString& aFormatType,
 
   nsresult rv =
       ComputeValueInternal(aFormatType, aDocumentEncoderFlags, aOutputString);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    // This is low level API for XUL applcation.  So, we should return raw
-    // error code here.
-    return rv;
-  }
-  return NS_OK;
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "ComputeValueInternal() failed");
+  // This is low level API for XUL application.  So, we should return raw
+  // error code here.
+  return rv;
 }
 
 nsresult TextEditor::ComputeValueInternal(const nsAString& aFormatType,
@@ -1876,27 +1862,26 @@ nsresult TextEditor::ComputeValueInternal(const nsAString& aFormatType,
                                           nsAString& aOutputString) const {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  // Protect the edit rules object from dying
-  RefPtr<TextEditRules> rules(mRules);
-
-  EditSubActionInfo subActionInfo(EditSubAction::eComputeTextToOutput);
-  subActionInfo.outString = &aOutputString;
-  subActionInfo.flags = aDocumentEncoderFlags;
-  subActionInfo.outputFormat = &aFormatType;
-
-  bool cancel{false};
-  bool handled{false};
-  nsresult rv = rules->WillDoAction(subActionInfo, &cancel, &handled);
-  if (NS_FAILED(rv) || cancel) {
-    return rv;
-  }
-  if (handled) {
-    // This case will get triggered by password fields or single text node only.
-    return rv;
+  // First, let's try to get the value simply only from text node if the
+  // caller wants plaintext value.
+  if (aFormatType.LowerCaseEqualsLiteral("text/plain")) {
+    // If it's necessary to check selection range or the editor wraps hard,
+    // we need some complicated handling.  In such case, we need to use the
+    // expensive path.
+    // XXX Anything else what we cannot return the text node data simply?
+    if (!(aDocumentEncoderFlags & (nsIDocumentEncoder::OutputSelectionOnly |
+                                   nsIDocumentEncoder::OutputWrap))) {
+      EditActionResult result =
+          ComputeValueFromTextNodeAndPaddingBRElement(aOutputString);
+      if (NS_WARN_IF(result.Failed()) || result.Canceled() ||
+          result.Handled()) {
+        return result.Rv();
+      }
+    }
   }
 
   nsAutoCString charset;
-  rv = GetDocumentCharsetInternal(charset);
+  nsresult rv = GetDocumentCharsetInternal(charset);
   if (NS_FAILED(rv) || charset.IsEmpty()) {
     charset.AssignLiteral("windows-1252");
   }
@@ -1907,12 +1892,10 @@ nsresult TextEditor::ComputeValueInternal(const nsAString& aFormatType,
     return NS_ERROR_FAILURE;
   }
 
-  // XXX Why don't we call TextEditRules::DidDoAction() here?
   rv = encoder->EncodeToString(aOutputString);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-  return NS_OK;
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                       "nsIDocumentEncoder::EncodeToString() failed");
+  return rv;
 }
 
 nsresult TextEditor::PasteAsQuotationAsAction(int32_t aClipboardType,
@@ -2022,7 +2005,7 @@ nsresult TextEditor::InsertWithQuotationsAsSubAction(
 }
 
 nsresult TextEditor::SharedOutputString(uint32_t aFlags, bool* aIsCollapsed,
-                                        nsAString& aResult) {
+                                        nsAString& aResult) const {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
   *aIsCollapsed = SelectionRefPtr()->IsCollapsed();
@@ -2031,7 +2014,10 @@ nsresult TextEditor::SharedOutputString(uint32_t aFlags, bool* aIsCollapsed,
     aFlags |= nsIDocumentEncoder::OutputSelectionOnly;
   }
   // If the selection isn't collapsed, we'll use the whole document.
-  return ComputeValueInternal(NS_LITERAL_STRING("text/plain"), aFlags, aResult);
+  nsresult rv =
+      ComputeValueInternal(NS_LITERAL_STRING("text/plain"), aFlags, aResult);
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "ComputeValueInternal() failed");
+  return rv;
 }
 
 void TextEditor::OnStartToHandleTopLevelEditSubAction(

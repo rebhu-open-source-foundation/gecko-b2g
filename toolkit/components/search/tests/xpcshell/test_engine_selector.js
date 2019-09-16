@@ -14,14 +14,14 @@ const CONFIG_URL =
       {
         engineName: "aol",
         orderHint: 500,
-        webExtensionLocale: "default",
+        webExtensionLocales: ["default"],
         appliesTo: [
           {
             included: { everywhere: true },
           },
           {
             included: { regions: ["us"] },
-            webExtensionLocale: "$USER_LOCALE",
+            webExtensionLocales: ["$USER_LOCALE"],
           },
         ],
       },
@@ -54,6 +54,10 @@ const CONFIG_URL =
             included: { everywhere: true },
             excluded: { regions: ["us"] },
           },
+          {
+            included: { everywhere: true },
+            cohort: "acohortid",
+          },
         ],
       },
       {
@@ -78,9 +82,9 @@ add_task(async function() {
   );
   let names = engines.map(obj => obj.engineName);
   Assert.deepEqual(names, ["lycos", "altavista", "aol"], "Correct order");
-  Assert.equal(
-    engines[2].webExtensionLocale,
-    "en-US",
+  Assert.deepEqual(
+    engines[2].webExtensionLocales,
+    ["en-US"],
     "Subsequent matches in applies to can override default"
   );
 
@@ -95,5 +99,16 @@ add_task(async function() {
     names,
     ["excite", "aol"],
     "The engines should be in the correct order"
+  );
+
+  Services.prefs.setCharPref("browser.search.cohort", "acohortid");
+  ({ engines, privateDefault } = engineSelector.fetchEngineConfiguration(
+    "us",
+    "en-US"
+  ));
+  Assert.deepEqual(
+    engines.map(obj => obj.engineName),
+    ["lycos", "altavista", "aol", "excite"],
+    "Engines are in the correct order and include the cohort engine"
   );
 });

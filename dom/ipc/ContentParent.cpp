@@ -45,6 +45,7 @@
 #include "mozilla/DataStorage.h"
 #include "mozilla/devtools/HeapSnapshotTempFileHelperParent.h"
 #include "mozilla/docshell/OfflineCacheUpdateParent.h"
+#include "mozilla/dom/BrowserHost.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/BrowsingContextGroup.h"
 #include "mozilla/dom/CancelContentJSOptionsBinding.h"
@@ -78,6 +79,7 @@
 #include "mozilla/dom/quota/QuotaManagerService.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/URLClassifierParent.h"
+#include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/dom/ipc/SharedMap.h"
 #include "mozilla/embedding/printingui/PrintingParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
@@ -4777,8 +4779,14 @@ bool ContentParent::DeallocPWebrtcGlobalParent(PWebrtcGlobalParent* aActor) {
 
 mozilla::ipc::IPCResult ContentParent::RecvSetOfflinePermission(
     const Principal& aPrincipal) {
-  nsIPrincipal* principal = aPrincipal;
-  nsContentUtils::MaybeAllowOfflineAppByDefault(principal);
+  nsCOMPtr<nsIOfflineCacheUpdateService> updateService =
+      components::OfflineCacheUpdate::Service();
+  if (!updateService) {
+    return IPC_FAIL_NO_REASON(this);
+  }
+  nsresult rv = updateService->AllowOfflineApp(aPrincipal);
+  NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
+
   return IPC_OK();
 }
 
@@ -4893,10 +4901,13 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     return IPC_FAIL(this, "Forbidden aChromeFlags passed");
   }
 
-  BrowserParent* thisBrowserParent = BrowserParent::GetFrom(aThisTab);
+  RefPtr<BrowserParent> topParent = BrowserParent::GetFrom(aThisTab);
+  while (topParent && topParent->GetBrowserBridgeParent()) {
+    topParent = topParent->GetBrowserBridgeParent()->Manager();
+  }
   BrowserHost* thisBrowserHost =
-      thisBrowserParent ? thisBrowserParent->GetBrowserHost() : nullptr;
-  MOZ_ASSERT(!thisBrowserParent == !thisBrowserHost);
+      topParent ? topParent->GetBrowserHost() : nullptr;
+  MOZ_ASSERT_IF(topParent, thisBrowserHost);
 
   // The content process should not have set its remote or fission flags if the
   // parent doesn't also have these set.
@@ -4912,10 +4923,10 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   }
 
   nsCOMPtr<nsIContent> frame;
-  if (thisBrowserParent) {
-    frame = thisBrowserParent->GetOwnerElement();
+  if (topParent) {
+    frame = topParent->GetOwnerElement();
 
-    if (NS_WARN_IF(thisBrowserParent->IsMozBrowser())) {
+    if (NS_WARN_IF(topParent->IsMozBrowser())) {
       return IPC_FAIL(this, "aThisTab is not a MozBrowser");
     }
   }
@@ -4932,8 +4943,8 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   }
 
   nsCOMPtr<nsIBrowserDOMWindow> browserDOMWin;
-  if (thisBrowserParent) {
-    browserDOMWin = thisBrowserParent->GetBrowserDOMWindow();
+  if (topParent) {
+    browserDOMWin = topParent->GetBrowserDOMWindow();
   }
 
   // If we haven't found a chrome window to open in, just use the most recently
@@ -5072,8 +5083,8 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 
   if (aURIToLoad && aLoadURI) {
     nsCOMPtr<mozIDOMWindowProxy> openerWindow;
-    if (aSetOpener && thisBrowserParent) {
-      openerWindow = thisBrowserParent->GetParentWindowOuter();
+    if (aSetOpener && topParent) {
+      openerWindow = topParent->GetParentWindowOuter();
     }
     nsCOMPtr<nsIBrowserDOMWindow> newBrowserDOMWin =
         newBrowserParent->GetBrowserDOMWindow();
@@ -5258,38 +5269,43 @@ mozilla::ipc::IPCResult ContentParent::RecvGetGraphicsDeviceInitData(
 mozilla::ipc::IPCResult ContentParent::RecvGetFontListShmBlock(
     const uint32_t& aGeneration, const uint32_t& aIndex,
     mozilla::ipc::SharedMemoryBasic::Handle* aOut) {
-  gfxPlatformFontList::PlatformFontList()->ShareFontListShmBlockToProcess(
-      aGeneration, aIndex, Pid(), aOut);
+  auto fontList = gfxPlatformFontList::PlatformFontList();
+  MOZ_RELEASE_ASSERT(fontList, "gfxPlatformFontList not initialized?");
+  fontList->ShareFontListShmBlockToProcess(aGeneration, aIndex, Pid(), aOut);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvInitializeFamily(
     const uint32_t& aGeneration, const uint32_t& aFamilyIndex) {
-  gfxPlatformFontList::PlatformFontList()->InitializeFamily(aGeneration,
-                                                            aFamilyIndex);
+  auto fontList = gfxPlatformFontList::PlatformFontList();
+  MOZ_RELEASE_ASSERT(fontList, "gfxPlatformFontList not initialized?");
+  fontList->InitializeFamily(aGeneration, aFamilyIndex);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvSetCharacterMap(
     const uint32_t& aGeneration, const mozilla::fontlist::Pointer& aFacePtr,
     const gfxSparseBitSet& aMap) {
-  gfxPlatformFontList::PlatformFontList()->SetCharacterMap(aGeneration,
-                                                           aFacePtr, aMap);
+  auto fontList = gfxPlatformFontList::PlatformFontList();
+  MOZ_RELEASE_ASSERT(fontList, "gfxPlatformFontList not initialized?");
+  fontList->SetCharacterMap(aGeneration, aFacePtr, aMap);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvInitOtherFamilyNames(
     const uint32_t& aGeneration, const bool& aDefer, bool* aLoaded) {
-  gfxPlatformFontList::PlatformFontList()->InitOtherFamilyNames(aGeneration,
-                                                                aDefer);
+  auto fontList = gfxPlatformFontList::PlatformFontList();
+  MOZ_RELEASE_ASSERT(fontList, "gfxPlatformFontList not initialized?");
+  fontList->InitOtherFamilyNames(aGeneration, aDefer);
   *aLoaded = true;
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvSetupFamilyCharMap(
     const uint32_t& aGeneration, const mozilla::fontlist::Pointer& aFamilyPtr) {
-  gfxPlatformFontList::PlatformFontList()->SetupFamilyCharMap(aGeneration,
-                                                              aFamilyPtr);
+  auto fontList = gfxPlatformFontList::PlatformFontList();
+  MOZ_RELEASE_ASSERT(fontList, "gfxPlatformFontList not initialized?");
+  fontList->SetupFamilyCharMap(aGeneration, aFamilyPtr);
   return IPC_OK();
 }
 

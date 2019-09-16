@@ -368,7 +368,7 @@ struct DIGroup {
     GP("clippedImageRect %d %d %d %d\n", mClippedImageBounds.x,
        mClippedImageBounds.y, mClippedImageBounds.width,
        mClippedImageBounds.height);
-    LayerIntSize size = mLayerBounds.Size();
+    LayerIntSize size = mVisibleRect.Size();
     GP("imageSize: %d %d\n", size.width, size.height);
     /*if (aItem->IsReused() && aData->mGeometry) {
       return;
@@ -602,12 +602,12 @@ struct DIGroup {
       }
     }
 
-    IntSize dtSize = mLayerBounds.Size().ToUnknownSize();
+    IntSize dtSize = mVisibleRect.Size().ToUnknownSize();
     // The actual display item's size shouldn't have the scale factored in
     // Round the bounds out to leave space for unsnapped content
     LayoutDeviceToLayerScale2D scale(mScale.width, mScale.height);
     LayoutDeviceRect itemBounds =
-        (LayerRect(mLayerBounds) - mResidualOffset) / scale;
+        (LayerRect(mVisibleRect) - mResidualOffset) / scale;
 
     if (mInvalidRect.IsEmpty()) {
       GP("Not repainting group because it's empty\n");
@@ -647,7 +647,7 @@ struct DIGroup {
               }
               fonts = std::move(aScaledFonts);
             },
-            mLayerBounds.ToUnknownRect().TopLeft());
+            mVisibleRect.ToUnknownRect().TopLeft());
 
     RefPtr<gfx::DrawTarget> dummyDt = gfx::Factory::CreateDrawTarget(
         gfx::BackendType::SKIA, gfx::IntSize(1, 1), format);
@@ -709,7 +709,7 @@ struct DIGroup {
       // Convert mInvalidRect to image space by subtracting the corner of the
       // image bounds
       auto dirtyRect = ViewAs<ImagePixel>(
-          mInvalidRect - mLayerBounds.ToUnknownRect().TopLeft());
+          mInvalidRect - mVisibleRect.ToUnknownRect().TopLeft());
 
       auto bottomRight = dirtyRect.BottomRight();
       GP("check invalid %d %d - %d %d\n", bottomRight.x, bottomRight.y,
@@ -765,7 +765,7 @@ struct DIGroup {
                       WebRenderDrawEventRecorder* aRecorder,
                       RenderRootStateManager* aRootManager,
                       wr::IpcResourceUpdateQueue& aResources) {
-    LayerIntSize size = mLayerBounds.Size();
+    LayerIntSize size = mVisibleRect.Size();
     for (nsDisplayItem* item = aStartItem; item != aEndItem;
          item = item->GetAbove()) {
       BlobItemData* data = GetBlobItemData(item);
@@ -1239,8 +1239,8 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
       // tighter for just the sublist that made it into this group.
       // We want to ensure the tight bounds are still clipped by area
       // that we're building the display list for.
-      if (!groupData->mFollowingGroup.mGroupBounds.IsEqualEdges(
-              currentGroup->mGroupBounds) ||
+      if (!groupData->mFollowingGroup.mVisibleRect.IsEqualEdges(currentGroup->mVisibleRect) ||
+          !groupData->mFollowingGroup.mGroupBounds.IsEqualEdges(currentGroup->mGroupBounds) ||
           groupData->mFollowingGroup.mScale != currentGroup->mScale ||
           groupData->mFollowingGroup.mAppUnitsPerDevPixel !=
               currentGroup->mAppUnitsPerDevPixel ||
@@ -1460,8 +1460,6 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
   auto layerBounds = LayerIntRect::FromUnknownRect(
       ScaleToOutsidePixelsOffset(groupBounds, scale.width, scale.height,
                                  appUnitsPerDevPixel, residualOffset));
-  GP("scale: %f %f - %d - %f %f\n", scale.width, scale.height,
-     group.mAppUnitsPerDevPixel, residualOffset.x, residualOffset.y);
 
   const nsRect& untransformedPaintRect = aWrappingItem->GetUntransformedPaintRect();
 
@@ -1479,7 +1477,8 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
   GP("Inherrited scale %f %f\n", scale.width, scale.height);
   GP("Bounds: %d %d %d %d vs %d %d %d %d\n", p.x, p.y, p.width, p.height, q.x,
      q.y, q.width, q.height);
-  if (!group.mGroupBounds.IsEqualEdges(groupBounds) ||
+  if (!group.mVisibleRect.IsEqualEdges(visibleRect) ||
+      !group.mGroupBounds.IsEqualEdges(groupBounds) ||
       group.mAppUnitsPerDevPixel != appUnitsPerDevPixel ||
       group.mScale != scale || group.mResidualOffset != residualOffset) {
     GP("Property change. Deleting blob\n");
@@ -1524,11 +1523,8 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
   group.mVisibleRect = visibleRect;
   group.mAppUnitsPerDevPixel = appUnitsPerDevPixel;
   group.mImageBounds = layerBounds.ToUnknownRect();
+  group.mImageBounds = visibleRect.ToUnknownRect();
   group.mClippedImageBounds = group.mImageBounds;
-  // XXX: Make the paint rect relative to the layer bounds. After we include
-  // mLayerBounds.TopLeft() in the blob image we want to stop doing this
-  // adjustment.
-  group.mVisibleRect = group.mVisibleRect - group.mLayerBounds.TopLeft();
 
   g.mTransform = Matrix::Scaling(scale.width, scale.height)
                      .PostTranslate(residualOffset.x, residualOffset.y);
@@ -1931,8 +1927,8 @@ bool WebRenderCommandBuilder::PushImage(
     return false;
   }
 
-  auto r = wr::ToRoundedLayoutRect(aRect);
-  auto c = wr::ToRoundedLayoutRect(aClip);
+  auto r = wr::ToLayoutRect(aRect);
+  auto c = wr::ToLayoutRect(aClip);
   aBuilder.PushImage(r, c, !aItem->BackfaceIsHidden(), rendering, key.value());
 
   return true;
@@ -2047,6 +2043,7 @@ static bool PaintByLayer(nsDisplayItem* aItem,
 
 static bool PaintItemByDrawTarget(nsDisplayItem* aItem, gfx::DrawTarget* aDT,
                                   const LayoutDevicePoint& aOffset,
+                                  const IntRect& visibleRect,
                                   nsDisplayListBuilder* aDisplayListBuilder,
                                   const RefPtr<BasicLayerManager>& aManager,
                                   const gfx::Size& aScale,
@@ -2055,7 +2052,7 @@ static bool PaintItemByDrawTarget(nsDisplayItem* aItem, gfx::DrawTarget* aDT,
 
   bool isInvalidated = false;
   // XXX Why is this ClearRect() needed?
-  aDT->ClearRect(Rect(aDT->GetRect()));
+  aDT->ClearRect(Rect(visibleRect));
   RefPtr<gfxContext> context = gfxContext::CreateOrNull(aDT);
   MOZ_ASSERT(context);
 
@@ -2100,15 +2097,14 @@ static bool PaintItemByDrawTarget(nsDisplayItem* aItem, gfx::DrawTarget* aDT,
     // which isn't very useful.
     if (aHighlight) {
       aDT->SetTransform(gfx::Matrix());
-      aDT->FillRect(Rect(aDT->GetRect()),
-                    gfx::ColorPattern(aHighlight.value()));
+      aDT->FillRect(Rect(visibleRect), gfx::ColorPattern(aHighlight.value()));
     }
     if (aItem->Frame()->PresContext()->GetPaintFlashing() && isInvalidated) {
       aDT->SetTransform(gfx::Matrix());
       float r = float(rand()) / float(RAND_MAX);
       float g = float(rand()) / float(RAND_MAX);
       float b = float(rand()) / float(RAND_MAX);
-      aDT->FillRect(Rect(aDT->GetRect()),
+      aDT->FillRect(Rect(visibleRect),
                     gfx::ColorPattern(gfx::Color(r, g, b, 0.5)));
     }
   }
@@ -2182,21 +2178,19 @@ WebRenderCommandBuilder::GenerateFallbackData(
   auto dtRect = LayerIntRect::FromUnknownRect(
       ScaleToOutsidePixelsOffset(paintBounds, scale.width, scale.height,
                                  appUnitsPerDevPixel, residualOffset));
-  auto dtSize = dtRect.Size();
 
   auto visibleRect = LayerIntRect::FromUnknownRect(
                          ScaleToOutsidePixelsOffset(
                              aItem->GetBuildingRect(), scale.width,
                              scale.height, appUnitsPerDevPixel, residualOffset))
                          .Intersect(dtRect);
-  // visibleRect is relative to the blob origin so adjust for that
-  visibleRect -= dtRect.TopLeft();
 
-  if (dtSize.IsEmpty()) {
+  auto visibleSize = visibleRect.Size();
+  if (visibleSize.IsEmpty()) {
     return nullptr;
   }
-
-  aImageRect = dtRect / layerScale;
+  // Display item bounds should be unscaled
+  aImageRect = visibleRect / layerScale;
 
   nsDisplayItemGeometry* geometry = fallbackData->mGeometry;
 
@@ -2267,7 +2261,7 @@ WebRenderCommandBuilder::GenerateFallbackData(
                 }
                 fonts = std::move(aScaledFonts);
               },
-              dtRect.ToUnknownRect().TopLeft());
+              visibleRect.ToUnknownRect().TopLeft());
       RefPtr<gfx::DrawTarget> dummyDt = gfx::Factory::CreateDrawTarget(
           gfx::BackendType::SKIA, gfx::IntSize(1, 1), format);
       RefPtr<gfx::DrawTarget> dt = gfx::Factory::CreateRecordingDrawTarget(
@@ -2276,8 +2270,11 @@ WebRenderCommandBuilder::GenerateFallbackData(
         fallbackData->mBasicLayerManager =
             new BasicLayerManager(BasicLayerManager::BLM_INACTIVE);
       }
+      // aOffset is (0, 0) because blobs don't want to normalize their
+      // coordinates
       bool isInvalidated = PaintItemByDrawTarget(
-          aItem, dt, LayoutDevicePoint(0, 0), aDisplayListBuilder,
+          aItem, dt, LayoutDevicePoint(0, 0),
+          /*aVisibleRect: */ visibleRect.ToUnknownRect(), aDisplayListBuilder,
           fallbackData->mBasicLayerManager, scale, highlight);
       if (!isInvalidated) {
         if (!aItem->GetBuildingRect().IsEqualInterior(
@@ -2287,7 +2284,7 @@ WebRenderCommandBuilder::GenerateFallbackData(
           isInvalidated = true;
         }
       }
-      recorder->FlushItem(dtRect.ToUnknownRect());
+      recorder->FlushItem(visibleRect.ToUnknownRect());
       recorder->Finish();
 
       if (!validFonts) {
@@ -2300,7 +2297,7 @@ WebRenderCommandBuilder::GenerateFallbackData(
                              recorder->mOutputStream.mLength);
         wr::BlobImageKey key =
             wr::BlobImageKey{mManager->WrBridge()->GetNextImageKey()};
-        wr::ImageDescriptor descriptor(dtSize.ToUnknownSize(), 0,
+        wr::ImageDescriptor descriptor(visibleSize.ToUnknownSize(), 0,
                                        dt->GetFormat(), opacity);
         if (!aResources.AddBlobImage(
                 key, descriptor, bytes,
@@ -2336,7 +2333,7 @@ WebRenderCommandBuilder::GenerateFallbackData(
 
       {
         UpdateImageHelper helper(imageContainer, imageClient,
-                                 dtSize.ToUnknownSize(), format);
+                                 visibleSize.ToUnknownSize(), format);
         {
           RefPtr<gfx::DrawTarget> dt = helper.GetDrawTarget();
           if (!dt) {
@@ -2346,8 +2343,12 @@ WebRenderCommandBuilder::GenerateFallbackData(
             fallbackData->mBasicLayerManager =
                 new BasicLayerManager(mManager->GetWidget());
           }
+          // aOffset is applied because this case is a "real" image and not a
+          // blob
           isInvalidated = PaintItemByDrawTarget(
-              aItem, dt, aImageRect.TopLeft(), aDisplayListBuilder,
+              aItem, dt,
+              /*aOffset: */ aImageRect.TopLeft(),
+              /*aVisibleRect: */ dt->GetRect(), aDisplayListBuilder,
               fallbackData->mBasicLayerManager, scale, highlight);
         }
 
@@ -2562,7 +2563,7 @@ bool WebRenderCommandBuilder::PushItemAsImage(
     return false;
   }
 
-  wr::LayoutRect dest = wr::ToRoundedLayoutRect(imageRect);
+  wr::LayoutRect dest = wr::ToLayoutRect(imageRect);
   gfx::SamplingFilter sampleFilter =
       nsLayoutUtils::GetSamplingFilterForFrame(aItem->Frame());
   aBuilder.PushImage(dest, dest, !aItem->BackfaceIsHidden(),
