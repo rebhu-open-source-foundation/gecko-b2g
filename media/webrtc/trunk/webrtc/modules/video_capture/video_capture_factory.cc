@@ -16,16 +16,28 @@ namespace webrtc {
 
 rtc::scoped_refptr<VideoCaptureModule> VideoCaptureFactory::Create(
     const char* deviceUniqueIdUTF8) {
+#ifdef MOZ_WIDGET_GONK
+  return nullptr;
+#else
   return videocapturemodule::VideoCaptureImpl::Create(deviceUniqueIdUTF8);
+#endif
 }
 
 rtc::scoped_refptr<VideoCaptureModule> VideoCaptureFactory::Create(
     VideoCaptureExternal*& externalCapture) {
+#ifdef MOZ_WIDGET_GONK
+  return nullptr;
+#else
   return videocapturemodule::VideoCaptureImpl::Create(externalCapture);
+#endif
 }
 
 VideoCaptureModule::DeviceInfo* VideoCaptureFactory::CreateDeviceInfo() {
+#ifdef MOZ_WIDGET_GONK
+  return nullptr;
+#else
   return videocapturemodule::VideoCaptureImpl::CreateDeviceInfo();
+#endif
 }
 
 }  // namespace webrtc

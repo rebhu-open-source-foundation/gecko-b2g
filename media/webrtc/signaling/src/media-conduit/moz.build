@@ -33,7 +33,7 @@ UNIFIED_SOURCES += [
     'WebrtcMediaDataEncoderCodec.cpp',
 ]
 
-if CONFIG['OS_TARGET'] == 'Android':
+if CONFIG['OS_TARGET'] == 'Android' and CONFIG['MOZ_WIDGET_TOOLKIT'] != 'gonk':
     UNIFIED_SOURCES += [
         'MediaCodecVideoCodec.cpp',
         'WebrtcMediaCodecVP8VideoCodec.cpp',

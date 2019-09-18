@@ -36,7 +36,7 @@ class VideoEngine {
 
   static already_AddRefed<VideoEngine> Create(
       UniquePtr<const webrtc::Config>&& aConfig);
-#if defined(ANDROID)
+#if defined(ANDROID) && !defined(MOZ_WIDGET_GONK)
   static int SetAndroidObjects();
 #endif
   void CreateVideoCapture(int32_t& id, const char* deviceUniqueIdUTF8);

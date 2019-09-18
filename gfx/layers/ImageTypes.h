@@ -102,6 +102,16 @@ enum class ImageFormat {
    * data in DMABUF memory. Used on Wayland by VAAPI decoder.
    */
   WAYLAND_DMABUF,
+
+  /**
+   * The GONK_CAMERA_IMAGE format creates a GonkCameraImage, which contains two
+   * parts. One is GrallocImage image for preview image. Another one is
+   * MediaBuffer from Gonk recording image. The preview image can be rendered in
+   * a layer for display. And the MediaBuffer will be used in component like OMX
+   * encoder. It is for GUM to support preview and recording image on Gonk
+   * camera.
+   */
+  GONK_CAMERA_IMAGE,
 };
 
 enum class StereoMode {

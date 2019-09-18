@@ -26,7 +26,7 @@ mozilla::LazyLogModule gVideoEngineLog("VideoEngine");
 #define LOG_ENABLED() MOZ_LOG_TEST(gVideoEngineLog, mozilla::LogLevel::Debug)
 
 int VideoEngine::sId = 0;
-#if defined(ANDROID)
+#if defined(ANDROID) && !defined(MOZ_WIDGET_GONK)
 int VideoEngine::SetAndroidObjects() {
   LOG(("%s", __PRETTY_FUNCTION__));
 

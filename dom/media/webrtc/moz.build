@@ -59,10 +59,12 @@ if CONFIG['MOZ_WEBRTC']:
     if CONFIG['MOZ_B2G_CAMERA'] and CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         EXPORTS += [
             'GonkCameraImage.h',
+            'MediaEngineCameraVideoSource.h',
             'MediaEngineGonkVideoSource.h',
         ]
         UNIFIED_SOURCES += [
             'GonkCameraImage.cpp',
+            'MediaEngineCameraVideoSource.cpp',
             'MediaEngineGonkVideoSource.cpp',
         ]
 
