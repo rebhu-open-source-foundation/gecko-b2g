@@ -77,6 +77,7 @@
   <html:link rel="localization" href="browser/branding/sync-brand.ftl"/>
   <html:link rel="localization" href="browser/browser.ftl"/>
   <html:link rel="localization" href="browser/menubar.ftl"/>
+  <html:link rel="localization" href="browser/appmenu.ftl"/>
 </linkset>
 
 # All JS files which are needed by browser.xhtml and other top level windows to
@@ -568,21 +569,21 @@
     <menupopup id="pageActionContextMenu"
                onpopupshowing="BrowserPageActions.onContextMenuShowing(event, this);">
       <menuitem class="pageActionContextMenuItem builtInUnpinned"
-                label="&pageAction.addToUrlbar.label;"
-                oncommand="BrowserPageActions.togglePinningForContextAction();"/>
+                oncommand="BrowserPageActions.togglePinningForContextAction();"
+                data-l10n-id="page-action-add-to-urlbar"/>
       <menuitem class="pageActionContextMenuItem builtInPinned"
-                label="&pageAction.removeFromUrlbar.label;"
-                oncommand="BrowserPageActions.togglePinningForContextAction();"/>
+                oncommand="BrowserPageActions.togglePinningForContextAction();"
+                data-l10n-id="page-action-remove-from-urlbar"/>
       <menuitem class="pageActionContextMenuItem extensionUnpinned"
-                label="&pageAction.addToUrlbar.label;"
-                oncommand="BrowserPageActions.togglePinningForContextAction();"/>
+                oncommand="BrowserPageActions.togglePinningForContextAction();"
+                data-l10n-id="page-action-add-to-urlbar"/>
       <menuitem class="pageActionContextMenuItem extensionPinned"
-                label="&pageAction.removeFromUrlbar.label;"
-                oncommand="BrowserPageActions.togglePinningForContextAction();"/>
+                oncommand="BrowserPageActions.togglePinningForContextAction();"
+                data-l10n-id="page-action-remove-from-urlbar"/>
       <menuseparator class="pageActionContextMenuItem extensionPinned extensionUnpinned"/>
       <menuitem class="pageActionContextMenuItem extensionPinned extensionUnpinned"
-                label="&pageAction.manageExtension.label;"
-                oncommand="BrowserPageActions.openAboutAddonsForContextAction();"/>
+                oncommand="BrowserPageActions.openAboutAddonsForContextAction();"
+                data-l10n-id="page-action-manage-extension"/>
     </menupopup>
 
 #include ../../components/places/content/bookmarksHistoryTooltip.inc.xul

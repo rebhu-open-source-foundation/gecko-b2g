@@ -1154,6 +1154,15 @@ nsresult ContentChild::ProvideWindowCommon(
       newChild->RecvLoadURL(urlToLoad, showInfo);
     }
 
+    if (xpc::IsInAutomation()) {
+      if (nsCOMPtr<nsPIDOMWindowOuter> outer =
+              do_GetInterface(newChild->WebNavigation())) {
+        nsCOMPtr<nsIObserverService> obs(services::GetObserverService());
+        obs->NotifyObservers(
+            outer, "dangerous:test-only:new-browser-child-ready", nullptr);
+      }
+    }
+
     browsingContext.forget(aReturn);
   };
 
@@ -1251,6 +1260,14 @@ nsresult ContentChild::ProvideWindowCommon(
   // =====================
   // End Nested Event Loop
   // =====================
+
+  // It's possible for our new BrowsingContext to become discarded during the
+  // nested event loop, in which case we shouldn't return it, since our callers
+  // will generally not be prepared to deal with that.
+  if (*aReturn && (*aReturn)->IsDiscarded()) {
+    NS_RELEASE(*aReturn);
+    return NS_ERROR_ABORT;
+  }
 
   // We should have the results already set by the callbacks.
   MOZ_ASSERT_IF(NS_SUCCEEDED(rv), *aReturn);

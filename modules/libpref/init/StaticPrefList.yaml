@@ -2939,6 +2939,11 @@
 # Prefs starting with "general."
 #---------------------------------------------------------------------------
 
+- name: general.aboutConfig.enable
+  type: bool
+  value: true
+  mirror: always
+
 - name: general.smoothScroll
   type: RelaxedAtomicBool
   value: true
@@ -4608,7 +4613,7 @@
 # Is path() supported in clip-path?
 - name: layout.css.clip-path-path.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -4642,7 +4647,7 @@
 # Is support for CSS column-span enabled?
 - name: layout.css.column-span.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Is support for CSS backdrop-filter enabled?
@@ -5003,6 +5008,14 @@
 # Pref to control whether display: -moz-box and display: -moz-inline-box are
 # parsed in content pages.
 - name: layout.css.xul-box-display-values.content.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
+# Pref to control whether display: -moz-box and display: -moz-inline-box are
+# "blockified" to "-moz-box" (rather than to "block")
+- name: layout.css.xul-box-display-values.survive-blockification.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -6129,6 +6142,11 @@
   mirror: always
 
 - name: media.audioFocus.management
+  type: bool
+  value: false
+  mirror: always
+
+- name: media.hardwaremediakeys.enabled
   type: bool
   value: false
   mirror: always

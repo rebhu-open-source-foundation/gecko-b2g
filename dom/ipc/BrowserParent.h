@@ -527,6 +527,8 @@ class BrowserParent final : public PBrowserParent,
 
   void Deactivate(bool aWindowLowering);
 
+  void MouseEnterIntoWidget();
+
   bool MapEventCoordinatesForChildProcess(mozilla::WidgetEvent* aEvent);
 
   void MapEventCoordinatesForChildProcess(const LayoutDeviceIntPoint& aOffset,
@@ -782,7 +784,8 @@ class BrowserParent final : public PBrowserParent,
 
   mozilla::ipc::IPCResult RecvQueryVisitedState(nsTArray<URIParams>&& aURIs);
 
-  mozilla::ipc::IPCResult RecvFireFrameLoadEvent(bool aIsTrusted);
+  mozilla::ipc::IPCResult RecvMaybeFireEmbedderLoadEvents(
+      bool aIsTrusted, bool aFireLoadAtEmbeddingElement);
 
  private:
   void SuppressDisplayport(bool aEnabled);

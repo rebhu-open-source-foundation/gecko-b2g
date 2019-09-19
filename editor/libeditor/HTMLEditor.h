@@ -40,11 +40,15 @@ class nsTableWrapperFrame;
 class nsRange;
 
 namespace mozilla {
+class AlignStateAtSelection;
 class AutoSelectionSetterAfterTableEdit;
 class AutoSetTemporaryAncestorLimiter;
 class EditActionResult;
 class EmptyEditableFunctor;
+class ListElementSelectionState;
+class ListItemElementSelectionState;
 class MoveNodeResult;
+class ParagraphStateAtSelection;
 class ResizerSelectionListener;
 class SplitRangeOffFromNodeResult;
 class WSRunObject;
@@ -137,6 +141,14 @@ class HTMLEditor final : public TextEditor,
                         const nsAString& aValue) override;
   NS_IMETHOD BeginningOfDocument() override;
   NS_IMETHOD SetFlags(uint32_t aFlags) override;
+
+  /**
+   * IsEmpty() checks whether the editor is empty.  If editor has only padding
+   * <br> element for empty editor, returns true.  If editor's root element has
+   * non-empty text nodes or other nodes like <br>, returns false even if there
+   * are only empty blocks.
+   */
+  virtual bool IsEmpty() const override;
 
   virtual bool CanPaste(int32_t aClipboardType) const override;
   using EditorBase::CanPaste;
@@ -234,7 +246,7 @@ class HTMLEditor final : public TextEditor,
    * into the DOM tree.
    * NOTE: This is available for internal use too since this does not change
    *       the DOM tree nor undo transactions, and does not refer Selection,
-   *       HTMLEditRules, etc.
+   *       etc.
    *
    * @param aTagName            The new element's tag name.  If the name is
    *                            one of "href", "anchor" or "namedanchor",
@@ -618,12 +630,10 @@ class HTMLEditor final : public TextEditor,
 
  protected:  // May be called by friends.
   /****************************************************************************
-   * Some classes like TextEditRules, HTMLEditRules, WSRunObject which are
-   * part of handling edit actions are allowed to call the following protected
-   * methods.  However, those methods won't prepare caches of some objects
-   * which are necessary for them.  So, if you want some following methods
-   * to do that for you, you need to create a wrapper method in public scope
-   * and call it.
+   * Some friend classes are allowed to call the following protected methods.
+   * However, those methods won't prepare caches of some objects which are
+   * necessary for them.  So, if you call them from friend classes, you need
+   * to make sure that AutoEditActionDataSetter is created.
    ****************************************************************************/
 
   /**
@@ -1137,9 +1147,8 @@ class HTMLEditor final : public TextEditor,
 
   /**
    * OnModifyDocument() is called when the editor is changed.  This should
-   * be called only by HTMLEditRules::DocumentModifiedWorker() to call
-   * HTMLEditRules::OnModifyDocument() with AutoEditActionDataSetter
-   * instance.
+   * be called only by runnable in HTMLEditor::OnDocumentModified() to call
+   * HTMLEditor::OnModifyDocument() with AutoEditActionDataSetter instance.
    */
   MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult OnModifyDocument();
 
@@ -1156,14 +1165,24 @@ class HTMLEditor final : public TextEditor,
   EditActionResult CanHandleHTMLEditSubAction() const;
 
   /**
-   * Called before inserting something into the editor.
-   * This method may removes mPaddingBRElementForEmptyEditor if there is.
-   * Therefore, this method might cause destroying the editor.
-   *
-   * @param aCancel             Returns true if the operation is canceled.
-   *                            This can be nullptr.
+   * EnsureCaretNotAfterPaddingBRElement() makes sure that caret is NOT after
+   * padding `<br>` element for preventing insertion after padding `<br>`
+   * element at empty last line.
+   * NOTE: This method should be called only when `Selection` is collapsed
+   *       because `Selection` is a pain to work with when not collapsed.
+   *       (no good way to extend start or end of selection), so we need to
+   *       ignore those types of selections.
    */
-  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult WillInsert(bool* aCancel = nullptr);
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult
+  EnsureCaretNotAfterPaddingBRElement();
+
+  /**
+   * PrepareInlineStylesForCaret() consider inline styles from top level edit
+   * sub-action and setting it to `mTypeInState` and clear inline style cache
+   * if necessary.
+   * NOTE: This method should be called only when `Selection` is collapsed.
+   */
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult PrepareInlineStylesForCaret();
 
   /**
    * HandleInsertText() handles inserting text at selection.
@@ -2666,8 +2685,9 @@ class HTMLEditor final : public TextEditor,
   EnsureCaretInBlockElement(dom::Element& aElement);
 
   /**
-   * Called by `HTMLEditRules::AfterEdit()`.  This may adjust Selection, remove
-   * unnecessary empty nodes, create `<br>` elements if needed, etc.
+   * Called by `HTMLEditor::OnEndHandlingTopLevelEditSubAction()`.  This may
+   * adjust Selection, remove unnecessary empty nodes, create `<br>` elements
+   * if needed, etc.
    */
   MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult
   OnEndHandlingTopLevelEditSubActionInternal();
@@ -2713,14 +2733,31 @@ class HTMLEditor final : public TextEditor,
   MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE EditActionResult
   AddZIndexAsSubAction(int32_t aChange);
 
+  /**
+   * OnDocumentModified() is called when editor content is changed.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult OnDocumentModified();
+
  protected:  // Called by helper classes.
-  virtual void OnStartToHandleTopLevelEditSubAction(
-      EditSubAction aEditSubAction, nsIEditor::EDirection aDirection) override;
-  MOZ_CAN_RUN_SCRIPT
-  virtual void OnEndHandlingTopLevelEditSubAction() override;
+  MOZ_CAN_RUN_SCRIPT virtual void OnStartToHandleTopLevelEditSubAction(
+      EditSubAction aTopLevelEditSubAction,
+      nsIEditor::EDirection aDirectionOfTopLevelEditSubAction,
+      ErrorResult& aRv) override;
+  MOZ_CAN_RUN_SCRIPT virtual nsresult OnEndHandlingTopLevelEditSubAction()
+      override;
 
  protected:  // Shouldn't be used by friend classes
   virtual ~HTMLEditor();
+
+  /**
+   * InitEditorContentAndSelection() may insert `<br>` elements and padding
+   * `<br>` elements if they are required for `<body>` or document element.
+   * And collapse selection at the end if there is no selection ranges.
+   * XXX I think that this should work with active editing host unless
+   *     all over the document is ediable (i.e., in design mode or `<body>`
+   *     or `<html>` has `contenteditable` attribute).
+   */
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult InitEditorContentAndSelection();
 
   MOZ_CAN_RUN_SCRIPT
   virtual nsresult SelectAllInternal() override;
@@ -3185,6 +3222,16 @@ class HTMLEditor final : public TextEditor,
   nsresult PasteInternal(int32_t aClipboardType, bool aDispatchPasteEvent);
 
   /**
+   * InsertWithQuotationsAsSubAction() inserts aQuotedText with appending ">"
+   * to start of every line.
+   *
+   * @param aQuotedText         String to insert.  This will be quoted by ">"
+   *                            automatically.
+   */
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE virtual nsresult
+  InsertWithQuotationsAsSubAction(const nsAString& aQuotedText) final;
+
+  /**
    * InsertAsCitedQuotationInternal() inserts a <blockquote> element whose
    * cite attribute is aCitation and whose content is aQuotedText.
    * Note that this shouldn't be called when IsPlaintextEditor() is true.
@@ -3199,11 +3246,9 @@ class HTMLEditor final : public TextEditor,
    *                        text.
    * @param aNodeInserted   [OUT] The new <blockquote> element.
    */
-  MOZ_CAN_RUN_SCRIPT
-  nsresult InsertAsCitedQuotationInternal(const nsAString& aQuotedText,
-                                          const nsAString& aCitation,
-                                          bool aInsertHTML,
-                                          nsINode** aNodeInserted);
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult InsertAsCitedQuotationInternal(
+      const nsAString& aQuotedText, const nsAString& aCitation,
+      bool aInsertHTML, nsINode** aNodeInserted);
 
   /**
    * InsertNodeIntoProperAncestorWithTransaction() attempts to insert aNode
@@ -3439,9 +3484,6 @@ class HTMLEditor final : public TextEditor,
     bool mIsSafe;
     bool mDoDeleteSelection;
   };
-
-  MOZ_CAN_RUN_SCRIPT
-  virtual nsresult InitRules() override;
 
   virtual void CreateEventListeners() override;
   virtual nsresult InstallEventListeners() override;
@@ -3756,9 +3798,8 @@ class HTMLEditor final : public TextEditor,
    * @return aNodeInserted  The node spanning the insertion, if applicable.
    *                        If aAddCites is false, this will be null.
    */
-  MOZ_CAN_RUN_SCRIPT
-  nsresult InsertAsPlaintextQuotation(const nsAString& aQuotedText,
-                                      bool aAddCites, nsINode** aNodeInserted);
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult InsertAsPlaintextQuotation(
+      const nsAString& aQuotedText, bool aAddCites, nsINode** aNodeInserted);
 
   /**
    * InsertObject() inserts given object at aPointToInsert.
@@ -3912,8 +3953,7 @@ class HTMLEditor final : public TextEditor,
    * aClearStyle should be set to false if you want the paste to be affected by
    * local style (e.g., for the insertHTML command).
    */
-  MOZ_CAN_RUN_SCRIPT
-  nsresult DoInsertHTMLWithContext(
+  MOZ_CAN_RUN_SCRIPT MOZ_MUST_USE nsresult DoInsertHTMLWithContext(
       const nsAString& aInputString, const nsAString& aContextStr,
       const nsAString& aInfoStr, const nsAString& aFlavor, Document* aSourceDoc,
       const EditorDOMPoint& aPointToInsert, bool aDeleteSelection,
@@ -4142,7 +4182,8 @@ class HTMLEditor final : public TextEditor,
   SetInlinePropertyOnNodeImpl(nsIContent& aNode, nsAtom& aProperty,
                               nsAtom* aAttribute, const nsAString& aValue);
   typedef enum { eInserted, eAppended } InsertedOrAppended;
-  void DoContentInserted(nsIContent* aChild, InsertedOrAppended);
+  MOZ_CAN_RUN_SCRIPT void DoContentInserted(
+      nsIContent* aChild, InsertedOrAppended aInsertedOrAppended);
 
   /**
    * Returns an anonymous Element of type aTag,
@@ -4326,16 +4367,141 @@ class HTMLEditor final : public TextEditor,
 
   ParagraphSeparator mDefaultParagraphSeparator;
 
+  friend class AlignStateAtSelection;
   friend class AutoSelectionSetterAfterTableEdit;
   friend class AutoSetTemporaryAncestorLimiter;
   friend class CSSEditUtils;
   friend class EditorBase;
   friend class EmptyEditableFunctor;
-  friend class HTMLEditRules;
+  friend class ListElementSelectionState;
+  friend class ListItemElementSelectionState;
+  friend class ParagraphStateAtSelection;
   friend class SlurpBlobEventListener;
   friend class TextEditor;
   friend class WSRunObject;
   friend class WSRunScanner;
+};
+
+/**
+ * ListElementSelectionState class gets which list element is selected right
+ * now.
+ */
+class MOZ_STACK_CLASS ListElementSelectionState final {
+ public:
+  ListElementSelectionState() = delete;
+  ListElementSelectionState(HTMLEditor& aHTMLEditor, ErrorResult& aRv);
+
+  bool IsOLElementSelected() const { return mIsOLElementSelected; }
+  bool IsULElementSelected() const { return mIsULElementSelected; }
+  bool IsDLElementSelected() const { return mIsDLElementSelected; }
+  bool IsNotOneTypeListElementSelected() const {
+    return (mIsOLElementSelected + mIsULElementSelected + mIsDLElementSelected +
+            mIsOtherContentSelected) > 1;
+  }
+
+ private:
+  bool mIsOLElementSelected = false;
+  bool mIsULElementSelected = false;
+  bool mIsDLElementSelected = false;
+  bool mIsOtherContentSelected = false;
+};
+
+/**
+ * ListItemElementSelectionState class gets which list item element is selected
+ * right now.
+ */
+class MOZ_STACK_CLASS ListItemElementSelectionState final {
+ public:
+  ListItemElementSelectionState() = delete;
+  ListItemElementSelectionState(HTMLEditor& aHTMLEditor, ErrorResult& aRv);
+
+  bool IsLIElementSelected() const { return mIsLIElementSelected; }
+  bool IsDTElementSelected() const { return mIsDTElementSelected; }
+  bool IsDDElementSelected() const { return mIsDDElementSelected; }
+  bool IsNotOneTypeDefinitionListItemElementSelected() const {
+    return (mIsDTElementSelected + mIsDDElementSelected +
+            mIsOtherElementSelected) > 1;
+  }
+
+ private:
+  bool mIsLIElementSelected = false;
+  bool mIsDTElementSelected = false;
+  bool mIsDDElementSelected = false;
+  bool mIsOtherElementSelected = false;
+};
+
+/**
+ * AlignStateAtSelection class gets alignment at selection.
+ * XXX This currently returns only first alignment.
+ */
+class MOZ_STACK_CLASS AlignStateAtSelection final {
+ public:
+  AlignStateAtSelection() = delete;
+  AlignStateAtSelection(HTMLEditor& aHTMLEditor, ErrorResult& aRv);
+
+  nsIHTMLEditor::EAlignment AlignmentAtSelectionStart() const {
+    return mFirstAlign;
+  }
+
+ private:
+  nsIHTMLEditor::EAlignment mFirstAlign = nsIHTMLEditor::eLeft;
+};
+
+/**
+ * ParagraphStateAtSelection class gets format block types around selection.
+ */
+class MOZ_STACK_CLASS ParagraphStateAtSelection final {
+ public:
+  ParagraphStateAtSelection() = delete;
+  ParagraphStateAtSelection(HTMLEditor& aHTMLEditor, ErrorResult& aRv);
+
+  /**
+   * GetFirstParagraphStateAtSelection() returns:
+   * - nullptr if there is no format blocks nor inline nodes.
+   * - nsGkAtoms::_empty if first node is not in any format block.
+   * - a tag name of format block at first node.
+   * XXX See the private method explanations.  If selection ranges contains
+   *     non-format block first, it'll be check after its siblings.  Therefore,
+   *     this may return non-first paragraph state.
+   */
+  nsAtom* GetFirstParagraphStateAtSelection() const {
+    return mFirstParagraphState;
+  }
+
+  /**
+   * If selected nodes are not in same format node nor only in no-format blocks,
+   * this returns true.
+   */
+  bool IsMixed() const { return mIsMixed; }
+
+ private:
+  /**
+   * AppendDescendantFormatNodesAndFirstInlineNode() appends descendant
+   * format blocks and first inline child node in aNonFormatBlockElement to
+   * the last of the array (not inserting where aNonFormatBlockElement is,
+   * so that the node order becomes randomly).
+   *
+   * @param aArrayOfNodes               [in/out] Found descendant format blocks
+   *                                    and first inline node in each non-format
+   *                                    block will be appended to this.
+   * @param aNonFormatBlockElement      Must be a non-format block element.
+   */
+  static void AppendDescendantFormatNodesAndFirstInlineNode(
+      nsTArray<OwningNonNull<nsINode>>& aArrayOfNodes,
+      Element& aNonFormatBlockElement);
+
+  /**
+   * CollectEditableFormatNodesInSelection() collects only editable nodes
+   * around selection ranges (with
+   * `HTMLEditor::CollectEditTargetNodesInExtendedSelectionRanges()`, see its
+   * document for the detail).  If it includes list, list item or table
+   * related elements, they will be replaced their children.
+   */
+  static nsresult CollectEditableFormatNodesInSelection(
+      HTMLEditor& aHTMLEditor, nsTArray<OwningNonNull<nsINode>>& aArrayOfNodes);
+
+  RefPtr<nsAtom> mFirstParagraphState;
+  bool mIsMixed = false;
 };
 
 }  // namespace mozilla

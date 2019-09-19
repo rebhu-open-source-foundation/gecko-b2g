@@ -4,7 +4,7 @@
 
 use api::{MixBlendMode, PipelineId, PremultipliedColorF, FilterPrimitiveKind};
 use api::{PropertyBinding, PropertyBindingId, FilterPrimitive, FontRenderMode};
-use api::{DebugFlags, RasterSpace, ImageKey, ColorF};
+use api::{DebugFlags, RasterSpace, ImageKey, ColorF, PrimitiveFlags};
 use api::units::*;
 use crate::box_shadow::{BLUR_SAMPLE_SCALE};
 use crate::clip::{ClipStore, ClipChainInstance, ClipDataHandle, ClipChainId};
@@ -37,7 +37,7 @@ use smallvec::SmallVec;
 use std::{mem, u8};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::texture_cache::TextureCacheHandle;
-use crate::util::{TransformedRectKind, MatrixHelpers, MaxRect, scale_factors, VecHelper};
+use crate::util::{TransformedRectKind, MatrixHelpers, MaxRect, scale_factors, VecHelper, subtract_rect};
 use crate::filterdata::{FilterDataHandle};
 
 /*
@@ -139,6 +139,8 @@ pub struct PictureCacheState {
     spatial_nodes: FastHashMap<SpatialNodeIndex, SpatialNodeDependency>,
     /// State of opacity bindings from previous frame
     opacity_bindings: FastHashMap<PropertyBindingId, OpacityBindingInfo>,
+    /// The current transform of the picture cache root spatial node
+    root_transform: TransformKey,
 }
 
 /// Stores a list of cached picture tiles that are retained
@@ -502,9 +504,11 @@ impl Tile {
 
         // Do tile invalidation for any dependencies that we know now.
 
-        // Start frame assuming that the tile has the same content,
-        // unless the fractional offset of the transform root changed.
-        // If the background color of this tile changed, invalidate the whole thing.
+        // Start frame assuming that the tile has the same content.
+        self.is_same_content = true;
+
+        // If the fractional offset of the transform root changed, or tthe background
+        // color of this tile changed, invalidate the whole thing.
         if ctx.fract_changed || ctx.background_color != self.background_color {
             self.background_color = ctx.background_color;
             self.is_same_content = false;
@@ -1132,6 +1136,8 @@ pub struct TileCacheInstance {
     /// The clip chain that represents the shared_clips above. Used to build the local
     /// clip rect for this tile cache.
     shared_clip_chain: ClipChainId,
+    /// The current transform of the picture cache root spatial node
+    root_transform: TransformKey,
 }
 
 impl TileCacheInstance {
@@ -1166,6 +1172,7 @@ impl TileCacheInstance {
             backdrop: BackdropInfo::empty(),
             subpixel_mode: SubpixelMode::Allow,
             fract_offset: PictureVector2D::zero(),
+            root_transform: TransformKey::Local,
             shared_clips,
             shared_clip_chain,
         }
@@ -1282,6 +1289,7 @@ impl TileCacheInstance {
         if let Some(prev_state) = frame_state.retained_tiles.caches.remove(&self.slice) {
             self.tiles.extend(prev_state.tiles);
             self.fract_offset = prev_state.fract_offset;
+            self.root_transform = prev_state.root_transform;
             self.spatial_nodes = prev_state.spatial_nodes;
             self.opacity_bindings = prev_state.opacity_bindings;
         }
@@ -1689,6 +1697,21 @@ impl TileCacheInstance {
         self.tiles_to_draw.clear();
         self.dirty_region.clear();
 
+        // Detect if the picture cache was scrolled or scaled. In this case,
+        // the device space dirty rects aren't applicable (until we properly
+        // integrate with OS compositors that can handle scrolling slices).
+        let root_transform = frame_context
+            .clip_scroll_tree
+            .get_relative_transform(
+                self.spatial_node_index,
+                ROOT_SPATIAL_NODE_INDEX,
+            )
+            .into();
+        let root_transform_changed = root_transform != self.root_transform;
+        if root_transform_changed {
+            self.root_transform = root_transform;
+        }
+
         // Diff the state of the spatial nodes between last frame build and now.
         let mut old_spatial_nodes = mem::replace(&mut self.spatial_nodes, FastHashMap::default());
 
@@ -1752,7 +1775,50 @@ impl TileCacheInstance {
                 &ctx,
                 &mut state,
             ) {
+                // If we have dirty tiles and a scroll didn't occur (e.g. video
+                // playback or animation) we can produce a valid dirty rect for
+                // Gecko to use as partial present.
+                if !root_transform_changed && !tile.dirty_rect.is_empty() {
+                    state.scratch.dirty_rects.push(
+                        (tile.world_dirty_rect * frame_context.global_device_pixel_scale).to_i32()
+                    );
+                }
+
                 self.tiles_to_draw.push(*key);
+            }
+        }
+
+        // If the cache was scrolled / scaled, just push a full-screen dirty rect
+        // for now, to ensure correctness. This won't be required once we fully
+        // support OS compositors, where we can pass the transform of the cache slice.
+        if root_transform_changed {
+            scratch.dirty_rects.push(
+                (frame_context.global_screen_world_rect * frame_context.global_device_pixel_scale).to_i32()
+            );
+        } else {
+            // TODO(gw): This is a total hack! While experimenting with dirty rects and
+            //           partial present, we need to include a dirty rect for the area
+            //           of the screen that is _not_ picture cached. Since we know there
+            //           is only a single picture cache right now, we can derive this
+            //           area by subtracting the picture cache rect from the screen rect.
+            //           This only works reliably while we can assume that (a) there is
+            //           only a single picture cache slice and (b) it's opaque. In future,
+            //           once we enable multiple picture cache slices, we won't need to
+            //           do this at all, since all content will be in a cache slice that
+            //           can provide valid dirty rects.
+            let world_clip_rect = ctx.pic_to_world_mapper
+                .map(&self.local_clip_rect)
+                .expect("bug - unable to map picture clip rect to world");
+            let mut non_cached_rects = Vec::new();
+            subtract_rect(
+                &ctx.global_screen_world_rect,
+                &world_clip_rect,
+                &mut non_cached_rects,
+            );
+            for rect in non_cached_rects {
+                scratch.dirty_rects.push(
+                    (rect * frame_context.global_device_pixel_scale).to_i32()
+                );
             }
         }
 
@@ -2283,7 +2349,7 @@ impl PrimitiveList {
         prim_instance: PrimitiveInstance,
         prim_size: LayoutSize,
         spatial_node_index: SpatialNodeIndex,
-        is_backface_visible: bool,
+        prim_flags: PrimitiveFlags,
         insert_position: PrimitiveListPosition,
     ) {
         let mut flags = ClusterFlags::empty();
@@ -2300,7 +2366,7 @@ impl PrimitiveList {
             _ => {}
         }
 
-        if is_backface_visible {
+        if prim_flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE) {
             flags.insert(ClusterFlags::IS_BACKFACE_VISIBLE);
         }
 
@@ -2345,13 +2411,13 @@ impl PrimitiveList {
         prim_instance: PrimitiveInstance,
         prim_size: LayoutSize,
         spatial_node_index: SpatialNodeIndex,
-        is_backface_visible: bool,
+        flags: PrimitiveFlags,
     ) {
         self.push(
             prim_instance,
             prim_size,
             spatial_node_index,
-            is_backface_visible,
+            flags,
             PrimitiveListPosition::Begin,
         )
     }
@@ -2362,13 +2428,13 @@ impl PrimitiveList {
         prim_instance: PrimitiveInstance,
         prim_size: LayoutSize,
         spatial_node_index: SpatialNodeIndex,
-        is_backface_visible: bool,
+        flags: PrimitiveFlags,
     ) {
         self.push(
             prim_instance,
             prim_size,
             spatial_node_index,
-            is_backface_visible,
+            flags,
             PrimitiveListPosition::End,
         )
     }
@@ -2568,6 +2634,7 @@ impl PicturePrimitive {
                         spatial_nodes: tile_cache.spatial_nodes,
                         opacity_bindings: tile_cache.opacity_bindings,
                         fract_offset: tile_cache.fract_offset,
+                        root_transform: tile_cache.root_transform,
                     },
                 );
             }
@@ -2583,7 +2650,7 @@ impl PicturePrimitive {
         context_3d: Picture3DContext<OrderedPictureChild>,
         frame_output_pipeline_id: Option<PipelineId>,
         apply_local_clip_rect: bool,
-        is_backface_visible: bool,
+        flags: PrimitiveFlags,
         requested_raster_space: RasterSpace,
         prim_list: PrimitiveList,
         spatial_node_index: SpatialNodeIndex,
@@ -2600,7 +2667,7 @@ impl PicturePrimitive {
             frame_output_pipeline_id,
             extra_gpu_data_handles: SmallVec::new(),
             apply_local_clip_rect,
-            is_backface_visible,
+            is_backface_visible: flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE),
             requested_raster_space,
             spatial_node_index,
             local_rect: LayoutRect::zero(),
@@ -4406,4 +4473,3 @@ impl TileNode {
         }
     }
 }
-

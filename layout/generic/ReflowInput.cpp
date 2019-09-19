@@ -2182,6 +2182,11 @@ void ReflowInput::InitConstraints(
     nsPresContext* aPresContext, const Maybe<LogicalSize>& aContainingBlockSize,
     const nsMargin* aBorder, const nsMargin* aPadding,
     LayoutFrameType aFrameType) {
+  MOZ_DIAGNOSTIC_ASSERT(
+      !IsFloating() || (mStyleDisplay->mDisplay != StyleDisplay::MozBox &&
+                        mStyleDisplay->mDisplay != StyleDisplay::MozInlineBox),
+      "Please don't try to float a -moz-box or a -moz-inline-box");
+
   WritingMode wm = GetWritingMode();
   LogicalSize cbSize = aContainingBlockSize.valueOr(
       LogicalSize(mWritingMode, NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE));
@@ -2652,8 +2657,9 @@ void ReflowInput::CalculateBlockSideMargins(LayoutFrameType aFrameType) {
   nscoord computedISizeCBWM = ComputedSize(cbWM).ISize(cbWM);
   if (computedISizeCBWM == NS_UNCONSTRAINEDSIZE) {
     // For orthogonal flows, where we found a parent orthogonal-limit
-    // for AvailableISize() in Init(), we'll use the same here as well.
-    computedISizeCBWM = availISizeCBWM;
+    // for AvailableISize() in Init(), we don't have meaningful sizes to
+    // adjust.  Act like the sum is already correct (below).
+    return;
   }
 
   LAYOUT_WARN_IF_FALSE(NS_UNCONSTRAINEDSIZE != computedISizeCBWM &&

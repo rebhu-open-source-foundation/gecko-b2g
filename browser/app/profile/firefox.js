@@ -1315,11 +1315,7 @@ pref("browser.newtabpage.activity-stream.asrouter.providers.whats-new-panel", "{
 pref("browser.newtabpage.activity-stream.asrouter.providers.snippets", "{\"id\":\"snippets\",\"enabled\":true,\"type\":\"remote\",\"url\":\"https://snippets.cdn.mozilla.net/%STARTPAGE_VERSION%/%NAME%/%VERSION%/%APPBUILDID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/\",\"updateCycleInMs\":14400000}");
 
 // These prefs control if Discovery Stream is enabled.
-#ifdef NIGHTLY_BUILD
 pref("browser.newtabpage.activity-stream.discoverystream.enabled", true);
-#else
-pref("browser.newtabpage.activity-stream.discoverystream.enabled", false);
-#endif
 pref("browser.newtabpage.activity-stream.discoverystream.hardcoded-basic-layout", false);
 pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint", "");
 
@@ -1565,10 +1561,12 @@ pref("media.gmp-provider.enabled", true);
 
 // Enable blocking access to storage from tracking resources by default.
 pref("network.cookie.cookieBehavior", 4 /* BEHAVIOR_REJECT_TRACKER */);
+#ifdef EARLY_BETA_OR_EARLIER
+  // Enable fingerprinting blocking by default only in nightly and early beta.
+  pref("privacy.trackingprotection.fingerprinting.enabled", true);
+#endif
 
-// Enable fingerprinting and cryptomining blocking by default for all channels,
-// only on desktop.
-pref("privacy.trackingprotection.fingerprinting.enabled", true);
+// Enable cryptomining blocking by default for all channels, only on desktop.
 pref("privacy.trackingprotection.cryptomining.enabled", true);
 
 pref("browser.contentblocking.database.enabled", true);
@@ -2099,12 +2097,13 @@ pref("devtools.serviceWorkers.testing.enabled", false);
 // Enable the Network Monitor
 pref("devtools.netmonitor.enabled", true);
 
-// Enable Network Search in Nightly builds.
-#if defined(NIGHTLY_BUILD)
+// Enable Network Search in Nightly and DevEdition/Beta builds.
+#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
   pref("devtools.netmonitor.features.search", true);
 #else
   pref("devtools.netmonitor.features.search", false);
 #endif
+pref("devtools.netmonitor.features.requestBlocking", false);
 
 // Enable the Application panel
 pref("devtools.application.enabled", false);
@@ -2305,6 +2304,8 @@ pref("devtools.responsive.touchSimulation.enabled", false);
 pref("devtools.responsive.metaViewport.enabled", false);
 // The user agent of the viewport.
 pref("devtools.responsive.userAgent", "");
+// Whether or not the RDM UI is embedded in the browser.
+pref("devtools.responsive.browserUI.enabled", false);
 
 // Show the custom user agent input in Nightly builds.
 #if defined(NIGHTLY_BUILD)

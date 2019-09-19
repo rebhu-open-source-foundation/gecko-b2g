@@ -241,13 +241,9 @@ class DispatchTouchInputOnMainThread : public mozilla::Runnable
 {
 public:
   DispatchTouchInputOnMainThread(const MultiTouchInput& aInput,
-                                 const ScrollableLayerGuid& aGuid,
-                                 const uint64_t& aInputBlockId,
-                                 nsEventStatus aApzResponse)
+                                 mozilla::layers::APZEventResult aApzResponse)
     : mozilla::Runnable("DispatchTouchInputOnMainThread")
     , mInput(aInput)
-    , mGuid(aGuid)
-    , mInputBlockId(aInputBlockId)
     , mApzResponse(aApzResponse)
   {
   }
@@ -256,16 +252,14 @@ public:
   {
     if (gFocusedWindow) {
       gFocusedWindow->DispatchTouchEventForAPZ(
-        mInput, mGuid, mInputBlockId, mApzResponse);
+        mInput, mApzResponse);
     }
     return NS_OK;
   }
 
 private:
   MultiTouchInput mInput;
-  ScrollableLayerGuid mGuid;
-  uint64_t mInputBlockId;
-  nsEventStatus mApzResponse;
+  mozilla::layers::APZEventResult mApzResponse;
 };
 
 /*static*/ void
@@ -296,11 +290,9 @@ nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput)
   }
 
   // First send it through the APZ code
-  mozilla::layers::ScrollableLayerGuid guid;
-  uint64_t inputBlockId;
-  nsEventStatus result = mAPZC->InputBridge()->ReceiveInputEvent(aInput, &guid, &inputBlockId);
+  mozilla::layers::APZEventResult result = mAPZC->InputBridge()->ReceiveInputEvent(aInput);
   // If the APZ says to drop it, then we drop it
-  if (result == nsEventStatus_eConsumeNoDefault) {
+  if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
     return;
   }
 
@@ -308,15 +300,12 @@ nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput)
   // we need more. Also we can't pass in |this| to the task because nsWindow
   // refcounting is not threadsafe. Instead we just use the gFocusedWindow
   // static ptr inside the task.
-  NS_DispatchToMainThread(
-    new DispatchTouchInputOnMainThread(aInput, guid, inputBlockId, result));
+  NS_DispatchToMainThread(new DispatchTouchInputOnMainThread(aInput, result));
 }
 
 void
 nsWindow::DispatchTouchEventForAPZ(const MultiTouchInput& aInput,
-                                   const ScrollableLayerGuid& aGuid,
-                                   const uint64_t aInputBlockId,
-                                   nsEventStatus aApzResponse)
+                                   mozilla::layers::APZEventResult aApzResponse)
 {
   MOZ_ASSERT(NS_IsMainThread());
   UserActivity();
@@ -328,7 +317,7 @@ nsWindow::DispatchTouchEventForAPZ(const MultiTouchInput& aInput,
   // The event might get sent to a child process,
   // but if it doesn't we need to notify the APZ of various things.
   // All of that happens in ProcessUntransformedAPZEvent
-  ProcessUntransformedAPZEvent(&event, aGuid, aInputBlockId, aApzResponse);
+  ProcessUntransformedAPZEvent(&event, aApzResponse);
 }
 
 class DispatchTouchInputOnControllerThread : public mozilla::Runnable

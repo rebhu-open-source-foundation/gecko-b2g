@@ -944,8 +944,12 @@ var gSync = {
   },
 
   _appendSendTabUnconfigured(fragment, createDeviceNodeFn) {
-    const notConnected = this.fxaStrings.GetStringFromName(
-      "sendTabToDevice.unconfigured.status"
+    const brandProductName = this.brandStrings.GetStringFromName(
+      "brandProductName"
+    );
+    const notConnected = this.fxaStrings.formatStringFromName(
+      "sendTabToDevice.unconfigured.label",
+      [brandProductName]
     );
     const learnMore = this.fxaStrings.GetStringFromName(
       "sendTabToDevice.unconfigured"
@@ -960,13 +964,14 @@ var gSync = {
       actions
     );
 
-    // Now add a 'sign in to sync' item above the 'learn more' item.
-    const signInToSync = this.fxaStrings.GetStringFromName(
-      "sendTabToDevice.signintosync"
+    // Now add a 'sign in to Firefox' item above the 'learn more' item.
+    const signInToFxA = this.fxaStrings.formatStringFromName(
+      "sendTabToDevice.signintofxa",
+      [brandProductName]
     );
-    let signInItem = createDeviceNodeFn(null, signInToSync, null);
+    let signInItem = createDeviceNodeFn(null, signInToFxA, null);
     signInItem.classList.add("sync-menuitem");
-    signInItem.setAttribute("label", signInToSync);
+    signInItem.setAttribute("label", signInToFxA);
     // Show an icon if opened in the page action panel:
     if (signInItem.classList.contains("subviewbutton")) {
       signInItem.classList.add("subviewbutton-iconic", "signintosync");
@@ -1162,6 +1167,30 @@ var gSync = {
     } else {
       this._onActivityStop();
     }
+  },
+
+  // Disconnect from sync, and optionally disconnect from the FxA account.
+  // Returns true if the disconnection happened (ie, if the user didn't decline
+  // when asked to confirm)
+  async disconnect({ confirm = true, disconnectAccount = true } = {}) {
+    if (confirm) {
+      let args = { disconnectAccount, confirmed: false };
+      window.openDialog(
+        "chrome://browser/content/fxaDisconnect.xul",
+        "_blank",
+        "chrome,modal,centerscreen,resizable=no",
+        args
+      );
+      if (!args.confirmed) {
+        return false;
+      }
+    }
+    await Weave.Service.promiseInitialized;
+    await Weave.Service.startOver();
+    if (disconnectAccount) {
+      await fxAccounts.signOut();
+    }
+    return true;
   },
 
   // doSync forces a sync - it *does not* return a promise as it is called

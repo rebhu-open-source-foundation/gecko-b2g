@@ -1098,6 +1098,21 @@ SearchService.prototype = {
         this._visibleDefaultEngines.length ||
       this._visibleDefaultEngines.some(notInCacheVisibleEngines);
 
+    let enginesCorrupted = false;
+    if (
+      !rebuildCache &&
+      cache.engines.filter(e => e._isBuiltin).length !=
+        cache.visibleDefaultEngines.length
+    ) {
+      rebuildCache = true;
+      enginesCorrupted = true;
+    }
+
+    Services.telemetry.scalarSet(
+      "browser.searchinit.engines_cache_corrupted",
+      enginesCorrupted
+    );
+
     if (!rebuildCache) {
       SearchUtils.log("_loadEngines: loading from cache directories");
       this._loadEnginesFromCache(cache);
@@ -1343,6 +1358,22 @@ SearchService.prototype = {
         }
 
         await this._loadEngines(cache);
+
+        // If we've got this far, but the application is now shutting down,
+        // then we need to abandon any further work, especially not writing
+        // the cache. We do this, because the add-on manager has also
+        // started shutting down and as a result, we might have an incomplete
+        // picture of the installed search engines. Writing the cache at
+        // this stage would potentially mean the user would loose their engine
+        // data.
+        // We will however, rebuild the cache on next start up if we detect
+        // it is necessary.
+        if (Services.startup.shuttingDown) {
+          SearchUtils.log("_reInit: abandoning reInit due to shutting down");
+          this._initObservers.reject();
+          return;
+        }
+
         // Make sure the current list of engines is persisted.
         await this._buildCache();
 
@@ -1649,15 +1680,12 @@ SearchService.prototype = {
 
     let engineSelector = new SearchEngineSelector();
     let locale = Services.locale.appLocaleAsBCP47;
-    // TODO: engineSelector needs to support default region, we cant
-    // just use "us" as a default region.
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1575554
-    let region = Services.prefs.getCharPref("browser.search.region", "us");
+    let region = Services.prefs.getCharPref("browser.search.region", "default");
 
     await engineSelector.init();
     let { engines, privateDefault } = engineSelector.fetchEngineConfiguration(
-      region,
-      locale
+      locale,
+      region
     );
 
     this._searchDefault = engines[0].engineName;
@@ -3172,11 +3200,21 @@ SearchService.prototype = {
       case TOPIC_LOCALES_CHANGE:
         // Locale changed. Re-init. We rely on observers, because we can't
         // return this promise to anyone.
-        // FYI, This is also used by the search tests to do an async reinit.
-        // Locales are removed during shutdown, so ignore this message
-        if (!Services.startup.shuttingDown) {
-          this._reInit(verb);
-        }
+
+        // At the time of writing, when the user does a "Apply and Restart" for
+        // a new language the preferences code triggers the locales change and
+        // restart straight after, so we delay the check, which means we should
+        // be able to avoid the reInit on shutdown, and we'll rebuild the cache
+        // on next start instead.
+        // This also helps to avoid issues with the add-on manager shutting
+        // down at the same time (see _reInit for more info).
+        Services.tm.dispatchToMainThread(() => {
+          // FYI, This is also used by the search tests to do an async reinit.
+          // Locales are removed during shutdown, so ignore this message
+          if (!Services.startup.shuttingDown) {
+            this._reInit(verb);
+          }
+        });
         break;
     }
   },
@@ -3257,6 +3295,21 @@ SearchService.prototype = {
       "Search service: shutting down",
       () =>
         (async () => {
+          // If we are in initialization or re-initialization, then don't attempt
+          // to save the cache. It is likely that shutdown will have caused the
+          // add-on manager to stop, which can cause initialization to fail.
+          // Hence at that stage, we could have a broken cache which we don't
+          // want to write.
+          // The good news is, that if we don't write the cache here, we'll
+          // detect the out-of-date cache on next state, and automatically
+          // rebuild it.
+          if (!gInitialized || gReinitializing) {
+            SearchUtils.log(
+              "not saving cache on shutdown due to initializing."
+            );
+            return;
+          }
+
           if (this._batchTask) {
             shutdownState.step = "Finalizing batched task";
             try {

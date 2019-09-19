@@ -2130,6 +2130,16 @@ nsDocShell::HistoryPurged(int32_t aNumEntries) {
   return NS_OK;
 }
 
+void nsDocShell::TriggerParentCheckDocShellIsEmpty() {
+  if (RefPtr<nsDocShell> parent = GetInProcessParentDocshell()) {
+    parent->DocLoaderIsEmpty(true);
+  } else if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
+    // OOP parent
+    mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
+        /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+  }
+}
+
 nsresult nsDocShell::HistoryEntryRemoved(int32_t aIndex) {
   // These indices are used for fastback cache eviction, to determine
   // which session history entries are candidates for content viewer
@@ -3626,19 +3636,20 @@ NS_IMETHODIMP
 nsDocShell::GetContentBlockingLog(Promise** aPromise) {
   NS_ENSURE_ARG_POINTER(aPromise);
 
-  if (!mContentViewer) {
-    *aPromise = nullptr;
-    return NS_ERROR_FAILURE;
-  }
-
   Document* doc = mContentViewer->GetDocument();
   ErrorResult rv;
   RefPtr<Promise> promise = Promise::Create(doc->GetOwnerGlobal(), rv);
   if (NS_WARN_IF(rv.Failed())) {
     return rv.StealNSResult();
   }
-  promise->MaybeResolve(
-      NS_ConvertUTF8toUTF16(doc->GetContentBlockingLog()->Stringify()));
+
+  if (mContentViewer) {
+    promise->MaybeResolve(
+        NS_ConvertUTF8toUTF16(doc->GetContentBlockingLog()->Stringify()));
+  } else {
+    promise->MaybeRejectWithUndefined();
+  }
+
   promise.forget(aPromise);
   return NS_OK;
 }
@@ -3948,6 +3959,16 @@ NS_IMETHODIMP
 nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
                              const char16_t* aURL, nsIChannel* aFailedChannel,
                              bool* aDisplayedErrorPage) {
+  // If we have a cross-process parent document, we must notify it that we no
+  // longer block its load event.  This is necessary for OOP sub-documents
+  // because error documents do not result in a call to
+  // SendMaybeFireEmbedderLoadEvents via any of the normal call paths.
+  // (Obviously, we must do this before any of the returns below.)
+  if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
+    mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
+        /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+  }
+
   *aDisplayedErrorPage = false;
   // Get prompt and string bundle services
   nsCOMPtr<nsIPrompt> prompter;
@@ -9868,21 +9889,6 @@ static bool HasHttpScheme(nsIURI* aURI) {
 
   nsCOMPtr<nsIContentSecurityPolicy> csp = aLoadState->Csp();
   if (csp) {
-    // Check CSP navigate-to
-    bool allowsNavigateTo = false;
-    aRv = csp->GetAllowsNavigateTo(aLoadState->URI(), aLoadInfo,
-                                   false, /* aWasRedirected */
-                                   false, /* aEnforceWhitelist */
-                                   &allowsNavigateTo);
-    if (NS_FAILED(aRv)) {
-      return false;
-    }
-
-    if (!allowsNavigateTo) {
-      aRv = NS_ERROR_CSP_NAVIGATE_TO_VIOLATION;
-      return false;
-    }
-
     // Navigational requests that are same origin need to be upgraded in case
     // upgrade-insecure-requests is present.
     bool upgradeInsecureRequests = false;
@@ -10134,6 +10140,22 @@ static bool HasHttpScheme(nsIURI* aURI) {
     }
   }
 
+  nsCOMPtr<nsIContentSecurityPolicy> csp = aLoadState->Csp();
+  if (csp) {
+    nsCOMPtr<nsILoadInfo> loadInfo;
+    MOZ_ALWAYS_SUCCEEDS(aChannel->GetLoadInfo(getter_AddRefs(loadInfo)));
+    // Check CSP navigate-to
+    bool allowsNavigateTo = false;
+    rv = csp->GetAllowsNavigateTo(aLoadState->URI(), loadInfo,
+                                  false, /* aWasRedirected */
+                                  false, /* aEnforceWhitelist */
+                                  &allowsNavigateTo);
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    if (!allowsNavigateTo) {
+      return NS_ERROR_CSP_NAVIGATE_TO_VIOLATION;
+    }
+  }
   return rv;
 }
 

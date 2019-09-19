@@ -181,7 +181,8 @@ public class GeckoViewActivity extends AppCompatActivity {
                         .cookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
                         .build())
                     .crashHandler(ExampleCrashHandler.class)
-                    .telemetryDelegate(new ExampleTelemetryDelegate());
+                    .telemetryDelegate(new ExampleTelemetryDelegate())
+                    .aboutConfigEnabled(true);
 
             sGeckoRuntime = GeckoRuntime.create(this, runtimeSettingsBuilder.build());
 
@@ -1050,6 +1051,8 @@ public class GeckoViewActivity extends AppCompatActivity {
         public GeckoResult<GeckoSession> onNewSession(final GeckoSession session, final String uri) {
             final TabSession newSession = createSession();
             mToolbarView.updateTabCount();
+            // A reference to newSession is stored by mTabSessionManager,
+            // which prevents the session from being garbage-collected.
             return GeckoResult.fromValue(newSession);
         }
 

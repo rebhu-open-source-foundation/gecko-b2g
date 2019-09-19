@@ -238,7 +238,7 @@ ChildProcess.prototype = {
       return;
     }
     RecordReplayControl.waitUntilPaused(this.id, maybeCreateCheckpoint);
-    assert(this.paused);
+    assert(this.paused || this.crashed);
   },
 
   // Add a checkpoint for this child to save.
@@ -323,7 +323,6 @@ function lookupChild(id) {
   if (id == gMainChild.id) {
     return gMainChild;
   }
-  assert(gReplayingChildren[id]);
   return gReplayingChildren[id];
 }
 
@@ -560,19 +559,22 @@ const FlushMs = 0.5 * 1000;
 let gLastPickedChildId = 0;
 
 function addSavedCheckpoint(checkpoint) {
-  // Use a round robin approach when picking children for saving checkpoints.
-  let child;
-  while (true) {
-    gLastPickedChildId = (gLastPickedChildId + 1) % gReplayingChildren.length;
-    child = gReplayingChildren[gLastPickedChildId];
-    if (child) {
-      break;
-    }
-  }
-
   getCheckpointInfo(checkpoint).saved = true;
   getCheckpointInfo(checkpoint).assignTime = Date.now();
-  child.addSavedCheckpoint(checkpoint);
+
+  if (RecordReplayControl.canRewind()) {
+    // Use a round robin approach when picking children for saving checkpoints.
+    let child;
+    while (true) {
+      gLastPickedChildId = (gLastPickedChildId + 1) % gReplayingChildren.length;
+      child = gReplayingChildren[gLastPickedChildId];
+      if (child) {
+        break;
+      }
+    }
+
+    child.addSavedCheckpoint(checkpoint);
+  }
 }
 
 function addCheckpoint(checkpoint, duration) {
@@ -1263,6 +1265,7 @@ function resume(forward) {
       maybeResumeRecording();
       return;
     }
+    ensureFlushed();
   }
   if (
     gPausePoint.checkpoint == FirstCheckpointId &&
@@ -1482,10 +1485,14 @@ async function evaluateLogpoint({ point, text, condition, callback }) {
       return { kind: "hitLogpoint", text, condition, skipPauseData };
     },
     onFinished(child, { pauseData, result, resultData, restoredSnapshot }) {
-      if (restoredSnapshot && !skipPauseData) {
-        // Gathering pause data sometimes triggers a snapshot restore.
-        skipPauseData = true;
-        sendAsyncManifest(manifest);
+      if (restoredSnapshot) {
+        if (!skipPauseData) {
+          // Gathering pause data sometimes triggers a snapshot restore.
+          skipPauseData = true;
+          sendAsyncManifest(manifest);
+        } else {
+          callback(point, ["Recording divergence evaluating logpoint"]);
+        }
       } else {
         if (result) {
           if (!skipPauseData) {
@@ -1794,8 +1801,10 @@ function spawnReplayingChild() {
 const NumReplayingChildren = 4;
 
 function spawnReplayingChildren() {
-  for (let i = 0; i < NumReplayingChildren; i++) {
-    spawnReplayingChild();
+  if (RecordReplayControl.canRewind()) {
+    for (let i = 0; i < NumReplayingChildren; i++) {
+      spawnReplayingChild();
+    }
   }
   addSavedCheckpoint(FirstCheckpointId);
 }
@@ -1823,7 +1832,12 @@ function Initialize(recordingChildId) {
 function ManifestFinished(id, response) {
   try {
     dumpv(`ManifestFinished #${id} ${stringify(response)}`);
-    lookupChild(id).manifestFinished(response);
+    const child = lookupChild(id);
+    if (child) {
+      child.manifestFinished(response);
+    } else {
+      // Ignore messages from child processes that we have marked as crashed.
+    }
   } catch (e) {
     dump(`ERROR: ManifestFinished threw exception: ${e} ${e.stack}\n`);
   }
@@ -2001,7 +2015,7 @@ const gControl = {
     return gDebuggerRequests;
   },
 
-  getPauseData() {
+  getPauseDataAndRepaint() {
     // If the child has not arrived at the pause point yet, see if there is
     // cached pause data for this point already which we can immediately return.
     if (gPauseMode == PauseModes.ARRIVING && !gDebuggerRequests.length) {
@@ -2010,46 +2024,27 @@ const gControl = {
         // After the child pauses, it will need to generate the pause data so
         // that any referenced objects will be instantiated.
         addDebuggerRequest({ type: "pauseData" });
+        RecordReplayControl.hadRepaint(data.paintData);
         return data;
       }
     }
     gControl.maybeSwitchToReplayingChild();
-    return gControl.sendRequest({ type: "pauseData" });
+    const data = gControl.sendRequest({ type: "pauseData" });
+    if (data.unhandledDivergence) {
+      RecordReplayControl.clearGraphics();
+    } else {
+      addPauseData(gPausePoint, data, /* trackCached */ true);
+      if (data.paintData) {
+        RecordReplayControl.hadRepaint(data.paintData);
+      }
+    }
+    return data;
   },
 
   paint(point) {
     const data = maybeGetPauseData(point);
     if (data && data.paintData) {
       RecordReplayControl.hadRepaint(data.paintData);
-    }
-  },
-
-  repaint() {
-    if (!gPausePoint) {
-      return;
-    }
-    if (
-      gMainChild.paused &&
-      pointEquals(gPausePoint, gMainChild.pausePoint())
-    ) {
-      // Flush the recording if we are repainting because we interrupted things
-      // and will now rewind.
-      if (gMainChild.recording) {
-        ensureFlushed();
-      }
-      return;
-    }
-    const data = maybeGetPauseData(gPausePoint);
-    if (data && data.paintData) {
-      RecordReplayControl.hadRepaint(data.paintData);
-    } else {
-      gControl.maybeSwitchToReplayingChild();
-      const rv = gControl.sendRequest({ type: "repaint" });
-      if (rv && rv.length) {
-        RecordReplayControl.hadRepaint(rv);
-      } else {
-        RecordReplayControl.clearGraphics();
-      }
     }
   },
 

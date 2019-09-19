@@ -351,7 +351,9 @@ class PrefRow {
     gPrefInEdit = this;
     this.editing = true;
     this.refreshElement();
+    // The type=number input isn't selected unless it's focused first.
     this.inputField.focus();
+    this.inputField.select();
   }
 
   save() {
@@ -424,7 +426,6 @@ function onWarningButtonClick() {
 }
 
 function loadPrefs() {
-  document.body.className = "config-background";
   [...document.styleSheets].find(s => s.title == "infop").disabled = true;
 
   let { content } = document.getElementById("main");
@@ -495,6 +496,12 @@ function loadPrefs() {
       pref.editButton.focus();
     }
   });
+
+  window.addEventListener("keypress", event => {
+    if (event.target != search && event.key == "Escape" && gPrefInEdit) {
+      gPrefInEdit.endEdit();
+    }
+  });
 }
 
 function filterPrefs(options = {}) {
@@ -518,7 +525,7 @@ function filterPrefs(options = {}) {
   }
 
   let showResults = gFilterString || gFilterPattern || gFilterShowAll;
-  document.getElementById("show-all").classList.toggle("hidden", showResults);
+  document.body.classList.toggle("table-shown", showResults);
 
   let prefArray = [];
   if (showResults) {
@@ -610,9 +617,4 @@ function filterPrefs(options = {}) {
       { once: true }
     );
   }
-
-  document.body.classList.toggle(
-    "config-warning",
-    location.href.split(":").every(l => gFilterString.includes(l))
-  );
 }

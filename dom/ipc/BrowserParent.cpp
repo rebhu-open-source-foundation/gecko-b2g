@@ -1306,6 +1306,24 @@ void BrowserParent::SendMouseEvent(const nsAString& aType, float aX, float aY,
   }
 }
 
+void BrowserParent::MouseEnterIntoWidget() {
+  nsCOMPtr<nsIWidget> widget = GetWidget();
+  if (widget) {
+    // When we mouseenter the tab, the tab's cursor should
+    // become the current cursor.  When we mouseexit, we stop.
+    mTabSetsCursor = true;
+    if (mCursor != eCursorInvalid) {
+      widget->SetCursor(mCursor, mCustomCursor, mCustomCursorHotspotX,
+                        mCustomCursorHotspotY);
+    }
+  }
+
+  // Mark that we have missed a mouse enter event, so that
+  // the next mouse event will create a replacement mouse
+  // enter event and send it to the child.
+  mIsMouseEnterIntoWidgetEventSuppressed = true;
+}
+
 void BrowserParent::SendRealMouseEvent(WidgetMouseEvent& aEvent) {
   if (mIsDestroyed) {
     return;
@@ -3856,14 +3874,16 @@ mozilla::ipc::IPCResult BrowserParent::RecvGetSystemFont(nsCString* aFontName) {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult BrowserParent::RecvFireFrameLoadEvent(bool aIsTrusted) {
+mozilla::ipc::IPCResult BrowserParent::RecvMaybeFireEmbedderLoadEvents(
+    bool aIsTrusted, bool aFireLoadAtEmbeddingElement) {
   BrowserBridgeParent* bridge = GetBrowserBridgeParent();
   if (!bridge) {
     NS_WARNING("Received `load` event on unbridged BrowserParent!");
     return IPC_OK();
   }
 
-  Unused << bridge->SendFireFrameLoadEvent(aIsTrusted);
+  Unused << bridge->SendMaybeFireEmbedderLoadEvents(
+      aIsTrusted, aFireLoadAtEmbeddingElement);
   return IPC_OK();
 }
 

@@ -1026,10 +1026,6 @@ void gfxPlatform::Init() {
 
   gPlatform->ComputeTileSize();
 
-#ifdef MOZ_ENABLE_FREETYPE
-  Factory::SetFTLibrary(gPlatform->GetFTLibrary());
-#endif
-
   gPlatform->mHasVariationFontSupport = gPlatform->CheckVariationFontSupport();
 
   nsresult rv;

@@ -272,8 +272,9 @@ constexpr auto kPermissionWriteSuffix = NS_LITERAL_CSTRING("-write");
 // name) should not be mixed for the same statement. The decision must be made
 // for each statement based on the proximity of statement and binding calls.
 constexpr auto kStmtParamNameCurrentKey = NS_LITERAL_CSTRING("current_key");
-constexpr auto kStmtParamNameRangeKey = NS_LITERAL_CSTRING("range_key");
-constexpr auto kStmtParamNameObjectKey = NS_LITERAL_CSTRING("object_key");
+constexpr auto kStmtParamNameRangeBound = NS_LITERAL_CSTRING("range_bound");
+constexpr auto kStmtParamNameObjectStorePosition =
+    NS_LITERAL_CSTRING("object_store_position");
 constexpr auto kStmtParamNameLowerKey = NS_LITERAL_CSTRING("lower_key");
 constexpr auto kStmtParamNameUpperKey = NS_LITERAL_CSTRING("upper_key");
 constexpr auto kStmtParamNameKey = NS_LITERAL_CSTRING("key");
@@ -291,6 +292,7 @@ constexpr auto kStmtParamNameIndexDataValues =
 constexpr auto kStmtParamNameData = NS_LITERAL_CSTRING("data");
 constexpr auto kStmtParamNameFileIds = NS_LITERAL_CSTRING("file_ids");
 constexpr auto kStmtParamNameValueLocale = NS_LITERAL_CSTRING("value_locale");
+constexpr auto kStmtParamNameLimit = NS_LITERAL_CSTRING("limit");
 
 // The following constants define some names of columns in tables, which are
 // referred to in remote locations, e.g. in calls to
@@ -494,8 +496,8 @@ class MOZ_STACK_CLASS MetadataNameOrIdMatcher final {
 
 struct IndexDataValue final {
   int64_t mIndexId;
-  Key mKey;
-  Key mSortKey;
+  Key mPosition;
+  Key mLocaleAwarePosition;
   bool mUnique;
 
   IndexDataValue() : mIndexId(0), mUnique(false) {
@@ -504,25 +506,28 @@ struct IndexDataValue final {
 
   explicit IndexDataValue(const IndexDataValue& aOther)
       : mIndexId(aOther.mIndexId),
-        mKey(aOther.mKey),
-        mSortKey(aOther.mSortKey),
+        mPosition(aOther.mPosition),
+        mLocaleAwarePosition(aOther.mLocaleAwarePosition),
         mUnique(aOther.mUnique) {
-    MOZ_ASSERT(!aOther.mKey.IsUnset());
+    MOZ_ASSERT(!aOther.mPosition.IsUnset());
 
     MOZ_COUNT_CTOR(IndexDataValue);
   }
 
-  IndexDataValue(int64_t aIndexId, bool aUnique, const Key& aKey)
-      : mIndexId(aIndexId), mKey(aKey), mUnique(aUnique) {
-    MOZ_ASSERT(!aKey.IsUnset());
+  IndexDataValue(int64_t aIndexId, bool aUnique, const Key& aPosition)
+      : mIndexId(aIndexId), mPosition(aPosition), mUnique(aUnique) {
+    MOZ_ASSERT(!aPosition.IsUnset());
 
     MOZ_COUNT_CTOR(IndexDataValue);
   }
 
-  IndexDataValue(int64_t aIndexId, bool aUnique, const Key& aKey,
-                 const Key& aSortKey)
-      : mIndexId(aIndexId), mKey(aKey), mSortKey(aSortKey), mUnique(aUnique) {
-    MOZ_ASSERT(!aKey.IsUnset());
+  IndexDataValue(int64_t aIndexId, bool aUnique, const Key& aPosition,
+                 const Key& aLocaleAwarePosition)
+      : mIndexId(aIndexId),
+        mPosition(aPosition),
+        mLocaleAwarePosition(aLocaleAwarePosition),
+        mUnique(aUnique) {
+    MOZ_ASSERT(!aPosition.IsUnset());
 
     MOZ_COUNT_CTOR(IndexDataValue);
   }
@@ -533,18 +538,18 @@ struct IndexDataValue final {
     if (mIndexId != aOther.mIndexId) {
       return false;
     }
-    if (mSortKey.IsUnset()) {
-      return mKey == aOther.mKey;
+    if (mLocaleAwarePosition.IsUnset()) {
+      return mPosition == aOther.mPosition;
     }
-    return mSortKey == aOther.mSortKey;
+    return mLocaleAwarePosition == aOther.mLocaleAwarePosition;
   }
 
   bool operator<(const IndexDataValue& aOther) const {
     if (mIndexId == aOther.mIndexId) {
-      if (mSortKey.IsUnset()) {
-        return mKey < aOther.mKey;
+      if (mLocaleAwarePosition.IsUnset()) {
+        return mPosition < aOther.mPosition;
       }
-      return mSortKey < aOther.mSortKey;
+      return mLocaleAwarePosition < aOther.mLocaleAwarePosition;
     }
 
     return mIndexId < aOther.mIndexId;
@@ -771,8 +776,8 @@ nsresult MakeCompressedIndexDataValues(
 
   for (uint32_t arrayIndex = 0; arrayIndex < arrayLength; arrayIndex++) {
     const IndexDataValue& info = aIndexValues[arrayIndex];
-    const nsCString& keyBuffer = info.mKey.GetBuffer();
-    const nsCString& sortKeyBuffer = info.mSortKey.GetBuffer();
+    const nsCString& keyBuffer = info.mPosition.GetBuffer();
+    const nsCString& sortKeyBuffer = info.mLocaleAwarePosition.GetBuffer();
     const uint32_t keyBufferLength = keyBuffer.Length();
     const uint32_t sortKeyBufferLength = sortKeyBuffer.Length();
 
@@ -809,8 +814,8 @@ nsresult MakeCompressedIndexDataValues(
 
   for (uint32_t arrayIndex = 0; arrayIndex < arrayLength; arrayIndex++) {
     const IndexDataValue& info = aIndexValues[arrayIndex];
-    const nsCString& keyBuffer = info.mKey.GetBuffer();
-    const nsCString& sortKeyBuffer = info.mSortKey.GetBuffer();
+    const nsCString& keyBuffer = info.mPosition.GetBuffer();
+    const nsCString& sortKeyBuffer = info.mLocaleAwarePosition.GetBuffer();
     const uint32_t keyBufferLength = keyBuffer.Length();
     const uint32_t sortKeyBufferLength = sortKeyBuffer.Length();
 
@@ -898,7 +903,7 @@ nsresult ReadCompressedIndexDataValuesFromBlob(
                               uint32_t(sortKeyBufferLength));
       blobDataIter += sortKeyBufferLength;
 
-      idv.mSortKey = Key(sortKeyBuffer);
+      idv.mLocaleAwarePosition = Key(sortKeyBuffer);
     }
 
     if (NS_WARN_IF(!aIndexValues.InsertElementSorted(idv, fallible))) {
@@ -5425,9 +5430,12 @@ class DatabaseOperationBase : public Runnable,
 
   ~DatabaseOperationBase() override { MOZ_ASSERT(mActorDestroyed); }
 
-  static void GetBindingClauseForKeyRange(const SerializedKeyRange& aKeyRange,
-                                          const nsACString& aKeyColumnName,
-                                          nsAutoCString& aBindingClause);
+  static nsAutoCString MaybeGetBindingClauseForKeyRange(
+      const Maybe<SerializedKeyRange>& aOptionalKeyRange,
+      const nsACString& aKeyColumnName);
+
+  static nsAutoCString GetBindingClauseForKeyRange(
+      const SerializedKeyRange& aKeyRange, const nsACString& aKeyColumnName);
 
   static uint64_t ReinterpretDoubleAsUInt64(double aDouble);
 
@@ -5504,6 +5512,17 @@ class DatabaseOperationBase : public Runnable,
   static nsresult GetStructuredCloneReadInfoFromExternalBlob(
       uint64_t aIntData, FileManager* aFileManager, const nsAString& aFileIds,
       StructuredCloneReadInfo* aInfo);
+
+  template <typename KeyTransformation>
+  static nsresult MaybeBindKeyToStatement(
+      const Key& aKey, mozIStorageStatement* aStatement,
+      const nsCString& aParameterName,
+      const KeyTransformation& aKeyTransformation);
+
+  template <typename KeyTransformation>
+  static nsresult BindTransformedKeyRangeToStatement(
+      const SerializedKeyRange& aKeyRange, mozIStorageStatement* aStatement,
+      const KeyTransformation& aKeyTransformation);
 
   // Not to be overridden by subclasses.
   NS_DECL_MOZISTORAGEPROGRESSHANDLER
@@ -7575,28 +7594,24 @@ class Cursor final : public PBackgroundIDBCursorParent {
   nsCString mContinuePrimaryKeyQuery;
   const nsCString mLocale;
 
-  // TODO: Apply the renamings suggested below, and also change related
-  // identifiers (e.g. local variables) and literals.
+  // TODO: Probably, it is still necessary to change more related identifiers
+  // (e.g. local variables) and literals, to be in line with the new member
+  // names below.
 
-  Key mKey;  ///< The current key, i.e. the key representing the cursor's
-             ///< position (https://w3c.github.io/IndexedDB/#cursor-position).
-             ///<
-             ///< TODO: Rename this to mPosition
-  Key mObjectKey;  ///< The key representing the cursor's object store position
+  Key mPosition;  ///< The current key, i.e. the key representing the cursor's
+                  ///< position
+                  ///< (https://w3c.github.io/IndexedDB/#cursor-position).
+  Key mObjectStorePosition;  ///< The key representing the cursor's object store
+                             ///< position
   ///< (https://w3c.github.io/IndexedDB/#cursor-object-store-position).
-  ///<
-  ///< TODO: Rename this to mObjectStorePosition
-  Key mRangeKey;  ///< If the cursor is based on a key range, the bound in the
-                  ///< direction of iteration (e.g. the upper bound in case of
-                  ///< mDirection == NEXT). If the cursor is based on a key, it
-                  ///< is unset. If mLocale is set, this was converted to
-                  ///< mLocale.
-                  ///<
-                  ///< TODO: Rename this to mLocaleAwareRangeBound
-  Key mSortKey;   ///< If mLocale is set, this is mKey converted to mLocale.
-                  ///< Otherwise, it is unset.
-                  ///<
-                  ///< TODO: Rename this to mLocaleAwarePosition
+  Key mLocaleAwareRangeBound;  ///< If the cursor is based on a key range, the
+                               ///< bound in the direction of iteration (e.g.
+                               ///< the upper bound in case of mDirection ==
+                               ///< NEXT). If the cursor is based on a key, it
+                               ///< is unset. If mLocale is set, this was
+                               ///< converted to mLocale.
+  Key mLocaleAwarePosition;  ///< If mLocale is set, this is mPosition converted
+                             ///< to mLocale. Otherwise, it is unset.
 
   CursorOpBase* mCurrentlyRunningOp;
 
@@ -7642,6 +7657,9 @@ class Cursor final : public PBackgroundIDBCursorParent {
       const CursorRequestParams& aParams) override;
 
   bool IsLocaleAware() const { return !mLocale.IsEmpty(); }
+
+  void SetOptionalKeyRange(const Maybe<SerializedKeyRange>& aOptionalKeyRange,
+                           bool* aOpen);
 };
 
 class Cursor::CursorOpBase : public TransactionDatabaseOperationBase {
@@ -7690,8 +7708,6 @@ class Cursor::OpenOp final : public Cursor::CursorOpBase {
 
   // Reference counted.
   ~OpenOp() override = default;
-
-  void GetRangeKeyInfo(bool aLowerBound, Key* aKey, bool* aOpen);
 
   // Should be called on the connection thread.
   void PrepareKeyConditionClauses(const nsACString& aKeyString,
@@ -9255,6 +9271,37 @@ constexpr bool IsIncreasingOrder(const IDBCursor::Direction aDirection) {
 constexpr bool IsKeyCursor(const Cursor::Type aType) {
   return aType == OpenCursorParams::TObjectStoreOpenKeyCursorParams ||
          aType == OpenCursorParams::TIndexOpenKeyCursorParams;
+}
+
+// TODO: In principle, this could be constexpr, if operator+(nsLiteralCString,
+// nsLiteralCString) were constexpr and returned a literal type.
+nsAutoCString MakeDirectionClause(const IDBCursor::Direction aDirection) {
+  return NS_LITERAL_CSTRING(" ORDER BY ") + kColumnNameKey +
+         (IsIncreasingOrder(aDirection) ? NS_LITERAL_CSTRING(" ASC")
+                                        : NS_LITERAL_CSTRING(" DESC"));
+}
+
+nsresult LocalizeKey(const Key& aBaseKey, const nsCString& aLocale,
+                     Key* const aLocalizedKey) {
+  MOZ_ASSERT(aLocalizedKey);
+  MOZ_ASSERT(!aLocale.IsEmpty());
+
+  ErrorResult errorResult;
+  const auto result =
+      aBaseKey.ToLocaleAwareKey(*aLocalizedKey, aLocale, errorResult);
+  if (!result.Is(Ok, errorResult)) {
+    return NS_WARN_IF(result.Is(Exception, errorResult))
+               ? errorResult.StealNSResult()
+               : NS_ERROR_DOM_INDEXEDDB_DATA_ERR;
+  }
+
+  return NS_OK;
+}
+
+nsAutoCString ToAutoCString(const uint32_t aInt) {
+  nsAutoCString result;
+  result.AppendInt(aInt);
+  return result;
 }
 }  // namespace
 
@@ -14987,7 +15034,7 @@ bool Cursor::VerifyRequestParams(const CursorRequestParams& aParams) const {
     return false;
   }
 
-  const Key& sortKey = IsLocaleAware() ? mSortKey : mKey;
+  const Key& sortKey = IsLocaleAware() ? mLocaleAwarePosition : mPosition;
 
   switch (aParams.type()) {
     case CursorRequestParams::TContinueParams: {
@@ -15025,16 +15072,18 @@ bool Cursor::VerifyRequestParams(const CursorRequestParams& aParams) const {
       MOZ_ASSERT(!primaryKey.IsUnset());
       switch (mDirection) {
         case IDBCursor::NEXT:
-          if (NS_WARN_IF(key < sortKey ||
-                         (key == sortKey && primaryKey <= mObjectKey))) {
+          if (NS_WARN_IF(
+                  key < sortKey ||
+                  (key == sortKey && primaryKey <= mObjectStorePosition))) {
             ASSERT_UNLESS_FUZZING();
             return false;
           }
           break;
 
         case IDBCursor::PREV:
-          if (NS_WARN_IF(key > sortKey ||
-                         (key == sortKey && primaryKey >= mObjectKey))) {
+          if (NS_WARN_IF(
+                  key > sortKey ||
+                  (key == sortKey && primaryKey >= mObjectStorePosition))) {
             ASSERT_UNLESS_FUZZING();
             return false;
           }
@@ -15096,11 +15145,12 @@ void Cursor::SendResponseInternal(
   MOZ_ASSERT_IF(aResponse.type() == CursorResponse::Tnsresult,
                 NS_ERROR_GET_MODULE(aResponse.get_nsresult()) ==
                     NS_ERROR_MODULE_DOM_INDEXEDDB);
-  MOZ_ASSERT_IF(aResponse.type() == CursorResponse::Tvoid_t, mKey.IsUnset());
   MOZ_ASSERT_IF(aResponse.type() == CursorResponse::Tvoid_t,
-                mRangeKey.IsUnset());
+                mPosition.IsUnset());
   MOZ_ASSERT_IF(aResponse.type() == CursorResponse::Tvoid_t,
-                mObjectKey.IsUnset());
+                mLocaleAwareRangeBound.IsUnset());
+  MOZ_ASSERT_IF(aResponse.type() == CursorResponse::Tvoid_t,
+                mObjectStorePosition.IsUnset());
   MOZ_ASSERT_IF(
       aResponse.type() == CursorResponse::Tnsresult ||
           aResponse.type() == CursorResponse::Tvoid_t ||
@@ -18082,45 +18132,54 @@ UpgradeFileIdsFunction::OnFunctionCall(mozIStorageValueArray* aArguments,
 }
 
 // static
-void DatabaseOperationBase::GetBindingClauseForKeyRange(
-    const SerializedKeyRange& aKeyRange, const nsACString& aKeyColumnName,
-    nsAutoCString& aBindingClause) {
+nsAutoCString DatabaseOperationBase::MaybeGetBindingClauseForKeyRange(
+    const Maybe<SerializedKeyRange>& aOptionalKeyRange,
+    const nsACString& aKeyColumnName) {
+  return aOptionalKeyRange.isSome()
+             ? GetBindingClauseForKeyRange(aOptionalKeyRange.ref(),
+                                           aKeyColumnName)
+             : nsAutoCString{};
+}
+
+// static
+nsAutoCString DatabaseOperationBase::GetBindingClauseForKeyRange(
+    const SerializedKeyRange& aKeyRange, const nsACString& aKeyColumnName) {
   MOZ_ASSERT(!IsOnBackgroundThread());
   MOZ_ASSERT(!aKeyColumnName.IsEmpty());
 
   NS_NAMED_LITERAL_CSTRING(andStr, " AND ");
   NS_NAMED_LITERAL_CSTRING(spacecolon, " :");
 
+  nsAutoCString result;
   if (aKeyRange.isOnly()) {
     // Both keys equal.
-    aBindingClause = andStr + aKeyColumnName + NS_LITERAL_CSTRING(" =") +
-                     spacecolon + kStmtParamNameLowerKey;
-    return;
-  }
-
-  aBindingClause.Truncate();
-
-  if (!aKeyRange.lower().IsUnset()) {
-    // Lower key is set.
-    aBindingClause.Append(andStr + aKeyColumnName);
-    aBindingClause.AppendLiteral(" >");
-    if (!aKeyRange.lowerOpen()) {
-      aBindingClause.AppendLiteral("=");
+    result = andStr + aKeyColumnName + NS_LITERAL_CSTRING(" =") + spacecolon +
+             kStmtParamNameLowerKey;
+  } else {
+    if (!aKeyRange.lower().IsUnset()) {
+      // Lower key is set.
+      result.Append(andStr + aKeyColumnName);
+      result.AppendLiteral(" >");
+      if (!aKeyRange.lowerOpen()) {
+        result.AppendLiteral("=");
+      }
+      result.Append(spacecolon + kStmtParamNameLowerKey);
     }
-    aBindingClause.Append(spacecolon + kStmtParamNameLowerKey);
-  }
 
-  if (!aKeyRange.upper().IsUnset()) {
-    // Upper key is set.
-    aBindingClause.Append(andStr + aKeyColumnName);
-    aBindingClause.AppendLiteral(" <");
-    if (!aKeyRange.upperOpen()) {
-      aBindingClause.AppendLiteral("=");
+    if (!aKeyRange.upper().IsUnset()) {
+      // Upper key is set.
+      result.Append(andStr + aKeyColumnName);
+      result.AppendLiteral(" <");
+      if (!aKeyRange.upperOpen()) {
+        result.AppendLiteral("=");
+      }
+      result.Append(spacecolon + kStmtParamNameUpperKey);
     }
-    aBindingClause.Append(spacecolon + kStmtParamNameUpperKey);
   }
 
-  MOZ_ASSERT(!aBindingClause.IsEmpty());
+  MOZ_ASSERT(!result.IsEmpty());
+
+  return result;
 }
 
 // static
@@ -18315,26 +18374,22 @@ nsresult DatabaseOperationBase::GetStructuredCloneReadInfoFromExternalBlob(
 }
 
 // static
-nsresult DatabaseOperationBase::BindKeyRangeToStatement(
-    const SerializedKeyRange& aKeyRange, mozIStorageStatement* aStatement) {
+template <typename KeyTransformation>
+nsresult DatabaseOperationBase::MaybeBindKeyToStatement(
+    const Key& aKey, mozIStorageStatement* const aStatement,
+    const nsCString& aParameterName,
+    const KeyTransformation& aKeyTransformation) {
   MOZ_ASSERT(!IsOnBackgroundThread());
   MOZ_ASSERT(aStatement);
 
-  nsresult rv = NS_OK;
-
-  if (!aKeyRange.lower().IsUnset()) {
-    rv = aKeyRange.lower().BindToStatement(aStatement, kStmtParamNameLowerKey);
+  if (!aKey.IsUnset()) {
+    nsresult rv;
+    const auto& transformedKey = aKeyTransformation(aKey, &rv);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
-  }
 
-  if (aKeyRange.isOnly()) {
-    return rv;
-  }
-
-  if (!aKeyRange.upper().IsUnset()) {
-    rv = aKeyRange.upper().BindToStatement(aStatement, kStmtParamNameUpperKey);
+    rv = transformedKey.BindToStatement(aStatement, aParameterName);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -18344,54 +18399,56 @@ nsresult DatabaseOperationBase::BindKeyRangeToStatement(
 }
 
 // static
-nsresult DatabaseOperationBase::BindKeyRangeToStatement(
-    const SerializedKeyRange& aKeyRange, mozIStorageStatement* aStatement,
-    const nsCString& aLocale) {
+template <typename KeyTransformation>
+nsresult DatabaseOperationBase::BindTransformedKeyRangeToStatement(
+    const SerializedKeyRange& aKeyRange, mozIStorageStatement* const aStatement,
+    const KeyTransformation& aKeyTransformation) {
   MOZ_ASSERT(!IsOnBackgroundThread());
   MOZ_ASSERT(aStatement);
-  MOZ_ASSERT(!aLocale.IsEmpty());
 
-  nsresult rv = NS_OK;
-
-  if (!aKeyRange.lower().IsUnset()) {
-    Key lower;
-    ErrorResult errorResult;
-    auto result =
-        aKeyRange.lower().ToLocaleBasedKey(lower, aLocale, errorResult);
-    if (!result.Is(Ok, errorResult)) {
-      return NS_WARN_IF(result.Is(Exception, errorResult))
-                 ? errorResult.StealNSResult()
-                 : NS_ERROR_DOM_INDEXEDDB_DATA_ERR;
-    }
-
-    rv = lower.BindToStatement(aStatement, kStmtParamNameLowerKey);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+  nsresult rv =
+      MaybeBindKeyToStatement(aKeyRange.lower(), aStatement,
+                              kStmtParamNameLowerKey, aKeyTransformation);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
   }
 
   if (aKeyRange.isOnly()) {
     return rv;
   }
 
-  if (!aKeyRange.upper().IsUnset()) {
-    Key upper;
-    ErrorResult errorResult;
-    auto result =
-        aKeyRange.upper().ToLocaleBasedKey(upper, aLocale, errorResult);
-    if (!result.Is(Ok, errorResult)) {
-      return NS_WARN_IF(result.Is(Exception, errorResult))
-                 ? errorResult.StealNSResult()
-                 : NS_ERROR_DOM_INDEXEDDB_DATA_ERR;
-    }
-
-    rv = upper.BindToStatement(aStatement, kStmtParamNameUpperKey);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+  rv = MaybeBindKeyToStatement(aKeyRange.upper(), aStatement,
+                               kStmtParamNameUpperKey, aKeyTransformation);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
   }
 
   return NS_OK;
+}
+
+// static
+nsresult DatabaseOperationBase::BindKeyRangeToStatement(
+    const SerializedKeyRange& aKeyRange,
+    mozIStorageStatement* const aStatement) {
+  return BindTransformedKeyRangeToStatement(
+      aKeyRange, aStatement, [](const Key& key, nsresult* rv) -> const auto& {
+        *rv = NS_OK;
+        return key;
+      });
+}
+
+// static
+nsresult DatabaseOperationBase::BindKeyRangeToStatement(
+    const SerializedKeyRange& aKeyRange, mozIStorageStatement* const aStatement,
+    const nsCString& aLocale) {
+  MOZ_ASSERT(!aLocale.IsEmpty());
+
+  return BindTransformedKeyRangeToStatement(
+      aKeyRange, aStatement, [&aLocale](const Key& key, nsresult* rv) {
+        Key localizedKey;
+        *rv = LocalizeKey(key, aLocale, &localizedKey);
+        return localizedKey;
+      });
 }
 
 // static
@@ -18569,12 +18626,13 @@ nsresult DatabaseOperationBase::InsertIndexTableRows(
       return rv;
     }
 
-    rv = info.mKey.BindToStatement(stmt, kStmtParamNameValue);
+    rv = info.mPosition.BindToStatement(stmt, kStmtParamNameValue);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
 
-    rv = info.mSortKey.BindToStatement(stmt, kStmtParamNameValueLocale);
+    rv = info.mLocaleAwarePosition.BindToStatement(stmt,
+                                                   kStmtParamNameValueLocale);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -18597,7 +18655,7 @@ nsresult DatabaseOperationBase::InsertIndexTableRows(
       for (int32_t index2 = int32_t(index) - 1;
            index2 >= 0 && aIndexValues[index2].mIndexId == info.mIndexId;
            --index2) {
-        if (info.mKey == aIndexValues[index2].mKey) {
+        if (info.mPosition == aIndexValues[index2].mPosition) {
           // We found a key with the same value for the same index. So we
           // must have had a collision with a value we just inserted.
           rv = NS_OK;
@@ -18671,7 +18729,7 @@ nsresult DatabaseOperationBase::DeleteIndexDataTableRows(
       return rv;
     }
 
-    rv = indexValue.mKey.BindToStatement(stmt, kStmtParamNameValue);
+    rv = indexValue.mPosition.BindToStatement(stmt, kStmtParamNameValue);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -18738,11 +18796,8 @@ nsresult DatabaseOperationBase::DeleteObjectStoreDataTableRowsWithIndexes(
       return rv;
     }
   } else {
-    nsAutoCString keyRangeClause;
-    if (aKeyRange.isSome()) {
-      GetBindingClauseForKeyRange(aKeyRange.ref(), kStmtParamNameKey,
-                                  keyRangeClause);
-    }
+    const auto keyRangeClause =
+        MaybeGetBindingClauseForKeyRange(aKeyRange, kColumnNameKey);
 
     rv = aConnection->GetCachedStatement(
         NS_LITERAL_CSTRING("SELECT index_data_values, key "
@@ -20580,7 +20635,7 @@ nsresult OpenDatabaseOp::UpdateLocaleAwareIndex(
       return rv;
     }
 
-    Key oldKey, newSortKey, objectKey;
+    Key oldKey, newSortKey, objectStorePosition;
     rv = oldKey.SetFromStatement(readStmt, 0);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
@@ -20592,7 +20647,7 @@ nsresult OpenDatabaseOp::UpdateLocaleAwareIndex(
     }
 
     ErrorResult errorResult;
-    auto result = oldKey.ToLocaleBasedKey(newSortKey, aLocale, errorResult);
+    auto result = oldKey.ToLocaleAwareKey(newSortKey, aLocale, errorResult);
     if (!result.Is(Ok, errorResult)) {
       return NS_WARN_IF(result.Is(Exception, errorResult))
                  ? errorResult.StealNSResult()
@@ -20604,12 +20659,13 @@ nsresult OpenDatabaseOp::UpdateLocaleAwareIndex(
       return rv;
     }
 
-    rv = objectKey.SetFromStatement(readStmt, 1);
+    rv = objectStorePosition.SetFromStatement(readStmt, 1);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
 
-    rv = objectKey.BindToStatement(writeStmt, kStmtParamNameObjectDataKey);
+    rv = objectStorePosition.BindToStatement(writeStmt,
+                                             kStmtParamNameObjectDataKey);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -24611,13 +24667,8 @@ nsresult ObjectStoreGetRequestOp::DoDatabaseWork(
 
   AUTO_PROFILER_LABEL("ObjectStoreGetRequestOp::DoDatabaseWork", DOM);
 
-  const bool hasKeyRange = mOptionalKeyRange.isSome();
-
-  nsAutoCString keyRangeClause;
-  if (hasKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), kColumnNameKey,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey);
 
   nsCString limitClause;
   if (mLimit) {
@@ -24643,7 +24694,7 @@ nsresult ObjectStoreGetRequestOp::DoDatabaseWork(
     return rv;
   }
 
-  if (hasKeyRange) {
+  if (mOptionalKeyRange.isSome()) {
     rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
@@ -24805,13 +24856,8 @@ nsresult ObjectStoreGetKeyRequestOp::DoDatabaseWork(
 
   AUTO_PROFILER_LABEL("ObjectStoreGetKeyRequestOp::DoDatabaseWork", DOM);
 
-  const bool hasKeyRange = mOptionalKeyRange.isSome();
-
-  nsAutoCString keyRangeClause;
-  if (hasKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), kColumnNameKey,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey);
 
   nsAutoCString limitClause;
   if (mLimit) {
@@ -24837,7 +24883,7 @@ nsresult ObjectStoreGetKeyRequestOp::DoDatabaseWork(
     return rv;
   }
 
-  if (hasKeyRange) {
+  if (mOptionalKeyRange.isSome()) {
     rv = BindKeyRangeToStatement(mOptionalKeyRange.ref(), stmt);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
@@ -24943,9 +24989,8 @@ nsresult ObjectStoreDeleteRequestOp::DoDatabaseWork(
       return rv;
     }
   } else {
-    nsAutoCString keyRangeClause;
-    GetBindingClauseForKeyRange(mParams.keyRange(), kColumnNameKey,
-                                keyRangeClause);
+    const auto keyRangeClause =
+        GetBindingClauseForKeyRange(mParams.keyRange(), kColumnNameKey);
 
     rv = aConnection->ExecuteCachedStatement(
         NS_LITERAL_CSTRING("DELETE FROM object_data "
@@ -25057,13 +25102,8 @@ nsresult ObjectStoreCountRequestOp::DoDatabaseWork(
 
   AUTO_PROFILER_LABEL("ObjectStoreCountRequestOp::DoDatabaseWork", DOM);
 
-  const bool hasKeyRange = mParams.optionalKeyRange().isSome();
-
-  nsAutoCString keyRangeClause;
-  if (hasKeyRange) {
-    GetBindingClauseForKeyRange(mParams.optionalKeyRange().ref(),
-                                kColumnNameKey, keyRangeClause);
-  }
+  const auto keyRangeClause = MaybeGetBindingClauseForKeyRange(
+      mParams.optionalKeyRange(), kColumnNameKey);
 
   nsCString query = NS_LITERAL_CSTRING(
                         "SELECT count(*) "
@@ -25083,7 +25123,7 @@ nsresult ObjectStoreCountRequestOp::DoDatabaseWork(
     return rv;
   }
 
-  if (hasKeyRange) {
+  if (mParams.optionalKeyRange().isSome()) {
     rv = BindKeyRangeToStatement(mParams.optionalKeyRange().ref(), stmt);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
@@ -25213,11 +25253,8 @@ nsresult IndexGetRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
     indexTable.AssignLiteral("index_data ");
   }
 
-  nsAutoCString keyRangeClause;
-  if (hasKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), kColumnNameValue,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameValue);
 
   nsCString limitClause;
   if (mLimit) {
@@ -25393,11 +25430,8 @@ nsresult IndexGetKeyRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
     indexTable.AssignLiteral("index_data ");
   }
 
-  nsAutoCString keyRangeClause;
-  if (hasKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), kColumnNameValue,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameValue);
 
   nsCString limitClause;
   if (mLimit) {
@@ -25494,11 +25528,8 @@ nsresult IndexCountRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
     indexTable.AssignLiteral("index_data ");
   }
 
-  nsAutoCString keyRangeClause;
-  if (hasKeyRange) {
-    GetBindingClauseForKeyRange(mParams.optionalKeyRange().ref(),
-                                kColumnNameValue, keyRangeClause);
-  }
+  const auto keyRangeClause = MaybeGetBindingClauseForKeyRange(
+      mParams.optionalKeyRange(), kColumnNameValue);
 
   nsCString query = NS_LITERAL_CSTRING(
                         "SELECT count(*) "
@@ -25599,7 +25630,7 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
   MOZ_ASSERT(mResponse.type() == CursorResponse::T__None);
   MOZ_ASSERT_IF(mFiles.IsEmpty(), aInitializeResponse);
 
-  nsresult rv = mCursor->mKey.SetFromStatement(aStmt, 0);
+  nsresult rv = mCursor->mPosition.SetFromStatement(aStmt, 0);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -25629,7 +25660,7 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
       auto& responses = mResponse.get_ArrayOfObjectStoreCursorResponse();
       auto& response = *responses.AppendElement();
       response.cloneInfo().data().data = std::move(cloneInfo.mData);
-      response.key() = mCursor->mKey;
+      response.key() = mCursor->mPosition;
 
       mFiles.AppendElement(std::move(cloneInfo.mFiles));
       break;
@@ -25637,17 +25668,17 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
 
     case OpenCursorParams::TObjectStoreOpenKeyCursorParams: {
       MOZ_ASSERT(aInitializeResponse);
-      mResponse = ObjectStoreKeyCursorResponse(mCursor->mKey);
+      mResponse = ObjectStoreKeyCursorResponse(mCursor->mPosition);
       break;
     }
 
     case OpenCursorParams::TIndexOpenCursorParams: {
-      rv = mCursor->mSortKey.SetFromStatement(aStmt, 1);
+      rv = mCursor->mLocaleAwarePosition.SetFromStatement(aStmt, 1);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
 
-      rv = mCursor->mObjectKey.SetFromStatement(aStmt, 2);
+      rv = mCursor->mObjectStorePosition.SetFromStatement(aStmt, 2);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -25670,28 +25701,29 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
 
       auto& response = mResponse.get_IndexCursorResponse();
       response.cloneInfo().data().data = std::move(cloneInfo.mData);
-      response.key() = mCursor->mKey;
-      response.sortKey() = mCursor->mSortKey;
-      response.objectKey() = mCursor->mObjectKey;
+      response.key() = mCursor->mPosition;
+      response.sortKey() = mCursor->mLocaleAwarePosition;
+      response.objectKey() = mCursor->mObjectStorePosition;
 
       mFiles.AppendElement(std::move(cloneInfo.mFiles));
       break;
     }
 
     case OpenCursorParams::TIndexOpenKeyCursorParams: {
-      rv = mCursor->mSortKey.SetFromStatement(aStmt, 1);
+      rv = mCursor->mLocaleAwarePosition.SetFromStatement(aStmt, 1);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
 
-      rv = mCursor->mObjectKey.SetFromStatement(aStmt, 2);
+      rv = mCursor->mObjectStorePosition.SetFromStatement(aStmt, 2);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
 
       MOZ_ASSERT(aInitializeResponse);
-      mResponse = IndexKeyCursorResponse(mCursor->mKey, mCursor->mSortKey,
-                                         mCursor->mObjectKey);
+      mResponse = IndexKeyCursorResponse(mCursor->mPosition,
+                                         mCursor->mLocaleAwarePosition,
+                                         mCursor->mObjectStorePosition);
       break;
     }
 
@@ -25702,37 +25734,31 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
   return NS_OK;
 }
 
-void Cursor::OpenOp::GetRangeKeyInfo(bool aLowerBound, Key* aKey, bool* aOpen) {
-  AssertIsOnConnectionThread();
-  MOZ_ASSERT(aKey);
-  MOZ_ASSERT(aKey->IsUnset());
+void Cursor::SetOptionalKeyRange(
+    const Maybe<SerializedKeyRange>& aOptionalKeyRange, bool* const aOpen) {
+  MOZ_ASSERT(mLocaleAwareRangeBound.IsUnset());
   MOZ_ASSERT(aOpen);
 
-  if (mOptionalKeyRange.isSome()) {
-    ErrorResult rv;
-    const SerializedKeyRange& range = mOptionalKeyRange.ref();
-    if (range.isOnly()) {
-      *aKey = range.lower();
-      *aOpen = false;
-      if (mCursor->IsLocaleAware()) {
-        Unused << range.lower().ToLocaleBasedKey(*aKey, mCursor->mLocale, rv);
+  if (aOptionalKeyRange.isSome()) {
+    const SerializedKeyRange& range = aOptionalKeyRange.ref();
+
+    const bool lowerBound = !IsIncreasingOrder(mDirection);
+    *aOpen =
+        !range.isOnly() && (lowerBound ? range.lowerOpen() : range.upperOpen());
+
+    const auto& bound =
+        (range.isOnly() || lowerBound) ? range.lower() : range.upper();
+    if (IsLocaleAware()) {
+      ErrorResult rv;
+      Unused << bound.ToLocaleAwareKey(mLocaleAwareRangeBound, mLocale, rv);
+
+      // XXX Explain why the error is ignored here (If it's impossible, then we
+      //     should change this to an assertion.)
+      if (rv.Failed()) {
+        rv.SuppressException();
       }
     } else {
-      *aKey = aLowerBound ? range.lower() : range.upper();
-      *aOpen = aLowerBound ? range.lowerOpen() : range.upperOpen();
-      if (mCursor->IsLocaleAware()) {
-        if (aLowerBound) {
-          Unused << range.lower().ToLocaleBasedKey(*aKey, mCursor->mLocale, rv);
-        } else {
-          Unused << range.upper().ToLocaleBasedKey(*aKey, mCursor->mLocale, rv);
-        }
-      }
-    }
-
-    // XXX Explain why the error is ignored here (If it's impossible, then we
-    //     should change this to an assertion.)
-    if (rv.Failed()) {
-      rv.SuppressException();
+      mLocaleAwareRangeBound = bound;
     }
   } else {
     *aOpen = false;
@@ -25752,24 +25778,24 @@ void Cursor::OpenOp::PrepareKeyConditionClauses(
                         !isIncreasingOrder, true, continueToKeyRangeClause);
 
   {
-    Key bound;
     bool open;
-    GetRangeKeyInfo(!isIncreasingOrder, &bound, &open);
+    mCursor->SetOptionalKeyRange(mOptionalKeyRange, &open);
 
-    if (mOptionalKeyRange.isSome() && !bound.IsUnset()) {
-      AppendConditionClause(aKeyString, kStmtParamNameRangeKey,
+    // TODO: The first condition is probably redundant.
+    if (mOptionalKeyRange.isSome() &&
+        !mCursor->mLocaleAwareRangeBound.IsUnset()) {
+      AppendConditionClause(aKeyString, kStmtParamNameRangeBound,
                             isIncreasingOrder, !open, keyRangeClause);
-      AppendConditionClause(aKeyString, kStmtParamNameRangeKey,
+      AppendConditionClause(aKeyString, kStmtParamNameRangeBound,
                             isIncreasingOrder, !open, continueToKeyRangeClause);
-      mCursor->mRangeKey = std::move(bound);
     }
   }
 
-  mCursor->mContinueQuery =
-      aQueryStart + keyRangeClause + aDirectionClause + kOpenLimit;
+  const nsAutoCString suffix = aDirectionClause + kOpenLimit +
+                               NS_LITERAL_CSTRING(":") + kStmtParamNameLimit;
+  mCursor->mContinueQuery = aQueryStart + keyRangeClause + suffix;
 
-  mCursor->mContinueToQuery =
-      aQueryStart + continueToKeyRangeClause + aDirectionClause + kOpenLimit;
+  mCursor->mContinueToQuery = aQueryStart + continueToKeyRangeClause + suffix;
 }
 
 void Cursor::OpenOp::PrepareIndexKeyConditionClause(
@@ -25778,13 +25804,12 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
   const bool isIncreasingOrder = IsIncreasingOrder(mCursor->mDirection);
 
   {
-    Key bound;
     bool open;
-    GetRangeKeyInfo(!isIncreasingOrder, &bound, &open);
-    if (mOptionalKeyRange.isSome() && !bound.IsUnset()) {
-      AppendConditionClause(aSortColumn, kStmtParamNameRangeKey,
+    mCursor->SetOptionalKeyRange(mOptionalKeyRange, &open);
+    if (mOptionalKeyRange.isSome() &&
+        !mCursor->mLocaleAwareRangeBound.IsUnset()) {
+      AppendConditionClause(aSortColumn, kStmtParamNameRangeBound,
                             isIncreasingOrder, !open, aQueryStart);
-      mCursor->mRangeKey = std::move(bound);
     }
   }
 
@@ -25793,8 +25818,7 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
 
   mCursor->mContinueToQuery =
       aQueryStart + NS_LITERAL_CSTRING(" AND sort_column ") + comparisonChar +
-      NS_LITERAL_CSTRING("= :") + kStmtParamNameCurrentKey + aDirectionClause +
-      kOpenLimit;
+      NS_LITERAL_CSTRING("= :") + kStmtParamNameCurrentKey;
 
   switch (mCursor->mDirection) {
     case IDBCursor::NEXT:
@@ -25806,8 +25830,8 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
           comparisonChar + NS_LITERAL_CSTRING(" :") + kStmtParamNameCurrentKey +
           NS_LITERAL_CSTRING(" OR ") + aObjectDataKeyPrefix +
           NS_LITERAL_CSTRING("object_data_key ") + comparisonChar +
-          NS_LITERAL_CSTRING(" :") + kStmtParamNameObjectKey +
-          NS_LITERAL_CSTRING(" ) ") + aDirectionClause + kOpenLimit;
+          NS_LITERAL_CSTRING(" :") + kStmtParamNameObjectStorePosition +
+          NS_LITERAL_CSTRING(" ) ");
 
       mCursor->mContinuePrimaryKeyQuery =
           aQueryStart +
@@ -25816,24 +25840,32 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
               "(sort_column == :") +
           kStmtParamNameCurrentKey + NS_LITERAL_CSTRING(" AND ") +
           aObjectDataKeyPrefix + NS_LITERAL_CSTRING("object_data_key ") +
-          comparisonChar + NS_LITERAL_CSTRING("= :") + kStmtParamNameObjectKey +
+          comparisonChar + NS_LITERAL_CSTRING("= :") +
+          kStmtParamNameObjectStorePosition +
           NS_LITERAL_CSTRING(
               ") OR "
               "sort_column ") +
           comparisonChar + NS_LITERAL_CSTRING(" :") + kStmtParamNameCurrentKey +
-          NS_LITERAL_CSTRING(")") + aDirectionClause + kOpenLimit;
+          NS_LITERAL_CSTRING(")");
       break;
 
     case IDBCursor::NEXT_UNIQUE:
     case IDBCursor::PREV_UNIQUE:
       mCursor->mContinueQuery =
           aQueryStart + NS_LITERAL_CSTRING(" AND sort_column ") +
-          comparisonChar + NS_LITERAL_CSTRING(" :") + kStmtParamNameCurrentKey +
-          aDirectionClause + kOpenLimit;
+          comparisonChar + NS_LITERAL_CSTRING(" :") + kStmtParamNameCurrentKey;
       break;
 
     default:
       MOZ_CRASH("Should never get here!");
+  }
+
+  const nsAutoCString suffix = aDirectionClause + kOpenLimit +
+                               NS_LITERAL_CSTRING(":") + kStmtParamNameLimit;
+  mCursor->mContinueQuery += suffix;
+  mCursor->mContinueToQuery += suffix;
+  if (!mCursor->mContinuePrimaryKeyQuery.IsEmpty()) {
+    mCursor->mContinuePrimaryKeyQuery += suffix;
   }
 }
 
@@ -25850,35 +25882,17 @@ nsresult Cursor::OpenOp::DoObjectStoreDatabaseWork(
 
   const bool usingKeyRange = mOptionalKeyRange.isSome();
 
-  nsCString queryStart = NS_LITERAL_CSTRING("SELECT ") + kColumnNameKey +
-                         NS_LITERAL_CSTRING(
-                             ", file_ids, data "
-                             "FROM object_data "
-                             "WHERE object_store_id = :") +
-                         kStmtParamNameId;
+  const nsCString queryStart = NS_LITERAL_CSTRING("SELECT ") + kColumnNameKey +
+                               NS_LITERAL_CSTRING(
+                                   ", file_ids, data "
+                                   "FROM object_data "
+                                   "WHERE object_store_id = :") +
+                               kStmtParamNameId;
 
-  nsAutoCString keyRangeClause;
-  if (usingKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), kColumnNameKey,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey);
 
-  nsAutoCString directionClause =
-      NS_LITERAL_CSTRING(" ORDER BY ") + kColumnNameKey;
-  switch (mCursor->mDirection) {
-    case IDBCursor::NEXT:
-    case IDBCursor::NEXT_UNIQUE:
-      directionClause.AppendLiteral(" ASC");
-      break;
-
-    case IDBCursor::PREV:
-    case IDBCursor::PREV_UNIQUE:
-      directionClause.AppendLiteral(" DESC");
-      break;
-
-    default:
-      MOZ_CRASH("Should never get here!");
-  }
+  const auto& directionClause = MakeDirectionClause(mCursor->mDirection);
 
   // Note: Changing the number or order of SELECT columns in the query will
   // require changes to CursorOpBase::PopulateResponseFromStatement.
@@ -25944,16 +25958,10 @@ nsresult Cursor::OpenOp::DoObjectStoreKeyDatabaseWork(
                              "WHERE object_store_id = :") +
                          kStmtParamNameId;
 
-  nsAutoCString keyRangeClause;
-  if (usingKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), kColumnNameKey,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey);
 
-  const nsAutoCString directionClause =
-      NS_LITERAL_CSTRING(" ORDER BY ") + kColumnNameKey +
-      (IsIncreasingOrder(mCursor->mDirection) ? NS_LITERAL_CSTRING(" ASC")
-                                              : NS_LITERAL_CSTRING(" DESC"));
+  const auto& directionClause = MakeDirectionClause(mCursor->mDirection);
 
   // Note: Changing the number or order of SELECT columns in the query will
   // require changes to CursorOpBase::PopulateResponseFromStatement.
@@ -26046,11 +26054,8 @@ nsresult Cursor::OpenOp::DoIndexDatabaseWork(DatabaseConnection* aConnection) {
                                  "WHERE index_table.index_id = :") +
                              kStmtParamNameId;
 
-  nsAutoCString keyRangeClause;
-  if (usingKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), sortColumn,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, sortColumn);
 
   nsAutoCString directionClause = NS_LITERAL_CSTRING(" ORDER BY ") + sortColumn;
 
@@ -26161,11 +26166,8 @@ nsresult Cursor::OpenOp::DoIndexKeyDatabaseWork(
                              table + NS_LITERAL_CSTRING(" WHERE index_id = :") +
                              kStmtParamNameId;
 
-  nsAutoCString keyRangeClause;
-  if (usingKeyRange) {
-    GetBindingClauseForKeyRange(mOptionalKeyRange.ref(), sortColumn,
-                                keyRangeClause);
-  }
+  const auto keyRangeClause =
+      MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, sortColumn);
 
   nsAutoCString directionClause = NS_LITERAL_CSTRING(" ORDER BY ") + sortColumn;
 
@@ -26245,8 +26247,8 @@ nsresult Cursor::OpenOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   MOZ_ASSERT(mCursor->mContinueQuery.IsEmpty());
   MOZ_ASSERT(mCursor->mContinueToQuery.IsEmpty());
   MOZ_ASSERT(mCursor->mContinuePrimaryKeyQuery.IsEmpty());
-  MOZ_ASSERT(mCursor->mKey.IsUnset());
-  MOZ_ASSERT(mCursor->mRangeKey.IsUnset());
+  MOZ_ASSERT(mCursor->mPosition.IsUnset());
+  MOZ_ASSERT(mCursor->mLocaleAwareRangeBound.IsUnset());
 
   AUTO_PROFILER_LABEL("Cursor::OpenOp::DoDatabaseWork", DOM);
 
@@ -26286,13 +26288,13 @@ nsresult Cursor::OpenOp::SendSuccessResult() {
   MOZ_ASSERT(mCursor->mCurrentlyRunningOp == this);
   MOZ_ASSERT(mResponse.type() != CursorResponse::T__None);
   MOZ_ASSERT_IF(mResponse.type() == CursorResponse::Tvoid_t,
-                mCursor->mKey.IsUnset());
+                mCursor->mPosition.IsUnset());
   MOZ_ASSERT_IF(mResponse.type() == CursorResponse::Tvoid_t,
-                mCursor->mSortKey.IsUnset());
+                mCursor->mLocaleAwarePosition.IsUnset());
   MOZ_ASSERT_IF(mResponse.type() == CursorResponse::Tvoid_t,
-                mCursor->mRangeKey.IsUnset());
+                mCursor->mLocaleAwareRangeBound.IsUnset());
   MOZ_ASSERT_IF(mResponse.type() == CursorResponse::Tvoid_t,
-                mCursor->mObjectKey.IsUnset());
+                mCursor->mObjectStorePosition.IsUnset());
 
   if (IsActorDestroyed()) {
     return NS_ERROR_DOM_INDEXEDDB_ABORT_ERR;
@@ -26313,7 +26315,7 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   MOZ_ASSERT(mCursor->mObjectStoreId);
   MOZ_ASSERT(!mCursor->mContinueQuery.IsEmpty());
   MOZ_ASSERT(!mCursor->mContinueToQuery.IsEmpty());
-  MOZ_ASSERT(!mCursor->mKey.IsUnset());
+  MOZ_ASSERT(!mCursor->mPosition.IsUnset());
 
   const bool isIndex =
       mCursor->mType == OpenCursorParams::TIndexOpenCursorParams ||
@@ -26323,7 +26325,7 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
                             mCursor->mDirection == IDBCursor::PREV),
                 !mCursor->mContinuePrimaryKeyQuery.IsEmpty());
   MOZ_ASSERT_IF(isIndex, mCursor->mIndexId);
-  MOZ_ASSERT_IF(isIndex, !mCursor->mObjectKey.IsUnset());
+  MOZ_ASSERT_IF(isIndex, !mCursor->mObjectStorePosition.IsUnset());
 
   AUTO_PROFILER_LABEL("Cursor::ContinueOp::DoDatabaseWork", DOM);
 
@@ -26339,8 +26341,8 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   bool hasContinueKey = false;
   bool hasContinuePrimaryKey = false;
   uint32_t advanceCount = 1;
-  Key& currentKey =
-      mCursor->IsLocaleAware() ? mCursor->mSortKey : mCursor->mKey;
+  Key& currentKey = mCursor->IsLocaleAware() ? mCursor->mLocaleAwarePosition
+                                             : mCursor->mPosition;
 
   switch (mParams.type()) {
     case CursorRequestParams::TContinueParams:
@@ -26375,12 +26377,15 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   nsAutoCString countString;
   countString.AppendInt(advanceCount);
 
-  nsCString query = continueQuery + countString;
-
-  const bool usingRangeKey = !mCursor->mRangeKey.IsUnset();
-
   DatabaseConnection::CachedStatement stmt;
-  nsresult rv = aConnection->GetCachedStatement(query, &stmt);
+  nsresult rv = aConnection->GetCachedStatement(continueQuery, &stmt);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  // Bind limit.
+  rv = stmt->BindUTF8StringByName(kStmtParamNameLimit,
+                                  ToAutoCString(advanceCount));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -26398,29 +26403,31 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
     return rv;
   }
 
-  // Bind range key if it is specified.
-  if (usingRangeKey) {
-    rv = mCursor->mRangeKey.BindToStatement(stmt, kStmtParamNameRangeKey);
+  // Bind range bound if it is specified.
+  if (!mCursor->mLocaleAwareRangeBound.IsUnset()) {
+    rv = mCursor->mLocaleAwareRangeBound.BindToStatement(
+        stmt, kStmtParamNameRangeBound);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
   }
 
-  // Bind object key if duplicates are allowed and we're not continuing to a
-  // specific key.
+  // Bind object store position if duplicates are allowed and we're not
+  // continuing to a specific key.
   if (isIndex && !hasContinueKey &&
       (mCursor->mDirection == IDBCursor::NEXT ||
        mCursor->mDirection == IDBCursor::PREV)) {
-    rv = mCursor->mObjectKey.BindToStatement(stmt, kStmtParamNameObjectKey);
+    rv = mCursor->mObjectStorePosition.BindToStatement(
+        stmt, kStmtParamNameObjectStorePosition);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
   }
 
-  // Bind object key if primaryKey is specified.
+  // Bind object store position if primaryKey is specified.
   if (hasContinuePrimaryKey) {
     rv = mParams.get_ContinuePrimaryKeyParams().primaryKey().BindToStatement(
-        stmt, kStmtParamNameObjectKey);
+        stmt, kStmtParamNameObjectStorePosition);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -26434,10 +26441,10 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
     }
 
     if (!hasResult) {
-      mCursor->mKey.Unset();
-      mCursor->mSortKey.Unset();
-      mCursor->mRangeKey.Unset();
-      mCursor->mObjectKey.Unset();
+      mCursor->mPosition.Unset();
+      mCursor->mLocaleAwarePosition.Unset();
+      mCursor->mLocaleAwareRangeBound.Unset();
+      mCursor->mObjectStorePosition.Unset();
       mResponse = void_t();
       return NS_OK;
     }
@@ -26456,11 +26463,11 @@ nsresult Cursor::ContinueOp::SendSuccessResult() {
   MOZ_ASSERT(mCursor);
   MOZ_ASSERT(mCursor->mCurrentlyRunningOp == this);
   MOZ_ASSERT_IF(mResponse.type() == CursorResponse::Tvoid_t,
-                mCursor->mKey.IsUnset());
+                mCursor->mPosition.IsUnset());
   MOZ_ASSERT_IF(mResponse.type() == CursorResponse::Tvoid_t,
-                mCursor->mRangeKey.IsUnset());
+                mCursor->mLocaleAwareRangeBound.IsUnset());
   MOZ_ASSERT_IF(mResponse.type() == CursorResponse::Tvoid_t,
-                mCursor->mObjectKey.IsUnset());
+                mCursor->mObjectStorePosition.IsUnset());
 
   if (IsActorDestroyed()) {
     return NS_ERROR_DOM_INDEXEDDB_ABORT_ERR;

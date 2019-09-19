@@ -148,7 +148,7 @@ pref("security.webauth.webauthn_enable_softtoken", false);
   pref("security.webauth.webauthn_enable_usbtoken", true);
 #endif
 
-pref("security.ssl.errorReporting.enabled", true);
+pref("security.ssl.errorReporting.enabled", false);
 pref("security.ssl.errorReporting.url", "https://incoming.telemetry.mozilla.org/submit/sslreports/");
 pref("security.ssl.errorReporting.automatic", false);
 
@@ -205,10 +205,6 @@ pref("security.remote_settings.crlite_filters.signer", "onecrl.content-signature
 
 pref("general.useragent.compatMode.firefox", false);
 
-// This pref exists only for testing purposes. In order to disable all
-// overrides by default, don't initialize UserAgentOverrides.jsm.
-pref("general.useragent.site_specific_overrides", true);
-
 pref("general.config.obscure_value", 13); // for MCD .cfg files
 
 pref("general.warnOnAboutConfig", true);
@@ -230,10 +226,6 @@ pref("browser.cache.offline.insecure.enable",  false);
 
 // offline cache capacity in kilobytes
 pref("browser.cache.offline.capacity",         512000);
-
-// the user should be warned if offline app disk usage exceeds this amount
-// (in kilobytes)
-pref("offline-apps.quota.warn",        51200);
 
 // Don't show "Open with" option on download dialog if true.
 pref("browser.download.forbid_open_with", false);
@@ -2744,7 +2736,7 @@ pref("browser.tabs.remote.separatePrivilegedMozillaWebContentProcess", false);
 
 // The domains we will isolate into the Mozilla Content Process. Comma-separated
 // full domains: any subdomains of the domains listed will also be allowed.
-pref("browser.tabs.remote.separatedMozillaDomains", "addons.mozilla.org,accounts.firefox.com");
+pref("browser.tabs.remote.separatedMozillaDomains", "addons.cdn.mozilla.net,addons.mozilla.org,accounts.firefox.com");
 
 // Default font types and sizes by locale
 pref("font.default.ar", "sans-serif");

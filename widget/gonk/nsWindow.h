@@ -90,9 +90,7 @@ public:
   virtual LayoutDeviceIntPoint WidgetToScreenOffset() override;
   void DispatchTouchInputViaAPZ(mozilla::MultiTouchInput& aInput);
   void DispatchTouchEventForAPZ(const mozilla::MultiTouchInput& aInput,
-                                const ScrollableLayerGuid& aGuid,
-                                const uint64_t aInputBlockId,
-                                nsEventStatus aApzResponse);
+                                mozilla::layers::APZEventResult aApzResponse);
   NS_IMETHOD DispatchEvent(mozilla::WidgetGUIEvent* aEvent,
                            nsEventStatus& aStatus) override;
   virtual nsresult SynthesizeNativeTouchPoint(uint32_t aPointerId,

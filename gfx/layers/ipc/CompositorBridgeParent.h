@@ -768,6 +768,7 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
 
   bool mPaused;
   bool mHaveCompositionRecorder;
+  bool mIsForcedFirstPaint;
 
   bool mUseExternalSurfaceSize;
   gfx::IntSize mEGLSurfaceSize;

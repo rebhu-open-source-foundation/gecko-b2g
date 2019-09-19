@@ -453,6 +453,7 @@ public class GeckoSession implements Parcelable {
                 "GeckoView:FullScreenEnter",
                 "GeckoView:FullScreenExit",
                 "GeckoView:WebAppManifest",
+                "GeckoView:FirstContentfulPaint",
             }
         ) {
             @Override
@@ -505,6 +506,8 @@ public class GeckoSession implements Parcelable {
                     } catch (JSONException e) {
                         Log.e(LOGTAG, "Failed to convert web app manifest to JSON", e);
                     }
+                } else if ("GeckoView:FirstContentfulPaint".equals(event)) {
+                    delegate.onFirstContentfulPaint(GeckoSession.this);
                 }
             }
         };
@@ -3110,6 +3113,20 @@ public class GeckoSession implements Parcelable {
         default void onFirstComposite(@NonNull GeckoSession session) {}
 
         /**
+         * Notification that the first content paint has occurred.
+         * This callback is invoked for the first content paint after
+         * a page has been loaded. The function {@link #onFirstComposite(GeckoSession)}
+         * will be called once the compositor has started rendering. However, it is
+         * possible for the compositor to start rendering before there is any content to render.
+         * onFirstContentfulPaint() is called once some content has been rendered. It may be nothing
+         * more than the page background color. It is not an indication that the whole page has
+         * been rendered.
+         * @param session The GeckoSession that had a first paint event.
+         */
+        @UiThread
+        default void onFirstContentfulPaint(@NonNull GeckoSession session) {}
+
+        /**
          * This is fired when the loaded document has a valid Web App Manifest present.
          *
          * @param session The GeckoSession that contains the Web App Manifest
@@ -3464,6 +3481,8 @@ public class GeckoSession implements Parcelable {
         * @return A {@link GeckoResult} which holds the returned GeckoSession. May be null, in
          *        which case the request for a new window by web content will fail. e.g.,
          *        <code>window.open()</code> will return null.
+         *        The implementation of onNewSession is responsible for maintaining a reference
+         *        to the returned object, to prevent it from being garbage collected.
         */
         @UiThread
         default @Nullable GeckoResult<GeckoSession> onNewSession(@NonNull GeckoSession session,

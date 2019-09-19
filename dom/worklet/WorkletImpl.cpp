@@ -35,10 +35,12 @@ WorkletLoadInfo::WorkletLoadInfo(nsPIDOMWindowInner* aWindow)
 // WorkletImpl
 
 WorkletImpl::WorkletImpl(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal)
-    : mOriginAttributes(BasePrincipal::Cast(aPrincipal)->OriginAttributesRef()),
-      mPrincipal(NullPrincipal::CreateWithInheritedAttributes(aPrincipal)),
+    : mPrincipal(NullPrincipal::CreateWithInheritedAttributes(aPrincipal)),
       mWorkletLoadInfo(aWindow),
-      mTerminated(false) {}
+      mTerminated(false) {
+  Unused << NS_WARN_IF(
+      NS_FAILED(ipc::PrincipalToPrincipalInfo(mPrincipal, &mPrincipalInfo)));
+}
 
 WorkletImpl::~WorkletImpl() {
   MOZ_ASSERT(!mGlobalScope);

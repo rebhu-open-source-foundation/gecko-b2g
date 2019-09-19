@@ -89,8 +89,7 @@ loader.lazyRequireGetter(
  *          - window: The global window object.
  *          - preNest: Function called before entering a nested event loop.
  *          - postNest: Function called after exiting a nested event loop.
- *          - makeDebugger: A function that takes no arguments and instantiates
- *            a Debugger that manages its globals on its own.
+ *          - dbg: a Debugger instance that manages its globals on its own.
  * @param aGlobal object [optional]
  *        An optional (for content debugging only) reference to the content
  *        window.
@@ -167,7 +166,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
 
   get dbg() {
     if (!this._dbg) {
-      this._dbg = this._parent.makeDebugger();
+      this._dbg = this._parent.dbg;
       this._dbg.uncaughtExceptionHook = this.uncaughtExceptionHook;
       this._dbg.onDebuggerStatement = this.onDebuggerStatement;
       this._dbg.onNewScript = this.onNewScript;
@@ -307,11 +306,6 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     this.clearDebuggees();
     this.conn.removeActorPool(this._threadLifetimePool);
     this._threadLifetimePool = null;
-
-    if (!this._dbg) {
-      return;
-    }
-    this._dbg.disable();
     this._dbg = null;
   },
 
@@ -410,6 +404,12 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
         message: e.toString(),
       };
     }
+  },
+
+  toggleEventLogging(logEventBreakpoints) {
+    this._options.logEventBreakpoints = logEventBreakpoints;
+    this._updateEventLogging();
+    return this._options.logEventBreakpoints;
   },
 
   _setBreakpointsOnAttach(breakpoints) {
@@ -545,8 +545,13 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
       );
     }
 
+    this._updateEventLogging();
+  },
+
+  _updateEventLogging() {
     if (isReplaying && this._options.logEventBreakpoints) {
       const logpointId = `logGroup-${Math.random()}`;
+      const ids = [...this._activeEventBreakpoints];
       this.dbg.replaySetActiveEventBreakpoints(ids, (executionPoint, rv) => {
         const { script, offset } = this.dbg.replayGetExecutionPointPosition(
           executionPoint
@@ -1638,7 +1643,6 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
         promote: () => this.threadObjectGrip(actor),
         isThreadLifetimePool: () =>
           actor.registeredPool !== this.threadLifetimePool,
-        getGlobalDebugObject: () => this.globalDebugObject,
       },
       this.conn
     );
@@ -2089,6 +2093,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     return {
       pauseOnExceptions: this._options.pauseOnExceptions,
       ignoreCaughtExceptions: this._options.ignoreCaughtExceptions,
+      logEventBreakpoints: this._options.logEventBreakpoints,
       skipBreakpoints: this.skipBreakpoints,
       breakpoints: this.breakpointActorMap.listKeys(),
     };
