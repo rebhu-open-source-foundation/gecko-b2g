@@ -1289,7 +1289,7 @@ pref("b2g.system_startup_url", "chrome://gaia/content/system/index.html");
 
 // Set local domains to the list of vhosts we need for apps.
 // TODO: remove once we package the UI properly and set that pref under /system/b2g/defaults/pref
-pref("network.dns.localDomains", "unitconverter.local, keyboard.local,customization.local,gaia.local,darktheme.local,mocks.local,calculator.local,launcher.local,shared.local, gallery.local, filemanager.local");
+pref("network.dns.localDomains", "unitconverter.local,keyboard.local,customization.local,gaia.local,darktheme.local,mocks.local,calculator.local,launcher.local,shared.local,gallery.local,filemanager.local");
 
 pref("devtools.console.stdout.content", true);
 

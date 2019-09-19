@@ -232,3 +232,51 @@ document.addEventListener("DOMContentLoaded", function dom_loaded() {
 
   shell.start();
 });
+
+// Install the self signed certificate for locally served apps.
+function setup_local_https() {
+  const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+
+  // On desktop the certificate is located in the profile directory for now, and
+  // on device it is in the default system folder.
+  let file = Services.dirsvc.get(isGonk ? "DefRt" : "ProfD", Ci.nsIFile);
+  file.append("local-cert.pem");
+  debug(`Loading certs from ${file.path}`);
+
+  let fstream = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsIFileInputStream);
+  fstream.init(file, -1, 0, 0);
+  let data = NetUtil.readInputStreamToString(fstream, fstream.available());
+  fstream.close();
+
+  // Get the base64 content only as a 1-liner.
+  data = data.replace(/-----BEGIN CERTIFICATE-----/, "")
+  .replace(/-----END CERTIFICATE-----/, "")
+  .replace(/[\r\n]/g, "");
+
+  let certdb = Cc["@mozilla.org/security/x509certdb;1"].getService(Ci.nsIX509CertDB);
+  try {
+    certdb = Cc["@mozilla.org/security/x509certdb;1"].getService(Ci.nsIX509CertDB2);
+  } catch (e) {}
+
+  let cert = certdb.addCertFromBase64(data, "CT,CT,CT");
+
+  debug(`Certificate added for ${cert.subjectAltNames}`);
+
+  let overrideService = Cc["@mozilla.org/security/certoverride;1"].getService(Ci.nsICertOverrideService);
+
+  // Reuse the list of hosts that we force to resolve to 127.0.0.1 to add the overrides.
+  Services.prefs.getCharPref("network.dns.localDomains").split(",")
+  .forEach(host => {
+    host = host.trim();
+    overrideService.rememberValidityOverride(
+      host,
+      8081,
+      cert,
+      overrideService.ERROR_UNTRUSTED | overrideService.ERROR_MISMATCH,
+      false /* temporary */
+    );
+  });
+}
+
+// We need to set this up early to be able to launch the homescreen.
+setup_local_https();
