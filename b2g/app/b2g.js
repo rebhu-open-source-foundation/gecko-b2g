@@ -1303,3 +1303,5 @@ pref("layers.acceleration.draw-fps", false);
 pref("extensions.systemAddon.update.enabled", false);
 
 pref("browser.privatebrowsing.autostart", false);
+
+pref("gfx.e10s.font-list.shared", true);
