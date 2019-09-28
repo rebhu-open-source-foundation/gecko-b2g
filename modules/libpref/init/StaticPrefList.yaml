@@ -136,9 +136,11 @@
 #endif
 
 #ifdef NIGHTLY_BUILD
-#define IS_NIGHTLY_BUILD  true
+#define IS_NIGHTLY_BUILD      true
+#define IS_NOT_NIGHTLY_BUILD  false
 #else
-#define IS_NIGHTLY_BUILD  false
+#define IS_NIGHTLY_BUILD      false
+#define IS_NOT_NIGHTLY_BUILD  true
 #endif
 
 #ifdef MOZILLA_OFFICIAL
@@ -1874,6 +1876,12 @@
 - name: dom.pointer-lock.enabled
   type: bool
   value: true
+  mirror: always
+
+# re-SAB; Whether allow postMessage a sharedArrayBuffer
+- name: dom.postMessage.sharedArrayBuffer.withCOOP_COEP
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Presentation API
@@ -3614,6 +3622,11 @@
   value: 12
   mirror: always
 
+- name: idle_period.cross_process_scheduling
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "image."
 #---------------------------------------------------------------------------
@@ -4974,7 +4987,7 @@
   mirror: always
   rust: true
 
-# Are style system use counters enabled?
+# Are counters for implemented CSS properties enabled?
 - name: layout.css.use-counters.enabled
   type: bool
   value: @IS_NOT_RELEASE_OR_BETA@
@@ -5190,6 +5203,16 @@
   value: true
   mirror: always
 
+# Pref to control disabling scroll anchoring suppression triggers, see
+#
+# https://drafts.csswg.org/css-scroll-anchoring/#suppression-triggers
+#
+# Those triggers should be unnecessary after bug 1561450.
+- name: layout.css.scroll-anchoring.suppressions.enabled
+  type: bool
+  value: @IS_NOT_NIGHTLY_BUILD@
+  mirror: always
+
 - name: layout.css.scroll-anchoring.highlight
   type: bool
   value: false
@@ -5318,6 +5341,12 @@
 - name: mathml.nonzero_unitless_lengths.disabled
   type: bool
   value: true
+  mirror: always
+
+# Whether to disable deprecated numalign/denomalign/align attributes
+- name: mathml.deprecated_alignment_attributes.disabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5688,7 +5717,7 @@
 
 -   name: media.wmf.deblacklisting-for-telemetry-in-gpu-process
     type: RelaxedAtomicBool
-    value: false
+    value: true
     mirror: always
 
 -   name: media.wmf.amd.highres.enabled
@@ -6156,6 +6185,15 @@
   value: false
   mirror: always
 
+- name: media.block-autoplay-until-in-foreground
+  type: bool
+#if !defined(MOZ_WIDGET_ANDROID)
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "mousewheel."
 #---------------------------------------------------------------------------
@@ -6507,8 +6545,17 @@
 # Time in milliseconds during which certain tasks are deprioritized during
 # page load.
 - name: page_load.deprioritization_period
-  type: uint32_t
+  type: RelaxedAtomicUint32
   value: 5000
+  mirror: always
+
+#---------------------------------------------------------------------------
+# Prefs starting with "permissions."
+#---------------------------------------------------------------------------
+
+- name: permissions.delegation.enable
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -6884,7 +6931,7 @@
 
 # Navigate-to CSP 3 directive
 - name: security.csp.enableNavigateTo
-  type: bool 
+  type: bool
   value: false
   mirror: always
 
@@ -7041,6 +7088,11 @@
   value: false
   mirror: always
 
+- name: toolkit.telemetry.testing.overrideProductsCheck
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "ui."
 #---------------------------------------------------------------------------
@@ -7074,6 +7126,12 @@
   # 8 = Meta, 16 = Win
   value: 5
 #endif
+  mirror: always
+
+# If true, all popups won't hide automatically on blur
+- name: ui.popup.disable_autohide
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Negate scroll, true will make the mouse scroll wheel move the screen the

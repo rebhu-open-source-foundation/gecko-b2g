@@ -21,6 +21,7 @@
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/WidgetUtils.h"
 #include "mozilla/dom/WheelEventBinding.h"
+#include "nsAppRunner.h"
 #include <algorithm>
 
 #include "GeckoProfiler.h"
@@ -413,6 +414,7 @@ nsWindow::nsWindow() {
   mRetryPointerGrab = false;
   mWindowType = eWindowType_child;
   mSizeState = nsSizeMode_Normal;
+  mAspectRatio = 0.0f;
   mLastSizeMode = nsSizeMode_Normal;
   mSizeConstraints.mMaxSize = GetSafeWindowSize(mSizeConstraints.mMaxSize);
 
@@ -998,6 +1000,13 @@ void nsWindow::SetSizeConstraints(const SizeConstraints& aConstraints) {
     if (aConstraints.mMaxSize != LayoutDeviceIntSize(NS_MAXSIZE, NS_MAXSIZE)) {
       hints |= GDK_HINT_MAX_SIZE;
     }
+
+    if (mAspectRatio != 0.0f) {
+      geometry.min_aspect = mAspectRatio;
+      geometry.max_aspect = mAspectRatio;
+      hints |= GDK_HINT_ASPECT;
+    }
+
     gtk_window_set_geometry_hints(GTK_WINDOW(mShell), nullptr, &geometry,
                                   GdkWindowHints(hints));
   }
@@ -1041,6 +1050,8 @@ void nsWindow::Show(bool aState) {
 }
 
 void nsWindow::Resize(double aWidth, double aHeight, bool aRepaint) {
+  LOG(("nsWindow::Resize [%p] %f %f\n", (void*)this, aWidth, aHeight));
+
   double scale =
       BoundsUseDesktopPixels() ? GetDesktopToDeviceScale().scale : 1.0;
   int32_t width = NSToIntRound(scale * aWidth);
@@ -1163,16 +1174,25 @@ bool IsPopupWithoutToplevelParent(nsMenuPopupFrame* aMenuPopupFrame) {
   // Check if the popup is autocomplete (like tags autocomplete
   // in the bookmark edit popup).
   nsAtom* popupId = aMenuPopupFrame->GetContent()->GetID();
-  if (popupId && popupId->Equals(NS_LITERAL_STRING("PopupAutoComplete"))) {
+  if (popupId &&
+      popupId->Equals(NS_LITERAL_STRING("editBMPanel_tagsAutocomplete"))) {
+    return true;
+  }
+
+  nsIFrame* parentFrame = aMenuPopupFrame->GetParent();
+  if (!parentFrame) {
+    return false;
+  }
+
+  // Check if the popup is in the folder menu list
+  nsAtom* parentId = parentFrame->GetContent()->GetID();
+  if (parentId &&
+      parentId->Equals(NS_LITERAL_STRING("editBMPanel_folderMenuList"))) {
     return true;
   }
 
   // Check if the popup is in popupnotificationcontent (like choosing capture
   // device when starting webrtc session).
-  nsIFrame* parentFrame = aMenuPopupFrame->GetParent();
-  if (!parentFrame) {
-    return false;
-  }
   parentFrame = parentFrame->GetParent();
   if (parentFrame && parentFrame->GetContent()->NodeName().EqualsLiteral(
                          "popupnotificationcontent")) {
@@ -3754,15 +3774,14 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
       NativeResize();
 
       if (mWindowType == eWindowType_dialog) {
+        mGtkWindowRoleName = "Dialog";
+
         SetDefaultIcon();
-        gtk_window_set_wmclass(GTK_WINDOW(mShell), "Dialog",
-                               gdk_get_program_class());
         gtk_window_set_type_hint(GTK_WINDOW(mShell),
                                  GDK_WINDOW_TYPE_HINT_DIALOG);
         gtk_window_set_transient_for(GTK_WINDOW(mShell), mToplevelParentWindow);
       } else if (mWindowType == eWindowType_popup) {
-        gtk_window_set_wmclass(GTK_WINDOW(mShell), "Popup",
-                               gdk_get_program_class());
+        mGtkWindowRoleName = "Popup";
 
         if (aInitData->mNoAutoHide) {
           // ... but the window manager does not decorate this window,
@@ -3827,9 +3846,8 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
         // happen with override-redirect windows anyway).
         NativeMove();
       } else {  // must be eWindowType_toplevel
+        mGtkWindowRoleName = "Toplevel";
         SetDefaultIcon();
-        gtk_window_set_wmclass(GTK_WINDOW(mShell), "Toplevel",
-                               gdk_get_program_class());
 
         // each toplevel window gets its own window group
         GtkWindowGroup* group = gtk_window_group_new();
@@ -4137,17 +4155,28 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   }
 #  endif
 #endif
+
+  // Set default application name when it's empty.
+  if (mGtkWindowAppName.IsEmpty()) {
+    mGtkWindowAppName = gAppData->name;
+  }
+  RefreshWindowClass();
+
   return NS_OK;
 }
 
 void nsWindow::RefreshWindowClass(void) {
-  if (mGtkWindowTypeName.IsEmpty() || mGtkWindowRoleName.IsEmpty()) return;
-
   GdkWindow* gdkWindow = gtk_widget_get_window(mShell);
-  gdk_window_set_role(gdkWindow, mGtkWindowRoleName.get());
+  if (!gdkWindow) {
+    return;
+  }
+
+  if (!mGtkWindowRoleName.IsEmpty()) {
+    gdk_window_set_role(gdkWindow, mGtkWindowRoleName.get());
+  }
 
 #ifdef MOZ_X11
-  if (mIsX11Display) {
+  if (!mGtkWindowAppName.IsEmpty() && mIsX11Display) {
     XClassHint* class_hint = XAllocClassHint();
     if (!class_hint) {
       return;
@@ -4155,7 +4184,7 @@ void nsWindow::RefreshWindowClass(void) {
     const char* res_class = gdk_get_program_class();
     if (!res_class) return;
 
-    class_hint->res_name = const_cast<char*>(mGtkWindowTypeName.get());
+    class_hint->res_name = const_cast<char*>(mGtkWindowAppName.get());
     class_hint->res_class = const_cast<char*>(res_class);
 
     // Can't use gtk_window_set_wmclass() for this; it prints
@@ -4190,7 +4219,7 @@ void nsWindow::SetWindowClass(const nsAString& xulWinType) {
   res_name[0] = toupper(res_name[0]);
   if (!role) role = res_name;
 
-  mGtkWindowTypeName = res_name;
+  mGtkWindowAppName = res_name;
   mGtkWindowRoleName = role;
   free(res_name);
 
@@ -4544,6 +4573,11 @@ void nsWindow::UpdateOpaqueRegion(const LayoutDeviceIntRegion& aOpaqueRegion) {
         cairo_region_union_rectangle(region, &rect);
       }
       (*sGdkWindowSetOpaqueRegion)(mGdkWindow, region);
+#ifdef MOZ_WAYLAND
+      if (!mIsX11Display) {
+        moz_container_set_opaque_region(MOZ_CONTAINER(mContainer), region);
+      }
+#endif
       cairo_region_destroy(region);
     }
   }
@@ -5169,6 +5203,9 @@ nsresult nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen* aTargetScreen) {
 }
 
 void nsWindow::SetWindowDecoration(nsBorderStyle aStyle) {
+  LOG(("nsWindow::SetWindowDecoration() [%p] Border style %x\n", (void*)this,
+       aStyle));
+
   if (!mShell) {
     // Pass the request to the toplevel window
     GtkWidget* topWidget = GetToplevelWidget();
@@ -6512,6 +6549,9 @@ nsresult nsWindow::SetNonClientMargins(LayoutDeviceIntMargin& aMargins) {
 }
 
 void nsWindow::SetDrawsInTitlebar(bool aState) {
+  LOG(("nsWindow::SetDrawsInTitlebar() [%p] State %d mCSDSupportLevel %d\n",
+       (void*)this, aState, (int)mCSDSupportLevel));
+
   if (!mShell || mCSDSupportLevel == CSD_SUPPORT_NONE ||
       aState == mDrawInTitlebar) {
     return;
@@ -6520,6 +6560,8 @@ void nsWindow::SetDrawsInTitlebar(bool aState) {
   if (mCSDSupportLevel == CSD_SUPPORT_SYSTEM) {
     SetWindowDecoration(aState ? eBorderStyle_border : mBorderStyle);
   } else if (mCSDSupportLevel == CSD_SUPPORT_CLIENT) {
+    LOG(("    Using CSD mode\n"));
+
     /* Window manager does not support GDK_DECOR_BORDER,
      * emulate it by CSD.
      *
@@ -7208,4 +7250,26 @@ GtkTextDirection nsWindow::GetTextDirection() {
   WritingMode wm = frame->GetWritingMode();
   bool isFrameRTL = !(wm.IsVertical() ? wm.IsVerticalLR() : wm.IsBidiLTR());
   return isFrameRTL ? GTK_TEXT_DIR_RTL : GTK_TEXT_DIR_LTR;
+}
+
+void nsWindow::LockAspectRatio(bool aShouldLock) {
+  if (aShouldLock) {
+    float width = (float)mBounds.Width();
+    float height = (float)mBounds.Height();
+
+    if (mCSDSupportLevel == CSD_SUPPORT_CLIENT) {
+      GtkBorder decorationSize;
+      GetCSDDecorationSize(GTK_WINDOW(mShell), &decorationSize);
+      width += decorationSize.left + decorationSize.right;
+      height += decorationSize.top + decorationSize.bottom;
+    }
+
+    mAspectRatio = width / height;
+    LOG(("nsWindow::LockAspectRatio() [%p] width %f height %f aspect %f\n",
+         (void*)this, width, height, mAspectRatio));
+  } else {
+    mAspectRatio = 0.0;
+    LOG(("nsWindow::LockAspectRatio() [%p] removed aspect ratio\n",
+         (void*)this));
+  }
 }

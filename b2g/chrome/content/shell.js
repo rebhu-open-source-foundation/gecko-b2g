@@ -213,9 +213,10 @@ document.addEventListener("DOMContentLoaded", function dom_loaded() {
   // debug(`Input Method implementation: ${Cc["@mozilla.org/b2g-inputmethod;1"].createInstance()}`);
 
   // Give the needed permissions to the system app.
-  ["browser", "input", "input-manage"].forEach(permission => {
-    Services.perms.add(Services.io.newURI(shell.startURL), permission, Services.perms.ALLOW_ACTION);
-  });
+  // TODO: switch to perms.addFromPrincipal if needed.
+  // ["browser", "input", "input-manage"].forEach(permission => {
+  //   Services.perms.add(Services.io.newURI(shell.startURL), permission, Services.perms.ALLOW_ACTION);
+  // });
 
   RemoteDebugger.init(window);
 

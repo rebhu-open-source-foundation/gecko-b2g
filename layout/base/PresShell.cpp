@@ -54,6 +54,7 @@
 #include "mozilla/dom/PopupBlocker.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentInlines.h"
+#include "mozilla/dom/UserActivation.h"
 #include "nsAnimationManager.h"
 #include "nsNameSpaceManager.h"  // for Pref-related rule management (bugs 22963,20760,31816)
 #include "nsFrame.h"
@@ -1002,6 +1003,7 @@ void PresShell::Init(Document* aDocument, nsPresContext* aPresContext,
         os->AddObserver(this, "sessionstore-one-or-no-tab-restored", false);
       }
       os->AddObserver(this, "font-info-updated", false);
+      os->AddObserver(this, "look-and-feel-pref-changed", false);
     }
   }
 
@@ -1246,6 +1248,7 @@ void PresShell::Destroy() {
         os->RemoveObserver(this, "sessionstore-one-or-no-tab-restored");
       }
       os->RemoveObserver(this, "font-info-updated");
+      os->RemoveObserver(this, "look-and-feel-pref-changed");
     }
   }
 
@@ -1835,7 +1838,6 @@ void PresShell::sPaintSuppressionCallback(nsITimer* aTimer, void* aPresShell) {
 }
 
 nsresult PresShell::ResizeReflow(nscoord aWidth, nscoord aHeight,
-                                 nscoord aOldWidth, nscoord aOldHeight,
                                  ResizeReflowOptions aOptions) {
   if (mZoomConstraintsClient) {
     // If we have a ZoomConstraintsClient and the available screen area
@@ -1853,14 +1855,14 @@ nsresult PresShell::ResizeReflow(nscoord aWidth, nscoord aHeight,
     return NS_OK;
   }
 
-  return ResizeReflowIgnoreOverride(aWidth, aHeight, aOldWidth, aOldHeight,
-                                    aOptions);
+  return ResizeReflowIgnoreOverride(aWidth, aHeight, aOptions);
 }
 
 void PresShell::SimpleResizeReflow(nscoord aWidth, nscoord aHeight,
-                                   nscoord aOldWidth, nscoord aOldHeight) {
+                                   ResizeReflowOptions aOptions) {
   MOZ_ASSERT(aWidth != NS_UNCONSTRAINEDSIZE);
   MOZ_ASSERT(aHeight != NS_UNCONSTRAINEDSIZE);
+  nsSize oldSize = mPresContext->GetVisibleArea().Size();
   mPresContext->SetVisibleArea(nsRect(0, 0, aWidth, aHeight));
   nsIFrame* rootFrame = GetRootFrame();
   if (!rootFrame) {
@@ -1868,7 +1870,7 @@ void PresShell::SimpleResizeReflow(nscoord aWidth, nscoord aHeight,
   }
   WritingMode wm = rootFrame->GetWritingMode();
   bool isBSizeChanging =
-      wm.IsVertical() ? aOldWidth != aWidth : aOldHeight != aHeight;
+      wm.IsVertical() ? oldSize.width != aWidth : oldSize.height != aHeight;
   if (isBSizeChanging) {
     nsLayoutUtils::MarkIntrinsicISizesDirtyIfDependentOnBSize(rootFrame);
   }
@@ -1877,18 +1879,18 @@ void PresShell::SimpleResizeReflow(nscoord aWidth, nscoord aHeight,
 
   // For compat with the old code path which always reflowed as long as there
   // was a root frame.
-  if (!mPresContext->SuppressingResizeReflow()) {
+  bool suppressReflow = (aOptions & ResizeReflowOptions::SuppressReflow) ||
+                        mPresContext->SuppressingResizeReflow();
+  if (!suppressReflow) {
     mDocument->FlushPendingNotifications(FlushType::InterruptibleLayout);
   }
 }
 
 nsresult PresShell::ResizeReflowIgnoreOverride(nscoord aWidth, nscoord aHeight,
-                                               nscoord aOldWidth,
-                                               nscoord aOldHeight,
                                                ResizeReflowOptions aOptions) {
   MOZ_ASSERT(!mIsReflowing, "Shouldn't be in reflow here!");
-
-  if (aWidth == aOldWidth && aHeight == aOldHeight) {
+  nsSize oldSize = mPresContext->GetVisibleArea().Size();
+  if (oldSize == nsSize(aWidth, aHeight)) {
     return NS_OK;
   }
 
@@ -1897,9 +1899,8 @@ nsresult PresShell::ResizeReflowIgnoreOverride(nscoord aWidth, nscoord aHeight,
   const bool initialized = mDidInitialize;
   RefPtr<PresShell> kungFuDeathGrip(this);
 
-  auto postResizeEventIfNeeded = [this, initialized, aOptions]() {
-    if (initialized && !mIsDestroying && !mResizeEventPending &&
-        !(aOptions & ResizeReflowOptions::SuppressResizeEvent)) {
+  auto postResizeEventIfNeeded = [this, initialized]() {
+    if (initialized && !mIsDestroying && !mResizeEventPending) {
       mResizeEventPending = true;
       if (MOZ_LIKELY(!mDocument->GetBFCacheEntry())) {
         mPresContext->RefreshDriver()->AddResizeEventFlushObserver(this);
@@ -1908,12 +1909,13 @@ nsresult PresShell::ResizeReflowIgnoreOverride(nscoord aWidth, nscoord aHeight,
   };
 
   if (!(aOptions & ResizeReflowOptions::BSizeLimit)) {
-    SimpleResizeReflow(aWidth, aHeight, aOldWidth, aOldHeight);
+    SimpleResizeReflow(aWidth, aHeight, aOptions);
     postResizeEventIfNeeded();
     return NS_OK;
   }
 
-  MOZ_ASSERT(!mPresContext->SuppressingResizeReflow(),
+  MOZ_ASSERT(!mPresContext->SuppressingResizeReflow() &&
+             !(aOptions & ResizeReflowOptions::SuppressReflow),
              "Can't suppress resize reflow and shrink-wrap at the same time");
 
   // Make sure that style is flushed before setting the pres context
@@ -2843,9 +2845,10 @@ void PresShell::SlotAssignmentWillChange(Element& aElement,
     return;
   }
 
-  // If the old slot is about to become empty, let layout know that it needs to
-  // do work.
-  if (aOldSlot && aOldSlot->AssignedNodes().Length() == 1) {
+  // If the old slot is about to become empty and show fallback, let layout know
+  // that it needs to do work.
+  if (aOldSlot && aOldSlot->AssignedNodes().Length() == 1 &&
+      aOldSlot->HasChildren()) {
     DestroyFramesForAndRestyle(aOldSlot);
   }
 
@@ -2856,7 +2859,7 @@ void PresShell::SlotAssignmentWillChange(Element& aElement,
   if (aNewSlot) {
     // If the new slot will stop showing fallback content, we need to reframe it
     // altogether.
-    if (aNewSlot->AssignedNodes().IsEmpty()) {
+    if (aNewSlot->AssignedNodes().IsEmpty() && aNewSlot->HasChildren()) {
       DestroyFramesForAndRestyle(aNewSlot);
       // Otherwise we just care about the element, but we need to ensure that
       // something takes care of traversing to the relevant slot, if needed.
@@ -4154,10 +4157,6 @@ void PresShell::DoFlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
       mFrameConstructor->RecalcQuotesAndCounters();
       viewManager->FlushDelayedResize(true);
       if (ProcessReflowCommands(flushType < FlushType::Layout)) {
-        // We didn't get interrupted. Go ahead and perform scroll anchor
-        // adjustments and scroll content into view
-        FlushPendingScrollAnchorAdjustments();
-
         if (mContentToScrollTo) {
           DoScrollContentIntoView();
           if (mContentToScrollTo) {
@@ -7755,7 +7754,7 @@ nsresult PresShell::EventHandler::HandleEventWithCurrentEventInfo(
   RecordEventPreparationPerformance(aEvent);
 
   AutoHandlingUserInputStatePusher userInpStatePusher(
-      EventStateManager::IsUserInteractionEvent(aEvent), aEvent);
+      UserActivation::IsUserInteractionEvent(aEvent), aEvent);
   AutoEventHandler eventHandler(aEvent, GetDocument());
   AutoPopupStatePusher popupStatePusher(
       PopupBlocker::GetEventPopupControlState(aEvent));
@@ -9031,8 +9030,8 @@ void PresShell::WillDoReflow() {
 void PresShell::DidDoReflow(bool aInterruptible) {
   HandlePostedReflowCallbacks(aInterruptible);
 
-  nsCOMPtr<nsIDocShell> docShell = mPresContext->GetDocShell();
-  if (docShell) {
+  AutoAssertNoFlush noReentrantFlush(*this);
+  if (nsCOMPtr<nsIDocShell> docShell = mPresContext->GetDocShell()) {
     DOMHighResTimeStamp now = GetPerformanceNowUnclamped();
     docShell->NotifyReflowObservers(aInterruptible, mLastReflowStart, now);
   }
@@ -9398,6 +9397,12 @@ bool PresShell::ProcessReflowCommands(bool aInterruptible) {
       interrupted = !mDirtyRoots.IsEmpty();
 
       overflowTracker.Flush();
+
+      if (!interrupted) {
+        // We didn't get interrupted. Go ahead and perform scroll anchor
+        // adjustments.
+        FlushPendingScrollAnchorAdjustments();
+      }
     }
 
     // Exiting the scriptblocker might have killed us
@@ -9492,6 +9497,11 @@ PresShell::Observe(nsISupports* aSubject, const char* aTopic,
 
   if (!nsCRT::strcmp(aTopic, "font-info-updated")) {
     mPresContext->ForceReflowForFontInfoUpdate();
+    return NS_OK;
+  }
+
+  if (!nsCRT::strcmp(aTopic, "look-and-feel-pref-changed")) {
+    ThemeChanged();
     return NS_OK;
   }
 

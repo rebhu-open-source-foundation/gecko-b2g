@@ -625,6 +625,19 @@ function findFrameSteps({ targetPoint, breakpointOffsets }) {
   return steps;
 }
 
+function findParentFrameEntryPoint(point) {
+  const hits = findChangeFrames(point.checkpoint, 0, "EnterFrame").filter(p => {
+    return p.position.frameIndex == point.position.frameIndex - 1;
+  });
+  const parentPoint = findClosestPoint(
+    hits,
+    point,
+    /* before */ true,
+    /* inclusive */ false
+  );
+  return { parentPoint };
+}
+
 function findEventFrameEntry({ checkpoint, progress }) {
   return findChangeFrames(checkpoint, 0, "EnterFrame").filter(point => {
     return point.progress == progress + 1;
@@ -973,6 +986,10 @@ const gManifestStartHandlers = {
     RecordReplayControl.manifestFinished(findFrameSteps(info));
   },
 
+  findParentFrameEntryPoint({ point }) {
+    RecordReplayControl.manifestFinished(findParentFrameEntryPoint(point));
+  },
+
   findEventFrameEntry(progress) {
     RecordReplayControl.manifestFinished({ rv: findEventFrameEntry(progress) });
   },
@@ -1054,7 +1071,10 @@ function ManifestStart(manifest) {
       dump(`Unknown manifest: ${JSON.stringify(manifest)}\n`);
     }
   } catch (e) {
-    printError("ManifestStart", e);
+    const msg = printError("ManifestStart", e);
+    RecordReplayControl.manifestFinished({
+      exception: `ManifestStart failed: ${msg}`,
+    });
   }
 }
 
@@ -1184,7 +1204,10 @@ function HitCheckpoint(id) {
   try {
     processManifestAfterCheckpoint(point);
   } catch (e) {
-    printError("AfterCheckpoint", e);
+    const msg = printError("AfterCheckpoint", e);
+    RecordReplayControl.manifestFinished({
+      exception: `AfterCheckpoint failed: ${msg}`,
+    });
   }
 }
 
@@ -1356,17 +1379,21 @@ function getObjectData(id) {
       rv.proxyTarget = convertValue(object.proxyTarget);
       rv.proxyHandler = convertValue(object.proxyHandler);
     }
-    if (object.errorMessageName) {
-      rv.errorMessageName = object.errorMessageName;
-    }
-    if (object.errorNotes) {
-      rv.errorNotes = object.errorNotes;
-    }
-    if (object.errorLineNumber) {
-      rv.errorLineNumber = object.errorLineNumber;
-    }
-    if (object.errorColumnNumber) {
-      rv.errorColumnNumber = object.errorColumnNumber;
+    try {
+      if (object.errorMessageName) {
+        rv.errorMessageName = object.errorMessageName;
+      }
+      if (object.errorNotes) {
+        rv.errorNotes = object.errorNotes;
+      }
+      if (object.errorLineNumber) {
+        rv.errorLineNumber = object.errorLineNumber;
+      }
+      if (object.errorColumnNumber) {
+        rv.errorColumnNumber = object.errorColumnNumber;
+      }
+    } catch (e) {
+      // Error getters can throw access denied errors.
     }
     if (CSSRule.isInstance(object.unsafeDereference())) {
       rv.isInstance = "CSSRule";
@@ -1751,8 +1778,20 @@ PreviewedObjects.prototype = {
 
     names.forEach(({ value }) => this.addValue(value, PropertyLevels.BASIC));
 
+    if (data.type != "declarative") {
+      this.addObject(data.object, PropertyLevels.BASIC);
+    }
+
     this.addObject(data.callee);
     this.addEnvironment(data.parent);
+  },
+
+  addCompletionValue(v) {
+    if (v.return) {
+      this.addValue(v.return);
+    } else if (v.throw) {
+      this.addValue(v.throw);
+    }
   },
 };
 
@@ -1810,6 +1849,11 @@ function getPauseData() {
     }
     rv.addObject(frame.callee, PropertyLevels.NONE);
     rv.addEnvironment(frame.environment, PropertyLevels.BASIC);
+  }
+
+  if (gPopFrameResult) {
+    rv.popFrameResult = convertCompletionValue(gPopFrameResult);
+    rv.addCompletionValue(gPopFrameResult);
   }
 
   return rv;
@@ -1968,10 +2012,6 @@ const gRequestHandlers = {
     return convertCompletionValue(rv);
   },
 
-  popFrameResult(request) {
-    return gPopFrameResult ? convertCompletionValue(gPopFrameResult) : {};
-  },
-
   findConsoleMessages(request) {
     return gConsoleMessages;
   },
@@ -2048,15 +2088,10 @@ const gRequestHandlers = {
 };
 
 function processRequest(request) {
-  try {
-    if (gRequestHandlers[request.type]) {
-      return gRequestHandlers[request.type](request);
-    }
-    return { exception: "No handler for " + request.type };
-  } catch (e) {
-    printError("processRequest", e);
-    return { exception: `Request failed: ${request.type}` };
+  if (gRequestHandlers[request.type]) {
+    return gRequestHandlers[request.type](request);
   }
+  throwError(`"No handler for ${request.type}`);
 }
 
 function printError(why, e) {
@@ -2067,6 +2102,7 @@ function printError(why, e) {
     msg = "Unknown";
   }
   dump(`Record/Replay Error: ${why}: ${msg}\n`);
+  return msg;
 }
 
 // eslint-disable-next-line no-unused-vars

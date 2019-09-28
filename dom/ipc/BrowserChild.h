@@ -447,8 +447,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
    * activated widget, retained layer tree, etc.  (Respectively,
    * made not visible.)
    */
-  MOZ_CAN_RUN_SCRIPT void UpdateVisibility(bool aForceRepaint);
-  MOZ_CAN_RUN_SCRIPT void MakeVisible(bool aForceRepaint);
+  MOZ_CAN_RUN_SCRIPT void UpdateVisibility();
+  MOZ_CAN_RUN_SCRIPT void MakeVisible();
   void MakeHidden();
 
   ContentChild* Manager() const { return mManager; }
@@ -586,8 +586,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                   const CSSRect& aRect, const uint32_t& aFlags);
 
   // Request that the docshell be marked as active.
-  void PaintWhileInterruptingJS(const layers::LayersObserverEpoch& aEpoch,
-                                bool aForceRepaint);
+  void PaintWhileInterruptingJS(const layers::LayersObserverEpoch& aEpoch);
 
   nsresult CanCancelContentJS(nsIRemoteTab::NavigationType aNavigationType,
                               int32_t aNavigationIndex, nsIURI* aNavigationURI,
@@ -663,6 +662,11 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   bool UpdateSessionStore(uint32_t aFlushId, bool aIsFinal = false);
 
+#ifdef XP_WIN
+  void UpdateIsWindowSupportingProtectedMedia(bool aIsSupported);
+  bool RequiresIsWindowSupportingProtectedMediaCheck(bool& aIsSupported);
+#endif
+
  protected:
   virtual ~BrowserChild();
 
@@ -672,8 +676,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   mozilla::ipc::IPCResult RecvRenderLayers(
-      const bool& aEnabled, const bool& aForce,
-      const layers::LayersObserverEpoch& aEpoch);
+      const bool& aEnabled, const layers::LayersObserverEpoch& aEpoch);
 
   mozilla::ipc::IPCResult RecvNavigateByKey(const bool& aForward,
                                             const bool& aForDocumentNavigation);
@@ -784,6 +787,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                                        nsIRequest* aRequest,
                                        Maybe<WebProgressData>& aWebProgressData,
                                        RequestData& aRequestData);
+  already_AddRefed<nsIWebBrowserChrome3> GetWebBrowserChromeActor();
 
   class DelayedDeleteRunnable;
 
@@ -908,6 +912,11 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   Maybe<LayoutDeviceToLayoutDeviceMatrix4x4> mChildToParentConversionMatrix;
   ScreenRect mRemoteDocumentRect;
+
+#ifdef XP_WIN
+  bool mWindowSupportsProtectedMedia;
+  bool mWindowSupportsProtectedMediaChecked;
+#endif
 
   // This state is used to keep track of the current visible tabs (the ones
   // rendering layers). There may be more than one if there are multiple browser

@@ -426,7 +426,6 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
     const env = new HighlighterEnvironment();
     env.initFromTargetActor(this._parent);
     const highlighter = new PausedDebuggerOverlay(env, {
-      showOverlayStepButtons: this._options.showOverlayStepButtons,
       resume: () => this.onResume({ resumeLimit: null }),
       stepOver: () => this.onResume({ resumeLimit: { type: "next" } }),
     });
@@ -436,6 +435,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
 
   showOverlay() {
     if (
+      this._options.shouldShowOverlay &&
       this.isPaused() &&
       this._parent.on &&
       this._parent.window.document &&
@@ -897,7 +897,11 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
         });
 
         if (thread.dbg.replaying) {
-          const offsets = findStepOffsets(parentFrame, rewinding);
+          const offsets = findStepOffsets(
+            parentFrame,
+            rewinding,
+            /* requireStepStart */ false
+          );
           parentFrame.setReplayingOnStep(onStep, offsets);
         } else {
           parentFrame.onStep = onStep;
@@ -1733,7 +1737,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
    *        The exception that was thrown in the debugger code.
    */
   uncaughtExceptionHook: function(exception) {
-    dumpn("Got an exception: " + exception.message + "\n" + exception.stack);
+    dump("Got an exception: " + exception.message + "\n" + exception.stack);
   },
 
   pauseForMutationBreakpoint: function(mutationType) {
@@ -1745,18 +1749,22 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
       throw new Error("Unexpected mutation breakpoint type");
     }
 
-    if (this.skipBreakpoints) {
-      return;
+    const frame = this.dbg.getNewestFrame();
+    if (!frame) {
+      return undefined;
     }
 
-    const frame = this.dbg.getNewestFrame();
-    if (frame) {
-      this._pauseAndRespond(frame, {
-        type: "mutationBreakpoint",
-        mutationType,
-        message: `DOM Mutation: '${mutationType}'`,
-      });
+    const location = this.sources.getFrameLocation(frame);
+
+    if (this.skipBreakpoints || this.sources.isBlackBoxed(location.sourceUrl)) {
+      return undefined;
     }
+
+    return this._pauseAndRespond(frame, {
+      type: "mutationBreakpoint",
+      mutationType,
+      message: `DOM Mutation: '${mutationType}'`,
+    });
   },
 
   /**

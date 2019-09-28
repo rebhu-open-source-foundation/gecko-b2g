@@ -497,17 +497,18 @@ pref("browser.tabs.delayHidingAudioPlayingIconMS", 3000);
   // Pref to control whether we use a separate privileged content process
   // for certain mozilla webpages (which are listed in the pref
   // browser.tabs.remote.separatedMozillaDomains).
-  pref("browser.tabs.remote.separatePrivilegedMozillaWebContentProcess", false);
+  pref("browser.tabs.remote.separatePrivilegedMozillaWebContentProcess", true);
   // This pref will cause assertions when a remoteType triggers a process switch
   // to a new remoteType it should not be able to trigger.
   pref("browser.tabs.remote.enforceRemoteTypeRestrictions", true);
 #endif
 
+// allow_eval_* is enabled on Firefox Desktop only at this
+// point in time
+pref("security.allow_eval_with_system_principal", false);
+pref("security.allow_eval_in_parent_process", false);
+
 #ifdef NIGHTLY_BUILD
-  // allow_eval_* is enabled on Firefox Desktop only at this
-  // point in time
-  pref("security.allow_eval_with_system_principal", false);
-  pref("security.allow_eval_in_parent_process", false);
   pref("browser.tabs.remote.useHTTPResponseProcessSelection", true);
 #else
   // Disabled outside of nightly due to bug 1554217
@@ -981,9 +982,6 @@ pref("app.support.baseURL", "https://support.mozilla.org/1/firefox/%VERSION%/%OS
   pref("app.feedback.baseURL", "https://input.mozilla.org/%LOCALE%/feedback/%APP%/%VERSION%/");
 #endif
 
-// base URL for web-based marketing pages
-pref("app.productInfo.baseURL", "https://www.mozilla.org/firefox/features/");
-
 // Name of alternate about: page for certificate errors (when undefined, defaults to about:neterror)
 pref("security.alternate_certificate_error_page", "certerror");
 
@@ -1455,6 +1453,9 @@ pref("identity.sync.tokenserver.uri", "https://token.services.mozilla.com/1.0/sy
 // This is now the prefered way of pointing to a custom FxA server, instead
 // of making changes to "identity.fxaccounts.*.uri".
 pref("identity.fxaccounts.autoconfig.uri", "");
+
+// URL for help link about Send Tab.
+pref("identity.sendtabpromo.url", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/send-tab");
 
 // URLs for promo links to mobile browsers. Note that consumers are expected to
 // append a value for utm_campaign.
@@ -1934,10 +1935,6 @@ pref("identity.fxaccounts.service.monitorLoginUrl", "https://monitor.firefox.com
   pref("corroborator.enabled", true);
 #endif
 
-// Disable WebIDE and ConnectPage by default (Bug 1539451)
-pref("devtools.webide.enabled", false);
-pref("devtools.connectpage.enabled", false);
-
 // Toolbox preferences
 pref("devtools.toolbox.footer.height", 250);
 pref("devtools.toolbox.sidebar.width", 500);
@@ -2005,6 +2002,10 @@ pref("devtools.gridinspector.maxHighlighters", 3);
 pref("devtools.layout.boxmodel.opened", true);
 // Whether or not the flexbox panel is opened in the layout view
 pref("devtools.layout.flexbox.opened", true);
+// Whether or not the flexbox container panel is opened in the layout view
+pref("devtools.layout.flex-container.opened", true);
+// Whether or not the flexbox item panel is opened in the layout view
+pref("devtools.layout.flex-item.opened", true);
 // Whether or not the grid inspector panel is opened in the layout view
 pref("devtools.layout.grid.opened", true);
 
@@ -2097,7 +2098,7 @@ pref("devtools.serviceWorkers.testing.enabled", false);
 // Enable the Network Monitor
 pref("devtools.netmonitor.enabled", true);
 
-// Enable Network Search in Nightly and DevEdition/Beta builds.
+// Enable Network Search in Nightly builds.
 #if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
   pref("devtools.netmonitor.features.search", true);
 #else
@@ -2356,12 +2357,5 @@ pref("devtools.popup.disable_autohide", false);
 // should be removed.
 pref("devtools.toolbox.content-frame", true);
 
-pref("devtools.webide.templatesURL", "https://code.cdn.mozilla.net/templates/list.json");
-pref("devtools.webide.autoinstallADBExtension", true);
-pref("devtools.webide.autoConnectRuntime", true);
-pref("devtools.webide.restoreLastProject", true);
-pref("devtools.webide.enableLocalRuntime", false);
-pref("devtools.webide.lastConnectedRuntime", "");
-pref("devtools.webide.lastSelectedProject", "");
-pref("devtools.webide.zoom", "1");
-pref("devtools.webide.busyTimeout", 10000);
+// FirstStartup service time-out in ms
+pref("first-startup.timeout", 30000);

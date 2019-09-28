@@ -318,6 +318,15 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
+#ifdef MOZ_UBSAN
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "ubsan", value)) {
+    return false;
+  }
+
 #ifdef JS_GC_ZEAL
   value = BooleanValue(true);
 #else
@@ -1794,6 +1803,27 @@ static bool DisableTrackAllocations(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+static bool SetTestFilenameValidationCallback(JSContext* cx, unsigned argc,
+                                              Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  // Accept all filenames that start with "safe". In system code also accept
+  // filenames starting with "system".
+  auto testCb = [](const char* filename, bool isSystemRealm) -> bool {
+    if (strstr(filename, "safe") == filename) {
+      return true;
+    }
+    if (isSystemRealm && strstr(filename, "system") == filename) {
+      return true;
+    }
+    return false;
+  };
+  JS::SetFilenameValidationCallback(testCb);
+
+  args.rval().setUndefined();
+  return true;
+}
+
 static void FinalizeExternalString(const JSStringFinalizer* fin,
                                    char16_t* chars);
 
@@ -2925,7 +2955,13 @@ static bool testingFunc_inJit(JSContext* cx, unsigned argc, Value* vp) {
 
   // Use frame iterator to inspect caller.
   FrameIter iter(cx);
-  MOZ_ASSERT(!iter.done());
+
+  // We may be invoked directly, not in a JS context, e.g. if inJit is added as
+  // a callback on the event queue.
+  if (iter.done()) {
+    args.rval().setBoolean(false);
+    return true;
+  }
 
   if (iter.hasScript()) {
     // Detect repeated attempts to compile, resetting the counter if inJit
@@ -2953,7 +2989,13 @@ static bool testingFunc_inIon(JSContext* cx, unsigned argc, Value* vp) {
 
   // Use frame iterator to inspect caller.
   FrameIter iter(cx);
-  MOZ_ASSERT(!iter.done());
+
+  // We may be invoked directly, not in a JS context, e.g. if inJson is added as
+  // a callback on the event queue.
+  if (iter.done()) {
+    args.rval().setBoolean(false);
+    return true;
+  }
 
   if (iter.hasScript()) {
     // Detect repeated attempts to compile, resetting the counter if inIon
@@ -3333,9 +3375,9 @@ bool js::testingFunc_serialize(JSContext* cx, unsigned argc, Value* vp) {
       }
 
       if (StringEqualsAscii(poli, "allow")) {
-        // default
+        policy.allowSharedMemory();
       } else if (StringEqualsAscii(poli, "deny")) {
-        policy.denySharedArrayBuffer();
+        // default
       } else {
         JS_ReportErrorASCII(cx, "Invalid policy value for 'SharedArrayBuffer'");
         return false;
@@ -4706,7 +4748,7 @@ static bool GetLcovInfo(JSContext* cx, unsigned argc, Value* vp) {
   UniqueChars content;
   {
     AutoRealm ar(cx, global);
-    content.reset(js::GetCodeCoverageSummary(cx, &length));
+    content = js::GetCodeCoverageSummary(cx, &length);
   }
 
   if (!content) {
@@ -6190,6 +6232,11 @@ static const JSFunctionSpecWithHelp TestingFunctions[] = {
 "disableTrackAllocations()",
 "  Stop capturing the JS stack at every allocation."),
 
+    JS_FN_HELP("setTestFilenameValidationCallback", SetTestFilenameValidationCallback, 0, 0,
+"setTestFilenameValidationCallback()",
+"  Set the filename validation callback to a callback that accepts only\n"
+"  filenames starting with 'safe' or (only in system realms) 'system'."),
+
     JS_FN_HELP("newExternalString", NewExternalString, 1, 0,
 "newExternalString(str)",
 "  Copies str's chars and returns a new external string."),
@@ -6592,7 +6639,7 @@ gc::ZealModeHelpText),
 "serialize(data, [transferables, [policy]])",
 "  Serialize 'data' using JS_WriteStructuredClone. Returns a structured\n"
 "  clone buffer object. 'policy' may be an options hash. Valid keys:\n"
-"    'SharedArrayBuffer' - either 'allow' (the default) or 'deny'\n"
+"    'SharedArrayBuffer' - either 'allow' or 'deny' (the default)\n"
 "      to specify whether SharedArrayBuffers may be serialized.\n"
 "    'scope' - SameProcessSameThread, SameProcessDifferentThread,\n"
 "      DifferentProcess, or DifferentProcessForIndexedDB. Determines how some\n"

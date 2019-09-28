@@ -2162,6 +2162,9 @@ already_AddRefed<RemoteBrowser> ContentChild::CreateBrowser(
   TabId tabId(nsContentUtils::GenerateTabId());
   RefPtr<BrowserBridgeChild> browserBridge =
       new BrowserBridgeChild(aFrameLoader, aBrowsingContext, tabId);
+
+  nsDocShell::Cast(docShell)->OOPChildLoadStarted(browserBridge);
+
   browserChild->SendPBrowserBridgeConstructor(
       browserBridge, PromiseFlatString(aContext.PresentationURL()), aRemoteType,
       aBrowsingContext, chromeFlags, tabId);
@@ -3772,7 +3775,7 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
     const ReplacementChannelConfigInit& aConfig,
     const Maybe<LoadInfoArgs>& aLoadInfo, const uint64_t& aChannelId,
     nsIURI* aOriginalURI, const uint64_t& aIdentifier,
-    const uint32_t& aRedirectMode) {
+    const uint32_t& aRedirectMode, CrossProcessRedirectResolver&& aResolve) {
   nsCOMPtr<nsILoadInfo> loadInfo;
   nsresult rv =
       mozilla::ipc::LoadInfoArgsToLoadInfo(aLoadInfo, getter_AddRefs(loadInfo));
@@ -3794,8 +3797,16 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
 
   // This is used to report any errors back to the parent by calling
   // CrossProcessRedirectFinished.
-  auto scopeExit =
-      MakeScopeExit([&]() { httpChild->CrossProcessRedirectFinished(rv); });
+  auto scopeExit = MakeScopeExit([&]() {
+    rv = httpChild->CrossProcessRedirectFinished(rv);
+    nsCOMPtr<nsILoadInfo> loadInfo;
+    MOZ_ALWAYS_SUCCEEDS(newChannel->GetLoadInfo(getter_AddRefs(loadInfo)));
+    Maybe<LoadInfoArgs> loadInfoArgs;
+    MOZ_ALWAYS_SUCCEEDS(
+        mozilla::ipc::LoadInfoToLoadInfoArgs(loadInfo, &loadInfoArgs));
+    aResolve(
+        Tuple<const nsresult&, const Maybe<LoadInfoArgs>&>(rv, loadInfoArgs));
+  });
 
   rv = httpChild->SetChannelId(aChannelId);
   if (NS_FAILED(rv)) {
@@ -4159,7 +4170,7 @@ mozilla::ipc::IPCResult ContentChild::RecvCommitBrowsingContextTransaction(
     return IPC_OK();
   }
 
-  if (!aTransaction.Validate(aContext, nullptr, aEpoch)) {
+  if (!aTransaction.ValidateEpochs(aContext, aEpoch)) {
     return IPC_FAIL(this, "Invalid BrowsingContext transaction from Parent");
   }
 

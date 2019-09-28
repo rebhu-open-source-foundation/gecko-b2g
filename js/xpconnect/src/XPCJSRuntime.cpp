@@ -397,11 +397,10 @@ static bool PrincipalImmuneToScriptPolicy(nsIPrincipal* aPrincipal) {
 
   // Check whether our URI is an "about:" URI that allows scripts.  If it is,
   // we need to allow JS to run.
-  nsCOMPtr<nsIURI> principalURI;
-  aPrincipal->GetURI(getter_AddRefs(principalURI));
-  MOZ_ASSERT(principalURI);
-
-  if (principalURI->SchemeIs("about")) {
+  if (aPrincipal->SchemeIs("about")) {
+    nsCOMPtr<nsIURI> principalURI;
+    aPrincipal->GetURI(getter_AddRefs(principalURI));
+    MOZ_ASSERT(principalURI);
     nsCOMPtr<nsIAboutModule> module;
     nsresult rv = NS_GetAboutModule(principalURI, getter_AddRefs(module));
     if (NS_SUCCEEDED(rv)) {
@@ -3017,20 +3016,21 @@ js::UniquePtr<EdgeRange> ReflectorNode::edges(JSContext* cx,
   if (!range) {
     return nullptr;
   }
-  // UNWRAP_OBJECT assumes the object is completely initialized, but ours
-  // may not be.  Luckily, UnwrapDOMObjectToISupports checks for the
-  // uninitialized case (and returns null if uninitialized), so we can use
-  // that to guard against uninitialized objects.
+  // UNWRAP_NON_WRAPPER_OBJECT assumes the object is completely initialized,
+  // but ours may not be. Luckily, UnwrapDOMObjectToISupports checks for the
+  // uninitialized case (and returns null if uninitialized), so we can use that
+  // to guard against uninitialized objects.
   nsISupports* supp = UnwrapDOMObjectToISupports(&get());
   if (supp) {
-    nsCOMPtr<nsINode> node;
-    UNWRAP_OBJECT(Node, &get(), node);
-    if (node) {
+    nsINode* node;
+    // UnwrapDOMObjectToISupports can only return non-null if its argument is
+    // an actual DOM object, not a cross-compartment wrapper.
+    if (NS_SUCCEEDED(UNWRAP_NON_WRAPPER_OBJECT(Node, &get(), node))) {
       char16_t* edgeName = nullptr;
       if (wantNames) {
         edgeName = NS_xstrdup(u"Reflected Node");
       }
-      if (!range->addEdge(Edge(edgeName, node.get()))) {
+      if (!range->addEdge(Edge(edgeName, node))) {
         return nullptr;
       }
     }

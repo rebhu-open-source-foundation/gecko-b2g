@@ -1927,17 +1927,6 @@ HttpBaseChannel::RedirectTo(nsIURI* targetURI) {
 }
 
 NS_IMETHODIMP
-HttpBaseChannel::SwitchProcessTo(mozilla::dom::Promise* aBrowserParent,
-                                 uint64_t aIdentifier) {
-  return NS_ERROR_NOT_AVAILABLE;
-}
-
-NS_IMETHODIMP
-HttpBaseChannel::HasCrossOriginOpenerPolicyMismatch(bool* aMismatch) {
-  return NS_ERROR_NOT_AVAILABLE;
-}
-
-NS_IMETHODIMP
 HttpBaseChannel::UpgradeToSecure() {
   // Upgrades are handled internally between http-on-modify-request and
   // http-on-before-connect, which means upgrades are only possible during
@@ -4484,8 +4473,8 @@ NS_IMETHODIMP HttpBaseChannel::GetCrossOriginOpenerPolicy(
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  // A document delivered over insecure HTTP will always lack COOP.
-  if (!mURI->SchemeIs("https")) {
+  // COOP headers are ignored for insecure-context loads.
+  if (!nsContentUtils::ComputeIsSecureContext(this)) {
     return NS_OK;
   }
 

@@ -56,10 +56,10 @@ from manifestparser.filters import (
 try:
     from marionette_driver.addons import Addons
     from marionette_harness import Marionette
-except ImportError as e:
+except ImportError as e:  # noqa
     # Defer ImportError until attempt to use Marionette
     def reraise(*args, **kwargs):
-        raise(e)
+        raise(e)  # noqa
     Marionette = reraise
 
 from leaks import ShutdownLeaks, LSANLeaks
@@ -2851,6 +2851,8 @@ toolbar#nav-bar {
 
                 self.log.info("runtests.py | Running with scheme: {}".format(scheme))
                 self.log.info("runtests.py | Running with e10s: {}".format(options.e10s))
+                self.log.info("runtests.py | Running with fission: {}".format(
+                    mozinfo.info.get('fission', False)))
                 self.log.info("runtests.py | Running with serviceworker_e10s: {}".format(
                     mozinfo.info.get('serviceworker_e10s', False)))
                 self.log.info("runtests.py | Running with socketprocess_e10s: {}".format(

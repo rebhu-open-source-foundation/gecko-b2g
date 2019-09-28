@@ -25,6 +25,7 @@
 #include "nsFileStreams.h"
 #include "nsHashKeys.h"
 #include "nsHttp.h"
+#include "nsMimeTypes.h"
 #include "nsIAsyncStreamCopier.h"
 #include "nsIAuthPrompt.h"
 #include "nsIAuthPrompt2.h"
@@ -2719,6 +2720,26 @@ void NS_SniffContent(const char* aSnifferType, nsIRequest* aRequest,
     return;
   }
 
+  // In case XCTO nosniff was present, we could just skip sniffing here
+  nsCOMPtr<nsIChannel> channel = do_QueryInterface(aRequest);
+  if (channel) {
+    nsCOMPtr<nsILoadInfo> loadInfo = channel->LoadInfo();
+    nsAutoCString currentContentType;
+    channel->GetContentType(currentContentType);
+    /* Bug 1571742
+     * We cannot skip snffing if the current MIME-Type is a JSON file.
+     * The JSON-Viewer relies on its own sniffer to determine, if it can render
+     * the page, so we need to make an exception if the Server provides a valid
+     * JSON-MIME.
+     */
+    if (loadInfo->GetSkipContentSniffing() &&
+        !currentContentType.Equals(APPLICATION_JSON) &&
+        !currentContentType.Equals(APPLICATION_WEB_MANIFEST) &&
+        !currentContentType.Equals(TEXT_JSON)) {
+      aSniffedType.Truncate();
+      return;
+    }
+  }
   nsCOMArray<nsIContentSniffer> sniffers;
   cache->GetEntries(sniffers);
   for (int32_t i = 0; i < sniffers.Count(); ++i) {
@@ -2730,35 +2751,6 @@ void NS_SniffContent(const char* aSnifferType, nsIRequest* aRequest,
   }
 
   aSniffedType.Truncate();
-
-  // If the Sniffers did not hit and NoSniff is set
-  // Check if we have any MIME Type at all or report an
-  // Error to the Console
-  nsCOMPtr<nsIHttpChannel> channel = do_QueryInterface(aRequest);
-  if (channel) {
-    nsCOMPtr<nsILoadInfo> loadInfo = channel->LoadInfo();
-
-    if (loadInfo->GetSkipContentSniffing()) {
-      nsAutoCString type;
-      channel->GetContentType(type);
-
-      if (type.Equals(nsCString("application/x-unknown-content-type"))) {
-        nsCOMPtr<nsIURI> requestUri;
-        channel->GetURI(getter_AddRefs(requestUri));
-        nsAutoCString spec;
-        requestUri->GetSpec(spec);
-        if (spec.Length() > 50) {
-          spec.Truncate(50);
-          spec.AppendLiteral("...");
-        }
-        channel->LogMimeTypeMismatch(
-            nsCString("XTCOWithMIMEValueMissing"), false,
-            NS_ConvertUTF8toUTF16(spec),
-            // Type is not used in the Error Message but required
-            NS_ConvertUTF8toUTF16(type));
-      }
-    }
-  }
 }
 
 bool NS_IsSrcdocChannel(nsIChannel* aChannel) {

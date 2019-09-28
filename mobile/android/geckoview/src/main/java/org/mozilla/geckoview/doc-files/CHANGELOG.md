@@ -20,18 +20,30 @@ exclude: true
   `onTelemetryReceived` has been renamed to [`onHistogram`][71.4], and
   [`Metric`][71.5] now takes a type parameter.
   ([bug 1576730]({{bugzilla}}1576730))
-- Added overloads of [`GeckoSession.loadUri()`][71.6] that accept a map of
+- Added overloads of [`GeckoSession.loadUri`][71.6] that accept a map of
   additional HTTP request headers.
-- Added support for exposing the content blocking log in [`ContentBlockingController`][71.7].({{bugzilla}}1580201)
+  ([bug 1567549]({{bugzilla}}1567549))
+- Added support for exposing the content blocking log in [`ContentBlockingController`][71.7].
+  ([bug 1580201]({{bugzilla}}1580201))
 - ⚠️  Added `nativeApp` to [`WebExtension.MessageDelegate.onMessage`][71.8] which
   exposes the native application identifier that was used to send the message.
-  ({{bugzilla}}1546445)
+  ([bug 1546445]({{bugzilla}}1546445))
 - Added [`GeckoRuntime.ServiceWorkerDelegate`][71.9] set via
-  ['setServiceWorkerDelegate'][71.10] to support ServiceWorkerClients.openWindow()
+  [`setServiceWorkerDelegate`][71.10] to support [`ServiceWorkerClients.openWindow`][71.11]
   ([bug 1511033]({{bugzilla}}1511033))
-- Added ['GeckoRuntimeSettings.Builder#aboutConfigEnabled'][71.11] to control whether or
+- Added [`GeckoRuntimeSettings.Builder#aboutConfigEnabled`][71.12] to control whether or
   not `about:config` should be available.
-- Added [`GeckoSession.ContentDelegate.onFirstContentfulPaint()`][71.12]
+  ([bug 1540065]({{bugzilla}}1540065))
+- Added [`GeckoSession.ContentDelegate.onFirstContentfulPaint`][71.13]
+  ([bug 1578947]({{bugzilla}}1578947))
+- Added `setEnhancedTrackingProtectionLevel` to [`ContentBlocking.Settings`][71.14].
+  ([bug 1580854]({{bugzilla}}1580854))
+- ⚠️ Added [`GeckoView.onTouchEventForResult`][71.15] and modified
+  [`PanZoomController.onTouchEvent`][71.16] to return how the touch event was handled. This
+  allows apps to know if an event is handled by touch event listeners in web content. The methods in `PanZoomController` now return `int` instead of `boolean`.
+- Added [`GeckoSession.purgeHistory`][71.17] allowing apps to clear a session's history.
+  ([bug 1583265]({{bugzilla}}1583265))
+
 [71.1]: {{javadoc_uri}}/RuntimeTelemetry.Delegate.html#onBooleanScalar-org.mozilla.geckoview.RuntimeTelemetry.Metric-
 [71.2]: {{javadoc_uri}}/RuntimeTelemetry.Delegate.html#onLongScalar-org.mozilla.geckoview.RuntimeTelemetry.Metric-
 [71.3]: {{javadoc_uri}}/RuntimeTelemetry.Delegate.html#onStringScalar-org.mozilla.geckoview.RuntimeTelemetry.Metric-
@@ -42,8 +54,12 @@ exclude: true
 [71.8]: {{javadoc_uri}}/WebExtension.MessageDelegate.html#onMessage-java.lang.String-java.lang.Object-org.mozilla.geckoview.WebExtension.MessageSender-
 [71.9]: {{javadoc_uri}}/GeckoRuntime.ServiceWorkerDelegate.html
 [71.10]: {{javadoc_uri}}/GeckoRuntime#setServiceWorkerDelegate-org.mozilla.geckoview.GeckoRuntime.ServiceWorkerDelegate-
-[71.11]: {{javadoc_uri}}/GeckoRuntimeSettings.Builder.html#aboutConfigEnabled-boolean-
-[71.12]: {{javadoc_uri}}/GeckoSession.ContentDelegate.html#onFirstContentfulPaint-org.mozilla.geckoview.GeckoSession-
+[71.11]: https://developer.mozilla.org/en-US/docs/Web/API/Clients/openWindow
+[71.12]: {{javadoc_uri}}/GeckoRuntimeSettings.Builder.html#aboutConfigEnabled-boolean-
+[71.13]: {{javadoc_uri}}/GeckoSession.ContentDelegate.html#onFirstContentfulPaint-org.mozilla.geckoview.GeckoSession-
+[71.15]: {{javadoc_uri}}/GeckoView.html#onTouchEventForResult-android.view.MotionEvent-
+[71.16]: {{javadoc_uri}}/PanZoomController.html#onTouchEvent-android.view.MotionEvent-
+[71.17]: {{javadoc_uri}}/GeckoSession.html#purgeHistory--
 
 ## v70
 - Added API for session context assignment
@@ -366,4 +382,4 @@ exclude: true
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport-android.content.Context-android.os.Bundle-java.lang.String-
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: 40441c6fcd77218d1d32b468894558141d8ccad9
+[api-version]: c588ee34768a61847786ba32b4cefdbe60eed774

@@ -39,7 +39,6 @@
 #include "nsFocusManager.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Assertions.h"
-#include "mozilla/EventStateManager.h"
 #include "mozilla/EventStates.h"
 #include "mozilla/HTMLEditor.h"
 #include "mozilla/PresShell.h"
@@ -48,6 +47,7 @@
 #include "mozilla/dom/DocumentType.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/MutationEventBinding.h"
+#include "mozilla/dom/UserActivation.h"
 #include "HTMLElementAccessibles.h"
 
 using namespace mozilla;
@@ -287,7 +287,7 @@ void DocAccessible::TakeFocus() const {
   // Focus the document.
   nsFocusManager* fm = nsFocusManager::GetFocusManager();
   RefPtr<dom::Element> newFocus;
-  AutoHandlingUserInputStatePusher inputStatePusher(true);
+  dom::AutoHandlingUserInputStatePusher inputStatePusher(true);
   fm->MoveFocus(mDocumentNode->GetWindow(), nullptr,
                 nsFocusManager::MOVEFOCUS_ROOT, 0, getter_AddRefs(newFocus));
 }
@@ -1189,6 +1189,16 @@ Accessible* DocAccessible::GetAccessibleOrContainer(
               !parentFrameContent->IsXULElement(nsGkAtoms::tabpanels)) {
             return nullptr;
           }
+        }
+      }
+    }
+
+    // Check if node is in zero-sized map
+    if (aNoContainerIfPruned && currNode->IsHTMLElement(nsGkAtoms::map)) {
+      if (nsIFrame* frame = currNode->AsContent()->GetPrimaryFrame()) {
+        if (nsLayoutUtils::GetAllInFlowRectsUnion(frame, frame->GetParent())
+                .IsEmpty()) {
+          return nullptr;
         }
       }
     }

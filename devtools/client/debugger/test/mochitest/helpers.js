@@ -553,6 +553,7 @@ async function clearDebuggerPreferences(prefs = []) {
  * @return {Promise} dbg
  * @static
  */
+
 async function initDebugger(url, ...sources) {
   await clearDebuggerPreferences();
   const toolbox = await openNewTabAndToolbox(EXAMPLE_URL + url, "jsdebugger");
@@ -862,6 +863,15 @@ function findBreakpoint(dbg, url, line) {
   return dbg.selectors.getBreakpointsForSource(source.id, line)[0];
 }
 
+// helper for finding column breakpoints.
+function findColumnBreakpoint(dbg, url, line, column) {
+  const source = findSource(dbg, url);
+  const lineBreakpoints = dbg.selectors.getBreakpointsForSource(source.id, line);
+  return lineBreakpoints.find(bp => {
+    return bp.generatedLocation.column === column;
+  });
+}
+
 async function loadAndAddBreakpoint(dbg, filename, line, column) {
   const {
     selectors: { getBreakpoint, getBreakpointCount, getBreakpointsMap },
@@ -1071,6 +1081,8 @@ const startKey = isMac
 const keyMappings = {
   close: { code: "w", modifiers: cmdOrCtrl },
   debugger: { code: "s", modifiers: shiftOrAlt },
+  // test conditional panel shortcut
+  toggleCondPanel: { code: "b", modifiers: cmdShift },
   inspector: { code: "c", modifiers: shiftOrAlt },
   quickOpen: { code: "p", modifiers: cmdOrCtrl },
   quickOpenFunc: { code: "o", modifiers: cmdShift },
@@ -1299,9 +1311,10 @@ const selectors = {
   threadsPaneItem: i => `.threads-pane .thread:nth-child(${i})`,
   threadsPaneItemPause: i => `${selectors.threadsPaneItem(i)} .pause-badge`,
   CodeMirrorLines: ".CodeMirror-lines",
-  inlinePreviewLables: ".CodeMirror-linewidget .inline-preview-label",
-  inlinePreviewValues: ".CodeMirror-linewidget .inline-preview-value",
+  inlinePreviewLabels: ".inline-preview .inline-preview-label",
+  inlinePreviewValues: ".inline-preview .inline-preview-value",
   inlinePreviewOpenInspector: ".inline-preview-value button.open-inspector",
+  watchpointsSubmenu: "#node-menu-watchpoints",
   addGetWatchpoint: "#node-menu-add-get-watchpoint",
   addSetWatchpoint: "#node-menu-add-set-watchpoint",
   removeWatchpoint: "#node-menu-remove-watchpoint",
@@ -1428,7 +1441,6 @@ function selectContextMenuItem(dbg, selector) {
 
 async function typeInPanel(dbg, text) {
   await waitForElement(dbg, "conditionalPanelInput");
-
   // Position cursor reliably at the end of the text.
   pressKey(dbg, "End");
   type(dbg, text);
@@ -1832,3 +1844,16 @@ function evaluateExpressionInConsole(hud, expression) {
 function waitForInspectorPanelChange(dbg) {
   return dbg.toolbox.getPanelWhenReady("inspector");
 }
+
+const { PromiseTestUtils } = ChromeUtils.import(
+  "resource://testing-common/PromiseTestUtils.jsm"
+);
+
+// Debugger operations that are canceled because they were rendered obsolete by
+// a navigation or pause/resume end up as uncaught rejections. These never
+// indicate errors and are whitelisted in all debugger tests.
+PromiseTestUtils.whitelistRejectionsGlobally(/Page has navigated/);
+PromiseTestUtils.whitelistRejectionsGlobally(/Current thread has changed/);
+PromiseTestUtils.whitelistRejectionsGlobally(
+  /Current thread has paused or resumed/
+);

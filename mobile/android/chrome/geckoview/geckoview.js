@@ -455,12 +455,6 @@ function startup() {
   const browser = createBrowser();
   ModuleManager.init(browser, [
     {
-      name: "GeckoViewAccessibility",
-      onInit: {
-        resource: "resource://gre/modules/GeckoViewAccessibility.jsm",
-      },
-    },
-    {
       name: "GeckoViewContent",
       onInit: {
         resource: "resource://gre/modules/GeckoViewContent.jsm",
@@ -478,6 +472,7 @@ function startup() {
       name: "GeckoViewNavigation",
       onInit: {
         resource: "resource://gre/modules/GeckoViewNavigation.jsm",
+        // TODO: frameScript only needed for Fennec
         frameScript: "chrome://geckoview/content/GeckoViewNavigationChild.js",
       },
     },

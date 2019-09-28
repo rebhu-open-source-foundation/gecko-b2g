@@ -5,7 +5,6 @@
 <!-- Privacy panel -->
 
 <script src="chrome://browser/content/preferences/in-content/privacy.js"/>
-<stringbundle id="bundlePreferences" src="chrome://browser/locale/preferences/preferences.properties"/>
 <stringbundle id="signonBundle" src="chrome://passwordmgr/locale/passwordmgr.properties"/>
 <html:template id="template-panePrivacy">
 <hbox id="browserPrivacyCategory"
@@ -452,15 +451,6 @@
                     preference="signon.generation.enabled"
                     flex="1" />
         </hbox>
-        <hbox class="indent" id="breachAlertsBox" flex="1" align="center">
-          <checkbox id="breachAlerts"
-                    class="tail-with-learn-more"
-                    data-l10n-id="forms-breach-alerts"
-                    search-l10n-ids="breach-alerts.label"
-                    preference="signon.management.page.breach-alerts.enabled"/>
-          <label id="breachAlertsLearnMoreLink" class="learnMore" is="text-link"
-              data-l10n-id="forms-breach-alerts-learn-more-link"/>
-        </hbox>
       </vbox>
       <vbox>
         <!-- Please don't remove the wrapping hbox/vbox/box for these elements. It's used to properly compute the search tooltip position. -->
@@ -487,6 +477,19 @@
         </hbox>
       </vbox>
     </hbox>
+    <hbox>
+      <vbox flex="1">
+        <hbox class="indent" id="breachAlertsBox" flex="1" align="center">
+          <checkbox id="breachAlerts"
+                    class="tail-with-learn-more"
+                    data-l10n-id="forms-breach-alerts"
+                    search-l10n-ids="breach-alerts.label"
+                    preference="signon.management.page.breach-alerts.enabled"/>
+          <label id="breachAlertsLearnMoreLink" class="learnMore" is="text-link"
+                 data-l10n-id="forms-breach-alerts-learn-more-link"/>
+        </hbox>
+      </vbox>
+    </hbox>
   </vbox>
   <hbox id="masterPasswordRow">
     <checkbox id="useMasterPassword"
@@ -500,6 +503,12 @@
               data-l10n-id="forms-master-pw-change"/>
     </hbox>
   </hbox>
+  <!--
+    Those two strings are meant to be invisible and will be used exclusively to provide
+    localization for an alert window.
+  -->
+  <label id="fips-title" hidden="true" data-l10n-id="forms-master-pw-fips-title"></label>
+  <label id="fips-desc" hidden="true" data-l10n-id="forms-master-pw-fips-desc"></label>
 </groupbox>
 
 <!-- The form autofill section is inserted in to this box

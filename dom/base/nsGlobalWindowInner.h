@@ -958,6 +958,8 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
     return GetExtantDoc() && GetExtantDoc()->IsInSyncOperation();
   }
 
+  bool CanShareMemory(const nsID& aAgentClusterId);
+
  protected:
   // Web IDL helpers
 

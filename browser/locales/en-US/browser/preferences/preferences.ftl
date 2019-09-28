@@ -318,6 +318,75 @@ applications-action-column =
     .label = Action
     .accesskey = A
 
+# Variables:
+#   $extension (String) - file extension (e.g .TXT)
+applications-file-ending = { $extension } file
+applications-action-save =
+    .label = Save File
+
+# Variables:
+#   $app-name (String) - Name of an application (e.g Adobe Acrobat)
+applications-use-app =
+    .label = Use { $app-name }
+
+# Variables:
+#   $app-name (String) - Name of an application (e.g Adobe Acrobat)
+applications-use-app-default =
+    .label = Use { $app-name } (default)
+
+applications-use-other =
+    .label = Use other…
+applications-select-helper = Select Helper Application
+
+applications-manage-app =
+    .label = Application Details…
+applications-always-ask =
+    .label = Always ask
+applications-type-pdf = Portable Document Format (PDF)
+
+# Variables:
+#   $type (String) - the MIME type (e.g application/binary)
+applications-type-pdf-with-type = { applications-type-pdf } ({ $type })
+
+# Variables:
+#   $type-description (String) - Description of the type (e.g "Portable Document Format")
+#   $type (String) - the MIME type (e.g application/binary)
+applications-type-description-with-type = { $type-description } ({ $type })
+
+# Variables:
+#   $plugin-name (String) - Name of a plugin (e.g Adobe Flash)
+applications-use-plugin-in =
+    .label = Use { $plugin-name } (in { -brand-short-name })
+applications-preview-inapp =
+    .label = Preview in { -brand-short-name }
+
+## The strings in this group are used to populate
+## selected label element based on the string from
+## the selected menu item.
+
+applications-use-plugin-in-label =
+    .value = { applications-use-plugin-in.label }
+
+applications-action-save-label =
+    .value = { applications-action-save.label }
+
+applications-use-app-label =
+    .value = { applications-use-app.label }
+
+applications-preview-inapp-label =
+    .value = { applications-preview-inapp.label }
+
+applications-always-ask-label =
+    .value = { applications-always-ask.label }
+
+applications-use-app-default-label =
+    .value = { applications-use-app-default.label }
+
+applications-use-other-label =
+    .value = { applications-use-other.label }
+
+##
+
 drm-content-header = Digital Rights Management (DRM) Content
 
 play-drm-content =
@@ -619,7 +688,8 @@ containers-preferences-button =
 containers-remove-button =
     .label = Remove
 
-## Sync Section - Signed out
+## Firefox Account - Signed out. Note that "Sync" and "Firefox Account" are now
+## more discrete ("signed in" no longer means "and sync is connected").
 
 sync-signedout-caption = Take Your Web With You
 sync-signedout-description = Synchronize your bookmarks, history, tabs, passwords, add-ons, and preferences across all your devices.
@@ -642,14 +712,14 @@ sync-signedout-account-signin =
 # to your language, but should not be changed or translated.
 sync-mobile-promo = Download Firefox for <img data-l10n-name="android-icon"/> <a data-l10n-name="android-link">Android</a> or <img data-l10n-name="ios-icon"/> <a data-l10n-name="ios-link">iOS</a> to sync with your mobile device.
 
-## Sync Section - Signed in
+## Firefox Account - Signed in
 
 sync-profile-picture =
     .tooltiptext = Change profile picture
 
-sync-disconnect =
-    .label = Disconnect…
-    .accesskey = D
+sync-sign-out =
+    .label = Sign Out…
+    .accesskey = g
 
 sync-manage-account = Manage account
     .accesskey = o
@@ -669,8 +739,51 @@ sync-sign-in =
     .label = Sign in
     .accesskey = g
 
-sync-signedin-settings-header = Sync Settings
-sync-signedin-settings-desc = Choose what to synchronize on your devices using { -brand-short-name }
+## Sync section - enabling or disabling sync.
+
+prefs-syncing-on = Syncing: ON
+
+prefs-syncing-off = Syncing: OFF
+
+prefs-sync-setup =
+    .label = Set Up { -sync-brand-short-name }…
+    .accesskey = S
+
+prefs-sync-offer-setup-label = Synchronize your bookmarks, history, tabs, passwords, add-ons, and preferences across all your devices.
+
+prefs-sync-now =
+    .labelnotsyncing = Sync Now
+    .accesskeynotsyncing = N
+    .labelsyncing = Syncing…
+
+## The list of things currently syncing.
+
+sync-currently-syncing-heading = You are currently syncing these items:
+
+sync-currently-syncing-bookmarks = Bookmarks
+sync-currently-syncing-history = History
+sync-currently-syncing-tabs = Open tabs
+sync-currently-syncing-logins-passwords = Logins and passwords
+sync-currently-syncing-addresses = Addresses
+sync-currently-syncing-creditcards = Credit cards
+sync-currently-syncing-addons = Add-ons
+sync-currently-syncing-prefs =
+    { PLATFORM() ->
+        [windows] Options
+       *[other] Preferences
+    }
+
+## The "Choose what to sync" dialog.
+
+sync-choose-what-to-sync-dialog =
+    .title = Choose What To Sync
+    .style = width: 36em; min-height: 35em;
+    .buttonlabelaccept = Save Changes
+    .buttonaccesskeyaccept = S
+    .buttonlabelextra2 = Disconnect…
+    .buttonaccesskeyextra2 = D
+
+sync-choose-heading = Choose what to sync to your account for devices using { -sync-brand-short-name }:
 
 sync-engine-bookmarks =
     .label = Bookmarks
@@ -685,8 +798,8 @@ sync-engine-tabs =
     .tooltiptext = A list of what’s open on all synced devices
     .accesskey = t
 
-sync-engine-logins =
-    .label = Logins
+sync-engine-logins-passwords =
+    .label = Logins and passwords
     .tooltiptext = Usernames and passwords you’ve saved
     .accesskey = L
 
@@ -714,6 +827,8 @@ sync-engine-prefs =
     .tooltiptext = General, Privacy, and Security settings you’ve changed
     .accesskey = s
 
+## The device name controls.
+
 sync-device-name-header = Device Name
 
 sync-device-name-change =
@@ -727,16 +842,6 @@ sync-device-name-cancel =
 sync-device-name-save =
     .label = Save
     .accesskey = v
-
-sync-connect-another-device = Connect another device
-
-sync-manage-devices = Manage devices
-
-sync-fxa-begin-pairing = Pair a device
-
-sync-tos-link = Terms of Service
-
-sync-fxa-privacy-notice = Privacy Notice
 
 ## Privacy Section
 
@@ -770,6 +875,9 @@ forms-master-pw-use =
 forms-master-pw-change =
     .label = Change Master Password…
     .accesskey = M
+
+forms-master-pw-fips-title = You are currently in FIPS mode. FIPS requires a non-empty Master Password.
+forms-master-pw-fips-desc = Password Change Failed
 
 ## Privacy Section - History
 

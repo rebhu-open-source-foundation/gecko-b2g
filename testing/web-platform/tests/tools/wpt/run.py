@@ -106,7 +106,7 @@ otherwise install OpenSSL and ensure that it's on your $PATH.""")
 
 
 def check_environ(product):
-    if product not in ("chrome", "firefox", "firefox_android", "servo"):
+    if product not in ("android_webview", "chrome", "chrome_android", "firefox", "firefox_android", "servo"):
         config_builder = serve.build_config(os.path.join(wpt_root, "config.json"))
         # Override the ports to avoid looking for free ports
         config_builder.ssl = {"type": "none"}
@@ -627,7 +627,7 @@ product_setup = {
 }
 
 
-def setup_logging(kwargs, default_config=None):
+def setup_logging(kwargs, default_config=None, formatter_defaults=None):
     import mozlog
     from wptrunner import wptrunner
 
@@ -640,7 +640,7 @@ def setup_logging(kwargs, default_config=None):
         else:
             default_formatter = "mach"
         default_config = {default_formatter: sys.stdout}
-    wptrunner.setup_logging(kwargs, default_config)
+    wptrunner.setup_logging(kwargs, default_config, formatter_defaults=formatter_defaults)
     logger = wptrunner.logger
     return logger
 

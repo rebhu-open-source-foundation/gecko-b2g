@@ -6,7 +6,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src chrome: blob:">
+    <meta http-equiv="Content-Security-Policy" content="default-src chrome: blob:; object-src 'none'">
     <link rel="localization" href="browser/branding/brandings.ftl"/>
     <link rel="localization" href="branding/brand.ftl"/>
     <link rel="localization" href="browser/branding/sync-brand.ftl">
@@ -171,7 +171,7 @@
                     <!-- Display number of exposed stored passwords here. -->
                   </span>
                   <span id="password-warning">
-                    <a target="_blank" href="about:logins" id="lockwise-link" data-l10n-name="lockwise-link"></a>
+                    <a target="_blank" href="about:logins?entryPoint=aboutprotections" id="lockwise-link" data-l10n-name="lockwise-link"></a>
                   </span>
                 </div>
               </div>

@@ -2244,6 +2244,10 @@ bitflags! {
         const IS_VISIBLE = 4;
         /// Is a backdrop-filter cluster that requires special handling during post_update.
         const IS_BACKDROP_FILTER = 8;
+        /// Force creation of a picture caching slice before this cluster.
+        const CREATE_PICTURE_CACHE_PRE = 16;
+        /// Force creation of a picture caching slice after this cluster.
+        const CREATE_PICTURE_CACHE_POST = 32;
     }
 }
 
@@ -2262,6 +2266,8 @@ pub struct PrimitiveCluster {
     pub prim_instances: Vec<PrimitiveInstance>,
     /// Various flags / state for this cluster.
     pub flags: ClusterFlags,
+    /// An optional scroll root to use if this cluster establishes a picture cache slice.
+    pub cache_scroll_root: Option<SpatialNodeIndex>,
 }
 
 /// Where to insert a prim instance in a primitive list.
@@ -2282,6 +2288,7 @@ impl PrimitiveCluster {
             spatial_node_index,
             flags,
             prim_instances: Vec::new(),
+            cache_scroll_root: None,
         }
     }
 
@@ -2299,7 +2306,6 @@ impl PrimitiveCluster {
         &mut self,
         prim_instance: PrimitiveInstance,
         prim_size: LayoutSize,
-        insert_position: PrimitiveListPosition,
     ) {
         let prim_rect = LayoutRect::new(
             prim_instance.prim_origin,
@@ -2310,15 +2316,7 @@ impl PrimitiveCluster {
             .unwrap_or_else(LayoutRect::zero);
 
         self.bounding_rect = self.bounding_rect.union(&culling_rect);
-
-        match insert_position {
-            PrimitiveListPosition::Begin => {
-                self.prim_instances.insert(0, prim_instance);
-            }
-            PrimitiveListPosition::End => {
-                self.prim_instances.push(prim_instance);
-            }
-        }
+        self.prim_instances.push(prim_instance);
     }
 }
 
@@ -2373,24 +2371,17 @@ impl PrimitiveList {
         // Insert the primitive into the first or last cluster as required
         match insert_position {
             PrimitiveListPosition::Begin => {
-                if let Some(cluster) = self.clusters.first_mut() {
-                    if cluster.is_compatible(spatial_node_index, flags) {
-                        cluster.push(prim_instance, prim_size, insert_position);
-                        return;
-                    }
-                }
-
                 let mut cluster = PrimitiveCluster::new(
                     spatial_node_index,
                     flags,
                 );
-                cluster.push(prim_instance, prim_size, insert_position);
+                cluster.push(prim_instance, prim_size);
                 self.clusters.insert(0, cluster);
             }
             PrimitiveListPosition::End => {
                 if let Some(cluster) = self.clusters.last_mut() {
                     if cluster.is_compatible(spatial_node_index, flags) {
-                        cluster.push(prim_instance, prim_size, insert_position);
+                        cluster.push(prim_instance, prim_size);
                         return;
                     }
                 }
@@ -2399,7 +2390,7 @@ impl PrimitiveList {
                     spatial_node_index,
                     flags,
                 );
-                cluster.push(prim_instance, prim_size, insert_position);
+                cluster.push(prim_instance, prim_size);
                 self.clusters.push(cluster);
             }
         }
@@ -2444,22 +2435,14 @@ impl PrimitiveList {
         self.clusters.is_empty()
     }
 
+    /// Add an existing cluster to this prim list
+    pub fn add_cluster(&mut self, cluster: PrimitiveCluster) {
+        self.clusters.push(cluster);
+    }
+
     /// Merge another primitive list into this one
     pub fn extend(&mut self, prim_list: PrimitiveList) {
         self.clusters.extend(prim_list.clusters);
-    }
-
-    /// Return the number of clusters in this prim list
-    pub fn len(&self) -> usize {
-        self.clusters.len()
-    }
-
-    /// Split this primitive list at the given cluster index
-    pub fn split_off(&mut self, index: usize) -> PrimitiveList {
-        let clusters = self.clusters.split_off(index);
-        PrimitiveList {
-            clusters
-        }
     }
 }
 
@@ -2524,10 +2507,19 @@ pub struct PicturePrimitive {
     /// composited into the parent picture.
     pub spatial_node_index: SpatialNodeIndex,
 
+    /// The conservative local rect of this picture. It is
+    /// built dynamically during the first picture traversal.
+    /// It is composed of already snapped primitives.
+    pub estimated_local_rect: LayoutRect,
+
     /// The local rect of this picture. It is built
-    /// dynamically during the first picture traversal. It
-    /// is composed of already snapped primitives.
-    pub local_rect: LayoutRect,
+    /// dynamically during the frame visibility update. It
+    /// differs from the estimated_local_rect because it
+    /// will not contain culled primitives, takes into
+    /// account surface inflation and the whole clip chain.
+    /// It is frequently the same, but may be quite
+    /// different depending on how much was culled.
+    pub precise_local_rect: LayoutRect,
 
     /// If false, this picture needs to (re)build segments
     /// if it supports segment rendering. This can occur
@@ -2552,7 +2544,8 @@ impl PicturePrimitive {
     ) {
         pt.new_level(format!("{:?}", self_index));
         pt.add_item(format!("cluster_count: {:?}", self.prim_list.clusters.len()));
-        pt.add_item(format!("local_rect: {:?}", self.local_rect));
+        pt.add_item(format!("estimated_local_rect: {:?}", self.estimated_local_rect));
+        pt.add_item(format!("precise_local_rect: {:?}", self.precise_local_rect));
         pt.add_item(format!("spatial_node_index: {:?}", self.spatial_node_index));
         pt.add_item(format!("raster_config: {:?}", self.raster_config));
         pt.add_item(format!("requested_composite_mode: {:?}", self.requested_composite_mode));
@@ -2670,7 +2663,8 @@ impl PicturePrimitive {
             is_backface_visible: flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE),
             requested_raster_space,
             spatial_node_index,
-            local_rect: LayoutRect::zero(),
+            estimated_local_rect: LayoutRect::zero(),
+            precise_local_rect: LayoutRect::zero(),
             tile_cache,
             options,
             segments_are_valid: false,
@@ -2774,7 +2768,7 @@ impl PicturePrimitive {
 
         match self.raster_config {
             Some(ref raster_config) => {
-                let pic_rect = PictureRect::from_untyped(&self.local_rect.to_untyped());
+                let pic_rect = PictureRect::from_untyped(&self.precise_local_rect.to_untyped());
 
                 let device_pixel_scale = frame_state
                     .surfaces[raster_config.surface_index.0]
@@ -3073,7 +3067,13 @@ impl PicturePrimitive {
                                 // picture cache task.
                                 let scissor_rect = tile.world_dirty_rect.translate(
                                     -tile.world_rect.origin.to_vector()
-                                ) * device_pixel_scale;
+                                );
+                                // The world rect is guaranteed to be device pixel aligned, by the tile
+                                // sizing code in tile::pre_update. However, there might be some
+                                // small floating point accuracy issues (these were observed on ARM
+                                // CPUs). Round the rect here before casting to integer device pixels
+                                // to ensure the scissor rect is correct.
+                                let scissor_rect = (scissor_rect * device_pixel_scale).round();
                                 let cache_item = frame_state.resource_cache.texture_cache.get(handle);
 
                                 let task = RenderTask::new_picture(
@@ -3689,16 +3689,18 @@ impl PicturePrimitive {
                 }
             }
 
-            self.local_rect = surface_rect;
+            // Set the estimated and precise local rects. The precise local rect
+            // may be changed again during frame visibility.
+            self.estimated_local_rect = surface_rect;
+            self.precise_local_rect = surface_rect;
 
             // Drop shadows draw both a content and shadow rect, so need to expand the local
             // rect of any surfaces to be composited in parent surfaces correctly.
             match raster_config.composite_mode {
                 PictureCompositeMode::Filter(Filter::DropShadows(ref shadows)) => {
                     for shadow in shadows {
-                        let content_rect = surface_rect;
-                        let shadow_rect = surface_rect.translate(shadow.offset);
-                        surface_rect = content_rect.union(&shadow_rect);
+                        let shadow_rect = self.estimated_local_rect.translate(shadow.offset);
+                        surface_rect = surface_rect.union(&shadow_rect);
                     }
                 }
                 _ => {}
@@ -3759,14 +3761,14 @@ impl PicturePrimitive {
                         // Basic brush primitive header is (see end of prepare_prim_for_render_inner in prim_store.rs)
                         //  [brush specific data]
                         //  [segment_rect, segment data]
-                        let shadow_rect = self.local_rect.translate(shadow.offset);
+                        let shadow_rect = self.precise_local_rect.translate(shadow.offset);
 
                         // ImageBrush colors
                         request.push(shadow.color.premultiplied());
                         request.push(PremultipliedColorF::WHITE);
                         request.push([
-                            self.local_rect.size.width,
-                            self.local_rect.size.height,
+                            self.precise_local_rect.size.width,
+                            self.precise_local_rect.size.height,
                             0.0,
                             0.0,
                         ]);
@@ -4166,9 +4168,12 @@ impl TileNode {
                 let world_rect = pic_to_world_mapper.map(&self.rect).unwrap();
                 let device_rect = world_rect * global_device_pixel_scale;
 
+                let outer_color = color.scale_alpha(0.6);
+                let inner_color = outer_color.scale_alpha(0.5);
                 scratch.push_debug_rect(
                     device_rect.inflate(-3.0, -3.0),
-                    color.scale_alpha(0.6),
+                    outer_color,
+                    inner_color
                 );
             }
             TileNodeKind::Node { ref children, .. } => {

@@ -480,7 +480,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "identity.fxaccounts.toolbar.enabled",
   false,
   (aPref, aOldVal, aNewVal) => {
-    showFxaToolbarMenu(aNewVal);
+    updateFxaToolbarMenu(aNewVal);
   }
 );
 
@@ -490,7 +490,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "identity.fxaccounts.toolbar.accessed",
   false,
   (aPref, aOldVal, aNewVal) => {
-    showFxaToolbarMenu(gFxaToolbarEnabled);
+    updateFxaToolbarMenu(gFxaToolbarEnabled);
   }
 );
 
@@ -500,7 +500,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "identity.fxaccounts.service.sendLoginUrl",
   false,
   (aPref, aOldVal, aNewVal) => {
-    showFxaToolbarMenu(gFxaToolbarEnabled);
+    updateFxaToolbarMenu(gFxaToolbarEnabled);
   }
 );
 
@@ -510,7 +510,17 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "identity.fxaccounts.service.monitorLoginUrl",
   false,
   (aPref, aOldVal, aNewVal) => {
-    showFxaToolbarMenu(gFxaToolbarEnabled);
+    updateFxaToolbarMenu(gFxaToolbarEnabled);
+  }
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "gFxaDeviceName",
+  "identity.fxaccounts.account.device.name",
+  false,
+  (aPref, aOldVal, aNewVal) => {
+    updateFxaToolbarMenu(gFxaToolbarEnabled);
   }
 );
 
@@ -520,7 +530,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "browser.messaging-system.fxatoolbarbadge.enabled",
   true,
   (aPref, aOldVal, aNewVal) => {
-    showFxaToolbarMenu(gFxaToolbarEnabled);
+    updateFxaToolbarMenu(gFxaToolbarEnabled);
   }
 );
 
@@ -639,7 +649,7 @@ var gNavigatorBundle = {
   },
 };
 
-function showFxaToolbarMenu(enable) {
+function updateFxaToolbarMenu(enable, isInitialUpdate = false) {
   // We only show the Firefox Account toolbar menu if the feature is enabled and
   // if sync is enabled.
   const syncEnabled = Services.prefs.getBoolPref(
@@ -660,7 +670,9 @@ function showFxaToolbarMenu(enable) {
     // We have to manually update the sync state UI when toggling the FxA toolbar
     // because it could show an invalid icon if the user is logged in and no sync
     // event was performed yet.
-    gSync.maybeUpdateUIState();
+    if (!isInitialUpdate) {
+      gSync.maybeUpdateUIState();
+    }
 
     Services.telemetry.setEventRecordingEnabled("fxa_avatar_menu", true);
 
@@ -685,6 +697,10 @@ function showFxaToolbarMenu(enable) {
     ).hidden = !gFxaMonitorLoginUrl;
     document.getElementById("fxa-menu-service-separator").hidden =
       !gFxaSendLoginUrl && !gFxaMonitorLoginUrl;
+
+    document.getElementById(
+      "fxa-menu-device-name-label"
+    ).value = gFxaDeviceName;
   } else {
     mainWindowEl.removeAttribute("fxatoolbarmenu");
   }
@@ -1797,7 +1813,7 @@ var gBrowserInit = {
 
     this._setInitialFocus();
 
-    showFxaToolbarMenu(gFxaToolbarEnabled);
+    updateFxaToolbarMenu(gFxaToolbarEnabled, true);
   },
 
   onLoad() {
@@ -2878,7 +2894,7 @@ function focusAndSelectUrlBar() {
 function openLocation(event) {
   if (window.location.href == AppConstants.BROWSER_CHROME_URL) {
     focusAndSelectUrlBar();
-    if (gURLBar.openViewOnFocus && !gURLBar.view.isOpen) {
+    if (gURLBar.openViewOnFocusForCurrentTab && !gURLBar.view.isOpen) {
       gURLBar.startQuery({ event });
     }
     return;
@@ -9162,7 +9178,7 @@ var ToolbarIconColor = {
     window.addEventListener("activate", this);
     window.addEventListener("deactivate", this);
     window.addEventListener("toolbarvisibilitychange", this);
-    Services.obs.addObserver(this, "lightweight-theme-styling-update");
+    window.addEventListener("windowlwthemeupdate", this);
 
     // If the window isn't active now, we assume that it has never been active
     // before and will soon become active such that inferFromText will be
@@ -9178,29 +9194,18 @@ var ToolbarIconColor = {
     window.removeEventListener("activate", this);
     window.removeEventListener("deactivate", this);
     window.removeEventListener("toolbarvisibilitychange", this);
-    Services.obs.removeObserver(this, "lightweight-theme-styling-update");
+    window.removeEventListener("windowlwthemeupdate", this);
   },
 
   handleEvent(event) {
     switch (event.type) {
-      case "activate": // falls through
+      case "activate":
       case "deactivate":
+      case "windowlwthemeupdate":
         this.inferFromText(event.type);
         break;
       case "toolbarvisibilitychange":
         this.inferFromText(event.type, event.visible);
-        break;
-    }
-  },
-
-  observe(aSubject, aTopic, aData) {
-    switch (aTopic) {
-      case "lightweight-theme-styling-update":
-        // inferFromText needs to run after LightweightThemeConsumer.jsm's
-        // lightweight-theme-styling-update observer.
-        setTimeout(() => {
-          this.inferFromText(aTopic);
-        }, 0);
         break;
     }
   },
@@ -9227,7 +9232,7 @@ var ToolbarIconColor = {
       case "fullscreen":
         this._windowState.fullscreen = reasonValue;
         break;
-      case "lightweight-theme-styling-update":
+      case "windowlwthemeupdate":
         // theme change, we'll need to recalculate all color values
         this._toolbarLuminanceCache.clear();
         break;
@@ -9410,10 +9415,10 @@ TabModalPromptBox.prototype = {
   },
 
   appendPrompt(args, onCloseCallback) {
-    let newPrompt = new TabModalPrompt(window);
+    let browser = this.browser;
+    let newPrompt = new TabModalPrompt(browser.ownerGlobal);
     this.prompts.set(newPrompt.element, newPrompt);
 
-    let browser = this.browser;
     browser.parentNode.insertBefore(
       newPrompt.element,
       browser.nextElementSibling

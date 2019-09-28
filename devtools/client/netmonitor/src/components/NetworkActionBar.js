@@ -9,8 +9,13 @@ const {
   Component,
   createFactory,
 } = require("devtools/client/shared/vendor/react");
+const {
+  connect,
+} = require("devtools/client/shared/redux/visibility-handler-connect");
 const { div } = require("devtools/client/shared/vendor/react-dom-factories");
 const { L10N } = require("../utils/l10n");
+const Actions = require("../actions/index");
+const { PANELS } = require("../constants");
 
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
@@ -26,18 +31,24 @@ loader.lazyGetter(this, "SearchPanel", function() {
 });
 
 loader.lazyGetter(this, "RequestBlockingPanel", function() {
-  return createFactory(require("./RequestBlockingPanel"));
+  return createFactory(require("./request-blocking/RequestBlockingPanel"));
 });
 
 class NetworkActionBar extends Component {
   static get propTypes() {
     return {
       connector: PropTypes.object.isRequired,
+      selectedActionBarTabId: PropTypes.string,
+      selectActionBarTab: PropTypes.func.isRequired,
     };
   }
 
   render() {
-    const { connector } = this.props;
+    const {
+      connector,
+      selectedActionBarTabId,
+      selectActionBarTab,
+    } = this.props;
 
     // The request blocking and search panels are available behind a pref
     const showBlockingPanel = Services.prefs.getBoolPref(
@@ -50,7 +61,10 @@ class NetworkActionBar extends Component {
     return div(
       { className: "network-action-bar" },
       Tabbar(
-        {},
+        {
+          activeTabId: selectedActionBarTabId,
+          onSelect: id => selectActionBarTab(id),
+        },
         showSearchPanel &&
           TabPanel(
             {
@@ -63,7 +77,7 @@ class NetworkActionBar extends Component {
         showBlockingPanel &&
           TabPanel(
             {
-              id: "network-action-bar-blocked",
+              id: PANELS.BLOCKING,
               title: L10N.getStr("netmonitor.actionbar.requestBlocking"),
               className: "network-action-bar-blocked",
             },
@@ -74,4 +88,11 @@ class NetworkActionBar extends Component {
   }
 }
 
-module.exports = NetworkActionBar;
+module.exports = connect(
+  state => ({
+    selectedActionBarTabId: state.ui.selectedActionBarTabId,
+  }),
+  dispatch => ({
+    selectActionBarTab: id => dispatch(Actions.selectActionBarTab(id)),
+  })
+)(NetworkActionBar);

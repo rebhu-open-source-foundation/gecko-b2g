@@ -36,7 +36,6 @@
 /* ::::: root elements ::::: */
 
 window,
-page,
 dialog,
 wizard {
   background-color: -moz-Dialog;
@@ -229,6 +228,10 @@ label[disabled="true"] {
 
 .text-link:-moz-focusring {
   outline: 1px dotted;
+}
+
+html|input {
+  margin: 2px 4px; /* matches xul <textbox> default margin */
 }
 
 popupnotificationcontent {

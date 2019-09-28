@@ -1255,7 +1255,8 @@ void nsFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
       }
     }
 
-    if (mInScrollAnchorChain && needAnchorSuppression) {
+    if (mInScrollAnchorChain && needAnchorSuppression &&
+        StaticPrefs::layout_css_scroll_anchoring_suppressions_enabled()) {
       ScrollAnchorContainer::FindFor(this)->SuppressAdjustments();
     }
   }
@@ -2407,6 +2408,11 @@ void nsFrame::DisplayOutlineUnconditional(nsDisplayListBuilder* aBuilder,
   MOZ_ASSERT(!IsTableColGroupFrame() && !IsTableColFrame());
 
   if (!StyleOutline()->ShouldPaintOutline()) {
+    return;
+  }
+
+  // Outlines are painted by the table wrapper frame.
+  if (IsTableFrame()) {
     return;
   }
 

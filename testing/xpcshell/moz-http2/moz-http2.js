@@ -64,7 +64,7 @@ var newTransform = function (frame, encoding, done) {
     // Insert our empty DATA frame
     emptyFrame = {};
     emptyFrame.type = 'DATA';
-    emptyFrame.data = new Buffer(0);
+    emptyFrame.data = Buffer.alloc(0);
     emptyFrame.flags = [];
     emptyFrame.stream = frame.stream;
     var buffers = [];
@@ -168,7 +168,7 @@ var originalCompressHeaders = Compressor.prototype.compress;
 
 function insertSoftIllegalHpack(headers) {
   var originalCompressed = originalCompressHeaders.apply(this, headers);
-  var illegalLiteral = new Buffer([
+  var illegalLiteral = Buffer.from([
       0x00, // Literal, no index
       0x08, // Name: not huffman encoded, 8 bytes long
       0x3a, 0x69, 0x6c, 0x6c, 0x65, 0x67, 0x61, 0x6c, // :illegal
@@ -177,7 +177,7 @@ function insertSoftIllegalHpack(headers) {
       0x52, 0x45, 0x41, 0x4c, 0x4c, 0x59, 0x20, 0x4e, 0x4f, 0x54, 0x20, 0x4c, 0x45, 0x47, 0x41, 0x4c
   ]);
   var newBufferLength = originalCompressed.length + illegalLiteral.length;
-  var concatenated = new Buffer(newBufferLength);
+  var concatenated = Buffer.alloc(newBufferLength);
   originalCompressed.copy(concatenated, 0);
   illegalLiteral.copy(concatenated, originalCompressed.length);
   return concatenated;
@@ -193,7 +193,7 @@ function insertHardIllegalHpack(headers) {
   // Set the first bit to 1 to signal this is an indexed representation
   illegalIndexed[0] |= 0x80;
   var newBufferLength = originalCompressed.length + illegalIndexed.length;
-  var concatenated = new Buffer(newBufferLength);
+  var concatenated = Buffer.alloc(newBufferLength);
   originalCompressed.copy(concatenated, 0);
   illegalIndexed.copy(concatenated, originalCompressed.length);
   return concatenated;
@@ -365,7 +365,7 @@ function handleRequest(req, res) {
       'content-encoding' : 'br',
       'X-Connection-Http2': 'yes'
     });
-    push3.end(new Buffer([0x8b, 0x00, 0x80, 0x33, 0x0a, 0x03])); // '3\n'
+    push3.end(Buffer.from([0x8b, 0x00, 0x80, 0x33, 0x0a, 0x03])); // '3\n'
 
     content = '0';
   }
@@ -545,12 +545,12 @@ function handleRequest(req, res) {
     var content;
     if(0 == cname_confirm) {
       // ... this sends a CNAME back to pointing-elsewhere.example.com
-      content = new Buffer("00000100000100010000000005636E616D65076578616D706C6503636F6D0000050001C00C0005000100000037002012706F696E74696E672D656C73657768657265076578616D706C6503636F6D00", "hex");
+      content = Buffer.from("00000100000100010000000005636E616D65076578616D706C6503636F6D0000050001C00C0005000100000037002012706F696E74696E672D656C73657768657265076578616D706C6503636F6D00", "hex");
       cname_confirm++;
     }
     else {
       // ... this sends an A 99.88.77.66 entry back for pointing-elsewhere.example.com
-      content = new Buffer("00000100000100010000000012706F696E74696E672D656C73657768657265076578616D706C6503636F6D0000010001C00C0001000100000037000463584D42", "hex");
+      content = Buffer.from("00000100000100010000000012706F696E74696E672D656C73657768657265076578616D706C6503636F6D0000010001C00C0001000100000037000463584D42", "hex");
     }
     res.setHeader('Content-Type', 'application/dns-message');
     res.setHeader('Content-Length', content.length);
@@ -587,7 +587,7 @@ function handleRequest(req, res) {
 
     if (u.query["push"]) {
       // push.example.com has AAAA entry 2018::2018
-      var pcontent= new Buffer("0000010000010001000000000470757368076578616D706C6503636F6D00001C0001C00C001C000100000037001020180000000000000000000000002018", "hex");
+      var pcontent= Buffer.from("0000010000010001000000000470757368076578616D706C6503636F6D00001C0001C00C001C000100000037001020180000000000000000000000002018", "hex");
       push = res.push({
         hostname: 'foo.example.com:' + serverPort,
         port: serverPort,
@@ -606,7 +606,7 @@ function handleRequest(req, res) {
       push.end(pcontent);
     }
 
-    let payload = new Buffer("");
+    let payload = Buffer.from("");
 
     function emitResponse(response, requestPayload) {
       let packet = dnsPacket.decode(requestPayload);
@@ -716,7 +716,7 @@ function handleRequest(req, res) {
     // for here.example.com
     var content;
 
-    content = new Buffer("0000" +
+    content = Buffer.from("0000" +
                          "0100" +
                          "0001" + // QDCOUNT
                          "0002" + // ANCOUNT
@@ -757,7 +757,7 @@ function handleRequest(req, res) {
   }
   // for use with test_esni_dns_fetch.js
   else if (u.pathname === "/esni-dns") {
-    content = new Buffer("0000" +
+    content = Buffer.from("0000" +
                          "8180" +
                          "0001" + // QDCOUNT
                          "0001" + // ANCOUNT
@@ -784,10 +784,10 @@ function handleRequest(req, res) {
   // for use with test_esni_dns_fetch.js
   else if (u.pathname === "/esni-dns-push") {
     // _esni_push.example.com has A entry 127.0.0.1
-    var content= new Buffer("0000010000010001000000000A5F65736E695F70757368076578616D706C6503636F6D0000010001C00C000100010000003700047F000001", "hex");
+    var content= Buffer.from("0000010000010001000000000A5F65736E695F70757368076578616D706C6503636F6D0000010001C00C000100010000003700047F000001", "hex");
 
     // _esni_push.example.com has TXT entry 2062586B67646D39705932556761584D6762586B676347467A63336476636D513D
-    var pcontent= new Buffer("0000818000010001000000000A5F65736E695F70757368076578616D706C6503636F6D0000100001C00C001000010000003700212062586B67646D39705932556761584D6762586B676347467A63336476636D513D", "hex");
+    var pcontent= Buffer.from("0000818000010001000000000A5F65736E695F70757368076578616D706C6503636F6D0000100001C00C001000010000003700212062586B67646D39705932556761584D6762586B676347467A63336476636D513D", "hex");
 
     push = res.push({
       hostname: 'foo.example.com:' + serverPort,
@@ -1145,12 +1145,6 @@ function handleRequest(req, res) {
     return;
   }
 
-  else if (u.pathname === "/proxy-session-counter") {
-    // Incremented with every newly created session on the proxy
-    res.end(proxy_session_count.toString());
-    return;
-  }
-
   res.setHeader('Content-Type', 'text/html');
   if (req.httpVersionMajor != 2) {
     res.setHeader('Connection', 'close');
@@ -1181,20 +1175,87 @@ server.on('connection', function(socket) {
   });
 });
 
+function makeid(length) {
+   var result           = '';
+   var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+   var charactersLength = characters.length;
+   for ( var i = 0; i < length; i++ ) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+   }
+   return result;
+}
 
-var proxy = http2_internal ? http2_internal.createSecureServer(options) : null;
-var proxy_session_count = 0;
-
-if (http2_internal) {
-  proxy.on('session', () => {
-    // Can be queried directly on the h2 server under "/proxy-session-counter"
-    ++proxy_session_count;
+let globalObjects = {}
+function startNewProxy() {
+  if (!http2_internal) {
+    throw new Error("http2_internal is null");
+  }
+  let myProxy = http2_internal ? http2_internal.createSecureServer(options) : null;
+  if (!myProxy) {
+    throw new Error("proxy creation failed");
+  }
+  setupProxy(myProxy);
+  return listen(myProxy).then(port => {
+    let serverId = makeid(6);
+    globalObjects[serverId] = myProxy;
+    return {name: serverId, port: port, success: true};
   });
+}
+
+function closeProxy(id) {
+  let proxy = globalObjects[id];
+  if (!proxy) {
+    return;
+  }
+  delete globalObjects[id];
+  proxy.closeSockets();
+  return new Promise(resolve => {
+    proxy.close(resolve);
+  });
+}
+
+function proxySessionCount(id) {
+  let proxy = globalObjects[id];
+  if (!proxy) {
+    return 0;
+  }
+  return proxy.proxy_session_count;
+}
+
+function setupProxy(proxy) {
+  if (!http2_internal) {
+    throw new Error("http2_internal is null");
+  }
+  if (!proxy) {
+    throw new Error("proxy is null");
+  }
+  proxy.proxy_session_count = 0;
+  proxy.on('session', () => {
+    ++proxy.proxy_session_count;
+  });
+
+  // We need to track active connections so we can forcefully close keep-alive
+  // connections when shutting down the proxy.
+  proxy.socketIndex = 0;
+  proxy.socketMap = {};
+  proxy.on('connection', function(socket) {
+    let index = proxy.socketIndex++;
+    proxy.socketMap[index] = socket;
+    socket.on('close', function() {
+        delete proxy.socketMap[index];
+    });
+  });
+  proxy.closeSockets = function() {
+    for (let i in proxy.socketMap) {
+      proxy.socketMap[i].destroy();
+    }
+  }
 
   proxy.on('stream', (stream, headers) => {
     if (headers[':method'] !== 'CONNECT') {
       // Only accept CONNECT requests
-      stream.close(http2.constants.NGHTTP2_REFUSED_STREAM);
+      stream.respond({ ':status': 405 });
+      stream.end();
       return;
     }
 
@@ -1238,7 +1299,8 @@ if (http2_internal) {
         socket.pipe(stream);
         stream.pipe(socket);
       } catch (exception) {
-        stream.close(http2.constants.NGHTTP2_STREAM_CLOSED);
+        console.log(exception);
+        stream.close(http2_internal.constants.NGHTTP2_STREAM_CLOSED);
       }
     });
     socket.on('error', (error) => {
@@ -1263,15 +1325,66 @@ const listen = (server, envport) => {
     }
   }
   return new Promise(resolve => {
-    server.listen(portSelection, "0.0.0.0", 200, () => {
+    server.listen(portSelection, "0.0.0.0", 2000, () => {
       resolve(server.address().port);
     });
   });
 }
 
+const http = require("http");
+let httpServer = http.createServer((req, res) => {
+  if (req.method != "POST") {
+    res.writeHead(405);
+    res.end('Unexpected method: ' + req.method);
+    return;
+  }
+
+  let code = "";
+  req.on('data', function receivePostData(chunk) {
+    code += chunk;
+  });
+  req.on('end', function finishPost() {
+    let output =  "";
+    let evalResult = null;
+    try {
+      evalResult = eval(code);
+
+      if (evalResult instanceof Promise) {
+        evalResult
+          .then(x => sendBackResponse(x))
+          .catch(e => sendBackResponse(undefined, e));
+        return;
+      }
+    } catch (e) {
+      sendBackResponse(undefined, e);
+      return;
+    }
+
+
+    function sendBackResponse(evalResult, e) {
+      let output = { result: evalResult, error: "", errorStack: ""};
+      if (e) {
+        output.error = e.toString();
+        output.errorStack = e.stack;
+      }
+      output = JSON.stringify(output);
+
+      res.setHeader('Content-Length', output.length);
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(200);
+      res.write(output);
+      res.end("");
+    }
+
+    sendBackResponse(evalResult);
+  });
+
+  return;
+});
+
 Promise.all([
   listen(server, process.env.MOZHTTP2_PORT).then(port => serverPort = port),
-  listen(proxy, process.env.MOZHTTP2_PROXY_PORT)
-]).then(([serverPort, proxyPort]) => {
-  console.log(`HTTP2 server listening on ports ${serverPort},${proxyPort}`);
+  listen(httpServer, process.env.MOZNODE_EXEC_PORT)
+]).then(([serverPort, nodeExecPort]) => {
+  console.log(`HTTP2 server listening on ports ${serverPort},${nodeExecPort}`);
 });

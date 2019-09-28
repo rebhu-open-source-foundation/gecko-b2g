@@ -1152,6 +1152,11 @@ class nsContentUtils {
    */
   static nsresult GenerateUUIDInPlace(nsID& aUUID);
 
+  /**
+   * Infallable (with an assertion) helper function that generates a UUID.
+   */
+  static nsID GenerateUUID();
+
   static bool PrefetchPreloadEnabled(nsIDocShell* aDocShell);
 
   static void ExtractErrorValues(JSContext* aCx, JS::Handle<JS::Value> aValue,
@@ -1951,11 +1956,12 @@ class nsContentUtils {
   static bool OfflineAppAllowed(nsIPrincipal* aPrincipal);
 
   /**
-   * Determine whether the principal is allowed access to the localization
-   * system. We don't want the web to ever see this but all our UI including in
-   * content pages should pass this test.
+   * Determine whether the principal or document is allowed access to the
+   * localization system. We don't want the web to ever see this but all our UI
+   * including in content pages should pass this test.
    */
-  static bool PrincipalAllowsL10n(nsIPrincipal* aPrincipal);
+  static bool PrincipalAllowsL10n(nsIPrincipal* aPrincipal,
+                                  nsIURI* aDocumentURI);
 
   /**
    * Increases the count of blockers preventing scripts from running.
@@ -2816,14 +2822,15 @@ class nsContentUtils {
       bool* aPreventDefault, bool aIsDOMEventSynthesized,
       bool aIsWidgetEventSynthesized);
 
-  static void FirePageShowEvent(nsIDocShellTreeItem* aItem,
-                                mozilla::dom::EventTarget* aChromeEventHandler,
-                                bool aFireIfShowing,
-                                bool aOnlySystemGroup = false);
+  static void FirePageShowEventForFrameLoaderSwap(
+      nsIDocShellTreeItem* aItem,
+      mozilla::dom::EventTarget* aChromeEventHandler, bool aFireIfShowing,
+      bool aOnlySystemGroup = false);
 
-  static void FirePageHideEvent(nsIDocShellTreeItem* aItem,
-                                mozilla::dom::EventTarget* aChromeEventHandler,
-                                bool aOnlySystemGroup = false);
+  static void FirePageHideEventForFrameLoaderSwap(
+      nsIDocShellTreeItem* aItem,
+      mozilla::dom::EventTarget* aChromeEventHandler,
+      bool aOnlySystemGroup = false);
 
   static already_AddRefed<nsPIWindowRoot> GetWindowRoot(Document* aDoc);
 
@@ -2896,6 +2903,13 @@ class nsContentUtils {
    * https://fetch.spec.whatwg.org/#concept-response-https-state
    */
   static bool HttpsStateIsModern(Document* aDocument);
+
+  /**
+   * Returns true if the channel is for top-level window and is over secure
+   * context.
+   * https://github.com/whatwg/html/issues/4930 tracks the spec side of this.
+   */
+  static bool ComputeIsSecureContext(nsIChannel* aChannel);
 
   /**
    * Try to upgrade an element.
@@ -3130,6 +3144,11 @@ class nsContentUtils {
    */
   static bool HighPriorityEventPendingForTopLevelDocumentBeforeContentfulPaint(
       Document* aDocument);
+
+  /**
+   * We need a JSContext to get prototypes inside CallerInnerWindow.
+   */
+  static nsGlobalWindowInner* CallerInnerWindow(JSContext* aCx);
 
  private:
   static bool InitializeEventTable();

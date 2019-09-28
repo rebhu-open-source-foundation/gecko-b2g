@@ -295,8 +295,12 @@ struct DIGroup {
   IntRect mInvalidRect;
   nsRect mGroupBounds;
   LayerIntRect mVisibleRect;
+  // This is the last visible rect sent to WebRender. It's used
+  // to compute the invalid rect and ensure that we send
+  // the appropriate data to WebRender for merging.
   LayerIntRect mLastVisibleRect;
-  // this is the intersection of mVisibleRect and mLastVisibleRect
+
+  // This is the intersection of mVisibleRect and mLastVisibleRect
   // we ensure that mInvalidRect is contained in mPreservedRect
   IntRect mPreservedRect;
   int32_t mAppUnitsPerDevPixel;
@@ -630,6 +634,7 @@ struct DIGroup {
             mKey.value().second(),
             ViewAs<ImagePixel>(mVisibleRect,
                                PixelCastJustification::LayerIsImage));
+        mLastVisibleRect = mVisibleRect;
         PushImage(aBuilder, itemBounds);
       }
       return;
@@ -741,6 +746,7 @@ struct DIGroup {
     aResources.SetBlobImageVisibleArea(
         mKey.value().second(),
         ViewAs<ImagePixel>(mVisibleRect, PixelCastJustification::LayerIsImage));
+    mLastVisibleRect = mVisibleRect;
     PushImage(aBuilder, itemBounds);
     GP("End EndGroup\n\n");
   }
@@ -1217,35 +1223,16 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
   nsDisplayItem* startOfCurrentGroup = item;
   while (item) {
     if (IsItemProbablyActive(item, mDisplayListBuilder)) {
-      currentGroup->EndGroup(aCommandBuilder->mManager, aDisplayListBuilder,
-                             aBuilder, aResources, this, startOfCurrentGroup,
-                             item);
-
-      {
-        MOZ_ASSERT(item->GetType() != DisplayItemType::TYPE_RENDER_ROOT);
-        auto spaceAndClipChain = mClipManager.SwitchItem(item);
-        wr::SpaceAndClipChainHelper saccHelper(aBuilder, spaceAndClipChain);
-
-        sIndent++;
-        // Note: this call to CreateWebRenderCommands can recurse back into
-        // this function.
-        RenderRootStateManager* manager =
-            aCommandBuilder->mManager->GetRenderRootStateManager(
-                aBuilder.GetRenderRoot());
-        bool createdWRCommands = item->CreateWebRenderCommands(
-            aBuilder, aResources, aSc, manager, mDisplayListBuilder);
-        sIndent--;
-        MOZ_RELEASE_ASSERT(
-            createdWRCommands,
-            "active transforms should always succeed at creating "
-            "WebRender commands");
-      }
-
+      // We're going to be starting a new group.
       RefPtr<WebRenderGroupData> groupData =
           aCommandBuilder->CreateOrRecycleWebRenderUserData<WebRenderGroupData>(
               item, aBuilder.GetRenderRoot());
 
-      // Initialize groupData->mFollowingGroup
+      // Initialize groupData->mFollowingGroup with data from currentGroup.
+      // We want to copy out this information before calling EndGroup because
+      // EndGroup will set mLastVisibleRect depending on whether
+      // we send something to WebRender.
+
       // TODO: compute the group bounds post-grouping, so that they can be
       // tighter for just the sublist that made it into this group.
       // We want to ensure the tight bounds are still clipped by area
@@ -1281,6 +1268,30 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
       groupData->mFollowingGroup.mVisibleRect = currentGroup->mVisibleRect;
       groupData->mFollowingGroup.mLastVisibleRect = currentGroup->mLastVisibleRect;
       groupData->mFollowingGroup.mPreservedRect = currentGroup->mPreservedRect;
+
+      currentGroup->EndGroup(aCommandBuilder->mManager, aDisplayListBuilder,
+                             aBuilder, aResources, this, startOfCurrentGroup,
+                             item);
+
+      {
+        MOZ_ASSERT(item->GetType() != DisplayItemType::TYPE_RENDER_ROOT);
+        auto spaceAndClipChain = mClipManager.SwitchItem(item);
+        wr::SpaceAndClipChainHelper saccHelper(aBuilder, spaceAndClipChain);
+
+        sIndent++;
+        // Note: this call to CreateWebRenderCommands can recurse back into
+        // this function.
+        RenderRootStateManager* manager =
+            aCommandBuilder->mManager->GetRenderRootStateManager(
+                aBuilder.GetRenderRoot());
+        bool createdWRCommands = item->CreateWebRenderCommands(
+            aBuilder, aResources, aSc, manager, mDisplayListBuilder);
+        sIndent--;
+        MOZ_RELEASE_ASSERT(
+            createdWRCommands,
+            "active transforms should always succeed at creating "
+            "WebRender commands");
+      }
 
       currentGroup = &groupData->mFollowingGroup;
 
@@ -1440,16 +1451,6 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
   bool snapped;
   nsRect groupBounds =
       aWrappingItem->GetUntransformedBounds(aDisplayListBuilder, &snapped);
-  // We don't want to restrict the size of the blob to the building rect of the
-  // display item, since that will change when we scroll and trigger a resize
-  // invalidation of the blob (will be fixed by blob recoordination).
-  // Instead we retrieve the bounds of the overflow clip on the <svg> and use
-  // that to restrict our size and prevent invisible content from affecting
-  // our bounds.
-  if (mClippedGroupBounds) {
-    groupBounds = groupBounds.Intersect(mClippedGroupBounds.value());
-    mClippedGroupBounds = Nothing();
-  }
   DIGroup& group = groupData->mSubGroup;
 
   gfx::Size scale = aSc.GetInheritedScale();
@@ -1529,7 +1530,6 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
   group.mResidualOffset = residualOffset;
   group.mGroupBounds = groupBounds;
   group.mLayerBounds = layerBounds;
-  group.mLastVisibleRect = group.mVisibleRect;
   group.mVisibleRect = visibleRect;
   group.mPreservedRect = group.mVisibleRect.Intersect(group.mLastVisibleRect).ToUnknownRect();
   group.mAppUnitsPerDevPixel = appUnitsPerDevPixel;
@@ -1760,25 +1760,6 @@ void WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
         // animated geometry root, so we can combine subsequent items of that
         // type into the same image.
         mContainsSVGGroup = mDoGrouping = true;
-        if (aWrappingItem &&
-            aWrappingItem->GetType() == DisplayItemType::TYPE_TRANSFORM) {
-          // Inline <svg> should always have an overflow clip, but it gets put
-          // outside the nsDisplayTransform we create for scaling the svg
-          // viewport. Converting the clip into inner coordinates lets us
-          // restrict the size of the blob images and prevents unnecessary
-          // resizes.
-          nsDisplayTransform* transform =
-              static_cast<nsDisplayTransform*>(aWrappingItem);
-
-          nsRect clippedBounds =
-              transform->GetClippedBounds(aDisplayListBuilder);
-          nsRect innerClippedBounds;
-          DebugOnly<bool> result = transform->UntransformRect(
-              aDisplayListBuilder, clippedBounds, &innerClippedBounds);
-          MOZ_ASSERT(result);
-
-          mClippedGroupBounds = Some(innerClippedBounds);
-        }
         GP("attempting to enter the grouping code\n");
       }
 

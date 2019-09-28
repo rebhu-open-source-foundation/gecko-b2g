@@ -13,6 +13,7 @@
 #include "mozilla/WeakPtr.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/LocationBase.h"
+#include "mozilla/dom/UserActivation.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIDocShell.h"
@@ -212,12 +213,14 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   already_AddRefed<BrowsingContext> GetOpener() const {
     RefPtr<BrowsingContext> opener(Get(mOpenerId));
     if (!mIsDiscarded && opener && !opener->mIsDiscarded) {
+      MOZ_DIAGNOSTIC_ASSERT(opener->mType == mType);
       return opener.forget();
     }
     return nullptr;
   }
   void SetOpener(BrowsingContext* aOpener) {
     MOZ_DIAGNOSTIC_ASSERT(!aOpener || aOpener->Group() == Group());
+    MOZ_DIAGNOSTIC_ASSERT(!aOpener || aOpener->mType == mType);
     SetOpenerId(aOpener ? aOpener->Id() : 0);
   }
 
@@ -279,10 +282,19 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
   // activation flag of the top level browsing context.
   void NotifyResetUserGestureActivation();
 
+  // Return true if its corresponding document has been activated by user
+  // gesture.
+  bool HasBeenUserGestureActivated();
+
   // Return true if its corresponding document has transient user gesture
   // activation and the transient user gesture activation haven't yet timed
   // out.
   bool HasValidTransientUserGestureActivation();
+
+  // Return true if the corresponding document has valid transient user gesture
+  // activation and the transient user gesture activation had been consumed
+  // successfully.
+  bool ConsumeTransientUserGestureActivation();
 
   // Return the window proxy object that corresponds to this browsing context.
   inline JSObject* GetWindowProxy() const { return mWindowProxy; }
@@ -363,13 +375,16 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
     nsresult Commit(BrowsingContext* aOwner);
 
     // This method should be called before invoking `Apply` on this transaction
-    // object.
+    // object in the original process, and the parent process.
     //
     // |aSource| is the ContentParent which is performing the mutation in the
     // parent process.
-    MOZ_MUST_USE bool Validate(BrowsingContext* aOwner, ContentParent* aSource,
-                               uint64_t aEpoch);
     MOZ_MUST_USE bool Validate(BrowsingContext* aOwner, ContentParent* aSource);
+
+    // This method shold be called before invoking `Apply` on this transaction
+    // object in child processes messaged by the parent process. It clears out
+    // out-of-date sets resolving epoch conflicts.
+    MOZ_MUST_USE bool ValidateEpochs(BrowsingContext* aOwner, uint64_t aEpoch);
 
     // You probably don't want to directly call this method - instead call
     // `Commit`, which will perform the necessary synchronization.
@@ -503,13 +518,15 @@ class BrowsingContext : public nsWrapperCache, public BrowsingContextBase {
     return true;
   }
 
-  // Ensure that we only set the flag on the top level browsing context.
-  void DidSetIsActivatedByUserGesture();
+  void DidSetUserActivationState();
 
   // Ensure that we only set the flag on the top level browsingContext.
   // And then, we do a pre-order walk in the tree to refresh the
   // volume of all media elements.
   void DidSetMuted();
+
+  bool MaySetEmbedderInnerWindowId(const uint64_t& aValue,
+                                   ContentParent* aSource);
 
   // Type of BrowsingContent
   const Type mType;

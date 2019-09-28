@@ -779,9 +779,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
                 this
               );
             }
-            this.consoleProgressListener.startMonitor(
-              this.consoleProgressListener.MONITOR_FILE_ACTIVITY
-            );
+            this.consoleProgressListener.startMonitor();
             startedListeners.push(event);
           }
           break;
@@ -889,9 +887,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
           break;
         case "FileActivity":
           if (this.consoleProgressListener) {
-            this.consoleProgressListener.stopMonitor(
-              this.consoleProgressListener.MONITOR_FILE_ACTIVITY
-            );
+            this.consoleProgressListener.stopMonitor();
             this.consoleProgressListener = null;
           }
           stoppedListeners.push(event);
@@ -1973,6 +1969,24 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       "debug:unblock-request",
       "debug:unblock-request:response",
       { filter }
+    );
+
+    return {};
+  },
+
+  /**
+   * Sets the list of blocked request URLs as provided by the netmonitor frontend
+   *
+   * This match will be a (String).includes match, not an exact URL match
+   *
+   * @param object filter
+   *   An object containing a `url` key with a URL to unblock.
+   */
+  async setBlockedUrls(urls) {
+    await this._sendMessageToNetmonitors(
+      "debug:set-blocked-urls",
+      "debug:set-blocked-urls:response",
+      { urls }
     );
 
     return {};

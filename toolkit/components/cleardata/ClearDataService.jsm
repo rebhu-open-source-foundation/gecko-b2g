@@ -84,7 +84,6 @@ const CookieCleaner = {
             cookie.host,
             cookie.name,
             cookie.path,
-            false,
             cookie.originAttributes
           );
           // We don't want to block the main-thread.
@@ -575,9 +574,9 @@ const QuotaCleaner = {
       let principal = principals.queryElementAt(i, Ci.nsIPrincipal);
 
       if (
-        principal.URI.scheme != "http" &&
-        principal.URI.scheme != "https" &&
-        principal.URI.scheme != "file"
+        !principal.schemeIs("http") &&
+        !principal.schemeIs("https") &&
+        !principal.schemeIs("file")
       ) {
         continue;
       }
@@ -617,9 +616,9 @@ const QuotaCleaner = {
                 item.origin
               );
               if (
-                principal.URI.scheme == "http" ||
-                principal.URI.scheme == "https" ||
-                principal.URI.scheme == "file"
+                principal.schemeIs("http") ||
+                principal.schemeIs("https") ||
+                principal.schemeIs("file")
               ) {
                 promises.push(
                   new Promise((aResolve, aReject) => {

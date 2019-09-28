@@ -4905,7 +4905,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   while (topParent && topParent->GetBrowserBridgeParent()) {
     topParent = topParent->GetBrowserBridgeParent()->Manager();
   }
-  BrowserHost* thisBrowserHost =
+  RefPtr<BrowserHost> thisBrowserHost =
       topParent ? topParent->GetBrowserHost() : nullptr;
   MOZ_ASSERT_IF(topParent, thisBrowserHost);
 
@@ -5045,8 +5045,8 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   }
 
   MOZ_ASSERT(aNewRemoteTab);
-  BrowserHost* newBrowserHost = BrowserHost::GetFrom(aNewRemoteTab.get());
-  BrowserParent* newBrowserParent = newBrowserHost->GetActor();
+  RefPtr<BrowserHost> newBrowserHost = BrowserHost::GetFrom(aNewRemoteTab);
+  RefPtr<BrowserParent> newBrowserParent = newBrowserHost->GetActor();
 
   // At this point, it's possible the inserted frameloader hasn't gone through
   // layout yet. To ensure that the dimensions that we send down when telling
@@ -5126,7 +5126,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
     aResolve(cwi);
   });
 
-  BrowserParent* newTab = BrowserParent::GetFrom(aNewTab);
+  RefPtr<BrowserParent> newTab = BrowserParent::GetFrom(aNewTab);
   MOZ_ASSERT(newTab);
 
   auto destroyNewTabOnError = MakeScopeExit([&] {
@@ -5580,13 +5580,12 @@ void ContentParent::SendGetFilesResponseAndForget(
 }
 
 void ContentParent::PaintTabWhileInterruptingJS(
-    BrowserParent* aBrowserParent, bool aForceRepaint,
-    const layers::LayersObserverEpoch& aEpoch) {
+    BrowserParent* aBrowserParent, const layers::LayersObserverEpoch& aEpoch) {
   if (!mHangMonitorActor) {
     return;
   }
-  ProcessHangMonitor::PaintWhileInterruptingJS(
-      mHangMonitorActor, aBrowserParent, aForceRepaint, aEpoch);
+  ProcessHangMonitor::PaintWhileInterruptingJS(mHangMonitorActor,
+                                               aBrowserParent, aEpoch);
 }
 
 void ContentParent::CancelContentJSExecutionIfRunning(

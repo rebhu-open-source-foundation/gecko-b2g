@@ -417,12 +417,7 @@ static bool IsSystemOrChromeURLPrincipal(nsIPrincipal* aPrincipal) {
   if (nsContentUtils::IsSystemPrincipal(aPrincipal)) {
     return true;
   }
-
-  nsCOMPtr<nsIURI> uri;
-  aPrincipal->GetURI(getter_AddRefs(uri));
-  NS_ENSURE_TRUE(uri, false);
-
-  return uri->SchemeIs("chrome");
+  return aPrincipal->SchemeIs("chrome");
 }
 
 // This function loads a particular XBL file and installs all of the bindings
@@ -455,7 +450,7 @@ nsresult nsXBLService::LoadBindings(Element* aElement, nsIURI* aURL,
   // in AllowXULXBL() documents in content process in production without
   // knowing.
   if (XRE_IsContentProcess() &&
-      IsSystemOrChromeURLPrincipal(aOriginPrincipal) && aElement->OwnerDoc() &&
+      IsSystemOrChromeURLPrincipal(aOriginPrincipal) &&
       !aElement->OwnerDoc()->AllowXULXBL()) {
     MOZ_ASSERT(false, "Unexpected XBL binding used in the content process");
   }

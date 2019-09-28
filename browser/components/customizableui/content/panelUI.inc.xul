@@ -396,11 +396,11 @@
                        label="&webDeveloperMenu.label;"
                        closemenu="none"
                        oncommand="PanelUI.showSubView('PanelUI-developer', this)"/>
-       <toolbarbutton id="appMenu-whatsnew-button"
-                      class="subviewbutton subviewbutton-iconic subviewbutton-nav"
-                      hidden="true"
-                      closemenu="none"
-                      oncommand="PanelUI.showSubView('PanelUI-whatsNew', this)"/>
+        <toolbarbutton id="appMenu-whatsnew-button"
+                       class="subviewbutton subviewbutton-iconic subviewbutton-nav"
+                       hidden="true"
+                       closemenu="none"
+                       oncommand="PanelUI.showSubView('PanelUI-whatsNew', this)"/>
         <toolbarbutton id="appMenu-help-button"
                        class="subviewbutton subviewbutton-iconic subviewbutton-nav"
                        label="&appMenuHelp.label;"
@@ -786,6 +786,27 @@
                        oncommand="gSync.openSendFromFxaMenu(this);"/>
       </vbox>
     </panelview>
+
+    <panelview id="PanelUI-fxa-menu-account-panel" flex="1" title="&fxa.menu.settings.label;" class="PanelUI-subView" descriptionheightworkaround="true">
+      <vbox class="panel-subview-body">
+        <toolbarbutton id="PanelUI-fxa-menu-account-settings-button"
+                      class="subviewbutton subviewbutton-iconic"
+                      label="&fxa.menu.accountSettings.label;"
+                      type="open-to-new"
+                      oncommand="gSync.openFxAManagePageFromFxaMenu(this)"/>
+        <toolbarseparator/>
+        <label id="fxa-menu-device-name-label" class="subview-subheader"/>
+        <toolbarbutton id="PanelUI-fxa-menu-account-devices-button"
+                       class="subviewbutton subviewbutton-iconic"
+                       label="&fxa.menu.deviceSettings.label;"
+                       oncommand="gSync.openDevicesManagementPage('fxamenu');"/>
+        <toolbarseparator/>
+        <toolbarbutton id="PanelUI-fxa-menu-account-signout-button"
+                class="subviewbutton subviewbutton-iconic"
+                label="&fxa.menu.signOut.label;"
+                oncommand="gSync.disconnect();"/>
+      </vbox>
+    </panelview>
     <!-- This panelview is used to contain the dynamically created buttons for send tab to devices -->
     <panelview id="PanelUI-sendTabToDevice" flex="1" class="PanelUI-subView">
       <vbox class="panel-subview-body">
@@ -840,14 +861,9 @@
 
     <panelview id="PanelUI-whatsNew" class="PanelUI-subView">
       <vbox class="panel-subview-body">
-        <box id="PanelUI-whatsNew-title" class="panel-header">
-          <label/>
-        </box>
         <toolbaritem id="PanelUI-whatsNew-content"
                      orient="vertical"
-                     smoothscroll="false"
-                     flatList="true"
-                     tooltip="bhTooltip">
+                     smoothscroll="false">
           <html:div id="PanelUI-whatsNew-message-container" role="document">
             <!-- What's New messages will be rendered here -->
           </html:div>
