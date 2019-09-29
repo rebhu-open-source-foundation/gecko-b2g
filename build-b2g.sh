@@ -2,6 +2,8 @@
 
 set -e
 
+export RUSTUP_TOOLCHAIN=1.37.0
+
 # Check that the GONK_PATH environment variable is set.
 if [ -z ${GONK_PATH+x} ];
 then
@@ -70,7 +72,7 @@ export JS_BINARY=`pwd`/jsshell/js
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r17c
+export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b
 
 export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
 
@@ -80,6 +82,8 @@ GONK_LIBS=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib/
 ARCH_DIR="arch-arm"
 
 export GONK_PRODUCT=$GONK_PRODUCT_NAME
+
+rustc --version
 
 HIDL_HW=$GONK_PATH/out/soong/.intermediates/hardware/interfaces
 HIDL_TRANSPORT=$GONK_PATH/out/soong/.intermediates/system/libhidl/transport
