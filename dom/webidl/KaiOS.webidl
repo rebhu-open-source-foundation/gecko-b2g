@@ -7,7 +7,8 @@
  * All other trademarks are the property of their respective owners.
  */
 
-[HeaderFile="KaiOS.h"]
+[Exposed=(Window,Worker),
+ HeaderFile="KaiOS.h"]
 interface KaiOS {
   // objects implementing this interface also implement the interfaces given
   // below

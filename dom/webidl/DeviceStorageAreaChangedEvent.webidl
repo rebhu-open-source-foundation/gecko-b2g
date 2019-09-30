@@ -20,7 +20,8 @@ enum DeviceStorageAreaChangedEventOperation {
  * 2. If a storage area is removed, then the 'storageName' attribute indicates
  * which storage area was removed.
  */
-[Pref="device.storage.enabled"]
+[Exposed=Window,
+ Pref="device.storage.enabled"]
 interface DeviceStorageAreaChangedEvent : Event {
   constructor(DOMString type, optional DeviceStorageAreaChangedEventInit eventInitDict = {});
   readonly attribute DeviceStorageAreaChangedEventOperation operation;

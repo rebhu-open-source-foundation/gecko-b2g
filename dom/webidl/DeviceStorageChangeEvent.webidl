@@ -4,7 +4,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Pref="device.storage.enabled"]
+[Exposed=Window,
+ Pref="device.storage.enabled"]
 interface DeviceStorageChangeEvent : Event
 {
   constructor(DOMString type, optional DeviceStorageChangeEventInit eventInitDict = {});
