@@ -72,7 +72,7 @@ export JS_BINARY=`pwd`/jsshell/js
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b
+export ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r20b}
 
 export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
 

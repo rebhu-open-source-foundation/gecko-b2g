@@ -321,7 +321,12 @@ def suggest_mozconfig(os_name, artifact_mode=False):
 def android_ndk_url(os_name, ver=NDK_VERSION):
     # Produce a URL like
     # 'https://dl.google.com/android/repository/android-ndk-$VER-linux-x86_64.zip
-    base_url = 'https://dl.google.com/android/repository/android-ndk'
+    local_base_url = os.environ.get('LOCAL_NDK_BASE_URL');
+
+    if local_base_url:
+      base_url = local_base_url
+    else:
+      base_url = 'https://dl.google.com/android/repository/android-ndk'
 
     if os_name == 'macosx':
         # |mach bootstrap| uses 'macosx', but Google uses 'darwin'.
@@ -332,7 +337,7 @@ def android_ndk_url(os_name, ver=NDK_VERSION):
     else:
         arch = 'x86'
 
-    return '%s-%s-%s-%s.zip' % (base_url, ver, os_name, arch)
+    return '%s-%s-%s-%s.tar.bz2' % (base_url, ver, os_name, arch)
 
 
 def main(argv):
