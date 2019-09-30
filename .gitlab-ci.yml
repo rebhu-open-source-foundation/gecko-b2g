@@ -11,9 +11,11 @@ variables:
   GIT_DEPTH: 1
 
 before_script:
+  - sed -i 's|http://archive.ubuntu.com|ftp://172.20.251.70|g' /etc/apt/sources.list
+
   # Install ssh-agent if not already installed, it is required by Docker.
   # (change apt-get to yum if you use a CentOS-based image)
-  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client apt-utils -y )'
 
   # Run ssh-agent (inside the build environment)
   - eval $(ssh-agent -s)
@@ -28,17 +30,47 @@ before_script:
   - mkdir -p ~/.ssh
   - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
 
-build:
+stages:
+  - build
+
+build:desktop:
   stage: build
   tags:
-    - gecko
+    - gecko-dev
   script:
     - echo 2 | ./mach bootstrap --no-interactive
-    - export MOZ_OBJDIR=objdir-gecko
+    - export MOZ_OBJDIR=objdir-desktop-gecko
     - export MOZCONFIG=mozconfig-b2g-desktop
     - ./mach build
     - ./mach package
   artifacts:
     expire_in: 2 week
     paths:
-      - "objdir-gecko/dist/b2g-*"
+      - "objdir-desktop-gecko/dist/b2g-*"
+
+build:arm:
+  stage: build
+  tags:
+    - gecko-dev
+  script:
+    - export LOCAL_NDK_BASE_URL='ftp://ftp.kaiostech.com/ndk/android-ndk'
+    - export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b-canary
+    - echo 4 | ./mach bootstrap --no-interactive > /dev/null
+    - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy-gonk-o.git > /dev/null
+    - export PATH=~/.cargo/bin:$PATH
+    - cargo install sccache > /dev/null
+    - rustup default 1.37.0
+    - rustup target add armv7-linux-androideabi
+    - rustup target add thumbv7neon-linux-androideabi
+    - export GONK_PATH=$CI_PROJECT_DIR/dummy-gonk-o
+    - export GECKO_OBJDIR=$CI_PROJECT_DIR/objdir-arm-gecko
+    - export GONK_PRODUCT_NAME=msm8909
+    - export GET_FRAMEBUFFER_FORMAT_FROM_HWC=1
+    - export PLATFORM_VERSION=27
+    - ./build-b2g.sh > /dev/null
+    - ./build-b2g.sh package > /dev/null
+  artifacts:
+    expire_in: 2 week
+    paths:
+      - "objdir-arm-gecko/dist/b2g-*"
+      - "push-b2g.sh"

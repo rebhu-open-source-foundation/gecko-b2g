@@ -1,17 +1,35 @@
 #!/bin/bash
 
-set -e
+GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-gecko}
 
-adb root && adb remount
+# Copy file/dir to device via ADB
+#
+# Usage: adb_push <local> <remote>
+# The behavior would act like "adb push <local>/* <remote>"
+adb_push()
+{
+  if [ -d $1 ]; then
+    LOCAL_FILES="$1/*"
+    for file in $LOCAL_FILES
+    do
+      adb_push $file "$2/$(basename $file)"
+    done
+  else
+    printf "push: %-30s " $(basename $file)
+    adb push $1 $2
+  fi
+}
+
+
+adb root
+adb wait-for-device
+adb remount
 
 adb shell stop b2g
 
-mkdir tmp_b2g
-cd tmp_b2g
-tar xf ../$GECKO_OBJDIR/dist/b2g-71.0a1.en-US.linux-androideabi-arm.tar.gz
-cd b2g
-adb push * /data/kaios/b2g/
-cd ../..
-rm -rf tmp_b2g
+mkdir -p tmp
+tar xf $GECKO_OBJDIR/dist/b2g-*-arm.tar.gz -C tmp
+adb_push tmp/b2g /system/b2g
+rm -rf tmp
 
-#adb shell start b2g
+adb shell start b2g
