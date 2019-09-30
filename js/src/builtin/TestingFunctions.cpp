@@ -459,7 +459,7 @@ static bool GC(JSContext* cx, unsigned argc, Value* vp) {
   if (args.length() >= 1) {
     Value arg = args[0];
     if (arg.isString()) {
-      if (!JS_StringEqualsAscii(cx, arg.toString(), "zone", &zone)) {
+      if (!JS_StringEqualsLiteral(cx, arg.toString(), "zone", &zone)) {
         return false;
       }
     } else if (arg.isObject()) {
@@ -472,7 +472,8 @@ static bool GC(JSContext* cx, unsigned argc, Value* vp) {
   if (args.length() >= 2) {
     Value arg = args[1];
     if (arg.isString()) {
-      if (!JS_StringEqualsAscii(cx, arg.toString(), "shrinking", &shrinking)) {
+      if (!JS_StringEqualsLiteral(cx, arg.toString(), "shrinking",
+                                  &shrinking)) {
         return false;
       }
     }
@@ -915,10 +916,10 @@ static bool ConvertToTier(JSContext* cx, HandleValue value,
   bool baselineTier = false;
   bool ionTier = false;
 
-  if (!JS_StringEqualsAscii(cx, option, "stable", &stableTier) ||
-      !JS_StringEqualsAscii(cx, option, "best", &bestTier) ||
-      !JS_StringEqualsAscii(cx, option, "baseline", &baselineTier) ||
-      !JS_StringEqualsAscii(cx, option, "ion", &ionTier)) {
+  if (!JS_StringEqualsLiteral(cx, option, "stable", &stableTier) ||
+      !JS_StringEqualsLiteral(cx, option, "best", &bestTier) ||
+      !JS_StringEqualsLiteral(cx, option, "baseline", &baselineTier) ||
+      !JS_StringEqualsLiteral(cx, option, "ion", &ionTier)) {
     return false;
   }
 
@@ -1108,7 +1109,8 @@ static bool InternalConst(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  if (JS_FlatStringEqualsAscii(flat, "INCREMENTAL_MARK_STACK_BASE_CAPACITY")) {
+  if (JS_FlatStringEqualsLiteral(flat,
+                                 "INCREMENTAL_MARK_STACK_BASE_CAPACITY")) {
     args.rval().setNumber(uint32_t(js::INCREMENTAL_MARK_STACK_BASE_CAPACITY));
   } else {
     JS_ReportErrorASCII(cx, "unknown const name");
@@ -1451,7 +1453,8 @@ static bool StartGC(JSContext* cx, unsigned argc, Value* vp) {
   if (args.length() >= 2) {
     Value arg = args[1];
     if (arg.isString()) {
-      if (!JS_StringEqualsAscii(cx, arg.toString(), "shrinking", &shrinking)) {
+      if (!JS_StringEqualsLiteral(cx, arg.toString(), "shrinking",
+                                  &shrinking)) {
         return false;
       }
     }
@@ -3334,13 +3337,13 @@ static mozilla::Maybe<JS::StructuredCloneScope> ParseCloneScope(
     return scope;
   }
 
-  if (StringEqualsAscii(scopeStr, "SameProcessSameThread")) {
+  if (StringEqualsLiteral(scopeStr, "SameProcessSameThread")) {
     scope.emplace(JS::StructuredCloneScope::SameProcessSameThread);
-  } else if (StringEqualsAscii(scopeStr, "SameProcessDifferentThread")) {
+  } else if (StringEqualsLiteral(scopeStr, "SameProcessDifferentThread")) {
     scope.emplace(JS::StructuredCloneScope::SameProcessDifferentThread);
-  } else if (StringEqualsAscii(scopeStr, "DifferentProcess")) {
+  } else if (StringEqualsLiteral(scopeStr, "DifferentProcess")) {
     scope.emplace(JS::StructuredCloneScope::DifferentProcess);
-  } else if (StringEqualsAscii(scopeStr, "DifferentProcessForIndexedDB")) {
+  } else if (StringEqualsLiteral(scopeStr, "DifferentProcessForIndexedDB")) {
     scope.emplace(JS::StructuredCloneScope::DifferentProcessForIndexedDB);
   }
 
@@ -3374,9 +3377,9 @@ bool js::testingFunc_serialize(JSContext* cx, unsigned argc, Value* vp) {
         return false;
       }
 
-      if (StringEqualsAscii(poli, "allow")) {
+      if (StringEqualsLiteral(poli, "allow")) {
         policy.allowSharedMemory();
-      } else if (StringEqualsAscii(poli, "deny")) {
+      } else if (StringEqualsLiteral(poli, "deny")) {
         // default
       } else {
         JS_ReportErrorASCII(cx, "Invalid policy value for 'SharedArrayBuffer'");
@@ -4587,8 +4590,8 @@ static bool SetGCCallback(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   int32_t phases = 0;
-  if (StringEqualsAscii(action, "minorGC") ||
-      StringEqualsAscii(action, "majorGC")) {
+  if (StringEqualsLiteral(action, "minorGC") ||
+      StringEqualsLiteral(action, "majorGC")) {
     if (!JS_GetProperty(cx, opts, "phases", &v)) {
       return false;
     }
@@ -4604,11 +4607,11 @@ static bool SetGCCallback(JSContext* cx, unsigned argc, Value* vp) {
         return false;
       }
 
-      if (StringEqualsAscii(phasesStr, "begin")) {
+      if (StringEqualsLiteral(phasesStr, "begin")) {
         phases = (1 << JSGC_BEGIN);
-      } else if (StringEqualsAscii(phasesStr, "end")) {
+      } else if (StringEqualsLiteral(phasesStr, "end")) {
         phases = (1 << JSGC_END);
-      } else if (StringEqualsAscii(phasesStr, "both")) {
+      } else if (StringEqualsLiteral(phasesStr, "both")) {
         phases = (1 << JSGC_BEGIN) | (1 << JSGC_END);
       } else {
         JS_ReportErrorASCII(cx, "Invalid callback phase");
@@ -4617,11 +4620,11 @@ static bool SetGCCallback(JSContext* cx, unsigned argc, Value* vp) {
     }
   }
 
-  if (StringEqualsAscii(action, "minorGC")) {
+  if (StringEqualsLiteral(action, "minorGC")) {
     gcCallback::minorGCInfo.phases = phases;
     gcCallback::minorGCInfo.active = true;
     JS_SetGCCallback(cx, gcCallback::minorGC, &gcCallback::minorGCInfo);
-  } else if (StringEqualsAscii(action, "majorGC")) {
+  } else if (StringEqualsLiteral(action, "majorGC")) {
     if (!JS_GetProperty(cx, opts, "depth", &v)) {
       return false;
     }
@@ -4644,7 +4647,7 @@ static bool SetGCCallback(JSContext* cx, unsigned argc, Value* vp) {
     gcCallback::majorGCInfo.phases = phases;
     gcCallback::majorGCInfo.depth = depth;
     JS_SetGCCallback(cx, gcCallback::majorGC, &gcCallback::majorGCInfo);
-  } else if (StringEqualsAscii(action, "enterNullRealm")) {
+  } else if (StringEqualsLiteral(action, "enterNullRealm")) {
     JS_SetGCCallback(cx, gcCallback::enterNullRealm, nullptr);
   } else {
     JS_ReportErrorASCII(cx, "Unknown GC callback action");
@@ -5804,11 +5807,11 @@ static bool MonitorType(JSContext* cx, unsigned argc, Value* vp) {
   bool unknown = false;
   bool unknownObject = false;
   if (val.isString()) {
-    if (!JS_StringEqualsAscii(cx, val.toString(), "unknown", &unknown)) {
+    if (!JS_StringEqualsLiteral(cx, val.toString(), "unknown", &unknown)) {
       return false;
     }
-    if (!JS_StringEqualsAscii(cx, val.toString(), "unknownObject",
-                              &unknownObject)) {
+    if (!JS_StringEqualsLiteral(cx, val.toString(), "unknownObject",
+                                &unknownObject)) {
       return false;
     }
   }

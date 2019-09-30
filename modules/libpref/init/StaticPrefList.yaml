@@ -5030,7 +5030,7 @@
 # "blockified" to "-moz-box" (rather than to "block")
 - name: layout.css.xul-box-display-values.survive-blockification.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -5210,7 +5210,7 @@
 # Those triggers should be unnecessary after bug 1561450.
 - name: layout.css.scroll-anchoring.suppressions.enabled
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: layout.css.scroll-anchoring.highlight

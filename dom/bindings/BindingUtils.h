@@ -708,9 +708,8 @@ struct NamedConstructor {
  *                underlying global.
  * unscopableNames if not null it points to a null-terminated list of const
  *                 char* names of the unscopable properties for this interface.
- * isGlobal if true, we're creating interface objects for a [Global] or
- *        [PrimaryGlobal] interface, and hence shouldn't define properties on
- *        the prototype object.
+ * isGlobal if true, we're creating interface objects for a [Global] interface,
+ *          and hence shouldn't define properties on the prototype object.
  * legacyWindowAliases if not null it points to a null-terminated list of const
  *                     char* names of the legacy window aliases for this
  *                     interface.
@@ -2172,11 +2171,6 @@ class MOZ_STACK_CLASS NullableRootedUnion : public Nullable<T>,
     }
   }
 };
-
-inline bool IdEquals(jsid id, const char* string) {
-  return JSID_IS_STRING(id) &&
-         JS_FlatStringEqualsAscii(JSID_TO_FLAT_STRING(id), string);
-}
 
 inline bool AddStringToIDVector(JSContext* cx,
                                 JS::MutableHandleVector<jsid> vector,

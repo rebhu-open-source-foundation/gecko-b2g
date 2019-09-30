@@ -472,6 +472,7 @@ nsWindow::nsWindow() {
   mTitlebarBackdropState = false;
 
   mHasAlphaVisual = false;
+  mIsPIPWindow = false;
 }
 
 nsWindow::~nsWindow() {
@@ -2980,6 +2981,17 @@ void nsWindow::OnButtonReleaseEvent(GdkEventButton* aEvent) {
   if (StaticPrefs::ui_context_menus_after_mouseup()) {
     DispatchContextMenuEventFromMouseEvent(domButton, aEvent);
   }
+
+  // Open window manager menu on PIP window to allow user
+  // to place it on top / all workspaces.
+  if (mIsPIPWindow && aEvent->button == 3) {
+    static auto sGdkWindowShowWindowMenu =
+        (gboolean(*)(GdkWindow * window, GdkEvent*))
+            dlsym(RTLD_DEFAULT, "gdk_window_show_window_menu");
+    if (sGdkWindowShowWindowMenu) {
+      sGdkWindowShowWindowMenu(mGdkWindow, (GdkEvent*)aEvent);
+    }
+  }
 }
 
 void nsWindow::OnContainerFocusInEvent(GdkEventFocus* aEvent) {
@@ -3651,6 +3663,8 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
     }
   }
 
+  mIsPIPWindow = aInitData && aInitData->mPIPWindow;
+
   // ok, create our windows
   switch (mWindowType) {
     case eWindowType_dialog:
@@ -3691,8 +3705,9 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 
         // There's no point to configure transparency
         // on non-composited screens.
+        // Also disable transparency for PictureInPicture windows.
         GdkScreen* screen = gdk_screen_get_default();
-        if (gdk_screen_is_composited(screen)) {
+        if (gdk_screen_is_composited(screen) && !mIsPIPWindow) {
           // Some Gtk+ themes use non-rectangular toplevel windows. To fully
           // support such themes we need to make toplevel window transparent
           // with ARGB visual.
