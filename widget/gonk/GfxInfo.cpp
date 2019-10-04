@@ -185,6 +185,11 @@ GfxInfo::GetFeatureStatusImpl(int32_t /*aFeature*/,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+GfxInfo::GetDisplayInfo(nsTArray<nsString>& aDisplayInfo) {
+  return NS_ERROR_FAILURE;
+}
+
 #ifdef DEBUG
 
 // Implement nsIGfxInfoDebug
