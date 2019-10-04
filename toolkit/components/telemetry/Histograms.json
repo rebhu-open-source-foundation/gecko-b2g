@@ -1050,6 +1050,19 @@
     "bug_numbers": [1556467],
     "description": "The number of slices in an incremental GC for the main runtime"
   },
+  "GC_EFFECTIVENESS": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec", "geckoview"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "releaseChannelCollection": "opt-out",
+    "low": 1,
+    "high": 50000,
+    "n_buckets": 100,
+    "bug_numbers": [1580227],
+    "description": "GC 'effectiveness', the amount of memory freed divided by main-thread collection time (MB/s)"
+  },
   "GEOLOCATION_ACCURACY_EXPONENTIAL": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -1190,16 +1203,6 @@
     "high": 10000,
     "n_buckets": 10,
     "description": "Time elapsed between the moment a function is lazy-parsed (end of parsing of the ScriptSource) and the moment it is recompiled as non-lazy (start of compilation), in milliseconds, for web code."
-  },
-  "JS_DEPRECATED_ARRAY_GENERICS": {
-    "record_in_processes": ["content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["jdemooij@mozilla.com"],
-    "expires_in_version": "74",
-    "bug_numbers": [1536860],
-    "kind": "enumerated",
-    "n_values": 20,
-    "description": "A array generic function was called, like Array.forEach etc. See ARRAY_GENERICS_* defines in SelfHostingDefines.h for the meaning of values."
   },
   "XUL_CACHE_DISABLED": {
     "record_in_processes": ["main", "content"],
@@ -8917,8 +8920,8 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["ckerschbaumer@mozilla.com"],
-    "bug_numbers": [1288361, 1299267, 1399990, 1510225],
-    "expires_in_version": "70",
+    "bug_numbers": [1288361, 1299267, 1399990, 1510225, 1581559],
+    "expires_in_version": "never",
     "kind": "categorical",
     "labels": ["unknown","javaScript","image", "audio", "video","text_plain","text_csv","text_xml","app_octet_stream","app_xml","app_json","text_json","text_html","empty","serviceworker_load","worker_load","importScript_load","script_load","same_origin","CORS_origin","cross_origin"],
     "description": "Whether the script load has a MIME type of ...?  (unknown, javaScript, image, audio, video, text_plain, text_csv, text_xml, app_octet_stream, app_xml, app_json, text_json, text_html, empty). Whether the script load is from ...?  (serviceworker_load, worker_load, importSript_load, script_load). Whether the script load is of ...?  (same_origin, CORS_origin, cross_origin)"
@@ -11061,16 +11064,6 @@
     "kind": "enumerated",
     "n_values": 8,
     "description": "When we record an upgrade due to HSTS, record the source of that HSTS entry. (0: HSTS preload list, 1: HSTS Header seen naturally, 2: HSTS priming)"
-  },
-  "MIXED_CONTENT_OBJECT_SUBREQUEST": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["seceng-telemetry@mozilla.com", "jkt@mozilla.com"],
-    "bug_numbers": [1244116],
-    "expires_in_version": "67",
-    "kind": "enumerated",
-    "n_values": 10,
-    "description": "How often objects load insecure content on secure pages (counting pages, not objects). 0=pages with no mixed object subrequests, 1=pages with mixed object subrequests"
   },
   "COOKIE_SCHEME_SECURITY": {
     "record_in_processes": ["main", "content"],

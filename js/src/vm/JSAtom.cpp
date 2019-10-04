@@ -1222,21 +1222,18 @@ static JSAtom* AtomizeLittleEndianTwoByteChars(JSContext* cx,
 template <XDRMode mode>
 XDRResult js::XDRAtom(XDRState<mode>* xdr, MutableHandleAtom atomp) {
   if (mode == XDR_ENCODE) {
-    MOZ_ASSERT(!xdr->hasAtomTable);
+    MOZ_ASSERT(!xdr->hasAtomTable());
 
-    if (xdr->atomMap()) {
+    if (xdr->hasAtomMap()) {
       // If the atom has already been encoded, look up its index in the atom
       // map. Otherwise, add the atom index to the map and encode it into the
       // atom buffer.
-      if (XDRAtomMap::Ptr p = xdr->atomMap()->lookup(atomp.get())) {
-        MOZ_ASSERT(p->key() == atomp.get());
+      XDRAtomMap::AddPtr p = xdr->atomMap().lookupForAdd(atomp.get());
+      if (p) {
         MOZ_TRY(xdr->codeUint32(&p->value()));
         return Ok();
       }
-
-      XDRAtomMap::AddPtr p = xdr->atomMap()->lookupForAdd(atomp.get());
-      MOZ_ASSERT(!p);
-      if (!xdr->atomMap()->add(p, atomp.get(), xdr->natoms())) {
+      if (!xdr->atomMap().add(p, atomp.get(), xdr->natoms())) {
         return xdr->fail(JS::TranscodeResult_Throw);
       }
 
@@ -1253,13 +1250,13 @@ XDRResult js::XDRAtom(XDRState<mode>* xdr, MutableHandleAtom atomp) {
 
   MOZ_ASSERT(mode == XDR_DECODE);
 
-  if (!xdr->hasAtomTable) {
+  if (!xdr->hasAtomTable()) {
     return XDRAtomData(xdr, atomp);
   }
 
   uint32_t atomIndex;
   MOZ_TRY(xdr->codeUint32(&atomIndex));
-  JSAtom* atom = xdr->atomTable[atomIndex];
+  JSAtom* atom = xdr->atomTable()[atomIndex];
 
   if (!atom) {
     return xdr->fail(JS::TranscodeResult_Throw);

@@ -37,8 +37,6 @@ MediaResult RemoteAudioDecoderChild::ProcessOutput(
     PodCopy(alignedAudioBuffer.Data(), data.buffer().get<AudioDataValue>(),
             alignedAudioBuffer.Length());
 
-    Unused << SendDoneWithOutput(std::move(data.buffer()));
-
     RefPtr<AudioData> audio = new AudioData(
         data.base().offset(), data.base().time(), std::move(alignedAudioBuffer),
         data.channels(), data.rate(), data.channelMap());
@@ -121,16 +119,11 @@ MediaResult RemoteAudioDecoderParent::ProcessDecodedData(
                "Decoded audio must output an AlignedAudioBuffer "
                "to be used with RemoteAudioDecoderParent");
 
-    ShmemBuffer buffer = mDecodedFramePool.Get(
-        this, audio->Data().Length() * sizeof(AudioDataValue));
+    ShmemBuffer buffer =
+        AllocateBuffer(audio->Data().Length() * sizeof(AudioDataValue));
     if (!buffer.Valid()) {
       return MediaResult(NS_ERROR_OUT_OF_MEMORY,
                          "ShmemBuffer::Get failed in "
-                         "RemoteAudioDecoderParent::ProcessDecodedData");
-    }
-    if (audio->Data().Length() > buffer.Get().Size<AudioDataValue>()) {
-      return MediaResult(NS_ERROR_OUT_OF_MEMORY,
-                         "ShmemBuffer::Get returned less than requested in "
                          "RemoteAudioDecoderParent::ProcessDecodedData");
     }
 

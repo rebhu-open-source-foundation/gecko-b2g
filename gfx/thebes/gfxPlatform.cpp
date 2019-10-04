@@ -485,8 +485,10 @@ gfxPlatform::gfxPlatform()
       mTilesInfoCollector(this, &gfxPlatform::GetTilesSupportInfo),
       mFrameStatsCollector(this, &gfxPlatform::GetFrameStats),
       mCMSInfoCollector(this, &gfxPlatform::GetCMSSupportInfo),
+      mDisplayInfoCollector(this, &gfxPlatform::GetDisplayInfo),
       mCompositorBackend(layers::LayersBackend::LAYERS_NONE),
-      mScreenDepth(0) {
+      mScreenDepth(0),
+      mScreenPixels(0) {
   mAllowDownloadableFonts = UNINITIALIZED_VALUE;
   mFallbackUsesCmaps = UNINITIALIZED_VALUE;
 
@@ -1363,6 +1365,13 @@ void gfxPlatform::WillShutdown() {
   mScreenReferenceSurface = nullptr;
   mScreenReferenceDrawTarget = nullptr;
 
+#ifdef USE_SKIA
+  // Always clear out the Skia font cache here, in case it is referencing any
+  // SharedFTFaces that would otherwise outlive destruction of the FT_Library
+  // that owns them.
+  SkGraphics::PurgeFontCache();
+#endif
+
   // The cairo folks think we should only clean up in debug builds,
   // but we're generally in the habit of trying to shut down as
   // cleanly as possible even in production code, so call this
@@ -1371,12 +1380,6 @@ void gfxPlatform::WillShutdown() {
   // because cairo can assert and thus crash on shutdown, don't do this in
   // release builds
 #ifdef NS_FREE_PERMANENT_DATA
-#  ifdef USE_SKIA
-  // must do Skia cleanup before Cairo cleanup, because Skia may be referencing
-  // Cairo objects e.g. through SkCairoFTTypeface
-  SkGraphics::PurgeFontCache();
-#  endif
-
 #  if MOZ_TREE_CAIRO
   cairo_debug_reset_static_data();
 #  endif
@@ -1659,6 +1662,8 @@ void gfxPlatform::PopulateScreenInfo() {
   nsCOMPtr<nsIScreenManager> manager =
       do_GetService("@mozilla.org/gfx/screenmanager;1");
   MOZ_ASSERT(manager, "failed to get nsIScreenManager");
+
+  manager->GetTotalScreenPixels(&mScreenPixels);
 
   nsCOMPtr<nsIScreen> screen;
   manager->GetPrimaryScreen(getter_AddRefs(screen));
@@ -2771,7 +2776,7 @@ static void UpdateWRQualificationForAMD(FeatureState& aFeature,
 
 static void UpdateWRQualificationForIntel(FeatureState& aFeature,
                                           int32_t aDeviceId,
-                                          int32_t aScreenPixels,
+                                          int64_t aScreenPixels,
                                           bool* aOutGuardedByQualifiedPref) {
   const uint16_t supportedDevices[] = {
       // skylake gt2+
@@ -2880,10 +2885,10 @@ static void UpdateWRQualificationForIntel(FeatureState& aFeature,
   // Linux we allow medium size screens as well (anything sub-4k).
 #  if defined(XP_WIN)
   // Allow up to WUXGA on Windows release
-  const int32_t kMaxPixels = 1920 * 1200;  // WUXGA
+  const int64_t kMaxPixels = 1920 * 1200;  // WUXGA
 #  else
   // Allow up to 4k on Linux
-  const int32_t kMaxPixels = 3440 * 1440;  // UWQHD
+  const int64_t kMaxPixels = 3440 * 1440;  // UWQHD
 #  endif
   if (aScreenPixels > kMaxPixels) {
     aFeature.Disable(
@@ -2913,8 +2918,7 @@ static void UpdateWRQualificationForIntel(FeatureState& aFeature,
 #endif // !MOZ_WIDGET_ANDROID
 
 static FeatureState& WebRenderHardwareQualificationStatus(
-    const IntSize& aScreenSize, bool aHasBattery,
-    bool* aOutGuardedByQualifiedPref) {
+    int64_t aScreenPixels, bool aHasBattery, bool* aOutGuardedByQualifiedPref) {
   FeatureState& featureWebRenderQualified =
       gfxConfig::GetFeature(Feature::WEBRENDER_QUALIFIED);
   featureWebRenderQualified.EnableByDefault();
@@ -2961,8 +2965,6 @@ static FeatureState& WebRenderHardwareQualificationStatus(
     return featureWebRenderQualified;
   }
 
-  const int32_t screenPixels = aScreenSize.width * aScreenSize.height;
-
   if (adapterVendorID == u"0x10de") {  // Nvidia
     UpdateWRQualificationForNvidia(featureWebRenderQualified, deviceID,
                                    aOutGuardedByQualifiedPref);
@@ -2971,7 +2973,7 @@ static FeatureState& WebRenderHardwareQualificationStatus(
                                 aOutGuardedByQualifiedPref);
   } else if (adapterVendorID == u"0x8086") {  // Intel
     UpdateWRQualificationForIntel(featureWebRenderQualified, deviceID,
-                                  screenPixels, aOutGuardedByQualifiedPref);
+                                  aScreenPixels, aOutGuardedByQualifiedPref);
   } else {
     featureWebRenderQualified.Disable(
         FeatureStatus::BlockedVendorUnsupported, "Unsupported vendor",
@@ -2999,8 +3001,8 @@ static FeatureState& WebRenderHardwareQualificationStatus(
     *aOutGuardedByQualifiedPref = true;
 
     // if we have a battery, ignore it if the screen is small enough.
-    const int32_t kMaxPixelsBattery = 1920 * 1200;  // WUXGA
-    if (screenPixels > 0 && screenPixels <= kMaxPixelsBattery) {
+    const int64_t kMaxPixelsBattery = 1920 * 1200;  // WUXGA
+    if (aScreenPixels > 0 && aScreenPixels <= kMaxPixelsBattery) {
 #ifndef NIGHTLY_BUILD
       featureWebRenderQualified.Disable(
           FeatureStatus::BlockedReleaseChannelBattery,
@@ -3055,7 +3057,7 @@ void gfxPlatform::InitWebRenderConfig() {
 
   bool guardedByQualifiedPref = true;
   FeatureState& featureWebRenderQualified =
-      WebRenderHardwareQualificationStatus(GetScreenSize(), HasBattery(),
+      WebRenderHardwareQualificationStatus(mScreenPixels, HasBattery(),
                                            &guardedByQualifiedPref);
   FeatureState& featureWebRender = gfxConfig::GetFeature(Feature::WEBRENDER);
 
@@ -3523,6 +3525,22 @@ void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
   }
 
   free(profile);
+}
+
+void gfxPlatform::GetDisplayInfo(mozilla::widget::InfoObject& aObj) {
+  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+
+  nsTArray<nsString> displayInfo;
+  auto rv = gfxInfo->GetDisplayInfo(displayInfo);
+  if (NS_SUCCEEDED(rv)) {
+    size_t displayCount = displayInfo.Length();
+    aObj.DefineProperty("DisplayCount", displayCount);
+
+    for (size_t i = 0; i < displayCount; i++) {
+      nsPrintfCString name("Display%zu", i);
+      aObj.DefineProperty(name.get(), displayInfo[i]);
+    }
+  }
 }
 
 class FrameStatsComparator {

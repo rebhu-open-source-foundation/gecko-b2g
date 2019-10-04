@@ -226,9 +226,6 @@ pref("browser.cache.check_doc_frequency",   3);
 // The half life used to re-compute cache entries frecency in hours.
 pref("browser.cache.frecency_half_life_hours", 6);
 
-// AppCache over insecure connection is disabled by default
-pref("browser.cache.offline.insecure.enable",  false);
-
 // offline cache capacity in kilobytes
 pref("browser.cache.offline.capacity",         512000);
 
@@ -566,7 +563,7 @@ pref("media.cubeb.logging_level", "");
   pref("media.cubeb.sandbox", false);
 #endif
 
-// GraphRunner (fixed MediaStreamGraph thread) control
+// GraphRunner (fixed MediaTrackGraph thread) control
 pref("media.audiograph.single_thread.enabled", false);
 
 // APZ preferences. For documentation/details on what these prefs do, check
@@ -2305,7 +2302,7 @@ pref("services.settings.security.onecrl.signer", "onecrl.content-signature.mozil
 pref("services.settings.security.onecrl.checked", 0);
 
 pref("extensions.abuseReport.enabled", true);
-pref("extensions.abuseReport.url", "https://addons.mozilla.org/api/v4/abuse/report/addon/");
+pref("extensions.abuseReport.url", "https://services.addons.mozilla.org/api/v4/abuse/report/addon/");
 
 // Blocklist preferences
 pref("extensions.blocklist.enabled", true);
@@ -2579,13 +2576,6 @@ pref("plugins.navigator.hidden_ctp_plugin", "");
 
 // The default value for nsIPluginTag.enabledState (STATE_ENABLED = 2)
 pref("plugin.default.state", 2);
-
-// How long in minutes we will allow a plugin to work after the user has chosen
-// to allow it "now"
-pref("plugin.sessionPermissionNow.intervalInMinutes", 60);
-// How long in days we will allow a plugin to work after the user has chosen
-// to allow it persistently.
-pref("plugin.persistentPermissionAlways.intervalInDays", 90);
 
 // This pref can take 3 possible string values:
 // "always"     - always use favor fallback mode
@@ -4222,7 +4212,7 @@ pref("network.connectivity-service.IPv4.url", "http://detectportal.firefox.com/s
 pref("network.connectivity-service.IPv6.url", "http://detectportal.firefox.com/success.txt?ipv6");
 
 // DNS Trusted Recursive Resolver
-// 0 - default off, 1 - race, 2 TRR first, 3 TRR only, 4 shadow, 5 off by choice
+// 0 - default off, 1 - reserved/off, 2 - TRR first, 3 - TRR only, 4 - reserved/off, 5 off by choice
 pref("network.trr.mode", 0);
 // DNS-over-HTTP service to use, must be HTTPS://
 pref("network.trr.uri", "https://mozilla.cloudflare-dns.com/dns-query");

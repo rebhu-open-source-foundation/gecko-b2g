@@ -630,13 +630,7 @@ static bool GCParameter(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  bool ok;
-  {
-    JSRuntime* rt = cx->runtime();
-    AutoLockGC lock(rt);
-    ok = rt->gc.setParameter(param, value, lock);
-  }
-
+  bool ok = cx->runtime()->gc.setParameter(param, value);
   if (!ok) {
     JS_ReportErrorASCII(cx, "Parameter value out of range");
     return false;
@@ -775,6 +769,12 @@ static bool WasmReftypesEnabled(JSContext* cx, unsigned argc, Value* vp) {
 static bool WasmGcEnabled(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   args.rval().setBoolean(wasm::HasGcSupport(cx));
+  return true;
+}
+
+static bool WasmMultiValueEnabled(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  args.rval().setBoolean(wasm::HasMultiValueSupport(cx));
   return true;
 }
 
@@ -6583,6 +6583,10 @@ gc::ZealModeHelpText),
     JS_FN_HELP("wasmGcEnabled", WasmGcEnabled, 1, 0,
 "wasmGcEnabled()",
 "  Returns a boolean indicating whether the WebAssembly GC types proposal is enabled."),
+
+    JS_FN_HELP("wasmMultiValueEnabled", WasmMultiValueEnabled, 1, 0,
+"wasmMultiValueEnabled()",
+"  Returns a boolean indicating whether the WebAssembly multi-value proposal is enabled."),
 
     JS_FN_HELP("wasmDebugSupport", WasmDebugSupport, 1, 0,
 "wasmDebugSupport()",

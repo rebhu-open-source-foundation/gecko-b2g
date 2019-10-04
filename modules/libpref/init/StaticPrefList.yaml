@@ -653,6 +653,15 @@
   value: true
   mirror: always
 
+- name: browser.cache.offline.storage.enable
+  type: bool
+#ifdef EARLY_BETA_OR_EARLIER
+  value: false
+#else
+  value: true
+#endif
+  mirror: always
+
 - name: browser.cache.disk.enable
   type: RelaxedAtomicBool
   value: true
@@ -2572,7 +2581,7 @@
 
 # Is support for the Web GPU API enabled?
 - name: dom.webgpu.enable
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -5274,7 +5283,7 @@
 # internal-for-now aspect-ratio property?
 - name: layout.css.width-and-height-map-to-aspect-ratio.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # The fraction of the scrollport we allow to horizontally scroll by before we
@@ -5305,6 +5314,12 @@
 # Whether to disable deprecated style attributes background, color, fontfamily,
 # fontsize, fontstyle and fontweight.
 - name: mathml.deprecated_style_attributes.disabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether to disable deprecated "radical" notation for the menclose element.
+- name: mathml.deprecated_menclose_notation_radical.disabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -5650,6 +5665,11 @@
 
 #ifdef MOZ_FFVPX
 -   name: media.ffvpx.enabled
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
+
+-   name: media.ffvpx.mp3.enabled
     type: RelaxedAtomicBool
     value: true
     mirror: always

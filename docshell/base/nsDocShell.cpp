@@ -2133,10 +2133,12 @@ nsDocShell::HistoryPurged(int32_t aNumEntries) {
 void nsDocShell::TriggerParentCheckDocShellIsEmpty() {
   if (RefPtr<nsDocShell> parent = GetInProcessParentDocshell()) {
     parent->DocLoaderIsEmpty(true);
-  } else if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
-    // OOP parent
-    mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
-        /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+  }
+  if (GetBrowsingContext()->IsContentSubframe() && !GetBrowsingContext()->GetParent()->IsInProcess()) {
+    if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
+      mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
+          /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+    }
   }
 }
 
@@ -3964,9 +3966,11 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
   // because error documents do not result in a call to
   // SendMaybeFireEmbedderLoadEvents via any of the normal call paths.
   // (Obviously, we must do this before any of the returns below.)
-  if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
-    mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
-        /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+  if (GetBrowsingContext()->IsContentSubframe() && !GetBrowsingContext()->GetParent()->IsInProcess()) {
+    if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
+      mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
+          /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+    }
   }
 
   *aDisplayedErrorPage = false;
@@ -7719,9 +7723,11 @@ nsresult nsDocShell::RestoreFromHistory() {
   // Order the mContentViewer setup just like Embed does.
   mContentViewer = nullptr;
 
-  // Move the browsing ontext's children to the cache. If we're
-  // detaching them, we'll detach them from there.
-  mBrowsingContext->CacheChildren();
+  if (!mSkipBrowsingContextDetachOnDestroy) {
+    // Move the browsing ontext's children to the cache. If we're
+    // detaching them, we'll detach them from there.
+    mBrowsingContext->CacheChildren();
+  }
 
   // Now that we're about to switch documents, forget all of our children.
   // Note that we cached them as needed up in CaptureState above.

@@ -16,6 +16,7 @@
 #include <prthread.h>
 #include "AndroidBridge.h"
 #include "AndroidBridgeUtilities.h"
+#include "AndroidRect.h"
 #include "nsAlertsUtils.h"
 #include "nsAppShell.h"
 #include "nsOSHelperAppService.h"
@@ -30,7 +31,6 @@
 #include "nsPresContext.h"
 #include "nsIDocShell.h"
 #include "nsPIDOMWindow.h"
-#include "nsIDOMWindowUtils.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "nsPrintfCString.h"
 #include "nsContentUtils.h"
@@ -290,6 +290,16 @@ void AndroidBridge::GetExtensionFromMimeType(const nsACString& aMimeType,
   if (jstrExt) {
     aFileExt = jstrExt->ToCString();
   }
+}
+
+gfx::Rect AndroidBridge::getScreenSize()
+{
+  ALOG_BRIDGE("AndroidBridge::getScreenSize");
+
+  java::sdk::Rect::LocalRef screenrect = GeckoAppShell::GetScreenSize();
+  gfx::Rect screensize(screenrect->Left(), screenrect->Top(), screenrect->Width(), screenrect->Height());
+
+  return screensize;
 }
 
 int AndroidBridge::GetScreenDepth() {

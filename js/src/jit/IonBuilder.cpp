@@ -67,7 +67,8 @@ class jit::BaselineFrameInspector {
 };
 
 BaselineFrameInspector* jit::NewBaselineFrameInspector(TempAllocator* temp,
-                                                       BaselineFrame* frame) {
+                                                       BaselineFrame* frame,
+                                                       uint32_t frameSize) {
   MOZ_ASSERT(frame);
 
   BaselineFrameInspector* inspector =
@@ -112,10 +113,11 @@ BaselineFrameInspector* jit::NewBaselineFrameInspector(TempAllocator* temp,
     }
   }
 
-  if (!inspector->varTypes.reserve(frame->numValueSlots())) {
+  uint32_t numValueSlots = frame->numValueSlots(frameSize);
+  if (!inspector->varTypes.reserve(numValueSlots)) {
     return nullptr;
   }
-  for (size_t i = 0; i < frame->numValueSlots(); i++) {
+  for (size_t i = 0; i < numValueSlots; i++) {
     TypeSet::Type type =
         TypeSet::GetMaybeUntrackedValueType(*frame->valueSlot(i));
     inspector->varTypes.infallibleAppend(type);
@@ -1143,15 +1145,12 @@ AbortReasonOr<Ok> IonBuilder::buildInline(IonBuilder* callerBuilder,
 
 void IonBuilder::runTask() {
   // This is the entry point when ion compiles are run offthread.
-  JSRuntime* rt = script()->runtimeFromAnyThread();
-
   TraceLoggerThread* logger = TraceLoggerForCurrentThread();
   TraceLoggerEvent event(TraceLogger_AnnotateScripts, script());
   AutoTraceLog logScript(logger, event);
   AutoTraceLog logCompile(logger, TraceLogger_IonCompilation);
 
-  jit::JitContext jctx(jit::CompileRuntime::get(rt),
-                       jit::CompileRealm::get(script()->realm()), &alloc());
+  jit::JitContext jctx(realm->runtime(), realm, &alloc());
   setBackgroundCodegen(jit::CompileBackEnd(this));
 }
 

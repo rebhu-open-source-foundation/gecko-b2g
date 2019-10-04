@@ -36,6 +36,7 @@
 #if defined(MALLOC_H)
 #  include MALLOC_H /* for malloc_usable_size, malloc_size, _msize */
 #endif
+#include <ctime>
 #include <math.h>
 #include <signal.h>
 #include <stdio.h>
@@ -2684,6 +2685,13 @@ static bool Now(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+static bool CpuNow(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+  double now = double(std::clock()) / double(CLOCKS_PER_SEC);
+  args.rval().setDouble(now);
+  return true;
+}
+
 static bool PrintInternal(JSContext* cx, const CallArgs& args, RCFile* file) {
   if (!file->isOpen()) {
     JS_ReportErrorASCII(cx, "output file is closed");
@@ -4016,11 +4024,12 @@ static bool ShellBuildId(JS::BuildIdCharVector* buildId);
 static void WorkerMain(WorkerInput* input) {
   MOZ_ASSERT(input->parentRuntime);
 
-  JSContext* cx = JS_NewContext(8L * 1024L * 1024L, 2L * 1024L * 1024L,
-                                input->parentRuntime);
+  JSContext* cx = JS_NewContext(8L * 1024L * 1024L, input->parentRuntime);
   if (!cx) {
     return;
   }
+
+  JS_SetGCParameter(cx, JSGC_MAX_NURSERY_BYTES, 2L * 1024L * 1024L);
 
   ShellContext* sc = js_new<ShellContext>(cx);
   if (!sc) {
@@ -9132,6 +9141,12 @@ JS_FN_HELP("parseBin", BinParse, 1, 0,
 "    object: Don't create a new DOM object, but instead use the supplied\n"
 "            FakeDOMObject."),
 
+    JS_FN_HELP("cpuNow", CpuNow, /* nargs= */ 0, /* flags = */ 0,
+"cpuNow()",
+" Returns the approximate processor time used by the process since an arbitrary epoch, in seconds.\n"
+" Only the difference between two calls to `cpuNow()` is meaningful."),
+
+
     JS_FS_HELP_END
 };
 // clang-format on
@@ -11245,7 +11260,8 @@ int main(int argc, char** argv, char** envp) {
                        "NUMBER of instructions.",
                        -1) ||
       !op.addIntOption('\0', "nursery-size", "SIZE-MB",
-                       "Set the maximum nursery size in MB", 16) ||
+                       "Set the maximum nursery size in MB",
+                       JS::DefaultNurseryMaxBytes / 1024 / 1024) ||
 #ifdef JS_GC_ZEAL
       !op.addStringOption('z', "gc-zeal", "LEVEL(;LEVEL)*[,N]",
                           gc::ZealModeHelpText) ||
@@ -11371,14 +11387,15 @@ int main(int argc, char** argv, char** envp) {
     return 1;
   }
 
-  size_t nurseryBytes = JS::DefaultNurseryBytes;
-  nurseryBytes = op.getIntOption("nursery-size") * 1024L * 1024L;
-
   /* Use the same parameters as the browser in xpcjsruntime.cpp. */
-  JSContext* const cx = JS_NewContext(JS::DefaultHeapMaxBytes, nurseryBytes);
+  JSContext* const cx = JS_NewContext(JS::DefaultHeapMaxBytes);
   if (!cx) {
     return 1;
   }
+
+  size_t nurseryBytes = op.getIntOption("nursery-size") * 1024L * 1024L;
+  JS_SetGCParameter(cx, JSGC_MAX_NURSERY_BYTES, nurseryBytes);
+
   auto destroyCx = MakeScopeExit([cx] { JS_DestroyContext(cx); });
 
   UniquePtr<ShellContext> sc = MakeUnique<ShellContext>(cx);

@@ -17,9 +17,9 @@ RemoteDecoderParent::RemoteDecoderParent(RemoteDecoderManagerParent* aParent,
                                          TaskQueue* aManagerTaskQueue,
                                          TaskQueue* aDecodeTaskQueue)
     : mParent(aParent),
-      mManagerTaskQueue(aManagerTaskQueue),
       mDecodeTaskQueue(aDecodeTaskQueue),
-      mDecodedFramePool(4) {
+      mManagerTaskQueue(aManagerTaskQueue),
+      mDecodedFramePool(1, ShmemPool::PoolType::DynamicPool) {
   MOZ_COUNT_CTOR(RemoteDecoderParent);
   MOZ_ASSERT(OnManagerThread());
   // We hold a reference to ourselves to keep us alive until IPDL
@@ -93,14 +93,16 @@ mozilla::ipc::IPCResult RemoteDecoderParent::RecvDecode(
   data->mEOS = aData.eos();
   data->mDiscardPadding = aData.discardPadding();
 
-  // Send back to the child to reuse in ShmemPool
-  Unused << SendDoneWithInput(std::move(aData.buffer()));
-
   RefPtr<RemoteDecoderParent> self = this;
   mDecoder->Decode(data)->Then(
       mManagerTaskQueue, __func__,
       [self, this, resolver = std::move(aResolver)](
           MediaDataDecoder::DecodePromise::ResolveOrRejectValue&& aValue) {
+        // If we are here, we know all previously returned DecodedOutputIPDL got
+        // used by the child. We can mark all previously sent ShmemBuffer as
+        // available again.
+        ReleaseUsedShmems();
+
         if (!self->CanRecv()) {
           // Avoid unnecessarily creating shmem objects later.
           return;
@@ -189,19 +191,39 @@ mozilla::ipc::IPCResult RemoteDecoderParent::RecvSetSeekThreshold(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult RemoteDecoderParent::RecvDoneWithOutput(
-    Shmem&& aOutputShmem) {
-  mDecodedFramePool.Put(ShmemBuffer(std::move(aOutputShmem)));
-  return IPC_OK();
-}
-
 void RemoteDecoderParent::ActorDestroy(ActorDestroyReason aWhy) {
   MOZ_ASSERT(OnManagerThread());
   if (mDecoder) {
     mDecoder->Shutdown();
     mDecoder = nullptr;
   }
+  ReleaseUsedShmems();
   mDecodedFramePool.Cleanup(this);
+}
+
+ShmemBuffer RemoteDecoderParent::AllocateBuffer(size_t aSize) {
+  ShmemBuffer buffer =
+      mDecodedFramePool.Get(this, aSize, ShmemPool::AllocationPolicy::Unsafe);
+  if (!buffer.Valid()) {
+    return buffer;
+  }
+  if (aSize > buffer.Get().Size<uint8_t>()) {
+    ReleaseBuffer(std::move(buffer));
+    return ShmemBuffer();
+  }
+  mUsedShmems.AppendElement(buffer.Get());
+  return buffer;
+}
+
+void RemoteDecoderParent::ReleaseBuffer(ShmemBuffer&& aBuffer) {
+  mDecodedFramePool.Put(std::move(aBuffer));
+}
+
+void RemoteDecoderParent::ReleaseUsedShmems() {
+  for (ShmemBuffer& mem : mUsedShmems) {
+    ReleaseBuffer(ShmemBuffer(mem.Get()));
+  }
+  mUsedShmems.Clear();
 }
 
 bool RemoteDecoderParent::OnManagerThread() {

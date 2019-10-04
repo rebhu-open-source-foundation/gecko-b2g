@@ -217,7 +217,7 @@ static XDRResult AtomTableCheck(XDRState<mode>* xdr) {
   uint8_t atomHeader = false;
   uint32_t atomCount;
   if (mode == XDR_ENCODE) {
-    if (xdr->atomMap()) {
+    if (xdr->hasAtomMap()) {
       atomHeader = true;
     }
   }
@@ -227,18 +227,18 @@ static XDRResult AtomTableCheck(XDRState<mode>* xdr) {
   if (mode == XDR_DECODE) {
     if (atomHeader) {
       MOZ_TRY(xdr->codeUint32(&atomCount));
-      MOZ_ASSERT(!xdr->hasAtomTable);
+      MOZ_ASSERT(!xdr->hasAtomTable());
 
       for (uint32_t i = 0; i < atomCount; i++) {
         RootedAtom atom(xdr->cx());
         MOZ_TRY(XDRAtom(xdr, &atom));
-        if (!xdr->atomTable.append(atom)) {
+        if (!xdr->atomTable().append(atom)) {
           ReportOutOfMemory(xdr->cx());
           return xdr->fail(JS::TranscodeResult_Throw);
         }
       }
 
-      xdr->hasAtomTable = true;
+      xdr->finishAtomTable();
     }
   }
 
@@ -299,12 +299,13 @@ XDRResult XDRState<mode>::codeScript(MutableHandleScript scriptp) {
   }
 
   // Only write to seperate header buffer if we are incrementally encoding.
-  if (this->atomMap()) {
+  bool useHeader = this->hasAtomMap();
+  if (useHeader) {
     switchToHeaderBuf();
   }
   MOZ_TRY(VersionCheck(this));
   MOZ_TRY(AtomTableCheck(this));
-  if (this->atomMap()) {
+  if (useHeader) {
     switchToMainBuf();
   }
   MOZ_ASSERT(buf == &this->mainBuf);
@@ -553,7 +554,5 @@ XDRResult XDRIncrementalEncoder::linearize(JS::TranscodeBuffer& buffer) {
 }
 
 void XDRIncrementalEncoder::trace(JSTracer* trc) {
-  if (atomMap()) {
-    atomMap()->trace(trc);
-  }
+  atomMap().trace(trc);
 }
