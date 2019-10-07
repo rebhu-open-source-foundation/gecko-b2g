@@ -377,6 +377,11 @@ void Zone::discardJitCode(JSFreeOp* fop,
       script->maybeReleaseJitScript(fop);
       jitScript = script->maybeJitScript();
       if (!jitScript) {
+        // Try to discard the ScriptCounts too.
+        if (!script->realm()->collectCoverageForDebug() &&
+            !fop->runtime()->profilingScripts) {
+          script->destroyScriptCounts();
+        }
         continue;
       }
     }

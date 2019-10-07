@@ -553,12 +553,6 @@ class nsContentUtils::UserInteractionObserver final
   ~UserInteractionObserver() {}
 };
 
-/* static */
-TimeDuration nsContentUtils::HandlingUserInputTimeout() {
-  return TimeDuration::FromMilliseconds(
-      StaticPrefs::dom_event_handling_user_input_time_limit());
-}
-
 // static
 nsresult nsContentUtils::Init() {
   if (sInitialized) {
@@ -6419,38 +6413,6 @@ bool nsContentUtils::ChannelShouldInheritPrincipal(
 }
 
 /* static */
-const char* nsContentUtils::CheckRequestFullscreenAllowed(
-    CallerType aCallerType) {
-  if (!StaticPrefs::full_screen_api_allow_trusted_requests_only() ||
-      aCallerType == CallerType::System) {
-    return nullptr;
-  }
-
-  if (!UserActivation::IsHandlingUserInput()) {
-    return "FullscreenDeniedNotInputDriven";
-  }
-
-  // If more time has elapsed since the user input than is specified by the
-  // dom.event.handling-user-input-time-limit pref (default 1 second),
-  // disallow fullscreen
-  TimeDuration timeout = HandlingUserInputTimeout();
-  if (timeout > TimeDuration(nullptr) &&
-      (TimeStamp::Now() - UserActivation::GetHandlingInputStart()) > timeout) {
-    return "FullscreenDeniedNotInputDriven";
-  }
-
-  // Entering full-screen on mouse mouse event is only allowed with left mouse
-  // button
-  if (StaticPrefs::full_screen_api_mouse_event_allow_left_button_only() &&
-      (EventStateManager::sCurrentMouseBtn == MouseButton::eMiddle ||
-       EventStateManager::sCurrentMouseBtn == MouseButton::eRight)) {
-    return "FullscreenDeniedMouseEventOnlyLeftBtn";
-  }
-
-  return nullptr;
-}
-
-/* static */
 bool nsContentUtils::IsCutCopyAllowed(nsIPrincipal* aSubjectPrincipal) {
   if (StaticPrefs::dom_allow_cut_copy() &&
       UserActivation::IsHandlingUserInput()) {
@@ -6715,6 +6677,17 @@ TextEditor* nsContentUtils::GetTextEditorFromAnonymousNodeWithoutCreation(
     return textareaElement->GetTextEditorWithoutCreation();
   }
   return nullptr;
+}
+
+// static
+bool nsContentUtils::IsNodeInEditableRegion(nsINode* aNode) {
+  while (aNode) {
+    if (aNode->IsEditable()) {
+      return true;
+    }
+    aNode = aNode->GetParent();
+  }
+  return false;
 }
 
 // static

@@ -629,7 +629,10 @@ bool DedicatedWorkerGlobalScope::WrapGlobalObject(
   xpc::SetPrefableRealmOptions(options);
 
   return DedicatedWorkerGlobalScope_Binding::Wrap(
-      aCx, this, this, options, GetWorkerPrincipal(), true, aReflector);
+      aCx, this, this, options,
+      new WorkerPrincipal(usesSystemPrincipal ||
+                          mWorkerPrivate->UsesAddonOrExpandedAddonPrincipal()),
+      true, aReflector);
 }
 
 void DedicatedWorkerGlobalScope::PostMessage(
@@ -665,7 +668,10 @@ bool SharedWorkerGlobalScope::WrapGlobalObject(
   mWorkerPrivate->CopyJSRealmOptions(options);
 
   return SharedWorkerGlobalScope_Binding::Wrap(
-      aCx, this, this, options, GetWorkerPrincipal(), true, aReflector);
+      aCx, this, this, options,
+      new WorkerPrincipal(mWorkerPrivate->UsesSystemPrincipal() ||
+                          mWorkerPrivate->UsesAddonOrExpandedAddonPrincipal()),
+      true, aReflector);
 }
 
 void SharedWorkerGlobalScope::Close() {
@@ -705,7 +711,10 @@ bool ServiceWorkerGlobalScope::WrapGlobalObject(
   mWorkerPrivate->CopyJSRealmOptions(options);
 
   return ServiceWorkerGlobalScope_Binding::Wrap(
-      aCx, this, this, options, GetWorkerPrincipal(), true, aReflector);
+      aCx, this, this, options,
+      new WorkerPrincipal(mWorkerPrivate->UsesSystemPrincipal() ||
+                          mWorkerPrivate->UsesAddonOrExpandedAddonPrincipal()),
+      true, aReflector);
 }
 
 already_AddRefed<Clients> ServiceWorkerGlobalScope::GetClients() {
@@ -956,7 +965,10 @@ bool WorkerDebuggerGlobalScope::WrapGlobalObject(
   mWorkerPrivate->CopyJSRealmOptions(options);
 
   return WorkerDebuggerGlobalScope_Binding::Wrap(
-      aCx, this, this, options, GetWorkerPrincipal(), true, aReflector);
+      aCx, this, this, options,
+      new WorkerPrincipal(mWorkerPrivate->UsesSystemPrincipal() ||
+                          mWorkerPrivate->UsesAddonOrExpandedAddonPrincipal()),
+      true, aReflector);
 }
 
 void WorkerDebuggerGlobalScope::GetGlobal(JSContext* aCx,

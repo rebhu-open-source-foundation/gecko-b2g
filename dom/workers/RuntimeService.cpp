@@ -286,6 +286,8 @@ void LoadContextOptions(const char* aPrefName, void* /* aClosure */) {
   JS::ContextOptions contextOptions;
   contextOptions.setAsmJS(GetWorkerPref<bool>(NS_LITERAL_CSTRING("asmjs")))
       .setWasm(GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm")))
+      .setWasmForTrustedPrinciples(
+          GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm_trustedprincipals")))
       .setWasmBaseline(
           GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm_baselinejit")))
       .setWasmIon(GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm_ionjit")))
@@ -963,7 +965,7 @@ class WorkerJSContext final : public mozilla::CycleCollectedJSContext {
     JSContext* cx = Context();
 
     js::SetPreserveWrapperCallback(cx, PreserveWrapper);
-    JS_InitDestroyPrincipalsCallback(cx, DestroyWorkerPrincipals);
+    JS_InitDestroyPrincipalsCallback(cx, WorkerPrincipal::Destroy);
     JS_SetWrapObjectCallbacks(cx, &WrapObjectCallbacks);
     if (mWorkerPrivate->IsDedicatedWorker()) {
       JS_SetFutexCanWait(cx);

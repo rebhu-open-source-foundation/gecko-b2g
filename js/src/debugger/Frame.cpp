@@ -375,7 +375,7 @@ void DebuggerFrame::clearGenerator(JSFreeOp* fop) {
 
   GeneratorInfo* info = generatorInfo();
 
-  // 4) The generator's script's observer count must be dropped.
+  // 3) The generator's script's observer count must be dropped.
   //
   // For ordinary calls, Debugger.Frame objects drop the script's stepper count
   // when the frame is popped, but for generators, they leave the stepper count
@@ -1070,8 +1070,12 @@ void DebuggerFrame::maybeDecrementFrameScriptStepperCount(
 void DebuggerFrame::finalize(JSFreeOp* fop, JSObject* obj) {
   MOZ_ASSERT(fop->onMainThread());
   DebuggerFrame& frameobj = obj->as<DebuggerFrame>();
+
+  // Connections between dying Debugger.Frames and their
+  // AbstractGeneratorObjects should have been broken in DebugAPI::sweepAll.
+  MOZ_ASSERT(!frameobj.hasGenerator());
+
   frameobj.freeFrameIterData(fop);
-  frameobj.clearGenerator(fop);
   OnStepHandler* onStepHandler = frameobj.onStepHandler();
   if (onStepHandler) {
     onStepHandler->drop(fop, &frameobj);
@@ -1177,8 +1181,8 @@ bool DebuggerFrame::CallData::ToNative(JSContext* cx, unsigned argc,
   // All accessors/methods require a live frame, except for the live getter.
   bool checkLive = MyMethod != &CallData::liveGetter;
 
-  RootedDebuggerFrame frame(cx, DebuggerFrame::check(cx, args.thisv(),
-                                                     checkLive));
+  RootedDebuggerFrame frame(cx,
+                            DebuggerFrame::check(cx, args.thisv(), checkLive));
   if (!frame) {
     return false;
   }
@@ -1313,8 +1317,8 @@ static bool DebuggerArguments_getArg(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  RootedValue framev(cx,
-      argsobj->as<NativeObject>().getReservedSlot(JSSLOT_DEBUGARGUMENTS_FRAME));
+  RootedValue framev(cx, argsobj->as<NativeObject>().getReservedSlot(
+                             JSSLOT_DEBUGARGUMENTS_FRAME));
   RootedDebuggerFrame thisobj(cx, DebuggerFrame::check(cx, framev, true));
   if (!thisobj) {
     return false;
@@ -1611,8 +1615,7 @@ const JSPropertySpec DebuggerFrame::properties_[] = {
 
 const JSFunctionSpec DebuggerFrame::methods_[] = {
     JS_DEBUG_FN("eval", evalMethod, 1),
-    JS_DEBUG_FN("evalWithBindings", evalWithBindingsMethod, 1),
-    JS_FS_END};
+    JS_DEBUG_FN("evalWithBindings", evalWithBindingsMethod, 1), JS_FS_END};
 
 JSObject* js::IdVectorToArray(JSContext* cx, Handle<IdVector> ids) {
   Rooted<ValueVector> vals(cx, ValueVector(cx));

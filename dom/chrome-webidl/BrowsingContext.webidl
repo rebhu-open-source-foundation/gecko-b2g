@@ -31,6 +31,8 @@ interface BrowsingContext {
   readonly attribute BrowsingContext? opener;
 
   readonly attribute BrowsingContextGroup group;
+
+  readonly attribute WindowProxy? window;
 };
 
 [Exposed=Window, ChromeOnly]
@@ -49,10 +51,6 @@ interface CanonicalBrowsingContext : BrowsingContext {
 
   void notifyStartDelayedAutoplayMedia();
   void notifyMediaMutedChanged(boolean muted);
-
-  [Throws]
-  Promise<unsigned long long> changeFrameRemoteness(
-      DOMString remoteType, unsigned long long pendingSwitchId);
 };
 
 [Exposed=Window, ChromeOnly]

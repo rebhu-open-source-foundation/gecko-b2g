@@ -585,6 +585,8 @@ class ShellPrincipals final : public JSPrincipals {
     return JS_WriteUint32Pair(writer, bits, 0);
   }
 
+  bool isSystemOrAddonPrincipal() override { return true; }
+
   static void destroy(JSPrincipals* principals) {
     MOZ_ASSERT(principals != &fullyTrusted);
     MOZ_ASSERT(principals->refcount == 0);
@@ -10327,6 +10329,7 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   JS::ContextOptionsRef(cx)
       .setAsmJS(enableAsmJS)
       .setWasm(enableWasm)
+      .setWasmForTrustedPrinciples(enableWasm)
       .setWasmBaseline(enableWasmBaseline)
       .setWasmIon(enableWasmIon)
 #ifdef ENABLE_WASM_CRANELIFT
