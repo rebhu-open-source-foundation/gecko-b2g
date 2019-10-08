@@ -150,7 +150,7 @@ class VolumeCommand {
   size_t BytesConsumed() const { return mBytesConsumed; }
 
   size_t BytesRemaining() const {
-    return mCmd.Length() - std::min(mCmd.Length(), mBytesConsumed);
+    return mCmd.Length() - std::min((size_t)mCmd.Length(), mBytesConsumed);
   }
 
   void ConsumeBytes(size_t aNumBytes) {
