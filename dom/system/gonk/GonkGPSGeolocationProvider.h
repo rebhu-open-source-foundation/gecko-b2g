@@ -64,6 +64,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
   void StartGPS();
   void ShutdownGPS();
 
+  void InjectLocation(double latitude, double longitude, float accuracy);
+
   // Whether the GPS HAL has been initialized
   bool mInitialized;
   bool mStarted;

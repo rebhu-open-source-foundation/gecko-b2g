@@ -148,6 +148,8 @@ GonkGPSGeolocationProvider::NetworkLocationUpdate::Update(
     }
   }
 
+  provider->InjectLocation(lat, lon, acc);
+
   if (provider->mLocationCallback) {
     LOG("Got network position");
     provider->mLocationCallback->Update(position);
@@ -423,6 +425,28 @@ void GonkGPSGeolocationProvider::ShutdownGPS() {
     mGpsInterface->stop();
   }
 #endif  // ANDROID_VERSION >= 27
+}
+
+void GonkGPSGeolocationProvider::InjectLocation(double latitude,
+                                                double longitude,
+                                                float accuracy) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  DBG("injecting location (%f, %f) accuracy: %f", latitude, longitude,
+      accuracy);
+
+#if ANDROID_VERSION >= 27
+  if (mGnssHal != nullptr) {
+    auto result = mGnssHal->injectLocation(latitude, longitude, accuracy);
+    if (!result.isOk() || !result) {
+      ERR("%s: Gnss injectLocation() failed");
+    }
+  }
+#else
+  if (mGpsInterface != nullptr) {
+    mGpsInterface->inject_location(latitude, longitude, accuracy);
+  }
+#endif
 }
 
 class GonkGPSGeolocationProvider::UpdateLocationEvent final
