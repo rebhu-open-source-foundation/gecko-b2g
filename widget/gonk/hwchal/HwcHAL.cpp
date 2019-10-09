@@ -29,7 +29,7 @@ extern GonkDisplay * GetGonkDisplay();
 typedef HWC2::Display* (*fnGetDisplayById)(HWC2::Device *, hwc2_display_t);
 HWC2::Display* hwc2_getDisplayById(HWC2::Device *p, hwc2_display_t id) {
   HWC2::Display *display = nullptr;
-  void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
+  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
   if (lib == nullptr) {
     ALOGE("Could not dlopen(\"libcarthage.so\"):");
     return display;
@@ -48,7 +48,7 @@ HWC2::Display* hwc2_getDisplayById(HWC2::Device *p, hwc2_display_t id) {
 typedef HWC2::Error (*fnSetVsyncEnabled)(HWC2::Display *, HWC2::Vsync);
 HWC2::Error hwc2_setVsyncEnabled(HWC2::Display *p, HWC2::Vsync enabled) {
   HWC2::Error err = HWC2::Error::None;
-  void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
+  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
   if (lib == nullptr) {
     ALOGE("Could not dlopen(\"libcarthage.so\"):");
     return HWC2::Error::BadDisplay;

@@ -128,7 +128,7 @@ extern GonkDisplay * GetGonkDisplay();
 typedef android::GonkDisplay* (*fnGetGonkDisplay)();
 GonkDisplay * GetGonkDisplay() {
   GonkDisplay *display = NULL;
-  void* lib = dlopen("/system/lib/libcarthage.so", RTLD_NOW);
+  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
   MOZ_ASSERT(lib != NULL, "libcarthage.so is not found!");
   {
     fnGetGonkDisplay func = (fnGetGonkDisplay) dlsym(lib, "GetGonkDisplayP") ;
