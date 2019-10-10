@@ -39,7 +39,9 @@
 #include "nsSprocketLayout.h"
 #include "nsStackLayout.h"
 #include "nsTextControlFrame.h"
-#include "nsXBLService.h"
+#ifdef MOZ_XBL
+#  include "nsXBLService.h"
+#endif
 #include "txMozillaXSLTProcessor.h"
 #include "nsTreeSanitizer.h"
 #include "nsCellMap.h"
@@ -167,7 +169,9 @@ nsresult nsLayoutStatics::Initialize() {
   nsGlobalWindowInner::Init();
   nsGlobalWindowOuter::Init();
   Navigator::Init();
+#ifdef MOZ_XBL
   nsXBLService::Init();
+#endif
 
   rv = nsContentUtils::Init();
   if (NS_FAILED(rv)) {
@@ -385,7 +389,9 @@ void nsLayoutStatics::Shutdown() {
   nsGlobalWindowInner::ShutDown();
   nsGlobalWindowOuter::ShutDown();
   nsListControlFrame::Shutdown();
+#ifdef MOZ_XBL
   nsXBLService::Shutdown();
+#endif
   FrameLayerBuilder::Shutdown();
 
   CubebUtils::ShutdownLibrary();

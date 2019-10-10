@@ -255,11 +255,11 @@ panelview {
   font-size: 1.1rem;
 }
 
-#confirmation-hint > .panel-arrowcontainer > .panel-arrowcontent {
+#confirmation-hint::part(arrowcontent) {
   -moz-box-align: center;
 }
 
-#confirmation-hint[hidearrow] > .panel-arrowcontainer > .panel-arrowbox {
+#confirmation-hint[hidearrow]::part(arrowbox) {
   /* Don't display the arrow but keep the popup at the same vertical
      offset as other arrow panels. */
   visibility: hidden;
@@ -372,8 +372,7 @@ panelview:not([mainview]) .toolbarbutton-text,
   min-width: calc(@menuPanelWidth@ + 32px);
 }
 
-.cui-widget-panel.cui-widget-panelWithFooter::part(arrowcontent),
-.cui-widget-panel.cui-widget-panelWithFooter > .panel-arrowcontainer > .panel-arrowcontent {
+.cui-widget-panel.cui-widget-panelWithFooter::part(arrowcontent) {
   padding-bottom: 0;
 }
 
@@ -785,7 +784,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
   list-style-image: url(chrome://browser/skin/fxa/add-device.svg);
 }
 
-#PanelUI-fxa-menu-connect-device-button[disabled="true"] {
+:root:not([fxastatus="signedin"]) #PanelUI-fxa-menu-connect-device-button {
   color: var(--panel-disabled-color);
 }
 
@@ -1826,25 +1825,23 @@ toolbarpaletteitem[place="menu-panel"] > .subviewbutton-nav::after {
 #protections-popup #messaging-system-message-container {
   height: 260px;
   overflow: hidden;
-  transition: margin-bottom .25s;
+  transition: height .25s;
   border-top: 1px solid var(--panel-separator-color);
 }
 
 #protections-popup #messaging-system-message-container[disabled] {
-  /* Offset the height when hidden. This makes the panel content
-   * cover the info message and reveal it as it slides down, rather
-   * than the info message growing in height. */
-  margin-bottom: -260px;
+  height: 0;
 }
 
 #protections-popup #messaging-system-message-container[disabled] #protections-popup-message {
-  opacity: 0;
+  /* height + margins */
+  transform: translateY(calc(-100% - 10px));
 }
 
 #protections-popup-message {
   display: flex;
   align-items: flex-end;
-  transition: opacity .25s;
+  transition: transform .25s;
 }
 
 #protections-popup-message.whatsNew-hero-message {
