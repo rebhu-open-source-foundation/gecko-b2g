@@ -31,6 +31,7 @@
 #include "mozilla/dom/JSWindowActorChild.h"
 #include "mozilla/dom/JSWindowActorService.h"
 #include "nsIHttpChannelInternal.h"
+#include "nsIURIMutator.h"
 
 using namespace mozilla::ipc;
 using namespace mozilla::dom::ipc;
@@ -234,8 +235,40 @@ void WindowGlobalChild::Destroy() {
 }
 
 mozilla::ipc::IPCResult WindowGlobalChild::RecvLoadURIInChild(
-    nsDocShellLoadState* aLoadState) {
-  mWindowGlobal->GetDocShell()->LoadURI(aLoadState);
+    nsDocShellLoadState* aLoadState, bool aSetNavigating) {
+  mWindowGlobal->GetDocShell()->LoadURI(aLoadState, aSetNavigating);
+  if (aSetNavigating) {
+    mWindowGlobal->GetBrowserChild()->NotifyNavigationFinished();
+  }
+
+#ifdef MOZ_CRASHREPORTER
+  if (CrashReporter::GetEnabled()) {
+    nsCOMPtr<nsIURI> annotationURI;
+
+    nsresult rv = NS_MutateURI(aLoadState->URI())
+                      .SetUserPass(EmptyCString())
+                      .Finalize(annotationURI);
+
+    if (NS_FAILED(rv)) {
+      // Ignore failures on about: URIs.
+      annotationURI = aLoadState->URI();
+    }
+
+    CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::URL,
+                                       annotationURI->GetSpecOrDefault());
+  }
+#endif
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult WindowGlobalChild::RecvDisplayLoadError(
+    const nsAString& aURI) {
+  bool didDisplayLoadError = false;
+  mWindowGlobal->GetDocShell()->DisplayLoadError(
+      NS_ERROR_MALFORMED_URI, nullptr, PromiseFlatString(aURI).get(), nullptr,
+      &didDisplayLoadError);
+  mWindowGlobal->GetBrowserChild()->NotifyNavigationFinished();
   return IPC_OK();
 }
 

@@ -82,6 +82,7 @@ class VRDisplay;
 class VRServiceTest;
 class StorageManager;
 class MediaCapabilities;
+class MediaSession;
 struct ShareData;
 class WindowGlobalChild;
 
@@ -231,6 +232,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   static void GetAcceptLanguages(nsTArray<nsString>& aLanguages);
 
   dom::MediaCapabilities* MediaCapabilities();
+  dom::MediaSession* MediaSession();
 
   AddonManager* GetMozAddonManager(ErrorResult& aRv);
 
@@ -297,6 +299,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   nsTArray<uint32_t> mRequestedVibrationPattern;
   RefPtr<StorageManager> mStorageManager;
   RefPtr<dom::MediaCapabilities> mMediaCapabilities;
+  RefPtr<dom::MediaSession> mMediaSession;
   RefPtr<AddonManager> mAddonManager;
   RefPtr<webgpu::Instance> mWebGpu;
   RefPtr<Promise> mSharePromise;  // Web Share API related

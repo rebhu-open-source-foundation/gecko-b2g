@@ -942,17 +942,24 @@ class UrlbarInput {
    * This is used by Activity Stream and about:privatebrowsing for search hand-off.
    */
   setHiddenFocus() {
-    this.textbox.classList.add("hidden-focus");
-    this.focus();
+    this._hideFocus = true;
+    if (this.focused) {
+      this.removeAttribute("focused");
+    } else {
+      this.focus();
+    }
   }
 
   /**
-   * Remove the hidden focus styles.
+   * Restore focus styles.
    * This is used by Activity Stream and about:privatebrowsing for search hand-off.
    */
   removeHiddenFocus() {
-    this.textbox.classList.remove("hidden-focus");
-    this.startLayoutExtend();
+    this._hideFocus = false;
+    if (this.focused) {
+      this.setAttribute("focused", "true");
+      this.startLayoutExtend();
+    }
   }
 
   // Getters and Setters below.
@@ -979,6 +986,14 @@ class UrlbarInput {
 
   set value(val) {
     return this._setValue(val, true);
+  }
+
+  get lastSearchString() {
+    return this._lastSearchString;
+  }
+
+  get openViewOnFocus() {
+    return this._openViewOnFocus;
   }
 
   get openViewOnFocusForCurrentTab() {
@@ -1023,14 +1038,8 @@ class UrlbarInput {
     ) {
       return;
     }
-    // The Urlbar is unfocused or the view is closed
-    if (
-      !(
-        (this.getAttribute("focused") == "true" &&
-          !this.textbox.classList.contains("hidden-focus")) ||
-        this.view.isOpen
-      )
-    ) {
+    // The Urlbar is unfocused and the view is closed
+    if (this.getAttribute("focused") != "true" && !this.view.isOpen) {
       return;
     }
 
@@ -1062,10 +1071,7 @@ class UrlbarInput {
   endLayoutExtend(force) {
     if (
       !this.hasAttribute("breakout-extend") ||
-      (!force &&
-        (this.view.isOpen ||
-          (this.getAttribute("focused") == "true" &&
-            !this.textbox.classList.contains("hidden-focus"))))
+      (!force && (this.view.isOpen || this.getAttribute("focused") == "true"))
     ) {
       return;
     }
@@ -1772,6 +1778,8 @@ class UrlbarInput {
     if (this.getAttribute("pageproxystate") != "valid") {
       this.window.UpdatePopupNotificationsVisibility();
     }
+
+    Services.obs.notifyObservers(null, "urlbar-blur");
   }
 
   _on_click(event) {
@@ -1796,11 +1804,15 @@ class UrlbarInput {
   }
 
   _on_focus(event) {
-    this.setAttribute("focused", "true");
+    if (!this._hideFocus) {
+      this.setAttribute("focused", "true");
+    }
 
     // We handle mouse-based expansion events separately in _on_click.
     if (this._focusedViaMousedown) {
       this._focusedViaMousedown = false;
+    } else if (this.inputField.hasAttribute("refocused-by-panel")) {
+      this._maybeSelectAll(true);
     } else {
       this.startLayoutExtend();
     }
@@ -1812,6 +1824,8 @@ class UrlbarInput {
     if (this.getAttribute("pageproxystate") != "valid") {
       this.window.UpdatePopupNotificationsVisibility();
     }
+
+    Services.obs.notifyObservers(null, "urlbar-focus");
   }
 
   _on_mouseover(event) {

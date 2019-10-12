@@ -1747,6 +1747,12 @@
   value: false
   mirror: always
 
+# Media Session API
+- name: dom.media.mediasession.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Enable meta-viewport support in remote APZ-enabled frames.
 - name: dom.meta-viewport.enabled
   type: RelaxedAtomicBool
@@ -2679,18 +2685,6 @@
 - name: dom.xhr.standard_content_type_normalization
   type: RelaxedAtomicBool
   value: true
-  mirror: always
-
-# Is support for XMLDocument.async enabled?
-- name: dom.xmldocument.async.enabled
-  type: bool
-  value: false
-  mirror: always
-
-# Is support for XMLDocument.load enabled?
-- name: dom.xmldocument.load.enabled
-  type: bool
-  value: false
   mirror: always
 
 # When this pref is set, parent documents may consider child iframes have
@@ -6316,7 +6310,7 @@
 
 # Force less-secure NTLMv1 when needed (NTLMv2 is the default).
 - name: network.auth.force-generic-ntlm-v1
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
