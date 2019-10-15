@@ -51,7 +51,7 @@ bool
 ParamTraits<GonkNativeHandle>::Read(const Message* aMsg,
                                PickleIterator* aIter, paramType* aResult)
 {
-  size_t nbytes;
+  uint32_t nbytes;
   // TODO: verify this is correct after bug 1525199.
   if (!aMsg->ReadUInt32(aIter, &nbytes)) {
     return false;

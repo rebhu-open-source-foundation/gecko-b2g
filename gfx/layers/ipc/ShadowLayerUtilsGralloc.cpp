@@ -116,7 +116,7 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
   MOZ_ASSERT(aResult->mRef.mOwner == 0);
   MOZ_ASSERT(aResult->mRef.mKey == -1);
 
-  size_t nbytes;
+  uint32_t nbytes;
   int owner;
   int64_t index;
 
@@ -161,17 +161,18 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
     aResult->mGraphicBuffer = SharedBufferManagerParent::GetGraphicBuffer(aResult->mRef);
   } else {
     // Deserialize GraphicBuffer
+    size_t size = static_cast<size_t>(nbytes);
 #if ANDROID_VERSION >= 19
     sp<GraphicBuffer> buffer(new GraphicBuffer());
     const void* datap = (const void*)data.get();
     const int* fdsp = &fds[0];
-    if (NO_ERROR != buffer->unflatten(datap, nbytes, fdsp, nfds)) {
+    if (NO_ERROR != buffer->unflatten(datap, size, fdsp, nfds)) {
       buffer = nullptr;
     }
 #else
     sp<GraphicBuffer> buffer(new GraphicBuffer());
     Flattenable *flattenable = buffer.get();
-    if (NO_ERROR != flattenable->unflatten(data.get(), nbytes, fds, nfds)) {
+    if (NO_ERROR != flattenable->unflatten(data.get(), size, fds, nfds)) {
       buffer = nullptr;
     }
 #endif
