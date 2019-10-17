@@ -76,6 +76,8 @@ class SANDBOX_EXPORT Trap : public bpf_dsl::TrapRegistry {
   size_t trap_array_capacity_;  // Currently allocated capacity of array
   bool has_unsafe_traps_;       // Whether unsafe traps have been enabled
 
+  void (*saved_sigsys_handler)(int, LinuxSigInfo*, void*) = nullptr;
+
   // Copying and assigning is unimplemented. It doesn't make sense for a
   // singleton.
   DISALLOW_COPY_AND_ASSIGN(Trap);

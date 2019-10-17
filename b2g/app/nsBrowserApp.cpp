@@ -45,6 +45,11 @@
 #  include "FuzzerDefs.h"
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#include "ui/GraphicBuffer.h"
+using namespace android;
+#endif
+
 #ifdef MOZ_LINUX_32_SSE2_STARTUP_ERROR
 #  include <cpuid.h>
 #  include "mozilla/Unused.h"
@@ -252,6 +257,14 @@ int main(int argc, char* argv[], char* envp[]) {
   // We are launching as a content process, delegate to the appropriate
   // main
   if (argc > 1 && IsArg(argv[1], "contentproc")) {
+#ifdef MOZ_WIDGET_GONK
+    // Load gralloc-mapper
+    // TODO: A better way is needed.
+    {
+      sp<GraphicBuffer> buffer(new GraphicBuffer());
+    }
+#endif
+
 #  ifdef HAS_DLL_BLOCKLIST
     DllBlocklist_Initialize(eDllBlocklistInitFlagIsChildProcess);
 #  endif

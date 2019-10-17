@@ -227,7 +227,7 @@
 #endif
 
 #if defined(MOZ_SANDBOX)
-#  if defined(XP_LINUX) && !defined(ANDROID)
+#  if defined(XP_LINUX)
 #    include "mozilla/SandboxInfo.h"
 #  elif defined(XP_WIN)
 #    include "sandboxBroker.h"

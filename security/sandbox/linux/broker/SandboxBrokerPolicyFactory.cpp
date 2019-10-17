@@ -45,7 +45,7 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
-#ifndef ANDROID
+#ifdef HAVE_GLOB
 #  include <glob.h>
 #endif
 
@@ -105,6 +105,7 @@ static void AddMesaSysfsPaths(SandboxBroker::Policy* aPolicy) {
   }
 }
 
+#ifdef HAVE_GLOB
 static void JoinPathIfRelative(const nsACString& aCwd, const nsACString& inPath,
                                nsACString& outPath) {
   if (inPath.Length() < 1) {
@@ -123,6 +124,7 @@ static void JoinPathIfRelative(const nsACString& aCwd, const nsACString& inPath,
     outPath.Assign(inPath);
   }
 }
+#endif
 
 static void AddPathsFromFile(SandboxBroker::Policy* aPolicy,
                              const nsACString& aPath);
@@ -180,6 +182,8 @@ static void AddPathsFromFileInternal(SandboxBroker::Policy* aPolicy,
     token_end = end;
 
     if (FindInReadable(NS_LITERAL_CSTRING("include "), start, token_end)) {
+#ifdef HAVE_GLOB
+      // FIXME!!
       nsAutoCString includes(Substring(token_end, end));
       for (const nsACString& includeGlob : includes.Split(' ')) {
         // Glob path might be relative, so add cwd if so.
@@ -195,6 +199,7 @@ static void AddPathsFromFileInternal(SandboxBroker::Policy* aPolicy,
           globfree(&globbuf);
         }
       }
+#endif
     }
 
     // Cut off anything behind an = sign, used by dirname=TYPE directives
@@ -472,6 +477,22 @@ SandboxBrokerPolicyFactory::SandboxBrokerPolicyFactory() {
   }
 #endif
 
+#if defined(MOZ_WIDGET_GONK)
+  policy->AddPrefix(rdonly, "/system/fonts");
+  policy->AddPrefix(rdonly, "/vendor/lib");
+  policy->AddPath(rdwr, "/proc/sys/crypto/fips_enabled");
+  policy->AddPath(rdwr, "/dev/pmsg0");
+  policy->AddPrefix(rdonly, "/system/lib");
+  policy->AddPrefix(rdonly, "/system/b2g");
+  // For GPU
+  policy->AddPath(rdwr, "/dev/ashmem");
+  policy->AddPath(rdwr, "/dev/kgsl-3d0");
+  policy->AddPath(rdwr, "/dev/kgsl-2d0");
+  policy->AddPath(rdwr, "/dev/kgsl-2d1");
+  policy->AddPath(rdwr, "/dev/ion");
+  policy->AddPrefix(rdwr, "/sys/class/kgsl");
+#endif
+
   mCommonContentPolicy.reset(policy);
 }
 
@@ -525,6 +546,11 @@ UniquePtr<SandboxBroker::Policy> SandboxBrokerPolicyFactory::GetContentPolicy(
   // Used by libnuma, included by x265/ffmpeg, who falls back
   // to get_mempolicy if this fails
   policy->AddPath(rdonly, nsPrintfCString("/proc/%d/status", aPid).get());
+
+#ifdef MOZ_WIDGET_GONK
+  policy->AddPath(rdonly, nsPrintfCString("/proc/%d/cmdline", aPid).get());
+  policy->AddPath(rdonly, nsPrintfCString("/proc/%d/comm", aPid).get());
+#endif
 
   // Add write permissions on the content process specific temporary dir.
   nsCOMPtr<nsIFile> tmpDir;

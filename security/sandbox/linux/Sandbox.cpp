@@ -31,6 +31,7 @@
 #include <sys/ptrace.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <ucontext.h>
 #include <unistd.h>
 
 #include "mozilla/Array.h"
@@ -51,9 +52,6 @@
 #include "sandbox/linux/system_headers/linux_filter.h"
 #include "sandbox/linux/system_headers/linux_seccomp.h"
 #include "sandbox/linux/system_headers/linux_syscalls.h"
-#if defined(ANDROID)
-#  include "sandbox/linux/system_headers/linux_ucontext.h"
-#endif
 
 #ifdef MOZ_ASAN
 // Copy libsanitizer declarations to avoid depending on ASAN headers.

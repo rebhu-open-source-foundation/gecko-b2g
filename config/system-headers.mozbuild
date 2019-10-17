@@ -918,6 +918,7 @@ system_headers = [
     'ThreadManagerTests.h',
     'Threads.h',
     'time.h',
+    'time64.h',
     'Timer.h',
     'tlhelp32.h',
     'ToolUtils.h',

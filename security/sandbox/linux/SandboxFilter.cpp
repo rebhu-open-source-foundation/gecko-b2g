@@ -70,6 +70,10 @@ using namespace sandbox::bpf_dsl;
 // actual value because it shows up in file flags.
 #define O_LARGEFILE_REAL 00100000
 
+#ifdef __ANDROID__
+#define PR_SET_VMA 0x53564d41
+#endif
+
 // To avoid visual confusion between "ifdef ANDROID" and "ifndef ANDROID":
 #ifndef ANDROID
 #  define DESKTOP
@@ -353,8 +357,15 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
     Arg<int> op(0);
     return Switch(op)
         .CASES((PR_GET_SECCOMP,   // BroadcastSetThreadSandbox, etc.
+#ifdef __ANDROID__
+                PR_SET_VMA,
+                PR_GET_NO_NEW_PRIVS, // Required by debuggerd
+#endif
                 PR_SET_NAME,      // Thread creation
                 PR_SET_DUMPABLE,  // Crash reporting
+#ifdef MOZ_WIDGET_GONK
+                PR_GET_DUMPABLE,  // Linker logger
+#endif
                 PR_SET_PTRACER),  // Debug-mode crash handling
                Allow())
         .Default(InvalidSyscall());
@@ -971,6 +982,14 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
     }
 
     switch (sysno) {
+#ifdef MOZ_WIDGET_GONK
+      CASES_FOR_statfs:
+        return Trap(StatFsTrap, nullptr);
+
+      CASES_FOR_fstatfs:
+        return Allow();
+#endif
+
 #ifdef DESKTOP
       case __NR_getppid:
         return Trap(GetPPidTrap, nullptr);
@@ -1155,6 +1174,11 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
         return Error(EPERM);
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+      CASES_FOR_getrlimit:
+        return Allow();
+#endif
+
 #ifdef DESKTOP
       case __NR_pipe2:
         return Allow();
@@ -1250,10 +1274,23 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 
 #endif  // DESKTOP
 
+#ifdef __ANDROID__
+        // Only allow to send signals within the process.
+        // debuggerd needs this.
+      case __NR_rt_tgsigqueueinfo: {
+        Arg<pid_t> tgid(0);
+        return If(tgid == getpid(), Allow()).Else(InvalidSyscall());
+      }
+#endif
+
         // nsSystemInfo uses uname (and we cache an instance, so
         // the info remains present even if we block the syscall)
       case __NR_uname:
 #ifdef DESKTOP
+      case __NR_sysinfo:
+#endif
+#ifdef __ANDROID__
+        // bionic's get_phys_pages calls sysinfo.
       case __NR_sysinfo:
 #endif
         return Allow();

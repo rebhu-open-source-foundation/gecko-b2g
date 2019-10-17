@@ -94,11 +94,22 @@ Trap::Trap()
   }
 
   if (!IsDefaultSignalAction(old_sa)) {
+#ifndef __ANDROID__
     static const char kExistingSIGSYSMsg[] =
         "Existing signal handler when trying to install SIGSYS. SIGSYS needs "
         "to be reserved for seccomp-bpf.";
     DLOG(FATAL) << kExistingSIGSYSMsg;
     LOG(ERROR) << kExistingSIGSYSMsg;
+#else
+    // Android's linker w/ debuggerd may install a sigsys handler to
+    // do crash dump.
+    if (old_sa.sa_flags & SA_SIGINFO) {
+      saved_sigsys_handler = old_sa.sa_sigaction;
+    } else {
+      saved_sigsys_handler =
+	reinterpret_cast<void (*)(int, LinuxSigInfo*, void*)>(old_sa.sa_handler);
+    }
+#endif
   }
 
   // Unmask SIGSYS
@@ -160,6 +171,7 @@ void Trap::SigSys(int nr, LinuxSigInfo* info, ucontext_t* ctx) {
     // TODO(jln): add a DCHECK or move back to FATAL.
     RAW_LOG(ERROR, "Unexpected SIGSYS received.");
     errno = old_errno;
+    saved_sigsys_handler(nr, info, ctx);
     return;
   }
 

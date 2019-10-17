@@ -26,6 +26,10 @@
 
 namespace mozilla {
 
+#ifdef __ANDROID__
+static struct sigaction sSandboxCrashSavedSigSysHandler;
+#endif
+
 // Log JS stack info in the same place as the sandbox violation
 // message.  Useful in case the responsible code is JS and all we have
 // are logs and a minidump with the C++ stacks (e.g., on TBPL).
@@ -110,11 +114,26 @@ static void SandboxCrash(int nr, siginfo_t* info, void* void_context) {
   // Try to reraise, so the parent sees that this process crashed.
   // (If tgkill is forbidden, then seccomp will raise SIGSYS, which
   // also accomplishes that goal.)
+#ifdef __ANDROID__
+  sigaction(SIGSYS, &sSandboxCrashSavedSigSysHandler, nullptr);
+  if (sSandboxCrashSavedSigSysHandler.sa_flags & SA_SIGINFO) {
+    sSandboxCrashSavedSigSysHandler.sa_sigaction(nr, info, void_context);
+  } else {
+    sSandboxCrashSavedSigSysHandler.sa_handler(nr);
+  }
+#else
   signal(SIGSYS, SIG_DFL);
+#endif
   syscall(__NR_tgkill, pid, tid, nr);
 }
 
 static void __attribute__((constructor)) SandboxSetCrashFunc() {
+#ifdef __ANDROID__
+  // For some case, like bionic w/ linker, an additional SIGSYS handler
+  // is installed to provide features like fancy crash dump.
+  // So we do it to comply it.
+  sigaction(SIGSYS, nullptr, &sSandboxCrashSavedSigSysHandler);
+#endif
   gSandboxCrashFunc = SandboxCrash;
 }
 

@@ -126,4 +126,15 @@ def privatebrowsing(value, target):
 set_config('MOZ_PRIVATEBROWSING', privatebrowsing)
 set_define('MOZ_PRIVATEBROWSING', privatebrowsing)
 
+# Vibrator Support
+# ==============================================================
+option('--with-vibrator-so', nargs=1,
+       help='Assign the path of android.hardware.vibrator@XX.so')
+
+@depends_if('--with-vibrator-so')
+def vibrator_so(value):
+    return value[0]
+
+set_config('ANDROID_VIBRATOR_SO', vibrator_so)
+
 include('common.configure')

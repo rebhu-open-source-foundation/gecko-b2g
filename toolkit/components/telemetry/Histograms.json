@@ -13613,7 +13613,7 @@
     "bug_numbers": [1098428],
     "expires_in_version": "55",
     "kind": "boolean",
-    "operating_systems": ["linux"],
+    "operating_systems": ["linux", "android"],
     "description": "Whether the system has seccomp-bpf capability"
   },
   "SANDBOX_HAS_SECCOMP_TSYNC": {
@@ -13623,7 +13623,7 @@
     "bug_numbers": [1098428, 1370578],
     "expires_in_version": "61",
     "kind": "boolean",
-    "operating_systems": ["linux"],
+    "operating_systems": ["linux", "android"],
     "description": "Whether the system has seccomp-bpf thread-sync capability"
   },
   "SANDBOX_HAS_USER_NAMESPACES": {
@@ -13634,7 +13634,7 @@
     "expires_in_version": "70",
     "releaseChannelCollection": "opt-out",
     "kind": "boolean",
-    "operating_systems": ["linux"],
+    "operating_systems": ["linux", "android"],
     "description": "Whether our process succedeed in creating a user namespace"
   },
   "SANDBOX_HAS_USER_NAMESPACES_PRIVILEGED": {
@@ -13644,7 +13644,7 @@
     "bug_numbers": [1098428, 1370578],
     "expires_in_version": "61",
     "kind": "boolean",
-    "operating_systems": ["linux"],
+    "operating_systems": ["linux", "android"],
     "description": "Whether the system has the capability to create privileged user namespaces"
   },
  "SANDBOX_MEDIA_ENABLED": {
@@ -13654,7 +13654,7 @@
     "bug_numbers": [1098428],
     "expires_in_version": "55",
     "kind": "boolean",
-    "operating_systems": ["linux"],
+    "operating_systems": ["linux", "android"],
     "description": "Whether the sandbox is enabled for media/GMP plugins"
   },
  "SANDBOX_CONTENT_ENABLED": {
@@ -13664,7 +13664,7 @@
     "bug_numbers": [1098428],
     "expires_in_version": "55",
     "kind": "boolean",
-    "operating_systems": ["linux"],
+    "operating_systems": ["linux", "android"],
     "description": "Whether the sandbox is enabled for the content process"
   },
   "SANDBOX_REJECTED_SYSCALLS": {
@@ -13676,7 +13676,7 @@
     "releaseChannelCollection": "opt-out",
     "kind": "count",
     "keyed": true,
-    "operating_systems": ["linux"],
+    "operating_systems": ["linux", "android"],
     "description": "System calls blocked by a seccomp-bpf sandbox policy; limited to syscalls where we would crash on Nightly.  The key is generally the architecture and syscall ID but in some cases we include non-personally-identifying information from the syscall arguments; see the function SubmitToTelemetry in security/sandbox/linux/reporter/SandboxReporter.cpp for details."
   },
   "SANDBOX_FAILED_LAUNCH_KEYED": {

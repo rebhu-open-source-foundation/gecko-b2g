@@ -202,17 +202,23 @@ EventHub::EventHub(void) :
     mEpollFd = epoll_create(EPOLL_SIZE_HINT);
     LOG_ALWAYS_FATAL_IF(mEpollFd < 0, "Could not create epoll instance.  errno=%d", errno);
 
+    int result;
+
     mINotifyFd = inotify_init();
-    int result = inotify_add_watch(mINotifyFd, DEVICE_PATH, IN_DELETE | IN_CREATE);
-    LOG_ALWAYS_FATAL_IF(result < 0, "Could not register INotify for %s.  errno=%d",
-            DEVICE_PATH, errno);
+    if (mINotifyFd >= 0) {
+      result = inotify_add_watch(mINotifyFd, DEVICE_PATH, IN_DELETE | IN_CREATE);
+      LOG_ALWAYS_FATAL_IF(result < 0, "Could not register INotify for %s.  errno=%d",
+                          DEVICE_PATH, errno);
+    }
 
     struct epoll_event eventItem;
     memset(&eventItem, 0, sizeof(eventItem));
     eventItem.events = EPOLLIN;
-    eventItem.data.u32 = EPOLL_ID_INOTIFY;
-    result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mINotifyFd, &eventItem);
-    LOG_ALWAYS_FATAL_IF(result != 0, "Could not add INotify to epoll instance.  errno=%d", errno);
+    if (mINotifyFd >= 0) {
+      eventItem.data.u32 = EPOLL_ID_INOTIFY;
+      result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mINotifyFd, &eventItem);
+      LOG_ALWAYS_FATAL_IF(result != 0, "Could not add INotify to epoll instance.  errno=%d", errno);
+    }
 
     int wakeFds[2];
     result = pipe(wakeFds);
@@ -245,7 +251,9 @@ EventHub::~EventHub(void) {
     }
 
     ::close(mEpollFd);
-    ::close(mINotifyFd);
+    if (mINotifyFd >= 0) {
+      ::close(mINotifyFd);
+    }
     ::close(mWakeReadPipeFd);
     ::close(mWakeWritePipeFd);
 

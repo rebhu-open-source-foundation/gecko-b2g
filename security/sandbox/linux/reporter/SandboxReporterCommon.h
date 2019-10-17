@@ -11,6 +11,7 @@
 #include "mozilla/Types.h"
 
 #include <sys/types.h>
+#include <time.h>
 
 // Note: this is also used in libmozsandbox, so dependencies on
 // symbols from libxul probably won't work.

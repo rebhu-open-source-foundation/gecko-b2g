@@ -23,7 +23,7 @@ typedef cubeb_devid AudioDeviceID;
 // Initialize Audio Library. Some Audio backends require initializing the
 // library before using it.
 void InitLibrary();
-#  ifdef XP_LINUX
+#  if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
 void InitAudioThreads();
 #  endif
 

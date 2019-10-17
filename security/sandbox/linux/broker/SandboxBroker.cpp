@@ -797,6 +797,12 @@ void SandboxBroker::ThreadMain(void) {
       perms = 0;
     }
 
+    if (SandboxInfo::Get().Test(SandboxInfo::kVerbose)) {
+      SANDBOX_LOG_ERROR(
+          "SandboxBroker: Request op=%s rflags=%o perms=%d path=%s for pid=%d",
+          OperationDescription[req.mOp], req.mFlags, perms, pathBuf, mChildPid);
+    }
+
     // And now perform the operation if allowed.
     if (perms & CRASH_INSTEAD) {
       // This is somewhat nonmodular, but it works.

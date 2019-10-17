@@ -97,6 +97,9 @@ def Libxul(name, output_category=None):
         DEFINES['topsrcdir'] = TOPSRCDIR
         OBJDIR_PP_FILES.toolkit.library.gtest += ['../libxul.so-gdb.py.in']
 
+    if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+        LDFLAGS += [CONFIG['ANDROID_VIBRATOR_SO']]
+
 
 # The real libxul definition is in ./build/moz.build, but we define a
 # xul library here such that # FINAL_LIBRARY = 'xul' refers to here, which

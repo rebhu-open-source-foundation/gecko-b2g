@@ -2183,7 +2183,7 @@ MOZ_ARG_DISABLE_BOOL(sandbox,
     MOZ_SANDBOX=1)
 
 case "$OS_TARGET" in
-WINNT|Darwin|OpenBSD)
+WINNT|Darwin|OpenBSD|Android)
 ;;
 Linux)
     case $CPU_ARCH in
@@ -3282,6 +3282,24 @@ if test -n "$MOZ_DISABLE_STARTUPCACHE"; then
   AC_DEFINE(MOZ_DISABLE_STARTUPCACHE)
 fi
 AC_SUBST(MOZ_DISABLE_STARTUPCACHE)
+
+if test -n "$MOZ_SANDBOX"; then
+    # For Android API < 28, they don't have glob.
+    case "$OS_TARGET" in
+    Linux|Android)
+       AC_TRY_COMPILE([
+            #include <glob.h>
+            void *foo = &glob;
+            ],
+            [],
+            [HAVE_GLOB=1])
+       if test -n "$HAVE_GLOB"; then
+          AC_DEFINE(HAVE_GLOB)
+       fi
+       AC_SUBST(HAVE_GLOB)
+       ;;
+    esac
+fi
 
 MOZ_CREATE_CONFIG_STATUS()
 

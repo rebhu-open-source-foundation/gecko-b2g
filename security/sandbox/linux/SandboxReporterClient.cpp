@@ -18,11 +18,7 @@
 #include "mozilla/PodOperations.h"
 #include "prenv.h"
 #include "sandbox/linux/bpf_dsl/seccomp_macros.h"
-#ifdef ANDROID
-#  include "sandbox/linux/system_headers/linux_ucontext.h"
-#else
-#  include <ucontext.h>
-#endif
+#include <ucontext.h>
 
 namespace mozilla {
 

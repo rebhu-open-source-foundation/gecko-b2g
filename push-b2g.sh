@@ -30,6 +30,7 @@ adb shell stop b2g
 mkdir -p tmp
 tar xf $GECKO_OBJDIR/dist/b2g-*-arm.tar.gz -C tmp
 adb_push tmp/b2g /system/b2g
+adb shell chmod +x /system/b2g/b2g
 rm -rf tmp
 
 adb shell start b2g

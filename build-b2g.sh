@@ -141,6 +141,7 @@ export ANDROID_PLATFORM=$ANDROID_PLATFORM
 
 OBJ_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib
 SYS_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/system/lib
+export SYS_LIB
 
 export LDFLAGS="-L$SYS_LIB -Wl,-rpath-link=$OBJ_LIB \
 --sysroot=$SYSROOT $GCC_LIB -ldl -lstdc++ -Wl,--no-as-needed \
@@ -148,6 +149,6 @@ export LDFLAGS="-L$SYS_LIB -Wl,-rpath-link=$OBJ_LIB \
 -lui -lgui \
 -lutils -lcutils -lsysutils \
 -lhardware_legacy -lhardware -lsuspend \
--lhidlbase $SYS_LIB/android.hardware.vibrator@1.0.so"
+-lhidlbase"
 
 ./mach build $@
