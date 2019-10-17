@@ -314,6 +314,8 @@ class ServiceWorkerGlobalScope final : public WorkerGlobalScope {
   IMPL_EVENT_HANDLER(push)
   IMPL_EVENT_HANDLER(pushsubscriptionchange)
 
+  IMPL_EVENT_HANDLER(systemmessage)
+
   EventHandlerNonNull* GetOnfetch();
 
   void SetOnfetch(mozilla::dom::EventHandlerNonNull* aCallback);

@@ -43,3 +43,7 @@ partial interface ServiceWorkerGlobalScope {
   attribute EventHandler onnotificationclick;
   attribute EventHandler onnotificationclose;
 };
+
+partial interface ServiceWorkerGlobalScope {
+  attribute EventHandler onsystemmessage;
+};

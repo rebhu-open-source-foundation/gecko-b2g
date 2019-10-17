@@ -44,6 +44,8 @@
 #include "mozilla/dom/PushUtil.h"
 #include "mozilla/dom/Request.h"
 #include "mozilla/dom/ServiceWorkerOp.h"
+#include "mozilla/dom/SystemMessageEventBinding.h"
+#include "mozilla/dom/SystemMessageDataBinding.h"
 #include "mozilla/dom/TypedArray.h"
 #include "mozilla/dom/Response.h"
 #include "mozilla/dom/WorkerScope.h"
@@ -1164,6 +1166,75 @@ NS_IMPL_CYCLE_COLLECTION_INHERITED(PushEvent, ExtendableEvent, mData)
 JSObject* PushEvent::WrapObjectInternal(JSContext* aCx,
                                         JS::Handle<JSObject*> aGivenProto) {
   return mozilla::dom::PushEvent_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+SystemMessageData::SystemMessageData(nsISupports* aOwner,
+                                     const nsAString& aDecodedText)
+    : mOwner(aOwner), mDecodedText(aDecodedText) {}
+
+SystemMessageData::~SystemMessageData() {}
+
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SystemMessageData, mOwner)
+
+NS_IMPL_CYCLE_COLLECTING_ADDREF(SystemMessageData)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(SystemMessageData)
+
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SystemMessageData)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
+NS_INTERFACE_MAP_END
+
+JSObject* SystemMessageData::WrapObject(JSContext* aCx,
+                                        JS::Handle<JSObject*> aGivenProto) {
+  return mozilla::dom::SystemMessageData_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+void SystemMessageData::Json(JSContext* aCx,
+                             JS::MutableHandle<JS::Value> aRetval,
+                             ErrorResult& aRv) {
+  if (mDecodedText.IsEmpty()) {
+    aRv.Throw(NS_ERROR_DOM_UNKNOWN_ERR);
+    return;
+  }
+  BodyUtil::ConsumeJson(aCx, aRetval, mDecodedText, aRv);
+}
+
+SystemMessageEvent::SystemMessageEvent(EventTarget* aOwner)
+    : ExtendableEvent(aOwner) {}
+
+already_AddRefed<SystemMessageEvent> SystemMessageEvent::Constructor(
+    mozilla::dom::EventTarget* aOwner, const nsAString& aType,
+    const nsAString& aName, const SystemMessageEventInit& aOptions,
+    JSContext* aCx, ErrorResult& aRv) {
+  RefPtr<SystemMessageEvent> e = new SystemMessageEvent(aOwner);
+  bool trusted = e->Init(aOwner);
+  e->InitEvent(aType, aOptions.mBubbles, aOptions.mCancelable);
+  e->SetTrusted(trusted);
+  e->SetComposed(aOptions.mComposed);
+  e->mName = aName;
+  if (aOptions.mData.WasPassed()) {
+    nsAutoString text;
+    JS::RootedValue value(aCx, JS::ObjectValue(*(aOptions.mData.Value())));
+    if (!nsContentUtils::StringifyJSON(aCx, &value, text)) {
+      aRv.Throw(NS_ERROR_XPC_BAD_CONVERT_JS);
+      return nullptr;
+    }
+    e->mData = new SystemMessageData(aOwner, text);
+  }
+  return e.forget();
+}
+
+NS_IMPL_ADDREF_INHERITED(SystemMessageEvent, ExtendableEvent)
+NS_IMPL_RELEASE_INHERITED(SystemMessageEvent, ExtendableEvent)
+
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SystemMessageEvent)
+NS_INTERFACE_MAP_END_INHERITING(ExtendableEvent)
+
+NS_IMPL_CYCLE_COLLECTION_INHERITED(SystemMessageEvent, ExtendableEvent, mData)
+
+JSObject* SystemMessageEvent::WrapObjectInternal(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+  return mozilla::dom::SystemMessageEvent_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 ExtendableMessageEvent::ExtendableMessageEvent(EventTarget* aOwner)

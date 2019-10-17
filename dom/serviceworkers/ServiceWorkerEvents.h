@@ -33,6 +33,7 @@ class Request;
 class ResponseOrPromise;
 class ServiceWorker;
 class ServiceWorkerRegistrationInfo;
+struct SystemMessageEventInit;
 
 // Defined in ServiceWorker.cpp
 bool ServiceWorkerVisible(JSContext* aCx, JSObject* aObj);
@@ -231,6 +232,60 @@ class PushEvent final : public ExtendableEvent {
   }
 
   PushMessageData* GetData() const { return mData; }
+};
+
+class SystemMessageData final : public nsISupports, public nsWrapperCache {
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SystemMessageData)
+
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+  nsISupports* GetParentObject() const { return mOwner; }
+
+  void Json(JSContext* aCx, JS::MutableHandle<JS::Value> aRetval,
+            ErrorResult& aRv);
+
+  SystemMessageData(nsISupports* aOwner, const nsAString& aDecodedText);
+
+ private:
+  nsCOMPtr<nsISupports> mOwner;
+  nsString mDecodedText;
+  ~SystemMessageData();
+};
+
+class SystemMessageEvent final : public ExtendableEvent {
+  RefPtr<SystemMessageData> mData;
+  nsString mName;
+
+ protected:
+  explicit SystemMessageEvent(mozilla::dom::EventTarget* aOwner);
+  ~SystemMessageEvent() = default;
+
+ public:
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SystemMessageEvent, ExtendableEvent)
+
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+
+  static already_AddRefed<SystemMessageEvent> Constructor(
+      mozilla::dom::EventTarget* aOwner, const nsAString& aType,
+      const nsAString& aName, const SystemMessageEventInit& aOptions,
+      JSContext* aCx, ErrorResult& aRv);
+
+  static already_AddRefed<SystemMessageEvent> Constructor(
+      const GlobalObject& aGlobal, const nsAString& aType,
+      const nsAString& aName, const SystemMessageEventInit& aOptions,
+      ErrorResult& aRv) {
+    nsCOMPtr<EventTarget> owner = do_QueryInterface(aGlobal.GetAsSupports());
+    return Constructor(owner, aType, aName, aOptions, aGlobal.Context(), aRv);
+  }
+
+  void GetName(nsString& aName) const { aName = mName; }
+
+  SystemMessageData* GetData() const { return mData; }
 };
 
 class ExtendableMessageEvent final : public ExtendableEvent {

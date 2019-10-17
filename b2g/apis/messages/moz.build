@@ -28,6 +28,8 @@ EXPORTS.mozilla.dom += [
 ]
 
 WEBIDL_FILES += [
+    'SystemMessageData.webidl',
+    'SystemMessageEvent.webidl',
     'SystemMessageManager.webidl',
 ]
 
