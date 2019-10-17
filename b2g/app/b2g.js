@@ -1307,3 +1307,5 @@ pref("browser.privatebrowsing.autostart", false);
 //pref("security.sandbox.content.level", 3);
 
 pref("gfx.e10s.font-list.shared", true);
+
+pref("dom.systemMessage.enabled", true);

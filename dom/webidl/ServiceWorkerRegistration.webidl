@@ -49,3 +49,8 @@ partial interface ServiceWorkerRegistration {
   [Throws, Pref="dom.webnotifications.serviceworker.enabled"]
   Promise<sequence<Notification>> getNotifications(optional GetNotificationOptions filter = {});
 };
+
+partial interface ServiceWorkerRegistration {
+  [Throws, Exposed=(Window,Worker), Pref="dom.systemMessage.enabled"]
+  readonly attribute SystemMessageManager systemMessageManager;
+};

@@ -78,6 +78,7 @@
 #include "mozilla/dom/PushNotifier.h"
 #include "mozilla/dom/quota/QuotaManagerService.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
+#include "mozilla/dom/SystemMessageServiceParent.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/dom/ipc/SharedMap.h"
@@ -3949,6 +3950,24 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
 #else
   return IPC_FAIL_NO_REASON(this);
 #endif
+}
+
+PSystemMessageServiceParent* ContentParent::AllocPSystemMessageServiceParent() {
+  RefPtr<SystemMessageServiceParent> actor = new SystemMessageServiceParent();
+  return actor.forget().take();
+}
+
+bool ContentParent::DeallocPSystemMessageServiceParent(
+    PSystemMessageServiceParent* aActor) {
+  RefPtr<SystemMessageServiceParent> actor =
+      dont_AddRef(static_cast<SystemMessageServiceParent*>(aActor));
+  return true;
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvPSystemMessageServiceConstructor(
+    PSystemMessageServiceParent* aActor) {
+  // TODO: Some init function here.
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvStartVisitedQuery(

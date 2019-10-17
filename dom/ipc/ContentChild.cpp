@@ -55,6 +55,7 @@
 #include "mozilla/dom/PushNotifier.h"
 #include "mozilla/dom/RemoteWorkerService.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
+#include "mozilla/dom/SystemMessageServiceChild.h"
 #include "mozilla/dom/TabGroup.h"
 #include "mozilla/dom/URLClassifierChild.h"
 #include "mozilla/dom/WindowGlobalChild.h"
@@ -2318,6 +2319,17 @@ bool ContentChild::DeallocPSpeechSynthesisChild(PSpeechSynthesisChild* aActor) {
 #else
   return false;
 #endif
+}
+
+PSystemMessageServiceChild* ContentChild::AllocPSystemMessageServiceChild() {
+  MOZ_CRASH("No one should be allocating PSystemMessageServiceChild actors");
+  return nullptr;
+}
+
+bool ContentChild::DeallocPSystemMessageServiceChild(
+    PSystemMessageServiceChild* aActor) {
+  delete aActor;
+  return true;
 }
 
 PWebrtcGlobalChild* ContentChild::AllocPWebrtcGlobalChild() {

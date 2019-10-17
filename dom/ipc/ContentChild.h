@@ -305,6 +305,10 @@ class ContentChild final : public PContentChild,
 
   bool DeallocPSpeechSynthesisChild(PSpeechSynthesisChild* aActor);
 
+  PSystemMessageServiceChild* AllocPSystemMessageServiceChild();
+
+  bool DeallocPSystemMessageServiceChild(PSystemMessageServiceChild* aActor);
+
   mozilla::ipc::IPCResult RecvRegisterChrome(
       nsTArray<ChromePackage>&& packages,
       nsTArray<SubstitutionMapping>&& resources,

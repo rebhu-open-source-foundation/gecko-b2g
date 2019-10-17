@@ -9,6 +9,7 @@ CONFIGURE_SUBST_FILES += ['installer/Makefile']
 DIRS += [
 #    'apis/inputmethod',
     'apis/keyboardeventgenerator',
+    'apis/messages',
     'app',
     'chrome',
     'components',

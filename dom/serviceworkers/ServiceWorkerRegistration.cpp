@@ -13,6 +13,7 @@
 #include "mozilla/dom/ServiceWorker.h"
 #include "mozilla/dom/ServiceWorkerRegistrationBinding.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
+#include "mozilla/dom/SystemMessageManager.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsISupportsPrimitives.h"
@@ -25,7 +26,8 @@ namespace dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(ServiceWorkerRegistration,
                                    DOMEventTargetHelper, mInstallingWorker,
-                                   mWaitingWorker, mActiveWorker, mPushManager);
+                                   mWaitingWorker, mActiveWorker, mPushManager,
+                                   mSystemMessageManager);
 
 NS_IMPL_ADDREF_INHERITED(ServiceWorkerRegistration, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(ServiceWorkerRegistration, DOMEventTargetHelper)
@@ -540,6 +542,27 @@ void ServiceWorkerRegistration::UpdateStateInternal(
   } else {
     mInstallingWorker = nullptr;
   }
+}
+
+already_AddRefed<SystemMessageManager>
+ServiceWorkerRegistration::GetSystemMessageManager(ErrorResult& aRv) {
+  if (!mSystemMessageManager) {
+    nsCOMPtr<nsIGlobalObject> globalObject = GetParentObject();
+
+    if (!globalObject) {
+      aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+      return nullptr;
+    }
+
+    mSystemMessageManager =
+        SystemMessageManager::Create(globalObject, mDescriptor.Scope(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+
+  RefPtr<SystemMessageManager> ret = mSystemMessageManager;
+  return ret.forget();
 }
 
 }  // namespace dom

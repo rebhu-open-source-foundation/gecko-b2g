@@ -117,6 +117,7 @@ class TabContext;
 class GetFilesHelper;
 class MemoryReportRequestHost;
 class RemoteWorkerManager;
+class SystemMessageServiceParent;
 struct CancelContentJSOptions;
 
 #define NS_CONTENTPARENT_IID                         \
@@ -919,6 +920,13 @@ class ContentParent final : public PContentParent,
 
   virtual mozilla::ipc::IPCResult RecvPSpeechSynthesisConstructor(
       PSpeechSynthesisParent* aActor) override;
+
+  PSystemMessageServiceParent* AllocPSystemMessageServiceParent();
+
+  bool DeallocPSystemMessageServiceParent(PSystemMessageServiceParent* aActor);
+
+  virtual mozilla::ipc::IPCResult RecvPSystemMessageServiceConstructor(
+      PSystemMessageServiceParent* aActor) override;
 
   PWebBrowserPersistDocumentParent* AllocPWebBrowserPersistDocumentParent(
       PBrowserParent* aBrowser, const uint64_t& aOuterWindowID);

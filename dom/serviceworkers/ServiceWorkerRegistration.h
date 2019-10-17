@@ -25,6 +25,7 @@ class Promise;
 class PushManager;
 class WorkerPrivate;
 class ServiceWorker;
+class SystemMessageManager;
 
 #define NS_DOM_SERVICEWORKERREGISTRATION_IID         \
   {                                                  \
@@ -110,6 +111,9 @@ class ServiceWorkerRegistration final : public DOMEventTargetHelper {
 
   void MaybeDispatchUpdateFoundRunnable();
 
+  already_AddRefed<SystemMessageManager> GetSystemMessageManager(
+      ErrorResult& aRv);
+
  private:
   ServiceWorkerRegistration(
       nsIGlobalObject* aGlobal,
@@ -133,6 +137,7 @@ class ServiceWorkerRegistration final : public DOMEventTargetHelper {
   RefPtr<ServiceWorker> mWaitingWorker;
   RefPtr<ServiceWorker> mActiveWorker;
   RefPtr<PushManager> mPushManager;
+  RefPtr<SystemMessageManager> mSystemMessageManager;
 
   struct VersionCallback {
     uint64_t mVersion;

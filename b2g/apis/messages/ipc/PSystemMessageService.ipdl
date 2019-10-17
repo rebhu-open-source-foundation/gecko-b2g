@@ -1,0 +1,52 @@
+/* (c) 2019 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+include protocol PContent;
+
+namespace mozilla {
+namespace dom {
+
+struct SubscribeRequest
+{
+  nsString messageName;
+  nsCString spec;
+  nsCString scope;
+  nsCString originSuffix;
+};
+
+union SystemMessageServiceRequest
+{
+  SubscribeRequest;
+};
+
+struct SubscribeResponse
+{
+  nsresult status;
+};
+
+union SystemMessageServiceResponse
+{
+  SubscribeResponse;
+};
+
+async protocol PSystemMessageService
+{
+  manager PContent;
+
+child:
+  async Response(SystemMessageServiceResponse aResponse);
+
+parent:
+  async __delete__();
+  // If there is no other APIs in SystemMessageManager,
+  // maybe we can do SendSubscribe/RecvSubscribe directly.
+  async Request(SystemMessageServiceRequest aRequest);
+};
+
+} // namespace dom
+} // namespace mozilla

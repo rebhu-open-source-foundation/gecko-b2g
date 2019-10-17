@@ -1,0 +1,24 @@
+/* (c) 2019 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+
+interface nsIURI;
+
+[scriptable, uuid(0d01b886-a0ab-439f-9974-ba1f15833d63)]
+interface nsISystemMessageService : nsISupports
+{
+  /*
+   * TODO: Internal use for apps to subscribe a particular kind of system
+   * messages through app's manifest.
+   * @parm messageName The name of message.
+   * @parm workerURI   The URI of service worker which subscribes and receives
+   *                   messages.
+   */
+  void subscribe(in AString messageName, in nsIURI workerURI);
+};
