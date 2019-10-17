@@ -772,6 +772,65 @@ class PushSubscriptionChangeEventOp final : public ExtendableEventOp {
   }
 };
 
+/**
+ * SystemMessageEventOp
+ */
+class SystemMessageEventOp final : public ExtendableEventOp {
+  using ExtendableEventOp::ExtendableEventOp;
+
+ public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SystemMessageEventOp, override)
+
+ private:
+  ~SystemMessageEventOp() = default;
+
+  bool Exec(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+    MOZ_ASSERT(aWorkerPrivate);
+    aWorkerPrivate->AssertIsOnWorkerThread();
+    MOZ_ASSERT(aWorkerPrivate->IsServiceWorker());
+    MOZ_ASSERT(!mPromiseHolder.IsEmpty());
+
+    const ServiceWorkerSystemMessageEventOpArgs& args =
+        mArgs.get_ServiceWorkerSystemMessageEventOpArgs();
+
+    SystemMessageEventInit smei;
+
+    JS::Rooted<JS::Value> value(aCx);
+    if (!ToJSValue(aCx, args.message(), &value)) {
+      return false;
+    }
+    JS::RootedObject messageObj(aCx);
+    if (!JS_ValueToObject(aCx, value, &messageObj)) {
+      return false;
+    }
+    smei.mData.Construct(messageObj);
+    smei.mBubbles = false;
+    smei.mCancelable = false;
+
+    ErrorResult result;
+    GlobalObject globalObj(aCx, aWorkerPrivate->GlobalScope()->GetWrapper());
+    RefPtr<SystemMessageEvent> event = SystemMessageEvent::Constructor(
+        globalObj, NS_LITERAL_STRING("systemmessage"), args.messageName(), smei,
+        result);
+    if (NS_WARN_IF(result.Failed())) {
+      RejectAll(NS_ERROR_FAILURE);
+      return false;
+    }
+    event->SetTrusted(true);
+
+    nsresult rv = DispatchExtendableEventOnWorkerScope(
+        aCx, aWorkerPrivate->GlobalScope(), event, this);
+
+    if (NS_FAILED(rv)) {
+      if (NS_WARN_IF(DispatchFailed(rv))) {
+        RejectAll(rv);
+      }
+    }
+
+    return DispatchFailed(rv);
+  }
+};
+
 class NotificationEventOp : public ExtendableEventOp,
                             public nsITimerCallback,
                             public nsINamed {
@@ -1674,6 +1733,9 @@ nsresult FetchEventOp::DispatchFetchEvent(JSContext* aCx,
       break;
     case ServiceWorkerOpArgs::TServiceWorkerFetchEventOpArgs:
       op = MakeRefPtr<FetchEventOp>(aArgs, std::move(aCallback));
+      break;
+    case ServiceWorkerOpArgs::TServiceWorkerSystemMessageEventOpArgs:
+      op = MakeRefPtr<SystemMessageEventOp>(aArgs, std::move(aCallback));
       break;
     default:
       MOZ_CRASH("Unknown Service Worker operation!");

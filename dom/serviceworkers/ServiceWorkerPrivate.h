@@ -126,6 +126,10 @@ class ServiceWorkerPrivate final {
 
     virtual nsresult SendPushSubscriptionChangeEvent() = 0;
 
+    virtual nsresult SendSystemMessageEvent(
+        RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
+        const nsAString& aMessageName, const nsAString& aMessage) = 0;
+
     virtual nsresult SendNotificationEvent(
         const nsAString& aEventName, const nsAString& aID,
         const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
@@ -166,6 +170,10 @@ class ServiceWorkerPrivate final {
                          ServiceWorkerRegistrationInfo* aRegistration);
 
   nsresult SendPushSubscriptionChangeEvent();
+
+  nsresult SendSystemMessageEvent(const nsAString& aMessageName,
+                                  const nsAString& aMessage,
+                                  ServiceWorkerRegistrationInfo* aRegistration);
 
   nsresult SendNotificationEvent(const nsAString& aEventName,
                                  const nsAString& aID, const nsAString& aTitle,
@@ -228,6 +236,7 @@ class ServiceWorkerPrivate final {
     NotificationCloseEvent,
     LifeCycleEvent,
     AttachEvent,
+    SystemMessageEvent,
     Unknown
   };
 

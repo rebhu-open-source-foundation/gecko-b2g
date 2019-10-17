@@ -12,12 +12,36 @@
 #include "mozilla/dom/SystemMessageServiceChild.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/StaticPtr.h"
+#include "js/JSON.h"
 #include "nsISystemMessageListener.h"
 
 namespace mozilla {
 namespace dom {
 
 static StaticRefPtr<SystemMessageService> sSystemMessageService;
+
+namespace {
+
+nsresult SerializeFromJSVal(JSContext* aCx, JS::HandleValue aValue,
+                            nsAString& aResult) {
+  aResult.Truncate();
+  nsAutoString serializedValue;
+
+  if (aValue.isObject()) {
+    JS::RootedValue value(aCx, aValue.get());
+    NS_ENSURE_TRUE(nsContentUtils::StringifyJSON(aCx, &value, serializedValue),
+                   NS_ERROR_XPC_BAD_CONVERT_JS);
+    NS_ENSURE_TRUE(!serializedValue.IsEmpty(), NS_ERROR_FAILURE);
+    aResult = serializedValue;
+  } else {
+    MOZ_ASSERT(false, "SystemMessageData should be an JS object.");
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
+}
+
+}  // anonymous namespace
 
 NS_IMPL_ISUPPORTS(SystemMessageService, nsISystemMessageService)
 
@@ -48,6 +72,39 @@ SystemMessageService::Subscribe(const nsAString& aMessageName,
                                 nsIURI* aWorkerURI) {
   // Provide for subscribing from app's manifest during install.
   return NS_OK;
+}
+
+NS_IMETHODIMP
+SystemMessageService::SendMessage(const nsAString& aMessageName,
+                                  JS::HandleValue aMessage, nsIURI* aWorkerURI,
+                                  JSContext* aCx) {
+  if (!aWorkerURI) {
+    return NS_OK;
+  }
+
+  SubscriberTable* table = mSubscribers.Get(aMessageName);
+  if (!table) {
+    return NS_OK;
+  }
+  nsCString workerSpec;
+  aWorkerURI->GetSpec(workerSpec);
+  SubscriberInfo* info = table->Get(workerSpec);
+  if (!info) {
+    return NS_OK;
+  }
+
+  nsAutoString messageData;
+  if (NS_FAILED(SerializeFromJSVal(aCx, aMessage, messageData))) {
+    return NS_OK;
+  }
+
+  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
+  if (!swm) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
+                                     aMessageName, messageData);
 }
 
 void SystemMessageService::DoSubscribe(const nsAString& aMessageName,

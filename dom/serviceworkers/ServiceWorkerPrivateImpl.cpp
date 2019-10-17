@@ -482,6 +482,52 @@ nsresult ServiceWorkerPrivateImpl::SendPushSubscriptionChangeEvent() {
       });
 }
 
+nsresult ServiceWorkerPrivateImpl::SendSystemMessageEvent(
+    RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
+    const nsAString& aMessageName, const nsAString& aMessage) {
+  AssertIsOnMainThread();
+  MOZ_ASSERT(mOuter);
+  MOZ_ASSERT(aRegistration);
+
+  ServiceWorkerSystemMessageEventOpArgs args;
+  args.messageName() = nsString(aMessageName);
+  args.message() = nsString(aMessage);
+
+  if (mOuter->mInfo->State() == ServiceWorkerState::Activating) {
+    UniquePtr<PendingFunctionalEvent> pendingEvent =
+        MakeUnique<PendingSystemMessageEvent>(this, std::move(aRegistration),
+                                              std::move(args));
+
+    mPendingFunctionalEvents.AppendElement(std::move(pendingEvent));
+
+    return NS_OK;
+  }
+
+  MOZ_ASSERT(mOuter->mInfo->State() == ServiceWorkerState::Activated);
+
+  return SendSystemMessageEventInternal(std::move(aRegistration),
+                                        std::move(args));
+}
+
+nsresult ServiceWorkerPrivateImpl::SendSystemMessageEventInternal(
+    RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
+    ServiceWorkerSystemMessageEventOpArgs&& aArgs) {
+  AssertIsOnMainThread();
+  MOZ_ASSERT(mOuter);
+  MOZ_ASSERT(aRegistration);
+
+  return ExecServiceWorkerOp(
+      std::move(aArgs),
+      [registration = aRegistration](ServiceWorkerOpResult&& aResult) {
+        MOZ_ASSERT(aResult.type() == ServiceWorkerOpResult::Tnsresult);
+
+        registration->MaybeScheduleTimeCheckAndUpdate();
+      },
+      [registration = aRegistration]() {
+        registration->MaybeScheduleTimeCheckAndUpdate();
+      });
+}
+
 nsresult ServiceWorkerPrivateImpl::SendNotificationEvent(
     const nsAString& aEventName, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
@@ -543,6 +589,24 @@ nsresult ServiceWorkerPrivateImpl::PendingPushEvent::Send() {
 
   return mOwner->SendPushEventInternal(std::move(mRegistration),
                                        std::move(mArgs));
+}
+
+ServiceWorkerPrivateImpl::PendingSystemMessageEvent::PendingSystemMessageEvent(
+    ServiceWorkerPrivateImpl* aOwner,
+    RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
+    ServiceWorkerSystemMessageEventOpArgs&& aArgs)
+    : PendingFunctionalEvent(aOwner, std::move(aRegistration)),
+      mArgs(std::move(aArgs)) {
+  AssertIsOnMainThread();
+}
+
+nsresult ServiceWorkerPrivateImpl::PendingSystemMessageEvent::Send() {
+  AssertIsOnMainThread();
+  MOZ_ASSERT(mOwner->mOuter);
+  MOZ_ASSERT(mOwner->mOuter->mInfo);
+
+  return mOwner->SendSystemMessageEventInternal(std::move(mRegistration),
+                                                std::move(mArgs));
 }
 
 ServiceWorkerPrivateImpl::PendingFetchEvent::PendingFetchEvent(

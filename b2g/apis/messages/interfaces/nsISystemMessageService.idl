@@ -21,4 +21,10 @@ interface nsISystemMessageService : nsISupports
    *                   messages.
    */
   void subscribe(in AString messageName, in nsIURI workerURI);
+
+  [implicit_jscontext]
+  void sendMessage(in AString messageName, in jsval message, in nsIURI workerURI);
+
+  //[implicit_jscontext]
+  //void broadcastMessage(in AString messageName, in jsval message);
 };

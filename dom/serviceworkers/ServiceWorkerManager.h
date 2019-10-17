@@ -259,6 +259,11 @@ class ServiceWorkerManager final : public nsIServiceWorkerManager,
                          const nsACString& aScope, const nsAString& aMessageId,
                          const Maybe<nsTArray<uint8_t>>& aData);
 
+  nsresult SendSystemMessageEvent(const nsACString& aOriginAttributes,
+                                  const nsACString& aScope,
+                                  const nsAString& aMessageName,
+                                  const nsAString& aMessage);
+
   nsresult NotifyUnregister(nsIPrincipal* aPrincipal, const nsAString& aScope);
 
   void WorkerIsIdle(ServiceWorkerInfo* aWorker);

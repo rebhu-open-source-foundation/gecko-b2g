@@ -73,6 +73,10 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
 
   nsresult SendPushSubscriptionChangeEvent() override;
 
+  nsresult SendSystemMessageEvent(
+      RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
+      const nsAString& aMessageName, const nsAString& aMessage) override;
+
   nsresult SendNotificationEvent(const nsAString& aEventName,
                                  const nsAString& aID, const nsAString& aTitle,
                                  const nsAString& aDir, const nsAString& aLang,
@@ -117,6 +121,10 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
       RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
       ServiceWorkerPushEventOpArgs&& aArgs);
 
+  nsresult SendSystemMessageEventInternal(
+      RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
+      ServiceWorkerSystemMessageEventOpArgs&& aArgs);
+
   nsresult SendFetchEventInternal(
       RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
       ServiceWorkerFetchEventOpArgs&& aArgs,
@@ -156,6 +164,19 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
 
    private:
     ServiceWorkerPushEventOpArgs mArgs;
+  };
+
+  class PendingSystemMessageEvent final : public PendingFunctionalEvent {
+   public:
+    PendingSystemMessageEvent(
+        ServiceWorkerPrivateImpl* aOwner,
+        RefPtr<ServiceWorkerRegistrationInfo>&& aRegistration,
+        ServiceWorkerSystemMessageEventOpArgs&& aArgs);
+
+    nsresult Send() override;
+
+   private:
+    ServiceWorkerSystemMessageEventOpArgs mArgs;
   };
 
   class PendingFetchEvent final : public PendingFunctionalEvent {

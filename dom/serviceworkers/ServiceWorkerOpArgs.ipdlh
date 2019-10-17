@@ -69,6 +69,11 @@ struct ServiceWorkerFetchEventOpArgs {
   bool isNonSubresourceRequest;
 };
 
+struct ServiceWorkerSystemMessageEventOpArgs {
+  nsString messageName;
+  nsString message;
+};
+
 union ServiceWorkerOpArgs {
   ServiceWorkerCheckScriptEvaluationOpArgs;
   ServiceWorkerUpdateStateOpArgs;
@@ -79,6 +84,7 @@ union ServiceWorkerOpArgs {
   ServiceWorkerNotificationEventOpArgs;
   ServiceWorkerMessageEventOpArgs;
   ServiceWorkerFetchEventOpArgs;
+  ServiceWorkerSystemMessageEventOpArgs;
 };
 
 /**

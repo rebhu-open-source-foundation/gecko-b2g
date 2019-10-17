@@ -1070,6 +1070,27 @@ ServiceWorkerManager::SendPushSubscriptionChangeEvent(
   return info->WorkerPrivate()->SendPushSubscriptionChangeEvent();
 }
 
+nsresult ServiceWorkerManager::SendSystemMessageEvent(
+    const nsACString& aOriginAttributes, const nsACString& aScope,
+    const nsAString& aMessageName, const nsAString& aMessage) {
+  OriginAttributes attrs;
+  if (!attrs.PopulateFromSuffix(aOriginAttributes)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  ServiceWorkerInfo* info = GetActiveWorkerInfoForScope(attrs, aScope);
+  if (NS_WARN_IF(!info)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  RefPtr<ServiceWorkerRegistrationInfo> registration =
+      GetRegistration(info->Principal(), aScope);
+  MOZ_DIAGNOSTIC_ASSERT(registration);
+
+  return info->WorkerPrivate()->SendSystemMessageEvent(aMessageName, aMessage,
+                                                       registration);
+}
+
 nsresult ServiceWorkerManager::SendNotificationEvent(
     const nsAString& aEventName, const nsACString& aOriginSuffix,
     const nsACString& aScope, const nsAString& aID, const nsAString& aTitle,

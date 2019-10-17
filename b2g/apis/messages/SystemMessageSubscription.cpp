@@ -17,7 +17,6 @@
 #include "mozilla/dom/PromiseWorkerProxy.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerPrivate.h"
-#include "mozilla/dom/ServiceWorkerManager.h"
 
 namespace mozilla {
 namespace dom {
