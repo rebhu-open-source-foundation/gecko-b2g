@@ -1304,6 +1304,6 @@ pref("extensions.systemAddon.update.enabled", false);
 
 pref("browser.privatebrowsing.autostart", false);
 
-pref("security.sandbox.content.level", 3);
+//pref("security.sandbox.content.level", 3);
 
 pref("gfx.e10s.font-list.shared", true);
