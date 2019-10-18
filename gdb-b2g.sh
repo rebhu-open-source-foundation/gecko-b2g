@@ -24,4 +24,4 @@ echo
 echo
 
 adb forward tcp:8859 tcp:8859
-$GDB -n -ex "set sysroot $SYSROOT" -ex "set debug-file-directory $SYSROOT" -ex 'target remote localhost:8859'
+$GDB --data-directory=$(dirname $GDB)/gdb-share -n -ex "set sysroot $SYSROOT" -ex "set debug-file-directory $SYSROOT" -ex 'target remote localhost:8859'
