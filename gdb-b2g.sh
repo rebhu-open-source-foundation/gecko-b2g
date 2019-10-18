@@ -1,9 +1,15 @@
 GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-gecko}
-SYSROOT=$(pwd)/$GECKO_OBJDIR/dist/sysroot/
+SYSROOT=$GECKO_OBJDIR/dist/sysroot/
+GONK_PATH=${GONK_PATH:-.}
 GDB=$GONK_PATH/gonk-misc/arm-unknown-linux-androideabi-gdb
 
-if [ -z "$GECKO_OBJDIR" -o ! -e "$GECKO_OBJDIR/config.log" -o ! -e "$SYSROOT" ]; then
+if [ -z "$GECKO_OBJDIR" -o ! -e "$GECKO_OBJDIR/config.log" ]; then
     echo "GECKO_OBJDIR is invalid!" >&2
+    exit 255
+fi
+
+if [ ! -e "$SYSROOT" ]; then
+    echo "Run prepare-gdb-syms.sh at first." >&2
     exit 255
 fi
 
