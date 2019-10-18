@@ -55,7 +55,4 @@ if [ -f "$GECKO_OBJDIR" ]; then
 mk_add_options MOZ_OBJDIR="$GECKO_OBJDIR"
 fi
 
-# strip symbols
-ac_add_options --disable-strip
-
 ac_add_options --with-vibrator-so="$SYS_LIB/android.hardware.vibrator@1.0.so"
