@@ -34,8 +34,7 @@ namespace dom {
   MOZ_ASSERT(aDirPath);
   MOZ_ASSERT(aTargetPath);
 
-  nsCOMPtr<nsIGlobalObject> globalObject =
-      do_QueryInterface(aFileSystem->GetParentObject());
+  nsCOMPtr<nsIGlobalObject> globalObject = aFileSystem->GetParentObject();
   if (NS_WARN_IF(!globalObject)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;

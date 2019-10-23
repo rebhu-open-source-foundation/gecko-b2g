@@ -13,7 +13,6 @@
 
 #include "builtin/Promise.h"
 #include "frontend/BytecodeCompilation.h"
-#include "gc/GCInternals.h"
 #include "jit/IonBuilder.h"
 #include "js/ContextOptions.h"  // JS::ContextOptions
 #include "js/SourceText.h"
@@ -843,15 +842,15 @@ static bool EnsureParserCreatedClasses(JSContext* cx, ParseTaskKind kind) {
     return false;  // needed by regular expression literals
   }
 
-  if (!GlobalObject::initGenerators(cx, global)) {
+  if (!EnsureConstructor(cx, global, JSProto_GeneratorFunction)) {
     return false;  // needed by function*() {}
   }
 
-  if (!GlobalObject::initAsyncFunction(cx, global)) {
+  if (!EnsureConstructor(cx, global, JSProto_AsyncFunction)) {
     return false;  // needed by async function() {}
   }
 
-  if (!GlobalObject::initAsyncGenerators(cx, global)) {
+  if (!EnsureConstructor(cx, global, JSProto_AsyncGeneratorFunction)) {
     return false;  // needed by async function*() {}
   }
 

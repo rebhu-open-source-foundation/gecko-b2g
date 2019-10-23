@@ -93,14 +93,14 @@ void DeviceStorageFileSystem::Shutdown() {
   mShutdown = true;
 }
 
-nsISupports* DeviceStorageFileSystem::GetParentObject() const {
+nsIGlobalObject* DeviceStorageFileSystem::GetParentObject() const {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
   AssertIsOnOwningThread();
 
   nsPIDOMWindowInner* window =
       nsGlobalWindowInner::GetInnerWindowWithId(mWindowId);
   MOZ_ASSERT_IF(!mShutdown, window);
-  return window ? window : nullptr;
+  return window ? window->AsGlobal() : nullptr;
 }
 
 void DeviceStorageFileSystem::GetDirectoryName(nsIFile* aFile,

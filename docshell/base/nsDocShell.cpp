@@ -3460,7 +3460,7 @@ nsDocShell::AddChildSHEntry(nsISHEntry* aCloneRef, nsISHEntry* aNewEntry,
   } else if (!aCloneRef) {
     /* This is an initial load in some subframe.  Just append it if we can */
     if (mOSHE) {
-      rv = mOSHE->AddChild(aNewEntry, aChildOffset);
+      rv = mOSHE->AddChild(aNewEntry, aChildOffset, UseRemoteSubframes());
     }
   } else {
     rv = AddChildSHEntryInternal(aCloneRef, aNewEntry, aChildOffset, aLoadType,
@@ -6631,7 +6631,7 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
           nsCOMPtr<nsIURIFixupInfo> info;
           // only send non-qualified hosts to the keyword server
           if (!mOriginalUriString.IsEmpty()) {
-            sURIFixup->KeywordToURI(mOriginalUriString,
+            sURIFixup->KeywordToURI(mOriginalUriString, UsePrivateBrowsing(),
                                     getter_AddRefs(newPostData),
                                     getter_AddRefs(info));
           } else {
@@ -6651,10 +6651,12 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
                 do_GetService(NS_IDNSERVICE_CONTRACTID);
             if (idnSrv && NS_SUCCEEDED(idnSrv->IsACE(host, &isACE)) && isACE &&
                 NS_SUCCEEDED(idnSrv->ConvertACEtoUTF8(host, utf8Host))) {
-              sURIFixup->KeywordToURI(utf8Host, getter_AddRefs(newPostData),
+              sURIFixup->KeywordToURI(utf8Host, UsePrivateBrowsing(),
+                                      getter_AddRefs(newPostData),
                                       getter_AddRefs(info));
             } else {
-              sURIFixup->KeywordToURI(host, getter_AddRefs(newPostData),
+              sURIFixup->KeywordToURI(host, UsePrivateBrowsing(),
+                                      getter_AddRefs(newPostData),
                                       getter_AddRefs(info));
             }
           }
@@ -7633,9 +7635,11 @@ nsresult nsDocShell::RestoreFromHistory() {
   // Order the mContentViewer setup just like Embed does.
   mContentViewer = nullptr;
 
-  // Move the browsing ontext's children to the cache. If we're
-  // detaching them, we'll detach them from there.
-  mBrowsingContext->CacheChildren();
+  if (!mSkipBrowsingContextDetachOnDestroy) {
+    // Move the browsing ontext's children to the cache. If we're
+    // detaching them, we'll detach them from there.
+    mBrowsingContext->CacheChildren();
+  }
 
   // Now that we're about to switch documents, forget all of our children.
   // Note that we cached them as needed up in CaptureState above.
@@ -10518,10 +10522,10 @@ nsresult nsDocShell::DoChannelLoad(nsIChannel* aChannel,
     loadFlags |= nsIRequest::LOAD_DOCUMENT_NEEDS_COOKIE;
   }
 
-  if (mSandboxFlags & SANDBOXED_AUXILIARY_NAVIGATION) {
+  if (mSandboxFlags) {
     nsCOMPtr<nsIHttpChannelInternal> httpChannel(do_QueryInterface(aChannel));
     if (httpChannel) {
-      httpChannel->SetHasSandboxedAuxiliaryNavigations(true);
+      httpChannel->SetHasNonEmptySandboxingFlag(true);
     }
   }
 
@@ -13347,8 +13351,8 @@ nsIRemoteTab* nsDocShell::GetOpener() {
 
 // The caller owns |aAsyncCause| here.
 void nsDocShell::NotifyJSRunToCompletionStart(const char* aReason,
-                                              const char16_t* aFunctionName,
-                                              const char16_t* aFilename,
+                                              const nsAString& aFunctionName,
+                                              const nsAString& aFilename,
                                               const uint32_t aLineNumber,
                                               JS::Handle<JS::Value> aAsyncStack,
                                               const char* aAsyncCause) {

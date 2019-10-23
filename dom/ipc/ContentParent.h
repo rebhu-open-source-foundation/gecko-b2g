@@ -483,12 +483,14 @@ class ContentParent final : public PContentParent,
 
   already_AddRefed<POfflineCacheUpdateParent> AllocPOfflineCacheUpdateParent(
       const URIParams& aManifestURI, const URIParams& aDocumentURI,
-      const PrincipalInfo& aLoadingPrincipalInfo, const bool& aStickDocument);
+      const PrincipalInfo& aLoadingPrincipalInfo, const bool& aStickDocument,
+      const CookieSettingsArgs& aCookieSettingsArgs);
 
   virtual mozilla::ipc::IPCResult RecvPOfflineCacheUpdateConstructor(
       POfflineCacheUpdateParent* aActor, const URIParams& aManifestURI,
       const URIParams& aDocumentURI, const PrincipalInfo& aLoadingPrincipal,
-      const bool& stickDocument) override;
+      const bool& stickDocument,
+      const CookieSettingsArgs& aCookieSettingsArgs) override;
 
   mozilla::ipc::IPCResult RecvSetOfflinePermission(
       const IPC::Principal& principal);
@@ -1059,6 +1061,7 @@ class ContentParent final : public PContentParent,
   mozilla::ipc::IPCResult RecvRemoveFakeVolume(const nsString& fsName);
 
   mozilla::ipc::IPCResult RecvKeywordToURI(const nsCString& aKeyword,
+                                           const bool& aIsPrivateContext,
                                            nsString* aProviderName,
                                            RefPtr<nsIInputStream>* aPostData,
                                            Maybe<URIParams>* aURI);

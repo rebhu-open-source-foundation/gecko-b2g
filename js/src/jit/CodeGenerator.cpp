@@ -56,7 +56,9 @@
 #include "vm/StringType.h"
 #include "vm/TraceLogging.h"
 #include "vm/TypedArrayObject.h"
-#include "vtune/VTuneWrapper.h"
+#ifdef MOZ_VTUNE
+#  include "vtune/VTuneWrapper.h"
+#endif
 #include "wasm/WasmGC.h"
 #include "wasm/WasmStubs.h"
 
@@ -861,6 +863,23 @@ CodeGenerator::CodeGenerator(MIRGenerator* gen, LIRGraph* graph,
 
 CodeGenerator::~CodeGenerator() { js_delete(scriptCounts_); }
 
+class OutOfLineZeroIfNaN : public OutOfLineCodeBase<CodeGenerator> {
+  LInstruction* lir_;
+  FloatRegister input_;
+  Register output_;
+
+ public:
+  OutOfLineZeroIfNaN(LInstruction* lir, FloatRegister input, Register output)
+      : lir_(lir), input_(input), output_(output) {}
+
+  void accept(CodeGenerator* codegen) override {
+    codegen->visitOutOfLineZeroIfNaN(this);
+  }
+  LInstruction* lir() const { return lir_; }
+  FloatRegister input() const { return input_; }
+  Register output() const { return output_; }
+};
+
 void CodeGenerator::visitValueToInt32(LValueToInt32* lir) {
   ValueOperand operand = ToValue(lir, LValueToInt32::Input);
   Register output = ToRegister(lir->output());
@@ -869,6 +888,8 @@ void CodeGenerator::visitValueToInt32(LValueToInt32* lir) {
   MDefinition* input;
   if (lir->mode() == LValueToInt32::NORMAL) {
     input = lir->mirNormal()->input();
+  } else if (lir->mode() == LValueToInt32::TRUNCATE_NOWRAP) {
+    input = lir->mirTruncateNoWrap()->input();
   } else {
     input = lir->mirTruncate()->input();
   }
@@ -899,6 +920,13 @@ void CodeGenerator::visitValueToInt32(LValueToInt32* lir) {
                               oolDouble->entry(), stringReg, temp, output,
                               &fails);
     masm.bind(oolDouble->rejoin());
+  } else if (lir->mode() == LValueToInt32::TRUNCATE_NOWRAP) {
+    auto* ool = new (alloc()) OutOfLineZeroIfNaN(lir, temp, output);
+    addOutOfLineCode(ool, lir->mir());
+
+    masm.truncateNoWrapValueToInt32(operand, input, temp, output, ool->entry(),
+                                    &fails);
+    masm.bind(ool->rejoin());
   } else {
     masm.convertValueToInt32(operand, input, temp, output, &fails,
                              lir->mirNormal()->canBeNegativeZero(),
@@ -906,6 +934,27 @@ void CodeGenerator::visitValueToInt32(LValueToInt32* lir) {
   }
 
   bailoutFrom(&fails, lir->snapshot());
+}
+
+void CodeGenerator::visitOutOfLineZeroIfNaN(OutOfLineZeroIfNaN* ool) {
+  FloatRegister input = ool->input();
+  Register output = ool->output();
+
+  // NaN triggers the failure path for branchTruncateDoubleToInt32() on x86,
+  // x64, and ARM64, so handle it here. In all other cases bail out.
+
+  Label fails;
+  if (input.isSingle()) {
+    masm.branchFloat(Assembler::DoubleOrdered, input, input, &fails);
+  } else {
+    masm.branchDouble(Assembler::DoubleOrdered, input, input, &fails);
+  }
+
+  // ToInteger(NaN) is 0.
+  masm.move32(Imm32(0), output);
+  masm.jump(ool->rejoin());
+
+  bailoutFrom(&fails, ool->lir()->snapshot());
 }
 
 void CodeGenerator::visitValueToDouble(LValueToDouble* lir) {
@@ -1065,6 +1114,28 @@ void CodeGenerator::visitFloat32ToInt32(LFloat32ToInt32* lir) {
   masm.convertFloat32ToInt32(input, output, &fail,
                              lir->mir()->canBeNegativeZero());
   bailoutFrom(&fail, lir->snapshot());
+}
+
+void CodeGenerator::visitDoubleToIntegerInt32(LDoubleToIntegerInt32* lir) {
+  FloatRegister input = ToFloatRegister(lir->input());
+  Register output = ToRegister(lir->output());
+
+  auto* ool = new (alloc()) OutOfLineZeroIfNaN(lir, input, output);
+  addOutOfLineCode(ool, lir->mir());
+
+  masm.branchTruncateDoubleToInt32(input, output, ool->entry());
+  masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitFloat32ToIntegerInt32(LFloat32ToIntegerInt32* lir) {
+  FloatRegister input = ToFloatRegister(lir->input());
+  Register output = ToRegister(lir->output());
+
+  auto* ool = new (alloc()) OutOfLineZeroIfNaN(lir, input, output);
+  addOutOfLineCode(ool, lir->mir());
+
+  masm.branchTruncateFloat32ToInt32(input, output, ool->entry());
+  masm.bind(ool->rejoin());
 }
 
 void CodeGenerator::emitOOLTestObject(Register objreg,
@@ -1550,7 +1621,7 @@ void CodeGenerator::visitIntToString(LIntToString* lir) {
   Register input = ToRegister(lir->input());
   Register output = ToRegister(lir->output());
 
-  using Fn = JSFlatString* (*)(JSContext*, int);
+  using Fn = JSLinearString* (*)(JSContext*, int);
   OutOfLineCode* ool = oolCallVM<Fn, Int32ToString<CanGC>>(
       lir, ArgList(input), StoreRegisterTo(output));
 
@@ -9045,7 +9116,7 @@ void CodeGenerator::visitFromCharCode(LFromCharCode* lir) {
   Register code = ToRegister(lir->code());
   Register output = ToRegister(lir->output());
 
-  using Fn = JSFlatString* (*)(JSContext*, int32_t);
+  using Fn = JSLinearString* (*)(JSContext*, int32_t);
   OutOfLineCode* ool = oolCallVM<Fn, jit::StringFromCharCode>(
       lir, ArgList(code), StoreRegisterTo(output));
 

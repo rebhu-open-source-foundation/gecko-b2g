@@ -756,10 +756,6 @@ static_assert((uint64_t(MaxStringLength) + 1) * sizeof(char16_t) <= INT32_MAX,
               "size of null-terminated JSString char buffer must fit in "
               "INT32_MAX");
 
-MOZ_ALWAYS_INLINE size_t GetFlatStringLength(JSFlatString* s) {
-  return reinterpret_cast<JS::shadow::String*>(s)->length();
-}
-
 MOZ_ALWAYS_INLINE size_t GetLinearStringLength(JSLinearString* s) {
   return reinterpret_cast<JS::shadow::String*>(s)->length();
 }
@@ -803,16 +799,17 @@ MOZ_ALWAYS_INLINE const char16_t* GetTwoByteLinearStringChars(
   return s->nonInlineCharsTwoByte;
 }
 
+MOZ_ALWAYS_INLINE char16_t GetLinearStringCharAt(JSLinearString* linear,
+                                                 size_t index) {
+  MOZ_ASSERT(index < GetLinearStringLength(linear));
+  JS::AutoCheckCannotGC nogc;
+  return LinearStringHasLatin1Chars(linear)
+             ? GetLatin1LinearStringChars(nogc, linear)[index]
+             : GetTwoByteLinearStringChars(nogc, linear)[index];
+}
+
 MOZ_ALWAYS_INLINE JSLinearString* AtomToLinearString(JSAtom* atom) {
   return reinterpret_cast<JSLinearString*>(atom);
-}
-
-MOZ_ALWAYS_INLINE JSFlatString* AtomToFlatString(JSAtom* atom) {
-  return reinterpret_cast<JSFlatString*>(atom);
-}
-
-MOZ_ALWAYS_INLINE JSLinearString* FlatStringToLinearString(JSFlatString* s) {
-  return reinterpret_cast<JSLinearString*>(s);
 }
 
 MOZ_ALWAYS_INLINE const JS::Latin1Char* GetLatin1AtomChars(
@@ -900,10 +897,6 @@ inline bool CopyStringChars(JSContext* cx, CharType* dest, JSString* s,
 
   CopyLinearStringChars(dest, linear, len, start);
   return true;
-}
-
-inline void CopyFlatStringChars(char16_t* dest, JSFlatString* s, size_t len) {
-  CopyLinearStringChars(dest, FlatStringToLinearString(s), len);
 }
 
 /**
@@ -1136,8 +1129,8 @@ extern JS_FRIEND_API JSObject* GetTestingFunctions(JSContext* cx);
  * Get an error type name from a JSExnType constant.
  * Returns nullptr for invalid arguments and JSEXN_INTERNALERR
  */
-extern JS_FRIEND_API JSFlatString* GetErrorTypeName(JSContext* cx,
-                                                    int16_t exnType);
+extern JS_FRIEND_API JSLinearString* GetErrorTypeName(JSContext* cx,
+                                                      int16_t exnType);
 
 extern JS_FRIEND_API RegExpShared* RegExpToSharedNonInline(
     JSContext* cx, JS::HandleObject regexp);
@@ -2623,8 +2616,11 @@ extern bool AddMozDateTimeFormatConstructor(JSContext* cx,
                                             JS::Handle<JSObject*> intl);
 
 // Create and add the Intl.Locale constructor function to the provided object.
-// This function throws if called more than once per realm/global object.
 extern bool AddLocaleConstructor(JSContext* cx, JS::Handle<JSObject*> intl);
+
+// Create and add the Intl.ListFormat constructor function to the provided
+// object.
+extern bool AddListFormatConstructor(JSContext* cx, JS::Handle<JSObject*> intl);
 #endif  // ENABLE_INTL_API
 
 class MOZ_STACK_CLASS JS_FRIEND_API AutoAssertNoContentJS {

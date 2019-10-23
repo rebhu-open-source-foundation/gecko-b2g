@@ -4469,8 +4469,9 @@ mozilla::ipc::IPCResult ContentParent::RecvRemoveFakeVolume(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvKeywordToURI(
-    const nsCString& aKeyword, nsString* aProviderName,
-    RefPtr<nsIInputStream>* aPostData, Maybe<URIParams>* aURI) {
+    const nsCString& aKeyword, const bool& aIsPrivateContext,
+    nsString* aProviderName, RefPtr<nsIInputStream>* aPostData,
+    Maybe<URIParams>* aURI) {
   *aPostData = nullptr;
   *aURI = Nothing();
 
@@ -4481,7 +4482,8 @@ mozilla::ipc::IPCResult ContentParent::RecvKeywordToURI(
 
   nsCOMPtr<nsIURIFixupInfo> info;
 
-  if (NS_FAILED(fixup->KeywordToURI(aKeyword, getter_AddRefs(*aPostData),
+  if (NS_FAILED(fixup->KeywordToURI(aKeyword, aIsPrivateContext,
+                                    getter_AddRefs(*aPostData),
                                     getter_AddRefs(info)))) {
     return IPC_OK();
   }
@@ -4742,7 +4744,8 @@ void ContentParent::NotifyRebuildFontList() {
 already_AddRefed<mozilla::docshell::POfflineCacheUpdateParent>
 ContentParent::AllocPOfflineCacheUpdateParent(
     const URIParams& aManifestURI, const URIParams& aDocumentURI,
-    const PrincipalInfo& aLoadingPrincipalInfo, const bool& aStickDocument) {
+    const PrincipalInfo& aLoadingPrincipalInfo, const bool& aStickDocument,
+    const CookieSettingsArgs& aCookieSettingsArgs) {
   RefPtr<mozilla::docshell::OfflineCacheUpdateParent> update =
       new mozilla::docshell::OfflineCacheUpdateParent();
   return update.forget();
@@ -4751,14 +4754,14 @@ ContentParent::AllocPOfflineCacheUpdateParent(
 mozilla::ipc::IPCResult ContentParent::RecvPOfflineCacheUpdateConstructor(
     POfflineCacheUpdateParent* aActor, const URIParams& aManifestURI,
     const URIParams& aDocumentURI, const PrincipalInfo& aLoadingPrincipal,
-    const bool& aStickDocument) {
+    const bool& aStickDocument, const CookieSettingsArgs& aCookieSettingsArgs) {
   MOZ_ASSERT(aActor);
 
   RefPtr<mozilla::docshell::OfflineCacheUpdateParent> update =
       static_cast<mozilla::docshell::OfflineCacheUpdateParent*>(aActor);
 
   nsresult rv = update->Schedule(aManifestURI, aDocumentURI, aLoadingPrincipal,
-                                 aStickDocument);
+                                 aStickDocument, aCookieSettingsArgs);
   if (NS_FAILED(rv) && IsAlive()) {
     // Inform the child of failure.
     Unused << update->SendFinish(false, false);

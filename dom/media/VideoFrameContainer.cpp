@@ -7,10 +7,11 @@
 #include "VideoFrameContainer.h"
 
 #ifdef MOZ_WIDGET_ANDROID
-#include "GLImages.h"  // for SurfaceTextureImage
+#  include "GLImages.h"  // for SurfaceTextureImage
 #endif
 #include "MediaDecoderOwner.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/AbstractThread.h"
 
 using namespace mozilla::layers;
 
@@ -101,7 +102,7 @@ void VideoFrameContainer::SetCurrentFrame(const gfx::IntSize& aIntrinsicSize,
                                           Image* aImage,
                                           const TimeStamp& aTargetTime) {
 #ifdef MOZ_WIDGET_ANDROID
-    NotifySetCurrent(aImage);
+  NotifySetCurrent(aImage);
 #endif
   if (aImage) {
     MutexAutoLock lock(mMutex);

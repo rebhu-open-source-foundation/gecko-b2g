@@ -34,7 +34,7 @@ class FileSystemBase {
 
   virtual bool ShouldCreateDirectory() = 0;
 
-  virtual nsISupports* GetParentObject() const;
+  virtual nsIGlobalObject* GetParentObject() const;
 
   virtual void GetDirectoryName(nsIFile* aFile, nsAString& aRetval,
                                 ErrorResult& aRv) const;

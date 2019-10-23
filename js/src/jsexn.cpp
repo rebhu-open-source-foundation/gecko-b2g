@@ -594,8 +594,8 @@ JSObject* ErrorObject::createConstructor(JSContext* cx, JSProtoKey key) {
   return ctor;
 }
 
-JS_FRIEND_API JSFlatString* js::GetErrorTypeName(JSContext* cx,
-                                                 int16_t exnType) {
+JS_FRIEND_API JSLinearString* js::GetErrorTypeName(JSContext* cx,
+                                                   int16_t exnType) {
   /*
    * JSEXN_INTERNALERR returns null to prevent that "InternalError: "
    * is prepended before "uncaught exception: "
@@ -764,8 +764,7 @@ static JSString* ErrorReportToString(JSContext* cx, JSErrorReport* reportp) {
   return ConcatStrings<CanGC>(cx, str, message);
 }
 
-ErrorReport::ErrorReport(JSContext* cx)
-    : reportp(nullptr), exnObject(cx) {}
+ErrorReport::ErrorReport(JSContext* cx) : reportp(nullptr), exnObject(cx) {}
 
 ErrorReport::~ErrorReport() = default;
 

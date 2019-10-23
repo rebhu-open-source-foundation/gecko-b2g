@@ -45,9 +45,17 @@ add_task(async function setup() {
   );
   await Services.search.moveEngine(engine2, 0);
 
+  // Add an engine with an alias.
+  let aliasEngine = await Services.search.addEngineWithDetails("MozSearch", {
+    alias: "alias",
+    method: "GET",
+    template: "http://example.com/?q={searchTerms}",
+  });
+
   registerCleanupFunction(async () => {
     await Services.search.setDefault(oldDefaultEngine);
     await Services.search.setDefaultPrivate(oldDefaultPrivateEngine);
+    await Services.search.removeEngine(aliasEngine);
     await PlacesUtils.history.clear();
   });
 });
@@ -85,6 +93,7 @@ async function AssertPrivateResult(win, engine, isPrivateEngine) {
     engine.name,
     "Check the search engine"
   );
+  return result;
 }
 
 add_task(async function test_nonsearch() {
@@ -109,6 +118,22 @@ add_task(async function test_search() {
     value: "unique198273982173",
   });
   await AssertPrivateResult(window, await Services.search.getDefault(), false);
+});
+
+add_task(async function test_search_disabled_suggestions() {
+  info(
+    "Test that 'Search in a Private Window' appears if suggestions are disabled"
+  );
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.urlbar.suggest.searches", false]],
+  });
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: "unique198273982173",
+  });
+  await AssertPrivateResult(window, await Services.search.getDefault(), false);
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_oneoff_selected_keyboard() {
@@ -330,4 +355,71 @@ add_task(async function test_oneoff_selected_with_private_engine_keyboard() {
     );
     await BrowserTestUtils.closeWindow(win);
   });
+});
+
+add_task(async function test_alias() {
+  info(
+    "Test that 'Search in a Private Window' doesn't appear if an alias is typed"
+  );
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: "alias",
+  });
+  await AssertNoPrivateResult(window);
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: "alias something",
+  });
+  await AssertNoPrivateResult(window);
+});
+
+add_task(async function test_restrict() {
+  info(
+    "Test that 'Search in a Private Window' doesn's appear for just the restriction token"
+  );
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: UrlbarTokenizer.RESTRICT.SEARCH,
+  });
+  await AssertNoPrivateResult(window);
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: UrlbarTokenizer.RESTRICT.SEARCH + " ",
+  });
+  await AssertNoPrivateResult(window);
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: " " + UrlbarTokenizer.RESTRICT.SEARCH,
+  });
+  await AssertNoPrivateResult(window);
+});
+
+add_task(async function test_restrict_search() {
+  info(
+    "Test that 'Search in a Private Window' has the right string with the restriction token"
+  );
+  let engine = await Services.search.getDefaultPrivate();
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: UrlbarTokenizer.RESTRICT.SEARCH + "test",
+  });
+  let result = await AssertPrivateResult(window, engine, true);
+  Assert.equal(result.searchParams.query, "test");
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    waitForFocus,
+    value: "test" + UrlbarTokenizer.RESTRICT.SEARCH,
+  });
+  result = await AssertPrivateResult(window, engine, true);
+  Assert.equal(result.searchParams.query, "test");
 });

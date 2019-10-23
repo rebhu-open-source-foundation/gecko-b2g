@@ -758,6 +758,7 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
 
   virtual void InitAcceleration();
   virtual void InitWebRenderConfig();
+  virtual void InitWebGPUConfig();
 
   /**
    * Called immediately before deleting the gfxPlatform object.

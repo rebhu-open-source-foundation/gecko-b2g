@@ -548,6 +548,10 @@ struct JSContext : public JS::RootingContext,
   // IsAboutToBeFinalized and IsMarked calls to this zone.
   js::ContextData<JS::Zone*> gcSweepingZone;
 
+  // Whether this thread is currently marking GC things. This thread could
+  // be the main thread or a helper thread doing sweep-marking.
+  js::ContextData<bool> gcMarking;
+
   // Whether this thread is currently manipulating possibly-gray GC things.
   js::ContextData<size_t> isTouchingGrayThings;
 
@@ -1335,6 +1339,33 @@ struct MOZ_RAII AutoSetThreadIsSweeping {
   JS::Zone* prevZone;
 #endif
 };
+
+// Note that this class does not suppress buffer allocation/reallocation in the
+// nursery, only Cells themselves.
+class MOZ_RAII AutoSuppressNurseryCellAlloc {
+  JSContext* cx_;
+
+ public:
+  explicit AutoSuppressNurseryCellAlloc(JSContext* cx) : cx_(cx) {
+    cx_->nurserySuppressions_++;
+  }
+  ~AutoSuppressNurseryCellAlloc() { cx_->nurserySuppressions_--; }
+};
+
+#ifdef DEBUG
+// Set/reset the GC marking flag for the current thread.
+struct MOZ_RAII AutoSetThreadIsMarking {
+  AutoSetThreadIsMarking() : cx(TlsContext.get()), prevState(cx->gcMarking) {
+    cx->gcMarking = true;
+  }
+
+  ~AutoSetThreadIsMarking() { cx->gcMarking = prevState; }
+
+ private:
+  JSContext* cx;
+  bool prevState;
+};
+#endif  // DEBUG
 
 }  // namespace gc
 

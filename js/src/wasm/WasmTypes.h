@@ -213,24 +213,26 @@ static_assert(std::is_pod<PackedTypeCode>::value,
               "must be POD to be simply serialized/deserialized");
 
 const uint32_t NoTypeCode = 0xFF;          // Only use these
-const uint32_t NoRefTypeIndex = 0xFFFFFF;  //   with PackedTypeCode
-
-static inline PackedTypeCode InvalidPackedTypeCode() {
-  return PackedTypeCode((NoRefTypeIndex << 8) | NoTypeCode);
-}
-
-static inline PackedTypeCode PackTypeCode(TypeCode tc) {
-  MOZ_ASSERT(uint32_t(tc) <= 0xFF);
-  MOZ_ASSERT(tc != TypeCode::Ref);
-  return PackedTypeCode((NoRefTypeIndex << 8) | uint32_t(tc));
-}
+const uint32_t NoRefTypeIndex = 0x3FFFFF;  //   with PackedTypeCode
 
 static inline PackedTypeCode PackTypeCode(TypeCode tc, uint32_t refTypeIndex) {
   MOZ_ASSERT(uint32_t(tc) <= 0xFF);
   MOZ_ASSERT_IF(tc != TypeCode::Ref, refTypeIndex == NoRefTypeIndex);
   MOZ_ASSERT_IF(tc == TypeCode::Ref, refTypeIndex <= MaxTypes);
-  static_assert(MaxTypes < (1 << (32 - 8)), "enough bits");
+  // A PackedTypeCode should be representable in a single word, so in the
+  // smallest case, 32 bits.  However sometimes 2 bits of the word may be taken
+  // by a pointer tag; for that reason, limit to 30 bits; and then there's the
+  // 8-bit typecode, so 22 bits left for the type index.
+  static_assert(MaxTypes < (1 << (30 - 8)), "enough bits");
   return PackedTypeCode((refTypeIndex << 8) | uint32_t(tc));
+}
+
+static inline PackedTypeCode PackTypeCode(TypeCode tc) {
+  return PackTypeCode(tc, NoRefTypeIndex);
+}
+
+static inline PackedTypeCode InvalidPackedTypeCode() {
+  return PackedTypeCode(NoTypeCode);
 }
 
 static inline PackedTypeCode PackedTypeCodeFromBits(uint32_t bits) {
@@ -1201,6 +1203,7 @@ struct ElemSegment : AtomicRefCounted<ElemSegment> {
 
   Kind kind;
   uint32_t tableIndex;
+  ValType elementType;
   Maybe<InitExpr> offsetIfActive;
   Uint32Vector elemFuncIndices;  // Element may be NullFuncIndex
 
@@ -1209,6 +1212,8 @@ struct ElemSegment : AtomicRefCounted<ElemSegment> {
   InitExpr offset() const { return *offsetIfActive; }
 
   size_t length() const { return elemFuncIndices.length(); }
+
+  ValType elemType() const { return elementType; }
 
   WASM_DECLARE_SERIALIZABLE(ElemSegment)
 };

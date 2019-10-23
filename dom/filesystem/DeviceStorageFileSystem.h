@@ -30,7 +30,7 @@ class DeviceStorageFileSystem : public FileSystemBase {
 
   virtual void Shutdown() override;
 
-  virtual nsISupports* GetParentObject() const override;
+  virtual nsIGlobalObject* GetParentObject() const override;
 
   virtual void GetDirectoryName(nsIFile* aFile, nsAString& aRetval,
                                 ErrorResult& aRv) const override;

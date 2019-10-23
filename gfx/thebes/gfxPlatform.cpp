@@ -588,6 +588,7 @@ static void WebRenderDebugPrefChangeCallback(const char* aPrefName, void*) {
   GFX_WEBRENDER_DEBUG(".disable-batching", wr::DebugFlags_DISABLE_BATCHING)
   GFX_WEBRENDER_DEBUG(".epochs", wr::DebugFlags_EPOCHS)
   GFX_WEBRENDER_DEBUG(".compact-profiler", wr::DebugFlags_COMPACT_PROFILER)
+  GFX_WEBRENDER_DEBUG(".smart-profiler", wr::DebugFlags_SMART_PROFILER)
   GFX_WEBRENDER_DEBUG(".echo-driver-messages",
                       wr::DebugFlags_ECHO_DRIVER_MESSAGES)
   GFX_WEBRENDER_DEBUG(".new-frame-indicator",
@@ -613,7 +614,6 @@ static void WebRenderDebugPrefChangeCallback(const char* aPrefName, void*) {
   GFX_WEBRENDER_DEBUG(".disable-gradient-prims",
                       wr::DebugFlags_DISABLE_GRADIENT_PRIMS)
   GFX_WEBRENDER_DEBUG(".obscure-images", wr::DebugFlags_OBSCURE_IMAGES)
-  GFX_WEBRENDER_DEBUG(".log-transactions", wr::DebugFlags_LOG_TRANSACTIONS)
 #undef GFX_WEBRENDER_DEBUG
 
   gfx::gfxVars::SetWebRenderDebugFlags(flags.bits);
@@ -3135,15 +3135,6 @@ void gfxPlatform::InitWebRenderConfig() {
         gfxConfig::IsEnabled(Feature::WEBRENDER));
   }
 
-#ifdef MOZ_WIDGET_ANDROID
-  if (jni::IsFennec()) {
-    featureWebRender.ForceDisable(
-        FeatureStatus::Unavailable,
-        "WebRender not ready for use on non-e10s Android",
-        NS_LITERAL_CSTRING("FEATURE_FAILURE_ANDROID"));
-  }
-#endif
-
   // gfxFeature is not usable in the GPU process, so we use gfxVars to transmit
   // this feature
   if (gfxConfig::IsEnabled(Feature::WEBRENDER)) {
@@ -3205,6 +3196,11 @@ void gfxPlatform::InitWebRenderConfig() {
   // The RemoveShaderCacheFromDiskIfNecessary() needs to be called after
   // WebRenderConfig initialization.
   gfxUtils::RemoveShaderCacheFromDiskIfNecessary();
+}
+
+void gfxPlatform::InitWebGPUConfig() {
+  FeatureState& feature = gfxConfig::GetFeature(Feature::WEBGPU);
+  feature.SetDefaultFromPref("dom.webgpu.enable", true, false);
 }
 
 void gfxPlatform::InitOMTPConfig() {

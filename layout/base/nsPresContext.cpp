@@ -1037,19 +1037,15 @@ static bool CheckOverflow(const ComputedStyle* aComputedStyle,
     return false;
   }
 
-  if (display->mOverflowX == StyleOverflow::Visible &&
-      display->mOverscrollBehaviorX == StyleOverscrollBehavior::Auto &&
-      display->mOverscrollBehaviorY == StyleOverscrollBehavior::Auto &&
-      display->mScrollSnapType.strictness == StyleScrollSnapStrictness::None) {
+  if (display->mOverflowX == StyleOverflow::Visible) {
+    MOZ_ASSERT(display->mOverflowY == StyleOverflow::Visible);
     return false;
   }
 
-  WritingMode writingMode = WritingMode(aComputedStyle);
   if (display->mOverflowX == StyleOverflow::MozHiddenUnscrollable) {
-    *aStyles = ScrollStyles(writingMode, StyleOverflow::Hidden,
-                            StyleOverflow::Hidden, display);
+    *aStyles = ScrollStyles(StyleOverflow::Hidden, StyleOverflow::Hidden);
   } else {
-    *aStyles = ScrollStyles(writingMode, display);
+    *aStyles = ScrollStyles(*display);
   }
   return true;
 }

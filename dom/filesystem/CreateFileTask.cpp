@@ -43,8 +43,7 @@ namespace dom {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread!");
   MOZ_ASSERT(aFileSystem);
 
-  nsCOMPtr<nsIGlobalObject> globalObject =
-      do_QueryInterface(aFileSystem->GetParentObject());
+  nsCOMPtr<nsIGlobalObject> globalObject = aFileSystem->GetParentObject();
   if (NS_WARN_IF(!globalObject)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;

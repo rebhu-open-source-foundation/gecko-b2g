@@ -1335,7 +1335,7 @@ HttpTrafficCategory nsHttpChannel::CreateTrafficCategory() {
     uint32_t flags = isThirdParty ? mThirdPartyClassificationFlags
                                   : mFirstPartyClassificationFlags;
 
-    using CF = nsIHttpChannel::ClassificationFlags;
+    using CF = nsIClassifiedChannel::ClassificationFlags;
     using TC = HttpTrafficAnalyzer::TrackingClassification;
 
     if (flags & CF::CLASSIFIED_TRACKING_CONTENT) {
@@ -2573,9 +2573,8 @@ nsresult nsHttpChannel::ContinueProcessResponse1() {
 
   rv = NS_OK;
   if (!mCanceled) {
-    ComputeCrossOriginOpenerPolicyMismatch();
-    if (mHasCrossOriginOpenerPolicyMismatch &&
-        GetHasSandboxedAuxiliaryNavigations()) {
+    rv = ComputeCrossOriginOpenerPolicyMismatch();
+    if (rv == NS_ERROR_BLOCKED_BY_POLICY) {
       // this navigates the doc's browsing context to a network error.
       mStatus = NS_ERROR_BLOCKED_BY_POLICY;
       HandleAsyncAbort();
@@ -7290,6 +7289,23 @@ nsHttpChannel::HasCrossOriginOpenerPolicyMismatch(bool* aMismatch) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsHttpChannel::GetCrossOriginOpenerPolicy(
+    nsILoadInfo::CrossOriginOpenerPolicy* aPolicy) {
+  MOZ_ASSERT(aPolicy);
+  if (!aPolicy) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  // If this method is called before OnStartRequest (ie. before we call
+  // ComputeCrossOriginOpenerPolicy) or if we were unable to compute the
+  // policy we'll throw an error.
+  if (!mComputedCrossOriginOpenerPolicy.isSome()) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  *aPolicy = mComputedCrossOriginOpenerPolicy.value();
+  return NS_OK;
+}
+
 nsresult nsHttpChannel::StartCrossProcessRedirect() {
   nsresult rv;
 
@@ -7380,7 +7396,18 @@ nsresult nsHttpChannel::ComputeCrossOriginOpenerPolicyMismatch() {
   nsILoadInfo::CrossOriginOpenerPolicy documentPolicy = ctx->GetOpenerPolicy();
   nsILoadInfo::CrossOriginOpenerPolicy resultPolicy =
       nsILoadInfo::OPENER_POLICY_NULL;
-  Unused << GetCrossOriginOpenerPolicy(documentPolicy, &resultPolicy);
+  Unused << ComputeCrossOriginOpenerPolicy(documentPolicy, &resultPolicy);
+  mComputedCrossOriginOpenerPolicy.emplace(resultPolicy);
+
+  // If bc's popup sandboxing flag set is not empty and potentialCOOP is
+  // non-null, then navigate bc to a network error and abort these steps.
+  if (resultPolicy != nsILoadInfo::OPENER_POLICY_NULL &&
+      GetHasNonEmptySandboxingFlag()) {
+    LOG(
+        ("nsHttpChannel::ComputeCrossOriginOpenerPolicyMismatch network error "
+         "for non empty sandboxing and non null COOP"));
+    return NS_ERROR_BLOCKED_BY_POLICY;
+  }
 
   if (!ctx->Canonical()->GetCurrentWindowGlobal()) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -7708,10 +7735,9 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
   rv = NS_OK;
   if (!mCanceled) {
     // notify "http-on-may-change-process" observers
-    ComputeCrossOriginOpenerPolicyMismatch();
+    rv = ComputeCrossOriginOpenerPolicyMismatch();
 
-    if (mHasCrossOriginOpenerPolicyMismatch &&
-        GetHasSandboxedAuxiliaryNavigations()) {
+    if (rv == NS_ERROR_BLOCKED_BY_POLICY) {
       // this navigates the doc's browsing context to a network error.
       mStatus = NS_ERROR_BLOCKED_BY_POLICY;
       HandleAsyncAbort();

@@ -3286,21 +3286,6 @@ nsresult Document::InitCSP(nsIChannel* aChannel) {
     SetPrincipals(principal, principal);
   }
 
-  // ----- Enforce frame-ancestor policy on any applied policies
-  nsCOMPtr<nsIDocShell> docShell(mDocumentContainer);
-  if (docShell) {
-    bool safeAncestry = false;
-
-    // PermitsAncestry sends violation reports when necessary
-    rv = mCSP->PermitsAncestry(docShell, &safeAncestry);
-
-    if (NS_FAILED(rv) || !safeAncestry) {
-      MOZ_LOG(gCspPRLog, LogLevel::Debug,
-              ("CSP doesn't like frame's ancestry, not loading."));
-      // stop!  ERROR page!
-      aChannel->Cancel(NS_ERROR_CSP_FRAME_ANCESTOR_VIOLATION);
-    }
-  }
   ApplySettingsFromCSP(false);
   return NS_OK;
 }
@@ -8763,9 +8748,6 @@ Document* Document::Open(const Optional<nsAString>& /* unused */,
 
   // Step 5 -- if we have an active parser with a nonzero script nesting level,
   // just no-op.
-  //
-  // The mParserAborted check here is probably wrong.  Removing it is
-  // tracked in https://bugzilla.mozilla.org/show_bug.cgi?id=1475000
   if ((mParser && mParser->HasNonzeroScriptNestingLevel()) || mParserAborted) {
     return this;
   }
@@ -16054,12 +16036,17 @@ nsIPrincipal* Document::EffectiveStoragePrincipal() const {
     return NodePrincipal();
   }
 
+  // Return our cached storage principal if one exists.
+  if (mActiveStoragePrincipal) {
+    return mActiveStoragePrincipal;
+  }
+
   // We use the lower-level AntiTrackingCommon API here to ensure this
   // check doesn't send notifications.
   uint32_t rejectedReason = 0;
   if (AntiTrackingCommon::IsFirstPartyStorageAccessGrantedFor(
           inner, GetDocumentURI(), &rejectedReason)) {
-    return NodePrincipal();
+    return mActiveStoragePrincipal = NodePrincipal();
   }
 
   // Let's use the storage principal only if we need to partition the cookie
@@ -16068,10 +16055,10 @@ nsIPrincipal* Document::EffectiveStoragePrincipal() const {
   if (ShouldPartitionStorage(rejectedReason) &&
       !StoragePartitioningEnabled(
           rejectedReason, const_cast<Document*>(this)->CookieSettings())) {
-    return NodePrincipal();
+    return mActiveStoragePrincipal = NodePrincipal();
   }
 
-  return mIntrinsicStoragePrincipal;
+  return mActiveStoragePrincipal = mIntrinsicStoragePrincipal;
 }
 
 void Document::SetIsInitialDocument(bool aIsInitialDocument) {

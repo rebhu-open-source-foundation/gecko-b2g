@@ -346,6 +346,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                                  bool aIsFullscreen) final;
   void FullscreenWillChange(bool aIsFullscreen) final;
   void FinishFullscreenChange(bool aIsFullscreen) final;
+  void ForceFullScreenInWidget() final;
   bool SetWidgetFullscreen(FullscreenReason aReason, bool aIsFullscreen,
                            nsIWidget* aWidget, nsIScreen* aScreen);
   bool Fullscreen() const;
@@ -455,7 +456,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
    */
   nsresult SetArguments(nsIArray* aArguments);
 
-  void MaybeForgiveSpamCount();
   bool IsClosedOrClosing() {
     return (mIsClosed || mInClose || mHavePendingClose || mCleanedUp);
   }
@@ -547,7 +547,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   void FocusOuter();
   nsresult Focus() override;
   void BlurOuter();
-  mozilla::dom::BrowsingContext* GetFramesOuter();
+  mozilla::dom::WindowProxyHolder GetFramesOuter();
   uint32_t Length();
   mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> GetTopOuter();
 
@@ -751,13 +751,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   // Get the parent, returns null if this is a toplevel window
   nsPIDOMWindowOuter* GetInProcessParentInternal();
-
- public:
-  // popup tracking
-  bool IsPopupSpamWindow();
-
-  // Outer windows only.
-  void SetIsPopupSpamWindow(bool aIsPopupSpam);
 
  protected:
   // Window Control Functions
@@ -1068,6 +1061,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
  protected:
   bool mFullscreen : 1;
   bool mFullscreenMode : 1;
+  bool mForceFullScreenInWidget : 1;
   bool mIsClosed : 1;
   bool mInClose : 1;
   // mHavePendingClose means we've got a termination function set to
@@ -1209,8 +1203,6 @@ inline bool nsGlobalWindowOuter::IsTopLevelWindow() {
   nsPIDOMWindowOuter* parentWindow = GetInProcessScriptableTop();
   return parentWindow == this;
 }
-
-inline bool nsGlobalWindowOuter::IsPopupSpamWindow() { return mIsPopupSpam; }
 
 inline bool nsGlobalWindowOuter::IsFrame() {
   return GetInProcessParentInternal() != nullptr;

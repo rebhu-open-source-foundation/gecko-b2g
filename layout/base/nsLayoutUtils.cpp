@@ -9007,10 +9007,8 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
     }
 
     metadata.SetSnapInfo(scrollableFrame->GetScrollSnapInfo());
-
-    ScrollStyles scrollStyles = scrollableFrame->GetScrollStyles();
-    metadata.SetOverscrollBehavior(OverscrollBehaviorInfo::FromStyleConstants(
-        scrollStyles.mOverscrollBehaviorX, scrollStyles.mOverscrollBehaviorY));
+    metadata.SetOverscrollBehavior(
+        scrollableFrame->GetOverscrollBehaviorInfo());
   }
 
   // If we have the scrollparent being the same as the scroll id, the
@@ -9258,7 +9256,7 @@ Maybe<ScrollMetadata> nsLayoutUtils::GetRootMetadata(
   }
 
   if (addMetrics || ensureMetricsForRootId) {
-    bool isRootContent = presContext->IsRootContentDocument();
+    bool isRootContent = presContext->IsRootContentDocumentCrossProcess();
 
     nsRect viewport(aBuilder->ToReferenceFrame(frame), frame->GetSize());
     if (isRootContent && rootScrollFrame) {

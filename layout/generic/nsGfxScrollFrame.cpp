@@ -1708,7 +1708,7 @@ NS_QUERYFRAME_HEAD(nsXULScrollFrame)
   NS_QUERYFRAME_ENTRY(nsIScrollbarMediator)
 NS_QUERYFRAME_TAIL_INHERITING(nsBoxFrame)
 
-  //-------------------- Helper ----------------------
+//-------------------- Helper ----------------------
 
 // AsyncSmoothMSDScroll has ref counting.
 class ScrollFrameHelper::AsyncSmoothMSDScroll final
@@ -2243,12 +2243,6 @@ void ScrollFrameHelper::ScrollTo(nsPoint aScrollPosition, ScrollMode aMode,
   ScrollToWithOrigin(aScrollPosition, aMode, aOrigin, aRange, aSnap);
 }
 
-static nsIScrollbarMediator::ScrollSnapMode DefaultSnapMode() {
-  return StaticPrefs::layout_css_scroll_snap_v1_enabled()
-             ? nsIScrollableFrame::ENABLE_SNAP
-             : nsIScrollableFrame::DISABLE_SNAP;
-}
-
 void ScrollFrameHelper::ScrollToCSSPixels(
     const CSSIntPoint& aScrollPosition, ScrollMode aMode,
     nsIScrollbarMediator::ScrollSnapMode aSnap, nsAtom* aOrigin) {
@@ -2256,7 +2250,7 @@ void ScrollFrameHelper::ScrollToCSSPixels(
   CSSIntPoint currentCSSPixels = GetScrollPositionCSSPixels();
   nsPoint pt = CSSPoint::ToAppUnits(aScrollPosition);
   if (aSnap == nsIScrollableFrame::DEFAULT) {
-    aSnap = DefaultSnapMode();
+    aSnap = nsIScrollableFrame::ENABLE_SNAP;
   }
 
   if (aOrigin == nullptr) {
@@ -3561,9 +3555,10 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
   nsDisplayListCollection set(aBuilder);
 
+  bool isRootContent =
+      mIsRoot && mOuter->PresContext()->IsRootContentDocumentCrossProcess();
   bool willBuildAsyncZoomContainer =
-      aBuilder->ShouldBuildAsyncZoomContainer() && mIsRoot &&
-      mOuter->PresContext()->IsRootContentDocument();
+      aBuilder->ShouldBuildAsyncZoomContainer() && isRootContent;
 
   nsRect scrollPortClip = mScrollPort + aBuilder->ToReferenceFrame(mOuter);
   nsRect clipRect = scrollPortClip;
@@ -3783,11 +3778,9 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
         // confirmation does not arrive within the timeout period). Otherwise,
         // APZ's fallback behaviour of scrolling the enclosing scroll frame
         // would violate the specified overscroll-behavior.
-        ScrollStyles scrollStyles = GetScrollStylesFromFrame();
-        if (scrollStyles.mOverscrollBehaviorX !=
-                StyleOverscrollBehavior::Auto ||
-            scrollStyles.mOverscrollBehaviorY !=
-                StyleOverscrollBehavior::Auto) {
+        auto overscroll = GetOverscrollBehaviorInfo();
+        if (overscroll.mBehaviorX != OverscrollBehavior::Auto ||
+            overscroll.mBehaviorY != OverscrollBehavior::Auto) {
           info += CompositorHitTestFlags::eRequiresTargetConfirmation;
         }
         nsDisplayCompositorHitTestInfo* hitInfo =
@@ -4035,7 +4028,7 @@ Maybe<ScrollMetadata> ScrollFrameHelper::ComputeScrollMetadata(
   }
 
   bool isRootContent =
-      mIsRoot && mOuter->PresContext()->IsRootContentDocument();
+      mIsRoot && mOuter->PresContext()->IsRootContentDocumentCrossProcess();
 
   MOZ_ASSERT(mScrolledFrame->GetContent());
 
@@ -4102,6 +4095,17 @@ static void HandleScrollPref(nsIScrollable* aScrollable, int32_t aOrientation,
   }
 }
 
+OverscrollBehaviorInfo ScrollFrameHelper::GetOverscrollBehaviorInfo() const {
+  nsIFrame* frame = GetFrameForStyle();
+  if (!frame) {
+    return {};
+  }
+
+  auto& disp = *frame->StyleDisplay();
+  return OverscrollBehaviorInfo::FromStyleConstants(disp.mOverscrollBehaviorX,
+                                                    disp.mOverscrollBehaviorY);
+}
+
 ScrollStyles ScrollFrameHelper::GetScrollStylesFromFrame() const {
   nsPresContext* presContext = mOuter->PresContext();
   if (!presContext->IsDynamic() &&
@@ -4110,8 +4114,7 @@ ScrollStyles ScrollFrameHelper::GetScrollStylesFromFrame() const {
   }
 
   if (!mIsRoot) {
-    const nsStyleDisplay* disp = mOuter->StyleDisplay();
-    return ScrollStyles(mOuter->GetWritingMode(), disp);
+    return ScrollStyles(*mOuter->StyleDisplay());
   }
 
   ScrollStyles result = presContext->GetViewportScrollStylesOverride();
@@ -4360,7 +4363,7 @@ void ScrollFrameHelper::ScrollByCSSPixels(
   nsPoint pt = CSSPoint::ToAppUnits(currentCSSPixels + aDelta);
 
   if (aSnap == nsIScrollableFrame::DEFAULT) {
-    aSnap = DefaultSnapMode();
+    aSnap = nsIScrollableFrame::ENABLE_SNAP;
   }
 
   if (aOrigin == nullptr) {
@@ -5487,18 +5490,12 @@ nsIFrame* ScrollFrameHelper::GetFrameForStyle() const {
 }
 
 bool ScrollFrameHelper::NeedsScrollSnap() const {
-  if (StaticPrefs::layout_css_scroll_snap_v1_enabled()) {
-    nsIFrame* scrollSnapFrame = GetFrameForStyle();
-    if (!scrollSnapFrame) {
-      return false;
-    }
-    return scrollSnapFrame->StyleDisplay()->mScrollSnapType.strictness !=
-           StyleScrollSnapStrictness::None;
+  nsIFrame* scrollSnapFrame = GetFrameForStyle();
+  if (!scrollSnapFrame) {
+    return false;
   }
-
-  ScrollStyles styles = GetScrollStylesFromFrame();
-  return styles.mScrollSnapStrictnessY != StyleScrollSnapStrictness::None ||
-         styles.mScrollSnapStrictnessX != StyleScrollSnapStrictness::None;
+  return scrollSnapFrame->StyleDisplay()->mScrollSnapType.strictness !=
+         StyleScrollSnapStrictness::None;
 }
 
 bool ScrollFrameHelper::IsScrollbarOnRight() const {
@@ -6859,8 +6856,6 @@ static void CollectScrollPositionsForSnap(
     nsIFrame* aFrame, nsIFrame* aScrolledFrame, const nsRect& aScrolledRect,
     const nsMargin& aScrollPadding, const Maybe<nsRect>& aSnapport,
     WritingMode aWritingModeOnScroller, ScrollSnapInfo& aSnapInfo) {
-  MOZ_ASSERT(StaticPrefs::layout_css_scroll_snap_v1_enabled());
-
   // Snap positions only affect the nearest ancestor scroll container on the
   // element's containing block chain.
   nsIScrollableFrame* sf = do_QueryFrame(aFrame);
@@ -6943,8 +6938,6 @@ nsMargin ScrollFrameHelper::GetScrollPadding() const {
 
 layers::ScrollSnapInfo ScrollFrameHelper::ComputeScrollSnapInfo(
     const Maybe<nsPoint>& aDestination) const {
-  MOZ_ASSERT(StaticPrefs::layout_css_scroll_snap_v1_enabled());
-
   ScrollSnapInfo result;
 
   nsIFrame* scrollSnapFrame = GetFrameForStyle();
@@ -6982,9 +6975,6 @@ layers::ScrollSnapInfo ScrollFrameHelper::ComputeScrollSnapInfo(
 
 layers::ScrollSnapInfo ScrollFrameHelper::GetScrollSnapInfo(
     const Maybe<nsPoint>& aDestination) const {
-  if (!StaticPrefs::layout_css_scroll_snap_v1_enabled()) {
-    return {};
-  }
   // TODO(botond): Should we cache it?
   return ComputeScrollSnapInfo(aDestination);
 }

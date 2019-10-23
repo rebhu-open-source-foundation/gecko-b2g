@@ -40,8 +40,7 @@ CopyOrMoveToTaskChild::Create(FileSystemBase* aFileSystem, nsIFile* aSrcDir,
   MOZ_ASSERT(aSrcPath);
   MOZ_ASSERT(aDstPath);
 
-  nsCOMPtr<nsIGlobalObject> globalObject =
-      do_QueryInterface(aFileSystem->GetParentObject());
+  nsCOMPtr<nsIGlobalObject> globalObject = aFileSystem->GetParentObject();
   if (NS_WARN_IF(!globalObject)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;

@@ -539,6 +539,16 @@ nsDOMTokenList* Element::ClassList() {
   return slots->mClassList;
 }
 
+nsDOMTokenList* Element::Part() {
+  Element::nsDOMSlots* slots = DOMSlots();
+
+  if (!slots->mPart) {
+    slots->mPart = new nsDOMTokenList(this, nsGkAtoms::part);
+  }
+
+  return slots->mPart;
+}
+
 void Element::GetAttributeNames(nsTArray<nsString>& aResult) {
   uint32_t count = mAttrs.AttrCount();
   for (uint32_t i = 0; i < count; ++i) {
@@ -665,14 +675,12 @@ void Element::ScrollIntoView(const ScrollIntoViewOptions& aOptions) {
       MOZ_ASSERT_UNREACHABLE("Unexpected ScrollLogicalPosition value");
   }
 
-  ScrollFlags scrollFlags = ScrollFlags::ScrollOverflowHidden;
+  ScrollFlags scrollFlags =
+      ScrollFlags::ScrollOverflowHidden | ScrollFlags::ScrollSnap;
   if (aOptions.mBehavior == ScrollBehavior::Smooth) {
     scrollFlags |= ScrollFlags::ScrollSmooth;
   } else if (aOptions.mBehavior == ScrollBehavior::Auto) {
     scrollFlags |= ScrollFlags::ScrollSmoothAuto;
-  }
-  if (StaticPrefs::layout_css_scroll_snap_v1_enabled()) {
-    scrollFlags |= ScrollFlags::ScrollSnap;
   }
 
   presShell->ScrollContentIntoView(
@@ -890,7 +898,7 @@ nsRect Element::GetClientAreaRect() {
       // The display check is OK even though we're not looking at the style
       // frame, because the style frame only differs from "frame" for tables,
       // and table wrappers have the same display as the table itself.
-      (frame->StyleDisplay()->mDisplay != StyleDisplay::Inline ||
+      (!frame->StyleDisplay()->IsInlineFlow() ||
        frame->IsFrameOfType(nsIFrame::eReplaced))) {
     // Special case code to make client area work even when there isn't
     // a scroll view, see bug 180552, bug 227567.

@@ -321,8 +321,6 @@ extern mozilla::LazyLogModule gMediaControlLog;
 static LazyLogModule gDOMLeakPRLogOuter("DOMLeakOuter");
 extern LazyLogModule gPageCacheLog;
 
-static int32_t gOpenPopupSpamCount = 0;
-
 nsGlobalWindowOuter::OuterWindowByIdTable*
     nsGlobalWindowOuter::sOuterWindowsById = nullptr;
 
@@ -1097,6 +1095,7 @@ nsGlobalWindowOuter::nsGlobalWindowOuter(uint64_t aWindowID)
     : nsPIDOMWindowOuter(aWindowID),
       mFullscreen(false),
       mFullscreenMode(false),
+      mForceFullScreenInWidget(false),
       mIsClosed(false),
       mInClose(false),
       mHavePendingClose(false),
@@ -1218,8 +1217,15 @@ nsGlobalWindowOuter::~nsGlobalWindowOuter() {
 
   JSObject* proxy = GetWrapperMaybeDead();
   if (proxy) {
-    if (mBrowsingContext) {
-      mBrowsingContext->ClearWindowProxy();
+    if (mBrowsingContext && mBrowsingContext->GetUnbarrieredWindowProxy()) {
+      nsGlobalWindowOuter* outer = nsOuterWindowProxy::GetOuterWindow(
+          mBrowsingContext->GetUnbarrieredWindowProxy());
+      // Check that the current WindowProxy object corresponds to this
+      // nsGlobalWindowOuter, because we don't want to clear the WindowProxy if
+      // we've replaced it with a cross-process WindowProxy.
+      if (outer == this) {
+        mBrowsingContext->ClearWindowProxy();
+      }
     }
     js::SetProxyReservedSlot(proxy, OUTER_WINDOW_SLOT,
                              js::PrivateValue(nullptr));
@@ -1266,23 +1272,6 @@ void nsGlobalWindowOuter::ShutDown() {
 
   delete sOuterWindowsById;
   sOuterWindowsById = nullptr;
-}
-
-void nsGlobalWindowOuter::MaybeForgiveSpamCount() {
-  if (IsPopupSpamWindow()) {
-    SetIsPopupSpamWindow(false);
-  }
-}
-
-void nsGlobalWindowOuter::SetIsPopupSpamWindow(bool aIsPopupSpam) {
-  mIsPopupSpam = aIsPopupSpam;
-  if (aIsPopupSpam) {
-    ++gOpenPopupSpamCount;
-  } else {
-    --gOpenPopupSpamCount;
-    NS_ASSERTION(gOpenPopupSpamCount >= 0,
-                 "Unbalanced decrement of gOpenPopupSpamCount");
-  }
 }
 
 void nsGlobalWindowOuter::DropOuterWindowDocs() {
@@ -1435,7 +1424,16 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowOuter)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocShell)
   if (tmp->mBrowsingContext) {
-    tmp->mBrowsingContext->ClearWindowProxy();
+    if (tmp->mBrowsingContext->GetUnbarrieredWindowProxy()) {
+      nsGlobalWindowOuter* outer = nsOuterWindowProxy::GetOuterWindow(
+          tmp->mBrowsingContext->GetUnbarrieredWindowProxy());
+      // Check that the current WindowProxy object corresponds to this
+      // nsGlobalWindowOuter, because we don't want to clear the WindowProxy if
+      // we've replaced it with a cross-process WindowProxy.
+      if (outer == tmp) {
+        tmp->mBrowsingContext->ClearWindowProxy();
+      }
+    }
     tmp->mBrowsingContext = nullptr;
   }
 
@@ -2515,7 +2513,6 @@ void nsGlobalWindowOuter::DetachFromDocShell() {
   mDocShell = nullptr;
   mBrowsingContext->ClearDocShell();
 
-  MaybeForgiveSpamCount();
   CleanUp();
 }
 
@@ -4428,11 +4425,14 @@ nsresult nsGlobalWindowOuter::SetFullscreenInternal(FullscreenReason aReason,
   // gone full screen, the state trap above works.
   mFullscreen = aFullscreen;
 
-  // Sometimes we don't want the top-level widget to actually go fullscreen,
-  // for example in the B2G desktop client, we don't want the emulated screen
-  // dimensions to appear to increase when entering fullscreen mode; we just
-  // want the content to fill the entire client area of the emulator window.
-  if (!Preferences::GetBool("full-screen-api.ignore-widgets", false)) {
+  // Sometimes we don't want the top-level widget to actually go fullscreen:
+  // - in the B2G desktop client, we don't want the emulated screen dimensions
+  //   to appear to increase when entering fullscreen mode; we just want the
+  //   content to fill the entire client area of the emulator window.
+  // - in FxR Desktop, we don't want fullscreen to take over the monitor, but
+  //   instead we want fullscreen to fill the FxR window in the the headset.
+  if (!Preferences::GetBool("full-screen-api.ignore-widgets", false) &&
+      !mForceFullScreenInWidget) {
     if (MakeWidgetFullscreen(this, aReason, aFullscreen)) {
       // The rest of code for switching fullscreen is in nsGlobalWindowOuter::
       // FinishFullscreenChange() which will be called after sizemodechange
@@ -4443,6 +4443,14 @@ nsresult nsGlobalWindowOuter::SetFullscreenInternal(FullscreenReason aReason,
 
   FinishFullscreenChange(aFullscreen);
   return NS_OK;
+}
+
+// Support a per-window, dynamic equivalent of enabling
+// full-screen-api.ignore-widgets
+void nsGlobalWindowOuter::ForceFullScreenInWidget() {
+  MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
+
+  mForceFullScreenInWidget = true;
 }
 
 bool nsGlobalWindowOuter::SetWidgetFullscreen(FullscreenReason aReason,
@@ -5674,9 +5682,11 @@ PopupBlocker::PopupControlState nsGlobalWindowOuter::RevisePopupAbuseLevel(
   // limit the number of simultaneously open popups
   if (abuse == PopupBlocker::openAbused || abuse == PopupBlocker::openBlocked ||
       abuse == PopupBlocker::openControlled) {
-    int32_t popupMax = Preferences::GetInt("dom.popup_maximum", -1);
-    if (popupMax >= 0 && gOpenPopupSpamCount >= popupMax)
+    int32_t popupMax = StaticPrefs::dom_popup_maximum();
+    if (popupMax >= 0 &&
+        PopupBlocker::GetOpenPopupSpamCount() >= (uint32_t)popupMax) {
       abuse = PopupBlocker::openOverridden;
+    }
   }
 
   // If this popup is allowed, let's block any other for this event, forcing
@@ -5835,10 +5845,10 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::OpenDialogOuter(
   return WindowProxyHolder(dialog.forget());
 }
 
-BrowsingContext* nsGlobalWindowOuter::GetFramesOuter() {
+WindowProxyHolder nsGlobalWindowOuter::GetFramesOuter() {
   RefPtr<nsPIDOMWindowOuter> frames(this);
   FlushPendingNotifications(FlushType::ContentAndNotify);
-  return mBrowsingContext;
+  return WindowProxyHolder(mBrowsingContext);
 }
 
 /* static */
@@ -6124,7 +6134,6 @@ class nsCloseEvent : public Runnable {
   static nsresult PostCloseEvent(nsGlobalWindowOuter* aWindow, bool aIndirect) {
     nsCOMPtr<nsIRunnable> ev = new nsCloseEvent(aWindow, aIndirect);
     nsresult rv = aWindow->Dispatch(TaskCategory::Other, ev.forget());
-    if (NS_SUCCEEDED(rv)) aWindow->MaybeForgiveSpamCount();
     return rv;
   }
 

@@ -621,9 +621,9 @@ class WasmTokenStream {
   void skipSpaces();
 
  public:
-  explicit WasmTokenStream(const char16_t* text)
+  explicit WasmTokenStream(const char16_t* text, size_t textLen)
       : cur_(text),
-        end_(text + js_strlen(text)),
+        end_(text + textLen),
         lineStart_(text),
         line_(1),
         lookaheadIndex_(0),
@@ -2303,9 +2303,9 @@ struct WasmParseContext {
   uint32_t nextSym;
   bool requiresDataCount;
 
-  WasmParseContext(const char16_t* text, uintptr_t stackLimit, LifoAlloc& lifo,
-                   UniqueChars* error)
-      : ts(text),
+  WasmParseContext(const char16_t* text, size_t textLen, uintptr_t stackLimit,
+                   LifoAlloc& lifo, UniqueChars* error)
+      : ts(text, textLen),
         lifo(lifo),
         error(error),
         dtoaState(NewDtoaState()),
@@ -5045,22 +5045,26 @@ static bool ParseTable(WasmParseContext& c, WasmToken token,
     return false;
   }
 
-  AstElemSegment* segment = new (c.lifo) AstElemSegment(
-      AstElemSegmentKind::Active, AstRef(name), zero, std::move(elems));
+  AstElemSegment* segment =
+      new (c.lifo) AstElemSegment(AstElemSegmentKind::Active, AstRef(name),
+                                  zero, ValType::FuncRef, std::move(elems));
   return segment && module->append(segment);
 }
 
-static bool TryParseFuncOrFuncRef(WasmParseContext& c, bool* isFunc) {
+static bool TryParseElemType(WasmParseContext& c, bool* isFunc, ValType* ty) {
   if (c.ts.getIf(WasmToken::Func)) {
     *isFunc = true;
+    *ty = ValType::FuncRef;
     return true;
   }
 
   WasmToken token = c.ts.peek();
   if (token.kind() == WasmToken::ValueType &&
-      token.valueType() == ValType::FuncRef) {
+      (token.valueType() == ValType::FuncRef ||
+       token.valueType() == ValType::AnyRef)) {
     c.ts.get();
     *isFunc = false;
+    *ty = token.valueType();
     return true;
   }
 
@@ -5072,6 +5076,7 @@ static AstElemSegment* ParseElemSegment(WasmParseContext& c) {
   // <init-expr> is any <expr> or (offset <const>).
   // <table-use> is (table <n>) or just <n> (an extension).
   // <fnref> is a naked function reference (index or name)
+  // <elem-type> is funcref or anyref
   //
   // Active initializer for table 0 which must be table-of-functions, this is
   // sugar:
@@ -5082,18 +5087,19 @@ static AstElemSegment* ParseElemSegment(WasmParseContext& c) {
   //
   // Active initializer for a given table of functions, allowing null.  Note the
   // parens are required also around ref.null:
-  //   (elem <table-use> <init-expr> funcref
+  //   (elem <table-use> <init-expr> <elem-type>
   //         "(" (ref.func <fnref>|ref.null) ")" ...)
   //
   // Passive initializers:
   //   (elem func <fnref> ...)
-  //   (elem funcref "(" (ref.func <fnref>|ref.null) ")" ...)
+  //   (elem <elem-type> "(" (ref.func <fnref>|ref.null) ")" ...)
   //
   // Forward declaration for ref.func uses:
   //   (elem declared <fnref> ...)
 
   AstRef targetTable = AstRef(0);
   AstExpr* offsetIfActive = nullptr;
+  ValType elemType = ValType::FuncRef;
   bool haveTableref = false;
   AstElemSegmentKind kind;
 
@@ -5126,9 +5132,9 @@ static AstElemSegment* ParseElemSegment(WasmParseContext& c) {
           c.error);
       return nullptr;
     }
-    if (!TryParseFuncOrFuncRef(c, &nakedFnrefs)) {
+    if (!TryParseElemType(c, &nakedFnrefs, &elemType)) {
       c.ts.generateError(c.ts.peek(),
-                         "'func' or 'funcref' required for elem segment",
+                         "'func' or element type required for elem segment",
                          c.error);
       return nullptr;
     }
@@ -5136,8 +5142,8 @@ static AstElemSegment* ParseElemSegment(WasmParseContext& c) {
   } else if (c.ts.getIf(WasmToken::Declared)) {
     kind = AstElemSegmentKind::Declared;
     nakedFnrefs = true;
-  } else if (TryParseFuncOrFuncRef(c, &nakedFnrefs)) {
-    // 'func' or 'funcref' for a passive segment.
+  } else if (TryParseElemType(c, &nakedFnrefs, &elemType)) {
+    // 'func' or element type for a passive segment.
     kind = AstElemSegmentKind::Passive;
   } else {
     if ((offsetIfActive = ParseInitializerExpression(c)) == nullptr) {
@@ -5187,8 +5193,8 @@ static AstElemSegment* ParseElemSegment(WasmParseContext& c) {
     }
   }
 
-  return new (c.lifo)
-      AstElemSegment(kind, targetTable, offsetIfActive, std::move(elems));
+  return new (c.lifo) AstElemSegment(kind, targetTable, offsetIfActive,
+                                     elemType, std::move(elems));
 }
 
 static bool ParseGlobal(WasmParseContext& c, AstModule* module) {
@@ -5271,10 +5277,10 @@ static AstModule* ParseBinaryModule(WasmParseContext& c, AstModule* module) {
   return module;
 }
 
-static AstModule* ParseModule(const char16_t* text, uintptr_t stackLimit,
-                              LifoAlloc& lifo, UniqueChars* error,
-                              bool* binary) {
-  WasmParseContext c(text, stackLimit, lifo, error);
+static AstModule* ParseModule(const char16_t* text, size_t textLen,
+                              uintptr_t stackLimit, LifoAlloc& lifo,
+                              UniqueChars* error, bool* binary) {
+  WasmParseContext c(text, textLen, stackLimit, lifo, error);
 
   *binary = false;
 
@@ -6268,12 +6274,23 @@ static bool EncodeExprList(Encoder& e, const AstExprVector& v) {
   return true;
 }
 
+static bool EncodeBlockType(Encoder& e, AstExprType& t) {
+  ExprType type = t.type();
+  static_assert(size_t(TypeCode::Limit) <= UINT8_MAX, "fits");
+  MOZ_ASSERT(size_t(type.code()) < size_t(TypeCode::Limit));
+  if (type.isRef()) {
+    return e.writeFixedU8(uint8_t(ExprType::Ref)) &&
+           e.writeVarU32(type.refTypeIndex());
+  }
+  return e.writeFixedU8(uint8_t(type.code()));
+}
+
 static bool EncodeBlock(Encoder& e, AstBlock& b) {
   if (!e.writeOp(b.op())) {
     return false;
   }
 
-  if (!e.writeBlockType(b.type().type())) {
+  if (!EncodeBlockType(e, b.type())) {
     return false;
   }
 
@@ -6458,7 +6475,7 @@ static bool EncodeIf(Encoder& e, AstIf& i) {
     return false;
   }
 
-  if (!e.writeBlockType(i.type().type())) {
+  if (!EncodeBlockType(e, i.type())) {
     return false;
   }
 
@@ -7410,10 +7427,20 @@ static bool EncodeDataCountSection(Encoder& e, AstModule& module) {
 }
 
 static bool EncodeElemSegment(Encoder& e, AstElemSegment& segment) {
-  // There are three bits that control the encoding of an element segment for
-  // up to eight possible encodings. We try to select the encoding for an
-  // element segment that takes the least amount of space, which depends on
-  // whether there are null references in the segment.
+  // There are three bits that control the encoding of an element segment for up
+  // to eight possible encodings. We try to select the encoding for an element
+  // segment that takes the least amount of space.  We can use various
+  // compressed encodings if some or all of these are true:
+  //
+  // - the selected element type is FuncRef
+  // - there are no null references in the segment
+  // - the table and initialization indices are both zero
+  //
+  // Choosing the best encoding is tricky because not all encodings can
+  // represent all situations.  For example, if we have a type other than
+  // FuncRef, or a null value, or a table index, then we can't use the legacy
+  // "Active" encoding, compact though it is.
+
   bool hasRefNull = false;
   for (const AstElem& elem : segment.elems()) {
     if (elem.is<AstNullValue>()) {
@@ -7422,11 +7449,16 @@ static bool EncodeElemSegment(Encoder& e, AstElemSegment& segment) {
     }
   }
 
-  // Select the encoding that takes the least amount of space
+  ElemSegmentPayload payload =
+      hasRefNull || segment.elemType() != ValType::FuncRef
+          ? ElemSegmentPayload::ElemExpression
+          : ElemSegmentPayload::ExternIndex;
+
   ElemSegmentKind kind;
   switch (segment.kind()) {
     case AstElemSegmentKind::Active: {
-      kind = segment.targetTable().index()
+      kind = segment.targetTable().index() ||
+                     payload != ElemSegmentPayload::ExternIndex
                  ? ElemSegmentKind::ActiveWithTableIndex
                  : ElemSegmentKind::Active;
       break;
@@ -7440,8 +7472,6 @@ static bool EncodeElemSegment(Encoder& e, AstElemSegment& segment) {
       break;
     }
   }
-  ElemSegmentPayload payload = hasRefNull ? ElemSegmentPayload::ElemExpression
-                                          : ElemSegmentPayload::ExternIndex;
 
   // Write the flags field.
   if (!e.writeVarU32(ElemSegmentFlags(kind, payload).encoded())) {
@@ -7471,7 +7501,8 @@ static bool EncodeElemSegment(Encoder& e, AstElemSegment& segment) {
   // encoding, which doesn't include an explicit type or definition kind.
   if (kind != ElemSegmentKind::Active) {
     if (payload == ElemSegmentPayload::ElemExpression &&
-        !e.writeFixedU8(uint8_t(TypeCode::FuncRef))) {
+        !e.writeFixedU8(
+            uint8_t(UnpackTypeCodeType(segment.elemType().packed())))) {
       return false;
     }
     if (payload == ElemSegmentPayload::ExternIndex &&
@@ -7630,13 +7661,14 @@ static bool EncodeBinaryModule(const AstModule& module, Bytes* bytes) {
 
 /*****************************************************************************/
 
-bool wasm::TextToBinary(const char16_t* text, uintptr_t stackLimit,
-                        Bytes* bytes, Uint32Vector* offsets,
-                        UniqueChars* error) {
+bool wasm::TextToBinary(const char16_t* text, size_t textLen,
+                        uintptr_t stackLimit, Bytes* bytes,
+                        Uint32Vector* offsets, UniqueChars* error) {
   LifoAlloc lifo(AST_LIFO_DEFAULT_CHUNK_SIZE);
 
   bool binary = false;
-  AstModule* module = ParseModule(text, stackLimit, lifo, error, &binary);
+  AstModule* module =
+      ParseModule(text, textLen, stackLimit, lifo, error, &binary);
   if (!module) {
     return false;
   }

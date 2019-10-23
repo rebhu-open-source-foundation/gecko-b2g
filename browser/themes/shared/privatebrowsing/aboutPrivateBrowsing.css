@@ -185,6 +185,10 @@ p {
   padding-inline-start: 44px;
 }
 
+.banner-body:dir(rtl) {
+  background-position-x: right;
+}
+
 .banner-body h1 {
   font-size: 18px;
   font-weight: bold;
@@ -227,12 +231,18 @@ p {
 }
 
 .search-banner-close-button {
-  float: right;
-  min-width: 20px;
-  min-height: 20px;
+  float: inline-end;
+  /* min-width and min-height override values set on button elements. */
+  min-width: 28px;
+  min-height: 28px;
+  /* Forcing height and line-height ensure the button hover is displayed correctly
+     as a square box (and focus box). No text gets displayed here so that's ok. */
+  height: 28px;
+  line-height: 0;
   margin: 16px;
   padding: 0;
   background-color: inherit;
+  border: 0;
 }
 
 .search-banner-close-image {
