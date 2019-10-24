@@ -40,6 +40,10 @@ class nsIPrincipal;
 #  include "AndroidLocationProvider.h"
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#  include "GonkGPSGeolocationProvider.h"
+#endif
+
 #ifdef MOZ_GPSD
 #  include "GpsdLocationProvider.h"
 #endif
@@ -522,6 +526,10 @@ nsresult nsGeolocationService::Init() {
 
 #ifdef MOZ_WIDGET_ANDROID
   mProvider = new AndroidLocationProvider();
+#endif
+
+#ifdef MOZ_WIDGET_GONK
+  mProvider = do_GetService(GONK_GPS_GEOLOCATION_PROVIDER_CONTRACTID);
 #endif
 
 #ifdef MOZ_WIDGET_GTK

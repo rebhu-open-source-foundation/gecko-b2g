@@ -125,6 +125,7 @@ $HWC_DEFINE \
 -I$GONK_PATH/system/libhidl/base/include \
 -I$HIDL_TRANSPORT/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
 -I$HIDL_TRANSPORT/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
+-I$HIDL_HW/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen \
 -I$HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"
 
 export CPPFLAGS="-fPIC \
@@ -149,6 +150,7 @@ export LDFLAGS="-L$SYS_LIB -Wl,-rpath-link=$OBJ_LIB \
 -lui -lgui \
 -lutils -lcutils -lsysutils \
 -lhardware_legacy -lhardware -lsuspend \
+-lhidltransport \
 -lhidlbase"
 
 ./mach build $@
