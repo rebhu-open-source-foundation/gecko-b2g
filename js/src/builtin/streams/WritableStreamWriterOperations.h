@@ -14,6 +14,7 @@
 #include "js/RootingAPI.h"  // JS::{,Mutable}Handle
 #include "js/Value.h"       // JS::Value
 
+struct JSContext;
 class JSObject;
 
 namespace js {
@@ -23,8 +24,9 @@ class WritableStreamDefaultWriter;
 extern JSObject* WritableStreamDefaultWriterClose(
     JSContext* cx, JS::Handle<WritableStreamDefaultWriter*> unwrappedWriter);
 
-extern JS::Value WritableStreamDefaultWriterGetDesiredSize(
-    const WritableStreamDefaultWriter* unwrappedWriter);
+extern MOZ_MUST_USE bool WritableStreamDefaultWriterGetDesiredSize(
+    JSContext* cx, JS::Handle<WritableStreamDefaultWriter*> unwrappedWriter,
+    JS::MutableHandle<JS::Value> size);
 
 }  // namespace js
 

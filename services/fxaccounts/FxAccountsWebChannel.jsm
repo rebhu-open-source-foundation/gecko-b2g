@@ -485,14 +485,16 @@ this.FxAccountsWebChannelHelpers.prototype = {
    * @param the uid of the account which have been logged out
    */
   logout(uid) {
-    return fxAccounts.getSignedInUser().then(userData => {
-      if (userData && userData.uid === uid) {
-        // true argument is `localOnly`, because server-side stuff
-        // has already been taken care of by the content server
-        return fxAccounts.signOut(true);
-      }
-      return null;
-    });
+    return this._fxAccounts._internal
+      .getUserAccountData(["uid"])
+      .then(userData => {
+        if (userData && userData.uid === uid) {
+          // true argument is `localOnly`, because server-side stuff
+          // has already been taken care of by the content server
+          return fxAccounts.signOut(true);
+        }
+        return null;
+      });
   },
 
   /**
@@ -549,7 +551,12 @@ this.FxAccountsWebChannelHelpers.prototype = {
     let signedInUser = null;
 
     if (this.shouldAllowFxaStatus(service, sendingContext, isPairing)) {
-      const userData = await this._fxAccounts.getSignedInUser();
+      const userData = await this._fxAccounts._internal.getUserAccountData([
+        "email",
+        "sessionToken",
+        "uid",
+        "verified",
+      ]);
       if (userData) {
         signedInUser = {
           email: userData.email,

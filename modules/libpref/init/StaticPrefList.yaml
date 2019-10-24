@@ -5344,7 +5344,7 @@
 # contain any contents in the area.
 - name: layout.viewport_contains_no_contents_area
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -7509,6 +7509,16 @@
 
 # Global user preference for disabling native theme. Used in NativeWindowTheme.
 - name: widget.disable-native-theme
+  type: bool
+  value: false
+  mirror: always
+
+# Preference to disable dark scrollbar implementation.
+# This is mainly for testing because dark scrollbars have to be semi-
+# transparent, but many reftests expect scrollbars to look identical
+# among different backgrounds.
+# However, some users may want to disable this as well.
+- name: widget.disable-dark-scrollbar
   type: bool
   value: false
   mirror: always
