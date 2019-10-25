@@ -5,117 +5,186 @@
 // It runs with chrome privileges in the system app.
 
 (function() {
+  const { Services } = ChromeUtils.import(
+    "resource://gre/modules/Services.jsm"
+  );
 
-const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
-function _webembed_log(msg) {
+  function _webembed_log(msg) {
     console.log(`WebEmbedder: ${msg}`);
-}
+  }
 
-function _webembed_error(msg) {
-  console.error(`WebEmbedder: ${msg}`);
-}
+  function _webembed_error(msg) {
+    console.error(`WebEmbedder: ${msg}`);
+  }
 
-function BrowserDOMWindow(embedder) {
-    _webembed_log(`Creating BrowserDOMWindow implementing ${Ci.nsIBrowserDOMWindow}`);
+  function BrowserDOMWindow(embedder) {
+    _webembed_log(
+      `Creating BrowserDOMWindow implementing ${Ci.nsIBrowserDOMWindow}`
+    );
     this.embedder = embedder;
-}
+  }
 
-BrowserDOMWindow.prototype = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIBrowserDOMWindow]),
+  BrowserDOMWindow.prototype = {
+    QueryInterface: ChromeUtils.generateQI([Ci.nsIBrowserDOMWindow]),
 
-  openURI: function(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
-    _webembed_log(`BrowserDOMWindow::openURI ${aURI.spec}`);
-    if (this.embedder && this.embedder.browserDomWindow) {
-        return this.embedder.browserDomWindow.openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp);
-    }
-    _webembed_error("NOT IMPLEMENTED");
-    throw "NOT IMPLEMENTED";
-  },
+    openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
+      _webembed_log(`BrowserDOMWindow::openURI ${aURI.spec}`);
+      if (this.embedder && this.embedder.browserDomWindow) {
+        return this.embedder.browserDomWindow.openURI(
+          aURI,
+          aOpener,
+          aWhere,
+          aFlags,
+          aTriggeringPrincipal,
+          aCsp
+        );
+      }
+      _webembed_error("NOT IMPLEMENTED");
+      throw new Error("NOT IMPLEMENTED");
+    },
 
-  createContentWindow: function(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
-    _webembed_log(`BrowserDOMWindow::createContentWindow ${aURI.spec}`);
-    if (this.embedder && this.embedder.browserDomWindow) {
-        return this.embedder.browserDomWindow.createContentWindow(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp);
-    }
-    _webembed_error("NOT IMPLEMENTED");
-    throw "NOT IMPLEMENTED";
-  },
+    createContentWindow(
+      aURI,
+      aOpener,
+      aWhere,
+      aFlags,
+      aTriggeringPrincipal,
+      aCsp
+    ) {
+      _webembed_log(`BrowserDOMWindow::createContentWindow ${aURI.spec}`);
+      if (this.embedder && this.embedder.browserDomWindow) {
+        return this.embedder.browserDomWindow.createContentWindow(
+          aURI,
+          aOpener,
+          aWhere,
+          aFlags,
+          aTriggeringPrincipal,
+          aCsp
+        );
+      }
+      _webembed_error("NOT IMPLEMENTED");
+      throw new Error("NOT IMPLEMENTED");
+    },
 
-  openURIInFrame: function(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
-    // We currently ignore aNextRemoteTabId on mobile.  This needs to change
-    // when Fennec starts to support e10s.  Assertions will fire if this code
-    // isn't fixed by then.
-    //
-    // We also ignore aName if it is set, as it is currently only used on the
-    // e10s codepath.
-    _webembed_log(`BrowserDOMWindow::openURIInFrame ${aURI.spec}`);
-    if (this.embedder && this.embedder.browserDomWindow) {
-        let res = this.embedder.browserDomWindow.openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName);
+    openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
+      // We currently ignore aNextRemoteTabId on mobile.  This needs to change
+      // when Fennec starts to support e10s.  Assertions will fire if this code
+      // isn't fixed by then.
+      //
+      // We also ignore aName if it is set, as it is currently only used on the
+      // e10s codepath.
+      _webembed_log(`BrowserDOMWindow::openURIInFrame ${aURI.spec}`);
+      if (this.embedder && this.embedder.browserDomWindow) {
+        let res = this.embedder.browserDomWindow.openURIInFrame(
+          aURI,
+          aParams,
+          aWhere,
+          aFlags,
+          aNextRemoteTabId,
+          aName
+        );
         if (res) {
-            return res.frame;
+          return res.frame;
         }
-    }
-    _webembed_error("NOT IMPLEMENTED");
-    throw "NOT IMPLEMENTED";
-  },
+      }
+      _webembed_error("NOT IMPLEMENTED");
+      throw new Error("NOT IMPLEMENTED");
+    },
 
-  createContentWindowInFrame: function(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
-    _webembed_log(`BrowserDOMWindow::createContentWindowInFrame ${aURI.spec}`);
-    if (this.embedder && this.embedder.browserDomWindow) {
-        let res = this.embedder.browserDomWindow.createContentWindowInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName);
+    createContentWindowInFrame(
+      aURI,
+      aParams,
+      aWhere,
+      aFlags,
+      aNextRemoteTabId,
+      aName
+    ) {
+      _webembed_log(
+        `BrowserDOMWindow::createContentWindowInFrame ${aURI.spec}`
+      );
+      if (this.embedder && this.embedder.browserDomWindow) {
+        let res = this.embedder.browserDomWindow.createContentWindowInFrame(
+          aURI,
+          aParams,
+          aWhere,
+          aFlags,
+          aNextRemoteTabId,
+          aName
+        );
         if (res) {
-            return res.frame;
+          return res.frame;
         }
-    }
-    _webembed_error("NOT IMPLEMENTED");
-    throw "NOT IMPLEMENTED";
-  },
+      }
+      _webembed_error("NOT IMPLEMENTED");
+      throw new Error("NOT IMPLEMENTED");
+    },
 
-  isTabContentWindow: function(aWindow) {
-    _webembed_log(`BrowserDOMWindow::isTabContentWindow`);
-    if (this.embedder && this.embedder.browserDomWindow) {
+    isTabContentWindow(aWindow) {
+      _webembed_log(`BrowserDOMWindow::isTabContentWindow`);
+      if (this.embedder && this.embedder.browserDomWindow) {
         return this.embedder.browserDomWindow.isTabContentWindow(aWindow);
-    }
-    return false;
-  },
+      }
+      return false;
+    },
 
-  canClose() {
-    _webembed_log(`BrowserDOMWindow::canClose`);
-    if (this.embedder && this.embedder.browserDomWindow) {
+    canClose() {
+      _webembed_log(`BrowserDOMWindow::canClose`);
+      if (this.embedder && this.embedder.browserDomWindow) {
         return this.embedder.browserDomWindow.canClose();
-    }
-    return true;
-  },
-};
+      }
+      return true;
+    },
+  };
 
-class WebEmbedder extends EventTarget {
+  class WebEmbedder extends EventTarget {
     constructor(delegates) {
-        super();
+      super();
 
-        _webembed_log(`constructor in ${window}`);
+      _webembed_log(`constructor in ${window}`);
 
-        this.browserDomWindow = delegates.window_provider;
+      this.browserDomWindow = delegates.window_provider;
 
-        Services.obs.addObserver((shell_window) => {
-            this.dispatchEvent(new CustomEvent("runtime-ready"));
-        }, "shell-ready");
+      Services.obs.addObserver(
+        (/* shell_window */) => {
+          this.dispatchEvent(new CustomEvent("runtime-ready"));
+        },
+        "shell-ready"
+      );
 
-        // Hook up the process provider implementation.
-        // First make sure the service was started so it can receive the observer notification.
-        let _ = Cc["@mozilla.org/ipc/processselector;1"].getService(Ci.nsIContentProcessProvider);
-        Services.obs.notifyObservers({ wrappedJSObject: delegates.process_selector }, "web-embedder-set-process-selector");
+      // Hook up the process provider implementation.
+      // First make sure the service was started so it can receive the observer notification.
+      let pp_service = Cc["@mozilla.org/ipc/processselector;1"].getService(
+        Ci.nsIContentProcessProvider
+      );
+      if (!pp_service) {
+        _webembed_error("No ContentProcessProvider service available!");
+        return;
+      }
 
-        // Notify the shell that a new embedder was created and send it the window provider.
-        Services.obs.notifyObservers(new BrowserDOMWindow(this), "web-embedder-created");
+      Services.obs.notifyObservers(
+        { wrappedJSObject: delegates.process_selector },
+        "web-embedder-set-process-selector"
+      );
+
+      // Notify the shell that a new embedder was created and send it the window provider.
+      Services.obs.notifyObservers(
+        new BrowserDOMWindow(this),
+        "web-embedder-created"
+      );
     }
 
     launch_preallocated_process() {
-        _webembed_log(`launch_preallocated_process`);
-        return Services.appinfo.ensureContentProcess();
+      _webembed_log(`launch_preallocated_process`);
+      return Services.appinfo.ensureContentProcess();
     }
-}
 
-window.WebEmbedder = WebEmbedder;
+    isGonk() {
+      const { AppConstants } = ChromeUtils.import(
+        "resource://gre/modules/AppConstants.jsm"
+      );
+      return AppConstants.platform === "gonk";
+    }
+  }
 
-}());
+  window.WebEmbedder = WebEmbedder;
+})();
