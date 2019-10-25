@@ -406,6 +406,28 @@
           this.log(`blur() browser available: ${!!this.browser}`);
           !!this.browser && this.browser.blur();
         }
+
+        get active() {
+          return (!!this.browser && this.browser.docShellIsActive);
+        }
+
+        set active(val) {
+          if (!!this.browser) {
+            let current = this.browser.docShellIsActive;
+            this.browser.docShellIsActive = val;
+            if (current !== val) {
+              this.dispatchCustomEvent("visibilitychange", { visible: val });
+            }
+          }
+        }
+
+        get visible() {
+          return this.active;
+        }
+
+        set visible(val) {
+          this.active = val;
+        }
     };
 
     console.log(`Setting up <web-view> custom element`);
