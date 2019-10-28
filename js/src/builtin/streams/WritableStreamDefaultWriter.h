@@ -11,12 +11,13 @@
 
 #include "mozilla/Attributes.h"  // MOZ_MUST_USE
 
+#include "jstypes.h"          // JS_PUBLIC_API
 #include "js/Class.h"         // JSClass, js::ClassSpec
 #include "js/Value.h"         // JS::{,Object,Undefined}Value
 #include "vm/NativeObject.h"  // js::NativeObject
 
-struct JSContext;
-class JSObject;
+struct JS_PUBLIC_API JSContext;
+class JS_PUBLIC_API JSObject;
 
 namespace js {
 
@@ -48,7 +49,18 @@ class WritableStreamDefaultWriter : public NativeObject {
      */
     Slot_Stream,
 
+    /**
+     * The promise returned by the |writer.ready| getter property, a promise
+     * signaling that the related stream is accepting writes.
+     *
+     * This value repeatedly changes as the related stream changes back and
+     * forth between being writable and temporarily filled (or, ultimately,
+     * errored or aborted).  These changes are invoked by a number of user-
+     * visible functions, so this may be a wrapper around a promise in another
+     * realm.
+     */
     Slot_ReadyPromise,
+
     SlotCount,
   };
 

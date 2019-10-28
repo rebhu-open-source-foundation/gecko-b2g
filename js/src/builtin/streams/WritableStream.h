@@ -16,13 +16,14 @@
 
 #include <stdint.h>  // uint32_t
 
+#include "jstypes.h"          // JS_PUBLIC_API
 #include "js/Class.h"         // JSClass, js::ClassSpec
 #include "js/RootingAPI.h"    // JS::Handle
 #include "js/Value.h"         // JS::{,Int32,Object,Undefined}Value
 #include "vm/List.h"          // js::ListObject
 #include "vm/NativeObject.h"  // js::NativeObject
 
-struct JSContext;
+struct JS_PUBLIC_API JSContext;
 
 namespace js {
 
@@ -199,8 +200,6 @@ class WritableStream : public NativeObject {
                  JS::Int32Value(mozilla::AssertedCast<int32_t>(newValue)));
   }
 
-  void setBackpressure(bool pressure) { setFlag(Backpressure, pressure); }
-
  public:
   bool writable() const { return state() == Writable; }
 
@@ -214,10 +213,17 @@ class WritableStream : public NativeObject {
   void setErrored() { setState(Errored); }
 
   bool backpressure() const { return flags() & Backpressure; }
+  void setBackpressure(bool pressure) { setFlag(Backpressure, pressure); }
 
   bool haveInFlightWriteRequest() const {
     return flags() & HaveInFlightWriteRequest;
   }
+  void setHaveInFlightWriteRequest() {
+    MOZ_ASSERT(!haveInFlightWriteRequest());
+    MOZ_ASSERT(writeRequests()->length() > 0);
+    setFlag(HaveInFlightWriteRequest, true);
+  }
+
   bool haveInFlightCloseRequest() const {
     return flags() & HaveInFlightCloseRequest;
   }
@@ -285,6 +291,12 @@ class WritableStream : public NativeObject {
     MOZ_ASSERT(!haveCloseRequestOrInFlightCloseRequest());
     setFixedSlot(Slot_CloseRequest, JS::ObjectValue(*closeRequest));
     MOZ_ASSERT(!haveInFlightCloseRequest());
+  }
+
+  void clearCloseRequest() {
+    MOZ_ASSERT(!haveInFlightCloseRequest());
+    MOZ_ASSERT(!getFixedSlot(Slot_CloseRequest).isUndefined());
+    setFixedSlot(Slot_CloseRequest, JS::UndefinedValue());
   }
 
   JS::Value inFlightCloseRequest() const {

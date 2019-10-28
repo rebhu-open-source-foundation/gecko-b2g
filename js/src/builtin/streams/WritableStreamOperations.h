@@ -11,10 +11,11 @@
 
 #include "mozilla/Attributes.h"  // MOZ_MUST_USE
 
+#include "jstypes.h"        // JS_PUBLIC_API
 #include "js/RootingAPI.h"  // JS::Handle
 #include "js/Value.h"       // JS::Value
 
-struct JSContext;
+struct JS_PUBLIC_API JSContext;
 
 namespace js {
 
@@ -45,11 +46,21 @@ extern MOZ_MUST_USE bool WritableStreamFinishInFlightWriteWithError(
 extern MOZ_MUST_USE bool WritableStreamFinishInFlightClose(
     JSContext* cx, JS::Handle<WritableStream*> unwrappedStream);
 
+extern MOZ_MUST_USE bool WritableStreamFinishInFlightCloseWithError(
+    JSContext* cx, JS::Handle<WritableStream*> unwrappedStream,
+    JS::Handle<JS::Value> error);
+
 extern bool WritableStreamCloseQueuedOrInFlight(
     const WritableStream* unwrappedStream);
 
 extern void WritableStreamMarkCloseRequestInFlight(
     WritableStream* unwrappedStream);
+
+extern void WritableStreamMarkFirstWriteRequestInFlight(
+    WritableStream* unwrappedStream);
+
+extern MOZ_MUST_USE bool WritableStreamRejectCloseAndClosedPromiseIfNeeded(
+    JSContext* cx, JS::Handle<WritableStream*> unwrappedStream);
 
 extern MOZ_MUST_USE bool WritableStreamUpdateBackpressure(
     JSContext* cx, JS::Handle<WritableStream*> unwrappedStream,

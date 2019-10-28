@@ -153,13 +153,9 @@ static JSScript* DelazifyScript(JSContext* cx, Handle<LazyScript*> lazyScript) {
   }
   MOZ_ASSERT(lazyScript->enclosingScriptHasEverBeenCompiled());
 
-  RootedFunction fun0(cx, lazyScript->functionNonDelazifying());
-  AutoRealm ar(cx, fun0);
-  RootedFunction fun(cx, LazyScript::functionDelazifying(cx, lazyScript));
-  if (!fun) {
-    return nullptr;
-  }
-  return fun->getOrCreateScript(cx, fun);
+  RootedFunction fun(cx, lazyScript->function());
+  AutoRealm ar(cx, fun);
+  return JSFunction::getOrCreateScript(cx, fun);
 }
 
 /* static */
@@ -321,7 +317,7 @@ bool DebuggerScript::CallData::getIsFunction() {
 
   // Note: LazyScripts always have functions.
   args.rval().setBoolean(!referent.is<JSScript*>() ||
-                         referent.as<JSScript*>()->functionNonDelazifying());
+                         referent.as<JSScript*>()->function());
   return true;
 }
 
@@ -338,8 +334,8 @@ bool DebuggerScript::CallData::getDisplayName() {
   if (!ensureScriptMaybeLazy()) {
     return false;
   }
-  JSFunction* func = CallScriptMethod(obj, &JSScript::functionNonDelazifying,
-                                      &LazyScript::functionNonDelazifying);
+  JSFunction* func =
+      CallScriptMethod(obj, &JSScript::function, &LazyScript::function);
   Debugger* dbg = Debugger::fromChildJSObject(obj);
 
   JSString* name = func ? func->displayAtom() : nullptr;

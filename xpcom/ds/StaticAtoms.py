@@ -1118,7 +1118,6 @@ STATIC_ATOMS = [
     Atom("spellcheck", "spellcheck"),
     Atom("split", "split"),
     Atom("splitter", "splitter"),
-    Atom("spring", "spring"),
     Atom("square", "square"),
     Atom("src", "src"),
     Atom("srcdoc", "srcdoc"),

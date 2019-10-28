@@ -201,6 +201,8 @@
 #include "mozilla/dom/GamepadManager.h"
 
 #include "gfxVR.h"
+#include "VRShMem.h"
+#include "FxRWindowManager.h"
 #include "mozilla/dom/VRDisplay.h"
 #include "mozilla/dom/VRDisplayEvent.h"
 #include "mozilla/dom/VRDisplayEventBinding.h"
@@ -4027,13 +4029,6 @@ bool nsGlobalWindowOuter::DispatchResizeEvent(const CSSIntSize& aSize) {
   return target->DispatchEvent(*domEvent, CallerType::System, IgnoreErrors());
 }
 
-static already_AddRefed<nsIDocShellTreeItem> GetCallerDocShellTreeItem() {
-  nsCOMPtr<nsIWebNavigation> callerWebNav = do_GetInterface(GetEntryGlobal());
-  nsCOMPtr<nsIDocShellTreeItem> callerItem = do_QueryInterface(callerWebNav);
-
-  return callerItem.forget();
-}
-
 bool nsGlobalWindowOuter::WindowExists(const nsAString& aName,
                                        bool aForceNoOpener,
                                        bool aLookForCallerOnJSStack) {
@@ -4045,20 +4040,7 @@ bool nsGlobalWindowOuter::WindowExists(const nsAString& aName,
            aName.LowerCaseEqualsLiteral("_parent");
   }
 
-  nsCOMPtr<nsIDocShellTreeItem> caller;
-  if (aLookForCallerOnJSStack) {
-    caller = GetCallerDocShellTreeItem();
-  }
-
-  if (!caller) {
-    caller = mDocShell;
-  }
-
-  nsCOMPtr<nsIDocShellTreeItem> namedItem;
-  mDocShell->FindItemWithName(aName, nullptr, caller,
-                              /* aSkipTabGroup = */ false,
-                              getter_AddRefs(namedItem));
-  return namedItem != nullptr;
+  return !!mBrowsingContext->FindWithName(aName);
 }
 
 already_AddRefed<nsIWidget> nsGlobalWindowOuter::GetMainWidget() {
@@ -4441,6 +4423,12 @@ nsresult nsGlobalWindowOuter::SetFullscreenInternal(FullscreenReason aReason,
     }
   }
 
+#if defined(NIGHTLY_BUILD) && defined(XP_WIN)
+  if (FxRWindowManager::GetInstance()->IsFxRWindow(mWindowID)) {
+    mozilla::gfx::VRShMem shmem(nullptr, true /*aRequiresMutex*/);
+    shmem.SendFullscreenState(mWindowID, aFullscreen);
+  }
+#endif  // NIGHTLY_BUILD && XP_WIN
   FinishFullscreenChange(aFullscreen);
   return NS_OK;
 }

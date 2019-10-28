@@ -17,6 +17,7 @@
 #include "mozilla/dom/Location.h"
 #include "mozilla/dom/LocationBinding.h"
 #include "mozilla/dom/PopupBlocker.h"
+#include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/StructuredCloneTags.h"
 #include "mozilla/dom/UserActivationIPCUtils.h"
 #include "mozilla/dom/WindowBinding.h"
@@ -115,7 +116,9 @@ already_AddRefed<BrowsingContext> BrowsingContext::Create(
 
   // Determine which BrowsingContextGroup this context should be created in.
   RefPtr<BrowsingContextGroup> group =
-      BrowsingContextGroup::Select(aParent, aOpener);
+      (aType == Type::Chrome)
+          ? do_AddRef(BrowsingContextGroup::GetChromeGroup())
+          : BrowsingContextGroup::Select(aParent, aOpener);
 
   RefPtr<BrowsingContext> context;
   if (XRE_IsParentProcess()) {
@@ -474,7 +477,16 @@ void BrowsingContext::GetChildren(Children& aChildren) {
 // See
 // https://html.spec.whatwg.org/multipage/browsers.html#the-rules-for-choosing-a-browsing-context-given-a-browsing-context-name
 BrowsingContext* BrowsingContext::FindWithName(
-    const nsAString& aName, BrowsingContext& aRequestingContext) {
+    const nsAString& aName, bool aUseEntryGlobalForAccessCheck) {
+  RefPtr<BrowsingContext> requestingContext = this;
+  if (aUseEntryGlobalForAccessCheck) {
+    if (nsCOMPtr<nsIDocShell> caller = do_GetInterface(GetEntryGlobal())) {
+      if (caller->GetBrowsingContext()) {
+        requestingContext = caller->GetBrowsingContext();
+      }
+    }
+  }
+
   BrowsingContext* found = nullptr;
   if (aName.IsEmpty()) {
     // You can't find a browsing context with an empty name.
@@ -483,10 +495,10 @@ BrowsingContext* BrowsingContext::FindWithName(
     // Just return null. Caller must handle creating a new window with
     // a blank name.
     found = nullptr;
-  } else if (IsSpecialName(aName)) {
-    found = FindWithSpecialName(aName, aRequestingContext);
+  } else if (nsContentUtils::IsSpecialName(aName)) {
+    found = FindWithSpecialName(aName, *requestingContext);
   } else if (BrowsingContext* child =
-                 FindWithNameInSubtree(aName, aRequestingContext)) {
+                 FindWithNameInSubtree(aName, *requestingContext)) {
     found = child;
   } else {
     BrowsingContext* current = this;
@@ -500,7 +512,7 @@ BrowsingContext* BrowsingContext::FindWithName(
         // contexts in the same browsing context group.
         siblings = &mGroup->Toplevels();
       } else if (parent->NameEquals(aName) &&
-                 aRequestingContext.CanAccess(parent) &&
+                 requestingContext->CanAccess(parent) &&
                  parent->IsTargetable()) {
         found = parent;
         break;
@@ -514,7 +526,7 @@ BrowsingContext* BrowsingContext::FindWithName(
         }
 
         if (BrowsingContext* relative =
-                sibling->FindWithNameInSubtree(aName, aRequestingContext)) {
+                sibling->FindWithNameInSubtree(aName, *requestingContext)) {
           found = relative;
           // Breaks the outer loop
           parent = nullptr;
@@ -528,7 +540,7 @@ BrowsingContext* BrowsingContext::FindWithName(
 
   // Helpers should perform access control checks, which means that we
   // only need to assert that we can access found.
-  MOZ_DIAGNOSTIC_ASSERT(!found || aRequestingContext.CanAccess(found));
+  MOZ_DIAGNOSTIC_ASSERT(!found || requestingContext->CanAccess(found));
 
   return found;
 }
@@ -548,14 +560,6 @@ BrowsingContext* BrowsingContext::FindChildWithName(
   }
 
   return nullptr;
-}
-
-/* static */
-bool BrowsingContext::IsSpecialName(const nsAString& aName) {
-  return (aName.LowerCaseEqualsLiteral("_self") ||
-          aName.LowerCaseEqualsLiteral("_parent") ||
-          aName.LowerCaseEqualsLiteral("_top") ||
-          aName.LowerCaseEqualsLiteral("_blank"));
 }
 
 BrowsingContext* BrowsingContext::FindWithSpecialName(

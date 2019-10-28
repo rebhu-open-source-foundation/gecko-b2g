@@ -6224,14 +6224,15 @@ IncrementalProgress GCRuntime::performSweepActions(SliceBudget& budget) {
   gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::SWEEP);
   JSFreeOp fop(rt);
 
-  // Drain the mark stack, except in the first sweep slice where we must not
-  // yield to the mutator until we've starting sweeping a sweep group.
+  // Kick off a parallel task to drain the mark stack, except in the first sweep
+  // slice where we must not yield to the mutator until we've starting sweeping
+  // a sweep group. The stack must be empty in that case.
   MOZ_ASSERT(initialState <= State::Sweep);
-  if (initialState != State::Sweep) {
-    MOZ_ASSERT(marker.isDrained());
-  } else {
-    MOZ_ASSERT(!sweepMarkTask.isRunning());
+  MOZ_ASSERT_IF(initialState != State::Sweep, marker.isDrained());
+  MOZ_ASSERT(!sweepMarkTaskStarted);
+  if (initialState == State::Sweep && !marker.isDrained()) {
     AutoLockHelperThreadState lock;
+    MOZ_ASSERT(!sweepMarkTask.isRunningWithLockHeld(lock));
     sweepMarkTask.setBudget(budget);
     sweepMarkTask.startOrRunIfIdle(lock);
     sweepMarkTaskStarted = true;
@@ -8840,4 +8841,19 @@ bool js::gc::ClearEdgesTracer::onRegExpSharedEdge(js::RegExpShared** sharedp) {
 bool js::gc::ClearEdgesTracer::onChild(const JS::GCCellPtr& thing) {
   MOZ_CRASH();
   return true;
+}
+
+JS_PUBLIC_API void js::gc::FinalizeDeadNurseryObject(JSContext* cx,
+                                                     JSObject* obj) {
+  CHECK_THREAD(cx);
+  MOZ_ASSERT(JS::RuntimeHeapIsMinorCollecting());
+
+  MOZ_ASSERT(obj);
+  MOZ_ASSERT(IsInsideNursery(obj));
+  mozilla::DebugOnly<JSObject*> prior(obj);
+  MOZ_ASSERT(IsAboutToBeFinalizedUnbarriered(&prior));
+  MOZ_ASSERT(obj == prior);
+
+  const JSClass* jsClass = js::GetObjectClass(obj);
+  jsClass->doFinalize(cx->defaultFreeOp(), obj);
 }

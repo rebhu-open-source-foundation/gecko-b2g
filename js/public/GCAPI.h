@@ -19,16 +19,7 @@
 #include "js/UniquePtr.h"
 #include "js/Utility.h"
 
-#ifdef JS_BROKEN_GCC_ATTRIBUTE_WARNING
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wattributes"
-#endif  // JS_BROKEN_GCC_ATTRIBUTE_WARNING
-
 class JS_PUBLIC_API JSTracer;
-
-#ifdef JS_BROKEN_GCC_ATTRIBUTE_WARNING
-#  pragma GCC diagnostic pop
-#endif  // JS_BROKEN_GCC_ATTRIBUTE_WARNING
 
 namespace js {
 namespace gc {
@@ -1107,6 +1098,17 @@ namespace gc {
  * malloc memory.
  */
 extern JS_PUBLIC_API JSObject* NewMemoryInfoObject(JSContext* cx);
+
+/*
+ * Run the finalizer of a nursery-allocated JSObject that is known to be dead.
+ *
+ * This is a dangerous operation - only use this if you know what you're doing!
+ *
+ * This is used by the browser to implement nursery-allocated wrapper cached
+ * wrappers.
+ */
+extern JS_PUBLIC_API void FinalizeDeadNurseryObject(JSContext* cx,
+                                                    JSObject* obj);
 
 } /* namespace gc */
 } /* namespace js */
