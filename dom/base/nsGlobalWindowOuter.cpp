@@ -1476,6 +1476,8 @@ nsresult nsGlobalWindowOuter::EnsureScriptEnvironment() {
     return NS_OK;
   }
 
+  NS_ENSURE_STATE(!mCleanedUp);
+
   NS_ASSERTION(!GetCurrentInnerWindowInternal(),
                "No cached wrapper, but we have an inner window?");
   NS_ASSERTION(!mContext, "Will overwrite mContext!");
