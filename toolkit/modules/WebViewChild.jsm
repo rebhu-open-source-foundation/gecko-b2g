@@ -90,6 +90,13 @@ var WebViewChild = {
       /* wantsUntrusted = */ false
     );
 
+    this.global.addEventListener(
+      "DOMLinkAdded",
+      this.linkAddedHandler.bind(this),
+      /* useCapture = */ true,
+      /* wantsUntrusted = */ false
+    );
+
     // Remote the value of the background color since the parent can't get
     // it directly in its progress listener.
     // This will be dispatched before the parent's loadend so we can use
@@ -130,6 +137,61 @@ var WebViewChild = {
         progress_listener,
         Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
       );
+  },
+
+  // Processes the "rel" field in <link> tags and forward to specific handlers.
+  linkAddedHandler(event) {
+    let win = event.target.ownerGlobal;
+    if (win != this.global.content) {
+      return;
+    }
+
+    let iconchange_handler = this.iconChangedHandler.bind(this);
+    let handlers = {
+      icon: iconchange_handler,
+      "apple-touch-icon": iconchange_handler,
+      "apple-touch-icon-precomposed": iconchange_handler,
+      search: this.openSearchHandler.bind(this),
+      manifest: this.manifestChangedHandler.bind(this),
+    };
+
+    this.log(`Got linkAdded: (${event.target.href}) ${event.target.rel}`);
+    event.target.rel.split(" ").forEach(function(x) {
+      let token = x.toLowerCase();
+      if (handlers[token]) {
+        handlers[token](event);
+      }
+    }, this);
+  },
+
+  iconChangedHandler(event) {
+    let target = event.target;
+    this.log(`Got iconchanged: (${target.href})`);
+    let icon = { href: target.href };
+    this.maybeCopyAttribute(target, icon, "sizes");
+    this.maybeCopyAttribute(target, icon, "rel");
+    this.global.sendAsyncMessage("WebView::iconchange", icon);
+  },
+
+  openSearchHandler(event) {
+    let target = event.target;
+    this.log(`Got opensearch: (${target.href})`);
+
+    if (target.type !== "application/opensearchdescription+xml") {
+      return;
+    }
+
+    this.global.sendAsyncMessage("WebView::opensearch", {
+      title: target.title,
+      href: target.href,
+    });
+  },
+
+  manifestChangedHandler(event) {
+    let target = event.target;
+    this.log(`Got manifestchanged: (${target.href})`);
+    let manifest = { href: target.href };
+    this.global.sendAsyncMessage("WebView::manifestchange", manifest);
   },
 
   metaChangeHandler(event) {

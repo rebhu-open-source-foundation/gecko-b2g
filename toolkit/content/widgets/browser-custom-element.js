@@ -1292,7 +1292,10 @@
           "backgroundcolor",
           "close",
           "documentfirstpaint",
+          "iconsearch",
+          "manifestchange",
           "metachange",
+          "opensearch",
           "resize",
           "scroll",
           "contextmenu",
@@ -1538,59 +1541,66 @@
             height: data.height,
           };
           break;
-        case "WebView::documentfirstpaint":
-          this.dispatchEvent(new CustomEvent("documentfirstpaint"));
+        case "WebView::backgroundcolor":
+          this.webViewDispatchEventFromData("backgroundcolor", data, [
+            "backgroundcolor",
+          ]);
           break;
         case "WebView::close":
           this.dispatchEvent(new CustomEvent("close"));
           break;
-        case "WebView::metachange":
-          this.dispatchEvent(
-            new CustomEvent("metachange", {
-              detail: {
-                name: data.name,
-                content: data.content,
-                type: data.type,
-                lang: data.lang,
-              },
-            })
-          );
-          break;
-        case "WebView::resize":
-          this.dispatchEvent(
-            new CustomEvent("resize", {
-              detail: {
-                width: data.width,
-                height: data.height,
-              },
-            })
-          );
-          break;
-        case "WebView::scroll":
-          this.dispatchEvent(
-            new CustomEvent("scroll", {
-              detail: {
-                top: data.top,
-                left: data.left,
-              },
-            })
-          );
-          break;
         case "WebView::contextmenu":
           return this.webViewfireCtxMenuEvent(data);
-        case "WebView::backgroundcolor":
-          this.dispatchEvent(
-            new CustomEvent("backgroundcolor", {
-              detail: {
-                backgroundcolor: data.backgroundcolor,
-              },
-            })
-          );
+        case "WebView::documentfirstpaint":
+          this.dispatchEvent(new CustomEvent("documentfirstpaint"));
+          break;
+        case "WebView::iconchange":
+          this.webViewDispatchEventFromData("iconchange", data, [
+            "href",
+            "sizes",
+            "rel",
+          ]);
+          break;
+        case "WebView::manifestchange":
+          this.webViewDispatchEventFromData("manifestchange", data, ["href"]);
+          break;
+        case "WebView::metachange":
+          this.webViewDispatchEventFromData("metachange", data, [
+            "name",
+            "content",
+            "type",
+            "lang",
+          ]);
+          break;
+        case "WebView::opensearch":
+          this.webViewDispatchEventFromData("opensearch", data, [
+            "title",
+            "href",
+          ]);
+          break;
+        case "WebView::resize":
+          this.webViewDispatchEventFromData("resize", data, [
+            "width",
+            "height",
+          ]);
+          break;
+        case "WebView::scroll":
+          this.webViewDispatchEventFromData("scroll", data, ["top", "left"]);
           break;
         default:
           return this._receiveMessage(aMessage);
       }
       return undefined;
+    }
+
+    webViewDispatchEventFromData(name, data, props) {
+      let detail = {};
+      props.forEach(prop => {
+        if (data[prop] !== undefined) {
+          detail[prop] = data[prop];
+        }
+      });
+      this.dispatchEvent(new CustomEvent(name, { detail }));
     }
 
     webViewfireCtxMenuEvent(data) {

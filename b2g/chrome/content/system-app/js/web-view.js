@@ -258,7 +258,10 @@
     "close",
     "contextmenu",
     "documentfirstpaint",
+    "iconchange",
+    "manifestchange",
     "metachange",
+    "opensearch",
     "resize",
     "scroll",
   ];
@@ -414,10 +417,14 @@
         case "close":
           this.dispatchCustomEvent(event.type);
           break;
+
+        case "contextmenu":
+        case "iconchange":
+        case "manifestchange":
+        case "metachange":
+        case "opensearch":
         case "resize":
         case "scroll":
-        case "contextmenu":
-        case "metachange":
           this.dispatchCustomEvent(event.type, event.detail);
           break;
         case "backgroundcolor":
