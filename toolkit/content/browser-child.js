@@ -10,6 +10,12 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/BrowserUtils.jsm"
 );
 
+ChromeUtils.defineModuleGetter(
+  this,
+  "WebViewChild",
+  "resource://gre/modules/WebViewChild.jsm"
+);
+
 try {
   docShell
     .QueryInterface(Ci.nsIInterfaceRequestor)
@@ -74,6 +80,9 @@ addMessageListener("BrowserElement:CreateAboutBlank", message => {
   );
   docShell.createAboutBlankContentViewer(principal, storagePrincipal);
 });
+
+// Initialize the <web-view> specific support.
+WebViewChild.init(this);
 
 // We may not get any responses to Browser:Init if the browser element
 // is torn down too quickly.

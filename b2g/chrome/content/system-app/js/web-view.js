@@ -252,6 +252,14 @@
     },
   };
 
+  const kRelayedEvents = [
+    "close",
+    "contextmenu",
+    "documentfirstpaint",
+    "resize",
+    "scroll",
+  ];
+
   class WebView extends HTMLElement {
     constructor() {
       super();
@@ -354,6 +362,10 @@
           this.browser.addEventListener("DOMTitleChanged", this);
         }
 
+        kRelayedEvents.forEach(name => {
+          this.browser.addEventListener(name, this);
+        });
+
         // Set the src to load once we have setup all listeners to not miss progress events
         // like loadstart.
         src && this.browser.setAttribute("src", src);
@@ -362,13 +374,18 @@
 
     disconnectedCallback() {
       if (this.browser.isRemoteBrowser) {
-        this.browser.messageManager.removeMessageListener(
-          "DOMTitleChanged",
-          this
-        );
+        this.browser.messageManager &&
+          this.browser.messageManager.removeMessageListener(
+            "DOMTitleChanged",
+            this
+          );
       } else {
         this.browser.removeEventListener("DOMTitleChanged", this);
       }
+
+      kRelayedEvents.forEach(name => {
+        this.browser.removeEventListener(name, this);
+      });
 
       this.browser.removeProgressListener(this.progressListener);
       this.progressListener = null;
@@ -389,6 +406,15 @@
           this.dispatchCustomEvent("titlechange", {
             title: this.browser.contentTitle,
           });
+          break;
+        case "documentfirstpaint":
+        case "close":
+          this.dispatchCustomEvent(event.type);
+          break;
+        case "resize":
+        case "scroll":
+        case "contextmenu":
+          this.dispatchCustomEvent(event.type, event.detail);
           break;
         default:
           this.error(`Unexpected event ${event.type}`);

@@ -1287,6 +1287,18 @@
         this.messageManager.addMessageListener("DOMTitleChanged", this);
         this.messageManager.addMessageListener("ImageDocumentLoaded", this);
 
+        // Start WebView additions.
+        [
+          "documentfirstpaint",
+          "close",
+          "resize",
+          "scroll",
+          "contextmenu",
+        ].forEach(item => {
+          this.messageManager.addMessageListener(`WebView::${item}`, this);
+        });
+        // End WebView additions.
+
         let jsm = "resource://gre/modules/RemoteWebProgress.jsm";
         let { RemoteWebProgressManager } = ChromeUtils.import(jsm, {});
 
@@ -1524,10 +1536,83 @@
             height: data.height,
           };
           break;
+        case "WebView::documentfirstpaint":
+          this.dispatchEvent(new CustomEvent("documentfirstpaint"));
+          break;
+        case "WebView::close":
+          this.dispatchEvent(new CustomEvent("close"));
+          break;
+        case "WebView::resize":
+          this.dispatchEvent(
+            new CustomEvent("resize", {
+              detail: {
+                width: data.width,
+                height: data.height,
+              },
+            })
+          );
+          break;
+        case "WebView::scroll":
+          this.dispatchEvent(
+            new CustomEvent("scroll", {
+              detail: {
+                top: data.top,
+                left: data.left,
+              },
+            })
+          );
+          break;
+        case "WebView::contextmenu":
+          return this.webViewfireCtxMenuEvent(data);
         default:
           return this._receiveMessage(aMessage);
       }
       return undefined;
+    }
+
+    webViewfireCtxMenuEvent(data) {
+      console.log(`webViewfireCtxMenuEvent ${JSON.stringify(data)}`);
+      let event = this.webViewcreateEvent(
+        "contextmenu",
+        data,
+        /* cancellable */ true
+      );
+
+      if (data.contextmenu) {
+        var self = this;
+        Cu.exportFunction(
+          function(id) {
+            self.messageManager.sendAsyncMessage("WebView::fire-ctx-callback", {
+              menuitem: id,
+            });
+          },
+          event.detail,
+          { defineAs: "contextMenuItemSelected" }
+        );
+      }
+
+      // The embedder may have default actions on context menu events, so
+      // we fire a context menu event even if the child didn't define a
+      // custom context menu
+      return !this.dispatchEvent(event);
+    }
+
+    webViewcreateEvent(evtName, detail, cancelable) {
+      // This will have to change if we ever want to send a CustomEvent with null
+      // detail.  For now, it's OK.
+      if (detail !== undefined && detail !== null) {
+        detail = Cu.cloneInto(detail, window);
+        return new window.CustomEvent(evtName, {
+          bubbles: true,
+          cancelable,
+          detail,
+        });
+      }
+
+      return new window.Event(evtName, {
+        bubbles: true,
+        cancelable,
+      });
     }
 
     enableDisableCommandsRemoteOnly(

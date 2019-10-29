@@ -29,6 +29,10 @@ The <web-view> element supports the following attributes:
 
 Each event type is prefixed with `mozbrowser` for historical compatibility reasons. All events are CustomEvents, with an event payload specific to each type.
 
+- `documentfirstpaint` : `{}`
+- `close` : `{}`
+- `resize` : `{ width: int, height: int}`
+- `scroll` : `{ top: int, left: int}`
 - `loadstart` : `{}`
 - `loadend` : `{ backgroundColor: string}`
 - `error` : `{ type: string }`
@@ -36,3 +40,4 @@ Each event type is prefixed with `mozbrowser` for historical compatibility reaso
 - `titlechange` : `{ title: string }`
 - `locationchange` : `{ url: string, canGoBack: boolean, cangoForward: boolean}`
 - `visibilitychange` : `{ visible: boolean }`
+- `contextmenu` : `{ <depends on the element that was selected> }`
