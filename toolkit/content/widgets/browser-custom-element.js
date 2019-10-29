@@ -1289,8 +1289,10 @@
 
         // Start WebView additions.
         [
-          "documentfirstpaint",
+          "backgroundcolor",
           "close",
+          "documentfirstpaint",
+          "metachange",
           "resize",
           "scroll",
           "contextmenu",
@@ -1542,6 +1544,18 @@
         case "WebView::close":
           this.dispatchEvent(new CustomEvent("close"));
           break;
+        case "WebView::metachange":
+          this.dispatchEvent(
+            new CustomEvent("metachange", {
+              detail: {
+                name: data.name,
+                content: data.content,
+                type: data.type,
+                lang: data.lang,
+              },
+            })
+          );
+          break;
         case "WebView::resize":
           this.dispatchEvent(
             new CustomEvent("resize", {
@@ -1564,6 +1578,15 @@
           break;
         case "WebView::contextmenu":
           return this.webViewfireCtxMenuEvent(data);
+        case "WebView::backgroundcolor":
+          this.dispatchEvent(
+            new CustomEvent("backgroundcolor", {
+              detail: {
+                backgroundcolor: data.backgroundcolor,
+              },
+            })
+          );
+          break;
         default:
           return this._receiveMessage(aMessage);
       }

@@ -67,6 +67,156 @@ var WebViewChild = {
       "WebView::fire-ctx-callback",
       this.recvFireCtxCallback.bind(this)
     );
+
+    let metachange_handler = this.metaChangeHandler.bind(this);
+    this.global.addEventListener(
+      "DOMMetaAdded",
+      metachange_handler,
+      /* useCapture = */ true,
+      /* wantsUntrusted = */ false
+    );
+
+    this.global.addEventListener(
+      "DOMMetaChanged",
+      metachange_handler,
+      /* useCapture = */ true,
+      /* wantsUntrusted = */ false
+    );
+
+    this.global.addEventListener(
+      "DOMMetaRemoved",
+      metachange_handler,
+      /* useCapture = */ true,
+      /* wantsUntrusted = */ false
+    );
+
+    // Remote the value of the background color since the parent can't get
+    // it directly in its progress listener.
+    // This will be dispatched before the parent's loadend so we can use
+    // this value in the loadend event handler of the <web-view> element.
+    let seenLoadStart = false;
+    let seenLoadEnd = false;
+    let progress_listener = {
+      QueryInterface: ChromeUtils.generateQI([
+        Ci.nsIWebProgressListener,
+        Ci.nsISupportsWeakReference,
+      ]),
+
+      onStateChange(webProgress, request, stateFlags, status) {
+        if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
+          seenLoadStart = true;
+        }
+
+        if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
+          let backgroundcolor = "transparent";
+          try {
+            backgroundcolor = global.content
+              .getComputedStyle(global.content.document.body)
+              .getPropertyValue("background-color");
+          } catch (e) {}
+          if (seenLoadStart && !seenLoadEnd) {
+            global.sendAsyncMessage("WebView::backgroundcolor", {
+              backgroundcolor,
+            });
+            seenLoadEnd = true;
+          }
+        }
+      },
+    };
+
+    this.global.docShell
+      .QueryInterface(Ci.nsIWebProgress)
+      .addProgressListener(
+        progress_listener,
+        Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
+      );
+  },
+
+  metaChangeHandler(event) {
+    let win = event.target.ownerGlobal;
+    if (win != this.global.content) {
+      return;
+    }
+
+    let name = event.target.name;
+    let property = event.target.getAttributeNS(null, "property");
+
+    if (!name && !property) {
+      return;
+    }
+
+    this.log(`Got metaChanged: (${name || property}) ${event.target.content}`);
+
+    let generic_handler = this.genericMetaHandler.bind(this);
+
+    let handlers = {
+      viewmode: generic_handler,
+      "theme-color": generic_handler,
+      "theme-group": generic_handler,
+      "application-name": this.applicationNameChangedHandler.bind(this),
+    };
+    let handler = handlers[name];
+
+    if ((property || name).match(/^og:/)) {
+      name = property || name;
+      handler = generic_handler;
+    }
+
+    if (handler) {
+      handler(name, event.type, event.target);
+    }
+  },
+
+  genericMetaHandler(name, eventType, target) {
+    let meta = {
+      name,
+      content: target.content,
+      type: eventType.replace("DOMMeta", "").toLowerCase(),
+    };
+    this.global.sendAsyncMessage("WebView::metachange", meta);
+  },
+
+  applicationNameChangedHandler(name, eventType, target) {
+    if (eventType !== "DOMMetaAdded") {
+      // Bug 1037448 - Decide what to do when <meta name="application-name">
+      // changes
+      return;
+    }
+
+    let meta = { name, content: target.content };
+
+    let lang;
+    let elm;
+
+    for (
+      elm = target;
+      !lang && elm && elm.nodeType == target.ELEMENT_NODE;
+      elm = elm.parentNode
+    ) {
+      if (elm.hasAttribute("lang")) {
+        lang = elm.getAttribute("lang");
+        continue;
+      }
+
+      if (elm.hasAttributeNS("http://www.w3.org/XML/1998/namespace", "lang")) {
+        lang = elm.getAttributeNS(
+          "http://www.w3.org/XML/1998/namespace",
+          "lang"
+        );
+        continue;
+      }
+    }
+
+    // No lang has been detected.
+    if (!lang && elm.nodeType == target.DOCUMENT_NODE) {
+      lang = elm.contentLanguage;
+    }
+
+    if (lang) {
+      meta.lang = lang;
+    }
+
+    this.global.sendAsyncMessage("WebView::metachange", meta);
   },
 
   addMozAfterPaintHandler(callback) {

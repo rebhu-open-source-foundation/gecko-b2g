@@ -38,15 +38,20 @@
       Ci.nsIWebProgressListener,
       Ci.nsISupportsWeakReference,
     ]),
-    _seenLoadStart: false,
-    _seenLoadEnd: false,
+    seenLoadStart: false,
+    seenLoadEnd: false,
+    backgroundcolor: "transparent",
+
+    set_background_color(color) {
+      this.backgroundcolor = color;
+    },
 
     onLocationChange(webProgress, request, location, flags) {
       this.log(`onLocationChange ${location.spec}`);
 
       // Ignore locationchange events which occur before the first loadstart.
       // These are usually about:blank loads we don't care about.
-      if (!this._seenLoadStart) {
+      if (!this.seenLoadStart) {
         this.log(`loadstart not seen yet, not dispatching locationchange`);
         return;
       }
@@ -68,20 +73,16 @@
       // this.log(`onStateChange ${stateFlags}`);
 
       if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
-        !this._seenLoadStart && this.dispatchEvent("loadstart");
-        this._seenLoadStart = true;
+        !this.seenLoadStart && this.dispatchEvent("loadstart");
+        this.seenLoadStart = true;
       }
 
       if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
-        let backgroundColor = "transparent";
-        // TODO: get the background color.
-        // try {
-        //     backgroundColor = content.getComputedStyle(content.document.body)
-        //                              .getPropertyValue("background-color");
-        // } catch (e) { this.error(e); }
-        if (this._seenLoadStart && !this._seenLoadEnd) {
-          this.dispatchEvent("loadend", { backgroundColor });
-          this._seenLoadEnd = true;
+        if (this.seenLoadStart && !this.seenLoadEnd) {
+          this.dispatchEvent("loadend", {
+            backgroundColor: this.backgroundcolor,
+          });
+          this.seenLoadEnd = true;
         }
 
         switch (status) {
@@ -253,9 +254,11 @@
   };
 
   const kRelayedEvents = [
+    "backgroundcolor",
     "close",
     "contextmenu",
     "documentfirstpaint",
+    "metachange",
     "resize",
     "scroll",
   ];
@@ -414,7 +417,13 @@
         case "resize":
         case "scroll":
         case "contextmenu":
+        case "metachange":
           this.dispatchCustomEvent(event.type, event.detail);
+          break;
+        case "backgroundcolor":
+          this.progressListener.set_background_color(
+            event.detail.backgroundcolor
+          );
           break;
         default:
           this.error(`Unexpected event ${event.type}`);
