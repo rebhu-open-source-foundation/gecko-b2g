@@ -11,7 +11,6 @@
 #include "AudioChannelService.h"
 #include "mozilla/dom/Document.h"
 #include "DocumentInlines.h"
-#include "mozilla/AnimationComparator.h"
 #include "mozilla/AntiTrackingCommon.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/AutoRestore.h"
@@ -78,7 +77,6 @@
 #include "ChildIterator.h"
 #include "nsIX509Cert.h"
 #include "nsIX509CertValidity.h"
-#include "nsIX509CertList.h"
 #include "nsITransportSecurityInfo.h"
 #include "nsINSSErrorsService.h"
 #include "nsISocketProvider.h"
@@ -1546,53 +1544,19 @@ void Document::GetFailedCertSecurityInfo(
   int64_t maxValidity = std::numeric_limits<int64_t>::max();
   int64_t minValidity = 0;
   PRTime notBefore, notAfter;
-  nsCOMPtr<nsIX509CertList> failedChain;
-  rv = tsi->GetFailedCertChain(getter_AddRefs(failedChain));
+  nsTArray<RefPtr<nsIX509Cert>> failedCertArray;
+  rv = tsi->GetFailedCertChain(failedCertArray);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aRv.Throw(rv);
     return;
   }
-  if (NS_WARN_IF(!failedChain)) {
+
+  if (NS_WARN_IF(failedCertArray.IsEmpty())) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return;
   }
 
-  nsCOMPtr<nsISimpleEnumerator> enumerator;
-  rv = failedChain->GetEnumerator(getter_AddRefs(enumerator));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    aRv.Throw(rv);
-    return;
-  }
-  if (NS_WARN_IF(!enumerator)) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return;
-  }
-
-  bool hasMore;
-  rv = enumerator->HasMoreElements(&hasMore);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    aRv.Throw(rv);
-    return;
-  }
-
-  while (hasMore) {
-    nsCOMPtr<nsISupports> supports;
-    rv = enumerator->GetNext(getter_AddRefs(supports));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      aRv.Throw(rv);
-      return;
-    }
-    if (NS_WARN_IF(!supports)) {
-      aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-      return;
-    }
-
-    nsCOMPtr<nsIX509Cert> certificate(do_QueryInterface(supports));
-    if (NS_WARN_IF(!certificate)) {
-      aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-      return;
-    }
-
+  for (const auto& certificate: failedCertArray) {
     rv = certificate->GetIssuerCommonName(issuerCommonName);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       aRv.Throw(rv);
@@ -1643,11 +1607,6 @@ void Document::GetFailedCertSecurityInfo(
     if (!certChainStrings.AppendElement(NS_ConvertUTF8toUTF16(der64),
                                         mozilla::fallible)) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
-      return;
-    }
-    rv = enumerator->HasMoreElements(&hasMore);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      aRv.Throw(rv);
       return;
     }
   }
@@ -3855,18 +3814,6 @@ DocumentTimeline* Document::Timeline() {
   }
 
   return mDocumentTimeline;
-}
-
-void Document::GetAnimations(nsTArray<RefPtr<Animation>>& aAnimations) {
-  // Hold a strong ref for the root element since Element::GetAnimations() calls
-  // FlushPendingNotifications() which may destroy the element.
-  RefPtr<Element> root = GetRootElement();
-  if (!root) {
-    return;
-  }
-  GetAnimationsOptions options;
-  options.mSubtree = true;
-  root->GetAnimations(options, aAnimations);
 }
 
 SVGSVGElement* Document::GetSVGRootElement() const {

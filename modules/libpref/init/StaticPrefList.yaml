@@ -1243,6 +1243,12 @@
 # Prefs starting with "dom."
 #---------------------------------------------------------------------------
 
+# Whether window.mozPaintCount is exposed to the web.
+- name: dom.mozPaintCount.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Allow cut/copy
 - name: dom.allow_cut_copy
   type: bool
@@ -4843,12 +4849,6 @@
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: always
 
-# Is support for -moz-binding enabled?
-- name: layout.css.moz-binding.content.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Expose the media query -moz-touch-enabled to web content.
 - name: layout.css.moz-touch-enabled.enabled
   type: RelaxedAtomicBool
@@ -5468,6 +5468,16 @@
   type: RelaxedAtomicUint32
   value: 32768   # Measured in KiB
   mirror: always
+
+# Whether cubeb is sandboxed
+- name: media.cubeb.sandbox
+  type: bool
+  mirror: always
+#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
+  value: true
+#else
+  value: false
+#endif
 
 # If a resource is known to be smaller than this size (in kilobytes), a
 # memory-backed MediaCache may be used; otherwise the (single shared global)
@@ -7115,6 +7125,16 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+
+# The level to which we sandbox the content process. firefox.js sets the
+# default to different values on a per-OS basis, and has documentation
+# on what the defaults are and what the numbers mean.
+- name: security.sandbox.content.level
+  type: int32_t
+  value: 0
+  mirror: always
+  do_not_use_directly: true # Consumers should use SandboxSettings to ask.
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
   # Whether win32k is disabled for content processes.

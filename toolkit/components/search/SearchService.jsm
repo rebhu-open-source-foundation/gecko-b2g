@@ -414,6 +414,7 @@ function convertGoogleEngines(engineNames) {
 // This promise may take up to 100s to resolve, it's the caller's
 // responsibility to ensure with a timer that we are not going to
 // block the async init for too long.
+// @deprecated Unused in the modern config.
 var fetchRegionDefault = ss =>
   new Promise(resolve => {
     let urlTemplate = Services.prefs
@@ -600,7 +601,7 @@ SearchService.prototype = {
   _loadPathIgnoreList: [],
 
   /**
-   * A map of engine short names to `SearchEngine`.
+   * A map of engine display names to `SearchEngine`.
    */
   _engines: null,
 
@@ -619,18 +620,25 @@ SearchService.prototype = {
   _visibleDefaultEngines: [],
 
   /**
-   * The user visible name of the configuration suggested default search engine.
+   * An object containing the {id, locale} of the WebExtension for the default
+   * engine, as suggested by the configuration.
+   * For the legacy configuration, this is the user visible name.
    */
   _searchDefault: null,
 
   /**
-   * The user visible name of the configuration suggested default search engine
-   * for private browsing mode.
+   * An object containing the {id, locale} of the WebExtension for the default
+   * engine for private browsing mode, as suggested by the configuration.
+   * For the legacy configuration, this is the user visible name.
    */
   _searchPrivateDefault: null,
 
   /**
    * The suggested order of engines from the configuration.
+   * For modern configuration:
+   *   This is an array of objects containing the WebExtension ID and Locale.
+   * For legacy configuration:
+   *   This is an array of strings which are the display name of the engines.
    */
   _searchOrder: [],
 
@@ -925,6 +933,59 @@ SearchService.prototype = {
    *   The engine that is default.
    */
   _originalDefaultEngine(privateMode = false) {
+    // The modern configuration doesn't need the verified attributes from the
+    // cache as we can calculate it all on startup anyway from the engines
+    // configuration.
+    if (gModernConfig) {
+      // We only allow the old defaultenginename pref for distributions.
+      // We can't use `isPartnerBuild` because we need to allow reading
+      // of the defaultenginename pref for funnelcakes.
+      if (SearchUtils.distroID && !privateMode) {
+        let defaultPrefB = Services.prefs.getDefaultBranch(
+          SearchUtils.BROWSER_SEARCH_PREF
+        );
+        try {
+          let defaultEngineName = defaultPrefB.getComplexValue(
+            "defaultenginename",
+            Ci.nsIPrefLocalizedString
+          ).data;
+
+          let defaultEngine = this.getEngineByName(defaultEngineName);
+          if (defaultEngine) {
+            return defaultEngine;
+          }
+        } catch (ex) {
+          // If the default pref is invalid (e.g. an add-on set it to a bogus value)
+          // we'll fallback and use the default engine from the configuration.
+          // Worst case, getEngineByName will just return null, which is the best we can do.
+        }
+      }
+
+      // If we got this far, the distro hasn't set the default engine, so
+      // get it from the configuration.
+      let defaultEngine = this._getEngineByWebExtensionDetails(
+        privateMode && this._searchPrivateDefault
+          ? this._searchPrivateDefault
+          : this._searchDefault
+      );
+
+      if (defaultEngine) {
+        return defaultEngine;
+      }
+
+      if (privateMode) {
+        // If for some reason we can't find the private mode engine, fall back
+        // to the non-private one.
+        return this._originalDefaultEngine(false);
+      }
+
+      // Something unexpected as happened. In order to recover the original
+      // default engine, use the first visible engine which is the best we can do.
+      return this._getSortedEngines(false)[0];
+    }
+
+    // Legacy configuration
+
     let defaultEngineName = this.getVerifiedGlobalAttr(
       privateMode ? "searchDefaultPrivate" : "searchDefault"
     );
@@ -1712,10 +1773,29 @@ SearchService.prototype = {
       region
     );
 
-    this._searchDefault = engines[0].engineName;
-    this._searchOrder = engines.map(e => e.engineName);
+    const defaultEngine = engines[0];
+    this._searchDefault = {
+      id: defaultEngine.webExtensionId,
+      locale:
+        "webExtensionLocales" in defaultEngine
+          ? defaultEngine.webExtensionLocales[0]
+          : DEFAULT_TAG,
+    };
+    this._searchOrder = engines.map(e => {
+      return {
+        id: e.webExtensionId,
+        locale:
+          "webExtensionLocales" in e ? e.webExtensionLocales[0] : DEFAULT_TAG,
+      };
+    });
     if (privateDefault) {
-      this._searchPrivateDefault = privateDefault;
+      this._searchPrivateDefault = {
+        id: privateDefault.webExtensionId,
+        locale:
+          "webExtensionLocales" in privateDefault
+            ? privateDefault.webExtensionLocales[0]
+            : DEFAULT_TAG,
+      };
     }
     return engines;
   },
@@ -1758,6 +1838,14 @@ SearchService.prototype = {
     return this._parseListJSON(list);
   },
 
+  /**
+   * @deprecated Unused in the modern config.
+   *
+   * @param {string} list
+   *   The engine list in json format.
+   * @returns {Array<string>}
+   *   Returns an array of engine names.
+   */
   _parseListJSON(list) {
     let json;
     try {
@@ -2067,14 +2155,26 @@ SearchService.prototype = {
         }
       }
 
-      for (let engineName of this._searchOrder) {
-        let engine = this._engines.get(engineName);
-        if (!engine || engine.name in addedEngines) {
-          continue;
-        }
+      if (gModernConfig) {
+        for (const details of this._searchOrder) {
+          let engine = this._getEngineByWebExtensionDetails(details);
+          if (!engine || engine.name in addedEngines) {
+            continue;
+          }
 
-        this.__sortedEngines.push(engine);
-        addedEngines[engine.name] = engine;
+          this.__sortedEngines.push(engine);
+          addedEngines[engine.name] = engine;
+        }
+      } else {
+        for (let engineName of this._searchOrder) {
+          let engine = this._engines.get(engineName);
+          if (!engine || engine.name in addedEngines) {
+            continue;
+          }
+
+          this.__sortedEngines.push(engine);
+          addedEngines[engine.name] = engine;
+        }
       }
     }
 
@@ -2218,8 +2318,17 @@ SearchService.prototype = {
     }
 
     // Now look at list.json
-    for (let engineName of this._searchOrder) {
-      engineOrder[engineName] = i++;
+    if (gModernConfig) {
+      for (const details of this._searchOrder) {
+        const engine = this._getEngineByWebExtensionDetails(details);
+        if (engine) {
+          engineOrder[engine.name] = i++;
+        }
+      }
+    } else {
+      for (let engineName of this._searchOrder) {
+        engineOrder[engineName] = i++;
+      }
     }
 
     SearchUtils.log(
@@ -2274,6 +2383,29 @@ SearchService.prototype = {
       if (
         engine &&
         (engine.alias == alias || engine._internalAliases.includes(alias))
+      ) {
+        return engine;
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Returns the engine associated with the WebExtension details.
+   *
+   * @param {object} details
+   * @param {string} details.id
+   *   The WebExtension ID
+   * @param {string} details.locale
+   *   The WebExtension locale
+   * @returns {nsISearchEngine|null}
+   *   The found engine, or null if no engine matched.
+   */
+  _getEngineByWebExtensionDetails(details) {
+    for (const engine of this._engines.values()) {
+      if (
+        engine._extensionID == details.id &&
+        engine._locale == details.locale
       ) {
         return engine;
       }
@@ -2561,6 +2693,7 @@ SearchService.prototype = {
       icons: iconList,
       alias: searchProvider.keyword,
       extensionID: extension.id,
+      locale,
       isBuiltin: extension.addonData.builtIn,
       // suggest_url doesn't currently get encoded.
       suggestURL: searchProvider.suggest_url,

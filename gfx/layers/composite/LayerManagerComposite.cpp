@@ -858,7 +858,7 @@ void LayerManagerComposite::UpdateDebugOverlayNativeLayers() {
       if (!mUnusedTransformWarningLayer) {
         mUnusedTransformWarningLayer = mNativeLayerRoot->CreateLayer();
         mUnusedTransformWarningLayer->SetRect(IntRect(0, 0, 20, 20));
-        mUnusedTransformWarningLayer->SetOpaqueRegion(IntRect(0, 0, 20, 20));
+        mUnusedTransformWarningLayer->SetIsOpaque(true);
         RefPtr<DrawTarget> dt =
             mUnusedTransformWarningLayer->NextSurfaceAsDrawTarget(
                 BackendType::SKIA);
@@ -880,7 +880,7 @@ void LayerManagerComposite::UpdateDebugOverlayNativeLayers() {
       if (!mDisabledApzWarningLayer) {
         mDisabledApzWarningLayer = mNativeLayerRoot->CreateLayer();
         mDisabledApzWarningLayer->SetRect(IntRect(0, 0, 20, 20));
-        mDisabledApzWarningLayer->SetOpaqueRegion(IntRect(0, 0, 20, 20));
+        mDisabledApzWarningLayer->SetIsOpaque(true);
         RefPtr<DrawTarget> dt =
             mDisabledApzWarningLayer->NextSurfaceAsDrawTarget(
                 BackendType::SKIA);
@@ -1015,7 +1015,7 @@ void LayerManagerComposite::PlaceNativeLayer(
     aWindowInvalidRegion->OrWith(aRect);
   }
   layer->SetRect(aRect);
-  layer->SetOpaqueRegion(aOpaque ? aRect - aRect.TopLeft() : IntRect());
+  layer->SetIsOpaque(aOpaque);
   mNativeLayers.push_back(layer);
 }
 

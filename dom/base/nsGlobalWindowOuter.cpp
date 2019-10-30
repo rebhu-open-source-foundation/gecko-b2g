@@ -614,6 +614,10 @@ bool nsOuterWindowProxy::getOwnPropertyDescriptor(
 
   // Step 3.
   if (isSameOrigin) {
+    if (StaticPrefs::dom_missing_prop_counters_enabled() && JSID_IS_ATOM(id)) {
+      Window_Binding::CountMaybeMissingProperty(proxy, id);
+    }
+
     // Fall through to js::Wrapper.
     {  // Scope for JSAutoRealm while we are dealing with js::Wrapper.
       // When forwarding to js::Wrapper, we should just enter the Realm of proxy
@@ -894,6 +898,10 @@ bool nsOuterWindowProxy::get(JSContext* cx, JS::Handle<JSObject*> proxy,
 
   if (found) {
     return true;
+  }
+
+  if (StaticPrefs::dom_missing_prop_counters_enabled() && JSID_IS_ATOM(id)) {
+    Window_Binding::CountMaybeMissingProperty(proxy, id);
   }
 
   {  // Scope for JSAutoRealm
@@ -6071,7 +6079,7 @@ void nsGlobalWindowOuter::PostMessageMozOuter(JSContext* aCx,
 
   JS::CloneDataPolicy clonePolicy;
   if (GetDocGroup() && callerInnerWindow &&
-      callerInnerWindow->CanShareMemory(GetDocGroup()->AgentClusterId())) {
+      callerInnerWindow->IsCrossOriginIsolated()) {
     clonePolicy.allowSharedMemory();
   }
   event->Write(aCx, aMessage, aTransfer, clonePolicy, aError);
