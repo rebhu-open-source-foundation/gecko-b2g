@@ -14,6 +14,7 @@ The <web-view> element supports the following attributes:
 - `blur() : void` : blurs the browser.
 - `goForward() : void` : navigates one step forwared in the history.
 - `goBack() : void` : navigates one step back in the history.
+- `getScreenshot(max_width, max_height, mime_type) : Promise<Blob>` : takes a screenshot of the current page.
 
 
 ## Properties

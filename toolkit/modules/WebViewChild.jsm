@@ -69,28 +69,28 @@ var WebViewChild = {
     );
 
     let metachange_handler = this.metaChangeHandler.bind(this);
-    this.global.addEventListener(
+    global.addEventListener(
       "DOMMetaAdded",
       metachange_handler,
       /* useCapture = */ true,
       /* wantsUntrusted = */ false
     );
 
-    this.global.addEventListener(
+    global.addEventListener(
       "DOMMetaChanged",
       metachange_handler,
       /* useCapture = */ true,
       /* wantsUntrusted = */ false
     );
 
-    this.global.addEventListener(
+    global.addEventListener(
       "DOMMetaRemoved",
       metachange_handler,
       /* useCapture = */ true,
       /* wantsUntrusted = */ false
     );
 
-    this.global.addEventListener(
+    global.addEventListener(
       "DOMLinkAdded",
       this.linkAddedHandler.bind(this),
       /* useCapture = */ true,
@@ -131,12 +131,144 @@ var WebViewChild = {
       },
     };
 
-    this.global.docShell
+    global.docShell
       .QueryInterface(Ci.nsIWebProgress)
       .addProgressListener(
         progress_listener,
         Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
       );
+
+    // Installs a message listener for screenshot requests.
+    global.addMessageListener(
+      "WebView::GetScreenshot",
+      this.getScreenshot.bind(this)
+    );
+  },
+
+  getScreenshot(message) {
+    let data = message.data;
+    this.log(`Taking screenshot for ${JSON.stringify(data)}`);
+
+    let takeScreenshotClosure = () => {
+      this.takeScreenshot(
+        data.max_width,
+        data.max_height,
+        data.mime_type,
+        data.id
+      );
+    };
+
+    let max_delay_ms = Services.prefs.getIntPref(
+      "dom.webview.maxScreenshotDelayMS",
+      /* default */ 2000
+    );
+
+    // Try to wait for the event loop to go idle before we take the screenshot,
+    // but once we've waited maxDelayMS milliseconds, go ahead and take it
+    // anyway.
+    Cc["@mozilla.org/message-loop;1"]
+      .getService(Ci.nsIMessageLoop)
+      .postIdleTask(takeScreenshotClosure, max_delay_ms);
+  },
+
+  // Actually take a screenshot and foward the result up to our parent, given
+  // the desired maxWidth and maxHeight (in CSS pixels), and given the
+  // message manager id associated with the request from the parent.
+  takeScreenshot(max_width, max_height, mime_type, id) {
+    // You can think of the screenshotting algorithm as carrying out the
+    // following steps:
+    //
+    // - Calculate maxWidth, maxHeight, and viewport's width and height in the
+    //   dimension of device pixels by multiply the numbers with
+    //   window.device_pixel_ratio.
+    //
+    // - Let scale_width be the factor by which we'd need to downscale the
+    //   viewport pixel width so it would fit within max_pixel_width.
+    //   (If the viewport's pixel width is less than max_pixel_width, let
+    //   scale_width be 1.) Compute scale_height the same way.
+    //
+    // - Scale the viewport by max(scale_width, scale_height).  Now either the
+    //   viewport's width is no larger than maxWidth, the viewport's height is
+    //   no larger than maxHeight, or both.
+    //
+    // - Crop the viewport so its width is no larger than maxWidth and its
+    //   height is no larger than maxHeight.
+    //
+    // - Set mozOpaque to true and background color to solid white
+    //   if we are taking a JPEG screenshot, keep transparent if otherwise.
+    //
+    // - Return a screenshot of the page's viewport scaled and cropped per
+    //   above.
+    let content = this.global.content;
+    if (!content) {
+      this.global.sendAsyncMessage(id, {
+        success: false,
+      });
+      return;
+    }
+
+    let device_pixel_ratio = content.devicePixelRatio;
+
+    let max_pixel_width = Math.round(max_width * device_pixel_ratio);
+    let max_pixel_height = Math.round(max_height * device_pixel_ratio);
+
+    let content_pixel_width = content.innerWidth * device_pixel_ratio;
+    let content_pixel_height = content.innerHeight * device_pixel_ratio;
+
+    let scale_width = Math.min(1, max_pixel_width / content_pixel_width);
+    let scale_height = Math.min(1, max_pixel_height / content_pixel_height);
+
+    let scale = Math.max(scale_width, scale_height);
+
+    let canvas_width = Math.min(
+      max_pixel_width,
+      Math.round(content_pixel_width * scale)
+    );
+    let canvas_height = Math.min(
+      max_pixel_height,
+      Math.round(content_pixel_height * scale)
+    );
+
+    var canvas = content.document.createElementNS(
+      "http://www.w3.org/1999/xhtml",
+      "canvas"
+    );
+
+    let transparent = mime_type !== "image/jpeg";
+    if (!transparent) {
+      canvas.mozOpaque = true;
+    }
+    canvas.width = canvas_width;
+    canvas.height = canvas_height;
+
+    let ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.scale(scale * device_pixel_ratio, scale * device_pixel_ratio);
+
+    let flags =
+      ctx.DRAWWINDOW_DRAW_VIEW |
+      ctx.DRAWWINDOW_USE_WIDGET_LAYERS |
+      ctx.DRAWWINDOW_DO_NOT_FLUSH |
+      ctx.DRAWWINDOW_ASYNC_DECODE_IMAGES;
+    ctx.drawWindow(
+      content,
+      0,
+      0,
+      content.innerWidth,
+      content.innerHeight,
+      transparent ? "rgba(255,255,255,0)" : "rgb(255,255,255)",
+      flags
+    );
+
+    // Take a JPEG screenshot by default instead of PNG with alpha channel.
+    // This requires us to unpremultiply the alpha channel, which
+    // is expensive on ARM processors because they lack a hardware integer
+    // division instruction.
+    canvas.toBlob(blob => {
+      this.global.sendAsyncMessage(id, {
+        success: true,
+        result: blob,
+      });
+    }, mime_type);
   },
 
   // Processes the "rel" field in <link> tags and forward to specific handlers.

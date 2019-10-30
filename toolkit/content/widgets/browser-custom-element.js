@@ -1302,6 +1302,7 @@
         ].forEach(item => {
           this.messageManager.addMessageListener(`WebView::${item}`, this);
         });
+        this.screenshot_id = 0;
         // End WebView additions.
 
         let jsm = "resource://gre/modules/RemoteWebProgress.jsm";
@@ -1591,6 +1592,34 @@
           return this._receiveMessage(aMessage);
       }
       return undefined;
+    }
+
+    // Returns a promise resolving with the screenshot as a Blob.
+    // We don't use drawSnapshot because we can't get the content
+    // size from it.
+    webViewGetScreenshot(max_width, max_height, mime_type) {
+      let id = `WebView::ReturnScreenShot::${this.screenshot_id}`;
+      this.screenshot_id += 1;
+
+      return new Promise((resolve, reject) => {
+        let mm = this.messageManager;
+        mm.addMessageListener(id, function got_screenshot(message) {
+          mm.removeMessageListener(id, got_screenshot);
+          let data = message.data;
+          if (data.success) {
+            resolve(data.result);
+          } else {
+            reject();
+          }
+        });
+
+        mm.sendAsyncMessage("WebView::GetScreenshot", {
+          max_width,
+          max_height,
+          mime_type,
+          id,
+        });
+      });
     }
 
     webViewDispatchEventFromData(name, data, props) {

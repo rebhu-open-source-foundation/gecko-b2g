@@ -275,11 +275,7 @@
       this.attrs = [];
 
       // Mark some functions used by the UI as unimplemented for now.
-      [
-        "addNextPaintListener",
-        "removeNextPaintListener",
-        "getScreenshot",
-      ].forEach(name => {
+      ["addNextPaintListener", "removeNextPaintListener"].forEach(name => {
         this[name] = () => {
           this.log(`Unimplemented: ${name}`);
         };
@@ -516,6 +512,19 @@
 
     set visible(val) {
       this.active = val;
+    }
+
+    // Returns a promise that will resolve with the screenshot as a Blob.
+    getScreenshot(max_width, max_height, mime_type) {
+      this.log(`getScreenshot ${max_width}x${max_height}, ${mime_type}`);
+      if (!this.browser) {
+        return Promise.reject();
+      }
+      return this.browser.webViewGetScreenshot(
+        max_width,
+        max_height,
+        mime_type
+      );
     }
   }
 
