@@ -1297,7 +1297,7 @@
           "backgroundcolor",
           "close",
           "documentfirstpaint",
-          "iconsearch",
+          "iconchange",
           "manifestchange",
           "metachange",
           "opensearch",
