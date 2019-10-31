@@ -726,7 +726,9 @@ impl Tile {
         state: &mut TilePostUpdateState,
     ) -> bool {
         // Check if this tile can be considered opaque.
-        self.is_opaque = ctx.backdrop.rect.contains_rect(&self.clipped_rect);
+        let tile_is_opaque = ctx.backdrop.rect.contains_rect(&self.clipped_rect);
+        let opacity_changed = tile_is_opaque != self.is_opaque;
+        self.is_opaque = tile_is_opaque;
 
         // Invalidate the tile based on the content changing.
         self.update_content_validity(ctx, state);
@@ -803,8 +805,34 @@ impl Tile {
             // the tile was previously a color, or not set, then just set
             // up a new texture cache handle.
             match self.surface.take() {
-                Some(old_surface @ TileSurface::Texture { .. }) => {
-                    old_surface
+                Some(TileSurface::Texture { descriptor, visibility_mask }) => {
+                    // If opacity changed, and this is a native OS compositor surface,
+                    // it needs to be recreated.
+                    // TODO(gw): This is a limitation of the DirectComposite APIs. It might
+                    //           make sense on other platforms to be able to change this as
+                    //           a property on a surface, if we ever see pages where this
+                    //           is changing frequently.
+                    if opacity_changed {
+                        if let SurfaceTextureDescriptor::NativeSurface { id, size } = descriptor {
+                            // Reset the dirty rect and tile validity in this case, to
+                            // force the new tile to be completely redrawn.
+                            self.dirty_rect = self.rect;
+                            self.is_valid = false;
+
+                            state.composite_state.destroy_surface(id);
+                            state.composite_state.create_surface(
+                                id,
+                                size,
+                                self.is_opaque,
+                            );
+                        }
+                    }
+
+                    // Reuse the existing descriptor and vis mask
+                    TileSurface::Texture {
+                        descriptor,
+                        visibility_mask,
+                    }
                 }
                 Some(TileSurface::Color { .. }) | Some(TileSurface::Clear) | None => {
                     // This is the case where we are constructing a tile surface that
@@ -825,6 +853,7 @@ impl Tile {
                             state.composite_state.create_surface(
                                 NativeSurfaceId(self.id.0 as u64),
                                 ctx.current_tile_size,
+                                self.is_opaque,
                             )
                         }
                     };
@@ -1920,6 +1949,7 @@ pub struct PictureUpdateState<'a> {
     surface_stack: Vec<SurfaceIndex>,
     picture_stack: Vec<PictureInfo>,
     are_raster_roots_assigned: bool,
+    composite_state: &'a CompositeState,
 }
 
 impl<'a> PictureUpdateState<'a> {
@@ -1931,6 +1961,7 @@ impl<'a> PictureUpdateState<'a> {
         gpu_cache: &mut GpuCache,
         clip_store: &ClipStore,
         data_stores: &mut DataStores,
+        composite_state: &CompositeState,
     ) {
         profile_marker!("UpdatePictures");
 
@@ -1939,6 +1970,7 @@ impl<'a> PictureUpdateState<'a> {
             surface_stack: vec![SurfaceIndex(0)],
             picture_stack: Vec::new(),
             are_raster_roots_assigned: true,
+            composite_state,
         };
 
         state.update(
@@ -3627,14 +3659,20 @@ impl PicturePrimitive {
         let actual_composite_mode = match self.requested_composite_mode {
             Some(PictureCompositeMode::Filter(ref filter)) if filter.is_noop() => None,
             Some(PictureCompositeMode::TileCache { .. }) => {
-                // Disable tile cache if the scroll root has a perspective transform, since
-                // this breaks many assumptions (it's a very rare edge case anyway, and
-                // is probably (?) going to be moving / animated in this case).
-                let spatial_node = &frame_context
-                    .clip_scroll_tree
-                    .spatial_nodes[self.spatial_node_index.0 as usize];
-                if spatial_node.coordinate_system_id == CoordinateSystemId::root() {
-                    Some(PictureCompositeMode::TileCache { })
+                // Only allow picture caching composite mode if global picture caching setting
+                // is enabled this frame.
+                if state.composite_state.picture_caching_is_enabled {
+                    // Disable tile cache if the scroll root has a perspective transform, since
+                    // this breaks many assumptions (it's a very rare edge case anyway, and
+                    // is probably (?) going to be moving / animated in this case).
+                    let spatial_node = &frame_context
+                        .clip_scroll_tree
+                        .spatial_nodes[self.spatial_node_index.0 as usize];
+                    if spatial_node.coordinate_system_id == CoordinateSystemId::root() {
+                        Some(PictureCompositeMode::TileCache { })
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }

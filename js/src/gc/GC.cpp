@@ -1885,11 +1885,13 @@ static void RelocateArena(Arena* arena, SliceBudget& sliceBudget) {
 #endif
 }
 
+#ifdef DEBUG
 static inline bool CanProtectArenas() {
   // On some systems the page size is larger than the size of an arena so we
   // can't change the mapping permissions per arena.
   return SystemPageSize() <= ArenaSize;
 }
+#endif
 
 static inline bool ShouldProtectRelocatedArenas(JS::GCReason reason) {
   // For zeal mode collections we don't release the relocated arenas
@@ -5192,6 +5194,10 @@ void GCRuntime::startTask(GCParallelTask& task, gcstats::PhaseKind phase,
 
 void GCRuntime::joinTask(GCParallelTask& task, gcstats::PhaseKind phase,
                          AutoLockHelperThreadState& locked) {
+  if (task.isNotStarted(locked)) {
+    return;
+  }
+
   {
     gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::JOIN_PARALLEL_TASKS);
     task.joinWithLockHeld(locked);
@@ -7088,7 +7094,7 @@ void GCRuntime::maybeCallGCCallback(JSGCStatus status) {
   }
 
   if (gcCallbackDepth == 0) {
-    // Save scheduled zone information in case the callback changes it.
+    // Save scheduled zone information in case the callback clears it.
     for (ZonesIter zone(this, WithAtoms); !zone.done(); zone.next()) {
       zone->gcScheduledSaved_ = zone->gcScheduled_;
     }
@@ -7102,9 +7108,9 @@ void GCRuntime::maybeCallGCCallback(JSGCStatus status) {
   gcCallbackDepth--;
 
   if (gcCallbackDepth == 0) {
-    // Restore scheduled zone information again.
+    // Ensure any zone that was originally scheduled stays scheduled.
     for (ZonesIter zone(this, WithAtoms); !zone.done(); zone.next()) {
-      zone->gcScheduled_ = zone->gcScheduledSaved_;
+      zone->gcScheduled_ = zone->gcScheduled_ || zone->gcScheduledSaved_;
     }
   }
 }

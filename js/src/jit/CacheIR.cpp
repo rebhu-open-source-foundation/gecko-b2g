@@ -295,6 +295,8 @@ AttachDecision GetPropIRGenerator::tryAttachStub() {
       return AttachDecision::NoAction;
     }
 
+    TRY_ATTACH(tryAttachTypedArrayNonInt32Index(obj, objId));
+
     trackAttached(IRGenerator::NotAttached);
     return AttachDecision::NoAction;
   }
@@ -2275,8 +2277,11 @@ AttachDecision GetPropIRGenerator::tryAttachTypedElement(
     writer.guardShapeForClass(objId, obj->as<TypedArrayObject>().shape());
   }
 
+  // Don't handle out-of-bounds accesses here because we have to ensure the
+  // |undefined| type is monitored. See also tryAttachTypedArrayNonInt32Index.
   writer.loadTypedElementResult(objId, indexId, layout,
-                                TypedThingElementType(obj));
+                                TypedThingElementType(obj),
+                                /* handleOOB = */ false);
 
   // Reading from Uint32Array may produce an int32 now but a double value
   // later, so ensure we monitor the result.
@@ -2287,6 +2292,34 @@ AttachDecision GetPropIRGenerator::tryAttachTypedElement(
   }
 
   trackAttached("TypedElement");
+  return AttachDecision::Attach;
+}
+
+AttachDecision GetPropIRGenerator::tryAttachTypedArrayNonInt32Index(
+    HandleObject obj, ObjOperandId objId) {
+  if (!obj->is<TypedArrayObject>()) {
+    return AttachDecision::NoAction;
+  }
+
+  if (!idVal_.isNumber()) {
+    return AttachDecision::NoAction;
+  }
+
+  ValOperandId keyId = getElemKeyValueId();
+  Int32OperandId indexId = writer.guardToTypedArrayIndex(keyId);
+
+  TypedThingLayout layout = GetTypedThingLayout(obj->getClass());
+
+  writer.guardShapeForClass(objId, obj->as<TypedArrayObject>().shape());
+
+  writer.loadTypedElementResult(objId, indexId, layout,
+                                TypedThingElementType(obj),
+                                /* handleOOB = */ true);
+
+  // Always monitor the result when out-of-bounds accesses are expected.
+  writer.typeMonitorResult();
+
+  trackAttached("TypedArrayNonInt32Index");
   return AttachDecision::Attach;
 }
 
@@ -2993,6 +3026,30 @@ AttachDecision HasPropIRGenerator::tryAttachTypedArray(HandleObject obj,
   return AttachDecision::Attach;
 }
 
+AttachDecision HasPropIRGenerator::tryAttachTypedArrayNonInt32Index(
+    HandleObject obj, ObjOperandId objId, ValOperandId keyId) {
+  if (!obj->is<TypedArrayObject>()) {
+    return AttachDecision::NoAction;
+  }
+
+  if (!idVal_.isNumber()) {
+    return AttachDecision::NoAction;
+  }
+
+  Int32OperandId indexId = writer.guardToTypedArrayIndex(keyId);
+
+  TypedThingLayout layout = GetTypedThingLayout(obj->getClass());
+
+  writer.guardShapeForClass(objId, obj->as<TypedArrayObject>().shape());
+
+  writer.loadTypedElementExistsResult(objId, indexId, layout);
+
+  writer.returnFromIC();
+
+  trackAttached("TypedArrayObjectNonInt32Index");
+  return AttachDecision::Attach;
+}
+
 AttachDecision HasPropIRGenerator::tryAttachTypedObject(JSObject* obj,
                                                         ObjOperandId objId,
                                                         jsid key,
@@ -3120,6 +3177,8 @@ AttachDecision HasPropIRGenerator::tryAttachStub() {
     return AttachDecision::NoAction;
   }
 
+  TRY_ATTACH(tryAttachTypedArrayNonInt32Index(obj, objId, keyId));
+
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;
 }
@@ -3230,6 +3289,8 @@ AttachDecision SetPropIRGenerator::tryAttachStub() {
       return AttachDecision::NoAction;
     }
 
+    MOZ_ASSERT(cacheKind_ == CacheKind::SetElem);
+
     if (IsPropertySetOp(JSOp(*pc_))) {
       TRY_ATTACH(tryAttachProxyElement(obj, objId, rhsValId));
     }
@@ -3245,7 +3306,11 @@ AttachDecision SetPropIRGenerator::tryAttachStub() {
           tryAttachSetTypedElement(obj, objId, index, indexId, rhsValId));
       TRY_ATTACH(tryAttachAddOrUpdateSparseElement(obj, objId, index, indexId,
                                                    rhsValId));
+      return AttachDecision::NoAction;
     }
+
+    TRY_ATTACH(
+        tryAttachSetTypedArrayElementNonInt32Index(obj, objId, rhsValId));
   }
   return AttachDecision::NoAction;
 }
@@ -3358,6 +3423,35 @@ AttachDecision SetPropIRGenerator::tryAttachNativeSetSlot(HandleObject obj,
   return AttachDecision::Attach;
 }
 
+OperandId SetPropIRGenerator::emitNumericGuard(ValOperandId valId,
+                                               Scalar::Type type) {
+  switch (type) {
+    case Scalar::Int8:
+    case Scalar::Uint8:
+    case Scalar::Int16:
+    case Scalar::Uint16:
+    case Scalar::Int32:
+    case Scalar::Uint32:
+      return writer.guardToInt32ModUint32(valId);
+
+    case Scalar::Float32:
+    case Scalar::Float64:
+      return writer.guardIsNumber(valId);
+
+    case Scalar::Uint8Clamped:
+      return writer.guardToUint8Clamped(valId);
+
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
+      return writer.guardToBigInt(valId);
+
+    case Scalar::MaxTypedArrayViewType:
+    case Scalar::Int64:
+      break;
+  }
+  MOZ_CRASH("Unsupported TypedArray type");
+}
+
 AttachDecision SetPropIRGenerator::tryAttachTypedObjectProperty(
     HandleObject obj, ObjOperandId objId, HandleId id, ValOperandId rhsId) {
   if (!obj->is<TypedObject>()) {
@@ -3405,39 +3499,10 @@ AttachDecision SetPropIRGenerator::tryAttachTypedObjectProperty(
   // Scalar types can always be stored without a type update stub.
   if (fieldDescr->is<ScalarTypeDescr>()) {
     Scalar::Type type = fieldDescr->as<ScalarTypeDescr>().type();
-
-    Maybe<OperandId> rhsValId;
-    switch (type) {
-      case Scalar::Int8:
-      case Scalar::Uint8:
-      case Scalar::Int16:
-      case Scalar::Uint16:
-      case Scalar::Int32:
-      case Scalar::Uint32:
-        rhsValId.emplace(writer.guardToInt32ModUint32(rhsId));
-        break;
-
-      case Scalar::Float32:
-      case Scalar::Float64:
-        rhsValId.emplace(writer.guardIsNumber(rhsId));
-        break;
-
-      case Scalar::Uint8Clamped:
-        rhsValId.emplace(writer.guardToUint8Clamped(rhsId));
-        break;
-
-      case Scalar::BigInt64:
-      case Scalar::BigUint64:
-        rhsValId.emplace(writer.guardToBigInt(rhsId));
-        break;
-
-      case Scalar::MaxTypedArrayViewType:
-      case Scalar::Int64:
-        MOZ_CRASH("Unsupported TypedArray type");
-    }
+    OperandId rhsValId = emitNumericGuard(rhsId, type);
 
     writer.storeTypedObjectScalarProperty(objId, fieldOffset, layout, type,
-                                          *rhsValId);
+                                          rhsValId);
     writer.returnFromIC();
 
     trackAttached("TypedObject");
@@ -3948,37 +4013,9 @@ AttachDecision SetPropIRGenerator::tryAttachSetTypedElement(
     writer.guardShapeForClass(objId, obj->as<TypedArrayObject>().shape());
   }
 
-  Maybe<OperandId> rhsValId;
-  switch (elementType) {
-    case Scalar::Int8:
-    case Scalar::Uint8:
-    case Scalar::Int16:
-    case Scalar::Uint16:
-    case Scalar::Int32:
-    case Scalar::Uint32:
-      rhsValId.emplace(writer.guardToInt32ModUint32(rhsId));
-      break;
+  OperandId rhsValId = emitNumericGuard(rhsId, elementType);
 
-    case Scalar::Float32:
-    case Scalar::Float64:
-      rhsValId.emplace(writer.guardIsNumber(rhsId));
-      break;
-
-    case Scalar::Uint8Clamped:
-      rhsValId.emplace(writer.guardToUint8Clamped(rhsId));
-      break;
-
-    case Scalar::BigInt64:
-    case Scalar::BigUint64:
-      rhsValId.emplace(writer.guardToBigInt(rhsId));
-      break;
-
-    case Scalar::MaxTypedArrayViewType:
-    case Scalar::Int64:
-      MOZ_CRASH("Unsupported TypedArray type");
-  }
-
-  writer.storeTypedElement(objId, layout, elementType, indexId, *rhsValId,
+  writer.storeTypedElement(objId, layout, elementType, indexId, rhsValId,
                            handleOutOfBounds);
   writer.returnFromIC();
 
@@ -3987,6 +4024,51 @@ AttachDecision SetPropIRGenerator::tryAttachSetTypedElement(
   }
 
   trackAttached(handleOutOfBounds ? "SetTypedElementOOB" : "SetTypedElement");
+  return AttachDecision::Attach;
+}
+
+AttachDecision SetPropIRGenerator::tryAttachSetTypedArrayElementNonInt32Index(
+    HandleObject obj, ObjOperandId objId, ValOperandId rhsId) {
+  if (!obj->is<TypedArrayObject>()) {
+    return AttachDecision::NoAction;
+  }
+
+  if (!idVal_.isNumber()) {
+    return AttachDecision::NoAction;
+  }
+
+  Scalar::Type elementType = TypedThingElementType(obj);
+  TypedThingLayout layout = GetTypedThingLayout(obj->getClass());
+
+  // Don't attach if the input type doesn't match the guard added below.
+  if (Scalar::isBigIntType(elementType)) {
+    if (!rhsVal_.isBigInt()) {
+      return AttachDecision::NoAction;
+    }
+  } else {
+    if (!rhsVal_.isNumber()) {
+      return AttachDecision::NoAction;
+    }
+  }
+
+  ValOperandId keyId = setElemKeyValueId();
+  Int32OperandId indexId = writer.guardToTypedArrayIndex(keyId);
+
+  writer.guardShapeForClass(objId, obj->as<TypedArrayObject>().shape());
+
+  OperandId rhsValId = emitNumericGuard(rhsId, elementType);
+
+  // When the index isn't an int32 index, we always assume the TypedArray access
+  // can be out-of-bounds.
+  bool handleOutOfBounds = true;
+
+  writer.storeTypedElement(objId, layout, elementType, indexId, rhsValId,
+                           handleOutOfBounds);
+  writer.returnFromIC();
+
+  attachedTypedArrayOOBStub_ = true;
+
+  trackAttached("SetTypedElementNonInt32Index");
   return AttachDecision::Attach;
 }
 

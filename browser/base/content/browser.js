@@ -1815,11 +1815,6 @@ var gBrowserInit = {
 
     let mm = window.getGroupMessageManager("browsers");
     mm.loadFrameScript("chrome://browser/content/tab-content.js", true, true);
-    mm.loadFrameScript("chrome://browser/content/content.js", true, true);
-    mm.loadFrameScript(
-      "chrome://global/content/content-HybridContentTelemetry.js",
-      true
-    );
 
     window.messageManager.addMessageListener("Browser:LoadURI", RedirectLoad);
 
@@ -4159,7 +4154,6 @@ const DOMEventHandler = {
     mm.addMessageListener("Link:SetIcon", this);
     mm.addMessageListener("Link:SetFailedIcon", this);
     mm.addMessageListener("Link:AddSearch", this);
-    mm.addMessageListener("Meta:SetPageInfo", this);
   },
 
   receiveMessage(aMsg) {
@@ -4190,17 +4184,7 @@ const DOMEventHandler = {
       case "Link:AddSearch":
         this.addSearch(aMsg.target, aMsg.data.engine, aMsg.data.url);
         break;
-
-      case "Meta:SetPageInfo":
-        this.setPageInfo(aMsg.data);
-        break;
     }
-  },
-
-  setPageInfo(aData) {
-    const { url, description, previewImageURL } = aData;
-    gBrowser.setPageInfo(url, description, previewImageURL);
-    return true;
   },
 
   setPendingIcon(aBrowser) {
@@ -9452,7 +9436,6 @@ TabModalPromptBox.prototype = {
       let prompt = prompts[prompts.length - 1];
       prompt.element.hidden = false;
       // Because we were hidden before, this won't have been possible, so do it now:
-      prompt.ensureXBLBindingAttached();
       prompt.Dialog.setDefaultFocus();
     } else {
       browser.removeAttribute("tabmodalPromptShowing");

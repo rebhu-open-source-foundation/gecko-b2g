@@ -1530,7 +1530,7 @@ Promise* Navigator::Share(const ShareData& aData, ErrorResult& aRv) {
   // The spec does the "triggered by user activation" after the data checks.
   // Unfortunately, both Chrome and Safari behave this way, so interop wins.
   // https://github.com/w3c/web-share/pull/118
-  if (!UserActivation::IsHandlingUserInput()) {
+  if (StaticPrefs::dom_webshare_requireinteraction() && !UserActivation::IsHandlingUserInput()) {
     NS_WARNING("Attempt to share not triggered by user activation");
     aRv.Throw(NS_ERROR_DOM_NOT_ALLOWED_ERR);
     return nullptr;
@@ -1608,22 +1608,43 @@ already_AddRefed<Promise> Navigator::GetVRDisplays(ErrorResult& aRv) {
     return nullptr;
   }
 
-  nsGlobalWindowInner* win = nsGlobalWindowInner::Cast(mWindow);
-  win->NotifyVREventListenerAdded();
-
   RefPtr<Promise> p = Promise::Create(mWindow->AsGlobal(), aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
 
-  // We pass mWindow's id to RefreshVRDisplays, so NotifyVRDisplaysUpdated will
-  // be called asynchronously, resolving the promises in mVRGetDisplaysPromises.
-  if (!VRDisplay::RefreshVRDisplays(win->WindowID())) {
-    p->MaybeReject(NS_ERROR_FAILURE);
-    return p.forget();
-  }
+  RefPtr<Navigator> self(this);
+  RefPtr<BrowserChild> browser(BrowserChild::GetFrom(mWindow));
+  int browserID = browser->ChromeOuterWindowID();
 
-  mVRGetDisplaysPromises.AppendElement(p);
+  browser->SendIsWindowSupportingWebVR(browserID)->Then(
+      GetCurrentThreadSerialEventTarget(), __func__,
+      [self, p](bool isSupportedLambda) {
+        if (isSupportedLambda) {
+          nsGlobalWindowInner* win = nsGlobalWindowInner::Cast(self->mWindow);
+          win->NotifyVREventListenerAdded();
+          // We pass mWindow's id to RefreshVRDisplays, so
+          // NotifyVRDisplaysUpdated will be called asynchronously, resolving
+          // the promises in mVRGetDisplaysPromises.
+          if (!VRDisplay::RefreshVRDisplays(win->WindowID())) {
+            // Failed to refresh, reject the promise now
+            p->MaybeReject(NS_ERROR_FAILURE);
+          } else {
+            // Succeeded, so cache the promise to resolve later
+
+            self->mVRGetDisplaysPromises.AppendElement(p);
+          }
+        } else {
+          // WebVR in this window is not supported, so resolve the promise
+          // with no displays available
+          nsTArray<RefPtr<VRDisplay>> vrDisplaysEmpty;
+          p->MaybeResolve(vrDisplaysEmpty);
+        }
+      },
+      [](const mozilla::ipc::ResponseRejectReason) {
+        MOZ_CRASH("Failed to make IPC call to IsWindowSupportingWebVR");
+      });
+
   return p.forget();
 }
 

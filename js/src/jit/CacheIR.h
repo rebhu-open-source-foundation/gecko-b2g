@@ -218,6 +218,7 @@ extern const uint32_t ArgLengths[];
   _(GuardIsNumber, Id)                                                         \
   _(GuardToInt32, Id, Id)                                                      \
   _(GuardToInt32Index, Id, Id)                                                 \
+  _(GuardToTypedArrayIndex, Id, Id)                                            \
   _(GuardToInt32ModUint32, Id, Id)                                             \
   _(GuardToUint8Clamped, Id, Id)                                               \
   _(GuardType, Id, Byte)                                                       \
@@ -321,7 +322,7 @@ extern const uint32_t ArgLengths[];
   _(LoadDenseElementExistsResult, Id, Id)                                      \
   _(LoadTypedElementExistsResult, Id, Id, Byte)                                \
   _(LoadDenseElementHoleExistsResult, Id, Id)                                  \
-  _(LoadTypedElementResult, Id, Id, Byte, Byte)                                \
+  _(LoadTypedElementResult, Id, Id, Byte, Byte, Byte)                          \
   _(LoadInt32ArrayLengthResult, Id)                                            \
   _(LoadArgumentsObjectArgResult, Id, Id)                                      \
   _(LoadArgumentsObjectLengthResult, Id)                                       \
@@ -848,6 +849,13 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   Int32OperandId guardToInt32Index(ValOperandId val) {
     Int32OperandId res(nextOperandId_++);
     writeOpWithOperandId(CacheOp::GuardToInt32Index, val);
+    writeOperandId(res);
+    return res;
+  }
+
+  Int32OperandId guardToTypedArrayIndex(ValOperandId val) {
+    Int32OperandId res(nextOperandId_++);
+    writeOpWithOperandId(CacheOp::GuardToTypedArrayIndex, val);
     writeOperandId(res);
     return res;
   }
@@ -1776,12 +1784,13 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   }
 
   void loadTypedElementResult(ObjOperandId obj, Int32OperandId index,
-                              TypedThingLayout layout,
-                              Scalar::Type elementType) {
+                              TypedThingLayout layout, Scalar::Type elementType,
+                              bool handleOOB) {
     writeOpWithOperandId(CacheOp::LoadTypedElementResult, obj);
     writeOperandId(index);
     buffer_.writeByte(uint32_t(layout));
     buffer_.writeByte(uint32_t(elementType));
+    buffer_.writeByte(uint32_t(handleOOB));
   }
 
   void loadStringLengthResult(StringOperandId str) {
@@ -2228,6 +2237,8 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator {
                                         uint32_t index, Int32OperandId indexId);
   AttachDecision tryAttachTypedElement(HandleObject obj, ObjOperandId objId,
                                        uint32_t index, Int32OperandId indexId);
+  AttachDecision tryAttachTypedArrayNonInt32Index(HandleObject obj,
+                                                  ObjOperandId objId);
 
   AttachDecision tryAttachGenericElement(HandleObject obj, ObjOperandId objId,
                                          uint32_t index,
@@ -2395,6 +2406,8 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator {
   // matches |id|.
   void maybeEmitIdGuard(jsid id);
 
+  OperandId emitNumericGuard(ValOperandId valId, Scalar::Type type);
+
   AttachDecision tryAttachNativeSetSlot(HandleObject obj, ObjOperandId objId,
                                         HandleId id, ValOperandId rhsId);
   AttachDecision tryAttachUnboxedExpandoSetSlot(HandleObject obj,
@@ -2420,6 +2433,9 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator {
                                           uint32_t index,
                                           Int32OperandId indexId,
                                           ValOperandId rhsId);
+  AttachDecision tryAttachSetTypedArrayElementNonInt32Index(HandleObject obj,
+                                                            ObjOperandId objId,
+                                                            ValOperandId rhsId);
 
   AttachDecision tryAttachSetDenseElementHole(HandleObject obj,
                                               ObjOperandId objId,
@@ -2492,6 +2508,9 @@ class MOZ_RAII HasPropIRGenerator : public IRGenerator {
                                     uint32_t index, Int32OperandId indexId);
   AttachDecision tryAttachTypedArray(HandleObject obj, ObjOperandId objId,
                                      Int32OperandId indexId);
+  AttachDecision tryAttachTypedArrayNonInt32Index(HandleObject obj,
+                                                  ObjOperandId objId,
+                                                  ValOperandId keyId);
   AttachDecision tryAttachSparse(HandleObject obj, ObjOperandId objId,
                                  Int32OperandId indexId);
   AttachDecision tryAttachNamedProp(HandleObject obj, ObjOperandId objId,

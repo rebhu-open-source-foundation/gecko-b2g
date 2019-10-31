@@ -776,8 +776,7 @@ var BrowserTestUtils = {
               !E10SUtils.canLoadURIInRemoteType(
                 url,
                 win.gFissionBrowser,
-                browser.remoteType,
-                browser.remoteType /* aPreferredRemoteType */
+                browser.remoteType
               )
             ) {
               await this.waitForEvent(browser, "XULFrameLoaderCreated");
@@ -1422,9 +1421,11 @@ var BrowserTestUtils = {
    *        The URL of the document that is expected to load.
    * @param {object} browser
    *        The browser to wait for.
+   * @param {function} checkFn (optional)
+   *        Function to run on the channel before stopping it.
    * @returns {Promise}
    */
-  waitForDocLoadAndStopIt(expectedURL, browser) {
+  waitForDocLoadAndStopIt(expectedURL, browser, checkFn) {
     let isHttp = url => /^https?:/.test(url);
 
     let stoppedDocLoadPromise = () => {
@@ -1462,6 +1463,9 @@ var BrowserTestUtils = {
         function observer(chan) {
           chan.QueryInterface(Ci.nsIHttpChannel);
           if (!chan.originalURI || chan.originalURI.spec !== expectedURL) {
+            return;
+          }
+          if (checkFn && !checkFn(chan)) {
             return;
           }
 

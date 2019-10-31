@@ -8,6 +8,7 @@
 #define gc_GCMarker_h
 
 #include "mozilla/Maybe.h"
+#include "mozilla/Unused.h"
 
 #include "ds/OrderedHashTable.h"
 #include "js/SliceBudget.h"
@@ -160,7 +161,13 @@ class MarkStack {
   ValueArray popValueArray();
   SavedValueArray popSavedValueArray();
 
-  void clear() { topIndex_ = 0; }
+  void clear() {
+    // Fall back to the smaller initial capacity so we don't hold on to excess
+    // memory between GCs.
+    stack().clearAndFree();
+    mozilla::Unused << stack().resize(NON_INCREMENTAL_MARK_STACK_BASE_CAPACITY);
+    topIndex_ = 0;
+  }
 
   void setGCMode(JSGCMode gcMode);
 
@@ -411,7 +418,7 @@ class GCMarker : public JSTracer {
   MainThreadOrGCTaskData<js::gc::Arena*> delayedMarkingList;
 
   /* Whether more work has been added to the delayed marking list. */
-  MainThreadData<bool> delayedMarkingWorkAdded;
+  MainThreadOrGCTaskData<bool> delayedMarkingWorkAdded;
 
   /*
    * If the weakKeys table OOMs, disable the linear algorithm and fall back
@@ -424,7 +431,7 @@ class GCMarker : public JSTracer {
 
 #ifdef DEBUG
   /* Count of arenas that are currently in the stack. */
-  MainThreadData<size_t> markLaterArenas;
+  MainThreadOrGCTaskData<size_t> markLaterArenas;
 
   /* Assert that start and stop are called with correct ordering. */
   MainThreadOrGCTaskData<bool> started;
