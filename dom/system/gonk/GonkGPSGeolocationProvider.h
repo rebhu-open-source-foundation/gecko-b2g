@@ -74,6 +74,7 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
   nsCOMPtr<nsIGeolocationUpdate> mLocationCallback;
   nsCOMPtr<nsIThread> mInitThread;
   nsCOMPtr<nsIDOMGeoPosition> mLastGPSPosition;
+  nsCOMPtr<nsIGeolocationProvider> mNetworkLocationProvider;
 
 #if ANDROID_VERSION >= 27  // struct GnssCallback;
   friend struct GnssCallback;
@@ -105,6 +106,17 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
   const GpsInterface* mGpsInterface = nullptr;
   static GpsCallbacks mCallbacks;
 #endif
+
+  class NetworkLocationUpdate : public nsIGeolocationUpdate {
+   public:
+    NS_DECL_ISUPPORTS
+    NS_DECL_NSIGEOLOCATIONUPDATE
+
+    NetworkLocationUpdate() {}
+
+   private:
+    virtual ~NetworkLocationUpdate() {}
+  };
 };
 
 #endif /* GonkGPSGeolocationProvider_h */

@@ -21,11 +21,13 @@
 #  include <pthread.h>  // for pthread_t
 #endif
 
+#include "GeolocationUtil.h"
 #include "hardware_legacy/power.h"
 #include "mozilla/Preferences.h"
 #include "nsGeoPosition.h"
 #include "nsIRunnable.h"
 #include "nsThreadUtils.h"
+#include "nsIURLFormatter.h"
 #include "prtime.h"  // for PR_Now()
 
 #undef LOG
@@ -81,6 +83,84 @@ static const char* kPrefOndemandCleanup = "geo.provider.ondemand_cleanup";
 
 static const char* kWakeLockName = "GeckoGPS";
 
+NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider::NetworkLocationUpdate,
+                  nsIGeolocationUpdate)
+
+NS_IMETHODIMP
+GonkGPSGeolocationProvider::NetworkLocationUpdate::Update(
+    nsIDOMGeoPosition* position) {
+  RefPtr<GonkGPSGeolocationProvider> provider =
+      GonkGPSGeolocationProvider::GetSingleton();
+
+  nsCOMPtr<nsIDOMGeoPositionCoords> coords;
+  position->GetCoords(getter_AddRefs(coords));
+  if (!coords) {
+    return NS_ERROR_FAILURE;
+  }
+
+  double lat, lon, acc;
+  coords->GetLatitude(&lat);
+  coords->GetLongitude(&lon);
+  coords->GetAccuracy(&acc);
+
+  double delta = -1.0;
+
+  static double sLastMLSPosLat = 0.0;
+  static double sLastMLSPosLon = 0.0;
+
+  if (0 != sLastMLSPosLon || 0 != sLastMLSPosLat) {
+    delta = CalculateDeltaInMeter(lat, lon, sLastMLSPosLat, sLastMLSPosLon);
+  }
+
+  sLastMLSPosLat = lat;
+  sLastMLSPosLon = lon;
+
+  // if the MLS coord change is smaller than this arbitrarily small value
+  // assume the MLS coord is unchanged, and stick with the GPS location
+  const double kMinMLSCoordChangeInMeters = 10.0;
+
+  DOMTimeStamp time_ms = 0;
+  if (provider->mLastGPSPosition) {
+    provider->mLastGPSPosition->GetTimestamp(&time_ms);
+  }
+  const int64_t diff_ms = (PR_Now() / PR_USEC_PER_MSEC) - time_ms;
+
+  // We want to distinguish between the GPS being inactive completely
+  // and temporarily inactive. In the former case, we would use a low
+  // accuracy network location; in the latter, we only want a network
+  // location that appears to updating with movement.
+
+  const bool isGPSFullyInactive = diff_ms > 1000 * 60 * 2;  // two mins
+  const bool isGPSTempInactive = diff_ms > 1000 * 10;       // 10 secs
+
+  if (provider->mLocationCallback) {
+    if (isGPSFullyInactive ||
+        (isGPSTempInactive && delta > kMinMLSCoordChangeInMeters)) {
+      DBG("Using MLS, GPS age:%fs, MLS Delta:%fm", diff_ms / 1000.0, delta);
+      provider->mLocationCallback->Update(position);
+    } else if (provider->mLastGPSPosition) {
+      DBG("Using old GPS age:%fs", diff_ms / 1000.0);
+
+      // This is a fallback case so that the GPS provider responds with its last
+      // location rather than waiting for a more recent GPS or network location.
+      // The service decides if the location is too old, not the provider.
+      provider->mLocationCallback->Update(provider->mLastGPSPosition);
+    }
+  }
+
+  if (provider->mLocationCallback) {
+    LOG("Got network position");
+    provider->mLocationCallback->Update(position);
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+GonkGPSGeolocationProvider::NetworkLocationUpdate::NotifyError(uint16_t error) {
+  return NS_OK;
+}
+
 // While most methods of GonkGPSGeolocationProvider should only be
 // called from main thread, we deliberately put the Init and ShutdownGPS
 // methods off main thread to avoid blocking.
@@ -133,6 +213,30 @@ GonkGPSGeolocationProvider::Startup() {
     return NS_OK;
   }
 
+  // Setup NetworkLocationProvider if the API key and server URI are available
+  nsAutoString serverUri;
+  nsresult rv = Preferences::GetString("geo.wifi.uri", serverUri);
+  if (NS_SUCCEEDED(rv) && !serverUri.IsEmpty()) {
+    // nsresult rv;
+    nsCOMPtr<nsIURLFormatter> formatter =
+        do_CreateInstance("@mozilla.org/toolkit/URLFormatterService;1", &rv);
+    if (NS_SUCCEEDED(rv)) {
+      nsString key;
+      rv = formatter->FormatURLPref(NS_LITERAL_STRING("geo.authorization.key"),
+                                    key);
+      if (NS_SUCCEEDED(rv) && !key.IsEmpty()) {
+        mNetworkLocationProvider =
+            do_CreateInstance("@mozilla.org/geolocation/mls-provider;1");
+        if (mNetworkLocationProvider) {
+          rv = mNetworkLocationProvider->Startup();
+          if (NS_SUCCEEDED(rv)) {
+            RefPtr<NetworkLocationUpdate> update = new NetworkLocationUpdate();
+          }
+        }
+      }
+    }
+  }
+
   if (mInitialized) {
     RefPtr<GonkGPSGeolocationProvider> self = this;
     nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
@@ -165,6 +269,11 @@ GonkGPSGeolocationProvider::Shutdown() {
   }
 
   mStarted = false;
+
+  if (mNetworkLocationProvider) {
+    mNetworkLocationProvider->Shutdown();
+    mNetworkLocationProvider = nullptr;
+  }
 
   RefPtr<GonkGPSGeolocationProvider> self = this;
   nsCOMPtr<nsIRunnable> r =
