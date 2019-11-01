@@ -25,14 +25,16 @@ class ContentParent;
 
 class WakeLock final : public nsIDOMEventListener,
                        public nsIObserver,
+                       public nsWrapperCache,
                        public nsSupportsWeakReference,
                        public nsIWakeLock {
- public:
+public:
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIWAKELOCK
 
-  NS_DECL_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(WakeLock, nsIDOMEventListener)
 
   // Note: WakeLock lives for the lifetime of the document in order to avoid
   // exposing GC behavior to pages. This means that
@@ -54,6 +56,9 @@ class WakeLock final : public nsIDOMEventListener,
   // WebIDL methods
 
   nsPIDOMWindowInner* GetParentObject() const;
+
+  virtual JSObject*
+  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
   void GetTopic(nsAString& aTopic);
 

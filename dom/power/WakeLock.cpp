@@ -7,6 +7,7 @@
 #include "WakeLock.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/Event.h"  // for Event
+#include "mozilla/dom/MozWakeLockBinding.h"
 #include "mozilla/Hal.h"
 #include "mozilla/HalWakeLock.h"
 #include "nsError.h"
@@ -19,7 +20,10 @@ using namespace mozilla::hal;
 namespace mozilla {
 namespace dom {
 
-NS_INTERFACE_MAP_BEGIN(WakeLock)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WakeLock)
+
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WakeLock)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIDOMEventListener)
   NS_INTERFACE_MAP_ENTRY(nsIDOMEventListener)
   NS_INTERFACE_MAP_ENTRY(nsIObserver)
@@ -27,8 +31,8 @@ NS_INTERFACE_MAP_BEGIN(WakeLock)
   NS_INTERFACE_MAP_ENTRY(nsIWakeLock)
 NS_INTERFACE_MAP_END
 
-NS_IMPL_ADDREF(WakeLock)
-NS_IMPL_RELEASE(WakeLock)
+NS_IMPL_CYCLE_COLLECTING_ADDREF(WakeLock)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(WakeLock)
 
 WakeLock::WakeLock()
     : mLocked(false),
@@ -38,6 +42,11 @@ WakeLock::WakeLock()
 WakeLock::~WakeLock() {
   DoUnlock();
   DetachEventListener();
+}
+
+JSObject* WakeLock::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+{
+  return MozWakeLockBinding::Wrap(aCx, this, aGivenProto);
 }
 
 nsresult WakeLock::Init(const nsAString& aTopic, nsPIDOMWindowInner* aWindow) {
