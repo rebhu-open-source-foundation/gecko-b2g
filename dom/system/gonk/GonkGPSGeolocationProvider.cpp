@@ -271,7 +271,7 @@ void GonkGPSGeolocationProvider::StartGPS() {
   }
 
 #if ANDROID_VERSION >= 27
-  MOZ_ASSERT(mGnssHal);
+  MOZ_ASSERT(mGnssHal != nullptr);
 
   auto result = mGnssHal->setPositionMode(
       // TODO: Set the default position mode to MS_BASED once AGPS is ready.
