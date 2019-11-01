@@ -1572,6 +1572,24 @@ Promise* Navigator::Share(const ShareData& aData, ErrorResult& aRv) {
   return mSharePromise;
 }
 
+already_AddRefed<WakeLock> Navigator::RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv) {
+  if (!mWindow) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  RefPtr<power::PowerManagerService> pmService =
+    power::PowerManagerService::GetInstance();
+  // Maybe it went away for some reason... Or maybe we're just called
+  // from our XPCOM method.
+  if (!pmService) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  return pmService->NewWakeLock(aTopic, mWindow, aRv);
+}
+
 already_AddRefed<LegacyMozTCPSocket> Navigator::MozTCPSocket() {
   RefPtr<LegacyMozTCPSocket> socket = new LegacyMozTCPSocket(GetWindow());
   return socket.forget();

@@ -172,6 +172,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
                   ErrorResult& aRv) const;
   bool JavaEnabled() { return false; }
   uint64_t HardwareConcurrency();
+
   bool TaintEnabled() { return false; }
 
   DeviceStorageAreaListener* GetDeviceStorageAreaListener(ErrorResult& aRv);
@@ -185,6 +186,8 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<nsDOMDeviceStorage> GetDeviceStorageByNameAndType(
       const nsAString& aName, const nsAString& aType, ErrorResult& aRv);
+  already_AddRefed<WakeLock> RequestWakeLock(const nsAString &aTopic,
+                                             ErrorResult& aRv);
 
   already_AddRefed<LegacyMozTCPSocket> MozTCPSocket();
   network::Connection* GetConnection(ErrorResult& aRv);
