@@ -12,9 +12,11 @@ The <web-view> element supports the following attributes:
 
 - `focus() : void` : focuses the browser.
 - `blur() : void` : blurs the browser.
+- `getScreenshot(max_width, max_height, mime_type) : Promise<Blob>` : takes a screenshot of the current page.
 - `goForward() : void` : navigates one step forwared in the history.
 - `goBack() : void` : navigates one step back in the history.
-- `getScreenshot(max_width, max_height, mime_type) : Promise<Blob>` : takes a screenshot of the current page.
+- `reload(forced) : void` : reload the patch, bypassing the cache if `forced` is true.
+- `stop() : void` : stops the current page loading.
 
 
 ## Properties

@@ -526,6 +526,18 @@
         mime_type
       );
     }
+
+    reload(forced) {
+      let webNav = Ci.nsIWebNavigation;
+      let reloadFlags = forced
+        ? webNav.LOAD_FLAGS_BYPASS_PROXY | webNav.LOAD_FLAGS_BYPASS_CACHE
+        : webNav.LOAD_FLAGS_NONE;
+      this.browser && this.browser.reloadWithFlags(reloadFlags);
+    }
+
+    stop() {
+      this.browser && this.browser.stop();
+    }
   }
 
   console.log(`Setting up <web-view> custom element`);
