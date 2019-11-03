@@ -5,10 +5,11 @@
 # LIMITED or its affiliate company and may be registered in some jurisdictions.
 # All other trademarks are the property of their respective owners.
 
-image: kaiostech/base:latest
+image: $DEFAULT_DOCKER_IMAGE
 
 variables:
   GIT_DEPTH: 1
+  DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build:next"
 
 before_script:
   - sed -i 's|http://archive.ubuntu.com|ftp://172.20.251.70|g' /etc/apt/sources.list
