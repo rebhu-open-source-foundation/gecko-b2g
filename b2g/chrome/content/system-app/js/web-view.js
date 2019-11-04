@@ -39,7 +39,6 @@
       Ci.nsISupportsWeakReference,
     ]),
     seenLoadStart: false,
-    seenLoadEnd: false,
     backgroundcolor: "transparent",
 
     set_background_color(color) {
@@ -73,17 +72,14 @@
       // this.log(`onStateChange ${stateFlags}`);
 
       if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
-        !this.seenLoadStart && this.dispatchEvent("loadstart");
+        this.dispatchEvent("loadstart");
         this.seenLoadStart = true;
       }
 
       if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
-        if (this.seenLoadStart && !this.seenLoadEnd) {
-          this.dispatchEvent("loadend", {
-            backgroundColor: this.backgroundcolor,
-          });
-          this.seenLoadEnd = true;
-        }
+        this.dispatchEvent("loadend", {
+          backgroundColor: this.backgroundcolor,
+        });
 
         switch (status) {
           case Cr.NS_OK:
