@@ -244,6 +244,7 @@ extern const uint32_t ArgLengths[];
   _(GuardNoDenseElements, Id)                                                  \
   _(GuardAndGetIndexFromString, Id, Id)                                        \
   _(GuardAndGetNumberFromString, Id, Id)                                       \
+  _(GuardAndGetNumberFromBoolean, Id, Id)                                      \
   _(GuardAndGetIterator, Id, Id, Field, Field)                                 \
   _(GuardHasGetterSetter, Id, Field)                                           \
   _(GuardGroupHasUnanalyzedNewScript, Field)                                   \
@@ -359,6 +360,12 @@ extern const uint32_t ArgLengths[];
   _(Int32MulResult, Id, Id)                                                    \
   _(Int32DivResult, Id, Id)                                                    \
   _(Int32ModResult, Id, Id)                                                    \
+  _(BigIntAddResult, Id, Id)                                                   \
+  _(BigIntSubResult, Id, Id)                                                   \
+  _(BigIntMulResult, Id, Id)                                                   \
+  _(BigIntDivResult, Id, Id)                                                   \
+  _(BigIntModResult, Id, Id)                                                   \
+  _(BigIntPowResult, Id, Id)                                                   \
   _(Int32BitOrResult, Id, Id)                                                  \
   _(Int32BitXorResult, Id, Id)                                                 \
   _(Int32BitAndResult, Id, Id)                                                 \
@@ -366,16 +373,26 @@ extern const uint32_t ArgLengths[];
   _(Int32RightShiftResult, Id, Id)                                             \
   _(Int32URightShiftResult, Id, Id, Byte)                                      \
   _(Int32NotResult, Id)                                                        \
+  _(BigIntBitOrResult, Id, Id)                                                 \
+  _(BigIntBitXorResult, Id, Id)                                                \
+  _(BigIntBitAndResult, Id, Id)                                                \
+  _(BigIntLeftShiftResult, Id, Id)                                             \
+  _(BigIntRightShiftResult, Id, Id)                                            \
+  _(BigIntNotResult, Id)                                                       \
   _(Int32NegationResult, Id)                                                   \
   _(DoubleNegationResult, Id)                                                  \
+  _(BigIntNegationResult, Id)                                                  \
   _(Int32IncResult, Id)                                                        \
   _(Int32DecResult, Id)                                                        \
   _(DoubleIncResult, Id)                                                       \
   _(DoubleDecResult, Id)                                                       \
+  _(BigIntIncResult, Id)                                                       \
+  _(BigIntDecResult, Id)                                                       \
   _(LoadInt32TruthyResult, Id)                                                 \
   _(LoadDoubleTruthyResult, Id)                                                \
   _(LoadStringTruthyResult, Id)                                                \
   _(LoadObjectTruthyResult, Id)                                                \
+  _(LoadBigIntTruthyResult, Id)                                                \
   _(LoadValueResult, Field)                                                    \
   _(LoadNewObjectFromTemplateResult, Field, UInt32, UInt32)                    \
                                                                                \
@@ -388,6 +405,13 @@ extern const uint32_t ArgLengths[];
   _(CompareSymbolResult, Id, Id, Byte)                                         \
   _(CompareInt32Result, Id, Id, Byte)                                          \
   _(CompareDoubleResult, Id, Id, Byte)                                         \
+  _(CompareBigIntResult, Id, Id, Byte)                                         \
+  _(CompareBigIntInt32Result, Id, Id, Byte)                                    \
+  _(CompareInt32BigIntResult, Id, Id, Byte)                                    \
+  _(CompareBigIntNumberResult, Id, Id, Byte)                                   \
+  _(CompareNumberBigIntResult, Id, Id, Byte)                                   \
+  _(CompareBigIntStringResult, Id, Id, Byte)                                   \
+  _(CompareStringBigIntResult, Id, Id, Byte)                                   \
   _(CompareObjectUndefinedNullResult, Id, Byte)                                \
                                                                                \
   _(CallPrintString, Word)                                                     \
@@ -1105,6 +1129,13 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
     return res;
   }
 
+  NumberOperandId guardAndGetNumberFromBoolean(Int32OperandId boolean) {
+    NumberOperandId res(nextOperandId_++);
+    writeOpWithOperandId(CacheOp::GuardAndGetNumberFromBoolean, boolean);
+    writeOperandId(res);
+    return res;
+  }
+
   ObjOperandId guardAndGetIterator(ObjOperandId obj,
                                    PropertyIteratorObject* iter,
                                    NativeIterator** enumeratorsAddr) {
@@ -1642,6 +1673,36 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
     writeOperandId(rhs);
   }
 
+  void bigIntAddResult(BigIntOperandId lhsId, BigIntOperandId rhsId) {
+    writeOpWithOperandId(CacheOp::BigIntAddResult, lhsId);
+    writeOperandId(rhsId);
+  }
+
+  void bigIntSubResult(BigIntOperandId lhsId, BigIntOperandId rhsId) {
+    writeOpWithOperandId(CacheOp::BigIntSubResult, lhsId);
+    writeOperandId(rhsId);
+  }
+
+  void bigIntMulResult(BigIntOperandId lhsId, BigIntOperandId rhsId) {
+    writeOpWithOperandId(CacheOp::BigIntMulResult, lhsId);
+    writeOperandId(rhsId);
+  }
+
+  void bigIntDivResult(BigIntOperandId lhsId, BigIntOperandId rhsId) {
+    writeOpWithOperandId(CacheOp::BigIntDivResult, lhsId);
+    writeOperandId(rhsId);
+  }
+
+  void bigIntModResult(BigIntOperandId lhsId, BigIntOperandId rhsId) {
+    writeOpWithOperandId(CacheOp::BigIntModResult, lhsId);
+    writeOperandId(rhsId);
+  }
+
+  void bigIntPowResult(BigIntOperandId lhsId, BigIntOperandId rhsId) {
+    writeOpWithOperandId(CacheOp::BigIntPowResult, lhsId);
+    writeOperandId(rhsId);
+  }
+
   void int32BitOrResult(Int32OperandId lhs, Int32OperandId rhs) {
     writeOpWithOperandId(CacheOp::Int32BitOrResult, lhs);
     writeOperandId(rhs);
@@ -1700,6 +1761,47 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
 
   void doubleDecResult(NumberOperandId val) {
     writeOpWithOperandId(CacheOp::DoubleDecResult, val);
+  }
+
+  void bigIntBitOrResult(BigIntOperandId lhs, BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::BigIntBitOrResult, lhs);
+    writeOperandId(rhs);
+  }
+
+  void bigIntBitXorResult(BigIntOperandId lhs, BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::BigIntBitXorResult, lhs);
+    writeOperandId(rhs);
+  }
+
+  void bigIntBitAndResult(BigIntOperandId lhs, BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::BigIntBitAndResult, lhs);
+    writeOperandId(rhs);
+  }
+
+  void bigIntLeftShiftResult(BigIntOperandId lhs, BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::BigIntLeftShiftResult, lhs);
+    writeOperandId(rhs);
+  }
+
+  void bigIntRightShiftResult(BigIntOperandId lhs, BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::BigIntRightShiftResult, lhs);
+    writeOperandId(rhs);
+  }
+
+  void bigIntNotResult(BigIntOperandId id) {
+    writeOpWithOperandId(CacheOp::BigIntNotResult, id);
+  }
+
+  void bigIntNegationResult(BigIntOperandId id) {
+    writeOpWithOperandId(CacheOp::BigIntNegationResult, id);
+  }
+
+  void bigIntIncResult(BigIntOperandId id) {
+    writeOpWithOperandId(CacheOp::BigIntIncResult, id);
+  }
+
+  void bigIntDecResult(BigIntOperandId id) {
+    writeOpWithOperandId(CacheOp::BigIntDecResult, id);
   }
 
   void loadBooleanResult(bool val) {
@@ -1896,6 +1998,10 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
     writeOpWithOperandId(CacheOp::LoadObjectTruthyResult, obj);
   }
 
+  void loadBigIntTruthyResult(BigIntOperandId obj) {
+    writeOpWithOperandId(CacheOp::LoadBigIntTruthyResult, obj);
+  }
+
   void loadValueResult(const Value& val) {
     writeOp(CacheOp::LoadValueResult);
     addStubField(val.asRawBits(), StubField::Type::Value);
@@ -1956,6 +2062,55 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   void compareDoubleResult(uint32_t op, NumberOperandId lhs,
                            NumberOperandId rhs) {
     writeOpWithOperandId(CacheOp::CompareDoubleResult, lhs);
+    writeOperandId(rhs);
+    buffer_.writeByte(uint32_t(op));
+  }
+
+  void compareBigIntResult(uint32_t op, BigIntOperandId lhs,
+                           BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::CompareBigIntResult, lhs);
+    writeOperandId(rhs);
+    buffer_.writeByte(uint32_t(op));
+  }
+
+  void compareBigIntInt32Result(uint32_t op, BigIntOperandId lhs,
+                                Int32OperandId rhs) {
+    writeOpWithOperandId(CacheOp::CompareBigIntInt32Result, lhs);
+    writeOperandId(rhs);
+    buffer_.writeByte(uint32_t(op));
+  }
+
+  void compareInt32BigIntResult(uint32_t op, Int32OperandId lhs,
+                                BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::CompareInt32BigIntResult, lhs);
+    writeOperandId(rhs);
+    buffer_.writeByte(uint32_t(op));
+  }
+
+  void compareBigIntNumberResult(uint32_t op, BigIntOperandId lhs,
+                                 NumberOperandId rhs) {
+    writeOpWithOperandId(CacheOp::CompareBigIntNumberResult, lhs);
+    writeOperandId(rhs);
+    buffer_.writeByte(uint32_t(op));
+  }
+
+  void compareNumberBigIntResult(uint32_t op, NumberOperandId lhs,
+                                 BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::CompareNumberBigIntResult, lhs);
+    writeOperandId(rhs);
+    buffer_.writeByte(uint32_t(op));
+  }
+
+  void compareBigIntStringResult(uint32_t op, BigIntOperandId lhs,
+                                 StringOperandId rhs) {
+    writeOpWithOperandId(CacheOp::CompareBigIntStringResult, lhs);
+    writeOperandId(rhs);
+    buffer_.writeByte(uint32_t(op));
+  }
+
+  void compareStringBigIntResult(uint32_t op, StringOperandId lhs,
+                                 BigIntOperandId rhs) {
+    writeOpWithOperandId(CacheOp::CompareStringBigIntResult, lhs);
     writeOperandId(rhs);
     buffer_.writeByte(uint32_t(op));
   }
@@ -2642,6 +2797,7 @@ class MOZ_RAII CompareIRGenerator : public IRGenerator {
                                                ValOperandId rhsId);
   AttachDecision tryAttachInt32(ValOperandId lhsId, ValOperandId rhsId);
   AttachDecision tryAttachNumber(ValOperandId lhsId, ValOperandId rhsId);
+  AttachDecision tryAttachBigInt(ValOperandId lhsId, ValOperandId rhsId);
   AttachDecision tryAttachNumberUndefined(ValOperandId lhsId,
                                           ValOperandId rhsId);
   AttachDecision tryAttachPrimitiveUndefined(ValOperandId lhsId,
@@ -2650,6 +2806,13 @@ class MOZ_RAII CompareIRGenerator : public IRGenerator {
                                           ValOperandId rhsId);
   AttachDecision tryAttachNullUndefined(ValOperandId lhsId, ValOperandId rhsId);
   AttachDecision tryAttachStringNumber(ValOperandId lhsId, ValOperandId rhsId);
+  AttachDecision tryAttachPrimitiveSymbol(ValOperandId lhsId,
+                                          ValOperandId rhsId);
+  AttachDecision tryAttachBoolStringOrNumber(ValOperandId lhsId,
+                                             ValOperandId rhsId);
+  AttachDecision tryAttachBigIntInt32(ValOperandId lhsId, ValOperandId rhsId);
+  AttachDecision tryAttachBigIntNumber(ValOperandId lhsId, ValOperandId rhsId);
+  AttachDecision tryAttachBigIntString(ValOperandId lhsId, ValOperandId rhsId);
 
   void trackAttached(const char* name);
 
@@ -2670,6 +2833,7 @@ class MOZ_RAII ToBoolIRGenerator : public IRGenerator {
   AttachDecision tryAttachSymbol();
   AttachDecision tryAttachNullOrUndefined();
   AttachDecision tryAttachObject();
+  AttachDecision tryAttachBigInt();
 
   void trackAttached(const char* name);
 
@@ -2699,6 +2863,7 @@ class MOZ_RAII UnaryArithIRGenerator : public IRGenerator {
 
   AttachDecision tryAttachInt32();
   AttachDecision tryAttachNumber();
+  AttachDecision tryAttachBigInt();
 
   void trackAttached(const char* name);
 
@@ -2725,6 +2890,7 @@ class MOZ_RAII BinaryArithIRGenerator : public IRGenerator {
   AttachDecision tryAttachStringObjectConcat();
   AttachDecision tryAttachStringNumberConcat();
   AttachDecision tryAttachStringBooleanConcat();
+  AttachDecision tryAttachBigInt();
 
  public:
   BinaryArithIRGenerator(JSContext* cx, HandleScript, jsbytecode* pc,

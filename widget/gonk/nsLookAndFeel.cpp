@@ -241,10 +241,10 @@ nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor)
         break;
 
     case ColorID::MozEventreerow:
-    case ColorID::MozField:
+    case ColorID::Field:
         aColor = BASE_NORMAL_COLOR;
         break;
-    case ColorID::MozFieldtext:
+    case ColorID::Fieldtext:
         aColor = TEXT_NORMAL_COLOR;
         break;
     case ColorID::MozDialog:

@@ -77,6 +77,7 @@ class DeviceStorageStatics final : public nsIObserver {
   void Register();
   void Deregister();
   void ResetOverrideRootDir();
+  static void PrefsChanged(const char* aPref, void* aSelf);
   void PrefsChanged(const char* aPref);
 
   class ListenerWrapper final {

@@ -5633,7 +5633,8 @@ JSObject* jit::NewWrapperWithObjectShape(JSContext* cx,
 void jit::LoadShapeWrapperContents(MacroAssembler& masm, Register obj,
                                    Register dst, Label* failure) {
   masm.loadPtr(Address(obj, ProxyObject::offsetOfReservedSlots()), dst);
-  Address privateAddr(dst, detail::ProxyReservedSlots::offsetOfPrivateSlot());
+  Address privateAddr(dst,
+                      js::detail::ProxyReservedSlots::offsetOfPrivateSlot());
   masm.branchTestObject(Assembler::NotEqual, privateAddr, failure);
   masm.unboxObject(privateAddr, dst);
   masm.unboxNonDouble(
@@ -5766,6 +5767,22 @@ AttachDecision CompareIRGenerator::tryAttachNumber(ValOperandId lhsId,
   return AttachDecision::Attach;
 }
 
+AttachDecision CompareIRGenerator::tryAttachBigInt(ValOperandId lhsId,
+                                                   ValOperandId rhsId) {
+  if (!lhsVal_.isBigInt() || !rhsVal_.isBigInt()) {
+    return AttachDecision::NoAction;
+  }
+
+  BigIntOperandId lhs = writer.guardToBigInt(lhsId);
+  BigIntOperandId rhs = writer.guardToBigInt(rhsId);
+
+  writer.compareBigIntResult(op_, lhs, rhs);
+  writer.returnFromIC();
+
+  trackAttached("BigInt");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CompareIRGenerator::tryAttachObjectUndefined(
     ValOperandId lhsId, ValOperandId rhsId) {
   if (!(lhsVal_.isNullOrUndefined() && rhsVal_.isObject()) &&
@@ -5824,7 +5841,7 @@ AttachDecision CompareIRGenerator::tryAttachPrimitiveUndefined(
 
   // The set of primitive cases we want to handle here (excluding null,
   // undefined)
-  auto isPrimitive = [](HandleValue& x) {
+  auto isPrimitive = [](HandleValue x) {
     return x.isString() || x.isSymbol() || x.isBoolean() || x.isNumber() ||
            x.isBigInt();
   };
@@ -5932,6 +5949,189 @@ AttachDecision CompareIRGenerator::tryAttachStringNumber(ValOperandId lhsId,
   return AttachDecision::Attach;
 }
 
+AttachDecision CompareIRGenerator::tryAttachPrimitiveSymbol(
+    ValOperandId lhsId, ValOperandId rhsId) {
+  MOZ_ASSERT(IsEqualityOp(op_));
+
+  // The set of primitive cases we want to handle here (excluding null,
+  // undefined, and symbol)
+  auto isPrimitive = [](HandleValue x) {
+    return x.isString() || x.isBoolean() || x.isNumber() || x.isBigInt();
+  };
+
+  // Ensure Symbol x {String, Bool, Number, BigInt}.
+  if (!(lhsVal_.isSymbol() && isPrimitive(rhsVal_)) &&
+      !(rhsVal_.isSymbol() && isPrimitive(lhsVal_))) {
+    return AttachDecision::NoAction;
+  }
+
+  auto guardPrimitive = [&](HandleValue v, ValOperandId id) {
+    MOZ_ASSERT(isPrimitive(v));
+    if (v.isNumber()) {
+      writer.guardIsNumber(id);
+      return;
+    }
+    switch (v.extractNonDoubleType()) {
+      case JSVAL_TYPE_STRING:
+        writer.guardToString(id);
+        return;
+      case JSVAL_TYPE_BOOLEAN:
+        writer.guardToBoolean(id);
+        return;
+      case JSVAL_TYPE_BIGINT:
+        writer.guardToBigInt(id);
+        return;
+      default:
+        MOZ_CRASH("unexpected type");
+        return;
+    }
+  };
+
+  if (lhsVal_.isSymbol()) {
+    writer.guardToSymbol(lhsId);
+    guardPrimitive(rhsVal_, rhsId);
+  } else {
+    guardPrimitive(lhsVal_, lhsId);
+    writer.guardToSymbol(rhsId);
+  }
+
+  // Comparing a primitive with symbol will always be true for NE/STRICTNE, and
+  // always be false for other compare ops.
+  writer.loadBooleanResult(op_ == JSOP_NE || op_ == JSOP_STRICTNE);
+  writer.returnFromIC();
+
+  trackAttached("PrimitiveSymbol");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CompareIRGenerator::tryAttachBoolStringOrNumber(
+    ValOperandId lhsId, ValOperandId rhsId) {
+  // Ensure Boolean x {String, Number}.
+  if (!(lhsVal_.isBoolean() && (rhsVal_.isString() || rhsVal_.isNumber())) &&
+      !(rhsVal_.isBoolean() && (lhsVal_.isString() || lhsVal_.isNumber()))) {
+    return AttachDecision::NoAction;
+  }
+
+  // Case should have been handled by tryAttachStrictlDifferentTypes
+  MOZ_ASSERT(op_ != JSOP_STRICTEQ && op_ != JSOP_STRICTNE);
+
+  // Case should have been handled by tryAttachInt32
+  MOZ_ASSERT(!lhsVal_.isInt32() && !rhsVal_.isInt32());
+
+  auto createGuards = [&](HandleValue v, ValOperandId vId) {
+    if (v.isBoolean()) {
+      Int32OperandId boolId = writer.guardToBoolean(vId);
+      return writer.guardAndGetNumberFromBoolean(boolId);
+    }
+    if (v.isString()) {
+      StringOperandId strId = writer.guardToString(vId);
+      return writer.guardAndGetNumberFromString(strId);
+    }
+    MOZ_ASSERT(v.isNumber());
+    return writer.guardIsNumber(vId);
+  };
+
+  NumberOperandId lhsGuardedId = createGuards(lhsVal_, lhsId);
+  NumberOperandId rhsGuardedId = createGuards(rhsVal_, rhsId);
+  writer.compareDoubleResult(op_, lhsGuardedId, rhsGuardedId);
+  writer.returnFromIC();
+
+  trackAttached("BoolStringOrNumber");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CompareIRGenerator::tryAttachBigIntInt32(ValOperandId lhsId,
+                                                        ValOperandId rhsId) {
+  // Ensure BigInt x {Int32, Boolean}.
+  if (!(lhsVal_.isBigInt() && (rhsVal_.isInt32() || rhsVal_.isBoolean())) &&
+      !(rhsVal_.isBigInt() && (lhsVal_.isInt32() || lhsVal_.isBoolean()))) {
+    return AttachDecision::NoAction;
+  }
+
+  // Case should have been handled by tryAttachStrictlDifferentTypes
+  MOZ_ASSERT(op_ != JSOP_STRICTEQ && op_ != JSOP_STRICTNE);
+
+  auto createGuards = [&](HandleValue v, ValOperandId vId) {
+    if (v.isBoolean()) {
+      return writer.guardToBoolean(vId);
+    }
+    MOZ_ASSERT(v.isInt32());
+    return writer.guardToInt32(vId);
+  };
+
+  if (lhsVal_.isBigInt()) {
+    BigIntOperandId bigIntId = writer.guardToBigInt(lhsId);
+    Int32OperandId intId = createGuards(rhsVal_, rhsId);
+
+    writer.compareBigIntInt32Result(op_, bigIntId, intId);
+  } else {
+    Int32OperandId intId = createGuards(lhsVal_, lhsId);
+    BigIntOperandId bigIntId = writer.guardToBigInt(rhsId);
+
+    writer.compareInt32BigIntResult(op_, intId, bigIntId);
+  }
+  writer.returnFromIC();
+
+  trackAttached("BigIntInt32");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CompareIRGenerator::tryAttachBigIntNumber(ValOperandId lhsId,
+                                                         ValOperandId rhsId) {
+  // Ensure BigInt x Number.
+  if (!(lhsVal_.isBigInt() && rhsVal_.isNumber()) &&
+      !(rhsVal_.isBigInt() && lhsVal_.isNumber())) {
+    return AttachDecision::NoAction;
+  }
+
+  // Case should have been handled by tryAttachStrictlDifferentTypes
+  MOZ_ASSERT(op_ != JSOP_STRICTEQ && op_ != JSOP_STRICTNE);
+
+  if (lhsVal_.isBigInt()) {
+    BigIntOperandId bigIntId = writer.guardToBigInt(lhsId);
+    NumberOperandId numId = writer.guardIsNumber(rhsId);
+
+    writer.compareBigIntNumberResult(op_, bigIntId, numId);
+  } else {
+    NumberOperandId numId = writer.guardIsNumber(lhsId);
+    BigIntOperandId bigIntId = writer.guardToBigInt(rhsId);
+
+    writer.compareNumberBigIntResult(op_, numId, bigIntId);
+  }
+  writer.returnFromIC();
+
+  trackAttached("BigIntNumber");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CompareIRGenerator::tryAttachBigIntString(ValOperandId lhsId,
+                                                         ValOperandId rhsId) {
+  // Ensure BigInt x String.
+  if (!(lhsVal_.isBigInt() && rhsVal_.isString()) &&
+      !(rhsVal_.isBigInt() && lhsVal_.isString())) {
+    return AttachDecision::NoAction;
+  }
+
+  // Case should have been handled by tryAttachStrictlDifferentTypes
+  MOZ_ASSERT(op_ != JSOP_STRICTEQ && op_ != JSOP_STRICTNE);
+
+  if (lhsVal_.isBigInt()) {
+    BigIntOperandId bigIntId = writer.guardToBigInt(lhsId);
+    StringOperandId strId = writer.guardToString(rhsId);
+
+    writer.compareBigIntStringResult(op_, bigIntId, strId);
+  } else {
+    StringOperandId strId = writer.guardToString(lhsId);
+    BigIntOperandId bigIntId = writer.guardToBigInt(rhsId);
+
+    writer.compareStringBigIntResult(op_, strId, bigIntId);
+  }
+  writer.returnFromIC();
+
+  trackAttached("BigIntString");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CompareIRGenerator::tryAttachStub() {
   MOZ_ASSERT(cacheKind_ == CacheKind::Compare);
   MOZ_ASSERT(IsEqualityOp(op_) || IsRelationalOp(op_));
@@ -5948,10 +6148,11 @@ AttachDecision CompareIRGenerator::tryAttachStub() {
   ValOperandId rhsId(writer.setInputOperandId(rhsIndex));
 
   // For sloppy equality ops, there are cases this IC does not handle:
-  // - {Symbol} x {Null, Undefined, String, Bool, Number}.
-  // - {String} x {Null, Undefined, Symbol, Bool, Number}.
-  // - {Bool} x {Double}.
-  // - {Object} x {String, Symbol, Bool, Number}.
+  // - {Object} x {String, Symbol, Bool, Number, BigInt}.
+  //
+  // (The above lists omits the equivalent case {B} x {A} when {A} x {B} is
+  // already present.)
+
   if (IsEqualityOp(op_)) {
     TRY_ATTACH(tryAttachObject(lhsId, rhsId));
     TRY_ATTACH(tryAttachSymbol(lhsId, rhsId));
@@ -5970,6 +6171,8 @@ AttachDecision CompareIRGenerator::tryAttachStub() {
     TRY_ATTACH(tryAttachPrimitiveUndefined(lhsId, rhsId));
 
     TRY_ATTACH(tryAttachNullUndefined(lhsId, rhsId));
+
+    TRY_ATTACH(tryAttachPrimitiveSymbol(lhsId, rhsId));
   }
 
   // This should preceed the Int32/Number cases to allow
@@ -5981,9 +6184,15 @@ AttachDecision CompareIRGenerator::tryAttachStub() {
   // strictly-different-types cases in the below attachment code
   TRY_ATTACH(tryAttachInt32(lhsId, rhsId));
   TRY_ATTACH(tryAttachNumber(lhsId, rhsId));
+  TRY_ATTACH(tryAttachBigInt(lhsId, rhsId));
   TRY_ATTACH(tryAttachString(lhsId, rhsId));
 
   TRY_ATTACH(tryAttachStringNumber(lhsId, rhsId));
+  TRY_ATTACH(tryAttachBoolStringOrNumber(lhsId, rhsId));
+
+  TRY_ATTACH(tryAttachBigIntInt32(lhsId, rhsId));
+  TRY_ATTACH(tryAttachBigIntNumber(lhsId, rhsId));
+  TRY_ATTACH(tryAttachBigIntString(lhsId, rhsId));
 
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;
@@ -6021,6 +6230,7 @@ AttachDecision ToBoolIRGenerator::tryAttachStub() {
   TRY_ATTACH(tryAttachNullOrUndefined());
   TRY_ATTACH(tryAttachObject());
   TRY_ATTACH(tryAttachSymbol());
+  TRY_ATTACH(tryAttachBigInt());
 
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;
@@ -6104,6 +6314,19 @@ AttachDecision ToBoolIRGenerator::tryAttachObject() {
   return AttachDecision::Attach;
 }
 
+AttachDecision ToBoolIRGenerator::tryAttachBigInt() {
+  if (!val_.isBigInt()) {
+    return AttachDecision::NoAction;
+  }
+
+  ValOperandId valId(writer.setInputOperandId(0));
+  BigIntOperandId bigIntId = writer.guardToBigInt(valId);
+  writer.loadBigIntTruthyResult(bigIntId);
+  writer.returnFromIC();
+  trackAttached("ToBoolBigInt");
+  return AttachDecision::Attach;
+}
+
 GetIntrinsicIRGenerator::GetIntrinsicIRGenerator(JSContext* cx,
                                                  HandleScript script,
                                                  jsbytecode* pc,
@@ -6149,6 +6372,7 @@ AttachDecision UnaryArithIRGenerator::tryAttachStub() {
   AutoAssertNoPendingException aanpe(cx_);
   TRY_ATTACH(tryAttachInt32());
   TRY_ATTACH(tryAttachNumber());
+  TRY_ATTACH(tryAttachBigInt());
 
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;
@@ -6221,6 +6445,38 @@ AttachDecision UnaryArithIRGenerator::tryAttachNumber() {
   return AttachDecision::Attach;
 }
 
+AttachDecision UnaryArithIRGenerator::tryAttachBigInt() {
+  if (!val_.isBigInt()) {
+    return AttachDecision::NoAction;
+  }
+
+  ValOperandId valId(writer.setInputOperandId(0));
+  BigIntOperandId bigIntId = writer.guardToBigInt(valId);
+  switch (op_) {
+    case JSOP_BITNOT:
+      writer.bigIntNotResult(bigIntId);
+      trackAttached("UnaryArith.BigIntNot");
+      break;
+    case JSOP_NEG:
+      writer.bigIntNegationResult(bigIntId);
+      trackAttached("UnaryArith.BigIntNeg");
+      break;
+    case JSOP_INC:
+      writer.bigIntIncResult(bigIntId);
+      trackAttached("UnaryArith.BigIntInc");
+      break;
+    case JSOP_DEC:
+      writer.bigIntDecResult(bigIntId);
+      trackAttached("UnaryArith.BigIntDec");
+      break;
+    default:
+      MOZ_CRASH("Unexpected OP");
+  }
+
+  writer.returnFromIC();
+  return AttachDecision::Attach;
+}
+
 BinaryArithIRGenerator::BinaryArithIRGenerator(
     JSContext* cx, HandleScript script, jsbytecode* pc, ICState::Mode mode,
     JSOp op, HandleValue lhs, HandleValue rhs, HandleValue res)
@@ -6263,6 +6519,9 @@ AttachDecision BinaryArithIRGenerator::tryAttachStub() {
 
   // String + Boolean
   TRY_ATTACH(tryAttachStringBooleanConcat());
+
+  // Arithmetic operations or bitwise operations with BigInt operands
+  TRY_ATTACH(tryAttachBigInt());
 
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;
@@ -6568,6 +6827,93 @@ AttachDecision BinaryArithIRGenerator::tryAttachStringObjectConcat() {
 
   writer.returnFromIC();
   trackAttached("BinaryArith.StringObjectConcat");
+  return AttachDecision::Attach;
+}
+
+AttachDecision BinaryArithIRGenerator::tryAttachBigInt() {
+  // Check Guards
+  if (!lhs_.isBigInt() || !rhs_.isBigInt()) {
+    return AttachDecision::NoAction;
+  }
+
+  switch (op_) {
+    case JSOP_ADD:
+    case JSOP_SUB:
+    case JSOP_MUL:
+    case JSOP_DIV:
+    case JSOP_MOD:
+    case JSOP_POW:
+      // Arithmetic operations.
+      break;
+
+    case JSOP_BITOR:
+    case JSOP_BITXOR:
+    case JSOP_BITAND:
+    case JSOP_LSH:
+    case JSOP_RSH:
+      // Bitwise operations.
+      break;
+
+    default:
+      return AttachDecision::NoAction;
+  }
+
+  ValOperandId lhsId(writer.setInputOperandId(0));
+  ValOperandId rhsId(writer.setInputOperandId(1));
+
+  BigIntOperandId lhsBigIntId = writer.guardToBigInt(lhsId);
+  BigIntOperandId rhsBigIntId = writer.guardToBigInt(rhsId);
+
+  switch (op_) {
+    case JSOP_ADD:
+      writer.bigIntAddResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.Add");
+      break;
+    case JSOP_SUB:
+      writer.bigIntSubResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.Sub");
+      break;
+    case JSOP_MUL:
+      writer.bigIntMulResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.Mul");
+      break;
+    case JSOP_DIV:
+      writer.bigIntDivResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.Div");
+      break;
+    case JSOP_MOD:
+      writer.bigIntModResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.Mod");
+      break;
+    case JSOP_POW:
+      writer.bigIntPowResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.Pow");
+      break;
+    case JSOP_BITOR:
+      writer.bigIntBitOrResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.BitOr");
+      break;
+    case JSOP_BITXOR:
+      writer.bigIntBitXorResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.BitXor");
+      break;
+    case JSOP_BITAND:
+      writer.bigIntBitAndResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.BitAnd");
+      break;
+    case JSOP_LSH:
+      writer.bigIntLeftShiftResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.LeftShift");
+      break;
+    case JSOP_RSH:
+      writer.bigIntRightShiftResult(lhsBigIntId, rhsBigIntId);
+      trackAttached("BinaryArith.BigInt.RightShift");
+      break;
+    default:
+      MOZ_CRASH("Unhandled op in tryAttachBigInt");
+  }
+
+  writer.returnFromIC();
   return AttachDecision::Attach;
 }
 

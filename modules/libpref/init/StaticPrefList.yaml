@@ -1598,6 +1598,12 @@
   value: true
   mirror: always
 
+# How long we wait before unloading an idle plugin process.
+- name: dom.ipc.plugins.unloadTimeoutSecs
+  type: RelaxedAtomicUint32
+  value: 30
+  mirror: always
+
 - name: dom.ipc.tabs.disabled
   type: bool
   value: false
@@ -2799,6 +2805,18 @@
   value: @IS_ANDROID@
   mirror: always
 
+# This pref governs whether we enable content script CSP in extensions.
+- name: extensions.content_script_csp.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# This pref governs whether content script CSP is report-only.
+- name: extensions.content_script_csp.report_only
+  type: bool
+  value: true
+  mirror: always
+
 # This pref governs whether we run webextensions in a separate process (true)
 # or the parent/main process (false)
 - name: extensions.webextensions.remote
@@ -3606,6 +3624,11 @@
   value: false
   mirror: once
 
+- name: gfx.webrender.max-partial-present-rects
+  type: uint32_t
+  value: 0
+  mirror: once
+
 #ifdef NIGHTLY_BUILD
   # Keep this pref hidden on non-nightly builds to avoid people accidentally
   # turning it on.
@@ -4019,6 +4042,16 @@
 - name: javascript.options.streams
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Writable Streams API.  (The pref above must also be set to expose this.)
+#
+# Writable streams are still EXTRAORDINARILY BETA and it is well-known that
+# things are likely pretty broken if you poke much at all, so if you flip this
+# preference, don't report bugs against it just yet.
+- name: javascript.options.writable_streams
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 - name: javascript.options.main_thread_stack_quota_cap

@@ -1406,6 +1406,14 @@ pref("network.http.spdy.default-hpack-buffer", 65536); // 64k
 pref("network.http.spdy.websockets", true);
 pref("network.http.spdy.enable-hpack-dump", false);
 
+// Http3 parameters
+pref("network.http.http3.enabled", false);
+// Http3 qpack table size.
+pref("network.http.http3.default-qpack-table-size", 65536); // 64k
+// Maximal number of streams that can be blocked on waiting for qpack
+// instructions.
+pref("network.http.http3.default-max-stream-blocked", 10);
+
 // alt-svc allows separation of transport routing from
 // the origin host without using a proxy.
 pref("network.http.altsvc.enabled", true);
@@ -2613,10 +2621,6 @@ pref("dom.ipc.plugins.flash.disable-protected-mode", false);
 
 pref("dom.ipc.plugins.flash.subprocess.crashreporter.enabled", true);
 pref("dom.ipc.plugins.reportCrashURL", true);
-
-// How long we wait before unloading an idle plugin process.
-// Defaults to 30 seconds.
-pref("dom.ipc.plugins.unloadTimeoutSecs", 30);
 
 // Force the accelerated direct path for a subset of Flash wmode values
 pref("dom.ipc.plugins.forcedirect.enabled", true);

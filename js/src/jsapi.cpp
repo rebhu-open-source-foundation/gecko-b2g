@@ -33,6 +33,7 @@
 #include "builtin/AtomicsObject.h"
 #include "builtin/Boolean.h"
 #include "builtin/Eval.h"
+#include "builtin/FinalizationGroupObject.h"
 #include "builtin/JSON.h"
 #include "builtin/MapObject.h"
 #include "builtin/Promise.h"
@@ -1283,6 +1284,21 @@ JS_PUBLIC_API bool JS_AddFinalizeCallback(JSContext* cx, JSFinalizeCallback cb,
 JS_PUBLIC_API void JS_RemoveFinalizeCallback(JSContext* cx,
                                              JSFinalizeCallback cb) {
   cx->runtime()->gc.removeFinalizeCallback(cb);
+}
+
+JS_PUBLIC_API void JS::SetHostCleanupFinalizationGroupCallback(
+    JSContext* cx, JSHostCleanupFinalizationGroupCallback cb, void* data) {
+  AssertHeapIsIdle();
+  cx->runtime()->gc.setHostCleanupFinalizationGroupCallback(cb, data);
+}
+
+JS_PUBLIC_API bool JS::CleanupQueuedFinalizationGroup(JSContext* cx,
+                                                      HandleObject group) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+  cx->check(group);
+  return cx->runtime()->gc.cleanupQueuedFinalizationGroup(
+      cx, group.as<FinalizationGroupObject>());
 }
 
 JS_PUBLIC_API bool JS_AddWeakPointerZonesCallback(JSContext* cx,

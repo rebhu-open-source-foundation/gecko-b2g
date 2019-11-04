@@ -71,7 +71,7 @@ use crate::internal_types::{CacheTextureId, DebugOutput, FastHashMap, FastHashSe
 use crate::internal_types::{TextureCacheAllocationKind, TextureCacheUpdate, TextureUpdateList, TextureUpdateSource};
 use crate::internal_types::{RenderTargetInfo, SavedTargetIndex, Swizzle};
 use malloc_size_of::MallocSizeOfOps;
-use crate::picture::{RecordedDirtyRegion, TILE_SIZE_LARGE, TILE_SIZE_SMALL, ResolvedSurfaceTexture};
+use crate::picture::{RecordedDirtyRegion, tile_cache_sizes, ResolvedSurfaceTexture};
 use crate::prim_store::DeferredResolve;
 use crate::profiler::{BackendProfileCounters, FrameProfileCounters, TimeProfileCounter,
                GpuProfileTag, RendererProfileCounters, RendererProfileTimers};
@@ -950,10 +950,6 @@ enum PartialPresentMode {
     Single {
         dirty_rect: DeviceRect,
     },
-    /// The device supports at least the same number of dirty rects as the
-    /// number of dirty rects produced by WR this frame. In this case, the
-    /// tile dirty rect is applied to the clip for each tile as it's drawn.
-    Multi,
 }
 
 /// A Texture that has been initialized by the `device` module and is ready to
@@ -2243,16 +2239,11 @@ impl Renderer {
                 thread_listener.thread_started(&rb_thread_name);
             }
 
-            let picture_tile_sizes = &[
-                TILE_SIZE_LARGE,
-                TILE_SIZE_SMALL,
-            ];
-
             let texture_cache = TextureCache::new(
                 max_texture_size,
                 max_texture_layers,
                 if config.global_enable_picture_caching {
-                    picture_tile_sizes
+                    tile_cache_sizes()
                 } else {
                     &[]
                 },
@@ -3921,7 +3912,6 @@ impl Renderer {
             // the partial present mode is.
             let partial_clip_rect = match partial_present_mode {
                 Some(PartialPresentMode::Single { dirty_rect }) => dirty_rect,
-                Some(PartialPresentMode::Multi) => tile.dirty_rect,
                 None => tile.rect,
             };
 
@@ -3992,37 +3982,33 @@ impl Renderer {
             // We can only use partial present if we have valid dirty rects and the
             // client hasn't reset partial present state since last frame.
             if composite_state.dirty_rects_are_valid && !self.force_redraw {
-                let mut dirty_rect_count = 0;
                 let mut combined_dirty_rect = DeviceRect::zero();
 
                 // Work out how many dirty rects WR produced, and if that's more than
                 // what the device supports.
                 for tile in composite_state.opaque_tiles.iter().chain(composite_state.alpha_tiles.iter()) {
-                    if !tile.dirty_rect.is_empty() {
-                        dirty_rect_count += 1;
-                        results.dirty_rects.push(tile.dirty_rect.to_i32());
-                        combined_dirty_rect = combined_dirty_rect.union(&tile.dirty_rect);
-                    }
+                    combined_dirty_rect = combined_dirty_rect.union(&tile.dirty_rect);
                 }
 
-                let mode = if dirty_rect_count > max_partial_present_rects {
-                    // In this case, WR produced more dirty rects than what the device supports.
-                    // As a simple way to handle this, just union all the dirty rects into a
-                    // single dirty rect.
-                    // TODO(gw): In future, maybe we can handle this case better by trying to
-                    //           coalesce dirty rects into a smaller number rather than just
-                    //           falling back to a single dirty rect.
-                    let combined_dirty_rect = combined_dirty_rect.round();
-                    results.dirty_rects.clear();
-                    results.dirty_rects.push(combined_dirty_rect.to_i32());
-                    PartialPresentMode::Single {
-                        dirty_rect: combined_dirty_rect,
-                    }
-                } else {
-                    PartialPresentMode::Multi
-                };
+                let combined_dirty_rect = combined_dirty_rect.round();
+                let combined_dirty_rect_i32 = combined_dirty_rect.to_i32();
+                // If nothing has changed, don't return any dirty rects at all (the client
+                // can use this as a signal to skip present completely).
+                if !combined_dirty_rect.is_empty() {
+                    results.dirty_rects.push(combined_dirty_rect_i32);
+                }
 
-                partial_present_mode = Some(mode);
+                partial_present_mode = Some(PartialPresentMode::Single {
+                    dirty_rect: combined_dirty_rect,
+                });
+            } else {
+                // If we don't have a valid partial present scenario, return a single
+                // dirty rect to the client that covers the entire framebuffer.
+                let fb_rect = DeviceIntRect::new(
+                    DeviceIntPoint::zero(),
+                    draw_target.dimensions(),
+                );
+                results.dirty_rects.push(fb_rect);
             }
 
             self.force_redraw = false;
@@ -4038,20 +4024,6 @@ impl Renderer {
                     self.device.clear_target(clear_color,
                                              Some(1.0),
                                              Some(draw_target.to_framebuffer_rect(dirty_rect.to_i32())));
-                }
-                Some(PartialPresentMode::Multi) => {
-                    // We have a dirty rect per tile, so clear each of them
-                    let opaque_iter = composite_state.opaque_tiles.iter();
-                    let clear_iter = composite_state.clear_tiles.iter();
-                    let alpha_iter = composite_state.alpha_tiles.iter();
-
-                    for tile in opaque_iter.chain(clear_iter.chain(alpha_iter)) {
-                        if !tile.dirty_rect.is_empty() {
-                            self.device.clear_target(clear_color,
-                                                     Some(1.0),
-                                                     Some(draw_target.to_framebuffer_rect(tile.dirty_rect.to_i32())));
-                        }
-                    }
                 }
                 None => {
                     // Partial present is disabled, so clear the entire framebuffer

@@ -195,6 +195,7 @@ MSG_DEF(JSMSG_AWAIT_IN_PARAMETER,      0, JSEXN_SYNTAXERR, "await expression can
 MSG_DEF(JSMSG_AWAIT_OUTSIDE_ASYNC,     0, JSEXN_SYNTAXERR, "await is only valid in async functions and async generators")
 MSG_DEF(JSMSG_BAD_ARROW_ARGS,          0, JSEXN_SYNTAXERR, "invalid arrow-function arguments (parentheses around the arrow-function may help)")
 MSG_DEF(JSMSG_BAD_BINDING,             1, JSEXN_SYNTAXERR, "redefining {0} is deprecated")
+MSG_DEF(JSMSG_BAD_COALESCE_MIXING,     0, JSEXN_SYNTAXERR, "cannot use `??` unparenthesized within `||` and `&&` expressions")
 MSG_DEF(JSMSG_BAD_CONST_DECL,          0, JSEXN_SYNTAXERR, "missing = in const declaration")
 MSG_DEF(JSMSG_BAD_CONTINUE,            0, JSEXN_SYNTAXERR, "continue must be inside loop")
 MSG_DEF(JSMSG_BAD_DESTRUCT_ASS,        0, JSEXN_SYNTAXERR, "invalid destructuring assignment operator")
@@ -290,7 +291,8 @@ MSG_DEF(JSMSG_MISSING_EXPR_AFTER_THROW,0, JSEXN_SYNTAXERR, "throw statement is m
 MSG_DEF(JSMSG_MISSING_FORMAL,          0, JSEXN_SYNTAXERR, "missing formal parameter")
 MSG_DEF(JSMSG_MISSING_HEXDIGITS,       0, JSEXN_SYNTAXERR, "missing hexadecimal digits after '0x'")
 MSG_DEF(JSMSG_MISSING_OCTAL_DIGITS,    0, JSEXN_SYNTAXERR, "missing octal digits after '0o'")
-MSG_DEF(JSMSG_MISSING_DIGIT_AFTER_SEPARATOR, 0, JSEXN_SYNTAXERR, "missing digit after '_' numeric separator")
+MSG_DEF(JSMSG_NUMBER_END_WITH_UNDERSCORE, 0, JSEXN_SYNTAXERR, "underscore can appear only between digits, not after the last digit in a number")
+MSG_DEF(JSMSG_NUMBER_MULTIPLE_ADJACENT_UNDERSCORES, 0, JSEXN_SYNTAXERR, "number cannot contain multiple adjacent underscores")
 MSG_DEF(JSMSG_MODULE_SPEC_AFTER_FROM,  0, JSEXN_SYNTAXERR, "missing module specifier after 'from' keyword")
 MSG_DEF(JSMSG_NAME_AFTER_DOT,          0, JSEXN_SYNTAXERR, "missing name after . operator")
 MSG_DEF(JSMSG_NAMED_IMPORTS_OR_NAMESPACE_IMPORT, 0, JSEXN_SYNTAXERR, "expected named imports or namespace import after comma")
@@ -713,3 +715,11 @@ MSG_DEF(JSMSG_SC_BIGINT_DISABLED, 0, JSEXN_ERR, "BigInt not cloned - feature dis
 
 // BinAST
 MSG_DEF(JSMSG_BINAST,                                    1, JSEXN_SYNTAXERR, "BinAST Parsing Error: {0}")
+
+// FinalizationGroup
+MSG_DEF(JSMSG_NOT_A_FINALIZATION_GROUP,                  1, JSEXN_TYPEERR, "{0} is not a FinalizationGroup")
+MSG_DEF(JSMSG_NOT_A_FINALIZATION_ITERATOR,               1, JSEXN_TYPEERR, "{0} is not a FinalizationGroupCleanupIterator")
+MSG_DEF(JSMSG_BAD_HOLDINGS,                              0, JSEXN_TYPEERR, "The holdings passed to FinalizationGroup.register must not be the same as its target object")
+MSG_DEF(JSMSG_BAD_UNREGISTER_TOKEN,                      1, JSEXN_TYPEERR, "Invalid unregister token passed to {0}")
+MSG_DEF(JSMSG_STALE_FINALIZATION_GROUP_ITERATOR,         0, JSEXN_TYPEERR, "Can't use stale finalization group iterator")
+MSG_DEF(JSMSG_BAD_CLEANUP_STATE,                         0, JSEXN_TYPEERR, "Can't call FinalizeGroup.cleanupSome while cleanup is in progress")

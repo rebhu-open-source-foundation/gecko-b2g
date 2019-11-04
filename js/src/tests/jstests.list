@@ -415,6 +415,12 @@ skip script test262/intl402/NumberFormat/numbering-system-options.js
 skip script test262/intl402/NumberFormat/constructor-numberingSystem-order.js
 skip script test262/intl402/NumberFormat/constructor-options-throwing-getters.js
 
+# The relatedYear field type required by these tests is only supported in
+# nightly because the change hasn't been merged into the main spec yet.
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1591664
+skip-if(release_or_beta) script test262/intl402/DateTimeFormat/prototype/formatToParts/related-year.js
+skip-if(release_or_beta) script test262/intl402/DateTimeFormat/prototype/formatToParts/pattern-on-calendar.js
+
 # https://bugzilla.mozilla.org/show_bug.cgi?id=1277801
 skip script test262/built-ins/Object/prototype/toString/symbol-tag-non-str-builtin.js
 
@@ -440,17 +446,6 @@ skip script test262/intl402/ListFormat/constructor/constructor/options-style-val
 skip script test262/intl402/ListFormat/constructor/constructor/options-toobject-prototype.js
 skip script test262/intl402/ListFormat/constructor/constructor/options-order.js
 skip script test262/intl402/ListFormat/constructor/constructor/options-type-valid.js
-
-# https://bugzilla.mozilla.org/show_bug.cgi?id=1590539
-skip script test262/built-ins/Atomics/add/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/and/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/compareExchange/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/exchange/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/load/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/or/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/store/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/sub/validate-arraytype-before-index-coercion.js
-skip script test262/built-ins/Atomics/xor/validate-arraytype-before-index-coercion.js
 
 # https://bugzilla.mozilla.org/show_bug.cgi?id=1590543
 skip script test262/built-ins/String/prototype/matchAll/flags-nonglobal-throws.js

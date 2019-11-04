@@ -207,6 +207,10 @@ class ResponsiveUI {
     // Restore the previous state of RDM.
     await this.restoreState();
 
+    if (this.isBrowserUIEnabled) {
+      await this.emulationFront.setDocumentInRDMPane(true);
+    }
+
     if (!this.isBrowserUIEnabled) {
       // Force the newly created Zoom actor to cache its 1.0 zoom level. This
       // prevents it from sending out FullZoomChange events when the content
@@ -249,8 +253,8 @@ class ResponsiveUI {
 
     this.browserContainerEl.classList.add("responsive-mode");
 
-    // Prepend the RDM iframe inside of the current tab's browser container.
-    this.browserContainerEl.prepend(rdmFrame);
+    // Prepend the RDM iframe inside of the current tab's browser stack.
+    this.browserStackEl.prepend(rdmFrame);
 
     // Wait for the frame script to be loaded.
     message.wait(rdmFrame.contentWindow, "script-init").then(async () => {
@@ -300,6 +304,10 @@ class ResponsiveUI {
     // Ensure init has finished before starting destroy
     if (!isTabContentDestroying) {
       await this.inited;
+    }
+
+    if (this.isBrowserUIEnabled) {
+      await this.emulationFront.setDocumentInRDMPane(false);
     }
 
     this.tab.removeEventListener("TabClose", this);
@@ -457,6 +465,9 @@ class ResponsiveUI {
         break;
       case "screenshot":
         this.onScreenshot();
+        break;
+      case "update-device-modal":
+        this.onUpdateDeviceModal(event);
     }
   }
 
@@ -573,6 +584,13 @@ class ResponsiveUI {
 
       message.post(this.rdmFrame.contentWindow, "screenshot-captured");
     }
+  }
+
+  onUpdateDeviceModal(event) {
+    this.browserStackEl.classList.toggle(
+      "device-modal-opened",
+      event.data.isOpen
+    );
   }
 
   /**

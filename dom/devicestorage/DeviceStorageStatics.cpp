@@ -102,7 +102,7 @@ void DeviceStorageStatics::Init() {
   DS_LOG_INFO("");
 
   Preferences::RegisterPrefixCallbacks(
-      PREF_CHANGE_METHOD(DeviceStorageStatics::PrefsChanged), gObservedPrefs,
+      DeviceStorageStatics::PrefsChanged, gObservedPrefs,
       this);
 
   Preferences::GetString(kPrefWritableName, mWritableName);
@@ -261,7 +261,7 @@ void DeviceStorageStatics::InitDirs() {
   // here. Directories which depend on the root directory of a volume
   // should be calculated in DeviceStorageFile::GetRootDirectoryForType.
   Preferences::RegisterPrefixCallback(
-      PREF_CHANGE_METHOD(DeviceStorageStatics::PrefsChanged),
+      DeviceStorageStatics::PrefsChanged,
       nsDependentCString(kPrefOverrideRootDir), this);
   ResetOverrideRootDir();
 }
@@ -299,10 +299,10 @@ void DeviceStorageStatics::Shutdown() {
   DS_LOG_INFO("");
 
   Preferences::UnregisterPrefixCallbacks(
-      PREF_CHANGE_METHOD(DeviceStorageStatics::PrefsChanged), gObservedPrefs,
+      DeviceStorageStatics::PrefsChanged, gObservedPrefs,
       this);
   Preferences::UnregisterPrefixCallback(
-      PREF_CHANGE_METHOD(DeviceStorageStatics::PrefsChanged),
+      DeviceStorageStatics::PrefsChanged,
       nsDependentCString(kPrefOverrideRootDir), this);
 }
 
@@ -575,6 +575,12 @@ void DeviceStorageStatics::ResetOverrideRootDir() {
 
   mDirs[TYPE_OVERRIDE] = f.forget();
   DumpDirs();
+}
+
+// static
+void DeviceStorageStatics::PrefsChanged(const char* aPref,
+                                        void* aSelf) {
+  static_cast<DeviceStorageStatics*>(aSelf)->PrefsChanged(aPref);
 }
 
 void DeviceStorageStatics::PrefsChanged(const char* aPref) {
