@@ -165,7 +165,6 @@ nsresult nsLayoutStatics::Initialize() {
 #endif
 
   StartupJSEnvironment();
-  nsJSContext::EnsureStatics();
 
   nsGlobalWindowInner::Init();
   nsGlobalWindowOuter::Init();
