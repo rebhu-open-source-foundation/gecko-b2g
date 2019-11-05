@@ -1,2 +1,6 @@
+#ifdef MOZ_B2G
+category app-startup PushServiceParent @mozilla.org/push/Service;1 process=main
+#endif
+
 # For immediate loading of PushService instead of delayed loading.
 category android-push-service PushServiceParent @mozilla.org/push/Service;1 process=main

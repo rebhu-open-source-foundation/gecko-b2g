@@ -82,6 +82,15 @@ PushServiceBase.prototype = {
   },
 
   observe(subject, topic, data) {
+    if (topic === "app-startup") {
+      Services.obs.addObserver(this, "final-ui-startup", true);
+      return;
+    }
+    if (topic === "final-ui-startup") {
+      Services.obs.removeObserver(this, "final-ui-startup");
+      this.ensureReady();
+      return;
+    }
     if (topic === "android-push-service") {
       // Load PushService immediately.
       this.ensureReady();

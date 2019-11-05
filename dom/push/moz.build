@@ -6,7 +6,7 @@
 with Files("**"):
     BUG_COMPONENT = ("Core", "DOM: Push Notifications")
 
-EXTRA_COMPONENTS += [
+EXTRA_PP_COMPONENTS += [
     'Push.manifest',
 ]
 
