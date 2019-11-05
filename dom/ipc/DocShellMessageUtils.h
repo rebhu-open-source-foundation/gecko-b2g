@@ -10,6 +10,7 @@
 #include "ipc/IPCMessageUtils.h"
 #include "nsCOMPtr.h"
 #include "nsDocShellLoadState.h"
+#include "mozilla/ipc/IPDLParamTraits.h"
 
 namespace mozilla {
 namespace ipc {
