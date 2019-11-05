@@ -2755,6 +2755,11 @@
   value: true
   mirror: always
 
+- name: dom.wakelock.enabled
+  type: bool
+  value: true
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "editor"
 #---------------------------------------------------------------------------

@@ -2131,5 +2131,14 @@ bool Navigator::Webdriver() {
   return Preferences::GetBool("marionette.enabled", false);
 }
 
+/* static */
+bool Navigator::HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */)
+{
+  nsCOMPtr<nsIPowerManagerService> pmService =
+    do_GetService(POWERMANAGERSERVICE_CONTRACTID);
+  // No service means no wake lock support
+  return !!pmService;
+}
+
 }  // namespace dom
 }  // namespace mozilla

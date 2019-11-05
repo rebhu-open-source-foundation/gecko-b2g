@@ -242,7 +242,8 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   // WebIDL helper methods
   static bool HasUserMediaSupport(JSContext* /* unused */,
                                   JSObject* /* unused */);
-
+  static bool HasWakeLockSupport(JSContext* /* unused*/,
+                                 JSObject* /*unused */);
   nsPIDOMWindowInner* GetParentObject() const { return GetWindow(); }
 
   virtual JSObject* WrapObject(JSContext* cx,

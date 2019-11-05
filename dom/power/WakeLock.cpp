@@ -46,7 +46,7 @@ WakeLock::~WakeLock() {
 
 JSObject* WakeLock::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozWakeLockBinding::Wrap(aCx, this, aGivenProto);
+  return MozWakeLock_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 nsresult WakeLock::Init(const nsAString& aTopic, nsPIDOMWindowInner* aWindow) {

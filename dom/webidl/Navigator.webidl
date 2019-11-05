@@ -235,7 +235,7 @@ partial interface Navigator {
    *
    * @param aTopic resource name
    */
-  [Throws, Pref="dom.wakelock.enabled", Func="Navigator::HasWakeLockSupport", UnsafeInPrerendering]
+  [Throws, Pref="dom.wakelock.enabled", Func="Navigator::HasWakeLockSupport"]
   MozWakeLock requestWakeLock(DOMString aTopic);
 };
 
