@@ -4402,9 +4402,12 @@ nsresult XREMain::XRE_mainRun() {
 
   // Now that all (user) prefs have been loaded we can initialize the main
   // thread's JSContext.
+#ifndef MOZ_B2G
+  // We initialize unconditionnaly earlier for B2G.
   if (!initializedJSContext) {
     xpc::InitializeJSContext();
   }
+#endif
 
   nsAppStartupNotifier::NotifyObservers(APPSTARTUP_CATEGORY);
 
