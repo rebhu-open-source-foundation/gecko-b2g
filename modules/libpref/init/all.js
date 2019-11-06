@@ -233,8 +233,6 @@ pref("browser.download.forbid_open_with", false);
 // Insecure registerProtocolHandler is disabled by default
 pref("dom.registerProtocolHandler.insecure.enabled", false);
 
-// Whether or not indexedDB is enabled.
-pref("dom.indexedDB.enabled", true);
 // Whether or not indexedDB experimental features are enabled.
 pref("dom.indexedDB.experimental", false);
 // Enable indexedDB logging.
@@ -831,6 +829,7 @@ pref("devtools.recordreplay.allowRepaintFailures", true);
 pref("devtools.recordreplay.includeSystemScripts", false);
 pref("devtools.recordreplay.logging", false);
 pref("devtools.recordreplay.loggingFull", false);
+pref("devtools.recordreplay.fastLogpoints", false);
 
 // view source
 pref("view_source.syntax_highlight", true);
@@ -4851,6 +4850,12 @@ pref("devtools.errorconsole.deprecation_warnings", true);
   // In local builds, enable the browser toolbox by default.
   pref("devtools.chrome.enabled", true, sticky);
   pref("devtools.debugger.remote-enabled", true, sticky);
+#endif
+
+#if defined(MOZ_DEV_EDITION) || defined(NIGHTLY_BUILD)
+  pref("devtools.debugger.features.watchpoints", true);
+#else
+  pref("devtools.debugger.features.watchpoints", false);
 #endif
 
 // Disable remote debugging protocol logging.

@@ -79,6 +79,8 @@
 #include "mozilla/dom/quota/QuotaManagerService.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/SystemMessageServiceParent.h"
+#include "mozilla/dom/SHEntryParent.h"
+#include "mozilla/dom/SHistoryParent.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/dom/ipc/SharedMap.h"
@@ -185,7 +187,7 @@
 #include "nsIURIFixup.h"
 #include "nsIURL.h"
 #include "nsIDocShellTreeOwner.h"
-#include "nsIXULWindow.h"
+#include "nsIAppWindow.h"
 #include "nsIDOMChromeWindow.h"
 #include "nsIWindowWatcher.h"
 #include "nsPIWindowWatcher.h"
@@ -5943,6 +5945,24 @@ bool ContentParent::DeallocPSessionStorageObserverParent(
   MOZ_ASSERT(aActor);
 
   return mozilla::dom::DeallocPSessionStorageObserverParent(aActor);
+}
+
+PSHEntryParent* ContentParent::AllocPSHEntryParent(
+    PSHistoryParent* aSHistory, const PSHEntryOrSharedID& aEntryOrSharedID) {
+  return SHistoryParent::CreateEntry(this, aSHistory, aEntryOrSharedID);
+}
+
+void ContentParent::DeallocPSHEntryParent(PSHEntryParent* aEntry) {
+  delete static_cast<SHEntryParent*>(aEntry);
+}
+
+PSHistoryParent* ContentParent::AllocPSHistoryParent(
+    BrowsingContext* aContext) {
+  return new SHistoryParent(aContext->Canonical());
+}
+
+void ContentParent::DeallocPSHistoryParent(PSHistoryParent* aActor) {
+  delete static_cast<SHistoryParent*>(aActor);
 }
 
 nsresult ContentParent::SaveRecording(nsIFile* aFile, bool* aRetval) {

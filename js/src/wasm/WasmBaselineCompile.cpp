@@ -8587,6 +8587,8 @@ bool BaseCompiler::emitLoop() {
     topBlockResults(params);
     masm.nopAlign(CodeAlignment);
     masm.bind(&controlItem(0).label);
+    // The interrupt check barfs if there are live registers.
+    sync();
     if (!addInterruptCheck()) {
       return false;
     }
@@ -8618,12 +8620,10 @@ bool BaseCompiler::emitIf() {
 
   BranchState b(&controlItem().otherLabel, InvertBranch(true));
   if (!deadCode_) {
+    needResultRegisters(params);
     emitBranchSetup(&b);
+    freeResultRegisters(params);
     sync();
-    // Because params can flow immediately to results in the case of an empty
-    // "then" or "else" block, and the result of an if/then is a join in
-    // general, we shuffle params eagerly to the result allocations.
-    topBlockResults(params);
   } else {
     resetLatentOp();
   }
@@ -8631,6 +8631,10 @@ bool BaseCompiler::emitIf() {
   initControl(controlItem(), params);
 
   if (!deadCode_) {
+    // Because params can flow immediately to results in the case of an empty
+    // "then" or "else" block, and the result of an if/then is a join in
+    // general, we shuffle params eagerly to the result allocations.
+    topBlockResults(params);
     emitBranchPerform(&b);
   }
 
@@ -8726,6 +8730,7 @@ bool BaseCompiler::emitElse() {
   fr.resetStackHeight(ifThenElse.stackHeight, params);
 
   if (!deadCode_) {
+    captureResultRegisters(params);
     pushBlockResults(params);
   }
 

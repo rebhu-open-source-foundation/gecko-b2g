@@ -35,7 +35,7 @@ XPCOMUtils.defineLazyServiceGetter(
  * TouchBarInput.
  * @param {string} commandName
  *        A XUL command.
- * @param {string} telemetryKey
+ * @param {string} [telemetryKey]
  *        A string describing the command, sent for telemetry purposes.
  *        Intended to be shorter and more readable than the XUL command.
  */
@@ -47,6 +47,11 @@ function execCommand(commandName, telemetryKey) {
   if (command) {
     command.doCommand();
   }
+
+  if (!telemetryKey) {
+    return;
+  }
+
   let telemetry = Services.telemetry.getHistogramById(
     "TOUCHBAR_BUTTON_PRESSES"
   );
@@ -478,11 +483,10 @@ helperProto._l10n = new Localization(["browser/touchbar/touchbar.ftl"]);
  *     @param {string} input.title
  *            The lookup key for the button's localized text title.
  *     @param {string} input.image
- *            The name of a icon file added to
- *            /widget/cocoa/resources/touchbar_icons.
+ *            A URL pointing to an SVG internal to Firefox.
  *     @param {string} input.type
  *            The type of Touch Bar input represented by the object.
- *            One of `button`, `mainButton`.
+ *            Must be a value from kInputTypes.
  *     @param {Function} input.callback
  *            A callback invoked when a touchbar item is touched.
  *     @param {string} [input.color]

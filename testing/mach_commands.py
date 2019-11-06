@@ -497,7 +497,24 @@ def executable_name(name):
 
 
 @CommandProvider
-class CheckSpiderMonkeyCommand(MachCommandBase):
+class SpiderMonkeyTests(MachCommandBase):
+    def has_js_binary(binary):
+        def has_binary(cls):
+            try:
+                name = binary + cls.substs['BIN_SUFFIX']
+            except BuildEnvironmentNotFoundException:
+                return False
+
+            path = os.path.join(cls.topobjdir, 'dist', 'bin', name)
+
+            has_binary.__doc__ = """
+    `{}` not found in <objdir>/dist/bin. Make sure you aren't using an artifact build
+    and try rebuilding with `ac_add_options --enable-js-shell`.
+    """.format(name).lstrip()
+
+            return os.path.isfile(path)
+        return has_binary
+
     @Command('jstests', category='testing',
              description='Run SpiderMonkey JS tests in the JavaScript shell.')
     @CommandArgument('--shell', help='The shell to be used')
@@ -539,6 +556,23 @@ class CheckSpiderMonkeyCommand(MachCommandBase):
 
         return subprocess.call(jittest_cmd)
 
+    @Command('jsapi-tests', category='testing',
+             conditions=[has_js_binary('jsapi-tests')],
+             description='Run jsapi tests (JavaScript engine).')
+    @CommandArgument('test_name', nargs='?', metavar='N',
+                     help='Test to run. Can be a prefix or omitted. If '
+                     'omitted, the entire test suite is executed.')
+    def run_jsapitests(self, **params):
+        import subprocess
+
+        jsapi_tests_cmd = [
+            os.path.join(self.bindir, executable_name('jsapi-tests'))
+        ]
+        if params['test_name']:
+            jsapi_tests_cmd.append(params['test_name'])
+
+        return subprocess.call(jsapi_tests_cmd)
+
     @Command('check-spidermonkey', category='testing',
              description='Run SpiderMonkey tests (JavaScript engine).')
     @CommandArgument('--valgrind', action='store_true',
@@ -564,9 +598,7 @@ class CheckSpiderMonkeyCommand(MachCommandBase):
         jstest_result = self.run_jstests(js, [])
 
         print('running jsapi-tests')
-        jsapi_tests_cmd = [os.path.join(
-            self.bindir, executable_name('jsapi-tests'))]
-        jsapi_tests_result = subprocess.call(jsapi_tests_cmd)
+        jsapi_tests_result = self.run_jsapitests(test_name=None)
 
         print('running check-js-msg-encoding')
         check_js_msg_cmd = [python, os.path.join(
@@ -578,46 +610,6 @@ class CheckSpiderMonkeyCommand(MachCommandBase):
             check_js_msg_result
 
         return all_passed
-
-
-def has_js_binary(binary):
-    def has_binary(cls):
-        try:
-            name = binary + cls.substs['BIN_SUFFIX']
-        except BuildEnvironmentNotFoundException:
-            return False
-
-        path = os.path.join(cls.topobjdir, 'dist', 'bin', name)
-
-        has_binary.__doc__ = """
-`{}` not found in <objdir>/dist/bin. Make sure you aren't using an artifact build
-and try rebuilding with `ac_add_options --enable-js-shell`.
-""".format(name).lstrip()
-
-        return os.path.isfile(path)
-    return has_binary
-
-
-@CommandProvider
-class JsapiTestsCommand(MachCommandBase):
-    @Command('jsapi-tests', category='testing',
-             conditions=[has_js_binary('jsapi-tests')],
-             description='Run jsapi tests (JavaScript engine).')
-    @CommandArgument('test_name', nargs='?', metavar='N',
-                     help='Test to run. Can be a prefix or omitted. If omitted, the entire '
-                     'test suite is executed.')
-    def run_jsapitests(self, **params):
-        import subprocess
-
-        print('running jsapi-tests')
-        jsapi_tests_cmd = [os.path.join(
-            self.bindir, executable_name('jsapi-tests'))]
-        if params['test_name']:
-            jsapi_tests_cmd.append(params['test_name'])
-
-        jsapi_tests_result = subprocess.call(jsapi_tests_cmd)
-
-        return jsapi_tests_result
 
 
 def get_jsshell_parser():
@@ -848,15 +840,8 @@ class TestInfoCommand(MachCommandBase):
         name_idx = self.full_test_name.rfind('/')
         if name_idx > 0:
             self.short_name = self.full_test_name[name_idx + 1:]
-
-        # robo_name is short_name without ".java" - for robocop
-        self.robo_name = None
-        if self.short_name:
-            robo_idx = self.short_name.rfind('.java')
-            if robo_idx > 0:
-                self.robo_name = self.short_name[:robo_idx]
-            if self.short_name == self.test_name:
-                self.short_name = None
+        if self.short_name and self.short_name == self.test_name:
+            self.short_name = None
 
         if not (self.show_results or self.show_durations or self.show_tasks):
             # no need to determine ActiveData name if not querying
@@ -867,8 +852,7 @@ class TestInfoCommand(MachCommandBase):
         simple_names = [
             self.full_test_name,
             self.test_name,
-            self.short_name,
-            self.robo_name
+            self.short_name
         ]
         simple_names = [x for x in simple_names if x]
         searches = [
@@ -1099,8 +1083,6 @@ class TestInfoCommand(MachCommandBase):
             search = '%s,%s' % (search, self.test_name)
         if self.short_name:
             search = '%s,%s' % (search, self.short_name)
-        if self.robo_name:
-            search = '%s,%s' % (search, self.robo_name)
         payload = {'quicksearch': search,
                    'include_fields': 'id,summary'}
         response = requests.get('https://bugzilla.mozilla.org/rest/bug',
