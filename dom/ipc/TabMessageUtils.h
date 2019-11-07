@@ -9,6 +9,7 @@
 
 #include "ipc/IPCMessageUtils.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/dom/Event.h"
 #include "nsExceptionHandler.h"
 #include "nsIRemoteTab.h"
@@ -49,6 +50,32 @@ struct ParamTraits<mozilla::dom::RemoteDOMEvent> {
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
     return mozilla::dom::ReadRemoteEvent(aMsg, aIter, aResult);
+  }
+
+  static void Log(const paramType& aParam, std::wstring* aLog) {}
+};
+
+template <>
+struct ParamTraits<mozilla::dom::AudioChannel> {
+  typedef mozilla::dom::AudioChannel paramType;
+
+  static bool IsLegalValue(const paramType& aValue) {
+    return aValue <= mozilla::dom::AudioChannel::Publicnotification;
+  }
+
+  static void Write(Message* aMsg, const paramType& aValue) {
+    MOZ_ASSERT(IsLegalValue(aValue));
+    WriteParam(aMsg, (uint32_t)aValue);
+  }
+
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
+    uint32_t value;
+    if (!ReadParam(aMsg, aIter, &value) || !IsLegalValue(paramType(value))) {
+      return false;
+    }
+    *aResult = paramType(value);
+    return true;
   }
 
   static void Log(const paramType& aParam, std::wstring* aLog) {}
