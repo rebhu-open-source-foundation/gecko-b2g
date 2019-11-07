@@ -36,10 +36,11 @@ using media::TimeUnit;
 AudioSink::AudioSink(AbstractThread* aThread,
                      MediaQueue<AudioData>& aAudioQueue,
                      const TimeUnit& aStartTime, const AudioInfo& aInfo,
-                     AudioDeviceInfo* aAudioDevice)
+                     AudioDeviceInfo* aAudioDevice, dom::AudioChannel aChannel)
     : mStartTime(aStartTime),
       mInfo(aInfo),
       mAudioDevice(aAudioDevice),
+      mChannel(aChannel),
       mPlaying(true),
       mMonitor("AudioSink"),
       mWritten(0),
@@ -186,7 +187,7 @@ nsresult AudioSink::InitializeAudioStream(const PlaybackParams& aParams) {
   // StaticPrefs::accessibility_monoaudio_enable() or
   // StaticPrefs::media_forcestereo_enabled() is applied.
   nsresult rv = mAudioStream->Init(mOutputChannels, channelMap, mOutputRate,
-                                   mAudioDevice);
+                                   mAudioDevice, mChannel);
   if (NS_FAILED(rv)) {
     mAudioStream->Shutdown();
     mAudioStream = nullptr;

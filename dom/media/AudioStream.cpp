@@ -267,7 +267,8 @@ int AudioStream::InvokeCubeb(Function aFunction, Args&&... aArgs) {
 
 nsresult AudioStream::Init(uint32_t aNumChannels,
                            AudioConfig::ChannelLayout::ChannelMap aChannelMap,
-                           uint32_t aRate, AudioDeviceInfo* aSinkInfo) {
+                           uint32_t aRate, AudioDeviceInfo* aSinkInfo,
+                           const dom::AudioChannel aAudioChannel) {
   StartAudioCallbackTracing();
 
   auto startTime = TimeStamp::Now();
@@ -285,6 +286,9 @@ nsresult AudioStream::Init(uint32_t aNumChannels,
   params.layout = static_cast<uint32_t>(aChannelMap);
   params.format = ToCubebFormat<AUDIO_OUTPUT_FORMAT>::value;
   params.prefs = CubebUtils::GetDefaultStreamPrefs();
+#if defined(__ANDROID__)
+  params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
+#endif
 
   // This is noop if MOZ_DUMP_AUDIO is not set.
   mDumpFile.Open("AudioStream", mOutChannels, aRate);

@@ -11,6 +11,7 @@
 #include "MediaInfo.h"
 #include "MediaQueue.h"
 #include "MediaSink.h"
+#include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Monitor.h"
@@ -36,7 +37,7 @@ class AudioSink : private AudioStream::DataSource {
 
   AudioSink(AbstractThread* aThread, MediaQueue<AudioData>& aAudioQueue,
             const media::TimeUnit& aStartTime, const AudioInfo& aInfo,
-            AudioDeviceInfo* aAudioDevice);
+            AudioDeviceInfo* aAudioDevice, dom::AudioChannel aChannel);
 
   ~AudioSink();
 
@@ -101,6 +102,8 @@ class AudioSink : private AudioStream::DataSource {
   // The output device this AudioSink is playing data to. The system's default
   // device is used if this is null.
   const RefPtr<AudioDeviceInfo> mAudioDevice;
+
+  const dom::AudioChannel mChannel;
 
   // Used on the task queue of MDSM only.
   bool mPlaying;

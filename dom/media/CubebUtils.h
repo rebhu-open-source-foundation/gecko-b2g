@@ -9,6 +9,7 @@
 
 #  include "cubeb/cubeb.h"
 #  include "nsString.h"
+#  include "mozilla/dom/AudioChannelBinding.h"
 #  include "mozilla/RefPtr.h"
 
 class AudioDeviceInfo;

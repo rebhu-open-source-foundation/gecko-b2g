@@ -2738,9 +2738,9 @@ MediaSink* MediaDecoderStateMachine::CreateAudioSink() {
   RefPtr<MediaDecoderStateMachine> self = this;
   auto audioSinkCreator = [self]() {
     MOZ_ASSERT(self->OnTaskQueue());
-    AudioSink* audioSink =
-        new AudioSink(self->mTaskQueue, self->mAudioQueue, self->GetMediaTime(),
-                      self->Info().mAudio, self->mSinkDevice.Ref());
+    AudioSink* audioSink = new AudioSink(
+        self->mTaskQueue, self->mAudioQueue, self->GetMediaTime(),
+        self->Info().mAudio, self->mSinkDevice.Ref(), self->mAudioChannel);
 
     self->mAudibleListener = audioSink->AudibleEvent().Connect(
         self->mTaskQueue, self.get(),

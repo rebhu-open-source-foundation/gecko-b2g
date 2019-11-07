@@ -9,6 +9,7 @@
 #  include "AudioSampleFormat.h"
 #  include "CubebUtils.h"
 #  include "MediaInfo.h"
+#  include "mozilla/dom/AudioChannelBinding.h"
 #  include "mozilla/Monitor.h"
 #  include "mozilla/RefPtr.h"
 #  include "mozilla/TimeStamp.h"
@@ -219,7 +220,8 @@ class AudioStream final
   // (22050Hz, 44100Hz, etc).
   nsresult Init(uint32_t aNumChannels,
                 AudioConfig::ChannelLayout::ChannelMap aChannelMap,
-                uint32_t aRate, AudioDeviceInfo* aSinkInfo);
+                uint32_t aRate, AudioDeviceInfo* aSinkInfo,
+                const dom::AudioChannel aAudioStreamChannel);
 
   // Closes the stream. All future use of the stream is an error.
   void Shutdown();
