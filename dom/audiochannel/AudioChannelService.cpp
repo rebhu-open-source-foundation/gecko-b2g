@@ -307,8 +307,8 @@ AudioPlaybackConfig AudioChannelService::GetMediaConfig(
   do {
     winData = GetWindowData(window->WindowID());
     if (winData) {
-      config.mVolume *= winData->mConfig.mVolume;
-      config.mMuted = config.mMuted || winData->mConfig.mMuted;
+      config.mVolume *= winData->mChannelConfig.mVolume;
+      config.mMuted = config.mMuted || winData->mChannelConfig.mMuted;
       config.mCapturedAudio = winData->mIsAudioCaptured;
     }
 
@@ -379,8 +379,8 @@ AudioChannelService::Observe(nsISupports* aSubject, const char* aTopic,
       nsTObserverArray<AudioChannelAgent*>::ForwardIterator iter(
           winData->mAgents);
       while (iter.HasMore()) {
-        iter.GetNext()->WindowVolumeChanged(winData->mConfig.mVolume,
-                                            winData->mConfig.mMuted);
+        iter.GetNext()->WindowVolumeChanged(winData->mChannelConfig.mVolume,
+                                            winData->mChannelConfig.mMuted);
       }
     }
   }
@@ -566,11 +566,11 @@ void AudioChannelService::AudioChannelWindow::AppendAgentAndIncreaseAgentsNum(
 
   mAgents.AppendElement(aAgent);
 
-  ++mConfig.mNumberOfAgents;
+  ++mChannelConfig.mNumberOfAgents;
 
   // TODO: Make NotifyChannelActiveRunnable irrelevant to
   // BrowserElementAudioChannel
-  if (mConfig.mNumberOfAgents == 1) {
+  if (mChannelConfig.mNumberOfAgents == 1) {
     NotifyChannelActive(aAgent->WindowID(), true);
   }
 }
@@ -582,10 +582,10 @@ void AudioChannelService::AudioChannelWindow::RemoveAgentAndReduceAgentsNum(
 
   mAgents.RemoveElement(aAgent);
 
-  MOZ_ASSERT(mConfig.mNumberOfAgents > 0);
-  --mConfig.mNumberOfAgents;
+  MOZ_ASSERT(mChannelConfig.mNumberOfAgents > 0);
+  --mChannelConfig.mNumberOfAgents;
 
-  if (mConfig.mNumberOfAgents == 0) {
+  if (mChannelConfig.mNumberOfAgents == 0) {
     NotifyChannelActive(aAgent->WindowID(), false);
   }
 }

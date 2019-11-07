@@ -29,20 +29,21 @@ class AudioPlaybackConfig {
   AudioPlaybackConfig()
       : mVolume(1.0),
         mMuted(false),
-        mSuspend(nsISuspendedTypes::NONE_SUSPENDED),
-        mNumberOfAgents(0) {}
+        mSuspend(nsISuspendedTypes::NONE_SUSPENDED) {}
 
   AudioPlaybackConfig(float aVolume, bool aMuted, uint32_t aSuspended)
-      : mVolume(aVolume),
-        mMuted(aMuted),
-        mSuspend(aSuspended),
-        mNumberOfAgents(0) {}
+      : mVolume(aVolume), mMuted(aMuted), mSuspend(aSuspended) {}
+
+  void SetConfig(float aVolume, bool aMuted, uint32_t aSuspended) {
+    mVolume = aVolume;
+    mMuted = aMuted;
+    mSuspend = aSuspended;
+  }
 
   float mVolume;
   bool mMuted;
   uint32_t mSuspend;
   bool mCapturedAudio = false;
-  uint32_t mNumberOfAgents;
 };
 
 class AudioChannelService final : public nsIObserver {
@@ -180,6 +181,15 @@ class AudioChannelService final : public nsIObserver {
 
   void RefreshAgentsAudioFocusChanged(AudioChannelAgent* aAgent);
 
+  class AudioChannelConfig final : public AudioPlaybackConfig {
+   public:
+    AudioChannelConfig()
+        : AudioPlaybackConfig(1.0, false, nsISuspendedTypes::NONE_SUSPENDED),
+          mNumberOfAgents(0) {}
+
+    uint32_t mNumberOfAgents;
+  };
+
   class AudioChannelWindow final {
    public:
     explicit AudioChannelWindow(uint64_t aWindowID)
@@ -197,7 +207,7 @@ class AudioChannelService final : public nsIObserver {
 
     uint64_t mWindowID;
     bool mIsAudioCaptured;
-    AudioPlaybackConfig mConfig;
+    AudioChannelConfig mChannelConfig;
 
     // Raw pointer because the AudioChannelAgent must unregister itself.
     nsTObserverArray<AudioChannelAgent*> mAgents;
