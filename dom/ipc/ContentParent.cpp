@@ -68,7 +68,7 @@
 #include "mozilla/dom/Notification.h"
 #include "mozilla/dom/PContentPermissionRequestParent.h"
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
-#include "mozilla/dom/PositionError.h"
+#include "mozilla/dom/GeolocationPositionError.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/devicestorage/DeviceStorageRequestParent.h"
 #include "mozilla/dom/power/PowerManagerService.h"
@@ -239,6 +239,7 @@
 #include "MMPrinter.h"
 #include "nsStreamUtils.h"
 #include "nsIAsyncInputStream.h"
+#include "xpcpublic.h"
 
 #include "mozilla/Sprintf.h"
 
@@ -1868,7 +1869,15 @@ bool ContentParent::ShouldKeepProcessAlive() {
   int32_t processesToKeepAlive = 0;
 
   nsAutoCString keepAlivePref("dom.ipc.keepProcessesAlive.");
-  keepAlivePref.Append(NS_ConvertUTF16toUTF8(mRemoteType));
+
+  if (StringBeginsWith(mRemoteType,
+                       NS_LITERAL_STRING(FISSION_WEB_REMOTE_TYPE)) &&
+      xpc::IsInAutomation()) {
+    keepAlivePref.Append(FISSION_WEB_REMOTE_TYPE);
+    keepAlivePref.AppendLiteral(".perOrigin");
+  } else {
+    keepAlivePref.Append(NS_ConvertUTF16toUTF8(mRemoteType));
+  }
   if (NS_FAILED(
           Preferences::GetInt(keepAlivePref.get(), &processesToKeepAlive))) {
     return false;
@@ -3972,15 +3981,18 @@ mozilla::ipc::IPCResult ContentParent::RecvPSystemMessageServiceConstructor(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentParent::RecvStartVisitedQuery(
-    const URIParams& aURI) {
-  nsCOMPtr<nsIURI> newURI = DeserializeURI(aURI);
-  if (!newURI) {
-    return IPC_FAIL_NO_REASON(this);
-  }
+mozilla::ipc::IPCResult ContentParent::RecvStartVisitedQueries(
+    const nsTArray<URIParams>& aUris) {
   nsCOMPtr<IHistory> history = services::GetHistoryService();
-  if (history) {
-    history->RegisterVisitedCallback(newURI, nullptr);
+  if (!history) {
+    return IPC_OK();
+  }
+  for (const auto& params : aUris) {
+    nsCOMPtr<nsIURI> uri = DeserializeURI(params);
+    if (NS_WARN_IF(!uri)) {
+      continue;
+    }
+    history->RegisterVisitedCallback(uri, nullptr);
   }
   return IPC_OK();
 }
@@ -4276,7 +4288,7 @@ ContentParent::HandleEvent(nsIDOMGeoPosition* postion) {
 }
 
 NS_IMETHODIMP
-ContentParent::HandleEvent(PositionError* positionError) {
+ContentParent::HandleEvent(GeolocationPositionError* positionError) {
   Unused << SendGeolocationError(positionError->Code());
   return NS_OK;
 }
@@ -5170,10 +5182,6 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
       }
     }
   });
-
-  // Content has requested that we open this new content window, so
-  // we must have an opener.
-  newTab->SetHasContentOpener(true);
 
   BrowserParent::AutoUseNewTab aunt(newTab, &cwi.urlToLoad());
   const uint64_t nextRemoteTabId = ++sNextRemoteTabId;

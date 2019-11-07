@@ -448,6 +448,8 @@ class nsWindow final : public nsBaseWidget {
   bool mNeedsUpdatingEGLSurface;
   bool mCompositorInitiallyPaused;
 #endif
+  bool mWindowScaleFactorChanged;
+  int mWindowScaleFactor;
 
  private:
   void DestroyChildWindows();
@@ -622,6 +624,8 @@ class nsWindow final : public nsBaseWidget {
   void CleanLayerManagerRecursive();
 
   virtual int32_t RoundsWidgetCoordinatesTo() override;
+
+  void UpdateMozWindowActive();
 
   void ForceTitlebarRedraw();
 

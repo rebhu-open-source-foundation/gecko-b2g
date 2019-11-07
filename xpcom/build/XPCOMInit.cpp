@@ -249,8 +249,7 @@ static bool sInitializedJS = false;
 // Note that on OSX, aBinDirectory will point to .app/Contents/Resources/browser
 EXPORT_XPCOM_API(nsresult)
 NS_InitXPCOM(nsIServiceManager** aResult, nsIFile* aBinDirectory,
-             nsIDirectoryServiceProvider* aAppFileLocationProvider,
-             bool aInitJSContext) {
+             nsIDirectoryServiceProvider* aAppFileLocationProvider) {
   static bool sInitialized = false;
   if (sInitialized) {
     return NS_ERROR_FAILURE;
@@ -456,16 +455,12 @@ NS_InitXPCOM(nsIServiceManager** aResult, nsIFile* aBinDirectory,
   // After autoreg, but before we actually instantiate any components,
   // add any services listed in the "xpcom-directory-providers" category
   // to the directory service.
-#ifdef MOZ_B2G
-  // B2G has a JS implementation of the directory provider, so we need to
-  // initialize the JS context anyway.
-  xpc::InitializeJSContext();
-#endif
   nsDirectoryService::gService->RegisterCategoryProviders();
 
   // Init SharedThreadPool (which needs the service manager).
   SharedThreadPool::InitStatics();
 
+  mozilla::ScriptPreloader::GetSingleton();
   mozilla::scache::StartupCache::GetSingleton();
   mozilla::AvailableMemoryTracker::Init();
 
@@ -488,13 +483,6 @@ NS_InitXPCOM(nsIServiceManager** aResult, nsIFile* aBinDirectory,
   sMainHangMonitor = new mozilla::BackgroundHangMonitor(
       loop->thread_name().c_str(), loop->transient_hang_timeout(),
       loop->permanent_hang_timeout());
-
-#ifndef MOZ_B2G
-  // We initialize unconditionnaly earlier for B2G.
-  if (aInitJSContext) {
-    xpc::InitializeJSContext();
-  }
-#endif
 
   return NS_OK;
 }
