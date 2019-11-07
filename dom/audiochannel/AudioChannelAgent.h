@@ -60,7 +60,7 @@ class AudioChannelAgent : public nsIAudioChannelAgent {
   // nsIAudioChannelAgentCallback out of mWeakCallback.
   already_AddRefed<nsIAudioChannelAgentCallback> GetCallback();
 
-  nsresult InitInternal(nsPIDOMWindowInner* aWindow,
+  nsresult InitInternal(nsPIDOMWindowInner* aWindow, int32_t aAudioAgentType,
                         nsIAudioChannelAgentCallback* aCallback,
                         bool aUseWeakRef);
 
@@ -73,6 +73,7 @@ class AudioChannelAgent : public nsIAudioChannelAgent {
 
   nsWeakPtr mWeakCallback;
 
+  int32_t mAudioChannelType;
   uint64_t mInnerWindowID;
   bool mIsRegToService;
 };

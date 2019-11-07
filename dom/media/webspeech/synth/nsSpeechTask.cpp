@@ -337,7 +337,10 @@ void nsSpeechTask::CreateAudioChannelAgent() {
   }
 
   mAudioChannelAgent = new AudioChannelAgent();
-  mAudioChannelAgent->InitWithWeakCallback(mUtterance->GetOwner(), this);
+  mAudioChannelAgent->InitWithWeakCallback(
+      mUtterance->GetOwner(),
+      static_cast<int32_t>(AudioChannelService::GetDefaultAudioChannel()),
+      this);
 
   nsresult rv = mAudioChannelAgent->NotifyStartedPlaying(
       AudioChannelService::AudibleState::eAudible);

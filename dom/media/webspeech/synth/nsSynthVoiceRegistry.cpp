@@ -614,8 +614,10 @@ already_AddRefed<nsSpeechTask> nsSynthVoiceRegistry::SpeakUtterance(
   if (service) {
     if (nsCOMPtr<nsPIDOMWindowInner> topWindow = aUtterance.GetOwner()) {
       // TODO : use audio channel agent, open new bug to fix it.
+      uint32_t channel =
+          static_cast<uint32_t>(AudioChannelService::GetDefaultAudioChannel());
       AudioPlaybackConfig config =
-          service->GetMediaConfig(topWindow->GetOuterWindow());
+          service->GetMediaConfig(topWindow->GetOuterWindow(), channel);
       volume = config.mMuted ? 0.0f : config.mVolume * volume;
     }
   }

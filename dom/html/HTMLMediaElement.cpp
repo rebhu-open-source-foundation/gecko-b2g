@@ -1494,8 +1494,10 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     }
 
     mAudioChannelAgent = new AudioChannelAgent();
-    nsresult rv =
-        mAudioChannelAgent->Init(mOwner->OwnerDoc()->GetInnerWindow(), this);
+    nsresult rv = mAudioChannelAgent->Init(
+        mOwner->OwnerDoc()->GetInnerWindow(),
+        static_cast<int32_t>(AudioChannelService::GetDefaultAudioChannel()),
+        this);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       mAudioChannelAgent = nullptr;
       MOZ_LOG(

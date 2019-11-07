@@ -613,7 +613,8 @@ nsresult AudioDestinationNode::CreateAudioChannelAgent() {
   }
 
   mAudioChannelAgent = new AudioChannelAgent();
-  nsresult rv = mAudioChannelAgent->InitWithWeakCallback(GetOwner(), this);
+  nsresult rv = mAudioChannelAgent->InitWithWeakCallback(
+      GetOwner(), static_cast<int32_t>(AudioChannel::Normal), this);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }

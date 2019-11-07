@@ -14,6 +14,7 @@
 
 #include "AudioChannelAgent.h"
 #include "nsAttrValue.h"
+#include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/Logging.h"
 
 #include <functional>
@@ -23,6 +24,8 @@ struct PRLogModuleInfo;
 
 namespace mozilla {
 namespace dom {
+
+#define NUMBER_OF_AUDIO_CHANNELS (uint32_t) AudioChannel::EndGuard_
 
 class AudioPlaybackConfig {
  public:
@@ -139,7 +142,8 @@ class AudioChannelService final : public nsIObserver {
    * Return the state to indicate this audioChannel for his window should keep
    * playing/muted/suspended.
    */
-  AudioPlaybackConfig GetMediaConfig(nsPIDOMWindowOuter* aWindow) const;
+  AudioPlaybackConfig GetMediaConfig(nsPIDOMWindowOuter* aWindow,
+                                     uint32_t aAudioChannel) const;
 
   /**
    * Called this method when the audible state of the audio playback changed,
@@ -162,6 +166,10 @@ class AudioChannelService final : public nsIObserver {
   // just for a particular innerWindow.
   void SetWindowAudioCaptured(nsPIDOMWindowOuter* aWindow,
                               uint64_t aInnerWindowID, bool aCapture);
+
+  static const nsAttrValue::EnumTable* GetAudioChannelTable();
+  static AudioChannel GetAudioChannel(const nsAString& aString);
+  static AudioChannel GetDefaultAudioChannel();
 
   void NotifyMediaResumedFromBlock(nsPIDOMWindowOuter* aWindow);
 
@@ -207,7 +215,7 @@ class AudioChannelService final : public nsIObserver {
 
     uint64_t mWindowID;
     bool mIsAudioCaptured;
-    AudioChannelConfig mChannelConfig;
+    AudioChannelConfig mChannels[NUMBER_OF_AUDIO_CHANNELS];
 
     // Raw pointer because the AudioChannelAgent must unregister itself.
     nsTObserverArray<AudioChannelAgent*> mAgents;

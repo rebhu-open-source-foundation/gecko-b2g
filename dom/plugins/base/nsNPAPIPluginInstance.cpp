@@ -1092,7 +1092,9 @@ nsresult nsNPAPIPluginInstance::CreateAudioChannelAgentIfNeeded() {
     return NS_ERROR_FAILURE;
   }
 
-  nsresult rv = mAudioChannelAgent->Init(window->GetCurrentInnerWindow(), this);
+  nsresult rv = mAudioChannelAgent->Init(
+      window->GetCurrentInnerWindow(),
+      (int32_t)AudioChannelService::GetDefaultAudioChannel(), this);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
