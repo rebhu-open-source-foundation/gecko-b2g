@@ -12,6 +12,7 @@
 #include "AudioSegment.h"
 #include "SelfRef.h"
 #include "mozilla/Atomics.h"
+#include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/dom/AudioContext.h"
 #include "mozilla/DataMutex.h"
 #include "mozilla/SharedThreadPool.h"
@@ -201,6 +202,8 @@ struct GraphInterface {
    * and mGraphRunner is currently run by aDriver. */
   virtual bool InDriverIteration(GraphDriver* aDriver) = 0;
 #endif
+
+  virtual dom::AudioChannel AudioChannel() const = 0;
 };
 
 /**
@@ -735,6 +738,8 @@ class AudioCallbackDriver : public GraphDriver,
   const RefPtr<SharedThreadPool> mInitShutdownThread;
   DataMutex<AutoTArray<TrackAndPromiseForOperation, 1>> mPromisesForOperation;
   cubeb_device_pref mInputDevicePreference;
+  /* This is set during initialization, and can be read safely afterwards. */
+  dom::AudioChannel mAudioChannel;
   /* The mixer that the graph mixes into during an iteration. Audio thread only.
    */
   AudioMixer mMixer;

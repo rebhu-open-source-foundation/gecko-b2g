@@ -86,7 +86,7 @@ class MessageBlock {
  * file. It's not in the anonymous namespace because MediaTrack needs to
  * be able to friend it.
  *
- * There can be multiple MediaTrackGraph per process: one per document.
+ * There can be multiple MediaTrackGraph per process: one per AudioChannel.
  * Additionaly, each OfflineAudioContext object creates its own MediaTrackGraph
  * object too.
  */
@@ -112,6 +112,7 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   explicit MediaTrackGraphImpl(GraphDriverType aGraphDriverRequested,
                                GraphRunType aRunTypeRequested,
                                TrackRate aSampleRate, uint32_t aChannelCount,
+                               dom::AudioChannel aChannel,
                                AbstractThread* aWindow);
 
   // Intended only for assertions, either on graph thread or not running (in
@@ -934,6 +935,8 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   bool mTrackOrderDirty;
   const RefPtr<AbstractThread> mAbstractMainThread;
 
+  dom::AudioChannel AudioChannel() const override { return mAudioChannel; }
+
   // used to limit graph shutdown time
   // Only accessed on the main thread.
   nsCOMPtr<nsITimer> mShutdownTimer;
@@ -978,6 +981,8 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    */
   bool mCanRunMessagesSynchronously;
 #endif
+
+  dom::AudioChannel mAudioChannel;
 
   /**
    * The graph's main-thread observable graph time.

@@ -10,6 +10,7 @@
 #include "CubebUtils.h"
 #include "MainThreadUtils.h"
 #include "MediaSegment.h"
+#include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
@@ -490,6 +491,11 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   virtual size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
   virtual size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const;
 
+  void SetAudioChannelType(dom::AudioChannel aType) {
+    mAudioChannelType = aType;
+  }
+  dom::AudioChannel AudioChannelType() const { return mAudioChannelType; }
+
   bool IsSuspended() const { return mSuspendedCount > 0; }
   void IncrementSuspendCount();
   void DecrementSuspendCount();
@@ -586,6 +592,8 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
 
   // Our media track graph.  null if destroyed on the graph thread.
   MediaTrackGraphImpl* mGraph;
+
+  dom::AudioChannel mAudioChannelType;
 };
 
 /**
@@ -1026,9 +1034,11 @@ class MediaTrackGraph {
   static const TrackRate REQUEST_DEFAULT_SAMPLE_RATE = 0;
 
   // Main thread only
-  static MediaTrackGraph* GetInstanceIfExists(nsPIDOMWindowInner* aWindow,
+  static MediaTrackGraph* GetInstanceIfExists(dom::AudioChannel aChannel,
+                                              nsPIDOMWindowInner* aWindow,
                                               TrackRate aSampleRate);
   static MediaTrackGraph* GetInstance(GraphDriverType aGraphDriverRequested,
+                                      dom::AudioChannel aChannel,
                                       nsPIDOMWindowInner* aWindow,
                                       TrackRate aSampleRate);
   static MediaTrackGraph* CreateNonRealtimeInstance(

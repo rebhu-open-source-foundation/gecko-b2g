@@ -3929,7 +3929,8 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStream(
   }
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      graphDriverType, window, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
+      graphDriverType, mAudioChannel, window,
+      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
@@ -3960,7 +3961,8 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStreamUntilEnded(
   }
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      graphDriverType, window, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
+      graphDriverType, mAudioChannel, window,
+      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::FINISH_WHEN_ENDED,
@@ -5351,6 +5353,9 @@ void HTMLMediaElement::SetupSrcMediaStreamPlayback(DOMMediaStream* aStream) {
   mSrcStream->GetTracks(tracks);
   for (const RefPtr<MediaStreamTrack>& track : tracks) {
     NotifyMediaStreamTrackAdded(track);
+    // FIXME: this doesn't change the actual channel type of the graph which
+    // this track is registered to.
+    track->GetTrack()->SetAudioChannelType(mAudioChannel);
   }
 
   mMediaStreamTrackListener = MakeUnique<MediaStreamTrackListener>(this);
@@ -7478,7 +7483,7 @@ void HTMLMediaElement::AudioCaptureTrackChange(bool aCapture) {
     }
 
     MediaTrackGraph* mtg = MediaTrackGraph::GetInstance(
-        MediaTrackGraph::AUDIO_THREAD_DRIVER, window,
+        MediaTrackGraph::AUDIO_THREAD_DRIVER, mAudioChannel, window,
         MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
     RefPtr<DOMMediaStream> stream =
         CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,

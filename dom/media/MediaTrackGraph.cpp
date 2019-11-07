@@ -18,6 +18,7 @@
 #include "ForwardedInputTrack.h"
 #include "ImageContainer.h"
 #include "AudioCaptureTrack.h"
+#include "AudioChannelService.h"
 #include "AudioNodeTrack.h"
 #include "AudioNodeExternalInputTrack.h"
 #include "MediaTrackListener.h"
@@ -52,7 +53,7 @@ LazyLogModule gMediaTrackGraphLog("MediaTrackGraph");
 #define LOG(type, msg) MOZ_LOG(gMediaTrackGraphLog, type, msg)
 
 /**
- * A hash table containing the graph instances, one per document.
+ * A hash table containing the graph instances, one per AudioChannel.
  *
  * The key is a hash of nsPIDOMWindowInner, see `WindowToHash`.
  */
@@ -1845,7 +1846,8 @@ MediaTrack::MediaTrack(TrackRate aSampleRate, MediaSegment::Type aType,
       mMainThreadEnded(false),
       mEndedNotificationSent(false),
       mMainThreadDestroyed(false),
-      mGraph(nullptr) {
+      mGraph(nullptr),
+      mAudioChannelType(dom::AudioChannel::Normal) {
   MOZ_COUNT_CTOR(MediaTrack);
   MOZ_ASSERT_IF(mSegment, mSegment->GetType() == aType);
 }
@@ -1909,6 +1911,7 @@ void MediaTrack::SetGraphImpl(MediaTrackGraphImpl* aGraph) {
   MOZ_ASSERT(!mGraph, "Should only be called once");
   MOZ_ASSERT(mSampleRate == aGraph->GraphRate());
   mGraph = aGraph;
+  mAudioChannelType = aGraph->AudioChannel();
 }
 
 void MediaTrack::SetGraphImpl(MediaTrackGraph* aGraph) {
@@ -2956,6 +2959,7 @@ MediaTrackGraphImpl::MediaTrackGraphImpl(GraphDriverType aDriverRequested,
                                          GraphRunType aRunTypeRequested,
                                          TrackRate aSampleRate,
                                          uint32_t aChannelCount,
+                                         dom::AudioChannel aChannel,
                                          AbstractThread* aMainThread)
     : MediaTrackGraph(aSampleRate),
       mGraphRunner(aRunTypeRequested == SINGLE_THREAD
@@ -2984,6 +2988,7 @@ MediaTrackGraphImpl::MediaTrackGraphImpl(GraphDriverType aDriverRequested,
       mCanRunMessagesSynchronously(false)
 #endif
       ,
+      mAudioChannel(aChannel),
       mMainThreadGraphTime(0, "MediaTrackGraphImpl::mMainThreadGraphTime"),
       mAudioOutputLatency(0.0) {
   if (aRunTypeRequested == SINGLE_THREAD && !mGraphRunner) {
@@ -3041,10 +3046,12 @@ void MediaTrackGraphImpl::Destroy() {
   mSelfRef = nullptr;
 }
 
-static uint32_t WindowToHash(nsPIDOMWindowInner* aWindow,
-                             TrackRate aSampleRate) {
+static uint32_t ChannelAndWindowToHash(dom::AudioChannel aChannel,
+                                       nsPIDOMWindowInner* aWindow,
+                                       TrackRate aSampleRate) {
   uint32_t hashkey = 0;
 
+  hashkey = AddToHash(hashkey, static_cast<uint32_t>(aChannel));
   hashkey = AddToHash(hashkey, aWindow);
   hashkey = AddToHash(hashkey, aSampleRate);
 
@@ -3052,12 +3059,13 @@ static uint32_t WindowToHash(nsPIDOMWindowInner* aWindow,
 }
 
 MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
-    nsPIDOMWindowInner* aWindow, TrackRate aSampleRate) {
+    dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
+    TrackRate aSampleRate) {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   TrackRate sampleRate =
       aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
-  uint32_t hashkey = WindowToHash(aWindow, sampleRate);
+  uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate);
 
   MediaTrackGraphImpl* graph = nullptr;
   gGraphs.Get(hashkey, &graph);
@@ -3066,13 +3074,15 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
 
 MediaTrackGraph* MediaTrackGraph::GetInstance(
     MediaTrackGraph::GraphDriverType aGraphDriverRequested,
-    nsPIDOMWindowInner* aWindow, TrackRate aSampleRate) {
+    dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
+    TrackRate aSampleRate) {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
+  uint32_t channel = static_cast<uint32_t>(aChannel);
   TrackRate sampleRate =
       aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
   MediaTrackGraphImpl* graph = static_cast<MediaTrackGraphImpl*>(
-      GetInstanceIfExists(aWindow, sampleRate));
+      GetInstanceIfExists(aChannel, aWindow, sampleRate));
 
   if (!graph) {
     AbstractThread* mainThread;
@@ -3098,13 +3108,14 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     uint32_t channelCount =
         std::min<uint32_t>(8, CubebUtils::MaxNumberOfChannels());
     graph = new MediaTrackGraphImpl(aGraphDriverRequested, runType, sampleRate,
-                                    channelCount, mainThread);
+                                    channelCount, aChannel, mainThread);
 
-    uint32_t hashkey = WindowToHash(aWindow, sampleRate);
+    uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate);
     gGraphs.Put(hashkey, graph);
 
     LOG(LogLevel::Debug,
-        ("Starting up MediaTrackGraph %p for window %p", graph, aWindow));
+        ("Starting up MediaStreamGraph %p for channel %s and window %p", graph,
+         AudioChannelValues::strings[channel].value, aWindow));
   }
 
   return graph;
@@ -3124,8 +3135,9 @@ MediaTrackGraph* MediaTrackGraph::CreateNonRealtimeInstance(
 
   // Offline graphs have 0 output channel count: they write the output to a
   // buffer, not an audio output track.
-  MediaTrackGraphImpl* graph = new MediaTrackGraphImpl(
-      OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aSampleRate, 0, mainThread);
+  MediaTrackGraphImpl* graph =
+      new MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aSampleRate,
+                              0, AudioChannel::Normal, mainThread);
 
   LOG(LogLevel::Debug, ("Starting up Offline MediaTrackGraph %p", graph));
 

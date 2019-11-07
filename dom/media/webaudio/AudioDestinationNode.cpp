@@ -311,11 +311,9 @@ const AudioNodeTrack::Flags kTrackFlags =
     AudioNodeTrack::NEED_MAIN_THREAD_CURRENT_TIME |
     AudioNodeTrack::NEED_MAIN_THREAD_ENDED | AudioNodeTrack::EXTERNAL_OUTPUT;
 
-AudioDestinationNode::AudioDestinationNode(AudioContext* aContext,
-                                           bool aIsOffline,
-                                           bool aAllowedToStart,
-                                           uint32_t aNumberOfChannels,
-                                           uint32_t aLength)
+AudioDestinationNode::AudioDestinationNode(
+    AudioContext* aContext, bool aIsOffline, bool aAllowedToStart,
+    AudioChannel aChannel, uint32_t aNumberOfChannels, uint32_t aLength)
     : AudioNode(aContext, aNumberOfChannels, ChannelCountMode::Explicit,
                 ChannelInterpretation::Speakers),
       mFramesToProduce(aLength),
@@ -333,8 +331,8 @@ AudioDestinationNode::AudioDestinationNode(AudioContext* aContext,
   // GetParentObject can return nullptr here. This will end up creating another
   // MediaTrackGraph
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, aContext->GetParentObject(),
-      aContext->SampleRate());
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, aChannel,
+      aContext->GetParentObject(), aContext->SampleRate());
   AudioNodeEngine* engine = new DestinationNodeEngine(this);
 
   mTrack = AudioNodeTrack::Create(aContext, engine, kTrackFlags, graph);
@@ -352,6 +350,11 @@ AudioDestinationNode::AudioDestinationNode(AudioContext* aContext,
           NS_WARNING(
               "AudioDestinationNode's graph never started processing audio");
         });
+  }
+
+  if (aChannel != AudioChannel::Normal) {
+    ErrorResult rv;
+    SetMozAudioChannelType(aChannel, rv);
   }
 }
 
@@ -608,6 +611,10 @@ void AudioDestinationNode::SetMozAudioChannelType(AudioChannel aValue,
 
   if (aValue != mAudioChannel && CheckAudioChannelPermissions(aValue)) {
     mAudioChannel = aValue;
+
+    if (mTrack) {
+      mTrack->SetAudioChannelType(mAudioChannel);
+    }
 
     if (mAudioChannelAgent) {
       CreateAudioChannelAgent();

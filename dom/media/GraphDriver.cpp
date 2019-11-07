@@ -392,6 +392,9 @@ class AudioCallbackDriver::FallbackWrapper : public GraphInterface {
     return !mOwner->ThreadRunning() && mOwner->InIteration();
   }
 #endif
+  dom::AudioChannel AudioChannel() const override {
+    return mGraph->AudioChannel();
+  }
   IterationResult OneIteration(GraphTime aStateComputedEnd,
                                GraphTime aIterationEnd,
                                AudioMixer* aMixer) override {
@@ -490,6 +493,7 @@ AudioCallbackDriver::AudioCallbackDriver(
       mInitShutdownThread(
           SharedThreadPool::Get(NS_LITERAL_CSTRING("CubebOperation"), 1)),
       mPromisesForOperation("AudioCallbackDriver::mPromisesForOperation"),
+      mAudioChannel(aGraphInterface->AudioChannel()),
       mAudioThreadId(std::thread::id()),
       mAudioStreamState(AudioStreamState::None),
       mFallback("AudioCallbackDriver::mFallback") {

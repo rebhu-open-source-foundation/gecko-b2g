@@ -42,6 +42,10 @@ class MockGraphInterface : public GraphInterface {
   }
 #endif
 
+  dom::AudioChannel AudioChannel() const override {
+    return dom::AudioChannel::Normal;
+  }
+
   void StopIterating() { mKeepProcessing = false; }
 
  protected:

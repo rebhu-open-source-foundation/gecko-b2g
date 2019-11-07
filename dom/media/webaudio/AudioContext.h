@@ -9,6 +9,7 @@
 
 #include "AudioParamDescriptorMap.h"
 #include "mozilla/dom/OfflineAudioContextBinding.h"
+#include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/dom/AudioContextBinding.h"
 #include "MediaBufferDecoder.h"
 #include "mozilla/Attributes.h"
@@ -137,8 +138,8 @@ class AudioContext final : public DOMEventTargetHelper,
                            public nsIMemoryReporter,
                            public RelativeTimeline {
   AudioContext(nsPIDOMWindowInner* aParentWindow, bool aIsOffline,
-               uint32_t aNumberOfChannels = 0, uint32_t aLength = 0,
-               float aSampleRate = 0.0f);
+               AudioChannel aChannel, uint32_t aNumberOfChannels = 0,
+               uint32_t aLength = 0, float aSampleRate = 0.0f);
   ~AudioContext();
 
   nsresult Init();

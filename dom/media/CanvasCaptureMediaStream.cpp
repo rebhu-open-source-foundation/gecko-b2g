@@ -168,7 +168,7 @@ void CanvasCaptureMediaStream::RequestFrame() {
 nsresult CanvasCaptureMediaStream::Init(const dom::Optional<double>& aFPS,
                                         nsIPrincipal* aPrincipal) {
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mWindow,
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, AudioChannel::Normal, mWindow,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
   SourceMediaTrack* source = graph->CreateSourceTrack(MediaSegment::VIDEO);
   PrincipalHandle principalHandle = MakePrincipalHandle(aPrincipal);

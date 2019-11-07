@@ -153,8 +153,8 @@ static float GetSampleRateForAudioContext(bool aIsOffline, float aSampleRate) {
 }
 
 AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
-                           uint32_t aNumberOfChannels, uint32_t aLength,
-                           float aSampleRate)
+                           AudioChannel aChannel, uint32_t aNumberOfChannels,
+                           uint32_t aLength, float aSampleRate)
     : DOMEventTargetHelper(aWindow),
       mId(gAudioContextId++),
       mSampleRate(GetSampleRateForAudioContext(aIsOffline, aSampleRate)),
@@ -185,7 +185,7 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
     ReportBlocked();
   }
   mDestination = new AudioDestinationNode(this, aIsOffline, allowedToStart,
-                                          aNumberOfChannels, aLength);
+                                          aChannel, aNumberOfChannels, aLength);
 
   // The context can't be muted until it has a destination.
   if (mute) {
@@ -278,8 +278,9 @@ already_AddRefed<AudioContext> AudioContext::Constructor(
   }
   sampleRate = aOptions.mSampleRate;
 
-  RefPtr<AudioContext> object =
-      new AudioContext(window, false, 2, 0, sampleRate);
+  RefPtr<AudioContext> object = new AudioContext(
+      window, false, AudioChannelService::GetDefaultAudioChannel(), 2, 0,
+      sampleRate);
   aRv = object->Init();
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
@@ -326,7 +327,8 @@ already_AddRefed<AudioContext> AudioContext::Constructor(
   }
 
   RefPtr<AudioContext> object =
-      new AudioContext(window, true, aNumberOfChannels, aLength, aSampleRate);
+      new AudioContext(window, true, AudioChannel::Normal, aNumberOfChannels,
+                       aLength, aSampleRate);
 
   RegisterWeakMemoryReporter(object);
 
