@@ -20,6 +20,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/StateWatching.h"
 #include "mozilla/WeakPtr.h"
+#include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/dom/HTMLMediaElementBinding.h"
 #include "mozilla/dom/MediaControlKeysEvent.h"
 #include "mozilla/dom/MediaDebugInfoBinding.h"
@@ -1709,6 +1710,9 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // True if the media's channel's download has been suspended.
   Watchable<bool> mDownloadSuspendedByCache = {
       false, "HTMLMediaElement::mDownloadSuspendedByCache"};
+
+  // Audio Channel.
+  AudioChannel mAudioChannel;
 
   // Disable the video playback by track selection. This flag might not be
   // enough if we ever expand the ability of supporting multi-tracks video

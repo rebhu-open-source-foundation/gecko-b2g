@@ -1335,8 +1335,10 @@ class HTMLMediaElement::AudioChannelAgentCallback final
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(AudioChannelAgentCallback)
 
-  explicit AudioChannelAgentCallback(HTMLMediaElement* aOwner)
+  explicit AudioChannelAgentCallback(HTMLMediaElement* aOwner,
+                                     AudioChannel aChannel)
       : mOwner(aOwner),
+        mAudioChannel(aChannel),
         mAudioChannelVolume(1.0),
         mPlayingThroughTheAudioChannel(false),
         mSuspended(nsISuspendedTypes::NONE_SUSPENDED),
@@ -1494,10 +1496,9 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     }
 
     mAudioChannelAgent = new AudioChannelAgent();
-    nsresult rv = mAudioChannelAgent->Init(
-        mOwner->OwnerDoc()->GetInnerWindow(),
-        static_cast<int32_t>(AudioChannelService::GetDefaultAudioChannel()),
-        this);
+    nsresult rv =
+        mAudioChannelAgent->Init(mOwner->OwnerDoc()->GetInnerWindow(),
+                                 static_cast<int32_t>(mAudioChannel), this);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       mAudioChannelAgent = nullptr;
       MOZ_LOG(
@@ -1694,6 +1695,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
   RefPtr<AudioChannelAgent> mAudioChannelAgent;
   HTMLMediaElement* mOwner;
 
+  AudioChannel mAudioChannel;
   // The audio channel volume
   float mAudioChannelVolume;
   // Is this media element playing?
@@ -4161,8 +4163,9 @@ HTMLMediaElement::HTMLMediaElement(
       mShutdownObserver(new ShutdownObserver),
       mPlayed(new TimeRanges(ToSupports(OwnerDoc()))),
       mTracksCaptured(nullptr, "HTMLMediaElement::mTracksCaptured"),
+      mAudioChannel(AudioChannelService::GetDefaultAudioChannel()),
       mErrorSink(new ErrorSink(this)),
-      mAudioChannelWrapper(new AudioChannelAgentCallback(this)),
+      mAudioChannelWrapper(new AudioChannelAgentCallback(this, mAudioChannel)),
       mSink(MakePair(nsString(), RefPtr<AudioDeviceInfo>())),
       mShowPoster(IsVideo()) {
   MOZ_ASSERT(mMainThreadEventTarget);
