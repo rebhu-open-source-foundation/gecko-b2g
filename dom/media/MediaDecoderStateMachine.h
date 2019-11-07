@@ -525,6 +525,7 @@ class MediaDecoderStateMachine
   const RefPtr<AbstractThread> mAbstractMainThread;
   const RefPtr<FrameStatistics> mFrameStats;
   const RefPtr<VideoFrameContainer> mVideoFrameContainer;
+  const dom::AudioChannel mAudioChannel;
 
   // Task queue for running the state machine.
   RefPtr<TaskQueue> mTaskQueue;

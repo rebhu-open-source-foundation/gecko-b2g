@@ -3039,7 +3039,7 @@ MediaResult HTMLMediaElement::LoadResource() {
 
   if (mMediaSource) {
     MediaDecoderInit decoderInit(
-        this, mMuted ? 0.0 : mVolume, mPreservesPitch,
+        this, mAudioChannel, mMuted ? 0.0 : mVolume, mPreservesPitch,
         ClampPlaybackRate(mPlaybackRate),
         mPreloadAction == HTMLMediaElement::PRELOAD_METADATA, mHasSuspendTaint,
         HasAttr(kNameSpaceID_None, nsGkAtoms::loop),
@@ -5046,7 +5046,7 @@ nsresult HTMLMediaElement::InitializeDecoderAsClone(
   AssertReadyStateIsNothing();
 
   MediaDecoderInit decoderInit(
-      this, mMuted ? 0.0 : mVolume, mPreservesPitch,
+      this, mAudioChannel, mMuted ? 0.0 : mVolume, mPreservesPitch,
       ClampPlaybackRate(mPlaybackRate),
       mPreloadAction == HTMLMediaElement::PRELOAD_METADATA, mHasSuspendTaint,
       HasAttr(kNameSpaceID_None, nsGkAtoms::loop), aOriginal->ContainerType());
@@ -5123,7 +5123,7 @@ nsresult HTMLMediaElement::InitializeDecoderForChannel(
   }
 
   MediaDecoderInit decoderInit(
-      this, mMuted ? 0.0 : mVolume, mPreservesPitch,
+      this, mAudioChannel, mMuted ? 0.0 : mVolume, mPreservesPitch,
       ClampPlaybackRate(mPlaybackRate),
       mPreloadAction == HTMLMediaElement::PRELOAD_METADATA, mHasSuspendTaint,
       HasAttr(kNameSpaceID_None, nsGkAtoms::loop), *containerType);

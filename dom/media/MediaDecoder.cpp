@@ -6,6 +6,7 @@
 
 #include "MediaDecoder.h"
 
+#include "AudioChannelService.h"
 #include "AudioDeviceInfo.h"
 #include "DOMMediaStream.h"
 #include "DecoderBenchmark.h"
@@ -293,6 +294,7 @@ MediaDecoder::MediaDecoder(MediaDecoderInit& aInit)
       mFrameStats(new FrameStatistics()),
       mDecoderBenchmark(new DecoderBenchmark()),
       mVideoFrameContainer(aInit.mOwner->GetVideoFrameContainer()),
+      mAudioChannel(aInit.mAudioChannel),
       mMinimizePreroll(aInit.mMinimizePreroll),
       mFiredMetadataLoaded(false),
       mIsDocumentVisible(false),
