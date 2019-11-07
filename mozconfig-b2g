@@ -19,7 +19,6 @@ ac_add_options --disable-webrtc
 ac_add_options --disable-printing
 ac_add_options --disable-updater
 ac_add_options --disable-cranelift
-ac_add_options --disable-xbl
 
 if [ "${B2G_DEBUG:-0}" != "0" ]; then
   ac_add_options --enable-debug
