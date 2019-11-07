@@ -38,7 +38,9 @@ static void InitMutex(pthread_mutex_t* mMutex) {
 
 CrossProcessMutex::CrossProcessMutex(const char*)
     : mMutex(nullptr), mCount(nullptr) {
-#if defined(MOZ_SANDBOX)
+  // Don't assert on Gonk since bionic doesn't face the safety
+  // issues of glibc.
+#if defined(MOZ_SANDBOX) && !defined(MOZ_WIDGET_GONK)
   // POSIX mutexes in shared memory aren't guaranteed to be safe - and
   // they specifically are not on Linux.
   MOZ_RELEASE_ASSERT(false);
