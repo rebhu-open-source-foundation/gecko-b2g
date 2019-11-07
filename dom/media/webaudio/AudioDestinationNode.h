@@ -54,6 +54,8 @@ class AudioDestinationNode final : public AudioNode,
 
   void OfflineShutdown();
 
+  AudioChannel MozAudioChannelType() const;
+
   void NotifyMainThreadTrackEnded() override;
   void FireOfflineCompletionEvent();
 
@@ -85,6 +87,9 @@ class AudioDestinationNode final : public AudioNode,
   void StartAudioCapturingTrack();
   void StopAudioCapturingTrack();
 
+  void SetMozAudioChannelType(AudioChannel aValue, ErrorResult& aRv);
+  bool CheckAudioChannelPermissions(AudioChannel aValue);
+
   SelfReference<AudioDestinationNode> mOfflineRenderingRef;
   uint32_t mFramesToProduce;
 
@@ -93,6 +98,8 @@ class AudioDestinationNode final : public AudioNode,
 
   RefPtr<Promise> mOfflineRenderingPromise;
 
+  // Audio Channel Type.
+  AudioChannel mAudioChannel;
   bool mIsOffline;
   bool mAudioChannelSuspended;
 
