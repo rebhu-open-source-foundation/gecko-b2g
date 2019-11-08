@@ -102,6 +102,7 @@
 #include "mozilla/IMEStateManager.h"
 #include "mozilla/dom/HTMLVideoElement.h"
 #include "ThirdPartyUtil.h"
+#include "CameraPreferences.h"
 #include "TouchManager.h"
 #include "DecoderDoctorLogger.h"
 #include "MediaDecoder.h"
@@ -269,6 +270,8 @@ nsresult nsLayoutStatics::Initialize() {
 
   CacheObserver::Init();
 
+  CameraPreferences::Initialize();
+
   IMEStateManager::Init();
 
   ServiceWorkerRegistrar::Initialize();
@@ -420,6 +423,8 @@ void nsLayoutStatics::Shutdown() {
   DisplayItemClip::Shutdown();
 
   CacheObserver::Shutdown();
+
+  CameraPreferences::Shutdown();
 
   PromiseDebugging::Shutdown();
 

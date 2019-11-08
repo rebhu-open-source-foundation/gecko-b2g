@@ -33,6 +33,7 @@ LOCAL_INCLUDES += [
     '/dom/audiochannel',
     '/dom/base',
     '/dom/bindings',
+    '/dom/camera',
     '/dom/canvas',
     '/dom/filesystem',
     '/dom/geolocation',

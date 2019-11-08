@@ -44,6 +44,102 @@ using namespace mozilla::media;
 static LazyLogModule gMediaStreamLog("MediaStream");
 #define LOG(type, msg) MOZ_LOG(gMediaStreamLog, type, msg)
 
+const TrackID TRACK_VIDEO_PRIMARY = 1;
+
+
+DOMMediaStream::TrackPort::TrackPort(MediaInputPort* aInputPort,
+                                     MediaStreamTrack* aTrack,
+                                     const InputPortOwnership aOwnership)
+  : mInputPort(aInputPort)
+  , mTrack(aTrack)
+  , mOwnership(aOwnership)
+{
+  // XXX Bug 1124630. nsDOMCameraControl requires adding a track without and
+  // input port.
+  // MOZ_ASSERT(mInputPort);
+  MOZ_ASSERT(mTrack);
+
+  MOZ_COUNT_CTOR(TrackPort);
+}
+
+DOMMediaStream::TrackPort::~TrackPort()
+{
+  MOZ_COUNT_DTOR(TrackPort);
+
+  if (mOwnership == InputPortOwnership::OWNED) {
+    DestroyInputPort();
+  }
+}
+
+void
+DOMMediaStream::TrackPort::DestroyInputPort()
+{
+  if (mInputPort) {
+    mInputPort->Destroy();
+    mInputPort = nullptr;
+  }
+}
+
+MediaStream*
+DOMMediaStream::TrackPort::GetSource() const
+{
+  return mInputPort ? mInputPort->GetSource() : nullptr;
+}
+
+TrackID
+DOMMediaStream::TrackPort::GetSourceTrackId() const
+{
+  return mInputPort ? mInputPort->GetSourceTrackId() : TRACK_INVALID;
+}
+
+already_AddRefed<Pledge<bool>>
+DOMMediaStream::TrackPort::BlockSourceTrackId(TrackID aTrackId, BlockingMode aBlockingMode)
+{
+  if (mInputPort) {
+    return mInputPort->BlockSourceTrackId(aTrackId, aBlockingMode);
+  }
+  RefPtr<Pledge<bool>> rejected = new Pledge<bool>();
+  rejected->Reject(NS_ERROR_FAILURE);
+  return rejected.forget();
+}
+
+NS_IMPL_CYCLE_COLLECTION(DOMMediaStream::TrackPort, mTrack)
+NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMMediaStream::TrackPort, AddRef)
+NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMMediaStream::TrackPort, Release)
+
+NS_IMPL_CYCLE_COLLECTING_ADDREF(MediaStreamTrackSourceGetter)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(MediaStreamTrackSourceGetter)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaStreamTrackSourceGetter)
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
+NS_INTERFACE_MAP_END
+NS_IMPL_CYCLE_COLLECTION_0(MediaStreamTrackSourceGetter)
+
+/**
+ * Listener registered on the Owned stream to detect added and ended owned
+ * tracks for keeping the list of MediaStreamTracks in sync with the tracks
+ * added and ended directly at the source.
+ */
+class DOMMediaStream::OwnedStreamListener : public MediaStreamListener {
+public:
+  explicit OwnedStreamListener(DOMMediaStream* aStream)
+    : mStream(aStream)
+  {}
+
+  void Forget() { mStream = nullptr; }
+
+  void DoNotifyTrackCreated(TrackID aTrackID, MediaSegment::Type aType,
+                            MediaStream* aInputStream, TrackID aInputTrackID)
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    if (!mStream) {
+      return;
+    }
+  }
+
+  return false;
+}
+
 static bool ContainsLiveTracks(
     const nsTArray<RefPtr<MediaStreamTrack>>& aTracks) {
   for (const auto& track : aTracks) {
@@ -54,6 +150,7 @@ static bool ContainsLiveTracks(
 
   return false;
 }
+
 
 static bool ContainsLiveAudioTracks(
     const nsTArray<RefPtr<MediaStreamTrack>>& aTracks) {
@@ -475,7 +572,76 @@ void DOMMediaStream::NotifyTrackAdded(const RefPtr<MediaStreamTrack>& aTrack) {
   aTrack->AddConsumer(mPlaybackTrackListener);
 
   for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
+<<<<<<< HEAD
     mTrackListeners[i]->NotifyTrackAdded(aTrack);
+=======
+    mTrackListeners[i]->NotifyTrackRemoved(aTrack);
+  }
+
+  // Don't call RecomputePrincipal here as the track may still exist in the
+  // playback stream in the MediaStreamGraph. It will instead be called when the
+  // track has been confirmed removed by the graph. See BlockPlaybackTrack().
+}
+
+nsresult
+DOMMediaStream::DispatchTrackEvent(const nsAString& aName,
+                                   const RefPtr<MediaStreamTrack>& aTrack)
+{
+  MOZ_ASSERT(aName == NS_LITERAL_STRING("addtrack"),
+             "Only 'addtrack' is supported at this time");
+
+  MediaStreamTrackEventInit init;
+  init.mTrack = aTrack;
+
+  RefPtr<MediaStreamTrackEvent> event =
+    MediaStreamTrackEvent::Constructor(this, aName, init);
+
+  return DispatchTrustedEvent(event);
+}
+
+void
+DOMMediaStream::CreateAndAddPlaybackStreamListener(MediaStream* aStream)
+{
+  MOZ_ASSERT(GetCameraStream(), "I'm a hack. Only DOMCameraControl may use me.");
+  mPlaybackListener = new PlaybackStreamListener(this);
+  aStream->AddListener(mPlaybackListener);
+}
+
+void
+DOMMediaStream::BlockPlaybackTrack(TrackPort* aTrack)
+{
+  MOZ_ASSERT(aTrack);
+  ++mTracksPendingRemoval;
+  RefPtr<Pledge<bool>> p =
+    aTrack->BlockSourceTrackId(aTrack->GetTrack()->mTrackID,
+                               BlockingMode::CREATION);
+  RefPtr<DOMMediaStream> self = this;
+  p->Then([self] (const bool& aIgnore) { self->NotifyPlaybackTrackBlocked(); },
+          [] (const nsresult& aIgnore) { NS_ERROR("Could not remove track from MSG"); }
+  );
+}
+
+void
+DOMMediaStream::NotifyPlaybackTrackBlocked()
+{
+  MOZ_ASSERT(mTracksPendingRemoval > 0,
+             "A track reported finished blocking more times than we asked for");
+  if (--mTracksPendingRemoval == 0) {
+    // The MediaStreamGraph has reported a track was blocked and we are not
+    // waiting for any further tracks to get blocked. It is now safe to
+    // recompute the principal based on our main thread track set state.
+    LOG(LogLevel::Debug, ("DOMMediaStream %p saw all tracks pending removal "
+                          "finish. Recomputing principal.", this));
+    RecomputePrincipal();
+  }
+}
+
+DOMLocalMediaStream::~DOMLocalMediaStream()
+{
+  if (mInputStream) {
+    // Make sure Listeners of this stream know it's going away
+    StopImpl();
+>>>>>>> parent of 3c1524e5e00c... Bug 1306137 - remove b2g camera code: Remove dom/camera/ and code which depends on it. r=aosmond,bkelly
   }
 
   if (!mActive) {

@@ -87,6 +87,14 @@
 
 #include "mozilla/dom/MediaDevices.h"
 #include "MediaManager.h"
+#ifdef MOZ_B2G_BT
+#include "BluetoothManager.h"
+#endif
+#include "DOMCameraManager.h"
+
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+#include "AudioChannelManager.h"
+#endif
 
 #include "nsIDOMGlobalPropertyInitializer.h"
 #include "nsJSUtils.h"
@@ -161,6 +169,16 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConnection)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStorageManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCredentials)
+#ifdef MOZ_B2G_RIL
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileConnections)
+#endif
+#ifdef MOZ_B2G_BT
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
+#endif
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAudioChannelManager)
+#endif
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCameraManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaDevices)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mServiceWorkerContainer)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaCapabilities)
@@ -213,6 +231,19 @@ void Navigator::Invalidate() {
     mConnection = nullptr;
   }
 
+#ifdef MOZ_B2G_RIL
+  if (mMobileConnections) {
+    mMobileConnections = nullptr;
+  }
+#endif
+
+#ifdef MOZ_B2G_BT
+  if (mBluetooth) {
+    mBluetooth = nullptr;
+  }
+#endif
+
+  mCameraManager = nullptr;
   mMediaDevices = nullptr;
 
   uint32_t len = mDeviceStorageStores.Length();
@@ -1797,7 +1828,26 @@ network::Connection* Navigator::GetConnection(ErrorResult& aRv) {
   return mConnection;
 }
 
-already_AddRefed<ServiceWorkerContainer> Navigator::ServiceWorker() {
+nsDOMCameraManager*
+Navigator::GetMozCameras(ErrorResult& aRv)
+{
+  if (!mCameraManager) {
+    if (!mWindow ||
+        !mWindow->GetOuterWindow() ||
+        mWindow->GetOuterWindow()->GetCurrentInnerWindow() != mWindow) {
+      aRv.Throw(NS_ERROR_NOT_AVAILABLE);
+      return nullptr;
+    }
+
+    mCameraManager = nsDOMCameraManager::CreateInstance(mWindow);
+  }
+
+  return mCameraManager;
+}
+
+already_AddRefed<ServiceWorkerContainer>
+Navigator::ServiceWorker()
+{
   MOZ_ASSERT(mWindow);
 
   if (!mServiceWorkerContainer) {
@@ -1835,6 +1885,9 @@ void Navigator::OnNavigation() {
   if (manager) {
     manager->OnNavigation(mWindow->WindowID());
   }
+  if (mCameraManager) {
+    mCameraManager->OnNavigation(mWindow->WindowID());
+  }
 }
 
 JSObject* Navigator::WrapObject(JSContext* cx,
@@ -1850,6 +1903,65 @@ bool Navigator::HasUserMediaSupport(JSContext* cx, JSObject* obj) {
           StaticPrefs::media_peerconnection_enabled()) &&
          (IsSecureContextOrObjectIsFromSecureContext(cx, obj) ||
           StaticPrefs::media_devices_insecure_enabled());
+}
+
+bool
+Navigator::HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */)
+{
+  nsCOMPtr<nsIPowerManagerService> pmService =
+    do_GetService(POWERMANAGERSERVICE_CONTRACTID);
+  // No service means no wake lock support
+  return !!pmService;
+}
+
+/* static */
+bool
+Navigator::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetWindowFromGlobal(aGlobal);
+  return win && nsDOMCameraManager::CheckPermission(win);
+}
+
+/* static */
+bool
+Navigator::HasWifiManagerSupport(JSContext* /* unused */,
+                                 JSObject* aGlobal)
+{
+  // On XBL scope, the global object is NOT |window|. So we have
+  // to use nsContentUtils::GetObjectPrincipal to get the principal
+  // and test directly with permission manager.
+
+  nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
+  uint32_t permission = GetPermission(principal, "wifi-manage");
+
+  return permission == nsIPermissionManager::ALLOW_ACTION;
+}
+
+#ifdef MOZ_NFC
+/* static */
+bool
+Navigator::HasNFCSupport(JSContext* /* unused */, JSObject* aGlobal)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetWindowFromGlobal(aGlobal);
+
+  // Do not support NFC if NFC content helper does not exist.
+  nsCOMPtr<nsISupports> contentHelper = do_GetService("@mozilla.org/nfc/content-helper;1");
+  return !!contentHelper;
+}
+#endif // MOZ_NFC
+
+/* static */
+bool
+Navigator::IsE10sEnabled(JSContext* aCx, JSObject* aGlobal)
+{
+  return XRE_IsContentProcess();
+}
+
+bool
+Navigator::MozE10sEnabled()
+{
+  // This will only be called if IsE10sEnabled() is true.
+  return true;
 }
 
 /* static */

@@ -43,6 +43,10 @@
 #include "base/thread.h"
 #include "base/task.h"
 
+#ifdef MOZ_WIDGET_GONK
+#include "DOMCameraManager.h"
+#endif
+
 namespace mozilla {
 namespace dom {
 struct MediaStreamConstraints;

@@ -24,6 +24,7 @@ class nsPluginArray;
 class nsMimeTypeArray;
 class nsPIDOMWindowInner;
 class nsIDOMNavigatorSystemMessages;
+class nsDOMCameraManager;
 class nsDOMDeviceStorage;
 class nsIPrincipal;
 class nsIURI;
@@ -191,6 +192,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<LegacyMozTCPSocket> MozTCPSocket();
   network::Connection* GetConnection(ErrorResult& aRv);
+  nsDOMCameraManager* GetMozCameras(ErrorResult& aRv);
   MediaDevices* GetMediaDevices(ErrorResult& aRv);
 
   void GetGamepads(nsTArray<RefPtr<Gamepad>>& aGamepads, ErrorResult& aRv);
@@ -241,6 +243,14 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   AddonManager* GetMozAddonManager(ErrorResult& aRv);
 
   // WebIDL helper methods
+  static bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
+  static bool HasCameraSupport(JSContext* /* unused */,
+                               JSObject* aGlobal);
+  static bool HasWifiManagerSupport(JSContext* /* unused */,
+                                  JSObject* aGlobal);
+#ifdef MOZ_NFC
+  static bool HasNFCSupport(JSContext* /* unused */, JSObject* aGlobal);
+#endif // MOZ_NFC
   static bool HasUserMediaSupport(JSContext* /* unused */,
                                   JSObject* /* unused */);
   static bool HasWakeLockSupport(JSContext* /* unused*/,
@@ -292,6 +302,16 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   RefPtr<network::Connection> mConnection;
   RefPtr<CredentialsContainer> mCredentials;
   RefPtr<dom::Clipboard> mClipboard;
+#ifdef MOZ_B2G_RIL
+  RefPtr<MobileConnectionArray> mMobileConnections;
+#endif
+#ifdef MOZ_B2G_BT
+  RefPtr<bluetooth::BluetoothManager> mBluetooth;
+#endif
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+  RefPtr<system::AudioChannelManager> mAudioChannelManager;
+#endif
+  RefPtr<nsDOMCameraManager> mCameraManager;
   RefPtr<MediaDevices> mMediaDevices;
   nsTArray<nsWeakPtr> mDeviceStorageStores;
   RefPtr<ServiceWorkerContainer> mServiceWorkerContainer;

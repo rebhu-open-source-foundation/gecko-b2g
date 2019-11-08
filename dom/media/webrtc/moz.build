@@ -49,6 +49,8 @@ if CONFIG['MOZ_WEBRTC']:
         '/dom/base',
         '/dom/media',
         '/media/libyuv/libyuv/include',
+        '/dom/camera',
+        '/media/libyuv/include',
         '/media/webrtc/signaling/src/common',
         '/media/webrtc/signaling/src/common/browser_logging',
         '/media/webrtc/trunk',
