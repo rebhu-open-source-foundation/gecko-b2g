@@ -74,8 +74,9 @@ bool ResumeDelayedPlaybackAgent::ResumePlayDelegate::Init(
 
   MOZ_ASSERT(!mAudioChannelAgent);
   mAudioChannelAgent = new AudioChannelAgent();
-  nsresult rv =
-      mAudioChannelAgent->Init(aElement->OwnerDoc()->GetInnerWindow(), this);
+  nsresult rv = mAudioChannelAgent->Init(
+      aElement->OwnerDoc()->GetInnerWindow(),
+      static_cast<int32_t>(aElement->MozAudioChannelType()), this);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     Clear();
     return false;
