@@ -10,6 +10,7 @@
 #include <gdk/gdkx.h>
 #ifdef MOZ_WAYLAND
 #  include "nsWaylandDisplay.h"
+#  include "gfxPlatformGtk.h"
 #  include <wayland-egl.h>
 #endif
 #include <stdio.h>
@@ -142,9 +143,11 @@ void moz_container_put(MozContainer* container, GtkWidget* child_widget, gint x,
 
 #if defined(MOZ_WAYLAND)
 void moz_container_move(MozContainer* container, int dx, int dy) {
+  LOGWAYLAND(("moz_container_move [%p] %d,%d\n", (void*)container, dx, dy));
+
   container->subsurface_dx = dx;
   container->subsurface_dy = dy;
-  container->surface_position_update = true;
+  container->surface_position_needs_update = true;
 }
 
 // This is called from layout/compositor code only with
@@ -167,7 +170,7 @@ void moz_container_class_init(MozContainerClass* klass) {
 
   widget_class->map = moz_container_map;
 #if defined(MOZ_WAYLAND)
-  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+  if (gfxPlatformGtk::GetPlatform()->IsWaylandDisplay()) {
     widget_class->map_event = moz_container_map_wayland;
   }
 #endif
@@ -192,12 +195,12 @@ void moz_container_init(MozContainer* container) {
   container->frame_callback_handler = nullptr;
   container->frame_callback_handler_surface_id = -1;
   // We can draw to x11 window any time.
-  container->ready_to_draw = GDK_IS_X11_DISPLAY(gdk_display_get_default());
+  container->ready_to_draw = gfxPlatformGtk::GetPlatform()->IsX11Display();
   container->surface_needs_clear = true;
   container->inital_draw_cb = nullptr;
   container->subsurface_dx = 0;
   container->subsurface_dy = 0;
-  container->surface_position_update = 0;
+  container->surface_position_needs_update = 0;
 #endif
 
   LOG(("%s [%p]\n", __FUNCTION__, (void*)container));
@@ -334,7 +337,7 @@ void moz_container_map(GtkWidget* widget) {
   if (gtk_widget_get_has_window(widget)) {
     gdk_window_show(gtk_widget_get_window(widget));
 #if defined(MOZ_WAYLAND)
-    if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+    if (gfxPlatformGtk::GetPlatform()->IsWaylandDisplay()) {
       moz_container_map_wayland(widget, nullptr);
     }
 #endif
@@ -349,7 +352,7 @@ void moz_container_unmap(GtkWidget* widget) {
   if (gtk_widget_get_has_window(widget)) {
     gdk_window_hide(gtk_widget_get_window(widget));
 #if defined(MOZ_WAYLAND)
-    if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+    if (gfxPlatformGtk::GetPlatform()->IsWaylandDisplay()) {
       moz_container_unmap_wayland(MOZ_CONTAINER(widget));
     }
 #endif
@@ -585,7 +588,7 @@ struct wl_surface* moz_container_get_wl_surface(MozContainer* container,
 
   // wl_subsurface_set_position is actually property of parent surface
   // which is effective when parent surface is commited.
-  if (container->surface_position_update) {
+  if (container->surface_position_needs_update) {
     wl_surface* parent_surface =
         moz_container_get_gtk_container_surface(container);
     if (parent_surface) {
@@ -593,7 +596,7 @@ struct wl_surface* moz_container_get_wl_surface(MozContainer* container,
                                  container->subsurface_dx,
                                  container->subsurface_dy);
       wl_surface_commit(parent_surface);
-      container->surface_position_update = true;
+      container->surface_position_needs_update = false;
     }
   }
 

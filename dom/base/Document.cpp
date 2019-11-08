@@ -7810,18 +7810,6 @@ Element* Document::GetBindingParent(nsINode& aNode) {
   return bindingParent ? bindingParent->AsElement() : nullptr;
 }
 
-Element* Document::GetAnonymousElementByAttribute(
-    nsIContent* aElement, nsAtom* aAttrName,
-    const nsAString& aAttrValue) const {
-  return nullptr;
-}
-
-Element* Document::GetAnonymousElementByAttribute(Element& aElement,
-                                                  const nsAString& aAttrName,
-                                                  const nsAString& aAttrValue) {
-  return nullptr;
-}
-
 nsINodeList* Document::GetAnonymousNodes(Element& aElement) { return nullptr; }
 
 already_AddRefed<nsRange> Document::CreateRange(ErrorResult& rv) {
@@ -15147,6 +15135,11 @@ PermissionDelegateHandler* Document::GetPermissionDelegateHandler() {
     mPermissionDelegateHandler =
         mozilla::MakeAndAddRef<PermissionDelegateHandler>(this);
   }
+
+  if (!mPermissionDelegateHandler->Initialize()) {
+    mPermissionDelegateHandler = nullptr;
+  }
+
   return mPermissionDelegateHandler;
 }
 

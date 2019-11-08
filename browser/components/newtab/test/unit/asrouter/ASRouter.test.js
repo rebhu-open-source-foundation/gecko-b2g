@@ -750,7 +750,7 @@ describe("ASRouter", () => {
         data: {
           action: "asrouter_undesired_event",
           event: "ASR_RS_ERROR",
-          value: "remotey-settingsy",
+          event_context: "remotey-settingsy",
           message_id: "n/a",
         },
         meta: { from: "ActivityStream:Content", to: "ActivityStream:Main" },
@@ -766,7 +766,7 @@ describe("ASRouter", () => {
         data: {
           action: "asrouter_undesired_event",
           event: "ASR_RS_NO_MESSAGES",
-          value: "remotey-settingsy",
+          event_context: "remotey-settingsy",
           message_id: "n/a",
         },
         meta: { from: "ActivityStream:Content", to: "ActivityStream:Main" },
@@ -814,7 +814,7 @@ describe("ASRouter", () => {
         data: {
           action: "asrouter_undesired_event",
           event: "ASR_RS_NO_MESSAGES",
-          value: "ms-language-packs",
+          event_context: "ms-language-packs",
           message_id: "n/a",
         },
         meta: { from: "ActivityStream:Content", to: "ActivityStream:Main" },
@@ -2874,6 +2874,18 @@ describe("ASRouter", () => {
       assert.calledOnce(Router.setFirstRunStateFromPref);
       assert.equal(Router.state.trailheadInterrupt, "join");
       assert.equal(Router.state.trailheadTriplet, "supercharge");
+    });
+    it("should set default triplet when firstrun.branches pref not set", async () => {
+      sandbox.spy(Router, "setFirstRunStateFromPref");
+      getStringPrefStub.withArgs(TRAILHEAD_CONFIG.OVERRIDE_PREF).returns("");
+
+      await Router.init(channel, createFakeStorage(), dispatchStub);
+
+      assert.calledOnce(Router.setFirstRunStateFromPref);
+      assert.equal(
+        Router.state.trailheadTriplet,
+        TRAILHEAD_CONFIG.DEFAULT_TRIPLET
+      );
     });
     it.skip("should call .setupTrailhead on init", async () => {
       sandbox.spy(Router, "setupTrailhead");

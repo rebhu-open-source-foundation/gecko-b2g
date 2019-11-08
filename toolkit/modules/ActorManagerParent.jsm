@@ -289,6 +289,17 @@ let ACTORS = {
     allFrames: true,
   },
 
+  KeyPressEventModelChecker: {
+    child: {
+      moduleURI: "resource://gre/actors/KeyPressEventModelCheckerChild.jsm",
+      events: {
+        CheckKeyPressEventModel: { capture: true, mozSystemGroup: true },
+      },
+    },
+
+    allFrames: true,
+  },
+
   LoginManager: {
     parent: {
       moduleURI: "resource://gre/modules/LoginManagerParent.jsm",
@@ -381,6 +392,12 @@ let ACTORS = {
     allFrames: true,
   },
 
+  Thumbnails: {
+    child: {
+      moduleURI: "resource://gre/actors/ThumbnailsChild.jsm",
+    },
+  },
+
   Zoom: {
     parent: {
       moduleURI: "resource://gre/actors/ZoomParent.jsm",
@@ -421,15 +438,6 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/ControllersChild.jsm",
       messages: ["ControllerCommands:Do", "ControllerCommands:DoWithParams"],
-    },
-  },
-
-  KeyPressEventModelChecker: {
-    child: {
-      module: "resource://gre/actors/KeyPressEventModelCheckerChild.jsm",
-      events: {
-        CheckKeyPressEventModel: { capture: true, mozSystemGroup: true },
-      },
     },
   },
 
@@ -475,17 +483,6 @@ let LEGACY_ACTORS = {
     child: {
       module: "resource://gre/actors/SelectionSourceChild.jsm",
       messages: ["ViewSource:GetSelection"],
-    },
-  },
-
-  Thumbnails: {
-    child: {
-      module: "resource://gre/actors/ThumbnailsChild.jsm",
-      messages: [
-        "Browser:Thumbnail:Request",
-        "Browser:Thumbnail:CheckState",
-        "Browser:Thumbnail:GetOriginalURL",
-      ],
     },
   },
 

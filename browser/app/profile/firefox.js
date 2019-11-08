@@ -423,6 +423,12 @@ pref("permissions.postPrompt.animate", true);
   pref("permissions.eventTelemetry.enabled", false);
 #endif
 
+#ifdef NIGHTLY_BUILD
+  pref("permissions.delegation.enable", true);
+#else
+  pref("permissions.delegation.enable", false);
+#endif
+
 // handle links targeting new windows
 // 1=current window/tab, 2=new window, 3=new tab in most recent window
 pref("browser.link.open_newwindow", 3);
@@ -1129,11 +1135,7 @@ pref("dom.ipc.shims.enabledWarnings", false);
 #endif
 
 #if defined(XP_OPENBSD) && defined(MOZ_SANDBOX)
-  // default pledge strings for the main & content processes, cf bug 1457092
-  // broad list for now, has to be refined over time
-  pref("security.sandbox.pledge.main", "stdio rpath wpath cpath inet proc exec prot_exec flock ps sendfd recvfd dns vminfo tty drm unix fattr getpw mcast");
   pref("security.sandbox.content.level", 1);
-  pref("security.sandbox.pledge.content", "stdio rpath wpath cpath inet recvfd sendfd prot_exec unix drm ps");
 #endif
 
 #if defined(MOZ_SANDBOX)
