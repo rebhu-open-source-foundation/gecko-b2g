@@ -115,6 +115,7 @@ struct cubeb_stream {
   /* Flag indicating draining. Synchronized
    * by stream::mutex lock. */
   int draining;
+  cubeb_stream_type stream_type;
   /* Flags to determine in/out.*/
   uint32_t input_enabled;
   uint32_t output_enabled;
@@ -608,6 +609,32 @@ player_fullduplex_callback(SLBufferQueueItf caller, void * user_ptr)
   TIMESTAMP("EXIT");
 }
 
+#if defined(__ANDROID__)
+static SLuint32
+convert_stream_type_to_sl_stream(cubeb_stream_type stream_type)
+{
+  switch(stream_type) {
+  case CUBEB_STREAM_TYPE_SYSTEM:
+    return SL_ANDROID_STREAM_SYSTEM;
+  case CUBEB_STREAM_TYPE_MUSIC:
+    return SL_ANDROID_STREAM_MEDIA;
+  case CUBEB_STREAM_TYPE_NOTIFICATION:
+    return SL_ANDROID_STREAM_NOTIFICATION;
+  case CUBEB_STREAM_TYPE_ALARM:
+    return SL_ANDROID_STREAM_ALARM;
+  case CUBEB_STREAM_TYPE_VOICE_CALL:
+    return SL_ANDROID_STREAM_VOICE;
+  case CUBEB_STREAM_TYPE_RING:
+    return SL_ANDROID_STREAM_RING;
+  case CUBEB_STREAM_TYPE_SYSTEM_ENFORCED:
+    return SL_ANDROID_STREAM_SYSTEM_ENFORCED;
+  default:
+    LOG("Unknown cubeb stream type %d, use media stream", stream_type);
+    return SL_ANDROID_STREAM_MEDIA;
+  }
+}
+#endif
+
 static void opensl_destroy(cubeb * ctx);
 
 #if defined(__ANDROID__)
@@ -1067,6 +1094,7 @@ opensl_configure_playback(cubeb_stream * stm, cubeb_stream_params * params) {
   assert(params);
 
   stm->user_output_rate = params->rate;
+  stm->stream_type = params->stream_type;
   if(params->format == CUBEB_SAMPLE_S16NE || params->format == CUBEB_SAMPLE_S16BE) {
     stm->framesize = params->channels * sizeof(int16_t);
   } else if(params->format == CUBEB_SAMPLE_FLOAT32NE || params->format == CUBEB_SAMPLE_FLOAT32BE) {
@@ -1184,10 +1212,7 @@ opensl_configure_playback(cubeb_stream * stm, cubeb_stream_params * params) {
       return CUBEB_ERROR;
     }
 
-    SLint32 streamType = SL_ANDROID_STREAM_MEDIA;
-    if (stm->voice) {
-      streamType = SL_ANDROID_STREAM_VOICE;
-    }
+    SLint32 streamType = convert_stream_type_to_sl_stream(params->stream_type);
     res = (*playerConfig)->SetConfiguration(playerConfig,
                                             SL_ANDROID_KEY_STREAM_TYPE,
                                             &streamType,

@@ -38,6 +38,9 @@ TEST(cubeb, latency)
     max_channels,
     CUBEB_LAYOUT_UNDEFINED,
     CUBEB_STREAM_PREF_NONE
+#if defined(__ANDROID__)
+    , CUBEB_STREAM_TYPE_MUSIC
+#endif
   };
   r = cubeb_get_min_latency(ctx, &params, &latency_frames);
   ASSERT_TRUE(r == CUBEB_OK || r == CUBEB_ERROR_NOT_SUPPORTED);
