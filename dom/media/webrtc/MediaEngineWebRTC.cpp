@@ -179,6 +179,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
         NS_ConvertUTF8toUTF16(tabVideoSource->GetUUID()),
         tabVideoSource->GetGroupId(), NS_LITERAL_STRING("")));
   }
+#endif
 }
 
 void MediaEngineWebRTC::EnumerateMicrophoneDevices(

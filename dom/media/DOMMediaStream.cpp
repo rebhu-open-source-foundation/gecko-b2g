@@ -572,76 +572,7 @@ void DOMMediaStream::NotifyTrackAdded(const RefPtr<MediaStreamTrack>& aTrack) {
   aTrack->AddConsumer(mPlaybackTrackListener);
 
   for (int32_t i = mTrackListeners.Length() - 1; i >= 0; --i) {
-<<<<<<< HEAD
     mTrackListeners[i]->NotifyTrackAdded(aTrack);
-=======
-    mTrackListeners[i]->NotifyTrackRemoved(aTrack);
-  }
-
-  // Don't call RecomputePrincipal here as the track may still exist in the
-  // playback stream in the MediaStreamGraph. It will instead be called when the
-  // track has been confirmed removed by the graph. See BlockPlaybackTrack().
-}
-
-nsresult
-DOMMediaStream::DispatchTrackEvent(const nsAString& aName,
-                                   const RefPtr<MediaStreamTrack>& aTrack)
-{
-  MOZ_ASSERT(aName == NS_LITERAL_STRING("addtrack"),
-             "Only 'addtrack' is supported at this time");
-
-  MediaStreamTrackEventInit init;
-  init.mTrack = aTrack;
-
-  RefPtr<MediaStreamTrackEvent> event =
-    MediaStreamTrackEvent::Constructor(this, aName, init);
-
-  return DispatchTrustedEvent(event);
-}
-
-void
-DOMMediaStream::CreateAndAddPlaybackStreamListener(MediaStream* aStream)
-{
-  MOZ_ASSERT(GetCameraStream(), "I'm a hack. Only DOMCameraControl may use me.");
-  mPlaybackListener = new PlaybackStreamListener(this);
-  aStream->AddListener(mPlaybackListener);
-}
-
-void
-DOMMediaStream::BlockPlaybackTrack(TrackPort* aTrack)
-{
-  MOZ_ASSERT(aTrack);
-  ++mTracksPendingRemoval;
-  RefPtr<Pledge<bool>> p =
-    aTrack->BlockSourceTrackId(aTrack->GetTrack()->mTrackID,
-                               BlockingMode::CREATION);
-  RefPtr<DOMMediaStream> self = this;
-  p->Then([self] (const bool& aIgnore) { self->NotifyPlaybackTrackBlocked(); },
-          [] (const nsresult& aIgnore) { NS_ERROR("Could not remove track from MSG"); }
-  );
-}
-
-void
-DOMMediaStream::NotifyPlaybackTrackBlocked()
-{
-  MOZ_ASSERT(mTracksPendingRemoval > 0,
-             "A track reported finished blocking more times than we asked for");
-  if (--mTracksPendingRemoval == 0) {
-    // The MediaStreamGraph has reported a track was blocked and we are not
-    // waiting for any further tracks to get blocked. It is now safe to
-    // recompute the principal based on our main thread track set state.
-    LOG(LogLevel::Debug, ("DOMMediaStream %p saw all tracks pending removal "
-                          "finish. Recomputing principal.", this));
-    RecomputePrincipal();
-  }
-}
-
-DOMLocalMediaStream::~DOMLocalMediaStream()
-{
-  if (mInputStream) {
-    // Make sure Listeners of this stream know it's going away
-    StopImpl();
->>>>>>> parent of 3c1524e5e00c... Bug 1306137 - remove b2g camera code: Remove dom/camera/ and code which depends on it. r=aosmond,bkelly
   }
 
   if (!mActive) {
