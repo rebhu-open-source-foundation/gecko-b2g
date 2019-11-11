@@ -18,6 +18,7 @@
 #include "nsAutoRef.h"
 #include "nsIRunnable.h"
 #include "nsTArray.h"
+#include "VideoFrameContainer.h"
 #include <speex/speex_resampler.h>
 
 class nsIRunnable;
@@ -312,6 +313,11 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   virtual void AddAudioOutput(void* aKey);
   virtual void SetAudioOutputVolume(void* aKey, float aVolume);
   virtual void RemoveAudioOutput(void* aKey);
+  // Since a stream can be played multiple ways, we need to be able to
+  // play to multiple VideoFrameContainers.
+  // Only the first enabled video track is played.
+  virtual void AddVideoOutput(VideoFrameContainer* aContainer);
+  virtual void RemoveVideoOutput(VideoFrameContainer* aContainer);
   // Explicitly suspend. Useful for example if a media element is pausing
   // and we need to stop its track emitting its buffered data. As soon as the
   // Suspend message reaches the graph, the track stops processing. It
@@ -410,6 +416,8 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   void SetAudioOutputVolumeImpl(void* aKey, float aVolume);
   void AddAudioOutputImpl(void* aKey);
   void RemoveAudioOutputImpl(void* aKey);
+  void AddVideoOutputImpl(already_AddRefed<VideoFrameContainer> aContainer);
+  void RemoveVideoOutputImpl(VideoFrameContainer* aContainer);
 
   /**
    * Removes all direct listeners and signals to them that they have been
@@ -563,6 +571,7 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
     float mVolume;
   };
   nsTArray<AudioOutput> mAudioOutputs;
+  nsTArray<RefPtr<VideoFrameContainer> > mVideoOutputs;
   nsTArray<RefPtr<MediaTrackListener>> mTrackListeners;
   nsTArray<MainThreadMediaTrackListener*> mMainThreadListeners;
   // This track's associated disabled mode. It can either by disabled by frames

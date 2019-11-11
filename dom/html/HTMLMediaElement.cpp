@@ -1808,6 +1808,23 @@ void HTMLMediaElement::SetSrcObject(DOMMediaStream* aValue) {
   DoLoad();
 }
 
+already_AddRefed<DOMMediaStream>
+HTMLMediaElement::GetMozSrcObject() const {
+  return do_AddRef(mSrcAttrStream);
+}
+
+void
+HTMLMediaElement::SetMozSrcObject(DOMMediaStream& aValue) {
+  SetMozSrcObject(&aValue);
+}
+
+void
+HTMLMediaElement::SetMozSrcObject(DOMMediaStream* aValue) {
+  mSrcAttrStream = aValue;
+  UpdateAudioChannelPlayingState();
+  DoLoad();
+}
+
 bool HTMLMediaElement::Ended() {
   return (mDecoder && mDecoder->IsEnded()) ||
          (mSrcStream && mSrcStreamReportPlaybackEnded);
@@ -4860,7 +4877,25 @@ void HTMLMediaElement::UpdateSrcMediaStreamPlaying(uint32_t aFlags) {
     // If the input is a media stream, we don't check its data and always regard
     // it as audible when it's playing.
     SetAudibleState(true);
+
+    if (mSrcStream->GetCameraStream()) {
+      mozilla::MediaTrack* stream = mSrcStream->GetCameraStream();
+      stream->AddAudioOutput(this);
+
+      if (GetVideoFrameContainer()) {
+        stream->AddVideoOutput(GetVideoFrameContainer());
+      }
+    }
   } else {
+    if (mSrcStream->GetCameraStream()) {
+      mozilla::MediaTrack* stream = mSrcStream->GetCameraStream();
+
+      stream->RemoveAudioOutput(this);
+      if (GetVideoFrameContainer()) {
+        stream->RemoveVideoOutput(GetVideoFrameContainer());
+      }
+    }
+
     if (mMediaStreamRenderer) {
       mMediaStreamRenderer->Stop();
     }

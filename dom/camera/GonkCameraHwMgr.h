@@ -64,8 +64,6 @@ protected:
   virtual nsresult Init();
 
 public:
-  const String16 PRODUCER_NAME = String16("GonkCameraProducer");
-  const String16 CONSUMER_NAME = String16("GonkCameraConsumer");
   static sp<GonkCameraHardware> Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCameraId);
   virtual void Close();
 

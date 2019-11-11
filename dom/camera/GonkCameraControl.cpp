@@ -977,9 +977,8 @@ nsGonkCameraControl::SetThumbnailSize(const Size& aSize)
       , mCameraControl(aCameraControl)
       , mSize(aSize)
     {
-      MOZ_COUNT_CTOR(SetThumbnailSize);
     }
-    ~SetThumbnailSize() { MOZ_COUNT_DTOR(SetThumbnailSize); }
+    ~SetThumbnailSize() {}
 
     NS_IMETHOD
     Run() override
@@ -1096,9 +1095,8 @@ nsGonkCameraControl::SetPictureSize(const Size& aSize)
       , mCameraControl(aCameraControl)
       , mSize(aSize)
     {
-      MOZ_COUNT_CTOR(SetPictureSize);
     }
-    ~SetPictureSize() { MOZ_COUNT_DTOR(SetPictureSize); }
+    ~SetPictureSize() {}
 
     NS_IMETHOD
     Run() override

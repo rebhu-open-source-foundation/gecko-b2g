@@ -101,7 +101,8 @@ CameraPreviewMediaStream::AddListener(MediaTrackListener* aListener)
 {
   MutexAutoLock lock(mMutex);
 
-  //MediaTrackListener* listener = *mListeners.AppendElement() = aListener;
+  MediaTrackListener* listener = *mListeners.AppendElement() = aListener;
+  //TODO: Need to check the usage of these callbacks
   //listener->NotifyBlockingChanged(mFakeMediaTrackGraph, MediaStreamListener::UNBLOCKED);
   //listener->NotifyHasCurrentData(mFakeMediaTrackGraph);
 }
@@ -113,7 +114,7 @@ CameraPreviewMediaStream::RemoveListener(MediaTrackListener* aListener)
 
   RefPtr<MediaTrackListener> listener(aListener);
   mListeners.RemoveElement(aListener);
-  //listener->NotifyEvent(mFakeMediaTrackGraph, MediaTrackListener::MediaTrackGraphEvent::EVENT_REMOVED);
+  listener->NotifyRemoved(mFakeMediaTrackGraph);
 }
 
 void
@@ -126,6 +127,7 @@ CameraPreviewMediaStream::OnPreviewStateChange(bool aActive)
       VideoSegment tmpSegment;
       for (uint32_t j = 0; j < mListeners.Length(); ++j) {
         MediaTrackListener* l = mListeners[j];
+	//TODO: Need to check the usage of these callbacks
         l->NotifyQueuedChanges(mFakeMediaTrackGraph, 0,
                               tmpSegment);
         //l->NotifyFinishedTrackCreation(mFakeMediaTrackGraph);
@@ -209,16 +211,6 @@ CameraPreviewMediaStream::ClearCurrentFrame()
     NS_DispatchToMainThread(NewRunnableMethod("CameraPreviewMediaStream::ClearCurrentFrame", 
                             output, &VideoFrameContainer::Invalidate));
   }
-}
-
-void
-CameraPreviewMediaStream::AddVideoOutputImpl(already_AddRefed<VideoFrameContainer> aContainer)
-{
-}
-
-void
-CameraPreviewMediaStream::RemoveVideoOutputImpl(VideoFrameContainer* aContainer)
-{
 }
 
 /*void

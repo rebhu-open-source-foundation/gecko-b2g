@@ -58,13 +58,11 @@ public:
     : mTarget(aTarget)
     , mCameraThread(aCameraThread)
   {
-    MOZ_COUNT_CTOR(TestGonkCameraHardwareListener);
   }
 
 protected:
   virtual ~TestGonkCameraHardwareListener()
   {
-    MOZ_COUNT_DTOR(TestGonkCameraHardwareListener);
   }
 
   RefPtr<nsGonkCameraControl> mTarget;
@@ -295,14 +293,11 @@ TestGonkCameraHardware::TestGonkCameraHardware(nsGonkCameraControl* aTarget,
   DOM_CAMERA_LOGA("v===== Created TestGonkCameraHardware =====v\n");
   DOM_CAMERA_LOGT("%s:%d : this=%p (aTarget=%p)\n",
     __func__, __LINE__, this, aTarget);
-  MOZ_COUNT_CTOR(TestGonkCameraHardware);
   mCameraThread = NS_GetCurrentThread();
 }
 
 TestGonkCameraHardware::~TestGonkCameraHardware()
 {
-  MOZ_COUNT_DTOR(TestGonkCameraHardware);
-
   class Delegate : public ControlMessage
   {
   public:

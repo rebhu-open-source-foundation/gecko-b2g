@@ -73,10 +73,6 @@ public:
   void ClearCurrentFrame();
   void RateLimit(bool aLimit);
 
-  //TODO: need implement on MediaTrackGraph
-  void AddVideoOutputImpl(already_AddRefed<VideoFrameContainer> aContainer);
-  void RemoveVideoOutputImpl(VideoFrameContainer* aContainer);
-
 protected:
   // mMutex protects all the class' fields.
   // This class is not registered to MediaTrackGraph.
@@ -90,7 +86,6 @@ protected:
   
   //TODO:from mediastream
   nsTArray<RefPtr<MediaTrackListener> > mListeners;
-  nsTArray<RefPtr<VideoFrameContainer> > mVideoOutputs;
 };
 
 

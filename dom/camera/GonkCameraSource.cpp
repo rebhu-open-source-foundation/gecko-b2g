@@ -699,6 +699,7 @@ status_t GonkCameraSource::read(
         MediaBuffer **buffer, const ReadOptions *options)
 #endif
 {
+#if ANDROID_VERSION < 29 //TODO: need to solve 2 linking errors for support GonkCameraSource::read
     CS_LOGV("read");
 
     *buffer = NULL;
@@ -742,6 +743,9 @@ status_t GonkCameraSource::read(
     #endif
     }
     return OK;
+#else
+    return ERROR_UNSUPPORTED;
+#endif
 }
 
 void GonkCameraSource::dataCallbackTimestamp(int64_t timestampUs,

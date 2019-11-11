@@ -38,7 +38,6 @@
 #endif
 #include "GonkCameraControl.h"
 #include "CameraCommon.h"
-#include <android/hardware/ICameraService.h>
 
 using namespace mozilla;
 using namespace mozilla::layers;
@@ -47,6 +46,10 @@ using namespace android;
 #ifndef MOZ_WIDGET_GONK
 NS_IMPL_ISUPPORTS0(GonkCameraHardware);
 NS_IMPL_ISUPPORTS0(android::Camera);
+#endif
+
+#ifndef DEAD_OBJECT
+int32_t DEAD_OBJECT = -32;
 #endif
 
 GonkCameraHardware::GonkCameraHardware(mozilla::nsGonkCameraControl* aTarget, uint32_t aCameraId, const sp<Camera>& aCamera)

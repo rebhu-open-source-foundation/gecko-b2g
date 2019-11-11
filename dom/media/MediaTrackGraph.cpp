@@ -1994,6 +1994,58 @@ void MediaTrack::RemoveAudioOutput(void* aKey) {
   GraphImpl()->AppendMessage(MakeUnique<Message>(this, aKey));
 }
 
+void
+MediaTrack::AddVideoOutputImpl(already_AddRefed<VideoFrameContainer> aContainer)
+{
+  RefPtr<VideoFrameContainer> container = aContainer;
+  LOG(LogLevel::Info, ("MediaStream %p Adding VideoFrameContainer %p as output",
+                              this, container.get()));
+  *mVideoOutputs.AppendElement() = container.forget();
+}
+
+void
+MediaTrack::RemoveVideoOutputImpl(VideoFrameContainer* aContainer)
+{
+  LOG(LogLevel::Info, ("MediaStream %p Removing VideoFrameContainer %p as output",
+                              this, aContainer));
+  // Ensure that any frames currently queued for playback by the compositor
+  // are removed.
+  aContainer->ClearFutureFrames();
+  mVideoOutputs.RemoveElement(aContainer);
+}
+
+void
+MediaTrack::AddVideoOutput(VideoFrameContainer* aContainer)
+{
+  class Message : public ControlMessage {
+  public:
+    Message(MediaTrack* aTrack, VideoFrameContainer* aContainer) :
+      ControlMessage(aTrack), mContainer(aContainer) {}
+    void Run() override
+    {
+      mTrack->AddVideoOutputImpl(mContainer.forget());
+    }
+    RefPtr<VideoFrameContainer> mContainer;
+  };
+  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aContainer));
+}
+
+void
+MediaTrack::RemoveVideoOutput(VideoFrameContainer* aContainer)
+{
+  class Message : public ControlMessage {
+  public:
+    Message(MediaTrack* aTrack, VideoFrameContainer* aContainer) :
+      ControlMessage(aTrack), mContainer(aContainer) {}
+    void Run() override
+    {
+      mTrack->RemoveVideoOutputImpl(mContainer);
+    }
+    RefPtr<VideoFrameContainer> mContainer;
+  };
+  GraphImpl()->AppendMessage(MakeUnique<Message>(this, aContainer));
+}
+
 void MediaTrack::Suspend() {
   class Message : public ControlMessage {
    public:

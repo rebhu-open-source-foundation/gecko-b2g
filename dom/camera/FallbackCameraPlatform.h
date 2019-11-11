@@ -131,6 +131,7 @@ namespace android {
     String8 getParameters()                   { return String8(); }
     int setParameters(const String8& aParams) { return UNKNOWN_ERROR; }
     int storeMetaDataInBuffers(bool aEnabled) { return UNKNOWN_ERROR; }
+    int setVideoBufferMode(int32_t videoBufferMode) { return UNKNOWN_ERROR; }
     int autoFocus()                           { return UNKNOWN_ERROR; }
     int cancelAutoFocus()                     { return UNKNOWN_ERROR; }
     int takePicture(uint32_t flags)           { return UNKNOWN_ERROR; }

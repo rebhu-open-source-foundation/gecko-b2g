@@ -91,7 +91,7 @@ public:
 
   void* GetNativeBuffer();
 
-  virtual bool IsValid() { return !!mTextureClient; }
+  virtual bool IsValid() const { return !!mTextureClient; }
 
   virtual TextureClient* GetTextureClient(KnowsCompositor* aForwarder) override;
 

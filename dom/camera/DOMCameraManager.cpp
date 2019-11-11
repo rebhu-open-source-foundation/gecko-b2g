@@ -58,13 +58,11 @@ nsDOMCameraManager::nsDOMCameraManager(nsPIDOMWindowInner* aWindow)
 {
   /* member initializers and constructor code */
   DOM_CAMERA_LOGT("%s:%d : this=%p, windowId=%" PRIx64 "\n", __func__, __LINE__, this, mWindowId);
-  MOZ_COUNT_CTOR(nsDOMCameraManager);
 }
 
 nsDOMCameraManager::~nsDOMCameraManager()
 {
   /* destructor code */
-  MOZ_COUNT_DTOR(nsDOMCameraManager);
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
 }
 

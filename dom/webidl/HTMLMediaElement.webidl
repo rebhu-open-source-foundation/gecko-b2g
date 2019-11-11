@@ -113,6 +113,7 @@ partial interface HTMLMediaElement {
   Promise<DOMString> mozRequestDebugLog();
 
   attribute MediaStream? srcObject;
+  attribute MediaStream? mozSrcObject;
   attribute boolean mozPreservesPitch;
 
   // NB: for internal use with the video controls:

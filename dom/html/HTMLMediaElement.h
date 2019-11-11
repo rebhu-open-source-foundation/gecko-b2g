@@ -113,6 +113,7 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   typedef mozilla::MediaDecoderOwner MediaDecoderOwner;
   typedef mozilla::MetadataTags MetadataTags;
 
+
   MOZ_DECLARE_WEAKREFERENCE_TYPENAME(HTMLMediaElement)
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
 
@@ -583,6 +584,11 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   already_AddRefed<DOMMediaStream> GetSrcObject() const;
   void SetSrcObject(DOMMediaStream& aValue);
   void SetSrcObject(DOMMediaStream* aValue);
+
+  // TODO: remove prefixed versions soon (1183495).
+  already_AddRefed<DOMMediaStream> GetMozSrcObject() const;
+  void SetMozSrcObject(DOMMediaStream& aValue);
+  void SetMozSrcObject(DOMMediaStream* aValue);
 
   bool MozPreservesPitch() const { return mPreservesPitch; }
   void SetMozPreservesPitch(bool aPreservesPitch);

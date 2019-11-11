@@ -39,13 +39,11 @@ public:
     : Runnable("DOMCameraControlListener::DOMCallback"),
       mDOMCameraControl(aDOMCameraControl)
   {
-    MOZ_COUNT_CTOR(DOMCameraControlListener::DOMCallback);
   }
 
 protected:
   virtual ~DOMCallback()
   {
-    MOZ_COUNT_DTOR(DOMCameraControlListener::DOMCallback);
   }
 
 public:

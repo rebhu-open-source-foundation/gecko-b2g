@@ -144,13 +144,11 @@ public:
     : mDOMCameraControl(aDOMCameraControl)
     , mState(false)
   {
-    MOZ_COUNT_CTOR(StartRecordingHelper);
   }
 
 protected:
   virtual ~StartRecordingHelper()
   {
-    MOZ_COUNT_DTOR(StartRecordingHelper);
   }
 
 protected:

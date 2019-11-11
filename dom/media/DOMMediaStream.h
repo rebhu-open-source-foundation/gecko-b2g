@@ -156,6 +156,12 @@ class DOMMediaStream : public DOMEventTargetHelper,
    */
   already_AddRefed<nsIPrincipal> GetPrincipal();
 
+  /**
+   * Allows a video element to identify this stream as a camera stream, which
+   * needs special treatment.
+   */
+  virtual MediaTrack* GetCameraStream() const { return nullptr; }
+
   // Webrtc allows the remote side to name a stream whatever it wants, and we
   // need to surface this to content.
   void AssignId(const nsAString& aID) { mID = aID; }
