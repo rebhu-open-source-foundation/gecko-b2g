@@ -241,7 +241,13 @@ PushRecord.prototype = {
   },
 
   quotaApplies() {
-    return !this.systemRecord;
+    if (
+      this.systemRecord ||
+      prefs.getBoolPref("quota.disabled", false)
+    ) {
+      return false;
+    }
+    return true;
   },
 
   isExpired() {
