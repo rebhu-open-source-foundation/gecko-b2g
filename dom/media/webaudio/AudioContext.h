@@ -330,6 +330,10 @@ class AudioContext final : public DOMEventTargetHelper,
   void Mute() const;
   void Unmute() const;
 
+  AudioChannel MozAudioChannelType() const;
+
+  AudioChannel TestAudioChannelInAudioNodeStream();
+
   void RegisterNode(AudioNode* aNode);
   void UnregisterNode(AudioNode* aNode);
 
@@ -345,6 +349,9 @@ class AudioContext final : public DOMEventTargetHelper,
       const nsAString& aName) {
     return mWorkletParamDescriptors.GetValue(aName);
   }
+
+  IMPL_EVENT_HANDLER(mozinterruptbegin)
+  IMPL_EVENT_HANDLER(mozinterruptend)
 
   void Dispatch(already_AddRefed<nsIRunnable>&& aRunnable);
 

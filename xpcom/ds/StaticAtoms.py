@@ -659,6 +659,7 @@ STATIC_ATOMS = [
     Atom("monochrome", "monochrome"),
     Atom("mouseover", "mouseover"),
     Atom("mozAccessiblecaret", "moz-accessiblecaret"),
+    Atom("mozaudiochannel", "mozaudiochannel"),
     Atom("mozCustomContentContainer", "moz-custom-content-container"),
     Atom("mozGrabber", "mozGrabber"),
     Atom("mozNativeAnonymous", "-moz-native-anonymous"),
@@ -1894,6 +1895,10 @@ STATIC_ATOMS = [
 
     # light sensor support
     Atom("ondevicelight", "ondevicelight"),
+
+    # Audio channel events
+    Atom("onmozinterruptbegin", "onmozinterruptbegin"),
+    Atom("onmozinterruptend", "onmozinterruptend"),
 
     # MediaDevices device change event
     Atom("ondevicechange", "ondevicechange"),

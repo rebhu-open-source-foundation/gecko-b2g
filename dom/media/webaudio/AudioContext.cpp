@@ -1233,6 +1233,17 @@ void AudioContext::SetParamMapForWorkletName(
                                          fallible);
 }
 
+AudioChannel AudioContext::MozAudioChannelType() const {
+  return mDestination->MozAudioChannelType();
+}
+
+AudioChannel AudioContext::TestAudioChannelInAudioNodeStream() {
+  mozilla::MediaTrack* track = mDestination->Track();
+  MOZ_ASSERT(track);
+
+  return track->AudioChannelType();
+}
+
 size_t AudioContext::SizeOfIncludingThis(
     mozilla::MallocSizeOf aMallocSizeOf) const {
   // AudioNodes are tracked separately because we do not want the AudioContext

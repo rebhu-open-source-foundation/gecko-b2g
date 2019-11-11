@@ -140,6 +140,21 @@ partial interface HTMLMediaElement {
 
   [ChromeOnly]
   void reportCanPlayTelemetry();
+
+  // Mozilla extension: an audio channel type for media elements.
+  // Read AudioChannel.webidl for more information about this attribute.
+  [SetterThrows, Pref="media.useAudioChannelAPI"]
+  attribute AudioChannel mozAudioChannelType;
+
+  // In addition the media element has this new events:
+  // * onmozinterruptbegin - called when the media element is interrupted
+  //   because of the audiochannel manager.
+  // * onmozinterruptend - called when the interruption is concluded
+  [Pref="media.useAudioChannelAPI"]
+  attribute EventHandler onmozinterruptbegin;
+
+  [Pref="media.useAudioChannelAPI"]
+  attribute EventHandler onmozinterruptend;
 };
 
 // Encrypted Media Extensions

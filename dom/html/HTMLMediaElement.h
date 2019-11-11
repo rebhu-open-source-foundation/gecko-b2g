@@ -632,6 +632,22 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   mozilla::dom::EventHandlerNonNull* GetOnwaitingforkey();
   void SetOnwaitingforkey(mozilla::dom::EventHandlerNonNull* aCallback);
 
+  inline EventHandlerNonNull* GetOnmozinterruptbegin() {
+    return EventTarget::GetEventHandler(nsGkAtoms::onmozinterruptbegin);
+  }
+
+  inline void SetOnmozinterruptbegin(EventHandlerNonNull* aCallback) {
+    EventTarget::SetEventHandler(nsGkAtoms::onmozinterruptbegin, aCallback);
+  }
+
+  inline EventHandlerNonNull* GetOnmozinterruptend() {
+    return EventTarget::GetEventHandler(nsGkAtoms::onmozinterruptend);
+  }
+
+  inline void SetOnmozinterruptend(EventHandlerNonNull* aCallback) {
+    EventTarget::SetEventHandler(nsGkAtoms::onmozinterruptend, aCallback);
+  }
+
   void DispatchEncrypted(const nsTArray<uint8_t>& aInitData,
                          const nsAString& aInitDataType) override;
 
@@ -654,6 +670,10 @@ class HTMLMediaElement : public nsGenericHTMLElement,
                       ErrorResult& aRv);
 
   double MozFragmentEnd();
+
+  AudioChannel MozAudioChannelType() const { return mAudioChannel; }
+
+  void SetMozAudioChannelType(AudioChannel aValue, ErrorResult& aRv);
 
   AudioTrackList* AudioTracks();
 
@@ -1207,6 +1227,9 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   void HiddenVideoStop();
 
   void ReportTelemetry();
+
+  // Check the permissions for audiochannel.
+  bool CheckAudioChannelPermissions(AudioChannel aValue);
 
   // Seeks to aTime seconds. aSeekType can be Exact to seek to exactly the
   // seek target, or PrevSyncPoint if a quicker but less precise seek is

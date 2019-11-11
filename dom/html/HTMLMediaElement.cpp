@@ -1345,6 +1345,10 @@ class HTMLMediaElement::AudioChannelAgentCallback final
         mIsOwnerAudible(IsOwnerAudible()),
         mIsShutDown(false) {
     MOZ_ASSERT(mOwner);
+  }
+
+  void SetAudioChannel(AudioChannel aChannel) {
+    mAudioChannel = aChannel;
     MaybeCreateAudioChannelAgent();
   }
 
@@ -1535,6 +1539,10 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     if (mSuspended == aSuspend) {
       return;
     }
+
+    mOwner->DispatchAsyncEvent(aSuspend == nsISuspendedTypes::NONE_SUSPENDED
+                                   ? NS_LITERAL_STRING("mozinterruptend")
+                                   : NS_LITERAL_STRING("mozinterruptbegin"));
 
     MaybeNotifyMediaResumed(aSuspend);
     mSuspended = aSuspend;
@@ -4663,10 +4671,48 @@ bool HTMLMediaElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
     if (aAttribute == nsGkAtoms::preload) {
       return aResult.ParseEnumValue(aValue, kPreloadTable, false);
     }
+    if (aAttribute == nsGkAtoms::mozaudiochannel) {
+      const nsAttrValue::EnumTable* table =
+          AudioChannelService::GetAudioChannelTable();
+      MOZ_ASSERT(table);
+      return aResult.ParseEnumValue(aValue, table, false, &table[0]);
+    }
   }
 
   return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
                                               aMaybeScriptedPrincipal, aResult);
+}
+
+bool HTMLMediaElement::CheckAudioChannelPermissions(AudioChannel aValue) {
+  // Only normal channel doesn't need permission.
+  if (aValue == AudioChannel::Normal) {
+    return true;
+  }
+
+  // Maybe this audio channel is equal to the default one.
+  if (aValue == AudioChannelService::GetDefaultAudioChannel()) {
+    return true;
+  }
+
+  /* FIXME
+  nsCOMPtr<nsIPermissionManager> permissionManager =
+      services::GetPermissionManager();
+  if (!permissionManager) {
+    return false;
+  }
+
+  uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
+  nsCString channel("audio-channel-");
+  channel.AppendASCII(AudioChannelValues::strings[uint32_t(aValue)].value,
+                      AudioChannelValues::strings[uint32_t(aValue)].length);
+  permissionManager->TestExactPermissionFromPrincipal(
+      NodePrincipal(), channel, &perm);
+  if (perm != nsIPermissionManager::ALLOW_ACTION) {
+    return false;
+  }
+  */
+
+  return true;
 }
 
 void HTMLMediaElement::DoneCreatingElement() {
@@ -4732,6 +4778,27 @@ nsresult HTMLMediaElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
       }
     } else if (aName == nsGkAtoms::controls && IsInComposedDoc()) {
       NotifyUAWidgetSetupOrChange();
+    } else if (aName == nsGkAtoms::mozaudiochannel) {
+      AudioChannel audioChannel =
+          aValue ? static_cast<AudioChannel>(aValue->GetEnumValue())
+                 : AudioChannelService::GetDefaultAudioChannel();
+
+      // We cannot change the AudioChannel of an existing decoder.
+      if (!mDecoder && audioChannel != mAudioChannel &&
+          CheckAudioChannelPermissions(audioChannel)) {
+        mAudioChannel = audioChannel;
+        mAudioChannelWrapper->SetAudioChannel(mAudioChannel);
+
+        if (mSrcStream) {
+          nsTArray<RefPtr<MediaStreamTrack>> tracks;
+          mSrcStream->GetTracks(tracks);
+          for (const RefPtr<MediaStreamTrack>& track : tracks) {
+            // FIXME: this doesn't change the actual channel type of the graph
+            // which this track is registered to.
+            track->GetTrack()->SetAudioChannelType(mAudioChannel);
+          }
+        }
+      }
     }
   }
 
@@ -7323,6 +7390,14 @@ TextTrackManager* HTMLMediaElement::GetOrCreateTextTrackManager() {
     mTextTrackManager->AddListeners();
   }
   return mTextTrackManager;
+}
+
+void HTMLMediaElement::SetMozAudioChannelType(AudioChannel aValue,
+                                              ErrorResult& aRv) {
+  nsString channel;
+  channel.AssignASCII(AudioChannelValues::strings[uint32_t(aValue)].value,
+                      AudioChannelValues::strings[uint32_t(aValue)].length);
+  SetHTMLAttr(nsGkAtoms::mozaudiochannel, channel, aRv);
 }
 
 MediaDecoderOwner::NextFrameStatus HTMLMediaElement::NextFrameStatus() {

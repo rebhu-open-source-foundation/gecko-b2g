@@ -550,6 +550,9 @@ AudioDestinationNode::WindowSuspendChanged(nsSuspendedTypes aSuspend) {
       this, SuspendTypeToStr(aSuspend));
 
   mAudioChannelSuspended = suspended;
+  Context()->DispatchTrustedEvent(!suspended
+                                      ? NS_LITERAL_STRING("mozinterruptend")
+                                      : NS_LITERAL_STRING("mozinterruptbegin"));
 
   DisabledTrackMode disabledMode =
       suspended ? DisabledTrackMode::SILENCE_BLACK : DisabledTrackMode::ENABLED;

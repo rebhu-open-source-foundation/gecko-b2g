@@ -6700,6 +6700,11 @@
   value: false
   mirror: always
 
+- name: media.useAudioChannelAPI
+  type: bool
+  value: false
+  mirror: always
+
 - name: media.audioFocus.management
   type: bool
 #if defined(MOZ_WIDGET_ANDROID)
