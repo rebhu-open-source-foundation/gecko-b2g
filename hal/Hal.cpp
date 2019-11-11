@@ -445,6 +445,12 @@ void SetProcessPriority(int aPid, ProcessPriority aPriority) {
   PROXY_IF_SANDBOXED(SetProcessPriority(aPid, aPriority));
 }
 
+uint32_t
+GetTotalSystemMemory()
+{
+  return hal_impl::GetTotalSystemMemory();
+}
+
 // From HalTypes.h.
 const char* ProcessPriorityToString(ProcessPriority aPriority) {
   switch (aPriority) {

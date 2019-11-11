@@ -43,7 +43,7 @@ public:
   virtual nsresult PullParameters(mozilla::GonkCameraParameters& aParams) override;
   virtual int StartRecording() override;
   virtual int StopRecording() override;
-  virtual int StoreMetaDataInBuffers(bool aEnabled) override;
+  virtual int SetVideoBufferMode(int32_t videoBufferMode) override;
 #ifdef MOZ_WIDGET_GONK
   virtual int PushParameters(const android::CameraParameters& aParams) override;
   virtual void PullParameters(android::CameraParameters& aParams) override;

@@ -64,6 +64,8 @@ protected:
   virtual nsresult Init();
 
 public:
+  const String16 PRODUCER_NAME = String16("GonkCameraProducer");
+  const String16 CONSUMER_NAME = String16("GonkCameraConsumer");
   static sp<GonkCameraHardware> Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCameraId);
   virtual void Close();
 
@@ -74,9 +76,13 @@ public:
   virtual void OnNewFrame() override;
 
   // derived from CameraListener
-  virtual void notify(int32_t aMsgType, int32_t ext1, int32_t ext2);
-  virtual void postData(int32_t aMsgType, const sp<IMemory>& aDataPtr, camera_frame_metadata_t* metadata);
-  virtual void postDataTimestamp(nsecs_t aTimestamp, int32_t aMsgType, const sp<IMemory>& aDataPtr);
+  virtual void notify(int32_t aMsgType, int32_t ext1, int32_t ext2) override;
+  virtual void postData(int32_t aMsgType, const sp<IMemory>& aDataPtr, camera_frame_metadata_t* metadata) override;
+  virtual void postDataTimestamp(nsecs_t aTimestamp, int32_t aMsgType, const sp<IMemory>& aDataPtr) override;
+  virtual void postRecordingFrameHandleTimestamp(nsecs_t timestamp, native_handle_t* handle) override;
+  virtual void postRecordingFrameHandleTimestampBatch(
+          const std::vector<nsecs_t>& timestamps,
+          const std::vector<native_handle_t*>& handles) override;
 #endif
 
   /**
@@ -128,7 +134,7 @@ public:
 #endif
   virtual int      StartRecording();
   virtual int      StopRecording();
-  virtual int      StoreMetaDataInBuffers(bool aEnabled);
+  virtual int      SetVideoBufferMode(int32_t videoBufferMode);
 
 protected:
   uint32_t                      mCameraId;

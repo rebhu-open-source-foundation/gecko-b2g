@@ -3,10 +3,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-[Func="Navigator::HasCameraSupport",
- Constructor(DOMString type, optional CameraConfigurationEventInit eventInitDict)]
+[Exposed=(Window, Worker), Func="Navigator::HasCameraSupport", LegacyEventInit]
 interface CameraConfigurationEvent : Event
 {
+  constructor(DOMString type, optional CameraConfigurationEventInit eventInitDict = {});
   readonly attribute CameraMode mode;
   readonly attribute DOMString recorderProfile;
   readonly attribute DOMRectReadOnly? previewSize;

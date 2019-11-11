@@ -36,7 +36,7 @@ dictionary CameraPictureOptions
 {
   /* an object with a combination of 'height' and 'width' properties
      chosen from CameraCapabilities.pictureSizes */
-  CameraSize pictureSize = null;
+  CameraSize pictureSize = {};
 
   /* one of the file formats chosen from
      CameraCapabilities.fileFormats */
@@ -64,7 +64,7 @@ dictionary CameraPictureOptions
      'altitude' is in metres; 'timestamp' is UTC, in seconds from
      January 1, 1970.
   */
-  CameraPosition position = null;
+  CameraPosition position = {};
 
   /* the number of seconds from January 1, 1970 UTC.  This can be
      different from the positional timestamp (above). */
@@ -120,7 +120,7 @@ dictionary CameraStartRecordingOptions
     attributes here affect the preview, any pictures taken, and/or
     any video recorded by the camera.
 */
-[Func="nsDOMCameraControl::HasSupport"]
+[Exposed=Window, Func="nsDOMCameraControl::HasSupport"]
 interface CameraControl : MediaStream
 {
   [Constant, Cached]
@@ -283,7 +283,7 @@ interface CameraControl : MediaStream
   [Throws]
   CameraSize getPictureSize();
   [Throws]
-  void setPictureSize(optional CameraSize size);
+  void setPictureSize(optional CameraSize size = {});
 
   /* if the image blob to be returned by takePicture() supports lossy
      compression, this setting controls the quality-size trade-off;
@@ -305,7 +305,7 @@ interface CameraControl : MediaStream
   [Throws]
   CameraSize getThumbnailSize();
   [Throws]
-  void setThumbnailSize(optional CameraSize size);
+  void setThumbnailSize(optional CameraSize size = {});
 
   /* the angle, in degrees, that the image sensor is mounted relative
      to the display; e.g. if 'sensorAngle' is 270 degrees (or -90 degrees),
@@ -347,7 +347,7 @@ interface CameraControl : MediaStream
      invoking this function will stop the preview stream, which must be
      manually restarted by calling resumePreview(). */
   [Throws]
-  Promise<Blob> takePicture(optional CameraPictureOptions options);
+  Promise<Blob> takePicture(optional CameraPictureOptions options = {});
 
   /* the event dispatched when a picture is successfully taken; it is of the
      type BlobEvent, where the data attribute contains the picture. */
@@ -386,13 +386,13 @@ interface CameraControl : MediaStream
      (depending on your usage model).
 
      once this is called, the camera control object is to be considered
-     defunct; a new instance will need to be created to access the camera. */
+     defunct; a new instance will need to be created to access the camera.
   [Throws]
-  Promise<void> release();
+  Promise<void> release();*/
 
   /* changes the camera configuration on the fly. */
   [Throws]
-  Promise<CameraConfiguration> setConfiguration(optional CameraConfiguration configuration);
+  Promise<CameraConfiguration> setConfiguration(optional CameraConfiguration configuration = {});
 
   /* the event dispatched when the camera is successfully configured.
 
@@ -455,11 +455,13 @@ interface CameraControl : MediaStream
    'mouth' is the coordinates of the detected mouth; null if not supported or
    detected. Same boundary conditions as 'leftEye'.
 */
-[Pref="camera.control.face_detection.enabled",
- Func="DOMCameraDetectedFace::HasSupport",
- Constructor(optional CameraDetectedFaceInit initDict)]
+//[Pref="camera.control.face_detection.enabled",
+[Exposed=(Window, Worker), Func="DOMCameraDetectedFace::HasSupport", LegacyEventInit]
 interface CameraDetectedFace
 {
+  [Throws]
+  constructor(optional CameraDetectedFaceInit initDict = {});
+
   readonly attribute unsigned long id;
 
   readonly attribute unsigned long score;
@@ -499,17 +501,17 @@ partial interface CameraControl
 
      This method throws an exception if face detection fails to start.
   */
-  [Throws, Pref="camera.control.face_detection.enabled"]
+  [Throws]
   void startFaceDetection();
 
   /* Stops the face detection.
 
      This method throws an exception if face detection can't be stopped.
   */
-  [Throws, Pref="camera.control.face_detection.enabled"]
+  [Throws]
   void stopFaceDetection();
 
   /* CameraFacesDetectedEvent */
-  [Pref="camera.control.face_detection.enabled"]
+  //[Pref="camera.control.face_detection.enabled"]
   attribute EventHandler    onfacesdetected;
 };

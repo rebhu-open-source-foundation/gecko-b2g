@@ -1226,7 +1226,7 @@ nsAppShell::Init()
         printf("***\n");
         printf("*****************************************************************\n");
 #if ANDROID_VERSION >= 18 && (defined(MOZ_OMX_DECODER) || defined(MOZ_B2G_CAMERA))
-        android::FakeSurfaceComposer::instantiate();
+        //android::FakeSurfaceComposer::instantiate();
 #endif
         //GonkPermissionService::instantiate();
 

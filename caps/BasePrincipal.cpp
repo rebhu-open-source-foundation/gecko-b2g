@@ -507,6 +507,40 @@ BasePrincipal::GetOriginSuffix(nsACString& aOriginAttributes) {
 }
 
 NS_IMETHODIMP
+BasePrincipal::GetAppStatus(uint16_t* aAppStatus)
+{
+  if (AppId() == nsIScriptSecurityManager::UNKNOWN_APP_ID) {
+    NS_WARNING("Asking for app status on a principal with an unknown app id");
+    *aAppStatus = nsIPrincipal::APP_STATUS_NOT_INSTALLED;
+    return NS_OK;
+  }
+
+  //TODO: AppStatusForPrincipal function is not ready yet
+  //*aAppStatus = nsScriptSecurityManager::AppStatusForPrincipal(this);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BasePrincipal::GetAppId(uint32_t* aAppId)
+{
+  if (AppId() == nsIScriptSecurityManager::UNKNOWN_APP_ID) {
+    MOZ_ASSERT(false);
+    *aAppId = nsIScriptSecurityManager::NO_APP_ID;
+    return NS_OK;
+  }
+
+  *aAppId = AppId();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BasePrincipal::GetAddonId(nsAString& aAddonId)
+{
+  aAddonId.Assign(mOriginAttributes.mAddonId);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 BasePrincipal::GetUserContextId(uint32_t* aUserContextId) {
   *aUserContextId = UserContextId();
   return NS_OK;
@@ -522,6 +556,13 @@ NS_IMETHODIMP
 BasePrincipal::GetIsInIsolatedMozBrowserElement(
     bool* aIsInIsolatedMozBrowserElement) {
   *aIsInIsolatedMozBrowserElement = IsInIsolatedMozBrowserElement();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BasePrincipal::GetUnknownAppId(bool* aUnknownAppId)
+{
+  *aUnknownAppId = AppId() == nsIScriptSecurityManager::UNKNOWN_APP_ID;
   return NS_OK;
 }
 

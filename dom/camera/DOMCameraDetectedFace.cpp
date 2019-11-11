@@ -28,7 +28,7 @@ DOMCameraDetectedFace::HasSupport(JSContext* aCx, JSObject* aGlobal)
 JSObject*
 DOMCameraDetectedFace::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraDetectedFaceBinding::Wrap(aCx, this, aGivenProto);
+  return CameraDetectedFace_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 /* static */
@@ -49,7 +49,8 @@ DOMCameraDetectedFace::DOMCameraDetectedFace(nsISupports* aParent,
   , mScore(aFace.mScore)
   , mBounds(new DOMRect(this))
 {
-  mBounds->SetRect(aFace.mBounds.mLeft,
+//TODO: temp remove to fix compile error
+/*  mBounds->SetRect(aFace.mBounds.mLeft,
                    aFace.mBounds.mTop,
                    aFace.mBounds.mRight - aFace.mBounds.mLeft,
                    aFace.mBounds.mBottom - aFace.mBounds.mTop);
@@ -62,7 +63,7 @@ DOMCameraDetectedFace::DOMCameraDetectedFace(nsISupports* aParent,
   }
   if (aFace.mHasMouth) {
     mMouth = new DOMPoint(this, aFace.mMouth.mX, aFace.mMouth.mY);
-  }
+  }*/
 }
 
 DOMCameraDetectedFace::DOMCameraDetectedFace(nsISupports* aParent,

@@ -8,7 +8,7 @@
 /* The capabilities of the video recorder. These are guaranteed not to change
    over the lifetime of that partcicular instance.
 */
-[Func="CameraCapabilities::HasSupport"]
+[Exposed=(Window, Worker), Func="CameraCapabilities::HasSupport"]
 interface CameraRecorderAudioProfile
 {
   [Constant, Cached] readonly attribute DOMString codec;
@@ -16,10 +16,10 @@ interface CameraRecorderAudioProfile
   [Constant, Cached] readonly attribute unsigned long samplesPerSecond;
   [Constant, Cached] readonly attribute unsigned long channels;
 
-  jsonifier;
+  [Default] object toJSON();
 };
 
-[Func="CameraCapabilities::HasSupport"]
+[Exposed=(Window, Worker), Func="CameraCapabilities::HasSupport"]
 interface CameraRecorderVideoProfile
 {
   [Constant, Cached] readonly attribute DOMString codec;
@@ -30,10 +30,10 @@ interface CameraRecorderVideoProfile
   [Constant, Cached] readonly attribute unsigned long width;
   [Constant, Cached] readonly attribute unsigned long height;
 
-  jsonifier;
+  [Default] object toJSON();
 };
 
-[Func="CameraCapabilities::HasSupport"]
+[Exposed=(Window, Worker), Func="CameraCapabilities::HasSupport"]
 interface CameraRecorderProfile
 {
   [Constant, Cached] readonly attribute DOMString name;
@@ -43,21 +43,21 @@ interface CameraRecorderProfile
   [Constant, Cached] readonly attribute CameraRecorderAudioProfile audio;
   [Constant, Cached] readonly attribute CameraRecorderVideoProfile video;
 
-  jsonifier;
+  [Default] object toJSON();
 };
 
-[Func="CameraCapabilities::HasSupport"]
+[Exposed=(Window, Worker), Func="CameraCapabilities::HasSupport"]
 interface CameraRecorderProfiles
 {
   getter CameraRecorderProfile(DOMString profile);
 
-  jsonifier;
+  [Default] object toJSON();
 };
 
 /* The capabilities of a CameraControl instance. These are guaranteed
    not to change over the lifetime of that particular instance.
 */
-[Func="CameraCapabilities::HasSupport"]
+[Exposed=(Window, Worker), Func="CameraCapabilities::HasSupport"]
 interface CameraCapabilities
 {
   [Constant, Cached] readonly attribute sequence<CameraSize> previewSizes;
@@ -88,5 +88,5 @@ interface CameraCapabilities
   [Constant, Cached] readonly attribute sequence<DOMString> isoModes;
   [Constant, Cached] readonly attribute sequence<DOMString> meteringModes;
 
-  jsonifier;
+  [Default] object toJSON();
 };

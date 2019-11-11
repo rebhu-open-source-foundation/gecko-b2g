@@ -72,6 +72,9 @@ public:
             mozilla::ErrorResult& aRv);
   void GetListOfCameras(nsTArray<nsString>& aList, mozilla::ErrorResult& aRv);
 
+  already_AddRefed<mozilla::dom::Promise>
+  GetCameraSensorAngle(const nsAString& aCamera, mozilla::ErrorResult& aRv);
+
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
   virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 

@@ -243,7 +243,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   AddonManager* GetMozAddonManager(ErrorResult& aRv);
 
   // WebIDL helper methods
-  static bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
   static bool HasCameraSupport(JSContext* /* unused */,
                                JSObject* aGlobal);
   static bool HasWifiManagerSupport(JSContext* /* unused */,

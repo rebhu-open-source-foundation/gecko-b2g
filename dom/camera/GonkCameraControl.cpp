@@ -47,6 +47,7 @@
 #include "CameraCommon.h"
 #include "GonkCameraParameters.h"
 #include "DeviceStorageFileDescriptor.h"
+#include "MemoryBlobImpl.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -571,7 +572,8 @@ nsGonkCameraControl::PushParameters()
   if (NS_GetCurrentThread() != mCameraThread) {
     DOM_CAMERA_LOGT("%s:%d - dispatching to Camera Thread\n", __func__, __LINE__);
     nsCOMPtr<nsIRunnable> pushParametersTask =
-      NewRunnableMethod(this, &nsGonkCameraControl::PushParametersImpl);
+      NewRunnableMethod("nsGonkCameraControl::PushParametersImpl", this,
+        &nsGonkCameraControl::PushParametersImpl);
     return mCameraThread->Dispatch(pushParametersTask, NS_DISPATCH_NORMAL);
   }
 
@@ -971,7 +973,8 @@ nsGonkCameraControl::SetThumbnailSize(const Size& aSize)
   {
   public:
     SetThumbnailSize(nsGonkCameraControl* aCameraControl, const Size& aSize)
-      : mCameraControl(aCameraControl)
+      : mozilla::Runnable("SetThumbnailSize")
+      , mCameraControl(aCameraControl)
       , mSize(aSize)
     {
       MOZ_COUNT_CTOR(SetThumbnailSize);
@@ -1089,7 +1092,8 @@ nsGonkCameraControl::SetPictureSize(const Size& aSize)
   {
   public:
     SetPictureSize(nsGonkCameraControl* aCameraControl, const Size& aSize)
-      : mCameraControl(aCameraControl)
+      : mozilla::Runnable("SetPictureSize")
+      , mCameraControl(aCameraControl)
       , mSize(aSize)
     {
       MOZ_COUNT_CTOR(SetPictureSize);
@@ -1291,7 +1295,8 @@ nsGonkCameraControl::StopRecordingImpl()
   {
   public:
     RecordingComplete(already_AddRefed<DeviceStorageFile> aFile)
-      : mFile(aFile)
+      : mozilla::Runnable("RecordingComplete")
+      , mFile(aFile)
     { }
 
     ~RecordingComplete() { }
@@ -1414,7 +1419,7 @@ public:
   { }
 
   NS_IMETHODIMP
-  Notify(nsITimer* aTimer)
+  Notify(nsITimer* aTimer) override
   {
     mCameraControl->OnAutoFocusComplete(true, true);
     return NS_OK;
@@ -1475,7 +1480,8 @@ nsGonkCameraControl::OnAutoFocusComplete(bool aSuccess, bool aExpired)
   {
   public:
     AutoFocusComplete(nsGonkCameraControl* aCameraControl, bool aSuccess, bool aExpired)
-      : mCameraControl(aCameraControl)
+      : mozilla::Runnable("AutoFocusComplete")
+      , mCameraControl(aCameraControl)
       , mSuccess(aSuccess)
       , mExpired(aExpired)
     { }
@@ -2250,7 +2256,8 @@ nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeig
   public:
     PosterRunnable(nsGonkCameraControl* aTarget, Image* aImage,
                    uint32_t aWidth, uint32_t aHeight, int32_t aRotation)
-      : mTarget(aTarget)
+      : mozilla::Runnable("AutoFocusComplete")
+      , mTarget(aTarget)
       , mImage(aImage)
       , mWidth(aWidth)
       , mHeight(aHeight)
@@ -2368,7 +2375,7 @@ nsGonkCameraControl::OnPoster(void* aData, uint32_t aLength)
 {
   RefPtr<BlobImpl> blobImpl;
   if (aData) {
-    blobImpl = new BlobImplMemory(aData, aLength, NS_LITERAL_STRING("image/jpeg"));
+    blobImpl = new MemoryBlobImpl(aData, aLength, NS_LITERAL_STRING("image/jpeg"));
   }
   CameraControlImpl::OnPoster(blobImpl);
 }

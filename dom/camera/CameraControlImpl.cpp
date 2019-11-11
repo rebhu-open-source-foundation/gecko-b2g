@@ -29,6 +29,8 @@ CameraControlImpl::CameraControlImpl()
   class Delegate : public Runnable
   {
   public:
+    Delegate()
+      : Runnable("dom::camera::CameraControlImpl") {}
     NS_IMETHOD
     Run() override
     {
@@ -39,7 +41,7 @@ CameraControlImpl::CameraControlImpl()
   };
 
   // reuse the same camera thread to conserve resources
-  nsCOMPtr<nsIThread> ct = do_QueryInterface(sCameraThread);
+  nsCOMPtr<nsIThread> ct(sCameraThread);
   if (ct) {
     mCameraThread = ct.forget();
   } else {
@@ -334,7 +336,8 @@ class CameraControlImpl::ControlMessage : public Runnable
 public:
   ControlMessage(CameraControlImpl* aCameraControl,
                  CameraControlListener::UserContext aContext)
-    : mCameraControl(aCameraControl)
+    : Runnable("dom::camera::ControlMessage")
+    , mCameraControl(aCameraControl)
     , mContext(aContext)
   { }
 

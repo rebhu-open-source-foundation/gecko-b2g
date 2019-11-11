@@ -44,102 +44,6 @@ using namespace mozilla::media;
 static LazyLogModule gMediaStreamLog("MediaStream");
 #define LOG(type, msg) MOZ_LOG(gMediaStreamLog, type, msg)
 
-const TrackID TRACK_VIDEO_PRIMARY = 1;
-
-
-DOMMediaStream::TrackPort::TrackPort(MediaInputPort* aInputPort,
-                                     MediaStreamTrack* aTrack,
-                                     const InputPortOwnership aOwnership)
-  : mInputPort(aInputPort)
-  , mTrack(aTrack)
-  , mOwnership(aOwnership)
-{
-  // XXX Bug 1124630. nsDOMCameraControl requires adding a track without and
-  // input port.
-  // MOZ_ASSERT(mInputPort);
-  MOZ_ASSERT(mTrack);
-
-  MOZ_COUNT_CTOR(TrackPort);
-}
-
-DOMMediaStream::TrackPort::~TrackPort()
-{
-  MOZ_COUNT_DTOR(TrackPort);
-
-  if (mOwnership == InputPortOwnership::OWNED) {
-    DestroyInputPort();
-  }
-}
-
-void
-DOMMediaStream::TrackPort::DestroyInputPort()
-{
-  if (mInputPort) {
-    mInputPort->Destroy();
-    mInputPort = nullptr;
-  }
-}
-
-MediaStream*
-DOMMediaStream::TrackPort::GetSource() const
-{
-  return mInputPort ? mInputPort->GetSource() : nullptr;
-}
-
-TrackID
-DOMMediaStream::TrackPort::GetSourceTrackId() const
-{
-  return mInputPort ? mInputPort->GetSourceTrackId() : TRACK_INVALID;
-}
-
-already_AddRefed<Pledge<bool>>
-DOMMediaStream::TrackPort::BlockSourceTrackId(TrackID aTrackId, BlockingMode aBlockingMode)
-{
-  if (mInputPort) {
-    return mInputPort->BlockSourceTrackId(aTrackId, aBlockingMode);
-  }
-  RefPtr<Pledge<bool>> rejected = new Pledge<bool>();
-  rejected->Reject(NS_ERROR_FAILURE);
-  return rejected.forget();
-}
-
-NS_IMPL_CYCLE_COLLECTION(DOMMediaStream::TrackPort, mTrack)
-NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMMediaStream::TrackPort, AddRef)
-NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMMediaStream::TrackPort, Release)
-
-NS_IMPL_CYCLE_COLLECTING_ADDREF(MediaStreamTrackSourceGetter)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(MediaStreamTrackSourceGetter)
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaStreamTrackSourceGetter)
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
-NS_IMPL_CYCLE_COLLECTION_0(MediaStreamTrackSourceGetter)
-
-/**
- * Listener registered on the Owned stream to detect added and ended owned
- * tracks for keeping the list of MediaStreamTracks in sync with the tracks
- * added and ended directly at the source.
- */
-class DOMMediaStream::OwnedStreamListener : public MediaStreamListener {
-public:
-  explicit OwnedStreamListener(DOMMediaStream* aStream)
-    : mStream(aStream)
-  {}
-
-  void Forget() { mStream = nullptr; }
-
-  void DoNotifyTrackCreated(TrackID aTrackID, MediaSegment::Type aType,
-                            MediaStream* aInputStream, TrackID aInputTrackID)
-  {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    if (!mStream) {
-      return;
-    }
-  }
-
-  return false;
-}
-
 static bool ContainsLiveTracks(
     const nsTArray<RefPtr<MediaStreamTrack>>& aTracks) {
   for (const auto& track : aTracks) {
@@ -643,3 +547,13 @@ nsresult DOMMediaStream::DispatchTrackEvent(
 
   return DispatchTrustedEvent(event);
 }
+
+//TODO:: temp remove it.
+void
+DOMMediaStream::CreateAndAddPlaybackStreamListener(MediaTrack* aStream)
+{
+//  MOZ_ASSERT(GetCameraStream(), "I'm a hack. Only DOMCameraControl may use me.");
+//  mPlaybackListener = new PlaybackStreamListener(this);
+//  aStream->AddListener(mPlaybackListener);
+}
+

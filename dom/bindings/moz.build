@@ -70,7 +70,7 @@ LOCAL_INCLUDES += [
 LOCAL_INCLUDES += [
     '/dom/base',
     '/dom/battery',
-    '/dom/bluetooth/common/webapi',
+    #'/dom/bluetooth/common/webapi',
     '/dom/camera',
     '/dom/canvas',
     '/dom/geolocation',

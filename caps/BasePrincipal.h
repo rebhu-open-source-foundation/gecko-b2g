@@ -124,8 +124,12 @@ class BasePrincipal : public nsJSPrincipals {
                                  JS::MutableHandle<JS::Value> aVal) final;
   NS_IMETHOD GetAsciiSpec(nsACString& aSpec) override;
   NS_IMETHOD GetOriginSuffix(nsACString& aOriginSuffix) final;
+  NS_IMETHOD GetAppStatus(uint16_t* aAppStatus) final;
+  NS_IMETHOD GetAppId(uint32_t* aAppStatus) final;
+  NS_IMETHOD GetAddonId(nsAString& aAddonId) override;
   NS_IMETHOD GetIsInIsolatedMozBrowserElement(
       bool* aIsInIsolatedMozBrowserElement) final;
+  NS_IMETHOD GetUnknownAppId(bool* aUnknownAppId) final;
   NS_IMETHOD GetUserContextId(uint32_t* aUserContextId) final;
   NS_IMETHOD GetPrivateBrowsingId(uint32_t* aPrivateBrowsingId) final;
   NS_IMETHOD GetSiteOrigin(nsACString& aOrigin) override;
@@ -164,6 +168,7 @@ class BasePrincipal : public nsJSPrincipals {
     return mOriginAttributes;
   }
   extensions::WebExtensionPolicy* AddonPolicy();
+  uint32_t AppId() const { return mOriginAttributes.mAppId; }
   uint32_t UserContextId() const { return mOriginAttributes.mUserContextId; }
   uint32_t PrivateBrowsingId() const {
     return mOriginAttributes.mPrivateBrowsingId;

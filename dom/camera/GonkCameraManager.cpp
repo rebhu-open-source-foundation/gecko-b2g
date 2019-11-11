@@ -76,7 +76,7 @@ nsresult
 ICameraControl::GetListOfCameras(nsTArray<nsString>& aList)
 {
   int32_t count = android::Camera::getNumberOfCameras();
-  DOM_CAMERA_LOGI("getListOfCameras : getNumberOfCameras() returned %d\n", count);
+  DOM_CAMERA_LOGT("getListOfCameras : getNumberOfCameras() returned %d\n", count);
   if (count <= 0) {
     aList.Clear();
     return NS_OK;

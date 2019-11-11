@@ -36,8 +36,8 @@ dictionary CameraSize
 dictionary CameraConfiguration
 {
   CameraMode mode = "picture";
-  CameraSize previewSize = null;
-  CameraSize pictureSize = null;
+  CameraSize previewSize = {};
+  CameraSize pictureSize = {};
 
   /* one of the profiles reported by
      CameraControl.capabilities.recorderProfiles
@@ -45,7 +45,7 @@ dictionary CameraConfiguration
   DOMString recorderProfile = "default";
 };
 
-[Func="nsDOMCameraManager::HasSupport"]
+[Exposed=(Window, Worker), Func="nsDOMCameraManager::HasSupport"]
 interface CameraManager
 {
   /* get a camera instance; 'camera' is one of the camera
@@ -53,11 +53,26 @@ interface CameraManager
   */
   [Throws]
   Promise<CameraGetPromiseData> getCamera(DOMString camera,
-                                          optional CameraConfiguration initialConfiguration);
+                                          optional CameraConfiguration initialConfiguration = {});
 
   /* return an array of camera identifiers, e.g.
        [ "front", "back" ]
    */
   [Throws]
   sequence<DOMString> getListOfCameras();
+
+  /**
+   * The angle, in degrees, that the image sensor is mounted relative
+   * to the display; e.g. if 'sensorAngle' is 270 degrees (or -90 degrees),
+   * then the preview stream needs to be rotated +90 degrees to have the
+   * same orientation as the real world.
+   *
+   * @param camera
+   *        camera identifiers, e.g. ['front', 'back'].
+   *
+   * @returns Promise<Int32>
+   *          Resolved with the sensor angle (in degrees), e.g.: [0, 90, 180, 270].
+   */
+  //[Throws]
+  //Promise<void> getCameraSensorAngle(DOMString camera);
 };

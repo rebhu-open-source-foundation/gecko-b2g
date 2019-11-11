@@ -3,11 +3,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-[Pref="camera.control.face_detection.enabled",
- Func="Navigator::HasCameraSupport",
- Constructor(DOMString type, optional CameraFacesDetectedEventInit eventInitDict)]
+//[Pref="camera.control.face_detection.enabled",
+[Exposed=(Window, Worker), Func="Navigator::HasCameraSupport", LegacyEventInit]
 interface CameraFacesDetectedEvent : Event
 {
+  constructor(DOMString type, optional CameraFacesDetectedEventInit eventInitDict = {});
   [Pure, Cached]
   readonly attribute sequence<CameraDetectedFace>? faces;
 };

@@ -30,9 +30,15 @@
 #include "mozilla/RefPtr.h"
 #if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
 #include "GonkBufferQueueProducer.h"
+#if ANDROID_VERSION >= 23
+#include <binder/IServiceManager.h>
+#include <gui/BufferQueue.h>
+
+#endif
 #endif
 #include "GonkCameraControl.h"
 #include "CameraCommon.h"
+#include <android/hardware/ICameraService.h>
 
 using namespace mozilla;
 using namespace mozilla::layers;
@@ -162,6 +168,20 @@ GonkCameraHardware::postDataTimestamp(nsecs_t aTimestamp, int32_t aMsgType, cons
     mCamera->releaseRecordingFrame(aDataPtr);
   }
 }
+
+void
+GonkCameraHardware::postRecordingFrameHandleTimestamp(nsecs_t timestamp, native_handle_t* handle)
+{
+  // TODO: implement this callback function
+}
+
+void
+GonkCameraHardware::postRecordingFrameHandleTimestampBatch(
+          const std::vector<nsecs_t>& timestamps,
+          const std::vector<native_handle_t*>& handles)
+{
+  // TODO: implement this callback function
+}
 #endif
 
 nsresult
@@ -249,8 +269,13 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
 
   if (!test.EqualsASCII("hardware")) {
 #ifdef MOZ_WIDGET_GONK
-#if ANDROID_VERSION >= 18
-    camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"), Camera::USE_CALLING_UID);
+#if ANDROID_VERSION >= 26
+    ProcessState::self()->startThreadPool();
+    camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
+      Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+#elif ANDROID_VERSION >= 18
+    camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
+      Camera::USE_CALLING_UID);
 #else
     camera = Camera::connect(aCameraId);
 #endif
@@ -455,6 +480,7 @@ GonkCameraHardware::StartPreview()
   if (NS_WARN_IF(mClosing)) {
     return DEAD_OBJECT;
   }
+  DOM_CAMERA_LOGT("%s:%d :for HAL this=%p\n", __func__, __LINE__, this);
   return mCamera->startPreview();
 }
 
@@ -511,10 +537,10 @@ GonkCameraHardware::ReleaseRecordingFrame(const sp<IMemory>& aFrame)
 #endif
 
 int
-GonkCameraHardware::StoreMetaDataInBuffers(bool aEnabled)
+GonkCameraHardware::SetVideoBufferMode(int32_t videoBufferMode)
 {
   if (NS_WARN_IF(mClosing)) {
     return DEAD_OBJECT;
   }
-  return mCamera->storeMetaDataInBuffers(aEnabled);
+  return mCamera->setVideoBufferMode(videoBufferMode);
 }

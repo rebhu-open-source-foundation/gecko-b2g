@@ -17,7 +17,9 @@ using namespace mozilla::dom;
 DOMCameraControlListener::DOMCameraControlListener(nsDOMCameraControl* aDOMCameraControl,
                                                    CameraPreviewMediaStream* aStream)
   : mDOMCameraControl(
-      new nsMainThreadPtrHolder<nsISupports>(static_cast<DOMMediaStream*>(aDOMCameraControl)))
+      new nsMainThreadPtrHolder<nsISupports>(
+      "DOMCameraControlListener::aDOMCameraControl",
+      static_cast<DOMMediaStream*>(aDOMCameraControl)))
   , mStream(aStream)
 {
   DOM_CAMERA_LOGT("%s:%d : this=%p, camera=%p, stream=%p\n",
@@ -34,7 +36,8 @@ class DOMCameraControlListener::DOMCallback : public Runnable
 {
 public:
   explicit DOMCallback(nsMainThreadPtrHandle<nsISupports> aDOMCameraControl)
-    : mDOMCameraControl(aDOMCameraControl)
+    : Runnable("DOMCameraControlListener::DOMCallback"),
+      mDOMCameraControl(aDOMCameraControl)
   {
     MOZ_COUNT_CTOR(DOMCameraControlListener::DOMCallback);
   }
@@ -359,8 +362,9 @@ DOMCameraControlListener::OnTakePictureComplete(const uint8_t* aData, uint32_t a
     void
     RunCallback(nsDOMCameraControl* aDOMCameraControl) override
     {
-      nsCOMPtr<nsIDOMBlob> picture =
-        Blob::CreateMemoryBlob(mDOMCameraControl.get(),
+      nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mDOMCameraControl);
+      RefPtr<Blob> picture =
+        Blob::CreateMemoryBlob(global,
                                static_cast<void*>(mData),
                                static_cast<uint64_t>(mLength),
                                mMimeType);

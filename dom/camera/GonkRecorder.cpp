@@ -65,7 +65,11 @@ public:
     status_t start(MetaData *params = NULL) override;
     status_t stop() override;
     sp<MetaData> getFormat() override;
+#if ANDROID_VERSION >= 29
+    status_t read(MediaBufferBase **buffer, const ReadOptions *options = NULL) override;
+#else
     status_t read(MediaBuffer **buffer, const ReadOptions *options = NULL) override;
+#endif
     void block();
     status_t resume();
 
@@ -118,8 +122,13 @@ GonkRecorder::WrappedMediaSource::getFormat()
     return mEncoder->getFormat();
 }
 
+#if ANDROID_VERSION >= 29
+status_t
+GonkRecorder::WrappedMediaSource::read(MediaBufferBase **buffer, const ReadOptions *options)
+#else
 status_t
 GonkRecorder::WrappedMediaSource::read(MediaBuffer **buffer, const ReadOptions *options)
+#endif
 {
     MutexAutoLock lock(mMutex);
     while (mWait) {
@@ -127,7 +136,11 @@ GonkRecorder::WrappedMediaSource::read(MediaBuffer **buffer, const ReadOptions *
     }
 
     status_t rv = UNKNOWN_ERROR;
+#if ANDROID_VERSION >= 29
+    MediaBufferBase *buf = NULL;
+#else
     MediaBuffer *buf = NULL;
+#endif
 
     do {
         rv = mEncoder->read(&buf, options);
@@ -143,7 +156,11 @@ GonkRecorder::WrappedMediaSource::read(MediaBuffer **buffer, const ReadOptions *
         }
 
         int32_t isSync = 0;
+    #if ANDROID_VERSION >= 29
+        buf->meta_data().findInt32(kKeyIsSyncFrame, &isSync);
+    #else
         buf->meta_data()->findInt32(kKeyIsSyncFrame, &isSync);
+    #endif
         if (isSync) {
             mResume = false;
             mResumeStatus = OK;
@@ -188,7 +205,7 @@ GonkRecorder::WrappedMediaSource::resume()
 GonkRecorder::GonkRecorder()
     : mWriter(NULL),
       mOutputFd(-1),
-      mAudioSource(AUDIO_SOURCE_CNT),
+      mAudioSource((audio_source_t)AUDIO_SOURCE_CNT),
       mVideoSource(VIDEO_SOURCE_LIST_END),
       mStarted(false) {
 
@@ -871,6 +888,7 @@ sp<MediaSource> GonkRecorder::createAudioSource() {
     sp<AudioSource> audioSource =
         new AudioSource(
                 mAudioSource,
+                String16(),
                 mSampleRate,
                 mAudioChannels);
 
@@ -1448,7 +1466,7 @@ status_t GonkRecorder::setupVideoEncoder(
             break;
 
         default:
-            CHECK(!"Should not be here, unsupported video encoding.");
+            CHECK(false && "Should not be here, unsupported video encoding.");
             break;
     }
 
@@ -1482,12 +1500,18 @@ status_t GonkRecorder::setupVideoEncoder(
     }
 
     uint32_t flags = 0;
+    #if 0 //TODO: no FLAG_USE_METADATA_INPUT is available, need further check
     if (mIsMetaDataStoredInVideoBuffers) {
         flags |= MediaCodecSource::FLAG_USE_METADATA_INPUT;
     }
+    #endif
 
     sp<MediaCodecSource> encoder =
-            MediaCodecSource::Create(mLooper, format, cameraSource, flags);
+#if ANDROID_VERSION >= 23
+        MediaCodecSource::Create(mLooper, format, cameraSource, NULL,  flags);
+#else
+        MediaCodecSource::Create(mLooper, format, cameraSource, flags);
+#endif
     if (encoder == NULL) {
         RE_LOGE("Failed to create video encoder");
         // When the encoder fails to be created, we need
@@ -1830,7 +1854,7 @@ status_t GonkRecorder::reset() {
     stop();
 
     // No audio or video source by default
-    mAudioSource = AUDIO_SOURCE_CNT;
+    mAudioSource = (audio_source_t)AUDIO_SOURCE_CNT;
     mVideoSource = VIDEO_SOURCE_LIST_END;
 
     // Default parameters

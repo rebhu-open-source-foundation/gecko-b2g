@@ -22,6 +22,7 @@ ICameraControl::GetCameraName(uint32_t aDeviceNum, nsCString& aDeviceName)
 nsresult
 ICameraControl::GetListOfCameras(nsTArray<nsString>& aList)
 {
+    DOM_CAMERA_LOGI("FallbackCameraManager GetListOfCameras");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 

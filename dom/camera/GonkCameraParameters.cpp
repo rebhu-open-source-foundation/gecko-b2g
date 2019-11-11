@@ -18,7 +18,8 @@
 #include "CameraPreferences.h"
 #include "ICameraControl.h"
 #include "CameraCommon.h"
-#include "mozilla/Hal.h"
+// TODO: to support IsLowMemoryPlatform, need to solve base namespace amibiguous issue
+//#include "mozilla/Hal.h"
 #include "nsDataHashtable.h"
 #include "nsPrintfCString.h"
 
@@ -28,6 +29,8 @@ using namespace android;
 /* static */ bool
 GonkCameraParameters::IsLowMemoryPlatform()
 {
+  // TODO: to support IsLowMemoryPlatform, need to solve base namespace amibiguous issue
+  #if 0
   bool testIsLowMem = false;
   CameraPreferences::GetPref("camera.control.test.is_low_memory", testIsLowMem);
   if (testIsLowMem) {
@@ -47,6 +50,7 @@ GonkCameraParameters::IsLowMemoryPlatform()
       return true;
     }
   }
+  #endif
 
   return false;
 }
@@ -430,6 +434,7 @@ GonkCameraParameters::SetTranslated(uint32_t aKey, const nsAString& aValue)
         return NS_ERROR_INVALID_ARG;
       }
       // fallthrough
+      MOZ_FALLTHROUGH;
 
     default:
       return SetImpl(aKey, NS_ConvertUTF16toUTF8(aValue).get());
@@ -489,6 +494,7 @@ GonkCameraParameters::SetTranslated(uint32_t aKey, const ICameraControl::Size& a
         break;
       }
       // intentional fallthrough
+      MOZ_FALLTHROUGH;
 
     default:
       rv = SetImpl(aKey, nsPrintfCString("%ux%u", aSize.width, aSize.height).get());
@@ -824,10 +830,12 @@ GonkCameraParameters::GetTranslated(uint32_t aKey, double& aValue)
     case CAMERA_PARAM_FOCUSDISTANCEFAR:
       ++index;
       // intentional fallthrough
+      MOZ_FALLTHROUGH;
 
     case CAMERA_PARAM_FOCUSDISTANCEOPTIMUM:
       ++index;
       // intentional fallthrough
+      MOZ_FALLTHROUGH;
 
     case CAMERA_PARAM_FOCUSDISTANCENEAR:
       rv = GetImpl(aKey, s);

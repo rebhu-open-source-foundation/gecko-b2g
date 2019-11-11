@@ -20,6 +20,7 @@ namespace mozilla {
 
 class AbstractThread;
 class DOMMediaStream;
+class MediaTrack;
 
 enum class BlockingMode;
 
@@ -217,35 +218,8 @@ class DOMMediaStream : public DOMEventTargetHelper,
   nsresult DispatchTrackEvent(const nsAString& aName,
                               const RefPtr<MediaStreamTrack>& aTrack);
 
-  class OwnedStreamListener;
-  friend class OwnedStreamListener;
-
-  class PlaybackStreamListener;
-  friend class PlaybackStreamListener;
-
   // XXX Bug 1124630. Remove with CameraPreviewMediaStream.
-  void CreateAndAddPlaybackStreamListener(MediaStream*);
-
-  /**
-   * Block a track in our playback stream. Calls NotifyPlaybackTrackBlocked()
-   * after the MediaStreamGraph has applied the block and the track is no longer
-   * live.
-   */
-  void BlockPlaybackTrack(TrackPort* aTrack);
-
-  /**
-   * Called on main thread after MediaStreamGraph has applied a track block in
-   * our playback stream.
-   */
-  void NotifyPlaybackTrackBlocked();
-
-  // Recomputes the current principal of this stream based on the set of tracks
-  // it currently contains. PrincipalChangeObservers will be notified only if
-  // the principal changes.
-  void RecomputePrincipal();
-
-  // StreamTime at which the currentTime attribute would return 0.
-  StreamTime mLogicalStreamStartTime;
+  void CreateAndAddPlaybackStreamListener(MediaTrack*);
 
   // We need this to track our parent object.
   nsCOMPtr<nsPIDOMWindowInner> mWindow;

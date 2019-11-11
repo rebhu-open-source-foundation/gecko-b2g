@@ -26,7 +26,8 @@ class CameraClosedMessage : public Runnable
 {
 public:
   explicit CameraClosedMessage(nsMainThreadPtrHandle<T> aListener)
-    : mListener(aListener)
+    : Runnable("EncodingRunnable"),
+    mListener(aListener)
   {
     DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   }
@@ -57,7 +58,7 @@ class CameraClosedListenerProxy : public CameraControlListener
 {
 public:
   explicit CameraClosedListenerProxy(T* aListener)
-    : mListener(new nsMainThreadPtrHolder<T>(aListener))
+    : mListener(new nsMainThreadPtrHolder<T>("CameraClosedListenerProxy",aListener))
   {
     DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   }
@@ -96,7 +97,7 @@ NS_INTERFACE_MAP_END
 JSObject*
 CameraRecorderVideoProfile::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraRecorderVideoProfileBinding::Wrap(aCx, this, aGivenProto);
+  return CameraRecorderVideoProfile_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 CameraRecorderVideoProfile::CameraRecorderVideoProfile(nsISupports* aParent,
@@ -136,7 +137,7 @@ NS_INTERFACE_MAP_END
 JSObject*
 CameraRecorderAudioProfile::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraRecorderAudioProfileBinding::Wrap(aCx, this, aGivenProto);
+  return CameraRecorderAudioProfile_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 CameraRecorderAudioProfile::CameraRecorderAudioProfile(nsISupports* aParent,
@@ -176,7 +177,7 @@ NS_INTERFACE_MAP_END
 JSObject*
 CameraRecorderProfile::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraRecorderProfileBinding::Wrap(aCx, this, aGivenProto);
+  return CameraRecorderProfile_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 CameraRecorderProfile::CameraRecorderProfile(nsISupports* aParent,
@@ -218,7 +219,7 @@ NS_INTERFACE_MAP_END
 JSObject*
 CameraRecorderProfiles::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraRecorderProfilesBinding::Wrap(aCx, this, aGivenProto);
+  return CameraRecorderProfiles_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 CameraRecorderProfiles::CameraRecorderProfiles(nsISupports* aParent,
@@ -343,7 +344,7 @@ CameraCapabilities::OnHardwareClosed()
 JSObject*
 CameraCapabilities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraCapabilitiesBinding::Wrap(aCx, this, aGivenProto);
+  return CameraCapabilities_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 #define LOG_IF_ERROR(rv, param)                               \

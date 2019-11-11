@@ -75,8 +75,8 @@ CameraPreferences::UpdatePref(const char* aPref, uint32_t& aVal)
 nsresult
 CameraPreferences::UpdatePref(const char* aPref, nsACString& aVal)
 {
-  nsCString val;
-  nsresult rv = Preferences::GetCString(aPref, &val);
+  nsAutoCString val;
+  nsresult rv = Preferences::GetCString(aPref, val);
   if (NS_SUCCEEDED(rv)) {
     aVal = val;
   } else if(rv == NS_ERROR_UNEXPECTED) {
@@ -255,8 +255,10 @@ CameraPreferences::Initialize()
   sPrefGonkParameters = new nsCString();
 
   for (uint32_t i = 0; i < ArrayLength(sPrefs); ++i) {
+    nsCString sPrefi;
+    sPrefi.AssignLiteral(sPrefs[i].mPref, strlen(sPrefs[i].mPref));
     rv = Preferences::RegisterCallbackAndCall(CameraPreferences::PreferenceChanged,
-                                              sPrefs[i].mPref);
+                                              sPrefi);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }
@@ -273,8 +275,10 @@ CameraPreferences::Shutdown()
   DOM_CAMERA_LOGI("Shutting down camera preference callbacks\n");
 
   for (uint32_t i = 0; i < ArrayLength(sPrefs); ++i) {
+    nsCString sPrefi;
+    sPrefi.AssignLiteral(sPrefs[i].mPref, strlen(sPrefs[i].mPref));
     Preferences::UnregisterCallback(CameraPreferences::PreferenceChanged,
-                                    sPrefs[i].mPref);
+                                    sPrefi);
   }
 
   sPrefTestEnabled = nullptr;

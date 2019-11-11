@@ -3,10 +3,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-[Func="Navigator::HasCameraSupport",
- Constructor(DOMString type, optional CameraClosedEventInit eventInitDict)]
+[Exposed=(Window, Worker), Func="Navigator::HasCameraSupport", LegacyEventInit]
 interface CameraClosedEvent : Event
 {
+  constructor(DOMString type, optional CameraClosedEventInit eventInitDict = {});
   readonly attribute DOMString reason;
 };
 

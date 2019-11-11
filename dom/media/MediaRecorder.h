@@ -7,6 +7,7 @@
 #ifndef MediaRecorder_h
 #define MediaRecorder_h
 
+#include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/MediaRecorderBinding.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/MozPromise.h"

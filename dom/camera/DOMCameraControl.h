@@ -71,11 +71,11 @@ public:
 
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  MediaStream* GetCameraStream() const override;
+  MediaTrack* GetCameraStream() const;
 
   // Called by TrackCreatedListener when the underlying track has been created.
   // XXX Bug 1124630. This can be removed with CameraPreviewMediaStream.
-  void TrackCreated(TrackID aTrackID);
+  void TrackCreated();
 
   // Attributes.
   void GetEffect(nsString& aEffect, ErrorResult& aRv);
@@ -179,7 +179,7 @@ protected:
 
   void OnAutoFocusComplete(bool aAutoFocusSucceeded);
   void OnAutoFocusMoving(bool aIsMoving);
-  void OnTakePictureComplete(nsIDOMBlob* aPicture);
+  void OnTakePictureComplete(dom::Blob* aPicture);
   void OnFacesDetected(const nsTArray<ICameraControl::Face>& aFaces);
   void OnPoster(dom::BlobImpl* aPoster);
 
@@ -199,7 +199,7 @@ protected:
 
   already_AddRefed<dom::Promise> CreatePromise(ErrorResult& aRv);
   void AbortPromise(RefPtr<dom::Promise>& aPromise);
-  virtual void EventListenerAdded(nsIAtom* aType) override;
+  virtual void EventListenerAdded(nsAtom* aType) override;
   void DispatchPreviewStateEvent(DOMCameraControlListener::PreviewState aState);
   void DispatchStateEvent(const nsString& aType, const nsString& aState);
 

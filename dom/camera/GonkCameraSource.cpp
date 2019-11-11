@@ -143,7 +143,7 @@ static int32_t getColorFormat(const char* colorFormat) {
     CS_LOGE("Uknown color format (%s), please add it to "
          "GonkCameraSource::getColorFormat", colorFormat);
 
-    CHECK(!"Unknown color format");
+    CHECK(false && "Unknown color format");
 }
 
 GonkCameraSource *GonkCameraSource::Create(
@@ -491,12 +491,23 @@ status_t GonkCameraSource::init(
         return err;
     }
 
-    // By default, do not store metadata in video buffers
-    mIsMetaDataStoredInVideoBuffers = false;
-    mCameraHw->StoreMetaDataInBuffers(false);
+    // By default, store real data in video buffers.
+    mVideoBufferMode = hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV;
     if (storeMetaDataInVideoBuffers) {
-        if (OK == mCameraHw->StoreMetaDataInBuffers(true)) {
-            mIsMetaDataStoredInVideoBuffers = true;
+        if (OK == mCameraHw->SetVideoBufferMode(hardware::ICamera::VIDEO_BUFFER_MODE_BUFFER_QUEUE)) {
+            mVideoBufferMode = hardware::ICamera::VIDEO_BUFFER_MODE_BUFFER_QUEUE;
+        } else if (OK == mCameraHw->SetVideoBufferMode(
+                hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_METADATA)) {
+            mVideoBufferMode = hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_METADATA;
+        }
+    }
+
+    if (mVideoBufferMode == hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV) {
+        err = mCameraHw->SetVideoBufferMode(hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV);
+        if (err != OK) {
+            ALOGE("%s: Setting video buffer mode to VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV failed: "
+                    "%s (err=%d)", __FUNCTION__, strerror(-err), err);
+            return err;
         }
     }
 
@@ -649,7 +660,12 @@ void GonkCameraSource::releaseOneRecordingFrame(const sp<IMemory>& frame) {
     releaseRecordingFrame(frame);
 }
 
-void GonkCameraSource::signalBufferReturned(MediaBuffer *buffer) {
+#if ANDROID_VERSION >= 29
+void GonkCameraSource::signalBufferReturned(MediaBufferBase *buffer)
+#else
+void GonkCameraSource::signalBufferReturned(MediaBuffer *buffer)
+#endif
+{
     CS_LOGV("signalBufferReturned: %p", buffer->data());
     Mutex::Autolock autoLock(mLock);
     for (List<sp<IMemory> >::iterator it = mFramesBeingEncoded.begin();
@@ -664,7 +680,7 @@ void GonkCameraSource::signalBufferReturned(MediaBuffer *buffer) {
             return;
         }
     }
-    CHECK(!"signalBufferReturned: bogus buffer");
+    CHECK(false && "signalBufferReturned: bogus buffer");
 }
 
 status_t GonkCameraSource::AddDirectBufferListener(DirectBufferListener* aListener) {
@@ -675,8 +691,14 @@ status_t GonkCameraSource::AddDirectBufferListener(DirectBufferListener* aListen
     return OK;
 }
 
+#if ANDROID_VERSION >= 29
 status_t GonkCameraSource::read(
-        MediaBuffer **buffer, const ReadOptions *options) {
+        MediaBufferBase **buffer, const ReadOptions *options)
+#else
+status_t GonkCameraSource::read(
+        MediaBuffer **buffer, const ReadOptions *options)
+#endif
+{
     CS_LOGV("read");
 
     *buffer = NULL;
@@ -713,7 +735,11 @@ status_t GonkCameraSource::read(
         *buffer = new MediaBuffer(frame->pointer(), frame->size());
         (*buffer)->setObserver(this);
         (*buffer)->add_ref();
+    #if ANDROID_VERSION >= 29
+        (*buffer)->meta_data().setInt64(kKeyTime, frameTime);
+    #else
         (*buffer)->meta_data()->setInt64(kKeyTime, frameTime);
+    #endif
     }
     return OK;
 }
@@ -786,7 +812,11 @@ void GonkCameraSource::dataCallbackTimestamp(int64_t timestampUs,
     }
 
     if (mDirectBufferListener.get()) {
+#if ANDROID_VERSION >= 29
+        MediaBufferBase* mediaBuffer;
+#else
         MediaBuffer* mediaBuffer;
+#endif
         if (read(&mediaBuffer) == OK) {
             mDirectBufferListener->BufferAvailable(mediaBuffer);
             // read() calls MediaBuffer->add_ref() so it needs to be released here.

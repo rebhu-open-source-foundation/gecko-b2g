@@ -4,8 +4,9 @@
 
 #include "nsISupports.idl"
 
-interface nsIDOMBlob;
 interface nsIDOMEventListener;
+
+webidl Blob;
 
 [scriptable, uuid(2e567730-f164-49d7-b975-862caa4425a5)]
 interface nsICameraTestHardware : nsISupports
@@ -67,7 +68,7 @@ interface nsICameraTestHardware : nsISupports
 
      blob should be a Blob object. The actual content of the blob
      is unimportant since nothing processes it as an image internally. */
-  void fireTakePictureComplete(in nsIDOMBlob picture);
+  void fireTakePictureComplete(in Blob picture);
 
   /* Trigger an OnTakePictureError callback at the Gonk layer. */
   void fireTakePictureError();
@@ -181,11 +182,11 @@ interface nsICameraTestHardware : nsISupports
      handler throws an error, it will restore the old parameters.
      When the delegate is called, the new proposed parameters are
      placed in this.params. */
-  void pushParameters(in DOMString params);
+  void pushParameters(in AString params);
 
   /* Execute an intercepted PullParameters() driver call. Unless the delegate
      handler throws an error, it will return an assembled parameter
      list derived from the this.params hash table. */
-  DOMString pullParameters();
+  AString pullParameters();
 };
 

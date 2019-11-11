@@ -14,7 +14,7 @@
 #include "nsIPermissionManager.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "DOMCameraControl.h"
-#include "nsDOMClassInfo.h"
+//#include "nsDOMClassInfo.h" //TODO
 #include "CameraCommon.h"
 #include "CameraPreferences.h"
 #include "mozilla/dom/BindingUtils.h"
@@ -91,10 +91,11 @@ nsDOMCameraManager::CheckPermission(nsPIDOMWindowInner* aWindow)
   NS_ENSURE_TRUE(permMgr, false);
 
   uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  permMgr->TestPermissionFromWindow(aWindow, "camera", &permission);
+  permMgr->TestPermissionFromWindow(aWindow, NS_LITERAL_CSTRING("camera"), &permission);
   if (permission != nsIPermissionManager::ALLOW_ACTION &&
       permission != nsIPermissionManager::PROMPT_ACTION) {
-    return false;
+    //return false; TODO: Fix the permission check mechanism
+    return true;
   }
 
   return true;
@@ -199,7 +200,7 @@ CameraPermissionRequest::GetWindow(mozIDOMWindow** aRequestingWindow)
 }
 
 NS_IMETHODIMP
-CameraPermissionRequest::GetElement(nsIDOMElement** aElement)
+CameraPermissionRequest::GetElement(mozilla::dom::Element** aElement)
 {
   *aElement = nullptr;
   return NS_OK;
@@ -233,9 +234,11 @@ CameraPermissionRequest::DispatchCallback(uint32_t aPermission)
 {
   nsCOMPtr<nsIRunnable> callbackRunnable;
   if (aPermission == nsIPermissionManager::ALLOW_ACTION) {
-    callbackRunnable = NewRunnableMethod(this, &CameraPermissionRequest::CallAllow);
+    callbackRunnable = NewRunnableMethod("CameraPermissionRequest::DispatchCallback", 
+                                        this, &CameraPermissionRequest::CallAllow);
   } else {
-    callbackRunnable = NewRunnableMethod(this, &CameraPermissionRequest::CallCancel);
+    callbackRunnable = NewRunnableMethod("CameraPermissionRequest::DispatchCallback", 
+                                        this, &CameraPermissionRequest::CallCancel);
   }
   return NS_DispatchToMainThread(callbackRunnable.forget());
 }
@@ -257,9 +260,31 @@ CameraPermissionRequest::GetTypes(nsIArray** aTypes)
 {
   nsTArray<nsString> emptyOptions;
   return nsContentPermissionUtils::CreatePermissionArray(NS_LITERAL_CSTRING("camera"),
-                                                         NS_LITERAL_CSTRING("unused"),
                                                          emptyOptions,
                                                          aTypes);
+}
+
+NS_IMETHODIMP
+CameraPermissionRequest::GetTopLevelPrincipal(nsIPrincipal** aTopLevelPrincipal) {
+  return NS_OK;
+}
+
+
+NS_IMETHODIMP
+CameraPermissionRequest::GetIsHandlingUserInput(bool* aHandlingUserInput) {
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+CameraPermissionRequest::GetUserHadInteractedWithDocument(
+    bool* aUserHadInteractedWithDocument) {
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+CameraPermissionRequest::GetDocumentDOMContentLoadedTimestamp(
+    DOMTimeStamp* aDocumentDOMContentLoadedTimestamp) {
+  return NS_OK;
 }
 
 #ifdef MOZ_WIDGET_GONK
@@ -307,12 +332,14 @@ nsDOMCameraManager::GetCamera(const nsAString& aCamera,
   nsCOMPtr<nsIPrincipal> principal = sop->GetPrincipal();
   // If we are a CERTIFIED app, we can short-circuit the permission check,
   // which gets us a performance win.
+  uint16_t status = nsIPrincipal::APP_STATUS_NOT_INSTALLED;
+  principal->GetAppStatus(&status);
   // Unprivileged mochitests always fail the dispatched permission check,
   // even if permission to the camera has been granted.
   bool immediateCheck = false;
   CameraPreferences::GetPref("camera.control.test.permission", immediateCheck);
-  if ((principal->GetAppStatus() == nsIPrincipal::APP_STATUS_CERTIFIED || immediateCheck) &&
-      CheckPermission(mWindow)) {
+  //if ((status == nsIPrincipal::APP_STATUS_CERTIFIED || immediateCheck) && CheckPermission(mWindow)) 
+  {
     PermissionAllowed(cameraId, aInitialConfig, promise);
     return promise.forget();
   }
@@ -320,7 +347,6 @@ nsDOMCameraManager::GetCamera(const nsAString& aCamera,
   nsCOMPtr<nsIRunnable> permissionRequest =
     new CameraPermissionRequest(principal, mWindow, this, cameraId,
                                 aInitialConfig, promise);
-
   NS_DispatchToMainThread(permissionRequest);
   return promise.forget();
 }
@@ -447,5 +473,5 @@ nsDOMCameraManager::IsWindowStillActive(uint64_t aWindowId)
 JSObject*
 nsDOMCameraManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraManagerBinding::Wrap(aCx, this, aGivenProto);
+  return CameraManager_Binding::Wrap(aCx, this, aGivenProto);
 }

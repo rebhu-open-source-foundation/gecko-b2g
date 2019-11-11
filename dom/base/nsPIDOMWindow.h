@@ -189,6 +189,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   virtual void AddDeprioritizedLoadRunner(nsIRunnable* aRunner) = 0;
 
   bool AddAudioContext(mozilla::dom::AudioContext* aAudioContext);
+  float GetDevicePixelRatio(mozilla::dom::CallerType aCallerType);
   void RemoveAudioContext(mozilla::dom::AudioContext* aAudioContext);
   void MuteAudioContexts();
   void UnmuteAudioContexts();

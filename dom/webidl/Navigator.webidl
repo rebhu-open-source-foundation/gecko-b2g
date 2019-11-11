@@ -253,35 +253,10 @@ partial interface Navigator {
 
 // nsIDOMNavigatorCamera
 partial interface Navigator {
-  [Throws, Func="Navigator::HasCameraSupport", UnsafeInPrerendering]
+  [Throws, Func="Navigator::HasCameraSupport"]
   readonly attribute CameraManager mozCameras;
 };
 
-#ifdef MOZ_B2G_RIL
-partial interface Navigator {
-  [Throws, Pref="dom.mobileconnection.enabled", ChromeOnly, UnsafeInPrerendering]
-  readonly attribute MozMobileConnectionArray mozMobileConnections;
-};
-
-partial interface Navigator {
-  [Throws, Pref="dom.voicemail.enabled", ChromeOnly,
-   UnsafeInPrerendering]
-  readonly attribute MozVoicemail mozVoicemail;
-};
-
-partial interface Navigator {
-  [Throws, Pref="dom.icc.enabled", ChromeOnly,
-   UnsafeInPrerendering]
-  readonly attribute MozIccManager? mozIccManager;
-};
-
-partial interface Navigator {
-  [Throws, Pref="dom.telephony.enabled", ChromeOnly, UnsafeInPrerendering]
-  readonly attribute Telephony? mozTelephony;
-};
-#endif // MOZ_B2G_RIL
-
-#ifdef MOZ_GAMEPAD
 // https://dvcs.w3.org/hg/gamepad/raw-file/default/gamepad.html#navigator-interface-extension
 partial interface Navigator {
   [Throws, Pref="dom.gamepad.enabled"]

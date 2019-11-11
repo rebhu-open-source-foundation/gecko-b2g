@@ -5,18 +5,18 @@
 #include "DOMCameraControl.h"
 #include "base/basictypes.h"
 #include "nsCOMPtr.h"
-#include "nsDOMClassInfo.h"
+//#include "nsDOMClassInfo.h"
 #include "nsHashPropertyBag.h"
 #include "nsThread.h"
 #include "DeviceStorage.h"
 #include "DeviceStorageFileDescriptor.h"
 #include "mozilla/dom/File.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/ipc/FileDescriptorUtils.h"
 #include "mozilla/MediaManager.h"
 #include "mozilla/Services.h"
 #include "mozilla/Unused.h"
-#include "nsIAppsService.h"
+//#include "nsIAppsService.h" //TODO
 #include "nsIObserverService.h"
 #include "nsIDOMEventListener.h"
 #include "nsIScriptSecurityManager.h"
@@ -47,7 +47,7 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
 
-class mozilla::TrackCreatedListener : public MediaStreamListener
+class mozilla::TrackCreatedListener : public MediaTrackListener
 {
 public:
   explicit TrackCreatedListener(nsDOMCameraControl* aCameraControl)
@@ -55,7 +55,7 @@ public:
 
   void Forget() { mCameraControl = nullptr; }
 
-  void DoNotifyTrackCreated(TrackID aTrackID)
+  void DoNotifyTrackCreated()
   {
     MOZ_ASSERT(NS_IsMainThread());
 
@@ -63,19 +63,20 @@ public:
       return;
     }
 
-    mCameraControl->TrackCreated(aTrackID);
+    mCameraControl->TrackCreated();
   }
 
-  void NotifyQueuedTrackChanges(MediaStreamGraph* aGraph, TrackID aID,
-                                StreamTime aTrackOffset, TrackEventCommand aTrackEvents,
-                                const MediaSegment& aQueuedMedia,
-                                MediaStream* aInputStream,
-                                TrackID aInputTrackID) override
+  void NotifyQueuedTrackChanges(MediaTrackGraph* aGraph,
+                                TrackTime aTrackOffset,
+                                const MediaSegment& aQueuedMedia)
   {
-    if (aTrackEvents & TrackEventCommand::TRACK_EVENT_CREATED) {
-      aGraph->DispatchToMainThreadAfterStreamStateUpdate(NewRunnableMethod<TrackID>(
-          this, &TrackCreatedListener::DoNotifyTrackCreated, aID));
-    }
+    //if (aTrackEvents & TRACK_EVENT_CREATED) {
+      nsCOMPtr<nsIRunnable> runnable =
+        NewRunnableMethod(
+          "TrackCreatedListener::NotifyQueuedTrackChanges",
+          this, &TrackCreatedListener::DoNotifyTrackCreated);
+      aGraph->DispatchToMainThreadStableState(runnable.forget());
+    //}
   }
 
 protected:
@@ -90,7 +91,7 @@ StaticRefPtr<ICameraControl> nsDOMCameraControl::sCachedCameraControl;
 /* static */ nsCOMPtr<nsITimer> nsDOMCameraControl::sDiscardCachedCameraControlTimer;
 #endif
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(nsDOMCameraControl)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsDOMCameraControl)
   NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
   // nsISupports is an ambiguous base of nsDOMCameraControl
   // so we have to work around that.
@@ -150,7 +151,6 @@ protected:
   virtual ~StartRecordingHelper()
   {
     MOZ_COUNT_DTOR(StartRecordingHelper);
-    mDOMCameraControl->OnCreatedFileDescriptor(mState);
   }
 
 protected:
@@ -159,11 +159,12 @@ protected:
 };
 
 NS_IMETHODIMP
-StartRecordingHelper::HandleEvent(nsIDOMEvent* aEvent)
+StartRecordingHelper::HandleEvent(Event* aEvent)
 {
   nsString eventType;
   aEvent->GetType(eventType);
   mState = eventType.EqualsLiteral("success");
+  mDOMCameraControl->OnCreatedFileDescriptor(mState);
   return NS_OK;
 }
 
@@ -219,10 +220,12 @@ nsDOMCameraControl::PreinitCameraHardware()
     return;
   }
 
-  nsresult rv = timer->InitWithFuncCallback(DiscardCachedCameraInstance,
+  const char* aNameString = "PreinitCameraHardware";
+  nsresult rv = timer->InitWithNamedFuncCallback(DiscardCachedCameraInstance,
                                             nullptr,
                                             kCachedCameraTimeoutMs,
-                                            nsITimer::TYPE_ONE_SHOT);
+                                            nsITimer::TYPE_ONE_SHOT,
+                                            aNameString);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     // If we can't start the timer, it's possible for an app to never grab the
     // camera, leaving the hardware tied up indefinitely. Better to take the
@@ -248,7 +251,7 @@ nsDOMCameraControl::nsDOMCameraControl(uint32_t aCameraId,
                                        const CameraConfiguration& aInitialConfig,
                                        Promise* aPromise,
                                        nsPIDOMWindowInner* aWindow)
-  : DOMMediaStream(aWindow, nullptr)
+  : DOMMediaStream(aWindow)
   , mCameraControl(nullptr)
   , mAudioChannelAgent(nullptr)
   , mGetCameraPromise(aPromise)
@@ -260,7 +263,7 @@ nsDOMCameraControl::nsDOMCameraControl(uint32_t aCameraId,
 {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   mInput = new CameraPreviewMediaStream();
-  mOwnedStream = mInput;
+  //mOwnedStream = mInput;
 
   BindToOwner(aWindow);
 
@@ -325,7 +328,7 @@ nsDOMCameraControl::nsDOMCameraControl(uint32_t aCameraId,
 
   // Register the playback listener directly on the camera input stream.
   // We want as low latency as possible for the camera, thus avoiding
-  // MediaStreamGraph altogether. Don't do the regular InitStreamCommon()
+  // MediaTrackGraph altogether. Don't do the regular InitStreamCommon()
   // to avoid initializing the Owned and Playback streams. This is OK since
   // we are not user/DOM facing anyway.
   CreateAndAddPlaybackStreamListener(mInput);
@@ -382,7 +385,7 @@ nsDOMCameraControl::~nsDOMCameraControl()
 JSObject*
 nsDOMCameraControl::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return CameraControlBinding::Wrap(aCx, this, aGivenProto);
+  return CameraControl_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 bool
@@ -406,9 +409,9 @@ nsDOMCameraControl::SelectPreviewSize(const CameraSize& aRequestedPreviewSize, I
     float ratio = 0.0;
     nsresult rv;
 
-    rv = mWindow->GetDevicePixelRatio(&ratio);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+    ratio = mWindow->GetDevicePixelRatio(dom::CallerType::System);
+    if (ratio == 0) {
+      ratio = 1.0;
     }
 
     rv = mWindow->GetInnerWidth(&height);
@@ -512,14 +515,14 @@ nsDOMCameraControl::Get(uint32_t aKey, nsTArray<CameraRegion>& aValue)
   return NS_OK;
 }
 
-MediaStream*
+MediaTrack*
 nsDOMCameraControl::GetCameraStream() const
 {
   return mInput;
 }
 
 void
-nsDOMCameraControl::TrackCreated(TrackID aTrackID) {
+nsDOMCameraControl::TrackCreated() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_RELEASE_ASSERT(mWindow, "Shouldn't have been created with a null window!");
   nsIPrincipal* principal = mWindow->GetExtantDoc()
@@ -527,14 +530,9 @@ nsDOMCameraControl::TrackCreated(TrackID aTrackID) {
                           : nullptr;
 
   // This track is not connected through a port.
-  MediaInputPort* inputPort = nullptr;
   dom::VideoStreamTrack* track =
-    new dom::VideoStreamTrack(this, aTrackID, aTrackID,
-                              new BasicUnstoppableTrackSource(principal));
-  RefPtr<TrackPort> port =
-    new TrackPort(inputPort, track,
-                  TrackPort::InputPortOwnership::OWNED);
-  mTracks.AppendElement(port.forget());
+    new dom::VideoStreamTrack(mWindow, mInput, new BasicTrackSource(principal));
+  mTracks.AppendElement(track);
   NotifyTrackAdded(track);
 }
 
@@ -1167,10 +1165,7 @@ nsDOMCameraControl::NotifyRecordingStatusChange(const nsString& aMsg)
     ReleaseAudioChannelAgent();
   }
 
-  nsresult rv = MediaManager::NotifyRecordingStatusChange(mWindow,
-                                                          aMsg,
-                                                          true /* aIsAudio */,
-                                                          true /* aIsVideo */);
+  nsresult rv = MediaManager::NotifyRecordingStatusChange(mWindow);
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -1184,10 +1179,8 @@ nsDOMCameraControl::NotifyRecordingStatusChange(const nsString& aMsg)
     }
 
     // Camera app will stop recording when it falls to the background, so no callback is necessary.
-    mAudioChannelAgent->Init(mWindow, (int32_t)AudioChannel::Content, nullptr);
-    // Video recording doesn't output any sound, so it's not necessary to check canPlay.
-    AudioPlaybackConfig config;
-    rv = mAudioChannelAgent->NotifyStartedPlaying(&config, AudioChannelService::AudibleState::eAudible);
+    mAudioChannelAgent->Init(mWindow, nullptr);
+    rv = mAudioChannelAgent->NotifyStartedPlaying(AudioChannelService::AudibleState::eAudible);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -1217,7 +1210,7 @@ nsDOMCameraControl::AbortPromise(RefPtr<Promise>& aPromise)
 }
 
 void
-nsDOMCameraControl::EventListenerAdded(nsIAtom* aType)
+nsDOMCameraControl::EventListenerAdded(nsAtom* aType)
 {
   if (aType == nsGkAtoms::onpreviewstatechange) {
     DispatchPreviewStateEvent(mPreviewState);
@@ -1262,7 +1255,7 @@ nsDOMCameraControl::OnGetCameraComplete()
   if (promise) {
     CameraGetPromiseData data;
     data.mCamera = this;
-    data.mConfiguration = *mCurrentConfiguration;
+    data.mConfiguration.Construct(*mCurrentConfiguration);
     promise->MaybeResolve(data);
   }
 }
@@ -1377,7 +1370,7 @@ nsDOMCameraControl::OnPoster(BlobImpl* aPoster)
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mOptions.mCreatePoster);
 
-  RefPtr<Blob> blob = Blob::Create(GetParentObject(), aPoster);
+  RefPtr<Blob> blob = Blob::Create(GetParentObject()->AsGlobal(), aPoster);
   if (NS_WARN_IF(!blob)) {
     OnRecorderStateChange(CameraControlListener::kPosterFailed, 0, 0);
     return;
@@ -1584,36 +1577,32 @@ nsDOMCameraControl::OnFacesDetected(const nsTArray<ICameraControl::Face>& aFaces
   CameraFacesDetectedEventInit eventInit;
   eventInit.mFaces.SetValue(faces);
 
-  RefPtr<CameraFacesDetectedEvent> event =
-    CameraFacesDetectedEvent::Constructor(this,
-                                          NS_LITERAL_STRING("facesdetected"),
-                                          eventInit);
+  //RefPtr<CameraFacesDetectedEvent> event =
+  //  CameraFacesDetectedEvent::Constructor(this,
+  //                                        NS_LITERAL_STRING("facesdetected"),
+  //                                       eventInit);
 
-  DispatchTrustedEvent(event);
+  DispatchTrustedEvent(NS_LITERAL_STRING("facesdetected"));
 }
 
 void
-nsDOMCameraControl::OnTakePictureComplete(nsIDOMBlob* aPicture)
+nsDOMCameraControl::OnTakePictureComplete(dom::Blob* aPicture)
 {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPicture);
-
+  
   RefPtr<Promise> promise = mTakePicturePromise.forget();
   if (promise) {
-    nsCOMPtr<nsIDOMBlob> picture = aPicture;
+    RefPtr<Blob> picture = aPicture;
     promise->MaybeResolve(picture);
   }
-
+ 
   RefPtr<Blob> blob = static_cast<Blob*>(aPicture);
   BlobEventInit eventInit;
   eventInit.mData = blob;
 
-  RefPtr<BlobEvent> event = BlobEvent::Constructor(this,
-                                                     NS_LITERAL_STRING("picture"),
-                                                     eventInit);
-
-  DispatchTrustedEvent(event);
+  DispatchTrustedEvent(NS_LITERAL_STRING("picture"));
 }
 
 void

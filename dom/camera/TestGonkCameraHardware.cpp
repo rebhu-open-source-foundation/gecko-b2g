@@ -72,7 +72,7 @@ protected:
 };
 
 NS_IMETHODIMP
-TestGonkCameraHardwareListener::HandleEvent(nsIDOMEvent* aEvent)
+TestGonkCameraHardwareListener::HandleEvent(Event* aEvent)
 {
   nsString eventType;
   aEvent->GetType(eventType);
@@ -81,7 +81,7 @@ TestGonkCameraHardwareListener::HandleEvent(nsIDOMEvent* aEvent)
     NS_ConvertUTF16toUTF8(eventType).get());
 
   if (eventType.EqualsLiteral("focus")) {
-    CameraStateChangeEvent* event = aEvent->InternalDOMEvent()->AsCameraStateChangeEvent();
+    CameraStateChangeEvent* event = aEvent->AsCameraStateChangeEvent();
 
     if (!NS_WARN_IF(!event)) {
       nsString state;
@@ -104,7 +104,7 @@ TestGonkCameraHardwareListener::HandleEvent(nsIDOMEvent* aEvent)
     DOM_CAMERA_LOGI("Inject shutter event");
     OnShutter(mTarget);
   } else if (eventType.EqualsLiteral("picture")) {
-    BlobEvent* event = aEvent->InternalDOMEvent()->AsBlobEvent();
+    BlobEvent* event = aEvent->AsBlobEvent();
 
     if (!NS_WARN_IF(!event)) {
       Blob* blob = event->GetData();
@@ -121,7 +121,7 @@ TestGonkCameraHardwareListener::HandleEvent(nsIDOMEvent* aEvent)
         }
 
         nsCOMPtr<nsIInputStream> inputStream;
-        blob->GetInternalStream(getter_AddRefs(inputStream), rv);
+        blob->CreateInputStream(getter_AddRefs(inputStream), rv);
         if (NS_WARN_IF(rv.Failed())) {
           rv.SuppressException();
           return NS_OK;
@@ -144,7 +144,7 @@ TestGonkCameraHardwareListener::HandleEvent(nsIDOMEvent* aEvent)
       }
     }
   } else if(eventType.EqualsLiteral("error")) {
-    ErrorEvent* event = aEvent->InternalDOMEvent()->AsErrorEvent();
+    ErrorEvent* event = aEvent->AsErrorEvent();
 
     if (!NS_WARN_IF(!event)) {
       nsString errorType;
@@ -158,7 +158,8 @@ TestGonkCameraHardwareListener::HandleEvent(nsIDOMEvent* aEvent)
           {
           public:
             DeferredSystemFailure(nsGonkCameraControl* aTarget)
-              : mTarget(aTarget)
+              : mozilla::Runnable("DeferredSystemFailure"),
+                mTarget(aTarget)
             { }
 
             NS_IMETHOD
@@ -180,7 +181,7 @@ TestGonkCameraHardwareListener::HandleEvent(nsIDOMEvent* aEvent)
       }
     }
   } else if(eventType.EqualsLiteral("facesdetected")) {
-    CameraFacesDetectedEvent* event = aEvent->InternalDOMEvent()->AsCameraFacesDetectedEvent();
+    CameraFacesDetectedEvent* event = aEvent->AsCameraFacesDetectedEvent();
 
     if (!NS_WARN_IF(!event)) {
       Nullable<nsTArray<RefPtr<DOMCameraDetectedFace>>> faces;
@@ -233,7 +234,8 @@ class TestGonkCameraHardware::ControlMessage : public Runnable
 {
 public:
   ControlMessage(TestGonkCameraHardware* aTestHw)
-    : mTestHw(aTestHw)
+    : mozilla::Runnable("ControlMessage"),
+      mTestHw(aTestHw)
   { }
 
   NS_IMETHOD
@@ -339,10 +341,7 @@ TestGonkCameraHardware::WaitWhileRunningOnMainThread(RefPtr<ControlMessage> aRun
       return rv;
     }
 
-    rv = mCondVar.Wait();
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+    mCondVar.Wait();
   } else {
     /* Cannot dispatch to main thread since we would block on
        the condvar, so we need to run inline. */
@@ -749,7 +748,7 @@ TestGonkCameraHardware::StopRecording()
 }
 
 int
-TestGonkCameraHardware::StoreMetaDataInBuffers(bool aEnabled)
+TestGonkCameraHardware::SetVideoBufferMode(int32_t videoBufferMode)
 {
   DOM_CAMERA_LOGT("%s:%d\n", __func__, __LINE__);
   return OK;

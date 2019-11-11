@@ -3277,7 +3277,8 @@ static ProfilingStack* locked_register_thread(PSLockRef aLock,
                                               void* aStackTop) {
   MOZ_RELEASE_ASSERT(CorePS::Exists());
 
-  MOZ_RELEASE_ASSERT(!FindCurrentThreadRegisteredThread(aLock));
+  // eastern test code, mark it.
+  //MOZ_RELEASE_ASSERT(!FindCurrentThreadRegisteredThread(aLock));
 
   VTUNE_REGISTER_THREAD(aName);
 

@@ -995,14 +995,16 @@ nsContentPermissionRequestProxy::Allow(JS::HandleValue aChoices) {
   uint32_t len = mPermissionRequests.Length();
   for (uint32_t i = 0; i < len; i++) {
     if (mPermissionRequests[i].type().EqualsLiteral("audio-capture")) {
-      GonkPermissionService::GetInstance()->addGrantInfo(
-        "android.permission.RECORD_AUDIO",
-        static_cast<ContentParent*>(mParent->Manager())->Pid());
+      //TODO: temp remove it.
+      //GonkPermissionService::GetInstance()->addGrantInfo(
+      //  "android.permission.RECORD_AUDIO",
+      //  static_cast<ContentParent*>(mParent->Manager())->Pid());
     }
     if (mPermissionRequests[i].type().EqualsLiteral("video-capture")) {
-      GonkPermissionService::GetInstance()->addGrantInfo(
-        "android.permission.CAMERA",
-        static_cast<ContentParent*>(mParent->Manager())->Pid());
+      //TODO: temp remove it.
+      //GonkPermissionService::GetInstance()->addGrantInfo(
+      //"android.permission.CAMERA",
+      //static_cast<ContentParent*>(mParent->Manager())->Pid());
     }
   }
 #endif

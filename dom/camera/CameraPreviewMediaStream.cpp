@@ -5,7 +5,7 @@
 
 #include "CameraPreviewMediaStream.h"
 #include "CameraCommon.h"
-#include "MediaStreamListener.h"
+#include "MediaTrackListener.h"
 #include "VideoFrameContainer.h"
 
 /**
@@ -21,27 +21,49 @@ using namespace mozilla::dom;
 
 namespace mozilla {
 
-static const TrackID TRACK_VIDEO = 2;
-
 void
-FakeMediaStreamGraph::DispatchToMainThreadAfterStreamStateUpdate(already_AddRefed<nsIRunnable> aRunnable)
+FakeMediaTrackGraph::DispatchToMainThreadStableState(already_AddRefed<nsIRunnable> aRunnable)
 {
   nsCOMPtr<nsIRunnable> task = aRunnable;
   NS_DispatchToMainThread(task);
 }
 
+nsresult FakeMediaTrackGraph::OpenAudioInput(CubebUtils::AudioDeviceID aID,
+                                           AudioDataListener* aListener) {
+  return NS_ERROR_FAILURE;
+}
+
+void FakeMediaTrackGraph::CloseAudioInput(Maybe<CubebUtils::AudioDeviceID>& aID,
+                               AudioDataListener* aListener) {
+}
+
+Watchable<mozilla::GraphTime>& FakeMediaTrackGraph::CurrentTime() {
+ return mCurrentTime;
+}
+
+bool FakeMediaTrackGraph::OnGraphThreadOrNotRunning() const {
+  return false;
+}
+
+bool FakeMediaTrackGraph::OnGraphThread() const {
+  return false;
+}
+
+bool FakeMediaTrackGraph::Destroyed() const {
+  return false;
+}
+
 CameraPreviewMediaStream::CameraPreviewMediaStream()
-  : ProcessedMediaStream()
+  : ProcessedMediaTrack(
+      FakeMediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaSegment::VIDEO, new VideoSegment())
   , mMutex("mozilla::camera::CameraPreviewMediaStream")
   , mInvalidatePending(0)
   , mDiscardedFrames(0)
   , mRateLimit(false)
   , mTrackCreated(false)
 {
-  SetGraphImpl(
-      MediaStreamGraph::GetInstance(
-        MediaStreamGraph::SYSTEM_THREAD_DRIVER, AudioChannel::Normal));
-  mFakeMediaStreamGraph = new FakeMediaStreamGraph();
+  mFakeMediaTrackGraph = new FakeMediaTrackGraph();
 }
 
 void
@@ -60,38 +82,38 @@ CameraPreviewMediaStream::RemoveAudioOutput(void* aKey)
 }
 
 void
-CameraPreviewMediaStream::AddVideoOutput(MediaStreamVideoSink* aSink, TrackID aID)
+CameraPreviewMediaStream::AddVideoOutput(VideoFrameContainer* aContainer)
 {
   MutexAutoLock lock(mMutex);
-  RefPtr<MediaStreamVideoSink> sink = aSink;
-  AddVideoOutputImpl(sink.forget(), aID);
+  RefPtr<VideoFrameContainer> container = aContainer;
+  AddVideoOutputImpl(container.forget());
 }
 
 void
-CameraPreviewMediaStream::RemoveVideoOutput(MediaStreamVideoSink* aSink, TrackID aID)
+CameraPreviewMediaStream::RemoveVideoOutput(VideoFrameContainer* aContainer)
 {
   MutexAutoLock lock(mMutex);
-  RemoveVideoOutputImpl(aSink, aID);
+  RemoveVideoOutputImpl(aContainer);
 }
 
 void
-CameraPreviewMediaStream::AddListener(MediaStreamListener* aListener)
+CameraPreviewMediaStream::AddListener(MediaTrackListener* aListener)
 {
   MutexAutoLock lock(mMutex);
 
-  MediaStreamListener* listener = *mListeners.AppendElement() = aListener;
-  listener->NotifyBlockingChanged(mFakeMediaStreamGraph, MediaStreamListener::UNBLOCKED);
-  listener->NotifyHasCurrentData(mFakeMediaStreamGraph);
+  //MediaTrackListener* listener = *mListeners.AppendElement() = aListener;
+  //listener->NotifyBlockingChanged(mFakeMediaTrackGraph, MediaStreamListener::UNBLOCKED);
+  //listener->NotifyHasCurrentData(mFakeMediaTrackGraph);
 }
 
 void
-CameraPreviewMediaStream::RemoveListener(MediaStreamListener* aListener)
+CameraPreviewMediaStream::RemoveListener(MediaTrackListener* aListener)
 {
   MutexAutoLock lock(mMutex);
 
-  RefPtr<MediaStreamListener> listener(aListener);
+  RefPtr<MediaTrackListener> listener(aListener);
   mListeners.RemoveElement(aListener);
-  listener->NotifyEvent(mFakeMediaStreamGraph, MediaStreamGraphEvent::EVENT_REMOVED);
+  //listener->NotifyEvent(mFakeMediaTrackGraph, MediaTrackListener::MediaTrackGraphEvent::EVENT_REMOVED);
 }
 
 void
@@ -103,11 +125,10 @@ CameraPreviewMediaStream::OnPreviewStateChange(bool aActive)
       mTrackCreated = true;
       VideoSegment tmpSegment;
       for (uint32_t j = 0; j < mListeners.Length(); ++j) {
-        MediaStreamListener* l = mListeners[j];
-        l->NotifyQueuedTrackChanges(mFakeMediaStreamGraph, TRACK_VIDEO, 0,
-                                    TrackEventCommand::TRACK_EVENT_CREATED,
-                                    tmpSegment);
-        l->NotifyFinishedTrackCreation(mFakeMediaStreamGraph);
+        MediaTrackListener* l = mListeners[j];
+        l->NotifyQueuedChanges(mFakeMediaTrackGraph, 0,
+                              tmpSegment);
+        //l->NotifyFinishedTrackCreation(mFakeMediaTrackGraph);
       }
     }
   }
@@ -126,11 +147,8 @@ CameraPreviewMediaStream::Invalidate()
 {
   MutexAutoLock lock(mMutex);
   --mInvalidatePending;
-  for (const TrackBound<MediaStreamVideoSink>& sink : mVideoOutputs) {
-    VideoFrameContainer* output = sink.mListener->AsVideoFrameContainer();
-    if (!output) {
-      continue;
-    }
+  for (nsTArray<RefPtr<VideoFrameContainer> >::size_type i = 0; i < mVideoOutputs.Length(); ++i) {
+    VideoFrameContainer* output = mVideoOutputs[i];
     output->Invalidate();
   }
 }
@@ -168,18 +186,16 @@ CameraPreviewMediaStream::SetCurrentFrame(const gfx::IntSize& aIntrinsicSize, Im
     mDiscardedFrames = 0;
 
     TimeStamp now = TimeStamp::Now();
-    for (const TrackBound<MediaStreamVideoSink>& sink : mVideoOutputs) {
-      VideoFrameContainer* output = sink.mListener->AsVideoFrameContainer();
-      if (!output) {
-        continue;
-      }
+    for (nsTArray<RefPtr<VideoFrameContainer> >::size_type i = 0; i < mVideoOutputs.Length(); ++i) {
+      VideoFrameContainer* output = mVideoOutputs[i];
       output->SetCurrentFrame(aIntrinsicSize, aImage, now);
     }
 
     ++mInvalidatePending;
   }
 
-  NS_DispatchToMainThread(NewRunnableMethod(this, &CameraPreviewMediaStream::Invalidate));
+  NS_DispatchToMainThread(NewRunnableMethod("CameraPreviewMediaStream::SetCurrentFrame", 
+                          this, &CameraPreviewMediaStream::Invalidate));
 }
 
 void
@@ -187,14 +203,38 @@ CameraPreviewMediaStream::ClearCurrentFrame()
 {
   MutexAutoLock lock(mMutex);
 
-  for (const TrackBound<MediaStreamVideoSink>& sink : mVideoOutputs) {
-    VideoFrameContainer* output = sink.mListener->AsVideoFrameContainer();
-    if (!output) {
-      continue;
-    }
+  for (nsTArray<RefPtr<VideoFrameContainer> >::size_type i = 0; i < mVideoOutputs.Length(); ++i) {
+    VideoFrameContainer* output = mVideoOutputs[i];
     output->ClearCurrentFrame();
-    NS_DispatchToMainThread(NewRunnableMethod(output, &VideoFrameContainer::Invalidate));
+    NS_DispatchToMainThread(NewRunnableMethod("CameraPreviewMediaStream::ClearCurrentFrame", 
+                            output, &VideoFrameContainer::Invalidate));
   }
 }
+
+void
+CameraPreviewMediaStream::AddVideoOutputImpl(already_AddRefed<VideoFrameContainer> aContainer)
+{
+}
+
+void
+CameraPreviewMediaStream::RemoveVideoOutputImpl(VideoFrameContainer* aContainer)
+{
+}
+
+/*void
+CameraPreviewMediaStream::AddListener(MediaStreamListener* aListener)
+{
+  class Message : public ControlMessage {
+  public:
+    Message(MediaStream* aStream, MediaStreamListener* aListener) :
+      ControlMessage(aStream), mListener(aListener) {}
+    virtual void Run()
+    {
+      mStream->AddListenerImpl(mListener.forget());
+    }
+    RefPtr<MediaStreamListener> mListener;
+  };
+  GraphImpl()->AppendMessage(new Message(this, aListener));
+}*/
 
 } // namespace mozilla

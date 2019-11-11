@@ -51,8 +51,13 @@ public:
 
     virtual status_t start(MetaData *params = NULL);
     virtual status_t stop() { return reset(); }
+#if ANDROID_VERSION >= 29
+    virtual status_t read(
+            MediaBufferBase **buffer, const ReadOptions *options = NULL);
+#else
     virtual status_t read(
             MediaBuffer **buffer, const ReadOptions *options = NULL);
+#endif
 
     /**
      * Check whether a GonkCameraSource object is properly initialized.
@@ -81,7 +86,11 @@ public:
      */
     bool isMetaDataStoredInVideoBuffers() const;
 
+#if ANDROID_VERSION >= 29
+    virtual void signalBufferReturned(MediaBufferBase* buffer);
+#else
     virtual void signalBufferReturned(MediaBuffer* buffer);
+#endif
 
     /**
      * It sends recording frames to listener directly in the same thread.
@@ -93,7 +102,11 @@ public:
     public:
         DirectBufferListener() {};
 
+    #if ANDROID_VERSION >= 29
+        virtual status_t BufferAvailable(MediaBufferBase* aBuffer) = 0;
+    #else
         virtual status_t BufferAvailable(MediaBuffer* aBuffer) = 0;
+    #endif
 
     protected:
         virtual ~DirectBufferListener() {}
@@ -160,6 +173,10 @@ private:
     int32_t mNumGlitches;
     int64_t mGlitchDurationThresholdUs;
     bool mCollectStats;
+
+    // The mode video buffers are received from camera. One of VIDEO_BUFFER_MODE_*.
+    int32_t mVideoBufferMode;
+
     bool mIsMetaDataStoredInVideoBuffers;
     sp<GonkCameraHardware> mCameraHw;
     sp<DirectBufferListener> mDirectBufferListener;

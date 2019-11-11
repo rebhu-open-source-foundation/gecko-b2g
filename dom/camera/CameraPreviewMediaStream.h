@@ -5,27 +5,36 @@
 #ifndef DOM_CAMERA_CAMERAPREVIEWMEDIASTREAM_H
 #define DOM_CAMERA_CAMERAPREVIEWMEDIASTREAM_H
 
-#include "MediaStreamGraph.h"
+#include "MediaTrackGraph.h"
 #include "mozilla/Mutex.h"
+#include "VideoFrameContainer.h"
 
 namespace mozilla {
 
-class MediaStreamVideoSink;
-
-class FakeMediaStreamGraph : public MediaStreamGraph
+class FakeMediaTrackGraph : public MediaTrackGraph
 {
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FakeMediaStreamGraph)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FakeMediaTrackGraph)
 public:
-  FakeMediaStreamGraph()
-    : MediaStreamGraph(16000)
+  FakeMediaTrackGraph()
+    : MediaTrackGraph(16000),
+    mCurrentTime((long long)0, "FakeMediaTrackGraph:CurrentTime")
   {
   }
 
-  virtual void
-  DispatchToMainThreadAfterStreamStateUpdate(already_AddRefed<nsIRunnable> aRunnable) override;
+  void DispatchToMainThreadStableState(already_AddRefed<nsIRunnable> aRunnable);
+  virtual nsresult OpenAudioInput(CubebUtils::AudioDeviceID aID,
+                                  AudioDataListener* aListener) override;
+  virtual void CloseAudioInput(Maybe<CubebUtils::AudioDeviceID>& aID,
+                               AudioDataListener* aListener) override;
+  virtual Watchable<GraphTime>& CurrentTime() override;
+
+  virtual bool OnGraphThreadOrNotRunning() const override;
+  virtual bool OnGraphThread() const override;
+  virtual bool Destroyed() const override;
 
 protected:
-  ~FakeMediaStreamGraph()
+  Watchable<mozilla::GraphTime> mCurrentTime;
+  ~FakeMediaTrackGraph()
   {}
 };
 
@@ -36,7 +45,7 @@ protected:
  * A camera preview requests no delay and no buffering stream,
  * but the SourceMediaStream does not support it.
  */
-class CameraPreviewMediaStream : public ProcessedMediaStream
+class CameraPreviewMediaStream : public ProcessedMediaTrack
 {
   typedef mozilla::layers::Image Image;
 
@@ -46,12 +55,12 @@ public:
   void AddAudioOutput(void* aKey) override;
   void SetAudioOutputVolume(void* aKey, float aVolume) override;
   void RemoveAudioOutput(void* aKey) override;
-  void AddVideoOutput(MediaStreamVideoSink* aSink, TrackID aID) override;
-  void RemoveVideoOutput(MediaStreamVideoSink* aSink, TrackID aID) override;
+  void AddVideoOutput(VideoFrameContainer* aContainer);
+  void RemoveVideoOutput(VideoFrameContainer* aContainer);
   void Suspend() override {}
   void Resume() override {}
-  void AddListener(MediaStreamListener* aListener) override;
-  void RemoveListener(MediaStreamListener* aListener) override;
+  void AddListener(MediaTrackListener* aListener);
+  void RemoveListener(MediaTrackListener* aListener);
   void Destroy() override;
   void OnPreviewStateChange(bool aActive);
 
@@ -64,17 +73,27 @@ public:
   void ClearCurrentFrame();
   void RateLimit(bool aLimit);
 
+  //TODO: need implement on MediaTrackGraph
+  void AddVideoOutputImpl(already_AddRefed<VideoFrameContainer> aContainer);
+  void RemoveVideoOutputImpl(VideoFrameContainer* aContainer);
+
 protected:
   // mMutex protects all the class' fields.
-  // This class is not registered to MediaStreamGraph.
+  // This class is not registered to MediaTrackGraph.
   // It needs to protect all the fields.
   Mutex mMutex;
   int32_t mInvalidatePending;
   uint32_t mDiscardedFrames;
   bool mRateLimit;
   bool mTrackCreated;
-  RefPtr<FakeMediaStreamGraph> mFakeMediaStreamGraph;
+  RefPtr<FakeMediaTrackGraph> mFakeMediaTrackGraph;
+  
+  //TODO:from mediastream
+  nsTArray<RefPtr<MediaTrackListener> > mListeners;
+  nsTArray<RefPtr<VideoFrameContainer> > mVideoOutputs;
 };
+
+
 
 } // namespace mozilla
 

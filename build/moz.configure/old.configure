@@ -184,6 +184,7 @@ def old_configure_options(*options):
 @old_configure_options(
     '--cache-file',
     '--datadir',
+    '--enable-b2g-camera',
     '--enable-cookies',
     '--enable-cpp-rtti',
     '--enable-crashreporter',
