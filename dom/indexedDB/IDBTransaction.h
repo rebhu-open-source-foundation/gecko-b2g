@@ -62,9 +62,10 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
   enum ReadyState { INITIAL = 0, LOADING, COMMITTING, DONE };
 
  private:
+  // TODO: Only non-const because of Bug 1575173.
   RefPtr<IDBDatabase> mDatabase;
   RefPtr<DOMException> mError;
-  nsTArray<nsString> mObjectStoreNames;
+  const nsTArray<nsString> mObjectStoreNames;
   nsTArray<RefPtr<IDBObjectStore>> mObjectStores;
   nsTArray<RefPtr<IDBObjectStore>> mDeletedObjectStores;
   RefPtr<StrongWorkerRef> mWorkerRef;
@@ -85,18 +86,29 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
   int64_t mNextObjectStoreId;
   int64_t mNextIndexId;
 
-  nsresult mAbortCode;
-  uint32_t mPendingRequestCount;
+  nsresult mAbortCode;  ///< The result that caused the transaction to be
+                        ///< aborted, or NS_OK if not aborted.
+                        ///< NS_ERROR_DOM_INDEXEDDB_ABORT_ERR indicates that the
+                        ///< user explicitly requested aborting. Should be
+                        ///< renamed to mResult or so, because it is actually
+                        ///< used to check if the transaction has been aborted.
+  uint32_t mPendingRequestCount;  ///< Counted via OnNewRequest and
+                                  ///< OnRequestFinished, so that the
+                                  ///< transaction can auto-commit when the last
+                                  ///< pending request finished.
 
-  nsString mFilename;
-  uint32_t mLineNo;
-  uint32_t mColumn;
+  const nsString mFilename;
+  const uint32_t mLineNo;
+  const uint32_t mColumn;
 
   ReadyState mReadyState;
-  Mode mMode;
+  const Mode mMode;
 
-  bool mCreating;
-  bool mRegistered;
+  bool mCreating;    ///< Set between successful creation until the transaction
+                     ///< has run on the event-loop.
+  bool mRegistered;  ///< Whether mDatabase->RegisterTransaction() has been
+                     ///< called (which may not be the case if construction was
+                     ///< incomplete).
   bool mAbortedByScript;
   bool mNotedActiveTransaction;
 
@@ -195,8 +207,7 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
     return mDatabase;
   }
 
-  IDBDatabase* Db() const { return Database(); }
-
+  // Only for use by ProfilerHelpers.h
   const nsTArray<nsString>& ObjectStoreNamesInternal() const {
     AssertIsOnOwningThread();
     return mObjectStoreNames;
@@ -219,7 +230,7 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
 
   void Abort(IDBRequest* aRequest);
 
-  void Abort(nsresult aAbortCode);
+  void Abort(nsresult aErrorCode);
 
   int64_t LoggingSerialNumber() const {
     AssertIsOnOwningThread();
@@ -228,21 +239,6 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
   }
 
   nsIGlobalObject* GetParentObject() const;
-
-  IDBTransactionMode GetMode(ErrorResult& aRv) const;
-
-  DOMException* GetError() const;
-
-  already_AddRefed<IDBObjectStore> ObjectStore(const nsAString& aName,
-                                               ErrorResult& aRv);
-
-  void Abort(ErrorResult& aRv);
-
-  IMPL_EVENT_HANDLER(abort)
-  IMPL_EVENT_HANDLER(complete)
-  IMPL_EVENT_HANDLER(error)
-
-  already_AddRefed<DOMStringList> ObjectStoreNames() const;
 
   void FireCompleteOrAbortEvents(nsresult aResult);
 
@@ -261,15 +257,34 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(IDBTransaction, DOMEventTargetHelper)
 
   // nsWrapperCache
-  virtual JSObject* WrapObject(JSContext* aCx,
-                               JS::Handle<JSObject*> aGivenProto) override;
+  JSObject* WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto) override;
+
+  // Methods bound via WebIDL.
+  IDBDatabase* Db() const { return Database(); }
+
+  IDBTransactionMode GetMode(ErrorResult& aRv) const;
+
+  DOMException* GetError() const;
+
+  already_AddRefed<IDBObjectStore> ObjectStore(const nsAString& aName,
+                                               ErrorResult& aRv);
+
+  void Abort(ErrorResult& aRv);
+
+  IMPL_EVENT_HANDLER(abort)
+  IMPL_EVENT_HANDLER(complete)
+  IMPL_EVENT_HANDLER(error)
+
+  already_AddRefed<DOMStringList> ObjectStoreNames() const;
 
   // EventTarget
   void GetEventTargetParent(EventChainPreVisitor& aVisitor) override;
 
  private:
   IDBTransaction(IDBDatabase* aDatabase,
-                 const nsTArray<nsString>& aObjectStoreNames, Mode aMode);
+                 const nsTArray<nsString>& aObjectStoreNames, Mode aMode,
+                 nsString aFilename, uint32_t aLineNo, uint32_t aColumn);
   ~IDBTransaction();
 
   void AbortInternal(nsresult aAbortCode,
@@ -286,6 +301,11 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
   void OnNewRequest();
 
   void OnRequestFinished(bool aRequestCompletedSuccessfully);
+
+  template <typename Func>
+  auto DoWithTransactionChild(const Func& aFunc) const;
+
+  bool HasTransactionChild() const;
 };
 
 }  // namespace dom

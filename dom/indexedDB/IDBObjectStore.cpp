@@ -99,7 +99,7 @@ struct IDBObjectStore::StructuredCloneWriteInfo {
     MOZ_COUNT_CTOR(StructuredCloneWriteInfo);
   }
 
-  StructuredCloneWriteInfo(StructuredCloneWriteInfo&& aCloneWriteInfo)
+  StructuredCloneWriteInfo(StructuredCloneWriteInfo&& aCloneWriteInfo) noexcept
       : mCloneBuffer(std::move(aCloneWriteInfo.mCloneBuffer)),
         mDatabase(aCloneWriteInfo.mDatabase),
         mOffsetToKeyProp(aCloneWriteInfo.mOffsetToKeyProp) {
@@ -273,9 +273,9 @@ bool StructuredCloneWriteCallback(JSContext* aCx,
       return false;
     }
 
-    StructuredCloneFile* const newFile = cloneWriteInfo->mFiles.AppendElement();
-    newFile->mMutableFile = mutableFile;
-    newFile->mType = StructuredCloneFile::eMutableFile;
+    const DebugOnly<StructuredCloneFile*> newFile =
+        cloneWriteInfo->mFiles.EmplaceBack(mutableFile);
+    MOZ_ASSERT(newFile);
 
     return true;
   }
@@ -337,10 +337,9 @@ bool StructuredCloneWriteCallback(JSContext* aCx,
         }
       }
 
-      StructuredCloneFile* const newFile =
-          cloneWriteInfo->mFiles.AppendElement();
-      newFile->mBlob = blob;
-      newFile->mType = StructuredCloneFile::eBlob;
+      const DebugOnly<StructuredCloneFile*> newFile =
+          cloneWriteInfo->mFiles.EmplaceBack(StructuredCloneFile::eBlob, blob);
+      MOZ_ASSERT(newFile);
 
       return true;
     }
@@ -381,9 +380,9 @@ bool CopyingStructuredCloneWriteCallback(JSContext* aCx,
         return false;
       }
 
-      StructuredCloneFile* const newFile = cloneInfo->mFiles.AppendElement();
-      newFile->mBlob = blob;
-      newFile->mType = StructuredCloneFile::eBlob;
+      const DebugOnly<StructuredCloneFile*> newFile =
+          cloneInfo->mFiles.EmplaceBack(StructuredCloneFile::eBlob, blob);
+      MOZ_ASSERT(newFile);
 
       return true;
     }
@@ -404,9 +403,9 @@ bool CopyingStructuredCloneWriteCallback(JSContext* aCx,
         return false;
       }
 
-      StructuredCloneFile* const newFile = cloneInfo->mFiles.AppendElement();
-      newFile->mMutableFile = mutableFile;
-      newFile->mType = StructuredCloneFile::eMutableFile;
+      const DebugOnly<StructuredCloneFile*> newFile =
+          cloneInfo->mFiles.EmplaceBack(mutableFile);
+      MOZ_ASSERT(newFile);
 
       return true;
     }
@@ -1067,14 +1066,10 @@ bool IDBObjectStore::DeserializeValue(JSContext* aCx,
 
   // FIXME: Consider to use StructuredCloneHolder here and in other
   //        deserializing methods.
-  if (!JS_ReadStructuredClone(
-          aCx, aCloneReadInfo.mData, JS_STRUCTURED_CLONE_VERSION,
-          JS::StructuredCloneScope::DifferentProcessForIndexedDB, aValue,
-          JS::CloneDataPolicy(), &callbacks, &aCloneReadInfo)) {
-    return false;
-  }
-
-  return true;
+  return JS_ReadStructuredClone(
+      aCx, aCloneReadInfo.mData, JS_STRUCTURED_CLONE_VERSION,
+      JS::StructuredCloneScope::DifferentProcessForIndexedDB, aValue,
+      JS::CloneDataPolicy(), &callbacks, &aCloneReadInfo);
 }
 
 namespace {
@@ -2353,27 +2348,20 @@ void IDBObjectStore::RefreshSpec(bool aMayDelete) {
 
   const nsTArray<ObjectStoreSpec>& objectStores = dbSpec->objectStores();
 
-  bool found = false;
+  const auto foundIt = std::find_if(objectStores.cbegin(), objectStores.cend(),
+                                    [id = Id()](const auto& objSpec) {
+                                      return objSpec.metadata().id() == id;
+                                    });
+  const bool found = foundIt != objectStores.cend();
+  if (found) {
+    mSpec = &*foundIt;
 
-  for (uint32_t objCount = objectStores.Length(), objIndex = 0;
-       objIndex < objCount; objIndex++) {
-    const ObjectStoreSpec& objSpec = objectStores[objIndex];
+    for (auto& index : mIndexes) {
+      index->RefreshMetadata(aMayDelete);
+    }
 
-    if (objSpec.metadata().id() == Id()) {
-      mSpec = &objSpec;
-
-      for (uint32_t idxCount = mIndexes.Length(), idxIndex = 0;
-           idxIndex < idxCount; idxIndex++) {
-        mIndexes[idxIndex]->RefreshMetadata(aMayDelete);
-      }
-
-      for (uint32_t idxCount = mDeletedIndexes.Length(), idxIndex = 0;
-           idxIndex < idxCount; idxIndex++) {
-        mDeletedIndexes[idxIndex]->RefreshMetadata(false);
-      }
-
-      found = true;
-      break;
+    for (auto& index : mDeletedIndexes) {
+      index->RefreshMetadata(false);
     }
   }
 

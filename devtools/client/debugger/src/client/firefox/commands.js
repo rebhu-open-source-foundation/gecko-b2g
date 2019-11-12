@@ -23,8 +23,6 @@ import type {
   SourceId,
   SourceActor,
   Range,
-  Thread,
-  ThreadType,
   ExecutionPoint,
 } from "../../types";
 
@@ -42,7 +40,7 @@ import type {
   EventListenerActiveList,
 } from "../../actions/types";
 
-let targets: { [ThreadType]: { [string]: Target } };
+let targets: { [string]: Target };
 let currentThreadFront: ThreadFront;
 let currentTarget: Target;
 let debuggerClient: DebuggerClient;
@@ -60,7 +58,7 @@ function setupCommands(dependencies: Dependencies) {
   currentThreadFront = dependencies.threadFront;
   currentTarget = dependencies.tabTarget;
   debuggerClient = dependencies.debuggerClient;
-  targets = { worker: {}, contentProcess: {} };
+  targets = {};
   sourceActors = {};
   breakpoints = {};
 }
@@ -100,9 +98,9 @@ function sendPacket(packet: Object) {
   return debuggerClient.request(packet);
 }
 
-// Transforms targets from {[ThreadType]: TargetMap} to TargetMap
+// Get a copy of the current targets.
 function getTargetsMap(): { string: Target } {
-  return Object.assign({}, ...Object.values(targets));
+  return Object.assign({}, targets);
 }
 
 function lookupTarget(thread: string) {
@@ -219,12 +217,6 @@ function locationKey(location: BreakpointLocation) {
   return `${sourceUrl}:${sourceId}:${line}:${column}`;
 }
 
-function detachWorkers() {
-  for (const thread of listThreadFronts()) {
-    thread.detach();
-  }
-}
-
 function maybeGenerateLogGroupId(options) {
   if (
     options.logValue &&
@@ -315,12 +307,10 @@ function autocomplete(
 }
 
 function navigate(url: string): Promise<*> {
-  targets = { worker: {}, contentProcess: {} };
   return currentTarget.navigateTo({ url });
 }
 
 function reload(): Promise<*> {
-  targets = { worker: {}, contentProcess: {} };
   return currentTarget.reload();
 }
 
@@ -432,10 +422,8 @@ async function toggleEventLogging(logEventBreakpoints: boolean) {
 
 function getAllThreadFronts() {
   const fronts = [currentThreadFront];
-  for (const targetsForType of (Object.values(targets): any)) {
-    for (const { threadFront } of (Object.values(targetsForType): any)) {
-      fronts.push(threadFront);
-    }
+  for (const { threadFront } of (Object.values(targets): any)) {
+    fronts.push(threadFront);
   }
   return fronts;
 }
@@ -474,31 +462,22 @@ function getSourceForActor(actor: ActorId) {
   return sourceActors[actor];
 }
 
-async function fetchThreads(type: ?ThreadType): Promise<Thread[]> {
-  if (!type) {
-    const workers = await updateThreads("worker");
-    const processes = await updateThreads("contentProcess");
-    return [...workers, ...processes];
-  }
-
-  return updateThreads(type);
-}
-
-async function updateThreads(type: ThreadType) {
+async function fetchThreads() {
   const options = {
     breakpoints,
     eventBreakpoints,
     observeAsmJS: true,
   };
 
-  await updateTargets(type, {
+  await updateTargets({
     currentTarget,
     debuggerClient,
     targets,
     options,
   });
 
-  return Object.entries(targets[type]).map(([actor, target]) =>
+  // eslint-disable-next-line
+  return (Object.entries(targets).map: any)(([actor, target]) =>
     createThread((actor: any), (target: any))
   );
 }
@@ -600,7 +579,6 @@ const clientCommands = {
   setSkipPausing,
   setEventListenerBreakpoints,
   getEventListenerBreakpointTypes,
-  detachWorkers,
   lookupTarget,
   getFrontByID,
   timeWarp,

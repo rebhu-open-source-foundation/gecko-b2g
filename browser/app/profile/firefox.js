@@ -404,12 +404,7 @@ pref("permissions.default.geo", 0);
 pref("permissions.default.desktop-notification", 0);
 pref("permissions.default.shortcuts", 0);
 
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("permissions.desktop-notification.postPrompt.enabled", true);
-#else
-  pref("permissions.desktop-notification.postPrompt.enabled", false);
-#endif
-
+pref("permissions.desktop-notification.postPrompt.enabled", true);
 pref("permissions.desktop-notification.notNow.enabled", false);
 
 pref("permissions.fullscreen.allowed", false);
@@ -2134,18 +2129,8 @@ pref("devtools.serviceWorkers.testing.enabled", false);
 // Enable the Network Monitor
 pref("devtools.netmonitor.enabled", true);
 
-// Enable Network Search in Nightly builds.
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
-  pref("devtools.netmonitor.features.search", true);
-#else
-  pref("devtools.netmonitor.features.search", false);
-#endif
-
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
-  pref("devtools.netmonitor.features.requestBlocking", true);
-#else
-  pref("devtools.netmonitor.features.requestBlocking", false);
-#endif
+pref("devtools.netmonitor.features.search", true);
+pref("devtools.netmonitor.features.requestBlocking", true);
 
 // Enable the Application panel
 pref("devtools.application.enabled", false);
@@ -2183,12 +2168,7 @@ pref("devtools.netmonitor.har.forceExport", false);
 pref("devtools.netmonitor.har.pageLoadedTimeout", 1500);
 pref("devtools.netmonitor.har.enableAutoExportToFile", false);
 
-// Enable WebSocket monitoring in Nightly and DevEdition/Beta builds.
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
-  pref("devtools.netmonitor.features.webSockets", true);
-#else
-  pref("devtools.netmonitor.features.webSockets", false);
-#endif
+pref("devtools.netmonitor.features.webSockets", true);
 
 // Enable the Storage Inspector
 pref("devtools.storage.enabled", true);

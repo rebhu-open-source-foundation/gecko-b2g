@@ -111,6 +111,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "jit/AtomicOp.h"
@@ -138,6 +139,7 @@
 #  include "jit/mips64/Assembler-mips64.h"
 #endif
 
+#include "util/Memory.h"
 #include "wasm/WasmGC.h"
 #include "wasm/WasmGenerator.h"
 #include "wasm/WasmInstance.h"
@@ -1670,7 +1672,7 @@ class BaseStackFrame final : public BaseStackFrameAllocator {
 #else
     masm.Push(r);
 #endif
-    maxFramePushed_ = Max(maxFramePushed_, masm.framePushed());
+    maxFramePushed_ = std::max(maxFramePushed_, masm.framePushed());
     MOZ_ASSERT(stackBefore + StackSizeOfPtr == currentStackHeight());
     return currentStackHeight();
   }
@@ -1683,7 +1685,7 @@ class BaseStackFrame final : public BaseStackFrameAllocator {
 #else
     masm.Push(r);
 #endif
-    maxFramePushed_ = Max(maxFramePushed_, masm.framePushed());
+    maxFramePushed_ = std::max(maxFramePushed_, masm.framePushed());
     MOZ_ASSERT(stackBefore + StackSizeOfFloat == currentStackHeight());
     return currentStackHeight();
   }
@@ -1696,7 +1698,7 @@ class BaseStackFrame final : public BaseStackFrameAllocator {
 #else
     masm.Push(r);
 #endif
-    maxFramePushed_ = Max(maxFramePushed_, masm.framePushed());
+    maxFramePushed_ = std::max(maxFramePushed_, masm.framePushed());
     MOZ_ASSERT(stackBefore + StackSizeOfDouble == currentStackHeight());
     return currentStackHeight();
   }
@@ -1787,7 +1789,7 @@ class BaseStackFrame final : public BaseStackFrameAllocator {
 #else
       masm.reserveStack(bytes);
 #endif
-      maxFramePushed_ = Max(maxFramePushed_, masm.framePushed());
+      maxFramePushed_ = std::max(maxFramePushed_, masm.framePushed());
     }
     return end;
   }
@@ -4411,7 +4413,13 @@ class BaseCompiler final : public BaseCompilerInterface {
           break;
       }
     }
-    MOZ_ASSERT(size == fr.dynamicHeight());
+    if (deadCode_) {
+      // Some stack allocation may be used to pass values along control flow
+      // edges without being accounted for on the value stack.
+      MOZ_ASSERT(size <= fr.dynamicHeight());
+    } else {
+      MOZ_ASSERT(size == fr.dynamicHeight());
+    }
   }
 
 #endif

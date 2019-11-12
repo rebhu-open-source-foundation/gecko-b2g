@@ -24,6 +24,7 @@
 #include "nsISecureBrowserUI.h"
 #include "nsIWebProgressListener.h"
 #include "mozilla/AntiTrackingCommon.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/ContentFrameMessageManager.h"
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/KaiOS.h"
@@ -31,8 +32,6 @@
 #include "mozilla/dom/LSObject.h"
 #include "mozilla/dom/Storage.h"
 #include "mozilla/dom/MaybeCrossOriginObject.h"
-#include "mozilla/dom/MediaController.h"
-#include "mozilla/dom/MediaControlUtils.h"
 #include "mozilla/dom/Performance.h"
 #include "mozilla/dom/StorageEvent.h"
 #include "mozilla/dom/StorageEventBinding.h"
@@ -273,12 +272,6 @@ using namespace mozilla::dom::ipc;
 using mozilla::BasePrincipal;
 using mozilla::OriginAttributes;
 using mozilla::TimeStamp;
-
-extern mozilla::LazyLogModule gMediaControlLog;
-
-#define MC_LOG(msg, ...)                     \
-  MOZ_LOG(gMediaControlLog, LogLevel::Debug, \
-          ("WindowOuter=%p, " msg, this, ##__VA_ARGS__))
 
 #define FORWARD_TO_INNER(method, args, err_rval)       \
   PR_BEGIN_MACRO                                       \
@@ -2824,26 +2817,6 @@ void nsPIDOMWindowOuter::MaybeActiveMediaComponents() {
 
 SuspendTypes nsPIDOMWindowOuter::GetMediaSuspend() const {
   return mMediaSuspend;
-}
-
-void nsPIDOMWindowOuter::UpdateMediaAction(const MediaControlActions aAction) {
-  // TODO : we now temporarily map MediaControlActions to nsISuspendedTypes in
-  // order to control media, but for long term goal in which we should not rely
-  // on nsISuspendedTypes and completely decouple them. See bug1571493.
-  MC_LOG("UpdateMediaAction %s", ToMediaControlActionsStr(aAction));
-  switch (aAction) {
-    case MediaControlActions::ePlay:
-      SetMediaSuspend(nsISuspendedTypes::NONE_SUSPENDED);
-      break;
-    case MediaControlActions::ePause:
-      SetMediaSuspend(nsISuspendedTypes::SUSPENDED_PAUSE_DISPOSABLE);
-      break;
-    case MediaControlActions::eStop:
-      SetMediaSuspend(nsISuspendedTypes::SUSPENDED_STOP_DISPOSABLE);
-      break;
-    default:
-      MOZ_ASSERT_UNREACHABLE("Invalid action.");
-  };
 }
 
 void nsPIDOMWindowOuter::SetMediaSuspend(SuspendTypes aSuspend) {

@@ -1506,10 +1506,10 @@
   value: false
   mirror: always
 
-# Whether or not formData event is enabled.
+# Enable formData event
 - name: dom.formdata.event.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Support @autocomplete values for form autofill feature.
@@ -2678,7 +2678,7 @@
 
 - name: dom.webnotifications.requireuserinteraction
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: dom.webnotifications.requireinteraction.enabled
@@ -3658,6 +3658,15 @@
 - name: gfx.webrender.max-partial-present-rects
   type: uint32_t
   value: 0
+  mirror: once
+
+- name: gfx.webrender.enable-gpu-markers
+  type: bool
+#ifdef DEBUG
+  value: true
+#else
+  value: false
+#endif
   mirror: once
 
 #ifdef NIGHTLY_BUILD

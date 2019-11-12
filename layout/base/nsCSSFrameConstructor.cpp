@@ -2553,9 +2553,19 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
     isXUL = aDocElement->IsXULElement();
   }
 
-  // Never create scrollbars for XUL documents
-  bool isScrollable =
-      isPaginated ? presContext->HasPaginatedScrolling() : !isXUL;
+  // Never create scrollbars for XUL documents or top level XHTML documents that
+  // disable scrolling.
+  bool isScrollable = true;
+  if (isPaginated) {
+    isScrollable = presContext->HasPaginatedScrolling();
+  } else if (isXUL) {
+    isScrollable = false;
+  } else if (nsContentUtils::IsInChromeDocshell(aDocElement->OwnerDoc()) &&
+             aDocElement->AsElement()->AttrValueIs(
+                 kNameSpaceID_None, nsGkAtoms::scrolling, nsGkAtoms::_false,
+                 eCaseMatters)) {
+    isScrollable = false;
+  }
 
   // We no longer need to do overflow propagation here. It's taken care of
   // when we construct frames for the element whose overflow might be
@@ -10160,9 +10170,18 @@ void nsCSSFrameConstructor::WrapFramesInFirstLetterFrame(
   nsIFrame* prevFrame = nullptr;
   nsIFrame* frame = aParentFrameList;
 
+  // This loop attempts to implement "Finding the First Letter":
+  // https://drafts.csswg.org/css-pseudo-4/#application-in-css
+  // FIXME: we don't handle nested blocks correctly yet though (bug 214004)
   while (frame) {
     nsIFrame* nextFrame = frame->GetNextSibling();
 
+    // Skip all ::markers.
+    if (frame->Style()->GetPseudoType() == PseudoStyleType::marker) {
+      prevFrame = frame;
+      frame = nextFrame;
+      continue;
+    }
     LayoutFrameType frameType = frame->Type();
     if (LayoutFrameType::Text == frameType) {
       // Wrap up first-letter content in a letter frame

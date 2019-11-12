@@ -16,6 +16,7 @@
 #include "mozilla/TypeTraits.h"
 #include "mozilla/Unused.h"
 
+#include <algorithm>
 #include <limits>
 #include <string.h>
 #include <type_traits>
@@ -23,7 +24,6 @@
 #include "jsapi.h"
 #include "jsnum.h"
 #include "jstypes.h"
-#include "jsutil.h"
 
 #include "builtin/Array.h"
 #include "builtin/Boolean.h"
@@ -957,7 +957,7 @@ bool js::intl_toLocaleLowerCase(JSContext* cx, unsigned argc, Value* vp) {
   static const size_t INLINE_CAPACITY = js::intl::INITIAL_CHAR_BUFFER_SIZE;
 
   Vector<char16_t, INLINE_CAPACITY> chars(cx);
-  if (!chars.resize(Max(INLINE_CAPACITY, input.length()))) {
+  if (!chars.resize(std::max(INLINE_CAPACITY, input.length()))) {
     return false;
   }
 
@@ -1373,7 +1373,7 @@ bool js::intl_toLocaleUpperCase(JSContext* cx, unsigned argc, Value* vp) {
   static const size_t INLINE_CAPACITY = js::intl::INITIAL_CHAR_BUFFER_SIZE;
 
   Vector<char16_t, INLINE_CAPACITY> chars(cx);
-  if (!chars.resize(Max(INLINE_CAPACITY, input.length()))) {
+  if (!chars.resize(std::max(INLINE_CAPACITY, input.length()))) {
     return false;
   }
 
@@ -1585,7 +1585,7 @@ static bool str_normalize(JSContext* cx, unsigned argc, Value* vp) {
   static const size_t INLINE_CAPACITY = js::intl::INITIAL_CHAR_BUFFER_SIZE;
 
   Vector<char16_t, INLINE_CAPACITY> chars(cx);
-  if (!chars.resize(Max(INLINE_CAPACITY, srcChars.length()))) {
+  if (!chars.resize(std::max(INLINE_CAPACITY, srcChars.length()))) {
     return false;
   }
 
@@ -2219,7 +2219,7 @@ bool js::str_includes(JSContext* cx, unsigned argc, Value* vp) {
       if (!ToInteger(cx, args[1], &d)) {
         return false;
       }
-      pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
+      pos = uint32_t(std::min(std::max(d, 0.0), double(UINT32_MAX)));
     }
   }
 
@@ -2227,7 +2227,7 @@ bool js::str_includes(JSContext* cx, unsigned argc, Value* vp) {
   uint32_t textLen = str->length();
 
   // Step 8.
-  uint32_t start = Min(Max(pos, 0U), textLen);
+  uint32_t start = std::min(pos, textLen);
 
   // Steps 9-10.
   JSLinearString* text = str->ensureLinear(cx);
@@ -2266,7 +2266,7 @@ bool js::str_indexOf(JSContext* cx, unsigned argc, Value* vp) {
       if (!ToInteger(cx, args[1], &d)) {
         return false;
       }
-      pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
+      pos = uint32_t(std::min(std::max(d, 0.0), double(UINT32_MAX)));
     }
   }
 
@@ -2274,7 +2274,7 @@ bool js::str_indexOf(JSContext* cx, unsigned argc, Value* vp) {
   uint32_t textLen = str->length();
 
   // Step 9
-  uint32_t start = Min(Max(pos, 0U), textLen);
+  uint32_t start = std::min(pos, textLen);
 
   if (str == searchStr) {
     // AngularJS often invokes "false".indexOf("false"). This check should
@@ -2452,7 +2452,7 @@ bool js::str_startsWith(JSContext* cx, unsigned argc, Value* vp) {
       if (!ToInteger(cx, args[1], &d)) {
         return false;
       }
-      pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
+      pos = uint32_t(std::min(std::max(d, 0.0), double(UINT32_MAX)));
     }
   }
 
@@ -2460,7 +2460,7 @@ bool js::str_startsWith(JSContext* cx, unsigned argc, Value* vp) {
   uint32_t textLen = str->length();
 
   // Step 8.
-  uint32_t start = Min(Max(pos, 0U), textLen);
+  uint32_t start = std::min(pos, textLen);
 
   // Step 9.
   uint32_t searchLen = searchStr->length();
@@ -2517,12 +2517,12 @@ bool js::str_endsWith(JSContext* cx, unsigned argc, Value* vp) {
       if (!ToInteger(cx, args[1], &d)) {
         return false;
       }
-      pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
+      pos = uint32_t(std::min(std::max(d, 0.0), double(UINT32_MAX)));
     }
   }
 
   // Step 8.
-  uint32_t end = Min(Max(pos, 0U), textLen);
+  uint32_t end = std::min(pos, textLen);
 
   // Step 9.
   uint32_t searchLen = searchStr->length();

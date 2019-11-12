@@ -217,6 +217,7 @@
 #include "nsDocShell.h"
 #include "nsOpenURIInFrameParams.h"
 #include "mozilla/net/NeckoMessageUtils.h"
+#include "GfxInfoBase.h"
 #include "gfxPlatform.h"
 #include "gfxPlatformFontList.h"
 #include "prio.h"
@@ -2216,9 +2217,12 @@ void ContentParent::LaunchSubprocessInternal(
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   // If we're launching a middleman process for a
   // recording or replay, start the sandbox later.
-  if (sEarlySandboxInit && IsContentSandboxEnabled() &&
-      !IsRecordingOrReplaying()) {
+  bool sandboxEnabled = IsContentSandboxEnabled();
+  if (sandboxEnabled && sEarlySandboxInit && !IsRecordingOrReplaying()) {
     AppendSandboxParams(extraArgs);
+  }
+  if (sandboxEnabled) {
+    mSubprocess->DisableOSActivityMode();
   }
 #endif
 
@@ -2555,16 +2559,8 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
   nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
   if (gfxInfo) {
-    for (int32_t i = 1; i <= nsIGfxInfo::FEATURE_MAX_VALUE; ++i) {
-      int32_t status = 0;
-      nsAutoCString failureId;
-      gfxInfo->GetFeatureStatus(i, failureId, &status);
-      dom::GfxInfoFeatureStatus gfxFeatureStatus;
-      gfxFeatureStatus.feature() = i;
-      gfxFeatureStatus.status() = status;
-      gfxFeatureStatus.failureId() = failureId;
-      xpcomInit.gfxFeatureStatus().AppendElement(gfxFeatureStatus);
-    }
+    GfxInfoBase* gfxInfoRaw = static_cast<GfxInfoBase*>(gfxInfo.get());
+    gfxInfoRaw->GetAllFeatures(xpcomInit);
   }
 
   DataStorage::GetAllChildProcessData(xpcomInit.dataStorage());
@@ -3870,7 +3866,8 @@ ContentParent::AllocPExternalHelperAppParent(
     const uint32_t& aContentDispositionHint,
     const nsString& aContentDispositionFilename, const bool& aForceSave,
     const int64_t& aContentLength, const bool& aWasFileChannel,
-    const Maybe<URIParams>& aReferrer, PBrowserParent* aBrowser) {
+    const Maybe<URIParams>& aReferrer, BrowsingContext* aContext,
+    const bool& aShouldCloseWindow) {
   RefPtr<ExternalHelperAppParent> parent = new ExternalHelperAppParent(
       uri, aContentLength, aWasFileChannel, aContentDisposition,
       aContentDispositionHint, aContentDispositionFilename);
@@ -3884,9 +3881,11 @@ mozilla::ipc::IPCResult ContentParent::RecvPExternalHelperAppConstructor(
     const uint32_t& aContentDispositionHint,
     const nsString& aContentDispositionFilename, const bool& aForceSave,
     const int64_t& aContentLength, const bool& aWasFileChannel,
-    const Maybe<URIParams>& aReferrer, PBrowserParent* aBrowser) {
+    const Maybe<URIParams>& aReferrer, BrowsingContext* aContext,
+    const bool& aShouldCloseWindow) {
   static_cast<ExternalHelperAppParent*>(actor)->Init(
-      loadInfoArgs, aMimeContentType, aForceSave, aReferrer, aBrowser);
+      loadInfoArgs, aMimeContentType, aForceSave, aReferrer, aContext,
+      aShouldCloseWindow);
   return IPC_OK();
 }
 
