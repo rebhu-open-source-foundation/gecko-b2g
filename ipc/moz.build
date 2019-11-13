@@ -18,6 +18,7 @@ if CONFIG['OS_ARCH'] == 'WINNT':
 if CONFIG['MOZ_B2G_BT'] or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     DIRS += [
         'unixfd',
+        'unixsocket',
     ]
 
 TEST_DIRS += [
