@@ -6,6 +6,7 @@
  * All other trademarks are the property of their respective owners.
  */
 
+[GenerateToJSON]
 dictionary ExternalAPIClientInfo {
   DOMString token;
   DOMString identity;
