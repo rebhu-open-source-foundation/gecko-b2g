@@ -831,10 +831,8 @@ nsSHistory::EvictAllContentViewers() {
 }
 
 static nsresult LoadURI(nsSHistory::LoadEntryResult& aLoadResult) {
-  nsCOMPtr<nsIDocShell> docShell = aLoadResult.mBrowsingContext->GetDocShell();
-  NS_ENSURE_TRUE(docShell, NS_ERROR_FAILURE);
-
-  return docShell->LoadURI(aLoadResult.mLoadState, false);
+  return aLoadResult.mBrowsingContext->LoadURI(nullptr, aLoadResult.mLoadState,
+                                               false);
 }
 
 NS_IMETHODIMP
@@ -1381,8 +1379,7 @@ nsSHistory::GotoIndex(int32_t aIndex) {
 NS_IMETHODIMP_(void)
 nsSHistory::EnsureCorrectEntryAtCurrIndex(nsISHEntry* aEntry) {
   int index = mRequestedIndex == -1 ? mIndex : mRequestedIndex;
-  MOZ_ASSERT(mIndex > -1);
-  if (mEntries[index] != aEntry) {
+  if (index > -1 && (mEntries[index] != aEntry)) {
     ReplaceEntry(index, aEntry);
   }
 }

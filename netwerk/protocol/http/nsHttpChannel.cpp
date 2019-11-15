@@ -65,6 +65,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StaticPrefs_security.h"
@@ -2592,6 +2593,15 @@ void nsHttpChannel::AssertNotDocumentChannel() {
   if (!mLoadInfo || !IsDocument()) {
     return;
   }
+
+#ifndef DEBUG
+  if (!StaticPrefs::fission_autostart()) {
+    // This assertion is firing in the wild (Bug 1593545) and its not clear
+    // why. Disable the assertion in non-fission non-debug configurations to
+    // avoid crashing user's browsers until we're done dogfooding fission.
+    return;
+  }
+#endif
 
   nsCOMPtr<nsIParentChannel> parentChannel;
   NS_QueryNotificationCallbacks(this, parentChannel);
@@ -7335,28 +7345,6 @@ nsHttpChannel::GetCrossOriginOpenerPolicy(
   return NS_OK;
 }
 
-nsresult nsHttpChannel::StartCrossProcessRedirect() {
-  nsresult rv;
-
-  LOG(("nsHttpChannel::StartCrossProcessRedirect [this=%p]", this));
-
-  rv = CheckRedirectLimit(nsIChannelEventSink::REDIRECT_INTERNAL);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsCOMPtr<nsIParentChannel> parentChannel;
-  NS_QueryNotificationCallbacks(this, parentChannel);
-  RefPtr<HttpChannelParent> httpParent = do_QueryObject(parentChannel);
-  MOZ_ASSERT(httpParent);
-  NS_ENSURE_TRUE(httpParent, NS_ERROR_UNEXPECTED);
-
-  httpParent->TriggerCrossProcessSwitch(this, mCrossProcessRedirectIdentifier);
-
-  // This will suspend the channel
-  rv = WaitForRedirectCallback();
-
-  return rv;
-}
-
 // See https://gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
 // This method runs steps 1-4 of the algorithm to compare
 // cross-origin-opener policies
@@ -9774,24 +9762,37 @@ void nsHttpChannel::MaybeWarnAboutAppCache() {
 
 // Step 10 of HTTP-network-or-cache fetch
 void nsHttpChannel::SetOriginHeader() {
-  if (mRequestHead.IsGet() || mRequestHead.IsHead()) {
-    return;
-  }
   nsresult rv;
 
   nsAutoCString existingHeader;
   Unused << mRequestHead.GetHeader(nsHttp::Origin, existingHeader);
-  if (!existingHeader.IsEmpty()) {
-    LOG(("nsHttpChannel::SetOriginHeader Origin header already present"));
+  if (!existingHeader.IsEmpty() && !existingHeader.EqualsLiteral("null")) {
+    LOG(
+        ("nsHttpChannel::SetOriginHeader Origin header already present "
+         "[this=%p]",
+         this));
     nsCOMPtr<nsIURI> uri;
     rv = NS_NewURI(getter_AddRefs(uri), existingHeader);
-    if (NS_SUCCEEDED(rv) &&
-        ReferrerInfo::ShouldSetNullOriginHeader(this, uri)) {
-      LOG(("nsHttpChannel::SetOriginHeader null Origin by Referrer-Policy"));
-      rv = mRequestHead.SetHeader(nsHttp::Origin, NS_LITERAL_CSTRING("null"),
-                                  false /* merge */);
+    if (NS_FAILED(rv) || !dom::ReferrerInfo::IsReferrerSchemeAllowed(uri)) {
+      LOG(
+          ("nsHttpChannel::SetOriginHeader removing header for disallowed "
+           "scheme [this=%p]",
+           this));
+      DebugOnly<nsresult> rv = mRequestHead.ClearHeader(nsHttp::Origin);
+      MOZ_ASSERT(NS_SUCCEEDED(rv));
+    } else if (ReferrerInfo::ShouldSetNullOriginHeader(this, uri)) {
+      LOG(
+          ("nsHttpChannel::SetOriginHeader null Origin by Referrer-Policy "
+           "[this=%p]",
+           this));
+      DebugOnly<nsresult> rv = mRequestHead.SetHeader(
+          nsHttp::Origin, NS_LITERAL_CSTRING("null"), false /* merge */);
       MOZ_ASSERT(NS_SUCCEEDED(rv));
     }
+    return;
+  }
+
+  if (mRequestHead.IsGet() || mRequestHead.IsHead()) {
     return;
   }
 

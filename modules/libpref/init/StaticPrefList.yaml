@@ -3282,20 +3282,6 @@
   value: false
   mirror: always
 
-- name: gfx.compositor.glcontext.opaque
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: gfx.core-animation.enabled
-  type: bool
-#if defined(XP_MACOSX)
-  value: true
-#else
-  value: false
-#endif
-  mirror: once
-
 #if defined(MOZ_WIDGET_ANDROID)
   # Overrides the glClear color used when the surface origin is not (0, 0)
   # Used for drawing a border around the content.
@@ -5868,6 +5854,11 @@
 #else
   value: false
 #endif
+  mirror: always
+
+- name: media.rdd-webaudio.batch.size
+  type: RelaxedAtomicInt32
+  value: 100
   mirror: always
 
 #ifdef ANDROID

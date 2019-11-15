@@ -158,7 +158,7 @@
 #include "nsICycleCollectorListener.h"
 #include "nsIDocShellTreeOwner.h"
 #include "mozilla/dom/Document.h"
-#include "nsGeolocation.h"
+#include "Geolocation.h"
 #include "nsIDragService.h"
 #include "mozilla/dom/WakeLock.h"
 #include "nsIExternalProtocolService.h"
@@ -241,6 +241,7 @@
 #include "nsStreamUtils.h"
 #include "nsIAsyncInputStream.h"
 #include "xpcpublic.h"
+#include "nsHyphenationManager.h"
 
 #include "mozilla/Sprintf.h"
 
@@ -761,6 +762,11 @@ const nsDependentSubstring RemoteTypePrefix(
 bool IsWebRemoteType(const nsAString& aContentProcessType) {
   return StringBeginsWith(aContentProcessType,
                           NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE));
+}
+
+bool IsWebCoopCoepRemoteType(const nsAString& aContentProcessType) {
+  return StringBeginsWith(aContentProcessType,
+                          NS_LITERAL_STRING(WITH_COOP_COEP_REMOTE_TYPE_PREFIX));
 }
 
 /*static*/
@@ -5346,6 +5352,18 @@ mozilla::ipc::IPCResult ContentParent::RecvSetupFamilyCharMap(
   auto fontList = gfxPlatformFontList::PlatformFontList();
   MOZ_RELEASE_ASSERT(fontList, "gfxPlatformFontList not initialized?");
   fontList->SetupFamilyCharMap(aGeneration, aFamilyPtr);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvGetHyphDict(
+    const mozilla::ipc::URIParams& aURI,
+    mozilla::ipc::SharedMemoryBasic::Handle* aOutHandle, uint32_t* aOutSize) {
+  nsCOMPtr<nsIURI> uri = DeserializeURI(aURI);
+  if (!uri) {
+    return IPC_FAIL_NO_REASON(this);
+  }
+  nsHyphenationManager::Instance()->ShareHyphDictToProcess(
+      uri, Pid(), aOutHandle, aOutSize);
   return IPC_OK();
 }
 

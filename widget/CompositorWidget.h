@@ -129,14 +129,6 @@ class CompositorWidget {
   }
 
   /**
-   * Called after the LayerManager draws the layer tree
-   *
-   * Always called from the compositing thread.
-   */
-  virtual void DrawWindowOverlay(WidgetRenderingContext* aContext,
-                                 LayoutDeviceIntRect aRect) {}
-
-  /**
    * Return a DrawTarget for the window which can be composited into.
    *
    * Only called if GetNativeLayerRoot() returns nullptr.

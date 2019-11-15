@@ -2859,7 +2859,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 88;
+    const UI_VERSION = 89;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     let currentUIVersion;
@@ -3298,6 +3298,14 @@ BrowserGlue.prototype = {
           );
         }
       }
+    }
+
+    if (currentUIVersion < 89) {
+      // This file was renamed in https://bugzilla.mozilla.org/show_bug.cgi?id=1595636.
+      this._migrateXULStoreForDocument(
+        "chrome://devtools/content/framework/toolbox-window.xul",
+        "chrome://devtools/content/framework/toolbox-window.xhtml"
+      );
     }
 
     // Update the migration version.
@@ -4097,6 +4105,14 @@ ContentPermissionPrompt.prototype = {
    *        The request that we're to show a prompt for.
    */
   prompt(request) {
+    if (request.element && request.element.fxrPermissionPrompt) {
+      // For Firefox Reality on Desktop, switch to a different mechanism to
+      // prompt the user since fewer permissions are available and since many
+      // UI dependencies are not availabe.
+      request.element.fxrPermissionPrompt(request);
+      return;
+    }
+
     let type;
     try {
       // Only allow exactly one permission request here.

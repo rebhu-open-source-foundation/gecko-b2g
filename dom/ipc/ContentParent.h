@@ -1158,6 +1158,9 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvGetDeviceStorageLocations(
       DeviceStorageLocationInfo* info);
+  mozilla::ipc::IPCResult RecvGetHyphDict(
+      const mozilla::ipc::URIParams& aURIParams,
+      mozilla::ipc::SharedMemoryBasic::Handle* aOutHandle, uint32_t* aOutSize);
 
   mozilla::ipc::IPCResult RecvNotifyBenchmarkResult(const nsString& aCodecName,
                                                     const uint32_t& aDecodeFPS);
@@ -1429,6 +1432,8 @@ const nsDependentSubstring RemoteTypePrefix(
 
 // This is based on isWebRemoteType in E10SUtils.jsm.
 bool IsWebRemoteType(const nsAString& aContentProcessType);
+
+bool IsWebCoopCoepRemoteType(const nsAString& aContentProcessType);
 
 }  // namespace dom
 }  // namespace mozilla

@@ -200,13 +200,6 @@ class nsIContent : public nsINode {
   }
 
   /**
-   * Returns true if there is NOT a path through child lists
-   * from the top of this node's parent chain back to this node or
-   * if the node is in native anonymous subtree without a parent.
-   */
-  inline bool IsInAnonymousSubtree() const;
-
-  /**
    * Return true iff this node is in an HTML document (in the HTML5 sense of
    * the term, i.e. not in an XHTML/XML document).
    */
@@ -270,8 +263,6 @@ class nsIContent : public nsINode {
   inline bool IsAnyOfMathMLElements(First aFirst, Args... aArgs) const {
     return IsMathMLElement() && IsNodeInternal(aFirst, aArgs...);
   }
-
-  inline bool IsActiveChildrenElement() const;
 
   bool IsGeneratedContentContainerForBefore() const {
     return IsRootOfNativeAnonymousSubtree() &&
@@ -382,14 +373,14 @@ class nsIContent : public nsINode {
   /**
    * Gets content node with the binding (or native code, possibly on the
    * frame) responsible for our construction (and existence).  Used by
-   * anonymous content (both XBL-generated and native-anonymous).
+   * native-anonymous content and shadow DOM.
    *
    * null for all explicit content (i.e., content reachable from the top
    * of its GetParent() chain via child lists).
    *
    * @return the binding parent
    */
-  virtual mozilla::dom::Element* GetBindingParent() const {
+  mozilla::dom::Element* GetBindingParent() const {
     const nsExtendedContentSlots* slots = GetExistingExtendedContentSlots();
     return slots ? slots->mBindingParent.get() : nullptr;
   }
@@ -446,29 +437,6 @@ class nsIContent : public nsINode {
    * @return The assigned slot element or null.
    */
   mozilla::dom::HTMLSlotElement* GetAssignedSlotByMode() const;
-
-  nsIContent* GetXBLInsertionParent() const {
-    nsIContent* ip = GetXBLInsertionPoint();
-    return ip ? ip->GetParent() : nullptr;
-  }
-
-  /**
-   * Gets the insertion parent element of the XBL binding.
-   * The insertion parent is our one true parent in the transformed DOM.
-   *
-   * @return the insertion parent element.
-   */
-  nsIContent* GetXBLInsertionPoint() const {
-    const nsExtendedContentSlots* slots = GetExistingExtendedContentSlots();
-    return slots ? slots->mXBLInsertionPoint.get() : nullptr;
-  }
-
-  /**
-   * Sets the insertion parent element of the XBL binding.
-   *
-   * @param aContent The insertion parent element.
-   */
-  void SetXBLInsertionPoint(nsIContent* aContent);
 
   /**
    * Same as GetFlattenedTreeParentNode, but returns null if the parent is
@@ -765,11 +733,6 @@ class nsIContent : public nsINode {
      * @see nsIContent::GetBindingParent
      */
     RefPtr<mozilla::dom::Element> mBindingParent;
-
-    /**
-     * @see nsIContent::GetXBLInsertionPoint
-     */
-    nsCOMPtr<nsIContent> mXBLInsertionPoint;
 
     /**
      * @see nsIContent::GetContainingShadow

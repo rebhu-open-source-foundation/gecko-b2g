@@ -48,7 +48,6 @@
 #include "mozilla/LinkedList.h"
 #include "mozilla/OwningNonNull.h"
 #include "mozilla/TimeStamp.h"
-#include "mozilla/webgpu/InstanceProvider.h"
 #include "nsWrapperCacheInlines.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/EventTarget.h"
@@ -182,8 +181,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
                                   public nsSupportsWeakReference,
                                   public nsIInterfaceRequestor,
                                   public PRCListStr,
-                                  public nsAPostRefreshObserver,
-                                  public mozilla::webgpu::InstanceProvider {
+                                  public nsAPostRefreshObserver {
  public:
   typedef mozilla::dom::BrowsingContext RemoteProxy;
 
@@ -449,8 +447,6 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   static void ShutDown();
   static bool IsCallerChrome();
 
-  void CleanupCachedXBLHandlers();
-
   friend class WindowStateHolder;
 
   NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS_AMBIGUOUS(
@@ -461,12 +457,6 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   // with caution.
   void RiskyUnlink();
 #endif
-
-  virtual JSObject* GetCachedXBLPrototypeHandler(
-      nsXBLPrototypeHandler* aKey) override;
-
-  virtual void CacheXBLPrototypeHandler(
-      nsXBLPrototypeHandler* aKey, JS::Handle<JSObject*> aHandler) override;
 
   virtual bool TakeFocus(bool aFocus, uint32_t aFocusMethod) override;
   virtual void SetReadyForFocus() override;
@@ -1366,10 +1356,6 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
 #endif
 
   RefPtr<nsDOMOfflineResourceList> mApplicationCache;
-
-  using XBLPrototypeHandlerTable =
-      nsJSThingHashtable<nsPtrHashKey<nsXBLPrototypeHandler>, JSObject*>;
-  mozilla::UniquePtr<XBLPrototypeHandlerTable> mCachedXBLPrototypeHandlers;
 
   RefPtr<mozilla::dom::IDBFactory> mIndexedDB;
 
