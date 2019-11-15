@@ -165,7 +165,7 @@ protected:
   void UserActivity();
 
   void DrawWindowOverlay(mozilla::widget::WidgetRenderingContext* aContext,
-                         LayoutDeviceIntRect aRect) override;
+                         LayoutDeviceIntRect aRect);
 
 private:
   void EnsureGLCursorImageManager();
