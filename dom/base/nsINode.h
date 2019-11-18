@@ -91,6 +91,7 @@ class Optional;
 class OwningNodeOrString;
 template <typename>
 class Sequence;
+class ShadowRoot;
 class SVGUseElement;
 class Text;
 class TextOrElementOrDocument;
@@ -503,10 +504,18 @@ class nsINode : public mozilla::dom::EventTarget {
 
   /**
    * Return this node as nsIContent.  Should only be used for nodes for which
-   * IsContent() is true.  This is defined inline in nsIContent.h.
+   * IsContent() is true.
+   *
+   * The assertion in nsIContent's constructor makes this safe.
    */
-  inline nsIContent* AsContent();
-  inline const nsIContent* AsContent() const;
+  nsIContent* AsContent() {
+    MOZ_ASSERT(IsContent());
+    return reinterpret_cast<nsIContent*>(this);
+  }
+  const nsIContent* AsContent() const {
+    MOZ_ASSERT(IsContent());
+    return reinterpret_cast<const nsIContent*>(this);
+  }
 
   /*
    * Return whether the node is a Text node (which might be an actual
@@ -904,7 +913,7 @@ class nsINode : public mozilla::dom::EventTarget {
    */
   nsIContent* GetParent() const {
     return MOZ_LIKELY(GetBoolFlag(ParentIsContent))
-               ? reinterpret_cast<nsIContent*>(mParent)
+               ? mParent->AsContent()
                : nullptr;
   }
 
@@ -1233,15 +1242,7 @@ class nsINode : public mozilla::dom::EventTarget {
    * Returns true if |this| or any of its ancestors is native anonymous.
    */
   bool IsInNativeAnonymousSubtree() const {
-#ifdef DEBUG
-    if (HasFlag(NODE_IS_IN_NATIVE_ANONYMOUS_SUBTREE)) {
-      return true;
-    }
-    CheckNotNativeAnonymous();
-    return false;
-#else
     return HasFlag(NODE_IS_IN_NATIVE_ANONYMOUS_SUBTREE);
-#endif
   }
 
   /**
@@ -1252,9 +1253,57 @@ class nsINode : public mozilla::dom::EventTarget {
    * TODO(emilio):: Remove this function, and use just
    * IsInNativeAnonymousSubtree, or something?
    */
-  bool IsInAnonymousSubtree() const {
-    return IsInNativeAnonymousSubtree();
+  bool IsInAnonymousSubtree() const { return IsInNativeAnonymousSubtree(); }
+
+  /**
+   * If |this| or any ancestor is native anonymous, return the root of the
+   * native anonymous subtree. Note that in case of nested native anonymous
+   * content, this returns the innermost root, not the outermost.
+   */
+  nsIContent* GetClosestNativeAnonymousSubtreeRoot() const {
+    if (!IsInNativeAnonymousSubtree()) {
+      return nullptr;
+    }
+    MOZ_ASSERT(IsContent(), "How did non-content end up in NAC?");
+    for (const nsINode* node = this; node; node = node->GetParentNode()) {
+      if (node->IsRootOfNativeAnonymousSubtree()) {
+        return const_cast<nsINode*>(node)->AsContent();
+      }
+    }
+    // FIXME(emilio): This should not happen, usually, but editor removes nodes
+    // in native anonymous subtrees, and we don't clean nodes from the current
+    // event content stack from ContentRemoved, so it can actually happen, see
+    // bug 1510208.
+    NS_WARNING("GetClosestNativeAnonymousSubtreeRoot on disconnected NAC!");
+    return nullptr;
   }
+
+  /**
+   * If |this| or any ancestor is native anonymous, return the parent of the
+   * native anonymous subtree. Note that in case of nested native anonymous
+   * content, this returns the parent of the innermost root, not the outermost.
+   */
+  nsIContent* GetClosestNativeAnonymousSubtreeRootParent() const {
+    const nsIContent* root = GetClosestNativeAnonymousSubtreeRoot();
+    if (!root) {
+      return nullptr;
+    }
+    // We could put this in nsIContentInlines.h or such to avoid this
+    // reinterpret_cast, but it doesn't seem worth it.
+    return reinterpret_cast<const nsINode*>(root)->GetParent();
+  }
+
+  /**
+   * Gets the root of the node tree for this content if it is in a shadow tree.
+   */
+  mozilla::dom::ShadowRoot* GetContainingShadow() const;
+  /**
+   * Gets the shadow host if this content is in a shadow tree. That is, the host
+   * of |GetContainingShadow|, if its not null.
+   *
+   * @return The shadow host, if this is in shadow tree, or null.
+   */
+  nsIContent* GetContainingShadowHost() const;
 
   bool IsInSVGUseShadowTree() const {
     return !!GetContainingSVGUseShadowHost();
@@ -1274,6 +1323,17 @@ class nsINode : public mozilla::dom::EventTarget {
   bool ChromeOnlyAccess() const {
     return HasFlag(NODE_IS_IN_NATIVE_ANONYMOUS_SUBTREE |
                    NODE_HAS_BEEN_IN_UA_WIDGET);
+  }
+
+  const nsIContent* GetChromeOnlyAccessSubtreeRootParent() const {
+    if (!ChromeOnlyAccess()) {
+      return nullptr;
+    }
+    // We can have NAC in UA widgets, but not the other way around.
+    if (IsInNativeAnonymousSubtree()) {
+      return GetClosestNativeAnonymousSubtreeRootParent();
+    }
+    return GetContainingShadowHost();
   }
 
   bool IsInShadowTree() const { return HasFlag(NODE_IS_IN_SHADOW_TREE); }
@@ -1972,12 +2032,6 @@ class nsINode : public mozilla::dom::EventTarget {
   virtual void SetTextContentInternal(const nsAString& aTextContent,
                                       nsIPrincipal* aSubjectPrincipal,
                                       mozilla::ErrorResult& aError) {}
-
-#ifdef DEBUG
-  // Note: virtual so that IsInNativeAnonymousSubtree can be called accross
-  // module boundaries.
-  virtual void CheckNotNativeAnonymous() const;
-#endif
 
   void EnsurePreInsertionValidity1(mozilla::ErrorResult& aError);
   void EnsurePreInsertionValidity2(bool aReplace, nsINode& aNewChild,

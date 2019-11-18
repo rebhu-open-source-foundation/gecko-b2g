@@ -583,17 +583,15 @@ nsresult nsXULElement::BindToTree(BindContext& aContext, nsINode& aParent) {
   nsresult rv = nsStyledElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  Document& doc = aContext.OwnerDoc();
-
-  // FIXME(emilio): Could use IsInComposedDoc().
-  if (!aContext.GetBindingParent() && IsInUncomposedDoc() &&
-      !doc.IsLoadedAsInteractiveData() && !doc.AllowXULXBL() &&
-      !doc.HasWarnedAbout(Document::eImportXULIntoContent)) {
-    nsContentUtils::AddScriptRunner(new XULInContentErrorReporter(doc));
-  }
-
   if (!IsInComposedDoc()) {
     return rv;
+  }
+
+  Document& doc = aContext.OwnerDoc();
+  if (!IsInNativeAnonymousSubtree() && !doc.IsLoadedAsInteractiveData() &&
+      !doc.AllowXULXBL() &&
+      !doc.HasWarnedAbout(Document::eImportXULIntoContent)) {
+    nsContentUtils::AddScriptRunner(new XULInContentErrorReporter(doc));
   }
 
 #ifdef DEBUG
@@ -709,24 +707,9 @@ void nsXULElement::UnregisterAccessKey(const nsAString& aOldValue) {
   //
   Document* doc = GetComposedDoc();
   if (doc && !aOldValue.IsEmpty()) {
-    PresShell* presShell = doc->GetPresShell();
-
-    if (presShell) {
-      Element* element = this;
-
-      // find out what type of content node this is
-      if (mNodeInfo->Equals(nsGkAtoms::label)) {
-        // For anonymous labels the unregistering must
-        // occur on the binding parent control.
-        // XXXldb: And what if the binding parent is null?
-        nsIContent* bindingParent = GetBindingParent();
-        element = bindingParent ? bindingParent->AsElement() : nullptr;
-      }
-
-      if (element) {
-        presShell->GetPresContext()->EventStateManager()->UnregisterAccessKey(
-            element, aOldValue.First());
-      }
+    if (PresShell* presShell = doc->GetPresShell()) {
+      presShell->GetPresContext()->EventStateManager()->UnregisterAccessKey(
+          this, aOldValue.First());
     }
   }
 }

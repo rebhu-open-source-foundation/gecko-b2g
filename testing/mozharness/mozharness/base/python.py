@@ -490,17 +490,11 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
     def __init__(self, *args, **kwargs):
         super(ResourceMonitoringMixin, self).__init__(*args, **kwargs)
 
-        self.register_virtualenv_module('psutil>=3.1.1', method='pip',
+        self.register_virtualenv_module('psutil>=5.6.3', method='pip',
                                         optional=True)
         self.register_virtualenv_module('mozsystemmonitor==0.4',
                                         method='pip', optional=True)
         self.register_virtualenv_module('jsonschema==2.5.1',
-                                        method='pip')
-        # explicitly install functools32, because some slaves aren't using
-        # a version of pip recent enough to install it automatically with
-        # jsonschema (which depends on it)
-        # https://github.com/Julian/jsonschema/issues/233
-        self.register_virtualenv_module('functools32==3.2.3-2',
                                         method='pip')
         self._resource_monitor = None
 

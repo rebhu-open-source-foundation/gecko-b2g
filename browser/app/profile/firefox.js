@@ -732,16 +732,6 @@ pref("plugins.show_infobar", false);
   pref("plugin.default.state", 1);
 #endif
 
-// Plugins bundled in XPIs are enabled by default.
-pref("plugin.defaultXpi.state", 2);
-
-// Flash is Click-to-Activate by default on all channels. Disabled for ARM builds.
-#if defined(_ARM64_) && defined(XP_WIN)
-  pref("plugin.state.flash", 0);
-#else
-  pref("plugin.state.flash", 1);
-#endif
-
 // Enables the download and use of the flash blocklists.
 pref("plugins.flashBlock.enabled", true);
 
@@ -1650,6 +1640,7 @@ pref("browser.contentblocking.report.cryptominer.url", "https://support.mozilla.
 
 pref("browser.contentblocking.cfr-milestone.enabled", true);
 pref("browser.contentblocking.cfr-milestone.milestone-achieved", 0);
+// Milestones should always be in increasing order
 pref("browser.contentblocking.cfr-milestone.milestones", "[1000, 5000, 10000, 25000, 50000, 100000, 500000]");
 
 // Enables the new Protections Panel.

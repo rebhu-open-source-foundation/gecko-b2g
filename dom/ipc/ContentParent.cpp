@@ -764,11 +764,6 @@ bool IsWebRemoteType(const nsAString& aContentProcessType) {
                           NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE));
 }
 
-bool IsWebCoopCoepRemoteType(const nsAString& aContentProcessType) {
-  return StringBeginsWith(aContentProcessType,
-                          NS_LITERAL_STRING(WITH_COOP_COEP_REMOTE_TYPE_PREFIX));
-}
-
 /*static*/
 uint32_t ContentParent::GetMaxProcessCount(
     const nsAString& aContentProcessType) {
@@ -2796,7 +2791,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   // Start up nsPluginHost and run FindPlugins to cache the plugin list.
   // If this isn't our first content process, just send over cached list.
   RefPtr<nsPluginHost> pluginHost = nsPluginHost::GetInst();
-  pluginHost->SendPluginsToContent();
+  pluginHost->SendPluginsToContent(this);
   MaybeEnableRemoteInputEventQueue();
 
   return true;

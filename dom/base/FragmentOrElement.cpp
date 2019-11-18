@@ -159,11 +159,10 @@ NS_IMPL_MAIN_THREAD_ONLY_CYCLE_COLLECTING_RELEASE_WITH_LAST_RELEASE(
 nsIContent* nsIContent::FindFirstNonChromeOnlyAccessContent() const {
   // This handles also nested native anonymous content.
   for (const nsIContent* content = this; content;
-       content = content->GetBindingParent()) {
+       content = content->GetChromeOnlyAccessSubtreeRootParent()) {
     if (!content->ChromeOnlyAccess()) {
       // Oops, this function signature allows casting const to
-      // non-const.  (Then again, so does
-      // GetChildAt_Deprecated(0)->GetParent().)
+      // non-const.  (Then again, so does GetFirstChild()->GetParent().)
       return const_cast<nsIContent*>(content);
     }
   }
@@ -531,16 +530,12 @@ static_assert(sizeof(FragmentOrElement::nsDOMSlots) <= MaxDOMSlotSizeAllowed,
               "DOM slots cannot be grown without consideration");
 
 void nsIContent::nsExtendedContentSlots::UnlinkExtendedSlots() {
-  mBindingParent = nullptr;
   mContainingShadow = nullptr;
   mAssignedSlot = nullptr;
 }
 
 void nsIContent::nsExtendedContentSlots::TraverseExtendedSlots(
     nsCycleCollectionTraversalCallback& aCb) {
-  NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(aCb, "mExtendedSlots->mBindingParent");
-  aCb.NoteXPCOMChild(NS_ISUPPORTS_CAST(nsIContent*, mBindingParent));
-
   NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(aCb, "mExtendedSlots->mContainingShadow");
   aCb.NoteXPCOMChild(NS_ISUPPORTS_CAST(nsIContent*, mContainingShadow));
 
@@ -634,7 +629,6 @@ size_t FragmentOrElement::nsDOMSlots::SizeOfIncludingThis(
 
   // The following member are not measured:
   // - mControllers: because it is non-owning
-  // - mBindingParent: because it is some ancestor element.
   return n;
 }
 
@@ -873,7 +867,8 @@ void nsIContent::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
     aVisitor.mEventTargetAtParent = parent;
   } else if (parent && aVisitor.mOriginalTargetIsInAnon) {
     nsCOMPtr<nsIContent> content(do_QueryInterface(aVisitor.mEvent->mTarget));
-    if (content && content->GetBindingParent() == parent) {
+    if (content &&
+        content->GetClosestNativeAnonymousSubtreeRootParent() == parent) {
       aVisitor.mEventTargetAtParent = parent;
     }
   }
@@ -1056,39 +1051,10 @@ bool FragmentOrElement::IsLink(nsIURI** aURI) const {
   return false;
 }
 
-nsIContent* nsIContent::GetContainingShadowHost() const {
-  if (mozilla::dom::ShadowRoot* shadow = GetContainingShadow()) {
-    return shadow->GetHost();
-  }
-  return nullptr;
-}
-
 void nsIContent::SetAssignedSlot(HTMLSlotElement* aSlot) {
   MOZ_ASSERT(aSlot || GetExistingExtendedContentSlots());
   ExtendedContentSlots()->mAssignedSlot = aSlot;
 }
-
-#ifdef DEBUG
-void nsIContent::AssertAnonymousSubtreeRelatedInvariants() const {
-  MOZ_ASSERT(!IsRootOfNativeAnonymousSubtree() ||
-                 (GetParent() && GetBindingParent() == GetParent()),
-             "root of native anonymous subtree must have parent equal "
-             "to binding parent");
-  MOZ_ASSERT(!GetParent() || !IsInComposedDoc() ||
-                 ((GetBindingParent() == GetParent()) ==
-                  HasFlag(NODE_IS_ANONYMOUS_ROOT)) ||
-                 // Unfortunately default content for XBL insertion points
-                 // is anonymous content that is bound with the parent of
-                 // the insertion point as the parent but the bound element
-                 // for the binding as the binding parent.  So we have to
-                 // complicate the assert a bit here.
-                 (GetBindingParent() &&
-                  (GetBindingParent() == GetParent()->GetBindingParent()) ==
-                      HasFlag(NODE_IS_ANONYMOUS_ROOT)),
-             "For connected nodes, flag and GetBindingParent() check "
-             "should match");
-}
-#endif
 
 void FragmentOrElement::GetTextContentInternal(nsAString& aTextContent,
                                                OOMReporter& aError) {

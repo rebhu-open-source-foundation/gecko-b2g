@@ -1491,7 +1491,7 @@ static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
         JSScript* script = jsFrame.interpreterScript;
         jsbytecode* pc = jsFrame.interpreterPC();
         js::ProfilingStackFrame stackFrame;
-        stackFrame.initJsFrame("", jsFrame.label, script, pc);
+        stackFrame.initJsFrame("", jsFrame.label, script, pc, jsFrame.realmID);
         aCollector.CollectProfilingStackFrame(stackFrame);
       } else {
         MOZ_ASSERT(jsFrame.kind == JS::ProfilingFrameIterator::Frame_Ion ||
@@ -2047,7 +2047,7 @@ static void StreamMetaJSCustomObject(PSLockRef aLock,
                                      bool aIsShuttingDown) {
   MOZ_RELEASE_ASSERT(CorePS::Exists() && ActivePS::Exists(aLock));
 
-  aWriter.IntProperty("version", 18);
+  aWriter.IntProperty("version", 19);
 
   // The "startTime" field holds the number of milliseconds since midnight
   // January 1, 1970 GMT. This grotty code computes (Now - (Now -
@@ -2253,7 +2253,7 @@ static UniquePtr<ProfileBuffer> CollectJavaThreadProfileData(
         parentFrameWasIdleFrame = false;
       }
 
-      buffer->CollectCodeLocation("", frameNameString.get(), 0, Nothing(),
+      buffer->CollectCodeLocation("", frameNameString.get(), 0, 0, Nothing(),
                                   Nothing(), categoryPair);
     }
     sampleId++;
