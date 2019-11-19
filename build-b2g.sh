@@ -74,7 +74,15 @@ export MOZCONFIG=`pwd`/mozconfig-b2g
 
 export ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r20b}
 
-export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$PATH
+TARGET_GCC_VERSION=${TARGET_GCC_VERSION:-4.9}
+
+export CLANG_PATH=${CLANG_PATH:-$HOME/.mozbuild/clang/bin}
+
+export PYTHON_PATH=${PYTHON_PATH:-/usr/bin}
+
+export CROSS_TOOLCHAIN_LINKER_PATH=${CROSS_TOOLCHAIN_LINKER_PATH=:-$GONK_PATH/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-$TARGET_GCC_VERSION/arm-linux-androideabi/bin}
+
+export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$CLANG_PATH:$PYTHON_PATH:$CROSS_TOOLCHAIN_LINKER_PATH:$PATH
 
 SYSROOT=$ANDROID_NDK/platforms/$ANDROID_PLATFORM/arch-arm/
 GONK_LIBS=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib/
