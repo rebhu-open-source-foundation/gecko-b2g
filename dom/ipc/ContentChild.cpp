@@ -3711,9 +3711,11 @@ nsresult ContentChild::AsyncOpenAnonymousTemporaryFile(
 
 mozilla::ipc::IPCResult ContentChild::RecvSetPermissionsWithKey(
     const nsCString& aPermissionKey, nsTArray<IPC::Permission>&& aPerms) {
-  nsCOMPtr<nsIPermissionManager> permissionManager =
-      services::GetPermissionManager();
-  permissionManager->SetPermissionsWithKey(aPermissionKey, aPerms);
+  RefPtr<nsPermissionManager> permManager = nsPermissionManager::GetInstance();
+  if (permManager) {
+    permManager->SetPermissionsWithKey(aPermissionKey, aPerms);
+  }
+
   return IPC_OK();
 }
 

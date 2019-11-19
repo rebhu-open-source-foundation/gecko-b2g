@@ -2501,6 +2501,27 @@
     "releaseChannelCollection": "opt-out",
     "description": "Recorded once for each HTTP 401 response. The value records the type of authentication and the TLS-enabled status. (0=basic/clear, 1=basic/tls, 2=digest/clear, 3=digest/tls, 4=ntlm/clear, 5=ntlm/tls, 6=negotiate/clear, 7=negotiate/tls)"
   },
+  "HTTP_AUTH_CONFIRM_PROMPT": {
+    "record_in_processes": ["main"],
+    "products": ["firefox", "geckoview"],
+    "alert_emails": ["seceng-telemetry@mozilla.com", "pbz@mozilla.com"],
+    "bug_numbers": [1594613],
+    "expires_in_version": "75",
+    "kind": "categorical",
+    "releaseChannelCollection": "opt-out",
+    "description": "Number of Automatic/Superfluous auth warning prompts shown. Prompts are counted even if disabled by pref.",
+    "labels": ["Automatic", "Superfluous"]
+  },
+  "HTTP_AUTH_USERINFO_URI": {
+    "record_in_processes": ["main"],
+    "products": ["firefox", "geckoview"],
+    "alert_emails": ["seceng-telemetry@mozilla.com", "pbz@mozilla.com"],
+    "bug_numbers": [1594613],
+    "expires_in_version": "75",
+    "kind": "boolean",
+    "releaseChannelCollection": "opt-out",
+    "description": "Counts http auth connections with (true) / without (false) userinfo in URI"
+  },
   "HTTP_CHILD_OMT_STATS": {
     "record_in_processes": ["content"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -10755,6 +10776,19 @@
     "kind": "enumerated",
     "n_values": 3,
     "description": "A simple counter of daily mixed-content unblock operations and top documents loaded"
+  },
+  "XCTO_NOSNIFF_TOPLEVEL_NAV_EXCEPTIONS" : {
+    "record_in_processes": ["main","content"],
+    "products": ["firefox"],
+    "alert_emails": ["seceng-telemetry@mozilla.com", "sstreich@mozilla.com"],
+    "bug_numbers": [1428473],
+    "expires_in_version": "80",
+    "kind": "categorical",
+    "labels": [
+      "NoException",
+      "Exception",
+      "ExceptionScriptable"],
+    "description": "Page Navigations (top-level, iframe loads) setting 'XCTO: nosniff' without a Content-Type"
   },
   "MIXED_CONTENT_HSTS": {
     "record_in_processes": ["main", "content"],

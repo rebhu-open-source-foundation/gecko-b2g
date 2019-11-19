@@ -41,6 +41,21 @@ const PREF_PDFJS_ENABLED_CACHE_STATE = "pdfjs.enabledCache.state";
  * available at https://firefox-source-docs.mozilla.org/dom/Fission.html#jswindowactor
  */
 let ACTORS = {
+  BlockedSite: {
+    parent: {
+      moduleURI: "resource:///actors/BlockedSiteParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/BlockedSiteChild.jsm",
+      events: {
+        AboutBlockedLoaded: { wantUntrusted: true },
+        click: {},
+      },
+    },
+    matches: ["about:blocked?*"],
+    allFrames: true,
+  },
+
   BrowserTab: {
     parent: {
       moduleURI: "resource:///actors/BrowserTabParent.jsm",
@@ -119,6 +134,25 @@ let ACTORS = {
     },
 
     allFrames: true,
+  },
+
+  LightweightTheme: {
+    child: {
+      moduleURI: "resource:///actors/LightweightThemeChild.jsm",
+      events: {
+        pageshow: { mozSystemGroup: true },
+      },
+    },
+    includeChrome: true,
+    allFrames: true,
+    matches: [
+      "about:home",
+      "about:newtab",
+      "about:welcome",
+      "chrome://browser/content/syncedtabs/sidebar.xhtml",
+      "chrome://browser/content/places/historySidebar.xul",
+      "chrome://browser/content/places/bookmarksSidebar.xul",
+    ],
   },
 
   LinkHandler: {
@@ -300,19 +334,6 @@ let LEGACY_ACTORS = {
     },
   },
 
-  BlockedSite: {
-    child: {
-      module: "resource:///actors/BlockedSiteChild.jsm",
-      events: {
-        AboutBlockedLoaded: { wantUntrusted: true },
-        click: {},
-      },
-      matches: ["about:blocked?*"],
-      allFrames: true,
-      messages: ["DeceptiveBlockedDetails"],
-    },
-  },
-
   ClickHandler: {
     child: {
       module: "resource:///actors/ClickHandlerChild.jsm",
@@ -338,16 +359,6 @@ let LEGACY_ACTORS = {
         ContentSearchClient: { capture: true, wantUntrusted: true },
       },
       messages: ["ContentSearch"],
-    },
-  },
-
-  LightweightTheme: {
-    child: {
-      module: "resource:///actors/LightweightThemeChild.jsm",
-      matches: ["about:home", "about:newtab", "about:welcome"],
-      events: {
-        pageshow: { mozSystemGroup: true },
-      },
     },
   },
 

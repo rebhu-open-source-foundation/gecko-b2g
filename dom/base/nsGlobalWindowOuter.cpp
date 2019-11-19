@@ -3628,7 +3628,8 @@ Maybe<CSSIntSize> nsGlobalWindowOuter::GetRDMDeviceSize(
   // Bug 1576256: This does not work for cross-process subframes.
   const Document* topInProcessContentDoc =
       aDocument.GetTopLevelContentDocument();
-  if (topInProcessContentDoc && topInProcessContentDoc->InRDMPane()) {
+  BrowsingContext* bc = topInProcessContentDoc ? topInProcessContentDoc->GetBrowsingContext() : nullptr;
+  if (bc && bc->InRDMPane()) {
     nsIDocShell* docShell = topInProcessContentDoc->GetDocShell();
     if (docShell) {
       nsPresContext* presContext = docShell->GetPresContext();
@@ -5415,11 +5416,17 @@ void nsGlobalWindowOuter::NotifyContentBlockingEvent(
           if (!aBlocked) {
             unblocked = !doc->GetHasTrackingContentBlocked();
           }
-        } else if (aEvent ==
-                   nsIWebProgressListener::STATE_LOADED_TRACKING_CONTENT) {
-          doc->SetHasTrackingContentLoaded(aBlocked, origin);
+        } else if (aEvent == nsIWebProgressListener::
+                                 STATE_LOADED_LEVEL_1_TRACKING_CONTENT) {
+          doc->SetHasLevel1TrackingContentLoaded(aBlocked, origin);
           if (!aBlocked) {
-            unblocked = !doc->GetHasTrackingContentLoaded();
+            unblocked = !doc->GetHasLevel1TrackingContentLoaded();
+          }
+        } else if (aEvent == nsIWebProgressListener::
+                                 STATE_LOADED_LEVEL_2_TRACKING_CONTENT) {
+          doc->SetHasLevel2TrackingContentLoaded(aBlocked, origin);
+          if (!aBlocked) {
+            unblocked = !doc->GetHasLevel2TrackingContentLoaded();
           }
         } else if (aEvent == nsIWebProgressListener::
                                  STATE_BLOCKED_FINGERPRINTING_CONTENT) {

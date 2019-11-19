@@ -1353,7 +1353,6 @@ Document::Document(const char* aContentType)
       mPendingInitialTranslation(false),
       mGeneration(0),
       mCachedTabSizeGeneration(0),
-      mInRDMPane(false),
       mNextFormNumber(0),
       mNextControlNumber(0) {
   MOZ_LOG(gDocumentLeakPRLog, LogLevel::Debug, ("DOCUMENT %p created", this));
@@ -7802,17 +7801,6 @@ already_AddRefed<nsINode> Document::ImportNode(nsINode& aNode, bool aDeep,
   return nullptr;
 }
 
-// FIXME(bug 1596800): This should be removed, only has a couple of callers.
-Element* Document::GetBindingParent(nsINode& aNode) {
-  if (aNode.IsInNativeAnonymousSubtree()) {
-    return Element::FromNodeOrNull(
-        aNode.GetClosestNativeAnonymousSubtreeRootParent());
-  }
-  return Element::FromNodeOrNull(aNode.GetContainingShadowHost());
-}
-
-nsINodeList* Document::GetAnonymousNodes(Element& aElement) { return nullptr; }
-
 already_AddRefed<nsRange> Document::CreateRange(ErrorResult& rv) {
   RefPtr<nsRange> range = new nsRange(this);
   nsresult res = range->CollapseTo(this, 0);
@@ -13615,6 +13603,12 @@ bool Document::SetOrientationPendingPromise(Promise* aPromise) {
   return true;
 }
 
+void Document::SetRDMPaneOrientation(OrientationType aType, uint16_t aAngle) {
+  if (GetBrowsingContext()->InRDMPane()) {
+    SetCurrentOrientation(aType, aAngle);
+  }
+}
+
 static void DispatchPointerLockChange(Document* aTarget) {
   if (!aTarget) {
     return;
@@ -15924,8 +15918,9 @@ void Document::RemoveToplevelLoadingDocument(Document* aDoc) {
 
 // static
 bool Document::UseOverlayScrollbars(const Document* aDocument) {
+  BrowsingContext* bc = aDocument ? aDocument->GetBrowsingContext() : nullptr;
   return LookAndFeel::GetInt(LookAndFeel::eIntID_UseOverlayScrollbars) ||
-         (aDocument && aDocument->InRDMPane());
+         (bc && bc->InRDMPane());
 }
 
 bool Document::HasRecentlyStartedForegroundLoads() {

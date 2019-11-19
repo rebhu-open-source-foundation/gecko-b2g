@@ -96,7 +96,6 @@ class NativeLayerCA : public NativeLayer {
   gl::GLContext* GetGLContext() override;
   Maybe<GLuint> NextSurfaceAsFramebuffer(const gfx::IntRegion& aUpdateRegion,
                                          bool aNeedsDepth) override;
-  gfx::IntRegion CurrentSurfaceInvalidRegion() override;
   void NotifySurfaceReady() override;
   bool IsOpaque() override;
   void SetClipRect(const Maybe<gfx::IntRect>& aClipRect) override;
@@ -110,15 +109,15 @@ class NativeLayerCA : public NativeLayer {
   NativeLayerCA(const gfx::IntSize& aSize, bool aIsOpaque);
   ~NativeLayerCA() override;
 
-  // Returns an IOSurface that can be drawn to. The size of the IOSurface will
-  // be the same as the size of this layer.
-  // The returned surface is guaranteed to be not in use by the window server.
+  // Gets the next surface for drawing from our swap chain and stores it in
+  // mInProgressSurface. Returns whether this was successful.
+  // mInProgressSurface is guaranteed to be not in use by the window server.
   // After a call to NextSurface, NextSurface must not be called again until
   // after NotifySurfaceReady has been called. Can be called on any thread. When
   // used from multiple threads, callers need to make sure that they still only
   // call NextSurface and NotifySurfaceReady alternatingly and not in any other
   // order.
-  CFTypeRefPtr<IOSurfaceRef> NextSurface(const MutexAutoLock&);
+  bool NextSurface(const MutexAutoLock&);
 
   // To be called by NativeLayerRootCA:
   CALayer* UnderlyingCALayer() { return mWrappingCALayer; }
@@ -134,6 +133,16 @@ class NativeLayerCA : public NativeLayer {
                                           CFTypeRefPtr<IOSurfaceRef> aSurface,
                                           bool aNeedsDepth);
 
+  // Invalidate aUpdateRegion and make sure that mInProgressSurface has valid
+  // content everywhere outside aUpdateRegion, so that only aUpdateRegion needs
+  // to be drawn. If content needs to be copied from a previous surface, aCopyFn
+  // is called to do the copying.
+  // aCopyFn: Fn(CFTypeRefPtr<IOSurfaceRef> aValidSourceIOSurface,
+  //             const gfx::IntRegion& aCopyRegion) -> void
+  template <typename F>
+  void HandlePartialUpdate(const MutexAutoLock&,
+                           const gfx::IntRegion& aUpdateRegion, F&& aCopyFn);
+
   struct SurfaceWithInvalidRegion {
     CFTypeRefPtr<IOSurfaceRef> mSurface;
     gfx::IntRegion mInvalidRegion;
@@ -148,22 +157,25 @@ class NativeLayerCA : public NativeLayer {
   // Each IOSurface is initially created inside NextSurface.
   // The surface stays alive until the recycling mechanism in NextSurface
   // determines it is no longer needed (because the swap chain has grown too
-  // long) or until the layer is destroyed. During the surface's lifetime, it
-  // will continuously move through the fields mInProgressSurface,
-  // mReadySurface, and back to front through the mSurfaces queue:
+  // long) or until the layer is destroyed.
+  // During the surface's lifetime, it will continuously move through the fields
+  // mInProgressSurface, mReadySurface, mFrontSurface, and back to front through
+  // the mSurfaces queue:
   //
   //  mSurfaces.front()
   //  ------[NextSurface()]-----> mInProgressSurface
   //  --[NotifySurfaceReady()]--> mReadySurface
+  //  ----[ApplyChanges()]------> mFrontSurface
   //  ----[ApplyChanges()]------> mSurfaces.back()  --> .... -->
   //  mSurfaces.front()
   //
   // We mark an IOSurface as "in use" as long as it is either in
-  // mInProgressSurface or in mReadySurface. When it is in the mSurfaces queue,
-  // it is not marked as "in use" by us - but it can be "in use" by the window
-  // server. Consequently, IOSurfaceIsInUse on a surface from mSurfaces reflects
-  // whether the window server is still reading from the surface, and we can use
-  // this indicator to decide when to recycle the surface.
+  // mInProgressSurface or in mReadySurface. When it is in mFrontSurface or in
+  // the mSurfaces queue, it is not marked as "in use" by us - but it can be "in
+  // use" by the window server. Consequently, IOSurfaceIsInUse on a surface from
+  // mSurfaces reflects whether the window server is still reading from the
+  // surface, and we can use this indicator to decide when to recycle the
+  // surface.
   //
   // Users of NativeLayerCA normally proceed in this order:
   //  1. Begin a frame by calling NextSurface to get the surface.
@@ -203,9 +215,14 @@ class NativeLayerCA : public NativeLayer {
   // Both mInProgressSurface and mReadySurface can be Some() at the same time.
   Maybe<SurfaceWithInvalidRegion> mReadySurface;
 
-  // The queue of surfaces which make up our "swap chain".
+  // The surface that the most recent call to ApplyChanges set on the CALayer.
+  // Will be Some() after the first sequence of NextSurface, NotifySurfaceReady,
+  // ApplyChanges calls, for the rest of the layer's life time.
+  Maybe<SurfaceWithInvalidRegion> mFrontSurface;
+
+  // The queue of surfaces which make up the rest of our "swap chain".
   // mSurfaces.front() is the next surface we'll attempt to use.
-  // mSurfaces.back() is the one we submitted most recently.
+  // mSurfaces.back() is the one that was used most recently.
   std::deque<SurfaceWithInvalidRegion> mSurfaces;
 
   // Non-null between calls to NextSurfaceAsDrawTarget and NotifySurfaceReady.
