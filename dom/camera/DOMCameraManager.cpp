@@ -84,12 +84,20 @@ nsDOMCameraManager::HasSupport(JSContext* aCx, JSObject* aGlobal)
 bool
 nsDOMCameraManager::CheckPermission(nsPIDOMWindowInner* aWindow)
 {
+  nsCOMPtr<nsPIDOMWindowInner> window = nsPIDOMWindowInner::From(aWindow);
+
+  // Get the document for security check
+  RefPtr<Document> document = window->GetExtantDoc();
+  NS_ENSURE_TRUE(document, false);
+
+  nsCOMPtr<nsIPrincipal> principal = document->NodePrincipal();
+
   nsCOMPtr<nsIPermissionManager> permMgr =
     services::GetPermissionManager();
   NS_ENSURE_TRUE(permMgr, false);
 
   uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  permMgr->TestPermissionFromWindow(aWindow, NS_LITERAL_CSTRING("camera"), &permission);
+  permMgr->TestPermissionFromPrincipal(principal, NS_LITERAL_CSTRING("camera"), &permission);
   if (permission != nsIPermissionManager::ALLOW_ACTION &&
       permission != nsIPermissionManager::PROMPT_ACTION) {
     //return false; TODO: Fix the permission check mechanism
