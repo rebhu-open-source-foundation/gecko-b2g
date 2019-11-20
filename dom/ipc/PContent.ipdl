@@ -1312,6 +1312,12 @@ parent:
                                nsString aFilepath,
                                nsCString aReason);
 
+    async AudioChannelServiceStatus(bool aActiveTelephonyChannel,
+                                    bool aContentOrNormalChannel,
+                                    bool aAnyActiveChannel);
+
+    async AudioChannelChangeDefVolChannel(int32_t aChannel, bool aHidden);
+
     sync KeywordToURI(nsCString keyword, bool isPrivateContext)
         returns (nsString providerName, nsIInputStream postData, URIParams? uri);
 

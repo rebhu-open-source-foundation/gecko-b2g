@@ -87,6 +87,7 @@
 #include "nsIDocShell.h"
 #include "nsIFrame.h"
 #include "nsISecureBrowserUI.h"
+#include "nsISupportsPrimitives.h"
 #include "nsIURI.h"
 #include "nsIURIMutator.h"
 #include "nsIWebBrowser.h"
@@ -412,6 +413,26 @@ BrowserChild::BrowserChild(ContentChild* aManager, const TabId& aTabId,
   if (mCoalesceMouseMoveEvents) {
     mCoalescedMouseEventFlusher = new CoalescedMouseMoveFlusher(this);
   }
+
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
+
+  if (observerService) {
+    const nsAttrValue::EnumTable* table =
+        AudioChannelService::GetAudioChannelTable();
+
+    nsAutoCString topic;
+    for (uint32_t i = 0; table[i].tag; ++i) {
+      topic.Assign("audiochannel-activity-");
+      topic.Append(table[i].tag);
+
+      observerService->AddObserver(this, topic.get(), false);
+    }
+  }
+
+  for (uint32_t idx = 0; idx < NUMBER_OF_AUDIO_CHANNELS; idx++) {
+    mAudioChannelsActive.AppendElement(false);
+  }
 }
 
 const CompositorOptions& BrowserChild::GetCompositorOptions() const {
@@ -444,6 +465,60 @@ BrowserChild::Observe(nsISupports* aSubject, const char* aTopic,
 
         APZCCallbackHelper::InitializeRootDisplayport(presShell);
       }
+    }
+  }
+
+  const nsAttrValue::EnumTable* table =
+      AudioChannelService::GetAudioChannelTable();
+
+  nsAutoCString topic;
+  int16_t audioChannel = -1;
+  for (uint32_t i = 0; table[i].tag; ++i) {
+    topic.Assign("audiochannel-activity-");
+    topic.Append(table[i].tag);
+
+    if (topic.Equals(aTopic)) {
+      audioChannel = table[i].value;
+      break;
+    }
+  }
+
+  if (audioChannel != -1 && mIPCOpen) {
+    // If the subject is not a wrapper, it is sent by the TabParent and we
+    // should ignore it.
+    nsCOMPtr<nsISupportsPRUint64> wrapper = do_QueryInterface(aSubject);
+    if (!wrapper) {
+      return NS_OK;
+    }
+
+    // We must have a window in order to compare the windowID contained into the
+    // wrapper.
+    nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
+    if (!window) {
+      return NS_OK;
+    }
+
+    uint64_t windowID = 0;
+    nsresult rv = wrapper->GetData(&windowID);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    // In theory a BrowserChild should contain just 1 top window, but let's
+    // double check it comparing the windowID.
+    if (window->WindowID() != windowID) {
+      MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
+              ("BrowserChild, Observe, different windowID, owner ID = %" PRIu64
+               ", ID from wrapper = %" PRIu64,
+               window->WindowID(), windowID));
+      return NS_OK;
+    }
+
+    nsAutoString activeStr(aData);
+    bool active = activeStr.EqualsLiteral("active");
+    if (active != mAudioChannelsActive[audioChannel]) {
+      mAudioChannelsActive[audioChannel] = active;
+      Unused << SendAudioChannelActivityNotification(audioChannel, active);
     }
   }
 
@@ -2477,6 +2552,17 @@ mozilla::ipc::IPCResult BrowserChild::RecvDestroy() {
       mozilla::services::GetObserverService();
 
   observerService->RemoveObserver(this, BEFORE_FIRST_PAINT);
+
+  const nsAttrValue::EnumTable* table =
+      AudioChannelService::GetAudioChannelTable();
+
+  nsAutoCString topic;
+  for (uint32_t i = 0; table[i].tag; ++i) {
+    topic.Assign("audiochannel-activity-");
+    topic.Append(table[i].tag);
+
+    observerService->RemoveObserver(this, topic.get());
+  }
 
   // XXX what other code in ~BrowserChild() should we be running here?
   DestroyWindow();

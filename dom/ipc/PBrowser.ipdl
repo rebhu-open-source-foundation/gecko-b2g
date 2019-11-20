@@ -683,6 +683,9 @@ parent:
                             LayoutDeviceIntRect dragRect,
                             nsIPrincipal principal, nsIContentSecurityPolicy csp);
 
+    async AudioChannelActivityNotification(uint32_t aAudioChannel,
+                                           bool aActive);
+
     // After a compositor reset, it is necessary to reconnect each layers ID to
     // the compositor of the widget that will render those layers. Note that
     // this is sync so we can ensure that messages to the window compositor

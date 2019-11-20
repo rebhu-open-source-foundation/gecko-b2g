@@ -26,6 +26,7 @@
 
 #include "chrome/common/process_watcher.h"
 
+#include "AudioChannelService.h"
 #include "DeviceStorageStatics.h"
 #ifdef ACCESSIBILITY
 #  include "mozilla/a11y/PDocAccessible.h"
@@ -3221,6 +3222,25 @@ mozilla::ipc::IPCResult ContentParent::RecvFirstIdle() {
   // which we use as a good time to signal the PreallocatedProcessManager
   // that it can start allocating processes from now on.
   PreallocatedProcessManager::RemoveBlocker(this);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvAudioChannelChangeDefVolChannel(
+    const int32_t& aChannel, const bool& aHidden) {
+  RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+  MOZ_ASSERT(service);
+  service->SetDefaultVolumeControlChannelInternal(aChannel, aHidden, mChildID);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvAudioChannelServiceStatus(
+    const bool& aTelephonyChannel, const bool& aContentOrNormalChannel,
+    const bool& aAnyChannel) {
+  RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+  MOZ_ASSERT(service);
+
+  service->ChildStatusReceived(mChildID, aTelephonyChannel,
+                               aContentOrNormalChannel, aAnyChannel);
   return IPC_OK();
 }
 

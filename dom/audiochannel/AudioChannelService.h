@@ -19,11 +19,14 @@
 
 #include <functional>
 
+class nsIRunnable;
 class nsPIDOMWindowOuter;
 struct PRLogModuleInfo;
 
 namespace mozilla {
 namespace dom {
+
+class BrowserParent;
 
 #define NUMBER_OF_AUDIO_CHANNELS (uint32_t) AudioChannel::EndGuard_
 
@@ -121,6 +124,8 @@ class AudioChannelService final : public nsIObserver {
    */
   static already_AddRefed<AudioChannelService> Get();
 
+  static bool IsAudioChannelMutedByDefault();
+
   static LogModule* GetAudioChannelLog();
 
   static bool IsEnableAudioCompeting();
@@ -139,6 +144,12 @@ class AudioChannelService final : public nsIObserver {
   void UnregisterAudioChannelAgent(AudioChannelAgent* aAgent);
 
   /**
+   * For nested iframes.
+   */
+  void RegisterBrowserParent(BrowserParent* aBrowserParent);
+  void UnregisterBrowserParent(BrowserParent* aBrowserParent);
+
+  /**
    * Return the state to indicate this audioChannel for his window should keep
    * playing/muted/suspended.
    */
@@ -155,6 +166,28 @@ class AudioChannelService final : public nsIObserver {
 
   bool IsWindowActive(nsPIDOMWindowOuter* aWindow);
 
+  /**
+   * Return true if there is a telephony channel active in this process
+   * or one of its subprocesses.
+   */
+  bool TelephonyChannelIsActive();
+
+  /**
+   * Return true if a normal or content channel is active for the given
+   * process ID.
+   */
+  bool ProcessContentOrNormalChannelIsActive(uint64_t aChildID);
+
+  /***
+   * AudioChannelManager calls this function to notify the default channel used
+   * to adjust volume when there is no any active channel. if aChannel is -1,
+   * the default audio channel will be used. Otherwise aChannel is casted to
+   * AudioChannel enum.
+   */
+  virtual void SetDefaultVolumeControlChannel(int32_t aChannel, bool aVisible);
+
+  bool AnyAudioChannelIsActive();
+
   void RefreshAgentsVolume(nsPIDOMWindowOuter* aWindow, float aVolume,
                            bool aMuted);
   void RefreshAgentsSuspend(nsPIDOMWindowOuter* aWindow,
@@ -170,6 +203,13 @@ class AudioChannelService final : public nsIObserver {
   static const nsAttrValue::EnumTable* GetAudioChannelTable();
   static AudioChannel GetAudioChannel(const nsAString& aString);
   static AudioChannel GetDefaultAudioChannel();
+  static void GetAudioChannelString(AudioChannel aChannel, nsAString& aString);
+  static void GetDefaultAudioChannelString(nsAString& aString);
+
+  void Notify(uint64_t aWindowID);
+
+  void ChildStatusReceived(uint64_t aChildID, bool aTelephonyChannel,
+                           bool aContentOrNormalChannel, bool aAnyChannel);
 
   void NotifyMediaResumedFromBlock(nsPIDOMWindowOuter* aWindow);
 
@@ -187,12 +227,21 @@ class AudioChannelService final : public nsIObserver {
    */
   static void Shutdown();
 
+  void MaybeSendStatusUpdate();
+
+  bool ContentOrNormalChannelIsActive();
+
+  /* Send the default-volume-channel-changed notification */
+  void SetDefaultVolumeControlChannelInternal(int32_t aChannel, bool aVisible,
+                                              uint64_t aChildID);
+
   void RefreshAgentsAudioFocusChanged(AudioChannelAgent* aAgent);
 
   class AudioChannelConfig final : public AudioPlaybackConfig {
    public:
     AudioChannelConfig()
-        : AudioPlaybackConfig(1.0, false, nsISuspendedTypes::NONE_SUSPENDED),
+        : AudioPlaybackConfig(1.0, IsAudioChannelMutedByDefault(),
+                              nsISuspendedTypes::NONE_SUSPENDED),
           mNumberOfAgents(0) {}
 
     uint32_t mNumberOfAgents;
@@ -242,7 +291,8 @@ class AudioChannelService final : public nsIObserver {
                                    AudibleState aAudible,
                                    AudibleChangedReasons aReason);
 
-    void NotifyChannelActive(uint64_t aWindowID, bool aActive);
+    void NotifyChannelActive(uint64_t aWindowID, AudioChannel aChannel,
+                             bool aActive);
     void MaybeNotifyMediaBlockStart(AudioChannelAgent* aAgent);
   };
 
@@ -250,7 +300,42 @@ class AudioChannelService final : public nsIObserver {
 
   AudioChannelWindow* GetWindowData(uint64_t aWindowID) const;
 
+  struct AudioChannelChildStatus final {
+    explicit AudioChannelChildStatus(uint64_t aChildID)
+        : mChildID(aChildID),
+          mActiveTelephonyChannel(false),
+          mActiveContentOrNormalChannel(false) {}
+
+    uint64_t mChildID;
+    bool mActiveTelephonyChannel;
+    bool mActiveContentOrNormalChannel;
+  };
+
+  AudioChannelChildStatus* GetChildStatus(uint64_t aChildID) const;
+
+  void RemoveChildStatus(uint64_t aChildID);
+
   nsTObserverArray<nsAutoPtr<AudioChannelWindow>> mWindows;
+
+  nsTObserverArray<nsAutoPtr<AudioChannelChildStatus>> mPlayingChildren;
+
+  // Raw pointers because BrowserParents must unregister themselves.
+  nsTArray<BrowserParent*> mBrowserParents;
+
+  nsCOMPtr<nsIRunnable> mRunnable;
+
+  uint64_t mDefChannelChildID;
+
+  // These boolean are used to know if we have to send an status update to the
+  // service running in the main process.
+  bool mTelephonyChannel;
+  bool mContentOrNormalChannel;
+  bool mAnyChannel;
+
+  // This is needed for IPC comunication between
+  // AudioChannelServiceChild and this class.
+  friend class ContentParent;
+  friend class ContentChild;
 };
 
 const char* SuspendTypeToStr(const nsSuspendedTypes& aSuspend);

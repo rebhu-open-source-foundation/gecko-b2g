@@ -893,6 +893,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   CoalescedWheelData mCoalescedWheelData;
   RefPtr<CoalescedMouseMoveFlusher> mCoalescedMouseEventFlusher;
 
+  AutoTArray<bool, NUMBER_OF_AUDIO_CHANNELS> mAudioChannelsActive;
+
   RefPtr<layers::IAPZCTreeManager> mApzcTreeManager;
   RefPtr<TabListener> mSessionStoreListener;
 

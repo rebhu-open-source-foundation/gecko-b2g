@@ -17,6 +17,7 @@
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/Unused.h"
+#include "AudioChannelService.h"
 #include "mozilla/Logging.h"
 #include "nsPrintfCString.h"
 #include "nsXULAppAPI.h"
@@ -738,6 +739,11 @@ ProcessPriority ParticularProcessPriorityManager::ComputePriority() {
 
   if (mHoldsCPUWakeLock || mHoldsHighPriorityWakeLock ||
       mHoldsPlayingVideoWakeLock) {
+    return PROCESS_PRIORITY_BACKGROUND_PERCEIVABLE;
+  }
+
+  RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+  if (service && service->ProcessContentOrNormalChannelIsActive(ChildID())) {
     return PROCESS_PRIORITY_BACKGROUND_PERCEIVABLE;
   }
 

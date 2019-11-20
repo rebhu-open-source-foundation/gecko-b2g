@@ -4587,6 +4587,8 @@ pref("narrate.voice", " { \"default\": \"automatic\" }");
 // Only make voices that match content language available.
 pref("narrate.filter-voices", true);
 
+pref("dom.audiochannel.mutedByDefault", false);
+
 // Allow control characters appear in composition string.
 // When this is false, control characters except
 // CHARACTER TABULATION (horizontal tab) are removed from

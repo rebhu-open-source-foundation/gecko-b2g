@@ -8,6 +8,7 @@
 
 #include "BrowserParent.h"
 
+#include "AudioChannelService.h"
 #ifdef ACCESSIBILITY
 #  include "mozilla/a11y/DocAccessibleParent.h"
 #  include "mozilla/a11y/Platform.h"
@@ -607,6 +608,11 @@ void BrowserParent::AddWindowListeners() {
         eventTarget->AddEventListener(NS_LITERAL_STRING("fullscreenchange"),
                                       this, false, false);
       }
+    }
+
+    RefPtr<AudioChannelService> acs = AudioChannelService::GetOrCreate();
+    if (acs) {
+      acs->RegisterBrowserParent(this);
     }
   }
 }
@@ -3203,6 +3209,28 @@ PColorPickerParent* BrowserParent::AllocPColorPickerParent(
 bool BrowserParent::DeallocPColorPickerParent(PColorPickerParent* actor) {
   delete actor;
   return true;
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvAudioChannelActivityNotification(
+    const uint32_t& aAudioChannel, const bool& aActive) {
+  if (aAudioChannel >= NUMBER_OF_AUDIO_CHANNELS) {
+    return IPC_FAIL_NO_REASON(this);
+  }
+
+  /* FIXME
+  nsCOMPtr<nsIObserverService> os = services::GetObserverService();
+  if (os) {
+    nsAutoCString topic;
+    topic.Assign("audiochannel-activity-");
+    topic.Append(
+        AudioChannelService::GetAudioChannelTable()[aAudioChannel].tag);
+
+    os->NotifyObservers(NS_ISUPPORTS_CAST(nsITabParent*, this),
+                        topic.get(),
+                        aActive ? u"active" : u"inactive");
+  }
+  */
+  return IPC_OK();
 }
 
 already_AddRefed<nsFrameLoader> BrowserParent::GetFrameLoader(

@@ -1178,6 +1178,13 @@ class ContentParent final
 
   mozilla::ipc::IPCResult RecvEndDriverCrashGuard(const uint32_t& aGuardType);
 
+  mozilla::ipc::IPCResult RecvAudioChannelChangeDefVolChannel(
+      const int32_t& aChannel, const bool& aHidden);
+
+  mozilla::ipc::IPCResult RecvAudioChannelServiceStatus(
+      const bool& aTelephonyChannel, const bool& aContentOrNormalChannel,
+      const bool& aAnyChannel);
+
   mozilla::ipc::IPCResult RecvAddIdleObserver(const uint64_t& observerId,
                                               const uint32_t& aIdleTimeInS);
 

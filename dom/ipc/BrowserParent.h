@@ -786,6 +786,9 @@ class BrowserParent final : public PBrowserParent,
       const uint32_t& aFlags, const int32_t& aX, const int32_t& aY,
       const int32_t& aCx, const int32_t& aCy, const double& aScale);
 
+  mozilla::ipc::IPCResult RecvAudioChannelActivityNotification(
+      const uint32_t& aAudioChannel, const bool& aActive);
+
   mozilla::ipc::IPCResult RecvShowCanvasPermissionPrompt(
       const nsCString& aOrigin, const bool& aHideDoorHanger);
 
