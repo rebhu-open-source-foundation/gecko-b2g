@@ -58,6 +58,12 @@ extern crate wgpu_remote;
 #[cfg(feature = "wasm_library_sandboxing")]
 extern crate rlbox_lucet_sandbox;
 
+extern crate unic_langid;
+extern crate unic_langid_ffi;
+
+extern crate fluent_langneg;
+extern crate fluent_langneg_ffi;
+
 use std::boxed::Box;
 use std::env;
 use std::ffi::{CStr, CString};

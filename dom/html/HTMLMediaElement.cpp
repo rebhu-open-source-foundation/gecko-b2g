@@ -375,6 +375,128 @@ class nsSourceErrorEventRunner : public nsMediaEvent {
   }
 };
 
+class HTMLMediaElement::MediaStreamTrackListener
+    : public DOMMediaStream::TrackListener {
+ public:
+  explicit MediaStreamTrackListener(HTMLMediaElement* aElement)
+      : mElement(aElement) {}
+
+  void NotifyTrackAdded(const RefPtr<MediaStreamTrack>& aTrack) override {
+    if (!mElement) {
+      return;
+    }
+    mElement->NotifyMediaStreamTrackAdded(aTrack);
+  }
+
+  void NotifyTrackRemoved(const RefPtr<MediaStreamTrack>& aTrack) override {
+    if (!mElement) {
+      return;
+    }
+    mElement->NotifyMediaStreamTrackRemoved(aTrack);
+  }
+
+  void OnActive() {
+    MOZ_ASSERT(mElement);
+
+    // mediacapture-main says:
+    // Note that once ended equals true the HTMLVideoElement will not play media
+    // even if new MediaStreamTracks are added to the MediaStream (causing it to
+    // return to the active state) unless autoplay is true or the web
+    // application restarts the element, e.g., by calling play().
+    //
+    // This is vague on exactly how to go from becoming active to playing, when
+    // autoplaying. However, per the media element spec, to play an autoplaying
+    // media element, we must load the source and reach readyState
+    // HAVE_ENOUGH_DATA [1]. Hence, a MediaStream being assigned to a media
+    // element and becoming active runs the load algorithm, so that it can
+    // eventually be played.
+    //
+    // [1]
+    // https://html.spec.whatwg.org/multipage/media.html#ready-states:event-media-play
+
+    LOG(LogLevel::Debug, ("%p, mSrcStream %p became active, checking if we "
+                          "need to run the load algorithm",
+                          mElement.get(), mElement->mSrcStream.get()));
+    if (!mElement->IsPlaybackEnded()) {
+      return;
+    }
+    if (!mElement->Autoplay()) {
+      return;
+    }
+    LOG(LogLevel::Info, ("%p, mSrcStream %p became active on autoplaying, "
+                         "ended element. Reloading.",
+                         mElement.get(), mElement->mSrcStream.get()));
+    mElement->DoLoad();
+  }
+
+  void NotifyActive() override {
+    if (!mElement) {
+      return;
+    }
+
+    if (!mElement->IsVideo()) {
+      // Audio elements use NotifyAudible().
+      return;
+    }
+
+    OnActive();
+  }
+
+  void NotifyAudible() override {
+    if (!mElement) {
+      return;
+    }
+
+    if (mElement->IsVideo()) {
+      // Video elements use NotifyActive().
+      return;
+    }
+
+    OnActive();
+  }
+
+  void OnInactive() {
+    MOZ_ASSERT(mElement);
+
+    if (mElement->IsPlaybackEnded()) {
+      return;
+    }
+    LOG(LogLevel::Debug, ("%p, mSrcStream %p became inactive", mElement.get(),
+                          mElement->mSrcStream.get()));
+
+    mElement->PlaybackEnded();
+  }
+
+  void NotifyInactive() override {
+    if (!mElement) {
+      return;
+    }
+
+    if (!mElement->IsVideo()) {
+      // Audio elements use NotifyInaudible().
+      return;
+    }
+
+    OnInactive();
+  }
+
+  void NotifyInaudible() override {
+    if (!mElement) {
+      return;
+    }
+
+    if (mElement->IsVideo()) {
+      // Video elements use NotifyInactive().
+      return;
+    }
+
+    OnInactive();
+  }
+
+ protected:
+  const WeakPtr<HTMLMediaElement> mElement;
+};
+
 /**
  * This listener observes the first video frame to arrive with a non-empty size,
  * and renders it to its VideoFrameContainer.
@@ -592,11 +714,7 @@ class HTMLMediaElement::MediaStreamRenderer
   void* const mAudioOutputKey;
 
  private:
-  ~MediaStreamRenderer() {
-    MOZ_DIAGNOSTIC_ASSERT(mAudioTracks.IsEmpty());
-    MOZ_DIAGNOSTIC_ASSERT(!mVideoTrack);
-    MOZ_DIAGNOSTIC_ASSERT(mWatchManager.IsShutdown());
-  }
+  ~MediaStreamRenderer() { Shutdown(); }
 
   void EnsureGraphTimeDummy() {
     if (mGraphTimeDummy) {
@@ -660,30 +778,46 @@ class HTMLMediaElement::MediaStreamRenderer
 
 class HTMLMediaElement::MediaElementTrackSource
     : public MediaStreamTrackSource,
-      public MediaStreamTrackSource::Sink {
+      public MediaStreamTrackSource::Sink,
+      public MediaStreamTrackConsumer {
  public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MediaElementTrackSource,
                                            MediaStreamTrackSource)
 
   /* MediaDecoder track source */
-  MediaElementTrackSource(ProcessedMediaTrack* aTrack, nsIPrincipal* aPrincipal)
-      : MediaStreamTrackSource(aPrincipal, nsString()), mTrack(aTrack) {
+  MediaElementTrackSource(nsISerialEventTarget* aMainThreadEventTarget,
+                          ProcessedMediaTrack* aTrack, nsIPrincipal* aPrincipal,
+                          OutputMuteState aMuteState)
+      : MediaStreamTrackSource(aPrincipal, nsString()),
+        mMainThreadEventTarget(aMainThreadEventTarget),
+        mTrack(aTrack),
+        mIntendedElementMuteState(aMuteState),
+        mElementMuteState(aMuteState) {
     MOZ_ASSERT(mTrack);
   }
 
   /* MediaStream track source */
-  MediaElementTrackSource(MediaStreamTrackSource* aCapturedTrackSource,
-                          ProcessedMediaTrack* aTrack, MediaInputPort* aPort)
+  MediaElementTrackSource(nsISerialEventTarget* aMainThreadEventTarget,
+                          MediaStreamTrack* aCapturedTrack,
+                          MediaStreamTrackSource* aCapturedTrackSource,
+                          ProcessedMediaTrack* aTrack, MediaInputPort* aPort,
+                          OutputMuteState aMuteState)
       : MediaStreamTrackSource(aCapturedTrackSource->GetPrincipal(),
                                nsString()),
+        mMainThreadEventTarget(aMainThreadEventTarget),
+        mCapturedTrack(aCapturedTrack),
         mCapturedTrackSource(aCapturedTrackSource),
         mTrack(aTrack),
-        mPort(aPort) {
+        mPort(aPort),
+        mIntendedElementMuteState(aMuteState),
+        mElementMuteState(aMuteState) {
     MOZ_ASSERT(mTrack);
+    MOZ_ASSERT(mCapturedTrack);
     MOZ_ASSERT(mCapturedTrackSource);
     MOZ_ASSERT(mPort);
 
+    mCapturedTrack->AddConsumer(this);
     mCapturedTrackSource->RegisterSink(this);
   }
 
@@ -700,7 +834,24 @@ class HTMLMediaElement::MediaElementTrackSource
     MediaStreamTrackSource::PrincipalChanged();
   }
 
+  void SetMutedByElement(OutputMuteState aMuteState) {
+    if (mIntendedElementMuteState == aMuteState) {
+      return;
+    }
+    mIntendedElementMuteState = aMuteState;
+    mMainThreadEventTarget->Dispatch(NS_NewRunnableFunction(
+        "MediaElementTrackSource::SetMutedByElement",
+        [self = RefPtr<MediaElementTrackSource>(this), this, aMuteState] {
+          mElementMuteState = aMuteState;
+          MediaStreamTrackSource::MutedChanged(Muted());
+        }));
+  }
+
   void Destroy() override {
+    if (mCapturedTrack) {
+      mCapturedTrack->RemoveConsumer(this);
+      mCapturedTrack = nullptr;
+    }
     if (mCapturedTrackSource) {
       mCapturedTrackSource->UnregisterSink(this);
       mCapturedTrackSource = nullptr;
@@ -749,7 +900,7 @@ class HTMLMediaElement::MediaElementTrackSource
   }
 
   void MutedChanged(bool aNewState) override {
-    MediaStreamTrackSource::MutedChanged(aNewState);
+    MediaStreamTrackSource::MutedChanged(Muted());
   }
 
   void OverrideEnded() override {
@@ -757,14 +908,31 @@ class HTMLMediaElement::MediaElementTrackSource
     MediaStreamTrackSource::OverrideEnded();
   }
 
+  void NotifyEnabledChanged(MediaStreamTrack* aTrack, bool aEnabled) override {
+    MediaStreamTrackSource::MutedChanged(Muted());
+  }
+
+  bool Muted() const {
+    return mElementMuteState == OutputMuteState::Muted ||
+           (mCapturedTrack &&
+            (mCapturedTrack->Muted() || !mCapturedTrack->Enabled()));
+  }
+
   ProcessedMediaTrack* Track() const { return mTrack; }
 
  private:
   virtual ~MediaElementTrackSource() { Destroy(); };
 
+  const RefPtr<nsISerialEventTarget> mMainThreadEventTarget;
+  RefPtr<MediaStreamTrack> mCapturedTrack;
   RefPtr<MediaStreamTrackSource> mCapturedTrackSource;
   const RefPtr<ProcessedMediaTrack> mTrack;
   RefPtr<MediaInputPort> mPort;
+  // The mute state as intended by the media element.
+  OutputMuteState mIntendedElementMuteState;
+  // The mute state as applied to this track source. It is applied async, so
+  // needs to be tracked separately from the intended state.
+  OutputMuteState mElementMuteState;
 };
 
 HTMLMediaElement::OutputMediaStream::OutputMediaStream(
@@ -779,6 +947,8 @@ void ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
                                  HTMLMediaElement::OutputMediaStream& aField,
                                  const char* aName, uint32_t aFlags) {
   ImplCycleCollectionTraverse(aCallback, aField.mStream, "mStream", aFlags);
+  ImplCycleCollectionTraverse(aCallback, aField.mLiveTracks, "mLiveTracks",
+                              aFlags);
   ImplCycleCollectionTraverse(aCallback, aField.mFinishWhenEndedLoadingSrc,
                               "mFinishWhenEndedLoadingSrc", aFlags);
   ImplCycleCollectionTraverse(aCallback, aField.mFinishWhenEndedAttrStream,
@@ -787,6 +957,7 @@ void ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback& aCallback,
 
 void ImplCycleCollectionUnlink(HTMLMediaElement::OutputMediaStream& aField) {
   ImplCycleCollectionUnlink(aField.mStream);
+  ImplCycleCollectionUnlink(aField.mLiveTracks);
   ImplCycleCollectionUnlink(aField.mFinishWhenEndedLoadingSrc);
   ImplCycleCollectionUnlink(aField.mFinishWhenEndedAttrStream);
 }
@@ -802,10 +973,12 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(HTMLMediaElement::MediaElementTrackSource)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(
     HTMLMediaElement::MediaElementTrackSource, MediaStreamTrackSource)
   tmp->Destroy();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mCapturedTrack)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCapturedTrackSource)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(
     HTMLMediaElement::MediaElementTrackSource, MediaStreamTrackSource)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCapturedTrack)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCapturedTrackSource)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
@@ -1694,10 +1867,21 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(HTMLMediaElement,
                                                 nsGenericHTMLElement)
   tmp->RemoveMutationObserver(tmp);
   if (tmp->mSrcStream) {
-    // Need to EndMediaStreamPlayback to clear mSrcStream and make sure
-    // everything gets unhooked correctly.
-    tmp->EndSrcMediaStreamPlayback();
+    // Need to unhook everything that EndSrcMediaStreamPlayback would normally
+    // do, without creating any new strong references.
+    if (tmp->mSelectedVideoStreamTrack) {
+      tmp->mSelectedVideoStreamTrack->RemovePrincipalChangeObserver(tmp);
+    }
+    if (tmp->mFirstFrameListener) {
+      tmp->mSelectedVideoStreamTrack->RemoveVideoOutput(
+          tmp->mFirstFrameListener);
+    }
+    if (tmp->mMediaStreamTrackListener) {
+      tmp->mSrcStream->UnregisterTrackListener(
+          tmp->mMediaStreamTrackListener.get());
+    }
   }
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mSrcStream)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSrcAttrStream)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMediaSource)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSrcMediaSource)
@@ -1960,7 +2144,10 @@ void HTMLMediaElement::AbortExistingLoads() {
 
   // We need to remove FirstFrameListener before VideoTracks get emptied.
   if (mFirstFrameListener) {
-    mSelectedVideoStreamTrack->RemoveVideoOutput(mFirstFrameListener);
+    if (mSelectedVideoStreamTrack) {
+      // Unlink might have removed the selected video track.
+      mSelectedVideoStreamTrack->RemoveVideoOutput(mFirstFrameListener);
+    }
     mFirstFrameListener = nullptr;
   }
 
@@ -3186,6 +3373,17 @@ void HTMLMediaElement::SetCapturedOutputStreamsEnabled(bool aEnabled) {
   }
 }
 
+HTMLMediaElement::OutputMuteState HTMLMediaElement::OutputTracksMuted() {
+  return mPaused || mReadyState <= HAVE_CURRENT_DATA ? OutputMuteState::Muted
+                                                     : OutputMuteState::Unmuted;
+}
+
+void HTMLMediaElement::UpdateOutputTracksMuting() {
+  for (auto& entry : mOutputTrackSources) {
+    entry.GetData()->SetMutedByElement(OutputTracksMuted());
+  }
+}
+
 void HTMLMediaElement::AddOutputTrackSourceToOutputStream(
     MediaElementTrackSource* aSource, OutputMediaStream& aOutputStream,
     AddTrackMode aMode) {
@@ -3204,12 +3402,16 @@ void HTMLMediaElement::AddOutputTrackSourceToOutputStream(
 
   RefPtr<MediaStreamTrack> domTrack;
   if (aSource->Track()->mType == MediaSegment::AUDIO) {
-    domTrack = new AudioStreamTrack(aOutputStream.mStream->GetParentObject(),
-                                    aSource->Track(), aSource);
+    domTrack = new AudioStreamTrack(
+        aOutputStream.mStream->GetParentObject(), aSource->Track(), aSource,
+        MediaStreamTrackState::Live, aSource->Muted());
   } else {
-    domTrack = new VideoStreamTrack(aOutputStream.mStream->GetParentObject(),
-                                    aSource->Track(), aSource);
+    domTrack = new VideoStreamTrack(
+        aOutputStream.mStream->GetParentObject(), aSource->Track(), aSource,
+        MediaStreamTrackState::Live, aSource->Muted());
   }
+
+  aOutputStream.mLiveTracks.AppendElement(domTrack);
 
   switch (aMode) {
     case AddTrackMode::ASYNC:
@@ -3298,6 +3500,27 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
         NewRunnableMethod("MediaElementTrackSource::OverrideEnded", source,
                           &MediaElementTrackSource::OverrideEnded));
 
+    // Remove the track from the MediaStream after it ended.
+    for (OutputMediaStream& ms : mOutputStreams) {
+      if (source->Track()->mType == MediaSegment::VIDEO &&
+          ms.mCapturingAudioOnly) {
+        continue;
+      }
+      DebugOnly<size_t> length = ms.mLiveTracks.Length();
+      ms.mLiveTracks.RemoveElementsBy(
+          [&](const RefPtr<MediaStreamTrack>& aTrack) {
+            if (&aTrack->GetSource() != source) {
+              return false;
+            }
+            mMainThreadEventTarget->Dispatch(
+                NewRunnableMethod<RefPtr<MediaStreamTrack>>(
+                    "DOMMediaStream::RemoveTrackInternal", ms.mStream,
+                    &DOMMediaStream::RemoveTrackInternal, aTrack));
+            return true;
+          });
+      MOZ_ASSERT(ms.mLiveTracks.Length() == length - 1);
+    }
+
     mOutputTrackSources.Remove(id);
   }
 
@@ -3363,7 +3586,8 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
       if (!principal || IsCORSSameOrigin()) {
         principal = NodePrincipal();
       }
-      source = MakeAndAddRef<MediaElementTrackSource>(track, principal);
+      source = MakeAndAddRef<MediaElementTrackSource>(
+          mMainThreadEventTarget, track, principal, OutputTracksMuted());
       mDecoder->AddOutputTrack(track);
     } else if (mSrcStream) {
       MediaStreamTrack* inputTrack;
@@ -3383,8 +3607,9 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
 
       track = inputTrack->Graph()->CreateForwardedInputTrack(type);
       RefPtr<MediaInputPort> port = inputTrack->ForwardTrackContentsTo(track);
-      source = MakeAndAddRef<MediaElementTrackSource>(&inputTrack->GetSource(),
-                                                      track, port);
+      source = MakeAndAddRef<MediaElementTrackSource>(
+          mMainThreadEventTarget, inputTrack, &inputTrack->GetSource(), track,
+          port, OutputTracksMuted());
 
       // Track is muted initially, so we don't leak data if it's added while
       // paused and an MTG iteration passes before the mute comes into effect.
@@ -3815,6 +4040,8 @@ void HTMLMediaElement::Init() {
   DecoderDoctorLogger::LogConstruction(this);
 
   mWatchManager.Watch(mPaused, &HTMLMediaElement::UpdateWakeLock);
+  mWatchManager.Watch(mPaused, &HTMLMediaElement::UpdateOutputTracksMuting);
+  mWatchManager.Watch(mReadyState, &HTMLMediaElement::UpdateOutputTracksMuting);
 
   mWatchManager.Watch(mTracksCaptured,
                       &HTMLMediaElement::UpdateOutputTrackSources);
@@ -4831,128 +5058,6 @@ nsresult HTMLMediaElement::FinishDecoderSetup(MediaDecoder* aDecoder) {
   return NS_OK;
 }
 
-class HTMLMediaElement::MediaStreamTrackListener
-    : public DOMMediaStream::TrackListener {
- public:
-  explicit MediaStreamTrackListener(HTMLMediaElement* aElement)
-      : mElement(aElement) {}
-
-  void NotifyTrackAdded(const RefPtr<MediaStreamTrack>& aTrack) override {
-    if (!mElement) {
-      return;
-    }
-    mElement->NotifyMediaStreamTrackAdded(aTrack);
-  }
-
-  void NotifyTrackRemoved(const RefPtr<MediaStreamTrack>& aTrack) override {
-    if (!mElement) {
-      return;
-    }
-    mElement->NotifyMediaStreamTrackRemoved(aTrack);
-  }
-
-  void OnActive() {
-    MOZ_ASSERT(mElement);
-
-    // mediacapture-main says:
-    // Note that once ended equals true the HTMLVideoElement will not play media
-    // even if new MediaStreamTracks are added to the MediaStream (causing it to
-    // return to the active state) unless autoplay is true or the web
-    // application restarts the element, e.g., by calling play().
-    //
-    // This is vague on exactly how to go from becoming active to playing, when
-    // autoplaying. However, per the media element spec, to play an autoplaying
-    // media element, we must load the source and reach readyState
-    // HAVE_ENOUGH_DATA [1]. Hence, a MediaStream being assigned to a media
-    // element and becoming active runs the load algorithm, so that it can
-    // eventually be played.
-    //
-    // [1]
-    // https://html.spec.whatwg.org/multipage/media.html#ready-states:event-media-play
-
-    LOG(LogLevel::Debug, ("%p, mSrcStream %p became active, checking if we "
-                          "need to run the load algorithm",
-                          mElement.get(), mElement->mSrcStream.get()));
-    if (!mElement->IsPlaybackEnded()) {
-      return;
-    }
-    if (!mElement->Autoplay()) {
-      return;
-    }
-    LOG(LogLevel::Info, ("%p, mSrcStream %p became active on autoplaying, "
-                         "ended element. Reloading.",
-                         mElement.get(), mElement->mSrcStream.get()));
-    mElement->DoLoad();
-  }
-
-  void NotifyActive() override {
-    if (!mElement) {
-      return;
-    }
-
-    if (!mElement->IsVideo()) {
-      // Audio elements use NotifyAudible().
-      return;
-    }
-
-    OnActive();
-  }
-
-  void NotifyAudible() override {
-    if (!mElement) {
-      return;
-    }
-
-    if (mElement->IsVideo()) {
-      // Video elements use NotifyActive().
-      return;
-    }
-
-    OnActive();
-  }
-
-  void OnInactive() {
-    MOZ_ASSERT(mElement);
-
-    if (mElement->IsPlaybackEnded()) {
-      return;
-    }
-    LOG(LogLevel::Debug, ("%p, mSrcStream %p became inactive", mElement.get(),
-                          mElement->mSrcStream.get()));
-
-    mElement->PlaybackEnded();
-  }
-
-  void NotifyInactive() override {
-    if (!mElement) {
-      return;
-    }
-
-    if (!mElement->IsVideo()) {
-      // Audio elements use NotifyInaudible().
-      return;
-    }
-
-    OnInactive();
-  }
-
-  void NotifyInaudible() override {
-    if (!mElement) {
-      return;
-    }
-
-    if (mElement->IsVideo()) {
-      // Video elements use NotifyInactive().
-      return;
-    }
-
-    OnInactive();
-  }
-
- protected:
-  const WeakPtr<HTMLMediaElement> mElement;
-};
-
 void HTMLMediaElement::UpdateSrcMediaStreamPlaying(uint32_t aFlags) {
   if (!mSrcStream) {
     return;
@@ -5103,7 +5208,10 @@ void HTMLMediaElement::EndSrcMediaStreamPlayback() {
     mSelectedVideoStreamTrack->RemovePrincipalChangeObserver(this);
   }
   if (mFirstFrameListener) {
-    mSelectedVideoStreamTrack->RemoveVideoOutput(mFirstFrameListener);
+    if (mSelectedVideoStreamTrack) {
+      // Unlink might have removed the selected video track.
+      mSelectedVideoStreamTrack->RemoveVideoOutput(mFirstFrameListener);
+    }
   }
   mSelectedVideoStreamTrack = nullptr;
   mFirstFrameListener = nullptr;
@@ -6257,7 +6365,10 @@ void HTMLMediaElement::UpdateMediaSize(const nsIntSize& aSize) {
   mWatchManager.ManualNotify(&HTMLMediaElement::UpdateReadyStateInternal);
 
   if (mFirstFrameListener) {
-    mSelectedVideoStreamTrack->RemoveVideoOutput(mFirstFrameListener);
+    if (mSelectedVideoStreamTrack) {
+      // Unlink might have removed the selected video track.
+      mSelectedVideoStreamTrack->RemoveVideoOutput(mFirstFrameListener);
+    }
     // The first-frame listener won't be needed again for this stream.
     mFirstFrameListener = nullptr;
   }

@@ -2733,39 +2733,19 @@ void BackgroundRequestChild::HandleResponse(uint64_t aResponse) {
 
 nsresult BackgroundRequestChild::HandlePreprocess(
     const PreprocessInfo& aPreprocessInfo) {
-  AssertIsOnOwningThread();
-
-  IDBDatabase* database = mTransaction->Database();
-
-  mPreprocessHelpers.SetLength(1);
-
-  const auto files =
-      DeserializeStructuredCloneFiles(database, aPreprocessInfo.files(),
-                                      /* aForPreprocess */ true);
-
-  MOZ_ASSERT(files.Length() == 1);
-
-  RefPtr<PreprocessHelper>& preprocessHelper = mPreprocessHelpers[0];
-  preprocessHelper = new PreprocessHelper(0, this);
-
-  nsresult rv = preprocessHelper->Init(files[0]);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  rv = preprocessHelper->Dispatch();
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  mRunningPreprocessHelpers++;
-
-  mCloneDatas.SetLength(1);
-
-  return NS_OK;
+  return HandlePreprocessInternal(
+      AutoTArray<PreprocessInfo, 1>{aPreprocessInfo});
 }
 
 nsresult BackgroundRequestChild::HandlePreprocess(
+    const nsTArray<PreprocessInfo>& aPreprocessInfos) {
+  AssertIsOnOwningThread();
+  mGetAll = true;
+
+  return HandlePreprocessInternal(aPreprocessInfos);
+}
+
+nsresult BackgroundRequestChild::HandlePreprocessInternal(
     const nsTArray<PreprocessInfo>& aPreprocessInfos) {
   AssertIsOnOwningThread();
 
@@ -2804,8 +2784,6 @@ nsresult BackgroundRequestChild::HandlePreprocess(
   }
 
   mCloneDatas.SetLength(count);
-
-  mGetAll = true;
 
   return NS_OK;
 }
@@ -2936,8 +2914,7 @@ mozilla::ipc::IPCResult BackgroundRequestChild::RecvPreprocess(
 
   switch (aParams.type()) {
     case PreprocessParams::TObjectStoreGetPreprocessParams: {
-      ObjectStoreGetPreprocessParams params =
-          aParams.get_ObjectStoreGetPreprocessParams();
+      const auto& params = aParams.get_ObjectStoreGetPreprocessParams();
 
       rv = HandlePreprocess(params.preprocessInfo());
 
@@ -2945,8 +2922,7 @@ mozilla::ipc::IPCResult BackgroundRequestChild::RecvPreprocess(
     }
 
     case PreprocessParams::TObjectStoreGetAllPreprocessParams: {
-      ObjectStoreGetAllPreprocessParams params =
-          aParams.get_ObjectStoreGetAllPreprocessParams();
+      const auto& params = aParams.get_ObjectStoreGetAllPreprocessParams();
 
       rv = HandlePreprocess(params.preprocessInfos());
 

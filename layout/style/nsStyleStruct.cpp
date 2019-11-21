@@ -742,7 +742,7 @@ nsStyleSVG::nsStyleSVG(const Document& aDocument)
       mColorInterpolationFilters(NS_STYLE_COLOR_INTERPOLATION_LINEARRGB),
       mFillRule(StyleFillRule::Nonzero),
       mPaintOrder(0),
-      mShapeRendering(NS_STYLE_SHAPE_RENDERING_AUTO),
+      mShapeRendering(StyleShapeRendering::Auto),
       mStrokeLinecap(NS_STYLE_STROKE_LINECAP_BUTT),
       mStrokeLinejoin(NS_STYLE_STROKE_LINEJOIN_MITER),
       mDominantBaseline(NS_STYLE_DOMINANT_BASELINE_AUTO),
@@ -3755,12 +3755,9 @@ nsChangeHint nsStyleUIReset::CalcDifference(
     hint |= nsChangeHint_SchedulePaint;
   }
 
-  if (mWindowOpacity != aNewData.mWindowOpacity ||
-      mMozWindowTransform != aNewData.mMozWindowTransform) {
-    hint |= nsChangeHint_UpdateWidgetProperties;
-  }
-
-  if (!hint && mIMEMode != aNewData.mIMEMode) {
+  if (!hint && (mIMEMode != aNewData.mIMEMode ||
+                mWindowOpacity != aNewData.mWindowOpacity ||
+                mMozWindowTransform != aNewData.mMozWindowTransform)) {
     hint |= nsChangeHint_NeutralChange;
   }
 

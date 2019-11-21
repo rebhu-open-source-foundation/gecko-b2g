@@ -1732,7 +1732,6 @@ MTableSwitch* MTableSwitch::New(TempAllocator& alloc, MDefinition* ins,
 }
 
 MGoto* MGoto::New(TempAllocator& alloc, MBasicBlock* target) {
-  MOZ_ASSERT(target);
   return new (alloc) MGoto(target);
 }
 
@@ -6346,7 +6345,12 @@ MIonToWasmCall* MIonToWasmCall::New(TempAllocator& alloc,
                                     WasmInstanceObject* instanceObj,
                                     const wasm::FuncExport& funcExport) {
   Maybe<wasm::ValType> retType = funcExport.funcType().ret();
-  MIRType resultType = retType ? ToMIRType(retType.ref()) : MIRType::Value;
+  MIRType resultType = MIRType::Value;
+  // At the JS boundary some wasm types must be represented as a Value, and in
+  // addition a void return requires an Undefined value.
+  if (retType && !retType->isEncodedAsJSValueOnEscape()) {
+    resultType = ToMIRType(retType.ref());
+  }
 
   auto* ins = new (alloc) MIonToWasmCall(instanceObj, resultType, funcExport);
   if (!ins->init(alloc, funcExport.funcType().args().length())) {

@@ -1487,10 +1487,6 @@ static void ReportZoneStats(const JS::ZoneStats& zStats,
                  zStats.baselineStubsOptimized,
                  "The Baseline JIT's optimized IC stubs (excluding code).");
 
-  ZRREPORT_BYTES(pathPrefix + NS_LITERAL_CSTRING("jit-cached-cfg"),
-                 zStats.cachedCFG,
-                 "The cached CFG to construct Ion code out of it.");
-
   ZRREPORT_BYTES(pathPrefix + NS_LITERAL_CSTRING("script-counts-map"),
                  zStats.scriptCountsMap,
                  "Profiling-related information for scripts.");
@@ -1679,11 +1675,11 @@ static void ReportZoneStats(const JS::ZoneStats& zStats,
         "Property tables of shapes in dictionary mode.");
   }
 
-  if (shapeInfo.shapesMallocHeapTreeKids > 0) {
+  if (shapeInfo.shapesMallocHeapTreeChildren > 0) {
     REPORT_BYTES(
-        pathPrefix + NS_LITERAL_CSTRING("shapes/malloc-heap/tree-kids"),
-        KIND_HEAP, shapeInfo.shapesMallocHeapTreeKids,
-        "Kid hashes of shapes in a property tree.");
+        pathPrefix + NS_LITERAL_CSTRING("shapes/malloc-heap/tree-children"),
+        KIND_HEAP, shapeInfo.shapesMallocHeapTreeChildren,
+        "Sets of shape children in a property tree.");
   }
 
   if (sundriesGCHeap > 0) {

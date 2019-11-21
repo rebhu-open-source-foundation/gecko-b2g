@@ -1211,7 +1211,7 @@ class GetUserMediaStreamRunnable : public Runnable {
         MOZ_ASSERT(IsOn(mConstraints.mAudio));
         RefPtr<MediaStreamTrack> domTrack = new dom::AudioStreamTrack(
             window, track, audioTrackSource, dom::MediaStreamTrackState::Live,
-            GetInvariant(mConstraints.mAudio));
+            false, GetInvariant(mConstraints.mAudio));
         domStream->AddTrackInternal(domTrack);
       }
     }
@@ -1225,7 +1225,7 @@ class GetUserMediaStreamRunnable : public Runnable {
       MOZ_ASSERT(IsOn(mConstraints.mVideo));
       RefPtr<MediaStreamTrack> domTrack = new dom::VideoStreamTrack(
           window, track, videoTrackSource, dom::MediaStreamTrackState::Live,
-          GetInvariant(mConstraints.mVideo));
+          false, GetInvariant(mConstraints.mVideo));
       domStream->AddTrackInternal(domTrack);
       switch (mVideoDevice->GetMediaSource()) {
         case MediaSourceEnum::Browser:
@@ -2829,6 +2829,21 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetDisplayMedia(
     CallerType aCallerType) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
+  Document* doc = aWindow->GetExtantDoc();
+  if (NS_WARN_IF(!doc)) {
+    return StreamPromise::CreateAndReject(
+        MakeRefPtr<MediaMgrError>(MediaMgrError::Name::SecurityError),
+        __func__);
+  }
+
+  if (!doc->HasBeenUserGestureActivated()) {
+    return StreamPromise::CreateAndReject(
+        MakeRefPtr<MediaMgrError>(
+            MediaMgrError::Name::InvalidStateError,
+            NS_LITERAL_STRING(
+                "getDisplayMedia must be called from a user gesture handler.")),
+        __func__);
+  }
 
   if (!IsOn(aConstraintsPassedIn.mVideo)) {
     return StreamPromise::CreateAndReject(

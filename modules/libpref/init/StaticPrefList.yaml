@@ -3262,7 +3262,7 @@
 
 - name: gfx.canvas.remote
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: gfx.color_management.enablev4
@@ -3737,18 +3737,6 @@
   mirror: always
 
 - name: gl.ignore-dx-interop2-blacklist
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-#if defined(XP_MACOSX)
--   name: gl.multithreaded
-    type: RelaxedAtomicBool
-    value: true
-    mirror: always
-#endif
-
-- name: gl.require-hardware
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -7615,7 +7603,6 @@
 #endif
   mirror: always
 
-
 - name: webgl.all-angle-options
   type: RelaxedAtomicBool
   value: false
@@ -7641,6 +7628,11 @@
   mirror: always
 
 - name: webgl.can-lose-context-in-foreground
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: webgl.cgl.multithreaded
   type: RelaxedAtomicBool
   value: true
   mirror: always

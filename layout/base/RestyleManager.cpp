@@ -563,7 +563,6 @@ nsCString RestyleManager::ChangeHintToString(nsChangeHint aHint) {
                          "UpdateBackgroundPosition",
                          "AddOrRemoveTransform",
                          "ScrollbarChange",
-                         "UpdateWidgetProperties",
                          "UpdateTableCellSpans",
                          "VisibilityChange"};
   static_assert(nsChangeHint_AllHints ==
@@ -1783,9 +1782,6 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
         presContext->PresShell()->SynthesizeMouseMove(false);
         didUpdateCursor = true;
       }
-      if (hint & nsChangeHint_UpdateWidgetProperties) {
-        frame->UpdateWidgetProperties();
-      }
       if (hint & nsChangeHint_UpdateTableCellSpans) {
         frameConstructor->UpdateTableCellSpans(content);
       }
@@ -1796,6 +1792,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
   }
 
   aChangeList.Clear();
+  FlushOverflowChangedTracker();
 }
 
 /* static */
@@ -3125,8 +3122,6 @@ void RestyleManager::DoProcessPendingRestyles(ServoTraversalFlags aFlags) {
   }
 
   doc->ClearServoRestyleRoot();
-
-  FlushOverflowChangedTracker();
 
   ClearSnapshots();
   styleSet->AssertTreeIsClean();

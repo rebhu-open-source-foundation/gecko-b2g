@@ -124,7 +124,6 @@ $HWC_DEFINE \
 -I$(pwd)/modules/freetype2/include \
 -I$GONK_PATH/system/core/include \
 -I$GONK_PATH/system/core/base/include \
--I$GONK_PATH/external/zlib \
 -I$GONK_PATH/external/skia/include/config \
 -I$GONK_PATH/external/skia/include/core \
 -I$GONK_PATH/external/skia/include/effects \

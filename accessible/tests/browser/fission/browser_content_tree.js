@@ -17,13 +17,13 @@ addAccessibleTask(
   <ul id="ul">
     <li id="li">item1</li>
   </ul>`,
-  async function(browser, fissionDocAcc, contentDocAcc) {
-    ok(fissionDocAcc, "Fission document accessible is present");
-    (gFissionBrowser ? isnot : is)(
+  async function(browser, iframeDocAcc, contentDocAcc) {
+    ok(iframeDocAcc, "IFRAME document accessible is present");
+    (gIsRemoteIframe ? isnot : is)(
       browser.browsingContext.currentWindowGlobal.osPid,
       browser.browsingContext.getChildren()[0].currentWindowGlobal.osPid,
-      `Content and fission documents are in ${
-        gFissionBrowser ? "separate processes" : "same process"
+      `Content and IFRAME documents are in ${
+        gIsRemoteIframe ? "separate processes" : "same process"
       }.`
     );
 
@@ -61,15 +61,15 @@ addAccessibleTask(
     const iframeAcc = contentDocAcc.getChildAt(0);
     is(
       iframeAcc.getChildAt(0),
-      fissionDocAcc,
-      "Fission document for the IFRAME matches."
+      iframeDocAcc,
+      "Document for the IFRAME matches IFRAME's first child."
     );
 
     is(
-      fissionDocAcc.parent,
+      iframeDocAcc.parent,
       iframeAcc,
-      "Fission document's parent matches the IFRAME."
+      "IFRAME document's parent matches the IFRAME."
     );
   },
-  { topLevel: false, iframe: true }
+  { topLevel: false, iframe: true, remoteIframe: true }
 );
