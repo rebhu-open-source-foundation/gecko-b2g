@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "jsapi.h"
+#include "js/JSON.h"
 
 #include "nsCOMPtr.h"
 #include "nsContentUtils.h"
@@ -795,15 +796,15 @@ class SystemMessageEventOp final : public ExtendableEventOp {
 
     SystemMessageEventInit smei;
 
-    JS::Rooted<JS::Value> value(aCx);
-    if (!ToJSValue(aCx, args.message(), &value)) {
+    JS::RootedValue json(aCx);
+    if (!JS_ParseJSON(aCx, args.message().get(), args.message().Length(),
+                      &json) ||
+        !json.isObject()) {
+      RejectAll(NS_ERROR_FAILURE);
       return false;
     }
-    JS::RootedObject messageObj(aCx);
-    if (!JS_ValueToObject(aCx, value, &messageObj)) {
-      return false;
-    }
-    smei.mData.Construct(messageObj);
+
+    smei.mData.Construct(&json.toObject());
     smei.mBubbles = false;
     smei.mCancelable = false;
 

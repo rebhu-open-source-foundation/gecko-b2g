@@ -978,15 +978,13 @@ class SendSystemMessageEventRunnable final
 
     SystemMessageEventInit smei;
 
-    JS::Rooted<JS::Value> value(aCx);
-    if (!ToJSValue(aCx, mMessage, &value)) {
+    JS::RootedValue json(aCx);
+    if (!JS_ParseJSON(aCx, mMessage.get(), mMessage.Length(), &json) ||
+        !json.isObject()) {
       return false;
     }
-    JS::RootedObject messageObj(aCx);
-    if (!JS_ValueToObject(aCx, value, &messageObj)) {
-      return false;
-    }
-    smei.mData.Construct(messageObj);
+
+    smei.mData.Construct(&json.toObject());
     smei.mBubbles = false;
     smei.mCancelable = false;
 
