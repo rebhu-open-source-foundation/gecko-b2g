@@ -55,12 +55,12 @@ public:
   void AddAudioOutput(void* aKey) override;
   void SetAudioOutputVolume(void* aKey, float aVolume) override;
   void RemoveAudioOutput(void* aKey) override;
-  void AddVideoOutput(VideoFrameContainer* aContainer);
-  void RemoveVideoOutput(VideoFrameContainer* aContainer);
+  void AddVideoOutput(VideoFrameContainer* aContainer) override;
+  void RemoveVideoOutput(VideoFrameContainer* aContainer) override;
   void Suspend() override {}
   void Resume() override {}
-  void AddListener(MediaTrackListener* aListener);
-  void RemoveListener(MediaTrackListener* aListener);
+  void AddListener(MediaTrackListener* aListener) override;
+  void RemoveListener(MediaTrackListener* aListener) override;
   void Destroy() override;
   void OnPreviewStateChange(bool aActive);
 

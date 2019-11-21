@@ -71,7 +71,7 @@ public:
 
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  MediaTrack* GetCameraStream() const;
+  MediaTrack* GetCameraStream() const override;
 
   // Called by TrackCreatedListener when the underlying track has been created.
   // XXX Bug 1124630. This can be removed with CameraPreviewMediaStream.
