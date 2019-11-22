@@ -964,6 +964,40 @@ child:
                           uint32_t[] charCodes);
 
     /**
+     * Get volume and muted state of a given AudioChannel from the child
+     * process.
+     */
+    async GetAudioChannelVolume(uint32_t aAudioChannel)
+        returns (bool success, float volume, bool muted);
+
+    /**
+     * Propagate a volume refresh to a given AudioChannel in the child process.
+     */
+    async SetAudioChannelVolume(uint32_t aAudioChannel,
+                                float aVolume,
+                                bool aMuted)
+        returns (bool success);
+
+    /**
+     * Get suspend state of a given AudioChannel from the child process.
+     */
+    async GetAudioChannelSuspend(uint32_t aAudioChannel)
+        returns (bool success, uint32_t suspend);
+
+    /**
+     * Propagate a suspend refresh to a given AudioChannel in the child process.
+     */
+    async SetAudioChannelSuspend(uint32_t aAudioChannel,
+                                 uint32_t aSuspendType)
+        returns (bool success);
+
+    /**
+     * Get activity of a given AudioChannel from the child process.
+     */
+    async GetAudioChannelActivity(uint32_t aAudioChannel)
+        returns (bool success, bool active);
+
+    /**
      * Tells the root child docShell whether or not to use
      * global history. This is sent right after the PBrowser
      * is bound to a frameloader element.

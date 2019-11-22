@@ -129,10 +129,14 @@ nsresult AudioChannelAgent::InitInternal(
 
   mInnerWindowID = aWindow->WindowID();
 
+#ifdef MOZ_WIDGET_GONK
+  mWindow = AudioChannelService::GetTopAppWindow(aWindow->GetOuterWindow());
+#else
   nsresult rv = FindCorrectWindow(aWindow);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
+#endif
 
   mAudioChannelType = aChannelType;
 

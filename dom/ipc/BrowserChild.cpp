@@ -2457,6 +2457,89 @@ mozilla::ipc::IPCResult BrowserChild::RecvHandleAccessKey(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelVolume(
+    const uint32_t& aAudioChannel, GetAudioChannelVolumeResolver&& aResolve) {
+  float volume = 0.0;
+  bool muted = false;
+  bool success = false;
+  nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
+  if (window) {
+    RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+    MOZ_ASSERT(service);
+    success = service->GetAudioChannelVolume(
+        window, static_cast<AudioChannel>(aAudioChannel), volume, muted);
+  }
+
+  aResolve(
+      Tuple<const bool&, const float&, const bool&>(success, volume, muted));
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserChild::RecvSetAudioChannelVolume(
+    const uint32_t& aAudioChannel, const float& aVolume, const bool& aMuted,
+    SetAudioChannelVolumeResolver&& aResolve) {
+  bool success = false;
+  nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
+  if (window) {
+    RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+    MOZ_ASSERT(service);
+    success = service->SetAudioChannelVolume(
+        window, static_cast<AudioChannel>(aAudioChannel), aVolume, aMuted);
+  }
+
+  aResolve(success);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelSuspend(
+    const uint32_t& aAudioChannel, GetAudioChannelSuspendResolver&& aResolve) {
+  uint32_t suspend = 0;
+  bool success = false;
+  nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
+  if (window) {
+    RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+    MOZ_ASSERT(service);
+    success = service->GetAudioChannelSuspend(
+        window, static_cast<AudioChannel>(aAudioChannel), suspend);
+  }
+
+  aResolve(Tuple<const bool&, const uint32_t&>(success, suspend));
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserChild::RecvSetAudioChannelSuspend(
+    const uint32_t& aAudioChannel, const uint32_t& aSuspendType,
+    SetAudioChannelSuspendResolver&& aResolve) {
+  bool success = false;
+  nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
+  if (window) {
+    RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+    MOZ_ASSERT(service);
+    success = service->SetAudioChannelSuspend(
+        window, static_cast<AudioChannel>(aAudioChannel), aSuspendType);
+  }
+
+  aResolve(success);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelActivity(
+    const uint32_t& aAudioChannel, GetAudioChannelActivityResolver&& aResolve) {
+  bool active = false;
+  bool success = false;
+  nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
+  if (window) {
+    RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
+    MOZ_ASSERT(service);
+    active = service->IsAudioChannelActive(
+        window, static_cast<AudioChannel>(aAudioChannel));
+    success = true;
+  }
+
+  aResolve(Tuple<const bool&, const bool&>(success, active));
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult BrowserChild::RecvSetUseGlobalHistory(
     const bool& aUse) {
   nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());

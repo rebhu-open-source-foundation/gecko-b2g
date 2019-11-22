@@ -130,6 +130,12 @@ class AudioChannelService final : public nsIObserver {
 
   static bool IsEnableAudioCompeting();
 
+  static already_AddRefed<nsPIDOMWindowOuter> GetTopAppWindow(
+      nsPIDOMWindowOuter* aWindow);
+
+  static already_AddRefed<nsPIDOMWindowOuter> GetTopAppWindow(
+      BrowserParent* aBrowserParent);
+
   /**
    * Any audio channel agent that starts playing should register itself to
    * this service, sharing the AudioChannel.
@@ -164,6 +170,22 @@ class AudioChannelService final : public nsIObserver {
   void AudioAudibleChanged(AudioChannelAgent* aAgent, AudibleState aAudible,
                            AudibleChangedReasons aReason);
 
+  /* Methods for the BrowserElementAudioChannel */
+  bool GetAudioChannelVolume(nsPIDOMWindowOuter* aWindow, AudioChannel aChannel,
+                             float& aVolume, bool& aMuted);
+
+  bool SetAudioChannelVolume(nsPIDOMWindowOuter* aWindow, AudioChannel aChannel,
+                             float aVolume, bool aMuted);
+
+  bool GetAudioChannelSuspend(nsPIDOMWindowOuter* aWindow,
+                              AudioChannel aChannel,
+                              nsSuspendedTypes& aSuspend);
+
+  bool SetAudioChannelSuspend(nsPIDOMWindowOuter* aWindow,
+                              AudioChannel aChannel, nsSuspendedTypes aSuspend);
+
+  bool IsAudioChannelActive(nsPIDOMWindowOuter* aWindow, AudioChannel aChannel);
+
   bool IsWindowActive(nsPIDOMWindowOuter* aWindow);
 
   /**
@@ -188,10 +210,18 @@ class AudioChannelService final : public nsIObserver {
 
   bool AnyAudioChannelIsActive();
 
-  void RefreshAgentsVolume(nsPIDOMWindowOuter* aWindow, float aVolume,
-                           bool aMuted);
-  void RefreshAgentsSuspend(nsPIDOMWindowOuter* aWindow,
+  void RefreshAgentsVolume(nsPIDOMWindowOuter* aWindow, AudioChannel aChannel,
+                           float aVolume, bool aMuted);
+  void RefreshAgentsSuspend(nsPIDOMWindowOuter* aWindow, AudioChannel aChannel,
                             nsSuspendedTypes aSuspend);
+
+  void RefreshAgentsVolumeAndPropagate(nsPIDOMWindowOuter* aWindow,
+                                       AudioChannel aAudioChannel,
+                                       float aVolume, bool aMuted);
+
+  void RefreshAgentsSuspendAndPropagate(nsPIDOMWindowOuter* aWindow,
+                                        AudioChannel aAudioChannel,
+                                        nsSuspendedTypes aSuspend);
 
   // This method needs to know the inner window that wants to capture audio. We
   // group agents per top outer window, but we can have multiple innerWindow per
@@ -299,6 +329,9 @@ class AudioChannelService final : public nsIObserver {
   AudioChannelWindow* GetOrCreateWindowData(nsPIDOMWindowOuter* aWindow);
 
   AudioChannelWindow* GetWindowData(uint64_t aWindowID) const;
+
+  AudioChannelConfig* GetChannelConfig(nsPIDOMWindowOuter* aWindow,
+                                       AudioChannel aChannel);
 
   struct AudioChannelChildStatus final {
     explicit AudioChannelChildStatus(uint64_t aChildID)

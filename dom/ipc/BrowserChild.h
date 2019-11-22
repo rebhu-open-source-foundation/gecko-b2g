@@ -504,6 +504,24 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     return GetFrom(docShell);
   }
 
+  mozilla::ipc::IPCResult RecvGetAudioChannelVolume(
+      const uint32_t& aAudioChannel, GetAudioChannelVolumeResolver&& aResolve);
+
+  mozilla::ipc::IPCResult RecvSetAudioChannelVolume(
+      const uint32_t& aAudioChannel, const float& aVolume, const bool& aMuted,
+      SetAudioChannelVolumeResolver&& aResolve);
+
+  mozilla::ipc::IPCResult RecvGetAudioChannelSuspend(
+      const uint32_t& aAudioChannel, GetAudioChannelSuspendResolver&& aResolve);
+
+  mozilla::ipc::IPCResult RecvSetAudioChannelSuspend(
+      const uint32_t& aAudioChannel, const uint32_t& aSuspendType,
+      SetAudioChannelSuspendResolver&& aResolve);
+
+  mozilla::ipc::IPCResult RecvGetAudioChannelActivity(
+      const uint32_t& aAudioChannel,
+      GetAudioChannelActivityResolver&& aResolve);
+
   mozilla::ipc::IPCResult RecvUIResolutionChanged(const float& aDpi,
                                                   const int32_t& aRounding,
                                                   const double& aScale);

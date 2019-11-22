@@ -136,6 +136,20 @@ class AudioPlaybackRunnable final : public Runnable {
   AudioChannelService::AudibleChangedReasons mReason;
 };
 
+bool IsChromeWindow(nsPIDOMWindowOuter* aWindow) {
+  nsCOMPtr<nsPIDOMWindowInner> inner = aWindow->GetCurrentInnerWindow();
+  if (!inner) {
+    return false;
+  }
+
+  nsCOMPtr<Document> doc = inner->GetExtantDoc();
+  if (!doc) {
+    return false;
+  }
+
+  return nsContentUtils::IsChromeDoc(doc);
+}
+
 }  // anonymous namespace
 
 namespace mozilla {
@@ -267,6 +281,30 @@ void AudioChannelService::Shutdown() {
 
     gAudioChannelService = nullptr;
   }
+}
+
+/* static */
+already_AddRefed<nsPIDOMWindowOuter> AudioChannelService::GetTopAppWindow(
+    nsPIDOMWindowOuter* aWindow) {
+  if (!aWindow) {
+    return nullptr;
+  }
+  return aWindow->GetInProcessTop();
+}
+
+/* static */
+already_AddRefed<nsPIDOMWindowOuter> AudioChannelService::GetTopAppWindow(
+    BrowserParent* aBrowserParent) {
+  MOZ_ASSERT(aBrowserParent);
+
+  nsCOMPtr<nsPIDOMWindowOuter> parent = aBrowserParent->GetParentWindowOuter();
+
+  // If this BrowserParent is owned by chrome doc, return nullptr.
+  if (IsChromeWindow(parent)) {
+    return nullptr;
+  }
+
+  return GetTopAppWindow(parent);
 }
 
 NS_INTERFACE_MAP_BEGIN(AudioChannelService)
@@ -592,17 +630,51 @@ void AudioChannelService::RefreshAgents(
 }
 
 void AudioChannelService::RefreshAgentsVolume(nsPIDOMWindowOuter* aWindow,
+                                              AudioChannel aChannel,
                                               float aVolume, bool aMuted) {
-  RefreshAgents(aWindow, [aVolume, aMuted](AudioChannelAgent* agent) {
-    agent->WindowVolumeChanged(aVolume, aMuted);
-  });
+  auto func = [aChannel, aVolume, aMuted](AudioChannelAgent* agent) {
+    if (agent->AudioChannelType() == static_cast<int32_t>(aChannel)) {
+      agent->WindowVolumeChanged(aVolume, aMuted);
+    }
+  };
+  RefreshAgents(aWindow, func);
 }
 
 void AudioChannelService::RefreshAgentsSuspend(nsPIDOMWindowOuter* aWindow,
+                                               AudioChannel aChannel,
                                                nsSuspendedTypes aSuspend) {
-  RefreshAgents(aWindow, [aSuspend](AudioChannelAgent* agent) {
-    agent->WindowSuspendChanged(aSuspend);
-  });
+  auto func = [aChannel, aSuspend](AudioChannelAgent* agent) {
+    if (agent->AudioChannelType() == static_cast<int32_t>(aChannel)) {
+      agent->WindowSuspendChanged(aSuspend);
+    }
+  };
+  RefreshAgents(aWindow, func);
+}
+
+void AudioChannelService::RefreshAgentsVolumeAndPropagate(
+    nsPIDOMWindowOuter* aWindow, AudioChannel aChannel, float aVolume,
+    bool aMuted) {
+  for (auto& browserParent : mBrowserParents) {
+    nsCOMPtr<nsPIDOMWindowOuter> topWindow = GetTopAppWindow(browserParent);
+    if (topWindow == aWindow) {
+      Unused << browserParent->SendSetAudioChannelVolume(
+          static_cast<uint32_t>(aChannel), aVolume, aMuted);
+    }
+  }
+  RefreshAgentsVolume(aWindow, aChannel, aVolume, aMuted);
+}
+
+void AudioChannelService::RefreshAgentsSuspendAndPropagate(
+    nsPIDOMWindowOuter* aWindow, AudioChannel aChannel,
+    nsSuspendedTypes aSuspend) {
+  for (auto& browserParent : mBrowserParents) {
+    nsCOMPtr<nsPIDOMWindowOuter> topWindow = GetTopAppWindow(browserParent);
+    if (topWindow == aWindow) {
+      Unused << browserParent->SendSetAudioChannelSuspend(
+          static_cast<uint32_t>(aChannel), aSuspend);
+    }
+  }
+  RefreshAgentsSuspend(aWindow, aChannel, aSuspend);
 }
 
 void AudioChannelService::SetWindowAudioCaptured(nsPIDOMWindowOuter* aWindow,
@@ -731,6 +803,65 @@ AudioChannelService::AudioChannelWindow* AudioChannelService::GetWindowData(
   }
 
   return nullptr;
+}
+
+AudioChannelService::AudioChannelConfig* AudioChannelService::GetChannelConfig(
+    nsPIDOMWindowOuter* aWindow, AudioChannel aChannel) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aWindow);
+
+  AudioChannelWindow* winData = GetOrCreateWindowData(aWindow);
+  return &winData->mChannels[static_cast<uint32_t>(aChannel)];
+}
+
+bool AudioChannelService::GetAudioChannelVolume(nsPIDOMWindowOuter* aWindow,
+                                                AudioChannel aChannel,
+                                                float& aVolume, bool& aMuted) {
+  AudioChannelConfig* config = GetChannelConfig(aWindow, aChannel);
+  aVolume = config->mVolume;
+  aMuted = config->mMuted;
+  return true;
+}
+
+bool AudioChannelService::SetAudioChannelVolume(nsPIDOMWindowOuter* aWindow,
+                                                AudioChannel aChannel,
+                                                float aVolume, bool aMuted) {
+  MOZ_LOG(GetAudioChannelLog(), LogLevel::Debug,
+          ("AudioChannelService, SetAudioChannelVolume, window = %p, "
+           "type = %" PRIu32 ", volume = %f, mute = %s\n",
+           aWindow, static_cast<uint32_t>(aChannel), aVolume,
+           aMuted ? "true" : "false"));
+
+  AudioChannelConfig* config = GetChannelConfig(aWindow, aChannel);
+  config->mVolume = aVolume;
+  config->mMuted = aMuted;
+  RefreshAgentsVolumeAndPropagate(aWindow, aChannel, aVolume, aMuted);
+  return true;
+}
+
+bool AudioChannelService::GetAudioChannelSuspend(nsPIDOMWindowOuter* aWindow,
+                                                 AudioChannel aChannel,
+                                                 nsSuspendedTypes& aSuspend) {
+  aSuspend = GetChannelConfig(aWindow, aChannel)->mSuspend;
+  return true;
+}
+
+bool AudioChannelService::SetAudioChannelSuspend(nsPIDOMWindowOuter* aWindow,
+                                                 AudioChannel aChannel,
+                                                 nsSuspendedTypes aSuspend) {
+  MOZ_LOG(GetAudioChannelLog(), LogLevel::Debug,
+          ("AudioChannelService, SetAudioChannelSuspend, window = %p, "
+           "type = %" PRIu32 ", suspend = %" PRIu32 "\n",
+           aWindow, static_cast<uint32_t>(aChannel), aSuspend));
+
+  GetChannelConfig(aWindow, aChannel)->mSuspend = aSuspend;
+  RefreshAgentsSuspendAndPropagate(aWindow, aChannel, aSuspend);
+  return true;
+}
+
+bool AudioChannelService::IsAudioChannelActive(nsPIDOMWindowOuter* aWindow,
+                                               AudioChannel aChannel) {
+  return !!GetChannelConfig(aWindow, aChannel)->mNumberOfAgents;
 }
 
 bool AudioChannelService::IsWindowActive(nsPIDOMWindowOuter* aWindow) {

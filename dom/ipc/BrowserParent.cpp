@@ -3217,19 +3217,31 @@ mozilla::ipc::IPCResult BrowserParent::RecvAudioChannelActivityNotification(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  /* FIXME
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
-  if (os) {
-    nsAutoCString topic;
-    topic.Assign("audiochannel-activity-");
-    topic.Append(
-        AudioChannelService::GetAudioChannelTable()[aAudioChannel].tag);
-
-    os->NotifyObservers(NS_ISUPPORTS_CAST(nsITabParent*, this),
-                        topic.get(),
-                        aActive ? u"active" : u"inactive");
+  if (!os) {
+    return IPC_OK();
   }
-  */
+
+  nsAutoCString topic;
+  topic.Assign("audiochannel-activity-");
+  topic.Append(AudioChannelService::GetAudioChannelTable()[aAudioChannel].tag);
+
+  nsCOMPtr<nsPIDOMWindowOuter> appWin =
+      AudioChannelService::GetTopAppWindow(this);
+  if (appWin) {
+    nsCOMPtr<nsISupportsPRUint64> wrapper =
+        do_CreateInstance(NS_SUPPORTS_PRUINT64_CONTRACTID);
+    if (NS_WARN_IF(!wrapper)) {
+      return IPC_FAIL_NO_REASON(this);
+    }
+
+    wrapper->SetData(appWin->WindowID());
+    os->NotifyObservers(wrapper, topic.get(),
+                        aActive ? u"active" : u"inactive");
+  } else {
+    os->NotifyObservers(NS_ISUPPORTS_CAST(nsIDOMEventListener*, this),
+                        topic.get(), aActive ? u"active" : u"inactive");
+  }
   return IPC_OK();
 }
 

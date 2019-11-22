@@ -2860,14 +2860,17 @@ nsresult nsPIDOMWindowOuter::SetAudioVolume(float aVolume) {
 void nsPIDOMWindowOuter::RefreshMediaElementsVolume() {
   RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
   if (service) {
-    service->RefreshAgentsVolume(this, GetAudioVolume(), GetAudioMuted());
+    service->RefreshAgentsVolume(this,
+                                 AudioChannelService::GetDefaultAudioChannel(),
+                                 GetAudioVolume(), GetAudioMuted());
   }
 }
 
 void nsPIDOMWindowOuter::RefreshMediaElementsSuspend(SuspendTypes aSuspend) {
   RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
   if (service) {
-    service->RefreshAgentsSuspend(this, aSuspend);
+    service->RefreshAgentsSuspend(
+        this, AudioChannelService::GetDefaultAudioChannel(), aSuspend);
   }
 }
 
