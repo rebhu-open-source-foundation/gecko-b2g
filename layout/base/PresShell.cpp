@@ -10418,6 +10418,10 @@ static void SetPluginIsActive(nsISupports* aSupports, void* aClosure) {
 nsresult PresShell::SetIsActive(bool aIsActive) {
   MOZ_ASSERT(mDocument, "should only be called with a document");
 
+#if defined(MOZ_WIDGET_ANDROID)
+  const bool changed = mIsActive != aIsActive;
+#endif
+
   mIsActive = aIsActive;
 
   nsPresContext* presContext = GetPresContext();
@@ -10439,6 +10443,17 @@ nsresult PresShell::SetIsActive(bool aIsActive) {
     }
   }
 #endif  // #ifdef ACCESSIBILITY
+
+#if defined(MOZ_WIDGET_ANDROID)
+  if (changed && !aIsActive && presContext &&
+      presContext->IsRootContentDocumentCrossProcess()) {
+    if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
+      // Reset the dynamic toolbar offset state.
+      presContext->UpdateDynamicToolbarOffset(0);
+    }
+  }
+#endif
+
   return rv;
 }
 
@@ -10721,6 +10736,19 @@ nsSize PresShell::GetLayoutViewportSize() const {
     result = sf->GetScrollPortRect().Size();
   }
   return result;
+}
+
+nsSize PresShell::GetVisualViewportSizeUpdatedByDynamicToolbar() const {
+  NS_ASSERTION(mVisualViewportSizeSet,
+               "asking for visual viewport size when its not set?");
+  if (!mMobileViewportManager) {
+    return mVisualViewportSize;
+  }
+
+  MOZ_ASSERT(GetDynamicToolbarState() == DynamicToolbarState::InTransition ||
+             GetDynamicToolbarState() == DynamicToolbarState::Collapsed);
+
+  return mMobileViewportManager->GetVisualViewportSizeUpdatedByDynamicToolbar();
 }
 
 void PresShell::RecomputeFontSizeInflationEnabled() {

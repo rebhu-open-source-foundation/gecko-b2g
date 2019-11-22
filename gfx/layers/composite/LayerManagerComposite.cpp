@@ -42,6 +42,7 @@
 #include "mozilla/gfx/Types.h"          // for Color, SurfaceFormat
 #include "mozilla/layers/Composer2D.h"
 #include "mozilla/layers/Compositor.h"  // for Compositor
+#include "mozilla/layers/CompositorOGL.h"
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/layers/Effects.h"              // for Effect, EffectChain, etc
 #include "mozilla/layers/LayerMetricsWrapper.h"  // for LayerMetricsWrapper
@@ -63,7 +64,6 @@
 #  include <android/native_window.h>
 #  include "mozilla/jni/Utils.h"
 #  include "mozilla/widget/AndroidCompositorWidget.h"
-#  include "opengl/CompositorOGL.h"
 #  include "GLConsts.h"
 #  include "GLContextEGL.h"
 #  include "GLContextProvider.h"
@@ -1108,9 +1108,9 @@ bool LayerManagerComposite::Render(const nsIntRegion& aInvalidRegion,
 
   mozilla::widget::WidgetRenderingContext widgetContext;
 #if defined(XP_MACOSX)
-  widgetContext.mLayerManager = this;
-#elif defined(MOZ_WIDGET_ANDROID)
-  widgetContext.mCompositor = GetCompositor();
+  if (CompositorOGL* compositorOGL = mCompositor->AsCompositorOGL()) {
+    widgetContext.mGL = compositorOGL->gl();
+  }
 #endif
 
   /** Our more efficient but less powerful alter ego, if one is available. */

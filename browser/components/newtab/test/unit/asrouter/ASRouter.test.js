@@ -1044,6 +1044,12 @@ describe("ASRouter", () => {
         Router.state.messageImpressions
       );
     });
+    it("should have personalizedCfrScores in the message context", () => {
+      assert.property(Router._getMessagesContext(), "scores");
+    });
+    it("should have personalizedCfrThreshold in the message context", () => {
+      assert.property(Router._getMessagesContext(), "scoreThreshold");
+    });
     it("should return all unblocked messages that match the template, trigger if returnAll=true", async () => {
       const message1 = {
         id: "1",
@@ -1094,11 +1100,51 @@ describe("ASRouter", () => {
       Router.handleMessageRequest(trigger);
 
       assert.calledOnce(stub);
-      assert.calledWithExactly(stub, sinon.match.array, {
-        id: trigger.triggerId,
-        param: trigger.triggerParam,
-        context: trigger.triggerContext,
-      });
+      assert.calledWithExactly(
+        stub,
+        sinon.match.array,
+        {
+          id: trigger.triggerId,
+          param: trigger.triggerParam,
+          context: trigger.triggerContext,
+        },
+        { shouldCache: false }
+      );
+    });
+    it("should cache snippets messages", async () => {
+      const trigger = {
+        triggerId: "foo",
+        triggerParam: "bar",
+        triggerContext: "context",
+      };
+      const message1 = {
+        id: "1",
+        provider: "snippets",
+        campaign: "foocampaign",
+        trigger: { id: "foo" },
+      };
+      const message2 = {
+        id: "2",
+        campaign: "foocampaign",
+        trigger: { id: "bar" },
+      };
+      await Router.setState({ messages: [message2, message1] });
+      // Just return the first message provided as arg
+      const stub = sandbox.stub(Router, "_findMessage");
+
+      Router.handleMessageRequest(trigger);
+
+      assert.calledOnce(stub);
+      assert.calledWithExactly(
+        stub,
+        sinon.match.array,
+        {
+          id: trigger.triggerId,
+          param: trigger.triggerParam,
+          context: trigger.triggerContext,
+        },
+        { shouldCache: true }
+      );
     });
     it("should filter out messages without a trigger (or different) when a triggerId is defined", async () => {
       const trigger = { triggerId: "foo" };

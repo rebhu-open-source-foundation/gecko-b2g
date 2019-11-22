@@ -4776,16 +4776,31 @@ nsIFrame* nsLayoutUtils::GetDisplayListParent(nsIFrame* aFrame) {
   return nsLayoutUtils::GetParentOrPlaceholderForCrossDoc(aFrame);
 }
 
-nsIFrame* nsLayoutUtils::GetNextContinuationOrIBSplitSibling(nsIFrame* aFrame) {
-  nsIFrame* result = aFrame->GetNextContinuation();
-  if (result) return result;
+nsIFrame* nsLayoutUtils::GetPrevContinuationOrIBSplitSibling(
+    const nsIFrame* aFrame) {
+  if (nsIFrame* result = aFrame->GetPrevContinuation()) {
+    return result;
+  }
 
-  if ((aFrame->GetStateBits() & NS_FRAME_PART_OF_IBSPLIT) != 0) {
-    // We only store the ib-split sibling annotation with the first
-    // frame in the continuation chain. Walk back to find that frame now.
-    aFrame = aFrame->FirstContinuation();
+  if (aFrame->HasAnyStateBits(NS_FRAME_PART_OF_IBSPLIT)) {
+    // We are the first frame in the continuation chain. Get the ib-split prev
+    // sibling property stored in us.
+    return aFrame->GetProperty(nsIFrame::IBSplitPrevSibling());
+  }
 
-    return aFrame->GetProperty(nsIFrame::IBSplitSibling());
+  return nullptr;
+}
+
+nsIFrame* nsLayoutUtils::GetNextContinuationOrIBSplitSibling(
+    const nsIFrame* aFrame) {
+  if (nsIFrame* result = aFrame->GetNextContinuation()) {
+    return result;
+  }
+
+  if (aFrame->HasAnyStateBits(NS_FRAME_PART_OF_IBSPLIT)) {
+    // We only store the ib-split sibling annotation with the first frame in the
+    // continuation chain.
+    return aFrame->FirstContinuation()->GetProperty(nsIFrame::IBSplitSibling());
   }
 
   return nullptr;
@@ -9019,6 +9034,21 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
         viewport.SizeTo(nsLayoutUtils::ExpandHeightForViewportUnits(
             presContext, viewport.Size()));
         metrics.SetLayoutViewport(viewport);
+
+        // We need to set 'fixed margins' to adjust 'fixed margins' value on the
+        // composiutor in the case where the dynamic toolbar is completely
+        // hidden because the margin value on the compositor is offset from the
+        // position where the dynamic toolbar is completely VISIBLE but now the
+        // toolbar is completely HIDDEN we need to adjust the difference on the
+        // compositor.
+        if (presContext->GetDynamicToolbarState() ==
+            DynamicToolbarState::Collapsed) {
+          metrics.SetFixedLayerMargins(
+              ScreenMargin(0, 0,
+                           presContext->GetDynamicToolbarHeight() -
+                               presContext->GetDynamicToolbarMaxHeight(),
+                           0));
+        }
       }
     }
 

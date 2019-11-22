@@ -196,6 +196,10 @@ const char kAboutHomeOriginPrefix[] = "moz-safe-about:home";
 const char kIndexedDBOriginPrefix[] = "indexeddb://";
 const char kResourceOriginPrefix[] = "resource://";
 
+constexpr auto kStorageTelemetryKey = NS_LITERAL_CSTRING("Storage");
+constexpr auto kTempStorageTelemetryKey =
+    NS_LITERAL_CSTRING("TemporaryStorage");
+
 #define INDEXEDDB_DIRECTORY_NAME "indexedDB"
 #define STORAGE_DIRECTORY_NAME "storage"
 #define PERSISTENT_DIRECTORY_NAME "persistent"
@@ -3490,6 +3494,8 @@ QuotaManager::QuotaManager()
       mTemporaryStorageLimit(0),
       mTemporaryStorageUsage(0),
       mNextDirectoryLockId(0),
+      mStorageInitializationAttempted(false),
+      mTemporaryStorageInitializationAttempted(false),
       mTemporaryStorageInitialized(false),
       mCacheUsable(false) {
   AssertIsOnOwningThread();
@@ -6311,8 +6317,21 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
   AssertIsOnIOThread();
 
   if (mStorageConnection) {
+    MOZ_ASSERT(mStorageInitializationAttempted);
     return NS_OK;
   }
+
+  auto autoReportTelemetry = MakeScopeExit([&]() {
+    Telemetry::Accumulate(Telemetry::QM_FIRST_INITIALIZATION_ATTEMPT,
+                          kStorageTelemetryKey,
+                          static_cast<uint32_t>(!!mStorageConnection));
+  });
+
+  if (mStorageInitializationAttempted) {
+    autoReportTelemetry.release();
+  }
+
+  mStorageInitializationAttempted = true;
 
   nsCOMPtr<nsIFile> storageFile;
   nsresult rv = NS_NewLocalFile(mBasePath, false, getter_AddRefs(storageFile));
@@ -6863,8 +6882,21 @@ nsresult QuotaManager::EnsureTemporaryStorageIsInitialized() {
   MOZ_ASSERT(mStorageConnection);
 
   if (mTemporaryStorageInitialized) {
+    MOZ_ASSERT(mTemporaryStorageInitializationAttempted);
     return NS_OK;
   }
+
+  auto autoReportTelemetry = MakeScopeExit([&]() {
+    Telemetry::Accumulate(Telemetry::QM_FIRST_INITIALIZATION_ATTEMPT,
+                          kTempStorageTelemetryKey,
+                          static_cast<uint32_t>(mTemporaryStorageInitialized));
+  });
+
+  if (mTemporaryStorageInitializationAttempted) {
+    autoReportTelemetry.release();
+  }
+
+  mTemporaryStorageInitializationAttempted = true;
 
   nsresult rv;
 
@@ -6932,9 +6964,12 @@ void QuotaManager::ShutdownStorage() {
       mTemporaryStorageInitialized = false;
     }
 
+    mTemporaryStorageInitializationAttempted = false;
+
     ReleaseIOThreadObjects();
 
     mStorageConnection = nullptr;
+    mStorageInitializationAttempted = false;
   }
 }
 

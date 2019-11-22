@@ -2220,10 +2220,10 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleSVG {
   mozilla::StyleFillRule mFillRule;
   mozilla::StyleSVGPaintOrder mPaintOrder;
   mozilla::StyleShapeRendering mShapeRendering;
-  uint8_t mStrokeLinecap;     // NS_STYLE_STROKE_LINECAP_*
+  mozilla::StyleStrokeLinecap mStrokeLinecap;
   uint8_t mStrokeLinejoin;    // NS_STYLE_STROKE_LINEJOIN_*
   uint8_t mDominantBaseline;  // NS_STYLE_DOMINANT_BASELINE_*
-  uint8_t mTextAnchor;        // NS_STYLE_TEXT_ANCHOR_*
+  mozilla::StyleTextAnchor mTextAnchor;
 
   /// Returns true if style has been set to expose the computed values of
   /// certain properties (such as 'fill') to the contents of any linked images.

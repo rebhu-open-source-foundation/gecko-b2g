@@ -326,6 +326,8 @@ pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
 
 // Whether the quantum bar displays the major design update.
 pref("browser.urlbar.megabar", false);
+// Whether we expand the font size when the megabar is focused.
+pref("browser.urlbar.megabar.expandTextOnFocus", false);
 // Whether the megabar displays the permanent search icon.
 pref("browser.urlbar.searchIcon", false);
 pref("browser.urlbar.view.stripHttps", false);
@@ -1554,8 +1556,6 @@ pref("toolkit.telemetry.bhrPing.enabled", true);
 // Ping Centre Telemetry settings.
 pref("browser.ping-centre.telemetry", true);
 pref("browser.ping-centre.log", false);
-pref("browser.ping-centre.staging.endpoint", "https://onyx_tiles.stage.mozaws.net/v3/links/ping-centre");
-pref("browser.ping-centre.production.endpoint", "https://tiles.services.mozilla.com/v3/links/ping-centre");
 
 // Enable GMP support in the addon manager.
 pref("media.gmp-provider.enabled", true);
