@@ -457,6 +457,12 @@ NS_InitXPCOM(nsIServiceManager** aResult, nsIFile* aBinDirectory,
   // After autoreg, but before we actually instantiate any components,
   // add any services listed in the "xpcom-directory-providers" category
   // to the directory service.
+#ifdef MOZ_B2G
+  // B2G has a JS implementation of the directory provider, so we need to
+  // initialize the JS context anyway.
+  xpc::InitializeJSContext();
+  aInitJSContext = false;
+#endif
   nsDirectoryService::gService->RegisterCategoryProviders();
 
   // Init mozilla::SharedThreadPool (which needs the service manager).
