@@ -3501,10 +3501,10 @@ const PREF_SSL_IMPACT_ROOTS = ["security.tls.version.", "security.ssl3."];
  */
 var BrowserOnClick = {
   ignoreWarningLink(reason, blockedInfo, browsingContext) {
-    let triggeringPrincipal = E10SUtils.deserializePrincipal(
-      blockedInfo.triggeringPrincipal,
-      _createNullPrincipalFromTabUserContextId()
-    );
+    let triggeringPrincipal =
+      blockedInfo.triggeringPrincipal ||
+      _createNullPrincipalFromTabUserContextId();
+
     // Allow users to override and continue through to the site,
     // but add a notify bar as a reminder, so that they don't lose
     // track after, e.g., tab switching.
@@ -8517,13 +8517,6 @@ var gPrivateBrowsingUI = {
 
     // Adjust the window's title
     let docElement = document.documentElement;
-    if (!PrivateBrowsingUtils.permanentPrivateBrowsing) {
-      docElement.title = docElement.getAttribute("title_privatebrowsing");
-      docElement.setAttribute(
-        "titlemodifier",
-        docElement.getAttribute("titlemodifier_privatebrowsing")
-      );
-    }
     docElement.setAttribute(
       "privatebrowsingmode",
       PrivateBrowsingUtils.permanentPrivateBrowsing ? "permanent" : "temporary"

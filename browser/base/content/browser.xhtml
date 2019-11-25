@@ -42,26 +42,12 @@
         xmlns:html="http://www.w3.org/1999/xhtml"
         xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
         xmlns="http://www.w3.org/1999/xhtml"
-        title_normal="&mainWindow.title;"
-#ifdef XP_MACOSX
-        title_privatebrowsing="&mainWindow.title;&mainWindow.titlemodifiermenuseparator;&mainWindow.titlePrivateBrowsingSuffix;"
-        titledefault="&mainWindow.title;"
-        titlemodifier=""
-        titlemodifier_normal=""
-        titlemodifier_privatebrowsing="&mainWindow.titlePrivateBrowsingSuffix;"
-#else
-        title_privatebrowsing="&mainWindow.titlemodifier; &mainWindow.titlePrivateBrowsingSuffix;"
-        titlemodifier="&mainWindow.titlemodifier;"
-        titlemodifier_normal="&mainWindow.titlemodifier;"
-        titlemodifier_privatebrowsing="&mainWindow.titlemodifier; &mainWindow.titlePrivateBrowsingSuffix;"
-#endif
 #ifdef XP_WIN
         chromemargin="0,2,2,2"
 #else
         chromemargin="0,-1,-1,-1"
 #endif
         tabsintitlebar="true"
-        titlemenuseparator="&mainWindow.titlemodifiermenuseparator;"
         windowtype="navigator:browser"
         macanimationtype="document"
         screenX="4" screenY="4"
@@ -79,7 +65,9 @@
   <link rel="localization" href="browser/protectionsPanel.ftl"/>
   <link rel="localization" href="browser/appmenu.ftl"/>
 
-  <title>&mainWindow.title;</title>
+  <title
+    data-l10n-id="browser-main-window-title"
+    data-l10n-args='{"mode": "default"}'></title>
 
 # All JS files which are needed by browser.xhtml and other top level windows to
 # support MacOS specific features *must* go into the global-scripts.inc file so
@@ -347,8 +335,7 @@
            noautofocus="true"
            noautohide="true"
            flip="none"
-           consumeoutsideclicks="false"
-           mousethrough="always">
+           consumeoutsideclicks="false">
       <box id="UITourHighlight"></box>
     </panel>
 
@@ -615,7 +602,7 @@
 #include ../../components/downloads/content/downloadsPanel.inc.xhtml
 #include browser-allTabsMenu.inc.xhtml
 
-    <hbox id="downloads-animation-container" mousethrough="always">
+    <hbox id="downloads-animation-container">
       <vbox id="downloads-notification-anchor" hidden="true">
         <vbox id="downloads-indicator-notification"/>
       </vbox>
@@ -900,7 +887,7 @@
                        onclick="PageProxyClickHandler(event);"/>
                 <image id="permissions-granted-icon"
                        tooltiptext="&urlbar.permissionsGranted.tooltip;"/>
-                <box mousethrough="always">
+                <box style="pointer-events: none;">
                     <image class="sharing-icon" id="webrtc-sharing-icon"/>
                     <image class="sharing-icon geo-icon" id="geo-sharing-icon"/>
                 </box>
@@ -1211,7 +1198,6 @@
           <hbox flex="1">
             <hbox id="PlacesToolbarDropIndicatorHolder" align="center" collapsed="true">
               <image id="PlacesToolbarDropIndicator"
-                     mousethrough="always"
                      collapsed="true"/>
             </hbox>
             <scrollbox orient="horizontal"
@@ -1220,7 +1206,6 @@
             <toolbarbutton type="menu"
                            id="PlacesChevron"
                            class="toolbarbutton-1"
-                           mousethrough="never"
                            collapsed="true"
                            tooltiptext="&bookmarksToolbarChevron.tooltip;"
                            onpopupshowing="document.getElementById('PlacesToolbar')

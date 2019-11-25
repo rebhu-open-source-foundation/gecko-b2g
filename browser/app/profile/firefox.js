@@ -1307,6 +1307,8 @@ pref("browser.newtabpage.activity-stream.asrouter.useRemoteL10n", true);
 pref("browser.newtabpage.activity-stream.discoverystream.enabled", true);
 pref("browser.newtabpage.activity-stream.discoverystream.hardcoded-basic-layout", false);
 pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint", "");
+// List of langs that get the 7 row layout.
+pref("browser.newtabpage.activity-stream.discoverystream.lang-layout-config", "en");
 
 // The pref controls if search hand-off is enabled for Activity Stream.
 #ifdef NIGHTLY_BUILD
@@ -1507,19 +1509,8 @@ pref("media.autoplay.default", 1); // 0=Allowed, 1=Blocked, 5=All Blocked
   pref("media.autoplay.block-webaudio", false);
 #endif
 
-// Picture-in-Picture is currently enabled by default on Windows.
-#if defined(XP_WIN)
-  pref("media.videocontrols.picture-in-picture.enabled", true);
-  pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
-#endif
-
-// Picture-in-Picture is currently enabled on Nightly for macOS and Linux GTK.
-#if defined(XP_MACOSX) || defined(MOZ_WIDGET_GTK)
-  #if defined(NIGHTLY_BUILD)
-    pref("media.videocontrols.picture-in-picture.enabled", true);
-    pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
-  #endif
-#endif
+pref("media.videocontrols.picture-in-picture.enabled", true);
+pref("media.videocontrols.picture-in-picture.video-toggle.enabled", true);
 
 // Show the audio toggle for Picture-in-Picture.
 pref("media.videocontrols.picture-in-picture.audio-toggle.enabled", false);
@@ -1562,10 +1553,9 @@ pref("media.gmp-provider.enabled", true);
 
 // Enable blocking access to storage from tracking resources by default.
 pref("network.cookie.cookieBehavior", 4 /* BEHAVIOR_REJECT_TRACKER */);
-#ifdef EARLY_BETA_OR_EARLIER
-  // Enable fingerprinting blocking by default only in nightly and early beta.
-  pref("privacy.trackingprotection.fingerprinting.enabled", true);
-#endif
+
+// Enable fingerprinting blocking by default for all channels, only on desktop.
+pref("privacy.trackingprotection.fingerprinting.enabled", true);
 
 // Enable cryptomining blocking by default for all channels, only on desktop.
 pref("privacy.trackingprotection.cryptomining.enabled", true);

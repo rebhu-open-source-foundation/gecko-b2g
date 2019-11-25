@@ -431,11 +431,11 @@ pref("media.videocontrols.picture-in-picture.video-toggle.always-show", false);
   pref("media.navigator.video.red_ulpfec_enabled", false);
 
   #ifdef NIGHTLY_BUILD
-    pref("media.peerconnection.sdp.rust.enabled", true);
-    pref("media.peerconnection.sdp.rust.compare", true);
+    pref("media.peerconnection.sdp.parser", "sipcc");
+    pref("media.peerconnection.sdp.alternate_parse_mode", "never");
   #else
-    pref("media.peerconnection.sdp.rust.enabled", false);
-    pref("media.peerconnection.sdp.rust.compare", false);
+    pref("media.peerconnection.sdp.parser", "sipcc");
+    pref("media.peerconnection.sdp.alternate_parse_mode", "never");
   #endif
 
   pref("media.webrtc.debug.trace_mask", 0);
@@ -495,6 +495,7 @@ pref("media.videocontrols.picture-in-picture.video-toggle.always-show", false);
   #else
     pref("media.peerconnection.ice.obfuscate_host_addresses", true);
   #endif
+  pref("media.peerconnection.ice.obfuscate_host_addresses.whitelist", "");
   pref("media.peerconnection.ice.proxy_only_if_behind_proxy", false);
   pref("media.peerconnection.ice.proxy_only", false);
   pref("media.peerconnection.turn.disable", false);
