@@ -1623,8 +1623,9 @@ AbortReasonOr<Ok> IonBuilder::traverseBytecode() {
 
   // IonBuilder's destructor is not called, so make sure pendingEdges_ and
   // GSNCache are not holding onto malloc memory when we return.
+  pendingEdges_.emplace();
   auto freeMemory = mozilla::MakeScopeExit([&] {
-    pendingEdges_.clearAndCompact();
+    pendingEdges_.reset();
     gsn.purge();
   });
 
@@ -1748,7 +1749,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_goto(bool* restarted) {
 
 AbortReasonOr<Ok> IonBuilder::addPendingEdge(const PendingEdge& edge,
                                              jsbytecode* target) {
-  PendingEdgesMap::AddPtr p = pendingEdges_.lookupForAdd(target);
+  PendingEdgesMap::AddPtr p = pendingEdges_->lookupForAdd(target);
   if (p) {
     if (!p->value().append(edge)) {
       return abort(AbortReason::Alloc);
@@ -1761,7 +1762,7 @@ AbortReasonOr<Ok> IonBuilder::addPendingEdge(const PendingEdge& edge,
                 "Appending one element should be infallible");
   MOZ_ALWAYS_TRUE(edges.append(edge));
 
-  if (!pendingEdges_.add(p, target, std::move(edges))) {
+  if (!pendingEdges_->add(p, target, std::move(edges))) {
     return abort(AbortReason::Alloc);
   }
   return Ok();
@@ -2798,7 +2799,7 @@ AbortReasonOr<Ok> IonBuilder::restartLoop(MBasicBlock* header) {
   }
 
   // Remove loop header and dead blocks from pendingBlocks.
-  for (PendingEdgesMap::Range r = pendingEdges_.all(); !r.empty();
+  for (PendingEdgesMap::Range r = pendingEdges_->all(); !r.empty();
        r.popFront()) {
     PendingEdges& blocks = r.front().value();
     for (size_t i = blocks.length(); i > 0; i--) {
@@ -2886,81 +2887,6 @@ AbortReasonOr<Ok> IonBuilder::replaceTypeSet(MDefinition* subject,
     }
   }
   return Ok();
-}
-
-bool IonBuilder::detectAndOrStructure(MPhi* ins, bool* branchIsAnd) {
-  // Look for a triangle pattern:
-  //
-  //       initialBlock
-  //         /     |
-  // branchBlock   |
-  //         \     |
-  //        testBlock
-  //
-  // Where ins is a phi from testBlock which combines two values
-  // pushed onto the stack by initialBlock and branchBlock.
-
-  if (ins->numOperands() != 2) {
-    return false;
-  }
-
-  MBasicBlock* testBlock = ins->block();
-  MOZ_ASSERT(testBlock->numPredecessors() == 2);
-
-  MBasicBlock* initialBlock;
-  MBasicBlock* branchBlock;
-  if (testBlock->getPredecessor(0)->lastIns()->isTest()) {
-    initialBlock = testBlock->getPredecessor(0);
-    branchBlock = testBlock->getPredecessor(1);
-  } else if (testBlock->getPredecessor(1)->lastIns()->isTest()) {
-    initialBlock = testBlock->getPredecessor(1);
-    branchBlock = testBlock->getPredecessor(0);
-  } else {
-    return false;
-  }
-
-  if (branchBlock->numSuccessors() != 1) {
-    return false;
-  }
-
-  if (branchBlock->numPredecessors() != 1 ||
-      branchBlock->getPredecessor(0) != initialBlock) {
-    return false;
-  }
-
-  if (initialBlock->numSuccessors() != 2) {
-    return false;
-  }
-
-  MDefinition* branchResult =
-      ins->getOperand(testBlock->indexForPredecessor(branchBlock));
-  MDefinition* initialResult =
-      ins->getOperand(testBlock->indexForPredecessor(initialBlock));
-
-  if (branchBlock->stackDepth() != initialBlock->stackDepth()) {
-    return false;
-  }
-  if (branchBlock->stackDepth() != testBlock->stackDepth() + 1) {
-    return false;
-  }
-  if (branchResult != branchBlock->peek(-1) ||
-      initialResult != initialBlock->peek(-1)) {
-    return false;
-  }
-
-  MTest* initialTest = initialBlock->lastIns()->toTest();
-  bool branchIsTrue = branchBlock == initialTest->ifTrue();
-  if (initialTest->input() == ins->getOperand(0)) {
-    *branchIsAnd =
-        branchIsTrue != (testBlock->getPredecessor(0) == branchBlock);
-  } else if (initialTest->input() == ins->getOperand(1)) {
-    *branchIsAnd =
-        branchIsTrue != (testBlock->getPredecessor(1) == branchBlock);
-  } else {
-    return false;
-  }
-
-  return true;
 }
 
 AbortReasonOr<Ok> IonBuilder::improveTypesAtCompare(MCompare* ins,
@@ -3151,6 +3077,17 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtNullOrUndefinedCompare(
   return replaceTypeSet(subject, type, test);
 }
 
+AbortReasonOr<Ok> IonBuilder::improveTypesAtTestSuccessor(
+    MTest* test, MBasicBlock* successor) {
+  MOZ_ASSERT(successor->numPredecessors() == 1);
+  MOZ_ASSERT(test->block() == successor->getPredecessor(0));
+
+  MOZ_ASSERT(test->ifTrue() == successor || test->ifFalse() == successor);
+  bool trueBranch = test->ifTrue() == successor;
+
+  return improveTypesAtTest(test->getOperand(0), trueBranch, test);
+}
+
 AbortReasonOr<Ok> IonBuilder::improveTypesAtTest(MDefinition* ins,
                                                  bool trueBranch, MTest* test) {
   // We explore the test condition to try and deduce as much type information
@@ -3197,43 +3134,6 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtTest(MDefinition* ins,
       }
 
       return replaceTypeSet(subject, type, test);
-    }
-    case MDefinition::Opcode::Phi: {
-      bool branchIsAnd = true;
-      if (!detectAndOrStructure(ins->toPhi(), &branchIsAnd)) {
-        // Just fall through to the default behavior.
-        break;
-      }
-
-      // Now we have detected the triangular structure and determined if it
-      // was an AND or an OR.
-      if (branchIsAnd) {
-        if (trueBranch) {
-          MOZ_TRY(improveTypesAtTest(ins->toPhi()->getOperand(0), true, test));
-          MOZ_TRY(improveTypesAtTest(ins->toPhi()->getOperand(1), true, test));
-        }
-      } else {
-        /*
-         * if (a || b) {
-         *    ...
-         * } else {
-         *    ...
-         * }
-         *
-         * If we have a statements like the one described above,
-         * And we are in the else branch of it. It amounts to:
-         * if (!(a || b)) and being in the true branch.
-         *
-         * Simplifying, we have (!a && !b)
-         * In this case we can use the same logic we use for branchIsAnd
-         *
-         */
-        if (!trueBranch) {
-          MOZ_TRY(improveTypesAtTest(ins->toPhi()->getOperand(0), false, test));
-          MOZ_TRY(improveTypesAtTest(ins->toPhi()->getOperand(1), false, test));
-        }
-      }
-      return Ok();
     }
 
     case MDefinition::Opcode::Compare:
@@ -3360,6 +3260,25 @@ AbortReasonOr<Ok> IonBuilder::visitTestBackedge(JSOp op, bool* restarted) {
   return Ok();
 }
 
+// Returns true iff the MTest added for |op| has a true-target corresponding
+// with the join point in the bytecode.
+static bool TestTrueTargetIsJoinPoint(JSOp op) {
+  switch (op) {
+    case JSOP_IFNE:
+    case JSOP_OR:
+    case JSOP_CASE:
+      return true;
+
+    case JSOP_IFEQ:
+    case JSOP_AND:
+    case JSOP_COALESCE:
+      return false;
+
+    default:
+      MOZ_CRASH("Unexpected op");
+  }
+}
+
 AbortReasonOr<Ok> IonBuilder::visitTest(JSOp op, bool* restarted) {
   MOZ_ASSERT(op == JSOP_IFEQ || op == JSOP_IFNE || op == JSOP_AND ||
              op == JSOP_OR || op == JSOP_CASE);
@@ -3383,7 +3302,7 @@ AbortReasonOr<Ok> IonBuilder::visitTest(JSOp op, bool* restarted) {
   MTest* mir = newTest(ins, nullptr, nullptr);
   current->end(mir);
 
-  if (op == JSOP_OR || op == JSOP_CASE || op == JSOP_IFNE) {
+  if (TestTrueTargetIsJoinPoint(op)) {
     mozilla::Swap(target1, target2);
   }
 
@@ -3475,29 +3394,32 @@ AbortReasonOr<Ok> IonBuilder::visitTry() {
 }
 
 AbortReasonOr<Ok> IonBuilder::visitJumpTarget(JSOp op) {
-  PendingEdgesMap::Ptr p = pendingEdges_.lookup(pc);
+  PendingEdgesMap::Ptr p = pendingEdges_->lookup(pc);
   if (!p) {
     // No (reachable) jumps so this is just a no-op.
     return Ok();
   }
 
   PendingEdges edges(std::move(p->value()));
-  pendingEdges_.remove(p);
+  pendingEdges_->remove(p);
+
+  // Loop-restarts may clear the list rather than remove the map entry entirely.
+  // This is to reduce allocator churn since it is likely the list will be
+  // filled in again in the general case.
+  if (edges.empty()) {
+    return Ok();
+  }
 
   MBasicBlock* joinBlock = nullptr;
 
-  auto createFallthroughJoinBlock = [this, &joinBlock]() -> AbortReasonOr<Ok> {
-    MOZ_ASSERT(!joinBlock);
+  // Create join block if there's fall-through from the previous bytecode op.
+  if (!hasTerminatedBlock()) {
     MOZ_TRY_VAR(joinBlock, newBlock(current, pc));
     current->end(MGoto::New(alloc(), joinBlock));
     setTerminatedBlock();
-    return Ok();
-  };
+  }
 
   auto addEdge = [&](MBasicBlock* pred, size_t popped) -> AbortReasonOr<Ok> {
-    if (!joinBlock && !hasTerminatedBlock()) {
-      MOZ_TRY(createFallthroughJoinBlock());
-    }
     if (joinBlock) {
       if (!joinBlock->addPredecessorPopN(alloc(), pred, popped)) {
         return abort(AbortReason::Alloc);
@@ -3508,59 +3430,85 @@ AbortReasonOr<Ok> IonBuilder::visitJumpTarget(JSOp op) {
     return Ok();
   };
 
-  // For JSOP_AND, JSOP_OR, and JSOP_COALESCE we create an empty block for the
-  // case where they jump to the join point. This is not required for
-  // correctness but ensures we create a proper diamond structure the FoldTests
-  // pass can optimize.
-  auto createBlockForShortCircuit =
-      [&](MBasicBlock* pred) -> AbortReasonOr<MBasicBlock*> {
-    if (!joinBlock) {
-      MOZ_ASSERT(!hasTerminatedBlock());
-      MOZ_TRY(createFallthroughJoinBlock());
-    }
+  // When a block is terminated with an MTest instruction we can end up with the
+  // following triangle structure:
+  //
+  //        testBlock
+  //         /    |
+  //     block    |
+  //         \    |
+  //        joinBlock
+  //
+  // Although this is fine for correctness, it has the following issues:
+  //
+  // 1) The FoldTests pass is unable to optimize this pattern. This matters for
+  //    short-circuit operations (JSOP_AND, JSOP_COALESCE, etc).
+  //
+  // 2) We can't easily use improveTypesAtTest to improve type information in
+  //    this case:
+  //
+  //        var obj = ...;
+  //        if (obj === null) {
+  //          obj = {};
+  //        }
+  //        ... obj must be non-null ...
+  //
+  // To fix these issues, we create an empty block to get a diamond structure:
+  //
+  //        testBlock
+  //         /    |
+  //     block  emptyBlock
+  //         \    |
+  //        joinBlock
+  auto createEmptyBlockForTest =
+      [&](MBasicBlock* pred, size_t successor) -> AbortReasonOr<MBasicBlock*> {
+    MOZ_ASSERT(joinBlock);
 
-    MBasicBlock* trueBlock;
-    MOZ_TRY_VAR(trueBlock, newBlock(pred, pc));
-    graph().addBlock(trueBlock);
+    MBasicBlock* emptyBlock;
+    MOZ_TRY_VAR(emptyBlock, newBlock(pred, pc));
 
-    trueBlock->end(MGoto::New(alloc(), joinBlock));
-    if (!joinBlock->addPredecessor(alloc(), trueBlock)) {
-      return abort(AbortReason::Alloc);
-    }
+    MTest* test = pred->lastIns()->toTest();
+    test->initSuccessor(successor, emptyBlock);
 
-    return trueBlock;
+    MOZ_TRY(startTraversingBlock(emptyBlock));
+    MOZ_TRY(improveTypesAtTestSuccessor(test, emptyBlock));
+
+    emptyBlock->end(MGoto::New(alloc(), joinBlock));
+    setTerminatedBlock();
+
+    return emptyBlock;
   };
-
-  MTest* predecessorTest = nullptr;
 
   for (const PendingEdge& edge : edges) {
     MBasicBlock* source = edge.block();
     MControlInstruction* lastIns = source->lastIns();
     switch (edge.kind()) {
       case PendingEdge::Kind::TestTrue: {
-        MBasicBlock* successorBlock = nullptr;
-        if (edge.testOp() == JSOP_OR) {
-          MOZ_TRY_VAR(successorBlock, createBlockForShortCircuit(source));
+        // JSOP_CASE must pop the value when branching to the true-target.
+        size_t numPopped = (edge.testOp() == JSOP_CASE) ? 1 : 0;
+
+        if (joinBlock && TestTrueTargetIsJoinPoint(edge.testOp())) {
+          MBasicBlock* pred;
+          MOZ_TRY_VAR(pred,
+                      createEmptyBlockForTest(source, /* successor = */ 0));
+          MOZ_TRY(addEdge(pred, numPopped));
         } else {
-          // JSOP_CASE must pop the value when branching to the true-target.
-          MOZ_TRY(addEdge(source, (edge.testOp() == JSOP_CASE) ? 1 : 0));
-          successorBlock = joinBlock;
+          MOZ_TRY(addEdge(source, numPopped));
+          lastIns->toTest()->initSuccessor(0, joinBlock);
         }
-        predecessorTest = lastIns->toTest();
-        predecessorTest->initSuccessor(0, successorBlock);
         continue;
       }
 
       case PendingEdge::Kind::TestFalse: {
-        MBasicBlock* successorBlock = nullptr;
-        if (edge.testOp() == JSOP_AND || edge.testOp() == JSOP_COALESCE) {
-          MOZ_TRY_VAR(successorBlock, createBlockForShortCircuit(source));
+        if (joinBlock && !TestTrueTargetIsJoinPoint(edge.testOp())) {
+          MBasicBlock* pred;
+          MOZ_TRY_VAR(pred,
+                      createEmptyBlockForTest(source, /* successor = */ 1));
+          MOZ_TRY(addEdge(pred, 0));
         } else {
           MOZ_TRY(addEdge(source, 0));
-          successorBlock = joinBlock;
+          lastIns->toTest()->initSuccessor(1, joinBlock);
         }
-        predecessorTest = lastIns->toTest();
-        predecessorTest->initSuccessor(1, successorBlock);
         continue;
       }
 
@@ -3577,23 +3525,17 @@ AbortReasonOr<Ok> IonBuilder::visitJumpTarget(JSOp op) {
     MOZ_CRASH("Invalid kind");
   }
 
-  if (!joinBlock) {
-    return Ok();
-  }
-
+  MOZ_ASSERT(joinBlock);
   MOZ_TRY(startTraversingBlock(joinBlock));
 
   // If the join block has just one predecessor with an MTest, try to improve
   // type information.
-  if (predecessorTest && joinBlock->numPredecessors() == 1) {
-    MOZ_ASSERT(predecessorTest->block() == joinBlock->getPredecessor(0));
-
-    MOZ_ASSERT(predecessorTest->ifTrue() == joinBlock ||
-               predecessorTest->ifFalse() == joinBlock);
-    bool trueBranch = predecessorTest->ifTrue() == joinBlock;
-
-    MOZ_TRY(improveTypesAtTest(predecessorTest->getOperand(0), trueBranch,
-                               predecessorTest));
+  if (joinBlock->numPredecessors() == 1) {
+    MBasicBlock* pred = joinBlock->getPredecessor(0);
+    if (pred->lastIns()->isTest()) {
+      MTest* test = pred->lastIns()->toTest();
+      MOZ_TRY(improveTypesAtTestSuccessor(test, joinBlock));
+    }
   }
 
   return Ok();

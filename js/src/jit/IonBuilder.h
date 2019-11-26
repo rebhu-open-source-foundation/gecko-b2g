@@ -354,6 +354,8 @@ class IonBuilder : public MIRGenerator,
   // Improve the type information at tests
   AbortReasonOr<Ok> improveTypesAtTest(MDefinition* ins, bool trueBranch,
                                        MTest* test);
+  AbortReasonOr<Ok> improveTypesAtTestSuccessor(MTest* test,
+                                                MBasicBlock* successor);
   AbortReasonOr<Ok> improveTypesAtCompare(MCompare* ins, bool trueBranch,
                                           MTest* test);
   AbortReasonOr<Ok> improveTypesAtNullOrUndefinedCompare(MCompare* ins,
@@ -362,8 +364,6 @@ class IonBuilder : public MIRGenerator,
   AbortReasonOr<Ok> improveTypesAtTypeOfCompare(MCompare* ins, bool trueBranch,
                                                 MTest* test);
 
-  // Used to detect triangular structure at test.
-  bool detectAndOrStructure(MPhi* ins, bool* branchIsTrue);
   AbortReasonOr<Ok> replaceTypeSet(MDefinition* subject, TemporaryTypeSet* type,
                                    MTest* test);
 
@@ -1255,7 +1255,7 @@ class IonBuilder : public MIRGenerator,
 
   uint32_t loopDepth_;
 
-  PendingEdgesMap pendingEdges_;
+  mozilla::Maybe<PendingEdgesMap> pendingEdges_;
   LoopStateStack loopStack_;
 
   Vector<BytecodeSite*, 0, JitAllocPolicy> trackedOptimizationSites_;
@@ -1438,7 +1438,7 @@ class IonBuilder : public MIRGenerator,
   void trackInlineSuccessUnchecked(InliningStatus status);
 
  public:
-  const PendingEdgesMap& pendingEdges() const { return pendingEdges_; }
+  bool hasPendingEdgesMap() const { return pendingEdges_.isSome(); }
 
   // This is only valid for IonBuilders that have moved to background
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;

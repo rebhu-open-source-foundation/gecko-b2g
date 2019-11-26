@@ -72,7 +72,7 @@ var whitelist = [
   { file: "chrome://pdf.js/locale/viewer.properties" },
 
   // security/manager/pki/resources/content/device_manager.js
-  { file: "chrome://pippki/content/load_device.xul" },
+  { file: "chrome://pippki/content/load_device.xhtml" },
 
   // The l10n build system can't package string files only for some platforms.
   // See bug 1339424 for why this is hard to fix.
@@ -187,7 +187,7 @@ var whitelist = [
     platforms: ["linux", "win"],
   },
   // Bug 1348559
-  { file: "chrome://pippki/content/resetpassword.xul" },
+  { file: "chrome://pippki/content/resetpassword.xhtml" },
   // Bug 1337345
   { file: "resource://gre/modules/Manifest.jsm" },
   // Bug 1356045
@@ -221,6 +221,14 @@ var whitelist = [
   // Bug 1559554
   { file: "chrome://browser/content/aboutlogins/aboutLoginsUtils.js" },
 ];
+
+if (AppConstants.NIGHTLY_BUILD && AppConstants.platform != "win") {
+  // This path is refereneced in nsFxrCommandLineHandler.cpp, which is only
+  // compiled in Windows. Whitelisted this path so that non-Windows builds
+  // can access the FxR UI via --chrome rather than --fxr (which includes VR-
+  // specific functionality)
+  whitelist.push({ file: "chrome://fxr/content/fxrui.html" });
+}
 
 whitelist = new Set(
   whitelist

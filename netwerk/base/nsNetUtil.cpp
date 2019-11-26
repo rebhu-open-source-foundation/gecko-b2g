@@ -3152,6 +3152,15 @@ nsresult GetParameterHTTP(const nsACString& aHeaderVal, const char* aParamName,
                                                  aResult);
 }
 
+bool ChannelIsPost(nsIChannel* aChannel) {
+  if (nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aChannel)) {
+    nsAutoCString method;
+    Unused << httpChannel->GetRequestMethod(method);
+    return method.EqualsLiteral("POST");
+  }
+  return false;
+}
+
 bool SchemeIsHTTP(nsIURI* aURI) {
   MOZ_ASSERT(aURI);
   return aURI->SchemeIs("http");

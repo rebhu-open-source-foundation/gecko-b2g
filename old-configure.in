@@ -583,7 +583,7 @@ case "$target" in
 *-android*|*-linuxandroid*)
     if test -n "$gonkdir"; then
         AC_MSG_WARN([We're on Gonk/B2G, no need for the custom linker])
-    elif test "$COMPILE_ENVIRONMENT"; then
+    elif test "$COMPILE_ENVIRONMENT" -a -n "$MOZ_MEMORY"; then
         MOZ_LINKER=1
     fi
 
@@ -2571,8 +2571,12 @@ dnl =
 dnl ========================================================
 MOZ_ARG_HEADER(Static build options)
 
-ZLIB_IN_MOZGLUE=1
-AC_DEFINE(ZLIB_IN_MOZGLUE)
+if test -z "$MOZ_SYSTEM_ZLIB"; then
+if test -n "$JS_SHARED_LIBRARY" -o -n "$MOZ_LINKER" -o "$MOZ_WIDGET_TOOLKIT" = android -o "$MOZ_WIDGET_TOOLKIT" = gonk; then
+  ZLIB_IN_MOZGLUE=1
+  AC_DEFINE(ZLIB_IN_MOZGLUE)
+fi
+fi
 
 AC_SUBST(ZLIB_IN_MOZGLUE)
 
