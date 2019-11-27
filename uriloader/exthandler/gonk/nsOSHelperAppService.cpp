@@ -1407,3 +1407,9 @@ nsOSHelperAppService::GetProtocolHandlerInfoFromOS(const nsACString& aScheme,
 
   return NS_OK;
 }
+
+NS_IMETHODIMP
+nsOSHelperAppService::IsCurrentAppOSDefaultForProtocol(
+    const nsACString& aScheme, bool* _retval) {
+  return NS_ERROR_NOT_AVAILABLE;
+}

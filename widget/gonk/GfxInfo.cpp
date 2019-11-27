@@ -47,14 +47,14 @@ GfxInfo::GetAdapterDescription2(nsAString & aAdapterDescription)
 }
 
 NS_IMETHODIMP
-GfxInfo::GetAdapterRAM(nsAString & aAdapterRAM)
+GfxInfo::GetAdapterRAM(uint32_t* aAdapterRAM)
 {
-  aAdapterRAM.Truncate();
+  *aAdapterRAM = 0;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-GfxInfo::GetAdapterRAM2(nsAString & aAdapterRAM)
+GfxInfo::GetAdapterRAM2(uint32_t* aAdapterRAM)
 {
   return NS_ERROR_FAILURE;
 }
@@ -187,6 +187,16 @@ GfxInfo::GetFeatureStatusImpl(int32_t /*aFeature*/,
 
 NS_IMETHODIMP
 GfxInfo::GetDisplayInfo(nsTArray<nsString>& aDisplayInfo) {
+  return NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+GfxInfo::GetDisplayWidth(nsTArray<uint32_t>& aDisplayWidth) {
+  return NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
+GfxInfo::GetDisplayHeight(nsTArray<uint32_t>& aDisplayHeight) {
   return NS_ERROR_FAILURE;
 }
 
