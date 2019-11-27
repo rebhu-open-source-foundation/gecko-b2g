@@ -26,11 +26,11 @@ class SystemMessageService final : public nsISystemMessageService {
 
   static already_AddRefed<SystemMessageService> GetInstance();
 
-  void DoSubscribe(const nsAString& aMessageName, const nsACString& aWorkerSpec,
+  void DoSubscribe(const nsAString& aMessageName, const nsACString& aOrigin,
                    const nsACString& aScope, const nsACString& aOriginSuffix,
                    nsISystemMessageListener* aListener);
 
-  void Unsubscribe(nsIURI* aWorkerURI);
+  void Unsubscribe(const nsACString& aOrigin);
 
  private:
   SystemMessageService();

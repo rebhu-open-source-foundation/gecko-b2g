@@ -20,10 +20,10 @@ interface nsISystemMessageService : nsISupports
    * @parm workerURI   The URI of service worker which subscribes and receives
    *                   messages.
    */
-  void subscribe(in AString messageName, in nsIURI workerURI);
+  void subscribe(in AString messageName, in ACString origin);
 
   [implicit_jscontext]
-  void sendMessage(in AString messageName, in jsval message, in nsIURI workerURI);
+  void sendMessage(in AString messageName, in jsval message, in ACString origin);
 
   //[implicit_jscontext]
   //void broadcastMessage(in AString messageName, in jsval message);

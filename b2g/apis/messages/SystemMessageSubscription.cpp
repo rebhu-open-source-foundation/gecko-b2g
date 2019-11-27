@@ -118,16 +118,15 @@ SystemMessageSubscription::OnSubscribe(nsresult aStatus) {
 }
 
 nsresult SystemMessageSubscription::Subscribe() {
-  nsCOMPtr<nsIURI> uri;
-  mPrincipal->GetURI(getter_AddRefs(uri));
-  if (!uri) {
-    return NS_ERROR_DOM_BAD_URI;
+  nsresult rv;
+  nsAutoCString origin;
+  rv = mPrincipal->GetOrigin(origin);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
   }
-  nsAutoCString spec;
-  uri->GetSpec(spec);
 
   nsAutoCString originSuffix;
-  nsresult rv = mPrincipal->GetOriginSuffix(originSuffix);
+  rv = mPrincipal->GetOriginSuffix(originSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -136,7 +135,7 @@ nsresult SystemMessageSubscription::Subscribe() {
   if (contentChild) {
     SystemMessageServiceChild* child = new SystemMessageServiceChild(this);
     contentChild->SendPSystemMessageServiceConstructor(child);
-    SubscribeRequest request(mMessageName, spec, mScope, originSuffix);
+    SubscribeRequest request(mMessageName, origin, mScope, originSuffix);
     child->SendRequest(request);
     return NS_OK;
   }
@@ -144,7 +143,7 @@ nsresult SystemMessageSubscription::Subscribe() {
   // Call from parent process (in-proces app or directly from service worker).
   SystemMessageService* service = GetSystemMessageService();
   MOZ_ASSERT(service);
-  service->DoSubscribe(mMessageName, spec, mScope, originSuffix, this);
+  service->DoSubscribe(mMessageName, origin, mScope, originSuffix, this);
 
   return NS_OK;
 }

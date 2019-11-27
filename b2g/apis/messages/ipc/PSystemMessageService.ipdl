@@ -14,7 +14,7 @@ namespace dom {
 struct SubscribeRequest
 {
   nsString messageName;
-  nsCString spec;
+  nsCString origin;
   nsCString scope;
   nsCString originSuffix;
 };

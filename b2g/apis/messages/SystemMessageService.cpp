@@ -69,26 +69,20 @@ already_AddRefed<SystemMessageService> SystemMessageService::GetInstance() {
 // nsISystemMessageService methods
 NS_IMETHODIMP
 SystemMessageService::Subscribe(const nsAString& aMessageName,
-                                nsIURI* aWorkerURI) {
+                                const nsACString& aOrigin) {
   // Provide for subscribing from app's manifest during install.
   return NS_OK;
 }
 
 NS_IMETHODIMP
 SystemMessageService::SendMessage(const nsAString& aMessageName,
-                                  JS::HandleValue aMessage, nsIURI* aWorkerURI,
-                                  JSContext* aCx) {
-  if (!aWorkerURI) {
-    return NS_OK;
-  }
-
+                                  JS::HandleValue aMessage,
+                                  const nsACString& aOrigin, JSContext* aCx) {
   SubscriberTable* table = mSubscribers.Get(aMessageName);
   if (!table) {
     return NS_OK;
   }
-  nsCString workerSpec;
-  aWorkerURI->GetSpec(workerSpec);
-  SubscriberInfo* info = table->Get(workerSpec);
+  SubscriberInfo* info = table->Get(aOrigin);
   if (!info) {
     return NS_OK;
   }
@@ -108,29 +102,23 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
 }
 
 void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
-                                       const nsACString& aWorkerSpec,
+                                       const nsACString& aOrigin,
                                        const nsACString& aScope,
                                        const nsACString& aOriginSuffix,
                                        nsISystemMessageListener* aListener) {
   SubscriberTable* table = mSubscribers.LookupOrAdd(aMessageName);
   nsAutoPtr<SubscriberInfo> info(new SubscriberInfo(aScope, aOriginSuffix));
-  table->Put(aWorkerSpec, info.forget());
+  table->Put(aOrigin, info.forget());
   aListener->OnSubscribe(NS_OK);
 
   return;
 }
 
-void SystemMessageService::Unsubscribe(nsIURI* aWorkerURI) {
+void SystemMessageService::Unsubscribe(const nsACString& aOrigin) {
   // This will be call when an app is uninstalled.
-  if (!aWorkerURI) {
-    return;
-  }
-
-  nsCString workerSpec;
-  aWorkerURI->GetSpec(workerSpec);
   for (auto iter = mSubscribers.Iter(); !iter.Done(); iter.Next()) {
     SubscriberTable* table = iter.Data();
-    table->Remove(workerSpec);
+    table->Remove(aOrigin);
   }
 }
 

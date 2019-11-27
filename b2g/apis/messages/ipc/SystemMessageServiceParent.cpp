@@ -41,7 +41,7 @@ mozilla::ipc::IPCResult SystemMessageServiceParent::RecvRequest(
   switch (aRequest.type()) {
     case SystemMessageServiceRequest::TSubscribeRequest: {
       const SubscribeRequest& request = aRequest;
-      service->DoSubscribe(request.messageName(), request.spec(),
+      service->DoSubscribe(request.messageName(), request.origin(),
                            request.scope(), request.originSuffix(), this);
       break;
     }
