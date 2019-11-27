@@ -7715,7 +7715,6 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
   // new process.
   rv = NS_OK;
   if (!mCanceled) {
-    // notify "http-on-may-change-process" observers
     rv = ComputeCrossOriginOpenerPolicyMismatch();
 
     if (rv == NS_ERROR_BLOCKED_BY_POLICY) {
@@ -9774,8 +9773,7 @@ void nsHttpChannel::SetOriginHeader() {
   nsAutoCString origin("null");
   nsContentUtils::GetASCIIOrigin(referrer, origin);
 
-  // Restrict Origin to same-origin loads if requested by user or leaving from
-  // .onion
+  // Restrict Origin to same-origin loads if requested by user
   if (sSendOriginHeader == 1) {
     nsAutoCString currentOrigin;
     nsContentUtils::GetASCIIOrigin(mURI, currentOrigin);

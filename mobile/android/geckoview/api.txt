@@ -83,7 +83,6 @@ import org.mozilla.geckoview.SlowScriptResponse;
 import org.mozilla.geckoview.StorageController;
 import org.mozilla.geckoview.WebExtension;
 import org.mozilla.geckoview.WebExtensionController;
-import org.mozilla.geckoview.WebExtensionEventDispatcher;
 import org.mozilla.geckoview.WebMessage;
 import org.mozilla.geckoview.WebNotification;
 import org.mozilla.geckoview.WebNotificationDelegate;
@@ -1405,7 +1404,7 @@ package org.mozilla.geckoview {
     field @Nullable public final String badgeText;
     field @Nullable public final Integer badgeTextColor;
     field @Nullable public final Boolean enabled;
-    field @Nullable public final WebExtension.ActionIcon icon;
+    field @Nullable public final WebExtension.Icon icon;
     field @Nullable public final String title;
   }
 
@@ -1416,15 +1415,15 @@ package org.mozilla.geckoview {
     method @UiThread @Nullable default public GeckoResult<GeckoSession> onTogglePopup(@NonNull WebExtension, @NonNull WebExtension.Action);
   }
 
-  public static class WebExtension.ActionIcon {
-    ctor protected ActionIcon();
-    method @AnyThread @NonNull public GeckoResult<Bitmap> get(int);
-  }
-
   public static class WebExtension.Flags {
     ctor protected Flags();
     field public static final long ALLOW_CONTENT_MESSAGING = 1L;
     field public static final long NONE = 0L;
+  }
+
+  public static class WebExtension.Icon {
+    ctor protected Icon();
+    method @AnyThread @NonNull public GeckoResult<Bitmap> get(int);
   }
 
   @UiThread public static interface WebExtension.MessageDelegate {
@@ -1458,7 +1457,6 @@ package org.mozilla.geckoview {
   }
 
   public class WebExtensionController {
-    ctor protected WebExtensionController(GeckoRuntime, WebExtensionEventDispatcher);
     method @UiThread @Nullable public WebExtensionController.TabDelegate getTabDelegate();
     method @UiThread public void setTabDelegate(@Nullable WebExtensionController.TabDelegate);
   }

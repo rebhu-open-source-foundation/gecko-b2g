@@ -3332,10 +3332,59 @@ void BackgroundCursorChild::SendContinueInternal(
       break;
     }
 
-    case CursorRequestParams::TContinuePrimaryKeyParams:
-      // TODO: Implement preloading for this case
-      InvalidateCachedResponses();
+    case CursorRequestParams::TContinuePrimaryKeyParams: {
+      const auto& key = params.get_ContinuePrimaryKeyParams().key();
+      const auto& primaryKey =
+          params.get_ContinuePrimaryKeyParams().primaryKey();
+      if (key.IsUnset() || primaryKey.IsUnset()) {
+        break;
+      }
+
+      // Discard cache entries before the target key.
+      DiscardCachedResponses(
+          [&key, &primaryKey, isLocaleAware = mCursor->IsLocaleAware(),
+           keyCompareOperator = GetKeyOperator(mDirection),
+           transactionSerialNumber = mTransaction->LoggingSerialNumber(),
+           requestSerialNumber = mRequest->LoggingSerialNumber()](
+              const auto& currentCachedResponse) {
+            // This duplicates the logic from the parent. We could avoid this
+            // duplication if we invalidated the cached records always for any
+            // continue-with-key operation, but would lose the benefits of
+            // preloading then.
+            const auto& cachedSortKey =
+                isLocaleAware ? currentCachedResponse.mLocaleAwareKey
+                              : currentCachedResponse.mKey;
+            const auto& cachedSortPrimaryKey =
+                currentCachedResponse.mObjectStoreKey;
+
+            const bool discard =
+                (cachedSortKey == key &&
+                 !(cachedSortPrimaryKey.*keyCompareOperator)(primaryKey)) ||
+                !(cachedSortKey.*keyCompareOperator)(key);
+
+            if (discard) {
+              IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+                  "PRELOAD: Continue to key %s with primary key %s, discarding "
+                  "cached key %s with cached primary key %s",
+                  "Continue, discarding", transactionSerialNumber,
+                  requestSerialNumber, key.GetBuffer().get(),
+                  primaryKey.GetBuffer().get(), cachedSortKey.GetBuffer().get(),
+                  cachedSortPrimaryKey.GetBuffer().get());
+            } else {
+              IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
+                  "PRELOAD: Continue to key %s with primary key %s, keeping "
+                  "cached key %s with cached primary key %s and further",
+                  "Continue, keeping", transactionSerialNumber,
+                  requestSerialNumber, key.GetBuffer().get(),
+                  primaryKey.GetBuffer().get(), cachedSortKey.GetBuffer().get(),
+                  cachedSortPrimaryKey.GetBuffer().get());
+            }
+
+            return discard;
+          });
+
       break;
+    }
 
     case CursorRequestParams::TAdvanceParams: {
       uint32_t& advanceCount = params.get_AdvanceParams().count();
@@ -3536,7 +3585,7 @@ void BackgroundCursorChild::HandleResponse(const void_t& aResponse) {
 }
 
 template <typename... Args>
-void BackgroundCursorChild::HandleIndividualCursorResponse(
+RefPtr<IDBCursor> BackgroundCursorChild::HandleIndividualCursorResponse(
     const bool aUseAsCurrentResult, Args&&... aArgs) {
   if (mCursor) {
     if (aUseAsCurrentResult) {
@@ -3544,16 +3593,16 @@ void BackgroundCursorChild::HandleIndividualCursorResponse(
     } else {
       mCachedResponses.emplace_back(std::forward<Args>(aArgs)...);
     }
-  } else {
-    MOZ_ASSERT(aUseAsCurrentResult);
-
-    // TODO: This looks particularly dangerous to me. Why do we need to
-    // have an extra newCursor of type RefPtr? Why can't we directly
-    // assign to mCursor? Why is mCursor not a RefPtr?
-    RefPtr<IDBCursor> newCursor =
-        IDBCursor::Create(this, std::forward<Args>(aArgs)...);
-    mCursor = newCursor;
+    return nullptr;
   }
+
+  MOZ_ASSERT(aUseAsCurrentResult);
+
+  // TODO: This still looks quite dangerous to me. Why is mCursor not a RefPtr?
+  RefPtr<IDBCursor> newCursor =
+      IDBCursor::Create(this, std::forward<Args>(aArgs)...);
+  mCursor = newCursor;
+  return newCursor;
 }
 
 template <typename T, typename Func>
@@ -3575,6 +3624,10 @@ void BackgroundCursorChild::HandleMultipleCursorResponses(
   // XXX Fix this somehow...
   auto& responses = const_cast<nsTArray<T>&>(aResponses);
 
+  // If a new cursor is created, we need to keep a reference to it until the
+  // ResultHelper creates a DOM Binding.
+  RefPtr<IDBCursor> strongNewCursor;
+
   bool isFirst = true;
   for (auto& response : responses) {
     IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
@@ -3587,7 +3640,12 @@ void BackgroundCursorChild::HandleMultipleCursorResponses(
     // the current result, and the potential extra results are cached. If we
     // extended this towards preloading in the background, all results might
     // need to be cached.
-    aHandleRecord(/* aUseAsCurrentResult */ isFirst, response);
+    auto maybeNewCursor =
+        aHandleRecord(/* aUseAsCurrentResult */ isFirst, response);
+    if (maybeNewCursor) {
+      MOZ_ASSERT(!strongNewCursor);
+      strongNewCursor = std::move(maybeNewCursor);
+    }
     isFirst = false;
 
     if (mInFlightResponseInvalidationNeeded) {
@@ -3618,7 +3676,7 @@ void BackgroundCursorChild::HandleResponse(
         // TODO: Maybe move the deserialization of the clone-read-info into the
         // cursor, so that it is only done for records actually accessed, which
         // might not be the case for all cached records.
-        HandleIndividualCursorResponse(
+        return HandleIndividualCursorResponse(
             useAsCurrentResult, std::move(response.key()),
             DeserializeStructuredCloneReadInfo(std::move(response.cloneInfo()),
                                                mTransaction->Database()));
@@ -3633,8 +3691,8 @@ void BackgroundCursorChild::HandleResponse(
   HandleMultipleCursorResponses(
       aResponses, [this](const bool useAsCurrentResult,
                          ObjectStoreKeyCursorResponse& response) {
-        HandleIndividualCursorResponse(useAsCurrentResult,
-                                       std::move(response.key()));
+        return HandleIndividualCursorResponse(useAsCurrentResult,
+                                              std::move(response.key()));
       });
 }
 
@@ -3647,7 +3705,7 @@ void BackgroundCursorChild::HandleResponse(
   HandleMultipleCursorResponses(
       aResponses,
       [this](const bool useAsCurrentResult, IndexCursorResponse& response) {
-        HandleIndividualCursorResponse(
+        return HandleIndividualCursorResponse(
             useAsCurrentResult, std::move(response.key()),
             std::move(response.sortKey()), std::move(response.objectKey()),
             DeserializeStructuredCloneReadInfo(std::move(response.cloneInfo()),
@@ -3663,7 +3721,7 @@ void BackgroundCursorChild::HandleResponse(
   HandleMultipleCursorResponses(
       aResponses,
       [this](const bool useAsCurrentResult, IndexKeyCursorResponse& response) {
-        HandleIndividualCursorResponse(
+        return HandleIndividualCursorResponse(
             useAsCurrentResult, std::move(response.key()),
             std::move(response.sortKey()), std::move(response.objectKey()));
       });

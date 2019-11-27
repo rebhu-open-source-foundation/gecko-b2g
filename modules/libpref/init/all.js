@@ -2705,6 +2705,10 @@ pref("browser.tabs.remote.autostart", false);
 // of file:// URIs.
 pref("browser.tabs.remote.separateFileUriProcess", true);
 
+// Pref to control whether we put all data: uri's in the default
+// web process when running with fission.
+pref("browser.tabs.remote.dataUriInDefaultWebProcess", false);
+
 // Pref that enables top level web content pages that are opened from file://
 // URI pages to run in the file content process.
 // This has been added in case breaking any window references between these
@@ -3987,6 +3991,7 @@ pref("network.tcp.tcp_fastopen_http_stalls_timeout", 20);
 #endif
 #ifdef MOZ_WAYLAND
   pref("widget.wayland_dmabuf_backend.enabled", false);
+  pref("widget.wayland_vsync.enabled", false);
 #endif
 
 // Timeout for outbound network geolocation provider XHR
@@ -4437,6 +4442,7 @@ pref("browser.search.suggest.enabled.private", false);
 pref("browser.search.geoSpecificDefaults", false);
 pref("browser.search.geoip.url", "https://location.services.mozilla.com/v1/country?key=%MOZILLA_API_KEY%");
 pref("browser.search.geoip.timeout", 3000);
+pref("browser.search.modernConfig", false);
 pref("browser.search.separatePrivateDefault", false);
 pref("browser.search.separatePrivateDefault.ui.enabled", false);
 

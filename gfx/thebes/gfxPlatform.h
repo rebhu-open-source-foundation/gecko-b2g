@@ -908,6 +908,9 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
   virtual void InitPlatformGPUProcessPrefs() {}
   void InitOMTPConfig();
 
+  // Gather telemetry data about the Gfx Platform and send it
+  static void ReportTelemetry();
+
   static bool IsDXInterop2Blocked();
   static bool IsDXNV12Blocked();
   static bool IsDXP010Blocked();

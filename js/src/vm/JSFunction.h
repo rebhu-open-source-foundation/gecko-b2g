@@ -652,6 +652,8 @@ class JSFunction : public js::NativeObject {
 
   static bool delazifyLazilyInterpretedFunction(JSContext* cx,
                                                 js::HandleFunction fun);
+  static bool delazifySelfHostedLazyFunction(JSContext* cx,
+                                             js::HandleFunction fun);
   void maybeRelazify(JSRuntime* rt);
 
   // Function Scripts
@@ -674,12 +676,17 @@ class JSFunction : public js::NativeObject {
   static JSScript* getOrCreateScript(JSContext* cx, js::HandleFunction fun) {
     MOZ_ASSERT(fun->isInterpreted());
     MOZ_ASSERT(cx);
-    if (fun->isInterpretedLazy()) {
+
+    if (fun->hasLazyScript()) {
       if (!delazifyLazilyInterpretedFunction(cx, fun)) {
         return nullptr;
       }
-      return fun->nonLazyScript();
+    } else if (fun->hasSelfHostedLazyScript()) {
+      if (!delazifySelfHostedLazyFunction(cx, fun)) {
+        return nullptr;
+      }
     }
+
     return fun->nonLazyScript();
   }
 
@@ -702,11 +709,8 @@ class JSFunction : public js::NativeObject {
   // original function allocated by the frontend). Note that lazy self-hosted
   // builtins don't have a lazy script so in that case we also return nullptr.
   JSFunction* maybeCanonicalFunction() const {
-    if (hasScript()) {
-      return nonLazyScript()->function();
-    }
-    if (hasLazyScript()) {
-      return lazyScript()->function();
+    if (hasBaseScript()) {
+      return baseScript()->function();
     }
     return nullptr;
   }
@@ -749,6 +753,24 @@ class JSFunction : public js::NativeObject {
 
   static bool getLength(JSContext* cx, js::HandleFunction fun,
                         uint16_t* length);
+
+  js::Scope* enclosingScope() const {
+    if (hasScript()) {
+      return nonLazyScript()->enclosingScope();
+    }
+    if (hasLazyScript() && lazyScript()->hasEnclosingScope()) {
+      return lazyScript()->enclosingScope();
+    }
+    return nullptr;
+  }
+
+  void setEnclosingScope(js::Scope* enclosingScope) {
+    lazyScript()->setEnclosingScope(enclosingScope);
+  }
+
+  void setEnclosingLazyScript(js::LazyScript* enclosingScript) {
+    lazyScript()->setEnclosingLazyScript(enclosingScript);
+  }
 
   js::GeneratorKind generatorKind() const {
     if (hasBaseScript()) {

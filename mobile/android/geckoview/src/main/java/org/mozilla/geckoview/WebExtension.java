@@ -53,6 +53,16 @@ public class WebExtension {
      * {@link Flags} for this WebExtension.
      */
     public final @WebExtensionFlags long flags;
+
+    // TODO: make public
+    final MetaData metaData;
+
+    // TODO: make public
+    final boolean isBuiltIn;
+
+    // TODO: make public
+    final boolean isEnabled;
+
     /**
      * Delegates that handle messaging between this WebExtension and the app.
      */
@@ -91,29 +101,19 @@ public class WebExtension {
             value = { Flags.NONE, Flags.ALLOW_CONTENT_MESSAGING })
     /* package */ @interface WebExtensionFlags {}
 
-    /**
-     * Builds a WebExtension instance that can be loaded in GeckoView using
-     * {@link GeckoRuntime#registerWebExtension}
-     *
-     * @param location The WebExtension install location. It must be either a
-     *                 <code>resource:</code> URI to a folder inside the APK or
-     *                 a <code>file:</code> URL to a <code>.xpi</code> file.
-     * @param id Unique identifier for this WebExtension. This identifier must
-     *           either be a GUID or a string formatted like an email address.
-     *           E.g. <pre><code>
-     *              "extensionname@example.org"
-     *              "{daf44bf7-a45e-4450-979c-91cf07434c3d}"
-     *           </code></pre>
-     *
-     *           See also: <ul>
-     *           <li><a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/browser_specific_settings">
-     *                  WebExtensions/manifest.json/browser_specific_settings
-     *               </a>
-     *           <li><a href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/WebExtensions_and_the_Add-on_ID#When_do_you_need_an_add-on_ID">
-     *                  WebExtensions/WebExtensions_and_the_Add-on_ID
-     *               </a>
-     *           </ul>
-     */
+    /* package */ WebExtension(final GeckoBundle bundle) {
+        location = bundle.getString("locationURI");
+        id = bundle.getString("webExtensionId");
+        flags = bundle.getInt("webExtensionFlags", 0);
+        isBuiltIn = bundle.getBoolean("isBuiltIn", false);
+        isEnabled = bundle.getBoolean("isEnabled", false);
+        messageDelegates = new HashMap<>();
+        if (bundle.containsKey("metaData")) {
+            metaData = new MetaData(bundle.getBundle("metaData"));
+        } else {
+            metaData = null;
+        }
+    }
 
     /**
      * Builds a WebExtension instance that can be loaded in GeckoView using
@@ -145,6 +145,11 @@ public class WebExtension {
         this.id = id;
         this.flags = flags;
         this.messageDelegates = new HashMap<>();
+
+        // TODO:
+        this.isEnabled = false;
+        this.isBuiltIn = false;
+        this.metaData = null;
     }
 
     /**
@@ -491,7 +496,7 @@ public class WebExtension {
                     || "GeckoView:PageAction:OpenPopup".equals(event)
                     || "GeckoView:BrowserAction:Update".equals(event)
                     || "GeckoView:BrowserAction:OpenPopup".equals(event)) {
-                runtime.getWebExtensionDispatcher()
+                runtime.getWebExtensionController()
                         .handleMessage(event, message, callback, mSession);
                 return;
             } else if ("GeckoView:WebExtension:CloseTab".equals(event)) {
@@ -583,9 +588,9 @@ public class WebExtension {
     }
 
     /**
-     * Represents the Icon for a {@link Action}.
+     * Represents an icon, e.g. the browser action icon or the extension icon.
      */
-    public static class ActionIcon {
+    public static class Icon {
         private Map<Integer, String> mIconUris;
 
         /**
@@ -618,7 +623,7 @@ public class WebExtension {
             return ImageDecoder.instance().decode(uri, pixelSize);
         }
 
-        /* package */ ActionIcon(final GeckoBundle bundle) {
+        /* package */ Icon(final GeckoBundle bundle) {
             mIconUris = new HashMap<>();
 
             for (final String key: bundle.keys()) {
@@ -635,7 +640,7 @@ public class WebExtension {
         }
 
         /** Override for tests. */
-        protected ActionIcon() {
+        protected Icon() {
             mIconUris = null;
         }
 
@@ -645,11 +650,11 @@ public class WebExtension {
                 return true;
             }
 
-            if (!(o instanceof ActionIcon)) {
+            if (!(o instanceof Icon)) {
                 return false;
             }
 
-            return mIconUris.equals(((ActionIcon) o).mIconUris);
+            return mIconUris.equals(((Icon) o).mIconUris);
         }
 
         @Override
@@ -704,7 +709,7 @@ public class WebExtension {
          * <a target=_blank href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/browserAction/setIcon">
          *     browserAction/setIcon</a>
          */
-        final public @Nullable ActionIcon icon;
+        final public @Nullable Icon icon;
         /**
          * URI of the Popup to display when the user taps on the icon for this
          * Action.
@@ -788,7 +793,7 @@ public class WebExtension {
                     bundle.getDoubleArray("badgeTextColor"));
 
             if (bundle.containsKey("icon")) {
-                icon = new ActionIcon(bundle.getBundle("icon"));
+                icon = new Icon(bundle.getBundle("icon"));
             } else {
                 icon = null;
             }
@@ -1031,5 +1036,106 @@ public class WebExtension {
     @AnyThread
     public void setActionDelegate(final @Nullable ActionDelegate delegate) {
         actionDelegate = delegate;
+    }
+
+    // TODO: make public
+    // Keep in sync with AddonManager.jsm
+    static class SignedStateFlags {
+        final static int UNKNOWN = -1;
+        final static int MISSING = 0;
+        final static int PRELIMINARY = 1;
+        final static int SIGNED = 2;
+        final static int SYSTEM = 3;
+        final static int PRIVILEGED = 4;
+
+        /* package */ final static int LAST = PRIVILEGED;
+    }
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({ SignedStateFlags.UNKNOWN, SignedStateFlags.MISSING, SignedStateFlags.PRELIMINARY,
+        SignedStateFlags.SIGNED, SignedStateFlags.SYSTEM, SignedStateFlags.PRIVILEGED})
+    @interface SignedState {}
+
+    // TODO: make public
+    // Keep in sync with nsIBlocklistService.idl
+    static class BlockedReasonFlags {
+        final static int NOT_BLOCKED = 0;
+        final static int SOFTBLOCKED = 1;
+        final static int BLOCKED = 2;
+        final static int OUTDATED = 3;
+        final static int VULNERABLE_UPDATE_AVAILABLE = 4;
+        final static int VULNERABLE_NO_UPDATE = 5;
+    }
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({ BlockedReasonFlags.NOT_BLOCKED, BlockedReasonFlags.SOFTBLOCKED,
+            BlockedReasonFlags.BLOCKED, BlockedReasonFlags.OUTDATED,
+            BlockedReasonFlags.VULNERABLE_UPDATE_AVAILABLE,
+            BlockedReasonFlags.VULNERABLE_NO_UPDATE})
+    @interface BlockedReason {}
+
+    // TODO: make public
+    class MetaData {
+        final Icon icon;
+        final String[] permissions;
+        final String[] origins;
+        final String name;
+        final String description;
+        final String version;
+        final String creatorName;
+        final String creatorUrl;
+        final String homepageUrl;
+        final String optionsPageUrl;
+        final boolean openOptionsPageInTab;
+        final boolean isRecommended;
+        final @BlockedReason int blockedReason;
+        final @SignedState int signedState;
+
+        /** Override for testing. */
+        protected MetaData() {
+            icon = null;
+            permissions = null;
+            origins = null;
+            name = null;
+            description = null;
+            version = null;
+            creatorName = null;
+            creatorUrl = null;
+            homepageUrl = null;
+            optionsPageUrl = null;
+            openOptionsPageInTab = false;
+            isRecommended = false;
+            blockedReason = BlockedReasonFlags.NOT_BLOCKED;
+            signedState = SignedStateFlags.UNKNOWN;
+        }
+
+        /* package */ MetaData(final GeckoBundle bundle) {
+            permissions = bundle.getStringArray("permissions");
+            origins = bundle.getStringArray("origins");
+            description = bundle.getString("description");
+            version = bundle.getString("version");
+            creatorName = bundle.getString("creatorName");
+            creatorUrl = bundle.getString("creatorURL");
+            homepageUrl = bundle.getString("homepageURL");
+            name = bundle.getString("name");
+            optionsPageUrl = bundle.getString("optionsPageUrl");
+            openOptionsPageInTab = bundle.getBoolean("openOptionsPageInTab");
+            isRecommended = bundle.getBoolean("isRecommended");
+            blockedReason = bundle.getInt("blockedReason", BlockedReasonFlags.NOT_BLOCKED);
+
+            int signedState = bundle.getInt("signedState", SignedStateFlags.UNKNOWN);
+            if (signedState <= SignedStateFlags.LAST) {
+                this.signedState = signedState;
+            } else {
+                Log.e(LOGTAG, "Unrecognized signed state: " + signedState);
+                this.signedState = SignedStateFlags.UNKNOWN;
+            }
+
+            if (bundle.containsKey("icons")) {
+                icon = new Icon(bundle.getBundle("icons"));
+            } else {
+                icon = null;
+            }
+        }
     }
 }
