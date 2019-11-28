@@ -1528,8 +1528,14 @@ void CompositorOGL::DrawGeometry(const Geometry& aGeometry,
   ApplyPrimitiveConfig(config, aGeometry);
 
   ShaderProgramOGL* program = GetShaderProgramFor(config);
+#ifdef MOZ_WIDGET_GONK
+  //TODO:By pass shader error, waiting for support from the partner.
+  //Bug 76965 - follow up for shader compiler error.
+#else
   MOZ_DIAGNOSTIC_ASSERT(program);
+#endif
   if (!program) {
+    printf_stderr("Shader compiler error.");
     return;
   }
   ActivateProgram(program);
