@@ -17,11 +17,9 @@
 namespace mozilla {
 namespace hal_impl {
 
-static const int sRetryInterval = 100; // ms
+static const int sRetryInterval = 100;  // ms
 
-bool
-SystemServiceIsRunning(const char* aSvcName)
-{
+bool SystemServiceIsRunning(const char* aSvcName) {
   MOZ_ASSERT(NS_IsMainThread());
 
   char key[PROPERTY_KEY_MAX];
@@ -41,47 +39,63 @@ SystemServiceIsRunning(const char* aSvcName)
   return !strcmp(value, "running");
 }
 
-class StartSystemServiceTimerCallback final : public nsITimerCallback
-{
-  NS_DECL_THREADSAFE_ISUPPORTS;
+bool SystemServiceIsStopped(const char* aSvcName) {
+  MOZ_ASSERT(NS_IsMainThread());
 
-public:
-  StartSystemServiceTimerCallback(const char* aSvcName, const char* aArgs)
-    : mSvcName(aSvcName)
-    , mArgs(aArgs)
-  {
-    MOZ_COUNT_CTOR_INHERITED(StartSystemServiceTimerCallback,
-                             nsITimerCallback);
+  char key[PROPERTY_KEY_MAX];
+  auto res = snprintf(key, sizeof(key), "init.svc.%s", aSvcName);
+
+  if (res < 0) {
+    HAL_ERR("snprintf: %s", strerror(errno));
+    return false;
+  } else if (static_cast<size_t>(res) >= sizeof(key)) {
+    HAL_ERR("snprintf: trunctated service name %s", aSvcName);
+    return false;
   }
 
-  NS_IMETHOD Notify(nsITimer* aTimer) override
-  {
+  char value[PROPERTY_VALUE_MAX];
+  NS_WARN_IF(property_get(key, value, "") < 0);
+
+  return !strcmp(value, "stopped");
+}
+
+class StartSystemServiceTimerCallback final : public nsITimerCallback {
+  NS_DECL_THREADSAFE_ISUPPORTS;
+
+ public:
+  StartSystemServiceTimerCallback(const char* aSvcName, const char* aArgs)
+      : mSvcName(aSvcName), mArgs(aArgs) {
+    MOZ_COUNT_CTOR_INHERITED(StartSystemServiceTimerCallback, nsITimerCallback);
+  }
+
+  NS_IMETHOD Notify(nsITimer* aTimer) override {
     MOZ_ASSERT(NS_IsMainThread());
 
     return StartSystemService(mSvcName.get(), mArgs.get());
   }
 
-protected:
-  ~StartSystemServiceTimerCallback()
-  {
-    MOZ_COUNT_DTOR_INHERITED(StartSystemServiceTimerCallback,
-                             nsITimerCallback);
+ protected:
+  ~StartSystemServiceTimerCallback() {
+    MOZ_COUNT_DTOR_INHERITED(StartSystemServiceTimerCallback, nsITimerCallback);
   }
 
-private:
+ private:
   nsCString mSvcName;
   nsCString mArgs;
 };
 
 NS_IMPL_ISUPPORTS0(StartSystemServiceTimerCallback);
 
-nsresult
-StartSystemService(const char* aSvcName, const char* aArgs)
-{
+nsresult StartSystemService(const char* aSvcName, const char* aArgs) {
   MOZ_ASSERT(NS_IsMainThread());
 
   char value[PROPERTY_VALUE_MAX];
+#if ANDROID_VERSION <= 23
   auto res = snprintf(value, sizeof(value), "%s:%s", aSvcName, aArgs);
+#else
+  // 'ctl.start' can't start service with dynamic arguments anymore
+  auto res = snprintf(value, sizeof(value), "%s", aSvcName);
+#endif
 
   if (res < 0) {
     HAL_ERR("snprintf: %s", strerror(errno));
@@ -109,23 +123,20 @@ StartSystemService(const char* aSvcName, const char* aArgs)
     }
 
     RefPtr<StartSystemServiceTimerCallback> timerCallback =
-      new StartSystemServiceTimerCallback(aSvcName, aArgs);
+        new StartSystemServiceTimerCallback(aSvcName, aArgs);
 
-    timer->InitWithCallback(timerCallback,
-                            sRetryInterval,
+    timer->InitWithCallback(timerCallback, sRetryInterval,
                             nsITimer::TYPE_ONE_SHOT);
   }
 
   return NS_OK;
 }
 
-void
-StopSystemService(const char* aSvcName)
-{
+void StopSystemService(const char* aSvcName) {
   MOZ_ASSERT(NS_IsMainThread());
 
   Unused << NS_WARN_IF(property_set("ctl.stop", aSvcName));
 }
 
-} // namespace hal_impl
-} // namespace mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

@@ -3,7 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
- 
+
 with Files('**'):
     BUG_COMPONENT = ('Core', 'Hardware Abstraction Layer (HAL)')
 
@@ -58,10 +58,10 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         # TODO: FIXME 'gonk/GonkSensorsPollInterface.cpp',
         # TODO: FIXME 'gonk/GonkSensorsRegistryInterface.cpp',
         # TODO: FIXME 'gonk/GonkSwitch.cpp',
-        # TODO: FIXME 'gonk/SystemService.cpp',
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
         'fallback/FallbackSensor.cpp',
+        'gonk/SystemService.cpp',
         'gonk/UeventPoller.cpp',
         'linux/LinuxMemory.cpp',
         # TODO: FIXME 'linux/LinuxPower.cpp',
@@ -130,6 +130,12 @@ else:
         'fallback/FallbackScreenConfiguration.cpp',
         'fallback/FallbackSensor.cpp',
         'fallback/FallbackVibration.cpp',
+    ]
+
+# Fallbacks for backends implemented on Gonk only.
+if CONFIG['MOZ_WIDGET_TOOLKIT'] != 'gonk':
+    UNIFIED_SOURCES += [
+        'fallback/FallbackSystemService.cpp',
     ]
 
 # Fallbacks for backends implemented on Android only.

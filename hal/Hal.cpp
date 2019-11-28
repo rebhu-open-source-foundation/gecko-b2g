@@ -502,5 +502,26 @@ void Shutdown() {
   sInitialized = false;
 }
 
+nsresult StartSystemService(const char* aSvcName, const char* aArgs) {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(StartSystemService(aSvcName, aArgs),
+                            NS_ERROR_FAILURE);
+}
+
+void StopSystemService(const char* aSvcName) {
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(StopSystemService(aSvcName));
+}
+
+bool SystemServiceIsRunning(const char* aSvcName) {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(SystemServiceIsRunning(aSvcName), false);
+}
+
+bool SystemServiceIsStopped(const char* aSvcName) {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(SystemServiceIsStopped(aSvcName), false);
+}
+
 }  // namespace hal
 }  // namespace mozilla

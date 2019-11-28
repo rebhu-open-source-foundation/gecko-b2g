@@ -289,6 +289,22 @@ void SetProcessPriority(int aPid, hal::ProcessPriority aPriority);
  */
 uint32_t GetTotalSystemMemory();
 
+/**
+ * Start the system service with the specified name and arguments.
+ */
+nsresult StartSystemService(const char* aSvcName, const char* aArgs);
+
+/**
+ * Stop the system service with the specified name.
+ */
+void StopSystemService(const char* aSvcName);
+
+/**
+ * Determine whether the system service with the specified name is running.
+ */
+bool SystemServiceIsRunning(const char* aSvcName);
+bool SystemServiceIsStopped(const char* aSvcName);
+
 }  // namespace MOZ_HAL_NAMESPACE
 }  // namespace mozilla
 

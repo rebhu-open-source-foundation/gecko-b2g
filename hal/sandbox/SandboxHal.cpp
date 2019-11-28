@@ -164,6 +164,25 @@ bool SetProcessPrioritySupported() {
   MOZ_CRASH("Only the main process may call SetProcessPrioritySupported().");
 }
 
+nsresult StartSystemService(const char* aSvcName, const char* aArgs) {
+  MOZ_CRASH("System services cannot be controlled from sandboxed contexts.");
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+void StopSystemService(const char* aSvcName) {
+  MOZ_CRASH("System services cannot be controlled from sandboxed contexts.");
+}
+
+bool SystemServiceIsRunning(const char* aSvcName) {
+  MOZ_CRASH("System services cannot be controlled from sandboxed contexts.");
+  return false;
+}
+
+bool SystemServiceIsStopped(const char* aSvcName) {
+  MOZ_CRASH("System services cannot be controlled from sandboxed contexts.");
+  return true;
+}
+
 class HalParent : public PHalParent,
                   public BatteryObserver,
                   public NetworkObserver,
