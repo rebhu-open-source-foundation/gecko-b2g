@@ -64,6 +64,8 @@ using namespace mozilla::dom;
 using namespace mozilla::widget;
 
 #if ANDROID_VERSION >= 26
+#include "NativeGralloc.h"
+
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
 #endif
@@ -457,7 +459,11 @@ nsScreenGonk::StartRemoteDrawing()
 
     mFramebuffer = DequeueBuffer();
     int width = mFramebuffer->width, height = mFramebuffer->height;
+#if ANDROID_VERSION >= 26
+    if (native_gralloc_lock(mFramebuffer->handle,
+#else
     if (gralloc_module()->lock(gralloc_module(), mFramebuffer->handle,
+#endif
                                GRALLOC_USAGE_SW_READ_NEVER |
                                GRALLOC_USAGE_SW_WRITE_OFTEN |
                                GRALLOC_USAGE_HW_FB,
@@ -510,7 +516,11 @@ nsScreenGonk::EndRemoteDrawing()
     }
     if (mMappedBuffer) {
         MOZ_ASSERT(mFramebuffer);
+#if ANDROID_VERSION >= 26
+        native_gralloc_unlock(mFramebuffer->handle);
+#else
         gralloc_module()->unlock(gralloc_module(), mFramebuffer->handle);
+#endif
         mMappedBuffer = nullptr;
     }
     if (mFramebuffer) {
@@ -566,7 +576,11 @@ nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer)
 
     int width = aBuffer->width, height = aBuffer->height;
     uint8_t* mappedBuffer = nullptr;
+#if ANDROID_VERSION >= 26
+    if (native_gralloc_lock(aBuffer->handle,
+#else
     if (gralloc_module()->lock(gralloc_module(), aBuffer->handle,
+#endif
                                GRALLOC_USAGE_SW_READ_OFTEN |
                                GRALLOC_USAGE_SW_WRITE_OFTEN,
                                0, 0, width, height,
@@ -599,7 +613,12 @@ nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer)
             aBuffer->stride * aBuffer->height * gfx::BytesPerPixel(format));
         mappedBuffer = nullptr;
     }
+#if ANDROID_VERSION >= 26
+    native_gralloc_unlock(aBuffer->handle);
+#else
     gralloc_module()->unlock(gralloc_module(), aBuffer->handle);
+#endif
+
     return NS_OK;
 }
 

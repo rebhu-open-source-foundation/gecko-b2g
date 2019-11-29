@@ -140,6 +140,45 @@ GonkDisplay * GetGonkDisplay() {
   }
   return display;
 }
+
+typedef int (*fnNative_Gralloc_Lock)(buffer_handle_t handle, int usage, int l, int t, int w, int h, void **vaddr);
+int native_gralloc_lock(buffer_handle_t handle, int usage, int l, int t, int w, int h, void **vaddr) {
+  int result = 0;
+  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
+  if (lib == nullptr) {
+    ALOGE("Could not dlopen(\"libcarthage.so\"):");
+    return result;
+  }
+
+  fnNative_Gralloc_Lock func = (fnNative_Gralloc_Lock) dlsym(lib, "native_gralloc_lock") ;
+  if (func == nullptr) {
+    ALOGE("Symbol 'native_gralloc_lock' is missing from shared library!!\n");
+    return result;
+  }
+
+  result = func(handle, usage, l, t, w, h, vaddr);
+  return result;
+}
+
+typedef int (*fnNative_Gralloc_Unlock)(buffer_handle_t handle);
+int native_gralloc_unlock(buffer_handle_t handle) {
+  int result = 0;
+  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
+  if (lib == nullptr) {
+    ALOGE("Could not dlopen(\"libcarthage.so\"):");
+    return result;
+  }
+
+  fnNative_Gralloc_Unlock func = (fnNative_Gralloc_Unlock) dlsym(lib, "native_gralloc_unlock") ;
+  if (func == nullptr) {
+    ALOGE("Symbol 'native_gralloc_unlock' is missing from shared library!!\n");
+    return result;
+  }
+
+  result = func(handle);
+  return result;
+}
+
 #endif
 
 namespace mozilla {
