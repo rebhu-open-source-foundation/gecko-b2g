@@ -843,7 +843,7 @@ AnimationThread(void *)
     Animation &primAnimation = animVec.back();
 #if ANDROID_VERSION >= 26
     primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
-    primAnimation.format = HAL_PIXEL_FORMAT_RGBX_8888;//dispData.mSurfaceformat;
+    primAnimation.format = dispData.mSurfaceformat;
     if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
         LOGW("Failed to load boot animation file for primary screen");
         ShowSolidColorFrame(display, dispData.mSurfaceformat,
