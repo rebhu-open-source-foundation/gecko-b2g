@@ -631,147 +631,177 @@ AbortReasonOr<Ok> IonBuilder::analyzeNewLoopTypes(MBasicBlock* entry,
   BytecodeLocation end(script_, loopStopPc);
 
   // Iterate the bytecode quickly to seed possible types in the loopheader.
-  BytecodeLocation last = start;
-  BytecodeLocation earlier = last;
+  Maybe<BytecodeLocation> last;
+  Maybe<BytecodeLocation> earlier;
 
   for (auto it : BytecodeLocationRange(start, end)) {
-    // Keeping track of previous BytecodeLocation values
+    MOZ_TRY(analyzeNewLoopTypesForLocation(entry, it, last, earlier));
     earlier = last;
-    last = it;
-
-    uint32_t slot;
-
-    if (it.is(JSOP_SETLOCAL)) {
-      slot = info().localSlot(it.local());
-    } else if (it.is(JSOP_SETARG)) {
-      slot = info().argSlotUnchecked(it.arg());
-    } else {
-      continue;
-    }
-    if (slot >= info().firstStackSlot()) {
-      continue;
-    }
-    if (!last.isValid(script_)) {
-      continue;
-    }
-
-    MPhi* phi = entry->getSlot(slot)->toPhi();
-
-    if (last.is(JSOP_POS) || last.is(JSOP_TONUMERIC)) {
-      last = earlier;
-    }
-
-    if (last.opHasTypeSet()) {
-      TemporaryTypeSet* typeSet = bytecodeTypes(last.toRawBytecode());
-      if (!typeSet->empty()) {
-        MIRType type = typeSet->getKnownMIRType();
-        if (!phi->addBackedgeType(alloc(), type, typeSet)) {
-          return abort(AbortReason::Alloc);
-        }
-      }
-    } else if (last.is(JSOP_GETLOCAL) || last.is(JSOP_GETARG)) {
-      uint32_t slot = (last.is(JSOP_GETLOCAL))
-                          ? info().localSlot(last.local())
-                          : info().argSlotUnchecked(last.arg());
-      if (slot < info().firstStackSlot()) {
-        MPhi* otherPhi = entry->getSlot(slot)->toPhi();
-        if (otherPhi->hasBackedgeType()) {
-          if (!phi->addBackedgeType(alloc(), otherPhi->type(),
-                                    otherPhi->resultTypeSet())) {
-            return abort(AbortReason::Alloc);
-          }
-        }
-      }
-    } else {
-      MIRType type = MIRType::None;
-      switch (last.getOp()) {
-        case JSOP_VOID:
-        case JSOP_UNDEFINED:
-          type = MIRType::Undefined;
-          break;
-        case JSOP_GIMPLICITTHIS:
-          if (!script()->hasNonSyntacticScope()) {
-            type = MIRType::Undefined;
-          }
-          break;
-        case JSOP_NULL:
-          type = MIRType::Null;
-          break;
-        case JSOP_ZERO:
-        case JSOP_ONE:
-        case JSOP_INT8:
-        case JSOP_INT32:
-        case JSOP_UINT16:
-        case JSOP_UINT24:
-        case JSOP_RESUMEINDEX:
-          type = MIRType::Int32;
-          break;
-        case JSOP_BITAND:
-        case JSOP_BITOR:
-        case JSOP_BITXOR:
-        case JSOP_BITNOT:
-        case JSOP_RSH:
-        case JSOP_LSH:
-          type = inspector->expectedResultType(last.toRawBytecode());
-          break;
-        case JSOP_URSH:
-          // Unsigned right shift is not applicable to BigInts, so we don't need
-          // to query the baseline inspector for the possible result types.
-          type = MIRType::Int32;
-          break;
-        case JSOP_FALSE:
-        case JSOP_TRUE:
-        case JSOP_EQ:
-        case JSOP_NE:
-        case JSOP_LT:
-        case JSOP_LE:
-        case JSOP_GT:
-        case JSOP_GE:
-        case JSOP_NOT:
-        case JSOP_STRICTEQ:
-        case JSOP_STRICTNE:
-        case JSOP_IN:
-        case JSOP_INSTANCEOF:
-        case JSOP_HASOWN:
-          type = MIRType::Boolean;
-          break;
-        case JSOP_DOUBLE:
-          type = MIRType::Double;
-          break;
-        case JSOP_ITERNEXT:
-        case JSOP_STRING:
-        case JSOP_TOSTRING:
-        case JSOP_TYPEOF:
-        case JSOP_TYPEOFEXPR:
-          type = MIRType::String;
-          break;
-        case JSOP_SYMBOL:
-          type = MIRType::Symbol;
-          break;
-        case JSOP_ADD:
-        case JSOP_SUB:
-        case JSOP_MUL:
-        case JSOP_DIV:
-        case JSOP_MOD:
-        case JSOP_NEG:
-        case JSOP_INC:
-        case JSOP_DEC:
-          type = inspector->expectedResultType(last.toRawBytecode());
-          break;
-        case JSOP_BIGINT:
-          type = MIRType::BigInt;
-          break;
-        default:
-          break;
-      }
-      if (type != MIRType::None) {
-        if (!phi->addBackedgeType(alloc(), type, nullptr)) {
-          return abort(AbortReason::Alloc);
-        }
-      }
-    }
+    last = mozilla::Some(it);
   }
+
   return Ok();
+}
+
+AbortReasonOr<Ok> IonBuilder::analyzeNewLoopTypesForLocation(
+    MBasicBlock* entry, const BytecodeLocation loc,
+    const Maybe<BytecodeLocation>& last_,
+    const Maybe<BytecodeLocation>& earlier) {
+  // Unfortunately Maybe<> cannot be passed as by-value argument so make a copy
+  // here.
+  Maybe<BytecodeLocation> last = last_;
+
+  // We're only interested in JSOP_SETLOCAL and JSOP_SETARG.
+  uint32_t slot;
+  if (loc.is(JSOP_SETLOCAL)) {
+    slot = info().localSlot(loc.local());
+  } else if (loc.is(JSOP_SETARG)) {
+    slot = info().argSlotUnchecked(loc.arg());
+  } else {
+    return Ok();
+  }
+  if (slot >= info().firstStackSlot()) {
+    return Ok();
+  }
+
+  // Ensure there is a |last| instruction.
+  if (!last) {
+    return Ok();
+  }
+  MOZ_ASSERT(last->isValid(script_));
+
+  // Analyze the |last| bytecode instruction to try to dermine the type of this
+  // local/argument.
+
+  MPhi* phi = entry->getSlot(slot)->toPhi();
+
+  auto addPhiBackedgeType =
+      [&](MIRType type, TemporaryTypeSet* typeSet) -> AbortReasonOr<Ok> {
+    if (!phi->addBackedgeType(alloc(), type, typeSet)) {
+      return abort(AbortReason::Alloc);
+    }
+    return Ok();
+  };
+
+  // If it's a JSOP_POS or JSOP_TONUMERIC, use its operand instead.
+  if (last->is(JSOP_POS) || last->is(JSOP_TONUMERIC)) {
+    MOZ_ASSERT(earlier);
+    last = earlier;
+  }
+
+  // If the |last| op had a TypeSet, use it.
+  if (last->opHasTypeSet()) {
+    TemporaryTypeSet* typeSet = bytecodeTypes(last->toRawBytecode());
+    if (typeSet->empty()) {
+      return Ok();
+    }
+    return addPhiBackedgeType(typeSet->getKnownMIRType(), typeSet);
+  }
+
+  // If the |last| op was a JSOP_GETLOCAL or JSOP_GETARG, use that slot's type.
+  if (last->is(JSOP_GETLOCAL) || last->is(JSOP_GETARG)) {
+    uint32_t slot = (last->is(JSOP_GETLOCAL))
+                        ? info().localSlot(last->local())
+                        : info().argSlotUnchecked(last->arg());
+    if (slot >= info().firstStackSlot()) {
+      return Ok();
+    }
+    MPhi* otherPhi = entry->getSlot(slot)->toPhi();
+    if (!otherPhi->hasBackedgeType()) {
+      return Ok();
+    }
+    return addPhiBackedgeType(otherPhi->type(), otherPhi->resultTypeSet());
+  }
+
+  // If the |last| op has a known type (determined statically or from
+  // BaselineInspector), use that.
+  MIRType type = MIRType::None;
+  switch (last->getOp()) {
+    case JSOP_VOID:
+    case JSOP_UNDEFINED:
+      type = MIRType::Undefined;
+      break;
+    case JSOP_GIMPLICITTHIS:
+      if (!script()->hasNonSyntacticScope()) {
+        type = MIRType::Undefined;
+      }
+      break;
+    case JSOP_NULL:
+      type = MIRType::Null;
+      break;
+    case JSOP_ZERO:
+    case JSOP_ONE:
+    case JSOP_INT8:
+    case JSOP_INT32:
+    case JSOP_UINT16:
+    case JSOP_UINT24:
+    case JSOP_RESUMEINDEX:
+      type = MIRType::Int32;
+      break;
+    case JSOP_BITAND:
+    case JSOP_BITOR:
+    case JSOP_BITXOR:
+    case JSOP_BITNOT:
+    case JSOP_RSH:
+    case JSOP_LSH:
+      type = inspector->expectedResultType(last->toRawBytecode());
+      break;
+    case JSOP_URSH:
+      // Unsigned right shift is not applicable to BigInts, so we don't need
+      // to query the baseline inspector for the possible result types.
+      type = MIRType::Int32;
+      break;
+    case JSOP_FALSE:
+    case JSOP_TRUE:
+    case JSOP_EQ:
+    case JSOP_NE:
+    case JSOP_LT:
+    case JSOP_LE:
+    case JSOP_GT:
+    case JSOP_GE:
+    case JSOP_NOT:
+    case JSOP_STRICTEQ:
+    case JSOP_STRICTNE:
+    case JSOP_IN:
+    case JSOP_INSTANCEOF:
+    case JSOP_HASOWN:
+      type = MIRType::Boolean;
+      break;
+    case JSOP_DOUBLE:
+      type = MIRType::Double;
+      break;
+    case JSOP_ITERNEXT:
+    case JSOP_STRING:
+    case JSOP_TOSTRING:
+    case JSOP_TYPEOF:
+    case JSOP_TYPEOFEXPR:
+      type = MIRType::String;
+      break;
+    case JSOP_SYMBOL:
+      type = MIRType::Symbol;
+      break;
+    case JSOP_ADD:
+    case JSOP_SUB:
+    case JSOP_MUL:
+    case JSOP_DIV:
+    case JSOP_MOD:
+    case JSOP_NEG:
+    case JSOP_INC:
+    case JSOP_DEC:
+      type = inspector->expectedResultType(last->toRawBytecode());
+      break;
+    case JSOP_BIGINT:
+      type = MIRType::BigInt;
+      break;
+    default:
+      break;
+  }
+
+  if (type == MIRType::None) {
+    return Ok();
+  }
+
+  return addPhiBackedgeType(type, /* typeSet = */ nullptr);
 }
 
 AbortReasonOr<Ok> IonBuilder::init() {
@@ -3135,6 +3165,46 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtTest(MDefinition* ins,
 
       return replaceTypeSet(subject, type, test);
     }
+    case MDefinition::Opcode::IsNullOrUndefined: {
+      MDefinition* subject = ins->getOperand(0);
+      TemporaryTypeSet* oldType = subject->resultTypeSet();
+
+      // Create temporary typeset equal to the type if there is no
+      // resultTypeSet.
+      TemporaryTypeSet tmp;
+      if (!oldType) {
+        if (subject->type() == MIRType::Value) {
+          return Ok();
+        }
+        oldType = &tmp;
+        tmp.addType(
+            TypeSet::PrimitiveType(ValueTypeFromMIRType(subject->type())),
+            alloc_->lifoAlloc());
+      }
+
+      // If ins does not have a typeset we return as we cannot optimize.
+      if (oldType->unknown()) {
+        return Ok();
+      }
+
+      // Decide either to set or remove.
+      TemporaryTypeSet filter;
+      filter.addType(TypeSet::UndefinedType(), alloc_->lifoAlloc());
+      filter.addType(TypeSet::NullType(), alloc_->lifoAlloc());
+
+      TemporaryTypeSet* type;
+      if (trueBranch) {
+        type = TypeSet::intersectSets(&filter, oldType, alloc_->lifoAlloc());
+      } else {
+        type = TypeSet::removeSet(oldType, &filter, alloc_->lifoAlloc());
+      }
+
+      if (!type) {
+        return abort(AbortReason::Alloc);
+      }
+
+      return replaceTypeSet(subject, type, test);
+    }
 
     case MDefinition::Opcode::Compare:
       return improveTypesAtCompare(ins->toCompare(), trueBranch, test);
@@ -3290,6 +3360,10 @@ AbortReasonOr<Ok> IonBuilder::visitTest(JSOp op, bool* restarted) {
     return visitTestBackedge(op, restarted);
   }
 
+  // JSOP_AND and JSOP_OR inspect the top stack value but don't pop it.
+  // Also note that JSOP_CASE must pop a second value on the true-branch (the
+  // input to the switch-statement). This conditional pop happens in
+  // visitJumpTarget.
   bool mustKeepCondition = (op == JSOP_AND || op == JSOP_OR);
   MDefinition* ins = mustKeepCondition ? current->peek(-1) : current->pop();
 
@@ -3419,14 +3493,15 @@ AbortReasonOr<Ok> IonBuilder::visitJumpTarget(JSOp op) {
     setTerminatedBlock();
   }
 
-  auto addEdge = [&](MBasicBlock* pred, size_t popped) -> AbortReasonOr<Ok> {
+  auto addEdge = [&](MBasicBlock* pred, size_t numToPop) -> AbortReasonOr<Ok> {
     if (joinBlock) {
-      if (!joinBlock->addPredecessorPopN(alloc(), pred, popped)) {
+      MOZ_ASSERT(pred->stackDepth() - numToPop == joinBlock->stackDepth());
+      if (!joinBlock->addPredecessorPopN(alloc(), pred, numToPop)) {
         return abort(AbortReason::Alloc);
       }
       return Ok();
     }
-    MOZ_TRY_VAR(joinBlock, newBlockPopN(pred, pc, popped));
+    MOZ_TRY_VAR(joinBlock, newBlockPopN(pred, pc, numToPop));
     return Ok();
   };
 
@@ -3461,11 +3536,13 @@ AbortReasonOr<Ok> IonBuilder::visitJumpTarget(JSOp op) {
   //         \    |
   //        joinBlock
   auto createEmptyBlockForTest =
-      [&](MBasicBlock* pred, size_t successor) -> AbortReasonOr<MBasicBlock*> {
+      [&](MBasicBlock* pred, size_t successor,
+          size_t numToPop) -> AbortReasonOr<MBasicBlock*> {
     MOZ_ASSERT(joinBlock);
 
     MBasicBlock* emptyBlock;
-    MOZ_TRY_VAR(emptyBlock, newBlock(pred, pc));
+    MOZ_TRY_VAR(emptyBlock, newBlockPopN(pred, pc, numToPop));
+    MOZ_ASSERT(emptyBlock->stackDepth() == joinBlock->stackDepth());
 
     MTest* test = pred->lastIns()->toTest();
     test->initSuccessor(successor, emptyBlock);
@@ -3485,29 +3562,35 @@ AbortReasonOr<Ok> IonBuilder::visitJumpTarget(JSOp op) {
     switch (edge.kind()) {
       case PendingEdge::Kind::TestTrue: {
         // JSOP_CASE must pop the value when branching to the true-target.
-        size_t numPopped = (edge.testOp() == JSOP_CASE) ? 1 : 0;
+        // If we create an empty block, we have to pop the value there instead
+        // of as part of the emptyBlock -> joinBlock edge so stack depths match
+        // the current depth.
+        const size_t numToPop = (edge.testOp() == JSOP_CASE) ? 1 : 0;
 
+        const size_t successor = 0;  // true-branch
         if (joinBlock && TestTrueTargetIsJoinPoint(edge.testOp())) {
           MBasicBlock* pred;
           MOZ_TRY_VAR(pred,
-                      createEmptyBlockForTest(source, /* successor = */ 0));
-          MOZ_TRY(addEdge(pred, numPopped));
+                      createEmptyBlockForTest(source, successor, numToPop));
+          MOZ_TRY(addEdge(pred, 0));
         } else {
-          MOZ_TRY(addEdge(source, numPopped));
-          lastIns->toTest()->initSuccessor(0, joinBlock);
+          MOZ_TRY(addEdge(source, numToPop));
+          lastIns->toTest()->initSuccessor(successor, joinBlock);
         }
         continue;
       }
 
       case PendingEdge::Kind::TestFalse: {
+        const size_t numToPop = 0;
+        const size_t successor = 1;  // false-branch
         if (joinBlock && !TestTrueTargetIsJoinPoint(edge.testOp())) {
           MBasicBlock* pred;
           MOZ_TRY_VAR(pred,
-                      createEmptyBlockForTest(source, /* successor = */ 1));
+                      createEmptyBlockForTest(source, successor, numToPop));
           MOZ_TRY(addEdge(pred, 0));
         } else {
-          MOZ_TRY(addEdge(source, 0));
-          lastIns->toTest()->initSuccessor(1, joinBlock);
+          MOZ_TRY(addEdge(source, numToPop));
+          lastIns->toTest()->initSuccessor(successor, joinBlock);
         }
         continue;
       }
@@ -9008,16 +9091,6 @@ bool IonBuilder::checkTypedObjectIndexInBounds(
   MDefinition* length;
   if (objPrediction.hasKnownArrayLength(&lenOfAll)) {
     length = constantInt(lenOfAll);
-
-    // If we are not loading the length from the object itself, only
-    // optimize if the array buffer can never be a detached array buffer.
-    TypeSet::ObjectKey* globalKey =
-        TypeSet::ObjectKey::get(&script()->global());
-    if (globalKey->hasFlags(constraints(),
-                            OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER)) {
-      trackOptimizationOutcome(TrackedOutcome::TypedObjectHasDetachedBuffer);
-      return false;
-    }
   } else {
     trackOptimizationOutcome(TrackedOutcome::TypedObjectArrayRange);
     return false;
@@ -10539,13 +10612,6 @@ bool IonBuilder::jsop_length_fastPath() {
     // Compute the length for array typed objects.
     TypedObjectPrediction prediction = typedObjectPrediction(obj);
     if (!prediction.isUseless()) {
-      TypeSet::ObjectKey* globalKey =
-          TypeSet::ObjectKey::get(&script()->global());
-      if (globalKey->hasFlags(constraints(),
-                              OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER)) {
-        return false;
-      }
-
       MInstruction* length;
       int32_t sizedLength;
       if (prediction.hasKnownArrayLength(&sizedLength)) {
@@ -11717,13 +11783,6 @@ AbortReasonOr<Ok> IonBuilder::getPropTryScalarPropOfTypedObject(
     return Ok();
   }
 
-  // Don't optimize if the typed object's underlying buffer may be detached.
-  TypeSet::ObjectKey* globalKey = TypeSet::ObjectKey::get(&script()->global());
-  if (globalKey->hasFlags(constraints(),
-                          OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER)) {
-    return Ok();
-  }
-
   trackOptimizationSuccess();
   *emitted = true;
 
@@ -11739,13 +11798,6 @@ AbortReasonOr<Ok> IonBuilder::getPropTryReferencePropOfTypedObject(
     bool* emitted, MDefinition* typedObj, int32_t fieldOffset,
     TypedObjectPrediction fieldPrediction, PropertyName* name) {
   ReferenceType fieldType = fieldPrediction.referenceType();
-
-  TypeSet::ObjectKey* globalKey = TypeSet::ObjectKey::get(&script()->global());
-  if (globalKey->hasFlags(constraints(),
-                          OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER)) {
-    return Ok();
-  }
-
   if (fieldType == ReferenceType::TYPE_WASM_ANYREF) {
     return Ok();
   }
@@ -11765,15 +11817,6 @@ AbortReasonOr<Ok> IonBuilder::getPropTryReferencePropOfTypedObject(
 AbortReasonOr<Ok> IonBuilder::getPropTryComplexPropOfTypedObject(
     bool* emitted, MDefinition* typedObj, int32_t fieldOffset,
     TypedObjectPrediction fieldPrediction, size_t fieldIndex) {
-  // Don't optimize if the typed object's underlying buffer may be detached.
-  TypeSet::ObjectKey* globalKey = TypeSet::ObjectKey::get(&script()->global());
-  if (globalKey->hasFlags(constraints(),
-                          OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER)) {
-    return Ok();
-  }
-
-  // OK, perform the optimization
-
   // Identify the type object for the field.
   MDefinition* type = loadTypedObjectType(typedObj);
   MDefinition* fieldTypeObj =
@@ -12715,13 +12758,6 @@ AbortReasonOr<Ok> IonBuilder::setPropTryReferencePropOfTypedObject(
     bool* emitted, MDefinition* obj, int32_t fieldOffset, MDefinition* value,
     TypedObjectPrediction fieldPrediction, PropertyName* name) {
   ReferenceType fieldType = fieldPrediction.referenceType();
-
-  TypeSet::ObjectKey* globalKey = TypeSet::ObjectKey::get(&script()->global());
-  if (globalKey->hasFlags(constraints(),
-                          OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER)) {
-    return Ok();
-  }
-
   if (fieldType == ReferenceType::TYPE_WASM_ANYREF) {
     return Ok();
   }
@@ -12742,13 +12778,6 @@ AbortReasonOr<Ok> IonBuilder::setPropTryScalarPropOfTypedObject(
   Scalar::Type fieldType = fieldPrediction.scalarType();
 
   if (!CheckTypedObjectSupportedType(fieldType)) {
-    return Ok();
-  }
-
-  // Don't optimize if the typed object's underlying buffer may be detached.
-  TypeSet::ObjectKey* globalKey = TypeSet::ObjectKey::get(&script()->global());
-  if (globalKey->hasFlags(constraints(),
-                          OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER)) {
     return Ok();
   }
 

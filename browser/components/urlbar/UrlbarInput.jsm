@@ -87,7 +87,7 @@ class UrlbarInput {
     if (this.megabar) {
       this.textbox.classList.add("megabar");
       this.textbox.parentNode.classList.add("megabar");
-      this.searchButton = UrlbarPrefs.get("update1.searchButton");
+      this.searchButton = UrlbarPrefs.get("update2.searchButton");
       if (this.searchButton) {
         this.textbox.classList.add("searchButton");
       }
@@ -974,15 +974,6 @@ class UrlbarInput {
     if (
       !this.hasAttribute("breakout") ||
       this.hasAttribute("breakout-extend")
-    ) {
-      return;
-    }
-    // The user is copying less than the entire string, provided the view is
-    // not open, otherwise it may be the autofill selection
-    if (
-      this.selectionStart != this.selectionEnd &&
-      !(this.selectionStart == 0 && this.selectionEnd == this.value.length) &&
-      !this.view.isOpen
     ) {
       return;
     }

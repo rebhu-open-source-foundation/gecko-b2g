@@ -166,10 +166,12 @@ class AnonymousContent;
 class Attr;
 class XULBroadcastManager;
 class XULPersist;
+class ChromeObserver;
 class ClientInfo;
 class ClientState;
 class CDATASection;
 class Comment;
+class CSSImportRule;
 struct CustomElementDefinition;
 class DocGroup;
 class DocumentL10n;
@@ -1747,13 +1749,11 @@ class Document : public nsINode,
    * Should be called when an element's editable changes as a result of
    * changing its contentEditable attribute/property.
    *
-   * @param aElement the element for which the contentEditable
-   *                 attribute/property was changed
-   * @param aChange +1 if the contentEditable attribute/property was changed to
-   *                true, -1 if it was changed to false
+   * The change should be +1 if the contentEditable attribute/property was
+   * changed to true, -1 if it was changed to false.
    */
-  nsresult ChangeContentEditableCount(nsIContent* aElement, int32_t aChange);
-  void DeferredContentEditableCountChange(nsIContent* aElement);
+  void ChangeContentEditableCount(Element*, int32_t aChange);
+  void DeferredContentEditableCountChange(Element*);
 
   enum class EditingState : int8_t {
     eTearingDown = -2,
@@ -1796,7 +1796,7 @@ class Document : public nsINode,
    * to enable/disable editing, call EditingStateChanged() or
    * SetDesignMode().
    */
-  nsresult SetEditingState(EditingState aState);
+  void SetEditingState(EditingState aState) { mEditingState = aState; }
 
   /**
    * Called when this Document's editor is destroyed.
@@ -2024,7 +2024,7 @@ class Document : public nsINode,
    * Notify the document that the applicable state of the sheet changed
    * and that observers should be notified and style sets updated
    */
-  void SetStyleSheetApplicableState(StyleSheet* aSheet, bool aApplicable);
+  void SetStyleSheetApplicableState(StyleSheet&, bool aApplicable);
 
   enum additionalSheetType {
     eAgentSheet,
@@ -2210,7 +2210,7 @@ class Document : public nsINode,
    * aFrameElement is the frame element which contains the child-process
    * fullscreen document.
    */
-  nsresult RemoteFrameFullscreenChanged(Element* aFrameElement);
+  void RemoteFrameFullscreenChanged(Element* aFrameElement);
 
   /**
    * Called when a frame in a remote child document has rolled back fullscreen
@@ -2221,7 +2221,7 @@ class Document : public nsINode,
    * fullscreen document has a parent and that parent isn't fullscreen. We
    * preserve this property across process boundaries.
    */
-  nsresult RemoteFrameFullscreenReverted();
+  void RemoteFrameFullscreenReverted();
 
   /**
    * Restores the previous fullscreen element to fullscreen status. If there
@@ -2368,9 +2368,11 @@ class Document : public nsINode,
 
   // Observation hooks for style data to propagate notifications
   // to document observers
-  void StyleRuleChanged(StyleSheet* aStyleSheet, css::Rule* aStyleRule);
-  void StyleRuleAdded(StyleSheet* aStyleSheet, css::Rule* aStyleRule);
-  void StyleRuleRemoved(StyleSheet* aStyleSheet, css::Rule* aStyleRule);
+  void RuleChanged(StyleSheet&, css::Rule*);
+  void RuleAdded(StyleSheet&, css::Rule&);
+  void RuleRemoved(StyleSheet&, css::Rule&);
+  void SheetCloned(StyleSheet&) {}
+  void ImportRuleLoaded(CSSImportRule&, StyleSheet&);
 
   /**
    * Flush notifications for this document and its parent documents
@@ -3215,7 +3217,7 @@ class Document : public nsINode,
   void PreloadStyle(nsIURI* aURI, const Encoding* aEncoding,
                     const nsAString& aCrossOriginAttr,
                     ReferrerPolicyEnum aReferrerPolicy,
-                    const nsAString& aIntegrity);
+                    const nsAString& aIntegrity, bool aIsLinkPreload);
 
   /**
    * Called by the chrome registry to load style sheets.
@@ -4274,8 +4276,6 @@ class Document : public nsINode,
   void RemoveContentEditableStyleSheets();
   void AddStyleSheetToStyleSets(StyleSheet* aSheet);
   void RemoveStyleSheetFromStyleSets(StyleSheet* aSheet);
-  void NotifyStyleSheetAdded(StyleSheet* aSheet, bool aDocumentSheet);
-  void NotifyStyleSheetRemoved(StyleSheet* aSheet, bool aDocumentSheet);
   void NotifyStyleSheetApplicableStateChanged();
   // Just like EnableStyleSheetsForSet, but doesn't check whether
   // aSheetSet is null and allows the caller to control whether to set
@@ -5337,8 +5337,9 @@ class Document : public nsINode,
 
   RefPtr<XULBroadcastManager> mXULBroadcastManager;
   RefPtr<XULPersist> mXULPersist;
+  RefPtr<ChromeObserver> mChromeObserver;
 
-  RefPtr<mozilla::dom::HTMLAllCollection> mAll;
+  RefPtr<HTMLAllCollection> mAll;
 
   // document lightweight theme for use with :-moz-lwtheme,
   // :-moz-lwtheme-brighttext and :-moz-lwtheme-darktext

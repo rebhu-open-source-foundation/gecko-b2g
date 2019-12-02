@@ -37,9 +37,8 @@ async function initialize_nfc_tests() {
     await loadChromiumResources;
   }
   assert_true(
-    typeof WebNFCTest !== 'undefined',
-    'WebNFC testing interface is not available.'
-  );
+      typeof WebNFCTest !== 'undefined',
+      'WebNFC testing interface is not available.');
   let NFCTest = new WebNFCTest();
   await NFCTest.initialize();
   return NFCTest;
@@ -48,12 +47,10 @@ async function initialize_nfc_tests() {
 function nfc_test(func, name, properties) {
   promise_test(async t => {
     let NFCTest = await initialize_nfc_tests();
-    let mockTest = NFCTest.getMockNFC();
-    try {
-      await func(t, mockTest);
-    } finally {
+    t.add_cleanup(async () => {
       await NFCTest.reset();
-    };
+    });
+    await func(t, NFCTest.getMockNFC());
   }, name, properties);
 }
 
@@ -84,7 +81,7 @@ function createMessage(records) {
   }
 }
 
-function createRecord(recordType, mediaType, data, encoding, lang) {
+function createRecord(recordType, data, mediaType, encoding, lang) {
   let record = {};
   if (recordType !== undefined)
     record.recordType = recordType;
@@ -100,30 +97,32 @@ function createRecord(recordType, mediaType, data, encoding, lang) {
 }
 
 function createTextRecord(data, encoding, lang) {
-  return createRecord('text', 'text/plain', data, encoding, lang);
+  return createRecord('text', data, undefined, encoding, lang);
 }
 
-function createJsonRecord(json) {
-  return createRecord('json', 'application/json', json);
+function createMimeRecordFromJson(json) {
+  return createRecord(
+      'mime', new TextEncoder('utf-8').encode(JSON.stringify(json)),
+      'application/json');
 }
 
-function createOpaqueRecord(buffer) {
-  return createRecord('opaque', 'application/octet-stream', buffer);
+function createMimeRecord(buffer) {
+  return createRecord('mime', buffer, 'application/octet-stream');
 }
 
 function createUnknownRecord(buffer) {
-  return createRecord('unknown', '', buffer);
+  return createRecord('unknown', buffer);
 }
 
 function createUrlRecord(url, isAbsUrl) {
   if (isAbsUrl) {
-    return createRecord('absolute-url', 'text/plain', url);
+    return createRecord('absolute-url', url);
   }
-  return createRecord('url', 'text/plain', url);
+  return createRecord('url', url);
 }
 
-function createNDEFPushOptions(target, timeout, ignoreRead) {
-  return {target, timeout, ignoreRead};
+function createNDEFPushOptions(target, ignoreRead) {
+  return {target, ignoreRead};
 }
 
 // Compares NDEFMessageSource that was provided to the API
@@ -136,7 +135,7 @@ function assertNDEFMessagesEqual(providedMessage, receivedMessage) {
   let provided = providedMessage;
   if (providedMessage instanceof ArrayBuffer ||
       ArrayBuffer.isView(providedMessage))
-    provided = createMessage([createOpaqueRecord(providedMessage)]);
+    provided = createMessage([createMimeRecord(providedMessage)]);
   else if (typeof providedMessage === 'string')
     provided = createMessage([createTextRecord(providedMessage)]);
 
@@ -166,23 +165,6 @@ function assertWebNDEFMessagesEqual(message, expectedMessage) {
     // Compares record data
     assert_array_equals(new Uint8Array(record.data),
           new Uint8Array(expectedRecord.data));
-    assert_equals(record.text(), expectedRecord.text());
-    assert_array_equals(new Uint8Array(record.arrayBuffer()),
-          new Uint8Array(expectedRecord.arrayBuffer()));
-    let json;
-    try {
-      json = record.json();
-    } catch (e) {
-    }
-    let expectedJson;
-    try {
-      expectedJson = expectedRecord.json();
-    } catch (e) {
-    }
-    if (json === undefined || json === null)
-      assert_equals(json, expectedJson);
-    else
-      assert_object_equals(json, expectedJson);
   }
 }
 
@@ -192,22 +174,20 @@ function testNDEFScanOptions(message, scanOptions, unmatchedScanOptions, desc) {
     const reader2 = new NDEFReader();
     const controller = new AbortController();
 
-    mockNFC.setReadingMessage(message);
-
     // Reading from unmatched reader will not be triggered
     reader1.onreading = t.unreached_func("reading event should not be fired.");
     unmatchedScanOptions.signal = controller.signal;
-    reader1.scan(unmatchedScanOptions);
+    await reader1.scan(unmatchedScanOptions);
 
     const readerWatcher = new EventWatcher(t, reader2, ["reading", "error"]);
-
     const promise = readerWatcher.wait_for("reading").then(event => {
       controller.abort();
       assertWebNDEFMessagesEqual(event.message, new NDEFMessage(message));
     });
-    // NDEFReader#scan() asynchronously dispatches the onreading event.
     scanOptions.signal = controller.signal;
-    reader2.scan(scanOptions);
+    await reader2.scan(scanOptions);
+
+    mockNFC.setReadingMessage(message);
     await promise;
   }, desc);
 }
@@ -218,19 +198,16 @@ function testReadingMultiMessages(
     const reader = new NDEFReader();
     const controller = new AbortController();
     const readerWatcher = new EventWatcher(t, reader, ["reading", "error"]);
-
     const promise = readerWatcher.wait_for("reading").then(event => {
       controller.abort();
       assertWebNDEFMessagesEqual(event.message, new NDEFMessage(message));
     });
-    // NDEFReader#scan() asynchronously dispatches the onreading event.
     scanOptions.signal = controller.signal;
-    reader.scan(scanOptions);
+    await reader.scan(scanOptions);
 
     // Unmatched message will not be read
     mockNFC.setReadingMessage(unmatchedMessage);
     mockNFC.setReadingMessage(message);
-
     await promise;
   }, desc);
 }

@@ -22,7 +22,6 @@
 #include "mozilla/Services.h"
 #include "mozilla/storage.h"
 #include "mozilla/dom/BindingDeclarations.h"
-#include "mozilla/dom/DOMStringList.h"
 #include "mozilla/dom/DOMStringListBinding.h"
 #include "mozilla/dom/Exceptions.h"
 #include "mozilla/dom/File.h"
@@ -336,22 +335,9 @@ already_AddRefed<DOMStringList> IDBDatabase::ObjectStoreNames() const {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mSpec);
 
-  const nsTArray<ObjectStoreSpec>& objectStores = mSpec->objectStores();
-
-  RefPtr<DOMStringList> list = new DOMStringList();
-
-  if (!objectStores.IsEmpty()) {
-    nsTArray<nsString>& listNames = list->StringArray();
-    listNames.SetCapacity(objectStores.Length());
-
-    std::transform(
-        objectStores.cbegin(), objectStores.cend(), MakeBackInserter(listNames),
-        [](const auto& objectStore) { return objectStore.metadata().name(); });
-
-    listNames.Sort();
-  }
-
-  return list.forget();
+  return CreateSortedDOMStringList(
+      mSpec->objectStores(),
+      [](const auto& objectStore) { return objectStore.metadata().name(); });
 }
 
 already_AddRefed<Document> IDBDatabase::GetOwnerDocument() const {
@@ -374,7 +360,7 @@ already_AddRefed<IDBObjectStore> IDBDatabase::CreateObjectStore(
     return nullptr;
   }
 
-  if (!transaction->IsOpen()) {
+  if (!transaction->CanAcceptRequests()) {
     aRv.Throw(NS_ERROR_DOM_INDEXEDDB_TRANSACTION_INACTIVE_ERR);
     return nullptr;
   }
@@ -447,7 +433,7 @@ void IDBDatabase::DeleteObjectStore(const nsAString& aName, ErrorResult& aRv) {
     return;
   }
 
-  if (!transaction->IsOpen()) {
+  if (!transaction->CanAcceptRequests()) {
     aRv.Throw(NS_ERROR_DOM_INDEXEDDB_TRANSACTION_INACTIVE_ERR);
     return;
   }
@@ -740,7 +726,7 @@ void IDBDatabase::AbortTransactions(bool aShouldWarn) {
         // Transactions that are already done can simply be ignored. Otherwise
         // there is a race here and it's possible that the transaction has not
         // been successfully committed yet so we will warn the user.
-        if (!transaction->IsDone()) {
+        if (!transaction->IsFinished()) {
           transactionsToAbort.AppendElement(transaction);
         }
       }
@@ -761,7 +747,7 @@ void IDBDatabase::AbortTransactions(bool aShouldWarn) {
 
       for (RefPtr<IDBTransaction>& transaction : transactionsToAbort) {
         MOZ_ASSERT(transaction);
-        MOZ_ASSERT(!transaction->IsDone());
+        MOZ_ASSERT(!transaction->IsFinished());
 
         // We warn for any transactions that could have written data, but
         // ignore read-only transactions.

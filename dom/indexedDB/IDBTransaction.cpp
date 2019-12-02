@@ -91,7 +91,8 @@ auto IDBTransaction::DoWithTransactionChild(const Func& aFunc) const {
 IDBTransaction::IDBTransaction(IDBDatabase* const aDatabase,
                                const nsTArray<nsString>& aObjectStoreNames,
                                const Mode aMode, nsString aFilename,
-                               const uint32_t aLineNo, const uint32_t aColumn)
+                               const uint32_t aLineNo, const uint32_t aColumn,
+                               CreatedFromFactoryFunction /*aDummy*/)
     : DOMEventTargetHelper(aDatabase),
       mDatabase(aDatabase),
       mObjectStoreNames(aObjectStoreNames),
@@ -103,7 +104,6 @@ IDBTransaction::IDBTransaction(IDBDatabase* const aDatabase,
       mFilename(std::move(aFilename)),
       mLineNo(aLineNo),
       mColumn(aColumn),
-      mReadyState(IDBTransaction::ReadyState::Initial),
       mMode(aMode),
       mCreating(false),
       mRegistered(false),
@@ -169,7 +169,7 @@ IDBTransaction::~IDBTransaction() {
 }
 
 // static
-already_AddRefed<IDBTransaction> IDBTransaction::CreateVersionChange(
+RefPtr<IDBTransaction> IDBTransaction::CreateVersionChange(
     IDBDatabase* const aDatabase,
     BackgroundVersionChangeTransactionChild* const aActor,
     IDBOpenDBRequest* const aOpenRequest, const int64_t aNextObjectStoreId,
@@ -181,14 +181,14 @@ already_AddRefed<IDBTransaction> IDBTransaction::CreateVersionChange(
   MOZ_ASSERT(aNextObjectStoreId > 0);
   MOZ_ASSERT(aNextIndexId > 0);
 
-  nsTArray<nsString> emptyObjectStoreNames;
+  const nsTArray<nsString> emptyObjectStoreNames;
 
   nsString filename;
   uint32_t lineNo, column;
   aOpenRequest->GetCallerLocation(filename, &lineNo, &column);
-  RefPtr<IDBTransaction> transaction =
-      new IDBTransaction(aDatabase, emptyObjectStoreNames, Mode::VersionChange,
-                         std::move(filename), lineNo, column);
+  auto transaction = MakeRefPtr<IDBTransaction>(
+      aDatabase, emptyObjectStoreNames, Mode::VersionChange,
+      std::move(filename), lineNo, column, CreatedFromFactoryFunction{});
 
   transaction->NoteActiveTransaction();
 
@@ -199,11 +199,11 @@ already_AddRefed<IDBTransaction> IDBTransaction::CreateVersionChange(
   aDatabase->RegisterTransaction(transaction);
   transaction->mRegistered = true;
 
-  return transaction.forget();
+  return transaction;
 }
 
 // static
-already_AddRefed<IDBTransaction> IDBTransaction::Create(
+RefPtr<IDBTransaction> IDBTransaction::Create(
     JSContext* const aCx, IDBDatabase* const aDatabase,
     const nsTArray<nsString>& aObjectStoreNames, const Mode aMode) {
   MOZ_ASSERT(aDatabase);
@@ -215,8 +215,9 @@ already_AddRefed<IDBTransaction> IDBTransaction::Create(
   nsString filename;
   uint32_t lineNo, column;
   IDBRequest::CaptureCaller(aCx, filename, &lineNo, &column);
-  RefPtr<IDBTransaction> transaction = new IDBTransaction(
-      aDatabase, aObjectStoreNames, aMode, std::move(filename), lineNo, column);
+  auto transaction = MakeRefPtr<IDBTransaction>(
+      aDatabase, aObjectStoreNames, aMode, std::move(filename), lineNo, column,
+      CreatedFromFactoryFunction{});
 
   if (!NS_IsMainThread()) {
     WorkerPrivate* const workerPrivate = GetCurrentThreadWorkerPrivate();
@@ -227,7 +228,7 @@ already_AddRefed<IDBTransaction> IDBTransaction::Create(
     RefPtr<StrongWorkerRef> workerRef = StrongWorkerRef::Create(
         workerPrivate, "IDBTransaction", [transaction]() {
           transaction->AssertIsOnOwningThread();
-          if (!transaction->IsCommittingOrDone()) {
+          if (!transaction->IsCommittingOrFinished()) {
             IDB_REPORT_INTERNAL_ERR();
             transaction->AbortInternal(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR,
                                        nullptr);
@@ -253,7 +254,7 @@ already_AddRefed<IDBTransaction> IDBTransaction::Create(
   aDatabase->RegisterTransaction(transaction);
   transaction->mRegistered = true;
 
-  return transaction.forget();
+  return transaction;
 }
 
 // static
@@ -340,8 +341,9 @@ void IDBTransaction::OnNewRequest() {
   AssertIsOnOwningThread();
 
   if (!mPendingRequestCount) {
-    MOZ_ASSERT(ReadyState::Initial == mReadyState);
-    mReadyState = ReadyState::Loading;
+    MOZ_ASSERT(ReadyState::Active == mReadyState);
+    MOZ_ASSERT(!mStarted);
+    mStarted = true;
   }
 
   ++mPendingRequestCount;
@@ -350,12 +352,17 @@ void IDBTransaction::OnNewRequest() {
 void IDBTransaction::OnRequestFinished(
     const bool aRequestCompletedSuccessfully) {
   AssertIsOnOwningThread();
+  MOZ_ASSERT(mReadyState == ReadyState::Active ||
+             mReadyState == ReadyState::Finished);
+  MOZ_ASSERT_IF(mReadyState == ReadyState::Finished, !NS_SUCCEEDED(mAbortCode));
   MOZ_ASSERT(mPendingRequestCount);
 
   --mPendingRequestCount;
 
   if (!mPendingRequestCount) {
-    mReadyState = ReadyState::Committing;
+    if (mReadyState == ReadyState::Active) {
+      mReadyState = ReadyState::Committing;
+    }
 
     if (aRequestCompletedSuccessfully) {
       if (NS_SUCCEEDED(mAbortCode)) {
@@ -380,7 +387,7 @@ void IDBTransaction::OnRequestFinished(
 void IDBTransaction::SendCommit() {
   AssertIsOnOwningThread();
   MOZ_ASSERT(NS_SUCCEEDED(mAbortCode));
-  MOZ_ASSERT(IsCommittingOrDone());
+  MOZ_ASSERT(IsCommittingOrFinished());
   MOZ_ASSERT(!mSentCommitOrAbort);
   MOZ_ASSERT(!mPendingRequestCount);
 
@@ -402,7 +409,7 @@ void IDBTransaction::SendCommit() {
 void IDBTransaction::SendAbort(const nsresult aResultCode) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(NS_FAILED(aResultCode));
-  MOZ_ASSERT(IsCommittingOrDone());
+  MOZ_ASSERT(IsCommittingOrFinished());
   MOZ_ASSERT(!mSentCommitOrAbort);
 
   // Don't do this in the macro because we always need to increment the serial
@@ -438,25 +445,17 @@ void IDBTransaction::MaybeNoteInactiveTransaction() {
   }
 }
 
-bool IDBTransaction::IsOpen() const {
+bool IDBTransaction::CanAcceptRequests() const {
   AssertIsOnOwningThread();
 
-  // If we haven't started anything then we're open.
-  if (mReadyState == IDBTransaction::ReadyState::Initial) {
-    return true;
-  }
-
+  // If we haven't started anything then we can accept requests.
   // If we've already started then we need to check to see if we still have the
   // mCreating flag set. If we do (i.e. we haven't returned to the event loop
-  // from the time we were created) then we are open. Otherwise check the
-  // currently running transaction to see if it's the same. We only allow other
-  // requests to be made if this transaction is currently running.
-  if (mReadyState == IDBTransaction::ReadyState::Loading &&
-      (mCreating || GetCurrent() == this)) {
-    return true;
-  }
-
-  return false;
+  // from the time we were created) then we can accept requests. Otherwise check
+  // the currently running transaction to see if it's the same. We only allow
+  // other requests to be made if this transaction is currently running.
+  return mReadyState == ReadyState::Active &&
+         (!mStarted || mCreating || GetCurrent() == this);
 }
 
 void IDBTransaction::GetCallerLocation(nsAString& aFilename,
@@ -471,13 +470,13 @@ void IDBTransaction::GetCallerLocation(nsAString& aFilename,
   *aColumn = mColumn;
 }
 
-already_AddRefed<IDBObjectStore> IDBTransaction::CreateObjectStore(
+RefPtr<IDBObjectStore> IDBTransaction::CreateObjectStore(
     const ObjectStoreSpec& aSpec) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aSpec.metadata().id());
   MOZ_ASSERT(Mode::VersionChange == mMode);
   MOZ_ASSERT(mBackgroundActor.mVersionChangeBackgroundActor);
-  MOZ_ASSERT(IsOpen());
+  MOZ_ASSERT(CanAcceptRequests());
 
 #ifdef DEBUG
   {
@@ -503,7 +502,7 @@ already_AddRefed<IDBObjectStore> IDBTransaction::CreateObjectStore(
 
   mObjectStores.AppendElement(objectStore);
 
-  return objectStore.forget();
+  return objectStore;
 }
 
 void IDBTransaction::DeleteObjectStore(const int64_t aObjectStoreId) {
@@ -511,7 +510,7 @@ void IDBTransaction::DeleteObjectStore(const int64_t aObjectStoreId) {
   MOZ_ASSERT(aObjectStoreId);
   MOZ_ASSERT(Mode::VersionChange == mMode);
   MOZ_ASSERT(mBackgroundActor.mVersionChangeBackgroundActor);
-  MOZ_ASSERT(IsOpen());
+  MOZ_ASSERT(CanAcceptRequests());
 
   MOZ_ALWAYS_TRUE(
       mBackgroundActor.mVersionChangeBackgroundActor->SendDeleteObjectStore(
@@ -540,7 +539,7 @@ void IDBTransaction::RenameObjectStore(const int64_t aObjectStoreId,
   MOZ_ASSERT(aObjectStoreId);
   MOZ_ASSERT(Mode::VersionChange == mMode);
   MOZ_ASSERT(mBackgroundActor.mVersionChangeBackgroundActor);
-  MOZ_ASSERT(IsOpen());
+  MOZ_ASSERT(CanAcceptRequests());
 
   MOZ_ALWAYS_TRUE(
       mBackgroundActor.mVersionChangeBackgroundActor->SendRenameObjectStore(
@@ -554,7 +553,7 @@ void IDBTransaction::CreateIndex(IDBObjectStore* const aObjectStore,
   MOZ_ASSERT(aMetadata.id());
   MOZ_ASSERT(Mode::VersionChange == mMode);
   MOZ_ASSERT(mBackgroundActor.mVersionChangeBackgroundActor);
-  MOZ_ASSERT(IsOpen());
+  MOZ_ASSERT(CanAcceptRequests());
 
   MOZ_ALWAYS_TRUE(
       mBackgroundActor.mVersionChangeBackgroundActor->SendCreateIndex(
@@ -568,7 +567,7 @@ void IDBTransaction::DeleteIndex(IDBObjectStore* const aObjectStore,
   MOZ_ASSERT(aIndexId);
   MOZ_ASSERT(Mode::VersionChange == mMode);
   MOZ_ASSERT(mBackgroundActor.mVersionChangeBackgroundActor);
-  MOZ_ASSERT(IsOpen());
+  MOZ_ASSERT(CanAcceptRequests());
 
   MOZ_ALWAYS_TRUE(
       mBackgroundActor.mVersionChangeBackgroundActor->SendDeleteIndex(
@@ -583,7 +582,7 @@ void IDBTransaction::RenameIndex(IDBObjectStore* const aObjectStore,
   MOZ_ASSERT(aIndexId);
   MOZ_ASSERT(Mode::VersionChange == mMode);
   MOZ_ASSERT(mBackgroundActor.mVersionChangeBackgroundActor);
-  MOZ_ASSERT(IsOpen());
+  MOZ_ASSERT(CanAcceptRequests());
 
   MOZ_ALWAYS_TRUE(
       mBackgroundActor.mVersionChangeBackgroundActor->SendRenameIndex(
@@ -591,19 +590,17 @@ void IDBTransaction::RenameIndex(IDBObjectStore* const aObjectStore,
 }
 
 void IDBTransaction::AbortInternal(const nsresult aAbortCode,
-                                   already_AddRefed<DOMException> aError) {
+                                   RefPtr<DOMException> aError) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(NS_FAILED(aAbortCode));
-  MOZ_ASSERT(!IsCommittingOrDone());
-
-  RefPtr<DOMException> error = aError;
+  MOZ_ASSERT(!IsCommittingOrFinished());
 
   const bool isVersionChange = mMode == Mode::VersionChange;
-  const bool needToSendAbort = mReadyState == ReadyState::Initial;
+  const bool needToSendAbort = mReadyState == ReadyState::Active && !mStarted;
 
   mAbortCode = aAbortCode;
-  mReadyState = ReadyState::Done;
-  mError = error.forget();
+  mReadyState = ReadyState::Finished;
+  mError = std::move(aError);
 
   if (isVersionChange) {
     // If a version change transaction is aborted, we must revert the world
@@ -617,7 +614,8 @@ void IDBTransaction::AbortInternal(const nsresult aAbortCode,
     // not for the mIndexes/mDeletedIndexes of each IDBObjectStore because it's
     // time-consuming(O(m*n)) and mIndexes/mDeletedIndexes won't be used anymore
     // in IDBObjectStore::(Create|Delete)Index() and IDBObjectStore::Index() in
-    // which all the executions are returned earlier by !transaction->IsOpen().
+    // which all the executions are returned earlier by
+    // !transaction->CanAcceptRequests().
 
     const nsTArray<ObjectStoreSpec>& specArray =
         mDatabase->Spec()->objectStores();
@@ -669,7 +667,7 @@ void IDBTransaction::Abort(IDBRequest* const aRequest) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aRequest);
 
-  if (IsCommittingOrDone()) {
+  if (IsCommittingOrFinished()) {
     // Already started (and maybe finished) the commit or abort so there is
     // nothing to do here.
     return;
@@ -678,26 +676,28 @@ void IDBTransaction::Abort(IDBRequest* const aRequest) {
   ErrorResult rv;
   RefPtr<DOMException> error = aRequest->GetError(rv);
 
-  AbortInternal(aRequest->GetErrorCode(), error.forget());
+  // TODO: Do we deliberately ignore rv here? Isn't there a static analysis that
+  // prevents that?
+
+  AbortInternal(aRequest->GetErrorCode(), std::move(error));
 }
 
 void IDBTransaction::Abort(const nsresult aErrorCode) {
   AssertIsOnOwningThread();
 
-  if (IsCommittingOrDone()) {
+  if (IsCommittingOrFinished()) {
     // Already started (and maybe finished) the commit or abort so there is
     // nothing to do here.
     return;
   }
 
-  RefPtr<DOMException> error = DOMException::Create(aErrorCode);
-  AbortInternal(aErrorCode, error.forget());
+  AbortInternal(aErrorCode, DOMException::Create(aErrorCode));
 }
 
 void IDBTransaction::Abort(ErrorResult& aRv) {
   AssertIsOnOwningThread();
 
-  if (IsCommittingOrDone()) {
+  if (IsCommittingOrFinished()) {
     aRv = NS_ERROR_DOM_INDEXEDDB_NOT_ALLOWED_ERR;
     return;
   }
@@ -712,7 +712,7 @@ void IDBTransaction::FireCompleteOrAbortEvents(const nsresult aResult) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(!mFiredCompleteOrAbort);
 
-  mReadyState = ReadyState::Done;
+  mReadyState = ReadyState::Finished;
 
 #ifdef DEBUG
   mFiredCompleteOrAbort = true;
@@ -847,23 +847,23 @@ DOMException* IDBTransaction::GetError() const {
   return mError;
 }
 
-already_AddRefed<DOMStringList> IDBTransaction::ObjectStoreNames() const {
+RefPtr<DOMStringList> IDBTransaction::ObjectStoreNames() const {
   AssertIsOnOwningThread();
 
   if (mMode == Mode::VersionChange) {
     return mDatabase->ObjectStoreNames();
   }
 
-  RefPtr<DOMStringList> list = new DOMStringList();
+  auto list = MakeRefPtr<DOMStringList>();
   list->StringArray() = mObjectStoreNames;
-  return list.forget();
+  return list;
 }
 
-already_AddRefed<IDBObjectStore> IDBTransaction::ObjectStore(
-    const nsAString& aName, ErrorResult& aRv) {
+RefPtr<IDBObjectStore> IDBTransaction::ObjectStore(const nsAString& aName,
+                                                   ErrorResult& aRv) {
   AssertIsOnOwningThread();
 
-  if (IsCommittingOrDone()) {
+  if (IsCommittingOrFinished()) {
     aRv.ThrowDOMException(
         NS_ERROR_DOM_INVALID_STATE_ERR,
         NS_LITERAL_CSTRING("Transaction is already committing or done."));
@@ -908,7 +908,7 @@ already_AddRefed<IDBObjectStore> IDBTransaction::ObjectStore(
     mObjectStores.AppendElement(objectStore);
   }
 
-  return objectStore.forget();
+  return objectStore;
 }
 
 NS_IMPL_ADDREF_INHERITED(IDBTransaction, DOMEventTargetHelper)
@@ -958,8 +958,8 @@ IDBTransaction::Run() {
   mCreating = false;
 
   // Maybe commit if there were no requests generated.
-  if (mReadyState == IDBTransaction::ReadyState::Initial) {
-    mReadyState = ReadyState::Done;
+  if (mReadyState == ReadyState::Active && !mStarted) {
+    mReadyState = ReadyState::Finished;
 
     SendCommit();
   }

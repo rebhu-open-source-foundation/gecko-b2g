@@ -59,7 +59,7 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
     Invalid
   };
 
-  enum struct ReadyState { Initial = 0, Loading, Inactive, Committing, Done };
+  enum struct ReadyState { Active, Inactive, Committing, Finished };
 
  private:
   // TODO: Only non-const because of Bug 1575173.
@@ -101,7 +101,8 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
   const uint32_t mLineNo;
   const uint32_t mColumn;
 
-  ReadyState mReadyState;
+  ReadyState mReadyState = ReadyState::Active;
+  bool mStarted = false;
   const Mode mMode;
 
   bool mCreating;    ///< Set between successful creation until the transaction
@@ -118,13 +119,13 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
 #endif
 
  public:
-  static already_AddRefed<IDBTransaction> CreateVersionChange(
+  static MOZ_MUST_USE RefPtr<IDBTransaction> CreateVersionChange(
       IDBDatabase* aDatabase,
       indexedDB::BackgroundVersionChangeTransactionChild* aActor,
       IDBOpenDBRequest* aOpenRequest, int64_t aNextObjectStoreId,
       int64_t aNextIndexId);
 
-  static already_AddRefed<IDBTransaction> Create(
+  static MOZ_MUST_USE RefPtr<IDBTransaction> Create(
       JSContext* aCx, IDBDatabase* aDatabase,
       const nsTArray<nsString>& aObjectStoreNames, Mode aMode);
 
@@ -163,19 +164,19 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
 
   void RefreshSpec(bool aMayDelete);
 
-  bool IsOpen() const;
+  bool CanAcceptRequests() const;
 
-  bool IsCommittingOrDone() const {
+  bool IsCommittingOrFinished() const {
     AssertIsOnOwningThread();
 
     return mReadyState == ReadyState::Committing ||
-           mReadyState == ReadyState::Done;
+           mReadyState == ReadyState::Finished;
   }
 
-  bool IsDone() const {
+  bool IsFinished() const {
     AssertIsOnOwningThread();
 
-    return mReadyState == ReadyState::Done;
+    return mReadyState == ReadyState::Finished;
   }
 
   bool IsWriteAllowed() const {
@@ -191,14 +192,11 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
 
   auto TemporarilyProceedToInactive() {
     AssertIsOnOwningThread();
-    MOZ_ASSERT(mReadyState == ReadyState::Initial ||
-               mReadyState == ReadyState::Loading);
-    const auto savedReadyState = mReadyState;
+    MOZ_ASSERT(mReadyState == ReadyState::Active);
     mReadyState = ReadyState::Inactive;
 
     struct AutoRestoreState {
       IDBTransaction& mOwner;
-      ReadyState mSavedReadyState;
 #ifdef DEBUG
       uint32_t mSavedPendingRequestCount;
 #endif
@@ -208,11 +206,11 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
         MOZ_ASSERT(mOwner.mReadyState == ReadyState::Inactive);
         MOZ_ASSERT(mOwner.mPendingRequestCount == mSavedPendingRequestCount);
 
-        mOwner.mReadyState = mSavedReadyState;
+        mOwner.mReadyState = ReadyState::Active;
       }
     };
 
-    return AutoRestoreState{*this, savedReadyState
+    return AutoRestoreState{*this
 #ifdef DEBUG
                             ,
                             mPendingRequestCount
@@ -245,7 +243,7 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
     return mObjectStoreNames;
   }
 
-  already_AddRefed<IDBObjectStore> CreateObjectStore(
+  MOZ_MUST_USE RefPtr<IDBObjectStore> CreateObjectStore(
       const indexedDB::ObjectStoreSpec& aSpec);
 
   void DeleteObjectStore(int64_t aObjectStoreId);
@@ -299,8 +297,8 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
 
   DOMException* GetError() const;
 
-  already_AddRefed<IDBObjectStore> ObjectStore(const nsAString& aName,
-                                               ErrorResult& aRv);
+  MOZ_MUST_USE RefPtr<IDBObjectStore> ObjectStore(const nsAString& aName,
+                                                  ErrorResult& aRv);
 
   void Abort(ErrorResult& aRv);
 
@@ -308,19 +306,24 @@ class IDBTransaction final : public DOMEventTargetHelper, public nsIRunnable {
   IMPL_EVENT_HANDLER(complete)
   IMPL_EVENT_HANDLER(error)
 
-  already_AddRefed<DOMStringList> ObjectStoreNames() const;
+  MOZ_MUST_USE RefPtr<DOMStringList> ObjectStoreNames() const;
 
   // EventTarget
   void GetEventTargetParent(EventChainPreVisitor& aVisitor) override;
 
  private:
+  struct CreatedFromFactoryFunction {};
+
+ public:
   IDBTransaction(IDBDatabase* aDatabase,
                  const nsTArray<nsString>& aObjectStoreNames, Mode aMode,
-                 nsString aFilename, uint32_t aLineNo, uint32_t aColumn);
+                 nsString aFilename, uint32_t aLineNo, uint32_t aColumn,
+                 CreatedFromFactoryFunction aDummy);
+
+ private:
   ~IDBTransaction();
 
-  void AbortInternal(nsresult aAbortCode,
-                     already_AddRefed<DOMException> aError);
+  void AbortInternal(nsresult aAbortCode, RefPtr<DOMException> aError);
 
   void SendCommit();
 

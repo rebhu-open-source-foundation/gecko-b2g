@@ -72,6 +72,21 @@ let ACTORS = {
     },
   },
 
+  ClickHandler: {
+    parent: {
+      moduleURI: "resource:///actors/ClickHandlerParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/ClickHandlerChild.jsm",
+      events: {
+        click: { capture: true, mozSystemGroup: true },
+        auxclick: { capture: true, mozSystemGroup: true },
+      },
+    },
+
+    allFrames: true,
+  },
+
   // Collects description and icon information from meta tags.
   ContentMeta: {
     parent: {
@@ -263,6 +278,18 @@ let ACTORS = {
 
     allFrames: true,
   },
+
+  UITour: {
+    parent: {
+      moduleURI: "resource:///modules/UITourParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///modules/UITourChild.jsm",
+      events: {
+        mozUITour: { wantUntrusted: true },
+      },
+    },
+  },
 };
 
 let LEGACY_ACTORS = {
@@ -320,16 +347,6 @@ let LEGACY_ACTORS = {
     },
   },
 
-  ClickHandler: {
-    child: {
-      module: "resource:///actors/ClickHandlerChild.jsm",
-      events: {
-        click: { capture: true, mozSystemGroup: true },
-        auxclick: { capture: true, mozSystemGroup: true },
-      },
-    },
-  },
-
   ContentSearch: {
     child: {
       module: "resource:///actors/ContentSearchChild.jsm",
@@ -365,16 +382,6 @@ let LEGACY_ACTORS = {
         DOMContentLoaded: {},
         pageshow: { mozSystemGroup: true },
       },
-    },
-  },
-
-  UITour: {
-    child: {
-      module: "resource:///modules/UITourChild.jsm",
-      events: {
-        mozUITour: { wantUntrusted: true },
-      },
-      permissions: ["uitour"],
     },
   },
 
@@ -548,7 +555,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   TabCrashHandler: "resource:///modules/ContentCrashHandlers.jsm",
   TabUnloader: "resource:///modules/TabUnloader.jsm",
   UIState: "resource://services-sync/UIState.jsm",
-  UITour: "resource:///modules/UITour.jsm",
   WebChannel: "resource://gre/modules/WebChannel.jsm",
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.jsm",
 });
@@ -557,7 +563,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 XPCOMUtils.defineLazyModuleGetters(this, {
   AboutLoginsParent: "resource:///modules/AboutLoginsParent.jsm",
   AsyncPrefs: "resource://gre/modules/AsyncPrefs.jsm",
-  ContentClick: "resource:///modules/ContentClick.jsm",
   PluginManager: "resource:///actors/PluginParent.jsm",
   ReaderParent: "resource:///modules/ReaderParent.jsm",
 });
@@ -656,7 +661,6 @@ const listeners = {
     "AboutLogins:SyncEnable": ["AboutLoginsParent"],
     "AboutLogins:SyncOptions": ["AboutLoginsParent"],
     "AboutLogins:UpdateLogin": ["AboutLoginsParent"],
-    "Content:Click": ["ContentClick"],
     ContentSearch: ["ContentSearch"],
     "Reader:FaviconRequest": ["ReaderParent"],
     "Reader:UpdateReaderButton": ["ReaderParent"],
@@ -2178,6 +2182,14 @@ BrowserGlue.prototype = {
         Corroborate.init().catch(Cu.reportError);
       }
     });
+
+    // request startup of Chromium remote debugging protocol
+    // (observer will only be notified when --remote-debugger is passed)
+    if (AppConstants.ENABLE_REMOTE_AGENT) {
+      Services.tm.idleDispatchToMainThread(() => {
+        Services.obs.notifyObservers(null, "remote-startup-requested");
+      });
+    }
 
     // Marionette needs to be initialized as very last step
     Services.tm.idleDispatchToMainThread(() => {
@@ -4405,10 +4417,3 @@ var JawsScreenReaderVersionCheck = {
     );
   },
 };
-
-// Listen for UITour messages.
-// Do it here instead of the UITour module itself so that the UITour module is lazy loaded
-// when the first message is received.
-Services.mm.addMessageListener("UITour:onPageEvent", function(aMessage) {
-  UITour.onPageEvent(aMessage, aMessage.data);
-});

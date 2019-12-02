@@ -1121,7 +1121,7 @@ void XPCJSRuntime::Shutdown(JSContext* cx) {
 
   JS::SetGCSliceCallback(cx, mPrevGCSliceCallback);
 
-  nsScriptSecurityManager::GetScriptSecurityManager()->ClearJSCallbacks(cx);
+  nsScriptSecurityManager::ClearJSCallbacks(cx);
 
   // Shut down the helper threads
   gHelperThreads->Shutdown();
@@ -1894,10 +1894,6 @@ static void ReportRealmStats(const JS::RealmStats& realmStats,
   ZRREPORT_BYTES(realmJSPathPrefix + NS_LITERAL_CSTRING("inner-views"),
                  realmStats.innerViewsTable,
                  "The table for array buffer inner views.");
-
-  ZRREPORT_BYTES(realmJSPathPrefix + NS_LITERAL_CSTRING("lazy-array-buffers"),
-                 realmStats.lazyArrayBuffersTable,
-                 "The table for typed object lazy array buffers.");
 
   ZRREPORT_BYTES(
       realmJSPathPrefix + NS_LITERAL_CSTRING("object-metadata"),

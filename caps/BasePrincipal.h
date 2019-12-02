@@ -101,6 +101,7 @@ class BasePrincipal : public nsJSPrincipals {
                 DocumentDomainConsideration aConsideration);
 
   NS_IMETHOD GetOrigin(nsACString& aOrigin) final;
+  NS_IMETHOD GetAsciiOrigin(nsACString& aOrigin) override;
   NS_IMETHOD GetOriginNoSuffix(nsACString& aOrigin) final;
   NS_IMETHOD Equals(nsIPrincipal* other, bool* _retval) final;
   NS_IMETHOD EqualsConsideringDomain(nsIPrincipal* other, bool* _retval) final;
@@ -127,6 +128,7 @@ class BasePrincipal : public nsJSPrincipals {
   NS_IMETHOD GetAppStatus(uint16_t* aAppStatus) final;
   NS_IMETHOD GetAppId(uint32_t* aAppStatus) final;
   NS_IMETHOD GetAddonId(nsAString& aAddonId) override;
+  NS_IMETHOD GetIsOnion(bool* aIsOnion) override;
   NS_IMETHOD GetIsInIsolatedMozBrowserElement(
       bool* aIsInIsolatedMozBrowserElement) final;
   NS_IMETHOD GetUnknownAppId(bool* aUnknownAppId) final;

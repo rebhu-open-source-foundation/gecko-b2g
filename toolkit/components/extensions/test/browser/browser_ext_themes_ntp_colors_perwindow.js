@@ -144,7 +144,12 @@ add_task(async function test_per_window_ntp_theme() {
       };
 
       let { id: winId } = await browser.windows.getCurrent();
-      let { id: secondWinId } = await browser.windows.create();
+      // We are opening about:blank instead of the default homepage,
+      // because using the default homepage results in intermittent
+      // test failures on debug builds due to browser window leaks.
+      let { id: secondWinId } = await browser.windows.create({
+        url: "about:blank",
+      });
 
       browser.test.log("Test that single window update works");
       await browser.theme.update(winId, darkTextTheme);
@@ -161,9 +166,6 @@ add_task(async function test_per_window_ntp_theme() {
       await checkWindow(null, false, winId);
       await checkWindow(brightTextTheme, true, secondWinId);
 
-      // Not strictly necessary, but added to avoid error from bug 1579943.
-      await browser.theme.reset(secondWinId);
-
       await removeWindow(secondWinId);
       await checkWindow(null, false, winId);
       browser.test.notifyPass("perwindow-ntp-theme");
@@ -175,6 +177,8 @@ add_task(async function test_per_window_ntp_theme() {
     async ({ theme, isBrightText, winId }) => {
       let win = Services.wm.getOuterWindowWithId(winId);
       win.NewTabPagePreloading.removePreloadedBrowser(win);
+      // These pages were initially chosen because LightweightThemeChild.jsm
+      // treats them specially.
       for (let url of ["about:newtab", "about:home", "about:welcome"]) {
         info("Opening url: " + url);
         await BrowserTestUtils.withNewTab(

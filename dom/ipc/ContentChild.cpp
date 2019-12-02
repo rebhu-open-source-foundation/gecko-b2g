@@ -37,6 +37,7 @@
 #include "mozilla/dom/BrowserBridgeHost.h"
 #include "mozilla/dom/ClientManager.h"
 #include "mozilla/dom/ClientOpenWindowOpActors.h"
+#include "mozilla/dom/ChildProcessChannelListener.h"
 #include "mozilla/dom/ChildProcessMessageManager.h"
 #include "mozilla/dom/ContentProcessMessageManager.h"
 #include "mozilla/dom/ContentParent.h"
@@ -103,7 +104,6 @@
 #include "mozilla/HangDetails.h"
 #include "mozilla/LoadInfo.h"
 #include "mozilla/UnderrunHandler.h"
-#include "nsIChildProcessChannelListener.h"
 #include "mozilla/net/HttpChannelChild.h"
 #include "nsQueryObject.h"
 #include "imgLoader.h"
@@ -2307,22 +2307,16 @@ bool ContentChild::DeallocPBenchmarkStorageChild(
   return true;
 }
 
-PSpeechSynthesisChild* ContentChild::AllocPSpeechSynthesisChild() {
 #ifdef MOZ_WEBSPEECH
+PSpeechSynthesisChild* ContentChild::AllocPSpeechSynthesisChild() {
   MOZ_CRASH("No one should be allocating PSpeechSynthesisChild actors");
-#else
-  return nullptr;
-#endif
 }
 
 bool ContentChild::DeallocPSpeechSynthesisChild(PSpeechSynthesisChild* aActor) {
-#ifdef MOZ_WEBSPEECH
   delete aActor;
   return true;
-#else
-  return false;
-#endif
 }
+#endif
 
 PSystemMessageServiceChild* ContentChild::AllocPSystemMessageServiceChild() {
   MOZ_CRASH("No one should be allocating PSystemMessageServiceChild actors");
@@ -3815,7 +3809,7 @@ mozilla::ipc::IPCResult ContentChild::RecvSaveRecording(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
-    const RedirectToRealChannelArgs&& aArgs,
+    RedirectToRealChannelArgs&& aArgs,
     CrossProcessRedirectResolver&& aResolve) {
   nsCOMPtr<nsILoadInfo> loadInfo;
   nsresult rv = mozilla::ipc::LoadInfoArgsToLoadInfo(aArgs.loadInfo(),
@@ -3872,7 +3866,7 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
   }
 
   if (aArgs.init()) {
-    HttpBaseChannel::ReplacementChannelConfig config(*aArgs.init());
+    HttpBaseChannel::ReplacementChannelConfig config(std::move(*aArgs.init()));
     HttpBaseChannel::ConfigureReplacementChannel(
         newChannel, config,
         HttpBaseChannel::ConfigureReason::DocumentChannelReplacement);
@@ -3885,18 +3879,17 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
     return IPC_OK();
   }
 
-  nsCOMPtr<nsIChildProcessChannelListener> processListener =
-      do_GetService("@mozilla.org/network/childProcessChannelListener;1");
-  // The listener will call completeRedirectSetup on the channel.
-  rv =
-      processListener->OnChannelReady(childChannel, aArgs.redirectIdentifier());
-  if (NS_FAILED(rv)) {
-    return IPC_OK();
-  }
-
+  // We need to copy the property bag before signaling that the channel
+  // is ready so that the nsDocShell can retrieve the history data when called.
   if (nsCOMPtr<nsIWritablePropertyBag> bag = do_QueryInterface(newChannel)) {
     nsHashPropertyBag::CopyFrom(bag, aArgs.properties());
   }
+
+  RefPtr<ChildProcessChannelListener> processListener =
+      ChildProcessChannelListener::GetSingleton();
+  // The listener will call completeRedirectSetup on the channel.
+  processListener->OnChannelReady(childChannel, aArgs.redirectIdentifier(),
+                                  std::move(aArgs.redirects()));
 
   // scopeExit will call CrossProcessRedirectFinished(rv) here
   return IPC_OK();
@@ -4222,7 +4215,7 @@ mozilla::ipc::IPCResult ContentChild::RecvWindowPostMessage(
       aData.callerDocumentURI(), aData.isFromPrivateWindow());
   event->UnpackFrom(aMessage);
 
-  window->Dispatch(TaskCategory::Other, event.forget());
+  event->DispatchToTargetThread(IgnoredErrorResult());
   return IPC_OK();
 }
 

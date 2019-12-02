@@ -174,11 +174,7 @@ nsresult nsLayoutStatics::Initialize() {
     return rv;
   }
 
-  rv = nsAttrValue::Init();
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Could not initialize nsAttrValue");
-    return rv;
-  }
+  nsAttrValue::Init();
 
   rv = nsTextFragment::Init();
   if (NS_FAILED(rv)) {

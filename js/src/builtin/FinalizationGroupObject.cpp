@@ -103,43 +103,52 @@ FinalizationRecordVectorObject* FinalizationRecordVectorObject::create(
 /* static */
 void FinalizationRecordVectorObject::trace(JSTracer* trc, JSObject* obj) {
   auto rv = &obj->as<FinalizationRecordVectorObject>();
-  rv->records().trace(trc);
+  if (auto* records = rv->records()) {
+    records->trace(trc);
+  }
 }
 
 /* static */
 void FinalizationRecordVectorObject::finalize(JSFreeOp* fop, JSObject* obj) {
   auto rv = &obj->as<FinalizationRecordVectorObject>();
-  fop->delete_(obj, &rv->records(), MemoryUse::FinalizationRecordVector);
+  fop->delete_(obj, rv->records(), MemoryUse::FinalizationRecordVector);
 }
 
-inline FinalizationRecordVectorObject::RecordVector&
+inline FinalizationRecordVectorObject::RecordVector*
 FinalizationRecordVectorObject::records() {
-  return *static_cast<RecordVector*>(privatePtr());
+  return static_cast<RecordVector*>(privatePtr());
 }
 
-inline const FinalizationRecordVectorObject::RecordVector&
+inline const FinalizationRecordVectorObject::RecordVector*
 FinalizationRecordVectorObject::records() const {
-  return *static_cast<const RecordVector*>(privatePtr());
+  return static_cast<const RecordVector*>(privatePtr());
 }
 
 inline void* FinalizationRecordVectorObject::privatePtr() const {
-  void* ptr = getReservedSlot(RecordsSlot).toPrivate();
+  Value value = getReservedSlot(RecordsSlot);
+  if (value.isUndefined()) {
+    return nullptr;
+  }
+  void* ptr = value.toPrivate();
   MOZ_ASSERT(ptr);
   return ptr;
 }
 
 inline bool FinalizationRecordVectorObject::isEmpty() const {
-  return records().empty();
+  MOZ_ASSERT(records());
+  return records()->empty();
 }
 
 inline bool FinalizationRecordVectorObject::append(
     HandleFinalizationRecordObject record) {
-  return records().append(record);
+  MOZ_ASSERT(records());
+  return records()->append(record);
 }
 
 inline void FinalizationRecordVectorObject::remove(
     HandleFinalizationRecordObject record) {
-  records().eraseIfEqual(record);
+  MOZ_ASSERT(records());
+  records()->eraseIfEqual(record);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -346,7 +355,7 @@ bool FinalizationGroupObject::register_(JSContext* cx, unsigned argc,
     return false;
   }
 
-  RootedValue holdings(cx, args.get(1));
+  HandleValue holdings = args.get(1);
 
   // 6. If Type(unregisterToken) is not Object,
   //    a. If unregisterToken is not undefined, throw a TypeError exception.
@@ -491,9 +500,10 @@ bool FinalizationGroupObject::unregister(JSContext* cx, unsigned argc,
 
   RootedObject obj(cx, group->registrations()->lookup(unregisterToken));
   if (obj) {
-    auto& records = obj->as<FinalizationRecordVectorObject>().records();
-    MOZ_ASSERT(!records.empty());
-    for (FinalizationRecordObject* record : records) {
+    auto* records = obj->as<FinalizationRecordVectorObject>().records();
+    MOZ_ASSERT(records);
+    MOZ_ASSERT(!records->empty());
+    for (FinalizationRecordObject* record : *records) {
       // Clear the fields of this record; it will be removed from the target's
       // list when it is next swept.
       record->clear();
@@ -577,23 +587,26 @@ bool FinalizationGroupObject::cleanupQueuedHoldings(
 
   // 4. If callback is undefined, set callback to
   //    finalizationGroup.[[CleanupCallback]].
-  RootedObject callback(cx, callbackArg);
-  if (!callbackArg) {
-    callback = group->cleanupCallback();
+  RootedValue callback(cx);
+  if (callbackArg) {
+    callback.setObject(*callbackArg);
+  } else {
+    JSObject* cleanupCallback = group->cleanupCallback();
+    MOZ_ASSERT(cleanupCallback);
+    callback.setObject(*cleanupCallback);
   }
 
   // 5. Set finalizationGroup.[[IsFinalizationGroupCleanupJobActive]] to true.
   group->setCleanupJobActive(true);
 
   // 6. Let result be Call(callback, undefined, iterator).
+  RootedValue iteratorVal(cx, ObjectValue(*iterator));
   RootedValue rval(cx);
-  JS::AutoValueArray<1> args(cx);
-  args[0].setObject(*iterator);
-  bool ok = JS::Call(cx, UndefinedHandleValue, callback, args, &rval);
+  bool ok = Call(cx, callback, UndefinedHandleValue, iteratorVal, &rval);
 
   // Remove holdings that were iterated over.
   size_t index = iterator->index();
-  MOZ_ASSERT(index <= initialLength);
+  MOZ_ASSERT(index <= holdings->length());
   MOZ_ASSERT(initialLength <= holdings->length());
   if (index > 0) {
     holdings->erase(holdings->begin(), holdings->begin() + index);
@@ -655,7 +668,7 @@ bool GlobalObject::initFinalizationIteratorProto(JSContext* cx,
   }
 
   FinalizationIteratorObject* iterator =
-      NewObjectWithClassProto<FinalizationIteratorObject>(cx, proto);
+      NewObjectWithGivenProto<FinalizationIteratorObject>(cx, proto);
   if (!iterator) {
     return nullptr;
   }

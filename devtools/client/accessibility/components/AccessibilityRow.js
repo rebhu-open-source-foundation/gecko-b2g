@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-/* global gTelemetry, gToolbox, EVENTS */
+/* global gTelemetry, EVENTS */
 
 // React & Redux
 const {
@@ -80,10 +80,9 @@ class AccessibilityRow extends Component {
   static get propTypes() {
     return {
       ...TreeRow.propTypes,
-      hasContextMenu: PropTypes.bool.isRequired,
       dispatch: PropTypes.func.isRequired,
+      toolboxDoc: PropTypes.object.isRequired,
       scrollContentNodeIntoView: PropTypes.bool.isRequired,
-      supports: PropTypes.object,
     };
   }
 
@@ -151,14 +150,13 @@ class AccessibilityRow extends Component {
     const {
       dispatch,
       member: { object },
-      supports,
     } = this.props;
     if (!object.actorID) {
       return;
     }
 
     const domWalker = (await object.targetFront.getFront("inspector")).walker;
-    dispatch(updateDetails(domWalker, object, supports));
+    dispatch(updateDetails(domWalker, object));
     window.emit(EVENTS.NEW_ACCESSIBLE_FRONT_SELECTED, object);
   }
 
@@ -253,12 +251,6 @@ class AccessibilityRow extends Component {
   }
 
   async printToJSON() {
-    const { member, supports } = this.props;
-    if (!supports.snapshot) {
-      // Debugger server does not support Accessible actor snapshots.
-      return;
-    }
-
     if (gTelemetry) {
       gTelemetry.keyedScalarAdd(
         TELEMETRY_ACCESSIBLE_CONTEXT_MENU_ITEM_ACTIVATED,
@@ -267,7 +259,7 @@ class AccessibilityRow extends Component {
       );
     }
 
-    const snapshot = await member.object.snapshot();
+    const snapshot = await this.props.member.object.snapshot();
     openDocLink(
       `${JSON_URL_PREFIX}${encodeURIComponent(JSON.stringify(snapshot))}`
     );
@@ -277,24 +269,20 @@ class AccessibilityRow extends Component {
     e.stopPropagation();
     e.preventDefault();
 
-    if (!gToolbox) {
+    if (!this.props.toolboxDoc) {
       return;
     }
 
     const menu = new Menu({ id: "accessibility-row-contextmenu" });
-    const { supports } = this.props;
+    menu.append(
+      new MenuItem({
+        id: "menu-printtojson",
+        label: L10N.getStr("accessibility.tree.menu.printToJSON"),
+        click: () => this.printToJSON(),
+      })
+    );
 
-    if (supports.snapshot) {
-      menu.append(
-        new MenuItem({
-          id: "menu-printtojson",
-          label: L10N.getStr("accessibility.tree.menu.printToJSON"),
-          click: () => this.printToJSON(),
-        })
-      );
-    }
-
-    menu.popup(e.screenX, e.screenY, gToolbox.doc);
+    menu.popup(e.screenX, e.screenY, this.props.toolboxDoc);
 
     if (gTelemetry) {
       gTelemetry.scalarAdd(TELEMETRY_ACCESSIBLE_CONTEXT_MENU_OPENED, 1);
@@ -309,7 +297,7 @@ class AccessibilityRow extends Component {
     const { member } = this.props;
     const props = {
       ...this.props,
-      onContextMenu: this.props.hasContextMenu && (e => this.onContextMenu(e)),
+      onContextMenu: e => this.onContextMenu(e),
       onMouseOver: () => this.highlight(member.object),
       onMouseOut: () => this.unhighlight(member.object),
       key: `${member.path}-${member.active ? "active" : "inactive"}`,
@@ -325,9 +313,8 @@ class AccessibilityRow extends Component {
 }
 
 const mapStateToProps = ({
-  ui: { supports, [PREFS.SCROLL_INTO_VIEW]: scrollContentNodeIntoView },
+  ui: { [PREFS.SCROLL_INTO_VIEW]: scrollContentNodeIntoView },
 }) => ({
-  supports,
   scrollContentNodeIntoView,
 });
 

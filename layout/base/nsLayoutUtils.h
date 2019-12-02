@@ -599,6 +599,12 @@ class nsLayoutUtils {
       const nsIFrame* aFixedPosFrame, nsPresContext* aPresContext,
       const ContainerLayerParameters& aContainerParameters);
 
+  static mozilla::SideBits GetSideBitsAndAdjustAnchorForFixedPositionContent(
+      const nsIFrame* aViewportFrame, const nsIFrame* aFixedPosFrame,
+      mozilla::LayerPoint* aAnchor, const Rect* aAnchorRect);
+  static mozilla::SideBits GetSideBitsForFixedPositionContent(
+      const nsIFrame* aFixedPosFrame);
+
   /**
    * Get the scroll id for the root scrollframe of the presshell of the given
    * prescontext. Returns NULL_SCROLL_ID if it couldn't be found.
@@ -3166,7 +3172,7 @@ class nsSetAttrRunnable : public mozilla::Runnable {
 
   NS_DECL_NSIRUNNABLE
 
-  RefPtr<Element> mElement;
+  RefPtr<mozilla::dom::Element> mElement;
   RefPtr<nsAtom> mAttrName;
   nsAutoString mValue;
 };
@@ -3177,7 +3183,7 @@ class nsUnsetAttrRunnable : public mozilla::Runnable {
 
   NS_DECL_NSIRUNNABLE
 
-  RefPtr<Element> mElement;
+  RefPtr<mozilla::dom::Element> mElement;
   RefPtr<nsAtom> mAttrName;
 };
 

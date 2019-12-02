@@ -4807,7 +4807,7 @@
 # Whether we get notified of history queries for visited even if unvisited.
 - name: layout.css.notify-of-unvisited
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # Whether we always restyle / repaint as a result of a visited query
@@ -4819,7 +4819,7 @@
 # Make `zoom` a `transform` + `transform-origin` alias.
 - name: layout.css.zoom-transform-hack.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
   rust: true
 
@@ -6855,6 +6855,13 @@
   value: false
   mirror: always
 
+# Whether to use the new experimental preload code based on the speculative loader
+# inside the html5 parser.
+- name: network.preload-experimental
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Telemetry of traffic categories. Whether or not to enable HttpTrafficAnalyzer.
 - name: network.traffic_analyzer.enabled
   type: RelaxedAtomicBool
@@ -7500,6 +7507,12 @@
 # Is support for the new getBBox method from SVG 2 enabled?
 # See https://svgwg.org/svg2-draft/single-page.html#types-SVGBoundingBoxOptions
 - name: svg.new-getBBox.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Is support for letter-spacing and word-spacing in SVG text enabled?
+- name: svg.text-spacing.enabled
   type: bool
   value: false
   mirror: always

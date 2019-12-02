@@ -13,6 +13,7 @@
 #include "mozilla/dom/BrowsingContextBinding.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Location.h"
 #include "mozilla/dom/LocationBinding.h"
@@ -30,6 +31,7 @@
 #include "mozilla/HashTable.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_page_load.h"
 #include "mozilla/StaticPtr.h"
 #include "nsIURIFixup.h"
 
@@ -666,6 +668,8 @@ BrowsingContext::~BrowsingContext() {
   MOZ_DIAGNOSTIC_ASSERT(!mParent || !mParent->mChildren.Contains(this));
   MOZ_DIAGNOSTIC_ASSERT(!mGroup || !mGroup->Toplevels().Contains(this));
   MOZ_DIAGNOSTIC_ASSERT(!mGroup || !mGroup->IsContextCached(this));
+
+  mDeprioritizedLoadRunner.clear();
 
   if (sBrowsingContexts) {
     sBrowsingContexts->Remove(Id());
@@ -1344,6 +1348,49 @@ void BrowsingContext::DidSetIsPopupSpam() {
   if (mIsPopupSpam) {
     PopupBlocker::RegisterOpenPopupSpam();
   }
+}
+
+bool BrowsingContext::IsLoading() {
+  if (GetLoading()) {
+    return true;
+  }
+
+  // If we're in the same process as the page, we're possibly just
+  // updating the flag.
+  nsIDocShell* shell = GetDocShell();
+  if (shell) {
+    Document* doc = shell->GetDocument();
+    return doc && doc->GetReadyStateEnum() < Document::READYSTATE_COMPLETE;
+  }
+
+  return false;
+}
+
+void BrowsingContext::DidSetLoading() {
+  if (mLoading) {
+    return;
+  }
+
+  while (!mDeprioritizedLoadRunner.isEmpty()) {
+    nsCOMPtr<nsIRunnable> runner = mDeprioritizedLoadRunner.popFirst();
+    NS_DispatchToCurrentThread(runner.forget());
+  }
+
+  if (StaticPrefs::dom_separate_event_queue_for_post_message_enabled() &&
+      Top() == this) {
+    Group()->FlushPostMessageEvents();
+  }
+}
+
+void BrowsingContext::AddDeprioritizedLoadRunner(nsIRunnable* aRunner) {
+  MOZ_ASSERT(IsLoading());
+  MOZ_ASSERT(Top() == this);
+
+  RefPtr<DeprioritizedLoadRunner> runner = new DeprioritizedLoadRunner(aRunner);
+  mDeprioritizedLoadRunner.insertBack(runner);
+  NS_DispatchToCurrentThreadQueue(
+      runner.forget(), StaticPrefs::page_load_deprioritization_period(),
+      EventQueuePriority::Idle);
 }
 
 }  // namespace dom

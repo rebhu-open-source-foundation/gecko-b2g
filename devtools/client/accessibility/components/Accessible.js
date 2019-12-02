@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-/* global EVENTS, gTelemetry, gToolbox */
+/* global EVENTS, gTelemetry */
 
 // React & Redux
 const {
@@ -112,7 +112,7 @@ class Accessible extends Component {
       labelledby: PropTypes.string.isRequired,
       parents: PropTypes.object,
       relations: PropTypes.object,
-      supports: PropTypes.object,
+      toolbox: PropTypes.object.isRequired,
     };
   }
 
@@ -181,7 +181,7 @@ class Accessible extends Component {
   }
 
   async update() {
-    const { dispatch, accessibleFront, supports } = this.props;
+    const { dispatch, accessibleFront } = this.props;
     if (!accessibleFront.actorID) {
       return;
     }
@@ -189,7 +189,7 @@ class Accessible extends Component {
     const domWalker = (await accessibleFront.targetFront.getFront("inspector"))
       .walker;
 
-    dispatch(updateDetails(domWalker, accessibleFront, supports));
+    dispatch(updateDetails(domWalker, accessibleFront));
   }
 
   setExpanded(item, isExpanded) {
@@ -205,7 +205,7 @@ class Accessible extends Component {
   }
 
   async showHighlighter(nodeFront) {
-    if (!gToolbox) {
+    if (!this.props.toolbox) {
       return;
     }
 
@@ -214,7 +214,7 @@ class Accessible extends Component {
   }
 
   async hideHighlighter(nodeFront) {
-    if (!gToolbox) {
+    if (!this.props.toolbox) {
       return;
     }
 
@@ -238,7 +238,7 @@ class Accessible extends Component {
       .catch(error => {
         // Only report an error where there's still a toolbox. Ignore cases
         // where toolbox is already destroyed.
-        if (gToolbox) {
+        if (this.props.toolbox) {
           console.error(error);
         }
       });
@@ -258,24 +258,23 @@ class Accessible extends Component {
     accessibilityWalkerFront.unhighlight().catch(error => {
       // Only report an error where there's still a toolbox. Ignore cases where
       // toolbox is already destroyed.
-      if (gToolbox) {
+      if (this.props.toolbox) {
         console.error(error);
       }
     });
   }
 
-  selectNode(nodeFront, reason = "accessibility") {
+  async selectNode(nodeFront, reason = "accessibility") {
     if (gTelemetry) {
       gTelemetry.scalarAdd(TELEMETRY_NODE_INSPECTED_COUNT, 1);
     }
 
-    if (!gToolbox) {
+    if (!this.props.toolbox) {
       return;
     }
 
-    gToolbox
-      .selectTool("inspector")
-      .then(() => gToolbox.selection.setNodeFront(nodeFront, reason));
+    const inspector = await this.props.toolbox.selectTool("inspector");
+    inspector.selection.setNodeFront(nodeFront, reason);
   }
 
   async selectAccessible(accessibleFront) {
@@ -540,13 +539,12 @@ const makeParentMap = items => {
   return map;
 };
 
-const mapStateToProps = ({ details, ui }) => {
+const mapStateToProps = ({ details }) => {
   const {
     accessible: accessibleFront,
     DOMNode: nodeFront,
     relations,
   } = details;
-  const { supports } = ui;
   if (!accessibleFront || !nodeFront) {
     return {};
   }
@@ -556,9 +554,7 @@ const mapStateToProps = ({ details, ui }) => {
       if (key === "DOMNode") {
         props.nodeFront = nodeFront;
       } else if (key === "relations") {
-        if (supports.relations) {
-          props.relations = relations;
-        }
+        props.relations = relations;
       } else {
         props[key] = accessibleFront[key];
       }
@@ -569,7 +565,7 @@ const mapStateToProps = ({ details, ui }) => {
   );
   const parents = makeParentMap(items);
 
-  return { accessibleFront, nodeFront, items, parents, relations, supports };
+  return { accessibleFront, nodeFront, items, parents, relations };
 };
 
 module.exports = connect(mapStateToProps)(Accessible);

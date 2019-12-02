@@ -3937,35 +3937,25 @@ mozilla::ipc::IPCResult ContentParent::RecvPPresentationConstructor(
   return IPC_OK();
 }
 
-PSpeechSynthesisParent* ContentParent::AllocPSpeechSynthesisParent() {
 #ifdef MOZ_WEBSPEECH
+PSpeechSynthesisParent* ContentParent::AllocPSpeechSynthesisParent() {
   return new mozilla::dom::SpeechSynthesisParent();
-#else
-  return nullptr;
-#endif
 }
 
 bool ContentParent::DeallocPSpeechSynthesisParent(
     PSpeechSynthesisParent* aActor) {
-#ifdef MOZ_WEBSPEECH
   delete aActor;
   return true;
-#else
-  return false;
-#endif
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
     PSpeechSynthesisParent* aActor) {
-#ifdef MOZ_WEBSPEECH
   if (!static_cast<SpeechSynthesisParent*>(aActor)->SendInit()) {
     return IPC_FAIL_NO_REASON(this);
   }
   return IPC_OK();
-#else
-  return IPC_FAIL_NO_REASON(this);
-#endif
 }
+#endif
 
 PSystemMessageServiceParent* ContentParent::AllocPSystemMessageServiceParent() {
   RefPtr<SystemMessageServiceParent> actor = new SystemMessageServiceParent();
@@ -5533,16 +5523,12 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  if (NS_SUCCEEDED(
-          BlobURLProtocolHandler::AddDataEntry(aURI, aPrincipal, blobImpl))) {
-    BroadcastBlobURLRegistration(aURI, blobImpl, aPrincipal, this);
-
-    // We want to store this blobURL, so we can unregister it if the child
-    // crashes.
-    mBlobURLs.AppendElement(aURI);
-  }
-
+  BlobURLProtocolHandler::AddDataEntry(aURI, aPrincipal, blobImpl);
   BroadcastBlobURLRegistration(aURI, blobImpl, aPrincipal, this);
+  // We want to store this blobURL, so we can unregister it if the child
+  // crashes.
+  mBlobURLs.AppendElement(aURI);
+
   return IPC_OK();
 }
 
@@ -5552,7 +5538,6 @@ ContentParent::RecvUnstoreAndBroadcastBlobURLUnregistration(
   BlobURLProtocolHandler::RemoveDataEntry(aURI, false /* Don't broadcast */);
   BroadcastBlobURLUnregistration(aURI, this);
   mBlobURLs.RemoveElement(aURI);
-
   return IPC_OK();
 }
 
