@@ -28,6 +28,7 @@
 
 #include "mozilla/a11y/PDocAccessible.h"
 #include "DeviceStorageStatics.h"
+#include "GeckoProfiler.h"
 #include "GMPServiceParent.h"
 #include "HandlerServiceParent.h"
 #include "IHistory.h"
@@ -1636,32 +1637,6 @@ void ContentParent::OnChannelConnected(int32_t pid) {
   MOZ_ASSERT(NS_IsMainThread());
 
   SetOtherProcessId(pid);
-
-#if defined(ANDROID) || defined(LINUX)
-  // Check nice preference
-  int32_t nice = Preferences::GetInt("dom.ipc.content.nice", 0);
-
-  // Environment variable overrides preference
-  char* relativeNicenessStr = getenv("MOZ_CHILD_PROCESS_RELATIVE_NICENESS");
-  if (relativeNicenessStr) {
-    nice = atoi(relativeNicenessStr);
-  }
-
-  /* make the GUI thread have higher priority on single-cpu devices */
-  nsCOMPtr<nsIPropertyBag2> infoService =
-      do_GetService(NS_SYSTEMINFO_CONTRACTID);
-  if (infoService) {
-    int32_t cpus;
-    nsresult rv =
-        infoService->GetPropertyAsInt32(NS_LITERAL_STRING("cpucount"), &cpus);
-    if (NS_FAILED(rv)) {
-      cpus = 1;
-    }
-    if (nice != 0 && cpus == 1) {
-      setpriority(PRIO_PROCESS, pid, getpriority(PRIO_PROCESS, pid) + nice);
-    }
-  }
-#endif
 }
 
 void ContentParent::ProcessingError(Result aCode, const char* aReason) {
@@ -5567,6 +5542,7 @@ mozilla::ipc::IPCResult ContentParent::RecvA11yHandlerControl(
 bool ContentParent::HandleWindowsMessages(const Message& aMsg) const {
   MOZ_ASSERT(aMsg.is_sync());
 
+#ifdef ACCESSIBILITY
   // a11y messages can be triggered by windows messages, which means if we
   // allow handling windows messages while we wait for the response to a sync
   // a11y message we can reenter the ipc message sending code.
@@ -5574,6 +5550,7 @@ bool ContentParent::HandleWindowsMessages(const Message& aMsg) const {
       a11y::PDocAccessible::PDocAccessibleEnd > aMsg.type()) {
     return false;
   }
+#endif
 
   return true;
 }
