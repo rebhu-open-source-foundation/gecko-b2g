@@ -18,8 +18,13 @@ EXPORTS += [
     'AudioChannelService.h',
 ]
 
+EXPORTS.mozilla.dom += [
+    'AudioChannelHandler.h',
+]
+
 UNIFIED_SOURCES += [
     'AudioChannelAgent.cpp',
+    'AudioChannelHandler.cpp',
     'AudioChannelService.cpp',
 ]
 

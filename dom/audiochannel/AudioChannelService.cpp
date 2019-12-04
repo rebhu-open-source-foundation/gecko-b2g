@@ -1068,7 +1068,7 @@ void AudioChannelService::AudioChannelWindow::AppendAgentAndIncreaseAgentsNum(
 
   ++mChannels[channel].mNumberOfAgents;
 
-  // The first one, we must inform the BrowserElementAudioChannel.
+  // The first one, we must inform the AudioChannelHandler.
   if (mChannels[channel].mNumberOfAgents == 1) {
     NotifyChannelActive(aAgent->WindowID(), static_cast<AudioChannel>(channel),
                         true);

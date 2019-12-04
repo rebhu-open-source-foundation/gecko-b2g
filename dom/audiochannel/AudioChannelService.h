@@ -170,7 +170,7 @@ class AudioChannelService final : public nsIObserver {
   void AudioAudibleChanged(AudioChannelAgent* aAgent, AudibleState aAudible,
                            AudibleChangedReasons aReason);
 
-  /* Methods for the BrowserElementAudioChannel */
+  /* Methods for the AudioChannelHandler */
   bool GetAudioChannelVolume(nsPIDOMWindowOuter* aWindow, AudioChannel aChannel,
                              float& aVolume, bool& aMuted);
 

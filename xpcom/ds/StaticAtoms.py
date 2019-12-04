@@ -725,6 +725,7 @@ STATIC_ATOMS = [
     Atom("ol", "ol"),
     Atom("omitXmlDeclaration", "omit-xml-declaration"),
     Atom("onabort", "onabort"),
+    Atom("onactivestatechanged", "onactivestatechanged"),
     Atom("onmozaccesskeynotfound", "onmozaccesskeynotfound"),
     Atom("onactivate", "onactivate"),
     Atom("onafterprint", "onafterprint"),
