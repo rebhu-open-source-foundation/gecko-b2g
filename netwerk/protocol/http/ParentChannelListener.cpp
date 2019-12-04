@@ -18,7 +18,9 @@
 #include "nsIAuthPrompt2.h"
 #include "nsIHttpHeaderVisitor.h"
 #include "nsIRemoteTab.h"
+#include "nsIPrompt.h"
 #include "nsIPromptFactory.h"
+#include "nsISecureBrowserUI.h"
 #include "nsIWindowWatcher.h"
 #include "nsQueryObject.h"
 
@@ -59,6 +61,7 @@ NS_INTERFACE_MAP_BEGIN(ParentChannelListener)
   NS_INTERFACE_MAP_ENTRY(nsIInterfaceRequestor)
   NS_INTERFACE_MAP_ENTRY(nsIStreamListener)
   NS_INTERFACE_MAP_ENTRY(nsIRequestObserver)
+  NS_INTERFACE_MAP_ENTRY(nsIMultiPartChannelListener)
   NS_INTERFACE_MAP_ENTRY(nsINetworkInterceptController)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIInterfaceRequestor)
   NS_INTERFACE_MAP_ENTRY_CONCRETE(ParentChannelListener)
@@ -74,6 +77,14 @@ ParentChannelListener::OnStartRequest(nsIRequest* aRequest) {
                      "Cannot call OnStartRequest if suspended for diversion!");
 
   if (!mNextListener) return NS_ERROR_UNEXPECTED;
+
+  // If we're not a multi-part channel, then we can drop mListener and break the
+  // reference cycle. If we are, then this might be called again, so wait for
+  // OnAfterLastPart instead.
+  nsCOMPtr<nsIMultiPartChannel> multiPartChannel = do_QueryInterface(aRequest);
+  if (multiPartChannel) {
+    mIsMultiPart = true;
+  }
 
   LOG(("ParentChannelListener::OnStartRequest [this=%p]\n", this));
   return mNextListener->OnStartRequest(aRequest);
@@ -91,7 +102,9 @@ ParentChannelListener::OnStopRequest(nsIRequest* aRequest,
        this, static_cast<uint32_t>(aStatusCode)));
   nsresult rv = mNextListener->OnStopRequest(aRequest, aStatusCode);
 
-  mNextListener = nullptr;
+  if (!mIsMultiPart) {
+    mNextListener = nullptr;
+  }
   return rv;
 }
 
@@ -114,6 +127,22 @@ ParentChannelListener::OnDataAvailable(nsIRequest* aRequest,
 }
 
 //-----------------------------------------------------------------------------
+// ParentChannelListener::nsIMultiPartChannelListener
+//-----------------------------------------------------------------------------
+
+NS_IMETHODIMP
+ParentChannelListener::OnAfterLastPart(nsresult aStatus) {
+  nsCOMPtr<nsIMultiPartChannelListener> multiListener =
+      do_QueryInterface(mNextListener);
+  if (multiListener) {
+    multiListener->OnAfterLastPart(aStatus);
+  }
+
+  mNextListener = nullptr;
+  return NS_OK;
+}
+
+//-----------------------------------------------------------------------------
 // ParentChannelListener::nsIInterfaceRequestor
 //-----------------------------------------------------------------------------
 
@@ -132,7 +161,7 @@ ParentChannelListener::GetInterface(const nsIID& aIID, void** result) {
   }
 
   if (mBrowserParent && aIID.Equals(NS_GET_IID(nsIPrompt))) {
-    nsCOMPtr<Element> frameElement = mBrowserParent->GetOwnerElement();
+    nsCOMPtr<dom::Element> frameElement = mBrowserParent->GetOwnerElement();
     if (frameElement) {
       nsCOMPtr<nsPIDOMWindowOuter> win = frameElement->OwnerDoc()->GetWindow();
       NS_ENSURE_TRUE(win, NS_ERROR_UNEXPECTED);
@@ -154,6 +183,13 @@ ParentChannelListener::GetInterface(const nsIID& aIID, void** result) {
       prompt.forget(result);
       return NS_OK;
     }
+  }
+
+  if (aIID.Equals(NS_GET_IID(nsIRemoteWindowContext)) && mBrowserParent) {
+    nsCOMPtr<nsIRemoteWindowContext> ctx(
+        new dom::RemoteWindowContext(mBrowserParent));
+    ctx.forget(result);
+    return NS_OK;
   }
 
   nsCOMPtr<nsIInterfaceRequestor> ir;

@@ -20,6 +20,7 @@
 #include "nsIParentRedirectingChannel.h"
 #include "nsIProcessSwitchRequestor.h"
 #include "nsIRedirectResultListener.h"
+#include "nsIMultiPartChannel.h"
 
 #define DOCUMENT_LOAD_LISTENER_IID                   \
   {                                                  \
@@ -55,7 +56,8 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
                              public nsIParentChannel,
                              public nsIChannelEventSink,
                              public HttpChannelSecurityWarningReporter,
-                             public nsIProcessSwitchRequestor {
+                             public nsIProcessSwitchRequestor,
+                             public nsIMultiPartChannelListener {
  public:
   explicit DocumentLoadListener(const dom::PBrowserOrId& aIframeEmbedding,
                                 nsILoadContext* aLoadContext,
@@ -80,6 +82,7 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   NS_DECL_NSIASYNCVERIFYREDIRECTREADYCALLBACK
   NS_DECL_NSICHANNELEVENTSINK
   NS_DECL_NSIPROCESSSWITCHREQUESTOR
+  NS_DECL_NSIMULTIPARTCHANNELLISTENER
 
   // We suspend the underlying channel when replacing ourselves with
   // the real listener channel.
@@ -153,7 +156,7 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
                              uint32_t aLoadFlags);
 
  protected:
-  virtual ~DocumentLoadListener() = default;
+  virtual ~DocumentLoadListener();
 
   // Initiates the switch from DocumentChannel to the real protocol-specific
   // channel, and ensures that RedirectToRealChannelFinished is called when
@@ -258,14 +261,32 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
       SecurityWarningFunction;
   nsTArray<SecurityWarningFunction> mSecurityWarningFunctions;
 
-  struct OnDataAvailableRequest {
+  struct OnStartRequestParams {
+    nsCOMPtr<nsIRequest> request;
+  };
+  struct OnDataAvailableParams {
+    nsCOMPtr<nsIRequest> request;
     nsCString data;
     uint64_t offset;
     uint32_t count;
   };
+  struct OnStopRequestParams {
+    nsCOMPtr<nsIRequest> request;
+    nsresult status;
+  };
+  struct OnAfterLastPartParams {
+    nsresult status;
+  };
+  typedef mozilla::Variant<OnStartRequestParams, OnDataAvailableParams,
+                           OnStopRequestParams, OnAfterLastPartParams>
+      StreamListenerFunction;
   // TODO Backtrack this.
-  nsTArray<OnDataAvailableRequest> mPendingRequests;
-  Maybe<nsresult> mStopRequestValue;
+  // The set of nsIStreamListener functions that got called on this
+  // listener, so that we can replay them onto the replacement channel's
+  // listener. This should generally only be OnStartRequest, since we
+  // Suspend() the channel at that point, but it can fail sometimes
+  // so we have to support holding a list.
+  nsTArray<StreamListenerFunction> mStreamListenerFunctions;
 
   nsCOMPtr<nsIChannel> mChannel;
 
@@ -298,10 +319,10 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   // we want to use when redirecting the child, or doing a process switch.
   // 0 means redirection is not started.
   uint32_t mRedirectChannelId = 0;
-  // Set to true if we called Suspend on mChannel to initiate our redirect.
-  // This isn't currently set when we do a process swap, since that gets
-  // initiated in nsHttpChannel.
-  bool mSuspendedChannel = false;
+  // Set to true once we initiate the redirect to a real channel (either
+  // via a process switch or a same-process redirect, and Suspend the
+  // underlying channel.
+  bool mInitiatedRedirectToRealChannel = false;
   // Set to true if we're currently in the middle of replacing this with
   // a new channel connected a different process.
   bool mDoingProcessSwitch = false;
@@ -313,6 +334,10 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   // Set to true if any previous channel that we redirected away
   // from had a COOP mismatch.
   bool mHasCrossOriginOpenerPolicyMismatch = false;
+  // Set to true if we've received OnStopRequest, and shouldn't
+  // setup a reference from the ParentChannelListener to the replacement
+  // channel.
+  bool mIsFinished = false;
 
   typedef MozPromise<uint64_t, nsresult, true /* exclusive */>
       ContentProcessIdPromise;

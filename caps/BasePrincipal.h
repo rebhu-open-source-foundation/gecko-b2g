@@ -261,6 +261,17 @@ class BasePrincipal : public nsJSPrincipals {
   void FinishInit(BasePrincipal* aOther,
                   const OriginAttributes& aOriginAttributes);
 
+  // KeyValT holds a principal subtype-specific key value and the associated
+  // parsed value after JSON parsing.
+  template<typename SerializedKey>
+  struct KeyValT
+  {
+    static_assert(sizeof(SerializedKey) == 1, "SerializedKey should be a uint8_t");
+    SerializedKey key;
+    bool valueWasSerialized;
+    nsCString value;
+  };
+
  private:
   static already_AddRefed<BasePrincipal> CreateContentPrincipal(
       nsIURI* aURI, const OriginAttributes& aAttrs,

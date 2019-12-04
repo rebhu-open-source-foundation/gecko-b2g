@@ -31,6 +31,9 @@
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
 
+extern mozilla::LazyLogModule gDocumentChannelLog;
+#define LOG(fmt) MOZ_LOG(gDocumentChannelLog, mozilla::LogLevel::Verbose, fmt)
+
 namespace mozilla {
 namespace net {
 
@@ -95,10 +98,16 @@ DocumentChannelChild::DocumentChannelChild(
       mLoadFlags(aLoadFlags),
       mURI(aLoadState->URI()),
       mLoadInfo(aLoadInfo) {
+  LOG(("DocumentChannelChild ctor [this=%p, uri=%s]", this,
+       aLoadState->URI()->GetSpecOrDefault().get()));
   RefPtr<nsHttpHandler> handler = nsHttpHandler::GetInstance();
   uint64_t channelId;
   Unused << handler->NewChannelId(channelId);
   mChannelId = channelId;
+}
+
+DocumentChannelChild::~DocumentChannelChild() {
+  LOG(("DocumentChannelChild dtor [this=%p]", this));
 }
 
 NS_IMETHODIMP
@@ -232,6 +241,8 @@ IPCResult DocumentChannelChild::RecvFailedAsyncOpen(
 }
 
 void DocumentChannelChild::ShutdownListeners(nsresult aStatusCode) {
+  LOG(("DocumentChannelChild ShutdownListeners [this=%p, status=%" PRIx32 "]",
+       this, static_cast<uint32_t>(aStatusCode)));
   mStatus = aStatusCode;
 
   nsCOMPtr<nsIStreamListener> l = mListener;
@@ -283,6 +294,9 @@ IPCResult DocumentChannelChild::RecvDeleteSelf() {
 IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
     RedirectToRealChannelArgs&& aArgs,
     RedirectToRealChannelResolver&& aResolve) {
+  LOG(("DocumentChannelChild RecvRedirectToRealChannel [this=%p, uri=%s]", this,
+       aArgs.uri()->GetSpecOrDefault().get()));
+
   RefPtr<dom::Document> loadingDocument;
   mLoadInfo->GetLoadingDocument(getter_AddRefs(loadingDocument));
 
@@ -310,13 +324,6 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
                             nullptr,     // aCallbacks
                             aArgs.newLoadFlags());
 
-  RefPtr<HttpChannelChild> httpChild = do_QueryObject(newChannel);
-  RefPtr<nsIChildChannel> childChannel = do_QueryObject(newChannel);
-  if (NS_FAILED(rv)) {
-    MOZ_DIAGNOSTIC_ASSERT(false, "NS_NewChannelInternal failed");
-    return IPC_OK();
-  }
-
   // This is used to report any errors back to the parent by calling
   // CrossProcessRedirectFinished.
   auto scopeExit = MakeScopeExit([&]() {
@@ -326,6 +333,11 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
     mRedirectResolver = nullptr;
   });
 
+  if (NS_FAILED(rv)) {
+    return IPC_OK();
+  }
+
+  RefPtr<HttpChannelChild> httpChild = do_QueryObject(newChannel);
   if (httpChild) {
     rv = httpChild->SetChannelId(aArgs.channelId());
   }
@@ -376,6 +388,7 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
   }
 
   // connect parent.
+  nsCOMPtr<nsIChildChannel> childChannel = do_QueryInterface(newChannel);
   if (childChannel) {
     rv = childChannel->ConnectParent(
         aArgs.registrarId());  // creates parent channel
@@ -719,3 +732,5 @@ DocumentChannelChild::SetChannelId(uint64_t aChannelId) {
 
 }  // namespace net
 }  // namespace mozilla
+
+#undef LOG

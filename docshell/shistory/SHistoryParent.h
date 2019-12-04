@@ -8,6 +8,7 @@
 #define mozilla_dom_SHistoryParent_h
 
 #include "mozilla/dom/CanonicalBrowsingContext.h"
+#include "mozilla/dom/PContent.h"
 #include "mozilla/dom/PSHistoryParent.h"
 #include "mozilla/RefPtr.h"
 #include "nsSHistory.h"

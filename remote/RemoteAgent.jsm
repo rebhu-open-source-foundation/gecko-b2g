@@ -31,7 +31,7 @@ class RemoteAgentClass {
     return !!this.server && !this.server.isStopped();
   }
 
-  async listen(url) {
+  listen(url) {
     if (!Preferences.get(ENABLED, false)) {
       throw new Error("Remote agent is disabled by preference");
     }
@@ -56,7 +56,7 @@ class RemoteAgentClass {
     }
 
     if (this.listening) {
-      return;
+      return Promise.resolve();
     }
 
     Preferences.set(RecommendedPreferences);
@@ -77,6 +77,10 @@ class RemoteAgentClass {
       delete this.server._handler._overridePaths[target.path];
     });
 
+    return this.asyncListen(host, port);
+  }
+
+  async asyncListen(host, port) {
     try {
       await this.targets.watchForTargets();
 
@@ -96,7 +100,7 @@ class RemoteAgentClass {
     }
   }
 
-  async close() {
+  close() {
     try {
       // if called early at startup, preferences may not be available
       try {
@@ -110,7 +114,7 @@ class RemoteAgentClass {
       }
 
       if (this.listening) {
-        await this.server.stop();
+        return this.server.stop();
       }
     } catch (e) {
       // this function must never fail
@@ -119,6 +123,8 @@ class RemoteAgentClass {
       this.server = null;
       this.targets = null;
     }
+
+    return Promise.resolve();
   }
 
   get scheme() {
