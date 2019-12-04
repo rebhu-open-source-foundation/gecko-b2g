@@ -48,6 +48,7 @@ DIRS += [
     'credentialmanagement',
     'crypto',
     'debugger',
+    'alarm',
     'devicestorage',
     'encoding',
     'events',

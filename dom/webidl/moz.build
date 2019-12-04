@@ -1237,6 +1237,11 @@ if CONFIG['ACCESSIBILITY']:
         'AccessibleNode.webidl',
     ]
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] != 'android':
+    WEBIDL_FILES += [
+        'AlarmsManager.webidl',
+    ]
+
 if CONFIG['MOZ_B2G_BT']:
     WEBIDL_FILES += [
         'BluetoothAdapter.webidl',
