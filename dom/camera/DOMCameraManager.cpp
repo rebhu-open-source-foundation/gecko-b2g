@@ -293,6 +293,19 @@ CameraPermissionRequest::GetDocumentDOMContentLoadedTimestamp(
   return NS_OK;
 }
 
+NS_IMETHODIMP
+CameraPermissionRequest::GetDelegatePrincipal(
+    const nsACString& aType, nsIPrincipal** aRequestingPrincipal) {
+  return PermissionDelegateHandler::GetDelegatePrincipal(aType, this,
+                                                         aRequestingPrincipal);
+}
+
+NS_IMETHODIMP
+CameraPermissionRequest::GetMaybeUnsafePermissionDelegate(
+    bool* aMaybeUnsafePermissionDelegate) {
+  return NS_OK;
+}
+
 #ifdef MOZ_WIDGET_GONK
 /* static */ void
 nsDOMCameraManager::PreinitCameraHardware()
