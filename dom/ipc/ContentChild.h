@@ -510,6 +510,11 @@ class ContentChild final
   mozilla::ipc::IPCResult RecvNotifyPushSubscriptionModifiedObservers(
       const nsCString& aScope, const IPC::Principal& aPrincipal);
 
+  mozilla::ipc::IPCResult RecvSystemMessage(const nsCString& aScope,
+                                            const nsCString& aOriginSuffix,
+                                            const nsString& aMessageName,
+                                            const nsString& aMessageData);
+
   mozilla::ipc::IPCResult RecvActivate(PBrowserChild* aTab);
 
   mozilla::ipc::IPCResult RecvDeactivate(PBrowserChild* aTab);

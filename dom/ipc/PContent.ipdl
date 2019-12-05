@@ -856,6 +856,9 @@ child:
      */
     async PushSubscriptionChange(nsCString scope, Principal principal);
 
+    async SystemMessage(nsCString scope, nsCString originSuffix,
+                        nsString messageName, nsString messageData);
+
     /**
      * Windows specific: associate this content process with the browsers
      * audio session.

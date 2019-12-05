@@ -13,6 +13,7 @@ namespace dom {
 
 struct SubscribeRequest
 {
+  uint64_t id;
   nsString messageName;
   nsCString origin;
   nsCString scope;

@@ -131,19 +131,20 @@ nsresult SystemMessageSubscription::Subscribe() {
     return rv;
   }
 
-  PContentChild* contentChild = ContentChild::GetSingleton();
+  ContentChild* contentChild = ContentChild::GetSingleton();
   if (contentChild) {
     SystemMessageServiceChild* child = new SystemMessageServiceChild(this);
     contentChild->SendPSystemMessageServiceConstructor(child);
-    SubscribeRequest request(mMessageName, origin, mScope, originSuffix);
+    SubscribeRequest request(contentChild->GetID(), mMessageName, origin,
+                             mScope, originSuffix);
     child->SendRequest(request);
     return NS_OK;
   }
 
-  // Call from parent process (in-proces app or directly from service worker).
+  // Call from parent process (or in-proces app).
   SystemMessageService* service = GetSystemMessageService();
   MOZ_ASSERT(service);
-  service->DoSubscribe(mMessageName, origin, mScope, originSuffix, this);
+  service->DoSubscribe(0, mMessageName, origin, mScope, originSuffix, this);
 
   return NS_OK;
 }

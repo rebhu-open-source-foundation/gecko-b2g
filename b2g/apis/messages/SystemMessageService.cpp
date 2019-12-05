@@ -11,6 +11,7 @@
 #include "mozilla/dom/SystemMessageService.h"
 #include "mozilla/dom/SystemMessageServiceChild.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
+#include "mozilla/dom/ContentParent.h"
 #include "mozilla/StaticPtr.h"
 #include "js/JSON.h"
 #include "nsISystemMessageListener.h"
@@ -92,22 +93,52 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
     return NS_OK;
   }
 
-  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
-  if (!swm) {
-    return NS_ERROR_FAILURE;
+  nsresult rv;
+  SystemMessageDispatcher dispatcher(info->mScope, info->mOriginSuffix,
+                                     aMessageName, messageData);
+  // If info->mID is 0, the subscriber is called from parent process.
+  if (!ServiceWorkerParentInterceptEnabled() && info->mID) {
+    nsTArray<ContentParent*> contentActors;
+    ContentParent::GetAll(contentActors);
+    for (uint32_t i = 0; i < contentActors.Length(); ++i) {
+      if (!contentActors[i]->GetRemoteType().EqualsLiteral(
+              DEFAULT_REMOTE_TYPE)) {
+        continue;
+      }
+      // TODO: PushNotifier transmit the permission to content scope here, not
+      // sure whether we should do that too, since our permission model is TBD,
+      // leave it as TODO.
+
+      // TODO: Ideally, we should dispatch events to the content process where
+      // this subscriber belongs, however, childID will be re-generated once the
+      // content process is killed and relaunched, and there is no way to find
+      // the mapping from ContentParent currently. We follow the fix from
+      // upstream (bug 1300112), where we always dispatch events to the first
+      // available content process. File Bug 80246 to follow up.
+
+      if (dispatcher.SendToChild(contentActors[i])) {
+        break;
+      }
+    }
+  } else {
+    rv = dispatcher.NotifyWorkers();
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
   }
 
-  return swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
-                                     aMessageName, messageData);
+  return NS_OK;
 }
 
-void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
+void SystemMessageService::DoSubscribe(uint64_t aID,
+                                       const nsAString& aMessageName,
                                        const nsACString& aOrigin,
                                        const nsACString& aScope,
                                        const nsACString& aOriginSuffix,
                                        nsISystemMessageListener* aListener) {
   SubscriberTable* table = mSubscribers.LookupOrAdd(aMessageName);
-  nsAutoPtr<SubscriberInfo> info(new SubscriberInfo(aScope, aOriginSuffix));
+  nsAutoPtr<SubscriberInfo> info(
+      new SubscriberInfo(aID, aScope, aOriginSuffix));
   table->Put(aOrigin, info.forget());
   aListener->OnSubscribe(NS_OK);
 
@@ -120,6 +151,31 @@ void SystemMessageService::Unsubscribe(const nsACString& aOrigin) {
     SubscriberTable* table = iter.Data();
     table->Remove(aOrigin);
   }
+}
+
+SystemMessageDispatcher::SystemMessageDispatcher(
+    const nsACString& aScope, const nsACString& aOriginSuffix,
+    const nsAString& aMessageName, const nsAString& aMessageData)
+    : mScope(aScope),
+      mOriginSuffix(aOriginSuffix),
+      mMessageName(aMessageName),
+      mMessageData(aMessageData) {}
+
+SystemMessageDispatcher::~SystemMessageDispatcher() {}
+
+nsresult SystemMessageDispatcher::NotifyWorkers() {
+  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
+  if (!swm) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return swm->SendSystemMessageEvent(mOriginSuffix, mScope, mMessageName,
+                                     mMessageData);
+}
+
+bool SystemMessageDispatcher::SendToChild(ContentParent* aActor) {
+  return aActor->SendSystemMessage(mScope, mOriginSuffix, mMessageName,
+                                   mMessageData);
 }
 
 }  // namespace dom

@@ -19,6 +19,8 @@ class nsISystemMessageListener;
 namespace mozilla {
 namespace dom {
 
+class ContentParent;
+
 class SystemMessageService final : public nsISystemMessageService {
  public:
   NS_DECL_ISUPPORTS
@@ -26,8 +28,9 @@ class SystemMessageService final : public nsISystemMessageService {
 
   static already_AddRefed<SystemMessageService> GetInstance();
 
-  void DoSubscribe(const nsAString& aMessageName, const nsACString& aOrigin,
-                   const nsACString& aScope, const nsACString& aOriginSuffix,
+  void DoSubscribe(uint64_t aID, const nsAString& aMessageName,
+                   const nsACString& aOrigin, const nsACString& aScope,
+                   const nsACString& aOriginSuffix,
                    nsISystemMessageListener* aListener);
 
   void Unsubscribe(const nsACString& aOrigin);
@@ -37,13 +40,32 @@ class SystemMessageService final : public nsISystemMessageService {
   ~SystemMessageService();
 
   struct SubscriberInfo {
-    SubscriberInfo(const nsACString& aScope, const nsACString& aOriginSuffix)
-        : mScope(aScope), mOriginSuffix(aOriginSuffix) {}
+    SubscriberInfo(uint64_t aID, const nsACString& aScope,
+                   const nsACString& aOriginSuffix)
+        : mID(aID), mScope(aScope), mOriginSuffix(aOriginSuffix) {}
+    uint64_t mID;
     nsCString mScope;
     nsCString mOriginSuffix;
   };
   typedef nsClassHashtable<nsCStringHashKey, SubscriberInfo> SubscriberTable;
   nsClassHashtable<nsStringHashKey, SubscriberTable> mSubscribers;
+};
+
+class SystemMessageDispatcher final {
+ public:
+  SystemMessageDispatcher(const nsACString& aScope,
+                          const nsACString& aOriginSuffix,
+                          const nsAString& aMessageName,
+                          const nsAString& aMessageData);
+  ~SystemMessageDispatcher();
+  nsresult NotifyWorkers();
+  bool SendToChild(ContentParent* aActor);
+
+ private:
+  nsCString mScope;
+  nsCString mOriginSuffix;
+  nsString mMessageName;
+  nsString mMessageData;
 };
 
 }  // namespace dom

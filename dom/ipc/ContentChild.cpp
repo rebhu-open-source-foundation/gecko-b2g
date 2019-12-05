@@ -58,6 +58,7 @@
 #include "mozilla/dom/RemoteWorkerService.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/SystemMessageServiceChild.h"
+#include "mozilla/dom/SystemMessageService.h"
 #include "mozilla/dom/SHEntryChild.h"
 #include "mozilla/dom/SHistoryChild.h"
 #include "mozilla/dom/TabGroup.h"
@@ -3504,6 +3505,15 @@ ContentChild::RecvNotifyPushSubscriptionModifiedObservers(
     const nsCString& aScope, const IPC::Principal& aPrincipal) {
   PushSubscriptionModifiedDispatcher dispatcher(aScope, aPrincipal);
   Unused << NS_WARN_IF(NS_FAILED(dispatcher.NotifyObservers()));
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvSystemMessage(
+    const nsCString& aScope, const nsCString& aOriginSuffix,
+    const nsString& aMessageName, const nsString& aMessageData) {
+  SystemMessageDispatcher dispatcher(aScope, aOriginSuffix, aMessageName,
+                                     aMessageData);
+  Unused << NS_WARN_IF(NS_FAILED(dispatcher.NotifyWorkers()));
   return IPC_OK();
 }
 
