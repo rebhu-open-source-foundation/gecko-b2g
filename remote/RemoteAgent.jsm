@@ -33,11 +33,15 @@ class RemoteAgentClass {
 
   listen(url) {
     if (!Preferences.get(ENABLED, false)) {
-      throw new Error("Remote agent is disabled by preference");
+      throw Components.Exception(
+        "Disabled by preference",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
     if (Services.appinfo.processType != Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT) {
-      throw new Error(
-        "Remote agent can only be instantiated from the parent process"
+      throw Components.Exception(
+        "May only be instantiated in parent process",
+        Cr.NS_ERROR_LAUNCHED_CHILD_PROCESS
       );
     }
 
@@ -47,7 +51,10 @@ class RemoteAgentClass {
 
     let { host, port } = url;
     if (Preferences.get(FORCE_LOCAL) && !LOOPBACKS.includes(host)) {
-      throw new Error("Restricted to loopback devices");
+      throw Components.Exception(
+        "Restricted to loopback devices",
+        Cr.NS_ERROR_ILLEGAL_VALUE
+      );
     }
 
     // nsIServerSocket uses -1 for atomic port allocation
@@ -66,9 +73,6 @@ class RemoteAgentClass {
 
     this.targets = new Targets();
     this.targets.on("target-created", (eventName, target) => {
-      if (!target.path) {
-        throw new Error(`Target is missing 'path' attribute: ${target}`);
-      }
       this.server.registerPathHandler(target.path, target);
     });
     this.targets.on("target-destroyed", (eventName, target) => {
@@ -96,7 +100,7 @@ class RemoteAgentClass {
       );
     } catch (e) {
       await this.close();
-      throw new Error(`Unable to start remote agent: ${e.message}`, e);
+      log.error(`Unable to start remote agent: ${e.message}`, e);
     }
   }
 

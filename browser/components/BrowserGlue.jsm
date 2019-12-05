@@ -2191,6 +2191,34 @@ BrowserGlue.prototype = {
       });
     }
 
+    // Temporary for Delegated Credentials Study:
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1582591
+    // Disable in automation and non-nightly builds.
+    if (!Cu.isInAutomation && AppConstants.NIGHTLY_BUILD) {
+      let env = Cc["@mozilla.org/process/environment;1"].getService(
+        Ci.nsIEnvironment
+      );
+
+      // Disable under xpcshell-test.
+      if (!env.exists("XPCSHELL_TEST_PROFILE_DIR")) {
+        let { DelegatedCredsExperiment } = ChromeUtils.import(
+          "resource:///modules/DelegatedCredsExperiment.jsm"
+        );
+
+        let currentDate = new Date();
+        let expiryDate = new Date("2020-01-10 0:00:00");
+        if (currentDate < expiryDate) {
+          Services.tm.idleDispatchToMainThread(() => {
+            DelegatedCredsExperiment.runTest();
+          });
+        } else {
+          Services.tm.idleDispatchToMainThread(() => {
+            DelegatedCredsExperiment.uninstall();
+          });
+        }
+      }
+    }
+
     // Marionette needs to be initialized as very last step
     Services.tm.idleDispatchToMainThread(() => {
       Services.obs.notifyObservers(null, "marionette-startup-requested");
@@ -2799,16 +2827,17 @@ BrowserGlue.prototype = {
     const UI_VERSION = 89;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
-    let currentUIVersion;
-    if (Services.prefs.prefHasUserValue("browser.migration.version")) {
-      currentUIVersion = Services.prefs.getIntPref("browser.migration.version");
-      this._isNewProfile = false;
-    } else {
+    if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
       // This is a new profile, nothing to migrate.
       Services.prefs.setIntPref("browser.migration.version", UI_VERSION);
       this._isNewProfile = true;
+      return;
     }
 
+    this._isNewProfile = false;
+    let currentUIVersion = Services.prefs.getIntPref(
+      "browser.migration.version"
+    );
     if (currentUIVersion >= UI_VERSION) {
       return;
     }

@@ -1346,8 +1346,6 @@ Document::Document(const char* aContentType)
       mFlashClassification(FlashClassification::Unknown),
       mScrollAnchorAdjustmentLength(0),
       mScrollAnchorAdjustmentCount(0),
-      mCurrentOrientationAngle(0),
-      mCurrentOrientationType(OrientationType::Portrait_primary),
       mServoRestyleRootDirtyBits(0),
       mThrowOnDynamicMarkupInsertionCounter(0),
       mIgnoreOpensDuringUnloadCounter(0),
@@ -8339,6 +8337,10 @@ void Document::SetPrototypeDocument(nsXULPrototypeDocument* aPrototype) {
   mSynchronousDOMContentLoaded = true;
 }
 
+nsIPermissionDelegateHandler* Document::PermDelegateHandler() {
+  return GetPermissionDelegateHandler();
+}
+
 Document* Document::RequestExternalResource(
     nsIURI* aURI, nsIReferrerInfo* aReferrerInfo, nsINode* aRequestingNode,
     ExternalResourceLoad** aPendingLoad) {
@@ -9791,7 +9793,7 @@ void Document::FlushPendingNotifications(mozilla::ChangesToFlush aFlush) {
   // layout flush on our parent, since we need our container to be the
   // correct size to determine the correct style.
   if (StyleOrLayoutObservablyDependsOnParentDocumentLayout() &&
-      IsSafeToFlush()) {
+      mParentDocument->MayStartLayout() && IsSafeToFlush()) {
     mozilla::ChangesToFlush parentFlush = aFlush;
     if (flushType >= FlushType::Style) {
       parentFlush.mFlushType = std::max(FlushType::Layout, flushType);
@@ -13570,12 +13572,6 @@ bool Document::SetOrientationPendingPromise(Promise* aPromise) {
 
   mOrientationPendingPromise = aPromise;
   return true;
-}
-
-void Document::SetRDMPaneOrientation(OrientationType aType, uint16_t aAngle) {
-  if (GetBrowsingContext()->InRDMPane()) {
-    SetCurrentOrientation(aType, aAngle);
-  }
 }
 
 static void DispatchPointerLockChange(Document* aTarget) {

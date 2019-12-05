@@ -37,7 +37,6 @@ pref("extensions.webextOptionalPermissionPrompts", true);
 // Preferences for AMO integration
 pref("extensions.getAddons.cache.enabled", true);
 pref("extensions.getAddons.get.url", "https://services.addons.mozilla.org/api/v3/addons/search/?guid=%IDS%&lang=%LOCALE%");
-pref("extensions.getAddons.compatOverides.url", "https://services.addons.mozilla.org/api/v3/addons/compat-override/?guid=%IDS%&lang=%LOCALE%");
 pref("extensions.getAddons.search.browseURL", "https://addons.mozilla.org/%LOCALE%/firefox/search?q=%TERMS%&platform=%OS%&appver=%VERSION%");
 pref("extensions.webservice.discoverURL", "https://discovery.addons.mozilla.org/%LOCALE%/firefox/discovery/pane/%VERSION%/%OS%/%COMPATIBILITY_MODE%");
 pref("extensions.getAddons.link.url", "https://addons.mozilla.org/%LOCALE%/firefox/");
@@ -427,9 +426,9 @@ pref("permissions.postPrompt.animate", true);
 #endif
 
 #ifdef NIGHTLY_BUILD
-  pref("permissions.delegation.enable", true);
+  pref("permissions.delegation.enabled", true);
 #else
-  pref("permissions.delegation.enable", false);
+  pref("permissions.delegation.enabled", false);
 #endif
 
 // handle links targeting new windows
@@ -1726,6 +1725,12 @@ pref("reader.errors.includeURLs", true);
 pref("view_source.tab", true);
 
 pref("dom.serviceWorkers.enabled", true);
+
+#ifdef NIGHTLY_BUILD
+  pref("dom.security.featurePolicy.enabled", true);
+#else
+  pref("dom.security.featurePolicy.enabled", false);
+#endif
 
 // Enable Push API.
 pref("dom.push.enabled", true);

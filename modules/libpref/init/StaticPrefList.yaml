@@ -4881,6 +4881,12 @@
   value: true
   mirror: always
 
+# text underline position
+- name: layout.css.text-underline-position.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # text decoration thickness
 - name: layout.css.text-decoration-thickness.enabled
   type: bool
@@ -7030,7 +7036,7 @@
 # Prefs starting with "permissions."
 #---------------------------------------------------------------------------
 
-- name: permissions.delegation.enable
+- name: permissions.delegation.enabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
   mirror: always

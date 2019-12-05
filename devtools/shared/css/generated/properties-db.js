@@ -3206,6 +3206,7 @@ exports.CSS_PROPERTIES = {
       "text-rendering",
       "-moz-control-character-visibility",
       "text-underline-offset",
+      "text-underline-position",
       "text-decoration-skip-ink",
       "cursor",
       "pointer-events",
@@ -10314,6 +10315,23 @@ exports.CSS_PROPERTIES = {
       "unset"
     ]
   },
+  "text-underline-position": {
+    "isInherited": true,
+    "subproperties": [
+      "text-underline-position"
+    ],
+    "supports": [],
+    "values": [
+      "auto",
+      "inherit",
+      "initial",
+      "left",
+      "revert",
+      "right",
+      "under",
+      "unset"
+    ]
+  },
   "top": {
     "isInherited": false,
     "subproperties": [
@@ -10864,6 +10882,10 @@ exports.PREFERENCES = [
   [
     "text-justify",
     "layout.css.text-justify.enabled"
+  ],
+  [
+    "text-underline-position",
+    "layout.css.text-underline-position.enabled"
   ],
   [
     "touch-action",
