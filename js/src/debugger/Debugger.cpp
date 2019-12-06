@@ -915,7 +915,7 @@ bool DebugAPI::slowPathOnLeaveFrame(JSContext* cx, AbstractFramePtr frame,
       Debugger* dbg = Debugger::fromChildJSObject(frameobj);
       EnterDebuggeeNoExecute nx(cx, *dbg, adjqi);
 
-      if (frameobj->isLive() && frameobj->onPopHandler()) {
+      if (frameobj->isOnStack() && frameobj->onPopHandler()) {
         OnPopHandler* handler = frameobj->onPopHandler();
 
         Maybe<AutoRealm> ar;
@@ -1199,6 +1199,16 @@ bool Debugger::wrapDebuggeeValue(JSContext* cx, MutableHandleValue vp) {
   }
 
   return true;
+}
+
+bool Debugger::wrapNullableDebuggeeObject(JSContext* cx, HandleObject obj,
+                                          MutableHandleDebuggerObject result) {
+  if (!obj) {
+    result.set(nullptr);
+    return true;
+  }
+
+  return wrapDebuggeeObject(cx, obj, result);
 }
 
 bool Debugger::wrapDebuggeeObject(JSContext* cx, HandleObject obj,
@@ -2518,7 +2528,7 @@ ResumeMode DebugAPI::onSingleStep(JSContext* cx, MutableHandleValue vp) {
         MOZ_ASSERT(&frameObj.unwrappedGenerator() == &genObj);
 
         // Live Debugger.Frames were already counted in dbg->frames loop.
-        if (frameObj.isLive()) {
+        if (frameObj.isOnStack()) {
           continue;
         }
 
@@ -3659,7 +3669,7 @@ void DebugAPI::traceFramesWithLiveHooks(JSTracer* tracer) {
     for (Debugger::FrameMap::Range r = dbg->frames.all(); !r.empty();
          r.popFront()) {
       HeapPtr<DebuggerFrame*>& frameobj = r.front().value();
-      MOZ_ASSERT(frameobj->isLiveMaybeForwarded());
+      MOZ_ASSERT(frameobj->isOnStackMaybeForwarded());
       if (frameobj->hasAnyHooks()) {
         TraceEdge(tracer, &frameobj, "Debugger.Frame with live hooks");
       }
@@ -3777,7 +3787,7 @@ void Debugger::trace(JSTracer* trc) {
   for (FrameMap::Range r = frames.all(); !r.empty(); r.popFront()) {
     HeapPtr<DebuggerFrame*>& frameobj = r.front().value();
     TraceEdge(trc, &frameobj, "live Debugger.Frame");
-    MOZ_ASSERT(frameobj->isLiveMaybeForwarded());
+    MOZ_ASSERT(frameobj->isOnStackMaybeForwarded());
   }
 
   allocationsLog.trace(trc);

@@ -509,12 +509,12 @@ impl Document {
                     self.frame_is_valid = false;
                 }
             }
-            FrameMsg::SetIsTransformPinchZooming(is_zooming, animation_id) => {
+            FrameMsg::SetIsTransformAsyncZooming(is_zooming, animation_id) => {
                 let node = self.scene.clip_scroll_tree.spatial_nodes.iter_mut()
                     .find(|node| node.is_transform_bound_to_property(animation_id));
                 if let Some(node) = node {
-                    if node.is_pinch_zooming != is_zooming {
-                        node.is_pinch_zooming = is_zooming;
+                    if node.is_async_zooming != is_zooming {
+                        node.is_async_zooming = is_zooming;
                         self.frame_is_valid = false;
                     }
                 }
@@ -1094,9 +1094,9 @@ impl RenderBackend {
 
                 self.gpu_cache.clear();
 
-                let pending_update = self.resource_cache.pending_updates();
+                let resource_updates = self.resource_cache.pending_updates();
                 let msg = ResultMsg::UpdateResources {
-                    updates: pending_update,
+                    resource_updates,
                     memory_pressure: true,
                 };
                 self.result_tx.send(msg).unwrap();
@@ -1805,7 +1805,7 @@ impl RenderBackend {
 
         if config.bits.contains(CaptureBits::FRAME) {
             let msg_update_resources = ResultMsg::UpdateResources {
-                updates: self.resource_cache.pending_updates(),
+                resource_updates: self.resource_cache.pending_updates(),
                 memory_pressure: false,
             };
             self.result_tx.send(msg_update_resources).unwrap();

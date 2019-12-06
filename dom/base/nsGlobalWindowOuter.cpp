@@ -242,6 +242,7 @@
 #include "mozilla/dom/U2F.h"
 #include "mozilla/dom/WebIDLGlobalNameHash.h"
 #include "mozilla/dom/Worklet.h"
+
 #ifdef HAVE_SIDEBAR
 #  include "mozilla/dom/ExternalBinding.h"
 #endif
@@ -1547,7 +1548,7 @@ void nsGlobalWindowOuter::SetInitialPrincipalToSubject(
   // docshell.
   // NOTE: Please keep this logic in sync with AppWindow::Initialize().
   if (nsContentUtils::IsExpandedPrincipal(newWindowPrincipal) ||
-      (nsContentUtils::IsSystemPrincipal(newWindowPrincipal) &&
+      (newWindowPrincipal->IsSystemPrincipal() &&
        GetDocShell()->ItemType() != nsIDocShellTreeItem::typeChrome)) {
     newWindowPrincipal = nullptr;
   }
@@ -1646,7 +1647,7 @@ NS_IMPL_ISUPPORTS(WindowStateHolder, WindowStateHolder)
 bool nsGlobalWindowOuter::ComputeIsSecureContext(Document* aDocument,
                                                  SecureContextFlags aFlags) {
   nsCOMPtr<nsIPrincipal> principal = aDocument->NodePrincipal();
-  if (nsContentUtils::IsSystemPrincipal(principal)) {
+  if (principal->IsSystemPrincipal()) {
     return true;
   }
 
@@ -1702,25 +1703,16 @@ bool nsGlobalWindowOuter::ComputeIsSecureContext(Document* aDocument,
     }
   }
 
-  nsCOMPtr<nsIContentSecurityManager> csm =
-      do_GetService(NS_CONTENTSECURITYMANAGER_CONTRACTID);
-  NS_WARNING_ASSERTION(csm, "csm is null");
-  if (csm) {
-    bool isTrustworthyOrigin = false;
-    csm->IsOriginPotentiallyTrustworthy(principal, &isTrustworthyOrigin);
-    if (isTrustworthyOrigin) {
-      return true;
-    }
-  }
-
-  return false;
+  bool isTrustworthyOrigin = false;
+  principal->GetIsOriginPotentiallyTrustworthy(&isTrustworthyOrigin);
+  return isTrustworthyOrigin;
 }
 
 // We need certain special behavior for remote XUL whitelisted domains, but we
 // don't want that behavior to take effect in automation, because we whitelist
 // all the mochitest domains. So we need to check a pref here.
 static bool TreatAsRemoteXUL(nsIPrincipal* aPrincipal) {
-  MOZ_ASSERT(!nsContentUtils::IsSystemPrincipal(aPrincipal));
+  MOZ_ASSERT(!aPrincipal->IsSystemPrincipal());
   return nsContentUtils::AllowXULXBLForPrincipal(aPrincipal) &&
          !Preferences::GetBool("dom.use_xbl_scopes_for_remote_xul", false);
 }
@@ -1803,7 +1795,7 @@ static JS::RealmCreationOptions& SelectZone(
     JSContext* aCx, nsIPrincipal* aPrincipal, nsGlobalWindowInner* aNewInner,
     JS::RealmCreationOptions& aOptions) {
   // Use the shared system compartment for chrome windows.
-  if (nsContentUtils::IsSystemPrincipal(aPrincipal)) {
+  if (aPrincipal->IsSystemPrincipal()) {
     return aOptions.setExistingCompartment(xpc::PrivilegedJunkScope());
   }
 
@@ -1862,8 +1854,8 @@ static nsresult CreateNativeGlobalForInner(JSContext* aCx,
   xpc::InitGlobalObjectOptions(options, aPrincipal);
 
   // Determine if we need the Components object.
-  bool needComponents = nsContentUtils::IsSystemPrincipal(aPrincipal) ||
-                        TreatAsRemoteXUL(aPrincipal);
+  bool needComponents =
+      aPrincipal->IsSystemPrincipal() || TreatAsRemoteXUL(aPrincipal);
   uint32_t flags = needComponents ? 0 : xpc::OMIT_COMPONENTS_OBJECT;
   flags |= xpc::DONT_FIRE_ONNEWGLOBALHOOK;
 
@@ -2247,7 +2239,7 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
   // it runs JS code for this realm. We skip the check if this window is for
   // chrome JS or an add-on.
   nsCOMPtr<nsIPrincipal> principal = mDoc->NodePrincipal();
-  if (GetDocGroup() && !nsContentUtils::IsSystemPrincipal(principal) &&
+  if (GetDocGroup() && !principal->IsSystemPrincipal() &&
       !BasePrincipal::Cast(principal)->AddonPolicy()) {
     js::SetRealmValidAccessPtr(
         cx, newInnerGlobal, newInnerWindow->GetDocGroup()->GetValidAccessPtr());
@@ -2268,7 +2260,7 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
     // until we have a real chrome doc.
     if (!mDocShell ||
         mDocShell->ItemType() != nsIDocShellTreeItem::typeChrome ||
-        nsContentUtils::IsSystemPrincipal(mDoc->NodePrincipal())) {
+        mDoc->NodePrincipal()->IsSystemPrincipal()) {
       newInnerWindow->mHasNotifiedGlobalCreated = true;
       nsContentUtils::AddScriptRunner(NewRunnableMethod(
           "nsGlobalWindowOuter::DispatchDOMWindowCreated", this,
@@ -2401,12 +2393,11 @@ void nsGlobalWindowOuter::DispatchDOMWindowCreated() {
     nsAutoString origin;
     nsIPrincipal* principal = mDoc->NodePrincipal();
     nsContentUtils::GetUTFOrigin(principal, origin);
-    observerService->NotifyObservers(
-        static_cast<nsIDOMWindow*>(this),
-        nsContentUtils::IsSystemPrincipal(principal)
-            ? "chrome-document-global-created"
-            : "content-document-global-created",
-        origin.get());
+    observerService->NotifyObservers(static_cast<nsIDOMWindow*>(this),
+                                     principal->IsSystemPrincipal()
+                                         ? "chrome-document-global-created"
+                                         : "content-document-global-created",
+                                     origin.get());
   }
 }
 
@@ -5877,7 +5868,7 @@ bool nsGlobalWindowOuter::GatherPostMessageData(
     nsContentUtils::GetUTFOrigin(*aCallerDocumentURI, aOrigin);
   } else {
     // in case of a sandbox with a system principal origin can be empty
-    if (!nsContentUtils::IsSystemPrincipal(callerPrin)) {
+    if (!callerPrin->IsSystemPrincipal()) {
       return false;
     }
   }
@@ -5965,7 +5956,7 @@ bool nsGlobalWindowOuter::GetPrincipalForPostMessage(
                 R"(origin "%s".)",
                 targetURL.get(), targetOrigin.get(), sourceOrigin.get())),
             "DOM", !!principal->PrivateBrowsingId(),
-            nsContentUtils::IsSystemPrincipal(principal));
+            principal->IsSystemPrincipal());
 
         attrs = principal->OriginAttributesRef();
       }

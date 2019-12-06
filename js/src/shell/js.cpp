@@ -486,6 +486,9 @@ bool shell::enableWasmGc = false;
 #endif
 bool shell::enableWasmVerbose = false;
 bool shell::enableTestWasmAwaitTier2 = false;
+#ifdef ENABLE_WASM_BIGINT
+bool shell::enableWasmBigInt = false;
+#endif
 bool shell::enableAsyncStacks = false;
 bool shell::enableStreams = false;
 bool shell::enableReadableByteStreams = false;
@@ -3027,6 +3030,11 @@ static MOZ_MUST_USE bool SrcNotes(JSContext* cx, HandleScript script,
       case SRC_BREAKPOINT:
       case SRC_STEP_SEP:
       case SRC_XDELTA:
+      case SRC_FOR:
+      case SRC_DO_WHILE:
+      case SRC_WHILE:
+      case SRC_FOR_IN:
+      case SRC_FOR_OF:
         break;
 
       case SRC_COLSPAN:
@@ -3046,41 +3054,6 @@ static MOZ_MUST_USE bool SrcNotes(JSContext* cx, HandleScript script,
 
       case SRC_NEWLINE:
         ++lineno;
-        break;
-
-      case SRC_FOR:
-        if (!sp->jsprintf(
-                " cond %u backjump %u",
-                unsigned(GetSrcNoteOffset(sn, SrcNote::For::CondOffset)),
-                unsigned(GetSrcNoteOffset(sn, SrcNote::For::BackJumpOffset)))) {
-          return false;
-        }
-        break;
-
-      case SRC_WHILE:
-      case SRC_FOR_IN:
-      case SRC_FOR_OF:
-        static_assert(
-            unsigned(SrcNote::While::BackJumpOffset) ==
-                unsigned(SrcNote::ForIn::BackJumpOffset),
-            "SrcNote::{While,ForIn,ForOf}::BackJumpOffset should be same");
-        static_assert(
-            unsigned(SrcNote::While::BackJumpOffset) ==
-                unsigned(SrcNote::ForOf::BackJumpOffset),
-            "SrcNote::{While,ForIn,ForOf}::BackJumpOffset should be same");
-        if (!sp->jsprintf(" backjump %u",
-                          unsigned(GetSrcNoteOffset(
-                              sn, SrcNote::While::BackJumpOffset)))) {
-          return false;
-        }
-        break;
-
-      case SRC_DO_WHILE:
-        if (!sp->jsprintf(" backjump %u",
-                          unsigned(GetSrcNoteOffset(
-                              sn, SrcNote::DoWhile::BackJumpOffset)))) {
-          return false;
-        }
         break;
 
       case SRC_TRY:
@@ -10228,6 +10201,9 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   enableReadableByteStreams = op.getBoolOption("enable-readable-byte-streams");
   enableBYOBStreamReaders = op.getBoolOption("enable-byob-stream-readers");
   enableWritableStreams = op.getBoolOption("enable-writable-streams");
+#ifdef ENABLE_WASM_BIGINT
+  enableWasmBigInt = op.getBoolOption("wasm-bigint");
+#endif
   enableFields = !op.getBoolOption("disable-experimental-fields");
   enableAwaitFix = op.getBoolOption("enable-experimental-await-fix");
   enableWeakRefs = op.getBoolOption("enable-weak-refs");
@@ -10246,6 +10222,9 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 #endif
       .setWasmVerbose(enableWasmVerbose)
       .setTestWasmAwaitTier2(enableTestWasmAwaitTier2)
+#ifdef ENABLE_WASM_BIGINT
+      .setWasmBigIntEnabled(enableWasmBigInt)
+#endif
       .setAsyncStack(enableAsyncStacks);
 
   if (const char* str = op.getStringOption("cache-ir-stubs")) {
@@ -10570,6 +10549,9 @@ static void SetWorkerContextOptions(JSContext* cx) {
 #endif
 #ifdef ENABLE_WASM_GC
       .setWasmGc(enableWasmGc)
+#endif
+#ifdef ENABLE_WASM_BIGINT
+      .setWasmBigIntEnabled(enableWasmBigInt)
 #endif
       .setWasmVerbose(enableWasmVerbose)
       .setTestWasmAwaitTier2(enableTestWasmAwaitTier2);
@@ -10978,6 +10960,12 @@ int main(int argc, char** argv, char** envp) {
                         "Enable WebAssembly verbose logging") ||
       !op.addBoolOption('\0', "disable-wasm-huge-memory",
                         "Disable WebAssembly huge memory") ||
+#ifdef ENABLE_WASM_BIGINT
+      !op.addBoolOption('\0', "wasm-bigint",
+                        "Enable WebAssembly BigInt conversions") ||
+#else
+      !op.addBoolOption('\0', "wasm-bigint", "No-op") ||
+#endif
       !op.addBoolOption('\0', "test-wasm-await-tier2",
                         "Forcibly activate tiering and block "
                         "instantiation on completion of tier2") ||

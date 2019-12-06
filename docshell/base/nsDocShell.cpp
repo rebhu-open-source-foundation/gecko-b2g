@@ -3442,6 +3442,13 @@ nsDocShell::GetCurrentSHEntry(nsISHEntry** aEntry, bool* aOSHE) {
   return NS_OK;
 }
 
+NS_IMETHODIMP nsDocShell::SynchronizeLayoutHistoryState() {
+  if (mOSHE) {
+    mOSHE->SynchronizeLayoutHistoryState();
+  }
+  return NS_OK;
+}
+
 nsIScriptGlobalObject* nsDocShell::GetScriptGlobalObject() {
   NS_ENSURE_SUCCESS(EnsureScriptEnvironment(), nullptr);
   return mScriptGlobal;
@@ -5196,7 +5203,7 @@ nsDocShell::GetAllowMixedContentAndConnectionData(
     // For things with system principal (e.g. scratchpad) there is no uri
     // aRootHasSecureConnection should be false.
     nsCOMPtr<nsIURI> rootUri = rootPrincipal->GetURI();
-    if (nsContentUtils::IsSystemPrincipal(rootPrincipal) || !rootUri ||
+    if (rootPrincipal->IsSystemPrincipal() || !rootUri ||
         !SchemeIsHTTPS(rootUri)) {
       *aRootHasSecureConnection = false;
     }
@@ -6682,7 +6689,7 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
   AutoRestore<bool> creatingDocument(mCreatingDocument);
   mCreatingDocument = true;
 
-  if (aPrincipal && !nsContentUtils::IsSystemPrincipal(aPrincipal) &&
+  if (aPrincipal && !aPrincipal->IsSystemPrincipal() &&
       mItemType != typeChrome) {
     MOZ_ASSERT(aPrincipal->OriginAttributesRef() == mOriginAttributes);
   }
@@ -9211,40 +9218,6 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
           !StaticPrefs::extensions_webextensions_remote()) {
         break;
       }
-      // This next bit is... awful. Basically, about:addons used to load the
-      // discovery pane remotely. Allow for that, if that's actually the state
-      // we're in (which is no longer the default at time of writing, but still
-      // tested). https://bugzilla.mozilla.org/show_bug.cgi?id=1565606 covers
-      // removing this atrocity.
-      nsCOMPtr<nsIWebNavigation> parent(do_QueryInterface(mParent));
-      if (parent) {
-        nsCOMPtr<nsIURI> parentURL;
-        parent->GetCurrentURI(getter_AddRefs(parentURL));
-        if (parentURL &&
-            parentURL->GetSpecOrDefault().EqualsLiteral("about:addons") &&
-            (!Preferences::GetBool("extensions.htmlaboutaddons.enabled",
-                                   true) ||
-             !Preferences::GetBool(
-                 "extensions.htmlaboutaddons.discover.enabled", true))) {
-          nsCString discoveryURLString;
-          Preferences::GetCString("extensions.webservice.discoverURL",
-                                  discoveryURLString);
-          nsCOMPtr<nsIURI> discoveryURL;
-          NS_NewURI(getter_AddRefs(discoveryURL), discoveryURLString);
-
-          nsAutoCString discoveryPrePath;
-          if (discoveryURL) {
-            discoveryURL->GetPrePath(discoveryPrePath);
-          }
-
-          nsAutoCString requestedPrePath;
-          uri->GetPrePath(requestedPrePath);
-          // So allow the discovery path to load inside about:addons.
-          if (discoveryPrePath.Equals(requestedPrePath)) {
-            break;
-          }
-        }
-      }
       // Final exception for some legacy automated tests:
       if (xpc::IsInAutomation() &&
           Preferences::GetBool("security.allow_unsafe_parent_loads", false)) {
@@ -9456,7 +9429,7 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
     // Don't allow loads in typeContent docShells to inherit the system
     // principal from existing documents.
     if (inheritedFromCurrent && mItemType == typeContent &&
-        nsContentUtils::IsSystemPrincipal(docPrincipal)) {
+        docPrincipal->IsSystemPrincipal()) {
       return nullptr;
     }
 
@@ -11244,7 +11217,7 @@ bool nsDocShell::ShouldAddToSessionHistory(nsIURI* aURI, nsIChannel* aChannel) {
       rv = nsContentUtils::GetSecurityManager()->GetChannelResultPrincipal(
           aChannel, getter_AddRefs(resultPrincipal));
       NS_ENSURE_SUCCESS(rv, false);
-      return !nsContentUtils::IsSystemPrincipal(resultPrincipal);
+      return !resultPrincipal->IsSystemPrincipal();
     }
   }
 
@@ -12551,8 +12524,7 @@ nsresult nsDocShell::OnLinkClickSync(
     }
 
     if (targetBlank && StaticPrefs::dom_targetBlankNoOpener_enabled() &&
-        !explicitOpenerSet &&
-        !nsContentUtils::IsSystemPrincipal(triggeringPrincipal)) {
+        !explicitOpenerSet && !triggeringPrincipal->IsSystemPrincipal()) {
       flags |= INTERNAL_LOAD_FLAGS_NO_OPENER;
     }
 
@@ -12656,7 +12628,7 @@ nsresult nsDocShell::OnOverLink(nsIContent* aContent, nsIURI* aURI,
   PredictorPredict(aURI, mCurrentURI, nsINetworkPredictor::PREDICT_LINK,
                    aContent->NodePrincipal()->OriginAttributesRef(), nullptr);
 
-  rv = browserChrome->SetStatusLink(uStr);
+  rv = browserChrome->SetLinkStatus(uStr);
   return rv;
 }
 
@@ -12665,7 +12637,7 @@ nsresult nsDocShell::OnLeaveLink() {
   nsresult rv = NS_ERROR_FAILURE;
 
   if (browserChrome) {
-    rv = browserChrome->SetStatusLink(EmptyString());
+    rv = browserChrome->SetLinkStatus(EmptyString());
   }
   return rv;
 }

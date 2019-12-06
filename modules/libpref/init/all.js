@@ -171,6 +171,11 @@ pref("security.cert_pinning.max_max_age_seconds", 5184000);
 // See https://wiki.mozilla.org/CA/Upcoming_Distrust_Actions for more details.
 pref("security.pki.distrust_ca_policy", 2);
 
+// 0: Disable CRLite entirely
+// 1: Enable and check revocations via CRLite, but only collect telemetry
+// 2: Enable and enforce revocations via CRLite
+pref("security.pki.crlite_mode", 1);
+
 // Issuer we use to detect MitM proxies. Set to the issuer of the cert of the
 // Firefox update service. The string format is whatever NSS uses to print a DN.
 // This value is set and cleared automatically.
@@ -4055,8 +4060,6 @@ pref("extensions.webextensions.enablePerformanceCounters", true);
 // reset, so we reduce memory footprint.
 pref("extensions.webextensions.performanceCountersMaxAge", 5000);
 
-// The HTML about:addons page.
-pref("extensions.htmlaboutaddons.enabled", true);
 // Whether to allow the inline options browser in HTML about:addons page.
 pref("extensions.htmlaboutaddons.inline-options.enabled", true);
 // Show recommendations on the extension and theme list views.

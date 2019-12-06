@@ -6880,6 +6880,18 @@
     "releaseChannelCollection": "opt-out",
     "description": "Diagnostic probe to aid in categorizing tab switch spinners. Records what most recently set the loadTimer to null if a spinner was displayed."
   },
+  "FX_NUMBER_OF_UNIQUE_SITE_ORIGINS_ALL_TABS": {
+    "record_in_processes": ["main"],
+    "products": ["firefox", "geckoview_streaming"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 100,
+    "n_buckets": 50,
+    "description": "When a document is loaded, report the number of unique site origins across the browser(all tabs) if it has been at least 5 minutes since last time we collect this data",
+    "bug_numbers": [1589700],
+    "alert_emails": ["sefeng@mozilla.com", "perfteam@mozilla.com"],
+    "releaseChannelCollection": "opt-out"
+  },
   "FX_TAB_SWITCH_REQUEST_TAB_WARMING_STATE": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -11645,6 +11657,17 @@
     "kind": "enumerated",
     "n_values": 6,
     "description": "1 = No SHA1 signatures, 2 = SHA1 certificates issued by an imported root, 3 = SHA1 certificates issued before 2016, 4 = SHA1 certificates issued after 2015, 5 = another error prevented successful verification"
+  },
+  "CRLITE_RESULT": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "expires_in_version": "80",
+    "kind": "categorical",
+    "labels": ["FilterNotAvailable", "IssuerNotEnrolled", "CertificateTooNew", "CertificateValid", "CertificateRevoked", "LibraryFailure"],
+    "description": "The result of looking up revocation information for a TLS server certificate in CRLite.",
+    "bug_numbers": [1586855],
+    "releaseChannelCollection": "opt-out",
+    "alert_emails": ["dkeeler@mozilla.com", "jcj@mozilla.com", "seceng-telemetry@mozilla.com"]
   },
   "WEAVE_CONFIGURED_MASTER_PASSWORD": {
     "record_in_processes": ["main", "content"],

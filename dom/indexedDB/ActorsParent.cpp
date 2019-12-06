@@ -16,6 +16,7 @@
 #include "IndexedDatabase.h"
 #include "IndexedDatabaseInlines.h"
 #include "IndexedDatabaseManager.h"
+#include "InitializedOnce.h"
 #include "js/StructuredClone.h"
 #include "js/Value.h"
 #include "jsapi.h"
@@ -30,6 +31,7 @@
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/Result.h"
 #include "mozilla/SnappyCompressOutputStream.h"
 #include "mozilla/SnappyUncompressInputStream.h"
 #include "mozilla/StaticPtr.h"
@@ -7611,34 +7613,40 @@ class Cursor final : public PBackgroundIDBCursorParent {
   const RefPtr<TransactionBase> mTransaction;
   const RefPtr<Database> mDatabase;
   const RefPtr<FileManager> mFileManager;
-  PBackgroundParent* mBackgroundParent;
 
-  // These should only be touched on the PBackground thread to check whether the
-  // objectStore or index has been deleted. Holding these saves a hash lookup
-  // for every call to continue()/advance().
-  RefPtr<FullObjectStoreMetadata> mObjectStoreMetadata;
-  RefPtr<FullIndexMetadata> mIndexMetadata;
+  struct ActorDependentInfo {
+    PBackgroundParent* mBackgroundParent;
+
+    // These should only be touched on the PBackground thread to check whether
+    // the objectStore or index has been deleted. Holding these saves a hash
+    // lookup for every call to continue()/advance().
+    RefPtr<FullObjectStoreMetadata> mObjectStoreMetadata;
+    RefPtr<FullIndexMetadata> mIndexMetadata;
+  };
+
+  InitializedOnce<const ActorDependentInfo> mActorDependentInfo;
 
   const int64_t mObjectStoreId;
   const int64_t mIndexId;
 
-  // TODO: mContinueQuery, mContinueToQuery, mContinuePrimaryKeyQuery and
-  // mLocaleAwareRangeBound are initialized by OpenOp, and only read by
-  // ContinueOp. For ContinueOp, they should only be visible as const.
+  struct ContinueQueries {
+    nsCString mContinueQuery;
+    nsCString mContinueToQuery;
+    nsCString mContinuePrimaryKeyQuery;
+  };
 
-  nsCString mContinueQuery;
-  nsCString mContinueToQuery;
-  nsCString mContinuePrimaryKeyQuery;
-  const nsCString
-      mLocale;  ///< The locale if the cursor is locale-aware, otherwise empty.
-                ///< Note that only index-based cursors can be locale-aware.
-
-  Key mLocaleAwareRangeBound;  ///< If the cursor is based on a key range, the
+  InitializedOnce<const ContinueQueries, LazyInit::Allow> mContinueQueries;
+  InitializedOnce<const Key, LazyInit::Allow>
+      mLocaleAwareRangeBound;  ///< If the cursor is based on a key range, the
                                ///< bound in the direction of iteration (e.g.
                                ///< the upper bound in case of mDirection ==
                                ///< NEXT). If the cursor is based on a key, it
                                ///< is unset. If mLocale is set, this was
                                ///< converted to mLocale.
+
+  const nsCString
+      mLocale;  ///< The locale if the cursor is locale-aware, otherwise empty.
+                ///< Note that only index-based cursors can be locale-aware.
 
   CursorOpBase* mCurrentlyRunningOp;
 
@@ -7649,7 +7657,6 @@ class Cursor final : public PBackgroundIDBCursorParent {
 
   const bool mUniqueIndex;
   const bool mIsSameProcessActor;
-  bool mActorDestroyed;
 
   struct ConstructFromTransactionBase {};
 
@@ -7665,7 +7672,7 @@ class Cursor final : public PBackgroundIDBCursorParent {
 
  private:
   // Reference counted.
-  ~Cursor() override { MOZ_ASSERT(mActorDestroyed); }
+  ~Cursor() override { MOZ_ASSERT(!mActorDependentInfo); }
 
   bool VerifyRequestParams(const CursorRequestParams& aParams,
                            const CursorPosition& aPosition) const;
@@ -7726,20 +7733,23 @@ class Cursor::CursorOpBase : public TransactionDatabaseOperationBase {
 
   void Cleanup() override;
 
-  nsresult PopulateResponseFromStatement(mozIStorageStatement* aStmt,
-                                         bool aInitializeResponse,
-                                         Key* const aOptOutSortKey);
+  using ResponseSizeOrError = mozilla::Result<size_t, nsresult>;
+
+  ResponseSizeOrError PopulateResponseFromStatement(mozIStorageStatement* aStmt,
+                                                    bool aInitializeResponse,
+                                                    Key* const aOptOutSortKey);
 
   nsresult PopulateExtraResponses(mozIStorageStatement* aStmt,
                                   uint32_t aMaxExtraCount,
+                                  const size_t aInitialResponseSize,
                                   const nsCString& aOperation,
                                   Key* const aOptPreviousSortKey);
 
  private:
   template <enum OpenCursorParams::Type CursorType>
-  nsresult PopulateResponseFromTypedStatement(mozIStorageStatement* const aStmt,
-                                              const bool aInitializeResponse,
-                                              Key* const aOptOutSortKey);
+  ResponseSizeOrError PopulateResponseFromTypedStatement(
+      mozIStorageStatement* const aStmt, const bool aInitializeResponse,
+      Key* const aOptOutSortKey);
 };
 
 class Cursor::OpenOp final : public Cursor::CursorOpBase {
@@ -8654,17 +8664,19 @@ bool GetBaseFilename(const nsAString& aFilename, const nsAString& aSuffix,
   return true;
 }
 
-nsresult SerializeStructuredCloneFiles(
-    PBackgroundParent* aBackgroundActor, Database* aDatabase,
-    const nsTArray<StructuredCloneFile>& aFiles, bool aForPreprocess,
-    FallibleTArray<SerializedStructuredCloneFile>& aResult) {
+mozilla::Result<nsTArray<SerializedStructuredCloneFile>, nsresult>
+SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
+                              Database* aDatabase,
+                              const nsTArray<StructuredCloneFile>& aFiles,
+                              bool aForPreprocess) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aBackgroundActor);
   MOZ_ASSERT(aDatabase);
-  MOZ_ASSERT(aResult.IsEmpty());
+
+  nsTArray<SerializedStructuredCloneFile> result;
 
   if (aFiles.IsEmpty()) {
-    return NS_OK;
+    return result;
   }
 
   FileManager* fileManager = aDatabase->GetFileManager();
@@ -8672,13 +8684,13 @@ nsresult SerializeStructuredCloneFiles(
   nsCOMPtr<nsIFile> directory = fileManager->GetCheckedDirectory();
   if (NS_WARN_IF(!directory)) {
     IDB_REPORT_INTERNAL_ERR();
-    return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+    return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
   }
 
   const uint32_t count = aFiles.Length();
 
-  if (NS_WARN_IF(!aResult.SetCapacity(count, fallible))) {
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (NS_WARN_IF(!result.SetCapacity(count, fallible))) {
+    return Err(NS_ERROR_OUT_OF_MEMORY);
   }
 
   for (const StructuredCloneFile& file : aFiles) {
@@ -8694,7 +8706,7 @@ nsresult SerializeStructuredCloneFiles(
                                                                   fileId);
     if (NS_WARN_IF(!nativeFile)) {
       IDB_REPORT_INTERNAL_ERR();
-      return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+      return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
     }
 
     switch (file.mType) {
@@ -8707,15 +8719,10 @@ nsresult SerializeStructuredCloneFiles(
         if (NS_WARN_IF(NS_FAILED(rv))) {
           // This can only fail if the child has crashed.
           IDB_REPORT_INTERNAL_ERR();
-          return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+          return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
         }
 
-        SerializedStructuredCloneFile* serializedFile =
-            aResult.AppendElement(fallible);
-        MOZ_ASSERT(serializedFile);
-
-        serializedFile->file() = ipcBlob;
-        serializedFile->type() = StructuredCloneFile::eBlob;
+        result.EmplaceBack(ipcBlob, StructuredCloneFile::eBlob);
 
         aDatabase->MapBlob(ipcBlob, file.mFileInfo);
         break;
@@ -8723,17 +8730,13 @@ nsresult SerializeStructuredCloneFiles(
 
       case StructuredCloneFile::eMutableFile: {
         if (aDatabase->IsFileHandleDisabled()) {
-          SerializedStructuredCloneFile* file = aResult.AppendElement(fallible);
-          MOZ_ASSERT(file);
-
-          file->file() = null_t();
-          file->type() = StructuredCloneFile::eMutableFile;
+          result.EmplaceBack(null_t(), StructuredCloneFile::eMutableFile);
         } else {
           RefPtr<MutableFile> actor =
               MutableFile::Create(nativeFile, aDatabase, file.mFileInfo);
           if (!actor) {
             IDB_REPORT_INTERNAL_ERR();
-            return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+            return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
           }
 
           // Transfer ownership to IPDL.
@@ -8743,14 +8746,10 @@ nsresult SerializeStructuredCloneFiles(
                   actor, EmptyString(), EmptyString())) {
             // This can only fail if the child has crashed.
             IDB_REPORT_INTERNAL_ERR();
-            return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+            return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
           }
 
-          SerializedStructuredCloneFile* file = aResult.AppendElement(fallible);
-          MOZ_ASSERT(file);
-
-          file->file() = actor;
-          file->type() = StructuredCloneFile::eMutableFile;
+          result.EmplaceBack(actor.get(), StructuredCloneFile::eMutableFile);
         }
 
         break;
@@ -8758,11 +8757,7 @@ nsresult SerializeStructuredCloneFiles(
 
       case StructuredCloneFile::eStructuredClone: {
         if (!aForPreprocess) {
-          SerializedStructuredCloneFile* file = aResult.AppendElement(fallible);
-          MOZ_ASSERT(file);
-
-          file->file() = null_t();
-          file->type() = StructuredCloneFile::eStructuredClone;
+          result.EmplaceBack(null_t(), StructuredCloneFile::eStructuredClone);
         } else {
           RefPtr<FileBlobImpl> impl = new FileBlobImpl(nativeFile);
           impl->SetFileId(file.mFileInfo->Id());
@@ -8773,15 +8768,10 @@ nsresult SerializeStructuredCloneFiles(
           if (NS_WARN_IF(NS_FAILED(rv))) {
             // This can only fail if the child has crashed.
             IDB_REPORT_INTERNAL_ERR();
-            return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
+            return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
           }
 
-          SerializedStructuredCloneFile* serializedFile =
-              aResult.AppendElement(fallible);
-          MOZ_ASSERT(serializedFile);
-
-          serializedFile->file() = ipcBlob;
-          serializedFile->type() = StructuredCloneFile::eStructuredClone;
+          result.EmplaceBack(ipcBlob, StructuredCloneFile::eStructuredClone);
 
           aDatabase->MapBlob(ipcBlob, file.mFileInfo);
         }
@@ -8791,17 +8781,12 @@ nsresult SerializeStructuredCloneFiles(
 
       case StructuredCloneFile::eWasmBytecode:
       case StructuredCloneFile::eWasmCompiled: {
-        SerializedStructuredCloneFile* serializedFile =
-            aResult.AppendElement(fallible);
-        MOZ_ASSERT(serializedFile);
-
         // Set file() to null, support for storing WebAssembly.Modules has been
         // removed in bug 1469395. Support for de-serialization of
         // WebAssembly.Modules modules has been removed in bug 1561876. Full
         // removal is tracked in bug 1487479.
 
-        serializedFile->file() = null_t();
-        serializedFile->type() = file.mType;
+        result.EmplaceBack(null_t(), file.mType);
 
         break;
       }
@@ -8811,7 +8796,7 @@ nsresult SerializeStructuredCloneFiles(
     }
   }
 
-  return NS_OK;
+  return std::move(result);
 }
 
 // Idempotently delete a file, decreasing the quota usage as appropriate. If the
@@ -9475,6 +9460,11 @@ struct CommonCursorTypeTraits {
     aResponse->key() = std::move(mPosition);
   }
 
+  template <typename Response>
+  static size_t GetKeySize(const Response* const aResponse) {
+    return aResponse->key().GetBuffer().Length();
+  }
+
  protected:
   const Key& GetPosition() const { return mPosition; }
 
@@ -9524,6 +9514,13 @@ struct IndexCursorTypeTraits : CommonCursorTypeTraits {
     aResponse->objectKey() = std::move(mObjectStorePosition);
   }
 
+  template <typename Response>
+  static size_t GetKeySize(const Response* const aResponse) {
+    return CommonCursorTypeTraits::GetKeySize(aResponse) +
+           aResponse->sortKey().GetBuffer().Length() +
+           aResponse->objectKey().GetBuffer().Length();
+  }
+
  private:
   Key mLocaleAwarePosition, mObjectStorePosition;
 };
@@ -9538,6 +9535,12 @@ struct KeyCursorTypeTraits {
   template <typename Response>
   static constexpr void MaybeFillCloneInfo(Response* const /*aResponse*/,
                                            FilesArray* const /*aFiles*/) {}
+
+  template <typename Response>
+  static constexpr size_t MaybeGetCloneInfoSize(
+      const Response* const /*aResponse*/) {
+    return 0;
+  }
 };
 
 template <bool StatementHasIndexKeyBindings>
@@ -9567,6 +9570,11 @@ struct ValueCursorTypeTraits {
   void MaybeFillCloneInfo(Response* const aResponse, FilesArray* const aFiles) {
     aResponse->cloneInfo().data().data = std::move(mCloneInfo.mData);
     aFiles->AppendElement(std::move(mCloneInfo.mFiles));
+  }
+
+  template <typename Response>
+  static size_t MaybeGetCloneInfoSize(const Response* const aResponse) {
+    return aResponse->cloneInfo().data().data.Size();
   }
 
  private:
@@ -13607,7 +13615,7 @@ void Database::StartTransactionOp::RunOnConnectionThread() {
 
   IDB_LOG_MARK_PARENT_TRANSACTION("Beginning database work", "DB Start",
                                   IDB_LOG_ID_STRING(mBackgroundChildLoggingId),
-                                  mLoggingSerialNumber);
+                                  mTransactionLoggingSerialNumber);
 
   TransactionDatabaseOperationBase::RunOnConnectionThread();
 }
@@ -15261,35 +15269,40 @@ Cursor::Cursor(RefPtr<TransactionBase> aTransaction, const Type aType,
     : mTransaction(std::move(aTransaction)),
       mDatabase(!IsKeyCursor(aType) ? mTransaction->GetDatabase() : nullptr),
       mFileManager(!IsKeyCursor(aType) ? mDatabase->GetFileManager() : nullptr),
-      mBackgroundParent(
-          !IsKeyCursor(aType) ? mTransaction->GetBackgroundParent() : nullptr),
-      mObjectStoreMetadata(std::move(aObjectStoreMetadata)),
-      mIndexMetadata(std::move(aIndexMetadata)),
-      mObjectStoreId(mObjectStoreMetadata->mCommonMetadata.id()),
-      mIndexId(mIndexMetadata ? mIndexMetadata->mCommonMetadata.id() : 0),
-      mLocale(mIndexMetadata ? mIndexMetadata->mCommonMetadata.locale()
-                             : EmptyCString()),
+      mActorDependentInfo(
+          !IsKeyCursor(aType) ? mTransaction->GetBackgroundParent() : nullptr,
+          std::move(aObjectStoreMetadata), std::move(aIndexMetadata)),
+      mObjectStoreId(
+          mActorDependentInfo->mObjectStoreMetadata->mCommonMetadata.id()),
+      mIndexId(mActorDependentInfo->mIndexMetadata
+                   ? mActorDependentInfo->mIndexMetadata->mCommonMetadata.id()
+                   : 0),
+      mLocale(
+          mActorDependentInfo->mIndexMetadata
+              ? mActorDependentInfo->mIndexMetadata->mCommonMetadata.locale()
+              : EmptyCString()),
       mCurrentlyRunningOp(nullptr),
       mType(aType),
       mDirection(aDirection),
       mMaxExtraCount(IndexedDatabaseManager::MaxPreloadExtraRecords()),
-      mUniqueIndex(mIndexMetadata ? mIndexMetadata->mCommonMetadata.unique()
-                                  : false),
+      mUniqueIndex(
+          mActorDependentInfo->mIndexMetadata
+              ? mActorDependentInfo->mIndexMetadata->mCommonMetadata.unique()
+              : false),
       mIsSameProcessActor(!BackgroundParent::IsOtherProcessActor(
-          mTransaction->GetBackgroundParent())),
-      mActorDestroyed(false) {
+          mTransaction->GetBackgroundParent())) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(mTransaction);
   MOZ_ASSERT(mType != OpenCursorParams::T__None);
-  MOZ_ASSERT(mObjectStoreMetadata);
+  MOZ_ASSERT(mActorDependentInfo->mObjectStoreMetadata);
   MOZ_ASSERT_IF(mType == OpenCursorParams::TIndexOpenCursorParams ||
                     mType == OpenCursorParams::TIndexOpenKeyCursorParams,
-                mIndexMetadata);
+                mActorDependentInfo->mIndexMetadata);
 
   if (!IsKeyCursor(aType)) {
     MOZ_ASSERT(mDatabase);
     MOZ_ASSERT(mFileManager);
-    MOZ_ASSERT(mBackgroundParent);
+    MOZ_ASSERT(mActorDependentInfo->mBackgroundParent);
   }
 
   static_assert(
@@ -15301,19 +15314,20 @@ bool Cursor::VerifyRequestParams(const CursorRequestParams& aParams,
                                  const CursorPosition& aPosition) const {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aParams.type() != CursorRequestParams::T__None);
-  MOZ_ASSERT(mObjectStoreMetadata);
+  MOZ_ASSERT(mActorDependentInfo->mObjectStoreMetadata);
   MOZ_ASSERT_IF(mType == OpenCursorParams::TIndexOpenCursorParams ||
                     mType == OpenCursorParams::TIndexOpenKeyCursorParams,
-                mIndexMetadata);
+                mActorDependentInfo->mIndexMetadata);
 
 #ifdef DEBUG
   {
     const RefPtr<FullObjectStoreMetadata> objectStoreMetadata =
         mTransaction->GetMetadataForObjectStoreId(mObjectStoreId);
     if (objectStoreMetadata) {
-      MOZ_ASSERT(objectStoreMetadata == mObjectStoreMetadata);
+      MOZ_ASSERT(objectStoreMetadata ==
+                 mActorDependentInfo->mObjectStoreMetadata);
     } else {
-      MOZ_ASSERT(mObjectStoreMetadata->mDeleted);
+      MOZ_ASSERT(mActorDependentInfo->mObjectStoreMetadata->mDeleted);
     }
 
     if (objectStoreMetadata &&
@@ -15322,16 +15336,17 @@ bool Cursor::VerifyRequestParams(const CursorRequestParams& aParams,
       const RefPtr<FullIndexMetadata> indexMetadata =
           mTransaction->GetMetadataForIndexId(objectStoreMetadata, mIndexId);
       if (indexMetadata) {
-        MOZ_ASSERT(indexMetadata == mIndexMetadata);
+        MOZ_ASSERT(indexMetadata == mActorDependentInfo->mIndexMetadata);
       } else {
-        MOZ_ASSERT(mIndexMetadata->mDeleted);
+        MOZ_ASSERT(mActorDependentInfo->mIndexMetadata->mDeleted);
       }
     }
   }
 #endif
 
-  if (NS_WARN_IF(mObjectStoreMetadata->mDeleted) ||
-      (mIndexMetadata && NS_WARN_IF(mIndexMetadata->mDeleted))) {
+  if (NS_WARN_IF(mActorDependentInfo->mObjectStoreMetadata->mDeleted) ||
+      (mActorDependentInfo->mIndexMetadata &&
+       NS_WARN_IF(mActorDependentInfo->mIndexMetadata->mDeleted))) {
     ASSERT_UNLESS_FUZZING();
     return false;
   }
@@ -15414,7 +15429,7 @@ bool Cursor::VerifyRequestParams(const CursorRequestParams& aParams,
 bool Cursor::Start(const OpenCursorParams& aParams) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aParams.type() == mType);
-  MOZ_ASSERT(!mActorDestroyed);
+  MOZ_ASSERT(mActorDependentInfo);
 
   if (NS_WARN_IF(mCurrentlyRunningOp)) {
     ASSERT_UNLESS_FUZZING();
@@ -15454,7 +15469,7 @@ void Cursor::SendResponseInternal(
               CursorResponse::TArrayOfObjectStoreKeyCursorResponse ||
           aResponse.type() == CursorResponse::TArrayOfIndexKeyCursorResponse,
       aFiles.IsEmpty());
-  MOZ_ASSERT(!mActorDestroyed);
+  MOZ_ASSERT(mActorDependentInfo);
   MOZ_ASSERT(mCurrentlyRunningOp);
 
   for (size_t i = 0; i < aFiles.Length(); ++i) {
@@ -15465,14 +15480,13 @@ void Cursor::SendResponseInternal(
                  aResponse.type() ==
                      CursorResponse::TArrayOfIndexCursorResponse);
       MOZ_ASSERT(mDatabase);
-      MOZ_ASSERT(mBackgroundParent);
+      MOZ_ASSERT(mActorDependentInfo->mBackgroundParent);
 
-      FallibleTArray<SerializedStructuredCloneFile> serializedFiles;
-      nsresult rv = SerializeStructuredCloneFiles(
-          mBackgroundParent, mDatabase, files,
-          /* aForPreprocess */ false, serializedFiles);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        aResponse = ClampResultCode(rv);
+      auto res = SerializeStructuredCloneFiles(
+          mActorDependentInfo->mBackgroundParent, mDatabase, files,
+          /* aForPreprocess */ false);
+      if (NS_WARN_IF(res.isErr())) {
+        aResponse = ClampResultCode(res.inspectErr());
         break;
       }
 
@@ -15499,7 +15513,7 @@ void Cursor::SendResponseInternal(
       MOZ_ASSERT(serializedInfo);
       MOZ_ASSERT(serializedInfo->files().IsEmpty());
 
-      serializedInfo->files().SwapElements(serializedFiles);
+      serializedInfo->files() = res.unwrap();
     }
   }
 
@@ -15514,23 +15528,18 @@ void Cursor::SendResponseInternal(
 
 void Cursor::ActorDestroy(ActorDestroyReason aWhy) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(!mActorDestroyed);
-
-  mActorDestroyed = true;
+  MOZ_ASSERT(mActorDependentInfo);
 
   if (mCurrentlyRunningOp) {
     mCurrentlyRunningOp->NoteActorDestroyed();
   }
 
-  mBackgroundParent = nullptr;
-
-  mObjectStoreMetadata = nullptr;
-  mIndexMetadata = nullptr;
+  mActorDependentInfo.reset();
 }
 
 mozilla::ipc::IPCResult Cursor::RecvDeleteMe() {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(!mActorDestroyed);
+  MOZ_ASSERT(mActorDependentInfo);
 
   if (NS_WARN_IF(mCurrentlyRunningOp)) {
     ASSERT_UNLESS_FUZZING();
@@ -15549,11 +15558,11 @@ mozilla::ipc::IPCResult Cursor::RecvContinue(
     const Key& aCurrentObjectStoreKey) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aParams.type() != CursorRequestParams::T__None);
-  MOZ_ASSERT(!mActorDestroyed);
-  MOZ_ASSERT(mObjectStoreMetadata);
+  MOZ_ASSERT(mActorDependentInfo);
+  MOZ_ASSERT(mActorDependentInfo->mObjectStoreMetadata);
   MOZ_ASSERT_IF(mType == OpenCursorParams::TIndexOpenCursorParams ||
                     mType == OpenCursorParams::TIndexOpenKeyCursorParams,
-                mIndexMetadata);
+                mActorDependentInfo->mIndexMetadata);
 
   const bool trustParams =
 #ifdef DEBUG
@@ -21587,7 +21596,7 @@ nsresult OpenDatabaseOp::VersionChangeOp::DoDatabaseWork(
 
   IDB_LOG_MARK_PARENT_TRANSACTION("Beginning database work", "DB Start",
                                   IDB_LOG_ID_STRING(mBackgroundChildLoggingId),
-                                  mLoggingSerialNumber);
+                                  mTransactionLoggingSerialNumber);
 
   Transaction()->SetActiveOnConnectionThread();
 
@@ -22608,7 +22617,7 @@ TransactionBase::CommitOp::Run() {
 
   IDB_LOG_MARK_PARENT_TRANSACTION("Finished database work", "DB End",
                                   IDB_LOG_ID_STRING(mBackgroundChildLoggingId),
-                                  mLoggingSerialNumber);
+                                  mTransaction->LoggingSerialNumber());
 
   return NS_OK;
 }
@@ -24957,17 +24966,15 @@ nsresult ObjectStoreGetRequestOp::ConvertResponse(
     StructuredCloneReadInfo& aInfo, T& aResult) {
   MoveData(aInfo, aResult);
 
-  FallibleTArray<SerializedStructuredCloneFile> serializedFiles;
-  nsresult rv =
-      SerializeStructuredCloneFiles(mBackgroundParent, mDatabase, aInfo.mFiles,
-                                    aForPreprocess, serializedFiles);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  auto res = SerializeStructuredCloneFiles(mBackgroundParent, mDatabase,
+                                           aInfo.mFiles, aForPreprocess);
+  if (NS_WARN_IF(res.isErr())) {
+    return res.unwrapErr();
   }
 
   MOZ_ASSERT(aResult.files().IsEmpty());
 
-  aResult.files().SwapElements(serializedFiles);
+  aResult.files() = res.unwrap();
 
   return NS_OK;
 }
@@ -25656,18 +25663,17 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
 
         serializedInfo.data().data = std::move(info.mData);
 
-        FallibleTArray<SerializedStructuredCloneFile> serializedFiles;
-        nsresult rv = SerializeStructuredCloneFiles(
-            mBackgroundParent, mDatabase, info.mFiles,
-            /* aForPreprocess */ false, serializedFiles);
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          aResponse = rv;
+        auto res = SerializeStructuredCloneFiles(mBackgroundParent, mDatabase,
+                                                 info.mFiles,
+                                                 /* aForPreprocess */ false);
+        if (NS_WARN_IF(res.isErr())) {
+          aResponse = res.unwrapErr();
           return;
         }
 
         MOZ_ASSERT(serializedInfo.files().IsEmpty());
 
-        serializedInfo.files().SwapElements(serializedFiles);
+        serializedInfo.files() = res.unwrap();
       }
 
       nsTArray<SerializedStructuredCloneReadInfo>& cloneInfos =
@@ -25691,18 +25697,17 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
 
     serializedInfo.data().data = std::move(info.mData);
 
-    FallibleTArray<SerializedStructuredCloneFile> serializedFiles;
-    nsresult rv = SerializeStructuredCloneFiles(
-        mBackgroundParent, mDatabase, info.mFiles,
-        /* aForPreprocess */ false, serializedFiles);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      aResponse = rv;
+    auto res =
+        SerializeStructuredCloneFiles(mBackgroundParent, mDatabase, info.mFiles,
+                                      /* aForPreprocess */ false);
+    if (NS_WARN_IF(res.isErr())) {
+      aResponse = res.unwrapErr();
       return;
     }
 
     MOZ_ASSERT(serializedInfo.files().IsEmpty());
 
-    serializedInfo.files().SwapElements(serializedFiles);
+    serializedInfo.files() = res.unwrap();
   }
 }
 
@@ -25938,7 +25943,8 @@ void Cursor::CursorOpBase::Cleanup() {
 }
 
 template <enum OpenCursorParams::Type CursorType>
-nsresult Cursor::CursorOpBase::PopulateResponseFromTypedStatement(
+Cursor::CursorOpBase::ResponseSizeOrError
+Cursor::CursorOpBase::PopulateResponseFromTypedStatement(
     mozIStorageStatement* const aStmt, const bool aInitializeResponse,
     Key* const aOptOutSortKey) {
   auto cursorTypeTraits = CursorTypeTraits<CursorType>{*this};
@@ -25947,7 +25953,7 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromTypedStatement(
   {
     const auto rv = cursorTypeTraits.GetKeys(aStmt, aOptOutSortKey);
     if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+      return Err(rv);
     }
   }
 
@@ -25956,14 +25962,14 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromTypedStatement(
   // currently do not filter these out.
   if (aOptOutSortKey && !previousKey.IsUnset() &&
       previousKey == *aOptOutSortKey) {
-    return NS_OK;
+    return 0;
   }
 
   {
     const auto rv =
         cursorTypeTraits.MaybeGetCloneInfo(aStmt, mCursor->mFileManager);
     if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+      return Err(rv);
     }
   }
 
@@ -25980,13 +25986,16 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromTypedStatement(
 
   auto& responses = cursorTypeTraits.GetTypedResponse(&mResponse);
   auto* response = responses.AppendElement();
+
   cursorTypeTraits.FillKeys(response);
   cursorTypeTraits.MaybeFillCloneInfo(response, &mFiles);
 
-  return NS_OK;
+  return cursorTypeTraits.GetKeySize(response) +
+         cursorTypeTraits.MaybeGetCloneInfoSize(response);
 }
 
-nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
+Cursor::CursorOpBase::ResponseSizeOrError
+Cursor::CursorOpBase::PopulateResponseFromStatement(
     mozIStorageStatement* const aStmt, const bool aInitializeResponse,
     Key* const aOptOutSortKey) {
   Transaction()->AssertIsOnConnectionThread();
@@ -26001,7 +26010,8 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
            mResponse.type() == CursorResponse::TArrayOfIndexCursorResponse),
       aInitializeResponse);
 
-  nsresult (CursorOpBase::*populateFunc)(mozIStorageStatement*, bool, Key*);
+  ResponseSizeOrError (CursorOpBase::*populateFunc)(mozIStorageStatement*, bool,
+                                                    Key*);
 
   switch (mCursor->mType) {
     case OpenCursorParams::TObjectStoreOpenCursorParams:
@@ -26033,9 +26043,11 @@ nsresult Cursor::CursorOpBase::PopulateResponseFromStatement(
 
 nsresult Cursor::CursorOpBase::PopulateExtraResponses(
     mozIStorageStatement* const aStmt, const uint32_t aMaxExtraCount,
-    const nsCString& aOperation, Key* const aOptPreviousSortKey) {
+    const size_t aInitialResponseSize, const nsCString& aOperation,
+    Key* const aOptPreviousSortKey) {
   AssertIsOnConnectionThread();
 
+  auto accumulatedResponseSize = aInitialResponseSize;
   uint32_t extraCount = 0;
   do {
     bool hasResult;
@@ -26056,14 +26068,28 @@ nsresult Cursor::CursorOpBase::PopulateExtraResponses(
     // any remaining entries, and signal overall success. Probably, future
     // attempts to access the same entry will fail as well, but it might never
     // be accessed by the application.
-    rv = PopulateResponseFromStatement(aStmt, false, aOptPreviousSortKey);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
+    const auto res =
+        PopulateResponseFromStatement(aStmt, false, aOptPreviousSortKey);
+    if (NS_WARN_IF(res.isErr())) {
       // TODO: Maybe disable preloading for this cursor? The problem will
       // probably reoccur on the next attempt, and disabling preloading will
       // reduce latency. However, if some problematic entry will be skipped
       // over, after that it might be fine again. To judge this, the causes for
       // such failures would need to be analyzed more thoroughly. Since this
       // seems to be rare, maybe no further action is necessary at all.
+
+      break;
+    }
+
+    // Check accumulated size of individual responses and maybe break early.
+    accumulatedResponseSize += res.inspect();
+    if (accumulatedResponseSize > IPC::Channel::kMaximumMessageSize / 2) {
+      IDB_LOG_MARK_PARENT_TRANSACTION_REQUEST(
+          "PRELOAD: %s: Dropping entries because maximum message size is "
+          "exceeded: %" PRIu32 "/%zu bytes",
+          "Dropping too large", IDB_LOG_ID_STRING(mBackgroundChildLoggingId),
+          mTransactionLoggingSerialNumber, mLoggingSerialNumber,
+          aOperation.get(), extraCount, accumulatedResponseSize);
 
       break;
     }
@@ -26083,8 +26109,9 @@ nsresult Cursor::CursorOpBase::PopulateExtraResponses(
 
 void Cursor::SetOptionalKeyRange(
     const Maybe<SerializedKeyRange>& aOptionalKeyRange, bool* const aOpen) {
-  MOZ_ASSERT(mLocaleAwareRangeBound.IsUnset());
   MOZ_ASSERT(aOpen);
+
+  Key localeAwareRangeBound;
 
   if (aOptionalKeyRange.isSome()) {
     const SerializedKeyRange& range = aOptionalKeyRange.ref();
@@ -26097,7 +26124,7 @@ void Cursor::SetOptionalKeyRange(
         (range.isOnly() || lowerBound) ? range.lower() : range.upper();
     if (IsLocaleAware()) {
       ErrorResult rv;
-      Unused << bound.ToLocaleAwareKey(mLocaleAwareRangeBound, mLocale, rv);
+      Unused << bound.ToLocaleAwareKey(localeAwareRangeBound, mLocale, rv);
 
       // XXX Explain why the error is ignored here (If it's impossible, then we
       //     should change this to an assertion.)
@@ -26105,11 +26132,13 @@ void Cursor::SetOptionalKeyRange(
         rv.SuppressException();
       }
     } else {
-      mLocaleAwareRangeBound = bound;
+      localeAwareRangeBound = bound;
     }
   } else {
     *aOpen = false;
   }
+
+  mLocaleAwareRangeBound.init(std::move(localeAwareRangeBound));
 }
 
 void Cursor::OpenOp::PrepareKeyConditionClauses(
@@ -26128,9 +26157,8 @@ void Cursor::OpenOp::PrepareKeyConditionClauses(
     bool open;
     mCursor->SetOptionalKeyRange(mOptionalKeyRange, &open);
 
-    // TODO: The first condition is probably redundant.
     if (mOptionalKeyRange.isSome() &&
-        !mCursor->mLocaleAwareRangeBound.IsUnset()) {
+        !mCursor->mLocaleAwareRangeBound->IsUnset()) {
       AppendConditionClause(aKeyString, kStmtParamNameRangeBound,
                             isIncreasingOrder, !open, keyRangeClause);
       AppendConditionClause(aKeyString, kStmtParamNameRangeBound,
@@ -26140,9 +26168,10 @@ void Cursor::OpenOp::PrepareKeyConditionClauses(
 
   const nsAutoCString suffix = aDirectionClause + kOpenLimit +
                                NS_LITERAL_CSTRING(":") + kStmtParamNameLimit;
-  mCursor->mContinueQuery = aQueryStart + keyRangeClause + suffix;
 
-  mCursor->mContinueToQuery = aQueryStart + continueToKeyRangeClause + suffix;
+  mCursor->mContinueQueries.init(
+      aQueryStart + keyRangeClause + suffix,
+      aQueryStart + continueToKeyRangeClause + suffix);
 }
 
 void Cursor::OpenOp::PrepareIndexKeyConditionClause(
@@ -26154,13 +26183,15 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
     bool open;
     mCursor->SetOptionalKeyRange(mOptionalKeyRange, &open);
     if (mOptionalKeyRange.isSome() &&
-        !mCursor->mLocaleAwareRangeBound.IsUnset()) {
+        !mCursor->mLocaleAwareRangeBound->IsUnset()) {
       AppendConditionClause(aSortColumn, kStmtParamNameRangeBound,
                             isIncreasingOrder, !open, aQueryStart);
     }
   }
 
-  mCursor->mContinueToQuery =
+  nsCString continueQuery, continueToQuery, continuePrimaryKeyQuery;
+
+  continueToQuery =
       aQueryStart + NS_LITERAL_CSTRING(" AND ") +
       GetSortKeyClause(isIncreasingOrder ? ComparisonOperator::GreaterOrEquals
                                          : ComparisonOperator::LessOrEquals,
@@ -26169,7 +26200,7 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
   switch (mCursor->mDirection) {
     case IDBCursor::NEXT:
     case IDBCursor::PREV:
-      mCursor->mContinueQuery =
+      continueQuery =
           aQueryStart + NS_LITERAL_CSTRING(" AND ") +
           GetSortKeyClause(isIncreasingOrder
                                ? ComparisonOperator::GreaterOrEquals
@@ -26187,7 +26218,7 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
               kStmtParamNameObjectStorePosition) +
           NS_LITERAL_CSTRING(" ) ");
 
-      mCursor->mContinuePrimaryKeyQuery =
+      continuePrimaryKeyQuery =
           aQueryStart +
           NS_LITERAL_CSTRING(
               " AND ("
@@ -26209,7 +26240,7 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
 
     case IDBCursor::NEXT_UNIQUE:
     case IDBCursor::PREV_UNIQUE:
-      mCursor->mContinueQuery =
+      continueQuery =
           aQueryStart + NS_LITERAL_CSTRING(" AND ") +
           GetSortKeyClause(isIncreasingOrder ? ComparisonOperator::GreaterThan
                                              : ComparisonOperator::LessThan,
@@ -26222,11 +26253,15 @@ void Cursor::OpenOp::PrepareIndexKeyConditionClause(
 
   const nsAutoCString suffix = aDirectionClause + kOpenLimit +
                                NS_LITERAL_CSTRING(":") + kStmtParamNameLimit;
-  mCursor->mContinueQuery += suffix;
-  mCursor->mContinueToQuery += suffix;
-  if (!mCursor->mContinuePrimaryKeyQuery.IsEmpty()) {
-    mCursor->mContinuePrimaryKeyQuery += suffix;
+  continueQuery += suffix;
+  continueToQuery += suffix;
+  if (!continuePrimaryKeyQuery.IsEmpty()) {
+    continuePrimaryKeyQuery += suffix;
   }
+
+  mCursor->mContinueQueries.init(std::move(continueQuery),
+                                 std::move(continueToQuery),
+                                 std::move(continuePrimaryKeyQuery));
 }
 
 nsresult Cursor::OpenOp::ProcessStatementSteps(
@@ -26245,9 +26280,9 @@ nsresult Cursor::OpenOp::ProcessStatementSteps(
   Key previousKey;
   auto* optPreviousKey = IsUnique(mCursor->mDirection) ? &previousKey : nullptr;
 
-  rv = PopulateResponseFromStatement(aStmt, true, optPreviousKey);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  const auto res = PopulateResponseFromStatement(aStmt, true, optPreviousKey);
+  if (NS_WARN_IF(res.isErr())) {
+    return res.inspectErr();
   }
 
   // The degree to which extra responses on OpenOp can actually be used depends
@@ -26256,7 +26291,7 @@ nsresult Cursor::OpenOp::ProcessStatementSteps(
   //
   // TODO: We should somehow evaluate the effects of this. Maybe use a smaller
   // extra count than for ContinueOp?
-  return PopulateExtraResponses(aStmt, mCursor->mMaxExtraCount,
+  return PopulateExtraResponses(aStmt, mCursor->mMaxExtraCount, res.inspect(),
                                 NS_LITERAL_CSTRING("OpenOp"), optPreviousKey);
 }
 
@@ -26570,9 +26605,7 @@ nsresult Cursor::OpenOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   MOZ_ASSERT(aConnection);
   aConnection->AssertIsOnConnectionThread();
   MOZ_ASSERT(mCursor);
-  MOZ_ASSERT(mCursor->mContinueQuery.IsEmpty());
-  MOZ_ASSERT(mCursor->mContinueToQuery.IsEmpty());
-  MOZ_ASSERT(mCursor->mContinuePrimaryKeyQuery.IsEmpty());
+  MOZ_ASSERT(!mCursor->mContinueQueries);
 
   AUTO_PROFILER_LABEL("Cursor::OpenOp::DoDatabaseWork", DOM);
 
@@ -26629,8 +26662,8 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   aConnection->AssertIsOnConnectionThread();
   MOZ_ASSERT(mCursor);
   MOZ_ASSERT(mCursor->mObjectStoreId);
-  MOZ_ASSERT(!mCursor->mContinueQuery.IsEmpty());
-  MOZ_ASSERT(!mCursor->mContinueToQuery.IsEmpty());
+  MOZ_ASSERT(!mCursor->mContinueQueries->mContinueQuery.IsEmpty());
+  MOZ_ASSERT(!mCursor->mContinueQueries->mContinueToQuery.IsEmpty());
   MOZ_ASSERT(!mCurrentPosition.mPosition.IsUnset());
 
   const bool isIndex =
@@ -26639,7 +26672,7 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
 
   MOZ_ASSERT_IF(isIndex && (mCursor->mDirection == IDBCursor::NEXT ||
                             mCursor->mDirection == IDBCursor::PREV),
-                !mCursor->mContinuePrimaryKeyQuery.IsEmpty());
+                !mCursor->mContinueQueries->mContinuePrimaryKeyQuery.IsEmpty());
   MOZ_ASSERT_IF(isIndex, mCursor->mIndexId);
   MOZ_ASSERT_IF(isIndex, !mCurrentPosition.mObjectStorePosition.IsUnset());
 
@@ -26693,9 +26726,10 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   }
 
   const nsCString& continueQuery =
-      hasContinuePrimaryKey ? mCursor->mContinuePrimaryKeyQuery
-                            : hasContinueKey ? mCursor->mContinueToQuery
-                                             : mCursor->mContinueQuery;
+      hasContinuePrimaryKey
+          ? mCursor->mContinueQueries->mContinuePrimaryKeyQuery
+          : hasContinueKey ? mCursor->mContinueQueries->mContinueToQuery
+                           : mCursor->mContinueQueries->mContinueQuery;
 
   // TODO: Whether it makes sense to preload depends on the kind of the
   // subsequent operations, not of the current operation. We could assume that
@@ -26746,8 +26780,8 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   }
 
   // Bind range bound if it is specified.
-  if (!mCursor->mLocaleAwareRangeBound.IsUnset()) {
-    rv = mCursor->mLocaleAwareRangeBound.BindToStatement(
+  if (!mCursor->mLocaleAwareRangeBound->IsUnset()) {
+    rv = mCursor->mLocaleAwareRangeBound->BindToStatement(
         &*stmt, kStmtParamNameRangeBound);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
@@ -26790,13 +26824,14 @@ nsresult Cursor::ContinueOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   Key previousKey;
   auto* optPreviousKey = IsUnique(mCursor->mDirection) ? &previousKey : nullptr;
 
-  rv = PopulateResponseFromStatement(&*stmt, true, optPreviousKey);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  const auto res = PopulateResponseFromStatement(&*stmt, true, optPreviousKey);
+  if (NS_WARN_IF(res.isErr())) {
+    return res.inspectErr();
   }
 
-  return PopulateExtraResponses(
-      &*stmt, maxExtraCount, NS_LITERAL_CSTRING("ContinueOp"), optPreviousKey);
+  return PopulateExtraResponses(&*stmt, maxExtraCount, res.inspect(),
+                                NS_LITERAL_CSTRING("ContinueOp"),
+                                optPreviousKey);
 }
 
 Utils::Utils()

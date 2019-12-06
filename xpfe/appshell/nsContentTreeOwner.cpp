@@ -397,14 +397,14 @@ NS_IMETHODIMP nsContentTreeOwner::ReloadInFreshProcess(
 // nsContentTreeOwner::nsIWebBrowserChrome
 //*****************************************************************************
 
-NS_IMETHODIMP nsContentTreeOwner::SetStatusLink(const nsAString& aStatusText) {
+NS_IMETHODIMP nsContentTreeOwner::SetLinkStatus(const nsAString& aStatusText) {
   NS_ENSURE_STATE(mAppWindow);
 
   nsCOMPtr<nsIXULBrowserWindow> xulBrowserWindow;
   mAppWindow->GetXULBrowserWindow(getter_AddRefs(xulBrowserWindow));
 
   if (xulBrowserWindow) {
-    xulBrowserWindow->SetOverLink(aStatusText, nullptr);
+    xulBrowserWindow->SetOverLink(aStatusText);
   }
 
   return NS_OK;

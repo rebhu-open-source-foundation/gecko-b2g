@@ -15,12 +15,7 @@ rev = "6a866fdad2ca880df9b87fcbc9921abac1e91914"
 [source."https://github.com/mozilla/neqo"]
 git = "https://github.com/mozilla/neqo"
 replace-with = "vendored-sources"
-tag = "v0.1.6"
-
-[source."https://github.com/mheese/rust-pkcs11"]
-git = "https://github.com/mheese/rust-pkcs11"
-replace-with = "vendored-sources"
-rev = "0810cd5adf4ac8031cc204df3e877d84595c7438"
+tag = "v0.1.7"
 
 [source."https://github.com/kvark/spirv_cross"]
 branch = "wgpu"
@@ -36,6 +31,11 @@ tag = "v0.3.0"
 branch = "rust_1_32"
 git = "https://github.com/hsivonen/packed_simd"
 replace-with = "vendored-sources"
+
+[source."https://github.com/bytecodealliance/cranelift"]
+git = "https://github.com/bytecodealliance/cranelift"
+replace-with = "vendored-sources"
+rev = "497b4e1ca1d33dfd54314366d8e3a27a9fea225f"
 
 [source."https://github.com/alexcrichton/mio-named-pipes"]
 branch = "master"
@@ -56,11 +56,6 @@ replace-with = "vendored-sources"
 branch = "stable"
 git = "https://github.com/NikVolf/tokio-named-pipes"
 replace-with = "vendored-sources"
-
-[source."https://github.com/CraneStation/Cranelift"]
-git = "https://github.com/CraneStation/Cranelift"
-replace-with = "vendored-sources"
-rev = "152e31796970262068b4fe93e10395385bf9218c"
 
 [source.crates-io]
 replace-with = "vendored-sources"

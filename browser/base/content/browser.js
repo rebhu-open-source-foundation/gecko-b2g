@@ -505,13 +505,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 XPCOMUtils.defineLazyPreferenceGetter(
   this,
-  "gHtmlAboutAddonsEnabled",
-  "extensions.htmlaboutaddons.enabled",
-  false
-);
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  this,
   "gAddonAbuseReportEnabled",
   "extensions.abuseReport.enabled",
   false
@@ -5136,7 +5129,7 @@ var XULBrowserWindow = {
     StatusPanel.update();
   },
 
-  setOverLink(url, anchorElt) {
+  setOverLink(url) {
     if (url) {
       url = Services.textToSubURI.unEscapeURIForUI("UTF-8", url);
 
@@ -5370,7 +5363,7 @@ var XULBrowserWindow = {
     var location = aLocationURI ? aLocationURI.spec : "";
 
     this.hideOverLinkImmediately = true;
-    this.setOverLink("", null);
+    this.setOverLink("");
     this.hideOverLinkImmediately = false;
 
     // We should probably not do this if the value has changed since the user
@@ -6024,6 +6017,7 @@ var TabsProgressListener = {
         ) {
           if (recordLoadTelemetry) {
             TelemetryStopwatch.finish(histogram, aBrowser);
+            BrowserUtils.recordSiteOriginTelemetry(browserWindows());
           }
         }
       } else if (
@@ -7279,11 +7273,7 @@ function promptRemoveExtension(addon) {
   // Enable abuse report checkbox in the remove extension dialog,
   // if enabled by the about:config prefs and the addon type
   // is currently supported.
-  if (
-    gHtmlAboutAddonsEnabled &&
-    gAddonAbuseReportEnabled &&
-    ["extension", "theme"].includes(addon.type)
-  ) {
+  if (gAddonAbuseReportEnabled && ["extension", "theme"].includes(addon.type)) {
     checkboxMessage = getFormattedString(
       "webext.remove.abuseReportCheckbox.message",
       [document.getElementById("bundle_brand").getString("vendorShortName")]
@@ -7358,8 +7348,7 @@ var ToolbarContextMenu = {
       element.hidden = !addon;
     }
 
-    reportExtension.hidden =
-      !addon || !gAddonAbuseReportEnabled || !gHtmlAboutAddonsEnabled;
+    reportExtension.hidden = !addon || !gAddonAbuseReportEnabled;
 
     if (addon) {
       removeExtension.disabled = !(

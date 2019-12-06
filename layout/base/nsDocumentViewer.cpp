@@ -115,7 +115,7 @@
 
 // paint forcing
 #include <stdio.h>
-
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/Telemetry.h"
@@ -1095,7 +1095,7 @@ nsDocumentViewer::LoadComplete(nsresult aStatus) {
       if (os) {
         nsIPrincipal* principal = d->NodePrincipal();
         os->NotifyObservers(ToSupports(d),
-                            nsContentUtils::IsSystemPrincipal(principal)
+                            principal->IsSystemPrincipal()
                                 ? "chrome-document-loaded"
                                 : "content-document-loaded",
                             nullptr);
@@ -1697,6 +1697,7 @@ nsDocumentViewer::Close(nsISHEntry* aSHEntry) {
 
 static void DetachContainerRecurse(nsIDocShell* aShell) {
   // Unhook this docshell's presentation
+  aShell->SynchronizeLayoutHistoryState();
   nsCOMPtr<nsIContentViewer> viewer;
   aShell->GetContentViewer(getter_AddRefs(viewer));
   if (viewer) {
@@ -1824,6 +1825,7 @@ nsDocumentViewer::Destroy() {
     // and shEntry has no window state at this point we'll be ok; we just won't
     // cache ourselves.
     shEntry->SyncPresentationState();
+    shEntry->SynchronizeLayoutHistoryState();
 
     // Shut down accessibility for the document before we start to tear it down.
 #ifdef ACCESSIBILITY
