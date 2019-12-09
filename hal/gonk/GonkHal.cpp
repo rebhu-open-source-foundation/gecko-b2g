@@ -68,6 +68,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "nsAlgorithm.h"
+#include "nsComponentManagerUtils.h"
 #include "nsPrintfCString.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"

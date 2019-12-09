@@ -10,10 +10,10 @@
 #include "nsIProtocolHandler.h"
 #include "nsIURI.h"
 #include "nsIFile.h"
+#include "nsISupportsPrimitives.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsThreadUtils.h"
 #include "xpcpublic.h"
-
 #include "mozilla/dom/Promise.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Preferences.h"
@@ -126,15 +126,15 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer,
   bool pendingAsyncOperations = false;
 
 #if defined(XP_WIN) || defined(XP_MACOSX) || defined(MOZ_WIDGET_ANDROID) || \
-    defined(MOZ_WIDGET_GTK)
+    defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_GONK)
 
   nsAutoString path;
   if (aTarget && NS_SUCCEEDED(aTarget->GetPath(path))) {
-#  if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_ANDROID)
+#  if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
     // On Windows and Gtk, add the download to the system's "recent documents"
     // list, with a pref to disable.
     {
-#    ifndef MOZ_WIDGET_ANDROID
+#    if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
       bool addToRecentDocs = Preferences::GetBool(PREF_BDM_ADDTORECENTDOCS);
       if (addToRecentDocs && !aIsPrivate) {
 #      ifdef XP_WIN
