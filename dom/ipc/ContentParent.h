@@ -37,7 +37,6 @@
 #include "nsIInterfaceRequestor.h"
 #include "nsIObserver.h"
 #include "nsIRemoteTab.h"
-#include "nsIThreadInternal.h"
 #include "nsIDOMGeoPositionCallback.h"
 #include "nsIDOMGeoPositionErrorCallback.h"
 #include "nsIRemoteWindowContext.h"
@@ -1239,6 +1238,10 @@ class ContentParent final
 
   mozilla::ipc::IPCResult RecvNotifyMediaAudibleChanged(
       BrowsingContext* aContext, bool aAudible);
+
+  mozilla::ipc::IPCResult RecvGetModulesTrust(
+      ModulePaths&& aModPaths, bool aRunAtNormalPriority,
+      GetModulesTrustResolver&& aResolver);
 
   // Notify the ContentChild to enable the input event prioritization when
   // initializing.

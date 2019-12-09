@@ -1620,6 +1620,9 @@ class MOZ_RAII PoppedValueUseChecker {
 
         default:
           MOZ_ASSERT(popped_[i]->isImplicitlyUsed() ||
+                     // First value popped by JSOP_ENDITER is not used at all,
+                     // it's similar to JSOP_POP above.
+                     (op == JSOP_ENDITER && i == 0) ||
                      // MNewDerivedTypedObject instances are
                      // often dead unless they escape from the
                      // fn. See IonBuilder::loadTypedObjectData()
@@ -5917,6 +5920,9 @@ AbortReasonOr<Ok> IonBuilder::jsop_spreadcall() {
   if (target && target->realm() == script()->realm()) {
     apply->setNotCrossRealm();
   }
+  if (BytecodeIsPopped(pc)) {
+    apply->setIgnoresReturnValue();
+  }
 
   // TypeBarrier the call result
   TemporaryTypeSet* types = bytecodeTypes(pc);
@@ -6074,6 +6080,9 @@ AbortReasonOr<Ok> IonBuilder::jsop_funapplyarray(uint32_t argc) {
   if (target && target->realm() == script()->realm()) {
     apply->setNotCrossRealm();
   }
+  if (BytecodeIsPopped(pc)) {
+    apply->setIgnoresReturnValue();
+  }
 
   TemporaryTypeSet* types = bytecodeTypes(pc);
   return pushTypeBarrier(apply, types, BarrierKind::TypeSet);
@@ -6139,6 +6148,9 @@ AbortReasonOr<Ok> IonBuilder::jsop_funapplyarguments(uint32_t argc) {
 
     if (target && target->realm() == script()->realm()) {
       apply->setNotCrossRealm();
+    }
+    if (BytecodeIsPopped(pc)) {
+      apply->setIgnoresReturnValue();
     }
 
     TemporaryTypeSet* types = bytecodeTypes(pc);
@@ -13182,9 +13194,10 @@ AbortReasonOr<Ok> IonBuilder::jsop_isnoiter() {
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_iterend() {
+  current->pop();  // Iterator value is not used.
   MDefinition* iter = current->pop();
-  MInstruction* ins = MIteratorEnd::New(alloc(), iter);
 
+  MInstruction* ins = MIteratorEnd::New(alloc(), iter);
   current->add(ins);
 
   return resumeAfter(ins);

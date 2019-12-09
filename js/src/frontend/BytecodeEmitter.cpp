@@ -26,7 +26,8 @@
 #include "jsnum.h"    // NumberToAtom
 #include "jstypes.h"  // JS_BIT
 
-#include "ds/Nestable.h"                         // Nestable
+#include "ds/Nestable.h"  // Nestable
+#include "frontend/AbstractScope.h"
 #include "frontend/BytecodeControlStructures.h"  // NestableControl, BreakableControl, LabelControl, LoopControl, TryFinallyControl
 #include "frontend/CallOrNewEmitter.h"           // CallOrNewEmitter
 #include "frontend/CForEmitter.h"                // CForEmitter
@@ -180,7 +181,7 @@ Maybe<NameLocation> BytecodeEmitter::locationOfNameBoundInScope(
 Maybe<NameLocation> BytecodeEmitter::locationOfNameBoundInFunctionScope(
     JSAtom* name, EmitterScope* source) {
   EmitterScope* funScope = source;
-  while (!funScope->scope(this)->is<FunctionScope>()) {
+  while (!funScope->scope(this).is<FunctionScope>()) {
     funScope = funScope->enclosingInFrame();
   }
   return source->locationBoundInScope(name, funScope);
@@ -806,10 +807,6 @@ bool NonLocalExitControl::prepareForNonLocalJump(NestableControl* target) {
         }
 
         // The iterator and the current value are on the stack.
-        if (!bce_->emit1(JSOP_POP)) {
-          //        [stack] ... ITER
-          return false;
-        }
         if (!bce_->emit1(JSOP_ENDITER)) {
           //        [stack] ...
           return false;
@@ -873,7 +870,7 @@ bool BytecodeEmitter::emitGoto(NestableControl* target, JumpList* jumplist,
   return emitJump(JSOP_GOTO, jumplist);
 }
 
-Scope* BytecodeEmitter::innermostScope() const {
+AbstractScope BytecodeEmitter::innermostScope() const {
   return innermostEmitterScope()->scope(this);
 }
 
@@ -1566,7 +1563,7 @@ bool BytecodeEmitter::needsImplicitThis() {
   // Otherwise see if the current point is under a 'with'.
   for (EmitterScope* es = innermostEmitterScope(); es;
        es = es->enclosingInFrame()) {
-    if (es->scope(this)->kind() == ScopeKind::With) {
+    if (es->scope(this).kind() == ScopeKind::With) {
       return true;
     }
   }
@@ -1584,14 +1581,14 @@ bool BytecodeEmitter::emitThisEnvironmentCallee() {
 
   // We have to load the callee from the environment chain.
   unsigned numHops = 0;
-  for (ScopeIter si(innermostScope()); si; si++) {
-    if (si.hasSyntacticEnvironment() && si.scope()->is<FunctionScope>()) {
-      JSFunction* fun = si.scope()->as<FunctionScope>().canonicalFunction();
-      if (!fun->isArrow()) {
+  for (AbstractScopeIter si(innermostScope()); si; si++) {
+    if (si.hasSyntacticEnvironment() &&
+        si.abstractScope().is<FunctionScope>()) {
+      if (!si.abstractScope().isArrow()) {
         break;
       }
     }
-    if (si.scope()->hasEnvironment()) {
+    if (si.abstractScope().hasEnvironment()) {
       numHops++;
     }
   }
@@ -5226,7 +5223,7 @@ bool BytecodeEmitter::emitSpread(bool allowSelfHosted) {
       return false;
     }
 
-    if (!loopInfo.emitLoopEnd(this, JSOP_GOTO)) {
+    if (!loopInfo.emitLoopEnd(this, JSOP_GOTO, JSTRY_FOR_OF)) {
       //            [stack] NEXT ITER ARR (I+1)
       return false;
     }
@@ -5241,15 +5238,6 @@ bool BytecodeEmitter::emitSpread(bool allowSelfHosted) {
 
   // No continues should occur in spreads.
   MOZ_ASSERT(!loopInfo.continues.offset.valid());
-
-  if (!loopInfo.patchBreaks(this)) {
-    return false;
-  }
-
-  if (!addTryNote(JSTRY_FOR_OF, bytecodeSection().stackDepth(),
-                  loopInfo.headOffset(), loopInfo.breakTargetOffset())) {
-    return false;
-  }
 
   if (!emit2(JSOP_PICK, 4)) {
     //              [stack] ITER ARR FINAL_INDEX RESULT NEXT
@@ -5715,7 +5703,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
     RootedScript innerScript(
         cx, JSScript::Create(cx, fun, options, sourceObject,
                              funbox->sourceStart, funbox->sourceEnd,
-                             funbox->toStringStart, funbox->toStringEnd));
+                             funbox->toStringStart, funbox->toStringEnd,
+                             funbox->startLine, funbox->startColumn));
     if (!innerScript) {
       return false;
     }
@@ -8377,9 +8366,9 @@ const FieldInitializers& BytecodeEmitter::findFieldInitializersForCall() {
     }
   }
 
-  for (ScopeIter si(innermostScope()); si; si++) {
-    if (si.scope()->is<FunctionScope>()) {
-      JSFunction* fun = si.scope()->as<FunctionScope>().canonicalFunction();
+  for (AbstractScopeIter si(innermostScope()); si; si++) {
+    if (si.abstractScope().is<FunctionScope>()) {
+      JSFunction* fun = si.abstractScope().canonicalFunction();
       if (fun->kind() == FunctionFlags::FunctionKind::ClassConstructor) {
         const FieldInitializers& fieldInitializers =
             fun->isInterpretedLazy()

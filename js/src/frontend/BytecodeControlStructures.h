@@ -106,18 +106,11 @@ class LoopControl : public BreakableControl {
   //
   //   breakTarget:
 
-  // The offset of backward jump at the end of loop.
-  BytecodeOffset loopEndOffset_ = BytecodeOffset::invalidOffset();
-
   // The bytecode offset of JSOP_LOOPHEAD.
   JumpTarget head_;
 
   // The target of break statement jumps.
   JumpTarget breakTarget_;
-
-  // The target of continue statement jumps, e.g., the update portion of a
-  // for(;;) loop.
-  JumpTarget continueTarget_;
 
   // Stack depth when this loop was pushed on the control stack.
   int32_t stackDepth_;
@@ -136,9 +129,7 @@ class LoopControl : public BreakableControl {
   LoopControl(BytecodeEmitter* bce, StatementKind loopKind);
 
   BytecodeOffset headOffset() const { return head_.offset; }
-  BytecodeOffset loopEndOffset() const { return loopEndOffset_; }
   BytecodeOffset breakTargetOffset() const { return breakTarget_.offset; }
-  BytecodeOffset continueTargetOffset() const { return continueTarget_.offset; }
 
   MOZ_MUST_USE bool emitContinueTarget(BytecodeEmitter* bce);
 
@@ -151,8 +142,8 @@ class LoopControl : public BreakableControl {
   MOZ_MUST_USE bool emitLoopHead(BytecodeEmitter* bce,
                                  const mozilla::Maybe<uint32_t>& nextPos);
 
-  MOZ_MUST_USE bool emitLoopEnd(BytecodeEmitter* bce, JSOp op);
-  MOZ_MUST_USE bool patchBreaksAndContinues(BytecodeEmitter* bce);
+  MOZ_MUST_USE bool emitLoopEnd(BytecodeEmitter* bce, JSOp op,
+                                JSTryNoteKind tryNoteKind);
 };
 template <>
 inline bool NestableControl::is<LoopControl>() const {

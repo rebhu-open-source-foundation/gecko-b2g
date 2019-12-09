@@ -21,6 +21,7 @@
 #include "util/Poison.h"
 #include "vm/BytecodeUtil.h"
 #include "vm/JSObject.h"
+#include "vm/ScopeKind.h"
 #include "vm/Xdr.h"
 
 namespace js {
@@ -28,6 +29,7 @@ namespace js {
 class BaseScopeData;
 class ModuleObject;
 class Scope;
+class AbstractScope;
 
 enum class BindingKind : uint8_t {
   Import,
@@ -44,43 +46,6 @@ enum class BindingKind : uint8_t {
 static inline bool BindingKindIsLexical(BindingKind kind) {
   return kind == BindingKind::Let || kind == BindingKind::Const;
 }
-
-enum class ScopeKind : uint8_t {
-  // FunctionScope
-  Function,
-
-  // VarScope
-  FunctionBodyVar,
-  ParameterExpressionVar,
-
-  // LexicalScope
-  Lexical,
-  SimpleCatch,
-  Catch,
-  NamedLambda,
-  StrictNamedLambda,
-  FunctionLexical,
-
-  // WithScope
-  With,
-
-  // EvalScope
-  Eval,
-  StrictEval,
-
-  // GlobalScope
-  Global,
-  NonSyntactic,
-
-  // ModuleScope
-  Module,
-
-  // WasmInstanceScope
-  WasmInstance,
-
-  // WasmFunctionScope
-  WasmFunction
-};
 
 enum class IsFieldInitializer : bool { No, Yes };
 
@@ -464,11 +429,17 @@ class LexicalScope : public Scope {
                                       uint32_t firstFrameSlot,
                                       HandleScope enclosing);
 
+  static bool prepareForScopeCreation(JSContext* cx, ScopeKind kind,
+                                      uint32_t firstFrameSlot,
+                                      HandleScope enclosing,
+                                      MutableHandle<UniquePtr<Data>> data,
+                                      MutableHandleShape envShape);
+
   Data& data() { return *static_cast<Data*>(data_); }
 
   const Data& data() const { return *static_cast<Data*>(data_); }
 
-  static uint32_t nextFrameSlot(Scope* start);
+  static uint32_t nextFrameSlot(const AbstractScope& start);
 
  public:
   uint32_t firstFrameSlot() const;
@@ -511,6 +482,7 @@ class FunctionScope : public Scope {
   friend class BindingIter;
   friend class PositionalFormalParameterIter;
   friend class Scope;
+  friend class AbstractScope;
   static const ScopeKind classScopeKind_ = ScopeKind::Function;
 
  public:
@@ -576,6 +548,13 @@ class FunctionScope : public Scope {
   static FunctionScope* create(JSContext* cx, Handle<Data*> data,
                                bool hasParameterExprs, bool needsEnvironment,
                                HandleFunction fun, HandleScope enclosing);
+
+  static bool prepareForScopeCreation(JSContext* cx,
+                                      MutableHandle<UniquePtr<Data>> data,
+                                      bool hasParameterExprs,
+                                      IsFieldInitializer isFieldInitializer,
+                                      bool needsEnvironment, HandleFunction fun,
+                                      MutableHandleShape envShape);
 
   static FunctionScope* clone(JSContext* cx, Handle<FunctionScope*> scope,
                               HandleFunction fun, HandleScope enclosing);
@@ -674,6 +653,12 @@ class VarScope : public Scope {
                                   MutableHandle<UniquePtr<Data>> data,
                                   uint32_t firstFrameSlot,
                                   bool needsEnvironment, HandleScope enclosing);
+
+  static bool prepareForScopeCreation(JSContext* cx, ScopeKind kind,
+                                      MutableHandle<UniquePtr<Data>> data,
+                                      uint32_t firstFrameSlot,
+                                      bool needsEnvironment,
+                                      MutableHandleShape envShape);
 
   Data& data() { return *static_cast<Data*>(data_); }
 
@@ -780,6 +765,7 @@ inline bool Scope::is<GlobalScope>() const {
 // Corresponds to a WithEnvironmentObject on the environment chain.
 class WithScope : public Scope {
   friend class Scope;
+  friend class AbstractScope;
   static const ScopeKind classScopeKind_ = ScopeKind::With;
 
  public:
@@ -847,6 +833,10 @@ class EvalScope : public Scope {
                                    MutableHandle<UniquePtr<Data>> data,
                                    HandleScope enclosing);
 
+  static bool prepareForScopeCreation(JSContext* cx, ScopeKind scopeKind,
+                                      MutableHandle<UniquePtr<Data>> data,
+                                      MutableHandleShape envShape);
+
   Data& data() { return *static_cast<Data*>(data_); }
 
   const Data& data() const { return *static_cast<Data*>(data_); }
@@ -889,6 +879,7 @@ class ModuleScope : public Scope {
   friend class GCMarker;
   friend class BindingIter;
   friend class Scope;
+  friend class AbstractScope;
   static const ScopeKind classScopeKind_ = ScopeKind::Module;
 
  public:
@@ -934,6 +925,11 @@ class ModuleScope : public Scope {
                                      Handle<ModuleObject*> module,
                                      HandleScope enclosing);
 
+  static bool prepareForScopeCreation(JSContext* cx,
+                                      MutableHandle<UniquePtr<Data>> data,
+                                      HandleModuleObject module,
+                                      MutableHandleShape envShape);
+
   Data& data() { return *static_cast<Data*>(data_); }
 
   const Data& data() const { return *static_cast<Data*>(data_); }
@@ -950,6 +946,7 @@ class WasmInstanceScope : public Scope {
   friend class BindingIter;
   friend class Scope;
   friend class GCMarker;
+  friend class AbstractScope;
   static const ScopeKind classScopeKind_ = ScopeKind::WasmInstance;
 
  public:
@@ -996,6 +993,7 @@ class WasmFunctionScope : public Scope {
   friend class BindingIter;
   friend class Scope;
   friend class GCMarker;
+  friend class AbstractScope;
   static const ScopeKind classScopeKind_ = ScopeKind::WasmFunction;
 
  public:

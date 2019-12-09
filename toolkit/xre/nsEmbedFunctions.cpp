@@ -17,15 +17,14 @@
 
 #include "nsIAppShell.h"
 #include "nsAppStartupNotifier.h"
-#include "nsIDirectoryService.h"
 #include "nsIFile.h"
-#include "nsIToolkitChromeRegistry.h"
 #include "nsIToolkitProfile.h"
 
 #ifdef XP_WIN
 #  include <process.h>
 #  include <shobjidl.h>
 #  include "mozilla/ipc/WindowsMessageLoop.h"
+#  include "mozilla/WinDllServices.h"
 #endif
 
 #include "nsAppDirectoryServiceDefs.h"
@@ -754,6 +753,10 @@ nsresult XRE_InitChildProcess(int aArgc, char* aArgv[],
       // chrome process is killed in cases where the user shuts the system
       // down or logs off.
       ::SetProcessShutdownParameters(0x280 - 1, SHUTDOWN_NORETRY);
+
+      RefPtr<DllServices> dllSvc(DllServices::Get());
+      auto dllSvcDisable =
+          MakeScopeExit([&dllSvc]() { dllSvc->DisableFull(); });
 #endif
 
 #if defined(MOZ_SANDBOX) && defined(XP_WIN)

@@ -74,7 +74,6 @@
 
 #include "nsIObserverService.h"
 #include "nsIDocShell.h"
-#include "nsIMozBrowserFrame.h"
 
 #include "nsSubDocumentFrame.h"
 #include "nsLayoutUtils.h"
@@ -97,7 +96,6 @@
 #  include "nsTreeBodyFrame.h"
 #endif
 #include "nsIController.h"
-#include "nsICommandParams.h"
 #include "mozilla/Services.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/HTMLLabelElement.h"
@@ -107,7 +105,6 @@
 #include "mozilla/LookAndFeel.h"
 #include "GeckoProfiler.h"
 #include "Units.h"
-#include "nsIObjectLoadingContent.h"
 
 #ifdef XP_MACOSX
 #  import <ApplicationServices/ApplicationServices.h>
@@ -2641,12 +2638,14 @@ nsIFrame* EventStateManager::ComputeScrollTargetAndMayAdjustWheelEvent(
       }
     }
 
-    ScrollStyles ss = scrollableFrame->GetScrollStyles();
-    bool hiddenForV = (StyleOverflow::Hidden == ss.mVertical);
-    bool hiddenForH = (StyleOverflow::Hidden == ss.mHorizontal);
-    if ((hiddenForV && hiddenForH) ||
-        (checkIfScrollableY && !checkIfScrollableX && hiddenForV) ||
-        (checkIfScrollableX && !checkIfScrollableY && hiddenForH)) {
+    uint32_t directions =
+        scrollableFrame->GetAvailableScrollingDirectionsForUserInputEvents();
+    if ((!(directions & nsIScrollableFrame::VERTICAL) &&
+         !(directions & nsIScrollableFrame::HORIZONTAL)) ||
+        (checkIfScrollableY && !checkIfScrollableX &&
+         !(directions & nsIScrollableFrame::VERTICAL)) ||
+        (checkIfScrollableX && !checkIfScrollableY &&
+         !(directions & nsIScrollableFrame::HORIZONTAL))) {
       continue;
     }
 

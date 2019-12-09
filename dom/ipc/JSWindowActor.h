@@ -13,7 +13,6 @@
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/PromiseNativeHandler.h"
 #include "nsRefPtrHashtable.h"
-#include "nsIXPConnect.h"
 
 class nsIGlobalObject;
 class nsQueryActor;
@@ -54,7 +53,8 @@ class JSWindowActor : public nsISupports, public nsWrapperCache {
                                       ErrorResult& aRv);
 
   void ReceiveRawMessage(const JSWindowActorMessageMeta& aMetadata,
-                         ipc::StructuredCloneData&& aData);
+                         ipc::StructuredCloneData&& aData,
+                         ipc::StructuredCloneData&& aStack);
 
   virtual nsIGlobalObject* GetParentObject() const = 0;
 
@@ -66,6 +66,7 @@ class JSWindowActor : public nsISupports, public nsWrapperCache {
   // |ReceiveMessage| method on the other side asynchronously.
   virtual void SendRawMessage(const JSWindowActorMessageMeta& aMetadata,
                               ipc::StructuredCloneData&& aData,
+                              ipc::StructuredCloneData&& aStack,
                               ErrorResult& aRv) = 0;
 
   virtual ~JSWindowActor() = default;
@@ -99,7 +100,7 @@ class JSWindowActor : public nsISupports, public nsWrapperCache {
     NS_DECL_CYCLE_COLLECTION_CLASS(QueryHandler)
 
     QueryHandler(JSWindowActor* aActor,
-                 const JSWindowActorMessageMeta& aMetadata);
+                 const JSWindowActorMessageMeta& aMetadata, Promise* aPromise);
 
     void RejectedCallback(JSContext* aCx,
                           JS::Handle<JS::Value> aValue) override;
@@ -114,6 +115,7 @@ class JSWindowActor : public nsISupports, public nsWrapperCache {
                    ipc::StructuredCloneData&& aData);
 
     RefPtr<JSWindowActor> mActor;
+    RefPtr<Promise> mPromise;
     nsString mMessageName;
     uint64_t mQueryId;
   };

@@ -16,8 +16,6 @@
 #include "nsClassHashtable.h"
 #include "nsRefPtrHashtable.h"
 #include "nsIObserver.h"
-#include "nsIPrefService.h"
-#include "nsIPrefBranch.h"
 
 #include "nsIDOMNavigatorUserMedia.h"
 #include "nsXULAppAPI.h"
@@ -46,6 +44,7 @@
 #ifdef MOZ_WIDGET_GONK
 #include "DOMCameraManager.h"
 #endif
+class nsIPrefBranch;
 
 namespace mozilla {
 namespace dom {

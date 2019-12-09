@@ -1192,9 +1192,7 @@ static HandleErrorContinuation ProcessTryNotes(JSContext* cx,
 
       case JSTRY_FOR_IN: {
         /* This is similar to JSOP_ENDITER in the interpreter loop. */
-        DebugOnly<jsbytecode*> pc =
-            regs.fp()->script()->offsetToPC(tn->start + tn->length);
-        MOZ_ASSERT(JSOp(*pc) == JSOP_ENDITER);
+        MOZ_ASSERT(tn->stackDepth <= regs.stackDepth());
         Value* sp = regs.spForStackDepth(tn->stackDepth);
         JSObject* obj = &sp[-1].toObject();
         CloseIterator(obj);
@@ -2291,9 +2289,9 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
     END_CASE(JSOP_ISNOITER)
 
     CASE(JSOP_ENDITER) {
-      MOZ_ASSERT(REGS.stackDepth() >= 1);
-      CloseIterator(&REGS.sp[-1].toObject());
-      REGS.sp--;
+      MOZ_ASSERT(REGS.stackDepth() >= 2);
+      CloseIterator(&REGS.sp[-2].toObject());
+      REGS.sp -= 2;
     }
     END_CASE(JSOP_ENDITER)
 

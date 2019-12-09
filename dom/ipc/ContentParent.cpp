@@ -34,7 +34,6 @@
 #include "GMPServiceParent.h"
 #include "HandlerServiceParent.h"
 #include "IHistory.h"
-#include "imgIContainer.h"
 #if defined(XP_WIN) && defined(ACCESSIBILITY)
 #  include "mozilla/a11y/AccessibleWrap.h"
 #  include "mozilla/a11y/Compatibility.h"
@@ -172,7 +171,6 @@
 #include "nsIMemoryInfoDumper.h"
 #include "nsIMemoryReporter.h"
 #include "nsIMozBrowserFrame.h"
-#include "nsIMutable.h"
 #include "nsINetworkLinkService.h"
 #include "nsIObserverService.h"
 #include "nsIParentChannel.h"
@@ -184,14 +182,12 @@
 #include "nsISound.h"
 #include "mozilla/mozSpellChecker.h"
 #include "nsIStringBundle.h"
-#include "nsISupportsPrimitives.h"
 #include "nsITimer.h"
 #include "nsIURIFixup.h"
 #include "nsIURL.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsIAppWindow.h"
 #include "nsIDOMChromeWindow.h"
-#include "nsIWindowWatcher.h"
 #include "nsPIWindowWatcher.h"
 #include "nsThread.h"
 #include "nsWindowWatcher.h"
@@ -231,13 +227,11 @@
 #include "mozilla/psm/PSMContentListener.h"
 #include "nsPluginHost.h"
 #include "nsPluginTags.h"
-#include "nsIBlocklistService.h"
 #include "nsITrackingDBService.h"
 #include "mozilla/GlobalStyleSheetCache.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/StyleSheetInlines.h"
 #include "nsICaptivePortalService.h"
-#include "nsIObjectLoadingContent.h"
 #include "nsIBidiKeyboard.h"
 #include "MMPrinter.h"
 #include "nsStreamUtils.h"
@@ -309,6 +303,7 @@ using namespace mozilla::system;
 #ifdef XP_WIN
 #  include "mozilla/audio/AudioNotificationSender.h"
 #  include "mozilla/widget/AudioSession.h"
+#  include "mozilla/WinDllServices.h"
 #endif
 
 #ifdef ACCESSIBILITY
@@ -6050,6 +6045,24 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaAudibleChanged(
     controller->NotifyMediaAudibleChanged(aAudible);
   }
   return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvGetModulesTrust(
+    ModulePaths&& aModPaths, bool aRunAtNormalPriority,
+    GetModulesTrustResolver&& aResolver) {
+#if defined(XP_WIN)
+  RefPtr<DllServices> dllSvc(DllServices::Get());
+  dllSvc->GetModulesTrust(std::move(aModPaths), aRunAtNormalPriority)
+      ->Then(
+          GetMainThreadSerialEventTarget(), __func__,
+          [aResolver](ModulesMapResult&& aResult) {
+            aResolver(Some(ModulesMapResult(std::move(aResult))));
+          },
+          [aResolver](nsresult aRv) { aResolver(Nothing()); });
+  return IPC_OK();
+#else
+  return IPC_FAIL(this, "Unsupported on this platform");
+#endif  // defined(XP_WIN)
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvAttachBrowsingContext(

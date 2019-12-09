@@ -280,19 +280,23 @@ IPCResult WindowGlobalParent::RecvDestroy() {
 }
 
 IPCResult WindowGlobalParent::RecvRawMessage(
-    const JSWindowActorMessageMeta& aMeta, const ClonedMessageData& aData) {
+    const JSWindowActorMessageMeta& aMeta, const ClonedMessageData& aData,
+    const ClonedMessageData& aStack) {
   StructuredCloneData data;
   data.BorrowFromClonedMessageDataForParent(aData);
-  ReceiveRawMessage(aMeta, std::move(data));
+  StructuredCloneData stack;
+  stack.BorrowFromClonedMessageDataForParent(aStack);
+  ReceiveRawMessage(aMeta, std::move(data), std::move(stack));
   return IPC_OK();
 }
 
 void WindowGlobalParent::ReceiveRawMessage(
-    const JSWindowActorMessageMeta& aMeta, StructuredCloneData&& aData) {
+    const JSWindowActorMessageMeta& aMeta, StructuredCloneData&& aData,
+    StructuredCloneData&& aStack) {
   RefPtr<JSWindowActorParent> actor =
       GetActor(aMeta.actorName(), IgnoreErrors());
   if (actor) {
-    actor->ReceiveRawMessage(aMeta, std::move(aData));
+    actor->ReceiveRawMessage(aMeta, std::move(aData), std::move(aStack));
   }
 }
 
@@ -397,14 +401,13 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvShare(
 
   // Initialize the ShareWidget
   RefPtr<BrowserParent> parent = GetBrowserParent();
-  if (NS_WARN_IF(!parent)) {
-    aResolver(NS_ERROR_FAILURE);
-    return IPC_OK();
-  }
-  nsCOMPtr<mozIDOMWindowProxy> openerWindow = parent->GetParentWindowOuter();
-  if (!openerWindow) {
-    aResolver(NS_ERROR_FAILURE);
-    return IPC_OK();
+  nsCOMPtr<mozIDOMWindowProxy> openerWindow;
+  if (parent) {
+    openerWindow = parent->GetParentWindowOuter();
+    if (!openerWindow) {
+      aResolver(NS_ERROR_FAILURE);
+      return IPC_OK();
+    }
   }
   sharePicker->Init(openerWindow);
 

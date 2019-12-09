@@ -76,7 +76,6 @@
 #include "nsAnimationManager.h"
 
 // For triple-click pref
-#include "imgIContainer.h"
 #include "imgIRequest.h"
 #include "nsError.h"
 #include "nsContainerFrame.h"
@@ -4820,6 +4819,10 @@ NS_IMETHODIMP nsFrame::HandleDrag(nsPresContext* aPresContext,
              "HandleDrag can only handle mouse event");
 
   RefPtr<nsFrameSelection> frameselection = GetFrameSelection();
+  if (!frameselection) {
+    return NS_OK;
+  }
+
   bool mouseDown = frameselection->GetDragState();
   if (!mouseDown) {
     return NS_OK;

@@ -1801,6 +1801,12 @@
   value: true
   mirror: always
 
+# Whether "W3C Web Manifest" processing is enabled
+- name: dom.manifest.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether window.onappinstalled from "W3C Web Manifest" is enabled
 - name: dom.manifest.onappinstalled
   type: bool
@@ -3704,7 +3710,11 @@
 
 - name: gfx.webrender.compositor
   type: bool
+#if defined(XP_WIN)
+  value: true
+#else
   value: false
+#endif
   mirror: once
 
 - name: gfx.webrender.compositor.max_update_rects
@@ -5021,7 +5031,7 @@
 # Expose the media query -moz-touch-enabled to web content.
 - name: layout.css.moz-touch-enabled.enabled
   type: RelaxedAtomicBool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
   rust: true
 
@@ -6927,6 +6937,12 @@
 
 # Whether to send the Accept-Language header for TRR requests
 - name: network.trr.send_accept-language_headers
+  type: bool
+  value: false
+  mirror: always
+
+# Whether to send the User-Agent header for TRR requests
+- name: network.trr.send_user-agent_headers
   type: bool
   value: false
   mirror: always
