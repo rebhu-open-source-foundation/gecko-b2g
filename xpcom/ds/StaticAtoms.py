@@ -807,6 +807,7 @@ STATIC_ATOMS = [
     Atom("onfullscreenerror", "onfullscreenerror"),
     Atom("onget", "onget"),
     Atom("onhashchange", "onhashchange"),
+    Atom("onheadphoneschange", "onheadphoneschange"),
     Atom("oninput", "oninput"),
     Atom("oninstall", "oninstall"),
     Atom("oninvalid", "oninvalid"),

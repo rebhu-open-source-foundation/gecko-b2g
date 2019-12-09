@@ -76,6 +76,12 @@ namespace network {
 class Connection;
 }  // namespace network
 
+namespace system {
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+class AudioChannelManager;
+#endif
+}  // namespace system
+
 class DeviceStorageAreaListener;
 class Presentation;
 class LegacyMozTCPSocket;
@@ -210,6 +216,10 @@ class Navigator final : public nsISupports, public nsWrapperCache {
                                               ErrorResult& aRv);
 
   Presentation* GetPresentation(ErrorResult& aRv);
+
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+  system::AudioChannelManager* GetMozAudioChannelManager(ErrorResult& aRv);
+#endif  // MOZ_AUDIO_CHANNEL_MANAGER
 
   bool SendBeacon(const nsAString& aUrl, const Nullable<fetch::BodyInit>& aData,
                   ErrorResult& aRv);

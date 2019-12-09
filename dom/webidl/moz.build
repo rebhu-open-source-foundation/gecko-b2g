@@ -370,6 +370,7 @@ GENERATED_WEBIDL_FILES = [
 
 PREPROCESSED_WEBIDL_FILES = [
     'KaiOS.webidl',
+    'Navigator.webidl',
     'Node.webidl',
     'Telephony.webidl',
     'TelephonyCall.webidl',
@@ -718,7 +719,6 @@ WEBIDL_FILES = [
     'MutationObserver.webidl',
     'NamedNodeMap.webidl',
     'NativeOSFileInternals.webidl',
-    'Navigator.webidl',
     'NetDashboard.webidl',
     'NetErrorInfo.webidl',
     'NetworkInformation.webidl',
@@ -988,6 +988,11 @@ WEBIDL_FILES = [
     'XULElement.webidl',
     'XULPopupElement.webidl',
 ]
+
+if CONFIG['MOZ_AUDIO_CHANNEL_MANAGER']:
+    WEBIDL_FILES += [
+        'AudioChannelManager.webidl',
+    ]
 
 if CONFIG['MOZ_WEBRTC']:
     WEBIDL_FILES += [
