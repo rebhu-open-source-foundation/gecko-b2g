@@ -34,6 +34,8 @@ mozilla::LazyLogModule gAudioChannelLog("AudioChannel");
 
 namespace {
 
+// If true, any new AudioChannelAgent will be suspended when created.
+bool sAudioChannelSuspendedByDefault = false;
 bool sXPCOMShuttingDown = false;
 
 // If true, any new AudioChannelAgent will be muted when created.
@@ -329,7 +331,9 @@ AudioChannelService::AudioChannelService()
     }
   }
 
-  Preferences::AddBoolVarCache(&sAudioChannelMutedByDefault,
+  // dom.audiochannel.mutedByDefault actually means "suspended by default".
+  // We keep this pref name just for compatibility with gecko48.
+  Preferences::AddBoolVarCache(&sAudioChannelSuspendedByDefault,
                                "dom.audiochannel.mutedByDefault");
 }
 
@@ -389,6 +393,17 @@ AudioPlaybackConfig AudioChannelService::GetMediaConfig(
     nsPIDOMWindowOuter* aWindow, uint32_t aAudioChannel) const {
   MOZ_ASSERT(aAudioChannel < NUMBER_OF_AUDIO_CHANNELS);
 
+#ifdef MOZ_WIDGET_GONK
+  AudioPlaybackConfig config(1.0, false, InitialSuspendType());
+  nsCOMPtr<nsPIDOMWindowOuter> window = GetTopAppWindow(aWindow);
+  if (window) {
+    AudioChannelWindow* winData = GetWindowData(window->WindowID());
+    config.mVolume = winData->mChannels[aAudioChannel].mVolume;
+    config.mMuted = winData->mChannels[aAudioChannel].mMuted;
+    config.mSuspend = winData->mChannels[aAudioChannel].mSuspend;
+  }
+  return config;
+#else
   AudioPlaybackConfig config(1.0, false, nsISuspendedTypes::NONE_SUSPENDED);
 
   if (!aWindow) {
@@ -429,6 +444,7 @@ AudioPlaybackConfig AudioChannelService::GetMediaConfig(
   } while (window && window != aWindow);
 
   return config;
+#endif
 }
 
 void AudioChannelService::AudioAudibleChanged(AudioChannelAgent* aAgent,
@@ -998,9 +1014,10 @@ void AudioChannelService::NotifyMediaResumedFromBlock(
 }
 
 /* static */
-bool AudioChannelService::IsAudioChannelMutedByDefault() {
+nsSuspendedTypes AudioChannelService::InitialSuspendType() {
   CreateServiceIfNeeded();
-  return sAudioChannelMutedByDefault;
+  return sAudioChannelSuspendedByDefault ? nsISuspendedTypes::SUSPENDED_PAUSE
+                                         : nsISuspendedTypes::NONE_SUSPENDED;
 }
 
 void AudioChannelService::AudioChannelWindow::AppendAgent(

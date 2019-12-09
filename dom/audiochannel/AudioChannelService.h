@@ -124,7 +124,7 @@ class AudioChannelService final : public nsIObserver {
    */
   static already_AddRefed<AudioChannelService> Get();
 
-  static bool IsAudioChannelMutedByDefault();
+  static nsSuspendedTypes InitialSuspendType();
 
   static LogModule* GetAudioChannelLog();
 
@@ -270,8 +270,7 @@ class AudioChannelService final : public nsIObserver {
   class AudioChannelConfig final : public AudioPlaybackConfig {
    public:
     AudioChannelConfig()
-        : AudioPlaybackConfig(1.0, IsAudioChannelMutedByDefault(),
-                              nsISuspendedTypes::NONE_SUSPENDED),
+        : AudioPlaybackConfig(1.0, false, InitialSuspendType()),
           mNumberOfAgents(0) {}
 
     uint32_t mNumberOfAgents;
