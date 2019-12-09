@@ -25,6 +25,7 @@
 #include "hardware_legacy/power.h"
 #include "mozilla/dom/GeolocationPosition.h"
 #include "mozilla/Preferences.h"
+#include "nsComponentManagerUtils.h"
 #include "nsIRunnable.h"
 #include "nsThreadUtils.h"
 #include "nsIURLFormatter.h"
