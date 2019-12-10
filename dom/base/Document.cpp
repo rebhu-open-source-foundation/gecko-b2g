@@ -3668,7 +3668,7 @@ bool Document::DocumentSupportsL10n(JSContext* aCx, JSObject* aObject) {
       nsContentUtils::SubjectPrincipal(aCx);
   nsGlobalWindowInner* win = xpc::WindowOrNull(aObject);
   return nsContentUtils::PrincipalAllowsL10n(
-      callerPrincipal, win ? win->GetDocumentURI() : nullptr);
+      *callerPrincipal, win ? win->GetDocumentURI() : nullptr);
 }
 
 void Document::LocalizationLinkAdded(Element* aLinkElement) {
@@ -3777,7 +3777,8 @@ void Document::InitialDocumentTranslationCompleted() {
 }
 
 bool Document::AllowsL10n() const {
-  return nsContentUtils::PrincipalAllowsL10n(NodePrincipal(), GetDocumentURI());
+  return nsContentUtils::PrincipalAllowsL10n(*NodePrincipal(),
+                                             GetDocumentURI());
 }
 
 bool Document::IsWebAnimationsEnabled(JSContext* aCx, JSObject* /*unused*/) {
@@ -4481,7 +4482,7 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
 
   // Do security check first.
   if (commandData.IsCutOrCopyCommand()) {
-    if (!nsContentUtils::IsCutCopyAllowed(&aSubjectPrincipal)) {
+    if (!nsContentUtils::IsCutCopyAllowed(aSubjectPrincipal)) {
       // We have rejected the event due to it not being performed in an
       // input-driven context therefore, we report the error to the console.
       nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
@@ -4491,7 +4492,7 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
       return false;
     }
   } else if (commandData.IsPasteCommand()) {
-    if (!nsContentUtils::PrincipalHasPermission(&aSubjectPrincipal,
+    if (!nsContentUtils::PrincipalHasPermission(aSubjectPrincipal,
                                                 nsGkAtoms::clipboardRead)) {
       return false;
     }
@@ -4687,7 +4688,7 @@ bool Document::QueryCommandEnabled(const nsAString& aHTMLCommandName,
 
   // cut & copy are always allowed
   if (commandData.IsCutOrCopyCommand()) {
-    return nsContentUtils::IsCutCopyAllowed(&aSubjectPrincipal);
+    return nsContentUtils::IsCutCopyAllowed(aSubjectPrincipal);
   }
 
   // Report false for restricted commands
@@ -13911,9 +13912,6 @@ void Document::DocAddSizeOfExcludingThis(nsWindowSizes& aWindowSizes) const {
   }
 
   mStyleSet->AddSizeOfIncludingThis(aWindowSizes);
-
-  aWindowSizes.mDOMOtherSize += mLangGroupFontPrefs.SizeOfExcludingThis(
-      aWindowSizes.mState.mMallocSizeOf);
 
   aWindowSizes.mPropertyTablesSize +=
       mPropertyTable.SizeOfExcludingThis(aWindowSizes.mState.mMallocSizeOf);

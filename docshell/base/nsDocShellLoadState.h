@@ -16,6 +16,7 @@ class nsIContentSecurityPolicy;
 class nsIInputStream;
 class nsISHEntry;
 class nsIURI;
+class nsIURIFixup;
 class nsIDocShell;
 class nsIChildChannel;
 class nsIReferrerInfo;

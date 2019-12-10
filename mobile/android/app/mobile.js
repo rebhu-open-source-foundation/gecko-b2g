@@ -135,7 +135,6 @@ pref("urlclassifier.downloadAllowTable", "");
 pref("urlclassifier.downloadBlockTable", "");
 
 /* these should help performance */
-pref("layout.reflow.synthMouseMove", false); // Keep false until bug 1582363 is fixed
 pref("layout.css.report_errors", false);
 
 /* download manager (don't show the window or alert) */
@@ -237,6 +236,7 @@ pref("accessibility.typeaheadfind.flashBar", 1);
 pref("accessibility.typeaheadfind.linksonly", false);
 pref("accessibility.typeaheadfind.casesensitive", 0);
 pref("accessibility.browsewithcaret_shortcut.enabled", false);
+pref("findbar.matchdiacritics", 0);
 
 // Whether the character encoding menu is under the main Firefox button. This
 // preference is a string so that localizers can alter it.

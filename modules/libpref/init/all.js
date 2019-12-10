@@ -581,7 +581,7 @@ pref("media.cubeb.logging_level", "");
 #endif
 
 // GraphRunner (fixed MediaTrackGraph thread) control
-pref("media.audiograph.single_thread.enabled", false);
+pref("media.audiograph.single_thread.enabled", true);
 
 // APZ preferences. For documentation/details on what these prefs do, check
 // gfx/layers/apz/src/AsyncPanZoomController.cpp.
@@ -773,6 +773,11 @@ pref("accessibility.typeaheadfind.matchesCountLimit", 1000);
 pref("findbar.highlightAll", false);
 pref("findbar.entireword", false);
 pref("findbar.iteratorTimeout", 100);
+// matchdiacritics: controls the find bar's diacritic matching
+//     0 - "never"  (ignore diacritics)
+//     1 - "always" (match diacritics)
+// other - "auto"   (match diacritics if input has diacritics, ignore otherwise)
+pref("findbar.matchdiacritics", 0);
 
 // use Mac OS X Appearance panel text smoothing setting when rendering text, disabled by default
 pref("gfx.use_text_smoothing_setting", false);
@@ -1079,10 +1084,16 @@ pref("javascript.options.wasm_baselinejit",       true);
 #endif
 pref("javascript.options.native_regexp",    true);
 pref("javascript.options.parallel_parsing", true);
-#if !defined(RELEASE_OR_BETA) && !defined(ANDROID) && !defined(XP_IOS)
-  pref("javascript.options.asyncstack",       true);
-#else
+// Async stacks instrumentation adds overhead that is only
+// advisable for developers, so we limit it to Nightly and DevEdition
+#if defined(ANDROID) || defined(XP_IOS)
   pref("javascript.options.asyncstack",       false);
+#else
+  #if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
+    pref("javascript.options.asyncstack",       true);
+  #else
+    pref("javascript.options.asyncstack",       false);
+  #endif
 #endif
 pref("javascript.options.throw_on_asmjs_validation_failure", false);
 pref("javascript.options.ion.offthread_compilation", true);
@@ -4177,15 +4188,6 @@ pref("dom.push.requestTimeout", 10000);
 pref("dom.push.http2.reset_retry_count_after_ms", 60000);
 pref("dom.push.http2.maxRetries", 2);
 pref("dom.push.http2.retryInterval", 5000);
-
-// W3C touch events
-// 0 - disabled, 1 - enabled, 2 - autodetect
-// Autodetection is currently only supported on Windows and GTK3
-#if defined(XP_MACOSX)
-  pref("dom.w3c_touch_events.enabled", 0);
-#else
-  pref("dom.w3c_touch_events.enabled", 2);
-#endif
 
 // W3C pointer events draft
 pref("dom.w3c_pointer_events.implicit_capture", false);

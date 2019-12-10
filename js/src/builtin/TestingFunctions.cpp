@@ -764,11 +764,6 @@ static bool WasmBulkMemSupported(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 #ifdef ENABLE_WASM_BULKMEM_OPS
   bool isSupported = true;
-#  ifdef ENABLE_WASM_CRANELIFT
-  if (cx->options().wasmCranelift()) {
-    isSupported = false;
-  }
-#  endif
 #else
   bool isSupported =
       cx->realm()->creationOptions().getSharedMemoryAndAtomicsEnabled();
@@ -1114,7 +1109,8 @@ static bool IsRelazifiableFunction(JSContext* cx, unsigned argc, Value* vp) {
 
   JSFunction* fun = &args[0].toObject().as<JSFunction>();
   args.rval().setBoolean(fun->hasScript() &&
-                         fun->nonLazyScript()->isRelazifiableIgnoringJitCode());
+                         fun->nonLazyScript()->maybeLazyScript() &&
+                         fun->nonLazyScript()->isRelazifiable());
   return true;
 }
 

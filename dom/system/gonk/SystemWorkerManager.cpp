@@ -16,6 +16,7 @@
  */
 
 #include "SystemWorkerManager.h"
+#include "mozilla/Services.h"
 
 #if 0
 #  include "nsINetworkService.h"
