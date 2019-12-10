@@ -147,7 +147,7 @@ void ListenSocketIO::Listen(ConnectionOrientedSocketIO* aCOSocketIO) {
 void ListenSocketIO::OnConnected() {
   MOZ_ASSERT(MessageLoopForIO::current() == GetIOLoop());
 
-  // NS_NOTREACHED("Invalid call to |ListenSocketIO::OnConnected|");
+  NS_ERROR("Invalid call to |ListenSocketIO::OnConnected|");
 }
 
 void ListenSocketIO::OnListening() {

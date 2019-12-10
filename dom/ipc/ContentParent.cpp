@@ -85,6 +85,7 @@
 #include "mozilla/dom/SHistoryParent.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WindowGlobalParent.h"
+#include "mozilla/dom/bluetooth/PBluetoothParent.h"
 #include "mozilla/dom/ipc/SharedMap.h"
 #include "mozilla/embedding/printingui/PrintingParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
@@ -283,6 +284,11 @@ using namespace mozilla::system;
 #  include <gdk/gdk.h>
 #endif
 
+#ifdef MOZ_B2G_BT
+#include "BluetoothParent.h"
+#include "BluetoothService.h"
+#endif
+
 #include "mozilla/RemoteSpellCheckEngineParent.h"
 
 #include "Crypto.h"
@@ -339,6 +345,7 @@ static NS_DEFINE_CID(kCClipboardCID, NS_CLIPBOARD_CID);
 using base::KillProcess;
 
 using namespace CrashReporter;
+using namespace mozilla::dom::bluetooth;
 using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::power;
 using namespace mozilla::media;
@@ -3986,6 +3993,48 @@ media::PMediaParent* ContentParent::AllocPMediaParent() {
 bool ContentParent::DeallocPMediaParent(media::PMediaParent* aActor) {
   return media::DeallocPMediaParent(aActor);
 }
+
+PBluetoothParent*
+ContentParent::AllocPBluetoothParent()
+{
+#ifdef MOZ_B2G_BT
+  // TODO: add 'bluetooth' permission check
+  // if (!AssertAppProcessPermission(this, "bluetooth")) {
+  //   return nullptr;
+  // }
+  return new mozilla::dom::bluetooth::BluetoothParent();
+#else
+  MOZ_CRASH("No support for bluetooth on this platform!");
+#endif
+}
+
+bool
+ContentParent::DeallocPBluetoothParent(PBluetoothParent* aActor)
+{
+#ifdef MOZ_B2G_BT
+  delete aActor;
+  return true;
+#else
+  MOZ_CRASH("No support for bluetooth on this platform!");
+#endif
+}
+
+mozilla::ipc::IPCResult
+ContentParent::RecvPBluetoothConstructor(PBluetoothParent* aActor)
+{
+#ifdef MOZ_B2G_BT
+  RefPtr<BluetoothService> btService = BluetoothService::Get();
+  NS_ENSURE_TRUE(btService, IPC_FAIL_NO_REASON(this));
+
+  return static_cast<BluetoothParent*>(aActor)->InitWithService(btService)
+         ? IPC_OK()
+         : IPC_FAIL_NO_REASON(this);
+#else
+  MOZ_CRASH("No support for bluetooth on this platform!");
+  return IPC_FAIL_NO_REASON(this);
+#endif
+}
+
 
 PBenchmarkStorageParent* ContentParent::AllocPBenchmarkStorageParent() {
   return new BenchmarkStorageParent;

@@ -34,6 +34,7 @@ DIRS += [
     'animation',
     'base',
     'bindings',
+    'bluetooth',
     'battery',
     'browser-element',
     'cache',

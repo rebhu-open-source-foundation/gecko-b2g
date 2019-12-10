@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PBackground;
+include protocol PBluetooth;
 include protocol PBrowser;
 include protocol PClientOpenWindowOp;
 include protocol PCompositorManager;
@@ -490,6 +491,7 @@ struct KeyValuePair
  */
 nested(upto inside_cpow) sync protocol PContent
 {
+    manages PBluetooth;
     manages PBrowser;
     manages PClientOpenWindowOp;
     manages PContentPermissionRequest;
@@ -1093,6 +1095,8 @@ parent:
 #endif
 
     async PMedia();
+
+    async PBluetooth();
 
     async PWebrtcGlobal();
 

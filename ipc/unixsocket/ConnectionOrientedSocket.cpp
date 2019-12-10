@@ -154,7 +154,7 @@ void ConnectionOrientedSocketIO::OnConnected() {
 void ConnectionOrientedSocketIO::OnListening() {
   MOZ_ASSERT(MessageLoopForIO::current() == GetIOLoop());
 
-  // NS_NOTREACHED("Invalid call to |ConnectionOrientedSocketIO::OnListening|");
+  NS_ERROR("Invalid call to |ConnectionOrientedSocketIO::OnListening|");
 }
 
 void ConnectionOrientedSocketIO::OnError(const char* aFunction, int aErrno) {

@@ -285,6 +285,10 @@ class ContentChild final
 
   bool DeallocPMediaChild(PMediaChild* aActor);
 
+  PBluetoothChild* AllocPBluetoothChild();
+
+  bool DeallocPBluetoothChild(PBluetoothChild* aActor);
+
   PBenchmarkStorageChild* AllocPBenchmarkStorageChild();
 
   bool DeallocPBenchmarkStorageChild(PBenchmarkStorageChild* aActor);

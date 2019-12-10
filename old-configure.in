@@ -3289,9 +3289,28 @@ AC_DEFINE(NO_NSPR_10_SUPPORT)
 # B2G additions.
 if test -n "$MOZ_B2G"; then
     AC_DEFINE(MOZ_B2G)
+
+    if test -d "$gonkdir/system/bt" &&
+       test -d "$gonkdir/system/bluetoothd"; then
+        MOZ_B2G_BT=1
+        MOZ_B2G_BT_DAEMON=1
+    fi
 fi
 # FIXME(fabrice)
 # AC_DEFINE(MOZ_B2G)
+
+dnl ========================================================
+dnl = Enable Bluetooth Interface for B2G (Gonk usually)
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(b2g-bt,
+[  --enable-b2g-bt      Set compile flags necessary for compiling Bluetooth API for B2G ],
+    MOZ_B2G_BT=1,
+    MOZ_B2G_BT= )
+if test -n "$MOZ_B2G_BT"; then
+    AC_DEFINE(MOZ_B2G_BT)
+fi
+AC_SUBST(MOZ_B2G_BT)
+AC_SUBST(MOZ_B2G_BT_DAEMON)
 
 dnl bug 988880: disable startup cache on b2g
 if test -n "$MOZ_B2G"; then

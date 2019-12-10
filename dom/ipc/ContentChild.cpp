@@ -66,6 +66,7 @@
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "mozilla/dom/WorkerDebugger.h"
 #include "mozilla/dom/WorkerDebuggerManager.h"
+#include "mozilla/dom/bluetooth/PBluetoothChild.h"
 #include "mozilla/dom/ipc/SharedMap.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Logging.h"
@@ -298,6 +299,7 @@
 
 using namespace mozilla;
 using namespace mozilla::docshell;
+using namespace mozilla::dom::bluetooth;
 using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::ipc;
 using namespace mozilla::media;
@@ -2315,6 +2317,27 @@ media::PMediaChild* ContentChild::AllocPMediaChild() {
 
 bool ContentChild::DeallocPMediaChild(media::PMediaChild* aActor) {
   return media::DeallocPMediaChild(aActor);
+}
+
+PBluetoothChild*
+ContentChild::AllocPBluetoothChild()
+{
+#ifdef MOZ_B2G_BT
+  MOZ_CRASH("No one should be allocating PBluetoothChild actors");
+#else
+  MOZ_CRASH("No support for bluetooth on this platform!");
+#endif
+}
+
+bool
+ContentChild::DeallocPBluetoothChild(PBluetoothChild* aActor)
+{
+#ifdef MOZ_B2G_BT
+  delete aActor;
+  return true;
+#else
+  MOZ_CRASH("No support for bluetooth on this platform!");
+#endif
 }
 
 PBenchmarkStorageChild* ContentChild::AllocPBenchmarkStorageChild() {

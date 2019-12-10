@@ -88,7 +88,7 @@ void UnixSocketWatcher::OnFileCanReadWithoutBlocking(int aFd) {
   } else if (mConnectionStatus == SOCKET_IS_LISTENING) {
     OnSocketCanAcceptWithoutBlocking();
   } else {
-    // NS_NOTREACHED("invalid connection state for reading");
+    NS_ERROR("invalid connection state for reading");
   }
 }
 
@@ -111,7 +111,7 @@ void UnixSocketWatcher::OnFileCanWriteWithoutBlocking(int aFd) {
       OnConnected();
     }
   } else {
-    // NS_NOTREACHED("invalid connection state for writing");
+    NS_ERROR("invalid connection state for writing");
   }
 }
 

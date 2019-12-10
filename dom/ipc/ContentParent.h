@@ -929,6 +929,12 @@ class ContentParent final
 
   bool DeallocPMediaParent(PMediaParent* aActor);
 
+  PBluetoothParent* AllocPBluetoothParent();
+
+  bool DeallocPBluetoothParent(PBluetoothParent* aActor);
+
+  virtual mozilla::ipc::IPCResult RecvPBluetoothConstructor(PBluetoothParent* aActor) override;
+
   PBenchmarkStorageParent* AllocPBenchmarkStorageParent();
 
   bool DeallocPBenchmarkStorageParent(PBenchmarkStorageParent* aActor);
