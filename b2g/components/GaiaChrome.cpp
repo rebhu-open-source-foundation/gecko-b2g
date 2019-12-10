@@ -9,6 +9,7 @@
 #include "nsDirectoryServiceDefs.h"
 #include "nsLocalFile.h"
 #include "nsXULAppAPI.h"
+#include "nsZipArchive.h"
 
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ModuleUtils.h"
@@ -83,9 +84,6 @@ GaiaChrome::ComputeAppsPath(nsIFile* aPath)
   aPath->Append(mAppsDir);
   aPath->Append(NS_LITERAL_STRING("."));
 
-  nsresult rv = EnsureValidPath(aPath);
-  NS_ENSURE_SUCCESS(rv, rv);
-
   return NS_OK;
 }
 
@@ -126,7 +124,32 @@ GaiaChrome::Register()
   nsresult rv = ComputeAppsPath(aPath);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  FileLocation appsLocation(aPath);
+  FileLocation appsLocation;
+
+  // Check if there is a $APPS_DIR/gaia.zip file present.
+  // If so, we'll use it as an archive for all content
+  // served under chrome://gaia/content/
+  nsCOMPtr<nsIFile> zipFile;
+  // Use a clone to not modify aPath since we need it as is later
+  // when there is no zip file.
+  rv = aPath->Clone(getter_AddRefs(zipFile));
+  NS_ENSURE_SUCCESS(rv, rv);
+  auto zipName(mPackageName);
+  zipName.Append(NS_LITERAL_CSTRING(".zip"));
+  zipFile->Append(NS_ConvertUTF8toUTF16(zipName));
+  bool zipExists = false;
+  zipFile->Exists(&zipExists);
+
+  if (zipExists) {
+    appsLocation = FileLocation(zipFile, "/");
+  } else {
+    // Check that we have a directory for the system app only
+    // when loading from a file hierarchy, but not from a zip.
+    nsresult rv = EnsureValidPath(aPath);
+    NS_ENSURE_SUCCESS(rv, rv);
+    appsLocation = FileLocation(aPath);
+  }
+
   nsCString uri;
   appsLocation.GetURIString(uri);
 
