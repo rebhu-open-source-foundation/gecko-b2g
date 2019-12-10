@@ -23,13 +23,9 @@ NS_IMPL_QUERY_INTERFACE_INHERITED(AudioChannelManager, DOMEventTargetHelper,
 NS_IMPL_ADDREF_INHERITED(AudioChannelManager, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(AudioChannelManager, DOMEventTargetHelper)
 
-AudioChannelManager::AudioChannelManager() : mVolumeChannel(-1) {
-  hal::RegisterSwitchObserver(hal::SWITCH_HEADPHONES, this);
-}
+AudioChannelManager::AudioChannelManager() : mVolumeChannel(-1) {}
 
 AudioChannelManager::~AudioChannelManager() {
-  hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, this);
-
   nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE_VOID(target);
 
@@ -51,12 +47,6 @@ void AudioChannelManager::Init(nsPIDOMWindowInner* aWindow) {
 JSObject* AudioChannelManager::WrapObject(JSContext* aCx,
                                           JS::Handle<JSObject*> aGivenProto) {
   return AudioChannelManager_Binding::Wrap(aCx, this, aGivenProto);
-}
-
-void AudioChannelManager::Notify(const hal::SwitchEvent& aEvent) {
-  mState = Some(aEvent.status());
-
-  DispatchTrustedEvent(NS_LITERAL_STRING("headphoneschange"));
 }
 
 void AudioChannelManager::SetVolumeControlChannel(const nsAString& aChannel) {

@@ -22,15 +22,12 @@ namespace dom {
 namespace system {
 
 class AudioChannelManager final : public DOMEventTargetHelper,
-                                  public hal::SwitchObserver,
                                   public nsIDOMEventListener {
  public:
   AudioChannelManager();
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMEVENTLISTENER
-
-  void Notify(const hal::SwitchEvent& aEvent);
 
   void Init(nsPIDOMWindowInner* aWindow);
 
@@ -43,17 +40,7 @@ class AudioChannelManager final : public DOMEventTargetHelper,
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  bool Headphones() {
-    // Bug 929139 - Remove the assert check for SWITCH_STATE_UNKNOWN.
-    // If any devices (ex: emulator) didn't have the corresponding sys node for
-    // headset switch state then GonkSwitch will report the unknown state.
-    // So it is possible to get unknown state here.
-    if (mState.isNothing()) {
-      mState = Some(hal::GetCurrentSwitchState(hal::SWITCH_HEADPHONES));
-    }
-    return mState.value() != hal::SWITCH_STATE_OFF &&
-           mState.value() != hal::SWITCH_STATE_UNKNOWN;
-  }
+  bool Headphones() { return false; }
 
   void SetVolumeControlChannel(const nsAString& aChannel);
 
@@ -71,7 +58,6 @@ class AudioChannelManager final : public DOMEventTargetHelper,
  private:
   void NotifyVolumeControlChannelChanged();
 
-  Maybe<hal::SwitchState> mState;
   int32_t mVolumeChannel;
 };
 
