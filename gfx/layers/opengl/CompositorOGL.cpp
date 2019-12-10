@@ -395,7 +395,13 @@ bool CompositorOGL::Initialize(nsCString* const out_failureReason) {
   ShaderConfigOGL config = GetShaderConfigFor(effect);
   if (!GetShaderProgramFor(config)) {
     *out_failureReason = "FEATURE_FAILURE_OPENGL_COMPILE_SHADER";
+#ifdef MOZ_WIDGET_GONK
+    //TODO:By pass shader error, waiting for support from the partner.
+    //Bug 76965 - follow up for shader compiler error.
+    printf_stderr("FEATURE_FAILURE_OPENGL_COMPILE_SHADER !!");
+#else
     return false;
+#endif
   }
 
   if (mGLContext->WorkAroundDriverBugs()) {
