@@ -107,7 +107,7 @@ GrallocTextureHostBasic::GrallocTextureHostBasic(
 bool
 GrallocTextureHostBasic::Lock()
 {
-  if (!mCompositor || !IsValid()) {
+  if (!mProvider || !IsValid()) {
     return false;
   }
 
@@ -140,7 +140,7 @@ GrallocTextureHostBasic::Lock()
              mCropSize,
              mFormat);
   }
-  mTextureSource = mCompositor->CreateDataTextureSource(mFlags);
+  mTextureSource = mProvider->CreateDataTextureSource(mFlags);
   mTextureSource->Update(surf, nullptr);
   return true;
 }

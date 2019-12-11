@@ -25,6 +25,13 @@ already_AddRefed<TextureHost> CreateTextureHostBasic(
     return MakeAndAddRef<MacIOSurfaceTextureHostBasic>(aFlags, desc);
   }
 #endif
+#ifdef MOZ_WIDGET_GONK
+  if (aDesc.type() == SurfaceDescriptor::TSurfaceDescriptorGralloc) {
+      const SurfaceDescriptorGralloc& desc =
+        aDesc.get_SurfaceDescriptorGralloc();
+    return MakeAndAddRef<GrallocTextureHostBasic>(aFlags, desc);
+    }
+#endif
   return CreateBackendIndependentTextureHost(aDesc, aDeallocator, aBackend,
                                              aFlags);
 }
