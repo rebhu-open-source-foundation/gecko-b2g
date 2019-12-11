@@ -308,9 +308,9 @@ function setup_local_https() {
       host = host.trim();
       overrideService.rememberValidityOverride(
         host,
-        8081,
+        443,
         cert,
-        overrideService.ERROR_UNTRUSTED | overrideService.ERROR_MISMATCH,
+        overrideService.ERROR_UNTRUSTED | overrideService.ERROR_MISMATCH | overrideService.ERROR_TIME,
         false /* temporary */
       );
     });
