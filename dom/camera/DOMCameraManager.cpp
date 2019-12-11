@@ -282,18 +282,6 @@ CameraPermissionRequest::GetIsHandlingUserInput(bool* aHandlingUserInput) {
 }
 
 NS_IMETHODIMP
-CameraPermissionRequest::GetUserHadInteractedWithDocument(
-    bool* aUserHadInteractedWithDocument) {
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-CameraPermissionRequest::GetDocumentDOMContentLoadedTimestamp(
-    DOMTimeStamp* aDocumentDOMContentLoadedTimestamp) {
-  return NS_OK;
-}
-
-NS_IMETHODIMP
 CameraPermissionRequest::GetDelegatePrincipal(
     const nsACString& aType, nsIPrincipal** aRequestingPrincipal) {
   return PermissionDelegateHandler::GetDelegatePrincipal(aType, this,
