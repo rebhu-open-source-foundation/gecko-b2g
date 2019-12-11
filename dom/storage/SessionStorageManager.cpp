@@ -17,10 +17,19 @@ namespace dom {
 
 using namespace StorageUtils;
 
-NS_IMPL_ISUPPORTS(SessionStorageManager, nsIDOMStorageManager,
-                  nsIDOMSessionStorageManager)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SessionStorageManager)
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMStorageManager)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMSessionStorageManager)
+NS_INTERFACE_MAP_END
 
-SessionStorageManager::SessionStorageManager() {
+NS_IMPL_CYCLE_COLLECTION(SessionStorageManager, mBrowsingContext)
+NS_IMPL_CYCLE_COLLECTING_ADDREF(SessionStorageManager)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(SessionStorageManager)
+
+SessionStorageManager::SessionStorageManager(
+    RefPtr<BrowsingContext> aBrowsingContext)
+    : mBrowsingContext(aBrowsingContext.forget()) {
   StorageObserver* observer = StorageObserver::Self();
   NS_ASSERTION(
       observer,
@@ -74,16 +83,12 @@ NS_IMETHODIMP
 SessionStorageManager::GetSessionStorageCache(
     nsIPrincipal* aPrincipal, nsIPrincipal* aStoragePrincipal,
     RefPtr<SessionStorageCache>* aRetVal) {
-  return GetSessionStorageCacheHelper(aPrincipal, aStoragePrincipal, true,
-                                      nullptr, aRetVal);
+  return GetSessionStorageCacheHelper(aPrincipal, true, nullptr, aRetVal);
 }
 
 nsresult SessionStorageManager::GetSessionStorageCacheHelper(
-    nsIPrincipal* aPrincipal, nsIPrincipal* aStoragePrincipal,
-    bool aMakeIfNeeded, SessionStorageCache* aCloneFrom,
-    RefPtr<SessionStorageCache>* aRetVal) {
-  *aRetVal = nullptr;
-
+    nsIPrincipal* aPrincipal, bool aMakeIfNeeded,
+    SessionStorageCache* aCloneFrom, RefPtr<SessionStorageCache>* aRetVal) {
   nsAutoCString originKey;
   nsAutoCString originAttributes;
   nsresult rv = GenerateOriginKey(aPrincipal, originAttributes, originKey);
@@ -91,25 +96,35 @@ nsresult SessionStorageManager::GetSessionStorageCacheHelper(
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+  return GetSessionStorageCacheHelper(originAttributes, originKey,
+                                      aMakeIfNeeded, aCloneFrom, aRetVal);
+}
+
+nsresult SessionStorageManager::GetSessionStorageCacheHelper(
+    const nsACString& aOriginAttrs, const nsACString& aOriginKey,
+    bool aMakeIfNeeded, SessionStorageCache* aCloneFrom,
+    RefPtr<SessionStorageCache>* aRetVal) {
+  *aRetVal = nullptr;
+
   OriginKeyHashTable* table;
-  if (!mOATable.Get(originAttributes, &table)) {
+  if (!mOATable.Get(aOriginAttrs, &table)) {
     if (aMakeIfNeeded) {
       table = new OriginKeyHashTable();
-      mOATable.Put(originAttributes, table);
+      mOATable.Put(aOriginAttrs, table);
     } else {
       return NS_OK;
     }
   }
 
   RefPtr<SessionStorageCache> cache;
-  if (!table->Get(originKey, getter_AddRefs(cache))) {
+  if (!table->Get(aOriginKey, getter_AddRefs(cache))) {
     if (aMakeIfNeeded) {
       if (aCloneFrom) {
         cache = aCloneFrom->Clone();
       } else {
         cache = new SessionStorageCache();
       }
-      table->Put(originKey, cache);
+      table->Put(aOriginKey, cache);
     } else {
       return NS_OK;
     }
@@ -150,8 +165,8 @@ SessionStorageManager::GetStorage(mozIDOMWindow* aWindow,
   *aRetval = nullptr;
 
   RefPtr<SessionStorageCache> cache;
-  nsresult rv = GetSessionStorageCacheHelper(aPrincipal, aStoragePrincipal,
-                                             false, nullptr, &cache);
+  nsresult rv =
+      GetSessionStorageCacheHelper(aPrincipal, false, nullptr, &cache);
   if (NS_FAILED(rv) || !cache) {
     return rv;
   }
@@ -177,7 +192,7 @@ SessionStorageManager::CloneStorage(Storage* aStorage) {
 
   RefPtr<SessionStorageCache> cache;
   return GetSessionStorageCacheHelper(
-      aStorage->Principal(), aStorage->StoragePrincipal(), true,
+      aStorage->Principal(), true,
       static_cast<SessionStorage*>(aStorage)->Cache(), &cache);
 }
 
@@ -195,8 +210,8 @@ SessionStorageManager::CheckStorage(nsIPrincipal* aPrincipal, Storage* aStorage,
   *aRetval = false;
 
   RefPtr<SessionStorageCache> cache;
-  nsresult rv = GetSessionStorageCacheHelper(
-      aPrincipal, aStorage->StoragePrincipal(), false, nullptr, &cache);
+  nsresult rv =
+      GetSessionStorageCacheHelper(aPrincipal, false, nullptr, &cache);
   if (NS_FAILED(rv) || !cache) {
     return rv;
   }

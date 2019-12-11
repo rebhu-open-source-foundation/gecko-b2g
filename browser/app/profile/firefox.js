@@ -412,13 +412,6 @@ pref("permissions.fullscreen.allowed", false);
 
 pref("permissions.postPrompt.animate", true);
 
-// This is primarily meant to be enabled for studies.
-#ifdef NIGHTLY_BUILD
-  pref("permissions.eventTelemetry.enabled", true);
-#else
-  pref("permissions.eventTelemetry.enabled", false);
-#endif
-
 #ifdef NIGHTLY_BUILD
   pref("permissions.delegation.enabled", true);
 #else
@@ -516,14 +509,6 @@ pref("security.allow_eval_with_system_principal", false);
 pref("security.allow_eval_in_parent_process", false);
 
 pref("security.allow_parent_unrestricted_js_loads", false);
-
-#ifdef NIGHTLY_BUILD
-  pref("browser.tabs.remote.useHTTPResponseProcessSelection", true);
-#else
-  // Disabled outside of nightly due to bug 1554217
-  pref("browser.tabs.remote.useHTTPResponseProcessSelection", false);
-#endif
-
 
 // Unload tabs when available memory is running low
 pref("browser.tabs.unloadOnLowMemory", false);

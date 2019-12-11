@@ -23,48 +23,63 @@ namespace dom {
 NS_IMPL_ISUPPORTS_INHERITED0(MediaControlKeysManager,
                              MediaControlKeysEventSource)
 
-void MediaControlKeysManager::Init() {
+bool MediaControlKeysManager::IsOpened() const {
+  // As MediaControlKeysManager represents a platform-indenpendent event source,
+  // which we can use to add other listeners to moniter media key events, we
+  // would always return true even if we fail to open the real media key event
+  // source, because we still have chances to open the source again when there
+  // are other new controllers being added.
+  return true;
+}
+
+bool MediaControlKeysManager::Open() {
   mControllerAmountChangedListener =
       MediaControlService::GetService()
           ->MediaControllerAmountChangedEvent()
           .Connect(AbstractThread::MainThread(), this,
                    &MediaControlKeysManager::ControllerAmountChanged);
+  return true;
 }
 
 MediaControlKeysManager::~MediaControlKeysManager() {
   StopMonitoringControlKeys();
+  mEventSource = nullptr;
   mControllerAmountChangedListener.DisconnectIfExists();
 }
 
 void MediaControlKeysManager::StartMonitoringControlKeys() {
-  LOG("StartMonitoringControlKeys");
   if (!StaticPrefs::media_hardwaremediakeys_enabled()) {
     return;
   }
-  CreateEventSource();
-}
 
-void MediaControlKeysManager::CreateEventSource() {
-  mEventSource = widget::CreateMediaControlKeysEventSource();
-  if (mEventSource) {
+  if (!mEventSource) {
+    mEventSource = widget::CreateMediaControlKeysEventSource();
+  }
+
+  // TODO : now we only have implemented the event source on OSX, so we won't
+  // get the event source on other platforms. Once we finish implementation on
+  // all platforms, remove this `if` checks and use `assertion` to make sure the
+  // source alway exists.
+  if (mEventSource && !mEventSource->IsOpened()) {
+    LOG("StartMonitoringControlKeys");
+    mEventSource->Open();
     mEventSource->AddListener(this);
   }
 }
 
 void MediaControlKeysManager::StopMonitoringControlKeys() {
-  LOG("StopMonitoringControlKeys");
-  if (mEventSource) {
+  if (mEventSource && mEventSource->IsOpened()) {
+    LOG("StopMonitoringControlKeys");
     mEventSource->Close();
-    mEventSource = nullptr;
   }
 }
 
 void MediaControlKeysManager::ControllerAmountChanged(
     uint64_t aControllerAmount) {
   LOG("Controller amount changed=%" PRId64, aControllerAmount);
-  if (aControllerAmount > 0 && !mEventSource) {
+  if (aControllerAmount > 0) {
     StartMonitoringControlKeys();
-  } else if (aControllerAmount == 0 && mEventSource) {
+  } else if (aControllerAmount == 0) {
     StopMonitoringControlKeys();
   }
 }

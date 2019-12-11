@@ -1592,7 +1592,7 @@ class alignas(uintptr_t) PrivateScriptData final {
                                     js::HandleScript script,
                                     js::HandleScriptSourceObject sourceObject,
                                     js::HandleScope scriptEnclosingScope,
-                                    js::HandleFunction fun);
+                                    js::HandleObject funOrMod);
 
   // Clone src script data into dst script.
   static bool Clone(JSContext* cx, js::HandleScript src, js::HandleScript dst,
@@ -1879,6 +1879,7 @@ class BaseScript : public gc::TenuredCell {
     return functionOrGlobal_->compartment();
   }
   JS::Compartment* maybeCompartment() const { return compartment(); }
+  inline JSPrincipals* principals() const;
 
   ScriptSourceObject* sourceObject() const { return sourceObject_; }
   ScriptSource* scriptSource() const { return sourceObject()->source(); }
@@ -1890,6 +1891,8 @@ class BaseScript : public gc::TenuredCell {
   const char* maybeForwardedFilename() const {
     return maybeForwardedScriptSource()->filename();
   }
+
+  bool isBinAST() const { return scriptSource()->hasBinASTSource(); }
 
   uint32_t sourceStart() const { return sourceStart_; }
   uint32_t sourceEnd() const { return sourceEnd_; }
@@ -1960,8 +1963,6 @@ class BaseScript : public gc::TenuredCell {
     }
   }
   void clearFlag(MutableFlags flag) { mutableFlags_ &= ~uint32_t(flag); }
-
-  void traceChildren(JSTracer* trc);
 
   // Specific flag accessors
 
@@ -2056,6 +2057,7 @@ setterLevel:                                                                  \
   // NeedsArgsObj: custom logic below.
   MUTABLE_FLAG_GETTER_SETTER(hideScriptFromDebugger, HideScriptFromDebugger)
   MUTABLE_FLAG_GETTER_SETTER(spewEnabled, SpewEnabled)
+  MUTABLE_FLAG_GETTER_SETTER(isWrappedByDebugger, WrappedByDebugger);
 
 #undef IMMUTABLE_FLAG_GETTER
 #undef IMMUTABLE_FLAG_GETTER_SETTER
@@ -2091,6 +2093,27 @@ setterLevel:                                                                  \
     }
   }
 
+  bool hasEnclosingLazyScript() const {
+    return warmUpData_.isEnclosingScript();
+  }
+  LazyScript* enclosingLazyScript() const {
+    return warmUpData_.toEnclosingScript();
+  }
+  void setEnclosingLazyScript(LazyScript* enclosingLazyScript);
+
+  bool hasEnclosingScope() const { return warmUpData_.isEnclosingScope(); }
+  Scope* enclosingScope() const { return warmUpData_.toEnclosingScope(); }
+  void setEnclosingScope(Scope* enclosingScope);
+
+  bool hasJitScript() const { return warmUpData_.isJitScript(); }
+  js::jit::JitScript* jitScript() const {
+    MOZ_ASSERT(hasJitScript());
+    return warmUpData_.toJitScript();
+  }
+  js::jit::JitScript* maybeJitScript() const {
+    return hasJitScript() ? jitScript() : nullptr;
+  }
+
   mozilla::Span<const JS::GCCellPtr> gcthings() const {
     return data_ ? data_->gcthings() : mozilla::Span<JS::GCCellPtr>();
   }
@@ -2099,13 +2122,13 @@ setterLevel:                                                                  \
     MOZ_ASSERT(data_);
     data_->setFieldInitializers(fieldInitializers);
   }
-
   const FieldInitializers& getFieldInitializers() const {
     MOZ_ASSERT(data_);
     return data_->getFieldInitializers();
   }
 
  protected:
+  void traceChildren(JSTracer* trc);
   void finalize(JSFreeOp* fop);
 
  public:
@@ -2135,8 +2158,8 @@ setterLevel:                                                                  \
  */
 template <XDRMode mode>
 XDRResult XDRScript(XDRState<mode>* xdr, HandleScope enclosingScope,
-                    HandleScriptSourceObject sourceObject, HandleFunction fun,
-                    MutableHandleScript scriptp);
+                    HandleScriptSourceObject sourceObject,
+                    HandleObject funOrMod, MutableHandleScript scriptp);
 
 template <XDRMode mode>
 XDRResult XDRLazyScript(XDRState<mode>* xdr, HandleScope enclosingScope,
@@ -2553,7 +2576,7 @@ class JSScript : public js::BaseScript {
   friend js::XDRResult js::XDRScript(js::XDRState<mode>* xdr,
                                      js::HandleScope enclosingScope,
                                      js::HandleScriptSourceObject sourceObject,
-                                     js::HandleFunction fun,
+                                     js::HandleObject funOrMod,
                                      js::MutableHandleScript scriptp);
 
   template <js::XDRMode mode>
@@ -2576,7 +2599,7 @@ class JSScript : public js::BaseScript {
   friend js::XDRResult js::PrivateScriptData::XDR(
       js::XDRState<mode>* xdr, js::HandleScript script,
       js::HandleScriptSourceObject sourceObject,
-      js::HandleScope scriptEnclosingScope, js::HandleFunction fun);
+      js::HandleScope scriptEnclosingScope, js::HandleObject funOrMod);
 
   friend bool js::PrivateScriptData::Clone(
       JSContext* cx, js::HandleScript src, js::HandleScript dst,
@@ -2629,13 +2652,9 @@ class JSScript : public js::BaseScript {
  private:
   // Assert that jump targets are within the code array of the script.
   void assertValidJumpTargets() const;
-
- public:
 #endif
 
  public:
-  inline JSPrincipals* principals();
-
   js::RuntimeScriptData* scriptData() { return scriptData_; }
   js::ImmutableScriptData* immutableScriptData() const {
     return scriptData_->isd_.get();
@@ -2767,16 +2786,6 @@ class JSScript : public js::BaseScript {
   void setArgumentsHasVarBinding();
   bool argumentsAliasesFormals() const {
     return argumentsHasVarBinding() && hasMappedArgsObj();
-  }
-
-  js::GeneratorKind generatorKind() const {
-    return isGenerator() ? js::GeneratorKind::Generator
-                         : js::GeneratorKind::NotGenerator;
-  }
-
-  js::FunctionAsyncKind asyncKind() const {
-    return isAsync() ? js::FunctionAsyncKind::AsyncFunction
-                     : js::FunctionAsyncKind::SyncFunction;
   }
 
   /*
@@ -2916,16 +2925,6 @@ class JSScript : public js::BaseScript {
 
   /* Ensure the script has a JitScript. */
   inline bool ensureHasJitScript(JSContext* cx, js::jit::AutoKeepJitScripts&);
-
-  bool hasJitScript() const { return warmUpData_.isJitScript(); }
-
-  js::jit::JitScript* jitScript() const {
-    MOZ_ASSERT(hasJitScript());
-    return warmUpData_.toJitScript();
-  }
-  js::jit::JitScript* maybeJitScript() const {
-    return hasJitScript() ? jitScript() : nullptr;
-  }
 
   void maybeReleaseJitScript(JSFreeOp* fop);
   void releaseJitScript(JSFreeOp* fop);
@@ -3397,19 +3396,6 @@ class LazyScript : public BaseScript {
   }
   bool hasScript() const { return bool(script_); }
 
-  bool hasEnclosingScope() const { return warmUpData_.isEnclosingScope(); }
-  bool hasEnclosingLazyScript() const {
-    return warmUpData_.isEnclosingScript();
-  }
-
-  LazyScript* enclosingLazyScript() const {
-    return warmUpData_.toEnclosingScript();
-  }
-  void setEnclosingLazyScript(LazyScript* enclosingLazyScript);
-
-  Scope* enclosingScope() const { return warmUpData_.toEnclosingScope(); }
-  void setEnclosingScope(Scope* enclosingScope);
-
   bool hasNonSyntacticScope() const {
     return enclosingScope()->hasOnChain(ScopeKind::NonSyntactic);
   }
@@ -3420,13 +3406,6 @@ class LazyScript : public BaseScript {
     }
     return frontend::ParseGoal::Script;
   }
-
-  bool isBinAST() const { return scriptSource()->hasBinASTSource(); }
-
-  bool isWrappedByDebugger() const {
-    return hasFlag(MutableFlags::WrappedByDebugger);
-  }
-  void setWrappedByDebugger() { setFlag(MutableFlags::WrappedByDebugger); }
 
   // Returns true if the enclosing script has ever been compiled.
   // Once the enclosing script is compiled, the scope chain is created.

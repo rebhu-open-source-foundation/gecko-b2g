@@ -17,14 +17,19 @@ namespace widget {
 class MediaHardwareKeysEventSourceMac final
     : public mozilla::dom::MediaControlKeysEventSource {
  public:
-  MediaHardwareKeysEventSourceMac();
-  ~MediaHardwareKeysEventSourceMac();
+  MediaHardwareKeysEventSourceMac() = default;
 
   static CGEventRef EventTapCallback(CGEventTapProxy proxy, CGEventType type,
                                      CGEventRef event, void* refcon);
 
+  bool Open() override;
+  void Close() override;
+  bool IsOpened() const override;
+
  private:
-  void StartEventTap();
+  ~MediaHardwareKeysEventSourceMac() = default;
+
+  bool StartEventTap();
   void StopEventTap();
 
   // They are used to intercept mac hardware media keys.

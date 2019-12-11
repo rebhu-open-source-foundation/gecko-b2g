@@ -1352,8 +1352,7 @@ parent:
                                     Principal aTopLevelPrincipal,
                                     bool aIsHandlingUserInput,
                                     bool aMaybeUnsafePermissionDelegate,
-                                    bool aDocumentHasUserInput,
-                                    uint64_t aPageLoadTimestamp, TabId tabId);
+                                    TabId tabId);
 
     async ShutdownProfile(nsCString aProfile);
 

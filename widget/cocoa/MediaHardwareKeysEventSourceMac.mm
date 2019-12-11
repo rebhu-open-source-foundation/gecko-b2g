@@ -65,17 +65,20 @@ static MediaControlKeysEvent ToMediaControlKeysEvent(int aKeyCode) {
 namespace mozilla {
 namespace widget {
 
-MediaHardwareKeysEventSourceMac::MediaHardwareKeysEventSourceMac() {
-  LOG("Create MediaHardwareKeysEventSourceMac");
-  StartEventTap();
+bool MediaHardwareKeysEventSourceMac::IsOpened() const { return mEventTap && mEventTapSource; }
+
+bool MediaHardwareKeysEventSourceMac::Open() {
+  LOG("Open MediaHardwareKeysEventSourceMac");
+  return StartEventTap();
 }
 
-MediaHardwareKeysEventSourceMac::~MediaHardwareKeysEventSourceMac() {
-  LOG("Destroy MediaHardwareKeysEventSourceMac");
+void MediaHardwareKeysEventSourceMac::Close() {
+  LOG("Close MediaHardwareKeysEventSourceMac");
   StopEventTap();
+  MediaControlKeysEventSource::Close();
 }
 
-void MediaHardwareKeysEventSourceMac::StartEventTap() {
+bool MediaHardwareKeysEventSourceMac::StartEventTap() {
   LOG("StartEventTap");
   MOZ_ASSERT(!mEventTap);
   MOZ_ASSERT(!mEventTapSource);
@@ -86,17 +89,18 @@ void MediaHardwareKeysEventSourceMac::StartEventTap() {
                        CGEventMaskBit(NX_SYSDEFINED), EventTapCallback, this);
   if (!mEventTap) {
     LOG("Fail to create event tap");
-    return;
+    return false;
   }
 
   mEventTapSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, mEventTap, 0);
   if (!mEventTapSource) {
     LOG("Fail to create an event tap source.");
-    return;
+    return false;
   }
 
   LOG("Add an event tap source to current loop");
   CFRunLoopAddSource(CFRunLoopGetCurrent(), mEventTapSource, kCFRunLoopCommonModes);
+  return true;
 }
 
 void MediaHardwareKeysEventSourceMac::StopEventTap() {

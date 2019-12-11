@@ -816,21 +816,11 @@ struct JSContext : public JS::RootingContext,
    */
   inline bool runningWithTrustedPrincipals();
 
-  JS_FRIEND_API size_t
-  sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
+  size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
   void trace(JSTracer* trc);
 
   inline js::RuntimeCaches& caches();
-
- private:
-  /*
-   * The allocation code calls the function to indicate either OOM failure
-   * when p is null or that a memory pressure counter has reached some
-   * threshold when p is not null. The function takes the pointer and not
-   * a boolean flag to minimize the amount of code in its inlined callers.
-   */
-  JS_FRIEND_API void checkMallocGCPressure(void* p);
 
  public:
   using InterruptCallbackVector =
