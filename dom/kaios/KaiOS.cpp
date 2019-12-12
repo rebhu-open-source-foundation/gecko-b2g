@@ -38,6 +38,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
 #ifdef HAS_KOOST_MODULES
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
 #endif
+#ifdef MOZ_B2G_BT
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(KaiOS)
@@ -46,6 +49,12 @@ void KaiOS::Invalidate() {
 #ifdef HAS_KOOST_MODULES
   if (mExternalAPI) {
     mExternalAPI = nullptr;
+  }
+#endif
+
+#ifdef MOZ_B2G_BT
+  if (mBluetooth) {
+    mBluetooth = nullptr;
   }
 #endif
 }
@@ -74,6 +83,23 @@ ExternalAPI* KaiOS::GetExternalapi(ErrorResult& aRv) {
   return mExternalAPI;
 }
 #endif
+
+#ifdef MOZ_B2G_BT
+bluetooth::BluetoothManager*
+KaiOS::GetMozBluetooth(ErrorResult& aRv)
+{
+  if (!mBluetooth) {
+    nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
+    if (!global) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mBluetooth = bluetooth::BluetoothManager::Create(mWindow);
+  }
+
+  return mBluetooth;
+}
+#endif //MOZ_B2G_BT
 
 }  // namespace dom
 }  // namespace mozilla

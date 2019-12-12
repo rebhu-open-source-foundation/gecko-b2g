@@ -16,6 +16,9 @@
 #ifdef HAS_KOOST_MODULES
 #  include "mozilla/dom/ExternalAPI.h"
 #endif
+#ifdef MOZ_B2G_BT
+#  include "mozilla/dom/bluetooth/BluetoothManager.h"
+#endif
 #include "mozilla/ErrorResult.h"
 #include "mozilla/MemoryReporting.h"
 #include "nsPIDOMWindow.h"
@@ -48,12 +51,20 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   ExternalAPI* GetExternalapi(ErrorResult& aRv);
 #endif
 
+#ifdef MOZ_B2G_BT
+  bluetooth::BluetoothManager* GetMozBluetooth(ErrorResult& aRv);
+#endif // MOZ_B2G_BT
+
  private:
   virtual ~KaiOS();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
 #ifdef HAS_KOOST_MODULES
   RefPtr<ExternalAPI> mExternalAPI;
+#endif
+
+#ifdef MOZ_B2G_BT
+  RefPtr<bluetooth::BluetoothManager> mBluetooth;
 #endif
 };
 
