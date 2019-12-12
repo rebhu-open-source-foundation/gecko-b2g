@@ -5175,11 +5175,7 @@ bool BytecodeEmitter::emitAsyncIterator() {
 bool BytecodeEmitter::emitSpread(bool allowSelfHosted) {
   LoopControl loopInfo(this, StatementKind::Spread);
 
-  if (!newSrcNote(SRC_FOR_OF)) {
-    return false;
-  }
-
-  if (!loopInfo.emitLoopHead(this, Nothing())) {
+  if (!loopInfo.emitLoopHead(this, Nothing(), SRC_FOR_OF)) {
     //              [stack] NEXT ITER ARR I
     return false;
   }
@@ -7935,8 +7931,6 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
 
       if (propVal->is<FunctionNode>() &&
           propVal->as<FunctionNode>().funbox()->needsHomeObject()) {
-        MOZ_ASSERT(propVal->as<FunctionNode>().funbox()->allowSuperProperty());
-
         if (!pe.emitInitHomeObject()) {
           //        [stack] CTOR? OBJ CTOR? KEY? FUN
           return false;
@@ -8391,9 +8385,7 @@ const FieldInitializers& BytecodeEmitter::findFieldInitializersForCall() {
       JSFunction* fun = si.abstractScope().canonicalFunction();
       if (fun->kind() == FunctionFlags::FunctionKind::ClassConstructor) {
         const FieldInitializers& fieldInitializers =
-            fun->isInterpretedLazy()
-                ? fun->lazyScript()->getFieldInitializers()
-                : fun->nonLazyScript()->getFieldInitializers();
+            fun->baseScript()->getFieldInitializers();
         MOZ_ASSERT(fieldInitializers.valid);
         return fieldInitializers;
       }

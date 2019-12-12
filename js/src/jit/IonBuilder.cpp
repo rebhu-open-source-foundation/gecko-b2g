@@ -1717,7 +1717,9 @@ AbortReasonOr<Ok> IonBuilder::traverseBytecode() {
     }
   }
 
-  return Ok();
+  // The iloop above never breaks, so this point is unreachable.  Don't add code
+  // here, or you'll trigger compile errors about unreachable code with some
+  // compilers!
 }
 
 AbortReasonOr<Ok> IonBuilder::startTraversingBlock(MBasicBlock* block) {
@@ -7342,13 +7344,26 @@ AbortReasonOr<Ok> IonBuilder::jsop_initelem_inc() {
   MDefinition* id = current->pop();
   MDefinition* obj = current->peek(-1);
 
-  bool emitted = false;
-
   MAdd* nextId = MAdd::New(alloc(), id, constantInt(1), MIRType::Int32);
   current->add(nextId);
   current->push(nextId);
 
+  return initArrayElement(obj, id, value);
+}
+
+AbortReasonOr<Ok> IonBuilder::initArrayElement(MDefinition* obj,
+                                               MDefinition* id,
+                                               MDefinition* value) {
+  MOZ_ASSERT(*pc == JSOP_INITELEM_ARRAY || *pc == JSOP_INITELEM_INC);
+
+  bool emitted = false;
+
   if (!forceInlineCaches()) {
+    MOZ_TRY(initArrayElemTryFastPath(&emitted, obj, id, value));
+    if (emitted) {
+      return Ok();
+    }
+
     MOZ_TRY(initOrSetElemTryDense(&emitted, obj, id, value,
                                   /* writeHole = */ true));
     if (emitted) {
@@ -7368,57 +7383,70 @@ AbortReasonOr<Ok> IonBuilder::jsop_initelem_inc() {
   return resumeAfter(initElem);
 }
 
-AbortReasonOr<Ok> IonBuilder::jsop_initelem_array() {
-  MDefinition* value = current->pop();
-  MDefinition* obj = current->peek(-1);
+AbortReasonOr<Ok> IonBuilder::initArrayElemTryFastPath(bool* emitted,
+                                                       MDefinition* obj,
+                                                       MDefinition* id,
+                                                       MDefinition* value) {
+  MOZ_ASSERT(*emitted == false);
+  MOZ_ASSERT(*pc == JSOP_INITELEM_ARRAY || *pc == JSOP_INITELEM_INC);
 
   // Make sure that arrays have the type being written to them by the
   // intializer, and that arrays are marked as non-packed when writing holes
   // to them during initialization.
-  bool needStub = false;
+
+  if (!obj->isNewArray()) {
+    return Ok();
+  }
+
   if (shouldAbortOnPreliminaryGroups(obj)) {
-    needStub = true;
-  } else if (!obj->resultTypeSet() || obj->resultTypeSet()->unknownObject() ||
-             obj->resultTypeSet()->getObjectCount() != 1) {
-    needStub = true;
-  } else {
-    MOZ_ASSERT(obj->resultTypeSet()->getObjectCount() == 1);
-    TypeSet::ObjectKey* initializer = obj->resultTypeSet()->getObject(0);
-    if (value->type() == MIRType::MagicHole) {
-      if (!initializer->hasFlags(constraints(), OBJECT_FLAG_NON_PACKED)) {
-        needStub = true;
-      }
-    } else if (!initializer->unknownProperties()) {
-      HeapTypeSetKey elemTypes = initializer->property(JSID_VOID);
-      if (!TypeSetIncludes(elemTypes.maybeTypes(), value->type(),
-                           value->resultTypeSet())) {
-        elemTypes.freeze(constraints());
-        needStub = true;
-      }
+    return Ok();
+  }
+
+  if (!obj->resultTypeSet() || obj->resultTypeSet()->unknownObject() ||
+      obj->resultTypeSet()->getObjectCount() != 1) {
+    return Ok();
+  }
+
+  TypeSet::ObjectKey* initializer = obj->resultTypeSet()->getObject(0);
+  if (value->type() == MIRType::MagicHole) {
+    if (!initializer->hasFlags(constraints(), OBJECT_FLAG_NON_PACKED)) {
+      return Ok();
+    }
+  } else if (!initializer->unknownProperties()) {
+    HeapTypeSetKey elemTypes = initializer->property(JSID_VOID);
+    if (!TypeSetIncludes(elemTypes.maybeTypes(), value->type(),
+                         value->resultTypeSet())) {
+      elemTypes.freeze(constraints());
+      return Ok();
     }
   }
 
-  uint32_t index = GET_UINT32(pc);
-  if (needStub) {
-    MOZ_ASSERT(index <= INT32_MAX,
-               "the bytecode emitter must fail to compile code that would "
-               "produce JSOP_INITELEM_ARRAY with an index exceeding "
-               "int32_t range");
-    MCallInitElementArray* store =
-        MCallInitElementArray::New(alloc(), obj, constantInt(index), value);
-    current->add(store);
-    return resumeAfter(store);
-  }
+  MOZ_TRY(initArrayElementFastPath(obj->toNewArray(), id, value,
+                                   /* addResumePoint = */ true));
 
-  return initializeArrayElement(obj, index, value, /* addResumePoint = */ true);
+  *emitted = true;
+  return Ok();
 }
 
-AbortReasonOr<Ok> IonBuilder::initializeArrayElement(
-    MDefinition* obj, size_t index, MDefinition* value,
-    bool addResumePointAndIncrementInitializedLength) {
+AbortReasonOr<Ok> IonBuilder::jsop_initelem_array() {
+  MDefinition* value = current->pop();
+  MDefinition* obj = current->peek(-1);
+
+  uint32_t index = GET_UINT32(pc);
+  MOZ_ASSERT(index <= INT32_MAX,
+             "the bytecode emitter must fail to compile code that would "
+             "produce JSOP_INITELEM_ARRAY with an index exceeding "
+             "int32_t range");
+
   MConstant* id = MConstant::New(alloc(), Int32Value(index));
   current->add(id);
 
+  return initArrayElement(obj, id, value);
+}
+
+AbortReasonOr<Ok> IonBuilder::initArrayElementFastPath(
+    MNewArray* obj, MDefinition* id, MDefinition* value,
+    bool addResumePointAndIncrementInitializedLength) {
   // Get the elements vector.
   MElements* elements = MElements::New(alloc(), obj);
   current->add(elements);
@@ -7427,7 +7455,7 @@ AbortReasonOr<Ok> IonBuilder::initializeArrayElement(
     current->add(MPostWriteBarrier::New(alloc(), obj, value));
   }
 
-  if (obj->isNewArray() && obj->toNewArray()->convertDoubleElements()) {
+  if (obj->convertDoubleElements()) {
     MInstruction* valueDouble = MToDouble::New(alloc(), value);
     current->add(valueDouble);
     value = valueDouble;

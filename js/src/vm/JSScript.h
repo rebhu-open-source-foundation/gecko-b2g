@@ -1900,6 +1900,9 @@ class BaseScript : public gc::TenuredCell {
   uint32_t toStringStart() const { return toStringStart_; }
   uint32_t toStringEnd() const { return toStringEnd_; }
 
+  MOZ_MUST_USE bool appendSourceDataForToString(JSContext* cx,
+                                                js::StringBuffer& buf);
+
 #if defined(JS_BUILD_BINAST)
   // Set the position of the function in the source code.
   //
@@ -2101,8 +2104,19 @@ setterLevel:                                                                  \
   }
   void setEnclosingLazyScript(LazyScript* enclosingLazyScript);
 
-  bool hasEnclosingScope() const { return warmUpData_.isEnclosingScope(); }
-  Scope* enclosingScope() const { return warmUpData_.toEnclosingScope(); }
+  Scope* enclosingScope() const {
+    MOZ_ASSERT(!warmUpData_.isEnclosingScript(),
+               "Enclosing scope is not computed yet");
+
+    if (warmUpData_.isEnclosingScope()) {
+      return warmUpData_.toEnclosingScope();
+    }
+
+    MOZ_ASSERT(data_, "Script doesn't seem to be compiled");
+
+    size_t outermostScopeIndex = 0;
+    return gcthings()[outermostScopeIndex].as<Scope>().enclosing();
+  }
   void setEnclosingScope(Scope* enclosingScope);
 
   bool hasJitScript() const { return warmUpData_.isJitScript(); }
@@ -2882,9 +2896,6 @@ class JSScript : public js::BaseScript {
 
   static JSLinearString* sourceData(JSContext* cx, JS::HandleScript script);
 
-  MOZ_MUST_USE bool appendSourceDataForToString(JSContext* cx,
-                                                js::StringBuffer& buf);
-
   void setDefaultClassConstructorSpan(js::ScriptSourceObject* sourceObject,
                                       uint32_t start, uint32_t end,
                                       unsigned line, unsigned column);
@@ -2994,8 +3005,6 @@ class JSScript : public js::BaseScript {
   }
 
   inline js::LexicalScope* maybeNamedLambdaScope() const;
-
-  js::Scope* enclosingScope() const { return outermostScope()->enclosing(); }
 
  private:
   bool createJitScript(JSContext* cx);
@@ -3414,7 +3423,7 @@ class LazyScript : public BaseScript {
   // The enclosing JSScript can be GCed later if the enclosing scope is not
   // FunctionScope or ModuleScope.
   bool enclosingScriptHasEverBeenCompiled() const {
-    return hasEnclosingScope();
+    return warmUpData_.isEnclosingScope();
   }
 
   friend class GCMarker;

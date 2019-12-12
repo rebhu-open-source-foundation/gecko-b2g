@@ -304,8 +304,6 @@ class FunctionBox : public ObjectBox, public SharedContext {
               GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
               JSAtom* explicitName, FunctionFlags flags);
 
-  void initWithEnclosingScope(Scope* enclosingScope, JSFunction* fun);
-
   void initWithEnclosingParseContext(ParseContext* enclosing,
                                      FunctionSyntaxKind kind, bool isArrow,
                                      bool allowSuperProperty);
@@ -461,6 +459,8 @@ class FunctionBox : public ObjectBox, public SharedContext {
   void initFromLazyFunction(JSFunction* fun);
   void initStandaloneFunction(Scope* enclosingScope);
 
+  void initWithEnclosingScope(JSFunction* fun);
+
   void initWithEnclosingParseContext(ParseContext* enclosing,
                                      Handle<FunctionCreationData> fun,
                                      FunctionSyntaxKind kind) {
@@ -480,9 +480,6 @@ class FunctionBox : public ObjectBox, public SharedContext {
                             Handle<FunctionCreationData> data,
                             HasHeritage hasHeritage);
 
-  inline bool isLazyFunctionWithoutEnclosingScope() const {
-    return isInterpretedLazy() && !function()->enclosingScope();
-  }
   void setEnclosingScopeForInnerLazyFunction(
       const AbstractScope& enclosingScope);
   void finish();
@@ -513,24 +510,10 @@ class FunctionBox : public ObjectBox, public SharedContext {
   }
 
   Scope* compilationEnclosingScope() const override {
-    // This method is used to distinguish the outermost SharedContext. If
-    // a FunctionBox is the outermost SharedContext, it must be a lazy
-    // function.
+    // This is used when emitting code for the current FunctionBox and therefore
+    // the enclosingScope_ must have be set correctly during initalization.
 
-    // If the function is lazy and it has enclosing scope, the function is
-    // being delazified.  In that case the enclosingScope_ field is copied
-    // from the lazy function at the beginning of delazification and should
-    // keep pointing the same scope.
-    MOZ_ASSERT_IF(isInterpretedLazy() && function()->enclosingScope(),
-                  enclosingScope_.maybeScope() == function()->enclosingScope());
-
-    // If this FunctionBox is a lazy child of the function we're actually
-    // compiling, then it is not the outermost SharedContext, so this
-    // method should return nullptr."
-    if (isLazyFunctionWithoutEnclosingScope()) {
-      return nullptr;
-    }
-
+    MOZ_ASSERT(enclosingScope_);
     return enclosingScope_.maybeScope();
   }
 
@@ -692,8 +675,8 @@ class FunctionBox : public ObjectBox, public SharedContext {
 
   void setFieldInitializers(FieldInitializers fi) {
     if (hasObject()) {
-      MOZ_ASSERT(function()->lazyScript());
-      function()->lazyScript()->setFieldInitializers(fi);
+      MOZ_ASSERT(function()->baseScript());
+      function()->baseScript()->setFieldInitializers(fi);
       return;
     }
     MOZ_ASSERT(lazyScriptData());

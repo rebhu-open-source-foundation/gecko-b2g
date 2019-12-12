@@ -4915,7 +4915,7 @@ class DatabaseConnection::UpdateRefcountFunction::DatabaseUpdateFunction final {
   CachedStatement mSelectStatement;
   CachedStatement mInsertStatement;
 
-  UpdateRefcountFunction* mFunction;
+  UpdateRefcountFunction* const mFunction;
 
   nsresult mErrorCode;
 
@@ -5079,7 +5079,7 @@ class ConnectionPool::ConnectionRunnable : public Runnable {
 };
 
 class ConnectionPool::IdleConnectionRunnable final : public ConnectionRunnable {
-  bool mNeedsCheckpoint;
+  const bool mNeedsCheckpoint;
 
  public:
   IdleConnectionRunnable(DatabaseInfo* aDatabaseInfo, bool aNeedsCheckpoint)
@@ -5146,7 +5146,7 @@ struct ConnectionPool::DatabaseInfo final {
 
   void AssertIsOnConnectionThread() const {
     MOZ_ASSERT(mDEBUGConnectionThread);
-    MOZ_ASSERT(GetCurrentPhysicalThread() == mDEBUGConnectionThread);
+    MOZ_ASSERT(PR_GetCurrentThread() == mDEBUGConnectionThread);
   }
 
   uint64_t TotalTransactionCount() const {
@@ -5297,7 +5297,7 @@ class ConnectionPool::TransactionInfo final {
   nsTArray<TransactionInfo*> mBlockingOrdered;
 
  public:
-  DatabaseInfo* mDatabaseInfo;
+  DatabaseInfo* const mDatabaseInfo;
   const nsID mBackgroundChildLoggingId;
   const nsCString mDatabaseId;
   const uint64_t mTransactionId;
@@ -5309,7 +5309,7 @@ class ConnectionPool::TransactionInfo final {
   bool mRunning;
 
 #ifdef DEBUG
-  bool mFinished;
+  FlippedOnce<false> mFinished;
 #endif
 
   TransactionInfo(DatabaseInfo* aDatabaseInfo,
@@ -11208,7 +11208,7 @@ nsresult ConnectionPool::GetOrCreateConnection(
                    NS_ConvertUTF16toUTF8(aDatabase->FilePath()).get()));
 
 #ifdef DEBUG
-    dbInfo->mDEBUGConnectionThread = GetCurrentPhysicalThread();
+    dbInfo->mDEBUGConnectionThread = PR_GetCurrentThread();
 #endif
   }
 
@@ -11348,8 +11348,7 @@ void ConnectionPool::Finish(uint64_t aTransactionId,
   Dispatch(aTransactionId, wrapper);
 
 #ifdef DEBUG
-  MOZ_ASSERT(!transactionInfo->mFinished);
-  transactionInfo->mFinished = true;
+  transactionInfo->mFinished.Flip();
 #endif
 }
 
@@ -12381,12 +12380,7 @@ ConnectionPool::TransactionInfo::TransactionInfo(
       mLoggingSerialNumber(aLoggingSerialNumber),
       mObjectStoreNames(aObjectStoreNames),
       mIsWriteTransaction(aIsWriteTransaction),
-      mRunning(false)
-#ifdef DEBUG
-      ,
-      mFinished(false)
-#endif
-{
+      mRunning(false) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aDatabaseInfo);
   aDatabaseInfo->mConnectionPool->AssertIsOnOwningThread();

@@ -806,15 +806,19 @@ IonBuilder::InliningResult IonBuilder::inlineArray(CallInfo& callInfo,
 
   MOZ_TRY(jsop_newarray(templateObject, initLength));
 
-  MDefinition* array = current->peek(-1);
+  MNewArray* array = current->peek(-1)->toNewArray();
   if (callInfo.argc() >= 2) {
     for (uint32_t i = 0; i < initLength; i++) {
       if (!alloc().ensureBallast()) {
         return abort(AbortReason::Alloc);
       }
       MDefinition* value = callInfo.getArg(i);
-      MOZ_TRY(initializeArrayElement(array, i, value,
-                                     /* addResumePoint = */ false));
+
+      MConstant* id = MConstant::New(alloc(), Int32Value(i));
+      current->add(id);
+
+      MOZ_TRY(initArrayElementFastPath(array, id, value,
+                                       /* addResumePoint = */ false));
     }
 
     MInstruction* setLength = setInitializedLength(array, initLength);

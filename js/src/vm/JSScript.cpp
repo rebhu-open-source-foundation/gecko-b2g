@@ -1992,7 +1992,7 @@ JSLinearString* JSScript::sourceData(JSContext* cx, HandleScript script) {
                                            script->sourceEnd());
 }
 
-bool JSScript::appendSourceDataForToString(JSContext* cx, StringBuffer& buf) {
+bool BaseScript::appendSourceDataForToString(JSContext* cx, StringBuffer& buf) {
   MOZ_ASSERT(scriptSource()->hasSourceText());
   return scriptSource()->appendSubstring(cx, buf, toStringStart(),
                                          toStringEnd());
@@ -5702,7 +5702,6 @@ LazyScript* LazyScript::CreateForXDR(
   // LazyScript::enclosingScriptHasEverBeenCompiled relies on the enclosing
   // scope being non-null if we have ever been nested inside non-lazy
   // function.
-  MOZ_ASSERT(!lazy->hasEnclosingScope());
   if (enclosingScope) {
     lazy->setEnclosingScope(enclosingScope);
   }

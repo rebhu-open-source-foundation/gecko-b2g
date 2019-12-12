@@ -32,6 +32,11 @@ branch = "rust_1_32"
 git = "https://github.com/hsivonen/packed_simd"
 replace-with = "vendored-sources"
 
+[source."https://github.com/djg/cubeb-pulse-rs"]
+git = "https://github.com/djg/cubeb-pulse-rs"
+replace-with = "vendored-sources"
+rev = "8069f8f4189982e0b38fa6dc8993dd4fab41f728"
+
 [source."https://github.com/bytecodealliance/cranelift"]
 git = "https://github.com/bytecodealliance/cranelift"
 replace-with = "vendored-sources"
@@ -56,6 +61,11 @@ replace-with = "vendored-sources"
 branch = "stable"
 git = "https://github.com/NikVolf/tokio-named-pipes"
 replace-with = "vendored-sources"
+
+[source."https://github.com/ChunMinChang/cubeb-coreaudio-rs"]
+git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs"
+replace-with = "vendored-sources"
+rev = "5fcbd99e1b7356be1efcdc41654d495bd4c71c8c"
 
 [source.crates-io]
 replace-with = "vendored-sources"

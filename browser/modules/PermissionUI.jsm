@@ -835,6 +835,111 @@ PermissionUI.GeolocationPermissionPrompt = GeolocationPermissionPrompt;
 
 /**
  * Creates a PermissionPrompt for a nsIContentPermissionRequest for
+ * the WebXR API.
+ *
+ * @param request (nsIContentPermissionRequest)
+ *        The request for a permission from content.
+ */
+function XRPermissionPrompt(request) {
+  this.request = request;
+}
+
+XRPermissionPrompt.prototype = {
+  __proto__: PermissionPromptForRequestPrototype,
+
+  get type() {
+    return "xr";
+  },
+
+  get permissionKey() {
+    return "xr";
+  },
+
+  get popupOptions() {
+    let pref = "browser.xr.warning.infoURL";
+    let options = {
+      learnMoreURL: Services.urlFormatter.formatURLPref(pref),
+      displayURI: false,
+      name: this.getPrincipalName(),
+    };
+
+    if (this.principal.URI.schemeIs("file")) {
+      options.checkbox = { show: false };
+    } else {
+      // Don't offer "always remember" action in PB mode
+      options.checkbox = {
+        show: !PrivateBrowsingUtils.isWindowPrivate(this.browser.ownerGlobal),
+      };
+    }
+
+    if (options.checkbox.show) {
+      options.checkbox.label = gBrowserBundle.GetStringFromName("xr.remember");
+    }
+
+    return options;
+  },
+
+  get notificationID() {
+    return "xr";
+  },
+
+  get anchorID() {
+    return "xr-notification-icon";
+  },
+
+  get message() {
+    if (this.principal.URI.schemeIs("file")) {
+      return gBrowserBundle.GetStringFromName("xr.shareWithFile3");
+    }
+
+    return gBrowserBundle.formatStringFromName("xr.shareWithSite3", ["<>"]);
+  },
+
+  get promptActions() {
+    return [
+      {
+        label: gBrowserBundle.GetStringFromName("xr.allow"),
+        accessKey: gBrowserBundle.GetStringFromName("xr.allow.accesskey"),
+        action: SitePermissions.ALLOW,
+      },
+      {
+        label: gBrowserBundle.GetStringFromName("xr.dontAllow"),
+        accessKey: gBrowserBundle.GetStringFromName("xr.dontAllow.accesskey"),
+        action: SitePermissions.BLOCK,
+      },
+    ];
+  },
+
+  _updateXRSharing(state) {
+    let gBrowser = this.browser.ownerGlobal.gBrowser;
+    if (gBrowser == null) {
+      return;
+    }
+    gBrowser.updateBrowserSharing(this.browser, { xr: state });
+
+    let devicePermOrigins = this.browser.getDevicePermissionOrigins("xr");
+    if (!state) {
+      devicePermOrigins.delete(this.principal.origin);
+      return;
+    }
+    devicePermOrigins.add(this.principal.origin);
+  },
+
+  allow(...args) {
+    this._updateXRSharing(true);
+    PermissionPromptForRequestPrototype.allow.apply(this, args);
+  },
+
+  cancel(...args) {
+    this._updateXRSharing(false);
+    PermissionPromptForRequestPrototype.cancel.apply(this, args);
+  },
+};
+
+PermissionUI.XRPermissionPrompt = XRPermissionPrompt;
+
+/**
+ * Creates a PermissionPrompt for a nsIContentPermissionRequest for
  * the Desktop Notification API.
  *
  * @param request (nsIContentPermissionRequest)
@@ -1178,41 +1283,16 @@ StorageAccessPermissionPrompt.prototype = {
   },
 
   get popupOptions() {
+    let learnMoreURL =
+      Services.urlFormatter.formatURLPref("app.support.baseURL") +
+      "third-party-cookies";
     return {
+      learnMoreURL,
       displayURI: false,
       name: this.prettifyHostPort(this.principal.URI),
       secondName: this.prettifyHostPort(this.topLevelPrincipal.URI),
       escAction: "buttoncommand",
     };
-  },
-
-  onShown() {
-    let document = this.browser.ownerDocument;
-    let label = gBrowserBundle.formatStringFromName(
-      "storageAccess.description.label",
-      [this.prettifyHostPort(this.request.principal.URI), "<>"]
-    );
-    let parts = label.split("<>");
-    if (parts.length == 1) {
-      parts.push("");
-    }
-    let map = {
-      "storage-access-perm-label": parts[0],
-      "storage-access-perm-learnmore": gBrowserBundle.GetStringFromName(
-        "storageAccess.description.learnmore"
-      ),
-      "storage-access-perm-endlabel": parts[1],
-    };
-    for (let id in map) {
-      let str = map[id];
-      document.getElementById(id).textContent = str;
-    }
-    let learnMoreURL =
-      Services.urlFormatter.formatURLPref("app.support.baseURL") +
-      "third-party-cookies";
-    document.getElementById(
-      "storage-access-perm-learnmore"
-    ).href = learnMoreURL;
   },
 
   get notificationID() {
@@ -1224,7 +1304,7 @@ StorageAccessPermissionPrompt.prototype = {
   },
 
   get message() {
-    return gBrowserBundle.formatStringFromName("storageAccess.message", [
+    return gBrowserBundle.formatStringFromName("storageAccess2.message", [
       "<>",
       "{}",
     ]);
