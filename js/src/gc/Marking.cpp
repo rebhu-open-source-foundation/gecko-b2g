@@ -429,44 +429,60 @@ template <typename T>
 void DoMarking(GCMarker* gcmarker, const T& thing);
 
 template <typename T>
-JS_PUBLIC_API void js::gc::TraceExternalEdge(JSTracer* trc, T* thingp,
-                                             const char* name) {
+static void TraceExternalEdgeHelper(JSTracer* trc, T* thingp,
+                                    const char* name) {
   MOZ_ASSERT(InternalBarrierMethods<T>::isMarkable(*thingp));
   TraceEdgeInternal(trc, ConvertToBase(thingp), name);
 }
 
-template <typename T>
 JS_PUBLIC_API void js::UnsafeTraceManuallyBarrieredEdge(JSTracer* trc,
-                                                        T* thingp,
+                                                        JSObject** thingp,
                                                         const char* name) {
   TraceEdgeInternal(trc, ConvertToBase(thingp), name);
 }
 
 template <typename T>
-JS_PUBLIC_API void JS::UnsafeTraceRoot(JSTracer* trc, T* thingp,
-                                       const char* name) {
+static void UnsafeTraceRootHelper(JSTracer* trc, T* thingp, const char* name) {
   MOZ_ASSERT(thingp);
   js::TraceNullableRoot(trc, thingp, name);
 }
 
 namespace js {
-class SavedFrame;
 class AbstractGeneratorObject;
+class SavedFrame;
 }  // namespace js
 
-// Instantiate a copy of the Tracing templates for each public GC pointer type.
-#define INSTANTIATE_PUBLIC_TRACE_FUNCTIONS(type)                          \
-  template JS_PUBLIC_API void JS::UnsafeTraceRoot<type>(JSTracer*, type*, \
-                                                        const char*);     \
-  template JS_PUBLIC_API void js::UnsafeTraceManuallyBarrieredEdge<type>( \
-      JSTracer*, type*, const char*);                                     \
-  template JS_PUBLIC_API void js::gc::TraceExternalEdge<type>(            \
-      JSTracer*, type*, const char*);
-JS_FOR_EACH_PUBLIC_GC_POINTER_TYPE(INSTANTIATE_PUBLIC_TRACE_FUNCTIONS)
-JS_FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(INSTANTIATE_PUBLIC_TRACE_FUNCTIONS)
-INSTANTIATE_PUBLIC_TRACE_FUNCTIONS(SavedFrame*);
-INSTANTIATE_PUBLIC_TRACE_FUNCTIONS(AbstractGeneratorObject*);
-#undef INSTANTIATE_PUBLIC_TRACE_FUNCTIONS
+#define DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION(type)                           \
+  JS_PUBLIC_API void js::gc::TraceExternalEdge(JSTracer* trc, type* thingp, \
+                                               const char* name) {          \
+    TraceExternalEdgeHelper(trc, thingp, name);                             \
+  }
+
+// Define TraceExternalEdge for each public GC pointer type.
+JS_FOR_EACH_PUBLIC_GC_POINTER_TYPE(DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION)
+JS_FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION)
+
+// Also, for the moment, define TraceExternalEdge for internal GC pointer types.
+DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION(AbstractGeneratorObject*)
+DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION(SavedFrame*)
+
+#undef DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION
+
+#define DEFINE_UNSAFE_TRACE_ROOT_FUNCTION(type)                           \
+  JS_PUBLIC_API void JS::UnsafeTraceRoot(JSTracer* trc, type* thingp, \
+                                         const char* name) { \
+    UnsafeTraceRootHelper(trc, thingp, name); \
+  }
+
+// Define UnsafeTraceRoot for each public GC pointer type.
+JS_FOR_EACH_PUBLIC_GC_POINTER_TYPE(DEFINE_UNSAFE_TRACE_ROOT_FUNCTION)
+JS_FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(DEFINE_UNSAFE_TRACE_ROOT_FUNCTION)
+
+// Also, for the moment, define UnsafeTraceRoot for internal GC pointer types.
+DEFINE_UNSAFE_TRACE_ROOT_FUNCTION(AbstractGeneratorObject*)
+DEFINE_UNSAFE_TRACE_ROOT_FUNCTION(SavedFrame*)
+
+#undef DEFINE_UNSAFE_TRACE_ROOT_FUNCTION
 
 namespace js {
 namespace gc {

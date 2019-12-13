@@ -697,6 +697,11 @@ class SourceMediaTrack : public MediaTrack {
 
   void RemoveAllDirectListenersImpl() override;
 
+  // The value set here is applied in MoveToSegment so we can avoid the
+  // buffering delay in applying the change. See Bug 1443511.
+  void SetVolume(float aVolume);
+  float GetVolumeLocked();
+
   friend class MediaTrackGraphImpl;
 
  protected:
@@ -752,6 +757,7 @@ class SourceMediaTrack : public MediaTrack {
   // held together.
   Mutex mMutex;
   // protected by mMutex
+  float mVolume = 1.0;
   UniquePtr<TrackData> mUpdateTrack;
   nsTArray<RefPtr<DirectMediaTrackListener>> mDirectTrackListeners;
 };
@@ -922,7 +928,7 @@ class ProcessedMediaTrack : public MediaTrack {
    * (including if there is no input track), this track automatically
    * enters the ended state.
    */
-  void QueueSetAutoend(bool aAutoend);
+  virtual void QueueSetAutoend(bool aAutoend);
 
   ProcessedMediaTrack* AsProcessedTrack() override { return this; }
 

@@ -3209,13 +3209,6 @@ static FeatureState& WebRenderHardwareQualificationStatus(
     MOZ_ASSERT(*aOutGuardedByQualifiedPref);
     return featureWebRenderQualified;
   }
-#else  // !MOZ_WIDGET_ANDROID
-#  ifndef NIGHTLY_BUILD
-  featureWebRenderQualified.Disable(
-      FeatureStatus::BlockedReleaseChannelAndroid,
-      "Release channel and Android",
-      NS_LITERAL_CSTRING("FEATURE_FAILURE_RELEASE_CHANNEL_ANDROID"));
-#  endif
 #endif
   return featureWebRenderQualified;
 }
@@ -3403,6 +3396,9 @@ void gfxPlatform::InitWebRenderConfig() {
 
   if (gfx::gfxConfig::IsEnabled(gfx::Feature::WEBRENDER_COMPOSITOR)) {
     gfxVars::SetUseWebRenderCompositor(true);
+    // Call UserEnable() only for reporting to Decision Log.
+    // If feature is enabled by default. It is not reported to Decision Log.
+    featureComp.UserEnable("Enabled");
   }
 
   // Set features that affect WR's RendererOptions
@@ -3416,7 +3412,7 @@ void gfxPlatform::InitWebRenderConfig() {
 
 void gfxPlatform::InitWebGPUConfig() {
   FeatureState& feature = gfxConfig::GetFeature(Feature::WEBGPU);
-  feature.SetDefaultFromPref("dom.webgpu.enable", true, false);
+  feature.SetDefaultFromPref("dom.webgpu.enabled", true, false);
 }
 
 void gfxPlatform::InitOMTPConfig() {

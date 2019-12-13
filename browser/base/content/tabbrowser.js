@@ -381,9 +381,6 @@
       };
       let browser = this.createBrowser(createOptions);
       browser.setAttribute("primary", "true");
-      if (!tabArgument) {
-        browser.setAttribute("blank", "true");
-      }
       if (gBrowserAllowScriptsToCloseInitialTabs) {
         browser.setAttribute("allowscriptstoclose", "true");
       }
@@ -3156,7 +3153,10 @@
       this.removeTab(this.selectedTab, aParams);
     },
 
-    removeTab(aTab, { animate, byMouse, skipPermitUnload } = {}) {
+    removeTab(
+      aTab,
+      { animate, byMouse, skipPermitUnload, closeWindowWithLastTab } = {}
+    ) {
       // Telemetry stopwatches may already be running if removeTab gets
       // called again for an already closing tab.
       if (
@@ -3188,6 +3188,7 @@
         !this._beginRemoveTab(aTab, {
           closeWindowFastpath: true,
           skipPermitUnload,
+          closeWindowWithLastTab,
         })
       ) {
         TelemetryStopwatch.cancel("FX_TAB_CLOSE_TIME_ANIM_MS", aTab);

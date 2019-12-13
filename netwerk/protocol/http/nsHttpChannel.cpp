@@ -8662,19 +8662,18 @@ nsHttpChannel::OnTransportStatus(nsITransport* trans, nsresult status,
 
   if (status == NS_NET_STATUS_CONNECTED_TO ||
       status == NS_NET_STATUS_WAITING_FOR) {
+    bool isTrr = false;
     if (mTransaction) {
-      mTransaction->GetNetworkAddresses(mSelfAddr, mPeerAddr);
-      mResolvedByTRR = mTransaction->ResolvedByTRR();
+      mTransaction->GetNetworkAddresses(mSelfAddr, mPeerAddr, isTrr);
     } else {
       nsCOMPtr<nsISocketTransport> socketTransport = do_QueryInterface(trans);
       if (socketTransport) {
         socketTransport->GetSelfAddr(&mSelfAddr);
         socketTransport->GetPeerAddr(&mPeerAddr);
-        bool isTrr = false;
         socketTransport->ResolvedByTRR(&isTrr);
-        mResolvedByTRR = isTrr;
       }
     }
+    mResolvedByTRR = isTrr;
   }
 
   // block socket status event after Cancel or OnStopRequest has been called.
@@ -9790,24 +9789,28 @@ void nsHttpChannel::MaybeWarnAboutAppCache() {
 
 // Step 10 of HTTP-network-or-cache fetch
 void nsHttpChannel::SetOriginHeader() {
-  if (mRequestHead.IsGet() || mRequestHead.IsHead()) {
-    return;
-  }
   nsresult rv;
 
   nsAutoCString existingHeader;
   Unused << mRequestHead.GetHeader(nsHttp::Origin, existingHeader);
-  if (!existingHeader.IsEmpty()) {
-    LOG(("nsHttpChannel::SetOriginHeader Origin header already present"));
+  if (!existingHeader.IsEmpty() && !existingHeader.EqualsLiteral("null")) {
+    LOG(
+        ("nsHttpChannel::SetOriginHeader Origin header already present "
+         "[this=%p]",
+         this));
     nsCOMPtr<nsIURI> uri;
     rv = NS_NewURI(getter_AddRefs(uri), existingHeader);
-    if (NS_SUCCEEDED(rv) &&
+    if (NS_FAILED(rv) || !dom::ReferrerInfo::IsReferrerSchemeAllowed(uri) ||
         ReferrerInfo::ShouldSetNullOriginHeader(this, uri)) {
-      LOG(("nsHttpChannel::SetOriginHeader null Origin by Referrer-Policy"));
-      rv = mRequestHead.SetHeader(nsHttp::Origin, NS_LITERAL_CSTRING("null"),
-                                  false /* merge */);
-      MOZ_ASSERT(NS_SUCCEEDED(rv));
+      LOG(("nsHttpChannel::SetOriginHeader to null Origin [this=%p]", this));
+      DebugOnly<nsresult> success = mRequestHead.SetHeader(
+          nsHttp::Origin, NS_LITERAL_CSTRING("null"), false /* merge */);
+      MOZ_ASSERT(NS_SUCCEEDED(success));
     }
+    return;
+  }
+
+  if (mRequestHead.IsGet() || mRequestHead.IsHead()) {
     return;
   }
 

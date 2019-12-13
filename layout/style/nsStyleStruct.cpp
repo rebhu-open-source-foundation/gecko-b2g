@@ -3124,7 +3124,7 @@ nsStyleVisibility::nsStyleVisibility(const Document& aDocument)
     : mDirection(aDocument.GetBidiOptions() == IBMBIDI_TEXTDIRECTION_RTL
                      ? NS_STYLE_DIRECTION_RTL
                      : NS_STYLE_DIRECTION_LTR),
-      mVisible(NS_STYLE_VISIBILITY_VISIBLE),
+      mVisible(StyleVisibility::Visible),
       mImageRendering(NS_STYLE_IMAGE_RENDERING_AUTO),
       mWritingMode(NS_STYLE_WRITING_MODE_HORIZONTAL_TB),
       mTextOrientation(StyleTextOrientation::Mixed),
@@ -3160,12 +3160,12 @@ nsChangeHint nsStyleVisibility::CalcDifference(
       hint |= nsChangeHint_AllReflowHints | nsChangeHint_RepaintFrame;
     }
     if (mVisible != aNewData.mVisible) {
-      if (mVisible == NS_STYLE_VISIBILITY_VISIBLE ||
-          aNewData.mVisible == NS_STYLE_VISIBILITY_VISIBLE) {
+      if (mVisible == StyleVisibility::Visible ||
+          aNewData.mVisible == StyleVisibility::Visible) {
         hint |= nsChangeHint_VisibilityChange;
       }
-      if ((NS_STYLE_VISIBILITY_COLLAPSE == mVisible) ||
-          (NS_STYLE_VISIBILITY_COLLAPSE == aNewData.mVisible)) {
+      if (StyleVisibility::Collapse == mVisible ||
+          StyleVisibility::Collapse == aNewData.mVisible) {
         hint |= NS_STYLE_HINT_REFLOW;
       } else {
         hint |= NS_STYLE_HINT_VISUAL;
@@ -3609,7 +3609,7 @@ nsStyleUI::nsStyleUI(const Document& aDocument)
     : mUserInput(StyleUserInput::Auto),
       mUserModify(StyleUserModify::ReadOnly),
       mUserFocus(StyleUserFocus::None),
-      mPointerEvents(NS_STYLE_POINTER_EVENTS_AUTO),
+      mPointerEvents(StylePointerEvents::Auto),
       mCursor(StyleCursorKind::Auto),
       mCaretColor(StyleColorOrAuto::Auto()),
       mScrollbarColor(StyleScrollbarColor::Auto()) {

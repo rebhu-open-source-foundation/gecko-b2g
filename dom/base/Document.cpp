@@ -5934,7 +5934,7 @@ already_AddRefed<PresShell> Document::CreatePresShell(
 
   AssertNoStaleServoDataIn(*this);
 
-  RefPtr<PresShell> presShell = new PresShell;
+  RefPtr<PresShell> presShell = new PresShell(this);
   // Note: we don't hold a ref to the shell (it holds a ref to us)
   mPresShell = presShell;
 
@@ -5943,7 +5943,7 @@ already_AddRefed<PresShell> Document::CreatePresShell(
     FillStyleSet();
   }
 
-  presShell->Init(this, aContext, aViewManager);
+  presShell->Init(aContext, aViewManager);
 
   if (hadStyleSheets) {
     // Gaining a shell causes changes in how media queries are evaluated, so
@@ -6885,17 +6885,6 @@ bool Document::RemoveObserver(nsIDocumentObserver* aObserver) {
 }
 
 void Document::BeginUpdate() {
-  // If the document is going away, then it's probably okay to do things to it
-  // in the wrong DocGroup. We're unlikely to run JS or do anything else
-  // observable at this point. We reach this point when cycle collecting a
-  // <link> element and the unlink code removes a style sheet.
-  //
-  // TODO(emilio): Style updates are gone, can this happen now?
-  if (mDocGroup && !mIsGoingAway && !mInUnlinkOrDeletion &&
-      !mIgnoreDocGroupMismatches) {
-    mDocGroup->ValidateAccess();
-  }
-
   ++mUpdateNestLevel;
   nsContentUtils::AddScriptBlocker();
   NS_DOCUMENT_NOTIFY_OBSERVERS(BeginUpdate, (this));
@@ -9687,11 +9676,6 @@ EventListenerManager* Document::GetExistingListenerManager() const {
 }
 
 void Document::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
-  if (mDocGroup && aVisitor.mEvent->mMessage != eVoidEvent &&
-      !mIgnoreDocGroupMismatches) {
-    mDocGroup->ValidateAccess();
-  }
-
   aVisitor.mCanHandle = true;
   // FIXME! This is a hack to make middle mouse paste working also in Editor.
   // Bug 329119

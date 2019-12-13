@@ -852,6 +852,33 @@ pref("devtools.recordreplay.logging", false);
 pref("devtools.recordreplay.loggingFull", false);
 pref("devtools.recordreplay.fastLogpoints", false);
 
+// Preferences for the new performance panel.
+// This pref configures the base URL for the profiler.firefox.com instance to
+// use. This is useful so that a developer can change it while working on
+// profiler.firefox.com, or in tests. This isn't exposed directly to the user.
+pref("devtools.performance.recording.ui-base-url", "https://profiler.firefox.com");
+
+// Profiler buffer size. It is the maximum number of 8-bytes entries in the
+// profiler's buffer. 10000000 is ~80mb.
+pref("devtools.performance.recording.entries", 10000000);
+// Profiler interval in microseconds. 1000µs is 1ms
+pref("devtools.performance.recording.interval", 1000);
+// Profiler duration of entries in the profiler's buffer in seconds.
+// `0` means no time limit for the markers, they roll off naturally from the
+// circular buffer.
+pref("devtools.performance.recording.duration", 0);
+// Profiler feature set. See tools/profiler/core/platform.cpp for features and
+// explanations. Android additionally has "java" feature but other features must
+// be the same. If you intend to change the default value of this pref, please
+// don't forget to change the mobile/android/app/mobile.js accordingly.
+pref("devtools.performance.recording.features", "[\"js\",\"leaf\",\"stackwalk\"]");
+// Threads to be captured by the profiler.
+pref("devtools.performance.recording.threads", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
+// A JSON array of strings, where each string is a file path to an objdir on
+// the host machine. This is used in order to look up symbol information from
+// build artifacts of local builds.
+pref("devtools.performance.recording.objdirs", "[]");
+
 // view source
 pref("view_source.syntax_highlight", true);
 pref("view_source.wrap_long_lines", false);
@@ -3921,21 +3948,19 @@ pref("signon.autofillForms.autocompleteOff", true);
 pref("signon.autofillForms.http",           false);
 pref("signon.autologin.proxy",              false);
 pref("signon.formlessCapture.enabled",      true);
-pref("signon.generation.available",         false);
-pref("signon.generation.enabled",           false);
-pref("signon.privateBrowsingCapture.enabled", false);
+pref("signon.generation.available",               true);
+pref("signon.generation.enabled",                 true);
+pref("signon.privateBrowsingCapture.enabled",     true);
 pref("signon.storeWhenAutocompleteOff",     true);
 pref("signon.userInputRequiredToCapture.enabled", false);
 pref("signon.debug",                        false);
 pref("signon.recipes.path",                 "chrome://passwordmgr/content/recipes.json");
-pref("signon.schemeUpgrades",               false);
-pref("signon.includeOtherSubdomainsInLookup", false);
+pref("signon.schemeUpgrades",                     true);
+pref("signon.includeOtherSubdomainsInLookup",     true);
 // This temporarily prevents the master password to reprompt for autocomplete.
 pref("signon.masterPasswordReprompt.timeout_ms", 900000); // 15 Minutes
-pref("signon.showAutoCompleteFooter", false);
-pref("signon.showAutoCompleteOrigins", false);
-// Enable login manager storage.
-pref("signon.storeSignons", true);
+pref("signon.showAutoCompleteFooter",             true);
+pref("signon.showAutoCompleteOrigins",            true);
 
 // Satchel (Form Manager) prefs
 pref("browser.formfill.debug",            false);

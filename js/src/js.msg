@@ -426,6 +426,7 @@ MSG_DEF(JSMSG_WASM_NO_TRANSFER,        0, JSEXN_TYPEERR,     "cannot transfer We
 MSG_DEF(JSMSG_WASM_TEXT_FAIL,          1, JSEXN_SYNTAXERR,   "wasm text error: {0}")
 MSG_DEF(JSMSG_WASM_MISSING_MAXIMUM,    0, JSEXN_TYPEERR,     "'shared' is true but maximum is not specified")
 MSG_DEF(JSMSG_WASM_GLOBAL_IMMUTABLE,   0, JSEXN_TYPEERR,     "can't set value of immutable global")
+MSG_DEF(JSMSG_WASM_NULL_REQUIRED,      0, JSEXN_TYPEERR,     "nullref requires a null value")
 
 // Proxy
 MSG_DEF(JSMSG_BAD_TRAP_RETURN_VALUE,   2, JSEXN_TYPEERR,"trap {1} for {0} returned a primitive value")
@@ -731,3 +732,6 @@ MSG_DEF(JSMSG_BAD_HOLDINGS,                              0, JSEXN_TYPEERR, "The 
 MSG_DEF(JSMSG_BAD_UNREGISTER_TOKEN,                      1, JSEXN_TYPEERR, "Invalid unregister token passed to {0}")
 MSG_DEF(JSMSG_STALE_FINALIZATION_GROUP_ITERATOR,         0, JSEXN_TYPEERR, "Can't use stale finalization group iterator")
 MSG_DEF(JSMSG_BAD_CLEANUP_STATE,                         0, JSEXN_TYPEERR, "Can't call FinalizeGroup.cleanupSome while cleanup is in progress")
+
+// WeakRef
+MSG_DEF(JSMSG_NOT_A_WEAK_REF,                            1, JSEXN_TYPEERR, "{0} is not a WeakRef")

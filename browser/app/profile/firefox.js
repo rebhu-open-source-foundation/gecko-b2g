@@ -320,13 +320,12 @@ pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
 #ifdef NIGHTLY_BUILD
   // Whether the quantum bar displays design update 1.
   pref("browser.urlbar.update1", true);
-  // Whether we expand the font size when when the urlbar is
-  // focused in design update 1.
-  pref("browser.urlbar.update1.expandTextOnFocus", true);
   // Whether the urlbar should strip https from urls in the view.
   pref("browser.urlbar.update1.view.stripHttps", true);
 #else
   pref("browser.urlbar.update1", false);
+  // Whether we expand the font size when when the urlbar is
+  // focused in design update 1.
   pref("browser.urlbar.update1.expandTextOnFocus", false);
   pref("browser.urlbar.update1.view.stripHttps", false);
 #endif
@@ -1745,17 +1744,10 @@ pref("extensions.pocket.enabled", true);
 pref("extensions.pocket.oAuthConsumerKey", "40249-e88c401e1b1f2242d9e441c4");
 pref("extensions.pocket.site", "getpocket.com");
 
-pref("signon.generation.available", true);
-pref("signon.generation.enabled", true);
-pref("signon.schemeUpgrades", true);
-pref("signon.privateBrowsingCapture.enabled", true);
-pref("signon.showAutoCompleteFooter", true);
 pref("signon.management.page.enabled", true);
 pref("signon.management.page.breach-alerts.enabled", true);
 pref("signon.management.page.sort", "name");
 pref("signon.management.overrideURI", "about:logins?filter=%DOMAIN%");
-pref("signon.showAutoCompleteOrigins", true);
-pref("signon.includeOtherSubdomainsInLookup", true);
 // The utm_creative value is appended within the code (specific to the location on
 // where it is clicked). Be sure that if these two prefs are updated, that
 // the utm_creative param be last.
@@ -2074,37 +2066,6 @@ pref("devtools.performance.ui.enable-memory-flame", false);
   pref("devtools.performance.ui.experimental", false);
 #endif
 
-// Preferences for the new performance panel.
-// This pref configures the base URL for the profiler.firefox.com instance to
-// use. This is useful so that a developer can change it while working on
-// profiler.firefox.com, or in tests. This isn't exposed directly to the user.
-pref("devtools.performance.recording.ui-base-url", "https://profiler.firefox.com");
-
-// Profiler buffer size. It is the maximum number of 8-bytes entries in the
-// profiler's buffer. 10000000 is ~80mb.
-pref("devtools.performance.recording.entries", 10000000);
-// Profiler interval in microseconds. 1000µs is 1ms
-pref("devtools.performance.recording.interval", 1000);
-// Profiler duration of entries in the profiler's buffer in seconds.
-// `0` means no time limit for the markers, they roll off naturally from the
-// circular buffer.
-pref("devtools.performance.recording.duration", 0);
-// Profiler feature set. See tools/profiler/core/platform.cpp for features and
-// explanations.
-#if defined(__ANDROID__)
-  // If it's android, add "java" feature as well. Other features must be same
-  // with else branch. Please update both of them.
-  pref("devtools.performance.recording.features", "[\"js\",\"leaf\",\"stackwalk\",\"java\"]");
-#else
-  // Please update the if branch as well if you upadate this.
-  pref("devtools.performance.recording.features", "[\"js\",\"leaf\",\"stackwalk\"]");
-#endif
-pref("devtools.performance.recording.threads", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
-// A JSON array of strings, where each string is a file path to an objdir on
-// the host machine. This is used in order to look up symbol information from
-// build artifacts of local builds.
-pref("devtools.performance.recording.objdirs", "[]");
-
 // The default cache UI setting
 pref("devtools.cache.disabled", false);
 
@@ -2188,6 +2149,10 @@ pref("devtools.webconsole.filter.netxhr", false);
 
 // Webconsole autocomplete preference
 pref("devtools.webconsole.input.autocomplete",true);
+
+// Set to true to eagerly show the results of webconsole terminal evaluations
+// when they don't have side effects.
+pref("devtools.webconsole.input.eagerEvaluation", false);
 
 // Browser console filters
 pref("devtools.browserconsole.filter.error", true);
