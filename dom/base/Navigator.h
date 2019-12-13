@@ -306,9 +306,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_B2G_RIL
   RefPtr<MobileConnectionArray> mMobileConnections;
 #endif
-#ifdef MOZ_B2G_BT
-  RefPtr<bluetooth::BluetoothManager> mBluetooth;
-#endif
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   RefPtr<system::AudioChannelManager> mAudioChannelManager;
 #endif
