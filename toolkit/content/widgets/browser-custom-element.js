@@ -391,6 +391,8 @@
       this._autoScrollScrollId = null;
 
       this._autoScrollPresShellId = null;
+
+      this._audioChannels = null;
     }
 
     connectedCallback() {
@@ -913,6 +915,15 @@
 
     get dontPromptAndUnload() {
       return 2;
+    }
+
+    get allowedAudioChannels() {
+      if (!this._audioChannels) {
+        this._audioChannels = AudioChannelHandler.generateAllowedChannels(
+          this.frameLoader
+        );
+      }
+      return this._audioChannels;
     }
 
     _wrapURIChangeCall(fn) {

@@ -534,6 +534,10 @@
     stop() {
       this.browser && this.browser.stop();
     }
+
+    get allowedAudioChannels() {
+      return this.browser.allowedAudioChannels;
+    }
   }
 
   console.log(`Setting up <web-view> custom element`);
