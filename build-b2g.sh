@@ -136,7 +136,7 @@ export CPPFLAGS="-fPIC \
 -isystem $GONK_PATH/api/cpp/include \
 $CFLAGS"
 
-export CXXFLAGS="$CPPFLAGS -std=c++14"
+export CXXFLAGS="$CPPFLAGS -std=c++17"
 
 export RUSTC_OPT_LEVEL=z
 
