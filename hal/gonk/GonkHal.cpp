@@ -412,7 +412,6 @@ VibratorRunnable::Run()
 #if ANDROID_VERSION < 27
         vibrator_on(duration);
 #else
-        MOZ_DBG(duration);
         // Get a handle to the HIDL vibrator service.
         auto vibrator = android::hardware::vibrator::V1_0::IVibrator::getService();
         vibrator->on(duration);

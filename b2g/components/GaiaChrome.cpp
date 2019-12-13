@@ -69,7 +69,7 @@ GaiaChrome::ComputeAppsPath(nsIFile* aPath)
   bool appsInData = EnsureIsDirectory(locationDetection);
 
   if (!appsInData && !appsInSystem) {
-    MOZ_DBG("!!! No base directory with apps found.");
+    printf_stderr("!!! No base directory with apps found.");
     // Just return an error instead of crashing, since it will be obvious
     // anyway if resources don't load as expected.
     return NS_ERROR_UNEXPECTED;

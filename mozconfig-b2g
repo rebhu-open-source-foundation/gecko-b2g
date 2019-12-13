@@ -19,6 +19,8 @@ ac_add_options --disable-webrtc
 ac_add_options --disable-printing
 ac_add_options --disable-updater
 ac_add_options --disable-cranelift
+# Disable telemetry
+ac_add_options MOZ_TELEMETRY_REPORTING=
 
 if [ "${B2G_DEBUG:-0}" != "0" ]; then
   ac_add_options --enable-debug
@@ -52,6 +54,11 @@ ac_add_options --with-gonk="$GONK_PATH"
 if [ -f "$GECKO_OBJDIR" ]; then
 mk_add_options MOZ_OBJDIR="$GECKO_OBJDIR"
 fi
+
+# Pretend to be an official build to be in a release configuration.
+export MOZILLA_OFFICIAL=1
+# elf hack fails with a "Segments overlap" error.
+ac_add_options --disable-elf-hack
 
 ac_add_options --with-gnss-so="$SYS_LIB/android.hardware.gnss@1.0.so"
 ac_add_options --with-vibrator-so="$SYS_LIB/android.hardware.vibrator@1.0.so"

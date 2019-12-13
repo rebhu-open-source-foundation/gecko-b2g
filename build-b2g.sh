@@ -138,7 +138,7 @@ $CFLAGS"
 
 export CXXFLAGS="$CPPFLAGS -std=c++17"
 
-export RUSTC_OPT_LEVEL=z
+# export RUSTC_OPT_LEVEL=z
 
 GCC_LIB="-L$GONK_PATH/prebuilts/gcc/darwin-x86/arm/arm-linux-androideabi-4.9/lib/gcc/arm-linux-androideabi/4.9.x/"
 
