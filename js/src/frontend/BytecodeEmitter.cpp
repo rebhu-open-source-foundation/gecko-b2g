@@ -411,22 +411,6 @@ bool BytecodeEmitter::emitJump(JSOp op, JumpList* jump) {
   return true;
 }
 
-bool BytecodeEmitter::emitBackwardJump(JSOp op, JumpTarget target,
-                                       JumpList* jump,
-                                       JumpTarget* fallthrough) {
-  if (!emitJumpNoFallthrough(op, jump)) {
-    return false;
-  }
-  patchJumpsToTarget(*jump, target);
-
-  // Unconditionally create a fallthrough for closing iterators, and as a
-  // target for break statements.
-  if (!emitJumpTarget(fallthrough)) {
-    return false;
-  }
-  return true;
-}
-
 void BytecodeEmitter::patchJumpsToTarget(JumpList jump, JumpTarget target) {
   MOZ_ASSERT(
       !jump.offset.valid() ||
@@ -5175,7 +5159,7 @@ bool BytecodeEmitter::emitAsyncIterator() {
 bool BytecodeEmitter::emitSpread(bool allowSelfHosted) {
   LoopControl loopInfo(this, StatementKind::Spread);
 
-  if (!loopInfo.emitLoopHead(this, Nothing(), SRC_FOR_OF)) {
+  if (!loopInfo.emitLoopHead(this, Nothing())) {
     //              [stack] NEXT ITER ARR I
     return false;
   }
@@ -6255,8 +6239,9 @@ bool BytecodeEmitter::emitYieldStar(ParseNode* iter) {
     return false;
   }
 
-  JumpTarget tryStart;
-  if (!emitJumpTarget(&tryStart)) {
+  LoopControl loopInfo(this, StatementKind::YieldStar);
+
+  if (!loopInfo.emitLoopHead(this, Nothing())) {
     //              [stack] NEXT ITER RESULT
     return false;
   }
@@ -6558,15 +6543,11 @@ bool BytecodeEmitter::emitYieldStar(ParseNode* iter) {
     //              [stack] NEXT ITER RESULT
     return false;
   }
-  {
-    // goto tryStart;
-    JumpList beq;
-    JumpTarget breakTarget;
-    if (!emitBackwardJump(JSOP_GOTO, tryStart, &beq, &breakTarget)) {
-      //            [stack] NEXT ITER RESULT
-      return false;
-    }
+  if (!emitJump(JSOP_GOTO, &loopInfo.continues)) {
+    //              [stack] NEXT ITER RESULT
+    return false;
   }
+
   bytecodeSection().setStackDepth(savedDepthTemp);
   if (!ifReturnDone.emitEnd()) {
     return false;
@@ -6654,7 +6635,7 @@ bool BytecodeEmitter::emitYieldStar(ParseNode* iter) {
 
   //                [stack] NEXT ITER RESULT
 
-  // if (!result.done) goto tryStart;
+  // if (result.done) break;
   if (!emit1(JSOP_DUP)) {
     //              [stack] NEXT ITER RESULT RESULT
     return false;
@@ -6663,14 +6644,19 @@ bool BytecodeEmitter::emitYieldStar(ParseNode* iter) {
     //              [stack] NEXT ITER RESULT DONE
     return false;
   }
-  // if (!DONE) goto tryStart;
-  {
-    JumpList beq;
-    JumpTarget breakTarget;
-    if (!emitBackwardJump(JSOP_IFEQ, tryStart, &beq, &breakTarget)) {
-      //            [stack] NEXT ITER RESULT
-      return false;
-    }
+  if (!emitJump(JSOP_IFNE, &loopInfo.breaks)) {
+    //              [stack] NEXT ITER RESULT
+    return false;
+  }
+
+  if (!loopInfo.emitContinueTarget(this)) {
+    //              [stack] NEXT ITER RESULT
+    return false;
+  }
+
+  if (!loopInfo.emitLoopEnd(this, JSOP_GOTO, JSTRY_LOOP)) {
+    //              [stack] NEXT ITER RESULT
+    return false;
   }
 
   // result.value

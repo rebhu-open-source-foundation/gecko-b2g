@@ -438,9 +438,11 @@ pref("media.videocontrols.picture-in-picture.video-toggle.always-show", false);
   #ifdef NIGHTLY_BUILD
     pref("media.peerconnection.sdp.parser", "sipcc");
     pref("media.peerconnection.sdp.alternate_parse_mode", "never");
+    pref("media.peerconnection.sdp.strict_success", false);
   #else
     pref("media.peerconnection.sdp.parser", "sipcc");
     pref("media.peerconnection.sdp.alternate_parse_mode", "never");
+    pref("media.peerconnection.sdp.strict_success", false);
   #endif
 
   pref("media.webrtc.debug.trace_mask", 0);
@@ -4929,11 +4931,7 @@ pref("devtools.errorconsole.deprecation_warnings", true);
   pref("devtools.debugger.remote-enabled", true, sticky);
 #endif
 
-#if defined(MOZ_DEV_EDITION) || defined(NIGHTLY_BUILD)
-  pref("devtools.debugger.features.watchpoints", true);
-#else
-  pref("devtools.debugger.features.watchpoints", false);
-#endif
+pref("devtools.debugger.features.watchpoints", true);
 
 // Disable remote debugging protocol logging.
 pref("devtools.debugger.log", false);

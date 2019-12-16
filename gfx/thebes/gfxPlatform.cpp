@@ -3381,6 +3381,12 @@ void gfxPlatform::InitWebRenderConfig() {
   FeatureState& featureComp =
       gfxConfig::GetFeature(Feature::WEBRENDER_COMPOSITOR);
   featureComp.SetDefaultFromPref("gfx.webrender.compositor", true, false);
+  if (!StaticPrefs::gfx_webrender_picture_caching()) {
+    featureComp.ForceDisable(
+        FeatureStatus::Unavailable, "Picture caching is disabled",
+        NS_LITERAL_CSTRING("FEATURE_FAILURE_PICTURE_CACHING_DISABLED"));
+  }
+
   if (!IsFeatureSupported(nsIGfxInfo::FEATURE_WEBRENDER_COMPOSITOR, false)) {
     featureComp.ForceDisable(FeatureStatus::Blacklisted, "Blacklisted",
                              NS_LITERAL_CSTRING("FEATURE_FAILURE_BLACKLIST"));
@@ -3388,9 +3394,9 @@ void gfxPlatform::InitWebRenderConfig() {
 
 #ifdef XP_WIN
   if (!gfxVars::UseWebRenderDCompWin()) {
-    featureComp.ForceDisable(FeatureStatus::Unavailable,
-                             "No DirectComposition usage",
-                             NS_LITERAL_CSTRING("FEATURE_FAILURE_BLACKLIST"));
+    featureComp.ForceDisable(
+        FeatureStatus::Unavailable, "No DirectComposition usage",
+        NS_LITERAL_CSTRING("FEATURE_FAILURE_NO_DIRECTCOMPOSITION"));
   }
 #endif
 
@@ -3399,6 +3405,20 @@ void gfxPlatform::InitWebRenderConfig() {
     // Call UserEnable() only for reporting to Decision Log.
     // If feature is enabled by default. It is not reported to Decision Log.
     featureComp.UserEnable("Enabled");
+  }
+
+  // Initialize WebRender partial present config.
+  // It is used only for reporting to Decision Log.
+  if (StaticPrefs::gfx_webrender_max_partial_present_rects_AtStartup() > 0) {
+    // Partial present is used only when WebRender compositor is not used.
+    if (UseWebRender() && !gfxVars::UseWebRenderCompositor()) {
+      FeatureState& featurePartial =
+          gfxConfig::GetFeature(Feature::WEBRENDER_PARTIAL);
+      featurePartial.EnableByDefault();
+      // Call UserEnable() only for reporting to Decision Log.
+      // If feature is enabled by default. It is not reported to Decision Log.
+      featurePartial.UserEnable("Enabled");
+    }
   }
 
   // Set features that affect WR's RendererOptions

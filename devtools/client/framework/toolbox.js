@@ -651,8 +651,6 @@ Toolbox.prototype = {
   _onTargetDestroyed({ type, targetFront, isTopLevel }) {
     if (isTopLevel) {
       this.detachTarget();
-    } else {
-      this._stopThreadFrontListeners(targetFront.threadFront);
     }
   },
 
@@ -1948,16 +1946,16 @@ Toolbox.prototype = {
    * @param {Boolean} state
    */
   tellRDMAboutPickerState: async function(state) {
-    const { tab } = this.target;
+    const { localTab } = this.target;
 
     if (
-      !ResponsiveUIManager.isActiveForTab(tab) ||
+      !ResponsiveUIManager.isActiveForTab(localTab) ||
       (await !this.target.actorHasMethod("emulation", "setElementPickerState"))
     ) {
       return;
     }
 
-    const ui = ResponsiveUIManager.getResponsiveUIForTab(tab);
+    const ui = ResponsiveUIManager.getResponsiveUIForTab(localTab);
     await ui.emulationFront.setElementPickerState(state);
   },
 
@@ -2980,12 +2978,12 @@ Toolbox.prototype = {
   _refreshHostTitle: function() {
     let title;
 
-    const isOmniscientBrowserToolbox =
+    const isMultiProcessBrowserToolbox =
       this.target.isParentProcess &&
       Services.prefs.getBoolPref("devtools.browsertoolbox.fission", false);
 
-    if (isOmniscientBrowserToolbox) {
-      title = "💥 Omniscient Browser Toolbox 💥";
+    if (isMultiProcessBrowserToolbox) {
+      title = L10N.getStr("toolbox.multiProcessBrowserToolboxTitle");
     } else if (this.target.name && this.target.name != this.target.url) {
       const url = this.target.isWebExtension
         ? this.target.getExtensionPathName(this.target.url)
@@ -3557,7 +3555,11 @@ Toolbox.prototype = {
       return this._destroyer;
     }
 
-    this._destroyer = this._destroyToolbox();
+    // This pattern allows to immediately return the destroyer promise.
+    // See Bug 1602727 for more details.
+    let destroyerResolve;
+    this._destroyer = new Promise(r => (destroyerResolve = r));
+    this._destroyToolbox().then(destroyerResolve);
 
     return this._destroyer;
   },

@@ -685,6 +685,21 @@ NetworkObserver.prototype = {
       }
     }
 
+    // Show the right WebSocket URL in case of WS channel.
+    if (channel.notificationCallbacks) {
+      let wsChannel = null;
+      try {
+        wsChannel = channel.notificationCallbacks.QueryInterface(
+          Ci.nsIWebSocketChannel
+        );
+      } catch (e) {
+        // Not all channels implement nsIWebSocketChannel.
+      }
+      if (wsChannel) {
+        event.url = wsChannel.URI.spec;
+      }
+    }
+
     event.cause = {
       type: causeTypeToString(causeType),
       loadingDocumentUri: causeUri,
@@ -728,7 +743,10 @@ NetworkObserver.prototype = {
     // Check the request URL with ones manually blocked by the user in DevTools.
     // If it's meant to be blocked, we cancel the request and annotate the event.
     if (!blockedReason) {
-      if (this.blockedURLs.some(url => httpActivity.url.includes(url))) {
+      if (blockedReason !== undefined) {
+        // We were definitely blocked, but the blocker didn't say why.
+        event.blockedReason = "unknown";
+      } else if (this.blockedURLs.some(url => httpActivity.url.includes(url))) {
         channel.cancel(Cr.NS_BINDING_ABORTED);
         event.blockedReason = "devtools";
       }

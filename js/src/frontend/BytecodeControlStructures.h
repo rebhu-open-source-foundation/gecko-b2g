@@ -109,18 +109,11 @@ class LoopControl : public BreakableControl {
   // The bytecode offset of JSOP_LOOPHEAD.
   JumpTarget head_;
 
-  // The target of break statement jumps.
-  JumpTarget breakTarget_;
-
   // Stack depth when this loop was pushed on the control stack.
   int32_t stackDepth_;
 
   // The loop nesting depth. Used as a hint to Ion.
   uint32_t loopDepth_;
-
-  // Can we OSR into Ion from here? True unless there is non-loop state on the
-  // stack.
-  bool canIonOsr_;
 
  public:
   // Offset of the last continue in the loop.
@@ -129,7 +122,6 @@ class LoopControl : public BreakableControl {
   LoopControl(BytecodeEmitter* bce, StatementKind loopKind);
 
   BytecodeOffset headOffset() const { return head_.offset; }
-  BytecodeOffset breakTargetOffset() const { return breakTarget_.offset; }
 
   MOZ_MUST_USE bool emitContinueTarget(BytecodeEmitter* bce);
 
@@ -140,8 +132,7 @@ class LoopControl : public BreakableControl {
   // corresponds to the next instruction after JSOP_LOOPHEAD.
   // Can be Nothing() if not available.
   MOZ_MUST_USE bool emitLoopHead(BytecodeEmitter* bce,
-                                 const mozilla::Maybe<uint32_t>& nextPos,
-                                 SrcNoteType type);
+                                 const mozilla::Maybe<uint32_t>& nextPos);
 
   MOZ_MUST_USE bool emitLoopEnd(BytecodeEmitter* bce, JSOp op,
                                 JSTryNoteKind tryNoteKind);

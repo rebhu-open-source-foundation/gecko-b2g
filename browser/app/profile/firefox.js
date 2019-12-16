@@ -324,11 +324,11 @@ pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
   pref("browser.urlbar.update1.view.stripHttps", true);
 #else
   pref("browser.urlbar.update1", false);
-  // Whether we expand the font size when when the urlbar is
-  // focused in design update 1.
-  pref("browser.urlbar.update1.expandTextOnFocus", false);
   pref("browser.urlbar.update1.view.stripHttps", false);
 #endif
+// Whether we expand the font size when when the urlbar is
+// focused in design update 1.
+pref("browser.urlbar.update1.expandTextOnFocus", false);
 
 pref("browser.urlbar.openViewOnFocus", false);
 pref("browser.urlbar.eventTelemetry.enabled", false);
@@ -405,18 +405,13 @@ pref("permissions.default.xr", 0);
 pref("permissions.default.desktop-notification", 0);
 pref("permissions.default.shortcuts", 0);
 
+pref("permissions.delegation.enabled", true);
 pref("permissions.desktop-notification.postPrompt.enabled", true);
 pref("permissions.desktop-notification.notNow.enabled", false);
 
 pref("permissions.fullscreen.allowed", false);
 
 pref("permissions.postPrompt.animate", true);
-
-#ifdef NIGHTLY_BUILD
-  pref("permissions.delegation.enabled", true);
-#else
-  pref("permissions.delegation.enabled", false);
-#endif
 
 // handle links targeting new windows
 // 1=current window/tab, 2=new window, 3=new tab in most recent window
@@ -1708,11 +1703,7 @@ pref("view_source.tab", true);
 
 pref("dom.serviceWorkers.enabled", true);
 
-#ifdef NIGHTLY_BUILD
-  pref("dom.security.featurePolicy.enabled", true);
-#else
-  pref("dom.security.featurePolicy.enabled", false);
-#endif
+pref("dom.security.featurePolicy.enabled", true);
 
 // Enable Push API.
 pref("dom.push.enabled", true);
@@ -1842,6 +1833,7 @@ pref("app.normandy.logging.level", 50); // Warn
 pref("app.normandy.run_interval_seconds", 21600); // 6 hours
 pref("app.normandy.shieldLearnMoreUrl", "https://support.mozilla.org/1/firefox/%VERSION%/%OS%/%LOCALE%/shield");
 pref("app.normandy.last_seen_buildid", "");
+pref("app.normandy.onsync_skew_sec", 600);
 #ifdef MOZ_DATA_REPORTING
   pref("app.shield.optoutstudies.enabled", true);
 #else

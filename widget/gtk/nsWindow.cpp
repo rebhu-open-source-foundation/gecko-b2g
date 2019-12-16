@@ -990,8 +990,6 @@ void nsWindow::SetSizeConstraints(const SizeConstraints& aConstraints) {
 }
 
 void nsWindow::ApplySizeConstraints(void) {
-  LOG(("nsWindow::ApplySizeConstraints [%p]\n", (void*)this));
-
   if (mShell) {
     GdkGeometry geometry;
     geometry.min_width =
@@ -1003,11 +1001,6 @@ void nsWindow::ApplySizeConstraints(void) {
     geometry.max_height =
         DevicePixelsToGdkCoordRoundDown(mSizeConstraints.mMaxSize.height);
 
-    LOG(("    min width %d min height %d\n", geometry.min_width,
-         geometry.min_height));
-    LOG(("    max width %d max height %d\n", geometry.max_width,
-         geometry.max_height));
-
     uint32_t hints = 0;
     if (mSizeConstraints.mMinSize != LayoutDeviceIntSize(0, 0)) {
       hints |= GDK_HINT_MIN_SIZE;
@@ -1018,7 +1011,6 @@ void nsWindow::ApplySizeConstraints(void) {
     }
 
     if (mAspectRatio != 0.0f) {
-      LOG(("    aspect %f\n", mAspectRatio));
       geometry.min_aspect = mAspectRatio;
       geometry.max_aspect = mAspectRatio;
       hints |= GDK_HINT_ASPECT;
@@ -4444,23 +4436,25 @@ void nsWindow::HideWaylandWindow() {
           g_list_delete_link(gVisibleWaylandPopupWindows, foundWindow);
     }
   }
-  if (mContainer && moz_container_has_wl_egl_window(mContainer)) {
-    // Because wl_egl_window is destroyed on moz_container_unmap(),
-    // the current compositor cannot use it anymore. To avoid crash,
-    // pause the compositor and destroy EGLSurface & resume the compositor
-    // and re-create EGLSurface on next expose event.
-    MOZ_ASSERT(GetRemoteRenderer());
-    if (CompositorBridgeChild* remoteRenderer = GetRemoteRenderer()) {
-      // XXX slow sync IPC
-      remoteRenderer->SendPause();
-      // Re-request initial draw callback
-      RefPtr<nsWindow> self(this);
-      moz_container_add_initial_draw_callback(mContainer, [self]() -> void {
-        self->mNeedsCompositorResume = true;
-        self->MaybeResumeCompositor();
-      });
-    } else {
-      DestroyLayerManager();
+  if (!mIsDestroyed) {
+    if (mContainer && moz_container_has_wl_egl_window(mContainer)) {
+      // Because wl_egl_window is destroyed on moz_container_unmap(),
+      // the current compositor cannot use it anymore. To avoid crash,
+      // pause the compositor and destroy EGLSurface & resume the compositor
+      // and re-create EGLSurface on next expose event.
+      MOZ_ASSERT(GetRemoteRenderer());
+      if (CompositorBridgeChild* remoteRenderer = GetRemoteRenderer()) {
+        // XXX slow sync IPC
+        remoteRenderer->SendPause();
+        // Re-request initial draw callback
+        RefPtr<nsWindow> self(this);
+        moz_container_add_initial_draw_callback(mContainer, [self]() -> void {
+          self->mNeedsCompositorResume = true;
+          self->MaybeResumeCompositor();
+        });
+      } else {
+        DestroyLayerManager();
+      }
     }
   }
 #endif
@@ -4798,11 +4792,8 @@ void nsWindow::UpdateOpaqueRegionGtk(cairo_region_t* aRegion) {
 }
 
 void nsWindow::UpdateOpaqueRegion(const LayoutDeviceIntRegion& aOpaqueRegion) {
-  LOG(("nsWindow::UpdateOpaqueRegion [%p]\n", (void*)this));
-
   // Also don't set shape mask if we use transparency bitmap.
   if (mTransparencyBitmapForTitlebar) {
-    LOG(("    disabled due to transparency bitmap\n"));
     return;
   }
 
@@ -4811,7 +4802,6 @@ void nsWindow::UpdateOpaqueRegion(const LayoutDeviceIntRegion& aOpaqueRegion) {
   // We don't tweak opaque regions for non-toplevel windows (popup, panels etc.)
   // as they can be transparent by gecko.
   if (mWindowType != eWindowType_toplevel) {
-    LOG(("    setting for non-toplevel window\n"));
     if (!aOpaqueRegion.IsEmpty()) {
       region = cairo_region_create();
       for (auto iter = aOpaqueRegion.RectIter(); !iter.Done(); iter.Next()) {
@@ -4829,26 +4819,22 @@ void nsWindow::UpdateOpaqueRegion(const LayoutDeviceIntRegion& aOpaqueRegion) {
     GtkBorder decorationSize = {0, 0, 0, 0};
     if (mCSDSupportLevel == CSD_SUPPORT_CLIENT &&
         mSizeState == nsSizeMode_Normal) {
-      GetCSDDecorationSize(GTK_WINDOW(mShell), &decorationSize);
+      decorationSize = GetCSDDecorationSize(
+          gtk_window_get_window_type(GTK_WINDOW(mShell)) == GTK_WINDOW_POPUP);
     }
 
-    int scale = GdkScaleFactor();
-    int width = mBounds.width / scale;
-    int height = mBounds.height / scale;
+    int width = DevicePixelsToGdkCoordRoundDown(mBounds.width);
+    int height = DevicePixelsToGdkCoordRoundDown(mBounds.height);
 
     cairo_rectangle_int_t rect = {decorationSize.left, decorationSize.top,
                                   width, height};
     cairo_region_union_rectangle(region, &rect);
-
-    LOG(("    setting for toplevel window %d,%d -> %d x %d\n", rect.x, rect.y,
-         rect.width, rect.height));
 
     // Subtract transparent corners which are used by
     // various Gtk themes for toplevel windows when titlebar
     // is rendered by gecko.
     if (mDrawInTitlebar && !mIsPIPWindow && mSizeState == nsSizeMode_Normal &&
         !mIsTiled) {
-      LOG(("    substracted corners for titlebar decoration\n"));
       cairo_rectangle_int_t rect = {decorationSize.left, decorationSize.top,
                                     TITLEBAR_SHAPE_MASK_HEIGHT,
                                     TITLEBAR_SHAPE_MASK_HEIGHT};
@@ -6834,9 +6820,10 @@ void nsWindow::UpdateClientOffsetForCSDWindow() {
   // so we need to read offset between mContainer and toplevel mShell
   // window.
   if (mSizeState == nsSizeMode_Normal) {
-    GtkBorder decorationSize;
-    GetCSDDecorationSize(GTK_WINDOW(mShell), &decorationSize);
-    mClientOffset = nsIntPoint(decorationSize.left, decorationSize.top);
+    GtkBorder decorationSize = GetCSDDecorationSize(
+        gtk_window_get_window_type(GTK_WINDOW(mShell)) == GTK_WINDOW_POPUP);
+    mClientOffset = nsIntPoint(GdkCoordToDevicePixels(decorationSize.left),
+                               GdkCoordToDevicePixels(decorationSize.top));
   } else {
     mClientOffset = nsIntPoint(0, 0);
   }
@@ -7657,13 +7644,12 @@ GtkTextDirection nsWindow::GetTextDirection() {
 
 void nsWindow::LockAspectRatio(bool aShouldLock) {
   if (aShouldLock) {
-    gint scale = GdkScaleFactor();
-    float width = (float)mBounds.Width() / scale;
-    float height = (float)mBounds.Height() / scale;
+    float width = (float)DevicePixelsToGdkCoordRoundDown(mBounds.width);
+    float height = (float)DevicePixelsToGdkCoordRoundDown(mBounds.height);
 
     if (mCSDSupportLevel == CSD_SUPPORT_CLIENT) {
-      GtkBorder decorationSize;
-      GetCSDDecorationSize(GTK_WINDOW(mShell), &decorationSize);
+      GtkBorder decorationSize = GetCSDDecorationSize(
+          gtk_window_get_window_type(GTK_WINDOW(mShell)) == GTK_WINDOW_POPUP);
       width += decorationSize.left + decorationSize.right;
       height += decorationSize.top + decorationSize.bottom;
     }

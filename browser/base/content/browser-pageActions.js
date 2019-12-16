@@ -4,7 +4,7 @@
 
 ChromeUtils.defineModuleGetter(
   this,
-  "SiteSpecificBrowserService",
+  "SiteSpecificBrowser",
   "resource:///modules/SiteSpecificBrowserService.jsm"
 );
 
@@ -710,7 +710,6 @@ var BrowserPageActions = {
       }
       event.stopPropagation();
     }
-    PageActions.logTelemetry("used", action, buttonNode);
     // If we're in the panel, open a subview inside the panel:
     // Note that we can't use this.panelNode.contains(buttonNode) here
     // because of XBL boundaries breaking Element.contains.
@@ -933,9 +932,6 @@ var BrowserPageActions = {
     let action = this._contextAction;
     this._contextAction = null;
 
-    let telemetryType = action.pinnedToUrlbar ? "removed" : "added";
-    PageActions.logTelemetry(telemetryType, action);
-
     action.pinnedToUrlbar = !action.pinnedToUrlbar;
   },
 
@@ -949,7 +945,6 @@ var BrowserPageActions = {
     let action = this._contextAction;
     this._contextAction = null;
 
-    PageActions.logTelemetry("managed", action);
     AMTelemetry.recordActionEvent({
       object: "pageAction",
       action: "manage",
@@ -1099,12 +1094,18 @@ BrowserPageActions.launchSSB = {
     action.setDisabled(!browser.currentURI.schemeIs("https"), window);
   },
 
-  onCommand(event, buttonNode) {
+  async onCommand(event, buttonNode) {
     if (!gBrowser.currentURI.schemeIs("https")) {
       return;
     }
 
-    SiteSpecificBrowserService.launchFromURI(gBrowser.currentURI);
+    let ssb = await SiteSpecificBrowser.createFromBrowser(
+      gBrowser.selectedBrowser
+    );
+
+    // The site's manifest may point to a different start page so explicitly
+    // open the SSB to the current page.
+    ssb.launch(gBrowser.selectedBrowser.currentURI);
     gBrowser.removeTab(gBrowser.selectedTab, { closeWindowWithLastTab: false });
   },
 };

@@ -468,10 +468,10 @@ DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION(SavedFrame*)
 
 #undef DEFINE_TRACE_EXTERNAL_EDGE_FUNCTION
 
-#define DEFINE_UNSAFE_TRACE_ROOT_FUNCTION(type)                           \
+#define DEFINE_UNSAFE_TRACE_ROOT_FUNCTION(type)                       \
   JS_PUBLIC_API void JS::UnsafeTraceRoot(JSTracer* trc, type* thingp, \
-                                         const char* name) { \
-    UnsafeTraceRootHelper(trc, thingp, name); \
+                                         const char* name) {          \
+    UnsafeTraceRootHelper(trc, thingp, name);                         \
   }
 
 // Define UnsafeTraceRoot for each public GC pointer type.
@@ -544,6 +544,15 @@ template void js::TraceProcessGlobalRoot<JSAtom>(JSTracer*, JSAtom*,
 template void js::TraceProcessGlobalRoot<JS::Symbol>(JSTracer*, JS::Symbol*,
                                                      const char*);
 
+static Cell* TraceGenericPointerRootAndType(JSTracer* trc, Cell* thing,
+                                            JS::TraceKind kind,
+                                            const char* name) {
+  return MapGCThingTyped(thing, kind, [trc, name](auto t) -> Cell* {
+    TraceRoot(trc, &t, name);
+    return t;
+  });
+}
+
 void js::TraceGenericPointerRoot(JSTracer* trc, Cell** thingp,
                                  const char* name) {
   MOZ_ASSERT(thingp);
@@ -552,11 +561,8 @@ void js::TraceGenericPointerRoot(JSTracer* trc, Cell** thingp,
     return;
   }
 
-  auto traced = MapGCThingTyped(thing, thing->getTraceKind(),
-                                [trc, name](auto t) -> Cell* {
-                                  TraceRoot(trc, &t, name);
-                                  return t;
-                                });
+  Cell* traced =
+      TraceGenericPointerRootAndType(trc, thing, thing->getTraceKind(), name);
   if (traced != thing) {
     *thingp = traced;
   }
@@ -580,11 +586,20 @@ void js::TraceManuallyBarrieredGenericPointerEdge(JSTracer* trc, Cell** thingp,
   }
 }
 
-void StackGCCellPtr::trace(JSTracer* trc) {
-  Cell* thing = ptr_.asCell();
-  TraceGenericPointerRoot(trc, &thing, "stack-gc-cell-ptr");
-  if (thing != ptr_.asCell()) {
-    ptr_ = JS::GCCellPtr(thing, ptr_.kind());
+void js::TraceGCCellPtrRoot(JSTracer* trc, JS::GCCellPtr* thingp,
+                            const char* name) {
+  Cell* thing = thingp->asCell();
+  if (!thing) {
+    return;
+  }
+
+  Cell* traced =
+      TraceGenericPointerRootAndType(trc, thing, thingp->kind(), name);
+
+  if (!traced) {
+    *thingp = JS::GCCellPtr();
+  } else if (traced != thingp->asCell()) {
+    *thingp = JS::GCCellPtr(traced, thingp->kind());
   }
 }
 
@@ -2607,7 +2622,8 @@ void GCMarker::enterWeakMarkingMode() {
   for (SweepGroupZonesIter zone(runtime()); !zone.done(); zone.next()) {
     for (auto r = zone->gcWeakKeys().all(); !r.empty(); r.popFront()) {
       for (auto markable : r.front().value) {
-        MOZ_ASSERT(markable.weakmap->mapColor, "unmarked weakmaps in weak keys table");
+        MOZ_ASSERT(markable.weakmap->mapColor,
+                   "unmarked weakmaps in weak keys table");
       }
     }
   }

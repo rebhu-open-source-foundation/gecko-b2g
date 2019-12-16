@@ -17,10 +17,8 @@ const { RemoteAgent } = ChromeUtils.import(
 const add_plain_task = add_task.bind(this);
 this.add_task = function(taskFn, opts = {}) {
   const { createTab = true } = opts;
-
   add_plain_task(async function() {
     let client;
-
     await RemoteAgent.listen(Services.io.newURI("http://localhost:9222"));
     info("CDP server started");
 
@@ -172,9 +170,9 @@ async function loadURL(url) {
  */
 function getContentProperty(prop) {
   info(`Retrieve ${prop} on the content window`);
-  return ContentTask.spawn(
+  return SpecialPowers.spawn(
     gBrowser.selectedBrowser,
-    prop,
+    [prop],
     _prop => content[_prop]
   );
 }
@@ -186,4 +184,9 @@ function timeoutPromise(ms) {
   return new Promise(resolve => {
     window.setTimeout(resolve, ms);
   });
+}
+
+/** Fail a test. */
+function fail(message) {
+  ok(false, message);
 }

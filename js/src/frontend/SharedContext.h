@@ -43,13 +43,15 @@ enum class StatementKind : uint8_t {
   Class,
 
   // Used only by BytecodeEmitter.
-  Spread
+  Spread,
+  YieldStar,
 };
 
 static inline bool StatementKindIsLoop(StatementKind kind) {
   return kind == StatementKind::ForLoop || kind == StatementKind::ForInLoop ||
          kind == StatementKind::ForOfLoop || kind == StatementKind::DoLoop ||
-         kind == StatementKind::WhileLoop || kind == StatementKind::Spread;
+         kind == StatementKind::WhileLoop || kind == StatementKind::Spread ||
+         kind == StatementKind::YieldStar;
 }
 
 static inline bool StatementKindIsUnlabeledBreakTarget(StatementKind kind) {
@@ -401,12 +403,6 @@ class FunctionBox : public ObjectBox, public SharedContext {
   JSAtom* explicitName_;
   FunctionFlags flags_;
 
-  mozilla::Maybe<LazyScriptCreationData> lazyScriptData_;
-
-  mozilla::Maybe<LazyScriptCreationData>& lazyScriptData() {
-    return lazyScriptData_;
-  }
-
   mozilla::Maybe<FunctionCreationData> functionCreationData_;
 
   bool hasFunctionCreationData() { return functionCreationData_.isSome(); }
@@ -489,10 +485,7 @@ class FunctionBox : public ObjectBox, public SharedContext {
   void cleanupMemory() { clearDeferredAllocationInfo(); }
 
   // Clear any deferred allocation info which will no longer be used.
-  void clearDeferredAllocationInfo() {
-    lazyScriptData().reset();
-    functionCreationData().reset();
-  }
+  void clearDeferredAllocationInfo() { functionCreationData().reset(); }
 
   JSFunction* function() const { return &object()->as<JSFunction>(); }
 
@@ -679,8 +672,8 @@ class FunctionBox : public ObjectBox, public SharedContext {
       function()->baseScript()->setFieldInitializers(fi);
       return;
     }
-    MOZ_ASSERT(lazyScriptData());
-    lazyScriptData()->fieldInitializers.emplace(fi);
+    MOZ_ASSERT(functionCreationData()->lazyScriptData);
+    functionCreationData()->lazyScriptData->fieldInitializers.emplace(fi);
   }
 
   void trace(JSTracer* trc) override;

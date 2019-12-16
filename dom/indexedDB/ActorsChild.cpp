@@ -1209,7 +1209,7 @@ class MOZ_STACK_CLASS FileHandleResultHelper final
   }
 };
 
-already_AddRefed<File> ConvertActorToFile(
+MOZ_MUST_USE RefPtr<File> ConvertActorToFile(
     IDBFileHandle* aFileHandle, const FileRequestGetFileResponse& aResponse) {
   auto* const actor = static_cast<PendingIPCBlobChild*>(aResponse.fileChild());
 
@@ -1232,9 +1232,7 @@ already_AddRefed<File> ConvertActorToFile(
   const RefPtr<BlobImpl> blobImplSnapshot =
       new BlobImplSnapshot(blobImpl, static_cast<IDBFileHandle*>(aFileHandle));
 
-  RefPtr<File> file =
-      File::Create(mutableFile->GetOwnerGlobal(), blobImplSnapshot);
-  return file.forget();
+  return File::Create(mutableFile->GetOwnerGlobal(), blobImplSnapshot);
 }
 
 void DispatchFileHandleErrorEvent(IDBFileRequest* aFileRequest,
@@ -2968,7 +2966,7 @@ nsresult BackgroundRequestChild::PreprocessHelper::Init(
   // We use a TaskQueue here in order to be sure that the events are dispatched
   // in the correct order. This is not guaranteed in case we use the I/O thread
   // directly.
-  mTaskQueue = new TaskQueue(target.forget());
+  mTaskQueue = MakeRefPtr<TaskQueue>(target.forget());
   mTaskQueueEventTarget = mTaskQueue->WrapAsEventTarget();
 
   ErrorResult errorResult;
@@ -3438,10 +3436,9 @@ void BackgroundCursorChild::SendContinueInternal(
     // This is accompanied by invalidating cached entries at proper locations to
     // make it correct. To avoid this, further changes are necessary, see Bug
     // 1580499.
-    nsCOMPtr<nsIRunnable> continueRunnable = new DelayedActionRunnable(
-        this, &BackgroundCursorChild::CompleteContinueRequestFromCache);
-    MOZ_ALWAYS_TRUE(
-        NS_SUCCEEDED(NS_DispatchToCurrentThread(continueRunnable.forget())));
+    MOZ_ALWAYS_SUCCEEDS(
+        NS_DispatchToCurrentThread(MakeAndAddRef<DelayedActionRunnable>(
+            this, &BackgroundCursorChild::CompleteContinueRequestFromCache)));
 
     // TODO: Could we preload further entries in the background when the size of
     // mCachedResponses falls under some threshold? Or does the response
@@ -3588,10 +3585,10 @@ void BackgroundCursorChild::HandleResponse(const void_t& aResponse) {
   DispatchSuccessEvent(&helper);
 
   if (!mCursor) {
-    nsCOMPtr<nsIRunnable> deleteRunnable = new DelayedActionRunnable(
-        this, &BackgroundCursorChild::SendDeleteMeInternal);
     MOZ_ALWAYS_SUCCEEDS(this->GetActorEventTarget()->Dispatch(
-        deleteRunnable.forget(), NS_DISPATCH_NORMAL));
+        MakeAndAddRef<DelayedActionRunnable>(
+            this, &BackgroundCursorChild::SendDeleteMeInternal),
+        NS_DISPATCH_NORMAL));
   }
 }
 

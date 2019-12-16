@@ -1395,7 +1395,7 @@ AbortReasonOr<Ok> IonBuilder::addOsrValueTypeBarrier(
              type == MIRType::MagicOptimizedArguments) {
     // No unbox instruction will be added below, so check the type by
     // adding a type barrier for a singleton type set.
-    TypeSet::Type ntype = TypeSet::PrimitiveType(ValueTypeFromMIRType(type));
+    TypeSet::Type ntype = TypeSet::PrimitiveType(type);
     LifoAlloc* lifoAlloc = alloc().lifoAlloc();
     typeSet = lifoAlloc->new_<TemporaryTypeSet>(lifoAlloc, ntype);
     if (!typeSet) {
@@ -1420,6 +1420,13 @@ AbortReasonOr<Ok> IonBuilder::addOsrValueTypeBarrier(
       break;
   }
 
+  // Unbox the OSR value to the type expected by the loop header.
+  //
+  // The only specialized types that can show up here are MIRTypes with a
+  // corresponding TypeSet::Type because NewBaselineFrameInspector and
+  // newPendingLoopHeader use TypeSet::Type for Values from the BaselineFrame.
+  // This means magic values other than MagicOptimizedArguments are represented
+  // as UnknownType() and MIRType::Value. See also TypeSet::IsUntrackedValue.
   switch (type) {
     case MIRType::Boolean:
     case MIRType::Int32:
@@ -1434,6 +1441,10 @@ AbortReasonOr<Ok> IonBuilder::addOsrValueTypeBarrier(
         osrBlock->rewriteSlot(slot, unbox);
         def = unbox;
       }
+      break;
+
+    case MIRType::Value:
+      // Nothing to do.
       break;
 
     case MIRType::Null: {
@@ -1463,7 +1474,7 @@ AbortReasonOr<Ok> IonBuilder::addOsrValueTypeBarrier(
     }
 
     default:
-      break;
+      MOZ_CRASH("Unexpected type");
   }
 
   MOZ_ASSERT(def == osrBlock->getSlot(slot));
@@ -1791,7 +1802,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_loophead() {
   //
   //    LOOPHEAD
   //    ...
-  //    IFNE/IFEQ/GOTO to LOOPHEAD
+  //    IFNE/GOTO to LOOPHEAD
 
   MOZ_ASSERT(*pc == JSOP_LOOPHEAD);
 
@@ -1800,29 +1811,8 @@ AbortReasonOr<Ok> IonBuilder::jsop_loophead() {
     return Ok();
   }
 
-  jssrcnote* sn = GetSrcNote(gsn, script(), pc);
-  MOZ_ASSERT(sn);
-
-  uint32_t stackPhiCount;
-  switch (SN_TYPE(sn)) {
-    case SRC_FOR_OF:
-      stackPhiCount = 3;
-      break;
-    case SRC_FOR_IN:
-    case SRC_FOR:
-    case SRC_WHILE:
-    case SRC_DO_WHILE:
-      stackPhiCount = 0;
-      break;
-    default:
-      MOZ_CRASH("Unexpected source note");
-  }
-
-  bool canOsr = LoopHeadCanIonOsr(pc);
   bool osr = pc == info().osrPc();
   if (osr) {
-    MOZ_ASSERT(canOsr);
-
     MBasicBlock* preheader;
     MOZ_TRY_VAR(preheader, newOsrPreheader(current, pc));
     current->end(MGoto::New(alloc(), preheader));
@@ -1831,8 +1821,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_loophead() {
 
   loopDepth_++;
   MBasicBlock* header;
-  MOZ_TRY_VAR(header,
-              newPendingLoopHeader(current, pc, osr, canOsr, stackPhiCount));
+  MOZ_TRY_VAR(header, newPendingLoopHeader(current, pc, osr));
   current->end(MGoto::New(alloc(), header));
 
   if (!loopStack_.emplaceBack(header)) {
@@ -2802,7 +2791,7 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtTypeOfCompare(MCompare* ins,
       return Ok();
     }
     inputTypes = &tmp;
-    tmp.addType(TypeSet::PrimitiveType(ValueTypeFromMIRType(subject->type())),
+    tmp.addType(TypeSet::PrimitiveOrAnyObjectType(subject->type()),
                 alloc_->lifoAlloc());
   }
 
@@ -2893,7 +2882,7 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtNullOrUndefinedCompare(
       return Ok();
     }
     inputTypes = &tmp;
-    tmp.addType(TypeSet::PrimitiveType(ValueTypeFromMIRType(subject->type())),
+    tmp.addType(TypeSet::PrimitiveOrAnyObjectType(subject->type()),
                 alloc_->lifoAlloc());
   }
 
@@ -2976,9 +2965,8 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtTest(MDefinition* ins,
           return Ok();
         }
         oldType = &tmp;
-        tmp.addType(
-            TypeSet::PrimitiveType(ValueTypeFromMIRType(subject->type())),
-            alloc_->lifoAlloc());
+        tmp.addType(TypeSet::PrimitiveOrAnyObjectType(subject->type()),
+                    alloc_->lifoAlloc());
       }
 
       if (oldType->unknown()) {
@@ -3010,9 +2998,8 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtTest(MDefinition* ins,
           return Ok();
         }
         oldType = &tmp;
-        tmp.addType(
-            TypeSet::PrimitiveType(ValueTypeFromMIRType(subject->type())),
-            alloc_->lifoAlloc());
+        tmp.addType(TypeSet::PrimitiveOrAnyObjectType(subject->type()),
+                    alloc_->lifoAlloc());
       }
 
       // If ins does not have a typeset we return as we cannot optimize.
@@ -3060,7 +3047,7 @@ AbortReasonOr<Ok> IonBuilder::improveTypesAtTest(MDefinition* ins,
       return Ok();
     }
     oldType = &tmp;
-    tmp.addType(TypeSet::PrimitiveType(ValueTypeFromMIRType(ins->type())),
+    tmp.addType(TypeSet::PrimitiveOrAnyObjectType(ins->type()),
                 alloc_->lifoAlloc());
   }
 
@@ -6331,7 +6318,14 @@ AbortReasonOr<bool> IonBuilder::testShouldDOMCall(TypeSet* inTypes,
 }
 
 static bool ArgumentTypesMatch(MDefinition* def, StackTypeSet* calleeTypes) {
-  if (!calleeTypes) {
+  MOZ_ASSERT(calleeTypes);
+
+  if (calleeTypes->unknown()) {
+    return true;
+  }
+
+  if (TypeSet::IsUntrackedMIRType(def->type())) {
+    // The TypeSet has to be marked as unknown. See JitScript::MonitorThisType.
     return false;
   }
 
@@ -6828,10 +6822,7 @@ static bool ObjectOrSimplePrimitive(MDefinition* op) {
   return !op->mightBeType(MIRType::String) &&
          !op->mightBeType(MIRType::BigInt) &&
          !op->mightBeType(MIRType::Double) &&
-         !op->mightBeType(MIRType::Float32) &&
-         !op->mightBeType(MIRType::MagicOptimizedArguments) &&
-         !op->mightBeType(MIRType::MagicHole) &&
-         !op->mightBeType(MIRType::MagicIsConstructing);
+         !op->mightBeType(MIRType::Float32) && !op->mightBeMagicType();
 }
 
 AbortReasonOr<Ok> IonBuilder::compareTrySpecialized(bool* emitted, JSOp op,
@@ -7807,16 +7798,9 @@ AbortReasonOr<MBasicBlock*> IonBuilder::newOsrPreheader(
 }
 
 AbortReasonOr<MBasicBlock*> IonBuilder::newPendingLoopHeader(
-    MBasicBlock* predecessor, jsbytecode* pc, bool osr, bool canOsr,
-    unsigned stackPhiCount) {
-  // If this site can OSR, all values on the expression stack are part of the
-  // loop.
-  if (canOsr) {
-    stackPhiCount = predecessor->stackDepth() - info().firstStackSlot();
-  }
-
+    MBasicBlock* predecessor, jsbytecode* pc, bool osr) {
   MBasicBlock* block = MBasicBlock::NewPendingLoopHeader(
-      graph(), info(), predecessor, bytecodeSite(pc), stackPhiCount);
+      graph(), info(), predecessor, bytecodeSite(pc));
   if (!block) {
     return abort(AbortReason::Alloc);
   }
@@ -8555,9 +8539,12 @@ AbortReasonOr<Ok> IonBuilder::setStaticName(JSObject* staticObject,
 
   current->pop();
 
-  // Pop the bound object on the stack.
+  // Pop the bound object on the stack. This is usually a constant but it can
+  // be a phi if loops are involved, for example: x = [...arr];
   MDefinition* obj = current->pop();
-  MOZ_ASSERT(&obj->toConstant()->toObject() == staticObject);
+  MOZ_ASSERT(obj->isConstant() || obj->isPhi());
+  MOZ_ASSERT_IF(obj->isConstant(),
+                &obj->toConstant()->toObject() == staticObject);
 
   if (needsPostBarrier(value)) {
     current->add(MPostWriteBarrier::New(alloc(), obj, value));

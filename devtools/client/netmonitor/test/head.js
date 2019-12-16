@@ -100,6 +100,7 @@ const SIMPLE_UNSORTED_COOKIES_SJS =
   EXAMPLE_URL + "sjs_simple-unsorted-cookies-test-server.sjs";
 const CONTENT_TYPE_SJS = EXAMPLE_URL + "sjs_content-type-test-server.sjs";
 const WS_CONTENT_TYPE_SJS = WS_HTTP_URL + "sjs_content-type-test-server.sjs";
+const WS_WS_CONTENT_TYPE_SJS = WS_URL + "sjs_content-type-test-server.sjs";
 const HTTPS_CONTENT_TYPE_SJS =
   HTTPS_EXAMPLE_URL + "sjs_content-type-test-server.sjs";
 const SERVER_TIMINGS_TYPE_SJS =
@@ -384,7 +385,7 @@ function restartNetMonitor(monitor, newUrl) {
   info("Restarting the specified network monitor.");
 
   return (async function() {
-    const tab = monitor.toolbox.target.tab;
+    const tab = monitor.toolbox.target.localTab;
     const url = newUrl || tab.linkedBrowser.currentURI.spec;
 
     await waitForAllNetworkUpdateEvents();
@@ -402,7 +403,7 @@ function teardown(monitor) {
   info("Destroying the specified network monitor.");
 
   return (async function() {
-    const tab = monitor.toolbox.target.tab;
+    const tab = monitor.toolbox.target.localTab;
 
     await waitForAllNetworkUpdateEvents();
     info("All pending requests finished.");

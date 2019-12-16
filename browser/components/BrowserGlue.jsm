@@ -41,6 +41,35 @@ const PREF_PDFJS_ENABLED_CACHE_STATE = "pdfjs.enabledCache.state";
  * available at https://firefox-source-docs.mozilla.org/dom/Fission.html#jswindowactor
  */
 let ACTORS = {
+  AboutLogins: {
+    parent: {
+      moduleURI: "resource:///actors/AboutLoginsParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutLoginsChild.jsm",
+      events: {
+        AboutLoginsCopyLoginDetail: { wantUntrusted: true },
+        AboutLoginsCreateLogin: { wantUntrusted: true },
+        AboutLoginsDeleteLogin: { wantUntrusted: true },
+        AboutLoginsDismissBreachAlert: { wantUntrusted: true },
+        AboutLoginsHideFooter: { wantUntrusted: true },
+        AboutLoginsImport: { wantUntrusted: true },
+        AboutLoginsInit: { wantUntrusted: true },
+        AboutLoginsGetHelp: { wantUntrusted: true },
+        AboutLoginsOpenMobileAndroid: { wantUntrusted: true },
+        AboutLoginsOpenMobileIos: { wantUntrusted: true },
+        AboutLoginsOpenPreferences: { wantUntrusted: true },
+        AboutLoginsOpenSite: { wantUntrusted: true },
+        AboutLoginsRecordTelemetryEvent: { wantUntrusted: true },
+        AboutLoginsSortChanged: { wantUntrusted: true },
+        AboutLoginsSyncEnable: { wantUntrusted: true },
+        AboutLoginsSyncOptions: { wantUntrusted: true },
+        AboutLoginsUpdateLogin: { wantUntrusted: true },
+      },
+    },
+    matches: ["about:logins", "about:logins?*"],
+  },
+
   BlockedSite: {
     parent: {
       moduleURI: "resource:///actors/BlockedSiteParent.jsm",
@@ -279,6 +308,17 @@ let ACTORS = {
     allFrames: true,
   },
 
+  SiteSpecificBrowser: {
+    parent: {
+      moduleURI: "resource:///actors/SiteSpecificBrowserParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/SiteSpecificBrowserChild.jsm",
+    },
+
+    allFrames: true,
+  },
+
   UITour: {
     parent: {
       moduleURI: "resource:///modules/UITourParent.jsm",
@@ -293,46 +333,6 @@ let ACTORS = {
 };
 
 let LEGACY_ACTORS = {
-  AboutLogins: {
-    child: {
-      matches: ["about:logins", "about:logins?*"],
-      module: "resource:///actors/AboutLoginsChild.jsm",
-      events: {
-        AboutLoginsCopyLoginDetail: { wantUntrusted: true },
-        AboutLoginsCreateLogin: { wantUntrusted: true },
-        AboutLoginsDeleteLogin: { wantUntrusted: true },
-        AboutLoginsDismissBreachAlert: { wantUntrusted: true },
-        AboutLoginsHideFooter: { wantUntrusted: true },
-        AboutLoginsImport: { wantUntrusted: true },
-        AboutLoginsInit: { wantUntrusted: true },
-        AboutLoginsGetHelp: { wantUntrusted: true },
-        AboutLoginsOpenMobileAndroid: { wantUntrusted: true },
-        AboutLoginsOpenMobileIos: { wantUntrusted: true },
-        AboutLoginsOpenPreferences: { wantUntrusted: true },
-        AboutLoginsOpenSite: { wantUntrusted: true },
-        AboutLoginsRecordTelemetryEvent: { wantUntrusted: true },
-        AboutLoginsSortChanged: { wantUntrusted: true },
-        AboutLoginsSyncEnable: { wantUntrusted: true },
-        AboutLoginsSyncOptions: { wantUntrusted: true },
-        AboutLoginsUpdateLogin: { wantUntrusted: true },
-      },
-      messages: [
-        "AboutLogins:AllLogins",
-        "AboutLogins:LoginAdded",
-        "AboutLogins:LoginModified",
-        "AboutLogins:LoginRemoved",
-        "AboutLogins:MasterPasswordAuthRequired",
-        "AboutLogins:MasterPasswordResponse",
-        "AboutLogins:SendFavicons",
-        "AboutLogins:SetBreaches",
-        "AboutLogins:Setup",
-        "AboutLogins:ShowLoginItemError",
-        "AboutLogins:SyncState",
-        "AboutLogins:UpdateBreaches",
-      ],
-    },
-  },
-
   AboutReader: {
     child: {
       module: "resource:///actors/AboutReaderChild.jsm",
@@ -515,6 +515,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   BookmarkHTMLUtils: "resource://gre/modules/BookmarkHTMLUtils.jsm",
   BookmarkJSONUtils: "resource://gre/modules/BookmarkJSONUtils.jsm",
   BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.jsm",
+  BrowserUtils: "resource://gre/modules/BrowserUtils.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
   ContextualIdentityService:
     "resource://gre/modules/ContextualIdentityService.jsm",
@@ -2794,7 +2795,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 89;
+    const UI_VERSION = 90;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
@@ -3244,6 +3245,21 @@ BrowserGlue.prototype = {
       );
     }
 
+    if (currentUIVersion < 90) {
+      this._migrateXULStoreForDocument(
+        "chrome://browser/content/places/historySidebar.xul",
+        "chrome://browser/content/places/historySidebar.xhtml"
+      );
+      this._migrateXULStoreForDocument(
+        "chrome://browser/content/places/places.xul",
+        "chrome://browser/content/places/places.xhtml"
+      );
+      this._migrateXULStoreForDocument(
+        "chrome://browser/content/places/bookmarksSidebar.xul",
+        "chrome://browser/content/places/bookmarksSidebar.xhtml"
+      );
+    }
+
     // Update the migration version.
     Services.prefs.setIntPref("browser.migration.version", UI_VERSION);
   },
@@ -3511,9 +3527,7 @@ BrowserGlue.prototype = {
         // same way that the url bar would.
         body = URIs[0].uri.replace(/([?#]).*$/, "$1");
         let wasTruncated = body.length < URIs[0].uri.length;
-        if (win.gURLBar) {
-          body = win.gURLBar.trimValue(body);
-        }
+        body = BrowserUtils.trimURL(body);
         if (wasTruncated) {
           body = bundle.formatStringFromName(
             "singleTabArrivingWithTruncatedURL.body",

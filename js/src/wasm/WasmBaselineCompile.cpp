@@ -4929,7 +4929,7 @@ class BaseCompiler final : public BaseCompilerInterface {
 #  elif defined(JS_CODEGEN_MIPS32)
             ScratchF64 scratch(*this);
             loadF64(arg, scratch);
-            MOZ_ASSERT(MOZ_LITTLE_ENDIAN);
+            MOZ_ASSERT(MOZ_LITTLE_ENDIAN());
             masm.moveFromDoubleLo(scratch, argLoc.evenGpr());
             masm.moveFromDoubleHi(scratch, argLoc.oddGpr());
             break;
@@ -11487,9 +11487,14 @@ bool BaseCompiler::emitStructNarrow() {
     return true;
   }
 
-  // Currently not supported by struct.narrow validation.
-  MOZ_ASSERT(inputType != RefType::func());
-  MOZ_ASSERT(outputType != RefType::func());
+  // struct.narrow validation ensures that these hold.
+
+  MOZ_ASSERT(inputType.refTypeKind() == RefType::Any ||
+             inputType.refTypeKind() == RefType::TypeIndex);
+  MOZ_ASSERT(outputType.refTypeKind() == RefType::Any ||
+             outputType.refTypeKind() == RefType::TypeIndex);
+  MOZ_ASSERT_IF(outputType.refTypeKind() == RefType::Any,
+                inputType.refTypeKind() == RefType::Any);
 
   // AnyRef -> AnyRef is a no-op, just leave the value on the stack.
 

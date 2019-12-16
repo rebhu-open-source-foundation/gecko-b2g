@@ -3904,7 +3904,7 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
     HttpBaseChannel::ReplacementChannelConfig config(std::move(*aArgs.init()));
     HttpBaseChannel::ConfigureReplacementChannel(
         newChannel, config,
-        HttpBaseChannel::ConfigureReason::DocumentChannelReplacement);
+        HttpBaseChannel::ReplacementReason::DocumentChannel);
   }
 
   // connect parent.
@@ -3954,6 +3954,15 @@ mozilla::ipc::IPCResult ContentChild::RecvDestroySHEntrySharedState(
 mozilla::ipc::IPCResult ContentChild::RecvEvictContentViewers(
     nsTArray<uint64_t>&& aToEvictSharedStateIDs) {
   SHEntryChildShared::EvictContentViewers(std::move(aToEvictSharedStateIDs));
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvSessionStorageData(
+    BrowsingContext* const aTop, const nsACString& aOriginAttrs,
+    const nsACString& aOriginKey, const nsTArray<KeyValuePair>& aDefaultData,
+    const nsTArray<KeyValuePair>& aSessionData) {
+  aTop->GetSessionStorageManager()->LoadSessionStorageData(
+      nullptr, aOriginAttrs, aOriginKey, aDefaultData, aSessionData);
   return IPC_OK();
 }
 

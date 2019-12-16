@@ -333,6 +333,7 @@ static nsGlobalWindowOuter* GetOuterWindowForForwarding(
 #define MAX_REPORT_RECORDS 100
 
 static LazyLogModule gDOMLeakPRLogInner("DOMLeakInner");
+extern mozilla::LazyLogModule gTimeoutLog;
 
 #ifdef DEBUG
 static LazyLogModule gDocShellAndDOMWindowLeakLogging(
@@ -2567,6 +2568,9 @@ void nsPIDOMWindowInner::SetAudioCapture(bool aCapture) {
 }
 
 void nsGlobalWindowInner::SetActiveLoadingState(bool aIsLoading) {
+  MOZ_LOG(
+      gTimeoutLog, mozilla::LogLevel::Debug,
+      ("SetActiveLoadingState innerwindow %p: %d", (void*)this, aIsLoading));
   if (GetBrowsingContext()) {
     GetBrowsingContext()->SetLoading(aIsLoading);
   }
