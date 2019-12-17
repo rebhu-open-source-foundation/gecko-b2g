@@ -5728,7 +5728,7 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
     // fieldInitializers are copied to the JSScript inside BytecodeEmitter
 
     if (funbox->isLikelyConstructorWrapper()) {
-      innerScript->setLikelyConstructorWrapper();
+      innerScript->setIsLikelyConstructorWrapper();
     }
 
     if (!fe.emitNonLazyEnd()) {
@@ -9132,8 +9132,8 @@ bool BytecodeEmitter::emitClass(
       return false;
     }
   } else {
-    if (!ce.emitInitDefaultConstructor(Some(classNode->pn_pos.begin),
-                                       Some(classNode->pn_pos.end))) {
+    if (!ce.emitInitDefaultConstructor(classNode->pn_pos.begin,
+                                       classNode->pn_pos.end)) {
       //            [stack] CTOR HOMEOBJ
       return false;
     }

@@ -1162,6 +1162,10 @@ void gfxPlatform::ReportTelemetry() {
   gfxInfo->GetAdapterDeviceID(adapterDeviceId);
   Telemetry::ScalarSet(Telemetry::ScalarID::GFX_ADAPTER_DEVICE_ID,
                        adapterDeviceId);
+  // Temporary workaround for bug 1601091, should be removed once telemetry
+  // issue is fixed.
+  Telemetry::ScalarSet(Telemetry::ScalarID::GFX_ADAPTER_DEVICE_ID_LAST_SEEN,
+                       adapterDeviceId);
 
   nsString adapterSubsystemId;
   gfxInfo->GetAdapterSubsysID(adapterSubsystemId);
@@ -3408,16 +3412,23 @@ void gfxPlatform::InitWebRenderConfig() {
   }
 
   // Initialize WebRender partial present config.
-  // It is used only for reporting to Decision Log.
+  // Partial present is used only when WebRender compositor is not used.
   if (StaticPrefs::gfx_webrender_max_partial_present_rects_AtStartup() > 0) {
-    // Partial present is used only when WebRender compositor is not used.
-    if (UseWebRender() && !gfxVars::UseWebRenderCompositor()) {
+    if (UseWebRender()) {
       FeatureState& featurePartial =
           gfxConfig::GetFeature(Feature::WEBRENDER_PARTIAL);
       featurePartial.EnableByDefault();
-      // Call UserEnable() only for reporting to Decision Log.
-      // If feature is enabled by default. It is not reported to Decision Log.
-      featurePartial.UserEnable("Enabled");
+      if (StaticPrefs::gfx_webrender_picture_caching()) {
+        gfxVars::SetWebRenderMaxPartialPresentRects(
+            StaticPrefs::gfx_webrender_max_partial_present_rects_AtStartup());
+        // Call UserEnable() only for reporting to Decision Log.
+        // If feature is enabled by default. It is not reported to Decision Log.
+        featurePartial.UserEnable("Enabled");
+      } else {
+        featurePartial.ForceDisable(
+            FeatureStatus::Unavailable, "Picture caching is disabled",
+            NS_LITERAL_CSTRING("FEATURE_FAILURE_PICTURE_CACHING_DISABLED"));
+      }
     }
   }
 
@@ -3871,6 +3882,12 @@ void gfxPlatform::NotifyCompositorCreated(LayersBackend aBackend) {
   if (XRE_IsParentProcess()) {
     Telemetry::ScalarSet(
         Telemetry::ScalarID::GFX_COMPOSITOR,
+        NS_ConvertUTF8toUTF16(GetLayersBackendName(mCompositorBackend)));
+
+    // Temporary workaround for bug 1601091, should be removed once telemetry
+    // issue is fixed.
+    Telemetry::ScalarSet(
+        Telemetry::ScalarID::GFX_COMPOSITOR_LAST_SEEN,
         NS_ConvertUTF8toUTF16(GetLayersBackendName(mCompositorBackend)));
   }
 

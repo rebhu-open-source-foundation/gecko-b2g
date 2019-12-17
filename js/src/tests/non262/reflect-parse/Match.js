@@ -74,7 +74,7 @@ var Match =
       return new ObjectWithExactly(template);
     }
 
-    var quote = uneval;
+    var quote = JSON.stringify;
 
     class MatchError extends Error {
         toString() {
@@ -139,7 +139,7 @@ var Match =
             return true;
         }
 
-        throw new Error("bad pattern: " + exp.toSource());
+        throw new Error("bad pattern: " + JSON.stringify(exp));
     }
 
     // Match an object having at least the expected properties.
@@ -156,7 +156,7 @@ var Match =
                 if (!(inner instanceof MatchError)) {
                     throw inner;
                 }
-                inner.message = `matching property ${uneval(key)}:\n${inner.message}`;
+                inner.message = `matching property "${String(key)}":\n${inner.message}`;
                 throw inner;
             }
         }
@@ -232,7 +232,7 @@ var Match =
         if (isObject(exp))
             return matchObjectWithAtLeast(act, exp);
 
-        throw new Error("bad pattern: " + exp.toSource());
+        throw new Error("bad pattern: " + JSON.stringify(exp));
     }
 
     return { Pattern: Pattern,

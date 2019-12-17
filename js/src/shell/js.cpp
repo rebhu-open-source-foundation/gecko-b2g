@@ -3082,15 +3082,6 @@ static MOZ_MUST_USE bool SrcNotes(JSContext* cx, HandleScript script,
         }
         break;
 
-      case SRC_CLASS_SPAN: {
-        unsigned startOffset = GetSrcNoteOffset(sn, 0);
-        unsigned endOffset = GetSrcNoteOffset(sn, 1);
-        if (!sp->jsprintf(" %u %u", startOffset, endOffset)) {
-          return false;
-        }
-        break;
-      }
-
       default:
         MOZ_ASSERT_UNREACHABLE("unrecognized srcnote");
     }
@@ -3936,8 +3927,6 @@ static void WorkerMain(WorkerInput* input) {
   if (!cx) {
     return;
   }
-
-  JS_SetGCParameter(cx, JSGC_MAX_NURSERY_BYTES, 2L * 1024L * 1024L);
 
   ShellContext* sc = js_new<ShellContext>(cx);
   if (!sc) {

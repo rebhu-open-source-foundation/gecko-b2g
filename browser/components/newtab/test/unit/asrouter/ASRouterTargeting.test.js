@@ -202,23 +202,10 @@ describe("#CachedTargetingGetter", () => {
           },
         }
       );
-      assert.propertyVal(joined, "foo", "foo");
-      assert.propertyVal(joined, "bar", "bar");
-    });
-    it("should warn when properties overlap", () => {
-      ASRouterTargeting.combineContexts(
-        {
-          get foo() {
-            return "foo";
-          },
-        },
-        {
-          get foo() {
-            return "bar";
-          },
-        }
-      );
-      assert.calledOnce(global.Cu.reportError);
+      const proxy = new Proxy({}, joined);
+
+      assert.equal(proxy.foo, "foo");
+      assert.equal(proxy.bar, "bar");
     });
   });
 });
@@ -348,7 +335,7 @@ describe("ASRouterTargeting", () => {
       sandbox.stub(),
       true
     );
-    clock.tick(60 * 1000 + 1);
+    clock.tick(5 * 60 * 1000 + 1);
     await ASRouterTargeting.checkMessageTargeting(
       { targeting: "jexl" },
       {},
