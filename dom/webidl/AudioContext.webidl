@@ -25,6 +25,9 @@ interface AudioContext : BaseAudioContext {
     [Throws]
     constructor(optional AudioContextOptions contextOptions = {});
 
+    [Throws]
+    constructor(AudioChannel aChannel, optional AudioContextOptions contextOptions = {});
+
     readonly        attribute double               baseLatency;
     readonly        attribute double               outputLatency;
     AudioTimestamp                  getOutputTimestamp();

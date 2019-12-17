@@ -255,6 +255,14 @@ JSObject* AudioContext::WrapObject(JSContext* aCx,
 already_AddRefed<AudioContext> AudioContext::Constructor(
     const GlobalObject& aGlobal, const AudioContextOptions& aOptions,
     ErrorResult& aRv) {
+  return Constructor(aGlobal, AudioChannelService::GetDefaultAudioChannel(),
+                     aOptions, aRv);
+}
+
+/* static */
+already_AddRefed<AudioContext> AudioContext::Constructor(
+    const GlobalObject& aGlobal, AudioChannel aChannel,
+    const AudioContextOptions& aOptions, ErrorResult& aRv) {
   // Audio playback is not yet supported when recording or replaying. See bug
   // 1304147.
   if (recordreplay::IsRecordingOrReplaying()) {
@@ -278,9 +286,8 @@ already_AddRefed<AudioContext> AudioContext::Constructor(
   }
   sampleRate = aOptions.mSampleRate;
 
-  RefPtr<AudioContext> object = new AudioContext(
-      window, false, AudioChannelService::GetDefaultAudioChannel(), 2, 0,
-      sampleRate);
+  RefPtr<AudioContext> object =
+      new AudioContext(window, false, aChannel, 2, 0, sampleRate);
   aRv = object->Init();
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
