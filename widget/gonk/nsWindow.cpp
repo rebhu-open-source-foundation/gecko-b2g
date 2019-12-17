@@ -38,6 +38,7 @@
 #include "nsIWidgetListener.h"
 #include "ClientLayerManager.h"
 #include "BasicLayers.h"
+#include "CompositorSession.h"
 #include "ScreenHelperGonk.h"
 #include "libdisplay/GonkDisplay.h"
 #include "mozilla/TextEvents.h"
@@ -860,7 +861,7 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
   }
 
   CreateCompositor();
-  auto mCompositorBridgeParent = CompositorBridgeParent::GetCompositorBridgeParent(0);
+  auto mCompositorBridgeParent = mCompositorSession->GetInProcessBridge();
   if (mCompositorBridgeParent) {
     mScreen->SetCompositorBridgeParent(mCompositorBridgeParent);
     if (mScreen->IsPrimaryScreen()) {
@@ -874,7 +875,7 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
 void
 nsWindow::DestroyCompositor()
 {
-  auto mCompositorBridgeParent = CompositorBridgeParent::GetCompositorBridgeParent(0);
+  auto mCompositorBridgeParent = mCompositorSession->GetInProcessBridge();
   if (mCompositorBridgeParent) {
     mScreen->SetCompositorBridgeParent(nullptr);
     if (mScreen->IsPrimaryScreen()) {

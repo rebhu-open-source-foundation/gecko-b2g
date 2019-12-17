@@ -155,6 +155,7 @@ LOCAL_INCLUDES += [
 ]
 
 LOCAL_INCLUDES += [
+    '/gfx/ipc',
     '/gfx/skia/skia',
     '/gfx/skia/skia/include/config',
     '/gfx/skia/skia/include/core',
