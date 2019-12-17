@@ -287,7 +287,15 @@ nsresult AudioStream::Init(uint32_t aNumChannels,
   params.format = ToCubebFormat<AUDIO_OUTPUT_FORMAT>::value;
   params.prefs = CubebUtils::GetDefaultStreamPrefs();
 #if defined(__ANDROID__)
+#  if defined(MOZ_B2G)
+  params.stream_type = CubebUtils::ConvertChannelToCubebType(aAudioChannel);
+#  else
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
+#  endif
+
+  if (params.stream_type == CUBEB_STREAM_TYPE_MAX) {
+    return NS_ERROR_INVALID_ARG;
+  }
 #endif
 
   // This is noop if MOZ_DUMP_AUDIO is not set.

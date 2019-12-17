@@ -45,6 +45,9 @@ void ReportCubebBackendUsed();
 uint32_t GetCubebPlaybackLatencyInMilliseconds();
 uint32_t GetCubebMTGLatencyInFrames(cubeb_stream_params* params);
 bool CubebLatencyPrefSet();
+#  if defined(__ANDROID__) && defined(MOZ_B2G)
+cubeb_stream_type ConvertChannelToCubebType(dom::AudioChannel aChannel);
+#  endif
 void GetCurrentBackend(nsAString& aBackend);
 cubeb_stream_prefs GetDefaultStreamPrefs();
 char* GetForcedOutputDevice();
