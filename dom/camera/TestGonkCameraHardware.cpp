@@ -246,8 +246,7 @@ public:
     MutexAutoLock lock(mTestHw->mMutex);
 
     mTestHw->mStatus = RunInline();
-    DebugOnly<nsresult> rv = mTestHw->mCondVar.Notify();
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Notify failed");
+    mTestHw->mCondVar.Notify();
     return NS_OK;
   }
 

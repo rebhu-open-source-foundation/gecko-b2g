@@ -60,5 +60,7 @@ export MOZILLA_OFFICIAL=1
 # elf hack fails with a "Segments overlap" error.
 ac_add_options --disable-elf-hack
 
+ac_add_options --enable-b2g-camera
+
 ac_add_options --with-gnss-so="$SYS_LIB/android.hardware.gnss@1.0.so"
 ac_add_options --with-vibrator-so="$SYS_LIB/android.hardware.vibrator@1.0.so"

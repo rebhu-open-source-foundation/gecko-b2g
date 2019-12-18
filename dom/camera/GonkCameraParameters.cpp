@@ -409,7 +409,7 @@ GonkCameraParameters::Initialize()
       mMeteringModes.RemoveElementAt(i);
     }
   }
-  
+
   mInitialized = true;
   return NS_OK;
 }
@@ -434,7 +434,7 @@ GonkCameraParameters::SetTranslated(uint32_t aKey, const nsAString& aValue)
         return NS_ERROR_INVALID_ARG;
       }
       // fallthrough
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     default:
       return SetImpl(aKey, NS_ConvertUTF16toUTF8(aValue).get());
@@ -494,7 +494,7 @@ GonkCameraParameters::SetTranslated(uint32_t aKey, const ICameraControl::Size& a
         break;
       }
       // intentional fallthrough
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     default:
       rv = SetImpl(aKey, nsPrintfCString("%ux%u", aSize.width, aSize.height).get());
@@ -830,12 +830,12 @@ GonkCameraParameters::GetTranslated(uint32_t aKey, double& aValue)
     case CAMERA_PARAM_FOCUSDISTANCEFAR:
       ++index;
       // intentional fallthrough
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     case CAMERA_PARAM_FOCUSDISTANCEOPTIMUM:
       ++index;
       // intentional fallthrough
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     case CAMERA_PARAM_FOCUSDISTANCENEAR:
       rv = GetImpl(aKey, s);
