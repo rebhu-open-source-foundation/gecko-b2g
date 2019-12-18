@@ -1309,3 +1309,6 @@ pref("browser.privatebrowsing.autostart", false);
 pref("gfx.e10s.font-list.shared", true);
 
 pref("dom.systemMessage.enabled", true);
+
+// Remote debugging is disabled by default in MOZ_OFFICIAL builds.
+pref("devtools.debugger.remote-enabled", true);
