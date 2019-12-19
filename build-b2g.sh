@@ -2,7 +2,7 @@
 
 set -e
 
-export RUSTUP_TOOLCHAIN=1.37.0
+export RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-stable}
 
 # Check that the GONK_PATH environment variable is set.
 if [ -z ${GONK_PATH+x} ];

@@ -5,11 +5,10 @@
 # LIMITED or its affiliate company and may be registered in some jurisdictions.
 # All other trademarks are the property of their respective owners.
 
-image: $DEFAULT_DOCKER_IMAGE
-
 variables:
   GIT_DEPTH: 1
-  DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build:next"
+  DEFAULT_ARM_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/arm:latest"
+  DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
 
 before_script:
   - sed -i 's|http://archive.ubuntu.com|ftp://172.20.251.70|g' /etc/apt/sources.list
@@ -35,11 +34,12 @@ stages:
   - build
 
 build:desktop:
+  image: $DEFAULT_DESKTOP_DOCKER_IMAGE
   stage: build
   tags:
     - gecko-dev
   script:
-    - echo 2 | ./mach bootstrap --no-interactive
+    - ./mach bootstrap --no-interactive --application-choice browser
     - export MOZ_OBJDIR=objdir-desktop-gecko
     - export MOZCONFIG=mozconfig-b2g-desktop
     - ./mach build
@@ -50,17 +50,18 @@ build:desktop:
       - "objdir-desktop-gecko/dist/b2g-*"
 
 build:arm:
+  image: $DEFAULT_ARM_DOCKER_IMAGE
   stage: build
   tags:
     - gecko-dev
   script:
+    - echo $RUSTUP_TOOLCHAIN
     - export LOCAL_NDK_BASE_URL='ftp://ftp.kaiostech.com/ndk/android-ndk'
     - export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b-canary
-    - echo 4 | ./mach bootstrap --no-interactive > /dev/null
+    - ./mach bootstrap --no-interactive --application-choice mobile_android > /dev/null
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy-gonk-o.git > /dev/null
     - export PATH=~/.cargo/bin:$PATH
-    - cargo install sccache > /dev/null
-    - rustup default 1.37.0
+    - rustup default ${RUSTUP_TOOLCHAIN}
     - rustup target add armv7-linux-androideabi
     - rustup target add thumbv7neon-linux-androideabi
     - export GONK_PATH=$CI_PROJECT_DIR/dummy-gonk-o
