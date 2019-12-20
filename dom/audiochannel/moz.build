@@ -19,11 +19,13 @@ EXPORTS += [
 ]
 
 EXPORTS.mozilla.dom += [
+    'AudioChannelClient.h',
     'AudioChannelHandler.h',
 ]
 
 UNIFIED_SOURCES += [
     'AudioChannelAgent.cpp',
+    'AudioChannelClient.cpp',
     'AudioChannelHandler.cpp',
     'AudioChannelService.cpp',
 ]
