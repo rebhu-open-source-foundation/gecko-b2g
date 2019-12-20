@@ -418,8 +418,8 @@ GetFormatBPP(int aFormat)
     uint16_t bpp = 0;
 
     switch (aFormat) {
-    case HAL_PIXEL_FORMAT_BGRA_8888: MOZ_FALLTHROUGH;
-    case HAL_PIXEL_FORMAT_RGBA_8888: MOZ_FALLTHROUGH;
+    case HAL_PIXEL_FORMAT_BGRA_8888: [[fallthrough]];
+    case HAL_PIXEL_FORMAT_RGBA_8888: [[fallthrough]];
     case HAL_PIXEL_FORMAT_RGBX_8888:
         bpp = 4;
         break;
@@ -514,8 +514,8 @@ AnimationFrame::ReadPngFrame(int outputFormat)
     switch (outputFormat) {
     case HAL_PIXEL_FORMAT_BGRA_8888:
         png_set_bgr(pngread);
-        MOZ_FALLTHROUGH;
-    case HAL_PIXEL_FORMAT_RGBA_8888: MOZ_FALLTHROUGH;
+        [[fallthrough]];
+    case HAL_PIXEL_FORMAT_RGBA_8888: [[fallthrough]];
     case HAL_PIXEL_FORMAT_RGBX_8888:
         png_set_filler(pngread, 0xFF, PNG_FILLER_AFTER);
         break;
@@ -713,7 +713,7 @@ AsBackgroundFill(const png_color_16& color16, int outputFormat)
     color.x8 = 0xFF;
 
     switch (outputFormat) {
-    case HAL_PIXEL_FORMAT_RGBA_8888: MOZ_FALLTHROUGH;
+    case HAL_PIXEL_FORMAT_RGBA_8888: [[fallthrough]];
     case HAL_PIXEL_FORMAT_RGBX_8888:
         return color.r8g8b8;
 
