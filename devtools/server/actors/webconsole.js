@@ -550,6 +550,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
     const actor = new ObjectActor(
       object,
       {
+        thread: this.parentActor.threadActor,
         getGripDepth: () => this._gripDepth,
         incrementGripDepth: () => this._gripDepth++,
         decrementGripDepth: () => this._gripDepth--,
@@ -1681,8 +1682,9 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
         lineNumber: s.line,
         columnNumber: s.column,
         functionName: s.functionDisplayName,
+        asyncCause: s.asyncCause ? s.asyncCause : undefined,
       });
-      s = s.parent;
+      s = s.parent || s.asyncParent;
     }
     return stack;
   },

@@ -1207,16 +1207,9 @@ bool nsDocShell::SetCurrentURI(nsIURI* aURI, nsIRequest* aRequest,
     mHasLoadedNonBlankURI = true;
   }
 
-  bool isRoot = false;      // Is this the root docshell
+  bool isRoot = !mBrowsingContext->GetParent();
   bool isSubFrame = false;  // Is this a subframe navigation?
 
-  nsCOMPtr<nsIDocShellTreeItem> root;
-
-  GetInProcessSameTypeRootTreeItem(getter_AddRefs(root));
-  if (root.get() == static_cast<nsIDocShellTreeItem*>(this)) {
-    // This is the root docshell
-    isRoot = true;
-  }
   if (mLSHE) {
     isSubFrame = mLSHE->GetIsSubFrame();
   }
@@ -8792,6 +8785,9 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
   if (mUseStrictSecurityChecks && !aLoadState->TriggeringPrincipal()) {
     return NS_ERROR_FAILURE;
   }
+  if (mBrowsingContext->PendingInitialization()) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
 
   mOriginalUriString.Truncate();
 
@@ -10140,7 +10136,7 @@ nsresult nsDocShell::DoChannelLoad(nsIChannel* aChannel,
     case LOAD_RELOAD_CHARSET_CHANGE_BYPASS_CACHE:
       loadFlags |=
           nsIRequest::LOAD_BYPASS_CACHE | nsIRequest::LOAD_FRESH_CONNECTION;
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     case LOAD_RELOAD_CHARSET_CHANGE: {
       // Use SetAllowStaleCacheContent (not LOAD_FROM_CACHE flag) since we

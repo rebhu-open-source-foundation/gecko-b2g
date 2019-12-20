@@ -1824,7 +1824,7 @@ void nsExternalAppHandler::SendStatusChange(ErrorType type, nsresult rv,
         break;
       }
 #endif
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     default:
       // Generic read/write/launch error message.

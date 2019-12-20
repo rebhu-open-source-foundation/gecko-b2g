@@ -101,8 +101,6 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   NS_DECLARE_STATIC_IID_ACCESSOR(DOCUMENT_LOAD_LISTENER_IID)
 
   void Cancel(const nsresult& status);
-  void Suspend();
-  void Resume();
 
   nsresult ReportSecurityMessage(const nsAString& aMessageTag,
                                  const nsAString& aMessageCategory) override {
@@ -141,12 +139,7 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   // our reference to it.
   void DocumentChannelBridgeDisconnected();
 
-  void DisconnectChildListeners(nsresult aStatus, nsresult aLoadGroupStatus) {
-    if (mDocumentChannelBridge) {
-      mDocumentChannelBridge->DisconnectChildListeners(aStatus,
-                                                       aLoadGroupStatus);
-    }
-  }
+  void DisconnectChildListeners(nsresult aStatus, nsresult aLoadGroupStatus);
 
   base::ProcessId OtherPid() const {
     if (mDocumentChannelBridge) {

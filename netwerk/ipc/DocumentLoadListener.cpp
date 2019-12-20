@@ -64,7 +64,9 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
       : nsDocumentOpenInfo(aFlags, false),
         mBrowsingContext(aBrowsingContext),
         mListener(aListener),
-        mPluginsAllowed(aPluginsAllowed) {}
+        mPluginsAllowed(aPluginsAllowed) {
+    LOG(("ParentProcessDocumentOpenInfo ctor [this=%p]", this));
+  }
 
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -139,10 +141,7 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
   }
 
   NS_IMETHOD OnStartRequest(nsIRequest* request) override {
-    nsCOMPtr<nsIMultiPartChannel> multiPartChannel = do_QueryInterface(request);
-    if (multiPartChannel) {
-      mExpectingOnAfterLastPart = true;
-    }
+    LOG(("ParentProcessDocumentOpenInfo OnStartRequest [this=%p]", this));
 
     nsresult rv = nsDocumentOpenInfo::OnStartRequest(request);
 
@@ -155,32 +154,27 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
       m_targetStreamListener = mListener;
       return m_targetStreamListener->OnStartRequest(request);
     }
-    return rv;
-  }
-
-  NS_IMETHOD OnStopRequest(nsIRequest* request, nsresult aStatus) override {
-    // If we're not a multipart stream (and thus not expecting OnAfterLastPart),
-    // then this is the final OnStopRequest we'll get. If we haven't been
-    // targeting our default listener, then we need to manually notify it that
-    // we're done, and nothing further will be arriving. If we got cloned, then
-    // we don't need to do this, as only the last link needs to do it.
-    bool needToNotifyListener = false;
-    if (!mExpectingOnAfterLastPart && m_targetStreamListener != mListener &&
-        !mCloned) {
-      needToNotifyListener = true;
-    }
-
-    nsresult rv = nsDocumentOpenInfo::OnStopRequest(request, aStatus);
-
-    if (needToNotifyListener) {
-      // Tell the DocumentLoadListener to notify the content process that it's
-      // been entirely retargeted, and to stop waiting.
-      // Clear mListener's pointer to the DocumentLoadListener to break the
-      // reference cycle.
-      RefPtr<DocumentLoadListener> doc = do_GetInterface(ToSupports(mListener));
-      MOZ_ASSERT(doc);
-      doc->DisconnectChildListeners(NS_BINDING_RETARGETED, NS_OK);
-      mListener->SetListenerAfterRedirect(nullptr);
+    if (m_targetStreamListener != mListener) {
+      LOG(
+          ("ParentProcessDocumentOpenInfo targeted to non-default listener "
+           "[this=%p]",
+           this));
+      // If this is the only part, then we can immediately tell our listener
+      // that it won't be getting any content and disconnect it. For multipart
+      // channels we have to wait until we've handled all parts before we know.
+      // This does mean that the content process can still Cancel() a multipart
+      // response while the response is being handled externally, but this
+      // matches the single-process behaviour.
+      // If we got cloned, then we don't need to do this, as only the last link
+      // needs to do it.
+      // Multi-part channels are guaranteed to call OnAfterLastPart, which we
+      // forward to the listeners, so it will handle disconnection at that
+      // point.
+      nsCOMPtr<nsIMultiPartChannel> multiPartChannel =
+          do_QueryInterface(request);
+      if (!multiPartChannel && !mCloned) {
+        DisconnectChildListeners();
+      }
     }
     return rv;
   }
@@ -191,18 +185,24 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
   }
 
  private:
-  virtual ~ParentProcessDocumentOpenInfo() = default;
+  virtual ~ParentProcessDocumentOpenInfo() {
+    LOG(("ParentProcessDocumentOpenInfo dtor [this=%p]", this));
+  }
+
+  void DisconnectChildListeners() {
+    // Tell the DocumentLoadListener to notify the content process that it's
+    // been entirely retargeted, and to stop waiting.
+    // Clear mListener's pointer to the DocumentLoadListener to break the
+    // reference cycle.
+    RefPtr<DocumentLoadListener> doc = do_GetInterface(ToSupports(mListener));
+    MOZ_ASSERT(doc);
+    doc->DisconnectChildListeners(NS_BINDING_RETARGETED, NS_OK);
+    mListener->SetListenerAfterRedirect(nullptr);
+  }
 
   RefPtr<mozilla::dom::BrowsingContext> mBrowsingContext;
   RefPtr<ParentChannelListener> mListener;
   bool mPluginsAllowed;
-
-  /**
-   * Set to true if we got OnStartRequest called with a multipart
-   * channel, and thus expect OnAfterLastPart to be called when
-   * the channel is complete.
-   */
-  bool mExpectingOnAfterLastPart = false;
 
   /**
    * Set to true if we got cloned to create a chained listener.
@@ -356,21 +356,26 @@ void DocumentLoadListener::DocumentChannelBridgeDisconnected() {
 }
 
 void DocumentLoadListener::Cancel(const nsresult& aStatusCode) {
+  LOG(
+      ("DocumentLoadListener Cancel [this=%p, "
+       "aStatusCode=%" PRIx32 " ]",
+       this, static_cast<uint32_t>(aStatusCode)));
   if (mChannel && !mDoingProcessSwitch) {
     mChannel->Cancel(aStatusCode);
   }
 }
 
-void DocumentLoadListener::Suspend() {
-  if (mChannel && !mDoingProcessSwitch) {
-    mChannel->Suspend();
+void DocumentLoadListener::DisconnectChildListeners(nsresult aStatus,
+                                                    nsresult aLoadGroupStatus) {
+  LOG(
+      ("DocumentLoadListener DisconnectChildListener [this=%p, "
+       "aStatus=%" PRIx32 " aLoadGroupStatus=%" PRIx32 " ]",
+       this, static_cast<uint32_t>(aStatus),
+       static_cast<uint32_t>(aLoadGroupStatus)));
+  if (mDocumentChannelBridge) {
+    mDocumentChannelBridge->DisconnectChildListeners(aStatus, aLoadGroupStatus);
   }
-}
-
-void DocumentLoadListener::Resume() {
-  if (mChannel && !mDoingProcessSwitch) {
-    mChannel->Resume();
-  }
+  DocumentChannelBridgeDisconnected();
 }
 
 void DocumentLoadListener::RedirectToRealChannelFinished(nsresult aRv) {
@@ -419,9 +424,8 @@ DocumentLoadListener::ReadyToVerify(nsresult aResultCode) {
 void DocumentLoadListener::FinishReplacementChannelSetup(bool aSucceeded) {
   nsresult rv;
 
-  if (mDoingProcessSwitch && mDocumentChannelBridge) {
-    mDocumentChannelBridge->DisconnectChildListeners(NS_BINDING_ABORTED,
-                                                     NS_BINDING_ABORTED);
+  if (mDoingProcessSwitch) {
+    DisconnectChildListeners(NS_BINDING_ABORTED, NS_BINDING_ABORTED);
   }
 
   nsCOMPtr<nsIParentChannel> redirectChannel;

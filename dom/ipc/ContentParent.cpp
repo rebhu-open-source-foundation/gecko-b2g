@@ -2830,12 +2830,35 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
   {
     nsTArray<BlobURLRegistrationData> registrations;
-    if (BlobURLProtocolHandler::GetAllBlobURLEntries(registrations, this)) {
-      for (const BlobURLRegistrationData& registration : registrations) {
-        nsresult rv = TransmitPermissionsForPrincipal(registration.principal());
-        Unused << NS_WARN_IF(NS_FAILED(rv));
+    BlobURLProtocolHandler::ForEachBlobURL([&](BlobImpl* aBlobImpl,
+                                               nsIPrincipal* aPrincipal,
+                                               const nsACString& aURI,
+                                               bool aRevoked) {
+      nsAutoCString origin;
+      nsresult rv = aPrincipal->GetOrigin(origin);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return false;
       }
 
+      if (!StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"))) {
+        return true;
+      }
+
+      IPCBlob ipcBlob;
+      rv = IPCBlobUtils::Serialize(aBlobImpl, this, ipcBlob);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return false;
+      }
+
+      registrations.AppendElement(BlobURLRegistrationData(
+          nsCString(aURI), ipcBlob, IPC::Principal(aPrincipal), aRevoked));
+
+      rv = TransmitPermissionsForPrincipal(aPrincipal);
+      Unused << NS_WARN_IF(NS_FAILED(rv));
+      return true;
+    });
+
+    if (!registrations.IsEmpty()) {
       Unused << SendInitBlobURLs(registrations);
     }
   }
@@ -5544,11 +5567,24 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
                                                  BlobImpl* aBlobImpl,
                                                  nsIPrincipal* aPrincipal,
                                                  ContentParent* aIgnoreThisCP) {
+  nsAutoCString origin;
+  nsresult rv = aPrincipal->GetOrigin(origin);
+  NS_ENSURE_SUCCESS_VOID(rv);
+
+  uint32_t originHash = BasePrincipal::Cast(aPrincipal)->GetOriginSuffixHash();
+
+  bool toBeSent =
+      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"));
+
   nsCString uri(aURI);
   IPC::Principal principal(aPrincipal);
 
   for (auto* cp : AllProcesses(eLive)) {
     if (cp != aIgnoreThisCP) {
+      if (!toBeSent && !cp->mLoadedOriginHashes.Contains(originHash)) {
+        continue;
+      }
+
       nsresult rv = cp->TransmitPermissionsForPrincipal(principal);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         break;
@@ -5567,11 +5603,22 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
 
 /* static */
 void ContentParent::BroadcastBlobURLUnregistration(
-    const nsACString& aURI, ContentParent* aIgnoreThisCP) {
+    const nsACString& aURI, nsIPrincipal* aPrincipal,
+    ContentParent* aIgnoreThisCP) {
+  nsAutoCString origin;
+  nsresult rv = aPrincipal->GetOrigin(origin);
+  NS_ENSURE_SUCCESS_VOID(rv);
+
+  uint32_t originHash = BasePrincipal::Cast(aPrincipal)->GetOriginSuffixHash();
+
+  bool toBeSent =
+      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"));
+
   nsCString uri(aURI);
 
   for (auto* cp : AllProcesses(eLive)) {
-    if (cp != aIgnoreThisCP) {
+    if (cp != aIgnoreThisCP &&
+        (toBeSent || !cp->mLoadedOriginHashes.Contains(originHash))) {
       Unused << cp->SendBlobURLUnregistration(uri);
     }
   }
@@ -5595,9 +5642,9 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
 
 mozilla::ipc::IPCResult
 ContentParent::RecvUnstoreAndBroadcastBlobURLUnregistration(
-    const nsCString& aURI) {
+    const nsCString& aURI, const Principal& aPrincipal) {
   BlobURLProtocolHandler::RemoveDataEntry(aURI, false /* Don't broadcast */);
-  BroadcastBlobURLUnregistration(aURI, this);
+  BroadcastBlobURLUnregistration(aURI, aPrincipal, this);
   mBlobURLs.RemoveElement(aURI);
   return IPC_OK();
 }
@@ -5746,6 +5793,38 @@ nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
 
   rv = TransmitPermissionsForPrincipal(principal);
   NS_ENSURE_SUCCESS(rv, rv);
+
+  uint32_t originHash = BasePrincipal::Cast(principal)->GetOriginSuffixHash();
+
+  if (!mLoadedOriginHashes.Contains(originHash)) {
+    mLoadedOriginHashes.AppendElement(originHash);
+
+    nsTArray<BlobURLRegistrationData> registrations;
+    BlobURLProtocolHandler::ForEachBlobURL(
+        [&](BlobImpl* aBlobImpl, nsIPrincipal* aPrincipal,
+            const nsACString& aURI, bool aRevoked) {
+          if (!principal->Subsumes(aPrincipal)) {
+            return true;
+          }
+
+          IPCBlob ipcBlob;
+          nsresult rv = IPCBlobUtils::Serialize(aBlobImpl, this, ipcBlob);
+          if (NS_WARN_IF(NS_FAILED(rv))) {
+            return false;
+          }
+
+          registrations.AppendElement(BlobURLRegistrationData(
+              nsCString(aURI), ipcBlob, IPC::Principal(aPrincipal), aRevoked));
+
+          rv = TransmitPermissionsForPrincipal(aPrincipal);
+          Unused << NS_WARN_IF(NS_FAILED(rv));
+          return true;
+        });
+
+    if (!registrations.IsEmpty()) {
+      Unused << SendInitBlobURLs(registrations);
+    }
+  }
 
   nsLoadFlags newLoadFlags;
   aChannel->GetLoadFlags(&newLoadFlags);

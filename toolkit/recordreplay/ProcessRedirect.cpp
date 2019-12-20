@@ -15,6 +15,11 @@
 #include <dlfcn.h>
 #include <string.h>
 
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+
 namespace {
 
 #include "udis86/udis86.c"
@@ -22,6 +27,10 @@ namespace {
 #include "udis86/itab.c"
 
 }  // anonymous namespace
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
 
 namespace mozilla {
 namespace recordreplay {
@@ -694,7 +703,7 @@ static size_t CopyInstruction(const char* aName, uint8_t* aIp,
           UnknownInstruction(aName, aIp, nbytes);
           return nbytes;
         }
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
       case UD_OP_REG:
         if (op->base == UD_R_RIP) {
           UnknownInstruction(aName, aIp, nbytes);
