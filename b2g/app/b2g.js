@@ -1312,3 +1312,5 @@ pref("dom.systemMessage.enabled", true);
 
 // Remote debugging is disabled by default in MOZ_OFFICIAL builds.
 pref("devtools.debugger.remote-enabled", true);
+// To get connection with remote debugger working in non-nightly builds.
+pref("devtools.debugger.prompt-connection", false);
