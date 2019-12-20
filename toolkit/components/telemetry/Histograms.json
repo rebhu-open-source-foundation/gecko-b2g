@@ -13156,16 +13156,6 @@
     "keyed": true,
     "description": "Measures the number of milliseconds we spend waiting for sync IPC messages to finish sending, keyed by message name. Note: only messages that wait for more than 500 microseconds and block the main thread are included in this probe."
   },
-  "REJECTED_MESSAGE_MANAGER_MESSAGE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["amccreight@mozilla.com"],
-    "bug_numbers": [1272423],
-    "expires_in_version": "55",
-    "kind": "count",
-    "keyed": true,
-    "description": "Each key is the message name, with digits removed, from an async message manager message that was rejected for being over approximately 128MB, recorded in the sending process at the time of sending."
-  },
   "SANDBOX_HAS_SECCOMP_BPF": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -14613,28 +14603,6 @@
     "n_buckets": 20,
     "kind": "exponential",
     "description": "Age of files scanned in profile directory in days when determining initial profile age."
-  },
-  "ACTIVE_HTTP_DOCGROUPS_PER_TABGROUP": {
-    "record_in_processes": ["content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["farre@mozilla.com"],
-    "bug_numbers": [1441972, 1468843],
-    "expires_in_version": "67",
-    "kind": "exponential",
-    "high": 50,
-    "n_buckets": 20,
-    "description": "Number of active http:// and https:// doc groups per tab group. Collected at the point when the top level document of the tab group is unloaded."
-  },
-  "TOTAL_HTTP_DOCGROUPS_PER_TABGROUP": {
-    "record_in_processes": ["content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["farre@mozilla.com"],
-    "bug_numbers": [1441972, 1468843],
-    "expires_in_version": "67",
-    "kind": "exponential",
-    "high": 50,
-    "n_buckets": 20,
-    "description": "Total number of http:// and https:// doc groups per tab group, including docgroups fully in bfcache. Collected at the point when the top level document of the tab group is unloaded."
   },
   "QUIRKS_MODE": {
     "record_in_processes": ["main", "content"],

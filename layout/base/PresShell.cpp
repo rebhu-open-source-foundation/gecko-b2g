@@ -195,6 +195,7 @@
 #include "nsClassHashtable.h"
 #include "nsHashKeys.h"
 #include "VisualViewport.h"
+#include "ZoomConstraintsClient.h"
 
 #ifdef MOZ_TASK_TRACER
 #  include "GeckoTaskTracer.h"
@@ -6324,7 +6325,7 @@ nsIFrame* PresShell::EventHandler::GetNearestFrameContainingPresShell(
   return frame;
 }
 
-static bool FlushThrottledStyles(Document& aDocument, void* aData) {
+static CallState FlushThrottledStyles(Document& aDocument, void* aData) {
   PresShell* presShell = aDocument.GetPresShell();
   if (presShell && presShell->IsVisible()) {
     if (nsPresContext* presContext = presShell->GetPresContext()) {
@@ -6333,7 +6334,7 @@ static bool FlushThrottledStyles(Document& aDocument, void* aData) {
   }
 
   aDocument.EnumerateSubDocuments(FlushThrottledStyles, nullptr);
-  return true;
+  return CallState::Continue;
 }
 
 bool PresShell::CanDispatchEvent(const WidgetGUIEvent* aEvent) const {
@@ -6598,7 +6599,7 @@ nsresult PresShell::EventHandler::HandleEventUsingCoordinates(
   // be used instead below. Also keep using the root frame if we're dealing
   // with a window-level mouse exit event since we want to start sending
   // mouse out events at the root EventStateManager.
-  EventTargetData eventTargetData(mPresShell, rootFrameToHandleEvent);
+  EventTargetData eventTargetData(rootFrameToHandleEvent);
   if (!isCaptureRetargeted && !isWindowLevelMouseExit &&
       !pointerCapturingContent) {
     if (!ComputeEventTargetFrameAndPresShellAtEventPoint(
@@ -8835,11 +8836,11 @@ static void FreezeElement(nsISupports* aSupports, void* /* unused */) {
   }
 }
 
-static bool FreezeSubDocument(Document& aDocument, void*) {
+static CallState FreezeSubDocument(Document& aDocument, void*) {
   if (PresShell* presShell = aDocument.GetPresShell()) {
     presShell->Freeze();
   }
-  return true;
+  return CallState::Continue;
 }
 
 void PresShell::Freeze() {
@@ -8905,11 +8906,11 @@ static void ThawElement(nsISupports* aSupports, void* aShell) {
   }
 }
 
-static bool ThawSubDocument(Document& aDocument, void* aData) {
+static CallState ThawSubDocument(Document& aDocument, void* aData) {
   if (PresShell* presShell = aDocument.GetPresShell()) {
     presShell->Thaw();
   }
-  return true;
+  return CallState::Continue;
 }
 
 void PresShell::Thaw() {
@@ -10394,11 +10395,12 @@ void PresShell::QueryIsActive() {
 }
 
 // Helper for propagating mIsActive changes to external resources
-static bool SetExternalResourceIsActive(Document& aDocument, void* aClosure) {
+static CallState SetExternalResourceIsActive(Document& aDocument,
+                                             void* aClosure) {
   if (PresShell* presShell = aDocument.GetPresShell()) {
     presShell->SetIsActive(*static_cast<bool*>(aClosure));
   }
-  return true;
+  return CallState::Continue;
 }
 
 static void SetPluginIsActive(nsISupports* aSupports, void* aClosure) {
@@ -11068,7 +11070,7 @@ bool PresShell::EventHandler::EventTargetData::MaybeRetargetToActiveDocument(
     return false;
   }
 
-  SetPresShellAndFrame(activePresShell, activePresShell->GetRootFrame());
+  SetFrameAndComputePresShell(activePresShell->GetRootFrame());
   return true;
 }
 
@@ -11193,11 +11195,11 @@ PresShell::EventHandler::HandlingTimeAccumulator::~HandlingTimeAccumulator() {
   }
 }
 
-static bool EndPaintHelper(Document& aDocument, void* aData) {
+static CallState EndPaintHelper(Document& aDocument, void* aData) {
   if (PresShell* presShell = aDocument.GetPresShell()) {
     presShell->EndPaint();
   }
-  return true;
+  return CallState::Continue;
 }
 
 void PresShell::EndPaint() {

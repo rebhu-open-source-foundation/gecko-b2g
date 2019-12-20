@@ -634,9 +634,9 @@ XDRResult js::XDRInterpretedFunction(XDRState<mode>* xdr,
     fun->setFlags(uint16_t(flagsword));
     fun->initAtom(atom);
     if (firstword & IsLazy) {
-      MOZ_ASSERT(fun->lazyScript() == lazy);
+      MOZ_ASSERT(fun->baseScript() == lazy);
     } else {
-      MOZ_ASSERT(fun->nonLazyScript() == script);
+      MOZ_ASSERT(fun->baseScript() == script);
       MOZ_ASSERT(fun->nargs() == script->numArgs());
     }
 
@@ -1219,20 +1219,7 @@ const JSClass JSFunction::class_ = {js_Function_str,
 const JSClass* const js::FunctionClassPtr = &JSFunction::class_;
 
 bool JSFunction::isDerivedClassConstructor() {
-  bool derived = false;
-  if (hasSelfHostedLazyScript()) {
-    // There is only one plausible lazy self-hosted derived
-    // constructor.
-    JSAtom* name = GetClonedSelfHostedFunctionName(this);
-
-    // This function is called from places without access to a
-    // JSContext. Trace some plumbing to get what we want.
-    derived = name == compartment()
-                          ->runtimeFromAnyThread()
-                          ->commonNames->DefaultDerivedClassConstructor;
-  } else if (hasBaseScript()) {
-    derived = baseScript()->isDerivedClassConstructor();
-  }
+  bool derived = hasBaseScript() && baseScript()->isDerivedClassConstructor();
   MOZ_ASSERT_IF(derived, isClassConstructor());
   return derived;
 }
@@ -1550,7 +1537,7 @@ static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
     if (!frontend::CompileLazyBinASTFunction(
             cx, lazy, ss->binASTSource() + sourceStart, sourceLength)) {
       MOZ_ASSERT(fun->isInterpretedLazy());
-      MOZ_ASSERT(fun->lazyScript() == lazy);
+      MOZ_ASSERT(fun->baseScript() == lazy);
       MOZ_ASSERT(!lazy->hasScript());
       return false;
     }
@@ -1575,7 +1562,7 @@ static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
         // The frontend shouldn't fail after linking the function and the
         // non-lazy script together.
         MOZ_ASSERT(fun->isInterpretedLazy());
-        MOZ_ASSERT(fun->lazyScript() == lazy);
+        MOZ_ASSERT(fun->baseScript() == lazy);
         MOZ_ASSERT(!lazy->hasScript());
         return false;
       }
@@ -1593,7 +1580,7 @@ static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
         // The frontend shouldn't fail after linking the function and the
         // non-lazy script together.
         MOZ_ASSERT(fun->isInterpretedLazy());
-        MOZ_ASSERT(fun->lazyScript() == lazy);
+        MOZ_ASSERT(fun->baseScript() == lazy);
         MOZ_ASSERT(!lazy->hasScript());
         return false;
       }
@@ -1738,6 +1725,10 @@ void JSFunction::maybeRelazify(JSRuntime* rt) {
 
   MOZ_ASSERT(!script->isAsync() && !script->isGenerator(),
              "Generator resume code in the JITs assumes non-lazy function");
+
+  MOZ_ASSERT(!script->isDefaultClassConstructor(),
+             "default class constructors are built-in, but have their "
+             "self-hosted flag cleared");
 
   LazyScript* lazy = script->maybeLazyScript();
   if (lazy) {

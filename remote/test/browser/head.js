@@ -12,14 +12,31 @@ const { RemoteAgent } = ChromeUtils.import(
   "chrome://remote/content/RemoteAgent.jsm"
 );
 
-/**
- * Override `add_task` in order to translate chrome-remote-interface exceptions
- * into something that logs better errors on stdout
- */
+/*
+add_task() is overriden to setup and teardown a test environment
+making it easier to  write browser-chrome tests for the remote
+debugger.
+
+Before the task is run, the nsIRemoteAgent listener is started and
+a CDP client is connected to it.  A new tab is also added.  These
+three things are exposed to the provided task like this:
+
+	add_task(async function testName(client, CDP, tab) {
+	  // client is an instance of the CDP class
+	  // CDP is ./chrome-remote-interface.js
+	  // tab is a fresh tab, destroyed after the test
+	});
+
+add_plain_task() may be used to write test tasks without the implicit
+setup and teardown described above.
+*/
+
 const add_plain_task = add_task.bind(this);
+
 this.add_task = function(taskFn, opts = {}) {
   const { createTab = true } = opts;
-  add_plain_task(async function() {
+
+  const fn = async function() {
     let client;
     await RemoteAgent.listen(Services.io.newURI("http://localhost:9222"));
     info("CDP server started");
@@ -74,7 +91,10 @@ this.add_task = function(taskFn, opts = {}) {
         gBrowser.removeCurrentTab();
       }
     }
-  });
+  };
+
+  Object.defineProperty(fn, "name", { value: taskFn.name, writable: false });
+  add_plain_task(fn);
 };
 
 /**

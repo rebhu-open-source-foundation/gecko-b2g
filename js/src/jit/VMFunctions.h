@@ -950,8 +950,7 @@ int32_t GetIndexFromString(JSString* str);
 
 JSObject* WrapObjectPure(JSContext* cx, JSObject* obj);
 
-MOZ_MUST_USE bool DebugPrologue(JSContext* cx, BaselineFrame* frame,
-                                jsbytecode* pc, bool* mustReturn);
+MOZ_MUST_USE bool DebugPrologue(JSContext* cx, BaselineFrame* frame);
 MOZ_MUST_USE bool DebugEpilogue(JSContext* cx, BaselineFrame* frame,
                                 jsbytecode* pc, bool ok);
 MOZ_MUST_USE bool DebugEpilogueOnBaselineReturn(JSContext* cx,
@@ -968,8 +967,7 @@ MOZ_MUST_USE bool FinalSuspend(JSContext* cx, HandleObject obj, jsbytecode* pc);
 MOZ_MUST_USE bool InterpretResume(JSContext* cx, HandleObject obj,
                                   HandleValue val, HandlePropertyName kind,
                                   MutableHandleValue rval);
-MOZ_MUST_USE bool DebugAfterYield(JSContext* cx, BaselineFrame* frame,
-                                  jsbytecode* pc, bool* mustReturn);
+MOZ_MUST_USE bool DebugAfterYield(JSContext* cx, BaselineFrame* frame);
 MOZ_MUST_USE bool GeneratorThrowOrReturn(
     JSContext* cx, BaselineFrame* frame,
     Handle<AbstractGeneratorObject*> genObj, HandleValue arg,
@@ -990,9 +988,8 @@ JSObject* InitRestParameter(JSContext* cx, uint32_t length, Value* rest,
                             HandleObject templateObj, HandleObject res);
 
 MOZ_MUST_USE bool HandleDebugTrap(JSContext* cx, BaselineFrame* frame,
-                                  uint8_t* retAddr, bool* mustReturn);
-MOZ_MUST_USE bool OnDebuggerStatement(JSContext* cx, BaselineFrame* frame,
-                                      jsbytecode* pc, bool* mustReturn);
+                                  uint8_t* retAddr);
+MOZ_MUST_USE bool OnDebuggerStatement(JSContext* cx, BaselineFrame* frame);
 MOZ_MUST_USE bool GlobalHasLiveOnDebuggerStatement(JSContext* cx);
 
 MOZ_MUST_USE bool EnterWith(JSContext* cx, BaselineFrame* frame,
@@ -1073,11 +1070,6 @@ bool ObjectIsCallable(JSObject* obj);
 bool ObjectIsConstructor(JSObject* obj);
 
 MOZ_MUST_USE bool ThrowRuntimeLexicalError(JSContext* cx, unsigned errorNumber);
-
-MOZ_MUST_USE bool BaselineThrowUninitializedThis(JSContext* cx,
-                                                 BaselineFrame* frame);
-
-MOZ_MUST_USE bool BaselineThrowInitializedThis(JSContext* cx);
 
 MOZ_MUST_USE bool ThrowBadDerivedReturn(JSContext* cx, HandleValue v);
 

@@ -856,34 +856,8 @@ JSObject* WrapObjectPure(JSContext* cx, JSObject* obj) {
   return nullptr;
 }
 
-static bool HandlePrologueResumeMode(JSContext* cx, BaselineFrame* frame,
-                                     jsbytecode* pc, bool* mustReturn,
-                                     ResumeMode resumeMode) {
-  *mustReturn = false;
-  switch (resumeMode) {
-    case ResumeMode::Continue:
-      return true;
-
-    case ResumeMode::Return:
-      // The script is going to return immediately, so we have to call the
-      // debug epilogue handler as well.
-      MOZ_ASSERT(frame->hasReturnValue());
-      *mustReturn = true;
-      return jit::DebugEpilogue(cx, frame, pc, true);
-
-    case ResumeMode::Throw:
-    case ResumeMode::Terminate:
-      return false;
-
-    default:
-      MOZ_CRASH("bad DebugAPI::onEnterFrame resume mode");
-  }
-}
-
-bool DebugPrologue(JSContext* cx, BaselineFrame* frame, jsbytecode* pc,
-                   bool* mustReturn) {
-  ResumeMode resumeMode = DebugAPI::onEnterFrame(cx, frame);
-  return HandlePrologueResumeMode(cx, frame, pc, mustReturn, resumeMode);
+bool DebugPrologue(JSContext* cx, BaselineFrame* frame) {
+  return DebugAPI::onEnterFrame(cx, frame);
 }
 
 bool DebugEpilogueOnBaselineReturn(JSContext* cx, BaselineFrame* frame,
@@ -984,8 +958,7 @@ bool InterpretResume(JSContext* cx, HandleObject obj, HandleValue val,
                                 UndefinedHandleValue, args, rval);
 }
 
-bool DebugAfterYield(JSContext* cx, BaselineFrame* frame, jsbytecode* pc,
-                     bool* mustReturn) {
+bool DebugAfterYield(JSContext* cx, BaselineFrame* frame) {
   // The BaselineFrame has just been constructed by JSOP_RESUME in the
   // caller. We need to set its debuggee flag as necessary.
   //
@@ -993,11 +966,9 @@ bool DebugAfterYield(JSContext* cx, BaselineFrame* frame, jsbytecode* pc,
   // we may already have done this work. Don't fire onEnterFrame again.
   if (frame->script()->isDebuggee() && !frame->isDebuggee()) {
     frame->setIsDebuggee();
-    ResumeMode resumeMode = DebugAPI::onResumeFrame(cx, frame);
-    return HandlePrologueResumeMode(cx, frame, pc, mustReturn, resumeMode);
+    return DebugAPI::onResumeFrame(cx, frame);
   }
 
-  *mustReturn = false;
   return true;
 }
 
@@ -1018,18 +989,11 @@ bool GeneratorThrowOrReturn(JSContext* cx, BaselineFrame* frame,
   // running, so we do the same.
   genObj->setRunning();
 
-  bool mustReturn = false;
-  if (!DebugAfterYield(cx, frame, pc, &mustReturn)) {
+  if (!DebugAfterYield(cx, frame)) {
     return false;
   }
 
   GeneratorResumeKind resumeKind = GeneratorResumeKind(resumeKindArg);
-  if (mustReturn) {
-    // This function always returns false for the traditional JS control
-    // flow for throw, return and terminate, so we can use the true case to
-    // indicate an explicit return via the debugger.
-    return true;
-  }
 
   MOZ_ALWAYS_FALSE(
       js::GeneratorThrowOrReturn(cx, frame, genObj, arg, resumeKind));
@@ -1102,10 +1066,7 @@ JSObject* InitRestParameter(JSContext* cx, uint32_t length, Value* rest,
   return arrRes;
 }
 
-bool HandleDebugTrap(JSContext* cx, BaselineFrame* frame, uint8_t* retAddr,
-                     bool* mustReturn) {
-  *mustReturn = false;
-
+bool HandleDebugTrap(JSContext* cx, BaselineFrame* frame, uint8_t* retAddr) {
   RootedScript script(cx, frame->script());
   jsbytecode* pc;
   if (frame->runningInInterpreter()) {
@@ -1131,11 +1092,8 @@ bool HandleDebugTrap(JSContext* cx, BaselineFrame* frame, uint8_t* retAddr,
     // it now.
     MOZ_ASSERT(!frame->isDebuggee());
 
-    if (!DebugAfterYield(cx, frame, pc, mustReturn)) {
+    if (!DebugAfterYield(cx, frame)) {
       return false;
-    }
-    if (*mustReturn) {
-      return true;
     }
 
     // If the frame is not a debuggee we're done. This can happen, for instance,
@@ -1147,60 +1105,19 @@ bool HandleDebugTrap(JSContext* cx, BaselineFrame* frame, uint8_t* retAddr,
 
   MOZ_ASSERT(frame->isDebuggee());
 
-  RootedValue rval(cx);
-  ResumeMode resumeMode = ResumeMode::Continue;
-
-  if (DebugAPI::stepModeEnabled(script)) {
-    resumeMode = DebugAPI::onSingleStep(cx, &rval);
+  if (DebugAPI::stepModeEnabled(script) && !DebugAPI::onSingleStep(cx)) {
+    return false;
   }
 
-  if (resumeMode == ResumeMode::Continue &&
-      DebugAPI::hasBreakpointsAt(script, pc)) {
-    resumeMode = DebugAPI::onTrap(cx, &rval);
-  }
-
-  switch (resumeMode) {
-    case ResumeMode::Continue:
-      break;
-
-    case ResumeMode::Terminate:
-      return false;
-
-    case ResumeMode::Return:
-      *mustReturn = true;
-      frame->setReturnValue(rval);
-      return jit::DebugEpilogue(cx, frame, pc, true);
-
-    case ResumeMode::Throw:
-      cx->setPendingExceptionAndCaptureStack(rval);
-      return false;
-
-    default:
-      MOZ_CRASH("Invalid step/breakpoint resume mode");
+  if (DebugAPI::hasBreakpointsAt(script, pc) && !DebugAPI::onTrap(cx)) {
+    return false;
   }
 
   return true;
 }
 
-bool OnDebuggerStatement(JSContext* cx, BaselineFrame* frame, jsbytecode* pc,
-                         bool* mustReturn) {
-  *mustReturn = false;
-
-  switch (DebugAPI::onDebuggerStatement(cx, frame)) {
-    case ResumeMode::Continue:
-      return true;
-
-    case ResumeMode::Return:
-      *mustReturn = true;
-      return jit::DebugEpilogue(cx, frame, pc, true);
-
-    case ResumeMode::Throw:
-    case ResumeMode::Terminate:
-      return false;
-
-    default:
-      MOZ_CRASH("Invalid OnDebuggerStatement resume mode");
-  }
+bool OnDebuggerStatement(JSContext* cx, BaselineFrame* frame) {
+  return DebugAPI::onDebuggerStatement(cx, frame);
 }
 
 bool GlobalHasLiveOnDebuggerStatement(JSContext* cx) {
@@ -1446,8 +1363,7 @@ void AssertValidSymbolPtr(JSContext* cx, JS::Symbol* sym) {
 
   MOZ_ASSERT(sym->zone()->isAtomsZone());
   MOZ_ASSERT(sym->isAligned());
-  if (JSString* desc = sym->description()) {
-    MOZ_ASSERT(desc->isAtom());
+  if (JSAtom* desc = sym->description()) {
     AssertValidStringPtr(cx, desc);
   }
 
@@ -1524,14 +1440,6 @@ bool ThrowBadDerivedReturn(JSContext* cx, HandleValue v) {
   ReportValueError(cx, JSMSG_BAD_DERIVED_RETURN, JSDVG_IGNORE_STACK, v,
                    nullptr);
   return false;
-}
-
-bool BaselineThrowUninitializedThis(JSContext* cx, BaselineFrame* frame) {
-  return ThrowUninitializedThis(cx, frame);
-}
-
-bool BaselineThrowInitializedThis(JSContext* cx) {
-  return ThrowInitializedThis(cx);
 }
 
 bool ThrowObjectCoercible(JSContext* cx, HandleValue v) {

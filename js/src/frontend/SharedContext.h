@@ -148,6 +148,12 @@ class SharedContext {
   // A direct eval occurs in the body of the script.
   bool hasDirectEval_ : 1;
 
+  // True if a tagged template exists in the body.
+  bool hasCallSiteObj_ : 1;
+
+  // Script is being parsed with a goal of Module.
+  bool hasModuleGoal_ : 1;
+
   void computeAllowSyntax(Scope* scope);
   void computeInWith(Scope* scope);
   void computeThisBinding(Scope* scope);
@@ -169,7 +175,9 @@ class SharedContext {
         needsThisTDZChecks_(false),
         hasExplicitUseStrict_(false),
         bindingsAccessedDynamically_(false),
-        hasDirectEval_(false) {}
+        hasDirectEval_(false),
+        hasCallSiteObj_(false),
+        hasModuleGoal_(false) {}
 
   // If this is the outermost SharedContext, the Scope that encloses
   // it. Otherwise nullptr.
@@ -199,6 +207,7 @@ class SharedContext {
 
   ThisBinding thisBinding() const { return thisBinding_; }
 
+  bool hasModuleGoal() const { return hasModuleGoal_; }
   bool allowNewTarget() const { return allowNewTarget_; }
   bool allowSuperProperty() const { return allowSuperProperty_; }
   bool allowSuperCall() const { return allowSuperCall_; }
@@ -211,10 +220,13 @@ class SharedContext {
     return bindingsAccessedDynamically_;
   }
   bool hasDirectEval() const { return hasDirectEval_; }
+  bool hasCallSiteObj() const { return hasCallSiteObj_; }
 
   void setExplicitUseStrict() { hasExplicitUseStrict_ = true; }
   void setBindingsAccessedDynamically() { bindingsAccessedDynamically_ = true; }
   void setHasDirectEval() { hasDirectEval_ = true; }
+  void setHasCallSiteObj() { hasCallSiteObj_ = true; }
+  void setHasModuleGoal() { hasModuleGoal_ = true; }
 
   inline bool allBindingsClosedOver();
 

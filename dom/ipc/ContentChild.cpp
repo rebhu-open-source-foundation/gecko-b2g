@@ -253,7 +253,7 @@
 
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/devicestorage/DeviceStorageRequestChild.h"
-#include "mozilla/dom/MediaController.h"
+#include "mozilla/dom/MediaControlKeysEvent.h"
 #include "mozilla/dom/PPresentationChild.h"
 #include "mozilla/dom/PresentationIPCService.h"
 #include "mozilla/ipc/IPCStreamAlloc.h"
@@ -3938,10 +3938,10 @@ mozilla::ipc::IPCResult ContentChild::RecvStartDelayedAutoplayMediaComponents(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentChild::RecvUpdateMediaAction(
-    BrowsingContext* aContext, MediaControlActions aAction) {
+mozilla::ipc::IPCResult ContentChild::RecvUpdateMediaControlKeysEvent(
+    BrowsingContext* aContext, MediaControlKeysEvent aEvent) {
   MOZ_ASSERT(aContext);
-  MediaActionHandler::UpdateMediaAction(aContext, aAction);
+  MediaActionHandler::HandleMediaControlKeysEvent(aContext, aEvent);
   return IPC_OK();
 }
 

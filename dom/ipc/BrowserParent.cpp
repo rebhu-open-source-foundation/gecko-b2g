@@ -98,7 +98,7 @@
 #include "nsAuthInformationHolder.h"
 #include "nsICancelable.h"
 #include "gfxUtils.h"
-#include "nsILoginManagerPrompter.h"
+#include "nsILoginManagerAuthPrompter.h"
 #include "nsPIWindowRoot.h"
 #include "nsIAuthPrompt2.h"
 #include "gfxDrawable.h"
@@ -3163,7 +3163,7 @@ BrowserParent::GetAuthPrompt(uint32_t aPromptReason, const nsIID& iid,
   rv = wwatch->GetPrompt(window, iid, getter_AddRefs(prompt));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsILoginManagerPrompter> prompter = do_QueryInterface(prompt);
+  nsCOMPtr<nsILoginManagerAuthPrompter> prompter = do_QueryInterface(prompt);
   if (prompter) {
     prompter->SetBrowser(mFrameElement);
   }
@@ -3620,6 +3620,7 @@ class FakeChannel final : public nsIChannel,
   NS_IMETHOD IsPending(bool*) NO_IMPL;
   NS_IMETHOD GetStatus(nsresult*) NO_IMPL;
   NS_IMETHOD Cancel(nsresult) NO_IMPL;
+  NS_IMETHOD GetCanceled(bool* aCanceled) NO_IMPL;
   NS_IMETHOD Suspend() NO_IMPL;
   NS_IMETHOD Resume() NO_IMPL;
   NS_IMETHOD GetLoadGroup(nsILoadGroup**) NO_IMPL;
@@ -3696,7 +3697,7 @@ class FakeChannel final : public nsIChannel,
 #undef NO_IMPL
 
  protected:
-  ~FakeChannel() {}
+  ~FakeChannel() = default;
 
   nsCOMPtr<nsIURI> mUri;
   uint64_t mCallbackId;
