@@ -126,16 +126,40 @@ def privatebrowsing(value, target):
 set_config('MOZ_PRIVATEBROWSING', privatebrowsing)
 set_define('MOZ_PRIVATEBROWSING', privatebrowsing)
 
-# Gnss Support
-# ==============================================================
-option('--with-gnss-so', nargs=1,
-       help='Assign the path of android.hardware.gnss@XX.so')
 
-@depends_if('--with-gnss-so')
-def gnss_so(value):
+# Gnss 1.0 Support
+# ==============================================================
+option('--with-gnss1.0-so', nargs=1,
+       help='Assign the path of android.hardware.gnss@1.0.so')
+
+@depends_if('--with-gnss1.0-so')
+def gnss_1_0_so(value):
     return value[0]
 
-set_config('ANDROID_GNSS_SO', gnss_so)
+set_config('ANDROID_GNSS_1_0_SO', gnss_1_0_so)
+
+# Gnss 1.1 Support
+# ==============================================================
+option('--with-gnss1.1-so', nargs=1,
+       help='Assign the path of android.hardware.gnss@1.1.so')
+
+@depends_if('--with-gnss1.1-so')
+def gnss_1_1_so(value):
+    return value[0]
+
+set_config('ANDROID_GNSS_1_1_SO', gnss_1_1_so)
+
+# Gnss 2.0 Support
+# ==============================================================
+option('--with-gnss2.0-so', nargs=1,
+       help='Assign the path of android.hardware.gnss@2.0.so')
+
+@depends_if('--with-gnss2.0-so')
+def gnss_2_0_so(value):
+    return value[0]
+
+set_config('ANDROID_GNSS_2_0_SO', gnss_2_0_so)
+
 
 # Vibrator Support
 # ==============================================================

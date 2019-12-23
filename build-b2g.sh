@@ -130,6 +130,10 @@ $HWC_DEFINE \
 -I$HIDL_TRANSPORT/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
 -I$HIDL_TRANSPORT/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
 -I$HIDL_HW/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen \
+-I$HIDL_HW/gnss/1.1/android.hardware.gnss@1.1_genc++_headers/gen \
+-I$HIDL_HW/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen \
+-I$HIDL_HW/gnss/measurement_corrections/1.0/android.hardware.gnss.measurement_corrections@1.0_genc++_headers/gen \
+-I$HIDL_HW/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen \
 -I$HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"
 
 export CPPFLAGS="-fPIC \

@@ -18,7 +18,12 @@
 #ifndef GonkGPSGeolocationProvider_h
 #define GonkGPSGeolocationProvider_h
 
-#if ANDROID_VERSION >= 27
+#if ANDROID_VERSION >= 29
+#  include "android/hardware/gnss/1.1/IGnss.h"
+#  include "android/hardware/gnss/2.0/IGnss.h"
+#endif
+
+#if ANDROID_VERSION >= 26
 #  include "android/hardware/gnss/1.0/IGnss.h"
 #else
 #  include <hardware/gps.h>  // for GpsInterface
@@ -78,7 +83,7 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
   nsCOMPtr<nsIDOMGeoPosition> mLastGPSPosition;
   nsCOMPtr<nsIGeolocationProvider> mNetworkLocationProvider;
 
-#if ANDROID_VERSION >= 27  // struct GnssCallback;
+#if ANDROID_VERSION >= 26
   friend struct GnssCallback;
 
   struct GnssDeathRecipient
@@ -89,8 +94,14 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
         const android::wp<android::hidl::base::V1_0::IBase>& who) override;
   };
 
+  void InitGnssHal();
+
   android::sp<GnssDeathRecipient> mGnssHalDeathRecipient;
   android::sp<android::hardware::gnss::V1_0::IGnss> mGnssHal;
+#  if ANDROID_VERSION >= 29
+  android::sp<android::hardware::gnss::V1_1::IGnss> mGnssHal_V1_1;
+  android::sp<android::hardware::gnss::V2_0::IGnss> mGnssHal_V2_0;
+#  endif
 #else
   const GpsInterface* GetGPSInterface();
 

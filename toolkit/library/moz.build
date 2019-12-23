@@ -98,9 +98,15 @@ def Libxul(name, output_category=None):
         OBJDIR_PP_FILES.toolkit.library.gtest += ['../libxul.so-gdb.py.in']
 
     if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-        LDFLAGS += [CONFIG['ANDROID_GNSS_SO']]
-        LDFLAGS += [CONFIG['ANDROID_VIBRATOR_SO']]
-
+        LDFLAGS += [
+            CONFIG['ANDROID_GNSS_1_0_SO'],
+            CONFIG['ANDROID_VIBRATOR_SO'],
+        ]
+        if CONFIG['ANDROID_VERSION'] >= '29':
+            LDFLAGS += [
+                CONFIG['ANDROID_GNSS_1_1_SO'],
+                CONFIG['ANDROID_GNSS_2_0_SO'],
+            ]
 
 # The real libxul definition is in ./build/moz.build, but we define a
 # xul library here such that # FINAL_LIBRARY = 'xul' refers to here, which

@@ -39,7 +39,7 @@ class nsIPrincipal;
 #  include "AndroidLocationProvider.h"
 #endif
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION <= 27
+#if defined(MOZ_WIDGET_GONK)
 #  include "GonkGPSGeolocationProvider.h"
 #endif
 
@@ -529,7 +529,7 @@ nsresult nsGeolocationService::Init() {
   mProvider = new AndroidLocationProvider();
 #endif
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION <= 27
+#if defined(MOZ_WIDGET_GONK)
   mProvider = do_GetService(GONK_GPS_GEOLOCATION_PROVIDER_CONTRACTID);
 #endif
 

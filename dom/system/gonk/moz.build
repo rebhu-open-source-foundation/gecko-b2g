@@ -50,13 +50,12 @@ UNIFIED_SOURCES += [
     'VolumeServiceTest.cpp',
 ]
 
-if CONFIG['ANDROID_VERSION'] <= '27':
-    EXPORTS += [
-        'GonkGPSGeolocationProvider.h',
-    ]
-    UNIFIED_SOURCES += [
-        'GonkGPSGeolocationProvider.cpp',
-    ]
+EXPORTS += [
+    'GonkGPSGeolocationProvider.h',
+]
+UNIFIED_SOURCES += [
+    'GonkGPSGeolocationProvider.cpp',
+]
 
 XPCOM_MANIFESTS += [
     'components.conf',
