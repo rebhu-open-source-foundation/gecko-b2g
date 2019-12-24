@@ -1,0 +1,31 @@
+/* (c) 2019 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(85e14af3-fdfd-4720-9219-05c4e07a76ef), function]
+interface nsIActivityStartCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onStart(in nsresult status, in jsval result);
+};
+
+/*
+ * nsIActivityProxy is a helper of passing requests from WebActivity.cpp to
+ * ActivitiesService.jsm, receiving results from ActivitiesService and send it
+ * back to WebActivity.
+ */
+[scriptable, uuid(1d069f6a-bb82-4648-8bcd-b8671b4a963d)]
+interface nsIActivityProxy : nsISupports
+{
+  AString init(in nsISupports owner, in jsval options, in ACString url);
+
+  void start(in AString id, in nsIActivityStartCallback callback);
+
+  void cancel(in AString id);
+};
