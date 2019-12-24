@@ -18,7 +18,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-//#include <linux/android_alarm.h>
 #include <math.h>
 #include <regex.h>
 #include <sched.h>
@@ -26,6 +25,7 @@
 #include <sys/klog.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/timerfd.h>
 #include <sys/resource.h>
 #include <time.h>
 #include <unistd.h>
@@ -800,7 +800,6 @@ namespace {
 // the screen is on or not.
 bool sScreenEnabled = true;
 
-#if 0 // TODO: FIXME
 
 // We can read wakeLockFilename to find out whether the cpu wake lock
 // is already acquired, but reading and parsing it is a lot more work
@@ -812,8 +811,6 @@ bool sCpuSleepAllowed = true;
 // keep track of these needs. Note we have to hold |sInternalLockCpuMutex|
 // when reading or writing this variable to ensure thread-safe.
 int32_t sInternalLockCpuCount = 0;
-
-#endif
 
 } // namespace
 
@@ -911,8 +908,6 @@ SetScreenBrightness(double brightness)
   }
 }
 
-#if 0 // TODO: FIXME
-
 static StaticMutex sInternalLockCpuMutex;
 
 static void
@@ -953,6 +948,8 @@ SetCpuSleepAllowed(bool aAllowed)
   sCpuSleepAllowed = aAllowed;
   UpdateCpuSleepState();
 }
+
+#if 0  // TODO: FIXME
 
 void
 AdjustSystemClock(int64_t aDeltaMilliseconds)
@@ -1121,6 +1118,8 @@ UnlockScreenOrientation()
   OrientationObserver::GetInstance()->UnlockScreenOrientation();
 }
 
+#endif
+
 // This thread will wait for the alarm firing by a blocking IO.
 static pthread_t sAlarmFireWatcherThread;
 
@@ -1143,8 +1142,9 @@ int AlarmData::sNextGeneration = 0;
 AlarmData* sAlarmData = nullptr;
 
 class AlarmFiredEvent : public Runnable {
-public:
-  AlarmFiredEvent(int aGeneration) : mGeneration(aGeneration) {}
+ public:
+  AlarmFiredEvent(int aGeneration)
+      : Runnable("AlarmFiredEvent"), mGeneration(aGeneration) {}
 
   NS_IMETHOD Run() override {
     // Guard against spurious notifications caused by an alarm firing
@@ -1188,19 +1188,15 @@ WaitForAlarm(void* aData)
   AlarmData* alarmData = static_cast<AlarmData*>(aData);
 
   while (!alarmData->mShuttingDown) {
-    int alarmTypeFlags = 0;
+    uint64_t expired;
+    ssize_t err = read(alarmData->mFd, &expired, sizeof(expired));
+    if (err < 0) {
+      HAL_LOG("Failed to read alarm fd. %d %s", err, strerror(errno));
+    } else if (expired != 1) {
+      HAL_LOG("The number of expired alarms is not exact 1. [%d]", expired);
+    }
 
-    // ALARM_WAIT apparently will block even if an alarm hasn't been
-    // programmed, although this behavior doesn't seem to be
-    // documented.  We rely on that here to avoid spinning the CPU
-    // while awaiting an alarm to be programmed.
-    do {
-      alarmTypeFlags = ioctl(alarmData->mFd, ANDROID_ALARM_WAIT);
-    } while (alarmTypeFlags < 0 && errno == EINTR &&
-             !alarmData->mShuttingDown);
-
-    if (!alarmData->mShuttingDown && alarmTypeFlags >= 0 &&
-        (alarmTypeFlags & ANDROID_ALARM_RTC_WAKEUP_MASK)) {
+    if (!alarmData->mShuttingDown) {
       // To make sure the observer can get the alarm firing notification
       // *on time* (the system won't sleep during the process in any way),
       // we need to acquire a CPU wake lock before firing the alarm event.
@@ -1220,7 +1216,7 @@ EnableAlarm()
 {
   MOZ_ASSERT(!sAlarmData);
 
-  int alarmFd = open("/dev/alarm", O_RDWR);
+  int alarmFd = timerfd_create(CLOCK_REALTIME_ALARM, 0);
   if (alarmFd < 0) {
     HAL_LOG("Failed to open alarm device: %s.", strerror(errno));
     return false;
@@ -1279,13 +1275,13 @@ SetAlarm(int32_t aSeconds, int32_t aNanoseconds)
     return false;
   }
 
-  struct timespec ts;
-  ts.tv_sec = aSeconds;
-  ts.tv_nsec = aNanoseconds;
+  struct itimerspec spec;
+  memset(&spec, 0, sizeof(spec));
+  spec.it_value.tv_sec = aSeconds;
+  spec.it_value.tv_nsec = aNanoseconds;
 
-  // Currently we only support RTC wakeup alarm type.
-  const int result = ioctl(sAlarmData->mFd,
-                           ANDROID_ALARM_SET(ANDROID_ALARM_RTC_WAKEUP), &ts);
+  const int result =
+      timerfd_settime(sAlarmData->mFd, TFD_TIMER_ABSTIME, &spec, NULL);
 
   if (result < 0) {
     HAL_LOG("Unable to set alarm: %s.", strerror(errno));
@@ -1295,6 +1291,7 @@ SetAlarm(int32_t aSeconds, int32_t aNanoseconds)
   return true;
 }
 
+#if 0  // TODO: FIXME
 static int
 OomAdjOfOomScoreAdj(int aOomScoreAdj)
 {

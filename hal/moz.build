@@ -57,8 +57,6 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         # TODO: FIXME 'gonk/GonkSensorsInterface.cpp',
         # TODO: FIXME 'gonk/GonkSensorsPollInterface.cpp',
         # TODO: FIXME 'gonk/GonkSensorsRegistryInterface.cpp',
-        # TODO: Use alarm functions for gonk eventually.
-        'fallback/FallbackAlarm.cpp',
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
         'fallback/FallbackSensor.cpp',

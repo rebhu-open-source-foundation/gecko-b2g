@@ -1119,7 +1119,6 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'hardware/power.h',
         'hidl/HidlSupport.h',
         'HTTPBase.h',
-        'linux/android_alarm.h',
         'linux/ashmem.h',
         'media/AudioEffect.h',
         'media/AudioSystem.h',
@@ -1298,6 +1297,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'android/net/IDnsResolver.h',
         'android/net/INetd.h',
         'gui/BufferItem.h',
+        'sys/timerfd.h',
     ]
     if CONFIG['ANDROID_VERSION'] >= '29':
         system_headers += [
