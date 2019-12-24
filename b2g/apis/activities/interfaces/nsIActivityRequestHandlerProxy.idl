@@ -1,0 +1,23 @@
+/* (c) 2019 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+
+/*
+ * nsIActivityRequestHandlerProxy is a helper of passing Activity result, from
+ * WebActivityRequestHandler (running on service worker) to ActivitiesService.
+ */
+[scriptable, uuid(47f2248f-2c8e-4829-a4bb-6ec1e886b2d6)]
+interface nsIActivityRequestHandlerProxy : nsISupports
+{
+  void notifyActivityReady(in AString id);
+
+  void postActivityResult(in AString id, in jsval result);
+
+  void postActivityError(in AString id, in AString error);
+};

@@ -12,4 +12,7 @@
 interface SystemMessageData {
   [Throws]
   any json();
+
+  [Throws]
+  WebActivityRequestHandler webActivityRequestHandler();
 };

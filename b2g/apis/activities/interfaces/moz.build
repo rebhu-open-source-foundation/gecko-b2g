@@ -9,6 +9,7 @@
 
 XPIDL_SOURCES += [
     'nsIActivityProxy.idl',
+    'nsIActivityRequestHandlerProxy.idl',
 ]
 
 XPIDL_MODULE = 'dom_webactivity'

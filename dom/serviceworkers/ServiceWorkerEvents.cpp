@@ -45,6 +45,8 @@
 #include "mozilla/dom/SystemMessageDataBinding.h"
 #include "mozilla/dom/TypedArray.h"
 #include "mozilla/dom/Response.h"
+#include "mozilla/dom/WebActivityBinding.h"
+#include "mozilla/dom/WebActivityRequestHandler.h"
 #include "mozilla/dom/WorkerScope.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/net/NeckoChannelParams.h"
@@ -1165,9 +1167,10 @@ JSObject* PushEvent::WrapObjectInternal(JSContext* aCx,
   return mozilla::dom::PushEvent_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-SystemMessageData::SystemMessageData(nsISupports* aOwner,
-                                     const nsAString& aDecodedText)
-    : mOwner(aOwner), mDecodedText(aDecodedText) {}
+SystemMessageData::SystemMessageData(nsIGlobalObject* aOwner,
+                                     const nsAString& aDecodedText,
+                                     const nsAString& aName)
+    : mOwner(aOwner), mDecodedText(aDecodedText), mName(aName) {}
 
 SystemMessageData::~SystemMessageData() {}
 
@@ -1189,11 +1192,23 @@ JSObject* SystemMessageData::WrapObject(JSContext* aCx,
 void SystemMessageData::Json(JSContext* aCx,
                              JS::MutableHandle<JS::Value> aRetval,
                              ErrorResult& aRv) {
-  if (mDecodedText.IsEmpty()) {
+  if (mDecodedText.IsEmpty() || mName.EqualsLiteral("activity")) {
     aRv.Throw(NS_ERROR_DOM_UNKNOWN_ERR);
     return;
   }
   BodyUtil::ConsumeJson(aCx, aRetval, mDecodedText, aRv);
+}
+
+already_AddRefed<mozilla::dom::WebActivityRequestHandler>
+SystemMessageData::WebActivityRequestHandler(ErrorResult& aRv) {
+  if (!mName.EqualsLiteral("activity")) {
+    aRv.Throw(NS_ERROR_DOM_UNKNOWN_ERR);
+    return nullptr;
+  }
+
+  RefPtr<mozilla::dom::WebActivityRequestHandler> handler =
+      mozilla::dom::WebActivityRequestHandler::Create(mOwner, mDecodedText);
+  return handler.forget();
 }
 
 SystemMessageEvent::SystemMessageEvent(EventTarget* aOwner)
@@ -1210,13 +1225,13 @@ already_AddRefed<SystemMessageEvent> SystemMessageEvent::Constructor(
   e->SetComposed(aOptions.mComposed);
   e->mName = aName;
   if (aOptions.mData.WasPassed()) {
-    nsAutoString text;
     JS::RootedValue value(aCx, JS::ObjectValue(*(aOptions.mData.Value())));
+    nsAutoString text;
     if (!nsContentUtils::StringifyJSON(aCx, &value, text)) {
       aRv.Throw(NS_ERROR_XPC_BAD_CONVERT_JS);
       return nullptr;
     }
-    e->mData = new SystemMessageData(aOwner, text);
+    e->mData = new SystemMessageData(aOwner->GetOwnerGlobal(), text, aName);
   }
   return e.forget();
 }

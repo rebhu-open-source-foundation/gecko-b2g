@@ -15,6 +15,7 @@ EXTRA_JS_MODULES += [
     'ActivitiesService.jsm',
     'ActivitiesServiceFilter.jsm',
     'ActivityProxy.jsm',
+    'ActivityRequestHandlerProxy.jsm',
 ]
 
 XPCOM_MANIFESTS += [
@@ -23,14 +24,17 @@ XPCOM_MANIFESTS += [
 
 UNIFIED_SOURCES += [
     'WebActivity.cpp',
+    'WebActivityRequestHandler.cpp',
 ]
 
 EXPORTS.mozilla.dom += [
     'WebActivity.h',
+    'WebActivityRequestHandler.h',
 ]
 
 WEBIDL_FILES += [
     'WebActivity.webidl',
+    'WebActivityRequestHandler.webidl',
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')

@@ -34,6 +34,7 @@ class ResponseOrPromise;
 class ServiceWorker;
 class ServiceWorkerRegistrationInfo;
 struct SystemMessageEventInit;
+class WebActivityRequestHandler;
 
 // Defined in ServiceWorker.cpp
 bool ServiceWorkerVisible(JSContext* aCx, JSObject* aObj);
@@ -242,16 +243,21 @@ class SystemMessageData final : public nsISupports, public nsWrapperCache {
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  nsISupports* GetParentObject() const { return mOwner; }
+  nsIGlobalObject* GetParentObject() const { return mOwner; }
 
   void Json(JSContext* aCx, JS::MutableHandle<JS::Value> aRetval,
             ErrorResult& aRv);
 
-  SystemMessageData(nsISupports* aOwner, const nsAString& aDecodedText);
+  already_AddRefed<WebActivityRequestHandler> WebActivityRequestHandler(
+      ErrorResult& aRv);
+
+  SystemMessageData(nsIGlobalObject* aOwner, const nsAString& aDecodedText,
+                    const nsAString& aName);
 
  private:
-  nsCOMPtr<nsISupports> mOwner;
+  nsCOMPtr<nsIGlobalObject> mOwner;
   nsString mDecodedText;
+  nsString mName;
   ~SystemMessageData();
 };
 
