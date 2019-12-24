@@ -7,7 +7,6 @@
 DIRS += ['test']
 
 EXTRA_COMPONENTS += [
-    'ActivitiesGlue.js',
     'AlertsService.js',
     'B2GAboutRedirector.js',
     'BootstrapCommandLine.js',
@@ -24,7 +23,6 @@ EXTRA_COMPONENTS += [
     'ProcessGlobal.js',
     'ServiceWorkerIPCHelper.js',
     'SmsProtocolHandler.js',
-    'SystemMessageGlue.js',
     'TelProtocolHandler.js',
 ]
 
