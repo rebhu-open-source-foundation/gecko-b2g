@@ -171,6 +171,22 @@
         new BrowserDOMWindow(this),
         "web-embedder-created"
       );
+
+      Services.obs.addObserver(wrappedDetail => {
+        _webembed_log("receive activity-choice");
+        let detail = wrappedDetail.wrappedJSObject;
+        delegates.activity_chooser.choseActivity(detail).then(
+          choice => {
+            Services.obs.notifyObservers(
+              { wrappedJSObject: choice },
+              "activity-choice-result"
+            );
+          },
+          error => {
+            _webembed_log("Error in choseActivity: " + error);
+          }
+        );
+      }, "activity-choice");
     }
 
     launch_preallocated_process() {

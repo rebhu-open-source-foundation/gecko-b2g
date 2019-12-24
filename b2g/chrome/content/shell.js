@@ -11,6 +11,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
+ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
 
 const isGonk = AppConstants.platform === "gonk";
 

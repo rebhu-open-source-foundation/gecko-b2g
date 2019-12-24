@@ -12,6 +12,8 @@ DIRS += [
 ]
 
 EXTRA_JS_MODULES += [
+    'ActivitiesService.jsm',
+    'ActivitiesServiceFilter.jsm',
     'ActivityProxy.jsm',
 ]
 
