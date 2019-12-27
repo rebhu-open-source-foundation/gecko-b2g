@@ -41,7 +41,7 @@ class Comment final : public CharacterData {
   virtual already_AddRefed<CharacterData> CloneDataNode(
       mozilla::dom::NodeInfo* aNodeInfo, bool aCloneText) const override;
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
   virtual void List(FILE* out, int32_t aIndent) const override;
   virtual void DumpContent(FILE* out = stdout, int32_t aIndent = 0,
                            bool aDumpAll = true) const override {

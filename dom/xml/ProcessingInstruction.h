@@ -30,7 +30,7 @@ class ProcessingInstruction : public CharacterData, public nsStyleLinkElement {
   virtual already_AddRefed<CharacterData> CloneDataNode(
       mozilla::dom::NodeInfo* aNodeInfo, bool aCloneText) const override;
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
   virtual void List(FILE* out, int32_t aIndent) const override;
   virtual void DumpContent(FILE* out, int32_t aIndent,
                            bool aDumpAll) const override;

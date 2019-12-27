@@ -107,6 +107,13 @@ class FragmentOrElement : public nsIContent {
   uint32_t ChildElementCount() { return Children()->Length(); }
 
  public:
+#if DEBUG_FRAME_DUMP
+  virtual void List(FILE* out = stdout, int32_t aIndent = 0) const override {}
+
+  virtual void DumpContent(FILE* out, int32_t aIndent,
+                           bool aDumpAll) const override {}
+#endif
+
   /**
    * If there are listeners for DOMNodeInserted event, fires the event on all
    * aNodes

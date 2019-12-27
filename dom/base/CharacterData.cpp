@@ -346,7 +346,7 @@ nsresult CharacterData::SetTextInternal(
 
 // Implementation of nsIContent
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
 void CharacterData::ToCString(nsAString& aBuf, int32_t aOffset,
                               int32_t aLen) const {
   if (mText.Is2b()) {

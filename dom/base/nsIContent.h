@@ -10,6 +10,7 @@
 #include "mozilla/FlushType.h"
 #include "mozilla/dom/BorrowedAttrInfo.h"
 #include "nsCaseTreatment.h"  // for enum, cannot be forward-declared
+#include "nsFrameList.h"      // for #define DEBUG_FRAME_DUMP
 #include "nsINode.h"
 #include "nsStringFwd.h"
 #include "nsISupportsImpl.h"
@@ -802,7 +803,7 @@ class nsIContent : public nsINode {
   ~nsIContent() {}
 
  public:
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
   /**
    * List the content (and anything it contains) out to the given
    * file stream. Use aIndent as the base indent during formatting.

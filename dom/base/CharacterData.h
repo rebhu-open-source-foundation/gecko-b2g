@@ -163,7 +163,7 @@ class CharacterData : public nsIContent {
 
   void SaveSubtreeState() final {}
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
   void List(FILE* out, int32_t aIndent) const override {}
 
   void DumpContent(FILE* out, int32_t aIndent, bool aDumpAll) const override {}
@@ -201,7 +201,7 @@ class CharacterData : public nsIContent {
 
   //----------------------------------------
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
   void ToCString(nsAString& aBuf, int32_t aOffset, int32_t aLen) const;
 #endif
 

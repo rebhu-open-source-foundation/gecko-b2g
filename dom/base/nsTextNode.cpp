@@ -126,7 +126,7 @@ void nsTextNode::UnbindFromTree(bool aNullParent) {
   CharacterData::UnbindFromTree(aNullParent);
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
 void nsTextNode::List(FILE* out, int32_t aIndent) const {
   int32_t index;
   for (index = aIndent; --index >= 0;) fputs("  ", out);

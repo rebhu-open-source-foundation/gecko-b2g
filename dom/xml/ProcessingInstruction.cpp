@@ -91,7 +91,7 @@ ProcessingInstruction::GetStyleSheetInfo() {
   return Nothing();
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
 void ProcessingInstruction::List(FILE* out, int32_t aIndent) const {
   int32_t index;
   for (index = aIndent; --index >= 0;) fputs("  ", out);

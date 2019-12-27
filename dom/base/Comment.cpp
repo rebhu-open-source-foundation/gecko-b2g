@@ -32,7 +32,7 @@ already_AddRefed<CharacterData> Comment::CloneDataNode(
   return it.forget();
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_FRAME_DUMP
 void Comment::List(FILE* out, int32_t aIndent) const {
   int32_t indx;
   for (indx = aIndent; --indx >= 0;) fputs("  ", out);
