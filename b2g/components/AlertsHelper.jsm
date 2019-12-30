@@ -10,20 +10,16 @@ const Ci = Components.interfaces;
 const Cu = Components.utils;
 const Cc = Components.classes;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
-// Cu.import("resource://gre/modules/AppsUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import(
+  "resource://gre/modules/Services.jsm"
+);
 
 XPCOMUtils.defineLazyServiceGetter(this, "gSystemMessenger",
                                    "@mozilla.org/system-message-internal;1",
                                    "nsISystemMessagesInternal");
-
-XPCOMUtils.defineLazyServiceGetter(this, "appsService",
-                                   "@mozilla.org/AppsService;1",
-                                   "nsIAppsService");
-
-XPCOMUtils.defineLazyModuleGetter(this, "SystemAppProxy",
-                                  "resource://gre/modules/SystemAppProxy.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(this, "notificationStorage",
                                    "@mozilla.org/notificationStorage;1",
@@ -56,9 +52,6 @@ const kTopicAlertClickCallback = "alertclickcallback";
 const kTopicAlertShow          = "alertshow";
 const kTopicAlertFinished      = "alertfinished";
 
-const kMozChromeNotificationEvent  = "mozChromeNotificationEvent";
-const kMozContentNotificationEvent = "mozContentNotificationEvent";
-
 const kMessageAppNotificationSend    = "app-notification-send";
 const kMessageAppNotificationReturn  = "app-notification-return";
 const kMessageAlertNotificationSend  = "alert-notification-send";
@@ -73,13 +66,16 @@ const kMessages = [
 var AlertsHelper = {
 
   _listeners: {},
+  _embedderNotifications: {},
 
   init: function() {
     Services.obs.addObserver(this, "xpcom-shutdown", false);
+    Services.obs.addObserver((embedderNotifications) => {
+      this._embedderNotifications = embedderNotifications.wrappedJSObject;
+    }, "web-embedder-notifications");
     for (let message of kMessages) {
       ppmm.addMessageListener(message, this);
     }
-    SystemAppProxy.addEventListener(kMozContentNotificationEvent, this);
   },
 
   observe: function(aSubject, aTopic, aData) {
@@ -89,7 +85,6 @@ var AlertsHelper = {
         for (let message of kMessages) {
           ppmm.removeMessageListener(message, this);
         }
-        SystemAppProxy.removeEventListener(kMozContentNotificationEvent, this);
         break;
     }
   },
@@ -225,33 +220,6 @@ var AlertsHelper = {
 
   registerAppListener: function(uid, listener) {
     this._listeners[uid] = listener;
-
-    appsService.getManifestFor(listener.manifestURL).then((manifest) => {
-      let app = appsService.getAppByManifestURL(listener.manifestURL);
-      let helper = new ManifestHelper(manifest, app.origin, app.manifestURL);
-      let getNotificationURLFor = function(messages) {
-        if (!messages) {
-          return null;
-        }
-
-        for (let i = 0; i < messages.length; i++) {
-          let message = messages[i];
-          if (message === kNotificationSystemMessageName) {
-            return helper.fullLaunchPath();
-          } else if (typeof message === "object" &&
-                     kNotificationSystemMessageName in message) {
-            return helper.resolveURL(message[kNotificationSystemMessageName]);
-          }
-        }
-
-        // No message found...
-        return null;
-      }
-
-      listener.target = getNotificationURLFor(manifest.messages);
-
-      // Bug 816944 - Support notification messages for entry_points.
-    });
   },
 
   deserializeStructuredClone: function(dataString) {
@@ -282,42 +250,21 @@ var AlertsHelper = {
                              uid, dir, lang, dataObj, manifestURL, timestamp,
                              behavior, requireInteraction, actions,
                              serviceWorkerRegistrationID) {
-    function send(appName, appIcon) {
-      let actionsObj;
-      try {
-        actionsObj = JSON.parse(actions);
-      } catch (e) {}
-      SystemAppProxy._sendCustomEvent(kMozChromeNotificationEvent, {
-        type: kDesktopNotification,
-        id: uid,
-        icon: imageURL,
-        title: title,
-        text: text,
-        dir: dir,
-        lang: lang,
-        appName: appName,
-        appIcon: appIcon,
-        manifestURL: manifestURL,
-        timestamp: timestamp,
-        data: dataObj,
-        mozbehavior: behavior,
-        requireInteraction: requireInteraction,
-        actions: actionsObj || [],
-        serviceWorkerRegistrationID: serviceWorkerRegistrationID
-      });
-    }
-
-    if (!manifestURL || !manifestURL.length) {
-      send(null, null);
-      return;
-    }
-
-    // If we have a manifest URL, get the icon and title from the manifest
-    // to prevent spoofing.
-    appsService.getManifestFor(manifestURL).then((manifest) => {
-      let app = appsService.getAppByManifestURL(manifestURL);
-      let helper = new ManifestHelper(manifest, app.origin, manifestURL);
-      send(helper.name, helper.iconURLForSize(kNotificationIconSize));
+    this._embedderNotifications.showNotification({
+      type: kDesktopNotification,
+      id: uid,
+      icon: imageURL,
+      title: title,
+      text: text,
+      dir: dir,
+      lang: lang,
+      appName: null,
+      appIcon: null,
+      manifestURL: manifestURL,
+      timestamp: timestamp,
+      data: dataObj,
+      mozbehavior: behavior,
+      requireInteraction: requireInteraction,
     });
   },
 
@@ -364,20 +311,11 @@ var AlertsHelper = {
                           details.serviceWorkerRegistrationID);
   },
 
-  closeAlert: function(name) {
-    SystemAppProxy._sendCustomEvent(kMozChromeNotificationEvent, {
-      type: kDesktopNotificationClose,
-      id: name
-    });
-  },
+  closeAlert: function(name) {},
 
   receiveMessage: function(aMessage) {
-    if (!aMessage.target.assertAppHasPermission(kDesktopNotificationPerm)) {
-      Cu.reportError("Desktop-notification message " + aMessage.name +
-                     " from a content process with no " + kDesktopNotificationPerm +
-                     " privileges.");
-      return;
-    }
+    // TODO: Need a DesktopNotification permission check in here which gecko48
+    // is doing
 
     switch(aMessage.name) {
       case kMessageAppNotificationSend:

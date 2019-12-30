@@ -9,6 +9,10 @@
     "resource://gre/modules/Services.jsm"
   );
 
+  const { AlertsHelper } = ChromeUtils.import(
+    "resource://gre/modules/AlertsHelper.jsm"
+  );
+
   function _webembed_log(msg) {
     console.log(`WebEmbedder: ${msg}`);
   }
@@ -187,6 +191,13 @@
           }
         );
       }, "activity-choice");
+
+      if (delegates.notifications) {
+        Services.obs.notifyObservers(
+          { wrappedJSObject: delegates.notifications },
+          "web-embedder-notifications"
+        );
+      }
     }
 
     launch_preallocated_process() {
