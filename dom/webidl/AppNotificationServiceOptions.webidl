@@ -6,6 +6,7 @@
 
 interface MozObserver;
 
+[GenerateToJSON]
 dictionary AppNotificationServiceOptions {
   boolean textClickable = false;
   DOMString manifestURL = "";

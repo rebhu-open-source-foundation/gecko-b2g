@@ -8,6 +8,7 @@ with Files("**"):
     BUG_COMPONENT = ("Core", "DOM: Push Notifications")
 
 XPIDL_SOURCES += [
+    'nsIDOMDesktopNotification.idl',
     'nsINotificationStorage.idl',
 ]
 

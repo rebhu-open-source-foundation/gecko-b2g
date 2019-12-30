@@ -60,6 +60,10 @@
 #include "nsThreadUtils.h"
 #include "nsXULAppAPI.h"
 
+#ifdef MOZ_B2G
+#include "nsIDOMDesktopNotification.h"
+#endif
+
 namespace mozilla {
 namespace dom {
 
@@ -1378,6 +1382,36 @@ void Notification::ShowInternal() {
   nsCOMPtr<nsIObserver> alertObserver =
       new NotificationObserver(observer, GetPrincipal(), IsInPrivateBrowsing());
 
+#ifdef MOZ_B2G
+  // TODO: We need to pass mManifestURL when appService is ready for gecko-dev.
+  // We also need to pass ServiceWorkerRegistrationID, RequireInteraction,
+  // Actions and Silent for KaiOS notifications feature.
+  nsCOMPtr<nsIAppNotificationService> appNotifier =
+      do_GetService("@mozilla.org/system-alerts-service;1");
+  if (appNotifier) {
+    mozilla::AutoSafeJSContext cx;
+    JS::Rooted<JS::Value> val(cx);
+    AppNotificationServiceOptions ops;
+    ops.mTextClickable = true;
+    GetAlertName(ops.mId);
+    ops.mDbId = mID;
+    ops.mDir = DirectionToString(mDir);
+    ops.mLang = mLang;
+    ops.mTag = mTag;
+    ops.mData = mDataAsBase64;
+    ops.mMozbehavior = mBehavior;
+    ops.mMozbehavior.mSoundFile = soundUrl;
+
+    if (!ToJSValue(cx, ops, &val)) {
+      NS_WARNING("Converting dict to object failed!");
+      return;
+    }
+
+    appNotifier->ShowAppNotification(iconUrl, mTitle, mBody, alertObserver,
+                                     val);
+    return;
+  }
+#endif
   // In the case of IPC, the parent process uses the cookie to map to
   // nsIObserver. Thus the cookie must be unique to differentiate observers.
   nsString uniqueCookie = NS_LITERAL_STRING("notification:");
