@@ -16,7 +16,7 @@
 
 EXPORTS += [
     # 'GeckoTouchDispatcher.h',
-    #'GonkPermission.h',
+    'GonkPermission.h',
     'OrientationObserver.h',
 ]
 
@@ -71,7 +71,7 @@ SOURCES += [
     'GonkClipboardData.cpp',
     'GonkCompositorWidget.cpp',
     'GonkMemoryPressureMonitoring.cpp',
-    #'GonkPermission.cpp',
+    'GonkPermission.cpp',
     'MediaKeysEventSourceFactory.cpp',
     'nsAppShell.cpp',
     'nsClipboard.cpp',

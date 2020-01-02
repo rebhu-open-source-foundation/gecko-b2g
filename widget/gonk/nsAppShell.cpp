@@ -33,7 +33,7 @@
 #include <utils/BitSet.h>
 
 #include "base/basictypes.h"
-//#include "GonkPermission.h"
+#include "GonkPermission.h"
 #include "ScreenHelperGonk.h"
 #include "libdisplay/BootAnimation.h"
 #include "nscore.h"
@@ -1229,7 +1229,7 @@ nsAppShell::Init()
 	//TODO, FIXME: bug-75641 for tracking
         //android::FakeSurfaceComposer::instantiate();
 #endif
-        //GonkPermissionService::instantiate();
+        GonkPermissionService::instantiate();
 
         /* Start boot animation */
         mozilla::StartBootAnimation();

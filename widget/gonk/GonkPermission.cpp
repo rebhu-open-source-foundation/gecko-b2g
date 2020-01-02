@@ -17,7 +17,6 @@
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
-#include <binder/IPermissionController.h>
 #include <private/android_filesystem_config.h>
 #include "GonkPermission.h"
 
@@ -25,6 +24,10 @@
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/SyncRunnable.h"
 #include "nsThreadUtils.h"
+
+#if ANDROID_VERSION >= 29
+#include <binder/PermissionController.h>
+#endif
 
 #undef LOG
 #include <android/log.h>
@@ -218,6 +221,20 @@ bool
 GonkPermissionService::isRuntimePermission(const android::String16& permission)
 {
   return true;
+}
+#endif
+
+#if ANDROID_VERSION >= 29
+int32_t
+GonkPermissionService::noteOp(const String16& op, int32_t uid, const String16& packageName)
+{
+  return PermissionController::MODE_DEFAULT;
+}
+
+int
+GonkPermissionService::getPackageUid(const String16& package, int flags)
+{
+  return -1;
 }
 #endif
 
