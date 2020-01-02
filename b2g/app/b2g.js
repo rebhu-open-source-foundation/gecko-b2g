@@ -1310,7 +1310,12 @@ pref("gfx.e10s.font-list.shared", true);
 
 pref("dom.systemMessage.enabled", true);
 
+#ifndef TARGET_VARIANT_USER
 // Remote debugging is disabled by default in MOZ_OFFICIAL builds.
 pref("devtools.debugger.remote-enabled", true);
 // To get connection with remote debugger working in non-nightly builds.
 pref("devtools.debugger.prompt-connection", false);
+pref("devtools.console.stdout.chrome", true);
+pref("browser.dom.window.dump.enabled", true);
+pref("consoleservice.logcat", true);
+#endif
