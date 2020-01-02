@@ -1557,36 +1557,6 @@ TabChild::ApplyShowInfo(const ShowInfo& aInfo)
 void
 TabChild::MaybeRequestPreinitCamera()
 {
-    // Check if this tab is an app (not a browser frame) and will use the
-    // `camera` permission,
-    if (IsIsolatedMozBrowserElement()) {
-      return;
-    }
-
-    nsCOMPtr<nsIAppsService> appsService = do_GetService("@mozilla.org/AppsService;1");
-    if (NS_WARN_IF(!appsService)) {
-      return;
-    }
-
-    nsCOMPtr<mozIApplication> app;
-    nsresult rv = appsService->GetAppByLocalId(OwnAppId(), getter_AddRefs(app));
-    if (NS_WARN_IF(NS_FAILED(rv)) || !app) {
-      return;
-    }
-
-    nsCOMPtr<nsIPrincipal> principal;
-    app->GetPrincipal(getter_AddRefs(principal));
-    if (NS_WARN_IF(!principal)) {
-      return;
-    }
-
-    uint16_t status = nsIPrincipal::APP_STATUS_NOT_INSTALLED;
-    principal->GetAppStatus(&status);
-    bool isCertified = status == nsIPrincipal::APP_STATUS_CERTIFIED;
-    if (!isCertified) {
-      return;
-    }
-
     nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
     if (NS_WARN_IF(!permMgr)) {
       return;
