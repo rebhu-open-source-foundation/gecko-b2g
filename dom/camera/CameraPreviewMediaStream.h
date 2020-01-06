@@ -60,7 +60,7 @@ public:
   void Suspend() override {}
   void Resume() override {}
   void AddListener(MediaTrackListener* aListener) override;
-  void RemoveListener(MediaTrackListener* aListener) override;
+  RefPtr<GenericPromise> RemoveListener(MediaTrackListener* aListener) override;
   void Destroy() override;
   void OnPreviewStateChange(bool aActive);
 

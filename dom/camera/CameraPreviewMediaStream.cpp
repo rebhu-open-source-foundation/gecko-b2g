@@ -107,7 +107,7 @@ CameraPreviewMediaStream::AddListener(MediaTrackListener* aListener)
   //listener->NotifyHasCurrentData(mFakeMediaTrackGraph);
 }
 
-void
+RefPtr<GenericPromise>
 CameraPreviewMediaStream::RemoveListener(MediaTrackListener* aListener)
 {
   MutexAutoLock lock(mMutex);
@@ -115,6 +115,11 @@ CameraPreviewMediaStream::RemoveListener(MediaTrackListener* aListener)
   RefPtr<MediaTrackListener> listener(aListener);
   mListeners.RemoveElement(aListener);
   listener->NotifyRemoved(mFakeMediaTrackGraph);
+
+  // TODO: check if that's correct.
+  RefPtr<GenericPromise> p = GenericPromise::CreateAndResolve(true, __func__);
+
+  return p;
 }
 
 void
