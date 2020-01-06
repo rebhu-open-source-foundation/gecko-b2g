@@ -1230,6 +1230,7 @@ nsAppShell::Init()
         //android::FakeSurfaceComposer::instantiate();
 #endif
         GonkPermissionService::instantiate();
+        ProcessState::self()->startThreadPool();
 
         /* Start boot animation */
         mozilla::StartBootAnimation();

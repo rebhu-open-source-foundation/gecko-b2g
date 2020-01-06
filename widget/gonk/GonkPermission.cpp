@@ -37,7 +37,6 @@
 using namespace android;
 using namespace mozilla;
 
-#if 0
 // Checking permissions needs to happen on the main thread, but the
 // binder callback is called on a special binder thread, so we use
 // this runnable for that.
@@ -82,8 +81,8 @@ GonkPermissionChecker::Run()
     dom::ContentParent::GetAll(parents);
     for (uint32_t i = 0; i < parents.Length(); ++i) {
       if (parents[i]->Pid() == mPid) {
-	contentParent = parents[i];
-	break;
+        contentParent = parents[i];
+        break;
       }
     }
   }
@@ -92,16 +91,14 @@ GonkPermissionChecker::Run()
     return NS_OK;
   }
 
-
-// TODO: implement permission check
-#if 0
+#if 0 // TODO: wait for new permission check mechanism ready and porting
   // Now iterate its apps...
   const ManagedContainer<dom::PBrowserParent>& browsers =
     contentParent->ManagedPBrowserParent();
   for (auto iter = browsers.ConstIter(); !iter.Done(); iter.Next()) {
-    dom::TabParent *tabParent =
-      static_cast<dom::TabParent*>(iter.Get()->GetKey());
-    nsCOMPtr<mozIApplication> mozApp = tabParent->GetOwnOrContainingApp();
+    dom::BrowserParent *browserParent =
+      static_cast<dom::BrowserParent*>(iter.Get()->GetKey());
+    nsCOMPtr<mozIApplication> mozApp = browserParent->GetOwnOrContainingApp();
     if (!mozApp) {
       continue;
     }
@@ -118,7 +115,6 @@ GonkPermissionChecker::Run()
   mCanUseCamera = true;
   return NS_OK;
 }
-#endif
 
 bool
 GonkPermissionService::checkPermission(const String16& permission, int32_t pid,
@@ -172,11 +168,9 @@ GonkPermissionService::checkPermission(const String16& permission, int32_t pid,
 
   // Camera/audio record permissions are allowed for apps with the
   // "camera" permission.
-  
-  // TODO: FIXME
-  // RefPtr<GonkPermissionChecker> checker =
-  //   GonkPermissionChecker::Inspect(pid);
-  bool canUseCamera = true; // checker->CanUseCamera();
+  RefPtr<GonkPermissionChecker> checker =
+    GonkPermissionChecker::Inspect(pid);
+  bool canUseCamera = checker->CanUseCamera();
   if (!canUseCamera) {
     ALOGE("%s for pid=%d,uid=%d denied: not granted by user or app manifest",
       String8(permission).string(), pid, uid);
