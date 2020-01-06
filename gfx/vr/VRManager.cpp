@@ -689,7 +689,7 @@ void VRManager::ProcessManagerState_Idle_StartEnumeration() {
   // We must block until enumeration has completed in order
   // to signal that the WebVR promise should be resolved at the
   // right time.
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   // In Android, we need to make sure calling
   // GeckoVRManager::SetExternalContext() from an external VR service
   // before doing enumeration.
@@ -731,7 +731,7 @@ void VRManager::ProcessManagerState_Idle_StartRuntimeDetection() {
   // We must block until enumeration has completed in order
   // to signal that the WebVR promise should be resolved at the
   // right time.
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   // In Android, we need to make sure calling
   // GeckoVRManager::SetExternalContext() from an external VR service
   // before doing enumeration.
