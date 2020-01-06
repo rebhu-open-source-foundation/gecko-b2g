@@ -54,6 +54,7 @@
 #include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/ClientManager.h"
 #include "mozilla/dom/ClientOpenWindowOpActors.h"
+#include "mozilla/dom/ContentMediaController.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "mozilla/dom/Element.h"
@@ -164,6 +165,7 @@
 #include "Geolocation.h"
 #include "nsIDragService.h"
 #include "mozilla/dom/WakeLock.h"
+#include "nsICrashService.h"
 #include "nsIExternalProtocolService.h"
 #include "nsIGfxInfo.h"
 #include "nsIIdleService.h"
@@ -1062,7 +1064,8 @@ already_AddRefed<ContentParent> ContentParent::GetNewOrUsedBrowserProcess(
                                       NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE),
                                       aPriority, aOpener);
   }
-  {
+
+  if (recordReplayState == eNotRecordingOrReplaying) {
     RefPtr<ContentParent> existing = GetUsedBrowserProcess(
         aOpener, aRemoteType, contentParents, maxContentParents, aPreferUsed);
     if (existing != nullptr) {
@@ -1802,6 +1805,7 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
 
       props->SetPropertyAsBool(NS_LITERAL_STRING("abnormal"), true);
 
+      nsAutoString dumpID;
       // There's a window in which child processes can crash
       // after IPC is established, but before a crash reporter
       // is created.
@@ -1812,14 +1816,19 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
           mCrashReporter->GenerateCrashReport(OtherPid());
         }
 
-        nsAutoString dumpID;
         if (mCrashReporter->HasMinidump()) {
           dumpID = mCrashReporter->MinidumpID();
         }
-        props->SetPropertyAsAString(NS_LITERAL_STRING("dumpID"), dumpID);
       } else {
-        CrashReporter::FinalizeOrphanedMinidump(OtherPid(),
-                                                GeckoProcessType_Content);
+        CrashReporter::FinalizeOrphanedMinidump(
+            OtherPid(), GeckoProcessType_Content, &dumpID);
+        CrashReporterHost::RecordCrash(GeckoProcessType_Content,
+                                       nsICrashService::CRASH_TYPE_CRASH,
+                                       dumpID);
+      }
+
+      if (!dumpID.IsEmpty()) {
+        props->SetPropertyAsAString(NS_LITERAL_STRING("dumpID"), dumpID);
       }
     }
     nsAutoString cpId;
@@ -2045,6 +2054,11 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateReplayingProcess(
     return IPC_FAIL_NO_REASON(this);
   }
 
+  if (recordreplay::parent::UseCloudForReplayingProcesses()) {
+    recordreplay::parent::CreateReplayingCloudProcess(Pid(), aChannelId);
+    return IPC_OK();
+  }
+
   while (aChannelId >= mReplayingChildren.length()) {
     if (!mReplayingChildren.append(nullptr)) {
       return IPC_FAIL_NO_REASON(this);
@@ -2059,12 +2073,22 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateReplayingProcess(
       Pid(), aChannelId, NS_ConvertUTF16toUTF8(mRecordingFile).get(),
       /* aRecording = */ false, extraArgs);
 
-  mReplayingChildren[aChannelId] =
+  GeckoChildProcessHost* child =
       new GeckoChildProcessHost(GeckoProcessType_Content);
-  if (!mReplayingChildren[aChannelId]->LaunchAndWaitForProcessHandle(
-          extraArgs)) {
+  mReplayingChildren[aChannelId] = child;
+  if (!child->LaunchAndWaitForProcessHandle(extraArgs)) {
     return IPC_FAIL_NO_REASON(this);
   }
+
+  // Replaying processes can fork themselves, and we can get crashes for
+  // them that correspond with one of those forked processes. When the crash
+  // reporter tries to read exception time annotations for one of these crashes,
+  // it hangs because the original replaying process hasn't actually crashed.
+  // Workaround this by removing the file descriptor for exception time
+  // annotations in replaying processes, so that the crash reporter will not
+  // attempt to read them.
+  ProcessId pid = base::GetProcId(child->GetChildProcessHandle());
+  CrashReporter::DeregisterChildCrashAnnotationFileDescriptor(pid);
 
   return IPC_OK();
 }
@@ -2837,35 +2861,12 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
   {
     nsTArray<BlobURLRegistrationData> registrations;
-    BlobURLProtocolHandler::ForEachBlobURL([&](BlobImpl* aBlobImpl,
-                                               nsIPrincipal* aPrincipal,
-                                               const nsACString& aURI,
-                                               bool aRevoked) {
-      nsAutoCString origin;
-      nsresult rv = aPrincipal->GetOrigin(origin);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
+    if (BlobURLProtocolHandler::GetAllBlobURLEntries(registrations, this)) {
+      for (const BlobURLRegistrationData& registration : registrations) {
+        nsresult rv = TransmitPermissionsForPrincipal(registration.principal());
+        Unused << NS_WARN_IF(NS_FAILED(rv));
       }
 
-      if (!StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"))) {
-        return true;
-      }
-
-      IPCBlob ipcBlob;
-      rv = IPCBlobUtils::Serialize(aBlobImpl, this, ipcBlob);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
-      }
-
-      registrations.AppendElement(BlobURLRegistrationData(
-          nsCString(aURI), ipcBlob, IPC::Principal(aPrincipal), aRevoked));
-
-      rv = TransmitPermissionsForPrincipal(aPrincipal);
-      Unused << NS_WARN_IF(NS_FAILED(rv));
-      return true;
-    });
-
-    if (!registrations.IsEmpty()) {
       Unused << SendInitBlobURLs(registrations);
     }
   }
@@ -5616,24 +5617,11 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
                                                  BlobImpl* aBlobImpl,
                                                  nsIPrincipal* aPrincipal,
                                                  ContentParent* aIgnoreThisCP) {
-  nsAutoCString origin;
-  nsresult rv = aPrincipal->GetOrigin(origin);
-  NS_ENSURE_SUCCESS_VOID(rv);
-
-  uint32_t originHash = BasePrincipal::Cast(aPrincipal)->GetOriginSuffixHash();
-
-  bool toBeSent =
-      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"));
-
   nsCString uri(aURI);
   IPC::Principal principal(aPrincipal);
 
   for (auto* cp : AllProcesses(eLive)) {
     if (cp != aIgnoreThisCP) {
-      if (!toBeSent && !cp->mLoadedOriginHashes.Contains(originHash)) {
-        continue;
-      }
-
       nsresult rv = cp->TransmitPermissionsForPrincipal(principal);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         break;
@@ -5652,22 +5640,11 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
 
 /* static */
 void ContentParent::BroadcastBlobURLUnregistration(
-    const nsACString& aURI, nsIPrincipal* aPrincipal,
-    ContentParent* aIgnoreThisCP) {
-  nsAutoCString origin;
-  nsresult rv = aPrincipal->GetOrigin(origin);
-  NS_ENSURE_SUCCESS_VOID(rv);
-
-  uint32_t originHash = BasePrincipal::Cast(aPrincipal)->GetOriginSuffixHash();
-
-  bool toBeSent =
-      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"));
-
+    const nsACString& aURI, ContentParent* aIgnoreThisCP) {
   nsCString uri(aURI);
 
   for (auto* cp : AllProcesses(eLive)) {
-    if (cp != aIgnoreThisCP &&
-        (toBeSent || !cp->mLoadedOriginHashes.Contains(originHash))) {
+    if (cp != aIgnoreThisCP) {
       Unused << cp->SendBlobURLUnregistration(uri);
     }
   }
@@ -5691,9 +5668,9 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreAndBroadcastBlobURLRegistration(
 
 mozilla::ipc::IPCResult
 ContentParent::RecvUnstoreAndBroadcastBlobURLUnregistration(
-    const nsCString& aURI, const Principal& aPrincipal) {
+    const nsCString& aURI) {
   BlobURLProtocolHandler::RemoveDataEntry(aURI, false /* Don't broadcast */);
-  BroadcastBlobURLUnregistration(aURI, aPrincipal, this);
+  BroadcastBlobURLUnregistration(aURI, this);
   mBlobURLs.RemoveElement(aURI);
   return IPC_OK();
 }
@@ -5842,38 +5819,6 @@ nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
 
   rv = TransmitPermissionsForPrincipal(principal);
   NS_ENSURE_SUCCESS(rv, rv);
-
-  uint32_t originHash = BasePrincipal::Cast(principal)->GetOriginSuffixHash();
-
-  if (!mLoadedOriginHashes.Contains(originHash)) {
-    mLoadedOriginHashes.AppendElement(originHash);
-
-    nsTArray<BlobURLRegistrationData> registrations;
-    BlobURLProtocolHandler::ForEachBlobURL(
-        [&](BlobImpl* aBlobImpl, nsIPrincipal* aPrincipal,
-            const nsACString& aURI, bool aRevoked) {
-          if (!principal->Subsumes(aPrincipal)) {
-            return true;
-          }
-
-          IPCBlob ipcBlob;
-          nsresult rv = IPCBlobUtils::Serialize(aBlobImpl, this, ipcBlob);
-          if (NS_WARN_IF(NS_FAILED(rv))) {
-            return false;
-          }
-
-          registrations.AppendElement(BlobURLRegistrationData(
-              nsCString(aURI), ipcBlob, IPC::Principal(aPrincipal), aRevoked));
-
-          rv = TransmitPermissionsForPrincipal(aPrincipal);
-          Unused << NS_WARN_IF(NS_FAILED(rv));
-          return true;
-        });
-
-    if (!registrations.IsEmpty()) {
-      Unused << SendInitBlobURLs(registrations);
-    }
-  }
 
   nsLoadFlags newLoadFlags;
   aChannel->GetLoadFlags(&newLoadFlags);
@@ -6289,13 +6234,13 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreUserInteractionAsPermission(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaActiveChanged(
-    BrowsingContext* aContext, bool aActive) {
+mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaStateChanged(
+    BrowsingContext* aContext, ControlledMediaState aState) {
   RefPtr<MediaControlService> service = MediaControlService::GetService();
   MOZ_ASSERT(!aContext->GetParent(), "Should be top level browsing context!");
   RefPtr<MediaController> controller =
       service->GetOrCreateControllerById(aContext->Id());
-  controller->NotifyMediaActiveChanged(aActive);
+  controller->NotifyMediaStateChanged(aState);
   return IPC_OK();
 }
 

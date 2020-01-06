@@ -874,7 +874,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
       if (this.dbg.replaying) {
         const offsets = findStepOffsets(frame);
         frame.setReplayingOnStep(onStep, offsets);
-      } else {
+      } else if (!this.sources.isFrameBlackBoxed(frame)) {
         frame.onStep = onStep;
       }
 
@@ -894,15 +894,11 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
         return undefined;
       }
 
-      if (thread.sources.isFrameBlackBoxed(this)) {
-        return undefined;
-      }
-
       // Note that we're popping this frame; we need to watch for
       // subsequent step events on its caller.
       this.reportedPop = true;
 
-      if (steppingType != "finish") {
+      if (steppingType != "finish" && !thread.sources.isFrameBlackBoxed(this)) {
         return pauseAndRespond(this, packet =>
           thread.createCompletionGrip(packet, completion)
         );
@@ -923,7 +919,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
             /* requireStepStart */ false
           );
           parentFrame.setReplayingOnStep(onStep, offsets);
-        } else {
+        } else if (!thread.sources.isFrameBlackBoxed(parentFrame)) {
           parentFrame.onStep = onStep;
         }
 
@@ -993,7 +989,7 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
 
     // Continue if:
     // 1. the location is not a valid breakpoint position
-    // 2. the source is not blackboxed
+    // 2. the source is blackboxed
     // 3. we have not moved since the last pause
     if (
       !meta.isBreakpoint ||
@@ -1119,7 +1115,9 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
               stepFrame.setReplayingOnStep(onStep, offsets);
             } else {
               stepFrame.waitingOnStep = true;
-              stepFrame.onStep = onStep;
+              if (!this.sources.isFrameBlackBoxed(stepFrame)) {
+                stepFrame.onStep = onStep;
+              }
               stepFrame.onPop = onPop;
             }
           }
@@ -1127,7 +1125,10 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
         case "finish":
           if (rewinding) {
             let olderFrame = stepFrame.older;
-            while (olderFrame && !olderFrame.script) {
+            while (
+              olderFrame &&
+              (!olderFrame.script || this.sources.isFrameBlackBoxed(olderFrame))
+            ) {
               olderFrame = olderFrame.older;
             }
             if (olderFrame) {

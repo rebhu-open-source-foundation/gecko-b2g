@@ -1098,17 +1098,31 @@ bool js::GCMarker::mark(T* thing) {
 
 void BaseScript::traceChildren(JSTracer* trc) {
   TraceEdge(trc, &functionOrGlobal_, "function");
-  TraceNullableEdge(trc, &sourceObject_, "sourceObject");
+  TraceEdge(trc, &sourceObject_, "sourceObject");
 
   warmUpData_.trace(trc);
 
   if (data_) {
     data_->trace(trc);
   }
+
+  if (sharedData_) {
+    sharedData_->traceChildren(trc);
+  }
+
+  // Scripts with bytecode may have optional data stored in per-runtime or
+  // per-zone maps. Note that a failed compilation must not have entries since
+  // the script itself will not be marked as having bytecode.
+  if (hasBytecode()) {
+    JSScript* script = static_cast<JSScript*>(this);
+
+    if (hasDebugScript()) {
+      DebugAPI::traceDebugScript(trc, script);
+    }
+  }
 }
 
 void LazyScript::traceChildren(JSTracer* trc) {
-  // Trace base class fields.
   BaseScript::traceChildren(trc);
 
   if (trc->traceWeakEdges()) {
@@ -1121,10 +1135,7 @@ void LazyScript::traceChildren(JSTracer* trc) {
 }
 inline void js::GCMarker::eagerlyMarkChildren(LazyScript* thing) {
   traverseEdge(thing, static_cast<JSObject*>(thing->functionOrGlobal_));
-
-  if (thing->sourceObject_) {
-    traverseEdge(thing, static_cast<JSObject*>(thing->sourceObject_));
-  }
+  traverseEdge(thing, static_cast<JSObject*>(thing->sourceObject_));
 
   thing->warmUpData_.trace(this);
 
@@ -1140,6 +1151,9 @@ inline void js::GCMarker::eagerlyMarkChildren(LazyScript* thing) {
       }
     }
   }
+
+  MOZ_ASSERT(thing->sharedData_ == nullptr,
+             "LazyScript should not have shared data.");
 
   // script_ is weak so is not traced here.
 
@@ -2556,6 +2570,7 @@ GCMarker::GCMarker(JSRuntime* rt)
       queuePos(0)
 #endif
 {
+  setTraceWeakEdges(false);
 }
 
 bool GCMarker::init(JSGCMode gcMode) {

@@ -315,8 +315,7 @@ nsDocShell::nsDocShell(BrowsingContext* aBrowsingContext,
       mCharsetReloadState(eCharsetReloadInit),
       mOrientationLock(hal::eScreenOrientation_None),
       mParentCharsetSource(0),
-      mMarginWidth(-1),
-      mMarginHeight(-1),
+      mFrameMargins(-1, -1),
       mItemType(aBrowsingContext->IsContent() ? typeContent : typeChrome),
       mPreviousEntryIndex(-1),
       mLoadedEntryIndex(-1),
@@ -1973,34 +1972,6 @@ nsDocShell::GetZoom(float* aZoom) {
 
 NS_IMETHODIMP
 nsDocShell::SetZoom(float aZoom) { return NS_ERROR_NOT_IMPLEMENTED; }
-
-NS_IMETHODIMP
-nsDocShell::GetMarginWidth(int32_t* aWidth) {
-  NS_ENSURE_ARG_POINTER(aWidth);
-
-  *aWidth = mMarginWidth;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::SetMarginWidth(int32_t aWidth) {
-  mMarginWidth = aWidth;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::GetMarginHeight(int32_t* aHeight) {
-  NS_ENSURE_ARG_POINTER(aHeight);
-
-  *aHeight = mMarginHeight;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::SetMarginHeight(int32_t aHeight) {
-  mMarginHeight = aHeight;
-  return NS_OK;
-}
 
 NS_IMETHODIMP
 nsDocShell::GetBusyFlags(BusyFlags* aBusyFlags) {
@@ -5859,6 +5830,12 @@ nsDocShell::OnStateChange(nsIWebProgress* aProgress, nsIRequest* aRequest,
       mozilla::Unused << MaybeInitTiming();
       mTiming->NotifyFetchStart(uri,
                                 ConvertLoadTypeToNavigationType(mLoadType));
+      // If we are starting a DocumentChannel, we need to pass the timing
+      // statistics so that should a process switch occur, the starting type can
+      // be passed to the new DocShell running in the other content process.
+      if (RefPtr<DocumentChannelChild> docChannel = do_QueryObject(aRequest)) {
+        docChannel->SetNavigationTiming(mTiming);
+      }
     }
 
     // Page has begun to load
@@ -10914,6 +10891,7 @@ nsresult nsDocShell::UpdateURLAndHistory(Document* aDocument, nsIURI* aNewURI,
     newSHEntry = mOSHE;
 
     // Since we're not changing which page we have loaded, pass
+    // true for aCloneChildren.
     if (!newSHEntry) {
       nsresult rv = AddToSessionHistory(
           aNewURI, nullptr,
@@ -12771,7 +12749,8 @@ nsDocShell::ResumeRedirectedLoad(uint64_t aIdentifier, int32_t aHistoryIndex) {
       aIdentifier,
       [self, aHistoryIndex](nsIChildChannel* aChannel,
                             nsTArray<net::DocumentChannelRedirect>&& aRedirects,
-                            uint32_t aLoadStateLoadFlags) {
+                            uint32_t aLoadStateLoadFlags,
+                            nsDOMNavigationTiming* aTiming) {
         if (NS_WARN_IF(self->mIsBeingDestroyed)) {
           nsCOMPtr<nsIRequest> request = do_QueryInterface(aChannel);
           if (request) {
@@ -12796,6 +12775,12 @@ nsDocShell::ResumeRedirectedLoad(uint64_t aIdentifier, int32_t aHistoryIndex) {
           self->SavePreviousRedirectsAndLastVisit(channel, previousURI,
                                                   previousFlags, aRedirects);
         }
+
+        MOZ_ASSERT(
+            (self->mCurrentURI && NS_IsAboutBlank(self->mCurrentURI)) ||
+                !self->mTiming,
+            "timing object can't already exists in non-about:blank loads");
+        self->mTiming = new nsDOMNavigationTiming(self, aTiming);
 
         // If we're performing a history load, locate the correct history entry,
         // and set the relevant bits on our loadState.

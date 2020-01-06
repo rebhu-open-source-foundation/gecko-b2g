@@ -140,11 +140,15 @@ either Raptor or browsertime."""
         }
 
         self.firefox_android_apps = FIREFOX_ANDROID_APPS
-        # See bug 1582757; until we support aarch64 conditioned-profile builds, fall back
-        # to mozrunner-created profiles
+        # See bugs 1582757, 1606199, and 1606767; until we support win10-aarch64,
+        # fennec_aurora, and reference browser conditioned-profile builds,
+        # fall back to mozrunner-created profiles
         self.no_condprof = ((self.config['platform'] == 'win'
                              and self.config['processor'] == 'aarch64') or
+                            self.config['binary'] == 'org.mozilla.fennec_aurora' or
+                            self.config['binary'] == 'org.mozilla.reference.browser.raptor' or
                             self.config['no_conditioned_profile'])
+        LOG.info("self.no_condprof is: {}".format(self.no_condprof))
 
         # We can never use e10s on fennec
         if self.config['app'] == 'fennec':
@@ -178,6 +182,13 @@ either Raptor or browsertime."""
         if self.debug_mode:
             self.post_startup_delay = min(self.post_startup_delay, 3000)
             LOG.info("debug-mode enabled, reducing post-browser startup pause to %d ms"
+                     % self.post_startup_delay)
+        # if using conditioned profiles in CI, reduce default browser-settle
+        # time down to 1 second, from 30
+        if not self.no_condprof and not self.config['run_local'] \
+                and post_startup_delay == 30000:
+            self.post_startup_delay = 1000
+            LOG.info("using conditioned profiles, so reducing post_startup_delay to %d ms"
                      % self.post_startup_delay)
         LOG.info("main raptor init, config is: %s" % str(self.config))
 

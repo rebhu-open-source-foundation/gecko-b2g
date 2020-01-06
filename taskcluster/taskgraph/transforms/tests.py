@@ -571,7 +571,10 @@ def set_defaults(config, tests):
         test.setdefault('loopback-audio', False)
         test.setdefault('loopback-video', False)
         test.setdefault('limit-platforms', [])
-        if config.params['try_task_config'].get('ubuntu-bionic'):
+        # Bug 1602863 - temporarily in place while ubuntu1604 and ubuntu1804
+        # both exist in the CI.
+        if ('linux1804' in test['test-platform'] or
+                config.params['try_task_config'].get('ubuntu-bionic')):
             test.setdefault('docker-image', {'in-tree': 'ubuntu1804-test'})
         else:
             test.setdefault('docker-image', {'in-tree': 'desktop1604-test'})
@@ -751,7 +754,6 @@ def set_treeherder_machine_platform(config, tests):
     translation = {
         # Linux64 build platforms for asan and pgo are specified differently to
         # treeherder.
-        'linux64-asan/opt': 'linux64/asan',
         'linux64-pgo/opt': 'linux64/pgo',
         'macosx1014-64/debug': 'osx-10-14/debug',
         'macosx1014-64/opt': 'osx-10-14/opt',
@@ -785,6 +787,13 @@ def set_treeherder_machine_platform(config, tests):
         elif 'android-em-7.0-x86' in test['test-platform']:
             opt = test['test-platform'].split('/')[1]
             test['treeherder-machine-platform'] = 'android-em-7-0-x86/'+opt
+        # Bug 1602863 - must separately define linux64/asan and linux1804-64/asan
+        # otherwise causes an exception during taskgraph generation about
+        # duplicate treeherder platform/symbol.
+        elif 'linux64-asan/opt' in test['test-platform']:
+            test['treeherder-machine-platform'] = 'linux64/asan'
+        elif 'linux1804-asan/opt' in test['test-platform']:
+            test['treeherder-machine-platform'] = 'linux1804-64/asan'
         else:
             test['treeherder-machine-platform'] = translation.get(
                 test['build-platform'], test['test-platform'])
@@ -820,6 +829,14 @@ def set_tier(config, tests):
                                          'linux64-qr/debug',
                                          'linux64-pgo-qr/opt',
                                          'linux64-shippable-qr/opt',
+                                         'linux1804-32-shippable/opt',
+                                         'linux1804-64/opt',
+                                         'linux1804-64/debug',
+                                         'linux1804-64-shippable/opt',
+                                         'linux1804-64-qr/opt',
+                                         'linux1804-64-qr/debug',
+                                         'linux1804-64-shippable-qr/opt',
+                                         'linux1804-64-asan/opt',
                                          'windows7-32/debug',
                                          'windows7-32/opt',
                                          'windows7-32-pgo/opt',
@@ -1288,7 +1305,6 @@ CHUNK_SUITES_BLACKLIST = (
     'mochitest-webgl1-ext',
     'mochitest-webgl2-core',
     'mochitest-webgl2-ext',
-    'mozmill',
     'raptor',
     'reftest',
     'reftest-gpu',
@@ -1301,6 +1317,7 @@ CHUNK_SUITES_BLACKLIST = (
     'test-verify-gpu',
     'test-verify-wpt',
     'web-platform-tests',
+    'web-platform-tests-crashtests',
     'web-platform-tests-reftests',
     'web-platform-tests-wdspec',
     'xpcshell',

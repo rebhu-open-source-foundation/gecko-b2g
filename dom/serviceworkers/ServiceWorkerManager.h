@@ -310,6 +310,8 @@ class ServiceWorkerManager final : public nsIServiceWorkerManager,
 
   void MaybeStartShutdown();
 
+  void MaybeFinishShutdown();
+
   already_AddRefed<ServiceWorkerJobQueue> GetOrCreateJobQueue(
       const nsACString& aOriginSuffix, const nsACString& aScope);
 

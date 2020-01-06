@@ -475,7 +475,7 @@ public class GeckoSession implements Parcelable {
                     }
 
                     try {
-                        delegate.onWebAppManifest(GeckoSession.this, manifest.toJSONObject());
+                        delegate.onWebAppManifest(GeckoSession.this, fixupWebAppManifest(manifest.toJSONObject()));
                     } catch (JSONException e) {
                         Log.e(LOGTAG, "Failed to convert web app manifest to JSON", e);
                     }
@@ -1048,7 +1048,7 @@ public class GeckoSession implements Parcelable {
     }
 
     /**
-     * Get the current prompt delegate for this GeckoSession.
+     * Get the current permission delegate for this GeckoSession.
      * @return PermissionDelegate instance or null if using default delegate.
      */
     @UiThread
@@ -1259,6 +1259,9 @@ public class GeckoSession implements Parcelable {
         mListener.registerListeners();
 
         mWebExtensionListener = new WebExtension.Listener(this);
+
+        mAutofillSupport = new Autofill.Support(this);
+        mAutofillSupport.registerListeners();
 
         if (BuildConfig.DEBUG && handlersCount != mSessionHandlers.length) {
             throw new AssertionError("Add new handler to handlers list");
@@ -1995,7 +1998,9 @@ public class GeckoSession implements Parcelable {
             mEventDispatcher.dispatch("GeckoView:FlushSessionState", null);
         }
 
-        getAutofillSupport().onActiveChanged(active);
+        ThreadUtils.postToUiThread(
+            () -> getAutofillSupport().onActiveChanged(active)
+        );
     }
 
     /**
@@ -2588,7 +2593,8 @@ public class GeckoSession implements Parcelable {
         final String mode = message.getString("mode");
         final String title = message.getString("title");
         final String msg = message.getString("msg");
-        GeckoResult<PromptDelegate.PromptResponse> res;
+        GeckoResult<PromptDelegate.PromptResponse> res = null;
+
         switch (type) {
             case "alert": {
                 final PromptDelegate.AlertPrompt prompt =
@@ -2709,6 +2715,29 @@ public class GeckoSession implements Parcelable {
                 final PromptDelegate.SharePrompt prompt =
                     new PromptDelegate.SharePrompt(title, text, uri);
                 res = delegate.onSharePrompt(session, prompt);
+                break;
+            }
+            case "loginStorage": {
+                final int lsType = message.getInt("lsType");
+                final int hint = message.getInt("hint");
+                final GeckoBundle[] loginBundles =
+                    message.getBundleArray("logins");
+
+                if (loginBundles == null) {
+                    break;
+                }
+
+                final LoginStorage.LoginEntry[] logins =
+                    new LoginStorage.LoginEntry[loginBundles.length];
+
+                for (int i = 0; i < logins.length; ++i) {
+                    logins[i] = new LoginStorage.LoginEntry(loginBundles[i]);
+                }
+
+                final PromptDelegate.LoginStoragePrompt prompt =
+                    new PromptDelegate.LoginStoragePrompt(lsType, hint, logins);
+
+                res = delegate.onLoginStoragePrompt(session, prompt);
                 break;
             }
             default: {
@@ -3130,6 +3159,9 @@ public class GeckoSession implements Parcelable {
 
         /**
          * This is fired when the loaded document has a valid Web App Manifest present.
+         *
+         * The various colors (theme_color, background_color, etc.) present in the manifest
+         * have been  transformed into #AARRGGBB format.
          *
          * @param session The GeckoSession that contains the Web App Manifest
          * @param manifest A parsed and validated {@link JSONObject} containing the manifest contents.
@@ -4607,6 +4639,101 @@ public class GeckoSession implements Parcelable {
             }
         }
 
+        /**
+         * LoginStoragePrompt contains the information necessary to handle a
+         * login storage request.
+         */
+        public class LoginStoragePrompt extends BasePrompt {
+            @Retention(RetentionPolicy.SOURCE)
+            @IntDef({ Type.SAVE })
+            /* package */ @interface LoginStorageType {}
+
+            // Sync with LoginStorageDelegate.Type in GeckoViewPrompt.js
+            /**
+             * Possible type of a {@link LoginStoragePrompt}.
+             */
+            public static class Type {
+                public static final int SAVE = 1;
+
+                protected Type() {}
+            }
+
+            @Retention(RetentionPolicy.SOURCE)
+            @IntDef(flag = true,
+                    value = { Hint.NONE })
+            /* package */ @interface LoginStorageHint {}
+
+            public static class Hint {
+                public static final int NONE = 0;
+
+                protected Hint() {}
+            }
+
+            /**
+             * The type of the prompt request, one of {@link LoginStoragePrompt.Type}.
+             */
+            public final @LoginStorageType int type;
+
+            /**
+             * The hint may provide some additional information on the nature or
+             * confidence level of the prompt request to support appropriate
+             * prompting styles. A flag combination of {@link LoginStoragePrompt.Hint}.
+             */
+            public final @LoginStorageHint int hint;
+
+            /**
+             * The logins that are subject to the prompt request.
+             * For {@link Type#SAVE}, it holds one
+             * {@link LoginStorage.LoginEntry} depicting the entry to be saved.
+             */
+            public final @NonNull LoginStorage.LoginEntry[] logins;
+
+            protected LoginStoragePrompt(
+                    final @LoginStorageType int type,
+                    final @LoginStorageHint int hint,
+                    final @NonNull LoginStorage.LoginEntry[] logins) {
+                super(null);
+
+                this.type = type;
+                this.hint = hint;
+                this.logins = logins;
+            }
+
+            /**
+             * Confirm the prompt by responding with a
+             * {@link LoginStorage.LoginEntry}.
+             * For {@link Type#SAVE}, confirm with the entry to be saved. This
+             * can be the original entry as provided by logins[0] or a modified
+             * entry based on that.
+             * Confirming a {@link Type#SAVE} prompt request triggers a
+             * {@link LoginStorage.Delegate#onLoginSave} request in the runtime
+             * delegate with the confirmed login entry.
+             *
+             * @param login A {@link LoginStorage.LoginEntry} specifying the
+             *              login entry saved.
+             *
+             * @return A {@link PromptResponse} which can be used to complete the
+             *         {@link GeckoResult} associated with this prompt.
+             */
+            @UiThread
+            public @NonNull PromptResponse confirm(
+                    final @NonNull LoginStorage.LoginEntry login) {
+                ensureResult().putBundle("login", login.toBundle());
+                return super.confirm();
+            }
+
+            /**
+             * Dismisses the prompt.
+             *
+             * @return A {@link PromptResponse} which can be used to complete the
+             *         {@link GeckoResult} associated with this prompt.
+             */
+            @UiThread
+            public @NonNull PromptResponse dismiss() {
+                return super.dismiss();
+            }
+        }
+
         // Delegate functions.
         /**
          * Display an alert prompt.
@@ -4758,6 +4885,24 @@ public class GeckoSession implements Parcelable {
         @UiThread
         default @Nullable GeckoResult<PromptResponse> onSharePrompt(@NonNull final GeckoSession session,
                                                                     @NonNull final SharePrompt prompt) {
+            return null;
+        }
+
+        /**
+         * Handle a login storage prompt.
+         * This is triggered by the user entering new or modified login
+         * credentials into a login form.
+         *
+         * @param session GeckoSession that triggered the prompt.
+         * @param prompt The {@link LoginStoragePrompt} that describes the prompt.
+         *
+         * @return A {@link GeckoResult} resolving to a {@link PromptResponse}
+         *         which includes all necessary information to resolve the prompt.
+         */
+        @UiThread
+        default @Nullable GeckoResult<PromptResponse> onLoginStoragePrompt(
+                @NonNull final GeckoSession session,
+                @NonNull final LoginStoragePrompt prompt) {
             return null;
         }
     }
@@ -5847,10 +5992,6 @@ public class GeckoSession implements Parcelable {
 
 
     private Autofill.Support getAutofillSupport() {
-        if (mAutofillSupport == null) {
-            mAutofillSupport = new Autofill.Support(this);
-        }
-
         return mAutofillSupport;
     }
 
@@ -5893,5 +6034,35 @@ public class GeckoSession implements Parcelable {
     @UiThread
     public @NonNull Autofill.Session getAutofillSession() {
         return getAutofillSupport().getAutofillSession();
+    }
+
+    private static String rgbaToArgb(final String color) {
+        // We expect #rrggbbaa
+        if (color.length() != 9 || !color.startsWith("#")) {
+            throw new IllegalArgumentException("Invalid color format");
+        }
+
+        return "#" + color.substring(7) + color.substring(1, 7);
+    }
+
+    private static void fixupManifestColor(final JSONObject manifest, final String name) throws JSONException {
+        if (manifest.isNull(name)) {
+            return;
+        }
+
+        manifest.put(name, rgbaToArgb(manifest.getString(name)));
+    }
+
+    private static JSONObject fixupWebAppManifest(final JSONObject manifest) {
+        // Colors are #rrggbbaa, but we want them to be #aarrggbb, since that's what
+        // android.graphics.Color expects.
+        try {
+            fixupManifestColor(manifest, "theme_color");
+            fixupManifestColor(manifest, "background_color");
+        } catch (JSONException e) {
+            Log.w(LOGTAG, "Failed to fixup web app manifest", e);
+        }
+
+        return manifest;
     }
 }

@@ -22,8 +22,10 @@
 #include "frontend/JumpList.h"         // JumpTarget
 #include "frontend/NameCollections.h"  // AtomIndexMap, PooledMapPtr
 #include "frontend/ObjLiteral.h"       // ObjLiteralCreationData
+#include "frontend/ParseInfo.h"        // ParseInfo
 #include "frontend/ParseNode.h"        // BigIntLiteral
 #include "frontend/SourceNotes.h"      // jssrcnote
+#include "frontend/Stencil.h"          // Stencils
 #include "gc/Barrier.h"                // GCPtrObject, GCPtrScope, GCPtrValue
 #include "gc/Rooting.h"                // JS::Rooted
 #include "js/GCVariant.h"              // GCPolicy<mozilla::Variant>
@@ -46,8 +48,8 @@ class BigIntLiteral;
 class ObjectBox;
 
 struct MOZ_STACK_CLASS GCThingList {
-  using ListType = mozilla::Variant<JS::GCCellPtr, BigIntCreationData,
-                                    ObjLiteralCreationData, RegExpCreationData>;
+  using ListType = mozilla::Variant<JS::GCCellPtr, BigIntIndex,
+                                    ObjLiteralCreationData, RegExpIndex>;
   JS::RootedVector<ListType> vector;
 
   // Last emitted object.
@@ -71,15 +73,14 @@ struct MOZ_STACK_CLASS GCThingList {
   MOZ_MUST_USE bool append(BigIntLiteral* literal, uint32_t* index) {
     *index = vector.length();
     if (literal->isDeferred()) {
-      return vector.append(mozilla::AsVariant(literal->creationData()));
+      return vector.append(mozilla::AsVariant(literal->index()));
     }
     return vector.append(mozilla::AsVariant(JS::GCCellPtr(literal->value())));
   }
   MOZ_MUST_USE bool append(RegExpLiteral* literal, uint32_t* index) {
     *index = vector.length();
     if (literal->isDeferred()) {
-      return vector.append(
-          mozilla::AsVariant(std::move(literal->creationData())));
+      return vector.append(mozilla::AsVariant(literal->index()));
     }
     return vector.append(
         mozilla::AsVariant(JS::GCCellPtr(literal->objbox()->object())));
@@ -91,7 +92,8 @@ struct MOZ_STACK_CLASS GCThingList {
   MOZ_MUST_USE bool append(ObjectBox* obj, uint32_t* index);
 
   uint32_t length() const { return vector.length(); }
-  MOZ_MUST_USE bool finish(JSContext* cx, mozilla::Span<JS::GCCellPtr> array);
+  MOZ_MUST_USE bool finish(JSContext* cx, ParseInfo& parseInfo,
+                           mozilla::Span<JS::GCCellPtr> array);
   void finishInnerFunctions();
 
   AbstractScope getScope(size_t index) const {
@@ -393,13 +395,9 @@ class PerScriptData {
 } /* namespace js */
 
 namespace JS {
-template <>
-struct GCPolicy<js::frontend::BigIntCreationData>
-    : JS::IgnoreGCPolicy<js::frontend::BigIntCreationData> {};
-
-template <>
-struct GCPolicy<js::frontend::RegExpCreationData>
-    : JS::IgnoreGCPolicy<js::frontend::RegExpCreationData> {};
+template <typename T>
+struct GCPolicy<js::frontend::TypedIndex<T>>
+    : JS::IgnoreGCPolicy<js::frontend::TypedIndex<T>> {};
 }  // namespace JS
 
 #endif /* frontend_BytecodeSection_h */

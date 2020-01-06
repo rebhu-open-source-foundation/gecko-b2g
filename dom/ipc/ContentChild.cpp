@@ -76,6 +76,7 @@
 #include "mozilla/ipc/FileDescriptorSetChild.h"
 #include "mozilla/ipc/FileDescriptorUtils.h"
 #include "mozilla/ipc/GeckoChildProcessHost.h"
+#include "mozilla/ipc/LibrarySandboxPreload.h"
 #include "mozilla/ipc/ProcessChild.h"
 #include "mozilla/ipc/PChildToParentStreamChild.h"
 #include "mozilla/ipc/PParentToChildStreamChild.h"
@@ -1122,15 +1123,16 @@ nsresult ContentChild::ProvideWindowCommon(
       return;
     }
 
-    ShowInfo showInfo(EmptyString(), false, false, true, false, 0, 0, 0);
+    ParentShowInfo showInfo(EmptyString(), false, false, true, false, 0, 0, 0);
     auto* opener = nsPIDOMWindowOuter::From(aParent);
     nsIDocShell* openerShell;
     if (opener && (openerShell = opener->GetDocShell())) {
       nsCOMPtr<nsILoadContext> context = do_QueryInterface(openerShell);
-      showInfo = ShowInfo(EmptyString(), false, context->UsePrivateBrowsing(),
-                          true, false, aTabOpener->WebWidget()->GetDPI(),
-                          aTabOpener->WebWidget()->RoundsWidgetCoordinatesTo(),
-                          aTabOpener->WebWidget()->GetDefaultScale().scale);
+      showInfo =
+          ParentShowInfo(EmptyString(), false, context->UsePrivateBrowsing(),
+                         true, false, aTabOpener->WebWidget()->GetDPI(),
+                         aTabOpener->WebWidget()->RoundsWidgetCoordinatesTo(),
+                         aTabOpener->WebWidget()->GetDefaultScale().scale);
     }
 
     newChild->SetMaxTouchPoints(maxTouchPoints);
@@ -1841,6 +1843,11 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
   // We may want to move the sandbox initialization somewhere else
   // at some point; see bug 880808.
 #if defined(MOZ_SANDBOX)
+
+#  ifdef MOZ_USING_WASM_SANDBOXING
+  mozilla::ipc::PreloadSandboxedDynamicLibraries();
+#  endif
+
   bool sandboxEnabled = true;
 #  if defined(XP_LINUX)
 #    if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 19
@@ -3951,9 +3958,9 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
   RefPtr<ChildProcessChannelListener> processListener =
       ChildProcessChannelListener::GetSingleton();
   // The listener will call completeRedirectSetup on the channel.
-  processListener->OnChannelReady(childChannel, aArgs.redirectIdentifier(),
-                                  std::move(aArgs.redirects()),
-                                  aArgs.loadStateLoadFlags());
+  processListener->OnChannelReady(
+      childChannel, aArgs.redirectIdentifier(), std::move(aArgs.redirects()),
+      aArgs.loadStateLoadFlags(), aArgs.timing().refOr(nullptr));
 
   // scopeExit will call CrossProcessRedirectFinished(rv) here
   return IPC_OK();

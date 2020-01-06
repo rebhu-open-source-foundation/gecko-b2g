@@ -5101,23 +5101,6 @@ void CodeGenerator::visitCallGeneric(LCallGeneric* call) {
   }
 }
 
-void CodeGenerator::emitCallInvokeFunctionShuffleNewTarget(
-    LCallKnown* call, Register calleeReg, uint32_t numFormals,
-    uint32_t unusedStack) {
-  masm.freeStack(unusedStack);
-
-  pushArg(masm.getStackPointer());
-  pushArg(Imm32(numFormals));
-  pushArg(Imm32(call->numActualArgs()));
-  pushArg(calleeReg);
-
-  using Fn = bool (*)(JSContext*, HandleObject, uint32_t, uint32_t, Value*,
-                      MutableHandleValue);
-  callVM<Fn, InvokeFunctionShuffleNewTarget>(call);
-
-  masm.reserveStack(unusedStack);
-}
-
 void CodeGenerator::visitCallKnown(LCallKnown* call) {
   Register calleereg = ToRegister(call->getFunction());
   Register objreg = ToRegister(call->getTempObject());
@@ -12769,12 +12752,13 @@ void CodeGenerator::emitIsCallableOrConstructor(Register object,
   if (mode == Callable) {
     masm.move32(Imm32(1), output);
   } else {
-    static_assert(mozilla::IsPowerOfTwo(unsigned(FunctionFlags::CONSTRUCTOR)),
+    static_assert(mozilla::IsPowerOfTwo(uint32_t(FunctionFlags::CONSTRUCTOR)),
                   "FunctionFlags::CONSTRUCTOR has only one bit set");
 
     masm.load16ZeroExtend(Address(object, JSFunction::offsetOfFlags()), output);
-    masm.rshift32(Imm32(mozilla::FloorLog2(FunctionFlags::CONSTRUCTOR)),
-                  output);
+    masm.rshift32(
+        Imm32(mozilla::FloorLog2(uint32_t(FunctionFlags::CONSTRUCTOR))),
+        output);
     masm.and32(Imm32(1), output);
   }
   masm.jump(&done);
@@ -13737,6 +13721,82 @@ void CodeGenerator::visitNaNToZero(LNaNToZero* lir) {
   masm.bind(ool->rejoin());
 }
 
+static void BoundFunctionLength(MacroAssembler& masm, Register target,
+                                Register targetFlags, Register argCount,
+                                Register output, Label* slowPath) {
+  masm.loadFunctionLength(target, targetFlags, output, slowPath);
+
+  // Compute the bound function length: Max(0, target.length - argCount).
+  Label nonNegative;
+  masm.sub32(argCount, output);
+  masm.branch32(Assembler::GreaterThanOrEqual, output, Imm32(0), &nonNegative);
+  masm.move32(Imm32(0), output);
+  masm.bind(&nonNegative);
+}
+
+static void BoundFunctionName(MacroAssembler& masm, Register target,
+                              Register targetFlags, Register output,
+                              const JSAtomState& names, Label* slowPath) {
+  Label notBoundTarget, loadName;
+  masm.branchTest32(Assembler::Zero, targetFlags,
+                    Imm32(FunctionFlags::BOUND_FUN), &notBoundTarget);
+  {
+    // Call into the VM if the target's name atom contains the bound
+    // function prefix.
+    masm.branchTest32(Assembler::NonZero, targetFlags,
+                      Imm32(FunctionFlags::HAS_BOUND_FUNCTION_NAME_PREFIX),
+                      slowPath);
+
+    // Bound functions reuse HAS_GUESSED_ATOM for
+    // HAS_BOUND_FUNCTION_NAME_PREFIX, so skip the guessed atom check below.
+    static_assert(
+        FunctionFlags::HAS_BOUND_FUNCTION_NAME_PREFIX ==
+            FunctionFlags::HAS_GUESSED_ATOM,
+        "HAS_BOUND_FUNCTION_NAME_PREFIX is shared with HAS_GUESSED_ATOM");
+    masm.jump(&loadName);
+  }
+  masm.bind(&notBoundTarget);
+
+  Label guessed, hasName;
+  masm.branchTest32(Assembler::NonZero, targetFlags,
+                    Imm32(FunctionFlags::HAS_GUESSED_ATOM), &guessed);
+  masm.bind(&loadName);
+  masm.loadPtr(Address(target, JSFunction::offsetOfAtom()), output);
+  masm.branchTestPtr(Assembler::NonZero, output, output, &hasName);
+  {
+    masm.bind(&guessed);
+
+    // Unnamed class expression don't have a name property. To avoid
+    // looking it up from the prototype chain, we take the slow path here.
+    masm.branchFunctionKind(Assembler::Equal, FunctionFlags::ClassConstructor,
+                            target, output, slowPath);
+
+    // An absent name property defaults to the empty string.
+    masm.movePtr(ImmGCPtr(names.empty), output);
+  }
+  masm.bind(&hasName);
+}
+
+static void BoundFunctionFlags(MacroAssembler& masm, Register targetFlags,
+                               Register bound, Register output) {
+  // Set the BOUND_FN flag and, if the target is a constructor, the
+  // CONSTRUCTOR flag.
+  Label isConstructor, boundFlagsComputed;
+  masm.load16ZeroExtend(Address(bound, JSFunction::offsetOfFlags()), output);
+  masm.branchTest32(Assembler::NonZero, targetFlags,
+                    Imm32(FunctionFlags::CONSTRUCTOR), &isConstructor);
+  {
+    masm.or32(Imm32(FunctionFlags::BOUND_FUN), output);
+    masm.jump(&boundFlagsComputed);
+  }
+  masm.bind(&isConstructor);
+  {
+    masm.or32(Imm32(FunctionFlags::BOUND_FUN | FunctionFlags::CONSTRUCTOR),
+              output);
+  }
+  masm.bind(&boundFlagsComputed);
+}
+
 void CodeGenerator::visitFinishBoundFunctionInit(
     LFinishBoundFunctionInit* lir) {
   Register bound = ToRegister(lir->bound());
@@ -13774,108 +13834,18 @@ void CodeGenerator::visitFinishBoundFunctionInit(
             FunctionFlags::RESOLVED_LENGTH),
       slowPath);
 
-  Label notBoundTarget, loadName;
-  masm.branchTest32(Assembler::Zero, temp1, Imm32(FunctionFlags::BOUND_FUN),
-                    &notBoundTarget);
-  {
-    // Call into the VM if the target's name atom contains the bound
-    // function prefix.
-    masm.branchTest32(Assembler::NonZero, temp1,
-                      Imm32(FunctionFlags::HAS_BOUND_FUNCTION_NAME_PREFIX),
-                      slowPath);
-
-    // We also take the slow path when target's length isn't an int32.
-    masm.branchTestInt32(Assembler::NotEqual,
-                         Address(target, boundLengthOffset), slowPath);
-
-    // Bound functions reuse HAS_GUESSED_ATOM for
-    // HAS_BOUND_FUNCTION_NAME_PREFIX, so skip the guessed atom check below.
-    static_assert(
-        FunctionFlags::HAS_BOUND_FUNCTION_NAME_PREFIX ==
-            FunctionFlags::HAS_GUESSED_ATOM,
-        "HAS_BOUND_FUNCTION_NAME_PREFIX is shared with HAS_GUESSED_ATOM");
-    masm.jump(&loadName);
-  }
-  masm.bind(&notBoundTarget);
-
-  Label guessed, hasName;
-  masm.branchTest32(Assembler::NonZero, temp1,
-                    Imm32(FunctionFlags::HAS_GUESSED_ATOM), &guessed);
-  masm.bind(&loadName);
-  masm.loadPtr(Address(target, JSFunction::offsetOfAtom()), temp2);
-  masm.branchTestPtr(Assembler::NonZero, temp2, temp2, &hasName);
-  {
-    masm.bind(&guessed);
-
-    // Unnamed class expression don't have a name property. To avoid
-    // looking it up from the prototype chain, we take the slow path here.
-    masm.branchFunctionKind(Assembler::Equal, FunctionFlags::ClassConstructor,
-                            target, temp2, slowPath);
-
-    // An absent name property defaults to the empty string.
-    const JSAtomState& names = gen->runtime->names();
-    masm.movePtr(ImmGCPtr(names.empty), temp2);
-  }
-  masm.bind(&hasName);
+  // Store the bound function's length into the extended slot.
+  BoundFunctionLength(masm, target, temp1, argCount, temp2, slowPath);
+  masm.storeValue(JSVAL_TYPE_INT32, temp2, Address(bound, boundLengthOffset));
 
   // Store the target's name atom in the bound function as is.
+  BoundFunctionName(masm, target, temp1, temp2, gen->runtime->names(),
+                    slowPath);
   masm.storePtr(temp2, Address(bound, JSFunction::offsetOfAtom()));
 
-  // Set the BOUND_FN flag and, if the target is a constructor, the
-  // CONSTRUCTOR flag.
-  Label isConstructor, boundFlagsComputed;
-  masm.load16ZeroExtend(Address(bound, JSFunction::offsetOfFlags()), temp2);
-  masm.branchTest32(Assembler::NonZero, temp1,
-                    Imm32(FunctionFlags::CONSTRUCTOR), &isConstructor);
-  {
-    masm.or32(Imm32(FunctionFlags::BOUND_FUN), temp2);
-    masm.jump(&boundFlagsComputed);
-  }
-  masm.bind(&isConstructor);
-  {
-    masm.or32(Imm32(FunctionFlags::BOUND_FUN | FunctionFlags::CONSTRUCTOR),
-              temp2);
-  }
-  masm.bind(&boundFlagsComputed);
+  // Update the bound function's flags.
+  BoundFunctionFlags(masm, temp1, bound, temp2);
   masm.store16(temp2, Address(bound, JSFunction::offsetOfFlags()));
-
-  // Load the target function's length.
-  Label isInterpreted, isBound, lengthLoaded;
-  masm.branchTest32(Assembler::NonZero, temp1, Imm32(FunctionFlags::BOUND_FUN),
-                    &isBound);
-  masm.branchTest32(Assembler::NonZero, temp1,
-                    Imm32(FunctionFlags::INTERPRETED), &isInterpreted);
-  {
-    // Load the length property of a native function.
-    masm.load16ZeroExtend(Address(target, JSFunction::offsetOfNargs()), temp1);
-    masm.jump(&lengthLoaded);
-  }
-  masm.bind(&isBound);
-  {
-    // Load the length property of a bound function.
-    masm.unboxInt32(Address(target, boundLengthOffset), temp1);
-    masm.jump(&lengthLoaded);
-  }
-  masm.bind(&isInterpreted);
-  {
-    // Load the length property of an interpreted function.
-    masm.loadPtr(Address(target, JSFunction::offsetOfScript()), temp1);
-    masm.loadPtr(Address(temp1, JSScript::offsetOfSharedData()), temp1);
-    masm.loadPtr(Address(temp1, RuntimeScriptData::offsetOfISD()), temp1);
-    masm.load16ZeroExtend(
-        Address(temp1, ImmutableScriptData::offsetOfFunLength()), temp1);
-  }
-  masm.bind(&lengthLoaded);
-
-  // Compute the bound function length: Max(0, target.length - argCount).
-  Label nonNegative;
-  masm.sub32(argCount, temp1);
-  masm.branch32(Assembler::GreaterThanOrEqual, temp1, Imm32(0), &nonNegative);
-  masm.move32(Imm32(0), temp1);
-  masm.bind(&nonNegative);
-
-  // Store the bound function's length into the extended slot.
-  masm.storeValue(JSVAL_TYPE_INT32, temp1, Address(bound, boundLengthOffset));
 
   masm.bind(ool->rejoin());
 }

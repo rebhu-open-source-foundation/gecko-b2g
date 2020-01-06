@@ -16,6 +16,7 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindContext.h"
+#include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/GeneratedImageContent.h"
 #include "mozilla/dom/HTMLDetailsElement.h"
 #include "mozilla/dom/HTMLSelectElement.h"
@@ -376,9 +377,6 @@ static bool ShouldSuppressFloatingOfDescendants(nsIFrame* aFrame) {
 // context). Basically, this is testing whether aFrame establishes a new block
 // formatting context or not.
 static bool ShouldSuppressColumnSpanDescendants(nsIFrame* aFrame) {
-  MOZ_ASSERT(StaticPrefs::layout_css_column_span_enabled(),
-             "Call this only when layout.css.column-span.enabled is true!");
-
   if (aFrame->Style()->GetPseudoType() == PseudoStyleType::columnContent) {
     // Never suppress column-span under ::-moz-column-content frames.
     return false;
@@ -1365,13 +1363,12 @@ static bool ShouldCreateImageFrameForContent(const Element& aElement,
   if (aElement.IsRootOfNativeAnonymousSubtree()) {
     return false;
   }
-
-  auto& content = *aStyle.StyleContent();
-  if (content.ContentCount() != 1) {
+  auto& content = aStyle.StyleContent()->mContent;
+  if (!content.IsItems()) {
     return false;
   }
-
-  return content.ContentAt(0).GetType() == StyleContentType::Image;
+  Span<const StyleContentItem> items = content.AsItems().AsSpan();
+  return items.Length() == 1 && items[0].IsUrl();
 }
 
 //----------------------------------------------------------------------
@@ -1487,24 +1484,25 @@ already_AddRefed<nsIContent> nsCSSFrameConstructor::CreateGenConTextNode(
 already_AddRefed<nsIContent> nsCSSFrameConstructor::CreateGeneratedContent(
     nsFrameConstructorState& aState, const Element& aOriginatingElement,
     ComputedStyle& aPseudoStyle, uint32_t aContentIndex) {
+  using Type = StyleContentItem::Tag;
   // Get the content value
-  const nsStyleContentData& data =
-      aPseudoStyle.StyleContent()->ContentAt(aContentIndex);
-  const StyleContentType type = data.GetType();
+  const auto& item = aPseudoStyle.StyleContent()->ContentAt(aContentIndex);
+  const Type type = item.tag;
 
   switch (type) {
-    case StyleContentType::Image:
+    case Type::Url:
       return GeneratedImageContent::Create(*mDocument, aContentIndex);
 
-    case StyleContentType::String:
-      return CreateGenConTextNode(aState, nsDependentString(data.GetString()),
-                                  nullptr);
+    case Type::String:
+      return CreateGenConTextNode(
+          aState, NS_ConvertUTF8toUTF16(item.AsString().AsString()), nullptr);
 
-    case StyleContentType::Attr: {
-      const nsStyleContentAttr* attr = data.GetAttr();
-      RefPtr<nsAtom> attrName = attr->mName;
+    case Type::Attr: {
+      const auto& attr = item.AsAttr();
+      RefPtr<nsAtom> attrName = attr.attribute.AsAtom();
       int32_t attrNameSpace = kNameSpaceID_None;
-      if (RefPtr<nsAtom> ns = attr->mNamespaceURL) {
+      RefPtr<nsAtom> ns = attr.namespace_url.AsAtom();
+      if (!ns->IsEmpty()) {
         nsresult rv = nsContentUtils::NameSpaceManager()->RegisterNameSpace(
             ns.forget(), attrNameSpace);
         NS_ENSURE_SUCCESS(rv, nullptr);
@@ -1520,25 +1518,36 @@ already_AddRefed<nsIContent> nsCSSFrameConstructor::CreateGeneratedContent(
       return content.forget();
     }
 
-    case StyleContentType::Counter:
-    case StyleContentType::Counters: {
-      nsStyleContentData::CounterFunction* counters = data.GetCounters();
-      nsCounterList* counterList =
-          mCounterManager.CounterListFor(counters->mIdent);
+    case Type::Counter:
+    case Type::Counters: {
+      RefPtr<nsAtom> name;
+      CounterStylePtr ptr;
+      nsString separator;
+      if (type == Type::Counter) {
+        auto& counter = item.AsCounter();
+        name = counter._0.AsAtom();
+        ptr = CounterStylePtr::FromStyle(counter._1);
+      } else {
+        auto& counters = item.AsCounters();
+        name = counters._0.AsAtom();
+        separator = NS_ConvertUTF8toUTF16(counters._1.AsString());
+        ptr = CounterStylePtr::FromStyle(counters._2);
+      }
 
+      nsCounterList* counterList = mCounterManager.CounterListFor(name);
       auto node = MakeUnique<nsCounterUseNode>(
-          counters, aContentIndex, type == StyleContentType::Counters);
+          std::move(ptr), std::move(separator), aContentIndex,
+          /* aAllCounters = */ type == Type::Counters);
 
       auto initializer = MakeUnique<nsGenConInitializer>(
           std::move(node), counterList, &nsCSSFrameConstructor::CountersDirty);
       return CreateGenConTextNode(aState, EmptyString(),
                                   std::move(initializer));
     }
-
-    case StyleContentType::OpenQuote:
-    case StyleContentType::CloseQuote:
-    case StyleContentType::NoOpenQuote:
-    case StyleContentType::NoCloseQuote: {
+    case Type::OpenQuote:
+    case Type::CloseQuote:
+    case Type::NoOpenQuote:
+    case Type::NoCloseQuote: {
       auto node = MakeUnique<nsQuoteNode>(type, aContentIndex);
       auto initializer = MakeUnique<nsGenConInitializer>(
           std::move(node), &mQuoteList, &nsCSSFrameConstructor::QuotesDirty);
@@ -1546,7 +1555,7 @@ already_AddRefed<nsIContent> nsCSSFrameConstructor::CreateGeneratedContent(
                                   std::move(initializer));
     }
 
-    case StyleContentType::AltContent: {
+    case Type::MozAltContent: {
       // Use the "alt" attribute; if that fails and the node is an HTML
       // <input>, try the value attribute and then fall back to some default
       // localized text we have.
@@ -1576,10 +1585,6 @@ already_AddRefed<nsIContent> nsCSSFrameConstructor::CreateGeneratedContent(
 
       break;
     }
-
-    case StyleContentType::Uninitialized:
-      MOZ_ASSERT_UNREACHABLE("uninitialized content type");
-      return nullptr;
   }
 
   return nullptr;
@@ -2148,14 +2153,9 @@ nsIFrame* nsCSSFrameConstructor::ConstructDocElementFrame(
     GetRootFrame()->SetComputedStyleWithoutNotification(sc);
   }
 
-  ServoStyleSet* set = mPresShell->StyleSet();
-
   // Ensure the document element is styled at this point.
   if (!aDocElement->HasServoData()) {
-    // NOTE(emilio): If the root has a non-null binding, we'll stop at the
-    // document element and won't process any children, loading the bindings
-    // (or failing to do so) will take care of the rest.
-    set->StyleNewSubtree(aDocElement);
+    mPresShell->StyleSet()->StyleNewSubtree(aDocElement);
   }
 
   // Make sure to call UpdateViewportScrollStylesOverride before
@@ -3045,8 +3045,7 @@ nsIFrame* nsCSSFrameConstructor::ConstructFieldSetFrame(
     }
   }
 
-  if (!StaticPrefs::layout_css_column_span_enabled() ||
-      !MayNeedToCreateColumnSpanSiblings(contentFrame, childList)) {
+  if (!MayNeedToCreateColumnSpanSiblings(contentFrame, childList)) {
     // Set the inner frame's initial child lists.
     contentFrame->SetInitialChildList(kPrincipalList, childList);
   } else {
@@ -3748,8 +3747,7 @@ void nsCSSFrameConstructor::ConstructFrameFromItemInternal(
         childList = newList;
       }
 
-      if (!StaticPrefs::layout_css_column_span_enabled() ||
-          !(bits & FCDATA_ALLOW_GRID_FLEX_COLUMN) ||
+      if (!(bits & FCDATA_ALLOW_GRID_FLEX_COLUMN) ||
           !MayNeedToCreateColumnSpanSiblings(newFrameAsContainer, childList)) {
         // Set the frame's initial child list. Note that MathML depends on this
         // being called even if childList is empty!
@@ -3922,7 +3920,7 @@ nsresult nsCSSFrameConstructor::GetAnonymousContent(
     styleSet->GetCachedAnonymousContentStyles(info.mKey, cachedStyles);
 
     if (cachedStyles.IsEmpty()) {
-      // We haven't store cached styles for this kind of NAC subtree yet.
+      // We haven't stored cached styles for this kind of NAC subtree yet.
       // Eagerly compute those styles, then cache them for later.
       styleSet->StyleNewSubtree(e);
       for (Element* e : elements) {
@@ -4129,11 +4127,10 @@ nsCSSFrameConstructor::FindXULDescriptionData(const Element& aElement,
 const nsCSSFrameConstructor::FrameConstructionData*
 nsCSSFrameConstructor::FindXULMenubarData(const Element& aElement,
                                           ComputedStyle&) {
-  nsCOMPtr<nsIDocShell> treeItem = aElement.OwnerDoc()->GetDocShell();
-  if (treeItem && nsIDocShellTreeItem::typeChrome == treeItem->ItemType()) {
-    nsCOMPtr<nsIDocShellTreeItem> parent;
-    treeItem->GetInProcessParent(getter_AddRefs(parent));
-    if (!parent) {
+  if (aElement.OwnerDoc()->IsInChromeDocShell()) {
+    BrowsingContext* bc = aElement.OwnerDoc()->GetBrowsingContext();
+    bool isRoot = bc && !bc->GetParent();
+    if (isRoot) {
       // This is the root.  Suppress the menubar, since on Mac
       // window menus are not attached to the window.
       static const FrameConstructionData sSuppressData = SUPPRESS_FCDATA();
@@ -6856,8 +6853,7 @@ void nsCSSFrameConstructor::ContentAppended(nsIContent* aFirstNewContent,
   }
 
   LAYOUT_PHASE_TEMP_EXIT();
-  if (StaticPrefs::layout_css_column_span_enabled() &&
-      MaybeRecreateForColumnSpan(state, parentFrame, frameList, prevSibling)) {
+  if (MaybeRecreateForColumnSpan(state, parentFrame, frameList, prevSibling)) {
     LAYOUT_PHASE_TEMP_REENTER();
     return;
   }
@@ -7305,8 +7301,7 @@ void nsCSSFrameConstructor::ContentRangeInserted(
   }
 
   LAYOUT_PHASE_TEMP_EXIT();
-  if (StaticPrefs::layout_css_column_span_enabled() &&
-      MaybeRecreateForColumnSpan(state, insertion.mParentFrame, frameList,
+  if (MaybeRecreateForColumnSpan(state, insertion.mParentFrame, frameList,
                                  prevSibling)) {
     LAYOUT_PHASE_TEMP_REENTER();
     return;
@@ -10552,23 +10547,15 @@ void nsCSSFrameConstructor::ConstructBlock(
         *aNewFrame, aPositionedFrameForAbsPosContainer, absoluteSaveState);
   }
 
-  if (StaticPrefs::layout_css_column_span_enabled()) {
-    if (aParentFrame->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR) &&
-        !ShouldSuppressColumnSpanDescendants(aParentFrame)) {
-      blockFrame->AddStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR);
-    }
+  if (aParentFrame->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR) &&
+      !ShouldSuppressColumnSpanDescendants(aParentFrame)) {
+    blockFrame->AddStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR);
   }
 
   // Process the child content
   nsFrameList childList;
   ProcessChildren(aState, aContent, aComputedStyle, blockFrame, true, childList,
                   true);
-
-  if (!StaticPrefs::layout_css_column_span_enabled()) {
-    // Set the frame's initial child list
-    blockFrame->SetInitialChildList(kPrincipalList, childList);
-    return;
-  }
 
   if (!MayNeedToCreateColumnSpanSiblings(blockFrame, childList)) {
     // No need to create column-span siblings.
@@ -10614,7 +10601,7 @@ void nsCSSFrameConstructor::ConstructBlock(
              "The column-span siblings should be moved to the proper place!");
 }
 
-nsContainerFrame* nsCSSFrameConstructor::BeginBuildingColumns(
+nsBlockFrame* nsCSSFrameConstructor::BeginBuildingColumns(
     nsFrameConstructorState& aState, nsIContent* aContent,
     nsContainerFrame* aParentFrame, nsContainerFrame* aColumnContent,
     ComputedStyle* aComputedStyle) {
@@ -10623,23 +10610,6 @@ nsContainerFrame* nsCSSFrameConstructor::BeginBuildingColumns(
       "aColumnContent should either be a block frame or a details frame.");
   MOZ_ASSERT(aComputedStyle->StyleColumn()->IsColumnContainerStyle(),
              "No need to build a column hierarchy!");
-
-  if (!StaticPrefs::layout_css_column_span_enabled()) {
-    // Preserve the old behavior which supports no column-span.
-    // Wrap the block frame in a ColumnSetFrame.
-    nsContainerFrame* columnSetFrame = NS_NewColumnSetFrame(
-        mPresShell, aComputedStyle, nsFrameState(NS_FRAME_OWNS_ANON_BOXES));
-    InitAndRestoreFrame(aState, aContent, aParentFrame, columnSetFrame);
-
-    RefPtr<ComputedStyle> anonBlockStyle =
-        mPresShell->StyleSet()->ResolveInheritingAnonymousBoxStyle(
-            PseudoStyleType::columnContent, aComputedStyle);
-    aColumnContent->SetComputedStyleWithoutNotification(anonBlockStyle);
-    InitAndRestoreFrame(aState, aContent, columnSetFrame, aColumnContent);
-
-    SetInitialSingleChild(columnSetFrame, aColumnContent);
-    return columnSetFrame;
-  }
 
   // The initial column hierarchy looks like this:
   //
@@ -10681,9 +10651,6 @@ nsContainerFrame* nsCSSFrameConstructor::BeginBuildingColumns(
 void nsCSSFrameConstructor::FinishBuildingColumns(
     nsFrameConstructorState& aState, nsContainerFrame* aColumnSetWrapper,
     nsContainerFrame* aColumnContent, nsFrameList& aColumnContentSiblings) {
-  MOZ_ASSERT(StaticPrefs::layout_css_column_span_enabled(),
-             "Call this only when layout.css.column-span.enabled is true!");
-
   nsContainerFrame* prevColumnSet = aColumnContent->GetParent();
 
   MOZ_ASSERT(prevColumnSet->IsColumnSetFrame() &&
@@ -10724,9 +10691,6 @@ void nsCSSFrameConstructor::FinishBuildingColumns(
 
 bool nsCSSFrameConstructor::MayNeedToCreateColumnSpanSiblings(
     nsContainerFrame* aBlockFrame, const nsFrameList& aChildList) {
-  MOZ_ASSERT(StaticPrefs::layout_css_column_span_enabled(),
-             "Call this only when layout.css.column-span.enabled is true!");
-
   if (!aBlockFrame->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR)) {
     // The block frame isn't in a multi-column block formatting context.
     return false;
@@ -10825,9 +10789,6 @@ nsFrameList nsCSSFrameConstructor::CreateColumnSpanSiblings(
 bool nsCSSFrameConstructor::MaybeRecreateForColumnSpan(
     nsFrameConstructorState& aState, nsContainerFrame* aParentFrame,
     nsFrameList& aFrameList, nsIFrame* aPrevSibling) {
-  MOZ_ASSERT(StaticPrefs::layout_css_column_span_enabled(),
-             "Call this only when layout.css.column-span.enabled is true!");
-
   if (!aParentFrame->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR)) {
     return false;
   }
@@ -10982,11 +10943,9 @@ nsIFrame* nsCSSFrameConstructor::ConstructInline(
     aState.PushAbsoluteContainingBlock(newFrame, newFrame, absoluteSaveState);
   }
 
-  if (StaticPrefs::layout_css_column_span_enabled()) {
-    if (aParentFrame->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR) &&
-        !ShouldSuppressColumnSpanDescendants(aParentFrame)) {
-      newFrame->AddStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR);
-    }
+  if (aParentFrame->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR) &&
+      !ShouldSuppressColumnSpanDescendants(aParentFrame)) {
+    newFrame->AddStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR);
   }
 
   // Process the child content
@@ -11073,8 +11032,7 @@ void nsCSSFrameConstructor::CreateIBSiblings(nsFrameConstructorState& aState,
     nsFrameList blockKids =
         aChildList.Split([](nsIFrame* f) { return !f->IsBlockOutside(); });
 
-    if (!StaticPrefs::layout_css_column_span_enabled() ||
-        !aInitialInline->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR)) {
+    if (!aInitialInline->HasAnyStateBits(NS_FRAME_HAS_MULTI_COLUMN_ANCESTOR)) {
       MoveChildrenTo(aInitialInline, blockFrame, blockKids);
 
       SetFrameIsIBSplit(lastNewInline, blockFrame);

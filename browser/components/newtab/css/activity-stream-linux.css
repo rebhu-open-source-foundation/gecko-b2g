@@ -475,12 +475,12 @@ main {
   margin: 0 -16px;
   padding: 0; }
   @media (max-width: 610px) {
-    .top-sites-list :nth-child(2n+1) .context-menu {
+    .top-sites-list > :nth-child(2n+1) .context-menu {
       margin-inline-end: auto;
       margin-inline-start: auto;
       inset-inline-end: auto;
       inset-inline-start: -32px; }
-    .top-sites-list :nth-child(2n) .context-menu {
+    .top-sites-list > :nth-child(2n) .context-menu {
       margin-inline-end: 5px;
       margin-inline-start: auto;
       inset-inline-end: 0;
@@ -2469,7 +2469,7 @@ main {
     .ds-navigation ul li:last-child::after {
       content: none; }
     .ds-navigation ul li a:hover {
-      border-bottom: 1px solid var(--newtab-link-primary-color); }
+      text-decoration: underline; }
       .ds-navigation ul li a:hover:active {
         border-bottom: 1px solid #003EAA; }
     .ds-navigation ul li a:active {
@@ -3161,9 +3161,9 @@ main {
     background-repeat: no-repeat;
     background-size: 16px; }
   .ds-privacy-modal .modal-link.modal-link-privacy::before {
-    background-image: url("chrome://browser/skin/settings.svg"); }
-  .ds-privacy-modal .modal-link.modal-link-manage::before {
     background-image: url("../data/content/assets/glyph-info-16.svg"); }
+  .ds-privacy-modal .modal-link.modal-link-manage::before {
+    background-image: url("chrome://browser/skin/settings.svg"); }
 
 .ds-privacy-modal p {
   line-height: 24px; }

@@ -591,13 +591,8 @@ class WasmFlags(TargetCompileFlags):
              ('WASM_CFLAGS', 'WASM_CXXFLAGS', 'WASM_LDFLAGS')),
             ('WARNINGS_AS_ERRORS', self._warnings_as_errors(),
              ('WASM_CXXFLAGS', 'WASM_CFLAGS', 'WASM_LDFLAGS')),
-            ('WARNINGS_CFLAGS',
-             context.config.substs.get('WARNINGS_CFLAGS'),
-             ('WASM_CFLAGS', 'WASM_LDFLAGS')),
             ('MOZBUILD_CFLAGS', None, ('WASM_CFLAGS',)),
             ('MOZBUILD_CXXFLAGS', None, ('WASM_CXXFLAGS',)),
-            ('COVERAGE', context.config.substs.get('COVERAGE_CFLAGS'),
-             ('WASM_CXXFLAGS', 'WASM_CFLAGS')),
             ('WASM_CFLAGS', context.config.substs.get('WASM_CFLAGS'),
              ('WASM_CFLAGS',)),
             ('WASM_CXXFLAGS', context.config.substs.get('WASM_CXXFLAGS'),
@@ -610,6 +605,16 @@ class WasmFlags(TargetCompileFlags):
         )
 
         TargetCompileFlags.__init__(self, context)
+
+    def _optimize_flags(self):
+        if not self._context.config.substs.get('MOZ_OPTIMIZE'):
+            return []
+
+        # We don't want `MOZ_{PGO_,}OPTIMIZE_FLAGS here because they may contain
+        # optimization flags that aren't suitable for wasm (e.g. -freorder-blocks).
+        # Just optimize for size in all cases; we may want to make this
+        # configurable.
+        return ['-Os']
 
 
 class FinalTargetValue(ContextDerivedValue, six.text_type):

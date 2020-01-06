@@ -60,6 +60,7 @@ RenderCompositorOGL::~RenderCompositorOGL() {
   if (mNativeLayerRoot) {
     mNativeLayerRoot->SetLayers({});
     mNativeLayerForEntireWindow = nullptr;
+    mNativeLayerRootSnapshotter = nullptr;
     mNativeLayerRoot = nullptr;
   }
 
@@ -119,10 +120,16 @@ RenderedFrameId RenderCompositorOGL::EndFrame(
     const FfiVec<DeviceIntRect>& aDirtyRects) {
   RenderedFrameId frameId = GetNextRenderFrameId();
   InsertFrameDoneSync();
-  mGL->SwapBuffers();
+
+  if (!mNativeLayerRoot) {
+    mGL->SwapBuffers();
+    return frameId;
+  }
 
   if (mNativeLayerForEntireWindow) {
+    mGL->fFlush();
     mNativeLayerForEntireWindow->NotifySurfaceReady();
+    mNativeLayerRoot->CommitToScreen();
   }
 
   return frameId;
@@ -163,6 +170,27 @@ LayoutDeviceIntSize RenderCompositorOGL::GetBufferSize() {
 
 bool RenderCompositorOGL::ShouldUseNativeCompositor() {
   return mNativeLayerRoot && gfx::gfxVars::UseWebRenderCompositor();
+}
+
+bool RenderCompositorOGL::MaybeReadback(const gfx::IntSize& aReadbackSize,
+                                        const wr::ImageFormat& aReadbackFormat,
+                                        const Range<uint8_t>& aReadbackBuffer) {
+  if (!ShouldUseNativeCompositor()) {
+    return false;
+  }
+
+  MOZ_RELEASE_ASSERT(aReadbackFormat == wr::ImageFormat::BGRA8);
+  if (!mNativeLayerRootSnapshotter) {
+    mNativeLayerRootSnapshotter = mNativeLayerRoot->CreateSnapshotter();
+  }
+  bool success = mNativeLayerRootSnapshotter->ReadbackPixels(
+      aReadbackSize, gfx::SurfaceFormat::B8G8R8A8, aReadbackBuffer);
+
+  // ReadbackPixels might have changed the current context. Make sure mGL is
+  // current again.
+  mGL->MakeCurrent();
+
+  return success;
 }
 
 uint32_t RenderCompositorOGL::GetMaxUpdateRects() {
@@ -208,6 +236,8 @@ void RenderCompositorOGL::CompositorEndFrame() {
   mDrawnPixelCount = 0;
 
   mNativeLayerRoot->SetLayers(mAddedLayers);
+  mGL->fFlush();
+  mNativeLayerRoot->CommitToScreen();
   mSurfacePoolHandle->OnEndFrame();
 }
 

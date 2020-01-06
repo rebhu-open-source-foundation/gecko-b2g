@@ -944,10 +944,10 @@ def remote_default(target, project, milestone):
     # TODO(ato): https://bugzil.la/1544393
     return project == 'browser' and milestone.is_nightly
 
-option('--disable-cdp', default=remote_default,
+option('--enable-cdp', default=remote_default,
        help='{Enable|Disable} remote agent')
 
-@depends('--disable-cdp')
+@depends('--enable-cdp')
 def remote(value):
     if value:
         return True
@@ -1790,6 +1790,7 @@ lucetc = check_prog('LUCETC', ['lucetc'],
                     paths=toolchain_search_path, when=requires_wasm_sandboxing)
 
 option('--with-wasi-sysroot',
+       env='WASI_SYSROOT',
        nargs=1,
        help='Path to wasi sysroot for wasm sandboxing',
        when=requires_wasm_sandboxing)
