@@ -1966,13 +1966,13 @@ Toolbox.prototype = {
 
     if (
       !ResponsiveUIManager.isActiveForTab(localTab) ||
-      (await !this.target.actorHasMethod("emulation", "setElementPickerState"))
+      (await !this.target.actorHasMethod("responsive", "setElementPickerState"))
     ) {
       return;
     }
 
     const ui = ResponsiveUIManager.getResponsiveUIForTab(localTab);
-    await ui.emulationFront.setElementPickerState(state);
+    await ui.responsiveFront.setElementPickerState(state);
   },
 
   /**
@@ -2064,7 +2064,7 @@ Toolbox.prototype = {
    * Update the buttons.
    */
   updateToolboxButtons() {
-    const inspectorFront = this.target.getCachedFront("inspectorFront");
+    const inspectorFront = this.target.getCachedFront("inspector");
     // two of the buttons have highlighters that need to be cleared
     // on will-navigate, otherwise we hold on to the stale highlighter
     const hasHighlighters =

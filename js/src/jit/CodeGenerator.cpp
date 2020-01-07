@@ -5006,31 +5006,29 @@ void CodeGenerator::visitCallGeneric(LCallGeneric* call) {
                             nargsreg, calleereg, &invoke);
   }
 
-  // Guard that calleereg is an interpreted function with a JSScript or a
-  // wasm function.
-  // If we are constructing, also ensure the callee is a constructor.
+  // Guard that callee allows the [[Call]] or [[Construct]] operation required.
   if (call->mir()->isConstructing()) {
-    masm.branchIfNotInterpretedConstructor(calleereg, nargsreg, &invoke);
+    masm.branchTestFunctionFlags(calleereg, FunctionFlags::CONSTRUCTOR,
+                                 Assembler::Zero, &invoke);
   } else {
-    // See visitCallKnown.
-    if (call->mir()->needsArgCheck()) {
-      masm.branchIfFunctionHasNoJitEntry(calleereg, /* isConstructing */ false,
-                                         &invoke);
-    } else {
-      masm.branchIfFunctionHasNoScript(calleereg, &invoke);
-    }
     masm.branchFunctionKind(Assembler::Equal, FunctionFlags::ClassConstructor,
                             calleereg, objreg, &invoke);
   }
 
-  if (call->mir()->maybeCrossRealm()) {
-    masm.switchToObjectRealm(calleereg, objreg);
-  }
-
+  // Load jitCodeRaw for callee if exists. See visitCallKnown.
   if (call->mir()->needsArgCheck()) {
+    masm.branchIfFunctionHasNoJitEntry(calleereg, call->mir()->isConstructing(),
+                                       &invoke);
     masm.loadJitCodeRaw(calleereg, objreg);
   } else {
-    masm.loadJitCodeNoArgCheck(calleereg, objreg);
+    // If we are using the jitCodeNoArgCheck entry point, the canonical targets
+    // are known, but due to lambda cloning we may still see lazy versions.
+    masm.loadJitCodeMaybeNoArgCheck(calleereg, objreg);
+  }
+
+  // Target may be a different realm even if same compartment.
+  if (call->mir()->maybeCrossRealm()) {
+    masm.switchToObjectRealm(calleereg, nargsreg);
   }
 
   // Nestle the StackPointer up to the argument vector.
@@ -5141,15 +5139,7 @@ void CodeGenerator::visitCallKnown(LCallKnown* call) {
     // NOTE: We checked that canonical function script had a valid JitScript.
     // This will not be tossed without all Ion code being tossed first.
 
-    Label uncompiled, end;
-    masm.branchIfFunctionHasNoScript(calleereg, &uncompiled);
-    masm.loadJitCodeNoArgCheck(calleereg, objreg);
-    masm.jump(&end);
-
-    // jitCodeRaw is still valid even if uncompiled.
-    masm.bind(&uncompiled);
-    masm.loadJitCodeRaw(calleereg, objreg);
-    masm.bind(&end);
+    masm.loadJitCodeMaybeNoArgCheck(calleereg, objreg);
   }
 
   // Nestle the StackPointer up to the argument vector.
@@ -10438,7 +10428,7 @@ static bool CreateStackMapFromLSafepoint(LSafepoint& safepoint,
 // MacroAssembler::wasmReserveStackChecked, in the case where the frame is
 // "small", as determined by that function.
 static bool CreateStackMapForFunctionEntryTrap(
-    const wasm::ValTypeVector& argTypes, const MachineState& trapExitLayout,
+    const wasm::ArgTypeVector& argTypes, const MachineState& trapExitLayout,
     size_t trapExitLayoutWords, size_t nBytesReservedBeforeTrap,
     size_t nInboundStackArgBytes, wasm::StackMap** result) {
   // Ensure this is defined on all return paths.
@@ -10500,18 +10490,16 @@ static bool CreateStackMapForFunctionEntryTrap(
     return false;
   }
 
-  for (ABIArgIter<const wasm::ValTypeVector> i(argTypes); !i.done(); i++) {
+  for (ABIArgIter i(argTypes); !i.done(); i++) {
     ABIArg argLoc = *i;
-    const wasm::ValType& ty = argTypes[i.index()];
-    MOZ_ASSERT(ToMIRType(ty) != MIRType::Pointer);
-    if (argLoc.kind() != ABIArg::Stack || !ty.isReference()) {
-      continue;
+    if (argLoc.kind() == ABIArg::Stack &&
+        argTypes[i.index()] == MIRType::RefOrNull) {
+      uint32_t offset = argLoc.offsetFromArgBase();
+      MOZ_ASSERT(offset < nInboundStackArgBytes);
+      MOZ_ASSERT(offset % sizeof(void*) == 0);
+      vec[wordsSoFar + offset / sizeof(void*)] = true;
+      hasRefs = true;
     }
-    uint32_t offset = argLoc.offsetFromArgBase();
-    MOZ_ASSERT(offset < nInboundStackArgBytes);
-    MOZ_ASSERT(offset % sizeof(void*) == 0);
-    vec[wordsSoFar + offset / sizeof(void*)] = true;
-    hasRefs = true;
   }
 
 #ifndef DEBUG
@@ -10545,7 +10533,7 @@ static bool CreateStackMapForFunctionEntryTrap(
 
 bool CodeGenerator::generateWasm(wasm::FuncTypeIdDesc funcTypeId,
                                  wasm::BytecodeOffset trapOffset,
-                                 const wasm::ValTypeVector& argTypes,
+                                 const wasm::ArgTypeVector& argTypes,
                                  const MachineState& trapExitLayout,
                                  size_t trapExitLayoutNumWords,
                                  wasm::FuncOffsets* offsets,
@@ -13765,11 +13753,6 @@ static void BoundFunctionName(MacroAssembler& masm, Register target,
   masm.branchTestPtr(Assembler::NonZero, output, output, &hasName);
   {
     masm.bind(&guessed);
-
-    // Unnamed class expression don't have a name property. To avoid
-    // looking it up from the prototype chain, we take the slow path here.
-    masm.branchFunctionKind(Assembler::Equal, FunctionFlags::ClassConstructor,
-                            target, output, slowPath);
 
     // An absent name property defaults to the empty string.
     masm.movePtr(ImmGCPtr(names.empty), output);

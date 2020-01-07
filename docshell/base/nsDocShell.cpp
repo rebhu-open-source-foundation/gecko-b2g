@@ -1206,7 +1206,7 @@ bool nsDocShell::SetCurrentURI(nsIURI* aURI, nsIRequest* aRequest,
     mHasLoadedNonBlankURI = true;
   }
 
-  bool isRoot = !mBrowsingContext->GetParent();
+  bool isRoot = mBrowsingContext->IsTop();
   bool isSubFrame = false;  // Is this a subframe navigation?
 
   if (mLSHE) {
@@ -4874,9 +4874,7 @@ nsDocShell::SetIsActive(bool aIsActive) {
     if (RefPtr<Document> doc = mScriptGlobal->GetExtantDoc()) {
       // Update orientation when the top-level browsing context becomes active.
       if (aIsActive) {
-        nsCOMPtr<nsIDocShellTreeItem> parent;
-        GetInProcessSameTypeParent(getter_AddRefs(parent));
-        if (!parent) {
+        if (mBrowsingContext->IsTop()) {
           // We only care about the top-level browsing context.
           uint16_t orientation = OrientationLock();
           ScreenOrientation::UpdateActiveOrientationLock(orientation);
@@ -4983,10 +4981,7 @@ nsDocShell::SetMixedContentChannel(nsIChannel* aMixedContentChannel) {
 #ifdef DEBUG
   // if the channel is non-null
   if (aMixedContentChannel) {
-    // Get the root docshell.
-    nsCOMPtr<nsIDocShellTreeItem> root;
-    GetInProcessSameTypeRootTreeItem(getter_AddRefs(root));
-    NS_WARNING_ASSERTION(root.get() == static_cast<nsIDocShellTreeItem*>(this),
+    NS_WARNING_ASSERTION(mBrowsingContext->IsTop(),
                          "Setting mMixedContentChannel on a docshell that is "
                          "not the root docshell");
   }
@@ -5111,7 +5106,7 @@ nsDocShell::SetTitle(const nsAString& aTitle) {
 
   // When title is set on the top object it should then be passed to the
   // tree owner.
-  if (!mBrowsingContext->GetParent()) {
+  if (mBrowsingContext->IsTop()) {
     nsCOMPtr<nsIBaseWindow> treeOwnerAsWin(do_QueryInterface(mTreeOwner));
     if (treeOwnerAsWin) {
       treeOwnerAsWin->SetTitle(aTitle);
@@ -6139,7 +6134,7 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
     RefreshURIFromQueue();
 
   // Test whether this is the top frame or a subframe
-  bool isTopFrame = !mBrowsingContext->GetParent();
+  bool isTopFrame = mBrowsingContext->IsTop();
 
   //
   // If the page load failed, then deal with the error condition...
@@ -9314,8 +9309,17 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
     srcdoc = VoidString();
   }
 
+  // We want to use DocumentChannel if we're a sandboxed srcdoc load or if
+  // we're using a supported scheme. Non-sandboxed srcdoc loads need to share
+  // the same principal object as their outer document (and must load in the
+  // same process), which breaks if we serialize to the parent process.
+  bool isSandboxed = false;
+  aLoadInfo->GetLoadingSandboxed(&isSandboxed);
+  bool canUseDocumentChannel =
+      isSrcdoc ? isSandboxed : SchemeUsesDocChannel(aLoadState->URI());
+
   if (StaticPrefs::browser_tabs_documentchannel() && XRE_IsContentProcess() &&
-      SchemeUsesDocChannel(aLoadState->URI()) && !isSrcdoc) {
+      canUseDocumentChannel) {
     RefPtr<DocumentChannelChild> child = new DocumentChannelChild(
         aLoadState, aLoadInfo, aInitiatorType, aLoadFlags, aLoadType, aCacheKey,
         aIsActive, aIsTopLevelDoc, aHasNonEmptySandboxingFlags);
@@ -9732,19 +9736,14 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
   }
 
   // open a channel for the url
-  nsCOMPtr<nsIChannel> channel;
 
   // If we have a pending channel, use the channel we've already created here.
   // We don't need to set up load flags for our channel, as it has already been
   // created.
-  nsCOMPtr<nsIChildChannel> pendingChannel =
-      aLoadState->GetPendingRedirectedChannel();
-  if (pendingChannel) {
+  nsCOMPtr<nsIChannel> channel = aLoadState->GetPendingRedirectedChannel();
+  if (channel) {
     MOZ_ASSERT(!aLoadState->HasLoadFlags(INTERNAL_LOAD_FLAGS_IS_SRCDOC),
                "pending channel for srcdoc load?");
-
-    channel = do_QueryInterface(pendingChannel);
-    MOZ_ASSERT(channel, "nsIChildChannel isn't a nsIChannel?");
 
     // If we have a request outparameter, shove our channel into it.
     if (aRequest) {
@@ -12747,15 +12746,12 @@ nsDocShell::ResumeRedirectedLoad(uint64_t aIdentifier, int32_t aHistoryIndex) {
   // Call into InternalLoad with the pending channel when it is received.
   cpcl->RegisterCallback(
       aIdentifier,
-      [self, aHistoryIndex](nsIChildChannel* aChannel,
+      [self, aHistoryIndex](nsIChannel* aChannel,
                             nsTArray<net::DocumentChannelRedirect>&& aRedirects,
                             uint32_t aLoadStateLoadFlags,
                             nsDOMNavigationTiming* aTiming) {
         if (NS_WARN_IF(self->mIsBeingDestroyed)) {
-          nsCOMPtr<nsIRequest> request = do_QueryInterface(aChannel);
-          if (request) {
-            request->Cancel(NS_BINDING_ABORTED);
-          }
+          aChannel->Cancel(NS_BINDING_ABORTED);
           return;
         }
 
@@ -12767,14 +12763,11 @@ nsDocShell::ResumeRedirectedLoad(uint64_t aIdentifier, int32_t aHistoryIndex) {
         }
         loadState->SetLoadFlags(aLoadStateLoadFlags);
 
-        if (nsCOMPtr<nsIChannel> channel = do_QueryInterface(aChannel)) {
-          nsCOMPtr<nsIURI> previousURI;
-          uint32_t previousFlags = 0;
-          ExtractLastVisit(channel, getter_AddRefs(previousURI),
-                           &previousFlags);
-          self->SavePreviousRedirectsAndLastVisit(channel, previousURI,
-                                                  previousFlags, aRedirects);
-        }
+        nsCOMPtr<nsIURI> previousURI;
+        uint32_t previousFlags = 0;
+        ExtractLastVisit(aChannel, getter_AddRefs(previousURI), &previousFlags);
+        self->SavePreviousRedirectsAndLastVisit(aChannel, previousURI,
+                                                previousFlags, aRedirects);
 
         MOZ_ASSERT(
             (self->mCurrentURI && NS_IsAboutBlank(self->mCurrentURI)) ||

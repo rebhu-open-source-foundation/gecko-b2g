@@ -314,43 +314,39 @@ static_assert(mozilla::ArrayLength(slotsToThingKind) ==
 FOR_EACH_ALLOCKIND(CHECK_THING_SIZE);
 #undef CHECK_THING_SIZE
 
-const uint32_t Arena::ThingSizes[] = {
-#define EXPAND_THING_SIZE(allocKind, traceKind, type, sizedType, bgFinal, \
-                          nursery, compact)                               \
-  sizeof(sizedType),
+template <typename T>
+struct ArenaLayout {
+  static constexpr size_t thingSize() { return sizeof(T); }
+  static constexpr size_t thingsPerArena() {
+    return (ArenaSize - ArenaHeaderSize) / thingSize();
+  }
+  static constexpr size_t firstThingOffset() {
+    return ArenaSize - thingSize() * thingsPerArena();
+  }
+};
+
+const uint8_t Arena::ThingSizes[] = {
+#define EXPAND_THING_SIZE(_1, _2, _3, sizedType, _4, _5, _6) \
+  ArenaLayout<sizedType>::thingSize(),
     FOR_EACH_ALLOCKIND(EXPAND_THING_SIZE)
 #undef EXPAND_THING_SIZE
 };
 
-FreeSpan FreeLists::emptySentinel;
-
-#undef CHECK_THING_SIZE_INNER
-#undef CHECK_THING_SIZE
-
-#define OFFSET(type) \
-  uint32_t(ArenaHeaderSize + (ArenaSize - ArenaHeaderSize) % sizeof(type))
-
-const uint32_t Arena::FirstThingOffsets[] = {
-#define EXPAND_FIRST_THING_OFFSET(allocKind, traceKind, type, sizedType, \
-                                  bgFinal, nursery, compact)             \
-  OFFSET(sizedType),
+const uint8_t Arena::FirstThingOffsets[] = {
+#define EXPAND_FIRST_THING_OFFSET(_1, _2, _3, sizedType, _4, _5, _6) \
+  ArenaLayout<sizedType>::firstThingOffset(),
     FOR_EACH_ALLOCKIND(EXPAND_FIRST_THING_OFFSET)
 #undef EXPAND_FIRST_THING_OFFSET
 };
 
-#undef OFFSET
-
-#define COUNT(type) uint32_t((ArenaSize - ArenaHeaderSize) / sizeof(type))
-
-const uint32_t Arena::ThingsPerArena[] = {
-#define EXPAND_THINGS_PER_ARENA(allocKind, traceKind, type, sizedType, \
-                                bgFinal, nursery, compact)             \
-  COUNT(sizedType),
+const uint8_t Arena::ThingsPerArena[] = {
+#define EXPAND_THINGS_PER_ARENA(_1, _2, _3, sizedType, _4, _5, _6) \
+  ArenaLayout<sizedType>::thingsPerArena(),
     FOR_EACH_ALLOCKIND(EXPAND_THINGS_PER_ARENA)
 #undef EXPAND_THINGS_PER_ARENA
 };
 
-#undef COUNT
+FreeSpan FreeLists::emptySentinel;
 
 struct js::gc::FinalizePhase {
   gcstats::PhaseKind statsPhase;
@@ -432,6 +428,17 @@ void Arena::staticAsserts() {
   static_assert(
       mozilla::ArrayLength(ThingsPerArena) == size_t(AllocKind::LIMIT),
       "We haven't defined all counts.");
+}
+
+/* static */
+inline void Arena::checkLookupTables() {
+#ifdef DEBUG
+  for (size_t i = 0; i < size_t(AllocKind::LIMIT); i++) {
+    MOZ_ASSERT(
+        FirstThingOffsets[i] + ThingsPerArena[i] * ThingSizes[i] == ArenaSize,
+        "Inconsistent arena lookup table data");
+  }
+#endif
 }
 
 template <typename T>
@@ -865,7 +872,6 @@ GCRuntime::GCRuntime(JSRuntime* rt)
                         1),  // Ensure disjoint from null tagged pointers.
       numArenasFreeCommitted(0),
       verifyPreData(nullptr),
-      chunkAllocationSinceLastGC(false),
       lastGCStartTime_(ReallyNow()),
       lastGCEndTime_(ReallyNow()),
       mode(TuningDefaults::Mode),
@@ -1212,6 +1218,7 @@ void js::gc::DumpArenaInfo() {
 
 bool GCRuntime::init(uint32_t maxbytes) {
   MOZ_ASSERT(SystemPageSize());
+  Arena::checkLookupTables();
 
   {
     AutoLockGCBgAlloc lock(this);
@@ -6952,8 +6959,6 @@ MOZ_NEVER_INLINE GCRuntime::IncrementalResult GCRuntime::gcCycle(
   gcTracer.traceMajorGCStart();
 
   incrementalSlice(budget, gckind, reason, session);
-
-  chunkAllocationSinceLastGC = false;
 
 #ifdef JS_GC_ZEAL
   clearSelectedForMarking();

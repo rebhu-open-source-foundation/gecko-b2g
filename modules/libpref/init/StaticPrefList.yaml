@@ -885,6 +885,12 @@
   value: false
   mirror: always
 
+# Indicates if about:newtab shows content (enabled) or just blank.
+- name: browser.newtabpage.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Blocked plugin content
 - name: browser.safebrowsing.blockedURIs.enabled
   type: bool
@@ -4997,7 +5003,7 @@
 # text underline position
 - name: layout.css.text-underline-position.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # text decoration thickness
@@ -6592,7 +6598,11 @@
 
 - name: media.webrtc.platformencoder
   type: bool
+#if defined(MOZ_WIDGET_ANDROID)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 - name: media.block-autoplay-until-in-foreground
@@ -6606,7 +6616,11 @@
 
 - name: media.webrtc.hw.h264.enabled
   type: bool
+#if defined(MOZ_WIDGET_ANDROID)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
  # If true, then we require explicit approval from the embedding app (ex. Fenix)
