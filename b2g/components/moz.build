@@ -67,6 +67,7 @@ EXTRA_JS_MODULES += [
     'Frames.jsm',
     'KaiAccountsMgmtService.jsm',
     'KillSwitchMain.jsm',
+    'LocalDomains.jsm',
     'MultiscreenHandler.jsm',
     'OrientationChangeHandler.jsm',
     'PersistentDataBlock.jsm',

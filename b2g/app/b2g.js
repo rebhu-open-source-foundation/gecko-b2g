@@ -1287,10 +1287,6 @@ pref("device.rebootReason", "normal");
 // pref("b2g.system_startup_url", "chrome://b2g/content/system/index.html");
 pref("b2g.system_startup_url", "chrome://gaia/content/system/index.html");
 
-// Set local domains to the list of vhosts we need for apps.
-// TODO: remove once we package the UI properly and set that pref under /system/b2g/defaults/pref
-pref("network.dns.localDomains", "unitconverter.local,keyboard.local,darktheme.local,calculator.local,launcher.local,shared.local,gallery.local,filemanager.local,wallpaper.local");
-
 pref("devtools.console.stdout.content", true);
 
 // Enable touch events and pointer events by default.
