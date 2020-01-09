@@ -3597,23 +3597,6 @@ nsresult DeviceStorageRequestManager::Resolve(uint32_t aId,
       new FileBlobImpl(fullPath, aFile->mMimeType, aFile->mLength, aFile->mFile,
                        aFile->mLastModifiedDate);
 
-  /* File should start out as mutable by default but we should turn
-     that off if it wasn't requested. */
-  bool editable;
-  nsresult rv = blobImpl->GetMutable(&editable);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    DS_LOG_WARN("%u cannot query mutable", aId);
-    return Reject(aId, POST_ERROR_EVENT_UNKNOWN);
-  }
-
-  if (editable != aFile->mEditable) {
-    rv = blobImpl->SetMutable(aFile->mEditable);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      DS_LOG_WARN("%u cannot set mutable %d", aId, aFile->mEditable);
-      return Reject(aId, POST_ERROR_EVENT_UNKNOWN);
-    }
-  }
-
   return Resolve(aId, blobImpl, aForceDispatch);
 }
 
