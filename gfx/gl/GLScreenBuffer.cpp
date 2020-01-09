@@ -7,6 +7,10 @@
 
 #include <cstring>
 #include "CompositorTypes.h"
+#ifdef MOZ_WIDGET_GONK
+// For gfxVars::DisableGralloc()
+#include "mozilla/gfx/gfxVars.h"
+#endif
 #include "mozilla/StaticPrefs_webgl.h"
 #include "GLContext.h"
 #include "GLBlitHelper.h"
