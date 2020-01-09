@@ -3885,24 +3885,12 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
   }
 
   nsCOMPtr<nsIChannel> newChannel;
-  if (aArgs.loadStateLoadFlags() &
-      nsDocShell::InternalLoad::INTERNAL_LOAD_FLAGS_IS_SRCDOC) {
-    rv = NS_NewInputStreamChannelInternal(
-        getter_AddRefs(newChannel), aArgs.uri(), aArgs.srcdocData(),
-        NS_LITERAL_CSTRING("text/html"), loadInfo, true);
-    if (NS_SUCCEEDED(rv)) {
-      nsCOMPtr<nsIInputStreamChannel> isc = do_QueryInterface(newChannel);
-      MOZ_ASSERT(isc);
-      isc->SetBaseURI(aArgs.baseUri());
-    }
-  } else {
-    rv =
-        NS_NewChannelInternal(getter_AddRefs(newChannel), aArgs.uri(), loadInfo,
-                              nullptr,  // PerformanceStorage
-                              nullptr,  // aLoadGroup
-                              nullptr,  // aCallbacks
-                              aArgs.newLoadFlags());
-  }
+  MOZ_ASSERT((aArgs.loadStateLoadFlags() &
+              nsDocShell::InternalLoad::INTERNAL_LOAD_FLAGS_IS_SRCDOC) ||
+             aArgs.srcdocData().IsVoid());
+  rv = nsDocShell::CreateRealChannelForDocument(
+      getter_AddRefs(newChannel), aArgs.uri(), loadInfo, nullptr, nullptr,
+      aArgs.newLoadFlags(), aArgs.srcdocData(), aArgs.baseUri());
 
   // This is used to report any errors back to the parent by calling
   // CrossProcessRedirectFinished.
@@ -3926,21 +3914,24 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
     return IPC_OK();
   }
 
-  if (httpChild) {
-    rv = httpChild->SetChannelId(aArgs.channelId());
-    if (NS_FAILED(rv)) {
-      return IPC_OK();
-    }
+  if (nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(newChannel)) {
+    rv = httpChannel->SetChannelId(aArgs.channelId());
+  }
+  if (NS_FAILED(rv)) {
+    return IPC_OK();
+  }
 
-    rv = httpChild->SetOriginalURI(aArgs.originalURI());
-    if (NS_FAILED(rv)) {
-      return IPC_OK();
-    }
+  rv = newChannel->SetOriginalURI(aArgs.originalURI());
+  if (NS_FAILED(rv)) {
+    return IPC_OK();
+  }
 
-    rv = httpChild->SetRedirectMode(aArgs.redirectMode());
-    if (NS_FAILED(rv)) {
-      return IPC_OK();
-    }
+  if (nsCOMPtr<nsIHttpChannelInternal> httpChannelInternal =
+          do_QueryInterface(newChannel)) {
+    rv = httpChannelInternal->SetRedirectMode(aArgs.redirectMode());
+  }
+  if (NS_FAILED(rv)) {
+    return IPC_OK();
   }
 
   if (aArgs.init()) {
@@ -4005,11 +3996,16 @@ mozilla::ipc::IPCResult ContentChild::RecvEvictContentViewers(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvSessionStorageData(
-    BrowsingContext* const aTop, const nsACString& aOriginAttrs,
+    const uint64_t aTopContextId, const nsACString& aOriginAttrs,
     const nsACString& aOriginKey, const nsTArray<KeyValuePair>& aDefaultData,
     const nsTArray<KeyValuePair>& aSessionData) {
-  aTop->GetSessionStorageManager()->LoadSessionStorageData(
-      nullptr, aOriginAttrs, aOriginKey, aDefaultData, aSessionData);
+  if (const RefPtr<BrowsingContext> topContext =
+          BrowsingContext::Get(aTopContextId)) {
+    topContext->GetSessionStorageManager()->LoadSessionStorageData(
+        nullptr, aOriginAttrs, aOriginKey, aDefaultData, aSessionData);
+  } else {
+    NS_WARNING("Got session storage data for a discarded session");
+  }
   return IPC_OK();
 }
 

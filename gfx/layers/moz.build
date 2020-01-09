@@ -237,6 +237,7 @@ EXPORTS.mozilla.layers += [
     'mlgpu/ShaderDefinitionsMLGPU.h',
     'mlgpu/UtilityMLGPU.h',
     'NativeLayer.h',
+    'OOPCanvasRenderer.h',
     'opengl/CompositingRenderTargetOGL.h',
     'opengl/CompositorOGL.h',
     'opengl/GrallocTextureClient.h',
@@ -450,7 +451,6 @@ UNIFIED_SOURCES += [
     'client/ImageClient.cpp',
     'client/MultiTiledContentClient.cpp',
     'client/SingleTiledContentClient.cpp',
-    'client/TextureClient.cpp',
     'client/TextureClientPool.cpp',
     'client/TextureClientRecycleAllocator.cpp',
     'client/TextureClientSharedSurface.cpp',
@@ -588,6 +588,7 @@ UNIFIED_SOURCES += [
 SOURCES += [
     'basic/BasicCompositor.cpp',
     'basic/BasicImageLayer.cpp',
+    'client/TextureClient.cpp',
     'ImageContainer.cpp',
     'PersistentBufferProvider.cpp',
     'protobuf/LayerScopePacket.pb.cc',

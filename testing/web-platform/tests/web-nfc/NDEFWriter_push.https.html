@@ -276,7 +276,7 @@ nfc_test(async () => {
 
 nfc_test(async (t, mockNFC) => {
   const writer = new NDEFWriter();
-  let message = createMessage([createTextRecord(test_text_data),
+  const message = createMessage([createTextRecord(test_text_data),
                                createMimeRecordFromJson(test_json_data),
                                createMimeRecord(test_buffer_data),
                                createUnknownRecord(test_buffer_data),
@@ -288,6 +288,25 @@ nfc_test(async (t, mockNFC) => {
   assertNDEFMessagesEqual(message, mockNFC.pushedMessage());
 }, "NDEFWriter.push NDEFMessage containing text, mime, unknown, url, absolute-url \
 and external records with default NDEFPushOptions.");
+
+nfc_test(async (t, mockNFC) => {
+  const payloadMessage = createMessage([createTextRecord(test_text_data)]);
+  // Prepare a message containing an external record that uses |payloadMessage| as its payload.
+  const message = createMessage([createRecord('example.com:payloadIsMessage',
+          payloadMessage)]);
+
+  const writer = new NDEFWriter();
+  await writer.push(message);
+  const pushed_message = mockNFC.pushedMessage();
+
+  // The mojom message received by mock nfc contains only the external type record.
+  assert_equals(pushed_message.data.length, 1);
+  assert_equals(pushed_message.data[0].recordType, 'example.com:payloadIsMessage', 'recordType');
+  // The external type record's payload is from the original |payloadMessage|.
+  assert_array_equals(pushed_message.data[0].data, new Uint8Array(0),
+      'payloadMessage is used instead');
+  assertNDEFMessagesEqual(payloadMessage, pushed_message.data[0].payloadMessage);
+}, "NDEFWriter.push NDEFMessage containing embedded records.");
 
 nfc_test(async (t, mockNFC) => {
   const writer = new NDEFWriter();
@@ -308,9 +327,12 @@ nfc_test(async (t, mockNFC) => {
   assertNDEFMessagesEqual(buffer_view, mockNFC.pushedMessage());
 }, "Test that NDEFWriter.push succeeds when message is ArrayBufferView.");
 
-nfc_test(async () => {
+nfc_test(async (t, mockNFC) => {
   const writer = new NDEFWriter();
   await writer.push(createMessage([createRecord('empty')]));
+  const receivedMessage = mockNFC.pushedMessage();
+  assert_equals(receivedMessage.data.length, 1);
+  assert_equals(receivedMessage.data[0].recordType, 'empty', 'recordType');
 }, "NDEFWriter.push with 'empty' record should succeed.");
 
 nfc_test(async (t, mockNFC) => {
@@ -388,20 +410,6 @@ nfc_test(async (t, mockNFC) => {
 
 nfc_test(async (t, mockNFC) => {
   const writer = new NDEFWriter();
-  await writer.push({ records: [{ data: test_text_data}] });
-  assertNDEFMessagesEqual(test_text_data, mockNFC.pushedMessage());
-}, "Test that recordType should be set to 'text' if NDEFRecordInit.record's \
-recordType is undefined and NDEFRecordInit.record's data is DOMString.");
-
-nfc_test(async (t, mockNFC) => {
-  const writer = new NDEFWriter();
-  await writer.push({ records: [{ data: test_buffer_data}] });
-  assertNDEFMessagesEqual(test_buffer_data, mockNFC.pushedMessage());
-}, "Test that recordType should be set to 'mime' if NDEFRecordInit.record's \
-recordType is undefined and NDEFRecordInit.record's data is not DOMString.");
-
-nfc_test(async (t, mockNFC) => {
-  const writer = new NDEFWriter();
   await writer.push({ records: [{ recordType: "mime", data: test_buffer_data }] });
   assertNDEFMessagesEqual(test_buffer_data, mockNFC.pushedMessage());
 }, "Test that mediaType should be set to 'application/octet-stream' if \
@@ -447,4 +455,11 @@ nfc_test(async (t, mockNFC) => {
   await promise_rejects(t, 'NotAllowedError', p);
 }, "NDEFWriter.push should fail when there are NDEF records on the NFC device \
 and NDEFPushOptions.overwrite is false.");
+
+nfc_test(async (t, mockNFC) => {
+  const writer = new NDEFWriter();
+  mockNFC.simulateDataTransferFails();
+  await promise_rejects(t, 'NetworkError', writer.push(test_text_data));
+}, "NDEFWriter.push should fail with NetworkError when NFC data transfer fails.");
+
 </script>

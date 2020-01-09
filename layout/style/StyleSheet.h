@@ -107,6 +107,8 @@ class StyleSheet final : public nsICSSLoaderObserver, public nsWrapperCache {
 
   // Parses a stylesheet. The load data argument corresponds to the
   // SheetLoadData for this stylesheet.
+  // NOTE: ParseSheet can run synchronously or asynchronously
+  //       based on the result of `AllowParallelParse`
   RefPtr<StyleSheetParsePromise> ParseSheet(css::Loader&,
                                             const nsACString& aBytes,
                                             css::SheetLoadData&);
@@ -116,8 +118,10 @@ class StyleSheet final : public nsICSSLoaderObserver, public nsWrapperCache {
   void FinishAsyncParse(
       already_AddRefed<RawServoStyleSheetContents> aSheetContents);
 
-  // Similar to the above, but guarantees that parsing will be performed
-  // synchronously.
+  // Similar to `ParseSheet`, but guarantees that
+  // parsing will be performed synchronously.
+  // NOTE: ParseSheet can still run synchronously.
+  //       This is not a strict alternative.
   //
   // The load data may be null sometimes.
   void ParseSheetSync(
@@ -125,7 +129,7 @@ class StyleSheet final : public nsICSSLoaderObserver, public nsWrapperCache {
       css::SheetLoadData* aLoadData, uint32_t aLineNumber,
       css::LoaderReusableStyleSheets* aReusableSheets = nullptr);
 
-  nsresult ReparseSheet(const nsAString& aInput);
+  nsresult ReparseSheet(const nsACString& aInput);
 
   const RawServoStyleSheetContents* RawContents() const {
     return Inner().mContents;
@@ -466,9 +470,9 @@ class StyleSheet final : public nsICSSLoaderObserver, public nsWrapperCache {
   void LastRelease();
 
   // Return success if the subject principal subsumes the principal of our
-  // inner, error otherwise.  This will also succeed if the subject has
-  // UniversalXPConnect or if access is allowed by CORS.  In the latter case,
-  // it will set the principal of the inner to the subject principal.
+  // inner, error otherwise.  This will also succeed if access is allowed by
+  // CORS.  In that case, it will set the principal of the inner to the
+  // subject principal.
   void SubjectSubsumesInnerPrincipal(nsIPrincipal& aSubjectPrincipal,
                                      ErrorResult& aRv);
 

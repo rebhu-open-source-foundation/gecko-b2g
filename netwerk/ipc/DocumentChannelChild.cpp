@@ -325,25 +325,14 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
   mRedirectResolver = std::move(aResolve);
 
   nsCOMPtr<nsIChannel> newChannel;
-  nsresult rv;
-  if (aArgs.loadStateLoadFlags() &
-      nsDocShell::InternalLoad::INTERNAL_LOAD_FLAGS_IS_SRCDOC) {
-    rv = NS_NewInputStreamChannelInternal(
-        getter_AddRefs(newChannel), aArgs.uri(), aArgs.srcdocData(),
-        NS_LITERAL_CSTRING("text/html"), loadInfo, true);
-    if (NS_SUCCEEDED(rv)) {
-      nsCOMPtr<nsIInputStreamChannel> isc = do_QueryInterface(newChannel);
-      MOZ_ASSERT(isc);
-      isc->SetBaseURI(aArgs.baseUri());
-      newChannel->SetLoadGroup(mLoadGroup);
-    }
-  } else {
-    rv =
-        NS_NewChannelInternal(getter_AddRefs(newChannel), aArgs.uri(), loadInfo,
-                              nullptr,     // PerformanceStorage
-                              mLoadGroup,  // aLoadGroup
-                              nullptr,     // aCallbacks
-                              aArgs.newLoadFlags());
+  MOZ_ASSERT((aArgs.loadStateLoadFlags() &
+              nsDocShell::InternalLoad::INTERNAL_LOAD_FLAGS_IS_SRCDOC) ||
+             aArgs.srcdocData().IsVoid());
+  nsresult rv = nsDocShell::CreateRealChannelForDocument(
+      getter_AddRefs(newChannel), aArgs.uri(), loadInfo, nullptr, nullptr,
+      aArgs.newLoadFlags(), aArgs.srcdocData(), aArgs.baseUri());
+  if (newChannel) {
+    newChannel->SetLoadGroup(mLoadGroup);
   }
 
   // This is used to report any errors back to the parent by calling
@@ -359,9 +348,8 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
     return IPC_OK();
   }
 
-  RefPtr<HttpChannelChild> httpChild = do_QueryObject(newChannel);
-  if (httpChild) {
-    rv = httpChild->SetChannelId(aArgs.channelId());
+  if (nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(newChannel)) {
+    rv = httpChannel->SetChannelId(aArgs.channelId());
   }
   if (NS_FAILED(rv)) {
     return IPC_OK();
@@ -372,8 +360,9 @@ IPCResult DocumentChannelChild::RecvRedirectToRealChannel(
     return IPC_OK();
   }
 
-  if (httpChild) {
-    rv = httpChild->SetRedirectMode(aArgs.redirectMode());
+  if (nsCOMPtr<nsIHttpChannelInternal> httpChannelInternal =
+          do_QueryInterface(newChannel)) {
+    rv = httpChannelInternal->SetRedirectMode(aArgs.redirectMode());
   }
   if (NS_FAILED(rv)) {
     return IPC_OK();
@@ -604,7 +593,13 @@ NS_IMETHODIMP DocumentChannelChild::GetName(nsACString& aResult) {
     aResult.Truncate();
     return NS_OK;
   }
-  return mURI->GetSpec(aResult);
+  nsCString spec;
+  nsresult rv = mURI->GetSpec(spec);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  aResult.AssignLiteral("documentchannel:");
+  aResult.Append(spec);
+  return NS_OK;
 }
 
 NS_IMETHODIMP DocumentChannelChild::IsPending(bool* aResult) {
@@ -615,6 +610,16 @@ NS_IMETHODIMP DocumentChannelChild::IsPending(bool* aResult) {
 NS_IMETHODIMP DocumentChannelChild::GetLoadFlags(nsLoadFlags* aLoadFlags) {
   *aLoadFlags = mLoadFlags;
   return NS_OK;
+}
+
+NS_IMETHODIMP
+DocumentChannelChild::GetTRRMode(nsIRequest::TRRMode* aTRRMode) {
+  return GetTRRModeImpl(aTRRMode);
+}
+
+NS_IMETHODIMP
+DocumentChannelChild::SetTRRMode(nsIRequest::TRRMode aTRRMode) {
+  return SetTRRModeImpl(aTRRMode);
 }
 
 NS_IMETHODIMP DocumentChannelChild::SetLoadFlags(nsLoadFlags aLoadFlags) {

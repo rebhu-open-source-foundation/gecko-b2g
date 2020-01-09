@@ -1712,7 +1712,7 @@
   },
   "SCROLL_PRESENT_LATENCY": {
     "record_in_processes": ["main", "gpu"],
-    "products": ["firefox", "fennec", "geckoview"],
+    "products": ["firefox", "geckoview_streaming"],
     "alert_emails": [ "perfteam@mozilla.com", "sefeng@mozilla.com", "vchin@mozilla.com" ],
     "expires_in_version": "never",
     "kind": "exponential",
@@ -1721,7 +1721,7 @@
     "high": 20000,
     "n_buckets": 100,
     "description": "Time between receiving a scroll event on the event loop and compositing its result onto the screen (ms)",
-    "bug_numbers": [ 1500465 ]
+    "bug_numbers": [1500465, 1604818]
   },
   "CANVAS_2D_USED": {
     "record_in_processes": ["main", "content"],
@@ -7264,7 +7264,7 @@
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["mconley@mozilla.com", "astevenson@mozilla.com"],
     "bug_numbers": [1560590],
-    "expires_in_version": "74",
+    "expires_in_version": "78",
     "kind": "exponential",
     "high": 10000,
     "n_buckets": 100,
@@ -9030,13 +9030,6 @@
     "expires_in_version": "never",
     "kind": "boolean",
     "description": "If we are on Windows and neither the Windows countryCode nor the geoip countryCode indicates we are in the US, set to false if they both agree on the value or true otherwise"
-  },
-  "ENABLE_PRIVILEGE_EVER_CALLED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "expires_in_version": "never",
-    "kind": "flag",
-    "description": "Whether enablePrivilege has ever been called during the current session"
   },
   "TOUCH_ENABLED_DEVICE": {
     "record_in_processes": ["main"],
@@ -15078,8 +15071,8 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["opettay@mozilla.com" ],
-    "bug_numbers": [1554292, 1566485],
-    "expires_in_version": "74",
+    "bug_numbers": [1554292, 1566485, 1606208],
+    "expires_in_version": "80",
     "kind": "exponential",
     "high": 60000,
     "n_buckets": 100,

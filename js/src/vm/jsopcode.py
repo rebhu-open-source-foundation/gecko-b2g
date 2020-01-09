@@ -5,7 +5,6 @@
 
 from __future__ import print_function
 import re
-from xml.sax.saxutils import escape
 
 quoted_pat = re.compile(r"([^A-Za-z0-9]|^)'([^']+)'")
 js_pat = re.compile(r"([^A-Za-z0-9]|^)(JS[A-Z0-9_\*]+)")
@@ -84,9 +83,6 @@ def parse_index(comment):
 #    *   Type: {type_name}
 #    *   Operands: {operands}
 #    *   Stack: {stack_uses} => {stack_defs}
-#    *   length: {length_override}
-#    *   nuses: {nuses_override}
-#    *   ndefs: {ndefs_override}
 #    */
 
 
@@ -98,9 +94,6 @@ class CommentInfo:
         self.operands = ''
         self.stack_uses = ''
         self.stack_defs = ''
-        self.length_override = ''
-        self.nuses_override = ''
-        self.ndefs_override = ''
 
 # Holds the information stored in the macro with the following format:
 #   MACRO({name}, {display_name}, {image}, {length}, {nuses}, {ndefs}, {flags})
@@ -131,9 +124,6 @@ class OpcodeInfo:
         self.stack_uses_array = comment_info.stack_uses_array
         self.stack_defs = comment_info.stack_defs
         self.stack_defs_array = comment_info.stack_defs_array
-        self.length_override = comment_info.length_override
-        self.nuses_override = comment_info.nuses_override
-        self.ndefs_override = comment_info.ndefs_override
 
         # List of OpcodeInfo that corresponds to macros after this.
         #   /*
@@ -170,24 +160,6 @@ def add_to_index(index, opcode):
         return
 
     opcodes.append(opcode)
-
-
-def format_desc(descs):
-    current_type = ''
-    desc = ''
-    for (type, line) in descs:
-        if type != current_type:
-            if current_type:
-                desc += '</{name}>\n'.format(name=current_type)
-            current_type = type
-            if type:
-                desc += '<{name}>'.format(name=current_type)
-        if current_type:
-            desc += line + '\n'
-    if current_type:
-        desc += '</{name}>'.format(name=current_type)
-
-    return desc
 
 
 tag_pat = re.compile('^\s*[A-Za-z]+:\s*|\s*$')
@@ -244,7 +216,7 @@ def get_opcodes(dir):
 
             state = 'desc'
             stack = ''
-            descs = []
+            desc = ''
 
             for line in get_comment_body(comment):
                 if line.startswith('  Category:'):
@@ -259,37 +231,20 @@ def get_opcodes(dir):
                 elif line.startswith('  Stack:'):
                     state = 'stack'
                     stack = get_tag_value(line)
-                elif line.startswith('  len:'):
-                    state = 'len'
-                    comment_info.length_override = get_tag_value(line)
-                elif line.startswith('  nuses:'):
-                    state = 'nuses'
-                    comment_info.nuses_override = get_tag_value(line)
-                elif line.startswith('  ndefs:'):
-                    state = 'ndefs'
-                    comment_info.ndefs_override = get_tag_value(line)
                 elif state == 'desc':
-                    if line.startswith(' '):
-                        descs.append(('pre', escape(line[1:])))
-                    else:
-                        line = line.strip()
-                        if line == '':
-                            descs.append(('', line))
-                        else:
-                            descs.append(('p', codify(escape(line))))
-                elif line.startswith('  '):
-                    if state == 'operands':
-                        comment_info.operands += line.strip()
+                    desc += line + "\n"
+                elif line.startswith('   '):
+                    if line.isspace():
+                        pass
+                    elif state == 'operands':
+                        comment_info.operands += ' ' + line.strip()
                     elif state == 'stack':
-                        stack += line.strip()
-                    elif state == 'len':
-                        comment_info.length_override += line.strip()
-                    elif state == 'nuses':
-                        comment_info.nuses_override += line.strip()
-                    elif state == 'ndefs':
-                        comment_info.ndefs_override += line.strip()
+                        stack += ' ' + line.strip()
+                else:
+                    raise ValueError("unrecognized line in comment: {!r}\n\nfull comment was:\n{}"
+                                     .format(line, comment))
 
-            comment_info.desc = format_desc(descs)
+            comment_info.desc = desc
 
             comment_info.operands_array = parse_csv(comment_info.operands)
             comment_info.stack_uses_array = parse_csv(comment_info.stack_uses)

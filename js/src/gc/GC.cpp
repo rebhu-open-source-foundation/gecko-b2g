@@ -291,9 +291,6 @@ static_assert(js::detail::LIFO_ALLOC_ALIGN > BitMask(Cell::ReservedBits),
               "Cell::ReservedBits should support LifoAlloc");
 static_assert(CellAlignBytes > BitMask(Cell::ReservedBits),
               "Cell::ReservedBits should support gc::Cell");
-static_assert(
-    sizeof(uintptr_t) > BitMask(Cell::ReservedBits),
-    "Cell::ReservedBits should support small malloc / aligned globals");
 static_assert(js::jit::CodeAlignment > BitMask(Cell::ReservedBits),
               "Cell::ReservedBits should support JIT code");
 
@@ -316,34 +313,45 @@ FOR_EACH_ALLOCKIND(CHECK_THING_SIZE);
 
 template <typename T>
 struct ArenaLayout {
+  static constexpr size_t MarkBytesPerCell = 1;
   static constexpr size_t thingSize() { return sizeof(T); }
   static constexpr size_t thingsPerArena() {
-    return (ArenaSize - ArenaHeaderSize) / thingSize();
+    return (ArenaSize - ArenaHeaderSize) / (thingSize() + MarkBytesPerCell);
   }
   static constexpr size_t firstThingOffset() {
     return ArenaSize - thingSize() * thingsPerArena();
   }
+  static constexpr size_t reciprocalOfThingSize() {
+    return (1 << ReciprocalThingSizeShift) / thingSize();
+  }
 };
 
-const uint8_t Arena::ThingSizes[] = {
+const uint8_t js::gc::ThingSizes[] = {
 #define EXPAND_THING_SIZE(_1, _2, _3, sizedType, _4, _5, _6) \
   ArenaLayout<sizedType>::thingSize(),
     FOR_EACH_ALLOCKIND(EXPAND_THING_SIZE)
 #undef EXPAND_THING_SIZE
 };
 
-const uint8_t Arena::FirstThingOffsets[] = {
+const uint16_t js::gc::FirstThingOffsets[] = {
 #define EXPAND_FIRST_THING_OFFSET(_1, _2, _3, sizedType, _4, _5, _6) \
   ArenaLayout<sizedType>::firstThingOffset(),
     FOR_EACH_ALLOCKIND(EXPAND_FIRST_THING_OFFSET)
 #undef EXPAND_FIRST_THING_OFFSET
 };
 
-const uint8_t Arena::ThingsPerArena[] = {
+const uint8_t js::gc::ThingsPerArena[] = {
 #define EXPAND_THINGS_PER_ARENA(_1, _2, _3, sizedType, _4, _5, _6) \
   ArenaLayout<sizedType>::thingsPerArena(),
     FOR_EACH_ALLOCKIND(EXPAND_THINGS_PER_ARENA)
-#undef EXPAND_THINGS_PER_ARENA
+#undef EXPAND_THING_INDEXf_FACTOR
+};
+
+JS_PUBLIC_DATA const uint16_t js::gc::ReciprocalOfThingSize[] = {
+#define EXPAND_RECIPROCAL_OF_THING_SIZE(_1, _2, _3, sizedType, _4, _5, _6) \
+  ArenaLayout<sizedType>::reciprocalOfThingSize(),
+    FOR_EACH_ALLOCKIND(EXPAND_RECIPROCAL_OF_THING_SIZE)
+#undef EXPAND_RECIPROCAL_OF_THING_SIZE
 };
 
 FreeSpan FreeLists::emptySentinel;
@@ -395,10 +403,7 @@ static constexpr FinalizePhase BackgroundFinalizePhases[] = {
      {AllocKind::SHAPE, AllocKind::ACCESSOR_SHAPE, AllocKind::BASE_SHAPE,
       AllocKind::OBJECT_GROUP}}};
 
-void Arena::unmarkAll() {
-  uintptr_t* word = chunk()->bitmap.arenaBits(this);
-  memset(word, 0, ArenaBitmapWords * sizeof(uintptr_t));
-}
+void Arena::unmarkAll() { memset(data, 0, getThingsPerArena()); }
 
 void Arena::unmarkPreMarkedFreeCells() {
   for (ArenaFreeCellIter iter(this); !iter.done(); iter.next()) {
@@ -7855,7 +7860,8 @@ JS_FRIEND_API void JS::AssertGCThingMustBeTenured(JSObject* obj) {
 
 JS_FRIEND_API void JS::AssertGCThingIsNotNurseryAllocable(Cell* cell) {
   MOZ_ASSERT(cell);
-  MOZ_ASSERT(!cell->is<JSObject>() && !cell->is<JSString>());
+  MOZ_ASSERT(!cell->is<JSObject>() && !cell->is<JSString>() &&
+             !cell->is<JS::BigInt>());
 }
 
 JS_FRIEND_API void js::gc::AssertGCThingHasType(js::gc::Cell* cell,
@@ -7868,8 +7874,11 @@ JS_FRIEND_API void js::gc::AssertGCThingHasType(js::gc::Cell* cell,
   MOZ_ASSERT(IsCellPointerValid(cell));
 
   if (IsInsideNursery(cell)) {
-    MOZ_ASSERT(kind == (cell->nurseryCellIsString() ? JS::TraceKind::String
-                                                    : JS::TraceKind::Object));
+    MOZ_ASSERT(kind == (cell->nurseryCellIsString()
+                            ? JS::TraceKind::String
+                            : cell->nurseryCellIsBigInt()
+                                  ? JS::TraceKind::BigInt
+                                  : JS::TraceKind::Object));
     return;
   }
 
