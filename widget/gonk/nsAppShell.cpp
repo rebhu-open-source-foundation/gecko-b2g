@@ -72,6 +72,9 @@
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "GeckoTouchDispatcher.h"
 
+//Replacement of AOSP Java ActivityManagerService
+#include "GonkActivityManagerService.h"
+
 #undef LOG
 #define LOG(args...)                                            \
     __android_log_print(ANDROID_LOG_INFO, "Gonk" , ## args)
@@ -1230,6 +1233,7 @@ nsAppShell::Init()
         //android::FakeSurfaceComposer::instantiate();
 #endif
         GonkPermissionService::instantiate();
+        GonkActivityManagerService::instantiate();
         ProcessState::self()->startThreadPool();
 
         /* Start boot animation */

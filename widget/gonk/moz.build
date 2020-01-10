@@ -15,6 +15,7 @@
 # limitations under the License.
 
 EXPORTS += [
+    'GonkActivityManagerService.h',
     # 'GeckoTouchDispatcher.h',
     'GonkPermission.h',
     'OrientationObserver.h',
@@ -68,6 +69,7 @@ SOURCES += [
     'GfxInfo.cpp',
 # TODO: fixme
 #   'GLCursorImageManager.cpp',
+    'GonkActivityManagerService.cpp',
     'GonkClipboardData.cpp',
     'GonkCompositorWidget.cpp',
     'GonkMemoryPressureMonitoring.cpp',
