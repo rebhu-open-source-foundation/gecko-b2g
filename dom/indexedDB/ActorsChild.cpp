@@ -896,8 +896,8 @@ class WorkerPermissionChallenge final : public Runnable {
 
     MaybeCollectGarbageOnIPCMessage();
 
-    RefPtr<IDBFactory> factory;
-    mFactory.swap(factory);
+    const RefPtr<IDBFactory> factory = std::move(mFactory);
+    Unused << factory;  // XXX see Bug 1605075
 
     mActor->SendPermissionRetry();
     mActor = nullptr;
@@ -1278,11 +1278,11 @@ void DispatchFileHandleSuccessEvent(FileHandleResultHelper* aResultHelper) {
 
 auto GetKeyOperator(const IDBCursor::Direction aDirection) {
   switch (aDirection) {
-    case IDBCursor::NEXT:
-    case IDBCursor::NEXT_UNIQUE:
+    case IDBCursor::Direction::Next:
+    case IDBCursor::Direction::NextUnique:
       return &Key::operator>=;
-    case IDBCursor::PREV:
-    case IDBCursor::PREV_UNIQUE:
+    case IDBCursor::Direction::Prev:
+    case IDBCursor::Direction::PrevUnique:
       return &Key::operator<=;
     default:
       MOZ_CRASH("Should never get here.");
@@ -3453,23 +3453,22 @@ void BackgroundCursorChild::CompleteContinueRequestFromCache() {
   MOZ_ASSERT(mStrongCursor);
   MOZ_ASSERT(!mDelayedResponses.empty());
 
-  RefPtr<IDBCursor> cursor;
-  mStrongCursor.swap(cursor);
+  const RefPtr<IDBCursor> cursor = std::move(mStrongCursor);
 
   auto& item = mDelayedResponses.front();
   switch (mCursor->GetType()) {
-    case IDBCursor::Type_ObjectStore:
+    case IDBCursor::Type::ObjectStore:
       mCursor->Reset(std::move(item.mKey), std::move(item.mCloneInfo));
       break;
-    case IDBCursor::Type_Index:
+    case IDBCursor::Type::Index:
       mCursor->Reset(std::move(item.mKey), std::move(item.mLocaleAwareKey),
                      std::move(item.mObjectStoreKey),
                      std::move(item.mCloneInfo));
       break;
-    case IDBCursor::Type_ObjectStoreKey:
+    case IDBCursor::Type::ObjectStoreKey:
       mCursor->Reset(std::move(item.mKey));
       break;
-    case IDBCursor::Type_IndexKey:
+    case IDBCursor::Type::IndexKey:
       mCursor->Reset(std::move(item.mKey), std::move(item.mLocaleAwareKey),
                      std::move(item.mObjectStoreKey));
       break;
@@ -3484,7 +3483,7 @@ void BackgroundCursorChild::CompleteContinueRequestFromCache() {
       mRequest->LoggingSerialNumber(),
       mDelayedResponses.size() + mCachedResponses.size());
 
-  ResultHelper helper(mRequest, mTransaction, mCursor);
+  ResultHelper helper(mRequest, mTransaction, cursor);
   DispatchSuccessEvent(&helper);
 
   mTransaction->OnRequestFinished(/* aRequestCompletedSuccessfully */ true);
@@ -3770,13 +3769,12 @@ mozilla::ipc::IPCResult BackgroundCursorChild::RecvResponse(
 
   MaybeCollectGarbageOnIPCMessage();
 
-  RefPtr<IDBRequest> request;
-  mStrongRequest.swap(request);
+  const RefPtr<IDBRequest> request = std::move(mStrongRequest);
+  Unused << request;  // XXX see Bug 1605075
+  const RefPtr<IDBCursor> cursor = std::move(mStrongCursor);
+  Unused << cursor;  // XXX see Bug 1605075
 
-  RefPtr<IDBCursor> cursor;
-  mStrongCursor.swap(cursor);
-
-  RefPtr<IDBTransaction> transaction = mTransaction;
+  const RefPtr<IDBTransaction> transaction = mTransaction;
 
   switch (aResponse.type()) {
     case CursorResponse::Tnsresult:

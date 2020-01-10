@@ -51,6 +51,14 @@ common-tests:
 
 web-platform-tests:
     - web-platform-tests
+    - web-platform-tests-wdspec
+
+web-platform-tests-1804:
+    - web-platform-tests-crashtests
+    - web-platform-tests-reftests
+
+web-platform-tests-linux-ccov:
+    - web-platform-tests
     - web-platform-tests-crashtests
     - web-platform-tests-reftests
     - web-platform-tests-wdspec
@@ -344,18 +352,11 @@ linux-common-tests:
     - jittest
     - marionette
     - mochitest
-    - mochitest-a11y
     - mochitest-browser-chrome
     - mochitest-chrome
     - mochitest-devtools-chrome
     - mochitest-remote
-    - mochitest-webgl1-core
-    - mochitest-webgl1-ext
     - reftest-no-accel
-    - telemetry-tests-client
-    - test-verify
-    - test-verify-gpu
-    - test-verify-wpt
 
 # List of tests that are green on ubuntu1804 docker image.
 # See Bug 1602863 for information.
@@ -364,10 +365,15 @@ linux1804-tests:
     - crashtest
     - gtest
     - jsreftest
+    - mochitest-a11y
     - mochitest-gpu
     - mochitest-media
     - mochitest-webgpu
     - reftest
+    - telemetry-tests-client
+    - test-verify
+    - test-verify-gpu
+    - test-verify-wpt
     - xpcshell
 
 linux1804-qr-tests:
@@ -375,19 +381,21 @@ linux1804-qr-tests:
     - crashtest
     - gtest
     - jsreftest
+    - mochitest-a11y
     - mochitest-gpu
     - mochitest-media
     - mochitest-webgpu
+    - mochitest-webgl1-core
+    - mochitest-webgl1-ext
+    - mochitest-webgl2-core
+    - mochitest-webgl2-ext
     - reftest
     - xpcshell
 
 linux-qr-tests:
     - jittest
     - mochitest
-    - mochitest-a11y
     - mochitest-chrome
-    - mochitest-webgl1-core
-    - mochitest-webgl2-core
 
 linux-qr-smoketests:
     - crashtest
@@ -405,6 +413,8 @@ windows-qr-tests:
     - mochitest-webgl1-core
     - mochitest-webgl2-core
     - mochitest-webgpu
+    - mochitest-webgl1-core
+    - mochitest-webgl2-core
     - reftest
 
 ccov-code-coverage-tests:
