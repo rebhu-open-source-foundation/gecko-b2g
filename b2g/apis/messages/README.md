@@ -51,13 +51,21 @@ self.registration.systemMessageManager.subscribe("alarm").then(
 
 System messages are delivered to the `ServiceWorkerGlobalScope.onsystemmessage` event handler, in the format of `SystemMessageEvent`.
 
-`SystemMessageEvent`  
-`name`: The type of this system message.  
-`data`: Returns an object `SystemMessageData` which wraps the details of this system message.
+<dl>
+<b>SystemMessageEvent</b>
+    <dt>name</dt>
+    <dd>The type of this system message.</dd>
+    <dt>data</dt>
+    <dd>Returns an object <code>SystemMessageData</code> which wraps the details of this system message.</dd>
+</dl>
 
-`SystemMessageData`  
-`json()`: Extracts the message data as a JSON object, not available for *activity* messages.  
-`WebActivityRequestHandler()`: Only available for *activity* messages, details stated in `WebActivity API`.
+<dl>
+<b>SystemMessageData</b>
+    <dt>json()</dt>
+    <dd>Extracts the message data as a JSON object, not available for <em>activity</em> messages.</dd>
+    <dt>WebActivityRequestHandler()</dt>
+    <dd>Only available for <em>activity</em> messages, details stated in <code>WebActivity API</code>.</dd>
+</dl>
 
 ```javascript
 self.onsystemmessage = evt => {
