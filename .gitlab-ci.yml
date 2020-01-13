@@ -56,7 +56,7 @@ build:arm:
     - echo $RUSTUP_TOOLCHAIN
     - export LOCAL_NDK_BASE_URL='ftp://ftp.kaiostech.com/ndk/android-ndk'
     - export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b-canary
-    - ./mach bootstrap --no-interactive --application-choice mobile_android > /dev/null 2>&1
+    - ./mach bootstrap --no-interactive --application-choice mobile_android
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy/gonk-q.git > /dev/null 2>&1
     - export PATH=~/.cargo/bin:$PATH
     - rustup default ${RUSTUP_TOOLCHAIN}
