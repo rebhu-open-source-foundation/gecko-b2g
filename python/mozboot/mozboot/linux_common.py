@@ -32,8 +32,8 @@ class LucetcInstall(object):
     def ensure_lucetc_packages(self, state_dir, checkout_root):
         from mozboot import lucetc
 
-        self.install_toolchain_artifact(state_dir, checkout_root,
-                                        lucetc.LINUX_LUCETC)
+        # self.install_toolchain_artifact(state_dir, checkout_root,
+        #                                 lucetc.LINUX_LUCETC)
 
 
 class WasiSysrootInstall(object):
