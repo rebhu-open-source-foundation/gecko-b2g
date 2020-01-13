@@ -499,6 +499,8 @@ bool shell::enableReadableStreamPipeTo = false;
 bool shell::enableFields = false;
 bool shell::enableAwaitFix = false;
 bool shell::enableWeakRefs = false;
+bool shell::enableToSource = false;
+bool shell::enablePropertyErrorMessageFix = false;
 #ifdef JS_GC_ZEAL
 uint32_t shell::gZealBits = 0;
 uint32_t shell::gZealFrequency = 0;
@@ -3713,7 +3715,9 @@ static void SetStandardRealmOptions(JS::RealmOptions& options) {
       .setReadableStreamPipeToEnabled(enableReadableStreamPipeTo)
       .setFieldsEnabled(enableFields)
       .setAwaitFixEnabled(enableAwaitFix)
-      .setWeakRefsEnabled(enableWeakRefs);
+      .setWeakRefsEnabled(enableWeakRefs)
+      .setToSourceEnabled(enableToSource)
+      .setPropertyErrorMessageFixEnabled(enablePropertyErrorMessageFix);
   options.behaviors().setDeferredParserAlloc(enableDeferredMode);
 }
 
@@ -6155,6 +6159,18 @@ static bool DecompileThisScript(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   return JS_WrapValue(cx, args.rval());
+}
+
+static bool ValueToSource(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  JSString* str = ValueToSource(cx, args.get(0));
+  if (!str) {
+    return false;
+  }
+
+  args.rval().setString(str);
+  return true;
 }
 
 static bool ThisFilename(JSContext* cx, unsigned argc, Value* vp) {
@@ -8925,6 +8941,10 @@ JS_FN_HELP("parseBin", BinParse, 1, 0,
 "decompileThis()",
 "  Decompile the currently executing script."),
 
+    JS_FN_HELP("valueToSource", ValueToSource, 1, 0,
+"valueToSource(value)",
+"  Format a value for inspection."),
+
     JS_FN_HELP("thisFilename", ThisFilename, 0, 0,
 "thisFilename()",
 "  Return the filename of the current script"),
@@ -10385,6 +10405,9 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   enableFields = !op.getBoolOption("disable-experimental-fields");
   enableAwaitFix = op.getBoolOption("enable-experimental-await-fix");
   enableWeakRefs = op.getBoolOption("enable-weak-refs");
+  enableToSource = !op.getBoolOption("disable-tosource");
+  enablePropertyErrorMessageFix =
+      !op.getBoolOption("disable-property-error-message-fix");
 
   JS::ContextOptionsRef(cx)
       .setAsmJS(enableAsmJS)
@@ -10404,6 +10427,10 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
       .setWasmBigIntEnabled(enableWasmBigInt)
 #endif
       .setAsyncStack(enableAsyncStacks);
+
+  if (op.getBoolOption("no-ion-for-main-context")) {
+    JS::ContextOptionsRef(cx).setDisableIon();
+  }
 
   if (const char* str = op.getStringOption("cache-ir-stubs")) {
     if (strcmp(str, "on") == 0) {
@@ -11130,6 +11157,8 @@ int main(int argc, char** argv, char** envp) {
                        -1) ||
       !op.addBoolOption('\0', "ion", "Enable IonMonkey (default)") ||
       !op.addBoolOption('\0', "no-ion", "Disable IonMonkey") ||
+      !op.addBoolOption('\0', "no-ion-for-main-context",
+                        "Disable IonMonkey for the main context only") ||
       !op.addBoolOption('\0', "no-asmjs", "Disable asm.js compilation") ||
       !op.addStringOption(
           '\0', "wasm-compiler", "[option]",
@@ -11177,6 +11206,10 @@ int main(int argc, char** argv, char** envp) {
       !op.addBoolOption('\0', "enable-experimental-await-fix",
                         "Enable new, faster await semantics") ||
       !op.addBoolOption('\0', "enable-weak-refs", "Enable weak references") ||
+      !op.addBoolOption('\0', "disable-tosource", "Disable toSource/uneval") ||
+      !op.addBoolOption('\0', "disable-property-error-message-fix",
+                        "Disable fix for the error message when accessing "
+                        "property of null or undefined") ||
       !op.addStringOption('\0', "shared-memory", "on/off",
                           "SharedArrayBuffer and Atomics "
 #if SHARED_MEMORY_DEFAULT

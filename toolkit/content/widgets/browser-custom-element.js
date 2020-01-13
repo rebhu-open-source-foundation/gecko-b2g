@@ -375,7 +375,7 @@
 
       this._AUTOSCROLL_SNAP = 10;
 
-      this._scrolling = false;
+      this._autoScrollBrowsingContext = null;
 
       this._startX = null;
 
@@ -1755,8 +1755,7 @@
     }
 
     stopScroll() {
-      if (this._scrolling) {
-        this._scrolling = false;
+      if (this._autoScrollBrowsingContext) {
         window.removeEventListener("mousemove", this, true);
         window.removeEventListener("mousedown", this, true);
         window.removeEventListener("mouseup", this, true);
@@ -1766,7 +1765,13 @@
         window.removeEventListener("keypress", this, true);
         window.removeEventListener("keyup", this, true);
 
-        this.sendMessageToActor("Autoscroll:Stop", {}, "AutoScroll", true);
+        let autoScrollWnd = this._autoScrollBrowsingContext.currentWindowGlobal;
+        if (autoScrollWnd) {
+          autoScrollWnd
+            .getActor("AutoScroll")
+            .sendAsyncMessage("Autoscroll:Stop", {});
+        }
+        this._autoScrollBrowsingContext = null;
 
         try {
           Services.obs.removeObserver(this.observer, "apz:cancel-autoscroll");
@@ -1797,7 +1802,14 @@
       return popup;
     }
 
-    startScroll({ scrolldir, screenX, screenY, scrollId, presShellId }) {
+    startScroll({
+      scrolldir,
+      screenX,
+      screenY,
+      scrollId,
+      presShellId,
+      browsingContext,
+    }) {
       if (!this.autoscrollEnabled) {
         return { autoscrollEnabled: false, usingApz: false };
       }
@@ -1871,9 +1883,9 @@
       let popupY = Math.max(minY, Math.min(maxY, screenY));
       this._autoScrollPopup.openPopupAtScreen(popupX, popupY);
       this._ignoreMouseEvents = true;
-      this._scrolling = true;
       this._startX = screenX;
       this._startY = screenY;
+      this._autoScrollBrowsingContext = browsingContext;
 
       window.addEventListener("mousemove", this, true);
       window.addEventListener("mousedown", this, true);
@@ -1912,6 +1924,7 @@
         this._autoScrollScrollId = scrollId;
         this._autoScrollPresShellId = presShellId;
       }
+
       return { autoscrollEnabled: true, usingApz };
     }
 
@@ -1920,7 +1933,7 @@
     }
 
     handleEvent(aEvent) {
-      if (this._scrolling) {
+      if (this._autoScrollBrowsingContext) {
         switch (aEvent.type) {
           case "mousemove": {
             var x = aEvent.screenX - this._startX;

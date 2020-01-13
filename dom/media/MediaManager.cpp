@@ -2137,6 +2137,7 @@ nsresult MediaManager::NotifyRecordingStatusChange(
   NS_ConvertUTF8toUTF16 requestURL(pageURL);
 
   props->SetPropertyAsAString(NS_LITERAL_STRING("requestURL"), requestURL);
+  props->SetPropertyAsInterface(NS_LITERAL_STRING("window"), aWindow);
 
   obs->NotifyObservers(static_cast<nsIPropertyBag2*>(props),
                        "recording-device-events", nullptr);
@@ -3826,7 +3827,8 @@ NS_IMETHODIMP
 MediaManager::MediaCaptureWindowState(nsIDOMWindow* aCapturedWindow,
                                       uint16_t* aCamera, uint16_t* aMicrophone,
                                       uint16_t* aScreen, uint16_t* aWindow,
-                                      uint16_t* aBrowser) {
+                                      uint16_t* aBrowser,
+                                      bool aIncludeDescendants) {
   MOZ_ASSERT(NS_IsMainThread());
 
   CaptureState camera = CaptureState::Off;
@@ -3837,9 +3839,9 @@ MediaManager::MediaCaptureWindowState(nsIDOMWindow* aCapturedWindow,
 
   nsCOMPtr<nsPIDOMWindowInner> piWin = do_QueryInterface(aCapturedWindow);
   if (piWin) {
-    IterateWindowListeners(
-        piWin, [&camera, &microphone, &screen, &window,
-                &browser](const RefPtr<GetUserMediaWindowListener>& aListener) {
+    auto combineCaptureState =
+        [&camera, &microphone, &screen, &window,
+         &browser](const RefPtr<GetUserMediaWindowListener>& aListener) {
           camera = CombineCaptureState(
               camera, aListener->CapturingSource(MediaSourceEnum::Camera));
           microphone = CombineCaptureState(
@@ -3851,7 +3853,18 @@ MediaManager::MediaCaptureWindowState(nsIDOMWindow* aCapturedWindow,
               window, aListener->CapturingSource(MediaSourceEnum::Window));
           browser = CombineCaptureState(
               browser, aListener->CapturingSource(MediaSourceEnum::Browser));
-        });
+        };
+
+    if (aIncludeDescendants) {
+      IterateWindowListeners(piWin, combineCaptureState);
+    } else {
+      uint64_t windowID = piWin->WindowID();
+      RefPtr<GetUserMediaWindowListener> listener = GetWindowListener(windowID);
+      // listener might have been destroyed.
+      if (listener) {
+        combineCaptureState(listener);
+      }
+    }
   }
 
   *aCamera = FromCaptureState(camera);

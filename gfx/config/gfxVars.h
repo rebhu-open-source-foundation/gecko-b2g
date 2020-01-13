@@ -58,7 +58,8 @@ class gfxVarReceiver;
   _(DisableGralloc, bool, false)                                   \
   _(GrallocFenceWithReadPixels, bool, false)                       \
   _(UseDoubleBufferingWithCompositor, bool, false)                 \
-  _(UseGLSwizzle, bool, true)
+  _(UseGLSwizzle, bool, true)                                      \
+  _(AllowSacrificingSubpixelAA, bool, false)
 
 /* Add new entries above this line. */
 

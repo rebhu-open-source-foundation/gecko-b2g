@@ -15,7 +15,7 @@ rev = "6a866fdad2ca880df9b87fcbc9921abac1e91914"
 [source."https://github.com/mozilla/neqo"]
 git = "https://github.com/mozilla/neqo"
 replace-with = "vendored-sources"
-tag = "v0.1.7"
+tag = "v0.1.12"
 
 [source."https://github.com/kvark/spirv_cross"]
 branch = "wgpu"
@@ -41,6 +41,11 @@ rev = "8069f8f4189982e0b38fa6dc8993dd4fab41f728"
 git = "https://github.com/bytecodealliance/cranelift"
 replace-with = "vendored-sources"
 rev = "ec787eb281bb2e18e191508c17abe694e91f0677"
+
+[source."https://github.com/badboy/failure"]
+git = "https://github.com/badboy/failure"
+replace-with = "vendored-sources"
+rev = "64af847bc5fdcb6d2438bec8a6030812a80519a5"
 
 [source."https://github.com/alexcrichton/mio-named-pipes"]
 branch = "master"

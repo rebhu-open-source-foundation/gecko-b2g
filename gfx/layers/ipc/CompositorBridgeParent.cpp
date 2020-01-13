@@ -174,6 +174,10 @@ bool CompositorBridgeParentBase::DeallocShmem(ipc::Shmem& aShmem) {
   return PCompositorBridgeParent::DeallocShmem(aShmem);
 }
 
+static inline MessageLoop* CompositorLoop() {
+  return CompositorThreadHolder::Loop();
+}
+
 base::ProcessId CompositorBridgeParentBase::RemotePid() { return OtherPid(); }
 
 bool CompositorBridgeParentBase::StartSharingMetrics(
@@ -181,8 +185,8 @@ bool CompositorBridgeParentBase::StartSharingMetrics(
     CrossProcessMutexHandle aMutexHandle, LayersId aLayersId,
     uint32_t aApzcId) {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
-    MOZ_ASSERT(CompositorBridgeParent::CompositorLoop());
-    CompositorBridgeParent::CompositorLoop()->PostTask(
+    MOZ_ASSERT(CompositorLoop());
+    CompositorLoop()->PostTask(
         NewRunnableMethod<ipc::SharedMemoryBasic::Handle,
                           CrossProcessMutexHandle, LayersId, uint32_t>(
             "layers::CompositorBridgeParent::StartSharingMetrics", this,
@@ -202,8 +206,8 @@ bool CompositorBridgeParentBase::StartSharingMetrics(
 bool CompositorBridgeParentBase::StopSharingMetrics(
     ScrollableLayerGuid::ViewID aScrollId, uint32_t aApzcId) {
   if (!CompositorThreadHolder::IsInCompositorThread()) {
-    MOZ_ASSERT(CompositorBridgeParent::CompositorLoop());
-    CompositorBridgeParent::CompositorLoop()->PostTask(
+    MOZ_ASSERT(CompositorLoop());
+    CompositorLoop()->PostTask(
         NewRunnableMethod<ScrollableLayerGuid::ViewID, uint32_t>(
             "layers::CompositorBridgeParent::StopSharingMetrics", this,
             &CompositorBridgeParentBase::StopSharingMetrics, aScrollId,
@@ -258,6 +262,18 @@ inline void CompositorBridgeParent::ForEachIndirectLayerTree(
   }
 }
 
+/*static*/ template <typename Lambda>
+inline void CompositorBridgeParent::ForEachWebRenderBridgeParent(
+    const Lambda& aCallback) {
+  sIndirectLayerTreesLock->AssertCurrentThreadOwns();
+  for (auto it : sIndirectLayerTrees) {
+    LayerTreeState* state = &it.second;
+    if (state->mWrBridge) {
+      aCallback(state->mWrBridge);
+    }
+  }
+}
+
 /**
  * A global map referencing each compositor by ID.
  *
@@ -285,10 +301,6 @@ void CompositorBridgeParent::FinishShutdown() {
 
   // TODO: this should be empty by now...
   sIndirectLayerTrees.clear();
-}
-
-MessageLoop* CompositorBridgeParent::CompositorLoop() {
-  return CompositorThreadHolder::Loop();
 }
 
 #ifdef COMPOSITOR_PERFORMANCE_WARNING
@@ -1994,6 +2006,52 @@ void CompositorBridgeParent::AccumulateMemoryReport(wr::MemoryReport* aReport) {
       api->AccumulateMemoryReport(aReport);
     }
   }
+}
+
+/*static*/
+void CompositorBridgeParent::InitializeStatics() {
+  gfxVars::SetAllowSacrificingSubpixelAAListener(&UpdateQualitySettings);
+  gfxVars::SetWebRenderDebugFlagsListener(&UpdateDebugFlags);
+}
+
+/*static*/
+void CompositorBridgeParent::UpdateQualitySettings() {
+  if (!CompositorThreadHolder::IsInCompositorThread()) {
+    if (CompositorLoop()) {
+      CompositorLoop()->PostTask(
+          NewRunnableFunction("CompositorBridgeParent::UpdateQualitySettings",
+                              &CompositorBridgeParent::UpdateQualitySettings));
+    }
+
+    // If there is no compositor loop, e.g. due to shutdown, then we can
+    // safefully just ignore this request.
+    return;
+  }
+
+  MonitorAutoLock lock(*sIndirectLayerTreesLock);
+  ForEachWebRenderBridgeParent([&](WebRenderBridgeParent* wrBridge) -> void {
+    wrBridge->UpdateQualitySettings();
+  });
+}
+
+/*static*/
+void CompositorBridgeParent::UpdateDebugFlags() {
+  if (!CompositorThreadHolder::IsInCompositorThread()) {
+    if (CompositorLoop()) {
+      CompositorLoop()->PostTask(
+          NewRunnableFunction("CompositorBridgeParent::UpdateDebugFlags",
+                              &CompositorBridgeParent::UpdateDebugFlags));
+    }
+
+    // If there is no compositor loop, e.g. due to shutdown, then we can
+    // safefully just ignore this request.
+    return;
+  }
+
+  MonitorAutoLock lock(*sIndirectLayerTreesLock);
+  ForEachWebRenderBridgeParent([&](WebRenderBridgeParent* wrBridge) -> void {
+    wrBridge->UpdateDebugFlags();
+  });
 }
 
 RefPtr<WebRenderBridgeParent> CompositorBridgeParent::GetWebRenderBridgeParent()

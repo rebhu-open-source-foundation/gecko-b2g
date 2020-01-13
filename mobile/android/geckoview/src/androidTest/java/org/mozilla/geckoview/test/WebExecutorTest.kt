@@ -28,6 +28,7 @@ import org.mozilla.geckoview.WebResponse
 import org.mozilla.geckoview.test.util.RuntimeCreator
 import org.mozilla.geckoview.test.util.TestServer
 import java.io.IOException
+import java.lang.IllegalStateException
 import java.math.BigInteger
 import java.net.UnknownHostException
 import java.nio.ByteBuffer
@@ -131,6 +132,7 @@ class WebExecutorTest {
         assertThat("Status could should match", response.statusCode, equalTo(200))
         assertThat("Content type should match", response.headers["Content-Type"], equalTo("application/json; charset=utf-8"))
         assertThat("Redirected should match", response.redirected, equalTo(false))
+        assertThat("isSecure should match", response.isSecure, equalTo(false))
 
         val body = response.getJSONBody()
         assertThat("Method should match", body.getString("method"), equalTo("POST"))
@@ -194,8 +196,39 @@ class WebExecutorTest {
             "https://expired.badssl.com/"
         }
 
-        thrown.expect(equalTo(WebRequestError(WebRequestError.ERROR_SECURITY_BAD_CERT, WebRequestError.ERROR_CATEGORY_SECURITY)))
-        fetch(WebRequest(uri))
+        try {
+            fetch(WebRequest(uri))
+            throw IllegalStateException("fetch() should have thrown")
+        } catch (e: WebRequestError) {
+            assertThat("Category should match", e.category, equalTo(WebRequestError.ERROR_CATEGORY_SECURITY))
+            assertThat("Code should match", e.code, equalTo(WebRequestError.ERROR_SECURITY_BAD_CERT))
+            assertThat("Certificate should be present", e.certificate, notNullValue())
+            assertThat("Certificate issuer should be present", e.certificate?.issuerX500Principal?.name, not(isEmptyOrNullString()))
+        }
+    }
+
+    @Test
+    fun testSecure() {
+        val response = fetch(WebRequest("https://example.com"))
+        assertThat("Status should match", response.statusCode, equalTo(200))
+        assertThat("isSecure should match", response.isSecure, equalTo(true))
+
+        val expectedSubject = if (env.isAutomation)
+            "CN=example.com"
+        else
+            "CN=www.example.org,OU=Technology,O=Internet Corporation for Assigned Names and Numbers,L=Los Angeles,ST=California,C=US"
+
+        val expectedIssuer = if (env.isAutomation)
+            "OU=Profile Guided Optimization,O=Mozilla Testing,CN=Temporary Certificate Authority"
+        else
+            "CN=DigiCert SHA2 Secure Server CA,O=DigiCert Inc,C=US"
+
+        assertThat("Subject should match",
+                response.certificate?.subjectX500Principal?.name,
+                equalTo(expectedSubject))
+        assertThat("Issuer should match",
+                response.certificate?.issuerX500Principal?.name,
+                equalTo(expectedIssuer))
     }
 
     @Test

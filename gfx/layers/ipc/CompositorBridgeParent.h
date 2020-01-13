@@ -527,12 +527,9 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   void InvalidateRemoteLayers();
 
   /**
-   * Returns the compositor thread's message loop.
-   *
-   * This message loop is used by CompositorBridgeParent, ImageBridgeParent,
-   * and VRManagerParent
+   * Initialize statics.
    */
-  static MessageLoop* CompositorLoop();
+  static void InitializeStatics();
 
   /**
    * Returns a pointer to the CompositorBridgeParent corresponding to the given
@@ -726,6 +723,16 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   static void DeallocateLayerTreeId(LayersId aId);
 
   /**
+   * Notify the compositor the quality settings have been updated.
+   */
+  static void UpdateQualitySettings();
+
+  /**
+   * Notify the compositor the debug flags have been updated.
+   */
+  static void UpdateDebugFlags();
+
+  /**
    * Wrap the data structure to be sent over IPC.
    */
   Maybe<CollectedFramesParams> WrapCollectedFrames(CollectedFrames&& aFrames);
@@ -804,6 +811,11 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   // Callback should take (LayerTreeState* aState, const LayersId& aLayersId)
   template <typename Lambda>
   inline void ForEachIndirectLayerTree(const Lambda& aCallback);
+
+  // The indirect layer tree lock must be held before calling this function.
+  // Callback should take (LayerTreeState* aState, const LayersId& aLayersId)
+  template <typename Lambda>
+  static inline void ForEachWebRenderBridgeParent(const Lambda& aCallback);
 
   RefPtr<HostLayerManager> mLayerManager;
   RefPtr<Compositor> mCompositor;
