@@ -28,6 +28,7 @@ EXPORTS += [
     'GeolocationUtil.h',
     'nsVolume.h',
     'nsVolumeService.h',
+    'SystemProperty.h',
     'SystemWorkerManager.h',
 ]
 UNIFIED_SOURCES += [
@@ -42,6 +43,7 @@ UNIFIED_SOURCES += [
     'nsVolumeService.cpp',
     'nsVolumeStat.cpp',
     #'OpenFileFinder.cpp',
+    'SystemProperty.cpp',
     'SystemWorkerManager.cpp',
     'Volume.cpp',
     'VolumeCommand.cpp',
@@ -73,6 +75,10 @@ LOCAL_INCLUDES += [
     # libhardware_legacy is needed for acquiring/releasing wake lock
     '%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH'],
     '/dom/base',
+]
+
+DIRS += [
+    'network',
 ]
 
 FINAL_LIBRARY = 'xul'

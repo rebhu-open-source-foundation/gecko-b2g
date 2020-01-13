@@ -1,0 +1,51 @@
+# (c) 2019 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+# file or any portion thereof may not be reproduced or used in any manner
+# whatsoever without the express written permission of KAI OS TECHNOLOGIES
+# (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+# KONG) LIMITED or its affiliate company and may be registered in some
+# jurisdictions. All other trademarks are the property of their respective
+# owners.
+
+XPIDL_MODULE = 'dom_system_gonk_network'
+
+LOCAL_INCLUDES += [
+    '/dom/base',
+    '/toolkit/components/jsoncpp/include',
+]
+
+XPCOM_MANIFESTS += [
+    'components.conf',
+]
+
+XPIDL_SOURCES += [
+    'nsINat464XlatInfo.idl',
+    'nsINetworkInterface.idl',
+    'nsINetworkInterfaceListService.idl',
+    'nsINetworkManager.idl',
+    'nsINetworkService.idl',
+    'nsINetworkWorker.idl',
+
+]
+UNIFIED_SOURCES += [
+    'NetdUnsolService.cpp',
+    'NetIdManager.cpp',
+    'NetworkUtils.cpp',
+    'NetworkWorker.cpp',
+]
+EXTRA_JS_MODULES += [
+    'NetworkInterfaceListService.jsm',
+    'NetworkManager.jsm',
+    'NetworkService.jsm',
+]
+LOCAL_INCLUDES += [
+    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+        'out/soong/.intermediates/system/netd/resolv/dnsresolver_aidl_interface-V2-cpp-source/gen/include',
+        'out/soong/.intermediates/system/netd/server/netd_aidl_interface-V2-cpp-source/gen/include',
+        'out/soong/.intermediates/system/netd/server/netd_event_listener_interface-V1-cpp-source/gen/include',
+    ]
+]
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+FINAL_LIBRARY = 'xul'
+

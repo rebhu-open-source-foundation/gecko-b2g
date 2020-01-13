@@ -160,6 +160,34 @@ def gnss_2_0_so(value):
 
 set_config('ANDROID_GNSS_2_0_SO', gnss_2_0_so)
 
+# Netd Support
+# ==============================================================
+option('--with-netd-aidl-so', nargs=1,
+       help='Assign the path of netd_aidl_interface-V2-cpp.so')
+
+@depends_if('--with-netd-aidl-so')
+def netd_aidl_so(value):
+    return value[0]
+
+set_config('ANDROID_NETD_AIDL_SO', netd_aidl_so)
+
+option('--with-netd-event-so', nargs=1,
+       help='Assign the path of netd_event_listener_interface-V1-cpp.so')
+
+@depends_if('--with-netd-event-so')
+def netd_event_so(value):
+    return value[0]
+
+set_config('ANDROID_NETD_EVENT_SO', netd_event_so)
+
+option('--with-dnsresolver-so', nargs=1,
+       help='Assign the path of dnsresolver_aidl_interface-V2-cpp.so')
+
+@depends_if('--with-dnsresolver-so')
+def dnsresolver_so(value):
+    return value[0]
+
+set_config('ANDROID_DNSRESOLVER_SO', dnsresolver_so)
 
 # Vibrator Support
 # ==============================================================

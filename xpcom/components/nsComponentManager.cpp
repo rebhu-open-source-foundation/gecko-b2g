@@ -358,6 +358,9 @@ extern const mozilla::Module kEmbeddingModule;
 #if defined(MOZ_B2G)
 extern const mozilla::Module kGaiaChromeModule;
 #endif
+#if defined(MOZ_WIDGET_GONK)
+extern const mozilla::Module kNetworkWorkerModule;
+#endif
 
 static nsTArray<const mozilla::Module*>* sExtraStaticModules;
 
@@ -445,6 +448,9 @@ nsresult nsComponentManagerImpl::Init() {
   RegisterModule(&kEmbeddingModule);
 #if defined(MOZ_B2G)
   RegisterModule(&kGaiaChromeModule);
+#endif
+#if defined(MOZ_WIDGET_GONK)
+  RegisterModule(&kNetworkWorkerModule);
 #endif
 
   for (uint32_t i = 0; i < sExtraStaticModules->Length(); ++i) {

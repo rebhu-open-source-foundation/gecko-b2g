@@ -1,0 +1,2643 @@
+/* Copyright 2012 Mozilla Foundation and Mozilla contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "NetworkUtils.h"
+#include "nsINetworkInterface.h"
+
+#include "mozilla/Sprintf.h"
+#include "SystemProperty.h"
+#include "nsIThread.h"
+#include "nsThreadUtils.h"
+#include "nsCOMPtr.h"
+
+#include <android/log.h>
+#include <limits>
+#include "mozilla/fallible.h"
+#include "mozilla/Preferences.h"
+#include "nsPrintfCString.h"
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>   // struct addrinfo
+#include <sys/socket.h>  // getaddrinfo(), freeaddrinfo()
+#include <netdb.h>
+#include <arpa/inet.h>                          // inet_ntop()
+#include <sys/stat.h>                           // chmod()
+#include <cutils/properties.h>                  // PROPERTY_VALUE_MAX
+#include <private/android_filesystem_config.h>  // AID_SYSTEM
+#include <android/net/INetd.h>
+#include <android/net/InterfaceConfigurationParcel.h>
+#include <binder/IServiceManager.h>
+#include <utils/String16.h>
+#include <binder/IBinder.h>
+#include <android/net/IDnsResolver.h>
+#include "NetdUnsolService.h"
+
+#define WARN(args...) \
+  __android_log_print(ANDROID_LOG_WARN, "NetworkUtils", ##args)
+#define ERROR(args...) \
+  __android_log_print(ANDROID_LOG_ERROR, "NetworkUtils", ##args)
+
+namespace binder = android::binder;
+using android::IBinder;
+using android::IServiceManager;
+using android::sp;
+using android::binder::Status;
+using android::net::INetd;
+using namespace mozilla::dom;
+using namespace mozilla::ipc;
+using android::net::IDnsResolver;
+using android::net::ResolverParamsParcel;
+using mozilla::system::Property;
+
+static bool ENABLE_DEBUG = false;
+
+static const int32_t SUCCESS = 0;
+
+static const char* PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
+static const char* PERSIST_SYS_USB_CONFIG_PROPERTY = "persist.sys.usb.config";
+static const char* SYS_USB_CONFIG_PROPERTY = "sys.usb.config";
+static const char* SYS_USB_STATE_PROPERTY = "sys.usb.state";
+
+static const char* USB_FUNCTION_NONE = "none";
+static const char* USB_FUNCTION_RNDIS = "rndis";
+static const char* USB_FUNCTION_ADB = "adb";
+
+static const char* TCP_BUFFER_DELIMIT = ",";
+static const char* USB_CONFIG_DELIMIT = ",";
+
+// Retry 10 times (1 seconds) for wait usb state transition.
+static const uint32_t USB_FUNCTION_RETRY_TIMES = 10;
+// Check "sys.usb.state" every 100ms.
+static const uint32_t USB_FUNCTION_RETRY_INTERVAL = 100;
+
+// Default resolver parameters.
+static const uint32_t DNS_RESOLVER_DEFAULT_SAMPLE_VALIDITY_SECONDS = 1800;
+static const uint32_t DNS_RESOLVER_DEFAULT_SUCCESS_THRESHOLD_PERCENT = 25;
+static const uint32_t DNS_RESOLVER_DEFAULT_MIN_SAMPLES = 8;
+static const uint32_t DNS_RESOLVER_DEFAULT_MAX_SAMPLES = 64;
+
+static const char RADVD_CONF_FILE[] = "/data/misc/radvd/radvd.conf";
+
+struct IFProperties {
+  char gateway[Property::VALUE_MAX_LENGTH];
+  char dns1[Property::VALUE_MAX_LENGTH];
+  char dns2[Property::VALUE_MAX_LENGTH];
+};
+
+// A macro for native function call return value check.
+// For native function call, non-zero return value means failure.
+#define RETURN_IF_FAILED(rv) \
+  do {                       \
+    if (SUCCESS != rv) {     \
+      return rv;             \
+    }                        \
+  } while (0);
+
+#define WARN_IF_FAILED(rv)                                               \
+  do {                                                                   \
+    if (SUCCESS != rv) {                                                 \
+      WARN("Error (%d) occurred in %s (%s:%d)", rv, __PRETTY_FUNCTION__, \
+           __FILE__, __LINE__);                                          \
+    }                                                                    \
+  } while (0);
+
+sp<INetd> gNetd = nullptr;
+sp<IDnsResolver> gDnsResolver = nullptr;
+nsCOMPtr<nsIThread> gNetworkUtilsThread;
+static NetworkUtils* gNetworkUtils;
+static NetdUnsolService* gNetdUnsolService;
+static bool gIpv6TetheringIfaceEnabled = false;
+static nsTArray<nsCString> gIpv6TetheringInterfaces;
+
+static nsTArray<CommandChain*> gCommandChainQueue;
+
+static void NU_DBG(const char* format, ...) {
+  // TODO: always true for now.
+#if 0
+  if (!ENABLE_DEBUG) {
+    return;
+  }
+#endif
+  va_list args;
+  va_start(args, format);
+  __android_log_vprint(ANDROID_LOG_INFO, "NetworkUtils", format, args);
+  va_end(args);
+}
+
+/*
+ * Helper function to dispatch callback to NetworkWorker.
+ */
+
+static void postMessage(NetworkResultOptions& aResult) {
+  MOZ_ASSERT(gNetworkUtils);
+  MOZ_ASSERT(gNetworkUtils->getMessageCallback());
+
+  if (*(gNetworkUtils->getMessageCallback()))
+    (*(gNetworkUtils->getMessageCallback()))(aResult);
+}
+
+static void postMessage(NetworkParams& aOptions,
+                        NetworkResultOptions& aResult) {
+  MOZ_ASSERT(gNetworkUtils);
+  MOZ_ASSERT(gNetworkUtils->getMessageCallback());
+
+  aResult.mId = aOptions.mId;
+
+  if (*(gNetworkUtils->getMessageCallback()))
+    (*(gNetworkUtils->getMessageCallback()))(aResult);
+}
+
+const CommandFunc NetworkUtils::sWifiEnableChain[] = {
+    NetworkUtils::setConfig,
+    NetworkUtils::tetherInterface,
+    NetworkUtils::addRouteToLocalNetwork,
+    NetworkUtils::setIpForwardingEnabled,
+    NetworkUtils::startTethering,
+    NetworkUtils::setDnsForwarders,
+    NetworkUtils::enableNat,
+    NetworkUtils::addIpv6TetheringInterfaces,
+    NetworkUtils::updateIpv6Tethering,
+    NetworkUtils::wifiTetheringSuccess};
+
+const CommandFunc NetworkUtils::sWifiDisableChain[] = {
+    NetworkUtils::stopIpv6Tethering,
+    NetworkUtils::removeIpv6TetheringInterfaces,
+    NetworkUtils::updateIpv6Tethering,
+    NetworkUtils::untetherInterface,
+    NetworkUtils::removeRouteFromLocalNetwork,
+    NetworkUtils::disableNat,
+    NetworkUtils::setIpForwardingDisabled,
+    NetworkUtils::stopTethering,
+    NetworkUtils::wifiTetheringSuccess};
+
+const CommandFunc NetworkUtils::sWifiFailChain[] = {
+    NetworkUtils::stopIpv6Tethering,
+    NetworkUtils::removeIpv6TetheringInterfaces,
+    NetworkUtils::setIpForwardingDisabled, NetworkUtils::stopTethering};
+
+const CommandFunc NetworkUtils::sUSBEnableChain[] = {
+    NetworkUtils::setConfig,
+    NetworkUtils::enableNat,
+    NetworkUtils::setIpForwardingEnabled,
+    NetworkUtils::tetherInterface,
+    NetworkUtils::addRouteToLocalNetwork,
+    NetworkUtils::startTethering,
+    NetworkUtils::setDnsForwarders,
+    NetworkUtils::addIpv6TetheringInterfaces,
+    NetworkUtils::updateIpv6Tethering,
+    NetworkUtils::usbTetheringSuccess};
+
+const CommandFunc NetworkUtils::sUSBDisableChain[] = {
+    NetworkUtils::stopIpv6Tethering,
+    NetworkUtils::removeIpv6TetheringInterfaces,
+    NetworkUtils::updateIpv6Tethering,
+    NetworkUtils::untetherInterface,
+    NetworkUtils::removeRouteFromLocalNetwork,
+    NetworkUtils::disableNat,
+    NetworkUtils::setIpForwardingDisabled,
+    NetworkUtils::stopTethering,
+    NetworkUtils::usbTetheringSuccess};
+
+const CommandFunc NetworkUtils::sUSBFailChain[] = {
+    NetworkUtils::stopIpv6Tethering,
+    NetworkUtils::removeIpv6TetheringInterfaces,
+    NetworkUtils::setIpForwardingDisabled, NetworkUtils::stopTethering};
+
+const CommandFunc NetworkUtils::sUpdateUpStreamChain[] = {
+    NetworkUtils::stopIpv6Tethering,
+    NetworkUtils::cleanUpStream,
+    NetworkUtils::cleanUpStreamInterfaceForwarding,
+    NetworkUtils::createUpStream,
+    NetworkUtils::createUpStreamInterfaceForwarding,
+    NetworkUtils::setDnsForwarders,
+    NetworkUtils::updateIpv6Tethering,
+    NetworkUtils::updateUpStreamSuccess};
+
+/*
+ * Netd aidl initialize process.
+ */
+static bool IsNetdRunning() {
+  char value[Property::VALUE_MAX_LENGTH];
+
+  Property::Get("init.svc.netd", value, "");
+  if (strncmp(value, "running", 7)) {
+    return false;
+  }
+  return true;
+}
+
+class NetdInitRunnable : public mozilla::Runnable {
+ public:
+  NetdInitRunnable(bool aEnable)
+      : mozilla::Runnable("NetdInitRunnable"), mEnable(aEnable) {}
+
+  NS_IMETHOD Run() override {
+    NU_DBG("NetdInitRunnable enter");
+    if (mEnable) {
+      if (!IsNetdRunning()) {
+        Property::Set("ctl.start", "netd");
+      }
+
+      sp<IServiceManager> sm = android::defaultServiceManager();
+      sp<IBinder> binderNetd;
+      sp<IBinder> binderDnsResolver;
+
+      do {
+        binderNetd = sm->getService(android::String16("netd"));
+        binderDnsResolver = sm->getService(android::String16("dnsresolver"));
+
+        if (binderNetd != nullptr && binderDnsResolver != nullptr) {
+          break;
+        }
+        usleep(1000000);
+        NU_DBG("Trying to connect with Netd ...");
+      } while (true);
+      NU_DBG("Assigned gNetd/gDnsResolver");
+      gNetd = android::interface_cast<INetd>(binderNetd);
+      gDnsResolver = android::interface_cast<IDnsResolver>(binderDnsResolver);
+
+      // Register netlink unsolicited event listener.
+      gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
+      mozilla::ClearOnShutdown(&gNetdUnsolService);
+      Status status = gNetd->registerUnsolicitedEventListener(
+        android::interface_cast<android::net::INetdUnsolicitedEventListener>(
+        gNetdUnsolService));
+      NU_DBG("Registered NetdUnsolService %s", status.isOk() ? "Successful" : "Failed");
+    } else {
+      gNetd = nullptr;
+      gDnsResolver = nullptr;
+      if (IsNetdRunning()) {
+        Property::Set("ctl.stop", "netd");
+      }
+    }
+    return NS_OK;
+  }
+
+ private:
+  bool mEnable;
+};
+
+/**
+ * Dispatch netd command on networktuls thread.
+ */
+class NetworkCommandDispatcher : public mozilla::Runnable {
+ public:
+  NetworkCommandDispatcher(const NetworkParams& aParams)
+      : mozilla::Runnable("NetworkCommandDispatcher"), mParams(aParams) {
+    MOZ_ASSERT(NS_IsMainThread());
+  }
+
+  NS_IMETHOD Run() override {
+    MOZ_ASSERT(!NS_IsMainThread());
+
+    if (gNetworkUtils) {
+      gNetworkUtils->ExecuteCommand(mParams);
+    }
+    return NS_OK;
+  }
+
+ private:
+  NetworkParams mParams;
+};
+
+void NetworkUtils::DispatchCommand(const NetworkParams& aParams) {
+  nsCOMPtr<nsIRunnable> runnable = new NetworkCommandDispatcher(aParams);
+  if (gNetworkUtilsThread) {
+    gNetworkUtilsThread->Dispatch(runnable, nsIEventTarget::DISPATCH_NORMAL);
+  }
+}
+
+/**
+ * Helper function to get the mask from given prefix length.
+ */
+static uint32_t makeMask(const uint32_t prefixLength) {
+  uint32_t mask = 0;
+  for (uint32_t i = 0; i < prefixLength; ++i) {
+    mask |= (0x80000000 >> i);
+  }
+  return ntohl(mask);
+}
+
+/**
+ * Helper function to get the network part of an ip from prefix.
+ * param ip must be in network byte order.
+ */
+static char* getNetworkAddr(const uint32_t ip, const uint32_t prefix) {
+  uint32_t mask = 0, subnet = 0;
+
+  mask = ~mask << (32 - prefix);
+  mask = htonl(mask);
+  subnet = ip & mask;
+
+  struct in_addr addr;
+  addr.s_addr = subnet;
+
+  return inet_ntoa(addr);
+}
+
+/**
+ * Helper function to split string by seperator, store split result as an
+ * nsTArray.
+ */
+static void split(char* str, const char* sep, nsTArray<nsCString>& result) {
+  char* s = strtok(str, sep);
+  while (s != nullptr) {
+    result.AppendElement(s);
+    s = strtok(nullptr, sep);
+  }
+}
+
+static void split(char* str, const char* sep, nsTArray<nsString>& result) {
+  char* s = strtok(str, sep);
+  while (s != nullptr) {
+    result.AppendElement(NS_ConvertUTF8toUTF16(s));
+    s = strtok(nullptr, sep);
+  }
+}
+
+/**
+ * Helper function that implement join function.
+ */
+static void join(nsTArray<nsCString>& array, const char* sep,
+                 const uint32_t maxlen, char* result) {
+#define CHECK_LENGTH(len, add, max) \
+  len += add;                       \
+  if (len > max - 1) return;
+
+  uint32_t len = 0;
+  uint32_t seplen = strlen(sep);
+
+  if (array.Length() > 0) {
+    CHECK_LENGTH(len, strlen(array[0].get()), maxlen)
+    strcpy(result, array[0].get());
+
+    for (uint32_t i = 1; i < array.Length(); i++) {
+      CHECK_LENGTH(len, seplen, maxlen)
+      strcat(result, sep);
+
+      CHECK_LENGTH(len, strlen(array[i].get()), maxlen)
+      strcat(result, array[i].get());
+    }
+  }
+
+#undef CHECK_LEN
+}
+
+static void convertUTF8toUTF16(nsTArray<nsCString>& narrow,
+                               nsTArray<nsString>& wide, uint32_t length) {
+  for (uint32_t i = 0; i < length; i++) {
+    wide.AppendElement(NS_ConvertUTF8toUTF16(narrow[i].get()));
+  }
+}
+
+/**
+ * Helper function to get network interface properties from the system property
+ * table.
+ */
+static void getIFProperties(const char* ifname, IFProperties& prop) {
+  char key[Property::KEY_MAX_LENGTH];
+  snprintf(key, Property::KEY_MAX_LENGTH - 1, "net.%s.gw", ifname);
+  Property::Get(key, prop.gateway, "");
+  snprintf(key, Property::KEY_MAX_LENGTH - 1, "net.%s.dns1", ifname);
+  Property::Get(key, prop.dns1, "");
+  snprintf(key, Property::KEY_MAX_LENGTH - 1, "net.%s.dns2", ifname);
+  Property::Get(key, prop.dns2, "");
+}
+
+static int getIpType(const char* aIp) {
+  struct addrinfo hint, *ip_info = NULL;
+
+  memset(&hint, 0, sizeof(hint));
+  hint.ai_family = AF_UNSPEC;
+  hint.ai_flags = AI_NUMERICHOST;
+
+  if (getaddrinfo(aIp, NULL, &hint, &ip_info)) {
+    return AF_UNSPEC;
+  }
+
+  int type = ip_info->ai_family;
+  freeaddrinfo(ip_info);
+
+  return type;
+}
+
+void NetworkUtils::runNextQueuedCommandChain() {
+  if (gCommandChainQueue.IsEmpty()) {
+    NU_DBG("No command chain left in the queue. Done!");
+    return;
+  }
+  NU_DBG("Process the queued command chain.");
+  CommandChain* nextChain = gCommandChainQueue[0];
+  NetworkResultOptions newResult;
+  next(nextChain, false, newResult);
+}
+
+void NetworkUtils::next(CommandChain* aChain, bool aError,
+                        NetworkResultOptions& aResult) {
+  if (aError) {
+    ErrorCallback onError = aChain->getErrorCallback();
+    if (onError) {
+      aResult.mError = true;
+      (*onError)(aChain->getParams(), aResult);
+    }
+    delete aChain;
+    gCommandChainQueue.RemoveElementAt(0);
+    runNextQueuedCommandChain();
+    return;
+  }
+  CommandFunc f = aChain->getNextCommand();
+  if (!f) {
+    delete aChain;
+    gCommandChainQueue.RemoveElementAt(0);
+    runNextQueuedCommandChain();
+    return;
+  }
+
+  (*f)(aChain, next, aResult);
+}
+
+nsCString NetworkUtils::getSubnetIp(const nsCString& aIp, int aPrefixLength) {
+  int type = getIpType(aIp.get());
+
+  if (AF_INET6 == type) {
+    struct in6_addr in6;
+    if (inet_pton(AF_INET6, aIp.get(), &in6) != 1) {
+      return nsCString();
+    }
+
+    uint32_t p, i, p1, mask;
+    p = aPrefixLength;
+    i = 0;
+    while (i < 4) {
+      p1 = p > 32 ? 32 : p;
+      p -= p1;
+      mask = p1 ? ~0x0 << (32 - p1) : 0;
+      in6.s6_addr32[i++] &= htonl(mask);
+    }
+
+    char subnetStr[INET6_ADDRSTRLEN];
+    if (!inet_ntop(AF_INET6, &in6, subnetStr, sizeof subnetStr)) {
+      return nsCString();
+    }
+
+    return nsCString(subnetStr);
+  }
+
+  if (AF_INET == type) {
+    uint32_t ip = inet_addr(aIp.get());
+    uint32_t netmask = makeMask(aPrefixLength);
+    uint32_t subnet = ip & netmask;
+    struct in_addr addr;
+    addr.s_addr = subnet;
+    return nsCString(inet_ntoa(addr));
+  }
+
+  return nsCString();
+}
+
+CommandResult::CommandResult(int32_t aResultCode) : mIsPending(false) {
+  // This is usually not a netd command. We treat the return code
+  // typical linux convention, which uses 0 to indicate success.
+  mResult.mError = (aResultCode == SUCCESS ? false : true);
+  mResult.mResultCode = aResultCode;
+  if (aResultCode != SUCCESS) {
+    // The returned value is sometimes negative, make sure we pass a positive
+    // error number to strerror.
+    enum {
+      STRERROR_R_BUF_SIZE = 1024,
+    };
+    char strerrorBuf[STRERROR_R_BUF_SIZE];
+    strerror_r(abs(aResultCode), strerrorBuf, STRERROR_R_BUF_SIZE);
+    mResult.mReason = NS_ConvertUTF8toUTF16(strerrorBuf);
+  }
+}
+
+CommandResult::CommandResult(const mozilla::dom::NetworkResultOptions& aResult)
+    : mResult(aResult), mIsPending(false) {}
+
+CommandResult::CommandResult(const Pending&) : mIsPending(true) {}
+
+bool CommandResult::isPending() const { return mIsPending; }
+
+/*
+ * Netd command function
+ */
+#define GET_CHAR(prop) NS_ConvertUTF16toUTF8(aChain->getParams().prop).get()
+#define GET_FIELD(prop) aChain->getParams().prop
+
+void NetworkUtils::clearAddrForInterface(CommandChain* aChain,
+                                         CommandCallback aCallback,
+                                         NetworkResultOptions& aResult) {
+  Status status = gNetd->interfaceClearAddrs(std::string(GET_CHAR(mIfname)));
+  NU_DBG("clearAddrForInterface %s", status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::createNetwork(CommandChain* aChain,
+                                 CommandCallback aCallback,
+                                 NetworkResultOptions& aResult) {
+  Status networkStatus =
+      gNetd->networkCreatePhysical(GET_FIELD(mNetId), INetd::PERMISSION_NONE);
+  Status dnsStatus = gDnsResolver->createNetworkCache(GET_FIELD(mNetId));
+  NU_DBG("createNetwork physical %s, networkCache %s",
+    networkStatus.isOk() ? "success" : "failed", dnsStatus.isOk() ? "success" : "failed");
+
+ bool createNetworkResult = (networkStatus.isOk() && dnsStatus.isOk());
+  if (!createNetworkResult) {
+    // Removed the fail network.
+    gNetd->networkDestroy(GET_FIELD(mNetId));
+    gDnsResolver->destroyNetworkCache(GET_FIELD(mNetId));
+  }
+  next(aChain, !createNetworkResult, aResult);
+}
+
+void NetworkUtils::destroyNetwork(CommandChain* aChain,
+                                  CommandCallback aCallback,
+                                  NetworkResultOptions& aResult) {
+  Status networkStatus = gNetd->networkDestroy(GET_FIELD(mNetId));
+  Status dnsStatus = gDnsResolver->destroyNetworkCache(GET_FIELD(mNetId));
+  NU_DBG("destroyNetwork %s", networkStatus.isOk() ? "success" : "failed");
+  next(aChain, !networkStatus.isOk(), aResult);
+}
+
+void NetworkUtils::setIpv6Enabled(CommandChain* aChain,
+                                  CommandCallback aCallback,
+                                  NetworkResultOptions& aResult,
+                                  bool aEnabled) {
+  if (nsINetworkInfo::NETWORK_TYPE_WIFI != GET_FIELD(mNetworkType)) {
+    NU_DBG("%s : ignore network type = %ld", __FUNCTION__,
+           GET_FIELD(mNetworkType));
+    aCallback(aChain, false, aResult);
+    return;
+  }
+
+  Status status =
+      gNetd->interfaceSetEnableIPv6(std::string(GET_CHAR(mIfname)), aEnabled);
+  NU_DBG("setIpv6Enabled %s",
+         status.isOk() ? "success" : "failed but continue");
+  aCallback(aChain, false, aResult);
+}
+
+void NetworkUtils::enableIpv6(CommandChain* aChain, CommandCallback aCallback,
+                              NetworkResultOptions& aResult) {
+  setIpv6Enabled(aChain, aCallback, aResult, true);
+}
+
+void NetworkUtils::disableIpv6(CommandChain* aChain, CommandCallback aCallback,
+                               NetworkResultOptions& aResult) {
+  setIpv6Enabled(aChain, aCallback, aResult, false);
+}
+
+void NetworkUtils::addInterfaceToNetwork(CommandChain* aChain,
+                                         CommandCallback aCallback,
+                                         NetworkResultOptions& aResult) {
+  Status status =
+      gNetd->networkAddInterface(GET_FIELD(mNetId), GET_CHAR(mIfname));
+  NU_DBG("addInterfaceToNetwork %s", status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::removeInterfaceToNetwork(CommandChain* aChain,
+                                            CommandCallback aCallback,
+                                            NetworkResultOptions& aResult) {
+  Status status =
+      gNetd->networkRemoveInterface(GET_FIELD(mNetId), GET_CHAR(mIfname));
+  NU_DBG("removeInterfaceToNetwork %s", status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::addDefaultRouteToNetwork(CommandChain* aChain,
+                                            CommandCallback aCallback,
+                                            NetworkResultOptions& aResult) {
+  nsTArray<nsString>& gateways = GET_FIELD(mGateways);
+
+  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex) < GET_FIELD(mGateways).Length();
+       GET_FIELD(mLoopIndex)++) {
+    char destination[BUF_SIZE];
+
+    NS_ConvertUTF16toUTF8 autoGateway(gateways[GET_FIELD(mLoopIndex)]);
+    int type = getIpType(autoGateway.get());
+    snprintf(destination, BUF_SIZE - 1,
+             type == AF_INET6 ? "::/0" : "0.0.0.0/0");
+    Status status = gNetd->networkAddRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                           destination, autoGateway.get());
+    NU_DBG("addDefaultRouteToNetwork %s", status.isOk() ? "success" : "failed");
+    if (!status.isOk()) {
+      next(aChain, true, aResult);
+      return;
+    }
+  }
+  aCallback(aChain, false, aResult);
+}
+
+void NetworkUtils::removeDefaultRoute(CommandChain* aChain,
+                                      CommandCallback aCallback,
+                                      NetworkResultOptions& aResult) {
+  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex)++;
+       GET_FIELD(mLoopIndex) < GET_FIELD(mGateways).Length()) {
+    char destination[BUF_SIZE];
+    nsTArray<nsString>& gateways = GET_FIELD(mGateways);
+    NS_ConvertUTF16toUTF8 autoGateway(gateways[GET_FIELD(mLoopIndex)]);
+    int type = getIpType(autoGateway.get());
+    snprintf(destination, BUF_SIZE - 1,
+             type == AF_INET6 ? "::/0" : "0.0.0.0/0");
+    Status status = gNetd->networkRemoveRoute(
+        GET_FIELD(mNetId), GET_CHAR(mIfname), destination, autoGateway.get());
+    NU_DBG("removeDefaultRoute %s",
+           status.isOk() ? "success" : "failed but continue");
+  }
+
+  // Ignore remove route failed since some routing might already been removed.
+  aCallback(aChain, false, aResult);
+}
+
+void NetworkUtils::setInterfaceDns(CommandChain* aChain,
+                                   CommandCallback aCallback,
+                                   NetworkResultOptions& aResult) {
+  std::vector<std::string> servers;
+  nsTArray<nsString>& dnses = GET_FIELD(mDnses);
+  uint32_t length = dnses.Length();
+  for (uint32_t i = 0; i < length; i++) {
+    NS_ConvertUTF16toUTF8 autoDns(dnses[i]);
+    servers.push_back(autoDns.get());
+  }
+  ResolverParamsParcel resolverParams;
+  resolverParams.netId = GET_FIELD(mNetId);
+  resolverParams.sampleValiditySeconds = DNS_RESOLVER_DEFAULT_SAMPLE_VALIDITY_SECONDS;
+  resolverParams.successThreshold = DNS_RESOLVER_DEFAULT_SUCCESS_THRESHOLD_PERCENT;
+  resolverParams.minSamples = DNS_RESOLVER_DEFAULT_MIN_SAMPLES;
+  resolverParams.maxSamples = DNS_RESOLVER_DEFAULT_MAX_SAMPLES;
+  resolverParams.servers = servers;
+  resolverParams.domains = {GET_CHAR(mDomain)};
+  // TODO: Strict mode.
+  resolverParams.tlsName = "";
+  resolverParams.tlsServers = {};
+  resolverParams.tlsFingerprints = {};
+
+  Status status = gDnsResolver->setResolverConfiguration(resolverParams);
+  NU_DBG("setInterfaceDns %s", status.isOk() ? "success" : "failed");
+  if (!status.isOk()) {
+    aResult.mReason = NS_ConvertUTF8toUTF16("Resolver command failed");
+  }
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::addRouteToInterface(CommandChain* aChain,
+                                       CommandCallback aCallback,
+                                       NetworkResultOptions& aResult) {
+  nsCString gatewayOrEmpty;
+  nsCString ipOrSubnetIp = NS_ConvertUTF16toUTF8(GET_FIELD(mIp));
+  Status status;
+  char destination[BUF_SIZE];
+  char errorReason[BUF_SIZE];
+
+  if (GET_FIELD(mGateway).IsEmpty()) {
+    ipOrSubnetIp = getSubnetIp(ipOrSubnetIp, GET_FIELD(mPrefixLength));
+    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
+             GET_FIELD(mPrefixLength));
+    status = gNetd->networkAddRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                    destination, gatewayOrEmpty.get());
+  } else {
+    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
+             GET_FIELD(mPrefixLength));
+    gatewayOrEmpty = NS_ConvertUTF16toUTF8(GET_FIELD(mGateway));
+    // TODO: uid might need to get from b2g.
+    status = gNetd->networkAddLegacyRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                          destination, gatewayOrEmpty.get(), 0);
+  }
+  if (!status.isOk() && status.serviceSpecificErrorCode() == EEXIST) {
+    NU_DBG("addRouteToInterface failed, Ignore \"File exists\" error");
+    aCallback(aChain, false, aResult);
+    return;
+  }
+
+  NU_DBG("addRouteToInterface %s", status.isOk() ? "success" : "failed");
+  if (!status.isOk()) {
+    snprintf(errorReason, BUF_SIZE - 1, "addRoute() failed : %d",
+             status.serviceSpecificErrorCode());
+    aResult.mReason = NS_ConvertUTF8toUTF16(errorReason);
+  }
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::removeRouteFromInterface(CommandChain* aChain,
+                                            CommandCallback aCallback,
+                                            NetworkResultOptions& aResult) {
+  nsCString gatewayOrEmpty;
+  nsCString ipOrSubnetIp = NS_ConvertUTF16toUTF8(GET_FIELD(mIp));
+  Status status;
+  char destination[BUF_SIZE];
+  char errorReason[BUF_SIZE];
+
+  if (GET_FIELD(mGateway).IsEmpty()) {
+    ipOrSubnetIp = getSubnetIp(ipOrSubnetIp, GET_FIELD(mPrefixLength));
+    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
+             GET_FIELD(mPrefixLength));
+    status = gNetd->networkRemoveRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                       destination, gatewayOrEmpty.get());
+  } else {
+    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
+             GET_FIELD(mPrefixLength));
+    gatewayOrEmpty = NS_ConvertUTF16toUTF8(GET_FIELD(mGateway));
+    // TODO: uid might need to get from b2g.
+    status =
+        gNetd->networkRemoveLegacyRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                        destination, gatewayOrEmpty.get(), 0);
+  }
+  NU_DBG("removeRouteFromInterface %s", status.isOk() ? "success" : "failed");
+  if (!status.isOk()) {
+    snprintf(errorReason, BUF_SIZE - 1, "removeRoute() failed : %d",
+             status.serviceSpecificErrorCode());
+    aResult.mReason = NS_ConvertUTF8toUTF16(errorReason);
+  }
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::addRouteToSecondaryTable(CommandChain* aChain,
+                                            CommandCallback aCallback,
+                                            NetworkResultOptions& aResult) {
+  char destination[BUF_SIZE];
+  snprintf(destination, BUF_SIZE - 1, "%s/%s", GET_CHAR(mIp),
+           GET_CHAR(mPrefix));
+  Status status = gNetd->networkAddRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                         destination, GET_CHAR(mGateway));
+  NU_DBG("addRouteToSecondaryTable %s", status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::removeRouteFromSecondaryTable(
+    CommandChain* aChain, CommandCallback aCallback,
+    NetworkResultOptions& aResult) {
+  char destination[BUF_SIZE];
+  snprintf(destination, BUF_SIZE - 1, "%s/%s", GET_CHAR(mIp),
+           GET_CHAR(mPrefix));
+  Status status = gNetd->networkRemoveRoute(
+      GET_FIELD(mNetId), GET_CHAR(mIfname), destination, GET_CHAR(mGateway));
+  NU_DBG("removeRouteFromSecondaryTable %s",
+         status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::setMtu(CommandChain* aChain, CommandCallback aCallback,
+                          NetworkResultOptions& aResult) {
+  Status status =
+      gNetd->interfaceSetMtu(std::string(GET_CHAR(mIfname)), GET_FIELD(mMtu));
+  NU_DBG("setMtu %s", status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::setDefaultNetwork(CommandChain* aChain,
+                                     CommandCallback aCallback,
+                                     NetworkResultOptions& aResult) {
+  Status status = gNetd->networkSetDefault(GET_FIELD(mNetId));
+  NU_DBG("setDefaultNetwork %s", status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::setIpv6PrivacyExtensions(CommandChain* aChain,
+                                            CommandCallback aCallback,
+                                            NetworkResultOptions& aResult) {
+  Status status = gNetd->interfaceSetIPv6PrivacyExtensions(
+      std::string(GET_CHAR(mIfname)), GET_FIELD(mPrivacyExtensions));
+  NU_DBG("setIpv6PrivacyExtensions %s", status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::setConfig(CommandChain* aChain, CommandCallback aCallback,
+                             NetworkResultOptions& aResult) {
+  android::net::InterfaceConfigurationParcel interfaceCfg;
+  struct in_addr addr;
+
+  interfaceCfg.ifName = GET_CHAR(mIfname);
+  interfaceCfg.hwAddr = "";
+
+  if (!inet_aton(GET_CHAR(mIp), &addr)) {
+    interfaceCfg.ipv4Addr = "";
+    interfaceCfg.prefixLength = 0;
+  } else if (addr.s_addr != 0) {
+    interfaceCfg.ipv4Addr = GET_CHAR(mIp);
+    interfaceCfg.prefixLength = atoi(GET_CHAR(mPrefix));
+    Status status = gNetd->interfaceSetCfg(interfaceCfg);
+    if (!status.isOk()) {
+      NU_DBG("%s: failed to set configuration.", __FUNCTION__);
+      next(aChain, !status.isOk(), aResult);
+      return;
+    }
+  }
+
+  Status bringStatus;
+  if (strcmp(GET_CHAR(mLink), "up")) {
+    interfaceCfg.flags.push_back(
+        std::string(android::String8((INetd::IF_STATE_UP().string()))));
+    bringStatus = gNetd->interfaceSetCfg(interfaceCfg);
+
+  } else if (strcmp(GET_CHAR(mLink), "down")) {
+    interfaceCfg.flags.push_back(
+        std::string(android::String8((INetd::IF_STATE_DOWN().string()))));
+    bringStatus = gNetd->interfaceSetCfg(interfaceCfg);
+  } else {
+    NU_DBG("%s: Unknown link config.", __FUNCTION__);
+    next(aChain, true, aResult);
+    return;
+  }
+
+  bringStatus.isOk();
+  NU_DBG("%s: %s", __FUNCTION__, bringStatus.isOk() ? "success" : "failed");
+  next(aChain, !bringStatus.isOk(), aResult);
+}
+
+void NetworkUtils::enableNat(CommandChain* aChain, CommandCallback aCallback,
+                             NetworkResultOptions& aResult) {
+  Status status = gNetd->tetherAddForward(GET_CHAR(mInternalIfname),
+                                          GET_CHAR(mExternalIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::disableNat(CommandChain* aChain, CommandCallback aCallback,
+                              NetworkResultOptions& aResult) {
+  Status status = gNetd->tetherRemoveForward(GET_CHAR(mInternalIfname),
+                                             GET_CHAR(mExternalIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::setIpForwardingEnabled(CommandChain* aChain,
+                                          CommandCallback aCallback,
+                                          NetworkResultOptions& aResult) {
+  Status status = gNetd->ipfwdEnableForwarding("tethering");
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  if (!status.isOk()) {
+    next(aChain, true, aResult);
+    return;
+  }
+
+  if (!strcmp(GET_CHAR(mExternalIfname), "rmnet0")) {
+    NU_DBG("%s: ignore interface - %s", __FUNCTION__,
+           GET_CHAR(mExternalIfname));
+    next(aChain, false, aResult);
+    return;
+  }
+
+  Status fwdStatus = gNetd->ipfwdAddInterfaceForward(GET_CHAR(mInternalIfname),
+                                                     GET_CHAR(mExternalIfname));
+  NU_DBG("%s: for iface %s", __FUNCTION__,
+         fwdStatus.isOk() ? "success" : "failed");
+
+  next(aChain, !fwdStatus.isOk(), aResult);
+}
+
+void NetworkUtils::setIpForwardingDisabled(CommandChain* aChain,
+                                           CommandCallback aCallback,
+                                           NetworkResultOptions& aResult) {
+  std::vector<std::string> ifList;
+  gNetd->tetherInterfaceList(&ifList);
+  // Only disable forwarding if it left single tethering interface.
+  if (ifList.size() == 1) {
+    Status status = gNetd->ipfwdDisableForwarding("tethering");
+    if (!status.isOk()) {
+      next(aChain, true, aResult);
+      return;
+    }
+  }
+
+  if (!strcmp(GET_CHAR(mExternalIfname), "rmnet0")) {
+    NU_DBG("%s : ignore interface - %s", __FUNCTION__,
+           GET_CHAR(mExternalIfname));
+    next(aChain, false, aResult);
+    return;
+  }
+
+  Status fwdStatus = gNetd->ipfwdRemoveInterfaceForward(
+      GET_CHAR(mInternalIfname), GET_CHAR(mExternalIfname));
+  // We don't care about remove forwarding result
+  // since rule might already removed from table list.
+  aCallback(aChain, false, aResult);
+}
+
+void NetworkUtils::tetherInterface(CommandChain* aChain,
+                                   CommandCallback aCallback,
+                                   NetworkResultOptions& aResult) {
+  Status status = gNetd->tetherInterfaceAdd(GET_CHAR(mIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::untetherInterface(CommandChain* aChain,
+                                     CommandCallback aCallback,
+                                     NetworkResultOptions& aResult) {
+  Status status = gNetd->tetherInterfaceRemove(GET_CHAR(mIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::addRouteToLocalNetwork(CommandChain* aChain,
+                                          CommandCallback aCallback,
+                                          NetworkResultOptions& aResult) {
+  Status status = gNetd->networkAddInterface(INetd::LOCAL_NET_ID,
+                                             GET_CHAR(mInternalIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  if (!status.isOk()) {
+    next(aChain, true, aResult);
+    return;
+  }
+
+  uint32_t prefix = atoi(GET_CHAR(mPrefix));
+  uint32_t ip = inet_addr(GET_CHAR(mIp));
+  char* networkAddr = getNetworkAddr(ip, prefix);
+  char route[BUF_SIZE];
+  snprintf(route, BUF_SIZE, "%s/%s", networkAddr, GET_CHAR(mPrefix));
+
+  Status routeStatus = gNetd->networkAddRoute(
+      INetd::LOCAL_NET_ID, GET_CHAR(mInternalIfname), route, "");
+  NU_DBG("%s: add route %s", __FUNCTION__,
+         status.isOk() ? "success" : "failed");
+
+  next(aChain, !routeStatus.isOk(), aResult);
+}
+
+void NetworkUtils::removeRouteFromLocalNetwork(CommandChain* aChain,
+                                               CommandCallback aCallback,
+                                               NetworkResultOptions& aResult) {
+  Status status =
+      gNetd->networkRemoveInterface(INetd::LOCAL_NET_ID, GET_CHAR(mIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::startTethering(CommandChain* aChain,
+                                  CommandCallback aCallback,
+                                  NetworkResultOptions& aResult) {
+  bool tetherEnabled;
+  Status status;
+  gNetd->tetherIsEnabled(&tetherEnabled);
+  // We don't need to start tethering again.
+  if (tetherEnabled) {
+    aCallback(aChain, false, aResult);
+    return;
+  } else {
+    std::vector<std::string> dhcpRanges;
+    dhcpRanges.push_back(GET_CHAR(mWifiStartIp));
+    dhcpRanges.push_back(GET_CHAR(mWifiEndIp));
+    if (!GET_FIELD(mUsbStartIp).IsEmpty() && !GET_FIELD(mUsbEndIp).IsEmpty()) {
+      dhcpRanges.push_back(GET_CHAR(mUsbStartIp));
+      dhcpRanges.push_back(GET_CHAR(mUsbEndIp));
+    }
+    status = gNetd->tetherStart(dhcpRanges);
+    NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  }
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::stopTethering(CommandChain* aChain,
+                                 CommandCallback aCallback,
+                                 NetworkResultOptions& aResult) {
+  std::vector<std::string> ifList;
+  gNetd->tetherInterfaceList(&ifList);
+  // Don't stop tethering because others interface still need it.
+  if (ifList.size() > 1) {
+    aCallback(aChain, false, aResult);
+    return;
+  }
+
+  Status status = gNetd->tetherStop();
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::setDnsForwarders(CommandChain* aChain,
+                                    CommandCallback aCallback,
+                                    NetworkResultOptions& aResult) {
+  std::vector<std::string> tetherDnsAddrs;
+  if (!GET_FIELD(mDns1).IsEmpty()) {
+    tetherDnsAddrs.push_back(GET_CHAR(mDns1));
+  }
+  if (!GET_FIELD(mDns2).IsEmpty()) {
+    tetherDnsAddrs.push_back(GET_CHAR(mDns2));
+  }
+
+  Status status = gNetd->tetherDnsSet(INetd::LOCAL_NET_ID, tetherDnsAddrs);
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::cleanUpStream(CommandChain* aChain,
+                                 CommandCallback aCallback,
+                                 NetworkResultOptions& aResult) {
+  Status status = gNetd->tetherRemoveForward(GET_CHAR(mPreInternalIfname),
+                                             GET_CHAR(mPreExternalIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  // We don't care about remove upstream result
+  // since it might not exist tethering rule.
+  next(aChain, false, aResult);
+}
+
+void NetworkUtils::createUpStream(CommandChain* aChain,
+                                  CommandCallback aCallback,
+                                  NetworkResultOptions& aResult) {
+  Status status = gNetd->tetherAddForward(GET_CHAR(mCurInternalIfname),
+                                          GET_CHAR(mCurExternalIfname));
+  NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::cleanUpStreamInterfaceForwarding(
+    CommandChain* aChain, CommandCallback aCallback,
+    NetworkResultOptions& aResult) {
+  if (!strcmp(GET_CHAR(mPreExternalIfname), "rmnet0")) {
+    NU_DBG("%s : ignore interface - %s", __FUNCTION__,
+           GET_CHAR(mPreExternalIfname));
+    next(aChain, false, aResult);
+    return;
+  }
+
+  Status status = gNetd->ipfwdRemoveInterfaceForward(
+      GET_CHAR(mPreInternalIfname), GET_CHAR(mPreExternalIfname));
+  // We don't care about remove forwarding result
+  // since rule might already removed from table list.
+  next(aChain, false, aResult);
+}
+
+void NetworkUtils::createUpStreamInterfaceForwarding(
+    CommandChain* aChain, CommandCallback aCallback,
+    NetworkResultOptions& aResult) {
+  if (!strcmp(GET_CHAR(mCurExternalIfname), "rmnet0")) {
+    NU_DBG("%s : ignore interface - %s", __FUNCTION__,
+           GET_CHAR(mCurExternalIfname));
+    next(aChain, false, aResult);
+    return;
+  }
+
+  Status status = gNetd->ipfwdAddInterfaceForward(GET_CHAR(mCurInternalIfname),
+                                                  GET_CHAR(mCurExternalIfname));
+  NU_DBG("%s: for iface %s", __FUNCTION__,
+         status.isOk() ? "success" : "failed");
+  next(aChain, !status.isOk(), aResult);
+}
+
+void NetworkUtils::addIpv6TetheringInterfaces(CommandChain* aChain,
+                                              CommandCallback aCallback,
+                                              NetworkResultOptions& aResult) {
+  nsCString internalIface(GET_CHAR(mInternalIfname));
+
+  if (!gIpv6TetheringInterfaces.Contains(internalIface)) {
+    gIpv6TetheringInterfaces.AppendElement(internalIface);
+  }
+
+  // Proceed next cmd.
+  next(aChain, false, aResult);
+}
+
+void NetworkUtils::removeIpv6TetheringInterfaces(
+    CommandChain* aChain, CommandCallback aCallback,
+    NetworkResultOptions& aResult) {
+  nsCString internalIface(GET_CHAR(mInternalIfname));
+
+  if (gIpv6TetheringInterfaces.Contains(internalIface)) {
+    gIpv6TetheringInterfaces.RemoveElement(internalIface);
+  }
+
+  // Proceed next cmd.
+  next(aChain, false, aResult);
+}
+
+void NetworkUtils::stopIpv6Tethering(CommandChain* aChain,
+                                     CommandCallback aCallback,
+                                     NetworkResultOptions& aResult) {
+  nsCString ipv6Prefix(GET_CHAR(mIPv6Prefix));
+
+  if (!ipv6Prefix.IsEmpty() && !gIpv6TetheringInterfaces.IsEmpty() &&
+      gIpv6TetheringIfaceEnabled) {
+    NU_DBG("disable Ipv6 Tethering %s", gIpv6TetheringInterfaces[0].get());
+    Property::Set("ctl.stop", "radvd");
+    gIpv6TetheringIfaceEnabled = false;
+    GET_FIELD(mLoopIndex) = 0;
+    return removeIpv6LocalNetworkRoute(aChain, aCallback, aResult);
+  }
+  // Proceed next cmd.
+  next(aChain, false, aResult);
+}
+
+void NetworkUtils::updateIpv6Tethering(CommandChain* aChain,
+                                       CommandCallback aCallback,
+                                       NetworkResultOptions& aResult) {
+  nsCString externalIface(GET_CHAR(mExternalIfname));
+  nsCString internalIface(GET_CHAR(mInternalIfname));
+  nsCString ipv6Prefix(GET_CHAR(mIPv6Prefix));
+  nsTArray<nsString>& dnses = GET_FIELD(mDnses);
+  uint32_t dnsLength = dnses.Length();
+
+  if (!externalIface.get()[0]) {
+    externalIface = GET_CHAR(mCurExternalIfname);
+  }
+  if (!internalIface.get()[0]) {
+    internalIface = GET_CHAR(mCurInternalIfname);
+  }
+
+  if (!strcmp(externalIface.get(), "wlan0")) {
+    NU_DBG("Do not enable Ipv6 Tethering if Wi-Fi as external interface");
+    next(aChain, false, aResult);
+    return;
+  }
+
+  if (ipv6Prefix.IsEmpty() || !dnsLength) {
+    NU_DBG("Do not enable Ipv6 Tethering since no %s",
+           !dnsLength ? "DNS" : "Prefix");
+    next(aChain, false, aResult);
+    return;
+  }
+
+  if (gIpv6TetheringInterfaces.IsEmpty() || gIpv6TetheringIfaceEnabled) {
+    NU_DBG("Do not enable Ipv6 Tethering since %s",
+           gIpv6TetheringIfaceEnabled ? "ongoing Ipv6 Tethering"
+                                      : "no available interface");
+    next(aChain, false, aResult);
+    return;
+  }
+
+  NU_DBG("enable Ipv6 Tethering for %s %s %s", externalIface.get(),
+         gIpv6TetheringInterfaces[0].get(), ipv6Prefix.get());
+
+  if (composeIpv6TetherConf(gIpv6TetheringInterfaces[0].get(), ipv6Prefix.get(),
+                            dnsLength)) {
+    NU_DBG("radvd configured, start radvd");
+    Property::Set("ctl.start", "radvd");
+    gIpv6TetheringIfaceEnabled = true;
+    GET_FIELD(mLoopIndex) = 0;
+    return addIpv6RouteToLocalNetwork(aChain, aCallback, aResult);
+  }
+  // Proceed next cmd.
+  next(aChain, false, aResult);
+}
+
+void NetworkUtils::addIpv6RouteToLocalNetwork(CommandChain* aChain,
+                                              CommandCallback aCallback,
+                                              NetworkResultOptions& aResult) {
+  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex)++;
+       GET_FIELD(mLoopIndex) < GET_FIELD(mIPv6Routes).Length()) {
+    nsTArray<nsString>& ipv6routes = GET_FIELD(mIPv6Routes);
+    NS_ConvertUTF16toUTF8 autoIpv6Routes(ipv6routes[GET_FIELD(mLoopIndex)]);
+    Status status = gNetd->networkAddRoute(INetd::LOCAL_NET_ID,
+                                           gIpv6TetheringInterfaces[0].get(),
+                                           autoIpv6Routes.get(), "");
+    NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
+    if (!status.isOk()) {
+      next(aChain, true, aResult);
+      return;
+    }
+  }
+  aCallback(aChain, false, aResult);
+}
+
+void NetworkUtils::removeIpv6LocalNetworkRoute(CommandChain* aChain,
+                                               CommandCallback aCallback,
+                                               NetworkResultOptions& aResult) {
+  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex)++;
+       GET_FIELD(mLoopIndex) < GET_FIELD(mIPv6Routes).Length()) {
+    nsTArray<nsString>& ipv6routes = GET_FIELD(mIPv6Routes);
+    NS_ConvertUTF16toUTF8 autoIpv6Routes(ipv6routes[GET_FIELD(mLoopIndex)]);
+    Status status = gNetd->networkRemoveRoute(INetd::LOCAL_NET_ID,
+                                              gIpv6TetheringInterfaces[0].get(),
+                                              autoIpv6Routes.get(), "");
+    // We don't really care about remove ipv6 local network route result
+    NU_DBG("%s: %s", __FUNCTION__,
+           status.isOk() ? "success" : "failed but ignore");
+  }
+  aCallback(aChain, false, aResult);
+}
+
+bool NetworkUtils::composeIpv6TetherConf(const char* aInternalIface,
+                                         const char* aNetworkPrefix,
+                                         uint32_t aDnsLength) {
+  int type;
+  char dnses_list[256] = {0};
+  char dns_prop_key[PROPERTY_VALUE_MAX] = {0};
+  char dns_buffer[PROPERTY_VALUE_MAX] = {0};
+  char dns_buffer2[PROPERTY_VALUE_MAX] = {0};
+  FILE* radvdFile;
+  char buffer[512] = {0};
+
+  for (uint32_t i = 0; i < aDnsLength; i++) {
+    SprintfLiteral(dns_prop_key, "net.dns%d", i + 1);
+    Property::Get(dns_prop_key, dns_buffer, "8.8.8.8");
+    type = getIpType(dns_buffer);
+    if (type == AF_INET6) {
+      snprintf(dns_buffer2, strlen(dns_buffer) + 2, " %s", dns_buffer);
+      strcat(dnses_list, dns_buffer2);
+    }
+    memset(&dns_buffer, 0, sizeof(dns_buffer));
+  }
+
+  if (strlen(dnses_list) == 0) {
+    NU_DBG("Do not enable Ipv6 Tethering since no Ipv6 DNS");
+    return false;
+  }
+
+  // Compose radvd config file
+  radvdFile = fopen(RADVD_CONF_FILE, "w");
+
+  if (radvdFile == NULL) {
+    NU_DBG("Cannot open %s", RADVD_CONF_FILE);
+    return false;
+  }
+
+  snprintf(buffer, sizeof(buffer),
+           "interface %s\n{\n\tAdvSendAdvert on;\n"
+           "\tMinRtrAdvInterval 3;\n\tMaxRtrAdvInterval 10;\n"
+           "\tAdvManagedFlag off;\n\tAdvOtherConfigFlag off;\n"
+           "\tprefix %s\n"
+           "\t{\n\t\tAdvOnLink off;\n"
+           "\t\tAdvAutonomous on;\n"
+           "\t\tAdvRouterAddr off;\n"
+           "\t};\n\tRDNSS%s\n"
+           "\t{\n"
+           "\t\tAdvRDNSSLifetime 3600;\n"
+           "\t};"
+           "\n};\n",
+           aInternalIface, aNetworkPrefix, dnses_list);
+
+  if (!fwrite(buffer, sizeof(char), strlen(buffer), radvdFile)) {
+    NU_DBG("Write %s fail", RADVD_CONF_FILE);
+    fclose(radvdFile);
+    return false;
+  }
+
+  fclose(radvdFile);
+
+  if (chmod(RADVD_CONF_FILE, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) <
+          0 ||
+      chown(RADVD_CONF_FILE, AID_SYSTEM, AID_SYSTEM)) {
+    NU_DBG("Cannot chmod %s", RADVD_CONF_FILE);
+    return false;
+  }
+
+  return true;
+}
+
+bool NetworkUtils::getIpv6Prefix(const char* aIpv6Addr, char* aIpv6Prefix) {
+  unsigned char ipv6AddrNetwork[sizeof(struct in6_addr)];
+  char ipv6PrefixBuf[64] = {0};
+
+  if (inet_pton(AF_INET6, aIpv6Addr, ipv6AddrNetwork) < 1) {
+    NU_DBG("Failed to transfer Ipv6 address to binary");
+    return false;
+  }
+
+  for (uint32_t i = sizeof(struct in6_addr) / 2; i < sizeof(struct in6_addr);
+       i++) {
+    ipv6AddrNetwork[i] = 0;
+  }
+
+  if (!inet_ntop(AF_INET6, ipv6AddrNetwork, ipv6PrefixBuf, INET6_ADDRSTRLEN)) {
+    NU_DBG("Failed to transfer Ipv6 binary to address");
+    return false;
+  }
+
+  snprintf(aIpv6Prefix, sizeof(ipv6PrefixBuf), "%s/64", ipv6PrefixBuf);
+
+  return true;
+}
+
+#undef GET_CHAR
+#undef GET_FIELD
+
+/*
+ * Netd command success/fail function
+ */
+#define ASSIGN_FIELD(prop) aResult.prop = aChain->getParams().prop;
+#define ASSIGN_FIELD_VALUE(prop, value) aResult.prop = value;
+
+template <size_t N>
+void NetworkUtils::runChain(const NetworkParams& aParams,
+                            const CommandFunc (&aCmds)[N],
+                            ErrorCallback aError) {
+  CommandChain* chain = new CommandChain(aParams, aCmds, N, aError);
+  gCommandChainQueue.AppendElement(chain);
+
+  if (gCommandChainQueue.Length() > 1) {
+    NU_DBG("%d command chains are queued. Wait!", gCommandChainQueue.Length());
+    return;
+  }
+
+  NetworkResultOptions result;
+  NetworkUtils::next(gCommandChainQueue[0], false, result);
+}
+
+// Called to clean up the command chain and process the queued command chain if
+// any.
+void NetworkUtils::finalizeSuccess(CommandChain* aChain,
+                                   NetworkResultOptions& aResult) {
+  next(aChain, false, aResult);
+}
+
+void NetworkUtils::defaultAsyncSuccessHandler(CommandChain* aChain,
+                                              CommandCallback aCallback,
+                                              NetworkResultOptions& aResult) {
+  NU_DBG("defaultAsyncSuccessHandler");
+  aResult.mRet = true;
+  postMessage(aChain->getParams(), aResult);
+  finalizeSuccess(aChain, aResult);
+}
+
+void NetworkUtils::defaultAsyncFailureHandler(NetworkParams& aOptions,
+                                              NetworkResultOptions& aResult) {
+  aResult.mRet = false;
+  postMessage(aOptions, aResult);
+}
+
+void NetworkUtils::usbTetheringFail(NetworkParams& aOptions,
+                                    NetworkResultOptions& aResult) {
+  // Notify the main thread.
+  aResult.mResult = false;
+  postMessage(aOptions, aResult);
+  // Try to roll back to ensure
+  // we don't leave the network systems in limbo.
+  // This parameter is used to disable ipforwarding.
+  {
+    aOptions.mEnable = false;
+    runChain(aOptions, sUSBFailChain, nullptr);
+  }
+
+  // Disable usb rndis function.
+  {
+    NetworkParams options;
+    options.mEnable = false;
+    options.mReport = false;
+    gNetworkUtils->enableUsbRndis(options);
+  }
+}
+
+void NetworkUtils::usbTetheringSuccess(CommandChain* aChain,
+                                       CommandCallback aCallback,
+                                       NetworkResultOptions& aResult) {
+  ASSIGN_FIELD(mEnable)
+  aResult.mResult = true;
+  postMessage(aChain->getParams(), aResult);
+  finalizeSuccess(aChain, aResult);
+}
+
+void NetworkUtils::wifiTetheringFail(NetworkParams& aOptions,
+                                     NetworkResultOptions& aResult) {
+  // Notify the main thread.
+  postMessage(aOptions, aResult);
+
+  // If one of the stages fails, we try roll back to ensure
+  // we don't leave the network systems in limbo.
+  ASSIGN_FIELD_VALUE(mEnable, false)
+  runChain(aOptions, sWifiFailChain, nullptr);
+}
+
+void NetworkUtils::wifiTetheringSuccess(CommandChain* aChain,
+                                        CommandCallback aCallback,
+                                        NetworkResultOptions& aResult) {
+  ASSIGN_FIELD(mEnable)
+  aResult.mResult = true;
+  postMessage(aChain->getParams(), aResult);
+  finalizeSuccess(aChain, aResult);
+}
+
+void NetworkUtils::updateUpStreamFail(NetworkParams& aOptions,
+                                      NetworkResultOptions& aResult) {
+  postMessage(aOptions, aResult);
+}
+
+void NetworkUtils::updateUpStreamSuccess(CommandChain* aChain,
+                                         CommandCallback aCallback,
+                                         NetworkResultOptions& aResult) {
+  ASSIGN_FIELD(mCurExternalIfname)
+  ASSIGN_FIELD(mCurInternalIfname)
+  postMessage(aChain->getParams(), aResult);
+  finalizeSuccess(aChain, aResult);
+}
+
+#undef ASSIGN_FIELD
+#undef ASSIGN_FIELD_VALUE
+
+NetworkUtils::NetworkUtils(MessageCallback aCallback)
+    : mMessageCallback(aCallback) {
+  mNetUtils = new NetUtils();
+
+  nsresult rv =
+      NS_NewNamedThread("NetworkUtils", getter_AddRefs(gNetworkUtilsThread));
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    NU_DBG("Failed to create NetworkUtils handle thread");
+    return;
+  }
+
+  // TODO: StartNetd and use Netd aidl
+  NU_DBG("Start Netd Service");
+  setupNetd(true);
+
+  updateDebug();
+
+  gNetworkUtils = this;
+}
+
+NetworkUtils::~NetworkUtils() {
+  setupNetd(false);
+  NU_DBG("destroy NetworkUtils");
+  gNetworkUtilsThread->Shutdown();
+  gNetworkUtilsThread = nullptr;
+}
+
+void NetworkUtils::setupNetd(bool aEnable) {
+  nsCOMPtr<nsIRunnable> runnable = new NetdInitRunnable(aEnable);
+  if (gNetworkUtilsThread) {
+    NU_DBG("Dispatch Netd thread");
+    gNetworkUtilsThread->Dispatch(runnable, nsIEventTarget::DISPATCH_NORMAL);
+  }
+}
+
+#define GET_CHAR(prop) NS_ConvertUTF16toUTF8(aOptions.prop).get()
+#define GET_FIELD(prop) aOptions.prop
+
+// Hoist this type definition to global to avoid template
+// instantiation error on gcc 4.4 used by ICS emulator.
+typedef CommandResult (NetworkUtils::*CommandHandler)(NetworkParams&);
+struct CommandHandlerEntry {
+  const char* mCommandName;
+  CommandHandler mCommandHandler;
+};
+
+void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
+  const static CommandHandlerEntry COMMAND_HANDLER_TABLE[] = {
+
+// For command 'testCommand', BUILD_ENTRY(testCommand) will generate
+// {"testCommand", NetworkUtils::testCommand}
+#define BUILD_ENTRY(c) {#c, &NetworkUtils::c}
+      BUILD_ENTRY(removeNetworkRoute),
+      BUILD_ENTRY(setDNS),
+      BUILD_ENTRY(getNetId),
+      BUILD_ENTRY(createNetwork),
+      BUILD_ENTRY(destroyNetwork),
+      BUILD_ENTRY(setDefaultRoute),
+      BUILD_ENTRY(removeDefaultRoute),
+      BUILD_ENTRY(addHostRoute),
+      BUILD_ENTRY(removeHostRoute),
+      BUILD_ENTRY(setMtu),
+      BUILD_ENTRY(setDefaultNetwork),
+      BUILD_ENTRY(addInterfaceToNetwork),
+      BUILD_ENTRY(removeInterfaceToNetwork),
+      BUILD_ENTRY(setIpv6PrivacyExtensions),
+      BUILD_ENTRY(configureInterface),
+      BUILD_ENTRY(dhcpRequest),
+      BUILD_ENTRY(stopDhcp),
+      BUILD_ENTRY(enableInterface),
+      BUILD_ENTRY(disableInterface),
+      BUILD_ENTRY(resetConnections),
+      BUILD_ENTRY(getInterfaces),
+      BUILD_ENTRY(getInterfaceConfig),
+      BUILD_ENTRY(setInterfaceConfig),
+      BUILD_ENTRY(startClatd),
+      BUILD_ENTRY(stopClatd),
+      BUILD_ENTRY(setTcpBufferSize),
+      BUILD_ENTRY(setNetworkInterfaceAlarm),
+      BUILD_ENTRY(enableNetworkInterfaceAlarm),
+      BUILD_ENTRY(disableNetworkInterfaceAlarm),
+      BUILD_ENTRY(setDhcpServer),
+      BUILD_ENTRY(getTetheringStatus),
+      BUILD_ENTRY(enableUsbRndis),
+      BUILD_ENTRY(setUSBTethering),
+      BUILD_ENTRY(setWifiTethering),
+#undef BUILD_ENTRY
+  };
+
+  // Loop until we find the command name which matches aOptions.mCmd.
+  CommandHandler handler = nullptr;
+  for (size_t i = 0; i < mozilla::ArrayLength(COMMAND_HANDLER_TABLE); i++) {
+    if (aOptions.mCmd.EqualsASCII(COMMAND_HANDLER_TABLE[i].mCommandName)) {
+      handler = COMMAND_HANDLER_TABLE[i].mCommandHandler;
+      break;
+    }
+  }
+
+  if (!handler) {
+    // Command not found in COMMAND_HANDLER_TABLE.
+    WARN("unknown message: %s", NS_ConvertUTF16toUTF8(aOptions.mCmd).get());
+    return;
+  }
+
+  // The handler would return one of the following 3 values
+  // to be wrapped to CommandResult:
+  //
+  //   1) |int32_t| for mostly synchronous native function calls.
+  //   2) |NetworkResultOptions| to populate additional results. (e.g.
+  //   dhcpRequest) 3) |CommandResult::Pending| to indicate the result is not
+  //      obtained yet.
+  //
+  // If the handler returns "Pending", the handler should take the
+  // responsibility for posting result to main thread.
+  CommandResult commandResult = (this->*handler)(aOptions);
+  if (!commandResult.isPending()) {
+    postMessage(aOptions, commandResult.mResult);
+  }
+}
+
+/**
+ * Set DNS servers for given network interface.
+ */
+CommandResult NetworkUtils::setDNS(NetworkParams& aOptions) {
+  uint32_t length = aOptions.mDnses.Length();
+
+  // TODO: do we still need this ?
+  if (length > 0) {
+    for (uint32_t i = 0; i < length; i++) {
+      NS_ConvertUTF16toUTF8 autoDns(aOptions.mDnses[i]);
+
+      char dns_prop_key[Property::VALUE_MAX_LENGTH];
+      SprintfLiteral(dns_prop_key, "net.dns%d", i + 1);
+      Property::Set(dns_prop_key, autoDns.get());
+    }
+  } else {
+    // Set dnses from system properties.
+    IFProperties interfaceProperties;
+    getIFProperties(GET_CHAR(mIfname), interfaceProperties);
+
+    Property::Set("net.dns1", interfaceProperties.dns1);
+    Property::Set("net.dns2", interfaceProperties.dns2);
+  }
+
+  // Bump the DNS change property.
+  char dnschange[Property::VALUE_MAX_LENGTH];
+  Property::Get("net.dnschange", dnschange, "0");
+
+  char num[Property::VALUE_MAX_LENGTH];
+  snprintf(num, Property::VALUE_MAX_LENGTH - 1, "%d", atoi(dnschange) + 1);
+  Property::Set("net.dnschange", num);
+
+  static CommandFunc COMMAND_CHAIN[] = {setInterfaceDns,
+                                        defaultAsyncSuccessHandler};
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(aOptions.mIfname, &netIdInfo)) {
+    return -1;
+  }
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult::Pending();
+}
+
+/**
+ * Query the netId associated with the given network interface name.
+ */
+CommandResult NetworkUtils::getNetId(NetworkParams& aOptions) {
+  NetworkResultOptions result;
+  result.mResult = false;
+  char errorReason[BUF_SIZE];
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(GET_FIELD(mIfname), &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    snprintf(errorReason, BUF_SIZE - 1, "No such interface: %s",
+             GET_CHAR(mIfname));
+    result.mReason = NS_ConvertUTF8toUTF16(errorReason);
+    return result;
+  }
+  result.mNetId.AppendInt(netIdInfo.mNetId, 10);
+  result.mResult = true;
+  return result;
+}
+
+/**
+ * handling upstream interface change event.
+ */
+CommandResult NetworkUtils::createNetwork(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      createNetwork,
+      enableIpv6,
+      addInterfaceToNetwork,
+      defaultAsyncSuccessHandler,
+  };
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (mNetIdManager.lookup(aOptions.mIfname, &netIdInfo)) {
+    NU_DBG("Interface %s (%d) has been created.", GET_CHAR(mIfname),
+           netIdInfo.mNetId);
+    mNetIdManager.acquire(GET_FIELD(mIfname), &netIdInfo,
+                          GET_FIELD(mNetworkType));
+    return SUCCESS;
+  }
+
+  mNetIdManager.acquire(GET_FIELD(mIfname), &netIdInfo,
+                        GET_FIELD(mNetworkType));
+  NU_DBG("Request netd to create a network with netid %d", netIdInfo.mNetId);
+  // Newly created netid. Ask netd to create network.
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+/**
+ * handling upstream interface change event.
+ */
+CommandResult NetworkUtils::destroyNetwork(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      disableIpv6,
+      destroyNetwork,
+      defaultAsyncSuccessHandler,
+  };
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.release(GET_FIELD(mIfname), &netIdInfo,
+                             GET_FIELD(mNetworkType))) {
+    ERROR("No existing netid for %s", GET_CHAR(mIfname));
+    return -1;
+  }
+
+  if (netIdInfo.mTypes != 0) {
+    // Still be referenced. Just return.
+    NU_DBG("Someone is still using this interface.");
+    return SUCCESS;
+  }
+
+  NU_DBG("Interface %s (%d) is no longer used. Tell netd to destroy.",
+         GET_CHAR(mIfname), netIdInfo.mNetId);
+
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult::Pending();
+}
+
+/**
+ * Set default route for given network interface..
+ */
+CommandResult NetworkUtils::setDefaultRoute(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {addDefaultRouteToNetwork,
+                                        defaultAsyncSuccessHandler};
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(GET_FIELD(mIfname), &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    return -1;
+  }
+
+  NU_DBG("Calling NetworkUtils::setDefaultRoute mIfname= %s",
+         GET_CHAR(mIfname));
+
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+/*
+ * Remove default route for given network interface.
+ */
+CommandResult NetworkUtils::removeDefaultRoute(NetworkParams& aOptions) {
+  NU_DBG("Calling NetworkUtils::removeDefaultRoute");
+
+  static CommandFunc COMMAND_CHAIN[] = {
+      removeDefaultRoute,
+      defaultAsyncSuccessHandler,
+  };
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(GET_FIELD(mIfname), &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    return -1;
+  }
+
+  NU_DBG("Obtained netid %d for interface %s", netIdInfo.mNetId,
+         GET_CHAR(mIfname));
+
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+/**
+ * Add host route for given network interface.
+ */
+CommandResult NetworkUtils::addHostRoute(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      addRouteToInterface,
+      defaultAsyncSuccessHandler,
+  };
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(GET_FIELD(mIfname), &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    return -1;
+  }
+
+  NU_DBG("Obtained netid %d for interface %s", netIdInfo.mNetId,
+         GET_CHAR(mIfname));
+
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+/**
+ * Remove host route for given network interface.
+ */
+CommandResult NetworkUtils::removeHostRoute(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      removeRouteFromInterface,
+      defaultAsyncSuccessHandler,
+  };
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(GET_FIELD(mIfname), &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    return -1;
+  }
+
+  NU_DBG("Obtained netid %d for interface %s", netIdInfo.mNetId,
+         GET_CHAR(mIfname));
+
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+CommandResult NetworkUtils::removeNetworkRoute(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      clearAddrForInterface,
+      defaultAsyncSuccessHandler,
+  };
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(GET_FIELD(mIfname), &netIdInfo)) {
+    ERROR("interface %s is not present in any network", GET_CHAR(mIfname));
+    return -1;
+  }
+
+  NU_DBG("Obtained netid %d for interface %s", netIdInfo.mNetId,
+         GET_CHAR(mIfname));
+
+  aOptions.mNetId = netIdInfo.mNetId;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+CommandResult NetworkUtils::addSecondaryRoute(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {addRouteToSecondaryTable,
+                                        defaultAsyncSuccessHandler};
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(aOptions.mIfname, &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    return -1;
+  }
+  aOptions.mNetId = netIdInfo.mNetId;
+
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult::Pending();
+}
+
+CommandResult NetworkUtils::removeSecondaryRoute(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {removeRouteFromSecondaryTable,
+                                        defaultAsyncSuccessHandler};
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(aOptions.mIfname, &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    return -1;
+  }
+  aOptions.mNetId = netIdInfo.mNetId;
+
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult::Pending();
+}
+
+CommandResult NetworkUtils::setMtu(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      setMtu,
+      defaultAsyncSuccessHandler,
+  };
+
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult::Pending();
+}
+
+/**
+ * Set default for given network interface..
+ */
+CommandResult NetworkUtils::setDefaultNetwork(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {setDefaultNetwork,
+                                        defaultAsyncSuccessHandler};
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(GET_FIELD(mIfname), &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mIfname));
+    return -1;
+  }
+
+  NU_DBG("Calling NetworkUtils::setDefaultNetwork mIfname= %s",
+         GET_CHAR(mIfname));
+
+  aOptions.mNetId = netIdInfo.mNetId;
+  aOptions.mLoopIndex = 0;
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+  return CommandResult::Pending();
+}
+
+/**
+ * handling upstream interface change event.
+ */
+CommandResult NetworkUtils::addInterfaceToNetwork(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      addInterfaceToNetwork,
+      defaultAsyncSuccessHandler,
+  };
+
+  if (GET_FIELD(mNetId) == -1) {
+    NU_DBG("addInterfaceToNetwork no mNetId");
+    return -1;
+  }
+
+  if (GET_FIELD(mIfname).IsEmpty()) {
+    NU_DBG("addInterfaceToNetwork no mIfname");
+    return -1;
+  }
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (mNetIdManager.lookupByNetId(uint32_t(GET_FIELD(mNetId)), &netIdInfo)) {
+    NU_DBG("Add %s to network(%d).", GET_CHAR(mIfname), netIdInfo.mNetId);
+    mNetIdManager.addInterfaceToNetwork(GET_FIELD(mIfname), &netIdInfo);
+    runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+    return CommandResult::Pending();
+  }
+
+  NU_DBG("addInterfaceToNetwork no exist netID");
+  return -1;
+}
+
+/**
+ * handling upstream interface change event.
+ */
+CommandResult NetworkUtils::removeInterfaceToNetwork(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      removeInterfaceToNetwork,
+      defaultAsyncSuccessHandler,
+  };
+
+  if (GET_FIELD(mNetId) == -1) {
+    NU_DBG("removeInterfaceToNetwork no mNetId");
+    return -1;
+  }
+
+  if (GET_FIELD(mIfname).IsEmpty()) {
+    NU_DBG("removeInterfaceToNetwork no mIfname");
+    return -1;
+  }
+
+  NetIdManager::NetIdInfo netIdInfo;
+
+  if (mNetIdManager.lookup(aOptions.mIfname, &netIdInfo)) {
+    NU_DBG("Remove %s to network(%d).", GET_CHAR(mIfname), netIdInfo.mNetId);
+    mNetIdManager.removeInterfaceToNetwork(GET_FIELD(mIfname), &netIdInfo);
+    runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+
+    return CommandResult::Pending();
+  }
+  NU_DBG("removeInterfaceToNetwork no exist mIfname");
+  return -1;
+}
+
+CommandResult NetworkUtils::setIpv6PrivacyExtensions(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      setIpv6PrivacyExtensions,
+      defaultAsyncSuccessHandler,
+  };
+
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult::Pending();
+}
+
+CommandResult NetworkUtils::configureInterface(NetworkParams& aOptions) {
+  NS_ConvertUTF16toUTF8 autoIfname(aOptions.mIfname);
+  return mNetUtils->do_ifc_configure(autoIfname.get(), aOptions.mIpaddr,
+                                     aOptions.mMask, aOptions.mGateway_long,
+                                     aOptions.mDns1_long, aOptions.mDns2_long);
+}
+
+CommandResult NetworkUtils::dhcpRequest(NetworkParams& aOptions) {
+  mozilla::dom::NetworkResultOptions result;
+
+  NS_ConvertUTF16toUTF8 autoIfname(aOptions.mIfname);
+  char ipaddr[Property::VALUE_MAX_LENGTH];
+  char gateway[Property::VALUE_MAX_LENGTH];
+  uint32_t prefixLength;
+  char dns1[Property::VALUE_MAX_LENGTH];
+  char dns2[Property::VALUE_MAX_LENGTH];
+  char server[Property::VALUE_MAX_LENGTH];
+  uint32_t lease;
+  char vendorinfo[Property::VALUE_MAX_LENGTH];
+  int32_t ret = mNetUtils->do_dhcp_do_request(autoIfname.get(), ipaddr, gateway,
+                                              &prefixLength, dns1, dns2, server,
+                                              &lease, vendorinfo);
+
+  RETURN_IF_FAILED(ret);
+
+  result.mIpaddr_str = NS_ConvertUTF8toUTF16(ipaddr);
+  result.mGateway_str = NS_ConvertUTF8toUTF16(gateway);
+  result.mDns1_str = NS_ConvertUTF8toUTF16(dns1);
+  result.mDns2_str = NS_ConvertUTF8toUTF16(dns2);
+  result.mServer_str = NS_ConvertUTF8toUTF16(server);
+  result.mVendor_str = NS_ConvertUTF8toUTF16(vendorinfo);
+  result.mLease = lease;
+  result.mPrefixLength = prefixLength;
+  result.mMask = makeMask(prefixLength);
+
+  uint32_t inet4;  // only support IPv4 for now.
+
+#define INET_PTON(var, field)      \
+  PR_BEGIN_MACRO                   \
+  inet_pton(AF_INET, var, &inet4); \
+  result.field = inet4;            \
+  PR_END_MACRO
+
+  INET_PTON(ipaddr, mIpaddr);
+  INET_PTON(gateway, mGateway);
+
+  if (dns1[0] != '\0') {
+    INET_PTON(dns1, mDns1);
+  }
+
+  if (dns2[0] != '\0') {
+    INET_PTON(dns2, mDns2);
+  }
+
+  INET_PTON(server, mServer);
+
+  char inet_str[64];
+  if (inet_ntop(AF_INET, &result.mMask, inet_str, sizeof(inet_str))) {
+    result.mMask_str = NS_ConvertUTF8toUTF16(inet_str);
+  }
+
+  return result;
+}
+
+CommandResult NetworkUtils::stopDhcp(NetworkParams& aOptions) {
+  return mNetUtils->do_dhcp_stop(GET_CHAR(mIfname));
+}
+
+CommandResult NetworkUtils::enableInterface(NetworkParams& aOptions) {
+  return mNetUtils->do_ifc_enable(
+      NS_ConvertUTF16toUTF8(aOptions.mIfname).get());
+}
+
+CommandResult NetworkUtils::disableInterface(NetworkParams& aOptions) {
+  return mNetUtils->do_ifc_disable(
+      NS_ConvertUTF16toUTF8(aOptions.mIfname).get());
+}
+
+CommandResult NetworkUtils::resetConnections(NetworkParams& aOptions) {
+  NS_ConvertUTF16toUTF8 autoIfname(aOptions.mIfname);
+  return mNetUtils->do_ifc_reset_connections(
+      NS_ConvertUTF16toUTF8(aOptions.mIfname).get(), RESET_ALL_ADDRESSES);
+}
+
+/**
+ * Get existing network interfaces.
+ */
+CommandResult NetworkUtils::getInterfaces(NetworkParams& aOptions) {
+  NetworkResultOptions result;
+
+  std::vector<std::string> interfaceGetList;
+  Status status = gNetd->interfaceGetList(&interfaceGetList);
+  if (status.isOk()) {
+    result.mInterfaceList.Construct();
+    for (uint32_t i = 0; i < interfaceGetList.size(); i++) {
+      result.mInterfaceList.Value().AppendElement(
+          NS_ConvertUTF8toUTF16(interfaceGetList[i].c_str()),
+          mozilla::fallible_t());
+    }
+  }
+  result.mResult = status.isOk();
+
+  NU_DBG("getInterfaces: %s", result.mResult ? "success" : "failed");
+  return result;
+}
+
+/**
+ * Get network config of a specified interface.
+ */
+CommandResult NetworkUtils::getInterfaceConfig(NetworkParams& aOptions) {
+  NetworkResultOptions result;
+  android::net::InterfaceConfigurationParcel interfaceCfgResult;
+  Status status =
+      gNetd->interfaceGetCfg(GET_CHAR(mIfname), &interfaceCfgResult);
+  if (status.isOk()) {
+    result.mMacAddr = NS_ConvertUTF8toUTF16(interfaceCfgResult.hwAddr.c_str());
+    result.mIpAddr = NS_ConvertUTF8toUTF16(interfaceCfgResult.ipv4Addr.c_str());
+    result.mPrefixLength = interfaceCfgResult.prefixLength;
+    if (std::find(interfaceCfgResult.flags.begin(),
+                  interfaceCfgResult.flags.end(),
+                  std::string("up")) != interfaceCfgResult.flags.end()) {
+      result.mFlag = NS_ConvertUTF8toUTF16("up");
+    } else {
+      result.mFlag = NS_ConvertUTF8toUTF16("down");
+    }
+  }
+  result.mResult = status.isOk();
+
+  NU_DBG("getInterfaceConfig: %s", result.mResult ? "success" : "failed");
+  return result;
+}
+
+/**
+ * Set network config for a specified interface.
+ */
+CommandResult NetworkUtils::setInterfaceConfig(NetworkParams& aOptions) {
+  NetworkResultOptions result;
+  android::net::InterfaceConfigurationParcel interfaceCfg;
+  struct in_addr addr;
+
+  result.mResult = false;
+  interfaceCfg.ifName = GET_CHAR(mIfname);
+  interfaceCfg.hwAddr = "";
+
+  if (!inet_aton(GET_CHAR(mIp), &addr)) {
+    interfaceCfg.ipv4Addr = "";
+    interfaceCfg.prefixLength = 0;
+  } else if (addr.s_addr != 0) {
+    interfaceCfg.ipv4Addr = GET_CHAR(mIp);
+    interfaceCfg.prefixLength = atoi(GET_CHAR(mPrefix));
+    Status status = gNetd->interfaceSetCfg(interfaceCfg);
+    if (!status.isOk()) {
+      NU_DBG("setInterfaceConfig: failed to set configuration.");
+      return result;
+    }
+  }
+
+  Status bringStatus;
+  if (strcmp(GET_CHAR(mLink), "up")) {
+    interfaceCfg.flags.push_back(
+        std::string(android::String8((INetd::IF_STATE_UP().string()))));
+    bringStatus = gNetd->interfaceSetCfg(interfaceCfg);
+
+  } else if (strcmp(GET_CHAR(mLink), "down")) {
+    interfaceCfg.flags.push_back(
+        std::string(android::String8((INetd::IF_STATE_DOWN().string()))));
+    bringStatus = gNetd->interfaceSetCfg(interfaceCfg);
+  } else {
+    NU_DBG("setInterfaceConfig: Unknown link config.");
+    return result;
+  }
+
+  result.mResult = bringStatus.isOk();
+  NU_DBG("setInterfaceConfig: %s", result.mResult ? "success" : "failed");
+  return result;
+}
+
+/**
+ * Request to start Clat464.
+ */
+CommandResult NetworkUtils::startClatd(NetworkParams& aOptions) {
+  NU_DBG("startClatd: %s %s", GET_CHAR(mIfname), GET_CHAR(mIPv6Prefix));
+  NetworkResultOptions result;
+  result.mResult = false;
+
+  if (GET_FIELD(mIfname).IsEmpty() || GET_FIELD(mIPv6Prefix).IsEmpty()) {
+    NU_DBG("startClatd argument is empty");
+    return result;
+  }
+
+  std::string v6Addr;
+  Status status =
+      gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mIPv6Prefix), &v6Addr);
+  result.mResult = status.isOk();
+  NU_DBG("startClatd result: %s %s", v6Addr.c_str(),
+         result.mResult ? "success" : "false");
+
+  return result;
+}
+
+/**
+ * Request to stop Clat464.
+ */
+CommandResult NetworkUtils::stopClatd(NetworkParams& aOptions) {
+  NU_DBG("stopClatd: %s", GET_CHAR(mIfname));
+  NetworkResultOptions result;
+  result.mResult = false;
+
+  if (GET_FIELD(mIfname).IsEmpty()) {
+    NU_DBG("stopClatd argument is empty");
+    return result;
+  }
+
+  Status status = gNetd->clatdStop(GET_CHAR(mIfname));
+  result.mResult = status.isOk();
+  NU_DBG("stopClatd result: %s", result.mResult ? "success" : "false");
+
+  return result;
+}
+
+/**
+ * Set dynamic TCP buffer size based on connection type.
+ */
+CommandResult NetworkUtils::setTcpBufferSize(NetworkParams& aOptions) {
+  NU_DBG("setTcpBufferSizes: %s", GET_CHAR(mTcpBufferSizes));
+  NetworkResultOptions result;
+  result.mResult = false;
+
+  if (GET_FIELD(mTcpBufferSizes).IsEmpty()) {
+    NU_DBG("mTcpBufferSizes is empty");
+    return result;
+  }
+
+  char buf[BUF_SIZE];
+  snprintf(buf, sizeof(buf), "%s", GET_CHAR(mTcpBufferSizes));
+  nsTArray<nsString> bufferResult;
+  split(buf, TCP_BUFFER_DELIMIT, bufferResult);
+
+  const char* prefix = "/sys/kernel/ipv4/tcp_";
+  const char* suffix[] = {"rmem_min", "rmem_def", "rmem_max",
+                          "wmem_min", "wmem_def", "wmem_max"};
+
+  uint32_t length = bufferResult.Length();
+  for (uint32_t i = 0; i < length; i++) {
+    NS_ConvertUTF16toUTF8 autoTcpBuffer(bufferResult[i]);
+    if (!mozilla::WriteSysFile(nsPrintfCString("%s%s", prefix, suffix[i]).get(),
+                               autoTcpBuffer.get())) {
+      NU_DBG("Write Buffer Size %s failed", suffix[i]);
+      return result;
+    }
+  }
+
+  result.mResult = true;
+  return result;
+}
+
+CommandResult NetworkUtils::setNetworkInterfaceAlarm(NetworkParams& aOptions) {
+  NU_DBG("setNetworkInterfaceAlarms: %s", GET_CHAR(mIfname));
+  NetworkResultOptions result;
+
+  Status status = gNetd->bandwidthSetInterfaceAlert(GET_CHAR(mIfname),
+                                                    GET_FIELD(mThreshold));
+
+  result.mResult = status.isOk() ? true : false;
+  NU_DBG("setNetworkInterfaceAlarms %s", result.mResult ? "success" : "failed");
+  return result;
+}
+
+CommandResult NetworkUtils::enableNetworkInterfaceAlarm(
+    NetworkParams& aOptions) {
+  NU_DBG("enableNetworkInterfaceAlarm: %s", GET_CHAR(mIfname));
+  NetworkResultOptions result;
+  result.mResult = false;
+  Status status;
+
+  status = gNetd->bandwidthSetInterfaceQuota(GET_CHAR(mIfname), INT64_MAX);
+  if (!status.isOk()) {
+    NU_DBG("enableNetworkInterfaceAlarm failed to set quota");
+    return result;
+  }
+
+  status = gNetd->bandwidthSetInterfaceAlert(GET_CHAR(mIfname),
+                                             GET_FIELD(mThreshold));
+  if (!status.isOk()) {
+    NU_DBG("enableNetworkInterfaceAlarm failed to set alert");
+    return result;
+  }
+
+  result.mResult = true;
+  return result;
+}
+
+CommandResult NetworkUtils::disableNetworkInterfaceAlarm(
+    NetworkParams& aOptions) {
+  NU_DBG("disableNetworkInterfaceAlarms: %s", GET_CHAR(mIfname));
+  NetworkResultOptions result;
+
+  Status status = gNetd->bandwidthRemoveInterfaceQuota(GET_CHAR(mIfname));
+
+  result.mResult = status.isOk() ? true : false;
+  NU_DBG("disableNetworkInterfaceAlarm %s",
+         result.mResult ? "success" : "failed");
+  return result;
+}
+
+/**
+ * Start/Stop DHCP server.
+ */
+CommandResult NetworkUtils::setDhcpServer(NetworkParams& aOptions) {
+  NetworkResultOptions result;
+  result.mResult = false;
+  Status status;
+
+  if (aOptions.mEnabled) {
+    android::net::InterfaceConfigurationParcel interfaceCfg;
+    struct in_addr addr;
+
+    interfaceCfg.ifName = GET_CHAR(mIfname);
+    interfaceCfg.hwAddr = "";
+
+    if (!inet_aton(GET_CHAR(mIp), &addr)) {
+      interfaceCfg.ipv4Addr = "";
+      interfaceCfg.prefixLength = 0;
+    } else if (addr.s_addr != 0) {
+      interfaceCfg.ipv4Addr = GET_CHAR(mIp);
+      interfaceCfg.prefixLength = atoi(GET_CHAR(mPrefix));
+      status = gNetd->interfaceSetCfg(interfaceCfg);
+      if (status.isOk()) {
+        NU_DBG("setDhcpServer: failed to set configuration.");
+        return result;
+      }
+    }
+
+    interfaceCfg.flags.push_back(
+        std::string(android::String8((INetd::IF_STATE_UP().string()))));
+    status = gNetd->interfaceSetCfg(interfaceCfg);
+
+    if (!status.isOk()) {
+      NU_DBG("setDhcpServer: failed to bring up interface.");
+      return result;
+    }
+
+    std::vector<std::string> dhcpRanges;
+    dhcpRanges.push_back(GET_CHAR(mWifiStartIp));
+    dhcpRanges.push_back(GET_CHAR(mWifiEndIp));
+    if (!GET_FIELD(mUsbStartIp).IsEmpty() && !GET_FIELD(mUsbEndIp).IsEmpty()) {
+      dhcpRanges.push_back(GET_CHAR(mUsbStartIp));
+      dhcpRanges.push_back(GET_CHAR(mUsbEndIp));
+    }
+    status = gNetd->tetherStart(dhcpRanges);
+
+    result.mResult = status.isOk();
+    return result;
+  }
+
+  std::vector<std::string> ifList;
+  gNetd->tetherInterfaceList(&ifList);
+  if (ifList.size() > 1) {
+    // Don't stop tethering because others interface still need it.
+    // Send the dummy to continue the function chain.
+    result.mResult = true;
+    return result;
+  }
+  status = gNetd->tetherStop();
+  result.mResult = status.isOk();
+  return result;
+}
+
+CommandResult NetworkUtils::getTetheringStatus(NetworkParams& aOptions) {
+  NU_DBG("getTetheringStatus");
+  NetworkResultOptions result;
+  result.mResult = false;
+
+  bool tetherEnabled;
+  gNetd->tetherIsEnabled(&tetherEnabled);
+  result.mResult = tetherEnabled;
+
+  return result;
+}
+
+bool NetworkUtils::waitForUsbState(bool aTryToFind, const char* aState) {
+  static uint32_t retry = 0;
+
+  char currentState[Property::VALUE_MAX_LENGTH];
+  Property::Get(SYS_USB_STATE_PROPERTY, currentState, nullptr);
+
+  nsTArray<nsCString> stateFuncs;
+  split(currentState, USB_CONFIG_DELIMIT, stateFuncs);
+  bool foundState = stateFuncs.Contains(nsCString(aState));
+
+  if (foundState == aTryToFind) {
+    retry = 0;
+    return true;
+  }
+  if (retry < USB_FUNCTION_RETRY_TIMES) {
+    retry++;
+    usleep(USB_FUNCTION_RETRY_INTERVAL * 1000);
+    return waitForUsbState(aTryToFind, aState);
+  }
+
+  retry = 0;
+  return false;
+}
+
+CommandResult NetworkUtils::enableUsbRndis(NetworkParams& aOptions) {
+  // For some reason, rndis doesn't play well with diag,modem,nmea.
+  // So when turning rndis on, we set sys.usb.config to either "rndis"
+  // or "rndis,adb". When turning rndis off, we go back to
+  // persist.sys.usb.config.
+  //
+  // On the otoro/unagi, persist.sys.usb.config should be one of:
+  //
+  //    diag,modem,nmea,mass_storage
+  //    diag,modem,nmea,mass_storage,adb
+  //
+  // When rndis is enabled, sys.usb.config should be one of:
+  //
+  //    rdnis
+  //    rndis,adb
+  //
+  // and when rndis is disabled, it should revert to persist.sys.usb.config
+
+  char currentConfig[Property::VALUE_MAX_LENGTH];
+  Property::Get(SYS_USB_CONFIG_PROPERTY, currentConfig, nullptr);
+
+  nsTArray<nsCString> configFuncs;
+  split(currentConfig, USB_CONFIG_DELIMIT, configFuncs);
+
+  char persistConfig[Property::VALUE_MAX_LENGTH];
+  Property::Get(PERSIST_SYS_USB_CONFIG_PROPERTY, persistConfig, nullptr);
+
+  nsTArray<nsCString> persistFuncs;
+  split(persistConfig, USB_CONFIG_DELIMIT, persistFuncs);
+
+  if (aOptions.mEnable) {
+    configFuncs.Clear();
+    configFuncs.AppendElement(nsCString(USB_FUNCTION_RNDIS));
+    if (persistFuncs.Contains(nsCString(USB_FUNCTION_ADB))) {
+      configFuncs.AppendElement(nsCString(USB_FUNCTION_ADB));
+    }
+  } else {
+    // We're turning rndis off, revert back to the persist setting.
+    // adb will already be correct there, so we don't need to do any
+    // further adjustments.
+    configFuncs = persistFuncs;
+  }
+
+  char newConfig[Property::VALUE_MAX_LENGTH] = "";
+  Property::Get(SYS_USB_CONFIG_PROPERTY, currentConfig, nullptr);
+  join(configFuncs, USB_CONFIG_DELIMIT, Property::VALUE_MAX_LENGTH, newConfig);
+
+  memset(&persistConfig, 0, sizeof(persistConfig));
+  join(persistFuncs, USB_CONFIG_DELIMIT, Property::VALUE_MAX_LENGTH,
+       persistConfig);
+
+  NetworkResultOptions result;
+  result.mEnable = aOptions.mEnable;
+
+  bool cleanState = false;
+  if (strcmp(currentConfig, newConfig)) {
+    // Clean the USB stack to close existing connections
+    Property::Set(SYS_USB_CONFIG_PROPERTY, USB_FUNCTION_NONE);
+    if (waitForUsbState(true, USB_FUNCTION_NONE)) {
+      cleanState = true;
+      Property::Set(SYS_USB_CONFIG_PROPERTY, newConfig);
+    } else {
+      // Clean failed, reset to default and report failed
+      Property::Set(SYS_USB_CONFIG_PROPERTY, persistConfig);
+    }
+  }
+
+  // Trigger the timer to check usb state and report the result to
+  // NetworkManager.
+  if (aOptions.mReport) {
+    usleep(USB_FUNCTION_RETRY_INTERVAL * 1000);
+    result.mResult = cleanState
+                         ? waitForUsbState(aOptions.mEnable, USB_FUNCTION_RNDIS)
+                         : false;
+    return result;
+  }
+  return SUCCESS;
+}
+
+CommandResult NetworkUtils::setUSBTethering(NetworkParams& aOptions) {
+  bool enable = aOptions.mEnable;
+  char ipv6Prefix[64] = {0};
+  IFProperties interfaceProperties;
+  getIFProperties(GET_CHAR(mExternalIfname), interfaceProperties);
+  nsCString externalIface(GET_CHAR(mExternalIfname));
+
+  if (strcmp(interfaceProperties.dns1, "")) {
+    int type = getIpType(interfaceProperties.dns1);
+    if (type != AF_INET6) {
+      aOptions.mDns1 = NS_ConvertUTF8toUTF16(interfaceProperties.dns1);
+    }
+  }
+  if (strcmp(interfaceProperties.dns2, "")) {
+    int type = getIpType(interfaceProperties.dns2);
+    if (type != AF_INET6) {
+      aOptions.mDns2 = NS_ConvertUTF8toUTF16(interfaceProperties.dns2);
+    }
+  }
+
+  NetIdManager::NetIdInfo netIdInfo;
+  aOptions.mNetId = mNetIdManager.lookup(aOptions.mExternalIfname, &netIdInfo)
+                        ? netIdInfo.mNetId
+                        : -1;
+  if (enable && aOptions.mNetId < 0) {
+    ERROR("No such interface to enable: %s", GET_CHAR(mExternalIfname));
+    return -1;
+  }
+
+  // Collect external interface Ipv6 prefix.
+  if (!aOptions.mIpv6Ip.IsEmpty() &&
+      getIpv6Prefix(GET_CHAR(mIpv6Ip), ipv6Prefix)) {
+    aOptions.mIPv6Prefix = NS_ConvertUTF8toUTF16(ipv6Prefix);
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16(ipv6Prefix));
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16("fe80::/64"));
+  }
+  aOptions.mLoopIndex = 0;
+
+  dumpParams(aOptions, "USB");
+
+  if (enable) {
+    NU_DBG("Starting USB Tethering on %s <-> %s", GET_CHAR(mInternalIfname),
+           GET_CHAR(mExternalIfname));
+    runChain(aOptions, sUSBEnableChain, usbTetheringFail);
+  } else {
+    NU_DBG("Stopping USB Tethering on %s <-> %s", GET_CHAR(mInternalIfname),
+           GET_CHAR(mExternalIfname));
+    runChain(aOptions, sUSBDisableChain, usbTetheringFail);
+  }
+  return CommandResult::Pending();
+}
+
+CommandResult NetworkUtils::setWifiTethering(NetworkParams& aOptions) {
+  bool enable = aOptions.mEnable;
+  char ipv6Prefix[64] = {0};
+  IFProperties interfaceProperties;
+  getIFProperties(GET_CHAR(mExternalIfname), interfaceProperties);
+  nsCString externalIface(GET_CHAR(mExternalIfname));
+
+  if (strcmp(interfaceProperties.dns1, "")) {
+    int type = getIpType(interfaceProperties.dns1);
+    if (type != AF_INET6) {
+      aOptions.mDns1 = NS_ConvertUTF8toUTF16(interfaceProperties.dns1);
+    }
+  }
+  if (strcmp(interfaceProperties.dns2, "")) {
+    int type = getIpType(interfaceProperties.dns2);
+    if (type != AF_INET6) {
+      aOptions.mDns2 = NS_ConvertUTF8toUTF16(interfaceProperties.dns2);
+    }
+  }
+
+  // TODO: need more conditions if we support 5GHz hotspot
+  // Random choose 1, 6, 11 if there's no specify channel.
+  if (enable &&
+      (!aOptions.mChannel || aOptions.mChannel < 1 || aOptions.mChannel > 11)) {
+    NU_DBG("No valid channel");
+    aOptions.mChannel = 1 + (rand() % 3) * 5;
+  }
+  NU_DBG("Setup %ld as current channel", GET_FIELD(mChannel));
+
+  // Collect external interface Ipv6 prefix.
+  if (!aOptions.mIpv6Ip.IsEmpty() &&
+      getIpv6Prefix(GET_CHAR(mIpv6Ip), ipv6Prefix)) {
+    aOptions.mIPv6Prefix = NS_ConvertUTF8toUTF16(ipv6Prefix);
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16(ipv6Prefix));
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16("fe80::/64"));
+  }
+  aOptions.mLoopIndex = 0;
+
+  NetIdManager::NetIdInfo netIdInfo;
+  aOptions.mNetId = mNetIdManager.lookup(aOptions.mExternalIfname, &netIdInfo)
+                        ? netIdInfo.mNetId
+                        : -1;
+  if (enable && aOptions.mNetId < 0) {
+    ERROR("No such interface to enable: %s", GET_CHAR(mExternalIfname));
+    return -1;
+  }
+
+  dumpParams(aOptions, "WIFI");
+
+  if (enable) {
+    NU_DBG("Starting Wifi Tethering on %s <-> %s", GET_CHAR(mInternalIfname),
+           GET_CHAR(mExternalIfname));
+    runChain(aOptions, sWifiEnableChain, wifiTetheringFail);
+  } else {
+    NU_DBG("Stopping Wifi Tethering on %s <-> %s", GET_CHAR(mInternalIfname),
+           GET_CHAR(mExternalIfname));
+    runChain(aOptions, sWifiDisableChain, wifiTetheringFail);
+  }
+  return CommandResult::Pending();
+}
+
+/**
+ * handling upstream interface change event.
+ */
+CommandResult NetworkUtils::updateUpStream(NetworkParams& aOptions) {
+  char ipv6Prefix[64] = {0};
+  IFProperties interfaceProperties;
+  getIFProperties(GET_CHAR(mCurExternalIfname), interfaceProperties);
+  nsCString externalIface(GET_CHAR(mExternalIfname));
+
+  if (strcmp(interfaceProperties.dns1, "")) {
+    int type = getIpType(interfaceProperties.dns1);
+    if (type != AF_INET6) {
+      aOptions.mDns1 = NS_ConvertUTF8toUTF16(interfaceProperties.dns1);
+    }
+  }
+
+  if (strcmp(interfaceProperties.dns2, "")) {
+    int type = getIpType(interfaceProperties.dns2);
+    if (type != AF_INET6) {
+      aOptions.mDns2 = NS_ConvertUTF8toUTF16(interfaceProperties.dns2);
+    }
+  }
+
+  NetIdManager::NetIdInfo netIdInfo;
+  if (!mNetIdManager.lookup(aOptions.mCurExternalIfname, &netIdInfo)) {
+    ERROR("No such interface: %s", GET_CHAR(mCurExternalIfname));
+    return -1;
+  }
+  aOptions.mNetId = netIdInfo.mNetId;
+
+  if (!externalIface.get()[0]) {
+    externalIface = GET_CHAR(mCurExternalIfname);
+  }
+
+  // Collect external interface Ipv6 prefix.
+  if (!aOptions.mIpv6Ip.IsEmpty() &&
+      getIpv6Prefix(GET_CHAR(mIpv6Ip), ipv6Prefix)) {
+    aOptions.mIPv6Prefix = NS_ConvertUTF8toUTF16(ipv6Prefix);
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16(ipv6Prefix));
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16("fe80::/64"));
+  }
+  aOptions.mLoopIndex = 0;
+
+  dumpParams(aOptions, GET_CHAR(mType));
+
+  runChain(aOptions, sUpdateUpStreamChain, updateUpStreamFail);
+  return CommandResult::Pending();
+}
+
+/**
+ * handling upstream interface change event.
+ */
+CommandResult NetworkUtils::removeUpStream(NetworkParams& aOptions) {
+  char ipv6Prefix[64] = {0};
+
+  // Collect external interface Ipv6 prefix.
+  if (!aOptions.mIpv6Ip.IsEmpty() &&
+      getIpv6Prefix(GET_CHAR(mIpv6Ip), ipv6Prefix)) {
+    aOptions.mIPv6Prefix = NS_ConvertUTF8toUTF16(ipv6Prefix);
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16(ipv6Prefix));
+    aOptions.mIPv6Routes.AppendElement(NS_ConvertUTF8toUTF16("fe80::/64"));
+  }
+  aOptions.mLoopIndex = 0;
+
+  static CommandFunc COMMAND_CHAIN[] = {
+      stopIpv6Tethering,
+      cleanUpStreamInterfaceForwarding,
+      defaultAsyncSuccessHandler,
+  };
+
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult::Pending();
+}
+
+/**
+ * callback from NetdUnsolService.
+ */
+void NetworkUtils::NotifyNetdEvent(mozilla::dom::NetworkResultOptions& aResult) {
+  postMessage(aResult);
+}
+
+void NetworkUtils::dumpParams(NetworkParams& aOptions, const char* aType) {
+  NU_DBG("Dump params:");
+  NU_DBG("     ifname: %s", GET_CHAR(mIfname));
+  NU_DBG("     networktype %ld", GET_FIELD(mNetworkType));
+  NU_DBG("     ip: %s", GET_CHAR(mIp));
+  NU_DBG("     link: %s", GET_CHAR(mLink));
+  NU_DBG("     prefix: %s", GET_CHAR(mPrefix));
+  NU_DBG("     wifiStartIp: %s", GET_CHAR(mWifiStartIp));
+  NU_DBG("     wifiEndIp: %s", GET_CHAR(mWifiEndIp));
+  NU_DBG("     usbStartIp: %s", GET_CHAR(mUsbStartIp));
+  NU_DBG("     usbEndIp: %s", GET_CHAR(mUsbEndIp));
+  NU_DBG("     dnsserver1: %s", GET_CHAR(mDns1));
+  NU_DBG("     dnsserver2: %s", GET_CHAR(mDns2));
+  NU_DBG("     internalIfname: %s", GET_CHAR(mInternalIfname));
+  NU_DBG("     externalIfname: %s", GET_CHAR(mExternalIfname));
+  NU_DBG("     netId: %d", GET_FIELD(mNetId));
+
+  if (!strcmp(aType, "WIFI")) {
+    NU_DBG("     wifictrlinterfacename: %s", GET_CHAR(mWifictrlinterfacename));
+    NU_DBG("     ssid: %s", GET_CHAR(mSsid));
+    NU_DBG("     security: %s", GET_CHAR(mSecurity));
+    NU_DBG("     key: %s", GET_CHAR(mKey));
+  }
+  NU_DBG("     preInternalIfname: %s", GET_CHAR(mPreInternalIfname));
+  NU_DBG("     preExternalIfname: %s", GET_CHAR(mPreExternalIfname));
+  NU_DBG("     curInternalIfname: %s", GET_CHAR(mCurInternalIfname));
+  NU_DBG("     curExternalIfname: %s", GET_CHAR(mCurExternalIfname));
+  NU_DBG("     ipv6Prefix: %s", GET_CHAR(mIPv6Prefix));
+}
+
+void NetworkUtils::updateDebug() {
+  ENABLE_DEBUG =
+      mozilla::Preferences::GetBool(PREF_NETWORK_DEBUG_ENABLED, false);
+  if (gNetdUnsolService) {
+    gNetdUnsolService->updateDebug(ENABLE_DEBUG);
+  }
+}
+
+#undef GET_CHAR
+#undef GET_FIELD

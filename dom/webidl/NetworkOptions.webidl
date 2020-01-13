@@ -5,6 +5,7 @@
 /**
 * This dictionary holds the parameters sent to the network worker.
 */
+[GenerateInit]
 dictionary NetworkCommandOptions
 {
   long id = 0;                        // opaque id.
@@ -56,11 +57,23 @@ dictionary NetworkCommandOptions
   long dns2_long;                     // for "ifc_configure".
 
   long mtu;                           // for "setMtu".
+
+  DOMString type;                     // for "updateUpStream".
+  boolean privacyExtensions;          // for "setIpv6PrivacyExtensions".
+  DOMString tcpBufferSizes;           // for "setTcpBufferSizes"
+  long networkType;                   // for "createNetwork", "destroyNetwork".
+  unsigned long channel;              // for "setWifiTethering".
+  sequence<DOMString> IPv6Routes;     // for "addIPv6RouteToLocalNetwork".
+  DOMString ipv6Ip;                   // for "startIpv6Tethering"
+  DOMString IPv6Prefix;               // for "startIPv6Tethering".
+  long netId;                         // for "addInterfaceToNetwork",
+                                      //     "removeInterfaceToNetwork".
 };
 
 /**
 * This dictionary holds the parameters sent back to NetworkService.js.
 */
+[GenerateConversionToJS]
 dictionary NetworkResultOptions
 {
   long id = 0;                        // opaque id.

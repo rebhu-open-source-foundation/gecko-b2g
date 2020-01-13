@@ -100,12 +100,16 @@ def Libxul(name, output_category=None):
     if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         LDFLAGS += [
             CONFIG['ANDROID_GNSS_1_0_SO'],
+            CONFIG['ANDROID_DNSRESOLVER_SO'],
+            CONFIG['ANDROID_NETD_AIDL_SO'],
+            CONFIG['ANDROID_NETD_EVENT_SO'],
             CONFIG['ANDROID_VIBRATOR_SO'],
         ]
         if CONFIG['ANDROID_VERSION'] >= '29':
             LDFLAGS += [
                 CONFIG['ANDROID_GNSS_1_1_SO'],
                 CONFIG['ANDROID_GNSS_2_0_SO'],
+
             ]
 
 # The real libxul definition is in ./build/moz.build, but we define a
