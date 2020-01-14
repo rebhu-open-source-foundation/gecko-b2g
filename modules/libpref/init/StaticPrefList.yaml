@@ -800,7 +800,7 @@
 #   (2) browser.display.document_color_use set to 2 (always)
 - name: browser.display.permit_backplate
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
   rust: true
 
@@ -1189,6 +1189,16 @@
   type: int32_t
   value: 0
   mirror: always
+
+#---------------------------------------------------------------------------
+# Prefs starting with "datareporting."
+#---------------------------------------------------------------------------
+
+- name: datareporting.healthreport.uploadEnabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 #---------------------------------------------------------------------------
 # Prefs starting with "device."
@@ -1614,9 +1624,22 @@
   value: false
   mirror: always
 
+# <img loading="lazy">
+#
+# See https://github.com/whatwg/html/pull/3752
+- name: dom.image-lazy-loading.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Enable passing the "storage" option to indexedDB.open.
 - name: dom.indexedDB.storageOption.enabled
   type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: dom.input_events.beforeinput.enabled
+  type: bool
   value: false
   mirror: always
 
@@ -5046,6 +5069,12 @@
   mirror: always
   rust: true
 
+# Are implicit tracks in computed grid templates serialized?
+- name: layout.css.serialize-grid-implicit-tracks
+  type: RelaxedAtomicBool
+  value: @IS_NOT_NIGHTLY_BUILD@
+  mirror: always
+
 # Set the number of device pixels per CSS pixel. A value <= 0 means choose
 # automatically based on user settings for the platform (e.g., "UI scale factor"
 # on Mac). A positive value is used as-is. This effectively controls the size
@@ -5257,12 +5286,6 @@
   mirror: always
 
 - name: layout.css.overflow-logical.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Is parallel CSS parsing enabled?
-- name: layout.css.parsing.parallel
   type: bool
   value: true
   mirror: always
@@ -5603,7 +5626,7 @@
 # Is layout of CSS outline-style:auto enabled?
 - name: layout.css.outline-style-auto.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Pref to control enabling scroll anchoring.

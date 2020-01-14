@@ -1454,9 +1454,6 @@ nsresult PuppetWidget::SetPrefersReducedMotionOverrideForTest(bool aValue) {
     return NS_ERROR_FAILURE;
   }
 
-  nsXPLookAndFeel::GetInstance()->SetPrefersReducedMotionOverrideForTest(
-      aValue);
-
   mBrowserChild->SendSetPrefersReducedMotionOverrideForTest(aValue);
   return NS_OK;
 }
@@ -1466,7 +1463,6 @@ nsresult PuppetWidget::ResetPrefersReducedMotionOverrideForTest() {
     return NS_ERROR_FAILURE;
   }
 
-  nsXPLookAndFeel::GetInstance()->ResetPrefersReducedMotionOverrideForTest();
   mBrowserChild->SendResetPrefersReducedMotionOverrideForTest();
   return NS_OK;
 }

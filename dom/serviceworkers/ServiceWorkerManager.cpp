@@ -1719,7 +1719,7 @@ void ServiceWorkerManager::AddScopeAndRegistration(
 
   MOZ_ASSERT(!scopeKey.IsEmpty());
 
-  RegistrationDataPerPrincipal* data =
+  const auto& data =
       swm->mRegistrationInfos.LookupForAdd(scopeKey).OrInsert(
           []() { return new RegistrationDataPerPrincipal(); });
 
