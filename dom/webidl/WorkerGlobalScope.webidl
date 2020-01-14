@@ -25,6 +25,7 @@ interface WorkerGlobalScope : EventTarget {
 
   attribute OnErrorEventHandler onerror;
 
+  attribute EventHandler onlanguagechange;
   attribute EventHandler onoffline;
   attribute EventHandler ononline;
   attribute EventHandler onrejectionhandled;
