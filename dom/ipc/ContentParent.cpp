@@ -333,6 +333,17 @@ using namespace mozilla::system;
 // For VP9Benchmark::sBenchmarkFpsPref
 #include "Benchmark.h"
 
+// MOZ_B2G_RIL
+// #include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
+// #include "mozilla/dom/icc/IccParent.h"
+// #include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
+// #include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
+// #include "mozilla/dom/mobilemessage/SmsParent.h"
+// #include "mozilla/dom/telephony/TelephonyParent.h"
+// #include "mozilla/dom/subsidylock/SubsidyLockParent.h"
+// #include "mozilla/dom/voicemail/VoicemailParent.h"
+// MOZ_B2G_RIL_END
+
 // XXX need another bug to move this to a common header.
 #ifdef DISABLE_ASSERTS_FOR_FUZZING
 #  define ASSERT_UNLESS_FUZZING(...) \
@@ -365,6 +376,14 @@ using namespace mozilla::psm;
 using namespace mozilla::widget;
 using mozilla::loader::PScriptCacheParent;
 using mozilla::Telemetry::ProcessID;
+
+//using namespace mozilla::dom::cellbroadcast;
+//using namespace mozilla::dom::icc;
+//using namespace mozilla::dom::mobileconnection;
+//using namespace mozilla::dom::mobilemessage;
+//using namespace mozilla::dom::telephony;
+//using namespace mozilla::dom::voicemail;
+//using namespace mozilla::dom::subsidylock;
 
 // XXX Workaround for bug 986973 to maintain the existing broken semantics
 template <>
@@ -4121,6 +4140,210 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
   return IPC_OK();
 }
 #endif
+
+// MOZ_B2G_RIL
+// PIccParent*
+// ContentParent::AllocPIccParent(const uint32_t& aServiceId)
+// {
+//  // if (!AssertAppProcessPermission(this, "mobileconnection")) {
+//  //   return nullptr;
+//  // }
+//   IccParent* parent = new IccParent(aServiceId);
+//   // We release this ref in DeallocPIccParent().
+//   parent->AddRef();
+
+//   return parent;
+// }
+
+// bool
+// ContentParent::DeallocPIccParent(PIccParent* aActor)
+// {
+//   // IccParent is refcounted, must not be freed manually.
+//   static_cast<IccParent*>(aActor)->Release();
+//   return true;
+// }
+
+// PSubsidyLockParent*
+// ContentParent::AllocPSubsidyLockParent(const uint32_t& aClientId)
+// {
+// #ifdef MOZ_B2G_RIL
+//   RefPtr<SubsidyLockParent> parent = new SubsidyLockParent(aClientId);
+//   // We release this ref in DeallocPSubsidyLockParent().
+//   parent->AddRef();
+
+//   return parent;
+// #else
+//   MOZ_CRASH("No support for subsidylock on this platform!");
+// #endif
+// }
+
+// bool
+// ContentParent::DeallocPSubsidyLockParent(PSubsidyLockParent* aActor)
+// {
+// #ifdef MOZ_B2G_RIL
+//   // SubsidyLockParent is refcounted, must not be freed manually.
+//   static_cast<SubsidyLockParent*>(aActor)->Release();
+//   return true;
+// #else
+//   MOZ_CRASH("No support for subsidylock on this platform!");
+// #endif
+
+// }
+
+// PMobileConnectionParent*
+// ContentParent::AllocPMobileConnectionParent(const uint32_t& aClientId)
+// {
+// #ifdef MOZ_B2G_RIL
+//   RefPtr<MobileConnectionParent> parent = new MobileConnectionParent(aClientId);
+//   // We release this ref in DeallocPMobileConnectionParent().
+//   parent->AddRef();
+
+//   return parent;
+// #else
+//   MOZ_CRASH("No support for mobileconnection on this platform!");
+// #endif
+// }
+
+// bool
+// ContentParent::DeallocPMobileConnectionParent(PMobileConnectionParent* aActor)
+// {
+// #ifdef MOZ_B2G_RIL
+//   // MobileConnectionParent is refcounted, must not be freed manually.
+//   static_cast<MobileConnectionParent*>(aActor)->Release();
+//   return true;
+// #else
+//   MOZ_CRASH("No support for mobileconnection on this platform!");
+// #endif
+// }
+
+// PImsRegServiceFinderParent*
+// ContentParent::AllocPImsRegServiceFinderParent()
+// {
+//   if (!AssertAppProcessPermission(this, "mobileconnection")) {
+//       return nullptr;
+//   }
+
+//   return new ImsRegServiceFinderParent();
+// }
+
+// bool
+// ContentParent::DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent* aActor)
+// {
+//   delete aActor;
+//   return true;
+// }
+
+// PImsRegistrationParent*
+// ContentParent::AllocPImsRegistrationParent(const uint32_t& aServiceId)
+// {
+//   if (!AssertAppProcessPermission(this, "mobileconnection")) {
+//       return nullptr;
+//   }
+
+//   RefPtr<ImsRegistrationParent> parent = new ImsRegistrationParent(aServiceId);
+//   // We release this ref in DeallocPImsRegistrationParent().
+//   parent->AddRef();
+
+//   return parent;
+// }
+
+// bool
+// ContentParent::DeallocPImsRegistrationParent(PImsRegistrationParent* aActor)
+// {
+//   // ImsRegistrationParent is refcounted, must not be freed manually.
+//   static_cast<ImsRegistrationParent*>(aActor)->Release();
+//   return true;
+// }
+
+// PCellBroadcastParent*
+// ContentParent::AllocPCellBroadcastParent()
+// {
+//   if (!AssertAppProcessPermission(this, "cellbroadcast")) {
+//     return nullptr;
+//   }
+
+//   CellBroadcastParent* actor = new CellBroadcastParent();
+//   actor->AddRef();
+//   return actor;
+// }
+
+// bool
+// ContentParent::DeallocPCellBroadcastParent(PCellBroadcastParent* aActor)
+// {
+//   static_cast<CellBroadcastParent*>(aActor)->Release();
+//   return true;
+// }
+
+// bool
+// ContentParent::RecvPCellBroadcastConstructor(PCellBroadcastParent* aActor)
+// {
+//   return static_cast<CellBroadcastParent*>(aActor)->Init();
+// }
+
+
+// PSmsParent*
+// ContentParent::AllocPSmsParent()
+// {
+//   if (!AssertAppProcessPermission(this, "sms")) {
+//     return nullptr;
+//   }
+
+//   SmsParent* parent = new SmsParent();
+//   parent->AddRef();
+//   return parent;
+// }
+
+// bool
+// ContentParent::DeallocPSmsParent(PSmsParent* aSms)
+// {
+//   static_cast<SmsParent*>(aSms)->Release();
+//   return true;
+// }
+
+// PTelephonyParent*
+// ContentParent::AllocPTelephonyParent()
+// {
+//   //if (!AssertAppProcessPermission(this, "telephony")) {
+//   //  return nullptr;
+//   //}
+
+//   TelephonyParent* actor = new TelephonyParent();
+//   NS_ADDREF(actor);
+//   return actor;
+// }
+
+// bool
+// ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor)
+// {
+//   static_cast<TelephonyParent*>(aActor)->Release();
+//   return true;
+// }
+
+// PVoicemailParent*
+// ContentParent::AllocPVoicemailParent()
+// {
+//   if (!AssertAppProcessPermission(this, "voicemail")) {
+//     return nullptr;
+//   }
+
+//   VoicemailParent* actor = new VoicemailParent();
+//   actor->AddRef();
+//   return actor;
+// }
+
+// bool
+// ContentParent::RecvPVoicemailConstructor(PVoicemailParent* aActor)
+// {
+//   return static_cast<VoicemailParent*>(aActor)->Init();
+// }
+
+// bool
+// ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor)
+// {
+//   static_cast<VoicemailParent*>(aActor)->Release();
+//   return true;
+// }
+// MOZ_B2G_RIL_END
 
 PSystemMessageServiceParent* ContentParent::AllocPSystemMessageServiceParent() {
   RefPtr<SystemMessageServiceParent> actor = new SystemMessageServiceParent();

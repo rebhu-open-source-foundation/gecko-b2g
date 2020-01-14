@@ -103,6 +103,7 @@ def Libxul(name, output_category=None):
             CONFIG['ANDROID_DNSRESOLVER_SO'],
             CONFIG['ANDROID_NETD_AIDL_SO'],
             CONFIG['ANDROID_NETD_EVENT_SO'],
+            CONFIG['ANDROID_RADIO_SO'],
             CONFIG['ANDROID_VIBRATOR_SO'],
         ]
         if CONFIG['ANDROID_VERSION'] >= '29':

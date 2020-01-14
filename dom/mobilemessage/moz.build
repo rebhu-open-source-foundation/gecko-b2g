@@ -1,0 +1,87 @@
+# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
+# vim: set filetype=python:
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+DIRS += ['interfaces']
+
+if CONFIG['MOZ_BUILD_APP'] == 'browser':
+    MOCHITEST_MANIFESTS += ['tests/mochitest/mochitest.ini']
+
+XPCSHELL_TESTS_MANIFESTS += ['tests/xpcshell/xpcshell.ini']
+
+#EXPORTS.mozilla.dom.mobilemessage += [
+#    'Constants.h',            # Required by almost all cpp files
+#    'ipc/SmsChild.h',
+#    'ipc/SmsParent.h',
+#    'Types.h',                # Required by IPDL SmsTypes.h
+#]
+#EXPORTS += [
+#  'SMSTypesTest.h'
+#]
+
+EXTRA_JS_MODULES += [
+    'gonk/mms_consts.js',
+    'gonk/MmsPduHelper.jsm',
+    'gonk/MmsService.jsm',
+    'gonk/MobileMessageDatabaseService.jsm',
+    'gonk/MobileMessageDB.jsm',
+    'gonk/SmsSegmentHelper.jsm',
+    'gonk/SmsService.jsm',
+    'gonk/wap_consts.js',
+    'gonk/WspPduHelper.jsm',
+]
+
+EXTRA_COMPONENTS += [
+    'gonk/MobileMessageDatabaseService.manifest',
+    'gonk/SmsService.manifest',
+]
+
+XPCOM_MANIFESTS += [
+    'components.conf',
+]
+
+#EXPORTS.mozilla.dom += [
+#    'DOMMobileMessageError.h',
+#    'MmsMessage.h',
+#    'MobileMessageManager.h',
+#    'MobileMessageThread.h',
+#    'SmsMessage.h',
+#]
+
+#UNIFIED_SOURCES += [
+#    'Assertions.cpp',
+#    'Constants.cpp',
+#    'DeletedMessageInfo.cpp',
+#    'DOMMobileMessageError.cpp',
+#    'ipc/SmsChild.cpp',
+#    'ipc/SmsIPCService.cpp',
+#    'ipc/SmsParent.cpp',
+#    'MmsMessage.cpp',
+#    'MmsMessageInternal.cpp',
+#    'MobileMessageCallback.cpp',
+#    'MobileMessageCursorCallback.cpp',
+#    'MobileMessageManager.cpp',
+#    'MobileMessageService.cpp',
+#    'MobileMessageThread.cpp',
+#    'MobileMessageThreadInternal.cpp',
+#    'SmsMessage.cpp',
+#    'SmsMessageInternal.cpp',
+#]
+
+# IPDL_SOURCES += [
+#     'ipc/PMobileMessageCursor.ipdl',
+#     'ipc/PSms.ipdl',
+#     'ipc/PSmsRequest.ipdl',
+#     'ipc/SmsTypes.ipdlh',
+# ]
+
+#LOCAL_INCLUDES += [
+#    '/dom/base',
+#    '/widget/android',
+#]
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+FINAL_LIBRARY = 'xul'

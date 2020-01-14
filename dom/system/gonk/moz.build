@@ -31,6 +31,7 @@ EXPORTS += [
     'SystemProperty.h',
     'SystemWorkerManager.h',
 ]
+
 UNIFIED_SOURCES += [
     'AutoMounter.cpp',
     #'AutoMounterSetting.cpp',
@@ -79,6 +80,7 @@ LOCAL_INCLUDES += [
 
 DIRS += [
     'network',
+    'radio',
 ]
 
 FINAL_LIBRARY = 'xul'

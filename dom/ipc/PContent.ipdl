@@ -77,6 +77,20 @@ include NeckoChannelParams;
 include protocol PSandboxTesting;
 #endif
 
+// MOZ_B2G_RIL
+//include protocol PCellBroadcast;
+//include protocol PIcc;
+//include protocol PImsRegServiceFinder;
+//include protocol PImsRegistration;
+//include protocol PMobileConnection;
+//include protocol PSms;
+//include protocol PSubsidyLock;
+//include protocol PTelephony;
+//#ifdef ENABLE_EMBMS
+//include protocol PLteBroadcast;
+//#endif
+// MOZ_B2G_RIL_END
+
 using refcounted class nsIDOMGeoPosition from "nsGeoPositionIPCSerialiser.h";
 using refcounted class nsIAlertNotification from "mozilla/AlertNotificationIPCSerializer.h";
 
@@ -529,6 +543,18 @@ nested(upto inside_cpow) sync protocol PContent
     manages PSHEntry;
     manages PSHistory;
     manages PBenchmarkStorage;
+
+    // MOZ_B2G_RIL
+    //manages PCellBroadcast;
+    //manages PIcc;
+    //manages PImsRegServiceFinder;
+    //manages PImsRegistration;
+    //manages PMobileConnection;
+    //manages PSms;
+    //manages PSubsidyLock;
+    //manages PTelephony;
+    //manages PVoicemail;
+    // MOZ_B2G_RIL_END
 
     // Depending on exactly how the new browser is being created, it might be
     // created from either the child or parent process!
@@ -1115,6 +1141,26 @@ parent:
     async PSessionStorageObserver();
 
     async PSHistory(BrowsingContext aContext);
+
+    // MOZ_B2G_RIL
+    //async PIcc(uint32_t serviceId);
+
+    //async PImsRegServiceFinder();
+
+    //async PImsRegistration(uint32_t aServiceId);
+
+    //async PMobileConnection(uint32_t clientId);
+
+    //async PCellBroadcast();
+
+    //async PSms();
+
+    //async PSubsidyLock(uint32_t clientId);
+
+    //async PTelephony();
+
+    //async PVoicemail();
+    // MOZ_B2G_RIL_END
 
     // Clone from entry or use shared id.
     sync PSHEntry(nullable PSHistory shistory, PSHEntryOrSharedID entryOrSharedID);

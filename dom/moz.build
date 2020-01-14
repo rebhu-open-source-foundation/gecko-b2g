@@ -117,6 +117,17 @@ if CONFIG['OS_ARCH'] == 'WINNT':
 
 DIRS += ['presentation']
 
+# MOZ_B2G_RIL
+#if CONFIG['MOZ_B2G']:
+DIRS += [
+    'telephony',
+    'mobileconnection',
+    'videocallprovider',
+    'icc',
+    'mobilemessage',
+]
+# MOZ_B2G_RIL_END
+
 TEST_DIRS += [
     'tests',
     'imptests',

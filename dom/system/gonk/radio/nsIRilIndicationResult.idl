@@ -1,0 +1,216 @@
+/* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+#include "nsIRilResult.idl"
+
+// All const define in nsIRilResult.idl
+interface nsISignalStrength;
+interface nsISetupDataCallResult;
+interface nsISuppSvcNotification;
+interface nsISimRefreshResult;
+interface nsICellIdentityGsm;
+interface nsICellIdentityWcdma;
+interface nsICellIdentityCdma;
+interface nsICellIdentityLte;
+interface nsICellIdentityTdScdma;
+interface nsIRilCellInfo;
+interface nsIHardwareConfig;
+interface nsIRadioCapability;
+interface nsILceDataInfo;
+interface nsIPcoDataInfo;
+
+
+/**
+ * XPCOM component that provides the hidl broadcast information.
+ */
+[scriptable, uuid(e99986e2-fd5d-4803-a4ed-61d3c25ef303)]
+interface nsIRilIndicationResult : nsISupports
+{
+  /**
+   * Message for RilIndication.
+   */
+
+  readonly attribute AString rilMessageType;
+
+
+  //Radiostate
+  const long RADIOSTATE_DISABLED = 1;
+  const long RADIOSTATE_UNKNOWN = -1;
+  const long RADIOSTATE_ENABLED = 0;
+
+  /**
+   * Radiostate for radioStateChanged.
+   */
+  readonly attribute long radioState;
+
+  /**
+   * Get the list of ip pdu for newSms and newSmsStatusReport.
+   *
+   * @param pdu
+   *        The list of ip addresses retrieved.
+   *
+   * @returns the length of the lists.
+   */
+  /*void getPdu([array, size_is(count)] out long pdu,
+                    [retval] out unsigned long count);*/
+
+  /**
+   * Record number for newSmsOnSim.
+   */
+  readonly attribute long recordNumber;
+
+  /**
+   * ModeType for onUssd.
+   */
+  readonly attribute long typeCode;
+
+  /**
+   * Msg for onUssd.
+   */
+  readonly attribute AString message;
+
+  /**
+   * nitzTime for nitzTimeReceived.
+   */
+  readonly attribute AString dateString;
+
+  /**
+   * receivedTime for nitzTimeReceived.
+   */
+  readonly attribute long long receiveTimeInMS;
+
+  /**
+   * The signal information of the network for currentSignalStrength.
+   */
+  readonly attribute nsISignalStrength signalStrength;
+
+  /**
+   * Get the list of datacallinfo for dataCallListChanged.
+   *
+   * @param datacall
+   *        The list of datacall info retrieved.
+   *
+   * @returns the length of the lists.
+   */
+  void getDataCallLists([optional] out unsigned long count,
+                        [array, size_is(count), retval] out nsISetupDataCallResult datacalls);
+
+  /**
+   * The svc notification information of the network for suppSvcNotify.
+   */
+  readonly attribute nsISuppSvcNotification suppSvc;
+
+  /**
+   * The cmd for stkProactiveCommand and stkEventNotify.
+   */
+  readonly attribute AString cmd;
+
+  /**
+   * The timeout for stkCallSetup.
+   */
+  readonly attribute long timeout;
+
+  /**
+   * The refreshResult for simRefresh.
+   */
+  readonly attribute nsISimRefreshResult refreshResult;
+
+  /**
+   * The isGsm for callRing.
+   */
+  readonly attribute boolean isGsm;
+
+  /**
+   * The record for callRing.
+   */
+  //readonly attribute nsICdmaSignalInfoRecord record;
+
+  /**
+   * Get the list of datacallinfo for dataCallListChanged.
+   *
+   * @param data
+   *        The list of sms data.
+   *
+   * @returns the length of the lists.
+   */
+  void getNewBroadcastSms([array, size_is(count)] out long data,
+                              [retval] out unsigned long count);
+
+  /**
+   * The state for restrictedStateChanged.
+   */
+  readonly attribute long restrictedState;
+
+  /**
+   * The start for indicateRingbackTone.
+   */
+  readonly attribute boolean playRingbackTone;
+
+  /**
+   * The rat for voiceRadioTechChanged.
+   */
+  readonly attribute long radioTech;
+
+  /**
+   * Get the list of cellinfo for cellInfoList.
+   *
+   * @param records
+   *        The list of cell info.
+   *
+   * @returns the length of the lists.
+   */
+  void getCellInfo([array, size_is(count)] out nsIRilCellInfo records,
+                              [retval] out unsigned long count);
+
+  /**
+   * The activate for subscriptionStatusChanged.
+   */
+  readonly attribute boolean activate;
+
+  /**
+   * The state for srvccStateNotify.
+   */
+  readonly attribute long srvccState;
+
+  /**
+   * Get the config value for hardwareConfigChanged.
+   *
+   * @param configs
+   *        The list of hardware.
+   *
+   * @returns the length of the lists.
+   */
+  void getHardwardConfig([array, size_is(count)] out nsIHardwareConfig configs,
+                              [retval] out unsigned long count);
+
+  /**
+   * The rc for radioCapability.
+   */
+  readonly attribute nsIRadioCapability rc;
+
+  /**
+   * The alpha for stkCallControlAlphaNotify.
+   */
+  readonly attribute AString alpha;
+
+  /**
+   * The lce for lceData.
+   */
+  readonly attribute nsILceDataInfo lce;
+
+  /**
+   * The pco for pcoData.
+   */
+  readonly attribute nsIPcoDataInfo pco;
+
+  /**
+   * The reason for modemReset.
+   */
+  readonly attribute AString reason;
+};

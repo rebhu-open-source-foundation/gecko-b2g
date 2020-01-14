@@ -360,6 +360,7 @@ extern const mozilla::Module kGaiaChromeModule;
 #endif
 #if defined(MOZ_WIDGET_GONK)
 extern const mozilla::Module kNetworkWorkerModule;
+extern const mozilla::Module kRilWorkerServiceModule;
 #endif
 
 static nsTArray<const mozilla::Module*>* sExtraStaticModules;
@@ -451,6 +452,7 @@ nsresult nsComponentManagerImpl::Init() {
 #endif
 #if defined(MOZ_WIDGET_GONK)
   RegisterModule(&kNetworkWorkerModule);
+  RegisterModule(&kRilWorkerServiceModule);
 #endif
 
   for (uint32_t i = 0; i < sExtraStaticModules->Length(); ++i) {

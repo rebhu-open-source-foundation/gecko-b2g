@@ -972,6 +972,49 @@ class ContentParent final
   bool DeallocPWebBrowserPersistDocumentParent(
       PWebBrowserPersistDocumentParent* aActor);
 
+  //MOZ_B2G_RIL
+//   PIccParent* AllocPIccParent(const uint32_t& aServiceId);
+
+//   bool DeallocPIccParent(PIccParent* aActor);
+
+//   virtual PSubsidyLockParent* AllocPSubsidyLockParent(const uint32_t& aClientId);
+
+//   virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
+
+//   PMobileConnectionParent* AllocPMobileConnectionParent(const uint32_t& aClientId);
+
+//   bool DeallocPMobileConnectionParent(PMobileConnectionParent* aActor);
+
+//   PImsRegServiceFinderParent* AllocPImsRegServiceFinderParent();
+
+//   bool DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent* aActor);
+
+//   PImsRegistrationParent* AllocPImsRegistrationParent(const uint32_t& aClientId);
+
+//   bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
+
+//   virtual PCellBroadcastParent* AllocPCellBroadcastParent();
+
+//   virtual bool DeallocPCellBroadcastParent(PCellBroadcastParent*);
+
+//   virtual bool RecvPCellBroadcastConstructor(PCellBroadcastParent* aActor);
+
+//   virtual PSmsParent* AllocPSmsParent();
+
+//   virtual bool DeallocPSmsParent(PSmsParent*);
+
+//   virtual PTelephonyParent* AllocPTelephonyParent();
+
+//   virtual bool DeallocPTelephonyParent(PTelephonyParent*);
+
+//   virtual PVoicemailParent* AllocPVoicemailParent();
+
+//   virtual bool RecvPVoicemailConstructor(PVoicemailParent* aActor);
+
+//   virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
+
+// MOZ_B2G_RIL_END
+
   mozilla::ipc::IPCResult RecvGetGfxVars(nsTArray<GfxVarUpdate>* aVars);
 
   mozilla::ipc::IPCResult RecvReadFontList(nsTArray<FontListEntry>* retValue);

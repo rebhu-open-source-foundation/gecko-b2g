@@ -1,0 +1,2 @@
+#TelephonyService.jsm
+category profile-after-change TelephonyService @mozilla.org/telephony/gonktelephonyservice;1 process=main

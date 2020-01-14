@@ -1405,6 +1405,12 @@
   value: true
   mirror: always
 
+# B2G_RIL
+- name: dom.datacall.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Any how many seconds we allow external protocol URLs in iframe when not in
 # single events
 - name: dom.delay.block_external_protocol_in_iframes
@@ -1727,6 +1733,12 @@
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: always
 
+# B2G_RIL
+- name: dom.icc.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Enable Directory API. By default, disabled.
 - name: dom.input.dirpicker
   type: bool
@@ -1886,6 +1898,19 @@
   type: bool
   value: false
   mirror: always
+
+
+# B2G specific MobileConnection API.
+#if defined(MOZ_WIDGET_GONK)
+#define PREF_VALUE true
+#else
+#define PREF_VALUE false
+#endif
+- name: dom.mobileconnection.enabled
+  type: bool
+  value: true
+  mirror: always
+#undef PREF_VALUE
 
 # Is support for module scripts (<script type="module">) enabled for content?
 - name: dom.moduleScripts.enabled
@@ -2369,6 +2394,19 @@
   type: bool
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
+
+#---------------------------------------------------------------------------
+# MOZ_B2G_RIL
+#---------------------------------------------------------------------------
+- name: dom.telephony.enabled
+  type: bool
+  value: true
+  mirror: always
+
+#- name: telephony.vt.loopback.enabled
+#  type: bool
+#  value: false
+#  mirror: always
 
 # Is support for Selection.GetRangesForInterval enabled?
 - name: dom.testing.selection.GetRangesForInterval

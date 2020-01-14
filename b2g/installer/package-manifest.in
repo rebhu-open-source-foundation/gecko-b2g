@@ -544,8 +544,6 @@
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
 @RESPATH@/components/CellBroadcastService.js
 @RESPATH@/components/CellBroadcastService.manifest
-@RESPATH@/components/DataCallManager.js
-@RESPATH@/components/DataCallManager.manifest
 @RESPATH@/components/GonkCellBroadcastConfigService.js
 @RESPATH@/components/GonkCellBroadcastConfigService.manifest
 @RESPATH@/components/IccService.js
@@ -556,12 +554,8 @@
 @RESPATH@/components/MobileMessageDatabaseService.manifest
 #ifndef DISABLE_MOZ_RIL_GEOLOC
 #ifndef DISABLE_MOZ_RIL
-@RESPATH@/components/DataCallInterfaceService.js
-@RESPATH@/components/DataCallInterfaceService.manifest
 @RESPATH@/components/MobileConnectionService.js
 @RESPATH@/components/MobileConnectionService.manifest
-@RESPATH@/components/RadioInterfaceLayer.js
-@RESPATH@/components/RadioInterfaceLayer.manifest
 @RESPATH@/components/SmsService.js
 @RESPATH@/components/SmsService.manifest
 @RESPATH@/components/SubsidyLockService.js
@@ -693,6 +687,9 @@
 @RESPATH@/components/GeoCodingComponents.manifest
 @RESPATH@/components/TelemetryStartup.js
 @RESPATH@/components/TelemetryStartup.manifest
+
+@RESPATH@/components/DataCallManager.manifest
+@RESPATH@/components/RadioInterfaceLayer.manifest
 @RESPATH@/components/XULStore.js
 @RESPATH@/components/XULStore.manifest
 @RESPATH@/components/Webapps.js

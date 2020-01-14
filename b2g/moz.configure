@@ -189,6 +189,18 @@ def dnsresolver_so(value):
 
 set_config('ANDROID_DNSRESOLVER_SO', dnsresolver_so)
 
+# Radio Support
+# ==============================================================
+option('--with-radio-so', nargs=1,
+       help='Assign the path of android.hardware.radio@XX.so')
+
+@depends_if('--with-radio-so')
+def radio_so(value):
+    return value[0]
+
+set_config('ANDROID_RADIO_SO', radio_so)
+ 
+
 # Vibrator Support
 # ==============================================================
 option('--with-vibrator-so', nargs=1,

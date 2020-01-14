@@ -1,0 +1,1019 @@
+/* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+
+/**
+ * XPCOM component for GSM signal Strength information.
+ */
+[scriptable, uuid(1e7d95ee-1f17-4240-9ea5-5e28253d9627)]
+interface nsIGsmSignalStrength: nsISupports
+{
+  readonly attribute long signalStrength;              // Valid values are (0-61, 99) as defined in
+                                                       // TS 27.007 8.69
+  readonly attribute long bitErrorRate;                // bit error rate (0-7, 99) as defined in TS 27.007 8.5
+  readonly attribute long timingAdvance;               // Timing Advance in bit periods. 1 bit period = 48/13 us.
+                                                       // INT_MAX denotes invalid value
+};
+
+/**
+ * XPCOM component for WCDMA signal Strength information.
+ */
+[scriptable, uuid(577c53e3-9383-4c16-8406-533ae2241033)]
+interface nsIWcdmaSignalStrength: nsISupports
+{
+  readonly attribute long signalStrength; // Valid values are (0-96, 99) as defined in
+                                          // TS 27.007 8.69
+  readonly attribute long bitErrorRate;   // bit error rate (0-49, 99) as defined in TS 27.007 8.69
+};
+
+/**
+ * XPCOM component for CDMA signal Strength information.
+ */
+[scriptable, uuid(dee5d4af-f170-4ba8-96e3-d4d9054cdb56)]
+interface nsICdmaSignalStrength: nsISupports
+{
+  readonly attribute long dbm;          // This value is the actual RSSI
+                                        // value multiplied by -1. Example: If the
+                                        // actual RSSI is -75, then this response value will
+                                        // be 75.
+  readonly attribute long ecio;         // This value is the actual
+                                        // Ec/Io multiplied by -10. Example: If the
+                                        // actual Ec/Io is -12.5 dB, then this response value
+                                        // will be 125.
+};
+
+/**
+ * XPCOM component for EVDO signal Strength information.
+ */
+[scriptable, uuid(69cea5f5-3131-4ed0-a1e7-7e616ff47516)]
+interface nsIEvdoSignalStrength: nsISupports
+{
+    readonly attribute long dbm;              // This value is the actual
+                                              // RSSI value multiplied by -1.
+                                              // Example: If the actual RSSI is -75,
+                                              // then this response value will be 75.
+    readonly attribute long ecio;             // This value is the actual
+                                              // Ec/Io multiplied by -10. Example: If the
+                                              // actual Ec/Io is -12.5 dB, then this response value
+                                              // will be 125.
+    readonly attribute long signalNoiseRatio; // Valid values are 0-8. 8 is the highest signal to
+                                              // noise ratio.
+};
+
+/**
+ * XPCOM component for LTE signal Strength information.
+ */
+[scriptable, uuid(4bca3f60-be1b-41c9-8f18-d9e7ba3e8751)]
+interface nsILteSignalStrength: nsISupports
+{
+    readonly attribute long signalStrength; // Valid values are (0-31, 99) as defined in
+                                            // TS 27.007 8.5
+    readonly attribute long rsrp;           // The current Reference Signal Receive Power in dBm
+                                            // multipled by -1.
+                                            // Range: 44 to 140 dBm
+                                            // INT_MAX: 0x7FFFFFFF denotes invalid value.
+                                            // Reference: 3GPP TS 36.133 9.1.4
+    readonly attribute long rsrq;           // The current Reference Signal Receive Quality in dB
+                                            // multiplied by -1.
+                                            // Range: 20 to 3 dB.
+                                            // INT_MAX: 0x7FFFFFFF denotes invalid value.
+                                            // Reference: 3GPP TS 36.133 9.1.7
+    readonly attribute long rssnr;          // The current reference signal signal-to-noise ratio in
+                                            // 0.1 dB units.
+                                            // Range: -200 to +300 (-200 = -20.0 dB, +300 = 30dB).
+                                            // INT_MAX : 0x7FFFFFFF denotes invalid value.
+                                            // Reference: 3GPP TS 36.101 8.1.1
+    readonly attribute long cqi;            // The current Channel Quality Indicator.
+                                            // Range: 0 to 15.
+                                            // INT_MAX : 0x7FFFFFFF denotes invalid value.
+                                            // Reference: 3GPP TS 36.101 9.2, 9.3, A.4
+    readonly attribute long timingAdvance;  // timing advance in micro seconds for a one way trip
+                                            // from cell to device.
+                                            // Approximate distance is calculated using
+                                            // 300m/us * timingAdvance.
+                                            // Range: 0 to 0x7FFFFFFE
+                                            // INT_MAX : 0x7FFFFFFF denotes invalid value.
+                                            // Reference: 3GPP 36.321 section 6.1.3.5
+                                            // also: http://www.cellular-planningoptimization.com/2010/02/timing-advance-with-calculation.html
+};
+
+/**
+ * XPCOM component for TD signal Strength information.
+ */
+[scriptable, uuid(73f8bf6a-b56a-417c-8435-11999e053e09)]
+interface nsITdScdmaSignalStrength: nsISupports
+{
+      readonly attribute long rscp;    // The Received Signal Code Power in dBm multiplied by -1.
+                                       // Range : 25 to 120
+                                       // INT_MAX: 0x7FFFFFFF denotes invalid value.
+                                       // Reference: 3GPP TS 25.123, section 9.1.1.1
+};
+
+/**
+ * XPCOM component for signal Strength information.
+ */
+[scriptable, uuid(f8b9288a-49ca-4c18-98f9-1966df63f7dd)]
+interface nsISignalStrength: nsISupports
+{
+  readonly attribute nsIGsmSignalStrength gsmSignalStrength;
+  //readonly attribute nsIWcdmaSignalStrength wcdmaSignalStrength;
+  readonly attribute nsICdmaSignalStrength cdmaSignalStrength;
+  readonly attribute nsIEvdoSignalStrength evdoSignalStrength;
+  readonly attribute nsILteSignalStrength lteSignalStrength;
+  readonly attribute nsITdScdmaSignalStrength tdscdmaSignalStrength;
+};
+
+/**
+ * XPCOM component for radio technology state information.
+ */
+[scriptable, uuid(b443714e-bb99-4a0a-a1be-572ac3187cec)]
+interface nsIRadioTechnologyState: nsISupports
+{
+  // RADIO_CREG_TECH_*
+  const long RADIO_CREG_TECH_UNKNOWN = 0;
+  const long RADIO_CREG_TECH_GPRS = 1;
+  const long RADIO_CREG_TECH_EDGE = 2;
+  const long RADIO_CREG_TECH_UMTS = 3;
+  const long RADIO_CREG_TECH_IS95A = 4;
+  const long RADIO_CREG_TECH_IS95B = 5;
+  const long RADIO_CREG_TECH_1XRTT = 6;
+  const long RADIO_CREG_TECH_EVDO0 = 7;
+  const long RADIO_CREG_TECH_EVDOA = 8;
+  const long RADIO_CREG_TECH_HSDPA = 9;
+  const long RADIO_CREG_TECH_HSUPA = 10;
+  const long RADIO_CREG_TECH_HSPA = 11;
+  const long RADIO_CREG_TECH_EVDOB = 12;
+  const long RADIO_CREG_TECH_EHRPD = 13;
+  const long RADIO_CREG_TECH_LTE = 14;
+  const long RADIO_CREG_TECH_HSPAP = 15;
+  const long RADIO_CREG_TECH_GSM = 16;
+  const long RADIO_CREG_TECH_TD_SCDMA = 17;
+  const long RADIO_CREG_TECH_IWLAN = 18;
+  const long RADIO_CREG_TECH_LTE_CA = 19;
+};
+
+/**
+ * XPCOM component for last call fail cause information.
+ */
+[scriptable, uuid(640ae340-7127-4f57-a4df-38666fb9702b)]
+interface nsILastCallFailCause: nsISupports
+{
+  const long CALL_FAIL_UNOBTAINABLE_NUMBER = 1;
+  const long CALL_FAIL_NO_ROUTE_TO_DESTINATION = 3;
+  const long CALL_FAIL_CHANNEL_UNACCEPTABLE = 6;
+  const long CALL_FAIL_OPERATOR_DETERMINED_BARRING = 8;
+  const long CALL_FAIL_NORMAL = 16;
+  const long CALL_FAIL_BUSY = 17;
+  const long CALL_FAIL_NO_USER_RESPONDING = 18;
+  const long CALL_FAIL_NO_ANSWER_FROM_USER = 19;
+  const long CALL_FAIL_CALL_REJECTED = 21;
+  const long CALL_FAIL_NUMBER_CHANGED = 22;
+  const long CALL_FAIL_PREEMPTION = 25;
+  const long CALL_FAIL_DESTINATION_OUT_OF_ORDER = 27;
+  const long CALL_FAIL_INVALID_NUMBER_FORMAT = 28;
+  const long CALL_FAIL_FACILITY_REJECTED = 29;
+  const long CALL_FAIL_RESP_TO_STATUS_ENQUIRY = 30;
+  const long CALL_FAIL_NORMAL_UNSPECIFIED = 31;
+  const long CALL_FAIL_CONGESTION = 34;
+  const long CALL_FAIL_NETWORK_OUT_OF_ORDER = 38;
+  const long CALL_FAIL_TEMPORARY_FAILURE = 41;
+  const long CALL_FAIL_SWITCHING_EQUIPMENT_CONGESTION = 42;
+  const long CALL_FAIL_ACCESS_INFORMATION_DISCARDED = 43;
+  const long CALL_FAIL_REQUESTED_CIRCUIT_OR_CHANNEL_NOT_AVAILABLE = 44;
+  const long CALL_FAIL_RESOURCES_UNAVAILABLE_OR_UNSPECIFIED = 47;
+  const long CALL_FAIL_QOS_UNAVAILABLE = 49;
+  const long CALL_FAIL_REQUESTED_FACILITY_NOT_SUBSCRIBED = 50;
+  const long CALL_FAIL_INCOMING_CALLS_BARRED_WITHIN_CUG = 55;
+  const long CALL_FAIL_BEARER_CAPABILITY_NOT_AUTHORIZED = 57;
+  const long CALL_FAIL_BEARER_CAPABILITY_UNAVAILABLE = 58;
+  const long CALL_FAIL_SERVICE_OPTION_NOT_AVAILABLE = 63;
+  const long CALL_FAIL_BEARER_SERVICE_NOT_IMPLEMENTED = 65;
+  const long CALL_FAIL_ACM_LIMIT_EXCEEDED = 68;
+  const long CALL_FAIL_REQUESTED_FACILITY_NOT_IMPLEMENTED = 69;
+  const long CALL_FAIL_ONLY_DIGITAL_INFORMATION_BEARER_AVAILABLE = 70;
+  const long CALL_FAIL_SERVICE_OR_OPTION_NOT_IMPLEMENTED = 79;
+  const long CALL_FAIL_INVALID_TRANSACTION_IDENTIFIER = 81;
+  const long CALL_FAIL_USER_NOT_MEMBER_OF_CUG = 87;
+  const long CALL_FAIL_INCOMPATIBLE_DESTINATION = 88;
+  const long CALL_FAIL_INVALID_TRANSIT_NW_SELECTION = 91;
+  const long CALL_FAIL_SEMANTICALLY_INCORRECT_MESSAGE = 95;
+  const long CALL_FAIL_INVALID_MANDATORY_INFORMATION = 96;
+  const long CALL_FAIL_MESSAGE_TYPE_NON_IMPLEMENTED = 97;
+  const long CALL_FAIL_MESSAGE_TYPE_NOT_COMPATIBLE_WITH_PROTOCOL_STATE = 98;
+  const long CALL_FAIL_INFORMATION_ELEMENT_NON_EXISTENT = 99;
+  const long CALL_FAIL_CONDITIONAL_IE_ERROR = 100;
+  const long CALL_FAIL_MESSAGE_NOT_COMPATIBLE_WITH_PROTOCOL_STATE = 101;
+  const long CALL_FAIL_RECOVERY_ON_TIMER_EXPIRED = 102;
+  const long CALL_FAIL_PROTOCOL_ERROR_UNSPECIFIED = 111;
+  const long CALL_FAIL_INTERWORKING_UNSPECIFIED = 127;
+  const long CALL_FAIL_CALL_BARRED = 240;
+  const long CALL_FAIL_FDN_BLOCKED = 241;
+  const long CALL_FAIL_IMSI_UNKNOWN_IN_VLR = 242;
+  const long CALL_FAIL_IMEI_NOT_ACCEPTED = 243;
+  const long CALL_FAIL_DIAL_MODIFIED_TO_USSD = 244;          // STK Call Control
+  const long CALL_FAIL_DIAL_MODIFIED_TO_SS = 245;
+  const long CALL_FAIL_DIAL_MODIFIED_TO_DIAL = 246;
+  const long CALL_FAIL_RADIO_OFF = 247;                      // Radio is OFF
+  const long CALL_FAIL_OUT_OF_SERVICE = 248;                 // No cellular coverage
+  const long CALL_FAIL_NO_VALID_SIM = 249;                   // No valid SIM is present
+  const long CALL_FAIL_RADIO_INTERNAL_ERROR = 250;           // Internal error at Modem
+  const long CALL_FAIL_NETWORK_RESP_TIMEOUT = 251;           // No response from network
+  const long CALL_FAIL_NETWORK_REJECT = 252;                 // Explicit network reject
+  const long CALL_FAIL_RADIO_ACCESS_FAILURE = 253;           // RRC connection failure. Eg.RACH
+  const long CALL_FAIL_RADIO_LINK_FAILURE = 254;             // Radio Link Failure
+  const long CALL_FAIL_RADIO_LINK_LOST = 255;                // Radio link lost due to poor coverage
+  const long CALL_FAIL_RADIO_UPLINK_FAILURE = 256;           // Radio uplink failure
+  const long CALL_FAIL_RADIO_SETUP_FAILURE = 257;            // RRC connection setup failure
+  const long CALL_FAIL_RADIO_RELEASE_NORMAL = 258;           // RRC connection release, normal
+  const long CALL_FAIL_RADIO_RELEASE_ABNORMAL = 259;         // RRC connection release, abnormal
+  const long CALL_FAIL_ACCESS_CLASS_BLOCKED = 260;           // Access class barring
+  const long CALL_FAIL_NETWORK_DETACH = 261;                 // Explicit network detach
+  const long CALL_FAIL_CDMA_LOCKED_UNTIL_POWER_CYCLE = 1000;
+  const long CALL_FAIL_CDMA_DROP = 1001;
+  const long CALL_FAIL_CDMA_INTERCEPT = 1002;
+  const long CALL_FAIL_CDMA_REORDER = 1003;
+  const long CALL_FAIL_CDMA_SO_REJECT = 1004;
+  const long CALL_FAIL_CDMA_RETRY_ORDER = 1005;
+  const long CALL_FAIL_CDMA_ACCESS_FAILURE = 1006;
+  const long CALL_FAIL_CDMA_PREEMPTED = 1007;
+  const long CALL_FAIL_CDMA_NOT_EMERGENCY = 1008;            // For non-emergency number dialed during emergency
+                                                             // callback mode
+  const long CALL_FAIL_CDMA_ACCESS_BLOCKED = 1009;
+
+  const long CALL_FAIL_ERROR_UNSPECIFIED = 0xffff;           // This error will be deprecated soon,
+                                                             // vendor code must make sure to map error
+                                                             // code to specific error
+
+};
+
+/**
+ * XPCOM component for data call fail cause information.
+ */
+[scriptable, uuid(888338b4-eac8-43a7-b76a-e4ffa58b51d5)]
+interface nsIDataCallFailCause: nsISupports
+{
+  const long DATACALL_FAIL_NONE = 0;                             // an integer cause code defined in TS 24.008
+                                                                 // section 6.1.3.1.3 or TS 24.301 Release 8+ Annex B.
+                                                                 // If the implementation does not have access to the exact
+                                                                 // cause codes, then it must return one of the
+                                                                 // following values, as the UI layer needs to distinguish
+                                                                 // these cases for error notification and potential
+                                                                 // retries.
+  const long DATACALL_FAIL_OPERATOR_BARRED = 0x08;               // no retry
+  const long DATACALL_FAIL_NAS_SIGNALLING = 0x0E;                // PDP_FAIL_LLC_SNDCP = 0x19,
+  const long DATACALL_FAIL_INSUFFICIENT_RESOURCES = 0x1A;
+  const long DATACALL_FAIL_MISSING_UKNOWN_APN = 0x1B;            // no retry
+  const long DATACALL_FAIL_UNKNOWN_PDP_ADDRESS_TYPE = 0x1C;      // no retry
+  const long DATACALL_FAIL_USER_AUTHENTICATION = 0x1D;           // no retry
+  const long DATACALL_FAIL_ACTIVATION_REJECT_GGSN = 0x1E;        // no retry
+  const long DATACALL_FAIL_ACTIVATION_REJECT_UNSPECIFIED = 0x1F;
+  const long DATACALL_FAIL_SERVICE_OPTION_NOT_SUPPORTED = 0x20;  // no retry
+  const long DATACALL_FAIL_SERVICE_OPTION_NOT_SUBSCRIBED = 0x21; // no retry
+  const long DATACALL_FAIL_SERVICE_OPTION_OUT_OF_ORDER = 0x22;
+  const long DATACALL_FAIL_NSAPI_IN_USE = 0x23;                  // no retry
+  const long DATACALL_FAIL_REGULAR_DEACTIVATION = 0x24;          // possibly restart radio,
+                                                   // based on framework config
+  const long DATACALL_FAIL_QOS_NOT_ACCEPTED = 0x25;
+  const long DATACALL_FAIL_NETWORK_FAILURE = 0x26;
+  const long DATACALL_FAIL_UMTS_REACTIVATION_REQ = 0x27;
+  const long DATACALL_FAIL_FEATURE_NOT_SUPP = 0x28;
+  const long DATACALL_FAIL_TFT_SEMANTIC_ERROR = 0x29;
+  const long DATACALL_FAIL_TFT_SYTAX_ERROR = 0x2A;
+  const long DATACALL_FAIL_UNKNOWN_PDP_CONTEXT = 0x2B;
+  const long DATACALL_FAIL_FILTER_SEMANTIC_ERROR = 0x2C;
+  const long DATACALL_FAIL_FILTER_SYTAX_ERROR = 0x2D;
+  const long DATACALL_FAIL_PDP_WITHOUT_ACTIVE_TFT = 0x2E;
+  const long DATACALL_FAIL_ONLY_IPV4_ALLOWED = 0x32;             // no retry
+  const long DATACALL_FAIL_ONLY_IPV6_ALLOWED = 0x33;             // no retry
+  const long DATACALL_FAIL_ONLY_SINGLE_BEARER_ALLOWED = 0x34;
+  const long DATACALL_FAIL_ESM_INFO_NOT_RECEIVED = 0x35;
+  const long DATACALL_FAIL_PDN_CONN_DOES_NOT_EXIST = 0x36;
+  const long DATACALL_FAIL_MULTI_CONN_TO_SAME_PDN_NOT_ALLOWED = 0x37;
+  const long DATACALL_FAIL_MAX_ACTIVE_PDP_CONTEXT_REACHED = 0x41;
+  const long DATACALL_FAIL_UNSUPPORTED_APN_IN_CURRENT_PLMN = 0x42;
+  const long DATACALL_FAIL_INVALID_TRANSACTION_ID = 0x51;
+  const long DATACALL_FAIL_MESSAGE_INCORRECT_SEMANTIC = 0x5F;
+  const long DATACALL_FAIL_INVALID_MANDATORY_INFO = 0x60;
+  const long DATACALL_FAIL_MESSAGE_TYPE_UNSUPPORTED = 0x61;
+  const long DATACALL_FAIL_MSG_TYPE_NONCOMPATIBLE_STATE = 0x62;
+  const long DATACALL_FAIL_UNKNOWN_INFO_ELEMENT = 0x63;
+  const long DATACALL_FAIL_CONDITIONAL_IE_ERROR = 0x64;
+  const long DATACALL_FAIL_MSG_AND_PROTOCOL_STATE_UNCOMPATIBLE = 0x65;
+  const long DATACALL_FAIL_PROTOCOL_ERRORS = 0x6F;               // no retry
+  const long DATACALL_FAIL_APN_TYPE_CONFLICT = 0x70;
+  const long DATACALL_FAIL_INVALID_PCSCF_ADDR = 0x71;
+  const long DATACALL_FAIL_INTERNAL_CALL_PREEMPT_BY_HIGH_PRIO_APN = 0x72;
+  const long DATACALL_FAIL_EMM_ACCESS_BARRED = 0x73;
+  const long DATACALL_FAIL_EMERGENCY_IFACE_ONLY = 0x74;
+  const long DATACALL_FAIL_IFACE_MISMATCH = 0x75;
+  const long DATACALL_FAIL_COMPANION_IFACE_IN_USE = 0x76;
+  const long DATACALL_FAIL_IP_ADDRESS_MISMATCH = 0x77;
+  const long DATACALL_FAIL_IFACE_AND_POL_FAMILY_MISMATCH = 0x78;
+  const long DATACALL_FAIL_EMM_ACCESS_BARRED_INFINITE_RETRY = 0x79;
+  const long DATACALL_FAIL_AUTH_FAILURE_ON_EMERGENCY_CALL = 0x7A;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_1 = 0x1001;
+
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_2 = 0x1002;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_3 = 0x1003;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_4 = 0x1004;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_5 = 0x1005;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_6 = 0x1006;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_7 = 0x1007;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_8 = 0x1008;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_9 = 0x1009;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_10 = 0x100A;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_11 = 0x100B;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_12 = 0x100C;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_13 = 0x100D;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_14 = 0x100E;
+  const long DATACALL_FAIL_OEM_DCFAILCAUSE_15 = 0x100F;
+
+  // Not mentioned in the specification
+  const long DATACALL_FAIL_VOICE_REGISTRATION_FAIL = -1;
+  const long DATACALL_FAIL_DATA_REGISTRATION_FAIL = -2;
+
+  // reasons for data call drop - network/modem disconnect
+  const long DATACALL_FAIL_SIGNAL_LOST = -3;
+  const long DATACALL_FAIL_PREF_RADIO_TECH_CHANGED = -4;  // preferred technology has changed, must retry
+                                                          // with parameters appropriate for new technology
+  const long DATACALL_FAIL_RADIO_POWER_OFF = -5;          // data call was disconnected because radio was resetting,
+                                                          // powered off - no retry
+  const long DATACALL_FAIL_TETHERED_CALL_ACTIVE = -6;     // data call was disconnected by modem because tethered
+                                                          // mode was up on same APN/data profile - no retry until
+                                                          // tethered call is off
+  const long DATACALL_FAIL_ERROR_UNSPECIFIED = 0xffff;
+};
+
+/**
+ * XPCOM component for data call result information.
+ */
+[scriptable, uuid(f2251ffb-f7b0-4c06-acd2-fe1277a7c70a)]
+interface nsISetupDataCallResult: nsISupports
+{
+                                                                 // Data call fail cause. DataCallFailCause.NONE if no
+                                                                 // error.
+  readonly attribute long failCause;                             // Data call fail cause. DataCallFailCause.NONE if no
+                                                              // error.
+  readonly attribute long suggestedRetryTime;                 // If status != DataCallFailCause.NONE, this field
+                                                              // indicates the suggested retry back-off timer value RIL
+                                                              // wants to override the one pre-configured in FW.
+                                                              // The unit is milliseconds.
+                                                              // The value < 0 means no value is suggested.
+                                                              // The value 0 means retry must be done ASAP.
+                                                              // The value of INT_MAX(0x7fffffff) means no retry.
+  readonly attribute long  cid;                               // Context ID, uniquely identifies this call
+  readonly attribute long  active;                            // 0=inactive, 1=active/physical link down,
+                                                              // 2=active/physical link up */
+  readonly attribute AString pdpType;                            // One of the PDP_type values in TS 27.007 section 10.1.1.
+                                                              // For example, "IP", "IPV6", "IPV4V6", or "PPP". If
+                                                              // status is
+                                                              // DataCallFailCause.ONLY_SINGLE_BEARER_ALLOWED, this
+                                                              // is the type supported such as "IP" or "IPV6".
+  readonly attribute AString ifname;                          // The network interface name
+
+  readonly attribute AString addresses;                       // A space-delimited list of addresses with optional "/"
+                                                              // prefix length, e.g., "192.0.1.3" or
+                                                              // "192.0.1.11/16 2001:db8::1/64".
+                                                              // Typically 1 IPv4 or 1 IPv6 or
+                                                              // one of each. If the prefix length is absent the
+                                                              // addresses are assumed to be point to point with IPv4
+                                                              // having a prefix length of 32 and IPv6 128.
+  readonly attribute AString dnses;                           // A space-delimited list of DNS server addresses,
+                                                              // e.g., "192.0.1.3" or "192.0.1.11 2001:db8::1".
+                                                              // Empty if no dns server addresses returned.
+  readonly attribute AString gateways;                        // A space-delimited list of default gateway addresses,
+                                                              // e.g., "192.0.1.3" or "192.0.1.11 2001:db8::1".
+                                                              // When empty, the addresses represent
+                                                              // point to point connections.
+  readonly attribute AString pcscf;                           // the Proxy Call State Control Function address
+                                                              // via PCO(Protocol Configuration Option) for IMS client.
+  readonly attribute long mtu;                                // MTU received from network
+                                                              // Value <= 0 means network has either not sent a
+                                                              // value or sent an invalid value
+};
+
+/**
+ * XPCOM component for Supp Svc Notification information.
+ */
+[scriptable, uuid(ff3c2325-4f8f-43f0-849f-856b505ec901)]
+interface nsISuppSvcNotification: nsISupports
+{
+    readonly attribute boolean notificationType;      // notification type
+                                                      // false = MO intermediate result code
+                                                      // true = MT unsolicited result code
+    readonly attribute long code;                     // result code. See 27.007 7.17.
+    readonly attribute long index;                    // CUG index. See 27.007 7.17.
+    readonly attribute long type;                     // "type" from 27.007 7.17 (MT only).
+    readonly attribute AString number;                // "number" from 27.007 7.17
+                                                      // (MT only, may be empty string).
+};
+
+/**
+ * XPCOM component for sim refresh information.
+ */
+[scriptable, uuid(7ad0755c-447d-427f-b8d5-012bdd37a704)]
+interface nsISimRefreshResult: nsISupports
+{
+    readonly attribute long type;
+    readonly attribute long efId;         // is the EFID of the updated file if the result is
+                                          // SIM_FILE_UPDATE or 0 for any other result.
+    readonly attribute AString aid;       // is AID(application ID) of the card application
+                                          // See ETSI 102.221 8.1 and 101.220 4
+                                          // For SIM_FILE_UPDATE result it must be set to AID of
+                                          // application in which updated EF resides or it must be
+                                          // empty string if EF is outside of an application.
+                                          // For SIM_INIT result this field is set to AID of
+                                          // application that caused REFRESH
+                                          // For SIM_RESET result it is empty string.
+};
+
+/**
+ * XPCOM component for GSM CellIdentity.
+ */
+[scriptable, uuid(4adc170a-4fdc-4f4b-8a64-fd8d81d8cc33)]
+interface nsICellIdentityGsm: nsISupports
+{
+    readonly attribute AString mcc;   // 3-digit Mobile Country Code, 0..999, INT_MAX if unknown
+    readonly attribute AString mnc;   // 2 or 3-digit Mobile Network Code, 0..999, INT_MAX if
+                                      // unknown
+    readonly attribute long lac;      // 16-bit Location Area Code, 0..65535, INT_MAX if unknown
+    readonly attribute long cid;      // 16-bit GSM Cell Identity described in
+                                      // TS 27.007, 0..65535, INT_MAX if unknown
+    readonly attribute long arfcn;    // 16-bit GSM Absolute RF channel number; this value must
+                                      // be valid
+    readonly attribute long bsic;     // 6-bit Base Station Identity Code, 0xFF if unknown
+};
+
+/**
+ * XPCOM component for CDMA CellIdentity.
+ */
+[scriptable, uuid(af28b184-8ae6-4efe-b9ce-4172b395231a)]
+interface nsICellIdentityCdma: nsISupports
+{
+    readonly attribute long networkId;                    // Network Id 0..65535, INT_MAX if unknown
+    readonly attribute long systemId;                     // CDMA System Id 0..32767, INT_MAX if unknown
+    readonly attribute long baseStationId;                // Base Station Id 0..65535, INT_MAX if unknown
+    readonly attribute long longitude;                    // Longitude is a decimal number as specified in
+                                          // 3GPP2 C.S0005-A v6.0. It is represented in units of
+                                          // 0.25 seconds and ranges from -2592000 to 2592000,
+                                          // both values inclusive (corresponding to a range of -180
+                                          // to +180 degrees). INT_MAX if unknown
+    readonly attribute long latitude;                     // Latitude is a decimal number as specified in
+                                          // 3GPP2 C.S0005-A v6.0. It is represented in units of
+                                          // 0.25 seconds and ranges from -1296000 to 1296000,
+                                          // both values inclusive (corresponding to a range of -90
+                                          // to +90 degrees). INT_MAX if unknown
+};
+
+/**
+ * XPCOM component for LTE CellIdentity.
+ */
+[scriptable, uuid(923a7c60-3c1d-40a3-98c4-d267f766f9b6)]
+interface nsICellIdentityLte: nsISupports
+{
+    readonly attribute AString mcc;   // 3-digit Mobile Country Code, 0..999, INT_MAX if unknown
+    readonly attribute AString mnc;   // 2 or 3-digit Mobile Network Code, 0..999, INT_MAX if
+                                      // unknown
+    readonly attribute long ci;       // 28-bit Cell Identity described in TS TS 27.007, INT_MAX
+                                      // if unknown
+    readonly attribute long pci;      // physical cell id 0..503; this value must be valid
+    readonly attribute long tac;      // 16-bit tracking area code, INT_MAX if unknown
+    readonly attribute long earfcn;   // 18-bit LTE Absolute RF Channel Number; this value must
+                                      // be valid
+};
+
+/**
+ * XPCOM component for WCDMA CellIdentity.
+ */
+[scriptable, uuid(ba3d31bd-5919-4225-9df4-6ee71a931407)]
+interface nsICellIdentityWcdma: nsISupports
+{
+    readonly attribute AString mcc;                           // 3-digit Mobile Country Code, 0..999, INT_MAX if unknown
+    readonly attribute AString mnc;                           // 2 or 3-digit Mobile Network Code, 0..999, INT_MAX
+                                          // if unknown
+    readonly attribute long lac;                          // 16-bit Location Area Code, 0..65535, INT_MAX if unknown
+    readonly attribute long cid;                          // 28-bit UMTS Cell Identity described in
+                                          // TS 25.331, 0..268435455, INT_MAX if unknown
+    readonly attribute long psc;                          // 9-bit UMTS Primary Scrambling Code described in
+                                          // TS 25.331, 0..511; this value must be valid
+    readonly attribute long uarfcn;                       // 16-bit UMTS Absolute RF Channel Number; this value must
+                                          // be valid
+};
+
+/**
+ * XPCOM component for TDSCDMA CellIdentity.
+ */
+[scriptable, uuid(b60fea1a-2fb1-454b-8fe6-1aa35cf4d87c)]
+interface nsICellIdentityTdScdma: nsISupports
+{
+    readonly attribute AString mcc;       // 3-digit Mobile Country Code, 0..999, INT_MAX if unknown
+    readonly attribute AString mnc;       // 2 or 3-digit Mobile Network Code, 0..999, INT_MAX if
+                                          // unknown
+    readonly attribute long lac;          // 16-bit Location Area Code, 0..65535, INT_MAX if
+                                          // unknown
+    readonly attribute long cid;          // 28-bit UMTS Cell Identity described in
+                                          // TS 25.331, 0..268435455, INT_MAX if unknown
+    readonly attribute long cpid;         // 8-bit Cell Parameters ID described in
+                                          // TS 25.331, 0..127, INT_MAX if unknown
+};
+
+/**
+ * XPCOM component for GSM Cell information.
+ */
+[scriptable, uuid(6cdc3bc1-6401-46e1-9c88-1033e4dac6cb)]
+interface nsICellInfoGsm: nsISupports
+{
+    readonly attribute nsICellIdentityGsm cellIdentityGsm;
+    readonly attribute nsIGsmSignalStrength signalStrengthGsm;
+};
+
+/**
+ * XPCOM component for CDMA Cell information.
+ */
+[scriptable, uuid(c9780627-923c-4b3b-8b5f-ffcb7fba8db1)]
+interface nsICellInfoCdma: nsISupports
+{
+    readonly attribute nsICellIdentityCdma cellIdentityCdma;
+    readonly attribute nsICdmaSignalStrength signalStrengthCdma;
+    readonly attribute nsIEvdoSignalStrength signalStrengthEvdo;
+};
+
+/**
+ * XPCOM component for LTE Cell information.
+ */
+[scriptable, uuid(0a823260-961d-4bc5-9ee3-02ecf26d099e)]
+interface nsICellInfoLte: nsISupports
+{
+    readonly attribute nsICellIdentityLte cellIdentityLte;
+    readonly attribute nsILteSignalStrength signalStrengthLte;
+};
+
+/**
+ * XPCOM component for WCDMA Cell information.
+ */
+[scriptable, uuid(d9fc3718-c8e3-4470-aac4-29ccb18361d1)]
+interface nsICellInfoWcdma: nsISupports
+{
+    readonly attribute nsICellIdentityWcdma cellIdentityWcdma;
+    readonly attribute nsIWcdmaSignalStrength signalStrengthWcdma;
+};
+
+/**
+ * XPCOM component for TDSCDMA Cell information.
+ */
+[scriptable, uuid(617d9de6-ed47-4980-9d46-881e2f49c49e)]
+interface nsICellInfoTdScdma: nsISupports
+{
+    readonly attribute nsICellIdentityTdScdma cellIdentityTdScdma;
+    readonly attribute nsITdScdmaSignalStrength signalStrengthTdScdma;
+};
+
+
+/**
+ * XPCOM component for Cell information type.
+ */
+[scriptable, uuid(598c5f42-b74a-4faf-b6b4-2f9520b6b484)]
+interface nsICellInfoType: nsISupports
+{
+  // Radio cell type.
+  const long RADIO_CELL_INFO_TYPE_UNKNOW = 0;
+  const long RADIO_CELL_INFO_TYPE_GSM = 1;
+  const long RADIO_CELL_INFO_TYPE_CDMA = 2;
+  const long RADIO_CELL_INFO_TYPE_LTE = 3;
+  const long RADIO_CELL_INFO_TYPE_WCDMA = 4;
+  const long RADIO_CELL_INFO_TYPE_TD_SCDMA = 5;
+};
+
+/**
+ * XPCOM component for Cell information time stamp type.
+ */
+[scriptable, uuid(89982fc0-44c1-41fe-8e7e-aa7e652144be)]
+interface nsITimeStampType: nsISupports
+{
+  // Radio information time stamp type.
+  const long RADIO_TIME_STAMP_TYPE_UNKNOW = 0;
+  const long RADIO_TIME_STAMP_TYPE_ANTENNA= 1;
+  const long RADIO_TIME_STAMP_TYPE_MODEM = 2;
+  const long RADIO_TIME_STAMP_TYPE_OEM_RIL = 3;
+  const long RADIO_TIME_STAMP_TYPE_JAVA_RIL = 4;
+  const long RADIO_TIME_STAMP_TYPE_TD_SCDMA = 5;
+};
+
+/**
+ * XPCOM component for Cell information.
+ */
+[scriptable, uuid(8962f622-8e68-43b7-af5e-c95d02360ddd)]
+interface nsIRilCellInfo: nsISupports
+{
+    readonly attribute long cellInfoType;            // cell type for selecting from union CellInfo
+    readonly attribute boolean registered;           // true if this cell is registered false if not registered
+    readonly attribute long timeStampType;           // type of time stamp represented by timeStamp
+    readonly attribute long timeStamp;               // Time in nanos as returned by ril_nano_time
+
+    // Only one of the below vectors must be of size 1 based on the CellInfoType and others must be
+    // of size 0
+    readonly attribute nsICellInfoGsm gsm;                // Valid only if type = gsm and size = 1 else must be
+                                                          // empty
+    readonly attribute nsICellInfoCdma cdma;              // Valid only if type = cdma and size = 1 else must be
+                                                          // empty
+    readonly attribute nsICellInfoLte lte;                // Valid only if type = lte and size = 1 else must be
+                                                          // empty
+    readonly attribute nsICellInfoWcdma wcdma;            // Valid only if type = wcdma and size = 1 else must be
+                                                          // empty
+    readonly attribute nsICellInfoTdScdma tdscdma;        // Valid only if type = tdscdma and size = 1 else must be
+                                                          // empty
+};
+
+/**
+ * XPCOM component for hardward config.
+ */
+[scriptable, uuid(b28cf58d-a7a5-4d03-9b85-51b8eb97f954)]
+interface nsIHardwareConfig: nsISupports
+{
+    readonly attribute long type;
+    readonly attribute AString uuid;   // RadioConst:MAX_UUID_LENGTH is max length of the string
+    readonly attribute long state;
+
+    // Only one of the below vectors must have size = 1 based on the HardwareConfigType and other
+    // must have size = 0.
+    readonly attribute long modem;     // Valid only if type is Modem and size = 1 else must be
+                                       // empty
+    readonly attribute long sim;       // Valid only if type is SIM or else empty and size = 1
+                                       // else must be empty
+};
+
+/**
+ * XPCOM component for RadioCapability.
+ */
+[scriptable, uuid(41f13024-64b4-4dc0-a92c-30753c102868)]
+interface nsIRadioCapability: nsISupports
+{
+    readonly attribute long session;              // Unique session value defined by framework returned in
+                                                  // all "responses/unsol"
+    readonly attribute long phase;
+    readonly attribute long raf;                  // 32-bit bitmap of RadioAccessFamily
+    readonly attribute AString logicalModemUuid;  // A UUID typically "com.xxxx.lmX where X is the logical
+                                                  // modem. RadioConst:MAX_UUID_LENGTH is the max
+                                                  // length
+    readonly attribute long status;
+};
+
+/**
+ * XPCOM component for Lce.
+ */
+[scriptable, uuid(29bc88ce-8666-474c-ac84-31e124611b8d)]
+interface nsILceStatusInfo: nsISupports
+{
+    readonly attribute long lceStatus;
+    readonly attribute long actualIntervalMs; // actual LCE reporting interval,
+                                              // meaningful only if LceStatus = ACTIVE.
+};
+
+/**
+ * XPCOM component for Lce.
+ */
+[scriptable, uuid(a52b799f-8f8e-45a5-ad93-ced863f7b92a)]
+interface nsILceDataInfo: nsISupports
+{
+    readonly attribute long lastHopCapacityKbps;  // last-hop cellular capacity: kilobits/second.
+    readonly attribute long confidenceLevel;      // capacity estimate confidence: 0-100
+    readonly attribute boolean lceSuspended;      // LCE report going to be suspended? (e.g., radio
+                                                  // moves to inactive state or network type change)
+                                                  // true = suspended;
+                                                  // false = not suspended.
+};
+
+/**
+ * XPCOM component for Pco.
+ */
+[scriptable, uuid(2cf5fc0f-c93f-44e1-ac51-7c247e3fe074)]
+interface nsIPcoDataInfo: nsISupports
+{
+    readonly attribute long cid;                                        // Context ID, uniquely identifies this call
+    readonly attribute AString bearerProto;                             // One of the PDP_type values in TS 27.007 section 10.1.1.
+                                                                        // For example, "IP", "IPV6", "IPV4V6"
+    readonly attribute long pcoId;                                      // The protocol ID for this box. Note that only IDs from
+                                                                        // FF00H - FFFFH are accepted. If more than one is
+                                                                        // included from the network, multiple calls must be made
+                                                                          // to send all of them.
+    void getContents([optional] out unsigned long count,                  // Carrier-defined content. It is binary, opaque and
+                      [array, size_is(count), retval] out long contents); // loosely defined in LTE Layer 3 spec 24.008
+};
+
+/**
+ * XPCOM component for IccCard AppStatus.
+ */
+[scriptable, uuid(0cedb1de-a31d-43d2-b512-2f55377b3db8)]
+interface nsIAppStatus : nsISupports
+{
+  readonly attribute long appType;
+  readonly attribute long appState;
+  readonly attribute long persoSubstate;
+  readonly attribute AString aidPtr;
+  readonly attribute AString appLabelPtr;
+  readonly attribute long pin1Replaced;
+  readonly attribute long pin1;
+  readonly attribute long pin2;
+};
+
+/**
+ * XPCOM component for IccCard CardStatus.
+ */
+[scriptable, uuid(96ae745f-890b-48af-867d-088022c4afbe)]
+interface nsICardStatus : nsISupports
+{
+  /* CARD_STATE_ */
+  readonly attribute long cardState;
+  /* PIN_STATE_ */
+  readonly attribute long universalPinState;
+  readonly attribute long gsmUmtsSubscriptionAppIndex;
+  readonly attribute long cdmaSubscriptionAppIndex;
+  readonly attribute long imsSubscriptionAppIndex;
+  /* each app contain one APP_STATUS_ */
+  void getAppStatus([optional] out unsigned long count,
+                    [array, size_is(count), retval] out nsIAppStatus applications);
+};
+
+/**
+ * XPCOM component for Call UusInfo.
+ */
+[scriptable, uuid(2890aa17-2ca6-445e-92de-51022421c60b)]
+interface nsIUusInfo : nsISupports
+{
+  /* UUS_TYPE_ */
+  readonly attribute long uusType;
+  /* UUS_DCS_ */
+  readonly attribute long uusDcs;
+  readonly attribute AString uusData;
+};
+
+/**
+ * XPCOM component for Call.
+ */
+[scriptable, uuid(87c6661e-0b6d-446d-abcf-c38e289cb423)]
+interface nsICall : nsISupports
+{
+  /* CALL_STATE_ */
+  readonly attribute long state;
+  readonly attribute long index;
+  readonly attribute long toa;
+  readonly attribute boolean isMpty;
+  readonly attribute boolean isMT;
+  readonly attribute long als;
+  readonly attribute boolean isVoice;
+  readonly attribute boolean isVoicePrivacy;
+  readonly attribute AString number;
+  /* CALL_PRESENTATION_ */
+  readonly attribute long numberPresentation;
+  readonly attribute AString name;
+  /* CALL_PRESENTATION_ */
+  readonly attribute long namePresentation;
+  void getUusInfo([optional] out unsigned long count,
+                  [array, size_is(count), retval] out nsIUusInfo uusInfos);
+};
+
+// We don't need it, due to only one int and one string parameter.
+/**
+ * XPCOM component for LastCallFailCause.
+ */
+/*[scriptable, uuid(2aab1b40-ca4f-48b9-899c-9764d8c5b479)]
+interface nsILastCallFailCauseInfo : nsISupports
+{
+  readonly attribute long casueCode;
+  readonly attribute AString vendorCause;
+};*/
+
+/**
+ * XPCOM component for CellIdentity.
+ */
+[scriptable, uuid(1a03a44c-98dd-46de-9732-a88ea179d734)]
+interface nsICellIdentity : nsISupports
+{
+  /* CELLINFO_TYPE_ */
+  readonly attribute long cellInfoType;
+  // Only one of the below vectors must be of size 1, based on a valid cellInfoType and
+  // others must be of size 0. If cell info type is NONE, then all the vectors
+  // must be of size 0.
+  /*void getCellIdentityGsm([array, size_is(count)] out nsICellIdentityGsm gsms,
+                          [retval] out unsigned long count);
+  void getCellIdentityWcdma([array, size_is(count)] out nsICellIdentityWcdma wcdmas,
+                            [retval] out unsigned long count);
+  void getCellIdentityCdma([array, size_is(count)] out nsICellIdentityCdma cdmas,
+                           [retval] out unsigned long count);
+  void getCellIdentityLte([array, size_is(count)] out nsICellIdentityLte ltes,
+                          [retval] out unsigned long count);
+  void getCellIdentityTdscdma([array, size_is(count)] out nsICellIdentityTdScdma tdscdmas,
+                              [retval] out unsigned long count);*/
+  readonly attribute nsICellIdentityGsm cellIdentityGsm;
+  readonly attribute nsICellIdentityWcdma cellIdentityWcdma;
+  readonly attribute nsICellIdentityCdma cellIdentityCdma;
+  readonly attribute nsICellIdentityLte cellIdentityLte;
+  readonly attribute nsICellIdentityTdScdma cellIdentityTdScdma;
+};
+
+/**
+ * XPCOM component for VoiceRegState.
+ */
+[scriptable, uuid(5b11fc19-aa2b-48b1-af71-5c1059ce1716)]
+interface nsIVoiceRegState : nsISupports
+{
+  /* REG_STATE_ */
+  readonly attribute long regState;
+  readonly attribute long rat;
+  readonly attribute boolean cssSupported;
+  readonly attribute long roamingIndicator;
+  readonly attribute long systemIsInPrl;
+  readonly attribute long defaultRoamingIndicator;
+  readonly attribute long reasonForDenial;
+  readonly attribute nsICellIdentity cellIdentity;
+};
+
+/**
+ * XPCOM component for DataRegState.
+ */
+[scriptable, uuid(28441bc2-2fb4-4520-be49-19e4b831e892)]
+interface nsIDataRegState : nsISupports
+{
+  /* REG_STATE_ */
+  readonly attribute long regState;
+  readonly attribute long rat;
+  readonly attribute long reasonDataDenied;
+  readonly attribute long maxDataCalls;
+  readonly attribute nsICellIdentity cellIdentity;
+};
+
+/**
+ * XPCOM component for sendSms.
+ */
+[scriptable, uuid(ccd06ca3-d9ed-481e-9855-c1a189b35db3)]
+interface nsISendSmsResult : nsISupports
+{
+  readonly attribute long messageRef;
+  readonly attribute AString ackPDU;
+  readonly attribute long errorCode;
+};
+
+/**
+ * XPCOM component for iccIOForApp.
+ */
+[scriptable, uuid(108811a6-efd8-46f8-9e4e-2eb64fa84a01)]
+interface nsIIccIoResult : nsISupports
+{
+  readonly attribute long sw1;
+  readonly attribute long sw2;
+  readonly attribute AString simResponse;
+};
+
+/**
+ * XPCOM component for CallForwardInfo.
+ */
+[scriptable, uuid(b6b4a8c6-a1c4-402a-8590-6a7e0f40925e)]
+interface nsICallForwardInfo : nsISupports
+{
+  /* Call_FORWARD_STATUS_ */
+  readonly attribute long status;
+  readonly attribute long reason;
+  readonly attribute long serviceClass;
+  readonly attribute long toa;
+  readonly attribute AString number;
+  readonly attribute long timeSeconds;
+};
+
+/**
+ * XPCOM component for OperatorInfo.
+ */
+[scriptable, uuid(853f863d-00df-4daa-9667-3fe6072b67dc)]
+interface nsIOperatorInfo : nsISupports
+{
+  readonly attribute AString alphaLong;
+  readonly attribute AString alphaShort;
+  readonly attribute AString operatorNumeric;
+  readonly attribute long status;
+};
+
+
+/**
+ * XPCOM component for NeighboringCids.
+ */
+[scriptable, uuid(13b1df5e-7b6e-479d-b561-6ea0b1558729)]
+interface nsINeighboringCell : nsISupports
+{
+  readonly attribute AString cid;
+  readonly attribute long rssi;
+};
+
+/**
+ * XPCOM component for GsmBroadcastSmsConfigInfo.
+ */
+[scriptable, uuid(9733ba41-cd59-430d-97d5-2cf6c42f9b28)]
+interface nsIGsmBroadcastSmsConfigInfo : nsISupports
+{
+  readonly attribute long fromServiceId;
+  readonly attribute long toServiceId;
+  readonly attribute long fromCodeScheme;
+  readonly attribute long toCodeScheme;
+  readonly attribute boolean selected;
+};
+
+/**
+ * XPCOM component for ModemActivityInfo.
+ */
+[scriptable, uuid(a3bc1532-858f-4d45-8c92-b9efb725d6b3)]
+interface nsIActivityStatsInfo : nsISupports
+{
+  readonly attribute long sleepModeTimeMs;
+  readonly attribute long idleModeTimeMs;
+  void getTxmModetimeMs([optional] out unsigned long count,
+                        [array, size_is(count), retval] out long txmmodetimems);
+  readonly attribute long rxModeTimeMs;
+};
+
+/**
+ * XPCOM component for AllowedCarriers.
+ */
+[scriptable, uuid(369a767b-3d45-4467-a767-5fcafe4ef122)]
+interface nsICarrier : nsISupports
+{
+  readonly attribute AString mcc;
+  readonly attribute AString mnc;
+  readonly attribute long matchType;
+  readonly attribute AString matchData;
+};
+
+/**
+ * XPCOM component for AllowedCarriers.
+ */
+[scriptable, uuid(d1263f13-02e5-4cdd-8a25-2c49aa2131d9)]
+interface nsICarrierRestrictions : nsISupports
+{
+  void getAllowedCarriers([optional] out unsigned long count,
+                          [array, size_is(count), retval] out nsICarrier allowedCarriers);
+  void getExcludedCarriers([optional] out unsigned long count,
+                           [array, size_is(count), retval] out nsICarrier excludedCarriers);
+};
+
+/**
+ * XPCOM component for Supp Svc Notification information.
+ */
+/*[scriptable, uuid(cc034b9b-39bb-4b79-8bcf-4e5c25386c48)]
+interface nsICdmaSignalInfoRecord: nsISupports
+{
+    readonly attribute boolean isPresent;  // true if signal information record is present
+    readonly attribute long signalType;    // as defined 3.7.5.5-1
+    readonly attribute long alertPitch;    // as defined 3.7.5.5-2
+    readonly attribute long signal;        // as defined 3.7.5.5-3, 3.7.5.5-4 or 3.7.5.5-5
+};*/
+
+/**
+ * XPCOM component for cdma sms information.
+ */
+/*[scriptable, uuid(7ae96290-6d24-4b7d-bbb5-33bdabafb990)]
+interface nsICdmaSmsMessage: nsISupports
+{
+    readonly attribute long teleserviceId;
+    readonly attribute boolean isServicePresent;
+    readonly attribute long serviceCategory;
+    CdmaSmsAddress address;
+    CdmaSmsSubaddress subAddress;
+    vec<uint8_t> bearerData;              // 3GPP2 C.S0015-B, v2.0,
+};*/
+
+/**
+ * XPCOM component for cdma sms information.
+ */
+/*[scriptable, uuid(37511151-ae40-4de5-a0c4-12a424621be2)]
+interface nsICdmaSmsAddress: nsISupports
+{
+  CdmaSmsDigitMode digitMode;           // CdmaSmsDigitMode is of two types : 4 bit and 8 bit.
+                                        // For 4-bit type, only "digits" field defined below in
+                                        // this struct is used.
+  CdmaSmsNumberMode numberMode;         // Used only when digitMode is 8-bit
+  CdmaSmsNumberType numberType;         // Used only when digitMode is 8-bit.
+                                        // To specify an international address, use the following:
+                                        // digitMode = CdmaSmsDigitMode:EIGHT_BIT:
+                                        // numberMode = CdmaSmsNumberMode:NOT_DATA_NETWORK
+                                        // numberType = CdmaSmsNumberType:INTERNATIONAL_OR_DATA_IP
+                                        // numberPlan = CdmaSmsNumberPlan:TELEPHONY
+                                        // numberOfDigits = number of digits
+                                        // digits = ASCII digits, e.g. '1', '2', '3', '4', and '5'
+  CdmaSmsNumberPlan numberPlan;         // Used only when digitMode is 8-bit
+  vec<uint8_t> digits;                  // Each byte in this array represents a 4 bit or 8-bit
+                                        // digit of address data
+};*/
+
+/**
+ * XPCOM component for cdma sms information.
+ */
+/*[scriptable, uuid(3da8961d-c34c-4ef7-9ce7-2690cf830bab)]
+interface nsICdmaSmsSubaddress: nsISupports
+{
+    CdmaSmsSubaddressType subaddressType;
+    bool odd;                             // true means the last byte's lower 4 bits must be ignored
+    vec<uint8_t> digits;                  // Each byte represents an 8-bit digit of subaddress data
+};*/

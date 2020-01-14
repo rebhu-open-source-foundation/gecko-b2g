@@ -304,7 +304,8 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   RefPtr<CredentialsContainer> mCredentials;
   RefPtr<dom::Clipboard> mClipboard;
 #ifdef MOZ_B2G_RIL
-  RefPtr<MobileConnectionArray> mMobileConnections;
+// FIXME
+//  RefPtr<MobileConnectionArray> mMobileConnections;
 #endif
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   RefPtr<system::AudioChannelManager> mAudioChannelManager;

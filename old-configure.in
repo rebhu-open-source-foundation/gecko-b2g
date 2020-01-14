@@ -2404,6 +2404,19 @@ fi
 AC_SUBST(MOZ_B2G_CAMERA)
 
 dnl ========================================================
+dnl = Enable Radio Interface for B2G (Gonk usually)
+dnl ========================================================
+
+# if test -n "$MOZ_B2G_RIL"; then
+    # if test -n "$_PLATFORM_HAVE_RIL"; then   //TODO:Force defind MOZ_B2G_RIL for development
+        AC_DEFINE(MOZ_B2G_RIL)
+    # else
+    #    AC_MSG_ERROR([b2g-ril cannot be enabled because target platform doesn't support it.])
+    # fi
+# fi
+AC_SUBST(MOZ_B2G_RIL)
+
+dnl ========================================================
 dnl = Support for demangling undefined symbols
 dnl ========================================================
 if test -z "$SKIP_LIBRARY_CHECKS"; then

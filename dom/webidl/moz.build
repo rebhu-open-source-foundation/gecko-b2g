@@ -1140,6 +1140,65 @@ if CONFIG['HAS_KOOST_MODULES']:
         'ExternalAPI.webidl',
     ]
 
+# TODO: A seperate config for telephony function?
+#if CONFIG['MOZ_B2G_RIL']:
+#PREPROCESSED_WEBIDL_FILES = [
+#    'Telephony.webidl',
+#    'TelephonyCall.webidl',
+#]
+
+#WEBIDL_FILES += [
+#        'CallsList.webidl',
+#        'Contacts.webidl',
+#        'DataCallManager.webidl',
+#        'IccCardLockError.webidl',
+#        'ImsRegHandler.webidl',
+#        'MMICall.webidl',
+#        'MmsMessage.webidl',
+#        'MobileConnectionDeviceIds.webidl',
+#        'MobileSignalStrength.webidl',
+#        'MozIcc.webidl',
+#        'MozIccInfo.webidl',
+#        'MozIccManager.webidl',
+#        'MozMobileCellInfo.webidl',
+#        'MozMobileConnection.webidl',
+#        'MozMobileConnectionArray.webidl',
+#        'MozMobileConnectionInfo.webidl',
+#        'MozMobileMessageManager.webidl',
+#        'MozMobileNetworkInfo.webidl',
+#        'SmsMessage.webidl',
+#        'SurfaceControl.webidl',
+#        'TelephonyCallCapabilities.webidl',
+#        'TelephonyCallGroup.webidl',
+#        'TelephonyCallId.webidl',
+#        'VideoCallProvider.webidl',
+#]
+
+#GENERATED_EVENTS_WEBIDL_FILES += [
+#        'CallEvent.webidl',
+#        'CallGroupErrorEvent.webidl',
+#        'MozCellBroadcast.webidl',
+#        'MozCellBroadcastEvent.webidl',
+#        'MozCellBroadcastMessage.webidl',
+#        'ModemRestartEvent.webidl',
+#        'MozEmergencyCbModeEvent.webidl',
+#        'MozMmsEvent.webidl',
+#        'MozStkCommandEvent.webidl',
+#        'MozVoicemail.webidl',
+#        'MozVoicemailEvent.webidl',
+#        'MozVoicemailStatus.webidl',
+#        'RttMessageReceivedEvent.webidl',
+#        'RttModifyRequestReceivedEvent.webidl',
+#        'RttModifyResponseReceivedEvent.webidl',
+#        'TelephonyCoverageLosingEvent.webidl',
+#        'VideoCallCameraCapabilitiesChangeEvent.webidl',
+#        'VideoCallPeerDimensionsEvent.webidl',
+#        'VideoCallQualityEvent.webidl',
+#        'VideoCallSessionChangeEvent.webidl',
+#        'VideoCallSessionModifyRequestEvent.webidl',
+#        'VideoCallSessionModifyResponseEvent.webidl',
+#]
+
 if CONFIG['MOZ_B2G_BT']:
     WEBIDL_FILES += [
         'BluetoothAdapter.webidl',

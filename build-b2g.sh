@@ -134,6 +134,8 @@ $HWC_DEFINE \
 -I$HIDL_HW/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen \
 -I$HIDL_HW/gnss/measurement_corrections/1.0/android.hardware.gnss.measurement_corrections@1.0_genc++_headers/gen \
 -I$HIDL_HW/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen \
+-I$HIDL_HW/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen/ \
+-I$HIDL_HW/radio/1.1/android.hardware.radio@1.1_genc++_headers/gen/ \
 -I$HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"
 
 export CPPFLAGS="-fPIC \
@@ -159,6 +161,6 @@ export LDFLAGS="-L$SYS_LIB -Wl,-rpath-link=$OBJ_LIB \
 -lutils -lcutils -lsysutils \
 -lhardware_legacy -lhardware -lsuspend \
 -lhidltransport \
--lhidlbase"
+-lhidlbase -lbase -lhidlmemory -lhwbinder"
 
 ./mach build $@

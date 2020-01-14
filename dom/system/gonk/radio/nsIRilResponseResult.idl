@@ -1,0 +1,413 @@
+/* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+#include "nsIRilResult.idl"
+
+// All const define in nsIRilResult.idl
+interface nsISignalStrength;
+interface nsICellIdentityGsm;
+interface nsICellIdentityWcdma;
+interface nsICellIdentityCdma;
+interface nsICellIdentityLte;
+interface nsICellIdentityTdScdma;
+interface nsISetupDataCallResult;
+
+/**
+ * XPCOM component that provides the hidl response information.
+ */
+[scriptable, uuid(345c8ccd-47a2-4532-acd2-90f3efdc0d21)]
+interface nsIRilResponseResult : nsISupports
+{
+  /**
+   * Message for RilResponseResult.
+   */
+
+   /*align with android.hardward.radio@1.0:types*/
+
+  //RadioConst
+  const long CDMA_ALPHA_INFO_BUFFER_LENGTH = 64;
+  const long CDMA_NUMBER_INFO_BUFFER_LENGTH = 81;
+  const long MAX_RILDS = 3;
+  const long MAX_SOCKET_NAME_LENGTH = 6;
+  const long MAX_CLIENT_ID_LENGTH = 2;
+  const long MAX_DEBUG_SOCKET_NAME_LENGTH = 12;
+  const long MAX_QEMU_PIPE_NAME_LENGTH = 11;
+  const long MAX_UUID_LENGTH = 64;
+  const long CARD_MAX_APPS = 8;
+  const long CDMA_MAX_NUMBER_OF_INFO_RECS = 10;
+  const long SS_INFO_MAX = 4;
+  const long NUM_SERVICE_CLASSES = 7;
+  const long NUM_TX_POWER_LEVELS = 5;
+
+  //RadioError
+  const long RADIO_ERROR_NONE = 0;
+  const long RADIO_ERROR_NOT_AVAILABLE = 1;
+  const long RADIO_ERROR_GENERIC_FAILURE = 2;
+  const long RADIO_ERROR_PASSWOR_INCORRECT = 3;
+  const long RADIO_ERROR_SIM_PIN2 = 4;
+  const long RADIO_ERROR_SIM_PUK2 = 5;
+  const long RADIO_ERROR_REQUEST_NOT_SUPPORTED = 6;
+  const long RADIO_ERROR_CANCELLED = 7;
+  const long RADIO_ERROR_OP_NOT_ALLOWED_DURING_VOICE_CALL = 8;
+  const long RADIO_ERROR_OP_NOT_ALLOWED_BEFORE_REG_TO_NW = 9;
+  const long RADIO_ERROR_SMS_SEND_FAIL_RETRY = 10;
+  const long RADIO_ERROR_SIM_ABSENT = 11;
+  const long RADIO_ERROR_SUBSCRIPTION_NOT_AVAILABLE = 12;
+  const long RADIO_ERROR_MODE_NOT_SUPPORTED = 13;
+  const long RADIO_ERROR_FDN_CHECK_FAILURE = 14;
+  const long RADIO_ERROR_ILLEGAL_SIM_OR_ME = 15;
+  const long RADIO_ERROR_MISSING_RESOURCE = 16;
+  const long RADIO_ERROR_NO_SUCH_ELEMENT = 17;
+  const long RADIO_ERROR_DIAL_MODIFIED_TO_USSD = 18;
+  const long RADIO_ERROR_DIAL_MODIFIED_TO_SS = 19;
+  const long RADIO_ERROR_DIAL_MODIFIED_TO_DIAL = 20;
+  const long RADIO_ERROR_USSD_MODIFIED_TO_DIAL = 21;
+  const long RADIO_ERROR_USSD_MODIFIED_TO_SS = 22;
+  const long RADIO_ERROR_USSD_MODIFIED_TO_USSD = 23;
+  const long RADIO_ERROR_SS_MODIFIED_TO_DIAL = 24;
+  const long RADIO_ERROR_SS_MODIFIED_TO_USSD = 25;
+  const long RADIO_ERROR_SUBSCRIPTION_NOT_SUPPORTED = 26;
+  const long RADIO_ERROR_SS_MODIFIED_TO_SS = 27;
+  const long RADIO_ERROR_LCE_NOT_SUPPORTED = 36;
+  const long RADIO_ERROR_NO_MEMORY = 37;
+  const long RADIO_ERROR_INTERNAL_ERR = 38;
+  const long RADIO_ERROR_SYSTEM_ERR = 39;
+  const long RADIO_ERROR_MODEM_ERR = 40;
+  const long RADIO_ERROR_INVALID_STATE = 41;
+  const long RADIO_ERROR_NO_RESOURCES = 42;
+  const long RADIO_ERROR_SIM_ERR = 43;
+  const long RADIO_ERROR_INVALID_ARGUMENTS = 44;
+  const long RADIO_ERROR_INVALID_SIM_STATE = 45;
+  const long RADIO_ERROR_INVALID_MODEM_STATE = 46;
+  const long RADIO_ERROR_INVALID_CALL_ID = 47;
+  const long RADIO_ERROR_NO_SMS_TO_ACK = 48;
+  const long RADIO_ERROR_NETWORK_ERR = 49;
+  const long RADIO_ERROR_REQUEST_RATE_LIMITED = 50;
+  const long RADIO_ERROR_SIM_BUSY = 51;
+  const long RADIO_ERROR_SIM_FULL = 52;
+  const long RADIO_ERROR_NETWORK_REJECT = 53;
+  const long RADIO_ERROR_OPERATION_NOT_ALLOWED = 54;
+  const long RADIO_ERROR_EMPTY_RECORD = 55;
+  const long RADIO_ERROR_INVALID_SMS_FORMAT = 56;
+  const long RADIO_ERROR_ENCODING_ERR = 57;
+  const long RADIO_ERROR_INVALID_SMSC_ADDRESS = 58;
+  const long RADIO_ERROR_NO_SUCH_ENTRY = 59;
+  const long RADIO_ERROR_NETWORK_NOT_READY = 60;
+  const long RADIO_ERROR_NOT_PROVISIONED = 61;
+  const long RADIO_ERROR_NO_SUBSCRIPTION = 62;
+  const long RADIO_ERROR_NO_NETWORK_FOUND = 63;
+  const long RADIO_ERROR_DEVICE_IN_USE = 64;
+
+  /*TODO: fill all error*/
+  const long RADIO_ERROR_ABORTED = 65;
+  const long RADIO_ERROR_INVALID_RESPONSE = 66;
+
+  // Parameter
+
+  readonly attribute AString rilMessageType;
+
+  readonly attribute long rilMessageToken;
+
+  // RADIO_ERROR_*
+  readonly attribute long errorMsg;
+
+  /**
+   * The imei for getDeviceIdentityResponse.
+   */
+  readonly attribute AString imei;
+
+  /**
+   * The imeisv for getDeviceIdentityResponse.
+   */
+  readonly attribute AString imeisv;
+
+  /**
+   * The esn for getDeviceIdentityResponse.
+   */
+  readonly attribute AString esn;
+
+  /**
+   * The meid for getDeviceIdentityResponse.
+   */
+  readonly attribute AString meid;
+
+  /**
+   * The meid for getVoiceRadioTechnology.
+   */
+  readonly attribute long radioTech;
+
+  /**
+   * The meid for getBasebandVersion.
+   */
+  readonly attribute AString basebandVersion;
+
+  // CardState
+  const long CARD_STATE_UNINITIALIZED = 4294967294; // UINT32_MAX - 1
+  const long CARD_STATE_UNDETECTED = 4294967295;    // UINT32_MAX
+  const long CARD_STATE_ABSENT = 0;
+  const long CARD_STATE_PRESENT = 1;
+  const long CARD_STATE_ERROR = 2;
+  const long CARD_STATE_RESTRICTED = 3;  // card is present but not usable due to carrier
+                                         // restrictions
+
+  // PinState
+  const long CARD_PIN_STATE_UNKNOWN = 0;
+  const long CARD_PIN_STATE_ENABLED_NOT_VERIFIED = 1;
+  const long CARD_PIN_STATE_ENABLED_VERIFIED = 2;
+  const long CARD_PIN_STATE_DISABLED = 3;
+  const long CARD_PIN_STATE_ENABLED_BLOCKED = 4;
+  const long CARD_PIN_STATE_ENABLED_PERM_BLOCKED = 5;
+
+  // AppType
+  const long CARD_APPTYPE_UNKNOWN = 0;
+  const long CARD_APPTYPE_SIM = 1;
+  const long CARD_APPTYPE_USIM = 2;
+  const long CARD_APPTYPE_RUIM = 3;
+  const long CARD_APPTYPE_CSIM = 4;
+  const long CARD_APPTYPE_ISIM = 5;
+
+  // AppState
+  const long CARD_APPSTATE_ILLEGAL = 29;
+  const long CARD_APPSTATE_UNKNOWN = 0;
+  const long CARD_APPSTATE_DETECTED = 1;
+  const long CARD_APPSTATE_PIN = 2;                // If PIN1 or UPin is required.
+  const long CARD_APPSTATE_PUK = 3;                // If PUK1 or Puk for UPin is required.
+  const long CARD_APPSTATE_SUBSCRIPTION_PERSO = 4; // perso_substate should be looked
+                                                   // at when app_state is assigned
+                                                   // to this value.
+  const long CARD_APPSTATE_READY = 5;
+
+  // PersoSubstate
+  const long CARD_PERSOSUBSTATE_UNKNOWN = 0;
+  const long CARD_PERSOSUBSTATE_IN_PROGRESS = 5;
+  const long CARD_PERSOSUBSTATE_READY = 6;
+  const long CARD_PERSOSUBSTATE_SIM_NETWORK = 7;
+  const long CARD_PERSOSUBSTATE_SIM_NETWORK_SUBSET = 8;
+  const long CARD_PERSOSUBSTATE_SIM_CORPORATE = 9;
+  const long CARD_PERSOSUBSTATE_SIM_SERVICE_PROVIDER = 10;
+  const long CARD_PERSOSUBSTATE_SIM_SIM = 11;
+  const long CARD_PERSOSUBSTATE_SIM_NETWORK_PUK = 12;
+  const long CARD_PERSOSUBSTATE_SIM_NETWORK_SUBSET_PUK = 13;
+  const long CARD_PERSOSUBSTATE_SIM_CORPORATE_PUK = 14;
+  const long CARD_PERSOSUBSTATE_SIM_SERVICE_PROVIDER_PUK = 15;
+  const long CARD_PERSOSUBSTATE_SIM_SIM_PUK = 16;
+  const long CARD_PERSOSUBSTATE_RUIM_NETWORK1 = 17;
+  const long CARD_PERSOSUBSTATE_RUIM_NETWORK2 = 18;
+  const long CARD_PERSOSUBSTATE_RUIM_HRPD = 19;
+  const long CARD_PERSOSUBSTATE_RUIM_CORPORATE = 20;
+  const long CARD_PERSOSUBSTATE_RUIM_SERVICE_PROVIDER = 21;
+  const long CARD_PERSOSUBSTATE_RUIM_RUIM = 22;
+  const long CARD_PERSOSUBSTATE_RUIM_NETWORK1_PUK = 23;
+  const long CARD_PERSOSUBSTATE_RUIM_NETWORK2_PUK = 24;
+  const long CARD_PERSOSUBSTATE_RUIM_HRPD_PUK = 25;
+  const long CARD_PERSOSUBSTATE_RUIM_CORPORATE_PUK = 26;
+  const long CARD_PERSOSUBSTATE_RUIM_SERVICE_PROVIDER_PUK = 27;
+  const long CARD_PERSOSUBSTATE_RUIM_RUIM_PUK = 28;
+
+  //void getIccCardStatusResponse(out nsICardStatus cardStatus);
+  readonly attribute nsICardStatus cardStatus;
+
+
+  // Radio reg state.
+  const long RADIO_REG_STATE_NOT_REG_MT_NOT_SEARCHING_OP = 0;      // Not registered, MT is not currently searching
+                                                                   // a new operator to register
+  const long RADIO_REG_STATE_REG_HOME = 1;                         // Registered, home network
+  const long RADIO_REG_STATE_NOT_REG_MT_SEARCHING_OP = 2;          // Not registered, but MT is currently searching
+                                                                   // a new operator to register
+  const long RADIO_REG_STATE_REG_DENIED = 3;                       // Registration denied
+  const long RADIO_REG_STATE_UNKNOWN = 4;                          // Unknown
+  const long RADIO_REG_STATE_REG_ROAMING = 5;                      // Registered, roaming
+  const long RADIO_REG_STATE_NOT_REG_MT_NOT_SEARCHING_OP_EM = 10;  // Same as NOT_REG_MT_NOT_SEARCHING_OP but indicates that
+                                                                   // emergency calls are enabled.
+  const long RADIO_REG_STATE_NOT_REG_MT_SEARCHING_OP_EM = 12;      // Same as NOT_REG_MT_SEARCHING_OP but indicates that
+                                                                   // emergency calls are enabled.
+  const long RADIO_REG_STATE_REG_DENIED_EM = 13;                   // Same as REG_DENIED but indicates that
+                                                                   // emergency calls are enabled.
+  const long RADIO_REG_STATE_UNKNOWN_EM = 14;                      // Same as UNKNOWN but indicates that
+                                                                   // emergency calls are enabled.
+
+  // getVoiceRegistrationStateResponse
+  readonly attribute nsIVoiceRegState voiceRegStatus;
+
+  // getDataRegistrationStateResponse
+  readonly attribute nsIDataRegState dataRegStatus;
+
+  // getOperator
+  readonly attribute nsIOperatorInfo operator;
+
+  // getNetworkSelectionMode
+  // nwModeManual false for automatic selection, true for manual selection
+  readonly attribute boolean nwModeManual;
+
+  // getSignalStrength
+  readonly attribute nsISignalStrength signalStrength;
+
+  /**
+   * The smsc for GetSmscAddress.
+   */
+  readonly attribute AString smsc;
+
+
+  // UusType type.
+  const long CALL_UUSTYPE_TYPE1_IMPLICIT =     0;
+  const long CALL_UUSTYPE_TYPE1_REQUIRED =     1;
+  const long CALL_UUSTYPE_TYPE1_NOT_REQUIRED = 2;
+  const long CALL_UUSTYPE_TYPE2_REQUIRED =     3;
+  const long CALL_UUSTYPE_TYPE2_NOT_REQUIRED = 4;
+  const long CALL_UUSTYPE_TYPE3_REQUIRED =     5;
+  const long CALL_UUSTYPE_TYPE3_NOT_REQUIRED = 6;
+
+
+  // UusDcs type.
+  const long CALL_UUSDCS_USP =      0;
+  const long CALL_UUSDCS_OSIHLP =   1;
+  const long CALL_UUSDCS_X244 =     2;
+  const long CALL_UUSDCS_RMCF =     3;
+  const long CALL_UUSDCS_IA5C =     4;
+
+  // CallPresentation
+  const long CALL_PRESENTATION_ALLOWED =     0;
+  const long CALL_PRESENTATION_RESTRICTED =  1;
+  const long CALL_PRESENTATION_UNKNOWN =     2;
+  const long CALL_PRESENTATION_PAYPHONE =    3;
+
+  // CallState
+  const long CALL_STATE_UNKNOWN = -1;
+  const long CALL_STATE_ACTIVE =     0;
+  const long CALL_STATE_HOLDING =    1;
+  const long CALL_STATE_DIALING =    2;
+  const long CALL_STATE_ALERTING =   3;
+  const long CALL_STATE_INCOMING =   4;
+  const long CALL_STATE_WAITING =    5;
+
+  // getCurrentCalls
+  void getCurrentCalls([optional] out unsigned long count,
+                        [array, size_is(count), retval] out nsICall calls);
+
+  /**
+   * The causeCode for LastCallFailCause.
+   */
+  readonly attribute long causeCode;
+
+  /**
+   * The vendorCause for LastCallFailCause.
+   */
+  readonly attribute AString vendorCause;
+
+  // Prefer network type
+  const long PREFERRED_NETWORK_TYPE_GSM_WCDMA = 0;                      // GSM/WCDMA (WCDMA preferred)
+  const long PREFERRED_NETWORK_TYPE_GSM_ONLY = 1;                       // GSM only
+  const long PREFERRED_NETWORK_TYPE_WCDMA = 2;                          // WCDMA
+  const long PREFERRED_NETWORK_TYPE_GSM_WCDMA_AUTO = 3;                 // GSM/WCDMA (auto mode, according to PRL)
+  const long PREFERRED_NETWORK_TYPE_CDMA_EVDO_AUTO = 4;                 // CDMA and EvDo (auto mode, according to PRL)
+  const long PREFERRED_NETWORK_TYPE_CDMA_ONLY = 5;                      // CDMA only
+  const long PREFERRED_NETWORK_TYPE_EVDO_ONLY = 6;                      // EvDo only
+  const long PREFERRED_NETWORK_TYPE_GSM_WCDMA_CDMA_EVDO_AUTO = 7;       // GSM/WCDMA, CDMA, and EvDo (auto mode, according to PRL)
+  const long PREFERRED_NETWORK_TYPE_LTE_CDMA_EVDO = 8;                  // LTE, CDMA and EvDo
+  const long PREFERRED_NETWORK_TYPE_LTE_GSM_WCDMA = 9;                  // LTE, GSM/WCDMA
+  const long PREFERRED_NETWORK_TYPE_LTE_CMDA_EVDO_GSM_WCDMA = 10;       // LTE, CDMA, EvDo, GSM/WCDMA
+  const long PREFERRED_NETWORK_TYPE_LTE_ONLY = 11;                      // LTE only
+  const long PREFERRED_NETWORK_TYPE_LTE_WCDMA = 12;                     // LTE/WCDMA
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_ONLY = 13;                 // TD-SCDMA only
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_WCDMA = 14;                // TD-SCDMA and WCDMA
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE = 15;                  // TD-SCDMA and LTE
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM = 16;                  // TD-SCDMA and GSM
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_LTE = 17;              // TD-SCDMA,GSM and LTE
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA = 18;            // TD-SCDMA, GSM/WCDMA
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_WCDMA_LTE = 19;            // TD-SCDMA, WCDMA and LTE
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_LTE = 20;               // TD-SCDMA, GSM/WCDMA and LTE
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_GSM_WCDMA_CDMA_EVDO_AUTO = 21;    // TD-SCDMA, GSM/WCDMA, CDMA and EvDo
+  const long PREFERRED_NETWORK_TYPE_TD_SCDMA_LTE_CDMA_EVDO_GSM_WCDMA = 22;     // TD-SCDMA, LTE, CDMA, EvDo GSM/WCDMA
+
+  // getPreferredNetworkTypeResponse
+  readonly attribute long type;
+
+  // Used for QUERY_AVAILABLE_NETWORKS status.
+  const long QAN_STATE_UNKNOWN = 0;
+  const long QAN_STATE_AVAILABLE = 1;
+  const long QAN_STATE_CURRENT = 2;
+  const long QAN_STATE_FORBIDDEN = 3;
+
+  // getAvailableNetworks
+  void getAvailableNetworks([optional] out unsigned long count,
+                           [array, size_is(count), retval] out nsIOperatorInfo networks);
+
+  // setupDataCallResponse
+  readonly attribute nsISetupDataCallResult dcResponse;
+
+  // getDataCallList
+  void getDataCallLists([optional] out unsigned long count,
+                        [array, size_is(count), retval] out nsISetupDataCallResult datacalls);
+
+  // getCellInfoList
+  void getCellInfoList([optional] out unsigned long count,
+                        [array, size_is(count), retval] out nsIRilCellInfo cellInfos);
+
+  // getIMSI
+  readonly attribute AString imsi;
+
+  // iccIOForApp
+  readonly attribute nsIIccIoResult iccIo;
+
+/*
+  //void supplyIccPinForAppResponse(out long remainingRetries);
+  readonly attribute long remainingRetries;
+
+  readonly attribute AString opLongName;
+
+  readonly attribute AString opShortName;
+
+  readonly attribute AString opNumeric;
+
+  readonly attribute nsISendSmsResult sms
+
+  readonly attribute long clirN;
+
+  readonly attribute long clirM;
+
+  void getCallFordStatus([array, size_is(count)] in nsICallForwardInfo callForwardInfos,
+                         [retval] out unsigned long count);
+
+  readonly attribute boolean cwEnable; //CallWaiting
+
+  readonly attribute long cwServiceClass;
+
+  readonly attribute long facilityLockResponse;
+
+  readonly attribute long facilityLockRetry;
+
+  readonly attribute boolean muteEnable;
+
+  // CLIP_STATUS_
+  readonly attribute long clipStatus;
+
+  readonly attribute long smsSimIndex;
+
+  // each element return one BAND_MODE_*
+  void getAvaileBandModes([array, size_is(count)] in long bandModes,
+                          [retval] out unsigned long count);
+
+  readonly attribute AString envelopCommandresponse;
+
+  // each element return one BAND_MODE_*
+  void getNeighboringCids([array, size_is(count)] in nsINeighboringCell cells,
+                          [retval] out unsigned long count);
+
+  // CDMA_ROAMING_TYPE_
+  readonly attribute long cdmaRoamingType;
+
+  // TTY_MODE_*
+  readonly attribute long ttyMode;
+
+  //  false for Standard Privacy Mode (Public Long Code Mask)
+  //  true for Enhanced Privacy Mode (Private Long Code Mask)
+  readonly attribute boolean enhancedVoicePrivacy;
+*/
+
+};

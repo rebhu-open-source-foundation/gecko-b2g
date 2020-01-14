@@ -1,0 +1,82 @@
+/* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+#include "nsIRilIndicationResult.idl"
+#include "nsIRilResponseResult.idl"
+#include "nsIDataCallInterfaceService.idl"
+
+interface nsIRilIndicationResult;
+interface nsIRilResponseResult;
+
+[scriptable, uuid(58e8a1cb-cab7-490d-9301-5c66b36ecf6b)]
+interface nsIRilCallback : nsISupports
+{
+  void handleRilResponse(in nsIRilResponseResult response);
+  void handleRilIndication(in nsIRilIndicationResult response);
+};
+
+[scriptable, uuid(2a186cc7-d473-429f-86d4-23d63bbb250e)]
+interface nsIRilWorker : nsISupports
+{
+  void sendRilRequest(in jsval message);
+  void initRil(in nsIRilCallback callback);
+  void setRadioPower(in long serial, in boolean enabled);
+  void getDataCallList(in long serial);
+  void getVoiceRegistrationState(in long serial);
+  void getDataRegistrationState(in long serial);
+  void getOperator(in long serial);
+  void getNetworkSelectionMode(in long serial);
+  void getSignalStrength(in long serial);
+  void getVoiceRadioTechnology(in long serial);
+  void reportSmsMemoryStatus(in long serial, in boolean available);
+  void getIccCardStatus(in long serial);
+  void setCellInfoListRate(in long serial, [optional] in long rateInMillis);
+  void getDeviceIdentity(in long serial);
+  void setDataAllowed(in long serial, in boolean allowed);
+  void getBasebandVersion(in long serial);
+  void setUiccSubscription(in long serial, in long slotId, in long appIndex, in long subId
+                           , in long subStatus);
+  void setMute(in long serial, in boolean enableMute);
+  void getSmscAddress(in long serial);
+  void requestDial(in long serial, in AString address, in long clirMode, in long uusType, in long uusDcs
+                   , in AString uusData);
+  void getCurrentCalls(in long serial);
+  void hangupConnection(in long serial, in long callIndex);
+  void getLastCallFailCause(in long serial);
+  void acceptCall(in long serial);
+  void setPreferredNetworkType(in long serial, in long networkType);
+  void getPreferredNetworkType(in long serial);
+  void setNetworkSelectionModeAutomatic(in long serial);
+  void setNetworkSelectionModeManual(in long serial, in AString operatorNumeric);
+  void getAvailableNetworks(in long serial);
+  void setInitialAttachApn(in long serial, in nsIDataProfile profile, in boolean isRoaming);
+  void setupDataCall(in long serial, in long radioTechnology, in nsIDataProfile profile
+                     , in boolean isRoaming, in boolean allowRoaming);
+  void deactivateDataCall(in long serial, in long cid, in long reason);
+  void getCellInfoList(in long serial);
+  void getIMSI(in long serial, in AString aid);
+  void iccIOForApp(in long serial, in long command, in long fileId, in AString path, in long p1, in long p2, in long p3
+                   , in AString data, in AString pin2, in AString aid);
+};
+
+/**
+ * XPCOM component that provides the hidl broadcast information.
+ */
+[scriptable, uuid(4e0a3d8f-029b-435e-a673-c20c4dd03f83)]
+interface nsIRilWorkerService: nsISupports
+{
+  nsIRilWorker getRilWorker(in unsigned long clientId);
+};
+
+%{C++
+#define RILWORKERSERVICE_CID \
+  { 0xce79588b, 0x53e6, 0x4212, { 0x98, 0x55, 0x36, 0xfe, 0x6b, 0xdc, 0x78, 0xd4 } }
+#define RILWORKERSERVICE_CONTRACTID \
+  "@mozilla.org/rilworkerservice;1"
+%}

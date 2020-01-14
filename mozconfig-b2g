@@ -71,4 +71,5 @@ fi
 ac_add_options --with-dnsresolver-so="$SYS_LIB/dnsresolver_aidl_interface-V2-cpp.so"
 ac_add_options --with-netd-event-so="$SYS_LIB/netd_aidl_interface-V2-cpp.so"
 ac_add_options --with-netd-aidl-so="$SYS_LIB/netd_event_listener_interface-V1-cpp.so"
+ac_add_options --with-radio-so="$SYS_LIB/android.hardware.radio@1.0.so"
 ac_add_options --with-vibrator-so="$SYS_LIB/android.hardware.vibrator@1.0.so"

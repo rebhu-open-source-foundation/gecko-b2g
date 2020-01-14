@@ -44,6 +44,86 @@ DIRECT_CALL_OVERRIDES = {
 
     ("PMedia", "child"): ("Child", "mozilla/media/MediaChild.h"),
 
+    ("PMobileConnection", "child"): (
+        "MobileConnectionChild", "mozilla/dom/mobileconnection/MobileConnectionChild.h"
+    ),
+    ("PMobileConnection", "parent"): (
+        "MobileConnectionParent", "mozilla/dom/mobileconnection/MobileConnectionParent.h"
+    ),
+    ("PMobileConnectionRequest", "child"): (
+        "MobileConnectionRequestChild", "mozilla/dom/mobileconnection/MobileConnectionChild.h"
+    ),
+    ("PMobileConnectionRequest", "parent"): (
+        "MobileConnectionRequestParent", "mozilla/dom/mobileconnection/MobileConnectionParent.h"
+    ),
+    ("PImsRegistration", "child"): (
+        "ImsRegistrationChild", "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
+    ),
+    ("PImsRegistration", "parent"): (
+        "ImsRegistrationParent", "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
+    ),
+    ("PImsRegistrationRequest", "child"): (
+        "ImsRegistrationRequestChild", "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
+    ),
+    ("PImsRegistrationRequest", "parent"): (
+        "ImsRegistrationRequestParent", "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
+    ),
+    ("PImsRegServiceFinder", "parent"): (
+        "ImsRegServiceFinderParent", "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
+    ),
+    ("PImsRegServiceFinder", "child"): (
+        "ImsRegServiceFinderChild", "mozilla/dom/mobileconnection/PImsRegistrationChild.h"
+    ),
+
+    ("PIcc", "child"): (
+        "IccChild", "mozilla/dom/icc/IccChild.h"
+    ),
+    ("PIcc", "parent"): (
+        "IccParent", "mozilla/dom/icc/IccParent.h"
+    ),
+    ("PIccRequest", "child"): (
+        "IccRequestChild", "mozilla/dom/icc/IccChild.h"
+    ),
+    ("PIccRequest", "parent"): (
+        "IccRequestParent", "mozilla/dom/icc/IccParent.h"
+    ),
+    ("PTelephony", "child"): (
+        "TelephonyChild", "mozilla/dom/telephony/TelephonyChild.h"
+    ),
+    ("PTelephony", "parent"): (
+        "TelephonyParent", "mozilla/dom/telephony/TelephonyParent.h"
+    ),
+    ("PTelephonyRequest", "child"): (
+        "TelephonyRequestChild", "mozilla/dom/telephony/TelephonyChild.h"
+    ),
+    ("PTelephonyRequest", "parent"): (
+        "TelephonyRequestParent", "mozilla/dom/telephony/TelephonyParent.h"
+    ),
+#    ("PSms", "child"): (
+#        "PSmsChild", "mozilla/dom/mobilemessage/SmsChild.h"
+#    ),
+#    ("PSms", "parent"): (
+#        "PSmsParent", "mozilla/dom/mobilemessage/SmsParent.h"
+#    ),
+#    ("PSmsRequest", "child"): (
+#        "PSmsRequestChild", "mozilla/dom/mobilemessage/SmsRequestChild.h"
+#    ),
+#    ("PSmsRequest", "parent"): (
+#        "PSmsRequestParent", "mozilla/dom/mobilemessage/SmsRequestParent.h"
+#    ),
+#    ("PMobileMessageCursor", "child"): (
+#        "PMobileMessageCursorChild", "mozilla/dom/mobilemessage/MobileMessageCursorChild.h"
+#    ),
+#    ("PMobileMessageCursor", "parent"): (
+#        "PMobileMessageCursorParent", "mozilla/dom/mobilemessage/MobileMessageCursorParent.h"
+#    ),
+#    ("PVideoCallProvider", "child"): (
+#        "PVideoCallProviderChild", "mozilla/dom/videocallprovider/VideoCallProviderChild.h"
+#    ),
+#    ("PVideoCallProvider", "parent"): (
+#        "PVideoCallProviderParent", "mozilla/dom/videocallprovider/VideoCallProviderParent.h"
+#    ),
+
     ("PPresentationRequest", "child"): (
         "PresentationRequestChild", "mozilla/dom/PresentationChild.h"
     ),
@@ -450,6 +530,10 @@ VIRTUAL_CALL_CLASSES = set([
     ("PCycleCollectWithLogs", "parent"),
     ("PHal", "child"),
     ("PHal", "parent"),
+#    ("PImsRegistration", "child"),
+#    ("PImsRegistration", "parent"),
+#    ("PImsRegistrationRequest", "child"),
+#    ("PImsRegistrationRequest", "parent"),
     ("PIndexedDBPermissionRequest", "parent"),
     ("PParentToChildStream", "child"),
     ("PParentToChildStream", "parent"),

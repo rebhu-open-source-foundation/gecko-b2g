@@ -757,6 +757,67 @@ class ContentChild final
   PFileDescriptorSetChild* SendPFileDescriptorSetConstructor(
       const FileDescriptor& aFD) override;
 
+  //MOZ_B2G_RIL
+//   PMobileConnectionChild*
+//   SendPMobileConnectionConstructor(PMobileConnectionChild* aActor,
+//                                    const uint32_t& aClientId);
+
+//   PMobileConnectionChild*
+//   AllocPMobileConnectionChild(const uint32_t& aClientId);
+
+//   bool
+//   DeallocPMobileConnectionChild(PMobileConnectionChild* aActor);
+
+//   PImsRegServiceFinderChild*
+//   AllocPImsRegServiceFinderChild();
+//   bool
+//   DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*);
+
+//   PImsRegistrationChild*
+//   SendPImsRegistrationConstructor(PImsRegistrationChild* aActor,
+//                                   const uint32_t& aServiceId);
+//   PImsRegistrationChild*
+//   AllocPImsRegistrationChild(const uint32_t& aServiceId);
+//   bool
+//   DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
+
+//    virtual PCellBroadcastChild* AllocPCellBroadcastChild();
+
+//    PCellBroadcastChild* SendPCellBroadcastConstructor(PCellBroadcastChild* aActor);
+
+//    virtual bool DeallocPCellBroadcastChild(PCellBroadcastChild* aActor);
+
+//    virtual PSmsChild* AllocPSmsChild();
+
+//    virtual bool DeallocPSmsChild(PSmsChild*);
+
+//   PTelephonyChild* AllocPTelephonyChild();
+
+//   bool DeallocPTelephonyChild(PTelephonyChild*);
+
+//   PSubsidyLockChild*
+//   SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
+//                               const uint32_t& aClientId);
+
+//   virtual PSubsidyLockChild*
+//   AllocPSubsidyLockChild(const uint32_t& aClientId);
+
+//   virtual bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
+
+//   virtual PVoicemailChild* AllocPVoicemailChild();
+
+//   PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
+
+//   virtual bool DeallocPVoicemailChild(PVoicemailChild*);
+
+//   PIccChild*
+//   SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
+
+//   PIccChild* AllocPIccChild(const uint32_t& aClientId);
+
+//   bool DeallocPIccChild(PIccChild* aActor);
+  // MOZ_B2G_RIL_END
+
  private:
   static void ForceKillTimerCallback(nsITimer* aTimer, void* aClosure);
   void StartForceKillTimer();
