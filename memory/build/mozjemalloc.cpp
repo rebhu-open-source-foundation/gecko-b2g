@@ -3955,6 +3955,7 @@ struct BaseAllocator {
 inline void* BaseAllocator::malloc(size_t aSize) {
   void* ret;
   arena_t* arena;
+  size_t aAlignment = 8;
 
   if (!malloc_init()) {
     ret = nullptr;
@@ -3965,7 +3966,7 @@ inline void* BaseAllocator::malloc(size_t aSize) {
     aSize = 1;
   }
   arena = mArena ? mArena : choose_arena(aSize);
-  ret = arena->Malloc(aSize, /* zero = */ false);
+  ret = arena->Palloc(aAlignment, aSize);
 
 RETURN:
   if (!ret) {
