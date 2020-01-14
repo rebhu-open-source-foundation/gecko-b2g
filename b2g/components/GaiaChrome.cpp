@@ -26,7 +26,7 @@ StaticRefPtr<GaiaChrome> gGaiaChrome;
 NS_IMPL_ISUPPORTS(GaiaChrome, nsIGaiaChrome)
 
 GaiaChrome::GaiaChrome()
-  : mPackageName(NS_LITERAL_CSTRING("gaia"))
+  : mPackageName(NS_LITERAL_CSTRING("system"))
   , mAppsDir(NS_LITERAL_STRING("webapps"))
   , mDataRoot(NS_LITERAL_STRING("/data/local"))
   , mSystemRoot(NS_LITERAL_STRING("/system/b2g"))
@@ -126,17 +126,16 @@ GaiaChrome::Register()
 
   FileLocation appsLocation;
 
-  // Check if there is a $APPS_DIR/gaia.zip file present.
-  // If so, we'll use it as an archive for all content
-  // served under chrome://gaia/content/
+  // Check if there is a $APPS_DIR/system/application.zip file present.
+  // If so, we'll use it as the content of the system app
+  // served under chrome://system/content/
   nsCOMPtr<nsIFile> zipFile;
   // Use a clone to not modify aPath since we need it as is later
   // when there is no zip file.
   rv = aPath->Clone(getter_AddRefs(zipFile));
   NS_ENSURE_SUCCESS(rv, rv);
-  auto zipName(mPackageName);
-  zipName.Append(NS_LITERAL_CSTRING(".zip"));
-  zipFile->Append(NS_ConvertUTF8toUTF16(zipName));
+  zipFile->Append(NS_ConvertUTF8toUTF16(mPackageName));
+  zipFile->Append(NS_ConvertUTF8toUTF16("application.zip"));
   bool zipExists = false;
   zipFile->Exists(&zipExists);
 
