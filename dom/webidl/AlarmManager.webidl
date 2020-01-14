@@ -6,12 +6,19 @@
  * https://wiki.mozilla.org/WebAPI/AlarmAPI
  */
 
-[JSImplementation="@mozilla.org/alarmsManager;1",
- Pref="dom.alarm.enabled",
- Exposed=Window,
- ChromeOnly]
-interface AlarmsManager {
-  DOMRequest getAll();
-  DOMRequest add(any date, DOMString respectTimezone, optional any data);
-  void remove(unsigned long id);
+// Wrap all parameters into AlarmOptions so that workers can pass them to main
+// thread.
+[GenerateConversionToJS]
+dictionary AlarmOptions {
+  required any date;
+  boolean ignoreTimezone = true;
+  any data = null;
 };
+
+[Exposed=(Window,Worker),
+  Pref="dom.alarm.enabled"]
+  interface AlarmManager {
+    Promise<any> getAll();
+    Promise<long> add(AlarmOptions options);
+    void remove(long id);
+  };

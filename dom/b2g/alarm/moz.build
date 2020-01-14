@@ -14,8 +14,13 @@ EXPORTS.mozilla.dom.alarm += [
     'AlarmHalService.h',
 ]
 
+EXPORTS.mozilla.dom += [
+    'AlarmManager.h',
+]
+
 SOURCES += [
     'AlarmHalService.cpp',
+    'AlarmManager.cpp',
 ]
 
 EXTRA_COMPONENTS += [
