@@ -2320,7 +2320,7 @@ nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeig
         return NS_OK;
       }
 
-      nsCOMPtr<nsIInputStream> stream = do_QueryInterface(encoder);
+      nsCOMPtr<nsIInputStream> stream = encoder;
       if (NS_WARN_IF(!stream)) {
         DOM_CAMERA_LOGE("CreatePoster: to input stream failed\n");
         return NS_OK;
