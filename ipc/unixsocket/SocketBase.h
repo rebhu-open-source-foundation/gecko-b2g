@@ -364,7 +364,6 @@ class SocketIOBase {
  * the I/O thread to the consumer thread.
  */
 template <typename T>
-// class SocketTask : public Task
 class SocketTask : public mozilla::Runnable {
  public:
   virtual ~SocketTask() {}
@@ -373,11 +372,8 @@ class SocketTask : public mozilla::Runnable {
 
  protected:
   SocketTask(T* aIO)
-      : mozilla::Runnable("SocketTask"),
-        mIO(aIO)
-  /*
-    : mIO(aIO)
-  */
+      : mozilla::Runnable("SocketTask")
+      , mIO(aIO)
   {
     MOZ_ASSERT(aIO);
   }
@@ -397,8 +393,7 @@ class SocketEventTask final : public SocketTask<SocketIOBase> {
   SocketEventTask(SocketIOBase* aIO, SocketEvent aEvent);
   ~SocketEventTask();
 
-  // void Run() override;
-  nsresult Run() override;  // jamin
+  nsresult Run() override;
 
  private:
   SocketEvent mEvent;
@@ -413,21 +408,18 @@ class SocketRequestClosingTask final : public SocketTask<SocketIOBase> {
   SocketRequestClosingTask(SocketIOBase* aIO);
   ~SocketRequestClosingTask();
 
-  // void Run() override;
-  nsresult Run() override;  // jamin
+  nsresult Run() override;
 };
 
 /**
  * |SocketDeleteInstanceTask| deletes an object on the consumer thread.
  */
-// class SocketDeleteInstanceTask final : public Task
 class SocketDeleteInstanceTask final : public mozilla::Runnable {
  public:
   SocketDeleteInstanceTask(SocketIOBase* aIO);
   ~SocketDeleteInstanceTask();
 
-  // void Run() override;
-  nsresult Run() override;  // jamin
+  nsresult Run() override;
 
  private:
   UniquePtr<SocketIOBase> mIO;
@@ -441,18 +433,13 @@ class SocketDeleteInstanceTask final : public mozilla::Runnable {
  * supposed to run on the I/O thread.
  */
 template <typename Tio>
-// class SocketIOTask : public CancelableTask
 class SocketIOTask : public mozilla::CancelableRunnable {
  public:
-  // SocketIOTask() : mozilla::CancelableRunnable("SocketIOTask")
-  // { }
-
   virtual ~SocketIOTask() {}
 
   Tio* GetIO() const { return mIO; }
 
-  // void Cancel() override
-  nsresult Cancel() override  // jamin
+  nsresult Cancel() override
   {
     mIO = nullptr;
     return NS_OK;
@@ -462,10 +449,8 @@ class SocketIOTask : public mozilla::CancelableRunnable {
 
  protected:
   SocketIOTask(Tio* aIO)
-      /*
-      : mIO(aIO)
-      */
-      : mozilla::CancelableRunnable("SocketIOTask"), mIO(aIO) {
+      : mozilla::CancelableRunnable("SocketIOTask")
+      , mIO(aIO) {
     MOZ_ASSERT(mIO);
   }
 
@@ -482,8 +467,7 @@ class SocketIOShutdownTask final : public SocketIOTask<SocketIOBase> {
   SocketIOShutdownTask(SocketIOBase* aIO);
   ~SocketIOShutdownTask();
 
-  // void Run() override;
-  nsresult Run();  // jamin
+  nsresult Run();
 };
 
 }  // namespace ipc

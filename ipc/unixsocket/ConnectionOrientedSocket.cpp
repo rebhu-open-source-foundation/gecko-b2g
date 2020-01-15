@@ -74,9 +74,6 @@ nsresult ConnectionOrientedSocketIO::Connect() {
       mConnector->CreateStreamSocket(peerAddress, &mPeerAddressLength, fd);
   if (NS_FAILED(rv)) {
     // Tell the consumer thread we've errored
-    // GetConsumerThread()->PostTask(
-    //   FROM_HERE, new SocketEventTask(this, SocketEventTask::CONNECT_ERROR));
-
     RefPtr<SocketEventTask> task =
         new SocketEventTask(this, SocketEventTask::CONNECT_ERROR);
     GetConsumerThread()->PostTask(task.forget());
@@ -138,9 +135,6 @@ void ConnectionOrientedSocketIO::OnConnected() {
   MOZ_ASSERT(MessageLoopForIO::current() == GetIOLoop());
   MOZ_ASSERT(GetConnectionStatus() == SOCKET_IS_CONNECTED);
 
-  // GetConsumerThread()->PostTask(
-  //   FROM_HERE, new SocketEventTask(this, SocketEventTask::CONNECT_SUCCESS));
-
   RefPtr<SocketEventTask> task =
       new SocketEventTask(this, SocketEventTask::CONNECT_SUCCESS);
   GetConsumerThread()->PostTask(task.forget());
@@ -166,9 +160,6 @@ void ConnectionOrientedSocketIO::OnError(const char* aFunction, int aErrno) {
   Close();
 
   // Tell the consumer thread we've errored
-  // GetConsumerThread()->PostTask(
-  //   FROM_HERE, new SocketEventTask(this, SocketEventTask::CONNECT_ERROR));
-
   RefPtr<SocketEventTask> task =
       new SocketEventTask(this, SocketEventTask::CONNECT_ERROR);
   GetConsumerThread()->PostTask(task.forget());

@@ -44,9 +44,6 @@ ssize_t DataSocketIO::ReceiveData(int aFd) {
   nsresult rv = QueryReceiveBuffer(&incoming);
   if (NS_FAILED(rv)) {
     /* an error occured */
-    // GetConsumerThread()->PostTask(FROM_HERE,
-    //                               new SocketRequestClosingTask(this));
-
     RefPtr<SocketRequestClosingTask> task = new SocketRequestClosingTask(this);
     GetConsumerThread()->PostTask(task.forget());
     return -1;
@@ -56,8 +53,6 @@ ssize_t DataSocketIO::ReceiveData(int aFd) {
   if (res < 0) {
     /* an I/O error occured */
     DiscardBuffer();
-    // GetConsumerThread()->PostTask(FROM_HERE,
-    //                               new SocketRequestClosingTask(this));
 
     RefPtr<SocketRequestClosingTask> task = new SocketRequestClosingTask(this);
     GetConsumerThread()->PostTask(task.forget());
@@ -65,8 +60,6 @@ ssize_t DataSocketIO::ReceiveData(int aFd) {
   } else if (!res) {
     /* EOF or peer shut down sending */
     DiscardBuffer();
-    // GetConsumerThread()->PostTask(FROM_HERE,
-    //                               new SocketRequestClosingTask(this));
 
     RefPtr<SocketRequestClosingTask> task = new SocketRequestClosingTask(this);
     GetConsumerThread()->PostTask(task.forget());
@@ -94,9 +87,6 @@ nsresult DataSocketIO::SendPendingData(int aFd) {
     ssize_t res = outgoing->Send(aFd);
     if (res < 0) {
       /* an I/O error occured */
-      // GetConsumerThread()->PostTask(FROM_HERE,
-      //                               new SocketRequestClosingTask(this));
-
       RefPtr<SocketRequestClosingTask> task =
           new SocketRequestClosingTask(this);
       GetConsumerThread()->PostTask(task.forget());

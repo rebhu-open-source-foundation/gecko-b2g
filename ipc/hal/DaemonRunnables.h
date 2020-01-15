@@ -18,7 +18,6 @@ namespace details {
 
 class DaemonRunnable : public Runnable {
  protected:
-  // DaemonRunnable() = default;
   DaemonRunnable() : Runnable("DaemonRunnable") {}
   virtual ~DaemonRunnable() = default;
 

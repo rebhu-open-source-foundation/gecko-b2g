@@ -269,7 +269,6 @@ SocketEventTask::SocketEventTask(SocketIOBase* aIO, SocketEvent aEvent)
 
 SocketEventTask::~SocketEventTask() { MOZ_COUNT_DTOR(SocketEventTask); }
 
-// void
 nsresult SocketEventTask::Run() {
   SocketIOBase* io = SocketTask<SocketIOBase>::GetIO();
 
@@ -278,8 +277,7 @@ nsresult SocketEventTask::Run() {
   if (NS_WARN_IF(io->IsShutdownOnConsumerThread())) {
     // Since we've already explicitly closed and the close
     // happened before this, this isn't really an error.
-    // return;
-    return NS_OK;  // jamin
+    return NS_OK;
   }
 
   SocketBase* socketBase = io->GetSocketBase();
@@ -292,7 +290,7 @@ nsresult SocketEventTask::Run() {
   } else if (mEvent == DISCONNECT) {
     socketBase->NotifyDisconnect();
   }
-  return NS_OK;  // jamin
+  return NS_OK;
 }
 
 //
@@ -308,7 +306,6 @@ SocketRequestClosingTask::~SocketRequestClosingTask() {
   MOZ_COUNT_DTOR(SocketRequestClosingTask);
 }
 
-// void
 nsresult SocketRequestClosingTask::Run() {
   SocketIOBase* io = SocketTask<SocketIOBase>::GetIO();
 
@@ -317,15 +314,14 @@ nsresult SocketRequestClosingTask::Run() {
   if (NS_WARN_IF(io->IsShutdownOnConsumerThread())) {
     // Since we've already explicitly closed and the close
     // happened before this, this isn't really an error.
-    // return;
-    return NS_OK;  // jamin
+    return NS_OK;
   }
 
   SocketBase* socketBase = io->GetSocketBase();
   MOZ_ASSERT(socketBase);
 
   socketBase->Close();
-  return NS_OK;  // jamin
+  return NS_OK;
 }
 
 //
@@ -333,11 +329,8 @@ nsresult SocketRequestClosingTask::Run() {
 //
 
 SocketDeleteInstanceTask::SocketDeleteInstanceTask(SocketIOBase* aIO)
-    : mozilla::Runnable("SocketDeleteInstanceTask"),
-      mIO(aIO)
-/*
-: mIO(aIO)
-*/
+    : mozilla::Runnable("SocketDeleteInstanceTask")
+    , mIO(aIO)
 {
   MOZ_COUNT_CTOR(SocketDeleteInstanceTask);
 }
@@ -346,11 +339,10 @@ SocketDeleteInstanceTask::~SocketDeleteInstanceTask() {
   MOZ_COUNT_DTOR(SocketDeleteInstanceTask);
 }
 
-// void
 nsresult SocketDeleteInstanceTask::Run() {
   mIO.reset();  // delete instance
 
-  return NS_OK;  // jamin
+  return NS_OK;
 }
 
 //
@@ -366,7 +358,6 @@ SocketIOShutdownTask::~SocketIOShutdownTask() {
   MOZ_COUNT_DTOR(SocketIOShutdownTask);
 }
 
-// void
 nsresult SocketIOShutdownTask::Run() {
   SocketIOBase* io = SocketIOTask<SocketIOBase>::GetIO();
 
@@ -379,15 +370,11 @@ nsresult SocketIOShutdownTask::Run() {
   // shut down, so we can send a message to the consumer thread to
   // delete |io| safely knowing that it's not reference any longer.
   io->ShutdownOnIOThread();
-  /*
-    io->GetConsumerThread()->PostTask(FROM_HERE,
-                                      new SocketDeleteInstanceTask(io));
-  */
 
   RefPtr<SocketDeleteInstanceTask> task = new SocketDeleteInstanceTask(io);
   io->GetConsumerThread()->PostTask(task.forget());
 
-  return NS_OK;  // jamin
+  return NS_OK;
 }
 
 }  // namespace ipc

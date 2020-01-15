@@ -33,29 +33,22 @@ namespace ipc {
 DaemonSocketPDU::DaemonSocketPDU(uint8_t aService, uint8_t aOpcode,
                                  uint16_t aPayloadSize)
     : mConsumer(nullptr) {
-  // __android_log_print(ANDROID_LOG_INFO, "Jamin", "%s: S", __FUNCTION__);
   MOZ_COUNT_CTOR_INHERITED(DaemonSocketPDU, UnixSocketIOBuffer);
-  // __android_log_print(ANDROID_LOG_INFO, "Jamin", "%s: (1)", __FUNCTION__);
 
   // Allocate memory
   size_t availableSpace = PDU_HEADER_SIZE + aPayloadSize;
   ResetBuffer(new uint8_t[availableSpace], 0, 0, availableSpace);
-  // __android_log_print(ANDROID_LOG_INFO, "Jamin", "%s: (2)", __FUNCTION__);
 
   // Reserve PDU header
   uint8_t* data = Append(PDU_HEADER_SIZE);
   MOZ_ASSERT(data);
-  // __android_log_print(ANDROID_LOG_INFO, "Jamin", "%s: (3)", __FUNCTION__);
 
   // Setup PDU header
   data[PDU_OFF_SERVICE] = aService;
-  // __android_log_print(ANDROID_LOG_INFO, "Jamin", "%s: (4)", __FUNCTION__);
 
   data[PDU_OFF_OPCODE] = aOpcode;
-  // __android_log_print(ANDROID_LOG_INFO, "Jamin", "%s: (5)", __FUNCTION__);
 
   memcpy(data + PDU_OFF_LENGTH, &aPayloadSize, sizeof(aPayloadSize));
-  // __android_log_print(ANDROID_LOG_INFO, "Jamin", "%s: E", __FUNCTION__);
 }
 
 DaemonSocketPDU::DaemonSocketPDU(size_t aPayloadSize) : mConsumer(nullptr) {
@@ -151,8 +144,7 @@ ssize_t DaemonSocketPDU::Receive(int aFd) {
     size_t fdCount =
         (chdr->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr))) / sizeof(int);
     for (size_t i = 0; i < fdCount; i++) {
-      // int* receivedFd = static_cast<int*>(CMSG_DATA(chdr)) + i;
-      int* receivedFd = (int*)(CMSG_DATA(chdr)) + i;
+      int* receivedFd = reinterpret_cast<int*>(CMSG_DATA(chdr)) + i;
       mReceivedFds.AppendElement(ScopedClose(*receivedFd));
     }
   }

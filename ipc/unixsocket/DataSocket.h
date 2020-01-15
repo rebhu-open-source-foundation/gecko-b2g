@@ -118,7 +118,6 @@ class SocketIOSendTask final : public SocketIOTask<Tio> {
   }
 
   NS_IMETHOD Run() override
-  // void Run() override
   {
     MOZ_ASSERT(!SocketIOTask<Tio>::IsCanceled());
 

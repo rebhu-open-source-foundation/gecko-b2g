@@ -182,17 +182,6 @@ void DaemonSocket::SendSocketData(UnixSocketIOBuffer* aBuffer) {
   MOZ_ASSERT(mIO);
   MOZ_ASSERT(mIO->IsConsumerThread());
 
-  __android_log_print(ANDROID_LOG_INFO, "Jamin", "DaemonSocket::%s: S",
-                      __FUNCTION__);
-  if (mIO) {
-    __android_log_print(ANDROID_LOG_INFO, "Jamin",
-                        "DaemonSocket::%s: have mIO, IsConsumerThread: %d",
-                        __FUNCTION__, mIO->IsConsumerThread());
-  }
-  // mIO->GetIOLoop()->PostTask(
-  //   FROM_HERE,
-  //   new SocketIOSendTask<DaemonSocketIO, UnixSocketIOBuffer>(mIO, aBuffer));
-
   RefPtr<SocketIOSendTask<DaemonSocketIO, UnixSocketIOBuffer>> task =
       new SocketIOSendTask<DaemonSocketIO, UnixSocketIOBuffer>(mIO, aBuffer);
   mIO->GetIOLoop()->PostTask(task.forget());
@@ -209,7 +198,6 @@ void DaemonSocket::Close() {
   MOZ_ASSERT(mIO->IsConsumerThread());
 
   mIO->ShutdownOnConsumerThread();
-  // mIO->GetIOLoop()->PostTask(FROM_HERE, new SocketIOShutdownTask(mIO));
 
   RefPtr<SocketIOShutdownTask> task = new SocketIOShutdownTask(mIO);
   mIO->GetIOLoop()->PostTask(task.forget());

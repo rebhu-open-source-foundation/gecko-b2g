@@ -224,9 +224,7 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, nsDependentCString& aOut) {
     return NS_ERROR_ILLEGAL_VALUE;  // end of PDU
   }
 
-  // const char* end = static_cast<char*>(memchr(str, '\0', aPDU.GetSize() +
-  // 1));
-  const char* end = (char*)(memchr(str, '\0', aPDU.GetSize() + 1));
+  const char* end = reinterpret_cast<const char*>(memchr(str, '\0', aPDU.GetSize() + 1));
   if (MOZ_HAL_IPC_UNPACK_WARN_IF(!end, nsDependentCString)) {
     return NS_ERROR_ILLEGAL_VALUE;  // no string terminator
   }

@@ -26,11 +26,6 @@ nsresult UnixSocketConnector::Duplicate(
     return rv;
   }
 
-  // aConnector = Move(UniquePtr<UnixSocketConnector>(connectorPtr));
-
-  // error: moving a temporary object prevents copy elision
-  // [-Werror,-Wpessimizing-move] aConnector =
-  // std::move(UniquePtr<UnixSocketConnector>(connectorPtr));
   aConnector = UniquePtr<UnixSocketConnector>(connectorPtr);
 
   return NS_OK;
