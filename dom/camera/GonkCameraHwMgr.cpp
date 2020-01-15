@@ -48,6 +48,14 @@ NS_IMPL_ISUPPORTS0(GonkCameraHardware);
 NS_IMPL_ISUPPORTS0(android::Camera);
 #endif
 
+#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 23
+// We hard-code user id here to adapt to AOSP's multi-user support check for any
+// request to connect to Camera Service, as we only support single user at the moment
+#define DEFAULT_USER_ID           0
+#define EVENT_USER_SWITCHED       1
+#define CAMERASERVICE_POLL_DELAY  500000
+#endif
+
 #ifndef DEAD_OBJECT
 int32_t DEAD_OBJECT = -32;
 #endif
@@ -272,16 +280,46 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
 
   if (!test.EqualsASCII("hardware")) {
 #ifdef MOZ_WIDGET_GONK
-#if ANDROID_VERSION >= 26
+  #if ANDROID_VERSION >= 23
+    sp<IServiceManager> sm = defaultServiceManager();
+    sp<IBinder> binder;
+    sp<hardware::ICameraService> gCameraService;
+    do {
+      binder = sm->getService(String16("media.camera"));
+      if (binder != 0) {
+        break;
+      }
+      DOM_CAMERA_LOGW("CameraService not published, waiting...");
+      usleep(CAMERASERVICE_POLL_DELAY);
+    } while(true);
+
+    gCameraService = interface_cast<hardware::ICameraService>(binder);
+
+    int32_t event = EVENT_USER_SWITCHED;
+    #if ANDROID_VERSION >= 26
+      std::vector<int32_t> args;
+      args.push_back(DEFAULT_USER_ID);
+
+      gCameraService->notifySystemEvent(event, args);
+    #else
+      int32_t args[1];
+      args[0] = DEFAULT_USER_ID;
+      size_t length = 1;
+
+      gCameraService->notifySystemEvent(event, args, length);
+    #endif
+  #endif /* ANDROID_VERSION >= 23 */
+
+  #if ANDROID_VERSION >= 26
     ProcessState::self()->startThreadPool();
     camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
       Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
-#elif ANDROID_VERSION >= 18
+  #elif ANDROID_VERSION >= 18
     camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
       Camera::USE_CALLING_UID);
-#else
+  #else
     camera = Camera::connect(aCameraId);
-#endif
+  #endif
 #endif
 
     if (camera.get() == nullptr) {

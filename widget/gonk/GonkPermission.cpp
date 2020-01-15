@@ -23,7 +23,9 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/SyncRunnable.h"
+#include "nsIPermissionManager.h"
 #include "nsThreadUtils.h"
+#include "PermissionDelegateHandler.h"
 
 #if ANDROID_VERSION >= 29
 #include <binder/PermissionController.h>
@@ -73,7 +75,6 @@ NS_IMETHODIMP
 GonkPermissionChecker::Run()
 {
   MOZ_ASSERT(NS_IsMainThread());
-
   // Find our ContentParent.
   dom::ContentParent *contentParent = nullptr;
   {
@@ -91,28 +92,35 @@ GonkPermissionChecker::Run()
     return NS_OK;
   }
 
-#if 0 // TODO: wait for new permission check mechanism ready and porting
   // Now iterate its apps...
   const ManagedContainer<dom::PBrowserParent>& browsers =
     contentParent->ManagedPBrowserParent();
   for (auto iter = browsers.ConstIter(); !iter.Done(); iter.Next()) {
     dom::BrowserParent *browserParent =
       static_cast<dom::BrowserParent*>(iter.Get()->GetKey());
-    nsCOMPtr<mozIApplication> mozApp = browserParent->GetOwnOrContainingApp();
-    if (!mozApp) {
-      continue;
+    // Get the document for security check
+    RefPtr<dom::Document> document = browserParent->GetOwnerElement()->OwnerDoc();
+    NS_ENSURE_TRUE(document, NS_ERROR_FAILURE);
+
+    PermissionDelegateHandler* permissionHandler =
+        document->GetPermissionDelegateHandler();
+    if (NS_WARN_IF(!permissionHandler)) {
+      return NS_ERROR_FAILURE;
     }
 
-    // ...and check if any of them has camera access.
-    bool appCanUseCamera;
-    nsresult rv = mozApp->HasPermission("camera", &appCanUseCamera);
-    if (NS_SUCCEEDED(rv) && appCanUseCamera) {
+    uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
+    permissionHandler->GetPermission(NS_LITERAL_CSTRING("camera"), &permission,
+                                     false);
+
+    if (permission == nsIPermissionManager::DENY_ACTION) {
+      mCanUseCamera = false;
+    }
+
+    if (permission == nsIPermissionManager::ALLOW_ACTION) {
       mCanUseCamera = true;
-      return NS_OK;
     }
   }
-#endif
-  mCanUseCamera = true;
+
   return NS_OK;
 }
 

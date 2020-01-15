@@ -941,7 +941,9 @@ status_t GonkBufferQueueProducer::getUniqueId(uint64_t* outId) const {
 }
 
 status_t GonkBufferQueueProducer::getConsumerUsage(uint64_t* outUsage) const {
-    return INVALID_OPERATION;
+    Mutex::Autolock lock(mCore->mMutex);
+    *outUsage = mCore->mConsumerUsageBits;
+    return NO_ERROR;
 }
 
 } // namespace android

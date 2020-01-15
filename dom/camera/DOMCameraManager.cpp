@@ -90,21 +90,27 @@ nsDOMCameraManager::CheckPermission(nsPIDOMWindowInner* aWindow)
   RefPtr<Document> document = window->GetExtantDoc();
   NS_ENSURE_TRUE(document, false);
 
-  nsCOMPtr<nsIPrincipal> principal = document->NodePrincipal();
-
-  nsCOMPtr<nsIPermissionManager> permMgr =
-    services::GetPermissionManager();
-  NS_ENSURE_TRUE(permMgr, false);
-
-  uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  permMgr->TestPermissionFromPrincipal(principal, NS_LITERAL_CSTRING("camera"), &permission);
-  if (permission != nsIPermissionManager::ALLOW_ACTION &&
-      permission != nsIPermissionManager::PROMPT_ACTION) {
-    // TODO: FIXME - Temporarily always grant permission for integration, need to
-    //       restore the check once the permission check mechanism is ready
-    return true;
+  PermissionDelegateHandler* permissionHandler =
+      document->GetPermissionDelegateHandler();
+  if (NS_WARN_IF(!permissionHandler)) {
+    return false;
   }
 
+  uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
+  permissionHandler->GetPermission(NS_LITERAL_CSTRING("camera"), &permission,
+                                   false);
+
+  if (permission == nsIPermissionManager::DENY_ACTION) {
+    return false;
+  }
+
+  if (permission == nsIPermissionManager::ALLOW_ACTION) {
+    return true;
+  } else {
+    // TODO: FIXME - Temporarily grant permission for integration, currently
+    //       the permission table has not been installed yet.
+    return true;
+  }
   return true;
 }
 
@@ -342,7 +348,9 @@ nsDOMCameraManager::GetCamera(const nsAString& aCamera,
   // even if permission to the camera has been granted.
   bool immediateCheck = false;
   CameraPreferences::GetPref("camera.control.test.permission", immediateCheck);
-  if (immediateCheck && CheckPermission(mWindow))
+  // TODO FIXME: Temporarily force calling CheckPermission here since
+  //             prompt permission check is not ready now
+  if (/* immediateCheck && */CheckPermission(mWindow))
   {
     PermissionAllowed(cameraId, aInitialConfig, promise);
     return promise.forget();
