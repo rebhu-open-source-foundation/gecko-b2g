@@ -371,10 +371,7 @@ class SocketTask : public mozilla::Runnable {
   T* GetIO() const { return mIO; }
 
  protected:
-  SocketTask(T* aIO)
-      : mozilla::Runnable("SocketTask")
-      , mIO(aIO)
-  {
+  SocketTask(T* aIO) : mozilla::Runnable("SocketTask"), mIO(aIO) {
     MOZ_ASSERT(aIO);
   }
 
@@ -391,7 +388,6 @@ class SocketEventTask final : public SocketTask<SocketIOBase> {
   enum SocketEvent { CONNECT_SUCCESS, CONNECT_ERROR, DISCONNECT };
 
   SocketEventTask(SocketIOBase* aIO, SocketEvent aEvent);
-  ~SocketEventTask();
 
   nsresult Run() override;
 
@@ -406,7 +402,6 @@ class SocketEventTask final : public SocketTask<SocketIOBase> {
 class SocketRequestClosingTask final : public SocketTask<SocketIOBase> {
  public:
   SocketRequestClosingTask(SocketIOBase* aIO);
-  ~SocketRequestClosingTask();
 
   nsresult Run() override;
 };
@@ -417,7 +412,6 @@ class SocketRequestClosingTask final : public SocketTask<SocketIOBase> {
 class SocketDeleteInstanceTask final : public mozilla::Runnable {
  public:
   SocketDeleteInstanceTask(SocketIOBase* aIO);
-  ~SocketDeleteInstanceTask();
 
   nsresult Run() override;
 
@@ -439,8 +433,7 @@ class SocketIOTask : public mozilla::CancelableRunnable {
 
   Tio* GetIO() const { return mIO; }
 
-  nsresult Cancel() override
-  {
+  nsresult Cancel() override {
     mIO = nullptr;
     return NS_OK;
   }
@@ -449,8 +442,7 @@ class SocketIOTask : public mozilla::CancelableRunnable {
 
  protected:
   SocketIOTask(Tio* aIO)
-      : mozilla::CancelableRunnable("SocketIOTask")
-      , mIO(aIO) {
+      : mozilla::CancelableRunnable("SocketIOTask"), mIO(aIO) {
     MOZ_ASSERT(mIO);
   }
 
@@ -465,7 +457,6 @@ class SocketIOTask : public mozilla::CancelableRunnable {
 class SocketIOShutdownTask final : public SocketIOTask<SocketIOBase> {
  public:
   SocketIOShutdownTask(SocketIOBase* aIO);
-  ~SocketIOShutdownTask();
 
   nsresult Run();
 };

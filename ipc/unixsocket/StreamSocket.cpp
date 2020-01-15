@@ -124,8 +124,7 @@ StreamSocket* StreamSocketIO::GetStreamSocket() { return mStreamSocket; }
 
 DataSocket* StreamSocketIO::GetDataSocket() { return GetStreamSocket(); }
 
-void
-StreamSocketIO::SetDelayedConnectTask(mozilla::CancelableRunnable* aTask) {
+void StreamSocketIO::SetDelayedConnectTask(mozilla::CancelableRunnable* aTask) {
   MOZ_ASSERT(IsConsumerThread());
 
   mDelayedConnectTask = aTask;
@@ -168,11 +167,7 @@ nsresult StreamSocketIO::QueryReceiveBuffer(UnixSocketIOBuffer** aBuffer) {
 class StreamSocketIO::ReceiveTask final : public SocketTask<StreamSocketIO> {
  public:
   ReceiveTask(StreamSocketIO* aIO, UnixSocketBuffer* aBuffer)
-      : SocketTask<StreamSocketIO>(aIO), mBuffer(aBuffer) {
-    MOZ_COUNT_CTOR(ReceiveTask);
-  }
-
-  ~ReceiveTask() { MOZ_COUNT_DTOR(ReceiveTask); }
+      : SocketTask<StreamSocketIO>(aIO), mBuffer(aBuffer) {}
 
   nsresult Run() override {
     StreamSocketIO* io = SocketTask<StreamSocketIO>::GetIO();
@@ -240,11 +235,7 @@ void StreamSocketIO::ShutdownOnIOThread() {
 
 class StreamSocketIO::ConnectTask final : public SocketIOTask<StreamSocketIO> {
  public:
-  ConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {
-    MOZ_COUNT_CTOR(ReceiveTask);
-  }
-
-  ~ConnectTask() { MOZ_COUNT_DTOR(ReceiveTask); }
+  ConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {}
 
   nsresult Run() override {
     MOZ_ASSERT(!GetIO()->IsConsumerThread());
@@ -258,11 +249,7 @@ class StreamSocketIO::ConnectTask final : public SocketIOTask<StreamSocketIO> {
 class StreamSocketIO::DelayedConnectTask final
     : public SocketIOTask<StreamSocketIO> {
  public:
-  DelayedConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {
-    MOZ_COUNT_CTOR(DelayedConnectTask);
-  }
-
-  ~DelayedConnectTask() { MOZ_COUNT_DTOR(DelayedConnectTask); }
+  DelayedConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {}
 
   nsresult Run() override {
     MOZ_ASSERT(GetIO()->IsConsumerThread());

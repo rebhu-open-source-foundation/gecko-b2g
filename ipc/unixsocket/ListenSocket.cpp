@@ -242,11 +242,7 @@ class ListenSocketIO::ListenTask final : public SocketIOTask<ListenSocketIO> {
   ListenTask(ListenSocketIO* aIO, ConnectionOrientedSocketIO* aCOSocketIO)
       : SocketIOTask<ListenSocketIO>(aIO), mCOSocketIO(aCOSocketIO) {
     MOZ_ASSERT(mCOSocketIO);
-
-    MOZ_COUNT_CTOR(ListenTask);
   }
-
-  ~ListenTask() { MOZ_COUNT_DTOR(ListenTask); }
 
   NS_IMETHOD Run() override {
     MOZ_ASSERT(!GetIO()->IsConsumerThread());

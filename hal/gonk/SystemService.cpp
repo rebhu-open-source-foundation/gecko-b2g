@@ -64,9 +64,7 @@ class StartSystemServiceTimerCallback final : public nsITimerCallback {
 
  public:
   StartSystemServiceTimerCallback(const char* aSvcName, const char* aArgs)
-      : mSvcName(aSvcName), mArgs(aArgs) {
-    MOZ_COUNT_CTOR_INHERITED(StartSystemServiceTimerCallback, nsITimerCallback);
-  }
+      : mSvcName(aSvcName), mArgs(aArgs) {}
 
   NS_IMETHOD Notify(nsITimer* aTimer) override {
     MOZ_ASSERT(NS_IsMainThread());
@@ -75,9 +73,7 @@ class StartSystemServiceTimerCallback final : public nsITimerCallback {
   }
 
  protected:
-  ~StartSystemServiceTimerCallback() {
-    MOZ_COUNT_DTOR_INHERITED(StartSystemServiceTimerCallback, nsITimerCallback);
-  }
+  ~StartSystemServiceTimerCallback() = default;
 
  private:
   nsCString mSvcName;

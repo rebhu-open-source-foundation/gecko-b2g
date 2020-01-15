@@ -263,11 +263,7 @@ bool SocketIOBase::IsConsumerThread() const {
 //
 
 SocketEventTask::SocketEventTask(SocketIOBase* aIO, SocketEvent aEvent)
-    : SocketTask<SocketIOBase>(aIO), mEvent(aEvent) {
-  MOZ_COUNT_CTOR(SocketEventTask);
-}
-
-SocketEventTask::~SocketEventTask() { MOZ_COUNT_DTOR(SocketEventTask); }
+    : SocketTask<SocketIOBase>(aIO), mEvent(aEvent) {}
 
 nsresult SocketEventTask::Run() {
   SocketIOBase* io = SocketTask<SocketIOBase>::GetIO();
@@ -298,13 +294,7 @@ nsresult SocketEventTask::Run() {
 //
 
 SocketRequestClosingTask::SocketRequestClosingTask(SocketIOBase* aIO)
-    : SocketTask<SocketIOBase>(aIO) {
-  MOZ_COUNT_CTOR(SocketRequestClosingTask);
-}
-
-SocketRequestClosingTask::~SocketRequestClosingTask() {
-  MOZ_COUNT_DTOR(SocketRequestClosingTask);
-}
+    : SocketTask<SocketIOBase>(aIO) {}
 
 nsresult SocketRequestClosingTask::Run() {
   SocketIOBase* io = SocketTask<SocketIOBase>::GetIO();
@@ -329,15 +319,7 @@ nsresult SocketRequestClosingTask::Run() {
 //
 
 SocketDeleteInstanceTask::SocketDeleteInstanceTask(SocketIOBase* aIO)
-    : mozilla::Runnable("SocketDeleteInstanceTask")
-    , mIO(aIO)
-{
-  MOZ_COUNT_CTOR(SocketDeleteInstanceTask);
-}
-
-SocketDeleteInstanceTask::~SocketDeleteInstanceTask() {
-  MOZ_COUNT_DTOR(SocketDeleteInstanceTask);
-}
+    : mozilla::Runnable("SocketDeleteInstanceTask"), mIO(aIO) {}
 
 nsresult SocketDeleteInstanceTask::Run() {
   mIO.reset();  // delete instance
@@ -350,13 +332,7 @@ nsresult SocketDeleteInstanceTask::Run() {
 //
 
 SocketIOShutdownTask::SocketIOShutdownTask(SocketIOBase* aIO)
-    : SocketIOTask<SocketIOBase>(aIO) {
-  MOZ_COUNT_CTOR(SocketIOShutdownTask);
-}
-
-SocketIOShutdownTask::~SocketIOShutdownTask() {
-  MOZ_COUNT_DTOR(SocketIOShutdownTask);
-}
+    : SocketIOTask<SocketIOBase>(aIO) {}
 
 nsresult SocketIOShutdownTask::Run() {
   SocketIOBase* io = SocketIOTask<SocketIOBase>::GetIO();
