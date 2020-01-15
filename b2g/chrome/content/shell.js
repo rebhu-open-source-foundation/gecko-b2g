@@ -264,6 +264,11 @@ document.addEventListener(
       }, 0);
     }, "web-embedder-created");
 
+    // Initialize Marionette server
+    Services.tm.idleDispatchToMainThread(() => {
+      Services.obs.notifyObservers(null, "marionette-startup-requested");
+    });
+
     shell.start();
   },
   { once: true }
