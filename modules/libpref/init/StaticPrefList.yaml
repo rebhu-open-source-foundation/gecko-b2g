@@ -977,7 +977,7 @@
 - name: browser.tabs.remote.useCORP
   type: bool
 #if !defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false # Blocked by DocumentChannel, see Bug 1589982.
 #endif
@@ -4278,6 +4278,15 @@
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: always
 
+#ifdef NIGHTLY_BUILD
+  # Experimental support for weak references in JavaScript (WeakRef and
+  # FinalizationGroup).
+- name: javascript.options.experimental.weakrefs
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+#endif
+
 # The amount of time we wait between a request to GC (due to leaving a page) and doing the actual GC, in ms.
 - name: javascript.options.gc_delay
   type: uint32_t
@@ -7108,6 +7117,12 @@
   value: 2000
   mirror: always
 
+# Whether the SOCKS proxy should be in charge of DNS resolution.
+- name: network.proxy.socks_remote_dns
+  type: bool
+  value: false
+  mirror: always
+
 # Some requests during a page load are marked as "tail", mainly trackers, but not only.
 # This pref controls whether such requests are put to the tail, behind other requests
 # emerging during page loading process.
@@ -7589,6 +7604,11 @@
   mirror: always
 
 - name: privacy.clearOnShutdown.cache
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: privacy.dynamic_firstparty.limitForeign
   type: RelaxedAtomicBool
   value: false
   mirror: always

@@ -2062,7 +2062,7 @@ class LBitNotI : public LInstructionHelper<1, 1, 0> {
   LBitNotI() : LInstructionHelper(classOpcode) {}
 };
 
-// Call a VM function to perform a BITNOT operation.
+// Call a VM function to perform a BitNot operation.
 class LBitNotV : public LCallInstructionHelper<BOX_PIECES, BOX_PIECES, 0> {
  public:
   LIR_HEADER(BitNotV)
@@ -2086,7 +2086,7 @@ class LBitOpI : public LInstructionHelper<1, 2, 0> {
   explicit LBitOpI(JSOp op) : LInstructionHelper(classOpcode), op_(op) {}
 
   const char* extraName() const {
-    if (bitop() == JSOP_URSH && mir_->toUrsh()->bailoutsDisabled()) {
+    if (bitop() == JSOp::Ursh && mir_->toUrsh()->bailoutsDisabled()) {
       return "ursh:BailoutsDisabled";
     }
     return CodeName(op_);

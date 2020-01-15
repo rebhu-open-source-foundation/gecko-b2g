@@ -136,6 +136,7 @@
 #include "vm/Shape.h"
 #include "vm/SharedArrayObject.h"
 #include "vm/Time.h"
+#include "vm/ToSource.h"  // js::ValueToSource
 #include "vm/TypedArrayObject.h"
 #include "vm/WrapperObject.h"
 #include "wasm/WasmJS.h"
@@ -763,7 +764,7 @@ static bool ShellInterruptCallback(JSContext* cx) {
     // Report any exceptions thrown by the JS interrupt callback, but do
     // *not* keep it on the cx. The interrupt handler is invoked at points
     // that are not expected to throw catchable exceptions, like at
-    // JSOP_RETRVAL.
+    // JSOp::RetRval.
     //
     // If the interrupted JS code was already throwing, any exceptions
     // thrown by the interrupt handler are silently swallowed.
@@ -5216,10 +5217,7 @@ static bool BinParse(JSContext* cx, unsigned argc, Value* vp) {
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
   ParseInfo parseInfo(cx, allocScope);
-
-  RootedScriptSourceObject sourceObj(
-      cx, frontend::CreateScriptSourceObject(cx, options, Nothing()));
-  if (!sourceObj) {
+  if (!parseInfo.initFromOptions(cx, options)) {
     return false;
   }
 
@@ -5230,7 +5228,7 @@ static bool BinParse(JSContext* cx, unsigned argc, Value* vp) {
                        ? ParseBinASTData<frontend::BinASTTokenReaderMultipart>
                        : ParseBinASTData<frontend::BinASTTokenReaderContext>;
   if (!parseFunc(cx, buf_data, buf_length, &globalsc, parseInfo, options,
-                 sourceObj)) {
+                 parseInfo.sourceObject)) {
     return false;
   }
 
@@ -5302,16 +5300,14 @@ static bool Parse(JSContext* cx, unsigned argc, Value* vp) {
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
   ParseInfo parseInfo(cx, allocScope);
-
-  RootedScriptSourceObject sourceObject(
-      cx, frontend::CreateScriptSourceObject(cx, options, Nothing()));
-  if (!sourceObject) {
+  if (!parseInfo.initFromOptions(cx, options)) {
     return false;
   }
 
-  Parser<FullParseHandler, char16_t> parser(
-      cx, options, chars, length,
-      /* foldConstants = */ false, parseInfo, nullptr, nullptr, sourceObject);
+  Parser<FullParseHandler, char16_t> parser(cx, options, chars, length,
+                                            /* foldConstants = */ false,
+                                            parseInfo, nullptr, nullptr,
+                                            parseInfo.sourceObject);
   if (!parser.checkOptions()) {
     return false;
   }
@@ -5375,16 +5371,13 @@ static bool SyntaxParse(JSContext* cx, unsigned argc, Value* vp) {
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
   ParseInfo parseInfo(cx, allocScope);
-
-  RootedScriptSourceObject sourceObject(
-      cx, frontend::CreateScriptSourceObject(cx, options, Nothing()));
-  if (!sourceObject) {
+  if (!parseInfo.initFromOptions(cx, options)) {
     return false;
   }
 
   Parser<frontend::SyntaxParseHandler, char16_t> parser(
       cx, options, chars, length, false, parseInfo, nullptr, nullptr,
-      sourceObject);
+      parseInfo.sourceObject);
   if (!parser.checkOptions()) {
     return false;
   }
