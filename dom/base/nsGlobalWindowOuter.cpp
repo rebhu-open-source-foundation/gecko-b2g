@@ -4836,7 +4836,7 @@ void nsGlobalWindowOuter::PromptOuter(const nsAString& aMessage,
   }
 }
 
-void nsGlobalWindowOuter::FocusOuter() {
+void nsGlobalWindowOuter::FocusOuter(CallerType aCallerType) {
   nsFocusManager* fm = nsFocusManager::GetFocusManager();
   if (!fm) {
     return;
@@ -4905,7 +4905,7 @@ void nsGlobalWindowOuter::FocusOuter() {
     }
 
     if (Element* frame = parentdoc->FindContentForSubDocument(mDoc)) {
-      nsContentUtils::RequestFrameFocus(*frame, canFocus);
+      nsContentUtils::RequestFrameFocus(*frame, canFocus, aCallerType);
     }
     return;
   }
@@ -4914,15 +4914,17 @@ void nsGlobalWindowOuter::FocusOuter() {
     // if there is no parent, this must be a toplevel window, so raise the
     // window if canFocus is true. If this is a child process, the raise
     // window request will get forwarded to the parent by the puppet widget.
-    DebugOnly<nsresult> rv = fm->SetActiveWindow(this);
+    DebugOnly<nsresult> rv =
+        fm->SetActiveWindowWithCallerType(this, aCallerType);
     MOZ_ASSERT(NS_SUCCEEDED(rv),
-               "SetActiveWindow only fails if passed null or a non-toplevel "
+               "SetActiveWindowWithCallerType only fails if passed null or a "
+               "non-toplevel "
                "window, which is not the case here.");
   }
 }
 
-nsresult nsGlobalWindowOuter::Focus() {
-  FORWARD_TO_INNER(Focus, (), NS_ERROR_UNEXPECTED);
+nsresult nsGlobalWindowOuter::Focus(CallerType aCallerType) {
+  FORWARD_TO_INNER(Focus, (aCallerType), NS_ERROR_UNEXPECTED);
 }
 
 void nsGlobalWindowOuter::BlurOuter() {
@@ -5747,8 +5749,8 @@ bool nsGlobalWindowOuter::GatherPostMessageData(
     JSContext* aCx, const nsAString& aTargetOrigin, BrowsingContext** aSource,
     nsAString& aOrigin, nsIURI** aTargetOriginURI,
     nsIPrincipal** aCallerPrincipal, nsGlobalWindowInner** aCallerInnerWindow,
-    nsIURI** aCallerDocumentURI, Maybe<nsID>* aCallerAgentClusterId,
-    ErrorResult& aError) {
+    nsIURI** aCallerURI, Maybe<nsID>* aCallerAgentClusterId,
+    nsACString* aScriptLocation, ErrorResult& aError) {
   //
   // Window.postMessage is an intentional subversion of the same-origin policy.
   // As such, this code must be particularly careful in the information it
@@ -5766,7 +5768,7 @@ bool nsGlobalWindowOuter::GatherPostMessageData(
     if (!doc) {
       return false;
     }
-    NS_IF_ADDREF(*aCallerDocumentURI = doc->GetDocumentURI());
+    NS_IF_ADDREF(*aCallerURI = doc->GetDocumentURI());
 
     // Compute the caller's origin either from its principal or, in the case the
     // principal doesn't carry a URI (e.g. the system principal), the caller's
@@ -5781,6 +5783,9 @@ bool nsGlobalWindowOuter::GatherPostMessageData(
     nsIGlobalObject* global = GetIncumbentGlobal();
     NS_ASSERTION(global, "Why is there no global object?");
     callerPrin = global->PrincipalOrNull();
+    if (callerPrin) {
+      BasePrincipal::Cast(callerPrin)->GetScriptLocation(*aScriptLocation);
+    }
   }
   if (!callerPrin) {
     return false;
@@ -5795,11 +5800,11 @@ bool nsGlobalWindowOuter::GatherPostMessageData(
     // if the principal has a URI, use that to generate the origin
     nsContentUtils::GetUTFOrigin(callerPrin, aOrigin);
   } else if (callerInnerWin) {
-    if (!*aCallerDocumentURI) {
+    if (!*aCallerURI) {
       return false;
     }
     // otherwise use the URI of the document to generate origin
-    nsContentUtils::GetUTFOrigin(*aCallerDocumentURI, aOrigin);
+    nsContentUtils::GetUTFOrigin(*aCallerURI, aOrigin);
   } else {
     // in case of a sandbox with a system principal origin can be empty
     if (!callerPrin->IsSystemPrincipal()) {
@@ -5946,13 +5951,14 @@ void nsGlobalWindowOuter::PostMessageMozOuter(JSContext* aCx,
   nsCOMPtr<nsIURI> targetOriginURI;
   nsCOMPtr<nsIPrincipal> callerPrincipal;
   RefPtr<nsGlobalWindowInner> callerInnerWindow;
-  nsCOMPtr<nsIURI> callerDocumentURI;
+  nsCOMPtr<nsIURI> callerURI;
   Maybe<nsID> callerAgentClusterId = Nothing();
+  nsAutoCString scriptLocation;
   if (!GatherPostMessageData(
           aCx, aTargetOrigin, getter_AddRefs(sourceBc), origin,
           getter_AddRefs(targetOriginURI), getter_AddRefs(callerPrincipal),
-          getter_AddRefs(callerInnerWindow), getter_AddRefs(callerDocumentURI),
-          &callerAgentClusterId, aError)) {
+          getter_AddRefs(callerInnerWindow), getter_AddRefs(callerURI),
+          &callerAgentClusterId, &scriptLocation, aError)) {
     return;
   }
 
@@ -5967,8 +5973,8 @@ void nsGlobalWindowOuter::PostMessageMozOuter(JSContext* aCx,
   // event creation and dispatch.
   RefPtr<PostMessageEvent> event = new PostMessageEvent(
       sourceBc, origin, this, providedPrincipal,
-      callerInnerWindow ? callerInnerWindow->WindowID() : 0, callerDocumentURI,
-      callerAgentClusterId);
+      callerInnerWindow ? callerInnerWindow->WindowID() : 0, callerURI,
+      scriptLocation, callerAgentClusterId);
 
   JS::CloneDataPolicy clonePolicy;
   if (GetDocGroup() && callerInnerWindow &&

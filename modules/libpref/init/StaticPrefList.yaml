@@ -405,6 +405,16 @@
   value: true
   mirror: always
 
+- name: apz.touch_acceleration_factor_x
+  type: float
+  value: 1.0f
+  mirror: always
+
+- name: apz.touch_acceleration_factor_y
+  type: float
+  value: 1.0f
+  mirror: always
+
 #ifdef MOZ_WIDGET_GTK
 -   name: apz.gtk.kinetic_scroll.enabled
     type: RelaxedAtomicBool
@@ -3205,6 +3215,16 @@
   value: true
   mirror: always
 
+- name: full-screen-api.exit-on.windowOpen
+  type: bool
+  value: true
+  mirror: always
+
+- name: full-screen-api.exit-on.windowRaise
+  type: bool
+  value: true
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "fuzzing.". It's important that these can only be
 # checked in fuzzing builds (when FUZZING is defined), otherwise you could
@@ -5052,6 +5072,13 @@
 
 # Make `zoom` a `transform` + `transform-origin` alias.
 - name: layout.css.zoom-transform-hack.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
+# Whether `min()` / `max()` / `clamp()` are enabled.
+- name: layout.css.comparison-functions.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -8031,7 +8058,7 @@
 
 - name: webgl.default-low-power
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: webgl.default-no-alpha

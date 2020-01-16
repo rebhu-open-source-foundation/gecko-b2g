@@ -1110,6 +1110,13 @@ class Document : public nsINode,
   }
 
   /**
+   * Return a promise which resolves to the content blocking events.
+   */
+  typedef MozPromise<uint32_t, bool, true> GetContentBlockingEventsPromise;
+  MOZ_MUST_USE RefPtr<GetContentBlockingEventsPromise>
+  GetContentBlockingEvents();
+
+  /**
    * Get the content blocking log.
    */
   ContentBlockingLog* GetContentBlockingLog() { return &mContentBlockingLog; }
@@ -5460,6 +5467,7 @@ enum DocumentFlavor {
   DocumentFlavorLegacyGuess,  // compat with old code until made HTML5-compliant
   DocumentFlavorHTML,         // HTMLDocument with HTMLness bit set to true
   DocumentFlavorSVG,          // SVGDocument
+  DocumentFlavorXML,          // XMLDocument
   DocumentFlavorPlain,        // Just a Document
 };
 

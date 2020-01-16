@@ -88,6 +88,7 @@ class ExtendableEventKeepAliveHandler final
    */
   bool WaitOnPromise(Promise& aPromise) override {
     if (!mAcceptingPromises) {
+      MOZ_ASSERT(!GetDispatchFlag());
       MOZ_ASSERT(!mSelfRef, "We shouldn't be holding a self reference!");
       return false;
     }
@@ -116,6 +117,7 @@ class ExtendableEventKeepAliveHandler final
 
   void MaybeDone() {
     MOZ_ASSERT(IsCurrentThreadRunningWorker());
+    MOZ_ASSERT(!GetDispatchFlag());
 
     if (mPendingPromisesCount) {
       return;
@@ -176,7 +178,7 @@ class ExtendableEventKeepAliveHandler final
     mRejected |= (aResult == Rejected);
 
     --mPendingPromisesCount;
-    if (mPendingPromisesCount) {
+    if (mPendingPromisesCount || GetDispatchFlag()) {
       return;
     }
 

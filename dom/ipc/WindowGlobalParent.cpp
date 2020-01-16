@@ -316,7 +316,8 @@ void WindowGlobalParent::NotifyContentBlockingEvent(
   MOZ_ASSERT_IF(!isCookiesBlockedTracker, aReason.isNothing());
   MOZ_ASSERT_IF(isCookiesBlockedTracker && !aBlocked, aReason.isSome());
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
-  MOZ_DIAGNOSTIC_ASSERT_IF(XRE_IsE10sParentProcess(), !IsInProcess());
+  // TODO: temporarily remove this until we find the root case of Bug 1609144
+  //MOZ_DIAGNOSTIC_ASSERT_IF(XRE_IsE10sParentProcess(), !IsInProcess());
 
   // Return early if this WindowGlobalParent is in process.
   if (IsInProcess()) {
@@ -441,6 +442,14 @@ class ShareHandler final : public PromiseNativeHandler {
 NS_IMPL_ISUPPORTS0(ShareHandler)
 
 }  // namespace
+
+mozilla::ipc::IPCResult WindowGlobalParent::RecvGetContentBlockingEvents(
+    WindowGlobalParent::GetContentBlockingEventsResolver&& aResolver) {
+  uint32_t events = GetContentBlockingLog()->GetContentBlockingEventsInLog();
+  aResolver(events);
+
+  return IPC_OK();
+}
 
 mozilla::ipc::IPCResult WindowGlobalParent::RecvShare(
     IPCWebShareData&& aData, WindowGlobalParent::ShareResolver&& aResolver) {

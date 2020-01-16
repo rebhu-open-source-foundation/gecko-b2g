@@ -96,6 +96,7 @@ GPUProcessManager::GPUProcessManager()
   mDeviceResetLastTime = TimeStamp::Now();
 
   LayerTreeOwnerTracker::Initialize();
+  CompositorBridgeParent::InitializeStatics();
 }
 
 GPUProcessManager::~GPUProcessManager() {

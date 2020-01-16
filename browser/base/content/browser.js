@@ -80,6 +80,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   UpdateUtils: "resource://gre/modules/UpdateUtils.jsm",
   UrlbarInput: "resource:///modules/UrlbarInput.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
+  UrlbarProviderSearchTips: "resource:///modules/UrlbarProviderSearchTips.jsm",
   UrlbarTokenizer: "resource:///modules/UrlbarTokenizer.jsm",
   UrlbarUtils: "resource:///modules/UrlbarUtils.jsm",
   UrlbarValueFormatter: "resource:///modules/UrlbarValueFormatter.jsm",
@@ -2892,7 +2893,10 @@ function focusAndSelectUrlBar() {
   // finished leaving customize mode, and the url bar will still be disabled.
   // We can't focus it when it's disabled, so we need to re-run ourselves when
   // we've finished leaving customize mode.
-  if (CustomizationHandler.isCustomizing()) {
+  if (
+    CustomizationHandler.isCustomizing() ||
+    CustomizationHandler.isExitingCustomizeMode
+  ) {
     gNavToolbox.addEventListener("aftercustomization", focusAndSelectUrlBar, {
       once: true,
     });
@@ -5454,6 +5458,8 @@ var XULBrowserWindow = {
       BrowserPageActions.onLocationChange();
 
       SafeBrowsingNotificationBox.onLocationChange(aLocationURI);
+
+      UrlbarProviderSearchTips.onLocationChange(aLocationURI);
 
       gTabletModePageCounter.inc();
 
