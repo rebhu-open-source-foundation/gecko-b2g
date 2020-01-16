@@ -68,7 +68,7 @@ else
     rm /tmp/jsshell-${SHELL_ARCH}.zip
     cd ..
 fi
-# export JS_BINARY=`pwd`/jsshell/js
+export JS_BINARY=`pwd`/jsshell/js
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
