@@ -24,31 +24,19 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(USSDSession)
 NS_INTERFACE_MAP_END
 
 USSDSession::USSDSession(nsPIDOMWindowInner* aWindow,
-                         nsITelephonyService* aService,
-                         uint32_t aServiceId)
-  : mWindow(aWindow), mService(aService), mServiceId(aServiceId)
-{
+                         nsITelephonyService* aService, uint32_t aServiceId)
+    : mWindow(aWindow), mService(aService), mServiceId(aServiceId) {}
+
+USSDSession::~USSDSession() {}
+
+nsPIDOMWindowInner* USSDSession::GetParentObject() const { return mWindow; }
+
+JSObject* USSDSession::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto) {
+  return USSDSession_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-USSDSession::~USSDSession()
-{
-}
-
-nsPIDOMWindowInner*
-USSDSession::GetParentObject() const
-{
-  return mWindow;
-}
-
-JSObject*
-USSDSession::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
-  return USSDSessionBinding::Wrap(aCx, this, aGivenProto);
-}
-
-already_AddRefed<Promise>
-USSDSession::CreatePromise(ErrorResult& aRv)
-{
+already_AddRefed<Promise> USSDSession::CreatePromise(ErrorResult& aRv) {
   if (!mService) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -70,18 +58,17 @@ USSDSession::CreatePromise(ErrorResult& aRv)
 
 // WebIDL
 
-already_AddRefed<USSDSession>
-USSDSession::Constructor(const GlobalObject& aGlobal, uint32_t aServiceId,
-                         ErrorResult& aRv)
-{
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+already_AddRefed<USSDSession> USSDSession::Constructor(
+    const GlobalObject& aGlobal, uint32_t aServiceId, ErrorResult& aRv) {
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
   }
 
   nsCOMPtr<nsITelephonyService> ril =
-    do_GetService(TELEPHONY_SERVICE_CONTRACTID);
+      do_GetService(TELEPHONY_SERVICE_CONTRACTID);
   if (!ril) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -91,9 +78,8 @@ USSDSession::Constructor(const GlobalObject& aGlobal, uint32_t aServiceId,
   return session.forget();
 }
 
-already_AddRefed<Promise>
-USSDSession::Send(const nsAString& aUssd, ErrorResult& aRv)
-{
+already_AddRefed<Promise> USSDSession::Send(const nsAString& aUssd,
+                                            ErrorResult& aRv) {
   RefPtr<Promise> promise = CreatePromise(aRv);
   if (!promise) {
     return nullptr;
@@ -109,9 +95,7 @@ USSDSession::Send(const nsAString& aUssd, ErrorResult& aRv)
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-USSDSession::Cancel(ErrorResult& aRv)
-{
+already_AddRefed<Promise> USSDSession::Cancel(ErrorResult& aRv) {
   RefPtr<Promise> promise = CreatePromise(aRv);
   if (!promise) {
     return nullptr;

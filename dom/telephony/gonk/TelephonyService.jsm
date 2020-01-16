@@ -962,6 +962,7 @@ TelephonyService.prototype = {
           this._dialMMI(aClientId, {fullMMI: aNumber}, aCallback);
         }
       } else {
+        debug("to make a call with aCallback: " + aCallback);
         this._dialCall(aClientId, aNumber, aRttMode, undefined, aCallback);
       }
     }

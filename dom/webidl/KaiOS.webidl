@@ -28,3 +28,11 @@ partial interface KaiOS {
   readonly attribute BluetoothManager mozBluetooth;
 };
 #endif // MOZ_B2G_BT
+
+#ifdef MOZ_B2G_RIL
+[Exposed=Window]
+partial interface KaiOS {
+  [Throws, Pref="dom.telephony.enabled"]
+  readonly attribute Telephony mozTelephony;
+};
+#endif //MOZ_B2G_RIL

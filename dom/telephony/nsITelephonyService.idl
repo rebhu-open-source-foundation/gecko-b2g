@@ -203,12 +203,9 @@ interface nsITelephonyDialCallback : nsITelephonyCallback
   void notifyDialMMISuccessWithStrings(in AString statusMessage,
                                        in unsigned long aLength,
                                        [array, size_is(aLength)] in wstring aAdditionalInformation);
-// FIXME, nsIMobileCallForwardingOptions is not ready yet.
-  // void notifyDialMMISuccessWithCallForwardingOptions(in AString statusMessage,
-  //                                                    in unsigned long aLength,
-  //                                                    [array, size_is(aLength)] in nsIMobileCallForwardingOptions aAdditionalInformation);
-  void notifyDialMMISuccessWithCallForwardingOptions(in AString statusMessage,
-                                                     in unsigned long aLength);
+void notifyDialMMISuccessWithCallForwardingOptions(in AString statusMessage,
+                                                   in unsigned long aLength,
+                                                   [array, size_is(aLength)] in nsIMobileCallForwardingOptions aAdditionalInformation);
 
   /**
    * Called when a MMI code request fails.

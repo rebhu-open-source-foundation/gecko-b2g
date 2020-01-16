@@ -939,7 +939,8 @@ class ContentParent final
 
   bool DeallocPBluetoothParent(PBluetoothParent* aActor);
 
-  virtual mozilla::ipc::IPCResult RecvPBluetoothConstructor(PBluetoothParent* aActor) override;
+  virtual mozilla::ipc::IPCResult RecvPBluetoothConstructor(
+      PBluetoothParent* aActor) override;
 
   PBenchmarkStorageParent* AllocPBenchmarkStorageParent();
 
@@ -973,48 +974,52 @@ class ContentParent final
   bool DeallocPWebBrowserPersistDocumentParent(
       PWebBrowserPersistDocumentParent* aActor);
 
-  //MOZ_B2G_RIL
-//   PIccParent* AllocPIccParent(const uint32_t& aServiceId);
+  // MOZ_B2G_RIL
+  //   PIccParent* AllocPIccParent(const uint32_t& aServiceId);
 
-//   bool DeallocPIccParent(PIccParent* aActor);
+  //   bool DeallocPIccParent(PIccParent* aActor);
 
-//   virtual PSubsidyLockParent* AllocPSubsidyLockParent(const uint32_t& aClientId);
+  //   virtual PSubsidyLockParent* AllocPSubsidyLockParent(const uint32_t&
+  //   aClientId);
 
-//   virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
+  //   virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
 
-//   PMobileConnectionParent* AllocPMobileConnectionParent(const uint32_t& aClientId);
+  //   PMobileConnectionParent* AllocPMobileConnectionParent(const uint32_t&
+  //   aClientId);
 
-//   bool DeallocPMobileConnectionParent(PMobileConnectionParent* aActor);
+  //   bool DeallocPMobileConnectionParent(PMobileConnectionParent* aActor);
 
-//   PImsRegServiceFinderParent* AllocPImsRegServiceFinderParent();
+  //   PImsRegServiceFinderParent* AllocPImsRegServiceFinderParent();
 
-//   bool DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent* aActor);
+  //   bool DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent*
+  //   aActor);
 
-//   PImsRegistrationParent* AllocPImsRegistrationParent(const uint32_t& aClientId);
+  //   PImsRegistrationParent* AllocPImsRegistrationParent(const uint32_t&
+  //   aClientId);
 
-//   bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
+  //   bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
 
-//   virtual PCellBroadcastParent* AllocPCellBroadcastParent();
+  //   virtual PCellBroadcastParent* AllocPCellBroadcastParent();
 
-//   virtual bool DeallocPCellBroadcastParent(PCellBroadcastParent*);
+  //   virtual bool DeallocPCellBroadcastParent(PCellBroadcastParent*);
 
-//   virtual bool RecvPCellBroadcastConstructor(PCellBroadcastParent* aActor);
+  //   virtual bool RecvPCellBroadcastConstructor(PCellBroadcastParent* aActor);
 
-//   virtual PSmsParent* AllocPSmsParent();
+  //   virtual PSmsParent* AllocPSmsParent();
 
-//   virtual bool DeallocPSmsParent(PSmsParent*);
+  //   virtual bool DeallocPSmsParent(PSmsParent*);
 
-//   virtual PTelephonyParent* AllocPTelephonyParent();
+  virtual PTelephonyParent* AllocPTelephonyParent();
 
-//   virtual bool DeallocPTelephonyParent(PTelephonyParent*);
+  virtual bool DeallocPTelephonyParent(PTelephonyParent*);
 
-//   virtual PVoicemailParent* AllocPVoicemailParent();
+  //   virtual PVoicemailParent* AllocPVoicemailParent();
 
-//   virtual bool RecvPVoicemailConstructor(PVoicemailParent* aActor);
+  //   virtual bool RecvPVoicemailConstructor(PVoicemailParent* aActor);
 
-//   virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
+  //   virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
 
-// MOZ_B2G_RIL_END
+  // MOZ_B2G_RIL_END
 
   mozilla::ipc::IPCResult RecvGetGfxVars(nsTArray<GfxVarUpdate>* aVars);
 

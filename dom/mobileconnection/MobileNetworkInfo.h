@@ -15,24 +15,21 @@
 namespace mozilla {
 namespace dom {
 
-class MobileNetworkInfo final : public nsIMobileNetworkInfo
-{
-public:
+class MobileNetworkInfo final : public nsIMobileNetworkInfo {
+ public:
+  NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILENETWORKINFO
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileNetworkInfo)
 
   MobileNetworkInfo(const nsAString& aShortName, const nsAString& aLongName,
                     const nsAString& aMcc, const nsAString& aMnc,
                     const nsAString& aState);
 
-  void
-  Update(nsIMobileNetworkInfo* aInfo);
+  void Update(nsIMobileNetworkInfo* aInfo);
 
-private:
+ private:
   ~MobileNetworkInfo() {}
 
-private:
+ private:
   nsString mShortName;
   nsString mLongName;
   nsString mMcc;
@@ -40,9 +37,8 @@ private:
   nsString mState;
 };
 
-class MozMobileNetworkInfo final : public nsWrapperCache, nsISupports
-{
-public:
+class MozMobileNetworkInfo final : public nsWrapperCache, nsISupports {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MozMobileNetworkInfo)
 
@@ -52,26 +48,18 @@ public:
                        const nsAString& aMcc, const nsAString& aMnc,
                        const nsAString& aState);
 
-  void
-  Update(nsIMobileNetworkInfo* aInfo);
+  void Update(nsIMobileNetworkInfo* aInfo);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interface
-  Nullable<MobileNetworkState>
-  GetState() const
-  {
+  Nullable<MobileNetworkState> GetState() const {
     uint32_t i = 0;
     for (const EnumEntry* entry = MobileNetworkStateValues::strings;
-         entry->value;
-         ++entry, ++i) {
+         entry->value; ++entry, ++i) {
       nsString state;
       mInfo->GetState(state);
       if (state.EqualsASCII(entry->value)) {
@@ -82,45 +70,29 @@ public:
     return Nullable<MobileNetworkState>();
   }
 
-  void
-  GetShortName(nsAString& aShortName) const
-  {
+  void GetShortName(nsAString& aShortName) const {
     mInfo->GetShortName(aShortName);
   }
 
-  void
-  GetLongName(nsAString& aLongName) const
-  {
+  void GetLongName(nsAString& aLongName) const {
     mInfo->GetShortName(aLongName);
   }
 
-  void
-  GetMcc(nsAString& aMcc) const
-  {
-    mInfo->GetMcc(aMcc);
-  }
+  void GetMcc(nsAString& aMcc) const { mInfo->GetMcc(aMcc); }
 
-  void
-  GetMnc(nsAString& aMnc) const
-  {
-    mInfo->GetMnc(aMnc);
-  }
+  void GetMnc(nsAString& aMnc) const { mInfo->GetMnc(aMnc); }
 
-  MobileNetworkInfo*
-  GetNetwork() const
-  {
-    return mInfo;
-  }
+  MobileNetworkInfo* GetNetwork() const { return mInfo; }
 
-private:
-  ~MozMobileNetworkInfo() { mInfo=nullptr;}
+ private:
+  ~MozMobileNetworkInfo() { mInfo = nullptr; }
 
-private:
+ private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   RefPtr<MobileNetworkInfo> mInfo;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MobileNetworkInfo_h
+#endif  // mozilla_dom_MobileNetworkInfo_h

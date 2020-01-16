@@ -9,7 +9,7 @@
 
 #include "Telephony.h"
 #include "mozilla/dom/MMICall.h"
-#include "mozilla/dom/MozMobileConnectionBinding.h"
+//#include "mozilla/dom/MozMobileConnectionBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/dom/telephony/TelephonyCallback.h"
@@ -26,9 +26,8 @@ namespace dom {
 namespace telephony {
 
 class TelephonyDialCallback final : public TelephonyCallback,
-                                    public nsITelephonyDialCallback
-{
-public:
+                                    public nsITelephonyDialCallback {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSITELEPHONYDIALCALLBACK
 
@@ -37,12 +36,12 @@ public:
 
   NS_FORWARD_NSITELEPHONYCALLBACK(TelephonyCallback::)
 
-private:
+ private:
   ~TelephonyDialCallback() {}
 
-  nsresult
-  NotifyDialMMISuccess(JSContext* aCx, const MozMMIResult& aResult);
-
+  // TODO build pass workaround
+  // nsresult
+  // NotifyDialMMISuccess(JSContext* aCx, const MozMMIResult& aResult);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   RefPtr<Telephony> mTelephony;
@@ -51,8 +50,8 @@ private:
   RefPtr<MMICall> mMMICall;
 };
 
-} // namespace telephony
-} // namespace dom
-} // namespace mozilla
+}  // namespace telephony
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TelephonyDialCallback_h
+#endif  // mozilla_dom_TelephonyDialCallback_h

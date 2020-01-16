@@ -41,6 +41,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
 #ifdef MOZ_B2G_BT
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
 #endif
+#ifdef MOZ_B2G_RIL
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTelephony)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(KaiOS)
@@ -55,6 +58,12 @@ void KaiOS::Invalidate() {
 #ifdef MOZ_B2G_BT
   if (mBluetooth) {
     mBluetooth = nullptr;
+  }
+#endif
+
+#ifdef MOZ_B2G_RIL
+  if (mTelephony) {
+    mTelephony = nullptr;
   }
 #endif
 }
@@ -85,9 +94,7 @@ ExternalAPI* KaiOS::GetExternalapi(ErrorResult& aRv) {
 #endif
 
 #ifdef MOZ_B2G_BT
-bluetooth::BluetoothManager*
-KaiOS::GetMozBluetooth(ErrorResult& aRv)
-{
+bluetooth::BluetoothManager* KaiOS::GetMozBluetooth(ErrorResult& aRv) {
   if (!mBluetooth) {
     nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
     if (!global) {
@@ -99,7 +106,22 @@ KaiOS::GetMozBluetooth(ErrorResult& aRv)
 
   return mBluetooth;
 }
-#endif //MOZ_B2G_BT
+#endif  // MOZ_B2G_BT
+
+#ifdef MOZ_B2G_RIL
+Telephony* KaiOS::GetMozTelephony(ErrorResult& aRv) {
+  if (!mTelephony) {
+    nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
+    if (!global) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mTelephony = Telephony::Create(mWindow, aRv);
+  }
+
+  return mTelephony;
+}
+#endif
 
 }  // namespace dom
 }  // namespace mozilla

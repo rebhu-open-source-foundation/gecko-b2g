@@ -85,7 +85,7 @@ include protocol PSandboxTesting;
 //include protocol PMobileConnection;
 //include protocol PSms;
 //include protocol PSubsidyLock;
-//include protocol PTelephony;
+include protocol PTelephony;
 //#ifdef ENABLE_EMBMS
 //include protocol PLteBroadcast;
 //#endif
@@ -554,7 +554,7 @@ nested(upto inside_cpow) sync protocol PContent
     //manages PMobileConnection;
     //manages PSms;
     //manages PSubsidyLock;
-    //manages PTelephony;
+    manages PTelephony;
     //manages PVoicemail;
     // MOZ_B2G_RIL_END
 
@@ -1159,7 +1159,7 @@ parent:
 
     //async PSubsidyLock(uint32_t clientId);
 
-    //async PTelephony();
+    async PTelephony();
 
     //async PVoicemail();
     // MOZ_B2G_RIL_END

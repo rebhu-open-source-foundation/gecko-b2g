@@ -7,26 +7,26 @@
 if CONFIG['MOZ_BUILD_APP'] == 'browser':
     MOCHITEST_MANIFESTS += ['tests/mochitest/mochitest.ini']
 
-#EXPORTS.mozilla.dom += [
+EXPORTS.mozilla.dom += [
 #    'ImsDeviceConfiguration.h',
 #    'ImsRegHandler.h',
-#    'MobileCellInfo.h',
+    'MobileCellInfo.h',
 #    'MobileConnection.h',
 #    'MobileConnectionArray.h',
-#    'MobileConnectionInfo.h',
+    'MobileConnectionInfo.h',
 #    'MobileDeviceIdentities.h',
-#    'MobileNetworkInfo.h',
+    'MobileNetworkInfo.h',
 #    'MobileSignalStrength.h',
-#]
+]
 
-#EXPORTS.mozilla.dom.mobileconnection += [
+EXPORTS.mozilla.dom.mobileconnection += [
 #    'ipc/ImsRegistrationChild.h',
 #    'ipc/ImsRegistrationParent.h',
 #    'ipc/MobileConnectionChild.h',
-#    'ipc/MobileConnectionIPCSerializer.h',
+    'ipc/MobileConnectionIPCSerializer.h',
 #    'ipc/MobileConnectionParent.h',
-#    #'MobileCallForwardingOptions.h',
-#]
+     'MobileCallForwardingOptions.h',
+]
 
 XPIDL_SOURCES += [
     'interfaces/nsICellInfo.idl',
@@ -41,7 +41,7 @@ XPIDL_SOURCES += [
     'interfaces/nsINeighboringCellInfo.idl',
 ]
 
-#UNIFIED_SOURCES += [
+UNIFIED_SOURCES += [
 #    'Assertions.cpp',
 #    'ImsDeviceConfiguration.cpp',
 #    'ImsRegCallback.cpp',
@@ -53,14 +53,14 @@ XPIDL_SOURCES += [
 #    'ipc/MobileConnectionIPCService.cpp',
 #    'ipc/MobileConnectionParent.cpp',
 #    'MobileCallForwardingOptions.cpp',
-#    'MobileCellInfo.cpp',
+    'MobileCellInfo.cpp',
 #    'MobileConnectionArray.cpp',
 #    'MobileConnectionCallback.cpp',
-#    'MobileConnectionInfo.cpp',
+    'MobileConnectionInfo.cpp',
 #    'MobileDeviceIdentities.cpp',
-#    'MobileNetworkInfo.cpp',
+    'MobileNetworkInfo.cpp',
 #    'MobileSignalStrength.cpp',
-#]
+]
 
 #SOURCES += [
 #    'MobileConnection.cpp', # Non-unified due to no_pgo

@@ -19,6 +19,10 @@
 #ifdef MOZ_B2G_BT
 #  include "mozilla/dom/bluetooth/BluetoothManager.h"
 #endif
+#ifdef MOZ_B2G_RIL
+#  include "mozilla/dom/Telephony.h"
+#endif
+
 #include "mozilla/ErrorResult.h"
 #include "mozilla/MemoryReporting.h"
 #include "nsPIDOMWindow.h"
@@ -53,7 +57,11 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 
 #ifdef MOZ_B2G_BT
   bluetooth::BluetoothManager* GetMozBluetooth(ErrorResult& aRv);
-#endif // MOZ_B2G_BT
+#endif  // MOZ_B2G_BT
+
+#ifdef MOZ_B2G_RIL
+  Telephony* GetMozTelephony(ErrorResult& aRv);
+#endif  // MOZ_B2G_RIL
 
  private:
   virtual ~KaiOS();
@@ -65,6 +73,10 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 
 #ifdef MOZ_B2G_BT
   RefPtr<bluetooth::BluetoothManager> mBluetooth;
+#endif
+
+#ifdef MOZ_B2G_RIL
+  RefPtr<Telephony> mTelephony;
 #endif
 };
 

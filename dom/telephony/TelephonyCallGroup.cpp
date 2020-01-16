@@ -15,7 +15,7 @@
 #include "nsPrintfCString.h"
 
 #ifdef TELEPHONY_GROUP_STATE
-#undef TELEPHONY_GROUP_STATE
+#  undef TELEPHONY_GROUP_STATE
 #endif
 
 #define TELEPHONY_GROUP_STATE(_state) \
@@ -28,22 +28,17 @@ using namespace mozilla::dom::telephony;
 using mozilla::ErrorResult;
 
 TelephonyCallGroup::TelephonyCallGroup(nsPIDOMWindowInner* aOwner)
-  : DOMEventTargetHelper(aOwner)
-{
-}
+    : DOMEventTargetHelper(aOwner) {}
 
-TelephonyCallGroup::~TelephonyCallGroup()
-{
-}
+TelephonyCallGroup::~TelephonyCallGroup() {}
 
 // static
-already_AddRefed<TelephonyCallGroup>
-TelephonyCallGroup::Create(Telephony* aTelephony)
-{
+already_AddRefed<TelephonyCallGroup> TelephonyCallGroup::Create(
+    Telephony* aTelephony) {
   NS_ASSERTION(aTelephony, "Null telephony!");
 
   RefPtr<TelephonyCallGroup> group =
-    new TelephonyCallGroup(aTelephony->GetOwner());
+      new TelephonyCallGroup(aTelephony->GetOwner());
 
   group->mTelephony = aTelephony;
   group->mState = TelephonyCallGroupState::_empty;
@@ -52,33 +47,27 @@ TelephonyCallGroup::Create(Telephony* aTelephony)
   return group.forget();
 }
 
-JSObject*
-TelephonyCallGroup::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* TelephonyCallGroup::WrapObject(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto) {
   return TelephonyCallGroup_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-TelephonyCallGroup::AddCall(TelephonyCall* aCall)
-{
+void TelephonyCallGroup::AddCall(TelephonyCall* aCall) {
   NS_ASSERTION(!mCalls.Contains(aCall), "Already know about this one!");
   mCalls.AppendElement(aCall);
   aCall->ChangeGroup(this);
   NotifyCallsChanged(aCall);
 }
 
-void
-TelephonyCallGroup::RemoveCall(TelephonyCall* aCall)
-{
+void TelephonyCallGroup::RemoveCall(TelephonyCall* aCall) {
   NS_ASSERTION(mCalls.Contains(aCall), "Didn't know about this one!");
   mCalls.RemoveElement(aCall);
   aCall->ChangeGroup(nullptr);
   NotifyCallsChanged(aCall);
 }
 
-nsresult
-TelephonyCallGroup::NotifyError(const nsAString& aName, const nsAString& aMessage)
-{
+nsresult TelephonyCallGroup::NotifyError(const nsAString& aName,
+                                         const nsAString& aMessage) {
   CallGroupErrorEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
@@ -86,14 +75,12 @@ TelephonyCallGroup::NotifyError(const nsAString& aName, const nsAString& aMessag
   init.mMessage = aMessage;
 
   RefPtr<CallGroupErrorEvent> event =
-    CallGroupErrorEvent::Constructor(this, NS_LITERAL_STRING("error"), init);
+      CallGroupErrorEvent::Constructor(this, NS_LITERAL_STRING("error"), init);
 
   return DispatchTrustedEvent(event);
 }
 
-void
-TelephonyCallGroup::ChangeState()
-{
+void TelephonyCallGroup::ChangeState() {
   MOZ_ASSERT(mCalls.Length() != 1);
   if (!mConferenceParentCall && mCalls.Length() == 0) {
     ChangeStateInternal(TelephonyCallGroupState::_empty);
@@ -124,16 +111,15 @@ TelephonyCallGroup::ChangeState()
       break;
     default:
       return;
-     // NS_NOTREACHED(nsPrintfCString("Invavild call state for a call group(%s)!",
-     //                               TELEPHONY_CALL_STATE(state)).get());
+      // NS_NOTREACHED(nsPrintfCString("Invavild call state for a call
+      // group(%s)!",
+      //                               TELEPHONY_CALL_STATE(state)).get());
   }
 
   ChangeStateInternal(groupState);
 }
 
-void
-TelephonyCallGroup::ChangeStateInternal(TelephonyCallGroupState aState)
-{
+void TelephonyCallGroup::ChangeStateInternal(TelephonyCallGroupState aState) {
   if (mState == aState) {
     return;
   }
@@ -145,9 +131,7 @@ TelephonyCallGroup::ChangeStateInternal(TelephonyCallGroupState aState)
   NotifyStateChanged();
 }
 
-nsresult
-TelephonyCallGroup::NotifyStateChanged()
-{
+nsresult TelephonyCallGroup::NotifyStateChanged() {
   // Since |mState| can be changed after statechange handler called back here,
   // we must save current state. Maybe we should figure out something smarter.
   TelephonyCallGroupState prevState = mState;
@@ -161,8 +145,8 @@ TelephonyCallGroup::NotifyStateChanged()
   // Besides, If there is no conference call at all, then we dont't have to
   // dispatch the state evnet.
   if (mState == prevState) {
-    res = DispatchCallEvent(NS_ConvertASCIItoUTF16(TELEPHONY_GROUP_STATE(mState)),
-                            nullptr);
+    res = DispatchCallEvent(
+        NS_ConvertASCIItoUTF16(TELEPHONY_GROUP_STATE(mState)), nullptr);
     if (NS_FAILED(res)) {
       NS_WARNING("Failed to dispatch specific event!");
     }
@@ -170,7 +154,7 @@ TelephonyCallGroup::NotifyStateChanged()
 
   // Notify each call within to dispatch call state change event
   for (uint32_t index = 0; index < mCalls.Length(); index++) {
-    if (NS_FAILED(mCalls[index]->NotifyStateChanged())){
+    if (NS_FAILED(mCalls[index]->NotifyStateChanged())) {
       res = NS_ERROR_FAILURE;
     }
   }
@@ -178,16 +162,12 @@ TelephonyCallGroup::NotifyStateChanged()
   return res;
 }
 
-nsresult
-TelephonyCallGroup::NotifyCallsChanged(TelephonyCall* aCall)
-{
+nsresult TelephonyCallGroup::NotifyCallsChanged(TelephonyCall* aCall) {
   return DispatchCallEvent(NS_LITERAL_STRING("callschanged"), aCall);
 }
 
-nsresult
-TelephonyCallGroup::DispatchCallEvent(const nsAString& aType,
-                                      TelephonyCall* aCall)
-{
+nsresult TelephonyCallGroup::DispatchCallEvent(const nsAString& aType,
+                                               TelephonyCall* aCall) {
   CallEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
@@ -197,9 +177,7 @@ TelephonyCallGroup::DispatchCallEvent(const nsAString& aType,
   return DispatchTrustedEvent(event);
 }
 
-already_AddRefed<Promise>
-TelephonyCallGroup::CreatePromise(ErrorResult& aRv)
-{
+already_AddRefed<Promise> TelephonyCallGroup::CreatePromise(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -214,10 +192,8 @@ TelephonyCallGroup::CreatePromise(ErrorResult& aRv)
   return promise.forget();
 }
 
-bool
-TelephonyCallGroup::CanConference(const TelephonyCall& aCall,
-                                  const TelephonyCall* aSecondCall)
-{
+bool TelephonyCallGroup::CanConference(const TelephonyCall& aCall,
+                                       const TelephonyCall* aSecondCall) {
   if (!aCall.Mergeable()) {
     return false;
   }
@@ -246,9 +222,7 @@ TelephonyCallGroup::CanConference(const TelephonyCall& aCall,
           aSecondCall->State() == TelephonyCallState::Connected);
 }
 
-uint32_t
-TelephonyCallGroup::GetServiceId()
-{
+uint32_t TelephonyCallGroup::GetServiceId() {
   uint32_t serviceId = DEFAULT_SERVICEID;
   if (!mCalls.IsEmpty()) {
     serviceId = mCalls[0]->ServiceId();
@@ -261,9 +235,8 @@ TelephonyCallGroup::GetServiceId()
   return serviceId;
 }
 
-already_AddRefed<TelephonyCall>
-TelephonyCallGroup::GetCall(uint32_t aServiceId, uint32_t aCallIndex)
-{
+already_AddRefed<TelephonyCall> TelephonyCallGroup::GetCall(
+    uint32_t aServiceId, uint32_t aCallIndex) {
   RefPtr<TelephonyCall> call = nullptr;
 
   for (uint32_t index = 0; index < mCalls.Length(); index++) {
@@ -277,7 +250,7 @@ TelephonyCallGroup::GetCall(uint32_t aServiceId, uint32_t aCallIndex)
 
   if (!call && mConferenceParentCall) {
     if (mConferenceParentCall->ServiceId() == aServiceId &&
-      mConferenceParentCall->CallIndex() == aCallIndex) {
+        mConferenceParentCall->CallIndex() == aCallIndex) {
       call = mConferenceParentCall;
     }
   }
@@ -304,24 +277,20 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(TelephonyCallGroup,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTelephony)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-//NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(TelephonyCallGroup)
-//NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TelephonyCallGroup)
+NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(TelephonyCallGroup, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(TelephonyCallGroup, DOMEventTargetHelper)
 
 // WebIDL
-already_AddRefed<CallsList>
-TelephonyCallGroup::Calls() const
-{
+already_AddRefed<CallsList> TelephonyCallGroup::Calls() const {
   RefPtr<CallsList> list = mCallsList;
   return list.forget();
 }
 
-already_AddRefed<Promise>
-TelephonyCallGroup::Add(TelephonyCall& aCall,
-                        ErrorResult& aRv)
-{
+already_AddRefed<Promise> TelephonyCallGroup::Add(TelephonyCall& aCall,
+                                                  ErrorResult& aRv) {
   MOZ_ASSERT(!mCalls.IsEmpty());
 
   RefPtr<Promise> promise = CreatePromise(aRv);
@@ -341,11 +310,9 @@ TelephonyCallGroup::Add(TelephonyCall& aCall,
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-TelephonyCallGroup::Add(TelephonyCall& aCall,
-                        TelephonyCall& aSecondCall,
-                        ErrorResult& aRv)
-{
+already_AddRefed<Promise> TelephonyCallGroup::Add(TelephonyCall& aCall,
+                                                  TelephonyCall& aSecondCall,
+                                                  ErrorResult& aRv) {
   RefPtr<Promise> promise = CreatePromise(aRv);
   if (!promise) {
     return nullptr;
@@ -363,9 +330,8 @@ TelephonyCallGroup::Add(TelephonyCall& aCall,
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-TelephonyCallGroup::Remove(TelephonyCall& aCall, ErrorResult& aRv)
-{
+already_AddRefed<Promise> TelephonyCallGroup::Remove(TelephonyCall& aCall,
+                                                     ErrorResult& aRv) {
   MOZ_ASSERT(!mCalls.IsEmpty());
 
   RefPtr<Promise> promise = CreatePromise(aRv);
@@ -396,9 +362,7 @@ TelephonyCallGroup::Remove(TelephonyCall& aCall, ErrorResult& aRv)
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-TelephonyCallGroup::HangUp(ErrorResult& aRv)
-{
+already_AddRefed<Promise> TelephonyCallGroup::HangUp(ErrorResult& aRv) {
   MOZ_ASSERT(!mCalls.IsEmpty());
 
   RefPtr<Promise> promise = CreatePromise(aRv);
@@ -409,21 +373,19 @@ TelephonyCallGroup::HangUp(ErrorResult& aRv)
   if (mState == TelephonyCallGroupState::_empty) {
     NS_WARNING(nsPrintfCString("We don't have a call group now!"
                                " (State: %s)",
-                               TELEPHONY_GROUP_STATE(mState)).get());
+                               TELEPHONY_GROUP_STATE(mState))
+                   .get());
     promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
     return promise.forget();
   }
 
   nsCOMPtr<nsITelephonyCallback> callback = new TelephonyCallback(promise);
-  aRv = mTelephony->Service()->HangUpConference(GetServiceId(),
-                                                callback);
+  aRv = mTelephony->Service()->HangUpConference(GetServiceId(), callback);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-TelephonyCallGroup::Hold(ErrorResult& aRv)
-{
+already_AddRefed<Promise> TelephonyCallGroup::Hold(ErrorResult& aRv) {
   MOZ_ASSERT(!mCalls.IsEmpty());
 
   RefPtr<Promise> promise = CreatePromise(aRv);
@@ -441,19 +403,18 @@ TelephonyCallGroup::Hold(ErrorResult& aRv)
   return promise.forget();
 }
 
-nsresult
-TelephonyCallGroup::Hold(nsITelephonyCallback* aCallback)
-{
+nsresult TelephonyCallGroup::Hold(nsITelephonyCallback* aCallback) {
   if (mState != TelephonyCallGroupState::Connected) {
     NS_WARNING(nsPrintfCString("Resume non-connected call group is rejected!"
                                " (State: %s)",
-                               TELEPHONY_GROUP_STATE(mState)).get());
+                               TELEPHONY_GROUP_STATE(mState))
+                   .get());
     aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
-  nsresult rv = mTelephony->Service()->HoldConference(GetServiceId(),
-                                                      aCallback);
+  nsresult rv =
+      mTelephony->Service()->HoldConference(GetServiceId(), aCallback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_FAILURE;
   }
@@ -461,9 +422,7 @@ TelephonyCallGroup::Hold(nsITelephonyCallback* aCallback)
   return NS_OK;
 }
 
-already_AddRefed<Promise>
-TelephonyCallGroup::Resume(ErrorResult& aRv)
-{
+already_AddRefed<Promise> TelephonyCallGroup::Resume(ErrorResult& aRv) {
   MOZ_ASSERT(!mCalls.IsEmpty());
 
   RefPtr<Promise> promise = CreatePromise(aRv);
@@ -481,19 +440,18 @@ TelephonyCallGroup::Resume(ErrorResult& aRv)
   return promise.forget();
 }
 
-nsresult
-TelephonyCallGroup::Resume(nsITelephonyCallback* aCallback)
-{
+nsresult TelephonyCallGroup::Resume(nsITelephonyCallback* aCallback) {
   if (mState != TelephonyCallGroupState::Held) {
     NS_WARNING(nsPrintfCString("Resume non-held call group is rejected!"
                                " (State: %s)",
-                               TELEPHONY_GROUP_STATE(mState)).get());
+                               TELEPHONY_GROUP_STATE(mState))
+                   .get());
     aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
-  nsresult rv = mTelephony->Service()->ResumeConference(GetServiceId(),
-                                                        aCallback);
+  nsresult rv =
+      mTelephony->Service()->ResumeConference(GetServiceId(), aCallback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_FAILURE;
   }
@@ -501,14 +459,11 @@ TelephonyCallGroup::Resume(nsITelephonyCallback* aCallback)
   return NS_OK;
 }
 
-void
-TelephonyCallGroup::SetConferenceParentCall(TelephonyCall* aCall)
-{
+void TelephonyCallGroup::SetConferenceParentCall(TelephonyCall* aCall) {
   mConferenceParentCall = aCall;
 }
 
-already_AddRefed<TelephonyCall>
-TelephonyCallGroup::GetConferenceParentCall() {
+already_AddRefed<TelephonyCall> TelephonyCallGroup::GetConferenceParentCall() {
   RefPtr<TelephonyCall> call = mConferenceParentCall;
   return call.forget();
 }

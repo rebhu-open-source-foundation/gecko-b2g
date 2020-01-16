@@ -914,10 +914,11 @@ RadioInterface.prototype = {
         /*gIccService.notifyIccInfoChanged(this.clientId,
                                          message.iccid ? message : null);*/
         break;
-      case "iccimsi":
+      // We don't need this. Let handlerilresponse handle it.
+      /*case "iccimsi":
         if (DEBUG) this.debug("iccimsi message=" + JSON.stringify(message));
         gIccService.notifyImsiChanged(this.clientId, message.imsi);
-        break;
+        break;*/
       case "iccmbdn":
         if (DEBUG) this.debug("iccmbdn message=" + JSON.stringify(message));
         this.handleIccMbdn(message);
@@ -1913,6 +1914,7 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_IMSI imsi = " + response.imsi);
           this.iccInfoPrivate.imsi = response.imsi;
           result = response;
+          gIccService.notifyImsiChanged(this.clientId, this.iccInfoPrivate.imsi);
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_IMSI error = " + response.errorMsg);
         }

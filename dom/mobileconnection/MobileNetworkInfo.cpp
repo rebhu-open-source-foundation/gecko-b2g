@@ -8,62 +8,51 @@
 
 using namespace mozilla::dom;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MozMobileNetworkInfo, mWindow)
+NS_IMPL_ISUPPORTS(MobileNetworkInfo, nsIMobileNetworkInfo)
 
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MozMobileNetworkInfo, mWindow)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MozMobileNetworkInfo)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(MozMobileNetworkInfo)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileNetworkInfo)
-//  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MozMobileNetworkInfo)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
-  NS_INTERFACE_MAP_ENTRY(nsIMobileNetworkInfo)
 NS_INTERFACE_MAP_END
 
-
 MozMobileNetworkInfo::MozMobileNetworkInfo(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
-{
-}
+    : mWindow(aWindow) {}
 
 MozMobileNetworkInfo::MozMobileNetworkInfo(const nsAString& aShortName,
-                                     const nsAString& aLongName,
-                                     const nsAString& aMcc,
-                                     const nsAString& aMnc,
-                                     const nsAString& aState)
-{
+                                           const nsAString& aLongName,
+                                           const nsAString& aMcc,
+                                           const nsAString& aMnc,
+                                           const nsAString& aState) {
   mInfo = new MobileNetworkInfo(aShortName, aLongName, aMcc, aMnc, aState);
   // The parent object is nullptr when MobileNetworkInfo is created by this way.
   // And it won't be exposed to web content.
 }
 
-void
-MozMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo)
-{
+void MozMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   if (!aInfo) {
     return;
   }
   mInfo->Update(aInfo);
 }
 
-
 MobileNetworkInfo::MobileNetworkInfo(const nsAString& aShortName,
                                      const nsAString& aLongName,
                                      const nsAString& aMcc,
                                      const nsAString& aMnc,
                                      const nsAString& aState)
-  : mShortName(aShortName)
-  , mLongName(aLongName)
-  , mMcc(aMcc)
-  , mMnc(aMnc)
-  , mState(aState)
-{
+    : mShortName(aShortName),
+      mLongName(aLongName),
+      mMcc(aMcc),
+      mMnc(aMnc),
+      mState(aState) {
   // The parent object is nullptr when MobileNetworkInfo is created by this way.
   // And it won't be exposed to web content.
 }
 
-void
-MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo)
-{
+void MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   if (!aInfo) {
     return;
   }
@@ -75,45 +64,39 @@ MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo)
   aInfo->GetState(mState);
 }
 
-JSObject*
-MozMobileNetworkInfo::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* MozMobileNetworkInfo::WrapObject(JSContext* aCx,
+                                           JS::Handle<JSObject*> aGivenProto) {
   return MozMobileNetworkInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // nsIMobileNetworkInfo
 
 NS_IMETHODIMP
-MobileNetworkInfo::GetShortName(nsAString& aShortName)
-{
+MobileNetworkInfo::GetShortName(nsAString& aShortName) {
   aShortName = mShortName;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileNetworkInfo::GetLongName(nsAString& aLongName)
-{
+MobileNetworkInfo::GetLongName(nsAString& aLongName) {
   aLongName = mLongName;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileNetworkInfo::GetMcc(nsAString& aMcc)
-{
+MobileNetworkInfo::GetMcc(nsAString& aMcc) {
   aMcc = mMcc;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileNetworkInfo::GetMnc(nsAString& aMnc)
-{
+MobileNetworkInfo::GetMnc(nsAString& aMnc) {
   aMnc = mMnc;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileNetworkInfo::GetState(nsAString& aState)
-{
+MobileNetworkInfo::GetState(nsAString& aState) {
   aState = mState;
   return NS_OK;
 }

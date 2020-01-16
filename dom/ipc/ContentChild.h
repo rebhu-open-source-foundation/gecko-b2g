@@ -757,65 +757,66 @@ class ContentChild final
   PFileDescriptorSetChild* SendPFileDescriptorSetConstructor(
       const FileDescriptor& aFD) override;
 
-  //MOZ_B2G_RIL
-//   PMobileConnectionChild*
-//   SendPMobileConnectionConstructor(PMobileConnectionChild* aActor,
-//                                    const uint32_t& aClientId);
+  // MOZ_B2G_RIL
+  //   PMobileConnectionChild*
+  //   SendPMobileConnectionConstructor(PMobileConnectionChild* aActor,
+  //                                    const uint32_t& aClientId);
 
-//   PMobileConnectionChild*
-//   AllocPMobileConnectionChild(const uint32_t& aClientId);
+  //   PMobileConnectionChild*
+  //   AllocPMobileConnectionChild(const uint32_t& aClientId);
 
-//   bool
-//   DeallocPMobileConnectionChild(PMobileConnectionChild* aActor);
+  //   bool
+  //   DeallocPMobileConnectionChild(PMobileConnectionChild* aActor);
 
-//   PImsRegServiceFinderChild*
-//   AllocPImsRegServiceFinderChild();
-//   bool
-//   DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*);
+  //   PImsRegServiceFinderChild*
+  //   AllocPImsRegServiceFinderChild();
+  //   bool
+  //   DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*);
 
-//   PImsRegistrationChild*
-//   SendPImsRegistrationConstructor(PImsRegistrationChild* aActor,
-//                                   const uint32_t& aServiceId);
-//   PImsRegistrationChild*
-//   AllocPImsRegistrationChild(const uint32_t& aServiceId);
-//   bool
-//   DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
+  //   PImsRegistrationChild*
+  //   SendPImsRegistrationConstructor(PImsRegistrationChild* aActor,
+  //                                   const uint32_t& aServiceId);
+  //   PImsRegistrationChild*
+  //   AllocPImsRegistrationChild(const uint32_t& aServiceId);
+  //   bool
+  //   DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
 
-//    virtual PCellBroadcastChild* AllocPCellBroadcastChild();
+  //    virtual PCellBroadcastChild* AllocPCellBroadcastChild();
 
-//    PCellBroadcastChild* SendPCellBroadcastConstructor(PCellBroadcastChild* aActor);
+  //    PCellBroadcastChild* SendPCellBroadcastConstructor(PCellBroadcastChild*
+  //    aActor);
 
-//    virtual bool DeallocPCellBroadcastChild(PCellBroadcastChild* aActor);
+  //    virtual bool DeallocPCellBroadcastChild(PCellBroadcastChild* aActor);
 
-//    virtual PSmsChild* AllocPSmsChild();
+  //    virtual PSmsChild* AllocPSmsChild();
 
-//    virtual bool DeallocPSmsChild(PSmsChild*);
+  //    virtual bool DeallocPSmsChild(PSmsChild*);
 
-//   PTelephonyChild* AllocPTelephonyChild();
+  PTelephonyChild* AllocPTelephonyChild();
 
-//   bool DeallocPTelephonyChild(PTelephonyChild*);
+  bool DeallocPTelephonyChild(PTelephonyChild*);
 
-//   PSubsidyLockChild*
-//   SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
-//                               const uint32_t& aClientId);
+  //   PSubsidyLockChild*
+  //   SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
+  //                               const uint32_t& aClientId);
 
-//   virtual PSubsidyLockChild*
-//   AllocPSubsidyLockChild(const uint32_t& aClientId);
+  //   virtual PSubsidyLockChild*
+  //   AllocPSubsidyLockChild(const uint32_t& aClientId);
 
-//   virtual bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
+  //   virtual bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
 
-//   virtual PVoicemailChild* AllocPVoicemailChild();
+  //   virtual PVoicemailChild* AllocPVoicemailChild();
 
-//   PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
+  //   PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
 
-//   virtual bool DeallocPVoicemailChild(PVoicemailChild*);
+  //   virtual bool DeallocPVoicemailChild(PVoicemailChild*);
 
-//   PIccChild*
-//   SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
+  //   PIccChild*
+  //   SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
 
-//   PIccChild* AllocPIccChild(const uint32_t& aClientId);
+  //   PIccChild* AllocPIccChild(const uint32_t& aClientId);
 
-//   bool DeallocPIccChild(PIccChild* aActor);
+  //   bool DeallocPIccChild(PIccChild* aActor);
   // MOZ_B2G_RIL_END
 
  private:

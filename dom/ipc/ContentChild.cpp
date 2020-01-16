@@ -125,7 +125,7 @@
 #endif
 
 #ifdef MOZ_WIDGET_GONK
-#include "mozilla/layers/SharedBufferManagerChild.h"
+#  include "mozilla/layers/SharedBufferManagerChild.h"
 #endif
 
 #ifdef MOZ_GECKO_PROFILER
@@ -306,7 +306,7 @@
 // #include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
 //#include "mozilla/dom/mobilemessage/SmsChild.h"
 //#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
-// #include "mozilla/dom/telephony/TelephonyChild.h"
+#include "mozilla/dom/telephony/TelephonyChild.h"
 //#include "mozilla/dom/voicemail/VoicemailIPCService.h"
 //#endif
 
@@ -335,13 +335,13 @@ using mozilla::loader::PScriptCacheChild;
 
 // MOZ_B2G_RIL
 //#if define(MOZ_B2G_RIL)
-//using namespace mozilla::dom::cellbroadcast;
+// using namespace mozilla::dom::cellbroadcast;
 // using namespace mozilla::dom::icc;
 // using namespace mozilla::dom::mobileconnection;
-//using namespace mozilla::dom::mobilemessage;
-// using namespace mozilla::dom::telephony;
-//using namespace mozilla::dom::voicemail;
-//using namespace mozilla::dom::subsidylock;
+// using namespace mozilla::dom::mobilemessage;
+using namespace mozilla::dom::telephony;
+// using namespace mozilla::dom::voicemail;
+// using namespace mozilla::dom::subsidylock;
 //#endif
 // MOZ_B2G_RIL_END
 
@@ -1604,7 +1604,7 @@ void CGSShutdownServerConnections();
 };
 #endif
 mozilla::ipc::IPCResult ContentChild::RecvInitBufferManager(
-      Endpoint<PSharedBufferManagerChild> aBufferManager) {
+    Endpoint<PSharedBufferManagerChild> aBufferManager) {
 #ifdef MOZ_WIDGET_GONK
   if (!SharedBufferManagerChild::InitForContent(std::move(aBufferManager))) {
     return IPC_FAIL(this, "SharedBufferManagerChild::InitForContent failed!");
@@ -1614,7 +1614,7 @@ mozilla::ipc::IPCResult ContentChild::RecvInitBufferManager(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvReinitBufferManager(
-      Endpoint<PSharedBufferManagerChild> aBufferManager) {
+    Endpoint<PSharedBufferManagerChild> aBufferManager) {
 #ifdef MOZ_WIDGET_GONK
   if (!SharedBufferManagerChild::ReinitForContent(std::move(aBufferManager))) {
     return IPC_FAIL(this, "SharedBufferManagerChild::ReinitForContent failed!");
@@ -2311,7 +2311,8 @@ bool ContentChild::DeallocPDeviceStorageRequestChild(
 // }
 
 // bool
-// ContentChild::DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild* aActor)
+// ContentChild::DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*
+// aActor)
 // {
 //     delete aActor;
 //     return true;
@@ -2324,14 +2325,14 @@ bool ContentChild::DeallocPDeviceStorageRequestChild(
 //     // Add an extra ref for IPDL. Will be released in
 //     // ContentChild::DeallocPImsRegistrationChild().
 //     static_cast<ImsRegistrationChild*>(aActor)->AddRef();
-//     return PContentChild::SendPImsRegistrationConstructor(aActor, aServiceId);
+//     return PContentChild::SendPImsRegistrationConstructor(aActor,
+//     aServiceId);
 // }
 
 // PImsRegistrationChild*
 // ContentChild::AllocPImsRegistrationChild(const uint32_t& aServiceId)
 // {
-//     //NS_NOTREACHED("No one should be allocating PImsRegistrationChild actors");
-//     return nullptr;
+//     //NS_NOTREACHED("No one should be allocating PImsRegistrationChild actors"); return nullptr;
 // }
 
 // bool
@@ -2378,18 +2379,14 @@ ContentChild::DeallocPSmsChild(PSmsChild* aSms)
   return true;
 }
 */
-// PTelephonyChild*
-// ContentChild::AllocPTelephonyChild()
-// {
-//   MOZ_CRASH("No one should be allocating PTelephonyChild actors");
-// }
+PTelephonyChild* ContentChild::AllocPTelephonyChild() {
+  MOZ_CRASH("No one should be allocating PTelephonyChild actors");
+}
 
-// bool
-// ContentChild::DeallocPTelephonyChild(PTelephonyChild* aActor)
-// {
-//   delete aActor;
-//   return true;
-// }
+bool ContentChild::DeallocPTelephonyChild(PTelephonyChild* aActor) {
+  delete aActor;
+  return true;
+}
 
 /*
 PSubsidyLockChild*
@@ -2564,9 +2561,7 @@ bool ContentChild::DeallocPMediaChild(media::PMediaChild* aActor) {
   return media::DeallocPMediaChild(aActor);
 }
 
-PBluetoothChild*
-ContentChild::AllocPBluetoothChild()
-{
+PBluetoothChild* ContentChild::AllocPBluetoothChild() {
 #ifdef MOZ_B2G_BT
   MOZ_CRASH("No one should be allocating PBluetoothChild actors");
 #else
@@ -2574,9 +2569,7 @@ ContentChild::AllocPBluetoothChild()
 #endif
 }
 
-bool
-ContentChild::DeallocPBluetoothChild(PBluetoothChild* aActor)
-{
+bool ContentChild::DeallocPBluetoothChild(PBluetoothChild* aActor) {
 #ifdef MOZ_B2G_BT
   delete aActor;
   return true;

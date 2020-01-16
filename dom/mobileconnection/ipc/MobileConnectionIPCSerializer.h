@@ -1,8 +1,8 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h
 #define mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h
@@ -14,69 +14,69 @@
 // #include "mozilla/dom/MobileConnectionInfo.h"
 // #include "mozilla/dom/MobileNetworkInfo.h"
 // #include "mozilla/dom/MobileSignalStrength.h"
-// #include "mozilla/dom/MozMobileConnectionBinding.h"
+#include "mozilla/dom/MozMobileConnectionBinding.h"
+
+#include "nsIMobileCellInfo.h"
+#include "nsIMobileConnectionInfo.h"
+#include "nsIMobileDeviceIdentities.h"
+#include "nsIMobileNetworkInfo.h"
+#include "nsIMobileSignalStrength.h"
 
 #include "mozilla/dom/cache/Types.h"
 
 using mozilla::AutoJSContext;
-using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
+// using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
 // using mozilla::dom::MobileNetworkInfo;
 // using mozilla::dom::MobileCellInfo;
 // using mozilla::dom::MobileConnectionInfo;
 // using mozilla::dom::MobileDeviceIdentities;
 // using mozilla::dom::MobileSignalStrength;
 
-// typedef nsIMobileCellInfo* nsMobileCellInfo;
-// typedef nsIMobileConnectionInfo* nsMobileConnectionInfo;
-// typedef nsIMobileNetworkInfo* nsMobileNetworkInfo;
+typedef nsIMobileCellInfo* nsMobileCellInfo;
+typedef nsIMobileConnectionInfo* nsMobileConnectionInfo;
+typedef nsIMobileNetworkInfo* nsMobileNetworkInfo;
 typedef nsIMobileCallForwardingOptions* nsMobileCallForwardingOptions;
-// typedef nsIMobileDeviceIdentities* nsMobileDeviceIdentities;
-// typedef nsIMobileSignalStrength* nsMobileSignalStrength;
+typedef nsIMobileDeviceIdentities* nsMobileDeviceIdentities;
+typedef nsIMobileSignalStrength* nsMobileSignalStrength;
 
 namespace IPC {
 
-struct MozCallForwardingOptions : public mozilla::dom::MozCallForwardingOptions
-{
-  bool operator==(const MozCallForwardingOptions& aOther) const
-  {
-    return false;
-    /* TODO: fix build error
-    return // Compare mActive
-           ((!mActive.WasPassed() && !aOther.mActive.WasPassed()) ||
-            (mActive.WasPassed() && aOther.mActive.WasPassed() &&
-             mActive.Value() == aOther.mActive.Value())) &&
-           // Compare mAction
-           ((!mAction.WasPassed() && !aOther.mAction.WasPassed()) ||
-            (mAction.WasPassed() && aOther.mAction.WasPassed() &&
-             mAction.Value() == aOther.mAction.Value())) &&
-           // Compare mReason
-           ((!mReason.WasPassed() && !aOther.mReason.WasPassed()) ||
-            (mReason.WasPassed() && aOther.mReason.WasPassed() &&
-             mReason.Value() == aOther.mReason.Value())) &&
-           // Compare mNumber
-           ((!mNumber.WasPassed() && !aOther.mNumber.WasPassed()) ||
-            (mNumber.WasPassed() && aOther.mNumber.WasPassed() &&
-             mNumber.Value() == aOther.mNumber.Value())) &&
-           // Compare mTimeSeconds
-           ((!mTimeSeconds.WasPassed() && !aOther.mTimeSeconds.WasPassed()) ||
-            (mTimeSeconds.WasPassed() && aOther.mTimeSeconds.WasPassed() &&
-             mTimeSeconds.Value() == aOther.mTimeSeconds.Value())) &&
-           // Compare mServiceClass
-           ((!mServiceClass.WasPassed() && !aOther.mServiceClass.WasPassed()) ||
-            (mServiceClass.WasPassed() && aOther.mServiceClass.WasPassed() &&
-             mServiceClass.Value() == aOther.mServiceClass.Value()));
-    */
+struct MozCallForwardingOptions
+    : public mozilla::dom::MozCallForwardingOptions {
+  bool operator==(const MozCallForwardingOptions& aOther) const {
+    return  // Compare mActive
+        ((!mActive.IsNull() && !aOther.mActive.IsNull()) ||
+         (mActive.IsNull() && aOther.mActive.IsNull() &&
+          mActive.Value() == aOther.mActive.Value())) &&
+        // Compare mAction
+        ((!mAction.IsNull() && !aOther.mAction.IsNull()) ||
+         (mAction.IsNull() && aOther.mAction.IsNull() &&
+          mAction.Value() == aOther.mAction.Value())) &&
+        // Compare mReason
+        ((!mReason.IsNull() && !aOther.mReason.IsNull()) ||
+         (mReason.IsNull() && aOther.mReason.IsNull() &&
+          mReason.Value() == aOther.mReason.Value())) &&
+        // Compare mNumber
+        ((!mNumber.IsVoid() && !aOther.mNumber.IsVoid()) ||
+         (mNumber.IsVoid() && aOther.mNumber.IsVoid() &&
+          mNumber.Equals(aOther.mNumber))) &&
+        // Compare mTimeSeconds
+        ((!mTimeSeconds.IsNull() && !aOther.mTimeSeconds.IsNull()) ||
+         (mTimeSeconds.IsNull() && aOther.mTimeSeconds.IsNull() &&
+          mTimeSeconds.Value() == aOther.mTimeSeconds.Value())) &&
+        // Compare mServiceClass
+        ((!mServiceClass.IsNull() && !aOther.mServiceClass.IsNull()) ||
+         (mServiceClass.IsNull() && aOther.mServiceClass.IsNull() &&
+          mServiceClass.Value() == aOther.mServiceClass.Value()));
   };
 };
 
 template <>
-struct ParamTraits<nsIMobileCallForwardingOptions*>
-{
+struct ParamTraits<nsIMobileCallForwardingOptions*> {
   typedef nsIMobileCallForwardingOptions* paramType;
 
   // Function to serialize a MobileCallForwardingOptions.
-  static void Write(Message *aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     bool isNull = !aParam;
     WriteParam(aMsg, isNull);
     // If it is a null object, then we are done.
@@ -108,46 +108,47 @@ struct ParamTraits<nsIMobileCallForwardingOptions*>
   }
 
   // Function to de-serialize a MobileCallForwardingOptions.
-  //TODO: void** need to PickleIterator*
- static bool Read(const Message *aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  // TODO: void** need to PickleIterator*
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     return false;
-/*    // Check if is the null pointer we have transfered.
-    bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
-      return false;
-    }
+    /*    // Check if is the null pointer we have transfered.
+        bool isNull;
+        if (!ReadParam(aMsg, aIter, &isNull)) {
+          return false;
+        }
 
-    if (isNull) {
-      *aResult = nullptr;
-      return true;
-    }
+        if (isNull) {
+          *aResult = nullptr;
+          return true;
+        }
 
-    bool active;
-    int16_t action;
-    int16_t reason;
-    nsString number;
-    int16_t timeSeconds;
-    int16_t serviceClass;
+        bool active;
+        int16_t action;
+        int16_t reason;
+        nsString number;
+        int16_t timeSeconds;
+        int16_t serviceClass;
 
-    // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &active) &&
-          ReadParam(aMsg, aIter, &action) &&
-          ReadParam(aMsg, aIter, &reason) &&
-          ReadParam(aMsg, aIter, &number) &&
-          ReadParam(aMsg, aIter, &timeSeconds) &&
-          ReadParam(aMsg, aIter, &serviceClass))) {
-      return false;
-    }
+        // It's not important to us where it fails, but rather if it fails
+        if (!(ReadParam(aMsg, aIter, &active) &&
+              ReadParam(aMsg, aIter, &action) &&
+              ReadParam(aMsg, aIter, &reason) &&
+              ReadParam(aMsg, aIter, &number) &&
+              ReadParam(aMsg, aIter, &timeSeconds) &&
+              ReadParam(aMsg, aIter, &serviceClass))) {
+          return false;
+        }
 
-    *aResult = new MobileCallForwardingOptions(active, action, reason,
-                                               number, timeSeconds, serviceClass);
+        *aResult = new MobileCallForwardingOptions(active, action, reason,
+                                                   number, timeSeconds,
+       serviceClass);
 
-    // We release this ref after receiver finishes processing.
-    NS_ADDREF(*aResult);
+        // We release this ref after receiver finishes processing.
+        NS_ADDREF(*aResult);
 
-    return true;
-*/
+        return true;
+    */
   }
 };
 
@@ -155,13 +156,11 @@ struct ParamTraits<nsIMobileCallForwardingOptions*>
  * nsIMobileNetworkInfo Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<nsIMobileNetworkInfo*>
-{
+struct ParamTraits<nsIMobileNetworkInfo*> {
   typedef nsIMobileNetworkInfo* paramType;
 
   // Function to serialize a MobileNetworkInfo.
-  static void Write(Message *aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     bool isNull = !aParam;
     WriteParam(aMsg, isNull);
     // If it is a null object, then we are done.
@@ -191,45 +190,45 @@ struct ParamTraits<nsIMobileNetworkInfo*>
 
   // Function to de-serialize a MobileNetworkInfo.
   // TODO void** to PickleIterator*
-  static bool Read(const Message *aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     return false;
-  /*  // Check if is the null pointer we have transfered.
-    bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
-      return false;
-    }
+    /*  // Check if is the null pointer we have transfered.
+      bool isNull;
+      if (!ReadParam(aMsg, aIter, &isNull)) {
+        return false;
+      }
 
-    if (isNull) {
-      *aResult = nullptr;
+      if (isNull) {
+        *aResult = nullptr;
+        return true;
+      }
+
+      nsString shortName;
+      nsString longName;
+      nsString mcc;
+      nsString mnc;
+      nsString state;
+
+      // It's not important to us where it fails, but rather if it fails
+      if (!(ReadParam(aMsg, aIter, &shortName) &&
+            ReadParam(aMsg, aIter, &longName) &&
+            ReadParam(aMsg, aIter, &mcc) &&
+            ReadParam(aMsg, aIter, &mnc) &&
+            ReadParam(aMsg, aIter, &state))) {
+        return false;
+      }
+
+      *aResult = new MobileNetworkInfo(shortName,
+                                       longName,
+                                       mcc,
+                                       mnc,
+                                       state);
+      // We release this ref after receiver finishes processing.
+      NS_ADDREF(*aResult);
+
       return true;
-    }
-
-    nsString shortName;
-    nsString longName;
-    nsString mcc;
-    nsString mnc;
-    nsString state;
-
-    // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &shortName) &&
-          ReadParam(aMsg, aIter, &longName) &&
-          ReadParam(aMsg, aIter, &mcc) &&
-          ReadParam(aMsg, aIter, &mnc) &&
-          ReadParam(aMsg, aIter, &state))) {
-      return false;
-    }
-
-    *aResult = new MobileNetworkInfo(shortName,
-                                     longName,
-                                     mcc,
-                                     mnc,
-                                     state);
-    // We release this ref after receiver finishes processing.
-    NS_ADDREF(*aResult);
-
-    return true;
-    */
+      */
   }
 };
 
@@ -237,13 +236,11 @@ struct ParamTraits<nsIMobileNetworkInfo*>
  * nsIMobileCellInfo Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<nsIMobileCellInfo*>
-{
+struct ParamTraits<nsIMobileCellInfo*> {
   typedef nsIMobileCellInfo* paramType;
 
   // Function to serialize a MobileCellInfo.
-  static void Write(Message *aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     bool isNull = !aParam;
     WriteParam(aMsg, isNull);
     // If it is a null object, then we are done.
@@ -292,8 +289,8 @@ struct ParamTraits<nsIMobileCellInfo*>
 
   // Function to de-serialize a MobileCellInfo.
   // TODO: void** to PickleIterator*
-  static bool Read(const Message *aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     return false;
     /*
     // Check if is the null pointer we have transfered.
@@ -334,8 +331,8 @@ struct ParamTraits<nsIMobileCellInfo*>
 
     *aResult = new MobileCellInfo(gsmLac, gsmCellId, cdmaBsId, cdmaBsLat,
                                   cdmaBsLong, cdmaSystemId, cdmaNetworkId,
-                                  cdmaRoamingIndicator, cdmaDefaultRoamingIndicator,
-                                  cdmaSystemIsInPRL);
+                                  cdmaRoamingIndicator,
+    cdmaDefaultRoamingIndicator, cdmaSystemIsInPRL);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
 
@@ -348,13 +345,11 @@ struct ParamTraits<nsIMobileCellInfo*>
  * nsIMobileConnectionInfo Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<nsIMobileConnectionInfo*>
-{
+struct ParamTraits<nsIMobileConnectionInfo*> {
   typedef nsIMobileConnectionInfo* paramType;
 
   // Function to serialize a MobileConnectionInfo.
-  static void Write(Message *aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     bool isNull = !aParam;
     WriteParam(aMsg, isNull);
     // If it is a null object, then we are done.
@@ -397,57 +392,58 @@ struct ParamTraits<nsIMobileConnectionInfo*>
   }
 
   // Function to de-serialize a MobileConectionInfo.
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     return false;
-/*
-    // Check if is the null pointer we have transfered.
-    bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
-      return false;
-    }
+    /*
+        // Check if is the null pointer we have transfered.
+        bool isNull;
+        if (!ReadParam(aMsg, aIter, &isNull)) {
+          return false;
+        }
 
-    if (isNull) {
-      *aResult = nullptr;
-      return true;
-    }
+        if (isNull) {
+          *aResult = nullptr;
+          return true;
+        }
 
-    AutoJSContext cx;
-    nsString state;
-    bool connected;
-    bool emergencyOnly;
-    bool roaming;
-    nsString type;
-    nsIMobileNetworkInfo* networkInfo = nullptr;
-    nsIMobileCellInfo* cellInfo = nullptr;
+        AutoJSContext cx;
+        nsString state;
+        bool connected;
+        bool emergencyOnly;
+        bool roaming;
+        nsString type;
+        nsIMobileNetworkInfo* networkInfo = nullptr;
+        nsIMobileCellInfo* cellInfo = nullptr;
 
-    // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &state) &&
-          ReadParam(aMsg, aIter, &connected) &&
-          ReadParam(aMsg, aIter, &emergencyOnly) &&
-          ReadParam(aMsg, aIter, &roaming) &&
-          ReadParam(aMsg, aIter, &type) &&
-          ReadParam(aMsg, aIter, &networkInfo) &&
-          ReadParam(aMsg, aIter, &cellInfo))) {
-      return false;
-    }
+        // It's not important to us where it fails, but rather if it fails
+        if (!(ReadParam(aMsg, aIter, &state) &&
+              ReadParam(aMsg, aIter, &connected) &&
+              ReadParam(aMsg, aIter, &emergencyOnly) &&
+              ReadParam(aMsg, aIter, &roaming) &&
+              ReadParam(aMsg, aIter, &type) &&
+              ReadParam(aMsg, aIter, &networkInfo) &&
+              ReadParam(aMsg, aIter, &cellInfo))) {
+          return false;
+        }
 
-    *aResult = new MobileConnectionInfo(state,
-                                        connected,
-                                        emergencyOnly,
-                                        roaming,
-                                        networkInfo,
-                                        type,
-                                        cellInfo);
-    // We release this ref after receiver finishes processing.
-    NS_ADDREF(*aResult);
-    // We already clone the data into MobileConnectionInfo, so release the ref
-    // of networkInfo and cellInfo here.
-    NS_IF_RELEASE(networkInfo);
-    NS_IF_RELEASE(cellInfo);
+        *aResult = new MobileConnectionInfo(state,
+                                            connected,
+                                            emergencyOnly,
+                                            roaming,
+                                            networkInfo,
+                                            type,
+                                            cellInfo);
+        // We release this ref after receiver finishes processing.
+        NS_ADDREF(*aResult);
+        // We already clone the data into MobileConnectionInfo, so release the
+       ref
+        // of networkInfo and cellInfo here.
+        NS_IF_RELEASE(networkInfo);
+        NS_IF_RELEASE(cellInfo);
 
-    return true;
-*/
+        return true;
+    */
   }
 };
 
@@ -455,84 +451,82 @@ struct ParamTraits<nsIMobileConnectionInfo*>
  * MozCallForwardingOptions Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<MozCallForwardingOptions>
-{
+struct ParamTraits<MozCallForwardingOptions> {
   typedef MozCallForwardingOptions paramType;
 
   // Function to serialize a MozCallForwardingOptions.
-  static void Write(Message *aMsg, const paramType& aParam)
-  {
-/*
-    bool wasPassed = false;
-    bool isNull = false;
+  static void Write(Message* aMsg, const paramType& aParam) {
+    /*
+        bool wasPassed = false;
+        bool isNull = false;
 
-    // Write mActive
-    wasPassed = aParam.mActive.WasPassed();
-    WriteParam(aMsg, wasPassed);
-    if (wasPassed) {
-      isNull = aParam.mActive.Value().IsNull();
-      WriteParam(aMsg, isNull);
-      if (!isNull) {
-        WriteParam(aMsg, aParam.mActive.Value().Value());
-      }
-    }
+        // Write mActive
+        wasPassed = aParam.mActive.WasPassed();
+        WriteParam(aMsg, wasPassed);
+        if (wasPassed) {
+          isNull = aParam.mActive.Value().IsNull();
+          WriteParam(aMsg, isNull);
+          if (!isNull) {
+            WriteParam(aMsg, aParam.mActive.Value().Value());
+          }
+        }
 
-    // Write mAction
-    wasPassed = aParam.mAction.WasPassed();
-    WriteParam(aMsg, wasPassed);
-    if (wasPassed) {
-      isNull = aParam.mAction.Value().IsNull();
-      WriteParam(aMsg, isNull);
-      if (!isNull) {
-        WriteParam(aMsg, aParam.mAction.Value().Value());
-      }
-    }
+        // Write mAction
+        wasPassed = aParam.mAction.WasPassed();
+        WriteParam(aMsg, wasPassed);
+        if (wasPassed) {
+          isNull = aParam.mAction.Value().IsNull();
+          WriteParam(aMsg, isNull);
+          if (!isNull) {
+            WriteParam(aMsg, aParam.mAction.Value().Value());
+          }
+        }
 
-    // Write mReason
-    wasPassed = aParam.mReason.WasPassed();
-    WriteParam(aMsg, wasPassed);
-    if (wasPassed) {
-      isNull = aParam.mReason.Value().IsNull();
-      WriteParam(aMsg, isNull);
-      if (!isNull) {
-        WriteParam(aMsg, aParam.mReason.Value().Value());
-      }
-    }
+        // Write mReason
+        wasPassed = aParam.mReason.WasPassed();
+        WriteParam(aMsg, wasPassed);
+        if (wasPassed) {
+          isNull = aParam.mReason.Value().IsNull();
+          WriteParam(aMsg, isNull);
+          if (!isNull) {
+            WriteParam(aMsg, aParam.mReason.Value().Value());
+          }
+        }
 
-    // Write mNumber
-    wasPassed = aParam.mNumber.WasPassed();
-    WriteParam(aMsg, wasPassed);
-    if (wasPassed) {
-      WriteParam(aMsg, aParam.mNumber.Value());
-    }
+        // Write mNumber
+        wasPassed = aParam.mNumber.WasPassed();
+        WriteParam(aMsg, wasPassed);
+        if (wasPassed) {
+          WriteParam(aMsg, aParam.mNumber.Value());
+        }
 
-    // Write mTimeSeconds
-    wasPassed = aParam.mTimeSeconds.WasPassed();
-    WriteParam(aMsg, wasPassed);
-    if (wasPassed) {
-      isNull = aParam.mTimeSeconds.Value().IsNull();
-      WriteParam(aMsg, isNull);
-      if (!isNull) {
-        WriteParam(aMsg, aParam.mTimeSeconds.Value().Value());
-      }
-    }
+        // Write mTimeSeconds
+        wasPassed = aParam.mTimeSeconds.WasPassed();
+        WriteParam(aMsg, wasPassed);
+        if (wasPassed) {
+          isNull = aParam.mTimeSeconds.Value().IsNull();
+          WriteParam(aMsg, isNull);
+          if (!isNull) {
+            WriteParam(aMsg, aParam.mTimeSeconds.Value().Value());
+          }
+        }
 
-    // Write mServiceClass
-    wasPassed = aParam.mServiceClass.WasPassed();
-    WriteParam(aMsg, wasPassed);
-    if (wasPassed) {
-      isNull = aParam.mServiceClass.Value().IsNull();
-      WriteParam(aMsg, isNull);
-      if (!isNull) {
-        WriteParam(aMsg, aParam.mServiceClass.Value().Value());
-      }
-    }
-   */
+        // Write mServiceClass
+        wasPassed = aParam.mServiceClass.WasPassed();
+        WriteParam(aMsg, wasPassed);
+        if (wasPassed) {
+          isNull = aParam.mServiceClass.Value().IsNull();
+          WriteParam(aMsg, isNull);
+          if (!isNull) {
+            WriteParam(aMsg, aParam.mServiceClass.Value().Value());
+          }
+        }
+       */
   }
 
   // Function to de-serialize a MozCallForwardingOptions.
-  static bool Read(const Message *aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     return false;
     /*
     bool wasPassed = false;
@@ -610,8 +604,8 @@ struct ParamTraits<MozCallForwardingOptions>
       }
 
       if (!isNull) {
-        if (!ReadParam(aMsg, aIter, &aResult->mTimeSeconds.Value().SetValue())) {
-          return false;
+        if (!ReadParam(aMsg, aIter, &aResult->mTimeSeconds.Value().SetValue()))
+    { return false;
         }
       }
     }
@@ -627,28 +621,25 @@ struct ParamTraits<MozCallForwardingOptions>
       }
 
       if (!isNull) {
-        if (!ReadParam(aMsg, aIter, &aResult->mServiceClass.Value().SetValue())) {
-          return false;
+        if (!ReadParam(aMsg, aIter, &aResult->mServiceClass.Value().SetValue()))
+    { return false;
         }
       }
     }
     return true;
     */
   }
-
 };
 
 /**
  * nsIMobileDeviceIdentities Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<nsIMobileDeviceIdentities*>
-{
+struct ParamTraits<nsIMobileDeviceIdentities*> {
   typedef nsIMobileDeviceIdentities* paramType;
 
   // Function to serialize a MobileDeviceIdentities.
-  static void Write(Message *aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     bool isNull = !aParam;
     WriteParam(aMsg, isNull);
 
@@ -678,42 +669,42 @@ struct ParamTraits<nsIMobileDeviceIdentities*>
   }
 
   // Function to de-serialize a MobileDeviceIdentities.
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     return false;
-/*
-    // Check if is the null pointer we have transfered.
-    bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
-      return false;
-    }
+    /*
+        // Check if is the null pointer we have transfered.
+        bool isNull;
+        if (!ReadParam(aMsg, aIter, &isNull)) {
+          return false;
+        }
 
-    if (isNull) {
-      *aResult = nullptr;
-      return true;
-    }
+        if (isNull) {
+          *aResult = nullptr;
+          return true;
+        }
 
-    AutoJSContext cx;
-    nsString imei;
-    nsString imeisv;
-    nsString esn;
-    nsString meid;
+        AutoJSContext cx;
+        nsString imei;
+        nsString imeisv;
+        nsString esn;
+        nsString meid;
 
-    // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &imei) &&
-          ReadParam(aMsg, aIter, &imeisv) &&
-          ReadParam(aMsg, aIter, &esn) &&
-          ReadParam(aMsg, aIter, &meid))) {
-      return false;
-    }
+        // It's not important to us where it fails, but rather if it fails
+        if (!(ReadParam(aMsg, aIter, &imei) &&
+              ReadParam(aMsg, aIter, &imeisv) &&
+              ReadParam(aMsg, aIter, &esn) &&
+              ReadParam(aMsg, aIter, &meid))) {
+          return false;
+        }
 
-    *aResult = new MobileDeviceIdentities(imei, imeisv, esn, meid);
+        *aResult = new MobileDeviceIdentities(imei, imeisv, esn, meid);
 
-    // We release this ref after receiver finishes processing.
-    NS_ADDREF(*aResult);
+        // We release this ref after receiver finishes processing.
+        NS_ADDREF(*aResult);
 
-    return true;
-*/
+        return true;
+    */
   }
 };
 
@@ -721,13 +712,11 @@ struct ParamTraits<nsIMobileDeviceIdentities*>
  * nsIMobileSignalStrength Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<nsIMobileSignalStrength*>
-{
+struct ParamTraits<nsIMobileSignalStrength*> {
   typedef nsIMobileSignalStrength* paramType;
 
   // Function to serialize a nsIMobileSignalStrength.
-  static void Write(Message *aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     bool isNull = !aParam;
     WriteParam(aMsg, isNull);
     // If it is a null object, then we are done.
@@ -775,81 +764,80 @@ struct ParamTraits<nsIMobileSignalStrength*>
   }
 
   // Function to de-serialize a MobileDeviceIdentities.
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
-   return false;
-   /*
-    // Check if is the null pointer we have transfered.
-    bool isNull;
-    if (!ReadParam(aMsg, aIter, &isNull)) {
-      return false;
-    }
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
+    return false;
+    /*
+     // Check if is the null pointer we have transfered.
+     bool isNull;
+     if (!ReadParam(aMsg, aIter, &isNull)) {
+       return false;
+     }
 
-    if (isNull) {
-      *aResult = nullptr;
-      return true;
-    }
+     if (isNull) {
+       *aResult = nullptr;
+       return true;
+     }
 
-    int16_t level;
-    int16_t gsmSignalStrength;
-    int16_t gsmBitErrorRate;
-    int16_t cdmaDbm;
-    int16_t cdmaEcio;
-    int16_t cdmaEvdoDbm;
-    int16_t cdmaEvdoEcio;
-    int16_t cdmaEvdoSNR;
-    int16_t lteSignalStrength;
-    int32_t lteRsrp;
-    int32_t lteRsrq;
-    int32_t lteRssnr;
-    int32_t lteCqi;
-    int32_t lteTimingAdvance;
-    int32_t tdscdmaRscp;
+     int16_t level;
+     int16_t gsmSignalStrength;
+     int16_t gsmBitErrorRate;
+     int16_t cdmaDbm;
+     int16_t cdmaEcio;
+     int16_t cdmaEvdoDbm;
+     int16_t cdmaEvdoEcio;
+     int16_t cdmaEvdoSNR;
+     int16_t lteSignalStrength;
+     int32_t lteRsrp;
+     int32_t lteRsrq;
+     int32_t lteRssnr;
+     int32_t lteCqi;
+     int32_t lteTimingAdvance;
+     int32_t tdscdmaRscp;
 
-    // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &level) &&
-          ReadParam(aMsg, aIter, &gsmSignalStrength) &&
-          ReadParam(aMsg, aIter, &gsmBitErrorRate) &&
-          ReadParam(aMsg, aIter, &cdmaDbm) &&
-          ReadParam(aMsg, aIter, &cdmaEcio) &&
-          ReadParam(aMsg, aIter, &cdmaEvdoDbm) &&
-          ReadParam(aMsg, aIter, &cdmaEvdoEcio) &&
-          ReadParam(aMsg, aIter, &cdmaEvdoSNR) &&
-          ReadParam(aMsg, aIter, &lteSignalStrength) &&
-          ReadParam(aMsg, aIter, &lteRsrp) &&
-          ReadParam(aMsg, aIter, &lteRsrq) &&
-          ReadParam(aMsg, aIter, &lteRssnr) &&
-          ReadParam(aMsg, aIter, &lteCqi) &&
-          ReadParam(aMsg, aIter, &lteTimingAdvance) &&
-          ReadParam(aMsg, aIter, &tdscdmaRscp))) {
-      return false;
-    }
+     // It's not important to us where it fails, but rather if it fails
+     if (!(ReadParam(aMsg, aIter, &level) &&
+           ReadParam(aMsg, aIter, &gsmSignalStrength) &&
+           ReadParam(aMsg, aIter, &gsmBitErrorRate) &&
+           ReadParam(aMsg, aIter, &cdmaDbm) &&
+           ReadParam(aMsg, aIter, &cdmaEcio) &&
+           ReadParam(aMsg, aIter, &cdmaEvdoDbm) &&
+           ReadParam(aMsg, aIter, &cdmaEvdoEcio) &&
+           ReadParam(aMsg, aIter, &cdmaEvdoSNR) &&
+           ReadParam(aMsg, aIter, &lteSignalStrength) &&
+           ReadParam(aMsg, aIter, &lteRsrp) &&
+           ReadParam(aMsg, aIter, &lteRsrq) &&
+           ReadParam(aMsg, aIter, &lteRssnr) &&
+           ReadParam(aMsg, aIter, &lteCqi) &&
+           ReadParam(aMsg, aIter, &lteTimingAdvance) &&
+           ReadParam(aMsg, aIter, &tdscdmaRscp))) {
+       return false;
+     }
 
-    *aResult = new MobileSignalStrength(level,
-                                        gsmSignalStrength,
-                                        gsmBitErrorRate,
-                                        cdmaDbm,
-                                        cdmaEcio,
-                                        cdmaEvdoDbm,
-                                        cdmaEvdoEcio,
-                                        cdmaEvdoSNR,
-                                        lteSignalStrength,
-                                        lteRsrp,
-                                        lteRsrq,
-                                        lteRssnr,
-                                        lteCqi,
-                                        lteTimingAdvance,
-                                        tdscdmaRscp);
+     *aResult = new MobileSignalStrength(level,
+                                         gsmSignalStrength,
+                                         gsmBitErrorRate,
+                                         cdmaDbm,
+                                         cdmaEcio,
+                                         cdmaEvdoDbm,
+                                         cdmaEvdoEcio,
+                                         cdmaEvdoSNR,
+                                         lteSignalStrength,
+                                         lteRsrp,
+                                         lteRsrq,
+                                         lteRssnr,
+                                         lteCqi,
+                                         lteTimingAdvance,
+                                         tdscdmaRscp);
 
-    // We release this ref after receiver finishes processing.
-    NS_ADDREF(*aResult);
+     // We release this ref after receiver finishes processing.
+     NS_ADDREF(*aResult);
 
-    return true;
-    */
+     return true;
+     */
   }
-
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h
+#endif  // mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h

@@ -287,8 +287,8 @@ using namespace mozilla::system;
 #endif
 
 #ifdef MOZ_B2G_BT
-#include "BluetoothParent.h"
-#include "BluetoothService.h"
+#  include "BluetoothParent.h"
+#  include "BluetoothService.h"
 #endif
 
 #include "mozilla/RemoteSpellCheckEngineParent.h"
@@ -339,7 +339,7 @@ using namespace mozilla::system;
 // #include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
 // #include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
 // #include "mozilla/dom/mobilemessage/SmsParent.h"
-// #include "mozilla/dom/telephony/TelephonyParent.h"
+#include "mozilla/dom/telephony/TelephonyParent.h"
 // #include "mozilla/dom/subsidylock/SubsidyLockParent.h"
 // #include "mozilla/dom/voicemail/VoicemailParent.h"
 // MOZ_B2G_RIL_END
@@ -377,13 +377,13 @@ using namespace mozilla::widget;
 using mozilla::loader::PScriptCacheParent;
 using mozilla::Telemetry::ProcessID;
 
-//using namespace mozilla::dom::cellbroadcast;
-//using namespace mozilla::dom::icc;
-//using namespace mozilla::dom::mobileconnection;
-//using namespace mozilla::dom::mobilemessage;
-//using namespace mozilla::dom::telephony;
-//using namespace mozilla::dom::voicemail;
-//using namespace mozilla::dom::subsidylock;
+// using namespace mozilla::dom::cellbroadcast;
+// using namespace mozilla::dom::icc;
+// using namespace mozilla::dom::mobileconnection;
+// using namespace mozilla::dom::mobilemessage;
+using namespace mozilla::dom::telephony;
+// using namespace mozilla::dom::voicemail;
+// using namespace mozilla::dom::subsidylock;
 
 // XXX Workaround for bug 986973 to maintain the existing broken semantics
 template <>
@@ -2987,9 +2987,8 @@ void ContentParent::OnCompositorUnexpectedShutdown() {
   Unused << SendReinitBufferManager(std::move(bufferManager));
 #endif
 
-  opened =
-      gpm->CreateContentBridges(OtherPid(), &compositor, &imageBridge,
-                                &vrBridge, &videoManager, &namespaces);
+  opened = gpm->CreateContentBridges(OtherPid(), &compositor, &imageBridge,
+                                     &vrBridge, &videoManager, &namespaces);
   MOZ_ASSERT(opened);
 
   Unused << SendReinitRendering(std::move(compositor), std::move(imageBridge),
@@ -4053,9 +4052,7 @@ bool ContentParent::DeallocPMediaParent(media::PMediaParent* aActor) {
   return media::DeallocPMediaParent(aActor);
 }
 
-PBluetoothParent*
-ContentParent::AllocPBluetoothParent()
-{
+PBluetoothParent* ContentParent::AllocPBluetoothParent() {
 #ifdef MOZ_B2G_BT
   // TODO: add 'bluetooth' permission check
   // if (!AssertAppProcessPermission(this, "bluetooth")) {
@@ -4067,9 +4064,7 @@ ContentParent::AllocPBluetoothParent()
 #endif
 }
 
-bool
-ContentParent::DeallocPBluetoothParent(PBluetoothParent* aActor)
-{
+bool ContentParent::DeallocPBluetoothParent(PBluetoothParent* aActor) {
 #ifdef MOZ_B2G_BT
   delete aActor;
   return true;
@@ -4078,22 +4073,20 @@ ContentParent::DeallocPBluetoothParent(PBluetoothParent* aActor)
 #endif
 }
 
-mozilla::ipc::IPCResult
-ContentParent::RecvPBluetoothConstructor(PBluetoothParent* aActor)
-{
+mozilla::ipc::IPCResult ContentParent::RecvPBluetoothConstructor(
+    PBluetoothParent* aActor) {
 #ifdef MOZ_B2G_BT
   RefPtr<BluetoothService> btService = BluetoothService::Get();
   NS_ENSURE_TRUE(btService, IPC_FAIL_NO_REASON(this));
 
   return static_cast<BluetoothParent*>(aActor)->InitWithService(btService)
-         ? IPC_OK()
-         : IPC_FAIL_NO_REASON(this);
+             ? IPC_OK()
+             : IPC_FAIL_NO_REASON(this);
 #else
   MOZ_CRASH("No support for bluetooth on this platform!");
   return IPC_FAIL_NO_REASON(this);
 #endif
 }
-
 
 PBenchmarkStorageParent* ContentParent::AllocPBenchmarkStorageParent() {
   return new BenchmarkStorageParent;
@@ -4283,7 +4276,6 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
 //   return static_cast<CellBroadcastParent*>(aActor)->Init();
 // }
 
-
 // PSmsParent*
 // ContentParent::AllocPSmsParent()
 // {
@@ -4303,24 +4295,20 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
 //   return true;
 // }
 
-// PTelephonyParent*
-// ContentParent::AllocPTelephonyParent()
-// {
-//   //if (!AssertAppProcessPermission(this, "telephony")) {
-//   //  return nullptr;
-//   //}
+PTelephonyParent* ContentParent::AllocPTelephonyParent() {
+  // if (!AssertAppProcessPermission(this, "telephony")) {
+  //  return nullptr;
+  //}
 
-//   TelephonyParent* actor = new TelephonyParent();
-//   NS_ADDREF(actor);
-//   return actor;
-// }
+  TelephonyParent* actor = new TelephonyParent();
+  NS_ADDREF(actor);
+  return actor;
+}
 
-// bool
-// ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor)
-// {
-//   static_cast<TelephonyParent*>(aActor)->Release();
-//   return true;
-// }
+bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
+  static_cast<TelephonyParent*>(aActor)->Release();
+  return true;
+}
 
 // PVoicemailParent*
 // ContentParent::AllocPVoicemailParent()
@@ -5421,8 +5409,8 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 
     RefPtr<Element> openerElement = do_QueryObject(frame);
 
-    nsCOMPtr<nsIOpenURIInFrameParams> params =
-        new nsOpenURIInFrameParams(openerOriginAttributes, openerElement, aFeatures);
+    nsCOMPtr<nsIOpenURIInFrameParams> params = new nsOpenURIInFrameParams(
+        openerOriginAttributes, openerElement, aFeatures);
     params->SetReferrerInfo(aReferrerInfo);
     MOZ_ASSERT(aTriggeringPrincipal, "need a valid triggeringPrincipal");
     params->SetTriggeringPrincipal(aTriggeringPrincipal);
@@ -5600,7 +5588,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   }
 
 #if !defined(MOZ_B2G) || defined(MOZ_WIDGET_GONK)
-// TODO: figure out why that fails on desktop builds but not device ones.
+  // TODO: figure out why that fails on desktop builds but not device ones.
   MOZ_ASSERT(BrowserHost::GetFrom(newRemoteTab.get()) ==
              newTab->GetBrowserHost());
 #endif
