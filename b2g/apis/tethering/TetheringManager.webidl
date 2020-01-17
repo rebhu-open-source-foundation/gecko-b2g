@@ -1,0 +1,78 @@
+/* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+enum TetheringType {
+  "bluetooth",
+  "usb",
+  "wifi"
+};
+
+enum SecurityType {
+  "open",
+  "wpa-psk",
+  "wpa2-psk"
+};
+
+dictionary TetheringConfiguration {
+  DOMString ssid;
+  SecurityType security;
+  DOMString key;
+  DOMString ip;
+  DOMString prefix;
+  DOMString startIp;
+  DOMString endIp;
+  DOMString dns1;
+  DOMString dns2;
+};
+
+[JSImplementation="@mozilla.org/tetheringmanager;1",
+ Exposed=Window]
+interface TetheringManager : EventTarget {
+
+  /**
+   * tetheringState sync from nsITetheringService.idl
+   */
+
+  const unsigned long TETHERING_STATE_INACTIVE = 0;
+
+  const unsigned long TETHERING_STATE_WIFI     = 1;
+
+  const unsigned long TETHERING_STATE_USB      = 2;
+
+  /**
+   * Enable/Disable tethering.
+   * @param enabled True to enable tethering, False to disable tethering.
+   * @param type Tethering type to enable/disable.
+   * @param config Configuration should have following fields when enable is True:
+   *               - ssid SSID network name.
+   *               - security open, wpa-psk or wpa2-psk.
+   *               - key password for wpa-psk or wpa2-psk.
+   *               - ip ip address.
+   *               - prefix mask length.
+   *               - startIp start ip address allocated by DHCP server for tethering.
+   *               - endIp end ip address allocated by DHCP server for tethering.
+   *               - dns1 first DNS server address.
+   *               - dns2 second DNS server address.
+   *               config should not be set when enabled is False.
+   */
+  Promise<any> setTetheringEnabled(boolean enabled,
+                                   TetheringType type,
+                                   optional TetheringConfiguration config = {});
+
+  /**
+   * Returns tethering state.
+   */
+  readonly attribute long tetheringState;
+
+  /**
+   * An event listener that is called with notification about the tethering
+   * connection status.
+   */
+  attribute EventHandler ontetheringstatuschange;
+
+};

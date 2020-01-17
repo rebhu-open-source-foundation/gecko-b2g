@@ -47,15 +47,12 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 */
 
-//TODO: TetheringService
-/*
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "gTetheringService",
   "@mozilla.org/tethering/service;1",
   "nsITetheringService"
 );
-*/
 
 const TOPIC_INTERFACE_REGISTERED = "network-interface-registered";
 const TOPIC_INTERFACE_UNREGISTERED = "network-interface-unregistered";
@@ -106,7 +103,7 @@ function updateDebug() {
   }
 */
   debug = function(s) {
-    dump("-*- NetworkManager: " + s + "\n");
+    console.log("-*- NetworkManager: ", s, "\n");
   };
 }
 updateDebug();
@@ -1201,12 +1198,9 @@ NetworkManager.prototype = {
             return this._setMtu(aNetwork);
           })
           .then(() => this.updateClat(extNetworkInfo))
-          //TODO: TetheringService
-          /*
           .then(() =>
             gTetheringService.onExternalConnectionChanged(extNetworkInfo)
           )
-          */
           .then(() => this.setAndConfigureActive())
           .then(() => {
             // Update data connection when Wifi connected/disconnected
@@ -1307,12 +1301,9 @@ NetworkManager.prototype = {
               preNetworkInfo
             );
           })
-          //TODO: TetheringService
-          /*
           .then(() =>
             gTetheringService.onExternalConnectionChanged(preNetworkInfo)
           )
-          */
           .then(() => this.setAndConfigureActive())
           .then(() => {
             // Update data connection when Wifi connected/disconnected
@@ -2225,14 +2216,10 @@ NetworkManager.prototype = {
         }
 
         if (this._manageOfflineStatus) {
-          //TODO: TetheringService
-          /*
           Services.io.offline =
             !anyConnected &&
             gTetheringService.state ===
               Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
-          */
-          Services.io.offline = !anyConnected;
         }
         return Promise.resolve();
       });
@@ -2695,9 +2682,7 @@ NetworkManager.prototype = {
         TOPIC_CONNECTION_STATE_CHANGED
       );
 
-      //Notify Tethering interface change.
-      //TODO: TetheringService
-      //return gTetheringService.onExternalConnectionChanged(clatNetwork.info);
+      return gTetheringService.onExternalConnectionChanged(clatNetwork.info);
     });
   },
 

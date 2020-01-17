@@ -51,7 +51,7 @@ function updateDebug() {
   }
   */
   debug = function(s) {
-    dump("-*- NetworkService: " + s + "\n");
+    console.log("-*- NetworkService: ", s, "\n");
   };
 }
 updateDebug();
@@ -745,7 +745,7 @@ NetworkService.prototype = {
   },
 
   // Enable/disable USB tethering by sending commands to netd.
-  setUSBTethering(aEnable, aConfig, aCallback) {
+  setUSBTethering(aEnable, aConfig, aMsgCallback, aCallback) {
     aConfig.cmd = "setUSBTethering";
     // The callback function in controlMessage may not be fired immediately.
     this.controlMessage(aConfig, aData => {
@@ -757,15 +757,15 @@ NetworkService.prototype = {
       this.setNetworkTetheringAlarm(aEnable, aConfig.externalIfname);
 
       if (!result) {
-        aCallback.usbTetheringEnabledChange("netd command error");
+        aCallback.usbTetheringEnabledChange("netd command error", aMsgCallback);
       } else {
-        aCallback.usbTetheringEnabledChange(null);
+        aCallback.usbTetheringEnabledChange(null, aMsgCallback);
       }
     });
   },
 
   // Switch usb function by modifying property of persist.sys.usb.config.
-  enableUsbRndis(aEnable, aCallback) {
+  enableUsbRndis(aEnable, aMsgCallback, aCallback) {
     debug("enableUsbRndis: " + aEnable);
 
     let params = {
@@ -782,7 +782,7 @@ NetworkService.prototype = {
     // The callback function in controlMessage may not be fired immediately.
     //this._usbTetheringAction = TETHERING_STATE_ONGOING;
     this.controlMessage(params, function(aData) {
-      aCallback.enableUsbRndisResult(aData.result, aData.enable);
+      aCallback.enableUsbRndisResult(aData.result, aData.enable, aMsgCallback);
     });
   },
 

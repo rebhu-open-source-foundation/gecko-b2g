@@ -23,6 +23,7 @@
 #  include "mozilla/dom/Telephony.h"
 #endif
 
+#include "mozilla/dom/TetheringManagerBinding.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/MemoryReporting.h"
 #include "nsPIDOMWindow.h"
@@ -63,6 +64,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   Telephony* GetMozTelephony(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
+  TetheringManager* GetTetheringManager(ErrorResult& aRv);
  private:
   virtual ~KaiOS();
 
@@ -78,6 +80,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_B2G_RIL
   RefPtr<Telephony> mTelephony;
 #endif
+  RefPtr<TetheringManager> mTetheringManager;
 };
 
 }  // namespace dom

@@ -36,3 +36,8 @@ partial interface KaiOS {
   readonly attribute Telephony mozTelephony;
 };
 #endif //MOZ_B2G_RIL
+
+partial interface KaiOS {
+  [Throws, Exposed=Window]
+  readonly attribute TetheringManager tetheringManager;
+};

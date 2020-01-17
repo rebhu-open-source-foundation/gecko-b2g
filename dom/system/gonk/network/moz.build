@@ -17,6 +17,10 @@ XPCOM_MANIFESTS += [
     'components.conf',
 ]
 
+EXTRA_COMPONENTS += [
+    'TetheringService.manifest',
+]
+
 XPIDL_SOURCES += [
     'nsINat464XlatInfo.idl',
     'nsINetworkInterface.idl',
@@ -24,6 +28,7 @@ XPIDL_SOURCES += [
     'nsINetworkManager.idl',
     'nsINetworkService.idl',
     'nsINetworkWorker.idl',
+    'nsITetheringService.idl',
 
 ]
 UNIFIED_SOURCES += [
@@ -36,6 +41,7 @@ EXTRA_JS_MODULES += [
     'NetworkInterfaceListService.jsm',
     'NetworkManager.jsm',
     'NetworkService.jsm',
+    'TetheringService.jsm',
 ]
 LOCAL_INCLUDES += [
     '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [

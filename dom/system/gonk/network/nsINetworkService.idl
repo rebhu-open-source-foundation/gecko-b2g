@@ -45,6 +45,15 @@ interface nsISetDhcpServerCallback : nsISupports
   void dhcpServerResult(in jsval error);
 };
 
+[scriptable, function, uuid(4e88e3d4-5b72-4041-b80c-fb2c36707a2b)]
+interface nsIUsbTetheringApiCallback : nsISupports
+{
+  /**
+   * Callback function used to report usb api enable/disable result.
+   */
+  void usbMessageCallback(in boolean success);
+};
+
 [scriptable, function, uuid(32407c50-46c7-11e3-8f96-0800200c9a66)]
 interface nsIUsbTetheringCallback : nsISupports
 {
@@ -54,8 +63,10 @@ interface nsIUsbTetheringCallback : nsISupports
    * @param error
    *        An error message if the operation wasn't successful,
    *        or `null` if it was.
+   * @param msgCallback
+   *        Callback function used to report usb api enable/disable result.
    */
-  void usbTetheringEnabledChange(in jsval error);
+  void usbTetheringEnabledChange(in jsval error, in nsIUsbTetheringApiCallback msgCallback);
 };
 
 [scriptable, function, uuid(055fd560-46ad-11e3-8f96-0800200c9a66)]
@@ -69,7 +80,8 @@ interface nsIEnableUsbRndisCallback : nsISupports
    * @param enable
    *        Boolean to indicate if we are enabling or disabling usb rndis.
    */
-  void enableUsbRndisResult(in boolean success, in boolean enable);
+  void enableUsbRndisResult(in boolean success, in boolean enable,
+                            in nsIUsbTetheringApiCallback msgCallback);
 };
 
 [scriptable, function, uuid(4f07ca30-46ad-31e3-8f96-0730210c9ac6)]
@@ -269,11 +281,14 @@ interface nsINetworkService : nsISupports
    *        Boolean to indicate we are going to enable or disable usb tethering.
    * @param config
    *        The usb tethering configuration.
+   * @param msgCallback
+            Callback function used to report usb api enable/disable result.
    * @param callback
    *        Callback function used to report the result enabling/disabling usb tethering.
    */
   void setUSBTethering(in boolean enabled,
                        in jsval config,
+                       in nsIUsbTetheringApiCallback msgCallback,
                        in nsIUsbTetheringCallback callback);
 
   /**
@@ -427,6 +442,7 @@ interface nsINetworkService : nsISupports
    *        Callback function to report the result.
    */
   void enableUsbRndis(in boolean enable,
+                      in nsIUsbTetheringApiCallback msgCallback,
                       in nsIEnableUsbRndisCallback callback);
 
   /**

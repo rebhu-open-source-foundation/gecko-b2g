@@ -189,12 +189,12 @@ const CommandFunc NetworkUtils::sWifiFailChain[] = {
 
 const CommandFunc NetworkUtils::sUSBEnableChain[] = {
     NetworkUtils::setConfig,
-    NetworkUtils::enableNat,
-    NetworkUtils::setIpForwardingEnabled,
     NetworkUtils::tetherInterface,
     NetworkUtils::addRouteToLocalNetwork,
+    NetworkUtils::setIpForwardingEnabled,
     NetworkUtils::startTethering,
     NetworkUtils::setDnsForwarders,
+    NetworkUtils::enableNat,
     NetworkUtils::addIpv6TetheringInterfaces,
     NetworkUtils::updateIpv6Tethering,
     NetworkUtils::usbTetheringSuccess};
@@ -820,8 +820,12 @@ void NetworkUtils::setConfig(CommandChain* aChain, CommandCallback aCallback,
   android::net::InterfaceConfigurationParcel interfaceCfg;
   struct in_addr addr;
 
-  interfaceCfg.ifName = GET_CHAR(mIfname);
-  interfaceCfg.hwAddr = "";
+  Status status = gNetd->interfaceGetCfg(GET_CHAR(mIfname), &interfaceCfg);
+  if (!status.isOk()) {
+    NU_DBG("%s: Unable to get interface: %s", __FUNCTION__, GET_CHAR(mIfname));
+    next(aChain, !status.isOk(), aResult);
+    return;
+  }
 
   if (!inet_aton(GET_CHAR(mIp), &addr)) {
     interfaceCfg.ipv4Addr = "";
@@ -829,21 +833,15 @@ void NetworkUtils::setConfig(CommandChain* aChain, CommandCallback aCallback,
   } else if (addr.s_addr != 0) {
     interfaceCfg.ipv4Addr = GET_CHAR(mIp);
     interfaceCfg.prefixLength = atoi(GET_CHAR(mPrefix));
-    Status status = gNetd->interfaceSetCfg(interfaceCfg);
-    if (!status.isOk()) {
-      NU_DBG("%s: failed to set configuration.", __FUNCTION__);
-      next(aChain, !status.isOk(), aResult);
-      return;
-    }
   }
 
   Status bringStatus;
-  if (strcmp(GET_CHAR(mLink), "up")) {
+  if (!strcmp(GET_CHAR(mLink), "up")) {
     interfaceCfg.flags.push_back(
         std::string(android::String8((INetd::IF_STATE_UP().string()))));
     bringStatus = gNetd->interfaceSetCfg(interfaceCfg);
 
-  } else if (strcmp(GET_CHAR(mLink), "down")) {
+  } else if (!strcmp(GET_CHAR(mLink), "down")) {
     interfaceCfg.flags.push_back(
         std::string(android::String8((INetd::IF_STATE_DOWN().string()))));
     bringStatus = gNetd->interfaceSetCfg(interfaceCfg);
@@ -853,7 +851,6 @@ void NetworkUtils::setConfig(CommandChain* aChain, CommandCallback aCallback,
     return;
   }
 
-  bringStatus.isOk();
   NU_DBG("%s: %s", __FUNCTION__, bringStatus.isOk() ? "success" : "failed");
   next(aChain, !bringStatus.isOk(), aResult);
 }
@@ -963,7 +960,7 @@ void NetworkUtils::addRouteToLocalNetwork(CommandChain* aChain,
   Status routeStatus = gNetd->networkAddRoute(
       INetd::LOCAL_NET_ID, GET_CHAR(mInternalIfname), route, "");
   NU_DBG("%s: add route %s", __FUNCTION__,
-         status.isOk() ? "success" : "failed");
+         routeStatus.isOk() ? "success" : "failed");
 
   next(aChain, !routeStatus.isOk(), aResult);
 }
@@ -2082,12 +2079,12 @@ CommandResult NetworkUtils::setInterfaceConfig(NetworkParams& aOptions) {
   }
 
   Status bringStatus;
-  if (strcmp(GET_CHAR(mLink), "up")) {
+  if (!strcmp(GET_CHAR(mLink), "up")) {
     interfaceCfg.flags.push_back(
         std::string(android::String8((INetd::IF_STATE_UP().string()))));
     bringStatus = gNetd->interfaceSetCfg(interfaceCfg);
 
-  } else if (strcmp(GET_CHAR(mLink), "down")) {
+  } else if (!strcmp(GET_CHAR(mLink), "down")) {
     interfaceCfg.flags.push_back(
         std::string(android::String8((INetd::IF_STATE_DOWN().string()))));
     bringStatus = gNetd->interfaceSetCfg(interfaceCfg);

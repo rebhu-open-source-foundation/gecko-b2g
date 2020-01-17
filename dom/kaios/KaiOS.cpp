@@ -123,5 +123,23 @@ Telephony* KaiOS::GetMozTelephony(ErrorResult& aRv) {
 }
 #endif
 
+TetheringManager* KaiOS::GetTetheringManager(ErrorResult& aRv) {
+  if (!mTetheringManager) {
+    nsPIDOMWindowInner* win = GetWindow();
+    if (!win) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mTetheringManager = ConstructJSImplementation<TetheringManager>(
+        "@mozilla.org/tetheringmanager;1", win->AsGlobal(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+
+  return mTetheringManager;
+}
+
 }  // namespace dom
 }  // namespace mozilla
