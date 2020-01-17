@@ -854,9 +854,9 @@ class BaseFinder(object):
             raise ValueError('minify_js requires minify.')
 
         self.base = base
-        self._minify = False
-        self._minify_js = False
-        self._minify_js_verify_command = None
+        self._minify = minify
+        self._minify_js = minify_js
+        self._minify_js_verify_command = minify_js_verify_command
 
     def find(self, pattern):
         '''
