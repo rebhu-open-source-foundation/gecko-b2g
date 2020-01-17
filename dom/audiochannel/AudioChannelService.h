@@ -52,6 +52,8 @@ class AudioPlaybackConfig {
   bool mCapturedAudio = false;
 };
 
+#define NUMBER_OF_AUDIO_CHANNELS (uint32_t)AudioChannel::EndGuard_
+
 class AudioChannelService final : public nsIObserver {
  public:
   NS_DECL_ISUPPORTS

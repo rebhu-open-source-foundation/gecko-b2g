@@ -216,7 +216,8 @@ typedef nsTArray<RefPtr<SwitchHandler> > SwitchHandlerArray;
 class SwitchEventRunnable : public Runnable
 {
 public:
-  SwitchEventRunnable(SwitchEvent& aEvent) : mEvent(aEvent)
+  SwitchEventRunnable(SwitchEvent& aEvent) : Runnable("SwitchEventRunnable"),
+                                             mEvent(aEvent)
   {
   }
 
@@ -427,7 +428,8 @@ EnableSwitchNotifications(SwitchDevice aDevice)
   {
     MonitorAutoLock lock(monitor);
     XRE_GetIOMessageLoop()->PostTask(
-        NewRunnableFunction(EnableSwitchNotificationsIOThread, aDevice, &monitor));
+        NewRunnableFunction("SwitchEventObserver::EnableSwitchNotifications",
+                            EnableSwitchNotificationsIOThread, aDevice, &monitor));
     lock.Wait();
   }
 }
@@ -444,7 +446,8 @@ void
 DisableSwitchNotifications(SwitchDevice aDevice)
 {
   XRE_GetIOMessageLoop()->PostTask(
-      NewRunnableFunction(DisableSwitchNotificationsIOThread, aDevice));
+      NewRunnableFunction("SwitchEventObserver::DisableSwitchNotifications",
+                          DisableSwitchNotificationsIOThread, aDevice));
 }
 
 SwitchState
@@ -464,7 +467,8 @@ NotifySwitchStateIOThread(SwitchDevice aDevice, SwitchState aState)
 void NotifySwitchStateFromInputDevice(SwitchDevice aDevice, SwitchState aState)
 {
   XRE_GetIOMessageLoop()->PostTask(
-      NewRunnableFunction(NotifySwitchStateIOThread, aDevice, aState));
+      NewRunnableFunction("SwitchEventObserver::NotifySwitchStateFromInputDevice",
+                          NotifySwitchStateIOThread, aDevice, aState));
 }
 
 bool IsHeadphoneEventFromInputDev()

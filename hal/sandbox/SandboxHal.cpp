@@ -144,6 +144,26 @@ void GetWakeLockInfo(const nsAString& aTopic,
   Hal()->SendGetWakeLockInfo(nsString(aTopic), aWakeLockInfo);
 }
 
+void EnableSwitchNotifications(SwitchDevice aDevice) {
+  Hal()->SendEnableSwitchNotifications(aDevice);
+}
+
+void DisableSwitchNotifications(SwitchDevice aDevice) {
+  Hal()->SendDisableSwitchNotifications(aDevice);
+}
+
+SwitchState GetCurrentSwitchState(SwitchDevice aDevice) {
+  SwitchState state;
+  Hal()->SendGetCurrentSwitchState(aDevice, &state);
+  return state;
+}
+
+void NotifySwitchStateFromInputDevice(SwitchDevice aDevice, SwitchState aState) {
+  Unused << aDevice;
+  Unused << aState;
+  NS_RUNTIMEABORT("Only the main process may notify switch state change.");
+}
+
 bool EnableAlarm() {
   MOZ_CRASH("Alarms can't be programmed from sandboxed contexts.  Yet.");
 }
@@ -188,7 +208,8 @@ class HalParent : public PHalParent,
                   public NetworkObserver,
                   public ISensorObserver,
                   public WakeLockObserver,
-                  public ScreenConfigurationObserver {
+                  public ScreenConfigurationObserver,
+                  public SwitchObserver {
  public:
   virtual void ActorDestroy(ActorDestroyReason aWhy) override {
     // NB: you *must* unconditionally unregister your observer here,
@@ -386,6 +407,27 @@ class HalParent : public PHalParent,
   void Notify(const WakeLockInformation& aWakeLockInfo) override {
     Unused << SendNotifyWakeLockChange(aWakeLockInfo);
   }
+
+  virtual mozilla::ipc::IPCResult RecvEnableSwitchNotifications(const SwitchDevice& aDevice) override {
+    // Content has no reason to listen to switch events currently.
+    hal::RegisterSwitchObserver(aDevice, this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvDisableSwitchNotifications(const SwitchDevice& aDevice) override {
+    hal::UnregisterSwitchObserver(aDevice, this);
+    return IPC_OK();
+  }
+
+  virtual void Notify(const SwitchEvent& aSwitchEvent) override {
+    Unused << SendNotifySwitchChange(aSwitchEvent);
+  }
+
+  virtual mozilla::ipc::IPCResult RecvGetCurrentSwitchState(const SwitchDevice& aDevice, hal::SwitchState *aState) override {
+    // Content has no reason to listen to switch events currently.
+    *aState = hal::GetCurrentSwitchState(aDevice);
+    return IPC_OK();
+  }
 };
 
 class HalChild : public PHalChild {
@@ -418,6 +460,11 @@ class HalChild : public PHalChild {
   virtual mozilla::ipc::IPCResult RecvNotifyScreenConfigurationChange(
       const ScreenConfiguration& aScreenConfiguration) override {
     hal::NotifyScreenConfigurationChange(aScreenConfiguration);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvNotifySwitchChange(const mozilla::hal::SwitchEvent& aEvent) override {
+    hal::NotifySwitchChange(aEvent);
     return IPC_OK();
   }
 };

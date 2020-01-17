@@ -160,6 +160,6 @@ export LDFLAGS="-L$SYS_LIB -Wl,-rpath-link=$OBJ_LIB \
 -lutils -lcutils -lsysutils \
 -lhardware_legacy -lhardware -lsuspend \
 -lhidltransport \
--lhidlbase -lbase -lhidlmemory -lhwbinder"
+-lhidlbase -lbase -lhidlmemory -lhwbinder -laudioclient"
 
 ./mach build $@

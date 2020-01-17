@@ -431,6 +431,92 @@ void UnlockScreenOrientation() {
   PROXY_IF_SANDBOXED(UnlockScreenOrientation());
 }
 
+void EnableSwitchNotifications(SwitchDevice aDevice) {
+#ifdef MOZ_WIDGET_GONK
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(EnableSwitchNotifications(aDevice));
+#endif
+}
+
+void DisableSwitchNotifications(SwitchDevice aDevice) {
+#ifdef MOZ_WIDGET_GONK
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(DisableSwitchNotifications(aDevice));
+#endif
+}
+
+SwitchState GetCurrentSwitchState(SwitchDevice aDevice) {
+#ifdef MOZ_WIDGET_GONK
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(GetCurrentSwitchState(aDevice), SWITCH_STATE_UNKNOWN);
+#endif
+}
+
+void NotifySwitchStateFromInputDevice(SwitchDevice aDevice, SwitchState aState) {
+#ifdef MOZ_WIDGET_GONK
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(NotifySwitchStateFromInputDevice(aDevice, aState));
+#endif
+}
+
+typedef mozilla::ObserverList<SwitchEvent> SwitchObserverList;
+
+static SwitchObserverList *sSwitchObserverLists = nullptr;
+
+static SwitchObserverList& GetSwitchObserverList(SwitchDevice aDevice) {
+  MOZ_ASSERT(0 <= aDevice && aDevice < NUM_SWITCH_DEVICE);
+  if (sSwitchObserverLists == nullptr) {
+    sSwitchObserverLists = new SwitchObserverList[NUM_SWITCH_DEVICE];
+  }
+  return sSwitchObserverLists[aDevice];
+}
+
+static void ReleaseObserversIfNeeded() {
+  for (int i = 0; i < NUM_SWITCH_DEVICE; i++) {
+    if (sSwitchObserverLists[i].Length() != 0)
+      return;
+  }
+
+  //The length of every list is 0, no observer in the list.
+  delete [] sSwitchObserverLists;
+  sSwitchObserverLists = nullptr;
+}
+
+void RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver) {
+  AssertMainThread();
+  SwitchObserverList& observer = GetSwitchObserverList(aDevice);
+  observer.AddObserver(aObserver);
+  if (observer.Length() == 1) {
+    EnableSwitchNotifications(aDevice);
+  }
+}
+
+void UnregisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver) {
+  AssertMainThread();
+
+  if (!sSwitchObserverLists) {
+    return;
+  }
+
+  SwitchObserverList& observer = GetSwitchObserverList(aDevice);
+  if (!observer.RemoveObserver(aObserver) || observer.Length() > 0) {
+    return;
+  }
+
+  DisableSwitchNotifications(aDevice);
+  ReleaseObserversIfNeeded();
+}
+
+void NotifySwitchChange(const SwitchEvent& aEvent) {
+  // When callback this notification, main thread may call unregister function
+  // first. We should check if this pointer is valid.
+  if (!sSwitchObserverLists)
+    return;
+
+  SwitchObserverList& observer = GetSwitchObserverList(aEvent.device());
+  observer.Broadcast(aEvent);
+}
+
 bool SetProcessPrioritySupported() {
   RETURN_PROXY_IF_SANDBOXED(SetProcessPrioritySupported(), false);
 }

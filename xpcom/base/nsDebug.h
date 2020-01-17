@@ -109,6 +109,20 @@ inline void MOZ_PretendNoReturn() MOZ_PRETEND_NORETURN_FOR_STATIC_ANALYSIS {}
 #endif
 
 /**
+ * This macros triggers a program failure if executed. It indicates that
+ * an attempt was made to execute a codepath which should not be reachable.
+ */
+#ifdef DEBUG
+#define NS_NOTREACHED(str)                                    \
+  do {                                                        \
+    NS_DebugBreak(NS_DEBUG_ASSERTION, str, "Not Reached", __FILE__, __LINE__); \
+    MOZ_PretendNoReturn();                                    \
+  } while(0)
+#else
+#define NS_NOTREACHED(str)             do { /* nothing */ } while(0)
+#endif
+
+/**
  * Log an error message.
  */
 #ifdef DEBUG
@@ -214,6 +228,14 @@ inline void MOZ_PretendNoReturn() MOZ_PRETEND_NORETURN_FOR_STATIC_ANALYSIS {}
 ** Macros for terminating execution when an unrecoverable condition is
 ** reached.  These need to be compiled regardless of the DEBUG flag.
 ******************************************************************************/
+
+/**
+ * Terminate execution <i>immediately</i>, and if possible on the current
+ * platform, in such a way that execution can't be continued by other
+ * code (e.g., by intercepting a signal).
+ */
+#define NS_RUNTIMEABORT(msg)                                    \
+  NS_DebugBreak(NS_DEBUG_ABORT, msg, nullptr, __FILE__, __LINE__)
 
 /* Macros for checking the trueness of an expression passed in within an
  * interface implementation.  These need to be compiled regardless of the
