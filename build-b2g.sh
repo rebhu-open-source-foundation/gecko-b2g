@@ -97,7 +97,6 @@ HIDL_HW=$GONK_PATH/out/soong/.intermediates/hardware/interfaces
 HIDL_TRANSPORT=$GONK_PATH/out/soong/.intermediates/system/libhidl/transport
 
 export CFLAGS="-DANDROID -DTARGET_OS_GONK \
--Oz \
 -DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
 $HWC_DEFINE \
 -DANDROID_VERSION=$PLATFORM_VERSION \

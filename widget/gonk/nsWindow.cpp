@@ -556,7 +556,7 @@ nsWindow::IsEnabled() const
 }
 
 void
-nsWindow::SetFocus(Raise aRaise)
+nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType)
 {
   if (aRaise == Raise::Yes) {
     BringToTop();

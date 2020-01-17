@@ -81,7 +81,7 @@ public:
                     bool aRepaint) override;
   void Enable(bool aState) override;
   virtual bool IsEnabled() const override;
-  virtual void SetFocus(Raise) override;
+  virtual void SetFocus(Raise, mozilla::dom::CallerType aCallerType) override;
   NS_IMETHOD ConfigureChildren(const nsTArray<nsIWidget::Configuration>&) override;
   void Invalidate(const LayoutDeviceIntRect& aRect) override;
   virtual void* GetNativeData(uint32_t aDataType) override;
