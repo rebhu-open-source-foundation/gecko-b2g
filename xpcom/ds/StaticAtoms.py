@@ -2398,7 +2398,7 @@ STATIC_ATOMS = [
     Atom("usercontextid", "usercontextid"),
 
     # B2G Bluetooth
-    # Atom("ona2dpstatuschanged", "ona2dpstatuschanged"),
+    Atom("ona2dpstatuschanged", "ona2dpstatuschanged"),
     Atom("onadapteradded", "onadapteradded"),
     Atom("onadapterremoved", "onadapterremoved"),
     Atom("onattributechanged", "onattributechanged"),

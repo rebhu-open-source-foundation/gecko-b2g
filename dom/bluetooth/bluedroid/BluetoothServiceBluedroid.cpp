@@ -295,7 +295,6 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
   BluetoothProfileManagerBase* sProfiles[] = {
     // BluetoothGattManager not handled here
     // BluetoothAvrcpManager::Get(),
-    // BluetoothA2dpManager::Get(),
     BluetoothA2dpManager::Get()
     // BluetoothHfpManager::Get(),
     // BluetoothHidManager::Get(),

@@ -15,32 +15,73 @@
 #ifndef mozilla_dom_bluetooth_bluedroid_BluetoothA2dpManager_h
 #define mozilla_dom_bluetooth_bluedroid_BluetoothA2dpManager_h
 
+#include "BluetoothCommon.h"
+#include "BluetoothInterface.h"
+#include "BluetoothProfileController.h"
 #include "BluetoothProfileManagerBase.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothA2dpManager : public BluetoothProfileManagerBase
+                           , public BluetoothA2dpNotificationHandler
 {
 public:
+  static const int MAX_NUM_CLIENTS;
+
   BT_DECL_PROFILE_MGR_BASE
   virtual void GetName(nsACString& aName) override
   {
     aName.AssignLiteral("A2DP");
   }
 
+  enum SinkState {
+    SINK_UNKNOWN,
+    SINK_DISCONNECTED,
+    SINK_CONNECTING,
+    SINK_CONNECTED,
+    SINK_PLAYING,
+  };
+
   static BluetoothA2dpManager* Get();
   static void InitA2dpInterface(BluetoothProfileResultHandler* aRes);
   static void DeinitA2dpInterface(BluetoothProfileResultHandler* aRes);
 
-  void HandleBackendError() {};
+  void OnConnectError();
+  void OnDisconnectError();
+
+  // A2DP-specific functions
+  void HandleSinkPropertyChanged(const BluetoothSignal& aSignal);
+
+  void HandleBackendError();
 
 protected:
-  virtual ~BluetoothA2dpManager() = default;
+  virtual ~BluetoothA2dpManager();
 
 private:
+  class ConnectResultHandler;
   class DeinitProfileResultHandlerRunnable;
+  class DisconnectResultHandler;
   class InitProfileResultHandlerRunnable;
+  class RegisterModuleResultHandler;
+  class UnregisterModuleResultHandler;
 
-  BluetoothA2dpManager() = default;
+  BluetoothA2dpManager();
+
+  nsresult Init();
+  void Uninit();
+  void HandleShutdown();
+  void NotifyConnectionStatusChanged();
+
+  void ConnectionStateNotification(BluetoothA2dpConnectionState aState,
+                                   const BluetoothAddress& aBdAddr) override;
+  void AudioStateNotification(BluetoothA2dpAudioState aState,
+                              const BluetoothAddress& aBdAddr) override;
+
+  BluetoothAddress mDeviceAddress;
+  RefPtr<BluetoothProfileController> mController;
+
+  // A2DP data member
+  bool mA2dpConnected;
+  SinkState mSinkState;
 };
 
 END_BLUETOOTH_NAMESPACE

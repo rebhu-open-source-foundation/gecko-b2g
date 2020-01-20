@@ -64,7 +64,7 @@ interface BluetoothAdapter : EventTarget {
            attribute EventHandler   onpairingaborted;
 
   // Fired when a2dp connection status changed
-  //         attribute EventHandler   ona2dpstatuschanged;
+           attribute EventHandler   ona2dpstatuschanged;
 
   // Fired when handsfree connection status changed
   //         attribute EventHandler   onhfpstatuschanged;
