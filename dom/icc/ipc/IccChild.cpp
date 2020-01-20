@@ -24,12 +24,10 @@ IccChild::IccChild()
   : mCardState(nsIIcc::CARD_STATE_UNKNOWN)
   , mIsAlive(true)
 {
-  MOZ_COUNT_CTOR(IccChild);
 }
 
 IccChild::~IccChild()
 {
-  MOZ_COUNT_DTOR(IccChild);
 }
 
 void
@@ -175,8 +173,13 @@ IccChild::UpdateIccInfo(const OptionalIccInfoData& aInfoData) {
   if (mIccInfo) {
     nsAutoString oldIccType;
     nsAutoString newIccType;
-    mIccInfo->GetIccType(oldIccType);
-    iccInfo->GetIccType(newIccType);
+    nsIIccInfo* tmpInfo;
+
+    mIccInfo->GetIccInfo(&tmpInfo);
+    tmpInfo->GetIccType(oldIccType);
+
+    iccInfo->GetIccInfo(&tmpInfo);
+    tmpInfo->GetIccType(newIccType);
 
     if (oldIccType.Equals(newIccType)) {
       mIccInfo->Update(iccInfo);
@@ -214,8 +217,7 @@ IccChild::UnregisterListener(nsIIccListener *aListener)
 NS_IMETHODIMP
 IccChild::GetIccInfo(nsIIccInfo** aIccInfo)
 {
-  nsCOMPtr<nsIIccInfo> info(mIccInfo);
-  info.forget(aIccInfo);
+  mIccInfo->GetIccInfo(aIccInfo);
   return NS_OK;
 }
 

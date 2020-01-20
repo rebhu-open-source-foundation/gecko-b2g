@@ -6,52 +6,45 @@
 
 #include "mozilla/dom/IccCardLockError.h"
 #include "mozilla/dom/IccCardLockErrorBinding.h"
+#include "nsIGlobalObject.h"
 #include "nsPIDOMWindow.h"
 
 namespace mozilla {
 namespace dom {
 
-//NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(IccCardLockError, mWindow)
-//NS_IMPL_CYCLE_COLLECTING_ADDREF(IccCardLockError)
-//NS_IMPL_CYCLE_COLLECTING_RELEASE(IccCardLockError)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(IccCardLockError, mWindow)
+NS_IMPL_CYCLE_COLLECTING_ADDREF(IccCardLockError)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(IccCardLockError)
 
-//NS_IMPL_ISUPPORTS_INHERITED0(IccCardLockError, DOMException)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IccCardLockError)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
+NS_INTERFACE_MAP_END
 
-/* static */ already_AddRefed<IccCardLockError>
-IccCardLockError::Constructor(const GlobalObject& aGlobal,
-                              const nsAString& aName,
-                              int16_t aRetryCount)
-{
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+/* static */ already_AddRefed<IccCardLockError> IccCardLockError::Constructor(
+    const GlobalObject& aGlobal, const nsAString& aName, int16_t aRetryCount) {
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
-   // aRv.Throw(NS_ERROR_FAILURE);
+    // aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
   RefPtr<IccCardLockError> result =
-    new IccCardLockError(window, aName, aRetryCount);
+      new IccCardLockError(window, aName, aRetryCount);
   return result.forget();
 }
 
 IccCardLockError::IccCardLockError(nsPIDOMWindowInner* aWindow,
-                                   const nsAString& aName,
-                                   int16_t aRetryCount)
-  : mWindow(aWindow)
-  , mName(aName)
-  , mRetryCount(aRetryCount)
-{
+                                   const nsAString& aName, int16_t aRetryCount)
+    : mWindow(aWindow), mName(aName), mRetryCount(aRetryCount) {}
 
-}
-
-JSObject*
-IccCardLockError::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* IccCardLockError::WrapObject(JSContext* aCx,
+                                       JS::Handle<JSObject*> aGivenProto) {
   return IccCardLockError_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-IccCardLockError::~IccCardLockError()
-{
-}
+IccCardLockError::~IccCardLockError() {}
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

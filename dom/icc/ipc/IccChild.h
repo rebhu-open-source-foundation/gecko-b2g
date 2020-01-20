@@ -9,6 +9,7 @@
 
 #include "mozilla/dom/icc/PIccChild.h"
 #include "mozilla/dom/icc/PIccRequestChild.h"
+#include "nsCOMArray.h"
 #include "nsIIccService.h"
 
 namespace mozilla {

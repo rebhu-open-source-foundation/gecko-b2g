@@ -20,8 +20,6 @@ namespace icc {
 
 IccParent::IccParent(uint32_t aServiceId)
 {
-  MOZ_COUNT_CTOR(IccParent);
-
   nsCOMPtr<nsIIccService> service =
     do_GetService(ICC_SERVICE_CONTRACTID);
 
@@ -269,7 +267,6 @@ IccRequestParent::IccRequestParent(nsIIcc* aIcc)
   : mIcc(aIcc),
     mChannelCallback(new ChannelCallback(*this))
 {
-  MOZ_COUNT_CTOR(IccRequestParent);
 }
 
 void

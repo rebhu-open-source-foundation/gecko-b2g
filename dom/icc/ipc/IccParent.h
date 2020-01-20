@@ -26,42 +26,30 @@ public:
   explicit IccParent(uint32_t aServiceId);
 
 protected:
-  ~IccParent()
-  {
-    MOZ_COUNT_DTOR(IccParent);
-  }
+ virtual ~IccParent() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+ virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  mozilla::ipc::IPCResult
-  RecvInit(
-          OptionalIccInfoData* aInfoData,
-          uint32_t* aCardState);
+ mozilla::ipc::IPCResult RecvInit(OptionalIccInfoData* aInfoData,
+                                  uint32_t* aCardState);
 
-  mozilla::ipc::IPCResult
-  RecvStkResponse(const nsString& aCmd, const nsString& aResponse);
+ mozilla::ipc::IPCResult RecvStkResponse(const nsString& aCmd,
+                                         const nsString& aResponse);
 
-  mozilla::ipc::IPCResult
-  RecvStkMenuSelection(const uint16_t& aItemIdentifier,
-                       const bool& aHelpRequested);
+ mozilla::ipc::IPCResult RecvStkMenuSelection(const uint16_t& aItemIdentifier,
+                                              const bool& aHelpRequested);
 
-  mozilla::ipc::IPCResult
-  RecvStkTimerExpiration(const uint16_t& aTimerId,
-                         const uint32_t& aTimerValue);
+ mozilla::ipc::IPCResult RecvStkTimerExpiration(const uint16_t& aTimerId,
+                                                const uint32_t& aTimerValue);
 
-  mozilla::ipc::IPCResult
-  RecvStkEventDownload(const nsString& aEvent);
+ mozilla::ipc::IPCResult RecvStkEventDownload(const nsString& aEvent);
 
-  PIccRequestParent*
-  AllocPIccRequestParent(const IccRequest& aRequest);
+ PIccRequestParent* AllocPIccRequestParent(const IccRequest& aRequest);
 
-  bool
-  DeallocPIccRequestParent(PIccRequestParent* aActor);
+ bool DeallocPIccRequestParent(PIccRequestParent* aActor);
 
-  mozilla::ipc::IPCResult
-  RecvPIccRequestConstructor(PIccRequestParent* aActor,
-                             const IccRequest& aRequest) override;
+ mozilla::ipc::IPCResult RecvPIccRequestConstructor(
+     PIccRequestParent* aActor, const IccRequest& aRequest) override;
 
 private:
   IccParent();
@@ -114,52 +102,36 @@ protected:
   }
 
 private:
-  ~IccRequestParent()
-  {
-    MOZ_COUNT_DTOR(IccRequestParent);
-  }
+ virtual ~IccRequestParent() {}
 
-  bool
-  DoRequest(const GetCardLockEnabledRequest& aRequest);
+ bool DoRequest(const GetCardLockEnabledRequest& aRequest);
 
-  bool
-  DoRequest(const UnlockCardLockRequest& aRequest);
+ bool DoRequest(const UnlockCardLockRequest& aRequest);
 
-  bool
-  DoRequest(const SetCardLockEnabledRequest& aRequest);
+ bool DoRequest(const SetCardLockEnabledRequest& aRequest);
 
-  bool
-  DoRequest(const ChangeCardLockPasswordRequest& aRequest);
+ bool DoRequest(const ChangeCardLockPasswordRequest& aRequest);
 
-  bool
-  DoRequest(const GetCardLockRetryCountRequest& aRequest);
+ bool DoRequest(const GetCardLockRetryCountRequest& aRequest);
 
-  bool
-  DoRequest(const MatchMvnoRequest& aRequest);
+ bool DoRequest(const MatchMvnoRequest& aRequest);
 
-  bool
-  DoRequest(const GetServiceStateEnabledRequest& aRequest);
+ bool DoRequest(const GetServiceStateEnabledRequest& aRequest);
 
-  bool
-  DoRequest(const ReadContactsRequest& aRequest);
+ bool DoRequest(const ReadContactsRequest& aRequest);
 
-  bool
-  DoRequest(const UpdateContactRequest& aRequest);
+ bool DoRequest(const UpdateContactRequest& aRequest);
 
-  bool
-  DoRequest(const GetIccAuthenticationRequest& aRequest);
+ bool DoRequest(const GetIccAuthenticationRequest& aRequest);
 
-  bool
-  DoRequest(const IccOpenChannelRequest& aRequest);
+ bool DoRequest(const IccOpenChannelRequest& aRequest);
 
-  bool
-  DoRequest(const IccExchangeAPDURequest& aRequest);
+ bool DoRequest(const IccExchangeAPDURequest& aRequest);
 
-  bool
-  DoRequest(const IccCloseChannelRequest& aRequest);
+ bool DoRequest(const IccCloseChannelRequest& aRequest);
 
-  nsCOMPtr<nsIIcc> mIcc;
-  RefPtr<ChannelCallback> mChannelCallback;
+ nsCOMPtr<nsIIcc> mIcc;
+ RefPtr<ChannelCallback> mChannelCallback;
 };
 
 } // namespace icc

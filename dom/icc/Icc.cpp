@@ -8,7 +8,7 @@
 
 #include "IccCallback.h"
 #include "IccContact.h"
-#include "mozilla/dom/ContactsBinding.h"
+// #include "mozilla/dom/ContactsBinding.h"
 #include "mozilla/dom/DOMRequest.h"
 #include "mozilla/dom/IccInfo.h"
 #include "mozilla/dom/MozStkCommandEvent.h"
@@ -68,8 +68,8 @@ ConvertToAuthType(IccAuthType aAuthType)
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(Icc, DOMEventTargetHelper, mIccInfo)
 
-//NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(Icc)
-//NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Icc)
+NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(Icc, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(Icc, DOMEventTargetHelper)
@@ -107,27 +107,27 @@ Icc::NotifyEvent(const nsAString& aName)
 nsresult
 Icc::NotifyStkEvent(const nsAString& aName, nsIStkProactiveCmd* aStkProactiveCmd)
 {
-/* TODO:
-  JSContext* cx = nsContentUtils::RootingCxForThread();
-  JS::Rooted<JS::Value> value(cx);
+  /* TODO:
+    JSContext* cx = nsContentUtils::RootingCxForThread();
+    JS::Rooted<JS::Value> value(cx);
 
-  nsCOMPtr<nsIStkCmdFactory> cmdFactory =
-    do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
-  NS_ENSURE_TRUE(cmdFactory, NS_ERROR_UNEXPECTED);
+    nsCOMPtr<nsIStkCmdFactory> cmdFactory =
+      do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
+    NS_ENSURE_TRUE(cmdFactory, NS_ERROR_UNEXPECTED);
 
-  cmdFactory->CreateCommandMessage(aStkProactiveCmd, &value);
-  NS_ENSURE_TRUE(value.isObject(), NS_ERROR_UNEXPECTED);
+    cmdFactory->CreateCommandMessage(aStkProactiveCmd, &value);
+    NS_ENSURE_TRUE(value.isObject(), NS_ERROR_UNEXPECTED);
 
-  RootedDictionary<MozStkCommandEventInit> init(cx);
-  init.mBubbles = false;
-  init.mCancelable = false;
-  init.mCommand = value;
+    RootedDictionary<MozStkCommandEventInit> init(cx);
+    init.mBubbles = false;
+    init.mCancelable = false;
+    init.mCommand = value;
 
-  RefPtr<MozStkCommandEvent> event =
-    MozStkCommandEvent::Constructor(this, aName, init);
+    RefPtr<MozStkCommandEvent> event =
+      MozStkCommandEvent::Constructor(this, aName, init);
 
-  return DispatchTrustedEvent(event);
-*/ 
+    return DispatchTrustedEvent(event);
+  */
   return NS_OK;
 }
 
@@ -422,64 +422,66 @@ Icc::GetCardLockRetryCount(IccLockType aLockType, ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-Icc::ReadContacts(IccContactType aContactType, ErrorResult& aRv)
-{
-  if (!mHandler) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return nullptr;
-  }
+// TODO contact api will be refactored.
+// already_AddRefed<DOMRequest>
+// Icc::ReadContacts(IccContactType aContactType, ErrorResult& aRv)
+// {
+//   if (!mHandler) {
+//     aRv.Throw(NS_ERROR_FAILURE);
+//     return nullptr;
+//   }
 
-  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request);
+//   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+//   RefPtr<IccCallback> requestCallback =
+//     new IccCallback(GetOwner(), request);
 
-  nsresult rv = mHandler->ReadContacts(static_cast<uint32_t>(aContactType),
-                                       requestCallback);
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return nullptr;
-  }
+//   nsresult rv = mHandler->ReadContacts(static_cast<uint32_t>(aContactType),
+//                                        requestCallback);
+//   if (NS_FAILED(rv)) {
+//     aRv.Throw(rv);
+//     return nullptr;
+//   }
 
-  return request.forget();
-}
+//   return request.forget();
+// }
 
-already_AddRefed<DOMRequest>
-Icc::UpdateContact(IccContactType aContactType, mozContact& aContact,
-                   const nsAString& aPin2, ErrorResult& aRv)
-{
-  if (!mHandler) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return nullptr;
-  }
+// TODO contact api will be refactored.
+// already_AddRefed<DOMRequest>
+// Icc::UpdateContact(IccContactType aContactType, mozContact& aContact,
+//                    const nsAString& aPin2, ErrorResult& aRv)
+// {
+//   if (!mHandler) {
+//     aRv.Throw(NS_ERROR_FAILURE);
+//     return nullptr;
+//   }
 
-  if (IccContactType::Adn == aContactType) {
-    aRv.Throw(NS_ERROR_ILLEGAL_VALUE);
-    return nullptr;
-  }
+//   if (IccContactType::Adn == aContactType) {
+//     aRv.Throw(NS_ERROR_ILLEGAL_VALUE);
+//     return nullptr;
+//   }
 
-  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request);
+//   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+//   RefPtr<IccCallback> requestCallback =
+//     new IccCallback(GetOwner(), request);
 
-  nsCOMPtr<nsIIccContact> iccContact;
-  nsresult rv = IccContact::Create(aContact, getter_AddRefs(iccContact));
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return nullptr;
-  }
+//   nsCOMPtr<nsIIccContact> iccContact;
+//   nsresult rv = IccContact::Create(aContact, getter_AddRefs(iccContact));
+//   if (NS_FAILED(rv)) {
+//     aRv.Throw(rv);
+//     return nullptr;
+//   }
 
-  rv = mHandler->UpdateContact(static_cast<uint32_t>(aContactType),
-                               iccContact,
-                               aPin2,
-                               requestCallback);
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return nullptr;
-  }
+//   rv = mHandler->UpdateContact(static_cast<uint32_t>(aContactType),
+//                                iccContact,
+//                                aPin2,
+//                                requestCallback);
+//   if (NS_FAILED(rv)) {
+//     aRv.Throw(rv);
+//     return nullptr;
+//   }
 
-  return request.forget();
-}
+//   return request.forget();
+// }
 
 already_AddRefed<DOMRequest>
 Icc::GetIccAuthentication(IccAppType aAppType, IccAuthType aAuthType,

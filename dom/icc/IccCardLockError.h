@@ -18,54 +18,41 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 namespace dom {
 
-class IccCardLockError final : public nsISupports,
-                               public nsWrapperCache
-{
+class GlobalObject;
+
+class IccCardLockError final : public nsISupports, public nsWrapperCache {
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-public:
-  NS_DECL_ISUPPORTS_INHERITED
-//  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-//  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IccCardLockError)
 
-  IccCardLockError(nsPIDOMWindowInner* aWindow,
-                   const nsAString& aName, int16_t aRetryCount);
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IccCardLockError)
 
-  static already_AddRefed<IccCardLockError>
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aName, int16_t aRetryCount);
+  IccCardLockError(nsPIDOMWindowInner* aWindow, const nsAString& aName,
+                   int16_t aRetryCount);
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  static already_AddRefed<IccCardLockError> Constructor(
+      const GlobalObject& aGlobal, const nsAString& aName, int16_t aRetryCount);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mWindow;
-  }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
   // WebIDL interface
-  void
-  GetErrorName(nsString& aRetval) const
-  {
-    aRetval = mName;
-  } 
+  void GetErrorName(nsString& aRetval) const { aRetval = mName; }
 
+  int16_t RetryCount() const { return mRetryCount; }
 
-  int16_t
-  RetryCount() const
-  {
-    return mRetryCount;
-  }
-
-private:
+ private:
   virtual ~IccCardLockError();
-//  ~IccCardLockError() {}
+  //  ~IccCardLockError() {}
 
-private:
+ private:
   int16_t mRetryCount;
   nsString mName;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_IccCardLockError_h
+#endif  // mozilla_dom_IccCardLockError_h

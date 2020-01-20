@@ -103,7 +103,7 @@
 #include "mozilla/dom/GeolocationBinding.h"
 #include "mozilla/dom/GeolocationPositionError.h"
 #include "mozilla/dom/GetFilesHelper.h"
-// #include "mozilla/dom/icc/IccParent.h"
+#include "mozilla/dom/icc/IccParent.h"
 #include "mozilla/dom/IPCBlobInputStreamParent.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/JSWindowActorService.h"
@@ -358,7 +358,7 @@ using namespace CrashReporter;
 using namespace mozilla::dom::bluetooth;
 // using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::devicestorage;
-// using namespace mozilla::dom::icc;
+using namespace mozilla::dom::icc;
 using namespace mozilla::dom::power;
 using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
@@ -4251,26 +4251,22 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
 #endif
 
 // MOZ_B2G_RIL
-// PIccParent*
-// ContentParent::AllocPIccParent(const uint32_t& aServiceId)
-// {
-//  // if (!AssertAppProcessPermission(this, "mobileconnection")) {
-//  //   return nullptr;
-//  // }
-//   IccParent* parent = new IccParent(aServiceId);
-//   // We release this ref in DeallocPIccParent().
-//   parent->AddRef();
+PIccParent* ContentParent::AllocPIccParent(const uint32_t& aServiceId) {
+  // if (!AssertAppProcessPermission(this, "mobileconnection")) {
+  //   return nullptr;
+  // }
+  IccParent* parent = new IccParent(aServiceId);
+  // We release this ref in DeallocPIccParent().
+  parent->AddRef();
 
-//   return parent;
-// }
+  return parent;
+}
 
-// bool
-// ContentParent::DeallocPIccParent(PIccParent* aActor)
-// {
-//   // IccParent is refcounted, must not be freed manually.
-//   static_cast<IccParent*>(aActor)->Release();
-//   return true;
-// }
+bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
+  // IccParent is refcounted, must not be freed manually.
+  static_cast<IccParent*>(aActor)->Release();
+  return true;
+}
 
 // PSubsidyLockParent*
 // ContentParent::AllocPSubsidyLockParent(const uint32_t& aClientId)

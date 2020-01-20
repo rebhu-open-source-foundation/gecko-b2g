@@ -18,65 +18,22 @@ namespace dom {
 
 namespace icc {
 class IccInfoData;
-} // namespace icc
+}  // namespace icc
 
-class IccInfo : public nsIIccInfo
-              , public nsWrapperCache
-{
-public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IccInfo)
+class nsIccInfo : public nsIIccInfo {
+ public:
+  NS_DECL_ISUPPORTS
   NS_DECL_NSIICCINFO
 
-  explicit IccInfo(nsPIDOMWindowInner* aWindow);
-  explicit IccInfo(const icc::IccInfoData& aData);
+  explicit nsIccInfo();
+  explicit nsIccInfo(const icc::IccInfoData& aData);
 
-  void
-  Update(nsIIccInfo* aInfo);
+  void Update(nsIIccInfo* aInfo);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
+ protected:
+  virtual ~nsIccInfo() {}
 
-  // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-
-  // WebIDL interface
-  Nullable<IccType>
-  GetIccType() const;
-
-  void
-  GetIccid(nsAString& aIccId) const;
-
-  void
-  GetMcc(nsAString& aMcc) const;
-
-  void
-  GetMnc(nsAString& aMnc) const;
-
-  void
-  GetSpn(nsAString& aSpn) const;
-
-  void
-  GetImsi(nsAString& aImsi) const;
-
-  bool
-  IsDisplayNetworkNameRequired() const;
-
-  bool
-  IsDisplaySpnRequired() const;
-
-protected:
-  virtual ~IccInfo() {}
-
-  nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  // To prevent compiling error in OS_WIN in auto-generated UnifiedBindingsXX.cpp,
-  // we have all data fields expended here instead of having a data member of
-  // |IccInfoData| defined in PIccTypes.h which indirectly includes "windows.h"
-  // See 925382 for the restriction of including "windows.h" in UnifiedBindings.cpp.
+ private:
   nsString mIccType;
   nsString mIccid;
   nsString mMcc;
@@ -87,68 +44,129 @@ protected:
   bool mIsDisplaySpnRequired;
 };
 
-class GsmIccInfo final : public IccInfo
-                       , public nsIGsmIccInfo
-{
-public:
+class nsGsmIccInfo final : public nsIccInfo, public nsIGsmIccInfo {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_FORWARD_NSIICCINFO(IccInfo::)
   NS_DECL_NSIGSMICCINFO
+  NS_FORWARD_NSIICCINFO(nsIccInfo::)
 
-  explicit GsmIccInfo(nsPIDOMWindowInner* aWindow);
-  explicit GsmIccInfo(const icc::IccInfoData& aData);
+  nsGsmIccInfo();
+  nsGsmIccInfo(const icc::IccInfoData& aData);
 
-  void
-  Update(nsIGsmIccInfo* aInfo);
+  void Update(nsIGsmIccInfo* aInfo);
 
-  // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-
-  // MozCdmaIccInfo WebIDL
-  void
-  GetMsisdn(nsAString& aMsisdn) const;
-
-private:
-  ~GsmIccInfo() {}
+ private:
+  ~nsGsmIccInfo() {}
 
   nsString mPhoneNumber;
 };
 
-class CdmaIccInfo final : public IccInfo
-                        , public nsICdmaIccInfo
-{
-public:
+class nsCdmaIccInfo final : public nsIccInfo, public nsICdmaIccInfo {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_FORWARD_NSIICCINFO(IccInfo::)
   NS_DECL_NSICDMAICCINFO
+  NS_FORWARD_NSIICCINFO(nsIccInfo::)
 
-  explicit CdmaIccInfo(nsPIDOMWindowInner* aWindow);
-  explicit CdmaIccInfo(const icc::IccInfoData& aData);
+  nsCdmaIccInfo();
+  nsCdmaIccInfo(const icc::IccInfoData& aData);
 
-  void
-  Update(nsICdmaIccInfo* aInfo);
+  void Update(nsICdmaIccInfo* aInfo);
 
-  // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-
-  // MozCdmaIccInfo WebIDL
-  void
-  GetMdn(nsAString& aMdn) const;
-
-  int32_t
-  PrlVersion() const;
-
-private:
-  ~CdmaIccInfo() {}
+ private:
+  ~nsCdmaIccInfo() {}
 
   nsString mPhoneNumber;
   int32_t mPrlVersion;
 };
 
-} // namespace dom
-} // namespace mozilla
+class IccInfo : public nsISupports, public nsWrapperCache {
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IccInfo)
 
-#endif // mozilla_dom_IccInfo_h
+  explicit IccInfo(nsPIDOMWindowInner* aWindow);
+  explicit IccInfo(const icc::IccInfoData& aData);
 
+  void Update(nsIIccInfo* aInfo);
+  void Update(IccInfo* aInfo);
+
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
+
+  // WrapperCache
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+  // WebIDL interface
+  Nullable<IccType> GetIccType() const;
+
+  void GetIccid(nsAString& aIccId) const;
+
+  void GetMcc(nsAString& aMcc) const;
+
+  void GetMnc(nsAString& aMnc) const;
+
+  void GetSpn(nsAString& aSpn) const;
+
+  void GetImsi(nsAString& aImsi) const;
+
+  bool IsDisplayNetworkNameRequired() const;
+
+  bool IsDisplaySpnRequired() const;
+
+  void GetIccInfo(nsIIccInfo** aIccInfo) const;
+
+ protected:
+  virtual ~IccInfo() {}
+
+  nsCOMPtr<nsPIDOMWindowInner> mWindow;
+  RefPtr<nsIccInfo> mIccInfo;
+};
+
+class GsmIccInfo final : public IccInfo {
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+
+  explicit GsmIccInfo(nsPIDOMWindowInner* aWindow);
+  explicit GsmIccInfo(const icc::IccInfoData& aData);
+
+  void Update(nsIGsmIccInfo* aInfo);
+  void Update(GsmIccInfo* aInfo);
+
+  // WrapperCache
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+  // MozCdmaIccInfo WebIDL
+  void GetMsisdn(nsAString& aMsisdn) const;
+
+ private:
+  ~GsmIccInfo() {}
+};
+
+class CdmaIccInfo final : public IccInfo {
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+
+  explicit CdmaIccInfo(nsPIDOMWindowInner* aWindow);
+  explicit CdmaIccInfo(const icc::IccInfoData& aData);
+
+  void Update(nsICdmaIccInfo* aInfo);
+  void Update(CdmaIccInfo* aInfo);
+
+  // WrapperCache
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+  // MozCdmaIccInfo WebIDL
+  void GetMdn(nsAString& aMdn) const;
+
+  int32_t PrlVersion() const;
+
+ private:
+  ~CdmaIccInfo() {}
+};
+
+}  // namespace dom
+}  // namespace mozilla
+
+#endif  // mozilla_dom_IccInfo_h

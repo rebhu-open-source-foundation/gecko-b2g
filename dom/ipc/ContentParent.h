@@ -994,9 +994,9 @@ class ContentParent final
       PWebBrowserPersistDocumentParent* aActor);
 
   // MOZ_B2G_RIL
-  //   PIccParent* AllocPIccParent(const uint32_t& aServiceId);
+  PIccParent* AllocPIccParent(const uint32_t& aServiceId);
 
-  //   bool DeallocPIccParent(PIccParent* aActor);
+  bool DeallocPIccParent(PIccParent* aActor);
 
   //   virtual PSubsidyLockParent* AllocPSubsidyLockParent(const uint32_t&
   //   aClientId);

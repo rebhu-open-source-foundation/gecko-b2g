@@ -20,7 +20,7 @@ namespace dom {
 
 class DOMRequest;
 class OwningMozIccInfoOrMozGsmIccInfoOrMozCdmaIccInfo;
-class mozContact;
+// class mozContact;
 class Promise;
 
 class Icc final : public DOMEventTargetHelper
@@ -95,12 +95,14 @@ public:
   already_AddRefed<DOMRequest>
   GetCardLockRetryCount(IccLockType aLockType, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  ReadContacts(IccContactType aContactType, ErrorResult& aRv);
+  // TODO contact api will be refactored.
+  // already_AddRefed<DOMRequest>
+  // ReadContacts(IccContactType aContactType, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  UpdateContact(IccContactType aContactType, mozContact& aContact,
-                const nsAString& aPin2, ErrorResult& aRv);
+  // TODO contact api will be refactored.
+  // already_AddRefed<DOMRequest>
+  // UpdateContact(IccContactType aContactType, mozContact& aContact,
+  //               const nsAString& aPin2, ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
   GetIccAuthentication(IccAppType aAppType, IccAuthType aAuthType,

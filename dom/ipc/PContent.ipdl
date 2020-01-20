@@ -41,7 +41,7 @@ include protocol POfflineCacheUpdate;
 include protocol PSpeechSynthesis;
 #endif
 //include protocol PCellBroadcast;
-//include protocol PIcc;
+include protocol PIcc;
 //include protocol PSms;
 //include protocol PSubsidyLock;
 include protocol PTelephony;
@@ -536,7 +536,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PSpeechSynthesis;
 #endif
     //manages PCellBroadcast;
-    //manages PIcc;
+    manages PIcc;
     //manages PSms;
     //manages PSubsidyLock;
     manages PTelephony;
@@ -1129,7 +1129,7 @@ parent:
     async PSpeechSynthesis();
 #endif
 
-    //async PIcc(uint32_t serviceId);
+    async PIcc(uint32_t serviceId);
 
     //async PCellBroadcast();
 

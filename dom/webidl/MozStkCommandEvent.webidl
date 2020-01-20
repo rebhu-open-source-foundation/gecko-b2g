@@ -660,7 +660,7 @@ dictionary MozStkLocalInfo
   /**
    * Date information
    */
-  Date? date = null;
+  DOMTimeStamp? date = null;
 
   /**
    * Language Information

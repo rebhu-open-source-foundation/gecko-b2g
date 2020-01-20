@@ -6,39 +6,43 @@
 
 DIRS += ['interfaces']
 
-#EXPORTS.mozilla.dom += [
-#    'Icc.h',
-#    'IccCardLockError.h',
-#    'IccInfo.h',
-#    'IccManager.h',
-#]
+EXPORTS.mozilla.dom += [
+    'Icc.h',
+    'IccCardLockError.h',
+    'IccInfo.h',
+    'IccManager.h',
+]
 
-#EXPORTS.mozilla.dom.icc += [
-#    'ipc/IccChild.h',
-#    'ipc/IccIPCUtils.h',
-#    'ipc/IccParent.h'
-#]
+EXPORTS.mozilla.dom.icc += [
+    'ipc/IccChild.h',
+    'ipc/IccIPCUtils.h',
+    'ipc/IccParent.h'
+]
 
-#UNIFIED_SOURCES += [
-#    'Assertions.cpp',
-#    'Icc.cpp',
-#    'IccCallback.cpp',
-#    'IccCardLockError.cpp',
-#    'IccContact.cpp',
-#    "IccInfo.cpp",
-#    'IccListener.cpp',
-#    'IccManager.cpp',
-#    'ipc/IccChild.cpp',
-#    'ipc/IccIPCService.cpp',
-#    'ipc/IccIPCUtils.cpp',
-#    'ipc/IccParent.cpp',
-#]
+EXPORTS += [
+    'ipc/IccIPCService.h',
+]
 
-#IPDL_SOURCES += [
-#    'ipc/PIcc.ipdl',
-#    'ipc/PIccRequest.ipdl',
-#    'ipc/PIccTypes.ipdlh',
-#]
+UNIFIED_SOURCES += [
+    'Assertions.cpp',
+    'Icc.cpp',
+    'IccCallback.cpp',
+    'IccCardLockError.cpp',
+    'IccContact.cpp',
+    "IccInfo.cpp",
+    'IccListener.cpp',
+    'IccManager.cpp',
+    'ipc/IccChild.cpp',
+    'ipc/IccIPCService.cpp',
+    'ipc/IccIPCUtils.cpp',
+    'ipc/IccParent.cpp',
+]
+
+IPDL_SOURCES += [
+    'ipc/PIcc.ipdl',
+    'ipc/PIccRequest.ipdl',
+    'ipc/PIccTypes.ipdlh',
+]
 
 EXTRA_JS_MODULES += [
     'gonk/IccService.jsm',

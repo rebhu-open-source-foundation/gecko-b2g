@@ -798,12 +798,11 @@ class ContentChild final
 
   //   virtual bool DeallocPVoicemailChild(PVoicemailChild*);
 
-  //   PIccChild*
-  //   SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
+  PIccChild* SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
 
-  //   PIccChild* AllocPIccChild(const uint32_t& aClientId);
+  PIccChild* AllocPIccChild(const uint32_t& aClientId);
 
-  //   bool DeallocPIccChild(PIccChild* aActor);
+  bool DeallocPIccChild(PIccChild* aActor);
   // MOZ_B2G_RIL_END
 
  private:

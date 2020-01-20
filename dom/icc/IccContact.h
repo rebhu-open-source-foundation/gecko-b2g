@@ -9,7 +9,7 @@
 
 namespace mozilla {
 namespace dom {
-class mozContact;
+// class mozContact;
 namespace icc {
 
 class IccContact : public nsIIccContact
@@ -18,9 +18,9 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCCONTACT
 
-  static nsresult
-  Create(mozContact& aMozContact,
-         nsIIccContact** aIccContact);
+  // static nsresult
+  // Create(mozContact& aMozContact,
+  //        nsIIccContact** aIccContact);
 
   static nsresult
   Create(const nsAString& aId,

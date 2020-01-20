@@ -257,7 +257,7 @@
 
 #include "mozilla/dom/File.h"
 //#include "mozilla/dom/cellbroadcast/CellBroadcastIPCService.h"
-//#include "mozilla/dom/icc/IccChild.h"
+#include "mozilla/dom/icc/IccChild.h"
 #include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
 #include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
 //#include "mozilla/dom/mobilemessage/SmsChild.h"
@@ -315,7 +315,7 @@ using namespace mozilla::dom::ipc;
 // MOZ_B2G_RIL
 //#if define(MOZ_B2G_RIL)
 // using namespace mozilla::dom::cellbroadcast;
-// using namespace mozilla::dom::icc;
+using namespace mozilla::dom::icc;
 using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
@@ -2379,30 +2379,24 @@ ContentChild::DeallocPVoicemailChild(PVoicemailChild* aActor)
 }
 */
 
-// PIccChild*
-// ContentChild::SendPIccConstructor(PIccChild* aActor,
-//                                   const uint32_t& aServiceId)
-// {
-//   // Add an extra ref for IPDL. Will be released in
-//   // ContentChild::DeallocPIccChild().
-//   static_cast<IccChild*>(aActor)->AddRef();
-//   return PContentChild::SendPIccConstructor(aActor, aServiceId);
-// }
+PIccChild* ContentChild::SendPIccConstructor(PIccChild* aActor,
+                                             const uint32_t& aServiceId) {
+  // Add an extra ref for IPDL. Will be released in
+  // ContentChild::DeallocPIccChild().
+  static_cast<IccChild*>(aActor)->AddRef();
+  return PContentChild::SendPIccConstructor(aActor, aServiceId);
+}
 
-// PIccChild*
-// ContentChild::AllocPIccChild(const uint32_t& aServiceId)
-// {
-//   MOZ_CRASH("No one should be allocating PIccChild actors");
-//   return nullptr;
-// }
+PIccChild* ContentChild::AllocPIccChild(const uint32_t& aServiceId) {
+  MOZ_CRASH("No one should be allocating PIccChild actors");
+  return nullptr;
+}
 
-// bool
-// ContentChild::DeallocPIccChild(PIccChild* aActor)
-// {
-//   // IccChild is refcounted, must not be freed manually.
-//   static_cast<IccChild*>(aActor)->Release();
-//   return true;
-// }
+bool ContentChild::DeallocPIccChild(PIccChild* aActor) {
+  // IccChild is refcounted, must not be freed manually.
+  static_cast<IccChild*>(aActor)->Release();
+  return true;
+}
 // MOZ_B2G_RIL_END
 
 PNeckoChild* ContentChild::AllocPNeckoChild() { return new NeckoChild(); }

@@ -9,13 +9,13 @@
 #include "Icc.h"
 #include "IccListener.h"
 #include "mozilla/AsyncEventDispatcher.h"
-//#include "mozilla/dom/IccChangeEvent.h"
+#include "mozilla/dom/IccChangeEvent.h"
 #include "mozilla/Preferences.h"
 #include "nsIIccInfo.h"
 // Service instantiation
 #include "ipc/IccIPCService.h"
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-//#include "nsIGonkIccService.h"
+#include "nsIGonkIccService.h"
 #endif
 #include "nsXULAppAPI.h" // For XRE_GetProcessType()
 
@@ -32,8 +32,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(IccManager,
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 // QueryInterface implementation for IccManager
-//NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(IccManager)
-//NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IccManager)
+NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(IccManager, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(IccManager, DOMEventTargetHelper)
@@ -74,7 +74,6 @@ IccManager::Shutdown()
 nsresult
 IccManager::NotifyIccAdd(const nsAString& aIccId)
 {
-/* TODO:
   MozIccManager_Binding::ClearCachedIccIdsValue(this);
 
   IccChangeEventInit init;
@@ -90,14 +89,11 @@ IccManager::NotifyIccAdd(const nsAString& aIccId)
     new AsyncEventDispatcher(this, event);
 
   return asyncDispatcher->PostDOMEvent();
-*/
-  return NS_OK;
 }
 
 nsresult
 IccManager::NotifyIccRemove(const nsAString& aIccId)
 {
-  /* TODO:
   MozIccManager_Binding::ClearCachedIccIdsValue(this);
 
   IccChangeEventInit init;
@@ -113,8 +109,6 @@ IccManager::NotifyIccRemove(const nsAString& aIccId)
     new AsyncEventDispatcher(this, event);
 
   return asyncDispatcher->PostDOMEvent();
-  */
-  return NS_OK;
 }
 
 // MozIccManager
@@ -152,8 +146,8 @@ NS_CreateIccService()
   if (XRE_IsContentProcess()) {
     service = new mozilla::dom::icc::IccIPCService();
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-//  } else {
-//    service = do_GetService(GONK_ICC_SERVICE_CONTRACTID);
+ } else {
+   service = do_GetService(GONK_ICC_SERVICE_CONTRACTID);
 #endif
   }
 

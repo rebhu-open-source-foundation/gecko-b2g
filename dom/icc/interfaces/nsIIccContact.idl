@@ -4,7 +4,7 @@
 
 #include "nsISupports.idl"
 
-[scriptable, uuid(0f3dbcd1-9f7b-40a8-aa3c-b5701978ec53)]
+[scriptable, uuid(a95eb1c7-07fc-441b-8e73-b7df35636646)]
 interface nsIIccContact : nsISupports
 {
   /**
@@ -27,8 +27,7 @@ interface nsIIccContact : nsISupports
    *
    * @returns the array of names.
    */
-  void getNames([optional] out unsigned long aCount,
-                [array, size_is(aCount), retval] out wstring aNames);
+  Array<AString> getNames();
 
   /**
    * Phone number list.
@@ -42,8 +41,7 @@ interface nsIIccContact : nsISupports
    *
    * @returns the array of phone numbers.
    */
-  void getNumbers([optional] out unsigned long aCount,
-                  [array, size_is(aCount), retval] out wstring aNumbers);
+  Array<AString> getNumbers();
 
   /**
    * Email list.
@@ -55,6 +53,5 @@ interface nsIIccContact : nsISupports
    *
    * @returns the array of emails.
    */
-  void getEmails([optional] out unsigned long aCount,
-                 [array, size_is(aCount), retval] out wstring aEmails);
+  Array<AString> getEmails();
 };

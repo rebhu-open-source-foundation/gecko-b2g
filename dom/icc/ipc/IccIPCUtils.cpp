@@ -11,10 +11,8 @@ namespace mozilla {
 namespace dom {
 namespace icc {
 
-/*static*/ void
-IccIPCUtils::GetIccInfoDataFromIccInfo(nsIIccInfo* aInInfo,
-                                       IccInfoData& aOutData)
-{
+/*static*/ void IccIPCUtils::GetIccInfoDataFromIccInfo(nsIIccInfo* aInInfo,
+                                                       IccInfoData& aOutData) {
   aInInfo->GetIccType(aOutData.iccType());
   aInInfo->GetIccid(aOutData.iccid());
   aInInfo->GetMcc(aOutData.mcc());
@@ -22,9 +20,8 @@ IccIPCUtils::GetIccInfoDataFromIccInfo(nsIIccInfo* aInInfo,
   aInInfo->GetSpn(aOutData.spn());
   aInInfo->GetImsi(aOutData.imsi());
   aInInfo->GetIsDisplayNetworkNameRequired(
-    &aOutData.isDisplayNetworkNameRequired());
-  aInInfo->GetIsDisplaySpnRequired(
-    &aOutData.isDisplaySpnRequired());
+      &aOutData.isDisplayNetworkNameRequired());
+  aInInfo->GetIsDisplaySpnRequired(&aOutData.isDisplaySpnRequired());
 
   nsCOMPtr<nsIGsmIccInfo> gsmIccInfo(do_QueryInterface(aInInfo));
   if (gsmIccInfo) {
@@ -38,56 +35,35 @@ IccIPCUtils::GetIccInfoDataFromIccInfo(nsIIccInfo* aInInfo,
   }
 }
 
-/*static*/ void
-IccIPCUtils::GetIccContactDataFromIccContact(nsIIccContact* aContact,
-                                             IccContactData& aOutData){
+/*static*/ void IccIPCUtils::GetIccContactDataFromIccContact(
+    nsIIccContact* aContact, IccContactData& aOutData) {
   // Id
   nsresult rv = aContact->GetId(aOutData.id());
   NS_ENSURE_SUCCESS_VOID(rv);
 
   // Names
-  char16_t** rawStringArray = nullptr;
-  uint32_t count = 0;
-  rv = aContact->GetNames(&count, &rawStringArray);
+  nsTArray<nsString> rawStringArray;
+  rv = aContact->GetNames(rawStringArray);
   NS_ENSURE_SUCCESS_VOID(rv);
-  if (count > 0) {
-    for (uint32_t i = 0; i < count; i++) {
-      aOutData.names().AppendElement(
-        rawStringArray[i] ? nsDependentString(rawStringArray[i])
-                          : VoidString());
-    }
-    NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(count, rawStringArray);
+  if (rawStringArray.Length() > 0) {
+    aOutData.names().AppendElements(rawStringArray);
   }
 
   // Numbers
-  rawStringArray = nullptr;
-  count = 0;
-  rv = aContact->GetNumbers(&count, &rawStringArray);
+  rv = aContact->GetNumbers(rawStringArray);
   NS_ENSURE_SUCCESS_VOID(rv);
-  if (count > 0) {
-    for (uint32_t i = 0; i < count; i++) {
-      aOutData.numbers().AppendElement(
-        rawStringArray[i] ? nsDependentString(rawStringArray[i])
-                          : VoidString());
-    }
-    NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(count, rawStringArray);
+  if (rawStringArray.Length() > 0) {
+    aOutData.numbers().AppendElements(rawStringArray);
   }
 
   // Emails
-  rawStringArray = nullptr;
-  count = 0;
-  rv = aContact->GetEmails(&count, &rawStringArray);
+  rv = aContact->GetEmails(rawStringArray);
   NS_ENSURE_SUCCESS_VOID(rv);
-  if (count > 0) {
-    for (uint32_t i = 0; i < count; i++) {
-      aOutData.emails().AppendElement(
-        rawStringArray[i] ? nsDependentString(rawStringArray[i])
-                          : VoidString());
-    }
-    NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(count, rawStringArray);
+  if (rawStringArray.Length() > 0) {
+    aOutData.emails().AppendElements(rawStringArray);
   }
 }
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla

@@ -8,7 +8,6 @@
 
 #include "Icc.h"
 #include "IccManager.h"
-//#include "nsIDOMClassInfo.h"
 #include "nsIIccInfo.h"
 
 using namespace mozilla::dom;
@@ -45,8 +44,8 @@ IccListener::IccListener(IccManager* aIccManager, uint32_t aClientId)
   }
 
   DebugOnly<nsresult> rv = mHandler->RegisterListener(this);
-  //NS_WARN_IF_FALSE(NS_SUCCEEDED(rv),
-   //                "Failed registering icc listener with Icc Handler");
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                       "Failed registering icc listener with Icc Handler");
 }
 
 IccListener::~IccListener()

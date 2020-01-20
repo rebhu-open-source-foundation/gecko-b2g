@@ -41,6 +41,12 @@ partial interface KaiOS {
   [Throws, Pref="dom.telephony.enabled"]
   readonly attribute Telephony mozTelephony;
 };
+
+[Exposed=Window]
+partial interface KaiOS {
+  [Throws, Pref="dom.icc.enabled"]
+  readonly attribute MozIccManager? mozIccManager;
+};
 #endif //MOZ_B2G_RIL
 
 partial interface KaiOS {

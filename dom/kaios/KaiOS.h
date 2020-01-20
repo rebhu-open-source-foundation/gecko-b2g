@@ -20,6 +20,7 @@
 #  include "mozilla/dom/bluetooth/BluetoothManager.h"
 #endif
 #ifdef MOZ_B2G_RIL
+#  include "mozilla/dom/IccManager.h"
 #  include "mozilla/dom/Telephony.h"
 #  include "mozilla/dom/MobileConnectionArray.h"
 #endif
@@ -65,6 +66,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 #endif  // MOZ_B2G_BT
 
 #ifdef MOZ_B2G_RIL
+  IccManager* GetMozIccManager(ErrorResult& aRv);
   MobileConnectionArray* GetMozMobileConnections(ErrorResult& aRv);
   Telephony* GetMozTelephony(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
@@ -89,6 +91,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 #endif
 
 #ifdef MOZ_B2G_RIL
+  RefPtr<IccManager> mIccManager;
   RefPtr<MobileConnectionArray> mMobileConnections;
   RefPtr<Telephony> mTelephony;
 #endif

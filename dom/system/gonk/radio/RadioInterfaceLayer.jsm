@@ -904,8 +904,8 @@ RadioInterface.prototype = {
         break;
       case "iccinfochange":
         if (DEBUG) this.debug("iccinfochange message=" + JSON.stringify(message));
-        /*gIccService.notifyIccInfoChanged(this.clientId,
-                                         message.iccid ? message : null);*/
+        gIccService.notifyIccInfoChanged(this.clientId,
+                                         message.iccid ? message : null);
         break;
       // We don't need this. Let handlerilresponse handle it.
       /*case "iccimsi":
@@ -1907,8 +1907,7 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_IMSI imsi = " + response.imsi);
           this.iccInfoPrivate.imsi = response.imsi;
           result = response;
-          // Cameron mark first.
-          //gIccService.notifyImsiChanged(this.clientId, this.iccInfoPrivate.imsi);
+          gIccService.notifyImsiChanged(this.clientId, this.iccInfoPrivate.imsi);
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_IMSI error = " + response.errorMsg);
         }
@@ -2640,13 +2639,10 @@ RadioInterface.prototype = {
       this.operator.longName = longName;
       this.operator.shortName = shortName;
 
-      //Cameron mark fisrt.
-      /*let ICCUtilsHelper = this.simIOcontext.ICCUtilsHelper;
+      let ICCUtilsHelper = this.simIOcontext.ICCUtilsHelper;
       if (ICCUtilsHelper.updateDisplayCondition() && this.iccInfo.iccid) {
-        gIccService.notifyIccInfoChanged(this.clientId, this.iccInfo.iccid);
-        //Replace by previous line.
         ICCUtilsHelper.handleICCInfoChange();
-      }*/
+      }
 
       // NETWORK_INFO_OPERATOR message will be sent out by overrideNetworkName
       // itself if operator name is overridden after checking, or we have to
@@ -2820,12 +2816,10 @@ RadioInterface.prototype = {
         // may lost cardstatechange event when icc card becomes undetected.
         this.cardState = Ci.nsIRilResponseResult.CARD_STATE_UNDETECTED;
 
-        //Cameron mark first
-        //gIccService.notifyCardStateChanged(this.clientId, this.cardState);
+        gIccService.notifyCardStateChanged(this.clientId, this.cardState);
         gRadioEnabledController.receiveCardState(this.clientId);
         this.iccInfo = {iccType: null};
-        //Cameron mark first
-        //gIccService.notifyIccInfoChanged(this.clientId, this.iccInfo);
+        gIccService.notifyIccInfoChanged(this.clientId, this.iccInfo);
       }
       return;
     }
@@ -2941,9 +2935,8 @@ RadioInterface.prototype = {
     }
 
     this.cardState = newCardState;
-    // Cameron mark fist
-    /*gIccService.notifyCardStateChanged(this.clientId,
-                                           this.cardState);*/
+    gIccService.notifyCardStateChanged(this.clientId,
+                                           this.cardState);
     gRadioEnabledController.receiveCardState(this.clientId);
     /*this.sendChromeMessage({rilMessageType: "cardstatechange",
                             cardState: this.cardState});*/

@@ -341,8 +341,9 @@ interface MozIcc : EventTarget
    *
    * @return a DOMRequest.
    */
-  [Throws]
-  DOMRequest readContacts(IccContactType contactType);
+  // TODO contact api will be refactored.
+  // [Throws]
+  // DOMRequest readContacts(IccContactType contactType);
 
   /**
    * Update ICC Phonebook contact.
@@ -358,10 +359,11 @@ interface MozIcc : EventTarget
    *
    * @return a DOMRequest.
    */
-  [Throws]
-  DOMRequest updateContact(IccContactType contactType,
-                           mozContact contact,
-                           optional DOMString? pin2 = null);
+  // TODO contact api will be refactored.
+  // [Throws]
+  // DOMRequest updateContact(IccContactType contactType,
+  //                          mozContact contact,
+  //                          optional DOMString? pin2 = null);
 
   // Integrated Circuit Card Helpers.
 
