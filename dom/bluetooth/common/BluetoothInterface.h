@@ -589,55 +589,55 @@ protected:
 // Bluetooth Advanced Audio Interface
 //
 
-// class BluetoothA2dpNotificationHandler
-// {
-// public:
-//   virtual void
-//   ConnectionStateNotification(BluetoothA2dpConnectionState aState,
-//                               const BluetoothAddress& aBdAddr);
+class BluetoothA2dpNotificationHandler
+{
+public:
+  virtual void
+  ConnectionStateNotification(BluetoothA2dpConnectionState aState,
+                              const BluetoothAddress& aBdAddr);
 
-//   virtual void
-//   AudioStateNotification(BluetoothA2dpAudioState aState,
-//                          const BluetoothAddress& aBdAddr);
+  virtual void
+  AudioStateNotification(BluetoothA2dpAudioState aState,
+                         const BluetoothAddress& aBdAddr);
 
-//   virtual void
-//   AudioConfigNotification(const BluetoothAddress& aBdAddr,
-//                           uint32_t aSampleRate,
-//                           uint8_t aChannelCount);
+  virtual void
+  AudioConfigNotification(const BluetoothAddress& aBdAddr,
+                          uint32_t aSampleRate,
+                          uint8_t aChannelCount);
 
-// protected:
-//   BluetoothA2dpNotificationHandler();
-//   virtual ~BluetoothA2dpNotificationHandler();
-// };
+protected:
+  BluetoothA2dpNotificationHandler();
+  virtual ~BluetoothA2dpNotificationHandler();
+};
 
-// class BluetoothA2dpResultHandler
-//   : public mozilla::ipc::DaemonSocketResultHandler
-// {
-// public:
-//   virtual void OnError(BluetoothStatus aStatus);
+class BluetoothA2dpResultHandler
+  : public mozilla::ipc::DaemonSocketResultHandler
+{
+public:
+  virtual void OnError(BluetoothStatus aStatus);
 
-//   virtual void Connect();
-//   virtual void Disconnect();
+  virtual void Connect();
+  virtual void Disconnect();
 
-// protected:
-//   virtual ~BluetoothA2dpResultHandler() { }
-// };
+protected:
+  virtual ~BluetoothA2dpResultHandler() { }
+};
 
-// class BluetoothA2dpInterface
-// {
-// public:
-//   virtual void SetNotificationHandler(
-//     BluetoothA2dpNotificationHandler* aNotificationHandler) = 0;
+class BluetoothA2dpInterface
+{
+public:
+  virtual void SetNotificationHandler(
+    BluetoothA2dpNotificationHandler* aNotificationHandler) = 0;
 
-//   virtual void Connect(const BluetoothAddress& aBdAddr,
-//                        BluetoothA2dpResultHandler* aRes) = 0;
-//   virtual void Disconnect(const BluetoothAddress& aBdAddr,
-//                           BluetoothA2dpResultHandler* aRes) = 0;
+  virtual void Connect(const BluetoothAddress& aBdAddr,
+                       BluetoothA2dpResultHandler* aRes) = 0;
+  virtual void Disconnect(const BluetoothAddress& aBdAddr,
+                          BluetoothA2dpResultHandler* aRes) = 0;
 
-// protected:
-//   BluetoothA2dpInterface();
-//   virtual ~BluetoothA2dpInterface();
-// };
+protected:
+  BluetoothA2dpInterface();
+  virtual ~BluetoothA2dpInterface();
+};
 
 //
 // Bluetooth AVRCP Interface
@@ -1330,7 +1330,7 @@ public:
   virtual BluetoothCoreInterface* GetBluetoothCoreInterface() = 0;
   // virtual BluetoothSocketInterface* GetBluetoothSocketInterface() = 0;
   // virtual BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() = 0;
-  // virtual BluetoothA2dpInterface* GetBluetoothA2dpInterface() = 0;
+  virtual BluetoothA2dpInterface* GetBluetoothA2dpInterface() = 0;
   // virtual BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() = 0;
   // virtual BluetoothGattInterface* GetBluetoothGattInterface() = 0;
   // virtual BluetoothHidInterface* GetBluetoothHidInterface() = 0;

@@ -555,52 +555,52 @@ BluetoothCoreInterface::~BluetoothCoreInterface()
 // Notification handling
 //
 
-// BluetoothA2dpNotificationHandler::BluetoothA2dpNotificationHandler()
-// { }
+BluetoothA2dpNotificationHandler::BluetoothA2dpNotificationHandler()
+{ }
 
-// BluetoothA2dpNotificationHandler::~BluetoothA2dpNotificationHandler()
-// { }
+BluetoothA2dpNotificationHandler::~BluetoothA2dpNotificationHandler()
+{ }
 
-// void
-// BluetoothA2dpNotificationHandler::ConnectionStateNotification(
-//   BluetoothA2dpConnectionState aState, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothA2dpNotificationHandler::ConnectionStateNotification(
+  BluetoothA2dpConnectionState aState, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothA2dpNotificationHandler::AudioStateNotification(
-//   BluetoothA2dpAudioState aState, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothA2dpNotificationHandler::AudioStateNotification(
+  BluetoothA2dpAudioState aState, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothA2dpNotificationHandler::AudioConfigNotification(
-//   const BluetoothAddress& aBdAddr, uint32_t aSampleRate, uint8_t aChannelCount)
-// { }
+void
+BluetoothA2dpNotificationHandler::AudioConfigNotification(
+  const BluetoothAddress& aBdAddr, uint32_t aSampleRate, uint8_t aChannelCount)
+{ }
 
 // Result handling
 //
 
-// void
-// BluetoothA2dpResultHandler::OnError(BluetoothStatus aStatus)
-// {
-//   BT_WARNING("Received error code %d", (int)aStatus);
-// }
+void
+BluetoothA2dpResultHandler::OnError(BluetoothStatus aStatus)
+{
+  BT_WARNING("Received error code %d", (int)aStatus);
+}
 
-// void
-// BluetoothA2dpResultHandler::Connect()
-// { }
+void
+BluetoothA2dpResultHandler::Connect()
+{ }
 
-// void
-// BluetoothA2dpResultHandler::Disconnect()
-// { }
+void
+BluetoothA2dpResultHandler::Disconnect()
+{ }
 
 // Interface
 //
 
-// BluetoothA2dpInterface::BluetoothA2dpInterface()
-// { }
+BluetoothA2dpInterface::BluetoothA2dpInterface()
+{ }
 
-// BluetoothA2dpInterface::~BluetoothA2dpInterface()
-// { }
+BluetoothA2dpInterface::~BluetoothA2dpInterface()
+{ }
 
 //
 // Bluetooth AVRCP Interface
