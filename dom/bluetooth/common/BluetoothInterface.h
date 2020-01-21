@@ -235,47 +235,46 @@ protected:
 // Socket Interface
 //
 
-// class BluetoothSocketResultHandler
-//   : public mozilla::ipc::DaemonSocketResultHandler
-// {
-// public:
-//   virtual void OnError(BluetoothStatus aStatus);
+class BluetoothSocketResultHandler
+  : public mozilla::ipc::DaemonSocketResultHandler
+{
+public:
+  virtual void OnError(BluetoothStatus aStatus);
 
-//   virtual void Listen(int aSockFd);
-//   virtual void Connect(int aSockFd, const BluetoothAddress& aBdAddress,
-//                        int aConnectionState);
-//   virtual void Accept(int aSockFd, const BluetoothAddress& aBdAddress,
-//                       int aConnectionState);
+  virtual void Listen(int aSockFd);
+  virtual void Connect(int aSockFd, const BluetoothAddress& aBdAddress,
+                       int aConnectionState);
+  virtual void Accept(int aSockFd, const BluetoothAddress& aBdAddress,
+                      int aConnectionState);
 
-// protected:
-//   virtual ~BluetoothSocketResultHandler() { }
-// };
+protected:
+  virtual ~BluetoothSocketResultHandler() { }
+};
 
-// class BluetoothSocketInterface
-// {
-// public:
-//   // Init and Cleanup is handled by BluetoothInterface
+class BluetoothSocketInterface
+{
+public:
+  // Init and Cleanup is handled by BluetoothInterface
 
-//   virtual void Listen(BluetoothSocketType aType,
-//                       const BluetoothServiceName& aServiceName,
-//                       const BluetoothUuid& aServiceUuid,
-//                       int aChannel, bool aEncrypt, bool aAuth,
-//                       BluetoothSocketResultHandler* aRes) = 0;
+  virtual void Listen(BluetoothSocketType aType,
+                      const BluetoothServiceName& aServiceName,
+                      const BluetoothUuid& aServiceUuid,
+                      int aChannel, bool aEncrypt, bool aAuth,
+                      BluetoothSocketResultHandler* aRes) = 0;
 
-//   virtual void Connect(const BluetoothAddress& aBdAddr,
-//                        BluetoothSocketType aType,
-//                        const BluetoothUuid& aServiceUuid,
-//                        int aChannel, bool aEncrypt, bool aAuth,
-//                        BluetoothSocketResultHandler* aRes) = 0;
+  virtual void Connect(const BluetoothAddress& aBdAddr,
+                       BluetoothSocketType aType,
+                       const BluetoothUuid& aServiceUuid,
+                       int aChannel, bool aEncrypt, bool aAuth,
+                       BluetoothSocketResultHandler* aRes) = 0;
 
-//   virtual void Accept(int aFd, BluetoothSocketResultHandler* aRes) = 0;
+  virtual void Accept(int aFd, BluetoothSocketResultHandler* aRes) = 0;
 
-//   virtual void Close(BluetoothSocketResultHandler* aRes) = 0;
+  virtual void Close(BluetoothSocketResultHandler* aRes) = 0;
 
-// protected:
-//   BluetoothSocketInterface();
-//   virtual ~BluetoothSocketInterface();
-// };
+protected:
+  virtual ~BluetoothSocketInterface();
+};
 
 //
 // HID Interface
@@ -1329,7 +1328,7 @@ public:
 
   virtual BluetoothSetupInterface* GetBluetoothSetupInterface() = 0;
   virtual BluetoothCoreInterface* GetBluetoothCoreInterface() = 0;
-  // virtual BluetoothSocketInterface* GetBluetoothSocketInterface() = 0;
+  virtual BluetoothSocketInterface* GetBluetoothSocketInterface() = 0;
   // virtual BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() = 0;
   virtual BluetoothA2dpInterface* GetBluetoothA2dpInterface() = 0;
   // virtual BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() = 0;

@@ -239,33 +239,33 @@ BluetoothCoreInterface::~BluetoothCoreInterface()
 // Result handling
 //
 
-// void
-// BluetoothSocketResultHandler::OnError(BluetoothStatus aStatus)
-// {
-//   BT_WARNING("Received error code %d", (int)aStatus);
-// }
+void
+BluetoothSocketResultHandler::OnError(BluetoothStatus aStatus)
+{
+  BT_WARNING("Received error code %d", (int)aStatus);
+}
 
-// void
-// BluetoothSocketResultHandler::Listen(int aSockFd)
-// { }
+void
+BluetoothSocketResultHandler::Listen(int aSockFd)
+{ }
 
-// void
-// BluetoothSocketResultHandler::Connect(int aSockFd,
-//                                       const BluetoothAddress& aBdAddress,
-//                                       int aConnectionState)
-// { }
+void
+BluetoothSocketResultHandler::Connect(int aSockFd,
+                                      const BluetoothAddress& aBdAddress,
+                                      int aConnectionState)
+{ }
 
-// void
-// BluetoothSocketResultHandler::Accept(int aSockFd,
-//                                      const BluetoothAddress& aBdAddress,
-//                                      int aConnectionState)
-// { }
+void
+BluetoothSocketResultHandler::Accept(int aSockFd,
+                                     const BluetoothAddress& aBdAddress,
+                                     int aConnectionState)
+{ }
 
 // Interface
 //
 
-// BluetoothSocketInterface::~BluetoothSocketInterface()
-// { }
+BluetoothSocketInterface::~BluetoothSocketInterface()
+{ }
 
 //
 //Hid Interface

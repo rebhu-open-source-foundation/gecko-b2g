@@ -74,7 +74,7 @@ if CONFIG['MOZ_B2G_BT']:
                 'bluedroid/BluetoothDaemonInterface.cpp',
 #               'bluedroid/BluetoothDaemonSdpInterface.cpp',
                 'bluedroid/BluetoothDaemonSetupInterface.cpp',
-#               'bluedroid/BluetoothDaemonSocketInterface.cpp',
+                'bluedroid/BluetoothDaemonSocketInterface.cpp',
 #               'bluedroid/BluetoothGattManager.cpp',
 #               'bluedroid/BluetoothHidManager.cpp',
 #               'bluedroid/BluetoothMapBMessage.cpp',
@@ -83,8 +83,8 @@ if CONFIG['MOZ_B2G_BT']:
 #               'bluedroid/BluetoothOppManager.cpp',
 #               'bluedroid/BluetoothPbapManager.cpp',
                 'bluedroid/BluetoothServiceBluedroid.cpp',
-#               'bluedroid/BluetoothSocket.cpp',
-#               'bluedroid/BluetoothSocketMessageWatcher.cpp'
+                'bluedroid/BluetoothSocket.cpp',
+                'bluedroid/BluetoothSocketMessageWatcher.cpp'
             ]
             LOCAL_INCLUDES += [
                 'bluedroid',

@@ -17,7 +17,7 @@
 // #include "BluetoothDaemonHidInterface.h"
 // #include "BluetoothDaemonSdpInterface.h"
 #include "BluetoothDaemonSetupInterface.h"
-// #include "BluetoothDaemonSocketInterface.h"
+#include "BluetoothDaemonSocketInterface.h"
 #include "mozilla/Hal.h"
 #include "mozilla/ipc/DaemonRunnables.h"
 #include "mozilla/ipc/DaemonSocket.h"
@@ -75,7 +75,7 @@ class BluetoothDaemonProtocol final
   : public DaemonSocketIOConsumer
   , public BluetoothDaemonSetupModule
   , public BluetoothDaemonCoreModule
-  // , public BluetoothDaemonSocketModule
+  , public BluetoothDaemonSocketModule
   // , public BluetoothDaemonHandsfreeModule
   , public BluetoothDaemonA2dpModule
   // , public BluetoothDaemonAvrcpModule
@@ -111,9 +111,9 @@ private:
   void HandleCoreSvc(const DaemonSocketPDUHeader& aHeader,
                      DaemonSocketPDU& aPDU,
                      DaemonSocketResultHandler* aRes);
-  // void HandleSocketSvc(const DaemonSocketPDUHeader& aHeader,
-  //                      DaemonSocketPDU& aPDU,
-  //                      DaemonSocketResultHandler* aRes);
+  void HandleSocketSvc(const DaemonSocketPDUHeader& aHeader,
+                       DaemonSocketPDU& aPDU,
+                       DaemonSocketResultHandler* aRes);
   // void HandleHandsfreeSvc(const DaemonSocketPDUHeader& aHeader,
   //                         DaemonSocketPDU& aPDU,
   //                         DaemonSocketResultHandler* aRes);
@@ -183,13 +183,13 @@ BluetoothDaemonProtocol::HandleCoreSvc(
   BluetoothDaemonCoreModule::HandleSvc(aHeader, aPDU, aRes);
 }
 
-// void
-// BluetoothDaemonProtocol::HandleSocketSvc(
-//   const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-//   DaemonSocketResultHandler* aRes)
-// {
-//   BluetoothDaemonSocketModule::HandleSvc(aHeader, aPDU, aRes);
-// }
+void
+BluetoothDaemonProtocol::HandleSocketSvc(
+  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+  DaemonSocketResultHandler* aRes)
+{
+  BluetoothDaemonSocketModule::HandleSvc(aHeader, aPDU, aRes);
+}
 
 // void
 // BluetoothDaemonProtocol::HandleHandsfreeSvc(
@@ -249,9 +249,8 @@ BluetoothDaemonProtocol::Handle(DaemonSocketPDU& aPDU)
       &BluetoothDaemonProtocol::HandleSetupSvc,
     [BluetoothDaemonCoreModule::SERVICE_ID] =
       &BluetoothDaemonProtocol::HandleCoreSvc,
-    // [BluetoothDaemonSocketModule::SERVICE_ID] =
-    //   &BluetoothDaemonProtocol::HandleSocketSvc,
-    [0x02] = nullptr,
+    [BluetoothDaemonSocketModule::SERVICE_ID] =
+      &BluetoothDaemonProtocol::HandleSocketSvc,
     // [BluetoothDaemonHidModule::SERVICE_ID] =
     //   &BluetoothDaemonProtocol::HandleHidSvc,
     [0x03] = nullptr,
@@ -370,17 +369,17 @@ public:
     MOZ_ASSERT(mInterface->mProtocol);
 
     // TODO: init DaemonSocketModule when it's needed
-    // if (!mRegisteredSocketModule) {
-    //   mRegisteredSocketModule = true;
-    //   // Init, step 5: Register Socket module
-    //   mInterface->mProtocol->RegisterModuleCmd(
-    //     SETUP_SERVICE_ID_SOCKET,
-    //     0x00,
-    //     BluetoothDaemonSocketModule::MAX_NUM_CLIENTS, this);
-    // } else if (mRes) {
-    //   // Init, step 6: Signal success to caller
-    //   mRes->Init();
-    // }
+    if (!mRegisteredSocketModule) {
+      mRegisteredSocketModule = true;
+      // Init, step 5: Register Socket module
+      mInterface->mProtocol->RegisterModuleCmd(
+        SETUP_SERVICE_ID_SOCKET,
+        0x00,
+        BluetoothDaemonSocketModule::MAX_NUM_CLIENTS, this);
+    } else if (mRes) {
+      // Init, step 6: Signal success to caller
+      mRes->Init();
+    }
 
     if (mRes) {
       // Init, step 6: Signal success to caller
@@ -631,17 +630,17 @@ BluetoothDaemonInterface::GetBluetoothCoreInterface()
   return mCoreInterface.get();
 }
 
-// BluetoothSocketInterface*
-// BluetoothDaemonInterface::GetBluetoothSocketInterface()
-// {
-//   if (mSocketInterface) {
-//     return mSocketInterface.get();
-//   }
+BluetoothSocketInterface*
+BluetoothDaemonInterface::GetBluetoothSocketInterface()
+{
+  if (mSocketInterface) {
+    return mSocketInterface.get();
+  }
 
-//   mSocketInterface = MakeUnique<BluetoothDaemonSocketInterface>(mProtocol.get());
+  mSocketInterface = MakeUnique<BluetoothDaemonSocketInterface>(mProtocol.get());
 
-//   return mSocketInterface.get();
-// }
+  return mSocketInterface.get();
+}
 
 // BluetoothHidInterface*
 // BluetoothDaemonInterface::GetBluetoothHidInterface()

@@ -31,7 +31,7 @@ class BluetoothDaemonCoreInterface;
 class BluetoothDaemonProtocol;
 // class BluetoothDaemonSdpInterface;
 class BluetoothDaemonSetupInterface;
-// class BluetoothDaemonSocketInterface;
+class BluetoothDaemonSocketInterface;
 // class BluetoothDaemonHidInterface;
 
 class BluetoothDaemonInterface final
@@ -56,7 +56,7 @@ public:
 
   BluetoothSetupInterface* GetBluetoothSetupInterface() override;
   BluetoothCoreInterface* GetBluetoothCoreInterface() override;
-  // BluetoothSocketInterface* GetBluetoothSocketInterface() override;
+  BluetoothSocketInterface* GetBluetoothSocketInterface() override;
   // BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() override;
   BluetoothA2dpInterface* GetBluetoothA2dpInterface() override;
   // BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() override;
@@ -97,7 +97,7 @@ private:
 
   UniquePtr<BluetoothDaemonSetupInterface> mSetupInterface;
   UniquePtr<BluetoothDaemonCoreInterface> mCoreInterface;
-  // UniquePtr<BluetoothDaemonSocketInterface> mSocketInterface;
+  UniquePtr<BluetoothDaemonSocketInterface> mSocketInterface;
   // UniquePtr<BluetoothDaemonHidInterface> mHidInterface;
   // UniquePtr<BluetoothDaemonHandsfreeInterface> mHandsfreeInterface;
   UniquePtr<BluetoothDaemonA2dpInterface> mA2dpInterface;
