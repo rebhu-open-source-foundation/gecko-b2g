@@ -19,7 +19,7 @@
 
 namespace mozilla {
 namespace dom {
-// class Blob;
+class Blob;
 class DOMRequest;
 // struct MediaMetaData;
 // struct MediaPlayStatus;
@@ -154,15 +154,15 @@ public:
                                                    ErrorResult& aRv);
 
   // OPP file transfer related methods
-  // already_AddRefed<DOMRequest> SendFile(const nsAString& aDeviceAddress,
-  //                                       Blob& aBlob,
-  //                                       ErrorResult& aRv);
-  // already_AddRefed<DOMRequest> StopSendingFile(const nsAString& aDeviceAddress,
-  //                                              ErrorResult& aRv);
-  // already_AddRefed<DOMRequest>
-  //   ConfirmReceivingFile(const nsAString& aDeviceAddress,
-  //                        bool aConfirmation,
-  //                        ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SendFile(const nsAString& aDeviceAddress,
+                                        Blob& aBlob,
+                                        ErrorResult& aRv);
+  already_AddRefed<DOMRequest> StopSendingFile(const nsAString& aDeviceAddress,
+                                               ErrorResult& aRv);
+  already_AddRefed<DOMRequest>
+    ConfirmReceivingFile(const nsAString& aDeviceAddress,
+                         bool aConfirmation,
+                         ErrorResult& aRv);
 
   // SCO related methods
   // already_AddRefed<DOMRequest> ConnectSco(ErrorResult& aRv);

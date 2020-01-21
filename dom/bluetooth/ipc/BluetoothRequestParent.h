@@ -120,17 +120,17 @@ protected:
   bool
   DoRequest(const RejectConnectionRequest& aRequest);
 
-  // bool
-  // DoRequest(const SendFileRequest& aRequest);
+  bool
+  DoRequest(const SendFileRequest& aRequest);
 
-  // bool
-  // DoRequest(const StopSendingFileRequest& aRequest);
+  bool
+  DoRequest(const StopSendingFileRequest& aRequest);
 
-  // bool
-  // DoRequest(const ConfirmReceivingFileRequest& aRequest);
+  bool
+  DoRequest(const ConfirmReceivingFileRequest& aRequest);
 
-  // bool
-  // DoRequest(const DenyReceivingFileRequest& aRequest);
+  bool
+  DoRequest(const DenyReceivingFileRequest& aRequest);
 
   // bool
   // DoRequest(const ConnectScoRequest& aRequest);

@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// include protocol PBlob;
+include IPCBlob;
 include protocol PBluetoothRequest;
 include protocol PContent;
 
@@ -146,11 +146,11 @@ struct RejectConnectionRequest
   uint16_t serviceUuid;
 };
 
-// struct SendFileRequest
-// {
-//   BluetoothAddress address;
-//   PBlob blob;
-// };
+struct SendFileRequest
+{
+  BluetoothAddress address;
+  IPCBlob blob;
+};
 
 struct StopSendingFileRequest
 {
@@ -469,7 +469,7 @@ union Request
   DisconnectRequest;
   AcceptConnectionRequest;
   RejectConnectionRequest;
-//  SendFileRequest;
+  SendFileRequest;
   StopSendingFileRequest;
   ConfirmReceivingFileRequest;
   DenyReceivingFileRequest;

@@ -10,7 +10,7 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/dom/ContentChild.h"
-// #include "mozilla/dom/ipc/BlobChild.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/ipc/MessageChannel.h"
 
 #include "BluetoothChild.h"
@@ -294,46 +294,42 @@ BluetoothServiceChildProcess::RejectConnection(
   SendRequest(aRunnable, RejectConnectionRequest(aServiceUuid));
 }
 
-// void
-// BluetoothServiceChildProcess::SendFile(
-//   const BluetoothAddress& aDeviceAddress,
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, SendFileRequest(aDeviceAddress, nullptr, aBlobChild));
-// }
+void
+BluetoothServiceChildProcess::SendFile(
+  const BluetoothAddress& aDeviceAddress,
+  BlobImpl* aBlob,
+  BluetoothReplyRunnable* aRunnable)
+{
+  IPCBlob ipcBlob;
+  nsresult rv =
+      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
 
-// void
-// BluetoothServiceChildProcess::SendFile(
-//   const BluetoothAddress& aDeviceAddress,
-//   Blob* aBlobChild,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   // Parent-process-only method
-//   MOZ_CRASH("This should never be called!");
-// }
+  SendRequest(aRunnable, SendFileRequest(aDeviceAddress, ipcBlob));
+}
 
-// void
-// BluetoothServiceChildProcess::StopSendingFile(
-//   const BluetoothAddress& aDeviceAddress,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, StopSendingFileRequest(aDeviceAddress));
-// }
+void
+BluetoothServiceChildProcess::StopSendingFile(
+  const BluetoothAddress& aDeviceAddress,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, StopSendingFileRequest(aDeviceAddress));
+}
 
-// void
-// BluetoothServiceChildProcess::ConfirmReceivingFile(
-//   const BluetoothAddress& aDeviceAddress, bool aConfirm,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   if(aConfirm) {
-//     SendRequest(aRunnable, ConfirmReceivingFileRequest(aDeviceAddress));
-//     return;
-//   }
+void
+BluetoothServiceChildProcess::ConfirmReceivingFile(
+  const BluetoothAddress& aDeviceAddress, bool aConfirm,
+  BluetoothReplyRunnable* aRunnable)
+{
+  if(aConfirm) {
+    SendRequest(aRunnable, ConfirmReceivingFileRequest(aDeviceAddress));
+    return;
+  }
 
-//   SendRequest(aRunnable, DenyReceivingFileRequest(aDeviceAddress));
-// }
+  SendRequest(aRunnable, DenyReceivingFileRequest(aDeviceAddress));
+}
 
 // void
 // BluetoothServiceChildProcess::ConnectSco(BluetoothReplyRunnable* aRunnable)

@@ -130,25 +130,19 @@ public:
   RejectConnection(const uint16_t aServiceUuid,
                    BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // SendFile(const BluetoothAddress& aDeviceAddress,
-  //          BlobParent* aBlobParent,
-  //          BlobChild* aBlobChild,
-  //          BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  SendFile(const BluetoothAddress& aDeviceAddress,
+           BlobImpl* aBlob,
+           BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // SendFile(const BluetoothAddress& aDeviceAddress,
-  //          Blob* aBlob,
-  //          BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  StopSendingFile(const BluetoothAddress& aDeviceAddress,
+                  BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // StopSendingFile(const BluetoothAddress& aDeviceAddress,
-  //                 BluetoothReplyRunnable* aRunnable) override;
-
-  // virtual void
-  // ConfirmReceivingFile(const BluetoothAddress& aDeviceAddress,
-  //                      bool aConfirm,
-  //                      BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  ConfirmReceivingFile(const BluetoothAddress& aDeviceAddress,
+                       bool aConfirm,
+                       BluetoothReplyRunnable* aRunnable) override;
 
   // virtual void
   // ConnectSco(BluetoothReplyRunnable* aRunnable) override;

@@ -26,7 +26,6 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/DOMRequest.h"
 #include "mozilla/dom/Event.h"
-// #include "mozilla/dom/File.h"
 
 #include "mozilla/dom/bluetooth/BluetoothAdapter.h"
 #include "mozilla/dom/bluetooth/BluetoothClassOfDevice.h"
@@ -1834,116 +1833,100 @@ BluetoothAdapter::Disconnect(BluetoothDevice& aDevice,
   return request.forget();
 }
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::SendFile(const nsAString& aDeviceAddress,
-//                            Blob& aBlob, ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothAddress deviceAddress;
-//   auto rv = StringToAddress(aDeviceAddress, deviceAddress);
-//   if (NS_FAILED(rv)) {
-//     aRv.Throw(rv);
-//     return nullptr;
-//   }
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   if (XRE_IsParentProcess()) {
-//     // In-process transfer
-//     bs->SendFile(deviceAddress, &aBlob, results);
-//   } else {
-//     ContentChild *cc = ContentChild::GetSingleton();
-//     if (!cc) {
-//       aRv.Throw(NS_ERROR_FAILURE);
-//       return nullptr;
-//     }
-//
-//     BlobChild* actor = cc->GetOrCreateActorForBlob(&aBlob);
-//     if (!actor) {
-//       aRv.Throw(NS_ERROR_FAILURE);
-//       return nullptr;
-//     }
-//
-//     bs->SendFile(deviceAddress, nullptr, actor, results);
-//   }
-//
-//   return request.forget();
-// }
+already_AddRefed<DOMRequest>
+BluetoothAdapter::SendFile(const nsAString& aDeviceAddress,
+                           Blob& aBlob, ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::StopSendingFile(
-//   const nsAString& aDeviceAddress, ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothAddress deviceAddress;
-//   auto rv = StringToAddress(aDeviceAddress, deviceAddress);
-//   if (NS_FAILED(rv)) {
-//     aRv.Throw(rv);
-//     return nullptr;
-//   }
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->StopSendingFile(deviceAddress, results);
-//
-//   return request.forget();
-// }
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
-//                                        bool aConfirmation, ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothAddress deviceAddress;
-//   auto rv = StringToAddress(aDeviceAddress, deviceAddress);
-//   if (NS_FAILED(rv)) {
-//     aRv.Throw(rv);
-//     return nullptr;
-//   }
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->ConfirmReceivingFile(deviceAddress, aConfirmation, results);
-//
-//   return request.forget();
-// }
+  BluetoothAddress deviceAddress;
+  auto rv = StringToAddress(aDeviceAddress, deviceAddress);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  BluetoothService* bs = BluetoothService::Get();
+
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  bs->SendFile(deviceAddress, aBlob.Impl(), results);
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest>
+BluetoothAdapter::StopSendingFile(
+  const nsAString& aDeviceAddress, ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothAddress deviceAddress;
+  auto rv = StringToAddress(aDeviceAddress, deviceAddress);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->StopSendingFile(deviceAddress, results);
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest>
+BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
+                                       bool aConfirmation, ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothAddress deviceAddress;
+  auto rv = StringToAddress(aDeviceAddress, deviceAddress);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->ConfirmReceivingFile(deviceAddress, aConfirmation, results);
+
+  return request.forget();
+}
 
 // already_AddRefed<DOMRequest>
 // BluetoothAdapter::ConnectSco(ErrorResult& aRv)

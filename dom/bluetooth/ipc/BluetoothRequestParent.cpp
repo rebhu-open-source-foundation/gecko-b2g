@@ -17,6 +17,7 @@
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
 #include "nsThreadUtils.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 
 
 USING_BLUETOOTH_NAMESPACE
@@ -382,55 +383,55 @@ BluetoothRequestParent::DoRequest(const RejectConnectionRequest& aRequest)
   return true;
 }
 
-// bool
-// BluetoothRequestParent::DoRequest(const SendFileRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TSendFileRequest);
+bool
+BluetoothRequestParent::DoRequest(const SendFileRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TSendFileRequest);
 
-//   mService->SendFile(aRequest.address(),
-//                      (BlobParent*)aRequest.blobParent(),
-//                      (BlobChild*)aRequest.blobChild(),
-//                      mReplyRunnable.get());
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aRequest.blob());
+  mService->SendFile(aRequest.address(),
+                     blobImpl.get(),
+                     mReplyRunnable.get());
 
-//   return true;
-// }
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const StopSendingFileRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TStopSendingFileRequest);
+bool
+BluetoothRequestParent::DoRequest(const StopSendingFileRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TStopSendingFileRequest);
 
-//   mService->StopSendingFile(aRequest.address(),
-//                             mReplyRunnable.get());
+  mService->StopSendingFile(aRequest.address(),
+                            mReplyRunnable.get());
 
-//   return true;
-// }
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const ConfirmReceivingFileRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TConfirmReceivingFileRequest);
+bool
+BluetoothRequestParent::DoRequest(const ConfirmReceivingFileRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TConfirmReceivingFileRequest);
 
-//   mService->ConfirmReceivingFile(aRequest.address(),
-//                                  true,
-//                                  mReplyRunnable.get());
-//   return true;
-// }
+  mService->ConfirmReceivingFile(aRequest.address(),
+                                 true,
+                                 mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const DenyReceivingFileRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TDenyReceivingFileRequest);
+bool
+BluetoothRequestParent::DoRequest(const DenyReceivingFileRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TDenyReceivingFileRequest);
 
-//   mService->ConfirmReceivingFile(aRequest.address(),
-//                                  false,
-//                                  mReplyRunnable.get());
-//   return true;
-// }
+  mService->ConfirmReceivingFile(aRequest.address(),
+                                 false,
+                                 mReplyRunnable.get());
+  return true;
+}
 
 // bool
 // BluetoothRequestParent::DoRequest(const ConnectScoRequest& aRequest)

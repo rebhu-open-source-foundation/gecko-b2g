@@ -321,24 +321,18 @@ public:
   RejectConnection(const uint16_t aServiceUuid,
                    BluetoothReplyRunnable* aRunnable) = 0;
 
-  // virtual void
-  // SendFile(const BluetoothAddress& aDeviceAddress,
-  //          BlobParent* aBlobParent,
-  //          BlobChild* aBlobChild,
-  //          BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  SendFile(const BluetoothAddress& aDeviceAddress,
+           BlobImpl* aBlob,
+           BluetoothReplyRunnable* aRunnable) = 0;
 
-  // virtual void
-  // SendFile(const BluetoothAddress& aDeviceAddress,
-  //          Blob* aBlob,
-  //          BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  StopSendingFile(const BluetoothAddress& aDeviceAddress,
+                  BluetoothReplyRunnable* aRunnable) = 0;
 
-  // virtual void
-  // StopSendingFile(const BluetoothAddress& aDeviceAddress,
-  //                 BluetoothReplyRunnable* aRunnable) = 0;
-
-  // virtual void
-  // ConfirmReceivingFile(const BluetoothAddress& aDeviceAddress, bool aConfirm,
-  //                      BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  ConfirmReceivingFile(const BluetoothAddress& aDeviceAddress, bool aConfirm,
+                       BluetoothReplyRunnable* aRunnable) = 0;
 
   // virtual void
   // ConnectSco(BluetoothReplyRunnable* aRunnable) = 0;

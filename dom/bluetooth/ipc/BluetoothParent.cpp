@@ -186,14 +186,18 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TRejectConnectionRequest:
       return actor->DoRequest(aRequest.get_RejectConnectionRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-    // case Request::TSendFileRequest:
-    //   return actor->DoRequest(aRequest.get_SendFileRequest());
-    // case Request::TStopSendingFileRequest:
-    //   return actor->DoRequest(aRequest.get_StopSendingFileRequest());
-    // case Request::TConfirmReceivingFileRequest:
-    //   return actor->DoRequest(aRequest.get_ConfirmReceivingFileRequest());
-    // case Request::TDenyReceivingFileRequest:
-    //   return actor->DoRequest(aRequest.get_DenyReceivingFileRequest());
+    case Request::TSendFileRequest:
+      return actor->DoRequest(aRequest.get_SendFileRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TStopSendingFileRequest:
+      return actor->DoRequest(aRequest.get_StopSendingFileRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TConfirmReceivingFileRequest:
+      return actor->DoRequest(aRequest.get_ConfirmReceivingFileRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TDenyReceivingFileRequest:
+      return actor->DoRequest(aRequest.get_DenyReceivingFileRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     // case Request::TConnectScoRequest:
     //   return actor->DoRequest(aRequest.get_ConnectScoRequest());
     // case Request::TDisconnectScoRequest:

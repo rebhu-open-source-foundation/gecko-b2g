@@ -24,7 +24,7 @@
 // #include "BluetoothHfpManager.h"
 // #include "BluetoothHidManager.h"
 // #include "BluetoothMapSmsManager.h"
-// #include "BluetoothOppManager.h"
+#include "BluetoothOppManager.h"
 // #include "BluetoothPbapManager.h"
 #include "BluetoothProfileController.h"
 #include "BluetoothReplyRunnable.h"
@@ -35,7 +35,7 @@
 #include "mozilla/ArrayUtils.h" // MOZ_ARRAY_LENGTH
 
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
-// #include "mozilla/ipc/SocketBase.h"
+#include "mozilla/ipc/SocketBase.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/Unused.h"
@@ -145,11 +145,11 @@ public:
   {
     static void (* const sInitManager[])(BluetoothProfileResultHandler*) = {
       // BluetoothMapSmsManager::InitMapSmsInterface,
-      // BluetoothOppManager::InitOppInterface,
+      BluetoothOppManager::InitOppInterface,
       // BluetoothPbapManager::InitPbapInterface,
       // BluetoothHidManager::InitHidInterface,
       // BluetoothHfpManager::InitHfpInterface,
-      BluetoothA2dpManager::InitA2dpInterface,
+      BluetoothA2dpManager::InitA2dpInterface
       // BluetoothAvrcpManager::InitAvrcpInterface,
       // BluetoothGattManager::InitGattInterface
     };
@@ -295,11 +295,11 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
   BluetoothProfileManagerBase* sProfiles[] = {
     // BluetoothGattManager not handled here
     // BluetoothAvrcpManager::Get(),
-    BluetoothA2dpManager::Get()
+    BluetoothA2dpManager::Get(),
     // BluetoothHfpManager::Get(),
     // BluetoothHidManager::Get(),
     // BluetoothPbapManager::Get(),
-    // BluetoothOppManager::Get(),
+    BluetoothOppManager::Get()
     // BluetoothMapSmsManager::Get()
   };
 
@@ -1520,96 +1520,73 @@ BluetoothServiceBluedroid::RejectConnection(const uint16_t aServiceUuid,
   return;
 }
 
-// void
-// BluetoothServiceBluedroid::SendFile(const BluetoothAddress& aDeviceAddress,
-//                                     BlobParent* aBlobParent,
-//                                     BlobChild* aBlobChild,
-//                                     BluetoothReplyRunnable* aRunnable)
-// {
-//   BT_LOGR("");
-//   MOZ_ASSERT(NS_IsMainThread());
+void
+BluetoothServiceBluedroid::SendFile(const BluetoothAddress& aDeviceAddress,
+                                    BlobImpl* aBlob,
+                                    BluetoothReplyRunnable* aRunnable)
+{
+  BT_LOGR("");
+  MOZ_ASSERT(NS_IsMainThread());
 
-//   // Currently we only support one device sending one file at a time,
-//   // so we don't need aDeviceAddress here because the target device
-//   // has been determined when calling 'Connect()'. Nevertheless, keep
-//   // it for future use.
+  // Currently we only support one device sending one file at a time,
+  // so we don't need aDeviceAddress here because the target device
+  // has been determined when calling 'Connect()'. Nevertheless, keep
+  // it for future use.
 
-//   BluetoothOppManager* opp = BluetoothOppManager::Get();
-//   if (!opp || !opp->SendFile(aDeviceAddress, aBlobParent)) {
-//     DispatchReplyError(aRunnable, NS_LITERAL_STRING("SendFile failed"));
-//     return;
-//   }
+  BluetoothOppManager* opp = BluetoothOppManager::Get();
+  if (!opp || !opp->SendFile(aDeviceAddress, aBlob)) {
+    DispatchReplyError(aRunnable, NS_LITERAL_STRING("SendFile failed"));
+    return;
+  }
 
-//   DispatchReplySuccess(aRunnable);
-// }
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::SendFile(const BluetoothAddress& aDeviceAddress,
-//                                     Blob* aBlob,
-//                                     BluetoothReplyRunnable* aRunnable)
-// {
-//   BT_LOGR("");
-//   MOZ_ASSERT(NS_IsMainThread());
+void
+BluetoothServiceBluedroid::StopSendingFile(
+  const BluetoothAddress& aDeviceAddress, BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  BT_LOGR("");
 
-//   // Currently we only support one device sending one file at a time,
-//   // so we don't need aDeviceAddress here because the target device
-//   // has been determined when calling 'Connect()'. Nevertheless, keep
-//   // it for future use.
+  // Currently we only support one device sending one file at a time,
+  // so we don't need aDeviceAddress here because the target device
+  // has been determined when calling 'Connect()'. Nevertheless, keep
+  // it for future use.
 
-//   BluetoothOppManager* opp = BluetoothOppManager::Get();
-//   if (!opp || !opp->SendFile(aDeviceAddress, aBlob)) {
-//     DispatchReplyError(aRunnable, NS_LITERAL_STRING("SendFile failed"));
-//     return;
-//   }
+  BluetoothOppManager* opp = BluetoothOppManager::Get();
+  nsAutoString errorStr;
+  if (!opp || !opp->StopSendingFile()) {
+    DispatchReplyError(aRunnable, NS_LITERAL_STRING("StopSendingFile failed"));
+    return;
+  }
 
-//   DispatchReplySuccess(aRunnable);
-// }
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::StopSendingFile(
-//   const BluetoothAddress& aDeviceAddress, BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
-//   BT_LOGR("");
+void
+BluetoothServiceBluedroid::ConfirmReceivingFile(
+  const BluetoothAddress& aDeviceAddress, bool aConfirm,
+  BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  BT_LOGR("confirm: %d", aConfirm);
 
-//   // Currently we only support one device sending one file at a time,
-//   // so we don't need aDeviceAddress here because the target device
-//   // has been determined when calling 'Connect()'. Nevertheless, keep
-//   // it for future use.
+  // Currently we only support one device sending one file at a time,
+  // so we don't need aDeviceAddress here because the target device
+  // has been determined when calling 'Connect()'. Nevertheless, keep
+  // it for future use.
 
-//   BluetoothOppManager* opp = BluetoothOppManager::Get();
-//   nsAutoString errorStr;
-//   if (!opp || !opp->StopSendingFile()) {
-//     DispatchReplyError(aRunnable, NS_LITERAL_STRING("StopSendingFile failed"));
-//     return;
-//   }
+  BluetoothOppManager* opp = BluetoothOppManager::Get();
+  nsAutoString errorStr;
+  if (!opp || !opp->ConfirmReceivingFile(aConfirm)) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("ConfirmReceivingFile failed"));
+    return;
+  }
 
-//   DispatchReplySuccess(aRunnable);
-// }
-
-// void
-// BluetoothServiceBluedroid::ConfirmReceivingFile(
-//   const BluetoothAddress& aDeviceAddress, bool aConfirm,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
-//   BT_LOGR("confirm: %d", aConfirm);
-
-//   // Currently we only support one device sending one file at a time,
-//   // so we don't need aDeviceAddress here because the target device
-//   // has been determined when calling 'Connect()'. Nevertheless, keep
-//   // it for future use.
-
-//   BluetoothOppManager* opp = BluetoothOppManager::Get();
-//   nsAutoString errorStr;
-//   if (!opp || !opp->ConfirmReceivingFile(aConfirm)) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("ConfirmReceivingFile failed"));
-//     return;
-//   }
-
-//   DispatchReplySuccess(aRunnable);
-// }
+  DispatchReplySuccess(aRunnable);
+}
 
 // void
 // BluetoothServiceBluedroid::ConnectSco(BluetoothReplyRunnable* aRunnable)
@@ -2131,7 +2108,7 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       // BluetoothHfpManager::DeinitHfpInterface,
       // BluetoothHidManager::DeinitHidInterface,
       // BluetoothPbapManager::DeinitPbapInterface,
-      // BluetoothOppManager::DeinitOppInterface,
+      BluetoothOppManager::DeinitOppInterface
       // BluetoothMapSmsManager::DeinitMapSmsInterface
     };
 
@@ -2201,10 +2178,10 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       new SetAdapterPropertyDiscoverableResultHandler());
 
     // Trigger OPP & PBAP managers to listen
-    // BluetoothOppManager* opp = BluetoothOppManager::Get();
-    // if (!opp || !opp->Listen()) {
-    //   BT_LOGR("Fail to start BluetoothOppManager listening");
-    // }
+    BluetoothOppManager* opp = BluetoothOppManager::Get();
+    if (!opp || !opp->Listen()) {
+      BT_LOGR("Fail to start BluetoothOppManager listening");
+    }
 
     // BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
     // if (!pbap || !pbap->Listen()) {

@@ -180,12 +180,12 @@ interface BluetoothAdapter : EventTarget {
   // DOMRequest disconnect(BluetoothDevice device, optional unsigned short serviceUuid);
 
   // One device can only send one file at a time
-  // [NewObject, Throws]
-  // DOMRequest sendFile(DOMString deviceAddress, Blob blob);
-  // [NewObject, Throws]
-  // DOMRequest stopSendingFile(DOMString deviceAddress);
-  // [NewObject, Throws]
-  // DOMRequest confirmReceivingFile(DOMString deviceAddress, boolean confirmation);
+  [NewObject, Throws]
+  DOMRequest sendFile(DOMString deviceAddress, Blob blob);
+  [NewObject, Throws]
+  DOMRequest stopSendingFile(DOMString deviceAddress);
+  [NewObject, Throws]
+  DOMRequest confirmReceivingFile(DOMString deviceAddress, boolean confirmation);
 
   // Connect/Disconnect SCO (audio) connection
   // [NewObject, Throws]
