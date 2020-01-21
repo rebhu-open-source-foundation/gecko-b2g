@@ -95,10 +95,10 @@ protected:
     BluetoothA2dpAudioState, const BluetoothAddress&>
     AudioStateNotification;
 
-  typedef mozilla::ipc::DaemonNotificationRunnable3<
+  typedef mozilla::ipc::DaemonNotificationRunnable4<
     NotificationHandlerWrapper, void,
-    BluetoothAddress, uint32_t, uint8_t,
-    const BluetoothAddress&, uint32_t, uint8_t>
+    BluetoothAddress, uint32_t, uint32_t, uint32_t,
+    const BluetoothAddress&, uint32_t, uint32_t, uint32_t>
     AudioConfigNotification;
 
   void ConnectionStateNtf(const DaemonSocketPDUHeader& aHeader,

@@ -573,7 +573,8 @@ BluetoothA2dpNotificationHandler::AudioStateNotification(
 
 void
 BluetoothA2dpNotificationHandler::AudioConfigNotification(
-  const BluetoothAddress& aBdAddr, uint32_t aSampleRate, uint8_t aChannelCount)
+  const BluetoothAddress& aBdAddr, uint32_t aSampleRate,
+  uint32_t aBitsPerSample, uint32_t aChannelMode)
 { }
 
 // Result handling

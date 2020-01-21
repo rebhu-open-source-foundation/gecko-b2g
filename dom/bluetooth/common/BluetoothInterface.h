@@ -603,7 +603,8 @@ public:
   virtual void
   AudioConfigNotification(const BluetoothAddress& aBdAddr,
                           uint32_t aSampleRate,
-                          uint8_t aChannelCount);
+                          uint32_t aBitsPerSample,
+                          uint32_t aChannelMode);
 
 protected:
   BluetoothA2dpNotificationHandler();
