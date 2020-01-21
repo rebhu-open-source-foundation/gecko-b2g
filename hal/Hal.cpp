@@ -51,8 +51,7 @@ using namespace mozilla::dom;
     }                                              \
   } while (0)
 
-namespace mozilla {
-namespace hal {
+namespace mozilla::hal {
 
 static bool sInitialized = false;
 
@@ -523,5 +522,4 @@ bool SystemServiceIsStopped(const char* aSvcName) {
   RETURN_PROXY_IF_SANDBOXED(SystemServiceIsStopped(aSvcName), false);
 }
 
-}  // namespace hal
-}  // namespace mozilla
+}  // namespace mozilla::hal

@@ -49,7 +49,7 @@ class ActivityInitRunnable : public WorkerMainThreadRunnable,
             aWorkerPrivate,
             NS_LITERAL_CSTRING("WebActivity :: ActivityInitialize")),
         StructuredCloneHolder(CloningSupported, TransferringSupported,
-                              StructuredCloneScope::SameProcessDifferentThread),
+                              StructuredCloneScope::SameProcess),
         mWebActivity(aWebActivity) {}
 
   bool MainThreadRun() override {
@@ -109,7 +109,7 @@ class OnStartWorkerRunnable final : public WorkerRunnable,
                         nsresult aStatus)
       : WorkerRunnable(aWorkerPrivate),
         StructuredCloneHolder(CloningSupported, TransferringSupported,
-                              StructuredCloneScope::SameProcessDifferentThread),
+                              StructuredCloneScope::SameProcess),
         mProxy(std::move(aProxy)),
         mStatus(aStatus) {}
 
