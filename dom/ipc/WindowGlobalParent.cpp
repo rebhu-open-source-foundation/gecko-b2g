@@ -188,7 +188,6 @@ void WindowGlobalParent::GetContentBlockingLog(nsAString& aLog) {
   aLog.Assign(std::move(log));
 }
 
-
 mozilla::ipc::IPCResult WindowGlobalParent::RecvLoadURI(
     dom::BrowsingContext* aTargetBC, nsDocShellLoadState* aLoadState,
     bool aSetNavigating) {
@@ -311,7 +310,7 @@ void WindowGlobalParent::NotifyContentBlockingEvent(
   MOZ_ASSERT_IF(isCookiesBlockedTracker && !aBlocked, aReason.isSome());
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
   // TODO: temporarily remove this until we find the root case of Bug 1609144
-  //MOZ_DIAGNOSTIC_ASSERT_IF(XRE_IsE10sParentProcess(), !IsInProcess());
+  // MOZ_DIAGNOSTIC_ASSERT_IF(XRE_IsE10sParentProcess(), !IsInProcess());
 
   // Return early if this WindowGlobalParent is in process.
   if (IsInProcess()) {
@@ -584,6 +583,27 @@ void WindowGlobalParent::ActorDestroy(ActorDestroyReason aWhy) {
     auto reject = [self](mozilla::ipc::ResponseRejectReason) {};
     otherContent->SendDiscardWindowContext(InnerWindowId(), resolve, reject);
   });
+
+  // Report content blocking log when destroyed.
+  // There shouldn't have any content blocking log when a documnet is loaded in
+  // the parent process(See NotifyContentBlockingeEvent), so we could skip
+  // reporting log when it is in-process.
+  if (!mInProcess) {
+    RefPtr<BrowserParent> browserParent =
+        static_cast<BrowserParent*>(Manager());
+    if (browserParent) {
+      nsCOMPtr<nsILoadContext> loadContext = browserParent->GetLoadContext();
+      if (loadContext && !loadContext->UsePrivateBrowsing() &&
+          BrowsingContext()->IsTopContent()) {
+        GetContentBlockingLog()->ReportLog(DocumentPrincipal());
+
+        if (mDocumentURI && (net::SchemeIsHTTP(mDocumentURI) ||
+                             net::SchemeIsHTTPS(mDocumentURI))) {
+          GetContentBlockingLog()->ReportOrigins();
+        }
+      }
+    }
+  }
 
   // Destroy our JSWindowActors, and reject any pending queries.
   nsRefPtrHashtable<nsStringHashKey, JSWindowActorParent> windowActors;

@@ -41,6 +41,7 @@
 #include "nsStubMutationObserver.h"
 #include "nsTHashtable.h"  // for member
 #include "nsURIHashKey.h"
+#include "mozilla/ServoBindingTypes.h"
 #include "mozilla/UseCounter.h"
 #include "mozilla/WeakPtr.h"
 #include "Units.h"
@@ -59,7 +60,6 @@
 #include "mozilla/LinkedList.h"
 #include "mozilla/NotNull.h"
 #include "mozilla/SegmentedVector.h"
-#include "mozilla/StyleSheet.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/FailedCertSecurityInfoBinding.h"
@@ -133,10 +133,11 @@ class nsXULPrototypeElement;
 class PermissionDelegateHandler;
 class nsIPermissionDelegateHandler;
 struct nsFont;
+struct StyleUseCounters;
 
 namespace mozilla {
 class AbstractThread;
-class CSSStyleSheet;
+class StyleSheet;
 class EditorCommand;
 class Encoding;
 class ErrorResult;
@@ -144,9 +145,11 @@ class EventStates;
 class EventListenerManager;
 class FullscreenExit;
 class FullscreenRequest;
+struct LangGroupFontPrefs;
 class PendingAnimationTracker;
 class PresShell;
 class ServoStyleSet;
+enum class StyleOrigin : uint8_t;
 class SMILAnimationController;
 enum class StyleCursorKind : uint8_t;
 template <typename>
@@ -213,6 +216,7 @@ class SVGUseElement;
 class Touch;
 class TouchList;
 class TreeWalker;
+enum class ViewportFitType : uint8_t;
 class XPathEvaluator;
 class XPathExpression;
 class XPathNSResolver;
@@ -1615,6 +1619,9 @@ class Document : public nsINode,
                               ViewportMetaData&& aData);
   void RemoveMetaViewportElement(HTMLMetaElement* aElement);
 
+  // Returns a ViewportMetaData for this document.
+  ViewportMetaData GetViewportMetaData() const;
+
   void UpdateForScrollAnchorAdjustment(nscoord aLength);
 
   /**
@@ -2019,13 +2026,13 @@ class Document : public nsINode,
   /**
    * Remove a stylesheet from the document
    */
-  void RemoveStyleSheet(StyleSheet* aSheet);
+  void RemoveStyleSheet(StyleSheet*);
 
   /**
    * Notify the document that the applicable state of the sheet changed
    * and that observers should be notified and style sets updated
    */
-  void SetStyleSheetApplicableState(StyleSheet&, bool aApplicable);
+  void StyleSheetApplicableStateChanged(StyleSheet&);
 
   enum additionalSheetType {
     eAgentSheet,
@@ -4066,9 +4073,6 @@ class Document : public nsINode,
   // stored in parent iframe or container's browsingContext (cross process)
   already_AddRefed<mozilla::dom::FeaturePolicy> GetParentFeaturePolicy();
 
-  // Returns a ViewportMetaData for this document.
-  ViewportMetaData GetViewportMetaData() const;
-
   FlashClassification DocumentFlashClassificationInternal();
 
   nsTArray<nsString> mL10nResources;
@@ -5166,6 +5170,10 @@ class Document : public nsINode,
   };
 
   ViewportType mViewportType;
+
+  // viewport-fit described by
+  // https://drafts.csswg.org/css-round-display/#viewport-fit-descriptor
+  ViewportFitType mViewportFit;
 
   PLDHashTable* mSubDocuments;
 
