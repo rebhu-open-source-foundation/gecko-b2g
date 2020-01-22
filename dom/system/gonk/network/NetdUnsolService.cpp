@@ -129,9 +129,14 @@ Status NetdUnsolService::onRouteChanged(bool updated, const std::string& route,
                                         const std::string& gateway,
                                         const std::string& ifName) {
   char message[BUF_SIZE];
-  snprintf(message, sizeof(message), "Route %s %s via %s dev %s",
-           updated ? "updated" : "removed", route.c_str(), gateway.c_str(),
-           ifName.c_str());
+  if (gateway.empty()) {
+    snprintf(message, sizeof(message), "Route %s %s dev %s",
+             updated ? "updated" : "removed", route.c_str(), ifName.c_str());
+  } else {
+    snprintf(message, sizeof(message), "Route %s %s via %s dev %s",
+             updated ? "updated" : "removed", route.c_str(), gateway.c_str(),
+             ifName.c_str());
+  }
   NUS_DBG("%s", message);
   sendBroadcast(RouteChanged, message);
   return Status::ok();

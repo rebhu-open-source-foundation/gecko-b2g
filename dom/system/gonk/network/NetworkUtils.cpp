@@ -667,11 +667,15 @@ void NetworkUtils::setInterfaceDns(CommandChain* aChain,
                                    CommandCallback aCallback,
                                    NetworkResultOptions& aResult) {
   std::vector<std::string> servers;
+  std::vector<std::string> domains;
   nsTArray<nsString>& dnses = GET_FIELD(mDnses);
   uint32_t length = dnses.Length();
   for (uint32_t i = 0; i < length; i++) {
     NS_ConvertUTF16toUTF8 autoDns(dnses[i]);
     servers.push_back(autoDns.get());
+  }
+  if (!GET_FIELD(mDomain).IsEmpty()) {
+    domains.push_back(GET_CHAR(mDomain));
   }
   ResolverParamsParcel resolverParams;
   resolverParams.netId = GET_FIELD(mNetId);
@@ -679,8 +683,10 @@ void NetworkUtils::setInterfaceDns(CommandChain* aChain,
   resolverParams.successThreshold = DNS_RESOLVER_DEFAULT_SUCCESS_THRESHOLD_PERCENT;
   resolverParams.minSamples = DNS_RESOLVER_DEFAULT_MIN_SAMPLES;
   resolverParams.maxSamples = DNS_RESOLVER_DEFAULT_MAX_SAMPLES;
+  resolverParams.baseTimeoutMsec = 0;
+  resolverParams.retryCount = 3;
   resolverParams.servers = servers;
-  resolverParams.domains = {GET_CHAR(mDomain)};
+  resolverParams.domains = domains;
   // TODO: Strict mode.
   resolverParams.tlsName = "";
   resolverParams.tlsServers = {};
