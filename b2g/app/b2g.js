@@ -1256,7 +1256,7 @@ pref("device.capability.wifi", false);
 #endif
 
 // Kai daemon ws url
-pref("externalAPI.websocket.url", "ws://localhost:8081/");
+pref("externalAPI.websocket.url", "ws://localhost/");
 pref("externalAPI.websocket.protocols", "kaios-services");
 
 // Enable IPv6 tethering router mode in Gecko
