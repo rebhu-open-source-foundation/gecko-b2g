@@ -370,7 +370,7 @@ class ReleaseNotificationRunnable final : public NotificationWorkerRunnable {
 
   nsresult Cancel() override {
     mNotification->ReleaseObject();
-    return NS_OK;
+    return NotificationWorkerRunnable::Cancel();
   }
 };
 

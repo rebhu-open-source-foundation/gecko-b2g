@@ -182,11 +182,11 @@ already_AddRefed<Promise> Directory::CreateFile(
                                str.Length());
     } else if (data.IsArrayBuffer()) {
       const ArrayBuffer& buffer = data.GetAsArrayBuffer();
-      buffer.ComputeLengthAndData();
+      buffer.ComputeState();
       arrayData.AppendElements(buffer.Data(), buffer.Length());
     } else if (data.IsArrayBufferView()) {
       const ArrayBufferView& view = data.GetAsArrayBufferView();
-      view.ComputeLengthAndData();
+      view.ComputeState();
       arrayData.AppendElements(view.Data(), view.Length());
     } else {
       blobData = data.GetAsBlob();

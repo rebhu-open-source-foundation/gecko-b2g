@@ -332,7 +332,6 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
   void IterateWindowListeners(nsPIDOMWindowInner* aWindow,
                               const FunctionType& aCallback);
 
-  void StopMediaStreams();
   void RemoveMediaDevicesCallback(uint64_t aWindowID);
   void DeviceListChanged();
 

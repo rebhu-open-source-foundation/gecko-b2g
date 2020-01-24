@@ -539,11 +539,6 @@ def build_docker_worker_payload(config, task, task_def):
                 trust_domain=config.graph_config['trust-domain'],
                 level=config.params['level'])
         )
-        task_def['scopes'].append(
-            'auth:gcp:access-token:{project}/tc-l{level}*'.format(
-                project=SCCACHE_GCS_PROJECT,
-                level=config.params['level'])
-        )
         worker['env']['USE_SCCACHE'] = '1'
         worker['env']['SCCACHE_GCS_PROJECT'] = SCCACHE_GCS_PROJECT
         # Disable sccache idle shutdown.
@@ -803,6 +798,11 @@ def build_generic_worker_payload(config, task, task_def):
     if 'retry-exit-status' in worker:
         task_def['payload'].setdefault(
             'onExitStatus', {}).setdefault('retry', []).extend(worker['retry-exit-status'])
+    if worker['os'] == 'linux-bitbar':
+        task_def['payload'].setdefault('onExitStatus', {}).setdefault('retry', [])
+        # exit code 4 is used to indicate an intermittent android device error
+        if 4 not in task_def['payload']['onExitStatus']['retry']:
+            task_def['payload']['onExitStatus']['retry'].extend([4])
 
     env = worker.get('env', {})
 
