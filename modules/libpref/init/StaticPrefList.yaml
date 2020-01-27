@@ -3899,7 +3899,7 @@
 
 - name: gfx.webrender.compositor
   type: bool
-#if defined(XP_MACOSX)
+#if defined(XP_WIN) || defined(XP_MACOSX)
   value: true
 #else
   value: false
@@ -5943,6 +5943,8 @@
   mirror: always
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
+#elif defined(XP_WIN) && !defined(_ARM64_)
+  value: @IS_NIGHTLY_BUILD@
 #else
   value: false
 #endif

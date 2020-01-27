@@ -146,7 +146,6 @@ class FetchEvent final : public ExtendableEvent {
   nsString mResultingClientId;
   uint32_t mPreventDefaultLineNumber;
   uint32_t mPreventDefaultColumnNumber;
-  bool mIsReload;
   bool mWaitToRespond;
 
  protected:
@@ -186,8 +185,6 @@ class FetchEvent final : public ExtendableEvent {
   void GetResultingClientId(nsAString& aResultingClientId) const {
     aResultingClientId = mResultingClientId;
   }
-
-  bool IsReload() const { return mIsReload; }
 
   void RespondWith(JSContext* aCx, Promise& aArg, ErrorResult& aRv);
 

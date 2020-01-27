@@ -1259,7 +1259,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleVisibility {
   nsChangeHint CalcDifference(const nsStyleVisibility& aNewData) const;
 
   mozilla::StyleImageOrientation mImageOrientation;
-  uint8_t mDirection;  // NS_STYLE_DIRECTION_*
+  mozilla::StyleDirection mDirection;
   mozilla::StyleVisibility mVisible;
   uint8_t mImageRendering;  // NS_STYLE_IMAGE_RENDERING_*
   uint8_t mWritingMode;     // NS_STYLE_WRITING_MODE_*
@@ -2094,7 +2094,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleSVG {
   mozilla::StyleShapeRendering mShapeRendering;
   mozilla::StyleStrokeLinecap mStrokeLinecap;
   mozilla::StyleStrokeLinejoin mStrokeLinejoin;
-  uint8_t mDominantBaseline;  // NS_STYLE_DOMINANT_BASELINE_*
+  mozilla::StyleDominantBaseline mDominantBaseline;
   mozilla::StyleTextAnchor mTextAnchor;
 
   /// Returns true if style has been set to expose the computed values of
