@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "DisplayItemCache.h"
+#include "nsDisplayList.h"
 
 namespace mozilla {
 namespace layers {
