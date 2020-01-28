@@ -140,6 +140,7 @@ rusty-enums = [
     "mozilla::StyleFlexWrap",
     "mozilla::StyleTextDecorationSkipInk",
     "mozilla::StyleTextDecorationLength",
+    "mozilla::StyleMaskType",
     "mozilla::StyleShapeRendering",
     "mozilla::StyleTextAnchor",
     "mozilla::StyleObjectFit",
@@ -155,6 +156,7 @@ rusty-enums = [
     "mozilla::StyleGeometryBox",
     "mozilla::SystemColor",
     "mozilla::StyleMaskMode",
+    "mozilla::StyleScrollBehavior",
 ]
 whitelist-vars = [
     "NS_AUTHOR_SPECIFIED_.*",

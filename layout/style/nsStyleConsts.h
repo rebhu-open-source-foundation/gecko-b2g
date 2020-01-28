@@ -751,8 +751,10 @@ enum class StyleDominantBaseline : uint8_t {
 #define NS_STYLE_IMAGE_RENDERING_CRISP_EDGES 3
 
 // mask-type
-#define NS_STYLE_MASK_TYPE_LUMINANCE 0
-#define NS_STYLE_MASK_TYPE_ALPHA 1
+enum class StyleMaskType : uint8_t {
+  Luminance,
+  Alpha,
+};
 
 // shape-rendering
 enum class StyleShapeRendering : uint8_t {
@@ -869,9 +871,11 @@ enum class StyleColorAdjust : uint8_t {
 #define NS_STYLE_COUNTER_SPEAKAS_SPELL_OUT 3
 #define NS_STYLE_COUNTER_SPEAKAS_OTHER 255  // refer to another style
 
-// See nsStyleDisplay::mScrollBehavior
-#define NS_STYLE_SCROLL_BEHAVIOR_AUTO 0
-#define NS_STYLE_SCROLL_BEHAVIOR_SMOOTH 1
+// scroll-behavior
+enum class StyleScrollBehavior : uint8_t {
+  Auto,
+  Smooth,
+};
 
 }  // namespace mozilla
 
