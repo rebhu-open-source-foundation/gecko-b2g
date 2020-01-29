@@ -10,6 +10,7 @@
 #include "nsIServiceWorkerManager.h"
 #include "nsCOMPtr.h"
 
+#include "ServiceWorkerShutdownState.h"
 #include "ipc/IPCMessageUtils.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/AutoRestore.h"
@@ -280,7 +281,8 @@ class ServiceWorkerManager final : public nsIServiceWorkerManager,
   void NoteInheritedController(const ClientInfo& aClientInfo,
                                const ServiceWorkerDescriptor& aController);
 
-  void BlockShutdownOn(GenericNonExclusivePromise* aPromise);
+  void BlockShutdownOn(GenericNonExclusivePromise* aPromise,
+                       uint32_t aShutdownStateId);
 
   nsresult GetClientRegistration(
       const ClientInfo& aClientInfo,
@@ -289,6 +291,14 @@ class ServiceWorkerManager final : public nsIServiceWorkerManager,
   void UpdateControlledClient(const ClientInfo& aOldClientInfo,
                               const ClientInfo& aNewClientInfo,
                               const ServiceWorkerDescriptor& aServiceWorker);
+
+  // Returns the shutdown state ID (may be an invalid ID if an
+  // nsIAsyncShutdownBlocker is not used).
+  uint32_t MaybeInitServiceWorkerShutdownProgress() const;
+
+  void ReportServiceWorkerShutdownProgress(
+      uint32_t aShutdownStateId,
+      ServiceWorkerShutdownState::Progress aProgress) const;
 
  private:
   struct RegistrationDataPerPrincipal;

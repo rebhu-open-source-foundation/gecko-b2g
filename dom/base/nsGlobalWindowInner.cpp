@@ -76,6 +76,7 @@
 // Helper Classes
 #include "nsJSUtils.h"
 #include "jsapi.h"
+#include "jsfriendapi.h"
 #include "js/Warnings.h"  // JS::WarnASCII
 #include "js/Wrapper.h"
 #include "nsCharSeparatedTokenizer.h"
@@ -848,6 +849,7 @@ nsGlobalWindowInner::nsGlobalWindowInner(nsGlobalWindowOuter* aOuterWindow,
       mXRPermissionGranted(false),
       mWasCurrentInnerWindow(false),
       mHasSeenGamepadInput(false),
+      mHintedWasLoading(false),
       mSuspendDepth(0),
       mFreezeDepth(0),
 #ifdef DEBUG
@@ -957,6 +959,7 @@ void nsGlobalWindowInner::Init() {
 
 nsGlobalWindowInner::~nsGlobalWindowInner() {
   AssertIsOnMainThread();
+  MOZ_ASSERT(!mHintedWasLoading);
 
   if (IsChromeWindow()) {
     MOZ_ASSERT(mCleanMessageManager,
@@ -1232,6 +1235,8 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   mWindowGlobalChild = nullptr;
 
   mIntlUtils = nullptr;
+
+  HintIsLoading(false);
 }
 
 //*****************************************************************************
@@ -2567,6 +2572,19 @@ void nsGlobalWindowInner::SetActiveLoadingState(bool aIsLoading) {
 
   if (!nsGlobalWindowInner::Cast(this)->IsChromeWindow()) {
     mTimeoutManager->SetLoading(aIsLoading);
+  }
+
+  HintIsLoading(aIsLoading);
+}
+
+void nsGlobalWindowInner::HintIsLoading(bool aIsLoading) {
+  // Hint to tell the JS GC to use modified triggers during pageload.
+  if (mHintedWasLoading != aIsLoading) {
+    using namespace js::gc;
+    SetPerformanceHint(
+        danger::GetJSContext(),
+        aIsLoading ? PerformanceHint::InPageLoad : PerformanceHint::Normal);
+    mHintedWasLoading = aIsLoading;
   }
 }
 
@@ -5276,6 +5294,8 @@ void nsGlobalWindowInner::FreezeInternal() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_DIAGNOSTIC_ASSERT(IsCurrentInnerWindow());
   MOZ_DIAGNOSTIC_ASSERT(IsSuspended());
+
+  HintIsLoading(false);
 
   CallOnInProcessChildren(&nsGlobalWindowInner::FreezeInternal);
 
