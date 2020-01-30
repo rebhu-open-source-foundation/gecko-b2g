@@ -161,7 +161,7 @@ SwitchState GetCurrentSwitchState(SwitchDevice aDevice) {
 void NotifySwitchStateFromInputDevice(SwitchDevice aDevice, SwitchState aState) {
   Unused << aDevice;
   Unused << aState;
-  NS_RUNTIMEABORT("Only the main process may notify switch state change.");
+  MOZ_CRASH("Only the main process may notify switch state change.");
 }
 
 bool EnableAlarm() {
