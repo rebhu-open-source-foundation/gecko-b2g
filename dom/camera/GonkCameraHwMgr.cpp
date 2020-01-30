@@ -54,6 +54,7 @@ NS_IMPL_ISUPPORTS0(android::Camera);
 #define DEFAULT_USER_ID           0
 #define EVENT_USER_SWITCHED       1
 #define CAMERASERVICE_POLL_DELAY  500000
+#define CAMERA_CONNECT_DELAY  2000
 #endif
 
 #ifndef DEAD_OBJECT
@@ -314,6 +315,14 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
     ProcessState::self()->startThreadPool();
     camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
       Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+    /* bug-82626: Retry Camera::connect each 2 ms delay since there is a chance that 
+     * EVENT_USER_SWITCHED being handled after Camera::connect. */
+    while (camera.get() == nullptr) {
+      usleep(CAMERA_CONNECT_DELAY);
+      DOM_CAMERA_LOGW("Camera::connect failed. Retrying...\n");
+      camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
+        Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+    }
   #elif ANDROID_VERSION >= 18
     camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
       Camera::USE_CALLING_UID);
@@ -323,6 +332,7 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
 #endif
 
     if (camera.get() == nullptr) {
+      DOM_CAMERA_LOGE("Failed to connect camera hardware!\n");
       return nullptr;
     }
   }
