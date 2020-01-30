@@ -8,6 +8,7 @@
 
 #include "base/basictypes.h"
 
+#include "mozilla/AppShutdown.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Poison.h"
 #include "mozilla/RemoteDecoderManagerChild.h"
@@ -613,6 +614,8 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
 
     if (observerService) {
       mozilla::KillClearOnShutdown(ShutdownPhase::WillShutdown);
+      mozilla::AppShutdown::MaybeFastShutdown(
+          mozilla::ShutdownPhase::WillShutdown);
       observerService->NotifyObservers(
           nullptr, NS_XPCOM_WILL_SHUTDOWN_OBSERVER_ID, nullptr);
 
@@ -620,6 +623,8 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
       rv = NS_GetServiceManager(getter_AddRefs(mgr));
       if (NS_SUCCEEDED(rv)) {
         mozilla::KillClearOnShutdown(ShutdownPhase::Shutdown);
+        mozilla::AppShutdown::MaybeFastShutdown(
+            mozilla::ShutdownPhase::Shutdown);
         observerService->NotifyObservers(mgr, NS_XPCOM_SHUTDOWN_OBSERVER_ID,
                                          nullptr);
       }
@@ -660,11 +665,6 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
 
     BackgroundHangMonitor().NotifyActivity();
 
-    // Late-write checks needs to find the profile directory, so it has to
-    // be initialized before mozilla::services::Shutdown or (because of
-    // xpcshell tests replacing the service) modules being unloaded.
-    mozilla::InitLateWriteChecks();
-
     if (observerService) {
       mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownLoaders);
       observerService->Shutdown();
@@ -675,6 +675,8 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
   // we've finished notifying observers of XPCOM shutdown, because shutdown
   // observers themselves might call ClearOnShutdown().
   mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownFinal);
+  mozilla::AppShutdown::MaybeFastShutdown(
+      mozilla::ShutdownPhase::ShutdownFinal);
 
   // XPCOM is officially in shutdown mode NOW
   // Set this only after the observers have been notified as this
@@ -718,15 +720,10 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
   // There can be code trying to refer to global objects during the final cc
   // shutdown. This is the phase for such global objects to correctly release.
   mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownPostLastCycleCollection);
+  mozilla::AppShutdown::MaybeFastShutdown(
+      mozilla::ShutdownPhase::ShutdownPostLastCycleCollection);
 
   PROFILER_ADD_MARKER("Shutdown xpcom", OTHER);
-  // If we are doing any shutdown checks, poison writes.
-  if (gShutdownChecks != SCM_NOTHING) {
-#ifdef XP_MACOSX
-    mozilla::OnlyReportDirtyWrites();
-#endif /* XP_MACOSX */
-    mozilla::BeginLateWriteChecks();
-  }
 
   // Shutdown xpcom. This will release all loaders and cause others holding
   // a refcount to the component manager to release it.

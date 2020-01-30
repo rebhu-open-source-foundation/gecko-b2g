@@ -510,10 +510,11 @@ class UpdateServiceWorkerStateOp final : public ServiceWorkerOp {
       MOZ_ASSERT(aWorkerPrivate);
       aWorkerPrivate->AssertIsOnWorkerThread();
       MOZ_ASSERT(aWorkerPrivate->IsServiceWorker());
-      MOZ_ASSERT(mOwner);
 
-      Unused << mOwner->Exec(aCx, aWorkerPrivate);
-      mOwner = nullptr;
+      if (mOwner) {
+        Unused << mOwner->Exec(aCx, aWorkerPrivate);
+        mOwner = nullptr;
+      }
 
       return true;
     }
