@@ -25,7 +25,6 @@ if not CONFIG['DISABLE_WIFI']:
       'DOMWifiManager.manifest',
       'DOMWifiP2pManager.js',
       'DOMWifiP2pManager.manifest',
-      'WifiWorker.js',
       'WifiWorker.manifest',
   ]
 
@@ -41,6 +40,11 @@ if not CONFIG['DISABLE_WIFI']:
       'WifiNetworkSelector.jsm',
       'WifiP2pManager.jsm',
       'WifiP2pWorkerObserver.jsm',
+      'WifiWorker.jsm',
+  ]
+
+  XPCOM_MANIFESTS += [
+      'components.conf',
   ]
 
   if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':

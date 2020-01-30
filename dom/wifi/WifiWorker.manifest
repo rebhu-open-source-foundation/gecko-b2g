@@ -1,1 +1,1 @@
-component {a14e8977-d259-433a-a88d-58dd44657e5b} WifiWorker.js
+category profile-after-change WifiWorker @mozilla.org/wifi/worker;1 process=main

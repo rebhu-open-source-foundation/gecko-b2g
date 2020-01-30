@@ -22,8 +22,6 @@
 #  include "nsINetworkService.h"
 #  include "nsIXPConnect.h"
 #endif
-#include "nsIWifi.h"
-#include "nsIWorkerHolder.h"
 
 #if 0
 #  include "jsfriendapi.h"
@@ -40,8 +38,6 @@
 #  include "nsThreadUtils.h"
 #  include "mozilla/Services.h"
 #endif
-#include "WifiWorker.h"
-#include "nsComponentManagerUtils.h"
 
 #define WORKERS_SHUTDOWN_TOPIC "web-workers-shutdown"
 
@@ -50,8 +46,6 @@ using namespace mozilla::ipc;
 using namespace mozilla::system;
 
 namespace {
-
-NS_DEFINE_CID(kWifiWorkerCID, NS_WIFIWORKER_CID);
 
 // Doesn't carry a reference, we're owned by services.
 SystemWorkerManager* gInstance = nullptr;
@@ -79,13 +73,6 @@ nsresult SystemWorkerManager::Init() {
   NS_ASSERTION(!mShutdown, "Already shutdown!");
 
   nsresult rv;
-#ifndef DISABLE_WIFI
-  rv = InitWifi();
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to initialize WiFi Networking!");
-    return rv;
-  }
-#endif
 
 #if 0
   InitKeyStore();
@@ -120,15 +107,6 @@ void SystemWorkerManager::Shutdown() {
   mShutdown = true;
 
   ShutdownAutoMounter();
-
-#ifndef DISABLE_WIFI
-  nsCOMPtr<nsIWifi> wifi(do_QueryInterface(mWifiWorker));
-  if (wifi) {
-    wifi->Shutdown();
-    wifi = nullptr;
-  }
-  mWifiWorker = nullptr;
-#endif
 
 #if 0
   if (mKeyStore) {
@@ -170,16 +148,6 @@ nsIInterfaceRequestor* SystemWorkerManager::GetInterfaceRequestor() {
 NS_IMETHODIMP
 SystemWorkerManager::GetInterface(const nsIID& aIID, void** aResult) {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
-
-  if (aIID.Equals(NS_GET_IID(nsIWifi))) {
-#ifndef DISABLE_WIFI
-    return CallQueryInterface(mWifiWorker,
-                              reinterpret_cast<nsIWifi**>(aResult));
-#else
-    return NS_ERROR_NOT_IMPLEMENTED;
-#endif
-  }
-
   NS_WARNING("Got nothing for the requested IID!");
   return NS_ERROR_NO_INTERFACE;
 }
@@ -188,18 +156,6 @@ nsresult SystemWorkerManager::RegisterRilWorker(unsigned int aClientId,
                                                 JSContext* aCx) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
-
-#ifndef DISABLE_WIFI
-nsresult
-SystemWorkerManager::InitWifi()
-{
-  nsCOMPtr<nsIWorkerHolder> worker = do_CreateInstance(kWifiWorkerCID);
-  NS_ENSURE_TRUE(worker, NS_ERROR_FAILURE);
-
-  mWifiWorker = worker;
-  return NS_OK;
-}
-#endif
 
 #if 0
 nsresult

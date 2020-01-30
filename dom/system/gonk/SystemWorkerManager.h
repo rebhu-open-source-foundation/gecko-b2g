@@ -24,8 +24,6 @@
 #include "nsCOMPtr.h"
 #include "nsXULAppAPI.h"  // For XRE_GetProcessType
 
-class nsIWorkerHolder;
-
 namespace mozilla {
 
 namespace ipc {
@@ -54,11 +52,6 @@ class SystemWorkerManager final : public nsIObserver,
  private:
   SystemWorkerManager();
   ~SystemWorkerManager();
-
-#ifndef DISABLE_WIFI
-  nsresult InitWifi();
-  nsCOMPtr<nsIWorkerHolder> mWifiWorker;
-#endif
 
 #if 0
   nsresult InitKeyStore();

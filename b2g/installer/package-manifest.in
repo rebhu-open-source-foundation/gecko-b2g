@@ -506,10 +506,13 @@
 
 ; WiFi, NetworkManager, NetworkStats
 #ifdef MOZ_WIDGET_GONK
+#ifndef DISABLE_WIFI
 @RESPATH@/components/DOMWifiManager.js
 @RESPATH@/components/DOMWifiManager.manifest
 @RESPATH@/components/DOMWifiP2pManager.js
 @RESPATH@/components/DOMWifiP2pManager.manifest
+@RESPATH@/components/WifiWorker.manifest
+#endif // DISABLE_WIFI
 @RESPATH@/components/EthernetManager.js
 @RESPATH@/components/EthernetManager.manifest
 @RESPATH@/components/NetworkStatsManager.js
@@ -517,8 +520,6 @@
 @RESPATH@/components/NetworkStatsServiceProxy.js
 @RESPATH@/components/NetworkStatsServiceProxy.manifest
 @RESPATH@/components/TetheringService.manifest
-@RESPATH@/components/WifiWorker.js
-@RESPATH@/components/WifiWorker.manifest
 #endif // MOZ_WIDGET_GONK
 
 ; Camera

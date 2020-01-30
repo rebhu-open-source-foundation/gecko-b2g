@@ -14,10 +14,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { Services } = ChromeUtils.import(
   "resource://gre/modules/Services.jsm"
 );
-const { libcutils } = ChromeUtils.import(
-  "resource://gre/modules/systemlibs.js"
-);
-const { netHelpers } = ChromeUtils.import(
+const { libcutils, netHelpers } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
 const { WifiInfo } = ChromeUtils.import(
@@ -41,9 +38,10 @@ const { WifiConfigManager } = ChromeUtils.import(
 const { FileUtils } = ChromeUtils.import(
   "resource://gre/modules/FileUtils.jsm"
 );
-const { Timer } = ChromeUtils.import(
+const { Timer, clearTimeout, setTimeout } = ChromeUtils.import(
   "resource://gre/modules/Timer.jsm"
 );
+
 Cu.import("resource://gre/modules/WifiConfiguration.jsm");
 
 var DEBUG = true; // set to true to show debug messages.
@@ -904,7 +902,7 @@ var WifiManager = (function() {
     */
 
     // WPA supplicant already connected.
-    manager.enableAutoReconnect(false, function(ok) {});
+    manager.enableAutoReconnect(true, function(ok) {});
     manager.setPowerSave(true, function(ok) {});
     // FIXME: window.navigator.mozPower is undefined
     // let window = Services.wm.getMostRecentWindow("navigator:browser");
@@ -2040,7 +2038,7 @@ var WifiManager = (function() {
       });
 
       let terminateEventCallback = function() {
-        handleEvent("CTRL-EVENT-TERMINATING");
+        handleEvent({ name: "CTRL-EVENT-TERMINATING" });
       };
       createWaitForTerminateEventTimer(terminateEventCallback);
 
@@ -3423,11 +3421,11 @@ function WifiWorker() {
       WifiNetworkInterface.httpProxyPort = netConnect.httpProxyPort;
     }
 
-    // FIXME: setTimeout is not defined
-    // self.handlePromptUnvalidatedId = setTimeout(
-    //   self.handlePromptUnvalidated.bind(self),
-    //   PROMPT_UNVALIDATED_DELAY_MS
-    // );
+    self.handlePromptUnvalidatedId = setTimeout(
+      self.handlePromptUnvalidated.bind(self),
+      PROMPT_UNVALIDATED_DELAY_MS
+    );
+
     // wifi connected and reset open network notification.
     OpenNetworkNotifier.clearPendingNotification();
     // self._reloadConfiguredNetworks(function(ok) {
@@ -5803,3 +5801,5 @@ function updateDebug() {
   //WifiManager.syncDebug();
 }
 updateDebug();
+
+var EXPORTED_SYMBOLS = ["WifiWorker"];

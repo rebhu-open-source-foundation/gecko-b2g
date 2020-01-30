@@ -21,7 +21,6 @@ XPIDL_SOURCES += [
     'nsIVolumeMountLock.idl',
     'nsIVolumeService.idl',
     'nsIVolumeStat.idl',
-    'nsIWorkerHolder.idl',
 ]
 
 XPIDL_MODULE = 'dom_system_gonk'
@@ -81,7 +80,6 @@ LOCAL_INCLUDES += [
     # libhardware_legacy is needed for acquiring/releasing wake lock
     '%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH'],
     '/dom/base',
-    '/dom/wifi',
 ]
 
 DIRS += [
