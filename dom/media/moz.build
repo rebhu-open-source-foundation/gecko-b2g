@@ -205,6 +205,11 @@ if not CONFIG['MOZ_WEBRTC']:
       '../../media/mtransport/runnable_utils.h',
   ]
 
+if CONFIG['MOZ_B2G']:
+    EXPORTS.mozilla += [
+        'MediaPermissionGonk.h',
+    ]
+
 EXPORTS.mozilla.dom += [
     'AudioDeviceInfo.h',
     'AudioStreamTrack.h',
@@ -321,6 +326,11 @@ if CONFIG['OS_TARGET'] == 'WINNT':
       'AudioNotificationSender.cpp',
       'ThreadPoolCOMListener.cpp',
   ]
+
+if CONFIG['MOZ_B2G']:
+    SOURCES += [
+        'MediaPermissionGonk.cpp',
+    ]
 
 # CubebUtils.cpp needs to be built separately due to what appears to be some kind
 # of compiler bug on Android 4.2 x86 opt. See bug 1408459.
