@@ -18,6 +18,11 @@
 #include "nsIComponentRegistrar.h"
 #include "prenv.h"
 
+#if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
+#include "ICameraControl.h"
+#include "MediaEngineGonkVideoSource.h"
+#endif
+
 #define FAKE_ONDEVICECHANGE_EVENT_PERIOD_IN_MS 500
 
 static mozilla::LazyLogModule sGetUserMediaLog("GetUserMedia");
@@ -87,6 +92,43 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
     nsTArray<RefPtr<MediaDevice>>* aDevices) {
   AssertIsOnOwningThread();
 
+#if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
+  if (aCapEngine != camera::CameraEngine) {
+    // only supports camera sources
+    return;
+  }
+
+  /**
+   * We still enumerate every time, in case a new device was plugged in since
+   * the last call. TODO: Verify that WebRTC actually does deal with hotplugging
+   * new devices (with or without new engine creation) and accordingly adjust.
+   * Enumeration is not neccessary if GIPS reports the same set of devices
+   * for a given instance of the engine. Likewise, if a device was plugged out,
+   * mVideoSources must be updated.
+   */
+  int num = 0;
+  nsresult result;
+  result = ICameraControl::GetNumberOfCameras(num);
+  if (num <= 0 || result != NS_OK) {
+    return;
+  }
+
+  for (int i = 0; i < num; i++) {
+    nsCString cameraName;
+    result = ICameraControl::GetCameraName(i, cameraName);
+    if (result != NS_OK) {
+      continue;
+    }
+
+    RefPtr<MediaEngineSource> vSource = new MediaEngineGonkVideoSource(i);
+
+    aDevices->AppendElement(MakeRefPtr<MediaDevice>(
+        vSource, vSource->GetName(), NS_ConvertUTF8toUTF16(vSource->GetUUID()),
+        vSource->GetGroupId(), NS_LITERAL_STRING("")));
+  }
+
+  return;
+#else
   // flag sources with cross-origin exploit potential
   bool scaryKind = (aCapEngine == camera::ScreenEngine ||
                     aCapEngine == camera::BrowserEngine);
@@ -176,6 +218,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
         NS_ConvertUTF8toUTF16(tabVideoSource->GetUUID()),
         tabVideoSource->GetGroupId(), NS_LITERAL_STRING("")));
   }
+#endif
 }
 
 void MediaEngineWebRTC::EnumerateMicrophoneDevices(
