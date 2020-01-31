@@ -42,6 +42,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
 #endif
 #ifdef MOZ_B2G_RIL
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileConnections)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTelephony)
 #endif
 #ifndef DISABLE_WIFI
@@ -65,6 +66,10 @@ void KaiOS::Invalidate() {
 #endif
 
 #ifdef MOZ_B2G_RIL
+  if (mMobileConnections) {
+    mMobileConnections = nullptr;
+  }
+
   if (mTelephony) {
     mTelephony = nullptr;
   }
@@ -117,6 +122,18 @@ bluetooth::BluetoothManager* KaiOS::GetMozBluetooth(ErrorResult& aRv) {
 #endif  // MOZ_B2G_BT
 
 #ifdef MOZ_B2G_RIL
+MobileConnectionArray* KaiOS::GetMozMobileConnections(ErrorResult& aRv) {
+  if (!mMobileConnections) {
+    if (!mWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mMobileConnections = new MobileConnectionArray(mWindow);
+  }
+
+  return mMobileConnections;
+}
+
 Telephony* KaiOS::GetMozTelephony(ErrorResult& aRv) {
   if (!mTelephony) {
     nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);

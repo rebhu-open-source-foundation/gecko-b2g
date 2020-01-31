@@ -902,6 +902,20 @@ class ContentParent final
 
   bool DeallocPScriptCacheParent(PScriptCacheParent* shell);
 
+  PMobileConnectionParent* AllocPMobileConnectionParent(
+      const uint32_t& aClientId);
+
+  bool DeallocPMobileConnectionParent(PMobileConnectionParent* aActor);
+
+  PImsRegServiceFinderParent* AllocPImsRegServiceFinderParent();
+
+  bool DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent* aActor);
+
+  PImsRegistrationParent* AllocPImsRegistrationParent(
+      const uint32_t& aClientId);
+
+  bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
+
   bool DeallocPNeckoParent(PNeckoParent* necko);
 
   PPSMContentDownloaderParent* AllocPPSMContentDownloaderParent(
@@ -931,6 +945,10 @@ class ContentParent final
       const bool& aShouldCloseWindow) override;
 
   already_AddRefed<PHandlerServiceParent> AllocPHandlerServiceParent();
+
+  virtual PTelephonyParent* AllocPTelephonyParent();
+
+  virtual bool DeallocPTelephonyParent(PTelephonyParent*);
 
   PMediaParent* AllocPMediaParent();
 
@@ -985,20 +1003,6 @@ class ContentParent final
 
   //   virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
 
-  //   PMobileConnectionParent* AllocPMobileConnectionParent(const uint32_t&
-  //   aClientId);
-
-  //   bool DeallocPMobileConnectionParent(PMobileConnectionParent* aActor);
-
-  //   PImsRegServiceFinderParent* AllocPImsRegServiceFinderParent();
-
-  //   bool DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent*
-  //   aActor);
-
-  //   PImsRegistrationParent* AllocPImsRegistrationParent(const uint32_t&
-  //   aClientId);
-
-  //   bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
 
   //   virtual PCellBroadcastParent* AllocPCellBroadcastParent();
 
@@ -1009,10 +1013,6 @@ class ContentParent final
   //   virtual PSmsParent* AllocPSmsParent();
 
   //   virtual bool DeallocPSmsParent(PSmsParent*);
-
-  virtual PTelephonyParent* AllocPTelephonyParent();
-
-  virtual bool DeallocPTelephonyParent(PTelephonyParent*);
 
   //   virtual PVoicemailParent* AllocPVoicemailParent();
 

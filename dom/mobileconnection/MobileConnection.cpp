@@ -10,7 +10,7 @@
 #include "MobileDeviceIdentities.h"
 #include "mozilla/AsyncEventDispatcher.h"
 //#include "mozilla/dom/CFStateChangeEvent.h"
-//#include "mozilla/dom/DataErrorEvent.h"
+#include "mozilla/dom/DataErrorEvent.h"
 #include "mozilla/dom/ImsRegHandler.h"
 //#include "mozilla/dom/MozClirModeEvent.h"
 #include "mozilla/dom/MozEmergencyCbModeEvent.h"
@@ -26,6 +26,7 @@
 //#include "nsJSON.h"
 #include "nsJSUtils.h"
 #include "nsServiceManagerUtils.h"
+#include "nsContentUtils.h"
 
 #define MOBILECONN_ERROR_INVALID_PARAMETER NS_LITERAL_STRING("InvalidParameter")
 #define MOBILECONN_ERROR_INVALID_PASSWORD  NS_LITERAL_STRING("InvalidPassword")
@@ -104,11 +105,11 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(MobileConnection,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mImsHandler)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-//NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(MobileConnection)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileConnection)
   // MobileConnection does not expose nsIMobileConnectionListener. mListener is
   // the exposed nsIMobileConnectionListener and forwards the calls it receives
   // to us.
-//NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
+NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(MobileConnection, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(MobileConnection, DOMEventTargetHelper)
@@ -347,7 +348,7 @@ MobileConnection::IsValidCallBarringOptions(const MozCallBarringOptions& aOption
 bool
 MobileConnection::IsValidCallForwardingOptions(const MozCallForwardingOptions& aOptions)
 {
-  /* 
+  /*
   if (!aOptions.mReason.WasPassed() || aOptions.mReason.Value().IsNull() ||
       !aOptions.mAction.WasPassed() || aOptions.mAction.Value().IsNull() ||
       !aOptions.mServiceClass.WasPassed() || aOptions.mServiceClass.Value().IsNull() ||
@@ -412,13 +413,12 @@ MobileConnection::GetDeviceIdentities(ErrorResult& aRv)
   RefPtr<MobileConnectionCallback> requestCallback =
     new MobileConnectionCallback(GetOwner(), request);
 
-  /*
-  nsresult rv = mMobileConnection->GetDeviceIdentities(requestCallback);
+  nsresult rv = mMobileConnection->GetIdentities(requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
   }
-*/
+
   return request.forget();
 }
 
@@ -1191,7 +1191,7 @@ MobileConnection::NotifyDataError(const nsAString& aMessage)
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
-/*
+
   DataErrorEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
@@ -1201,8 +1201,6 @@ MobileConnection::NotifyDataError(const nsAString& aMessage)
     DataErrorEvent::Constructor(this, NS_LITERAL_STRING("dataerror"), init);
 
   return DispatchTrustedEvent(event);
- */
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1388,13 +1386,11 @@ MobileConnection::NotifyIccInfoChanged()
   if (!UpdateIccId()) {
     return NS_OK;
   }
-/* TODO:
+
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, NS_LITERAL_STRING("iccchange"), false, true);
+    new AsyncEventDispatcher(this, NS_LITERAL_STRING("iccchange"), CanBubble::eNo);
 
   return asyncDispatcher->PostDOMEvent();
-*/
-  return NS_OK;
 }
 
 NS_IMETHODIMP

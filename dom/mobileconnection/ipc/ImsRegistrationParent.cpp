@@ -57,7 +57,6 @@ ImsRegServiceFinderParent::ActorDestroy(ActorDestroyReason aWhy)
 ImsRegistrationParent::ImsRegistrationParent(uint32_t aServiceId)
   : mLive(true)
 {
-  MOZ_COUNT_CTOR(ImsRegistrationParent);
 
   nsCOMPtr<nsIImsRegService> service =
     do_GetService(IMS_REG_SERVICE_CONTRACTID);

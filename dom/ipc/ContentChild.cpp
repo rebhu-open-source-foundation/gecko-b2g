@@ -256,10 +256,16 @@
 #endif
 
 #include "mozilla/dom/File.h"
+//#include "mozilla/dom/cellbroadcast/CellBroadcastIPCService.h"
+//#include "mozilla/dom/icc/IccChild.h"
+#include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
+#include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
+//#include "mozilla/dom/mobilemessage/SmsChild.h"
 #include "mozilla/dom/devicestorage/DeviceStorageRequestChild.h"
 #include "mozilla/dom/MediaControlKeysEvent.h"
 #include "mozilla/dom/PPresentationChild.h"
 #include "mozilla/dom/PresentationIPCService.h"
+//#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
 #include "mozilla/ipc/IPCStreamAlloc.h"
 #include "mozilla/ipc/IPCStreamDestination.h"
 #include "mozilla/ipc/IPCStreamSource.h"
@@ -276,8 +282,10 @@
 #include "nsDeviceStorage.h"
 #include "DomainPolicy.h"
 #include "mozilla/dom/ipc/StructuredCloneData.h"
+#include "mozilla/dom/telephony/TelephonyChild.h"
 #include "mozilla/dom/TabContext.h"
 #include "mozilla/ipc/CrashReporterClient.h"
+//#include "mozilla/dom/voicemail/VoicemailIPCService.h"
 #include "mozilla/net/NeckoMessageUtils.h"
 #include "mozilla/widget/PuppetBidiKeyboard.h"
 #include "mozilla/RemoteSpellCheckEngineChild.h"
@@ -299,22 +307,22 @@
 #  include "mozilla/CodeCoverageHandler.h"
 #endif
 
-//#if defined(MOZ_B2G_RIL)
-//#include "mozilla/dom/cellbroadcast/CellBroadcastIPCService.h"
-// #include "mozilla/dom/icc/IccChild.h"
-// #include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
-// #include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
-//#include "mozilla/dom/mobilemessage/SmsChild.h"
-//#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
-#include "mozilla/dom/telephony/TelephonyChild.h"
-//#include "mozilla/dom/voicemail/VoicemailIPCService.h"
-//#endif
-
 using namespace mozilla;
 using namespace mozilla::docshell;
 using namespace mozilla::dom::bluetooth;
 using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::ipc;
+// MOZ_B2G_RIL
+//#if define(MOZ_B2G_RIL)
+// using namespace mozilla::dom::cellbroadcast;
+// using namespace mozilla::dom::icc;
+using namespace mozilla::dom::mobileconnection;
+// using namespace mozilla::dom::mobilemessage;
+using namespace mozilla::dom::telephony;
+// using namespace mozilla::dom::voicemail;
+// using namespace mozilla::dom::subsidylock;
+//#endif
+// MOZ_B2G_RIL_END
 using namespace mozilla::media;
 using namespace mozilla::embedding;
 using namespace mozilla::gmp;
@@ -332,19 +340,6 @@ using namespace mozilla::system;
 #endif
 using namespace mozilla::widget;
 using mozilla::loader::PScriptCacheChild;
-
-// MOZ_B2G_RIL
-//#if define(MOZ_B2G_RIL)
-// using namespace mozilla::dom::cellbroadcast;
-// using namespace mozilla::dom::icc;
-// using namespace mozilla::dom::mobileconnection;
-// using namespace mozilla::dom::mobilemessage;
-using namespace mozilla::dom::telephony;
-// using namespace mozilla::dom::voicemail;
-// using namespace mozilla::dom::subsidylock;
-//#endif
-// MOZ_B2G_RIL_END
-
 namespace mozilla {
 
 namespace dom {
@@ -2145,6 +2140,69 @@ bool ContentChild::DeallocPHeapSnapshotTempFileHelperChild(
   delete aHeapSnapshotHelper;
   return true;
 }
+PMobileConnectionChild* ContentChild::SendPMobileConnectionConstructor(
+    PMobileConnectionChild* aActor, const uint32_t& aClientId) {
+#ifdef MOZ_B2G_RIL
+  // Add an extra ref for IPDL. Will be released in
+  // ContentChild::DeallocPMobileConnectionChild().
+  static_cast<MobileConnectionChild*>(aActor)->AddRef();
+  return PContentChild::SendPMobileConnectionConstructor(aActor, aClientId);
+#else
+  MOZ_CRASH("No support for mobileconnection on this platform!");
+#endif
+}
+
+PMobileConnectionChild* ContentChild::AllocPMobileConnectionChild(
+    const uint32_t& aClientId) {
+#ifdef MOZ_B2G_RIL
+  MOZ_CRASH("No one should be allocating PMobileConnectionChild actors");
+  return nullptr;
+#else
+  MOZ_CRASH("No support for mobileconnection on this platform!");
+#endif
+}
+
+bool ContentChild::DeallocPMobileConnectionChild(
+    PMobileConnectionChild* aActor) {
+#ifdef MOZ_B2G_RIL
+  // MobileConnectionChild is refcounted, must not be freed manually.
+  static_cast<MobileConnectionChild*>(aActor)->Release();
+  return true;
+#else
+  MOZ_CRASH("No support for mobileconnection on this platform!");
+#endif
+}
+
+PImsRegServiceFinderChild* ContentChild::AllocPImsRegServiceFinderChild() {
+  return new PImsRegServiceFinderChild();
+}
+
+bool ContentChild::DeallocPImsRegServiceFinderChild(
+    PImsRegServiceFinderChild* aActor) {
+  delete aActor;
+  return true;
+}
+
+PImsRegistrationChild* ContentChild::SendPImsRegistrationConstructor(
+    PImsRegistrationChild* aActor, const uint32_t& aServiceId) {
+  // Add an extra ref for IPDL. Will be released in
+  // ContentChild::DeallocPImsRegistrationChild().
+  static_cast<ImsRegistrationChild*>(aActor)->AddRef();
+  return PContentChild::SendPImsRegistrationConstructor(aActor, aServiceId);
+}
+
+PImsRegistrationChild* ContentChild::AllocPImsRegistrationChild(
+    const uint32_t& aServiceId) {
+  MOZ_ASSERT_UNREACHABLE(
+      "No one should be allocating PImsRegistrationChild actors");
+  return nullptr;
+}
+
+bool ContentChild::DeallocPImsRegistrationChild(PImsRegistrationChild* aActor) {
+  // ImsRegistrationChild is refcounted, must not be freed manually.
+  static_cast<ImsRegistrationChild*>(aActor)->Release();
+  return true;
+}
 
 PTestShellChild* ContentChild::AllocPTestShellChild() {
   return new TestShellChild();
@@ -2212,81 +2270,6 @@ bool ContentChild::DeallocPDeviceStorageRequestChild(
 }
 
 // MOZ_B2G_RIL
-// PMobileConnectionChild*
-// ContentChild::SendPMobileConnectionConstructor(PMobileConnectionChild* aActor,
-//                                                const uint32_t& aClientId)
-// {
-// #ifdef MOZ_B2G_RIL
-//   // Add an extra ref for IPDL. Will be released in
-//   // ContentChild::DeallocPMobileConnectionChild().
-//   static_cast<MobileConnectionChild*>(aActor)->AddRef();
-//   return PContentChild::SendPMobileConnectionConstructor(aActor, aClientId);
-// #else
-//   MOZ_CRASH("No support for mobileconnection on this platform!");
-// #endif
-// }
-
-// PMobileConnectionChild*
-// ContentChild::AllocPMobileConnectionChild(const uint32_t& aClientId)
-// {
-// #ifdef MOZ_B2G_RIL
-//   MOZ_CRASH("No one should be allocating PMobileConnectionChild actors");
-//   return nullptr;
-// #else
-//   MOZ_CRASH("No support for mobileconnection on this platform!");
-// #endif
-// }
-
-// bool
-// ContentChild::DeallocPMobileConnectionChild(PMobileConnectionChild* aActor)
-// {
-// #ifdef MOZ_B2G_RIL
-//   // MobileConnectionChild is refcounted, must not be freed manually.
-//   static_cast<MobileConnectionChild*>(aActor)->Release();
-//   return true;
-// #else
-//   MOZ_CRASH("No support for mobileconnection on this platform!");
-// #endif
-// }
-
-// PImsRegServiceFinderChild*
-// ContentChild::AllocPImsRegServiceFinderChild()
-// {
-//     return new PImsRegServiceFinderChild();
-// }
-
-// bool
-// ContentChild::DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*
-// aActor)
-// {
-//     delete aActor;
-//     return true;
-// }
-
-// PImsRegistrationChild*
-// ContentChild::SendPImsRegistrationConstructor(PImsRegistrationChild* aActor,
-//                                               const uint32_t& aServiceId)
-// {
-//     // Add an extra ref for IPDL. Will be released in
-//     // ContentChild::DeallocPImsRegistrationChild().
-//     static_cast<ImsRegistrationChild*>(aActor)->AddRef();
-//     return PContentChild::SendPImsRegistrationConstructor(aActor,
-//     aServiceId);
-// }
-
-// PImsRegistrationChild*
-// ContentChild::AllocPImsRegistrationChild(const uint32_t& aServiceId)
-// {
-//     //NS_NOTREACHED("No one should be allocating PImsRegistrationChild actors"); return nullptr;
-// }
-
-// bool
-// ContentChild::DeallocPImsRegistrationChild(PImsRegistrationChild* aActor)
-// {
-//     // ImsRegistrationChild is refcounted, must not be freed manually.
-//     static_cast<ImsRegistrationChild*>(aActor)->Release();
-//     return true;
-// }
 /*PCellBroadcastChild*
 ContentChild::AllocPCellBroadcastChild()
 {

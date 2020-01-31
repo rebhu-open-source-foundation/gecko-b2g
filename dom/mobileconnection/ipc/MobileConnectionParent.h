@@ -36,7 +36,6 @@ protected:
   virtual
   ~MobileConnectionParent()
   {
-    MOZ_COUNT_DTOR(MobileConnectionParent);
   }
 
   virtual void
@@ -90,7 +89,6 @@ public:
     : mMobileConnection(aMobileConnection)
     , mLive(true)
   {
-    MOZ_COUNT_CTOR(MobileConnectionRequestParent);
   }
 
   bool
@@ -160,7 +158,6 @@ protected:
   virtual
   ~MobileConnectionRequestParent()
   {
-    MOZ_COUNT_DTOR(MobileConnectionRequestParent);
   }
 
   virtual void

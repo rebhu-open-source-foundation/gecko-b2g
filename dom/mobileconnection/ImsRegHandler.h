@@ -35,7 +35,6 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIIMSREGLISTENER
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ImsRegHandler, DOMEventTargetHelper)
-//  NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
 
   ImsRegHandler(nsPIDOMWindowInner *aWindow, nsIImsRegHandler *aHandler);
 

@@ -5,55 +5,84 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MobileDeviceIdentities.h"
-#include "mozilla/dom/MobileConnectionDeviceIdsBinding.h"
 
 namespace mozilla {
 namespace dom {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileDeviceIdentities, mWindow)
+NS_IMPL_ISUPPORTS(MobileDeviceIdentities, nsIMobileDeviceIdentities)
 
-NS_IMPL_CYCLE_COLLECTING_ADDREF(MobileDeviceIdentities)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(MobileDeviceIdentities)
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileDeviceIdentities)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MozMobileDeviceIdentities, mWindow)
+NS_IMPL_CYCLE_COLLECTING_ADDREF(MozMobileDeviceIdentities)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(MozMobileDeviceIdentities)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MozMobileDeviceIdentities)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
-  NS_INTERFACE_MAP_ENTRY(nsIMobileDeviceIdentities)
 NS_INTERFACE_MAP_END
 
-MobileDeviceIdentities::MobileDeviceIdentities(nsPIDOMWindowInner* aWindow)
+MozMobileDeviceIdentities::MozMobileDeviceIdentities(nsPIDOMWindowInner* aWindow)
   : mWindow(aWindow)
 {
 }
 
-MobileDeviceIdentities::~MobileDeviceIdentities()
+MozMobileDeviceIdentities::MozMobileDeviceIdentities(const nsAString& aImei,
+                                                     const nsAString& aImeisv,
+                                                     const nsAString& aEsn,
+                                                     const nsAString& aMeid)
 {
+  mIdentities = new MobileDeviceIdentities(aImei, aImeisv, aEsn, aMeid);
+  // The parent object is nullptr when MozMobileDeviceIdentities is created by this
+  // way, and it won't be exposed to web content.
+}
+
+void MozMobileDeviceIdentities::Update(nsIMobileDeviceIdentities* aIdentities) {
+  if (!aIdentities) {
+    return;
+  }
+
+  if (!mIdentities) {
+    nsString imei;
+    nsString imeisv;
+    nsString esn;
+    nsString meid;
+    aIdentities->GetImei(imei);
+    aIdentities->GetImeisv(imeisv);
+    aIdentities->GetEsn(esn);
+    aIdentities->GetMeid(meid);
+
+    mIdentities = new MobileDeviceIdentities(imei, imeisv, esn, meid);
+  } else {
+    mIdentities->Update(aIdentities);
+  }
+}
+
+JSObject*
+MozMobileDeviceIdentities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+{
+  return MozMobileConnectionDeviceIds_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 MobileDeviceIdentities::MobileDeviceIdentities(const nsAString& aImei,
                                                const nsAString& aImeisv,
                                                const nsAString& aEsn,
                                                const nsAString& aMeid)
-  : mImei(aImei)
-  , mImeisv(aImeisv)
-  , mEsn(aEsn)
-  , mMeid(aMeid)
-{
+    : mImei(aImei),
+      mImeisv(aImeisv),
+      mEsn(aEsn),
+      mMeid(aMeid) {
   // The parent object is nullptr when MobileDeviceIdentities is created by this
   // way, and it won't be exposed to web content.
 }
 
-JSObject*
-MobileDeviceIdentities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
-  return MobileConnectionDeviceIds_Binding::Wrap(aCx, this, aGivenProto);
+void MobileDeviceIdentities::Update(nsIMobileDeviceIdentities* aIdentities) {
+  if (!aIdentities) {
+    return;
+  }
+
+  aIdentities->GetImei(mImei);
+  aIdentities->GetImeisv(mImeisv);
+  aIdentities->GetEsn(mEsn);
+  aIdentities->GetMeid(mMeid);
 }
-/*
-void
-MobileDeviceIdentities::GetImei(nsAString& aImei) const
-{
-  aImei = mImei;
-}
-*/
 
 // nsIMobileConnectionDeviceIds
 NS_IMETHODIMP

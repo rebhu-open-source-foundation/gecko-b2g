@@ -8,24 +8,24 @@ if CONFIG['MOZ_BUILD_APP'] == 'browser':
     MOCHITEST_MANIFESTS += ['tests/mochitest/mochitest.ini']
 
 EXPORTS.mozilla.dom += [
-#    'ImsDeviceConfiguration.h',
-#    'ImsRegHandler.h',
+    'ImsDeviceConfiguration.h',
+    'ImsRegHandler.h',
     'MobileCellInfo.h',
-#    'MobileConnection.h',
-#    'MobileConnectionArray.h',
+    'MobileConnection.h',
+    'MobileConnectionArray.h',
     'MobileConnectionInfo.h',
-#    'MobileDeviceIdentities.h',
+    'MobileDeviceIdentities.h',
     'MobileNetworkInfo.h',
-#    'MobileSignalStrength.h',
+    'MobileSignalStrength.h',
 ]
 
 EXPORTS.mozilla.dom.mobileconnection += [
-#    'ipc/ImsRegistrationChild.h',
-#    'ipc/ImsRegistrationParent.h',
-#    'ipc/MobileConnectionChild.h',
+    'ipc/ImsRegistrationChild.h',
+    'ipc/ImsRegistrationParent.h',
+    'ipc/MobileConnectionChild.h',
     'ipc/MobileConnectionIPCSerializer.h',
-#    'ipc/MobileConnectionParent.h',
-     'MobileCallForwardingOptions.h',
+    'ipc/MobileConnectionParent.h',
+    'MobileCallForwardingOptions.h',
 ]
 
 XPIDL_SOURCES += [
@@ -42,41 +42,41 @@ XPIDL_SOURCES += [
 ]
 
 UNIFIED_SOURCES += [
-#    'Assertions.cpp',
-#    'ImsDeviceConfiguration.cpp',
-#    'ImsRegCallback.cpp',
-#    'ImsRegHandler.cpp',
-#    'ipc/ImsRegIPCService.cpp',
-#    'ipc/ImsRegistrationChild.cpp',
-#    'ipc/ImsRegistrationParent.cpp',
-#    'ipc/MobileConnectionChild.cpp',
-#    'ipc/MobileConnectionIPCService.cpp',
-#    'ipc/MobileConnectionParent.cpp',
-#    'MobileCallForwardingOptions.cpp',
+    'Assertions.cpp',
+    'ImsDeviceConfiguration.cpp',
+    'ImsRegCallback.cpp',
+    'ImsRegHandler.cpp',
+    'ipc/ImsRegIPCService.cpp',
+    'ipc/ImsRegistrationChild.cpp',
+    'ipc/ImsRegistrationParent.cpp',
+    'ipc/MobileConnectionChild.cpp',
+    'ipc/MobileConnectionIPCService.cpp',
+    'ipc/MobileConnectionParent.cpp',
+    'MobileCallForwardingOptions.cpp',
     'MobileCellInfo.cpp',
-#    'MobileConnectionArray.cpp',
-#    'MobileConnectionCallback.cpp',
+    'MobileConnectionArray.cpp',
+    'MobileConnectionCallback.cpp',
     'MobileConnectionInfo.cpp',
-#    'MobileDeviceIdentities.cpp',
+    'MobileDeviceIdentities.cpp',
     'MobileNetworkInfo.cpp',
-#    'MobileSignalStrength.cpp',
+    'MobileSignalStrength.cpp',
 ]
 
-#SOURCES += [
-#    'MobileConnection.cpp', # Non-unified due to no_pgo
-#]
+SOURCES += [
+    'MobileConnection.cpp', # Non-unified due to no_pgo
+]
 
-#if CONFIG['_MSC_VER'] and CONFIG['CPU_ARCH'] == 'x86_64':
-#    SOURCES['MobileConnection.cpp'].no_pgo = True # VS2013 crashes, bug 1084162
+if CONFIG['_MSC_VER'] and CONFIG['CPU_ARCH'] == 'x86_64':
+    SOURCES['MobileConnection.cpp'].no_pgo = True # VS2013 crashes, bug 1084162
 
-#IPDL_SOURCES += [
-#    'ipc/PImsRegistration.ipdl',
-#    'ipc/PImsRegistrationRequest.ipdl',
-#    'ipc/PImsRegServiceFinder.ipdl',
-#    'ipc/PMobileConnection.ipdl',
-#    'ipc/PMobileConnectionRequest.ipdl',
-#    'ipc/PMobileConnectionTypes.ipdlh',
-#]
+IPDL_SOURCES += [
+    'ipc/PImsRegistration.ipdl',
+    'ipc/PImsRegistrationRequest.ipdl',
+    'ipc/PImsRegServiceFinder.ipdl',
+    'ipc/PMobileConnection.ipdl',
+    'ipc/PMobileConnectionRequest.ipdl',
+    'ipc/PMobileConnectionTypes.ipdlh',
+]
 
 XPIDL_SOURCES += [
     'gonk/nsIGonkImsRegService.idl',

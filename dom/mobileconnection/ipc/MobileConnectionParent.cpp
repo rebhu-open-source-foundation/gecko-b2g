@@ -21,7 +21,6 @@ using namespace mozilla::dom::mobileconnection;
 MobileConnectionParent::MobileConnectionParent(uint32_t aClientId)
   : mLive(true)
 {
-  MOZ_COUNT_CTOR(MobileConnectionParent);
 
   nsCOMPtr<nsIMobileConnectionService> service =
     do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
@@ -92,8 +91,7 @@ MobileConnectionParent::RecvPMobileConnectionRequestConstructor(PMobileConnectio
     case MobileConnectionRequest::TSetRadioEnabledRequest:
       return actor->DoRequest(aRequest.get_SetRadioEnabledRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
     case MobileConnectionRequest::TGetDeviceIdentitiesRequest:
-      //return actor->DoRequest(aRequest.get_GetDeviceIdentitiesRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
-      return IPC_OK();
+      return actor->DoRequest(aRequest.get_GetDeviceIdentitiesRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
     default:
       MOZ_CRASH("Received invalid request type!");
   }
@@ -542,8 +540,7 @@ MobileConnectionRequestParent::DoRequest(const GetDeviceIdentitiesRequest& aRequ
 {
   NS_ENSURE_TRUE(mMobileConnection, false);
 
-  //return NS_SUCCEEDED(mMobileConnection->GetDeviceIdentities(this));
-  return true;
+  return NS_SUCCEEDED(mMobileConnection->GetIdentities(this));
 }
 
 nsresult

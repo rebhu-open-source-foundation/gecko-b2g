@@ -25,7 +25,7 @@ namespace mobileconnection {
 class ImsRegistrationChild final : public PImsRegistrationChild
                                      , public nsIImsRegHandler
 {
-  class PImsRegistrationChild;
+  friend class PImsRegistrationChild;
   //class PImsRegServiceFinderChild;
 
 public:
@@ -46,7 +46,6 @@ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~ImsRegistrationChild()
   {
-    MOZ_COUNT_DTOR(ImsRegistrationChild);
   }
 public:
 //protected:
@@ -102,7 +101,6 @@ public:
   explicit ImsRegistrationRequestChild(nsIImsRegCallback* aRequestCallback)
     : mRequestCallback(aRequestCallback)
   {
-    MOZ_COUNT_CTOR(ImsRegistrationRequestChild);
     MOZ_ASSERT(mRequestCallback);
   }
 
@@ -115,7 +113,6 @@ public:
 //protected:
   ~ImsRegistrationRequestChild()
   {
-    MOZ_COUNT_DTOR(ImsRegistrationRequestChild);
   }
 
   virtual void

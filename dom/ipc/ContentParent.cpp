@@ -89,6 +89,7 @@
 #include "mozilla/dom/BrowsingContextGroup.h"
 #include "mozilla/dom/CancelContentJSOptionsBinding.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
+// #include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
 #include "mozilla/dom/ClientManager.h"
 #include "mozilla/dom/ClientOpenWindowOpActors.h"
 #include "mozilla/dom/ContentChild.h"
@@ -102,12 +103,16 @@
 #include "mozilla/dom/GeolocationBinding.h"
 #include "mozilla/dom/GeolocationPositionError.h"
 #include "mozilla/dom/GetFilesHelper.h"
+// #include "mozilla/dom/icc/IccParent.h"
 #include "mozilla/dom/IPCBlobInputStreamParent.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/JSWindowActorService.h"
 #include "mozilla/dom/LocalStorageCommon.h"
 #include "mozilla/dom/MediaController.h"
 #include "mozilla/dom/MemoryReportRequest.h"
+#include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
+#include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
+// #include "mozilla/dom/mobilemessage/SmsParent.h"
 #include "mozilla/dom/Notification.h"
 #include "mozilla/dom/PContentPermissionRequestParent.h"
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
@@ -125,6 +130,8 @@
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/StorageIPC.h"
+// #include "mozilla/dom/subsidylock/SubsidyLockParent.h"
+#include "mozilla/dom/telephony/TelephonyParent.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/WindowGlobalParent.h"
@@ -134,6 +141,7 @@
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/quota/QuotaManagerService.h"
+// #include "mozilla/dom/voicemail/VoicemailParent.h"
 #include "mozilla/embedding/printingui/PrintingParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
 #include "mozilla/gfx/GPUProcessManager.h"
@@ -332,16 +340,6 @@ using namespace mozilla::system;
 // For VP9Benchmark::sBenchmarkFpsPref
 #include "Benchmark.h"
 
-// MOZ_B2G_RIL
-// #include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
-// #include "mozilla/dom/icc/IccParent.h"
-// #include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
-// #include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
-// #include "mozilla/dom/mobilemessage/SmsParent.h"
-#include "mozilla/dom/telephony/TelephonyParent.h"
-// #include "mozilla/dom/subsidylock/SubsidyLockParent.h"
-// #include "mozilla/dom/voicemail/VoicemailParent.h"
-// MOZ_B2G_RIL_END
 
 // XXX need another bug to move this to a common header.
 #ifdef DISABLE_ASSERTS_FOR_FUZZING
@@ -358,8 +356,15 @@ using base::KillProcess;
 
 using namespace CrashReporter;
 using namespace mozilla::dom::bluetooth;
+// using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::devicestorage;
+// using namespace mozilla::dom::icc;
 using namespace mozilla::dom::power;
+using namespace mozilla::dom::mobileconnection;
+// using namespace mozilla::dom::mobilemessage;
+using namespace mozilla::dom::telephony;
+// using namespace mozilla::dom::voicemail;
+// using namespace mozilla::dom::subsidylock;
 using namespace mozilla::media;
 using namespace mozilla::embedding;
 using namespace mozilla::gfx;
@@ -376,13 +381,6 @@ using namespace mozilla::widget;
 using mozilla::loader::PScriptCacheParent;
 using mozilla::Telemetry::ProcessID;
 
-// using namespace mozilla::dom::cellbroadcast;
-// using namespace mozilla::dom::icc;
-// using namespace mozilla::dom::mobileconnection;
-// using namespace mozilla::dom::mobilemessage;
-using namespace mozilla::dom::telephony;
-// using namespace mozilla::dom::voicemail;
-// using namespace mozilla::dom::subsidylock;
 
 // XXX Workaround for bug 986973 to maintain the existing broken semantics
 template <>
@@ -3938,6 +3936,66 @@ bool ContentParent::DeallocPTestShellParent(PTestShellParent* shell) {
   return true;
 }
 
+PMobileConnectionParent* ContentParent::AllocPMobileConnectionParent(
+    const uint32_t& aClientId) {
+#ifdef MOZ_B2G_RIL
+  RefPtr<MobileConnectionParent> parent = new MobileConnectionParent(aClientId);
+  // We release this ref in DeallocPMobileConnectionParent().
+  parent->AddRef();
+
+  return parent;
+#else
+  MOZ_CRASH("No support for mobileconnection on this platform!");
+#endif
+}
+
+bool ContentParent::DeallocPMobileConnectionParent(
+    PMobileConnectionParent* aActor) {
+#ifdef MOZ_B2G_RIL
+  // MobileConnectionParent is refcounted, must not be freed manually.
+  static_cast<MobileConnectionParent*>(aActor)->Release();
+  return true;
+#else
+  MOZ_CRASH("No support for mobileconnection on this platform!");
+#endif
+}
+
+PImsRegServiceFinderParent* ContentParent::AllocPImsRegServiceFinderParent() {
+  // Cameron mark fist.
+  // if (!AssertAppProcessPermission(this, "mobileconnection")) {
+  //    return nullptr;
+  //}
+
+  return new ImsRegServiceFinderParent();
+}
+
+bool ContentParent::DeallocPImsRegServiceFinderParent(
+    PImsRegServiceFinderParent* aActor) {
+  delete aActor;
+  return true;
+}
+
+PImsRegistrationParent* ContentParent::AllocPImsRegistrationParent(
+    const uint32_t& aServiceId) {
+  // Cameron mark fist.
+  // if (!AssertAppProcessPermission(this, "mobileconnection")) {
+  //    return nullptr;
+  //}
+
+  RefPtr<ImsRegistrationParent> parent = new ImsRegistrationParent(aServiceId);
+  // We release this ref in DeallocPImsRegistrationParent().
+  parent->AddRef();
+
+  return parent;
+}
+
+bool ContentParent::DeallocPImsRegistrationParent(
+    PImsRegistrationParent* aActor) {
+  // ImsRegistrationParent is refcounted, must not be freed manually.
+  static_cast<ImsRegistrationParent*>(aActor)->Release();
+  return true;
+}
+
 PScriptCacheParent* ContentParent::AllocPScriptCacheParent(
     const FileDescOrError& cacheFile, const bool& wantCacheData) {
   return new loader::ScriptCacheParent(wantCacheData);
@@ -4061,6 +4119,21 @@ ContentParent::AllocPExternalHelperAppParent(
       uri, aContentLength, aWasFileChannel, aContentDisposition,
       aContentDispositionHint, aContentDispositionFilename);
   return parent.forget();
+}
+
+PTelephonyParent* ContentParent::AllocPTelephonyParent() {
+  // if (!AssertAppProcessPermission(this, "telephony")) {
+  //  return nullptr;
+  //}
+
+  TelephonyParent* actor = new TelephonyParent();
+  NS_ADDREF(actor);
+  return actor;
+}
+
+bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
+  static_cast<TelephonyParent*>(aActor)->Release();
+  return true;
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPExternalHelperAppConstructor(
@@ -4226,70 +4299,6 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
 
 // }
 
-// PMobileConnectionParent*
-// ContentParent::AllocPMobileConnectionParent(const uint32_t& aClientId)
-// {
-// #ifdef MOZ_B2G_RIL
-//   RefPtr<MobileConnectionParent> parent = new MobileConnectionParent(aClientId);
-//   // We release this ref in DeallocPMobileConnectionParent().
-//   parent->AddRef();
-
-//   return parent;
-// #else
-//   MOZ_CRASH("No support for mobileconnection on this platform!");
-// #endif
-// }
-
-// bool
-// ContentParent::DeallocPMobileConnectionParent(PMobileConnectionParent* aActor)
-// {
-// #ifdef MOZ_B2G_RIL
-//   // MobileConnectionParent is refcounted, must not be freed manually.
-//   static_cast<MobileConnectionParent*>(aActor)->Release();
-//   return true;
-// #else
-//   MOZ_CRASH("No support for mobileconnection on this platform!");
-// #endif
-// }
-
-// PImsRegServiceFinderParent*
-// ContentParent::AllocPImsRegServiceFinderParent()
-// {
-//   if (!AssertAppProcessPermission(this, "mobileconnection")) {
-//       return nullptr;
-//   }
-
-//   return new ImsRegServiceFinderParent();
-// }
-
-// bool
-// ContentParent::DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent* aActor)
-// {
-//   delete aActor;
-//   return true;
-// }
-
-// PImsRegistrationParent*
-// ContentParent::AllocPImsRegistrationParent(const uint32_t& aServiceId)
-// {
-//   if (!AssertAppProcessPermission(this, "mobileconnection")) {
-//       return nullptr;
-//   }
-
-//   RefPtr<ImsRegistrationParent> parent = new ImsRegistrationParent(aServiceId);
-//   // We release this ref in DeallocPImsRegistrationParent().
-//   parent->AddRef();
-
-//   return parent;
-// }
-
-// bool
-// ContentParent::DeallocPImsRegistrationParent(PImsRegistrationParent* aActor)
-// {
-//   // ImsRegistrationParent is refcounted, must not be freed manually.
-//   static_cast<ImsRegistrationParent*>(aActor)->Release();
-//   return true;
-// }
 
 // PCellBroadcastParent*
 // ContentParent::AllocPCellBroadcastParent()
@@ -4334,21 +4343,6 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
 //   static_cast<SmsParent*>(aSms)->Release();
 //   return true;
 // }
-
-PTelephonyParent* ContentParent::AllocPTelephonyParent() {
-  // if (!AssertAppProcessPermission(this, "telephony")) {
-  //  return nullptr;
-  //}
-
-  TelephonyParent* actor = new TelephonyParent();
-  NS_ADDREF(actor);
-  return actor;
-}
-
-bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
-  static_cast<TelephonyParent*>(aActor)->Release();
-  return true;
-}
 
 // PVoicemailParent*
 // ContentParent::AllocPVoicemailParent()

@@ -13,8 +13,8 @@
 #include "ipc/ImsRegIPCService.h"
 #include "ipc/MobileConnectionIPCService.h"
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-//#include "nsIGonkMobileConnectionService.h"
-//#include "nsIGonkImsRegService.h"
+#include "nsIGonkMobileConnectionService.h"
+#include "nsIGonkImsRegService.h"
 #endif
 #include "nsXULAppAPI.h" // For XRE_GetProcessType()
 
@@ -116,7 +116,7 @@ NS_CreateMobileConnectionService()
     service = new mozilla::dom::mobileconnection::MobileConnectionIPCService();
   } else {
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-//    service = do_GetService(GONK_MOBILECONNECTION_SERVICE_CONTRACTID);
+    service = do_GetService(GONK_MOBILECONNECTION_SERVICE_CONTRACTID);
 #endif
   }
 
@@ -135,7 +135,7 @@ NS_CreateImsRegService()
   // Note: Gonk implementation is provided by OEM Vendor by replacing the
   //       XPCOM component of nsIImsRegService with bundle in parent process.
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-//    service = do_GetService(GONK_IMSREGSERVICE_CONTRACTID);
+    service = do_GetService(GONK_IMSREGSERVICE_CONTRACTID);
 #endif
   }
 

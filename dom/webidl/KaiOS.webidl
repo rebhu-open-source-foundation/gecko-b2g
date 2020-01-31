@@ -32,6 +32,12 @@ partial interface KaiOS {
 #ifdef MOZ_B2G_RIL
 [Exposed=Window]
 partial interface KaiOS {
+  [Throws, Pref="dom.mobileconnection.enabled"]
+  readonly attribute MozMobileConnectionArray mozMobileConnections;
+};
+
+[Exposed=Window]
+partial interface KaiOS {
   [Throws, Pref="dom.telephony.enabled"]
   readonly attribute Telephony mozTelephony;
 };

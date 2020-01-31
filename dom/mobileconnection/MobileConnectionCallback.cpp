@@ -93,7 +93,7 @@ MobileConnectionCallback::NotifyGetNetworksSuccess(uint32_t aCount,
     networkInfo->Update(aNetworks[i]);
     results.AppendElement(networkInfo);
   }
-/* TODO: fix it
+
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(mWindow))) {
     return NS_ERROR_FAILURE;
@@ -108,8 +108,6 @@ MobileConnectionCallback::NotifyGetNetworksSuccess(uint32_t aCount,
   }
 
   return NotifySuccess(jsResult);
-*/
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -255,16 +253,19 @@ MobileConnectionCallback::NotifyGetDeviceIdentitiesRequestSuccess(
   nsString pString;
   MobileDeviceIds result;
 
-  aResult->GetImei(pString);
+  RefPtr<MozMobileDeviceIdentities> mozDeviceIdentities = new MozMobileDeviceIdentities(mWindow);
+  mozDeviceIdentities->Update(aResult);
+
+  mozDeviceIdentities->GetIdentities()->GetImei(pString);
   result.mImei = pString;
 
-  aResult->GetImeisv(pString);
+  mozDeviceIdentities->GetIdentities()->GetImeisv(pString);
   result.mImeisv = pString;
 
-  aResult->GetEsn(pString);
+  mozDeviceIdentities->GetIdentities()->GetEsn(pString);
   result.mEsn = pString;
 
-  aResult->GetMeid(pString);
+  mozDeviceIdentities->GetIdentities()->GetMeid(pString);
   result.mMeid = pString;
 
   AutoJSAPI jsapi;

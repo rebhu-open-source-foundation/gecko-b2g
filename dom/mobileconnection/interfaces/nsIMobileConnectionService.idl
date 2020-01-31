@@ -185,7 +185,7 @@ already_AddRefed<nsIMobileConnectionService>
 NS_CreateMobileConnectionService();
 %}
 
-[scriptable, uuid(c3399c2b-69de-4b1d-b035-9266c29bbd92)]
+[scriptable, uuid(568b614c-b155-4071-a8cc-e7424735ba8a)]
 interface nsIMobileConnection : nsISupports
 {
   /*
@@ -772,15 +772,6 @@ interface nsIMobileConnection : nsISupports
   void getNeighboringCellIds(in nsINeighboringCellIdsCallback callback);
 
   /**
-   * Request device identities (ie: IMEI/IMEIsv/ESN/MEID).
-   *
-   * @param callback
-   *        Called when request is finished. See nsIMobileDeviceIdentities
-   *        for details.
-   */
-  //void getDeviceIdentities(in nsIMobileConnectionCallback requestCallback);
-
-  /**
    * Request all of the current cell information known to the radio, including
    * neighboring cells.
    *
@@ -789,4 +780,13 @@ interface nsIMobileConnection : nsISupports
    *        for details.
    */
   void getCellInfoList(in nsICellInfoListCallback callback);
+
+  /**
+   * Request device identities (ie: IMEI/IMEIsv/ESN/MEID).
+   *
+   * @param callback
+   *        Called when request is finished. See nsIMobileDeviceIdentities
+   *        for details.
+   */
+  void getIdentities(in nsIMobileConnectionCallback requestCallback);
 };

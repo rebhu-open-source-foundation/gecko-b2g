@@ -35,7 +35,27 @@ void MozMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   if (!aInfo) {
     return;
   }
-  mInfo->Update(aInfo);
+  if (!mInfo) {
+    nsString shortName;
+    nsString longName;
+    nsString mcc;
+    nsString mnc;
+    nsString state;
+    aInfo->GetShortName(shortName);
+    aInfo->GetLongName(longName);
+    aInfo->GetMcc(mcc);
+    aInfo->GetMnc(mnc);
+    aInfo->GetState(state);
+
+    mInfo = new MobileNetworkInfo(shortName, longName, mcc, mnc, state);
+  } else {
+    mInfo->Update(aInfo);
+  }
+}
+
+JSObject* MozMobileNetworkInfo::WrapObject(JSContext* aCx,
+                                           JS::Handle<JSObject*> aGivenProto) {
+  return MozMobileNetworkInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 MobileNetworkInfo::MobileNetworkInfo(const nsAString& aShortName,
@@ -62,11 +82,6 @@ void MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   aInfo->GetMcc(mMcc);
   aInfo->GetMnc(mMnc);
   aInfo->GetState(mState);
-}
-
-JSObject* MozMobileNetworkInfo::WrapObject(JSContext* aCx,
-                                           JS::Handle<JSObject*> aGivenProto) {
-  return MozMobileNetworkInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // nsIMobileNetworkInfo

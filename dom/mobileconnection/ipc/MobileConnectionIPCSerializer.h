@@ -9,28 +9,20 @@
 
 #include "ipc/IPCMessageUtils.h"
 #include "mozilla/dom/mobileconnection/MobileCallForwardingOptions.h"
-// #include "mozilla/dom/MobileCellInfo.h"
-// #include "mozilla/dom/MobileDeviceIdentities.h"
-// #include "mozilla/dom/MobileConnectionInfo.h"
-// #include "mozilla/dom/MobileNetworkInfo.h"
-// #include "mozilla/dom/MobileSignalStrength.h"
+#include "mozilla/dom/MobileCellInfo.h"
+#include "mozilla/dom/MobileDeviceIdentities.h"
+#include "mozilla/dom/MobileConnectionInfo.h"
+#include "mozilla/dom/MobileNetworkInfo.h"
+#include "mozilla/dom/MobileSignalStrength.h"
 #include "mozilla/dom/MozMobileConnectionBinding.h"
 
-#include "nsIMobileCellInfo.h"
-#include "nsIMobileConnectionInfo.h"
-#include "nsIMobileDeviceIdentities.h"
-#include "nsIMobileNetworkInfo.h"
-#include "nsIMobileSignalStrength.h"
-
-#include "mozilla/dom/cache/Types.h"
-
 using mozilla::AutoJSContext;
-// using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
-// using mozilla::dom::MobileNetworkInfo;
-// using mozilla::dom::MobileCellInfo;
-// using mozilla::dom::MobileConnectionInfo;
-// using mozilla::dom::MobileDeviceIdentities;
-// using mozilla::dom::MobileSignalStrength;
+using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
+using mozilla::dom::MobileNetworkInfo;
+using mozilla::dom::MobileCellInfo;
+using mozilla::dom::MobileConnectionInfo;
+using mozilla::dom::MobileDeviceIdentities;
+using mozilla::dom::MobileSignalStrength;
 
 typedef nsIMobileCellInfo* nsMobileCellInfo;
 typedef nsIMobileConnectionInfo* nsMobileConnectionInfo;
@@ -108,47 +100,43 @@ struct ParamTraits<nsIMobileCallForwardingOptions*> {
   }
 
   // Function to de-serialize a MobileCallForwardingOptions.
-  // TODO: void** need to PickleIterator*
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
-    return false;
-    /*    // Check if is the null pointer we have transfered.
-        bool isNull;
-        if (!ReadParam(aMsg, aIter, &isNull)) {
-          return false;
-        }
+    // Check if is the null pointer we have transfered.
+    bool isNull;
+    if (!ReadParam(aMsg, aIter, &isNull)) {
+      return false;
+    }
 
-        if (isNull) {
-          *aResult = nullptr;
-          return true;
-        }
+    if (isNull) {
+      *aResult = nullptr;
+      return true;
+    }
 
-        bool active;
-        int16_t action;
-        int16_t reason;
-        nsString number;
-        int16_t timeSeconds;
-        int16_t serviceClass;
+    bool active;
+    int16_t action;
+    int16_t reason;
+    nsString number;
+    int16_t timeSeconds;
+    int16_t serviceClass;
 
-        // It's not important to us where it fails, but rather if it fails
-        if (!(ReadParam(aMsg, aIter, &active) &&
-              ReadParam(aMsg, aIter, &action) &&
-              ReadParam(aMsg, aIter, &reason) &&
-              ReadParam(aMsg, aIter, &number) &&
-              ReadParam(aMsg, aIter, &timeSeconds) &&
-              ReadParam(aMsg, aIter, &serviceClass))) {
-          return false;
-        }
+    // It's not important to us where it fails, but rather if it fails
+    if (!(ReadParam(aMsg, aIter, &active) &&
+          ReadParam(aMsg, aIter, &action) &&
+          ReadParam(aMsg, aIter, &reason) &&
+          ReadParam(aMsg, aIter, &number) &&
+          ReadParam(aMsg, aIter, &timeSeconds) &&
+          ReadParam(aMsg, aIter, &serviceClass))) {
+      return false;
+    }
 
-        *aResult = new MobileCallForwardingOptions(active, action, reason,
-                                                   number, timeSeconds,
-       serviceClass);
+    *aResult = new MobileCallForwardingOptions(active, action, reason,
+                                               number, timeSeconds, serviceClass);
 
-        // We release this ref after receiver finishes processing.
-        NS_ADDREF(*aResult);
+    // We release this ref after receiver finishes processing.
+    NS_ADDREF(*aResult);
 
-        return true;
-    */
+    return true;
   }
 };
 
@@ -189,46 +177,43 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
   }
 
   // Function to de-serialize a MobileNetworkInfo.
-  // TODO void** to PickleIterator*
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    return false;
-    /*  // Check if is the null pointer we have transfered.
-      bool isNull;
-      if (!ReadParam(aMsg, aIter, &isNull)) {
-        return false;
-      }
+  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  {
+    // Check if is the null pointer we have transfered.
+    bool isNull;
+    if (!ReadParam(aMsg, aIter, &isNull)) {
+      return false;
+    }
 
-      if (isNull) {
-        *aResult = nullptr;
-        return true;
-      }
-
-      nsString shortName;
-      nsString longName;
-      nsString mcc;
-      nsString mnc;
-      nsString state;
-
-      // It's not important to us where it fails, but rather if it fails
-      if (!(ReadParam(aMsg, aIter, &shortName) &&
-            ReadParam(aMsg, aIter, &longName) &&
-            ReadParam(aMsg, aIter, &mcc) &&
-            ReadParam(aMsg, aIter, &mnc) &&
-            ReadParam(aMsg, aIter, &state))) {
-        return false;
-      }
-
-      *aResult = new MobileNetworkInfo(shortName,
-                                       longName,
-                                       mcc,
-                                       mnc,
-                                       state);
-      // We release this ref after receiver finishes processing.
-      NS_ADDREF(*aResult);
-
+    if (isNull) {
+      *aResult = nullptr;
       return true;
-      */
+    }
+
+    nsString shortName;
+    nsString longName;
+    nsString mcc;
+    nsString mnc;
+    nsString state;
+
+    // It's not important to us where it fails, but rather if it fails
+    if (!(ReadParam(aMsg, aIter, &shortName) &&
+          ReadParam(aMsg, aIter, &longName) &&
+          ReadParam(aMsg, aIter, &mcc) &&
+          ReadParam(aMsg, aIter, &mnc) &&
+          ReadParam(aMsg, aIter, &state))) {
+      return false;
+    }
+
+    *aResult = new MobileNetworkInfo(shortName,
+                                     longName,
+                                     mcc,
+                                     mnc,
+                                     state);
+    // We release this ref after receiver finishes processing.
+    NS_ADDREF(*aResult);
+
+    return true;
   }
 };
 
@@ -288,11 +273,9 @@ struct ParamTraits<nsIMobileCellInfo*> {
   }
 
   // Function to de-serialize a MobileCellInfo.
-  // TODO: void** to PickleIterator*
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
-    return false;
-    /*
+
     // Check if is the null pointer we have transfered.
     bool isNull;
     if (!ReadParam(aMsg, aIter, &isNull)) {
@@ -331,13 +314,12 @@ struct ParamTraits<nsIMobileCellInfo*> {
 
     *aResult = new MobileCellInfo(gsmLac, gsmCellId, cdmaBsId, cdmaBsLat,
                                   cdmaBsLong, cdmaSystemId, cdmaNetworkId,
-                                  cdmaRoamingIndicator,
-    cdmaDefaultRoamingIndicator, cdmaSystemIsInPRL);
+                                  cdmaRoamingIndicator, cdmaDefaultRoamingIndicator,
+                                  cdmaSystemIsInPRL);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
 
     return true;
-    */
   }
 };
 
@@ -394,56 +376,52 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
   // Function to de-serialize a MobileConectionInfo.
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
-    return false;
-    /*
-        // Check if is the null pointer we have transfered.
-        bool isNull;
-        if (!ReadParam(aMsg, aIter, &isNull)) {
-          return false;
-        }
+    // Check if is the null pointer we have transfered.
+    bool isNull;
+    if (!ReadParam(aMsg, aIter, &isNull)) {
+      return false;
+    }
 
-        if (isNull) {
-          *aResult = nullptr;
-          return true;
-        }
+    if (isNull) {
+      *aResult = nullptr;
+      return true;
+    }
 
-        AutoJSContext cx;
-        nsString state;
-        bool connected;
-        bool emergencyOnly;
-        bool roaming;
-        nsString type;
-        nsIMobileNetworkInfo* networkInfo = nullptr;
-        nsIMobileCellInfo* cellInfo = nullptr;
+    AutoJSContext cx;
+    nsString state;
+    bool connected;
+    bool emergencyOnly;
+    bool roaming;
+    nsString type;
+    nsIMobileNetworkInfo* networkInfo = nullptr;
+    nsIMobileCellInfo* cellInfo = nullptr;
 
-        // It's not important to us where it fails, but rather if it fails
-        if (!(ReadParam(aMsg, aIter, &state) &&
-              ReadParam(aMsg, aIter, &connected) &&
-              ReadParam(aMsg, aIter, &emergencyOnly) &&
-              ReadParam(aMsg, aIter, &roaming) &&
-              ReadParam(aMsg, aIter, &type) &&
-              ReadParam(aMsg, aIter, &networkInfo) &&
-              ReadParam(aMsg, aIter, &cellInfo))) {
-          return false;
-        }
+    // It's not important to us where it fails, but rather if it fails
+    if (!(ReadParam(aMsg, aIter, &state) &&
+          ReadParam(aMsg, aIter, &connected) &&
+          ReadParam(aMsg, aIter, &emergencyOnly) &&
+          ReadParam(aMsg, aIter, &roaming) &&
+          ReadParam(aMsg, aIter, &type) &&
+          ReadParam(aMsg, aIter, &networkInfo) &&
+          ReadParam(aMsg, aIter, &cellInfo))) {
+      return false;
+    }
 
-        *aResult = new MobileConnectionInfo(state,
-                                            connected,
-                                            emergencyOnly,
-                                            roaming,
-                                            networkInfo,
-                                            type,
-                                            cellInfo);
-        // We release this ref after receiver finishes processing.
-        NS_ADDREF(*aResult);
-        // We already clone the data into MobileConnectionInfo, so release the
-       ref
-        // of networkInfo and cellInfo here.
-        NS_IF_RELEASE(networkInfo);
-        NS_IF_RELEASE(cellInfo);
+    *aResult = new MobileConnectionInfo(state,
+                                        connected,
+                                        emergencyOnly,
+                                        roaming,
+                                        networkInfo,
+                                        type,
+                                        cellInfo);
+    // We release this ref after receiver finishes processing.
+    NS_ADDREF(*aResult);
+    // We already clone the data into MobileConnectionInfo, so release the ref
+    // of networkInfo and cellInfo here.
+    NS_IF_RELEASE(networkInfo);
+    NS_IF_RELEASE(cellInfo);
 
-        return true;
-    */
+    return true;
   }
 };
 
@@ -528,8 +506,7 @@ struct ParamTraits<MozCallForwardingOptions> {
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
     return false;
-    /*
-    bool wasPassed = false;
+    /*bool wasPassed = false;
     bool isNull = false;
 
     // Read mActive
@@ -604,8 +581,8 @@ struct ParamTraits<MozCallForwardingOptions> {
       }
 
       if (!isNull) {
-        if (!ReadParam(aMsg, aIter, &aResult->mTimeSeconds.Value().SetValue()))
-    { return false;
+        if (!ReadParam(aMsg, aIter, &aResult->mTimeSeconds.Value().SetValue())) {
+          return false;
         }
       }
     }
@@ -621,13 +598,13 @@ struct ParamTraits<MozCallForwardingOptions> {
       }
 
       if (!isNull) {
-        if (!ReadParam(aMsg, aIter, &aResult->mServiceClass.Value().SetValue()))
-    { return false;
+        if (!ReadParam(aMsg, aIter, &aResult->mServiceClass.Value().SetValue())) {
+          return false;
         }
       }
     }
-    return true;
-    */
+
+    return true;*/
   }
 };
 
@@ -671,40 +648,37 @@ struct ParamTraits<nsIMobileDeviceIdentities*> {
   // Function to de-serialize a MobileDeviceIdentities.
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
-    return false;
-    /*
-        // Check if is the null pointer we have transfered.
-        bool isNull;
-        if (!ReadParam(aMsg, aIter, &isNull)) {
-          return false;
-        }
+    // Check if is the null pointer we have transfered.
+    bool isNull;
+    if (!ReadParam(aMsg, aIter, &isNull)) {
+      return false;
+    }
 
-        if (isNull) {
-          *aResult = nullptr;
-          return true;
-        }
+    if (isNull) {
+      *aResult = nullptr;
+      return true;
+    }
 
-        AutoJSContext cx;
-        nsString imei;
-        nsString imeisv;
-        nsString esn;
-        nsString meid;
+    AutoJSContext cx;
+    nsString imei;
+    nsString imeisv;
+    nsString esn;
+    nsString meid;
 
-        // It's not important to us where it fails, but rather if it fails
-        if (!(ReadParam(aMsg, aIter, &imei) &&
-              ReadParam(aMsg, aIter, &imeisv) &&
-              ReadParam(aMsg, aIter, &esn) &&
-              ReadParam(aMsg, aIter, &meid))) {
-          return false;
-        }
+    // It's not important to us where it fails, but rather if it fails
+    if (!(ReadParam(aMsg, aIter, &imei) &&
+          ReadParam(aMsg, aIter, &imeisv) &&
+          ReadParam(aMsg, aIter, &esn) &&
+          ReadParam(aMsg, aIter, &meid))) {
+      return false;
+    }
 
-        *aResult = new MobileDeviceIdentities(imei, imeisv, esn, meid);
+    *aResult = new MobileDeviceIdentities(imei, imeisv, esn, meid);
 
-        // We release this ref after receiver finishes processing.
-        NS_ADDREF(*aResult);
+    // We release this ref after receiver finishes processing.
+    NS_ADDREF(*aResult);
 
-        return true;
-    */
+    return true;
   }
 };
 
@@ -766,78 +740,75 @@ struct ParamTraits<nsIMobileSignalStrength*> {
   // Function to de-serialize a MobileDeviceIdentities.
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
-    return false;
-    /*
-     // Check if is the null pointer we have transfered.
-     bool isNull;
-     if (!ReadParam(aMsg, aIter, &isNull)) {
-       return false;
-     }
+    // Check if is the null pointer we have transfered.
+    bool isNull;
+    if (!ReadParam(aMsg, aIter, &isNull)) {
+      return false;
+    }
 
-     if (isNull) {
-       *aResult = nullptr;
-       return true;
-     }
+    if (isNull) {
+      *aResult = nullptr;
+      return true;
+    }
 
-     int16_t level;
-     int16_t gsmSignalStrength;
-     int16_t gsmBitErrorRate;
-     int16_t cdmaDbm;
-     int16_t cdmaEcio;
-     int16_t cdmaEvdoDbm;
-     int16_t cdmaEvdoEcio;
-     int16_t cdmaEvdoSNR;
-     int16_t lteSignalStrength;
-     int32_t lteRsrp;
-     int32_t lteRsrq;
-     int32_t lteRssnr;
-     int32_t lteCqi;
-     int32_t lteTimingAdvance;
-     int32_t tdscdmaRscp;
+    int16_t level;
+    int16_t gsmSignalStrength;
+    int16_t gsmBitErrorRate;
+    int16_t cdmaDbm;
+    int16_t cdmaEcio;
+    int16_t cdmaEvdoDbm;
+    int16_t cdmaEvdoEcio;
+    int16_t cdmaEvdoSNR;
+    int16_t lteSignalStrength;
+    int32_t lteRsrp;
+    int32_t lteRsrq;
+    int32_t lteRssnr;
+    int32_t lteCqi;
+    int32_t lteTimingAdvance;
+    int32_t tdscdmaRscp;
 
-     // It's not important to us where it fails, but rather if it fails
-     if (!(ReadParam(aMsg, aIter, &level) &&
-           ReadParam(aMsg, aIter, &gsmSignalStrength) &&
-           ReadParam(aMsg, aIter, &gsmBitErrorRate) &&
-           ReadParam(aMsg, aIter, &cdmaDbm) &&
-           ReadParam(aMsg, aIter, &cdmaEcio) &&
-           ReadParam(aMsg, aIter, &cdmaEvdoDbm) &&
-           ReadParam(aMsg, aIter, &cdmaEvdoEcio) &&
-           ReadParam(aMsg, aIter, &cdmaEvdoSNR) &&
-           ReadParam(aMsg, aIter, &lteSignalStrength) &&
-           ReadParam(aMsg, aIter, &lteRsrp) &&
-           ReadParam(aMsg, aIter, &lteRsrq) &&
-           ReadParam(aMsg, aIter, &lteRssnr) &&
-           ReadParam(aMsg, aIter, &lteCqi) &&
-           ReadParam(aMsg, aIter, &lteTimingAdvance) &&
-           ReadParam(aMsg, aIter, &tdscdmaRscp))) {
-       return false;
-     }
+    // It's not important to us where it fails, but rather if it fails
+    if (!(ReadParam(aMsg, aIter, &level) &&
+          ReadParam(aMsg, aIter, &gsmSignalStrength) &&
+          ReadParam(aMsg, aIter, &gsmBitErrorRate) &&
+          ReadParam(aMsg, aIter, &cdmaDbm) &&
+          ReadParam(aMsg, aIter, &cdmaEcio) &&
+          ReadParam(aMsg, aIter, &cdmaEvdoDbm) &&
+          ReadParam(aMsg, aIter, &cdmaEvdoEcio) &&
+          ReadParam(aMsg, aIter, &cdmaEvdoSNR) &&
+          ReadParam(aMsg, aIter, &lteSignalStrength) &&
+          ReadParam(aMsg, aIter, &lteRsrp) &&
+          ReadParam(aMsg, aIter, &lteRsrq) &&
+          ReadParam(aMsg, aIter, &lteRssnr) &&
+          ReadParam(aMsg, aIter, &lteCqi) &&
+          ReadParam(aMsg, aIter, &lteTimingAdvance) &&
+          ReadParam(aMsg, aIter, &tdscdmaRscp))) {
+      return false;
+    }
 
-     *aResult = new MobileSignalStrength(level,
-                                         gsmSignalStrength,
-                                         gsmBitErrorRate,
-                                         cdmaDbm,
-                                         cdmaEcio,
-                                         cdmaEvdoDbm,
-                                         cdmaEvdoEcio,
-                                         cdmaEvdoSNR,
-                                         lteSignalStrength,
-                                         lteRsrp,
-                                         lteRsrq,
-                                         lteRssnr,
-                                         lteCqi,
-                                         lteTimingAdvance,
-                                         tdscdmaRscp);
+    *aResult = new MobileSignalStrength(level,
+                                        gsmSignalStrength,
+                                        gsmBitErrorRate,
+                                        cdmaDbm,
+                                        cdmaEcio,
+                                        cdmaEvdoDbm,
+                                        cdmaEvdoEcio,
+                                        cdmaEvdoSNR,
+                                        lteSignalStrength,
+                                        lteRsrp,
+                                        lteRsrq,
+                                        lteRssnr,
+                                        lteCqi,
+                                        lteTimingAdvance,
+                                        tdscdmaRscp);
 
-     // We release this ref after receiver finishes processing.
-     NS_ADDREF(*aResult);
+    // We release this ref after receiver finishes processing.
+    NS_ADDREF(*aResult);
 
-     return true;
-     */
+    return true;
   }
 };
 
-}  // namespace IPC
+} // namespace IPC
 
-#endif  // mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h
+#endif // mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h

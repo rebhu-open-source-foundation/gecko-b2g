@@ -21,6 +21,7 @@
 #endif
 #ifdef MOZ_B2G_RIL
 #  include "mozilla/dom/Telephony.h"
+#  include "mozilla/dom/MobileConnectionArray.h"
 #endif
 #ifndef DISABLE_WIFI
 #  include "mozilla/dom/WifiManagerBinding.h"
@@ -64,6 +65,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 #endif  // MOZ_B2G_BT
 
 #ifdef MOZ_B2G_RIL
+  MobileConnectionArray* GetMozMobileConnections(ErrorResult& aRv);
   Telephony* GetMozTelephony(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
@@ -87,6 +89,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 #endif
 
 #ifdef MOZ_B2G_RIL
+  RefPtr<MobileConnectionArray> mMobileConnections;
   RefPtr<Telephony> mTelephony;
 #endif
   RefPtr<TetheringManager> mTetheringManager;

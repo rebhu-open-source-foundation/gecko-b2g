@@ -48,14 +48,19 @@ class MozMobileNetworkInfo final : public nsWrapperCache, nsISupports {
                        const nsAString& aMcc, const nsAString& aMnc,
                        const nsAString& aState);
 
-  void Update(nsIMobileNetworkInfo* aInfo);
+  void
+  Update(nsIMobileNetworkInfo* aInfo);
 
-  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
+  nsPIDOMWindowInner*
+  GetParentObject() const
+  {
+    return mWindow;
+  }
 
-  virtual JSObject* WrapObject(JSContext* aCx,
-                               JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject*
+  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
-  // WebIDL interface
+  // MozMobileNetworkInfo WebIDL interface
   Nullable<MobileNetworkState> GetState() const {
     uint32_t i = 0;
     for (const EnumEntry* entry = MobileNetworkStateValues::strings;

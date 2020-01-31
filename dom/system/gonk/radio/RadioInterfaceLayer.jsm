@@ -162,14 +162,6 @@ XPCOMUtils.defineLazyServiceGetter(this, "gDataCallInterfaceService",
                                    "@mozilla.org/datacall/interfaceservice;1",
                                    "nsIGonkDataCallInterfaceService");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gTelephonyService",
-                                   "@mozilla.org/telephony/telephonyservice;1",
-                                   "nsIGonkTelephonyService");
-
-XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
-                                   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
-                                   "nsIGonkMobileConnectionService");
-
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "gRilWorkerService",
@@ -333,6 +325,7 @@ XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
           this.notifyRadioStateChanged(clientId,
                                        Ci.nsIMobileConnection.MOBILE_RADIO_STATE_UNKNOWN);
         }
+        debug("_setRadioEnabledInternal callback.");
         return message.callback(response);
       }).bind(this));
     },
@@ -964,7 +957,7 @@ RadioInterface.prototype = {
         gMobileConnectionService.notifyModemRestart(this.clientId, message.reason);
         break;
       case "networkStateChanged":
-        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_IMS_NETWORK_STATE_CHANGED");
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NETWORK_STATE_CHANGED");
         this.handleNetworkStateChanged();
         break;
       case "voiceRadioTechChanged":
@@ -1914,7 +1907,8 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_IMSI imsi = " + response.imsi);
           this.iccInfoPrivate.imsi = response.imsi;
           result = response;
-          gIccService.notifyImsiChanged(this.clientId, this.iccInfoPrivate.imsi);
+          // Cameron mark first.
+          //gIccService.notifyImsiChanged(this.clientId, this.iccInfoPrivate.imsi);
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_IMSI error = " + response.errorMsg);
         }
@@ -2003,7 +1997,7 @@ RadioInterface.prototype = {
         if (response.errorMsg == 0) {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE nwModeManual = "
                     + response.nwModeManual);
-        this.handleNetworkSelectionMode(response);
+        this.handleNetworkSelectionMode(response.nwModeManual);
         result = response;
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE error = " + response.errorMsg);
@@ -2084,8 +2078,7 @@ RadioInterface.prototype = {
       case "selectNetworkAuto":
         if (response.errorMsg == 0) {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_NETWORK_SELECTION_AUTOMATIC");
-          response.nwModeManual = false;
-          this.handleNetworkSelectionMode(response);
+          this.handleNetworkSelectionMode(false);
           result = response;
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_NETWORK_SELECTION_AUTOMATIC error = " + response.errorMsg);
@@ -2094,8 +2087,7 @@ RadioInterface.prototype = {
       case "selectNetwork":
         if (response.errorMsg == 0) {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_NETWORK_SELECTION_MANUAL");
-          response.nwModeManual = true;
-          this.handleNetworkSelectionMode(response);
+          this.handleNetworkSelectionMode(true);
           result = response;
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_NETWORK_SELECTION_MANUAL error = " + response.errorMsg);
@@ -2153,7 +2145,7 @@ RadioInterface.prototype = {
         break;
       case "getPreferredNetworkType":
         if (response.errorMsg == 0) {
-          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE type = " + reponse.type);
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE type = " + response.type);
           result = response;
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE error = " + response.errorMsg);
@@ -2756,10 +2748,10 @@ RadioInterface.prototype = {
     return false;
   },
 
-  handleNetworkSelectionMode: function (response) {
-    if (DEBUG) this.debug("handleNetworkSelectionMode " + JSON.stringify(response.nwModeManual));
+  handleNetworkSelectionMode: function (mode) {
+    if (DEBUG) this.debug("handleNetworkSelectionMode " + JSON.stringify(mode));
 
-    let selectionMode = response.nwModeManual? RIL.GECKO_NETWORK_SELECTION_MANUAL : RIL.GECKO_NETWORK_SELECTION_AUTOMATIC;
+    let selectionMode = mode? RIL.GECKO_NETWORK_SELECTION_MANUAL : RIL.GECKO_NETWORK_SELECTION_AUTOMATIC;
     if (this.networkSelectionMode === selectionMode) {
       return;
     }
@@ -3010,7 +3002,7 @@ RadioInterface.prototype = {
     this.radioTech = response.radioTech;
 
     if (DEBUG) {
-      this.debug("Radio tech is set to: " + GECKO_RADIO_TECH[response.radioTech] +
+      this.debug("Radio tech is set to: " + RIL.GECKO_RADIO_TECH[response.radioTech] +
                          ", it is a " + (isCdma?"cdma":"gsm") + " technology");
     }
 
@@ -3362,7 +3354,7 @@ RadioInterface.prototype = {
     // Handle the solic request by function then call the ril_worker.
     switch(message.rilMessageType){
       case "getICCStatus":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_SIM_STATUS");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_SIM_STATUS");
         this.rilworker.getIccCardStatus(message.rilMessageToken);
         break;
       case "enterICCPIN":
@@ -3380,14 +3372,14 @@ RadioInterface.prototype = {
       case "enterDepersonalization":
         break;
       case "getCurrentCalls":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_CURRENT_CALLS");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_CURRENT_CALLS");
         this.rilworker.getCurrentCalls(message.rilMessageToken);
         break;
       case "dial":
         this.processRequestDial(message);
         break;
       case "getIMSI":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_IMSI aid = " + message.aid);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_IMSI aid = " + message.aid);
         this.rilworker.getIMSI(message.rilMessageToken, message.aid||"");
         break;
       case "hangUpCall":
@@ -3404,27 +3396,27 @@ RadioInterface.prototype = {
       case "udub":
         break;
       case "getFailCause":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_LAST_CALL_FAIL_CAUSE");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_LAST_CALL_FAIL_CAUSE");
         this.rilworker.getLastCallFailCause(message.rilMessageToken);
         break;
       case "getSignalStrength":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SIGNAL_STRENGTH");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SIGNAL_STRENGTH");
         this.rilworker.getSignalStrength(message.rilMessageToken);
         break;
       case "getVoiceRegistrationState":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_VOICE_REGISTRATION_STATE");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_VOICE_REGISTRATION_STATE");
         this.rilworker.getVoiceRegistrationState(message.rilMessageToken);
         break;
       case "getDataRegistrationState":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DATA_REGISTRATION_STATE");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DATA_REGISTRATION_STATE");
         this.rilworker.getDataRegistrationState(message.rilMessageToken);
         break;
       case "getOperator":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_OPERATOR");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_OPERATOR");
         this.rilworker.getOperator(message.rilMessageToken);
         break;
       case "setRadioEnabled":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_RADIO_POWER on = " + message.enabled);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_RADIO_POWER on = " + message.enabled);
         this.rilworker.setRadioPower(message.rilMessageToken, message.enabled);
         break;
       case "sendTone":
@@ -3432,12 +3424,12 @@ RadioInterface.prototype = {
       case "sendSMS":
         break;
       case "setupDataCall":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SETUP_DATA_CALL radioTechnology = " + message.radioTechnology + ", isRoaming = "
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SETUP_DATA_CALL radioTechnology = " + message.radioTechnology + ", isRoaming = "
                     + message.isRoaming + ", allowRoaming = " + message.allowRoaming);
         this.rilworker.setupDataCall(message.rilMessageToken, message.radioTechnology,  new DataProfile(message.profile), message.isRoaming, message.allowRoaming);
         break;
       case "iccIO":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SIM_IO command = " + message.command + " , fileId = "
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SIM_IO command = " + message.command + " , fileId = "
                     + message.fileId + " , path = " + message.pathId + " , p1 = " + message.p1 + " , p2 = " + message.p2 + " , p3 = " + message.p3
                     + " , data = " + message.dataWriter + " , pin2 = " + message.pin2 + " , aid = " + message.aid);
         // Store the command options(message).
@@ -3463,11 +3455,11 @@ RadioInterface.prototype = {
       case "acknowledgeGsmSms":
         break;
       case "answerCall":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ANSWER");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ANSWER");
         this.processAnswerCall(message);
         break;
       case "deactivateDataCall":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DEACTIVATE_DATA_CALL");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DEACTIVATE_DATA_CALL");
         this.rilworker.deactivateDataCall(message.rilMessageToken, message.cid, message.reason);
         break;
       case "queryICCFacilityLock":
@@ -3477,20 +3469,20 @@ RadioInterface.prototype = {
       case "changeCallBarringPassword":
         break;
       case "getNetworkSelectionMode":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE");
         this.rilworker.getNetworkSelectionMode(message.rilMessageToken);
         break;
       case "selectNetworkAuto":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_NETWORK_SELECTION_AUTOMATIC");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_NETWORK_SELECTION_AUTOMATIC");
         this.rilworker.setNetworkSelectionModeAutomatic(message.rilMessageToken);
         break;
       case "selectNetwork":
         let numeric = (message.mcc && message.mnc) ? message.mcc + message.mnc : null;
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_NETWORK_SELECTION_MANUAL numeric = " + numeric);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_NETWORK_SELECTION_MANUAL numeric = " + numeric);
         this.rilworker.setNetworkSelectionModeManual(message.rilMessageToken, numeric);
         break;
       case "getAvailableNetworks":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_AVAILABLE_NETWORKS numeric = " + numeric);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_AVAILABLE_NETWORKS numeric = " + numeric);
         this.rilworker.getAvailableNetworks(message.rilMessageToken);
         break;
       case "startTone":
@@ -3498,19 +3490,19 @@ RadioInterface.prototype = {
       case "stopTone":
         break;
       case "getBasebandVersion":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_BASEBAND_VERSION");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_BASEBAND_VERSION");
         this.rilworker.getBasebandVersion(message.rilMessageToken);
         break;
       case "separateCall":
         break;
       case "setMute":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_MUTE enableMute = " + message.muted);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_MUTE enableMute = " + message.muted);
         this.rilworker.setMute(message.rilMessageToken, message.muted);
         break;
       case "queryCLIP":
         break;
       case "getDataCallList":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DATA_CALL_LIST");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DATA_CALL_LIST");
         this.rilworker.getDataCallList(message.rilMessageToken);
         break;
       case "writeSmsToSIM":
@@ -3524,11 +3516,11 @@ RadioInterface.prototype = {
           this.handleRilResponse(message);
           return;
         }
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE networkType = " + networkType);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE networkType = " + networkType);
         this.rilworker.setPreferredNetworkType(message.rilMessageToken, networkType);
         break;
       case "getPreferredNetworkType":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE networkType = " + networkType);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE");
         this.rilworker.getPreferredNetworkType(message.rilMessageToken);
         break;
       case "getNeighboringCellIds":
@@ -3560,19 +3552,19 @@ RadioInterface.prototype = {
       case "getCdmaSubscription":
         break;
       case "getDeviceIdentity":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DEVICE_IDENTITY");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DEVICE_IDENTITY");
         this.rilworker.getDeviceIdentity(message.rilMessageToken);
         break;
       case "sendExitEmergencyCbModeRequest":
         break;
       case "getSmscAddress":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_SMSC_ADDRESS");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_SMSC_ADDRESS");
         this.rilworker.getSmscAddress(message.rilMessageToken);
         break;
       case "setSmscAddress":
         break;
       case "reportSmsMemoryStatus":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_REPORT_SMS_MEMORY_STATUS");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_REPORT_SMS_MEMORY_STATUS");
         this.rilworker.reportSmsMemoryStatus(message.rilMessageToken, message.isAvailable);
         break;
       case "reportStkServiceIsRunning":
@@ -3582,15 +3574,15 @@ RadioInterface.prototype = {
       case "dataDownloadViaSMSPP":
         break;
       case "getVoiceRadioTechnology":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_VOICE_RADIO_TECH");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_VOICE_RADIO_TECH");
         this.rilworker.getVoiceRadioTechnology(message.rilMessageToken);
         break;
       case "getCellInfoList":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_CELL_INFO_LIST");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_CELL_INFO_LIST");
         this.rilworker.getCellInfoList(message.rilMessageToken);
         break;
       case "setInitialAttachApn":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_INITIAL_ATTACH_APN profile = " + JSON.stringify(message.profile));
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_INITIAL_ATTACH_APN profile = " + JSON.stringify(message.profile));
         this.rilworker.setInitialAttachApn(message.rilMessageToken, new DataProfile(message.profile), message.isRoaming);
         break;
       case "iccOpenChannel":
@@ -3600,7 +3592,7 @@ RadioInterface.prototype = {
       case "iccExchangeAPDU":
         break;
       case "setUiccSubscription":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_UICC_SUBSCRIPTION slotId = "
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_UICC_SUBSCRIPTION slotId = "
                     + message.slotId + " appIndex = " + message.appIndex
                     + " subId = " + message.subId + " subStatus = " + message.subStatus? 1: 0);
         this.rilworker.setUiccSubscription(message.rilMessageToken
@@ -3611,13 +3603,13 @@ RadioInterface.prototype = {
                                            , message.subStatus? 1: 0);
         break;
       case "setDataRegistration":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ALLOW_DATA allowed = " + message.allowed);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ALLOW_DATA allowed = " + message.allowed);
         this.rilworker.setDataAllowed(message.rilMessageToken, message.allowed);
         break;
       case "getIccAuthentication":
         break;
       case "setCellInfoListRate":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_UNSOL_CELL_INFO_LIST_RATE rateInMillis = " + message.rateInMillis);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_UNSOL_CELL_INFO_LIST_RATE rateInMillis = " + message.rateInMillis);
         if (message.rateInMillis) {
           this.rilworker.setCellInfoListRate(message.rilMessageToken, message.rateInMillis);
         } else {
@@ -3629,17 +3621,17 @@ RadioInterface.prototype = {
   },
 
   processRequestDial: function(message) {
-    console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DIAL address = " + message.number + " clirMode = " + message.clirMode + " uusInfo = " + message.uusInfo);
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DIAL address = " + message.number + " clirMode = " + message.clirMode + " uusInfo = " + message.uusInfo);
     this.rilworker.requestDial(message.rilMessageToken, message.number|| "", message.clirMode, /*message.uusInfo.uusType|| 0*/0, /*message.uusInfo.uusDcs|| 0*/0, /*message.uusInfo.uusData|| ""*/"");
   },
 
   processHangUpCall: function(message) {
-    console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_HANGUP callIndex = " + message.callIndex);
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_HANGUP callIndex = " + message.callIndex);
     this.rilworker.hangupConnection(message.rilMessageToken, message.callIndex);
   },
 
   processAnswerCall: function(message) {
-    console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ANSWER");
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ANSWER");
     this.rilworker.acceptCall(message.rilMessageToken, message.callIndex);
   },
 

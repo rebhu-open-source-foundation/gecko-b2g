@@ -22,7 +22,6 @@ MobileConnectionChild::MobileConnectionChild(uint32_t aServiceId)
   , mNetworkSelectionMode(0)
   , mEmergencyCbMode(false)
 {
-  MOZ_COUNT_CTOR(MobileConnectionChild);
 }
 
 void
@@ -365,14 +364,14 @@ MobileConnectionChild::GetCellInfoList(nsICellInfoListCallback* aCallback)
   // This function is supported in chrome context only.
   return NS_ERROR_NOT_IMPLEMENTED;
 }
-/*
+
 NS_IMETHODIMP
-MobileConnectionChild::GetDeviceIdentities(nsIMobileConnectionCallback* aCallback)
+MobileConnectionChild::GetIdentities(nsIMobileConnectionCallback* aCallback)
 {
   return SendRequest(GetDeviceIdentitiesRequest(), aCallback)
     ? NS_OK : NS_ERROR_FAILURE;
 }
-*/
+
 bool
 MobileConnectionChild::SendRequest(const MobileConnectionRequest& aRequest,
                                    nsIMobileConnectionCallback* aCallback)

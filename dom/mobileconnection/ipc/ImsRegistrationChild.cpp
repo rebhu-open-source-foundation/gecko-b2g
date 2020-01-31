@@ -20,7 +20,6 @@ NS_IMPL_ISUPPORTS(ImsRegistrationChild, nsIImsRegHandler)
 ImsRegistrationChild::ImsRegistrationChild(uint32_t aServiceId)
   : mLive(true)
 {
-  MOZ_COUNT_CTOR(ImsRegistrationChild);
 }
 
 void

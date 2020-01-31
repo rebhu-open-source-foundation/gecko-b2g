@@ -4,9 +4,9 @@
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MobileConnectionDeviceIds
+interface MozMobileConnectionDeviceIds
 {
-/**
+  /**
    * IMEI (International Mobile Equipment Identity).
    *
    * Valid if GSM subscription is available.

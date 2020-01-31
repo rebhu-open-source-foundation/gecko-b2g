@@ -14,6 +14,7 @@
 #include "nsCOMPtr.h"
 #include "nsIMobileConnectionService.h"
 #include "nsIVariant.h"
+#include "mozilla/dom/MobileSignalStrength.h"
 
 class nsIMobileConnectionCallback;
 
@@ -49,7 +50,6 @@ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~MobileConnectionChild()
   {
-    MOZ_COUNT_DTOR(MobileConnectionChild);
   }
 
 protected:
@@ -139,7 +139,6 @@ public:
   explicit MobileConnectionRequestChild(nsIMobileConnectionCallback* aRequestCallback)
     : mRequestCallback(aRequestCallback)
   {
-    MOZ_COUNT_CTOR(MobileConnectionRequestChild);
     MOZ_ASSERT(mRequestCallback);
   }
 
@@ -180,7 +179,6 @@ protected:
   virtual
   ~MobileConnectionRequestChild()
   {
-    MOZ_COUNT_DTOR(MobileConnectionRequestChild);
   }
 
   virtual void

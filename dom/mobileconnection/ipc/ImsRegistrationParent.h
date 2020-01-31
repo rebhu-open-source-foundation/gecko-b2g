@@ -43,7 +43,6 @@ protected:
   virtual
   ~ImsRegistrationParent()
   {
-    MOZ_COUNT_DTOR(ImsRegistrationParent);
   }
 
   virtual void
@@ -92,7 +91,6 @@ public:
     : mHandler(aHandler)
     , mLive(true)
   {
-    MOZ_COUNT_CTOR(ImsRegistrationRequestParent);
   }
 
   bool
@@ -108,7 +106,6 @@ protected:
   virtual
   ~ImsRegistrationRequestParent()
   {
-    MOZ_COUNT_DTOR(ImsRegistrationRequestParent);
   }
 
   virtual void

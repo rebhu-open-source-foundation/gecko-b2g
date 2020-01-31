@@ -257,6 +257,20 @@ class ContentChild final
 
   jsipc::CPOWManager* GetCPOWManager() override;
 
+  PMobileConnectionChild* SendPMobileConnectionConstructor(
+      PMobileConnectionChild* aActor, const uint32_t& aClientId);
+
+  PMobileConnectionChild* AllocPMobileConnectionChild(
+      const uint32_t& aClientId);
+
+  bool DeallocPMobileConnectionChild(PMobileConnectionChild* aActor);
+  PImsRegServiceFinderChild* AllocPImsRegServiceFinderChild();
+  bool DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*);
+
+  PImsRegistrationChild* SendPImsRegistrationConstructor(
+      PImsRegistrationChild* aActor, const uint32_t& aServiceId);
+  PImsRegistrationChild* AllocPImsRegistrationChild(const uint32_t& aServiceId);
+  bool DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
   PNeckoChild* AllocPNeckoChild();
 
   bool DeallocPNeckoChild(PNeckoChild*);
@@ -754,29 +768,6 @@ class ContentChild final
       const FileDescriptor& aFD) override;
 
   // MOZ_B2G_RIL
-  //   PMobileConnectionChild*
-  //   SendPMobileConnectionConstructor(PMobileConnectionChild* aActor,
-  //                                    const uint32_t& aClientId);
-
-  //   PMobileConnectionChild*
-  //   AllocPMobileConnectionChild(const uint32_t& aClientId);
-
-  //   bool
-  //   DeallocPMobileConnectionChild(PMobileConnectionChild* aActor);
-
-  //   PImsRegServiceFinderChild*
-  //   AllocPImsRegServiceFinderChild();
-  //   bool
-  //   DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*);
-
-  //   PImsRegistrationChild*
-  //   SendPImsRegistrationConstructor(PImsRegistrationChild* aActor,
-  //                                   const uint32_t& aServiceId);
-  //   PImsRegistrationChild*
-  //   AllocPImsRegistrationChild(const uint32_t& aServiceId);
-  //   bool
-  //   DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
-
   //    virtual PCellBroadcastChild* AllocPCellBroadcastChild();
 
   //    PCellBroadcastChild* SendPCellBroadcastConstructor(PCellBroadcastChild*

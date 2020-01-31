@@ -8,8 +8,9 @@
 #define mozilla_dom_MobileDeviceIdentities_h
 
 #include "mozilla/DOMEventTargetHelper.h"
-#include "mozilla/dom/MobileConnectionDeviceIdsBinding.h"
+#include "mozilla/dom/MozMobileConnectionDeviceIdsBinding.h"
 #include "nsIMobileDeviceIdentities.h"
+#include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 
 struct JSContext;
@@ -17,18 +18,38 @@ struct JSContext;
 namespace mozilla {
 namespace dom {
 
-class MobileDeviceIdentities final : public nsIMobileDeviceIdentities
-                                       , public nsWrapperCache
-{
-public:
+class MobileDeviceIdentities final : public nsIMobileDeviceIdentities {
+ public:
+  NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILEDEVICEIDENTITIES
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileDeviceIdentities)
-
-  explicit MobileDeviceIdentities(nsPIDOMWindowInner* aWindow);
 
   MobileDeviceIdentities(const nsAString& aImei, const nsAString& aImeisv,
                          const nsAString& aEsn, const nsAString& aMeid);
+
+  void Update(nsIMobileDeviceIdentities* aIdentities);
+
+ private:
+  ~MobileDeviceIdentities() {}
+
+ private:
+  nsString mImei;
+  nsString mImeisv;
+  nsString mEsn;
+  nsString mMeid;
+};
+
+class MozMobileDeviceIdentities final : public nsWrapperCache, nsISupports
+{
+public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MozMobileDeviceIdentities)
+
+  explicit MozMobileDeviceIdentities(nsPIDOMWindowInner* aWindow);
+
+  MozMobileDeviceIdentities(const nsAString& aImei, const nsAString& aImeisv,
+                         const nsAString& aEsn, const nsAString& aMeid);
+
+  void Update(nsIMobileDeviceIdentities* aIdentities);
 
   nsPIDOMWindowInner*
   GetParentObject() const
@@ -38,13 +59,31 @@ public:
 
   virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
+  // MozMobileConnectionDeviceIds WebIDL interface
+  void GetImei(nsAString& aImei) const {
+    mIdentities->GetImei(aImei);
+  }
+
+  void GetImeisv(nsAString& aImeisv) const {
+    mIdentities->GetImeisv(aImeisv);
+  }
+
+  void GetEsn(nsAString& aEsn) const {
+    mIdentities->GetEsn(aEsn);
+  }
+
+  void GetMeid(nsAString& aMeid) const {
+    mIdentities->GetMeid(aMeid);
+  }
+
+  MobileDeviceIdentities* GetIdentities() const { return mIdentities; }
+
 private:
-  ~MobileDeviceIdentities();
+  ~MozMobileDeviceIdentities() { mIdentities = nullptr; }
+
+private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  nsString mImei;
-  nsString mImeisv;
-  nsString mEsn;
-  nsString mMeid;
+  RefPtr<MobileDeviceIdentities> mIdentities;
 };
 
 } // namespace dom
