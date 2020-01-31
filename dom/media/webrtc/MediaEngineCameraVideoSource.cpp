@@ -4,122 +4,240 @@
 
 #include "MediaEngineCameraVideoSource.h"
 
-#include <limits>
+#include "MediaEnginePrefs.h"
+#include "mozilla/dom/MediaTrackSettingsBinding.h"
+#include "mozilla/IntegerPrintfMacros.h"
 
 namespace mozilla {
 
-using namespace mozilla::gfx;
-using namespace mozilla::dom;
+extern LazyLogModule gMediaManagerLog;
+#define LOG(...) MOZ_LOG(gMediaManagerLog, LogLevel::Debug, (__VA_ARGS__))
 
-extern LogModule* GetMediaManagerLog();
-#define LOG(msg) MOZ_LOG(GetMediaManagerLog(), mozilla::LogLevel::Debug, msg)
-#define LOGFRAME(msg) MOZ_LOG(GetMediaManagerLog(), mozilla::LogLevel::Verbose, msg)
+using dom::MediaSourceEnum;
+using dom::MediaTrackConstraintSet;
+using dom::MediaTrackSettings;
+using dom::VideoFacingModeEnum;
 
-// guts for appending data to the MSG track
-bool MediaEngineCameraVideoSource::AppendToTrack(SourceMediaStream* aSource,
-                                                 layers::Image* aImage,
-                                                 TrackID aID,
-                                                 StreamTime delta,
-                                                 const PrincipalHandle& aPrincipalHandle)
-{
-  MOZ_ASSERT(aSource);
+/* static */
+Maybe<VideoFacingModeEnum> MediaEngineCameraVideoSource::GetFacingMode(
+    const nsString& aDeviceName) {
+  // Set facing mode based on device name.
+#if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
+  if (aDeviceName.EqualsLiteral("back")) {
+    return Some(VideoFacingModeEnum::Environment);
+  }
+  if (aDeviceName.EqualsLiteral("front")) {
+    return Some(VideoFacingModeEnum::User);
+  }
+#endif  // MOZ_B2G_CAMERA
+#if defined(ANDROID) && !defined(MOZ_WIDGET_GONK)
+  // Names are generated. Example: "Camera 0, Facing back, Orientation 90"
+  //
+  // See media/webrtc/trunk/webrtc/modules/video_capture/android/java/src/org/
+  // webrtc/videoengine/VideoCaptureDeviceInfoAndroid.java
 
-  VideoSegment segment;
-  RefPtr<layers::Image> image = aImage;
-  IntSize size(image ? mWidth : 0, image ? mHeight : 0);
-  segment.AppendFrame(image.forget(), delta, size, aPrincipalHandle);
+  if (aDeviceName.Find(NS_LITERAL_STRING("Facing back")) != kNotFound) {
+    return Some(VideoFacingModeEnum::Environment);
+  }
+  if (aDeviceName.Find(NS_LITERAL_STRING("Facing front")) != kNotFound) {
+    return Some(VideoFacingModeEnum::User);
+  }
+#endif  // ANDROID
+#ifdef XP_MACOSX
+  // Kludge to test user-facing cameras on OSX.
+  if (aDeviceName.Find(NS_LITERAL_STRING("Face")) != -1) {
+    return Some(VideoFacingModeEnum::User);
+  }
+#endif
+#ifdef XP_WIN
+  // The cameras' name of Surface book are "Microsoft Camera Front" and
+  // "Microsoft Camera Rear" respectively.
 
-  // This is safe from any thread, and is safe if the track is Finished
-  // or Destroyed.
-  // This can fail if either a) we haven't added the track yet, or b)
-  // we've removed or finished the track.
-  return aSource->AppendToTrack(aID, &(segment));
+  if (aDeviceName.Find(NS_LITERAL_STRING("Front")) != kNotFound) {
+    return Some(VideoFacingModeEnum::User);
+  }
+  if (aDeviceName.Find(NS_LITERAL_STRING("Rear")) != kNotFound) {
+    return Some(VideoFacingModeEnum::Environment);
+  }
+#endif  // WINDOWS
+
+  return Nothing();
 }
 
-// Sub-classes (B2G or desktop) should overload one of both of these two methods
-// to provide capabilities
-size_t
-MediaEngineCameraVideoSource::NumCapabilities() const
-{
-  return mHardcodedCapabilities.Length();
+MediaEngineCameraVideoSource::MediaEngineCameraVideoSource(
+    camera::CaptureEngine aCapEngine)
+    : mCapEngine(aCapEngine),
+      mSettingsUpdatedByFrame(MakeAndAddRef<media::Refcountable<AtomicBool>>()),
+      mSettings(MakeAndAddRef<media::Refcountable<MediaTrackSettings>>()),
+      mFirstFramePromise(mFirstFramePromiseHolder.Ensure(__func__)) {}
+
+MediaEngineCameraVideoSource::~MediaEngineCameraVideoSource() {
+  mFirstFramePromiseHolder.RejectIfExists(NS_ERROR_ABORT, __func__);
 }
 
-void
-MediaEngineCameraVideoSource::GetCapability(size_t aIndex,
-                                            webrtc::CaptureCapability& aOut) const
-{
-  MOZ_ASSERT(aIndex < mHardcodedCapabilities.Length());
-  aOut = mHardcodedCapabilities.SafeElementAt(aIndex, webrtc::CaptureCapability());
+MediaSourceEnum MediaEngineCameraVideoSource::GetMediaSource() const {
+  switch (mCapEngine) {
+    case camera::BrowserEngine:
+      return MediaSourceEnum::Browser;
+    case camera::CameraEngine:
+      return MediaSourceEnum::Camera;
+    case camera::ScreenEngine:
+      return MediaSourceEnum::Screen;
+    case camera::WinEngine:
+      return MediaSourceEnum::Window;
+    default:
+      MOZ_CRASH();
+  }
 }
 
-uint32_t
-MediaEngineCameraVideoSource::GetFitnessDistance(
+void MediaEngineCameraVideoSource::SetName(nsString aName) {
+  LOG("%s", __PRETTY_FUNCTION__);
+  AssertIsOnOwningThread();
+
+  mDeviceName = std::move(aName);
+
+  Maybe<VideoFacingModeEnum> facingMode;
+  if (GetMediaSource() == MediaSourceEnum::Camera) {
+    // Only cameras can have a facing mode.
+    facingMode = GetFacingMode(mDeviceName);
+  }
+
+  mFacingMode = facingMode.map([](const auto& aFM) {
+    return NS_ConvertASCIItoUTF16(
+        dom::VideoFacingModeEnumValues::GetString(aFM));
+  });
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "MediaEngineCameraVideoSource::SetName (facingMode updater)",
+      [settings = mSettings, mode = mFacingMode]() {
+        if (mode.isNothing()) {
+          settings->mFacingMode.Reset();
+          return;
+        }
+        settings->mFacingMode.Construct(*mode);
+      }));
+}
+
+nsString MediaEngineCameraVideoSource::GetName() const {
+  AssertIsOnOwningThread();
+
+  return mDeviceName;
+}
+
+void MediaEngineCameraVideoSource::SetUUID(const char* aUUID) {
+  AssertIsOnOwningThread();
+  mUniqueId.Assign(aUUID);
+}
+
+nsCString MediaEngineCameraVideoSource::GetUUID() const {
+  AssertIsOnOwningThread();
+
+  return mUniqueId;
+}
+
+nsString MediaEngineCameraVideoSource::GetGroupId() const {
+  AssertIsOnOwningThread();
+
+  // The remote video backend doesn't implement group id. We return the device
+  // name and higher layers will correlate this with the name of audio devices.
+  return mDeviceName;
+}
+
+uint32_t MediaEngineCameraVideoSource::GetDistance(
     const webrtc::CaptureCapability& aCandidate,
-    const NormalizedConstraintSet &aConstraints,
-    const nsString& aDeviceId) const
-{
+    const NormalizedConstraintSet& aConstraints,
+    const DistanceCalculation aCalculate) const {
+  if (aCalculate == kFeasibility) {
+    return GetFeasibilityDistance(aCandidate, aConstraints);
+  }
+  return GetFitnessDistance(aCandidate, aConstraints);
+}
+
+uint32_t MediaEngineCameraVideoSource::GetFitnessDistance(
+    const webrtc::CaptureCapability& aCandidate,
+    const NormalizedConstraintSet& aConstraints) const {
+  AssertIsOnOwningThread();
+
   // Treat width|height|frameRate == 0 on capability as "can do any".
   // This allows for orthogonal capabilities that are not in discrete steps.
 
+  typedef MediaConstraintsHelper H;
   uint64_t distance =
-    uint64_t(FitnessDistance(aDeviceId, aConstraints.mDeviceId)) +
-    uint64_t(FitnessDistance(mFacingMode, aConstraints.mFacingMode)) +
-    uint64_t(aCandidate.width? FitnessDistance(int32_t(aCandidate.width),
-                                               aConstraints.mWidth) : 0) +
-    uint64_t(aCandidate.height? FitnessDistance(int32_t(aCandidate.height),
-                                                aConstraints.mHeight) : 0) +
-    uint64_t(aCandidate.maxFPS? FitnessDistance(double(aCandidate.maxFPS),
-                                                aConstraints.mFrameRate) : 0);
+      uint64_t(H::FitnessDistance(mFacingMode, aConstraints.mFacingMode)) +
+      uint64_t(aCandidate.width ? H::FitnessDistance(int32_t(aCandidate.width),
+                                                     aConstraints.mWidth)
+                                : 0) +
+      uint64_t(aCandidate.height
+                   ? H::FitnessDistance(int32_t(aCandidate.height),
+                                        aConstraints.mHeight)
+                   : 0) +
+      uint64_t(aCandidate.maxFPS ? H::FitnessDistance(double(aCandidate.maxFPS),
+                                                      aConstraints.mFrameRate)
+                                 : 0);
+  return uint32_t(std::min(distance, uint64_t(UINT32_MAX)));
+}
+
+uint32_t MediaEngineCameraVideoSource::GetFeasibilityDistance(
+    const webrtc::CaptureCapability& aCandidate,
+    const NormalizedConstraintSet& aConstraints) const {
+  AssertIsOnOwningThread();
+
+  // Treat width|height|frameRate == 0 on capability as "can do any".
+  // This allows for orthogonal capabilities that are not in discrete steps.
+
+  typedef MediaConstraintsHelper H;
+  uint64_t distance =
+      uint64_t(H::FitnessDistance(mFacingMode, aConstraints.mFacingMode)) +
+      uint64_t(aCandidate.width
+                   ? H::FeasibilityDistance(int32_t(aCandidate.width),
+                                            aConstraints.mWidth)
+                   : 0) +
+      uint64_t(aCandidate.height
+                   ? H::FeasibilityDistance(int32_t(aCandidate.height),
+                                            aConstraints.mHeight)
+                   : 0) +
+      uint64_t(aCandidate.maxFPS
+                   ? H::FeasibilityDistance(double(aCandidate.maxFPS),
+                                            aConstraints.mFrameRate)
+                   : 0);
   return uint32_t(std::min(distance, uint64_t(UINT32_MAX)));
 }
 
 // Find best capability by removing inferiors. May leave >1 of equal distance
 
-/* static */ void
-MediaEngineCameraVideoSource::TrimLessFitCandidates(CapabilitySet& set) {
+/* static */
+void MediaEngineCameraVideoSource::TrimLessFitCandidates(
+    nsTArray<CapabilityCandidate>& aSet) {
   uint32_t best = UINT32_MAX;
-  for (auto& candidate : set) {
+  for (auto& candidate : aSet) {
     if (best > candidate.mDistance) {
       best = candidate.mDistance;
     }
   }
-  for (size_t i = 0; i < set.Length();) {
-    if (set[i].mDistance > best) {
-      set.RemoveElementAt(i);
+  for (size_t i = 0; i < aSet.Length();) {
+    if (aSet[i].mDistance > best) {
+      aSet.RemoveElementAt(i);
     } else {
       ++i;
     }
   }
-  MOZ_ASSERT(set.Length());
+  MOZ_ASSERT(aSet.Length());
 }
 
-// GetBestFitnessDistance returns the best distance the capture device can offer
-// as a whole, given an accumulated number of ConstraintSets.
-// Ideal values are considered in the first ConstraintSet only.
-// Plain values are treated as Ideal in the first ConstraintSet.
-// Plain values are treated as Exact in subsequent ConstraintSets.
-// Infinity = UINT32_MAX e.g. device cannot satisfy accumulated ConstraintSets.
-// A finite result may be used to calculate this device's ranking as a choice.
+uint32_t MediaEngineCameraVideoSource::GetBestFitnessDistance(
+    const nsTArray<const NormalizedConstraintSet*>& aConstraintSets) const {
+  AssertIsOnOwningThread();
 
-uint32_t
-MediaEngineCameraVideoSource::GetBestFitnessDistance(
-    const nsTArray<const NormalizedConstraintSet*>& aConstraintSets,
-    const nsString& aDeviceId) const
-{
   size_t num = NumCapabilities();
-
-  CapabilitySet candidateSet;
+  nsTArray<CapabilityCandidate> candidateSet;
   for (size_t i = 0; i < num; i++) {
-    candidateSet.AppendElement(i);
+    candidateSet.AppendElement(CapabilityCandidate(GetCapability(i)));
   }
 
   bool first = true;
   for (const NormalizedConstraintSet* ns : aConstraintSets) {
-    for (size_t i = 0; i < candidateSet.Length();  ) {
+    for (size_t i = 0; i < candidateSet.Length();) {
       auto& candidate = candidateSet[i];
-      webrtc::CaptureCapability cap;
-      GetCapability(candidate.mIndex, cap);
-      uint32_t distance = GetFitnessDistance(cap, *ns, aDeviceId);
+      uint32_t distance = GetFitnessDistance(candidate.mCapability, *ns);
       if (distance == UINT32_MAX) {
         candidateSet.RemoveElementAt(i);
       } else {
@@ -138,105 +256,125 @@ MediaEngineCameraVideoSource::GetBestFitnessDistance(
   return candidateSet[0].mDistance;
 }
 
-void
-MediaEngineCameraVideoSource::LogConstraints(
-    const NormalizedConstraintSet& aConstraints)
-{
-  auto& c = aConstraints;
-  LOG(((c.mWidth.mIdeal.isSome()?
-        "Constraints: width: { min: %d, max: %d, ideal: %d }" :
-        "Constraints: width: { min: %d, max: %d }"),
-       c.mWidth.mMin, c.mWidth.mMax,
-       c.mWidth.mIdeal.valueOr(0)));
-  LOG(((c.mHeight.mIdeal.isSome()?
-        "             height: { min: %d, max: %d, ideal: %d }" :
-        "             height: { min: %d, max: %d }"),
-       c.mHeight.mMin, c.mHeight.mMax,
-       c.mHeight.mIdeal.valueOr(0)));
-  LOG(((c.mFrameRate.mIdeal.isSome()?
-        "             frameRate: { min: %f, max: %f, ideal: %f }" :
-        "             frameRate: { min: %f, max: %f }"),
-       c.mFrameRate.mMin, c.mFrameRate.mMax,
-       c.mFrameRate.mIdeal.valueOr(0)));
-}
-
-void
-MediaEngineCameraVideoSource::LogCapability(const char* aHeader,
-    const webrtc::CaptureCapability &aCapability, uint32_t aDistance)
-{
-  // RawVideoType and VideoCodecType media/webrtc/trunk/webrtc/common_types.h
+/* static */
+void MediaEngineCameraVideoSource::LogCapability(
+    const char* aHeader, const webrtc::CaptureCapability& aCapability,
+    uint32_t aDistance) {
   static const char* const types[] = {
-    "I420",
-    "YV12",
-    "YUY2",
-    "UYVY",
-    "IYUV",
-    "ARGB",
-    "RGB24",
-    "RGB565",
-    "ARGB4444",
-    "ARGB1555",
-    "MJPEG",
-    "NV12",
-    "NV21",
-    "BGRA",
-    "Unknown type"
-  };
+      "Unknown type", "I420",   "IYUV",     "RGB24", "ABGR", "ARGB",
+      "ARGB4444",     "RGB565", "ARGB1555", "YUY2",  "YV12", "UYVY",
+      "MJPEG",        "NV21",   "NV12",     "BGRA"};
 
-  static const char* const codec[] = {
-    "VP8",
-    "VP9",
-    "H264",
-    "I420",
-    "RED",
-    "ULPFEC",
-    "Generic codec",
-    "Unknown codec"
-  };
-
-  LOG(("%s: %4u x %4u x %2u maxFps, %s, %s. Distance = %lu",
-       aHeader, aCapability.width, aCapability.height, aCapability.maxFPS,
-       types[std::min(std::max(uint32_t(0), uint32_t(aCapability.rawType)),
-                      uint32_t(sizeof(types) / sizeof(*types) - 1))],
-       codec[std::min(std::max(uint32_t(0), uint32_t(aCapability.codecType)),
-                      uint32_t(sizeof(codec) / sizeof(*codec) - 1))],
-       aDistance));
+  LOG("%s: %4u x %4u x %2u maxFps, %s. Distance = %" PRIu32, aHeader,
+      aCapability.width, aCapability.height, aCapability.maxFPS,
+      types[std::min(std::max(uint32_t(0), uint32_t(aCapability.videoType)),
+                     uint32_t(sizeof(types) / sizeof(*types) - 1))],
+      aDistance);
 }
 
-bool
-MediaEngineCameraVideoSource::ChooseCapability(
-    const NormalizedConstraints &aConstraints,
-    const MediaEnginePrefs &aPrefs,
-    const nsString& aDeviceId)
-{
-  if (MOZ_LOG_TEST(GetMediaManagerLog(), LogLevel::Debug)) {
-    LOG(("ChooseCapability: prefs: %dx%d @%d-%dfps",
-         aPrefs.GetWidth(), aPrefs.GetHeight(),
-         aPrefs.mFPS, aPrefs.mMinFPS));
-    LogConstraints(aConstraints);
-    if (aConstraints.mAdvanced.size()) {
-      LOG(("Advanced array[%u]:", aConstraints.mAdvanced.size()));
+bool MediaEngineCameraVideoSource::ChooseCapability(
+    const NormalizedConstraints& aConstraints, const MediaEnginePrefs& aPrefs,
+    webrtc::CaptureCapability& aCapability,
+    const DistanceCalculation aCalculate) {
+  LOG("%s", __PRETTY_FUNCTION__);
+  AssertIsOnOwningThread();
+
+  if (MOZ_LOG_TEST(gMediaManagerLog, LogLevel::Debug)) {
+    LOG("ChooseCapability: prefs: %dx%d @%dfps", aPrefs.GetWidth(),
+        aPrefs.GetHeight(), aPrefs.mFPS);
+    MediaConstraintsHelper::LogConstraints(aConstraints);
+    if (!aConstraints.mAdvanced.empty()) {
+      LOG("Advanced array[%zu]:", aConstraints.mAdvanced.size());
       for (auto& advanced : aConstraints.mAdvanced) {
-        LogConstraints(advanced);
+        MediaConstraintsHelper::LogConstraints(advanced);
       }
     }
   }
 
-  size_t num = NumCapabilities();
+  switch (mCapEngine) {
+    case camera::ScreenEngine:
+    case camera::WinEngine: {
+      FlattenedConstraints c(aConstraints);
+      // The actual resolution to constrain around is not easy to find ahead of
+      // time (and may in fact change over time), so as a hack, we push ideal
+      // and max constraints down to desktop_capture_impl.cc and finish the
+      // algorithm there.
+      // TODO: This can be removed in bug 1453269.
+      aCapability.width =
+          (std::min(0xffff, c.mWidth.mIdeal.valueOr(0)) & 0xffff) << 16 |
+          (std::min(0xffff, c.mWidth.mMax) & 0xffff);
+      aCapability.height =
+          (std::min(0xffff, c.mHeight.mIdeal.valueOr(0)) & 0xffff) << 16 |
+          (std::min(0xffff, c.mHeight.mMax) & 0xffff);
+      aCapability.maxFPS =
+          c.mFrameRate.Clamp(c.mFrameRate.mIdeal.valueOr(aPrefs.mFPS));
+      return true;
+    }
+    default:
+      break;
+  }
 
-  CapabilitySet candidateSet;
+  nsTArray<CapabilityCandidate> candidateSet;
+  size_t num = NumCapabilities();
   for (size_t i = 0; i < num; i++) {
-    candidateSet.AppendElement(i);
+    candidateSet.AppendElement(CapabilityCandidate(GetCapability(i)));
+  }
+
+  if (mCapabilitiesAreHardcoded && mCapEngine == camera::CameraEngine) {
+    // We have a hardcoded capability, which means this camera didn't report
+    // discrete capabilities. It might still allow a ranged capability, so we
+    // add a couple of default candidates based on prefs and constraints.
+    // The chosen candidate will be propagated to StartCapture() which will fail
+    // for an invalid candidate.
+    MOZ_DIAGNOSTIC_ASSERT(mCapabilities.Length() == 1);
+    MOZ_DIAGNOSTIC_ASSERT(candidateSet.Length() == 1);
+    candidateSet.Clear();
+
+    FlattenedConstraints c(aConstraints);
+    // Reuse the code across both the low-definition (`false`) pref and
+    // the high-definition (`true`) pref.
+    // If there are constraints we try to satisfy them but we default to prefs.
+    // Note that since constraints are from content and can literally be
+    // anything we put (rather generous) caps on them.
+    for (bool isHd : {false, true}) {
+      webrtc::CaptureCapability cap;
+      int32_t prefWidth = aPrefs.GetWidth(isHd);
+      int32_t prefHeight = aPrefs.GetHeight(isHd);
+
+      cap.width = c.mWidth.Get(prefWidth);
+      cap.width = std::max(0, std::min(cap.width, 7680));
+
+      cap.height = c.mHeight.Get(prefHeight);
+      cap.height = std::max(0, std::min(cap.height, 4320));
+
+      cap.maxFPS = c.mFrameRate.Get(aPrefs.mFPS);
+      cap.maxFPS = std::max(0, std::min(cap.maxFPS, 480));
+
+      if (cap.width != prefWidth) {
+        // Width was affected by constraints.
+        // We'll adjust the height too so the aspect ratio is retained.
+        cap.height = cap.width * prefHeight / prefWidth;
+      } else if (cap.height != prefHeight) {
+        // Height was affected by constraints but not width.
+        // We'll adjust the width too so the aspect ratio is retained.
+        cap.width = cap.height * prefWidth / prefHeight;
+      }
+
+      if (candidateSet.Contains(cap, CapabilityComparator())) {
+        continue;
+      }
+      LogCapability("Hardcoded capability", cap, 0);
+      candidateSet.AppendElement(cap);
+    }
   }
 
   // First, filter capabilities by required constraints (min, max, exact).
 
   for (size_t i = 0; i < candidateSet.Length();) {
     auto& candidate = candidateSet[i];
-    webrtc::CaptureCapability cap;
-    GetCapability(candidate.mIndex, cap);
-    candidate.mDistance = GetFitnessDistance(cap, aConstraints, aDeviceId);
-    LogCapability("Capability", cap, candidate.mDistance);
+    candidate.mDistance =
+        GetDistance(candidate.mCapability, aConstraints, aCalculate);
+    LogCapability("Capability", candidate.mCapability, candidate.mDistance);
     if (candidate.mDistance == UINT32_MAX) {
       candidateSet.RemoveElementAt(i);
     } else {
@@ -244,32 +382,32 @@ MediaEngineCameraVideoSource::ChooseCapability(
     }
   }
 
-  if (!candidateSet.Length()) {
-    LOG(("failed to find capability match from %d choices",num));
+  if (candidateSet.IsEmpty()) {
+    LOG("failed to find capability match from %zu choices",
+        candidateSet.Length());
     return false;
   }
 
   // Filter further with all advanced constraints (that don't overconstrain).
 
-  for (const auto &cs : aConstraints.mAdvanced) {
-    CapabilitySet rejects;
+  for (const auto& cs : aConstraints.mAdvanced) {
+    nsTArray<CapabilityCandidate> rejects;
     for (size_t i = 0; i < candidateSet.Length();) {
-      auto& candidate = candidateSet[i];
-      webrtc::CaptureCapability cap;
-      GetCapability(candidate.mIndex, cap);
-      if (GetFitnessDistance(cap, cs, aDeviceId) == UINT32_MAX) {
-        rejects.AppendElement(candidate);
+      if (GetDistance(candidateSet[i].mCapability, cs, aCalculate) ==
+          UINT32_MAX) {
+        rejects.AppendElement(candidateSet[i]);
         candidateSet.RemoveElementAt(i);
       } else {
         ++i;
       }
     }
     if (!candidateSet.Length()) {
-      candidateSet.AppendElements(Move(rejects));
+      candidateSet.AppendElements(std::move(rejects));
     }
   }
-  MOZ_ASSERT(candidateSet.Length(),
-             "advanced constraints filtering step can't reduce candidates to zero");
+  MOZ_ASSERT(
+      candidateSet.Length(),
+      "advanced constraints filtering step can't reduce candidates to zero");
 
   // Remaining algorithm is up to the UA.
 
@@ -280,136 +418,27 @@ MediaEngineCameraVideoSource::ChooseCapability(
   uint32_t sameDistance = candidateSet[0].mDistance;
   {
     MediaTrackConstraintSet prefs;
-    prefs.mWidth.SetAsLong() = aPrefs.GetWidth();
-    prefs.mHeight.SetAsLong() = aPrefs.GetHeight();
-    prefs.mFrameRate.SetAsDouble() = aPrefs.mFPS;
+    prefs.mWidth.Construct().SetAsLong() = aPrefs.GetWidth();
+    prefs.mHeight.Construct().SetAsLong() = aPrefs.GetHeight();
+    prefs.mFrameRate.Construct().SetAsDouble() = aPrefs.mFPS;
     NormalizedConstraintSet normPrefs(prefs, false);
 
     for (auto& candidate : candidateSet) {
-      webrtc::CaptureCapability cap;
-      GetCapability(candidate.mIndex, cap);
-      candidate.mDistance = GetFitnessDistance(cap, normPrefs, aDeviceId);
+      candidate.mDistance =
+          GetDistance(candidate.mCapability, normPrefs, aCalculate);
     }
     TrimLessFitCandidates(candidateSet);
   }
 
-  // Any remaining multiples all have the same distance, but may vary on
-  // format. Some formats are more desirable for certain use like WebRTC.
-  // E.g. I420 over RGB24 can remove a needless format conversion.
+  aCapability = candidateSet[0].mCapability;
 
-  bool found = false;
-  for (auto& candidate : candidateSet) {
-    webrtc::CaptureCapability cap;
-    GetCapability(candidate.mIndex, cap);
-    if (cap.rawType == webrtc::RawVideoType::kVideoI420 ||
-        cap.rawType == webrtc::RawVideoType::kVideoYUY2 ||
-        cap.rawType == webrtc::RawVideoType::kVideoYV12) {
-      mCapability = cap;
-      found = true;
-      break;
-    }
-  }
-  if (!found) {
-    GetCapability(candidateSet[0].mIndex, mCapability);
-  }
-
-  LogCapability("Chosen capability", mCapability, sameDistance);
+  LogCapability("Chosen capability", aCapability, sameDistance);
   return true;
 }
 
-void
-MediaEngineCameraVideoSource::SetName(nsString aName)
-{
-  mDeviceName = aName;
-  bool hasFacingMode = false;
-  VideoFacingModeEnum facingMode = VideoFacingModeEnum::User;
-
-  // Set facing mode based on device name.
-#if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
-  if (aName.EqualsLiteral("back")) {
-    hasFacingMode = true;
-    facingMode = VideoFacingModeEnum::Environment;
-  } else if (aName.EqualsLiteral("front")) {
-    hasFacingMode = true;
-    facingMode = VideoFacingModeEnum::User;
-  }
-#endif // MOZ_B2G_CAMERA
-#if defined(ANDROID) && !defined(MOZ_WIDGET_GONK)
-  // Names are generated. Example: "Camera 0, Facing back, Orientation 90"
-  //
-  // See media/webrtc/trunk/webrtc/modules/video_capture/android/java/src/org/
-  // webrtc/videoengine/VideoCaptureDeviceInfoAndroid.java
-
-  if (aName.Find(NS_LITERAL_STRING("Facing back")) != kNotFound) {
-    hasFacingMode = true;
-    facingMode = VideoFacingModeEnum::Environment;
-  } else if (aName.Find(NS_LITERAL_STRING("Facing front")) != kNotFound) {
-    hasFacingMode = true;
-    facingMode = VideoFacingModeEnum::User;
-  }
-#endif // ANDROID
-#ifdef XP_MACOSX
-  // Kludge to test user-facing cameras on OSX.
-  if (aName.Find(NS_LITERAL_STRING("Face")) != -1) {
-    hasFacingMode = true;
-    facingMode = VideoFacingModeEnum::User;
-  }
-#endif
-  if (hasFacingMode) {
-    mFacingMode.Assign(NS_ConvertUTF8toUTF16(
-        VideoFacingModeEnumValues::strings[uint32_t(facingMode)].value));
-  } else {
-    mFacingMode.Truncate();
-  }
+void MediaEngineCameraVideoSource::GetSettings(
+    MediaTrackSettings& aOutSettings) const {
+  aOutSettings = *mSettings;
 }
 
-void
-MediaEngineCameraVideoSource::GetName(nsAString& aName) const
-{
-  aName = mDeviceName;
-}
-
-void
-MediaEngineCameraVideoSource::SetUUID(const char* aUUID)
-{
-  mUniqueId.Assign(aUUID);
-}
-
-void
-MediaEngineCameraVideoSource::GetUUID(nsACString& aUUID) const
-{
-  aUUID = mUniqueId;
-}
-
-const nsCString&
-MediaEngineCameraVideoSource::GetUUID() const
-{
-  return mUniqueId;
-}
-
-void
-MediaEngineCameraVideoSource::SetDirectListeners(bool aHasDirectListeners)
-{
-  LOG((__FUNCTION__));
-  mHasDirectListeners = aHasDirectListeners;
-}
-
-bool operator == (const webrtc::CaptureCapability& a,
-                  const webrtc::CaptureCapability& b)
-{
-  return a.width == b.width &&
-         a.height == b.height &&
-         a.maxFPS == b.maxFPS &&
-         a.rawType == b.rawType &&
-         a.codecType == b.codecType &&
-         a.expectedCaptureDelay == b.expectedCaptureDelay &&
-         a.interlaced == b.interlaced;
-};
-
-bool operator != (const webrtc::CaptureCapability& a,
-                  const webrtc::CaptureCapability& b)
-{
-  return !(a == b);
-}
-
-} // namespace mozilla
+}  // namespace mozilla
