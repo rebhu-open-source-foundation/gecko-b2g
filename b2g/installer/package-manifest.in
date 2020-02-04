@@ -206,7 +206,9 @@
 @RESPATH@/components/dom_system.xpt
 @RESPATH@/components/dom_workers.xpt
 #ifdef MOZ_WIDGET_GONK
+#ifndef DISABLE_WIFI
 @RESPATH@/components/dom_wifi.xpt
+#endif
 @RESPATH@/components/dom_system_gonk.xpt
 @RESPATH@/components/dom_system_gonk_network.xpt
 #endif

@@ -361,8 +361,10 @@ extern const mozilla::Module kGaiaChromeModule;
 #if defined(MOZ_WIDGET_GONK)
 extern const mozilla::Module kNetworkWorkerModule;
 extern const mozilla::Module kRilWorkerServiceModule;
-extern const mozilla::Module kWifiProxyServiceModule;
 extern const mozilla::Module kAudioManagerModule;
+#ifndef DISABLE_WIFI
+extern const mozilla::Module kWifiProxyServiceModule;
+#endif
 #endif
 
 static nsTArray<const mozilla::Module*>* sExtraStaticModules;
@@ -455,8 +457,10 @@ nsresult nsComponentManagerImpl::Init() {
 #if defined(MOZ_WIDGET_GONK)
   RegisterModule(&kNetworkWorkerModule);
   RegisterModule(&kRilWorkerServiceModule);
-  RegisterModule(&kWifiProxyServiceModule);
   RegisterModule(&kAudioManagerModule);
+#ifndef DISABLE_WIFI
+  RegisterModule(&kWifiProxyServiceModule);
+#endif
 #endif
 
   for (uint32_t i = 0; i < sExtraStaticModules->Length(); ++i) {
