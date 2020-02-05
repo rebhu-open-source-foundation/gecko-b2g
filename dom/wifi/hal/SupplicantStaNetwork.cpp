@@ -141,18 +141,18 @@ Return<void> SupplicantStaNetwork::onNetworkEapSimGsmAuthRequest(
     const ISupplicantStaNetworkCallback::NetworkRequestEapSimGsmAuthParams& params) {
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaNetworkCallback.onNetworkEapSimGsmAuthRequest()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaNetwork::onNetworkEapSimUmtsAuthRequest(
     const ISupplicantStaNetworkCallback::NetworkRequestEapSimUmtsAuthParams& params) {
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaNetworkCallback.onNetworkEapSimUmtsAuthRequest()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaNetwork::onNetworkEapIdentityRequest() {
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaNetworkCallback.onNetworkEapIdentityRequest()");
-  return Void();
+  return android::hardware::Void();
 }

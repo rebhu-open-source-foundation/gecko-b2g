@@ -683,7 +683,7 @@ var WifiManager = (function() {
     let currentNetwork = Object.create(null);
     currentNetwork.netId = wifiInfo.networkId;
 
-    manager.getNetworkConfiguration(currentNetwork, function() {
+    WifiConfigManager.getNetworkConfiguration(currentNetwork, function() {
       curNetworkKey = WifiConfigUtils.getNetworkKey(currentNetwork);
 
       // Add additional information to static ip configuration
@@ -924,7 +924,7 @@ var WifiManager = (function() {
     // Clear the bssid in the current config's network block
     manager.clearCurrentConfigBSSID(currentNetwork.netId, function() {});
 
-    manager.getNetworkConfiguration(currentNetwork, function() {
+    WifiConfigManager.getNetworkConfiguration(currentNetwork, function() {
       let key = WifiConfigUtils.getNetworkKey(currentNetwork);
       if (
         staticIpConfig &&
@@ -1067,23 +1067,6 @@ var WifiManager = (function() {
     STOPPED: "driverstopped",
     STARTED: "driverstarted",
     HANGED: "driverhung",
-  };
-
-  manager.getNetworkId = function(networkKey, callback) {
-    manager.getConfiguredNetworks(function(networks) {
-      if (!networks) {
-        debug("Unable to get configured networks");
-        return callback(null);
-      }
-      for (let net in networks) {
-        let network = networks[net];
-        // Get netId from comparing networkKey.
-        if (networkKey === WifiConfigUtils.getNetworkKey(network)) {
-          return callback(net);
-        }
-      }
-      callback(null);
-    });
   };
 
   function handleWpaEapEvents(event) {
@@ -1286,8 +1269,8 @@ var WifiManager = (function() {
       // As long the monitor socket is not closed and we haven't seen too many
       // recv errors yet, we will keep going for a bit longer.
       if (
-        event.indexOf("connection closed") === -1 &&
-        event.indexOf("recv error") !== -1 &&
+        eventData.indexOf("connection closed") === -1 &&
+        eventData.indexOf("recv error") !== -1 &&
         ++recvErrors < 10
       ) {
         return true;
@@ -1452,7 +1435,6 @@ var WifiManager = (function() {
       wifiInfo.setNetworkId(id);
       WifiNetworkSelector.trackBssid(bssid, true);
       if (manager.wpsStarted) {
-        notify("wpsconnected", { id });
         manager.wpsStarted = false;
       }
       return true;
@@ -2225,38 +2207,6 @@ var WifiManager = (function() {
   // These fields are only handled in IBSS (aka ad-hoc) mode
   var ibssNetworkConfigurationFields = ["frequency", "mode"];
 
-  manager.getNetworkConfiguration = function(config, callback) {
-    let configuredNetworks = WifiConfigManager.configuredNetworks;
-    let networkKey = WifiConfigUtils.getNetworkKey(config);
-    if (networkKey in configuredNetworks) {
-      callback(configuredNetworks[networkKey]);
-    }
-    // TODO: getNetworkConfiguration mechanism must be changed.
-    // var netId = config.netId;
-    // var done = 0;
-    // for (var n = 0; n < networkConfigurationFields.length; ++n) {
-    //   let fieldName = networkConfigurationFields[n].name;
-    //   let fieldType = networkConfigurationFields[n].type;
-    //   wifiCommand.getNetworkVariable(netId, fieldName, function(value) {
-    //     if (value !== null) {
-    //       if (fieldType === "integer") {
-    //         config[fieldName] = parseInt(value, 10);
-    //       } else if ( fieldName == "ssid" && value[0] != '"' ) {
-    //         // SET_NETWORK will set a quoted ssid to wpa_supplicant.
-    //         // But if ssid contains non-ascii char, it will be converted into utf-8.
-    //         // For example: "Test的wifi" --> 54657374e79a8477696669
-    //         // When GET_NETWORK receive a un-quoted utf-8 ssid, it must be decoded and quoted.
-    //         config[fieldName] = quote(decodeURIComponent(value.replace(/[0-9a-f]{2}/g, '%$&')));
-    //       } else {
-    //         // value is string type by default.
-    //         config[fieldName] = value;
-    //       }
-    //     }
-    //     if (++done == networkConfigurationFields.length)
-    //       callback(config);
-    //   });
-    // }
-  };
   manager.setAutoRoam = function(candidate, callback) {
     // set target bssid
     wifiCommand.setNetworkVariable(
@@ -2285,110 +2235,75 @@ var WifiManager = (function() {
     wifiCommand.setNetworkVariable(netId, "bssid", "any", callback);
   };
   manager.setNetworkConfiguration = function(config, callback) {
-    var netId = config.netId;
-    var done = 0;
-    var errors = 0;
-    config.bssid = "any";
+    // var netId = config.netId;
+    // var done = 0;
+    // var errors = 0;
+    // config.bssid = "any";
 
-    // Dual sim not support for JB/KK
-    if (sdkVersion < 20) {
-      config.sim_num = null;
-    }
+    // // Dual sim not support for JB/KK
+    // if (sdkVersion < 20) {
+    //   config.sim_num = null;
+    // }
 
-    function hasValidProperty(name) {
-      let valid = false;
-      let nameList = ["password", "psk", wapi_psk].concat(wepKeyList);
+    // function hasValidProperty(name) {
+    //   let valid = false;
+    //   let nameList = ["password", "psk", wapi_psk].concat(wepKeyList);
 
-      if (name in config && config[name] != null) {
-        valid = true;
-        // set to invalid if field name is in nameList and
-        // value of the field is '*', to avoid network set
-        // failed in supplicant.
-        if (nameList.indexOf(name) !== -1 && config[name] === "*") {
-          valid = false;
-        }
-      }
-      return valid;
-    }
+    //   if (name in config && config[name] != null) {
+    //     valid = true;
+    //     // set to invalid if field name is in nameList and
+    //     // value of the field is '*', to avoid network set
+    //     // failed in supplicant.
+    //     if (nameList.indexOf(name) !== -1 && config[name] === "*") {
+    //       valid = false;
+    //     }
+    //   }
+    //   return valid;
+    // }
 
-    function getModeFromConfig() {
-      /* we use the mode from the config, or ESS as default */
-      return hasValidProperty("mode") ? config.mode : WifiConfigUtils.MODE_ESS;
-    }
+    // function getModeFromConfig() {
+    //   /* we use the mode from the config, or ESS as default */
+    //   return hasValidProperty("mode") ? config.mode : WifiConfigUtils.MODE_ESS;
+    // }
 
-    var mode = getModeFromConfig();
+    // var mode = getModeFromConfig();
 
-    function validForMode(name, mode) {
-      /* all fields are valid for IBSS */
-      return (
-        mode == WifiConfigUtils.MODE_IBSS ||
-        /* IBSS fields are not valid for ESS */
-        (mode == WifiConfigUtils.MODE_ESS &&
-          !(name in ibssNetworkConfigurationFields))
-      );
-    }
+    // function validForMode(name, mode) {
+    //   /* all fields are valid for IBSS */
+    //   return (
+    //     mode == WifiConfigUtils.MODE_IBSS ||
+    //     /* IBSS fields are not valid for ESS */
+    //     (mode == WifiConfigUtils.MODE_ESS &&
+    //       !(name in ibssNetworkConfigurationFields))
+    //   );
+    // }
 
-    for (var n = 0; n < networkConfigurationFields.length; ++n) {
-      let fieldName = networkConfigurationFields[n].name;
-      if (!hasValidProperty(fieldName) || !validForMode(fieldName, mode)) {
-        ++done;
-      } else {
-        wifiCommand.setNetworkVariable(
-          netId,
-          fieldName,
-          config[fieldName],
-          function(ok) {
-            if (!ok) {
-              ++errors;
-            }
-            if (++done == networkConfigurationFields.length) {
-              callback(errors == 0);
-            }
-          }
-        );
-      }
-    }
-    // If config didn't contain any of the fields we want, don't lose the error callback.
-    if (done == networkConfigurationFields.length) {
-      callback(false);
-    }
+    // for (var n = 0; n < networkConfigurationFields.length; ++n) {
+    //   let fieldName = networkConfigurationFields[n].name;
+    //   if (!hasValidProperty(fieldName) || !validForMode(fieldName, mode)) {
+    //     ++done;
+    //   } else {
+    //     wifiCommand.setNetworkVariable(
+    //       netId,
+    //       fieldName,
+    //       config[fieldName],
+    //       function(ok) {
+    //         if (!ok) {
+    //           ++errors;
+    //         }
+    //         if (++done == networkConfigurationFields.length) {
+    //           callback(errors == 0);
+    //         }
+    //       }
+    //     );
+    //   }
+    // }
+    // // If config didn't contain any of the fields we want, don't lose the error callback.
+    // if (done == networkConfigurationFields.length) {
+    //   callback(false);
+    // }
+    callback(true);
   };
-  manager.getConfiguredNetworks = function(callback) {
-    wifiCommand.listNetworks(function(reply) {
-      var networks = Object.create(null);
-      var lines = reply ? reply.split("\n") : 0;
-      if (lines.length <= 1) {
-        // We need to make sure we call the callback even if there are no
-        // configured networks.
-        callback(networks);
-        return;
-      }
-
-      var done = 0;
-      var errors = 0;
-      for (var n = 1; n < lines.length; ++n) {
-        var result = lines[n].split("\t");
-        var netId = parseInt(result[0], 10);
-        var config = (networks[netId] = { netId });
-        manager.getNetworkConfiguration(config, function(ok) {
-          if (!ok) {
-            ++errors;
-          }
-          if (++done == lines.length - 1) {
-            if (errors) {
-              // If an error occured, delete the new netId.
-              wifiCommand.removeNetwork(netId, function() {
-                callback(null);
-              });
-            } else {
-              callback(networks);
-            }
-          }
-        });
-      }
-    });
-  };
-
   manager.addNetwork = function(config, callback) {
     // TODO: only need to add network in config store, not in supplicant.
     config.netId = 0;
@@ -2398,18 +2313,19 @@ var WifiManager = (function() {
     manager.setNetworkConfiguration(config, callback);
   };
   manager.removeNetwork = function(netId, callback) {
-    wifiCommand.removeNetwork(netId, function(success) {
-      if (success) {
-        var configuredNetworks = WifiConfigManager.configuredNetworks;
-        for (let networkKey in configuredNetworks) {
-          if (configuredNetworks[networkKey].netId == netId) {
-            delete configuredNetworks[networkKey];
-            continue;
-          }
-        }
-      }
-      callback(success);
-    });
+    // wifiCommand.removeNetwork(netId, function(success) {
+    //   if (success) {
+    //     var configuredNetworks = WifiConfigManager.configuredNetworks;
+    //     for (let networkKey in configuredNetworks) {
+    //       if (configuredNetworks[networkKey].netId == netId) {
+    //         delete configuredNetworks[networkKey];
+    //         continue;
+    //       }
+    //     }
+    //   }
+    //   callback(success);
+    // });
+    callback(true);
   };
 
   manager.saveConfig = function(callback) {
@@ -2435,7 +2351,7 @@ var WifiManager = (function() {
     wifiCommand.disableNetwork(netId, callback);
   };
   manager.getMacAddress = wifiCommand.getMacAddress;
-  manager.getScanResults = wifiCommand.scanResults;
+  manager.getScanResults = wifiCommand.getScanResults;
   manager.handleScanRequest = handleScanRequest;
   manager.wpsPbc = wifiCommand.wpsPbc;
   manager.wpsPin = wifiCommand.wpsPin;
@@ -3186,24 +3102,16 @@ function WifiWorker() {
         WifiManager.addNetwork(wifiConfig[i], function(ok) {});
       }
     }
-
-    //  TODO: comment out temporarily
-    // self._reloadConfiguredNetworks(function(ok) {
-    //   // Prime this.networks.
-    //   if (!ok)
-    //     return;
-
     //   // Start to trigger period scan.
     //   WifiManager.startDelayScan();
-    // });
 
-    // // Notify everybody, even if they didn't ask us to come up.
-    // WifiManager.getMacAddress(function (mac) {
-    //   self._macAddress = mac;
-    //   debug("Got mac: " + mac);
-    //   self._fireEvent("wifiUp", { macAddress: mac });
-    //   self.requestDone();
-    // });
+    // Notify everybody, even if they didn't ask us to come up.
+    WifiManager.getMacAddress(function (mac) {
+      self._macAddress = mac;
+      debug("Got mac: " + mac);
+      self._fireEvent("wifiUp", { macAddress: mac });
+      self.requestDone();
+    });
 
     // Use external processing for SIM/USIM operations.
     WifiManager.setExternalSim(true, function(ok) {});
@@ -3300,7 +3208,7 @@ function WifiWorker() {
         lastNetwork.ssid = quote(wifiInfo.wifiSsid);
         lastNetwork.isDriverRoaming = this.isDriverRoaming;
         lastNetwork.netId = wifiInfo.networkId;
-        WifiManager.getNetworkConfiguration(lastNetwork, function() {
+        WifiConfigManager.getNetworkConfiguration(lastNetwork, function() {
           if (!lastNetwork.isDriverRoaming) {
             // Notify again because we get complete network information.
             self._fireEvent("onconnecting", { network: netToDOM(lastNetwork) });
@@ -3318,7 +3226,7 @@ function WifiWorker() {
         lastNetwork.ssid = quote(wifiInfo.wifiSsid);
         lastNetwork.netId = wifiInfo.networkId;
         lastNetwork.isDriverRoaming = this.isDriverRoaming;
-        WifiManager.getNetworkConfiguration(lastNetwork, _oncompleted);
+        WifiConfigManager.getNetworkConfiguration(lastNetwork, _oncompleted);
         break;
       case "CONNECTED":
         // BSSID is read after connected, update it.
@@ -3428,12 +3336,10 @@ function WifiWorker() {
 
     // wifi connected and reset open network notification.
     OpenNetworkNotifier.clearPendingNotification();
-    // self._reloadConfiguredNetworks(function(ok) {
-    //   // reset disable counter tracking
-    //   WifiManager.loopDetectionCount = 0;
-    //   WifiConfigManager.clearDisableReasonCounter(escape(wifiInfo.wifiSsid) +
-    //     wifiInfo.security);
-    // });
+    // reset disable counter tracking
+    WifiManager.loopDetectionCount = 0;
+    WifiConfigManager.clearDisableReasonCounter(escape(wifiInfo.wifiSsid) +
+      wifiInfo.security);
 
     WifiNetworkInterface.updateConfig("updated", {
       state: Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED,
@@ -3454,18 +3360,6 @@ function WifiWorker() {
       self._fireEvent("onconnect", { network: netToDOM(lastNetwork) });
     }
     WifiManager.postDhcpSetup(function() {});
-  };
-
-  WifiManager.onwpsconnected = function() {
-    let priority = ++self._highestPriority;
-
-    WifiManager.setNetworkVariable(this.id, "priority", priority, function(ok) {
-      if (!ok) {
-        self._reprioritizeNetworks(function() {
-          self._enableAllNetworks(function() {});
-        });
-      }
-    });
   };
 
   WifiManager.onscanresultsavailable = function() {
@@ -3978,16 +3872,6 @@ WifiWorker.prototype = {
       WifiManager.disableNetwork(netId, function() {
         debug("disable network - id: " + netId);
       });
-
-      WifiManager.setNetworkVariable(
-        netId,
-        "priority",
-        MIN_PRIORITY,
-        function() {
-          debug("minimize priority of network " + netId);
-          self._reloadConfiguredNetworks(function() {});
-        }
-      );
     }
     if (callback) {
       callback(true);
@@ -4089,126 +3973,6 @@ WifiWorker.prototype = {
     this._connectionInfoTimer.cancel();
     this._connectionInfoTimer = null;
     this._lastConnectionInfo = null;
-  },
-
-  _reloadConfiguredNetworks(callback) {
-    WifiManager.getConfiguredNetworks(
-      function(networks) {
-        if (!networks) {
-          debug("Unable to get configured networks");
-          callback(false);
-          return;
-        }
-
-        var configuredNetworks = WifiConfigManager.configuredNetworks;
-        if (Object.keys(networks).length == 0) {
-          debug("no configured network");
-          configuredNetworks = networks;
-          WifiConfigManager.saveToStore(configuredNetworks, function() {
-            callback(true);
-          });
-          return;
-        }
-
-        this._highestPriority = -1;
-
-        // Convert between netId-based and ssid-based indexing.
-        for (let net in networks) {
-          let network = networks[net];
-
-          if (!network.ssid) {
-            if (!WifiManager.wpsStarted || network.key_mgmt !== "WPS") {
-              WifiManager.removeNetwork(network.netId, function() {});
-            }
-            continue;
-          }
-
-          if (
-            network.hasOwnProperty("priority") &&
-            network.priority > this._highestPriority
-          ) {
-            this._highestPriority = network.priority;
-          }
-
-          let networkKey = WifiConfigUtils.getNetworkKey(network);
-          if (typeof configuredNetworks[networkKey] === "undefined") {
-            configuredNetworks[networkKey] = network;
-          } else if (configuredNetworks[networkKey].netId !== network.netId) {
-            configuredNetworks[networkKey].netId = network.netId;
-          }
-        }
-
-        WifiConfigManager.saveToStore(configuredNetworks, function() {
-          callback(true);
-        });
-      }.bind(this)
-    );
-  },
-
-  // Important side effect: calls WifiManager.saveConfig.
-  _reprioritizeNetworks(callback) {
-    // First, sort the networks in orer of their priority.
-    var configuredNetworks = WifiConfigManager.configuredNetworks;
-    var ordered = Object.getOwnPropertyNames(configuredNetworks);
-    let self = this;
-    ordered.sort(function(a, b) {
-      var neta = configuredNetworks[a],
-        netb = configuredNetworks[b];
-
-      // Sort unsorted networks to the end of the list.
-      if (isNaN(neta.priority)) {
-        return isNaN(netb.priority) ? 0 : 1;
-      }
-      if (isNaN(netb.priority)) {
-        return -1;
-      }
-      return netb.priority - neta.priority;
-    });
-
-    // Skip unsorted networks.
-    let newPriority = 0,
-      i;
-    for (i = ordered.length - 1; i >= 0; --i) {
-      if (!isNaN(configuredNetworks[ordered[i]].priority)) {
-        break;
-      }
-    }
-
-    // No networks we care about?
-    if (i < 0) {
-      return;
-    }
-
-    // Now assign priorities from 0 to length, starting with the smallest
-    // priority and heading towards the highest (note the dependency between
-    // total and i here).
-    let done = 0,
-      errors = 0,
-      total = i + 1;
-    for (; i >= 0; --i) {
-      let network = configuredNetworks[ordered[i]];
-      network.priority = newPriority++;
-
-      // Note: networkUpdated declared below since it happens logically after
-      // this loop.
-      WifiManager.updateNetwork(network, networkUpdated);
-    }
-
-    function networkUpdated(ok) {
-      if (!ok) {
-        ++errors;
-      }
-      if (++done === total) {
-        if (errors > 0) {
-          callback(false);
-          return;
-        }
-
-        self._reloadConfiguredNetworks(function(ok) {
-          callback(ok);
-        });
-      }
-    }
   },
 
   // nsIWifi
@@ -4530,23 +4294,12 @@ WifiWorker.prototype = {
       this._sendMessage(message, false, "Wifi is disabled", msg);
       return;
     }
-
-    this._reloadConfiguredNetworks(
-      function(ok) {
-        if (!ok) {
-          this._sendMessage(message, false, "Failed", msg);
-          return;
-        }
-
-        var networks = [];
-        var configuredNetworks = WifiConfigManager.configuredNetworks;
-        for (let networkKey in configuredNetworks) {
-          networks.push(netToDOM(configuredNetworks[networkKey]));
-        }
-
-        this._sendMessage(message, true, networks, msg);
-      }.bind(this)
-    );
+    var networks = [];
+    var configuredNetworks = WifiConfigManager.configuredNetworks;
+    for (let networkKey in configuredNetworks) {
+      networks.push(netToDOM(configuredNetworks[networkKey]));
+    }
+    this._sendMessage(message, true, networks, msg);
   },
 
   _setWifiEnabledCallback(status) {
@@ -4854,7 +4607,6 @@ WifiWorker.prototype = {
           self._sendMessage(message, false, "Network is misconfigured", msg);
           return;
         }
-
         networkReady();
       });
     }
@@ -4921,45 +4673,34 @@ WifiWorker.prototype = {
       return;
     }
 
-    this._reloadConfiguredNetworks(
-      function(ok) {
-        // Give it a chance to remove the network even if reload is failed.
-        if (!ok) {
-          debug("Warning !!! Failed to reload the configured networks");
-        }
+    let ssid = network.ssid;
+    let networkKey = WifiConfigUtils.getNetworkKey(network);
+    var configuredNetworks = WifiConfigManager.configuredNetworks;
+    if (!(networkKey in configuredNetworks)) {
+      this._sendMessage(
+        message,
+        false,
+        "Trying to forget an unknown network",
+        msg
+      );
+      return;
+    }
 
-        let ssid = network.ssid;
-        let networkKey = WifiConfigUtils.getNetworkKey(network);
-        var configuredNetworks = WifiConfigManager.configuredNetworks;
-        if (!(networkKey in configuredNetworks)) {
-          this._sendMessage(
-            message,
-            false,
-            "Trying to forget an unknown network",
-            msg
-          );
-          return;
-        }
-
-        let self = this;
-        let configured = configuredNetworks[networkKey];
-        WifiManager.removeNetwork(configured.netId, function(ok) {
-          if (!ok) {
-            self._sendMessage(
-              message,
-              false,
-              "Unable to remove the network",
-              msg
-            );
-            return;
-          }
-
-          self._reloadConfiguredNetworks(function() {
-            self._sendMessage(message, true, true, msg);
-          });
-        });
-      }.bind(this)
-    );
+    let self = this;
+    let configured = configuredNetworks[networkKey];
+    WifiManager.removeNetwork(configured.netId, function(ok) {
+      if (!ok) {
+        self._sendMessage(
+          message,
+          false,
+          "Unable to remove the network",
+          msg
+        );
+        return;
+      }
+      WifiManager.disconnect(function() {});
+      self._sendMessage(message, true, true, msg);
+    });
   },
 
   wps(msg) {

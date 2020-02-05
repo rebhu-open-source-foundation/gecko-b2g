@@ -44,8 +44,44 @@ nsWifiResult::GetStatus(bool* aStatus) {
 }
 
 NS_IMETHODIMP
+nsWifiResult::GetDriverVersion(nsAString& aDriverVersion) {
+  aDriverVersion = mDriverVersion;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetFirmwareVersion(nsAString& aFirmwareVersion) {
+  aFirmwareVersion = mFirmwareVersion;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetMacAddress(nsAString& aMacAddress) {
+  aMacAddress = mMacAddress;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetStaInterface(nsAString& aStaInterface) {
+  aStaInterface = mStaInterface;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetApInterface(nsAString& aApInterface) {
+  aApInterface = mApInterface;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiResult::GetCapabilities(uint32_t* aCapabilities) {
   *aCapabilities = mCapabilities;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetStaCapabilities(uint32_t* aStaCapabilities) {
+  *aStaCapabilities = mStaCapabilities;
   return NS_OK;
 }
 

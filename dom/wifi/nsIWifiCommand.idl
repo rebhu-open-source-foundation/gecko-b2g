@@ -7,26 +7,56 @@
 
 interface nsIWifiConfiguration;
 
-[scriptable, uuid(3425fcd1-4b0c-4962-abab-7a9ad8a291af)]
+[scriptable, uuid(57fc03b6-8593-4fb3-b49a-67df714e2f95)]
 interface nsIWifiCommand: nsISupports
 {
-  const unsigned long INITIALIZE                  = 0;
-  const unsigned long START_WIFI                  = 1;
-  const unsigned long STOP_WIFI                   = 2;
-  const unsigned long GET_STA_CAPABILITIES        = 3;
-  const unsigned long GET_DEBUG_LEVEL             = 4;
-  const unsigned long SET_DEBUG_LEVEL             = 5;
-  const unsigned long SET_POWER_SAVE              = 6;
-  const unsigned long SET_SUSPEND_MODE            = 7;
-  const unsigned long SET_EXTERNAL_SIM            = 8;
-  const unsigned long SET_AUTO_RECONNECT          = 9;
-  const unsigned long SET_COUNTRY_CODE            = 10;
-  const unsigned long SET_BT_COEXIST_MODE         = 11;
-  const unsigned long SET_BT_COEXIST_SCAN_MODE    = 12;
-  const unsigned long START_SINGLE_SCAN           = 13;
-  const unsigned long STOP_SINGLE_SCAN            = 14;
-  const unsigned long START_PNO_SCAN              = 15;
-  const unsigned long STOP_PNO_SCAN               = 16;
-  const unsigned long GET_SCAN_RESULTS            = 17;
-  const unsigned long CONNECT                     = 18;
+  // module configuration
+  const unsigned long INITIALIZE                  = 0x0;
+  const unsigned long GET_CAPABILITIES            = 0x1;
+  const unsigned long GET_MODULE_VERSION          = 0x2;
+  const unsigned long GET_DEBUG_LEVEL             = 0x3;
+  const unsigned long SET_DEBUG_LEVEL             = 0x4;
+  const unsigned long SET_LOW_LATENCY_MODE        = 0x5;
+  const unsigned long SET_CONCURRENCY_PRIORITY    = 0x6;
+  const unsigned long GET_HOST_WAKE_REASON        = 0x7;
+
+  // client
+  const unsigned long START_WIFI                  = 0x1000;
+  const unsigned long STOP_WIFI                   = 0x1001;
+  const unsigned long GET_MAC_ADDRESS             = 0x1002;
+  const unsigned long GET_STA_IFACE               = 0x1003;
+  const unsigned long GET_STA_CAPABILITIES        = 0x1004;
+  const unsigned long SET_POWER_SAVE              = 0x1005;
+  const unsigned long SET_SUSPEND_MODE            = 0x1006;
+  const unsigned long SET_EXTERNAL_SIM            = 0x1007;
+  const unsigned long SET_AUTO_RECONNECT          = 0x1008;
+  const unsigned long SET_COUNTRY_CODE            = 0x1009;
+  const unsigned long SET_BT_COEXIST_MODE         = 0x100a;
+  const unsigned long SET_BT_COEXIST_SCAN_MODE    = 0x100b;
+
+  // scan
+  const unsigned long START_SINGLE_SCAN           = 0x2000;
+  const unsigned long STOP_SINGLE_SCAN            = 0x2001;
+  const unsigned long START_PNO_SCAN              = 0x2002;
+  const unsigned long STOP_PNO_SCAN               = 0x2003;
+  const unsigned long GET_SCAN_RESULTS            = 0x2004;
+  const unsigned long GET_PNO_SCAN_RESULTS        = 0x2005;
+  const unsigned long SIGNAL_POLL                 = 0x2006;
+  const unsigned long GET_TX_PACKET_COUNTERS      = 0x2007;
+  const unsigned long GET_CHANNELS_FOR_BAND       = 0x2008;
+
+  // network connection
+  const unsigned long CONNECT                     = 0x3000;
+  const unsigned long RECONNECT                   = 0x3001;
+  const unsigned long REASSOCIATE                 = 0x3002;
+  const unsigned long DISCONNECT                  = 0x3003;
+  const unsigned long REMOVE_NETWORKS             = 0x3004;
+  const unsigned long START_RSSI_MONITORING       = 0x3005;
+  const unsigned long STOP_RSSI_MONITORING        = 0x3006;
+
+  // softap
+  const unsigned long START_SOFTAP                = 0x4000;
+  const unsigned long STOP_SOFTAP                 = 0x4001;
+  const unsigned long GET_AP_IFACE                = 0x4002;
+  const unsigned long SET_SOFTAP_COUNTRY_CODE     = 0x4003;
 };

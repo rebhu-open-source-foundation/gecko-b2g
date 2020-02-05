@@ -16,10 +16,12 @@
 
 #include "WifiCommon.h"
 
-#include <android/hardware/wifi/1.0/IWifi.h>
+#include <android/hardware/wifi/1.0/IWifiChip.h>
+#include <android/hardware/wifi/1.0/IWifiStaIface.h>
 #include <android/hardware/wifi/1.0/IWifiEventCallback.h>
 #include <android/hardware/wifi/1.2/IWifiChipEventCallback.h>
-#include <android/hardware/wifi/1.0/types.h>
+#include <android/hardware/wifi/1.3/IWifi.h>
+#include <android/hardware/wifi/1.3/types.h>
 #include <unordered_map>
 
 #include "mozilla/Mutex.h"
@@ -31,9 +33,7 @@ using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
-using ::android::hardware::Void;
 using ::android::hardware::wifi::V1_0::ChipId;
-using ::android::hardware::wifi::V1_0::IWifi;
 using ::android::hardware::wifi::V1_0::IWifiApIface;
 using ::android::hardware::wifi::V1_0::IWifiChip;
 using ::android::hardware::wifi::V1_0::IWifiIface;
@@ -45,6 +45,7 @@ using ::android::hardware::wifi::V1_0::WifiDebugRingBufferStatus;
 using ::android::hardware::wifi::V1_0::WifiStatus;
 using ::android::hardware::wifi::V1_0::WifiStatusCode;
 using ::android::hardware::wifi::V1_2::IWifiChipEventCallback;
+using ::android::hardware::wifi::V1_3::IWifi;
 using ::android::hidl::base::V1_0::IBase;
 
 namespace wifiNameSpace = ::android::hardware::wifi::V1_0;
@@ -59,12 +60,16 @@ class WifiHal
 
   bool InitWifiInterface();
   bool TearDownInterface();
+  bool GetCapabilities(uint32_t& aCapabilities);
+  bool GetDriverModuleInfo(nsAString& aDriverVersion,
+                           nsAString& aFirmwareVersion);
+  bool SetLowLatencyMode(bool aEnable);
 
   bool StartWifi();
   bool StopWifi();
   bool ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
                                 std::string& aIfaceName);
-  bool GetCapabilities(uint32_t& aCapabilities);
+  bool GetStaCapabilities(uint32_t& aStaCapabilities);
   std::string GetInterfaceName(const wifiNameSpace::IfaceType& aType);
 
  private:
@@ -241,6 +246,7 @@ class WifiHal
   static mozilla::Mutex sLock;
 
   android::sp<IWifi> mWifi;
+  android::sp<IWifiChip> mWifiChip;
   android::sp<WifiServiceDeathRecipient> mDeathRecipient;
   std::unordered_map<wifiNameSpace::IfaceType, std::string> mIfaceNameMap;
   android::sp<IWifiStaIface> mStaIface;

@@ -214,7 +214,13 @@ bool WificondControl::StartSingleScan() {
   return true;
 }
 
-bool WificondControl::StopSingleScan() { return true; }
+bool WificondControl::StopSingleScan() {
+  if (mScanner == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface.");
+    return false;
+  }
+  return mScanner->abortScan().isOk();
+}
 
 bool WificondControl::StartPnoScan() { return true; }
 

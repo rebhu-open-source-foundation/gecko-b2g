@@ -184,10 +184,27 @@ bool SupplicantStaManager::TearDownInterface() {
   return true;
 }
 
-ISupplicant::DebugLevel SupplicantStaManager::GetSupplicantDebugLevel() {
-  return (mSupplicant == nullptr
-              ? ISupplicant::DebugLevel::ERROR
-              : ISupplicant::DebugLevel(mSupplicant->getDebugLevel()));
+bool SupplicantStaManager::GetMacAddress(nsAString& aMacAddress) {
+  SupplicantStatus response;
+  mSupplicantStaIface->getMacAddress(
+      [&](const SupplicantStatus& status,
+          const hidl_array<uint8_t, 6>& macAddr) {
+        response = status;
+        if (response.code == SupplicantStatusCode::SUCCESS) {
+          std::string address_str = ConvertMacToString(macAddr);
+          nsString address(NS_ConvertUTF8toUTF16(address_str.c_str()));
+          aMacAddress.Assign(address);
+        }
+      });
+  return (response.code == SupplicantStatusCode::SUCCESS);
+}
+
+bool SupplicantStaManager::GetSupplicantDebugLevel(uint32_t& aLevel) {
+  if (mSupplicant == nullptr) {
+    return false;
+  }
+  aLevel = (uint32_t)ISupplicant::DebugLevel(mSupplicant->getDebugLevel());
+  return true;
 }
 
 bool SupplicantStaManager::SetSupplicantDebugLevel(
@@ -203,32 +220,43 @@ bool SupplicantStaManager::SetSupplicantDebugLevel(
   return true;
 }
 
+bool SupplicantStaManager::SetConcurrencyPriority(bool aEnable) {
+  SupplicantNameSpace::IfaceType type =
+      (aEnable ? SupplicantNameSpace::IfaceType::STA
+               : SupplicantNameSpace::IfaceType::P2P);
+
+  SupplicantStatus response;
+  HIDL_SET(mSupplicant, setConcurrencyPriority, SupplicantStatus, response,
+           type);
+  return (response.code == SupplicantStatusCode::SUCCESS);
+}
+
 bool SupplicantStaManager::SetPowerSave(bool aEnable) {
   SupplicantStatus response;
-  HIDL_CALL(mSupplicantStaIface, setPowerSave, SupplicantStatus,
-            response, aEnable);
-  return response.code == SupplicantStatusCode::SUCCESS;
+  HIDL_SET(mSupplicantStaIface, setPowerSave, SupplicantStatus, response,
+           aEnable);
+  return (response.code == SupplicantStatusCode::SUCCESS);
 }
 
 bool SupplicantStaManager::SetSuspendMode(bool aEnable) {
   SupplicantStatus response;
-  HIDL_CALL(mSupplicantStaIface, setSuspendModeEnabled, SupplicantStatus,
-            response, aEnable);
-  return response.code == SupplicantStatusCode::SUCCESS;
+  HIDL_SET(mSupplicantStaIface, setSuspendModeEnabled, SupplicantStatus,
+           response, aEnable);
+  return (response.code == SupplicantStatusCode::SUCCESS);
 }
 
 bool SupplicantStaManager::SetExternalSim(bool aEnable) {
   SupplicantStatus response;
-  HIDL_CALL(mSupplicantStaIface, setExternalSim, SupplicantStatus,
-            response, aEnable);
-  return response.code == SupplicantStatusCode::SUCCESS;
+  HIDL_SET(mSupplicantStaIface, setExternalSim, SupplicantStatus, response,
+           aEnable);
+  return (response.code == SupplicantStatusCode::SUCCESS);
 }
 
 bool SupplicantStaManager::SetAutoReconnect(bool aEnable) {
   SupplicantStatus response;
-  HIDL_CALL(mSupplicantStaIface, enableAutoReconnect, SupplicantStatus,
-            response, aEnable);
-  return response.code == SupplicantStatusCode::SUCCESS;
+  HIDL_SET(mSupplicantStaIface, enableAutoReconnect, SupplicantStatus, response,
+           aEnable);
+  return (response.code == SupplicantStatusCode::SUCCESS);
 }
 
 bool SupplicantStaManager::SetCountryCode(const std::string& aCountryCode) {
@@ -241,23 +269,23 @@ bool SupplicantStaManager::SetCountryCode(const std::string& aCountryCode) {
   countryCode[1] = aCountryCode.at(1);
 
   SupplicantStatus response;
-  HIDL_CALL(mSupplicantStaIface, setCountryCode, SupplicantStatus,
-            response, countryCode);
-  return response.code == SupplicantStatusCode::SUCCESS;
+  HIDL_SET(mSupplicantStaIface, setCountryCode, SupplicantStatus, response,
+           countryCode);
+  return (response.code == SupplicantStatusCode::SUCCESS);
 }
 
 bool SupplicantStaManager::SetBtCoexistenceMode(uint8_t aMode) {
   SupplicantStatus response;
-  HIDL_CALL(mSupplicantStaIface, setBtCoexistenceMode, SupplicantStatus,
-            response, (ISupplicantStaIface::BtCoexistenceMode)aMode);
-  return response.code == SupplicantStatusCode::SUCCESS;
+  HIDL_SET(mSupplicantStaIface, setBtCoexistenceMode, SupplicantStatus,
+           response, (ISupplicantStaIface::BtCoexistenceMode)aMode);
+  return (response.code == SupplicantStatusCode::SUCCESS);
 }
 
 bool SupplicantStaManager::SetBtCoexistenceScanMode(bool aEnable) {
   SupplicantStatus response;
-  HIDL_CALL(mSupplicantStaIface, setBtCoexistenceScanModeEnabled,
-            SupplicantStatus, response, aEnable);
-  return response.code == SupplicantStatusCode::SUCCESS;
+  HIDL_SET(mSupplicantStaIface, setBtCoexistenceScanModeEnabled,
+           SupplicantStatus, response, aEnable);
+  return (response.code == SupplicantStatusCode::SUCCESS);
 }
 
 // Helper function to find any iface of the desired type exposed.
@@ -430,6 +458,30 @@ bool SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
   return true;
 }
 
+bool SupplicantStaManager::Reconnect() {
+  SupplicantStatus response;
+  HIDL_CALL(mSupplicantStaIface, reconnect, SupplicantStatus, response);
+  return (response.code == SupplicantStatusCode::SUCCESS);
+}
+
+bool SupplicantStaManager::Reassociate() {
+  SupplicantStatus response;
+  HIDL_CALL(mSupplicantStaIface, reassociate, SupplicantStatus, response);
+  return (response.code == SupplicantStatusCode::SUCCESS);
+}
+
+bool SupplicantStaManager::Disconnect() {
+  SupplicantStatus response;
+  HIDL_CALL(mSupplicantStaIface, disconnect, SupplicantStatus, response);
+  return (response.code == SupplicantStatusCode::SUCCESS);
+}
+
+bool SupplicantStaManager::RemoveNetworks() {
+  // list network
+  // remove network
+  return true;
+}
+
 /**
  * P2P functions
  */
@@ -510,19 +562,19 @@ Return<void> SupplicantStaManager::onInterfaceCreated(
     const hidl_string& ifName) {
   WIFI_LOGD(LOG_TAG, "SupplicantCallback.onInterfaceCreated(): %s",
             ifName.c_str());
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onInterfaceRemoved(
     const hidl_string& ifName) {
   WIFI_LOGD(LOG_TAG, "SupplicantCallback.onInterfaceRemoved(): %s",
             ifName.c_str());
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onTerminating() {
   WIFI_LOGD(LOG_TAG, "SupplicantCallback.onTerminating()");
-  return Void();
+  return android::hardware::Void();
 }
 
 /**
@@ -530,12 +582,12 @@ Return<void> SupplicantStaManager::onTerminating() {
  */
 Return<void> SupplicantStaManager::onNetworkAdded(uint32_t id) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onNetworkAdded()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onNetworkRemoved(uint32_t id) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onNetworkRemoved()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onStateChanged(
@@ -561,7 +613,7 @@ Return<void> SupplicantStaManager::onStateChanged(
   if (mEventCallback) {
     mEventCallback(event, iface);
   }
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onAnqpQueryDone(
@@ -569,7 +621,7 @@ Return<void> SupplicantStaManager::onAnqpQueryDone(
     const ISupplicantStaIfaceCallback::AnqpData& data,
     const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAnqpQueryDone()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onHs20IconQueryDone(
@@ -577,7 +629,7 @@ Return<void> SupplicantStaManager::onHs20IconQueryDone(
     const ::android::hardware::hidl_string& fileName,
     const ::android::hardware::hidl_vec<uint8_t>& data) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onHs20IconQueryDone()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onHs20SubscriptionRemediation(
@@ -586,7 +638,7 @@ Return<void> SupplicantStaManager::onHs20SubscriptionRemediation(
     const ::android::hardware::hidl_string& url) {
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaIfaceCallback.onHs20SubscriptionRemediation()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onHs20DeauthImminentNotice(
@@ -595,44 +647,44 @@ Return<void> SupplicantStaManager::onHs20DeauthImminentNotice(
     const ::android::hardware::hidl_string& url) {
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaIfaceCallback.onHs20DeauthImminentNotice()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onDisconnected(
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
     bool locallyGenerated, ISupplicantStaIfaceCallback::ReasonCode reasonCode) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onDisconnected()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onAssociationRejected(
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
     ISupplicantStaIfaceCallback::StatusCode statusCode, bool timedOut) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAssociationRejected()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onAuthenticationTimeout(
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAuthenticationTimeout()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onEapFailure() {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onEapFailure()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onBssidChanged(
     ISupplicantStaIfaceCallback::BssidChangeReason reason,
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onBssidChanged()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onWpsEventSuccess() {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventSuccess()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onWpsEventFail(
@@ -640,20 +692,20 @@ Return<void> SupplicantStaManager::onWpsEventFail(
     ISupplicantStaIfaceCallback::WpsConfigError configError,
     ISupplicantStaIfaceCallback::WpsErrorIndication errorInd) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventFail()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onWpsEventPbcOverlap() {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventPbcOverlap()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onExtRadioWorkStart(uint32_t id) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onExtRadioWorkStart()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> SupplicantStaManager::onExtRadioWorkTimeout(uint32_t id) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onExtRadioWorkTimeout()");
-  return Void();
+  return android::hardware::Void();
 }

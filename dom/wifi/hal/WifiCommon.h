@@ -94,11 +94,14 @@ struct CommandOptions {
   CommandOptions(const mozilla::dom::WifiCommandOptions& aOther) {
     COPY_FIELD(mId)
     COPY_FIELD(mCmd)
+    COPY_FIELD(mLowLatencyMode)
+    COPY_FIELD(mStaHigherPriority)
     COPY_FIELD(mPowerSave)
     COPY_FIELD(mSuspendMode)
     COPY_FIELD(mExternalSim)
     COPY_FIELD(mAutoReconnect)
     COPY_FIELD(mCountryCode)
+    COPY_FIELD(mSoftapCountryCode)
     COPY_FIELD(mBtCoexistenceMode)
     COPY_FIELD(mBtCoexistenceScanMode)
     ConfigurationOptions config(aOther.mConfig);
@@ -112,11 +115,14 @@ struct CommandOptions {
   uint32_t mId;
   uint32_t mCmd;
 
+  bool mLowLatencyMode;
+  bool mStaHigherPriority;
   bool mPowerSave;
   bool mSuspendMode;
   bool mExternalSim;
   bool mAutoReconnect;
   nsString mCountryCode;
+  nsString mSoftapCountryCode;
   uint8_t mBtCoexistenceMode;
   bool mBtCoexistenceScanMode;
   ConfigurationOptions mConfig;
@@ -129,7 +135,15 @@ struct CommandOptions {
 template <typename T>
 std::string ConvertMacToString(const T& mac);
 
-#define HIDL_CALL(interface, method, responseType, response, ...)      \
+#define HIDL_CALL(interface, method, responseType, response)       \
+  do {                                                             \
+    if (interface != nullptr) {                                    \
+      interface->method(                                           \
+          [&](const responseType& status) { response = status; }); \
+    }                                                              \
+  } while (0)
+
+#define HIDL_SET(interface, method, responseType, response, ...)       \
   do {                                                                 \
     if (interface != nullptr) {                                        \
       interface->method(__VA_ARGS__, [&](const responseType& status) { \

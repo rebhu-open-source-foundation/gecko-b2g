@@ -17,6 +17,7 @@ mozilla::Mutex WifiHal::sLock("wifi-hidl");
 
 WifiHal::WifiHal()
     : mWifi(nullptr),
+      mWifiChip(nullptr),
       mStaIface(nullptr),
       mP2pIface(nullptr),
       mApIface(nullptr),
@@ -155,30 +156,90 @@ bool WifiHal::InitWifiInterface() {
   return true;
 }
 
+bool WifiHal::GetCapabilities(uint32_t& aCapabilities) {
+  if (!mWifiChip.get()) {
+    return false;
+  }
+  WifiStatus response;
+  mWifiChip->getCapabilities(
+      [&](const WifiStatus& status,
+          hidl_bitfield<IWifiChip::ChipCapabilityMask> capabilities) {
+        response = status;
+        aCapabilities = capabilities;
+      });
+  return (response.code == WifiStatusCode::SUCCESS);
+}
+
+bool WifiHal::GetDriverModuleInfo(nsAString& aDriverVersion,
+                                  nsAString& aFirmwareVersion) {
+  if (!mWifiChip.get()) {
+    return false;
+  }
+  WifiStatus response;
+  IWifiChip::ChipDebugInfo chipInfo;
+  mWifiChip->requestChipDebugInfo(
+      [&](const WifiStatus& status,
+          const IWifiChip::ChipDebugInfo& chipDebugInfo) {
+        response = status;
+        chipInfo = chipDebugInfo;
+      });
+
+  if (response.code == WifiStatusCode::SUCCESS) {
+    nsString driverInfo(
+        NS_ConvertUTF8toUTF16(chipInfo.driverDescription.c_str()));
+    nsString firmwareInfo(
+        NS_ConvertUTF8toUTF16(chipInfo.firmwareDescription.c_str()));
+
+    aDriverVersion.Assign(driverInfo);
+    aFirmwareVersion.Assign(firmwareInfo);
+  }
+  return (response.code == WifiStatusCode::SUCCESS);
+}
+
+#if 0
+bool WifiHal::SetLowLatencyMode(bool aEnable) {
+  IWifiChip::LatencyMode mode;
+  if (aEnable) {
+      mode = IWifiChip::LatencyMode::LOW;
+  } else {
+      mode = IWifiChip::LatencyMode::NORMAL;
+  }
+
+  WifiStatus response;
+  HIDL_SET(mWifiChip, setLatencyMode, WifiStatus,
+            response, mode);
+  return response.code == WifiStatusCode::SUCCESS;
+}
+#endif
+
 bool WifiHal::ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
                                        std::string& aIfaceName /* out */) {
   if (mWifi == nullptr) {
     return false;
   }
 
+  WifiStatus response;
   hidl_vec<ChipId> chipIds;
   mWifi->getChipIds([&](const WifiStatus& status, const hidl_vec<ChipId>& Ids) {
     WIFI_LOGD(LOG_TAG, "getChipIds status code: %d", status.code);
     chipIds = Ids;
   });
 
-  android::sp<IWifiChip> wifiChip;
   mWifi->getChip(chipIds[0],
-                 [&wifiChip](const WifiStatus& status,
-                             const android::sp<IWifiChip>& chip) mutable {
-                   WIFI_LOGD(LOG_TAG, "getChip status code: %d", status.code);
-                   wifiChip = chip;
+                 [&, this](const WifiStatus& status,
+                           const android::sp<IWifiChip>& chip) mutable {
+                   response = status;
+                   mWifiChip = chip;
                  });
 
-  WifiStatus response;
-  ConfigChipByType(wifiChip, aType);
+  if (mWifiChip == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Failed to get wifi chip with error %d", response.code);
+    return false;
+  }
+
+  ConfigChipByType(mWifiChip, aType);
   if (aType == wifiNameSpace::IfaceType::STA) {
-    wifiChip->createStaIface(
+    mWifiChip->createStaIface(
         [&response, &aIfaceName, this](
             const WifiStatus& status,
             const android::sp<IWifiStaIface>& iface) mutable {
@@ -187,7 +248,7 @@ bool WifiHal::ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
           aIfaceName = QueryInterfaceName(mStaIface);
         });
   } else if (aType == wifiNameSpace::IfaceType::P2P) {
-    wifiChip->createP2pIface(
+    mWifiChip->createP2pIface(
         [&response, &aIfaceName, this](
             const WifiStatus& status,
             const android::sp<IWifiP2pIface>& iface) mutable {
@@ -196,7 +257,7 @@ bool WifiHal::ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
           aIfaceName = QueryInterfaceName(mP2pIface);
         });
   } else if (aType == wifiNameSpace::IfaceType::AP) {
-    wifiChip->createApIface(
+    mWifiChip->createApIface(
         [&response, &aIfaceName, this](
             const WifiStatus& status,
             const android::sp<IWifiApIface>& iface) mutable {
@@ -220,7 +281,7 @@ bool WifiHal::ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
   return true;
 }
 
-bool WifiHal::GetCapabilities(uint32_t& aCapabilities) {
+bool WifiHal::GetStaCapabilities(uint32_t& aStaCapabilities) {
   if (!mStaIface.get()) {
     return false;
   }
@@ -229,9 +290,7 @@ bool WifiHal::GetCapabilities(uint32_t& aCapabilities) {
       [&](const WifiStatus& status,
           hidl_bitfield<IWifiStaIface::StaIfaceCapabilityMask> capabilities) {
         response = status;
-        if (response.code == WifiStatusCode::SUCCESS) {
-          aCapabilities = capabilities;
-        }
+        aStaCapabilities = capabilities;
       });
   return (response.code == WifiStatusCode::SUCCESS);
 }
@@ -283,17 +342,17 @@ std::string WifiHal::QueryInterfaceName(const android::sp<IWifiIface>& aIface) {
  */
 Return<void> WifiHal::onStart() {
   WIFI_LOGD(LOG_TAG, "WifiEventCallback.onStart()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onStop() {
   WIFI_LOGD(LOG_TAG, "WifiEventCallback.onStop()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onFailure(const WifiStatus& status) {
   WIFI_LOGD(LOG_TAG, "WifiEventCallback.onFailure(): %d", status.code);
-  return Void();
+  return android::hardware::Void();
 }
 
 /**
@@ -301,42 +360,42 @@ Return<void> WifiHal::onFailure(const WifiStatus& status) {
  */
 Return<void> WifiHal::onChipReconfigured(uint32_t modeId) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onChipReconfigured()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onChipReconfigureFailure(const WifiStatus& status) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onChipReconfigureFailure()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onIfaceAdded(wifiNameSpace::IfaceType type,
                                    const hidl_string& name) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onIfaceAdded()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onIfaceRemoved(wifiNameSpace::IfaceType type,
                                      const hidl_string& name) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onIfaceRemoved()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onDebugRingBufferDataAvailable(
     const WifiDebugRingBufferStatus& status, const hidl_vec<uint8_t>& data) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onDebugRingBufferDataAvailable()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onDebugErrorAlert(int32_t errorCode,
                                         const hidl_vec<uint8_t>& debugData) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onDebugErrorAlert()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onRadioModeChange(
     const hidl_vec<IWifiChipEventCallback::RadioModeInfo>& radioModeInfos) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onRadioModeChange()");
-  return Void();
+  return android::hardware::Void();
 }
 
 /**
@@ -344,21 +403,21 @@ Return<void> WifiHal::onRadioModeChange(
  */
 Return<void> WifiHal::onBackgroundScanFailure(uint32_t cmdId) {
   WIFI_LOGD(LOG_TAG, "WifiStaIfaceEventCallback.onBackgroundScanFailure()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onBackgroundFullScanResult(uint32_t cmdId,
                                                  uint32_t bucketsScanned,
                                                  const StaScanResult& result) {
   WIFI_LOGD(LOG_TAG, "WifiStaIfaceEventCallback.onBackgroundFullScanResult()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onBackgroundScanResults(
     uint32_t cmdId,
     const ::android::hardware::hidl_vec<StaScanData>& scanDatas) {
   WIFI_LOGD(LOG_TAG, "WifiStaIfaceEventCallback.onBackgroundScanResults()");
-  return Void();
+  return android::hardware::Void();
 }
 
 Return<void> WifiHal::onRssiThresholdBreached(
@@ -366,5 +425,5 @@ Return<void> WifiHal::onRssiThresholdBreached(
     const ::android::hardware::hidl_array<uint8_t, 6>& currBssid,
     int32_t currRssi) {
   WIFI_LOGD(LOG_TAG, "WifiStaIfaceEventCallback.onRssiThresholdBreached()");
-  return Void();
+  return android::hardware::Void();
 }

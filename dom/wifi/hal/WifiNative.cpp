@@ -35,19 +35,30 @@ WifiNative::WifiNative(EventCallback aCallback) {
 
 bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
                                 const nsCString& aInterface) {
-  WIFI_LOGD(LOG_TAG, "WifiNative::ExecuteCommand +++");
-
   // Always correlate the opaque ids.
   aResult->mId = aOptions.mId;
 
   if (aOptions.mCmd == nsIWifiCommand::INITIALIZE) {
     aResult->mStatus = InitHal();
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_MODULE_VERSION) {
+    aResult->mStatus =
+        GetDriverModuleInfo(aResult->mDriverVersion, aResult->mFirmwareVersion);
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_CAPABILITIES) {
+    aResult->mStatus = GetCapabilities(aResult->mCapabilities);
+  } else if (aOptions.mCmd == nsIWifiCommand::SET_LOW_LATENCY_MODE) {
+    aResult->mStatus = SetLowLatencyMode(aOptions.mLowLatencyMode);
+  } else if (aOptions.mCmd == nsIWifiCommand::SET_CONCURRENCY_PRIORITY) {
+    aResult->mStatus = SetConcurrencyPriority(aOptions.mStaHigherPriority);
   } else if (aOptions.mCmd == nsIWifiCommand::START_WIFI) {
     aResult->mStatus = StartWifi();
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_WIFI) {
     aResult->mStatus = StopWifi();
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_MAC_ADDRESS) {
+    aResult->mStatus = GetMacAddress(aResult->mMacAddress);
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_STA_IFACE) {
+    aResult->mStatus = GetClientInterfaceName(aResult->mStaInterface);
   } else if (aOptions.mCmd == nsIWifiCommand::GET_STA_CAPABILITIES) {
-    aResult->mStatus = GetStaCapabilities(aResult->mCapabilities);
+    aResult->mStatus = GetStaCapabilities(aResult->mStaCapabilities);
   } else if (aOptions.mCmd == nsIWifiCommand::GET_DEBUG_LEVEL) {
     aResult->mStatus = GetDebugLevel(aResult->mDebugLevel);
   } else if (aOptions.mCmd == nsIWifiCommand::SET_DEBUG_LEVEL) {
@@ -70,6 +81,11 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
   } else if (aOptions.mCmd == nsIWifiCommand::START_SINGLE_SCAN) {
     aResult->mStatus = StartSingleScan();
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_SINGLE_SCAN) {
+    aResult->mStatus = StopSingleScan();
+  } else if (aOptions.mCmd == nsIWifiCommand::START_PNO_SCAN) {
+    aResult->mStatus = StartPnoScan();
+  } else if (aOptions.mCmd == nsIWifiCommand::STOP_PNO_SCAN) {
+    aResult->mStatus = StopPnoScan();
   } else if (aOptions.mCmd == nsIWifiCommand::GET_SCAN_RESULTS) {
     std::vector<NativeScanResult> nativeScanResults;
     aResult->mStatus = GetScanResults(nativeScanResults);
@@ -102,8 +118,27 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
       scanResults.AppendElement(scanResult);
     }
     aResult->updateScanResults(scanResults);
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_PNO_SCAN_RESULTS) {
+    std::vector<NativeScanResult> nativeScanResults;
+    aResult->mStatus = GetPnoScanResults(nativeScanResults);
   } else if (aOptions.mCmd == nsIWifiCommand::CONNECT) {
     aResult->mStatus = Connect(&aOptions.mConfig);
+  } else if (aOptions.mCmd == nsIWifiCommand::RECONNECT) {
+    aResult->mStatus = Reconnect();
+  } else if (aOptions.mCmd == nsIWifiCommand::REASSOCIATE) {
+    aResult->mStatus = Reassociate();
+  } else if (aOptions.mCmd == nsIWifiCommand::DISCONNECT) {
+    aResult->mStatus = Disconnect();
+  } else if (aOptions.mCmd == nsIWifiCommand::REMOVE_NETWORKS) {
+    aResult->mStatus = RemoveNetworks();
+  } else if (aOptions.mCmd == nsIWifiCommand::START_SOFTAP) {
+    aResult->mStatus = StartSoftAp();
+  } else if (aOptions.mCmd == nsIWifiCommand::STOP_SOFTAP) {
+    aResult->mStatus = StopSoftAp();
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_AP_IFACE) {
+    aResult->mStatus = GetSoftApInterfaceName(aResult->mApInterface);
+  } else if (aOptions.mCmd == nsIWifiCommand::SET_SOFTAP_COUNTRY_CODE) {
+    aResult->mStatus = SetSoftApCountryCode(aOptions.mSoftapCountryCode);
   } else {
     WIFI_LOGE(LOG_TAG, "ExecuteCommand: Unknown command %d", aOptions.mCmd);
     return false;
@@ -134,6 +169,23 @@ bool WifiNative::InitHal() {
 }
 
 bool WifiNative::DeinitHal() { return true; }
+
+bool WifiNative::GetCapabilities(uint32_t& aCapabilities) {
+  return sWifiHal->GetCapabilities(aCapabilities);
+}
+
+bool WifiNative::GetDriverModuleInfo(nsAString& aDriverVersion,
+                                     nsAString& aFirmwareVersion) {
+  return sWifiHal->GetDriverModuleInfo(aDriverVersion, aFirmwareVersion);
+}
+
+bool WifiNative::SetLowLatencyMode(bool aEnable) {
+  return true;  // sWifiHal->SetLowLatencyMode(aEnable);
+}
+
+bool WifiNative::SetConcurrencyPriority(bool aEnable) {
+  return sSupplicantStaManager->SetConcurrencyPriority(aEnable);
+}
 
 /**
  * StartWifi() - to enable wifi
@@ -253,13 +305,28 @@ bool WifiNative::StopSupplicant() {
   return true;
 }
 
-bool WifiNative::GetStaCapabilities(uint32_t& aCapabilities) {
-  return sWifiHal->GetCapabilities(aCapabilities);
+bool WifiNative::GetMacAddress(nsAString& aMacAddress) {
+  return sSupplicantStaManager->GetMacAddress(aMacAddress);
+}
+
+bool WifiNative::GetClientInterfaceName(nsAString& aIfaceName) {
+  nsString iface(NS_ConvertUTF8toUTF16(mStaInterfaceName.c_str()));
+  aIfaceName.Assign(iface);
+  return (aIfaceName.Length() > 0 ? true : false);
+}
+
+bool WifiNative::GetSoftApInterfaceName(nsAString& aIfaceName) {
+  nsString iface(NS_ConvertUTF8toUTF16(mApInterfaceName.c_str()));
+  aIfaceName.Assign(iface);
+  return (aIfaceName.Length() > 0 ? true : false);
+}
+
+bool WifiNative::GetStaCapabilities(uint32_t& aStaCapabilities) {
+  return sWifiHal->GetStaCapabilities(aStaCapabilities);
 }
 
 bool WifiNative::GetDebugLevel(uint32_t& aLevel) {
-  aLevel = (uint32_t)sSupplicantStaManager->GetSupplicantDebugLevel();
-  return true;
+  return sSupplicantStaManager->GetSupplicantDebugLevel(aLevel);
 }
 
 bool WifiNative::SetDebugLevel(SupplicantDebugLevelOptions* aLevel) {
@@ -299,7 +366,7 @@ bool WifiNative::StartSingleScan() {
   return sWificondControl->StartSingleScan();
 }
 
-bool WifiNative::StopSingleScan() { return true; }
+bool WifiNative::StopSingleScan() { return sWificondControl->StopSingleScan(); }
 
 bool WifiNative::StartPnoScan() { return true; }
 
@@ -307,6 +374,11 @@ bool WifiNative::StopPnoScan() { return true; }
 
 bool WifiNative::GetScanResults(std::vector<NativeScanResult>& aScanResults) {
   return sWificondControl->GetScanResults(aScanResults);
+}
+
+bool WifiNative::GetPnoScanResults(
+    std::vector<NativeScanResult>& aScanResults) {
+  return true;
 }
 
 bool WifiNative::Connect(ConfigurationOptions* aConfig) {
@@ -318,6 +390,25 @@ bool WifiNative::Connect(ConfigurationOptions* aConfig) {
               NS_ConvertUTF16toUTF8(aConfig->mSsid).get());
     return false;
   }
+  return true;
+}
+
+bool WifiNative::Reconnect() { return sSupplicantStaManager->Reconnect(); }
+
+bool WifiNative::Reassociate() { return sSupplicantStaManager->Reassociate(); }
+
+bool WifiNative::Disconnect() { return sSupplicantStaManager->Disconnect(); }
+
+bool WifiNative::RemoveNetworks() {
+  return sSupplicantStaManager->RemoveNetworks();
+}
+
+bool WifiNative::StartSoftAp() { return true; }
+
+bool WifiNative::StopSoftAp() { return true; }
+
+bool WifiNative::SetSoftApCountryCode(const nsAString& aCountryCode) {
+  // TODO: set country code to IWifiApIface/IHostapdVendor?
   return true;
 }
 

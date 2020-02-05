@@ -15,23 +15,23 @@
 
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceNotification.h>
-#include <android/hardware/wifi/supplicant/1.2/ISupplicant.h>
-#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaIface.h>
-#include <android/hardware/wifi/supplicant/1.2/ISupplicantP2pIface.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantCallback.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantIface.h>
 #include <android/hardware/wifi/supplicant/1.0/types.h>
+#include <android/hardware/wifi/supplicant/1.2/ISupplicant.h>
+#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaIface.h>
+#include <android/hardware/wifi/supplicant/1.2/ISupplicantP2pIface.h>
 
 #include "mozilla/Mutex.h"
 
 /**
  * Class for supplicant HIDL client implementation.
  */
+using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
-using ::android::hardware::Void;
 using ::android::hardware::wifi::supplicant::V1_0::Bssid;
 using ::android::hardware::wifi::supplicant::V1_0::ISupplicantIface;
 using ::android::hardware::wifi::supplicant::V1_0::ISupplicantP2pIface;
@@ -59,8 +59,10 @@ class SupplicantStaManager
   bool IsSupplicantReady();
 
   // functions to invoke supplicant APIs
-  ISupplicant::DebugLevel GetSupplicantDebugLevel();
+  bool GetMacAddress(nsAString& aMacAddress);
+  bool GetSupplicantDebugLevel(uint32_t& aLevel);
   bool SetSupplicantDebugLevel(SupplicantDebugLevelOptions* aLevel);
+  bool SetConcurrencyPriority(bool aEnable);
   bool SetPowerSave(bool aEnable);
   bool SetSuspendMode(bool aEnable);
   bool SetExternalSim(bool aEnable);
@@ -71,6 +73,10 @@ class SupplicantStaManager
   bool ConnectToNetwork(ConfigurationOptions* aConfig);
   bool SetupStaInterface(const std::string& aInterfaceName);
   bool SetupP2pInterface();
+  bool Reconnect();
+  bool Reassociate();
+  bool Disconnect();
+  bool RemoveNetworks();
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetNetwork(uint32_t aNetId);
 

@@ -28,13 +28,22 @@ class WifiNative {
  private:
   bool InitHal();
   bool DeinitHal();
+  bool GetCapabilities(uint32_t& aCapabilities);
+  bool GetDriverModuleInfo(nsAString& aDriverVersion,
+                           nsAString& aFirmwareVersion);
+  bool SetLowLatencyMode(bool aEnable);
+  bool SetConcurrencyPriority(bool aEnable);
+  bool GetHostWakeReason(uint32_t& aCapabilities);
 
   bool StartWifi();
   bool StopWifi();
+  bool GetMacAddress(nsAString& aMacAddress);
+  bool GetClientInterfaceName(nsAString& aIfaceName);
+  bool GetSoftApInterfaceName(nsAString& aIfaceName);
 
   bool StartSupplicant();
   bool StopSupplicant();
-  bool GetStaCapabilities(uint32_t& aCapabilities);
+  bool GetStaCapabilities(uint32_t& aStaCapabilities);
   bool GetDebugLevel(uint32_t& aDebugLevel);
   bool SetDebugLevel(SupplicantDebugLevelOptions* aLevel);
   bool SetPowerSave(bool aEnable);
@@ -50,8 +59,17 @@ class WifiNative {
   bool StartPnoScan();
   bool StopPnoScan();
   bool GetScanResults(std::vector<NativeScanResult>& aScanResults);
+  bool GetPnoScanResults(std::vector<NativeScanResult>& aScanResults);
 
   bool Connect(ConfigurationOptions* aConfig);
+  bool Reconnect();
+  bool Reassociate();
+  bool Disconnect();
+  bool RemoveNetworks();
+
+  bool StartSoftAp();
+  bool StopSoftAp();
+  bool SetSoftApCountryCode(const nsAString& aCountryCode);
 
   class SupplicantDeathHandler : virtual public SupplicantDeathEventHandler {
     virtual void OnDeath() override;
@@ -62,6 +80,7 @@ class WifiNative {
   static SupplicantStaManager* sSupplicantStaManager;
 
   std::string mStaInterfaceName;
+  std::string mApInterfaceName;
 
   EventCallback mEventCallback;
 };

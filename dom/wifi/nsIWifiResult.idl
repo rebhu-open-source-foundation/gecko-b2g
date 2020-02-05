@@ -7,13 +7,19 @@
 
 interface nsIScanResult;
 
-[scriptable, uuid(885183af-9a56-42e2-974a-151e96422e00)]
+[scriptable, uuid(10843bf3-d067-4787-860a-2da92bb565e1)]
 interface nsIWifiResult : nsISupports
 {
   readonly attribute unsigned long id;
   readonly attribute boolean status;
 
+  readonly attribute AString driverVersion;
+  readonly attribute AString firmwareVersion;
+  readonly attribute AString macAddress;
+  readonly attribute AString staInterface;
+  readonly attribute AString apInterface;
   readonly attribute unsigned long capabilities;
+  readonly attribute unsigned long staCapabilities;
   readonly attribute unsigned long debugLevel;
   void getScanResults([optional] out unsigned long count,
                       [array, size_is(count), retval] out nsIScanResult scanResults);

@@ -107,6 +107,7 @@ this.WifiConfigManager = (function() {
   configManager.getLastSelectedConfiguration = getLastSelectedConfiguration;
   configManager.getLastSelectedTimeStamp = getLastSelectedTimeStamp;
   configManager.clearDisableReasonCounter = clearDisableReasonCounter;
+  configManager.getNetworkConfiguration = getNetworkConfiguration;
   configManager.loadFromStore = loadFromStore;
   configManager.readFromStore = readFromStore;
   configManager.saveToStore = saveToStore;
@@ -246,9 +247,11 @@ this.WifiConfigManager = (function() {
   }
 
   function clearDisableReasonCounter(networkKey) {
-    configuredNetworks[networkKey].networkSeclectionDisableCounter = Array(
-      NETWORK_SELECTION_DISABLED_MAX
-    ).fill(0);
+    if (networkKey in configuredNetworks) {
+      configuredNetworks[networkKey].networkSeclectionDisableCounter = Array(
+        NETWORK_SELECTION_DISABLED_MAX
+      ).fill(0);
+    }
   }
 
   function incrementDisableReasonCounter(config, reason) {
@@ -324,6 +327,14 @@ this.WifiConfigManager = (function() {
         }
       }
     }
+  }
+
+  function getNetworkConfiguration(config, callback) {
+    let networkKey = WifiConfigUtils.getNetworkKey(config);
+    if (networkKey in configuredNetworks) {
+      return callback(configuredNetworks[networkKey]);
+    }
+    callback(null);
   }
 
   function loadFromStore() {

@@ -11,11 +11,14 @@ dictionary WifiCommandOptions
   unsigned long  id = 0;       // opaque id.
   unsigned long  cmd = 0;
 
+  boolean        lowLatencyMode = false;
+  boolean        staHigherPriority = false;
   boolean        powerSave = false;
   boolean        suspendMode = false;
   boolean        externalSim = false;
   boolean        autoReconnect = false;
   DOMString      countryCode = "";
+  DOMString      softapCountryCode = "";
   unsigned short btCoexistenceMode = 0;
   boolean        btCoexistenceScanMode = false;
 

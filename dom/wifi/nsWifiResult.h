@@ -30,7 +30,13 @@ class nsWifiResult final : public nsIWifiResult {
   uint32_t mId;
   bool mStatus;
 
+  nsString mDriverVersion;
+  nsString mFirmwareVersion;
+  nsString mMacAddress;
+  nsString mStaInterface;
+  nsString mApInterface;
   uint32_t mCapabilities;
+  uint32_t mStaCapabilities;
   uint32_t mDebugLevel;
   nsTArray<RefPtr<nsScanResult>> mScanResults;
 
