@@ -187,6 +187,13 @@ bool SetProcessPrioritySupported() {
   MOZ_CRASH("Only the main process may call SetProcessPrioritySupported().");
 }
 
+bool IsHeadphoneEventFromInputDev() {
+  MOZ_CRASH(
+      "IsHeadphoneEventFromInputDev() cannot be called from sandboxed "
+      "contexts.");
+  return false;
+}
+
 nsresult StartSystemService(const char* aSvcName, const char* aArgs) {
   MOZ_CRASH("System services cannot be controlled from sandboxed contexts.");
   return NS_ERROR_NOT_IMPLEMENTED;

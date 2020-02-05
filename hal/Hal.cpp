@@ -593,6 +593,11 @@ void Shutdown() {
   sInitialized = false;
 }
 
+bool IsHeadphoneEventFromInputDev() {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(IsHeadphoneEventFromInputDev(), false);
+}
+
 nsresult StartSystemService(const char* aSvcName, const char* aArgs) {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(StartSystemService(aSvcName, aArgs),

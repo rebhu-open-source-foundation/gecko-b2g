@@ -327,6 +327,11 @@ void SetProcessPriority(int aPid, hal::ProcessPriority aPriority);
 uint32_t GetTotalSystemMemory();
 
 /**
+ * Determine whether the headphone switch event is from input device
+ */
+bool IsHeadphoneEventFromInputDev();
+
+/**
  * Start the system service with the specified name and arguments.
  */
 nsresult StartSystemService(const char* aSvcName, const char* aArgs);

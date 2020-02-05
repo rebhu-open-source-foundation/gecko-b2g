@@ -382,8 +382,6 @@ KeyEventDispatcher::DispatchKeyUpEvent()
     DispatchKeyEventInternal(eKeyUp);
 }
 
-// TODO: FIXME
-#if 0
 class SwitchEventRunnable : public mozilla::Runnable {
 public:
     SwitchEventRunnable(hal::SwitchEvent& aEvent)
@@ -400,13 +398,10 @@ public:
 private:
     hal::SwitchEvent mEvent;
 };
-#endif
 
 static void
 updateHeadphoneSwitch()
 {
-// TODO: FIXME
-#if 0
     hal::SwitchEvent event;
 
     switch (sHeadphoneState) {
@@ -423,7 +418,6 @@ updateHeadphoneSwitch()
 
     event.device() = hal::SWITCH_HEADPHONES;
     NS_DispatchToMainThread(new SwitchEventRunnable(event));
-#endif
 }
 
 class GeckoPointerController : public PointerControllerInterface {
@@ -1337,7 +1331,7 @@ nsAppShell::Exit()
 void
 nsAppShell::InitInputDevices()
 {
-    sDevInputAudioJack = false; // TODO: FIXME: hal::IsHeadphoneEventFromInputDev();
+    sDevInputAudioJack = hal::IsHeadphoneEventFromInputDev();
     sHeadphoneState = AKEY_STATE_UNKNOWN;
     sMicrophoneState = AKEY_STATE_UNKNOWN;
 
