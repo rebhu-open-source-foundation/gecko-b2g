@@ -79,6 +79,7 @@ enum class SharedSurfaceType : uint8_t {
   SharedGLTexture,
   AndroidSurfaceTexture,
   Gralloc,
+  EGLSurfaceDMABUF,
 
   Max
 };

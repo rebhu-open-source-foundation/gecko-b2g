@@ -373,7 +373,7 @@ nsStyleBorder::nsStyleBorder(const Document& aDocument)
   MOZ_COUNT_CTOR(nsStyleBorder);
 
   nscoord medium = kMediumBorderWidth;
-  NS_FOR_CSS_SIDES(side) {
+  for (const auto side : mozilla::AllPhysicalSides()) {
     mBorder.Side(side) = medium;
     mBorderStyle[side] = StyleBorderStyle::None;
   }
@@ -397,7 +397,9 @@ nsStyleBorder::nsStyleBorder(const nsStyleBorder& aSrc)
       mBorder(aSrc.mBorder),
       mTwipsPerPixel(aSrc.mTwipsPerPixel) {
   MOZ_COUNT_CTOR(nsStyleBorder);
-  NS_FOR_CSS_SIDES(side) { mBorderStyle[side] = aSrc.mBorderStyle[side]; }
+  for (const auto side : mozilla::AllPhysicalSides()) {
+    mBorderStyle[side] = aSrc.mBorderStyle[side];
+  }
 }
 
 nsStyleBorder::~nsStyleBorder() { MOZ_COUNT_DTOR(nsStyleBorder); }
@@ -415,7 +417,7 @@ nsMargin nsStyleBorder::GetImageOutset() const {
   // the initial values yields 0 outset) so that we don't have to
   // reflow to update overflow areas when an image loads.
   nsMargin outset;
-  NS_FOR_CSS_SIDES(s) {
+  for (const auto s : mozilla::AllPhysicalSides()) {
     const auto& coord = mBorderImageOutset.Get(s);
     nscoord value;
     if (coord.IsLength()) {
@@ -446,7 +448,7 @@ nsChangeHint nsStyleBorder::CalcDifference(
     return NS_STYLE_HINT_REFLOW;
   }
 
-  NS_FOR_CSS_SIDES(ix) {
+  for (const auto ix : mozilla::AllPhysicalSides()) {
     // See the explanation in nsChangeHint.h of
     // nsChangeHint_BorderStyleNoneChange .
     // Furthermore, even though we know *this* side is 0 width, just
@@ -462,7 +464,7 @@ nsChangeHint nsStyleBorder::CalcDifference(
   // comparison, border-style differences can only lead to a repaint hint.  So
   // it's OK to just compare the values directly -- if either the actual
   // style or the color flags differ we want to repaint.
-  NS_FOR_CSS_SIDES(ix) {
+  for (const auto ix : mozilla::AllPhysicalSides()) {
     if (mBorderStyle[ix] != aNewData.mBorderStyle[ix] ||
         BorderColorFor(ix) != aNewData.BorderColorFor(ix)) {
       return nsChangeHint_RepaintFrame;
@@ -1183,13 +1185,12 @@ nsStylePosition::nsStylePosition(const Document& aDocument)
       mAspectRatio(0.0f),
       mGridAutoFlow(NS_STYLE_GRID_AUTO_FLOW_ROW),
       mBoxSizing(StyleBoxSizing::Content),
-      mAlignContent(NS_STYLE_ALIGN_NORMAL),
-      mAlignItems(NS_STYLE_ALIGN_NORMAL),
-      mAlignSelf(NS_STYLE_ALIGN_AUTO),
-      mJustifyContent(NS_STYLE_JUSTIFY_NORMAL),
-      mSpecifiedJustifyItems(NS_STYLE_JUSTIFY_LEGACY),
-      mJustifyItems(NS_STYLE_JUSTIFY_NORMAL),
-      mJustifySelf(NS_STYLE_JUSTIFY_AUTO),
+      mAlignContent({StyleAlignFlags::NORMAL}),
+      mAlignItems({StyleAlignFlags::NORMAL}),
+      mAlignSelf({StyleAlignFlags::AUTO}),
+      mJustifyContent({StyleAlignFlags::NORMAL}),
+      mJustifyItems({{StyleAlignFlags::LEGACY}, {StyleAlignFlags::NORMAL}}),
+      mJustifySelf({StyleAlignFlags::AUTO}),
       mFlexDirection(StyleFlexDirection::Row),
       mFlexWrap(StyleFlexWrap::Nowrap),
       mObjectFit(StyleObjectFit::Fill),
@@ -1234,7 +1235,6 @@ nsStylePosition::nsStylePosition(const nsStylePosition& aSource)
       mAlignItems(aSource.mAlignItems),
       mAlignSelf(aSource.mAlignSelf),
       mJustifyContent(aSource.mJustifyContent),
-      mSpecifiedJustifyItems(aSource.mSpecifiedJustifyItems),
       mJustifyItems(aSource.mJustifyItems),
       mJustifySelf(aSource.mJustifySelf),
       mFlexDirection(aSource.mFlexDirection),
@@ -1258,7 +1258,7 @@ nsStylePosition::nsStylePosition(const nsStylePosition& aSource)
 
 static bool IsAutonessEqual(const StyleRect<LengthPercentageOrAuto>& aSides1,
                             const StyleRect<LengthPercentageOrAuto>& aSides2) {
-  NS_FOR_CSS_SIDES(side) {
+  for (const auto side : mozilla::AllPhysicalSides()) {
     if (aSides1.Get(side).IsAuto() != aSides2.Get(side).IsAuto()) {
       return false;
     }
@@ -1344,14 +1344,14 @@ nsChangeHint nsStylePosition::CalcDifference(
   // Changing 'justify-content/items/self' might affect the positioning,
   // but it won't affect any sizing.
   if (mJustifyContent != aNewData.mJustifyContent ||
-      mJustifyItems != aNewData.mJustifyItems ||
+      mJustifyItems.computed != aNewData.mJustifyItems.computed ||
       mJustifySelf != aNewData.mJustifySelf) {
     hint |= nsChangeHint_NeedReflow;
   }
 
-  // No need to do anything if mSpecifiedJustifyItems changes, as long as
-  // mJustifyItems (tested above) is unchanged.
-  if (mSpecifiedJustifyItems != aNewData.mSpecifiedJustifyItems) {
+  // No need to do anything if specified justify-items changes, as long as the
+  // computed one (tested above) is unchanged.
+  if (mJustifyItems.specified != aNewData.mJustifyItems.specified) {
     hint |= nsChangeHint_NeutralChange;
   }
 
@@ -1405,28 +1405,31 @@ nsChangeHint nsStylePosition::CalcDifference(
   return hint;
 }
 
-uint8_t nsStylePosition::UsedAlignSelf(ComputedStyle* aParent) const {
-  if (mAlignSelf != NS_STYLE_ALIGN_AUTO) {
+StyleAlignSelf nsStylePosition::UsedAlignSelf(
+    const ComputedStyle* aParent) const {
+  if (mAlignSelf._0 != StyleAlignFlags::AUTO) {
     return mAlignSelf;
   }
   if (MOZ_LIKELY(aParent)) {
     auto parentAlignItems = aParent->StylePosition()->mAlignItems;
-    MOZ_ASSERT(!(parentAlignItems & NS_STYLE_ALIGN_LEGACY),
+    MOZ_ASSERT(!(parentAlignItems._0 & StyleAlignFlags::LEGACY),
                "align-items can't have 'legacy'");
-    return parentAlignItems;
+    return {parentAlignItems._0};
   }
-  return NS_STYLE_ALIGN_NORMAL;
+  return {StyleAlignFlags::NORMAL};
 }
 
-uint8_t nsStylePosition::UsedJustifySelf(ComputedStyle* aParent) const {
-  if (mJustifySelf != NS_STYLE_JUSTIFY_AUTO) {
+StyleJustifySelf nsStylePosition::UsedJustifySelf(
+    const ComputedStyle* aParent) const {
+  if (mJustifySelf._0 != StyleAlignFlags::AUTO) {
     return mJustifySelf;
   }
   if (MOZ_LIKELY(aParent)) {
-    auto inheritedJustifyItems = aParent->StylePosition()->mJustifyItems;
-    return inheritedJustifyItems & ~NS_STYLE_JUSTIFY_LEGACY;
+    const auto& inheritedJustifyItems =
+        aParent->StylePosition()->mJustifyItems.computed;
+    return {inheritedJustifyItems._0 & ~StyleAlignFlags::LEGACY};
   }
-  return NS_STYLE_JUSTIFY_NORMAL;
+  return {StyleAlignFlags::NORMAL};
 }
 
 // --------------------
@@ -1434,7 +1437,7 @@ uint8_t nsStylePosition::UsedJustifySelf(ComputedStyle* aParent) const {
 //
 
 nsStyleTable::nsStyleTable(const Document& aDocument)
-    : mLayoutStrategy(NS_STYLE_TABLE_LAYOUT_AUTO), mXSpan(1) {
+    : mLayoutStrategy(StyleTableLayout::Auto), mXSpan(1) {
   MOZ_COUNT_CTOR(nsStyleTable);
 }
 
@@ -1461,7 +1464,7 @@ nsStyleTableBorder::nsStyleTableBorder(const Document& aDocument)
       mBorderSpacingRow(0),
       mBorderCollapse(StyleBorderCollapse::Separate),
       mCaptionSide(NS_STYLE_CAPTION_SIDE_TOP),
-      mEmptyCells(NS_STYLE_TABLE_EMPTY_CELLS_SHOW) {
+      mEmptyCells(StyleEmptyCells::Show) {
   MOZ_COUNT_CTOR(nsStyleTableBorder);
 }
 
@@ -2698,7 +2701,7 @@ nsStyleDisplay::nsStyleDisplay(const Document& aDocument)
       mTranslate(StyleTranslate::None()),
       mScale(StyleScale::None()),
       mBackfaceVisibility(NS_STYLE_BACKFACE_VISIBILITY_VISIBLE),
-      mTransformStyle(NS_STYLE_TRANSFORM_STYLE_FLAT),
+      mTransformStyle(StyleTransformStyle::Flat),
       mTransformBox(StyleGeometryBox::BorderBox),
       mOffsetPath(StyleOffsetPath::None()),
       mOffsetDistance(LengthPercentage::Zero()),
@@ -2849,10 +2852,7 @@ static bool ScrollbarGenerationChanged(const nsStyleDisplay& aOld,
 
 nsChangeHint nsStyleDisplay::CalcDifference(
     const nsStyleDisplay& aNewData, const nsStylePosition& aOldPosition) const {
-  nsChangeHint hint = nsChangeHint(0);
-
-  if (mPosition != aNewData.mPosition || mDisplay != aNewData.mDisplay ||
-      mContain != aNewData.mContain ||
+  if (mDisplay != aNewData.mDisplay || mContain != aNewData.mContain ||
       (mFloat == StyleFloat::None) != (aNewData.mFloat == StyleFloat::None) ||
       mScrollBehavior != aNewData.mScrollBehavior ||
       mScrollSnapType != aNewData.mScrollSnapType ||
@@ -2871,6 +2871,35 @@ nsChangeHint nsStyleDisplay::CalcDifference(
     // nsTextControlFrame instead of nsNumberControlFrame if the author
     // specifies 'textfield'.
     return nsChangeHint_ReconstructFrame;
+  }
+
+  auto hint = nsChangeHint(0);
+  if (mPosition != aNewData.mPosition) {
+    if (IsAbsolutelyPositionedStyle() ||
+        aNewData.IsAbsolutelyPositionedStyle()) {
+      // This changes our parent relationship on the frame tree and / or needs
+      // to create a placeholder, so gotta reframe. There are some cases (when
+      // switching from fixed to absolute or viceversa, if our containing block
+      // happens to remain the same, i.e., if it has a transform or such) where
+      // this wouldn't really be needed (though we'd still need to move the
+      // frame from one child list to another). In any case we don't have a hand
+      // to that information from here, and it doesn't seem like a case worth
+      // optimizing for.
+      return nsChangeHint_ReconstructFrame;
+    }
+    // We start or stop being a containing block for abspos descendants. This
+    // also causes painting to change, as we'd become a pseudo-stacking context.
+    if (IsRelativelyPositionedStyle() !=
+        aNewData.IsRelativelyPositionedStyle()) {
+      hint |= nsChangeHint_UpdateContainingBlock | nsChangeHint_RepaintFrame;
+    }
+    if (IsPositionForcingStackingContext() !=
+        aNewData.IsPositionForcingStackingContext()) {
+      hint |= nsChangeHint_RepaintFrame;
+    }
+    // On top of that: if the above ends up not reframing, we need a reflow to
+    // compute our relative, static or sticky position.
+    hint |= nsChangeHint_NeedReflow | nsChangeHint_ReflowChangesSizeOrPosition;
   }
 
   if (mScrollSnapAlign != aNewData.mScrollSnapAlign) {
@@ -3317,7 +3346,7 @@ nsStyleText::nsStyleText(const Document& aDocument)
       mLetterSpacing({0.}),
       mLineHeight(StyleLineHeight::Normal()),
       mTextIndent(LengthPercentage::Zero()),
-      mTextUnderlineOffset(StyleTextDecorationLength::Auto()),
+      mTextUnderlineOffset(LengthPercentageOrAuto::Auto()),
       mTextDecorationSkipInk(StyleTextDecorationSkipInk::Auto),
       mTextUnderlinePosition(StyleTextUnderlinePosition::AUTO),
       mWebkitTextStrokeWidth(0),

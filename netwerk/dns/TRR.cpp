@@ -218,7 +218,11 @@ nsresult TRR::SendHTTPRequest() {
     NS_ENSURE_SUCCESS(rv, rv);
 
     nsAutoCString uri;
-    gTRRService->GetURI(uri);
+    if (!mRec || mRec->mTrrServer.IsEmpty()) {
+      gTRRService->GetURI(uri);
+    } else {
+      uri = mRec->mTrrServer;
+    }
     uri.Append(NS_LITERAL_CSTRING("?dns="));
     uri.Append(body);
     LOG(("TRR::SendHTTPRequest GET dns=%s\n", body.get()));
@@ -228,7 +232,11 @@ nsresult TRR::SendHTTPRequest() {
     NS_ENSURE_SUCCESS(rv, rv);
 
     nsAutoCString uri;
-    gTRRService->GetURI(uri);
+    if (!mRec || mRec->mTrrServer.IsEmpty()) {
+      gTRRService->GetURI(uri);
+    } else {
+      uri = mRec->mTrrServer;
+    }
     rv = NS_NewURI(getter_AddRefs(dnsURI), uri);
   }
   if (NS_FAILED(rv)) {
@@ -268,7 +276,9 @@ nsresult TRR::SendHTTPRequest() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString cred;
-  gTRRService->GetCredentials(cred);
+  if (!mRec || mRec->mTrrServer.IsEmpty()) {
+    gTRRService->GetCredentials(cred);
+  }
   if (!cred.IsEmpty()) {
     rv = httpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Authorization"),
                                        cred, false);
@@ -469,7 +479,8 @@ nsresult TRR::ReceivePush(nsIHttpChannel* pushed, nsHostRecord* pushedRec) {
   RefPtr<nsHostRecord> hostRecord;
   nsresult rv;
   rv = mHostResolver->GetHostRecord(
-      mHost, (mType != TRRTYPE_TXT) ? 0 : nsIDNSService::RESOLVE_TYPE_TXT,
+      mHost, EmptyCString(),
+      (mType != TRRTYPE_TXT) ? 0 : nsIDNSService::RESOLVE_TYPE_TXT,
       pushedRec->flags, pushedRec->af, pushedRec->pb, pushedRec->originSuffix,
       getter_AddRefs(hostRecord));
   if (NS_FAILED(rv)) {
@@ -498,6 +509,9 @@ TRR::OnPush(nsIHttpChannel* associated, nsIHttpChannel* pushed) {
   LOG(("TRR::OnPush entry\n"));
   MOZ_ASSERT(associated == mChannel);
   if (!mRec) {
+    return NS_ERROR_FAILURE;
+  }
+  if (!mRec->mTrrServer.IsEmpty()) {
     return NS_ERROR_FAILURE;
   }
 
@@ -904,7 +918,7 @@ nsresult TRR::DohDecode(nsCString& aHost) {
   return NS_OK;
 }
 
-nsresult TRR::ReturnData() {
+nsresult TRR::ReturnData(nsIChannel* aChannel) {
   if (mType != TRRTYPE_TXT) {
     // create and populate an AddrInfo instance to pass on
     RefPtr<AddrInfo> ai(new AddrInfo(mHost, mType));
@@ -923,6 +937,21 @@ nsresult TRR::ReturnData() {
       }
     }
     ai->ttl = ttl;
+
+    // Set timings.
+    nsCOMPtr<nsITimedChannel> timedChan = do_QueryInterface(aChannel);
+    if (timedChan) {
+      TimeStamp asyncOpen, start, end;
+      if (NS_SUCCEEDED(timedChan->GetAsyncOpen(&asyncOpen)) && !asyncOpen.IsNull()) {
+        ai->SetTrrFetchDuration((TimeStamp::Now() - asyncOpen).ToMilliseconds());
+      }
+      if (NS_SUCCEEDED(timedChan->GetRequestStart(&start)) &&
+          NS_SUCCEEDED(timedChan->GetResponseEnd(&end)) &&
+          !start.IsNull() && !end.IsNull()) {
+        ai->SetTrrFetchDurationNetworkOnly((end - start).ToMilliseconds());
+      }
+    }
+
     if (!mHostResolver) {
       return NS_ERROR_FAILURE;
     }
@@ -955,7 +984,7 @@ nsresult TRR::FailData(nsresult error) {
   return NS_OK;
 }
 
-nsresult TRR::On200Response() {
+nsresult TRR::On200Response(nsIChannel* aChannel) {
   // decode body and create an AddrInfo struct for the response
   nsresult rv = DohDecode(mHost);
 
@@ -968,7 +997,7 @@ nsresult TRR::On200Response() {
       rv = DohDecode(cname);
       if (NS_SUCCEEDED(rv) && mDNS.mAddresses.getFirst()) {
         LOG(("TRR: Got the CNAME record without asking for it\n"));
-        ReturnData();
+        ReturnData(aChannel);
         return NS_OK;
       }
       // restore mCname as DohDecode() change it
@@ -987,7 +1016,7 @@ nsresult TRR::On200Response() {
       }
     } else {
       // pass back the response data
-      ReturnData();
+      ReturnData(aChannel);
       return NS_OK;
     }
   } else {
@@ -1026,9 +1055,11 @@ TRR::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
   nsCOMPtr<nsIChannel> channel;
   channel.swap(mChannel);
 
-  // Bad content is still considered "okay" if the HTTP response is okay
-  gTRRService->TRRIsOkay(NS_SUCCEEDED(aStatusCode) ? TRRService::OKAY_NORMAL
-                                                   : TRRService::OKAY_BAD);
+  if (!mRec || mRec->mTrrServer.IsEmpty()) {
+    // Bad content is still considered "okay" if the HTTP response is okay
+    gTRRService->TRRIsOkay(NS_SUCCEEDED(aStatusCode) ? TRRService::OKAY_NORMAL
+                                                     : TRRService::OKAY_BAD);
+  }
 
   // if status was "fine", parse the response and pass on the answer
   if (!mFailed && NS_SUCCEEDED(aStatusCode)) {
@@ -1050,7 +1081,7 @@ TRR::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
     uint32_t httpStatus;
     rv = httpChannel->GetResponseStatus(&httpStatus);
     if (NS_SUCCEEDED(rv) && httpStatus == 200) {
-      rv = On200Response();
+      rv = On200Response(channel);
       if (NS_SUCCEEDED(rv)) {
         RecordProcessingTime(channel);
         return rv;

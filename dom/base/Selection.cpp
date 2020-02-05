@@ -608,7 +608,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Selection)
   tmp->StopNotifyingAccessibleCaretEventHub();
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSelectionChangeEventDispatcher)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSelectionListeners)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mCachedRange)
   tmp->RemoveAllRanges(IgnoreErrors());
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFrameSelection)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
@@ -621,7 +620,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Selection)
     }
   }
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAnchorFocusRange)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCachedRange)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameSelection)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSelectionChangeEventDispatcher)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSelectionListeners)
@@ -718,7 +716,7 @@ static nsresult CompareToRangeEnd(const nsINode* aCompareNode,
 }
 
 nsresult Selection::FindInsertionPoint(
-    const nsTArray<RangeData>* aElementArray, const nsINode* aPointNode,
+    const nsTArray<StyledRange>* aElementArray, const nsINode* aPointNode,
     int32_t aPointOffset,
     nsresult (*aComparator)(const nsINode*, int32_t, const nsRange*, int32_t*),
     int32_t* aInsertionPoint) {
@@ -754,12 +752,12 @@ nsresult Selection::FindInsertionPoint(
 // Selection::SubtractRange
 //
 //    A helper function that subtracts aSubtract from aRange, and adds
-//    1 or 2 RangeData objects representing the remaining non-overlapping
+//    1 or 2 StyledRange objects representing the remaining non-overlapping
 //    difference to aOutput. It is assumed that the caller has checked that
 //    aRange and aSubtract do indeed overlap
 
-nsresult Selection::SubtractRange(RangeData* aRange, nsRange* aSubtract,
-                                  nsTArray<RangeData>* aOutput) {
+nsresult Selection::SubtractRange(StyledRange* aRange, nsRange* aSubtract,
+                                  nsTArray<StyledRange>* aOutput) {
   nsRange* range = aRange->mRange;
 
   // First we want to compare to the range start
@@ -780,35 +778,37 @@ nsresult Selection::SubtractRange(RangeData* aRange, nsRange* aSubtract,
   // If it fully contains the new range, then cmp < 0 and cmp2 > 0
 
   if (cmp2 > 0) {
-    // We need to add a new RangeData to the output, running from
+    // We need to add a new StyledRange to the output, running from
     // the end of aSubtract to the end of range
-    RefPtr<nsRange> postOverlap = new nsRange(aSubtract->GetEndContainer());
-    rv = postOverlap->SetStartAndEnd(
-        aSubtract->GetEndContainer(), aSubtract->EndOffset(),
-        range->GetEndContainer(), range->EndOffset());
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+    ErrorResult error;
+    RefPtr<nsRange> postOverlap =
+        nsRange::Create(aSubtract->EndRef(), range->EndRef(), error);
+    if (NS_WARN_IF(error.Failed())) {
+      return error.StealNSResult();
     }
+    MOZ_ASSERT(postOverlap);
     if (!postOverlap->Collapsed()) {
-      if (!aOutput->InsertElementAt(0, RangeData(postOverlap)))
+      if (!aOutput->InsertElementAt(0, StyledRange(postOverlap))) {
         return NS_ERROR_OUT_OF_MEMORY;
+      }
       (*aOutput)[0].mTextRangeStyle = aRange->mTextRangeStyle;
     }
   }
 
   if (cmp < 0) {
-    // We need to add a new RangeData to the output, running from
+    // We need to add a new StyledRange to the output, running from
     // the start of the range to the start of aSubtract
-    RefPtr<nsRange> preOverlap = new nsRange(range->GetStartContainer());
-    rv = preOverlap->SetStartAndEnd(
-        range->GetStartContainer(), range->StartOffset(),
-        aSubtract->GetStartContainer(), aSubtract->StartOffset());
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+    ErrorResult error;
+    RefPtr<nsRange> preOverlap =
+        nsRange::Create(range->StartRef(), aSubtract->StartRef(), error);
+    if (NS_WARN_IF(error.Failed())) {
+      return error.StealNSResult();
     }
+    MOZ_ASSERT(preOverlap);
     if (!preOverlap->Collapsed()) {
-      if (!aOutput->InsertElementAt(0, RangeData(preOverlap)))
+      if (!aOutput->InsertElementAt(0, StyledRange(preOverlap))) {
         return NS_ERROR_OUT_OF_MEMORY;
+      }
       (*aOutput)[0].mTextRangeStyle = aRange->mTextRangeStyle;
     }
   }
@@ -944,7 +944,7 @@ nsresult Selection::MaybeAddRangeAndTruncateOverlaps(nsRange* aRange,
 
   // a common case is that we have no ranges yet
   if (mRanges.Length() == 0) {
-    if (!mRanges.AppendElement(RangeData(aRange))) {
+    if (!mRanges.AppendElement(StyledRange(aRange))) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
     aRange->SetSelection(this);
@@ -981,7 +981,7 @@ nsresult Selection::MaybeAddRangeAndTruncateOverlaps(nsRange* aRange,
 
   if (startIndex == endIndex) {
     // The new range doesn't overlap any existing ranges
-    if (!mRanges.InsertElementAt(startIndex, RangeData(aRange))) {
+    if (!mRanges.InsertElementAt(startIndex, StyledRange(aRange))) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
     aRange->SetSelection(this);
@@ -995,7 +995,7 @@ nsresult Selection::MaybeAddRangeAndTruncateOverlaps(nsRange* aRange,
   // same range) as these may partially overlap the new range. Any ranges
   // between these indices are fully overlapped by the new range, and so can be
   // removed
-  nsTArray<RangeData> overlaps;
+  nsTArray<StyledRange> overlaps;
   if (!overlaps.InsertElementAt(0, mRanges[startIndex]))
     return NS_ERROR_OUT_OF_MEMORY;
 
@@ -1010,7 +1010,7 @@ nsresult Selection::MaybeAddRangeAndTruncateOverlaps(nsRange* aRange,
   }
   mRanges.RemoveElementsAt(startIndex, endIndex - startIndex);
 
-  nsTArray<RangeData> temp;
+  nsTArray<StyledRange> temp;
   for (int32_t i = overlaps.Length() - 1; i >= 0; i--) {
     nsresult rv = SubtractRange(&overlaps[i], aRange, &temp);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -1023,7 +1023,7 @@ nsresult Selection::MaybeAddRangeAndTruncateOverlaps(nsRange* aRange,
                           &insertionPoint);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!temp.InsertElementAt(insertionPoint, RangeData(aRange))) {
+  if (!temp.InsertElementAt(insertionPoint, StyledRange(aRange))) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
@@ -1613,7 +1613,7 @@ UniquePtr<SelectionDetails> Selection::LookUpSelection(
     newHead->mStart = start;
     newHead->mEnd = end;
     newHead->mSelectionType = aSelectionType;
-    RangeData* rd = FindRangeData(range);
+    StyledRange* rd = FindRangeData(range);
     if (rd) {
       newHead->mTextRangeStyle = rd->mTextRangeStyle;
     }
@@ -1696,7 +1696,7 @@ void Selection::SetAncestorLimiter(nsIContent* aLimiter) {
   }
 }
 
-RangeData* Selection::FindRangeData(nsRange* aRange) {
+StyledRange* Selection::FindRangeData(nsRange* aRange) {
   NS_ENSURE_TRUE(aRange, nullptr);
   for (uint32_t i = 0; i < mRanges.Length(); i++) {
     if (mRanges[i].mRange == aRange) return &mRanges[i];
@@ -1707,7 +1707,7 @@ RangeData* Selection::FindRangeData(nsRange* aRange) {
 nsresult Selection::SetTextRangeStyle(nsRange* aRange,
                                       const TextRangeStyle& aTextRangeStyle) {
   NS_ENSURE_ARG_POINTER(aRange);
-  RangeData* rd = FindRangeData(aRange);
+  StyledRange* rd = FindRangeData(aRange);
   if (rd) {
     rd->mTextRangeStyle = aTextRangeStyle;
   }
@@ -1839,34 +1839,6 @@ void Selection::RemoveAllRanges(ErrorResult& aRv) {
   }
 }
 
-nsresult Selection::RemoveAllRangesTemporarily() {
-  if (!mCachedRange) {
-    // Look for a range which isn't referred by other than this instance.
-    // If there is, it'll be released by calling Clear().  So, we can reuse it
-    // when we need to create a range.
-    for (auto& rangeData : mRanges) {
-      auto& range = rangeData.mRange;
-      if (range->GetRefCount() == 1 ||
-          (range->GetRefCount() == 2 && range == mAnchorFocusRange)) {
-        mCachedRange = range;
-        break;
-      }
-    }
-  }
-
-  // Then, remove all ranges.
-  ErrorResult result;
-  RemoveAllRanges(result);
-  if (result.Failed()) {
-    mCachedRange = nullptr;
-  } else if (mCachedRange) {
-    // To save the computing cost to keep valid DOM point against DOM tree
-    // changes, we should clear the range temporarily.
-    mCachedRange->ResetTemporarily();
-  }
-  return result.StealNSResult();
-}
-
 void Selection::AddRangeJS(nsRange& aRange, ErrorResult& aRv) {
   AutoRestore<bool> calledFromJSRestorer(mCalledByJS);
   mCalledByJS = true;
@@ -1888,16 +1860,7 @@ void Selection::AddRangeAndSelectFramesAndNotifyListeners(nsRange& aRange,
   if (aRange.IsInSelection() && aRange.GetSelection() != this) {
     // Because of performance reason, when there is a cached range, let's use
     // it.  Otherwise, clone the range.
-    if (mCachedRange) {
-      range = std::move(mCachedRange);
-      nsresult rv = range->SetStartAndEnd(aRange.StartRef().AsRaw(),
-                                          aRange.EndRef().AsRaw());
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return;
-      }
-    } else {
-      range = aRange.CloneRange();
-    }
+    range = aRange.CloneRange();
   } else {
     range = &aRange;
   }
@@ -1910,10 +1873,6 @@ void Selection::AddRangeAndSelectFramesAndNotifyListeners(nsRange& aRange,
     // associated with context object. Otherwise, this method must do nothing."
     return;
   }
-
-  // If a range is being added, we don't need cached range because Collapse()
-  // won't use it.
-  mCachedRange = nullptr;
 
   // MaybeAddTableCellRange might flush frame.
   RefPtr<Selection> kungFuDeathGrip(this);
@@ -1936,7 +1895,10 @@ void Selection::AddRangeAndSelectFramesAndNotifyListeners(nsRange& aRange,
     }
   }
 
-  MOZ_ASSERT(rangeIndex >= 0);
+  if (rangeIndex < 0) {
+    return;
+  }
+
   MOZ_ASSERT(rangeIndex < static_cast<int32_t>(mRanges.Length()));
 
   SetAnchorFocusRange(rangeIndex);
@@ -2102,9 +2064,6 @@ void Selection::Collapse(const RawRangeBoundary& aPoint, ErrorResult& aRv) {
     return;
   }
 
-  // Cache current range is if there is because it may be reusable.
-  RefPtr<nsRange> oldRange = !mRanges.IsEmpty() ? mRanges[0].mRange : nullptr;
-
   // Delete all of the current ranges
   Clear(presContext);
 
@@ -2136,16 +2095,7 @@ void Selection::Collapse(const RawRangeBoundary& aPoint, ErrorResult& aRv) {
     }
   }
 
-  RefPtr<nsRange> range;
-  // If the old range isn't referred by anybody other than this method,
-  // we should reuse it for reducing the recreation cost.
-  if (oldRange && oldRange->GetRefCount() == 1) {
-    range = std::move(oldRange);
-  } else if (mCachedRange) {
-    range = std::move(mCachedRange);
-  } else {
-    range = new nsRange(aPoint.Container());
-  }
+  RefPtr<nsRange> range = nsRange::Create(aPoint.Container());
   result = range->CollapseTo(aPoint);
   if (NS_FAILED(result)) {
     aRv.Throw(result);
@@ -2272,7 +2222,7 @@ nsRange* Selection::GetRangeAt(uint32_t aIndex, ErrorResult& aRv) {
 }
 
 nsRange* Selection::GetRangeAt(int32_t aIndex) const {
-  RangeData empty(nullptr);
+  StyledRange empty(nullptr);
   return mRanges.SafeElementAt(aIndex, empty).mRange;
 }
 
@@ -2446,7 +2396,7 @@ void Selection::Extend(nsINode& aContainer, uint32_t aOffset,
       return;
     }
   } else {
-    RefPtr<nsRange> difRange = new nsRange(&aContainer);
+    RefPtr<nsRange> difRange = nsRange::Create(&aContainer);
     if ((*anchorOldFocusOrder == 0 && *anchorNewFocusOrder < 0) ||
         (*anchorOldFocusOrder <= 0 &&
          *oldFocusNewFocusOrder < 0)) {  // a1,2  a,1,2
@@ -3020,7 +2970,7 @@ void Selection::RemoveSelectionListener(
 
 Element* Selection::GetCommonEditingHostForAllRanges() {
   Element* editingHost = nullptr;
-  for (RangeData& rangeData : mRanges) {
+  for (StyledRange& rangeData : mRanges) {
     nsRange* range = rangeData.mRange;
     MOZ_ASSERT(range);
     nsINode* commonAncestorNode = range->GetClosestCommonInclusiveAncestor();
@@ -3370,37 +3320,9 @@ void Selection::SetStartAndEndInternal(InLimiter aInLimiter,
     }
   }
 
-  // If we're not called by JS, we can remove all ranges first.  Then, we
-  // may be able to reuse one of current ranges for reducing the cost of
-  // nsRange allocation.  Note that if this is called by
-  // SetBaseAndExtentJS(), when we fail to initialize new range, we
-  // shouldn't remove current ranges.  Therefore, we need to check whether
-  // we're called by JS or internally.
-  if (!mCalledByJS && !mCachedRange) {
-    nsresult rv = RemoveAllRangesTemporarily();
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      aRv.Throw(rv);
-      return;
-    }
-  }
-
-  // If there is cached range, we should reuse it for saving the allocation
-  // const (and some other cost in nsRange::DoSetRange()).
-  RefPtr<nsRange> newRange = std::move(mCachedRange);
-
-  // nsRange::SetStartAndEnd() and nsRange::Create() returns
-  // IndexSizeError if any offset is out of bounds.
-  if (newRange) {
-    nsresult rv = newRange->SetStartAndEnd(aStartRef, aEndRef);
-    if (NS_FAILED(rv)) {
-      aRv.Throw(rv);
-      return;
-    }
-  } else {
-    newRange = nsRange::Create(aStartRef, aEndRef, aRv);
-    if (aRv.Failed()) {
-      return;
-    }
+  RefPtr<nsRange> newRange = nsRange::Create(aStartRef, aEndRef, aRv);
+  if (aRv.Failed()) {
+    return;
   }
 
   RemoveAllRanges(aRv);

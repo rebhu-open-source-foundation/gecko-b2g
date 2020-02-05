@@ -697,7 +697,7 @@ partial interface Window {
   [Throws, Func="nsGlobalWindowInner::IsPrivilegedChromeWindow"]
   Promise<any> promiseDocumentFlushed(PromiseDocumentFlushedCallback callback);
 
-  [Func="IsChromeOrXBL"]
+  [ChromeOnly]
   readonly attribute boolean isChromeWindow;
 };
 
@@ -752,7 +752,7 @@ partial interface Window {
    *
    * Example: ["en-US", "de", "pl", "sr-Cyrl", "zh-Hans-HK"]
    */
-  [Func="IsChromeOrXBLOrUAWidget"]
+  [Func="IsChromeOrUAWidget"]
   sequence<DOMString> getRegionalPrefsLocales();
 
   /**
@@ -769,14 +769,14 @@ partial interface Window {
    *
    * Example: ["en-US"]
    */
-  [Func="IsChromeOrXBLOrUAWidget"]
+  [Func="IsChromeOrUAWidget"]
   sequence<DOMString> getWebExposedLocales();
 
   /**
    * Getter funcion for IntlUtils, which provides helper functions for
    * localization.
    */
-  [Throws, Func="IsChromeOrXBLOrUAWidget"]
+  [Throws, Func="IsChromeOrUAWidget"]
   readonly attribute IntlUtils intlUtils;
 };
 

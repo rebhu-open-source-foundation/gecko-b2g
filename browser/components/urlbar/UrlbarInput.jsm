@@ -455,7 +455,7 @@ class UrlbarInput {
       allowInheritPrincipal: false,
     };
 
-    let selIndex = this.view.selectedRowIndex;
+    let selIndex = result.rowIndex;
     if (!result.payload.keywordOffer) {
       this.view.close(/* elementPicked */ true);
     }
@@ -945,20 +945,6 @@ class UrlbarInput {
     return this._lastSearchString;
   }
 
-  get openViewOnFocus() {
-    return (
-      this._openViewOnFocus &&
-      !this.isPrivate &&
-      // We do not show Top Sites if the user disabled them on about:newtab. We
-      // handle this here instead of disabling UrlbarProviderTopSites so that
-      // the user can still show Top Sites with the down arrow.
-      Services.prefs.getBoolPref(
-        "browser.newtabpage.activity-stream.feeds.topsites",
-        true
-      )
-    );
-  }
-
   async updateLayoutBreakout() {
     if (!this.megabar) {
       return;
@@ -1023,7 +1009,36 @@ class UrlbarInput {
     this._identityBox.setAttribute("pageproxystate", state);
   }
 
+  /**
+   * When switching tabs quickly, TabSelect sometimes happens before
+   * _adjustFocusAfterTabSwitch and due to the focus still being on the old
+   * tab, we end up flickering the results pane briefly.
+   */
+  afterTabSwitchFocusChange() {
+    this._gotFocusChange = true;
+    this._afterTabSelectAndFocusChange();
+  }
+
   // Private methods below.
+
+  _afterTabSelectAndFocusChange() {
+    // We must have seen both events to proceed safely.
+    if (!this._gotFocusChange || !this._gotTabSelect) {
+      return;
+    }
+    this._gotFocusChange = this._gotTabSelect = false;
+
+    this._resetSearchState();
+
+    // Switching tabs doesn't always change urlbar focus, so we must try to
+    // reopen here too, not just on focus.
+    if (this.view.autoOpen({ event: new CustomEvent("urlbar-reopen") })) {
+      return;
+    }
+    // The input may retain focus when switching tabs in which case we
+    // need to close the view explicitly.
+    this.view.close();
+  }
 
   async _updateLayoutBreakoutDimensions() {
     // When this method gets called a second time before the first call
@@ -1066,10 +1081,10 @@ class UrlbarInput {
     // FIXME: Not using UrlbarPrefs because its pref observer may run after
     // this call, so we'd get the previous openViewOnFocus value here. This
     // can be cleaned up after bug 1560013.
-    this._openViewOnFocus = Services.prefs.getBoolPref(
+    this.openViewOnFocus = Services.prefs.getBoolPref(
       "browser.urlbar.openViewOnFocus"
     );
-    this.dropmarker.hidden = this._openViewOnFocus;
+    this.dropmarker.hidden = this.openViewOnFocus;
   }
 
   _setValue(val, allowTrim) {
@@ -1557,20 +1572,18 @@ class UrlbarInput {
    * @returns {"current" | "tabshifted" | "tab" | "save" | "window"}
    */
   _whereToOpen(event) {
-    let isMouseEvent = event instanceof MouseEvent;
-    let reuseEmpty = !isMouseEvent;
+    let isKeyboardEvent = event instanceof KeyboardEvent;
+    let reuseEmpty = isKeyboardEvent;
     let where = undefined;
     if (
-      !isMouseEvent &&
-      event &&
+      isKeyboardEvent &&
       (event.altKey || event.getModifierState("AltGraph"))
     ) {
       // We support using 'alt' to open in a tab, because ctrl/shift
       // might be used for canonizing URLs:
       where = event.shiftKey ? "tabshifted" : "tab";
     } else if (
-      !isMouseEvent &&
-      event &&
+      isKeyboardEvent &&
       event.ctrlKey &&
       UrlbarPrefs.get("ctrlCanonizesURLs")
     ) {
@@ -1774,7 +1787,7 @@ class UrlbarInput {
     // We handle mouse-based expansion events separately in _on_click.
     if (this._focusedViaMousedown) {
       this._focusedViaMousedown = false;
-      this.view.maybeReopen();
+      this.view.autoOpen({ event });
     } else {
       this.startLayoutExtend();
       if (this.inputField.hasAttribute("refocused-by-panel")) {
@@ -1834,11 +1847,8 @@ class UrlbarInput {
         } else if (event.target.id == SEARCH_BUTTON_ID) {
           this._preventClickSelectsAll = true;
           this.search(UrlbarTokenizer.RESTRICT.SEARCH);
-        } else if (this.openViewOnFocus && !this.view.isOpen) {
-          this.startQuery({
-            allowAutofill: false,
-            event,
-          });
+        } else {
+          this.view.autoOpen({ event });
         }
         break;
       case this.dropmarker:
@@ -2045,7 +2055,8 @@ class UrlbarInput {
   }
 
   _on_TabSelect(event) {
-    this._resetSearchState();
+    this._gotTabSelect = true;
+    this._afterTabSelectAndFocusChange();
   }
 
   _on_keydown(event) {
