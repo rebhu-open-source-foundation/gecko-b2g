@@ -40,8 +40,7 @@ already_AddRefed<AudioChannelClient> AudioChannelClient::Constructor(
   }
 
   if (!CheckAudioChannelPermissions(window, aChannel)) {
-    aRv.ThrowDOMException(NS_ERROR_FAILURE,
-                          NS_LITERAL_CSTRING("Permission denied"));
+    aRv.ThrowSecurityError(NS_LITERAL_CSTRING("Permission denied"));
     return nullptr;
   }
 

@@ -181,8 +181,7 @@ void ResolveOrReject(RefPtr<Promise> aPromise, bool aSuccess, T aValue) {
   if (aSuccess) {
     aPromise->MaybeResolve(aValue);
   } else {
-    aPromise->MaybeRejectWithDOMException(
-        NS_ERROR_DOM_OPERATION_ERR,
+    aPromise->MaybeRejectWithOperationError(
         "Unable to perform audio channel handler operations");
   }
 }
@@ -192,8 +191,7 @@ void ResolveOrReject(RefPtr<Promise> aPromise, bool aSuccess) {
   if (aSuccess) {
     aPromise->MaybeResolveWithUndefined();
   } else {
-    aPromise->MaybeRejectWithDOMException(
-        NS_ERROR_DOM_OPERATION_ERR,
+    aPromise->MaybeRejectWithOperationError(
         "Unable to perform audio channel handler operations");
   }
 }
