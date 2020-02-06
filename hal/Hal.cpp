@@ -381,6 +381,12 @@ void NotifyNetworkChange(const NetworkInformation& aInfo) {
   NetworkObservers()->BroadcastCachedInformation();
 }
 
+void SetNetworkType(int32_t aType)
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(SetNetworkType(aType));
+}
+
 MOZ_IMPL_HAL_OBSERVER(WakeLock)
 
 void ModifyWakeLock(const nsAString& aTopic, WakeLockControl aLockAdjust,

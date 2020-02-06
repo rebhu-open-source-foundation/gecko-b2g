@@ -69,6 +69,9 @@ void EnableNetworkNotifications() { Hal()->SendEnableNetworkNotifications(); }
 
 void DisableNetworkNotifications() { Hal()->SendDisableNetworkNotifications(); }
 
+void
+SetNetworkType(int32_t aType) {}
+
 void GetCurrentNetworkInformation(NetworkInformation* aNetworkInfo) {
   Hal()->SendGetCurrentNetworkInformation(aNetworkInfo);
 }

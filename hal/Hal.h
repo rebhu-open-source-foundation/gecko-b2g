@@ -191,6 +191,12 @@ void GetCurrentNetworkInformation(hal::NetworkInformation* aNetworkInfo);
 void NotifyNetworkChange(const hal::NetworkInformation& aNetworkInfo);
 
 /**
+ * Set active network connection type.
+ * @param aType The network connection type.
+ */
+void SetNetworkType(int32_t aType);
+
+/**
  * Enable wake lock notifications from the backend.
  *
  * This method is only used by WakeLockObserversManager.

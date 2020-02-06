@@ -92,6 +92,12 @@ using namespace mozilla::dom;
 using namespace mozilla::services;
 using namespace mozilla::widget;
 
+namespace mozilla {
+namespace hal_impl {
+  void SetNetworkType(int32_t aType);
+}
+}
+
 bool gDrawRequest = false;
 static nsAppShell *gAppShell = nullptr;
 static int epollfd = 0;
@@ -1250,7 +1256,7 @@ nsAppShell::Init()
     nsCOMPtr<nsIObserverService> obsServ = GetObserverService();
     if (obsServ) {
         obsServ->AddObserver(this, "browser-ui-startup-complete", false);
-        obsServ->AddObserver(this, "network-connection-state-changed", false);
+        obsServ->AddObserver(this, "network-active-changed", false);
     }
 
     // Delay initializing input devices until the screen has been
@@ -1291,10 +1297,11 @@ nsAppShell::Observe(nsISupports* aSubject,
                     const char* aTopic,
                     const char16_t* aData)
 {
-    if (!strcmp(aTopic, "network-connection-state-changed")) {
+    if (!strcmp(aTopic, "network-active-changed")) {
         NS_ConvertUTF16toUTF8 type(aData);
         if (!type.IsEmpty()) {
-            // TODO: FIXME: hal::NotifyNetworkChange(hal::NetworkInformation(atoi(type.get()), 0, 0));
+            hal_impl::SetNetworkType(atoi(type.get()));
+            hal::NotifyNetworkChange(hal::NetworkInformation(atoi(type.get()), 0, 0));
         }
         return NS_OK;
     } else if (!strcmp(aTopic, "browser-ui-startup-complete")) {
@@ -1322,7 +1329,7 @@ nsAppShell::Exit()
     nsCOMPtr<nsIObserverService> obsServ = GetObserverService();
     if (obsServ) {
         obsServ->RemoveObserver(this, "browser-ui-startup-complete");
-        obsServ->RemoveObserver(this, "network-connection-state-changed");
+        obsServ->RemoveObserver(this, "network-active-changed");
     }
     return nsBaseAppShell::Exit();
 }

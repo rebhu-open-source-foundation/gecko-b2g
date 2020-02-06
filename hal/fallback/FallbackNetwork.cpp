@@ -15,6 +15,8 @@ void EnableNetworkNotifications() {}
 
 void DisableNetworkNotifications() {}
 
+void SetNetworkType(int32_t aType) {}
+
 void GetCurrentNetworkInformation(hal::NetworkInformation* aNetworkInfo) {
   aNetworkInfo->type() = dom::network::kDefaultType;
   aNetworkInfo->isWifi() = dom::network::kDefaultIsWifi;

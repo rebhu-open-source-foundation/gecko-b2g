@@ -57,6 +57,7 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/dom/battery/Constants.h"
+#include "mozilla/dom/NetworkInformationBinding.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/FileUtils.h"
 #include "mozilla/Monitor.h"
@@ -70,6 +71,7 @@
 #include "nsAlgorithm.h"
 #include "nsComponentManagerUtils.h"
 #include "nsPrintfCString.h"
+#include "nsINetworkInterface.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
 // TODO: FIXME #include "nsIRecoveryService.h"
@@ -780,6 +782,26 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
 
   previousCharging = aBatteryInfo->charging();
   previousLevel = aBatteryInfo->level();
+}
+
+NetworkInformation sNetworkInfo(int32_t(mozilla::dom::ConnectionType::None), 0, 0);
+
+void
+EnableNetworkNotifications() {}
+
+void
+DisableNetworkNotifications() {}
+
+void
+SetNetworkType(int32_t aType)
+{
+  sNetworkInfo.type() = aType;
+}
+
+void
+GetCurrentNetworkInformation(hal::NetworkInformation* aNetworkInfo)
+{
+  *aNetworkInfo = sNetworkInfo;
 }
 
 namespace {
