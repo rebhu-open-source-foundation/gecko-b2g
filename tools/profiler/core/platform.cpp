@@ -3713,7 +3713,7 @@ static void locked_profiler_save_profile_to_file(PSLockRef aLock,
 
 static SamplerThread* locked_profiler_stop(PSLockRef aLock);
 
-void profiler_shutdown() {
+void profiler_shutdown(IsFastShutdown aIsFastShutdown) {
   LOG("profiler_shutdown");
 
   VTUNE_SHUTDOWN();
@@ -3734,8 +3734,13 @@ void profiler_shutdown() {
         locked_profiler_save_profile_to_file(lock, filename,
                                              /* aIsShuttingDown */ true);
       }
+      if (aIsFastShutdown == IsFastShutdown::Yes) {
+        return;
+      }
 
       samplerThread = locked_profiler_stop(lock);
+    } else if (aIsFastShutdown == IsFastShutdown::Yes) {
+      return;
     }
 
     CorePS::Destroy(lock);
