@@ -2,9 +2,10 @@
 /* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
  * file or any portion thereof may not be reproduced or used in any manner
  * whatsoever without the express written permission of KAI OS TECHNOLOGIES
- * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
- * LIMITED or its affiliate company and may be registered in some jurisdictions.
- * All other trademarks are the property of their respective owners.
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
  */
 
 #ifndef nsRilResult_H
@@ -19,41 +20,42 @@
 
 #include <android/hardware/radio/1.0/IRadio.h>
 #include <android/hardware/radio/1.0/types.h>
+using ::android::hardware::hidl_vec;
+using ::android::hardware::radio::V1_0::CdmaSignalStrength;
 using ::android::hardware::radio::V1_0::CellIdentity;
-using ::android::hardware::radio::V1_0::CellInfoType;
-using ::android::hardware::radio::V1_0::CellIdentityGsm;
-using ::android::hardware::radio::V1_0::CellIdentityWcdma;
 using ::android::hardware::radio::V1_0::CellIdentityCdma;
+using ::android::hardware::radio::V1_0::CellIdentityGsm;
 using ::android::hardware::radio::V1_0::CellIdentityLte;
 using ::android::hardware::radio::V1_0::CellIdentityTdscdma;
-using ::android::hardware::radio::V1_0::SignalStrength;
-using ::android::hardware::radio::V1_0::GsmSignalStrength;
-using ::android::hardware::radio::V1_0::WcdmaSignalStrength;
-using ::android::hardware::radio::V1_0::CdmaSignalStrength;
-using ::android::hardware::radio::V1_0::EvdoSignalStrength;
-using ::android::hardware::radio::V1_0::LteSignalStrength;
-using ::android::hardware::radio::V1_0::TdScdmaSignalStrength;
-using ::android::hardware::radio::V1_0::RadioTechnology;
-using ::android::hardware::radio::V1_0::DataCallFailCause;
-using ::android::hardware::radio::V1_0::SetupDataCallResult;
-using ::android::hardware::radio::V1_0::TimeStampType;
+using ::android::hardware::radio::V1_0::CellIdentityWcdma;
 using ::android::hardware::radio::V1_0::CellInfo;
-using ::android::hardware::radio::V1_0::CellInfoGsm;
-using ::android::hardware::radio::V1_0::CellInfoWcdma;
 using ::android::hardware::radio::V1_0::CellInfoCdma;
+using ::android::hardware::radio::V1_0::CellInfoGsm;
 using ::android::hardware::radio::V1_0::CellInfoLte;
 using ::android::hardware::radio::V1_0::CellInfoTdscdma;
-using ::android::hardware::hidl_vec;
+using ::android::hardware::radio::V1_0::CellInfoType;
+using ::android::hardware::radio::V1_0::CellInfoWcdma;
+using ::android::hardware::radio::V1_0::DataCallFailCause;
+using ::android::hardware::radio::V1_0::EvdoSignalStrength;
+using ::android::hardware::radio::V1_0::GsmSignalStrength;
+using ::android::hardware::radio::V1_0::LteSignalStrength;
+using ::android::hardware::radio::V1_0::RadioTechnology;
+using ::android::hardware::radio::V1_0::SetupDataCallResult;
+using ::android::hardware::radio::V1_0::SignalStrength;
+using ::android::hardware::radio::V1_0::TdScdmaSignalStrength;
+using ::android::hardware::radio::V1_0::TimeStampType;
+using ::android::hardware::radio::V1_0::WcdmaSignalStrength;
 
 class nsRilResult;
 
 class nsGsmSignalStrength final : public nsIGsmSignalStrength {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIGSMSIGNALSTRENGTH
-  nsGsmSignalStrength(int32_t aSignalStrength, int32_t aBitErrorRate, int32_t aTimingAdvance);
+  nsGsmSignalStrength(int32_t aSignalStrength, int32_t aBitErrorRate,
+                      int32_t aTimingAdvance);
 
-private:
+ private:
   ~nsGsmSignalStrength(){};
   int32_t mSignalStrength;
   int32_t mBitErrorRate;
@@ -61,36 +63,36 @@ private:
 };
 
 class nsWcdmaSignalStrength final : public nsIWcdmaSignalStrength {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWCDMASIGNALSTRENGTH
   nsWcdmaSignalStrength(int32_t aSignalStrength, int32_t aBitErrorRate);
 
-private:
+ private:
   ~nsWcdmaSignalStrength(){};
   int32_t mSignalStrength;
   int32_t mBitErrorRate;
 };
 
 class nsCdmaSignalStrength final : public nsICdmaSignalStrength {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICDMASIGNALSTRENGTH
   nsCdmaSignalStrength(int32_t aDbm, int32_t aEcio);
 
-private:
+ private:
   ~nsCdmaSignalStrength(){};
   int32_t mDbm;
   int32_t mEcio;
 };
 
 class nsEvdoSignalStrength final : public nsIEvdoSignalStrength {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIEVDOSIGNALSTRENGTH
   nsEvdoSignalStrength(int32_t aDbm, int32_t aEcio, int32_t aSignalNoiseRatio);
 
-private:
+ private:
   ~nsEvdoSignalStrength(){};
   int32_t mDbm;
   int32_t mEcio;
@@ -98,12 +100,13 @@ private:
 };
 
 class nsLteSignalStrength final : public nsILteSignalStrength {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSILTESIGNALSTRENGTH
-  nsLteSignalStrength(int32_t aSignalStrength, int32_t aRsrp, int32_t aRsrq, int32_t aRssnr, int32_t aCqi, int32_t aTimingAdvance);
+  nsLteSignalStrength(int32_t aSignalStrength, int32_t aRsrp, int32_t aRsrq,
+                      int32_t aRssnr, int32_t aCqi, int32_t aTimingAdvance);
 
-private:
+ private:
   ~nsLteSignalStrength(){};
   int32_t mSignalStrength;
   int32_t mRsrp;
@@ -114,25 +117,27 @@ private:
 };
 
 class nsTdScdmaSignalStrength final : public nsITdScdmaSignalStrength {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSITDSCDMASIGNALSTRENGTH
   nsTdScdmaSignalStrength(int32_t aRscp);
 
-private:
+ private:
   ~nsTdScdmaSignalStrength(){};
   int32_t mRscp;
 };
 
 class nsSignalStrength final : public nsISignalStrength {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISIGNALSTRENGTH
   nsSignalStrength(nsGsmSignalStrength* aGsmSignalStrength,
-  nsCdmaSignalStrength* aCdmaSignalStrength, nsEvdoSignalStrength* aEvdoSignalStrength,
-  nsLteSignalStrength* aLteSignalStrength, nsTdScdmaSignalStrength* aTdScdmaSignalStrength);
+                   nsCdmaSignalStrength* aCdmaSignalStrength,
+                   nsEvdoSignalStrength* aEvdoSignalStrength,
+                   nsLteSignalStrength* aLteSignalStrength,
+                   nsTdScdmaSignalStrength* aTdScdmaSignalStrength);
 
-private:
+ private:
   ~nsSignalStrength(){};
   RefPtr<nsGsmSignalStrength> mGsmSignalStrength;
   RefPtr<nsCdmaSignalStrength> mCdmaSignalStrength;
@@ -142,15 +147,17 @@ private:
 };
 
 class nsSetupDataCallResult final : public nsISetupDataCallResult {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISETUPDATACALLRESULT
-  nsSetupDataCallResult(int32_t aFailCause, int32_t aSuggestedRetryTime, int32_t aCid, int32_t aActive,
-    const nsAString & aPdpType, const nsAString & aIfname,
-    const nsAString & aAddresses, const nsAString & aDnses, const nsAString & aGateways,
-    const nsAString & aPcscf, int32_t aMtu);
+  nsSetupDataCallResult(int32_t aFailCause, int32_t aSuggestedRetryTime,
+                        int32_t aCid, int32_t aActive,
+                        const nsAString& aPdpType, const nsAString& aIfname,
+                        const nsAString& aAddresses, const nsAString& aDnses,
+                        const nsAString& aGateways, const nsAString& aPcscf,
+                        int32_t aMtu);
 
-private:
+ private:
   ~nsSetupDataCallResult(){};
   int32_t mFailCause;
   int32_t mSuggestedRetryTime;
@@ -166,12 +173,13 @@ private:
 };
 
 class nsSuppSvcNotification final : public nsISuppSvcNotification {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISUPPSVCNOTIFICATION
-  nsSuppSvcNotification(bool aNotificationType, int32_t aCode, int32_t aIndex, int32_t aType, const nsAString &aNumber);
+  nsSuppSvcNotification(bool aNotificationType, int32_t aCode, int32_t aIndex,
+                        int32_t aType, const nsAString& aNumber);
 
-private:
+ private:
   ~nsSuppSvcNotification(){};
   bool mNotificationType;
   int32_t mCode;
@@ -181,12 +189,12 @@ private:
 };
 
 class nsSimRefreshResult final : public nsISimRefreshResult {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISIMREFRESHRESULT
-  nsSimRefreshResult(int32_t aType, int32_t aEfId, const nsAString &aAid);
+  nsSimRefreshResult(int32_t aType, int32_t aEfId, const nsAString& aAid);
 
-private:
+ private:
   ~nsSimRefreshResult(){};
   int32_t mType;
   int32_t mEfId;
@@ -194,12 +202,13 @@ private:
 };
 
 class nsCellIdentityGsm final : public nsICellIdentityGsm {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLIDENTITYGSM
-  nsCellIdentityGsm(const nsAString &aMcc, const nsAString &aMnc, int32_t aLac, int32_t aCid, int32_t aArfcn, int32_t aBsic);
+  nsCellIdentityGsm(const nsAString& aMcc, const nsAString& aMnc, int32_t aLac,
+                    int32_t aCid, int32_t aArfcn, int32_t aBsic);
 
-private:
+ private:
   ~nsCellIdentityGsm(){};
   nsString mMcc;
   nsString mMnc;
@@ -210,12 +219,14 @@ private:
 };
 
 class nsCellIdentityCdma final : public nsICellIdentityCdma {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLIDENTITYCDMA
-  nsCellIdentityCdma(int32_t aNetworkId, int32_t aSystemId, int32_t aBaseStationId, int32_t aLongitude, int32_t aLatitude);
+  nsCellIdentityCdma(int32_t aNetworkId, int32_t aSystemId,
+                     int32_t aBaseStationId, int32_t aLongitude,
+                     int32_t aLatitude);
 
-private:
+ private:
   ~nsCellIdentityCdma(){};
   int32_t mNetworkId;
   int32_t mSystemId;
@@ -225,12 +236,13 @@ private:
 };
 
 class nsCellIdentityLte final : public nsICellIdentityLte {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLIDENTITYLTE
-  nsCellIdentityLte(const nsAString &aMcc, const nsAString &aMnc, int32_t aCi, int32_t aPci, int32_t aTac, int32_t aEarfcn);
+  nsCellIdentityLte(const nsAString& aMcc, const nsAString& aMnc, int32_t aCi,
+                    int32_t aPci, int32_t aTac, int32_t aEarfcn);
 
-private:
+ private:
   ~nsCellIdentityLte(){};
   nsString mMcc;
   nsString mMnc;
@@ -241,12 +253,14 @@ private:
 };
 
 class nsCellIdentityWcdma final : public nsICellIdentityWcdma {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLIDENTITYWCDMA
-  nsCellIdentityWcdma(const nsAString &aMcc, const nsAString &aMnc, int32_t aLac, int32_t aCid, int32_t aPsc, int32_t aUarfcn);
+  nsCellIdentityWcdma(const nsAString& aMcc, const nsAString& aMnc,
+                      int32_t aLac, int32_t aCid, int32_t aPsc,
+                      int32_t aUarfcn);
 
-private:
+ private:
   ~nsCellIdentityWcdma(){};
   nsString mMcc;
   nsString mMnc;
@@ -257,12 +271,13 @@ private:
 };
 
 class nsCellIdentityTdScdma final : public nsICellIdentityTdScdma {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLIDENTITYTDSCDMA
-  nsCellIdentityTdScdma(const nsAString &aMcc, const nsAString &aMnc, int32_t aLac, int32_t aCid, int32_t aCpid);
+  nsCellIdentityTdScdma(const nsAString& aMcc, const nsAString& aMnc,
+                        int32_t aLac, int32_t aCid, int32_t aCpid);
 
-private:
+ private:
   ~nsCellIdentityTdScdma(){};
   nsString mMcc;
   nsString mMnc;
@@ -272,54 +287,59 @@ private:
 };
 
 class nsCellIdentity final : public nsICellIdentity {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLIDENTITY
-  nsCellIdentity(int32_t aCellInfoType, nsCellIdentityGsm* aCellIdentityGsm
-                 , nsCellIdentityWcdma* aCellIdentityWcdma
-                 , nsCellIdentityCdma* aCellIdentityCdma
-                 , nsCellIdentityLte* aCellIdentityLte
-                 , nsCellIdentityTdScdma* aCellIdentityTdScdma);
+  nsCellIdentity(int32_t aCellInfoType, nsCellIdentityGsm* aCellIdentityGsm,
+                 nsCellIdentityWcdma* aCellIdentityWcdma,
+                 nsCellIdentityCdma* aCellIdentityCdma,
+                 nsCellIdentityLte* aCellIdentityLte,
+                 nsCellIdentityTdScdma* aCellIdentityTdScdma);
   nsCellIdentity(int32_t aCellInfoType, nsCellIdentityGsm* aCellIdentityGsm);
-  nsCellIdentity(int32_t aCellInfoType, nsCellIdentityWcdma* aCellIdentityWcdma);
+  nsCellIdentity(int32_t aCellInfoType,
+                 nsCellIdentityWcdma* aCellIdentityWcdma);
   nsCellIdentity(int32_t aCellInfoType, nsCellIdentityCdma* aCellIdentityCdma);
   nsCellIdentity(int32_t aCellInfoType, nsCellIdentityLte* aCellIdentityLte);
-  nsCellIdentity(int32_t aCellInfoType, nsCellIdentityTdScdma* aCellIdentityTdScdma);
+  nsCellIdentity(int32_t aCellInfoType,
+                 nsCellIdentityTdScdma* aCellIdentityTdScdma);
 
-private:
+ private:
   ~nsCellIdentity(){};
   int32_t mCellInfoType;
-  //nsTArray<RefPtr<nsCellIdentityGsm>> mGsm;
+  // nsTArray<RefPtr<nsCellIdentityGsm>> mGsm;
   RefPtr<nsCellIdentityGsm> mCellIdentityGsm;
-  //nsTArray<RefPtr<nsCellIdentityWcdma>> mWcdma;
+  // nsTArray<RefPtr<nsCellIdentityWcdma>> mWcdma;
   RefPtr<nsCellIdentityWcdma> mCellIdentityWcdma;
-  //nsTArray<RefPtr<nsCellIdentityCdma>> mCdma;
+  // nsTArray<RefPtr<nsCellIdentityCdma>> mCdma;
   RefPtr<nsCellIdentityCdma> mCellIdentityCdma;
-  //nsTArray<RefPtr<nsCellIdentityLte>> mLte;
+  // nsTArray<RefPtr<nsCellIdentityLte>> mLte;
   RefPtr<nsCellIdentityLte> mCellIdentityLte;
-  //nsTArray<RefPtr<nsCellIdentityTdScdma>> mTdScdma;
+  // nsTArray<RefPtr<nsCellIdentityTdScdma>> mTdScdma;
   RefPtr<nsCellIdentityTdScdma> mCellIdentityTdScdma;
 };
 
 class nsCellInfoGsm final : public nsICellInfoGsm {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLINFOGSM
-  nsCellInfoGsm(nsCellIdentityGsm* aCellIdentityGsm, nsGsmSignalStrength* aSignalStrengthGsm);
+  nsCellInfoGsm(nsCellIdentityGsm* aCellIdentityGsm,
+                nsGsmSignalStrength* aSignalStrengthGsm);
 
-private:
+ private:
   ~nsCellInfoGsm(){};
   RefPtr<nsCellIdentityGsm> mCellIdentityGsm;
   RefPtr<nsGsmSignalStrength> mSignalStrengthGsm;
 };
 
 class nsCellInfoCdma final : public nsICellInfoCdma {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLINFOCDMA
-  nsCellInfoCdma(nsCellIdentityCdma* aCellIdentityCdma, nsCdmaSignalStrength* aSignalStrengthCdma, nsEvdoSignalStrength* aSignalStrengthEvdo);
+  nsCellInfoCdma(nsCellIdentityCdma* aCellIdentityCdma,
+                 nsCdmaSignalStrength* aSignalStrengthCdma,
+                 nsEvdoSignalStrength* aSignalStrengthEvdo);
 
-private:
+ private:
   ~nsCellInfoCdma(){};
   RefPtr<nsCellIdentityCdma> mCellIdentityCdma;
   RefPtr<nsCdmaSignalStrength> mSignalStrengthCdma;
@@ -327,55 +347,64 @@ private:
 };
 
 class nsCellInfoLte final : public nsICellInfoLte {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLINFOLTE
-  nsCellInfoLte(nsCellIdentityLte* aCellIdentityLte, nsLteSignalStrength* aSignalStrengthLte);
+  nsCellInfoLte(nsCellIdentityLte* aCellIdentityLte,
+                nsLteSignalStrength* aSignalStrengthLte);
 
-private:
+ private:
   ~nsCellInfoLte(){};
   RefPtr<nsCellIdentityLte> mCellIdentityLte;
   RefPtr<nsLteSignalStrength> mSignalStrengthLte;
 };
 
 class nsCellInfoWcdma final : public nsICellInfoWcdma {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLINFOWCDMA
-  nsCellInfoWcdma(nsCellIdentityWcdma* aCellIdentityWcdma, nsWcdmaSignalStrength* aSignalStrengthWcdma);
+  nsCellInfoWcdma(nsCellIdentityWcdma* aCellIdentityWcdma,
+                  nsWcdmaSignalStrength* aSignalStrengthWcdma);
 
-private:
+ private:
   ~nsCellInfoWcdma(){};
   RefPtr<nsCellIdentityWcdma> mCellIdentityWcdma;
   RefPtr<nsWcdmaSignalStrength> mSignalStrengthWcdma;
 };
 
 class nsCellInfoTdScdma final : public nsICellInfoTdScdma {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICELLINFOTDSCDMA
-  nsCellInfoTdScdma(nsCellIdentityTdScdma* aCellIdentityTdScdma, nsTdScdmaSignalStrength* aSignalStrengthTdScdma);
+  nsCellInfoTdScdma(nsCellIdentityTdScdma* aCellIdentityTdScdma,
+                    nsTdScdmaSignalStrength* aSignalStrengthTdScdma);
 
-private:
+ private:
   ~nsCellInfoTdScdma(){};
   RefPtr<nsCellIdentityTdScdma> mCellIdentityTdScdma;
   RefPtr<nsTdScdmaSignalStrength> mSignalStrengthTdScdma;
 };
 
 class nsRilCellInfo final : public nsIRilCellInfo {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIRILCELLINFO
-  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType, int32_t aTimeStamp,
-    nsCellInfoGsm* aGsm, nsCellInfoCdma* aCdma, nsCellInfoLte* aLte, nsCellInfoWcdma* aWcdma, nsCellInfoTdScdma* aTdScdma);
-  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType, int32_t aTimeStamp, nsCellInfoGsm* aGsm);
-  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType, int32_t aTimeStamp, nsCellInfoWcdma* aWcdma);
-  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType, int32_t aTimeStamp, nsCellInfoCdma* aCdma);
-  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType, int32_t aTimeStamp, nsCellInfoLte* aLte);
-  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType, int32_t aTimeStamp, nsCellInfoTdScdma* aTdScdma);
+  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType,
+                int32_t aTimeStamp, nsCellInfoGsm* aGsm, nsCellInfoCdma* aCdma,
+                nsCellInfoLte* aLte, nsCellInfoWcdma* aWcdma,
+                nsCellInfoTdScdma* aTdScdma);
+  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType,
+                int32_t aTimeStamp, nsCellInfoGsm* aGsm);
+  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType,
+                int32_t aTimeStamp, nsCellInfoWcdma* aWcdma);
+  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType,
+                int32_t aTimeStamp, nsCellInfoCdma* aCdma);
+  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType,
+                int32_t aTimeStamp, nsCellInfoLte* aLte);
+  nsRilCellInfo(int32_t aCellInfoType, bool aRegistered, int32_t aTimeStampType,
+                int32_t aTimeStamp, nsCellInfoTdScdma* aTdScdma);
 
-
-private:
+ private:
   ~nsRilCellInfo(){};
   int32_t mCellInfoType;
   bool mRegistered;
@@ -389,12 +418,13 @@ private:
 };
 
 class nsHardwareConfig final : public nsIHardwareConfig {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIHARDWARECONFIG
-  nsHardwareConfig(int32_t aType, const nsAString &aUuid, int32_t aState, int32_t aModem, int32_t aSim);
+  nsHardwareConfig(int32_t aType, const nsAString& aUuid, int32_t aState,
+                   int32_t aModem, int32_t aSim);
 
-private:
+ private:
   ~nsHardwareConfig(){};
   int32_t mType;
   nsString mUuid;
@@ -404,40 +434,41 @@ private:
 };
 
 class nsRadioCapability final : public nsIRadioCapability {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIRADIOCAPABILITY
-  nsRadioCapability(int32_t aSession, int32_t aPhase, int32_t aRaf, const nsAString &aLogicalModemUuid,  int32_t aStatus);
+  nsRadioCapability(int32_t aSession, int32_t aPhase, int32_t aRaf,
+                    const nsAString& aLogicalModemUuid, int32_t aStatus);
 
-private:
+ private:
   ~nsRadioCapability(){};
   int32_t mSession;
   int32_t mPhase;
   int32_t mRaf;
   nsString mLogicalModemUuid;
   int32_t mStatus;
-
 };
 
 class nsLceStatusInfo final : public nsILceStatusInfo {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSILCESTATUSINFO
   nsLceStatusInfo(int32_t aLceStatus, int32_t aActualIntervalMs);
 
-private:
+ private:
   ~nsLceStatusInfo(){};
   int32_t mLceStatus;
   int32_t mActualIntervalMs;
 };
 
 class nsLceDataInfo final : public nsILceDataInfo {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSILCEDATAINFO
-  nsLceDataInfo(int32_t aLastHopCapacityKbps, int32_t aConfidenceLevel, bool aLceSuspended);
+  nsLceDataInfo(int32_t aLastHopCapacityKbps, int32_t aConfidenceLevel,
+                bool aLceSuspended);
 
-private:
+ private:
   ~nsLceDataInfo(){};
   int32_t mLastHopCapacityKbps;
   int32_t mConfidenceLevel;
@@ -445,12 +476,13 @@ private:
 };
 
 class nsPcoDataInfo final : public nsIPcoDataInfo {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIPCODATAINFO
-  nsPcoDataInfo(int32_t aCid, int32_t aBearerProto, bool aPcoId, nsTArray<int32_t>& aContents);
+  nsPcoDataInfo(int32_t aCid, int32_t aBearerProto, bool aPcoId,
+                nsTArray<int32_t>& aContents);
 
-private:
+ private:
   ~nsPcoDataInfo(){};
   int32_t mCid;
   int32_t mBearerProto;
@@ -459,17 +491,14 @@ private:
 };
 
 class nsAppStatus final : public nsIAppStatus {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIAPPSTATUS
-  nsAppStatus(int32_t aAppType, int32_t aAppState, int32_t aPersoSubstate
-    , const nsAString &aAidPtr
-    , const nsAString &aAppLabelPtr
-    , int32_t aPin1Replaced
-    , int32_t aPin1
-    , int32_t aPin2);
+  nsAppStatus(int32_t aAppType, int32_t aAppState, int32_t aPersoSubstate,
+              const nsAString& aAidPtr, const nsAString& aAppLabelPtr,
+              int32_t aPin1Replaced, int32_t aPin1, int32_t aPin2);
 
-private:
+ private:
   ~nsAppStatus(){};
   int32_t mAppType;
   int32_t mAppState;
@@ -482,15 +511,16 @@ private:
 };
 
 class nsCardStatus final : public nsICardStatus {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICARDSTATUS
-  nsCardStatus(int32_t aCardState, int32_t aUniversalPinState, int32_t aGsmUmtsSubscriptionAppIndex
-    , int32_t aCdmaSubscriptionAppIndex
-    , int32_t aImsSubscriptionAppIndex
-    , nsTArray<RefPtr<nsAppStatus>>& aApplications);
+  nsCardStatus(int32_t aCardState, int32_t aUniversalPinState,
+               int32_t aGsmUmtsSubscriptionAppIndex,
+               int32_t aCdmaSubscriptionAppIndex,
+               int32_t aImsSubscriptionAppIndex,
+               nsTArray<RefPtr<nsAppStatus>>& aApplications);
 
-private:
+ private:
   ~nsCardStatus(){};
   int32_t mCardState;
   int32_t mUniversalPinState;
@@ -501,17 +531,15 @@ private:
 };
 
 class nsVoiceRegState final : public nsIVoiceRegState {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIVOICEREGSTATE
-  nsVoiceRegState(int32_t aRegState, int32_t aRat, bool aCssSupported
-    , int32_t aRoamingIndicator
-    , int32_t aSystemIsInPrl
-    , int32_t aDefaultRoamingIndicator
-    , int32_t aReasonForDenial
-    , nsCellIdentity* aCellIdentity);
+  nsVoiceRegState(int32_t aRegState, int32_t aRat, bool aCssSupported,
+                  int32_t aRoamingIndicator, int32_t aSystemIsInPrl,
+                  int32_t aDefaultRoamingIndicator, int32_t aReasonForDenial,
+                  nsCellIdentity* aCellIdentity);
 
-private:
+ private:
   ~nsVoiceRegState(){};
   int32_t mRegState;
   int32_t mRat;
@@ -524,15 +552,13 @@ private:
 };
 
 class nsDataRegState final : public nsIDataRegState {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIDATAREGSTATE
-  nsDataRegState(int32_t aRegState, int32_t aRat
-    , int32_t aReasonDataDenied
-    , int32_t aMaxDataCalls
-    , nsCellIdentity* aCellIdentity);
+  nsDataRegState(int32_t aRegState, int32_t aRat, int32_t aReasonDataDenied,
+                 int32_t aMaxDataCalls, nsCellIdentity* aCellIdentity);
 
-private:
+ private:
   ~nsDataRegState(){};
   int32_t mRegState;
   int32_t mRat;
@@ -542,13 +568,13 @@ private:
 };
 
 class nsOperatorInfo final : public nsIOperatorInfo {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOPERATORINFO
-  nsOperatorInfo(const nsAString &aAlphaLong, const nsAString &aAlphaShort
-    , const nsAString &aOperatorNumeric, int32_t aStatus);
+  nsOperatorInfo(const nsAString& aAlphaLong, const nsAString& aAlphaShort,
+                 const nsAString& aOperatorNumeric, int32_t aStatus);
 
-private:
+ private:
   ~nsOperatorInfo(){};
   nsString mAlphaLong;
   nsString mAlphaShort;
@@ -556,14 +582,25 @@ private:
   int32_t mStatus;
 };
 
+class nsNeighboringCell final : public nsINeighboringCell {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSINEIGHBORINGCELL
+  nsNeighboringCell(const nsAString& aCid, int32_t aRssi);
+
+ private:
+  ~nsNeighboringCell(){};
+  nsString mCid;
+  int32_t mRssi;
+};
+
 class nsUusInfo final : public nsIUusInfo {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIUUSINFO
-  nsUusInfo(int32_t aUusType, int32_t aUusDcs
-    , const nsAString &aUusData);
+  nsUusInfo(int32_t aUusType, int32_t aUusDcs, const nsAString& aUusData);
 
-private:
+ private:
   ~nsUusInfo(){};
   int32_t mUusType;
   int32_t mUusDcs;
@@ -571,31 +608,25 @@ private:
 };
 
 class nsCall final : public nsICall {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICALL
-  nsCall(int32_t aState, int32_t aIndex, int32_t aToa
-    , bool aIsMpty
-    , bool aIsMT
-    , int32_t aAls
-    , bool aIsVoice
-    , bool aIsVoicePrivacy
-    , const nsAString &aNumber
-    , int32_t aNumberPresentation
-    , const nsAString &aName
-    , int32_t aNamePresentation
-    , nsTArray<RefPtr<nsUusInfo>>& aUusInfo);
+  nsCall(int32_t aState, int32_t aIndex, int32_t aToa, bool aIsMpty, bool aIsMT,
+         int32_t aAls, bool aIsVoice, bool aIsVoicePrivacy,
+         const nsAString& aNumber, int32_t aNumberPresentation,
+         const nsAString& aName, int32_t aNamePresentation,
+         nsTArray<RefPtr<nsUusInfo>>& aUusInfo);
 
-private:
+ private:
   ~nsCall(){};
   int32_t mState;
   int32_t mIndex;
   int32_t mToa;
-  bool  mIsMpty;
-  bool  mIsMT;
+  bool mIsMpty;
+  bool mIsMT;
   int32_t mAls;
-  bool  mIsVoice;
-  bool  mIsVoicePrivacy;
+  bool mIsVoice;
+  bool mIsVoicePrivacy;
   nsString mNumber;
   int32_t mNumberPresentation;
   nsString mName;
@@ -604,45 +635,78 @@ private:
 };
 
 class nsIccIoResult final : public nsIIccIoResult {
-public:
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIICCIORESULT
-  nsIccIoResult(int32_t aSw1, int32_t aSw2
-    , const nsAString &aSimResponse);
+  nsIccIoResult(int32_t aSw1, int32_t aSw2, const nsAString& aSimResponse);
 
-private:
+ private:
   ~nsIccIoResult(){};
   int32_t mSw1;
   int32_t mSw2;
   nsString mSimResponse;
 };
 
+class nsCallForwardInfo final : public nsICallForwardInfo {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSICALLFORWARDINFO
+  nsCallForwardInfo(int32_t aStatus, int32_t aReason, int32_t aServiceClass,
+                    int32_t aToa, const nsAString& aNumber,
+                    int32_t aTimeSeconds);
+
+ private:
+  ~nsCallForwardInfo(){};
+  int32_t mStatus;
+  int32_t mReason;
+  int32_t mServiceClass;
+  int32_t mToa;
+  nsString mNumber;
+  int32_t mTimeSeconds;
+};
+
 class nsRilResult {
-public:
-  nsRilResult(const nsAString &aRilMessageType);
-  nsRilResult(const nsAString &aRilMessageType, int32_t aRilMessageToken, int32_t aErrorMsg);
+ public:
+  nsRilResult(const nsAString& aRilMessageType);
+  nsRilResult(const nsAString& aRilMessageType, int32_t aRilMessageToken,
+              int32_t aErrorMsg);
   RefPtr<nsRilCellInfo> convertRilCellInfo(const CellInfo& aCellInfo);
   RefPtr<nsCellInfoGsm> convertCellInfoGsm(const CellInfoGsm& aCellInfoGsm);
   RefPtr<nsCellInfoCdma> convertCellInfoCdma(const CellInfoCdma& aCellInfoCdma);
-  RefPtr<nsCellInfoWcdma> convertCellInfoWcdma(const CellInfoWcdma& aCellInfoWcdma);
+  RefPtr<nsCellInfoWcdma> convertCellInfoWcdma(
+      const CellInfoWcdma& aCellInfoWcdma);
   RefPtr<nsCellInfoLte> convertCellInfoLte(const CellInfoLte& aCellInfoLte);
-  RefPtr<nsCellInfoTdScdma> convertCellInfoTdScdma(const CellInfoTdscdma& aCellInfoTdscdma);
+  RefPtr<nsCellInfoTdScdma> convertCellInfoTdScdma(
+      const CellInfoTdscdma& aCellInfoTdscdma);
 
-  RefPtr<nsCellIdentity> convertCellIdentity(const CellIdentity &aCellIdentity);
-  RefPtr<nsCellIdentityGsm> convertCellIdentityGsm(const CellIdentityGsm& aCellIdentityGsm);
-  RefPtr<nsCellIdentityWcdma> convertCellIdentityWcdma(const CellIdentityWcdma& aCellIdentityWcdma);
-  RefPtr<nsCellIdentityCdma> convertCellIdentityCdma(const CellIdentityCdma& aCellIdentityCdma);
-  RefPtr<nsCellIdentityLte> convertCellIdentityLte(const CellIdentityLte& aCellIdentityLte);
-  RefPtr<nsCellIdentityTdScdma> convertCellIdentityTdScdma(const CellIdentityTdscdma& aCellIdentityTdScdma);
+  RefPtr<nsCellIdentity> convertCellIdentity(const CellIdentity& aCellIdentity);
+  RefPtr<nsCellIdentityGsm> convertCellIdentityGsm(
+      const CellIdentityGsm& aCellIdentityGsm);
+  RefPtr<nsCellIdentityWcdma> convertCellIdentityWcdma(
+      const CellIdentityWcdma& aCellIdentityWcdma);
+  RefPtr<nsCellIdentityCdma> convertCellIdentityCdma(
+      const CellIdentityCdma& aCellIdentityCdma);
+  RefPtr<nsCellIdentityLte> convertCellIdentityLte(
+      const CellIdentityLte& aCellIdentityLte);
+  RefPtr<nsCellIdentityTdScdma> convertCellIdentityTdScdma(
+      const CellIdentityTdscdma& aCellIdentityTdScdma);
 
-  RefPtr<nsSignalStrength> convertSignalStrength(const SignalStrength& aSignalStrength);
-  RefPtr<nsGsmSignalStrength> convertGsmSignalStrength(const GsmSignalStrength& aGsmSignalStrength);
-  RefPtr<nsWcdmaSignalStrength> convertWcdmaSignalStrength(const WcdmaSignalStrength& aWcdmaSignalStrength);
-  RefPtr<nsCdmaSignalStrength> convertCdmaSignalStrength(const CdmaSignalStrength& aCdmaSignalStrength);
-  RefPtr<nsEvdoSignalStrength> convertEvdoSignalStrength(const EvdoSignalStrength& aEvdoSignalStrength);
-  RefPtr<nsLteSignalStrength> convertLteSignalStrength(const LteSignalStrength& aLteSignalStrength);
-  RefPtr<nsTdScdmaSignalStrength> convertTdScdmaSignalStrength(const TdScdmaSignalStrength& aTdScdmaSignalStrength);
-  RefPtr<nsSetupDataCallResult> convertDcResponse(const SetupDataCallResult& aDcResponse);
+  RefPtr<nsSignalStrength> convertSignalStrength(
+      const SignalStrength& aSignalStrength);
+  RefPtr<nsGsmSignalStrength> convertGsmSignalStrength(
+      const GsmSignalStrength& aGsmSignalStrength);
+  RefPtr<nsWcdmaSignalStrength> convertWcdmaSignalStrength(
+      const WcdmaSignalStrength& aWcdmaSignalStrength);
+  RefPtr<nsCdmaSignalStrength> convertCdmaSignalStrength(
+      const CdmaSignalStrength& aCdmaSignalStrength);
+  RefPtr<nsEvdoSignalStrength> convertEvdoSignalStrength(
+      const EvdoSignalStrength& aEvdoSignalStrength);
+  RefPtr<nsLteSignalStrength> convertLteSignalStrength(
+      const LteSignalStrength& aLteSignalStrength);
+  RefPtr<nsTdScdmaSignalStrength> convertTdScdmaSignalStrength(
+      const TdScdmaSignalStrength& aTdScdmaSignalStrength);
+  RefPtr<nsSetupDataCallResult> convertDcResponse(
+      const SetupDataCallResult& aDcResponse);
 
   static int32_t convertRadioTechnology(RadioTechnology aRat);
   static int32_t convertDataCallFailCause(DataCallFailCause aCause);
@@ -656,5 +720,4 @@ public:
   ~nsRilResult();
 };
 
-
-#endif //nsRilResult_H
+#endif  // nsRilResult_H

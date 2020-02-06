@@ -202,11 +202,58 @@ void nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult) {
 }
 
 /**
+ * For getClir */
+ void nsRilResponseResult::updateClir(int32_t aN, int32_t aM) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateClir");
+  mCLIR_N = aN;
+  mCLIR_M = aM;
+}
+
+/**
+ * For getCallForwardStatus
+ */
+
+void nsRilResponseResult::updateCallForwardStatusList(nsTArray<RefPtr<nsCallForwardInfo>> & aCallForwardInfoLists) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateCallForwardStatusList");
+  mCallForwardInfoLists = aCallForwardInfoLists;
+}
+
+/**
+ * For getCallWaiting */
+ void nsRilResponseResult::updateCallWaiting(bool aEnable, int32_t aServiceClass) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateCallWaiting");
+  mCWEnable = aEnable;
+  mCWServiceClass = aServiceClass;
+}
+
+/**
+ * For getClip */
+ void nsRilResponseResult::updateClip(int32_t aProvisioned) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateClip");
+  mProvisioned = aProvisioned;
+}
+
+/**
+ * For getNeighboringCellIds
+ */
+
+void nsRilResponseResult::updateNeighboringCells(nsTArray<RefPtr<nsNeighboringCell>> & aNeighboringCell) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateNeighboringCells");
+  mNeighboringCell = aNeighboringCell;
+}
+
+/**
+ * For queryTtyMode */
+ void nsRilResponseResult::updateTtyMode(int32_t aTtyMode) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateTtyMode");
+  mTtyMode = aTtyMode;
+}
+
+/**
  *
  */
 nsRilResponseResult::~nsRilResponseResult()
 {
-  //QLOGD("mDatacall = aDatacall; for %x, type = %d", (int)(void *)this, mNetworkType);
 }
 
 NS_IMETHODIMP nsRilResponseResult::GetRilMessageType(nsAString& aRilMessageType) {
@@ -378,6 +425,60 @@ NS_IMETHODIMP nsRilResponseResult::GetIccIo(nsIIccIoResult **aIccIoResult) {
   RefPtr<nsIIccIoResult> iccIoResult(mIccIoResult);
   iccIoResult.forget(aIccIoResult);
 
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetN(int32_t *aN)  {
+  *aN = mCLIR_N;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetM(int32_t *aM) {
+  *aM = mCLIR_M;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetCallForwardStatus(uint32_t *count, nsICallForwardInfo ***callForwardInfos) {
+  *count = mCallForwardInfoLists.Length();
+  nsICallForwardInfo **callForwardInfo = (nsICallForwardInfo**)moz_xmalloc(*count * sizeof(nsICallForwardInfo *));
+
+  for (uint32_t i = 0; i < *count; i++) {
+    NS_ADDREF(callForwardInfo[i] = mCallForwardInfoLists[i]);
+  }
+
+  *callForwardInfos = callForwardInfo;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetEnable(bool* aEnable)  {
+  *aEnable = mCWEnable;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetServiceClass(int32_t *aServiceClass) {
+  *aServiceClass = mCWServiceClass;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetProvisioned(int32_t *aProvisioned) {
+  *aProvisioned = mProvisioned;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetNeighboringCids(uint32_t *count, nsINeighboringCell ***cells) {
+  *count = mNeighboringCell.Length();
+  nsINeighboringCell **cell = (nsINeighboringCell**)moz_xmalloc(*count * sizeof(nsINeighboringCell *));
+
+  for (uint32_t i = 0; i < *count; i++) {
+    NS_ADDREF(cell[i] = mNeighboringCell[i]);
+  }
+
+  *cells = cell;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetTtyMode(int32_t *aTtyMode) {
+  *aTtyMode = mTtyMode;
   return NS_OK;
 }
 

@@ -2,9 +2,10 @@
 /* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
  * file or any portion thereof may not be reproduced or used in any manner
  * whatsoever without the express written permission of KAI OS TECHNOLOGIES
- * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
- * LIMITED or its affiliate company and may be registered in some jurisdictions.
- * All other trademarks are the property of their respective owners.
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
  */
 
 #ifndef nsRilResponseResult_H
@@ -20,23 +21,24 @@
 #include "nsIRilResponseResult.h"
 
 class nsRilResponseResult final : public nsRilResult,
-                                  public nsIRilResponseResult
-{
-public:
+                                  public nsIRilResponseResult {
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
-  //NS_DECL_ISUPPORTS
+  // NS_DECL_ISUPPORTS
   NS_DECL_NSIRILRESPONSERESULT
   // For those has no parameter notify.
-  nsRilResponseResult(const nsAString &aRilMessageType, int32_t aRilMessageToken, int32_t aErrorMsg);
+  nsRilResponseResult(const nsAString& aRilMessageType,
+                      int32_t aRilMessageToken, int32_t aErrorMsg);
 
   // For DeviceIdentity
-  void updateDeviceIdentity(const nsAString &aImei, const nsAString &aImeisv, const nsAString &aEsn, const nsAString &aMeid);
+  void updateDeviceIdentity(const nsAString& aImei, const nsAString& aImeisv,
+                            const nsAString& aEsn, const nsAString& aMeid);
 
   // For VoiceRadioTechnology
   void updateVoiceRadioTechnology(int32_t aRadioTech);
 
   // For updateBasebandVersion
-  void updateBasebandVersion(const nsAString &aBasebandVersion);
+  void updateBasebandVersion(const nsAString& aBasebandVersion);
 
   // For IccCardStatus
   void updateIccCardStatus(nsCardStatus* aCardStatus);
@@ -57,34 +59,55 @@ public:
   void updateSignalStrength(nsSignalStrength* aSignalStrength);
 
   // For GetSmscAddress
-  void updateSmscAddress(const nsAString &aSmsc);
+  void updateSmscAddress(const nsAString& aSmsc);
 
   // For getCurrentCalls
-  void updateCurrentCalls(nsTArray<RefPtr<nsCall>> & aCalls);
+  void updateCurrentCalls(nsTArray<RefPtr<nsCall>>& aCalls);
 
   // For updateLastCallsFailCause
-  void updateFailCause(int32_t aCauseCode, const nsAString &aVendorCause);
+  void updateFailCause(int32_t aCauseCode, const nsAString& aVendorCause);
 
   // For getPreferredNetworkType
   void updatePreferredNetworkType(int32_t aType);
 
   // For getAvailableNetwork
-  void updateAvailableNetworks(nsTArray<RefPtr<nsOperatorInfo>> & aAvailableNetworks);
+  void updateAvailableNetworks(
+      nsTArray<RefPtr<nsOperatorInfo>>& aAvailableNetworks);
 
   // For setupDataCall
   void updateDataCallResponse(nsSetupDataCallResult* aDcResponse);
 
   // For getDataCallList
-  void updateDcList(nsTArray<RefPtr<nsSetupDataCallResult>> & aDcLists);
+  void updateDcList(nsTArray<RefPtr<nsSetupDataCallResult>>& aDcLists);
 
   // For getCellInfoList
-  void updateCellInfoList(nsTArray<RefPtr<nsRilCellInfo>> & aCellInfoLists);
+  void updateCellInfoList(nsTArray<RefPtr<nsRilCellInfo>>& aCellInfoLists);
 
   // For getIMSI
-  void updateIMSI(const nsAString &aIMSI);
+  void updateIMSI(const nsAString& aIMSI);
 
   // For IccIOForApp
   void updateIccIoResult(nsIccIoResult* aIccIoResult);
+
+  // For getCLIR
+  void updateClir(int32_t aN, int32_t aM);
+
+  // For getCallForwardStatus
+  void updateCallForwardStatusList(
+      nsTArray<RefPtr<nsCallForwardInfo>>& aCallForwardInfoLists);
+
+  // For getCallWaiting
+  void updateCallWaiting(bool aEnable, int32_t aServiceClass);
+
+  // For GetClip
+  void updateClip(int32_t aProvisioned);
+
+  // For getNeighboringCellIds
+  void updateNeighboringCells(
+      nsTArray<RefPtr<nsNeighboringCell>>& aNeighboringCell);
+
+  // For quertTtyMode
+  void updateTtyMode(int32_t aTtyMode);
 
   nsString mImei;
   nsString mImeisv;
@@ -109,11 +132,17 @@ public:
   nsTArray<RefPtr<nsRilCellInfo>> mCellInfoLists;
   nsString mIMSI;
   RefPtr<nsIIccIoResult> mIccIoResult;
+  int32_t mCLIR_N;
+  int32_t mCLIR_M;
+  nsTArray<RefPtr<nsCallForwardInfo>> mCallForwardInfoLists;
+  bool mCWEnable;
+  int32_t mCWServiceClass;
+  int32_t mProvisioned;
+  nsTArray<RefPtr<nsNeighboringCell>> mNeighboringCell;
+  int32_t mTtyMode;
 
-private:
+ private:
   ~nsRilResponseResult();
-
 };
 
-
-#endif //nsRilResponseResult_H
+#endif  // nsRilResponseResult_H

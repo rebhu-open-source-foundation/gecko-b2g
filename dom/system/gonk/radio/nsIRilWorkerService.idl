@@ -21,7 +21,7 @@ interface nsIRilCallback : nsISupports
   void handleRilIndication(in nsIRilIndicationResult response);
 };
 
-[scriptable, uuid(2a186cc7-d473-429f-86d4-23d63bbb250e)]
+[scriptable, uuid(4628f74a-ca2f-4727-bac1-d1f25bdfdfac)]
 interface nsIRilWorker : nsISupports
 {
   void sendRilRequest(in jsval message);
@@ -48,6 +48,10 @@ interface nsIRilWorker : nsISupports
                    , in AString uusData);
   void getCurrentCalls(in long serial);
   void hangupConnection(in long serial, in long callIndex);
+  void hangupWaitingOrBackground(in long serial);
+  void hangupForegroundResumeBackground(in long serial);
+  void switchWaitingOrHoldingAndActive(in long serial);
+  void conference(in long serial);
   void getLastCallFailCause(in long serial);
   void acceptCall(in long serial);
   void setPreferredNetworkType(in long serial, in long networkType);
@@ -61,8 +65,31 @@ interface nsIRilWorker : nsISupports
   void deactivateDataCall(in long serial, in long cid, in long reason);
   void getCellInfoList(in long serial);
   void getIMSI(in long serial, in AString aid);
-  void iccIOForApp(in long serial, in long command, in long fileId, in AString path, in long p1, in long p2, in long p3
+  void iccIOForApp(in long serial, in long command, in long fileId
+                   , in AString path, in long p1, in long p2, in long p3
                    , in AString data, in AString pin2, in AString aid);
+  void getClir(in long serial);
+  void setClir(in long serial, in long clirMode);
+  void sendDtmf(in long serial, in AString dtmfChar);
+  void startDtmf(in long serial, in AString dtmfChar);
+  void stopDtmf(in long serial);
+  void rejectCall(in long serial);
+  void sendUssd(in long serial, in AString ussd);
+  void cancelPendingUssd(in long serial);
+  void getCallForwardStatus(in long serial, in long cfReason, in long serviceClass
+                            , in AString number, in long toaNumber);
+  void setCallForwardStatus(in long serial, in long action, in long cfReason
+                            , in long serviceClass, in AString number, in long toaNumber);
+  void getCallWaiting(in long serial, in long serviceClass);
+  void setCallWaiting(in long serial, in boolean enable, in long serviceClass);
+  void setBarringPassword(in long serial, in AString facility, in AString oldPwd, in AString newPwd);
+  void separateConnection(in long serial, in long gsmIndex);
+  void getClip(in long serial);
+  void explicitCallTransfer(in long serial);
+  void getNeighboringCids(in long serial);
+  void setTTYMode(in long serial, in long ttyMode);
+  void queryTTYMode(in long serial);
+  void exitEmergencyCallbackMode(in long serial);
 };
 
 /**

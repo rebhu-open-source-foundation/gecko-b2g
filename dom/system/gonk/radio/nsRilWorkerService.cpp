@@ -2,9 +2,10 @@
 /* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
  * file or any portion thereof may not be reproduced or used in any manner
  * whatsoever without the express written permission of KAI OS TECHNOLOGIES
- * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
- * LIMITED or its affiliate company and may be registered in some jurisdictions.
- * All other trademarks are the property of their respective owners.
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
  */
 
 #include "nsRilWorkerService.h"
@@ -27,7 +28,6 @@
 #define DEBUG(args...) \
   __android_log_print(ANDROID_LOG_DEBUG, RILWORKERSERVICE_LOG_TAG, ##args)
 
-
 /*================ Implementation of Class nsCellBroadcastService=============*/
 
 // The singleton network worker, to be used on the main thread.
@@ -35,9 +35,7 @@ mozilla::StaticRefPtr<nsRilWorkerService> gRilWorkerService;
 
 NS_IMPL_ISUPPORTS(nsRilWorkerService, nsIRilWorkerService)
 
-nsRilWorkerService::nsRilWorkerService() :
-  mNumRilWorkers(1) {
-
+nsRilWorkerService::nsRilWorkerService() : mNumRilWorkers(1) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!gRilWorkerService);
 
@@ -53,32 +51,32 @@ nsRilWorkerService::nsRilWorkerService() :
   }
 }
 
-NS_IMETHODIMP nsRilWorkerService::GetRilWorker(uint32_t clientId, nsIRilWorker* *aRilWorker) {
-  INFO("GetRilWorker = %d" ,clientId);
+NS_IMETHODIMP nsRilWorkerService::GetRilWorker(uint32_t clientId,
+                                               nsIRilWorker** aRilWorker) {
+  INFO("GetRilWorker = %d", clientId);
   nsCOMPtr<nsIRilWorker> worker;
 
   if (clientId >= mRilWorkers.Length()) {
     *aRilWorker = nullptr;
     return NS_ERROR_FAILURE;
   } else {
-    return mRilWorkers[clientId]->QueryInterface(NS_GET_IID(nsIRilWorker), (void **)aRilWorker);
+    return mRilWorkers[clientId]->QueryInterface(NS_GET_IID(nsIRilWorker),
+                                                 (void**)aRilWorker);
   }
 }
 
-nsRilWorkerService::~nsRilWorkerService()
-{
+nsRilWorkerService::~nsRilWorkerService() {
   /* destructor code */
   MOZ_ASSERT(!gRilWorkerService);
 }
 
-already_AddRefed<nsRilWorkerService> nsRilWorkerService::CreateRilWorkerService()
-{
+already_AddRefed<nsRilWorkerService>
+nsRilWorkerService::CreateRilWorkerService() {
   if (!XRE_IsParentProcess()) {
     return nullptr;
   }
 
   MOZ_ASSERT(NS_IsMainThread());
-
 
   if (!gRilWorkerService) {
     gRilWorkerService = new nsRilWorkerService();
@@ -89,18 +87,18 @@ already_AddRefed<nsRilWorkerService> nsRilWorkerService::CreateRilWorkerService(
   return service.forget();
 }
 
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsRilWorkerService,
-                                         nsRilWorkerService::CreateRilWorkerService);
+NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(
+    nsRilWorkerService, nsRilWorkerService::CreateRilWorkerService);
 
 NS_DEFINE_NAMED_CID(RILWORKERSERVICE_CID);
 
 static const mozilla::Module::CIDEntry kRilWorkerServiceCIDs[] = {
-    { &kRILWORKERSERVICE_CID, false, nullptr, nsRilWorkerServiceConstructor},
+    {&kRILWORKERSERVICE_CID, false, nullptr, nsRilWorkerServiceConstructor},
     {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kRilWorkerServiceContracts[] = {
     {"@mozilla.org/rilworkerservice;1", &kRILWORKERSERVICE_CID}, {nullptr}};
 
 extern const mozilla::Module kRilWorkerServiceModule = {
-    mozilla::Module::kVersion, kRilWorkerServiceCIDs, kRilWorkerServiceContracts,
-    nullptr};
+    mozilla::Module::kVersion, kRilWorkerServiceCIDs,
+    kRilWorkerServiceContracts, nullptr};

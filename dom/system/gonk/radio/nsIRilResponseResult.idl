@@ -21,7 +21,7 @@ interface nsISetupDataCallResult;
 /**
  * XPCOM component that provides the hidl response information.
  */
-[scriptable, uuid(345c8ccd-47a2-4532-acd2-90f3efdc0d21)]
+[scriptable, uuid(00daadfe-a6c6-4fef-9129-5a59ddc91810)]
 interface nsIRilResponseResult : nsISupports
 {
   /**
@@ -288,7 +288,7 @@ interface nsIRilResponseResult : nsISupports
 
   // getCurrentCalls
   void getCurrentCalls([optional] out unsigned long count,
-                        [array, size_is(count), retval] out nsICall calls);
+                       [array, size_is(count), retval] out nsICall calls);
 
   /**
    * The causeCode for LastCallFailCause.
@@ -336,7 +336,7 @@ interface nsIRilResponseResult : nsISupports
 
   // getAvailableNetworks
   void getAvailableNetworks([optional] out unsigned long count,
-                           [array, size_is(count), retval] out nsIOperatorInfo networks);
+                            [array, size_is(count), retval] out nsIOperatorInfo networks);
 
   // setupDataCallResponse
   readonly attribute nsISetupDataCallResult dcResponse;
@@ -347,7 +347,7 @@ interface nsIRilResponseResult : nsISupports
 
   // getCellInfoList
   void getCellInfoList([optional] out unsigned long count,
-                        [array, size_is(count), retval] out nsIRilCellInfo cellInfos);
+                       [array, size_is(count), retval] out nsIRilCellInfo cellInfos);
 
   // getIMSI
   readonly attribute AString imsi;
@@ -355,6 +355,48 @@ interface nsIRilResponseResult : nsISupports
   // iccIOForApp
   readonly attribute nsIIccIoResult iccIo;
 
+  // getCLIR
+  readonly attribute long n;
+
+  readonly attribute long m;
+
+
+  // CallForward status
+  const long CALL_FORWARD_STATE_DISABLE = 0;
+  const long CALL_FORWARD_STATE_ENABLE = 1;
+  const long CALL_FORWARD_STATE_INTERROGATE = 2;
+  const long CALL_FORWARD_STATE_REGISTRATION = 3;
+  const long CALL_FORWARD_STATE_ERASURE = 4;
+
+  // getCallForwardStatus
+  void getCallForwardStatus([optional] out unsigned long count,
+                         [array, size_is(count), retval] out nsICallForwardInfo callForwardInfos);
+
+  // getCallWaiting
+  readonly attribute boolean enable;
+
+  readonly attribute long serviceClass;
+
+  // Clip status;
+  const long CLIP_STATE_PROVISIONED = 0;
+  const long CLIP_STATE_UNPROVISIONED = 1;
+  const long CLIP_STATE_UNKNOWN = 2;
+
+  // getClip
+  readonly attribute long provisioned;
+
+  // getNeighboringCellIds
+  void getNeighboringCids([optional] out unsigned long count,
+                         [array, size_is(count), retval] out nsINeighboringCell cells);
+
+  // Tty mode
+  const long TTY_MODE_OFF = 0;
+  const long TTY_MODE_FULL = 1;
+  const long TTY_MODE_HCO = 2;
+  const long TTY_MODE_VCO = 3;
+
+  // quertTtyMode
+  readonly attribute long ttyMode;
 /*
   //void supplyIccPinForAppResponse(out long remainingRetries);
   readonly attribute long remainingRetries;
@@ -365,27 +407,13 @@ interface nsIRilResponseResult : nsISupports
 
   readonly attribute AString opNumeric;
 
-  readonly attribute nsISendSmsResult sms
-
-  readonly attribute long clirN;
-
-  readonly attribute long clirM;
-
-  void getCallFordStatus([array, size_is(count)] in nsICallForwardInfo callForwardInfos,
-                         [retval] out unsigned long count);
-
-  readonly attribute boolean cwEnable; //CallWaiting
-
-  readonly attribute long cwServiceClass;
+  readonly attribute nsISendSmsResult sms;
 
   readonly attribute long facilityLockResponse;
 
   readonly attribute long facilityLockRetry;
 
   readonly attribute boolean muteEnable;
-
-  // CLIP_STATUS_
-  readonly attribute long clipStatus;
 
   readonly attribute long smsSimIndex;
 
@@ -395,15 +423,8 @@ interface nsIRilResponseResult : nsISupports
 
   readonly attribute AString envelopCommandresponse;
 
-  // each element return one BAND_MODE_*
-  void getNeighboringCids([array, size_is(count)] in nsINeighboringCell cells,
-                          [retval] out unsigned long count);
-
   // CDMA_ROAMING_TYPE_
   readonly attribute long cdmaRoamingType;
-
-  // TTY_MODE_*
-  readonly attribute long ttyMode;
 
   //  false for Standard Privacy Mode (Public Long Code Mask)
   //  true for Enhanced Privacy Mode (Private Long Code Mask)

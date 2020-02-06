@@ -2,9 +2,10 @@
 /* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
  * file or any portion thereof may not be reproduced or used in any manner
  * whatsoever without the express written permission of KAI OS TECHNOLOGIES
- * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
- * LIMITED or its affiliate company and may be registered in some jurisdictions.
- * All other trademarks are the property of their respective owners.
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
  */
 
 #ifndef nsRilIndicationResult_H
@@ -19,32 +20,33 @@
 #include "nsIRilIndicationResult.h"
 
 class nsRilIndicationResult final : public nsRilResult,
-                                    public nsIRilIndicationResult
-{
-public:
+                                    public nsIRilIndicationResult {
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
-  //NS_DECL_ISUPPORTS
+  // NS_DECL_ISUPPORTS
   NS_DECL_NSIRILINDICATIONRESULT
   // For those has no parameter notify.
-  nsRilIndicationResult(const nsAString &aRilMessageType);
+  nsRilIndicationResult(const nsAString& aRilMessageType);
   // For radioStateChanged
   void updateRadioStateChanged(int32_t aRadioState);
   // For newSmsOnSim
   void updateNewSmsOnSim(int32_t aRecordNumber);
   // For onUssd
-  void updateOnUssd(int32_t aTypeCode, const nsAString &aMessage);
+  void updateOnUssd(int32_t aTypeCode, const nsAString& aMessage);
   // For nitzTimeReceived
-  void updateNitzTimeReceived(const nsAString &aDateString, int64_t aReceiveTimeInMS);
+  void updateNitzTimeReceived(const nsAString& aDateString,
+                              int64_t aReceiveTimeInMS);
   // For currentSignalStrength
   void updateCurrentSignalStrength(nsSignalStrength* aSignalStrength);
   // For dataCallListChanged
-  void updateDataCallListChanged(nsTArray<RefPtr<nsSetupDataCallResult>> & aDatacalls);
+  void updateDataCallListChanged(
+      nsTArray<RefPtr<nsSetupDataCallResult>>& aDatacalls);
   // For suppSvcNotify
   void updateSuppSvcNotify(nsSuppSvcNotification* aSuppSvc);
   // For stkProactiveCommand & stkEventNotify
-  void updateStkProactiveCommand(const nsAString &aCmd);
+  void updateStkProactiveCommand(const nsAString& aCmd);
   // For stkEventNotify
-  void updateStkEventNotify(const nsAString &aCmd);
+  void updateStkEventNotify(const nsAString& aCmd);
   // For stkCallSetup
   void updateStkCallSetup(int32_t aTimeout);
   // For simRefresh
@@ -66,17 +68,18 @@ public:
   // For srvccStateNotify
   void updateSrvccStateNotify(int32_t aSrvccState);
   // For hardwareConfigChanged
-  void updateHardwareConfigChanged(nsTArray<RefPtr<nsHardwareConfig>>& aConfigs);
+  void updateHardwareConfigChanged(
+      nsTArray<RefPtr<nsHardwareConfig>>& aConfigs);
   // For radioCapabilityIndication
   void updateRadioCapabilityIndication(nsRadioCapability* aRc);
   // For stkCallControlAlphaNotify
-  void updateStkCallControlAlphaNotify(const nsAString &aAlpha);
+  void updateStkCallControlAlphaNotify(const nsAString& aAlpha);
   // For lceData
   void updateLceData(nsILceDataInfo* aLce);
   // For pcoData
   void updatePcoData(nsIPcoDataInfo* aPco);
   // For modemReset
-  void updateModemReset(const nsAString &aReason);
+  void updateModemReset(const nsAString& aReason);
 
   int32_t mRadioState;
   int32_t mRecordNumber;
@@ -105,9 +108,8 @@ public:
   nsCOMPtr<nsIPcoDataInfo> mPco;
   nsString mReason;
 
-private:
+ private:
   ~nsRilIndicationResult();
 };
 
-
-#endif //nsRilIndicationResult_H
+#endif  // nsRilIndicationResult_H

@@ -2,9 +2,10 @@
 /* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
  * file or any portion thereof may not be reproduced or used in any manner
  * whatsoever without the express written permission of KAI OS TECHNOLOGIES
- * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
- * LIMITED or its affiliate company and may be registered in some jurisdictions.
- * All other trademarks are the property of their respective owners.
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
  */
 
 #include "nsRilWorker.h"
@@ -24,7 +25,6 @@
 #define DEBUG(args...) \
   __android_log_print(ANDROID_LOG_DEBUG, RILWORKER_LOG_TAG, ##args)
 
-
 NS_IMPL_ISUPPORTS(nsRilWorker, nsIRilWorker)
 
 static hidl_string HIDL_SERVICE_NAME[3] = {"slot1", "slot2", "slot3"};
@@ -32,8 +32,7 @@ static hidl_string HIDL_SERVICE_NAME[3] = {"slot1", "slot2", "slot3"};
 /**
  *
  */
-nsRilWorker::nsRilWorker(uint32_t aClientId)
-{
+nsRilWorker::nsRilWorker(uint32_t aClientId) {
   INFO("init nsRilWorker");
   mRadioProxy = nullptr;
   mDeathRecipient = nullptr;
@@ -47,12 +46,10 @@ nsRilWorker::nsRilWorker(uint32_t aClientId)
  * nsIRadioInterface implementation
  */
 NS_IMETHODIMP nsRilWorker::SendRilRequest(JS::HandleValue message) {
-
   return NS_OK;
 }
 
-
-NS_IMETHODIMP nsRilWorker::InitRil(nsIRilCallback *callback) {
+NS_IMETHODIMP nsRilWorker::InitRil(nsIRilCallback* callback) {
   mRilCallback = callback;
   GetRadioProxy();
   return NS_OK;
@@ -166,8 +163,11 @@ NS_IMETHODIMP nsRilWorker::GetIccCardStatus(int32_t serial) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::ReportSmsMemoryStatus(int32_t serial, bool available) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_REPORT_SMS_MEMORY_STATUS available = %d", serial, available);
+NS_IMETHODIMP nsRilWorker::ReportSmsMemoryStatus(int32_t serial,
+                                                 bool available) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_REPORT_SMS_MEMORY_STATUS available = %d",
+      serial, available);
 
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
@@ -178,8 +178,12 @@ NS_IMETHODIMP nsRilWorker::ReportSmsMemoryStatus(int32_t serial, bool available)
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetCellInfoListRate(int32_t serial, int32_t rateInMillis) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_UNSOL_CELL_INFO_LIST_RATE rateInMillis = %d", serial , rateInMillis);
+NS_IMETHODIMP nsRilWorker::SetCellInfoListRate(int32_t serial,
+                                               int32_t rateInMillis) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_SET_CELL_INFO_LIST_RATE rateInMillis = "
+      "%d",
+      serial, rateInMillis);
 
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
@@ -196,7 +200,8 @@ NS_IMETHODIMP nsRilWorker::SetCellInfoListRate(int32_t serial, int32_t rateInMil
 }
 
 NS_IMETHODIMP nsRilWorker::SetDataAllowed(int32_t serial, bool allowed) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_ALLOW_DATA allowed = %d", serial, allowed);
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_ALLOW_DATA allowed = %d", serial,
+       allowed);
 
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
@@ -219,10 +224,13 @@ NS_IMETHODIMP nsRilWorker::GetBasebandVersion(int32_t serial) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetUiccSubscription(int32_t serial, int32_t slotId, int32_t appIndex, int32_t subId
-                                               , int32_t subStatus) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_UICC_SUBSCRIPTION slotId = %d appIndex = %d subId = %d subStatus = %d"
-       , serial, slotId, appIndex, subId, subStatus);
+NS_IMETHODIMP nsRilWorker::SetUiccSubscription(int32_t serial, int32_t slotId,
+                                               int32_t appIndex, int32_t subId,
+                                               int32_t subStatus) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_SET_UICC_SUBSCRIPTION slotId = %d "
+      "appIndex = %d subId = %d subStatus = %d",
+      serial, slotId, appIndex, subId, subStatus);
 
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
@@ -241,7 +249,8 @@ NS_IMETHODIMP nsRilWorker::SetUiccSubscription(int32_t serial, int32_t slotId, i
 }
 
 NS_IMETHODIMP nsRilWorker::SetMute(int32_t serial, bool enableMute) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_MUTE enableMute = %d", serial, enableMute);
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_MUTE enableMute = %d", serial,
+       enableMute);
 
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
@@ -264,7 +273,10 @@ NS_IMETHODIMP nsRilWorker::GetSmscAddress(int32_t serial) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::RequestDial(int32_t serial, const nsAString& address, int32_t clirMode, int32_t uusType, int32_t uusDcs, const nsAString& uusData) {
+NS_IMETHODIMP nsRilWorker::RequestDial(int32_t serial, const nsAString& address,
+                                       int32_t clirMode, int32_t uusType,
+                                       int32_t uusDcs,
+                                       const nsAString& uusData) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_DIAL", serial);
 
   GetRadioProxy();
@@ -282,16 +294,17 @@ NS_IMETHODIMP nsRilWorker::RequestDial(int32_t serial, const nsAString& address,
     info.uusData = NS_ConvertUTF16toUTF8(uusData).get();
   }
 
-  //hidl_vec<UusInfo> uusResult;
-  //uusResult.setToExternal(const_cast<UusInfo*>(&info), sizeof(info));
+  // hidl_vec<UusInfo> uusResult;
+  // uusResult.setToExternal(const_cast<UusInfo*>(&info), sizeof(info));
 
   INFO("nsRilWorker: dial");
   Dial dialInfo;
   dialInfo.address = NS_ConvertUTF16toUTF8(address).get();
-  __android_log_print(ANDROID_LOG_INFO, "nsRilWorker", "dialInfo.address= %s" , NS_ConvertUTF16toUTF8(address).get());
+  __android_log_print(ANDROID_LOG_INFO, "nsRilWorker", "dialInfo.address= %s",
+                      NS_ConvertUTF16toUTF8(address).get());
   dialInfo.clir = Clir(clirMode);
   // TODO it would cause crash...
-  //dialInfo.uusInfo = uusResult;
+  // dialInfo.uusInfo = uusResult;
   INFO("nsRilWorker: dial start.");
   mRadioProxy->dial(serial, dialInfo);
   INFO("nsRilWorker: dial done.");
@@ -312,13 +325,64 @@ NS_IMETHODIMP nsRilWorker::GetCurrentCalls(int32_t serial) {
 }
 
 NS_IMETHODIMP nsRilWorker::HangupConnection(int32_t serial, int32_t callIndex) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_HANGUP callIndex = %d", serial, callIndex);
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_HANGUP callIndex = %d", serial,
+       callIndex);
 
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
   mRadioProxy->hangup(serial, callIndex);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::HangupWaitingOrBackground(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_HANGUP_WAITING_OR_BACKGROUND", serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->hangupWaitingOrBackground(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::HangupForegroundResumeBackground(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_HANGUP_FOREGROUND_RESUME_BACKGROUND",
+       serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->hangupForegroundResumeBackground(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SwitchWaitingOrHoldingAndActive(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SWITCH_WAITING_OR_HOLDING_AND_ACTIVE",
+       serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->switchWaitingOrHoldingAndActive(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::Conference(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_CONFERENCE", serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->conference(serial);
 
   return NS_OK;
 }
@@ -345,13 +409,18 @@ NS_IMETHODIMP nsRilWorker::AcceptCall(int32_t serial) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetPreferredNetworkType(int32_t serial, int32_t networkType) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE networkType=%d", serial, networkType);
+NS_IMETHODIMP nsRilWorker::SetPreferredNetworkType(int32_t serial,
+                                                   int32_t networkType) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE "
+      "networkType=%d",
+      serial, networkType);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->setPreferredNetworkType(serial, PreferredNetworkType(networkType));
+  mRadioProxy->setPreferredNetworkType(serial,
+                                       PreferredNetworkType(networkType));
 
   return NS_OK;
 }
@@ -368,7 +437,8 @@ NS_IMETHODIMP nsRilWorker::GetPreferredNetworkType(int32_t serial) {
 }
 
 NS_IMETHODIMP nsRilWorker::SetNetworkSelectionModeAutomatic(int32_t serial) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_NETWORK_SELECTION_AUTOMATIC", serial);
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_NETWORK_SELECTION_AUTOMATIC",
+       serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
@@ -378,13 +448,18 @@ NS_IMETHODIMP nsRilWorker::SetNetworkSelectionModeAutomatic(int32_t serial) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetNetworkSelectionModeManual(int32_t serial, const nsAString& operatorNumeric) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_NETWORK_SELECTION_MANUAL operatorNumeric = %s", serial, NS_ConvertUTF16toUTF8(operatorNumeric).get());
+NS_IMETHODIMP nsRilWorker::SetNetworkSelectionModeManual(
+    int32_t serial, const nsAString& operatorNumeric) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_SET_NETWORK_SELECTION_MANUAL "
+      "operatorNumeric = %s",
+      serial, NS_ConvertUTF16toUTF8(operatorNumeric).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->setNetworkSelectionModeManual(serial, NS_ConvertUTF16toUTF8(operatorNumeric).get());
+  mRadioProxy->setNetworkSelectionModeManual(
+      serial, NS_ConvertUTF16toUTF8(operatorNumeric).get());
 
   return NS_OK;
 }
@@ -400,7 +475,9 @@ NS_IMETHODIMP nsRilWorker::GetAvailableNetworks(int32_t serial) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetInitialAttachApn(int32_t serial, nsIDataProfile *profile, bool isRoaming) {
+NS_IMETHODIMP nsRilWorker::SetInitialAttachApn(int32_t serial,
+                                               nsIDataProfile* profile,
+                                               bool isRoaming) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_INITIAL_ATTACH_APN", serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
@@ -410,12 +487,16 @@ NS_IMETHODIMP nsRilWorker::SetInitialAttachApn(int32_t serial, nsIDataProfile *p
   bool modemCognitive;
   profile->GetModemCognitive(&modemCognitive);
 
-  mRadioProxy->setInitialAttachApn(serial, convertToHalDataProfile(profile), modemCognitive, isRoaming);
+  mRadioProxy->setInitialAttachApn(serial, convertToHalDataProfile(profile),
+                                   modemCognitive, isRoaming);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetupDataCall(int32_t serial, int32_t radioTechnology, nsIDataProfile *profile, bool isRoaming, bool allowRoaming) {
+NS_IMETHODIMP nsRilWorker::SetupDataCall(int32_t serial,
+                                         int32_t radioTechnology,
+                                         nsIDataProfile* profile,
+                                         bool isRoaming, bool allowRoaming) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_SETUP_DATA_CALL", serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
@@ -425,18 +506,21 @@ NS_IMETHODIMP nsRilWorker::SetupDataCall(int32_t serial, int32_t radioTechnology
   bool modemCognitive;
   profile->GetModemCognitive(&modemCognitive);
 
-  mRadioProxy->setupDataCall(serial, RadioTechnology(radioTechnology), convertToHalDataProfile(profile), modemCognitive, allowRoaming, isRoaming);
+  mRadioProxy->setupDataCall(serial, RadioTechnology(radioTechnology),
+                             convertToHalDataProfile(profile), modemCognitive,
+                             allowRoaming, isRoaming);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::DeactivateDataCall(int32_t serial, int32_t cid, int32_t reason) {
+NS_IMETHODIMP nsRilWorker::DeactivateDataCall(int32_t serial, int32_t cid,
+                                              int32_t reason) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_DEACTIVATE_DATA_CALL", serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->deactivateDataCall(serial, cid, (reason == 0 ? false: true));
+  mRadioProxy->deactivateDataCall(serial, cid, (reason == 0 ? false : true));
 
   return NS_OK;
 }
@@ -464,7 +548,8 @@ NS_IMETHODIMP nsRilWorker::GetCellInfoList(int32_t serial) {
 }
 
 NS_IMETHODIMP nsRilWorker::GetIMSI(int32_t serial, const nsAString& aid) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_GET_IMSI aid = %s", serial, NS_ConvertUTF16toUTF8(aid).get());
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_GET_IMSI aid = %s", serial,
+       NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
@@ -474,12 +559,18 @@ NS_IMETHODIMP nsRilWorker::GetIMSI(int32_t serial, const nsAString& aid) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::IccIOForApp(int32_t serial, int32_t command, int32_t fileId
-                                         , const nsAString& path, int32_t p1, int32_t p2, int32_t p3
-                                         , const nsAString& data, const nsAString& pin2, const nsAString& aid)
- {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_SIM_IO command = %d, fileId = %d, path = %s, p1 = %d, p2 = %d, p3 = %d, data = %s, pin2 = %s, aid = %s"
-       , serial, command, fileId, NS_ConvertUTF16toUTF8(path).get(), p1, p2, p3, NS_ConvertUTF16toUTF8(data).get(), NS_ConvertUTF16toUTF8(pin2).get(), NS_ConvertUTF16toUTF8(aid).get());
+NS_IMETHODIMP nsRilWorker::IccIOForApp(int32_t serial, int32_t command,
+                                       int32_t fileId, const nsAString& path,
+                                       int32_t p1, int32_t p2, int32_t p3,
+                                       const nsAString& data,
+                                       const nsAString& pin2,
+                                       const nsAString& aid) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_SIM_IO command = %d, fileId = %d, path "
+      "= %s, p1 = %d, p2 = %d, p3 = %d, data = %s, pin2 = %s, aid = %s",
+      serial, command, fileId, NS_ConvertUTF16toUTF8(path).get(), p1, p2, p3,
+      NS_ConvertUTF16toUTF8(data).get(), NS_ConvertUTF16toUTF8(pin2).get(),
+      NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
@@ -501,6 +592,285 @@ NS_IMETHODIMP nsRilWorker::IccIOForApp(int32_t serial, int32_t command, int32_t 
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilWorker::GetClir(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_GET_CLIR", serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->getClir(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetClir(int32_t serial, int32_t clirMode) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_CLIR clirMode = %d", serial,
+       clirMode);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->setClir(serial, clirMode);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SendDtmf(int32_t serial, const nsAString& dtmfChar) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_DTMF dtmfChar = %s", serial,
+       NS_ConvertUTF16toUTF8(dtmfChar).get());
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->sendDtmf(serial, NS_ConvertUTF16toUTF8(dtmfChar).get());
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::StartDtmf(int32_t serial,
+                                     const nsAString& dtmfChar) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_DTMF_START dtmfChar = %s", serial,
+       NS_ConvertUTF16toUTF8(dtmfChar).get());
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->startDtmf(serial, NS_ConvertUTF16toUTF8(dtmfChar).get());
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::StopDtmf(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_DTMF_STOP", serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->stopDtmf(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::RejectCall(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_UDUB", serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->rejectCall(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SendUssd(int32_t serial, const nsAString& ussd) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SEND_USSD ussd = %s", serial,
+       NS_ConvertUTF16toUTF8(ussd).get());
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->sendUssd(serial, NS_ConvertUTF16toUTF8(ussd).get());
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::CancelPendingUssd(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_CANCEL_USSD", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->cancelPendingUssd(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::GetCallForwardStatus(int32_t serial,
+                                                int32_t cfReason,
+                                                int32_t serviceClass,
+                                                const nsAString& number,
+                                                int32_t toaNumber) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_QUERY_CALL_FORWARD_STATUS cfReason = %d "
+      ", serviceClass = %d, number = %s",
+      serial, cfReason, serviceClass, NS_ConvertUTF16toUTF8(number).get());
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+
+  CallForwardInfo cfInfo;
+  cfInfo.reason = cfReason;
+  cfInfo.serviceClass = serviceClass;
+  cfInfo.toa = toaNumber;
+  cfInfo.number = NS_ConvertUTF16toUTF8(number).get();
+  cfInfo.timeSeconds = 0;
+
+  mRadioProxy->getCallForwardStatus(serial, cfInfo);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetCallForwardStatus(int32_t serial, int32_t action,
+                                                int32_t cfReason,
+                                                int32_t serviceClass,
+                                                const nsAString& number,
+                                                int32_t toaNumber) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_SET_CALL_FORWARD action = %d, cfReason "
+      "= %d , serviceClass = %d, number = %s",
+      serial, action, cfReason, serviceClass,
+      NS_ConvertUTF16toUTF8(number).get());
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+
+  CallForwardInfo cfInfo;
+  cfInfo.status = CallForwardInfoStatus(action);
+  cfInfo.reason = cfReason;
+  cfInfo.serviceClass = serviceClass;
+  cfInfo.toa = toaNumber;
+  cfInfo.number = NS_ConvertUTF16toUTF8(number).get();
+  cfInfo.timeSeconds = 0;
+
+  mRadioProxy->getCallForwardStatus(serial, cfInfo);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::GetCallWaiting(int32_t serial,
+                                          int32_t serviceClass) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_QUERY_CALL_WAITING serviceClass = %d",
+       serial, serviceClass);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->getCallWaiting(serial, serviceClass);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetCallWaiting(int32_t serial, bool enable,
+                                          int32_t serviceClass) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_SET_CALL_WAITING enable = %d, "
+      "serviceClass = %d",
+      serial, enable, serviceClass);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->setCallWaiting(serial, enable, serviceClass);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetBarringPassword(int32_t serial,
+                                              const nsAString& facility,
+                                              const nsAString& oldPwd,
+                                              const nsAString& newPwd) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_CHANGE_BARRING_PASSWORD facility = %s, "
+      "oldPwd = %s, newPwd = %s",
+      serial, NS_ConvertUTF16toUTF8(facility).get(),
+      NS_ConvertUTF16toUTF8(oldPwd).get(), NS_ConvertUTF16toUTF8(newPwd).get());
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->setBarringPassword(serial, NS_ConvertUTF16toUTF8(facility).get(),
+                                  NS_ConvertUTF16toUTF8(oldPwd).get(),
+                                  NS_ConvertUTF16toUTF8(newPwd).get());
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SeparateConnection(int32_t serial,
+                                              int32_t gsmIndex) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SEPARATE_CONNECTION gsmIndex = %d",
+       serial, gsmIndex);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->separateConnection(serial, gsmIndex);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::GetClip(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_QUERY_CLIP", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->getClip(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::ExplicitCallTransfer(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_EXPLICIT_CALL_TRANSFER", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->explicitCallTransfer(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::GetNeighboringCids(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_GET_NEIGHBORING_CELL_IDS", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->getNeighboringCids(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetTTYMode(int32_t serial, int32_t ttyMode) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_TTY_MODE ttyMode = %d", serial,
+       ttyMode);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->setTTYMode(serial, TtyMode(ttyMode));
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::QueryTTYMode(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_QUERY_TTY_MODE ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->getTTYMode(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::ExitEmergencyCallbackMode(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_EXIT_EMERGENCY_CALLBACK_MODE ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->exitEmergencyCallbackMode(serial);
+
+  return NS_OK;
+}
+
 nsRilWorker::~nsRilWorker() {
   INFO("Destructor nsRilWorker");
   mRilResponse = nullptr;
@@ -513,12 +883,12 @@ nsRilWorker::~nsRilWorker() {
   MOZ_ASSERT(!mDeathRecipient);
 }
 
-void nsRilWorker::RadioProxyDeathRecipient::serviceDied(uint64_t, const ::android::wp<IBase>&) {
+void nsRilWorker::RadioProxyDeathRecipient::serviceDied(
+    uint64_t, const ::android::wp<IBase>&) {
   INFO("nsRilWorker HAL died, cleanup instance.");
 }
 
-
-void nsRilWorker::GetRadioProxy(){
+void nsRilWorker::GetRadioProxy() {
   if (mRadioProxy != nullptr) {
     return;
   }
@@ -531,7 +901,8 @@ void nsRilWorker::GetRadioProxy(){
       mDeathRecipient = new RadioProxyDeathRecipient();
     }
     if (mDeathRecipient != nullptr) {
-      Return<bool> linked = mRadioProxy->linkToDeath(mDeathRecipient, 0 /*cookie*/);
+      Return<bool> linked =
+          mRadioProxy->linkToDeath(mDeathRecipient, 0 /*cookie*/);
       if (!linked || !linked.isOk()) {
         ERROR("Failed to link to radio hal death notifications");
       }
@@ -545,22 +916,22 @@ void nsRilWorker::GetRadioProxy(){
 
 void nsRilWorker::processIndication(RadioIndicationType indicationType) {
   INFO("processIndication, type= %d", indicationType);
-    if (indicationType == RadioIndicationType::UNSOLICITED_ACK_EXP) {
-      sendAck();
-      INFO("Unsol response received; Sending ack to ril.cpp");
-    } else {
+  if (indicationType == RadioIndicationType::UNSOLICITED_ACK_EXP) {
+    sendAck();
+    INFO("Unsol response received; Sending ack to ril.cpp");
+  } else {
     // ack is not expected to be sent back. Nothing is required to be done here.
-    }
+  }
 }
 
 void nsRilWorker::processResponse(RadioResponseType responseType) {
   INFO("processResponse, type= %d", responseType);
-    if (responseType == RadioResponseType::SOLICITED_ACK_EXP) {
-      sendAck();
-      INFO("Solicited response received; Sending ack to ril.cpp");
-    } else {
+  if (responseType == RadioResponseType::SOLICITED_ACK_EXP) {
+    sendAck();
+    INFO("Solicited response received; Sending ack to ril.cpp");
+  } else {
     // ack is not expected to be sent back. Nothing is required to be done here.
-    }
+  }
 }
 
 void nsRilWorker::sendAck() {
@@ -573,7 +944,7 @@ void nsRilWorker::sendAck() {
   }
 }
 
-//Helper function
+// Helper function
 MvnoType nsRilWorker::convertToHalMvnoType(const nsAString& mvnoType) {
   if (NS_LITERAL_STRING("imsi").Equals(mvnoType)) {
     return MvnoType::IMSI;
@@ -586,7 +957,7 @@ MvnoType nsRilWorker::convertToHalMvnoType(const nsAString& mvnoType) {
   }
 }
 
-DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile *profile) {
+DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile* profile) {
   DataProfileInfo dataProfileInfo;
 
   int32_t profileId;
@@ -601,10 +972,10 @@ DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile *profile) {
   profile->GetProtocol(protocol);
   dataProfileInfo.protocol = NS_ConvertUTF16toUTF8(protocol).get();
 
-
   nsString roamingProtocol;
   profile->GetRoamingProtocol(roamingProtocol);
-  dataProfileInfo.roamingProtocol = NS_ConvertUTF16toUTF8(roamingProtocol).get();
+  dataProfileInfo.roamingProtocol =
+      NS_ConvertUTF16toUTF8(roamingProtocol).get();
 
   int32_t authType;
   profile->GetAuthType(&authType);
@@ -613,7 +984,6 @@ DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile *profile) {
   nsString user;
   profile->GetUser(user);
   dataProfileInfo.user = NS_ConvertUTF16toUTF8(user).get();
-
 
   nsString password;
   profile->GetPassword(password);
@@ -641,8 +1011,8 @@ DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile *profile) {
 
   int32_t supportedApnTypesBitmap;
   profile->GetSupportedApnTypesBitmap(&supportedApnTypesBitmap);
-  dataProfileInfo.supportedApnTypesBitmap = (int32_t)ApnTypes(supportedApnTypesBitmap);
-
+  dataProfileInfo.supportedApnTypesBitmap =
+      (int32_t)ApnTypes(supportedApnTypesBitmap);
 
   int32_t bearerBitmap;
   profile->GetBearerBitmap(&bearerBitmap);
@@ -667,20 +1037,18 @@ DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile *profile) {
 class RilResultDispatcher : public mozilla::Runnable {
  public:
   RilResultDispatcher(nsRilWorker* aRil, nsRilIndicationResult* aIndication)
-    : mozilla::Runnable("RilIndicationResultDispatcher")
-    , mRil(aRil)
-    , mResponse(nullptr)
-    , mIndication(aIndication)
-  {
+      : mozilla::Runnable("RilIndicationResultDispatcher"),
+        mRil(aRil),
+        mResponse(nullptr),
+        mIndication(aIndication) {
     INFO("RilResultDispatcher nsRilIndicationResult");
     MOZ_ASSERT(!NS_IsMainThread());
   }
   RilResultDispatcher(nsRilWorker* aRil, nsRilResponseResult* aResponse)
-    : mozilla::Runnable("RilResponseResultDispatcher")
-    , mRil(aRil)
-    , mResponse(aResponse)
-    , mIndication(nullptr)
-  {
+      : mozilla::Runnable("RilResponseResultDispatcher"),
+        mRil(aRil),
+        mResponse(aResponse),
+        mIndication(nullptr) {
     INFO("RilResultDispatcher nsRilResponseResult");
     MOZ_ASSERT(!NS_IsMainThread());
   }
@@ -700,23 +1068,25 @@ class RilResultDispatcher : public mozilla::Runnable {
     return NS_OK;
   }
 
-  private:
+ private:
   nsRilWorker* mRil;
   RefPtr<nsRilResponseResult> mResponse;
   RefPtr<nsRilIndicationResult> mIndication;
 };
 
 void nsRilWorker::sendRilIndicationResult(nsRilIndicationResult* aIndication) {
-  INFO("nsRilWorker: [USOL]< %s", NS_LossyConvertUTF16toASCII(aIndication->mRilMessageType).get());
-  nsCOMPtr<nsIRunnable> runnable = new RilResultDispatcher(this , aIndication);
+  INFO("nsRilWorker: [USOL]< %s",
+       NS_LossyConvertUTF16toASCII(aIndication->mRilMessageType).get());
+  nsCOMPtr<nsIRunnable> runnable = new RilResultDispatcher(this, aIndication);
   NS_DispatchToMainThread(runnable);
   INFO("IndicationResult.mRilMessageType done.");
 }
 
 void nsRilWorker::sendRilResponseResult(nsRilResponseResult* aResponse) {
-  INFO("nsRilWorker: [%d] < %s", aResponse-> mRilMessageToken, NS_LossyConvertUTF16toASCII(aResponse->mRilMessageType).get());
+  INFO("nsRilWorker: [%d] < %s", aResponse->mRilMessageToken,
+       NS_LossyConvertUTF16toASCII(aResponse->mRilMessageType).get());
 
-  if (aResponse-> mRilMessageToken > 0) {
+  if (aResponse->mRilMessageToken > 0) {
     nsCOMPtr<nsIRunnable> runnable = new RilResultDispatcher(this, aResponse);
     NS_DispatchToMainThread(runnable);
     INFO("ResponseResult.mRilMessageType done.");
