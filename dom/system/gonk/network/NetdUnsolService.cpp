@@ -62,6 +62,9 @@ void NetdUnsolService::sendBroadcast(UnsolEvent evt, char* reason) {
     case RouteChanged:
       result.mTopic = NS_ConvertUTF8toUTF16("route-change");
       break;
+    case QuotaLimitReached:
+      result.mTopic = NS_ConvertUTF8toUTF16("netd-bandwidth-control");
+      break;
     default:
       return;
   }
@@ -142,6 +145,16 @@ Status NetdUnsolService::onRouteChanged(bool updated, const std::string& route,
   return Status::ok();
 }
 
+Status NetdUnsolService::onQuotaLimitReached(const std::string& alertName,
+                                             const std::string& ifName) {
+  char message[BUF_SIZE];
+  snprintf(message, sizeof(message), "limit alert %s %s", alertName.c_str(),
+           ifName.c_str());
+  NUS_DBG("%s", message);
+  sendBroadcast(QuotaLimitReached, message);
+  return Status::ok();
+}
+
 // TODO: Implement notify if we need these.
 Status NetdUnsolService::onInterfaceAdded(const std::string& ifName) {
   return Status::ok();
@@ -155,11 +168,6 @@ Status NetdUnsolService::onInterfaceClassActivityChanged(bool isActive,
                                                          int label,
                                                          int64_t timestamp,
                                                          int uid) {
-  return Status::ok();
-}
-
-Status NetdUnsolService::onQuotaLimitReached(const std::string& alertName,
-                                             const std::string& ifName) {
   return Status::ok();
 }
 

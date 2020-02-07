@@ -318,15 +318,13 @@ NetworkService.prototype = {
     };
 
     this.controlMessage(params, function(aData) {
-      let code = aData.resultCode;
-      let reason = aData.resultReason;
+      let result = aData.result;
       let enableString = aEnable ? "Enable" : "Disable";
       debug(
         enableString +
-          " tethering Alarm result: Code " +
-          code +
-          " reason " +
-          reason
+          " tethering Alarm result: " +
+          result +
+          " reason "
       );
       if (aCallback) {
         aCallback.networkUsageAlarmResult(null);

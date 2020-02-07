@@ -308,6 +308,8 @@ class NetworkUtils final {
   CommandResult setNetworkInterfaceAlarm(NetworkParams& aOptions);
   CommandResult enableNetworkInterfaceAlarm(NetworkParams& aOptions);
   CommandResult disableNetworkInterfaceAlarm(NetworkParams& aOptions);
+  CommandResult setTetheringAlarm(NetworkParams& aOptions);
+  CommandResult removeTetheringAlarm(NetworkParams& aOptions);
   CommandResult setDhcpServer(NetworkParams& aOptions);
   CommandResult getTetheringStatus(NetworkParams& aOptions);
   CommandResult enableUsbRndis(NetworkParams& aOptions);

@@ -1509,6 +1509,8 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
       BUILD_ENTRY(setNetworkInterfaceAlarm),
       BUILD_ENTRY(enableNetworkInterfaceAlarm),
       BUILD_ENTRY(disableNetworkInterfaceAlarm),
+      BUILD_ENTRY(setTetheringAlarm),
+      BUILD_ENTRY(removeTetheringAlarm),
       BUILD_ENTRY(setDhcpServer),
       BUILD_ENTRY(getTetheringStatus),
       BUILD_ENTRY(enableUsbRndis),
@@ -2229,6 +2231,29 @@ CommandResult NetworkUtils::disableNetworkInterfaceAlarm(
   result.mResult = status.isOk() ? true : false;
   NU_DBG("disableNetworkInterfaceAlarm %s",
          result.mResult ? "success" : "failed");
+  return result;
+}
+
+CommandResult NetworkUtils::setTetheringAlarm(NetworkParams& aOptions) {
+  NU_DBG("setTetheringAlarm");
+  NetworkResultOptions result;
+  result.mResult = false;
+
+  Status status = gNetd->bandwidthSetGlobalAlert(GET_FIELD(mThreshold));
+  result.mResult = status.isOk() ? true : false;
+  NU_DBG("setTetheringAlarm %s", result.mResult ? "success" : "failed");
+  return result;
+}
+
+CommandResult NetworkUtils::removeTetheringAlarm(NetworkParams& aOptions) {
+  NU_DBG("removeTetheringAlarm");
+  NetworkResultOptions result;
+  result.mResult = false;
+
+  Status status = gNetd->bandwidthSetInterfaceAlert(GET_CHAR(mIfname),
+                                                    GET_FIELD(mThreshold));
+  result.mResult = status.isOk() ? true : false;
+  NU_DBG("removeTetheringAlarm %s", result.mResult ? "success" : "failed");
   return result;
 }
 
