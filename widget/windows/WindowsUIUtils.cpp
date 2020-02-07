@@ -273,6 +273,7 @@ WindowsUIUtils::UpdateTabletModeState() {
   return NS_OK;
 }
 
+#ifndef __MINGW32__
 struct HStringDeleter {
   typedef HSTRING pointer;
   void operator()(pointer aString) { WindowsDeleteString(aString); }
@@ -280,27 +281,26 @@ struct HStringDeleter {
 
 typedef mozilla::UniquePtr<HSTRING, HStringDeleter> HStringUniquePtr;
 
-Result<HStringUniquePtr, HRESULT> ConvertToWindowsString(
+mozilla::Result<HStringUniquePtr, HRESULT> ConvertToWindowsString(
     const nsAString& aStr) {
   HSTRING rawStr;
   HRESULT hr = WindowsCreateString(PromiseFlatString(aStr).get(), aStr.Length(),
                                    &rawStr);
   if (FAILED(hr)) {
-    return Err(hr);
+    return mozilla::Err(hr);
   }
   return HStringUniquePtr(rawStr);
 }
 
-#ifndef __MINGW32__
-Result<Ok, nsresult> RequestShare(
+mozilla::Result<Ok, nsresult> RequestShare(
     const std::function<HRESULT(IDataRequestedEventArgs* pArgs)>& aCallback) {
   if (!IsWin10OrLater()) {
-    return Err(NS_ERROR_FAILURE);
+    return mozilla::Err(NS_ERROR_FAILURE);
   }
 
   HWND hwnd = GetForegroundWindow();
   if (!hwnd) {
-    return Err(NS_ERROR_FAILURE);
+    return mozilla::Err(NS_ERROR_FAILURE);
   }
 
   ComPtr<IDataTransferManagerInterop> dtmInterop;
@@ -313,7 +313,7 @@ Result<Ok, nsresult> RequestShare(
       IID_PPV_ARGS(&dtmInterop));
   if (FAILED(hr) ||
       FAILED(dtmInterop->GetForWindow(hwnd, IID_PPV_ARGS(&dtm)))) {
-    return Err(NS_ERROR_FAILURE);
+    return mozilla::Err(NS_ERROR_FAILURE);
   }
 
   auto callback = Callback<
@@ -326,7 +326,7 @@ Result<Ok, nsresult> RequestShare(
   EventRegistrationToken dataRequestedToken;
   if (FAILED(dtm->add_DataRequested(callback.Get(), &dataRequestedToken)) ||
       FAILED(dtmInterop->ShowShareUIForWindow(hwnd))) {
-    return Err(NS_ERROR_FAILURE);
+    return mozilla::Err(NS_ERROR_FAILURE);
   }
 
   return Ok();
@@ -336,8 +336,8 @@ Result<Ok, nsresult> RequestShare(
 RefPtr<SharePromise> WindowsUIUtils::Share(nsAutoString aTitle,
                                            nsAutoString aText,
                                            nsAutoString aUrl) {
-  auto promiseHolder = MakeRefPtr<
-      mozilla::media::Refcountable<MozPromiseHolder<SharePromise>>>();
+  auto promiseHolder = mozilla::MakeRefPtr<
+      mozilla::media::Refcountable<mozilla::MozPromiseHolder<SharePromise>>>();
   RefPtr<SharePromise> promise = promiseHolder->Ensure(__func__);
 
 #ifndef __MINGW32__

@@ -2400,10 +2400,10 @@ nsresult Document::Init() {
   return NS_OK;
 }
 
-void Document::DeleteAllProperties() { PropertyTable().DeleteAllProperties(); }
+void Document::RemoveAllProperties() { PropertyTable().RemoveAllProperties(); }
 
-void Document::DeleteAllPropertiesFor(nsINode* aNode) {
-  PropertyTable().DeleteAllPropertiesFor(aNode);
+void Document::RemoveAllPropertiesFor(nsINode* aNode) {
+  PropertyTable().RemoveAllPropertiesFor(aNode);
 }
 
 bool Document::IsVisibleConsideringAncestors() const {
@@ -8932,6 +8932,11 @@ Document* Document::Open(const Optional<nsAString>& /* unused */,
     return nullptr;
   }
 
+  // Clear out our form control state, because the state of controls
+  // in the pre-open() document should not affect the state of
+  // controls that are now going to be written.
+  mLayoutHistoryState = nullptr;
+
   if (shell) {
     // Prepare the docshell and the document viewer for the impending
     // out-of-band document.write()
@@ -9364,7 +9369,7 @@ nsINode* Document::AdoptNode(nsINode& aAdoptedNode, ErrorResult& rv) {
     if (!sameDocument && oldDocument) {
       for (nsINode* node : nodesWithProperties) {
         // Remove all properties.
-        oldDocument->PropertyTable().DeleteAllPropertiesFor(node);
+        oldDocument->PropertyTable().RemoveAllPropertiesFor(node);
       }
     }
 
@@ -9375,7 +9380,7 @@ nsINode* Document::AdoptNode(nsINode& aAdoptedNode, ErrorResult& rv) {
     nsPropertyTable& oldTable = oldDocument->PropertyTable();
     nsPropertyTable& newTable = PropertyTable();
     for (nsINode* node : nodesWithProperties) {
-      rv = oldTable.TransferOrDeleteAllPropertiesFor(node, newTable);
+      rv = oldTable.TransferOrRemoveAllPropertiesFor(node, newTable);
     }
 
     if (rv.Failed()) {

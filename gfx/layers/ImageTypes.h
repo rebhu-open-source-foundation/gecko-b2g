@@ -97,6 +97,11 @@ enum class ImageFormat {
    * data and can be used as a texture by Gonk backend directly.
    */
   GRALLOC_PLANAR_YCBCR,
+  /**
+   * The WAYLAND_DMABUF format creates a SharedDMABUFImage, which stores YUV
+   * data in DMABUF memory. Used on Wayland by VAAPI decoder.
+   */
+  WAYLAND_DMABUF,
 };
 
 enum class StereoMode {

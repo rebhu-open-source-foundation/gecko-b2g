@@ -1754,7 +1754,7 @@ NS_DECLARE_FRAME_PROPERTY_DELETABLE(CachedFlexMeasuringReflow,
 
 void nsFlexContainerFrame::MarkCachedFlexMeasurementsDirty(
     nsIFrame* aItemFrame) {
-  aItemFrame->DeleteProperty(CachedFlexMeasuringReflow());
+  aItemFrame->RemoveProperty(CachedFlexMeasuringReflow());
 }
 
 const CachedMeasuringReflowResult&
@@ -1776,8 +1776,15 @@ nsFlexContainerFrame::MeasureAscentAndBSizeForFlexItem(
   nsReflowStatus childReflowStatus;
 
   const ReflowChildFlags flags = ReflowChildFlags::NoMoveFrame;
+  const WritingMode outerWM = GetWritingMode();
+  const LogicalPoint dummyPosition(outerWM);
+  const nsSize dummyContainerSize;
+
+  // We use NoMoveFrame, so the position and container size used here are
+  // unimportant.
   ReflowChild(aItem.Frame(), aPresContext, childDesiredSize, aChildReflowInput,
-              0, 0, flags, childReflowStatus);
+              outerWM, dummyPosition, dummyContainerSize, flags,
+              childReflowStatus);
   aItem.SetHadMeasuringReflow();
 
   // XXXdholbert Once we do pagination / splitting, we'll need to actually
@@ -1790,7 +1797,8 @@ nsFlexContainerFrame::MeasureAscentAndBSizeForFlexItem(
   // Tell the child we're done with its initial reflow.
   // (Necessary for e.g. GetBaseline() to work below w/out asserting)
   FinishReflowChild(aItem.Frame(), aPresContext, childDesiredSize,
-                    &aChildReflowInput, 0, 0, flags);
+                    &aChildReflowInput, outerWM, dummyPosition,
+                    dummyContainerSize, flags);
 
   auto result =
       new CachedMeasuringReflowResult(aChildReflowInput, childDesiredSize);
