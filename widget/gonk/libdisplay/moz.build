@@ -69,7 +69,7 @@ if CONFIG['ANDROID_VERSION'] >= '26':
     LOCAL_INCLUDES += [
     '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
         'frameworks/native/libs/math/include',
-        'gonk-misc/libcarthage',
+        'gonk-misc/libcarthage/include',
         ]
     ]
 
