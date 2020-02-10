@@ -302,23 +302,9 @@ var PhoneNumberUtils = {
   }
 };
 /* global DialNumberUtils */
-// XPCOMUtils.defineLazyGetter(this, "DialNumberUtils", function () {
-//   let obj = {};
-//   Cu.import("resource://gre/modules/DialNumberUtils.jsm", obj);
-//   return obj;
-// });
 XPCOMUtils.defineLazyModuleGetters(this, {
   DialNumberUtils: 'resource://gre/modules/DialNumberUtils.jsm',
 });
-
-// var DialNumberUtils = {
-//   isEmergency: function(aNumber) {
-//     return (aNumber === "112");
-//   },
-//   parseMMI: function(aNumber) {
-//     return null;
-//   }
-// };
 
 function TelephonyCallInfo(aCall) {
   this.clientId = aCall.clientId;
@@ -475,7 +461,6 @@ VideoCallProvider.prototype = {
 };
 
 function TelephonyService() {
-  debug('Jack telephony constructor start');
   this._numClients = gRadioInterfaceLayer.numRadioInterfaces;
   this._listeners = [];
 
@@ -489,12 +474,9 @@ function TelephonyService() {
 
   this._headsetState = gAudioService.headsetState;
   gAudioService.registerListener(this);
-  debug('Jack telephony constructor after audioservice register listener');
   this._applyTtyMode();
-  debug('Jack telephony constructor after applyTtyMode');
 
   this._updateDebugFlag();
-  debug('Jack telephony constructor after _updateDebugFlag');
   // this.defaultServiceId = this._getDefaultServiceId();
   this.defaultServiceId = 0;
 
@@ -502,7 +484,6 @@ function TelephonyService() {
   Services.prefs.addObserver(kPrefDefaultServiceId, this, false);
 
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
-  debug('Jack telephony constructor after observer operations');
 
   for (let i = 0; i < this._numClients; ++i) {
     this._audioStates[i] = nsITelephonyAudioService.PHONE_STATE_NORMAL;
@@ -510,9 +491,6 @@ function TelephonyService() {
     this._currentCalls[i] = {};
     this._enumerateCallsForClient(i);
   }
-  debug('Jack telephony constructor after _enumerateCallsForClient');
-
-  debug('Jack telephony constructor end');
 }
 TelephonyService.prototype = {
   classID: GONK_TELEPHONYSERVICE_CID,
@@ -919,7 +897,6 @@ TelephonyService.prototype = {
       return;
     }
     let isEmergencyNumber = DialNumberUtils.isEmergency(aNumber, aClientId);
-    debug('isEmergencyNumber: ' + isEmergencyNumber);
 
     // DialEmergency accepts only emergency number.
     if (aIsDialEmergency && !isEmergencyNumber) {
@@ -940,8 +917,6 @@ TelephonyService.prototype = {
     }
 
     let mmi = DialNumberUtils.parseMMI(aNumber);
-    debug('mmi: ' + mmi);
-    debug('aNumber: ' + aNumber);
     if (mmi) {
       if (this._isTemporaryCLIR(mmi)) {
         this._dialCall(aClientId, mmi.dialNumber, aRttMode,
@@ -950,7 +925,6 @@ TelephonyService.prototype = {
         this._dialMMI(aClientId, mmi, aCallback);
       }
     } else {
-      debug('not a MMI aNumber: ' + aNumber);
       if (aNumber[aNumber.length - 1] === "#") {  // # string
         this._dialMMI(aClientId, {fullMMI: aNumber}, aCallback);
       } else if (aNumber.length <= 2) {  // short string
@@ -962,7 +936,6 @@ TelephonyService.prototype = {
           this._dialMMI(aClientId, {fullMMI: aNumber}, aCallback);
         }
       } else {
-        debug("to make a call with aCallback: " + aCallback);
         this._dialCall(aClientId, aNumber, aRttMode, undefined, aCallback);
       }
     }
