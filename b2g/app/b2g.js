@@ -1305,3 +1305,7 @@ pref("devtools.console.stdout.chrome", true);
 pref("browser.dom.window.dump.enabled", true);
 pref("consoleservice.logcat", true);
 #endif
+
+// Start the b2g in e10s mode same as the browser
+pref("browser.tabs.remote.autostart", true);
+pref("browser.tabs.remote.desktopbehavior", true);
