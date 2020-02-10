@@ -193,8 +193,7 @@ void IccInfo::Update(IccInfo* aInfo) {
 }
 
 void IccInfo::GetIccInfo(nsIIccInfo** aIccInfo) const {
-  nsCOMPtr<nsIIccInfo> info(mIccInfo);
-  info.forget(aIccInfo);
+  NS_IF_ADDREF(*aIccInfo = mIccInfo);
 }
 
 // WebIDL implementation

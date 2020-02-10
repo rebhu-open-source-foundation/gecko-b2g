@@ -9,12 +9,12 @@
 #include "MobileConnectionCallback.h"
 #include "MobileDeviceIdentities.h"
 #include "mozilla/AsyncEventDispatcher.h"
-//#include "mozilla/dom/CFStateChangeEvent.h"
+#include "mozilla/dom/CFStateChangeEvent.h"
 #include "mozilla/dom/DataErrorEvent.h"
 #include "mozilla/dom/ImsRegHandler.h"
-//#include "mozilla/dom/MozClirModeEvent.h"
+#include "mozilla/dom/MozClirModeEvent.h"
 #include "mozilla/dom/MozEmergencyCbModeEvent.h"
-//#include "mozilla/dom/MozOtaStatusEvent.h"
+#include "mozilla/dom/MozOtaStatusEvent.h"
 #include "mozilla/dom/ModemRestartEvent.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/Preferences.h"
@@ -147,8 +147,9 @@ MobileConnection::MobileConnection(nsPIDOMWindowInner* aWindow,
 
   if (CheckPermission("mobileconnection")) {
     DebugOnly<nsresult> rv = mMobileConnection->RegisterListener(mListener);
-   // NS_WARN_IF_FALSE(NS_SUCCEEDED(rv),
-   //                  "Failed registering mobile connection messages with service");
+    NS_WARNING_ASSERTION(
+        NS_SUCCEEDED(rv),
+        "Failed registering mobile connection messages with service");
     UpdateVoice();
     UpdateData();
 
@@ -164,8 +165,8 @@ MobileConnection::MobileConnection(nsPIDOMWindowInner* aWindow,
     }
 
     rv = mIccHandler->RegisterListener(mListener);
-    //NS_WARN_IF_FALSE(NS_SUCCEEDED(rv),
-    //                 "Failed registering icc messages with service");
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "Failed registering icc messages with service");
     UpdateIccId();
   }
 }
@@ -328,36 +329,31 @@ bool
 MobileConnection::IsValidCallBarringOptions(const MozCallBarringOptions& aOptions,
                                            bool isSetting)
 {
- /*
-  if (!aOptions.mServiceClass.WasPassed() || aOptions.mServiceClass.Value().IsNull() ||
-      !aOptions.mProgram.WasPassed() || aOptions.mProgram.Value().IsNull() ||
-      !IsValidCallBarringProgram(aOptions.mProgram.Value().Value())) {
+  if (aOptions.mServiceClass.IsNull() || aOptions.mProgram.IsNull() ||
+      !IsValidCallBarringProgram(aOptions.mProgram.Value())) {
     return false;
   }
 
   // For setting callbarring options, |enabled| and |password| are required.
-  if (isSetting &&
-      (!aOptions.mEnabled.WasPassed() || aOptions.mEnabled.Value().IsNull() ||
-       !aOptions.mPassword.WasPassed() || aOptions.mPassword.Value().IsVoid())) {
+  if (isSetting && (aOptions.mEnabled.IsNull() || aOptions.mPassword.IsVoid() ||
+                    aOptions.mPassword.IsEmpty())) {
     return false;
   }
-*/
+
   return true;
 }
 
 bool
 MobileConnection::IsValidCallForwardingOptions(const MozCallForwardingOptions& aOptions)
 {
-  /*
-  if (!aOptions.mReason.WasPassed() || aOptions.mReason.Value().IsNull() ||
-      !aOptions.mAction.WasPassed() || aOptions.mAction.Value().IsNull() ||
-      !aOptions.mServiceClass.WasPassed() || aOptions.mServiceClass.Value().IsNull() ||
-      !IsValidCallForwardingReason(aOptions.mReason.Value().Value()) ||
-      !IsValidCallForwardingAction(aOptions.mAction.Value().Value()) ||
-      !IsValidCallForwardingService(aOptions.mServiceClass.Value().Value())) {
+  if (aOptions.mReason.IsNull() || aOptions.mAction.IsNull() ||
+      aOptions.mServiceClass.IsNull() ||
+      !IsValidCallForwardingReason(aOptions.mReason.Value()) ||
+      !IsValidCallForwardingAction(aOptions.mAction.Value()) ||
+      !IsValidCallForwardingService(aOptions.mServiceClass.Value())) {
     return false;
   }
-*/
+
   return true;
 }
 
@@ -880,19 +876,19 @@ MobileConnection::SetCallForwardingOption(const MozCallForwardingOptions& aOptio
 
   // Fill in optional attributes.
   uint16_t timeSeconds = 0;
-//  if (aOptions.mTimeSeconds.WasPassed() && !aOptions.mTimeSeconds.Value().IsNull()) {
+  if (!aOptions.mTimeSeconds.IsNull()) {
     timeSeconds = aOptions.mTimeSeconds.Value();
-//  }
+  }
   uint16_t serviceClass = nsIMobileConnection::ICC_SERVICE_CLASS_NONE;
-//  if (aOptions.mServiceClass.WasPassed() && !aOptions.mServiceClass.Value().IsNull()) {
+  if (!aOptions.mServiceClass.IsNull()) {
     serviceClass = aOptions.mServiceClass.Value();
-//  }
+  }
   nsAutoString number;
-//  if (aOptions.mNumber.WasPassed()) {
+  if (aOptions.mNumber.IsVoid() || aOptions.mNumber.IsEmpty()) {
+    number.SetIsVoid(true);
+  } else {
     number = aOptions.mNumber;
-//  } else {
-//    number.SetIsVoid(true);
-//  }
+  }
 
   RefPtr<MobileConnectionCallback> requestCallback =
     new MobileConnectionCallback(GetOwner(), request);
@@ -933,11 +929,11 @@ MobileConnection::GetCallBarringOption(const MozCallBarringOptions& aOptions,
 
   // Fill in optional attributes.
   nsAutoString password;
-//  if (aOptions.mPassword.WasPassed()) {
+  if (aOptions.mPassword.IsVoid() || aOptions.mPassword.IsEmpty()) {
+    password.SetIsVoid(true);
+  } else {
     password = aOptions.mPassword;
- // } else {
- //   password.SetIsVoid(true);
- // }
+  }
 
   RefPtr<MobileConnectionCallback> requestCallback =
     new MobileConnectionCallback(GetOwner(), request);
@@ -1000,11 +996,10 @@ MobileConnection::ChangeCallBarringPassword(const MozCallBarringOptions& aOption
   }
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-/*
-  if (!aOptions.mPin.WasPassed() || aOptions.mPin.Value().IsVoid() ||
-      !aOptions.mNewPin.WasPassed() || aOptions.mNewPin.Value().IsVoid() ||
-      !IsValidPassword(aOptions.mPin.Value()) ||
-      !IsValidPassword(aOptions.mNewPin.Value())) {
+
+  if (aOptions.mPin.IsVoid() || aOptions.mPin.IsEmpty() ||
+      aOptions.mNewPin.IsVoid() || aOptions.mNewPin.IsEmpty() ||
+      !IsValidPassword(aOptions.mPin) || !IsValidPassword(aOptions.mNewPin)) {
     nsresult rv = NotifyError(request, MOBILECONN_ERROR_INVALID_PASSWORD);
     if (NS_FAILED(rv)) {
       aRv.Throw(rv);
@@ -1012,7 +1007,7 @@ MobileConnection::ChangeCallBarringPassword(const MozCallBarringOptions& aOption
     }
     return request.forget();
   }
-*/
+
   RefPtr<MobileConnectionCallback> requestCallback =
     new MobileConnectionCallback(GetOwner(), request);
 
@@ -1213,7 +1208,7 @@ MobileConnection::NotifyCFStateChanged(unsigned short aAction,
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
-/* TODO:
+
   CFStateChangeEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
@@ -1227,8 +1222,6 @@ MobileConnection::NotifyCFStateChanged(unsigned short aAction,
     CFStateChangeEvent::Constructor(this, NS_LITERAL_STRING("cfstatechange"), init);
 
   return DispatchTrustedEvent(event);
- */
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1257,7 +1250,6 @@ MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus)
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
-/* TODO
   MozOtaStatusEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
@@ -1267,8 +1259,6 @@ MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus)
     MozOtaStatusEvent::Constructor(this, NS_LITERAL_STRING("otastatuschange"), init);
 
   return DispatchTrustedEvent(event);
- */
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1287,7 +1277,7 @@ MobileConnection::NotifyClirModeChanged(uint32_t aMode)
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
-/*
+
   MozClirModeEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
@@ -1297,8 +1287,6 @@ MobileConnection::NotifyClirModeChanged(uint32_t aMode)
     MozClirModeEvent::Constructor(this, NS_LITERAL_STRING("clirmodechange"), init);
 
   return DispatchTrustedEvent(event);
-*/
-  return NS_OK;
 }
 
 NS_IMETHODIMP

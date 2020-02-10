@@ -146,8 +146,8 @@ NS_CreateIccService()
   if (XRE_IsContentProcess()) {
     service = new mozilla::dom::icc::IccIPCService();
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
- } else {
-   service = do_GetService(GONK_ICC_SERVICE_CONTRACTID);
+  } else {
+    service = do_GetService(GONK_ICC_SERVICE_CONTRACTID);
 #endif
   }
 

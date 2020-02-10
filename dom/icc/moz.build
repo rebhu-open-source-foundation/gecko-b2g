@@ -6,6 +6,10 @@
 
 DIRS += ['interfaces']
 
+EXPORTS += [
+    'ipc/IccIPCService.h',
+]
+
 EXPORTS.mozilla.dom += [
     'Icc.h',
     'IccCardLockError.h',
@@ -17,10 +21,6 @@ EXPORTS.mozilla.dom.icc += [
     'ipc/IccChild.h',
     'ipc/IccIPCUtils.h',
     'ipc/IccParent.h'
-]
-
-EXPORTS += [
-    'ipc/IccIPCService.h',
 ]
 
 UNIFIED_SOURCES += [

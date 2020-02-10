@@ -81,12 +81,8 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionMessenger",
                                     "@mozilla.org/network/manager;1",
                                     "nsINetworkManager");
 
-/*XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
-                                   "@mozilla.org/icc/iccservice;1",
-                                   "nsIIccService");*/
-
 XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
-                                   "@mozilla.org/icc/gonkiccservice;1",
+                                   "@mozilla.org/icc/iccservice;1",
                                    "nsIIccService");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gDataCallManager",

@@ -177,7 +177,10 @@ MobileConnectionInfo::GetRoaming(bool* aRoaming)
 NS_IMETHODIMP
 MobileConnectionInfo::GetNetwork(nsIMobileNetworkInfo** aInfo)
 {
-  NS_IF_ADDREF(*aInfo = GetNetwork()->GetNetwork());
+  if (mNetworkInfo) {
+    NS_IF_ADDREF(*aInfo = mNetworkInfo->GetNetwork());
+  }
+
   return NS_OK;
 }
 

@@ -10,6 +10,10 @@ XPIDL_SOURCES += [
 
 XPIDL_MODULE = 'dom_telephony'
 
+EXPORTS += [
+    'ipc/TelephonyIPCService.h'
+]
+
 EXPORTS.mozilla.dom += [
     'Assertions.cpp',
     'CallsList.h',

@@ -39,18 +39,13 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
                                    "@mozilla.org/mobileconnection/mobileconnectionservice;1",
                                    "nsIMobileConnectionService");
 
+XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
+                                   "@mozilla.org/icc/iccservice;1",
+                                   "nsIIccService");
+
 XPCOMUtils.defineLazyServiceGetter(this, "gNetworkManager",
                                    "@mozilla.org/network/manager;1",
                                    "nsINetworkManager");
-
-/*XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
-                                   "@mozilla.org/icc/iccservice;1",
-                                   "nsIIccService");*/
-
-XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
-                                   "@mozilla.org/icc/gonkiccservice;1",
-                                   "nsIIccService");
-
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function() {
   let obj = {};

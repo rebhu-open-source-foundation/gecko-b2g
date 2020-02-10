@@ -7,6 +7,10 @@
 if CONFIG['MOZ_BUILD_APP'] == 'browser':
     MOCHITEST_MANIFESTS += ['tests/mochitest/mochitest.ini']
 
+EXPORTS += [
+    'ipc/MobileConnectionIPCService.h',
+]
+
 EXPORTS.mozilla.dom += [
     'ImsDeviceConfiguration.h',
     'ImsRegHandler.h',

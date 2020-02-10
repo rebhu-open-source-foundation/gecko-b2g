@@ -217,7 +217,14 @@ IccChild::UnregisterListener(nsIIccListener *aListener)
 NS_IMETHODIMP
 IccChild::GetIccInfo(nsIIccInfo** aIccInfo)
 {
-  mIccInfo->GetIccInfo(aIccInfo);
+  nsIIccInfo* iccInfo = nullptr;
+
+  if (mIccInfo) {
+    mIccInfo->GetIccInfo(&iccInfo);
+  }
+
+  nsCOMPtr<nsIIccInfo> info(iccInfo);
+  info.forget(aIccInfo);
   return NS_OK;
 }
 
