@@ -200,6 +200,11 @@ GfxInfo::GetDisplayHeight(nsTArray<uint32_t>& aDisplayHeight) {
   return NS_ERROR_FAILURE;
 }
 
+NS_IMETHODIMP
+GfxInfo::GetDesktopEnvironment(nsAString& aDesktopEnvironment) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
 #ifdef DEBUG
 
 // Implement nsIGfxInfoDebug
