@@ -2110,20 +2110,24 @@ CommandResult NetworkUtils::setInterfaceConfig(NetworkParams& aOptions) {
  * Request to start Clat464.
  */
 CommandResult NetworkUtils::startClatd(NetworkParams& aOptions) {
-  NU_DBG("startClatd: %s %s", GET_CHAR(mIfname), GET_CHAR(mIPv6Prefix));
+  NU_DBG("startClatd: %s %s", GET_CHAR(mIfname), GET_CHAR(mNat64Prefix));
   NetworkResultOptions result;
   result.mResult = false;
 
-  if (GET_FIELD(mIfname).IsEmpty() || GET_FIELD(mIPv6Prefix).IsEmpty()) {
+  if (GET_FIELD(mIfname).IsEmpty() || GET_FIELD(mNat64Prefix).IsEmpty()) {
     NU_DBG("startClatd argument is empty");
     return result;
   }
 
-  std::string v6Addr;
+  std::string clatAddress;
   Status status =
-      gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mIPv6Prefix), &v6Addr);
+      gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mIPv6Prefix), &clatAddress);
   result.mResult = status.isOk();
-  NU_DBG("startClatd result: %s %s", v6Addr.c_str(),
+
+  if (result.mResult) {
+    result.mClatdAddress = NS_ConvertUTF8toUTF16(clatAddress.c_str());
+  }
+  NU_DBG("startClatd result: %s %s", clatAddress.c_str(),
          result.mResult ? "success" : "false");
 
   return result;

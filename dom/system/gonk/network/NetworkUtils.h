@@ -142,6 +142,7 @@ class NetworkParams {
     COPY_SEQUENCE_FIELD(mIPv6Routes, nsString)
     COPY_OPT_STRING_FIELD(mIpv6Ip, EmptyString())
     COPY_OPT_STRING_FIELD(mIPv6Prefix, EmptyString())
+    COPY_OPT_STRING_FIELD(mNat64Prefix, EmptyString())
     COPY_OPT_FIELD(mNetId, -1)
 
     mLoopIndex = 0;
@@ -204,6 +205,7 @@ class NetworkParams {
   nsTArray<nsString> mIPv6Routes;
   nsString mIpv6Ip;
   nsString mIPv6Prefix;
+  nsString mNat64Prefix;
 
   // Auxiliary information required to carry accros command chain.
   int mNetId;           // A locally defined id per interface.

@@ -66,6 +66,7 @@ dictionary NetworkCommandOptions
   sequence<DOMString> IPv6Routes;     // for "addIPv6RouteToLocalNetwork".
   DOMString ipv6Ip;                   // for "startIpv6Tethering"
   DOMString IPv6Prefix;               // for "startIPv6Tethering".
+  DOMString nat64Prefix;              // for "startClatd".
   long netId;                         // for "addInterfaceToNetwork",
                                       //     "removeInterfaceToNetwork".
 };
@@ -119,4 +120,5 @@ dictionary NetworkResultOptions
   DOMString flag = "down";            // for "getInterfaceConfig".
   DOMString macAddr = "";             // for "getInterfaceConfig".
   DOMString ipAddr = "";              // for "getInterfaceConfig".
+  DOMString clatdAddress = "";        // for "startClatd".
 };

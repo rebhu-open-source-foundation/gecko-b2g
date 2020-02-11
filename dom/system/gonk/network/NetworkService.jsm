@@ -1033,11 +1033,11 @@ NetworkService.prototype = {
     let params = {
       cmd: "startClatd",
       ifname: interfaceName,
-      ipv6Prefix: nat64Prefix,
+      nat64Prefix: nat64Prefix,
     };
 
     this.controlMessage(params, aResult => {
-      callback.nativeCommandResult(aResult.result);
+      callback.startClatdResult(aResult.result, aResult.clatdAddress);
     });
   },
 

@@ -393,6 +393,7 @@ function Nat464Xlat(aNetworkInfo) {
   this.isRunning = false;
   this.types.push(aNetworkInfo.type);
   this.netId = aNetworkInfo.netId;
+  this.nat64Prefix = "2001:db8:cafe:f00d:1:2::/96";
 }
 Nat464Xlat.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver]),
@@ -403,6 +404,8 @@ Nat464Xlat.prototype = {
   isRunning: false,
   types: [],
   netId: null,
+  nat64Prefix: null,
+  clatdAddress: null,
 
   isStarted() {
     return this.nat464Iface != null;
@@ -415,9 +418,13 @@ Nat464Xlat.prototype = {
     this.isRunning = false;
     this.types = [];
     this.netId = null;
+    this.nat64Prefix = null;
+    this.clatdAddress = null;
   },
 
   start(aCallback) {
+    let self = this;
+
     this.nat64Debug("Starting clatd");
     if (this.ifaceName == null) {
       this.nat64Debug("clatd: Can't start clatd without providing interface");
@@ -433,14 +440,14 @@ Nat464Xlat.prototype = {
 
     this.nat64Debug("Starting clatd on " + this.ifaceName);
 
-    //TODO: Xlat464.
-    aCallback(false);
-    /*
-    gNetworkService.startClatd(this.ifaceName, success => {
-      this.nat64Debug("Clatd started: " + (success ? "success" : "fail"));
-      aCallback(success);
+    gNetworkService.startClatd(this.ifaceName, this.nat64Prefix,
+      function (success, clatdAddress) {
+        this.nat64Debug("Clatd started: " + (success ? "success" : "fail") + " address: " + clatdAddress);
+        if (success) {
+          self.clatdAddress = clatdAddress;
+        }
+        aCallback(success);
     });
-    */
   },
 
   stop(aCallback) {

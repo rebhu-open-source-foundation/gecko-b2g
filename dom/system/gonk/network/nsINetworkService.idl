@@ -197,10 +197,24 @@ interface nsISetInterfaceConfigCallback : nsISupports
   void setInterfaceConfigResult(in boolean success);
 };
 
+[scriptable, function, uuid(b0ec5233-0a91-427d-be20-dc38f184c8ba)]
+interface nsIStartClatdCallback : nsISupports
+{
+  /**
+   * Callback function used to return the NAT64 address result from clatd.
+   *
+   * @param success
+   *        Boolean to indicate the operation is successful or not.
+   * @param clatdAddress
+   *        Clatd address generate by clatd daemon.
+   */
+  void startClatdResult(in boolean success, in AString clatdAddress);
+};
+
 /**
  * Provide network services.
  */
-[scriptable, uuid(8a242405-3c86-48d9-9262-092e5eaf9816)]
+[scriptable, uuid(243c491c-8687-41e4-9faf-c62e55a6c7b3)]
 interface nsINetworkService : nsISupports
 {
   const long MODIFY_ROUTE_ADD    = 0;
@@ -702,7 +716,7 @@ interface nsINetworkService : nsISupports
    */
    void startClatd(in AString interfaceName,
                    in AString nat64Prefix,
-                   in nsINativeCommandCallback callback);
+                   in nsIStartClatdCallback callback);
   /**
    * Stop clatd control.
    *
