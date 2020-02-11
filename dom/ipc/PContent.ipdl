@@ -374,7 +374,7 @@ struct BlobURLRegistrationData
 {
   nsCString url;
   IPCBlob blob;
-  Principal principal;
+  nsIPrincipal principal;
   bool revoked;
 };
 

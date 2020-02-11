@@ -2923,7 +2923,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
       }
 
       registrations.AppendElement(BlobURLRegistrationData(
-          nsCString(aURI), ipcBlob, IPC::Principal(aPrincipal), aRevoked));
+          nsCString(aURI), ipcBlob, aPrincipal, aRevoked));
 
       rv = TransmitPermissionsForPrincipal(aPrincipal);
       Unused << NS_WARN_IF(NS_FAILED(rv));
@@ -3760,7 +3760,7 @@ void ContentParent::GeneratePairedMinidump(const char* aReason) {
   // already shutting down.
   nsCOMPtr<nsIAppStartup> appStartup = components::AppStartup::Service();
   if (mCrashReporter && !appStartup->GetShuttingDown() &&
-      Preferences::GetBool("dom.ipc.tabs.createKillHardCrashReports", false)) {
+      StaticPrefs::dom_ipc_tabs_createKillHardCrashReports_AtStartup()) {
     // GeneratePairedMinidump creates two minidumps for us - the main
     // one is for the content process we're about to kill, and the other
     // one is for the main browser process. That second one is the extra
@@ -5379,7 +5379,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   if (topParent) {
     frame = topParent->GetOwnerElement();
 
-    if (NS_WARN_IF(topParent->IsMozBrowser())) {
+    if (NS_WARN_IF(topParent->IsMozBrowserElement())) {
       return IPC_FAIL(this, "aThisTab is not a MozBrowser");
     }
   }
@@ -5522,7 +5522,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   // If we were passed a name for the window which would override the default,
   // we should send it down to the new tab.
   if (nsContentUtils::IsOverridingWindowName(aName)) {
-    Unused << newBrowserParent->SendSetWindowName(aName);
+    newBrowserHost->GetBrowsingContext()->SetName(aName);
   }
 
   // Don't send down the OriginAttributes if the content process is handling
@@ -6205,7 +6205,7 @@ void ContentParent::TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal) {
           }
 
           registrations.AppendElement(BlobURLRegistrationData(
-              nsCString(aURI), ipcBlob, IPC::Principal(aPrincipal), aRevoked));
+              nsCString(aURI), ipcBlob, aPrincipal, aRevoked));
 
           rv = TransmitPermissionsForPrincipal(aPrincipal);
           Unused << NS_WARN_IF(NS_FAILED(rv));

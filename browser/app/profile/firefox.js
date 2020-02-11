@@ -317,7 +317,7 @@ pref("browser.urlbar.openintab", false);
 pref("browser.urlbar.usepreloadedtopurls.enabled", false);
 pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
 
-#ifdef NIGHTLY_BUILD
+#ifdef EARLY_BETA_OR_EARLIER
   // Whether the quantum bar displays design update 1.
   pref("browser.urlbar.update1", true);
   // If true, we show actionable tips in the Urlbar when the user is searching
@@ -327,6 +327,9 @@ pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
   // Urlbar was focused with the keyboard. Instead, Tab will focus the next
   // focusable toolbar element after the Urlbar.
   pref("browser.urlbar.update1.restrictTabAfterKeyboardFocus", true);
+  // If true, we show new users and those about to start an organic search a tip
+  // encouraging them to use the Urlbar.
+  pref("browser.urlbar.update1.searchTips", true);
   // Whether the urlbar should strip https from urls in the view.
   pref("browser.urlbar.update1.view.stripHttps", true);
   pref("browser.urlbar.openViewOnFocus", true);
@@ -334,13 +337,10 @@ pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
   pref("browser.urlbar.update1", false);
   pref("browser.urlbar.update1.interventions", false);
   pref("browser.urlbar.update1.restrictTabAfterKeyboardFocus", false);
+  pref("browser.urlbar.update1.searchTips", false);
   pref("browser.urlbar.update1.view.stripHttps", false);
   pref("browser.urlbar.openViewOnFocus", false);
 #endif
-
-// If true, we show new users and those about to start an organic search a tip
-// encouraging them to use the Urlbar.
-pref("browser.urlbar.update1.searchTips", false);
 
 // Whether we expand the font size when when the urlbar is
 // focused in design update 2.
@@ -1391,28 +1391,6 @@ pref("security.cert_pinning.enforcement_level", 1);
 // before content.
 pref("dom.debug.propagate_gesture_events_through_content", false);
 
-// All the Geolocation preferences are here.
-//
-#ifndef EARLY_BETA_OR_EARLIER
-  pref("geo.wifi.uri", "https://www.googleapis.com/geolocation/v1/geolocate?key=%GOOGLE_LOCATION_SERVICE_API_KEY%");
-#else
-  // Use MLS on Nightly and early Beta.
-  pref("geo.wifi.uri", "https://location.services.mozilla.com/v1/geolocate?key=%MOZILLA_API_KEY%");
-#endif
-
-#ifdef XP_MACOSX
-  pref("geo.provider.use_corelocation", true);
-#endif
-
-// Set to false if things are really broken.
-#ifdef XP_WIN
-  pref("geo.provider.ms-windows-location", true);
-#endif
-
-#if defined(MOZ_WIDGET_GTK) && defined(MOZ_GPSD)
-  pref("geo.provider.use_gpsd", true);
-#endif
-
 // CustomizableUI debug logging.
 pref("browser.uiCustomization.debug", false);
 
@@ -2170,7 +2148,7 @@ pref("devtools.webconsole.input.autocomplete",true);
 
 // Set to true to eagerly show the results of webconsole terminal evaluations
 // when they don't have side effects.
-#if defined(NIGHTLY_BUILD)
+#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
   pref("devtools.webconsole.input.eagerEvaluation", true);
 #else
   pref("devtools.webconsole.input.eagerEvaluation", false);

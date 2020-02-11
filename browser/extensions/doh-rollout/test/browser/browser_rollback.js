@@ -1,5 +1,7 @@
 "use strict";
 
+requestLongerTimeout(2);
+
 add_task(setup);
 
 add_task(async function testRollback() {
@@ -65,7 +67,9 @@ add_task(async function testRollback() {
   // Rollback!
   setPassingHeuristics();
   Preferences.reset(prefs.DOH_ENABLED_PREF);
+  await waitForStateTelemetry();
   await ensureTRRMode(0);
+  await ensureNoHeuristicsTelemetry();
   simulateNetworkChange();
   await ensureNoTRRModeChange(0);
   await ensureNoHeuristicsTelemetry();
@@ -84,7 +88,9 @@ add_task(async function testRollback() {
 
   // Rollback again for good measure! This time with failing heuristics.
   Preferences.reset(prefs.DOH_ENABLED_PREF);
-  await ensureTRRMode(0);
+  await waitForStateTelemetry();
+  await ensureNoTRRModeChange(0);
+  await ensureNoHeuristicsTelemetry();
   simulateNetworkChange();
   await ensureNoTRRModeChange(0);
   await ensureNoHeuristicsTelemetry();
@@ -103,7 +109,29 @@ add_task(async function testRollback() {
 
   // Rollback again, this time with TRR mode set to 2 prior to doing so.
   Preferences.reset(prefs.DOH_ENABLED_PREF);
+  await waitForStateTelemetry();
   await ensureTRRMode(0);
+  await ensureNoHeuristicsTelemetry();
+  simulateNetworkChange();
+  await ensureNoTRRModeChange(0);
+  await ensureNoHeuristicsTelemetry();
+
+  // Re-enable.
+  Preferences.set(prefs.DOH_ENABLED_PREF, true);
+
+  await ensureTRRMode(2);
+  await checkHeuristicsTelemetry("enable_doh", "startup");
+  simulateNetworkChange();
+  await ensureNoTRRModeChange(2);
+  await checkHeuristicsTelemetry("enable_doh", "netchange");
+
+  // Rollback again. This time, disable the add-on first to ensure it reacts
+  // correctly at startup.
+  await disableAddon();
+  Preferences.reset(prefs.DOH_ENABLED_PREF);
+  await enableAddon();
+  await ensureTRRMode(0);
+  await ensureNoHeuristicsTelemetry();
   simulateNetworkChange();
   await ensureNoTRRModeChange(0);
   await ensureNoHeuristicsTelemetry();

@@ -10,6 +10,7 @@
 
 #include "mozilla/dom/Selection.h"
 
+#include "mozilla/AccessibleCaretEventHub.h"
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/AutoCopyListener.h"
@@ -410,6 +411,64 @@ void Selection::SetCaretBidiLevel(const Nullable<int16_t>& aCaretBidiLevel,
   }
 }
 
+/**
+ * Test whether the supplied range points to a single table element.
+ * Result is one of the TableSelection constants. "None" means
+ * a table element isn't selected.
+ */
+// TODO: Figure out TableSelection::Column and TableSelection::AllCells
+static nsresult GetTableSelectionType(nsRange* aRange,
+                                      TableSelection* aTableSelectionType) {
+  if (!aRange || !aTableSelectionType) {
+    return NS_ERROR_NULL_POINTER;
+  }
+
+  *aTableSelectionType = TableSelection::None;
+
+  nsINode* startNode = aRange->GetStartContainer();
+  if (!startNode) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsINode* endNode = aRange->GetEndContainer();
+  if (!endNode) {
+    return NS_ERROR_FAILURE;
+  }
+
+  // Not a single selected node
+  if (startNode != endNode) {
+    return NS_OK;
+  }
+
+  nsIContent* child = aRange->GetChildAtStartOffset();
+
+  // Not a single selected node
+  if (!child || child->GetNextSibling() != aRange->GetChildAtEndOffset()) {
+    return NS_OK;
+  }
+
+  nsIContent* startContent = static_cast<nsIContent*>(startNode);
+  if (!(startNode->IsElement() && startContent->IsHTMLElement())) {
+    // Implies a check for being an element; if we ever make this work
+    // for non-HTML, need to keep checking for elements.
+    return NS_OK;
+  }
+
+  if (startContent->IsHTMLElement(nsGkAtoms::tr)) {
+    *aTableSelectionType = TableSelection::Cell;
+  } else  // check to see if we are selecting a table or row (column and all
+          // cells not done yet)
+  {
+    if (child->IsHTMLElement(nsGkAtoms::table))
+      *aTableSelectionType = TableSelection::Table;
+    else if (child->IsHTMLElement(nsGkAtoms::tr))
+      *aTableSelectionType = TableSelection::Row;
+  }
+
+  return NS_OK;
+}
+
+// static
 nsresult Selection::GetTableCellLocationFromRange(
     nsRange* aRange, TableSelection* aSelectionType, int32_t* aRow,
     int32_t* aCol) {
@@ -419,9 +478,6 @@ nsresult Selection::GetTableCellLocationFromRange(
   *aSelectionType = TableSelection::None;
   *aRow = 0;
   *aCol = 0;
-
-  // Must have access to frame selection to get cell info
-  if (!mFrameSelection) return NS_OK;
 
   nsresult result = GetTableSelectionType(aRange, aSelectionType);
   if (NS_FAILED(result)) return result;
@@ -440,17 +496,12 @@ nsresult Selection::GetTableCellLocationFromRange(
 
   // GetCellLayout depends on current frame, we need flush frame to get
   // nsITableCellLayout
-  if (RefPtr<PresShell> presShell = mFrameSelection->GetPresShell()) {
+  if (RefPtr<PresShell> presShell = child->OwnerDoc()->GetPresShell()) {
     presShell->FlushPendingNotifications(FlushType::Frames);
-
-    // Since calling FlushPendingNotifications, so check whether disconnected.
-    if (!mFrameSelection || !mFrameSelection->GetPresShell()) {
-      return NS_ERROR_FAILURE;
-    }
   }
 
   // Note: This is a non-ref-counted pointer to the frame
-  nsITableCellLayout* cellLayout = mFrameSelection->GetCellLayout(child);
+  nsITableCellLayout* cellLayout = nsFrameSelection::GetCellLayout(child);
   if (!cellLayout) return NS_ERROR_FAILURE;
 
   return cellLayout->GetCellIndexes(*aRow, *aCol);
@@ -491,53 +542,6 @@ nsresult Selection::MaybeAddTableCellRange(nsRange* aRange, bool* aDidAddRange,
 
   *aDidAddRange = true;
   return AddRangesForSelectableNodes(aRange, aOutIndex);
-}
-
-// TODO: Figure out TableSelection::Column and TableSelection::AllCells
-nsresult Selection::GetTableSelectionType(nsRange* aRange,
-                                          TableSelection* aTableSelectionType) {
-  if (!aRange || !aTableSelectionType) return NS_ERROR_NULL_POINTER;
-
-  *aTableSelectionType = TableSelection::None;
-
-  // Must have access to frame selection to get cell info
-  if (!mFrameSelection) return NS_OK;
-
-  nsINode* startNode = aRange->GetStartContainer();
-  if (!startNode) return NS_ERROR_FAILURE;
-
-  nsINode* endNode = aRange->GetEndContainer();
-  if (!endNode) return NS_ERROR_FAILURE;
-
-  // Not a single selected node
-  if (startNode != endNode) return NS_OK;
-
-  nsIContent* child = aRange->GetChildAtStartOffset();
-
-  // Not a single selected node
-  if (!child || child->GetNextSibling() != aRange->GetChildAtEndOffset()) {
-    return NS_OK;
-  }
-
-  nsIContent* startContent = static_cast<nsIContent*>(startNode);
-  if (!(startNode->IsElement() && startContent->IsHTMLElement())) {
-    // Implies a check for being an element; if we ever make this work
-    // for non-HTML, need to keep checking for elements.
-    return NS_OK;
-  }
-
-  if (startContent->IsHTMLElement(nsGkAtoms::tr)) {
-    *aTableSelectionType = TableSelection::Cell;
-  } else  // check to see if we are selecting a table or row (column and all
-          // cells not done yet)
-  {
-    if (child->IsHTMLElement(nsGkAtoms::table))
-      *aTableSelectionType = TableSelection::Table;
-    else if (child->IsHTMLElement(nsGkAtoms::tr))
-      *aTableSelectionType = TableSelection::Row;
-  }
-
-  return NS_OK;
 }
 
 Selection::Selection()
@@ -809,8 +813,8 @@ nsresult Selection::SubtractRange(StyledRange& aRange, nsRange& aSubtract,
   return NS_OK;
 }
 
-void Selection::UserSelectRangesToAdd(nsRange* aItem,
-                                      nsTArray<RefPtr<nsRange>>& aRangesToAdd) {
+static void UserSelectRangesToAdd(nsRange* aItem,
+                                  nsTArray<RefPtr<nsRange>>& aRangesToAdd) {
   // We cannot directly call IsEditorSelection() because we may be in an
   // inconsistent state during Collapse() (we're cleared already but we haven't
   // got a new focus node yet).
@@ -1268,7 +1272,7 @@ nsresult Selection::GetPrimaryFrameForAnchorNode(nsIFrame** aReturnFrame) {
   *aReturnFrame = 0;
   nsCOMPtr<nsIContent> content = do_QueryInterface(GetAnchorNode());
   if (content && mFrameSelection) {
-    *aReturnFrame = mFrameSelection->GetFrameForNodeOffset(
+    *aReturnFrame = nsFrameSelection::GetFrameForNodeOffset(
         content, AnchorOffset(), mFrameSelection->GetHint(), &frameOffset);
     if (*aReturnFrame) return NS_OK;
   }
@@ -1341,8 +1345,8 @@ nsresult Selection::GetPrimaryOrCaretFrameForNodeOffset(nsIContent* aContent,
         /* aReturnUnadjustedFrame = */ nullptr, aOffsetUsed);
   }
 
-  *aReturnFrame = mFrameSelection->GetFrameForNodeOffset(aContent, aOffset,
-                                                         hint, aOffsetUsed);
+  *aReturnFrame = nsFrameSelection::GetFrameForNodeOffset(aContent, aOffset,
+                                                          hint, aOffsetUsed);
   if (!*aReturnFrame) {
     return NS_ERROR_FAILURE;
   }
@@ -2716,6 +2720,16 @@ bool Selection::ContainsPoint(const nsPoint& aPoint) {
   return false;
 }
 
+void Selection::MaybeNotifyAccessibleCaretEventHub(PresShell* aPresShell) {
+  if (!mAccessibleCaretEventHub && aPresShell) {
+    mAccessibleCaretEventHub = aPresShell->GetAccessibleCaretEventHub();
+  }
+}
+
+void Selection::StopNotifyingAccessibleCaretEventHub() {
+  mAccessibleCaretEventHub = nullptr;
+}
+
 nsPresContext* Selection::GetPresContext() const {
   PresShell* presShell = GetPresShell();
   return presShell ? presShell->GetPresContext() : nullptr;
@@ -2816,7 +2830,7 @@ nsIFrame* Selection::GetSelectionEndPointGeometry(SelectionRegion aRegion,
   nsCOMPtr<nsIContent> content = do_QueryInterface(node);
   NS_ENSURE_TRUE(content.get(), nullptr);
   int32_t frameOffset = 0;
-  frame = mFrameSelection->GetFrameForNodeOffset(
+  frame = nsFrameSelection::GetFrameForNodeOffset(
       content, nodeOffset, mFrameSelection->GetHint(), &frameOffset);
   if (!frame) return nullptr;
 

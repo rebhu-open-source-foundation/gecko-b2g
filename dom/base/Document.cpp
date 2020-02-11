@@ -26,6 +26,7 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/Likely.h"
 #include "mozilla/LoadInfo.h"
+#include "mozilla/MediaFeatureChange.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellInlines.h"
 #include "mozilla/RestyleManager.h"
@@ -39,6 +40,7 @@
 #include "mozilla/StaticPrefs_plugins.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StaticPrefs_security.h"
+#include "mozilla/StaticPresData.h"
 #include "mozilla/StorageAccess.h"
 #include "mozilla/TextControlElement.h"
 #include "mozilla/TextEditor.h"
@@ -14925,9 +14927,28 @@ BrowsingContext* Document::GetBrowsingContext() const {
 }
 
 void Document::NotifyUserGestureActivation() {
-  for (RefPtr<BrowsingContext> bc = GetBrowsingContext(); bc;
-       bc = bc->GetParent()) {
-    bc->NotifyUserGestureActivation();
+  if (RefPtr<BrowsingContext> bc = GetBrowsingContext()) {
+    bc->PreOrderWalk([&](BrowsingContext* aContext) {
+      nsIDocShell* docShell = aContext->GetDocShell();
+      if (!docShell) {
+        return;
+      }
+
+      Document* document = docShell->GetDocument();
+      if (!document) {
+        return;
+      }
+
+      // XXXedgar we probably could just check `IsInProcess()` after fission
+      // enable.
+      if (NodePrincipal()->Equals(document->NodePrincipal())) {
+        aContext->NotifyUserGestureActivation();
+      }
+    });
+
+    for (bc = bc->GetParent(); bc; bc = bc->GetParent()) {
+      bc->NotifyUserGestureActivation();
+    }
   }
 }
 

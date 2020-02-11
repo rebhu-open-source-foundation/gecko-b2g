@@ -1442,6 +1442,20 @@ nsresult nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
+  nsILoadContext* ourLoadContext = ourContent->OwnerDoc()->GetLoadContext();
+  nsILoadContext* otherLoadContext = otherContent->OwnerDoc()->GetLoadContext();
+  MOZ_ASSERT(ourLoadContext && otherLoadContext,
+             "Swapping frames within dead documents?");
+  if (ourLoadContext->UseRemoteTabs() != otherLoadContext->UseRemoteTabs()) {
+    NS_WARNING("Can't swap between e10s and non-e10s windows");
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+  if (ourLoadContext->UseRemoteSubframes() !=
+      otherLoadContext->UseRemoteSubframes()) {
+    NS_WARNING("Can't swap between fission and non-fission windows");
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+
   // Divert to a separate path for the remaining steps in the remote case
   if (IsRemoteFrame()) {
     MOZ_ASSERT(aOther->IsRemoteFrame());
@@ -2690,7 +2704,7 @@ bool nsFrameLoader::TryRemoteBrowserInternal() {
     nsAutoString frameName;
     mOwnerContent->GetAttr(kNameSpaceID_None, nsGkAtoms::name, frameName);
     if (nsContentUtils::IsOverridingWindowName(frameName)) {
-      Unused << browserParent->SendSetWindowName(frameName);
+      mBrowsingContext->SetName(frameName);
     }
     // Allow scripts to close the window if the browser specified so:
     if (mOwnerContent->AttrValueIs(kNameSpaceID_None,
@@ -2913,8 +2927,8 @@ nsresult nsFrameLoader::DoSendAsyncMessage(JSContext* aCx,
     if (aCpows && (!mgr || !mgr->Wrap(aCx, aCpows, &cpows))) {
       return NS_ERROR_UNEXPECTED;
     }
-    if (browserParent->SendAsyncMessage(nsString(aMessage), cpows,
-                                        IPC::Principal(aPrincipal), data)) {
+    if (browserParent->SendAsyncMessage(nsString(aMessage), cpows, aPrincipal,
+                                        data)) {
       return NS_OK;
     } else {
       return NS_ERROR_UNEXPECTED;

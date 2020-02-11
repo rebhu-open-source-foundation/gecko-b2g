@@ -6,6 +6,7 @@
 
 #include "nsLayoutUtils.h"
 
+#include "mozilla/AccessibleCaretEventHub.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/BasicEvents.h"
 #include "mozilla/dom/CanvasUtils.h"
@@ -2018,7 +2019,7 @@ bool nsLayoutUtils::IsFixedPosFrameInDisplayPort(const nsIFrame* aFrame) {
   // their pages!
   nsIFrame* parent = aFrame->GetParent();
   if (!parent || parent->GetParent() ||
-      aFrame->StyleDisplay()->mPosition != NS_STYLE_POSITION_FIXED) {
+      aFrame->StyleDisplay()->mPosition != StylePositionProperty::Fixed) {
     return false;
   }
   return ViewportHasDisplayPort(aFrame->PresContext());
@@ -2076,7 +2077,7 @@ nsIScrollableFrame* nsLayoutUtils::GetNearestScrollableFrame(nsIFrame* aFrame,
       }
     }
     if ((aFlags & SCROLLABLE_FIXEDPOS_FINDS_ROOT) &&
-        f->StyleDisplay()->mPosition == NS_STYLE_POSITION_FIXED &&
+        f->StyleDisplay()->mPosition == StylePositionProperty::Fixed &&
         nsLayoutUtils::IsReallyFixedPos(f)) {
       return f->PresShell()->GetRootScrollFrameAsScrollable();
     }
@@ -3503,7 +3504,7 @@ void PrintHitTestInfoStatsInternal(nsDisplayList* aList, int& aTotal,
       aHitTest++;
 
       const auto& hitTestInfo =
-          static_cast<nsDisplayHitTestInfoItem*>(i)->HitTestFlags();
+          static_cast<nsDisplayHitTestInfoBase*>(i)->HitTestFlags();
 
       if (hitTestInfo.size() > 1) {
         aSpecial++;
@@ -7467,7 +7468,7 @@ nsDeviceContext* nsLayoutUtils::GetDeviceContextForScreenInfo(
 
 /* static */
 bool nsLayoutUtils::IsReallyFixedPos(const nsIFrame* aFrame) {
-  MOZ_ASSERT(aFrame->StyleDisplay()->mPosition == NS_STYLE_POSITION_FIXED,
+  MOZ_ASSERT(aFrame->StyleDisplay()->mPosition == StylePositionProperty::Fixed,
              "IsReallyFixedPos called on non-'position:fixed' frame");
   return MayBeReallyFixedPos(aFrame);
 }
@@ -9034,8 +9035,13 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
         CSSPoint::FromAppUnits(scrollableFrame->GetApzScrollPosition());
     metrics.SetScrollOffset(scrollPosition);
     metrics.SetBaseScrollOffset(apzScrollPosition);
+    metrics.SetVisualViewportOffset(
+        aIsRootContent && presShell->IsVisualViewportOffsetSet()
+            ? CSSPoint::FromAppUnits(presShell->GetVisualViewportOffset())
+            : scrollPosition);
 
     if (aIsRootContent) {
+
       if (aLayerManager->GetIsFirstPaint() &&
           presShell->IsVisualViewportOffsetSet()) {
         // Restore the visual viewport offset to the copy stored on the
@@ -10158,7 +10164,8 @@ static Maybe<ScreenRect> GetFrameVisibleRectOnScreen(const nsIFrame* aFrame) {
       PixelCastJustification::ContentProcessIsLayerInUiProcess);
 
   return Some(
-      browserChild->GetRemoteDocumentRect().Intersect(transformedToRoot));
+      browserChild->GetTopLevelViewportVisibleRectInBrowserCoords().Intersect(
+          transformedToRoot));
 }
 
 // static

@@ -28,6 +28,7 @@
 #include "nsIContentViewer.h"
 #include "nsPIDOMWindow.h"
 #include "mozilla/ServoStyleSet.h"
+#include "mozilla/MediaFeatureChange.h"
 #include "nsIContent.h"
 #include "nsIFrame.h"
 #include "mozilla/dom/BrowsingContext.h"
@@ -65,6 +66,7 @@
 #include "mozilla/dom/PBrowserParent.h"
 #include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/BrowserParent.h"
+#include "mozilla/StaticPresData.h"
 #include "nsRefreshDriver.h"
 #include "Layers.h"
 #include "LayerUserData.h"
@@ -1472,7 +1474,7 @@ void nsPresContext::MediaFeatureValuesChanged(
   }
 
   if (!mPendingMediaFeatureValuesChange) {
-    mPendingMediaFeatureValuesChange.emplace(aChange);
+    mPendingMediaFeatureValuesChange = MakeUnique<MediaFeatureChange>(aChange);
     return;
   }
 
@@ -1480,7 +1482,7 @@ void nsPresContext::MediaFeatureValuesChanged(
 }
 
 void nsPresContext::RebuildAllStyleData(nsChangeHint aExtraHint,
-                                        RestyleHint aRestyleHint) {
+                                        const RestyleHint& aRestyleHint) {
   if (!mPresShell) {
     // We must have been torn down. Nothing to do here.
     return;
@@ -1504,8 +1506,8 @@ void nsPresContext::RebuildAllStyleData(nsChangeHint aExtraHint,
   RestyleManager()->RebuildAllStyleData(aExtraHint, aRestyleHint);
 }
 
-void nsPresContext::PostRebuildAllStyleDataEvent(nsChangeHint aExtraHint,
-                                                 RestyleHint aRestyleHint) {
+void nsPresContext::PostRebuildAllStyleDataEvent(
+    nsChangeHint aExtraHint, const RestyleHint& aRestyleHint) {
   if (!mPresShell) {
     // We must have been torn down. Nothing to do here.
     return;
@@ -1529,7 +1531,6 @@ void nsPresContext::MediaFeatureValuesChangedAllDocuments(
 
   // Propagate the media feature value change down to any SVG images the
   // document is using.
-  mDocument->StyleImageLoader()->MediaFeatureValuesChangedAllDocuments(aChange);
   mDocument->ImageTracker()->MediaFeatureValuesChangedAllDocuments(aChange);
 
   // And then into any subdocuments.

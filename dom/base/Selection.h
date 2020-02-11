@@ -8,12 +8,10 @@
 #define mozilla_Selection_h__
 
 #include "mozilla/dom/StyledRange.h"
-#include "mozilla/AccessibleCaretEventHub.h"
 #include "mozilla/AutoRestore.h"
-#include "mozilla/PresShell.h"
+#include "mozilla/EventForwards.h"
 #include "mozilla/RangeBoundary.h"
 #include "mozilla/SelectionChangeEventDispatcher.h"
-#include "mozilla/TextRange.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/WeakPtr.h"
 #include "nsDirection.h"
@@ -35,6 +33,7 @@ class nsCopySupport;
 class nsHTMLCopyEncoder;
 
 namespace mozilla {
+class AccessibleCaretEventHub;
 class ErrorResult;
 class HTMLEditor;
 class PostContentIterator;
@@ -46,6 +45,7 @@ class DocGroup;
 }  // namespace mozilla
 
 namespace mozilla {
+
 namespace dom {
 
 // Note, the ownership of mozilla::dom::Selection depends on which way the
@@ -84,19 +84,13 @@ class Selection final : public nsSupportsWeakReference,
    * MaybeNotifyAccessibleCaretEventHub() starts to notify
    * AccessibleCaretEventHub of selection change if aPresShell has it.
    */
-  void MaybeNotifyAccessibleCaretEventHub(PresShell* aPresShell) {
-    if (!mAccessibleCaretEventHub && aPresShell) {
-      mAccessibleCaretEventHub = aPresShell->GetAccessibleCaretEventHub();
-    }
-  }
+  void MaybeNotifyAccessibleCaretEventHub(PresShell* aPresShell);
 
   /**
    * StopNotifyingAccessibleCaretEventHub() stops notifying
    * AccessibleCaretEventHub of selection change.
    */
-  void StopNotifyingAccessibleCaretEventHub() {
-    mAccessibleCaretEventHub = nullptr;
-  }
+  void StopNotifyingAccessibleCaretEventHub();
 
   /**
    * EnableSelectionChangeEvent() starts to notify
@@ -712,17 +706,10 @@ class Selection final : public nsSupportsWeakReference,
    */
   void SelectFramesInAllRanges(nsPresContext* aPresContext);
 
-  /**
-   * Test whether the supplied range points to a single table element.
-   * Result is one of the TableSelection constants. "None" means
-   * a table element isn't selected.
-   */
-  nsresult GetTableSelectionType(nsRange* aRange,
-                                 TableSelection* aTableSelectionType);
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  nsresult GetTableCellLocationFromRange(nsRange* aRange,
-                                         TableSelection* aSelectionType,
-                                         int32_t* aRow, int32_t* aCol);
+  static nsresult GetTableCellLocationFromRange(nsRange* aRange,
+                                                TableSelection* aSelectionType,
+                                                int32_t* aRow, int32_t* aCol);
 
   /**
    * @param aOutIndex points to the index of the range in mRanges. If
@@ -763,9 +750,6 @@ class Selection final : public nsSupportsWeakReference,
                                  int32_t& aStartIndex,
                                  int32_t& aEndIndex) const;
   StyledRange* FindRangeData(nsRange* aRange);
-
-  static void UserSelectRangesToAdd(nsRange* aItem,
-                                    nsTArray<RefPtr<nsRange>>& rangesToAdd);
 
   /**
    * Preserves the sorting and disjunctiveness of mRanges.

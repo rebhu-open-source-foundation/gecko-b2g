@@ -17,6 +17,7 @@
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/dom/ElementInlines.h"
+#include "mozilla/dom/ImageTracker.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -129,6 +130,7 @@ using namespace mozilla::gfx;
 using namespace mozilla::layers;
 using namespace mozilla::layout;
 typedef nsAbsoluteContainingBlock::AbsPosReflowFlags AbsPosReflowFlags;
+using nsStyleTransformMatrix::TransformReferenceBox;
 
 const mozilla::LayoutFrameType nsIFrame::sLayoutFrameTypes[
 #define FRAME_ID(...) 1 +
@@ -789,7 +791,7 @@ void nsFrame::DestroyFrom(nsIFrame* aDestructRoot,
 
   SVGObserverUtils::InvalidateDirectRenderingObservers(this);
 
-  if (StyleDisplay()->mPosition == NS_STYLE_POSITION_STICKY) {
+  if (StyleDisplay()->mPosition == StylePositionProperty::Sticky) {
     StickyScrollContainer* ssc =
         StickyScrollContainer::GetStickyScrollContainerForFrame(this);
     if (ssc) {
@@ -1162,7 +1164,7 @@ void nsFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
   MaybeScheduleReflowSVGNonDisplayText(this);
 
   Document* doc = PresContext()->Document();
-  ImageLoader* imageLoader = doc->StyleImageLoader();
+  ImageLoader* loader = doc->StyleImageLoader();
   // Continuing text frame doesn't initialize its continuation pointer before
   // reaching here for the first time, so we have to exclude text frames. This
   // doesn't affect correctness because text can't match selectors.
@@ -1182,12 +1184,12 @@ void nsFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
       aOldComputedStyle ? &aOldComputedStyle->StyleBackground()->mImage
                         : nullptr;
   const nsStyleImageLayers* newLayers = &StyleBackground()->mImage;
-  AddAndRemoveImageAssociations(*imageLoader, this, oldLayers, newLayers);
+  AddAndRemoveImageAssociations(*loader, this, oldLayers, newLayers);
 
   oldLayers =
       aOldComputedStyle ? &aOldComputedStyle->StyleSVGReset()->mMask : nullptr;
   newLayers = &StyleSVGReset()->mMask;
-  AddAndRemoveImageAssociations(*imageLoader, this, oldLayers, newLayers);
+  AddAndRemoveImageAssociations(*loader, this, oldLayers, newLayers);
 
   const nsStyleDisplay* disp = StyleDisplay();
   bool handleStickyChange = false;
@@ -1268,11 +1270,11 @@ void nsFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
         RemoveProperty(NormalPositionProperty());
       }
 
-      handleStickyChange = disp->mPosition == NS_STYLE_POSITION_STICKY ||
-                           oldDisp->mPosition == NS_STYLE_POSITION_STICKY;
+      handleStickyChange = disp->mPosition == StylePositionProperty::Sticky ||
+                           oldDisp->mPosition == StylePositionProperty::Sticky;
     }
   } else {  // !aOldComputedStyle
-    handleStickyChange = disp->mPosition == NS_STYLE_POSITION_STICKY;
+    handleStickyChange = disp->mPosition == StylePositionProperty::Sticky;
   }
 
   if (handleStickyChange && !HasAnyStateBits(NS_FRAME_IS_NONDISPLAY) &&
@@ -1284,7 +1286,7 @@ void nsFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
     // StickyScrollContainer will remove them later.
     if (auto* ssc =
             StickyScrollContainer::GetStickyScrollContainerForFrame(this)) {
-      if (disp->mPosition == NS_STYLE_POSITION_STICKY) {
+      if (disp->mPosition == StylePositionProperty::Sticky) {
         ssc->AddFrame(this);
       } else {
         ssc->RemoveFrame(this);
@@ -1314,10 +1316,10 @@ void nsFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
   if (oldBorderImage != newBorderImage) {
     // stop and restart the image loading/notification
     if (oldBorderImage && HasImageRequest()) {
-      imageLoader->DisassociateRequestFromFrame(oldBorderImage, this);
+      loader->DisassociateRequestFromFrame(oldBorderImage, this);
     }
     if (newBorderImage) {
-      imageLoader->AssociateRequestToFrame(newBorderImage, this, 0);
+      loader->AssociateRequestToFrame(newBorderImage, this, 0);
     }
   }
 
@@ -1330,11 +1332,11 @@ void nsFrame::DidSetComputedStyle(ComputedStyle* aOldComputedStyle) {
 
   if (oldShapeImage != newShapeImage) {
     if (oldShapeImage && HasImageRequest()) {
-      imageLoader->DisassociateRequestFromFrame(oldShapeImage, this);
+      loader->DisassociateRequestFromFrame(oldShapeImage, this);
     }
     if (newShapeImage) {
-      imageLoader->AssociateRequestToFrame(
-          newShapeImage, this, ImageLoader::REQUEST_REQUIRES_REFLOW);
+      loader->AssociateRequestToFrame(newShapeImage, this,
+                                      ImageLoader::REQUEST_REQUIRES_REFLOW);
     }
   }
 
@@ -2555,17 +2557,23 @@ nscolor nsIFrame::GetCaretColorAt(int32_t aOffset) {
 bool nsFrame::DisplayBackgroundUnconditional(nsDisplayListBuilder* aBuilder,
                                              const nsDisplayListSet& aLists,
                                              bool aForceBackground) {
+  if (aBuilder->IsForEventDelivery()) {
+    aLists.BorderBackground()->AppendNewToTop<nsDisplayEventReceiver>(aBuilder,
+                                                                      this);
+    return false;
+  }
+
   // Here we don't try to detect background propagation. Frames that might
   // receive a propagated background should just set aForceBackground to
   // true.
-  if (aBuilder->IsForEventDelivery() || aForceBackground ||
-      !StyleBackground()->IsTransparent(this) ||
+  if (aForceBackground || !StyleBackground()->IsTransparent(this) ||
       StyleDisplay()->HasAppearance()) {
     return nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
         aBuilder, this,
         GetRectRelativeToSelf() + aBuilder->ToReferenceFrame(this),
         aLists.BorderBackground());
   }
+
   return false;
 }
 
@@ -3048,11 +3056,11 @@ struct ContainerTracker {
 static void AddHitTestInfo(nsDisplayListBuilder* aBuilder, nsDisplayList* aList,
                            nsDisplayItem* aContainer, nsIFrame* aFrame,
                            mozilla::UniquePtr<HitTestInfo>&& aHitTestInfo) {
-  nsDisplayHitTestInfoItem* hitTestItem;
+  nsDisplayHitTestInfoBase* hitTestItem;
 
   if (aContainer) {
     MOZ_ASSERT(aContainer->IsHitTestItem());
-    hitTestItem = static_cast<nsDisplayHitTestInfoItem*>(aContainer);
+    hitTestItem = static_cast<nsDisplayHitTestInfoBase*>(aContainer);
     hitTestItem->SetHitTestInfo(std::move(aHitTestInfo));
   } else {
     // No container item was created for this frame. Create a separate
@@ -3255,13 +3263,13 @@ void nsIFrame::BuildDisplayListForStackingContext(
   }
 
   bool useStickyPosition =
-      disp->mPosition == NS_STYLE_POSITION_STICKY &&
+      disp->mPosition == StylePositionProperty::Sticky &&
       IsScrollFrameActive(
           aBuilder,
           nsLayoutUtils::GetNearestScrollableFrame(
               GetParent(), nsLayoutUtils::SCROLLABLE_SAME_DOC |
                                nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN));
-  bool useFixedPosition = disp->mPosition == NS_STYLE_POSITION_FIXED &&
+  bool useFixedPosition = disp->mPosition == StylePositionProperty::Fixed &&
                           (nsLayoutUtils::IsFixedPosFrameInDisplayPort(this) ||
                            BuilderHasScrolledClip(aBuilder));
 
@@ -4741,9 +4749,7 @@ nsresult nsFrame::SelectByTypeAtPoint(nsPresContext* aPresContext,
   if (!offsets.content) return NS_ERROR_FAILURE;
 
   int32_t offset;
-  const nsFrameSelection* frameSelection =
-      PresContext()->GetPresShell()->ConstFrameSelection();
-  nsIFrame* theFrame = frameSelection->GetFrameForNodeOffset(
+  nsIFrame* theFrame = nsFrameSelection::GetFrameForNodeOffset(
       offsets.content, offsets.offset, offsets.associate, &offset);
   if (!theFrame) return NS_ERROR_FAILURE;
 
@@ -5516,9 +5522,24 @@ nsIFrame::ContentOffsets nsFrame::CalcContentOffsetsFromFramePoint(
   return OffsetsForSingleFrame(this, aPoint);
 }
 
-void nsIFrame::AssociateImage(const nsStyleImage& aImage,
-                              nsPresContext* aPresContext,
-                              uint32_t aImageLoaderFlags) {
+bool nsIFrame::AssociateImage(const nsStyleImage& aImage) {
+  if (aImage.GetType() != eStyleImageType_Image) {
+    return false;
+  }
+
+  imgRequestProxy* req = aImage.GetImageData();
+  if (!req) {
+    return false;
+  }
+
+  mozilla::css::ImageLoader* loader =
+      PresContext()->Document()->StyleImageLoader();
+
+  loader->AssociateRequestToFrame(req, this, 0);
+  return true;
+}
+
+void nsIFrame::DisassociateImage(const nsStyleImage& aImage) {
   if (aImage.GetType() != eStyleImageType_Image) {
     return;
   }
@@ -5527,11 +5548,11 @@ void nsIFrame::AssociateImage(const nsStyleImage& aImage,
   if (!req) {
     return;
   }
-  mozilla::css::ImageLoader* loader =
-      aPresContext->Document()->StyleImageLoader();
 
-  // If this fails there's not much we can do ...
-  loader->AssociateRequestToFrame(req, this, aImageLoaderFlags);
+  mozilla::css::ImageLoader* loader =
+      PresContext()->Document()->StyleImageLoader();
+
+  loader->DisassociateRequestFromFrame(req, this);
 }
 
 Maybe<nsIFrame::Cursor> nsIFrame::GetCursor(const nsPoint&) {
@@ -7059,8 +7080,7 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(const nsIFrame* aStopAtAncestor,
     Matrix4x4 result = nsDisplayTransform::GetResultingTransformMatrix(
         this, nsPoint(0, 0), scaleFactor,
         nsDisplayTransform::INCLUDE_PERSPECTIVE |
-            nsDisplayTransform::OFFSET_BY_ORIGIN,
-        nullptr);
+            nsDisplayTransform::OFFSET_BY_ORIGIN);
     *aOutAncestor = nsLayoutUtils::GetCrossDocParentFrame(this);
     nsPoint delta = GetOffsetToCrossDoc(*aOutAncestor);
     /* Combine the raw transform with a translation to our parent. */
@@ -9293,8 +9313,9 @@ static nsRect UnionBorderBoxes(
   // Start from our border-box, transformed.  See comment below about
   // transform of children.
   bool doTransform = aApplyTransform && aFrame->IsTransformed();
+  TransformReferenceBox boundsRefBox(nullptr, bounds);
   if (doTransform) {
-    u = nsDisplayTransform::TransformRect(bounds, aFrame, &bounds);
+    u = nsDisplayTransform::TransformRect(bounds, aFrame, boundsRefBox);
   } else {
     u = bounds;
   }
@@ -9376,7 +9397,7 @@ static nsRect UnionBorderBoxes(
       // overflow areas in preserve-3d 3-D scenes.
       if (doTransform && !child->Combines3DTransformWithAncestors()) {
         childRect =
-            nsDisplayTransform::TransformRect(childRect, aFrame, &bounds);
+            nsDisplayTransform::TransformRect(childRect, aFrame, boundsRefBox);
       }
 
       // If a SVGContainer has a non-SVGContainer child, we assign
@@ -9441,7 +9462,8 @@ static void ComputeAndIncludeOutlineArea(nsIFrame* aFrame,
           break;
         }
         if (parent->IsTransformed() && !f->Combines3DTransformWithAncestors()) {
-          r = nsDisplayTransform::TransformRect(r, parent);
+          TransformReferenceBox refBox(parent);
+          r = nsDisplayTransform::TransformRect(r, parent, refBox);
         }
       }
 
@@ -9639,9 +9661,10 @@ bool nsIFrame::FinishAndStoreOverflow(nsOverflowAreas& aOverflowAreas,
        */
       aOverflowAreas.SetAllTo(nsRect());
     } else {
+      TransformReferenceBox refBox(this);
       NS_FOR_FRAME_OVERFLOW_TYPES(otype) {
         nsRect& o = aOverflowAreas.Overflow(otype);
-        o = nsDisplayTransform::TransformRect(o, this);
+        o = nsDisplayTransform::TransformRect(o, this, refBox);
       }
 
       /* If we're the root of the 3d context, then we want to include the
@@ -9730,10 +9753,10 @@ void nsIFrame::ComputePreserve3DChildrenOverflow(
       const nsStyleDisplay* childDisp = child->StyleDisplay();
       if (child->Combines3DTransformWithAncestors(childDisp)) {
         nsOverflowAreas childOverflow = child->GetOverflowAreasRelativeToSelf();
-
+        TransformReferenceBox refBox(child);
         NS_FOR_FRAME_OVERFLOW_TYPES(otype) {
           nsRect& o = childOverflow.Overflow(otype);
-          o = nsDisplayTransform::TransformRect(o, child);
+          o = nsDisplayTransform::TransformRect(o, child, refBox);
         }
 
         aOverflowAreas.UnionWith(childOverflow);
@@ -11039,8 +11062,7 @@ gfx::Matrix nsIFrame::ComputeWidgetTransform() {
     return gfx::Matrix();
   }
 
-  nsStyleTransformMatrix::TransformReferenceBox refBox;
-  refBox.Init(GetSize());
+  TransformReferenceBox refBox(nullptr, nsRect(nsPoint(), GetSize()));
 
   nsPresContext* presContext = PresContext();
   int32_t appUnitsPerDevPixel = presContext->AppUnitsPerDevPixel();
