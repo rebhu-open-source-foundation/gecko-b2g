@@ -631,21 +631,43 @@ interface nsIRilCellInfo: nsISupports
 };
 
 /**
+ * XPCOM component for hardward config modem.
+ */
+[scriptable, uuid(be62ae1a-7487-49c7-ac3b-ab49b564ea69)]
+interface nsIHardwareConfigModem: nsISupports
+{
+    readonly attribute long rilModel;
+    readonly attribute long rat;        // bitset - ref. RadioTechnology.
+    readonly attribute long maxVoice;
+    readonly attribute long maxData;
+    readonly attribute long maxStandby;
+};
+
+/**
+ * XPCOM component for hardward config sim.
+ */
+[scriptable, uuid(a0348c59-ece5-4dd7-a5f3-ce78c7ac9179)]
+interface nsIHardwareConfigSim: nsISupports
+{
+    readonly attribute AString modemUuid;   // RadioConst:MAX_UUID_LENGTH is max length of the string
+};
+
+/**
  * XPCOM component for hardward config.
  */
-[scriptable, uuid(b28cf58d-a7a5-4d03-9b85-51b8eb97f954)]
+[scriptable, uuid(20910606-c1ea-40a2-8d6a-b13086843675)]
 interface nsIHardwareConfig: nsISupports
 {
     readonly attribute long type;
-    readonly attribute AString uuid;   // RadioConst:MAX_UUID_LENGTH is max length of the string
+    readonly attribute AString uuid;                     // RadioConst:MAX_UUID_LENGTH is max length of the string
     readonly attribute long state;
 
     // Only one of the below vectors must have size = 1 based on the HardwareConfigType and other
     // must have size = 0.
-    readonly attribute long modem;     // Valid only if type is Modem and size = 1 else must be
-                                       // empty
-    readonly attribute long sim;       // Valid only if type is SIM or else empty and size = 1
-                                       // else must be empty
+    readonly attribute nsIHardwareConfigModem modem;     // Valid only if type is Modem and size = 1 else must be
+                                                         // empty
+    readonly attribute nsIHardwareConfigSim sim;         // Valid only if type is SIM or else empty and size = 1
+                                                         // else must be empty
 };
 
 /**

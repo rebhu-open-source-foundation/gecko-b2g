@@ -807,20 +807,12 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_CALL_STATE_CHANGED");
         this.handleCallStateChanged();
         break;
-      //Not a unsolic command.
-      /*case "currentCalls":
-        gTelephonyService.notifyCurrentCalls(this.clientId, message.calls);
-        break;*/
       case "cdmaCallWaiting":
         gTelephonyService.notifyCdmaCallWaiting(this.clientId,
                                                 message.waitingCall);
         break;
-      //Not a unslolic command.
-      /*case "deviceIdentities":
-        gMobileConnectionService.notifyDeviceIdentities(this.clientId,
-                                                        message);
-        break;*/
       case "suppSvcNotification":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_SUPP_SVC_NOTIFICATION");
         gTelephonyService.notifySupplementaryService(this.clientId,
                                                      message.notificationType,
                                                      message.code,
@@ -829,8 +821,13 @@ RadioInterface.prototype = {
                                                      message.number);
         break;
       case "ussdreceived":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_ON_USSD typeCode = " + message.typeCode + " , message = " + message.message);
+        // Per ril.h the USSD session is assumed to persist if
+        // the type code is "1", otherwise the current session
+        // (if any) is assumed to have terminated.
+        let sessionEnded = (message.typeCode !== 1);
         gTelephonyService.notifyUssdReceived(this.clientId, message.message,
-                                             message.sessionEnded);
+                                             sessionEnded);
         break;
       case "datacalllistchanged":
         let dataCalls = message.getDataCallLists().map(dataCall => new DataCall(dataCall));
@@ -841,21 +838,20 @@ RadioInterface.prototype = {
                                                             dataCalls);
         break;
       case "ringbackTone":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RINGBACK_TONE : playRingbackTone = " + message.playRingbackTone);
         gTelephonyService.notifyRingbackTone(this.clientId, message.playRingbackTone);
         break;
-      case "datacallerror":
-        connHandler.handleDataCallError(message);
-        break;
+      // We don't need this let enterEmCb/exitEmCb to do the job.
       case "emergencyCbModeChange":
         gMobileConnectionService.notifyEmergencyCallbackModeChanged(this.clientId,
                                                                     message.active,
                                                                     message.timeoutMs);
         break;
+      //====== For networkinfochange not a unsol command=====
       case "networkinfochanged":
         gMobileConnectionService.notifyNetworkInfoChanged(this.clientId,
                                                           message);
         break;
-      //====== For networkinfochange =====
       case "networkselectionmodechange":
         gMobileConnectionService.notifyNetworkSelectModeChanged(this.clientId,
                                                                 message.mode);
@@ -877,14 +873,6 @@ RadioInterface.prototype = {
       case "otastatuschange":
         gMobileConnectionService.notifyOtaStatusChanged(this.clientId, message.status);
         break;
-      //Not a unsolic command
-      /*case "deviceidentitieschange":
-        gMobileConnectionService.notifyDeviceIdentitiesChanged(this.clientId,
-                                                               message.deviceIdentities.imei,
-                                                               message.deviceIdentities.imeisv,
-                                                               message.deviceIdentities.esn,
-                                                               message.deviceIdentities.meid);
-        break;*/
       case "radiostatechange":
         // gRadioEnabledController should know the radio state for each client,
         // so notify gRadioEnabledController here.
@@ -897,11 +885,6 @@ RadioInterface.prototype = {
           gRadioEnabledController._deactivateDataCalls();
         }
         break;
-      case "cardstatechange":
-        gIccService.notifyCardStateChanged(this.clientId,
-                                           message.cardState);
-        gRadioEnabledController.receiveCardState(this.clientId);
-        break;
       case "sms-received":
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_SMS");
         this.handleSmsReceived(message);
@@ -913,16 +896,12 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_NITZ_TIME_RECEIVED dateString = " + message.dateString + " ,receiveTimeInMS = " + message.receiveTimeInMS);
         this.handleNitzTime(message);
         break;
+      //==== For icc info not a Unsol command ===
       case "iccinfochange":
         if (DEBUG) this.debug("iccinfochange message=" + JSON.stringify(message));
         gIccService.notifyIccInfoChanged(this.clientId,
                                          message.iccid ? message : null);
         break;
-      // We don't need this. Let handlerilresponse handle it.
-      /*case "iccimsi":
-        if (DEBUG) this.debug("iccimsi message=" + JSON.stringify(message));
-        gIccService.notifyImsiChanged(this.clientId, message.imsi);
-        break;*/
       case "iccmbdn":
         if (DEBUG) this.debug("iccmbdn message=" + JSON.stringify(message));
         this.handleIccMbdn(message);
@@ -931,6 +910,11 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("iccmwis message=" + JSON.stringify(message));
         this.handleIccMwis(message.mwi);
         break;
+      case "isiminfochange":
+        gIccService.notifyIsimInfoChanged(this.clientId,
+                                          message.impi ? message : null);
+        break;
+      //================================================
       case "stkcommand":
         gIccService.notifyStkCommand(this.clientId,
                                      gStkCmdFactory.createCommand(message));
@@ -942,10 +926,6 @@ RadioInterface.prototype = {
       case "cdma-info-rec-received":
         this.handleCdmaInformationRecords(message.records);
         break;
-      case "isiminfochange":
-        gIccService.notifyIsimInfoChanged(this.clientId,
-                                          message.impi ? message : null);
-        break;
       case "pcochange":
         let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
         connHandler.updatePcoData(message.pco.cid,
@@ -954,17 +934,8 @@ RadioInterface.prototype = {
                                   message.pco.contents,
                                   message.pco.contents.length);
         break;
-      case "rttModify":
-        gTelephonyService.notifyRttModify(this.clientId, message.callIndex, message.rttMode);
-        break;
-      case "rttModifyResponse":
-        gTelephonyService.notifyRttModifyResponse(this.clientId, message.callIndex, message.rttStatus);
-        break;
-      case "rttMessage":
-        gTelephonyService.notifyRttMessage(this.clientId, message.callIndex, message.message);
-        break;
+      // Cameron TODO complete the modem reset.
       case "modemrestart":
-        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_MODEM_RESTART");
         gMobileConnectionService.notifyModemRestart(this.clientId, message.reason);
         break;
       case "networkStateChanged":
@@ -988,6 +959,63 @@ RadioInterface.prototype = {
         let cellInfoLists = message.getCellInfo();
         // Gecko do not handle this UNSL command.
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_CELL_INFO_LIST cellInfoLists = " + JSON.stringify(cellInfoLists));
+        break;
+      case "simRefresh":
+        let refreshResult = message.refreshResult;
+        // Gecko do not handle this UNSL command.
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_SIM_REFRESH refreshResult = " + JSON.stringify(refreshResult));
+        break;
+      case "restrictedStateChanged":
+        let restrictedState = message.restrictedState;
+        // Gecko do not handle this UNSL command.
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESTRICTED_STATE_CHANGED restrictedState = " + JSON.stringify(restrictedState));
+        break;
+      case "enterEmergencyCbMode":
+        //Cameron TODO complete the emgCBmode
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_ENTER_EMERGENCY_CALLBACK_MODE");
+        break;
+      case "exitEmergencyCbMode":
+        //Cameron TODO complete the emgCBmode
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_EXIT_EMERGENCY_CALLBACK_MODE");
+        break;
+      case "subscriptionStatusChanged":
+        let activate = message.activate;
+        // Gecko do not handle this UNSL command.
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_UICC_SUBSCRIPTION_STATUS_CHANGED activate = " + JSON.stringify(activate));
+        break;
+      case "srvccStateNotify":
+        // Gecko do not handle this UNSL command.
+        let srvccState = message.srvccState;
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_SRVCC_STATE_NOTIFY srvccState = " + JSON.stringify(srvccState));
+        break;
+      case "hardwareConfigChanged":
+        // Gecko do not handle this UNSL command.
+        let HWConfigs = message.getHardwardConfig();
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_HARDWARE_CONFIG_CHANGED HWConfigs = " + JSON.stringify(HWConfigs));
+        break;
+      case "radioCapabilityIndication":
+        // Gecko do not handle this UNSL command.
+        let rc = message.rc;
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RADIO_CAPABILITY rc = " + JSON.stringify(rc));
+        break;
+      case "lceData":
+        // Gecko do not handle this UNSL command.
+        let lce = message.lce;
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_LCEDATA_RECV lce = " + JSON.stringify(lce));
+        break;
+      case "pcoData":
+        // Gecko do not handle this UNSL command.
+        let pco = message.pco;
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_PCO_DATA pco = " + JSON.stringify(pco));
+        break;
+      case "imsNetworkStateChanged":
+        // Gecko do not handle this UNSL command.
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_IMS_NETWORK_STATE_CHANGED ");
+        break;
+      case "modemReset":
+        // Cameon TODO complete the modem reset feature.
+        let reason = message.reason;
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_MODEM_RESTART reason = " + JSON.stringify(reason));
         break;
       default:
         throw new Error("Don't know about this message type: " +
@@ -2109,6 +2137,12 @@ RadioInterface.prototype = {
         }
         break;
       case "cancelUSSD":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CANCEL_USSD");
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CANCEL_USSD error = " + response.errorMsg);
+        }
         break;
       case "getCLIR":
         if (response.errorMsg == 0) {

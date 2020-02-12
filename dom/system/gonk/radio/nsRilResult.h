@@ -422,15 +422,42 @@ class nsHardwareConfig final : public nsIHardwareConfig {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIHARDWARECONFIG
   nsHardwareConfig(int32_t aType, const nsAString& aUuid, int32_t aState,
-                   int32_t aModem, int32_t aSim);
+                   nsIHardwareConfigModem* aModem, nsIHardwareConfigSim* aSim);
 
  private:
   ~nsHardwareConfig(){};
   int32_t mType;
   nsString mUuid;
   int32_t mState;
-  int32_t mModem;
-  int32_t mSim;
+  RefPtr<nsIHardwareConfigModem> mModem;
+  RefPtr<nsIHardwareConfigSim> mSim;
+};
+
+class nsHardwareConfigModem final : public nsIHardwareConfigModem {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSIHARDWARECONFIGMODEM
+  nsHardwareConfigModem(int32_t aRilModel, int32_t aRat, int32_t aMaxVoice,
+                        int32_t aMaxData, int32_t aMaxStandby);
+
+ private:
+  ~nsHardwareConfigModem(){};
+  int32_t mRilModel;
+  int32_t mRat;
+  int32_t mMaxVoice;
+  int32_t mMaxData;
+  int32_t mMaxStandby;
+};
+
+class nsHardwareConfigSim final : public nsIHardwareConfigSim {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSIHARDWARECONFIGSIM
+  nsHardwareConfigSim(const nsAString& aModemUuid);
+
+ private:
+  ~nsHardwareConfigSim(){};
+  nsString mModemUuid;
 };
 
 class nsRadioCapability final : public nsIRadioCapability {
@@ -479,13 +506,13 @@ class nsPcoDataInfo final : public nsIPcoDataInfo {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIPCODATAINFO
-  nsPcoDataInfo(int32_t aCid, int32_t aBearerProto, bool aPcoId,
+  nsPcoDataInfo(int32_t aCid, const nsAString& aBearerProto, bool aPcoId,
                 nsTArray<int32_t>& aContents);
 
  private:
   ~nsPcoDataInfo(){};
   int32_t mCid;
-  int32_t mBearerProto;
+  nsString mBearerProto;
   bool mPcoId;
   nsTArray<int32_t> mContents;
 };

@@ -1047,7 +1047,9 @@ NS_IMPL_ISUPPORTS(nsRilCellInfo, nsIRilCellInfo)
  * nsHardwareConfig implementation
  */
 nsHardwareConfig::nsHardwareConfig(int32_t aType, const nsAString& aUuid,
-                                   int32_t aState, int32_t aModem, int32_t aSim)
+                                   int32_t aState,
+                                   nsIHardwareConfigModem* aModem,
+                                   nsIHardwareConfigSim* aSim)
     : mType(aType), mUuid(aUuid), mState(aState), mModem(aModem), mSim(aSim) {
   __android_log_print(ANDROID_LOG_INFO, " nsHardwareConfig",
                       "init nsHardwareConfig");
@@ -1067,17 +1069,84 @@ NS_IMETHODIMP nsHardwareConfig::GetState(int32_t* aState) {
   *aState = mState;
   return NS_OK;
 }
-NS_IMETHODIMP nsHardwareConfig::GetModem(int32_t* aModem) {
-  *aModem = mModem;
+
+NS_IMETHODIMP nsHardwareConfig::GetModem(nsIHardwareConfigModem** aModem) {
+  RefPtr<nsIHardwareConfigModem> hwConfigModem(mModem);
+  hwConfigModem.forget(aModem);
   return NS_OK;
 }
 
-NS_IMETHODIMP nsHardwareConfig::GetSim(int32_t* aSim) {
-  *aSim = mSim;
+NS_IMETHODIMP nsHardwareConfig::GetSim(nsIHardwareConfigSim** aSim) {
+  RefPtr<nsIHardwareConfigSim> hwConfigSim(mSim);
+  hwConfigSim.forget(aSim);
   return NS_OK;
 }
 
 NS_IMPL_ISUPPORTS(nsHardwareConfig, nsIHardwareConfig)
+
+/*============================================================================
+ *============ Implementation of Class nsHardwareConfigModem ===================
+ *============================================================================*/
+/**
+ * nsHardwareConfigModem implementation
+ */
+nsHardwareConfigModem::nsHardwareConfigModem(int32_t aRilModel, int32_t aRat,
+                                             int32_t aMaxVoice,
+                                             int32_t aMaxData,
+                                             int32_t aMaxStandby)
+    : mRilModel(aRilModel),
+      mRat(aRat),
+      mMaxVoice(aMaxVoice),
+      mMaxData(aMaxData),
+      mMaxStandby(aMaxStandby) {
+  __android_log_print(ANDROID_LOG_INFO, " nsHardwareConfigModem",
+                      "init nsHardwareConfigModem");
+}
+
+NS_IMETHODIMP nsHardwareConfigModem::GetRilModel(int32_t* aRilModel) {
+  *aRilModel = mRilModel;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsHardwareConfigModem::GetRat(int32_t* aRat) {
+  *aRat = mRat;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsHardwareConfigModem::GetMaxVoice(int32_t* aMaxVoice) {
+  *aMaxVoice = mMaxVoice;
+  return NS_OK;
+}
+NS_IMETHODIMP nsHardwareConfigModem::GetMaxData(int32_t* aMaxData) {
+  *aMaxData = mMaxData;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsHardwareConfigModem::GetMaxStandby(int32_t* aMaxStandby) {
+  *aMaxStandby = mMaxStandby;
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(nsHardwareConfigModem, nsIHardwareConfigModem)
+
+/*============================================================================
+ *============ Implementation of Class nsHardwareConfigSim ===================
+ *============================================================================*/
+/**
+ * nsHardwareConfigSim implementation
+ */
+nsHardwareConfigSim::nsHardwareConfigSim(const nsAString& aModemUuid)
+    : mModemUuid(aModemUuid) {
+  __android_log_print(ANDROID_LOG_INFO, " nsHardwareConfigSim",
+                      "init nsHardwareConfigSim");
+}
+
+NS_IMETHODIMP nsHardwareConfigSim::GetModemUuid(nsAString& aModemUuid) {
+  aModemUuid = mModemUuid;
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(nsHardwareConfigSim, nsIHardwareConfigSim)
 
 /*============================================================================
  *============ Implementation of Class nsRadioCapability ===================
@@ -1188,8 +1257,8 @@ NS_IMPL_ISUPPORTS(nsLceDataInfo, nsILceDataInfo)
 /**
  * nsPcoDataInfo implementation
  */
-nsPcoDataInfo::nsPcoDataInfo(int32_t aCid, int32_t aBearerProto, bool aPcoId,
-                             nsTArray<int32_t>& aContents)
+nsPcoDataInfo::nsPcoDataInfo(int32_t aCid, const nsAString& aBearerProto,
+                             bool aPcoId, nsTArray<int32_t>& aContents)
     : mCid(aCid),
       mBearerProto(aBearerProto),
       mPcoId(aPcoId),

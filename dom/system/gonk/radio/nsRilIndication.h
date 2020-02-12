@@ -157,7 +157,19 @@ class nsRilIndication : public IRadioIndication {
                           const ::android::hardware::hidl_string& reason);
 
  private:
+  void defaultResponse(const RadioIndicationType type,
+                       const nsString& rilmessageType);
   int32_t convertRadioStateToNum(RadioState state);
+  int32_t convertSimRefreshType(SimRefreshType type);
+  int32_t convertPhoneRestrictedState(PhoneRestrictedState state);
+  int32_t convertUssdModeType(UssdModeType type);
+  int32_t convertSrvccState(SrvccState state);
+  int32_t convertHardwareConfigType(HardwareConfigType state);
+  int32_t convertHardwareConfigState(HardwareConfigState state);
+
+  int32_t convertRadioCapabilityPhase(RadioCapabilityPhase value);
+  int32_t convertRadioAccessFamily(RadioAccessFamily value);
+  int32_t convertRadioCapabilityStatus(RadioCapabilityStatus state);
 };
 
 #endif
