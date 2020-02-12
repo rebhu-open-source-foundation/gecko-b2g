@@ -16,11 +16,13 @@
 
 #include "WifiCommon.h"
 
+#include <android/hidl/manager/1.0/IServiceManager.h>
+#include <android/hidl/manager/1.0/IServiceNotification.h>
+#include <android/hardware/wifi/1.0/IWifi.h>
 #include <android/hardware/wifi/1.0/IWifiChip.h>
 #include <android/hardware/wifi/1.0/IWifiStaIface.h>
 #include <android/hardware/wifi/1.0/IWifiEventCallback.h>
 #include <android/hardware/wifi/1.2/IWifiChipEventCallback.h>
-#include <android/hardware/wifi/1.3/IWifi.h>
 #include <android/hardware/wifi/1.3/types.h>
 #include <unordered_map>
 
@@ -34,6 +36,7 @@ using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::wifi::V1_0::ChipId;
+using ::android::hardware::wifi::V1_0::IWifi;
 using ::android::hardware::wifi::V1_0::IWifiApIface;
 using ::android::hardware::wifi::V1_0::IWifiChip;
 using ::android::hardware::wifi::V1_0::IWifiIface;
@@ -45,20 +48,20 @@ using ::android::hardware::wifi::V1_0::WifiDebugRingBufferStatus;
 using ::android::hardware::wifi::V1_0::WifiStatus;
 using ::android::hardware::wifi::V1_0::WifiStatusCode;
 using ::android::hardware::wifi::V1_2::IWifiChipEventCallback;
-using ::android::hardware::wifi::V1_3::IWifi;
 using ::android::hidl::base::V1_0::IBase;
 
 namespace wifiNameSpace = ::android::hardware::wifi::V1_0;
 
 class WifiHal
-    : virtual public android::hardware::wifi::V1_0::IWifiEventCallback,
-      virtual public android::hardware::wifi::V1_2::IWifiChipEventCallback,
-      virtual public android::hardware::wifi::V1_0::IWifiStaIfaceEventCallback {
+    : virtual public android::hidl::manager::V1_0::IServiceNotification,
+      virtual public android::hardware::wifi::V1_0::IWifiEventCallback,
+      virtual public android::hardware::wifi::V1_0::IWifiStaIfaceEventCallback,
+      virtual public android::hardware::wifi::V1_2::IWifiChipEventCallback {
  public:
   static WifiHal* Get();
   static void CleanUp();
 
-  bool InitWifiInterface();
+  bool InitHalInterface();
   bool TearDownInterface();
   bool GetCapabilities(uint32_t& aCapabilities);
   bool GetDriverModuleInfo(nsAString& aDriverVersion,
@@ -71,6 +74,11 @@ class WifiHal
                                 std::string& aIfaceName);
   bool GetStaCapabilities(uint32_t& aStaCapabilities);
   std::string GetInterfaceName(const wifiNameSpace::IfaceType& aType);
+
+  // IServiceNotification::onRegistration
+  virtual Return<void> onRegistration(const hidl_string& fqName,
+                                      const hidl_string& name,
+                                      bool preexisting) override;
 
  private:
   //...................... IWifiEventCallback ......................../
@@ -226,18 +234,28 @@ class WifiHal
       const ::android::hardware::hidl_array<uint8_t, 6>& currBssid,
       int32_t currRssi) override;
 
+  struct ServiceManagerDeathRecipient : public hidl_death_recipient {
+    ServiceManagerDeathRecipient(WifiHal* aOuter) : mOuter(aOuter) {}
+    // hidl_death_recipient interface
+    virtual void serviceDied(uint64_t cookie,
+                             const ::android::wp<IBase>& who) override;
+   private:
+    WifiHal* mOuter;
+  };
+
   struct WifiServiceDeathRecipient : public hidl_death_recipient {
     WifiServiceDeathRecipient(WifiHal* aOuter) : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;
-
    private:
     WifiHal* mOuter;
   };
 
   WifiHal();
   virtual ~WifiHal() {}
+  bool InitServiceManager();
+  bool InitWifiInterface();
   bool ConfigChipByType(const android::sp<IWifiChip>& aChip,
                         const wifiNameSpace::IfaceType& aType);
   std::string QueryInterfaceName(const android::sp<IWifiIface>& aIface);
@@ -245,6 +263,8 @@ class WifiHal
   static WifiHal* sInstance;
   static mozilla::Mutex sLock;
 
+  android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;
+  android::sp<ServiceManagerDeathRecipient> mServiceManagerDeathRecipient;
   android::sp<IWifi> mWifi;
   android::sp<IWifiChip> mWifiChip;
   android::sp<WifiServiceDeathRecipient> mDeathRecipient;

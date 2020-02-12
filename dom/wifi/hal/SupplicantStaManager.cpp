@@ -549,7 +549,7 @@ Return<void> SupplicantStaManager::onRegistration(const hidl_string& fqName,
                                                   bool preexisting) {
   // start to initialize supplicant hidl interface.
   if (!InitSupplicant()) {
-    WIFI_LOGE(LOG_TAG, "initalizing ISupplicant failed.");
+    WIFI_LOGE(LOG_TAG, "initialize ISupplicant failed");
     supplicantServiceDiedHandler(mDeathRecipientCookie);
   }
   return Return<void>();

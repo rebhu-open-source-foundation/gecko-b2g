@@ -151,7 +151,7 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
 
 bool WifiNative::InitHal() {
   // make sure wifi hal is ready
-  if (!sWifiHal->InitWifiInterface()) {
+  if (!sWifiHal->InitHalInterface()) {
     return false;
   }
 

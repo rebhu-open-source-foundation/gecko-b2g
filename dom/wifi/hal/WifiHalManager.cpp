@@ -12,6 +12,8 @@
 #include "WifiHalManager.h"
 #include <mozilla/ClearOnShutdown.h>
 
+static const char WIFI_INTERFACE_NAME[] = "android.hardware.wifi@1.0::IWifi";
+
 WifiHal* WifiHal::sInstance = nullptr;
 mozilla::Mutex WifiHal::sLock("wifi-hidl");
 
@@ -21,8 +23,10 @@ WifiHal::WifiHal()
       mStaIface(nullptr),
       mP2pIface(nullptr),
       mApIface(nullptr),
-      mDeathRecipient(nullptr) {
-  InitWifiInterface();
+      mDeathRecipient(nullptr),
+      mServiceManager(nullptr),
+      mServiceManagerDeathRecipient(nullptr) {
+  InitServiceManager();
 }
 
 WifiHal* WifiHal::Get() {
@@ -37,6 +41,16 @@ void WifiHal::CleanUp() {
   if (sInstance != nullptr) {
     delete sInstance;
     sInstance = nullptr;
+  }
+}
+
+void WifiHal::ServiceManagerDeathRecipient::serviceDied(
+    uint64_t, const android::wp<IBase>&) {
+  WIFI_LOGE(LOG_TAG, "IServiceManager HAL died, cleanup instance.");
+  MutexAutoLock lock(sLock);
+  if (mOuter != nullptr) {
+    mOuter->mServiceManager = nullptr;
+    mOuter->InitServiceManager();
   }
 }
 
@@ -114,6 +128,48 @@ bool WifiHal::TearDownInterface() {
     return false;
   }
   mWifi = nullptr;
+  mServiceManager = nullptr;
+  return true;
+}
+
+bool WifiHal::InitHalInterface() {
+  if (mWifi != nullptr) {
+    return true;
+  }
+  return InitServiceManager();
+}
+
+bool WifiHal::InitServiceManager() {
+  MutexAutoLock lock(sLock);
+  if (mServiceManager != nullptr) {
+    // service already existed.
+    return true;
+  }
+
+  mServiceManager =
+      ::android::hidl::manager::V1_0::IServiceManager::getService();
+  if (mServiceManager == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Failed to get HIDL service manager");
+    return false;
+  }
+
+  if (mServiceManagerDeathRecipient == nullptr) {
+    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
+  }
+  Return<bool> linked =
+      mServiceManager->linkToDeath(mServiceManagerDeathRecipient, 0);
+  if (!linked || !linked.isOk()) {
+    WIFI_LOGE(LOG_TAG, "Error on linkToDeath to IServiceManager");
+    mServiceManager = nullptr;
+    return false;
+  }
+
+  if (!mServiceManager->registerForNotifications(WIFI_INTERFACE_NAME, "",
+                                                 this)) {
+    WIFI_LOGE(LOG_TAG, "Failed to register for notifications to IWifi");
+    mServiceManager = nullptr;
+    return false;
+  }
   return true;
 }
 
@@ -335,6 +391,19 @@ std::string WifiHal::QueryInterfaceName(const android::sp<IWifiIface>& aIface) {
   aIface->getName([&ifaceName](const WifiStatus& status,
                                const hidl_string& name) { ifaceName = name; });
   return ifaceName;
+}
+
+/**
+ * IServiceNotification
+ */
+Return<void> WifiHal::onRegistration(const hidl_string& fqName,
+                                     const hidl_string& name,
+                                     bool preexisting) {
+  if (!InitWifiInterface()) {
+    WIFI_LOGE(LOG_TAG, "initialize IWifi failed.");
+    mWifi = nullptr;
+  }
+  return Return<void>();
 }
 
 /**
