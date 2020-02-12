@@ -294,7 +294,7 @@ GonkGPSGeolocationProvider::Startup() {
   } else {
     // Initialize GPS HAL first and it would start GPS after then.
     if (!mInitThread) {
-      nsresult rv = NS_NewThread(getter_AddRefs(mInitThread));
+      nsresult rv = NS_NewNamedThread("GPS Init", getter_AddRefs(mInitThread));
       NS_ENSURE_SUCCESS(rv, rv);
     }
 

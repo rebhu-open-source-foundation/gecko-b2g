@@ -143,7 +143,7 @@ WifiProxyService::Start(nsIWifiEventListener* aListener,
   MOZ_ASSERT(aListener);
 
   nsresult rv;
-  rv = NS_NewThread(getter_AddRefs(mControlThread));
+  rv = NS_NewNamedThread("Wifi Control", getter_AddRefs(mControlThread));
   if (NS_FAILED(rv)) {
     NS_WARNING("Can't create wifi control thread");
     Shutdown();

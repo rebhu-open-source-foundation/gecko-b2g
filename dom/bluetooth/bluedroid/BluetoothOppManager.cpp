@@ -850,7 +850,7 @@ BluetoothOppManager::ExtractBlobHeaders()
   }
 
   mFileLength = fileLength;
-  rv = NS_NewThread(getter_AddRefs(mReadFileThread));
+  rv = NS_NewNamedThread("Opp File Reader", getter_AddRefs(mReadFileThread));
   if (NS_WARN_IF(rv.Failed())) {
     SendDisconnectRequest();
     rv.SuppressException();
