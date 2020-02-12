@@ -113,6 +113,7 @@
 #include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
 #include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
 // #include "mozilla/dom/mobilemessage/SmsParent.h"
+#include "mozilla/dom/MediaSessionUtils.h"
 #include "mozilla/dom/Notification.h"
 #include "mozilla/dom/PContentPermissionRequestParent.h"
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
@@ -6569,6 +6570,12 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaAudibleChanged(
           aContext->Canonical()->GetMediaController()) {
     controller->NotifyMediaAudibleChanged(aAudible);
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaSessionUpdated(
+    BrowsingContext* aContext, bool aIsCreated) {
+  NotfiyMediaSessionCreationOrDeconstruction(aContext, aIsCreated);
   return IPC_OK();
 }
 

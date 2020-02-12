@@ -527,6 +527,7 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
         return Allow();
 
         // Simple I/O
+      case __NR_pread64:
       case __NR_write:
       case __NR_read:
       case __NR_readv:
@@ -1060,7 +1061,6 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 
       CASES_FOR_getdents:
       case __NR_writev:
-      case __NR_pread64:
 #ifdef DESKTOP
       case __NR_pwrite64:
       case __NR_readahead:
