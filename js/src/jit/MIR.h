@@ -536,11 +536,6 @@ class MDefinition : public MNode {
   InlineScriptTree* trackedTree() const {
     return trackedSite_ ? trackedSite_->tree() : nullptr;
   }
-  TrackedOptimizations* trackedOptimizations() const {
-    return trackedSite_ && trackedSite_->hasOptimizations()
-               ? trackedSite_->optimizations()
-               : nullptr;
-  }
 
   JSScript* profilerLeaveScript() const {
     return trackedTree()->outermostCaller()->script();
@@ -858,6 +853,13 @@ class MDefinition : public MNode {
     // Instructions are effectful by default.
     return AliasSet::Store(AliasSet::Any);
   }
+
+#ifdef DEBUG
+  bool hasDefaultAliasSet() const {
+    AliasSet set = getAliasSet();
+    return set.isStore() && set.flags() == AliasSet::Flag::Any;
+  }
+#endif
 
   MDefinition* dependency() const {
     if (getAliasSet().isStore()) {

@@ -903,7 +903,7 @@ nsFocusManager::WindowHidden(mozIDOMWindowProxy* aWindow) {
   // window, or an ancestor of the focused window. Either way, the focus is no
   // longer valid, so it needs to be updated.
 
-  RefPtr<Element> oldFocusedElement = mFocusedElement.forget();
+  RefPtr<Element> oldFocusedElement = std::move(mFocusedElement);
 
   nsCOMPtr<nsIDocShell> focusedDocShell = mFocusedWindow->GetDocShell();
   RefPtr<PresShell> presShell = focusedDocShell->GetPresShell();
@@ -3491,19 +3491,19 @@ nsresult nsFocusManager::GetNextTabbableContent(
             NS_ADDREF(*aResultContent = contentToFocus);
             return NS_OK;
           }
+          // If we've wrapped around already, then carry on.
+          if (aOriginalStartContent &&
+              currentTopLevelScopeOwner ==
+                  GetTopLevelScopeOwner(aOriginalStartContent)) {
+            // FIXME: Shouldn't this return null instead?  aOriginalStartContent
+            // isn't focusable after all.
+            NS_ADDREF(*aResultContent = aOriginalStartContent);
+            return NS_OK;
+          }
         }
         // There is no next tabbable content in currentTopLevelScopeOwner's
         // scope. We should continue the loop in order to skip all contents that
-        // is in currentTopLevelScopeOwner's scope. Unless we've wrapped around
-        // already.
-        if (aOriginalStartContent &&
-            currentTopLevelScopeOwner ==
-                GetTopLevelScopeOwner(aOriginalStartContent)) {
-          // FIXME: Shouldn't this return null instead?  aOriginalStartContent
-          // isn't focusable after all.
-          NS_ADDREF(*aResultContent = aOriginalStartContent);
-          return NS_OK;
-        }
+        // is in currentTopLevelScopeOwner's scope.
         continue;
       }
 

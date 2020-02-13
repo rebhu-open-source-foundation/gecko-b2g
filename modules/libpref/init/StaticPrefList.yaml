@@ -1640,7 +1640,7 @@
 #
 # See https://github.com/whatwg/html/pull/3752
 - name: dom.image-lazy-loading.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -1686,6 +1686,13 @@
   type: uint32_t
   value: 500
   mirror: always
+
+#ifdef MOZ_ENABLE_FORKSERVER
+- name: dom.ipc.forkserver.enable
+  type: bool
+  value: false
+  mirror: once
+#endif
 
 # Whether or not to collect a paired minidump when force-killing a
 # content process.
@@ -3926,7 +3933,7 @@
 
 - name: gfx.webrender.compositor
   type: bool
-#if defined(XP_WIN) || defined(XP_MACOSX)
+#if defined(XP_WIN)
   value: true
 #else
   value: false

@@ -9,9 +9,9 @@
 #include <stdio.h>
 
 #include "jit/Ion.h"
-#include "jit/IonBuilder.h"
 #include "jit/JitSpewer.h"
 #include "jit/MIR.h"
+#include "jit/MIRGenerator.h"
 #include "jit/MIRGraph.h"
 
 #include "vm/Printer.h"
@@ -186,8 +186,7 @@ static inline const MDefinition* GetObject(const MDefinition* ins) {
 #ifdef DEBUG
       // Crash when the default aliasSet is overriden, but when not added in the
       // list above.
-      if (!ins->getAliasSet().isStore() ||
-          ins->getAliasSet().flags() != AliasSet::Flag::Any) {
+      if (!ins->hasDefaultAliasSet()) {
         MOZ_CRASH(
             "Overridden getAliasSet without updating AliasAnalysis GetObject");
       }
@@ -196,8 +195,7 @@ static inline const MDefinition* GetObject(const MDefinition* ins) {
       return nullptr;
   }
 
-  MOZ_ASSERT(!ins->getAliasSet().isStore() ||
-             ins->getAliasSet().flags() != AliasSet::Flag::Any);
+  MOZ_ASSERT(!ins->hasDefaultAliasSet());
   object = MaybeUnwrap(object);
   MOZ_ASSERT_IF(object, object->type() == MIRType::Object);
   return object;

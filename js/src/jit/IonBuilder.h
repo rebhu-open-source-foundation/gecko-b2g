@@ -10,7 +10,6 @@
 // This file declares the data structures for building a MIRGraph from a
 // JSScript.
 
-#include "mozilla/LinkedList.h"
 #include "mozilla/Maybe.h"
 
 #include "ds/InlineTable.h"
@@ -198,7 +197,6 @@ class MOZ_STACK_CLASS IonBuilder {
   uint32_t readIndex(jsbytecode* pc);
   JSAtom* readAtom(jsbytecode* pc);
 
-  void trackActionableAbort(const char* message);
   void spew(const char* message);
 
   JSFunction* getSingleCallTarget(TemporaryTypeSet* calleeTypes);
@@ -1197,16 +1195,8 @@ class MOZ_STACK_CLASS IonBuilder {
 
   BytecodeSite* bytecodeSite(jsbytecode* pc) {
     MOZ_ASSERT(info().inlineScriptTree()->script()->containsPC(pc));
-    // See comment in maybeTrackedOptimizationSite.
-    if (mirGen_.isOptimizationTrackingEnabled()) {
-      if (BytecodeSite* site = maybeTrackedOptimizationSite(pc)) {
-        return site;
-      }
-    }
     return new (alloc()) BytecodeSite(info().inlineScriptTree(), pc);
   }
-
-  BytecodeSite* maybeTrackedOptimizationSite(jsbytecode* pc);
 
   MDefinition* lexicalCheck_;
 
@@ -1308,9 +1298,6 @@ class MOZ_STACK_CLASS IonBuilder {
 
   bool needsPostBarrier(MDefinition* value);
 
-  // Used in tracking outcomes of optimization strategies for devtools.
-  void startTrackingOptimizations();
-
   void addAbortedPreliminaryGroup(ObjectGroup* group);
 
   MIRGraph& graph() { return *graph_; }
@@ -1320,66 +1307,9 @@ class MOZ_STACK_CLASS IonBuilder {
     return *optimizationInfo_;
   }
 
-  // The track* methods below are called often. Do not combine them with the
-  // unchecked variants, despite the unchecked variants having no other
-  // callers.
-  void trackTypeInfo(JS::TrackedTypeSite site, MIRType mirType,
-                     TemporaryTypeSet* typeSet) {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      trackTypeInfoUnchecked(site, mirType, typeSet);
-    }
-  }
-  void trackTypeInfo(JS::TrackedTypeSite site, JSObject* obj) {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      trackTypeInfoUnchecked(site, obj);
-    }
-  }
-  void trackTypeInfo(CallInfo& callInfo) {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      trackTypeInfoUnchecked(callInfo);
-    }
-  }
-  void trackOptimizationAttempt(JS::TrackedStrategy strategy) {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      trackOptimizationAttemptUnchecked(strategy);
-    }
-  }
-  void amendOptimizationAttempt(uint32_t index) {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      amendOptimizationAttemptUnchecked(index);
-    }
-  }
-  void trackOptimizationOutcome(JS::TrackedOutcome outcome) {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      trackOptimizationOutcomeUnchecked(outcome);
-    }
-  }
-  void trackOptimizationSuccess() {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      trackOptimizationSuccessUnchecked();
-    }
-  }
-  void trackInlineSuccess(InliningStatus status = InliningStatus_Inlined) {
-    if (MOZ_UNLIKELY(current->trackedSite()->hasOptimizations())) {
-      trackInlineSuccessUnchecked(status);
-    }
-  }
-
   bool forceInlineCaches() {
     return MOZ_UNLIKELY(JitOptions.forceInlineCaches);
   }
-
-  // Out-of-line variants that don't check if optimization tracking is
-  // enabled.
-  void trackTypeInfoUnchecked(JS::TrackedTypeSite site, MIRType mirType,
-                              TemporaryTypeSet* typeSet);
-  void trackTypeInfoUnchecked(JS::TrackedTypeSite site, JSObject* obj);
-  void trackTypeInfoUnchecked(CallInfo& callInfo);
-  void trackOptimizationAttemptUnchecked(JS::TrackedStrategy strategy);
-  void amendOptimizationAttemptUnchecked(uint32_t index);
-  void trackOptimizationOutcomeUnchecked(JS::TrackedOutcome outcome);
-  void trackOptimizationSuccessUnchecked();
-  void trackInlineSuccessUnchecked(InliningStatus status);
 
  public:
   MIRGenerator& mirGen() { return mirGen_; }
@@ -1585,50 +1515,6 @@ class CallInfo {
       getArg(i)->setImplicitlyUsedUnchecked();
     }
   }
-};
-
-// IonCompileTask represents a single off-thread Ion compilation task.
-class IonCompileTask final : public RunnableTask,
-                             public mozilla::LinkedListElement<IonCompileTask> {
-  MIRGenerator& mirGen_;
-
-  // If off thread compilation is successful, the final code generator is
-  // attached here. Code has been generated, but not linked (there is not yet
-  // an IonScript). This is heap allocated, and must be explicitly destroyed,
-  // performed by FinishOffThreadTask().
-  CodeGenerator* backgroundCodegen_ = nullptr;
-
-  CompilerConstraintList* constraints_ = nullptr;
-  MRootList* rootList_ = nullptr;
-
-  // script->hasIonScript() at the start of the compilation. Used to avoid
-  // calling hasIonScript() from background compilation threads.
-  bool scriptHasIonScript_;
-
- public:
-  explicit IonCompileTask(MIRGenerator& mirGen, bool scriptHasIonScript,
-                          CompilerConstraintList* constraints);
-
-  JSScript* script() { return mirGen_.outerInfo().script(); }
-  MIRGenerator& mirGen() { return mirGen_; }
-  TempAllocator& alloc() { return mirGen_.alloc(); }
-  bool scriptHasIonScript() const { return scriptHasIonScript_; }
-  CompilerConstraintList* constraints() { return constraints_; }
-
-  size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
-  void trace(JSTracer* trc);
-
-  void setRootList(MRootList& rootList) {
-    MOZ_ASSERT(!rootList_);
-    rootList_ = &rootList;
-  }
-  CodeGenerator* backgroundCodegen() const { return backgroundCodegen_; }
-  void setBackgroundCodegen(CodeGenerator* codegen) {
-    backgroundCodegen_ = codegen;
-  }
-
-  ThreadType threadType() override { return THREAD_TYPE_ION; }
-  void runTask() override;
 };
 
 }  // namespace jit

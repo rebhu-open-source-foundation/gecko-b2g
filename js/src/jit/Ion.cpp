@@ -29,6 +29,7 @@
 #include "jit/InstructionReordering.h"
 #include "jit/IonAnalysis.h"
 #include "jit/IonBuilder.h"
+#include "jit/IonCompileTask.h"
 #include "jit/IonIC.h"
 #include "jit/IonOptimizationLevels.h"
 #include "jit/JitcodeMap.h"
@@ -419,54 +420,6 @@ void JitRealm::performStubReadBarriers(uint32_t stubsToBarrier) const {
   }
 }
 
-void jit::FreeIonCompileTask(IonCompileTask* task) {
-  // The task is allocated into its LifoAlloc, so destroying that will
-  // destroy the task and all other data accumulated during compilation,
-  // except any final codegen (which includes an assembler and needs to be
-  // explicitly destroyed).
-  js_delete(task->backgroundCodegen());
-  js_delete(task->alloc().lifoAlloc());
-}
-
-void jit::FinishOffThreadTask(JSRuntime* runtime, IonCompileTask* task,
-                              const AutoLockHelperThreadState& locked) {
-  MOZ_ASSERT(runtime);
-
-  JSScript* script = task->script();
-
-  // Clean the references to the pending IonCompileTask, if we just finished it.
-  if (script->baselineScript()->hasPendingIonCompileTask() &&
-      script->baselineScript()->pendingIonCompileTask() == task) {
-    script->baselineScript()->removePendingIonCompileTask(runtime, script);
-  }
-
-  // If the task is still in one of the helper thread lists, then remove it.
-  if (task->isInList()) {
-    runtime->jitRuntime()->ionLazyLinkListRemove(runtime, task);
-  }
-
-  // Clear the recompiling flag of the old ionScript, since we continue to
-  // use the old ionScript if recompiling fails.
-  if (script->hasIonScript()) {
-    script->ionScript()->clearRecompiling();
-  }
-
-  // Clean up if compilation did not succeed.
-  if (script->isIonCompilingOffThread()) {
-    script->jitScript()->clearIsIonCompilingOffThread(script);
-
-    AbortReasonOr<Ok> status = task->mirGen().getOffThreadStatus();
-    if (status.isErr() && status.unwrapErr() == AbortReason::Disable) {
-      script->disableIon();
-    }
-  }
-
-  // Free Ion LifoAlloc off-thread. Free on the main thread if this OOMs.
-  if (!StartOffThreadIonFree(task, locked)) {
-    FreeIonCompileTask(task);
-  }
-}
-
 static bool LinkCodeGen(JSContext* cx, CodeGenerator* codegen,
                         HandleScript script,
                         CompilerConstraintList* constraints) {
@@ -552,15 +505,6 @@ void JitRuntime::Trace(JSTracer* trc, const AutoAccessAtomsZone& access) {
   for (auto i = zone->cellIterUnsafe<JitCode>(); !i.done(); i.next()) {
     JitCode* code = i;
     TraceRoot(trc, &code, "wrapper");
-  }
-}
-
-/* static */
-void JitRuntime::TraceJitcodeGlobalTableForMinorGC(JSTracer* trc) {
-  if (trc->runtime()->geckoProfiler().enabled() &&
-      trc->runtime()->hasJitRuntime() &&
-      trc->runtime()->jitRuntime()->hasJitcodeGlobalTable()) {
-    trc->runtime()->jitRuntime()->getJitcodeGlobalTable()->traceForMinorGC(trc);
   }
 }
 
@@ -1638,77 +1582,6 @@ CodeGenerator* CompileBackEnd(MIRGenerator* mir) {
   return GenerateCode(mir, lir);
 }
 
-static inline bool TooManyUnlinkedTasks(JSRuntime* rt) {
-  static const size_t MaxUnlinkedTasks = 100;
-  return rt->jitRuntime()->ionLazyLinkListSize() > MaxUnlinkedTasks;
-}
-
-static void MoveFinishedTasksToLazyLinkList(
-    JSRuntime* rt, const AutoLockHelperThreadState& lock) {
-  // Incorporate any off thread compilations for the runtime which have
-  // finished, failed or have been cancelled.
-
-  GlobalHelperThreadState::IonCompileTaskVector& finished =
-      HelperThreadState().ionFinishedList(lock);
-
-  for (size_t i = 0; i < finished.length(); i++) {
-    // Find a finished task for the runtime.
-    IonCompileTask* task = finished[i];
-    if (task->script()->runtimeFromAnyThread() != rt) {
-      continue;
-    }
-
-    HelperThreadState().remove(finished, &i);
-    rt->jitRuntime()->numFinishedOffThreadTasksRef(lock)--;
-
-    JSScript* script = task->script();
-    MOZ_ASSERT(script->hasBaselineScript());
-    script->baselineScript()->setPendingIonCompileTask(rt, script, task);
-    rt->jitRuntime()->ionLazyLinkListAdd(rt, task);
-  }
-}
-
-static void EagerlyLinkExcessTasks(JSContext* cx,
-                                   AutoLockHelperThreadState& lock) {
-  JSRuntime* rt = cx->runtime();
-  MOZ_ASSERT(TooManyUnlinkedTasks(rt));
-
-  do {
-    jit::IonCompileTask* task = rt->jitRuntime()->ionLazyLinkList(rt).getLast();
-    RootedScript script(cx, task->script());
-
-    AutoUnlockHelperThreadState unlock(lock);
-    AutoRealm ar(cx, script);
-    jit::LinkIonScript(cx, script);
-  } while (TooManyUnlinkedTasks(rt));
-}
-
-void AttachFinishedCompilations(JSContext* cx) {
-  JSRuntime* rt = cx->runtime();
-  MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
-
-  if (!rt->jitRuntime() || !rt->jitRuntime()->numFinishedOffThreadTasks()) {
-    return;
-  }
-
-  AutoLockHelperThreadState lock;
-
-  while (true) {
-    MoveFinishedTasksToLazyLinkList(rt, lock);
-
-    if (!TooManyUnlinkedTasks(rt)) {
-      break;
-    }
-
-    EagerlyLinkExcessTasks(cx, lock);
-
-    // Linking releases the lock so we must now check the finished list
-    // again.
-  }
-
-  MOZ_ASSERT(!rt->jitRuntime()->numFinishedOffThreadTasks());
-}
-
 static void TrackIonAbort(JSContext* cx, JSScript* script, jsbytecode* pc,
                           const char* message) {
   if (!cx->runtime()->jitRuntime()->isOptimizationTrackingEnabled(
@@ -1739,106 +1612,25 @@ static void TrackAndSpewIonAbort(JSContext* cx, JSScript* script,
   TrackIonAbort(cx, script, script->code(), message);
 }
 
-static AbortReason IonCompile(JSContext* cx, JSScript* script,
-                              BaselineFrame* baselineFrame,
-                              uint32_t baselineFrameSize, jsbytecode* osrPc,
-                              bool recompile,
-                              OptimizationLevel optimizationLevel) {
-  TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
-  TraceLoggerEvent event(TraceLogger_AnnotateScripts, script);
-  AutoTraceLog logScript(logger, event);
-  AutoTraceLog logCompile(logger, TraceLogger_IonCompilation);
-
-  cx->check(script);
-
-  auto alloc =
-      cx->make_unique<LifoAlloc>(TempAllocator::PreferredLifoChunkSize);
-  if (!alloc) {
-    return AbortReason::Alloc;
-  }
-
-  TempAllocator* temp = alloc->new_<TempAllocator>(alloc.get());
-  if (!temp) {
-    return AbortReason::Alloc;
-  }
-
-  JitContext jctx(cx, temp);
-
-  if (!cx->realm()->ensureJitRealmExists(cx)) {
-    return AbortReason::Alloc;
-  }
-
-  if (!cx->realm()->jitRealm()->ensureIonStubsExist(cx)) {
-    return AbortReason::Alloc;
-  }
-
-  MIRGraph* graph = alloc->new_<MIRGraph>(temp);
-  if (!graph) {
-    return AbortReason::Alloc;
-  }
-
-  InlineScriptTree* inlineScriptTree =
-      InlineScriptTree::New(temp, nullptr, nullptr, script);
-  if (!inlineScriptTree) {
-    return AbortReason::Alloc;
-  }
-
-  CompileInfo* info = alloc->new_<CompileInfo>(
-      CompileRuntime::get(cx->runtime()), script, script->function(), osrPc,
-      Analysis_None, script->needsArgsObj(), inlineScriptTree);
-  if (!info) {
-    return AbortReason::Alloc;
-  }
-
-  BaselineInspector* inspector = alloc->new_<BaselineInspector>(script);
-  if (!inspector) {
-    return AbortReason::Alloc;
-  }
-
+static AbortReason BuildMIR(JSContext* cx, MIRGenerator* mirGen,
+                            CompileInfo* info,
+                            CompilerConstraintList* constraints,
+                            BaselineFrame* baselineFrame,
+                            uint32_t baselineFrameSize) {
   BaselineFrameInspector* baselineFrameInspector = nullptr;
   if (baselineFrame) {
-    baselineFrameInspector =
-        NewBaselineFrameInspector(temp, baselineFrame, baselineFrameSize);
+    baselineFrameInspector = NewBaselineFrameInspector(
+        &mirGen->alloc(), baselineFrame, baselineFrameSize);
     if (!baselineFrameInspector) {
       return AbortReason::Alloc;
     }
   }
 
-  CompilerConstraintList* constraints = NewCompilerConstraintList(*temp);
-  if (!constraints) {
-    return AbortReason::Alloc;
-  }
+  SpewBeginFunction(mirGen, info->script());
 
-  const OptimizationInfo* optimizationInfo =
-      IonOptimizations.get(optimizationLevel);
-  const JitCompileOptions options(cx);
-
-  MIRGenerator* mirGen =
-      alloc->new_<MIRGenerator>(CompileRealm::get(cx->realm()), options, temp,
-                                graph, info, optimizationInfo);
-  if (!mirGen) {
-    return AbortReason::Alloc;
-  }
-
-  const bool scriptHasIonScript = script->hasIonScript();
-
-  IonBuilder builder((JSContext*)nullptr, *mirGen, info, constraints, inspector,
-                     baselineFrameInspector);
-
-  if (cx->runtime()->gc.storeBuffer().cancelIonCompilations()) {
-    mirGen->setNotSafeForMinorGC();
-  }
-
-  MOZ_ASSERT(recompile == builder.script()->hasIonScript());
-  MOZ_ASSERT(builder.script()->canIonCompile());
-
-  RootedScript builderScript(cx, builder.script());
-
-  if (recompile) {
-    builderScript->ionScript()->setRecompiling();
-  }
-
-  SpewBeginFunction(mirGen, builderScript);
+  BaselineInspector inspector(info->script());
+  IonBuilder builder((JSContext*)nullptr, *mirGen, info, constraints,
+                     &inspector, baselineFrameInspector);
 
   AbortReasonOr<Ok> buildResult = Ok();
   {
@@ -1890,14 +1682,101 @@ static AbortReason IonCompile(JSContext* cx, JSScript* script,
   }
 
   AssertBasicGraphCoherency(mirGen->graph());
+  return AbortReason::NoAbort;
+}
+
+static AbortReason IonCompile(JSContext* cx, HandleScript script,
+                              BaselineFrame* baselineFrame,
+                              uint32_t baselineFrameSize, jsbytecode* osrPc,
+                              bool recompile,
+                              OptimizationLevel optimizationLevel) {
+  TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
+  TraceLoggerEvent event(TraceLogger_AnnotateScripts, script);
+  AutoTraceLog logScript(logger, event);
+  AutoTraceLog logCompile(logger, TraceLogger_IonCompilation);
+
+  cx->check(script);
+
+  auto alloc =
+      cx->make_unique<LifoAlloc>(TempAllocator::PreferredLifoChunkSize);
+  if (!alloc) {
+    return AbortReason::Alloc;
+  }
+
+  TempAllocator* temp = alloc->new_<TempAllocator>(alloc.get());
+  if (!temp) {
+    return AbortReason::Alloc;
+  }
+
+  JitContext jctx(cx, temp);
+
+  if (!cx->realm()->ensureJitRealmExists(cx)) {
+    return AbortReason::Alloc;
+  }
+
+  if (!cx->realm()->jitRealm()->ensureIonStubsExist(cx)) {
+    return AbortReason::Alloc;
+  }
+
+  MIRGraph* graph = alloc->new_<MIRGraph>(temp);
+  if (!graph) {
+    return AbortReason::Alloc;
+  }
+
+  InlineScriptTree* inlineScriptTree =
+      InlineScriptTree::New(temp, nullptr, nullptr, script);
+  if (!inlineScriptTree) {
+    return AbortReason::Alloc;
+  }
+
+  CompileInfo* info = alloc->new_<CompileInfo>(
+      CompileRuntime::get(cx->runtime()), script, script->function(), osrPc,
+      Analysis_None, script->needsArgsObj(), inlineScriptTree);
+  if (!info) {
+    return AbortReason::Alloc;
+  }
+
+  CompilerConstraintList* constraints = NewCompilerConstraintList(*temp);
+  if (!constraints) {
+    return AbortReason::Alloc;
+  }
+
+  const OptimizationInfo* optimizationInfo =
+      IonOptimizations.get(optimizationLevel);
+  const JitCompileOptions options(cx);
+
+  MIRGenerator* mirGen =
+      alloc->new_<MIRGenerator>(CompileRealm::get(cx->realm()), options, temp,
+                                graph, info, optimizationInfo);
+  if (!mirGen) {
+    return AbortReason::Alloc;
+  }
+
+  const bool scriptHasIonScript = script->hasIonScript();
+
+  if (cx->runtime()->gc.storeBuffer().cancelIonCompilations()) {
+    mirGen->setNotSafeForMinorGC();
+  }
+
+  MOZ_ASSERT(recompile == script->hasIonScript());
+  MOZ_ASSERT(script->canIonCompile());
+
+  if (recompile) {
+    script->ionScript()->setRecompiling();
+  }
+
+  AbortReason reason =
+      BuildMIR(cx, mirGen, info, constraints, baselineFrame, baselineFrameSize);
+  if (reason != AbortReason::NoAbort) {
+    return reason;
+  }
 
   // If possible, compile the script off thread.
   if (options.offThreadCompilationAvailable()) {
     JitSpew(JitSpew_IonSyncLogs,
             "Can't log script %s:%u:%u"
             ". (Compiled on background thread.)",
-            builderScript->filename(), builderScript->lineno(),
-            builderScript->column());
+            script->filename(), script->lineno(), script->column());
 
     IonCompileTask* task =
         alloc->new_<IonCompileTask>(*mirGen, scriptHasIonScript, constraints);
@@ -1917,7 +1796,7 @@ static AbortReason IonCompile(JSContext* cx, JSScript* script,
     }
 
     if (!recompile) {
-      builderScript->jitScript()->setIsIonCompilingOffThread(builderScript);
+      script->jitScript()->setIsIonCompilingOffThread(script);
     }
 
     // The allocator and associated data will be destroyed after being
@@ -1939,7 +1818,7 @@ static AbortReason IonCompile(JSContext* cx, JSScript* script,
       return AbortReason::Disable;
     }
 
-    succeeded = LinkCodeGen(cx, codegen.get(), builderScript, constraints);
+    succeeded = LinkCodeGen(cx, codegen.get(), script, constraints);
   }
 
   if (succeeded) {

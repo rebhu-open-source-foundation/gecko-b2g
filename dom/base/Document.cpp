@@ -2148,6 +2148,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChannel)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLayoutHistoryState)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOnloadBlocker)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLazyLoadImageObserver)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDOMImplementation)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mImageMaps)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOrientationPendingPromise)
@@ -2255,6 +2256,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
 
   tmp->mCachedRootElement = nullptr;  // Avoid a dangling pointer
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDisplayDocument)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mLazyLoadImageObserver)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDOMImplementation)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mImageMaps)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCachedEncoder)
@@ -5985,7 +5987,7 @@ Result<nsCOMPtr<nsIURI>, nsresult> Document::ResolveWithBaseURI(
   nsCOMPtr<nsIURI> resolvedURI;
   MOZ_TRY(
       NS_NewURI(getter_AddRefs(resolvedURI), aURI, nullptr, GetDocBaseURI()));
-  return std::move(resolvedURI);
+  return resolvedURI;
 }
 
 URLExtraData* Document::DefaultStyleAttrURLData() {
@@ -7111,11 +7113,10 @@ void Document::EndUpdate() {
 
   NS_DOCUMENT_NOTIFY_OBSERVERS(EndUpdate, (this));
 
-  nsContentUtils::RemoveScriptBlocker();
-
   --mUpdateNestLevel;
 
-  MaybeInitializeFinalizeFrameLoaders();
+  nsContentUtils::RemoveScriptBlocker();
+
   if (mXULBroadcastManager) {
     mXULBroadcastManager->MaybeBroadcast();
   }
@@ -8477,9 +8478,8 @@ nsresult Document::FinalizeFrameLoader(nsFrameLoader* aLoader,
 }
 
 void Document::MaybeInitializeFinalizeFrameLoaders() {
-  if (mDelayFrameLoaderInitialization || mUpdateNestLevel != 0) {
-    // This method will be recalled when mUpdateNestLevel drops to 0,
-    // or when !mDelayFrameLoaderInitialization.
+  if (mDelayFrameLoaderInitialization) {
+    // This method will be recalled when !mDelayFrameLoaderInitialization.
     mFrameLoaderRunner = nullptr;
     return;
   }
@@ -8708,7 +8708,7 @@ mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> Document::Open(
   if (!newBC) {
     return nullptr;
   }
-  return WindowProxyHolder(newBC.forget());
+  return WindowProxyHolder(std::move(newBC));
 }
 
 Document* Document::Open(const Optional<nsAString>& /* unused */,
@@ -8868,7 +8868,7 @@ Document* Document::Open(const Optional<nsAString>& /* unused */,
         aError.Throw(rv);
         return nullptr;
       }
-      newURI = noFragmentURI.forget();
+      newURI = std::move(noFragmentURI);
     }
 
     // UpdateURLAndHistory might do various member-setting, so make sure we're
@@ -11696,7 +11696,7 @@ static already_AddRefed<nsPIDOMWindowOuter> FindTopWindowForElement(
 
   // Trying to find the top window (equivalent to window.top).
   if (nsCOMPtr<nsPIDOMWindowOuter> top = window->GetInProcessTop()) {
-    window = top.forget();
+    window = std::move(top);
   }
   return window.forget();
 }
@@ -11707,11 +11707,11 @@ static already_AddRefed<nsPIDOMWindowOuter> FindTopWindowForElement(
  */
 class nsAutoFocusEvent : public Runnable {
  public:
-  explicit nsAutoFocusEvent(already_AddRefed<Element>&& aElement,
-                            already_AddRefed<nsPIDOMWindowOuter>&& aTopWindow)
+  explicit nsAutoFocusEvent(nsCOMPtr<Element>&& aElement,
+                            nsCOMPtr<nsPIDOMWindowOuter>&& aTopWindow)
       : mozilla::Runnable("nsAutoFocusEvent"),
-        mElement(aElement),
-        mTopWindow(aTopWindow) {}
+        mElement(std::move(aElement)),
+        mTopWindow(std::move(aTopWindow)) {}
 
   NS_IMETHOD Run() override {
     nsCOMPtr<nsPIDOMWindowOuter> currentTopWindow =
@@ -11784,7 +11784,7 @@ void Document::TriggerAutoFocus() {
     }
 
     nsCOMPtr<nsIRunnable> event =
-        new nsAutoFocusEvent(autoFocusElement.forget(), topWindow.forget());
+        new nsAutoFocusEvent(std::move(autoFocusElement), topWindow.forget());
     nsresult rv = NS_DispatchToCurrentThread(event.forget());
     NS_ENSURE_SUCCESS_VOID(rv);
   }
@@ -12876,7 +12876,7 @@ class PendingFullscreenChangeList {
           nsCOMPtr<nsIDocShellTreeItem> root;
           mRootShellForIteration->GetInProcessRootTreeItem(
               getter_AddRefs(root));
-          mRootShellForIteration = root.forget();
+          mRootShellForIteration = std::move(root);
         }
         SkipToNextMatch();
       }
@@ -12911,7 +12911,7 @@ class PendingFullscreenChangeList {
           while (docShell && docShell != mRootShellForIteration) {
             nsCOMPtr<nsIDocShellTreeItem> parent;
             docShell->GetInProcessParent(getter_AddRefs(parent));
-            docShell = parent.forget();
+            docShell = std::move(parent);
           }
           if (docShell) {
             break;
@@ -14666,6 +14666,22 @@ void Document::NotifyIntersectionObservers() {
   }
 }
 
+DOMIntersectionObserver* Document::GetLazyLoadImageObserver() {
+  Document* rootDoc = nsContentUtils::GetRootDocument(this);
+  MOZ_ASSERT(rootDoc);
+
+  if (rootDoc->mLazyLoadImageObserver) {
+    return rootDoc->mLazyLoadImageObserver;
+  }
+
+  if (nsPIDOMWindowInner* inner = rootDoc->GetInnerWindow()) {
+    rootDoc->mLazyLoadImageObserver =
+        DOMIntersectionObserver::CreateLazyLoadObserver(inner);
+  }
+
+  return rootDoc->mLazyLoadImageObserver;
+}
+
 static CallState NotifyLayerManagerRecreatedCallback(Document& aDocument,
                                                      void*) {
   aDocument.NotifyLayerManagerRecreated();
@@ -15674,7 +15690,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
                   ContentPermissionRequestBase::DelayedTaskType::Request);
             });
 
-        return p.forget();
+        return std::move(p);
       };
       AntiTrackingCommon::AddFirstPartyStorageAccessGrantedFor(
           NodePrincipal(), inner, AntiTrackingCommon::eStorageAccessAPI,
@@ -15970,7 +15986,7 @@ void Document::RecomputeLanguageFromCharset() {
   }
 
   mMayNeedFontPrefsUpdate = true;
-  mLanguageFromCharset = language.forget();
+  mLanguageFromCharset = std::move(language);
 }
 
 nsICookieSettings* Document::CookieSettings() {

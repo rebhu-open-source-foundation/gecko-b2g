@@ -106,7 +106,7 @@ ServiceWorkerPrivate::ServiceWorkerPrivate(ServiceWorkerInfo* aInfo)
     MOZ_ALWAYS_SUCCEEDS(inner->Initialize());
 #endif
 
-    mInner = inner.forget();
+    mInner = std::move(inner);
   }
 }
 
@@ -760,7 +760,7 @@ class PushErrorReporter final : public ExtendableEventCallback {
   WorkerPrivate* mWorkerPrivate;
   nsString mMessageId;
 
-  ~PushErrorReporter() {}
+  ~PushErrorReporter() = default;
 
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(PushErrorReporter, override)
@@ -1460,7 +1460,7 @@ class FetchEventRunnable : public ExtendableFunctionalEventWorkerRunnable,
   }
 
  private:
-  ~FetchEventRunnable() {}
+  ~FetchEventRunnable() = default;
 
   class ResumeRequest final : public Runnable {
     nsMainThreadPtrHandle<nsIInterceptedChannel> mChannel;
@@ -1890,7 +1890,8 @@ void ServiceWorkerPrivate::TerminateWorker() {
     }
 
     Unused << NS_WARN_IF(!mWorkerPrivate->Cancel());
-    RefPtr<WorkerPrivate> workerPrivate(mWorkerPrivate.forget());
+    RefPtr<WorkerPrivate> workerPrivate = std::move(mWorkerPrivate);
+    mozilla::Unused << workerPrivate;
     mSupportsArray.Clear();
 
     // Any pending events are never going to fire on this worker.  Cancel
@@ -1961,7 +1962,7 @@ void ServiceWorkerPrivate::UpdateState(ServiceWorkerState aState) {
   mPendingFunctionalEvents.SwapElements(pendingEvents);
 
   for (uint32_t i = 0; i < pendingEvents.Length(); ++i) {
-    RefPtr<WorkerRunnable> r = pendingEvents[i].forget();
+    RefPtr<WorkerRunnable> r = std::move(pendingEvents[i]);
     if (NS_WARN_IF(!r->Dispatch())) {
       NS_WARNING("Failed to dispatch pending functional event!");
     }

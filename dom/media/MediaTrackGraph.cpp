@@ -66,6 +66,7 @@ MediaTrackGraphImpl::~MediaTrackGraphImpl() {
              "thread");
   LOG(LogLevel::Debug, ("MediaTrackGraph %p destroyed", this));
   LOG(LogLevel::Debug, ("MediaTrackGraphImpl::~MediaTrackGraphImpl"));
+  StopAudioCallbackTracing();
 }
 
 void MediaTrackGraphImpl::AddTrackGraphThread(MediaTrack* aTrack) {

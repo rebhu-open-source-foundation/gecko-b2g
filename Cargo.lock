@@ -698,22 +698,22 @@ dependencies = [
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.56.0"
-source = "git+https://github.com/bytecodealliance/cranelift?rev=eb20fcab349ce20ac6f8659d1c4b058108d5e627#eb20fcab349ce20ac6f8659d1c4b058108d5e627"
+version = "0.58.0"
+source = "git+https://github.com/bytecodealliance/cranelift?rev=98c818c129979e98a3db150f8f9698f6451b7ef7#98c818c129979e98a3db150f8f9698f6451b7ef7"
 dependencies = [
- "cranelift-entity 0.56.0",
+ "cranelift-entity 0.58.0",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.56.0"
-source = "git+https://github.com/bytecodealliance/cranelift?rev=eb20fcab349ce20ac6f8659d1c4b058108d5e627#eb20fcab349ce20ac6f8659d1c4b058108d5e627"
+version = "0.58.0"
+source = "git+https://github.com/bytecodealliance/cranelift?rev=98c818c129979e98a3db150f8f9698f6451b7ef7#98c818c129979e98a3db150f8f9698f6451b7ef7"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
  "cranelift-codegen-meta",
  "cranelift-codegen-shared",
- "cranelift-entity 0.56.0",
+ "cranelift-entity 0.58.0",
  "log",
  "smallvec 1.2.0",
  "target-lexicon 0.10.0",
@@ -722,32 +722,32 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.56.0"
-source = "git+https://github.com/bytecodealliance/cranelift?rev=eb20fcab349ce20ac6f8659d1c4b058108d5e627#eb20fcab349ce20ac6f8659d1c4b058108d5e627"
+version = "0.58.0"
+source = "git+https://github.com/bytecodealliance/cranelift?rev=98c818c129979e98a3db150f8f9698f6451b7ef7#98c818c129979e98a3db150f8f9698f6451b7ef7"
 dependencies = [
  "cranelift-codegen-shared",
- "cranelift-entity 0.56.0",
+ "cranelift-entity 0.58.0",
 ]
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.56.0"
-source = "git+https://github.com/bytecodealliance/cranelift?rev=eb20fcab349ce20ac6f8659d1c4b058108d5e627#eb20fcab349ce20ac6f8659d1c4b058108d5e627"
+version = "0.58.0"
+source = "git+https://github.com/bytecodealliance/cranelift?rev=98c818c129979e98a3db150f8f9698f6451b7ef7#98c818c129979e98a3db150f8f9698f6451b7ef7"
 
 [[package]]
 name = "cranelift-entity"
 version = "0.41.0"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=58498599272e23ef797bb4304d0f181d7455ca57#58498599272e23ef797bb4304d0f181d7455ca57"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=a3fd180d53a6f929a7ef47466ffc2e53338ad4f1#a3fd180d53a6f929a7ef47466ffc2e53338ad4f1"
 
 [[package]]
 name = "cranelift-entity"
-version = "0.56.0"
-source = "git+https://github.com/bytecodealliance/cranelift?rev=eb20fcab349ce20ac6f8659d1c4b058108d5e627#eb20fcab349ce20ac6f8659d1c4b058108d5e627"
+version = "0.58.0"
+source = "git+https://github.com/bytecodealliance/cranelift?rev=98c818c129979e98a3db150f8f9698f6451b7ef7#98c818c129979e98a3db150f8f9698f6451b7ef7"
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.56.0"
-source = "git+https://github.com/bytecodealliance/cranelift?rev=eb20fcab349ce20ac6f8659d1c4b058108d5e627#eb20fcab349ce20ac6f8659d1c4b058108d5e627"
+version = "0.58.0"
+source = "git+https://github.com/bytecodealliance/cranelift?rev=98c818c129979e98a3db150f8f9698f6451b7ef7#98c818c129979e98a3db150f8f9698f6451b7ef7"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -757,11 +757,11 @@ dependencies = [
 
 [[package]]
 name = "cranelift-wasm"
-version = "0.56.0"
-source = "git+https://github.com/bytecodealliance/cranelift?rev=eb20fcab349ce20ac6f8659d1c4b058108d5e627#eb20fcab349ce20ac6f8659d1c4b058108d5e627"
+version = "0.58.0"
+source = "git+https://github.com/bytecodealliance/cranelift?rev=98c818c129979e98a3db150f8f9698f6451b7ef7#98c818c129979e98a3db150f8f9698f6451b7ef7"
 dependencies = [
  "cranelift-codegen",
- "cranelift-entity 0.56.0",
+ "cranelift-entity 0.58.0",
  "cranelift-frontend",
  "log",
  "thiserror",
@@ -1256,9 +1256,9 @@ dependencies = [
 
 [[package]]
 name = "fluent-langneg"
-version = "0.11.1"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55e840a3a9938e6dd9a57a6a3be02bef1d51b1d75b883cdfe84810c7e7ca1293"
+checksum = "fe5815efd5542e40841cd34ef9003822352b04c67a70c595c6758597c72e1f56"
 dependencies = [
  "unic-langid",
 ]
@@ -2123,7 +2123,7 @@ dependencies = [
 [[package]]
 name = "lucet-module"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=58498599272e23ef797bb4304d0f181d7455ca57#58498599272e23ef797bb4304d0f181d7455ca57"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=a3fd180d53a6f929a7ef47466ffc2e53338ad4f1#a3fd180d53a6f929a7ef47466ffc2e53338ad4f1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2139,7 +2139,7 @@ dependencies = [
 [[package]]
 name = "lucet-runtime"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=58498599272e23ef797bb4304d0f181d7455ca57#58498599272e23ef797bb4304d0f181d7455ca57"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=a3fd180d53a6f929a7ef47466ffc2e53338ad4f1#a3fd180d53a6f929a7ef47466ffc2e53338ad4f1"
 dependencies = [
  "cc",
  "libc",
@@ -2152,7 +2152,7 @@ dependencies = [
 [[package]]
 name = "lucet-runtime-internals"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=58498599272e23ef797bb4304d0f181d7455ca57#58498599272e23ef797bb4304d0f181d7455ca57"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=a3fd180d53a6f929a7ef47466ffc2e53338ad4f1#a3fd180d53a6f929a7ef47466ffc2e53338ad4f1"
 dependencies = [
  "bincode",
  "bitflags",
@@ -2168,13 +2168,14 @@ dependencies = [
  "nix",
  "num-derive",
  "num-traits",
+ "raw-cpuid",
  "xfailure",
 ]
 
 [[package]]
 name = "lucet-wasi"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=58498599272e23ef797bb4304d0f181d7455ca57#58498599272e23ef797bb4304d0f181d7455ca57"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=a3fd180d53a6f929a7ef47466ffc2e53338ad4f1#a3fd180d53a6f929a7ef47466ffc2e53338ad4f1"
 dependencies = [
  "cast",
  "failure",
@@ -2182,6 +2183,7 @@ dependencies = [
  "lucet-module",
  "lucet-runtime",
  "lucet-runtime-internals",
+ "mach",
  "nix",
  "rand",
 ]
@@ -2849,10 +2851,13 @@ version = "0.1.4"
 dependencies = [
  "bindgen",
  "byteorder",
+ "core-foundation",
  "env_logger",
  "lazy_static",
+ "libloading",
  "log",
  "pkcs11",
+ "rental",
  "sha2",
  "winapi 0.3.7",
 ]
@@ -2869,7 +2874,7 @@ dependencies = [
 [[package]]
 name = "packed_simd"
 version = "0.3.3"
-source = "git+https://github.com/hsivonen/packed_simd?branch=rust_1_32#3541e3818fdc7c2a24f87e3459151a4ce955a67a"
+source = "git+https://github.com/hsivonen/packed_simd?rev=3541e3818fdc7c2a24f87e3459151a4ce955a67a#3541e3818fdc7c2a24f87e3459151a4ce955a67a"
 dependencies = [
  "cfg-if",
 ]
@@ -3248,6 +3253,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd5927936723a9e8b715d37d7e4b390455087c4bdf25b9f702309460577b14f9"
 
 [[package]]
+name = "raw-cpuid"
+version = "7.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4a349ca83373cfa5d6dbb66fd76e58b2cca08da71a5f6400de0a0a6a9bceeaf"
+dependencies = [
+ "bitflags",
+ "cc",
+ "rustc_version",
+]
+
+[[package]]
 name = "raw-window-handle"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3467,7 +3483,7 @@ dependencies = [
 [[package]]
 name = "rlbox_lucet_sandbox"
 version = "0.1.0"
-source = "git+https://github.com/PLSysSec/rlbox_lucet_sandbox/?rev=5f8bca975d8206e4837786d6bdb57a5c2fbd4016#5f8bca975d8206e4837786d6bdb57a5c2fbd4016"
+source = "git+https://github.com/PLSysSec/rlbox_lucet_sandbox/?rev=6ddc15b70f0d902241742fd55c689649cad100f8#6ddc15b70f0d902241742fd55c689649cad100f8"
 dependencies = [
  "failure",
  "goblin",
@@ -4403,9 +4419,9 @@ dependencies = [
 
 [[package]]
 name = "unic-langid"
-version = "0.7.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7935b530ca240640bf8dd67d04301a3ed02bfc8635105fea9e9a26477143ca22"
+checksum = "24d81136159f779c35b10655f45210c71cd5ca5a45aadfe9840a61c7071735ed"
 dependencies = [
  "unic-langid-impl",
 ]
@@ -4423,9 +4439,9 @@ dependencies = [
 
 [[package]]
 name = "unic-langid-impl"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86ab4a5be993d5b9d082476a7dd7149c083cf63a72469e700c09e69784511957"
+checksum = "c43c61e94492eb67f20facc7b025778a904de83d953d8fcb60dd9adfd6e2d0ea"
 dependencies = [
  "tinystr",
 ]
@@ -4584,9 +4600,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.47.0"
+version = "0.48.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1add8db5a53a2f64f13418b241982c4ab533d7a9e1e8a5dcadccce633d8d393b"
+checksum = "073da89bf1c84db000dd68ce660c1b4a08e3a2d28fd1e3394ab9e7abdde4a0f8"
 
 [[package]]
 name = "webdriver"

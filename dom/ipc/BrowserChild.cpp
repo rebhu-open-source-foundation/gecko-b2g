@@ -3994,7 +3994,7 @@ NS_IMETHODIMP BrowserChild::OnSecurityChange(nsIWebProgress* aWebProgress,
     }
 
     securityChangeData.emplace();
-    securityChangeData->securityInfo() = securityInfo.forget();
+    securityChangeData->securityInfo() = ToRefPtr(std::move(securityInfo));
     securityChangeData->isSecureContext() = isSecureContext;
   }
 

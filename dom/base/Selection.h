@@ -166,6 +166,10 @@ class Selection final : public nsSupportsWeakReference,
    */
   nsresult AddRangesForSelectableNodes(nsRange* aRange, int32_t* aOutIndex,
                                        bool aNoStartSelect = false);
+
+  /**
+   * Doesn't remove `aRange` from `mAnchorFocusRange`.
+   */
   nsresult RemoveRangeInternal(nsRange& aRange);
 
  public:
@@ -298,6 +302,9 @@ class Selection final : public nsSupportsWeakReference,
   nsRange* GetRangeAt(uint32_t aIndex, mozilla::ErrorResult& aRv);
   void AddRangeJS(nsRange& aRange, mozilla::ErrorResult& aRv);
 
+  /**
+   * Callers need to keep `aRange` alive.
+   */
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void RemoveRangeAndUnselectFramesAndNotifyListeners(
       nsRange& aRange, mozilla::ErrorResult& aRv);
@@ -700,7 +707,7 @@ class Selection final : public nsSupportsWeakReference,
       bool aSelected) const;
 
   nsresult SelectFrames(nsPresContext* aPresContext, nsRange* aRange,
-                        bool aSelect);
+                        bool aSelect) const;
 
   /**
    * SelectFramesInAllRanges() calls SelectFrames() for all current
@@ -709,7 +716,7 @@ class Selection final : public nsSupportsWeakReference,
   void SelectFramesInAllRanges(nsPresContext* aPresContext);
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  static nsresult GetTableCellLocationFromRange(nsRange* aRange,
+  static nsresult GetTableCellLocationFromRange(const nsRange* aRange,
                                                 TableSelection* aSelectionType,
                                                 int32_t* aRow, int32_t* aCol);
 

@@ -248,7 +248,7 @@ class TeardownRunnable final : public Runnable {
   }
 
  private:
-  ~TeardownRunnable() {}
+  ~TeardownRunnable() = default;
 
   RefPtr<ServiceWorkerManagerChild> mActor;
 };
@@ -392,7 +392,7 @@ RefPtr<GenericErrorResultPromise> ServiceWorkerManager::StartControllingClient(
   auto entry = mControlledClients.LookupForAdd(aClientInfo.Id());
   if (entry) {
     RefPtr<ServiceWorkerRegistrationInfo> old =
-        entry.Data()->mRegistrationInfo.forget();
+        std::move(entry.Data()->mRegistrationInfo);
 
     if (aControlClientHandle) {
       promise = entry.Data()->mClientHandle->Control(active);
@@ -468,7 +468,7 @@ void ServiceWorkerManager::StopControllingClient(
   }
 
   RefPtr<ServiceWorkerRegistrationInfo> reg =
-      entry.Data()->mRegistrationInfo.forget();
+      std::move(entry.Data()->mRegistrationInfo);
 
   entry.Remove();
 
@@ -611,7 +611,7 @@ class PropagateSoftUpdateRunnable final : public Runnable {
   }
 
  private:
-  ~PropagateSoftUpdateRunnable() {}
+  ~PropagateSoftUpdateRunnable() = default;
 
   const OriginAttributes mOriginAttributes;
   const nsString mScope;
@@ -2976,7 +2976,7 @@ class UpdateTimerCallback final : public nsITimerCallback, public nsINamed {
   nsCOMPtr<nsIPrincipal> mPrincipal;
   const nsCString mScope;
 
-  ~UpdateTimerCallback() {}
+  ~UpdateTimerCallback() = default;
 
  public:
   UpdateTimerCallback(nsIPrincipal* aPrincipal, const nsACString& aScope)
