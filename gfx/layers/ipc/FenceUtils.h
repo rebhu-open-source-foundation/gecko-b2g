@@ -8,6 +8,7 @@
 #ifndef IPC_FencerUtils_h
 #define IPC_FencerUtils_h
 
+#include <unistd.h> // for close()
 #include "ipc/IPCMessageUtils.h"
 #include "mozilla/RefPtr.h"             // for nsRefPtr
 

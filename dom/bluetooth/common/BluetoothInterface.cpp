@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <unistd.h>
 #include "BluetoothInterface.h"
 #if ANDROID_VERSION >= 17
 #include <cutils/properties.h>
