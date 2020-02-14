@@ -13,7 +13,9 @@ const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
 const { WifiConfigStore } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigStore.jsm"
 );
-Cu.import("resource://gre/modules/WifiConfiguration.jsm");
+const { WifiConfigUtils } = ChromeUtils.import(
+  "resource://gre/modules/WifiConfiguration.jsm"
+);
 
 this.EXPORTED_SYMBOLS = ["WifiConfigManager"];
 
@@ -108,6 +110,7 @@ this.WifiConfigManager = (function() {
   configManager.getLastSelectedTimeStamp = getLastSelectedTimeStamp;
   configManager.clearDisableReasonCounter = clearDisableReasonCounter;
   configManager.getNetworkConfiguration = getNetworkConfiguration;
+  configManager.getHiddenNetworks = getHiddenNetworks;
   configManager.loadFromStore = loadFromStore;
   configManager.readFromStore = readFromStore;
   configManager.saveToStore = saveToStore;
@@ -335,6 +338,16 @@ this.WifiConfigManager = (function() {
       return callback(configuredNetworks[networkKey]);
     }
     callback(null);
+  }
+
+  function getHiddenNetworks() {
+    let networks = [];
+    for (let net in configuredNetworks) {
+      if (net.hidden) {
+        networks.push(configuredNetworks[net].ssid);
+      }
+    }
+    return networks;
   }
 
   function loadFromStore() {

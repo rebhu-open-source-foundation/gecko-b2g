@@ -6,6 +6,8 @@
 
 "use strict";
 
+this.EXPORTED_SYMBOLS = ["WifiWorker"];
+
 const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
 
 const { XPCOMUtils } = ChromeUtils.import(
@@ -35,14 +37,18 @@ const { WifiNetworkSelector } = ChromeUtils.import(
 const { WifiConfigManager } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigManager.jsm"
 );
+const { WifiScanSettings } = ChromeUtils.import(
+  "resource://gre/modules/WifiScanSettings.jsm"
+);
 const { FileUtils } = ChromeUtils.import(
   "resource://gre/modules/FileUtils.jsm"
 );
 const { Timer, clearTimeout, setTimeout } = ChromeUtils.import(
   "resource://gre/modules/Timer.jsm"
 );
-
-Cu.import("resource://gre/modules/WifiConfiguration.jsm");
+const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
+  "resource://gre/modules/WifiConfiguration.jsm"
+);
 
 var DEBUG = true; // set to true to show debug messages.
 
@@ -424,18 +430,6 @@ var WifiManager = (function() {
     });
   }
 
-  manager.startScan = function(callback) {
-    wifiCommand.startScan(function(status) {
-      callback(status);
-    });
-  };
-
-  manager.abortScan = function(callback) {
-    wifiCommand.abortScan(function(status) {
-      callback(status);
-    });
-  };
-
   function startWifi(callback) {
     wifiCommand.startWifi(function(status) {
       callback(status);
@@ -456,11 +450,6 @@ var WifiManager = (function() {
       callback(status);
     });
   }
-
-  manager.halInitialize = halInitialize;
-  manager.startWifi = startWifi;
-  manager.stopWifi = stopWifi;
-  manager.connect = connect;
 
   var screenOn = true;
   function handleScreenStateChanged(enabled) {
@@ -504,15 +493,37 @@ var WifiManager = (function() {
     });
   }
 
-  function handleScanRequest(callback, freqs) {
-    if (!freqs) {
-      freqs = null;
-    }
-    manager.handlePreWifiScan();
-    wifiCommand.scan(freqs, function(ok) {
-      if (callback) {
-        callback(ok);
+  function updateChannels(callback) {
+    wifiCommand.getChannelsForBand(WifiScanSettings.bandMask, function(data) {
+      let channels = data.getChannels();
+      if (channels.length > 0) {
+        WifiScanSettings.channels = channels;
+        callback(true);
+        return;
       }
+      callback(false);
+    });
+  }
+
+  function handleScanRequest(callback) {
+    updateChannels(function(ok) {
+      let scanSettings = WifiScanSettings.singleScanSettings;
+      scanSettings.scanType = WifiScanSettings.SCAN_TYPE_HIGH_ACCURACY;
+      scanSettings.channels =
+        manager.currentConfigChannels.length > 0
+          ? manager.currentConfigChannels
+          : WifiScanSettings.channels;
+      scanSettings.hiddenNetworks = WifiConfigManager.getHiddenNetworks();
+
+      if (scanSettings.channels.length == 0) {
+        callback(false);
+      }
+      manager.handlePreWifiScan();
+      wifiCommand.startScan(scanSettings, function(ok) {
+        if (callback) {
+          callback(ok);
+        }
+      });
     });
   }
 
@@ -521,7 +532,7 @@ var WifiManager = (function() {
   var fullBandConnectedTimeIntervalMilli = WIFI_ASSOCIATED_SCAN_INTERVAL;
   var maxFullBandConnectedTimeIntervalMilli = 5 * 60 * 1000;
   var lastFullBandConnectedTimeMilli = -1;
-  manager.currentConfigChannels = "";
+  manager.currentConfigChannels = [];
   manager.startDelayScan = function() {
     debug(
       "startDelayScan: manager.state=" + manager.state + " screenOn=" + screenOn
@@ -556,7 +567,7 @@ var WifiManager = (function() {
         //       2. Don't scan if lots of packets are being sent.
 
         if (!tryFullBandScan && manager.currentConfigChannels) {
-          handleScanRequest(function() {}, manager.currentConfigChannels);
+          handleScanRequest(function() {});
         } else {
           lastFullBandConnectedTimeMilli = now_ms;
           if (
@@ -1370,12 +1381,7 @@ var WifiManager = (function() {
               (wifiInfo.is5G &&
                 wifiInfo.rssi > WifiNetworkSelector.RSSI_THRESHOLD_LOW_5G))
           ) {
-            handleScanRequest(
-              function() {},
-              manager.currentConfigChannels
-                ? manager.currentConfigChannels
-                : null
-            );
+            handleScanRequest(function() {});
             manager.linkDebouncing = true;
             linkDebouncingId = setTimeout(function() {
               isDriverRoaming = false;
@@ -1416,7 +1422,7 @@ var WifiManager = (function() {
           debug(networkKey + " is not defined in conifgured networks");
         }
       }
-      manager.currentConfigChannels = "";
+      manager.currentConfigChannels = [];
       wifiInfo.reset();
       // Restore power save and suspend optimizations when dhcp failed.
       postDhcpSetup(function(ok) {});
@@ -1562,7 +1568,7 @@ var WifiManager = (function() {
               signalLevel = match[3],
               flags = match[4];
             if (bssid === bssidReject) {
-              let network = new WifiConfig(
+              let network = new ScanResult(
                 ssid,
                 bssid,
                 frequency,
@@ -2159,10 +2165,6 @@ var WifiManager = (function() {
     }
   };
 
-  manager.disconnect = wifiCommand.disconnect;
-  manager.reconnect = wifiCommand.reconnect;
-  manager.reassociate = wifiCommand.reassociate;
-
   var networkConfigurationFields = [
     { name: "ssid", type: "string" },
     { name: "bssid", type: "string" },
@@ -2383,6 +2385,10 @@ var WifiManager = (function() {
   manager.setDebugLevel = wifiCommand.setDebugLevel;
   manager.setAutoReconnect = wifiCommand.setAutoReconnect;
   manager.getStaCapabilities = wifiCommand.getStaCapabilities;
+  manager.connect = connect;
+  manager.disconnect = wifiCommand.disconnect;
+  manager.reconnect = wifiCommand.reconnect;
+  manager.reassociate = wifiCommand.reassociate;
 
   manager.ensureSupplicantDetached = aCallback => {
     if (!manager.enabled) {
@@ -3106,7 +3112,7 @@ function WifiWorker() {
     //   WifiManager.startDelayScan();
 
     // Notify everybody, even if they didn't ask us to come up.
-    WifiManager.getMacAddress(function (mac) {
+    WifiManager.getMacAddress(function(mac) {
       self._macAddress = mac;
       debug("Got mac: " + mac);
       self._fireEvent("wifiUp", { macAddress: mac });
@@ -3338,8 +3344,9 @@ function WifiWorker() {
     OpenNetworkNotifier.clearPendingNotification();
     // reset disable counter tracking
     WifiManager.loopDetectionCount = 0;
-    WifiConfigManager.clearDisableReasonCounter(escape(wifiInfo.wifiSsid) +
-      wifiInfo.security);
+    WifiConfigManager.clearDisableReasonCounter(
+      escape(wifiInfo.wifiSsid) + wifiInfo.security
+    );
 
     WifiNetworkInterface.updateConfig("updated", {
       state: Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED,
@@ -3365,121 +3372,132 @@ function WifiWorker() {
   WifiManager.onscanresultsavailable = function() {
     WifiManager.getScanResults(function(data) {
       let scanResults = data.getScanResults();
-      for (let i = 0; i < scanResults.length; i++) {
-        debug(
-          " * " +
-            scanResults[i].ssid +
-            " " +
-            scanResults[i].bssid +
-            " " +
-            scanResults[i].infoElement +
-            " " +
-            scanResults[i].frequency +
-            " " +
-            scanResults[i].tsf +
-            " " +
-            scanResults[i].capability
-        );
+      // Check any open network and notify to user.
+      // TODO: uncomplete
+      //if (WifiNetworkInterface.info.state == Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED) {
+      //  OpenNetworkNotifier.handleScanResults(r);
+      //}
+
+      if (scanResults.length <= 0 && self.wantScanResults.length !== 0) {
+        self.wantScanResults.forEach(function(callback) {
+          callback(null);
+        });
+        self.wantScanResults = [];
+        return;
       }
+
+      let capabilities = WifiManager.getCapabilities();
+
+      // Now that we have scan results, there's no more need to continue
+      // scanning. Ignore any errors from this command.
+      self.networksArray = [];
+      var channelSet = new Set();
+      for (let i = 0; i < scanResults.length; i++) {
+        let result = scanResults[i];
+        let ie = result.getInfoElement();
+        debug(" * " +
+          result.ssid + " " +
+          result.bssid + " " +
+          result.frequency + " " +
+          result.tsf + " " +
+          result.capability + " " +
+          result.signal + " " +
+          result.associated
+        );
+
+        let signalLevel = result.signal / 100;
+        let infoElement = WifiConfigUtils.parseInformationElements(ie);
+        let flags = WifiConfigUtils.parseCapabilities(
+          infoElement,
+          result.capability
+        );
+
+        /* Skip networks with unknown or unsupported modes. */
+        if (capabilities.mode.indexOf(WifiConfigUtils.getMode(flags)) == -1)
+          continue;
+
+        // If this is the first time that we've seen this SSID in the scan
+        // results, add it to the list along with any other information.
+        // Also, we use the highest signal strength that we see.
+        let network = new ScanResult(
+          result.ssid,
+          result.bssid,
+          result.frequency,
+          flags,
+          signalLevel,
+          result.associated
+        );
+
+        let networkKey = WifiConfigUtils.getNetworkKey(network);
+        network.networkKey = networkKey;
+
+        var configuredNetworks = WifiConfigManager.configuredNetworks;
+        if (networkKey in configuredNetworks) {
+          let known = configuredNetworks[networkKey];
+          network.known = true;
+          network.netId = known.netId;
+
+          if (
+            network.netId == wifiInfo.networkId &&
+            self.ipAddress &&
+            result.associated
+          ) {
+            network.connected = true;
+            channelSet.add(frequency);
+            if (lastNetwork.everValidated) {
+              network.hasInternet = known.hasInternet = true;
+              network.captivePortalDetected = false;
+            } else if (lastNetwork.everCaptivePortalDetected) {
+              network.hasInternet = known.hasInternet = false;
+              network.captivePortalDetected = true;
+            } else {
+              network.hasInternet = known.hasInternet = false;
+              network.captivePortalDetected = false;
+            }
+          }
+
+          if ("identity" in known && known.identity) {
+            network.identity = dequote(known.identity);
+          }
+
+          // Note: we don't hand out passwords here! The * marks that there
+          // is a password that we're hiding.
+          if (
+            ("psk" in known && known.psk) ||
+            ("password" in known && known.password) ||
+            isInWepKeyList(known)
+          ) {
+            network.password = "*";
+          }
+          if ("hasInternet" in known) {
+            network.hasInternet = known.hasInternet;
+          }
+        }
+
+        let signal = WifiConfigUtils.calculateSignal(Number(signalLevel));
+        if (signal > network.relSignalStrength) {
+          network.relSignalStrength = signal;
+        }
+        self.networksArray.push(network);
+      }
+
+      WifiManager.currentConfigChannels = [];
+      channelSet.forEach(function(channel) {
+        WifiManager.currentConfigChannels.push(channel);
+      });
+
+      if (!WifiManager.wpsStarted) {
+        self.handleScanResults(self.networksArray);
+      }
+      if (self.wantScanResults.length !== 0) {
+        self.wantScanResults.forEach(function(callback) {
+          callback(self.networksArray);
+        });
+        self.wantScanResults = [];
+      }
+      self._fireEvent("scanresult", { scanResult: self.networksArray });
     });
-    //    // Check any open network and notify to user.
-    //    if (WifiNetworkInterface.info.state == Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED) {
-    //      OpenNetworkNotifier.handleScanResults(r);
-    //    }
-    //
-    //    // Failure.
-    //    if (!r) {
-    //      if (self.wantScanResults.length !== 0) {
-    //        self.wantScanResults.forEach(function(callback) { callback(null) });
-    //        self.wantScanResults = [];
-    //      }
-    //      return;
-    //    }
-    //
-    //    let capabilities = WifiManager.getCapabilities();
-    //
-    //    // Now that we have scan results, there's no more need to continue
-    //    // scanning. Ignore any errors from this command.
-    //    self.networksArray = [];
-    //    var channelSet = new Set();
-    //    for (let i = 0; i < scanResults.length; i++) {
-    //        /* Skip networks with unknown or unsupported modes. */
-    //        if (capabilities.mode.indexOf(WifiConfigUtils.getMode(flags)) == -1)
-    //          continue;
-    //
-    //        // If this is the first time that we've seen this SSID in the scan
-    //        // results, add it to the list along with any other information.
-    //        // Also, we use the highest signal strength that we see.
-    //        let network = new WifiConfig(ssid, bssid, frequency, flags, signalLevel);
-    //
-    //        let networkKey = WifiConfigUtils.getNetworkKey(network);
-    //        network.networkKey = networkKey;
-    //
-    //        let eapIndex = -1;
-    //        var configuredNetworks = WifiConfigManager.configuredNetworks;
-    //        if (networkKey in configuredNetworks) {
-    //          let known = configuredNetworks[networkKey];
-    //          network.known = true;
-    //          network.netId = known.netId;
-    //
-    //          if (network.netId == wifiInfo.networkId && self.ipAddress) {
-    //            network.connected = true;
-    //            channelSet.add(frequency);
-    //            if (lastNetwork.everValidated) {
-    //              network.hasInternet = known.hasInternet = true;
-    //              network.captivePortalDetected = false;
-    //            } else if (lastNetwork.everCaptivePortalDetected) {
-    //              network.hasInternet = known.hasInternet = false;
-    //              network.captivePortalDetected = true;
-    //            } else {
-    //              network.hasInternet = known.hasInternet = false;
-    //              network.captivePortalDetected = false;
-    //            }
-    //          }
-    //
-    //          if ("identity" in known && known.identity)
-    //            network.identity = dequote(known.identity);
-    //
-    //          // Note: we don't hand out passwords here! The * marks that there
-    //          // is a password that we're hiding.
-    //          if (("psk" in known && known.psk) ||
-    //              ("password" in known && known.password) ||
-    //              isInWepKeyList(known)) {
-    //            network.password = "*";
-    //          }
-    //          if ("hasInternet" in known) {
-    //            network.hasInternet = known.hasInternet;
-    //          }
-    //        }
-    //
-    //        let signal = WifiConfigUtils.calculateSignal(Number(match[3]));
-    //        if (signal > network.relSignalStrength) {
-    //          network.relSignalStrength = signal;
-    //        }
-    //        self.networksArray.push(network);
-    //      } else if (!match) {
-    //        debug("Match didn't find anything for: " + lines[i]);
-    //      }
-    //    }
-    //
-    //    var first = true;
-    //    WifiManager.currentConfigChannels = "";
-    //    channelSet.forEach(function(channel) {
-    //      if (!first)
-    //        WifiManager.currentConfigChannels += ",";
-    //      WifiManager.currentConfigChannels += channel;
-    //      first = false;
-    //    });
-    //
-    //    if (!WifiManager.wpsStarted) {
-    //      self.handleScanResults(self.networksArray);
-    //    }
-    //    if (self.wantScanResults.length !== 0) {
-    //      self.wantScanResults.forEach(function(callback) { callback(self.networksArray) });
-    //      self.wantScanResults = [];
-    //    }
-    //    self._fireEvent("scanresult", { scanResult: self.networksArray });
-  };
+  }
 
   WifiManager.onregisterimslistener = function() {
     let imsService;
@@ -4141,6 +4159,8 @@ WifiWorker.prototype = {
     }.bind(this);
     this.waitForScan(callback);
 
+    // TODO: set 2.4G only, should check if device support 5G
+    WifiScanSettings.bandMask = WifiScanSettings.BAND_2_4_GHZ;
     WifiManager.handleScanRequest(
       function(ok) {
         // If the scan command succeeded, we're done.
@@ -4690,12 +4710,7 @@ WifiWorker.prototype = {
     let configured = configuredNetworks[networkKey];
     WifiManager.removeNetwork(configured.netId, function(ok) {
       if (!ok) {
-        self._sendMessage(
-          message,
-          false,
-          "Unable to remove the network",
-          msg
-        );
+        self._sendMessage(message, false, "Unable to remove the network", msg);
         return;
       }
       WifiManager.disconnect(function() {});
@@ -5542,5 +5557,3 @@ function updateDebug() {
   //WifiManager.syncDebug();
 }
 updateDebug();
-
-var EXPORTED_SYMBOLS = ["WifiWorker"];

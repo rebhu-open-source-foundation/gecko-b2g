@@ -8,6 +8,8 @@
  */
 #define LOG_TAG "WificondControl"
 #include "WificondControl.h"
+#include "nsIWifiElement.h"
+#include "nsIMutableArray.h"
 
 #include <binder/IBinder.h>
 #include <binder/IServiceManager.h>
@@ -174,9 +176,8 @@ bool WificondControl::SetupClientIface(
     return false;
   }
 
-  // TODO: should create scan event handler here?
   if (mScanner->subscribeScanEvents(aScanCallback).isOk()) {
-    WIFI_LOGE(LOG_TAG, "subscribe scan event success");
+    WIFI_LOGD(LOG_TAG, "subscribe scan event success");
   } else {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
   }
@@ -184,26 +185,33 @@ bool WificondControl::SetupClientIface(
   return true;
 }
 
-bool WificondControl::StartSingleScan() {
+bool WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
   if (mScanner == nullptr) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface.");
     return false;
   }
-
   SingleScanSettings settings;
+  settings.scan_type_ = aScanSettings->mScanType;
 
-  // TODO: add settings from framework
-  settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_LOW_SPAN;
+  std::vector<ChannelSettings> channels;
+  for (auto& freq : aScanSettings->mChannels) {
+    ChannelSettings channel;
+    channel.frequency_ = freq;
+    channels.push_back(channel);
+  }
 
-  ChannelSettings channel;
-  HiddenNetwork hidden;
-
-  channel.frequency_ = 2412;
-  const uint8_t tempSsid[] = {'K', 'a', 'i', 'O', 'S'};
-  hidden.ssid_ = std::vector<uint8_t>(tempSsid, tempSsid + sizeof(tempSsid));
-
-  settings.channel_settings_ = {channel};
-  settings.hidden_networks_ = {hidden};
+  std::vector<HiddenNetwork> hiddenNetworks;
+  if (!aScanSettings->mHiddenNetworks.IsEmpty()) {
+    for (auto& net : aScanSettings->mHiddenNetworks) {
+      HiddenNetwork hidden;
+      std::string ssid_str = NS_ConvertUTF16toUTF8(net).get();
+      std::vector<uint8_t> ssid(ssid_str.begin(), ssid_str.end());
+      hidden.ssid_ = ssid;
+      hiddenNetworks.push_back(hidden);
+    }
+  }
+  settings.channel_settings_ = channels;
+  settings.hidden_networks_ = hiddenNetworks;
 
   bool success = false;
   mScanner->scan(settings, &success);
@@ -237,8 +245,36 @@ bool WificondControl::GetScanResults(
     WIFI_LOGE(LOG_TAG, "Get scan results failed.");
     return false;
   }
+  return true;
+}
 
-  // TODO: scan results parsing
+bool WificondControl::GetChannelsForBand(uint32_t aBandMask,
+                                         std::vector<int32_t>& aChannels) {
+  if (mWificond == nullptr) {
+    return false;
+  }
+  std::unique_ptr<std::vector<int32_t>> channel_24;
+  std::unique_ptr<std::vector<int32_t>> channel_5;
+  std::unique_ptr<std::vector<int32_t>> channel_dfs;
+
+  if (aBandMask & nsIScanSettings::BAND_2_4_GHZ) {
+    mWificond->getAvailable2gChannels(&channel_24);
+    for (int32_t& ch : *channel_24) {
+      aChannels.push_back(ch);
+    }
+  }
+  if (aBandMask & nsIScanSettings::BAND_5_GHZ) {
+    mWificond->getAvailable5gNonDFSChannels(&channel_5);
+    for (int32_t& ch : *channel_5) {
+      aChannels.push_back(ch);
+    }
+  }
+  if (aBandMask & nsIScanSettings::BAND_5_GHZ_DFS) {
+    mWificond->getAvailable5gNonDFSChannels(&channel_dfs);
+    for (int32_t& ch : *channel_dfs) {
+      aChannels.push_back(ch);
+    }
+  }
   return true;
 }
 
@@ -253,7 +289,5 @@ bool WificondControl::SignalPoll() {
     WIFI_LOGE(LOG_TAG, "Failed to get signal strength.");
     return false;
   }
-
-  // TODO: update result
   return true;
 }

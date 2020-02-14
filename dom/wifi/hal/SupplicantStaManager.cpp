@@ -13,6 +13,8 @@
 #include <string.h>
 #include <mozilla/ClearOnShutdown.h>
 
+#define EVENT_SUPPLICANT_STATE_CHANGED "SUPPLICANT_STATE_CHANGED"
+
 static const char SUPPLICANT_INTERFACE_NAME[] =
     "android.hardware.wifi.supplicant@1.2::ISupplicant";
 
@@ -605,7 +607,7 @@ Return<void> SupplicantStaManager::onStateChanged(
 
   nsCString iface(mStaInterfaceName);
   RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING("SUPPLICANT_STATE_CHANGED"));
+      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_STATE_CHANGED));
   RefPtr<nsStateChanged> stateChanged = new nsStateChanged(
       (uint32_t)newState, id, NS_ConvertUTF8toUTF16(bssid_str.c_str()),
       NS_ConvertUTF8toUTF16(ssid_str.c_str()));

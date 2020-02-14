@@ -22,6 +22,8 @@ using ::android::interface_cast;
 using ::android::String16;
 using ::android::binder::Status;
 
+#define EVENT_SCAN_RESULT_READY "SCAN_RESULT_READY"
+
 mozilla::Mutex WificondEventService::sLock("wificond-event");
 WificondEventService* WificondEventService::sInstance = nullptr;
 
@@ -66,7 +68,7 @@ android::binder::Status WificondEventService::OnScanResultReady() {
 
   nsCString iface(mStaInterfaceName);
   RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING("SCAN_RESULT_READY"));
+      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SCAN_RESULT_READY));
 
   if (mEventCallback) {
     mEventCallback(event, iface);

@@ -79,7 +79,7 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus =
         SetBtCoexistenceScanMode(aOptions.mBtCoexistenceScanMode);
   } else if (aOptions.mCmd == nsIWifiCommand::START_SINGLE_SCAN) {
-    aResult->mStatus = StartSingleScan();
+    aResult->mStatus = StartSingleScan(&aOptions.mScanSettings);
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_SINGLE_SCAN) {
     aResult->mStatus = StopSingleScan();
   } else if (aOptions.mCmd == nsIWifiCommand::START_PNO_SCAN) {
@@ -94,24 +94,26 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
       WIFI_LOGD(LOG_TAG, "No scan result available");
       return false;
     }
-
     size_t num = nativeScanResults.size();
     nsTArray<RefPtr<nsScanResult>> scanResults(num);
 
     for (auto result : nativeScanResults) {
       std::string ssid_str(result.ssid.begin(), result.ssid.end());
       std::string bssid_str = ConvertMacToString(result.bssid);
-      std::string info_element_str(result.info_element.begin(),
-                                   result.info_element.end());
       nsString ssid(NS_ConvertUTF8toUTF16(ssid_str.c_str()));
       nsString bssid(NS_ConvertUTF8toUTF16(bssid_str.c_str()));
-      nsString info_element(NS_ConvertUTF8toUTF16(info_element_str.c_str()));
       uint32_t frequency = result.frequency;
       uint32_t tsf = result.tsf;
       uint32_t capability = result.capability;
+
       int32_t signal = result.signal_mbm;
       bool associated = result.associated;
 
+      size_t ie_size = result.info_element.size();
+      nsTArray<uint8_t> info_element(ie_size);
+      for (auto& element : result.info_element) {
+        info_element.AppendElement(element);
+      }
       RefPtr<nsScanResult> scanResult =
           new nsScanResult(ssid, bssid, info_element, frequency, tsf,
                            capability, signal, associated);
@@ -121,6 +123,17 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
   } else if (aOptions.mCmd == nsIWifiCommand::GET_PNO_SCAN_RESULTS) {
     std::vector<NativeScanResult> nativeScanResults;
     aResult->mStatus = GetPnoScanResults(nativeScanResults);
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_CHANNELS_FOR_BAND) {
+    std::vector<int32_t> channels;
+    aResult->mStatus = GetChannelsForBand(aOptions.mBandMask, channels);
+    size_t num = channels.size();
+    if (num > 0) {
+      nsTArray<int32_t> channel_array(num);
+      for (int32_t& ch : channels) {
+        channel_array.AppendElement(ch);
+      }
+      aResult->updateChannels(channel_array);
+    }
   } else if (aOptions.mCmd == nsIWifiCommand::CONNECT) {
     aResult->mStatus = Connect(&aOptions.mConfig);
   } else if (aOptions.mCmd == nsIWifiCommand::RECONNECT) {
@@ -362,8 +375,8 @@ bool WifiNative::SetCountryCode(const nsAString& aCountryCode) {
   return sSupplicantStaManager->SetCountryCode(countryCode);
 }
 
-bool WifiNative::StartSingleScan() {
-  return sWificondControl->StartSingleScan();
+bool WifiNative::StartSingleScan(ScanSettingsOptions* aScanSettings) {
+  return sWificondControl->StartSingleScan(aScanSettings);
 }
 
 bool WifiNative::StopSingleScan() { return sWificondControl->StopSingleScan(); }
@@ -379,6 +392,11 @@ bool WifiNative::GetScanResults(std::vector<NativeScanResult>& aScanResults) {
 bool WifiNative::GetPnoScanResults(
     std::vector<NativeScanResult>& aScanResults) {
   return true;
+}
+
+bool WifiNative::GetChannelsForBand(uint32_t aBandMask,
+                                    std::vector<int32_t>& aChannels) {
+  return sWificondControl->GetChannelsForBand(aBandMask, aChannels);
 }
 
 bool WifiNative::Connect(ConfigurationOptions* aConfig) {

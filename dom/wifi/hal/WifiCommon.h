@@ -48,12 +48,23 @@
 typedef void (*EventCallback)(nsWifiEvent* aEvent,
                               const nsACString& aInterface);
 
+#define COPY_SEQUENCE_FIELD(prop, type)                \
+  if (aOther.prop.WasPassed()) {                       \
+    mozilla::dom::Sequence<type> const& currentValue = \
+        aOther.prop.InternalValue();                   \
+    uint32_t length = currentValue.Length();           \
+    for (uint32_t idx = 0; idx < length; idx++) {      \
+      prop.AppendElement(currentValue[idx]);           \
+    }                                                  \
+  }
+
 #define COPY_OPT_FIELD(prop, defaultValue) \
   if (aOther.prop.WasPassed()) {           \
     prop = aOther.prop.Value();            \
   } else {                                 \
     prop = defaultValue;                   \
   }
+
 #define COPY_FIELD(prop) prop = aOther.prop;
 
 struct ConfigurationOptions {
@@ -88,6 +99,20 @@ struct SupplicantDebugLevelOptions {
   bool mShowKeys;
 };
 
+struct ScanSettingsOptions {
+ public:
+  ScanSettingsOptions() = default;
+
+  ScanSettingsOptions(const mozilla::dom::ScanSettings& aOther){
+  COPY_OPT_FIELD(mScanType, 2)
+  COPY_SEQUENCE_FIELD(mChannels, int32_t)
+  COPY_SEQUENCE_FIELD(mHiddenNetworks, nsString)}
+
+  uint32_t mScanType;
+  nsTArray<int32_t> mChannels;
+  nsTArray<nsString> mHiddenNetworks;
+};
+
 // Needed to add a copy constructor to WifiCommandOptions.
 struct CommandOptions {
  public:
@@ -104,11 +129,13 @@ struct CommandOptions {
     COPY_FIELD(mSoftapCountryCode)
     COPY_FIELD(mBtCoexistenceMode)
     COPY_FIELD(mBtCoexistenceScanMode)
+    COPY_FIELD(mBandMask)
     ConfigurationOptions config(aOther.mConfig);
-
-    mConfig = config;
     SupplicantDebugLevelOptions debugLevel(aOther.mDebugLevel);
+    ScanSettingsOptions scanSettings(aOther.mScanSettings);
+    mConfig = config;
     mDebugLevel = debugLevel;
+    mScanSettings = scanSettings;
   }
 
   // All the fields, not Optional<> anymore to get copy constructors.
@@ -125,8 +152,10 @@ struct CommandOptions {
   nsString mSoftapCountryCode;
   uint8_t mBtCoexistenceMode;
   bool mBtCoexistenceScanMode;
+  uint32_t mBandMask;
   ConfigurationOptions mConfig;
   SupplicantDebugLevelOptions mDebugLevel;
+  ScanSettingsOptions mScanSettings;
 };
 
 #undef COPY_OPT_FIELD

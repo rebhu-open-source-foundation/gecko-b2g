@@ -34,7 +34,6 @@ dictionary NetworkProperties {
   long mode;
   long frequency;
   sequence<DOMString>? security;
-  sequence<DOMString>? capabilities;
   boolean known;
   boolean connected;
   boolean hidden;
@@ -81,8 +80,6 @@ interface WifiNetwork {
   readonly attribute DOMString ssid;
   readonly attribute long mode;
   readonly attribute long frequency;
-  //[Constant, Cached] readonly attribute sequence<DOMString>? security;
-  //[Constant, Cached] readonly attribute sequence<DOMString>? capabilities;
   readonly attribute boolean known;
   readonly attribute boolean connected;
   readonly attribute boolean hidden;
@@ -119,6 +116,8 @@ interface WifiNetwork {
            attribute DOMString? pskType;
            attribute DOMString? wapiAsCertificate;
            attribute DOMString? wapiUserCertificate;
+
+  sequence<DOMString>? getSecurity();
 };
 
 [JSImplementation="@mozilla.org/wificonnection;1",

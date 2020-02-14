@@ -21,9 +21,11 @@ dictionary WifiCommandOptions
   DOMString      softapCountryCode = "";
   unsigned short btCoexistenceMode = 0;
   boolean        btCoexistenceScanMode = false;
+  unsigned long  bandMask = 0;
 
   WifiConfiguration    config = {};
   SupplicantDebugLevel debugLevel = {};
+  ScanSettings         scanSettings = {};
 };
 
 /**
@@ -87,4 +89,15 @@ dictionary SupplicantDebugLevel
   unsigned long logLevel;
   boolean       showTimeStamp;
   boolean       showKeys;
+};
+
+/**
+ * The dictionary holds the parameters for scan settings.
+ */
+[GenerateInit]
+dictionary ScanSettings
+{
+  unsigned long       scanType;
+  sequence<long>      channels;
+  sequence<DOMString> hiddenNetworks;
 };

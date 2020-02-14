@@ -113,17 +113,56 @@ interface nsISupplicantDebugLevel : nsISupports
   readonly attribute boolean showKeys;
 };
 
-[scriptable, uuid(7f9267b3-a018-4ddc-95c4-b2ecc4ad975e)]
+[scriptable, uuid(639f72f2-265a-44bb-96db-169552ee8f9f)]
+interface nsIScanSettings : nsISupports
+{
+  // scan type
+  const long SCAN_TYPE_LOW_SPAN      = 0;
+  const long SCAN_TYPE_LOW_POWER     = 1;
+  const long SCAN_TYPE_HIGH_ACCURACY = 2;
+
+  // band
+  const long BAND_2_4_GHZ   = 0x1;
+  const long BAND_5_GHZ     = 0x2;
+  const long BAND_5_GHZ_DFS = 0x4;
+};
+
+[scriptable, uuid(e4bec643-5d02-432a-8edf-182dee5917ab)]
 interface nsIScanResult : nsISupports
 {
+  // SSID of the BSS.
   readonly attribute AString ssid;
+  // BSSID of the BSS.
   readonly attribute AString bssid;
-  readonly attribute AString infoElement;
+  // Frequency in MHz.
   readonly attribute unsigned long frequency;
+  // TSF of the received probe response/beacon.
   readonly attribute unsigned long tsf;
+  // This is a bit mask describing the capabilities of a BSS.
+  // See IEEE Std 802.11: 8.4.1.4
+  // Bit 0 - ESS
+  // Bit 1 - IBSS
+  // Bit 2 - CF Pollable
+  // Bit 3 - CF-Poll Request
+  // Bit 4 - Privacy
+  // Bit 5 - Short Preamble
+  // Bit 6 - PBCC
+  // Bit 7 - Channel Agility
+  // Bit 8 - Spectrum Mgmt
+  // Bit 9 - QoS
+  // Bit 10 - Short Slot Time
+  // Bit 11 - APSD
+  // Bit 12 - Radio Measurement
+  // Bit 13 - DSSS-OFDM
+  // Bit 14 - Delayed Block Ack
+  // Bit 15 - Immediate Block Ack
   readonly attribute unsigned long capability;
+  // Signal strength of probe response/beacon in (100 * dBm).
   readonly attribute long signal;
   readonly attribute boolean associated;
+  // Binary array containing the raw information elements
+  // from the probe response/beacon.
+  Array<uint8_t> getInfoElement();
 };
 
 [scriptable, uuid(29980f77-f5a2-4ab7-8bff-68772c60e370)]

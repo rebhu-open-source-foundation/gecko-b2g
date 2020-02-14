@@ -211,8 +211,13 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     aControlMessage(msg, callback);
   };
 
-  command.startScan = function(callback) {
-    voidControlMessage(WIFI_CMD_START_SINGLE_SCAN, callback);
+  command.startScan = function(settings, callback) {
+    let msg = {
+      cmd: WIFI_CMD_START_SINGLE_SCAN,
+      iface: aInterface,
+      scanSettings: settings,
+    };
+    aControlMessage(msg, callback);
   };
 
   command.stopScan = function(callback) {
@@ -243,8 +248,13 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     doGetCommand(WIFI_CMD_GET_TX_PACKET_COUNTERS, callback);
   };
 
-  command.getChannelsForBand = function(callback) {
-    doGetCommand(WIFI_CMD_GET_CHANNELS_FOR_BAND, callback);
+  command.getChannelsForBand = function(band, callback) {
+    let msg = {
+      cmd: WIFI_CMD_GET_CHANNELS_FOR_BAND,
+      iface: aInterface,
+      bandMask: band,
+    };
+    aControlMessage(msg, callback);
   };
 
   command.connect = function(config, callback) {
@@ -312,12 +322,9 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   }
 
   function doGetCommand(cmd, callback) {
-    aControlMessage(
-      { cmd: cmd, iface: aInterface },
-      function(data) {
-        callback(data);
-      }
-    );
+    aControlMessage({ cmd, iface: aInterface }, function(data) {
+      callback(data);
+    });
   }
 
   function doSetCommand(request, expected, callback) {

@@ -16,15 +16,11 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { WifiConfigManager } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigManager.jsm"
 );
+const { WifiWorker } = ChromeUtils.import(
+  "resource://gre/modules/WifiWorker.jsm"
+);
 
 this.EXPORTED_SYMBOLS = ["WifiNetworkSelector"];
-
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gSystemWorkerManager",
-  "@mozilla.org/telephony/system-worker-manager;1",
-  "nsIInterfaceRequestor"
-);
 
 var gDebug = false;
 
@@ -110,8 +106,7 @@ this.WifiNetworkSelector = (function() {
       return callback(null);
     }
 
-    var wifi = gSystemWorkerManager.getInterface(Ci.nsIWifi);
-    var wifiInfo = wifi.wifiNetworkInfo;
+    var wifiInfo = WifiWorker.wifiNetworkInfo;
 
     // Shall we start network selection at all?
     if (

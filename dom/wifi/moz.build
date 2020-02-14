@@ -37,6 +37,7 @@ if not CONFIG['DISABLE_WIFI']:
       'WifiNetworkSelector.jsm',
       'WifiP2pManager.jsm',
       'WifiP2pWorkerObserver.jsm',
+      'WifiScanSettings.jsm',
       'WifiWorker.jsm',
   ]
 

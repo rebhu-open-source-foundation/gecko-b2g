@@ -220,8 +220,9 @@ NS_IMPL_ISUPPORTS(nsWifiConfiguration, nsIWifiConfiguration);
  * nsScanResult
  */
 nsScanResult::nsScanResult(const nsAString& aSsid, const nsAString& aBssid,
-                           const nsAString& aInfoElement, uint32_t aFrequency,
-                           uint32_t aTsf, uint32_t aCapability, int32_t aSignal,
+                           const nsTArray<uint8_t>& aInfoElement,
+                           uint32_t aFrequency, uint32_t aTsf,
+                           uint32_t aCapability, int32_t aSignal,
                            bool aAssociated) {
   mSsid = aSsid;
   mBssid = aBssid;
@@ -242,12 +243,6 @@ nsScanResult::GetSsid(nsAString& aSsid) {
 NS_IMETHODIMP
 nsScanResult::GetBssid(nsAString& aBssid) {
   aBssid = mBssid;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsScanResult::GetInfoElement(nsAString& aInfoElement) {
-  aInfoElement = mInfoElement;
   return NS_OK;
 }
 
@@ -278,6 +273,12 @@ nsScanResult::GetSignal(int32_t* aSignal) {
 NS_IMETHODIMP
 nsScanResult::GetAssociated(bool* aAssociated) {
   *aAssociated = mAssociated;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsScanResult::GetInfoElement(nsTArray<uint8_t>& aInfoElement) {
+  aInfoElement = mInfoElement;
   return NS_OK;
 }
 

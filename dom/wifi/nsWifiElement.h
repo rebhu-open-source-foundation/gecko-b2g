@@ -74,7 +74,7 @@ class nsScanResult final : public nsIScanResult {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISCANRESULT
   nsScanResult(const nsAString& aSsid, const nsAString& aBssid,
-               const nsAString& aInfoElement, uint32_t aFrequency,
+               const nsTArray<uint8_t>& aInfoElement, uint32_t aFrequency,
                uint32_t aTsf, uint32_t aCapability, int32_t aSignal,
                bool aAssociated);
 
@@ -83,12 +83,12 @@ class nsScanResult final : public nsIScanResult {
 
   nsString mSsid;
   nsString mBssid;
-  nsString mInfoElement;
   uint32_t mFrequency;
   uint32_t mTsf;
   uint32_t mCapability;
   int32_t mSignal;
   bool mAssociated;
+  nsTArray<uint8_t> mInfoElement;
 };
 
 class nsStateChanged final : public nsIStateChanged {

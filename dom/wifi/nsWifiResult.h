@@ -23,9 +23,9 @@ class nsWifiResult final : public nsIWifiResult {
   NS_DECL_NSIWIFIRESULT
 
   nsWifiResult();
-  nsWifiResult(uint32_t aId, bool aStatus);
 
   void updateScanResults(nsTArray<RefPtr<nsScanResult>>& aScanResults);
+  void updateChannels(nsTArray<int32_t>& aChannels);
 
   uint32_t mId;
   bool mStatus;
@@ -38,6 +38,7 @@ class nsWifiResult final : public nsIWifiResult {
   uint32_t mCapabilities;
   uint32_t mStaCapabilities;
   uint32_t mDebugLevel;
+  nsTArray<int32_t> mChannels;
   nsTArray<RefPtr<nsScanResult>> mScanResults;
 
  private:

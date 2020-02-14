@@ -41,11 +41,12 @@ class WificondControl : virtual public android::RefBase {
   bool SetupClientIface(
       const std::string& aIfaceName,
       const android::sp<android::net::wifi::IScanEvent>& aScanCallback);
-  bool StartSingleScan();
+  bool StartSingleScan(ScanSettingsOptions* aScanSettings);
   bool StopSingleScan();
   bool StartPnoScan();
   bool StopPnoScan();
   bool GetScanResults(std::vector<NativeScanResult>& aScanResults);
+  bool GetChannelsForBand(uint32_t aBandMask, std::vector<int32_t>& aChannels);
 
   bool SignalPoll();
 

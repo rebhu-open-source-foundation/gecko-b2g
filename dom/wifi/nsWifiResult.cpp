@@ -21,14 +21,15 @@
  */
 NS_IMPL_ISUPPORTS(nsWifiResult, nsIWifiResult)
 
-nsWifiResult::nsWifiResult() : mId(0) {}
-
-nsWifiResult::nsWifiResult(uint32_t aId, bool aStatus)
-    : mId(aId), mStatus(aStatus) {}
+nsWifiResult::nsWifiResult() : mId(0), mStatus(false) {}
 
 void nsWifiResult::updateScanResults(
     nsTArray<RefPtr<nsScanResult>>& aScanResults) {
   mScanResults = aScanResults;
+}
+
+void nsWifiResult::updateChannels(nsTArray<int32_t>& aChannels) {
+  mChannels = aChannels;
 }
 
 NS_IMETHODIMP
@@ -88,6 +89,12 @@ nsWifiResult::GetStaCapabilities(uint32_t* aStaCapabilities) {
 NS_IMETHODIMP
 nsWifiResult::GetDebugLevel(uint32_t* aDebugLevel) {
   *aDebugLevel = mDebugLevel;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetChannels(nsTArray<int32_t>& aChannels) {
+  aChannels = mChannels;
   return NS_OK;
 }
 

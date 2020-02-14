@@ -54,12 +54,13 @@ class WifiNative {
   bool SetBtCoexistenceMode(uint8_t aMode);
   bool SetBtCoexistenceScanMode(bool aEnable);
 
-  bool StartSingleScan();
+  bool StartSingleScan(ScanSettingsOptions* aScanSettings);
   bool StopSingleScan();
   bool StartPnoScan();
   bool StopPnoScan();
   bool GetScanResults(std::vector<NativeScanResult>& aScanResults);
   bool GetPnoScanResults(std::vector<NativeScanResult>& aScanResults);
+  bool GetChannelsForBand(uint32_t aBandMask, std::vector<int32_t>& aChannels);
 
   bool Connect(ConfigurationOptions* aConfig);
   bool Reconnect();

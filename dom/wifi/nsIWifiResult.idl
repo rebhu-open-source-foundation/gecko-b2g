@@ -7,7 +7,7 @@
 
 interface nsIScanResult;
 
-[scriptable, uuid(10843bf3-d067-4787-860a-2da92bb565e1)]
+[scriptable, uuid(86d6ca17-5e9c-4939-a2ca-275d08c117ef)]
 interface nsIWifiResult : nsISupports
 {
   readonly attribute unsigned long id;
@@ -21,6 +21,9 @@ interface nsIWifiResult : nsISupports
   readonly attribute unsigned long capabilities;
   readonly attribute unsigned long staCapabilities;
   readonly attribute unsigned long debugLevel;
+
+  Array<int32_t> getChannels();
+
   void getScanResults([optional] out unsigned long count,
                       [array, size_is(count), retval] out nsIScanResult scanResults);
 };
