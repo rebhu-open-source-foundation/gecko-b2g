@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "nsTArray.h"
 #include "GfxInfo.h"
 
 using namespace mozilla::widget;
@@ -203,6 +204,13 @@ GfxInfo::GetDisplayHeight(nsTArray<uint32_t>& aDisplayHeight) {
 NS_IMETHODIMP
 GfxInfo::GetDesktopEnvironment(nsAString& aDesktopEnvironment) {
   return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+GfxInfo::GetHasBattery(bool* aHasBattery) {
+  // All Gonk devices should have a battery!
+  *aHasBattery = true;
+  return NS_OK;
 }
 
 #ifdef DEBUG

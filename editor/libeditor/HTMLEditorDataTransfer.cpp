@@ -241,11 +241,19 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
   // we need to recalculate various things based on potentially new offsets
   // this is work to be completed at a later date (probably by jfrancis)
 
-  // make a list of what nodes in docFrag we need to move
   AutoTArray<OwningNonNull<nsINode>, 64> nodeList;
-  CreateListOfNodesToPaste(*fragmentAsNode->AsDocumentFragment(), nodeList,
-                           streamStartParent, streamStartOffset,
-                           streamEndParent, streamEndOffset);
+  // If we have stream start point information, lets use it and end point.
+  // Otherwise, we should make a range all over the document fragment.
+  EditorRawDOMPoint streamStartPoint =
+      streamStartParent
+          ? EditorRawDOMPoint(streamStartParent, streamStartOffset)
+          : EditorRawDOMPoint(fragmentAsNode, 0);
+  EditorRawDOMPoint streamEndPoint =
+      streamStartParent ? EditorRawDOMPoint(streamEndParent, streamEndOffset)
+                        : EditorRawDOMPoint::AtEndOf(*fragmentAsNode);
+  HTMLEditor::CollectTopMostChildNodesCompletelyInRange(
+      EditorRawDOMPoint(streamStartParent, streamStartOffset),
+      EditorRawDOMPoint(streamEndParent, streamEndOffset), nodeList);
 
   if (nodeList.IsEmpty()) {
     // We aren't inserting anything, but if aDoDeleteSelection is set, we do
@@ -390,29 +398,34 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
 
   // build up list of parents of first node in list that are either
   // lists or tables.  First examine front of paste node list.
-  AutoTArray<OwningNonNull<Element>, 4> startListAndTableArray;
-  GetListAndTableParents(StartOrEnd::start, nodeList, startListAndTableArray);
-  if (!startListAndTableArray.IsEmpty()) {
-    int32_t highWaterMark =
-        DiscoverPartialListsAndTables(nodeList, startListAndTableArray);
+  AutoTArray<OwningNonNull<Element>, 4>
+      arrayOfListAndTableRelatedElementsAtStart;
+  HTMLEditor::CollectListAndTableRelatedElementsAt(
+      nodeList[0], arrayOfListAndTableRelatedElementsAtStart);
+  if (!arrayOfListAndTableRelatedElementsAtStart.IsEmpty()) {
+    int32_t highWaterMark = DiscoverPartialListsAndTables(
+        nodeList, arrayOfListAndTableRelatedElementsAtStart);
     // if we have pieces of tables or lists to be inserted, let's force the
     // paste to deal with table elements right away, so that it doesn't orphan
     // some table or list contents outside the table or list.
     if (highWaterMark >= 0) {
       ReplaceOrphanedStructure(StartOrEnd::start, nodeList,
-                               startListAndTableArray, highWaterMark);
+                               arrayOfListAndTableRelatedElementsAtStart,
+                               highWaterMark);
     }
   }
 
   // Now go through the same process again for the end of the paste node list.
-  AutoTArray<OwningNonNull<Element>, 4> endListAndTableArray;
-  GetListAndTableParents(StartOrEnd::end, nodeList, endListAndTableArray);
-  if (!endListAndTableArray.IsEmpty()) {
-    int32_t highWaterMark =
-        DiscoverPartialListsAndTables(nodeList, endListAndTableArray);
+  AutoTArray<OwningNonNull<Element>, 4> arrayOfListAndTableRelatedElementsAtEnd;
+  HTMLEditor::CollectListAndTableRelatedElementsAt(
+      nodeList.LastElement(), arrayOfListAndTableRelatedElementsAtEnd);
+  if (!arrayOfListAndTableRelatedElementsAtEnd.IsEmpty()) {
+    int32_t highWaterMark = DiscoverPartialListsAndTables(
+        nodeList, arrayOfListAndTableRelatedElementsAtEnd);
     // don't orphan partial list or table structure
     if (highWaterMark >= 0) {
-      ReplaceOrphanedStructure(StartOrEnd::end, nodeList, endListAndTableArray,
+      ReplaceOrphanedStructure(StartOrEnd::end, nodeList,
+                               arrayOfListAndTableRelatedElementsAtEnd,
                                highWaterMark);
     }
   }
@@ -2709,47 +2722,34 @@ nsresult HTMLEditor::ParseFragment(const nsAString& aFragStr,
   return rv;
 }
 
-void HTMLEditor::CreateListOfNodesToPaste(
-    DocumentFragment& aFragment, nsTArray<OwningNonNull<nsINode>>& outNodeList,
-    nsINode* aStartContainer, int32_t aStartOffset, nsINode* aEndContainer,
-    int32_t aEndOffset) {
-  // If no info was provided about the boundary between context and stream,
-  // then assume all is stream.
-  if (!aStartContainer) {
-    aStartContainer = &aFragment;
-    aStartOffset = 0;
-    aEndContainer = &aFragment;
-    aEndOffset = aFragment.Length();
-  }
+// static
+void HTMLEditor::CollectTopMostChildNodesCompletelyInRange(
+    const EditorRawDOMPoint& aStartPoint, const EditorRawDOMPoint& aEndPoint,
+    nsTArray<OwningNonNull<nsINode>>& aOutArrayOfNodes) {
+  MOZ_ASSERT(aStartPoint.IsSetAndValid());
+  MOZ_ASSERT(aEndPoint.IsSetAndValid());
 
-  RefPtr<nsRange> docFragRange = nsRange::Create(
-      aStartContainer, aStartOffset, aEndContainer, aEndOffset, IgnoreErrors());
-  if (NS_WARN_IF(!docFragRange)) {
-    MOZ_ASSERT(docFragRange);
+  RefPtr<nsRange> range =
+      nsRange::Create(aStartPoint.ToRawRangeBoundary(),
+                      aEndPoint.ToRawRangeBoundary(), IgnoreErrors());
+  if (NS_WARN_IF(!range)) {
     return;
   }
-
-  // Now use a subtree iterator over the range to create a list of nodes
   DOMSubtreeIterator iter;
-  if (NS_WARN_IF(NS_FAILED(iter.Init(*docFragRange)))) {
+  if (NS_WARN_IF(NS_FAILED(iter.Init(*range)))) {
     return;
   }
-  iter.AppendAllNodesToArray(outNodeList);
+  iter.AppendAllNodesToArray(aOutArrayOfNodes);
 }
 
-void HTMLEditor::GetListAndTableParents(
-    StartOrEnd aStartOrEnd, nsTArray<OwningNonNull<nsINode>>& aNodeList,
-    nsTArray<OwningNonNull<Element>>& outArray) {
-  MOZ_ASSERT(aNodeList.Length());
-
-  // Build up list of parents of first (or last) node in list that are either
-  // lists, or tables.
-  int32_t idx = aStartOrEnd == StartOrEnd::end ? aNodeList.Length() - 1 : 0;
-
-  for (nsCOMPtr<nsINode> node = aNodeList[idx]; node;
-       node = node->GetParentNode()) {
-    if (HTMLEditUtils::IsList(node) || HTMLEditUtils::IsTable(node)) {
-      outArray.AppendElement(*node->AsElement());
+// static
+void HTMLEditor::CollectListAndTableRelatedElementsAt(
+    nsINode& aNode,
+    nsTArray<OwningNonNull<Element>>& aOutArrayOfListAndTableElements) {
+  for (nsIContent* content = nsIContent::FromNode(&aNode); content;
+       content = content->GetParentElement()) {
+    if (HTMLEditUtils::IsList(content) || HTMLEditUtils::IsTable(content)) {
+      aOutArrayOfListAndTableElements.AppendElement(*content->AsElement());
     }
   }
 }
@@ -2799,51 +2799,111 @@ int32_t HTMLEditor::DiscoverPartialListsAndTables(
   return ret;
 }
 
-nsINode* HTMLEditor::ScanForListAndTableStructure(
-    StartOrEnd aStartOrEnd, nsTArray<OwningNonNull<nsINode>>& aNodes,
-    Element& aListOrTable) {
-  // Look upward from first/last paste node for a piece of this list/table
-  int32_t idx = aStartOrEnd == StartOrEnd::end ? aNodes.Length() - 1 : 0;
-  bool isList = HTMLEditUtils::IsList(&aListOrTable);
-
-  for (nsCOMPtr<nsINode> node = aNodes[idx]; node;
-       node = node->GetParentNode()) {
-    if ((isList && HTMLEditUtils::IsListItem(node)) ||
-        (!isList && HTMLEditUtils::IsTableElement(node) &&
-         !node->IsHTMLElement(nsGkAtoms::table))) {
-      nsCOMPtr<Element> structureNode = node->GetParentElement();
-      if (isList) {
-        while (structureNode && !HTMLEditUtils::IsList(structureNode)) {
-          structureNode = structureNode->GetParentElement();
-        }
-      } else {
-        while (structureNode &&
-               !structureNode->IsHTMLElement(nsGkAtoms::table)) {
-          structureNode = structureNode->GetParentElement();
-        }
-      }
-      if (structureNode == &aListOrTable) {
-        if (isList) {
-          return structureNode;
-        }
-        return node;
+// static
+Element* HTMLEditor::FindReplaceableTableElement(
+    Element& aTableElement, nsINode& aNodeMaybeInTableElement) {
+  MOZ_ASSERT(aTableElement.IsHTMLElement(nsGkAtoms::table));
+  // Perhaps, this is designed for climbing up the DOM tree from
+  // aNodeMaybeInTableElement to aTableElement and making sure that
+  // aNodeMaybeInTableElement itself or its ancestor is a `<td>`, `<th>`,
+  // `<tr>`, `<thead>`, `<tbody>`, `<tfoot>` or `<caption>`.
+  // But this looks really buggy because this loop may skip aTableElement
+  // as the following NS_ASSERTION.  We should write automated tests and
+  // check right behavior.
+  for (Element* element = aNodeMaybeInTableElement.IsElement()
+                              ? aNodeMaybeInTableElement.AsElement()
+                              : aNodeMaybeInTableElement.GetParentElement();
+       element; element = element->GetParentElement()) {
+    if (!HTMLEditUtils::IsTableElement(element) ||
+        element->IsHTMLElement(nsGkAtoms::table)) {
+      // XXX Perhaps, the original developer of this method assumed that
+      //     aTableElement won't be skipped because if it's assumed, we can
+      //     stop climbing up the tree in that case.
+      NS_ASSERTION(element != &aTableElement,
+                   "The table element which is looking for is ignored");
+      continue;
+    }
+    Element* tableElement = nullptr;
+    for (Element* maybeTableElement = element->GetParentElement();
+         maybeTableElement;
+         maybeTableElement = maybeTableElement->GetParentElement()) {
+      if (maybeTableElement->IsHTMLElement(nsGkAtoms::table)) {
+        tableElement = maybeTableElement;
+        break;
       }
     }
+    if (tableElement == &aTableElement) {
+      return element;
+    }
+    // XXX If we find another `<table>` element, why don't we keep searching
+    //     from its parent?
   }
   return nullptr;
+}
+
+// static
+bool HTMLEditor::IsReplaceableListElement(Element& aListElement,
+                                          nsINode& aNodeMaybeInListElement) {
+  MOZ_ASSERT(HTMLEditUtils::IsList(&aListElement));
+  // Perhaps, this is designed for climbing up the DOM tree from
+  // aNodeMaybeInListElement to aListElement and making sure that
+  // aNodeMaybeInListElement itself or its ancestor is an list item.
+  // But this looks really buggy because this loop may skip aListElement
+  // as the following NS_ASSERTION.  We should write automated tests and
+  // check right behavior.
+  for (Element* element = aNodeMaybeInListElement.IsElement()
+                              ? aNodeMaybeInListElement.AsElement()
+                              : aNodeMaybeInListElement.GetParentElement();
+       element; element = element->GetParentElement()) {
+    if (!HTMLEditUtils::IsListItem(element)) {
+      // XXX Perhaps, the original developer of this method assumed that
+      //     aListElement won't be skipped because if it's assumed, we can
+      //     stop climbing up the tree in that case.
+      NS_ASSERTION(element != &aListElement,
+                   "The list element which is looking for is ignored");
+      continue;
+    }
+    Element* listElement = nullptr;
+    for (Element* maybeListElement = element->GetParentElement();
+         maybeListElement;
+         maybeListElement = maybeListElement->GetParentElement()) {
+      if (HTMLEditUtils::IsList(maybeListElement)) {
+        listElement = maybeListElement;
+        break;
+      }
+    }
+    if (listElement == &aListElement) {
+      return true;
+    }
+    // XXX If we find another list element, why don't we keep searching
+    //     from its parent?
+  }
+  return false;
 }
 
 void HTMLEditor::ReplaceOrphanedStructure(
     StartOrEnd aStartOrEnd, nsTArray<OwningNonNull<nsINode>>& aNodeArray,
     nsTArray<OwningNonNull<Element>>& aListAndTableArray,
     int32_t aHighWaterMark) {
+  MOZ_ASSERT(!aNodeArray.IsEmpty());
+
+  OwningNonNull<nsINode>& edgeNode =
+      aStartOrEnd == StartOrEnd::end ? aNodeArray.LastElement() : aNodeArray[0];
   OwningNonNull<Element> curNode = aListAndTableArray[aHighWaterMark];
 
   // Find substructure of list or table that must be included in paste.
-  nsCOMPtr<nsINode> replaceNode =
-      ScanForListAndTableStructure(aStartOrEnd, aNodeArray, curNode);
-
-  if (!replaceNode) {
+  Element* replaceElement;
+  if (HTMLEditUtils::IsList(curNode)) {
+    if (!HTMLEditor::IsReplaceableListElement(curNode, edgeNode)) {
+      return;
+    }
+    replaceElement = curNode;
+  } else if (curNode->IsHTMLElement(nsGkAtoms::table)) {
+    replaceElement = HTMLEditor::FindReplaceableTableElement(curNode, edgeNode);
+    if (!replaceElement) {
+      return;
+    }
+  } else {
     return;
   }
 
@@ -2856,8 +2916,8 @@ void HTMLEditor::ReplaceOrphanedStructure(
     uint32_t idx = aStartOrEnd == StartOrEnd::start ? (i - removedCount)
                                                     : (originalLength - i - 1);
     OwningNonNull<nsINode> endpoint = aNodeArray[idx];
-    if (endpoint == replaceNode ||
-        EditorUtils::IsDescendantOf(*endpoint, *replaceNode)) {
+    if (endpoint == replaceElement ||
+        EditorUtils::IsDescendantOf(*endpoint, *replaceElement)) {
       aNodeArray.RemoveElementAt(idx);
       removedCount++;
     }
@@ -2865,9 +2925,9 @@ void HTMLEditor::ReplaceOrphanedStructure(
 
   // Now replace the removed nodes with the structural parent
   if (aStartOrEnd == StartOrEnd::end) {
-    aNodeArray.AppendElement(*replaceNode);
+    aNodeArray.AppendElement(*replaceElement);
   } else {
-    aNodeArray.InsertElementAt(0, *replaceNode);
+    aNodeArray.InsertElementAt(0, *replaceElement);
   }
 }
 

@@ -1641,7 +1641,7 @@
 # See https://github.com/whatwg/html/pull/3752
 - name: dom.image-lazy-loading.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Enable passing the "storage" option to indexedDB.open.
@@ -6860,6 +6860,13 @@
   type: bool
   value: false
   mirror: always
+
+#if defined(XP_MACOSX)
+- name: media.macos.screenrecording.oscheck.enabled
+  type: bool
+  value: true
+  mirror: always
+#endif
 
 #---------------------------------------------------------------------------
 # Prefs starting with "mousewheel."

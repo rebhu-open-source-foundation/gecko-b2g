@@ -3935,24 +3935,66 @@ class HTMLEditor final : public TextEditor,
   nsresult ParseFragment(const nsAString& aStr, nsAtom* aContextLocalName,
                          Document* aTargetDoc,
                          dom::DocumentFragment** aFragment, bool aTrustedInput);
-  void CreateListOfNodesToPaste(dom::DocumentFragment& aFragment,
-                                nsTArray<OwningNonNull<nsINode>>& outNodeList,
-                                nsINode* aStartContainer, int32_t aStartOffset,
-                                nsINode* aEndContainer, int32_t aEndOffset);
-  enum class StartOrEnd { start, end };
-  void GetListAndTableParents(StartOrEnd aStartOrEnd,
-                              nsTArray<OwningNonNull<nsINode>>& aNodeList,
-                              nsTArray<OwningNonNull<Element>>& outArray);
+  /**
+   * CollectTopMostChildNodesCompletelyInRange() collects topmost child nodes
+   * which are completely in the given range.
+   * For example, if the range points a node with its container node, the
+   * result is only the node (meaning does not include its descendants).
+   * If the range starts start of a node and ends end of it, and if the node
+   * does not have children, returns no nodes, otherwise, if the node has
+   * some children, the result includes its all children (not including their
+   * descendants).
+   *
+   * @param aStartPoint         Start point of the range.
+   * @param aEndPoint           End point of the range.
+   * @param aOutArrayOfNodes    [Out] Topmost children which are completely in
+   *                            the range.
+   */
+  static void CollectTopMostChildNodesCompletelyInRange(
+      const EditorRawDOMPoint& aStartPoint, const EditorRawDOMPoint& aEndPoint,
+      nsTArray<OwningNonNull<nsINode>>& aOutArrayOfNodes);
+
+  /**
+   * CollectListAndTableRelatedElementsAt() collects list elements and
+   * table related elements from aNode (meaning aNode may be in the first of
+   * the result) to the root element.
+   */
+  static void CollectListAndTableRelatedElementsAt(
+      nsINode& aNode,
+      nsTArray<OwningNonNull<Element>>& aOutArrayOfListAndTableElements);
+
   int32_t DiscoverPartialListsAndTables(
       nsTArray<OwningNonNull<nsINode>>& aPasteNodes,
       nsTArray<OwningNonNull<Element>>& aListsAndTables);
-  nsINode* ScanForListAndTableStructure(
-      StartOrEnd aStartOrEnd, nsTArray<OwningNonNull<nsINode>>& aNodes,
-      Element& aListOrTable);
+  enum class StartOrEnd { start, end };
   void ReplaceOrphanedStructure(
       StartOrEnd aStartOrEnd, nsTArray<OwningNonNull<nsINode>>& aNodeArray,
       nsTArray<OwningNonNull<Element>>& aListAndTableArray,
       int32_t aHighWaterMark);
+
+  /**
+   * FindReplaceableTableElement() is a helper method of
+   * ReplaceOrphanedStructure().  If aNodeMaybeInTableElement is a descendant
+   * of aTableElement, returns aNodeMaybeInTableElement or its nearest ancestor
+   * whose tag name is `<td>`, `<th>`, `<tr>`, `<thead>`, `<tfoot>`, `<tbody>`
+   * or `<caption>`.
+   *
+   * @param aTableElement               Must be a `<table>` element.
+   * @param aNodeMaybeInTableElement    A node which may be in aTableElement.
+   */
+  static Element* FindReplaceableTableElement(
+      Element& aTableElement, nsINode& aNodeMaybeInTableElement);
+
+  /**
+   * IsReplaceableListElement() is a helper method of
+   * ReplaceOrphanedStructure().  If aNodeMaybeInListElement is a descendant
+   * of aListElement, returns true.  Otherwise, false.
+   *
+   * @param aListElement                Must be a list element.
+   * @param aNodeMaybeInListElement     A node which may be in aListElement.
+   */
+  static bool IsReplaceableListElement(Element& aListElement,
+                                       nsINode& aNodeMaybeInListElement);
 
   /**
    * GetBetterInsertionPointFor() returns better insertion point to insert
