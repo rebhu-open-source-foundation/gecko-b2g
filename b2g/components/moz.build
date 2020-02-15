@@ -43,11 +43,10 @@ EXTRA_PP_COMPONENTS += [
     'B2GComponents.manifest',
 ]
 
-if CONFIG['MOZ_B2G']:
-    EXTRA_COMPONENTS += [
-        'DirectoryProvider.js',
-        'RecoveryService.js',
-    ]
+EXTRA_COMPONENTS += [
+    'DirectoryProvider.js',
+    'RecoveryService.js',
+]
 
 if CONFIG['MOZ_UPDATER']:
     EXTRA_COMPONENTS += [
