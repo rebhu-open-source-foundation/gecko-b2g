@@ -40,11 +40,7 @@ namespace android {
 class IGraphicBufferProducer;
 class String8;
 
-#if ANDROID_VERSION >= 21
 typedef IGraphicBufferConsumer StreamConsumer;
-#else
-typedef BufferQueue StreamConsumer;
-#endif
 
 class DisplaySurface : public ConsumerBase {
 public:
@@ -104,11 +100,7 @@ public:
 
 protected:
     DisplaySurface(const sp<StreamConsumer>& sc)
-#if ANDROID_VERSION >= 19
         : ConsumerBase(sc, true)
-#else
-        : ConsumerBase(sc)
-#endif
         , lastHandle(0)
     { }
     virtual ~DisplaySurface() {}

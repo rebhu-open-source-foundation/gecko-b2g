@@ -60,11 +60,7 @@ enum class NotifyDisplayChangedEvent : int8_t {
 class nsScreenGonk : public nsBaseScreen
 {
     typedef mozilla::hal::ScreenConfiguration ScreenConfiguration;
-#if ANDROID_VERSION >= 26
     typedef android::GonkDisplay GonkDisplay;
-#else
-    typedef mozilla::GonkDisplay GonkDisplay;
-#endif
     typedef mozilla::LayoutDeviceIntRect LayoutDeviceIntRect;
     typedef mozilla::layers::CompositorBridgeParent CompositorBridgeParent;
     typedef mozilla::gfx::DrawTarget DrawTarget;
@@ -102,10 +98,8 @@ public:
     nsresult MakeSnapshot(ANativeWindowBuffer* aBuffer);
     void SetCompositorBridgeParent(CompositorBridgeParent* aCompositorBridgeParent);
 
-#if ANDROID_VERSION >= 17
     android::DisplaySurface* GetDisplaySurface();
     int GetPrevDispAcquireFd();
-#endif
     bool IsComposer2DSupported();
     bool IsVsyncSupported();
     DisplayType GetDisplayType();
@@ -155,9 +149,7 @@ protected:
     uint32_t mScreenRotation;
     uint32_t mPhysicalScreenRotation;
     nsTArray<nsWindow*> mTopWindows;
-#if ANDROID_VERSION >= 17
     android::sp<android::DisplaySurface> mDisplaySurface;
-#endif
     bool mComposer2DSupported;
     bool mVsyncSupported;
     bool mIsMirroring; // Non-primary screen only
@@ -223,9 +215,7 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
 
   bool IsScreenConnected(uint32_t aId);
 
-#if ANDROID_VERSION >= 19
   void SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncScheduler* aObserver);
-#endif
 
  private:
   nsDataHashtable<nsUint32HashKey, RefPtr<Screen>> mScreens;
@@ -240,10 +230,8 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
   RefPtr<nsIRunnable> mScreenOnEvent;
   RefPtr<nsIRunnable> mScreenOffEvent;
 
-#if ANDROID_VERSION >= 19
-    bool mDisplayEnabled;
-    RefPtr<mozilla::layers::CompositorVsyncScheduler> mCompositorVsyncScheduler;
-#endif
+  bool mDisplayEnabled;
+  RefPtr<mozilla::layers::CompositorVsyncScheduler> mCompositorVsyncScheduler;
 };
 
 }

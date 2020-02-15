@@ -27,9 +27,7 @@
 #include "nsThreadUtils.h"
 #include "PermissionDelegateHandler.h"
 
-#if ANDROID_VERSION >= 29
 #include <binder/PermissionController.h>
-#endif
 
 #undef LOG
 #include <android/log.h>
@@ -148,13 +146,11 @@ GonkPermissionService::checkPermission(const String16& permission, int32_t pid,
     return false;
   }
 
-#if ANDROID_VERSION >= 23
   // We grant this permission to adapt to AOSP's foreground user check for camera, as
-  // in H5OS the permission is sent from the process of camera app instead of system server
+  // in b2g the permission is sent from the process of camera app instead of system server
   if (perm8 == "android.permission.CAMERA_SEND_SYSTEM_EVENTS") {
     return true;
   }
-#endif
 
   // Only these permissions can be granted to apps through this service.
   if (perm8 != "android.permission.CAMERA" &&
@@ -206,7 +202,6 @@ GonkPermissionService::GetInstance()
   return gGonkPermissionService;
 }
 
-#if ANDROID_VERSION >= 23
 void
 GonkPermissionService::getPackagesForUid(
   const uid_t uid, android::Vector<android::String16>& name)
@@ -224,9 +219,7 @@ GonkPermissionService::isRuntimePermission(const android::String16& permission)
 {
   return true;
 }
-#endif
 
-#if ANDROID_VERSION >= 29
 int32_t
 GonkPermissionService::noteOp(const String16& op, int32_t uid, const String16& packageName)
 {
@@ -238,7 +231,6 @@ GonkPermissionService::getPackageUid(const String16& package, int flags)
 {
   return -1;
 }
-#endif
 
 void
 GonkPermissionService::addGrantInfo(const char* permission, int32_t pid)

@@ -41,9 +41,7 @@
 #include "nsIDisplayInfo.h"
 #include "libui/cutils_log.h"
 
-#if ANDROID_VERSION >= 17
 #include "libdisplay/DisplaySurface.h"
-#endif
 
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "nsScreenGonk" , ## args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "nsScreenGonk", ## args)
@@ -63,12 +61,10 @@ using namespace mozilla::layers;
 using namespace mozilla::dom;
 using namespace mozilla::widget;
 
-#if ANDROID_VERSION >= 26
 #include "NativeGralloc.h"
 
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
-#endif
 
 class ScreenOnOffEvent : public mozilla::Runnable {
 public:
@@ -135,9 +131,7 @@ nsScreenGonk::nsScreenGonk(uint32_t aId,
     , mDpi(aNativeData.mXdpi)
     , mScreenRotation(ROTATION_0)
     , mPhysicalScreenRotation(ROTATION_0)
-#if ANDROID_VERSION >= 17
     , mDisplaySurface(aNativeData.mDisplaySurface)
-#endif
     , mComposer2DSupported(aNativeData.mComposer2DSupported)
     , mVsyncSupported(aNativeData.mVsyncSupported)
     , mIsMirroring(false)
@@ -459,11 +453,7 @@ nsScreenGonk::StartRemoteDrawing()
 
     mFramebuffer = DequeueBuffer();
     int width = mFramebuffer->width, height = mFramebuffer->height;
-#if ANDROID_VERSION >= 26
     if (native_gralloc_lock(mFramebuffer->handle,
-#else
-    if (gralloc_module()->lock(gralloc_module(), mFramebuffer->handle,
-#endif
                                GRALLOC_USAGE_SW_READ_NEVER |
                                GRALLOC_USAGE_SW_WRITE_OFTEN |
                                GRALLOC_USAGE_HW_FB,
@@ -516,11 +506,7 @@ nsScreenGonk::EndRemoteDrawing()
     }
     if (mMappedBuffer) {
         MOZ_ASSERT(mFramebuffer);
-#if ANDROID_VERSION >= 26
         native_gralloc_unlock(mFramebuffer->handle);
-#else
-        gralloc_module()->unlock(gralloc_module(), mFramebuffer->handle);
-#endif
         mMappedBuffer = nullptr;
     }
     if (mFramebuffer) {
@@ -534,33 +520,17 @@ ANativeWindowBuffer*
 nsScreenGonk::DequeueBuffer()
 {
     ANativeWindowBuffer* buf = nullptr;
-#if ANDROID_VERSION >= 17
     int fenceFd = -1;
     mNativeWindow->dequeueBuffer(mNativeWindow.get(), &buf, &fenceFd);
     android::sp<android::Fence> fence(new android::Fence(fenceFd));
-#if ANDROID_VERSION == 17
-    fence->waitForever(1000, "nsScreenGonk_DequeueBuffer");
-    // 1000 is what Android uses. It is a warning timeout in ms.
-    // This timeout was removed in ANDROID_VERSION 18.
-#else
-    fence->waitForever("nsScreenGonk_DequeueBuffer");
-#endif
-#else
-    mNativeWindow->dequeueBuffer(mNativeWindow.get(), &buf);
-#endif
     return buf;
 }
 
 bool
 nsScreenGonk::QueueBuffer(ANativeWindowBuffer* buf)
 {
-#if ANDROID_VERSION >= 17
   int ret = mNativeWindow->queueBuffer(mNativeWindow.get(), buf, -1);
   return ret == 0;
-#else
-  int ret = mNativeWindow->queueBuffer(mNativeWindow.get(), buf);
-  return ret == 0;
-#endif
 }
 
 nsresult
@@ -576,11 +546,7 @@ nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer)
 
     int width = aBuffer->width, height = aBuffer->height;
     uint8_t* mappedBuffer = nullptr;
-#if ANDROID_VERSION >= 26
     if (native_gralloc_lock(aBuffer->handle,
-#else
-    if (gralloc_module()->lock(gralloc_module(), aBuffer->handle,
-#endif
                                GRALLOC_USAGE_SW_READ_OFTEN |
                                GRALLOC_USAGE_SW_WRITE_OFTEN,
                                0, 0, width, height,
@@ -613,11 +579,7 @@ nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer)
             aBuffer->stride * aBuffer->height * gfx::BytesPerPixel(format));
         mappedBuffer = nullptr;
     }
-#if ANDROID_VERSION >= 26
     native_gralloc_unlock(aBuffer->handle);
-#else
-    gralloc_module()->unlock(gralloc_module(), aBuffer->handle);
-#endif
 
     return NS_OK;
 }
@@ -629,7 +591,6 @@ nsScreenGonk::SetCompositorBridgeParent(layers::CompositorBridgeParent* aComposi
     mCompositorBridgeParent = aCompositorBridgeParent;
 }
 
-#if ANDROID_VERSION >= 17
 android::DisplaySurface*
 nsScreenGonk::GetDisplaySurface()
 {
@@ -644,7 +605,6 @@ nsScreenGonk::GetPrevDispAcquireFd()
     }
     return mDisplaySurface->GetPrevDispAcquireFd();
 }
-#endif
 
 bool
 nsScreenGonk::IsComposer2DSupported()
@@ -873,9 +833,7 @@ static ScreenHelperGonk* gHelper = nullptr;
 
 ScreenHelperGonk::ScreenHelperGonk()
     : mInitialized(false)
-#if ANDROID_VERSION >= 19
     , mDisplayEnabled(hal::GetScreenEnabled())
-#endif
 {
   char propValue[PROPERTY_VALUE_MAX];
   property_get("ro.build.type", propValue, NULL);
@@ -1034,7 +992,6 @@ ScreenHelperGonk::DisplayEnabled(bool aEnabled)
 {
     MOZ_ASSERT(NS_IsMainThread());
 
-#if ANDROID_VERSION >= 19
     /* Bug 1244044
      * This function could be called before |mCompositorVsyncScheduler| is set.
      * To avoid this issue, keep the value stored in |mDisplayEnabled|.
@@ -1043,7 +1000,6 @@ ScreenHelperGonk::DisplayEnabled(bool aEnabled)
     if (mCompositorVsyncScheduler) {
         mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
     }
-#endif
 
     VsyncControl(aEnabled);
     NS_DispatchToMainThread(aEnabled ? mScreenOnEvent : mScreenOffEvent);
@@ -1067,7 +1023,6 @@ ScreenHelperGonk::VsyncControl(bool aEnabled)
     }
 }
 
-#if ANDROID_VERSION >= 19
 void
 ScreenHelperGonk::SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncScheduler *aObserver)
 {
@@ -1079,7 +1034,6 @@ ScreenHelperGonk::SetCompositorVsyncScheduler(mozilla::layers::CompositorVsyncSc
     mCompositorVsyncScheduler = aObserver;
     mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
 }
-#endif
 
 } // widget
 } // mozilla

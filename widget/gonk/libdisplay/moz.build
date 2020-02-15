@@ -18,40 +18,6 @@ SOURCES += [
     'BootAnimation.cpp',
 ]
 
-if CONFIG['ANDROID_VERSION'] >= '27':
-    SOURCES += [
-    ]
-elif CONFIG['ANDROID_VERSION'] >= '19':
-    SOURCES += [
-	'FramebufferSurface.cpp',
-	'GonkDisplayJB.cpp',
-	'NativeFramebufferDevice.cpp',
-	'VirtualDisplaySurface.cpp',
-    ]
-elif CONFIG['ANDROID_VERSION'] == '18':
-    SOURCES += [
-        'FramebufferSurface.cpp',
-        'GonkDisplayJB.cpp',
-        'NativeFramebufferDevice.cpp',
-    ]
-elif CONFIG['ANDROID_VERSION'] == '17':
-    SOURCES += [
-        'FramebufferSurface.cpp',
-        'GonkDisplayJB.cpp',
-        'GraphicBufferAlloc.cpp',
-        'NativeFramebufferDevice.cpp',
-    ]
-elif CONFIG['ANDROID_VERSION'] == '15':
-    SOURCES += [
-        'GonkDisplayICS.cpp'
-    ]
-elif CONFIG['ANDROID_VERSION'] and CONFIG['COMPILE_ENVIRONMENT']:
-    error('Unsupported platform version: %s' % (CONFIG['ANDROID_VERSION']))
-
-if CONFIG['ANDROID_VERSION'] >= '17' and CONFIG['CPU_ARCH'] == 'arm' and CONFIG['BUILD_ARM_NEON']:
-    SOURCES += ['rgb8888_to_rgb565_neon.cpp']
-    SOURCES['rgb8888_to_rgb565_neon.cpp'].flags += ['-mfpu=neon']
-
 Library('display')
 
 include('/ipc/chromium/chromium-config.mozbuild')
@@ -65,24 +31,22 @@ AllowCompilerWarnings()
 
 DisableStlWrapping()
 
-if CONFIG['ANDROID_VERSION'] >= '26':
-    LOCAL_INCLUDES += [
-    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-        'frameworks/native/libs/math/include',
-        'gonk-misc/libcarthage/include',
-        ]
+LOCAL_INCLUDES += [
+'%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+    'frameworks/native/libs/math/include',
+    'gonk-misc/libcarthage/include',
     ]
+]
 
-if CONFIG['ANDROID_VERSION'] > '15':
-    LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-            'frameworks/native/include/',
-            'frameworks/native/include/gui',
-            'frameworks/native/opengl/include',
-            'system/core/include',
-            'system/core/libsuspend/include',
-        ]
+LOCAL_INCLUDES += [
+    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+        'frameworks/native/include/',
+        'frameworks/native/include/gui',
+        'frameworks/native/opengl/include',
+        'system/core/include',
+        'system/core/libsuspend/include',
     ]
+]
 
 LOCAL_INCLUDES += [
     '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [

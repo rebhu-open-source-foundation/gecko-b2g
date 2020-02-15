@@ -40,9 +40,7 @@
 #include "ScreenHelperGonk.h"
 #include "nsWindow.h"
 
-#if ANDROID_VERSION >= 17
 #include "libdisplay/DisplaySurface.h"
-#endif
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -70,14 +68,11 @@ using namespace android;
 using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
-#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
-#endif
 
 namespace mozilla {
 
-#if ANDROID_VERSION >= 26
 static void
 HookInvalidate()
 {
@@ -95,27 +90,6 @@ HookHotplug(int aDisplay, int aConnected)
 {
     HwcComposer2D::GetInstance()->Hotplug(aDisplay, aConnected);
 }
-#else
-static void
-HookInvalidate(const struct hwc_procs* aProcs)
-{
-    HwcComposer2D::GetInstance()->Invalidate();
-}
-
-static void
-HookVsync(const struct hwc_procs* aProcs, int aDisplay,
-          int64_t aTimestamp)
-{
-    HwcComposer2D::GetInstance()->Vsync(aDisplay, aTimestamp);
-}
-
-static void
-HookHotplug(const struct hwc_procs* aProcs, int aDisplay,
-            int aConnected)
-{
-    HwcComposer2D::GetInstance()->Hotplug(aDisplay, aConnected);
-}
-#endif
 
 __attribute__ ((visibility ("default")))
 void
@@ -218,9 +192,6 @@ HwcComposer2D::RegisterHwcEventCallback()
 void
 HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp)
 {
-    // Only support hardware vsync on kitkat, L and up due to inaccurate timings
-    // with JellyBean.
-#if (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
     // KaiOS Bug 567: The vsync here might be fired during testing whether vsync
     // is avaliabe in gfxAndroidPlatform::CreateHardwareVsyncSource. At this
     // timing created VsyncSource doesn't be assigned to gfxPlatform yet.
@@ -230,10 +201,6 @@ HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp)
 
     TimeStamp vsyncTime = mozilla::TimeStamp::FromSystemTime(aVsyncTimestamp);
     gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay().NotifyVsync(vsyncTime);
-#else
-    // If this device doesn't support vsync, this function should not be used.
-    MOZ_ASSERT(false);
-#endif
 }
 
 // Called on the "invalidator" thread (run from HAL).
@@ -408,11 +375,7 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
 
     LayerRenderState state = aLayer->GetRenderState();
 
-#if ANDROID_VERSION >= 21
     if (!state.GetGrallocBuffer() && !state.GetSidebandStream().IsValid()) {
-#else
-    if (!state.GetGrallocBuffer()) {
-#endif
         if (aLayer->AsColorLayer() && mColorFill) {
             fillColor = true;
         } else {
@@ -505,35 +468,24 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
     hwcLayer.displayFrame = displayFrame;
     mHal->SetCrop(hwcLayer, sourceCrop);
     buffer_handle_t handle = nullptr;
-#if ANDROID_VERSION >= 21
     if (state.GetSidebandStream().IsValid()) {
         handle = state.GetSidebandStream().GetRawNativeHandle();
     } else if (state.GetGrallocBuffer()) {
         handle = state.GetGrallocBuffer()->getNativeBuffer()->handle;
     }
-#else
-    if (state.GetGrallocBuffer()) {
-        handle = state.GetGrallocBuffer()->getNativeBuffer()->handle;
-    }
-#endif
     hwcLayer.handle = handle;
 
     hwcLayer.flags = 0;
     hwcLayer.hints = 0;
     hwcLayer.blending = HWC_BLENDING_PREMULT;
-#if ANDROID_VERSION >= 17
     hwcLayer.compositionType = HWC_FRAMEBUFFER;
-#if ANDROID_VERSION >= 21
     if (state.GetSidebandStream().IsValid()) {
         hwcLayer.compositionType = HWC_SIDEBAND;
     }
-#endif
     hwcLayer.acquireFenceFd = -1;
     hwcLayer.releaseFenceFd = -1;
-#if ANDROID_VERSION >= 18
     hwcLayer.planeAlpha = opacity;
 
-#if ANDROID_VERSION >=23
     LayerComposite* layerComposite = static_cast<LayerComposite*>(aLayer->ImplData());
     if (layerComposite && layerComposite->Damaged()) {
         hwcLayer.surfaceDamage.numRects = 0;
@@ -549,12 +501,6 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
         hwcLayer.surfaceDamage.numRects = 1;
         hwcLayer.surfaceDamage.rects = &empty;
     }
-#endif
-
-#endif
-#else
-    hwcLayer.compositionType = HwcUtils::HWC_USE_COPYBIT;
-#endif
 
     if (!fillColor) {
         if (state.FormatRBSwapped()) {
@@ -720,11 +666,9 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
         hwcLayer.transform = colorLayer->GetColor().ToABGR();
     }
 
-#if ANDROID_VERSION >= 21
     if (aFindSidebandStreams && hwcLayer.compositionType == HWC_SIDEBAND) {
         mCachedSidebandLayers.AppendElement(hwcLayer);
     }
-#endif
 
     mHwcLayerMap.AppendElement(static_cast<LayerComposite*>(aLayer->ImplData()));
     mList->numHwLayers++;
@@ -733,7 +677,6 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
 }
 
 
-#if ANDROID_VERSION >= 17
 bool
 HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen)
 {
@@ -787,9 +730,7 @@ HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen)
                 case HWC_BLIT:
                     blitComposite = true;
                     break;
-#if ANDROID_VERSION >= 21
                 case HWC_SIDEBAND:
-#endif
                 case HWC_OVERLAY: {
                     // HWC will compose HWC_OVERLAY layers in partial
                     // Overlay Composition, set layer composition flag
@@ -882,14 +823,12 @@ HwcComposer2D::Render(nsIWidget* aWidget)
         mList->hwLayers[0].releaseFenceFd = -1;
         mList->hwLayers[0].displayFrame = {0, 0, mScreenRect.width, mScreenRect.height};
 
-#if ANDROID_VERSION >= 21
         // Prepare layers for sideband streams
         const uint32_t len = mCachedSidebandLayers.Length();
         for (uint32_t i = 0; i < len; ++i) {
             ++mList->numHwLayers;
             mList->hwLayers[i+1] = mCachedSidebandLayers[i];
         }
-#endif
         Prepare(dispSurface->lastHandle, dispSurface->GetPrevDispAcquireFd(), screen);
     }
 
@@ -964,21 +903,6 @@ HwcComposer2D::Commit(nsScreenGonk* aScreen)
     return !err;
 #endif
 }
-#else
-bool
-HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen)
-{
-    mHal->SetEGLInfo(aScreen->GetEGLDisplay(), aScreen->GetEGLSurface());
-    return !mHal->Set(mList, aScreen->GetDisplayType());
-}
-
-bool
-HwcComposer2D::Render(nsIWidget* aWidget)
-{
-    nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
-    return GetGonkDisplay()->SwapBuffers(screen->GetEGLDisplay(), screen->GetEGLSurface());
-}
-#endif
 
 bool
 HwcComposer2D::TryRenderWithHwc(Layer* aRoot,

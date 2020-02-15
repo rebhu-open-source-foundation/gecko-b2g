@@ -18,22 +18,10 @@
 
 #include <system/window.h>
 #include <utils/StrongPointer.h>
-#if ANDROID_VERSION >= 26
 #include "DisplaySurface.h"
-#else
-#include "mozilla/Types.h"
-#endif
-
 #include "nsIScreen.h"
 
 namespace android {
-#if ANDROID_VERSION < 27
-class DisplaySurface;
-class IGraphicBufferProducer;
-}
-
-namespace mozilla {
-#endif
 
 typedef void * EGLDisplay;
 typedef void * EGLSurface;
@@ -42,9 +30,7 @@ class MOZ_EXPORT GonkDisplay {
 public:
     struct NativeData {
         android::sp<ANativeWindow> mNativeWindow;
-#if ANDROID_VERSION >= 17
         android::sp<android::DisplaySurface> mDisplaySurface;
-#endif
         float mXdpi;
         bool mComposer2DSupported;
         // True if platform is capable of notifying the system when a vsync
@@ -115,7 +101,6 @@ public:
 
     virtual android::sp<ANativeWindow> GetSurface() = 0;
 
-#if ANDROID_VERSION >= 26
     typedef void (*GonkDisplayVsyncCBFun)
             (int display, int64_t timestamp);
     virtual void registerVsyncCallBack(GonkDisplayVsyncCBFun func) {
@@ -134,24 +119,17 @@ public:
     virtual GonkDisplayInvalidateCBFun getInvalidateCallBack() {
         return pInvalidateCBFun;
     }
-#endif
 
 protected:
     DisplayNativeData mDispNativeData[NUM_DISPLAY_TYPES];
-#if ANDROID_VERSION >= 26
     GonkDisplayVsyncCBFun pVsyncCBFun = nullptr;
     GonkDisplayInvalidateCBFun pInvalidateCBFun = nullptr;
-#endif
 };
 
-#if ANDROID_VERSION >= 27
 extern "C" MOZ_EXPORT __attribute__ ((weak))
 GonkDisplay* GetGonkDisplayP();
-#else
-MOZ_EXPORT __attribute__ ((weak))
-GonkDisplay* GetGonkDisplay();
-#endif
-}
+
+} // namespace android
 
 #ifndef SYSTEM_LIB_DIR
 #if defined(__LP64__)

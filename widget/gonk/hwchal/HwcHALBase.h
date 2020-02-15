@@ -23,41 +23,18 @@
 #include "nsRect.h"
 
 #include <hardware/hwcomposer.h>
-#if ANDROID_VERSION >= 29
-#   include "android_10/HWC2.h"
-#elif ANDROID_VERSION >= 28
-#   include "android_9/HWC2.h"
-#elif ANDROID_VERSION >= 26
-#   include "android_8/HWC2.h"
-#endif
+#include "android_10/HWC2.h"
+
 
 #ifndef HWC_BLIT
-#if ANDROID_VERSION >= 21
 #define HWC_BLIT 0xFF
-#elif ANDROID_VERSION >= 17
-#define HWC_BLIT (HWC_FRAMEBUFFER_TARGET + 1)
-#else
-// ICS didn't support this. However, we define this
-// for passing compilation
-#define HWC_BLIT 0xFF
-#endif // #if ANDROID_VERSION
 #endif // #ifndef HWC_BLIT
 
 namespace mozilla {
 
-#if ANDROID_VERSION >= 26
 using HwcDevice = HWC2::Device;
 using HwcList   = hwc_display_contents_1_t;
 using HwcLayer  = hwc_layer_1_t;
-#elif ANDROID_VERSION >= 17
-using HwcDevice = hwc_composer_device_1_t;
-using HwcList   = hwc_display_contents_1_t;
-using HwcLayer  = hwc_layer_1_t;
-#else
-using HwcDevice = hwc_composer_device_t;
-using HwcList   = hwc_layer_list_t;
-using HwcLayer  = hwc_layer_t;
-#endif
 
 // HwcHAL definition for HwcEvent callback types
 // Note: hwc_procs is different between ICS and later,
@@ -66,15 +43,9 @@ using HwcLayer  = hwc_layer_t;
 //       we don't have to register callback functions on ICS, so
 //       there is no callbacks for ICS in HwcHALProcs.
 typedef struct HwcHALProcs {
-#if ANDROID_VERSION >= 26
     void (*invalidate)();
     void (*vsync)(int disp, int64_t timestamp);
     void (*hotplug)(int disp, int connected);
-#else
-    void (*invalidate)(const struct hwc_procs* procs);
-    void (*vsync)(const struct hwc_procs* procs, int disp, int64_t timestamp);
-    void (*hotplug)(const struct hwc_procs* procs, int disp, int connected);
-#endif
 } HwcHALProcs_t;
 
 // HwcHAL class

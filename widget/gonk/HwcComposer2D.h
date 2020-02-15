@@ -125,7 +125,7 @@ private:
     layers::CompositorBridgeParent* mCompositorBridgeParent;
     Mutex mLock;
 };
-#if ANDROID_VERSION >= 26
+
 class HWComposerCallback : public HWC2::ComposerCallback
 {
     public:
@@ -137,16 +137,12 @@ class HWComposerCallback : public HWC2::ComposerCallback
                             int64_t timestamp) override;
         void onHotplugReceived(int32_t sequenceId, hwc2_display_t display,
                             HWC2::Connection connection
-#if ANDROID_VERSION < 28 /* Android O only */
-                            , bool primaryDisplay
-#endif
                             ) override;
         void onRefreshReceived(int32_t sequenceId, hwc2_display_t display) override;
 
     private:
         HWC2::Device* hwcDevice;
 };
-#endif
 } // namespace mozilla
 
 #endif // mozilla_HwcComposer2D

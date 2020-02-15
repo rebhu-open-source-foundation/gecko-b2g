@@ -76,19 +76,15 @@ public:
   bool checkPermission(const android::String16& permission, int32_t pid,
       int32_t uid) override;
 
-#if ANDROID_VERSION >= 23
   virtual void getPackagesForUid(const uid_t uid,
                                  android::Vector<android::String16>& packages) override;
 
   virtual bool isRuntimePermission(const android::String16& permission) override;
-#endif
 
-#if ANDROID_VERSION >= 29
   virtual int32_t noteOp(const android::String16& op, int32_t uid,
                          const android::String16& packageName) override;
 
   virtual int getPackageUid(const android::String16& package, int flags) override;
-#endif
 
   void addGrantInfo(const char* permission, int32_t pid);
 private:

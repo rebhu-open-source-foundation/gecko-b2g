@@ -22,7 +22,6 @@
 #include "nsIScreen.h"
 #include <dlfcn.h>
 
-#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
 
@@ -63,7 +62,6 @@ HWC2::Error hwc2_setVsyncEnabled(HWC2::Display *p, HWC2::Vsync enabled) {
   err = func(p, enabled);
   return err;
 }
-#endif
 
 namespace mozilla {
 
@@ -88,38 +86,14 @@ HwcHAL::~HwcHAL()
 bool
 HwcHAL::Query(QueryType aType)
 {
-#if ANDROID_VERSION >= 26
     return false;
-#else
-    if (!mHwc || !mHwc->query) {
-        return false;
-    }
-
-    bool value = false;
-    int supported = 0;
-    if (mHwc->query(mHwc, static_cast<int>(aType), &supported) == 0/*android::NO_ERROR*/) {
-        value = !!supported;
-    }
-    return value;
-#endif
 }
 
 int
 HwcHAL::Set(HwcList *aList,
             uint32_t aDisp)
 {
-#if ANDROID_VERSION >= 26
     return -1;
-#else
-    MOZ_ASSERT(mHwc);
-    if (!mHwc) {
-        return -1;
-    }
-
-    HwcList *displays[HWC_NUM_DISPLAY_TYPES] = { nullptr };
-    displays[aDisp] = aList;
-    return mHwc->set(mHwc, HWC_NUM_DISPLAY_TYPES, displays);
-#endif
 }
 
 int
@@ -135,61 +109,19 @@ HwcHAL::Prepare(HwcList *aList,
                 buffer_handle_t aHandle,
                 int aFenceFd)
 {
-#if ANDROID_VERSION >= 26
     return -1;
-#else
-    MOZ_ASSERT(mHwc);
-    if (!mHwc) {
-        printf_stderr("HwcHAL Error: HwcDevice doesn't exist. A fence might be leaked.");
-        return -1;
-    }
-
-    HwcList *displays[HWC_NUM_DISPLAY_TYPES] = { nullptr };
-    displays[aDisp] = aList;
-#if ANDROID_VERSION >= 18
-    aList->outbufAcquireFenceFd = -1;
-    aList->outbuf = nullptr;
-#endif
-    aList->retireFenceFd = -1;
-
-    const auto idx = aList->numHwLayers - 1;
-    aList->hwLayers[idx].hints = 0;
-    aList->hwLayers[idx].flags = 0;
-    aList->hwLayers[idx].transform = 0;
-    aList->hwLayers[idx].handle = aHandle;
-    aList->hwLayers[idx].blending = HWC_BLENDING_PREMULT;
-    aList->hwLayers[idx].compositionType = HWC_FRAMEBUFFER_TARGET;
-    SetCrop(aList->hwLayers[idx], aDispRect);
-    aList->hwLayers[idx].displayFrame = aDispRect;
-    aList->hwLayers[idx].visibleRegionScreen.numRects = 1;
-    aList->hwLayers[idx].visibleRegionScreen.rects = &aList->hwLayers[idx].displayFrame;
-    aList->hwLayers[idx].acquireFenceFd = aFenceFd;
-    aList->hwLayers[idx].releaseFenceFd = -1;
-#if ANDROID_VERSION >= 18
-    aList->hwLayers[idx].planeAlpha = 0xFF;
-#endif
-    return mHwc->prepare(mHwc, HWC_NUM_DISPLAY_TYPES, displays);
-#endif
 }
 
 bool
 HwcHAL::SupportTransparency() const
 {
-#if ANDROID_VERSION >= 18
     return true;
-#else
-    return false;
-#endif
 }
 
 uint32_t
 HwcHAL::GetGeometryChangedFlag(bool aGeometryChanged) const
 {
-#if ANDROID_VERSION >= 19
     return aGeometryChanged ? HWC_GEOMETRY_CHANGED : 0;
-#else
-    return HWC_GEOMETRY_CHANGED;
-#endif
 }
 
 void
@@ -197,12 +129,10 @@ HwcHAL::SetCrop(HwcLayer &aLayer,
                 const hwc_rect_t &aSrcCrop) const
 {
     if (GetAPIVersion() >= HwcAPIVersion(1, 3)) {
-#if ANDROID_VERSION >= 19
         aLayer.sourceCropf.left = aSrcCrop.left;
         aLayer.sourceCropf.top = aSrcCrop.top;
         aLayer.sourceCropf.right = aSrcCrop.right;
         aLayer.sourceCropf.bottom = aSrcCrop.bottom;
-#endif
     } else {
         aLayer.sourceCrop = aSrcCrop;
     }
@@ -215,7 +145,6 @@ HwcHAL::EnableVsync(bool aEnable)
         printf_stderr("Failed to get hwc\n");
         return false;
     }
-#if ANDROID_VERSION >= 26
     HWC2::Display *hwcDisplay = hwc2_getDisplayById(mHwc, HWC_DISPLAY_PRIMARY);
     auto error = hwc2_setVsyncEnabled(hwcDisplay, aEnable? HWC2::Vsync::Enable : HWC2::Vsync::Disable);
     if (error != HWC2::Error::None) {
@@ -226,16 +155,6 @@ HwcHAL::EnableVsync(bool aEnable)
         return false;
     }
     return true;
-#elif (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
-    return !mHwc->eventControl(mHwc,
-                               HWC_DISPLAY_PRIMARY,
-                               HWC_EVENT_VSYNC,
-                               aEnable);
-#else
-    // Only support hardware vsync on kitkat, L and up due to inaccurate timings
-    // with JellyBean.
-    return false;
-#endif
 }
 
 bool
@@ -245,7 +164,6 @@ HwcHAL::RegisterHwcEventCallback(const HwcHALProcs_t &aProcs)
         printf_stderr("Failed to get hwc\n");
         return false;
     }
-#if ANDROID_VERSION >= 26
     EnableVsync(false);
 
     // Register Vsync and Invalidate Callback only
@@ -253,37 +171,12 @@ HwcHAL::RegisterHwcEventCallback(const HwcHALProcs_t &aProcs)
     GetGonkDisplay()->registerInvalidateCallBack(aProcs.invalidate);
 
     return true;
-#elif (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
-    // Disable Vsync first, and then register callback functions.
-    mHwc->eventControl(mHwc,
-                       HWC_DISPLAY_PRIMARY,
-                       HWC_EVENT_VSYNC,
-                       false);
-    static const hwc_procs_t sHwcJBProcs = {aProcs.invalidate,
-                                            aProcs.vsync,
-                                            aProcs.hotplug};
-    mHwc->registerProcs(mHwc, &sHwcJBProcs);
-
-    return true;
-#else
-    // Only support hardware vsync on kitkat, L and up due to inaccurate timings
-    // with JellyBean.
-    return false;
-#endif
 }
 
 uint32_t
 HwcHAL::GetAPIVersion() const
 {
-#if ANDROID_VERSION >= 26
     return HWC_DEVICE_API_VERSION_2_0;
-#else
-    if (!mHwc) {
-        // default value: HWC_MODULE_API_VERSION_0_1
-        return 1;
-    }
-    return mHwc->common.version;
-#endif
 }
 
 // Create HwcHAL
