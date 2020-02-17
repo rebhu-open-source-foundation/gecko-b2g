@@ -17,6 +17,10 @@
 #  include "mozilla/SandboxLaunch.h"
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#  include <dlfcn.h>
+#endif
+
 #include <algorithm>
 
 namespace mozilla {
@@ -225,6 +229,22 @@ void ForkServer::OnMessageReceived(IPC::Message&& message) {
   SanitizeBuffers(msg, argv, options);
 }
 
+#ifdef MOZ_WIDGET_GONK
+static void CloseAndroidLog() {
+  // Call __android_log_close() to close liblog socket. This function is not
+  // exported in NDK, so use dlopen/dlsym instead.
+  void* liblog = dlopen("/system/lib/liblog.so", RTLD_NOW);
+  if (liblog) {
+    typedef void (*AndroidLogClose)(void);
+    auto closeLog = (AndroidLogClose)dlsym(liblog, "__android_log_close");
+    if (closeLog) {
+      closeLog();
+    }
+    dlclose(liblog);
+  }
+}
+#endif
+
 /**
  * Setup and run a fork server at the main thread.
  *
@@ -283,6 +303,10 @@ bool ForkServer::RunForkServer(int* aArgc, char*** aArgv) {
 #endif
   NS_LogTerm();
 
+#ifdef MOZ_WIDGET_GONK
+  CloseAndroidLog();
+#endif
+
   MOZ_ASSERT(forkserver.mAppProcBuilder);
   // |messageloop| has been destroyed.  So, we can intialized the
   // process safely.  Message loops may allocates some file
@@ -296,6 +320,11 @@ bool ForkServer::RunForkServer(int* aArgc, char*** aArgv) {
 
   // Open log files again with right names and the new PID.
   nsTraceRefcnt::ResetLogFiles((*aArgv)[*aArgc - 1]);
+
+#ifdef MOZ_WIDGET_GONK
+  // Print any log to make sure liblog socket is reopened before sandboxing.
+  __android_log_print(ANDROID_LOG_INFO, "Gecko", "Reinitialize Android log.");
+#endif
 
   return false;
 }
