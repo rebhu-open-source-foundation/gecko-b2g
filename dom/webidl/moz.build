@@ -454,7 +454,6 @@ WEBIDL_FILES = [
     'Comment.webidl',
     'CompositionEvent.webidl',
     'Console.webidl',
-    #'Contacts.webidl',
     'ConstantSourceNode.webidl',
     'ConvolverNode.webidl',
     'CreateOfferRequest.webidl',

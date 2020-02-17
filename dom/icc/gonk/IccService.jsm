@@ -203,9 +203,8 @@ IccService.prototype = {
 
   _updateDebugFlag: function() {
     try {
-      /*DEBUG = DEBUG ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);*/
-      DEBUG = true;
+      DEBUG = DEBUG ||
+              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
     } catch (e) {}
   },
 
