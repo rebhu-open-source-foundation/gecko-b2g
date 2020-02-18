@@ -32,7 +32,7 @@ add_task(async function task() {
   const toolbox = gDevTools.getToolbox(target);
 
   const documentUrl = TEST_PATH + TEST_FILE;
-  await loadDocument(hud.toolbox, documentUrl);
+  await navigateTo(documentUrl);
   info("Document loaded.");
 
   await openMessageInNetmonitor(toolbox, hud, documentUrl);
@@ -57,8 +57,9 @@ add_task(async function task() {
   info("console panel open again.");
 
   // Fire an XHR request.
-  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], function() {
-    content.wrappedJSObject.testXhrGet();
+  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function() {
+    // Ensure XHR request is completed
+    await new Promise(resolve => content.wrappedJSObject.testXhrGet(resolve));
   });
 
   const jsonUrl = TEST_PATH + JSON_TEST_URL;

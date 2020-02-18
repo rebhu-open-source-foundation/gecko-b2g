@@ -7,7 +7,7 @@
 const { BrowserToolboxLauncher } = ChromeUtils.import(
   "resource://devtools/client/framework/browser-toolbox/Launcher.jsm"
 );
-const { DebuggerClient } = require("devtools/shared/client/debugger-client");
+const { DevToolsClient } = require("devtools/shared/client/devtools-client");
 
 /**
  * Open up a browser toolbox and return a ToolboxTask object for interacting
@@ -62,12 +62,12 @@ async function initBrowserToolboxTask({
     "Has session state"
   );
 
-  // The port of the DebuggerServer installed in the toolbox process is fixed.
+  // The port of the DevToolsServer installed in the toolbox process is fixed.
   // See browser-toolbox-window.js
   let transport;
   while (true) {
     try {
-      transport = await DebuggerClient.socketConnect({
+      transport = await DevToolsClient.socketConnect({
         host: "localhost",
         port: 6001,
         webSocket: false,
@@ -79,7 +79,7 @@ async function initBrowserToolboxTask({
   }
   ok(true, "Got transport");
 
-  const client = new DebuggerClient(transport);
+  const client = new DevToolsClient(transport);
   await client.connect();
 
   ok(true, "Connected");

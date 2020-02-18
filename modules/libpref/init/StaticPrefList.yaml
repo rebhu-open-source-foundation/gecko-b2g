@@ -151,8 +151,10 @@
 
 #ifdef EARLY_BETA_OR_EARLIER
 #define IS_EARLY_BETA_OR_EARLIER true
+#define IS_NOT_EARLY_BETA_OR_EARLIER false
 #else
 #define IS_EARLY_BETA_OR_EARLIER false
+#define IS_NOT_EARLY_BETA_OR_EARLIER true
 #endif
 
 #ifdef ANDROID
@@ -1456,6 +1458,13 @@
 - name: dom.disable_open_during_load
   type: bool
   value: false
+  mirror: always
+
+# If set this to true, `Document.execCommand` may be performed nestedly.
+# Otherwise, nested calls just return false.
+- name: dom.document.exec_command.nested_calls_allowed
+  type: bool
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: dom.enable_window_print
@@ -3934,7 +3943,7 @@
 - name: gfx.webrender.compositor
   type: bool
 #if defined(XP_WIN)
-  value: true
+  value: false
 #else
   value: false
 #endif
@@ -7891,7 +7900,7 @@
 # Block Worker/SharedWorker scripts with wrong MIME type.
 - name: security.block_Worker_with_wrong_mime
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -8028,7 +8037,11 @@
 # for this pref means we call _exit(0) earlier during shutdown.
 - name: toolkit.shutdown.fastShutdownStage
   type: int32_t
+#if defined(NIGHTLY_BUILD) && !defined(DEBUG) && !defined(MOZ_CODE_COVERAGE) && !defined(MOZ_VALGRIND) && !defined(MOZ_PROFILE_GENERATE)
+  value: 1
+#else
   value: 0
+#endif
   mirror: always
 
 # Sending each remote accumulation immediately places undue strain on the IPC

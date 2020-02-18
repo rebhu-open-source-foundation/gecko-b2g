@@ -1319,6 +1319,7 @@ Document::Document(const char* aContentType)
       mPendingMaybeEditingStateChanged(false),
       mHasBeenEditable(false),
       mHasWarnedAboutZoom(false),
+      mIsRunningExecCommand(false),
       mPendingFullscreenRequests(0),
       mXMLDeclarationBits(0),
       mOnloadBlockCount(0),
@@ -2680,15 +2681,17 @@ size_t Document::FindDocStyleSheetInsertionPoint(const StyleSheet& aSheet) {
   nsStyleSheetService* sheetService = nsStyleSheetService::GetInstance();
 
   // lowest index first
-  int32_t newDocIndex = IndexOfSheet(aSheet);
+  int32_t newDocIndex = StyleOrderIndexOfSheet(aSheet);
 
   size_t count = mStyleSet->SheetCount(StyleOrigin::Author);
   size_t index = 0;
   for (; index < count; index++) {
     auto* sheet = mStyleSet->SheetAt(StyleOrigin::Author, index);
     MOZ_ASSERT(sheet);
-    int32_t sheetDocIndex = IndexOfSheet(*sheet);
-    if (sheetDocIndex > newDocIndex) break;
+    int32_t sheetDocIndex = StyleOrderIndexOfSheet(*sheet);
+    if (sheetDocIndex > newDocIndex) {
+      break;
+    }
 
     // If the sheet is not owned by the document it can be an author
     // sheet registered at nsStyleSheetService or an additional author
@@ -2708,6 +2711,14 @@ size_t Document::FindDocStyleSheetInsertionPoint(const StyleSheet& aSheet) {
   }
 
   return index;
+}
+
+void Document::AppendAdoptedStyleSheet(StyleSheet& aSheet) {
+  DocumentOrShadowRoot::InsertAdoptedSheetAt(mAdoptedStyleSheets.Length(),
+                                             aSheet);
+  if (aSheet.IsApplicable()) {
+    AddStyleSheetToStyleSets(&aSheet);
+  }
 }
 
 void Document::RemoveDocStyleSheetsFromStyleSets() {
@@ -2928,7 +2939,15 @@ void Document::FillStyleSetDocumentSheets() {
   MOZ_ASSERT(mStyleSet->SheetCount(StyleOrigin::Author) == 0,
              "Style set already has document sheets?");
 
+  // Sheets are added in reverse order to avoid worst-case
+  // time complexity when looking up the index of a sheet
   for (StyleSheet* sheet : Reversed(mStyleSheets)) {
+    if (sheet->IsApplicable()) {
+      mStyleSet->AddDocStyleSheet(sheet);
+    }
+  }
+
+  for (StyleSheet* sheet : Reversed(mAdoptedStyleSheets)) {
     if (sheet->IsApplicable()) {
       mStyleSet->AddDocStyleSheet(sheet);
     }
@@ -4676,6 +4695,13 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
     return false;
   }
 
+  // If we're running an execCommand, we should just return false.
+  // https://github.com/w3c/editing/issues/200#issuecomment-575241816
+  if (!StaticPrefs::dom_document_exec_command_nested_calls_allowed() &&
+      mIsRunningExecCommand) {
+    return false;
+  }
+
   //  for optional parameters see dom/src/base/nsHistory.cpp: HistoryImpl::Go()
   //  this might add some ugly JS dependencies?
 
@@ -4771,6 +4797,8 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
       editorCommand = nullptr;
     }
   }
+
+  AutoRunningExecCommandMarker markRunningExecCommand(*this);
 
   // If we cannot use EditorCommand instance directly, we need to handle the
   // command with traditional path (i.e., with DocShell or nsCommandManager).
@@ -5369,6 +5397,27 @@ nsresult Document::EditingStateChanged() {
     RefPtr<PresShell> presShell = GetPresShell();
     NS_ENSURE_TRUE(presShell, NS_ERROR_FAILURE);
 
+    // If we're entering the design mode from non-editable state, put the
+    // selection at the beginning of the document for compatibility reasons.
+    bool collapseSelectionAtBeginningOfDocument =
+        designMode && oldState == EditingState::eOff;
+    // However, mEditingState may be eOff even if there is some
+    // `contenteditable` area and selection has been initialized for it because
+    // mEditingState for `contenteditable` may have been scheduled to modify
+    // when safe.  In such case, we should not reinitialize selection.
+    if (collapseSelectionAtBeginningOfDocument && mContentEditableCount) {
+      Selection* selection =
+          presShell->GetSelection(nsISelectionController::SELECTION_NORMAL);
+      NS_WARNING_ASSERTION(selection, "Why don't we have Selection?");
+      if (selection && selection->RangeCount()) {
+        // Perhaps, we don't need to check whether the selection is in
+        // an editing host or not because all contents will be editable
+        // in designMode. (And we don't want to make this code so complicated
+        // because of legacy API.)
+        collapseSelectionAtBeginningOfDocument = false;
+      }
+    }
+
     MOZ_ASSERT(mStyleSetFilled);
 
     // Before making this window editable, we need to modify UA style sheet
@@ -5433,9 +5482,7 @@ nsresult Document::EditingStateChanged() {
       return NS_OK;
     }
 
-    // If we're entering the design mode, put the selection at the beginning of
-    // the document for compatibility reasons.
-    if (designMode && oldState == EditingState::eOff) {
+    if (collapseSelectionAtBeginningOfDocument) {
       htmlEditor->BeginningOfDocument();
     }
 
@@ -6546,9 +6593,8 @@ void Document::RemoveStyleSheetFromStyleSets(StyleSheet* aSheet) {
   }
 }
 
-void Document::RemoveStyleSheet(StyleSheet* aSheet) {
-  MOZ_ASSERT(aSheet);
-  RefPtr<StyleSheet> sheet = DocumentOrShadowRoot::RemoveSheet(*aSheet);
+void Document::RemoveStyleSheet(StyleSheet& aSheet) {
+  RefPtr<StyleSheet> sheet = DocumentOrShadowRoot::RemoveSheet(aSheet);
 
   if (!sheet) {
     NS_ASSERTION(mInUnlinkOrDeletion, "stylesheet not found");
@@ -6573,7 +6619,7 @@ void Document::InsertSheetAt(size_t aIndex, StyleSheet& aSheet) {
 void Document::StyleSheetApplicableStateChanged(StyleSheet& aSheet) {
   const bool applicable = aSheet.IsApplicable();
   // If we're actually in the document style sheet list
-  if (mStyleSheets.IndexOf(&aSheet) != mStyleSheets.NoIndex) {
+  if (StyleOrderIndexOfSheet(aSheet) >= 0) {
     if (applicable) {
       AddStyleSheetToStyleSets(&aSheet);
     } else {
@@ -16128,6 +16174,35 @@ Document::RecomputeContentBlockingAllowListPrincipal(
 
   nsCOMPtr<nsIPrincipal> copy = mContentBlockingAllowListPrincipal;
   return copy.forget();
+}
+
+// https://wicg.github.io/construct-stylesheets/#dom-documentorshadowroot-adoptedstylesheets
+void Document::SetAdoptedStyleSheets(
+    const Sequence<OwningNonNull<StyleSheet>>& aAdoptedStyleSheets,
+    ErrorResult& aRv) {
+  // Step 1 is a variable declaration
+
+  // 2.1 Check if all sheets are constructed, else throw NotAllowedError
+  // 2.2 Check if all sheets' constructor documents match the
+  // DocumentOrShadowRoot's node document, else throw NotAlloweError
+  EnsureAdoptedSheetsAreValid(aAdoptedStyleSheets, aRv);
+  if (aRv.Failed()) {
+    return;
+  }
+
+  // 3. Set the adopted style sheets to the new sheets
+  for (const RefPtr<StyleSheet>& sheet : mAdoptedStyleSheets) {
+    if (sheet->IsApplicable()) {
+      RemoveStyleSheetFromStyleSets(sheet);
+    }
+    sheet->RemoveAdopter(*this);
+  }
+  mAdoptedStyleSheets.ClearAndRetainStorage();
+  mAdoptedStyleSheets.SetCapacity(aAdoptedStyleSheets.Length());
+  for (const OwningNonNull<StyleSheet>& sheet : aAdoptedStyleSheets) {
+    sheet->AddAdopter(*this);
+    AppendAdoptedStyleSheet(*sheet);
+  }
 }
 
 }  // namespace dom

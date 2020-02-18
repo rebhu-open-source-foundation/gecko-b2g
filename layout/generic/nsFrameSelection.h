@@ -193,7 +193,7 @@ class Selection;
  * Constants for places that want to handle table selections.  These
  * indicate what part of a table is being selected.
  */
-enum class TableSelection : uint32_t {
+enum class TableSelectionMode : uint32_t {
   None,     /* Nothing being selected; not valid in all cases. */
   Cell,     /* A cell is being selected. */
   Row,      /* A row is being selected. */
@@ -288,15 +288,15 @@ class nsFrameSelection final {
    * @param aContentOffset is the offset of the table or cell
    *
    * @param aTarget indicates what to select
-   *   * TableSelection::Cell
+   *   * TableSelectionMode::Cell
    *       We should select a cell (content points to the cell)
-   *   * TableSelection::Row
+   *   * TableSelectionMode::Row
    *       We should select a row (content points to any cell in row)
-   *   * TableSelection::Column
+   *   * TableSelectionMode::Column
    *       We should select a row (content points to any cell in column)
-   *   * TableSelection::Table
+   *   * TableSelectionMode::Table
    *       We should select a table (content points to the table)
-   *   * TableSelection::AllCells
+   *   * TableSelectionMode::AllCells
    *       We should select all cells (content points to any cell in table)
    *
    * @param aMouseEvent passed in so we can get where event occurred
@@ -304,7 +304,7 @@ class nsFrameSelection final {
    */
   /*unsafe*/
   nsresult HandleTableSelection(nsINode* aParentContent, int32_t aContentOffset,
-                                mozilla::TableSelection aTarget,
+                                mozilla::TableSelectionMode aTarget,
                                 mozilla::WidgetMouseEvent* aMouseEvent);
 
   /**
@@ -413,10 +413,10 @@ class nsFrameSelection final {
    * If we are in table cell selection mode. aka ctrl click in table cell
    */
   bool GetTableCellSelection() const {
-    return mSelectingTableCellMode != mozilla::TableSelection::None;
+    return mTableSelection.mMode != mozilla::TableSelectionMode::None;
   }
   void ClearTableCellSelection() {
-    mSelectingTableCellMode = mozilla::TableSelection::None;
+    mTableSelection.mMode = mozilla::TableSelectionMode::None;
   }
 
   /**
@@ -790,7 +790,7 @@ class nsFrameSelection final {
 
   nsresult SelectBlockOfCells(nsIContent* aStartNode, nsIContent* aEndNode);
   nsresult SelectRowOrColumn(nsIContent* aCellContent,
-                             mozilla::TableSelection aTarget);
+                             mozilla::TableSelectionMode aTarget);
   nsresult UnselectCells(nsIContent* aTable, int32_t aStartRowIndex,
                          int32_t aStartColumnIndex, int32_t aEndRowIndex,
                          int32_t aEndColumnIndex,
@@ -807,7 +807,7 @@ class nsFrameSelection final {
   // not return null, then the first node in the returned range is a cell
   // (according to GetFirstCellNodeInRange).
   nsRange* GetNextCellRange();
-  static nsIContent* GetFirstCellNodeInRange(nsRange* aRange);
+  static nsIContent* GetFirstCellNodeInRange(const nsRange* aRange);
   // Returns non-null table if in same table, null otherwise
   static nsIContent* IsInSameTable(nsIContent* aContent1,
                                    nsIContent* aContent2);
@@ -821,14 +821,17 @@ class nsFrameSelection final {
       mDomSelections[sizeof(mozilla::kPresentSelectionTypes) /
                      sizeof(mozilla::SelectionType)];
 
-  nsCOMPtr<nsINode> mCellParent;  // used to snap to table selection
-  nsCOMPtr<nsIContent> mStartSelectedCell;
-  nsCOMPtr<nsIContent> mEndSelectedCell;
-  nsCOMPtr<nsIContent> mAppendStartSelectedCell;
-  nsCOMPtr<nsIContent> mUnselectCellOnMouseUp;
-  mozilla::TableSelection mSelectingTableCellMode =
-      mozilla::TableSelection::None;
-  int32_t mSelectedCellIndex = 0;
+  struct TableSelection {
+    nsCOMPtr<nsINode> mCellParent;  // used to snap to table selection
+    nsCOMPtr<nsIContent> mStartSelectedCell;
+    nsCOMPtr<nsIContent> mEndSelectedCell;
+    nsCOMPtr<nsIContent> mAppendStartSelectedCell;
+    nsCOMPtr<nsIContent> mUnselectCellOnMouseUp;
+    mozilla::TableSelectionMode mMode = mozilla::TableSelectionMode::None;
+    int32_t mSelectedCellIndex = 0;
+  };
+
+  TableSelection mTableSelection;
 
   // maintain selection
   RefPtr<nsRange> mMaintainRange;
