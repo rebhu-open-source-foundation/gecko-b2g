@@ -32,6 +32,7 @@ DIRS += ['interfaces/' + i for i in interfaces]
 DIRS += [
     'abort',
     'animation',
+    'b2g',
     'base',
     'bindings',
     'bluetooth',

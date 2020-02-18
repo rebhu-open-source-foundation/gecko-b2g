@@ -500,6 +500,7 @@ LOCAL_INCLUDES += [
     '../network',
     '/caps',
     '/docshell/base',
+    '/dom/b2g',
     '/dom/base',
     '/dom/file',
     '/dom/geolocation',

@@ -32,6 +32,7 @@ class nsIURI;
 namespace mozilla {
 namespace dom {
 class AddonManager;
+class B2G;
 class BodyExtractorBase;
 class Geolocation;
 class systemMessageCallback;
@@ -141,6 +142,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   Permissions* GetPermissions(ErrorResult& aRv);
   void GetDoNotTrack(nsAString& aResult);
   Geolocation* GetGeolocation(ErrorResult& aRv);
+  B2G* B2g();
   Promise* GetBattery(ErrorResult& aRv);
 
   Promise* Share(const ShareData& aData, ErrorResult& aRv);
@@ -310,6 +312,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   RefPtr<nsPluginArray> mPlugins;
   RefPtr<Permissions> mPermissions;
   RefPtr<Geolocation> mGeolocation;
+  RefPtr<B2G> mB2G;
   RefPtr<battery::BatteryManager> mBatteryManager;
   RefPtr<Promise> mBatteryPromise;
   RefPtr<network::Connection> mConnection;

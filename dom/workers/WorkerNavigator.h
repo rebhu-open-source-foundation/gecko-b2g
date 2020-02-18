@@ -10,6 +10,7 @@
 #include "WorkerCommon.h"
 #include "nsString.h"
 #include "nsWrapperCache.h"
+#include "mozilla/dom/B2G.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/StorageManager.h"
 #include "mozilla/dom/workerinternals/RuntimeService.h"
@@ -22,6 +23,7 @@ namespace dom {
 class Promise;
 class StorageManager;
 class MediaCapabilities;
+class B2G;
 
 namespace network {
 class Connection;
@@ -36,6 +38,7 @@ class WorkerNavigator final : public nsWrapperCache {
   RefPtr<network::Connection> mConnection;
   RefPtr<dom::MediaCapabilities> mMediaCapabilities;
   RefPtr<webgpu::Instance> mWebGpu;
+  RefPtr<B2G> mB2G;
   bool mOnline;
 
   WorkerNavigator(const NavigatorProperties& aProperties, bool aOnline);
@@ -98,6 +101,8 @@ class WorkerNavigator final : public nsWrapperCache {
   dom::MediaCapabilities* MediaCapabilities();
 
   webgpu::Instance* Gpu();
+
+  B2G* B2g();
 };
 
 }  // namespace dom

@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/dom/B2G.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/MediaCapabilities.h"
 #include "mozilla/dom/Promise.h"
@@ -34,7 +35,8 @@ namespace dom {
 using namespace workerinternals;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WorkerNavigator, mStorageManager,
-                                      mConnection, mMediaCapabilities, mWebGpu);
+                                      mConnection, mMediaCapabilities, mWebGpu,
+                                      mB2G);
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WorkerNavigator, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WorkerNavigator, Release)
@@ -185,6 +187,20 @@ StorageManager* WorkerNavigator::Storage() {
   }
 
   return mStorageManager;
+}
+
+B2G* WorkerNavigator::B2g() {
+  if (!mB2G) {
+    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+    MOZ_ASSERT(workerPrivate);
+
+    RefPtr<nsIGlobalObject> global = workerPrivate->GlobalScope();
+    MOZ_ASSERT(global);
+
+    mB2G = new B2G(global);
+  }
+
+  return mB2G;
 }
 
 network::Connection* WorkerNavigator::GetConnection(ErrorResult& aRv) {

@@ -28,6 +28,9 @@ with Files("*Audio*"):
 with Files("Autocomplete*"):
     BUG_COMPONENT = ("Toolkit", "Autocomplete")
 
+with Files("B2G.webidl"):
+    BUG_COMPONENT = ("Core", "DOM: B2G")
+
 with Files("BaseKeyframeTypes.webidl"):
     BUG_COMPONENT = ("Core", "DOM: Animation")
 
@@ -416,6 +419,7 @@ WEBIDL_FILES = [
     'AudioWorkletNode.webidl',
     'AudioWorkletProcessor.webidl',
     'AutocompleteInfo.webidl',
+    'B2G.webidl',
     'BarProp.webidl',
     'BaseAudioContext.webidl',
     'BaseKeyframeTypes.webidl',

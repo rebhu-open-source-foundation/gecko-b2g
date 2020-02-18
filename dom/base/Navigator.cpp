@@ -17,6 +17,7 @@
 #include "mozilla/dom/FetchBinding.h"
 #include "mozilla/dom/File.h"
 #include "Geolocation.h"
+#include "B2G.h"
 #include "nsIClassOfService.h"
 #include "nsIHttpProtocolHandler.h"
 #include "nsIContentPolicy.h"
@@ -157,6 +158,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPlugins)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPermissions)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGeolocation)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mB2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBatteryManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBatteryPromise)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConnection)
@@ -204,6 +206,11 @@ void Navigator::Invalidate() {
   if (mGeolocation) {
     mGeolocation->Shutdown();
     mGeolocation = nullptr;
+  }
+
+  if (mB2G) {
+    mB2G->Shutdown();
+    mB2G = nullptr;
   }
 
   if (mBatteryManager) {
@@ -1174,6 +1181,16 @@ Geolocation* Navigator::GetGeolocation(ErrorResult& aRv) {
   }
 
   return mGeolocation;
+}
+
+B2G* Navigator::B2g() {
+  MOZ_ASSERT(mWindow);
+
+  if (!mB2G) {
+    mB2G = new B2G(mWindow->AsGlobal());
+  }
+
+  return mB2G;
 }
 
 class BeaconStreamListener final : public nsIStreamListener {

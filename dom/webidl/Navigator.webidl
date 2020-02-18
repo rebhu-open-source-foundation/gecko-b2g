@@ -381,6 +381,12 @@ interface mixin NavigatorAutomationInformation {
   readonly attribute boolean webdriver;
 };
 
+interface mixin NavigatorB2G {
+  readonly attribute B2G b2g;
+};
+
+Navigator includes NavigatorB2G;
+
 // https://www.w3.org/TR/clipboard-apis/#navigator-interface
 partial interface Navigator {
   [Pref="dom.events.asyncClipboard", SecureContext, SameObject]
