@@ -14,13 +14,6 @@ interface KaiOS {
   // below
 };
 
-#ifdef HAS_KOOST_MODULES
-partial interface KaiOS {
-  [Throws]
-  readonly attribute ExternalAPI externalapi;
-};
-#endif
-
 #ifdef MOZ_B2G_BT
 [Exposed=Window]
 partial interface KaiOS {

@@ -13,17 +13,11 @@
 #define mozilla_dom_workerkaiOS_h__
 
 #include "nsWrapperCache.h"
-#ifdef HAS_KOOST_MODULES
-#  include "mozilla/dom/ExternalAPI.h"
-#endif
 
 namespace mozilla {
 namespace dom {
 
 class WorkerKaiOS final : public nsWrapperCache {
-#ifdef HAS_KOOST_MODULES
-  RefPtr<ExternalAPI> mExternalAPI;
-#endif
 
   WorkerKaiOS();
   ~WorkerKaiOS();
@@ -38,9 +32,6 @@ class WorkerKaiOS final : public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
 
   nsISupports* GetParentObject() const { return nullptr; }
-#ifdef HAS_KOOST_MODULES
-  ExternalAPI* GetExternalapi(ErrorResult& aRv);
-#endif
 };
 
 }  // namespace dom

@@ -10,11 +10,3 @@
 [Exposed=Worker]
 interface WorkerKaiOS {
 };
-
-#ifdef HAS_KOOST_MODULES
-[Exposed=(Worker)]
-partial interface WorkerKaiOS {
-    [Throws]
-    readonly attribute ExternalAPI externalapi;
-};
-#endif

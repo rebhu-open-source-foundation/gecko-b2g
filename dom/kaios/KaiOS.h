@@ -13,9 +13,6 @@
 #define mozilla_dom_KaiOS_h
 
 #include "mozilla/dom/BindingDeclarations.h"
-#ifdef HAS_KOOST_MODULES
-#  include "mozilla/dom/ExternalAPI.h"
-#endif
 #ifdef MOZ_B2G_BT
 #  include "mozilla/dom/bluetooth/BluetoothManager.h"
 #endif
@@ -58,10 +55,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   virtual JSObject* WrapObject(JSContext* cx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-#ifdef HAS_KOOST_MODULES
-  ExternalAPI* GetExternalapi(ErrorResult& aRv);
-#endif
-
 #ifdef MOZ_B2G_BT
   bluetooth::BluetoothManager* GetMozBluetooth(ErrorResult& aRv);
 #endif  // MOZ_B2G_BT
@@ -83,9 +76,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   virtual ~KaiOS();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-#ifdef HAS_KOOST_MODULES
-  RefPtr<ExternalAPI> mExternalAPI;
-#endif
 
 #ifdef MOZ_B2G_BT
   RefPtr<bluetooth::BluetoothManager> mBluetooth;

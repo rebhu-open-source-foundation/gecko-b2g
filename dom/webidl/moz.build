@@ -379,7 +379,6 @@ PREPROCESSED_WEBIDL_FILES = [
     'Telephony.webidl',
     'TelephonyCall.webidl',
     'Window.webidl',
-    'WorkerKaiOS.webidl',
 ]
 
 WEBIDL_FILES = [
@@ -1005,6 +1004,7 @@ WEBIDL_FILES = [
     'Worker.webidl',
     'WorkerDebuggerGlobalScope.webidl',
     'WorkerGlobalScope.webidl',
+    'WorkerKaiOS.webidl',
     'WorkerLocation.webidl',
     'WorkerNavigator.webidl',
     'Worklet.webidl',

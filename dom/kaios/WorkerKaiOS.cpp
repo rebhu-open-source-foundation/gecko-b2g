@@ -23,11 +23,7 @@ namespace dom {
 
 using namespace workerinternals;
 
-#ifdef HAS_KOOST_MODULES
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WorkerKaiOS, mExternalAPI);
-#else
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WorkerKaiOS);
-#endif
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WorkerKaiOS, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WorkerKaiOS, Release)
@@ -47,22 +43,6 @@ JSObject* WorkerKaiOS::WrapObject(JSContext* aCx,
                                   JS::Handle<JSObject*> aGivenProto) {
   return WorkerKaiOS_Binding::Wrap(aCx, this, aGivenProto);
 }
-
-#ifdef HAS_KOOST_MODULES
-ExternalAPI* WorkerKaiOS::GetExternalapi(ErrorResult& aRv) {
-  if (!mExternalAPI) {
-    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
-    MOZ_ASSERT(workerPrivate);
-
-    RefPtr<nsIGlobalObject> global = workerPrivate->GlobalScope();
-    MOZ_ASSERT(global);
-
-    mExternalAPI = ExternalAPI::Create(global);
-  }
-
-  return mExternalAPI;
-}
-#endif
 
 }  // namespace dom
 }  // namespace mozilla
