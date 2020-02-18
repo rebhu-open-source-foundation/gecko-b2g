@@ -3883,7 +3883,7 @@ RadioInterface.prototype = {
         break;
       case "setPreferredNetworkType":
         let networkType = message.type;
-        if (networkType < 0 || networkType >= RIL_PREFERRED_NETWORK_TYPE_TO_GECKO.length) {
+        if (networkType < 0 || networkType >= RIL.RIL_PREFERRED_NETWORK_TYPE_TO_GECKO.length) {
           message.errorMsg = GECKO_ERROR_INVALID_PARAMETER;
           this.handleRilResponse(message);
           return;

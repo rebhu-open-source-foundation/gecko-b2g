@@ -47,6 +47,12 @@ partial interface KaiOS {
   [Throws, Pref="dom.icc.enabled"]
   readonly attribute MozIccManager? mozIccManager;
 };
+
+[Exposed=Window]
+partial interface KaiOS {
+  [Throws, Pref="dom.datacall.enabled"]
+  readonly attribute DataCallManager? dataCallManager;
+};
 #endif //MOZ_B2G_RIL
 
 partial interface KaiOS {

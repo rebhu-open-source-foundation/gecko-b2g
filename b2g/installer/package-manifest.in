@@ -213,8 +213,6 @@
 #endif // DISABLE_MOZ_RIL_GEOLOC
 @RESPATH@/components/DOMDataCallManager.js
 @RESPATH@/components/DOMDataCallManager.manifest
-@RESPATH@/components/DataCallService.js
-@RESPATH@/components/DataCallService.manifest
 @RESPATH@/components/StkCmdFactory.js
 @RESPATH@/components/StkCmdFactory.manifest
 @RESPATH@/components/RILSystemMessengerHelper.js
@@ -271,6 +269,7 @@
 @RESPATH@/components/TelemetryStartup.manifest
 
 @RESPATH@/components/DataCallManager.manifest
+@RESPATH@/components/DataCallService.manifest
 @RESPATH@/components/RadioInterfaceLayer.manifest
 @RESPATH@/components/Push.manifest
 #ifdef MOZ_WEBPUSH

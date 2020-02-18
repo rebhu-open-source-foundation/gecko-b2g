@@ -4,15 +4,17 @@
 
 "use strict";
 
-const Ci = Components.interfaces;
-const Cu = Components.utils;
-const Cc = Components.classes;
+const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/DOMRequestHelper.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { DOMRequestIpcHelper } = ChromeUtils.import(
+  "resource://gre/modules/DOMRequestHelper.jsm"
+);
 
-const DATACALLMANAGER_CONTRACTID = "@mozilla.org/datacallmanager;1;"
+const DATACALLMANAGER_CONTRACTID = "@mozilla.org/datacallmanager;1";
 const DATACALLMANAGER_CID        = Components.ID("{73e0d4e0-bd62-489c-b67a-0140f95a1b24}");
 const DATACALL_CONTRACTID        = "@mozilla.org/datacall;1";
 const DATACALL_CID               = Components.ID("{b5ff4d17-1fa0-44a0-bc72-0047b5bb13c6}");
@@ -37,9 +39,9 @@ const DATACALL_IPC_MSG_ENTRIES = [
   "DataCall:OnStateChanged"
 ];
 
-XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
-                                   "@mozilla.org/childprocessmessagemanager;1",
-                                   "nsIMessageSender");
+XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
+  return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
+});
 
 /* global RIL */
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
@@ -159,25 +161,11 @@ DOMDataCallManager.prototype = {
   /*
    * nsIDOMGlobalPropertyInitializer implementation.
    */
-  init: function(aWindow) {
+  init(aWindow) {
     this._window = aWindow;
-
-    let utils = aWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(
-      Ci.nsIDOMWindowUtils);
-    this._innerWindowId = utils.currentInnerWindowID;
+    this._innerWindowId = aWindow.windowUtils.currentInnerWindowID;
 
     this.initDOMRequestHelper(aWindow, DATACALLMANAGER_IPC_MSG_ENTRIES);
-  },
-
-  /*
-   * Called from DOMRequestIpcHelper.
-   */
-  uninit: function() {
-    // All requests that are still pending need to be invalidated
-    // because the context is no longer valid.
-    this.forEachPromiseResolver(aKey => {
-      this.takePromiseResolver(aKey).reject("DataCallManager got destroyed.");
-    });
   },
 
   /*
@@ -385,14 +373,6 @@ DOMDataCall.prototype = {
     this.addresses = [];
     this.dnses = [];
     this.gateways = [];
-
-    this._clearCachedValues();
-  },
-
-  _clearCachedValues: function() {
-    this.__DOM_IMPL__._clearCachedAddressesValue();
-    this.__DOM_IMPL__._clearCachedDnsesValue();
-    this.__DOM_IMPL__._clearCachedGatewaysValue();
   },
 
   _handleStateChanged: function(aData) {
@@ -405,8 +385,6 @@ DOMDataCall.prototype = {
       this.addresses = details.addresses;
       this.dnses = details.dnses;
       this.gateways = details.gateways;
-
-      this._clearCachedValues();
     } else if (this._isStateUnavailable() || this._isStateDisconnected()) {
       this._clearDataCallAttributes();
 
@@ -492,6 +470,30 @@ DOMDataCall.prototype = {
   /*
    * DataCall implementation.
    */
+  getAddresses: function() {
+    if (this.addresses) {
+      return this.addresses;
+    } else {
+      return {};
+    }
+  },
+
+  getGateways: function() {
+    if (this.gateways) {
+      return this.gateways;
+    } else {
+      return {};
+    }
+  },
+
+  getDnses: function() {
+    if (this.dnses) {
+      return this.dnses;
+    } else {
+      return {};
+    }
+  },
+
   addHostRoute: function(aHost) {
     if (DEBUG) this.debug("addHostRoute: " + aHost);
 

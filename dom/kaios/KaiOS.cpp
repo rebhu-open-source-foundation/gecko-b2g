@@ -45,6 +45,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileConnections)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTelephony)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDataCallManager)
 #endif
 #ifndef DISABLE_WIFI
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWifiManager)
@@ -77,6 +78,10 @@ void KaiOS::Invalidate() {
 
   if (mTelephony) {
     mTelephony = nullptr;
+  }
+
+  if (mDataCallManager) {
+    mDataCallManager = nullptr;
   }
 #endif
 #ifndef DISABLE_WIFI
@@ -163,6 +168,23 @@ Telephony* KaiOS::GetMozTelephony(ErrorResult& aRv) {
   }
 
   return mTelephony;
+}
+
+DataCallManager* KaiOS::GetDataCallManager(ErrorResult& aRv) {
+  if (!mDataCallManager) {
+    nsPIDOMWindowInner* win = GetWindow();
+    if (!win) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mDataCallManager = ConstructJSImplementation<DataCallManager>(
+        "@mozilla.org/datacallmanager;1", win->AsGlobal(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+  return mDataCallManager;
 }
 #endif
 

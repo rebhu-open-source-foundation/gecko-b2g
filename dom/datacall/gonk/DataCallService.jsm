@@ -6,10 +6,16 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { DOMRequestIpcHelper } = ChromeUtils.import(
+  "resource://gre/modules/DOMRequestHelper.jsm"
+);
 
-const DATACALLSERVICE_CONTRACTID = "@mozilla.org/datacallservice;1;"
+
+const DATACALLSERVICE_CONTRACTID = "@mozilla.org/datacallservice;1";
 const DATACALLSERVICE_CID        = Components.ID("{e29c041d-290d-4e6c-8bca-452f6557de68}");
 
 const DATACALL_IPC_MSG_ENTRIES = [
@@ -45,13 +51,13 @@ const MESSAGE_CHILD_PROCESS_SHUTDOWN   = "child-process-shutdown";
 const SETTINGS_DATA_DEFAULT_SERVICE_ID = "ril.data.defaultServiceId";
 const PREF_RIL_DEBUG_ENABLED           = "ril.debugging.enabled";
 
-XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
-                                   "@mozilla.org/parentprocessmessagemanager;1",
-                                   "nsIMessageBroadcaster");
+XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
+  return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
+});
 
-XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
+/*XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
                                    "@mozilla.org/settingsService;1",
-                                   "nsISettingsService");
+                                   "nsISettingsService");*/
 
 XPCOMUtils.defineLazyServiceGetter(this, "gRil",
                                    "@mozilla.org/ril;1",
@@ -101,12 +107,11 @@ function DataCallService() {
   this._listeners = {};
 
   // Read the default service id for data call.
-  gSettingsService.createLock().get(SETTINGS_DATA_DEFAULT_SERVICE_ID, this);
+  //gSettingsService.createLock().get(SETTINGS_DATA_DEFAULT_SERVICE_ID, this);
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN, false);
   Services.obs.addObserver(this, TOPIC_INNER_WINDOW_DESTROYED, false);
   Services.obs.addObserver(this, TOPIC_CONNECTION_STATE_CHANGED, false);
-
   this._registerMessageListeners();
 }
 DataCallService.prototype = {
@@ -116,7 +121,7 @@ DataCallService.prototype = {
 
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMessageListener,
                                          Ci.nsIObserver,
-                                         Ci.nsISettingsServiceCallback]),
+                                         /*Ci.nsISettingsServiceCallback*/]),
 
   dataCallsContext: null,
 
@@ -372,9 +377,12 @@ DataCallService.prototype = {
 
     if (ril.getDataCallStateByType(type) == NETWORK_STATE_CONNECTED) {
       let networkInfo = this._getNetworkInfo(serviceId, type);
-      let dataCall = this._createDataCall(networkInfo);
-      aTargetCallback(dataCall);
-      return;
+      // For make sure the networkmnager got the connected event.
+      if (networkInfo.state == NETWORK_STATE_CONNECTED) {
+        let dataCall = this._createDataCall(networkInfo);
+        aTargetCallback(dataCall);
+        return;
+      }
     }
 
     context.requestTargets.push({ target: aTarget,
@@ -615,6 +623,7 @@ DataCallService.prototype = {
           this.debug("Network " + networkInfo.type + "/" + networkInfo.name +
                      " changed state to " + networkInfo.state);
         }
+
         this.onConnectionStateChanged(networkInfo);
         this.sendStateChangeEvent(networkInfo);
         break;
@@ -676,13 +685,14 @@ DataCallService.prototype = {
     }
 
     if (DATACALL_IPC_MSG_ENTRIES.indexOf(aMessage.name) !== -1) {
-      if (!aMessage.target.assertPermission("datacall")) {
+      // Mark the permission check first.
+      /*if (!aMessage.target.assertPermission("datacall")) {
         if (DEBUG) {
           this.debug("DataCall message " + aMessage.name +
                      " from a content process with no 'datacall' privileges.");
         }
         return;
-      }
+      }*/
     } else {
       if (DEBUG) this.debug("Ignoring unknown message type: " + aMessage.name);
       return;
@@ -721,4 +731,5 @@ DataCallService.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([DataCallService]);
+
+var EXPORTED_SYMBOLS = ["DataCallService"];

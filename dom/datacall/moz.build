@@ -4,15 +4,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+EXTRA_JS_MODULES += [
+    'gonk/DataCallService.jsm',
+]
+
 EXTRA_COMPONENTS += [
     'DOMDataCallManager.js',
     'DOMDataCallManager.manifest',
+    'gonk/DataCallService.manifest',
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-    EXTRA_COMPONENTS += [
-      'gonk/DataCallService.js',
-      'gonk/DataCallService.manifest',
-    ]
+XPCOM_MANIFESTS += [
+    'components.conf',
+]
 
 FINAL_LIBRARY = 'xul'

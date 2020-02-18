@@ -84,14 +84,17 @@ interface DataCall : EventTarget {
   // List of ip addresses with prefix length.
   //[Cached, Pure]
   //readonly attribute sequence<DOMString> addresses;
+  sequence<DOMString> getAddresses();
 
   // List of gateway addresses.
   //[Cached, Pure]
   //readonly attribute sequence<DOMString> gateways;
+  sequence<DOMString> getGateways();
 
   // List of dns addresses.
   //[Cached, Pure]
   //readonly attribute sequence<DOMString> dnses;
+  sequence<DOMString> getDnses();
 
   /**
    * Add a host route to ensure traffic to the host is delivered via this data

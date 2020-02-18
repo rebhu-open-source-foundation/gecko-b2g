@@ -23,6 +23,7 @@
 #  include "mozilla/dom/IccManager.h"
 #  include "mozilla/dom/Telephony.h"
 #  include "mozilla/dom/MobileConnectionArray.h"
+#  include "mozilla/dom/DataCallManagerBinding.h"
 #endif
 #ifndef DISABLE_WIFI
 #  include "mozilla/dom/WifiManagerBinding.h"
@@ -69,6 +70,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   IccManager* GetMozIccManager(ErrorResult& aRv);
   MobileConnectionArray* GetMozMobileConnections(ErrorResult& aRv);
   Telephony* GetMozTelephony(ErrorResult& aRv);
+  DataCallManager* GetDataCallManager(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
@@ -94,6 +96,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   RefPtr<IccManager> mIccManager;
   RefPtr<MobileConnectionArray> mMobileConnections;
   RefPtr<Telephony> mTelephony;
+  RefPtr<DataCallManager> mDataCallManager;
 #endif
   RefPtr<TetheringManager> mTetheringManager;
 
