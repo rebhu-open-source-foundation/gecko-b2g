@@ -4,5 +4,6 @@
 
 DevToolsModules(
     'CookiesPanel.js',
+    'ParamsPanel.js',
     'PropertiesView.js'
 )

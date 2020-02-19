@@ -5065,6 +5065,9 @@ MDefinition* MFunctionEnvironment::foldsTo(TempAllocator& alloc) {
   if (input()->isLambdaArrow()) {
     return input()->toLambdaArrow()->environmentChain();
   }
+  if (input()->isFunctionWithProto()) {
+    return input()->toFunctionWithProto()->environmentChain();
+  }
   return this;
 }
 
@@ -5654,6 +5657,34 @@ MDefinition* MIsNullOrUndefined::foldsTo(TempAllocator& alloc) {
   }
 
   return this;
+}
+
+MDefinition* MCheckThis::foldsTo(TempAllocator& alloc) {
+  MDefinition* input = thisValue();
+  if (!input->isBox()) {
+    return this;
+  }
+
+  MDefinition* unboxed = input->getOperand(0);
+  if (unboxed->mightBeMagicType()) {
+    return this;
+  }
+
+  return input;
+}
+
+MDefinition* MCheckThisReinit::foldsTo(TempAllocator& alloc) {
+  MDefinition* input = thisValue();
+  if (!input->isBox()) {
+    return this;
+  }
+
+  MDefinition* unboxed = input->getOperand(0);
+  if (unboxed->type() != MIRType::MagicUninitializedLexical) {
+    return this;
+  }
+
+  return input;
 }
 
 bool jit::ElementAccessIsDenseNative(CompilerConstraintList* constraints,

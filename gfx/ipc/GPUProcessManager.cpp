@@ -89,9 +89,6 @@ GPUProcessManager::GPUProcessManager()
   MOZ_COUNT_CTOR(GPUProcessManager);
 
   mIdNamespace = AllocateNamespace();
-  mObserver = new Observer(this);
-  nsContentUtils::RegisterShutdownObserver(mObserver);
-  Preferences::AddStrongObserver(mObserver, "");
 
   mDeviceResetLastTime = TimeStamp::Now();
 
@@ -151,7 +148,7 @@ void GPUProcessManager::OnPreferenceChange(const char16_t* aData) {
   if (!!mGPUChild) {
     MOZ_ASSERT(mQueuedPrefs.IsEmpty());
     mGPUChild->SendPreferenceUpdate(pref);
-  } else {
+  } else if (IsGPUProcessLaunching()) {
     mQueuedPrefs.AppendElement(pref);
   }
 }
@@ -159,6 +156,14 @@ void GPUProcessManager::OnPreferenceChange(const char16_t* aData) {
 void GPUProcessManager::LaunchGPUProcess() {
   if (mProcess) {
     return;
+  }
+
+  // Start listening for pref changes so we can
+  // forward them to the process once it is running.
+  if (!mObserver) {
+    mObserver = new Observer(this);
+    nsContentUtils::RegisterShutdownObserver(mObserver);
+    Preferences::AddStrongObserver(mObserver, "");
   }
 
   // Start the Vsync I/O thread so can use it as soon as the process launches.
@@ -177,6 +182,11 @@ void GPUProcessManager::LaunchGPUProcess() {
   if (!mProcess->Launch(extraArgs)) {
     DisableGPUProcess("Failed to launch GPU process");
   }
+}
+
+bool GPUProcessManager::IsGPUProcessLaunching() {
+  MOZ_ASSERT(NS_IsMainThread());
+  return !!mProcess && !mGPUChild;
 }
 
 void GPUProcessManager::DisableGPUProcess(const char* aMessage) {
@@ -742,6 +752,7 @@ void GPUProcessManager::DestroyProcess() {
   mProcessToken = 0;
   mProcess = nullptr;
   mGPUChild = nullptr;
+  mQueuedPrefs.Clear();
   if (mVsyncBridge) {
     mVsyncBridge->Close();
     mVsyncBridge = nullptr;

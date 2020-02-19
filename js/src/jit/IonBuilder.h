@@ -693,8 +693,10 @@ class MOZ_STACK_CLASS IonBuilder {
   AbortReasonOr<Ok> jsop_regexp(RegExpObject* reobj);
   AbortReasonOr<Ok> jsop_object(JSObject* obj);
   AbortReasonOr<Ok> jsop_classconstructor();
+  AbortReasonOr<Ok> jsop_derivedclassconstructor();
   AbortReasonOr<Ok> jsop_lambda(JSFunction* fun);
   AbortReasonOr<Ok> jsop_lambda_arrow(JSFunction* fun);
+  AbortReasonOr<Ok> jsop_funwithproto(JSFunction* fun);
   AbortReasonOr<Ok> jsop_setfunname(uint8_t prefixKind);
   AbortReasonOr<Ok> jsop_pushlexicalenv(uint32_t index);
   AbortReasonOr<Ok> jsop_copylexicalenv(bool copySlots);
@@ -719,6 +721,7 @@ class MOZ_STACK_CLASS IonBuilder {
   AbortReasonOr<Ok> jsop_checkisobj(uint8_t kind);
   AbortReasonOr<Ok> jsop_checkiscallable(uint8_t kind);
   AbortReasonOr<Ok> jsop_checkobjcoercible();
+  AbortReasonOr<Ok> jsop_checkclassheritage();
   AbortReasonOr<Ok> jsop_pushcallobj();
   AbortReasonOr<Ok> jsop_implicitthis(PropertyName* name);
   AbortReasonOr<Ok> jsop_importmeta();
@@ -727,6 +730,13 @@ class MOZ_STACK_CLASS IonBuilder {
   AbortReasonOr<Ok> jsop_instrumentation_callback();
   AbortReasonOr<Ok> jsop_instrumentation_scriptid();
   AbortReasonOr<Ok> jsop_coalesce();
+  AbortReasonOr<Ok> jsop_objwithproto();
+  AbortReasonOr<Ok> jsop_builtinproto();
+  AbortReasonOr<Ok> jsop_checkreturn();
+  AbortReasonOr<Ok> jsop_checkthis();
+  AbortReasonOr<Ok> jsop_checkthisreinit();
+  AbortReasonOr<Ok> jsop_superfun();
+  AbortReasonOr<Ok> jsop_inithomeobject();
 
   /* Inlining. */
 
@@ -945,9 +955,10 @@ class MOZ_STACK_CLASS IonBuilder {
                              CallInfo& callInfo);
   AbortReasonOr<Ok> makeCall(JSFunction* target, CallInfo& callInfo);
 
-  MDefinition* patchInlinedReturn(CallInfo& callInfo, MBasicBlock* exit,
-                                  MBasicBlock* bottom);
-  MDefinition* patchInlinedReturns(CallInfo& callInfo, MIRGraphReturns& returns,
+  MDefinition* patchInlinedReturn(JSFunction* target, CallInfo& callInfo,
+                                  MBasicBlock* exit, MBasicBlock* bottom);
+  MDefinition* patchInlinedReturns(JSFunction* target, CallInfo& callInfo,
+                                   MIRGraphReturns& returns,
                                    MBasicBlock* bottom);
   MDefinition* specializeInlinedReturn(MDefinition* rdef, MBasicBlock* exit);
 

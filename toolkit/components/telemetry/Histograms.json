@@ -9427,6 +9427,16 @@
     "n_buckets": 66,
     "description": "MediaCacheStream stream length size in KB; Either known size from the HTTP header if available, or otherwise the size actually downloaded. Recorded at every MediaCacheStream destruction."
   },
+  "MEDIA_DECODING_PROCESS_CRASH": {
+    "record_in_processes": ["content"],
+    "products": ["firefox", "geckoview"],
+    "alert_emails": ["jolin@mozilla.com"],
+    "bug_numbers": [1304268],
+    "expires_in_version": "never",
+    "kind": "count",
+    "operating_systems": ["android"],
+    "description": "Records a value each time GeckoView remote decoding process crashes unexpectedly while decoding media content."
+  },
   "WEBRTC_DTLS_CIPHER": {
     "record_in_processes": ["content", "socket"],
     "products": ["firefox", "geckoview"],
@@ -10848,6 +10858,16 @@
     "high": 3000,
     "n_buckets": 20,
     "description": "Time spent moving the cookies from one memory location to another (ms)"
+  },
+  "COOKIE_SAMESITE_SET_VS_UNSET": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "bug_numbers": [1612476],
+    "releaseChannelCollection": "opt-out",
+    "expires_in_version": "86",
+    "kind": "boolean",
+    "alert_emails": ["amarchesini@mozilla.com"],
+    "description": "Cookies with SameSite attribute set vs unset"
   },
   "NTLM_MODULE_USED_2": {
     "record_in_processes": ["main", "content"],

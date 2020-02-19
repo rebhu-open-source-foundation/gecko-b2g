@@ -3501,6 +3501,22 @@ class LClassConstructor : public LCallInstructionHelper<1, 0, 0> {
   LClassConstructor() : LCallInstructionHelper(classOpcode) {}
 };
 
+class LDerivedClassConstructor : public LCallInstructionHelper<1, 1, 0> {
+ public:
+  LIR_HEADER(DerivedClassConstructor)
+
+  explicit LDerivedClassConstructor(const LAllocation& prototype)
+      : LCallInstructionHelper(classOpcode) {
+    setOperand(0, prototype);
+  }
+
+  const LAllocation* prototype() { return getOperand(0); }
+
+  const MDerivedClassConstructor* mir() const {
+    return mir_->toDerivedClassConstructor();
+  }
+};
+
 class LModuleMetadata : public LCallInstructionHelper<1, 0, 0> {
  public:
   LIR_HEADER(ModuleMetadata)
@@ -3566,6 +3582,20 @@ class LLambdaArrow : public LInstructionHelper<1, 1 + BOX_PIECES, 1> {
   const LAllocation* environmentChain() { return getOperand(0); }
   const LDefinition* temp() { return getTemp(0); }
   const MLambdaArrow* mir() const { return mir_->toLambdaArrow(); }
+};
+
+class LFunctionWithProto : public LCallInstructionHelper<1, 2, 0> {
+ public:
+  LIR_HEADER(FunctionWithProto)
+
+  LFunctionWithProto(const LAllocation& envChain, const LAllocation& prototype)
+      : LCallInstructionHelper(classOpcode) {
+    setOperand(0, envChain);
+    setOperand(1, prototype);
+  }
+  const LAllocation* environmentChain() { return getOperand(0); }
+  const LAllocation* prototype() { return getOperand(1); }
+  const MFunctionWithProto* mir() const { return mir_->toFunctionWithProto(); }
 };
 
 class LSetFunName : public LCallInstructionHelper<1, 1 + BOX_PIECES, 0> {
@@ -6986,13 +7016,12 @@ class LRandom : public LInstructionHelper<1, 0, LRANDOM_NUM_TEMPS> {
   MRandom* mir() const { return mir_->toRandom(); }
 };
 
-class LCheckReturn
-    : public LCallInstructionHelper<BOX_PIECES, 2 * BOX_PIECES, 0> {
+class LCheckReturn : public LInstructionHelper<BOX_PIECES, 2 * BOX_PIECES, 0> {
  public:
   LIR_HEADER(CheckReturn)
 
   LCheckReturn(const LBoxAllocation& retVal, const LBoxAllocation& thisVal)
-      : LCallInstructionHelper(classOpcode) {
+      : LInstructionHelper(classOpcode) {
     setBoxOperand(ReturnValue, retVal);
     setBoxOperand(ThisValue, thisVal);
   }
@@ -7041,6 +7070,45 @@ class LCheckObjCoercible : public LCallInstructionHelper<0, BOX_PIECES, 0> {
   explicit LCheckObjCoercible(const LBoxAllocation& value)
       : LCallInstructionHelper(classOpcode) {
     setBoxOperand(CheckValue, value);
+  }
+};
+
+class LCheckClassHeritage : public LInstructionHelper<0, BOX_PIECES, 1> {
+ public:
+  LIR_HEADER(CheckClassHeritage)
+
+  static const size_t Heritage = 0;
+
+  LCheckClassHeritage(const LBoxAllocation& value, const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Heritage, value);
+    setTemp(0, temp);
+  }
+
+  const LDefinition* temp() { return getTemp(0); }
+};
+
+class LCheckThis : public LInstructionHelper<0, BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(CheckThis)
+
+  static const size_t ThisValue = 0;
+
+  explicit LCheckThis(const LBoxAllocation& value)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(ThisValue, value);
+  }
+};
+
+class LCheckThisReinit : public LInstructionHelper<0, BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(CheckThisReinit)
+
+  static const size_t ThisValue = 0;
+
+  explicit LCheckThisReinit(const LBoxAllocation& value)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(ThisValue, value);
   }
 };
 
@@ -7102,6 +7170,56 @@ class LGetPrototypeOf : public LInstructionHelper<BOX_PIECES, 1, 0> {
   }
 
   const LAllocation* target() { return getOperand(0); }
+};
+
+class LObjectWithProto : public LCallInstructionHelper<1, BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(ObjectWithProto)
+
+  static const size_t PrototypeValue = 0;
+
+  explicit LObjectWithProto(const LBoxAllocation& prototype)
+      : LCallInstructionHelper(classOpcode) {
+    setBoxOperand(PrototypeValue, prototype);
+  }
+};
+
+class LBuiltinProto : public LCallInstructionHelper<1, 0, 0> {
+ public:
+  LIR_HEADER(BuiltinProto)
+
+  LBuiltinProto() : LCallInstructionHelper(classOpcode) {}
+
+  MBuiltinProto* mir() const { return mir_->toBuiltinProto(); }
+};
+
+class LSuperFunction : public LInstructionHelper<BOX_PIECES, 1, 1> {
+ public:
+  LIR_HEADER(SuperFunction)
+
+  explicit LSuperFunction(const LAllocation& callee, const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, callee);
+    setTemp(0, temp);
+  }
+
+  const LAllocation* callee() { return getOperand(0); }
+  const LDefinition* temp() { return this->getTemp(0); }
+};
+
+class LInitHomeObject : public LInstructionHelper<0, 1 + BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(InitHomeObject)
+
+  static const size_t HomeObjectValue = 1;
+
+  LInitHomeObject(const LAllocation& function, const LBoxAllocation& homeObject)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, function);
+    setBoxOperand(HomeObjectValue, homeObject);
+  }
+
+  const LAllocation* function() { return getOperand(0); }
 };
 
 template <size_t NumDefs>

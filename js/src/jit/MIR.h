@@ -2632,7 +2632,7 @@ class MCall : public MVariadicInstruction, public CallPolicy::Data {
   // Original value of argc from the bytecode.
   uint32_t numActualArgs_;
 
-  // True if the call is for JSOp::New.
+  // True if the call is for JSOp::New or JSOp::SuperCall.
   bool construct_ : 1;
 
   // True if the caller does not use the return value.
@@ -3435,7 +3435,9 @@ class MAssertRange : public MUnaryInstruction, public NoTypePolicy::Data {
 };
 
 // Caller-side allocation of |this| for |new|:
-// Given a templateobject, construct |this| for JSOp::New
+// Given a templateobject, construct |this| for JSOp::New.
+// Not used for JSOp::SuperCall, because Baseline doesn't attach template
+// objects for super calls.
 class MCreateThisWithTemplate : public MUnaryInstruction,
                                 public NoTypePolicy::Data {
   gc::InitialHeap initialHeap_;
@@ -3470,7 +3472,7 @@ class MCreateThisWithTemplate : public MUnaryInstruction,
 };
 
 // Caller-side allocation of |this| for |new|:
-// Given a prototype operand, construct |this| for JSOp::New.
+// Given a prototype operand, construct |this| for JSOp::New or JSOp::SuperCall.
 class MCreateThisWithProto : public MTernaryInstruction,
                              public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>,
                                               ObjectPolicy<2>>::Data {
@@ -6681,6 +6683,27 @@ class MClassConstructor : public MNullaryInstruction {
   TRIVIAL_NEW_WRAPPERS
 
   jsbytecode* pc() const { return pc_; }
+
+  bool possiblyCalls() const override { return true; }
+};
+
+class MDerivedClassConstructor : public MUnaryInstruction,
+                                 public SingleObjectPolicy::Data {
+  jsbytecode* pc_;
+
+  MDerivedClassConstructor(MDefinition* prototype, jsbytecode* pc)
+      : MUnaryInstruction(classOpcode, prototype), pc_(pc) {
+    setResultType(MIRType::Object);
+  }
+
+ public:
+  INSTRUCTION_HEADER(DerivedClassConstructor)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, prototype))
+
+  jsbytecode* pc() const { return pc_; }
+
+  bool possiblyCalls() const override { return true; }
 };
 
 class MModuleMetadata : public MNullaryInstruction {
@@ -6823,6 +6846,35 @@ class MLambdaArrow
   bool appendRoots(MRootList& roots) const override {
     return info_.appendRoots(roots);
   }
+};
+
+class MFunctionWithProto : public MTernaryInstruction,
+                           public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>,
+                                            ObjectPolicy<2>>::Data {
+  const LambdaFunctionInfo info_;
+
+  MFunctionWithProto(MDefinition* envChain, MDefinition* prototype,
+                     MConstant* cst)
+      : MTernaryInstruction(classOpcode, envChain, prototype, cst),
+        info_(&cst->toObject().as<JSFunction>()) {
+    setResultType(MIRType::Object);
+  }
+
+ public:
+  INSTRUCTION_HEADER(FunctionWithProto)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, environmentChain), (1, prototype))
+
+  MConstant* functionOperand() const { return getOperand(2)->toConstant(); }
+  const LambdaFunctionInfo& info() const { return info_; }
+  MOZ_MUST_USE bool writeRecoverData(
+      CompactBufferWriter& writer) const override;
+  bool canRecoverOnBailout() const override { return true; }
+  bool appendRoots(MRootList& roots) const override {
+    return info_.appendRoots(roots);
+  }
+
+  bool possiblyCalls() const override { return true; }
 };
 
 class MSetFunName : public MBinaryInstruction,
@@ -10588,13 +10640,47 @@ class MCheckReturn : public MBinaryInstruction, public BoxInputsPolicy::Data {
       : MBinaryInstruction(classOpcode, retVal, thisVal) {
     setGuard();
     setResultType(MIRType::Value);
-    setResultTypeSet(retVal->resultTypeSet());
   }
 
  public:
   INSTRUCTION_HEADER(CheckReturn)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, returnValue), (1, thisValue))
+};
+
+class MCheckThis : public MUnaryInstruction, public BoxInputsPolicy::Data {
+  explicit MCheckThis(MDefinition* thisVal)
+      : MUnaryInstruction(classOpcode, thisVal) {
+    setGuard();
+    setResultType(MIRType::Value);
+    setResultTypeSet(thisVal->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(CheckThis)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, thisValue))
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+};
+
+class MCheckThisReinit : public MUnaryInstruction,
+                         public BoxInputsPolicy::Data {
+  explicit MCheckThisReinit(MDefinition* thisVal)
+      : MUnaryInstruction(classOpcode, thisVal) {
+    setGuard();
+    setResultType(MIRType::Value);
+    setResultTypeSet(thisVal->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(CheckThisReinit)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, thisValue))
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
 };
 
 // Increase the warm-up counter of the provided script upon execution and test
@@ -10874,6 +10960,23 @@ class MCheckObjCoercible : public MUnaryInstruction,
   NAMED_OPERANDS((0, checkValue))
 };
 
+class MCheckClassHeritage : public MUnaryInstruction,
+                            public BoxInputsPolicy::Data {
+  explicit MCheckClassHeritage(MDefinition* heritage)
+      : MUnaryInstruction(classOpcode, heritage) {
+    setGuard();
+    setResultType(MIRType::Value);
+    setResultTypeSet(heritage->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(CheckClassHeritage)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, heritage))
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
 class MDebugCheckSelfHosted : public MUnaryInstruction,
                               public BoxInputsPolicy::Data {
   explicit MDebugCheckSelfHosted(MDefinition* toCheck)
@@ -10933,6 +11036,74 @@ class MGetPrototypeOf : public MUnaryInstruction,
   INSTRUCTION_HEADER(GetPrototypeOf)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, target))
+};
+
+class MObjectWithProto : public MUnaryInstruction,
+                         public BoxInputsPolicy::Data {
+  explicit MObjectWithProto(MDefinition* prototype)
+      : MUnaryInstruction(classOpcode, prototype) {
+    setResultType(MIRType::Object);
+    setGuard();  // May throw if prototype is neither an object nor null.
+  }
+
+ public:
+  INSTRUCTION_HEADER(ObjectWithProto)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, prototype))
+
+  bool possiblyCalls() const override { return true; }
+};
+
+class MBuiltinProto : public MNullaryInstruction {
+  jsbytecode* pc_;
+
+  explicit MBuiltinProto(jsbytecode* pc)
+      : MNullaryInstruction(classOpcode), pc_(pc) {
+    setResultType(MIRType::Object);
+  }
+
+ public:
+  INSTRUCTION_HEADER(BuiltinProto)
+  TRIVIAL_NEW_WRAPPERS
+
+  jsbytecode* pc() const { return pc_; }
+
+  bool possiblyCalls() const override { return true; }
+};
+
+class MSuperFunction : public MUnaryInstruction,
+                       public SingleObjectPolicy::Data {
+  explicit MSuperFunction(MDefinition* callee)
+      : MUnaryInstruction(classOpcode, callee) {
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(SuperFunction)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, callee))
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
+};
+
+class MInitHomeObject : public MBinaryInstruction,
+                        public MixPolicy<ObjectPolicy<0>, BoxPolicy<1>>::Data {
+  explicit MInitHomeObject(MDefinition* function, MDefinition* homeObject)
+      : MBinaryInstruction(classOpcode, function, homeObject) {
+    setResultType(MIRType::Object);
+    setResultTypeSet(function->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(InitHomeObject)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, function), (1, homeObject))
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Store(AliasSet::ObjectFields);
+  }
 };
 
 // Flips the input's sign bit, independently of the rest of the number's

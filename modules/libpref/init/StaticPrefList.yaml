@@ -903,6 +903,12 @@
   value: true
   mirror: always
 
+# Force usage of in-memory (rather than file on disk) media cache for video streaming when private browsing
+- name: browser.privatebrowsing.forceMediaMemoryCache
+  type: bool
+  value: false
+  mirror: always
+
 # Blocked plugin content
 - name: browser.safebrowsing.blockedURIs.enabled
   type: bool
@@ -1433,6 +1439,12 @@
 - name: dom.datacall.enabled
   type: bool
   value: true
+  mirror: always
+
+# Is support for CSSPseudoElement enabled?
+- name: dom.css_pseudo_element.enabled
+  type: bool
+  value: false
   mirror: always
 
 # Any how many seconds we allow external protocol URLs in iframe when not in
@@ -4348,11 +4360,7 @@
 # composition.
 - name: intl.ime.hack.on_any_apps.fire_key_events_for_composition
   type: bool
-#ifdef MOZ_WIDGET_ANDROID
-  value: @IS_EARLY_BETA_OR_EARLIER@
-#else
-  value: false
-#endif
+  value: @IS_ANDROID@
   mirror: always
 
 #---------------------------------------------------------------------------

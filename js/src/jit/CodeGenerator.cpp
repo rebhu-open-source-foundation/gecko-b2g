@@ -3473,6 +3473,17 @@ void CodeGenerator::visitClassConstructor(LClassConstructor* lir) {
   callVM<Fn, js::MakeDefaultConstructor>(lir);
 }
 
+void CodeGenerator::visitDerivedClassConstructor(
+    LDerivedClassConstructor* lir) {
+  pushArg(ToRegister(lir->prototype()));
+  pushArg(ImmPtr(lir->mir()->pc()));
+  pushArg(ImmGCPtr(current->mir()->info().script()));
+
+  using Fn =
+      JSFunction* (*)(JSContext*, HandleScript, jsbytecode*, HandleObject);
+  callVM<Fn, js::MakeDefaultConstructor>(lir);
+}
+
 void CodeGenerator::visitModuleMetadata(LModuleMetadata* lir) {
   pushArg(ImmPtr(lir->mir()->module()));
 
@@ -3594,6 +3605,20 @@ void CodeGenerator::emitLambdaInit(Register output, Register envChain,
   // the nursery.
   masm.storePtr(ImmGCPtr(info.funUnsafe()->displayAtom()),
                 Address(output, JSFunction::offsetOfAtom()));
+}
+
+void CodeGenerator::visitFunctionWithProto(LFunctionWithProto* lir) {
+  Register envChain = ToRegister(lir->environmentChain());
+  Register prototype = ToRegister(lir->prototype());
+  const LambdaFunctionInfo& info = lir->mir()->info();
+
+  pushArg(prototype);
+  pushArg(envChain);
+  pushArg(ImmGCPtr(info.funUnsafe()));
+
+  using Fn =
+      JSObject* (*)(JSContext*, HandleFunction, HandleObject, HandleObject);
+  callVM<Fn, js::FunWithProtoOperation>(lir);
 }
 
 void CodeGenerator::visitSetFunName(LSetFunName* lir) {
@@ -13199,13 +13224,19 @@ void CodeGenerator::visitNewTarget(LNewTarget* ins) {
 void CodeGenerator::visitCheckReturn(LCheckReturn* ins) {
   ValueOperand returnValue = ToValue(ins, LCheckReturn::ReturnValue);
   ValueOperand thisValue = ToValue(ins, LCheckReturn::ThisValue);
-  Label bail, noChecks;
+  ValueOperand output = ToOutValue(ins);
+
+  Label bail, noChecks, done;
   masm.branchTestObject(Assembler::Equal, returnValue, &noChecks);
   masm.branchTestUndefined(Assembler::NotEqual, returnValue, &bail);
-  masm.branchTestMagicValue(Assembler::Equal, thisValue,
-                            JS_UNINITIALIZED_LEXICAL, &bail);
-  bailoutFrom(&bail, ins->snapshot());
+  masm.branchTestMagic(Assembler::Equal, thisValue, &bail);
+  masm.moveValue(thisValue, output);
+  masm.jump(&done);
   masm.bind(&noChecks);
+  masm.moveValue(returnValue, output);
+  masm.bind(&done);
+
+  bailoutFrom(&bail, ins->snapshot());
 }
 
 void CodeGenerator::visitCheckIsObj(LCheckIsObj* ins) {
@@ -13228,6 +13259,45 @@ void CodeGenerator::visitCheckObjCoercible(LCheckObjCoercible* ins) {
   using Fn = bool (*)(JSContext*, HandleValue);
   callVM<Fn, ThrowObjectCoercible>(ins);
   masm.bind(&done);
+}
+
+void CodeGenerator::visitCheckClassHeritage(LCheckClassHeritage* ins) {
+  ValueOperand heritage = ToValue(ins, LCheckClassHeritage::Heritage);
+  Register temp = ToRegister(ins->temp());
+
+  using Fn = bool (*)(JSContext*, HandleValue);
+  OutOfLineCode* ool = oolCallVM<Fn, CheckClassHeritageOperation>(
+      ins, ArgList(heritage), StoreNothing());
+
+  masm.branchTestNull(Assembler::Equal, heritage, ool->rejoin());
+  masm.branchTestObject(Assembler::NotEqual, heritage, ool->entry());
+
+  Register object = masm.extractObject(heritage, temp);
+  emitIsCallableOrConstructor<Constructor>(object, temp, ool->entry());
+
+  masm.branchTest32(Assembler::Zero, temp, temp, ool->entry());
+
+  masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitCheckThis(LCheckThis* ins) {
+  ValueOperand thisValue = ToValue(ins, LCheckThis::ThisValue);
+
+  using Fn = bool (*)(JSContext*);
+  OutOfLineCode* ool =
+      oolCallVM<Fn, ThrowUninitializedThis>(ins, ArgList(), StoreNothing());
+  masm.branchTestMagic(Assembler::Equal, thisValue, ool->entry());
+  masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitCheckThisReinit(LCheckThisReinit* ins) {
+  ValueOperand thisValue = ToValue(ins, LCheckThisReinit::ThisValue);
+
+  using Fn = bool (*)(JSContext*);
+  OutOfLineCode* ool =
+      oolCallVM<Fn, ThrowInitializedThis>(ins, ArgList(), StoreNothing());
+  masm.branchTestMagic(Assembler::NotEqual, thisValue, ool->entry());
+  masm.bind(ool->rejoin());
 }
 
 void CodeGenerator::visitDebugCheckSelfHosted(LDebugCheckSelfHosted* ins) {
@@ -13546,6 +13616,70 @@ void CodeGenerator::visitGetPrototypeOf(LGetPrototypeOf* lir) {
   masm.tagValue(JSVAL_TYPE_OBJECT, scratch, out);
 
   masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitObjectWithProto(LObjectWithProto* lir) {
+  pushArg(ToValue(lir, LObjectWithProto::PrototypeValue));
+
+  using Fn = JSObject* (*)(JSContext*, HandleValue);
+  callVM<Fn, js::ObjectWithProtoOperation>(lir);
+}
+
+void CodeGenerator::visitBuiltinProto(LBuiltinProto* lir) {
+  pushArg(ImmPtr(lir->mir()->pc()));
+
+  using Fn = JSObject* (*)(JSContext*, jsbytecode*);
+  callVM<Fn, js::BuiltinProtoOperation>(lir);
+}
+
+void CodeGenerator::visitSuperFunction(LSuperFunction* lir) {
+  Register callee = ToRegister(lir->callee());
+  ValueOperand out = ToOutValue(lir);
+  Register temp = ToRegister(lir->temp());
+
+#ifdef DEBUG
+  Label classCheckDone;
+  masm.branchTestObjClass(Assembler::Equal, callee, &JSFunction::class_, temp,
+                          callee, &classCheckDone);
+  masm.assumeUnreachable("Unexpected non-JSFunction callee in JSOp::SuperFun");
+  masm.bind(&classCheckDone);
+#endif
+
+  // Load prototype of callee
+  masm.loadObjProto(callee, temp);
+
+#ifdef DEBUG
+  // We won't encounter a lazy proto, because |callee| is guaranteed to be a
+  // JSFunction and only proxy objects can have a lazy proto.
+  MOZ_ASSERT(uintptr_t(TaggedProto::LazyProto) == 1);
+
+  Label proxyCheckDone;
+  masm.branchPtr(Assembler::NotEqual, temp, ImmWord(1), &proxyCheckDone);
+  masm.assumeUnreachable("Unexpected lazy proto in JSOp::SuperFun");
+  masm.bind(&proxyCheckDone);
+#endif
+
+  Label nullProto, done;
+  masm.branchPtr(Assembler::Equal, temp, ImmWord(0), &nullProto);
+
+  // Box prototype and return
+  masm.tagValue(JSVAL_TYPE_OBJECT, temp, out);
+  masm.jump(&done);
+
+  masm.bind(&nullProto);
+  masm.moveValue(NullValue(), out);
+
+  masm.bind(&done);
+}
+
+void CodeGenerator::visitInitHomeObject(LInitHomeObject* lir) {
+  Register func = ToRegister(lir->function());
+  ValueOperand homeObject = ToValue(lir, LInitHomeObject::HomeObjectValue);
+
+  Address addr(func, FunctionExtended::offsetOfMethodHomeObjectSlot());
+
+  emitPreBarrier(addr);
+  masm.storeValue(homeObject, addr);
 }
 
 template <size_t NumDefs>

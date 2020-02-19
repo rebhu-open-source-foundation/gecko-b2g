@@ -799,14 +799,6 @@ class nsFrameSelection final {
   static nsresult GetCellIndexes(nsIContent* aCell, int32_t& aRowIndex,
                                  int32_t& aColIndex);
 
-  // Get our first range, if its first selected node is a cell.  If this does
-  // not return null, then the first node in the returned range is a cell
-  // (according to GetFirstCellNodeInRange).
-  nsRange* GetFirstCellRange();
-  // Get our next range, if its first selected node is a cell.  If this does
-  // not return null, then the first node in the returned range is a cell
-  // (according to GetFirstCellNodeInRange).
-  nsRange* GetNextCellRange();
   static nsIContent* GetFirstCellNodeInRange(const nsRange* aRange);
   // Returns non-null table if in same table, null otherwise
   static nsIContent* IsInSameTable(nsIContent* aContent1,
@@ -822,6 +814,16 @@ class nsFrameSelection final {
                      sizeof(mozilla::SelectionType)];
 
   struct TableSelection {
+    // Get our first range, if its first selected node is a cell.  If this does
+    // not return null, then the first node in the returned range is a cell
+    // (according to GetFirstCellNodeInRange).
+    nsRange* GetFirstCellRange(const mozilla::dom::Selection& aNormalSelection);
+
+    // Get our next range, if its first selected node is a cell.  If this does
+    // not return null, then the first node in the returned range is a cell
+    // (according to GetFirstCellNodeInRange).
+    nsRange* GetNextCellRange(const mozilla::dom::Selection& aNormalSelection);
+
     nsCOMPtr<nsINode> mCellParent;  // used to snap to table selection
     nsCOMPtr<nsIContent> mStartSelectedCell;
     nsCOMPtr<nsIContent> mEndSelectedCell;

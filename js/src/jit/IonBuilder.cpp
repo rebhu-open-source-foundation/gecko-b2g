@@ -2131,6 +2131,7 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::CallIgnoresRv:
     case JSOp::CallIter:
     case JSOp::New:
+    case JSOp::SuperCall:
       MOZ_TRY(jsop_call(GET_ARGC(pc),
                         JSOp(*pc) == JSOp::New || JSOp(*pc) == JSOp::SuperCall,
                         JSOp(*pc) == JSOp::CallIgnoresRv));
@@ -2323,6 +2324,9 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::ClassConstructor:
       return jsop_classconstructor();
 
+    case JSOp::DerivedConstructor:
+      return jsop_derivedclassconstructor();
+
     case JSOp::Typeof:
     case JSOp::TypeofExpr:
       return jsop_typeof();
@@ -2447,6 +2451,33 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::InstrumentationScriptId:
       return jsop_instrumentation_scriptid();
 
+    case JSOp::CheckClassHeritage:
+      return jsop_checkclassheritage();
+
+    case JSOp::FunWithProto:
+      return jsop_funwithproto(info().getFunction(pc));
+
+    case JSOp::ObjWithProto:
+      return jsop_objwithproto();
+
+    case JSOp::BuiltinProto:
+      return jsop_builtinproto();
+
+    case JSOp::CheckReturn:
+      return jsop_checkreturn();
+
+    case JSOp::CheckThis:
+      return jsop_checkthis();
+
+    case JSOp::CheckThisReinit:
+      return jsop_checkthisreinit();
+
+    case JSOp::SuperFun:
+      return jsop_superfun();
+
+    case JSOp::InitHomeObject:
+      return jsop_inithomeobject();
+
     // ===== NOT Yet Implemented =====
     // Read below!
 
@@ -2456,33 +2487,15 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
 
     // Spread
     case JSOp::SpreadNew:
+    case JSOp::SpreadSuperCall:
     case JSOp::SpreadEval:
     case JSOp::StrictSpreadEval:
-
-    // Classes
-    case JSOp::CheckClassHeritage:
-    case JSOp::FunWithProto:
-    case JSOp::ObjWithProto:
-    case JSOp::BuiltinProto:
-    case JSOp::InitHomeObject:
-    case JSOp::DerivedConstructor:
-    case JSOp::CheckThis:
-    case JSOp::CheckReturn:
-    case JSOp::CheckThisReinit:
 
     // Super
     case JSOp::SetPropSuper:
     case JSOp::SetElemSuper:
     case JSOp::StrictSetPropSuper:
     case JSOp::StrictSetElemSuper:
-    case JSOp::SuperFun:
-    // Most of the infrastructure for these exists in Ion, but needs review
-    // and testing before these are enabled. Once other opcodes that are used
-    // in derived classes are supported in Ion, this can be better validated
-    // with testcases. Pay special attention to bailout and other areas where
-    // JSOp::New has special handling.
-    case JSOp::SpreadSuperCall:
-    case JSOp::SuperCall:
 
     // Environments (bug 1366470)
     case JSOp::PushVarEnv:
@@ -4301,7 +4314,8 @@ IonBuilder::InliningResult IonBuilder::inlineScriptedCall(CallInfo& callInfo,
   returnBlock->pop();
 
   // Accumulate return values.
-  MDefinition* retvalDefn = patchInlinedReturns(callInfo, returns, returnBlock);
+  MDefinition* retvalDefn =
+      patchInlinedReturns(target, callInfo, returns, returnBlock);
   if (!retvalDefn) {
     return abort(AbortReason::Alloc);
   }
@@ -4317,7 +4331,8 @@ IonBuilder::InliningResult IonBuilder::inlineScriptedCall(CallInfo& callInfo,
   return InliningStatus_Inlined;
 }
 
-MDefinition* IonBuilder::patchInlinedReturn(CallInfo& callInfo,
+MDefinition* IonBuilder::patchInlinedReturn(JSFunction* target,
+                                            CallInfo& callInfo,
                                             MBasicBlock* exit,
                                             MBasicBlock* bottom) {
   // Replaces the MReturn in the exit block with an MGoto.
@@ -4326,7 +4341,10 @@ MDefinition* IonBuilder::patchInlinedReturn(CallInfo& callInfo,
 
   // Constructors must be patched by the caller to always return an object.
   if (callInfo.constructing()) {
-    if (rdef->type() == MIRType::Value) {
+    if (target->isDerivedClassConstructor()) {
+      // Derived class constructors contain extra bytecode to ensure an object
+      // is always returned, so no additional patching is needed.
+    } else if (rdef->type() == MIRType::Value) {
       // Unknown return: dynamically detect objects.
       MReturnFromCtor* filter =
           MReturnFromCtor::New(alloc(), rdef, callInfo.thisArg());
@@ -4402,7 +4420,8 @@ MDefinition* IonBuilder::specializeInlinedReturn(MDefinition* rdef,
   return rdef;
 }
 
-MDefinition* IonBuilder::patchInlinedReturns(CallInfo& callInfo,
+MDefinition* IonBuilder::patchInlinedReturns(JSFunction* target,
+                                             CallInfo& callInfo,
                                              MIRGraphReturns& returns,
                                              MBasicBlock* bottom) {
   // Replaces MReturns with MGotos, returning the MDefinition
@@ -4410,7 +4429,7 @@ MDefinition* IonBuilder::patchInlinedReturns(CallInfo& callInfo,
   MOZ_ASSERT(returns.length() > 0);
 
   if (returns.length() == 1) {
-    return patchInlinedReturn(callInfo, returns[0], bottom);
+    return patchInlinedReturn(target, callInfo, returns[0], bottom);
   }
 
   // Accumulate multiple returns with a phi.
@@ -4420,7 +4439,8 @@ MDefinition* IonBuilder::patchInlinedReturns(CallInfo& callInfo,
   }
 
   for (size_t i = 0; i < returns.length(); i++) {
-    MDefinition* rdef = patchInlinedReturn(callInfo, returns[i], bottom);
+    MDefinition* rdef =
+        patchInlinedReturn(target, callInfo, returns[i], bottom);
     if (!rdef) {
       return nullptr;
     }
@@ -9882,6 +9902,27 @@ AbortReasonOr<Ok> IonBuilder::jsop_checkobjcoercible() {
   return resumeAfter(check);
 }
 
+AbortReasonOr<Ok> IonBuilder::jsop_checkclassheritage() {
+  auto* ins = MCheckClassHeritage::New(alloc(), current->pop());
+  current->add(ins);
+  current->push(ins);
+  return Ok();
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_checkthis() {
+  auto* ins = MCheckThis::New(alloc(), current->pop());
+  current->add(ins);
+  current->push(ins);
+  return Ok();
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_checkthisreinit() {
+  auto* ins = MCheckThisReinit::New(alloc(), current->pop());
+  current->add(ins);
+  current->push(ins);
+  return Ok();
+}
+
 uint32_t IonBuilder::getDefiniteSlot(TemporaryTypeSet* types, jsid id,
                                      uint32_t* pnfixed) {
   if (!types || types->unknownObject() || !types->objectOrSentinel()) {
@@ -11845,6 +11886,15 @@ AbortReasonOr<Ok> IonBuilder::jsop_classconstructor() {
   return resumeAfter(constructor);
 }
 
+AbortReasonOr<Ok> IonBuilder::jsop_derivedclassconstructor() {
+  MDefinition* prototype = current->pop();
+
+  auto* constructor = MDerivedClassConstructor::New(alloc(), prototype, pc);
+  current->add(constructor);
+  current->push(constructor);
+  return resumeAfter(constructor);
+}
+
 AbortReasonOr<Ok> IonBuilder::jsop_lambda(JSFunction* fun) {
   MOZ_ASSERT(usesEnvironmentChain());
   MOZ_ASSERT(!fun->isArrow());
@@ -11873,6 +11923,22 @@ AbortReasonOr<Ok> IonBuilder::jsop_lambda_arrow(JSFunction* fun) {
   current->add(cst);
   MLambdaArrow* ins = MLambdaArrow::New(
       alloc(), constraints(), current->environmentChain(), newTargetDef, cst);
+  current->add(ins);
+  current->push(ins);
+
+  return resumeAfter(ins);
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_funwithproto(JSFunction* fun) {
+  MOZ_ASSERT(usesEnvironmentChain());
+  MOZ_ASSERT(!fun->isArrow());
+  MOZ_ASSERT(!fun->isNative());
+
+  MDefinition* proto = current->pop();
+  MConstant* cst = MConstant::NewConstraintlessObject(alloc(), fun);
+  current->add(cst);
+  auto* ins =
+      MFunctionWithProto::New(alloc(), current->environmentChain(), proto, cst);
   current->add(ins);
   current->push(ins);
 
@@ -12740,6 +12806,108 @@ AbortReasonOr<Ok> IonBuilder::jsop_instrumentation_scriptid() {
     return abort(AbortReason::Error);
   }
   pushConstant(Int32Value(scriptId));
+  return Ok();
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_objwithproto() {
+  auto* ins = MObjectWithProto::New(alloc(), current->pop());
+  current->add(ins);
+  current->push(ins);
+  return resumeAfter(ins);
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_builtinproto() {
+  MOZ_ASSERT(GET_UINT8(pc) < JSProto_LIMIT);
+  JSProtoKey key = static_cast<JSProtoKey>(GET_UINT8(pc));
+
+  // Bake in the prototype if it exists.
+  if (JSObject* proto = script()->global().maybeGetPrototype(key)) {
+    pushConstant(ObjectValue(*proto));
+    return Ok();
+  }
+
+  // Otherwise emit code to generate it.
+  auto* ins = MBuiltinProto::New(alloc(), pc);
+  current->add(ins);
+  current->push(ins);
+  return resumeAfter(ins);
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_checkreturn() {
+  MOZ_ASSERT(!script()->noScriptRval());
+
+  MDefinition* returnValue = current->getSlot(info().returnValueSlot());
+  MDefinition* thisValue = current->pop();
+
+  if (returnValue->type() == MIRType::Object) {
+    thisValue->setImplicitlyUsedUnchecked();
+    return Ok();
+  }
+
+  if (returnValue->type() == MIRType::Undefined &&
+      !thisValue->mightBeMagicType()) {
+    thisValue->setImplicitlyUsedUnchecked();
+    current->setSlot(info().returnValueSlot(), thisValue);
+    return Ok();
+  }
+
+  auto* ins = MCheckReturn::New(alloc(), returnValue, thisValue);
+  current->add(ins);
+  current->setSlot(info().returnValueSlot(), ins);
+  return Ok();
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_superfun() {
+  MDefinition* callee = current->pop();
+
+  do {
+    TemporaryTypeSet* calleeTypes = callee->resultTypeSet();
+    JSObject* calleeObj = calleeTypes ? calleeTypes->maybeSingleton() : nullptr;
+    if (!calleeObj) {
+      break;
+    }
+
+    // Refuse to optimize if the prototype is uncacheable.
+    if (calleeObj->hasUncacheableProto() || !calleeObj->hasStaticPrototype()) {
+      break;
+    }
+
+    // The prototype must be a constructor.
+    JSObject* proto = calleeObj->staticPrototype();
+    if (!proto || !proto->isConstructor()) {
+      break;
+    }
+
+    // Add a constraint to ensure we're notified when the prototype changes.
+    TypeSet::ObjectKey* calleeKey = TypeSet::ObjectKey::get(calleeObj);
+    if (!calleeKey->hasStableClassAndProto(constraints())) {
+      break;
+    }
+
+    callee->setImplicitlyUsedUnchecked();
+
+    pushConstant(ObjectValue(*proto));
+
+    return Ok();
+  } while (false);
+
+  auto* ins = MSuperFunction::New(alloc(), callee);
+  current->add(ins);
+  current->push(ins);
+  return Ok();
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_inithomeobject() {
+  MDefinition* homeObject = current->pop();
+  MDefinition* function = current->pop();
+
+  if (needsPostBarrier(homeObject)) {
+    current->add(MPostWriteBarrier::New(alloc(), function, homeObject));
+  }
+
+  auto* ins = MInitHomeObject::New(alloc(), function, homeObject);
+  current->add(ins);
+  current->push(ins);
   return Ok();
 }
 
