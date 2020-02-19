@@ -169,6 +169,17 @@ DOMDataCallManager.prototype = {
   },
 
   /*
+   * Called from DOMRequestIpcHelper.
+   */
+  uninit: function() {
+    // All requests that are still pending need to be invalidated
+    // because the context is no longer valid.
+    this.forEachPromiseResolver(aKey => {
+      this.takePromiseResolver(aKey).reject("DataCallManager got destroyed.");
+    });
+  },
+
+  /*
    * Message manager handler
    */
   receiveMessage: function(aMessage) {
