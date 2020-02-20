@@ -3952,10 +3952,15 @@
   value: true
   mirror: always
 
+- name: gfx.webrender.batching.lookback
+  type: uint32_t
+  value: 10
+  mirror: always
+
 - name: gfx.webrender.compositor
   type: bool
 #if defined(XP_WIN)
-  value: false
+  value: true
 #else
   value: false
 #endif
@@ -5251,6 +5256,13 @@
   value: false
   mirror: always
 
+# Is support for CSS conic-gradient enabled?
+- name: layout.css.conic-gradient.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Is support for CSS contain enabled?
 - name: layout.css.contain.enabled
   type: bool
@@ -5585,12 +5597,6 @@
 
 # Should the :visited selector ever match (otherwise :link matches instead)?
 - name: layout.css.visited_links_enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Is the '-webkit-appearance' alias for '-moz-appearance' enabled?
-- name: layout.css.webkit-appearance.enabled
   type: bool
   value: true
   mirror: always
@@ -7024,6 +7030,12 @@
 - name: network.cookie.sameSite.laxByDefault
   type: bool
   value: false
+  mirror: always
+
+# lax-by-default 2 minutes tollerance for unsafe methods. The value is in seconds.
+- name: network.cookie.sameSite.laxPlusPOST.timeout
+  type: uint32_t
+  value: 0
   mirror: always
 
 - name: network.cookie.sameSite.noneRequiresSecure

@@ -11,18 +11,13 @@
 #include "mozilla/layers/CompositorManagerParent.h"
 #include "mozilla/layers/ImageBridgeParent.h"
 #include "mozilla/media/MediaSystemResourceService.h"
+#include "VRManagerParent.h"
 
 #ifdef MOZ_WIDGET_GONK
 #  include "mozilla/layers/SharedBufferManagerParent.h"
 #endif
 
 namespace mozilla {
-
-namespace gfx {
-// See VRManagerChild.cpp
-void ReleaseVRManagerParentSingleton();
-}  // namespace gfx
-
 namespace layers {
 
 static StaticRefPtr<CompositorThreadHolder> sCompositorThreadHolder;
@@ -129,7 +124,7 @@ void CompositorThreadHolder::Shutdown() {
   }
 
   ImageBridgeParent::Shutdown();
-  gfx::ReleaseVRManagerParentSingleton();
+  gfx::VRManagerParent::Shutdown();
   MediaSystemResourceService::Shutdown();
   CompositorManagerParent::Shutdown();
   CanvasParent::Shutdown();

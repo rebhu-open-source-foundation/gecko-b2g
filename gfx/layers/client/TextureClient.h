@@ -259,7 +259,7 @@ class TextureData {
 
   static bool IsRemote(LayersBackend aLayersBackend, BackendSelector aSelector);
 
-  virtual ~TextureData() { MOZ_COUNT_DTOR(TextureData); }
+  MOZ_COUNTED_DTOR_VIRTUAL(TextureData)
 
   virtual void FillInfo(TextureData::Info& aInfo) const = 0;
 
@@ -336,7 +336,7 @@ class TextureData {
   }
 
  protected:
-  TextureData() { MOZ_COUNT_CTOR(TextureData); }
+  MOZ_COUNTED_DEFAULT_CTOR(TextureData)
 
   FenceHandle mAcquireFenceHandle;
 };
