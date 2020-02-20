@@ -85,7 +85,7 @@ public:
 
 protected:
   mozilla::ipc::IPCResult
-  Recv__delete__(const IccReply& aReply) override;
+  Recv__delete__(const IccReply& aReply);
 
 private:
   ~IccRequestChild() {

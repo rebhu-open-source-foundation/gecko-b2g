@@ -104,8 +104,8 @@ protected:
   virtual void
   ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult
-  Recv__delete__(const IPCTelephonyResponse& aResponse) override;
+  mozilla::ipc::IPCResult
+  Recv__delete__(const IPCTelephonyResponse& aResponse);
 
   mozilla::ipc::IPCResult
   RecvNotifyEnumerateCallState(nsITelephonyCallInfo* const& aInfo);

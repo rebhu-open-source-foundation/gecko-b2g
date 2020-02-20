@@ -185,7 +185,7 @@ protected:
   ActorDestroy(ActorDestroyReason why) override;
 
   mozilla::ipc::IPCResult
-  Recv__delete__(const MobileConnectionReply& aReply) override;
+  Recv__delete__(const MobileConnectionReply& aReply);
 
 private:
   nsCOMPtr<nsIMobileConnectionCallback> mRequestCallback;

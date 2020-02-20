@@ -36,8 +36,8 @@ class BluetoothRequestChild : public PBluetoothRequestChild
 public:
   BluetoothRequestChild(BluetoothReplyRunnable* aReplyRunnable);
 
-  virtual mozilla::ipc::IPCResult
-  Recv__delete__(const BluetoothReply& aReply) override;
+  mozilla::ipc::IPCResult
+  Recv__delete__(const BluetoothReply& aReply);
 
 protected:
   virtual ~BluetoothRequestChild();

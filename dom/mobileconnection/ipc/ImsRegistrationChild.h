@@ -119,7 +119,7 @@ public:
   ActorDestroy(ActorDestroyReason why) override;
 
   mozilla::ipc::IPCResult
-  Recv__delete__(const ImsRegistrationReply& aReply) override;
+  Recv__delete__(const ImsRegistrationReply& aReply);
 
 private:
   nsCOMPtr<nsIImsRegCallback> mRequestCallback;
