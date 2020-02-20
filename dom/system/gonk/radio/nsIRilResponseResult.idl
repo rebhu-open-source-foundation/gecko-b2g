@@ -21,7 +21,7 @@ interface nsISetupDataCallResult;
 /**
  * XPCOM component that provides the hidl response information.
  */
-[scriptable, uuid(00daadfe-a6c6-4fef-9129-5a59ddc91810)]
+[scriptable, uuid(3115bf1b-e810-4d68-aa32-3142f6add75d)]
 interface nsIRilResponseResult : nsISupports
 {
   /**
@@ -397,9 +397,13 @@ interface nsIRilResponseResult : nsISupports
 
   // quertTtyMode
   readonly attribute long ttyMode;
+
+  readonly attribute boolean muteEnable;
+
+  // For ICC pin/puk
+  readonly attribute long remainingRetries;
 /*
   //void supplyIccPinForAppResponse(out long remainingRetries);
-  readonly attribute long remainingRetries;
 
   readonly attribute AString opLongName;
 
@@ -412,8 +416,6 @@ interface nsIRilResponseResult : nsISupports
   readonly attribute long facilityLockResponse;
 
   readonly attribute long facilityLockRetry;
-
-  readonly attribute boolean muteEnable;
 
   readonly attribute long smsSimIndex;
 

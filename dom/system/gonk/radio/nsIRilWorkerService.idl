@@ -21,7 +21,7 @@ interface nsIRilCallback : nsISupports
   void handleRilIndication(in nsIRilIndicationResult response);
 };
 
-[scriptable, uuid(4628f74a-ca2f-4727-bac1-d1f25bdfdfac)]
+[scriptable, uuid(f297a2d3-25d5-4035-bfd6-9ff9bf49461d)]
 interface nsIRilWorker : nsISupports
 {
   void sendRilRequest(in jsval message);
@@ -43,6 +43,7 @@ interface nsIRilWorker : nsISupports
   void setUiccSubscription(in long serial, in long slotId, in long appIndex, in long subId
                            , in long subStatus);
   void setMute(in long serial, in boolean enableMute);
+  void getMute(in long serial);
   void getSmscAddress(in long serial);
   void requestDial(in long serial, in AString address, in long clirMode, in long uusType, in long uusDcs
                    , in AString uusData);
@@ -90,6 +91,17 @@ interface nsIRilWorker : nsISupports
   void setTTYMode(in long serial, in long ttyMode);
   void queryTTYMode(in long serial);
   void exitEmergencyCallbackMode(in long serial);
+  void supplyIccPinForApp(in long serial, in AString pin, in AString aid);
+  void supplyIccPin2ForApp(in long serial, in AString pin, in AString aid);
+  void supplyIccPukForApp(in long serial, in AString puk, in AString newPin, in AString aid);
+  void supplyIccPuk2ForApp(in long serial, in AString puk, in AString newPin, in AString aid);
+  void setFacilityLockForApp (in long serial, in AString facility, in boolean lockState
+                              , in AString password, in long serviceClass, in AString aid);
+  void getFacilityLockForApp (in long serial, in AString facility
+                              , in AString password, in long serviceClass, in AString aid);
+
+  void changeIccPinForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
+  void changeIccPin2ForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
 };
 
 /**

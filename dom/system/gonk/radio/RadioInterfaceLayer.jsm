@@ -1924,17 +1924,84 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_SIM_STATUS error = " + response.errorMsg);
         }
         break;
+      case "iccUnlockCardLock":
+        if (DEBUG) this.debug("iccUnlockCardLock command error.");
+        break;
+      case "iccSetCardLockEnabled":
+        if (DEBUG) this.debug("iccSetCardLockEnabled command error.");
+        break;
+      case "iccGetCardLockEnabled":
+        if (DEBUG) this.debug("iccGetCardLockEnabled command error.");
+        break;
+      case "iccChangeCardLockPassword":
+        if (DEBUG) this.debug("iccChangeCardLockPassword command error.");
+        break;
+      case "iccGetCardLockRetryCount":
+        if (DEBUG) this.debug("iccGetCardLockRetryCount command error.");
+        break;
+      case "queryICCFacilityLock":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_FACILITY_LOCK response = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_FACILITY_LOCK error = " + response.errorMsg);
+        }
+        break;
+      case "setICCFacilityLock":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_FACILITY_LOCK remainingRetries = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_FACILITY_LOCK error = " + response.errorMsg);
+        }
+        break;
       case "enterICCPIN":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PIN remainingRetries = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PIN error = " + response.errorMsg);
+        }
         break;
       case "enterICCPUK":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PUK remainingRetries = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PUK error = " + response.errorMsg);
+        }
         break;
       case "enterICCPIN2":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PIN2 remainingRetries = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PIN2 error = " + response.errorMsg);
+        }
         break;
       case "enterICCPUK2":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PUK2 remainingRetries = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ENTER_SIM_PUK2 error = " + response.errorMsg);
+        }
         break;
       case "changeICCPIN":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CHANGE_SIM_PIN remainingRetries = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CHANGE_SIM_PIN error = " + response.errorMsg);
+        }
         break;
       case "changeICCPIN2":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CHANGE_SIM_PIN2 remainingRetries = " + JSON.stringify(response.remainingRetries));
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CHANGE_SIM_PIN2 error = " + response.errorMsg);
+        }
         break;
       case "enterDepersonalization":
         break;
@@ -2212,10 +2279,6 @@ RadioInterface.prototype = {
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_DEACTIVATE_DATA_CALL error = " + response.errorMsg);
         }
-        break;
-      case "queryICCFacilityLock":
-        break;
-      case "setICCFacilityLock":
         break;
       case "changeCallBarringPassword":
         if (response.errorMsg == 0) {
@@ -3668,6 +3731,7 @@ RadioInterface.prototype = {
     message = message || {};
 
     message.rilMessageToken = this.token;
+    // TODO what if meet the maximum value?
     this.token++;
 
     if (callback) {
@@ -3688,17 +3752,20 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_SIM_STATUS");
         this.rilworker.getIccCardStatus(message.rilMessageToken);
         break;
-      case "enterICCPIN":
+      case "iccUnlockCardLock":
+        this.processIccUnlockCardLock(message);
         break;
-      case "enterICCPUK":
+      case "iccSetCardLockEnabled":
+        this.processIccSetCardLockEnabled(message);
         break;
-      case "enterICCPIN2":
+      case "iccGetCardLockEnabled":
+        this.processIccGetCardLockEnabled(message);
         break;
-      case "enterICCPUK2":
+      case "iccChangeCardLockPassword":
+        this.processIccChangeCardLockPassword(message);
         break;
-      case "changeICCPIN":
-        break;
-      case "changeICCPIN2":
+      case "iccGetCardLockRetryCount":
+        this.processIccGetCardLockRetryCount(message);
         break;
       case "enterDepersonalization":
         break;
@@ -3711,7 +3778,7 @@ RadioInterface.prototype = {
         break;
       case "getIMSI":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_IMSI aid = " + message.aid);
-        this.rilworker.getIMSI(message.rilMessageToken, message.aid||"");
+        this.rilworker.getIMSI(message.rilMessageToken, message.aid || this.aid);
         break;
       case "hangUpCall":
         this.processHangUpCall(message);
@@ -3822,10 +3889,6 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DEACTIVATE_DATA_CALL");
         this.rilworker.deactivateDataCall(message.rilMessageToken, message.cid, message.reason);
         break;
-      case "queryICCFacilityLock":
-        break;
-      case "setICCFacilityLock":
-        break;
       case "changeCallBarringPassword":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CHANGE_BARRING_PASSWORD");
         this.rilworker.setBarringPassword(message.rilMessageToken, RIL.ICC_CB_FACILITY_BA_ALL, message.pin || "", message.newPin || "");
@@ -3870,6 +3933,10 @@ RadioInterface.prototype = {
       case "setMute":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_MUTE enableMute = " + message.muted);
         this.rilworker.setMute(message.rilMessageToken, message.muted);
+        break;
+      case "getMute":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_MUTE");
+        this.rilworker.getMute(message.rilMessageToken);
         break;
       case "queryCLIP":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_CLIP ");
@@ -4016,8 +4083,8 @@ RadioInterface.prototype = {
   },
 
   processRequestDial: function(message) {
-    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DIAL address = " + message.number + " clirMode = " + message.clirMode + " uusInfo = " + message.uusInfo);
-    this.rilworker.requestDial(message.rilMessageToken, message.number|| "", message.clirMode, /*message.uusInfo.uusType|| 0*/0, /*message.uusInfo.uusDcs|| 0*/0, /*message.uusInfo.uusData|| ""*/"");
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DIAL address = " + message.number + " , clirMode = " + message.clirMode + " , uusInfo = " + message.uusInfo);
+    this.rilworker.requestDial(message.rilMessageToken, message.number || "", message.clirMode, /*message.uusInfo.uusType || 0*/0, /*message.uusInfo.uusDcs || 0*/0, /*message.uusInfo.uusData || ""*/"");
   },
 
   processHangUpCall: function(message) {
@@ -4058,6 +4125,197 @@ RadioInterface.prototype = {
   processExplicitCallTransfer: function(message) {
     if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_EXPLICIT_CALL_TRANSFER");
     this.rilworker.explicitCallTransfer(message.rilMessageToken);
+  },
+
+  /**
+   * Helper function for unlocking ICC locks.
+   */
+  processIccUnlockCardLock: function(message) {
+    switch (message.lockType) {
+      case RIL.GECKO_CARDLOCK_PIN:
+        this.enterICCPIN(message);
+        break;
+      case RIL.GECKO_CARDLOCK_PIN2:
+        this.enterICCPIN2(message);
+        break;
+      case RIL.GECKO_CARDLOCK_PUK:
+        this.enterICCPUK(message);
+        break;
+      case RIL.GECKO_CARDLOCK_PUK2:
+        this.enterICCPUK2(message);
+        break;
+      case RIL.GECKO_CARDLOCK_NCK:
+      case RIL.GECKO_CARDLOCK_NSCK:
+      case RIL.GECKO_CARDLOCK_NCK1:
+      case RIL.GECKO_CARDLOCK_NCK2:
+      case RIL.GECKO_CARDLOCK_HNCK:
+      case RIL.GECKO_CARDLOCK_CCK:
+      case RIL.GECKO_CARDLOCK_SPCK:
+      case RIL.GECKO_CARDLOCK_PCK:
+      case RIL.GECKO_CARDLOCK_RCCK:
+      case RIL.GECKO_CARDLOCK_RSPCK:
+      case RIL.GECKO_CARDLOCK_NCK_PUK:
+      case RIL.GECKO_CARDLOCK_NSCK_PUK:
+      case RIL.GECKO_CARDLOCK_NCK1_PUK:
+      case RIL.GECKO_CARDLOCK_NCK2_PUK:
+      case RIL.GECKO_CARDLOCK_HNCK_PUK:
+      case RIL.GECKO_CARDLOCK_CCK_PUK:
+      case RIL.GECKO_CARDLOCK_SPCK_PUK:
+      case RIL.GECKO_CARDLOCK_PCK_PUK:
+      case RIL.GECKO_CARDLOCK_RCCK_PUK: // Fall through.
+      case RIL.GECKO_CARDLOCK_RSPCK_PUK:
+        message.facility = RIL.GECKO_CARDLOCK_TO_FACILITY_CODE[message.lockType];
+        message.serviceClass = RIL.ICC_SERVICE_CLASS_VOICE |
+                               RIL.ICC_SERVICE_CLASS_DATA  |
+                               RIL.ICC_SERVICE_CLASS_FAX;
+        message.enabled = false;
+        this.setICCFacilityLock(message);
+        break;
+      default:
+        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        this.handleRilResponse(message);
+    }
+  },
+
+  enterICCPIN: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ENTER_SIM_PIN pin = " + message.password + " , aid = " + this.aid);
+    this.rilworker.supplyIccPinForApp(message.rilMessageToken, message.password || "", this.aid);
+  },
+
+  enterICCPIN2: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ENTER_SIM_PIN2 pin = " + message.password + " , aid = " + this.aid);
+    this.rilworker.supplyIccPin2ForApp(message.rilMessageToken, message.password || "", this.aid);
+  },
+
+  enterICCPUK: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ENTER_SIM_PUK puk = " + message.password + " , newPin = " + message.newPin + " , aid = " + this.aid);
+    this.rilworker.supplyIccPukForApp(message.rilMessageToken, message.password || "", message.newPin || "", this.aid);
+  },
+
+  enterICCPUK2: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ENTER_SIM_PUK2 pin = " + message.password + " , newPin = " + message.newPin || "" + " , aid = " + this.aid);
+    this.rilworker.supplyIccPuk2ForApp(message.rilMessageToken, message.password || "", message.newPin || "", this.aid);
+  },
+
+  setICCFacilityLock: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_FACILITY_LOCK facility = " + message.facility + " , enabled = " + message.enabled + " , password = " + message.password + " , serviceClass = " + message.serviceClass + " , aid = " + this.aid);
+    this.rilworker.setFacilityLockForApp(message.rilMessageToken, message.facility || "", message.enabled, message.password || "", message.serviceClass, this.aid);
+  },
+
+  /**
+   * Helper function for setting the state of ICC locks.
+   */
+  processIccSetCardLockEnabled: function(message) {
+    switch (message.lockType) {
+      case RIL.GECKO_CARDLOCK_PIN: // Fall through.
+      case RIL.GECKO_CARDLOCK_FDN:
+        message.facility = RIL.GECKO_CARDLOCK_TO_FACILITY[message.lockType];
+        break;
+      default:
+        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        this.handleRilResponse(message);
+        return;
+    }
+
+    message.serviceClass = RIL.ICC_SERVICE_CLASS_VOICE |
+                           RIL.ICC_SERVICE_CLASS_DATA  |
+                           RIL.ICC_SERVICE_CLASS_FAX;
+    this.setICCFacilityLock(message);
+  },
+
+  /**
+   * Helper function for fetching the state of ICC locks.
+   */
+  processIccGetCardLockEnabled: function(message) {
+    switch (message.lockType) {
+      case RIL.GECKO_CARDLOCK_PIN: // Fall through.
+      case RIL.GECKO_CARDLOCK_FDN:
+        message.facility = RIL.GECKO_CARDLOCK_TO_FACILITY[message.lockType];
+        break;
+      default:
+        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        this.handleRilResponse(message);
+        return;
+    }
+
+    message.password = ""; // For query no need to provide pin.
+    message.serviceClass = RIL.ICC_SERVICE_CLASS_VOICE |
+                           RIL.ICC_SERVICE_CLASS_DATA  |
+                           RIL.ICC_SERVICE_CLASS_FAX;
+    this.queryICCFacilityLock(message);
+  },
+
+  queryICCFacilityLock: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_FACILITY_LOCK facility = " + message.facility
+      + " , password = " + message.password + " , serviceClass = " + message.serviceClass + " , aid = " + this.aid);
+    this.rilworker.getFacilityLockForApp(message.rilMessageToken, message.facility || "", message.password || "", message.serviceClass, this.aid);
+  },
+
+  /**
+   * Helper function for changing ICC locks.
+   */
+  processIccChangeCardLockPassword: function(message) {
+    switch (message.lockType) {
+      case RIL.GECKO_CARDLOCK_PIN:
+        this.changeICCPIN(message);
+        break;
+      case RIL.GECKO_CARDLOCK_PIN2:
+        this.changeICCPIN2(message);
+        break;
+      default:
+        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        this.handleRilResponse(message);
+    }
+  },
+
+  changeICCPIN: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CHANGE_SIM_PIN old = " + message.password + " , new = " + message.newPassword + " , aid = " + this.aid);
+    this.rilworker.changeIccPinForApp(message.rilMessageToken, message.password || "", message.newPassword || "", this.aid);
+  },
+
+  changeICCPIN2: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CHANGE_SIM_PIN2 old = " + message.password + " , new = " + message.newPassword + " , aid = " + this.aid);
+    this.rilworker.changeIccPin2ForApp(message.rilMessageToken, message.password || "", message.newPassword || "", this.aid);
+  },
+
+  /**
+   * Helper function for fetching the number of unlock retries of ICC locks.
+   *
+   * We only query the retry count when we're on the emulator. The phones do
+   * not support the request id and their rild doesn't return an error.
+   */
+  processIccGetCardLockRetryCount: function(message) {
+    this.debug("Current ril do not support processIccGetCardLockRetryCount api.");
+    message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+    this.handleRilResponse(message);
+    return;
+    /*if (!RIL.RILQUIRKS_HAVE_QUERY_ICC_LOCK_RETRY_COUNT) {
+      // Only the emulator supports this request.
+      message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+      this.handleRilResponse(message);
+      return;
+    }
+
+    switch (message.lockType) {
+      case RIL.GECKO_CARDLOCK_PIN:
+      case RIL.GECKO_CARDLOCK_PIN2:
+      case RIL.GECKO_CARDLOCK_PUK:
+      case RIL.GECKO_CARDLOCK_PUK2:
+      case RIL.GECKO_CARDLOCK_NCK:
+      case RIL.GECKO_CARDLOCK_NSCK:
+      case RIL.GECKO_CARDLOCK_CCK: // Fall through.
+      case RIL.GECKO_CARDLOCK_SPCK:
+      // TODO: Bug 1116072: identify the mapping between RIL_PERSOSUBSTATE_SIM_SIM
+      //       @ ril.h and TS 27.007, clause 8.65 for GECKO_CARDLOCK_SPCK.
+        message.selCode = RIL.GECKO_CARDLOCK_TO_SEL_CODE[message.lockType];
+        break;
+      default:
+        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        this.handleRilResponse(message);
+        return;
+    }*/
+    // New ril do not support this REQUEST_GET_UNLOCK_RETRY_COUNT command.
+    //this.queryICCLockRetryCount(message);
   },
 
   sendWorkerMessage: function(rilMessageType, message, callback) {

@@ -317,6 +317,7 @@ interface MozIcc : EventTarget
   [Throws]
   DOMRequest setCardLock(optional IccSetCardLockOptions info={});
 
+  // We do not support this api anymore.
   /**
    * Retrieve the number of remaining tries for unlocking the card.
    *
@@ -328,8 +329,8 @@ interface MozIcc : EventTarget
    *         remaining retries. e.g. {retryCount: 3}.
    *         @see IccCardLockRetryCount.
    */
-  [Throws]
-  DOMRequest getCardLockRetryCount(IccLockType lockType);
+  //[Throws]
+  //DOMRequest getCardLockRetryCount(IccLockType lockType);
 
   // Integrated Circuit Card Phonebook Interfaces.
 

@@ -109,6 +109,12 @@ class nsRilResponseResult final : public nsRilResult,
   // For quertTtyMode
   void updateTtyMode(int32_t aTtyMode);
 
+  // For getMute
+  void updateMute(bool aMuteEnabled);
+
+  // For Icc pin/puk
+  void updateRemainRetries(int32_t aRemainingRetries);
+
   nsString mImei;
   nsString mImeisv;
   nsString mEsn;
@@ -140,6 +146,8 @@ class nsRilResponseResult final : public nsRilResult,
   int32_t mProvisioned;
   nsTArray<RefPtr<nsNeighboringCell>> mNeighboringCell;
   int32_t mTtyMode;
+  bool mMuteEnabled;
+  int32_t mRemainingRetries;
 
  private:
   ~nsRilResponseResult();

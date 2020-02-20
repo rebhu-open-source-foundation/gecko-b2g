@@ -87,50 +87,104 @@ Return<void> nsRilResponse::getIccCardStatusResponse(
 }
 
 Return<void> nsRilResponse::supplyIccPinForAppResponse(
-    const RadioResponseInfo& info, int32_t /*remainingRetries*/) {
+    const RadioResponseInfo& info, int32_t remainingRetries) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPIN"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(remainingRetries);
+  } else {
+    INFO("supplyIccPinForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
 Return<void> nsRilResponse::supplyIccPukForAppResponse(
-    const RadioResponseInfo& info, int32_t /*remainingRetries*/) {
+    const RadioResponseInfo& info, int32_t remainingRetries) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPUK"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(remainingRetries);
+  } else {
+    INFO("supplyIccPukForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
 Return<void> nsRilResponse::supplyIccPin2ForAppResponse(
-    const RadioResponseInfo& info, int32_t /*remainingRetries*/) {
+    const RadioResponseInfo& info, int32_t remainingRetries) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPIN2"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(remainingRetries);
+  } else {
+    INFO("supplyIccPin2ForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
 Return<void> nsRilResponse::supplyIccPuk2ForAppResponse(
-    const RadioResponseInfo& info, int32_t /*remainingRetries*/) {
+    const RadioResponseInfo& info, int32_t remainingRetries) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPUK2"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(remainingRetries);
+  } else {
+    INFO("supplyIccPuk2ForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
 Return<void> nsRilResponse::changeIccPinForAppResponse(
-    const RadioResponseInfo& info, int32_t /*remainingRetries*/) {
+    const RadioResponseInfo& info, int32_t remainingRetries) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("changeICCPIN"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(remainingRetries);
+  } else {
+    INFO("changeIccPinForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
 Return<void> nsRilResponse::changeIccPin2ForAppResponse(
-    const RadioResponseInfo& info, int32_t /*remainingRetries*/) {
+    const RadioResponseInfo& info, int32_t remainingRetries) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("changeICCPIN2"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(remainingRetries);
+  } else {
+    INFO("changeIccPin2ForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
@@ -600,18 +654,36 @@ Return<void> nsRilResponse::deactivateDataCallResponse(
 }
 
 Return<void> nsRilResponse::getFacilityLockForAppResponse(
-    const RadioResponseInfo& info, int32_t /*response*/) {
+    const RadioResponseInfo& info, int32_t response) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("queryICCFacilityLock"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(response);
+  } else {
+    INFO("setFacilityLockForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
 Return<void> nsRilResponse::setFacilityLockForAppResponse(
-    const RadioResponseInfo& info, int32_t /*retry*/) {
+    const RadioResponseInfo& info, int32_t retry) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("setICCFacilityLock"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateRemainRetries(retry);
+  } else {
+    INFO("setFacilityLockForAppResponse error.");
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 
@@ -737,10 +809,17 @@ Return<void> nsRilResponse::setMuteResponse(const RadioResponseInfo& info) {
 }
 
 Return<void> nsRilResponse::getMuteResponse(const RadioResponseInfo& info,
-                                            bool /*enable*/) {
+                                            bool enable) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("getMute"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateMute(enable);
+  }
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 

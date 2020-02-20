@@ -250,6 +250,20 @@ void nsRilResponseResult::updateNeighboringCells(nsTArray<RefPtr<nsNeighboringCe
 }
 
 /**
+ * For getMute */
+ void nsRilResponseResult::updateMute(bool aMuteEnabled) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateMute");
+  mMuteEnabled = aMuteEnabled;
+}
+
+/**
+ * For Icc pin/pul */
+ void nsRilResponseResult::updateRemainRetries(int32_t aRemainingRetries) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateRemainRetries");
+  mRemainingRetries = aRemainingRetries;
+}
+
+/**
  *
  */
 nsRilResponseResult::~nsRilResponseResult()
@@ -479,6 +493,16 @@ NS_IMETHODIMP nsRilResponseResult::GetNeighboringCids(uint32_t *count, nsINeighb
 
 NS_IMETHODIMP nsRilResponseResult::GetTtyMode(int32_t *aTtyMode) {
   *aTtyMode = mTtyMode;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetMuteEnable(bool *aMuteEnable)  {
+  *aMuteEnable = mMuteEnabled;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetRemainingRetries(int32_t *aRemainingRetries) {
+  *aRemainingRetries = mRemainingRetries;
   return NS_OK;
 }
 
