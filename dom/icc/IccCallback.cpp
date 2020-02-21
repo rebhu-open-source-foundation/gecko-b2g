@@ -163,7 +163,7 @@ IccCallback::NotifyGetCardLockEnabled(bool aResult)
   JS::Rooted<JS::Value> jsResult(cx);
   if (!ToJSValue(cx, result, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
@@ -205,7 +205,7 @@ IccCallback::NotifyGetCardLockRetryCount(int32_t aCount)
   JS::Rooted<JS::Value> jsResult(cx);
   if (!ToJSValue(cx, result, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
@@ -313,7 +313,7 @@ IccCallback::NotifyAuthResponse(const nsAString & aData)
   JS::Rooted<JS::Value> jsResult(cx);
   if (!ToJSValue(cx, result, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);

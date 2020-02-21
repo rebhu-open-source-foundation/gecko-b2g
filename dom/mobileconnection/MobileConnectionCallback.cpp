@@ -60,7 +60,7 @@ MobileConnectionCallback::NotifySuccessWithString(const nsAString& aResult)
 
   if (!ToJSValue(cx, aResult, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
@@ -104,7 +104,7 @@ MobileConnectionCallback::NotifyGetNetworksSuccess(uint32_t aCount,
 
   if (!ToJSValue(cx, results, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
@@ -161,7 +161,7 @@ MobileConnectionCallback::NotifyGetCallForwardingSuccess(uint32_t aCount,
 
   if (!ToJSValue(cx, results, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
@@ -186,7 +186,7 @@ MobileConnectionCallback::NotifyGetCallBarringSuccess(uint16_t aProgram,
   JS::Rooted<JS::Value> jsResult(cx);
   if (!ToJSValue(cx, result, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
@@ -216,7 +216,7 @@ MobileConnectionCallback::NotifyGetClirStatusSuccess(uint16_t aN, uint16_t aM)
   JS::Rooted<JS::Value> jsResult(cx);
   if (!ToJSValue(cx, result, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
@@ -277,7 +277,7 @@ MobileConnectionCallback::NotifyGetDeviceIdentitiesRequestSuccess(
   JS::Rooted<JS::Value> jsResult(cx);
   if (!ToJSValue(cx, result, &jsResult)) {
     JS_ClearPendingException(cx);
-    return NS_ERROR_DOM_TYPE_ERR;
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
   }
 
   return NotifySuccess(jsResult);
