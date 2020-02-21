@@ -46,7 +46,7 @@ class OSFileSystem final : public FileSystemBase {
   virtual void Traverse(nsCycleCollectionTraversalCallback& cb) override;
 
  private:
-  virtual ~OSFileSystem() {}
+  virtual ~OSFileSystem() = default;
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
 };
@@ -95,7 +95,7 @@ class OSFileSystemParent final : public FileSystemBase {
   }
 
  private:
-  virtual ~OSFileSystemParent() {}
+  virtual ~OSFileSystemParent() = default;
 };
 
 }  // namespace dom

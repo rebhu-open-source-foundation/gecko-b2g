@@ -87,7 +87,7 @@ GetEntryHelper::GetEntryHelper(FileSystemDirectoryEntry* aParentEntry,
   MOZ_ASSERT(aSuccessCallback || aErrorCallback);
 }
 
-GetEntryHelper::~GetEntryHelper() {}
+GetEntryHelper::~GetEntryHelper() = default;
 
 
 void GetEntryHelper::Run() {
