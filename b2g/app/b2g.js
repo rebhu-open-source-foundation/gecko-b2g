@@ -1309,3 +1309,6 @@ pref("consoleservice.logcat", true);
 // Start the b2g in e10s mode same as the browser
 pref("browser.tabs.remote.autostart", true);
 pref("browser.tabs.remote.desktopbehavior", true);
+
+// Bug 83793
+pref("dom.ipc.forkserver.enable", true);
