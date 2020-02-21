@@ -227,6 +227,12 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
       const dom::MediaStreamConstraints& aConstraints,
       dom::MozGetUserMediaDevicesSuccessCallback& aOnSuccess,
       uint64_t aInnerWindowID = 0, const nsAString& aCallID = nsString());
+
+  nsresult GetUserMediaDevices(nsPIDOMWindowInner* aWindow,
+                               const dom::MediaStreamConstraints& aConstraints,
+                               nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices,
+                               uint64_t aWindowId, const nsAString& aCallID);
+
   RefPtr<DevicesPromise> EnumerateDevices(nsPIDOMWindowInner* aWindow,
                                           dom::CallerType aCallerType);
 

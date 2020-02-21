@@ -69,6 +69,10 @@
 #  include "webrtc/modules/audio_processing/include/audio_processing.h"
 #endif
 
+#ifdef MOZ_B2G
+#  include "MediaPermissionGonk.h"
+#endif
+
 #if defined(XP_WIN)
 #  include "mozilla/WindowsVersion.h"
 #  include <objbase.h>
@@ -2056,6 +2060,10 @@ MediaManager* MediaManager::Get() {
         sSingleton->mShutdownBlocker, NS_LITERAL_STRING(__FILE__), __LINE__,
         NS_LITERAL_STRING(""));
     MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
+#ifdef MOZ_B2G
+    // Init MediaPermissionManager before sending out any permission requests.
+    (void)MediaPermissionManager::GetInstance();
+#endif  // MOZ_B2G
   }
   return sSingleton;
 }
@@ -3327,6 +3335,42 @@ nsresult MediaManager::GetUserMediaDevices(
         nsCOMPtr<nsIWritableVariant> array =
             MediaManager::ToJSArray(*task->mMediaDeviceSet);
         aOnSuccess.Call(array);
+        return NS_OK;
+      }
+    }
+  }
+  return NS_ERROR_UNEXPECTED;
+}
+
+/*
+ * GetUserMediaDevices - called from b2g MediaPermissionManager.
+ */
+
+nsresult MediaManager::GetUserMediaDevices(
+    nsPIDOMWindowInner* aWindow, const MediaStreamConstraints& aConstraints,
+    nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices, uint64_t aWindowId,
+    const nsAString& aCallID) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!aWindowId) {
+    aWindowId = aWindow->WindowID();
+  }
+
+  // Ignore passed-in constraints, instead locate + return already-constrained
+  // list.
+
+  nsTArray<nsString>* callIDs;
+  if (!mCallIds.Get(aWindowId, &callIDs)) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  for (auto& callID : *callIDs) {
+    RefPtr<GetUserMediaTask> task;
+    if (!aCallID.Length() || aCallID == callID) {
+      if (mActiveCallbacks.Get(callID, getter_AddRefs(task))) {
+        for (auto& device : *task->mMediaDeviceSet) {
+          nsCOMPtr<nsIMediaDevice> tmp = device.get();
+          aDevices.AppendElement(tmp);
+        }
         return NS_OK;
       }
     }
