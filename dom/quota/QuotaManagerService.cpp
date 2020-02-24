@@ -386,6 +386,54 @@ NS_IMPL_QUERY_INTERFACE(QuotaManagerService, nsIQuotaManagerService,
                         nsIObserver)
 
 NS_IMETHODIMP
+QuotaManagerService::StorageInitialized(nsIQuotaRequest** _retval) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(nsContentUtils::IsCallerChrome());
+
+  if (NS_WARN_IF(!StaticPrefs::dom_quotaManager_testing())) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  RefPtr<Request> request = new Request();
+
+  StorageInitializedParams params;
+
+  nsAutoPtr<PendingRequestInfo> info(new RequestInfo(request, params));
+
+  nsresult rv = InitiateRequest(info);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  request.forget(_retval);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+QuotaManagerService::TemporaryStorageInitialized(nsIQuotaRequest** _retval) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(nsContentUtils::IsCallerChrome());
+
+  if (NS_WARN_IF(!StaticPrefs::dom_quotaManager_testing())) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  RefPtr<Request> request = new Request();
+
+  TemporaryStorageInitializedParams params;
+
+  nsAutoPtr<PendingRequestInfo> info(new RequestInfo(request, params));
+
+  nsresult rv = InitiateRequest(info);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  request.forget(_retval);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 QuotaManagerService::Init(nsIQuotaRequest** _retval) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(nsContentUtils::IsCallerChrome());
@@ -781,12 +829,10 @@ QuotaManagerService::Estimate(nsIPrincipal* aPrincipal,
 }
 
 NS_IMETHODIMP
-QuotaManagerService::ListOrigins(nsIQuotaCallback* aCallback,
-                                 nsIQuotaRequest** _retval) {
+QuotaManagerService::ListOrigins(nsIQuotaRequest** _retval) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aCallback);
 
-  RefPtr<Request> request = new Request(aCallback);
+  RefPtr<Request> request = new Request();
 
   ListOriginsParams params;
 

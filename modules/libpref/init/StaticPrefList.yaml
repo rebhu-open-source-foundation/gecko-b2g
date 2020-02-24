@@ -2232,6 +2232,11 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+- name: dom.reporting.crash.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: dom.reporting.header.enabled
   type: RelaxedAtomicBool
   value: false
@@ -5203,7 +5208,7 @@
 # Whether `min()` / `max()` / `clamp()` are enabled.
 - name: layout.css.comparison-functions.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -6023,7 +6028,7 @@
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
 #elif defined(XP_WIN) && !defined(_ARM64_)
-  value: @IS_NIGHTLY_BUILD@
+  value: true
 #else
   value: false
 #endif
@@ -7893,6 +7898,13 @@
 -   name: security.sandbox.content.win32k-disable
     type: RelaxedAtomicBool
     value: false
+    mirror: always
+
+  # Whether win32k is disabled for socket processes.
+  # true means win32k system calls are not permitted.
+-   name: security.sandbox.socket.win32k-disable
+    type: RelaxedAtomicBool
+    value: true
     mirror: always
 #endif
 

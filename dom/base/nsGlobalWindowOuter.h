@@ -544,9 +544,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> GetTopOuter();
 
   nsresult GetPrompter(nsIPrompt** aPrompt) override;
-
-  RefPtr<mozilla::ThrottledEventQueue> mPostMessageEventQueue;
-
  protected:
   mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder>
   GetOpenerWindowOuter();

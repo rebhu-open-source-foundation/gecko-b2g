@@ -25,7 +25,7 @@ nsOpenURIInFrameParams::nsOpenURIInFrameParams(
     const nsCString& aFeatures)
     : mOpenerOriginAttributes(aOriginAttributes), mOpenerBrowser(aOpener), mFeatures(aFeatures) {}
 
-nsOpenURIInFrameParams::~nsOpenURIInFrameParams() {}
+nsOpenURIInFrameParams::~nsOpenURIInFrameParams() = default;
 
 NS_IMETHODIMP
 nsOpenURIInFrameParams::GetReferrerInfo(nsIReferrerInfo** aReferrerInfo) {

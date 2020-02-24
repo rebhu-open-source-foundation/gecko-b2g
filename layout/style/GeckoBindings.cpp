@@ -1105,20 +1105,6 @@ const AnonymousCounterStyle* Gecko_CounterStyle_GetAnonymous(
   return aPtr->AsAnonymous();
 }
 
-void Gecko_SetCursorArrayCapacity(nsStyleUI* aUi, size_t aCapacity) {
-  aUi->mCursorImages.Clear();
-  aUi->mCursorImages.SetCapacity(aCapacity);
-}
-
-void Gecko_AppendCursorImage(nsStyleUI* aUi,
-                             const StyleComputedImageUrl* aUrl) {
-  aUi->mCursorImages.EmplaceBack(*aUrl);
-}
-
-void Gecko_CopyCursorArrayFrom(nsStyleUI* aDest, const nsStyleUI* aSrc) {
-  aDest->mCursorImages = aSrc->mCursorImages;
-}
-
 void Gecko_EnsureTArrayCapacity(void* aArray, size_t aCapacity,
                                 size_t aElemSize) {
   auto base = reinterpret_cast<
@@ -1261,15 +1247,6 @@ PropertyValuePair* Gecko_AppendPropertyValuePair(
   MOZ_ASSERT(aProperty == eCSSPropertyExtra_variable ||
              !nsCSSProps::PropHasFlags(aProperty, CSSPropFlags::IsLogical));
   return aProperties->AppendElement(PropertyValuePair{aProperty});
-}
-
-void Gecko_nsStyleSVG_SetDashArrayLength(nsStyleSVG* aSvg, uint32_t aLen) {
-  aSvg->mStrokeDasharray.Clear();
-  aSvg->mStrokeDasharray.SetLength(aLen);
-}
-
-void Gecko_nsStyleSVG_CopyDashArray(nsStyleSVG* aDst, const nsStyleSVG* aSrc) {
-  aDst->mStrokeDasharray = aSrc->mStrokeDasharray;
 }
 
 void Gecko_GetComputedURLSpec(const StyleComputedUrl* aURL, nsCString* aOut) {

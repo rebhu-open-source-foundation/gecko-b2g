@@ -53,17 +53,11 @@
 #include "GestureEventListener.h"  // for GestureEventListener::setLongTapEnabled
 #include "UnitTransforms.h"        // for ViewAs
 
-#define ENABLE_APZCTM_LOGGING 0
-// #define ENABLE_APZCTM_LOGGING 1
+static mozilla::LazyLogModule sApzMgrLog("apz.manager");
+#define APZCTM_LOG(...) MOZ_LOG(sApzMgrLog, LogLevel::Debug, (__VA_ARGS__))
 
-#if ENABLE_APZCTM_LOGGING
-#  define APZCTM_LOG(...) printf_stderr("APZCTM: " __VA_ARGS__)
-#else
-#  define APZCTM_LOG(...)
-#endif
-
-// #define APZ_KEY_LOG(...) printf_stderr("APZKEY: " __VA_ARGS__)
-#define APZ_KEY_LOG(...)
+static mozilla::LazyLogModule sApzKeyLog("apz.key");
+#define APZ_KEY_LOG(...) MOZ_LOG(sApzKeyLog, LogLevel::Debug, (__VA_ARGS__))
 
 namespace mozilla {
 namespace layers {
@@ -647,13 +641,10 @@ APZCTreeManager::UpdateHitTestingTreeImpl(const ScrollNode& aRoot,
     state.mNodesToDestroy[i]->Destroy();
   }
 
-#if ENABLE_APZCTM_LOGGING
-  // Make the hit-test tree line up with the layer dump
-  printf_stderr("APZCTreeManager (%p)\n", this);
+  APZCTM_LOG("APZCTreeManager (%p)\n", this);
   if (mRootNode) {
     mRootNode->Dump("  ");
   }
-#endif
   SendSubtreeTransformsToChromeMainThread(nullptr);
 }
 
@@ -689,9 +680,10 @@ void APZCTreeManager::UpdateHitTestingTree(
                            aPaintSequenceNumber);
 }
 
-void APZCTreeManager::SampleForWebRender(wr::TransactionWrapper& aTxn,
-                                         const TimeStamp& aSampleTime,
-                                         wr::RenderRoot aRenderRoot) {
+void APZCTreeManager::SampleForWebRender(
+    wr::TransactionWrapper& aTxn, const TimeStamp& aSampleTime,
+    wr::RenderRoot aRenderRoot,
+    const wr::WrPipelineIdEpochs* aEpochsBeingRendered) {
   AssertOnSamplerThread();
   MutexAutoLock lock(mMapLock);
 
@@ -713,6 +705,27 @@ void APZCTreeManager::SampleForWebRender(wr::TransactionWrapper& aTxn,
         apzc->GetCurrentAsyncTransform(AsyncPanZoomController::eForCompositing,
                                        asyncTransformComponents)
             .mTranslation;
+
+    if (Maybe<CompositionPayload> payload = apzc->NotifyScrollSampling()) {
+      RefPtr<WebRenderBridgeParent> wrBridgeParent;
+      LayersId layersId = apzc->GetGuid().mLayersId;
+      CompositorBridgeParent::CallWithIndirectShadowTree(
+          layersId, [&](LayerTreeState& aState) -> void {
+            wrBridgeParent = aState.mWrBridge;
+          });
+
+      if (wrBridgeParent) {
+        wr::PipelineId pipelineId = wr::AsPipelineId(layersId);
+        for (size_t i = 0; i < aEpochsBeingRendered->Length(); i++) {
+          if ((*aEpochsBeingRendered)[i].pipeline_id == pipelineId) {
+            auto& epoch = (*aEpochsBeingRendered)[i].epoch;
+            wrBridgeParent->AddPendingScrollPayload(
+                *payload, std::make_pair(pipelineId, epoch));
+            break;
+          }
+        }
+      }
+    }
 
     if (Maybe<uint64_t> zoomAnimationId = apzc->GetZoomAnimationId()) {
       // for now we only support zooming on root content APZCs
@@ -1827,7 +1840,8 @@ APZCTreeManager::HitTestResult APZCTreeManager::GetTouchInputBlockAPZC(
           ConvertToTouchBehavior(hit2.mHitResult));
     }
     hit.mTargetApzc = GetZoomableTarget(hit.mTargetApzc, hit2.mTargetApzc);
-    APZCTM_LOG("Using APZC %p as the root APZC for multi-touch\n", apzc.get());
+    APZCTM_LOG("Using APZC %p as the root APZC for multi-touch\n",
+               hit.mTargetApzc.get());
     // A multi-touch gesture will not be a scrollbar drag, even if the
     // first touch point happened to hit a scrollbar.
     hit.mScrollbarNode.Clear();
@@ -2739,8 +2753,8 @@ APZCTreeManager::HitTestResult APZCTreeManager::GetAPZCAtPointWR(
       hitInfo += CompositorHitTestFlags::eApzAwareListeners;
     }
   }
-  APZCTM_LOG("Successfully matched APZC %p (hit result 0x%x)\n", result.get(),
-             hitInfo.serialize());
+  APZCTM_LOG("Successfully matched APZC %p (hit result 0x%x)\n",
+             hit.mTargetApzc.get(), hitInfo.serialize());
   if (!hit.mTargetApzc) {
     // It falls back to the root
     MOZ_ASSERT(scrollId == ScrollableLayerGuid::NULL_SCROLL_ID);
@@ -2973,10 +2987,10 @@ APZCTreeManager::HitTestResult APZCTreeManager::GetAPZCAtPoint(
     if (!hit.mTargetApzc) {
       hit.mTargetApzc = FindRootApzcForLayersId(resultNode->GetLayersId());
       MOZ_ASSERT(hit.mTargetApzc);
-      APZCTM_LOG("Found target %p using root lookup\n", result);
+      APZCTM_LOG("Found target %p using root lookup\n", hit.mTargetApzc.get());
     }
     APZCTM_LOG("Successfully matched APZC %p via node %p (hit result 0x%x)\n",
-               result, resultNode, aOutHitResult->serialize());
+               hit.mTargetApzc.get(), resultNode, hit.mHitResult.serialize());
     hit.mLayersId = resultNode->GetLayersId();
 
     return hit;

@@ -484,6 +484,7 @@ class FunctionBox : public ObjectBox, public SharedContext {
   void initWithEnclosingParseContext(ParseContext* enclosing,
                                      Handle<FunctionCreationData> fun,
                                      FunctionSyntaxKind kind) {
+    MOZ_ASSERT(fun.get().kind == kind);
     initWithEnclosingParseContext(enclosing, kind, fun.get().flags.isArrow(),
                                   fun.get().flags.allowSuperProperty());
   }
@@ -494,11 +495,8 @@ class FunctionBox : public ObjectBox, public SharedContext {
                                   fun->allowSuperProperty());
   }
 
-  void initFieldInitializer(ParseContext* enclosing, JSFunction* fun,
-                            HasHeritage hasHeritage);
   void initFieldInitializer(ParseContext* enclosing,
-                            Handle<FunctionCreationData> data,
-                            HasHeritage hasHeritage);
+                            Handle<FunctionCreationData> data);
 
   void setEnclosingScopeForInnerLazyFunction(
       const AbstractScope& enclosingScope);
@@ -531,8 +529,12 @@ class FunctionBox : public ObjectBox, public SharedContext {
   }
 
   bool needsCallObjectRegardlessOfBindings() const {
-    return hasExtensibleScope() || needsHomeObject() ||
-           isDerivedClassConstructor() || isGenerator() || isAsync();
+    // Always create a CallObject if:
+    // - The scope is extensible at runtime due to sloppy eval.
+    // - The function is a generator or async function. (The debugger reads the
+    //   generator object directly from the frame.)
+
+    return hasExtensibleScope() || isGenerator() || isAsync();
   }
 
   bool hasExtraBodyVarScope() const {
@@ -543,7 +545,7 @@ class FunctionBox : public ObjectBox, public SharedContext {
 
   bool needsExtraBodyVarEnvironmentRegardlessOfBindings() const {
     MOZ_ASSERT(hasParameterExprs);
-    return hasExtensibleScope() || needsDotGeneratorName();
+    return hasExtensibleScope();
   }
 
   bool isLikelyConstructorWrapper() const {

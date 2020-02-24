@@ -10,6 +10,8 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/Variant.h"
 
+#include <iterator>
+
 #include "frontend/Stencil.h"
 #include "frontend/Token.h"
 #include "util/Text.h"
@@ -1342,6 +1344,13 @@ class ListNode : public ParseNode {
     explicit iterator(ParseNode* node) : node_(node) {}
 
    public:
+    // Implement std::iterator_traits.
+    using iterator_category = std::input_iterator_tag;
+    using value_type = ParseNode*;
+    using difference_type = ptrdiff_t;
+    using pointer = ParseNode**;
+    using reference = ParseNode*&;
+
     bool operator==(const iterator& other) const {
       return node_ == other.node_;
     }
@@ -1634,8 +1643,6 @@ class LexicalScopeNode : public ParseNode {
     // the rest of the frontend also depends on.
     return Handle<LexicalScope::Data*>::fromMarkedLocation(&bindings);
   }
-
-  void clearScopeBindings() { this->bindings = nullptr; }
 
   ParseNode* scopeBody() const { return body; }
 
@@ -2123,13 +2130,14 @@ class ClassMethod : public BinaryNode {
 };
 
 class ClassField : public BinaryNode {
+  bool isStatic_;
+
  public:
-  ClassField(ParseNode* name, ParseNode* initializer)
+  ClassField(ParseNode* name, ParseNode* initializer, bool isStatic)
       : BinaryNode(ParseNodeKind::ClassField,
-                   initializer == nullptr
-                       ? name->pn_pos
-                       : TokenPos::box(name->pn_pos, initializer->pn_pos),
-                   name, initializer) {}
+                   TokenPos::box(name->pn_pos, initializer->pn_pos), name,
+                   initializer),
+        isStatic_(isStatic) {}
 
   static bool test(const ParseNode& node) {
     bool match = node.isKind(ParseNodeKind::ClassField);
@@ -2139,9 +2147,9 @@ class ClassField : public BinaryNode {
 
   ParseNode& name() const { return *left(); }
 
-  FunctionNode* initializer() const {
-    return right() ? &right()->as<FunctionNode>() : nullptr;
-  }
+  FunctionNode* initializer() const { return &right()->as<FunctionNode>(); }
+
+  bool isStatic() const { return isStatic_; }
 };
 
 class PropertyDefinition : public BinaryNode {

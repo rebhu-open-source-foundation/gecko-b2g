@@ -365,14 +365,14 @@ class SyntaxParseHandler {
     return NodeGeneric;
   }
   MOZ_MUST_USE Node newClassFieldDefinition(Node name,
-                                            FunctionNodeType initializer) {
+                                            FunctionNodeType initializer,
+                                            bool isStatic) {
     return NodeGeneric;
   }
   MOZ_MUST_USE bool addClassMemberDefinition(ListNodeType memberList,
                                              Node member) {
     return true;
   }
-  void deleteConstructorScope(JSContext* cx, ListNodeType memberList) {}
   UnaryNodeType newYieldExpression(uint32_t begin, Node value) {
     return NodeGeneric;
   }

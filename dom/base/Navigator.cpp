@@ -286,7 +286,7 @@ void Navigator::GetUserAgent(nsAString& aUserAgent, CallerType aCallerType,
     nsIDocShell* docshell = window->GetDocShell();
     nsString customUserAgent;
     if (docshell) {
-      docshell->GetCustomUserAgent(customUserAgent);
+      docshell->GetBrowsingContext()->GetCustomUserAgent(customUserAgent);
 
       if (!customUserAgent.IsEmpty()) {
         aUserAgent = customUserAgent;
@@ -679,7 +679,7 @@ class VibrateWindowListener : public nsIDOMEventListener {
   NS_DECL_NSIDOMEVENTLISTENER
 
  private:
-  virtual ~VibrateWindowListener() {}
+  virtual ~VibrateWindowListener() = default;
 
   nsWeakPtr mWindow;
   nsWeakPtr mDocument;
@@ -1177,7 +1177,7 @@ Geolocation* Navigator::GetGeolocation(ErrorResult& aRv) {
 }
 
 class BeaconStreamListener final : public nsIStreamListener {
-  ~BeaconStreamListener() {}
+  ~BeaconStreamListener() = default;
 
  public:
   BeaconStreamListener() : mLoadGroup(nullptr) {}

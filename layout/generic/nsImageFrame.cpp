@@ -180,6 +180,15 @@ bool nsImageFrame::ShouldShowBrokenImageIcon() const {
     return false;
   }
 
+  // <img alt=""> is special, and it shouldn't draw the broken image icon,
+  // unlike the no-alt attribute or non-empty-alt-attribute case.
+  if (auto* image = HTMLImageElement::FromNode(mContent)) {
+    const nsAttrValue* alt = image->GetParsedAttr(nsGkAtoms::alt);
+    if (alt && alt->IsEmptyString()) {
+      return false;
+    }
+  }
+
   // check for broken images. valid null images (eg. img src="") are
   // not considered broken because they have no image requests
   if (nsCOMPtr<imgIRequest> currentRequest = GetCurrentRequest()) {
@@ -623,7 +632,7 @@ bool nsImageFrame::ShouldCreateImageFrameFor(const Element& aElement,
     return true;
   }
 
-  if (aStyle.StyleUIReset()->mForceBrokenImageIcon) {
+  if (aStyle.StyleUIReset()->mMozForceBrokenImageIcon) {
     return true;
   }
 
@@ -2323,7 +2332,7 @@ Maybe<nsIFrame::Cursor> nsImageFrame::GetCursor(const nsPoint& aPoint) {
   // get styles out of the blue and expect to trigger image loads for those.
   areaStyle->StartImageLoads(*PresContext()->Document());
 
-  StyleCursorKind kind = areaStyle->StyleUI()->mCursor;
+  StyleCursorKind kind = areaStyle->StyleUI()->mCursor.keyword;
   if (kind == StyleCursorKind::Auto) {
     kind = StyleCursorKind::Default;
   }

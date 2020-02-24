@@ -5510,7 +5510,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
 
       if (classContentsIfConstructor) {
         mozilla::Maybe<FieldInitializers> fieldInitializers =
-            setupFieldInitializers(classContentsIfConstructor);
+            setupFieldInitializers(classContentsIfConstructor,
+                                   FieldPlacement::Instance);
         if (!fieldInitializers) {
           ReportAllocationOverflow(cx);
           return false;
@@ -5548,7 +5549,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
 
     mozilla::Maybe<FieldInitializers> fieldInitializers;
     if (classContentsIfConstructor) {
-      fieldInitializers = setupFieldInitializers(classContentsIfConstructor);
+      fieldInitializers = setupFieldInitializers(classContentsIfConstructor,
+                                                 FieldPlacement::Instance);
       if (!fieldInitializers) {
         ReportAllocationOverflow(cx);
         return false;
@@ -8204,6 +8206,7 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
   //                [stack] CTOR? OBJ
 
   size_t curFieldKeyIndex = 0;
+  size_t curStaticFieldKeyIndex = 0;
   for (ParseNode* propdef : obj->contents()) {
     if (propdef->is<ClassField>()) {
       MOZ_ASSERT(type == ClassBody);
@@ -8211,7 +8214,11 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
       // is created elsewhere.
       ClassField* field = &propdef->as<ClassField>();
       if (field->name().getKind() == ParseNodeKind::ComputedName) {
-        if (!emitGetName(cx->names().dotFieldKeys)) {
+        auto fieldKeysName = field->isStatic()
+                                 ? &JSAtomState::dotStaticFieldKeys
+                                 : &JSAtomState::dotFieldKeys;
+        HandlePropertyName fieldKeys = cx->names().*fieldKeysName;
+        if (!emitGetName(fieldKeys)) {
           //        [stack] CTOR? OBJ ARRAY
           return false;
         }
@@ -8229,7 +8236,14 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
           return false;
         }
 
-        if (!emitUint32Operand(JSOp::InitElemArray, curFieldKeyIndex)) {
+        size_t fieldKeysIndex;
+        if (field->isStatic()) {
+          fieldKeysIndex = curStaticFieldKeyIndex++;
+        } else {
+          fieldKeysIndex = curFieldKeyIndex++;
+        }
+
+        if (!emitUint32Operand(JSOp::InitElemArray, fieldKeysIndex)) {
           //        [stack] CTOR? OBJ ARRAY
           return false;
         }
@@ -8238,8 +8252,6 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
           //        [stack] CTOR? OBJ
           return false;
         }
-
-        curFieldKeyIndex++;
       }
       continue;
     }
@@ -8675,17 +8687,16 @@ bool BytecodeEmitter::emitObjLiteralValue(ObjLiteralCreationData* data,
 }
 
 mozilla::Maybe<FieldInitializers> BytecodeEmitter::setupFieldInitializers(
-    ListNode* classMembers) {
-  size_t numFields = 0;
-  for (ParseNode* propdef : classMembers->contents()) {
-    if (propdef->is<ClassField>()) {
-      FunctionNode* initializer = propdef->as<ClassField>().initializer();
-      // Don't include fields without initializers.
-      if (initializer != nullptr) {
-        numFields++;
-      }
-    }
-  }
+    ListNode* classMembers, FieldPlacement placement) {
+  bool isStatic = placement == FieldPlacement::Static;
+  auto isClassField = [isStatic](ParseNode* propdef) {
+    return propdef->is<ClassField>() &&
+           propdef->as<ClassField>().isStatic() == isStatic;
+  };
+
+  size_t numFields =
+      std::count_if(classMembers->contents().begin(),
+                    classMembers->contents().end(), isClassField);
   // If there are more initializers than can be represented, return invalid.
   if (numFields > FieldInitializers::MaxInitializers) {
     return Nothing();
@@ -8717,23 +8728,26 @@ mozilla::Maybe<FieldInitializers> BytecodeEmitter::setupFieldInitializers(
 // BytecodeEmitter::emitCreateFieldKeys does `let .fieldKeys = [...];`
 // BytecodeEmitter::emitPropertyList fills in the elements of the array.
 // See GeneralParser::fieldInitializer for the `this[.fieldKeys[0]]` part.
-bool BytecodeEmitter::emitCreateFieldKeys(ListNode* obj) {
-  size_t numFieldKeys = 0;
-  for (ParseNode* propdef : obj->contents()) {
-    if (propdef->is<ClassField>()) {
-      ClassField* field = &propdef->as<ClassField>();
-      if (field->name().getKind() == ParseNodeKind::ComputedName) {
-        numFieldKeys++;
-      }
-    }
-  }
+bool BytecodeEmitter::emitCreateFieldKeys(ListNode* obj,
+                                          FieldPlacement placement) {
+  bool isStatic = placement == FieldPlacement::Static;
+  auto isFieldWithComputedName = [isStatic](ParseNode* propdef) {
+    return propdef->is<ClassField>() &&
+           propdef->as<ClassField>().isStatic() == isStatic &&
+           propdef->as<ClassField>().name().getKind() ==
+               ParseNodeKind::ComputedName;
+  };
 
+  size_t numFieldKeys = std::count_if(
+      obj->contents().begin(), obj->contents().end(), isFieldWithComputedName);
   if (numFieldKeys == 0) {
     return true;
   }
 
-  NameOpEmitter noe(this, cx->names().dotFieldKeys.toHandle(),
-                    NameOpEmitter::Kind::Initialize);
+  auto fieldKeysName =
+      isStatic ? &JSAtomState::dotStaticFieldKeys : &JSAtomState::dotFieldKeys;
+  HandlePropertyName fieldKeys = cx->names().*fieldKeysName;
+  NameOpEmitter noe(this, fieldKeys, NameOpEmitter::Kind::Initialize);
   if (!noe.prepareForRhs()) {
     return false;
   }
@@ -8757,10 +8771,15 @@ bool BytecodeEmitter::emitCreateFieldKeys(ListNode* obj) {
 }
 
 bool BytecodeEmitter::emitCreateFieldInitializers(ClassEmitter& ce,
-                                                  ListNode* obj) {
-  //          [stack] HOMEOBJ HERITAGE?
+                                                  ListNode* obj,
+                                                  FieldPlacement placement) {
+  // FieldPlacement::Instance
+  //                [stack] HOMEOBJ HERITAGE?
+  //
+  // FieldPlacement::Static
+  //                [stack] CTOR HOMEOBJ
   mozilla::Maybe<FieldInitializers> fieldInitializers =
-      setupFieldInitializers(obj);
+      setupFieldInitializers(obj, placement);
   if (!fieldInitializers) {
     ReportAllocationOverflow(cx);
     return false;
@@ -8771,35 +8790,53 @@ bool BytecodeEmitter::emitCreateFieldInitializers(ClassEmitter& ce,
     return true;
   }
 
-  if (!ce.prepareForFieldInitializers(numFields)) {
-    //          [stack] HOMEOBJ HERITAGE? ARRAY
+  bool isStatic = placement == FieldPlacement::Static;
+  if (!ce.prepareForFieldInitializers(numFields, isStatic)) {
+    //              [stack] HOMEOBJ HERITAGE? ARRAY
+    // or:
+    //              [stack] CTOR HOMEOBJ ARRAY
     return false;
   }
 
   for (ParseNode* propdef : obj->contents()) {
-    if (propdef->is<ClassField>()) {
-      if (FunctionNode* initializer = propdef->as<ClassField>().initializer()) {
-        if (!emitTree(initializer)) {
-          //          [stack] HOMEOBJ HERITAGE? ARRAY LAMBDA
-          return false;
-        }
-        if (initializer->funbox()->needsHomeObject()) {
-          MOZ_ASSERT(initializer->funbox()->allowSuperProperty());
-          if (!ce.emitFieldInitializerHomeObject()) {
-            //          [stack] CTOR OBJ ARRAY LAMBDA
-            return false;
-          }
-        }
-        if (!ce.emitStoreFieldInitializer()) {
-          //          [stack] HOMEOBJ HERITAGE? ARRAY
-          return false;
-        }
+    if (!propdef->is<ClassField>()) {
+      continue;
+    }
+    if (propdef->as<ClassField>().isStatic() != isStatic) {
+      continue;
+    }
+
+    FunctionNode* initializer = propdef->as<ClassField>().initializer();
+    if (!ce.prepareForFieldInitializer()) {
+      return false;
+    }
+    if (!emitTree(initializer)) {
+      //            [stack] HOMEOBJ HERITAGE? ARRAY LAMBDA
+      // or:
+      //            [stack] CTOR HOMEOBJ ARRAY LAMBDA
+      return false;
+    }
+    if (initializer->funbox()->needsHomeObject()) {
+      MOZ_ASSERT(initializer->funbox()->allowSuperProperty());
+      if (!ce.emitFieldInitializerHomeObject(isStatic)) {
+        //          [stack] HOMEOBJ HERITAGE? ARRAY LAMBDA
+        // or:
+        //          [stack] CTOR HOMEOBJ ARRAY LAMBDA
+        return false;
       }
+    }
+    if (!ce.emitStoreFieldInitializer()) {
+      //            [stack] HOMEOBJ HERITAGE? ARRAY
+      // or:
+      //            [stack] CTOR HOMEOBJ ARRAY
+      return false;
     }
   }
 
   if (!ce.emitFieldInitializersEnd()) {
     //              [stack] HOMEOBJ HERITAGE?
+    // or:
+    //              [stack] CTOR HOMEOBJ
     return false;
   }
 
@@ -8884,6 +8921,112 @@ bool BytecodeEmitter::emitInitializeInstanceFields() {
 
     if (!emit1(JSOp::Pop)) {
       //            [stack] ARRAY?
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool BytecodeEmitter::emitInitializeStaticFields(ListNode* classMembers) {
+  auto isStaticField = [](ParseNode* propdef) {
+    return propdef->is<ClassField>() && propdef->as<ClassField>().isStatic();
+  };
+  size_t numFields =
+      std::count_if(classMembers->contents().begin(),
+                    classMembers->contents().end(), isStaticField);
+
+  if (numFields == 0) {
+    return true;
+  }
+
+  if (!emitGetName(cx->names().dotStaticInitializers)) {
+    //              [stack] CTOR ARRAY
+    return false;
+  }
+
+  for (size_t fieldIndex = 0; fieldIndex < numFields; fieldIndex++) {
+    bool hasNext = fieldIndex < numFields - 1;
+    if (hasNext) {
+      // We Dup to keep the array around (it is consumed in the bytecode below)
+      // for next iterations of this loop, except for the last iteration, which
+      // avoids an extra Pop at the end of the loop.
+      if (!emit1(JSOp::Dup)) {
+        //          [stack] CTOR ARRAY ARRAY
+        return false;
+      }
+    }
+
+    if (!emitNumberOp(fieldIndex)) {
+      //            [stack] CTOR ARRAY? ARRAY INDEX
+      return false;
+    }
+
+    // Don't use CallElem here, because the receiver of the call != the receiver
+    // of this getelem. (Specifically, the call receiver is `ctor`, and the
+    // receiver of this getelem is `.staticInitializers`)
+    if (!emit1(JSOp::GetElem)) {
+      //            [stack] CTOR ARRAY? FUNC
+      return false;
+    }
+
+    if (!emitDupAt(1 + hasNext)) {
+      //            [stack] CTOR ARRAY? FUNC CTOR
+      return false;
+    }
+
+    if (!emitCall(JSOp::CallIgnoresRv, 0)) {
+      //            [stack] CTOR ARRAY? RVAL
+      return false;
+    }
+
+    if (!emit1(JSOp::Pop)) {
+      //            [stack] CTOR ARRAY?
+      return false;
+    }
+  }
+
+  // Overwrite |.staticInitializers| and |.staticFieldKeys| with undefined to
+  // avoid keeping the arrays alive indefinitely.
+  auto clearStaticFieldSlot = [&](HandlePropertyName name) {
+    NameOpEmitter noe(this, name, NameOpEmitter::Kind::SimpleAssignment);
+    if (!noe.prepareForRhs()) {
+      //            [stack] ENV? VAL?
+      return false;
+    }
+
+    if (!emit1(JSOp::Undefined)) {
+      //            [stack] ENV? VAL? UNDEFINED
+      return false;
+    }
+
+    if (!noe.emitAssignment()) {
+      //            [stack] VAL
+      return false;
+    }
+
+    if (!emit1(JSOp::Pop)) {
+      //            [stack]
+      return false;
+    }
+
+    return true;
+  };
+
+  if (!clearStaticFieldSlot(cx->names().dotStaticInitializers)) {
+    return false;
+  }
+
+  auto isStaticFieldWithComputedName = [](ParseNode* propdef) {
+    return propdef->is<ClassField>() && propdef->as<ClassField>().isStatic() &&
+           propdef->as<ClassField>().name().getKind() ==
+               ParseNodeKind::ComputedName;
+  };
+
+  if (std::any_of(classMembers->contents().begin(),
+                  classMembers->contents().end(),
+                  isStaticFieldWithComputedName)) {
+    if (!clearStaticFieldSlot(cx->names().dotStaticFieldKeys)) {
       return false;
     }
   }
@@ -9533,30 +9676,47 @@ bool BytecodeEmitter::emitClass(
   // Stack currently has HOMEOBJ followed by optional HERITAGE. When HERITAGE
   // is not used, an implicit value of %FunctionPrototype% is implied.
   if (constructor) {
-    FunctionNode* ctor;
-    // .fieldKeys must be declared outside the scope .initializers is declared
-    // in, hence this extra scope.
+    // See |Parser::classMember(...)| for the reason why |.initializers| is
+    // created within its own scope.
     Maybe<LexicalScopeEmitter> lse;
+    FunctionNode* ctor;
     if (constructor->is<LexicalScopeNode>()) {
-      if (!constructor->as<LexicalScopeNode>().isEmptyScope()) {
+      LexicalScopeNode* constructorScope = &constructor->as<LexicalScopeNode>();
+
+      // The constructor scope should only contain the |.initializers| binding.
+      MOZ_ASSERT(!constructorScope->isEmptyScope());
+      MOZ_ASSERT(constructorScope->scopeBindings()->length == 1);
+      MOZ_ASSERT(constructorScope->scopeBindings()->trailingNames[0].name() ==
+                 cx->names().dotInitializers);
+
+      auto isInstanceField = [](ParseNode* propdef) {
+        return propdef->is<ClassField>() &&
+               !propdef->as<ClassField>().isStatic();
+      };
+
+      // As an optimization omit the |.initializers| binding when no instance
+      // fields are present.
+      bool hasInstanceFields =
+          std::any_of(classMembers->contents().begin(),
+                      classMembers->contents().end(), isInstanceField);
+      if (hasInstanceFields) {
         lse.emplace(this);
-        if (!lse->emitScope(
-                ScopeKind::Lexical,
-                constructor->as<LexicalScopeNode>().scopeBindings())) {
+        if (!lse->emitScope(ScopeKind::Lexical,
+                            constructorScope->scopeBindings())) {
           return false;
         }
 
         // Any class with field initializers will have a constructor
-        if (!emitCreateFieldInitializers(ce, classMembers)) {
+        if (!emitCreateFieldInitializers(ce, classMembers,
+                                         FieldPlacement::Instance)) {
           return false;
         }
       }
 
-      ctor = &constructor->as<LexicalScopeNode>()
-                  .scopeBody()
-                  ->as<ClassMethod>()
-                  .method();
+      ctor = &constructorScope->scopeBody()->as<ClassMethod>().method();
     } else {
+      // The |.initializers| binding is never emitted when in self-hosting mode.
+      MOZ_ASSERT(emitterMode == BytecodeEmitter::SelfHosting);
       ctor = &constructor->as<ClassMethod>().method();
     }
 
@@ -9589,12 +9749,30 @@ bool BytecodeEmitter::emitClass(
     }
   }
 
-  if (!emitCreateFieldKeys(classMembers)) {
+  if (!emitCreateFieldKeys(classMembers, FieldPlacement::Instance)) {
+    return false;
+  }
+
+  if (!emitCreateFieldInitializers(ce, classMembers, FieldPlacement::Static)) {
+    return false;
+  }
+
+  if (!emitCreateFieldKeys(classMembers, FieldPlacement::Static)) {
     return false;
   }
 
   if (!emitPropertyList(classMembers, ce, ClassBody)) {
     //              [stack] CTOR HOMEOBJ
+    return false;
+  }
+
+  if (!ce.emitBinding()) {
+    //              [stack] CTOR
+    return false;
+  }
+
+  if (!emitInitializeStaticFields(classMembers)) {
+    //              [stack] CTOR
     return false;
   }
 

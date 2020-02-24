@@ -805,11 +805,14 @@ nsStyleSVG::nsStyleSVG(const Document& aDocument)
       mMarkerMid(StyleUrlOrNone::None()),
       mMarkerStart(StyleUrlOrNone::None()),
       mMozContextProperties{{}, {0}},
-      mStrokeDashoffset(LengthPercentage::Zero()),
-      mStrokeWidth(LengthPercentage::FromPixels(1.0f)),
-      mFillOpacity(1.0f),
+      mStrokeDasharray(StyleSVGStrokeDashArray::Values({})),
+      mStrokeDashoffset(
+          StyleSVGLength::LengthPercentage(LengthPercentage::Zero())),
+      mStrokeWidth(
+          StyleSVGWidth::LengthPercentage(LengthPercentage::FromPixels(1.0f))),
+      mFillOpacity(StyleSVGOpacity::Opacity(1.0f)),
       mStrokeMiterlimit(4.0f),
-      mStrokeOpacity(1.0f),
+      mStrokeOpacity(StyleSVGOpacity::Opacity(1.0f)),
       mClipRule(StyleFillRule::Nonzero),
       mColorInterpolation(NS_STYLE_COLOR_INTERPOLATION_SRGB),
       mColorInterpolationFilters(NS_STYLE_COLOR_INTERPOLATION_LINEARRGB),
@@ -819,10 +822,7 @@ nsStyleSVG::nsStyleSVG(const Document& aDocument)
       mStrokeLinecap(StyleStrokeLinecap::Butt),
       mStrokeLinejoin(StyleStrokeLinejoin::Miter),
       mDominantBaseline(StyleDominantBaseline::Auto),
-      mTextAnchor(StyleTextAnchor::Start),
-      mContextFlags(
-          (eStyleSVGOpacitySource_Normal << FILL_OPACITY_SOURCE_SHIFT) |
-          (eStyleSVGOpacitySource_Normal << STROKE_OPACITY_SOURCE_SHIFT)) {
+      mTextAnchor(StyleTextAnchor::Start) {
   MOZ_COUNT_CTOR(nsStyleSVG);
 }
 
@@ -834,8 +834,8 @@ nsStyleSVG::nsStyleSVG(const nsStyleSVG& aSource)
       mMarkerEnd(aSource.mMarkerEnd),
       mMarkerMid(aSource.mMarkerMid),
       mMarkerStart(aSource.mMarkerStart),
-      mStrokeDasharray(aSource.mStrokeDasharray),
       mMozContextProperties(aSource.mMozContextProperties),
+      mStrokeDasharray(aSource.mStrokeDasharray),
       mStrokeDashoffset(aSource.mStrokeDashoffset),
       mStrokeWidth(aSource.mStrokeWidth),
       mFillOpacity(aSource.mFillOpacity),
@@ -850,8 +850,7 @@ nsStyleSVG::nsStyleSVG(const nsStyleSVG& aSource)
       mStrokeLinecap(aSource.mStrokeLinecap),
       mStrokeLinejoin(aSource.mStrokeLinejoin),
       mDominantBaseline(aSource.mDominantBaseline),
-      mTextAnchor(aSource.mTextAnchor),
-      mContextFlags(aSource.mContextFlags) {
+      mTextAnchor(aSource.mTextAnchor) {
   MOZ_COUNT_CTOR(nsStyleSVG);
 }
 
@@ -926,7 +925,6 @@ nsChangeHint nsStyleSVG::CalcDifference(const nsStyleSVG& aNewData) const {
       mFillRule != aNewData.mFillRule || mPaintOrder != aNewData.mPaintOrder ||
       mShapeRendering != aNewData.mShapeRendering ||
       mStrokeDasharray != aNewData.mStrokeDasharray ||
-      mContextFlags != aNewData.mContextFlags ||
       mMozContextProperties.bits != aNewData.mMozContextProperties.bits) {
     return hint | nsChangeHint_RepaintFrame;
   }
@@ -3096,42 +3094,12 @@ LogicalSide nsStyleText::TextEmphasisSide(WritingMode aWM) const {
 // nsStyleUI
 //
 
-nsCursorImage::nsCursorImage(const StyleComputedImageUrl& aImage)
-    : mHaveHotspot(false), mHotspotX(0.0f), mHotspotY(0.0f), mImage(aImage) {}
-
-nsCursorImage::nsCursorImage(const nsCursorImage& aOther)
-    : mHaveHotspot(aOther.mHaveHotspot),
-      mHotspotX(aOther.mHotspotX),
-      mHotspotY(aOther.mHotspotY),
-      mImage(aOther.mImage) {}
-
-nsCursorImage& nsCursorImage::operator=(const nsCursorImage& aOther) {
-  if (this != &aOther) {
-    mHaveHotspot = aOther.mHaveHotspot;
-    mHotspotX = aOther.mHotspotX;
-    mHotspotY = aOther.mHotspotY;
-    mImage = aOther.mImage;
-  }
-
-  return *this;
-}
-
-bool nsCursorImage::operator==(const nsCursorImage& aOther) const {
-  NS_ASSERTION(mHaveHotspot || (mHotspotX == 0 && mHotspotY == 0),
-               "expected mHotspot{X,Y} to be 0 when mHaveHotspot is false");
-  NS_ASSERTION(
-      aOther.mHaveHotspot || (aOther.mHotspotX == 0 && aOther.mHotspotY == 0),
-      "expected mHotspot{X,Y} to be 0 when mHaveHotspot is false");
-  return mHaveHotspot == aOther.mHaveHotspot && mHotspotX == aOther.mHotspotX &&
-         mHotspotY == aOther.mHotspotY && mImage == aOther.mImage;
-}
-
 nsStyleUI::nsStyleUI(const Document& aDocument)
     : mUserInput(StyleUserInput::Auto),
       mUserModify(StyleUserModify::ReadOnly),
       mUserFocus(StyleUserFocus::None),
       mPointerEvents(StylePointerEvents::Auto),
-      mCursor(StyleCursorKind::Auto),
+      mCursor{{}, StyleCursorKind::Auto},
       mCaretColor(StyleColorOrAuto::Auto()),
       mScrollbarColor(StyleScrollbarColor::Auto()) {
   MOZ_COUNT_CTOR(nsStyleUI);
@@ -3143,7 +3111,6 @@ nsStyleUI::nsStyleUI(const nsStyleUI& aSource)
       mUserFocus(aSource.mUserFocus),
       mPointerEvents(aSource.mPointerEvents),
       mCursor(aSource.mCursor),
-      mCursorImages(aSource.mCursorImages),
       mCaretColor(aSource.mCaretColor),
       mScrollbarColor(aSource.mScrollbarColor) {
   MOZ_COUNT_CTOR(nsStyleUI);
@@ -3155,16 +3122,16 @@ void nsStyleUI::TriggerImageLoads(Document& aDocument,
                                   const nsStyleUI* aOldStyle) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  for (size_t i = 0; i < mCursorImages.Length(); ++i) {
-    nsCursorImage& cursor = mCursorImages[i];
+  auto cursorImages = mCursor.images.AsSpan();
+  auto oldCursorImages = aOldStyle ? aOldStyle->mCursor.images.AsSpan() : Span<const StyleCursorImage>();
+  for (size_t i = 0; i < cursorImages.Length(); ++i) {
+    auto& cursor = cursorImages[i];
 
-    if (!cursor.mImage.IsImageResolved()) {
-      const nsCursorImage* oldCursor =
-          (aOldStyle && aOldStyle->mCursorImages.Length() > i)
-              ? &aOldStyle->mCursorImages[i]
-              : nullptr;
-      cursor.mImage.ResolveImage(aDocument,
-                                 oldCursor ? &oldCursor->mImage : nullptr);
+    if (!cursor.url.IsImageResolved()) {
+      const auto* oldCursor =
+          oldCursorImages.Length() > i ? &oldCursorImages[i] : nullptr;
+      const_cast<StyleComputedImageUrl&>(cursor.url)
+          .ResolveImage(aDocument, oldCursor ? &oldCursor->url : nullptr);
     }
   }
 }
@@ -3172,12 +3139,6 @@ void nsStyleUI::TriggerImageLoads(Document& aDocument,
 nsChangeHint nsStyleUI::CalcDifference(const nsStyleUI& aNewData) const {
   nsChangeHint hint = nsChangeHint(0);
   if (mCursor != aNewData.mCursor) {
-    hint |= nsChangeHint_UpdateCursor;
-  }
-
-  // We could do better. But it wouldn't be worth it, URL-specified cursors are
-  // rare.
-  if (mCursorImages != aNewData.mCursorImages) {
     hint |= nsChangeHint_UpdateCursor;
   }
 
@@ -3224,7 +3185,7 @@ nsChangeHint nsStyleUI::CalcDifference(const nsStyleUI& aNewData) const {
 nsStyleUIReset::nsStyleUIReset(const Document& aDocument)
     : mUserSelect(StyleUserSelect::Auto),
       mScrollbarWidth(StyleScrollbarWidth::Auto),
-      mForceBrokenImageIcon(0),
+      mMozForceBrokenImageIcon(0),
       mIMEMode(StyleImeMode::Auto),
       mWindowDragging(StyleWindowDragging::Default),
       mWindowShadow(StyleWindowShadow::Default),
@@ -3238,7 +3199,7 @@ nsStyleUIReset::nsStyleUIReset(const Document& aDocument)
 nsStyleUIReset::nsStyleUIReset(const nsStyleUIReset& aSource)
     : mUserSelect(aSource.mUserSelect),
       mScrollbarWidth(aSource.mScrollbarWidth),
-      mForceBrokenImageIcon(aSource.mForceBrokenImageIcon),
+      mMozForceBrokenImageIcon(aSource.mMozForceBrokenImageIcon),
       mIMEMode(aSource.mIMEMode),
       mWindowDragging(aSource.mWindowDragging),
       mWindowShadow(aSource.mWindowShadow),
@@ -3254,7 +3215,7 @@ nsChangeHint nsStyleUIReset::CalcDifference(
     const nsStyleUIReset& aNewData) const {
   nsChangeHint hint = nsChangeHint(0);
 
-  if (mForceBrokenImageIcon != aNewData.mForceBrokenImageIcon) {
+  if (mMozForceBrokenImageIcon != aNewData.mMozForceBrokenImageIcon) {
     hint |= nsChangeHint_ReconstructFrame;
   }
   if (mScrollbarWidth != aNewData.mScrollbarWidth) {
