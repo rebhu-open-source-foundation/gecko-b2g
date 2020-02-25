@@ -54,9 +54,10 @@ class SupplicantStaManager
   void UnregisterEventCallback();
 
   // HIDL initialization
-  bool InitSupplicantInterface();
-  bool DeinitSupplicantInterface();
-  bool IsSupplicantReady();
+  bool InitInterface();
+  bool DeinitInterface();
+  bool IsInterfaceInitializing();
+  bool IsInterfaceReady();
 
   // functions to invoke supplicant APIs
   bool GetMacAddress(nsAString& aMacAddress);
@@ -302,7 +303,7 @@ class SupplicantStaManager
   virtual ~SupplicantStaManager();
 
   bool InitServiceManager();
-  bool InitSupplicant();
+  bool InitSupplicantInterface();
   bool TearDownInterface();
 
   android::sp<ISupplicantStaIface> GetSupplicantStaIface();
@@ -314,8 +315,8 @@ class SupplicantStaManager
 
   void supplicantServiceDiedHandler(int32_t aCookie);
 
-  static SupplicantStaManager* sInstance;
-  static mozilla::Mutex sLock;
+  static SupplicantStaManager* s_Instance;
+  static mozilla::Mutex s_Lock;
   EventCallback mEventCallback;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;

@@ -97,6 +97,7 @@ this.WifiNetworkSelector = (function() {
     configuredNetworks,
     isLinkDebouncing,
     wifiWorkerState,
+    wifiInfo,
     callback
   ) {
     debug("==========start Network Selection==========");
@@ -105,8 +106,6 @@ this.WifiNetworkSelector = (function() {
       debug("Empty connectivity scan result");
       return callback(null);
     }
-
-    var wifiInfo = WifiWorker.wifiNetworkInfo;
 
     // Shall we start network selection at all?
     if (
@@ -276,6 +275,11 @@ this.WifiNetworkSelector = (function() {
     }
 
     if (wifiWorkerState == "connected" || wifiWorkerState == "associated") {
+      // FIXME: wifiInfo should not be null
+      if (!wifiInfo) {
+        return false;
+      }
+
       // Is roaming allowed?
       if (!enableAutoJoinWhenAssociated) {
         debug(

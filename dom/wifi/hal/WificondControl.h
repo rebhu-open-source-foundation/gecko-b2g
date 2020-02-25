@@ -15,6 +15,7 @@
 #include <android/net/wifi/IWificond.h>
 #include <android/net/wifi/IWifiScannerImpl.h>
 
+using ::android::net::wifi::IApInterface;
 using ::android::net::wifi::IClientInterface;
 using ::android::net::wifi::IWificond;
 using ::android::net::wifi::IWifiScannerImpl;
@@ -34,6 +35,7 @@ class WificondControl : virtual public android::RefBase {
   bool StartWificond();
   bool StopWificond();
   bool TearDownClientInterface(const std::string& aIfaceName);
+  bool TearDownSoftapInterface(const std::string& aIfaceName);
 
   bool StartSupplicant();
   bool StopSupplicant();
@@ -41,6 +43,10 @@ class WificondControl : virtual public android::RefBase {
   bool SetupClientIface(
       const std::string& aIfaceName,
       const android::sp<android::net::wifi::IScanEvent>& aScanCallback);
+  bool SetupApIface(
+      const std::string& aIfaceName,
+      const android::sp<android::net::wifi::IApInterfaceEventCallback>& aApCallback);
+  bool StartSoftap(ConfigurationOptions* aConfig);
   bool StartSingleScan(ScanSettingsOptions* aScanSettings);
   bool StopSingleScan();
   bool StartPnoScan();
@@ -61,10 +67,11 @@ class WificondControl : virtual public android::RefBase {
 
   virtual ~WificondControl() {}
 
-  static WificondControl* sInstance;
+  static WificondControl* s_Instance;
 
   android::sp<IWificond> mWificond;
   android::sp<IClientInterface> mClientInterface;
+  android::sp<IApInterface> mApInterface;
   android::sp<IWifiScannerImpl> mScanner;
   android::sp<WificondDeathRecipient> mWificondDeathRecipient;
 

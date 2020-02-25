@@ -98,6 +98,20 @@ interface nsIWifiConfiguration: nsISupports
   readonly attribute boolean proactiveKeyCaching;
 };
 
+[scriptable, uuid(2677465d-1061-483d-9d59-107339bb9b2b)]
+interface nsISoftapConfiguration: nsISupports
+{
+  // AP band
+  const long AP_BAND_24GHZ = 0;
+  const long AP_BAND_5GHZ  = 1;
+  const long AP_BAND_ANY   = 2;
+
+  // encryption type
+  const long SECURITY_NONE = 0;
+  const long SECURITY_WPA  = 1;
+  const long SECURITY_WPA2 = 2;
+};
+
 [scriptable, uuid(9fb6b90f-1e28-41b2-96be-e1a2839ffd38)]
 interface nsISupplicantDebugLevel : nsISupports
 {

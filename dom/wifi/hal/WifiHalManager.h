@@ -62,17 +62,18 @@ class WifiHal
   static void CleanUp();
 
   bool InitHalInterface();
-  bool TearDownInterface();
+  bool TearDownInterface(const wifiNameSpace::IfaceType& aType);
   bool GetCapabilities(uint32_t& aCapabilities);
   bool GetDriverModuleInfo(nsAString& aDriverVersion,
                            nsAString& aFirmwareVersion);
   bool SetLowLatencyMode(bool aEnable);
 
-  bool StartWifi();
-  bool StopWifi();
+  bool StartWifiModule();
+  bool StopWifiModule();
   bool ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
                                 std::string& aIfaceName);
   bool GetStaCapabilities(uint32_t& aStaCapabilities);
+  bool SetSoftapCountryCode(std::string aCountryCode);
   std::string GetInterfaceName(const wifiNameSpace::IfaceType& aType);
 
   // IServiceNotification::onRegistration
@@ -258,10 +259,11 @@ class WifiHal
   bool InitWifiInterface();
   bool ConfigChipByType(const android::sp<IWifiChip>& aChip,
                         const wifiNameSpace::IfaceType& aType);
+  bool RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType);
   std::string QueryInterfaceName(const android::sp<IWifiIface>& aIface);
 
-  static WifiHal* sInstance;
-  static mozilla::Mutex sLock;
+  static WifiHal* s_Instance;
+  static mozilla::Mutex s_Lock;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;
   android::sp<ServiceManagerDeathRecipient> mServiceManagerDeathRecipient;

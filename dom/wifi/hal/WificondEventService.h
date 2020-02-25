@@ -31,8 +31,8 @@ class WificondEventService
   android::binder::Status OnScanFailed() override;
 
  private:
-  static WificondEventService* sInstance;
-  static mozilla::Mutex sLock;
+  static WificondEventService* s_Instance;
+  static mozilla::Mutex s_Lock;
   std::string mStaInterfaceName;
 
   EventCallback mEventCallback;

@@ -6,10 +6,10 @@
  * jurisdictions. All other trademarks are the property of their respective
  * owners.
  */
-#define LOG_TAG "WificondEventService"
+#define LOG_TAG "SoftapEventCallback"
 
 #include "WifiCommon.h"
-#include "WificondEventService.h"
+#include "SoftapEventCallback.h"
 
 #include <binder/IBinder.h>
 #include <binder/IServiceManager.h>
@@ -19,65 +19,48 @@
 
 using ::android::defaultServiceManager;
 using ::android::IBinder;
-using ::android::interface_cast;
 using ::android::String16;
-using ::android::binder::Status;
 
-#define EVENT_SCAN_RESULT_READY "SCAN_RESULT_READY"
+SoftapEventService* SoftapEventService::s_Instance = nullptr;
 
-mozilla::Mutex WificondEventService::s_Lock("wificond-event");
-WificondEventService* WificondEventService::s_Instance = nullptr;
-
-WificondEventService* WificondEventService::CreateService(
+SoftapEventService* SoftapEventService::CreateService(
     const std::string& aInterfaceName) {
   if (s_Instance) {
     return s_Instance;
   }
-
   // Create new instance
-  s_Instance = new WificondEventService(aInterfaceName);
+  s_Instance = new SoftapEventService(aInterfaceName);
   ClearOnShutdown(&s_Instance);
 
   android::sp<::android::IServiceManager> sm = defaultServiceManager();
   android::sp<::android::ProcessState> ps(::android::ProcessState::self());
   if (android::defaultServiceManager()->addService(
-          android::String16(WificondEventService::GetServiceName()),
+          android::String16(SoftapEventService::GetServiceName()),
           s_Instance) != android::OK) {
     WIFI_LOGE(LOG_TAG, "Failed to add service: %s",
-              WificondEventService::GetServiceName());
+              SoftapEventService::GetServiceName());
     s_Instance = nullptr;
     return nullptr;
   }
   ps->startThreadPool();
-
   return s_Instance;
 }
 
-void WificondEventService::RegisterEventCallback(EventCallback aCallback) {
+void SoftapEventService::RegisterEventCallback(EventCallback aCallback) {
   mEventCallback = aCallback;
 }
 
-void WificondEventService::UnregisterEventCallback() {
-  mEventCallback = nullptr;
-}
+void SoftapEventService::UnregisterEventCallback() { mEventCallback = nullptr; }
 
 /**
- * Implement IScanEvent
+ * Implement IApInterfaceEventCallback
  */
-android::binder::Status WificondEventService::OnScanResultReady() {
-  MutexAutoLock lock(s_Lock);
-
-  nsCString iface(mStaInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SCAN_RESULT_READY));
-
-  if (mEventCallback) {
-    mEventCallback(event, iface);
-  }
+android::binder::Status SoftapEventService::onNumAssociatedStationsChanged(
+    int32_t numStations) {
   return android::binder::Status::ok();
 }
 
-android::binder::Status WificondEventService::OnScanFailed() {
-  WIFI_LOGE(LOG_TAG, "scan failed...");
+android::binder::Status SoftapEventService::onSoftApChannelSwitched(
+    int32_t frequency, int32_t bandwidth) {
   return android::binder::Status::ok();
 }

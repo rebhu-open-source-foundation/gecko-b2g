@@ -14,10 +14,6 @@ const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
 
-const SUPP_PROP = "init.svc.wpa_supplicant";
-const P2P_PROP = "init.svc.p2p_supplicant";
-const WPA_SUPPLICANT = "wpa_supplicant";
-const P2P_SUPPLICANT = "p2p_supplicant";
 const DEBUG = false;
 
 const WIFI_CMD_INITIALIZE = Ci.nsIWifiCommand.INITIALIZE;
@@ -59,7 +55,6 @@ const WIFI_CMD_STOP_RSSI_MONITORING = Ci.nsIWifiCommand.STOP_RSSI_MONITORING;
 const WIFI_CMD_START_SOFTAP = Ci.nsIWifiCommand.START_SOFTAP;
 const WIFI_CMD_STOP_SOFTAP = Ci.nsIWifiCommand.STOP_SOFTAP;
 const WIFI_CMD_GET_AP_IFACE = Ci.nsIWifiCommand.GET_AP_IFACE;
-const WIFI_CMD_SET_SOFTAP_COUNTRY_CODE = Ci.nsIWifiCommand.SET_SOFTAP_COUNTRY_CODE;
 
 this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   function debug(msg) {
@@ -111,21 +106,11 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.setLowLatencyMode = function(enable, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_LOW_LATENCY_MODE,
-      iface: aInterface,
-      lowLatencyMode: enable,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_LOW_LATENCY_MODE, enable, callback);
   };
 
   command.setStaHigherPriority = function(enable, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_CONCURRENCY_PRIORITY,
-      iface: aInterface,
-      staHigherPriority: enable,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_CONCURRENCY_PRIORITY, enable, callback);
   };
 
   command.startWifi = function(callback) {
@@ -149,39 +134,19 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.setPowerSave = function(enable, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_POWER_SAVE,
-      iface: aInterface,
-      powerSave: enable,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_POWER_SAVE, enable, callback);
   };
 
   command.setSuspendMode = function(enable, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_SUSPEND_MODE,
-      iface: aInterface,
-      suspendMode: enable,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_SUSPEND_MODE, enable, callback);
   };
 
   command.setExternalSim = function(enable, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_EXTERNAL_SIM,
-      iface: aInterface,
-      externalSim: enable,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_EXTERNAL_SIM, enable, callback);
   };
 
   command.enableAutoReconnect = function(enable, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_AUTO_RECONNECT,
-      iface: aInterface,
-      autoReconnect: enable,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_AUTO_RECONNECT, enable, callback);
   };
 
   command.setCountryCode = function(countryCode, callback) {
@@ -203,12 +168,7 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.setBluetoothCoexistenceScanMode = function(enable, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_BT_COEXIST_SCAN_MODE,
-      iface: aInterface,
-      btCoexistenceScanMode: enable,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_BT_COEXIST_SCAN_MODE, enable, callback);
   };
 
   command.startScan = function(settings, callback) {
@@ -290,25 +250,22 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     voidControlMessage(WIFI_CMD_STOP_RSSI_MONITORING, callback);
   };
 
-  command.startSoftap = function(callback) {
-    voidControlMessage(WIFI_CMD_START_SOFTAP, callback);
+  command.startSoftap = function(config, callback) {
+    aControlMessage(
+      {
+        cmd: WIFI_CMD_START_SOFTAP,
+        iface: aInterface,
+        softapConfig: config
+      },
+      callback);
   };
 
   command.stopSoftap = function(callback) {
     voidControlMessage(WIFI_CMD_STOP_SOFTAP, callback);
   };
 
-  command.getStaInterface = function(callback) {
+  command.getSoftapInterface = function(callback) {
     doGetCommand(WIFI_CMD_GET_AP_IFACE, callback);
-  };
-
-  command.setApCountryCode = function(countryCode, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_SOFTAP_COUNTRY_CODE,
-      iface: aInterface,
-      countryCode: countryCode,
-    };
-    aControlMessage(msg, callback);
   };
 
   //----------------------------------------------------------
@@ -316,73 +273,21 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   //----------------------------------------------------------
 
   function voidControlMessage(cmd, callback) {
-    aControlMessage({ cmd, iface: aInterface }, function(data) {
-      callback(data.status);
+    aControlMessage({ cmd, iface: aInterface }, function(result) {
+      callback(result.status);
     });
   }
 
   function doGetCommand(cmd, callback) {
-    aControlMessage({ cmd, iface: aInterface }, function(data) {
-      callback(data);
+    aControlMessage({ cmd, iface: aInterface }, function(result) {
+      callback(result);
     });
   }
 
-  function doSetCommand(request, expected, callback) {
-    doCommand(request, function(data) {
-      callback(data.status ? false : data.reply === expected);
+  function doSetCommand(cmd, enable, callback) {
+    aControlMessage({ cmd, iface: aInterface, enabled: enable }, function(result) {
+      callback(result);
     });
-  }
-
-  //--------------------------------------------------
-  // Helper functions.
-  //--------------------------------------------------
-
-  function stopProcess(service, process, callback) {
-    var count = 0;
-    var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-    function tick() {
-      let result = libcutils.property_get(service);
-      if (result === null) {
-        callback();
-        return;
-      }
-      if (result === "stopped" || ++count >= 5) {
-        // Either we succeeded or ran out of time.
-        timer = null;
-        callback();
-        return;
-      }
-
-      // Else it's still running, continue waiting.
-      timer.initWithCallback(tick, 1000, Ci.nsITimer.TYPE_ONE_SHOT);
-    }
-
-    setProperty("ctl.stop", process, tick);
-  }
-
-  // Wrapper around libcutils.property_set that returns true if setting the
-  // value was successful.
-  // Note that the callback is not called asynchronously.
-  function setProperty(key, value, callback) {
-    let ok = true;
-    try {
-      libcutils.property_set(key, value);
-    } catch (e) {
-      ok = false;
-    }
-    callback(ok);
-  }
-
-  function isJellybean() {
-    // According to http://developer.android.com/guide/topics/manifest/uses-sdk-element.html
-    // ----------------------------------------------------
-    // | Platform Version   | API Level |   VERSION_CODE  |
-    // ----------------------------------------------------
-    // | Android 4.1, 4.1.1 |    16     |  JELLY_BEAN_MR2 |
-    // | Android 4.2, 4.2.2 |    17     |  JELLY_BEAN_MR1 |
-    // | Android 4.3        |    18     |    JELLY_BEAN   |
-    // ----------------------------------------------------
-    return aSdkVersion === 16 || aSdkVersion === 17 || aSdkVersion === 18;
   }
 
   return command;

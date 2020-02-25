@@ -11,19 +11,14 @@ dictionary WifiCommandOptions
   unsigned long  id = 0;       // opaque id.
   unsigned long  cmd = 0;
 
-  boolean        lowLatencyMode = false;
-  boolean        staHigherPriority = false;
-  boolean        powerSave = false;
-  boolean        suspendMode = false;
-  boolean        externalSim = false;
-  boolean        autoReconnect = false;
+  boolean        enabled = false;
   DOMString      countryCode = "";
   DOMString      softapCountryCode = "";
   unsigned short btCoexistenceMode = 0;
-  boolean        btCoexistenceScanMode = false;
   unsigned long  bandMask = 0;
 
   WifiConfiguration    config = {};
+  SoftapConfiguration  softapConfig = {};
   SupplicantDebugLevel debugLevel = {};
   ScanSettings         scanSettings = {};
 };
@@ -78,6 +73,25 @@ dictionary WifiConfiguration
   DOMString altSubjectMatch;
   DOMString domainSuffixMatch;
   boolean   proactiveKeyCaching;
+};
+
+/**
+ * The dictionary holds the parameters for softap.
+ */
+[GenerateInit]
+dictionary SoftapConfiguration
+{
+  DOMString     ssid;
+  unsigned long keyManagement;
+  DOMString     key;
+  DOMString     countryCode;
+  unsigned long band;
+  unsigned long channel;
+  boolean       hidden;
+  boolean       enable11N;
+  boolean       enable11AC;
+  boolean       enableACS;
+  boolean       acsExcludeDfs;
 };
 
 /**

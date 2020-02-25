@@ -7,9 +7,12 @@
 
 interface nsIStateChanged;
 
-[scriptable, uuid(bf7e37fa-0a80-4c37-888c-deaf25c980b6)]
+[scriptable, uuid(3f97bbaf-ec6f-4cc4-a9b0-f6e67aa78dc4)]
 interface nsIWifiEvent : nsISupports
 {
   readonly attribute AString name;
+  readonly attribute AString bssid;
+  readonly attribute boolean locallyGenerated;
+  readonly attribute unsigned long reason;
   readonly attribute nsIStateChanged stateChanged;
 };

@@ -36,6 +36,24 @@ nsWifiEvent::GetName(nsAString& aName) {
 }
 
 NS_IMETHODIMP
+nsWifiEvent::GetBssid(nsAString& aBssid) {
+  aBssid = mBssid;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetLocallyGenerated(bool* aLocallyGenerated) {
+  *aLocallyGenerated = mLocallyGenerated;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetReason(uint32_t* aReason) {
+  *aReason = mReason;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiEvent::GetStateChanged(nsIStateChanged** aStateChanged) {
   RefPtr<nsIStateChanged> stateChanged(mStateChanged);
   stateChanged.forget(aStateChanged);

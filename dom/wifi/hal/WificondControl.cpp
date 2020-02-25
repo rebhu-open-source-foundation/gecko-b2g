@@ -23,7 +23,7 @@ using ::android::defaultServiceManager;
 using ::android::IBinder;
 using ::android::interface_cast;
 using ::android::String16;
-using ::android::binder::Status;
+using ::android::net::wifi::IApInterfaceEventCallback;
 using ::android::net::wifi::IScanEvent;
 
 static const char* CTL_START_PROPERTY = "ctl.start";
@@ -33,23 +33,26 @@ static const char* WIFICOND_SERVICE_NAME = "wificond";
 static const int32_t WIFICOND_POLL_DELAY = 500000;
 static const int32_t WIFICOND_RETRY_COUNT = 20;
 
-WificondControl* WificondControl::sInstance = nullptr;
+WificondControl* WificondControl::s_Instance = nullptr;
 
 WificondControl::WificondControl()
-    : mWificond(nullptr), mClientInterface(nullptr), mScanner(nullptr) {}
+    : mWificond(nullptr),
+      mClientInterface(nullptr),
+      mApInterface(nullptr),
+      mScanner(nullptr) {}
 
 WificondControl* WificondControl::Get() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (sInstance) {
-    return sInstance;
+  if (s_Instance) {
+    return s_Instance;
   }
 
   // Create new instance
-  sInstance = new WificondControl();
+  s_Instance = new WificondControl();
 
-  ClearOnShutdown(&sInstance);
-  return sInstance;
+  ClearOnShutdown(&s_Instance);
+  return s_Instance;
 }
 
 /**
@@ -82,7 +85,7 @@ bool WificondControl::InitWificondInterface() {
     mWificondDeathRecipient = new WificondDeathRecipient();
     binder->linkToDeath(mWificondDeathRecipient);
   } else {
-    WIFI_LOGE(LOG_TAG, "Failed to create wificond instance.");
+    WIFI_LOGE(LOG_TAG, "Failed to create wificond instance");
     return false;
   }
 
@@ -99,7 +102,7 @@ bool WificondControl::StartWificond() {
   }
 
   if (property_set(CTL_START_PROPERTY, WIFICOND_SERVICE_NAME) != 0) {
-    WIFI_LOGE(LOG_TAG, "start wificond failed.");
+    WIFI_LOGE(LOG_TAG, "start wificond failed");
     return false;
   }
   return true;
@@ -131,7 +134,25 @@ bool WificondControl::TearDownClientInterface(const std::string& aIfaceName) {
   mWificond = nullptr;
   mClientInterface = nullptr;
   mScanner = nullptr;
+  return true;
+}
 
+bool WificondControl::TearDownSoftapInterface(const std::string& aIfaceName) {
+  if (mWificond == nullptr || mApInterface == nullptr) {
+    WIFI_LOGE(LOG_TAG, "No valid interface handler");
+    return false;
+  }
+  bool success = false;
+  if (!mWificond->tearDownApInterface(aIfaceName, &success).isOk()) {
+    WIFI_LOGE(LOG_TAG,
+              "Failed to teardown ap interface due to remote exception");
+    return false;
+  }
+  if (!success) {
+    WIFI_LOGE(LOG_TAG, "Failed to teardown ap interface");
+    return false;
+  }
+  mApInterface = nullptr;
   return true;
 }
 
@@ -160,34 +181,47 @@ bool WificondControl::SetupClientIface(
     const std::string& aIfaceName,
     const android::sp<IScanEvent>& aScanCallback) {
   // retrieve wificond handle
-  InitWificondInterface();
-
-  if (mWificond == nullptr) {
+  if (!InitWificondInterface()) {
     return false;
   }
-
   if (!mWificond->createClientInterface(aIfaceName, &mClientInterface).isOk()) {
-    WIFI_LOGE(LOG_TAG, "Failed to create client interface.");
+    WIFI_LOGE(LOG_TAG, "Failed to create client interface");
     return false;
   }
-
   if (!mClientInterface->getWifiScannerImpl(&mScanner).isOk()) {
-    WIFI_LOGE(LOG_TAG, "Failed to get WificondScannerImpl.");
+    WIFI_LOGE(LOG_TAG, "Failed to get WificondScannerImpl");
     return false;
   }
-
   if (mScanner->subscribeScanEvents(aScanCallback).isOk()) {
     WIFI_LOGD(LOG_TAG, "subscribe scan event success");
   } else {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
   }
+  return true;
+}
 
+bool WificondControl::SetupApIface(
+    const std::string& aIfaceName,
+    const android::sp<IApInterfaceEventCallback>& aApCallback) {
+  if (!InitWificondInterface()) {
+    return false;
+  }
+  if (!mWificond->createApInterface(aIfaceName, &mApInterface).isOk()) {
+    WIFI_LOGE(LOG_TAG, "Failed to create ap interface");
+    return false;
+  }
+  bool success = false;
+  mApInterface->registerCallback(aApCallback, &success);
+  if (!success) {
+    WIFI_LOGE(LOG_TAG, "Failed to register softap callback");
+    return false;
+  }
   return true;
 }
 
 bool WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
   if (mScanner == nullptr) {
-    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface.");
+    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
     return false;
   }
   SingleScanSettings settings;
@@ -216,7 +250,7 @@ bool WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
   bool success = false;
   mScanner->scan(settings, &success);
   if (!success) {
-    WIFI_LOGE(LOG_TAG, "Failed to start single scan.");
+    WIFI_LOGE(LOG_TAG, "Failed to start single scan");
     return false;
   }
   return true;
@@ -224,7 +258,7 @@ bool WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
 
 bool WificondControl::StopSingleScan() {
   if (mScanner == nullptr) {
-    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface.");
+    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
     return false;
   }
   return mScanner->abortScan().isOk();
@@ -237,12 +271,12 @@ bool WificondControl::StopPnoScan() { return true; }
 bool WificondControl::GetScanResults(
     std::vector<NativeScanResult>& aScanResults) {
   if (mScanner == nullptr) {
-    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface.");
+    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
     return false;
   }
 
   if (!mScanner->getScanResults(&aScanResults).isOk()) {
-    WIFI_LOGE(LOG_TAG, "Get scan results failed.");
+    WIFI_LOGE(LOG_TAG, "Get scan results failed");
     return false;
   }
   return true;
@@ -253,40 +287,31 @@ bool WificondControl::GetChannelsForBand(uint32_t aBandMask,
   if (mWificond == nullptr) {
     return false;
   }
-  std::unique_ptr<std::vector<int32_t>> channel_24;
-  std::unique_ptr<std::vector<int32_t>> channel_5;
-  std::unique_ptr<std::vector<int32_t>> channel_dfs;
-
+  std::unique_ptr<std::vector<int32_t>> channels;
   if (aBandMask & nsIScanSettings::BAND_2_4_GHZ) {
-    mWificond->getAvailable2gChannels(&channel_24);
-    for (int32_t& ch : *channel_24) {
-      aChannels.push_back(ch);
-    }
+    mWificond->getAvailable2gChannels(&channels);
+    aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
   }
   if (aBandMask & nsIScanSettings::BAND_5_GHZ) {
-    mWificond->getAvailable5gNonDFSChannels(&channel_5);
-    for (int32_t& ch : *channel_5) {
-      aChannels.push_back(ch);
-    }
+    mWificond->getAvailable5gNonDFSChannels(&channels);
+    aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
   }
   if (aBandMask & nsIScanSettings::BAND_5_GHZ_DFS) {
-    mWificond->getAvailable5gNonDFSChannels(&channel_dfs);
-    for (int32_t& ch : *channel_dfs) {
-      aChannels.push_back(ch);
-    }
+    mWificond->getAvailable5gNonDFSChannels(&channels);
+    aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
   }
   return true;
 }
 
 bool WificondControl::SignalPoll() {
   if (mClientInterface == nullptr) {
-    WIFI_LOGE(LOG_TAG, "Invalid wifi client interface.");
+    WIFI_LOGE(LOG_TAG, "Invalid wifi client interface");
     return false;
   }
 
   std::vector<int32_t> signal;
   if (!mClientInterface->signalPoll(&signal).isOk()) {
-    WIFI_LOGE(LOG_TAG, "Failed to get signal strength.");
+    WIFI_LOGE(LOG_TAG, "Failed to get signal strength");
     return false;
   }
   return true;

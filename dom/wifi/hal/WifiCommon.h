@@ -74,14 +74,91 @@ struct ConfigurationOptions {
   ConfigurationOptions(const mozilla::dom::WifiConfiguration& aOther) {
     COPY_OPT_FIELD(mSsid, EmptyString())
     COPY_OPT_FIELD(mBssid, EmptyString())
-    COPY_OPT_FIELD(mKeyManagement, 0)
     COPY_OPT_FIELD(mPsk, EmptyString())
+    COPY_OPT_FIELD(mWepKey, EmptyString())
+    COPY_OPT_FIELD(mWepTxKeyIndex, 0)
+    COPY_OPT_FIELD(mScanSsid, false)
+    COPY_OPT_FIELD(mPmf, false)
+    COPY_OPT_FIELD(mKeyManagement, 0)
+    COPY_OPT_FIELD(mProto, 0)
+    COPY_OPT_FIELD(mAuthAlg, 0)
+    COPY_OPT_FIELD(mGroupCipher, 0)
+    COPY_OPT_FIELD(mPairwiseCipher, 0)
+    COPY_OPT_FIELD(mEap, 0)
+    COPY_OPT_FIELD(mEapPhase2, 0)
+    COPY_OPT_FIELD(mIdentity, EmptyString())
+    COPY_OPT_FIELD(mAnonymousId, EmptyString())
+    COPY_OPT_FIELD(mPassword, EmptyString())
+    COPY_OPT_FIELD(mClientCert, EmptyString())
+    COPY_OPT_FIELD(mCaCert, EmptyString())
+    COPY_OPT_FIELD(mCaPath, EmptyString())
+    COPY_OPT_FIELD(mSubjectMatch, EmptyString())
+    COPY_OPT_FIELD(mEngineId, EmptyString())
+    COPY_OPT_FIELD(mEngine, false)
+    COPY_OPT_FIELD(mPrivateKeyId, EmptyString())
+    COPY_OPT_FIELD(mAltSubjectMatch, EmptyString())
+    COPY_OPT_FIELD(mDomainSuffixMatch, EmptyString())
+    COPY_OPT_FIELD(mProactiveKeyCaching, false)
   }
 
   nsString mSsid;
   nsString mBssid;
-  int32_t mKeyManagement;
   nsString mPsk;
+  nsString mWepKey;
+  int32_t  mWepTxKeyIndex;
+  bool     mScanSsid;
+  bool     mPmf;
+  int32_t  mKeyManagement;
+  int32_t  mProto;
+  int32_t  mAuthAlg;
+  int32_t  mGroupCipher;
+  int32_t  mPairwiseCipher;
+  int32_t  mEap;
+  int32_t  mEapPhase2;
+  nsString mIdentity;
+  nsString mAnonymousId;
+  nsString mPassword;
+  nsString mClientCert;
+  nsString mCaCert;
+  nsString mCaPath;
+  nsString mSubjectMatch;
+  nsString mEngineId;
+  bool     mEngine;
+  nsString mPrivateKeyId;
+  nsString mAltSubjectMatch;
+  nsString mDomainSuffixMatch;
+  bool     mProactiveKeyCaching;
+};
+
+struct SoftapConfigurationOptions {
+ public:
+  SoftapConfigurationOptions() = default;
+
+  SoftapConfigurationOptions(const mozilla::dom::SoftapConfiguration& aOther) {
+    COPY_OPT_FIELD(mSsid, EmptyString())
+    COPY_OPT_FIELD(mKeyManagement, 0)
+    COPY_OPT_FIELD(mKey, EmptyString())
+    COPY_OPT_FIELD(mCountryCode, EmptyString())
+    COPY_OPT_FIELD(mBand, 0)
+    COPY_OPT_FIELD(mChannel, 0)
+    COPY_OPT_FIELD(mHidden, false)
+    COPY_OPT_FIELD(mEnable11N, false)
+    COPY_OPT_FIELD(mEnable11AC, false)
+    COPY_OPT_FIELD(mEnableACS, false)
+    COPY_OPT_FIELD(mAcsExcludeDfs, false)
+  }
+
+  nsString mSsid;
+  uint32_t mKeyManagement;
+  nsString mKey;
+  nsString mCountryCode;
+  uint32_t mBand;
+  uint32_t mChannel;
+  bool     mHidden;
+  bool     mEnable11N;
+  bool     mEnable11AC;
+  bool     mEnableACS;
+  bool     mAcsExcludeDfs;
 };
 
 struct SupplicantDebugLevelOptions {
@@ -119,21 +196,17 @@ struct CommandOptions {
   CommandOptions(const mozilla::dom::WifiCommandOptions& aOther) {
     COPY_FIELD(mId)
     COPY_FIELD(mCmd)
-    COPY_FIELD(mLowLatencyMode)
-    COPY_FIELD(mStaHigherPriority)
-    COPY_FIELD(mPowerSave)
-    COPY_FIELD(mSuspendMode)
-    COPY_FIELD(mExternalSim)
-    COPY_FIELD(mAutoReconnect)
+    COPY_FIELD(mEnabled)
     COPY_FIELD(mCountryCode)
     COPY_FIELD(mSoftapCountryCode)
     COPY_FIELD(mBtCoexistenceMode)
-    COPY_FIELD(mBtCoexistenceScanMode)
     COPY_FIELD(mBandMask)
     ConfigurationOptions config(aOther.mConfig);
+    SoftapConfigurationOptions softapConfig(aOther.mSoftapConfig);
     SupplicantDebugLevelOptions debugLevel(aOther.mDebugLevel);
     ScanSettingsOptions scanSettings(aOther.mScanSettings);
     mConfig = config;
+    mSoftapConfig = softapConfig;
     mDebugLevel = debugLevel;
     mScanSettings = scanSettings;
   }
@@ -142,18 +215,13 @@ struct CommandOptions {
   uint32_t mId;
   uint32_t mCmd;
 
-  bool mLowLatencyMode;
-  bool mStaHigherPriority;
-  bool mPowerSave;
-  bool mSuspendMode;
-  bool mExternalSim;
-  bool mAutoReconnect;
+  bool mEnabled;
   nsString mCountryCode;
   nsString mSoftapCountryCode;
   uint8_t mBtCoexistenceMode;
-  bool mBtCoexistenceScanMode;
   uint32_t mBandMask;
   ConfigurationOptions mConfig;
+  SoftapConfigurationOptions mSoftapConfig;
   SupplicantDebugLevelOptions mDebugLevel;
   ScanSettingsOptions mScanSettings;
 };

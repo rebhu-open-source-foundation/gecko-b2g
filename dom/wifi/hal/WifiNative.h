@@ -11,6 +11,7 @@
 
 #include "WifiHalManager.h"
 #include "WificondControl.h"
+#include "SoftapManager.h"
 #include "SupplicantStaManager.h"
 #include "SupplicantEventCallback.h"
 #include "nsString.h"
@@ -68,17 +69,20 @@ class WifiNative {
   bool Disconnect();
   bool RemoveNetworks();
 
-  bool StartSoftAp();
+  bool StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
+                   nsAString& aIfaceName);
   bool StopSoftAp();
-  bool SetSoftApCountryCode(const nsAString& aCountryCode);
+  bool StartAndConnectHostapd();
+  bool StopHostapd();
 
   class SupplicantDeathHandler : virtual public SupplicantDeathEventHandler {
     virtual void OnDeath() override;
   };
 
-  static WifiHal* sWifiHal;
-  static WificondControl* sWificondControl;
-  static SupplicantStaManager* sSupplicantStaManager;
+  static WifiHal* s_WifiHal;
+  static WificondControl* s_WificondControl;
+  static SupplicantStaManager* s_SupplicantStaManager;
+  static SoftapManager* s_SoftapManager;
 
   std::string mStaInterfaceName;
   std::string mApInterfaceName;

@@ -16,7 +16,7 @@ constexpr uint32_t key_mgmt_none =
 constexpr uint32_t key_mgmt_wpa_psk =
     (ISupplicantStaNetwork::KeyMgmtMask::WPA_PSK | 0x0);
 
-mozilla::Mutex SupplicantStaNetwork::sLock("supplicant-network");
+mozilla::Mutex SupplicantStaNetwork::s_Lock("supplicant-network");
 
 SupplicantStaNetwork::SupplicantStaNetwork(ISupplicantStaNetwork* aNetwork) {
   mNetwork = aNetwork;

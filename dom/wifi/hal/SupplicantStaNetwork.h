@@ -71,7 +71,7 @@ class SupplicantStaNetwork
   SupplicantStatusCode SetKeyMgmt(int32_t aKeyMgmtMask);
   SupplicantStatusCode SetPsk(const std::string& aPsk);
 
-  static mozilla::Mutex sLock;
+  static mozilla::Mutex s_Lock;
 
   android::sp<ISupplicantStaNetwork> mNetwork;
 };

@@ -27,6 +27,9 @@ class nsWifiEvent final : public nsIWifiEvent {
   void updateStateChanged(nsStateChanged* aStateChanged);
 
   nsString mName;
+  nsString mBssid;
+  bool mLocallyGenerated;
+  uint32_t mReason;
   RefPtr<nsIStateChanged> mStateChanged;
 
  private:

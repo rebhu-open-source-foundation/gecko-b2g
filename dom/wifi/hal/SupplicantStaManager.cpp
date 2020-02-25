@@ -13,13 +13,15 @@
 #include <string.h>
 #include <mozilla/ClearOnShutdown.h>
 
+#define EVENT_SUPPLICANT_TERMINATING "SUPPLICANT_TERMINATING"
 #define EVENT_SUPPLICANT_STATE_CHANGED "SUPPLICANT_STATE_CHANGED"
+#define EVENT_SUPPLICANT_NETWORK_DISCONNECTED "SUPPLICANT_NETWORK_DISCONNECTED"
 
 static const char SUPPLICANT_INTERFACE_NAME[] =
     "android.hardware.wifi.supplicant@1.2::ISupplicant";
 
-mozilla::Mutex SupplicantStaManager::sLock("supplicant-sta");
-SupplicantStaManager* SupplicantStaManager::sInstance = nullptr;
+mozilla::Mutex SupplicantStaManager::s_Lock("supplicant-sta");
+SupplicantStaManager* SupplicantStaManager::s_Instance = nullptr;
 
 SupplicantStaManager::SupplicantStaManager()
     : mServiceManager(nullptr),
@@ -33,26 +35,26 @@ SupplicantStaManager::SupplicantStaManager()
 SupplicantStaManager::~SupplicantStaManager() {}
 
 SupplicantStaManager* SupplicantStaManager::Get() {
-  if (sInstance == nullptr) {
-    sInstance = new SupplicantStaManager();
-    mozilla::ClearOnShutdown(&sInstance);
+  if (s_Instance == nullptr) {
+    s_Instance = new SupplicantStaManager();
+    mozilla::ClearOnShutdown(&s_Instance);
   }
-  return sInstance;
+  return s_Instance;
 }
 
 void SupplicantStaManager::CleanUp() {
-  if (sInstance != nullptr) {
-    SupplicantStaManager::Get()->DeinitSupplicantInterface();
+  if (s_Instance != nullptr) {
+    SupplicantStaManager::Get()->DeinitInterface();
 
-    delete sInstance;
-    sInstance = nullptr;
+    delete s_Instance;
+    s_Instance = nullptr;
   }
 }
 
 void SupplicantStaManager::ServiceManagerDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGE(LOG_TAG, "IServiceManager HAL died, cleanup instance.");
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
 
   if (mOuter != nullptr) {
     mOuter->supplicantServiceDiedHandler(mOuter->mDeathRecipientCookie);
@@ -63,7 +65,7 @@ void SupplicantStaManager::ServiceManagerDeathRecipient::serviceDied(
 void SupplicantStaManager::SupplicantDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGE(LOG_TAG, "ISupplicant HAL died, cleanup instance.");
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
 
   if (mOuter != nullptr) {
     mOuter->supplicantServiceDiedHandler(mOuter->mDeathRecipientCookie);
@@ -79,19 +81,17 @@ void SupplicantStaManager::UnregisterEventCallback() {
   mEventCallback = nullptr;
 }
 
-bool SupplicantStaManager::InitSupplicantInterface() {
+bool SupplicantStaManager::InitInterface() {
   if (mSupplicant != nullptr) {
     return true;
   }
   return InitServiceManager();
 }
 
-bool SupplicantStaManager::DeinitSupplicantInterface() {
-  return TearDownInterface();
-}
+bool SupplicantStaManager::DeinitInterface() { return TearDownInterface(); }
 
 bool SupplicantStaManager::InitServiceManager() {
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
   if (mServiceManager != nullptr) {
     // service already existed.
     return true;
@@ -105,7 +105,8 @@ bool SupplicantStaManager::InitServiceManager() {
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
-    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
+    mServiceManagerDeathRecipient =
+        new ServiceManagerDeathRecipient(s_Instance);
   }
   Return<bool> linked =
       mServiceManager->linkToDeath(mServiceManagerDeathRecipient, 0);
@@ -125,13 +126,13 @@ bool SupplicantStaManager::InitServiceManager() {
   return true;
 }
 
-bool SupplicantStaManager::InitSupplicant() {
-  MutexAutoLock lock(sLock);
+bool SupplicantStaManager::InitSupplicantInterface() {
+  MutexAutoLock lock(s_Lock);
   mSupplicant = ISupplicant::getService();
 
   if (mSupplicant != nullptr) {
     if (mSupplicantDeathRecipient == nullptr) {
-      mSupplicantDeathRecipient = new SupplicantDeathRecipient(sInstance);
+      mSupplicantDeathRecipient = new SupplicantDeathRecipient(s_Instance);
     }
     if (mSupplicantDeathRecipient != nullptr) {
       mDeathRecipientCookie = mDeathRecipientCookie + 1;
@@ -141,6 +142,7 @@ bool SupplicantStaManager::InitSupplicant() {
         WIFI_LOGE(LOG_TAG,
                   "Failed to link to supplicant hal death notifications");
         supplicantServiceDiedHandler(mDeathRecipientCookie);
+        mSupplicant = nullptr;
         return false;
       }
     }
@@ -161,11 +163,18 @@ bool SupplicantStaManager::InitSupplicant() {
   return true;
 }
 
-bool SupplicantStaManager::IsSupplicantReady() {
+bool SupplicantStaManager::IsInterfaceInitializing() {
+  MutexAutoLock lock(s_Lock);
+  return mServiceManager != nullptr;
+}
+
+bool SupplicantStaManager::IsInterfaceReady() {
+  MutexAutoLock lock(s_Lock);
   return mSupplicant != nullptr;
 }
 
 bool SupplicantStaManager::TearDownInterface() {
+  MutexAutoLock lock(s_Lock);
   if (mSupplicantStaIface.get()) {
     SupplicantStatus response;
     ISupplicant::IfaceInfo info;
@@ -550,7 +559,7 @@ Return<void> SupplicantStaManager::onRegistration(const hidl_string& fqName,
                                                   const hidl_string& name,
                                                   bool preexisting) {
   // start to initialize supplicant hidl interface.
-  if (!InitSupplicant()) {
+  if (!InitSupplicantInterface()) {
     WIFI_LOGE(LOG_TAG, "initialize ISupplicant failed");
     supplicantServiceDiedHandler(mDeathRecipientCookie);
   }
@@ -575,7 +584,14 @@ Return<void> SupplicantStaManager::onInterfaceRemoved(
 }
 
 Return<void> SupplicantStaManager::onTerminating() {
+  MutexAutoLock lock(s_Lock);
   WIFI_LOGD(LOG_TAG, "SupplicantCallback.onTerminating()");
+  nsCString iface(mStaInterfaceName);
+  RefPtr<nsWifiEvent> event =
+      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_TERMINATING));
+  if (mEventCallback) {
+    mEventCallback(event, iface);
+  }
   return android::hardware::Void();
 }
 
@@ -596,7 +612,7 @@ Return<void> SupplicantStaManager::onStateChanged(
     ISupplicantStaIfaceCallback::State newState,
     const android::hardware::hidl_array<uint8_t, 6>& bssid, uint32_t id,
     const android::hardware::hidl_vec<uint8_t>& ssid) {
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onStateChanged()");
 
   std::string bssid_str = ConvertMacToString(bssid);
@@ -655,7 +671,20 @@ Return<void> SupplicantStaManager::onHs20DeauthImminentNotice(
 Return<void> SupplicantStaManager::onDisconnected(
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
     bool locallyGenerated, ISupplicantStaIfaceCallback::ReasonCode reasonCode) {
+  MutexAutoLock lock(s_Lock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onDisconnected()");
+
+  std::string bssid_str = ConvertMacToString(bssid);
+  nsCString iface(mStaInterfaceName);
+  RefPtr<nsWifiEvent> event =
+      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_NETWORK_DISCONNECTED));
+  event->mBssid = NS_ConvertUTF8toUTF16(bssid_str.c_str());
+  event->mLocallyGenerated = locallyGenerated;
+  event->mReason = (uint32_t)reasonCode;
+
+  if (mEventCallback) {
+    mEventCallback(event, iface);
+  }
   return android::hardware::Void();
 }
 

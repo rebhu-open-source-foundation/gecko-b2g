@@ -289,6 +289,28 @@ def supplicant_1_2_so(value):
 
 set_config('ANDROID_SUPPLICANT_1_2_SO', supplicant_1_2_so)
 
+# Hostapd 1.0 Support
+# ==============================================================
+option('--with-hostapd-1.0-so', nargs=1,
+       help='Assign the path of android.hardware.wifi.hostapd@1.0.so')
+
+@depends_if('--with-hostapd-1.0-so')
+def hostapd_1_0_so(value):
+    return value[0]
+
+set_config('ANDROID_HOSTAPD_1_0_SO', hostapd_1_0_so)
+
+# Hostapd 1.1 Support
+# ==============================================================
+option('--with-hostapd-1.1-so', nargs=1,
+       help='Assign the path of android.hardware.wifi.hostapd@1.1.so')
+
+@depends_if('--with-hostapd-1.1-so')
+def hostapd_1_1_so(value):
+    return value[0]
+
+set_config('ANDROID_HOSTAPD_1_1_SO', hostapd_1_1_so)
+
 # Wificond Support
 # ==============================================================
 option('--with-wificond-so', nargs=1,

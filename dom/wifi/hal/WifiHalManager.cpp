@@ -14,8 +14,8 @@
 
 static const char WIFI_INTERFACE_NAME[] = "android.hardware.wifi@1.0::IWifi";
 
-WifiHal* WifiHal::sInstance = nullptr;
-mozilla::Mutex WifiHal::sLock("wifi-hidl");
+WifiHal* WifiHal::s_Instance = nullptr;
+mozilla::Mutex WifiHal::s_Lock("wifi-hidl");
 
 WifiHal::WifiHal()
     : mWifi(nullptr),
@@ -30,24 +30,24 @@ WifiHal::WifiHal()
 }
 
 WifiHal* WifiHal::Get() {
-  if (sInstance == nullptr) {
-    sInstance = new WifiHal();
+  if (s_Instance == nullptr) {
+    s_Instance = new WifiHal();
   }
-  mozilla::ClearOnShutdown(&sInstance);
-  return sInstance;
+  mozilla::ClearOnShutdown(&s_Instance);
+  return s_Instance;
 }
 
 void WifiHal::CleanUp() {
-  if (sInstance != nullptr) {
-    delete sInstance;
-    sInstance = nullptr;
+  if (s_Instance != nullptr) {
+    delete s_Instance;
+    s_Instance = nullptr;
   }
 }
 
 void WifiHal::ServiceManagerDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGE(LOG_TAG, "IServiceManager HAL died, cleanup instance.");
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
   if (mOuter != nullptr) {
     mOuter->mServiceManager = nullptr;
     mOuter->InitServiceManager();
@@ -57,14 +57,14 @@ void WifiHal::ServiceManagerDeathRecipient::serviceDied(
 void WifiHal::WifiServiceDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGD(LOG_TAG, "IWifi HAL died, cleanup instance.");
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
   if (mOuter != nullptr) {
     mOuter->mWifi = nullptr;
     mOuter->InitWifiInterface();
   }
 }
 
-bool WifiHal::StartWifi() {
+bool WifiHal::StartWifiModule() {
   // initialize wifi hal interface at first.
   InitWifiInterface();
 
@@ -100,7 +100,7 @@ bool WifiHal::StartWifi() {
   return false;
 }
 
-bool WifiHal::StopWifi() {
+bool WifiHal::StopWifiModule() {
   if (mWifi == nullptr) {
     WIFI_LOGE(LOG_TAG, "stopWifi: mWifi is null");
     return false;
@@ -116,15 +116,14 @@ bool WifiHal::StopWifi() {
     WIFI_LOGE(LOG_TAG, "Cannot stop IWifi: %d", status.code);
     return false;
   }
-
-  mStaIface = nullptr;
-  mP2pIface = nullptr;
-  mApIface = nullptr;
   return true;
 }
 
-bool WifiHal::TearDownInterface() {
-  if (!StopWifi()) {
+bool WifiHal::TearDownInterface(const wifiNameSpace::IfaceType& aType) {
+  if (!RemoveInterfaceInternal(aType)) {
+    return false;
+  }
+  if (!StopWifiModule()) {
     return false;
   }
   mWifi = nullptr;
@@ -140,7 +139,7 @@ bool WifiHal::InitHalInterface() {
 }
 
 bool WifiHal::InitServiceManager() {
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
   if (mServiceManager != nullptr) {
     // service already existed.
     return true;
@@ -154,7 +153,8 @@ bool WifiHal::InitServiceManager() {
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
-    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
+    mServiceManagerDeathRecipient =
+        new ServiceManagerDeathRecipient(s_Instance);
   }
   Return<bool> linked =
       mServiceManager->linkToDeath(mServiceManagerDeathRecipient, 0);
@@ -174,7 +174,7 @@ bool WifiHal::InitServiceManager() {
 }
 
 bool WifiHal::InitWifiInterface() {
-  MutexAutoLock lock(sLock);
+  MutexAutoLock lock(s_Lock);
   if (mWifi != nullptr) {
     return true;
   }
@@ -182,7 +182,7 @@ bool WifiHal::InitWifiInterface() {
   mWifi = IWifi::getService();
   if (mWifi != nullptr) {
     if (mDeathRecipient == nullptr) {
-      mDeathRecipient = new WifiServiceDeathRecipient(sInstance);
+      mDeathRecipient = new WifiServiceDeathRecipient(s_Instance);
     }
 
     if (mDeathRecipient != nullptr) {
@@ -204,7 +204,7 @@ bool WifiHal::InitWifiInterface() {
     }
 
     // wifi hal just initialized, stop wifi in case driver is loaded.
-    StopWifi();
+    StopWifiModule();
   } else {
     WIFI_LOGE(LOG_TAG, "get wifi hal failed");
     return false;
@@ -351,6 +351,20 @@ bool WifiHal::GetStaCapabilities(uint32_t& aStaCapabilities) {
   return (response.code == WifiStatusCode::SUCCESS);
 }
 
+bool WifiHal::SetSoftapCountryCode(std::string aCountryCode) {
+  if (aCountryCode.length() != 2) {
+    WIFI_LOGE(LOG_TAG, "Invalid country code: %s", aCountryCode.c_str());
+    return false;
+  }
+  std::array<int8_t, 2> countryCode;
+  countryCode[0] = aCountryCode.at(0);
+  countryCode[1] = aCountryCode.at(1);
+
+  WifiStatus response;
+  HIDL_SET(mApIface, setCountryCode, WifiStatus, response, countryCode);
+  return (response.code == WifiStatusCode::SUCCESS);
+}
+
 std::string WifiHal::GetInterfaceName(const wifiNameSpace::IfaceType& aType) {
   return mIfaceNameMap.at(aType);
 }
@@ -391,6 +405,29 @@ std::string WifiHal::QueryInterfaceName(const android::sp<IWifiIface>& aIface) {
   aIface->getName([&ifaceName](const WifiStatus& status,
                                const hidl_string& name) { ifaceName = name; });
   return ifaceName;
+}
+
+bool WifiHal::RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType) {
+  WifiStatus response;
+  std::string ifname = mIfaceNameMap.at(aType);
+  switch (aType) {
+    case wifiNameSpace::IfaceType::STA:
+      HIDL_SET(mWifiChip, removeStaIface, WifiStatus, response, ifname);
+      mStaIface = nullptr;
+      break;
+    case wifiNameSpace::IfaceType::P2P:
+      HIDL_SET(mWifiChip, removeP2pIface, WifiStatus, response, ifname);
+      mP2pIface = nullptr;
+      break;
+    case wifiNameSpace::IfaceType::AP:
+      HIDL_SET(mWifiChip, removeApIface, WifiStatus, response, ifname);
+      mApIface = nullptr;
+      break;
+    default:
+      WIFI_LOGE(LOG_TAG, "Invalid interface type");
+      return false;
+  }
+  return (response.code == WifiStatusCode::SUCCESS);
 }
 
 /**
