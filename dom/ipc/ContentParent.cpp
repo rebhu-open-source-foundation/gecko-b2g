@@ -1534,7 +1534,7 @@ void ContentParent::Init() {
 
   // Ensure that the default set of permissions are avaliable in the content
   // process before we try to load any URIs in it.
-  EnsurePermissionsByKey(EmptyCString());
+  EnsurePermissionsByKey(EmptyCString(), EmptyCString());
 
   RefPtr<GeckoMediaPluginServiceParent> gmps(
       GeckoMediaPluginServiceParent::GetSingleton());
@@ -6165,11 +6165,11 @@ nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
 nsresult ContentParent::TransmitPermissionsForPrincipal(
     nsIPrincipal* aPrincipal) {
   // Create the key, and send it down to the content process.
-  nsTArray<nsCString> keys =
+  nsTArray<Pair<nsCString, nsCString>> pairs =
       nsPermissionManager::GetAllKeysForPrincipal(aPrincipal);
-  MOZ_ASSERT(keys.Length() >= 1);
-  for (auto& key : keys) {
-    EnsurePermissionsByKey(key);
+  MOZ_ASSERT(pairs.Length() >= 1);
+  for (auto& pair : pairs) {
+    EnsurePermissionsByKey(pair.first(), pair.second());
   }
 
   return NS_OK;
@@ -6209,7 +6209,8 @@ void ContentParent::TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal) {
   }
 }
 
-void ContentParent::EnsurePermissionsByKey(const nsCString& aKey) {
+void ContentParent::EnsurePermissionsByKey(const nsCString& aKey,
+                                           const nsCString& aOrigin) {
   // NOTE: Make sure to initialize the permission manager before updating the
   // mActivePermissionKeys list. If the permission manager is being initialized
   // by this call to GetPermissionManager, and we've added the key to
@@ -6226,7 +6227,7 @@ void ContentParent::EnsurePermissionsByKey(const nsCString& aKey) {
   mActivePermissionKeys.PutEntry(aKey);
 
   nsTArray<IPC::Permission> perms;
-  if (permManager->GetPermissionsWithKey(aKey, perms)) {
+  if (permManager->GetPermissionsFromOriginOrKey(aOrigin, aKey, perms)) {
     Unused << SendSetPermissionsWithKey(aKey, perms);
   }
 }

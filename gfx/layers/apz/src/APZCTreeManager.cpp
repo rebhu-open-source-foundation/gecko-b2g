@@ -680,10 +680,9 @@ void APZCTreeManager::UpdateHitTestingTree(
                            aPaintSequenceNumber);
 }
 
-void APZCTreeManager::SampleForWebRender(
-    wr::TransactionWrapper& aTxn, const TimeStamp& aSampleTime,
-    wr::RenderRoot aRenderRoot,
-    const wr::WrPipelineIdEpochs* aEpochsBeingRendered) {
+void APZCTreeManager::SampleForWebRender(wr::TransactionWrapper& aTxn,
+                                         const TimeStamp& aSampleTime,
+                                         wr::RenderRoot aRenderRoot) {
   AssertOnSamplerThread();
   MutexAutoLock lock(mMapLock);
 
@@ -706,33 +705,12 @@ void APZCTreeManager::SampleForWebRender(
                                        asyncTransformComponents)
             .mTranslation;
 
-    if (Maybe<CompositionPayload> payload = apzc->NotifyScrollSampling()) {
-      RefPtr<WebRenderBridgeParent> wrBridgeParent;
-      LayersId layersId = apzc->GetGuid().mLayersId;
-      CompositorBridgeParent::CallWithIndirectShadowTree(
-          layersId, [&](LayerTreeState& aState) -> void {
-            wrBridgeParent = aState.mWrBridge;
-          });
-
-      if (wrBridgeParent) {
-        wr::PipelineId pipelineId = wr::AsPipelineId(layersId);
-        for (size_t i = 0; i < aEpochsBeingRendered->Length(); i++) {
-          if ((*aEpochsBeingRendered)[i].pipeline_id == pipelineId) {
-            auto& epoch = (*aEpochsBeingRendered)[i].epoch;
-            wrBridgeParent->AddPendingScrollPayload(
-                *payload, std::make_pair(pipelineId, epoch));
-            break;
-          }
-        }
-      }
-    }
-
     if (Maybe<uint64_t> zoomAnimationId = apzc->GetZoomAnimationId()) {
       // for now we only support zooming on root content APZCs
       MOZ_ASSERT(apzc->IsRootContent());
 
-      LayoutDeviceToParentLayerScale zoom =
-        apzc->GetCurrentPinchZoomScale(AsyncPanZoomController::eForCompositing);
+      LayoutDeviceToParentLayerScale zoom = apzc->GetCurrentPinchZoomScale(
+          AsyncPanZoomController::eForCompositing);
 
       AsyncTransform asyncVisualTransform = apzc->GetCurrentAsyncTransform(
           AsyncPanZoomController::eForCompositing,
@@ -755,7 +733,8 @@ void APZCTreeManager::SampleForWebRender(
     // async zoom. However, we only use LayoutAndVisual for non-zoomable APZCs,
     // so it makes no difference.
     LayoutDeviceToParentLayerScale resolution =
-        apzc->GetCumulativeResolution().ToScaleFactor() * LayerToParentLayerScale(1.0f);
+        apzc->GetCumulativeResolution().ToScaleFactor() *
+        LayerToParentLayerScale(1.0f);
     // The positive translation means the painted content is supposed to
     // move down (or to the right), and that corresponds to a reduction in
     // the scroll offset. Since we are effectively giving WR the async
@@ -2736,6 +2715,8 @@ APZCTreeManager::HitTestResult APZCTreeManager::GetAPZCAtPointWR(
   ScrollableLayerGuid::ViewID scrollId;
   gfx::CompositorHitTestInfo hitInfo;
   SideBits sideBits = SideBits::eNone;
+  APZCTM_LOG("Hit-testing point %s with WR\n",
+             Stringify(aHitTestPoint).c_str());
   bool hitSomething = wr->HitTest(wr::ToWorldPoint(aHitTestPoint), pipelineId,
                                   scrollId, hitInfo, sideBits);
   if (!hitSomething) {

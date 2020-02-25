@@ -1890,11 +1890,6 @@ bool nsStyleImageLayers::operator==(const nsStyleImageLayers& aOther) const {
   return true;
 }
 
-bool nsStyleImageLayers::IsInitialPositionForLayerType(Position aPosition,
-                                                       LayerType aType) {
-  return aPosition == Position::FromPercentage(0.);
-}
-
 static bool SizeDependsOnPositioningAreaSize(const StyleBackgroundSize& aSize,
                                              const StyleImage& aImage) {
   MOZ_ASSERT(!aImage.IsNone(), "caller should have handled this");
@@ -1975,8 +1970,7 @@ nsStyleImageLayers::Layer::Layer()
       mAttachment(StyleImageLayerAttachment::Scroll),
       mBlendMode(NS_STYLE_BLEND_NORMAL),
       mComposite(NS_STYLE_MASK_COMPOSITE_ADD),
-      mMaskMode(StyleMaskMode::MatchSource) {
-}
+      mMaskMode(StyleMaskMode::MatchSource) {}
 
 nsStyleImageLayers::Layer::~Layer() {}
 
@@ -2918,8 +2912,8 @@ static StyleRGBA DefaultColor(const Document& aDocument) {
 nsStyleText::nsStyleText(const Document& aDocument)
     : mColor(DefaultColor(aDocument)),
       mTextTransform(StyleTextTransform::None()),
-      mTextAlign(NS_STYLE_TEXT_ALIGN_START),
-      mTextAlignLast(NS_STYLE_TEXT_ALIGN_AUTO),
+      mTextAlign(StyleTextAlign::Start),
+      mTextAlignLast(StyleTextAlignLast::Auto),
       mTextJustify(StyleTextJustify::Auto),
       mWhiteSpace(StyleWhiteSpace::Normal),
       mHyphens(StyleHyphens::Manual),
@@ -3123,7 +3117,8 @@ void nsStyleUI::TriggerImageLoads(Document& aDocument,
   MOZ_ASSERT(NS_IsMainThread());
 
   auto cursorImages = mCursor.images.AsSpan();
-  auto oldCursorImages = aOldStyle ? aOldStyle->mCursor.images.AsSpan() : Span<const StyleCursorImage>();
+  auto oldCursorImages = aOldStyle ? aOldStyle->mCursor.images.AsSpan()
+                                   : Span<const StyleCursorImage>();
   for (size_t i = 0; i < cursorImages.Length(); ++i) {
     auto& cursor = cursorImages[i];
 
@@ -3479,7 +3474,8 @@ ResultT StyleCalcNode::ResolveInternal(ResultT aPercentageBasis,
       auto children = AsMinMax()._0.AsSpan();
       StyleMinMaxOp op = AsMinMax()._1;
 
-      ResultT result = children[0].ResolveInternal(aPercentageBasis, aConverter);
+      ResultT result =
+          children[0].ResolveInternal(aPercentageBasis, aConverter);
       for (auto& child : children.From(1)) {
         ResultT candidate = child.ResolveInternal(aPercentageBasis, aConverter);
         if (op == StyleMinMaxOp::Max) {
@@ -3503,12 +3499,12 @@ ResultT StyleCalcNode::ResolveInternal(ResultT aPercentageBasis,
   return 0;
 }
 
-template<>
+template <>
 CSSCoord StyleCalcNode::ResolveToCSSPixels(CSSCoord aBasis) const {
   return ResolveInternal(aBasis, [](CSSCoord aPercent) { return aPercent; });
 }
 
-template<>
+template <>
 nscoord StyleCalcNode::Resolve(nscoord aBasis,
                                CoordPercentageRounder aRounder) const {
   return ResolveInternal(aBasis, aRounder);

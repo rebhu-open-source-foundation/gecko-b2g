@@ -9046,7 +9046,6 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
             : scrollPosition);
 
     if (aIsRootContent) {
-
       if (aLayerManager->GetIsFirstPaint() &&
           presShell->IsVisualViewportOffsetSet()) {
         // Restore the visual viewport offset to the copy stored on the

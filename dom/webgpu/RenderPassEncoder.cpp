@@ -76,6 +76,8 @@ ffi::WGPURawPass BeginRenderPass(RawId aEncoderId,
              WGPUMAX_COLOR_TARGETS>
       colorDescs = {};
   desc.color_attachments = colorDescs.data();
+  desc.color_attachments_length = aDesc.mColorAttachments.Length();
+
   for (size_t i = 0; i < aDesc.mColorAttachments.Length(); ++i) {
     const auto& ca = aDesc.mColorAttachments[i];
     ffi::WGPURenderPassColorAttachmentDescriptor& cd = colorDescs[i];
@@ -105,8 +107,7 @@ ffi::WGPURawPass BeginRenderPass(RawId aEncoderId,
         }
       }
       if (ca.mLoadValue.IsGPUColorDict()) {
-        cd.clear_color =
-            ConvertColor(ca.mLoadValue.GetAsGPUColorDict());
+        cd.clear_color = ConvertColor(ca.mLoadValue.GetAsGPUColorDict());
       }
     }
   }

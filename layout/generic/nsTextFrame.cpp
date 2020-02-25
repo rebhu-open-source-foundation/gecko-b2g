@@ -2181,9 +2181,9 @@ already_AddRefed<gfxTextRun> BuildTextRunsScanner::BuildTextRunForFrames(
   nsTextFrame* nextBreakBeforeFrame = GetNextBreakBeforeFrame(&nextBreakIndex);
   bool isSVG = nsSVGUtils::IsInSVGTextSubtree(mLineContainer);
   bool enabledJustification =
-      (mLineContainer->StyleText()->mTextAlign == NS_STYLE_TEXT_ALIGN_JUSTIFY ||
+      (mLineContainer->StyleText()->mTextAlign == StyleTextAlign::Justify ||
        mLineContainer->StyleText()->mTextAlignLast ==
-           NS_STYLE_TEXT_ALIGN_JUSTIFY);
+           StyleTextAlignLast::Justify);
 
   const nsStyleText* textStyle = nullptr;
   const nsStyleFont* fontStyle = nullptr;
@@ -5284,9 +5284,8 @@ nsRect nsTextFrame::UpdateTextEmphasis(WritingMode aWM,
 // https://drafts.csswg.org/css-text-decor-4/#text-decoration-width-property
 // Returns the thickness in device pixels.
 static gfxFloat ComputeDecorationLineThickness(
-    const StyleTextDecorationLength& aThickness,
-    const gfxFloat aAutoValue, const gfxFont::Metrics& aFontMetrics,
-    const gfxFloat aAppUnitsPerDevPixel) {
+    const StyleTextDecorationLength& aThickness, const gfxFloat aAutoValue,
+    const gfxFont::Metrics& aFontMetrics, const gfxFloat aAppUnitsPerDevPixel) {
   if (aThickness.IsAuto()) {
     return aAutoValue;
   }
@@ -5371,9 +5370,10 @@ static gfxFloat ComputeDecorationLineOffset(
     // to a minimum of 1/16 em (equivalent to 1px at font-size 16px) to mitigate
     // skip-ink issues with fonts that leave the underlineOffset field as zero.
     MOZ_ASSERT(aPosition.IsAuto());
-    return aOffset.IsAuto()
-            ? std::min(aFontMetrics.underlineOffset, -aFontMetrics.emHeight / 16.0)
-            : -aOffset.AsLengthPercentage().Resolve(em) / aAppUnitsPerDevPixel;
+    return aOffset.IsAuto() ? std::min(aFontMetrics.underlineOffset,
+                                       -aFontMetrics.emHeight / 16.0)
+                            : -aOffset.AsLengthPercentage().Resolve(em) /
+                                  aAppUnitsPerDevPixel;
   }
 
   if (aLineType == StyleTextDecorationLine::OVERLINE) {
@@ -9544,9 +9544,9 @@ void nsTextFrame::ReflowText(nsLineLayout& aLineLayout, nscoord aAvailableWidth,
 
   // Compute space and letter counts for justification, if required
   if (!textStyle->WhiteSpaceIsSignificant() &&
-      (lineContainer->StyleText()->mTextAlign == NS_STYLE_TEXT_ALIGN_JUSTIFY ||
+      (lineContainer->StyleText()->mTextAlign == StyleTextAlign::Justify ||
        lineContainer->StyleText()->mTextAlignLast ==
-           NS_STYLE_TEXT_ALIGN_JUSTIFY ||
+           StyleTextAlignLast::Justify ||
        shouldSuppressLineBreak) &&
       !nsSVGUtils::IsInSVGTextSubtree(lineContainer)) {
     AddStateBits(TEXT_JUSTIFICATION_ENABLED);
