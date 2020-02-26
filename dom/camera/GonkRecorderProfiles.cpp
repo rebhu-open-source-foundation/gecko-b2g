@@ -294,7 +294,7 @@ GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId)
   ProfileHashtable* profiles = sProfiles.Get(aCameraId);
   if (!profiles) {
     profiles = new ProfileHashtable();
-    sProfiles.Put(aCameraId, profiles);
+    sProfiles.Put(aCameraId, std::move(profiles));
 
     /* First handle the profiles with a known enum. We can process those
        efficently because MediaProfiles indexes their profiles that way. */
@@ -313,7 +313,7 @@ GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId)
       DOM_CAMERA_LOGI("Profile %d '%s' supported by platform\n", p.quality, p.name);
       profile->mName.AssignASCII(p.name);
       profile->mPriority = p.priority;
-      profiles->Put(profile->GetName(), profile);
+      profiles->Put(profile->GetName(), RefPtr{profile});
     }
 
     /* However not all of the potentially supported profiles have a known
@@ -343,7 +343,7 @@ GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId)
           DOM_CAMERA_LOGI("Profile %d '%s' supported by platform\n", q, p.name);
           profile->mName.AssignASCII(p.name);
           profile->mPriority = p.priority;
-          profiles->Put(profile->GetName(), profile);
+          profiles->Put(profile->GetName(), RefPtr{profile});
           break;
         }
       }

@@ -269,7 +269,7 @@ CameraRecorderProfiles::NamedGetter(const nsAString& aName, bool& aFound)
     RefPtr<ICameraControl::RecorderProfile> p = mCameraControl->GetProfileInfo(aName);
     if (p) {
       profile = new CameraRecorderProfile(this, *p);
-      mProfiles.Put(aName, profile);
+      mProfiles.Put(aName, RefPtr{profile});
       aFound = true;
     }
   }

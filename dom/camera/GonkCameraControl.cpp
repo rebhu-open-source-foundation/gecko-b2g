@@ -2189,7 +2189,7 @@ nsGonkCameraControl::LoadRecorderProfiles()
       for (nsTArray<Size>::size_type n = 0; n < sizes.Length(); ++n) {
         if (static_cast<uint32_t>(width) == sizes[n].width &&
             static_cast<uint32_t>(height) == sizes[n].height) {
-          mRecorderProfiles.Put(profiles[i]->GetName(), profiles[i]);
+          mRecorderProfiles.Put(profiles[i]->GetName(), RefPtr{profiles[i]});
 
           // "Best" or default profile is the one with the lowest priority
           // value and largest area.
@@ -2209,7 +2209,7 @@ nsGonkCameraControl::LoadRecorderProfiles()
     if (bestAreaMatch > 0) {
       nsAutoString name;
       name.AssignASCII("default");
-      mRecorderProfiles.Put(name, profiles[bestIndexMatch]);
+      mRecorderProfiles.Put(name, RefPtr{profiles[bestIndexMatch]});
     }
   }
 
