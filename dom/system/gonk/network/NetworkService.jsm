@@ -734,7 +734,7 @@ NetworkService.prototype = {
 
       this.setNetworkTetheringAlarm(aEnable, aConfig.externalIfname);
 
-      if (result) {
+      if (!result) {
         aCallback.wifiTetheringEnabledChange("netd command error");
       } else {
         aCallback.wifiTetheringEnabledChange(null);
