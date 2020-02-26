@@ -17,3 +17,11 @@ partial interface B2G {
   [Throws, Exposed=Window]
   readonly attribute TetheringManager tetheringManager;
 };
+
+#ifdef HAS_KOOST_MODULES
+[Exposed=(Window,Worker)]
+partial interface B2G {
+  [Throws]
+  readonly attribute ExternalAPI externalapi;
+};
+#endif

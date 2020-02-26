@@ -16,6 +16,9 @@
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 #include "mozilla/dom/TetheringManagerBinding.h"
+#ifdef HAS_KOOST_MODULES
+#  include "mozilla/dom/ExternalAPI.h"
+#endif
 
 namespace mozilla {
 namespace dom {
@@ -35,12 +38,18 @@ class B2G final : public nsISupports, public nsWrapperCache {
 
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
 
+#ifdef HAS_KOOST_MODULES
+  ExternalAPI* GetExternalapi(ErrorResult& aRv);
+#endif
   // Shutting down.
   void Shutdown();
 
  private:
   ~B2G();
   RefPtr<TetheringManager> mTetheringManager;
+#ifdef HAS_KOOST_MODULES
+  RefPtr<ExternalAPI> mExternalAPI;
+#endif
 };
 
 }  // namespace dom

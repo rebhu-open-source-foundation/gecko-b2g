@@ -373,6 +373,7 @@ GENERATED_WEBIDL_FILES = [
 
 PREPROCESSED_WEBIDL_FILES = [
     'Animation.webidl',
+    'B2G.webidl',
     'KaiOS.webidl',
     'Navigator.webidl',
     'Node.webidl',
@@ -418,7 +419,6 @@ WEBIDL_FILES = [
     'AudioWorkletNode.webidl',
     'AudioWorkletProcessor.webidl',
     'AutocompleteInfo.webidl',
-    'B2G.webidl',
     'BarProp.webidl',
     'BaseAudioContext.webidl',
     'BaseKeyframeTypes.webidl',

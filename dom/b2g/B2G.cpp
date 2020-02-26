@@ -35,6 +35,9 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
+#ifdef HAS_KOOST_MODULES
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -61,6 +64,16 @@ TetheringManager* B2G::GetTetheringManager(ErrorResult& aRv) {
 
   return mTetheringManager;
 }
+
+#ifdef HAS_KOOST_MODULES
+ExternalAPI* B2G::GetExternalapi(ErrorResult& aRv) {
+  if (!mExternalAPI) {
+    mExternalAPI = ExternalAPI::Create(mOwner);
+  }
+
+  return mExternalAPI;
+}
+#endif
 
 }  // namespace dom
 }  // namespace mozilla
