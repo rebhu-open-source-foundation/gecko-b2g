@@ -524,9 +524,10 @@ void nsDocShell::DestroyChildren() {
   nsDocLoader::DestroyChildren();
 }
 
-NS_IMPL_CYCLE_COLLECTION_INHERITED(nsDocShell, nsDocLoader, mScriptGlobal,
-                                   mInitialClientSource, mSessionHistory,
-                                   mBrowsingContext, mChromeEventHandler)
+NS_IMPL_CYCLE_COLLECTION_WEAK_PTR_INHERITED(nsDocShell, nsDocLoader,
+                                            mScriptGlobal, mInitialClientSource,
+                                            mSessionHistory, mBrowsingContext,
+                                            mChromeEventHandler)
 
 NS_IMPL_ADDREF_INHERITED(nsDocShell, nsDocLoader)
 NS_IMPL_RELEASE_INHERITED(nsDocShell, nsDocLoader)
@@ -9360,9 +9361,11 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
 /* static */ bool nsDocShell::CreateAndConfigureRealChannelForLoadState(
     nsDocShellLoadState* aLoadState, LoadInfo* aLoadInfo,
     nsIInterfaceRequestor* aCallbacks, nsDocShell* aDocShell,
-    const nsString* aInitiatorType, nsLoadFlags aLoadFlags, uint32_t aLoadType,
-    uint32_t aCacheKey, bool aIsActive, bool aIsTopLevelDoc,
-    bool aHasNonEmptySandboxingFlags, nsresult& aRv, nsIChannel** aChannel) {
+    nsLoadFlags aLoadFlags, uint32_t aLoadType, uint32_t aCacheKey,
+    bool aIsActive, bool aIsTopLevelDoc, bool aHasNonEmptySandboxingFlags,
+    nsresult& aRv, nsIChannel** aChannel) {
+  MOZ_ASSERT(aLoadInfo);
+
   nsString srcdoc = VoidString();
   bool isSrcdoc = aLoadState->HasLoadFlags(INTERNAL_LOAD_FLAGS_IS_SRCDOC);
   if (isSrcdoc) {
@@ -9554,8 +9557,10 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
   if (nsCOMPtr<nsITimedChannel> timedChannel = do_QueryInterface(channel)) {
     timedChannel->SetTimingEnabled(true);
 
-    if (aInitiatorType) {
-      timedChannel->SetInitiatorType(*aInitiatorType);
+    RefPtr<dom::BrowsingContext> bc;
+    MOZ_ALWAYS_SUCCEEDS(aLoadInfo->GetFrameBrowsingContext(getter_AddRefs(bc)));
+    if (bc && bc->GetEmbedderElementType()) {
+      timedChannel->SetInitiatorType(*bc->GetEmbedderElementType());
     }
   }
 
@@ -9854,15 +9859,6 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
     cacheKey = mOSHE->GetCacheKey();
   }
 
-  const nsString* initiatorType = nullptr;
-  nsCOMPtr<nsPIDOMWindowOuter> win = GetWindow();
-  if (IsFrame() && win) {
-    nsCOMPtr<Element> frameElement = win->GetFrameElementInternal();
-    if (frameElement) {
-      initiatorType = &frameElement->LocalName();
-    }
-  }
-
   bool isActive = mBrowsingContext->GetIsActive() ||
                   (mLoadType & (LOAD_CMD_NORMAL | LOAD_CMD_HISTORY));
 
@@ -9877,13 +9873,13 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
 
   if (StaticPrefs::browser_tabs_documentchannel() && XRE_IsContentProcess() &&
       canUseDocumentChannel) {
-    channel = new DocumentChannelChild(aLoadState, loadInfo, initiatorType,
-                                       loadFlags, mLoadType, cacheKey, isActive,
+    channel = new DocumentChannelChild(aLoadState, loadInfo, loadFlags,
+                                       mLoadType, cacheKey, isActive,
                                        isTopLevelDoc, sandboxFlags);
     channel->SetNotificationCallbacks(this);
   } else if (!CreateAndConfigureRealChannelForLoadState(
-                 aLoadState, loadInfo, this, this, initiatorType, loadFlags,
-                 mLoadType, cacheKey, isActive, isTopLevelDoc,
+                 aLoadState, loadInfo, this, this, loadFlags, mLoadType,
+                 cacheKey, isActive, isTopLevelDoc,
                  mBrowsingContext->GetSandboxFlags(), rv,
                  getter_AddRefs(channel))) {
     return rv;

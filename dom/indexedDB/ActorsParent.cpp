@@ -4950,8 +4950,6 @@ class DatabaseConnection::UpdateRefcountFunction::DatabaseUpdateFunction final {
 };
 
 class DatabaseConnection::UpdateRefcountFunction::FileInfoEntry final {
-  friend class UpdateRefcountFunction;
-
   RefPtr<FileInfo> mFileInfo;
   int32_t mDelta;
   int32_t mSavepointDelta;
@@ -4961,6 +4959,29 @@ class DatabaseConnection::UpdateRefcountFunction::FileInfoEntry final {
       : mFileInfo(aFileInfo), mDelta(0), mSavepointDelta(0) {
     MOZ_COUNT_CTOR(DatabaseConnection::UpdateRefcountFunction::FileInfoEntry);
   }
+
+  void IncDeltas(bool aUpdateSavepointDelta) {
+    ++mDelta;
+    if (aUpdateSavepointDelta) {
+      ++mSavepointDelta;
+    }
+  }
+  void DecDeltas(bool aUpdateSavepointDelta) {
+    --mDelta;
+    if (aUpdateSavepointDelta) {
+      --mSavepointDelta;
+    }
+  }
+  void DecBySavepointDelta() { mDelta -= mSavepointDelta; }
+  RefPtr<FileInfo> ReleaseFileInfo() { return std::move(mFileInfo); }
+  void MaybeUpdateDBRefs() {
+    if (mDelta) {
+      mFileInfo->UpdateDBRefs(mDelta);
+    }
+  }
+
+  int32_t Delta() const { return mDelta; }
+  int32_t SavepointDelta() const { return mSavepointDelta; }
 
   ~FileInfoEntry() {
     MOZ_COUNT_DTOR(DatabaseConnection::UpdateRefcountFunction::FileInfoEntry);
@@ -10999,7 +11020,8 @@ nsresult DatabaseConnection::UpdateRefcountFunction::WillCommit() {
     const auto& value = entry.GetData();
     MOZ_ASSERT(value);
 
-    if (value->mDelta && !function.Update(entry.GetKey(), value->mDelta)) {
+    const auto delta = value->Delta();
+    if (delta && !function.Update(entry.GetKey(), delta)) {
       break;
     }
   }
@@ -11028,10 +11050,7 @@ void DatabaseConnection::UpdateRefcountFunction::DidCommit() {
     const auto& value = entry.GetData();
 
     MOZ_ASSERT(value);
-
-    if (value->mDelta) {
-      value->mFileInfo->UpdateDBRefs(value->mDelta);
-    }
+    value->MaybeUpdateDBRefs();
   }
 
   if (NS_FAILED(RemoveJournals(mJournalsToRemoveAfterCommit))) {
@@ -11077,7 +11096,7 @@ void DatabaseConnection::UpdateRefcountFunction::RollbackSavepoint() {
 
   for (const auto& entry : mSavepointEntriesIndex) {
     auto* const value = entry.GetData();
-    value->mDelta -= value->mSavepointDelta;
+    value->DecBySavepointDelta();
   }
 
   mInSavepoint = false;
@@ -11165,7 +11184,9 @@ void DatabaseConnection::UpdateRefcountFunction::Reset() {
     const auto& value = entry.GetData();
     MOZ_ASSERT(value);
 
-    FileInfo* const fileInfo = value->mFileInfo.forget().take();
+    // We need to move mFileInfo into a raw pointer in order to release it
+    // explicitly with CustomCleanupCallback.
+    FileInfo* const fileInfo = value->ReleaseFileInfo().forget().take();
     MOZ_ASSERT(fileInfo);
 
     CustomCleanupCallback customCleanupCallback;
@@ -11221,16 +11242,10 @@ nsresult DatabaseConnection::UpdateRefcountFunction::ProcessValue(
 
     switch (aUpdateType) {
       case UpdateType::Increment:
-        entry->mDelta++;
-        if (mInSavepoint) {
-          entry->mSavepointDelta++;
-        }
+        entry->IncDeltas(mInSavepoint);
         break;
       case UpdateType::Decrement:
-        entry->mDelta--;
-        if (mInSavepoint) {
-          entry->mSavepointDelta--;
-        }
+        entry->DecDeltas(mInSavepoint);
         break;
       default:
         MOZ_CRASH("Unknown update type!");
@@ -12870,7 +12885,7 @@ RefPtr<FullDatabaseMetadata> FullDatabaseMetadata::Duplicate() const {
       newIndexMetadata->mCommonMetadata = value->mCommonMetadata;
 
       if (NS_WARN_IF(!newOSMetadata->mIndexes.Put(
-              indexEntry.GetKey(), newIndexMetadata.forget(), fallible))) {
+              indexEntry.GetKey(), std::move(newIndexMetadata), fallible))) {
         return nullptr;
       }
     }
@@ -12879,7 +12894,7 @@ RefPtr<FullDatabaseMetadata> FullDatabaseMetadata::Duplicate() const {
                newOSMetadata->mIndexes.Count());
 
     if (NS_WARN_IF(!newMetadata->mObjectStores.Put(
-            objectStoreEntry.GetKey(), newOSMetadata.forget(), fallible))) {
+            objectStoreEntry.GetKey(), std::move(newOSMetadata), fallible))) {
       return nullptr;
     }
   }
@@ -13454,7 +13469,7 @@ void Database::MapBlob(const IPCBlob& aIPCBlob, FileInfo* aFileInfo) {
       stream.get_PIPCBlobInputStreamParent());
 
   MOZ_ASSERT(!mMappedBlobs.GetWeak(actor->ID()));
-  mMappedBlobs.Put(actor->ID(), aFileInfo);
+  mMappedBlobs.Put(actor->ID(), RefPtr{aFileInfo});
 
   RefPtr<UnmapBlobCallback> callback = new UnmapBlobCallback(this);
   actor->SetCallback(callback);
@@ -15248,8 +15263,8 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateObjectStore(
   newMetadata->mNextAutoIncrementId = aMetadata.autoIncrement() ? 1 : 0;
   newMetadata->mCommittedAutoIncrementId = newMetadata->mNextAutoIncrementId;
 
-  if (NS_WARN_IF(!dbMetadata->mObjectStores.Put(aMetadata.id(), newMetadata,
-                                                fallible))) {
+  if (NS_WARN_IF(!dbMetadata->mObjectStores.Put(
+          aMetadata.id(), std::move(newMetadata), fallible))) {
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -15421,7 +15436,7 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateIndex(
   newMetadata->mCommonMetadata = aMetadata;
 
   if (NS_WARN_IF(!foundObjectStoreMetadata->mIndexes.Put(
-          aMetadata.id(), newMetadata, fallible))) {
+          aMetadata.id(), std::move(newMetadata), fallible))) {
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -16023,8 +16038,7 @@ FileManager::FileManager(PersistenceType aPersistenceType,
       mOrigin(aOrigin),
       mDatabaseName(aDatabaseName),
       mLastFileId(0),
-      mEnforcingQuota(aEnforcingQuota),
-      mInvalidated(false) {}
+      mEnforcingQuota(aEnforcingQuota) {}
 
 nsresult FileManager::Init(nsIFile* aDirectory,
                            mozIStorageConnection* aConnection) {
@@ -16055,9 +16069,13 @@ nsresult FileManager::Init(nsIFile* aDirectory,
     }
   }
 
-  rv = aDirectory->GetPath(mDirectoryPath);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  {
+    nsString directoryPath;
+    rv = aDirectory->GetPath(directoryPath);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+    mDirectoryPath.init(std::move(directoryPath));
   }
 
   nsCOMPtr<nsIFile> journalDirectory;
@@ -16088,9 +16106,13 @@ nsresult FileManager::Init(nsIFile* aDirectory,
     }
   }
 
-  rv = journalDirectory->GetPath(mJournalDirectoryPath);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  {
+    nsString journalDirectoryPath;
+    rv = journalDirectory->GetPath(journalDirectoryPath);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+    mJournalDirectoryPath.init(std::move(journalDirectoryPath));
   }
 
   nsCOMPtr<mozIStorageStatement> stmt;
@@ -16139,8 +16161,7 @@ nsresult FileManager::Invalidate() {
 
   MutexAutoLock lock(IndexedDatabaseManager::FileMutex());
 
-  MOZ_ASSERT(!mInvalidated);
-  mInvalidated = true;
+  mInvalidated.Flip();
 
   for (auto iter = mFileInfos.Iter(); !iter.Done(); iter.Next()) {
     FileInfo* info = iter.Data();
@@ -16155,7 +16176,7 @@ nsresult FileManager::Invalidate() {
 }
 
 nsCOMPtr<nsIFile> FileManager::GetDirectory() {
-  return GetFileForPath(mDirectoryPath);
+  return GetFileForPath(*mDirectoryPath);
 }
 
 nsCOMPtr<nsIFile> FileManager::GetCheckedDirectory() {
@@ -16176,14 +16197,14 @@ nsCOMPtr<nsIFile> FileManager::GetCheckedDirectory() {
 }
 
 nsCOMPtr<nsIFile> FileManager::GetJournalDirectory() {
-  return GetFileForPath(mJournalDirectoryPath);
+  return GetFileForPath(*mJournalDirectoryPath);
 }
 
 nsCOMPtr<nsIFile> FileManager::EnsureJournalDirectory() {
   // This can happen on the IO or on a transaction thread.
   MOZ_ASSERT(!NS_IsMainThread());
 
-  auto journalDirectory = GetFileForPath(mJournalDirectoryPath);
+  auto journalDirectory = GetFileForPath(*mJournalDirectoryPath);
   if (NS_WARN_IF(!journalDirectory)) {
     return nullptr;
   }
@@ -21151,7 +21172,8 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
     metadata->mNextAutoIncrementId = nextAutoIncrementId;
     metadata->mCommittedAutoIncrementId = nextAutoIncrementId;
 
-    if (NS_WARN_IF(!objectStores.Put(objectStoreId, metadata, fallible))) {
+    if (NS_WARN_IF(
+            !objectStores.Put(objectStoreId, std::move(metadata), fallible))) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
@@ -21304,8 +21326,8 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
       }
     }
 
-    if (NS_WARN_IF(!objectStoreMetadata->mIndexes.Put(indexId, indexMetadata,
-                                                      fallible))) {
+    if (NS_WARN_IF(!objectStoreMetadata->mIndexes.Put(
+            indexId, std::move(indexMetadata), fallible))) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 

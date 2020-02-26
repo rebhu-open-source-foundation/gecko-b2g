@@ -189,6 +189,10 @@ void Animation::SetEffectNoUpdate(AnimationEffect* aEffect) {
 }
 
 void Animation::SetTimeline(AnimationTimeline* aTimeline) {
+#ifndef NIGHTLY_BUILD
+  MOZ_ASSERT_UNREACHABLE(
+      "Animation.timeline setter is supported only on nightly");
+#endif
   SetTimelineNoUpdate(aTimeline);
   PostUpdate();
 }
@@ -366,9 +370,15 @@ void Animation::UpdatePlaybackRate(double aPlaybackRate) {
 
   mPendingPlaybackRate = Some(aPlaybackRate);
 
-  // If we already have a pending task, there is nothing more to do since the
-  // playback rate will be applied then.
   if (Pending()) {
+    // If we already have a pending task, there is nothing more to do since the
+    // playback rate will be applied then.
+    //
+    // However, as with the idle/paused case below, we still need to update the
+    // relevance (and effect set to make sure it only contains relevant
+    // animations) since the relevance is based on the Animation play state
+    // which incorporates the _pending_ playback rate.
+    UpdateEffect(PostRestyleMode::Never);
     return;
   }
 

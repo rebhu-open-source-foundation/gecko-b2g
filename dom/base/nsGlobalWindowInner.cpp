@@ -1390,7 +1390,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowInner)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowInner)
-  tmp->ClearWeakReferences();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
   if (sInnerWindowsById) {
     sInnerWindowsById->Remove(tmp->mWindowID);
   }
@@ -6306,7 +6306,7 @@ void nsGlobalWindowInner::AddGamepad(uint32_t aIndex, Gamepad* aGamepad) {
   }
   mGamepadIndexSet.Put(index);
   aGamepad->SetIndex(index);
-  mGamepads.Put(aIndex, aGamepad);
+  mGamepads.Put(aIndex, RefPtr{aGamepad});
 }
 
 void nsGlobalWindowInner::RemoveGamepad(uint32_t aIndex) {

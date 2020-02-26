@@ -717,6 +717,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(BrowserChild)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mStatusFilter)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mWebNav)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowsingContext)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(BrowserChild)
@@ -3420,11 +3421,15 @@ mozilla::ipc::IPCResult BrowserChild::RecvRequestNotifyAfterRemotePaint() {
 
 mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
     const float& aDpi, const int32_t& aRounding, const double& aScale) {
+  nsCOMPtr<Document> document(GetTopLevelDocument());
+  if (!document) {
+    return IPC_OK();
+  }
+
   ScreenIntSize oldScreenSize = GetInnerSize();
   if (aDpi > 0) {
     mPuppetWidget->UpdateBackingScaleCache(aDpi, aRounding, aScale);
   }
-  nsCOMPtr<Document> document(GetTopLevelDocument());
   RefPtr<nsPresContext> presContext = document->GetPresContext();
   if (presContext) {
     presContext->UIResolutionChangedSync();
@@ -3447,8 +3452,12 @@ mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
 
 mozilla::ipc::IPCResult BrowserChild::RecvThemeChanged(
     nsTArray<LookAndFeelInt>&& aLookAndFeelIntCache) {
-  LookAndFeel::SetIntCache(aLookAndFeelIntCache);
   nsCOMPtr<Document> document(GetTopLevelDocument());
+  if (!document) {
+    return IPC_OK();
+  }
+
+  LookAndFeel::SetIntCache(aLookAndFeelIntCache);
   RefPtr<nsPresContext> presContext = document->GetPresContext();
   if (presContext) {
     presContext->ThemeChanged();
@@ -4214,6 +4223,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BrowserChildMessageManager,
                                                 DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMessageManager);
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowserChild);
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BrowserChildMessageManager,

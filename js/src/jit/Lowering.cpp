@@ -4600,8 +4600,8 @@ void LIRGenerator::visitCheckReturn(MCheckReturn* ins) {
 
   auto* lir =
       new (alloc()) LCheckReturn(useBoxAtStart(retVal), useBoxAtStart(thisVal));
-  assignSnapshot(lir, Bailout_BadDerivedConstructorReturn);
   defineBox(lir, ins);
+  assignSafepoint(lir, ins);
 }
 
 void LIRGenerator::visitCheckIsObj(MCheckIsObj* ins) {
@@ -4649,7 +4649,7 @@ void LIRGenerator::visitCheckThis(MCheckThis* ins) {
   MDefinition* thisValue = ins->thisValue();
   MOZ_ASSERT(thisValue->type() == MIRType::Value);
 
-  auto* lir = new (alloc()) LCheckThis(useBox(thisValue));
+  auto* lir = new (alloc()) LCheckThis(useBoxAtStart(thisValue));
   redefine(ins, thisValue);
   add(lir, ins);
   assignSafepoint(lir, ins);
@@ -4659,7 +4659,7 @@ void LIRGenerator::visitCheckThisReinit(MCheckThisReinit* ins) {
   MDefinition* thisValue = ins->thisValue();
   MOZ_ASSERT(thisValue->type() == MIRType::Value);
 
-  auto* lir = new (alloc()) LCheckThisReinit(useBox(thisValue));
+  auto* lir = new (alloc()) LCheckThisReinit(useBoxAtStart(thisValue));
   redefine(ins, thisValue);
   add(lir, ins);
   assignSafepoint(lir, ins);

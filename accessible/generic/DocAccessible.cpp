@@ -145,6 +145,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(DocAccessible, Accessible)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mAccessibleCache)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mAnchorJumpElm)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mInvalidationList)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
   tmp->mARIAOwnsHash.Clear();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -1246,7 +1247,7 @@ void DocAccessible::BindToDocument(Accessible* aAccessible,
     mNodeToAccessibleMap.Put(aAccessible->GetNode(), aAccessible);
 
   // Put into unique ID cache.
-  mAccessibleCache.Put(aAccessible->UniqueID(), aAccessible);
+  mAccessibleCache.Put(aAccessible->UniqueID(), RefPtr{aAccessible});
 
   aAccessible->SetRoleMapEntry(aRoleMapEntry);
 

@@ -80,7 +80,6 @@
 #include "WebGLTransformFeedback.h"
 #include "WebGLValidateStrings.h"
 #include "WebGLVertexArray.h"
-#include "WebGLVertexAttribData.h"
 
 #ifdef MOZ_WIDGET_COCOA
 #  include "nsCocoaFeatures.h"
@@ -964,6 +963,20 @@ Maybe<ICRData> WebGLContext::InitializeCanvasRenderer(
 
   gl->Screen()->Morph(std::move(factory));
 
+  bool needsResize = false;
+#if defined(MOZ_WIDGET_ANDROID)
+  // If drawing buffer size and screen size are equal, the first back buffer
+  // will still be the one created with SurfaceFactory_Basic factory.
+  // We resize here to ensure that GLScreenBuffer back buffer
+  // is created using the newly attached factory.
+  // See bug #1617751
+  needsResize = true;
+#endif
+  if (needsResize) {
+    const auto& size = DrawingBufferSize();
+    gl->Screen()->Resize({size.x, size.y});
+  }
+
   mVRReady = true;
   return Some(ret);
 }
@@ -1482,22 +1495,9 @@ ScopedFBRebinder::~ScopedFBRebinder() {
 
 ////////////////////
 
-static GLenum IsVirtualBufferTarget(GLenum target) {
-  return target != LOCAL_GL_ELEMENT_ARRAY_BUFFER;
-}
-
-ScopedLazyBind::ScopedLazyBind(gl::GLContext* const gl, const GLenum target,
-                               const WebGLBuffer* const buf)
-    : mGL(gl), mTarget(IsVirtualBufferTarget(target) ? target : 0) {
-  if (mTarget) {
-    mGL->fBindBuffer(mTarget, buf ? buf->mGLName : 0);
-  }
-}
-
-ScopedLazyBind::~ScopedLazyBind() {
-  if (mTarget) {
-    mGL->fBindBuffer(mTarget, 0);
-  }
+void DoBindBuffer(gl::GLContext& gl, const GLenum target,
+                  const WebGLBuffer* const buffer) {
+  gl.fBindBuffer(target, buffer ? buffer->mGLName : 0);
 }
 
 ////////////////////////////////////////
@@ -2019,6 +2019,7 @@ webgl::LinkActiveInfo GetLinkActiveInfo(
         info.elemCount = elemCount;
         info.name = userName;
         info.location = loc;
+        info.baseType = webgl::ToAttribBaseType(info.elemType);
         ret.activeAttribs.push_back(std::move(info));
       }
     }

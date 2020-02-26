@@ -2047,6 +2047,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(HTMLMediaElement,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingPlayPromises)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSeekDOMPromise)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSetMediaKeysDOMPromise)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(HTMLMediaElement,
@@ -3781,7 +3782,7 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
 
     track->QueueSetAutoend(false);
     MOZ_DIAGNOSTIC_ASSERT(!mOutputTrackSources.GetWeak(id));
-    mOutputTrackSources.Put(id, source);
+    mOutputTrackSources.Put(id, RefPtr{source});
 
     // Add the new track source to any existing output streams
     for (OutputMediaStream& ms : mOutputStreams) {

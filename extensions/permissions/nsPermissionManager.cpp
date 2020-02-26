@@ -3137,7 +3137,8 @@ void nsPermissionManager::SetPermissionsWithKey(
     // key, but it's possible.
     return;
   }
-  mPermissionKeyPromiseMap.Put(aPermissionKey, nullptr);
+  mPermissionKeyPromiseMap.Put(aPermissionKey,
+                               RefPtr<GenericNonExclusivePromise::Private>{});
 
   // Add the permissions locally to our process
   for (IPC::Permission& perm : aPerms) {
@@ -3319,9 +3320,7 @@ void nsPermissionManager::WhenPermissionsAvailable(nsIPrincipal* aPrincipal,
       // promise, and send the request to the parent (if we have not already
       // done so).
       promise = new GenericNonExclusivePromise::Private(__func__);
-      mPermissionKeyPromiseMap.Put(
-          pair.first(),
-          RefPtr<GenericNonExclusivePromise::Private>(promise).forget());
+      mPermissionKeyPromiseMap.Put(pair.first(), RefPtr{promise});
     }
 
     if (promise) {

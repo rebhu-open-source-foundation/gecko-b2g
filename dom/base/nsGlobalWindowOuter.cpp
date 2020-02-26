@@ -1396,7 +1396,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowOuter)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowOuter)
-  tmp->ClearWeakReferences();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
   if (sOuterWindowsById) {
     sOuterWindowsById->Remove(tmp->mWindowID);
   }
@@ -4804,15 +4804,15 @@ void nsGlobalWindowOuter::PromptOuter(const nsAString& aMessage,
     DisableDialogs();
   }
 
+  // XXX Doesn't this leak inoutValue?
   if (aError.Failed()) {
     return;
   }
 
   nsString outValue;
   outValue.Adopt(inoutValue);
-
   if (ok && inoutValue) {
-    aReturn.Assign(outValue);
+    aReturn = std::move(outValue);
   }
 }
 

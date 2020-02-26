@@ -44,22 +44,14 @@ template WSRunObject::WSRunObject(HTMLEditor* aHTMLEditor,
 template WSRunObject::WSRunObject(HTMLEditor* aHTMLEditor,
                                   const EditorRawDOMPoint& aScanStartPoint,
                                   const EditorRawDOMPoint& aScanEndPoint);
-template void WSRunScanner::PriorVisibleNode(const EditorDOMPoint& aPoint,
-                                             nsCOMPtr<nsINode>* outVisNode,
-                                             int32_t* outVisOffset,
-                                             WSType* outType) const;
-template void WSRunScanner::PriorVisibleNode(const EditorRawDOMPoint& aPoint,
-                                             nsCOMPtr<nsINode>* outVisNode,
-                                             int32_t* outVisOffset,
-                                             WSType* outType) const;
-template void WSRunScanner::NextVisibleNode(const EditorDOMPoint& aPoint,
-                                            nsCOMPtr<nsINode>* outVisNode,
-                                            int32_t* outVisOffset,
-                                            WSType* outType) const;
-template void WSRunScanner::NextVisibleNode(const EditorRawDOMPoint& aPoint,
-                                            nsCOMPtr<nsINode>* outVisNode,
-                                            int32_t* outVisOffset,
-                                            WSType* outType) const;
+template WSScanResult WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundaryFrom(
+    const EditorDOMPoint& aPoint) const;
+template WSScanResult WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundaryFrom(
+    const EditorRawDOMPoint& aPoint) const;
+template WSScanResult WSRunScanner::ScanNextVisibleNodeOrBlockBoundaryFrom(
+    const EditorDOMPoint& aPoint) const;
+template WSScanResult WSRunScanner::ScanNextVisibleNodeOrBlockBoundaryFrom(
+    const EditorRawDOMPoint& aPoint) const;
 template void WSRunObject::GetASCIIWhitespacesBounds(
     int16_t aDir, const EditorDOMPoint& aPoint, dom::Text** outStartNode,
     int32_t* outStartOffset, dom::Text** outEndNode,
@@ -83,7 +75,9 @@ WSRunScanner::WSRunScanner(const HTMLEditor* aHTMLEditor,
       mLastNBSPOffset(0),
       mStartRun(nullptr),
       mEndRun(nullptr),
-      mHTMLEditor(aHTMLEditor) {
+      mHTMLEditor(aHTMLEditor),
+      mStartReason(WSType::none),
+      mEndReason(WSType::none) {
   MOZ_ASSERT(
       *nsContentUtils::ComparePoints(aScanStartPoint.ToRawRangeBoundary(),
                                      aScanEndPoint.ToRawRangeBoundary()) <= 0);
@@ -343,7 +337,7 @@ nsresult WSRunObject::InsertText(Document& aDocument,
           theString.SetCharAt(kNBSP, 0);
         }
       }
-    } else if (mStartReason & WSType::block || mStartReason == WSType::br) {
+    } else if (StartsFromHardLineBreak()) {
       theString.SetCharAt(kNBSP, 0);
     }
   }
@@ -362,7 +356,7 @@ nsresult WSRunObject::InsertText(Document& aDocument,
           theString.SetCharAt(kNBSP, lastCharIndex);
         }
       }
-    } else if (afterRunObject.mEndReason & WSType::block) {
+    } else if (afterRunObject.EndsByBlockBoundary()) {
       // When afterRun is null, it means that mScanEndPoint is last point in
       // editing host or editing block.
       // If this text insertion replaces composition, this.mEndReason is
@@ -537,14 +531,12 @@ nsresult WSRunObject::DeleteWSForward() {
 }
 
 template <typename PT, typename CT>
-void WSRunScanner::PriorVisibleNode(const EditorDOMPointBase<PT, CT>& aPoint,
-                                    nsCOMPtr<nsINode>* outVisNode,
-                                    int32_t* outVisOffset,
-                                    WSType* outType) const {
+WSScanResult WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundaryFrom(
+    const EditorDOMPointBase<PT, CT>& aPoint) const {
   // Find first visible thing before the point.  Position
   // outVisNode/outVisOffset just _after_ that thing.  If we don't find
   // anything return start of ws.
-  MOZ_ASSERT(aPoint.IsSet() && outType);
+  MOZ_ASSERT(aPoint.IsSet());
 
   WSFragment* run = FindNearestRun(aPoint, false);
 
@@ -554,43 +546,30 @@ void WSRunScanner::PriorVisibleNode(const EditorDOMPointBase<PT, CT>& aPoint,
       WSPoint point = GetPreviousCharPoint(aPoint);
       // When it's a non-empty text node, return it.
       if (point.mTextNode && point.mTextNode->Length()) {
-        if (outVisNode) {
-          *outVisNode = point.mTextNode;
-        }
-        if (outVisOffset) {
-          *outVisOffset = point.mOffset + 1;
-        }
-        if (nsCRT::IsAsciiSpace(point.mChar) || point.mChar == kNBSP) {
-          *outType = WSType::normalWS;
-        } else {
-          *outType = WSType::text;
-        }
-        return;
+        return WSScanResult(
+            point.mTextNode, point.mOffset + 1,
+            nsCRT::IsAsciiSpace(point.mChar) || point.mChar == kNBSP
+                ? WSType::normalWS
+                : WSType::text);
       }
       // If no text node, keep looking.  We should eventually fall out of loop
     }
   }
 
-  if (outVisNode) {
-    // If we get here, then nothing in ws data to find.  Return start reason.
-    *outVisNode = mStartReasonNode;
+  if (mStartReasonContent != mStartNode) {
+    // In this case, mStartOffset is not meaningful.
+    return WSScanResult(mStartReasonContent, mStartReason);
   }
-  if (outVisOffset) {
-    // This really isn't meaningful if mStartReasonNode != mStartNode
-    *outVisOffset = mStartOffset;
-  }
-  *outType = mStartReason;
+  return WSScanResult(mStartReasonContent, mStartOffset, mStartReason);
 }
 
 template <typename PT, typename CT>
-void WSRunScanner::NextVisibleNode(const EditorDOMPointBase<PT, CT>& aPoint,
-                                   nsCOMPtr<nsINode>* outVisNode,
-                                   int32_t* outVisOffset,
-                                   WSType* outType) const {
+WSScanResult WSRunScanner::ScanNextVisibleNodeOrBlockBoundaryFrom(
+    const EditorDOMPointBase<PT, CT>& aPoint) const {
   // Find first visible thing after the point.  Position
   // outVisNode/outVisOffset just _before_ that thing.  If we don't find
   // anything return end of ws.
-  MOZ_ASSERT(aPoint.IsSet() && outType);
+  MOZ_ASSERT(aPoint.IsSet());
 
   WSFragment* run = FindNearestRun(aPoint, true);
 
@@ -600,32 +579,21 @@ void WSRunScanner::NextVisibleNode(const EditorDOMPointBase<PT, CT>& aPoint,
       WSPoint point = GetNextCharPoint(aPoint);
       // When it's a non-empty text node, return it.
       if (point.mTextNode && point.mTextNode->Length()) {
-        if (outVisNode) {
-          *outVisNode = point.mTextNode;
-        }
-        if (outVisOffset) {
-          *outVisOffset = point.mOffset;
-        }
-        if (nsCRT::IsAsciiSpace(point.mChar) || point.mChar == kNBSP) {
-          *outType = WSType::normalWS;
-        } else {
-          *outType = WSType::text;
-        }
-        return;
+        return WSScanResult(
+            point.mTextNode, point.mOffset,
+            nsCRT::IsAsciiSpace(point.mChar) || point.mChar == kNBSP
+                ? WSType::normalWS
+                : WSType::text);
       }
       // If no text node, keep looking.  We should eventually fall out of loop
     }
   }
 
-  if (outVisNode) {
-    // If we get here, then nothing in ws data to find.  Return end reason
-    *outVisNode = mEndReasonNode;
+  if (mEndReasonContent != mEndNode) {
+    // In this case, mEndOffset is not meaningful.
+    return WSScanResult(mEndReasonContent, mEndReason);
   }
-  if (outVisOffset) {
-    // This really isn't meaningful if mEndReasonNode != mEndNode
-    *outVisOffset = mEndOffset;
-  }
-  *outType = mEndReason;
+  return WSScanResult(mEndReasonContent, mEndOffset, mEndReason);
 }
 
 nsresult WSRunObject::AdjustWhitespace() {
@@ -654,22 +622,26 @@ nsresult WSRunObject::AdjustWhitespace() {
 //   protected methods
 //--------------------------------------------------------------------------------------------
 
-nsINode* WSRunScanner::GetWSBoundingParent() const {
-  if (NS_WARN_IF(!mScanStartPoint.IsSet())) {
+nsIContent* WSRunScanner::GetEditableBlockParentOrTopmotEditableInlineContent(
+    nsIContent* aContent) const {
+  if (NS_WARN_IF(!aContent)) {
     return nullptr;
   }
+  NS_ASSERTION(mHTMLEditor->IsEditable(aContent),
+               "Given content is not editable");
   // XXX What should we do if scan range crosses block boundary?  Currently,
   //     it's not collapsed only when inserting composition string so that
   //     it's possible but shouldn't occur actually.
-  OwningNonNull<nsINode> wsBoundingParent = *mScanStartPoint.GetContainer();
-  while (!IsBlockNode(wsBoundingParent)) {
-    nsCOMPtr<nsINode> parent = wsBoundingParent->GetParentNode();
-    if (!parent || !mHTMLEditor->IsEditable(parent)) {
+  nsIContent* editableBlockParentOrTopmotEditableInlineContent = nullptr;
+  for (nsIContent* content = aContent;
+       content && mHTMLEditor->IsEditable(content);
+       content = content->GetParent()) {
+    editableBlockParentOrTopmotEditableInlineContent = content;
+    if (IsBlockNode(editableBlockParentOrTopmotEditableInlineContent)) {
       break;
     }
-    wsBoundingParent = parent;
   }
-  return wsBoundingParent;
+  return editableBlockParentOrTopmotEditableInlineContent;
 }
 
 nsresult WSRunScanner::GetWSNodes() {
@@ -677,7 +649,20 @@ nsresult WSRunScanner::GetWSNodes() {
   // and which contain only whitespace.  Stop if you reach non-ws text or a new
   // block boundary.
   EditorDOMPoint start(mScanStartPoint), end(mScanStartPoint);
-  nsCOMPtr<nsINode> wsBoundingParent = GetWSBoundingParent();
+  nsIContent* scanStartContent = mScanStartPoint.GetContainerAsContent();
+  if (NS_WARN_IF(!scanStartContent)) {
+    // Meaning container of mScanStartPoint is a Document or DocumentFragment.
+    // I.e., we're try to modify outside of root element.  We don't need to
+    // support such odd case because web apps cannot append text nodes as
+    // direct child of Document node.
+    return NS_ERROR_FAILURE;
+  }
+  nsIContent* editableBlockParentOrTopmotEditableInlineContent =
+      GetEditableBlockParentOrTopmotEditableInlineContent(scanStartContent);
+  if (NS_WARN_IF(!editableBlockParentOrTopmotEditableInlineContent)) {
+    // Meaning that the container of `mScanStartPoint` is not editable.
+    editableBlockParentOrTopmotEditableInlineContent = scanStartContent;
+  }
 
   // first look backwards to find preceding ws nodes
   if (Text* textNode = mScanStartPoint.GetContainerAsText()) {
@@ -696,7 +681,7 @@ nsresult WSRunScanner::GetWSNodes() {
             mStartNode = textNode;
             mStartOffset = i;
             mStartReason = WSType::text;
-            mStartReasonNode = textNode;
+            mStartReasonContent = textNode;
             break;
           }
           // as we look backwards update our earliest found nbsp
@@ -715,13 +700,14 @@ nsresult WSRunScanner::GetWSNodes() {
 
   while (!mStartNode) {
     // we haven't found the start of ws yet.  Keep looking
-    nsCOMPtr<nsIContent> priorNode = GetPreviousWSNode(start, wsBoundingParent);
+    nsCOMPtr<nsIContent> priorNode = GetPreviousWSNode(
+        start, editableBlockParentOrTopmotEditableInlineContent);
     if (priorNode) {
       if (IsBlockNode(priorNode)) {
         mStartNode = start.GetContainer();
         mStartOffset = start.Offset();
         mStartReason = WSType::otherBlock;
-        mStartReasonNode = priorNode;
+        mStartReasonContent = priorNode;
       } else if (priorNode->IsText() && priorNode->IsEditable()) {
         RefPtr<Text> textNode = priorNode->GetAsText();
         mNodeArray.InsertElementAt(0, textNode);
@@ -748,7 +734,7 @@ nsresult WSRunScanner::GetWSNodes() {
                 mStartNode = textNode;
                 mStartOffset = pos + 1;
                 mStartReason = WSType::text;
-                mStartReasonNode = textNode;
+                mStartReasonContent = textNode;
                 break;
               }
               // as we look backwards update our earliest found nbsp
@@ -773,14 +759,17 @@ nsresult WSRunScanner::GetWSNodes() {
         } else {
           mStartReason = WSType::special;
         }
-        mStartReasonNode = priorNode;
+        mStartReasonContent = priorNode;
       }
     } else {
-      // no prior node means we exhausted wsBoundingParent
+      // no prior node means we exhausted
+      // editableBlockParentOrTopmotEditableInlineContent
       mStartNode = start.GetContainer();
       mStartOffset = start.Offset();
       mStartReason = WSType::thisBlock;
-      mStartReasonNode = wsBoundingParent;
+      // mStartReasonContent can be either a block element or any non-editable
+      // content in this case.
+      mStartReasonContent = editableBlockParentOrTopmotEditableInlineContent;
     }
   }
 
@@ -801,7 +790,7 @@ nsresult WSRunScanner::GetWSNodes() {
             mEndNode = textNode;
             mEndOffset = i;
             mEndReason = WSType::text;
-            mEndReasonNode = textNode;
+            mEndReasonContent = textNode;
             break;
           }
           // as we look forwards update our latest found nbsp
@@ -820,14 +809,15 @@ nsresult WSRunScanner::GetWSNodes() {
 
   while (!mEndNode) {
     // we haven't found the end of ws yet.  Keep looking
-    nsCOMPtr<nsIContent> nextNode = GetNextWSNode(end, wsBoundingParent);
+    nsCOMPtr<nsIContent> nextNode =
+        GetNextWSNode(end, editableBlockParentOrTopmotEditableInlineContent);
     if (nextNode) {
       if (IsBlockNode(nextNode)) {
         // we encountered a new block.  therefore no more ws.
         mEndNode = end.GetContainer();
         mEndOffset = end.Offset();
         mEndReason = WSType::otherBlock;
-        mEndReasonNode = nextNode;
+        mEndReasonContent = nextNode;
       } else if (nextNode->IsText() && nextNode->IsEditable()) {
         RefPtr<Text> textNode = nextNode->GetAsText();
         mNodeArray.AppendElement(textNode);
@@ -854,7 +844,7 @@ nsresult WSRunScanner::GetWSNodes() {
                 mEndNode = textNode;
                 mEndOffset = pos;
                 mEndReason = WSType::text;
-                mEndReasonNode = textNode;
+                mEndReasonContent = textNode;
                 break;
               }
               // as we look forwards update our latest found nbsp
@@ -880,14 +870,17 @@ nsresult WSRunScanner::GetWSNodes() {
         } else {
           mEndReason = WSType::special;
         }
-        mEndReasonNode = nextNode;
+        mEndReasonContent = nextNode;
       }
     } else {
-      // no next node means we exhausted wsBoundingParent
+      // no next node means we exhausted
+      // editableBlockParentOrTopmotEditableInlineContent
       mEndNode = end.GetContainer();
       mEndOffset = end.Offset();
       mEndReason = WSType::thisBlock;
-      mEndReasonNode = wsBoundingParent;
+      // mEndReasonContent can be either a block element or any non-editable
+      // content in this case.
+      mEndReasonContent = editableBlockParentOrTopmotEditableInlineContent;
     }
   }
 
@@ -905,9 +898,8 @@ void WSRunScanner::GetRuns() {
   // if it's preformatedd, or if we are surrounded by text or special, it's all
   // one big normal ws run
   if (mPRE ||
-      ((mStartReason == WSType::text || mStartReason == WSType::special) &&
-       (mEndReason == WSType::text || mEndReason == WSType::special ||
-        mEndReason == WSType::br))) {
+      ((StartsFromNormalText() || StartsFromSpecialContent()) &&
+       (EndsByNormalText() || EndsBySpecialContent() || EndsByBRElement()))) {
     MakeSingleWSRun(WSType::normalWS);
     return;
   }
@@ -915,13 +907,12 @@ void WSRunScanner::GetRuns() {
   // if we are before or after a block (or after a break), and there are no
   // nbsp's, then it's all non-rendering ws.
   if (!mFirstNBSPNode && !mLastNBSPNode &&
-      ((mStartReason & WSType::block) || mStartReason == WSType::br ||
-       (mEndReason & WSType::block))) {
+      (StartsFromHardLineBreak() || EndsByBlockBoundary())) {
     WSType wstype;
-    if ((mStartReason & WSType::block) || mStartReason == WSType::br) {
+    if (StartsFromHardLineBreak()) {
       wstype = WSType::leadingWS;
     }
-    if (mEndReason & WSType::block) {
+    if (EndsByBlockBoundary()) {
       wstype |= WSType::trailingWS;
     }
     MakeSingleWSRun(wstype);
@@ -933,7 +924,7 @@ void WSRunScanner::GetRuns() {
   mStartRun->mStartNode = mStartNode;
   mStartRun->mStartOffset = mStartOffset;
 
-  if (mStartReason & WSType::block || mStartReason == WSType::br) {
+  if (StartsFromHardLineBreak()) {
     // set up mStartRun
     mStartRun->mType = WSType::leadingWS;
     mStartRun->mEndNode = mFirstNBSPNode;
@@ -949,7 +940,7 @@ void WSRunScanner::GetRuns() {
     normalRun->mStartOffset = mFirstNBSPOffset;
     normalRun->mLeftType = WSType::leadingWS;
     normalRun->mLeft = mStartRun;
-    if (mEndReason != WSType::block) {
+    if (!EndsByBlockBoundary()) {
       // then no trailing ws.  this normal run ends the overall ws run.
       normalRun->mRightType = mEndReason;
       normalRun->mEndNode = mEndNode;
@@ -986,7 +977,7 @@ void WSRunScanner::GetRuns() {
       }
     }
   } else {
-    // mStartReason is not WSType::block or WSType::br; set up mStartRun
+    MOZ_ASSERT(!StartsFromHardLineBreak());
     mStartRun->mType = WSType::normalWS;
     mStartRun->mEndNode = mLastNBSPNode;
     mStartRun->mEndOffset = mLastNBSPOffset + 1;
@@ -1253,8 +1244,7 @@ nsresult WSRunObject::PrepareToDeleteRangePriv(WSRunObject* aEndObject) {
   // adjust normal ws in afterRun if needed
   if (afterRun && afterRun->mType == WSType::normalWS && !aEndObject->mPRE) {
     if ((beforeRun && (beforeRun->mType & WSType::leadingWS)) ||
-        (!beforeRun &&
-         ((mStartReason & WSType::block) || mStartReason == WSType::br))) {
+        (!beforeRun && StartsFromHardLineBreak())) {
       // make sure leading char of following ws is an nbsp, so that it will show
       // up
       WSPoint point = aEndObject->GetNextCharPoint(aEndObject->mScanStartPoint);
@@ -1276,7 +1266,7 @@ nsresult WSRunObject::PrepareToDeleteRangePriv(WSRunObject* aEndObject) {
   } else if (beforeRun && beforeRun->mType == WSType::normalWS && !mPRE) {
     if ((afterRun && (afterRun->mType & WSType::trailingWS)) ||
         (afterRun && afterRun->mType == WSType::normalWS) ||
-        (!afterRun && (aEndObject->mEndReason & WSType::block))) {
+        (!afterRun && aEndObject->EndsByBlockBoundary())) {
       // make sure trailing char of starting ws is an nbsp, so that it will show
       // up
       WSPoint point = GetPreviousCharPoint(mScanStartPoint);
@@ -1839,7 +1829,9 @@ nsresult WSRunObject::CheckTrailingNBSPOfRun(WSFragment* aRun) {
         rightCheck = true;
       }
       if ((aRun->mRightType & WSType::block) &&
-          IsBlockNode(GetWSBoundingParent())) {
+          (IsBlockNode(GetEditableBlockParentOrTopmotEditableInlineContent(
+               mScanStartPoint.GetContainerAsContent())) ||
+           IsBlockNode(mScanStartPoint.GetContainerAsContent()))) {
         RefPtr<Selection> selection = htmlEditor->GetSelection();
         if (NS_WARN_IF(!selection)) {
           return NS_ERROR_FAILURE;
@@ -2050,10 +2042,6 @@ nsresult WSRunObject::Scrub() {
     run = run->mRight;
   }
   return NS_OK;
-}
-
-bool WSRunScanner::IsBlockNode(nsINode* aNode) {
-  return aNode && aNode->IsElement() && HTMLEditor::NodeIsBlockStatic(*aNode);
 }
 
 }  // namespace mozilla

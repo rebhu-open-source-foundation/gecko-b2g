@@ -548,12 +548,12 @@ nsresult CacheFile::OnFileOpened(CacheFileHandle* aHandle, nsresult aResult) {
         // Write all cached chunks, otherwise they may stay unwritten.
         for (auto iter = mCachedChunks.Iter(); !iter.Done(); iter.Next()) {
           uint32_t idx = iter.Key();
-          const RefPtr<CacheFileChunk>& chunk = iter.Data();
+          RefPtr<CacheFileChunk>& chunk = iter.Data();
 
           LOG(("CacheFile::OnFileOpened() - write [this=%p, idx=%u, chunk=%p]",
                this, idx, chunk.get()));
 
-          mChunks.Put(idx, chunk);
+          mChunks.Put(idx, RefPtr{chunk});
           chunk->mFile = this;
           chunk->mActiveChunk = true;
 
@@ -561,7 +561,7 @@ nsresult CacheFile::OnFileOpened(CacheFileHandle* aHandle, nsresult aResult) {
 
           // This would be cleaner if we had an nsRefPtr constructor that took
           // a RefPtr<Derived>.
-          ReleaseOutsideLock(RefPtr<nsISupports>(chunk));
+          ReleaseOutsideLock(std::move(chunk));
 
           iter.Remove();
         }
@@ -984,6 +984,8 @@ nsresult CacheFile::OpenAlternativeOutputStream(
 }
 
 nsresult CacheFile::SetMemoryOnly() {
+  CacheFileAutoLock lock(this);
+
   LOG(("CacheFile::SetMemoryOnly() mMemoryOnly=%d [this=%p]", mMemoryOnly,
        this));
 
@@ -1436,7 +1438,7 @@ nsresult CacheFile::GetChunkLocked(uint32_t aIndex, ECallerType aCaller,
     // Preloader calls this method to preload only non-loaded chunks.
     MOZ_ASSERT(aCaller != PRELOADER, "Unexpected!");
 
-    mChunks.Put(aIndex, chunk);
+    mChunks.Put(aIndex, RefPtr{chunk});
     mCachedChunks.Remove(aIndex);
     chunk->mFile = this;
     chunk->mActiveChunk = true;
@@ -1470,7 +1472,7 @@ nsresult CacheFile::GetChunkLocked(uint32_t aIndex, ECallerType aCaller,
     }
 
     chunk = new CacheFileChunk(this, aIndex, aCaller == WRITER);
-    mChunks.Put(aIndex, chunk);
+    mChunks.Put(aIndex, RefPtr{chunk});
     chunk->mActiveChunk = true;
 
     LOG(
@@ -1503,7 +1505,7 @@ nsresult CacheFile::GetChunkLocked(uint32_t aIndex, ECallerType aCaller,
     if (aCaller == WRITER) {
       // this listener is going to write to the chunk
       chunk = new CacheFileChunk(this, aIndex, true);
-      mChunks.Put(aIndex, chunk);
+      mChunks.Put(aIndex, RefPtr{chunk});
       chunk->mActiveChunk = true;
 
       LOG(("CacheFile::GetChunkLocked() - Created new empty chunk %p [this=%p]",
@@ -1794,7 +1796,7 @@ void CacheFile::RemoveChunkInternal(CacheFileChunk* aChunk, bool aCacheChunk) {
   ReleaseOutsideLock(RefPtr<CacheFileChunkListener>(std::move(aChunk->mFile)));
 
   if (aCacheChunk) {
-    mCachedChunks.Put(aChunk->Index(), aChunk);
+    mCachedChunks.Put(aChunk->Index(), RefPtr{aChunk});
   }
 
   mChunks.Remove(aChunk->Index());
@@ -2350,6 +2352,8 @@ bool CacheFile::IsWriteInProgress() {
 
 bool CacheFile::EntryWouldExceedLimit(int64_t aOffset, int64_t aSize,
                                       bool aIsAltData) {
+  CacheFileAutoLock lock(this);
+
   if (mSkipSizeCheck || aSize < 0) {
     return false;
   }

@@ -2000,9 +2000,6 @@ struct SourceExtent {
 // derived classes in order for the 'jitCodeRaw' mechanism to work with the
 // JITs.
 class BaseScript : public gc::TenuredCell {
- public:
-  using ImmutableFlags = frontend::ImmutableScriptFlags;
-
  protected:
   // Pointer to baseline->method()->raw(), ion->method()->raw(), a wasm jit
   // entry, the JIT's EnterInterpreter stub, or the lazy link stub. Must be
@@ -2030,6 +2027,13 @@ class BaseScript : public gc::TenuredCell {
 
   SourceExtent extent_;
 
+ public:
+  // Alias the enum into JSScript to provide easy translation for various
+  // consumers
+  using ImmutableFlags = ImmutableScriptFlagsEnum;
+  using MutableFlags = MutableScriptFlagsEnum;
+
+ protected:
   // Immutable flags should not be modified after this script has been
   // initialized. These flags should likely be preserved when serializing
   // (XDR) or copying (CopyScript) this script. This is only public for the
@@ -2037,12 +2041,13 @@ class BaseScript : public gc::TenuredCell {
   //
   // Specific accessors for flag values are defined with
   // IMMUTABLE_FLAG_* macros below.
-  ImmutableFlags immutableScriptFlags_;
-
-  // See MutableFlags below for definitions. This is stored
-  // as uint32_t instead of bitfields to make it more predictable to access
-  // from JIT code.
-  uint32_t mutableFlags_ = 0;
+  ImmutableScriptFlags immutableScriptFlags_;
+  // Mutable flags typically store information about runtime or deoptimization
+  // behavior of this script. This is only public for the JITs.
+  //
+  // Specific accessors for flag values are defined with
+  // MUTABLE_FLAG_* macros below.
+  MutableScriptFlags mutableFlags_;
 
   ScriptWarmUpData warmUpData_ = {};
 
@@ -2078,84 +2083,6 @@ class BaseScript : public gc::TenuredCell {
   }
 
  public:
-  // Mutable flags typically store information about runtime or deoptimization
-  // behavior of this script. This is only public for the JITs.
-  //
-  // Specific accessors for flag values are defined with
-  // MUTABLE_FLAG_* macros below.
-  enum class MutableFlags : uint32_t {
-    // Number of times the |warmUpCount| was forcibly discarded. The counter is
-    // reset when a script is successfully jit-compiled.
-    WarmupResets_MASK = 0xFF,
-
-    // Have warned about uses of undefined properties in this script.
-    WarnedAboutUndefinedProp = 1 << 8,
-
-    // If treatAsRunOnce, whether script has executed.
-    HasRunOnce = 1 << 9,
-
-    // Script has been reused for a clone.
-    HasBeenCloned = 1 << 10,
-
-    // Whether the record/replay execution progress counter (see RecordReplay.h)
-    // should be updated as this script runs.
-    TrackRecordReplayProgress = 1 << 11,
-
-    // Script has an entry in Realm::scriptCountsMap.
-    HasScriptCounts = 1 << 12,
-
-    // Script has an entry in Realm::debugScriptMap.
-    HasDebugScript = 1 << 13,
-
-    // Do not relazify this script. This is used by the relazify() testing
-    // function for scripts that are on the stack and also by the AutoDelazify
-    // RAII class. Usually we don't relazify functions in compartments with
-    // scripts on the stack, but the relazify() testing function overrides that,
-    // and sometimes we're working with a cross-compartment function and need to
-    // keep it from relazifying.
-    DoNotRelazify = 1 << 14,
-
-    // IonMonkey compilation hints.
-
-    // Script has had hoisted bounds checks fail.
-    FailedBoundsCheck = 1 << 15,
-
-    // Script has had hoisted shape guard fail.
-    FailedShapeGuard = 1 << 16,
-
-    HadFrequentBailouts = 1 << 17,
-    HadOverflowBailout = 1 << 18,
-
-    // Whether Baseline or Ion compilation has been disabled for this script.
-    // IonDisabled is equivalent to |jitScript->canIonCompile() == false| but
-    // JitScript can be discarded on GC and we don't want this to affect
-    // observable behavior (see ArgumentsGetterImpl comment).
-    BaselineDisabled = 1 << 19,
-    IonDisabled = 1 << 20,
-
-    // Explicitly marked as uninlineable.
-    Uninlineable = 1 << 21,
-
-    // Idempotent cache has triggered invalidation.
-    InvalidatedIdempotentCache = 1 << 22,
-
-    // Lexical check did fail and bail out.
-    FailedLexicalCheck = 1 << 23,
-
-    // See comments below.
-    NeedsArgsAnalysis = 1 << 24,
-    NeedsArgsObj = 1 << 25,
-
-    // Set if the debugger's onNewScript hook has not yet been called.
-    HideScriptFromDebugger = 1 << 26,
-
-    // Set if the script has opted into spew
-    SpewEnabled = 1 << 27,
-
-    // Set for LazyScripts which have been wrapped by some Debugger.
-    WrappedByDebugger = 1 << 28,
-  };
-
   uint8_t* jitCodeRaw() const { return jitCodeRaw_; }
 
   // Canonical function for the script, if it has a function. For global and
@@ -2232,43 +2159,33 @@ class BaseScript : public gc::TenuredCell {
   uint32_t column() const { return extent_.column; }
 
  public:
-  ImmutableFlags immutableFlags() const { return immutableScriptFlags_; }
+  ImmutableScriptFlags immutableFlags() const { return immutableScriptFlags_; }
 
-  void setImmutableFlags(ImmutableFlags flags) {
-    immutableScriptFlags_ = flags;
+  void setImmutableFlags(uint32_t flags) { immutableScriptFlags_ = flags; }
+
+  // Generic set/unset for Immutable and Mutable Flags
+  template <typename T>
+  void setFlag(T flag, bool b) {
+    if (b) {
+      setFlag(flag);
+    } else {
+      clearFlag(flag);
+    }
   }
 
   // ImmutableFlags accessors.
   MOZ_MUST_USE bool hasFlag(ImmutableFlags flag) const {
-    return immutableScriptFlags_ & flag;
+    return immutableScriptFlags_.hasFlag(flag);
   }
-  void setFlag(ImmutableFlags flag) {
-    immutableScriptFlags_.scriptFlags_ |= flag;
-  }
-  void setFlag(ImmutableFlags flag, bool b) {
-    if (b) {
-      setFlag(flag);
-    } else {
-      clearFlag(flag);
-    }
-  }
-  void clearFlag(ImmutableFlags flag) {
-    immutableScriptFlags_.scriptFlags_ &= ~flag;
-  }
+  void setFlag(ImmutableFlags flag) { immutableScriptFlags_.setFlag(flag); }
+  void clearFlag(ImmutableFlags flag) { immutableScriptFlags_.clearFlag(flag); }
 
   // MutableFlags accessors.
   MOZ_MUST_USE bool hasFlag(MutableFlags flag) const {
-    return mutableFlags_ & uint32_t(flag);
+    return mutableFlags_.hasFlag(flag);
   }
-  void setFlag(MutableFlags flag) { mutableFlags_ |= uint32_t(flag); }
-  void setFlag(MutableFlags flag, bool b) {
-    if (b) {
-      setFlag(flag);
-    } else {
-      clearFlag(flag);
-    }
-  }
-  void clearFlag(MutableFlags flag) { mutableFlags_ &= ~uint32_t(flag); }
+  void setFlag(MutableFlags flag) { mutableFlags_.setFlag(flag); }
+  void clearFlag(MutableFlags flag) { mutableFlags_.clearFlag(flag); }
 
   // Specific flag accessors
 
@@ -2478,7 +2395,7 @@ setterLevel:                                                                  \
     return offsetof(BaseScript, sharedData_);
   }
   static size_t offsetOfImmutableFlags() {
-    static_assert(offsetof(ImmutableFlags, scriptFlags_) == 0,
+    static_assert(offsetof(ImmutableScriptFlags, flags_) == 0,
                   "Required for JIT flag access");
     return offsetof(BaseScript, immutableScriptFlags_);
   }

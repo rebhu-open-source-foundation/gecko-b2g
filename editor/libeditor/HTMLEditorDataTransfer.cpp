@@ -373,11 +373,11 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
   // element at end of what we paste, it will make the existing invisible
   // `<br>` element visible.
   WSRunObject wsObj(this, pointToInsert);
-  if (wsObj.mEndReasonNode &&
-      wsObj.mEndReasonNode->IsHTMLElement(nsGkAtoms::br) &&
-      !IsVisibleBRElement(wsObj.mEndReasonNode)) {
+  if (wsObj.GetEndReasonContent() &&
+      wsObj.GetEndReasonContent()->IsHTMLElement(nsGkAtoms::br) &&
+      !IsVisibleBRElement(wsObj.GetEndReasonContent())) {
     AutoEditorDOMPointChildInvalidator lockOffset(pointToInsert);
-    rv = DeleteNodeWithTransaction(MOZ_KnownLive(*wsObj.mEndReasonNode));
+    rv = DeleteNodeWithTransaction(MOZ_KnownLive(*wsObj.GetEndReasonContent()));
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -632,22 +632,29 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
 
   // Make sure we don't end up with selection collapsed after an invisible
   // `<br>` element.
-  WSRunObject wsRunObj(this, pointToPutCaret);
-  WSType visType;
-  wsRunObj.PriorVisibleNode(pointToPutCaret, &visType);
-  if (visType == WSType::br && !IsVisibleBRElement(wsRunObj.mStartReasonNode)) {
-    WSRunObject wsRunObj2(this, EditorDOMPoint(wsRunObj.mStartReasonNode));
-    nsCOMPtr<nsINode> visibleNode;
-    int32_t visibleNodeOffset;
-    wsRunObj2.PriorVisibleNode(pointToPutCaret, address_of(visibleNode),
-                               &visibleNodeOffset, &visType);
-    if (visType == WSType::text || visType == WSType::normalWS) {
-      pointToPutCaret.Set(visibleNode, visibleNodeOffset);
-    } else if (visType == WSType::special) {
-      pointToPutCaret.Set(wsRunObj2.mStartReasonNode);
-      DebugOnly<bool> advanced = pointToPutCaret.AdvanceOffset();
-      NS_WARNING_ASSERTION(advanced,
-                           "Failed to advance offset from found object");
+  WSRunScanner wsRunScannerAtCaret(this, pointToPutCaret);
+  if (wsRunScannerAtCaret
+          .ScanPreviousVisibleNodeOrBlockBoundaryFrom(pointToPutCaret)
+          .ReachedBRElement() &&
+      !IsVisibleBRElement(wsRunScannerAtCaret.GetStartReasonContent())) {
+    WSRunScanner wsRunScannerAtStartReason(
+        this, EditorDOMPoint(wsRunScannerAtCaret.GetStartReasonContent()));
+    WSScanResult backwardScanFromPointToCaretResult =
+        wsRunScannerAtStartReason.ScanPreviousVisibleNodeOrBlockBoundaryFrom(
+            pointToPutCaret);
+    if (backwardScanFromPointToCaretResult.InNormalWhiteSpacesOrText()) {
+      pointToPutCaret = backwardScanFromPointToCaretResult.Point();
+    } else if (backwardScanFromPointToCaretResult.ReachedSpecialContent()) {
+      // XXX In my understanding, this is odd.  The end reason may not be
+      //     same as the reached special content because the equality is
+      //     guaranteed only when ReachedCurrentBlockBoundary() returns true.
+      //     However, looks like that this code assumes that
+      //     GetStartReasonContent() returns the content.
+      NS_ASSERTION(wsRunScannerAtStartReason.GetStartReasonContent() ==
+                       backwardScanFromPointToCaretResult.GetContent(),
+                   "Start reason is not the reached special content");
+      pointToPutCaret.SetAfter(
+          wsRunScannerAtStartReason.GetStartReasonContent());
     }
   }
   DebugOnly<nsresult> rvIgnored =

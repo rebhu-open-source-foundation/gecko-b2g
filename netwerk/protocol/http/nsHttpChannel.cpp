@@ -1387,10 +1387,11 @@ nsresult nsHttpChannel::SetupTransaction() {
         do_GetWeakReference(static_cast<nsIHttpChannel*>(this)));
     pushCallback = [weakPtrThis](uint32_t aPushedStreamId,
                                  const nsACString& aUrl,
-                                 const nsACString& aRequestString) {
+                                 const nsACString& aRequestString,
+                                 HttpTransactionShell* aTransaction) {
       if (nsCOMPtr<nsIHttpChannel> channel = do_QueryReferent(weakPtrThis)) {
         return static_cast<nsHttpChannel*>(channel.get())
-            ->OnPush(aPushedStreamId, aUrl, aRequestString);
+            ->OnPush(aPushedStreamId, aUrl, aRequestString, aTransaction);
       }
       return NS_ERROR_NOT_AVAILABLE;
     };
@@ -2686,14 +2687,15 @@ void nsHttpChannel::AssertNotDocumentChannel() {
     return;
   }
 
-  nsContentPolicyType contentPolicy;
-  MOZ_ALWAYS_SUCCEEDS(mLoadInfo->GetExternalContentPolicyType(&contentPolicy));
-  RefPtr<BrowsingContext> bc;
-  if (contentPolicy == CSPService::TYPE_DOCUMENT) {
-    MOZ_ALWAYS_SUCCEEDS(mLoadInfo->GetBrowsingContext(getter_AddRefs(bc)));
-  } else {
-    MOZ_ALWAYS_SUCCEEDS(mLoadInfo->GetFrameBrowsingContext(getter_AddRefs(bc)));
+  auto contentPolicy = mLoadInfo->GetExternalContentPolicyType();
+  if (contentPolicy != nsIContentPolicy::TYPE_DOCUMENT &&
+      contentPolicy != nsIContentPolicy::TYPE_SUBDOCUMENT) {
+    return;
   }
+
+  RefPtr<BrowsingContext> bc;
+  MOZ_ALWAYS_SUCCEEDS(mLoadInfo->GetTargetBrowsingContext(getter_AddRefs(bc)));
+  MOZ_ASSERT(bc);  // It shouldn't be possible.
   if (!bc) {
     return;
   }
@@ -9537,11 +9539,11 @@ void nsHttpChannel::SetPushedStreamTransactionAndId(
 }
 
 nsresult nsHttpChannel::OnPush(uint32_t aPushedStreamId, const nsACString& aUrl,
-                               const nsACString& aRequestString) {
+                               const nsACString& aRequestString,
+                               HttpTransactionShell* aTransaction) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(mTransaction);
-  LOG(("nsHttpChannel::OnPush [this=%p, trans=%p]\n", this,
-       mTransaction.get()));
+  MOZ_ASSERT(aTransaction);
+  LOG(("nsHttpChannel::OnPush [this=%p, trans=%p]\n", this, aTransaction));
 
   MOZ_ASSERT(mCaps & NS_HTTP_ONPUSH_LISTENER);
   nsCOMPtr<nsIHttpPushListener> pushListener;
@@ -9599,7 +9601,7 @@ nsresult nsHttpChannel::OnPush(uint32_t aPushedStreamId, const nsACString& aUrl,
   channel->mCallbacks = mCallbacks;
 
   // Link the trans with pushed stream and the new channel and call listener
-  channel->SetPushedStreamTransactionAndId(mTransaction, aPushedStreamId);
+  channel->SetPushedStreamTransactionAndId(aTransaction, aPushedStreamId);
   rv = pushListener->OnPush(this, pushHttpChannel);
   return rv;
 }

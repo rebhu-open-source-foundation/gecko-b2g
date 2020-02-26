@@ -1920,8 +1920,7 @@ nsresult HTMLEditor::InsertBRElement(const EditorDOMPoint& aPointToBreak) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  bool brElementIsAfterBlock = false;
-  bool brElementIsBeforeBlock = false;
+  bool brElementIsAfterBlock = false, brElementIsBeforeBlock = false;
 
   // First, insert a <br> element.
   RefPtr<Element> brElement;
@@ -1936,15 +1935,12 @@ nsresult HTMLEditor::InsertBRElement(const EditorDOMPoint& aPointToBreak) {
   } else {
     EditorDOMPoint pointToBreak(aPointToBreak);
     WSRunObject wsObj(this, pointToBreak);
-    WSType wsType;
-    wsObj.PriorVisibleNode(pointToBreak, &wsType);
-    if (wsType & WSType::block) {
-      brElementIsAfterBlock = true;
-    }
-    wsObj.NextVisibleNode(pointToBreak, &wsType);
-    if (wsType & WSType::block) {
-      brElementIsBeforeBlock = true;
-    }
+    brElementIsAfterBlock =
+        wsObj.ScanPreviousVisibleNodeOrBlockBoundaryFrom(pointToBreak)
+            .ReachedBlockBoundary();
+    brElementIsBeforeBlock =
+        wsObj.ScanNextVisibleNodeOrBlockBoundaryFrom(pointToBreak)
+            .ReachedBlockBoundary();
     // If the container of the break is a link, we need to split it and
     // insert new <br> between the split links.
     RefPtr<Element> linkNode =
@@ -2003,22 +1999,21 @@ nsresult HTMLEditor::InsertBRElement(const EditorDOMPoint& aPointToBreak) {
   DebugOnly<bool> advanced = afterBRElement.AdvanceOffset();
   NS_WARNING_ASSERTION(advanced,
                        "Failed to advance offset after the new <br> element");
-  WSRunObject wsObj(this, afterBRElement);
-  nsCOMPtr<nsINode> maybeSecondBRNode;
-  WSType wsType;
-  wsObj.NextVisibleNode(afterBRElement, address_of(maybeSecondBRNode), nullptr,
-                        &wsType);
-  if (wsType == WSType::br) {
+  WSScanResult forwardScanFromAfterBRElementResult =
+      WSRunScanner::ScanNextVisibleNodeOrBlockBoundary(*this, afterBRElement);
+  if (forwardScanFromAfterBRElementResult.ReachedBRElement()) {
     // The next thing after the break we inserted is another break.  Move the
     // second break to be the first break's sibling.  This will prevent them
     // from being in different inline nodes, which would break
     // SetInterlinePosition().  It will also assure that if the user clicks
     // away and then clicks back on their new blank line, they will still get
     // the style from the line above.
-    EditorDOMPoint atSecondBRElement(maybeSecondBRNode);
-    if (brElement->GetNextSibling() != maybeSecondBRNode) {
+    if (brElement->GetNextSibling() !=
+        forwardScanFromAfterBRElementResult.BRElementPtr()) {
+      MOZ_ASSERT(forwardScanFromAfterBRElementResult.BRElementPtr());
       nsresult rv = MoveNodeWithTransaction(
-          MOZ_KnownLive(*maybeSecondBRNode->AsContent()), afterBRElement);
+          MOZ_KnownLive(*forwardScanFromAfterBRElementResult.BRElementPtr()),
+          afterBRElement);
       if (NS_WARN_IF(Destroyed())) {
         return NS_ERROR_EDITOR_DESTROYED;
       }
@@ -2077,18 +2072,14 @@ EditActionResult HTMLEditor::SplitMailCiteElements(
   // The latter can confuse a user if they click there and start typing,
   // because being in the mailquote may affect wrapping behavior, or font
   // color, etc.
-  WSRunObject wsObj(this, pointToSplit);
-  nsCOMPtr<nsINode> visNode;
-  WSType wsType;
-  wsObj.NextVisibleNode(pointToSplit, address_of(visNode), nullptr, &wsType);
+  WSScanResult forwardScanFromPointToSplitResult =
+      WSRunScanner::ScanNextVisibleNodeOrBlockBoundary(*this, pointToSplit);
   // If selection start point is before a break and it's inside the mailquote,
   // let's split it after the visible node.
-  if (wsType == WSType::br && visNode != citeNode &&
-      citeNode->Contains(visNode)) {
-    pointToSplit.Set(visNode);
-    DebugOnly<bool> advanced = pointToSplit.AdvanceOffset();
-    NS_WARNING_ASSERTION(advanced,
-                         "Failed to advance offset to after the visible node");
+  if (forwardScanFromPointToSplitResult.ReachedBRElement() &&
+      forwardScanFromPointToSplitResult.BRElementPtr() != citeNode &&
+      citeNode->Contains(forwardScanFromPointToSplitResult.BRElementPtr())) {
+    pointToSplit = forwardScanFromPointToSplitResult.PointAfterContent();
   }
 
   if (NS_WARN_IF(!pointToSplit.GetContainerAsContent())) {
@@ -2174,21 +2165,26 @@ EditActionResult HTMLEditor::SplitMailCiteElements(
     EditorDOMPoint pointToCreateNewBrNode(atBrNode.GetContainer(),
                                           atBrNode.Offset());
 
-    WSRunObject wsObj(this, pointToCreateNewBrNode);
-    WSType wsType;
-    wsObj.PriorVisibleNode(pointToCreateNewBrNode, nullptr, nullptr, &wsType);
-    if (wsType == WSType::normalWS || wsType == WSType::text ||
-        wsType == WSType::special) {
+    WSScanResult backwardScanFromPointToCreateNewBRElementResult =
+        WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundary(
+            *this, pointToCreateNewBrNode);
+    if (backwardScanFromPointToCreateNewBRElementResult
+            .InNormalWhiteSpacesOrText() ||
+        backwardScanFromPointToCreateNewBRElementResult
+            .ReachedSpecialContent()) {
       EditorRawDOMPoint pointAfterNewBrNode(pointToCreateNewBrNode);
       DebugOnly<bool> advanced = pointAfterNewBrNode.AdvanceOffset();
       NS_WARNING_ASSERTION(advanced,
                            "Failed to advance offset after the <br> node");
-      WSRunObject wsObjAfterBR(this, pointAfterNewBrNode);
-      wsObjAfterBR.NextVisibleNode(pointAfterNewBrNode, &wsType);
-      if (wsType == WSType::normalWS || wsType == WSType::text ||
-          wsType == WSType::special ||
+      WSScanResult forwardScanFromPointAfterNewBRElementResult =
+          WSRunScanner::ScanNextVisibleNodeOrBlockBoundary(*this,
+                                                           pointAfterNewBrNode);
+      if (forwardScanFromPointAfterNewBRElementResult
+              .InNormalWhiteSpacesOrText() ||
+          forwardScanFromPointAfterNewBRElementResult.ReachedSpecialContent() ||
           // In case we're at the very end.
-          wsType == WSType::thisBlock) {
+          forwardScanFromPointAfterNewBRElementResult
+              .ReachedCurrentBlockBoundary()) {
         brElement = InsertBRElementWithTransaction(pointToCreateNewBrNode);
         if (NS_WARN_IF(Destroyed())) {
           return EditActionIgnored(NS_ERROR_EDITOR_DESTROYED);
@@ -2397,24 +2393,15 @@ EditActionResult HTMLEditor::HandleDeleteAroundCollapsedSelection(
 
   // What's in the direction we are deleting?
   WSRunObject wsObj(this, startPoint);
-  nsCOMPtr<nsINode> visibleNode;
-  int32_t visibleNodeOffset;
-  WSType wsType;
-
-  // Find next visible node
-  if (aDirectionAndAmount == nsIEditor::eNext) {
-    wsObj.NextVisibleNode(startPoint, address_of(visibleNode),
-                          &visibleNodeOffset, &wsType);
-  } else {
-    wsObj.PriorVisibleNode(startPoint, address_of(visibleNode),
-                           &visibleNodeOffset, &wsType);
-  }
-
-  if (!visibleNode) {
+  WSScanResult scanFromStartPointResult =
+      aDirectionAndAmount == nsIEditor::eNext
+          ? wsObj.ScanNextVisibleNodeOrBlockBoundaryFrom(startPoint)
+          : wsObj.ScanPreviousVisibleNodeOrBlockBoundaryFrom(startPoint);
+  if (!scanFromStartPointResult.GetContent()) {
     return EditActionCanceled();
   }
 
-  if (wsType == WSType::normalWS) {
+  if (scanFromStartPointResult.InNormalWhiteSpaces()) {
     EditActionResult result =
         HandleDeleteCollapsedSelectionAtWhiteSpaces(aDirectionAndAmount, wsObj);
     NS_WARNING_ASSERTION(
@@ -2423,60 +2410,60 @@ EditActionResult HTMLEditor::HandleDeleteAroundCollapsedSelection(
     return result;
   }
 
-  if (wsType == WSType::text) {
-    if (NS_WARN_IF(!visibleNode->IsText())) {
+  if (scanFromStartPointResult.InNormalText()) {
+    if (NS_WARN_IF(!scanFromStartPointResult.GetContent()->IsText())) {
       return EditActionResult(NS_ERROR_FAILURE);
     }
     EditActionResult result = HandleDeleteCollapsedSelectionAtTextNode(
-        aDirectionAndAmount, EditorDOMPoint(visibleNode, visibleNodeOffset));
+        aDirectionAndAmount, scanFromStartPointResult.Point());
     NS_WARNING_ASSERTION(result.Succeeded(),
                          "HandleDeleteCollapsedSelectionAtTextNode() failed");
     return result;
   }
 
-  if (wsType == WSType::special || wsType == WSType::br ||
-      visibleNode->IsHTMLElement(nsGkAtoms::hr)) {
-    if (NS_WARN_IF(!visibleNode->IsContent())) {
-      return EditActionResult(NS_ERROR_FAILURE);
-    }
+  if (scanFromStartPointResult.ReachedSpecialContent() ||
+      scanFromStartPointResult.ReachedBRElement() ||
+      scanFromStartPointResult.ReachedHRElement()) {
     EditActionResult result = HandleDeleteCollapsedSelectionAtAtomicContent(
         aDirectionAndAmount, aStripWrappers,
-        MOZ_KnownLive(*visibleNode->AsContent()), startPoint, wsObj);
+        MOZ_KnownLive(*scanFromStartPointResult.GetContent()), startPoint,
+        wsObj);
     NS_WARNING_ASSERTION(
         result.Succeeded(),
         "HandleDeleteCollapsedSelectionAtAtomicContent() failed");
     return result;
   }
 
-  if (wsType == WSType::otherBlock) {
-    if (NS_WARN_IF(!visibleNode->IsElement())) {
+  if (scanFromStartPointResult.ReachedOtherBlockElement()) {
+    if (NS_WARN_IF(!scanFromStartPointResult.GetContent()->IsElement())) {
       return EditActionResult(NS_ERROR_FAILURE);
     }
     EditActionResult result =
         HandleDeleteCollapsedSelectionAtOtherBlockBoundary(
             aDirectionAndAmount, aStripWrappers,
-            MOZ_KnownLive(*visibleNode->AsElement()), startPoint, wsObj);
+            MOZ_KnownLive(*scanFromStartPointResult.ElementPtr()), startPoint,
+            wsObj);
     NS_WARNING_ASSERTION(
         result.Succeeded(),
         "HandleDeleteCollapsedSelectionAtOtherBlockBoundary() failed");
     return result;
   }
 
-  if (wsType == WSType::thisBlock) {
-    if (NS_WARN_IF(!visibleNode->IsElement())) {
+  if (scanFromStartPointResult.ReachedCurrentBlockBoundary()) {
+    if (NS_WARN_IF(!scanFromStartPointResult.GetContent()->IsElement())) {
       return EditActionResult(NS_ERROR_FAILURE);
     }
     EditActionResult result =
         HandleDeleteCollapsedSelectionAtCurrentBlockBoundary(
-            aDirectionAndAmount, MOZ_KnownLive(*visibleNode->AsElement()),
-            startPoint);
+            aDirectionAndAmount,
+            MOZ_KnownLive(*scanFromStartPointResult.ElementPtr()), startPoint);
     NS_WARNING_ASSERTION(
         result.Succeeded(),
         "HandleDeleteCollapsedSelectionAtCurrentBlockBoundary() failed");
     return result;
   }
 
-  MOZ_ASSERT_UNREACHABLE("New WSType value hasn't been handled yet");
+  MOZ_ASSERT_UNREACHABLE("New type of reached content hasn't been handled yet");
   return EditActionIgnored();
 }
 
@@ -2608,12 +2595,12 @@ EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtTextNode(
 EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtAtomicContent(
     nsIEditor::EDirection aDirectionAndAmount,
     nsIEditor::EStripWrappers aStripWrappers, nsIContent& aAtomicContent,
-    const EditorDOMPoint& aCaretPoint, WSRunObject& aWSRunObjectAtCaret) {
+    const EditorDOMPoint& aCaretPoint, WSRunScanner& aWSRunScannerAtCaret) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_ASSERT(aCaretPoint.IsSet());
 
   // If the atomic element is editing host, we should do nothing.
-  if (&aAtomicContent == aWSRunObjectAtCaret.GetEditingHost()) {
+  if (&aAtomicContent == aWSRunScannerAtCaret.GetEditingHost()) {
     return EditActionHandled();
   }
 
@@ -2700,30 +2687,24 @@ EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtAtomicContent(
       // There is one exception to the move only case.  If the <hr> is
       // followed by a <br> we want to delete the <br>.
 
-      WSType otherWSType;
-      nsCOMPtr<nsINode> otherNode;
-
-      aWSRunObjectAtCaret.NextVisibleNode(aCaretPoint, address_of(otherNode),
-                                          nullptr, &otherWSType);
-
-      if (otherWSType != WSType::br) {
+      WSScanResult forwardScanFromCaretResult =
+          aWSRunScannerAtCaret.ScanNextVisibleNodeOrBlockBoundaryFrom(
+              aCaretPoint);
+      if (!forwardScanFromCaretResult.ReachedBRElement()) {
         return EditActionHandled();
       }
 
       // Delete the <br>
-      if (NS_WARN_IF(!otherNode->IsContent())) {
-        return EditActionHandled(NS_ERROR_FAILURE);
-      }
-      nsIContent* otherContent = otherNode->AsContent();
-      nsresult rv =
-          WSRunObject::PrepareToDeleteNode(this, MOZ_KnownLive(otherContent));
+      nsresult rv = WSRunObject::PrepareToDeleteNode(
+          this, MOZ_KnownLive(forwardScanFromCaretResult.BRElementPtr()));
       if (NS_WARN_IF(Destroyed())) {
         return EditActionHandled(NS_ERROR_EDITOR_DESTROYED);
       }
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return EditActionHandled(rv);
       }
-      rv = DeleteNodeWithTransaction(MOZ_KnownLive(*otherContent));
+      rv = DeleteNodeWithTransaction(
+          MOZ_KnownLive(*forwardScanFromCaretResult.BRElementPtr()));
       if (NS_WARN_IF(Destroyed())) {
         return EditActionHandled(NS_ERROR_EDITOR_DESTROYED);
       }
@@ -2799,7 +2780,7 @@ EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtAtomicContent(
 EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtOtherBlockBoundary(
     nsIEditor::EDirection aDirectionAndAmount,
     nsIEditor::EStripWrappers aStripWrappers, Element& aOtherBlockElement,
-    const EditorDOMPoint& aCaretPoint, WSRunObject& aWSRunObjectAtCaret) {
+    const EditorDOMPoint& aCaretPoint, WSRunScanner& aWSRunScannerAtCaret) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_ASSERT(aCaretPoint.IsSet());
 
@@ -2812,17 +2793,12 @@ EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtOtherBlockBoundary(
   // Next to a block.  See if we are between a block and a br.  If so, we
   // really want to delete the br.  Else join content at selection to the
   // block.
-  WSType otherWSType;
-  nsCOMPtr<nsINode> otherNode;
-
-  // Find node in other direction
-  if (aDirectionAndAmount == nsIEditor::eNext) {
-    aWSRunObjectAtCaret.PriorVisibleNode(aCaretPoint, address_of(otherNode),
-                                         nullptr, &otherWSType);
-  } else {
-    aWSRunObjectAtCaret.NextVisibleNode(aCaretPoint, address_of(otherNode),
-                                        nullptr, &otherWSType);
-  }
+  WSScanResult scanFromCaretResult =
+      aDirectionAndAmount == nsIEditor::eNext
+          ? aWSRunScannerAtCaret.ScanPreviousVisibleNodeOrBlockBoundaryFrom(
+                aCaretPoint)
+          : aWSRunScannerAtCaret.ScanNextVisibleNodeOrBlockBoundaryFrom(
+                aCaretPoint);
 
   // First find the adjacent node in the block
   nsCOMPtr<nsIContent> leafNode;
@@ -2838,8 +2814,9 @@ EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtOtherBlockBoundary(
   }
 
   bool didBRElementDeleted = false;
-  if (otherNode->IsHTMLElement(nsGkAtoms::br)) {
-    nsresult rv = DeleteNodeWithTransaction(*otherNode);
+  if (scanFromCaretResult.ReachedBRElement()) {
+    nsresult rv = DeleteNodeWithTransaction(
+        MOZ_KnownLive(*scanFromCaretResult.BRElementPtr()));
     if (NS_WARN_IF(Destroyed())) {
       return EditActionResult(NS_ERROR_EDITOR_DESTROYED);
     }
@@ -3391,12 +3368,12 @@ nsresult HTMLEditor::InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
   WSRunObject wsObj(this, aPointToInsert);
   // If the point is not start of a hard line, we don't need to put a `<br>`
   // element here.
-  if (!(wsObj.mStartReason & (WSType::block | WSType::br))) {
+  if (!wsObj.StartsFromHardLineBreak()) {
     return NS_OK;
   }
   // If the point is not end of a hard line or the hard line does not end with
   // block boundary, we don't need to put a `<br>` element here.
-  if (!(wsObj.mEndReason & WSType::block)) {
+  if (!wsObj.EndsByBlockBoundary()) {
     return NS_OK;
   }
 
@@ -6834,9 +6811,9 @@ Element* HTMLEditor::GetInvisibleBRElementAt(
     return nullptr;
   }
 
-  WSRunObject wsTester(this, aPoint);
-  return WSType::br == wsTester.mStartReason
-             ? wsTester.mStartReasonNode->AsElement()
+  WSRunScanner wsScannerForPoint(this, aPoint);
+  return wsScannerForPoint.StartsFromBRElement()
+             ? wsScannerForPoint.StartReasonBRElementPtr()
              : nullptr;
 }
 
@@ -6895,20 +6872,22 @@ HTMLEditor::GetExtendedRangeToIncludeInvisibleNodes(
   if (atStart.GetContainer() != commonAncestorBlock &&
       atStart.GetContainer() != editingHost) {
     for (;;) {
-      WSRunObject wsObj(this, atStart);
-      WSType wsType;
-      wsObj.PriorVisibleNode(atStart, &wsType);
-      if (wsType != WSType::thisBlock) {
+      WSScanResult backwardScanFromStartResult =
+          WSRunScanner::ScanPreviousVisibleNodeOrBlockBoundary(*this, atStart);
+      if (!backwardScanFromStartResult.ReachedCurrentBlockBoundary()) {
         break;
       }
+      MOZ_ASSERT(backwardScanFromStartResult.GetContent() ==
+                 WSRunScanner(this, atStart).GetStartReasonContent());
       // We want to keep looking up.  But stop if we are crossing table
       // element boundaries, or if we hit the root.
-      if (HTMLEditUtils::IsTableElement(wsObj.mStartReasonNode) ||
-          wsObj.mStartReasonNode == commonAncestorBlock ||
-          wsObj.mStartReasonNode == editingHost) {
+      if (HTMLEditUtils::IsTableElement(
+              backwardScanFromStartResult.GetContent()) ||
+          backwardScanFromStartResult.GetContent() == commonAncestorBlock ||
+          backwardScanFromStartResult.GetContent() == editingHost) {
         break;
       }
-      atStart.Set(wsObj.mStartReasonNode);
+      atStart = backwardScanFromStartResult.PointAtContent();
     }
   }
 
@@ -6921,31 +6900,40 @@ HTMLEditor::GetExtendedRangeToIncludeInvisibleNodes(
       atEnd.GetContainer() != editingHost) {
     EditorDOMPoint atFirstInvisibleBRElement;
     for (;;) {
-      WSRunObject wsObj(this, atEnd);
-      WSType wsType;
-      wsObj.NextVisibleNode(atEnd, &wsType);
-      if (wsType == WSType::br) {
-        if (IsVisibleBRElement(wsObj.mEndReasonNode)) {
+      WSRunScanner wsScannerAtEnd(this, atEnd);
+      WSScanResult forwardScanFromEndResult =
+          wsScannerAtEnd.ScanNextVisibleNodeOrBlockBoundaryFrom(atEnd);
+      if (forwardScanFromEndResult.ReachedBRElement()) {
+        // XXX In my understanding, this is odd.  The end reason may not be
+        //     same as the reached <br> element because the equality is
+        //     guaranteed only when ReachedCurrentBlockBoundary() returns true.
+        //     However, looks like that this code assumes that
+        //     GetEndReasonContent() returns the (or a) <br> element.
+        NS_ASSERTION(wsScannerAtEnd.GetEndReasonContent() ==
+                         forwardScanFromEndResult.BRElementPtr(),
+                     "End reason is not the reached <br> element");
+        if (IsVisibleBRElement(wsScannerAtEnd.GetEndReasonContent())) {
           break;
         }
         if (!atFirstInvisibleBRElement.IsSet()) {
           atFirstInvisibleBRElement = atEnd;
         }
-        atEnd.Set(wsObj.mEndReasonNode);
-        atEnd.AdvanceOffset();
+        atEnd.SetAfter(wsScannerAtEnd.GetEndReasonContent());
         continue;
       }
 
-      if (wsType == WSType::thisBlock) {
+      if (forwardScanFromEndResult.ReachedCurrentBlockBoundary()) {
+        MOZ_ASSERT(forwardScanFromEndResult.GetContent() ==
+                   wsScannerAtEnd.GetEndReasonContent());
         // We want to keep looking up.  But stop if we are crossing table
         // element boundaries, or if we hit the root.
-        if (HTMLEditUtils::IsTableElement(wsObj.mEndReasonNode) ||
-            wsObj.mEndReasonNode == commonAncestorBlock ||
-            wsObj.mEndReasonNode == editingHost) {
+        if (HTMLEditUtils::IsTableElement(
+                forwardScanFromEndResult.GetContent()) ||
+            forwardScanFromEndResult.GetContent() == commonAncestorBlock ||
+            forwardScanFromEndResult.GetContent() == editingHost) {
           break;
         }
-        atEnd.Set(wsObj.mEndReasonNode);
-        atEnd.AdvanceOffset();
+        atEnd = forwardScanFromEndResult.PointAfterContent();
         continue;
       }
 
@@ -7022,62 +7010,59 @@ nsresult HTMLEditor::MaybeExtendSelectionToHardLineEdgesForBlockEditAction() {
   EditorDOMPoint newStartPoint(startPoint);
   EditorDOMPoint newEndPoint(endPoint);
 
-  // some locals we need for whitespace code
-  WSType wsType;
-
-  // let the whitespace code do the heavy lifting
-  WSRunObject wsEndObj(this, endPoint);
   // Is there any intervening visible whitespace?  If so we can't push
   // selection past that, it would visibly change meaning of users selection.
-  wsEndObj.PriorVisibleNode(endPoint, &wsType);
-  if (wsType != WSType::text && wsType != WSType::normalWS) {
+  WSRunScanner wsScannerAtEnd(this, endPoint);
+  if (wsScannerAtEnd.ScanPreviousVisibleNodeOrBlockBoundaryFrom(endPoint)
+          .ReachedSomething()) {
     // eThisBlock and eOtherBlock conveniently distinguish cases
     // of going "down" into a block and "up" out of a block.
-    if (wsEndObj.mStartReason == WSType::otherBlock) {
+    if (wsScannerAtEnd.StartsFromOtherBlockElement()) {
       // endpoint is just after the close of a block.
-      nsINode* child = GetRightmostChild(wsEndObj.mStartReasonNode, true);
+      nsINode* child = GetRightmostChild(
+          wsScannerAtEnd.StartReasonOtherBlockElementPtr(), true);
       if (child) {
         newEndPoint.SetAfter(child);
       }
       // else block is empty - we can leave selection alone here, i think.
-    } else if (wsEndObj.mStartReason == WSType::thisBlock) {
+    } else if (wsScannerAtEnd.StartsFromCurrentBlockBoundary()) {
       // endpoint is just after start of this block
       nsINode* child = GetPreviousEditableHTMLNode(endPoint);
       if (child) {
         newEndPoint.SetAfter(child);
       }
       // else block is empty - we can leave selection alone here, i think.
-    } else if (wsEndObj.mStartReason == WSType::br) {
+    } else if (wsScannerAtEnd.StartsFromBRElement()) {
       // endpoint is just after break.  lets adjust it to before it.
-      newEndPoint.Set(wsEndObj.mStartReasonNode);
+      newEndPoint.Set(wsScannerAtEnd.StartReasonBRElementPtr());
     }
   }
 
-  // similar dealio for start of range
-  WSRunObject wsStartObj(this, startPoint);
   // Is there any intervening visible whitespace?  If so we can't push
   // selection past that, it would visibly change meaning of users selection.
-  wsStartObj.NextVisibleNode(startPoint, &wsType);
-  if (wsType != WSType::text && wsType != WSType::normalWS) {
+  WSRunScanner wsScannerAtStart(this, startPoint);
+  if (wsScannerAtStart.ScanNextVisibleNodeOrBlockBoundaryFrom(startPoint)
+          .ReachedSomething()) {
     // eThisBlock and eOtherBlock conveniently distinguish cases
     // of going "down" into a block and "up" out of a block.
-    if (wsStartObj.mEndReason == WSType::otherBlock) {
+    if (wsScannerAtStart.EndsByOtherBlockElement()) {
       // startpoint is just before the start of a block.
-      nsINode* child = GetLeftmostChild(wsStartObj.mEndReasonNode, true);
+      nsINode* child = GetLeftmostChild(
+          wsScannerAtStart.EndReasonOtherBlockElementPtr(), true);
       if (child) {
         newStartPoint.Set(child);
       }
       // else block is empty - we can leave selection alone here, i think.
-    } else if (wsStartObj.mEndReason == WSType::thisBlock) {
+    } else if (wsScannerAtStart.EndsByCurrentBlockBoundary()) {
       // startpoint is just before end of this block
       nsINode* child = GetNextEditableHTMLNode(startPoint);
       if (child) {
         newStartPoint.Set(child);
       }
       // else block is empty - we can leave selection alone here, i think.
-    } else if (wsStartObj.mEndReason == WSType::br) {
+    } else if (wsScannerAtStart.EndsByBRElement()) {
       // startpoint is just before a break.  lets adjust it to after it.
-      newStartPoint.SetAfter(wsStartObj.mEndReasonNode);
+      newStartPoint.SetAfter(wsScannerAtStart.EndReasonBRElementPtr());
     }
   }
 
@@ -8634,20 +8619,19 @@ nsresult HTMLEditor::HandleInsertParagraphInListItemElement(Element& aListItem,
           return NS_OK;
         }
       } else {
-        WSRunObject wsObj(this, &aListItem, 0);
-        nsCOMPtr<nsINode> visNode;
-        int32_t visOffset = 0;
-        WSType wsType;
-        wsObj.NextVisibleNode(EditorRawDOMPoint(&aListItem, 0),
-                              address_of(visNode), &visOffset, &wsType);
-        if (wsType == WSType::special || wsType == WSType::br ||
-            visNode->IsHTMLElement(nsGkAtoms::hr)) {
-          EditorRawDOMPoint atVisNode(visNode);
-          if (NS_WARN_IF(!atVisNode.IsSetAndValid())) {
+        WSScanResult forwardScanFromStartOfListItemResult =
+            WSRunScanner::ScanNextVisibleNodeOrBlockBoundary(
+                *this, EditorRawDOMPoint(&aListItem, 0));
+        if (forwardScanFromStartOfListItemResult.ReachedSpecialContent() ||
+            forwardScanFromStartOfListItemResult.ReachedBRElement() ||
+            forwardScanFromStartOfListItemResult.ReachedHRElement()) {
+          EditorRawDOMPoint atFoundElement(
+              forwardScanFromStartOfListItemResult.RawPointAtContent());
+          if (NS_WARN_IF(!atFoundElement.IsSetAndValid())) {
             return NS_ERROR_FAILURE;
           }
           ErrorResult error;
-          SelectionRefPtr()->Collapse(atVisNode, error);
+          SelectionRefPtr()->Collapse(atFoundElement, error);
           if (NS_WARN_IF(Destroyed())) {
             error.SuppressException();
             return NS_ERROR_EDITOR_DESTROYED;
@@ -8658,7 +8642,11 @@ nsresult HTMLEditor::HandleInsertParagraphInListItemElement(Element& aListItem,
           return NS_OK;
         }
 
-        rv = SelectionRefPtr()->Collapse(visNode, visOffset);
+        // XXX This may be not meaningful position if it reached block element
+        //     in aListItem.
+        rv = SelectionRefPtr()->Collapse(
+            forwardScanFromStartOfListItemResult.RawPoint()
+                .ToRawRangeBoundary());
         if (NS_WARN_IF(Destroyed())) {
           return NS_ERROR_EDITOR_DESTROYED;
         }
