@@ -988,6 +988,12 @@ class ContentParent final
   virtual PTelephonyParent* AllocPTelephonyParent();
 
   virtual bool DeallocPTelephonyParent(PTelephonyParent*);
+  
+  virtual PVoicemailParent* AllocPVoicemailParent();
+
+  virtual mozilla::ipc::IPCResult RecvPVoicemailConstructor(PVoicemailParent* aActor) override;
+  
+  virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
 
   PMediaParent* AllocPMediaParent();
 
@@ -1052,13 +1058,6 @@ class ContentParent final
   //   virtual PSmsParent* AllocPSmsParent();
 
   //   virtual bool DeallocPSmsParent(PSmsParent*);
-
-  //   virtual PVoicemailParent* AllocPVoicemailParent();
-
-  //   virtual bool RecvPVoicemailConstructor(PVoicemailParent* aActor);
-
-  //   virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
-
   // MOZ_B2G_RIL_END
 
   mozilla::ipc::IPCResult RecvGetGfxVars(nsTArray<GfxVarUpdate>* aVars);

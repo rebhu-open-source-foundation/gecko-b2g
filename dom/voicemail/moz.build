@@ -10,13 +10,17 @@ XPIDL_SOURCES += [
 
 XPIDL_MODULE = 'dom_voicemail'
 
+EXPORTS += [
+    'ipc/VoicemailChild.h'
+]
+
 EXPORTS.mozilla.dom += [
     'Voicemail.h',
     'VoicemailStatus.h',
 ]
 
 EXPORTS.mozilla.dom.voicemail += [
-    'ipc/VoicemailIPCService.h',
+    'ipc/VoicemailChild.h',
     'ipc/VoicemailParent.h',
 ]
 
@@ -25,7 +29,7 @@ IPDL_SOURCES += [
 ]
 
 SOURCES += [
-    'ipc/VoicemailIPCService.cpp',
+    'ipc/VoicemailChild.cpp',
     'ipc/VoicemailParent.cpp',
     'Voicemail.cpp',
 ]
@@ -34,14 +38,21 @@ UNIFIED_SOURCES += [
     'VoicemailStatus.cpp',
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+XPCOM_MANIFESTS += [
+    'components.conf',
+]
+
+#if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     XPIDL_SOURCES += [
         'gonk/nsIGonkVoicemailService.idl',
     ]
     if not CONFIG['DISABLE_MOZ_RIL_GEOLOC'] and not CONFIG['DISABLE_MOZ_RIL']:
         EXTRA_COMPONENTS += [
-            'gonk/VoicemailService.js',
             'gonk/VoicemailService.manifest',
+        ]
+        EXTRA_JS_MODULES += [
+            'gonk/VoicemailService.jsm',
         ]
 
 LOCAL_INCLUDES += [

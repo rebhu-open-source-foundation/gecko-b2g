@@ -56,7 +56,7 @@ already_AddRefed<nsIVoicemailService>
 NS_CreateVoicemailService();
 %}
 
-[scriptable, uuid(a0bc19a2-3216-4f3f-89d3-8976a48cb829)]
+[scriptable, uuid(56d83248-79d8-48ad-a7b7-07460fd38280)]
 interface nsIVoicemailProvider : nsISupports
 {
   readonly attribute unsigned long serviceId;
@@ -70,7 +70,7 @@ interface nsIVoicemailProvider : nsISupports
    * @see 3GPP TS 31.102 subclause 4.2.63 "EFmwis (Message Waiting Indication Status)"
    * @see 3GPP TS 51.011 subclause 10.3.45 "EFmwis (Message Waiting Indication Status)"
    */
-  readonly attribute DOMString number;
+  readonly attribute AString number;
 
   /**
    * Voicemail center display name. When changed, |notifyInfoChanged| of
@@ -81,7 +81,7 @@ interface nsIVoicemailProvider : nsISupports
    * @see 3GPP TS 31.102 subclause 4.2.63 "EFmwis (Message Waiting Indication Status)"
    * @see 3GPP TS 51.011 subclause 10.3.45 "EFmwis (Message Waiting Indication Status)"
    */
-  readonly attribute DOMString displayName;
+  readonly attribute AString displayName;
 
   /**
    * Whether or not there are messages waiting in the voicemail box. When
@@ -121,7 +121,7 @@ interface nsIVoicemailProvider : nsISupports
    *
    * @see 3GPP TS 23.040 subclause 9.2.3.9 "TPProtocolIdentifier (TPPID)"
    */
-  readonly attribute DOMString returnNumber;
+  readonly attribute AString returnNumber;
 
   /**
    * When #hasMessages is true this may contain a non-null string as the
@@ -133,5 +133,5 @@ interface nsIVoicemailProvider : nsISupports
    *
    * @see 3GPP TS 23.040 subclause 9.2.3.9 "TPProtocolIdentifier (TPPID)"
    */
-  readonly attribute DOMString returnMessage;
+  readonly attribute AString returnMessage;
 };

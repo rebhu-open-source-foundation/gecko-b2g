@@ -46,6 +46,7 @@ include protocol PIcc;
 //include protocol PSubsidyLock;
 include protocol PTelephony;
 include protocol PTestShell;
+include protocol PVoicemail;
 include protocol PJavaScript;
 include protocol PRemoteSpellcheckEngine;
 include protocol PWebBrowserPersistDocument;
@@ -542,6 +543,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PTelephony;
     //manages PVoicemail;
     manages PTestShell;
+    manages PVoicemail;
     manages PJavaScript;
     manages PRemoteSpellcheckEngine;
     manages PWebBrowserPersistDocument;
@@ -1139,7 +1141,7 @@ parent:
 
     async PTelephony();
 
-    //async PVoicemail();
+    async PVoicemail();
 
     async PMedia();
 

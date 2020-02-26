@@ -53,6 +53,12 @@ partial interface KaiOS {
   [Throws, Pref="dom.datacall.enabled"]
   readonly attribute DataCallManager? dataCallManager;
 };
+
+[Exposed=Window]
+partial interface KaiOS {
+  [Throws, Pref="dom.voicemail.enabled"]
+  readonly attribute MozVoicemail mozVoicemail;
+};
 #endif //MOZ_B2G_RIL
 
 partial interface KaiOS {

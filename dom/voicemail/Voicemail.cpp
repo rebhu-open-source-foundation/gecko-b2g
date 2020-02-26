@@ -16,7 +16,7 @@
 #include "nsServiceManagerUtils.h"
 
 // Service instantiation
-#include "ipc/VoicemailIPCService.h"
+#include "ipc/VoicemailChild.h"
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
 #include "nsIGonkVoicemailService.h"
 #endif
@@ -57,7 +57,7 @@ NS_IMPL_ISUPPORTS(Voicemail::Listener, nsIVoicemailListener)
 NS_IMPL_CYCLE_COLLECTION_INHERITED(Voicemail, DOMEventTargetHelper,
                                    mStatuses)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(Voicemail)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Voicemail)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(Voicemail, DOMEventTargetHelper)
@@ -87,7 +87,7 @@ Voicemail::Voicemail(nsPIDOMWindowInner* aWindow,
 
   mListener = new Listener(this);
   DebugOnly<nsresult> rv = mService->RegisterListener(mListener);
-  NS_WARN_IF_FALSE(NS_SUCCEEDED(rv),
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                    "Failed registering voicemail messages with service");
 
   uint32_t length = 0;
@@ -115,7 +115,7 @@ Voicemail::Shutdown()
 JSObject*
 Voicemail::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozVoicemailBinding::Wrap(aCx, this, aGivenProto);
+  return MozVoicemail_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 already_AddRefed<nsIVoicemailProvider>
@@ -247,7 +247,7 @@ NS_CreateVoicemailService()
   nsCOMPtr<nsIVoicemailService> service;
 
   if (XRE_IsContentProcess()) {
-    service = new mozilla::dom::voicemail::VoicemailIPCService();
+    service = new mozilla::dom::voicemail::VoicemailChild();
   } else {
 #if defined(MOZ_B2G_RIL)
 #if defined(MOZ_WIDGET_GONK)

@@ -1994,6 +1994,12 @@
   mirror: always
 #undef PREF_VALUE
 
+# B2G specific VoiceMail API.
+- name: dom.voicemail.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Is support for module scripts (<script type="module">) enabled for content?
 - name: dom.moduleScripts.enabled
   type: bool

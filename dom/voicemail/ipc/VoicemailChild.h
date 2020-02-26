@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_voicemail_VoicemailIPCService_h
-#define mozilla_dom_voicemail_VoicemailIPCService_h
+#ifndef mozilla_dom_voicemail_VoicemailChild_h
+#define mozilla_dom_voicemail_VoicemailChild_h
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/voicemail/PVoicemailChild.h"
@@ -16,33 +16,33 @@ namespace mozilla {
 namespace dom {
 namespace voicemail {
 
-class VoicemailIPCService final : public PVoicemailChild
+class VoicemailChild final : public PVoicemailChild
                                 , public nsIVoicemailService
 {
 public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVOICEMAILSERVICE
 
-  VoicemailIPCService();
+  VoicemailChild();
 
   bool
   RecvNotifyInfoChanged(const uint32_t& aServiceId,
                         const nsString& aNumber,
-                        const nsString& aDisplayName) override;
+                        const nsString& aDisplayName);
 
   bool
   RecvNotifyStatusChanged(const uint32_t& aServiceId,
                           const bool& aHasMessages,
                           const int32_t& aMessageCount,
                           const nsString& aNumber,
-                          const nsString& aDisplayName) override;
+                          const nsString& aDisplayName);
 
   void
   ActorDestroy(ActorDestroyReason aWhy) override;
 
 private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~VoicemailIPCService();
+  ~VoicemailChild();
 
 private:
   bool mActorDestroyed;
@@ -54,4 +54,4 @@ private:
 } // namespace dom
 } // namespace mozilla
 
-#endif // mozilla_dom_voicemail_VoicemailIPCService_h
+#endif // mozilla_dom_voicemail_VoicemailChild_h

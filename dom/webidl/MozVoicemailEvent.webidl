@@ -10,7 +10,7 @@
 // AvailableIn="CertifiedApps"]
 interface MozVoicemailEvent : Event
 {
-  constructor(DOMString type, optional MozVoicemailEventInit eventInitDict);
+  constructor(DOMString type, optional MozVoicemailEventInit eventInitDict = {});
   readonly attribute MozVoicemailStatus? status;
 };
 

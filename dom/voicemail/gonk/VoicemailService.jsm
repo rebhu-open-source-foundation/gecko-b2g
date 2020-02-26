@@ -7,8 +7,17 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+const { Services } = ChromeUtils.import(
+  "resource://gre/modules/Services.jsm"
+);
+
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+);
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
   let obj = {};
@@ -79,18 +88,6 @@ function VoicemailService() {
 
 VoicemailService.prototype = {
   classID: GONK_VOICEMAIL_SERVICE_CID,
-
-  classInfo: XPCOMUtils.generateCI({
-    classID: GONK_VOICEMAIL_SERVICE_CID,
-    contractID: GONK_VOICEMAIL_SERVICE_CONTRACTID,
-    classDescription: "VoicemailService",
-    interfaces: [
-      Ci.nsIVoicemailService,
-      Ci.nsIGonkVoicemailService
-    ],
-    flags: Ci.nsIClassInfo.SINGLETON
-  }),
-
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIVoicemailService,
     Ci.nsIGonkVoicemailService,
@@ -108,7 +105,9 @@ VoicemailService.prototype = {
   },
 
   _getDefaultServiceId: function() {
-    let id = Services.prefs.getIntPref(kPrefDefaultServiceId);
+    // TODO mark and set 0 first.
+    //let id = Services.prefs.getIntPref(kPrefDefaultServiceId);
+    let id = 0;
     if (id >= this.numItems || id < 0) {
       id = 0;
     }
@@ -257,4 +256,4 @@ VoicemailService.prototype = {
   }
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([VoicemailService]);
+var EXPORTED_SYMBOLS = ["VoicemailService"];

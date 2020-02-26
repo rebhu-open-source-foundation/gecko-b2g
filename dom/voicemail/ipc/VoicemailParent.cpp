@@ -15,11 +15,15 @@ namespace voicemail {
 NS_IMPL_ISUPPORTS(VoicemailParent,
                   nsIVoicemailListener)
 
-bool
+mozilla::ipc::IPCResult
 VoicemailParent::Init()
 {
   mService = do_GetService(NS_VOICEMAIL_SERVICE_CONTRACTID);
-  return mService && NS_SUCCEEDED(mService->RegisterListener(this));
+  if( mService && NS_SUCCEEDED(mService->RegisterListener(this))) {
+    return IPC_OK();
+  } else {
+    IPC_FAIL_NO_REASON(this);
+  }
 }
 
 bool

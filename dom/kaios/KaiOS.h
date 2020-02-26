@@ -21,6 +21,7 @@
 #endif
 #ifdef MOZ_B2G_RIL
 #  include "mozilla/dom/IccManager.h"
+#  include "mozilla/dom/Voicemail.h"
 #  include "mozilla/dom/Telephony.h"
 #  include "mozilla/dom/MobileConnectionArray.h"
 #  include "mozilla/dom/DataCallManagerBinding.h"
@@ -68,6 +69,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 
 #ifdef MOZ_B2G_RIL
   IccManager* GetMozIccManager(ErrorResult& aRv);
+  Voicemail* GetMozVoicemail(ErrorResult& aRv);
   MobileConnectionArray* GetMozMobileConnections(ErrorResult& aRv);
   Telephony* GetMozTelephony(ErrorResult& aRv);
   DataCallManager* GetDataCallManager(ErrorResult& aRv);
@@ -94,6 +96,7 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
 
 #ifdef MOZ_B2G_RIL
   RefPtr<IccManager> mIccManager;
+  RefPtr<Voicemail> mVoicemail;
   RefPtr<MobileConnectionArray> mMobileConnections;
   RefPtr<Telephony> mTelephony;
   RefPtr<DataCallManager> mDataCallManager;

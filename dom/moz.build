@@ -123,11 +123,12 @@ DIRS += ['presentation']
 #if CONFIG['MOZ_B2G']:
 DIRS += [
     'datacall',
-    'telephony',
-    'mobileconnection',
-    'videocallprovider',
     'icc',
+    'mobileconnection',
     'mobilemessage',
+    'telephony',
+    'videocallprovider',
+    'voicemail',
 ]
 # MOZ_B2G_RIL_END
 

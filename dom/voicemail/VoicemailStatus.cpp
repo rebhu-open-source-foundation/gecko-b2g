@@ -36,7 +36,7 @@ VoicemailStatus::VoicemailStatus(nsISupports* aParent,
 JSObject*
 VoicemailStatus::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozVoicemailStatusBinding::Wrap(aCx, this, aGivenProto);
+  return MozVoicemailStatus_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 uint32_t

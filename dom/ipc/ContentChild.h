@@ -278,6 +278,12 @@ class ContentChild final
   PPrintingChild* AllocPPrintingChild();
 
   bool DeallocPPrintingChild(PPrintingChild*);
+  
+  PVoicemailChild* AllocPVoicemailChild();
+
+  PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
+
+  bool DeallocPVoicemailChild(PVoicemailChild*);
 
   PChildToParentStreamChild* AllocPChildToParentStreamChild();
   bool DeallocPChildToParentStreamChild(PChildToParentStreamChild*);
@@ -794,11 +800,6 @@ class ContentChild final
 
   //   virtual bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
 
-  //   virtual PVoicemailChild* AllocPVoicemailChild();
-
-  //   PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
-
-  //   virtual bool DeallocPVoicemailChild(PVoicemailChild*);
 
   PIccChild* SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
 

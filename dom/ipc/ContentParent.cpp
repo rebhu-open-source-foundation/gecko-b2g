@@ -142,7 +142,7 @@
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/quota/QuotaManagerService.h"
-// #include "mozilla/dom/voicemail/VoicemailParent.h"
+#include "mozilla/dom/voicemail/VoicemailParent.h"
 #include "mozilla/embedding/printingui/PrintingParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
 #include "mozilla/gfx/GPUProcessManager.h"
@@ -364,7 +364,7 @@ using namespace mozilla::dom::power;
 using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
-// using namespace mozilla::dom::voicemail;
+using namespace mozilla::dom::voicemail;
 // using namespace mozilla::dom::subsidylock;
 using namespace mozilla::media;
 using namespace mozilla::embedding;
@@ -4125,6 +4125,31 @@ bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
   return true;
 }
 
+PVoicemailParent*
+ContentParent::AllocPVoicemailParent()
+{
+  /*if (!AssertAppProcessPermission(this, "voicemail")) {
+    return nullptr;
+  }*/
+
+  VoicemailParent* actor = new VoicemailParent();
+  actor->AddRef();
+  return actor;
+}
+
+mozilla::ipc::IPCResult
+ContentParent::RecvPVoicemailConstructor(PVoicemailParent* aActor)
+{
+  return static_cast<VoicemailParent*>(aActor)->Init();
+}
+
+bool
+ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor)
+{
+  static_cast<VoicemailParent*>(aActor)->Release();
+  return true;
+}
+
 mozilla::ipc::IPCResult ContentParent::RecvPExternalHelperAppConstructor(
     PExternalHelperAppParent* actor, const Maybe<URIParams>& uri,
     const Maybe<LoadInfoArgs>& loadInfoArgs, const nsCString& aMimeContentType,
@@ -4328,31 +4353,6 @@ bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
 // ContentParent::DeallocPSmsParent(PSmsParent* aSms)
 // {
 //   static_cast<SmsParent*>(aSms)->Release();
-//   return true;
-// }
-
-// PVoicemailParent*
-// ContentParent::AllocPVoicemailParent()
-// {
-//   if (!AssertAppProcessPermission(this, "voicemail")) {
-//     return nullptr;
-//   }
-
-//   VoicemailParent* actor = new VoicemailParent();
-//   actor->AddRef();
-//   return actor;
-// }
-
-// bool
-// ContentParent::RecvPVoicemailConstructor(PVoicemailParent* aActor)
-// {
-//   return static_cast<VoicemailParent*>(aActor)->Init();
-// }
-
-// bool
-// ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor)
-// {
-//   static_cast<VoicemailParent*>(aActor)->Release();
 //   return true;
 // }
 // MOZ_B2G_RIL_END

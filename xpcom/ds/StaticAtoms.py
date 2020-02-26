@@ -2534,6 +2534,7 @@ STATIC_ATOMS = [
     Atom("onradiostatechange", "onradiostatechange"),
     Atom("ondatachange", "ondatachange"),
     Atom("ondataerror", "ondataerror"),
+    Atom("onstatuschanged", "onstatuschanged"),
 # B2G_RIL_END
 
     # CSS pseudo-elements -- these must appear in the same order as

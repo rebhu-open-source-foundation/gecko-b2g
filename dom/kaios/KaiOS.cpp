@@ -43,6 +43,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
 #endif
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mVoicemail)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileConnections)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTelephony)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDataCallManager)
@@ -82,6 +83,10 @@ void KaiOS::Invalidate() {
 
   if (mDataCallManager) {
     mDataCallManager = nullptr;
+  }
+
+  if (mVoicemail) {
+    mVoicemail = nullptr;
   }
 #endif
 #ifndef DISABLE_WIFI
@@ -143,6 +148,21 @@ IccManager* KaiOS::GetMozIccManager(ErrorResult& aRv) {
   }
 
   return mIccManager;
+}
+
+Voicemail*
+KaiOS::GetMozVoicemail(ErrorResult& aRv)
+{
+  if (!mVoicemail) {
+    if (!mWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mVoicemail = Voicemail::Create(mWindow, aRv);
+  }
+
+  return mVoicemail;
 }
 
 MobileConnectionArray* KaiOS::GetMozMobileConnections(ErrorResult& aRv) {

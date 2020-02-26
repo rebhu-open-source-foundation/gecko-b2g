@@ -25,9 +25,9 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVOICEMAILLISTENER
 
-  VoicemailParent() { MOZ_COUNT_CTOR(VoicemailParent); }
+  VoicemailParent() {}
 
-  bool
+  mozilla::ipc::IPCResult
   Init();
 
   bool
@@ -37,14 +37,14 @@ public:
                     bool* aHasMessages,
                     int32_t* aMessageCount,
                     nsString* aReturnNumber,
-                    nsString* aReturnMessage) override;
+                    nsString* aReturnMessage);
 
   void
   ActorDestroy(ActorDestroyReason aWhy) override;
 
 private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~VoicemailParent() { MOZ_COUNT_DTOR(VoicemailParent); }
+  ~VoicemailParent() {}
 
 private:
   nsCOMPtr<nsIVoicemailService> mService;

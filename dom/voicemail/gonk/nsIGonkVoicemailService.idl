@@ -9,7 +9,7 @@
   "@mozilla.org/voicemail/gonkvoicemailservice;1"
 %}
 
-[scriptable, uuid(d21dbc55-f540-417d-aa3e-9e890764e957)]
+[scriptable, uuid(7d253984-6380-45e2-ad5a-91e18b662305)]
 interface nsIGonkVoicemailService : nsIVoicemailService
 {
   /**
@@ -18,13 +18,13 @@ interface nsIGonkVoicemailService : nsIVoicemailService
   void notifyStatusChanged(in unsigned long serviceId,
                            in bool hasMessages,
                            in long messageCount,
-                           in DOMString returnNumber,
-                           in DOMString returnMessage);
+                           in AString returnNumber,
+                           in AString returnMessage);
 
   /**
    * Called when other voicemail attributes changed.
    */
   void notifyInfoChanged(in unsigned long serviceId,
-                         in DOMString number,
-                         in DOMString displayName);
+                         in AString number,
+                         in AString displayName);
 };

@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/dom/voicemail/VoicemailIPCService.h"
+#include "mozilla/dom/voicemail/VoicemailChild.h"
 
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/Preferences.h"
@@ -17,7 +17,7 @@ namespace voicemail {
 
 class VoicemailIPCProvider final : public nsIVoicemailProvider
 {
-  friend class VoicemailIPCService;
+  friend class VoicemailChild;
 
 public:
   NS_DECL_ISUPPORTS
@@ -105,9 +105,9 @@ VoicemailIPCProvider::GetReturnMessage(nsAString& aReturnMessage)
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(VoicemailIPCService, nsIVoicemailService)
+NS_IMPL_ISUPPORTS(VoicemailChild, nsIVoicemailService)
 
-VoicemailIPCService::VoicemailIPCService()
+VoicemailChild::VoicemailChild()
   : mActorDestroyed(false)
 {
   ContentChild::GetSingleton()->SendPVoicemailConstructor(this);
@@ -122,7 +122,7 @@ VoicemailIPCService::VoicemailIPCService()
   }
 }
 
-VoicemailIPCService::~VoicemailIPCService()
+VoicemailChild::~VoicemailChild()
 {
   if (!mActorDestroyed) {
     Send__delete__(this);
@@ -132,7 +132,7 @@ VoicemailIPCService::~VoicemailIPCService()
 // PVoicemailChild
 
 bool
-VoicemailIPCService::RecvNotifyInfoChanged(const uint32_t& aServiceId,
+VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
                                            const nsString& aNumber,
                                            const nsString& aDisplayName)
 {
@@ -155,7 +155,7 @@ VoicemailIPCService::RecvNotifyInfoChanged(const uint32_t& aServiceId,
 }
 
 bool
-VoicemailIPCService::RecvNotifyStatusChanged(const uint32_t& aServiceId,
+VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
                                              const bool& aHasMessages,
                                              const int32_t& aMessageCount,
                                              const nsString& aReturnNumber,
@@ -182,7 +182,7 @@ VoicemailIPCService::RecvNotifyStatusChanged(const uint32_t& aServiceId,
 }
 
 void
-VoicemailIPCService::ActorDestroy(ActorDestroyReason aWhy)
+VoicemailChild::ActorDestroy(ActorDestroyReason aWhy)
 {
   mActorDestroyed = true;
 }
@@ -190,7 +190,7 @@ VoicemailIPCService::ActorDestroy(ActorDestroyReason aWhy)
 // nsIVoicemailService
 
 NS_IMETHODIMP
-VoicemailIPCService::GetNumItems(uint32_t* aNumItems)
+VoicemailChild::GetNumItems(uint32_t* aNumItems)
 {
   NS_ENSURE_ARG_POINTER(aNumItems);
 
@@ -200,7 +200,7 @@ VoicemailIPCService::GetNumItems(uint32_t* aNumItems)
 }
 
 NS_IMETHODIMP
-VoicemailIPCService::GetItemByServiceId(uint32_t aServiceId,
+VoicemailChild::GetItemByServiceId(uint32_t aServiceId,
                                         nsIVoicemailProvider** aProvider)
 {
   NS_ENSURE_ARG(aServiceId < mProviders.Length());
@@ -229,7 +229,7 @@ VoicemailIPCService::GetItemByServiceId(uint32_t aServiceId,
 }
 
 NS_IMETHODIMP
-VoicemailIPCService::GetDefaultItem(nsIVoicemailProvider** aProvider)
+VoicemailChild::GetDefaultItem(nsIVoicemailProvider** aProvider)
 {
   NS_ENSURE_ARG_POINTER(aProvider);
 
@@ -239,7 +239,7 @@ VoicemailIPCService::GetDefaultItem(nsIVoicemailProvider** aProvider)
 }
 
 NS_IMETHODIMP
-VoicemailIPCService::RegisterListener(nsIVoicemailListener* aListener)
+VoicemailChild::RegisterListener(nsIVoicemailListener* aListener)
 {
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_UNEXPECTED);
   NS_ENSURE_TRUE(!mListeners.Contains(aListener), NS_ERROR_UNEXPECTED);
@@ -249,7 +249,7 @@ VoicemailIPCService::RegisterListener(nsIVoicemailListener* aListener)
 }
 
 NS_IMETHODIMP
-VoicemailIPCService::UnregisterListener(nsIVoicemailListener* aListener)
+VoicemailChild::UnregisterListener(nsIVoicemailListener* aListener)
 {
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_UNEXPECTED);
 

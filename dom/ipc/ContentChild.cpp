@@ -287,7 +287,7 @@
 #include "mozilla/dom/telephony/TelephonyChild.h"
 #include "mozilla/dom/TabContext.h"
 #include "mozilla/ipc/CrashReporterClient.h"
-//#include "mozilla/dom/voicemail/VoicemailIPCService.h"
+#include "mozilla/dom/voicemail/VoicemailChild.h"
 #include "mozilla/net/NeckoMessageUtils.h"
 #include "mozilla/widget/PuppetBidiKeyboard.h"
 #include "mozilla/RemoteSpellCheckEngineChild.h"
@@ -321,7 +321,7 @@ using namespace mozilla::dom::icc;
 using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
-// using namespace mozilla::dom::voicemail;
+using namespace mozilla::dom::voicemail;
 // using namespace mozilla::dom::subsidylock;
 //#endif
 // MOZ_B2G_RIL_END
@@ -2359,7 +2359,7 @@ ContentChild::DeallocPSubsidyLockChild(PSubsidyLockChild* aActor)
 #else
   MOZ_CRASH("No support for subsidylock on this platform!");
 #endif
-}
+}*/
 
 PVoicemailChild*
 ContentChild::AllocPVoicemailChild()
@@ -2372,7 +2372,7 @@ ContentChild::SendPVoicemailConstructor(PVoicemailChild* aActor)
 {
   aActor = PContentChild::SendPVoicemailConstructor(aActor);
   if (aActor) {
-    static_cast<VoicemailIPCService*>(aActor)->AddRef();
+    static_cast<VoicemailChild*>(aActor)->AddRef();
   }
 
   return aActor;
@@ -2381,10 +2381,9 @@ ContentChild::SendPVoicemailConstructor(PVoicemailChild* aActor)
 bool
 ContentChild::DeallocPVoicemailChild(PVoicemailChild* aActor)
 {
-  static_cast<VoicemailIPCService*>(aActor)->Release();
+  static_cast<VoicemailChild*>(aActor)->Release();
   return true;
 }
-*/
 
 PIccChild* ContentChild::SendPIccConstructor(PIccChild* aActor,
                                              const uint32_t& aServiceId) {
