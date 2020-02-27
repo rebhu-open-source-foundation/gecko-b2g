@@ -15,6 +15,7 @@
 #include "mozilla/dom/BindingDeclarations.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
+#include "mozilla/dom/TetheringManagerBinding.h"
 
 namespace mozilla {
 namespace dom {
@@ -32,11 +33,14 @@ class B2G final : public nsISupports, public nsWrapperCache {
   virtual JSObject* WrapObject(JSContext* aCtx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
+  TetheringManager* GetTetheringManager(ErrorResult& aRv);
+
   // Shutting down.
   void Shutdown();
 
  private:
   ~B2G();
+  RefPtr<TetheringManager> mTetheringManager;
 };
 
 }  // namespace dom

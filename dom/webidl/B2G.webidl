@@ -12,3 +12,8 @@ interface B2G {
   // objects implementing this interface also implement the interfaces given
   // below
 };
+
+partial interface B2G {
+  [Throws, Exposed=Window]
+  readonly attribute TetheringManager tetheringManager;
+};

@@ -30,7 +30,6 @@
 #  include "mozilla/dom/WifiManagerBinding.h"
 #endif
 
-#include "mozilla/dom/TetheringManagerBinding.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/MemoryReporting.h"
 #include "nsPIDOMWindow.h"
@@ -75,8 +74,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   DataCallManager* GetDataCallManager(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
-  TetheringManager* GetTetheringManager(ErrorResult& aRv);
-
 #ifndef DISABLE_WIFI
   WifiManager* GetWifiManager(ErrorResult& aRv);
 #endif
@@ -101,7 +98,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   RefPtr<Telephony> mTelephony;
   RefPtr<DataCallManager> mDataCallManager;
 #endif
-  RefPtr<TetheringManager> mTetheringManager;
 
 #ifndef DISABLE_WIFI
   RefPtr<WifiManager> mWifiManager;

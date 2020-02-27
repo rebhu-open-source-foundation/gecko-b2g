@@ -61,11 +61,6 @@ partial interface KaiOS {
 };
 #endif //MOZ_B2G_RIL
 
-partial interface KaiOS {
-  [Throws, Exposed=Window]
-  readonly attribute TetheringManager tetheringManager;
-};
-
 #ifndef DISABLE_WIFI
 partial interface KaiOS {
   [Throws, Func="KaiOS::HasWifiManagerSupport", Exposed=Window]

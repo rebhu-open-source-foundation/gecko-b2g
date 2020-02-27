@@ -34,6 +34,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -42,6 +43,23 @@ void B2G::Shutdown() {}
 
 JSObject* B2G::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
   return B2G_Binding::Wrap(cx, this, aGivenProto);
+}
+
+TetheringManager* B2G::GetTetheringManager(ErrorResult& aRv) {
+  if (!mTetheringManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mTetheringManager = ConstructJSImplementation<TetheringManager>(
+        "@mozilla.org/tetheringmanager;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+
+  return mTetheringManager;
 }
 
 }  // namespace dom
