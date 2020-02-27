@@ -13,6 +13,7 @@
 #include "mozilla/gfx/DataSurfaceHelpers.h"
 #include "mozilla/layers/GrallocTextureHost.h"
 #include "mozilla/layers/SharedBufferManagerParent.h"
+#include "mozilla/webrender/RenderEGLImageTextureHost.h"
 #include "EGLImageHelpers.h"
 #include "GLReadTexImageHelper.h"
 
@@ -165,6 +166,13 @@ gfx::SurfaceFormat
 GrallocTextureHostOGL::GetFormat() const
 {
   return mFormat;
+}
+
+void
+GrallocTextureHostOGL::CreateRenderTexture(
+    const wr::ExternalImageId& aExternalImageId) {
+  // FIXME: Bug 85054 temp to avoid crash
+  printf_stderr("GrallocTextureHostOGL::CreateRenderTexture :: not implemented yet");
 }
 
 void

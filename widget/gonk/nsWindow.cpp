@@ -147,9 +147,10 @@ nsWindow::DoDraw(void)
 
     listener = targetWindow->GetWidgetListener();
     if (listener) {
-      LayerManager* lm = targetWindow->GetLayerManager();
-      if (mozilla::layers::LayersBackend::LAYERS_CLIENT ==
-          lm->GetBackendType()) {
+      mozilla::layers::LayersBackend backendType =
+          targetWindow->GetLayerManager()->GetBackendType();
+      if (mozilla::layers::LayersBackend::LAYERS_CLIENT == backendType ||
+          mozilla::layers::LayersBackend::LAYERS_WR == backendType) {
         // No need to do anything, the compositor will handle drawing
       } else {
         MOZ_CRASH("Unexpected layer manager type");

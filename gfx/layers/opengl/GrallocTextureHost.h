@@ -39,6 +39,9 @@ public:
 
   virtual gfx::SurfaceFormat GetFormat() const override;
 
+  virtual void CreateRenderTexture(
+      const wr::ExternalImageId& aExternalImageId) override;
+
   virtual gfx::IntSize GetSize() const override { return mCropSize; }
 
   virtual LayerRenderState GetRenderState() override;

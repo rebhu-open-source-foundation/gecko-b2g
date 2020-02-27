@@ -1316,3 +1316,6 @@ pref("dom.ipc.forkserver.enable", true);
 // Temporary disable checks that prevent loading https:// scripts from
 // the system app, until nsContentSecurityManager.cpp stabilizes (eg. bug 1544011)
 pref("dom.security.skip_remote_script_assertion_in_system_priv_context", true);
+
+// Enable WebRedner by default
+pref("gfx.webrender.all", true);
