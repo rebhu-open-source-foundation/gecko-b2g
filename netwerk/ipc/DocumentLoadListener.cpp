@@ -9,7 +9,6 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/LoadInfo.h"
 #include "mozilla/MozPromiseInlines.h"  // For MozPromise::FromDomPromise
-#include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/ClientChannelHelper.h"
 #include "mozilla/dom/ContentParent.h"
@@ -33,7 +32,7 @@
 #include "nsExternalHelperAppService.h"
 #include "nsCExternalHandlerService.h"
 #include "nsMimeTypes.h"
-#include "nsIWrapperChannel.h"
+#include "nsIViewSourceChannel.h"
 
 mozilla::LazyLogModule gDocumentChannelLog("DocumentChannel");
 #define LOG(fmt) MOZ_LOG(gDocumentChannelLog, mozilla::LogLevel::Verbose, fmt)
@@ -234,13 +233,14 @@ NS_INTERFACE_MAP_BEGIN(DocumentLoadListener)
   NS_INTERFACE_MAP_ENTRY_CONCRETE(DocumentLoadListener)
 NS_INTERFACE_MAP_END
 
-DocumentLoadListener::DocumentLoadListener(BrowserParent* aBrowser,
-                                           nsILoadContext* aLoadContext,
-                                           PBOverrideStatus aOverrideStatus,
-                                           ADocumentChannelBridge* aBridge)
+DocumentLoadListener::DocumentLoadListener(
+    CanonicalBrowsingContext* aProcessTopBrowsingContext,
+    nsILoadContext* aLoadContext, PBOverrideStatus aOverrideStatus,
+    ADocumentChannelBridge* aBridge)
     : mLoadContext(aLoadContext), mPBOverride(aOverrideStatus) {
   LOG(("DocumentLoadListener ctor [this=%p]", this));
-  mParentChannelListener = new ParentChannelListener(this, aBrowser);
+  mParentChannelListener = new ParentChannelListener(
+      this, aProcessTopBrowsingContext, aLoadContext->UsePrivateBrowsing());
   mDocumentChannelBridge = aBridge;
 }
 
@@ -249,10 +249,11 @@ DocumentLoadListener::~DocumentLoadListener() {
 }
 
 bool DocumentLoadListener::Open(
-    BrowserParent* aBrowser, nsDocShellLoadState* aLoadState,
-    LoadInfo* aLoadInfo, nsLoadFlags aLoadFlags, uint32_t aLoadType,
-    uint32_t aCacheKey, bool aIsActive, bool aIsTopLevelDoc,
-    bool aHasNonEmptySandboxingFlags, const Maybe<URIParams>& aTopWindowURI,
+    CanonicalBrowsingContext* aProcessTopBrowsingContext,
+    nsDocShellLoadState* aLoadState, class LoadInfo* aLoadInfo,
+    nsLoadFlags aLoadFlags, uint32_t aLoadType, uint32_t aCacheKey,
+    bool aIsActive, bool aIsTopLevelDoc, bool aHasNonEmptySandboxingFlags,
+    const Maybe<URIParams>& aTopWindowURI,
     const Maybe<PrincipalInfo>& aContentBlockingAllowListPrincipal,
     const uint64_t& aChannelId, const TimeStamp& aAsyncOpenTime,
     const Maybe<uint32_t>& aDocumentOpenFlags, bool aPluginsAllowed,
@@ -306,6 +307,15 @@ bool DocumentLoadListener::Open(
     timedChannel->SetAsyncOpen(aAsyncOpenTime);
   }
 
+  // nsViewSourceChannel normally replaces the nsIRequest passed to
+  // OnStart/StopRequest with itself. We don't need this, and instead
+  // we want the original request so that we get different ones for
+  // each part of a multipart channel.
+  if (nsCOMPtr<nsIViewSourceChannel> viewSourceChannel =
+          do_QueryInterface(mChannel)) {
+    viewSourceChannel->SetReplaceRequest(false);
+  }
+
   // Setup a ClientChannelHelper to watch for redirects, and copy
   // across any serviceworker related data between channels as needed.
   AddClientChannelHelperInParent(mChannel, GetMainThreadSerialEventTarget());
@@ -314,7 +324,7 @@ bool DocumentLoadListener::Open(
     RefPtr<ParentProcessDocumentOpenInfo> openInfo =
         new ParentProcessDocumentOpenInfo(mParentChannelListener,
                                           aPluginsAllowed, *aDocumentOpenFlags,
-                                          aBrowser->GetBrowsingContext());
+                                          aProcessTopBrowsingContext);
     openInfo->Prepare();
 
     *aRv = mChannel->AsyncOpen(openInfo);
@@ -649,11 +659,7 @@ void DocumentLoadListener::SerializeRedirectData(
   nsCOMPtr<nsIRedirectChannelRegistrar> registrar =
       RedirectChannelRegistrar::GetOrCreate();
   MOZ_ASSERT(registrar);
-  nsCOMPtr<nsIChannel> chan = mChannel;
-  if (nsCOMPtr<nsIWrapperChannel> wrapper = do_QueryInterface(chan)) {
-    wrapper->GetInnerChannel(getter_AddRefs(chan));
-  }
-  nsresult rv = registrar->RegisterChannel(chan, &mRedirectChannelId);
+  nsresult rv = registrar->RegisterChannel(mChannel, &mRedirectChannelId);
   NS_ENSURE_SUCCESS_VOID(rv);
   aArgs.registrarId() = mRedirectChannelId;
 

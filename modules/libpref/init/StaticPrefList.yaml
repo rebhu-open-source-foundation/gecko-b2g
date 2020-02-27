@@ -3171,8 +3171,13 @@
 # Prefs starting with "fission."
 #---------------------------------------------------------------------------
 
-# Whether to enable Fission.
-# Overridden in all.js on RELEASE_OR_BETA in order to add the locked attribute.
+# Whether to enable Fission in new windows by default.
+# IMPORTANT: This preference should *almost never* be checked directly, since
+# any session can contain a mix of Fission and non-Fission windows. Instead,
+# callers should check whether the relevant nsILoadContext has the
+# `useRemoteSubframes` flag set.
+# Note: This is overridden in all.js on RELEASE_OR_BETA in order to add the
+# locked attribute.
 - name: fission.autostart
   type: bool
   value: false
@@ -5227,6 +5232,16 @@
   mirror: always
   rust: true
 
+# Whether the `:focus-visible` pseudo-class is enabled.
+#
+# TODO: There are various ambiguities in the spec about this, so we shouldn't
+# ship this until those are sorted out.
+- name: layout.css.focus-visible.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Allow <number> and <number>/<number> both for <aspect-ratio>
 # https://github.com/w3c/csswg-drafts/issues/3757
 - name: layout.css.aspect-ratio-number.enabled
@@ -7082,18 +7097,18 @@
 
 - name: network.cookie.sameSite.laxByDefault
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # lax-by-default 2 minutes tollerance for unsafe methods. The value is in seconds.
 - name: network.cookie.sameSite.laxPlusPOST.timeout
   type: uint32_t
-  value: 0
+  value: 120
   mirror: always
 
 - name: network.cookie.sameSite.noneRequiresSecure
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: network.cookie.thirdparty.sessionOnly

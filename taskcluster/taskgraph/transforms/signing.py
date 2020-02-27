@@ -59,7 +59,6 @@ signing_description_schema = schema.extend({
     Optional('shipping-phase'): task_description_schema['shipping-phase'],
     Optional('shipping-product'): task_description_schema['shipping-product'],
     Optional('dependent-tasks'): {text_type: object},
-    Optional('run-on-projects'): task_description_schema['run-on-projects'],
 
     # Optional control for how long a task may run (aka maxRunTime)
     Optional('max-run-time'): int,
@@ -172,8 +171,7 @@ def make_task_description(config, jobs):
             'scopes': [signing_cert_scope] + signing_format_scopes,
             'dependencies': _generate_dependencies(job),
             'attributes': attributes,
-            'run-on-projects': job.get('run-on-projects',
-                                       dep_job.attributes.get('run_on_projects')),
+            'run-on-projects': dep_job.attributes.get('run_on_projects'),
             'optimization': dep_job.optimization,
             'routes': job.get('routes', []),
             'shipping-product': job.get('shipping-product'),
@@ -181,10 +179,19 @@ def make_task_description(config, jobs):
         }
 
         if 'macosx' in build_platform:
+            shippable = "false"
+            if "shippable" in attributes and attributes["shippable"]:
+                shippable = "true"
+            # remove the nightly check once nightly is gone as an attribute
+            if "nightly" in attributes and attributes["nightly"]:
+                shippable = "true"
             mac_behavior = evaluate_keyed_by(
                 config.graph_config['mac-notarization']['mac-behavior'],
                 'mac behavior',
-                {'project': config.params['project']},
+                {
+                    'project': config.params['project'],
+                    'shippable': shippable,
+                },
             )
             if mac_behavior == 'mac_notarize':
                 if 'part-1' in config.kind:
@@ -193,6 +200,9 @@ def make_task_description(config, jobs):
                     mac_behavior = 'mac_notarize_part_3'
                 else:
                     raise Exception("Unknown kind {} for mac_behavior!".format(config.kind))
+            else:
+                if 'part-1' in config.kind:
+                    continue
             task['worker']['mac-behavior'] = mac_behavior
             worker_type_alias_map = {
                 'linux-depsigning': 'mac-depsigning',

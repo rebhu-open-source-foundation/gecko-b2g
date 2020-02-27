@@ -11,6 +11,7 @@
 #include <stdint.h>  // uint32_t
 
 #include "jstypes.h"
+#include "js/CompileOptions.h"
 
 /*
  * Data shared between the vm and stencil structures.
@@ -35,6 +36,13 @@ class ScriptFlagBase {
   }
   void setFlag(EnumType flag) { flags_ |= static_cast<uint32_t>(flag); }
   void clearFlag(EnumType flag) { flags_ &= ~static_cast<uint32_t>(flag); }
+  void setFlag(EnumType flag, bool b) {
+    if (b) {
+      setFlag(flag);
+    } else {
+      clearFlag(flag);
+    }
+  }
 
   operator uint32_t() const { return flags_; }
 };
@@ -151,6 +159,26 @@ class ImmutableScriptFlags : public ScriptFlagBase<ImmutableScriptFlagsEnum> {
   }
 
   void operator=(uint32_t flag) { flags_ = flag; }
+
+  static ImmutableScriptFlags fromCompileOptions(
+      const JS::ReadOnlyCompileOptions& options) {
+    ImmutableScriptFlags isf;
+    isf.setFlag(ImmutableScriptFlagsEnum::NoScriptRval, options.noScriptRval);
+    isf.setFlag(ImmutableScriptFlagsEnum::SelfHosted, options.selfHostingMode);
+    isf.setFlag(ImmutableScriptFlagsEnum::TreatAsRunOnce, options.isRunOnce);
+    return isf;
+  };
+
+  static ImmutableScriptFlags fromCompileOptions(
+      const JS::TransitiveCompileOptions& options) {
+    ImmutableScriptFlags isf;
+    isf.setFlag(ImmutableScriptFlagsEnum::NoScriptRval,
+                /* noScriptRval (non-transitive compile option) = */ false);
+    isf.setFlag(ImmutableScriptFlagsEnum::SelfHosted, options.selfHostingMode);
+    isf.setFlag(ImmutableScriptFlagsEnum::TreatAsRunOnce,
+                /* isRunOnce (non-transitive compile option) = */ false);
+    return isf;
+  };
 };
 
 enum class MutableScriptFlagsEnum : uint32_t {

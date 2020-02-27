@@ -7408,9 +7408,10 @@ mozilla::dom::TabGroup* nsGlobalWindowOuter::MaybeTabGroupOuter() {
       // in same tabgroup in Fission mode. And if C reference back to A via
       // window.open, we hit this assertion. Ignore this assertion in Fission
       // given that tabgroup eventually will be removed after bug 1561715.
-      MOZ_ASSERT_IF(
-          !StaticPrefs::fission_autostart() && opener && Cast(opener) != this,
-          opener->TabGroup() == mTabGroup);
+      MOZ_ASSERT_IF(mDocShell &&
+                        !nsDocShell::Cast(mDocShell)->UseRemoteSubframes() &&
+                        opener && Cast(opener) != this,
+                    opener->TabGroup() == mTabGroup);
     }
     mIsValidatingTabGroup = false;
   }

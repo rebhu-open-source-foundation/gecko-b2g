@@ -881,7 +881,7 @@ already_AddRefed<ContentParent> ContentParent::MinTabSelect(
 
   for (uint32_t i = 0; i < maxSelectable; i++) {
     ContentParent* p = aContentParents[i];
-    NS_ASSERTION(p->IsDead(), "Dead contentparent in sBrowserContentParents?");
+    NS_ASSERTION(!p->IsDead(), "Dead contentparent in sBrowserContentParents?");
     if (!p->mShutdownPending && p->mOpener == aOpener) {
       uint32_t tabCount = cpm->GetBrowserParentCountByProcessId(p->ChildID());
       if (tabCount < min) {
@@ -3633,6 +3633,9 @@ mozilla::ipc::IPCResult ContentParent::RecvConstructPopupBrowser(
 
   if (aInitialWindowInit.browsingContext().IsNullOrDiscarded()) {
     return IPC_FAIL(this, "Null or discarded initial BrowsingContext");
+  }
+  if (!aInitialWindowInit.principal()) {
+    return IPC_FAIL(this, "Cannot create without valid initial principal");
   }
 
   uint32_t chromeFlags = aChromeFlags;

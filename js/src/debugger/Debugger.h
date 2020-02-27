@@ -291,9 +291,7 @@ typedef HashSet<WeakHeapPtrGlobalObject,
     WeakGlobalObjectSet;
 
 #ifdef DEBUG
-extern void CheckDebuggeeThing(JSScript* script, bool invisibleOk);
-
-extern void CheckDebuggeeThing(LazyScript* script, bool invisibleOk);
+extern void CheckDebuggeeThing(BaseScript* script, bool invisibleOk);
 
 extern void CheckDebuggeeThing(JSObject* obj, bool invisibleOk);
 #endif
@@ -457,7 +455,7 @@ using Env = JSObject;
 // does point to something okay. Instead, we immediately build an instance of
 // this type from the Cell* and use that instead, so we can benefit from
 // Variant's static checks.
-typedef mozilla::Variant<JSScript*, LazyScript*, WasmInstanceObject*>
+typedef mozilla::Variant<BaseScript*, WasmInstanceObject*>
     DebuggerScriptReferent;
 
 // The referent of a Debugger.Source.
@@ -748,14 +746,11 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
       GeneratorWeakMap;
   GeneratorWeakMap generatorFrames;
 
-  /* An ephemeral map from JSScript* to Debugger.Script instances. */
-  typedef DebuggerWeakMap<JSScript, DebuggerScript> ScriptWeakMap;
+  // An ephemeral map from BaseScript* to Debugger.Script instances.
+  using ScriptWeakMap = DebuggerWeakMap<BaseScript, DebuggerScript>;
   ScriptWeakMap scripts;
 
-  using LazyScriptWeakMap = DebuggerWeakMap<LazyScript, DebuggerScript>;
-  LazyScriptWeakMap lazyScripts;
-
-  using LazyScriptVector = JS::GCVector<LazyScript*>;
+  using BaseScriptVector = JS::GCVector<BaseScript*>;
 
   // The map from debuggee source script objects to their Debugger.Source
   // instances.
@@ -1025,7 +1020,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
    * Prefer using wrapScript, wrapWasmScript, wrapSource, and wrapWasmSource
    * whenever possible.
    */
-  template <typename Map>
+  template <typename ReferentType, typename Map>
   typename Map::WrapperType* wrapVariantReferent(
       JSContext* cx, Map& map,
       Handle<typename Map::WrapperType::ReferentVariant> referent);
@@ -1197,9 +1192,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger> {
    * needed. The context |cx| must be in the debugger realm; |script| must be
    * a script in a debuggee realm.
    */
-  DebuggerScript* wrapScript(JSContext* cx, HandleScript script);
-
-  DebuggerScript* wrapLazyScript(JSContext* cx, Handle<LazyScript*> script);
+  DebuggerScript* wrapScript(JSContext* cx, Handle<BaseScript*> script);
 
   /*
    * Return the Debugger.Script object for |wasmInstance| (the toplevel
@@ -1551,7 +1544,6 @@ MOZ_MUST_USE bool ReportObjectRequired(JSContext* cx);
 
 JSObject* IdVectorToArray(JSContext* cx, Handle<IdVector> ids);
 bool IsInterpretedNonSelfHostedFunction(JSFunction* fun);
-bool EnsureFunctionHasScript(JSContext* cx, HandleFunction fun);
 JSScript* GetOrCreateFunctionScript(JSContext* cx, HandleFunction fun);
 bool ValueToIdentifier(JSContext* cx, HandleValue v, MutableHandleId id);
 bool ValueToStableChars(JSContext* cx, const char* fnname, HandleValue value,

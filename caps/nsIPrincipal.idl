@@ -292,6 +292,13 @@ interface nsIPrincipal : nsISerializable
     */
     ACString getPrefLightCacheKey(in nsIURI aURI ,in bool aWithCredentials);
 
+
+    /*
+    * Returns a Key for the LocalStorage Manager, used to 
+    * check the Principals Origin Storage usage. 
+    */
+    readonly attribute ACString localStorageQuotaKey;
+
     /**
      * Implementation of
      * https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy
@@ -429,6 +436,11 @@ interface nsIPrincipal : nsISerializable
     * Returns true if the URI is an Onion URI
     */
     [infallible] readonly attribute boolean isOnion;
+
+    /**
+     * Returns if the principal is for an IP address.
+     */
+    [infallible] readonly attribute boolean isIpAddress;
 };
 
 /**

@@ -43,7 +43,6 @@ using ZoneVector = Vector<JS::Zone*, 4, SystemAllocPolicy>;
 class AutoCallGCCallbacks;
 class AutoGCSession;
 class AutoHeapSession;
-class AutoRunParallelTask;
 class AutoTraceSession;
 class MarkingValidator;
 struct MovingTracer;
@@ -119,21 +118,21 @@ class ChunkPool {
   };
 };
 
-class BackgroundSweepTask : public GCParallelTaskHelper<BackgroundSweepTask> {
+class BackgroundSweepTask : public GCParallelTask {
  public:
-  explicit BackgroundSweepTask(GCRuntime* gc) : GCParallelTaskHelper(gc) {}
-  void run();
+  explicit BackgroundSweepTask(GCRuntime* gc) : GCParallelTask(gc) {}
+  void run() override;
 };
 
-class BackgroundFreeTask : public GCParallelTaskHelper<BackgroundFreeTask> {
+class BackgroundFreeTask : public GCParallelTask {
  public:
-  explicit BackgroundFreeTask(GCRuntime* gc) : GCParallelTaskHelper(gc) {}
-  void run();
+  explicit BackgroundFreeTask(GCRuntime* gc) : GCParallelTask(gc) {}
+  void run() override;
 };
 
 // Performs extra allocation off thread so that when memory is required on the
 // main thread it will already be available and waiting.
-class BackgroundAllocTask : public GCParallelTaskHelper<BackgroundAllocTask> {
+class BackgroundAllocTask : public GCParallelTask {
   // Guarded by the GC lock.
   GCLockData<ChunkPool&> chunkPool_;
 
@@ -143,30 +142,29 @@ class BackgroundAllocTask : public GCParallelTaskHelper<BackgroundAllocTask> {
   BackgroundAllocTask(GCRuntime* gc, ChunkPool& pool);
   bool enabled() const { return enabled_; }
 
-  void run();
+  void run() override;
 };
 
 // Search the provided Chunks for free arenas and decommit them.
-class BackgroundDecommitTask
-    : public GCParallelTaskHelper<BackgroundDecommitTask> {
+class BackgroundDecommitTask : public GCParallelTask {
  public:
   using ChunkVector = mozilla::Vector<Chunk*>;
 
-  explicit BackgroundDecommitTask(GCRuntime* gc) : GCParallelTaskHelper(gc) {}
+  explicit BackgroundDecommitTask(GCRuntime* gc) : GCParallelTask(gc) {}
   void setChunksToScan(ChunkVector& chunks);
 
-  void run();
+  void run() override;
 
  private:
   MainThreadOrGCTaskData<ChunkVector> toDecommit;
 };
 
-class SweepMarkTask : public GCParallelTaskHelper<SweepMarkTask> {
+class SweepMarkTask : public GCParallelTask {
  public:
   explicit SweepMarkTask(GCRuntime* gc)
-      : GCParallelTaskHelper(gc), budget(SliceBudget::unlimited()) {}
+      : GCParallelTask(gc), budget(SliceBudget::unlimited()) {}
   void setBudget(const SliceBudget& budget) { this->budget = budget; }
-  void run();
+  void run() override;
 
  private:
   SliceBudget budget;
@@ -247,8 +245,6 @@ class ZoneList {
   ZoneList(const ZoneList& other) = delete;
   ZoneList& operator=(const ZoneList& other) = delete;
 };
-
-void SweepWeakRefs(GCParallelTask* task);
 
 class GCRuntime {
   friend GCMarker::MarkQueueProgress GCMarker::processMarkQueue();
@@ -546,8 +542,6 @@ class GCRuntime {
 
   void setParallelAtomsAllocEnabled(bool enabled);
 
-  void bufferGrayRoots();
-
   /*
    * Concurrent sweep infrastructure.
    */
@@ -658,6 +652,8 @@ class GCRuntime {
   void purgeRuntime();
   MOZ_MUST_USE bool beginMarkPhase(JS::GCReason reason, AutoGCSession& session);
   bool prepareZonesForCollection(JS::GCReason reason, bool* isFullOut);
+  void bufferGrayRoots();
+  void unmarkCollectedZones();
   bool shouldPreserveJITCode(JS::Realm* realm,
                              const mozilla::TimeStamp& currentTime,
                              JS::GCReason reason, bool canAllocateMoreCode);
@@ -703,13 +699,19 @@ class GCRuntime {
   IncrementalProgress beginSweepingSweepGroup(JSFreeOp* fop,
                                               SliceBudget& budget);
   void updateAtomsBitmap();
+  void sweepCCWrappers();
+  void sweepObjectGroups();
+  void sweepMisc();
+  void sweepCompressionTasks();
+  void sweepLazyScripts();
+  void sweepWeakMaps();
+  void sweepUniqueIds();
   void sweepDebuggerOnMainThread(JSFreeOp* fop);
   void sweepJitDataOnMainThread(JSFreeOp* fop);
   void sweepFinalizationGroupsOnMainThread();
   void sweepFinalizationGroups(Zone* zone);
   void queueFinalizationGroupForCleanup(FinalizationGroupObject* group);
-  void sweepWeakRefs(Zone* zone);
-  friend void SweepWeakRefs(GCParallelTask* task);
+  void sweepWeakRefs();
   IncrementalProgress endSweepingSweepGroup(JSFreeOp* fop, SliceBudget& budget);
   IncrementalProgress performSweepActions(SliceBudget& sliceBudget);
   IncrementalProgress sweepTypeInformation(JSFreeOp* fop, SliceBudget& budget);

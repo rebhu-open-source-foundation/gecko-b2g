@@ -169,20 +169,10 @@ bool js::IsInterpretedNonSelfHostedFunction(JSFunction* fun) {
   return fun->isInterpreted() && !fun->isSelfHostedBuiltin();
 }
 
-bool js::EnsureFunctionHasScript(JSContext* cx, HandleFunction fun) {
-  if (fun->isInterpretedLazy()) {
-    AutoRealm ar(cx, fun);
-    return !!JSFunction::getOrCreateScript(cx, fun);
-  }
-  return true;
-}
-
 JSScript* js::GetOrCreateFunctionScript(JSContext* cx, HandleFunction fun) {
   MOZ_ASSERT(IsInterpretedNonSelfHostedFunction(fun));
-  if (!EnsureFunctionHasScript(cx, fun)) {
-    return nullptr;
-  }
-  return fun->nonLazyScript();
+  AutoRealm ar(cx, fun);
+  return JSFunction::getOrCreateScript(cx, fun);
 }
 
 bool js::ValueToIdentifier(JSContext* cx, HandleValue v, MutableHandleId id) {
@@ -510,7 +500,6 @@ Debugger::Debugger(JSContext* cx, NativeObject* dbg)
       frames(cx->zone()),
       generatorFrames(cx),
       scripts(cx),
-      lazyScripts(cx),
       sources(cx),
       objects(cx),
       environments(cx),
@@ -2366,7 +2355,8 @@ void DebugAPI::slowPathOnNewScript(JSContext* cx, HandleScript script) {
         return dbg->observesNewScript() && dbg->observesScript(script);
       },
       [&](Debugger* dbg) -> bool {
-        Rooted<DebuggerScriptReferent> scriptReferent(cx, script.get());
+        BaseScript* base = script.get();
+        Rooted<DebuggerScriptReferent> scriptReferent(cx, base);
         return dbg->fireNewScript(cx, scriptReferent);
       });
 }
@@ -3528,7 +3518,6 @@ inline void Debugger::forEachWeakMap(const F& f) {
   f(objects);
   f(environments);
   f(scripts);
-  f(lazyScripts);
   f(sources);
   f(wasmInstanceScripts);
   f(wasmInstanceSources);
@@ -3620,13 +3609,9 @@ bool DebugAPI::edgeIsInDebuggerWeakmap(JSRuntime* rt, JSObject* src,
   }
   if (src->is<DebuggerScript>()) {
     return src->as<DebuggerScript>().getReferent().match(
-        [=](JSScript* script) {
-          return dst.is<JSScript>() && script == &dst.as<JSScript>() &&
+        [=](BaseScript* script) {
+          return dst.is<BaseScript>() && script == &dst.as<BaseScript>() &&
                  dbg->scripts.hasEntry(script, src);
-        },
-        [=](LazyScript* lazy) {
-          return dst.is<LazyScript>() && lazy == &dst.as<LazyScript>() &&
-                 dbg->lazyScripts.hasEntry(lazy, src);
         },
         [=](WasmInstanceObject* instance) {
           return dst.is<JSObject>() && instance == &dst.as<JSObject>() &&
@@ -4843,8 +4828,7 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
         line(0),
         innermost(false),
         innermostForRealm(cx, cx->zone()),
-        scriptVector(cx, ScriptVector(cx)),
-        lazyScriptVector(cx, LazyScriptVector(cx)),
+        scriptVector(cx, BaseScriptVector(cx)),
         wasmInstanceVector(cx, WasmInstanceObjectVector(cx)) {}
 
   /*
@@ -5031,7 +5015,6 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
 
     // Search each realm for debuggee scripts.
     MOZ_ASSERT(scriptVector.empty());
-    MOZ_ASSERT(lazyScriptVector.empty());
     oom = false;
     IterateScripts(cx, singletonRealm, this, considerScript);
     if (!delazified) {
@@ -5042,11 +5025,10 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
       return false;
     }
 
-    // For most queries, we just accumulate results in 'scriptVector' and
-    // 'lazyScriptVector' as we find them. But if this is an 'innermost'
-    // query, then we've accumulated the results in the 'innermostForRealm'
-    // map. In that case, we now need to walk that map and
-    // populate 'scriptVector'.
+    // For most queries, we just accumulate results in 'scriptVector' as we find
+    // them. But if this is an 'innermost' query, then we've accumulated the
+    // results in the 'innermostForRealm' map. In that case, we now need to walk
+    // that map and populate 'scriptVector'.
     if (innermost) {
       for (RealmToScriptMap::Range r = innermostForRealm.all(); !r.empty();
            r.popFront()) {
@@ -5073,8 +5055,7 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
     return true;
   }
 
-  Handle<ScriptVector> foundScripts() const { return scriptVector; }
-  Handle<LazyScriptVector> foundLazyScripts() const { return lazyScriptVector; }
+  Handle<BaseScriptVector> foundScripts() const { return scriptVector; }
 
   Handle<WasmInstanceObjectVector> foundWasmInstances() const {
     return wasmInstanceVector;
@@ -5119,12 +5100,11 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
   Rooted<RealmToScriptMap> innermostForRealm;
 
   /*
-   * Accumulate the scripts in an Rooted<ScriptVector> and
-   * Rooted<LazyScriptVector>, instead of creating the JS array as we go,
-   * because we mustn't allocate JS objects or GC while we use the CellIter.
+   * Accumulate the scripts in an Rooted<BaseScriptVector> instead of creating
+   * the JS array as we go, because we mustn't allocate JS objects or GC while
+   * we use the CellIter.
    */
-  Rooted<ScriptVector> scriptVector;
-  Rooted<LazyScriptVector> lazyScriptVector;
+  Rooted<BaseScriptVector> scriptVector;
 
   /*
    * Like above, but for wasm modules.
@@ -5298,8 +5278,8 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
       return;
     }
 
-    /* Record this matching script in the results lazyScriptVector. */
-    if (!lazyScriptVector.append(lazyScript)) {
+    /* Record this matching script in the results scriptVector. */
+    if (!scriptVector.append(lazyScript)) {
       oom = true;
     }
   }
@@ -5341,12 +5321,10 @@ bool Debugger::CallData::findScripts() {
     return false;
   }
 
-  Handle<ScriptVector> scripts(query.foundScripts());
-  Handle<LazyScriptVector> lazyScripts(query.foundLazyScripts());
+  Handle<BaseScriptVector> scripts(query.foundScripts());
   Handle<WasmInstanceObjectVector> wasmInstances(query.foundWasmInstances());
 
-  size_t resultLength =
-      scripts.length() + lazyScripts.length() + wasmInstances.length();
+  size_t resultLength = scripts.length() + wasmInstances.length();
   RootedArrayObject result(cx, NewDenseFullyAllocatedArray(cx, resultLength));
   if (!result) {
     return false;
@@ -5362,16 +5340,7 @@ bool Debugger::CallData::findScripts() {
     result->setDenseElement(i, ObjectValue(*scriptObject));
   }
 
-  size_t lazyStart = scripts.length();
-  for (size_t i = 0; i < lazyScripts.length(); i++) {
-    JSObject* scriptObject = dbg->wrapLazyScript(cx, lazyScripts[i]);
-    if (!scriptObject) {
-      return false;
-    }
-    result->setDenseElement(lazyStart + i, ObjectValue(*scriptObject));
-  }
-
-  size_t wasmStart = scripts.length() + lazyScripts.length();
+  size_t wasmStart = scripts.length();
   for (size_t i = 0; i < wasmInstances.length(); i++) {
     JSObject* scriptObject = dbg->wrapWasmScript(cx, wasmInstances[i]);
     if (!scriptObject) {
@@ -6090,14 +6059,14 @@ DebuggerScript* Debugger::newDebuggerScript(
   return DebuggerScript::create(cx, proto, referent, debugger);
 }
 
-template <typename Map>
+template <typename ReferentType, typename Map>
 typename Map::WrapperType* Debugger::wrapVariantReferent(
     JSContext* cx, Map& map,
     Handle<typename Map::WrapperType::ReferentVariant> referent) {
   cx->check(object);
 
-  Handle<typename Map::ReferentType*> untaggedReferent =
-      referent.template as<typename Map::ReferentType*>();
+  Handle<ReferentType*> untaggedReferent =
+      referent.template as<ReferentType*>();
   MOZ_ASSERT(cx->compartment() != untaggedReferent->compartment());
 
   DependentAddPtr<Map> p(cx, map, untaggedReferent);
@@ -6142,47 +6111,47 @@ DebuggerScript* Debugger::wrapVariantReferent(
   //
   // The LazyScript is canonical in all other cases.
 
-  if (referent.is<JSScript*>()) {
-    Handle<JSScript*> untaggedReferent = referent.template as<JSScript*>();
-    if (untaggedReferent->maybeLazyScript()) {
-      // This JSScript has a LazyScript, so the LazyScript is canonical.
-      Rooted<LazyScript*> lazyScript(cx, untaggedReferent->maybeLazyScript());
-      return wrapLazyScript(cx, lazyScript);
-    }
-    // This JSScript doesn't have a LazyScript, so the JSScript is canonical.
-    obj = wrapVariantReferent(cx, scripts, referent);
-  } else if (referent.is<LazyScript*>()) {
-    Handle<LazyScript*> untaggedReferent = referent.template as<LazyScript*>();
-    if (untaggedReferent->maybeScript()) {
-      RootedScript script(cx, untaggedReferent->maybeScript());
-      if (!script->maybeLazyScript()) {
-        // Even though we have a LazyScript, we found a JSScript which doesn't
-        // have a LazyScript (which also means that no Debugger has wrapped this
-        // LazyScript), and the JSScript is canonical.
-        MOZ_ASSERT(!untaggedReferent->isWrappedByDebugger());
-        return wrapScript(cx, script);
+  if (referent.is<BaseScript*>()) {
+    Rooted<BaseScript*> base(cx, referent.as<BaseScript*>());
+    if (!base->isLazyScript()) {
+      RootedScript untaggedReferent(cx, static_cast<JSScript*>(base.get()));
+      if (untaggedReferent->maybeLazyScript()) {
+        // This JSScript has a LazyScript, so the LazyScript is canonical.
+        Rooted<LazyScript*> lazyScript(cx, untaggedReferent->maybeLazyScript());
+        return wrapScript(cx, lazyScript);
       }
+      // This JSScript doesn't have a LazyScript, so the JSScript is canonical.
+      obj = wrapVariantReferent<BaseScript>(cx, scripts, referent);
+    } else {
+      Rooted<LazyScript*> untaggedReferent(
+          cx, static_cast<LazyScript*>(base.get()));
+      if (untaggedReferent->maybeScript()) {
+        RootedScript script(cx, untaggedReferent->maybeScript());
+        if (!script->maybeLazyScript()) {
+          // Even though we have a LazyScript, we found a JSScript which doesn't
+          // have a LazyScript (which also means that no Debugger has wrapped
+          // this LazyScript), and the JSScript is canonical.
+          MOZ_ASSERT(!untaggedReferent->isWrappedByDebugger());
+          return wrapScript(cx, script);
+        }
+      }
+      // If there is an associated JSScript, this LazyScript is reachable from
+      // it, so this LazyScript is canonical.
+      untaggedReferent->setWrappedByDebugger();
+      obj = wrapVariantReferent<BaseScript>(cx, scripts, referent);
     }
-    // If there is an associated JSScript, this LazyScript is reachable from it,
-    // so this LazyScript is canonical.
-    untaggedReferent->setWrappedByDebugger();
-    obj = wrapVariantReferent(cx, lazyScripts, referent);
   } else {
-    referent.template as<WasmInstanceObject*>();
-    obj = wrapVariantReferent(cx, wasmInstanceScripts, referent);
+    obj = wrapVariantReferent<WasmInstanceObject>(cx, wasmInstanceScripts,
+                                                  referent);
   }
   MOZ_ASSERT_IF(obj, obj->getReferent() == referent);
   return obj;
 }
 
-DebuggerScript* Debugger::wrapScript(JSContext* cx, HandleScript script) {
-  Rooted<DebuggerScriptReferent> referent(cx, script.get());
-  return wrapVariantReferent(cx, referent);
-}
-
-DebuggerScript* Debugger::wrapLazyScript(JSContext* cx,
-                                         Handle<LazyScript*> lazyScript) {
-  Rooted<DebuggerScriptReferent> referent(cx, lazyScript.get());
+DebuggerScript* Debugger::wrapScript(JSContext* cx,
+                                     Handle<BaseScript*> script) {
+  Rooted<DebuggerScriptReferent> referent(cx,
+                                          DebuggerScriptReferent(script.get()));
   return wrapVariantReferent(cx, referent);
 }
 
@@ -6207,9 +6176,10 @@ DebuggerSource* Debugger::wrapVariantReferent(
     JSContext* cx, Handle<DebuggerSourceReferent> referent) {
   DebuggerSource* obj;
   if (referent.is<ScriptSourceObject*>()) {
-    obj = wrapVariantReferent(cx, sources, referent);
+    obj = wrapVariantReferent<ScriptSourceObject>(cx, sources, referent);
   } else {
-    obj = wrapVariantReferent(cx, wasmInstanceSources, referent);
+    obj = wrapVariantReferent<WasmInstanceObject>(cx, wasmInstanceSources,
+                                                  referent);
   }
   MOZ_ASSERT_IF(obj, obj->getReferent() == referent);
   return obj;
@@ -6666,11 +6636,7 @@ static void CheckDebuggeeThingRealm(Realm* realm, bool invisibleOk) {
   MOZ_ASSERT_IF(!invisibleOk, !realm->creationOptions().invisibleToDebugger());
 }
 
-void js::CheckDebuggeeThing(JSScript* script, bool invisibleOk) {
-  CheckDebuggeeThingRealm(script->realm(), invisibleOk);
-}
-
-void js::CheckDebuggeeThing(LazyScript* script, bool invisibleOk) {
+void js::CheckDebuggeeThing(BaseScript* script, bool invisibleOk) {
   CheckDebuggeeThingRealm(script->realm(), invisibleOk);
 }
 

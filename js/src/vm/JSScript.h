@@ -68,7 +68,6 @@ class JitScript;
 }  // namespace jit
 
 class AutoSweepJitScript;
-class GCParallelTask;
 class LazyScript;
 class ModuleObject;
 class RegExpObject;
@@ -83,10 +82,6 @@ class FunctionBox;
 class ModuleSharedContext;
 class ScriptStencil;
 }  // namespace frontend
-
-namespace gc {
-void SweepLazyScripts(GCParallelTask* task);
-}  // namespace gc
 
 namespace detail {
 
@@ -2163,30 +2158,23 @@ class BaseScript : public gc::TenuredCell {
 
   void setImmutableFlags(uint32_t flags) { immutableScriptFlags_ = flags; }
 
-  // Generic set/unset for Immutable and Mutable Flags
-  template <typename T>
-  void setFlag(T flag, bool b) {
-    if (b) {
-      setFlag(flag);
-    } else {
-      clearFlag(flag);
-    }
-  }
-
   // ImmutableFlags accessors.
   MOZ_MUST_USE bool hasFlag(ImmutableFlags flag) const {
     return immutableScriptFlags_.hasFlag(flag);
   }
-  void setFlag(ImmutableFlags flag) { immutableScriptFlags_.setFlag(flag); }
+  void setFlag(ImmutableFlags flag, bool b = true) {
+    immutableScriptFlags_.setFlag(flag, b);
+  }
   void clearFlag(ImmutableFlags flag) { immutableScriptFlags_.clearFlag(flag); }
 
   // MutableFlags accessors.
   MOZ_MUST_USE bool hasFlag(MutableFlags flag) const {
     return mutableFlags_.hasFlag(flag);
   }
-  void setFlag(MutableFlags flag) { mutableFlags_.setFlag(flag); }
+  void setFlag(MutableFlags flag, bool b = true) {
+    mutableFlags_.setFlag(flag, b);
+  }
   void clearFlag(MutableFlags flag) { mutableFlags_.clearFlag(flag); }
-
   // Specific flag accessors
 
 #define FLAG_GETTER(enumName, enumEntry, lowerName) \
@@ -2241,7 +2229,7 @@ setterLevel:                                                                  \
   // N.B.: no setter -- custom logic in JSScript.
   IMMUTABLE_FLAG_GETTER(argumentsHasVarBinding, ArgumentsHasVarBinding)
   // IsForEval: custom logic below.
-  // IsModule: custom logic below.
+  IMMUTABLE_FLAG_GETTER(isModule, IsModule)
   IMMUTABLE_FLAG_GETTER(needsFunctionEnvironmentObjects,
                         NeedsFunctionEnvironmentObjects)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(shouldDeclareArguments,
@@ -2322,6 +2310,14 @@ setterLevel:                                                                  \
   }
   void setEnclosingLazyScript(LazyScript* enclosingLazyScript);
 
+  // Returns true if the enclosing script has ever been compiled. Once the
+  // enclosing script is compiled, the scope chain is created. This LazyScript
+  // is delazify-able as long as it has the enclosing scope, even if the
+  // enclosing JSScript is GCed.
+  bool enclosingScriptHasEverBeenCompiled() const {
+    return warmUpData_.isEnclosingScope();
+  }
+
   Scope* enclosingScope() const {
     MOZ_ASSERT(!warmUpData_.isEnclosingScript(),
                "Enclosing scope is not computed yet");
@@ -2372,13 +2368,15 @@ setterLevel:                                                                  \
   }
 
  public:
-  friend class GCMarker;
-  friend void js::gc::SweepLazyScripts(GCParallelTask* task);
-
   static const JS::TraceKind TraceKind = JS::TraceKind::Script;
 
   void traceChildren(JSTracer* trc);
   void finalize(JSFreeOp* fop);
+
+  WeakHeapPtrScript* getLazyScriptScriptEdgeForTracing() {
+    MOZ_ASSERT(isLazyScript());
+    return &u.script_;
+  }
 
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) {
     return mallocSizeOf(data_);
@@ -2501,7 +2499,7 @@ class JSScript : public js::BaseScript {
 
   static JSScript* Create(JSContext* cx, js::HandleObject functionOrGlobal,
                           js::HandleScriptSourceObject sourceObject,
-                          bool noScriptRval, bool selfHosted, bool isRunOnce,
+                          js::ImmutableScriptFlags flags,
                           bool hideScriptFromDebugger, js::SourceExtent extent);
 
   static JSScript* CreateFromLazy(JSContext* cx,
@@ -2726,11 +2724,6 @@ class JSScript : public js::BaseScript {
   void setLazyScript(js::LazyScript* lazy) { u.lazyScript = lazy; }
   js::LazyScript* maybeLazyScript() { return u.lazyScript; }
 
-  bool isModule() const {
-    MOZ_ASSERT(hasFlag(ImmutableFlags::IsModule) ==
-               bodyScope()->is<js::ModuleScope>());
-    return hasFlag(ImmutableFlags::IsModule);
-  }
   js::ModuleObject* module() const {
     if (bodyScope()->is<js::ModuleScope>()) {
       return bodyScope()->as<js::ModuleScope>().module();
@@ -3233,16 +3226,6 @@ class LazyScript : public BaseScript {
     return u.script_.unbarrieredGet();
   }
   bool hasScript() const { return bool(u.script_); }
-
-  // Returns true if the enclosing script has ever been compiled.
-  // Once the enclosing script is compiled, the scope chain is created.
-  // This LazyScript is delazify-able as long as it has the enclosing scope,
-  // even if the enclosing JSScript is GCed.
-  // The enclosing JSScript can be GCed later if the enclosing scope is not
-  // FunctionScope or ModuleScope.
-  bool enclosingScriptHasEverBeenCompiled() const {
-    return warmUpData_.isEnclosingScope();
-  }
 };
 
 /* If this fails, add/remove padding within LazyScript. */

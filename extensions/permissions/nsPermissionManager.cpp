@@ -3249,12 +3249,11 @@ nsPermissionManager::GetAllKeysForPrincipal(nsIPrincipal* aPrincipal) {
     // Add the pair to the list
     Pair<nsCString, nsCString>* pair =
         pairs.AppendElement(MakePair(EmptyCString(), EmptyCString()));
-    GetKeyForPrincipal(prin, false, pair->first());
     // We can't check for individual OA strip perms here.
     // Don't force strip origin attributes.
     GetKeyForPrincipal(prin, false, pair->first());
 
-    Unused << prin->GetOrigin(pair->second());
+    Unused << GetOriginFromPrincipal(prin, false, pair->second());
 
     // Get the next subdomain principal and loop back around.
     prin = GetNextSubDomainPrincipal(prin);

@@ -2146,8 +2146,8 @@ js_option(env='AS', nargs=1, help='Path to the assembler')
 def as_info(target, c_compiler):
     if c_compiler.type == 'clang-cl':
         ml = {
-            'x86': 'ml',
-            'x86_64': 'ml64',
+            'x86': 'ml.exe',
+            'x86_64': 'ml64.exe',
             'aarch64': 'armasm64.exe',
         }.get(target.cpu)
         return namespace(
@@ -2175,7 +2175,7 @@ assembler = check_prog('_AS', input=provided_assembler.program,
 def as_with_flags(as_info, assembler, provided_assembler, c_compiler):
     if provided_assembler:
         return provided_assembler.wrapper + \
-            [provided_assembler.program] + \
+            [assembler] + \
             provided_assembler.flags
 
     if as_info.type == 'masm':

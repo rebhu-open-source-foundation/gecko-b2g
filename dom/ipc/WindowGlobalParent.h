@@ -87,8 +87,10 @@ class WindowGlobalParent final : public WindowContext,
   nsIPrincipal* DocumentPrincipal() { return mDocumentPrincipal; }
 
   // The BrowsingContext which this WindowGlobal has been loaded into.
+  // FIXME: It's quite awkward that this method has a slightly different name
+  // than the one on WindowContext.
   CanonicalBrowsingContext* BrowsingContext() override {
-    return mBrowsingContext;
+    return CanonicalBrowsingContext::Cast(WindowContext::GetBrowsingContext());
   }
 
   // Get the root nsFrameLoader object for the tree of BrowsingContext nodes
@@ -101,10 +103,6 @@ class WindowGlobalParent final : public WindowContext,
   nsIURI* GetDocumentURI() override { return mDocumentURI; }
 
   const nsString& GetDocumentTitle() const { return mDocumentTitle; }
-
-  // Window IDs for inner/outer windows.
-  uint64_t OuterWindowId() { return mOuterWindowId; }
-  uint64_t InnerWindowId() { return mInnerWindowId; }
 
   uint64_t ContentParentId();
 
@@ -194,10 +192,7 @@ class WindowGlobalParent final : public WindowContext,
   nsCOMPtr<nsIURI> mDocumentURI;
   nsString mDocumentTitle;
 
-  RefPtr<CanonicalBrowsingContext> mBrowsingContext;
   nsRefPtrHashtable<nsStringHashKey, JSWindowActorParent> mWindowActors;
-  uint64_t mInnerWindowId;
-  uint64_t mOuterWindowId;
   bool mInProcess;
   bool mIsInitialDocument;
 

@@ -50,20 +50,19 @@ namespace dom {
 
 WindowGlobalParent::WindowGlobalParent(const WindowGlobalInit& aInit,
                                        bool aInProcess)
-    : WindowContext(aInit.browsingContext().get(), aInit.innerWindowId(), {}),
+    : WindowContext(aInit.browsingContext().GetMaybeDiscarded(),
+                    aInit.innerWindowId(), {}),
       mDocumentPrincipal(aInit.principal()),
       mDocumentURI(aInit.documentURI()),
-      mInnerWindowId(aInit.innerWindowId()),
-      mOuterWindowId(aInit.outerWindowId()),
       mInProcess(aInProcess),
       mIsInitialDocument(false),
       mHasBeforeUnload(false) {
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess(), "Parent process only");
-  MOZ_RELEASE_ASSERT(mDocumentPrincipal, "Must have a valid principal");
 
-  // NOTE: mBrowsingContext initialized in Init()
-  MOZ_RELEASE_ASSERT(!aInit.browsingContext().IsNullOrDiscarded(),
-                     "Must be made in BrowsingContext");
+  MOZ_RELEASE_ASSERT(
+      BrowsingContext(),
+      "Must be made in BrowsingContext, though it may be discarded");
+  MOZ_RELEASE_ASSERT(mDocumentPrincipal, "Must have a valid principal");
 
   mFields.SetWithoutSyncing<IDX_OuterWindowId>(aInit.outerWindowId());
 }
@@ -86,12 +85,9 @@ void WindowGlobalParent::Init(const WindowGlobalInit& aInit) {
     cp->TransmitPermissionsForPrincipal(mDocumentPrincipal);
   }
 
-  mBrowsingContext = aInit.browsingContext().get_canonical();
-  MOZ_ASSERT(mBrowsingContext);
-
   MOZ_DIAGNOSTIC_ASSERT(
-      !mBrowsingContext->GetParent() ||
-          mBrowsingContext->GetEmbedderInnerWindowId(),
+      !BrowsingContext()->GetParent() ||
+          BrowsingContext()->GetEmbedderInnerWindowId(),
       "When creating a non-root WindowGlobalParent, the WindowGlobalParent "
       "for our embedder should've already been created.");
 
@@ -109,8 +105,8 @@ void WindowGlobalParent::Init(const WindowGlobalInit& aInit) {
 
   // If there is no current window global, assume we're about to become it
   // optimistically.
-  if (!mBrowsingContext->IsDiscarded()) {
-    mBrowsingContext->SetCurrentInnerWindowId(aInit.innerWindowId());
+  if (!BrowsingContext()->IsDiscarded()) {
+    BrowsingContext()->SetCurrentInnerWindowId(aInit.innerWindowId());
   }
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -236,7 +232,7 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvInternalLoad(
   // FIXME: We should really initiate the load in the parent before bouncing
   // back down to the child.
 
-  targetBC->InternalLoad(mBrowsingContext, aLoadState, nullptr, nullptr);
+  targetBC->InternalLoad(BrowsingContext(), aLoadState, nullptr, nullptr);
   return IPC_OK();
 }
 
@@ -397,7 +393,7 @@ already_AddRefed<JSWindowActorParent> WindowGlobalParent::GetActor(
 }
 
 bool WindowGlobalParent::IsCurrentGlobal() {
-  return CanSend() && mBrowsingContext->GetCurrentWindowGlobal() == this;
+  return CanSend() && BrowsingContext()->GetCurrentWindowGlobal() == this;
 }
 
 namespace {
@@ -643,7 +639,7 @@ nsIGlobalObject* WindowGlobalParent::GetParentObject() {
 }
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(WindowGlobalParent, WindowContext,
-                                   mBrowsingContext, mWindowActors)
+                                   mWindowActors)
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(WindowGlobalParent,
                                                WindowContext)
