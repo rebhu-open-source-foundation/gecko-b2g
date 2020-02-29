@@ -15,7 +15,6 @@
 #include "gc/ArenaList.h"
 #include "gc/AtomMarking.h"
 #include "gc/GCMarker.h"
-#include "gc/GCParallelTask.h"
 #include "gc/Nursery.h"
 #include "gc/Scheduling.h"
 #include "gc/Statistics.h"
@@ -48,7 +47,6 @@ class MarkingValidator;
 struct MovingTracer;
 enum class ShouldCheckThresholds;
 class SweepGroupsIter;
-class WeakCacheSweepIterator;
 
 enum IncrementalProgress { NotFinished = 0, Finished };
 
@@ -244,6 +242,28 @@ class ZoneList {
 
   ZoneList(const ZoneList& other) = delete;
   ZoneList& operator=(const ZoneList& other) = delete;
+};
+
+struct WeakCacheToSweep {
+  JS::detail::WeakCacheBase* cache;
+  JS::Zone* zone;
+};
+
+class WeakCacheSweepIterator {
+  using WeakCacheBase = JS::detail::WeakCacheBase;
+
+  JS::Zone* sweepZone;
+  WeakCacheBase* sweepCache;
+
+ public:
+  explicit WeakCacheSweepIterator(JS::Zone* sweepGroup);
+
+  bool done() const;
+  WeakCacheToSweep get() const;
+  void next();
+
+ private:
+  void settle();
 };
 
 class GCRuntime {
@@ -654,6 +674,7 @@ class GCRuntime {
   bool prepareZonesForCollection(JS::GCReason reason, bool* isFullOut);
   void bufferGrayRoots();
   void unmarkCollectedZones();
+  void unmarkWeakMaps();
   bool shouldPreserveJITCode(JS::Realm* realm,
                              const mozilla::TimeStamp& currentTime,
                              JS::GCReason reason, bool canAllocateMoreCode);
@@ -795,9 +816,7 @@ class GCRuntime {
 
  private:
   // Any activity affecting the heap.
-  mozilla::Atomic<JS::HeapState, mozilla::SequentiallyConsistent,
-                  mozilla::recordreplay::Behavior::DontPreserve>
-      heapState_;
+  mozilla::Atomic<JS::HeapState, mozilla::SequentiallyConsistent> heapState_;
   friend class AutoHeapSession;
   friend class JS::AutoEnterCycleCollection;
 
@@ -843,16 +862,12 @@ class GCRuntime {
   MainThreadData<RootedValueMap> rootsHash;
 
   // An incrementing id used to assign unique ids to cells that require one.
-  mozilla::Atomic<uint64_t, mozilla::ReleaseAcquire,
-                  mozilla::recordreplay::Behavior::DontPreserve>
-      nextCellUniqueId_;
+  mozilla::Atomic<uint64_t, mozilla::ReleaseAcquire> nextCellUniqueId_;
 
   /*
    * Number of the committed arenas in all GC chunks including empty chunks.
    */
-  mozilla::Atomic<uint32_t, mozilla::ReleaseAcquire,
-                  mozilla::recordreplay::Behavior::DontPreserve>
-      numArenasFreeCommitted;
+  mozilla::Atomic<uint32_t, mozilla::ReleaseAcquire> numArenasFreeCommitted;
   MainThreadData<VerifyPreTracer*> verifyPreData;
 
  private:
@@ -866,9 +881,7 @@ class GCRuntime {
    */
   MainThreadData<JSGCMode> mode;
 
-  mozilla::Atomic<size_t, mozilla::ReleaseAcquire,
-                  mozilla::recordreplay::Behavior::DontPreserve>
-      numActiveZoneIters;
+  mozilla::Atomic<size_t, mozilla::ReleaseAcquire> numActiveZoneIters;
 
   /*
    * The self hosting zone is collected once after initialization. We don't
@@ -906,9 +919,7 @@ class GCRuntime {
    */
   UnprotectedData<bool> grayBitsValid;
 
-  mozilla::Atomic<JS::GCReason, mozilla::Relaxed,
-                  mozilla::recordreplay::Behavior::DontPreserve>
-      majorGCTriggerReason;
+  mozilla::Atomic<JS::GCReason, mozilla::Relaxed> majorGCTriggerReason;
 
  private:
   /* Perform full GC if rt->keepAtoms() becomes false. */
@@ -981,14 +992,14 @@ class GCRuntime {
   /*
    * Incremental sweep state.
    */
-
   MainThreadData<JS::Zone*> sweepGroups;
   MainThreadOrGCTaskData<JS::Zone*> currentSweepGroup;
   MainThreadData<UniquePtr<SweepAction>> sweepActions;
   MainThreadOrGCTaskData<JS::Zone*> sweepZone;
   MainThreadOrGCTaskData<AllocKind> sweepAllocKind;
   MainThreadData<mozilla::Maybe<AtomsTable::SweepIterator>> maybeAtomsToSweep;
-  MainThreadOrGCTaskData<JS::detail::WeakCacheBase*> sweepCache;
+  MainThreadOrGCTaskData<mozilla::Maybe<WeakCacheSweepIterator>>
+      weakCachesToSweep;
   MainThreadData<bool> hasMarkedGrayRoots;
   MainThreadData<bool> abortSweepAfterCurrentGroup;
   MainThreadData<bool> sweepMarkTaskStarted;
@@ -1004,7 +1015,6 @@ class GCRuntime {
 #endif
 
   friend class SweepGroupsIter;
-  friend class WeakCacheSweepIterator;
 
   /*
    * Incremental compacting state.

@@ -5816,8 +5816,6 @@ class Factory final : public PBackgroundIDBFactoryParent {
 
   mozilla::ipc::IPCResult RecvDeleteMe() override;
 
-  mozilla::ipc::IPCResult RecvIncrementLoggingRequestSerialNumber() override;
-
   PBackgroundIDBFactoryRequestParent* AllocPBackgroundIDBFactoryRequestParent(
       const FactoryRequestParams& aParams) override;
 
@@ -6308,7 +6306,9 @@ class TransactionBase {
   FlippedOnce<false> mCommitOrAbortReceived;
   FlippedOnce<false> mCommittedOrAborted;
   FlippedOnce<false> mForceAborted;
-  bool mHasFailedRequest = false;
+  InitializedOnce<const Maybe<int64_t>, LazyInit::Allow>
+      mLastRequestBeforeCommit;
+  Maybe<int64_t> mLastFailedRequest;
 
  public:
   void AssertIsOnConnectionThread() const {
@@ -6399,7 +6399,7 @@ class TransactionBase {
 
   void NoteActiveRequest();
 
-  void NoteFinishedRequest(nsresult aResultCode);
+  void NoteFinishedRequest(int64_t aRequestId, nsresult aResultCode);
 
   void Invalidate();
 
@@ -6419,11 +6419,11 @@ class TransactionBase {
   void FakeActorDestroyed() { mActorDestroyed.EnsureFlipped(); }
 #endif
 
-  bool RecvCommit();
+  bool RecvCommit(Maybe<int64_t> aLastRequest);
 
   bool RecvAbort(nsresult aResultCode);
 
-  void MaybeCommitOrAbort(const nsresult aResultCode) {
+  void MaybeCommitOrAbort() {
     AssertIsOnBackgroundThread();
 
     // If we've already committed or aborted then there's nothing else to do.
@@ -6442,13 +6442,6 @@ class TransactionBase {
     // abort.
     if (!mCommitOrAbortReceived && !mForceAborted) {
       return;
-    }
-
-    // Note failed request, but ignore requests that failed before we were
-    // committing (cf. https://w3c.github.io/IndexedDB/#async-execute-request
-    // step 5.3 vs. 5.4).
-    if (NS_FAILED(aResultCode)) {
-      mHasFailedRequest = true;
     }
 
     CommitOrAbort();
@@ -6550,7 +6543,8 @@ class NormalTransaction final : public TransactionBase,
 
   mozilla::ipc::IPCResult RecvDeleteMe() override;
 
-  mozilla::ipc::IPCResult RecvCommit() override;
+  mozilla::ipc::IPCResult RecvCommit(
+      const Maybe<int64_t>& aLastRequest) override;
 
   mozilla::ipc::IPCResult RecvAbort(const nsresult& aResultCode) override;
 
@@ -6610,7 +6604,8 @@ class VersionChangeTransaction final
 
   mozilla::ipc::IPCResult RecvDeleteMe() override;
 
-  mozilla::ipc::IPCResult RecvCommit() override;
+  mozilla::ipc::IPCResult RecvCommit(
+      const Maybe<int64_t>& aLastRequest) override;
 
   mozilla::ipc::IPCResult RecvAbort(const nsresult& aResultCode) override;
 
@@ -7423,7 +7418,7 @@ class ObjectStoreAddOrPutRequestOp final : public NormalTransactionOp {
   // if we are modifying an autoIncrement objectStore.
   RefPtr<FullObjectStoreMetadata> mMetadata;
 
-  FallibleTArray<StoredFileInfo> mStoredFileInfos;
+  nsTArray<StoredFileInfo> mStoredFileInfos;
 
   Key mResponse;
   const nsCString mGroup;
@@ -7452,15 +7447,35 @@ class ObjectStoreAddOrPutRequestOp final : public NormalTransactionOp {
 };
 
 struct ObjectStoreAddOrPutRequestOp::StoredFileInfo final {
-  RefPtr<DatabaseFile> mFileActor;
-  RefPtr<FileInfo> mFileInfo;
+  const RefPtr<FileInfo> mFileInfo;
+  const RefPtr<DatabaseFile> mFileActor;
   // A non-Blob-backed inputstream to write to disk.  If null, mFileActor may
   // still have a stream for us to write.
-  nsCOMPtr<nsIInputStream> mInputStream;
-  StructuredCloneFile::FileType mType;
+  const nsCOMPtr<nsIInputStream> mInputStream;
+  const StructuredCloneFile::FileType mType;
 
-  StoredFileInfo() : mType(StructuredCloneFile::eBlob) {
+  StoredFileInfo(RefPtr<FileInfo> aFileInfo, RefPtr<DatabaseFile> aFileActor,
+                 const StructuredCloneFile::FileType aType)
+      : mFileInfo{std::move(aFileInfo)},
+        mFileActor{std::move(aFileActor)},
+        mType{aType} {
     AssertIsOnBackgroundThread();
+    MOZ_ASSERT(StructuredCloneFile::eStructuredClone != mType);
+
+    MOZ_ASSERT(mFileInfo);
+
+    MOZ_COUNT_CTOR(ObjectStoreAddOrPutRequestOp::StoredFileInfo);
+  }
+
+  StoredFileInfo(RefPtr<FileInfo> aFileInfo,
+                 nsCOMPtr<nsIInputStream> aInputStream)
+      : mFileInfo{std::move(aFileInfo)},
+        mInputStream{std::move(aInputStream)},
+        mType{StructuredCloneFile::eStructuredClone} {
+    AssertIsOnBackgroundThread();
+
+    MOZ_ASSERT(mFileInfo);
+    MOZ_ASSERT(mInputStream);
 
     MOZ_COUNT_CTOR(ObjectStoreAddOrPutRequestOp::StoredFileInfo);
   }
@@ -12994,14 +13009,6 @@ mozilla::ipc::IPCResult Factory::RecvDeleteMe() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult Factory::RecvIncrementLoggingRequestSerialNumber() {
-  AssertIsOnBackgroundThread();
-  MOZ_ASSERT(mLoggingInfo);
-
-  mLoggingInfo->NextRequestSN();
-  return IPC_OK();
-}
-
 PBackgroundIDBFactoryRequestParent*
 Factory::AllocPBackgroundIDBFactoryRequestParent(
     const FactoryRequestParams& aParams) {
@@ -14091,10 +14098,10 @@ void TransactionBase::Abort(nsresult aResultCode, bool aForce) {
     mForceAborted.EnsureFlipped();
   }
 
-  MaybeCommitOrAbort(mResultCode);
+  MaybeCommitOrAbort();
 }
 
-bool TransactionBase::RecvCommit() {
+bool TransactionBase::RecvCommit(const Maybe<int64_t> aLastRequest) {
   AssertIsOnBackgroundThread();
 
   if (NS_WARN_IF(mCommitOrAbortReceived)) {
@@ -14103,8 +14110,9 @@ bool TransactionBase::RecvCommit() {
   }
 
   mCommitOrAbortReceived.Flip();
+  mLastRequestBeforeCommit.init(aLastRequest);
 
-  MaybeCommitOrAbort(NS_OK);
+  MaybeCommitOrAbort();
   return true;
 }
 
@@ -14140,6 +14148,17 @@ void TransactionBase::CommitOrAbort() {
 
   if (!mInitialized) {
     return;
+  }
+
+  // In case of a failed request that was started after committing was
+  // initiated, abort (cf.
+  // https://w3c.github.io/IndexedDB/#async-execute-request step 5.3 vs. 5.4).
+  // Note this can only happen here when we are committing explicitly, otherwise
+  // the decision is made by the child.
+  if (NS_SUCCEEDED(mResultCode) && mLastFailedRequest &&
+      *mLastRequestBeforeCommit &&
+      *mLastFailedRequest >= **mLastRequestBeforeCommit) {
+    mResultCode = NS_ERROR_DOM_INDEXEDDB_ABORT_ERR;
   }
 
   RefPtr<CommitOp> commitOp = new CommitOp(this, ClampResultCode(mResultCode));
@@ -14651,13 +14670,18 @@ void TransactionBase::NoteActiveRequest() {
   mActiveRequestCount++;
 }
 
-void TransactionBase::NoteFinishedRequest(const nsresult aResultCode) {
+void TransactionBase::NoteFinishedRequest(const int64_t aRequestId,
+                                          const nsresult aResultCode) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(mActiveRequestCount);
 
   mActiveRequestCount--;
 
-  MaybeCommitOrAbort(aResultCode);
+  if (NS_FAILED(aResultCode)) {
+    mLastFailedRequest = Some(aRequestId);
+  }
+
+  MaybeCommitOrAbort();
 }
 
 void TransactionBase::Invalidate() {
@@ -14933,7 +14957,7 @@ void NormalTransaction::ActorDestroy(ActorDestroyReason aWhy) {
 
     mForceAborted.EnsureFlipped();
 
-    MaybeCommitOrAbort(mResultCode);
+    MaybeCommitOrAbort();
   }
 }
 
@@ -14948,10 +14972,11 @@ mozilla::ipc::IPCResult NormalTransaction::RecvDeleteMe() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult NormalTransaction::RecvCommit() {
+mozilla::ipc::IPCResult NormalTransaction::RecvCommit(
+    const Maybe<int64_t>& aLastRequest) {
   AssertIsOnBackgroundThread();
 
-  if (!TransactionBase::RecvCommit()) {
+  if (!TransactionBase::RecvCommit(aLastRequest)) {
     return IPC_FAIL_NO_REASON(this);
   }
   return IPC_OK();
@@ -15194,7 +15219,7 @@ void VersionChangeTransaction::ActorDestroy(ActorDestroyReason aWhy) {
 
     mForceAborted.EnsureFlipped();
 
-    MaybeCommitOrAbort(mResultCode);
+    MaybeCommitOrAbort();
   }
 }
 
@@ -15209,10 +15234,11 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteMe() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult VersionChangeTransaction::RecvCommit() {
+mozilla::ipc::IPCResult VersionChangeTransaction::RecvCommit(
+    const Maybe<int64_t>& aLastRequest) {
   AssertIsOnBackgroundThread();
 
-  if (!TransactionBase::RecvCommit()) {
+  if (!TransactionBase::RecvCommit(aLastRequest)) {
     return IPC_FAIL_NO_REASON(this);
   }
   return IPC_OK();
@@ -22753,7 +22779,7 @@ void TransactionDatabaseOperationBase::SendPreprocessInfoOrResults(
     mWaitingForContinue = true;
   } else {
     if (mLoggingSerialNumber) {
-      (*mTransaction)->NoteFinishedRequest(ResultCode());
+      (*mTransaction)->NoteFinishedRequest(mLoggingSerialNumber, ResultCode());
     }
 
     Cleanup();
@@ -22935,10 +22961,6 @@ NS_IMETHODIMP
 TransactionBase::CommitOp::Run() {
   MOZ_ASSERT(mTransaction);
   mTransaction->AssertIsOnConnectionThread();
-
-  if (NS_SUCCEEDED(mResultCode) && mTransaction->mHasFailedRequest) {
-    mResultCode = NS_ERROR_DOM_INDEXEDDB_ABORT_ERR;
-  }
 
   AUTO_PROFILER_LABEL("TransactionBase::CommitOp::Run", DOM);
 
@@ -24863,22 +24885,17 @@ bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase* aTransaction) {
 
       const DatabaseOrMutableFile& file = fileAddInfo.file();
 
-      StoredFileInfo* storedFileInfo = mStoredFileInfos.AppendElement(fallible);
-      MOZ_ASSERT(storedFileInfo);
-
       switch (fileAddInfo.type()) {
         case StructuredCloneFile::eBlob: {
           MOZ_ASSERT(file.type() ==
                      DatabaseOrMutableFile::TPBackgroundIDBDatabaseFileParent);
 
-          storedFileInfo->mFileActor = static_cast<DatabaseFile*>(
+          auto* const fileActor = static_cast<DatabaseFile*>(
               file.get_PBackgroundIDBDatabaseFileParent());
-          MOZ_ASSERT(storedFileInfo->mFileActor);
+          MOZ_ASSERT(fileActor);
 
-          storedFileInfo->mFileInfo = storedFileInfo->mFileActor->GetFileInfo();
-          MOZ_ASSERT(storedFileInfo->mFileInfo);
-
-          storedFileInfo->mType = StructuredCloneFile::eBlob;
+          mStoredFileInfos.EmplaceBack(fileActor->GetFileInfo(), fileActor,
+                                       StructuredCloneFile::eBlob);
           break;
         }
 
@@ -24890,10 +24907,9 @@ bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase* aTransaction) {
               file.get_PBackgroundMutableFileParent());
           MOZ_ASSERT(mutableFileActor);
 
-          storedFileInfo->mFileInfo = mutableFileActor->GetFileInfo();
-          MOZ_ASSERT(storedFileInfo->mFileInfo);
+          mStoredFileInfos.EmplaceBack(mutableFileActor->GetFileInfo(), nullptr,
+                                       StructuredCloneFile::eMutableFile);
 
-          storedFileInfo->mType = StructuredCloneFile::eMutableFile;
           break;
         }
 
@@ -24904,19 +24920,9 @@ bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase* aTransaction) {
   }
 
   if (mDataOverThreshold) {
-    StoredFileInfo* storedFileInfo = mStoredFileInfos.AppendElement(fallible);
-    MOZ_ASSERT(storedFileInfo);
-
-    RefPtr<FileManager> fileManager =
-        aTransaction->GetDatabase()->GetFileManager();
-    MOZ_ASSERT(fileManager);
-
-    storedFileInfo->mFileInfo = fileManager->GetNewFileInfo();
-
-    storedFileInfo->mInputStream =
-        new SCInputStream(mParams.cloneInfo().data().data);
-
-    storedFileInfo->mType = StructuredCloneFile::eStructuredClone;
+    mStoredFileInfos.EmplaceBack(
+        aTransaction->GetDatabase()->GetFileManager()->GetNewFileInfo(),
+        MakeRefPtr<SCInputStream>(mParams.cloneInfo().data().data));
   }
 
   return true;

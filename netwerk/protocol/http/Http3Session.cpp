@@ -19,7 +19,7 @@
 #include "nsThreadUtils.h"
 #include "QuicSocketControl.h"
 #include "SSLServerCertVerification.h"
-//#include "cert.h"
+#include "HttpConnectionUDP.h"
 #include "sslerr.h"
 
 namespace mozilla {
@@ -72,7 +72,7 @@ Http3Session::Http3Session()
 
 nsresult Http3Session::Init(const nsACString& aOrigin,
                             nsISocketTransport* aSocketTransport,
-                            nsHttpConnection* readerWriter) {
+                            HttpConnectionUDP* readerWriter) {
   LOG3(("Http3Session::Init %p", this));
 
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
@@ -334,7 +334,7 @@ nsresult Http3Session::ProcessEvents(uint32_t count, uint32_t* countWritten,
           mError = NS_ERROR_NET_HTTP3_PROTOCOL_ERROR;
         }
         mIsClosedByNeqo = true;
-        // We need to return here and let nsHttpConnection close the session.
+        // We need to return here and let HttpConnectionUDP close the session.
         return mError;
         break;
       default:
@@ -879,10 +879,6 @@ nsresult Http3Session::TakeSubTransactions(
   return NS_OK;
 }
 
-PRIntervalTime Http3Session::ResponseTimeout() {
-  return gHttpHandler->ResponseTimeout();
-}
-
 //-----------------------------------------------------------------------------
 // Pass through methods of nsAHttpConnection
 //-----------------------------------------------------------------------------
@@ -906,12 +902,12 @@ nsresult Http3Session::PushBack(const char* buf, uint32_t len) {
   return mConnection->PushBack(buf, len);
 }
 
-already_AddRefed<nsHttpConnection> Http3Session::TakeHttpConnection() {
+already_AddRefed<HttpConnectionBase> Http3Session::TakeHttpConnection() {
   MOZ_ASSERT(false, "TakeHttpConnection of Http3Session");
   return nullptr;
 }
 
-already_AddRefed<nsHttpConnection> Http3Session::HttpConnection() {
+already_AddRefed<HttpConnectionBase> Http3Session::HttpConnection() {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   if (mConnection) {
     return mConnection->HttpConnection();

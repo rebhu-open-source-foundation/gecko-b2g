@@ -321,17 +321,6 @@ bool WebGLContext::CreateAndInitGL(
     return false;
   }
 
-  // WebGL can't be used when recording/replaying.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    FailureReason reason;
-    reason.info =
-        "Can't use WebGL when recording or replaying "
-        "(https://bugzil.la/1506467).";
-    out_failReasons->push_back(reason);
-    GenerateWarning("%s", reason.info.BeginReading());
-    return false;
-  }
-
   // WebGL2 is separately blocked:
   if (IsWebGL2() && !forceEnabled) {
     const nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
@@ -962,20 +951,6 @@ Maybe<ICRData> WebGLContext::InitializeCanvasRenderer(
   }
 
   gl->Screen()->Morph(std::move(factory));
-
-  bool needsResize = false;
-#if defined(MOZ_WIDGET_ANDROID)
-  // If drawing buffer size and screen size are equal, the first back buffer
-  // will still be the one created with SurfaceFactory_Basic factory.
-  // We resize here to ensure that GLScreenBuffer back buffer
-  // is created using the newly attached factory.
-  // See bug #1617751
-  needsResize = true;
-#endif
-  if (needsResize) {
-    const auto& size = DrawingBufferSize();
-    gl->Screen()->Resize({size.x, size.y});
-  }
 
   mVRReady = true;
   return Some(ret);

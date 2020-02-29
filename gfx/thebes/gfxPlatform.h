@@ -642,8 +642,7 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
       */
     MOZ_ASSERT(mVsyncSource != nullptr);
 #endif
-    MOZ_ASSERT(XRE_IsParentProcess() ||
-               mozilla::recordreplay::IsRecordingOrReplaying());
+    MOZ_ASSERT(XRE_IsParentProcess());
     return mVsyncSource;
   }
 

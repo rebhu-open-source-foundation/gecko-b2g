@@ -1783,6 +1783,10 @@ bool ThrowingConstructor(JSContext* cx, unsigned argc, JS::Value* vp);
 
 bool ThrowConstructorWithoutNew(JSContext* cx, const char* name);
 
+// Helper for throwing an "invalid this" exception.
+bool ThrowInvalidThis(JSContext* aCx, const JS::CallArgs& aArgs,
+                      bool aSecurityError, prototypes::ID aProtoId);
+
 bool GetPropertyOnPrototype(JSContext* cx, JS::Handle<JSObject*> proxy,
                             JS::Handle<JS::Value> receiver, JS::Handle<jsid> id,
                             bool* found, JS::MutableHandle<JS::Value> vp);
@@ -2653,11 +2657,6 @@ class MOZ_STACK_CLASS BindingJSObjectCreator {
   void InitializationSucceeded() {
     T* pointer;
     mNative.forget(&pointer);
-
-    // Never collect binding objects while recording or replaying, to avoid
-    // non-deterministically releasing references during finalization.
-    recordreplay::HoldJSObject(mReflector);
-
     mReflector = nullptr;
   }
 

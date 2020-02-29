@@ -198,9 +198,14 @@ void xpc::ErrorReport::Init(JSErrorReport* aReport, const char* aToStringResult,
                         : NS_LITERAL_CSTRING("content javascript");
   mWindowID = aWindowID;
 
-  ErrorReportToMessageString(aReport, mErrorMsg);
-  if (mErrorMsg.IsEmpty() && aToStringResult) {
+  if (aToStringResult) {
     AppendUTF8toUTF16(mozilla::MakeStringSpan(aToStringResult), mErrorMsg);
+  }
+  if (mErrorMsg.IsEmpty()) {
+    ErrorReportToMessageString(aReport, mErrorMsg);
+  }
+  if (mErrorMsg.IsEmpty()) {
+    mErrorMsg.AssignLiteral("<unknown>");
   }
 
   mSourceLine.Assign(aReport->linebuf(), aReport->linebufLength());
@@ -301,15 +306,8 @@ void xpc::ErrorReport::LogToConsole() {
   LogToConsoleWithStack(nullptr, nullptr);
 }
 
-void xpc::ErrorReport::LogToConsoleWithStack(
-    JS::HandleObject aStack, JS::HandleObject aStackGlobal,
-    uint64_t aTimeWarpTarget /* = 0 */) {
-  // Don't log failures after diverging from a recording during replay, as
-  // this will cause the associated debugger operation to fail.
-  if (recordreplay::HasDivergedFromRecording()) {
-    return;
-  }
-
+void xpc::ErrorReport::LogToConsoleWithStack(JS::HandleObject aStack,
+                                             JS::HandleObject aStackGlobal) {
   if (aStack) {
     MOZ_ASSERT(aStackGlobal);
     MOZ_ASSERT(JS_IsGlobalObject(aStackGlobal));
@@ -343,7 +341,6 @@ void xpc::ErrorReport::LogToConsoleWithStack(
     errorObject = new nsScriptError();
   }
   errorObject->SetErrorMessageName(mErrorMsgName);
-  errorObject->SetTimeWarpTarget(aTimeWarpTarget);
 
   nsresult rv = errorObject->InitWithWindowID(
       mErrorMsg, mFileName, mSourceLine, mLineNumber, mColumn, mFlags,

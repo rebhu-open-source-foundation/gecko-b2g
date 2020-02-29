@@ -443,6 +443,101 @@ browser.engagement.navigation:
     record_in_processes:
       - 'main'
 
+browser.startup:
+  slow_startup_notification_disabled:
+    bug_numbers:
+      - 1601993
+    description:
+      Whether the slow startup notification bar is disabled for the user.
+    expires: "78"
+    kind: boolean
+    notification_emails:
+      - mconley@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  too_new_for_notification:
+    bug_numbers:
+      - 1601993
+    description:
+      Whether the slow startup notification bar was suppressed because the profile is too new.
+    expires: "78"
+    kind: boolean
+    notification_emails:
+      - mconley@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  slow_startup_notified:
+    bug_numbers:
+      - 1601993
+    description:
+      Whether the slow startup notification bar was shown to the user during this session.
+    expires: "78"
+    kind: boolean
+    notification_emails:
+      - mconley@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  recorded_time:
+    bug_numbers:
+      - 1601993
+    description: >
+      The startup time computed by the slow startup notification bar in milliseconds.
+    expires: "78"
+    kind: uint
+    notification_emails:
+      - mconley@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  average_time:
+    bug_numbers:
+      - 1601993
+    description: >
+      The average startup time computed by the slow startup notification bar in milliseconds.
+    expires: "78"
+    kind: uint
+    notification_emails:
+      - mconley@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  action:
+    bug_numbers:
+      - 1601993
+    description: >
+      The action that the user took with the slow startup notification bar.
+      0: No action (default)
+      1: User chose to open SUMO document on slow startup
+      2: User chose to never show the notification bar again
+      3: User dismissed the notification bar
+    expires: "78"
+    kind: uint
+    notification_emails:
+      - mconley@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
 # The following section contains the browser usage scalars.
 browser.usage:
   graphite:
@@ -1044,7 +1139,7 @@ pictureinpicture:
     notification_emails:
       - mconley@mozilla.com
       - astevenson@mozilla.com
-    release_channel_collection: opt-in
+    release_channel_collection: opt-out
     products:
       - 'firefox'
       - 'fennec'
@@ -1065,7 +1160,7 @@ pictureinpicture:
     notification_emails:
       - mconley@mozilla.com
       - astevenson@mozilla.com
-    release_channel_collection: opt-in
+    release_channel_collection: opt-out
     products:
       - 'firefox'
       - 'fennec'
@@ -3671,972 +3766,6 @@ update:
     operating_systems:
       - windows
 
-update.startup:
-  from_app_version:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the previous application version that the update was applied to
-      when the update makes it to the last phase where the application has
-      exited and started.
-    expires: "76"
-    kind: string
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - 'main'
-
-  mar_partial_size_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes of a partial update MAR file when
-      the update makes it to the last phase where the application has exited and
-      started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  mar_complete_size_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes of a complete update MAR file when
-      the update makes it to the last phase where the application has exited and
-      started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-update.startup.intervals:
-  check:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the check phase of the update process
-      when an update makes it to the last phase where the application has exited
-      and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  download_bits_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the BITS downloader for a partial update MAR file when the
-      update makes it to the last phase where the application has exited and
-      and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  download_bits_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the BITS downloader for a complete update MAR file when the
-      update makes it to the last phase where the application has exited and
-      started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  download_internal_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the internal application downloader for a partial update MAR
-      file when the update makes it to the last phase where the application has
-      exited and and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  download_internal_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the internal application downloader for a complete update
-      MAR file when the update makes it to the last phase where the application
-      has exited and and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  stage_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the stage phase of the update process
-      for a partial update MAR file when the update makes it to the last phase
-      where the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  stage_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the stage phase of the update process
-      for a complete update MAR file when the update makes it to the last phase
-      where the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  apply_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the apply phase of the update process
-      for a partial update MAR file when the update makes it to the last phase
-      where the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  apply_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the apply phase of the update process
-      for a complete update MAR file when the update makes it to the last phase
-      where the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-update.startup.downloads:
-  bits_partial_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded using the BITS downloader for
-      a partial update MAR file when the update makes it to the last phase where
-      the application has exited and started. This value can be different than
-      the size of the update MAR file because the value is only monitored
-      during the initial download while the application is running and not if
-      the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  bits_partial_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the BITS downloader for a
-      partial update MAR file when the update makes it to the last phase where
-      the application has exited and started. This value can be used with the
-      value of update.startup.downloads.bits_partial_bytes to estimate the bytes
-      per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  bits_complete_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded using the BITS downloader for
-      a complete update MAR file when the update makes it to the last phase
-      where the application has exited and started. This value can be different
-      than the size of the update MAR file because the value is only monitored
-      during the initial download while the application is running and not if
-      the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  bits_complete_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the BITS downloader for a
-      complete update MAR file when the update makes it to the last phase where
-      the application has exited and started. This value can be used with the
-      value of update.startup.downloads.bits_complete_bytes to estimate the
-      bytes per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  internal_partial_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded using the internal application
-      downloader for a partial update MAR file when the update makes it to the
-      last phase where the application has exited and started. This value can be
-      different than the size of the update MAR file because the value is only
-      monitored during the initial download while the application is running and
-      not if the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  internal_partial_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the internal application
-      downloader for a partial update MAR file when the update makes it to the
-      last phase where the application has exited and started. This value can be
-      used with the value of update.startup.downloads.internal_partial_bytes to
-      estimate the bytes per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  internal_complete_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded by the internal
-      application downloader for a complete update MAR file when an update makes
-      it to the last phase where the application has exited and started. This
-      value can be different than the size of the update MAR file because the
-      value is only monitored during the initial download while the
-      application is running and not if the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  internal_complete_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the internal application
-      downloader for a complete update MAR file when the update makes it to the
-      last phase where the application has exited and started. This value can be
-      used with the value of update.startup.downloads.internal_complete_bytes to
-      estimate the bytes per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-update.session:
-  from_app_version:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the previous application version that the update was applied to
-      when the update has finished due to a failure before the application has
-      exited and started.
-    expires: "76"
-    kind: string
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - 'main'
-
-  mar_partial_size_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes of a partial update MAR file when
-      the update has finished due to a failure before the application has exited
-      and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  mar_complete_size_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes of a complete update MAR file when
-      the update has finished due to a failure before the application has exited
-      and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-update.session.intervals:
-  check:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the check phase of the update process
-      when an update has finished due to a failure before the application has
-      exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  download_bits_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the BITS downloader for a partial update MAR file when the
-      update has finished due to a failure before the application has exited
-      and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  download_bits_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the BITS downloader for a complete update MAR file when the
-      update has finished due to a failure before the application has exited and
-      started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  download_internal_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the internal application downloader for a partial update MAR
-      file when the update has finished due to a failure before the application
-      has exited and and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  download_internal_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the download phase of the update
-      process using the internal application downloader for a complete update
-      MAR file when the update has finished due to a failure before the
-      application has exited and and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  stage_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the stage phase of the update process
-      for a partial update MAR file when the update has finished due to a
-      failure before the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  stage_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the stage phase of the update process
-      for a complete update MAR file when the update has finished due to a
-      failure before the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  apply_partial:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the apply phase of the update process
-      for a partial update MAR file when the update has finished due to a
-      failure before the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  apply_complete:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the interval in seconds of the apply phase of the update process
-      for a complete update MAR file when the update has finished due to a
-      failure before the application has exited and started.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-update.session.downloads:
-  bits_partial_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded using the BITS downloader for
-      a partial update MAR file when the update has finished due to a failure
-      before the application has exited and started. This value can be
-      different than the size of the update MAR file because the value is only
-      monitored during the initial download while the application is running and
-      not if the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  bits_partial_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the BITS downloader for a
-      partial update MAR file when the update has finished due to a failure
-      before the application has exited and started. This value can be used with
-      the value of update.session.downloads.bits_partial_bytes to estimate the
-      bytes per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  bits_complete_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded using the BITS downloader for
-      a complete update MAR file when the update has finished due to a failure
-      before the application has exited and started. This value can be different
-      than the size of the update MAR file because the value is only monitored
-      during the initial download while the application is running and not if
-      the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  bits_complete_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the BITS downloader for a
-      complete update MAR file when the update has finished due to a failure
-      before the application has exited and started. This value can be used with
-      the value of update.session.downloads.bits_complete_bytes to estimate the
-      bytes per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-    operating_systems:
-      - "windows"
-
-  internal_partial_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded using the internal
-      application downloader for a partial update MAR file when the update has
-      finished due to a failure before the application has exited and started.
-      This value can be different than the size of the update MAR file because
-      the value is only monitored during the initial download while the
-      application is running and not if the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  internal_partial_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the internal application
-      downloader for a partial update MAR file when the update has finished due
-      to a failure before the application has exited and started. This value can
-      be used with the value of update.session.downloads.internal_partial_bytes
-      to estimate the bytes per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  internal_complete_bytes:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of bytes downloaded by the internal
-      application downloader for a complete update MAR file when an update has
-      finished due to a failure before the application has exited and started.
-      This value can be different than the size of the update MAR file because
-      the value is only monitored during the initial download while the
-      application is running and not if the download is resumed.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
-  internal_complete_seconds:
-    bug_numbers:
-      - 1539154
-      - 1578262
-    description: >
-      Records the total number of seconds spent downloading during the initial
-      download without exiting the application using the internal application
-      downloader for a complete update MAR file when the update has finished due
-      to a failure before the application has exited and started. This value can
-      be used with the value of update.session.downloads.internal_complete_bytes
-      to estimate the bytes per second for the download.
-    expires: "76"
-    kind: uint
-    keyed: false
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - rstrong@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-      - 'fennec'
-      - 'geckoview'
-    record_in_processes:
-      - main
-
 # The following section contains search counters.
 browser.search:
   with_ads:
@@ -4678,6 +3807,28 @@ browser.search:
       - 'geckoview'
     record_in_processes:
       - main
+
+  data_transferred:
+    bug_numbers:
+      - 1614777
+    description: >
+      Records KBs has been transferred for search requests, including
+      top-level documents, sub-resources, iframes and search suggestions.
+      The key format could be one of:
+        <search-provider-name>
+        <search-provider-name>-pb
+        sggt-<search-engine-id>
+        sggt-<search-engine-id>-pb
+    expires: "82"
+    keyed: true
+    kind: uint
+    notification_emails:
+      - gachen@mozilla.com
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+    release_channel_collection: opt-out
 
 browser.searchinit:
   engines_cache_corrupted:

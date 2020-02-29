@@ -105,20 +105,20 @@ bool WarpBuilder::buildPrologue() {
     }
   }
 
-  // Initialize the environment chain.
-  MInstruction* env = MConstant::New(alloc(), UndefinedValue());
-  current->add(env);
-  current->initSlot(info().environmentChainSlot(), env);
+  MConstant* undef = constant(UndefinedValue());
 
-  // Initialize the return value.
-  MInstruction* returnValue = MConstant::New(alloc(), UndefinedValue());
-  current->add(returnValue);
-  current->initSlot(info().returnValueSlot(), returnValue);
+  // Initialize local slots.
+  for (uint32_t i = 0; i < info().nlocals(); i++) {
+    current->initSlot(info().localSlot(i), undef);
+  }
+
+  // Initialize the environment chain and return value slots.
+  current->initSlot(info().environmentChainSlot(), undef);
+  current->initSlot(info().returnValueSlot(), undef);
 
   current->add(MStart::New(alloc()));
 
   // TODO: environment chain initialization
-  // TODO: initialize local slots
 
   // Guard against over-recursion.
   MCheckOverRecursed* check = MCheckOverRecursed::New(alloc());
@@ -128,7 +128,7 @@ bool WarpBuilder::buildPrologue() {
 }
 
 bool WarpBuilder::buildBody() {
-  for (const BytecodeLocation& it : AllBytecodesIterable(script_)) {
+  for (BytecodeLocation loc : AllBytecodesIterable(script_)) {
     if (mirGen_.shouldCancel("WarpBuilder (opcode loop)")) {
       return false;
     }
@@ -141,13 +141,13 @@ bool WarpBuilder::buildBody() {
       return false;
     }
 
-    JSOp op = it.getOp();
+    JSOp op = loc.getOp();
 
-#define BUILD_OP(OP)                           \
-  case JSOp::OP:                               \
-    if (MOZ_UNLIKELY(!this->build_##OP(it))) { \
-      return false;                            \
-    }                                          \
+#define BUILD_OP(OP)                            \
+  case JSOp::OP:                                \
+    if (MOZ_UNLIKELY(!this->build_##OP(loc))) { \
+      return false;                             \
+    }                                           \
     break;
     switch (op) {
       WARP_OPCODE_LIST(BUILD_OP)
@@ -163,14 +163,147 @@ bool WarpBuilder::buildBody() {
 
 bool WarpBuilder::buildEpilogue() { return true; }
 
-bool WarpBuilder::build_Nop(const BytecodeLocation&) { return true; }
+bool WarpBuilder::build_Nop(BytecodeLocation) { return true; }
 
-bool WarpBuilder::build_Zero(const BytecodeLocation&) {
+bool WarpBuilder::build_NopDestructuring(BytecodeLocation) { return true; }
+
+bool WarpBuilder::build_TryDestructuring(BytecodeLocation) { return true; }
+
+bool WarpBuilder::build_Lineno(BytecodeLocation) { return true; }
+
+bool WarpBuilder::build_DebugLeaveLexicalEnv(BytecodeLocation) { return true; }
+
+bool WarpBuilder::build_Undefined(BytecodeLocation) {
+  // If this ever changes, change what JSOp::GImplicitThis does too.
+  pushConstant(UndefinedValue());
+  return true;
+}
+
+bool WarpBuilder::build_Void(BytecodeLocation) {
+  current->pop();
+  pushConstant(UndefinedValue());
+  return true;
+}
+
+bool WarpBuilder::build_Null(BytecodeLocation) {
+  pushConstant(NullValue());
+  return true;
+}
+
+bool WarpBuilder::build_Hole(BytecodeLocation) {
+  pushConstant(MagicValue(JS_ELEMENTS_HOLE));
+  return true;
+}
+
+bool WarpBuilder::build_Uninitialized(BytecodeLocation) {
+  pushConstant(MagicValue(JS_UNINITIALIZED_LEXICAL));
+  return true;
+}
+
+bool WarpBuilder::build_IsConstructing(BytecodeLocation) {
+  pushConstant(MagicValue(JS_IS_CONSTRUCTING));
+  return true;
+}
+
+bool WarpBuilder::build_False(BytecodeLocation) {
+  pushConstant(BooleanValue(false));
+  return true;
+}
+
+bool WarpBuilder::build_True(BytecodeLocation) {
+  pushConstant(BooleanValue(true));
+  return true;
+}
+
+bool WarpBuilder::build_Pop(BytecodeLocation) {
+  current->pop();
+  // TODO: IonBuilder inserts a resume point in loops, re-evaluate this.
+  return true;
+}
+
+bool WarpBuilder::build_PopN(BytecodeLocation loc) {
+  for (uint32_t i = 0, n = loc.getPopCount(); i < n; i++) {
+    current->pop();
+  }
+  return true;
+}
+
+bool WarpBuilder::build_Dup(BytecodeLocation) {
+  current->pushSlot(current->stackDepth() - 1);
+  return true;
+}
+
+bool WarpBuilder::build_Dup2(BytecodeLocation) {
+  uint32_t lhsSlot = current->stackDepth() - 2;
+  uint32_t rhsSlot = current->stackDepth() - 1;
+  current->pushSlot(lhsSlot);
+  current->pushSlot(rhsSlot);
+  return true;
+}
+
+bool WarpBuilder::build_DupAt(BytecodeLocation loc) {
+  current->pushSlot(current->stackDepth() - 1 - loc.getDupAtIndex());
+  return true;
+}
+
+bool WarpBuilder::build_Swap(BytecodeLocation) {
+  current->swapAt(-1);
+  return true;
+}
+
+bool WarpBuilder::build_Pick(BytecodeLocation loc) {
+  int32_t depth = -int32_t(loc.getPickDepth());
+  current->pick(depth);
+  return true;
+}
+
+bool WarpBuilder::build_Unpick(BytecodeLocation loc) {
+  int32_t depth = -int32_t(loc.getUnpickDepth());
+  current->unpick(depth);
+  return true;
+}
+
+bool WarpBuilder::build_Zero(BytecodeLocation) {
   pushConstant(Int32Value(0));
   return true;
 }
 
-bool WarpBuilder::build_Return(const BytecodeLocation&) {
+bool WarpBuilder::build_One(BytecodeLocation) {
+  pushConstant(Int32Value(1));
+  return true;
+}
+
+bool WarpBuilder::build_Int8(BytecodeLocation loc) {
+  pushConstant(Int32Value(loc.getInt8()));
+  return true;
+}
+
+bool WarpBuilder::build_Uint16(BytecodeLocation loc) {
+  pushConstant(Int32Value(loc.getUint16()));
+  return true;
+}
+
+bool WarpBuilder::build_Uint24(BytecodeLocation loc) {
+  pushConstant(Int32Value(loc.getUint24()));
+  return true;
+}
+
+bool WarpBuilder::build_Int32(BytecodeLocation loc) {
+  pushConstant(Int32Value(loc.getInt32()));
+  return true;
+}
+
+bool WarpBuilder::build_Double(BytecodeLocation loc) {
+  pushConstant(loc.getInlineValue());
+  return true;
+}
+
+bool WarpBuilder::build_ResumeIndex(BytecodeLocation loc) {
+  pushConstant(Int32Value(loc.getResumeIndex()));
+  return true;
+}
+
+bool WarpBuilder::build_Return(BytecodeLocation) {
   MDefinition* def = current->pop();
 
   MReturn* ret = MReturn::New(alloc(), def);
@@ -180,7 +313,7 @@ bool WarpBuilder::build_Return(const BytecodeLocation&) {
   return true;
 }
 
-bool WarpBuilder::build_RetRval(const BytecodeLocation&) {
+bool WarpBuilder::build_RetRval(BytecodeLocation) {
   MDefinition* rval;
   if (script_->noScriptRval()) {
     rval = constant(UndefinedValue());
@@ -192,5 +325,20 @@ bool WarpBuilder::build_RetRval(const BytecodeLocation&) {
   current->end(ret);
 
   setTerminatedBlock();
+  return true;
+}
+
+bool WarpBuilder::build_GetLocal(BytecodeLocation loc) {
+  current->pushLocal(loc.local());
+  return true;
+}
+
+bool WarpBuilder::build_SetLocal(BytecodeLocation loc) {
+  current->setLocal(loc.local());
+  return true;
+}
+
+bool WarpBuilder::build_InitLexical(BytecodeLocation loc) {
+  current->setLocal(loc.local());
   return true;
 }

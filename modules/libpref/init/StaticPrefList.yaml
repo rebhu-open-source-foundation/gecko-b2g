@@ -1677,6 +1677,51 @@
   value: true
   mirror: always
 
+# The root margin for image lazy loading, defined as four (value, percentage)
+# pairs.
+#
+# (0px, 0px, 0px, 0px) by default, for now. We could also consider an
+# adaptative version of this.
+- name: dom.image-lazy-loading.root-margin.top
+  type: float
+  value: 0
+  mirror: always
+
+- name: dom.image-lazy-loading.root-margin.top.percentage
+  type: bool
+  value: false
+  mirror: always
+
+- name: dom.image-lazy-loading.root-margin.bottom
+  type: float
+  value: 0
+  mirror: always
+
+- name: dom.image-lazy-loading.root-margin.bottom.percentage
+  type: bool
+  value: false
+  mirror: always
+
+- name: dom.image-lazy-loading.root-margin.left
+  type: float
+  value: 0
+  mirror: always
+
+- name: dom.image-lazy-loading.root-margin.left.percentage
+  type: bool
+  value: false
+  mirror: always
+
+- name: dom.image-lazy-loading.root-margin.right
+  type: float
+  value: 0
+  mirror: always
+
+- name: dom.image-lazy-loading.root-margin.right.percentage
+  type: bool
+  value: false
+  mirror: always
+
 # Enable passing the "storage" option to indexedDB.open.
 - name: dom.indexedDB.storageOption.enabled
   type: RelaxedAtomicBool
@@ -2811,11 +2856,6 @@
   # See Bug 1310663 (Linux).  On Android, this pref is irrelevant.
   value: false
 #endif
-  mirror: once
-
-- name: dom.vr.openvr.action_input
-  type: bool
-  value: true
   mirror: once
 
 # OSVR device
@@ -8565,6 +8605,43 @@
   type: bool
   value: true
   mirror: always
+
+#ifdef MOZ_WAYLAND
+# Use DMABuf backend for Basic compositor.
+# For testing purposes only.
+- name: widget.wayland-dmabuf-basic-compositor.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Use DMABuf for content textures.
+# For testing purposes only.
+- name: widget.wayland-dmabuf-textures.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Use DMABuf backend for WebGL on Wayland.
+- name: widget.wayland-dmabuf-webgl.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Use VA-API for video playback on Wayland.
+- name: widget.wayland-dmabuf-vaapi.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Wayland basic (non-accelerated) compositor cache mode.
+# 0 = Default (everything is cached).
+# 1 = Cache only missing drawing.
+# 2 = No cache
+- name: widget.wayland-cache-mode
+  type: RelaxedAtomicInt32
+  value: 0
+  mirror: always
+#endif
 
 #---------------------------------------------------------------------------
 # Prefs starting with "xul."
