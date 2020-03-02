@@ -1256,6 +1256,7 @@ Document::Document(const char* aContentType)
       mHasCSP(false),
       mHasUnsafeEvalCSP(false),
       mHasUnsafeInlineCSP(false),
+      mHasCSPDeliveredThroughHeader(false),
       mBFCacheDisallowed(false),
       mHasHadDefaultView(false),
       mStyleSheetChangeEventsEnabled(false),
@@ -3139,7 +3140,7 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
   if (cspToInherit) {
     bool allowsNavigateTo = false;
     rv = cspToInherit->GetAllowsNavigateTo(
-        mDocumentURI, loadInfo,
+        mDocumentURI, loadInfo->GetIsFormSubmission(),
         !loadInfo->RedirectChain().IsEmpty(), /* aWasRedirected */
         true,                                 /* aEnforceWhitelist */
         &allowsNavigateTo);
@@ -3396,6 +3397,7 @@ nsresult Document::InitCSP(nsIChannel* aChannel) {
 
   // ----- if there's a full-strength CSP header, apply it.
   if (!cspHeaderValue.IsEmpty()) {
+    mHasCSPDeliveredThroughHeader = true;
     rv = CSP_AppendCSPFromHeader(mCSP, cspHeaderValue, false);
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -16000,7 +16002,13 @@ nsICookieSettings* Document::CookieSettings() {
   // If we are here, this is probably a javascript: URL document. In any case,
   // we must have a nsCookieSettings. Let's create it.
   if (!mCookieSettings) {
-    mCookieSettings = net::CookieSettings::Create();
+    Document* inProcessParent = GetInProcessParentDocument();
+
+    mCookieSettings =
+        inProcessParent
+            ? net::CookieSettings::Create(
+                  inProcessParent->CookieSettings()->GetCookieBehavior())
+            : net::CookieSettings::Create();
   }
 
   return mCookieSettings;
@@ -16083,6 +16091,37 @@ void Document::RemoveToplevelLoadingDocument(Document* aDoc) {
         idleScheduler->SendPrioritizedOperationDone();
       }
     }
+  }
+}
+
+StylePrefersColorScheme Document::PrefersColorScheme() const {
+  if (nsContentUtils::ShouldResistFingerprinting(this)) {
+    return StylePrefersColorScheme::Light;
+  }
+
+  if (nsPresContext* pc = GetPresContext()) {
+    if (auto devtoolsOverride = pc->GetOverridePrefersColorScheme()) {
+      return *devtoolsOverride;
+    }
+
+    if (pc->IsPrintingOrPrintPreview()) {
+      return StylePrefersColorScheme::Light;
+    }
+  }
+
+  // If LookAndFeel::eIntID_SystemUsesDarkTheme fails then return 2
+  // (no-preference)
+  switch (LookAndFeel::GetInt(LookAndFeel::eIntID_SystemUsesDarkTheme, 2)) {
+    case 0:
+      return StylePrefersColorScheme::Light;
+    case 1:
+      return StylePrefersColorScheme::Dark;
+    case 2:
+      return StylePrefersColorScheme::NoPreference;
+    default:
+      // This only occurs if the user has set the ui.systemUsesDarkTheme pref to
+      // an invalid value.
+      return StylePrefersColorScheme::Light;
   }
 }
 

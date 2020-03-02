@@ -580,6 +580,8 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
 
   bool HasStorageAccessGranted(const nsACString& aPermissionKey);
 
+  nsIPrincipal* GetDocumentContentBlockingAllowListPrincipal() const;
+
  protected:
   void CreatePerformanceObjectIfNeeded();
 
@@ -604,6 +606,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   // Cache the URI when mDoc is cleared.
   nsCOMPtr<nsIURI> mDocumentURI;  // strong
   nsCOMPtr<nsIURI> mDocBaseURI;   // strong
+  nsCOMPtr<nsIPrincipal> mDocContentBlockingAllowListPrincipal;
 
   nsCOMPtr<mozilla::dom::EventTarget> mParentTarget;  // strong
 

@@ -152,6 +152,7 @@ class ServoStyleSet;
 enum class StyleOrigin : uint8_t;
 class SMILAnimationController;
 enum class StyleCursorKind : uint8_t;
+enum class StylePrefersColorScheme : uint8_t;
 template <typename>
 class OwningNonNull;
 struct URLExtraData;
@@ -1114,6 +1115,14 @@ class Document : public nsINode,
    */
   void SetHasUnsafeEvalCSP(bool aHasUnsafeEvalCSP) {
     mHasUnsafeEvalCSP = aHasUnsafeEvalCSP;
+  }
+
+  /**
+   * Returns true if the document holds a CSP
+   * delivered through an HTTP Header.
+   */
+  bool GetHasCSPDeliveredThroughHeader() {
+    return mHasCSPDeliveredThroughHeader;
   }
 
   /**
@@ -3872,6 +3881,9 @@ class Document : public nsINode,
 
   nsIPermissionDelegateHandler* PermDelegateHandler();
 
+  // CSS prefers-color-scheme media feature for this document.
+  StylePrefersColorScheme PrefersColorScheme() const;
+
   // Returns true if we use overlay scrollbars on the system wide or on the
   // given document.
   static bool UseOverlayScrollbars(const Document* aDocument);
@@ -4416,6 +4428,9 @@ class Document : public nsINode,
 
   // True if a document load has a CSP with unsafe-inline attached.
   bool mHasUnsafeInlineCSP : 1;
+
+  // True if the document has a CSP delivered throuh a header
+  bool mHasCSPDeliveredThroughHeader : 1;
 
   // True if DisallowBFCaching has been called on this document.
   bool mBFCacheDisallowed : 1;

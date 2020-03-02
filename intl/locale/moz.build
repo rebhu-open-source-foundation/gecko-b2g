@@ -79,7 +79,7 @@ prefixes = (
 for prefix in prefixes:
     input_file = prefix + '.properties'
     header = prefix + '.properties.h'
-    GeneratedFile(header, script='props2arrays.py', inputs=[input_file], py2=True)
+    GeneratedFile(header, script='props2arrays.py', inputs=[input_file])
 
 if CONFIG['ENABLE_TESTS']:
     DIRS += ['tests/gtest']
@@ -96,13 +96,13 @@ if CONFIG['COMPILE_ENVIRONMENT']:
     ]
 
     ffi_generated = GENERATED_FILES['unic_langid_ffi_generated.h']
-    ffi_generated.script = '/layout/style/RunCbindgen.py:generate'
+    ffi_generated.script = '/build/RunCbindgen.py:generate'
     ffi_generated.inputs = [
         '/intl/locale/rust/unic-langid-ffi',
     ]
 
     ffi_generated = GENERATED_FILES['fluent_langneg_ffi_generated.h']
-    ffi_generated.script = '/layout/style/RunCbindgen.py:generate'
+    ffi_generated.script = '/build/RunCbindgen.py:generate'
     ffi_generated.inputs = [
         '/intl/locale/rust/fluent-langneg-ffi',
     ]

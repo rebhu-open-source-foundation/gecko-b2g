@@ -1,16 +1,11 @@
 How to contribute to Firefox
 ============================
 
-The goal of this doc is to have a place where all simple commands
-are listed from start to end.
+This guide covers the basics of working on Firefox code. You'll learn how to set up your dev environment, build Firefox locally, and submit changes. The simplest commands are listed, with more detailed documentation linked from each section.
 
-This aims to be a simple tutorial for lazy copy and paste.
-
-Each section in this tutorial links to more detailed documentation on the topic.
-
-The whole process is a bit long, it will take time to get things right.
-If at any point you are stuck, please don't feel shy to ask on Riot/Matrix at `https://chat.mozilla.org <https://chat.mozilla.org>`__
-in `#introduction <https://chat.mozilla.org/#/room/#introduction:mozilla.org>`__ channel.
+The whole process is a bit long, and it will take time to get things right.
+If at any point you are stuck, please don't hesitate to ask at `https://chat.mozilla.org <https://chat.mozilla.org>`__
+in the `#introduction <https://chat.mozilla.org/#/room/#introduction:mozilla.org>`__ channel.
 
 Clone the sources
 -----------------
@@ -42,7 +37,8 @@ Firefox provides a mechanism to install all dependencies; in the source tree:
      $ ./mach bootstrap
 
 The default options are recommended.
-Select "`Artifact Mode <https://developer.mozilla.org/docs/Mozilla/Developer_guide/Build_Instructions/Artifact_builds>`__" if you are not planning to write C++ or Rust code.
+If you're not planning to write C++ or Rust code, select "`Artifact Mode <https://developer.mozilla.org/docs/Mozilla/Developer_guide/Build_Instructions/Artifact_builds>`__" 
+and follow the instructions at the end of the bootstrap for creating a mozconfig file.
 
 `More
 information <https://developer.mozilla.org/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites>`__
@@ -87,7 +83,7 @@ information <https://developer.mozilla.org/docs/Mozilla/Developer_guide/Build_In
 To write a patch
 ----------------
 
-Make the changes you need in the code base.
+Make the changes you need in the codebase. You can look up UI text in `Searchfox <https://searchfox.org>`__ to find the right file.
 
 Then:
 

@@ -1112,6 +1112,8 @@ void nsGlobalWindowInner::FreeInnerObjects() {
     mDocumentStoragePrincipal = mDoc->EffectiveStoragePrincipal();
     mDocumentURI = mDoc->GetDocumentURI();
     mDocBaseURI = mDoc->GetDocBaseURI();
+    mDocContentBlockingAllowListPrincipal =
+        mDoc->GetContentBlockingAllowListPrincipal();
     mDocumentCsp = mDoc->GetCsp();
 
     while (mDoc->EventHandlingSuppressed()) {
@@ -7291,6 +7293,12 @@ nsIURI* nsPIDOMWindowInner::GetDocumentURI() const {
 
 nsIURI* nsPIDOMWindowInner::GetDocBaseURI() const {
   return mDoc ? mDoc->GetDocBaseURI() : mDocBaseURI.get();
+}
+
+nsIPrincipal* nsPIDOMWindowInner::GetDocumentContentBlockingAllowListPrincipal()
+    const {
+  return mDoc ? mDoc->GetContentBlockingAllowListPrincipal()
+              : mDocContentBlockingAllowListPrincipal.get();
 }
 
 void nsPIDOMWindowInner::MaybeCreateDoc() {

@@ -3273,6 +3273,8 @@ already_AddRefed<nsPIDOMWindowOuter> nsGlobalWindowOuter::GetInProcessTop() {
 already_AddRefed<nsPIDOMWindowOuter>
 nsGlobalWindowOuter::GetTopExcludingExtensionAccessibleContentFrames(
     nsIURI* aURIBeingLoaded) {
+  // There is a parent-process equivalent of this in DocumentLoadListener.cpp
+  // GetTopWindowExcludingExtensionAccessibleContentFrames
   nsCOMPtr<nsPIDOMWindowOuter> window;
   GetTopImpl(this, aURIBeingLoaded, getter_AddRefs(window),
              /* aScriptable = */ false,

@@ -598,6 +598,8 @@ SearchService.prototype = {
    * The suggested order of engines from the configuration.
    * For modern configuration:
    *   This is an array of objects containing the WebExtension ID and Locale.
+   *   This is only needed whilst we investigate issues with cache corruption
+   *   (bug 1589710).
    * For legacy configuration:
    *   This is an array of strings which are the display name of the engines.
    */
@@ -2123,7 +2125,10 @@ SearchService.prototype = {
 
   _buildSortedEngineList() {
     SearchUtils.log("_buildSortedEngineList: building list");
-    var addedEngines = {};
+    // We must initialise __sortedEngines here to avoid infinite recursion
+    // in the case of tests which don't define a default search engine.
+    // If there's no default defined, then we revert to the first item in the
+    // sorted list, but we can't do that if we don't have a list.
     this.__sortedEngines = [];
 
     // If the user has specified a custom engine order, read the order
@@ -2135,6 +2140,7 @@ SearchService.prototype = {
       )
     ) {
       SearchUtils.log("_buildSortedEngineList: using db for order");
+      let addedEngines = {};
 
       // Flag to keep track of whether or not we need to call _saveSortedEngineList.
       let needToSaveEngineList = false;
@@ -2167,99 +2173,129 @@ SearchService.prototype = {
       if (needToSaveEngineList) {
         this._saveSortedEngineList();
       }
-    } else {
-      // The DB isn't being used, so just read the engine order from the prefs
-      var i = 0;
-      var prefName;
 
-      // The original default engine should always be first in the list
-      const originalDefault = this.originalDefaultEngine;
-      if (originalDefault) {
-        this.__sortedEngines.push(originalDefault);
-        addedEngines[originalDefault.name] = originalDefault;
-      }
+      // Array for the remaining engines, alphabetically sorted.
+      let alphaEngines = [];
 
-      // If there's a private default, and it is different to the normal
-      // default, then it should be second in the list.
-      const originalPrivateDefault = this.originalPrivateDefaultEngine;
-      if (originalPrivateDefault && originalPrivateDefault != originalDefault) {
-        this.__sortedEngines.push(originalPrivateDefault);
-        addedEngines[originalPrivateDefault.name] = originalPrivateDefault;
-      }
-
-      if (SearchUtils.distroID) {
-        try {
-          var extras = Services.prefs.getChildList(
-            SearchUtils.BROWSER_SEARCH_PREF + "order.extra."
-          );
-
-          for (prefName of extras) {
-            let engineName = Services.prefs.getCharPref(prefName);
-
-            let engine = this._engines.get(engineName);
-            if (!engine || engine.name in addedEngines) {
-              continue;
-            }
-
-            this.__sortedEngines.push(engine);
-            addedEngines[engine.name] = engine;
-          }
-        } catch (e) {}
-
-        while (true) {
-          prefName = `${SearchUtils.BROWSER_SEARCH_PREF}order.${++i}`;
-          let engineName = getLocalizedPref(prefName);
-          if (!engineName) {
-            break;
-          }
-
-          let engine = this._engines.get(engineName);
-          if (!engine || engine.name in addedEngines) {
-            continue;
-          }
-
-          this.__sortedEngines.push(engine);
-          addedEngines[engine.name] = engine;
+      for (let engine of this._engines.values()) {
+        if (!(engine.name in addedEngines)) {
+          alphaEngines.push(engine);
         }
       }
 
-      if (gModernConfig) {
-        for (const details of this._searchOrder) {
-          let engine = this._getEngineByWebExtensionDetails(details);
-          if (!engine || engine.name in addedEngines) {
-            continue;
-          }
+      const collator = new Intl.Collator();
+      alphaEngines.sort((a, b) => {
+        return collator.compare(a.name, b.name);
+      });
+      return (this.__sortedEngines = this.__sortedEngines.concat(alphaEngines));
+    }
 
-          this.__sortedEngines.push(engine);
-          addedEngines[engine.name] = engine;
-        }
-      } else {
-        for (let engineName of this._searchOrder) {
-          let engine = this._engines.get(engineName);
-          if (!engine || engine.name in addedEngines) {
-            continue;
-          }
+    return (this.__sortedEngines = this._sortEnginesByDefaults(
+      Array.from(this._engines.values())
+    ));
+  },
 
-          this.__sortedEngines.push(engine);
-          addedEngines[engine.name] = engine;
+  /**
+   * Sorts engines by the default settings (prefs, configuration values).
+   *
+   * @param {Array} engines
+   *   An array of engine objects to sort.
+   * @returns {Array}
+   *   The sorted array of engine objects.
+   */
+  _sortEnginesByDefaults(engines) {
+    const sortedEngines = [];
+    const addedEngines = new Set();
+
+    function maybeAddEngineToSort(engine) {
+      if (!engine || addedEngines.has(engine.name)) {
+        return;
+      }
+
+      sortedEngines.push(engine);
+      addedEngines.add(engine.name);
+    }
+
+    if (SearchUtils.distroID) {
+      try {
+        var extras = Services.prefs.getChildList(
+          SearchUtils.BROWSER_SEARCH_PREF + "order.extra."
+        );
+
+        // getChildList doesn't guarantee the order of the prefs, but we
+        // expect them alphabetical, so sort them here.
+        extras.sort();
+
+        for (const prefName of extras) {
+          const engineName = Services.prefs.getCharPref(prefName);
+          maybeAddEngineToSort(engines.find(e => e.name == engineName));
         }
+      } catch (e) {}
+
+      let i = 0;
+      while (++i) {
+        const prefName = `${SearchUtils.BROWSER_SEARCH_PREF}order.${i}`;
+        const engineName = getLocalizedPref(prefName);
+        if (!engineName) {
+          break;
+        }
+
+        maybeAddEngineToSort(engines.find(e => e.name == engineName));
       }
     }
 
-    // Array for the remaining engines, alphabetically sorted.
-    let alphaEngines = [];
+    // The original default engine should always be first in the list (except
+    // for distros, that we should respect).
+    const originalDefault = this.originalDefaultEngine;
+    maybeAddEngineToSort(originalDefault);
 
-    for (let engine of this._engines.values()) {
-      if (!(engine.name in addedEngines)) {
-        alphaEngines.push(engine);
-      }
+    // If there's a private default, and it is different to the normal
+    // default, then it should be second in the list.
+    const originalPrivateDefault = this.originalPrivateDefaultEngine;
+    if (originalPrivateDefault && originalPrivateDefault != originalDefault) {
+      maybeAddEngineToSort(originalPrivateDefault);
     }
 
+    let remainingEngines;
     const collator = new Intl.Collator();
-    alphaEngines.sort((a, b) => {
-      return collator.compare(a.name, b.name);
-    });
-    return (this.__sortedEngines = this.__sortedEngines.concat(alphaEngines));
+
+    if (gModernConfig) {
+      remainingEngines = engines.filter(e => !addedEngines.has(e.name));
+
+      // We sort by highest orderHint first, then alphabetically by name.
+      remainingEngines.sort((a, b) => {
+        if (a._orderHint && b._orderHint) {
+          if (a._orderHint == b._orderHint) {
+            return collator.compare(a.name, b.name);
+          }
+          return b._orderHint - a._orderHint;
+        }
+        if (a._orderHint) {
+          return -1;
+        }
+        if (b._orderHint) {
+          return 1;
+        }
+        return collator.compare(a.name, b.name);
+      });
+    } else {
+      for (let engineName of this._searchOrder) {
+        maybeAddEngineToSort(engines.find(e => e.name == engineName));
+      }
+
+      remainingEngines = [];
+
+      for (let engine of engines.values()) {
+        if (!addedEngines.has(engine.name)) {
+          remainingEngines.push(engine);
+        }
+      }
+
+      remainingEngines.sort((a, b) => {
+        return collator.compare(a.name, b.name);
+      });
+    }
+    return [...sortedEngines, ...remainingEngines];
   },
 
   /**
@@ -2339,85 +2375,10 @@ SearchService.prototype = {
 
   async getDefaultEngines() {
     await this.init();
-    function isDefault(engine) {
-      return engine._isDefault;
-    }
-    var engines = this._sortedEngines.filter(isDefault);
-    var engineOrder = {};
-    var i = 1;
 
-    // Build a list of engines which we have ordering information for.
-    // We're rebuilding the list here because _sortedEngines contain the
-    // current order, but we want the original order.
-
-    if (SearchUtils.distroID) {
-      // First, look at the "browser.search.order.extra" branch.
-      try {
-        var extras = Services.prefs.getChildList(
-          SearchUtils.BROWSER_SEARCH_PREF + "order.extra."
-        );
-
-        for (let prefName of extras) {
-          let engineName = Services.prefs.getCharPref(prefName);
-
-          if (!(engineName in engineOrder)) {
-            engineOrder[engineName] = i++;
-          }
-        }
-      } catch (e) {
-        SearchUtils.log("Getting extra order prefs failed: " + e);
-      }
-
-      // Now look through the "browser.search.order" branch.
-      for (var j = 1; ; j++) {
-        let prefName = `${SearchUtils.BROWSER_SEARCH_PREF}order.${j}`;
-        let engineName = getLocalizedPref(prefName);
-        if (!engineName) {
-          break;
-        }
-
-        if (!(engineName in engineOrder)) {
-          engineOrder[engineName] = i++;
-        }
-      }
-    }
-
-    // Now look at list.json
-    if (gModernConfig) {
-      for (const details of this._searchOrder) {
-        const engine = this._getEngineByWebExtensionDetails(details);
-        if (engine) {
-          engineOrder[engine.name] = i++;
-        }
-      }
-    } else {
-      for (let engineName of this._searchOrder) {
-        engineOrder[engineName] = i++;
-      }
-    }
-
-    SearchUtils.log(
-      "getDefaultEngines: engineOrder: " + engineOrder.toSource()
+    return this._sortEnginesByDefaults(
+      this._sortedEngines.filter(e => e._isDefault)
     );
-
-    function compareEngines(a, b) {
-      var aIdx = engineOrder[a.name];
-      var bIdx = engineOrder[b.name];
-
-      if (aIdx && bIdx) {
-        return aIdx - bIdx;
-      }
-      if (aIdx) {
-        return -1;
-      }
-      if (bIdx) {
-        return 1;
-      }
-
-      return a.name.localeCompare(b.name);
-    }
-    engines.sort(compareEngines);
-    return engines;
   },
 
   async getEnginesByExtensionID(extensionID) {
@@ -2590,6 +2551,7 @@ SearchService.prototype = {
     let params = {
       extraParams: config.extraParams,
       telemetryId: config.telemetryId,
+      orderHint: config.orderHint,
     };
 
     // Modern Config encodes params as objects whereas they are
@@ -2607,10 +2569,6 @@ SearchService.prototype = {
           ).toString();
         }
       }
-    }
-
-    if ("telemetryId" in config) {
-      params.telemetryId = config.telemetryId;
     }
 
     let locale =
@@ -2760,6 +2718,7 @@ SearchService.prototype = {
       extensionID: extension.id,
       locale,
       isBuiltin: extension.addonData.builtIn,
+      orderHint: engineParams.orderHint,
       // suggest_url doesn't currently get encoded.
       suggestURL: searchProvider.suggest_url,
       suggestGetParams: suggestUrlGetParams,

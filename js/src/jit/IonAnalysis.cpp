@@ -4456,7 +4456,7 @@ static bool ArgumentsUseCanBeLazy(JSContext* cx, JSScript* script,
     }
   }
 
-  // arguments[i] can read fp->canonicalActualArg(i) directly.
+  // arguments[i] can read fp->unaliasedActual(i) directly.
   if (ins->isCallGetElement() && index == 0) {
     *argumentsContentsObserved = true;
     return true;
@@ -4486,6 +4486,7 @@ bool jit::AnalyzeArgumentsUsage(JSContext* cx, JSScript* scriptArg) {
   AutoEnterAnalysis enter(cx);
 
   MOZ_ASSERT(!script->analyzedArgsUsage());
+  MOZ_ASSERT(script->argumentsHasVarBinding());
 
   // Treat the script as needing an arguments object until we determine it
   // does not need one. This both allows us to easily see where the arguments
@@ -4635,6 +4636,16 @@ bool jit::AnalyzeArgumentsUsage(JSContext* cx, JSScript* scriptArg) {
         return true;
       }
     }
+  }
+
+  // If we assign to a positional formal parameter and the arguments object is
+  // unmapped (strict mode or function with default/rest/destructing args),
+  // parameters do not alias arguments[i], and to make the arguments object
+  // reflect initial parameter values prior to any mutation we create it eagerly
+  // whenever parameters are (or might, in the case of calls to eval) assigned.
+  if (!script->hasMappedArgsObj() && script->jitScript()->modifiesArguments() &&
+      argumentsContentsObserved) {
+    return true;
   }
 
   script->setNeedsArgsObj(false);

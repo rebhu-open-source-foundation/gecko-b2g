@@ -76,6 +76,9 @@
 #  include "frontend/BinASTParser.h"
 #endif  // defined(JS_BUILD_BINAST)
 #include "frontend/CompilationInfo.h"
+#ifdef JS_ENABLE_SMOOSH
+#  include "frontend/Frontend2.h"
+#endif
 #include "frontend/ModuleSharedContext.h"
 #include "frontend/Parser.h"
 #include "gc/PublicIterators.h"
@@ -3753,6 +3756,89 @@ static bool ThrowError(JSContext* cx, unsigned argc, Value* vp) {
   return false;
 }
 
+static bool CopyErrorReportToObject(JSContext* cx, JSErrorReport* report,
+                                    HandleObject obj) {
+  RootedString nameStr(cx);
+  if (report->exnType == JSEXN_WARN) {
+    nameStr = JS_NewStringCopyZ(cx, "Warning");
+    if (!nameStr) {
+      return false;
+    }
+  } else {
+    nameStr = GetErrorTypeName(cx, report->exnType);
+    // GetErrorTypeName doesn't set an exception, but
+    // can fail for InternalError or non-error objects.
+    if (!nameStr) {
+      nameStr = cx->runtime()->emptyString;
+    }
+  }
+  RootedValue nameVal(cx, StringValue(nameStr));
+  if (!DefineDataProperty(cx, obj, cx->names().name, nameVal)) {
+    return false;
+  }
+
+  RootedString messageStr(cx, report->newMessageString(cx));
+  if (!messageStr) {
+    return false;
+  }
+  RootedValue messageVal(cx, StringValue(messageStr));
+  if (!DefineDataProperty(cx, obj, cx->names().message, messageVal)) {
+    return false;
+  }
+
+  RootedValue linenoVal(cx, Int32Value(report->lineno));
+  if (!DefineDataProperty(cx, obj, cx->names().lineNumber, linenoVal)) {
+    return false;
+  }
+
+  RootedValue columnVal(cx, Int32Value(report->column));
+  if (!DefineDataProperty(cx, obj, cx->names().columnNumber, columnVal)) {
+    return false;
+  }
+
+  RootedObject notesArray(cx, CreateErrorNotesArray(cx, report));
+  if (!notesArray) {
+    return false;
+  }
+
+  RootedValue notesArrayVal(cx, ObjectValue(*notesArray));
+  return DefineDataProperty(cx, obj, cx->names().notes, notesArrayVal);
+}
+
+static bool CreateErrorReport(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  js::ErrorReport report(cx);
+  if (!report.init(cx, args.get(0), js::ErrorReport::WithSideEffects)) {
+    return false;
+  }
+
+  MOZ_ASSERT(!JSREPORT_IS_WARNING(report.report()->flags));
+
+  RootedObject obj(cx, JS_NewPlainObject(cx));
+  if (!obj) {
+    return false;
+  }
+
+  RootedString toString(cx,
+                        NewStringCopyUTF8Z<CanGC>(cx, report.toStringResult()));
+  if (!toString) {
+    return false;
+  }
+
+  if (!JS_DefineProperty(cx, obj, "toStringResult", toString,
+                         JSPROP_ENUMERATE)) {
+    return false;
+  }
+
+  if (!CopyErrorReportToObject(cx, report.report(), obj)) {
+    return false;
+  }
+
+  args.rval().setObject(*obj);
+  return true;
+}
+
 #define LAZY_STANDARD_CLASSES
 
 /* A class for easily testing the inner/outer object callbacks. */
@@ -5226,24 +5312,21 @@ static bool GetModuleLoadPath(JSContext* cx, unsigned argc, Value* vp) {
 
 #if defined(JS_BUILD_BINAST)
 
-using js::frontend::BinASTParser;
-using js::frontend::CompilationInfo;
-using js::frontend::Directives;
-using js::frontend::GlobalSharedContext;
-using js::frontend::ParseNode;
-
 template <typename Tok>
 static bool ParseBinASTData(JSContext* cx, uint8_t* buf_data,
-                            uint32_t buf_length, GlobalSharedContext* globalsc,
-                            CompilationInfo& compilationInfo,
+                            uint32_t buf_length,
+                            js::frontend::GlobalSharedContext* globalsc,
+                            js::frontend::CompilationInfo& compilationInfo,
                             const JS::ReadOnlyCompileOptions& options,
                             HandleScriptSourceObject sourceObj) {
   MOZ_ASSERT(globalsc);
 
   // Note: We need to keep `reader` alive as long as we can use `parsed`.
-  BinASTParser<Tok> reader(cx, compilationInfo, options, sourceObj);
+  js::frontend::BinASTParser<Tok> reader(cx, compilationInfo, options,
+                                         sourceObj);
 
-  JS::Result<ParseNode*> parsed = reader.parse(globalsc, buf_data, buf_length);
+  JS::Result<js::frontend::ParseNode*> parsed =
+      reader.parse(globalsc, buf_data, buf_length);
 
   if (parsed.isErr()) {
     return false;
@@ -5345,14 +5428,14 @@ static bool BinParse(JSContext* cx, unsigned argc, Value* vp) {
       .setFileAndLine("<ArrayBuffer>", 1);
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
-  CompilationInfo compilationInfo(cx, allocScope, options);
+  js::frontend::CompilationInfo compilationInfo(cx, allocScope, options);
   if (!compilationInfo.init(cx)) {
     return false;
   }
 
-  Directives directives(false);
-  GlobalSharedContext globalsc(cx, ScopeKind::Global, compilationInfo,
-                               directives, false);
+  js::frontend::Directives directives(false);
+  js::frontend::GlobalSharedContext globalsc(
+      cx, ScopeKind::Global, compilationInfo, directives, false);
 
   auto parseFunc = mode == Multipart
                        ? ParseBinASTData<frontend::BinASTTokenReaderMultipart>
@@ -5367,6 +5450,50 @@ static bool BinParse(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 #endif  // defined(JS_BUILD_BINAST)
+
+template <typename Unit>
+static bool FullParseTest(JSContext* cx,
+                          const JS::ReadOnlyCompileOptions& options,
+                          const Unit* units, size_t length,
+                          js::frontend::CompilationInfo& compilationInfo,
+                          ScriptSourceObject* sourceObject,
+                          js::frontend::ParseGoal goal) {
+  using namespace js::frontend;
+  Parser<FullParseHandler, Unit> parser(cx, options, units, length,
+                                        /* foldConstants = */ false,
+                                        compilationInfo, nullptr, nullptr,
+                                        sourceObject);
+  if (!parser.checkOptions()) {
+    return false;
+  }
+
+  js::frontend::ParseNode* pn;  // Deallocated once `parser` goes out of scope.
+  if (goal == frontend::ParseGoal::Script) {
+    pn = parser.parse();
+  } else {
+    if (!GlobalObject::ensureModulePrototypesCreated(cx, cx->global())) {
+      return false;
+    }
+
+    Rooted<ModuleObject*> module(cx, ModuleObject::create(cx));
+    if (!module) {
+      return false;
+    }
+
+    ModuleBuilder builder(cx, &parser);
+
+    ModuleSharedContext modulesc(cx, module, compilationInfo, nullptr, builder);
+    pn = parser.moduleBody(&modulesc);
+  }
+  if (!pn) {
+    return false;
+  }
+#ifdef DEBUG
+  js::Fprinter out(stderr);
+  DumpParseTree(pn, out);
+#endif
+  return true;
+}
 
 static bool Parse(JSContext* cx, unsigned argc, Value* vp) {
   using namespace js::frontend;
@@ -5383,6 +5510,9 @@ static bool Parse(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   frontend::ParseGoal goal = frontend::ParseGoal::Script;
+#ifdef JS_ENABLE_SMOOSH
+  bool smoosh = false;
+#endif
 
   if (args.length() >= 2) {
     if (!args[1].isObject()) {
@@ -5408,17 +5538,60 @@ static bool Parse(JSContext* cx, unsigned argc, Value* vp) {
                           typeName);
       return false;
     }
+
+#ifdef JS_ENABLE_SMOOSH
+    bool found = false;
+    if (!JS_HasProperty(cx, objOptions, "rustFrontend", &found)) {
+      return false;
+    }
+    if (found) {
+      JS_ReportErrorASCII(cx, "'rustFrontend' option is renamed to 'smoosh'");
+    }
+
+    RootedValue optionSmoosh(cx);
+    if (!JS_GetProperty(cx, objOptions, "smoosh", &optionSmoosh)) {
+      return false;
+    }
+
+    if (optionSmoosh.isBoolean()) {
+      smoosh = optionSmoosh.toBoolean();
+    } else if (!optionSmoosh.isUndefined()) {
+      const char* typeName = InformalValueTypeName(optionSmoosh);
+      JS_ReportErrorASCII(cx, "option `smoosh` should be a boolean, got %s",
+                          typeName);
+      return false;
+    }
+#endif  // JS_ENABLE_SMOOSH
   }
 
   JSString* scriptContents = args[0].toString();
 
   AutoStableStringChars stableChars(cx);
-  if (!stableChars.initTwoByte(cx, scriptContents)) {
+  if (!stableChars.init(cx, scriptContents)) {
     return false;
   }
 
   size_t length = scriptContents->length();
-  const char16_t* chars = stableChars.twoByteRange().begin().get();
+#ifdef JS_ENABLE_SMOOSH
+  if (smoosh) {
+    if (stableChars.isLatin1()) {
+      const Latin1Char* chars = stableChars.latin1Range().begin().get();
+      if (goal == frontend::ParseGoal::Script) {
+        if (!SmooshParseScript(cx, chars, length)) {
+          return false;
+        }
+      } else {
+        if (!SmooshParseModule(cx, chars, length)) {
+          return false;
+        }
+      }
+      args.rval().setUndefined();
+      return true;
+    }
+    JS_ReportErrorASCII(cx, "SmooshMonkey does not support two-byte chars yet");
+    return false;
+  }
+#endif  // JS_ENABLE_SMOOSH
 
   CompileOptions options(cx);
   options.setIntroductionType("js shell parse").setFileAndLine("<string>", 1);
@@ -5429,44 +5602,32 @@ static bool Parse(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
-  CompilationInfo compilationInfo(cx, allocScope, options);
+  js::frontend::CompilationInfo compilationInfo(cx, allocScope, options);
   if (!compilationInfo.init(cx)) {
     return false;
   }
 
-  Parser<FullParseHandler, char16_t> parser(cx, options, chars, length,
-                                            /* foldConstants = */ false,
-                                            compilationInfo, nullptr, nullptr,
-                                            compilationInfo.sourceObject);
-  if (!parser.checkOptions()) {
+  RootedScriptSourceObject sourceObject(
+      cx, frontend::CreateScriptSourceObject(cx, options));
+  if (!sourceObject) {
     return false;
   }
 
-  ParseNode* pn;  // Deallocated once `parser` goes out of scope.
-  if (goal == frontend::ParseGoal::Script) {
-    pn = parser.parse();
+  if (stableChars.isLatin1()) {
+    const Latin1Char* chars_ = stableChars.latin1Range().begin().get();
+    auto chars = reinterpret_cast<const mozilla::Utf8Unit*>(chars_);
+    if (!FullParseTest<mozilla::Utf8Unit>(
+            cx, options, chars, length, compilationInfo, sourceObject, goal)) {
+      return false;
+    }
   } else {
-    if (!GlobalObject::ensureModulePrototypesCreated(cx, cx->global())) {
+    MOZ_ASSERT(stableChars.isTwoByte());
+    const char16_t* chars = stableChars.twoByteRange().begin().get();
+    if (!FullParseTest<char16_t>(cx, options, chars, length, compilationInfo,
+                                 sourceObject, goal)) {
       return false;
     }
-
-    Rooted<ModuleObject*> module(cx, ModuleObject::create(cx));
-    if (!module) {
-      return false;
-    }
-
-    ModuleBuilder builder(cx, &parser);
-
-    ModuleSharedContext modulesc(cx, module, compilationInfo, nullptr, builder);
-    pn = parser.moduleBody(&modulesc);
   }
-  if (!pn) {
-    return false;
-  }
-#ifdef DEBUG
-  js::Fprinter out(stderr);
-  DumpParseTree(pn, out);
-#endif
   args.rval().setUndefined();
   return true;
 }
@@ -5500,7 +5661,7 @@ static bool SyntaxParse(JSContext* cx, unsigned argc, Value* vp) {
   size_t length = scriptContents->length();
 
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
-  CompilationInfo compilationInfo(cx, allocScope, options);
+  js::frontend::CompilationInfo compilationInfo(cx, allocScope, options);
   if (!compilationInfo.init(cx)) {
     return false;
   }
@@ -8506,6 +8667,11 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "throwError()",
 "  Throw an error from JS_ReportError."),
 
+    JS_FN_HELP("createErrorReport", CreateErrorReport, 1, 0,
+"createErrorReport(value)",
+"  Create an js::ErrorReport object from the given value and serialize\n"
+"  to an object."),
+
 #if defined(DEBUG) || defined(JS_JITSPEW)
     JS_FN_HELP("disassemble", DisassembleToString, 1, 0,
 "disassemble([fun/code])",
@@ -9357,47 +9523,7 @@ static bool CreateLastWarningObject(JSContext* cx, JSErrorReport* report) {
     return false;
   }
 
-  RootedString nameStr(cx);
-  if (report->exnType == JSEXN_WARN) {
-    nameStr = JS_NewStringCopyZ(cx, "Warning");
-  } else {
-    nameStr = GetErrorTypeName(cx, report->exnType);
-  }
-  if (!nameStr) {
-    return false;
-  }
-  RootedValue nameVal(cx, StringValue(nameStr));
-  if (!DefineDataProperty(cx, warningObj, cx->names().name, nameVal)) {
-    return false;
-  }
-
-  RootedString messageStr(cx, report->newMessageString(cx));
-  if (!messageStr) {
-    return false;
-  }
-  RootedValue messageVal(cx, StringValue(messageStr));
-  if (!DefineDataProperty(cx, warningObj, cx->names().message, messageVal)) {
-    return false;
-  }
-
-  RootedValue linenoVal(cx, Int32Value(report->lineno));
-  if (!DefineDataProperty(cx, warningObj, cx->names().lineNumber, linenoVal)) {
-    return false;
-  }
-
-  RootedValue columnVal(cx, Int32Value(report->column));
-  if (!DefineDataProperty(cx, warningObj, cx->names().columnNumber,
-                          columnVal)) {
-    return false;
-  }
-
-  RootedObject notesArray(cx, CreateErrorNotesArray(cx, report));
-  if (!notesArray) {
-    return false;
-  }
-
-  RootedValue notesArrayVal(cx, ObjectValue(*notesArray));
-  if (!DefineDataProperty(cx, warningObj, cx->names().notes, notesArrayVal)) {
+  if (!CopyErrorReportToObject(cx, report, warningObj)) {
     return false;
   }
 
@@ -10039,6 +10165,12 @@ static MOZ_MUST_USE bool ProcessArgs(JSContext* cx, OptionParser* op) {
   if (op->getBoolOption('s')) {
     JS::ContextOptionsRef(cx).toggleExtraWarnings();
   }
+
+#ifdef JS_ENABLE_SMOOSH
+  if (op->getBoolOption("smoosh")) {
+    JS::ContextOptionsRef(cx).setTrySmoosh(true);
+  }
+#endif
 
   /* |scriptArgs| gets bound on the global before any code is run. */
   if (!BindScriptArgs(cx, op)) {
@@ -11245,6 +11377,11 @@ int main(int argc, char** argv, char** envp) {
                                "Dynamically load LIBRARY") ||
       !op.addBoolOption('\0', "suppress-minidump",
                         "Suppress crash minidumps") ||
+#ifdef JS_ENABLE_SMOOSH
+      !op.addBoolOption('\0', "smoosh", "Use SmooshMonkey") ||
+#else
+      !op.addBoolOption('\0', "smoosh", "No-op") ||
+#endif
       !op.addBoolOption('\0', "wasm-compile-and-serialize",
                         "Compile the wasm bytecode from stdin and serialize "
                         "the results to stdout")) {
