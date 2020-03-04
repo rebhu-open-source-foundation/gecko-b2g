@@ -13,9 +13,6 @@
 #define mozilla_dom_KaiOS_h
 
 #include "mozilla/dom/BindingDeclarations.h"
-#ifdef MOZ_B2G_BT
-#  include "mozilla/dom/bluetooth/BluetoothManager.h"
-#endif
 #ifdef MOZ_B2G_RIL
 #  include "mozilla/dom/IccManager.h"
 #  include "mozilla/dom/Voicemail.h"
@@ -55,10 +52,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   virtual JSObject* WrapObject(JSContext* cx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-#ifdef MOZ_B2G_BT
-  bluetooth::BluetoothManager* GetMozBluetooth(ErrorResult& aRv);
-#endif  // MOZ_B2G_BT
-
 #ifdef MOZ_B2G_RIL
   IccManager* GetMozIccManager(ErrorResult& aRv);
   Voicemail* GetMozVoicemail(ErrorResult& aRv);
@@ -76,10 +69,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   virtual ~KaiOS();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-
-#ifdef MOZ_B2G_BT
-  RefPtr<bluetooth::BluetoothManager> mBluetooth;
-#endif
 
 #ifdef MOZ_B2G_RIL
   RefPtr<IccManager> mIccManager;

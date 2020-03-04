@@ -14,14 +14,6 @@ interface KaiOS {
   // below
 };
 
-#ifdef MOZ_B2G_BT
-[Exposed=Window]
-partial interface KaiOS {
-  [Throws]
-  readonly attribute BluetoothManager mozBluetooth;
-};
-#endif // MOZ_B2G_BT
-
 #ifdef MOZ_B2G_RIL
 [Exposed=Window]
 partial interface KaiOS {

@@ -35,9 +35,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(KaiOS)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
-#ifdef MOZ_B2G_BT
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
-#endif
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mVoicemail)
@@ -53,12 +50,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(KaiOS)
 
 void KaiOS::Invalidate() {
-
-#ifdef MOZ_B2G_BT
-  if (mBluetooth) {
-    mBluetooth = nullptr;
-  }
-#endif
 
 #ifdef MOZ_B2G_RIL
   if (mIccManager) {
@@ -97,21 +88,6 @@ size_t KaiOS::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
 JSObject* KaiOS::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
   return KaiOS_Binding::Wrap(cx, this, aGivenProto);
 }
-
-#ifdef MOZ_B2G_BT
-bluetooth::BluetoothManager* KaiOS::GetMozBluetooth(ErrorResult& aRv) {
-  if (!mBluetooth) {
-    nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
-    if (!global) {
-      aRv.Throw(NS_ERROR_UNEXPECTED);
-      return nullptr;
-    }
-    mBluetooth = bluetooth::BluetoothManager::Create(mWindow);
-  }
-
-  return mBluetooth;
-}
-#endif  // MOZ_B2G_BT
 
 #ifdef MOZ_B2G_RIL
 IccManager* KaiOS::GetMozIccManager(ErrorResult& aRv) {
