@@ -1632,43 +1632,43 @@ BluetoothServiceBluedroid::ConfirmReceivingFile(
 //   DispatchReplySuccess(aRunnable, BluetoothValue(hfp->IsScoConnected()));
 // }
 
-// void
-// BluetoothServiceBluedroid::SetObexPassword(const nsAString& aPassword,
-//                                            BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
+void
+BluetoothServiceBluedroid::SetObexPassword(const nsAString& aPassword,
+                                           BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
 
-//   ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
+  ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
 
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Failed to set OBEX password"));
-//     return;
-//   }
+  // BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+  // if (!pbap) {
+  //   DispatchReplyError(aRunnable,
+  //                      NS_LITERAL_STRING("Failed to set OBEX password"));
+  //   return;
+  // }
 
-//   pbap->ReplyToAuthChallenge(aPassword);
-//   DispatchReplySuccess(aRunnable);
-// }
+  // pbap->ReplyToAuthChallenge(aPassword);
+  // DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::RejectObexAuth(
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
+void
+BluetoothServiceBluedroid::RejectObexAuth(
+  BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
 
-//   ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
+  ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
 
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//       NS_LITERAL_STRING("Failed to reject OBEX authentication request"));
-//     return;
-//   }
+  // BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+  // if (!pbap) {
+  //   DispatchReplyError(aRunnable,
+  //     NS_LITERAL_STRING("Failed to reject OBEX authentication request"));
+  //   return;
+  // }
 
-//   pbap->ReplyToAuthChallenge(EmptyString());
-//   DispatchReplySuccess(aRunnable);
-// }
+  // pbap->ReplyToAuthChallenge(EmptyString());
+  // DispatchReplySuccess(aRunnable);
+}
 
 // void
 // BluetoothServiceBluedroid::ReplyTovCardPulling(

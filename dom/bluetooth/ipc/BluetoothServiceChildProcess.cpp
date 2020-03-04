@@ -349,19 +349,19 @@ BluetoothServiceChildProcess::ConfirmReceivingFile(
 //   SendRequest(aRunnable, IsScoConnectedRequest());
 // }
 
-// void
-// BluetoothServiceChildProcess::SetObexPassword(
-//   const nsAString& aPassword,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, SetObexPasswordRequest(nsString(aPassword)));
-// }
+void
+BluetoothServiceChildProcess::SetObexPassword(
+  const nsAString& aPassword,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, SetObexPasswordRequest(nsString(aPassword)));
+}
 
-// void
-// BluetoothServiceChildProcess::RejectObexAuth(BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, RejectObexAuthRequest());
-// }
+void
+BluetoothServiceChildProcess::RejectObexAuth(BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, RejectObexAuthRequest());
+}
 
 // void
 // BluetoothServiceChildProcess::ReplyTovCardPulling(

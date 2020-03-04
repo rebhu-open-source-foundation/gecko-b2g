@@ -463,27 +463,27 @@ BluetoothRequestParent::DoRequest(const DenyReceivingFileRequest& aRequest)
 //   return true;
 // }
 
-// bool
-// BluetoothRequestParent::DoRequest(const SetObexPasswordRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TSetObexPasswordRequest);
+bool
+BluetoothRequestParent::DoRequest(const SetObexPasswordRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TSetObexPasswordRequest);
 
-//   mService->SetObexPassword(aRequest.password(), mReplyRunnable.get());
+  mService->SetObexPassword(aRequest.password(), mReplyRunnable.get());
 
-//   return true;
-// }
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const RejectObexAuthRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TRejectObexAuthRequest);
+bool
+BluetoothRequestParent::DoRequest(const RejectObexAuthRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TRejectObexAuthRequest);
 
-//   mService->RejectObexAuth(mReplyRunnable.get());
+  mService->RejectObexAuth(mReplyRunnable.get());
 
-//   return true;
-// }
+  return true;
+}
 
 // bool
 // BluetoothRequestParent::DoRequest(const ReplyTovCardPullingRequest& aRequest)

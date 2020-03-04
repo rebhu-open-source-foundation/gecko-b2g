@@ -141,11 +141,11 @@ protected:
   // bool
   // DoRequest(const IsScoConnectedRequest& aRequest);
 
-  // bool
-  // DoRequest(const SetObexPasswordRequest& aRequest);
+  bool
+  DoRequest(const SetObexPasswordRequest& aRequest);
 
-  // bool
-  // DoRequest(const RejectObexAuthRequest& aRequest);
+  bool
+  DoRequest(const RejectObexAuthRequest& aRequest);
 
   // bool
   // DoRequest(const ReplyTovCardPullingRequest& aRequest);

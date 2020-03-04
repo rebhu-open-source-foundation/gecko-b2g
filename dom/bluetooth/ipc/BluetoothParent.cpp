@@ -204,10 +204,12 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     //   return actor->DoRequest(aRequest.get_DisconnectScoRequest());
     // case Request::TIsScoConnectedRequest:
     //   return actor->DoRequest(aRequest.get_IsScoConnectedRequest());
-    // case Request::TSetObexPasswordRequest:
-    //   return actor->DoRequest(aRequest.get_SetObexPasswordRequest());
-    // case Request::TRejectObexAuthRequest:
-    //   return actor->DoRequest(aRequest.get_RejectObexAuthRequest());
+    case Request::TSetObexPasswordRequest:
+      return actor->DoRequest(aRequest.get_SetObexPasswordRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TRejectObexAuthRequest:
+      return actor->DoRequest(aRequest.get_RejectObexAuthRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     // case Request::TReplyTovCardPullingRequest:
     //   return actor->DoRequest(aRequest.get_ReplyTovCardPullingRequest());
     // case Request::TReplyToPhonebookPullingRequest:

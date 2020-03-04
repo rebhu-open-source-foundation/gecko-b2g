@@ -100,7 +100,7 @@ public:
   // IMPL_EVENT_HANDLER(scostatuschanged);
   IMPL_EVENT_HANDLER(requestmediaplaystatus);
   // PBAP
-  // IMPL_EVENT_HANDLER(obexpasswordreq);
+  IMPL_EVENT_HANDLER(obexpasswordreq);
   // IMPL_EVENT_HANDLER(pullphonebookreq);
   // IMPL_EVENT_HANDLER(pullvcardentryreq);
   // IMPL_EVENT_HANDLER(pullvcardlistingreq);
@@ -404,7 +404,7 @@ private:
    *                    The array may contain the property:
    *                    - nsString   'userId'
    */
-  // void HandleObexPasswordReq(const BluetoothValue& aValue);
+  void HandleObexPasswordReq(const BluetoothValue& aValue);
 
   /**
    * Get a Sequence of vCard properies from a BluetoothValue. The name of

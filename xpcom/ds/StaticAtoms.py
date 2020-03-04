@@ -2418,7 +2418,7 @@ STATIC_ATOMS = [
     # Atom("onmapmessageupdatereq", "onmapmessageupdatereq"),
     # Atom("onmapsendmessagereq", "onmapsendmessagereq"),
     # Atom("onmapsetmessagestatusreq", "onmapsetmessagestatusreq"),
-    # Atom("onobexpasswordreq", "onobexpasswordreq"),
+    Atom("onobexpasswordreq", "onobexpasswordreq"),
     Atom("onpairingaborted", "onpairingaborted"),
     Atom("onpairingconfirmationreq", "onpairingconfirmationreq"),
     Atom("onpairingconsentreq", "onpairingconsentreq"),

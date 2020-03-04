@@ -17,7 +17,7 @@
 // #include "mozilla/dom/BluetoothMapMessageUpdateEvent.h"
 // #include "mozilla/dom/BluetoothMapSetMessageStatusEvent.h"
 // #include "mozilla/dom/BluetoothMapSendMessageEvent.h"
-// #include "mozilla/dom/BluetoothObexAuthEvent.h"
+#include "mozilla/dom/BluetoothObexAuthEvent.h"
 // #include "mozilla/dom/BluetoothPbapConnectionReqEvent.h"
 // #include "mozilla/dom/BluetoothPhonebookPullingEvent.h"
 #include "mozilla/dom/BluetoothStatusChangedEvent.h"
@@ -33,7 +33,7 @@
 #include "mozilla/dom/bluetooth/BluetoothDevice.h"
 #include "mozilla/dom/bluetooth/BluetoothDiscoveryHandle.h"
 // #include "mozilla/dom/bluetooth/BluetoothGattServer.h"
-// #include "mozilla/dom/bluetooth/BluetoothObexAuthHandle.h"
+#include "mozilla/dom/bluetooth/BluetoothObexAuthHandle.h"
 #include "mozilla/dom/bluetooth/BluetoothPairingListener.h"
 // #include "mozilla/dom/bluetooth/BluetoothPbapRequestHandle.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
@@ -577,7 +577,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
   } else if (aData.name().EqualsLiteral(PAIRING_ABORTED_ID)) {
     // HandlePairingAborted(aData.value());
   } else if (aData.name().EqualsLiteral(OBEX_PASSWORD_REQ_ID)) {
-    // HandleObexPasswordReq(aData.value());
+    HandleObexPasswordReq(aData.value());
   } else if (aData.name().EqualsLiteral(PBAP_CONNECTION_REQ_ID)) {
     // HandlePbapConnectionReq(aData.value());
   } else if (aData.name().EqualsLiteral(PULL_PHONEBOOK_REQ_ID)) {
@@ -1308,22 +1308,22 @@ BluetoothAdapter::HandlePairingAborted(const BluetoothValue& aValue)
   DispatchDeviceEvent(NS_LITERAL_STRING(PAIRING_ABORTED_ID), init);
 }
 
-// void
-// BluetoothAdapter::HandleObexPasswordReq(const BluetoothValue& aValue)
-// {
-//   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
-//   MOZ_ASSERT(aValue.get_ArrayOfBluetoothNamedValue().Length() <= 1);
-//
-//   BluetoothObexAuthEventInit init;
-//   init.mHandle = BluetoothObexAuthHandle::Create(GetOwner());
-//
-//   // TODO: Retrieve optional userId from aValue and assign into event
-//
-//   RefPtr<BluetoothObexAuthEvent> event =
-//     BluetoothObexAuthEvent::Constructor(this,
-//       NS_LITERAL_STRING(OBEX_PASSWORD_REQ_ID), init);
-//   DispatchTrustedEvent(event);
-// }
+void
+BluetoothAdapter::HandleObexPasswordReq(const BluetoothValue& aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
+  MOZ_ASSERT(aValue.get_ArrayOfBluetoothNamedValue().Length() <= 1);
+
+  BluetoothObexAuthEventInit init;
+  init.mHandle = BluetoothObexAuthHandle::Create(GetOwner());
+
+  // TODO: Retrieve optional userId from aValue and assign into event
+
+  RefPtr<BluetoothObexAuthEvent> event =
+    BluetoothObexAuthEvent::Constructor(this,
+      NS_LITERAL_STRING(OBEX_PASSWORD_REQ_ID), init);
+  DispatchTrustedEvent(event);
+}
 
 // void
 // BluetoothAdapter::HandlePullPhonebookReq(const BluetoothValue& aValue)

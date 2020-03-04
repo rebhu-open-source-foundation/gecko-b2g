@@ -153,12 +153,12 @@ public:
   // virtual void
   // IsScoConnected(BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // SetObexPassword(const nsAString& aPassword,
-  //                 BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  SetObexPassword(const nsAString& aPassword,
+                  BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // RejectObexAuth(BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  RejectObexAuth(BluetoothReplyRunnable* aRunnable) override;
 
   // virtual void
   // ReplyTovCardPulling(BlobParent* aBlobParent,
