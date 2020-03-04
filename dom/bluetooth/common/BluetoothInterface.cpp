@@ -611,127 +611,127 @@ BluetoothA2dpInterface::~BluetoothA2dpInterface()
 // Notification handling
 //
 
-// BluetoothAvrcpNotificationHandler::BluetoothAvrcpNotificationHandler()
-// { }
+BluetoothAvrcpNotificationHandler::BluetoothAvrcpNotificationHandler()
+{ }
 
-// BluetoothAvrcpNotificationHandler::~BluetoothAvrcpNotificationHandler()
-// { }
+BluetoothAvrcpNotificationHandler::~BluetoothAvrcpNotificationHandler()
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::GetPlayStatusNotification()
-// { }
+void
+BluetoothAvrcpNotificationHandler::GetPlayStatusNotification()
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::ListPlayerAppAttrNotification()
-// { }
+void
+BluetoothAvrcpNotificationHandler::ListPlayerAppAttrNotification()
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::ListPlayerAppValuesNotification(
-//   BluetoothAvrcpPlayerAttribute aAttrId)
-// { }
+void
+BluetoothAvrcpNotificationHandler::ListPlayerAppValuesNotification(
+  BluetoothAvrcpPlayerAttribute aAttrId)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::GetPlayerAppValueNotification(
-//   uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs)
-// { }
+void
+BluetoothAvrcpNotificationHandler::GetPlayerAppValueNotification(
+  uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::GetPlayerAppAttrsTextNotification(
-//   uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs)
-// { }
+void
+BluetoothAvrcpNotificationHandler::GetPlayerAppAttrsTextNotification(
+  uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::GetPlayerAppValuesTextNotification(
-//   uint8_t aAttrId, uint8_t aNumVals, const uint8_t* aValues)
-// { }
+void
+BluetoothAvrcpNotificationHandler::GetPlayerAppValuesTextNotification(
+  uint8_t aAttrId, uint8_t aNumVals, const uint8_t* aValues)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::SetPlayerAppValueNotification(
-//   const BluetoothAvrcpPlayerSettings& aSettings)
-// { }
+void
+BluetoothAvrcpNotificationHandler::SetPlayerAppValueNotification(
+  const BluetoothAvrcpPlayerSettings& aSettings)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::GetElementAttrNotification(
-//   uint8_t aNumAttrs, const BluetoothAvrcpMediaAttribute* aAttrs)
-// { }
+void
+BluetoothAvrcpNotificationHandler::GetElementAttrNotification(
+  uint8_t aNumAttrs, const BluetoothAvrcpMediaAttribute* aAttrs)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::RegisterNotificationNotification(
-//   BluetoothAvrcpEvent aEvent, uint32_t aParam)
-// { }
+void
+BluetoothAvrcpNotificationHandler::RegisterNotificationNotification(
+  BluetoothAvrcpEvent aEvent, uint32_t aParam)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::RemoteFeatureNotification(
-//   const BluetoothAddress& aBdAddr, unsigned long aFeatures)
-// { }
+void
+BluetoothAvrcpNotificationHandler::RemoteFeatureNotification(
+  const BluetoothAddress& aBdAddr, unsigned long aFeatures)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::VolumeChangeNotification(
-//   uint8_t aVolume, uint8_t aCType)
-// { }
+void
+BluetoothAvrcpNotificationHandler::VolumeChangeNotification(
+  uint8_t aVolume, uint8_t aCType)
+{ }
 
-// void
-// BluetoothAvrcpNotificationHandler::PassthroughCmdNotification(
-//   uint8_t aId, uint8_t aKeyState)
-// { }
+void
+BluetoothAvrcpNotificationHandler::PassthroughCmdNotification(
+  uint8_t aId, uint8_t aKeyState)
+{ }
 
 // Result handling
 //
 
-// void
-// BluetoothAvrcpResultHandler::OnError(BluetoothStatus aStatus)
-// {
-//   BT_WARNING("Received error code %d", (int)aStatus);
-// }
+void
+BluetoothAvrcpResultHandler::OnError(BluetoothStatus aStatus)
+{
+  BT_WARNING("Received error code %d", (int)aStatus);
+}
 
-// void
-// BluetoothAvrcpResultHandler::GetPlayStatusRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::GetPlayStatusRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::ListPlayerAppAttrRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::ListPlayerAppAttrRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::ListPlayerAppValueRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::ListPlayerAppValueRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::GetPlayerAppValueRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::GetPlayerAppValueRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::GetPlayerAppAttrTextRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::GetPlayerAppAttrTextRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::GetPlayerAppValueTextRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::GetPlayerAppValueTextRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::GetElementAttrRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::GetElementAttrRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::SetPlayerAppValueRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::SetPlayerAppValueRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::RegisterNotificationRsp()
-// { }
+void
+BluetoothAvrcpResultHandler::RegisterNotificationRsp()
+{ }
 
-// void
-// BluetoothAvrcpResultHandler::SetVolume()
-// { }
+void
+BluetoothAvrcpResultHandler::SetVolume()
+{ }
 
 // Interface
 //
 
-// BluetoothAvrcpInterface::BluetoothAvrcpInterface()
-// { }
+BluetoothAvrcpInterface::BluetoothAvrcpInterface()
+{ }
 
-// BluetoothAvrcpInterface::~BluetoothAvrcpInterface()
-// { }
+BluetoothAvrcpInterface::~BluetoothAvrcpInterface()
+{ }
 
 //
 // Bluetooth GATT Interface

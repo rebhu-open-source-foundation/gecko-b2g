@@ -643,132 +643,132 @@ protected:
 // Bluetooth AVRCP Interface
 //
 
-// class BluetoothAvrcpNotificationHandler
-// {
-// public:
-//   virtual void
-//   GetPlayStatusNotification();
-//
-//   virtual void
-//   ListPlayerAppAttrNotification();
-//
-//   virtual void
-//   ListPlayerAppValuesNotification(BluetoothAvrcpPlayerAttribute aAttrId);
-//
-//   virtual void
-//   GetPlayerAppValueNotification(uint8_t aNumAttrs,
-//                                 const BluetoothAvrcpPlayerAttribute* aAttrs);
-//
-//   virtual void
-//   GetPlayerAppAttrsTextNotification(
-//     uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs);
-//
-//   virtual void
-//   GetPlayerAppValuesTextNotification(uint8_t aAttrId, uint8_t aNumVals,
-//                                      const uint8_t* aValues);
-//
-//   virtual void
-//   SetPlayerAppValueNotification(
-//     const BluetoothAvrcpPlayerSettings& aSettings);
-//
-//   virtual void
-//   GetElementAttrNotification(uint8_t aNumAttrs,
-//                              const BluetoothAvrcpMediaAttribute* aAttrs);
-//
-//   virtual void
-//   RegisterNotificationNotification(BluetoothAvrcpEvent aEvent,
-//                                    uint32_t aParam);
-//
-//   virtual void
-//   RemoteFeatureNotification(const BluetoothAddress& aBdAddr,
-//                             unsigned long aFeatures);
-//
-//   virtual void
-//   VolumeChangeNotification(uint8_t aVolume, uint8_t aCType);
-//
-//   virtual void
-//   PassthroughCmdNotification(uint8_t aId, uint8_t aKeyState);
-//
-// protected:
-//   BluetoothAvrcpNotificationHandler();
-//   virtual ~BluetoothAvrcpNotificationHandler();
-// };
-//
-// class BluetoothAvrcpResultHandler
-//   : public mozilla::ipc::DaemonSocketResultHandler
-// {
-// public:
-//   virtual void OnError(BluetoothStatus aStatus);
-//
-//   virtual void GetPlayStatusRsp();
-//
-//   virtual void ListPlayerAppAttrRsp();
-//   virtual void ListPlayerAppValueRsp();
-//
-//   virtual void GetPlayerAppValueRsp();
-//   virtual void GetPlayerAppAttrTextRsp();
-//   virtual void GetPlayerAppValueTextRsp();
-//
-//   virtual void GetElementAttrRsp();
-//
-//   virtual void SetPlayerAppValueRsp();
-//
-//   virtual void RegisterNotificationRsp();
-//
-//   virtual void SetVolume();
-//
-// protected:
-//   virtual ~BluetoothAvrcpResultHandler() { }
-// };
-//
-// class BluetoothAvrcpInterface
-// {
-// public:
-//   virtual void SetNotificationHandler(
-//     BluetoothAvrcpNotificationHandler* aNotificationHandler) = 0;
-//
-//   virtual void GetPlayStatusRsp(ControlPlayStatus aPlayStatus,
-//                                 uint32_t aSongLen, uint32_t aSongPos,
-//                                 BluetoothAvrcpResultHandler* aRes) = 0;
-//
-//   virtual void ListPlayerAppAttrRsp(
-//     int aNumAttr, const BluetoothAvrcpPlayerAttribute* aPAttrs,
-//     BluetoothAvrcpResultHandler* aRes) = 0;
-//   virtual void ListPlayerAppValueRsp(int aNumVal, uint8_t* aPVals,
-//                                      BluetoothAvrcpResultHandler* aRes) = 0;
-//
-//   /* TODO: redesign this interface once we actually use it */
-//   virtual void GetPlayerAppValueRsp(uint8_t aNumAttrs, const uint8_t* aIds,
-//                                     const uint8_t* aValues,
-//                                     BluetoothAvrcpResultHandler* aRes) = 0;
-//   /* TODO: redesign this interface once we actually use it */
-//   virtual void GetPlayerAppAttrTextRsp(int aNumAttr, const uint8_t* aIds,
-//                                        const char** aTexts,
-//                                        BluetoothAvrcpResultHandler* aRes) = 0;
-//   /* TODO: redesign this interface once we actually use it */
-//   virtual void GetPlayerAppValueTextRsp(int aNumVal, const uint8_t* aIds,
-//                                         const char** aTexts,
-//                                         BluetoothAvrcpResultHandler* aRes) = 0;
-//
-//   virtual void GetElementAttrRsp(uint8_t aNumAttr,
-//                                  const BluetoothAvrcpElementAttribute* aAttr,
-//                                  BluetoothAvrcpResultHandler* aRes) = 0;
-//
-//   virtual void SetPlayerAppValueRsp(BluetoothAvrcpStatus aRspStatus,
-//                                     BluetoothAvrcpResultHandler* aRes) = 0;
-//
-//   virtual void RegisterNotificationRsp(
-//     BluetoothAvrcpEvent aEvent, BluetoothAvrcpNotification aType,
-//     const BluetoothAvrcpNotificationParam& aParam,
-//     BluetoothAvrcpResultHandler* aRes) = 0;
-//
-//   virtual void SetVolume(uint8_t aVolume,
-//                          BluetoothAvrcpResultHandler* aRes) = 0;
-//
-// protected:
-//   BluetoothAvrcpInterface();
-//   virtual ~BluetoothAvrcpInterface();
-// };
+class BluetoothAvrcpNotificationHandler
+{
+public:
+  virtual void
+  GetPlayStatusNotification();
+
+  virtual void
+  ListPlayerAppAttrNotification();
+
+  virtual void
+  ListPlayerAppValuesNotification(BluetoothAvrcpPlayerAttribute aAttrId);
+
+  virtual void
+  GetPlayerAppValueNotification(uint8_t aNumAttrs,
+                                const BluetoothAvrcpPlayerAttribute* aAttrs);
+
+  virtual void
+  GetPlayerAppAttrsTextNotification(
+    uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs);
+
+  virtual void
+  GetPlayerAppValuesTextNotification(uint8_t aAttrId, uint8_t aNumVals,
+                                     const uint8_t* aValues);
+
+  virtual void
+  SetPlayerAppValueNotification(
+    const BluetoothAvrcpPlayerSettings& aSettings);
+
+  virtual void
+  GetElementAttrNotification(uint8_t aNumAttrs,
+                             const BluetoothAvrcpMediaAttribute* aAttrs);
+
+  virtual void
+  RegisterNotificationNotification(BluetoothAvrcpEvent aEvent,
+                                   uint32_t aParam);
+
+  virtual void
+  RemoteFeatureNotification(const BluetoothAddress& aBdAddr,
+                            unsigned long aFeatures);
+
+  virtual void
+  VolumeChangeNotification(uint8_t aVolume, uint8_t aCType);
+
+  virtual void
+  PassthroughCmdNotification(uint8_t aId, uint8_t aKeyState);
+
+protected:
+  BluetoothAvrcpNotificationHandler();
+  virtual ~BluetoothAvrcpNotificationHandler();
+};
+
+class BluetoothAvrcpResultHandler
+  : public mozilla::ipc::DaemonSocketResultHandler
+{
+public:
+  virtual void OnError(BluetoothStatus aStatus);
+
+  virtual void GetPlayStatusRsp();
+
+  virtual void ListPlayerAppAttrRsp();
+  virtual void ListPlayerAppValueRsp();
+
+  virtual void GetPlayerAppValueRsp();
+  virtual void GetPlayerAppAttrTextRsp();
+  virtual void GetPlayerAppValueTextRsp();
+
+  virtual void GetElementAttrRsp();
+
+  virtual void SetPlayerAppValueRsp();
+
+  virtual void RegisterNotificationRsp();
+
+  virtual void SetVolume();
+
+protected:
+  virtual ~BluetoothAvrcpResultHandler() { }
+};
+
+class BluetoothAvrcpInterface
+{
+public:
+  virtual void SetNotificationHandler(
+    BluetoothAvrcpNotificationHandler* aNotificationHandler) = 0;
+
+  virtual void GetPlayStatusRsp(ControlPlayStatus aPlayStatus,
+                                uint32_t aSongLen, uint32_t aSongPos,
+                                BluetoothAvrcpResultHandler* aRes) = 0;
+
+  virtual void ListPlayerAppAttrRsp(
+    int aNumAttr, const BluetoothAvrcpPlayerAttribute* aPAttrs,
+    BluetoothAvrcpResultHandler* aRes) = 0;
+  virtual void ListPlayerAppValueRsp(int aNumVal, uint8_t* aPVals,
+                                     BluetoothAvrcpResultHandler* aRes) = 0;
+
+  /* TODO: redesign this interface once we actually use it */
+  virtual void GetPlayerAppValueRsp(uint8_t aNumAttrs, const uint8_t* aIds,
+                                    const uint8_t* aValues,
+                                    BluetoothAvrcpResultHandler* aRes) = 0;
+  /* TODO: redesign this interface once we actually use it */
+  virtual void GetPlayerAppAttrTextRsp(int aNumAttr, const uint8_t* aIds,
+                                       const char** aTexts,
+                                       BluetoothAvrcpResultHandler* aRes) = 0;
+  /* TODO: redesign this interface once we actually use it */
+  virtual void GetPlayerAppValueTextRsp(int aNumVal, const uint8_t* aIds,
+                                        const char** aTexts,
+                                        BluetoothAvrcpResultHandler* aRes) = 0;
+
+  virtual void GetElementAttrRsp(uint8_t aNumAttr,
+                                 const BluetoothAvrcpElementAttribute* aAttr,
+                                 BluetoothAvrcpResultHandler* aRes) = 0;
+
+  virtual void SetPlayerAppValueRsp(BluetoothAvrcpStatus aRspStatus,
+                                    BluetoothAvrcpResultHandler* aRes) = 0;
+
+  virtual void RegisterNotificationRsp(
+    BluetoothAvrcpEvent aEvent, BluetoothAvrcpNotification aType,
+    const BluetoothAvrcpNotificationParam& aParam,
+    BluetoothAvrcpResultHandler* aRes) = 0;
+
+  virtual void SetVolume(uint8_t aVolume,
+                         BluetoothAvrcpResultHandler* aRes) = 0;
+
+protected:
+  BluetoothAvrcpInterface();
+  virtual ~BluetoothAvrcpInterface();
+};
 
 //
 // GATT Interface
@@ -1331,7 +1331,7 @@ public:
   virtual BluetoothSocketInterface* GetBluetoothSocketInterface() = 0;
   // virtual BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() = 0;
   virtual BluetoothA2dpInterface* GetBluetoothA2dpInterface() = 0;
-  // virtual BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() = 0;
+  virtual BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() = 0;
   // virtual BluetoothGattInterface* GetBluetoothGattInterface() = 0;
   // virtual BluetoothHidInterface* GetBluetoothHidInterface() = 0;
   // virtual BluetoothSdpInterface* GetBluetoothSdpInterface() = 0;

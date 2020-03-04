@@ -24,7 +24,7 @@ class ListenSocket;
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothDaemonA2dpInterface;
-// class BluetoothDaemonAvrcpInterface;
+class BluetoothDaemonAvrcpInterface;
 class BluetoothDaemonCoreInterface;
 // class BluetoothDaemonGattInterface;
 // class BluetoothDaemonHandsfreeInterface;
@@ -59,7 +59,7 @@ public:
   BluetoothSocketInterface* GetBluetoothSocketInterface() override;
   // BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() override;
   BluetoothA2dpInterface* GetBluetoothA2dpInterface() override;
-  // BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() override;
+  BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() override;
   // BluetoothGattInterface* GetBluetoothGattInterface() override;
   // BluetoothHidInterface* GetBluetoothHidInterface() override;
   // BluetoothSdpInterface* GetBluetoothSdpInterface() override;
@@ -101,7 +101,7 @@ private:
   // UniquePtr<BluetoothDaemonHidInterface> mHidInterface;
   // UniquePtr<BluetoothDaemonHandsfreeInterface> mHandsfreeInterface;
   UniquePtr<BluetoothDaemonA2dpInterface> mA2dpInterface;
-  // UniquePtr<BluetoothDaemonAvrcpInterface> mAvrcpInterface;
+  UniquePtr<BluetoothDaemonAvrcpInterface> mAvrcpInterface;
   // UniquePtr<BluetoothDaemonGattInterface> mGattInterface;
   // UniquePtr<BluetoothDaemonSdpInterface> mSdpInterface;
 };
