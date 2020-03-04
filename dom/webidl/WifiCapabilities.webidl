@@ -40,7 +40,7 @@ enum WifiWpaCertificate {
 };
 
 [JSImplementation="@mozilla.org/wificapabilities;1",
- Func="KaiOS::HasWifiManagerSupport",
+ Func="B2G::HasWifiManagerSupport",
  Exposed=Window]
 interface WifiCapabilities {
   //[Constant, Cached] readonly attribute sequence<WifiSecurityMethod> security;

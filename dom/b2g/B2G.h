@@ -22,6 +22,9 @@
 #ifdef MOZ_B2G_BT
 #  include "mozilla/dom/bluetooth/BluetoothManager.h"
 #endif
+#ifndef DISABLE_WIFI
+#  include "mozilla/dom/WifiManagerBinding.h"
+#endif
 
 namespace mozilla {
 namespace dom {
@@ -47,6 +50,11 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_B2G_BT
   bluetooth::BluetoothManager* GetBluetooth(ErrorResult& aRv);
 #endif
+#ifndef DISABLE_WIFI
+  WifiManager* GetWifiManager(ErrorResult& aRv);
+#endif
+  static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+
   // Shutting down.
   void Shutdown();
 
@@ -56,9 +64,11 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef HAS_KOOST_MODULES
   RefPtr<ExternalAPI> mExternalAPI;
 #endif
-
 #ifdef MOZ_B2G_BT
   RefPtr<bluetooth::BluetoothManager> mBluetooth;
+#endif
+#ifndef DISABLE_WIFI
+  RefPtr<WifiManager> mWifiManager;
 #endif
 };
 

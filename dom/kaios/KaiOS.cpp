@@ -42,9 +42,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(KaiOS)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTelephony)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDataCallManager)
 #endif
-#ifndef DISABLE_WIFI
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWifiManager)
-#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(KaiOS)
@@ -70,11 +67,6 @@ void KaiOS::Invalidate() {
 
   if (mVoicemail) {
     mVoicemail = nullptr;
-  }
-#endif
-#ifndef DISABLE_WIFI
-  if (mWifiManager) {
-    mWifiManager = nullptr;
   }
 #endif
 }
@@ -160,48 +152,6 @@ DataCallManager* KaiOS::GetDataCallManager(ErrorResult& aRv) {
   return mDataCallManager;
 }
 #endif
-
-#ifndef DISABLE_WIFI
-WifiManager* KaiOS::GetWifiManager(ErrorResult& aRv) {
-  if (!mWifiManager) {
-    nsPIDOMWindowInner* win = GetWindow();
-    if (!win) {
-      aRv.Throw(NS_ERROR_UNEXPECTED);
-      return nullptr;
-    }
-
-    mWifiManager = ConstructJSImplementation<WifiManager>(
-        "@mozilla.org/wifimanager;1", win->AsGlobal(), aRv);
-    if (aRv.Failed()) {
-      return nullptr;
-    }
-  }
-  return mWifiManager;
-}
-#endif
-
-/* static */
-bool KaiOS::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
-#ifdef DISABLE_WIFI
-  return false;
-#endif
-  // On XBL scope, the global object is NOT |window|. So we have
-  // to use nsContentUtils::GetObjectPrincipal to get the principal
-  // and test directly with permission manager.
-
-  // TODO: permission check mechanism
-  // nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
-  //
-  // nsCOMPtr<nsIPermissionManager> permMgr =
-  //   services::GetPermissionManager();
-  // NS_ENSURE_TRUE(permMgr, false);
-  //
-  // uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  // permMgr->TestPermissionFromPrincipal(principal,
-  // NS_LITERAL_CSTRING("wifi-manage"), &permission); return
-  // nsIPermissionManager::ALLOW_ACTION == permission;
-  return true;
-}
 
 }  // namespace dom
 }  // namespace mozilla

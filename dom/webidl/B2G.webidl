@@ -33,3 +33,10 @@ partial interface B2G {
   readonly attribute BluetoothManager bluetooth;
 };
 #endif // MOZ_B2G_BT
+
+#ifndef DISABLE_WIFI
+partial interface B2G {
+  [Throws, Func="B2G::HasWifiManagerSupport", Exposed=Window]
+  readonly attribute WifiManager wifiManager;
+};
+#endif // DISABLE_WIFI

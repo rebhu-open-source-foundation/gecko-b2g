@@ -14,7 +14,7 @@ dictionary WPSInfo {
 };
 
 [JSImplementation="@mozilla.org/wifip2pgroupowner;1",
- Func="KaiOS::HasWifiManagerSupport",
+ Func="B2G::HasWifiManagerSupport",
  Exposed=Window]
 interface WifiP2pGroupOwner {
   readonly attribute DOMString groupName;
@@ -28,7 +28,7 @@ interface WifiP2pGroupOwner {
 };
 
 [JSImplementation="@mozilla.org/wifip2pmanager;1",
- Func="KaiOS::HasWifiManagerSupport",
+ Func="B2G::HasWifiManagerSupport",
  Exposed=Window]
 interface WifiP2pManager : EventTarget
 {

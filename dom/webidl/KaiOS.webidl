@@ -45,10 +45,3 @@ partial interface KaiOS {
   readonly attribute MozVoicemail mozVoicemail;
 };
 #endif //MOZ_B2G_RIL
-
-#ifndef DISABLE_WIFI
-partial interface KaiOS {
-  [Throws, Func="KaiOS::HasWifiManagerSupport", Exposed=Window]
-  readonly attribute WifiManager wifiManager;
-};
-#endif // DISABLE_WIFI

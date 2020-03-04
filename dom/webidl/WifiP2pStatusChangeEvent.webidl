@@ -4,7 +4,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Func="KaiOS::HasWifiManagerSupport",
+[Func="B2G::HasWifiManagerSupport",
  Exposed=Window]
 interface WifiP2pStatusChangeEvent : Event
 {

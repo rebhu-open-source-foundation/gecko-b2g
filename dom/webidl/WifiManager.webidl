@@ -72,7 +72,7 @@ dictionary NetworkProperties {
 };
 
 [JSImplementation="@mozilla.org/wifinetwork;1",
- Func="KaiOS::HasWifiManagerSupport",
+ Func="B2G::HasWifiManagerSupport",
  Exposed=Window]
 interface WifiNetwork {
   constructor(optional NetworkProperties networkPropertiesDict = {});
@@ -149,7 +149,7 @@ dictionary IPConfiguration {
 };
 
 [JSImplementation="@mozilla.org/wifimanager;1",
- Func="KaiOS::HasWifiManagerSupport",
+ Func="B2G::HasWifiManagerSupport",
  Exposed=Window]
 interface WifiManager : EventTarget {
   /**

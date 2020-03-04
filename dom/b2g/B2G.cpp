@@ -41,6 +41,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #ifdef MOZ_B2G_BT
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
 #endif
+#ifndef DISABLE_WIFI
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWifiManager)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -96,5 +99,46 @@ bluetooth::BluetoothManager* B2G::GetBluetooth(ErrorResult& aRv) {
   return mBluetooth;
 }
 #endif  // MOZ_B2G_BT
+
+#ifndef DISABLE_WIFI
+WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
+  if (!mWifiManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mWifiManager = ConstructJSImplementation<WifiManager>(
+        "@mozilla.org/wifimanager;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+  return mWifiManager;
+}
+#endif
+
+/* static */
+bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
+#ifdef DISABLE_WIFI
+  return false;
+#endif
+  // On XBL scope, the global object is NOT |window|. So we have
+  // to use nsContentUtils::GetObjectPrincipal to get the principal
+  // and test directly with permission manager.
+
+  // TODO: permission check mechanism
+  // nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
+  //
+  // nsCOMPtr<nsIPermissionManager> permMgr =
+  //   services::GetPermissionManager();
+  // NS_ENSURE_TRUE(permMgr, false);
+  //
+  // uint32_t permission = nsIPermissionManager::DENY_ACTION;
+  // permMgr->TestPermissionFromPrincipal(principal,
+  // NS_LITERAL_CSTRING("wifi-manage"), &permission); return
+  // nsIPermissionManager::ALLOW_ACTION == permission;
+  return true;
+}
+
 }  // namespace dom
 }  // namespace mozilla

@@ -20,9 +20,6 @@
 #  include "mozilla/dom/MobileConnectionArray.h"
 #  include "mozilla/dom/DataCallManagerBinding.h"
 #endif
-#ifndef DISABLE_WIFI
-#  include "mozilla/dom/WifiManagerBinding.h"
-#endif
 
 #include "mozilla/ErrorResult.h"
 #include "mozilla/MemoryReporting.h"
@@ -60,11 +57,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   DataCallManager* GetDataCallManager(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
-#ifndef DISABLE_WIFI
-  WifiManager* GetWifiManager(ErrorResult& aRv);
-#endif
-  static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
-
  private:
   virtual ~KaiOS();
 
@@ -76,10 +68,6 @@ class KaiOS final : public nsISupports, public nsWrapperCache {
   RefPtr<MobileConnectionArray> mMobileConnections;
   RefPtr<Telephony> mTelephony;
   RefPtr<DataCallManager> mDataCallManager;
-#endif
-
-#ifndef DISABLE_WIFI
-  RefPtr<WifiManager> mWifiManager;
 #endif
 };
 
