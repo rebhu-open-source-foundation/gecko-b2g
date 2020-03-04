@@ -200,8 +200,7 @@ void BluetoothUUID::CanonicalUUID(const GlobalObject& aGlobal, uint32_t aAlias,
   char uuidStr[37];
 
   // Convert to 128-bit UUID: alias + "-0000-1000-8000-00805f9b34fb".
-  snprintf(uuidStr, sizeof(uuidStr), "%.8x-0000-1000-8000-00805f9b34fb",
-           aAlias);
+  SprintfLiteral(uuidStr, "%.8x-0000-1000-8000-00805f9b34fb", aAlias);
 
   aReturn.AssignLiteral(uuidStr);
 }

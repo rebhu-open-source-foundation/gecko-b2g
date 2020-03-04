@@ -59,7 +59,7 @@ class BluetoothClassOfDevice final : public nsISupports, public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
 
  private:
-  BluetoothClassOfDevice(nsPIDOMWindowInner* aOwner);
+  explicit BluetoothClassOfDevice(nsPIDOMWindowInner* aOwner);
   ~BluetoothClassOfDevice();
 
   /**

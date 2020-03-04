@@ -44,7 +44,7 @@ class BluetoothDiscoveryHandle final : public DOMEventTargetHelper {
                                JS::Handle<JSObject*> aGivenProto) override;
 
  private:
-  BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow);
+  explicit BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow);
 
   BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow,
                            const nsTArray<BluetoothUuid>& aServiceUuids,

@@ -145,7 +145,7 @@ protected:
 class SwitchHandlerUsbIcs: public SwitchHandler
 {
 public:
-  SwitchHandlerUsbIcs(const char* aDevPath) : SwitchHandler(aDevPath, SWITCH_USB)
+  explicit SwitchHandlerUsbIcs(const char* aDevPath) : SwitchHandler(aDevPath, SWITCH_USB)
   {
     SwitchHandler::GetInitialState();
   }
@@ -192,7 +192,7 @@ protected:
 class SwitchHandlerHeadphone: public SwitchHandler
 {
 public:
-  SwitchHandlerHeadphone(const char* aDevPath) :
+  explicit SwitchHandlerHeadphone(const char* aDevPath) :
     SwitchHandler(aDevPath, SWITCH_HEADPHONES)
   {
     SwitchHandler::GetInitialState();
@@ -216,7 +216,7 @@ typedef nsTArray<RefPtr<SwitchHandler> > SwitchHandlerArray;
 class SwitchEventRunnable : public Runnable
 {
 public:
-  SwitchEventRunnable(SwitchEvent& aEvent) : Runnable("SwitchEventRunnable"),
+  explicit SwitchEventRunnable(SwitchEvent& aEvent) : Runnable("SwitchEventRunnable"),
                                              mEvent(aEvent)
   {
   }

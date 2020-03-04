@@ -383,7 +383,7 @@ KeyEventDispatcher::DispatchKeyUpEvent()
 
 class SwitchEventRunnable : public mozilla::Runnable {
 public:
-    SwitchEventRunnable(hal::SwitchEvent& aEvent)
+    explicit SwitchEventRunnable(hal::SwitchEvent& aEvent)
       : mozilla::Runnable("SwitchEventRunnable")
       , mEvent(aEvent)
       {}
@@ -425,7 +425,7 @@ class GeckoPointerController : public PointerControllerInterface {
     int32_t mButtonState;
     InputReaderConfiguration* mConfig;
 public:
-    GeckoPointerController(InputReaderConfiguration* config)
+    explicit GeckoPointerController(InputReaderConfiguration* config)
         : mX(0)
         , mY(0)
         , mButtonState(0)
@@ -528,7 +528,7 @@ protected:
 
 class GeckoInputDispatcher : public InputDispatcherInterface {
 public:
-    GeckoInputDispatcher(sp<EventHub> &aEventHub)
+    explicit GeckoInputDispatcher(sp<EventHub> &aEventHub)
         : mQueueLock("GeckoInputDispatcher::mQueueMutex")
         , mEventHub(aEventHub)
         , mKeyDownCount(0)

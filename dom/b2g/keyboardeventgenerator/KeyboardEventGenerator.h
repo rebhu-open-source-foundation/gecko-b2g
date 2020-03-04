@@ -28,7 +28,7 @@ public:
     Constructor(const GlobalObject& aGlobal,
                 ErrorResult& aRv);
 
-  KeyboardEventGenerator(nsPIDOMWindowInner *aWindow);
+  explicit KeyboardEventGenerator(nsPIDOMWindowInner *aWindow);
 
   nsPIDOMWindowOuter* GetParentObject() const
   {

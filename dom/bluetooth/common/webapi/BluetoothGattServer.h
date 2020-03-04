@@ -86,7 +86,7 @@ class BluetoothGattServer final : public DOMEventTargetHelper,
                                JS::Handle<JSObject*> aGivenProto) override;
 
   virtual void DisconnectFromOwner() override;
-  BluetoothGattServer(nsPIDOMWindowInner* aOwner);
+  explicit BluetoothGattServer(nsPIDOMWindowInner* aOwner);
 
   /* Invalidate the GATT server.
    * If the BluetoothAdapter turns off, existing BluetoothGattServer instances

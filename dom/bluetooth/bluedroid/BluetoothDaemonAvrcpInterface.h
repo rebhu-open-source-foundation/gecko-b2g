@@ -270,7 +270,7 @@ class BluetoothDaemonAvrcpInterface final : public BluetoothAvrcpInterface {
   class InitResultHandler;
 
  public:
-  BluetoothDaemonAvrcpInterface(BluetoothDaemonAvrcpModule* aModule);
+  explicit BluetoothDaemonAvrcpInterface(BluetoothDaemonAvrcpModule* aModule);
   ~BluetoothDaemonAvrcpInterface();
 
   void SetNotificationHandler(

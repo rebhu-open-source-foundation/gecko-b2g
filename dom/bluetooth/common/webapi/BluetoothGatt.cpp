@@ -160,7 +160,7 @@ already_AddRefed<Promise> BluetoothGatt::Disconnect(ErrorResult& aRv) {
 
 class ReadRemoteRssiTask final : public BluetoothReplyRunnable {
  public:
-  ReadRemoteRssiTask(Promise* aPromise)
+  explicit ReadRemoteRssiTask(Promise* aPromise)
       : BluetoothReplyRunnable(nullptr, aPromise) {
     MOZ_ASSERT(aPromise);
   }

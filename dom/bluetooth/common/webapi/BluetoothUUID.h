@@ -51,7 +51,7 @@ class BluetoothUUID final : public nsISupports, public nsWrapperCache {
                             nsAString& aReturn);
 
  private:
-  BluetoothUUID(nsPIDOMWindowInner* aOwner);
+  explicit BluetoothUUID(nsPIDOMWindowInner* aOwner);
   ~BluetoothUUID();
 
   static void InitServiceTable();

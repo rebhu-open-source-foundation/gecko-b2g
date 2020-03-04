@@ -57,7 +57,7 @@ namespace android {
 
 struct GonkRecorder::WrappedMediaSource : MediaSource {
 public:
-    WrappedMediaSource(const sp<MediaSource> &encoder);
+    explicit WrappedMediaSource(const sp<MediaSource> &encoder);
     status_t start(MetaData *params = NULL) override;
     status_t stop() override;
     sp<MetaData> getFormat() override;

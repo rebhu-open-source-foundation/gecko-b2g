@@ -39,7 +39,7 @@ class BluetoothGattReplyRunnable : public BluetoothReplyRunnable {
 
 class BluetoothGattVoidReplyRunnable : public BluetoothGattReplyRunnable {
  public:
-  BluetoothGattVoidReplyRunnable(Promise* aPromise)
+  explicit BluetoothGattVoidReplyRunnable(Promise* aPromise)
       : BluetoothGattReplyRunnable(aPromise) {}
   ~BluetoothGattVoidReplyRunnable() {}
 

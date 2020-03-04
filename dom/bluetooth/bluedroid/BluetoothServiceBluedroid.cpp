@@ -93,7 +93,7 @@ class BluetoothServiceBluedroid::EnableResultHandler final
 class BluetoothServiceBluedroid::ProfileInitResultHandler final
     : public BluetoothProfileResultHandler {
  public:
-  ProfileInitResultHandler(unsigned char aNumProfiles)
+  explicit ProfileInitResultHandler(unsigned char aNumProfiles)
       : mNumProfiles(aNumProfiles) {
     MOZ_ASSERT(mNumProfiles);
   }
@@ -1090,7 +1090,7 @@ nsresult BluetoothServiceBluedroid::RemoveDeviceInternal(
 class BluetoothServiceBluedroid::PinReplyResultHandler final
     : public BluetoothCoreResultHandler {
  public:
-  PinReplyResultHandler(BluetoothReplyRunnable* aRunnable)
+  explicit PinReplyResultHandler(BluetoothReplyRunnable* aRunnable)
       : mRunnable(aRunnable) {}
 
   void PinReply() override { DispatchReplySuccess(mRunnable); }
@@ -1106,7 +1106,7 @@ class BluetoothServiceBluedroid::PinReplyResultHandler final
 class BluetoothServiceBluedroid::CancelBondResultHandler final
     : public BluetoothCoreResultHandler {
  public:
-  CancelBondResultHandler(BluetoothReplyRunnable* aRunnable)
+  explicit CancelBondResultHandler(BluetoothReplyRunnable* aRunnable)
       : mRunnable(aRunnable) {}
 
   void CancelBond() override { DispatchReplySuccess(mRunnable); }
@@ -1139,7 +1139,7 @@ void BluetoothServiceBluedroid::PinReplyInternal(
 class BluetoothServiceBluedroid::SspReplyResultHandler final
     : public BluetoothCoreResultHandler {
  public:
-  SspReplyResultHandler(BluetoothReplyRunnable* aRunnable)
+  explicit SspReplyResultHandler(BluetoothReplyRunnable* aRunnable)
       : mRunnable(aRunnable) {}
 
   void SspReply() override { DispatchReplySuccess(mRunnable); }

@@ -27,7 +27,7 @@ static UniquePtr<NetworkUtils> gNetworkUtils;
 // Runnable used dispatch command result on the main thread.
 class NetworkResultDispatcher : public Runnable {
  public:
-  NetworkResultDispatcher(const NetworkResultOptions& aResult)
+  explicit NetworkResultDispatcher(const NetworkResultOptions& aResult)
       : mozilla::Runnable("NetworkResultDispatcher"), mResult(aResult) {
     MOZ_ASSERT(!NS_IsMainThread());
   }

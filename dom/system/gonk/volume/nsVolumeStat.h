@@ -17,7 +17,7 @@ class nsVolumeStat final : public nsIVolumeStat {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVOLUMESTAT
 
-  nsVolumeStat(const nsAString& aPath);
+  explicit nsVolumeStat(const nsAString& aPath);
 
  protected:
   ~nsVolumeStat() {}

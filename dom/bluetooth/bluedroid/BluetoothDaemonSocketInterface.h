@@ -95,7 +95,7 @@ class BluetoothDaemonSocketModule {
 
 class BluetoothDaemonSocketInterface final : public BluetoothSocketInterface {
  public:
-  BluetoothDaemonSocketInterface(BluetoothDaemonSocketModule* aModule);
+  explicit BluetoothDaemonSocketInterface(BluetoothDaemonSocketModule* aModule);
   ~BluetoothDaemonSocketInterface();
 
   void Listen(BluetoothSocketType aType,

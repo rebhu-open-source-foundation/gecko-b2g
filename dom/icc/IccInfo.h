@@ -51,7 +51,7 @@ class nsGsmIccInfo final : public nsIccInfo, public nsIGsmIccInfo {
   NS_FORWARD_NSIICCINFO(nsIccInfo::)
 
   nsGsmIccInfo();
-  nsGsmIccInfo(const icc::IccInfoData& aData);
+  explicit nsGsmIccInfo(const icc::IccInfoData& aData);
 
   void Update(nsIGsmIccInfo* aInfo);
 
@@ -68,7 +68,7 @@ class nsCdmaIccInfo final : public nsIccInfo, public nsICdmaIccInfo {
   NS_FORWARD_NSIICCINFO(nsIccInfo::)
 
   nsCdmaIccInfo();
-  nsCdmaIccInfo(const icc::IccInfoData& aData);
+  explicit nsCdmaIccInfo(const icc::IccInfoData& aData);
 
   void Update(nsICdmaIccInfo* aInfo);
 
@@ -124,7 +124,8 @@ class IccInfo : public nsISupports, public nsWrapperCache {
 
 class GsmIccInfo final : public IccInfo {
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(GsmIccInfo, IccInfo)
 
   explicit GsmIccInfo(nsPIDOMWindowInner* aWindow);
   explicit GsmIccInfo(const icc::IccInfoData& aData);
@@ -145,7 +146,8 @@ class GsmIccInfo final : public IccInfo {
 
 class CdmaIccInfo final : public IccInfo {
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(CdmaIccInfo, IccInfo)
 
   explicit CdmaIccInfo(nsPIDOMWindowInner* aWindow);
   explicit CdmaIccInfo(const icc::IccInfoData& aData);

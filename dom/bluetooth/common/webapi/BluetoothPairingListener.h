@@ -43,7 +43,7 @@ class BluetoothPairingListener final : public DOMEventTargetHelper,
   IMPL_EVENT_HANDLER(pairingconsentreq);
 
  private:
-  BluetoothPairingListener(nsPIDOMWindowInner* aWindow);
+  explicit BluetoothPairingListener(nsPIDOMWindowInner* aWindow);
   ~BluetoothPairingListener();
 
   /**

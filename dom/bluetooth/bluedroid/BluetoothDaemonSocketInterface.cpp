@@ -74,7 +74,7 @@ nsresult BluetoothDaemonSocketModule::ConnectCmd(
 template <typename T>
 class DeleteTask final : public Runnable {
  public:
-  DeleteTask(T* aPtr) : Runnable("DeleteTask"), mPtr(aPtr) {}
+  explicit DeleteTask(T* aPtr) : Runnable("DeleteTask"), mPtr(aPtr) {}
 
   NS_IMETHOD Run() override {
     mPtr = nullptr;
@@ -181,7 +181,7 @@ void BluetoothDaemonSocketModule::ErrorRsp(const DaemonSocketPDUHeader& aHeader,
 
 class BluetoothDaemonSocketModule::ListenInitOp final : private PDUInitOp {
  public:
-  ListenInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ListenInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(int& aArg1) const {
     DaemonSocketPDU& pdu = GetPDU();

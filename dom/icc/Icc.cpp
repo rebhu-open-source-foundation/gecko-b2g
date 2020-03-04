@@ -274,17 +274,20 @@ Icc::SendStkTimerExpiration(const JSContext* aCx, JS::Handle<JS::Value> aTimer,
   nsresult rv = timer->GetTimerId(&timerId);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
+    return;
   }
 
   uint32_t timerValue;
   rv = timer->GetTimerValue(&timerValue);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
+    return;
   }
 
   rv = mHandler->SendStkTimerExpiration(timerId, timerValue);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
+    return;
   }
 }
 

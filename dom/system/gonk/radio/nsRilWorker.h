@@ -69,7 +69,7 @@ class nsRilWorker final : public nsIRilWorker {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIRILWORKER
 
-  nsRilWorker(uint32_t aClientId);
+  explicit nsRilWorker(uint32_t aClientId);
 
   struct RadioProxyDeathRecipient : public hidl_death_recipient {
     // hidl_death_recipient interface

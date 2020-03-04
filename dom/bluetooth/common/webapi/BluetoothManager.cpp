@@ -52,7 +52,7 @@ NS_IMPL_RELEASE_INHERITED(BluetoothManager, DOMEventTargetHelper)
 
 class GetAdaptersTask : public BluetoothReplyRunnable {
  public:
-  GetAdaptersTask(BluetoothManager* aManager)
+  explicit GetAdaptersTask(BluetoothManager* aManager)
       : BluetoothReplyRunnable(nullptr), mManager(aManager) {}
 
   bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) override {

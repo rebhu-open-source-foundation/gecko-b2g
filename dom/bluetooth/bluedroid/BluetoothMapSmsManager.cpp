@@ -292,7 +292,7 @@ void BluetoothMapSmsManager::InitMapSmsInterface(
 class BluetoothMapSmsManager::UnregisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
  public:
-  UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
+  explicit UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
       : mRes(aRes) {}
 
   void OnError(BluetoothStatus aStatus) override {

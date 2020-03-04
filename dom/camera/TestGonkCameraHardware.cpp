@@ -155,7 +155,7 @@ TestGonkCameraHardwareListener::HandleEvent(Event* aEvent)
           class DeferredSystemFailure : public Runnable
           {
           public:
-            DeferredSystemFailure(nsGonkCameraControl* aTarget)
+            explicit DeferredSystemFailure(nsGonkCameraControl* aTarget)
               : mozilla::Runnable("DeferredSystemFailure"),
                 mTarget(aTarget)
             { }
@@ -300,7 +300,7 @@ TestGonkCameraHardware::~TestGonkCameraHardware()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -352,7 +352,7 @@ TestGonkCameraHardware::Init()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -390,7 +390,7 @@ TestGonkCameraHardware::AutoFocus()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -416,7 +416,7 @@ TestGonkCameraHardware::CancelAutoFocus()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -442,7 +442,7 @@ TestGonkCameraHardware::StartFaceDetection()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -468,7 +468,7 @@ TestGonkCameraHardware::StopFaceDetection()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -494,7 +494,7 @@ TestGonkCameraHardware::TakePicture()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -520,7 +520,7 @@ TestGonkCameraHardware::CancelTakePicture()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -543,7 +543,7 @@ TestGonkCameraHardware::StartPreview()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -569,7 +569,7 @@ TestGonkCameraHardware::StopPreview()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -695,7 +695,7 @@ TestGonkCameraHardware::StartRecording()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 
@@ -721,7 +721,7 @@ TestGonkCameraHardware::StopRecording()
   class Delegate : public ControlMessage
   {
   public:
-    Delegate(TestGonkCameraHardware* aTestHw)
+    explicit Delegate(TestGonkCameraHardware* aTestHw)
       : ControlMessage(aTestHw)
     { }
 

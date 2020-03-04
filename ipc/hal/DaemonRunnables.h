@@ -259,7 +259,7 @@ class DaemonNotificationRunnable0 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable0(Res (ObjectType::*aMethod)()) : mMethod(aMethod) {
+  explicit DaemonNotificationRunnable0(Res (ObjectType::*aMethod)()) : mMethod(aMethod) {
     MOZ_ASSERT(mMethod);
   }
 
@@ -311,7 +311,7 @@ class DaemonNotificationRunnable1 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable1(Res (ObjectType::*aMethod)(Arg1))
+  explicit DaemonNotificationRunnable1(Res (ObjectType::*aMethod)(Arg1))
       : mMethod(aMethod) {
     MOZ_ASSERT(mMethod);
   }
@@ -372,7 +372,7 @@ class DaemonNotificationRunnable2 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable2(Res (ObjectType::*aMethod)(Arg1, Arg2))
+  explicit DaemonNotificationRunnable2(Res (ObjectType::*aMethod)(Arg1, Arg2))
       : mMethod(aMethod) {
     MOZ_ASSERT(mMethod);
   }
@@ -435,7 +435,7 @@ class DaemonNotificationRunnable3 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable3(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3))
+  explicit DaemonNotificationRunnable3(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3))
       : mMethod(aMethod) {
     MOZ_ASSERT(mMethod);
   }
@@ -500,7 +500,7 @@ class DaemonNotificationRunnable4 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable4(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3,
+  explicit DaemonNotificationRunnable4(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3,
                                                          Arg4))
       : mMethod(aMethod) {
     MOZ_ASSERT(mMethod);
@@ -569,7 +569,7 @@ class DaemonNotificationRunnable5 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable5(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
+  explicit DaemonNotificationRunnable5(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
                                                          Arg5))
       : mMethod(aMethod) {
     MOZ_ASSERT(mMethod);
@@ -641,7 +641,7 @@ class DaemonNotificationRunnable6 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable6(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
+  explicit DaemonNotificationRunnable6(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
                                                          Arg5, Arg6))
       : mMethod(aMethod) {
     MOZ_ASSERT(mMethod);
@@ -718,7 +718,7 @@ class DaemonNotificationRunnable8 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable8(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
+  explicit DaemonNotificationRunnable8(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
                                                          Arg5, Arg6, Arg7,
                                                          Arg8))
       : mMethod(aMethod) {
@@ -800,7 +800,7 @@ class DaemonNotificationRunnable9 final : public details::DaemonRunnable {
   }
 
  private:
-  DaemonNotificationRunnable9(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
+  explicit DaemonNotificationRunnable9(Res (ObjectType::*aMethod)(Arg1, Arg2, Arg3, Arg4,
                                                          Arg5, Arg6, Arg7, Arg8,
                                                          Arg9))
       : mMethod(aMethod) {

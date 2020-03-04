@@ -21,10 +21,10 @@ class nsVolume : public nsIVolume {
   NS_DECL_NSIVOLUME
 
   // This constructor is used by the UpdateVolumeRunnable constructor
-  nsVolume(const Volume* aVolume);
+  explicit nsVolume(const Volume* aVolume);
 
   // This constructor is used by nsVolumeService::SetFakeVolumeState
-  nsVolume(const nsVolume* aVolume);
+  explicit nsVolume(const nsVolume* aVolume);
 
   // This constructor is used by ContentChild::RecvFileSystemUpdate which is
   // used to update the volume cache maintained in the child process.

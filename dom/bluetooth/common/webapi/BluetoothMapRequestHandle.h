@@ -109,7 +109,7 @@ class BluetoothMapRequestHandle final : public nsISupports,
                                                  ErrorResult& aRv);
 
  private:
-  BluetoothMapRequestHandle(nsPIDOMWindowInner* aOwner);
+  explicit BluetoothMapRequestHandle(nsPIDOMWindowInner* aOwner);
   ~BluetoothMapRequestHandle();
 
   nsCOMPtr<nsPIDOMWindowInner> mOwner;

@@ -199,7 +199,7 @@ void BluetoothHidManager::Uninit() {
 class BluetoothHidManager::UnregisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
  public:
-  UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
+  explicit UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
       : mRes(aRes) {}
 
   void OnError(BluetoothStatus aStatus) override {
@@ -379,7 +379,7 @@ void BluetoothHidManager::OnConnectError() {
 class BluetoothHidManager::ConnectResultHandler final
     : public BluetoothHidResultHandler {
  public:
-  ConnectResultHandler(BluetoothHidManager* aHidManager)
+  explicit ConnectResultHandler(BluetoothHidManager* aHidManager)
       : mHidManager(aHidManager) {
     MOZ_ASSERT(mHidManager);
   }
@@ -434,7 +434,7 @@ void BluetoothHidManager::OnDisconnectError() {
 class BluetoothHidManager::DisconnectResultHandler final
     : public BluetoothHidResultHandler {
  public:
-  DisconnectResultHandler(BluetoothHidManager* aHidManager)
+  explicit DisconnectResultHandler(BluetoothHidManager* aHidManager)
       : mHidManager(aHidManager) {
     MOZ_ASSERT(mHidManager);
   }

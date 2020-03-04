@@ -62,31 +62,12 @@ struct ParamTraits<mozilla::dom::RemoteDOMEvent> {
   static void Log(const paramType& aParam, std::wstring* aLog) {}
 };
 
+// Note: keep in sync with the enum in AudioChannel.webidl
 template <>
-struct ParamTraits<mozilla::dom::AudioChannel> {
-  typedef mozilla::dom::AudioChannel paramType;
-
-  static bool IsLegalValue(const paramType& aValue) {
-    return aValue <= mozilla::dom::AudioChannel::Publicnotification;
-  }
-
-  static void Write(Message* aMsg, const paramType& aValue) {
-    MOZ_ASSERT(IsLegalValue(aValue));
-    WriteParam(aMsg, (uint32_t)aValue);
-  }
-
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    uint32_t value;
-    if (!ReadParam(aMsg, aIter, &value) || !IsLegalValue(paramType(value))) {
-      return false;
-    }
-    *aResult = paramType(value);
-    return true;
-  }
-
-  static void Log(const paramType& aParam, std::wstring* aLog) {}
-};
+struct ParamTraits<mozilla::dom::AudioChannel>
+    : public ContiguousEnumSerializer<mozilla::dom::AudioChannel,
+                                      mozilla::dom::AudioChannel::Normal,
+                                      mozilla::dom::AudioChannel::System> {};
 
 template <>
 struct ParamTraits<nsSizeMode>

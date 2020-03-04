@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import json
-
+import os
 
 def generate(output, *input_paths):
     """
@@ -15,6 +15,10 @@ def generate(output, *input_paths):
     for path in input_paths:
         with open(path) as f:
             lines.update(f.readlines())
+
+    # Add the Gonk root path to the 3rd party list to prevent issues in the camera code.
+    if 'GONK_PATH' in os.environ:
+        lines.add(os.environ['GONK_PATH'])
 
     for line in lines:
         line = line.strip()

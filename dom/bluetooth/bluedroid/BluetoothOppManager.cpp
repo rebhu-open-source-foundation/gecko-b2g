@@ -89,8 +89,8 @@ BluetoothOppManager::Observe(nsISupports* aSubject, const char* aTopic,
 class BluetoothOppManager::SendSocketDataTask final : public Runnable {
  public:
   SendSocketDataTask(UniquePtr<uint8_t[]> aStream, uint32_t aSize)
-      : Runnable("SendSocketDataTask"),
-        mStream(std::move(aStream)),
+      : mStream(std::move(aStream)),
+        Runnable("SendSocketDataTask"),
         mSize(aSize) {
     MOZ_ASSERT(!NS_IsMainThread());
   }
@@ -153,7 +153,7 @@ class BluetoothOppManager::ReadFileTask final : public Runnable {
 
 class BluetoothOppManager::CloseSocketTask final : public Runnable {
  public:
-  CloseSocketTask(BluetoothSocket* aSocket)
+  explicit CloseSocketTask(BluetoothSocket* aSocket)
       : Runnable("BluetoothOppManager"), mSocket(aSocket) {
     MOZ_ASSERT(aSocket);
   }

@@ -279,7 +279,7 @@ BluetoothA2dpManager* BluetoothA2dpManager::Get() {
 class BluetoothA2dpManager::UnregisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
  public:
-  UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
+  explicit UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
       : mRes(aRes) {}
 
   void OnError(BluetoothStatus aStatus) override {

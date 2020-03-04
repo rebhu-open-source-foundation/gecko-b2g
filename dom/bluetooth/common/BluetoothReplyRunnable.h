@@ -78,7 +78,7 @@ class BluetoothReplyRunnable : public Runnable {
 
 class BluetoothVoidReplyRunnable : public BluetoothReplyRunnable {
  public:
-  BluetoothVoidReplyRunnable(DOMRequest* aReq, Promise* aPromise = nullptr);
+  explicit BluetoothVoidReplyRunnable(DOMRequest* aReq, Promise* aPromise = nullptr);
   ~BluetoothVoidReplyRunnable();
 
  protected:
@@ -160,7 +160,7 @@ class BluetoothReplyTaskQueue : public Runnable {
     RefPtr<SubReplyRunnable> mReply;
   };
 
-  BluetoothReplyTaskQueue(BluetoothReplyRunnable* aReply);
+  explicit BluetoothReplyTaskQueue(BluetoothReplyRunnable* aReply);
 
   void AppendTask(already_AddRefed<SubTask> aTask);
 

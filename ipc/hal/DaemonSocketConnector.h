@@ -20,7 +20,7 @@ class DaemonSocketConnector final : public UnixSocketConnector {
                                             unsigned long aPostfixLength,
                                             nsACString& aAddress);
 
-  DaemonSocketConnector(const nsACString& aSocketName);
+  explicit DaemonSocketConnector(const nsACString& aSocketName);
   ~DaemonSocketConnector();
 
   // Methods for |UnixSocketConnector|

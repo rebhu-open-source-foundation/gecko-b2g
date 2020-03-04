@@ -605,8 +605,8 @@ already_AddRefed<Promise> Telephony::SendTones(
   }
 
   if (!IsValidServiceId(serviceId)) {
-    aRv.Throw(NS_ERROR_INVALID_ARG);
     promise->MaybeReject(NS_ERROR_DOM_INVALID_ACCESS_ERR);
+    aRv.Throw(NS_ERROR_INVALID_ARG);
     return promise.forget();
   }
 

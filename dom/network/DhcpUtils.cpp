@@ -92,15 +92,15 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  snprintf(propName, sizeof(propName), "%s.%s.ipaddress", DHCP_PROP_NAME_PREFIX,
+  SprintfLiteral(propName, "%s.%s.ipaddress", DHCP_PROP_NAME_PREFIX,
            p2pInterface);
   Property::Get(propName, ipAddr, NULL);
 
-  snprintf(propName, sizeof(propName), "%s.%s.gateway", DHCP_PROP_NAME_PREFIX,
+  SprintfLiteral(propName, "%s.%s.gateway", DHCP_PROP_NAME_PREFIX,
            p2pInterface);
   Property::Get(propName, gateway, NULL);
 
-  snprintf(propName, sizeof(propName), "%s.%s.server", DHCP_PROP_NAME_PREFIX,
+  SprintfLiteral(propName, "%s.%s.server", DHCP_PROP_NAME_PREFIX,
            p2pInterface);
   Property::Get(propName, server, NULL);
 
@@ -110,7 +110,7 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
     strncpy(gateway, server, Property::VALUE_MAX_LENGTH);
   }
 
-  snprintf(propName, sizeof(propName), "%s.%s.mask", DHCP_PROP_NAME_PREFIX,
+  SprintfLiteral(propName, "%s.%s.mask", DHCP_PROP_NAME_PREFIX,
            p2pInterface);
   if (Property::Get(propName, propValue, NULL)) {
     int p;
@@ -120,7 +120,7 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
     // for non 255.255.255.255 inputs.  if we get that value check if it is
     // legit..
     if (mask == INADDR_NONE && strcmp(propValue, "255.255.255.255") != 0) {
-      snprintf(errMsg, sizeof(errMsg), "DHCP gave invalid net mask %s",
+      SprintfLiteral(errMsg, "DHCP gave invalid net mask %s",
                propValue);
       return -1;
     }
@@ -128,7 +128,7 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
       if (mask == 0) break;
       // check for non-contiguous netmask, e.g., 255.254.255.0
       if ((mask & 0x80000000) == 0) {
-        snprintf(errMsg, sizeof(errMsg), "DHCP gave invalid net mask %s",
+        SprintfLiteral(errMsg, "DHCP gave invalid net mask %s",
                  propValue);
         return -1;
       }
@@ -138,26 +138,26 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
   }
 
   for (x = 0; dns[x] != NULL; x++) {
-    snprintf(propName, sizeof(propName), "%s.%s.dns%d", DHCP_PROP_NAME_PREFIX,
+    SprintfLiteral(propName, "%s.%s.dns%d", DHCP_PROP_NAME_PREFIX,
              p2pInterface, x + 1);
     Property::Get(propName, dns[x], NULL);
   }
 
-  snprintf(propName, sizeof(propName), "%s.%s.leasetime", DHCP_PROP_NAME_PREFIX,
+  SprintfLiteral(propName, "%s.%s.leasetime", DHCP_PROP_NAME_PREFIX,
            p2pInterface);
   if (Property::Get(propName, propValue, NULL)) {
     *lease = atol(propValue);
   }
 
-  snprintf(propName, sizeof(propName), "%s.%s.vendorInfo",
+  SprintfLiteral(propName, "%s.%s.vendorInfo",
            DHCP_PROP_NAME_PREFIX, p2pInterface);
   Property::Get(propName, vendorInfo, NULL);
 
-  snprintf(propName, sizeof(propName), "%s.%s.domain", DHCP_PROP_NAME_PREFIX,
+  SprintfLiteral(propName, "%s.%s.domain", DHCP_PROP_NAME_PREFIX,
            p2pInterface);
   Property::Get(propName, domain, NULL);
 
-  snprintf(propName, sizeof(propName), "%s.%s.mtu", DHCP_PROP_NAME_PREFIX,
+  SprintfLiteral(propName, "%s.%s.mtu", DHCP_PROP_NAME_PREFIX,
            p2pInterface);
   Property::Get(propName, mtu, NULL);
 
@@ -180,12 +180,12 @@ int DhcpUtils::GetDhcpResults(const char* interface, char* ipAddr,
    * properties */
   char p2pInterface[MAX_INTERFACE_LENGTH];
   P2pIfaceReplace(interface, p2pInterface);
-  snprintf(resultPropName, sizeof(resultPropName), "%s.%s.result",
+  SprintfLiteral(resultPropName, "%s.%s.result",
            DHCP_PROP_NAME_PREFIX, p2pInterface);
 
   memset(propValue, '\0', Property::VALUE_MAX_LENGTH);
   if (!Property::Get(resultPropName, propValue, NULL)) {
-    snprintf(errMsg, sizeof(errMsg), "%s", "DHCP result property was not set");
+    SprintfLiteral(errMsg, "%s", "DHCP result property was not set");
     return -1;
   }
   if (strcmp(propValue, "ok") == 0) {
@@ -195,7 +195,7 @@ int DhcpUtils::GetDhcpResults(const char* interface, char* ipAddr,
     }
     return 0;
   } else {
-    snprintf(errMsg, sizeof(errMsg), "DHCP result was %s", propValue);
+    SprintfLiteral(errMsg, "DHCP result was %s", propValue);
     return -1;
   }
 }
@@ -222,10 +222,10 @@ int DhcpUtils::DhcpStart(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  snprintf(resultPropName, sizeof(resultPropName), "%s.%s.result",
+  SprintfLiteral(resultPropName, "%s.%s.result",
            DHCP_PROP_NAME_PREFIX, p2pInterface);
 
-  snprintf(daemonPropName, sizeof(daemonPropName), "%s_%s", DAEMON_PROP_NAME,
+  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME,
            p2pInterface);
 
   /* Erase any previous setting of the dhcp result property */
@@ -234,21 +234,21 @@ int DhcpUtils::DhcpStart(const char* interface) {
   /* Start the daemon and wait until it's ready */
   if (Property::Get(HOSTNAME_PROP_NAME, propValue, NULL) &&
       (propValue[0] != '\0'))
-    snprintf(daemonCmd, sizeof(daemonCmd), "%s_%s:-f %s -h %s %s", DAEMON_NAME,
+    SprintfLiteral(daemonCmd, "%s_%s:-f %s -h %s %s", DAEMON_NAME,
              p2pInterface, DHCP_CONFIG_PATH, propValue, interface);
   else
-    snprintf(daemonCmd, sizeof(daemonCmd), "%s_%s", DAEMON_NAME, p2pInterface);
+    SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
   memset(propValue, '\0', Property::VALUE_MAX_LENGTH);
   Property::Set(ctrlProp, daemonCmd);
   if (WaitForProperty(daemonPropName, desiredStatus, 10) < 0) {
-    snprintf(errMsg, sizeof(errMsg), "%s",
+    SprintfLiteral(errMsg, "%s",
              "Timed out waiting for dhcpcd to start");
     return -1;
   }
 
   /* Wait for the daemon to return a result */
   if (WaitForProperty(resultPropName, NULL, 30) < 0) {
-    snprintf(errMsg, sizeof(errMsg), "%s",
+    SprintfLiteral(errMsg, "%s",
              "Timed out waiting for DHCP to finish");
     return -1;
   }
@@ -270,13 +270,13 @@ int DhcpUtils::DhcpStop(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  snprintf(resultPropName, sizeof(resultPropName), "%s.%s.result",
+  SprintfLiteral(resultPropName, "%s.%s.result",
            DHCP_PROP_NAME_PREFIX, p2pInterface);
 
-  snprintf(daemonPropName, sizeof(daemonPropName), "%s_%s", DAEMON_PROP_NAME,
+  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME,
            p2pInterface);
 
-  snprintf(daemonCmd, sizeof(daemonCmd), "%s_%s", DAEMON_NAME, p2pInterface);
+  SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
 
   /* Stop the daemon and wait until it's reported to be stopped */
   Property::Set(ctrlProp, daemonCmd);
@@ -300,10 +300,10 @@ int DhcpUtils::DhcpRelease(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  snprintf(daemonPropName, sizeof(daemonPropName), "%s_%s", DAEMON_PROP_NAME,
+  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME,
            p2pInterface);
 
-  snprintf(daemonCmd, sizeof(daemonCmd), "%s_%s", DAEMON_NAME, p2pInterface);
+  SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
 
   /* Stop the daemon and wait until it's reported to be stopped */
   Property::Set(ctrlProp, daemonCmd);
@@ -332,21 +332,21 @@ int DhcpUtils::DhcpRenew(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  snprintf(resultPropName, sizeof(resultPropName), "%s.%s.result",
+  SprintfLiteral(resultPropName, "%s.%s.result",
            DHCP_PROP_NAME_PREFIX, p2pInterface);
 
   // Erase any previous setting of the dhcp result property
   Property::Set(resultPropName, "");
 
   // Start the renew daemon and wait until it's ready
-  snprintf(daemonCmd, sizeof(daemonCmd), "%s_%s:%s", DAEMON_NAME_RENEW,
+  SprintfLiteral(daemonCmd, "%s_%s:%s", DAEMON_NAME_RENEW,
            p2pInterface, interface);
   memset(propValue, '\0', Property::VALUE_MAX_LENGTH);
   Property::Set(ctrlProp, daemonCmd);
 
   // Wait for the daemon to return a result
   if (WaitForProperty(resultPropName, NULL, 30) < 0) {
-    snprintf(errMsg, sizeof(errMsg), "%s",
+    SprintfLiteral(errMsg, "%s",
              "Timed out waiting for DHCP Renew to finish");
     return -1;
   }

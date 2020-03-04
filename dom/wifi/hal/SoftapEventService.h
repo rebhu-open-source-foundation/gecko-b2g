@@ -14,7 +14,7 @@ class SoftapEventService
     : virtual public android::BinderService<SoftapEventService>,
       virtual public android::net::wifi::BnApInterfaceEventCallback {
  public:
-  SoftapEventService(const std::string& aInterfaceName)
+  explicit SoftapEventService(const std::string& aInterfaceName)
       : android::net::wifi::BnApInterfaceEventCallback(),
         mSoftapInterfaceName(aInterfaceName) {}
   virtual ~SoftapEventService() = default;

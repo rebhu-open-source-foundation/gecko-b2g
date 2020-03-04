@@ -145,7 +145,7 @@ Result_t SupplicantStaManager::InitSupplicantInterface() {
 
     SupplicantStatus response;
     mSupplicant->registerCallback(
-        this, [&response](SupplicantStatus status) { response = status; });
+        this, [&response](const SupplicantStatus &status) { response = status; });
     if (response.code != SupplicantStatusCode::SUCCESS) {
       WIFI_LOGE(LOG_TAG, "registerCallback failed: %d, reason: %s",
                 response.code, response.debugMessage.c_str());
@@ -357,7 +357,7 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::GetSupplicantStaIface() {
   }
 
   staIface->registerCallback(
-      this, [&response](SupplicantStatus status) { response = status; });
+      this, [&response](const SupplicantStatus &status) { response = status; });
 
   if (response.code != SupplicantStatusCode::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "registerCallback failed: %d", response.code);
@@ -401,7 +401,7 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::AddSupplicantStaIface() {
   }
 
   staIface->registerCallback(
-      this, [&response](SupplicantStatus status) { response = status; });
+      this, [&response](const SupplicantStatus &status) { response = status; });
 
   if (response.code != SupplicantStatusCode::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "registerCallback failed: %d", response.code);

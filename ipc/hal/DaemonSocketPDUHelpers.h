@@ -178,7 +178,7 @@ nsresult PackPDU(const DaemonSocketPDUHeader& aIn, DaemonSocketPDU& aPDU);
  */
 template <typename Tin, typename Tout>
 struct PackConversion {
-  PackConversion(const Tin& aIn) : mIn(aIn) {}
+  explicit PackConversion(const Tin& aIn) : mIn(aIn) {}
 
   const Tin& mIn;
 };
@@ -240,7 +240,7 @@ inline nsresult PackPDU<char>(const PackArray<char>& aIn,
  * as the first argument to |PackPDU| to pack a string.
  */
 struct PackCString0 {
-  PackCString0(const nsCString& aString) : mString(aString) {}
+  explicit PackCString0(const nsCString& aString) : mString(aString) {}
 
   const nsCString& mString;
 };
@@ -260,7 +260,7 @@ inline nsresult PackPDU(const PackCString0& aIn, DaemonSocketPDU& aPDU) {
  */
 template <typename T>
 struct PackReversed {
-  PackReversed(const T& aValue) : mValue(aValue) {}
+  explicit PackReversed(const T& aValue) : mValue(aValue) {}
 
   const T& mValue;
 };
@@ -602,7 +602,7 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, nsDependentCString& aOut);
  * as the first argument to |UnpackPDU| to unpack a string.
  */
 struct UnpackCString0 {
-  UnpackCString0(nsCString& aString) : mString(&aString) {}
+  explicit UnpackCString0(nsCString& aString) : mString(&aString) {}
 
   nsCString* mString;  // non-null by construction
 };
@@ -617,7 +617,7 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, const UnpackCString0& aOut);
  * it to wide-character encoding.
  */
 struct UnpackString0 {
-  UnpackString0(nsString& aString) : mString(&aString) {}
+  explicit UnpackString0(nsString& aString) : mString(&aString) {}
 
   nsString* mString;  // non-null by construction
 };
@@ -633,7 +633,7 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, const UnpackString0& aOut);
  */
 template <typename Tin, typename Tout>
 struct UnpackConversion {
-  UnpackConversion(Tout& aOut) : mOut(aOut) {}
+  explicit UnpackConversion(Tout& aOut) : mOut(aOut) {}
 
   Tout& mOut;
 };
@@ -719,9 +719,9 @@ inline nsresult UnpackPDU(DaemonSocketPDU& aPDU, nsTArray<T>& aOut) {
  */
 template <typename T>
 struct UnpackReversed {
-  UnpackReversed(T& aValue) : mValue(&aValue) {}
+  explicit UnpackReversed(T& aValue) : mValue(&aValue) {}
 
-  UnpackReversed(T&& aValue) : mValue(&aValue) {}
+  explicit UnpackReversed(T&& aValue) : mValue(&aValue) {}
 
   T* mValue;
 };
@@ -758,7 +758,7 @@ inline nsresult UnpackPDU(DaemonSocketPDU& aPDU,
 template <typename T1>
 class ConstantInitOp1 final {
  public:
-  ConstantInitOp1(const T1& aArg1) : mArg1(aArg1) {}
+  explicit ConstantInitOp1(const T1& aArg1) : mArg1(aArg1) {}
 
   nsresult operator()(T1& aArg1) const {
     aArg1 = mArg1;
@@ -811,7 +811,7 @@ class ConstantInitOp3 final {
 // |PDUInitOP| provides functionality for init operators that unpack PDUs.
 class PDUInitOp {
  protected:
-  PDUInitOp(DaemonSocketPDU& aPDU) : mPDU(&aPDU) {}
+  explicit PDUInitOp(DaemonSocketPDU& aPDU) : mPDU(&aPDU) {}
 
   DaemonSocketPDU& GetPDU() const {
     return *mPDU;  // cannot be nullptr
@@ -829,7 +829,7 @@ class PDUInitOp {
 // arguments.
 class UnpackPDUInitOp final : private PDUInitOp {
  public:
-  UnpackPDUInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit UnpackPDUInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()() const {
     WarnAboutTrailingData();

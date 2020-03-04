@@ -198,7 +198,7 @@ class UnixSocketRawData final : public UnixSocketIOBuffer {
    *
    * @param aSize The number of bytes to allocate.
    */
-  UnixSocketRawData(size_t aSize);
+  explicit UnixSocketRawData(size_t aSize);
 
   /**
    * The destructor releases the buffer's raw memory.
@@ -371,7 +371,7 @@ class SocketTask : public mozilla::Runnable {
   T* GetIO() const { return mIO; }
 
  protected:
-  SocketTask(T* aIO) : mozilla::Runnable("SocketTask"), mIO(aIO) {
+  explicit SocketTask(T* aIO) : mozilla::Runnable("SocketTask"), mIO(aIO) {
     MOZ_ASSERT(aIO);
   }
 
@@ -401,7 +401,7 @@ class SocketEventTask final : public SocketTask<SocketIOBase> {
  */
 class SocketRequestClosingTask final : public SocketTask<SocketIOBase> {
  public:
-  SocketRequestClosingTask(SocketIOBase* aIO);
+  explicit SocketRequestClosingTask(SocketIOBase* aIO);
 
   nsresult Run() override;
 };
@@ -411,7 +411,7 @@ class SocketRequestClosingTask final : public SocketTask<SocketIOBase> {
  */
 class SocketDeleteInstanceTask final : public mozilla::Runnable {
  public:
-  SocketDeleteInstanceTask(SocketIOBase* aIO);
+  explicit SocketDeleteInstanceTask(SocketIOBase* aIO);
 
   nsresult Run() override;
 
@@ -441,7 +441,7 @@ class SocketIOTask : public mozilla::CancelableRunnable {
   bool IsCanceled() const { return !mIO; }
 
  protected:
-  SocketIOTask(Tio* aIO)
+  explicit SocketIOTask(Tio* aIO)
       : mozilla::CancelableRunnable("SocketIOTask"), mIO(aIO) {
     MOZ_ASSERT(mIO);
   }
@@ -456,7 +456,7 @@ class SocketIOTask : public mozilla::CancelableRunnable {
  */
 class SocketIOShutdownTask final : public SocketIOTask<SocketIOBase> {
  public:
-  SocketIOShutdownTask(SocketIOBase* aIO);
+  explicit SocketIOShutdownTask(SocketIOBase* aIO);
 
   nsresult Run();
 };

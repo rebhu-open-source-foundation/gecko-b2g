@@ -55,7 +55,7 @@ class BluetoothChild : public PBluetoothChild {
   virtual bool DeallocPBluetoothRequestChild(PBluetoothRequestChild* aActor);
 
  protected:
-  BluetoothChild(BluetoothServiceChildProcess* aBluetoothService);
+  explicit BluetoothChild(BluetoothServiceChildProcess* aBluetoothService);
   virtual ~BluetoothChild();
 
   void BeginShutdown();

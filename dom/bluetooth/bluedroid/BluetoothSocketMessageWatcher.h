@@ -85,7 +85,7 @@ class SocketMessageWatcher : public MessageLoopForIO::Watcher {
  */
 class SocketMessageWatcherTask final : public Runnable {
  public:
-  SocketMessageWatcherTask(SocketMessageWatcher* aWatcher);
+  explicit SocketMessageWatcherTask(SocketMessageWatcher* aWatcher);
 
   NS_IMETHOD Run() override;
 
@@ -98,7 +98,7 @@ class SocketMessageWatcherTask final : public Runnable {
  */
 class DeleteSocketMessageWatcherTask final : public Runnable {
  public:
-  DeleteSocketMessageWatcherTask(BluetoothSocketResultHandler* aRes);
+  explicit DeleteSocketMessageWatcherTask(BluetoothSocketResultHandler* aRes);
 
   NS_IMETHOD Run() override;
 

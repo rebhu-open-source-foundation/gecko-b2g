@@ -22,7 +22,7 @@ class nsRilIndicationResult final : public nsRilResult,
   // NS_DECL_ISUPPORTS
   NS_DECL_NSIRILINDICATIONRESULT
   // For those has no parameter notify.
-  nsRilIndicationResult(const nsAString& aRilMessageType);
+  explicit nsRilIndicationResult(const nsAString& aRilMessageType);
   // For radioStateChanged
   void updateRadioStateChanged(int32_t aRadioState);
   // For newSmsOnSim

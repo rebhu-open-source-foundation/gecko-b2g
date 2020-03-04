@@ -322,7 +322,7 @@ class BluetoothDaemonCoreModule {
 
 class BluetoothDaemonCoreInterface final : public BluetoothCoreInterface {
  public:
-  BluetoothDaemonCoreInterface(BluetoothDaemonCoreModule* aModule);
+  explicit BluetoothDaemonCoreInterface(BluetoothDaemonCoreModule* aModule);
   ~BluetoothDaemonCoreInterface();
 
   void SetNotificationHandler(

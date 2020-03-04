@@ -423,7 +423,7 @@ class BluetoothDaemonAvrcpModule::NotificationHandlerWrapper final {
 class BluetoothDaemonAvrcpModule::RemoteFeatureInitOp final
     : private PDUInitOp {
  public:
-  RemoteFeatureInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit RemoteFeatureInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1, unsigned long& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
@@ -478,7 +478,7 @@ void BluetoothDaemonAvrcpModule::ListPlayerAppValuesNtf(
 class BluetoothDaemonAvrcpModule::GetPlayerAppValueInitOp final
     : private PDUInitOp {
  public:
-  GetPlayerAppValueInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit GetPlayerAppValueInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(uint8_t& aArg1,
                       UniquePtr<BluetoothAvrcpPlayerAttribute[]>& aArg2) const {
@@ -512,7 +512,7 @@ void BluetoothDaemonAvrcpModule::GetPlayerAppValueNtf(
 class BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextInitOp final
     : private PDUInitOp {
  public:
-  GetPlayerAppAttrsTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit GetPlayerAppAttrsTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(uint8_t& aArg1,
                       UniquePtr<BluetoothAvrcpPlayerAttribute[]>& aArg2) const {
@@ -546,7 +546,7 @@ void BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextNtf(
 class BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextInitOp final
     : private PDUInitOp {
  public:
-  GetPlayerAppValuesTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit GetPlayerAppValuesTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(uint8_t& aArg1, uint8_t& aArg2,
                       UniquePtr<uint8_t[]>& aArg3) const {
@@ -592,7 +592,7 @@ void BluetoothDaemonAvrcpModule::SetPlayerAppValueNtf(
 class BluetoothDaemonAvrcpModule::GetElementAttrInitOp final
     : private PDUInitOp {
  public:
-  GetElementAttrInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit GetElementAttrInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(uint8_t& aArg1,
                       UniquePtr<BluetoothAvrcpMediaAttribute[]>& aArg2) const {

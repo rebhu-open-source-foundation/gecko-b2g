@@ -990,6 +990,7 @@ enum BluetoothA2dpConnectionState {
   A2DP_CONNECTION_STATE_DISCONNECTING
 };
 
+// Note: Keep in sync with BluetoothMessageUtils.h IPC serializer.
 enum ControlPlayStatus {
   PLAYSTATUS_STOPPED = 0x00,
   PLAYSTATUS_PLAYING = 0x01,

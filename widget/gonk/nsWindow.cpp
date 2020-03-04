@@ -325,7 +325,7 @@ nsWindow::DispatchTouchEventForAPZ(const MultiTouchInput& aInput,
 class DispatchTouchInputOnControllerThread : public mozilla::Runnable
 {
 public:
-  DispatchTouchInputOnControllerThread(const MultiTouchInput& aInput)
+  explicit DispatchTouchInputOnControllerThread(const MultiTouchInput& aInput)
     : mozilla::Runnable("DispatchTouchInputOnController")
     , mInput(aInput)
   {

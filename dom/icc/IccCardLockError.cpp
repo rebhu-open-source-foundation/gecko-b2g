@@ -37,7 +37,7 @@ NS_INTERFACE_MAP_END
 
 IccCardLockError::IccCardLockError(nsPIDOMWindowInner* aWindow,
                                    const nsAString& aName, int16_t aRetryCount)
-    : mWindow(aWindow), mName(aName), mRetryCount(aRetryCount) {}
+    : mWindow(aWindow), mRetryCount(aRetryCount), mName(aName) {}
 
 JSObject* IccCardLockError::WrapObject(JSContext* aCx,
                                        JS::Handle<JSObject*> aGivenProto) {

@@ -116,7 +116,7 @@ class nsTdScdmaSignalStrength final : public nsITdScdmaSignalStrength {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSITDSCDMASIGNALSTRENGTH
-  nsTdScdmaSignalStrength(int32_t aRscp);
+  explicit nsTdScdmaSignalStrength(int32_t aRscp);
 
  private:
   ~nsTdScdmaSignalStrength(){};
@@ -449,7 +449,7 @@ class nsHardwareConfigSim final : public nsIHardwareConfigSim {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIHARDWARECONFIGSIM
-  nsHardwareConfigSim(const nsAString& aModemUuid);
+  explicit nsHardwareConfigSim(const nsAString& aModemUuid);
 
  private:
   ~nsHardwareConfigSim(){};
@@ -690,7 +690,7 @@ class nsCallForwardInfo final : public nsICallForwardInfo {
 
 class nsRilResult {
  public:
-  nsRilResult(const nsAString& aRilMessageType);
+  explicit nsRilResult(const nsAString& aRilMessageType);
   nsRilResult(const nsAString& aRilMessageType, int32_t aRilMessageToken,
               int32_t aErrorMsg);
   RefPtr<nsRilCellInfo> convertRilCellInfo(const CellInfo& aCellInfo);

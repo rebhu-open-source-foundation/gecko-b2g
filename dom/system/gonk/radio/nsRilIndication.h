@@ -27,7 +27,7 @@ class nsRilWorker;
 class nsRilIndication : public IRadioIndication {
  public:
   RefPtr<nsRilWorker> mRIL;
-  nsRilIndication(nsRilWorker* aRil);
+  explicit nsRilIndication(nsRilWorker* aRil);
   ~nsRilIndication();
 
   Return<void> radioStateChanged(RadioIndicationType type,

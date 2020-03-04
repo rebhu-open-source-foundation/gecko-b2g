@@ -1292,7 +1292,7 @@ nsGonkCameraControl::StopRecordingImpl()
   class RecordingComplete : public Runnable
   {
   public:
-    RecordingComplete(already_AddRefed<DeviceStorageFile> aFile)
+    explicit RecordingComplete(already_AddRefed<DeviceStorageFile> aFile)
       : mozilla::Runnable("RecordingComplete")
       , mFile(aFile)
     { }
@@ -1412,7 +1412,7 @@ class AutoFocusMovingTimerCallback : public nsITimerCallback
 public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
-  AutoFocusMovingTimerCallback(nsGonkCameraControl* aCameraControl)
+  explicit AutoFocusMovingTimerCallback(nsGonkCameraControl* aCameraControl)
     : mCameraControl(aCameraControl)
   { }
 
@@ -1902,7 +1902,7 @@ nsGonkCameraControl::SetVideoConfiguration(const Configuration& aConfig)
 class GonkRecorderListener : public IMediaRecorderClient
 {
 public:
-  GonkRecorderListener(nsGonkCameraControl* aCameraControl)
+  explicit GonkRecorderListener(nsGonkCameraControl* aCameraControl)
     : mCameraControl(aCameraControl)
   {
     DOM_CAMERA_LOGT("%s:%d : this=%p, aCameraControl=%p\n",

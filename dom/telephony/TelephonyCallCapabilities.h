@@ -23,7 +23,7 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TelephonyCallCapabilities)
 
-  TelephonyCallCapabilities(nsPIDOMWindowInner* aWindow);
+  explicit TelephonyCallCapabilities(nsPIDOMWindowInner* aWindow);
 
   TelephonyCallCapabilities(nsPIDOMWindowInner* aWindow, uint32_t aCapabilities);
 

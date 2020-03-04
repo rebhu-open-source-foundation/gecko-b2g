@@ -249,7 +249,7 @@ class BluetoothGattServer final : public nsISupports {
  public:
   NS_DECL_ISUPPORTS
 
-  BluetoothGattServer(const BluetoothUuid& aAppUuid)
+  explicit BluetoothGattServer(const BluetoothUuid& aAppUuid)
       : mAppUuid(aAppUuid), mServerIf(0), mIsRegistering(false) {}
 
   BluetoothUuid mAppUuid;
@@ -506,7 +506,7 @@ void BluetoothGattManager::InitGattInterface(
 class BluetoothGattManager::UnregisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
  public:
-  UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
+  explicit UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
       : mRes(aRes) {}
 
   void OnError(BluetoothStatus aStatus) override {
@@ -620,7 +620,7 @@ void BluetoothGattManager::DeinitGattInterface(
 class BluetoothGattManager::RegisterClientResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  RegisterClientResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
+  explicit RegisterClientResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
 
@@ -653,7 +653,7 @@ class BluetoothGattManager::RegisterClientResultHandler final
 class BluetoothGattManager::UnregisterClientResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  UnregisterClientResultHandler(BluetoothGattClient* aClient)
+  explicit UnregisterClientResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -713,7 +713,7 @@ void BluetoothGattManager::UnregisterClient(int aClientIf,
 class BluetoothGattManager::StartLeScanResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  StartLeScanResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {}
+  explicit StartLeScanResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {}
 
   void Scan() override {
     MOZ_ASSERT(mClient);
@@ -831,7 +831,7 @@ void BluetoothGattManager::StopLeScan(const BluetoothUuid& aScanUuid,
 class BluetoothGattManager::StartAdvertisingResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  StartAdvertisingResultHandler(BluetoothGattClient* aClient)
+  explicit StartAdvertisingResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -869,7 +869,7 @@ class BluetoothGattManager::StartAdvertisingResultHandler final
 class BluetoothGattManager::SetAdvDataResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  SetAdvDataResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
+  explicit SetAdvDataResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
 
@@ -933,7 +933,7 @@ void BluetoothGattManager::StartAdvertising(
 class BluetoothGattManager::StopAdvertisingResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  StopAdvertisingResultHandler(BluetoothGattClient* aClient)
+  explicit StopAdvertisingResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -998,7 +998,7 @@ void BluetoothGattManager::StopAdvertising(const BluetoothUuid& aAppUuid,
 class BluetoothGattManager::ConnectResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ConnectResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
+  explicit ConnectResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
 
@@ -1056,7 +1056,7 @@ void BluetoothGattManager::Connect(const BluetoothUuid& aAppUuid,
 class BluetoothGattManager::DisconnectResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  DisconnectResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
+  explicit DisconnectResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
 
@@ -1107,7 +1107,7 @@ void BluetoothGattManager::Disconnect(const BluetoothUuid& aAppUuid,
 class BluetoothGattManager::DiscoverResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  DiscoverResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
+  explicit DiscoverResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
 
@@ -1162,7 +1162,7 @@ void BluetoothGattManager::Discover(const BluetoothUuid& aAppUuid,
 class BluetoothGattManager::ReadRemoteRssiResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ReadRemoteRssiResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
+  explicit ReadRemoteRssiResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
 
@@ -1206,7 +1206,7 @@ void BluetoothGattManager::ReadRemoteRssi(int aClientIf,
 class BluetoothGattManager::RegisterNotificationsResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  RegisterNotificationsResultHandler(BluetoothGattClient* aClient)
+  explicit RegisterNotificationsResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -1275,7 +1275,7 @@ void BluetoothGattManager::RegisterNotifications(
 class BluetoothGattManager::DeregisterNotificationsResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  DeregisterNotificationsResultHandler(BluetoothGattClient* aClient)
+  explicit DeregisterNotificationsResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -1343,7 +1343,7 @@ void BluetoothGattManager::DeregisterNotifications(
 class BluetoothGattManager::ReadCharacteristicValueResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ReadCharacteristicValueResultHandler(BluetoothGattClient* aClient)
+  explicit ReadCharacteristicValueResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -1414,7 +1414,7 @@ void BluetoothGattManager::ReadCharacteristicValue(
 class BluetoothGattManager::WriteCharacteristicValueResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  WriteCharacteristicValueResultHandler(BluetoothGattClient* aClient)
+  explicit WriteCharacteristicValueResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -1488,7 +1488,7 @@ void BluetoothGattManager::WriteCharacteristicValue(
 class BluetoothGattManager::ReadDescriptorValueResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ReadDescriptorValueResultHandler(BluetoothGattClient* aClient)
+  explicit ReadDescriptorValueResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -1557,7 +1557,7 @@ void BluetoothGattManager::ReadDescriptorValue(
 class BluetoothGattManager::WriteDescriptorValueResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  WriteDescriptorValueResultHandler(BluetoothGattClient* aClient)
+  explicit WriteDescriptorValueResultHandler(BluetoothGattClient* aClient)
       : mClient(aClient) {
     MOZ_ASSERT(mClient);
   }
@@ -1628,7 +1628,7 @@ void BluetoothGattManager::WriteDescriptorValue(
 class BluetoothGattManager::RegisterServerResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  RegisterServerResultHandler(BluetoothGattServer* aServer) : mServer(aServer) {
+  explicit RegisterServerResultHandler(BluetoothGattServer* aServer) : mServer(aServer) {
     MOZ_ASSERT(mServer);
     MOZ_ASSERT(!mServer->mIsRegistering);
 
@@ -1799,7 +1799,7 @@ void BluetoothGattManager::ConnectPeripheral(
 class BluetoothGattManager::DisconnectPeripheralResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  DisconnectPeripheralResultHandler(BluetoothGattServer* aServer)
+  explicit DisconnectPeripheralResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -1863,7 +1863,7 @@ void BluetoothGattManager::DisconnectPeripheral(
 class BluetoothGattManager::UnregisterServerResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  UnregisterServerResultHandler(BluetoothGattServer* aServer)
+  explicit UnregisterServerResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -1924,7 +1924,7 @@ void BluetoothGattManager::UnregisterServer(int aServerIf,
 class BluetoothGattManager::ServerAddServiceResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerAddServiceResultHandler(BluetoothGattServer* aServer)
+  explicit ServerAddServiceResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -1982,7 +1982,7 @@ void BluetoothGattManager::ServerAddService(
 class BluetoothGattManager::ServerAddIncludedServiceResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerAddIncludedServiceResultHandler(BluetoothGattServer* aServer)
+  explicit ServerAddIncludedServiceResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -2041,7 +2041,7 @@ void BluetoothGattManager::ServerAddIncludedService(
 class BluetoothGattManager::ServerAddCharacteristicResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerAddCharacteristicResultHandler(BluetoothGattServer* aServer)
+  explicit ServerAddCharacteristicResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -2101,7 +2101,7 @@ void BluetoothGattManager::ServerAddCharacteristic(
 class BluetoothGattManager::ServerAddDescriptorResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerAddDescriptorResultHandler(BluetoothGattServer* aServer)
+  explicit ServerAddDescriptorResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -2162,7 +2162,7 @@ void BluetoothGattManager::ServerAddDescriptor(
 class BluetoothGattManager::ServerRemoveDescriptorResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerRemoveDescriptorResultHandler(BluetoothGattServer* aServer)
+  explicit ServerRemoveDescriptorResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -2220,7 +2220,7 @@ void BluetoothGattManager::ServerRemoveService(
 class BluetoothGattManager::ServerStartServiceResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerStartServiceResultHandler(BluetoothGattServer* aServer)
+  explicit ServerStartServiceResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -2278,7 +2278,7 @@ void BluetoothGattManager::ServerStartService(
 class BluetoothGattManager::ServerStopServiceResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerStopServiceResultHandler(BluetoothGattServer* aServer)
+  explicit ServerStopServiceResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -2336,7 +2336,7 @@ void BluetoothGattManager::ServerStopService(
 class BluetoothGattManager::ServerSendResponseResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerSendResponseResultHandler(BluetoothGattServer* aServer)
+  explicit ServerSendResponseResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }
@@ -2400,7 +2400,7 @@ void BluetoothGattManager::ServerSendResponse(
 class BluetoothGattManager::ServerSendIndicationResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  ServerSendIndicationResultHandler(BluetoothGattServer* aServer)
+  explicit ServerSendIndicationResultHandler(BluetoothGattServer* aServer)
       : mServer(aServer) {
     MOZ_ASSERT(mServer);
   }

@@ -34,7 +34,7 @@ class BluetoothService : public nsIObserver {
  public:
   class ToggleBtAck : public Runnable {
    public:
-    ToggleBtAck(bool aEnabled);
+    explicit ToggleBtAck(bool aEnabled);
     NS_IMETHOD Run();
 
    private:

@@ -214,7 +214,7 @@ enum {
 class BpGonkGraphicBufferConsumer : public BpInterface<IGonkGraphicBufferConsumer>
 {
 public:
-    BpGonkGraphicBufferConsumer(const sp<IBinder>& impl)
+    explicit BpGonkGraphicBufferConsumer(const sp<IBinder>& impl)
         : BpInterface<IGonkGraphicBufferConsumer>(impl)
     {
     }

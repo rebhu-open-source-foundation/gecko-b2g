@@ -637,7 +637,7 @@ GetCurrentBatteryCharge(int* aCharge)
 static bool
 GetCurrentBatteryCharging(int* aCharging)
 {
-  static const DebugOnly<int> BATTERY_NOT_CHARGING = 0;
+  static const int BATTERY_NOT_CHARGING = 0;
   static const int BATTERY_CHARGING_USB = 1;
   static const int BATTERY_CHARGING_AC  = 2;
 
@@ -1130,9 +1130,10 @@ static pthread_t sAlarmFireWatcherThread;
 // If |sAlarmData| is non-null, it's owned by the alarm-watcher thread.
 struct AlarmData {
 public:
-  AlarmData(int aFd) : mFd(aFd),
-                       mGeneration(sNextGeneration++),
-                       mShuttingDown(false) {}
+  explicit AlarmData(int aFd) :
+    mFd(aFd),
+    mGeneration(sNextGeneration++),
+    mShuttingDown(false) {}
   ScopedClose mFd;
   int mGeneration;
   bool mShuttingDown;
@@ -1147,7 +1148,7 @@ AlarmData* sAlarmData = nullptr;
 
 class AlarmFiredEvent : public Runnable {
  public:
-  AlarmFiredEvent(int aGeneration)
+  explicit AlarmFiredEvent(int aGeneration)
       : Runnable("AlarmFiredEvent"), mGeneration(aGeneration) {}
 
   NS_IMETHOD Run() override {
@@ -1301,7 +1302,7 @@ typedef binder::Status Status;
 
 class FlashlightStateEvent : public Runnable {
  public:
-  FlashlightStateEvent(hal::FlashlightInformation info)
+  explicit FlashlightStateEvent(hal::FlashlightInformation info)
     : mozilla::Runnable("FlashlightStateEvent"),
       mInfo(info) {
   }

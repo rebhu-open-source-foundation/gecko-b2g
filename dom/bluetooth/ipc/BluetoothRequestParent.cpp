@@ -23,7 +23,7 @@ class BluetoothRequestParent::ReplyRunnable final
   BluetoothRequestParent* mRequest;
 
  public:
-  ReplyRunnable(BluetoothRequestParent* aRequest)
+  explicit ReplyRunnable(BluetoothRequestParent* aRequest)
       : BluetoothReplyRunnable(nullptr), mRequest(aRequest) {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(aRequest);

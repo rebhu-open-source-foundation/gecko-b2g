@@ -21,7 +21,7 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIIMSREGCALLBACK
 
-  ImsRegCallback(Promise* aPromise);
+  explicit ImsRegCallback(Promise* aPromise);
 
 private:
   ~ImsRegCallback();

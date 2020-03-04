@@ -825,7 +825,7 @@ class BluetoothDaemonGattInterface final : public BluetoothGattInterface {
   class InitResultHandler;
 
  public:
-  BluetoothDaemonGattInterface(BluetoothDaemonGattModule* aModule);
+  explicit BluetoothDaemonGattInterface(BluetoothDaemonGattModule* aModule);
   ~BluetoothDaemonGattInterface();
 
   void SetNotificationHandler(

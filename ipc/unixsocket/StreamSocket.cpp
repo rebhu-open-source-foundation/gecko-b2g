@@ -235,7 +235,7 @@ void StreamSocketIO::ShutdownOnIOThread() {
 
 class StreamSocketIO::ConnectTask final : public SocketIOTask<StreamSocketIO> {
  public:
-  ConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {}
+  explicit ConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {}
 
   nsresult Run() override {
     MOZ_ASSERT(!GetIO()->IsConsumerThread());
@@ -249,7 +249,7 @@ class StreamSocketIO::ConnectTask final : public SocketIOTask<StreamSocketIO> {
 class StreamSocketIO::DelayedConnectTask final
     : public SocketIOTask<StreamSocketIO> {
  public:
-  DelayedConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {}
+  explicit DelayedConnectTask(StreamSocketIO* aIO) : SocketIOTask<StreamSocketIO>(aIO) {}
 
   nsresult Run() override {
     MOZ_ASSERT(GetIO()->IsConsumerThread());

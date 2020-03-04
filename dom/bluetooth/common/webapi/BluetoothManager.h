@@ -81,7 +81,7 @@ class BluetoothManager final : public DOMEventTargetHelper,
   static bool B2GGattClientEnabled(JSContext* cx, JSObject* aGlobal);
 
  private:
-  BluetoothManager(nsPIDOMWindowInner* aWindow);
+  explicit BluetoothManager(nsPIDOMWindowInner* aWindow);
   ~BluetoothManager();
 
   /**

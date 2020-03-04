@@ -21,7 +21,7 @@ class DroidSocketImpl;
 
 class BluetoothSocket final : public mozilla::ipc::DataSocket {
  public:
-  BluetoothSocket(BluetoothSocketObserver* aObserver);
+  explicit BluetoothSocket(BluetoothSocketObserver* aObserver);
   ~BluetoothSocket();
 
   void SetObserver(BluetoothSocketObserver* aObserver);

@@ -1085,7 +1085,7 @@ void BluetoothDaemonGattModule::ClientReadRemoteRssiRsp(
 class BluetoothDaemonGattModule::ClientGetDeviceTypeInitOp final
     : private PDUInitOp {
  public:
-  ClientGetDeviceTypeInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ClientGetDeviceTypeInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothTypeOfDevice& aArg1) const {
     /* Read device type */
@@ -1330,7 +1330,7 @@ void BluetoothDaemonGattModule::ClientRegisterClientNtf(
 class BluetoothDaemonGattModule::ClientScanResultInitOp final
     : private PDUInitOp {
  public:
-  ClientScanResultInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ClientScanResultInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1, int& aArg2,
                       BluetoothGattAdvData& aArg3) const {
@@ -1493,7 +1493,7 @@ void BluetoothDaemonGattModule::ServerRegisterServerNtf(
 class BluetoothDaemonGattModule::ServerConnectionInitOp final
     : private PDUInitOp {
  public:
-  ServerConnectionInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ServerConnectionInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(int& aArg1, int& aArg2, bool& aArg3,
                       BluetoothAddress& aArg4) const {
@@ -1550,7 +1550,7 @@ void BluetoothDaemonGattModule::ServerIncludedServiceAddedNtf(
 class BluetoothDaemonGattModule::ServerCharacteristicAddedInitOp final
     : private PDUInitOp {
  public:
-  ServerCharacteristicAddedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ServerCharacteristicAddedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothGattStatus& aArg1, int& aArg2,
                       BluetoothUuid& aArg3, BluetoothAttributeHandle& aArg4,
@@ -1599,7 +1599,7 @@ void BluetoothDaemonGattModule::ServerCharacteristicAddedNtf(
 class BluetoothDaemonGattModule::ServerDescriptorAddedInitOp final
     : private PDUInitOp {
  public:
-  ServerDescriptorAddedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ServerDescriptorAddedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothGattStatus& aArg1, int& aArg2,
                       BluetoothUuid& aArg3, BluetoothAttributeHandle& aArg4,
@@ -1675,7 +1675,7 @@ void BluetoothDaemonGattModule::ServerRequestReadNtf(
 class BluetoothDaemonGattModule::ServerRequestWriteInitOp final
     : private PDUInitOp {
  public:
-  ServerRequestWriteInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ServerRequestWriteInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(int& aArg1, int& aArg2, BluetoothAddress& aArg3,
                       BluetoothAttributeHandle& aArg4, int& aArg5, int& aArg6,

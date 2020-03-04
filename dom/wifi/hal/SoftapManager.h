@@ -66,7 +66,7 @@ class SoftapManager
   Return<void> onFailure(const hidl_string& ifaceName) override;
 
   struct ServiceManagerDeathRecipient : public hidl_death_recipient {
-    ServiceManagerDeathRecipient(SoftapManager* aOuter) : mOuter(aOuter) {}
+    explicit ServiceManagerDeathRecipient(SoftapManager* aOuter) : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;
@@ -76,7 +76,7 @@ class SoftapManager
   };
 
   struct HostapdDeathRecipient : public hidl_death_recipient {
-    HostapdDeathRecipient(SoftapManager* aOuter) : mOuter(aOuter) {}
+    explicit HostapdDeathRecipient(SoftapManager* aOuter) : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;

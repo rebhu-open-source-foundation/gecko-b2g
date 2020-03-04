@@ -124,3 +124,5 @@ ac_add_options --enable-b2g-fm
 if [ "$TARGET_ARCH" = "x86_64" ]; then
   ac_add_options --enable-wasm-simd
 fi;
+
+ac_add_options --enable-clang-plugin

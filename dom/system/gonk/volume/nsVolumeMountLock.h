@@ -38,7 +38,7 @@ class nsVolumeMountLock final : public nsIVolumeMountLock,
   const nsString& VolumeName() const { return mVolumeName; }
 
  private:
-  nsVolumeMountLock(const nsAString& aVolumeName);
+  explicit nsVolumeMountLock(const nsAString& aVolumeName);
   ~nsVolumeMountLock();
 
   nsresult Init();

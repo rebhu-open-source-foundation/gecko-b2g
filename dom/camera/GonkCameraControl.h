@@ -53,7 +53,7 @@ namespace layers {
 class nsGonkCameraControl : public CameraControlImpl
 {
 public:
-  nsGonkCameraControl(uint32_t aCameraId);
+  explicit nsGonkCameraControl(uint32_t aCameraId);
 
   void OnAutoFocusMoving(bool aIsMoving);
   void OnAutoFocusComplete(bool aSuccess, bool aExpired);

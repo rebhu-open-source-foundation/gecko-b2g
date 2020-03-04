@@ -649,7 +649,7 @@ void BluetoothDaemonCoreModule::AdapterStateChangedNtf(
 class BluetoothDaemonCoreModule::AdapterPropertiesInitOp final
     : private PDUInitOp {
  public:
-  AdapterPropertiesInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit AdapterPropertiesInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothStatus& aArg1, int& aArg2,
                       UniquePtr<BluetoothProperty[]>& aArg3) const {
@@ -691,7 +691,7 @@ void BluetoothDaemonCoreModule::AdapterPropertiesNtf(
 class BluetoothDaemonCoreModule::RemoteDevicePropertiesInitOp final
     : private PDUInitOp {
  public:
-  RemoteDevicePropertiesInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit RemoteDevicePropertiesInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothStatus& aArg1, BluetoothAddress& aArg2,
                       int& aArg3, UniquePtr<BluetoothProperty[]>& aArg4) const {
@@ -738,7 +738,7 @@ void BluetoothDaemonCoreModule::RemoteDevicePropertiesNtf(
 // Init operator class for DeviceFoundNotification
 class BluetoothDaemonCoreModule::DeviceFoundInitOp final : private PDUInitOp {
  public:
-  DeviceFoundInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit DeviceFoundInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(int& aArg1, UniquePtr<BluetoothProperty[]>& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
@@ -807,7 +807,7 @@ void BluetoothDaemonCoreModule::AclStateChangedNtf(
 // Init operator class for DutModeRecvNotification
 class BluetoothDaemonCoreModule::DutModeRecvInitOp final : private PDUInitOp {
  public:
-  DutModeRecvInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit DutModeRecvInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(uint16_t& aArg1, UniquePtr<uint8_t[]>& aArg2,
                       uint8_t& aArg3) const {

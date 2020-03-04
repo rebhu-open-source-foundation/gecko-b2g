@@ -68,7 +68,7 @@ extern GonkDisplay * GetGonkDisplay();
 
 class ScreenOnOffEvent : public mozilla::Runnable {
 public:
-    ScreenOnOffEvent(bool on)
+    explicit ScreenOnOffEvent(bool on)
         : mozilla::Runnable("ScreenOnOffEvent")
 	, mIsOn(on)
     {}

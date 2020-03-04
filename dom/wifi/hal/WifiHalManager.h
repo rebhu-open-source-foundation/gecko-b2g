@@ -237,7 +237,7 @@ class WifiHal
       int32_t currRssi) override;
 
   struct ServiceManagerDeathRecipient : public hidl_death_recipient {
-    ServiceManagerDeathRecipient(WifiHal* aOuter) : mOuter(aOuter) {}
+    explicit ServiceManagerDeathRecipient(WifiHal* aOuter) : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;
@@ -246,7 +246,7 @@ class WifiHal
   };
 
   struct WifiServiceDeathRecipient : public hidl_death_recipient {
-    WifiServiceDeathRecipient(WifiHal* aOuter) : mOuter(aOuter) {}
+    explicit WifiServiceDeathRecipient(WifiHal* aOuter) : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;

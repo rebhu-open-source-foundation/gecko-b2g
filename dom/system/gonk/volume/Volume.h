@@ -41,7 +41,7 @@ class Volume final {
  public:
   NS_INLINE_DECL_REFCOUNTING(Volume)
 
-  Volume(const nsACString& aVolumeName);
+  explicit Volume(const nsACString& aVolumeName);
   Volume(const nsACString& aVolumeName, const nsACString& aUuid);
 
   typedef long STATE;  // States are now defined in nsIVolume.idl

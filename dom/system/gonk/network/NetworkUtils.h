@@ -26,7 +26,7 @@ class CommandCallback {
 
   CommandCallback() : mCallback(nullptr), mCallbackWrapper(nullptr) {}
 
-  CommandCallback(CallbackType aCallback)
+  explicit CommandCallback(CallbackType aCallback)
       : mCallback(aCallback), mCallbackWrapper(nullptr) {}
 
   CommandCallback(CallbackWrapperType aCallbackWrapper,
@@ -59,7 +59,7 @@ class NetworkParams {
  public:
   NetworkParams() {}
 
-  NetworkParams(const mozilla::dom::NetworkCommandOptions& aOther) {
+  explicit NetworkParams(const mozilla::dom::NetworkCommandOptions& aOther) {
 #define COPY_SEQUENCE_FIELD(prop, type)                \
   if (aOther.prop.WasPassed()) {                       \
     mozilla::dom::Sequence<type> const& currentValue = \
@@ -249,9 +249,9 @@ class CommandResult {
   struct Pending {};
 
  public:
-  CommandResult(int32_t aResultCode);
-  CommandResult(const mozilla::dom::NetworkResultOptions& aResult);
-  CommandResult(const Pending&);
+  explicit CommandResult(int32_t aResultCode);
+  explicit CommandResult(const mozilla::dom::NetworkResultOptions& aResult);
+  explicit CommandResult(const Pending&);
   bool isPending() const;
 
   mozilla::dom::NetworkResultOptions mResult;
@@ -262,7 +262,7 @@ class CommandResult {
 
 class NetworkUtils final {
  public:
-  NetworkUtils(MessageCallback aCallback);
+  explicit NetworkUtils(MessageCallback aCallback);
   ~NetworkUtils();
 
   void DispatchCommand(const NetworkParams& aParams);

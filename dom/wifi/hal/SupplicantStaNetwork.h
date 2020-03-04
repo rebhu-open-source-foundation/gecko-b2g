@@ -26,7 +26,7 @@ class SupplicantStaNetwork
     : virtual public android::RefBase,
       virtual public android::hardware::wifi::supplicant::V1_0::ISupplicantStaNetworkCallback {
  public:
-  SupplicantStaNetwork(ISupplicantStaNetwork* aNetwork);
+  explicit SupplicantStaNetwork(ISupplicantStaNetwork* aNetwork);
 
   Result_t SetConfiguration(ConfigurationOptions* aConfig);
   Result_t GetConfiguration();

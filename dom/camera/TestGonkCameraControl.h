@@ -24,7 +24,7 @@ namespace mozilla {
 class TestGonkCameraControl : public nsGonkCameraControl
 {
 public:
-  TestGonkCameraControl(uint32_t aCameraId);
+  explicit TestGonkCameraControl(uint32_t aCameraId);
 
   virtual nsresult Start(const Configuration* aConfig = nullptr) override;
   virtual nsresult Stop() override;

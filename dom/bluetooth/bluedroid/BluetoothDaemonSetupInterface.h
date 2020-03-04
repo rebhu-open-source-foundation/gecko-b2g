@@ -77,7 +77,7 @@ class BluetoothDaemonSetupModule {
 
 class BluetoothDaemonSetupInterface final : public BluetoothSetupInterface {
  public:
-  BluetoothDaemonSetupInterface(BluetoothDaemonSetupModule* aModule);
+  explicit BluetoothDaemonSetupInterface(BluetoothDaemonSetupModule* aModule);
   ~BluetoothDaemonSetupInterface();
 
   void RegisterModule(BluetoothSetupServiceId aId, uint8_t aMode,

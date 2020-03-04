@@ -74,7 +74,7 @@ Result_t WifiHal::StartWifiModule() {
   int32_t triedCount = 0;
   while (triedCount <= START_HAL_RETRY_TIMES) {
     WifiStatus status;
-    mWifi->start([&status](WifiStatus s) {
+    mWifi->start([&status](const WifiStatus &s) {
       status = s;
       WIFI_LOGD(LOG_TAG, "start wifi: %d", status.code);
     });
@@ -105,7 +105,7 @@ Result_t WifiHal::StopWifiModule() {
   }
 
   WifiStatus status;
-  mWifi->stop([&status](WifiStatus s) {
+  mWifi->stop([&status](const WifiStatus &s) {
     status = s;
     WIFI_LOGD(LOG_TAG, "stop wifi: %d", status.code);
   });
@@ -196,7 +196,7 @@ Result_t WifiHal::InitWifiInterface() {
     }
 
     WifiStatus status;
-    mWifi->registerEventCallback(this, [&status](WifiStatus s) { status = s; });
+    mWifi->registerEventCallback(this, [&status](const WifiStatus &s) { status = s; });
 
     if (status.code != WifiStatusCode::SUCCESS) {
       WIFI_LOGE(LOG_TAG, "registerEventCallback failed: %d, reason: %s",

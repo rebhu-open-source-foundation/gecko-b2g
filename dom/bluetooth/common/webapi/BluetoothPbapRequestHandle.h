@@ -49,7 +49,7 @@ class BluetoothPbapRequestHandle final : public nsISupports,
                                                    ErrorResult& aRv);
 
  private:
-  BluetoothPbapRequestHandle(nsPIDOMWindowInner* aOwner);
+  explicit BluetoothPbapRequestHandle(nsPIDOMWindowInner* aOwner);
   ~BluetoothPbapRequestHandle();
 
   nsCOMPtr<nsPIDOMWindowInner> mOwner;

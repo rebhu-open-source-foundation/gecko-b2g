@@ -143,7 +143,7 @@ AlarmGetAllCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
 
 class AlarmGetAllRunnable : public Runnable {
  public:
-  AlarmGetAllRunnable(PromiseWorkerProxy* aPromiseWorkerProxy)
+  explicit AlarmGetAllRunnable(PromiseWorkerProxy* aPromiseWorkerProxy)
       : Runnable("dom::AlarmGetAllRunnable"),
         mPromiseWorkerProxy(aPromiseWorkerProxy) {}
 
@@ -299,7 +299,7 @@ class AlarmAddRunnable : public Runnable, public StructuredCloneHolder {
 
 class AlarmRemoveRunnable : public Runnable {
  public:
-  AlarmRemoveRunnable(long aId)
+  explicit AlarmRemoveRunnable(long aId)
       : Runnable("dom::AlarmRemoveRunnable"), mId(aId) {}
 
   NS_IMETHOD

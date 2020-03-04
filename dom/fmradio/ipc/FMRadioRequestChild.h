@@ -16,7 +16,7 @@ class FMRadioReplyRunnable;
 
 class FMRadioRequestChild final : public PFMRadioRequestChild {
  public:
-  FMRadioRequestChild(FMRadioReplyRunnable* aReplyRunnable);
+  explicit FMRadioRequestChild(FMRadioReplyRunnable* aReplyRunnable);
   ~FMRadioRequestChild();
 
   mozilla::ipc::IPCResult Recv__delete__(const FMRadioResponseType& aResponse);

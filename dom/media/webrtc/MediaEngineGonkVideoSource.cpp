@@ -29,7 +29,7 @@ class CameraControlWrapper : public CameraControlListener {
   NS_IMETHOD_(MozExternalRefCountType) AddRef(void);
   NS_IMETHOD_(MozExternalRefCountType) Release(void);
 
-  CameraControlWrapper(int aIndex);
+  explicit CameraControlWrapper(int aIndex);
 
   void SetPhotoOrientation(int aOrientation);
   void GetCameraName(nsCString& aCameraName) { aCameraName = mCameraName; }

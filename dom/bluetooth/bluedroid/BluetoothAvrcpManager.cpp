@@ -300,7 +300,7 @@ BluetoothAvrcpManager* BluetoothAvrcpManager::Get() {
 class BluetoothAvrcpManager::UnregisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
  public:
-  UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
+  explicit UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
       : mRes(aRes) {}
 
   void OnError(BluetoothStatus aStatus) override {
@@ -416,7 +416,7 @@ void BluetoothAvrcpManager::HandleShutdown() {
 
 class BluetoothAvrcpManager::ConnectRunnable final : public Runnable {
  public:
-  ConnectRunnable(BluetoothAvrcpManager* aManager)
+  explicit ConnectRunnable(BluetoothAvrcpManager* aManager)
       : Runnable("ConnectRunnable"), mManager(aManager) {
     MOZ_ASSERT(mManager);
   }
@@ -445,7 +445,7 @@ void BluetoothAvrcpManager::Connect(const BluetoothAddress& aDeviceAddress,
 
 class BluetoothAvrcpManager::DisconnectRunnable final : public Runnable {
  public:
-  DisconnectRunnable(BluetoothAvrcpManager* aManager)
+  explicit DisconnectRunnable(BluetoothAvrcpManager* aManager)
       : Runnable("DisconnectRunnable"), mManager(aManager) {
     MOZ_ASSERT(mManager);
   }

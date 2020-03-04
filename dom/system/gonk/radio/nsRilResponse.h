@@ -24,7 +24,7 @@ using ::android::hardware::radio::V1_0::IRadioResponse;
 class nsRilWorker;
 class nsRilResponse : public IRadioResponse {
  public:
-  nsRilResponse(nsRilWorker* aRil);
+  explicit nsRilResponse(nsRilWorker* aRil);
   ~nsRilResponse();
 
   RadioResponseInfo rspInfo;

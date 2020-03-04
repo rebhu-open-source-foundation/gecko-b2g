@@ -208,7 +208,7 @@ class SocketListenTask final : public SocketIOTask<DroidSocketImpl> {
 };
 
 class SocketConnectClientFdTask final : public SocketIOTask<DroidSocketImpl> {
-  SocketConnectClientFdTask(DroidSocketImpl* aImpl)
+  explicit SocketConnectClientFdTask(DroidSocketImpl* aImpl)
       : SocketIOTask<DroidSocketImpl>(aImpl) {}
 
   NS_IMETHOD Run() override {
@@ -322,7 +322,7 @@ class AcceptTask final : public SocketIOTask<DroidSocketImpl> {
 
 class AcceptResultHandler final : public BluetoothSocketResultHandler {
  public:
-  AcceptResultHandler(DroidSocketImpl* aImpl) : mImpl(aImpl) {
+  explicit AcceptResultHandler(DroidSocketImpl* aImpl) : mImpl(aImpl) {
     MOZ_ASSERT(mImpl);
   }
 
@@ -530,7 +530,7 @@ void BluetoothSocket::SetObserver(BluetoothSocketObserver* aObserver) {
 
 class ConnectSocketResultHandler final : public BluetoothSocketResultHandler {
  public:
-  ConnectSocketResultHandler(DroidSocketImpl* aImpl) : mImpl(aImpl) {
+  explicit ConnectSocketResultHandler(DroidSocketImpl* aImpl) : mImpl(aImpl) {
     MOZ_ASSERT(mImpl);
   }
 
@@ -606,7 +606,7 @@ nsresult BluetoothSocket::Connect(const BluetoothAddress& aDeviceAddress,
 
 class ListenResultHandler final : public BluetoothSocketResultHandler {
  public:
-  ListenResultHandler(DroidSocketImpl* aImpl) : mImpl(aImpl) {
+  explicit ListenResultHandler(DroidSocketImpl* aImpl) : mImpl(aImpl) {
     MOZ_ASSERT(mImpl);
   }
 

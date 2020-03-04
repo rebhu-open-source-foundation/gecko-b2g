@@ -135,7 +135,7 @@ SharedBufferManagerParent* SharedBufferManagerParent::CreateSameProcess() {
   base::ProcessId pid = base::GetCurrentProcId();
 
   char thrname[128];
-  base::snprintf(thrname, 128, "BufMgrParent#%d", pid);
+  SprintfLiteral(thrname, "BufMgrParent#%d", pid);
 
   RefPtr<SharedBufferManagerParent> parent =
       new SharedBufferManagerParent(pid, new base::Thread(thrname));
@@ -148,7 +148,7 @@ bool SharedBufferManagerParent::CreateForContent(
     Endpoint<PSharedBufferManagerParent>&& aEndpoint) {
   base::Thread* thread = nullptr;
   char thrname[128];
-  base::snprintf(thrname, 128, "BufMgrParent#%d", aEndpoint.OtherPid());
+  SprintfLiteral(thrname, "BufMgrParent#%d", aEndpoint.OtherPid());
   thread = new base::Thread(thrname);
 
   RefPtr<SharedBufferManagerParent> bridge =
@@ -342,6 +342,8 @@ void SharedBufferManagerParent::DropGrallocBuffer(ProcessId id, mozilla::layers:
     RefPtr<Runnable> runnable =
         WrapRunnable(RefPtr<SharedBufferManagerParent>(mgr),
                      &SharedBufferManagerParent::DropGrallocBufferSync, aDesc);
+    // Dispatch the runnable.
+    runnable->Run();
   }
   return;
 }

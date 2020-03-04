@@ -56,7 +56,7 @@ class SpeakerManager final : public DOMEventTargetHelper,
       ErrorResult& aRv);
 
  protected:
-  SpeakerManager(SpeakerPolicy aPolicy);
+  explicit SpeakerManager(SpeakerPolicy aPolicy);
   ~SpeakerManager();
   void DispatchSimpleEvent(const nsAString& aStr);
   void UpdateStatus();

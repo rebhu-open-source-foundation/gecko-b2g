@@ -203,7 +203,7 @@ class BluetoothDaemonHidModule {
 
 class BluetoothDaemonHidInterface final : public BluetoothHidInterface {
  public:
-  BluetoothDaemonHidInterface(BluetoothDaemonHidModule* aModule);
+  explicit BluetoothDaemonHidInterface(BluetoothDaemonHidModule* aModule);
   ~BluetoothDaemonHidInterface();
 
   void SetNotificationHandler(

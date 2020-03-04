@@ -607,7 +607,7 @@ class BluetoothDaemonHandsfreeModule::NotificationHandlerWrapper final {
 class BluetoothDaemonHandsfreeModule::ConnectionStateInitOp final
     : private PDUInitOp {
  public:
-  ConnectionStateInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ConnectionStateInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothHandsfreeConnectionState& aArg1,
                       BluetoothAddress& aArg2) const {
@@ -648,7 +648,7 @@ void BluetoothDaemonHandsfreeModule::AudioStateNtf(
 class BluetoothDaemonHandsfreeModule::VoiceRecognitionInitOp final
     : private PDUInitOp {
  public:
-  VoiceRecognitionInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit VoiceRecognitionInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothHandsfreeVoiceRecognitionState& aArg1,
                       BluetoothAddress& aArg2) const {
@@ -682,7 +682,7 @@ void BluetoothDaemonHandsfreeModule::VoiceRecognitionNtf(
 class BluetoothDaemonHandsfreeModule::AnswerCallInitOp final
     : private PDUInitOp {
  public:
-  AnswerCallInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit AnswerCallInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1) const {
     /* Read address */
@@ -707,7 +707,7 @@ void BluetoothDaemonHandsfreeModule::AnswerCallNtf(
 class BluetoothDaemonHandsfreeModule::HangupCallInitOp final
     : private PDUInitOp {
  public:
-  HangupCallInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit HangupCallInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1) const {
     /* Read address */
@@ -731,7 +731,7 @@ void BluetoothDaemonHandsfreeModule::HangupCallNtf(
 // Init operator class for VolumeNotification
 class BluetoothDaemonHandsfreeModule::VolumeInitOp final : private PDUInitOp {
  public:
-  VolumeInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit VolumeInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothHandsfreeVolumeType& aArg1, int& aArg2,
                       BluetoothAddress& aArg3) const {
@@ -770,7 +770,7 @@ void BluetoothDaemonHandsfreeModule::VolumeNtf(
 // Init operator class for DialCallNotification
 class BluetoothDaemonHandsfreeModule::DialCallInitOp final : private PDUInitOp {
  public:
-  DialCallInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit DialCallInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(nsString& aArg1, BluetoothAddress& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
@@ -804,7 +804,7 @@ void BluetoothDaemonHandsfreeModule::DialCallNtf(
 // Init operator class for DtmfNotification
 class BluetoothDaemonHandsfreeModule::DtmfInitOp final : private PDUInitOp {
  public:
-  DtmfInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit DtmfInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(char& aArg1, BluetoothAddress& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
@@ -836,7 +836,7 @@ void BluetoothDaemonHandsfreeModule::DtmfNtf(
 // Init operator class for NRECNotification
 class BluetoothDaemonHandsfreeModule::NRECInitOp final : private PDUInitOp {
  public:
-  NRECInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit NRECInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothHandsfreeNRECState& aArg1,
                       BluetoothAddress& aArg2) const {
@@ -869,7 +869,7 @@ void BluetoothDaemonHandsfreeModule::NRECNtf(
 // Init operator class for CallHoldNotification
 class BluetoothDaemonHandsfreeModule::CallHoldInitOp final : private PDUInitOp {
  public:
-  CallHoldInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit CallHoldInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothHandsfreeCallHoldType& aArg1,
                       BluetoothAddress& aArg2) const {
@@ -902,7 +902,7 @@ void BluetoothDaemonHandsfreeModule::CallHoldNtf(
 // Init operator class for CnumNotification
 class BluetoothDaemonHandsfreeModule::CnumInitOp final : private PDUInitOp {
  public:
-  CnumInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit CnumInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1) const {
     /* Read address */
@@ -926,7 +926,7 @@ void BluetoothDaemonHandsfreeModule::CnumNtf(
 // Init operator class for CindNotification
 class BluetoothDaemonHandsfreeModule::CindInitOp final : private PDUInitOp {
  public:
-  CindInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit CindInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1) const {
     /* Read address */
@@ -950,7 +950,7 @@ void BluetoothDaemonHandsfreeModule::CindNtf(
 // Init operator class for CopsNotification
 class BluetoothDaemonHandsfreeModule::CopsInitOp final : private PDUInitOp {
  public:
-  CopsInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit CopsInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1) const {
     /* Read address */
@@ -974,7 +974,7 @@ void BluetoothDaemonHandsfreeModule::CopsNtf(
 // Init operator class for ClccNotification
 class BluetoothDaemonHandsfreeModule::ClccInitOp final : private PDUInitOp {
  public:
-  ClccInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ClccInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1) const {
     /* Read address */
@@ -999,7 +999,7 @@ void BluetoothDaemonHandsfreeModule::ClccNtf(
 class BluetoothDaemonHandsfreeModule::UnknownAtInitOp final
     : private PDUInitOp {
  public:
-  UnknownAtInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit UnknownAtInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(nsCString& aArg1, BluetoothAddress& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
@@ -1034,7 +1034,7 @@ void BluetoothDaemonHandsfreeModule::UnknownAtNtf(
 class BluetoothDaemonHandsfreeModule::KeyPressedInitOp final
     : private PDUInitOp {
  public:
-  KeyPressedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit KeyPressedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1) const {
     /* Read address */

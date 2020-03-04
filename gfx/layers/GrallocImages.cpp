@@ -41,7 +41,7 @@ int32_t GrallocImage::sColorIdMap[] = {
 struct GraphicBufferAutoUnlock {
   android::sp<GraphicBuffer> mGraphicBuffer;
 
-  GraphicBufferAutoUnlock(android::sp<GraphicBuffer>& aGraphicBuffer)
+  explicit GraphicBufferAutoUnlock(android::sp<GraphicBuffer>& aGraphicBuffer)
     : mGraphicBuffer(aGraphicBuffer) { }
 
   ~GraphicBufferAutoUnlock() { mGraphicBuffer->unlock(); }

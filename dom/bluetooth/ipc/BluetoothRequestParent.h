@@ -36,7 +36,7 @@ class BluetoothRequestParent : public PBluetoothRequestParent {
 #endif
 
  protected:
-  BluetoothRequestParent(BluetoothService* aService);
+  explicit BluetoothRequestParent(BluetoothService* aService);
   virtual ~BluetoothRequestParent();
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;

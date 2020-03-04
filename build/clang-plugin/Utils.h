@@ -53,6 +53,18 @@ inline bool ASTIsInSystemHeader(const ASTContext &AC, const T &D) {
   if (ExpansionLoc.isInvalid()) {
     return false;
   }
+
+  // Check if this is a Gonk platform header. While not a host system header,
+  // we need to classify these files as system headers.
+  char* gonk_path = getenv("GONK_PATH");
+  if (gonk_path != NULL) {
+    auto path = ExpansionLoc.printToString(SourceManager);
+
+    if (path.rfind(gonk_path, 0) == 0) {
+      return true;
+    }
+  }
+
   return SourceManager.isInSystemHeader(ExpansionLoc);
 }
 

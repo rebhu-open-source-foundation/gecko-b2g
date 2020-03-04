@@ -50,7 +50,7 @@ class UnixSocketWatcher : public UnixFdWatcher {
   virtual void OnSocketCanSendWithoutBlocking(){};
 
  protected:
-  UnixSocketWatcher(MessageLoop* aIOLoop);
+  explicit UnixSocketWatcher(MessageLoop* aIOLoop);
   UnixSocketWatcher(MessageLoop* aIOLoop, int aFd,
                     ConnectionStatus aConnectionStatus);
   void SetSocket(int aFd, ConnectionStatus aConnectionStatus);

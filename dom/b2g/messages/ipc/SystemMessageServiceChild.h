@@ -20,7 +20,7 @@ class SystemMessageServiceChild final : public PSystemMessageServiceChild {
  public:
   NS_INLINE_DECL_REFCOUNTING(SystemMessageServiceChild)
 
-  SystemMessageServiceChild(nsISystemMessageListener* aListener);
+  explicit SystemMessageServiceChild(nsISystemMessageListener* aListener);
 
  protected:
   mozilla::ipc::IPCResult RecvResponse(

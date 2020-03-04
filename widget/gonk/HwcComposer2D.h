@@ -129,7 +129,7 @@ private:
 class HWComposerCallback : public HWC2::ComposerCallback
 {
     public:
-        HWComposerCallback(HWC2::Device* device) {
+        explicit HWComposerCallback(HWC2::Device* device) {
             hwcDevice = device;
         }
 

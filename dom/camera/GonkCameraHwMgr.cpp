@@ -214,7 +214,7 @@ GonkCameraHardware::Init()
   char propname[PROP_NAME_MAX];
   char prop[PROP_VALUE_MAX];
   int offset = 0;
-  snprintf(propname, sizeof(propname), "ro.moz.cam.%d.sensor_offset", mCameraId);
+  SprintfLiteral(propname, "ro.moz.cam.%d.sensor_offset", mCameraId);
   if (__system_property_get(propname, prop) > 0) {
     offset = clamped(atoi(prop), 0, 270);
     mSensorOrientation += offset;

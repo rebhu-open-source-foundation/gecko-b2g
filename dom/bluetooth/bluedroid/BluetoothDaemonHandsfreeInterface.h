@@ -358,7 +358,7 @@ class BluetoothDaemonHandsfreeModule {
 class BluetoothDaemonHandsfreeInterface final
     : public BluetoothHandsfreeInterface {
  public:
-  BluetoothDaemonHandsfreeInterface(BluetoothDaemonHandsfreeModule* aModule);
+  explicit BluetoothDaemonHandsfreeInterface(BluetoothDaemonHandsfreeModule* aModule);
   ~BluetoothDaemonHandsfreeInterface();
 
   void SetNotificationHandler(

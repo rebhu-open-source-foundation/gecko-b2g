@@ -25,7 +25,7 @@ class VolumeServiceIOThread : public VolumeManager::StateObserver,
  public:
   NS_INLINE_DECL_REFCOUNTING(VolumeServiceIOThread)
 
-  VolumeServiceIOThread(nsVolumeService* aVolumeService);
+  explicit VolumeServiceIOThread(nsVolumeService* aVolumeService);
 
  private:
   void UpdateAllVolumes();

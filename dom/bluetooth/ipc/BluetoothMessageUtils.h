@@ -279,37 +279,11 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse> {
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::ControlPlayStatus> {
-  typedef mozilla::dom::bluetooth::ControlPlayStatus paramType;
-
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, static_cast<uint8_t>(aParam));
-  }
-
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    uint8_t value;
-    if (!ReadParam(aMsg, aIter, &value)) {
-      return false;
-    }
-
-    mozilla::dom::bluetooth::ControlPlayStatus result =
-        static_cast<mozilla::dom::bluetooth::ControlPlayStatus>(value);
-
-    switch (result) {
-      case mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_STOPPED:
-      case mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_PLAYING:
-      case mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_PAUSED:
-      case mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_FWD_SEEK:
-      case mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_REV_SEEK:
-      case mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_ERROR:
-        *aResult = result;
-        return true;
-      default:
-        return false;
-    }
-  }
-};
+struct ParamTraits<mozilla::dom::bluetooth::ControlPlayStatus>
+  : public ContiguousEnumSerializer<
+             mozilla::dom::bluetooth::ControlPlayStatus,
+             mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_STOPPED,
+             mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_ERROR> {};
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAdvertisingData> {

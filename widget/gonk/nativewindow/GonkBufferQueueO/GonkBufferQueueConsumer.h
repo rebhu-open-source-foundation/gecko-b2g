@@ -28,7 +28,7 @@ class GonkBufferQueueCore;
 class GonkBufferQueueConsumer : public BnGonkGraphicBufferConsumer {
 
 public:
-    GonkBufferQueueConsumer(const sp<GonkBufferQueueCore>& core);
+    explicit GonkBufferQueueConsumer(const sp<GonkBufferQueueCore>& core);
     virtual ~GonkBufferQueueConsumer();
 
     // acquireBuffer attempts to acquire ownership of the next pending buffer in

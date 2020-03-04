@@ -23,13 +23,13 @@ bool SystemServiceIsRunning(const char* aSvcName) {
   MOZ_ASSERT(NS_IsMainThread());
 
   char key[PROPERTY_KEY_MAX];
-  auto res = snprintf(key, sizeof(key), "init.svc.%s", aSvcName);
+  auto res = SprintfLiteral(key, "init.svc.%s", aSvcName);
 
   if (res < 0) {
-    HAL_ERR("snprintf: %s", strerror(errno));
+    HAL_ERR("SprintfLiteral: %s", strerror(errno));
     return false;
   } else if (static_cast<size_t>(res) >= sizeof(key)) {
-    HAL_ERR("snprintf: trunctated service name %s", aSvcName);
+    HAL_ERR("SprintfLiteral: trunctated service name %s", aSvcName);
     return false;
   }
 
@@ -43,13 +43,13 @@ bool SystemServiceIsStopped(const char* aSvcName) {
   MOZ_ASSERT(NS_IsMainThread());
 
   char key[PROPERTY_KEY_MAX];
-  auto res = snprintf(key, sizeof(key), "init.svc.%s", aSvcName);
+  auto res = SprintfLiteral(key, "init.svc.%s", aSvcName);
 
   if (res < 0) {
-    HAL_ERR("snprintf: %s", strerror(errno));
+    HAL_ERR("SprintfLiteral: %s", strerror(errno));
     return false;
   } else if (static_cast<size_t>(res) >= sizeof(key)) {
-    HAL_ERR("snprintf: trunctated service name %s", aSvcName);
+    HAL_ERR("SprintfLiteral: trunctated service name %s", aSvcName);
     return false;
   }
 
@@ -86,18 +86,14 @@ nsresult StartSystemService(const char* aSvcName, const char* aArgs) {
   MOZ_ASSERT(NS_IsMainThread());
 
   char value[PROPERTY_VALUE_MAX];
-#if ANDROID_VERSION <= 23
-  auto res = snprintf(value, sizeof(value), "%s:%s", aSvcName, aArgs);
-#else
   // 'ctl.start' can't start service with dynamic arguments anymore
-  auto res = snprintf(value, sizeof(value), "%s", aSvcName);
-#endif
+  auto res = SprintfLiteral(value, "%s", aSvcName);
 
   if (res < 0) {
-    HAL_ERR("snprintf: %s", strerror(errno));
+    HAL_ERR("SprintfLiteral: %s", strerror(errno));
     return NS_ERROR_FAILURE;
   } else if (static_cast<size_t>(res) >= sizeof(value)) {
-    HAL_ERR("snprintf: trunctated service name %s", aSvcName);
+    HAL_ERR("SprintfLiteral: trunctated service name %s", aSvcName);
     return NS_ERROR_OUT_OF_MEMORY;
   }
 

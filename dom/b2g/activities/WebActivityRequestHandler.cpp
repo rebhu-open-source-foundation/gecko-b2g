@@ -41,7 +41,7 @@ class ActivityRequestHandlerProxyRunnable : public Runnable {
 
 class NotifyReadyRunnable final : public ActivityRequestHandlerProxyRunnable {
  public:
-  NotifyReadyRunnable(const nsAString& aId)
+  explicit NotifyReadyRunnable(const nsAString& aId)
       : ActivityRequestHandlerProxyRunnable(aId) {}
 
  protected:
@@ -56,7 +56,7 @@ class NotifyReadyRunnable final : public ActivityRequestHandlerProxyRunnable {
 class PostResultRunnable final : public ActivityRequestHandlerProxyRunnable,
                                  public StructuredCloneHolder {
  public:
-  PostResultRunnable(const nsAString& aId)
+  explicit PostResultRunnable(const nsAString& aId)
       : ActivityRequestHandlerProxyRunnable(aId),
         StructuredCloneHolder(
             CloningSupported, TransferringSupported,

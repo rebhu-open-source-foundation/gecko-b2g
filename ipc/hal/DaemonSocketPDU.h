@@ -49,7 +49,7 @@ class DaemonSocketPDU final : public UnixSocketIOBuffer {
   };
 
   DaemonSocketPDU(uint8_t aService, uint8_t aOpcode, uint16_t aPayloadSize);
-  DaemonSocketPDU(size_t aPayloadSize);
+  explicit DaemonSocketPDU(size_t aPayloadSize);
   ~DaemonSocketPDU();
 
   void SetConsumer(DaemonSocketIOConsumer* aConsumer) { mConsumer = aConsumer; }

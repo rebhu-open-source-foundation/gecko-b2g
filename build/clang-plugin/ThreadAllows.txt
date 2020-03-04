@@ -9,6 +9,7 @@ AwaitIdlePaused
 BGReadURLs
 BHMgr Processor
 BgFileSaver
+CameraThread
 COM Intcpt Log
 COM MTA
 Cache Deleter
@@ -55,6 +56,7 @@ mtransport
 NamedPipeSrv
 NetPredictClean
 Netlink Monitor
+Opp File Reader
 OSKeyStore
 OutputDrain
 PaintThread
@@ -97,4 +99,9 @@ t1
 t2
 thread
 thread shutdown
+Vibrator
 wifi tickler
+Wifi Control
+GPS Init
+NetworkUtils
+MemoryPressure

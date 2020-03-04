@@ -17,7 +17,7 @@ class CameraControlWrapper;
 class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
                                    public hal::ScreenConfigurationObserver {
  public:
-  MediaEngineGonkVideoSource(int aIndex);
+  explicit MediaEngineGonkVideoSource(int aIndex);
 
   nsresult Allocate(const dom::MediaTrackConstraints& aConstraints,
                     const MediaEnginePrefs& aPrefs, uint64_t aWindowID,

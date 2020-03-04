@@ -30,7 +30,7 @@ class GonkBufferQueueProducer : public BnGraphicBufferProducer,
 public:
     friend class GonkBufferQueue; // Needed to access binderDied
 
-    GonkBufferQueueProducer(const sp<GonkBufferQueueCore>& core);
+    explicit GonkBufferQueueProducer(const sp<GonkBufferQueueCore>& core);
     virtual ~GonkBufferQueueProducer();
 
     // requestBuffer returns the GraphicBuffer for slot N.

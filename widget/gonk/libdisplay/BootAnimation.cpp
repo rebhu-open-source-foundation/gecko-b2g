@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <vector>
 #include "mozilla/FileUtils.h"
+#include "mozilla/Sprintf.h"
 #include "png.h"
 
 #include "android/log.h"
@@ -642,7 +643,7 @@ bool Animation::LoadAnimations(const char* aFileName)
         AnimationPart &part = parts[i];
         entry = nullptr;
         char search[256];
-        snprintf(search, sizeof(search), "%s/", part.path);
+        SprintfLiteral(search, "%s/", part.path);
         while ((entry = reader.GetNextEntry(entry))) {
             string name = reader.GetEntryName(entry);
             if (name.find(search) ||

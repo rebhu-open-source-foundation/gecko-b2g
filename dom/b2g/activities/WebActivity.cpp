@@ -152,7 +152,7 @@ class OnStartWorkerRunnable final : public WorkerRunnable,
 
 class ActivityCancelRunnable : public Runnable {
  public:
-  ActivityCancelRunnable(nsString aId)
+  explicit ActivityCancelRunnable(nsString aId)
       : Runnable("dom::ActivityCancelRunnable"), mId(aId) {}
 
   NS_IMETHOD

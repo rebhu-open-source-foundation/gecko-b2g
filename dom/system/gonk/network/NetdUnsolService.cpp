@@ -79,7 +79,7 @@ Status NetdUnsolService::onInterfaceDnsServerInfo(
     const std::vector<std::string>& servers) {
   char message[BUF_SIZE];
 
-  snprintf(message, sizeof(message), "DnsInfo servers %s %" PRId64 " %s",
+  SprintfLiteral(message, "DnsInfo servers %s %" PRId64 " %s",
            ifName.c_str(), lifetime, android::base::Join(servers, " ").c_str());
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceDnsServersAdded, message);
@@ -91,7 +91,7 @@ Status NetdUnsolService::onInterfaceAddressUpdated(const std::string& addr,
                                                    int flags, int scope) {
   char message[BUF_SIZE];
 
-  snprintf(message, sizeof(message), "Address updated %s %s %d %d",
+  SprintfLiteral(message, "Address updated %s %s %d %d",
            addr.c_str(), ifName.c_str(), flags, scope);
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceAddressUpdated, message);
@@ -102,7 +102,7 @@ Status NetdUnsolService::onInterfaceAddressRemoved(const std::string& addr,
                                                    const std::string& ifName,
                                                    int flags, int scope) {
   char message[BUF_SIZE];
-  snprintf(message, sizeof(message), "Address updated %s %s %d %d",
+  SprintfLiteral(message, "Address updated %s %s %d %d",
            addr.c_str(), ifName.c_str(), flags, scope);
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceAddressRemoved, message);
@@ -112,7 +112,7 @@ Status NetdUnsolService::onInterfaceAddressRemoved(const std::string& addr,
 Status NetdUnsolService::onInterfaceLinkStateChanged(const std::string& ifName,
                                                      bool status) {
   char message[BUF_SIZE];
-  snprintf(message, sizeof(message), "Iface linkstate %s %s", ifName.c_str(),
+  SprintfLiteral(message, "Iface linkstate %s %s", ifName.c_str(),
            status ? "up" : "down");
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceLinkStatusChanged, message);
@@ -124,10 +124,10 @@ Status NetdUnsolService::onRouteChanged(bool updated, const std::string& route,
                                         const std::string& ifName) {
   char message[BUF_SIZE];
   if (gateway.empty()) {
-    snprintf(message, sizeof(message), "Route %s %s dev %s",
+    SprintfLiteral(message, "Route %s %s dev %s",
              updated ? "updated" : "removed", route.c_str(), ifName.c_str());
   } else {
-    snprintf(message, sizeof(message), "Route %s %s via %s dev %s",
+    SprintfLiteral(message, "Route %s %s via %s dev %s",
              updated ? "updated" : "removed", route.c_str(), gateway.c_str(),
              ifName.c_str());
   }
@@ -139,7 +139,7 @@ Status NetdUnsolService::onRouteChanged(bool updated, const std::string& route,
 Status NetdUnsolService::onQuotaLimitReached(const std::string& alertName,
                                              const std::string& ifName) {
   char message[BUF_SIZE];
-  snprintf(message, sizeof(message), "limit alert %s %s", alertName.c_str(),
+  SprintfLiteral(message, "limit alert %s %s", alertName.c_str(),
            ifName.c_str());
   NUS_DBG("%s", message);
   sendBroadcast(QuotaLimitReached, message);

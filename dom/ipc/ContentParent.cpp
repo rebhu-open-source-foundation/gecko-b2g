@@ -3749,7 +3749,6 @@ PImsRegistrationParent* ContentParent::AllocPImsRegistrationParent(
 
 bool ContentParent::DeallocPImsRegistrationParent(
     PImsRegistrationParent* aActor) {
-  // ImsRegistrationParent is refcounted, must not be freed manually.
   delete aActor;
   return true;
 }

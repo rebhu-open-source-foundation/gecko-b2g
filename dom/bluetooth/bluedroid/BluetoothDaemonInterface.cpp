@@ -423,7 +423,7 @@ void BluetoothDaemonInterface::Init(
 class BluetoothDaemonInterface::CleanupResultHandler final
     : public BluetoothSetupResultHandler {
  public:
-  CleanupResultHandler(BluetoothDaemonInterface* aInterface)
+  explicit CleanupResultHandler(BluetoothDaemonInterface* aInterface)
       : mInterface(aInterface), mUnregisteredCoreModule(false) {
     MOZ_ASSERT(mInterface);
   }

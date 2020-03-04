@@ -287,7 +287,7 @@ class SupplicantStaManager
   Return<void> onExtRadioWorkTimeout(uint32_t id) override;
 
   struct ServiceManagerDeathRecipient : public hidl_death_recipient {
-    ServiceManagerDeathRecipient(SupplicantStaManager* aOuter)
+    explicit ServiceManagerDeathRecipient(SupplicantStaManager* aOuter)
         : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
@@ -298,7 +298,7 @@ class SupplicantStaManager
   };
 
   struct SupplicantDeathRecipient : public hidl_death_recipient {
-    SupplicantDeathRecipient(SupplicantStaManager* aOuter) : mOuter(aOuter) {}
+    explicit SupplicantDeathRecipient(SupplicantStaManager* aOuter) : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;

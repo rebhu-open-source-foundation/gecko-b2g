@@ -99,7 +99,7 @@ class VolumeCommand {
  public:
   NS_INLINE_DECL_REFCOUNTING(VolumeCommand)
 
-  VolumeCommand(VolumeResponseCallback* aCallback)
+  explicit VolumeCommand(VolumeResponseCallback* aCallback)
       : mBytesConsumed(0), mCallback(aCallback) {
     SetCmd(NS_LITERAL_CSTRING(""));
   }
@@ -166,7 +166,7 @@ class VolumeActionCommand : public VolumeCommand {
 
 class VolumeResetCommand : public VolumeCommand {
  public:
-  VolumeResetCommand(VolumeResponseCallback* aCallback);
+  explicit VolumeResetCommand(VolumeResponseCallback* aCallback);
 };
 
 

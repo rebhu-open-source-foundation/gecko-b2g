@@ -25,7 +25,7 @@ class BluetoothRequestChild : public PBluetoothRequestChild {
   RefPtr<BluetoothReplyRunnable> mReplyRunnable;
 
  public:
-  BluetoothRequestChild(BluetoothReplyRunnable* aReplyRunnable);
+  explicit BluetoothRequestChild(BluetoothReplyRunnable* aReplyRunnable);
 
   mozilla::ipc::IPCResult Recv__delete__(const BluetoothReply& aReply);
 

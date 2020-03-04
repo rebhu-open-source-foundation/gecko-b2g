@@ -21,7 +21,7 @@
 
 class WifiNative {
  public:
-  WifiNative();
+  explicit WifiNative();
 
   bool ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
                       const nsCString& aInterface);

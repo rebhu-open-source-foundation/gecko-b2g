@@ -33,7 +33,7 @@ typedef void (*NetdEventCallback)(
 class NetdUnsolService : public android::BinderService<NetdUnsolService>,
                          public android::net::BnNetdUnsolicitedEventListener {
  public:
-  NetdUnsolService(NetdEventCallback aCallback);
+  explicit NetdUnsolService(NetdEventCallback aCallback);
   ~NetdUnsolService() = default;
 
   void updateDebug(bool aEnable);

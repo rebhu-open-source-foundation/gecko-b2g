@@ -103,7 +103,7 @@ class BluetoothDaemonA2dpModule {
 
 class BluetoothDaemonA2dpInterface final : public BluetoothA2dpInterface {
  public:
-  BluetoothDaemonA2dpInterface(BluetoothDaemonA2dpModule* aModule);
+  explicit BluetoothDaemonA2dpInterface(BluetoothDaemonA2dpModule* aModule);
   ~BluetoothDaemonA2dpInterface();
 
   void SetNotificationHandler(

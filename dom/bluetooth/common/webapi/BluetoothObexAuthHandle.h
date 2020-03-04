@@ -42,7 +42,7 @@ class BluetoothObexAuthHandle final : public nsISupports,
   already_AddRefed<Promise> Reject(ErrorResult& aRv);
 
  private:
-  BluetoothObexAuthHandle(nsPIDOMWindowInner* aOwner);
+  explicit BluetoothObexAuthHandle(nsPIDOMWindowInner* aOwner);
   ~BluetoothObexAuthHandle();
 
   nsCOMPtr<nsPIDOMWindowInner> mOwner;

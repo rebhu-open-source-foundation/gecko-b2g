@@ -68,7 +68,7 @@ struct ConfigurationOptions {
  public:
   ConfigurationOptions() = default;
 
-  ConfigurationOptions(const mozilla::dom::WifiConfiguration& aOther) {
+  explicit ConfigurationOptions(const mozilla::dom::WifiConfiguration& aOther) {
     COPY_OPT_FIELD(mSsid, EmptyString())
     COPY_OPT_FIELD(mBssid, EmptyString())
     COPY_OPT_FIELD(mKeyMgmt, EmptyString())
@@ -137,7 +137,7 @@ struct SoftapConfigurationOptions {
  public:
   SoftapConfigurationOptions() = default;
 
-  SoftapConfigurationOptions(const mozilla::dom::SoftapConfiguration& aOther) {
+  explicit SoftapConfigurationOptions(const mozilla::dom::SoftapConfiguration& aOther) {
     COPY_OPT_FIELD(mSsid, EmptyString())
     COPY_OPT_FIELD(mKeyMgmt, 0)
     COPY_OPT_FIELD(mKey, EmptyString())
@@ -168,7 +168,7 @@ struct SupplicantDebugLevelOptions {
  public:
   SupplicantDebugLevelOptions() = default;
 
-  SupplicantDebugLevelOptions(const mozilla::dom::SupplicantDebugLevel& aOther) {
+  explicit SupplicantDebugLevelOptions(const mozilla::dom::SupplicantDebugLevel& aOther) {
     COPY_OPT_FIELD(mLogLevel, 0)
     COPY_OPT_FIELD(mShowTimeStamp, false)
     COPY_OPT_FIELD(mShowKeys, false)
@@ -183,7 +183,7 @@ struct ScanSettingsOptions {
  public:
   ScanSettingsOptions() = default;
 
-  ScanSettingsOptions(const mozilla::dom::ScanSettings& aOther) {
+  explicit ScanSettingsOptions(const mozilla::dom::ScanSettings& aOther) {
     COPY_OPT_FIELD(mScanType, 2)
     COPY_SEQUENCE_FIELD(mChannels, int32_t)
     COPY_SEQUENCE_FIELD(mHiddenNetworks, nsString)
@@ -206,7 +206,7 @@ struct PnoNetworkOptions {
  public:
   PnoNetworkOptions() = default;
 
-  PnoNetworkOptions(const mozilla::dom::PnoNetwork& aOther) {
+  explicit PnoNetworkOptions(const mozilla::dom::PnoNetwork& aOther) {
     COPY_OPT_FIELD(mIsHidden, false)
     COPY_OPT_FIELD(mSsid, EmptyString())
     COPY_SEQUENCE_FIELD(mFrequencies, int32_t)
@@ -229,7 +229,7 @@ struct PnoScanSettingsOptions {
  public:
   PnoScanSettingsOptions() = default;
 
-  PnoScanSettingsOptions(const mozilla::dom::PnoScanSettings& aOther) {
+  explicit PnoScanSettingsOptions(const mozilla::dom::PnoScanSettings& aOther) {
     COPY_OPT_FIELD(mInterval, 0)
     COPY_OPT_FIELD(mMin2gRssi, 0)
     COPY_OPT_FIELD(mMin5gRssi, 0)
@@ -264,7 +264,7 @@ struct PnoScanSettingsOptions {
 // Needed to add a copy constructor to WifiCommandOptions.
 struct CommandOptions {
  public:
-  CommandOptions(const mozilla::dom::WifiCommandOptions& aOther) {
+  explicit CommandOptions(const mozilla::dom::WifiCommandOptions& aOther) {
     COPY_FIELD(mId)
     COPY_FIELD(mCmd)
     COPY_FIELD(mEnabled)

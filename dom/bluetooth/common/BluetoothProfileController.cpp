@@ -33,7 +33,7 @@ class CheckProfileStatusCallback : public nsITimerCallback {
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
 
-  CheckProfileStatusCallback(BluetoothProfileController* aController)
+  explicit CheckProfileStatusCallback(BluetoothProfileController* aController)
       : mController(aController) {
     MOZ_ASSERT(aController);
   }

@@ -411,7 +411,7 @@ BluetoothHfpManager::~BluetoothHfpManager() {
 class BluetoothHfpManager::UnregisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
  public:
-  UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
+  explicit UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
       : mRes(aRes) {}
 
   void OnError(BluetoothStatus aStatus) override {
@@ -1264,7 +1264,7 @@ void BluetoothHfpManager::OnConnectError() {
 class BluetoothHfpManager::ConnectResultHandler final
     : public BluetoothHandsfreeResultHandler {
  public:
-  ConnectResultHandler(BluetoothHfpManager* aHfpManager)
+  explicit ConnectResultHandler(BluetoothHfpManager* aHfpManager)
       : mHfpManager(aHfpManager) {
     MOZ_ASSERT(mHfpManager);
   }
@@ -1311,7 +1311,7 @@ void BluetoothHfpManager::OnDisconnectError() {
 class BluetoothHfpManager::DisconnectResultHandler final
     : public BluetoothHandsfreeResultHandler {
  public:
-  DisconnectResultHandler(BluetoothHfpManager* aHfpManager)
+  explicit DisconnectResultHandler(BluetoothHfpManager* aHfpManager)
       : mHfpManager(aHfpManager) {
     MOZ_ASSERT(mHfpManager);
   }

@@ -446,7 +446,7 @@ void GonkGPSGeolocationProvider::InjectLocation(double latitude,
 class GonkGPSGeolocationProvider::UpdateLocationEvent final
     : public mozilla::Runnable {
  public:
-  UpdateLocationEvent(nsGeoPosition* aPosition)
+  explicit UpdateLocationEvent(nsGeoPosition* aPosition)
       : mozilla::Runnable("UpdateLocationEvent"), mPosition(aPosition) {}
   NS_IMETHOD Run() {
     RefPtr<GonkGPSGeolocationProvider> provider =
@@ -466,7 +466,7 @@ class GonkGPSGeolocationProvider::UpdateLocationEvent final
 class GonkGPSGeolocationProvider::UpdateCapabilitiesEvent final
     : public mozilla::Runnable {
  public:
-  UpdateCapabilitiesEvent(uint32_t aCapabilities)
+  explicit UpdateCapabilitiesEvent(uint32_t aCapabilities)
       : mozilla::Runnable("UpdateCapabilitiesEvent"),
         mCapabilities(aCapabilities) {}
   NS_IMETHOD Run() {

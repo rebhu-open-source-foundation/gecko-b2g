@@ -279,7 +279,7 @@ public:
                 return res;
             }
             if ((i > 0 && !(x > lastx)) /* handle nan */
-                    || y != y /* handle nan */) {
+                    || mozilla::IsNaN(y) /* handle nan */) {
                 // This is a std::map object which imposes sorted order
                 // automatically on emplace.
                 // Nevertheless for reading from a Parcel,

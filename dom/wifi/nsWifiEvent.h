@@ -20,7 +20,7 @@ class nsWifiEvent final : public nsIWifiEvent {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFIEVENT
   nsWifiEvent();
-  nsWifiEvent(const nsAString& aName);
+  explicit nsWifiEvent(const nsAString& aName);
 
   void updateStateChanged(nsStateChanged* aStateChanged);
 

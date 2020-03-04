@@ -67,7 +67,7 @@ public:
      * the controlledByApp flag indicates that this GonkNativeWindowClient (producer) is
      * controlled by the application. This flag is used at connect time.
      */
-    GonkNativeWindowClient(const sp<IGraphicBufferProducer>& bufferProducer, bool controlledByApp = false);
+    explicit GonkNativeWindowClient(const sp<IGraphicBufferProducer>& bufferProducer, bool controlledByApp = false);
 
     /* getIGraphicBufferProducer() returns the IGraphicBufferProducer this
      * GonkNativeWindowClient was created with. Usually it's an error to use the

@@ -55,7 +55,7 @@ namespace android {
 static const int64_t CAMERA_SOURCE_TIMEOUT_NS = 3000000000LL;
 
 struct GonkCameraSourceListener : public GonkCameraListener {
-    GonkCameraSourceListener(const sp<GonkCameraSource> &source);
+    explicit GonkCameraSourceListener(const sp<GonkCameraSource> &source);
 
     virtual void notify(int32_t msgType, int32_t ext1, int32_t ext2);
     virtual bool postData(int32_t msgType, const sp<IMemory> &dataPtr,
@@ -326,7 +326,7 @@ status_t GonkCameraSource::configureCamera(
         CHECK(supportedFrameRates != NULL);
         CS_LOGV("Supported frame rates: %s", supportedFrameRates);
         char buf[4];
-        snprintf(buf, 4, "%d", frameRate);
+        SprintfLiteral(buf, "%d", frameRate);
         if (strstr(supportedFrameRates, buf) == NULL) {
             CS_LOGE("Requested frame rate (%d) is not supported: %s",
                 frameRate, supportedFrameRates);

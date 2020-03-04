@@ -38,6 +38,8 @@
 // * publicnotification
 //   Always plays in speaker, even when headphones are plugged in.
 //   Use case: Camera shutter sound.
+//
+// Note: Keep in sync with the IPC serializer in TabMessageUtils.h
 enum AudioChannel {
   "normal",
   "content",
