@@ -971,6 +971,17 @@ NS_IMETHODIMP nsRilWorker::ChangeIccPin2ForApp(int32_t serial, const nsAString& 
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilWorker::ReportStkServiceIsRunning(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_REPORT_STK_SERVICE_IS_RUNNING ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->reportStkServiceIsRunning(serial);
+
+  return NS_OK;
+}
+
 
 nsRilWorker::~nsRilWorker() {
   INFO("Destructor nsRilWorker");

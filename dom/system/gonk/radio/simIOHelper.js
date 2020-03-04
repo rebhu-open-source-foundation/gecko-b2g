@@ -73,7 +73,8 @@ Context.prototype = {
   let lazySymbols = [
     "ICCRecordHelper","ICCIOHelper", "ICCFileHelper",
     "ICCUtilsHelper","ICCPDUHelper","GsmPDUHelper", "SimRecordHelper",
-    "ISimRecordHelper",
+    "ISimRecordHelper","BerTlvHelper","ComprehensionTlvHelper","StkProactiveCmdHelper",
+    "StkCommandParamsFactory",
   ];
 
   for (let i = 0; i < lazySymbols.length; i++) {
@@ -285,7 +286,8 @@ ICCIOHelperObject.prototype = {
   processUSimGetResponse: function(options, octetLen) {
     let BerTlvHelper = this.context.BerTlvHelper;
 
-    let berTlv = BerTlvHelper.decode(octetLen);
+    // Mark this first.
+    //let berTlv = BerTlvHelper.decode(octetLen);
     // See TS 102 221 Table 11.4 for the content order of getResponse.
     let iter = Iterator(berTlv.value);
     let tlv = BerTlvHelper.searchForNextTag(BER_FCP_FILE_DESCRIPTOR_TAG,
@@ -3164,8 +3166,7 @@ ICCRecordHelperObject.prototype = {
       if (DEBUG) this.context.debug("ICCID: " + RIL.iccInfo.iccid);
       if (RIL.iccInfo.iccid) {
         this.context.ICCUtilsHelper.handleICCInfoChange();
-        // Cameron mark first.
-        //RIL.reportStkServiceIsRunning();
+        this.context.RIL.sendWorkerMessage("reportStkServiceIsRunning", null, null);
       }
     }
 
@@ -5693,7 +5694,6 @@ ICCPDUHelperObject.prototype = {
    *        Number of octets to be read as UCS2 string.
    */
   readICCUCS2String: function(scheme, value, numOctets) {
-    let Buf = this.context.Buf;
     let GsmPDUHelper = this.context.GsmPDUHelper;
 
     let str = "";
@@ -5707,7 +5707,7 @@ ICCPDUHelperObject.prototype = {
         let isOdd = numOctets % 2;
         let i;
         for (i = 0; i < numOctets - isOdd; i += 2) {
-          let code = (GsmPDUHelper.readHexOctet() << 8) | GsmPDUHelper.readHexOctet();
+          let code = GsmPDUHelper.processHexToInt(value.slice(i*2,i*2+4), 16);
           if (code == 0xffff) {
             i += 2;
             break;
@@ -5715,8 +5715,6 @@ ICCPDUHelperObject.prototype = {
           str += String.fromCharCode(code);
         }
 
-        // Skip trailing 0xff
-        Buf.seekIncoming((numOctets - i) * Buf.PDU_HEX_OCTET_SIZE);
         break;
       case 0x81: // Fall through
       case 0x82:
@@ -5869,10 +5867,12 @@ ICCPDUHelperObject.prototype = {
     // Read the 1st octet to determine the encoding.
     if (temp == 0x80 || temp == 0x81 || temp == 0x82) {
       numOctets--;
-      // Cameron no sim card for verify this api.
-      return this.readICCUCS2String(temp, value, numOctets);
+      value = value.slice(2);
+      let string = this.readICCUCS2String(temp, value, numOctets);
+      return string;
     } else {
-      return this.read8BitUnpackedToString(value, numOctets);
+      let string = this.read8BitUnpackedToString(value, numOctets);
+      return string;
     }
   },
 
@@ -6023,6 +6023,1912 @@ ICCPDUHelperObject.prototype = {
       return "";
     }
   }
+};
+
+function BerTlvHelperObject(aContext) {
+  this.context = aContext;
+}
+BerTlvHelperObject.prototype = {
+  context: null,
+
+  /**
+   * Decode Ber TLV.
+   *
+   * @param dataLen
+   *        The length of data in bytes.
+   */
+  decode: function(value) {
+    let dataLen = value.length/2;
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    let hlen = 0;
+    // data[0] data[1] for tag
+    let tag = GsmPDUHelper.processHexToInt(value.slice(0,2), 16);
+    hlen++;
+
+    // The length is coded onto 1 or 2 bytes.
+    // Length    | Byte 1                | Byte 2
+    // 0 - 127   | length ('00' to '7f') | N/A
+    // 128 - 255 | '81'                  | length ('80' to 'ff')
+    let length;
+    // data[2] data[3] for temp
+    let temp = GsmPDUHelper.processHexToInt(value.slice(2,4), 16);
+    hlen++;
+    if (temp < 0x80) {
+      length = temp;
+
+    } else if (temp === 0x81) {
+      length = GsmPDUHelper.processHexToInt(value.slice(4,6), 16);
+      hlen++;
+      if (length < 0x80) {
+        throw new Error("Invalid length " + length);
+      }
+    } else {
+      throw new Error("Invalid length octet " + temp);
+    }
+
+    // Header + body length check.
+    if (dataLen - hlen !== length) {
+      throw new Error("Unexpected BerTlvHelper value length!!");
+    }
+
+    let method = this[tag];
+    if (typeof method != "function") {
+      throw new Error("Unknown Ber tag 0x" + tag.toString(16));
+    }
+
+    // Remove the tag and size value.
+    value = value.slice(hlen*2);
+
+    let decodeValue = method.call(this, value, length);
+    return {
+      tag: tag,
+      length: length,
+      value: decodeValue
+    };
+  },
+
+  /**
+   * Process the value part for FCP template TLV.
+   *
+   * @param length
+   *        The length of data in bytes.
+   */
+  processFcpTemplate: function(length) {
+    let tlvs = this.decodeChunks(length);
+    return tlvs;
+  },
+
+  /**
+   * Process the value part for proactive command TLV.
+   *
+   * @param length
+   *        The length of data in bytes.
+   */
+  processProactiveCommand: function(value, length) {
+    let ctlvs = this.context.ComprehensionTlvHelper.decodeChunks(value, length);
+    return ctlvs;
+  },
+
+  /**
+   * Decode raw data to a Ber-TLV.
+   */
+  decodeInnerTlv: function() {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let tag = GsmPDUHelper.readHexOctet();
+    let length = GsmPDUHelper.readHexOctet();
+    let value = this.retrieve(tag, length);
+    return {
+      tag: tag,
+      length: length,
+      value: value
+    };
+  },
+
+  decodeChunks: function(length) {
+    let chunks = [];
+    let index = 0;
+    while (index < length) {
+      let tlv = this.decodeInnerTlv();
+      if (tlv.value) {
+        chunks.push(tlv);
+      }
+      index += tlv.length;
+      // tag + length fields consume 2 bytes.
+      index += 2;
+    }
+    return chunks;
+  },
+
+  retrieve: function(tag, length) {
+    let method = this[tag];
+    if (typeof method != "function") {
+      if (DEBUG) {
+        this.context.debug("Unknown Ber tag : 0x" + tag.toString(16));
+      }
+      let Buf = this.context.Buf;
+      Buf.seekIncoming(length * Buf.PDU_HEX_OCTET_SIZE);
+      return null;
+    }
+    return method.call(this, length);
+  },
+
+  /**
+   * File Size Data.
+   *
+   * | Byte        | Description                                | Length |
+   * |  1          | Tag                                        |   1    |
+   * |  2          | Length                                     |   1    |
+   * |  3 to X+24  | Number of allocated data bytes in the file |   X    |
+   * |             | , excluding structural information         |        |
+   */
+  retrieveFileSizeData: function(length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let fileSizeData = 0;
+    for (let i = 0; i < length; i++) {
+      fileSizeData = fileSizeData << 8;
+      fileSizeData += GsmPDUHelper.readHexOctet();
+    }
+
+    return {fileSizeData: fileSizeData};
+  },
+
+  /**
+   * File Descriptor.
+   *
+   * | Byte    | Description           | Length |
+   * |  1      | Tag                   |   1    |
+   * |  2      | Length                |   1    |
+   * |  3      | File descriptor byte  |   1    |
+   * |  4      | Data coding byte      |   1    |
+   * |  5 ~ 6  | Record length         |   2    |
+   * |  7      | Number of records     |   1    |
+   */
+  retrieveFileDescriptor: function(length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let fileDescriptorByte = GsmPDUHelper.readHexOctet();
+    let dataCodingByte = GsmPDUHelper.readHexOctet();
+    // See TS 102 221 Table 11.5, we only care the least 3 bits for the
+    // structure of file.
+    let fileStructure = fileDescriptorByte & 0x07;
+
+    let fileDescriptor = {
+      fileStructure: fileStructure
+    };
+    // byte 5 ~ 7 are mandatory for linear fixed and cyclic files, otherwise
+    // they are not applicable.
+    if (fileStructure === UICC_EF_STRUCTURE[EF_STRUCTURE_LINEAR_FIXED] ||
+        fileStructure === UICC_EF_STRUCTURE[EF_STRUCTURE_CYCLIC]) {
+      fileDescriptor.recordLength = (GsmPDUHelper.readHexOctet() << 8) +
+                                     GsmPDUHelper.readHexOctet();
+      fileDescriptor.numOfRecords = GsmPDUHelper.readHexOctet();
+    }
+
+    return fileDescriptor;
+  },
+
+  /**
+   * File identifier.
+   *
+   * | Byte    | Description      | Length |
+   * |  1      | Tag              |   1    |
+   * |  2      | Length           |   1    |
+   * |  3 ~ 4  | File identifier  |   2    |
+   */
+  retrieveFileIdentifier: function(length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    return {fileId : (GsmPDUHelper.readHexOctet() << 8) +
+                      GsmPDUHelper.readHexOctet()};
+  },
+
+  searchForNextTag: function(tag, iter) {
+    for (let [index, tlv] in iter) {
+      if (tlv.tag === tag) {
+        return tlv;
+      }
+    }
+    return null;
+  }
+};
+BerTlvHelperObject.prototype[BER_FCP_TEMPLATE_TAG] = function BER_FCP_TEMPLATE_TAG(value, length) {
+  return this.processFcpTemplate(value, length);
+};
+BerTlvHelperObject.prototype[BER_PROACTIVE_COMMAND_TAG] = function BER_PROACTIVE_COMMAND_TAG(value, length) {
+  return this.processProactiveCommand(value, length);
+};
+BerTlvHelperObject.prototype[BER_FCP_FILE_SIZE_DATA_TAG] = function BER_FCP_FILE_SIZE_DATA_TAG(value, length) {
+  return this.retrieveFileSizeData(value, length);
+};
+BerTlvHelperObject.prototype[BER_FCP_FILE_DESCRIPTOR_TAG] = function BER_FCP_FILE_DESCRIPTOR_TAG(value, length) {
+  return this.retrieveFileDescriptor(value, length);
+};
+BerTlvHelperObject.prototype[BER_FCP_FILE_IDENTIFIER_TAG] = function BER_FCP_FILE_IDENTIFIER_TAG(value, length) {
+  return this.retrieveFileIdentifier(value, length);
+};
+
+
+function ComprehensionTlvHelperObject(aContext) {
+  this.context = aContext;
+}
+ComprehensionTlvHelperObject.prototype = {
+  context: null,
+
+  /**
+   * Decode raw data to a Comprehension-TLV.
+   */
+  decode: function(value) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    let hlen = 0; // For header(tag field + length field) length.
+    let temp = GsmPDUHelper.processHexToInt(value.slice(0,2), 16);
+    hlen++;
+
+    // TS 101.220, clause 7.1.1
+    let tag, cr;
+    switch (temp) {
+      // TS 101.220, clause 7.1.1
+      case 0x0: // Not used.
+      case 0xff: // Not used.
+      case 0x80: // Reserved for future use.
+        throw new Error("Invalid octet when parsing Comprehension TLV :" + temp);
+      case 0x7f: // Tag is three byte format.
+        // TS 101.220 clause 7.1.1.2.
+        // | Byte 1 | Byte 2                        | Byte 3 |
+        // |        | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 |        |
+        // | 0x7f   |CR | Tag Value                          |
+        //tag = (GsmPDUHelper.readHexOctet() << 8) | GsmPDUHelper.readHexOctet();
+        tag = GsmPDUHelper.processHexToInt(value.slice(2,6), 16);
+        hlen += 2;
+        cr = (tag & 0x8000) !== 0;
+        tag &= ~0x8000;
+        break;
+      default: // Tag is single byte format.
+        tag = temp;
+        // TS 101.220 clause 7.1.1.1.
+        // | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 |
+        // |CR | Tag Value                 |
+        cr = (tag & 0x80) !== 0;
+        tag &= ~0x80;
+    }
+
+    // TS 101.220 clause 7.1.2, Length Encoding.
+    // Length   |  Byte 1  | Byte 2 | Byte 3 | Byte 4 |
+    // 0 - 127  |  00 - 7f | N/A    | N/A    | N/A    |
+    // 128-255  |  81      | 80 - ff| N/A    | N/A    |
+    // 256-65535|  82      | 0100 - ffff     | N/A    |
+    // 65536-   |  83      |     010000 - ffffff      |
+    // 16777215
+    //
+    // Length errors: TS 11.14, clause 6.10.6
+
+    let length; // Data length.
+    temp = GsmPDUHelper.processHexToInt(value.slice(hlen*2,hlen*2+2), 16);
+    hlen++;
+    if (temp < 0x80) {
+      length = temp;
+    } else if (temp == 0x81) {
+      length = GsmPDUHelper.processHexToInt(value.slice(hlen*2,hlen*2+2), 16);
+      hlen++;
+      if (length < 0x80) {
+        throw new Error("Invalid length in Comprehension TLV :" + length);
+      }
+    } else if (temp == 0x82) {
+      length = GsmPDUHelper.processHexToInt(value.slice(hlen*2,hlen*2+4), 16);
+      hlen += 2;
+      if (lenth < 0x0100) {
+        throw new Error("Invalid length in 3-byte Comprehension TLV :" + length);
+      }
+    } else if (temp == 0x83) {
+      length = GsmPDUHelper.processHexToInt(value.slice(hlen*2,hlen*2+6), 16);
+      hlen += 3;
+      if (length < 0x010000) {
+        throw new Error("Invalid length in 4-byte Comprehension TLV :" + length);
+      }
+    } else {
+      throw new Error("Invalid octet in Comprehension TLV :" + temp);
+    }
+
+    let decodeValue = value.slice(hlen*2);
+    let ctlv = {
+      tag: tag,
+      length: length,
+      value: this.context.StkProactiveCmdHelper.retrieve(tag, decodeValue, length),
+      cr: cr,
+      hlen: hlen
+    };
+
+    return ctlv;
+  },
+
+  decodeChunks: function(value ,length) {
+    let chunks = [];
+    let index = 0;
+    while (index < length) {
+      let tlv = this.decode(value);
+      chunks.push(tlv);
+      index += tlv.length;
+      index += tlv.hlen;
+      // Remove the readed value.
+      value = value.slice((tlv.length+tlv.hlen)*2);
+    }
+    return chunks;
+  },
+
+  /**
+   * Write Location Info Comprehension TLV.
+   *
+   * @param loc location Information.
+   */
+  writeLocationInfoTlv: function(loc) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    GsmPDUHelper.writeHexOctet(COMPREHENSIONTLV_TAG_LOCATION_INFO |
+                               COMPREHENSIONTLV_FLAG_CR);
+    GsmPDUHelper.writeHexOctet(loc.gsmCellId > 0xffff ? 9 : 7);
+    // From TS 11.14, clause 12.19
+    // "The mobile country code (MCC), the mobile network code (MNC),
+    // the location area code (LAC) and the cell ID are
+    // coded as in TS 04.08."
+    // And from TS 04.08 and TS 24.008,
+    // the format is as follows:
+    //
+    // MCC = MCC_digit_1 + MCC_digit_2 + MCC_digit_3
+    //
+    //   8  7  6  5    4  3  2  1
+    // +-------------+-------------+
+    // | MCC digit 2 | MCC digit 1 | octet 2
+    // | MNC digit 3 | MCC digit 3 | octet 3
+    // | MNC digit 2 | MNC digit 1 | octet 4
+    // +-------------+-------------+
+    //
+    // Also in TS 24.008
+    // "However a network operator may decide to
+    // use only two digits in the MNC in the LAI over the
+    // radio interface. In this case, bits 5 to 8 of octet 3
+    // shall be coded as '1111'".
+
+    // MCC & MNC, 3 octets
+    let mcc = loc.mcc, mnc;
+    if (loc.mnc.length == 2) {
+      mnc = "F" + loc.mnc;
+    } else {
+      mnc = loc.mnc[2] + loc.mnc[0] + loc.mnc[1];
+    }
+    GsmPDUHelper.writeSwappedNibbleBCD(mcc + mnc);
+
+    // LAC, 2 octets
+    GsmPDUHelper.writeHexOctet((loc.gsmLocationAreaCode >> 8) & 0xff);
+    GsmPDUHelper.writeHexOctet(loc.gsmLocationAreaCode & 0xff);
+
+    // Cell Id
+    if (loc.gsmCellId > 0xffff) {
+      // UMTS/WCDMA, gsmCellId is 28 bits.
+      GsmPDUHelper.writeHexOctet((loc.gsmCellId >> 24) & 0xff);
+      GsmPDUHelper.writeHexOctet((loc.gsmCellId >> 16) & 0xff);
+      GsmPDUHelper.writeHexOctet((loc.gsmCellId >> 8) & 0xff);
+      GsmPDUHelper.writeHexOctet(loc.gsmCellId & 0xff);
+    } else {
+      // GSM, gsmCellId is 16 bits.
+      GsmPDUHelper.writeHexOctet((loc.gsmCellId >> 8) & 0xff);
+      GsmPDUHelper.writeHexOctet(loc.gsmCellId & 0xff);
+    }
+  },
+
+  /**
+   * Given a geckoError string, this function translates it into cause value
+   * and write the value into buffer.
+   *
+   * @param geckoError Error string that is passed to gecko.
+   */
+  writeCauseTlv: function(geckoError) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    let cause = -1;
+    for (let errorNo in RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR) {
+      if (geckoError == RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[errorNo]) {
+        cause = errorNo;
+        break;
+      }
+    }
+
+    // Causes specified in 10.5.4.11 of TS 04.08 are less than 128.
+    // we can ignore causes > 127 since Cause TLV is optional in
+    // STK_EVENT_TYPE_CALL_DISCONNECTED.
+    if (cause > 127) {
+      return;
+    }
+
+    cause = (cause == -1) ? ERROR_SUCCESS : cause;
+
+    GsmPDUHelper.writeHexOctet(COMPREHENSIONTLV_TAG_CAUSE |
+                               COMPREHENSIONTLV_FLAG_CR);
+    GsmPDUHelper.writeHexOctet(2);  // For single cause value.
+
+    // TS 04.08, clause 10.5.4.11:
+    // Code Standard : Standard defined for GSM PLMNS
+    // Location: User
+    GsmPDUHelper.writeHexOctet(0x60);
+
+    // TS 04.08, clause 10.5.4.11: ext bit = 1 + 7 bits for cause.
+    // +-----------------+----------------------------------+
+    // | Ext = 1 (1 bit) |          Cause (7 bits)          |
+    // +-----------------+----------------------------------+
+    GsmPDUHelper.writeHexOctet(0x80 | cause);
+  },
+
+  writeDateTimeZoneTlv: function(date) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    GsmPDUHelper.writeHexOctet(COMPREHENSIONTLV_TAG_DATE_TIME_ZONE);
+    GsmPDUHelper.writeHexOctet(7);
+    GsmPDUHelper.writeTimestamp(date);
+  },
+
+  writeLanguageTlv: function(language) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    GsmPDUHelper.writeHexOctet(COMPREHENSIONTLV_TAG_LANGUAGE);
+    GsmPDUHelper.writeHexOctet(2);
+
+    // ISO 639-1, Alpha-2 code
+    // TS 123.038, clause 6.2.1, GSM 7 bit Default Alphabet
+    GsmPDUHelper.writeHexOctet(
+      PDU_NL_LOCKING_SHIFT_TABLES[PDU_NL_IDENTIFIER_DEFAULT].indexOf(language[0]));
+    GsmPDUHelper.writeHexOctet(
+      PDU_NL_LOCKING_SHIFT_TABLES[PDU_NL_IDENTIFIER_DEFAULT].indexOf(language[1]));
+  },
+
+  /**
+   * Write Timer Value Comprehension TLV.
+   *
+   * @param seconds length of time during of the timer.
+   * @param cr Comprehension Required or not
+   */
+  writeTimerValueTlv: function(seconds, cr) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    GsmPDUHelper.writeHexOctet(COMPREHENSIONTLV_TAG_TIMER_VALUE |
+                               (cr ? COMPREHENSIONTLV_FLAG_CR : 0));
+    GsmPDUHelper.writeHexOctet(3);
+
+    // TS 102.223, clause 8.38
+    // +----------------+------------------+-------------------+
+    // | hours (1 byte) | minutes (1 btye) | seconds (1 byte)  |
+    // +----------------+------------------+-------------------+
+    GsmPDUHelper.writeSwappedNibbleBCDNum(Math.floor(seconds / 60 / 60));
+    GsmPDUHelper.writeSwappedNibbleBCDNum(Math.floor(seconds / 60) % 60);
+    GsmPDUHelper.writeSwappedNibbleBCDNum(Math.floor(seconds) % 60);
+  },
+
+  writeTextStringTlv: function(text, coding) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let buf = GsmPDUHelper.writeWithBuffer(() => {
+      // Write Coding.
+      GsmPDUHelper.writeHexOctet(coding);
+
+      // Write Text String.
+      switch (coding) {
+        case STK_TEXT_CODING_UCS2:
+          GsmPDUHelper.writeUCS2String(text);
+          break;
+        case STK_TEXT_CODING_GSM_7BIT_PACKED:
+          GsmPDUHelper.writeStringAsSeptets(text, 0, 0, 0);
+          break;
+        case STK_TEXT_CODING_GSM_8BIT:
+          GsmPDUHelper.writeStringAs8BitUnpacked(text);
+          break;
+      }
+    });
+
+    let length = buf.length;
+    if (length) {
+      // Write Tag.
+      GsmPDUHelper.writeHexOctet(COMPREHENSIONTLV_TAG_TEXT_STRING |
+                                 COMPREHENSIONTLV_FLAG_CR);
+      // Write Length.
+      this.writeLength(length);
+      // Write Value.
+      for (let i = 0; i < length; i++) {
+        GsmPDUHelper.writeHexOctet(buf[i]);
+      }
+    }
+  },
+
+  getSizeOfLengthOctets: function(length) {
+    if (length >= 0x10000) {
+      return 4; // 0x83, len_1, len_2, len_3
+    } else if (length >= 0x100) {
+      return 3; // 0x82, len_1, len_2
+    } else if (length >= 0x80) {
+      return 2; // 0x81, len
+    } else {
+      return 1; // len
+    }
+  },
+
+  writeLength: function(length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+
+    // TS 101.220 clause 7.1.2, Length Encoding.
+    // Length   |  Byte 1  | Byte 2 | Byte 3 | Byte 4 |
+    // 0 - 127  |  00 - 7f | N/A    | N/A    | N/A    |
+    // 128-255  |  81      | 80 - ff| N/A    | N/A    |
+    // 256-65535|  82      | 0100 - ffff     | N/A    |
+    // 65536-   |  83      |     010000 - ffffff      |
+    // 16777215
+    if (length < 0x80) {
+      GsmPDUHelper.writeHexOctet(length);
+    } else if (0x80 <= length && length < 0x100) {
+      GsmPDUHelper.writeHexOctet(0x81);
+      GsmPDUHelper.writeHexOctet(length);
+    } else if (0x100 <= length && length < 0x10000) {
+      GsmPDUHelper.writeHexOctet(0x82);
+      GsmPDUHelper.writeHexOctet((length >> 8) & 0xff);
+      GsmPDUHelper.writeHexOctet(length & 0xff);
+    } else if (0x10000 <= length && length < 0x1000000) {
+      GsmPDUHelper.writeHexOctet(0x83);
+      GsmPDUHelper.writeHexOctet((length >> 16) & 0xff);
+      GsmPDUHelper.writeHexOctet((length >> 8) & 0xff);
+      GsmPDUHelper.writeHexOctet(length & 0xff);
+    } else {
+      throw new Error("Invalid length value :" + length);
+    }
+  },
+};
+
+function StkProactiveCmdHelperObject(aContext) {
+  this.context = aContext;
+}
+StkProactiveCmdHelperObject.prototype = {
+  context: null,
+
+  retrieve: function(tag, value, length) {
+    let method = this[tag];
+    if (typeof method != "function") {
+      if (DEBUG) {
+        this.context.debug("Unknown comprehension tag " + tag.toString(16));
+      }
+      return null;
+    }
+    return method.call(this, value, length);
+  },
+
+  /**
+   * Command Details.
+   *
+   * | Byte | Description         | Length |
+   * |  1   | Command details Tag |   1    |
+   * |  2   | Length = 03         |   1    |
+   * |  3   | Command number      |   1    |
+   * |  4   | Type of Command     |   1    |
+   * |  5   | Command Qualifier   |   1    |
+   */
+  retrieveCommandDetails: function(value, length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let cmdDetails = {
+      commandNumber: GsmPDUHelper.processHexToInt(value.slice(0,2), 16),
+      typeOfCommand: GsmPDUHelper.processHexToInt(value.slice(2,4), 16),
+      commandQualifier: GsmPDUHelper.processHexToInt(value.slice(4,6), 16)
+    };
+
+    return cmdDetails;
+  },
+
+  /**
+   * Device Identities.
+   *
+   * | Byte | Description            | Length |
+   * |  1   | Device Identity Tag    |   1    |
+   * |  2   | Length = 02            |   1    |
+   * |  3   | Source device Identity |   1    |
+   * |  4   | Destination device Id  |   1    |
+   */
+  retrieveDeviceId: function(value, length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let deviceId = {
+      sourceId: GsmPDUHelper.processHexToInt(value.slice(0,2), 16),
+      destinationId: GsmPDUHelper.processHexToInt(value.slice(2,4), 16)
+    };
+    return deviceId;
+  },
+
+  /**
+   * Alpha Identifier.
+   *
+   * | Byte         | Description            | Length |
+   * |  1           | Alpha Identifier Tag   |   1    |
+   * | 2 ~ (Y-1)+2  | Length (X)             |   Y    |
+   * | (Y-1)+3 ~    | Alpha identfier        |   X    |
+   * | (Y-1)+X+2    |                        |        |
+   */
+  retrieveAlphaId: function(value, length) {
+    let alphaId = {
+      identifier: this.context.ICCPDUHelper.readAlphaIdentifier(value, length)
+    };
+    return alphaId;
+  },
+
+  /**
+   * Duration.
+   *
+   * | Byte | Description           | Length |
+   * |  1   | Response Length Tag   |   1    |
+   * |  2   | Lenth = 02            |   1    |
+   * |  3   | Time unit             |   1    |
+   * |  4   | Time interval         |   1    |
+   */
+  retrieveDuration: function(value, length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let duration = {
+      timeUnit: GsmPDUHelper.readHexOctet(),
+      timeInterval: GsmPDUHelper.readHexOctet(),
+    };
+    return duration;
+  },
+
+  /**
+   * Address.
+   *
+   * | Byte         | Description            | Length |
+   * |  1           | Alpha Identifier Tag   |   1    |
+   * | 2 ~ (Y-1)+2  | Length (X)             |   Y    |
+   * | (Y-1)+3      | TON and NPI            |   1    |
+   * | (Y-1)+4 ~    | Dialling number        |   X    |
+   * | (Y-1)+X+2    |                        |        |
+   */
+  retrieveAddress: function(value, length) {
+    let address = {
+      number : this.context.ICCPDUHelper.readDiallingNumber(value, length)
+    };
+    return address;
+  },
+
+  /**
+   * Text String.
+   *
+   * | Byte         | Description        | Length |
+   * |  1           | Text String Tag    |   1    |
+   * | 2 ~ (Y-1)+2  | Length (X)         |   Y    |
+   * | (Y-1)+3      | Data coding scheme |   1    |
+   * | (Y-1)+4~     | Text String        |   X    |
+   * | (Y-1)+X+2    |                    |        |
+   */
+  retrieveTextString: function(value, length) {
+    if (!length) {
+      // null string.
+      return {textString: null};
+    }
+
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let text = {
+      codingScheme: GsmPDUHelper.readHexOctet()
+    };
+
+    length--; // -1 for the codingScheme.
+    switch (text.codingScheme & 0x0c) {
+      case STK_TEXT_CODING_GSM_7BIT_PACKED:
+        text.textString =
+          GsmPDUHelper.readSeptetsToString(Math.floor(length * 8 / 7), 0, 0, 0);
+        break;
+      case STK_TEXT_CODING_GSM_8BIT:
+        text.textString =
+          this.context.ICCPDUHelper.read8BitUnpackedToString(length);
+        break;
+      case STK_TEXT_CODING_UCS2:
+        text.textString = GsmPDUHelper.readUCS2String(length);
+        break;
+    }
+    return text;
+  },
+
+  /**
+   * Tone.
+   *
+   * | Byte | Description     | Length |
+   * |  1   | Tone Tag        |   1    |
+   * |  2   | Lenth = 01      |   1    |
+   * |  3   | Tone            |   1    |
+   */
+  retrieveTone: function(value, length) {
+    let tone = {
+      tone: this.context.GsmPDUHelper.readHexOctet(),
+    };
+    return tone;
+  },
+
+  /**
+   * Item.
+   *
+   * | Byte         | Description            | Length |
+   * |  1           | Item Tag               |   1    |
+   * | 2 ~ (Y-1)+2  | Length (X)             |   Y    |
+   * | (Y-1)+3      | Identifier of item     |   1    |
+   * | (Y-1)+4 ~    | Text string of item    |   X    |
+   * | (Y-1)+X+2    |                        |        |
+   */
+  retrieveItem: function(value, length) {
+    // TS 102.223 ,clause 6.6.7 SET-UP MENU
+    // If the "Item data object for item 1" is a null data object
+    // (i.e. length = '00' and no value part), this is an indication to the ME
+    // to remove the existing menu from the menu system in the ME.
+    if (!length) {
+      return null;
+    }
+    let identifier = this.context.GsmPDUHelper.processHexToInt(value.slice(0,2), 16);
+    // skip the identifier.
+    value = value.slice(2);
+    let item = {
+      identifier: identifier,
+      text: this.context.ICCPDUHelper.readAlphaIdentifier(value, length - 1)
+    };
+    return item;
+  },
+
+  /**
+   * Item Identifier.
+   *
+   * | Byte | Description               | Length |
+   * |  1   | Item Identifier Tag       |   1    |
+   * |  2   | Lenth = 01                |   1    |
+   * |  3   | Identifier of Item chosen |   1    |
+   */
+  retrieveItemId: function(value, length) {
+    let itemId = {
+      identifier: this.context.GsmPDUHelper.readHexOctet()
+    };
+    return itemId;
+  },
+
+  /**
+   * Response Length.
+   *
+   * | Byte | Description                | Length |
+   * |  1   | Response Length Tag        |   1    |
+   * |  2   | Lenth = 02                 |   1    |
+   * |  3   | Minimum length of response |   1    |
+   * |  4   | Maximum length of response |   1    |
+   */
+  retrieveResponseLength: function(value, length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let rspLength = {
+      minLength : GsmPDUHelper.readHexOctet(),
+      maxLength : GsmPDUHelper.readHexOctet()
+    };
+    return rspLength;
+  },
+
+  /**
+   * File List.
+   *
+   * | Byte         | Description            | Length |
+   * |  1           | File List Tag          |   1    |
+   * | 2 ~ (Y-1)+2  | Length (X)             |   Y    |
+   * | (Y-1)+3      | Number of files        |   1    |
+   * | (Y-1)+4 ~    | Files                  |   X    |
+   * | (Y-1)+X+2    |                        |        |
+   */
+  retrieveFileList: function(value, length) {
+    let num = this.context.GsmPDUHelper.readHexOctet();
+    let fileList = "";
+    length--; // -1 for the num octet.
+    for (let i = 0; i < 2 * length; i++) {
+      // Didn't use readHexOctet here,
+      // otherwise 0x00 will be "0", not "00"
+      fileList += String.fromCharCode(this.context.Buf.readUint16());
+    }
+    return {
+      fileList: fileList
+    };
+  },
+
+  /**
+   * Default Text.
+   *
+   * Same as Text String.
+   */
+  retrieveDefaultText: function(value, length) {
+    let text = this.retrieveTextString(length);
+
+    return text;
+  },
+
+  /**
+   * Event List.
+   */
+  retrieveEventList: function(value, length) {
+    if (!length) {
+      // null means an indication to ME to remove the existing list of events
+      // in ME.
+      return null;
+    }
+
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let eventList = [];
+    for (let i = 0; i < length; i++) {
+      eventList.push(GsmPDUHelper.readHexOctet());
+    }
+
+    return {
+      eventList: eventList
+    };
+  },
+
+  /**
+   * Icon Id.
+   *
+   * | Byte  | Description          | Length |
+   * |  1    | Icon Identifier Tag  |   1    |
+   * |  2    | Length = 02          |   1    |
+   * |  3    | Icon qualifier       |   1    |
+   * |  4    | Icon identifier      |   1    |
+   */
+  retrieveIconId: function(value, length) {
+    if (!length) {
+      return null;
+    }
+
+    let iconId = {
+      qualifier: this.context.GsmPDUHelper.readHexOctet(),
+      identifier: this.context.GsmPDUHelper.readHexOctet()
+    };
+
+    return iconId;
+  },
+
+  /**
+   * Icon Id List.
+   *
+   * | Byte  | Description          | Length |
+   * |  1    | Icon Identifier Tag  |   1    |
+   * |  2    | Length = X           |   1    |
+   * |  3    | Icon qualifier       |   1    |
+   * |  4~   | Icon identifier      |  X-1   |
+   * | 4+X-2 |                      |        |
+   */
+  retrieveIconIdList: function(value, length) {
+    if (!length) {
+      return null;
+    }
+
+    let iconIdList = {
+      qualifier: this.context.GsmPDUHelper.readHexOctet(),
+      identifiers: []
+    };
+    for (let i = 0; i < length - 1; i++) {
+      iconIdList.identifiers.push(this.context.GsmPDUHelper.readHexOctet());
+    }
+
+    return iconIdList;
+  },
+
+  /**
+   * Timer Identifier.
+   *
+   * | Byte  | Description          | Length |
+   * |  1    | Timer Identifier Tag |   1    |
+   * |  2    | Length = 01          |   1    |
+   * |  3    | Timer Identifier     |   1    |
+   */
+  retrieveTimerId: function(value, length) {
+    let id = {
+      timerId: this.context.GsmPDUHelper.readHexOctet()
+    };
+
+    return id;
+  },
+
+  /**
+   * Timer Value.
+   *
+   * | Byte  | Description          | Length |
+   * |  1    | Timer Value Tag      |   1    |
+   * |  2    | Length = 03          |   1    |
+   * |  3    | Hour                 |   1    |
+   * |  4    | Minute               |   1    |
+   * |  5    | Second               |   1    |
+   */
+  retrieveTimerValue: function(value, length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let timer = {
+      timerValue: (GsmPDUHelper.readSwappedNibbleBcdNum(1) * 60 * 60) +
+                  (GsmPDUHelper.readSwappedNibbleBcdNum(1) * 60) +
+                  (GsmPDUHelper.readSwappedNibbleBcdNum(1))
+    };
+    this.context.debug("StkProactiveCmdHelperObject retrieveTimerValue timer: " + JSON.stringify(timer));
+    return timer;
+  },
+
+  /**
+   * Immediate Response.
+   *
+   * | Byte  | Description            | Length |
+   * |  1    | Immediate Response Tag |   1    |
+   * |  2    | Length = 00            |   1    |
+   */
+  retrieveImmediaResponse: function(value, length) {
+    return {};
+  },
+
+  /**
+   * URL
+   *
+   * | Byte      | Description         | Length |
+   * |  1        | URL Tag             |   1    |
+   * | 2 ~ (Y+1) | Length(X)           |   Y    |
+   * | (Y+2) ~   | URL                 |   X    |
+   * | (Y+1+X)   |                     |        |
+   */
+  retrieveUrl: function(value, length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let s = "";
+    for (let i = 0; i < length; i++) {
+      s += String.fromCharCode(GsmPDUHelper.readHexOctet());
+    }
+
+    return {url: s};
+  },
+
+  /**
+   * Next Action Indicator List.
+   *
+   * | Byte  | Description      | Length |
+   * |  1    | Next Action tag  |   1    |
+   * |  1    | Length(X)        |   1    |
+   * |  3~   | Next Action List |   X    |
+   * | 3+X-1 |                  |        |
+   */
+  retrieveNextActionList: function(value, length) {
+    let GsmPDUHelper = this.context.GsmPDUHelper;
+    let nextActionList = [];
+    for (let i = 0; i < length; i++) {
+      nextActionList.push(GsmPDUHelper.readHexOctet());
+    }
+
+    return nextActionList;
+  },
+
+  searchForTag: function(tag, ctlvs) {
+    let ctlv = null;
+    ctlvs.forEach((aCtlv) => {
+      if ((aCtlv.tag & ~COMPREHENSIONTLV_FLAG_CR) == tag) {
+        ctlv = aCtlv;
+      }
+    });
+    return ctlv;
+  },
+
+  searchForSelectedTags: function(ctlvs, tags) {
+    let ret = {
+      // Handy utility to de-queue the 1st ctlv of the specified tag.
+      retrieve: function(aTag) {
+        return (this[aTag]) ? this[aTag].shift() : null;
+      }
+    };
+
+    ctlvs.forEach((aCtlv) => {
+      tags.forEach((aTag) => {
+        if ((aCtlv.tag & ~COMPREHENSIONTLV_FLAG_CR) == aTag) {
+          if (!ret[aTag]) {
+            ret[aTag] = [];
+          }
+          ret[aTag].push(aCtlv);
+        }
+      });
+    });
+    return ret;
+  },
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_COMMAND_DETAILS] = function COMPREHENSIONTLV_TAG_COMMAND_DETAILS(value, length) {
+  return this.retrieveCommandDetails(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_DEVICE_ID] = function COMPREHENSIONTLV_TAG_DEVICE_ID(value, length) {
+  return this.retrieveDeviceId(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_ALPHA_ID] = function COMPREHENSIONTLV_TAG_ALPHA_ID(value, length) {
+  return this.retrieveAlphaId(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_DURATION] = function COMPREHENSIONTLV_TAG_DURATION(value, length) {
+  return this.retrieveDuration(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_ADDRESS] = function COMPREHENSIONTLV_TAG_ADDRESS(value, length) {
+  return this.retrieveAddress(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_TEXT_STRING] = function COMPREHENSIONTLV_TAG_TEXT_STRING(value, length) {
+  return this.retrieveTextString(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_TONE] = function COMPREHENSIONTLV_TAG_TONE(value, length) {
+  return this.retrieveTone(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_ITEM] = function COMPREHENSIONTLV_TAG_ITEM(value, length) {
+  return this.retrieveItem(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_ITEM_ID] = function COMPREHENSIONTLV_TAG_ITEM_ID(value, length) {
+  return this.retrieveItemId(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_RESPONSE_LENGTH] = function COMPREHENSIONTLV_TAG_RESPONSE_LENGTH(value, length) {
+  return this.retrieveResponseLength(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_FILE_LIST] = function COMPREHENSIONTLV_TAG_FILE_LIST(value, length) {
+  return this.retrieveFileList(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_DEFAULT_TEXT] = function COMPREHENSIONTLV_TAG_DEFAULT_TEXT(value, length) {
+  return this.retrieveDefaultText(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_EVENT_LIST] = function COMPREHENSIONTLV_TAG_EVENT_LIST(value, length) {
+  return this.retrieveEventList(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_ICON_ID] = function COMPREHENSIONTLV_TAG_ICON_ID(value, length) {
+  return this.retrieveIconId(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_ICON_ID_LIST] = function COMPREHENSIONTLV_TAG_ICON_ID_LIST(value, length) {
+  return this.retrieveIconIdList(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER] = function COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER(value, length) {
+  return this.retrieveTimerId(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_TIMER_VALUE] = function COMPREHENSIONTLV_TAG_TIMER_VALUE(value, length) {
+  return this.retrieveTimerValue(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_IMMEDIATE_RESPONSE] = function COMPREHENSIONTLV_TAG_IMMEDIATE_RESPONSE(value, length) {
+  return this.retrieveImmediaResponse(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_URL] = function COMPREHENSIONTLV_TAG_URL(value, length) {
+  return this.retrieveUrl(value, length);
+};
+StkProactiveCmdHelperObject.prototype[COMPREHENSIONTLV_TAG_NEXT_ACTION_IND] = function COMPREHENSIONTLV_TAG_NEXT_ACTION_IND(value, length) {
+  return this.retrieveNextActionList(value, length);
+};
+
+function StkCommandParamsFactoryObject(aContext) {
+  this.context = aContext;
+}
+StkCommandParamsFactoryObject.prototype = {
+  context: null,
+
+  createParam: function(cmdDetails, ctlvs, onComplete) {
+    let method = this[cmdDetails.typeOfCommand];
+    if (typeof method != "function") {
+      if (DEBUG) {
+        this.context.debug("Unknown proactive command " +
+                           cmdDetails.typeOfCommand.toString(16));
+      }
+      return;
+    }
+    method.call(this, cmdDetails, ctlvs, onComplete);
+  },
+
+  loadIcons: function(iconIdCtlvs, callback) {
+    if (!iconIdCtlvs ||
+        !this.context.ICCUtilsHelper.isICCServiceAvailable("IMG")) {
+      callback(null);
+      return;
+    }
+
+    let onerror = (function() {
+      callback(null);
+    }).bind(this);
+
+    let onsuccess = (function(aIcons) {
+      callback(aIcons);
+    }).bind(this);
+
+    this.context.IconLoader.loadIcons(iconIdCtlvs.map(aCtlv => aCtlv.value.identifier),
+                                      onsuccess,
+                                      onerror);
+  },
+
+  appendIconIfNecessary: function(iconIdCtlvs, result, onComplete) {
+    this.loadIcons(iconIdCtlvs, (aIcons) => {
+      if (aIcons) {
+        result.icons = aIcons[0];
+        result.iconSelfExplanatory =
+          iconIdCtlvs[0].value.qualifier == 0 ? true : false;
+      }
+
+      onComplete(result);
+    });
+  },
+
+  /**
+   * Construct a param for Refresh.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processRefresh: function(cmdDetails, ctlvs, onComplete) {
+    let refreshType = cmdDetails.commandQualifier;
+    switch (refreshType) {
+      case STK_REFRESH_FILE_CHANGE:
+      case STK_REFRESH_NAA_INIT_AND_FILE_CHANGE:
+        let ctlv = this.context.StkProactiveCmdHelper.searchForTag(
+          COMPREHENSIONTLV_TAG_FILE_LIST, ctlvs);
+        if (ctlv) {
+          let list = ctlv.value.fileList;
+          if (DEBUG) {
+            this.context.debug("Refresh, list = " + list);
+          }
+          this.context.ICCRecordHelper.fetchICCRecords();
+        }
+        break;
+    }
+
+    onComplete(null);
+  },
+
+  /**
+   * Construct a param for Poll Interval.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processPollInterval: function(cmdDetails, ctlvs, onComplete) {
+    // Duration is mandatory.
+    let ctlv = this.context.StkProactiveCmdHelper.searchForTag(
+        COMPREHENSIONTLV_TAG_DURATION, ctlvs);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Poll Interval: Required value missing : Duration");
+    }
+
+    onComplete(ctlv.value);
+  },
+
+  /**
+   * Construct a param for Poll Off.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processPollOff: function(cmdDetails, ctlvs, onComplete) {
+    onComplete(null);
+  },
+
+  /**
+   * Construct a param for Set Up Event list.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processSetUpEventList: function(cmdDetails, ctlvs, onComplete) {
+    // Event list is mandatory.
+    let ctlv = this.context.StkProactiveCmdHelper.searchForTag(
+        COMPREHENSIONTLV_TAG_EVENT_LIST, ctlvs);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Event List: Required value missing : Event List");
+    }
+
+    onComplete(ctlv.value || { eventList: null });
+  },
+
+  /**
+   * Construct a param for Setup Menu.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processSetupMenu: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let menu = {
+      // Help information available.
+      isHelpAvailable: !!(cmdDetails.commandQualifier & 0x80)
+    };
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_ALPHA_ID,
+      COMPREHENSIONTLV_TAG_ITEM,
+      COMPREHENSIONTLV_TAG_ITEM_ID,
+      COMPREHENSIONTLV_TAG_NEXT_ACTION_IND,
+      COMPREHENSIONTLV_TAG_ICON_ID,
+      COMPREHENSIONTLV_TAG_ICON_ID_LIST
+    ]);
+
+    // Alpha identifier is optional.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ALPHA_ID);
+    if (ctlv) {
+      menu.title = ctlv.value.identifier;
+    }
+
+    // Item data object for item 1 is mandatory.
+    let menuCtlvs = selectedCtlvs[COMPREHENSIONTLV_TAG_ITEM];
+    if (!menuCtlvs) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Menu: Required value missing : items");
+    }
+    menu.items = menuCtlvs.map(aCtlv => aCtlv.value);
+
+    // Item identifier is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ITEM_ID);
+    if (ctlv) {
+      menu.defaultItem = ctlv.value.identifier - 1;
+    }
+
+    // Items next action indicator is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_NEXT_ACTION_IND);
+    if (ctlv) {
+      menu.nextActionList = ctlv.value;
+    }
+
+    // Icon identifier is optional.
+    let iconIdCtlvs = null;
+    let menuIconCtlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ICON_ID);
+    if (menuIconCtlv) {
+      iconIdCtlvs = [menuIconCtlv];
+    }
+
+    // Item icon identifier list is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ICON_ID_LIST);
+    if (ctlv) {
+      if (!iconIdCtlvs) {
+        iconIdCtlvs = [];
+      };
+      let iconIdList = ctlv.value;
+      iconIdCtlvs = iconIdCtlvs.concat(iconIdList.identifiers.map((aId) => {
+        return {
+          value: { qualifier: iconIdList.qualifier, identifier: aId }
+        };
+      }));
+    }
+
+    this.loadIcons(iconIdCtlvs, (aIcons) => {
+      if (aIcons) {
+        if (menuIconCtlv) {
+          menu.iconSelfExplanatory =
+            (iconIdCtlvs.shift().value.qualifier == 0) ? true: false;
+          menu.icons = aIcons.shift();
+        }
+
+        for (let i = 0; i < aIcons.length; i++) {
+          menu.items[i].icons = aIcons[i];
+          menu.items[i].iconSelfExplanatory =
+            (iconIdCtlvs[i].value.qualifier == 0) ? true: false;
+        }
+      }
+
+      onComplete(menu);
+    });
+  },
+
+  /**
+   * Construct a param for Select Item.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processSelectItem: function(cmdDetails, ctlvs, onComplete) {
+    this.processSetupMenu(cmdDetails, ctlvs, (menu) => {
+      // The 1st bit and 2nd bit determines the presentation type.
+      menu.presentationType = cmdDetails.commandQualifier & 0x03;
+      onComplete(menu);
+    });
+  },
+
+  /**
+   * Construct a param for Display Text.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processDisplayText: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let textMsg = {
+      isHighPriority: !!(cmdDetails.commandQualifier & 0x01),
+      userClear: !!(cmdDetails.commandQualifier & 0x80)
+    };
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_TEXT_STRING,
+      COMPREHENSIONTLV_TAG_IMMEDIATE_RESPONSE,
+      COMPREHENSIONTLV_TAG_DURATION,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // Text string is mandatory.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_TEXT_STRING);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Display Text: Required value missing : Text String");
+    }
+    textMsg.text = ctlv.value.textString;
+
+    if (DEBUG) this.context.debug("processDisplayText, text = " + textMsg.text);
+    // TS102.384 27.22.4.1.1.9
+    if (!textMsg.text) {
+      if (DEBUG) this.context.debug("processDisplayText, text empty, through error CMD_DATA_NOT_UNDERSTOOD");
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_CMD_DATA_NOT_UNDERSTOOD});
+      throw new Error("Stk Display Text: Required value empty : Text String");
+    }
+
+    // Immediate response is optional.
+    textMsg.responseNeeded =
+      !!(selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_IMMEDIATE_RESPONSE));
+
+    // Duration is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_DURATION);
+    if (ctlv) {
+      textMsg.duration = ctlv.value;
+    }
+
+    // Icon identifier is optional.
+    this.appendIconIfNecessary(selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null,
+                               textMsg,
+                               onComplete);
+  },
+
+  /**
+   * Construct a param for Setup Idle Mode Text.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processSetUpIdleModeText: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let textMsg = {};
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_TEXT_STRING,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // Text string is mandatory.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_TEXT_STRING);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Set Up Idle Text: Required value missing : Text String");
+    }
+    textMsg.text = ctlv.value.textString;
+
+    // Icon identifier is optional.
+    this.appendIconIfNecessary(selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null,
+                               textMsg,
+                               onComplete);
+  },
+
+  /**
+   * Construct a param for Get Inkey.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processGetInkey: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let input = {
+      minLength: 1,
+      maxLength: 1,
+      isAlphabet: !!(cmdDetails.commandQualifier & 0x01),
+      isUCS2: !!(cmdDetails.commandQualifier & 0x02),
+      // Character sets defined in bit 1 and bit 2 are disable and
+      // the YES/NO reponse is required.
+      isYesNoRequested: !!(cmdDetails.commandQualifier & 0x04),
+      // Help information available.
+      isHelpAvailable: !!(cmdDetails.commandQualifier & 0x80)
+    };
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_TEXT_STRING,
+      COMPREHENSIONTLV_TAG_DURATION,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // Text string is mandatory.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_TEXT_STRING);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Get InKey: Required value missing : Text String");
+    }
+    input.text = ctlv.value.textString;
+
+    // Duration is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_DURATION);
+    if (ctlv) {
+      input.duration = ctlv.value;
+    }
+
+    // Icon identifier is optional.
+    this.appendIconIfNecessary(selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null,
+                               input,
+                               onComplete);
+  },
+
+  /**
+   * Construct a param for Get Input.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processGetInput: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let input = {
+      isAlphabet: !!(cmdDetails.commandQualifier & 0x01),
+      isUCS2: !!(cmdDetails.commandQualifier & 0x02),
+      // User input shall not be revealed
+      hideInput: !!(cmdDetails.commandQualifier & 0x04),
+      // User input in SMS packed format
+      isPacked: !!(cmdDetails.commandQualifier & 0x08),
+      // Help information available.
+      isHelpAvailable: !!(cmdDetails.commandQualifier & 0x80)
+    };
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_TEXT_STRING,
+      COMPREHENSIONTLV_TAG_RESPONSE_LENGTH,
+      COMPREHENSIONTLV_TAG_DEFAULT_TEXT,
+      COMPREHENSIONTLV_TAG_DURATION,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // Text string is mandatory.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_TEXT_STRING);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Get Input: Required value missing : Text String");
+    }
+    input.text = ctlv.value.textString;
+
+    // Response length is mandatory.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_RESPONSE_LENGTH);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Get Input: Required value missing : Response Length");
+    }
+    input.minLength = ctlv.value.minLength;
+    input.maxLength = ctlv.value.maxLength;
+
+    // Default text is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_DEFAULT_TEXT);
+    if (ctlv) {
+      input.defaultText = ctlv.value.textString;
+    }
+
+    // Duration is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_DURATION);
+    if (ctlv) {
+      input.duration = ctlv.value;
+    }
+
+    // Icon identifier is optional.
+    this.appendIconIfNecessary(selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null,
+                               input,
+                               onComplete);
+  },
+
+  /**
+   * Construct a param for SendSS/SMS/USSD/DTMF.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processEventNotify: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let textMsg = {};
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_ALPHA_ID,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // Alpha identifier is optional.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ALPHA_ID);
+    if (ctlv) {
+      textMsg.text = ctlv.value.identifier;
+    }
+
+    // According to section 6.4.10 of |ETSI TS 102 223|:
+    //
+    // - if the alpha identifier is provided by the UICC and is a null data
+    //   object (i.e. length = '00' and no value part), this is an indication
+    //   that the terminal should not give any information to the user on the
+    //   fact that the terminal is sending a short message;
+    //
+    // - if the alpha identifier is not provided by the UICC, the terminal may
+    //   give information to the user concerning what is happening.
+    //
+    // ICCPDUHelper reads alpha id as an empty string if the length is zero,
+    // hence we'll notify the caller when it's not an empty string.
+    if (textMsg.text !== "") {
+      // Icon identifier is optional.
+      this.appendIconIfNecessary(selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null,
+                                 textMsg,
+                                 onComplete);
+    }
+  },
+
+  /**
+   * Construct a param for Setup Call.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processSetupCall: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let call = {};
+    let confirmMessage = {};
+    let callMessage = {};
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_ADDRESS,
+      COMPREHENSIONTLV_TAG_ALPHA_ID,
+      COMPREHENSIONTLV_TAG_ICON_ID,
+      COMPREHENSIONTLV_TAG_DURATION
+    ]);
+
+    // Address is mandatory.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ADDRESS);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Set Up Call: Required value missing : Address");
+    }
+    call.address = ctlv.value.number;
+
+    // Alpha identifier (user confirmation phase) is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ALPHA_ID);
+    if (ctlv) {
+      confirmMessage.text = ctlv.value.identifier;
+      call.confirmMessage = confirmMessage;
+    }
+
+    // Alpha identifier (call set up phase) is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ALPHA_ID);
+    if (ctlv) {
+      callMessage.text = ctlv.value.identifier;
+      call.callMessage = callMessage;
+    }
+
+    // Duration is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_DURATION);
+    if (ctlv) {
+      call.duration = ctlv.value;
+    }
+
+    // Icon identifier is optional.
+    let iconIdCtlvs = selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null;
+    this.loadIcons(iconIdCtlvs, (aIcons) => {
+      if (aIcons) {
+        confirmMessage.icons = aIcons[0];
+        confirmMessage.iconSelfExplanatory =
+          (iconIdCtlvs[0].value.qualifier == 0) ? true: false;
+        call.confirmMessage = confirmMessage;
+
+        if (aIcons.length > 1) {
+          callMessage.icons = aIcons[1];
+          callMessage.iconSelfExplanatory =
+            (iconIdCtlvs[1].value.qualifier == 0) ? true: false;
+          call.callMessage = callMessage;
+        }
+      }
+
+      onComplete(call);
+    });
+  },
+
+  /**
+   * Construct a param for Launch Browser.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processLaunchBrowser: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let browser = {
+      mode: cmdDetails.commandQualifier & 0x03
+    };
+    let confirmMessage = {};
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_URL,
+      COMPREHENSIONTLV_TAG_ALPHA_ID,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // URL is mandatory.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_URL);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Launch Browser: Required value missing : URL");
+    }
+    browser.url = ctlv.value.url;
+
+    // Alpha identifier is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ALPHA_ID);
+    if (ctlv) {
+      confirmMessage.text = ctlv.value.identifier;
+      browser.confirmMessage = confirmMessage;
+    }
+
+    // Icon identifier is optional.
+    let iconIdCtlvs = selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null;
+    this.loadIcons(iconIdCtlvs, (aIcons) => {
+       if (aIcons) {
+         confirmMessage.icons = aIcons[0];
+         confirmMessage.iconSelfExplanatory =
+           (iconIdCtlvs[0].value.qualifier == 0) ? true: false;
+         browser.confirmMessage = confirmMessage;
+       }
+
+       onComplete(browser);
+    });
+  },
+
+  /**
+   * Construct a param for Play Tone.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processPlayTone: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let playTone = {
+      // The vibrate is only defined in TS 102.223.
+      isVibrate: !!(cmdDetails.commandQualifier & 0x01)
+    };
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_ALPHA_ID,
+      COMPREHENSIONTLV_TAG_TONE,
+      COMPREHENSIONTLV_TAG_DURATION,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // Alpha identifier is optional.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ALPHA_ID);
+    if (ctlv) {
+      playTone.text = ctlv.value.identifier;
+    }
+
+    // Tone is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_TONE);
+    if (ctlv) {
+      playTone.tone = ctlv.value.tone;
+    }
+
+    // Duration is optional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_DURATION);
+    if (ctlv) {
+      playTone.duration = ctlv.value;
+    }
+
+    // Icon identifier is optional.
+    this.appendIconIfNecessary(selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null,
+                               playTone,
+                               onComplete);
+  },
+
+  /**
+   * Construct a param for Provide Local Information.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processProvideLocalInfo: function(cmdDetails, ctlvs, onComplete) {
+    let provideLocalInfo = {
+      localInfoType: cmdDetails.commandQualifier
+    };
+
+    onComplete(provideLocalInfo);
+  },
+
+  /**
+   * Construct a param for Timer Management.
+   *
+   * @param cmdDetails
+   *        The value object of CommandDetails TLV.
+   * @param ctlvs
+   *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+   */
+  processTimerManagement: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let timer = {
+      timerAction: cmdDetails.commandQualifier
+    };
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER,
+      COMPREHENSIONTLV_TAG_TIMER_VALUE
+    ]);
+
+    // Timer identifier is mandatory.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER);
+    if (!ctlv) {
+      this.context.RIL.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: STK_RESULT_REQUIRED_VALUES_MISSING});
+      throw new Error("Stk Timer Management: Required value missing : Timer Identifier");
+    }
+    timer.timerId = ctlv.value.timerId;
+
+    // Timer value is conditional.
+    ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_TIMER_VALUE);
+    if (ctlv) {
+      timer.timerValue = ctlv.value.timerValue;
+    }
+
+    onComplete(timer);
+  },
+
+   /**
+    * Construct a param for BIP commands.
+    *
+    * @param cmdDetails
+    *        The value object of CommandDetails TLV.
+    * @param ctlvs
+    *        The all TLVs in this proactive command.
+   * @param onComplete
+   *        Callback to be called when complete.
+    */
+  processBipMessage: function(cmdDetails, ctlvs, onComplete) {
+    let StkProactiveCmdHelper = this.context.StkProactiveCmdHelper;
+    let bipMsg = {};
+
+    let selectedCtlvs = StkProactiveCmdHelper.searchForSelectedTags(ctlvs, [
+      COMPREHENSIONTLV_TAG_ALPHA_ID,
+      COMPREHENSIONTLV_TAG_ICON_ID
+    ]);
+
+    // Alpha identifier is optional.
+    let ctlv = selectedCtlvs.retrieve(COMPREHENSIONTLV_TAG_ALPHA_ID);
+    if (ctlv) {
+      bipMsg.text = ctlv.value.identifier;
+    }
+
+    // Icon identifier is optional.
+    this.appendIconIfNecessary(selectedCtlvs[COMPREHENSIONTLV_TAG_ICON_ID] || null,
+                               bipMsg,
+                               onComplete);
+  }
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_REFRESH] = function STK_CMD_REFRESH(cmdDetails, ctlvs, onComplete) {
+  return this.processRefresh(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_POLL_INTERVAL] = function STK_CMD_POLL_INTERVAL(cmdDetails, ctlvs, onComplete) {
+  return this.processPollInterval(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_POLL_OFF] = function STK_CMD_POLL_OFF(cmdDetails, ctlvs, onComplete) {
+  return this.processPollOff(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_PROVIDE_LOCAL_INFO] = function STK_CMD_PROVIDE_LOCAL_INFO(cmdDetails, ctlvs, onComplete) {
+  return this.processProvideLocalInfo(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SET_UP_EVENT_LIST] = function STK_CMD_SET_UP_EVENT_LIST(cmdDetails, ctlvs, onComplete) {
+  return this.processSetUpEventList(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SET_UP_MENU] = function STK_CMD_SET_UP_MENU(cmdDetails, ctlvs, onComplete) {
+  this.context.debug("StkCommandParamsFactoryObject STK_CMD_SET_UP_MENU ");
+  return this.processSetupMenu(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SELECT_ITEM] = function STK_CMD_SELECT_ITEM(cmdDetails, ctlvs, onComplete) {
+  return this.processSelectItem(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_DISPLAY_TEXT] = function STK_CMD_DISPLAY_TEXT(cmdDetails, ctlvs, onComplete) {
+  return this.processDisplayText(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SET_UP_IDLE_MODE_TEXT] = function STK_CMD_SET_UP_IDLE_MODE_TEXT(cmdDetails, ctlvs, onComplete) {
+  return this.processSetUpIdleModeText(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_GET_INKEY] = function STK_CMD_GET_INKEY(cmdDetails, ctlvs, onComplete) {
+  return this.processGetInkey(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_GET_INPUT] = function STK_CMD_GET_INPUT(cmdDetails, ctlvs, onComplete) {
+  return this.processGetInput(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SEND_SS] = function STK_CMD_SEND_SS(cmdDetails, ctlvs, onComplete) {
+  return this.processEventNotify(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SEND_USSD] = function STK_CMD_SEND_USSD(cmdDetails, ctlvs, onComplete) {
+  return this.processEventNotify(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SEND_SMS] = function STK_CMD_SEND_SMS(cmdDetails, ctlvs, onComplete) {
+  return this.processEventNotify(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SEND_DTMF] = function STK_CMD_SEND_DTMF(cmdDetails, ctlvs, onComplete) {
+  return this.processEventNotify(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SET_UP_CALL] = function STK_CMD_SET_UP_CALL(cmdDetails, ctlvs, onComplete) {
+  return this.processSetupCall(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_LAUNCH_BROWSER] = function STK_CMD_LAUNCH_BROWSER(cmdDetails, ctlvs, onComplete) {
+  return this.processLaunchBrowser(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_PLAY_TONE] = function STK_CMD_PLAY_TONE(cmdDetails, ctlvs, onComplete) {
+  return this.processPlayTone(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_TIMER_MANAGEMENT] = function STK_CMD_TIMER_MANAGEMENT(cmdDetails, ctlvs, onComplete) {
+  return this.processTimerManagement(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_OPEN_CHANNEL] = function STK_CMD_OPEN_CHANNEL(cmdDetails, ctlvs, onComplete) {
+  return this.processBipMessage(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_CLOSE_CHANNEL] = function STK_CMD_CLOSE_CHANNEL(cmdDetails, ctlvs, onComplete) {
+  return this.processBipMessage(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_RECEIVE_DATA] = function STK_CMD_RECEIVE_DATA(cmdDetails, ctlvs, onComplete) {
+  return this.processBipMessage(cmdDetails, ctlvs, onComplete);
+};
+StkCommandParamsFactoryObject.prototype[STK_CMD_SEND_DATA] = function STK_CMD_SEND_DATA(cmdDetails, ctlvs, onComplete) {
+  return this.processBipMessage(cmdDetails, ctlvs, onComplete);
 };
 
 // Allow this file to be imported via Components.utils.import().

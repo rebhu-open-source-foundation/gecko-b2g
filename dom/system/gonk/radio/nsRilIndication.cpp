@@ -175,16 +175,30 @@ Return<void> nsRilIndication::stkSessionEnd(RadioIndicationType type) {
 }
 
 Return<void> nsRilIndication::stkProactiveCommand(
-    RadioIndicationType /*type*/,
-    const ::android::hardware::hidl_string& /*cmd*/) {
-  INFO("Not implement stkProactiveCommand");
+    RadioIndicationType type,
+    const ::android::hardware::hidl_string& cmd) {
+  mRIL->processIndication(type);
+
+  nsString rilmessageType(NS_LITERAL_STRING("stkProactiveCommand"));
+
+  RefPtr<nsRilIndicationResult> result =
+      new nsRilIndicationResult(rilmessageType);
+  result->updateStkProactiveCommand(NS_ConvertUTF8toUTF16(cmd.c_str()));
+  mRIL->sendRilIndicationResult(result);
   return Void();
 }
 
 Return<void> nsRilIndication::stkEventNotify(
-    RadioIndicationType /*type*/,
-    const ::android::hardware::hidl_string& /*cmd*/) {
-  INFO("Not implement stkEventNotify");
+    RadioIndicationType type,
+    const ::android::hardware::hidl_string& cmd) {
+  mRIL->processIndication(type);
+
+  nsString rilmessageType(NS_LITERAL_STRING("stkEventNotify"));
+
+  RefPtr<nsRilIndicationResult> result =
+      new nsRilIndicationResult(rilmessageType);
+  result->updateStkEventNotify(NS_ConvertUTF8toUTF16(cmd.c_str()));
+  mRIL->sendRilIndicationResult(result);
   return Void();
 }
 

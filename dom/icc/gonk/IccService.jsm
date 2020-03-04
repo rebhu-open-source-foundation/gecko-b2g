@@ -34,13 +34,13 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
                                    "@mozilla.org/mobileconnection/mobileconnectionservice;1",
                                    "nsIGonkMobileConnectionService");
 
-/*XPCOMUtils.defineLazyServiceGetter(this, "gIccMessenger",
+XPCOMUtils.defineLazyServiceGetter(this, "gIccMessenger",
                                    "@mozilla.org/ril/system-messenger-helper;1",
                                    "nsIIccMessenger");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
                                    "@mozilla.org/icc/stkcmdfactory;1",
-                                   "nsIStkCmdFactory");*/
+                                   "nsIStkCmdFactory");
 
 var DEBUG = RIL.DEBUG_RIL;
 function debug(s) {

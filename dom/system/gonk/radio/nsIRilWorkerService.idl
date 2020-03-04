@@ -21,7 +21,7 @@ interface nsIRilCallback : nsISupports
   void handleRilIndication(in nsIRilIndicationResult response);
 };
 
-[scriptable, uuid(f297a2d3-25d5-4035-bfd6-9ff9bf49461d)]
+[scriptable, uuid(68efef0b-88fd-4766-abbb-88bd3c686ebc)]
 interface nsIRilWorker : nsISupports
 {
   void sendRilRequest(in jsval message);
@@ -102,6 +102,7 @@ interface nsIRilWorker : nsISupports
 
   void changeIccPinForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
   void changeIccPin2ForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
+  void reportStkServiceIsRunning(in long serial);
 };
 
 /**

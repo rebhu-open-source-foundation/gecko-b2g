@@ -147,11 +147,9 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
 //                                    "@mozilla.org/cellbroadcast/cellbroadcastservice;1",
 //                                    "nsIGonkCellBroadcastService");
 
-
-
-// XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
-//                                    "@mozilla.org/icc/stkcmdfactory;1",
-//                                    "nsIStkCmdFactory");
+XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
+                                   "@mozilla.org/icc/stkcmdfactory;1",
+                                   "nsIStkCmdFactory");
 
 
 XPCOMUtils.defineLazyServiceGetter(this, "gDataCallManager",
@@ -923,6 +921,14 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_STK_SESSION_END");
         gIccService.notifyStkSessionEnd(this.clientId);
         break;
+      case "stkProactiveCommand":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_STK_PROACTIVE_COMMAND");
+        this.handleStkProactiveCommand(message);
+        break;
+      case "stkEventNotify":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_STK_EVENT_NOTIFY");
+        this.handleStkProactiveCommand(message);
+        break;
       case "cdma-info-rec-received":
         this.handleCdmaInformationRecords(message.records);
         break;
@@ -1294,7 +1300,7 @@ RadioInterface.prototype = {
       this.cellBroadcastConfigs.MMI = this._convertCellBroadcastSearchList(str);
     } catch (e) {
       if (DEBUG) {
-        this.context.debug("Invalid Cell Broadcast search list: " + e);
+        this.debug("Invalid Cell Broadcast search list: " + e);
       }
       options.errorMsg = GECKO_ERROR_UNSPECIFIED_ERROR;
     }
@@ -1327,6 +1333,57 @@ RadioInterface.prototype = {
     } else {
       this.setGsmSmsBroadcastConfig(config);
     }
+  },
+
+  handleStkProactiveCommand: function(message) {
+    this.debug("handleStkProactiveCommand cmd: " + JSON.stringify(message.cmd));
+    let length = message.cmd.length;
+    let berTlv;
+    try {
+      berTlv = this.simIOcontext.BerTlvHelper.decode(message.cmd);
+      this.debug("handleStkProactiveCommand berTlv: " + JSON.stringify(berTlv));
+    } catch (e) {
+      if (DEBUG) this.debug("handleStkProactiveCommand : " + e);
+      this.sendStkTerminalResponse({
+        resultCode: RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD});
+      return;
+    }
+
+    let ctlvs = berTlv.value;
+    this.debug("handleStkProactiveCommand ctlvs: " + JSON.stringify(ctlvs));
+    let ctlv = this.simIOcontext.StkProactiveCmdHelper.searchForTag(
+        RIL.COMPREHENSIONTLV_TAG_COMMAND_DETAILS, ctlvs);
+    this.debug("handleStkProactiveCommand ctlv: " + JSON.stringify(ctlv));
+    if (!ctlv) {
+      this.sendStkTerminalResponse({
+        resultCode: RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD});
+      throw new Error("Can't find COMMAND_DETAILS ComprehensionTlv");
+    }
+
+    let cmdDetails = ctlv.value;
+    this.debug("handleStkProactiveCommand cmdDetails: " + JSON.stringify(cmdDetails));
+    if (DEBUG) {
+      this.debug("commandNumber = " + cmdDetails.commandNumber +
+                         " typeOfCommand = " + cmdDetails.typeOfCommand.toString(16) +
+                         " commandQualifier = " + cmdDetails.commandQualifier);
+    }
+
+    // STK_CMD_MORE_TIME need not to propagate event to chrome.
+    if (cmdDetails.typeOfCommand == RIL.STK_CMD_MORE_TIME) {
+      this.sendStkTerminalResponse({
+        command: cmdDetails,
+        resultCode: RIL.STK_RESULT_OK});
+      return;
+    }
+
+    this.simIOcontext.StkCommandParamsFactory.createParam(cmdDetails,
+                                                     ctlvs,
+                                                     (aResult) => {
+      cmdDetails.options = aResult;
+      cmdDetails.rilMessageType = "stkcommand";
+      this.handleUnsolicitedMessage(cmdDetails);
+      //this.sendChromeMessage(cmdDetails);
+    });
   },
 
   handleNetworkStateChanged: function () {

@@ -6,10 +6,23 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-var RIL = {};
-Cu.import("resource://gre/modules/ril_consts.js", RIL);
+const { Services } = ChromeUtils.import(
+  "resource://gre/modules/Services.jsm"
+);
+
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+);
+
+XPCOMUtils.defineLazyGetter(this, "RIL", function () {
+  let obj = {};
+  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  return obj;
+});
 
 const GONK_STKCMDFACTORY_CONTRACTID = "@mozilla.org/icc/stkcmdfactory;1";
 const GONK_STKCMDFACTORY_CID = Components.ID("{7a663440-e336-11e4-8fd5-c3140a7ff307}");
@@ -1435,18 +1448,13 @@ QueriedEventIFs[RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION] = Ci.nsIStkLanguageSelect
 QueriedEventIFs[RIL.STK_EVENT_TYPE_BROWSER_TERMINATION] = Ci.nsIStkBrowserTerminationEvent;
 
 /**
- * StkProactiveCmdFactory
+ * StkCmdFactory
  */
-function StkProactiveCmdFactory() {
+function StkCmdFactory() {
+  console.log("new StkCmdFactory");
 }
-StkProactiveCmdFactory.prototype = {
+StkCmdFactory.prototype = {
   classID: GONK_STKCMDFACTORY_CID,
-
-  classInfo: XPCOMUtils.generateCI({classID: GONK_STKCMDFACTORY_CID,
-                                    contractID: GONK_STKCMDFACTORY_CONTRACTID,
-                                    classDescription: "StkProactiveCmdFactory",
-                                    interfaces: [Ci.nsIStkCmdFactory],
-                                    flags: Ci.nsIClassInfo.SINGLETON}),
 
   QueryInterface: ChromeUtils.generateQI([Ci.nsIStkCmdFactory]),
 
@@ -1613,4 +1621,4 @@ StkProactiveCmdFactory.prototype = {
   }
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([StkProactiveCmdFactory]);
+var EXPORTED_SYMBOLS = ["StkCmdFactory"];
