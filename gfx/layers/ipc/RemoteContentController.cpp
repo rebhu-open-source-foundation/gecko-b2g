@@ -119,7 +119,7 @@ void RemoteContentController::HandleTap(TapType aTapType,
     HandleTapOnMainThread(aTapType, aPoint, aModifiers, aGuid, aInputBlockId);
   } else {
     // We must be on Android, running on the Java UI thread
-#ifndef MOZ_WIDGET_ANDROID
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
     MOZ_ASSERT(false);
 #else
     // We don't want to get the BrowserParent or call
@@ -130,8 +130,12 @@ void RemoteContentController::HandleTap(TapType aTapType,
     // NS_DispatchToMainThread would post to a different message loop, and
     // introduces the possibility of this tap event getting processed out of
     // order with respect to the touch events that synthesized it.
+#if defined(MOZ_WIDGET_GONK)
+    NS_DispatchToMainThread(
+#else
     mozilla::jni::DispatchToGeckoPriorityQueue(
-        NewRunnableMethod<TapType, LayoutDevicePoint, Modifiers,
+#endif
+            NewRunnableMethod<TapType, LayoutDevicePoint, Modifiers,
                           ScrollableLayerGuid, uint64_t>(
             "layers::RemoteContentController::HandleTapOnMainThread", this,
             &RemoteContentController::HandleTapOnMainThread, aTapType, aPoint,
