@@ -19,6 +19,9 @@
 #ifdef HAS_KOOST_MODULES
 #  include "mozilla/dom/ExternalAPI.h"
 #endif
+#ifdef MOZ_B2G_BT
+#  include "mozilla/dom/bluetooth/BluetoothManager.h"
+#endif
 
 namespace mozilla {
 namespace dom {
@@ -41,6 +44,9 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef HAS_KOOST_MODULES
   ExternalAPI* GetExternalapi(ErrorResult& aRv);
 #endif
+#ifdef MOZ_B2G_BT
+  bluetooth::BluetoothManager* GetBluetooth(ErrorResult& aRv);
+#endif
   // Shutting down.
   void Shutdown();
 
@@ -49,6 +55,10 @@ class B2G final : public nsISupports, public nsWrapperCache {
   RefPtr<TetheringManager> mTetheringManager;
 #ifdef HAS_KOOST_MODULES
   RefPtr<ExternalAPI> mExternalAPI;
+#endif
+
+#ifdef MOZ_B2G_BT
+  RefPtr<bluetooth::BluetoothManager> mBluetooth;
 #endif
 };
 

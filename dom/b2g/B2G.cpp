@@ -38,6 +38,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #ifdef HAS_KOOST_MODULES
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
 #endif
+#ifdef MOZ_B2G_BT
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -75,5 +78,23 @@ ExternalAPI* B2G::GetExternalapi(ErrorResult& aRv) {
 }
 #endif
 
+#ifdef MOZ_B2G_BT
+bluetooth::BluetoothManager* B2G::GetBluetooth(ErrorResult& aRv) {
+  if (!mBluetooth) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    if (!innerWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mBluetooth = bluetooth::BluetoothManager::Create(innerWindow);
+  }
+  return mBluetooth;
+}
+#endif  // MOZ_B2G_BT
 }  // namespace dom
 }  // namespace mozilla

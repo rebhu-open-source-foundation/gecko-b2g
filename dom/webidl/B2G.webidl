@@ -25,3 +25,11 @@ partial interface B2G {
   readonly attribute ExternalAPI externalapi;
 };
 #endif
+
+#ifdef MOZ_B2G_BT
+[Exposed=Window]
+partial interface B2G {
+  [Throws]
+  readonly attribute BluetoothManager bluetooth;
+};
+#endif // MOZ_B2G_BT
