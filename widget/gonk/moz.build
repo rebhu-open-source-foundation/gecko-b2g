@@ -74,6 +74,7 @@ SOURCES += [
     'nsClipboard.cpp',
     'nsIdleServiceGonk.cpp',
     'nsLookAndFeel.cpp',
+    'nsNativeTheme.cpp',
     'nsWidgetFactory.cpp',
     'nsWindow.cpp',
 # TODO: fixme

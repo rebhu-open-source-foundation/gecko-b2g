@@ -1270,18 +1270,6 @@ void nsPresContext::RecordInteractionTime(InteractionType aType,
   }
 }
 
-<<<<<<< HEAD
-nsITheme* nsPresContext::GetTheme() {
-#ifdef MOZ_WIDGET_GONK
-  sNoTheme = true;
-#else
-  if (!sNoTheme && !mTheme) {
-    mTheme = do_GetNativeTheme();
-    if (!mTheme) sNoTheme = true;
-  }
-#endif
-
-=======
 nsITheme* nsPresContext::EnsureTheme() {
   MOZ_ASSERT(!mTheme);
   if (StaticPrefs::widget_disable_native_theme_for_content() &&
@@ -1291,7 +1279,6 @@ nsITheme* nsPresContext::EnsureTheme() {
     mTheme = do_GetNativeThemeDoNotUseDirectly();
   }
   MOZ_RELEASE_ASSERT(mTheme);
->>>>>>> upstream/master
   return mTheme;
 }
 
