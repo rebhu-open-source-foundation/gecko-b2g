@@ -8,8 +8,8 @@
 #define jit_WarpBuilder_h
 
 #include "jit/JitContext.h"
-
 #include "jit/MIR.h"
+#include "jit/MIRBuilderShared.h"
 
 namespace js {
 namespace jit {
@@ -49,6 +49,42 @@ namespace jit {
   _(GetLocal)               \
   _(SetLocal)               \
   _(InitLexical)            \
+  _(GetArg)                 \
+  _(SetArg)                 \
+  _(ToNumeric)              \
+  _(Inc)                    \
+  _(Dec)                    \
+  _(Neg)                    \
+  _(BitNot)                 \
+  _(Add)                    \
+  _(Sub)                    \
+  _(Mul)                    \
+  _(Div)                    \
+  _(Mod)                    \
+  _(BitAnd)                 \
+  _(BitOr)                  \
+  _(BitXor)                 \
+  _(Lsh)                    \
+  _(Rsh)                    \
+  _(Ursh)                   \
+  _(Eq)                     \
+  _(Ne)                     \
+  _(Lt)                     \
+  _(Le)                     \
+  _(Gt)                     \
+  _(Ge)                     \
+  _(StrictEq)               \
+  _(StrictNe)               \
+  _(JumpTarget)             \
+  _(LoopHead)               \
+  _(IfEq)                   \
+  _(IfNe)                   \
+  _(And)                    \
+  _(Or)                     \
+  _(Case)                   \
+  _(Default)                \
+  _(Coalesce)               \
+  _(Goto)                   \
   _(Return)                 \
   _(RetRval)
 
@@ -67,18 +103,38 @@ class MOZ_STACK_CLASS WarpBuilder {
   JSScript* script_;
   MBasicBlock* current = nullptr;
 
+  // Note: we need both loopDepth_ and loopStack_.length(): once we support
+  // inlining, loopDepth_ will be moved to a per-compilation data structure
+  // (OuterWarpBuilder?) whereas loopStack_ and pendingEdges_ will be
+  // builder-specific state.
+  uint32_t loopDepth_ = 0;
+  LoopStateStack loopStack_;
+  PendingEdgesMap pendingEdges_;
+
   TempAllocator& alloc() { return alloc_; }
   MIRGraph& graph() { return graph_; }
   const CompileInfo& info() const { return info_; }
   WarpSnapshot& input() const { return input_; }
 
-  BytecodeSite* newBytecodeSite(jsbytecode* pc);
+  BytecodeSite* newBytecodeSite(BytecodeLocation loc);
 
-  bool startNewBlock(size_t stackDepth, jsbytecode* pc,
-                     MBasicBlock* maybePredecessor = nullptr);
+  void initBlock(MBasicBlock* block);
+  MOZ_MUST_USE bool startNewEntryBlock(size_t stackDepth, BytecodeLocation loc);
+  MOZ_MUST_USE bool startNewBlock(MBasicBlock* predecessor,
+                                  BytecodeLocation loc, size_t numToPop = 0);
+  MOZ_MUST_USE bool startNewLoopHeaderBlock(MBasicBlock* predecessor,
+                                            BytecodeLocation loc);
 
   bool hasTerminatedBlock() const { return current == nullptr; }
   void setTerminatedBlock() { current = nullptr; }
+
+  MOZ_MUST_USE bool addPendingEdge(const PendingEdge& edge,
+                                   BytecodeLocation target);
+  MOZ_MUST_USE bool buildForwardGoto(BytecodeLocation target);
+  MOZ_MUST_USE bool buildBackedge();
+  MOZ_MUST_USE bool buildTestBackedge(BytecodeLocation loc);
+
+  MOZ_MUST_USE bool resumeAfter(MInstruction* ins, BytecodeLocation loc);
 
   MConstant* constant(const Value& v);
   void pushConstant(const Value& v);
@@ -87,7 +143,12 @@ class MOZ_STACK_CLASS WarpBuilder {
   MOZ_MUST_USE bool buildBody();
   MOZ_MUST_USE bool buildEpilogue();
 
-#define BUILD_OP(OP) bool build_##OP(BytecodeLocation loc);
+  MOZ_MUST_USE bool buildUnaryOp(BytecodeLocation loc);
+  MOZ_MUST_USE bool buildBinaryOp(BytecodeLocation loc);
+  MOZ_MUST_USE bool buildCompareOp(BytecodeLocation loc);
+  MOZ_MUST_USE bool buildTestOp(BytecodeLocation loc);
+
+#define BUILD_OP(OP) MOZ_MUST_USE bool build_##OP(BytecodeLocation loc);
   WARP_OPCODE_LIST(BUILD_OP)
 #undef BUILD_OP
 

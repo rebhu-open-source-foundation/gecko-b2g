@@ -253,6 +253,36 @@ void KeyframeEffect::SetKeyframes(nsTArray<Keyframe>&& aKeyframes,
   }
 }
 
+void KeyframeEffect::ReplaceTransitionStartValue(AnimationValue&& aStartValue) {
+  if (!aStartValue.mServo) {
+    return;
+  }
+
+  // A typical transition should have a single property and a single segment.
+  //
+  // (And for atypical transitions, that is, those updated by script, we don't
+  // apply the replacing behavior.)
+  if (mProperties.Length() != 1 || mProperties[0].mSegments.Length() != 1) {
+    return;
+  }
+
+  // Likewise, check that the keyframes are of the expected shape.
+  if (mKeyframes.Length() != 2 || mKeyframes[0].mPropertyValues.Length() != 1) {
+    return;
+  }
+
+  // Check that the value we are about to substitute in is actually for the
+  // same property.
+  if (Servo_AnimationValue_GetPropertyId(aStartValue.mServo) !=
+      mProperties[0].mProperty) {
+    return;
+  }
+
+  mKeyframes[0].mPropertyValues[0].mServoDeclarationBlock =
+      Servo_AnimationValue_Uncompute(aStartValue.mServo).Consume();
+  mProperties[0].mSegments[0].mFromValue = std::move(aStartValue);
+}
+
 static bool IsEffectiveProperty(const EffectSet& aEffects,
                                 nsCSSPropertyID aProperty) {
   return !aEffects.PropertiesWithImportantRules().HasProperty(aProperty) ||
@@ -376,6 +406,16 @@ bool SpecifiedKeyframeArraysAreEqual(const nsTArray<Keyframe>& aA,
 }
 #endif
 
+static bool HasCurrentColor(
+    const nsTArray<AnimationPropertySegment>& aSegments) {
+  for (const AnimationPropertySegment& segment : aSegments) {
+    if ((!segment.mFromValue.IsNull() && segment.mFromValue.IsCurrentColor()) ||
+        (!segment.mToValue.IsNull() && segment.mToValue.IsCurrentColor())) {
+      return true;
+    }
+  }
+  return false;
+}
 void KeyframeEffect::UpdateProperties(const ComputedStyle* aStyle) {
   MOZ_ASSERT(aStyle);
 
@@ -413,9 +453,19 @@ void KeyframeEffect::UpdateProperties(const ComputedStyle* aStyle) {
   mProperties = std::move(properties);
   UpdateEffectSet();
 
+  mHasCurrentColor = false;
+
   for (AnimationProperty& property : mProperties) {
     property.mIsRunningOnCompositor =
         runningOnCompositorProperties.HasProperty(property.mProperty);
+
+    if (property.mProperty == eCSSProperty_background_color &&
+        !mHasCurrentColor) {
+      if (HasCurrentColor(property.mSegments)) {
+        mHasCurrentColor = true;
+        break;
+      }
+    }
   }
 
   CalculateCumulativeChangeHint(aStyle);
@@ -1945,6 +1995,13 @@ KeyframeEffect::MatchForCompositor KeyframeEffect::IsMatchForCompositor(
     if (!StaticPrefs::gfx_omta_background_color()) {
       return KeyframeEffect::MatchForCompositor::No;
     }
+  }
+
+  // We can't run this background color animation on the compositor if there
+  // is any `current-color` keyframe.
+  if (mHasCurrentColor) {
+    aPerformanceWarning = AnimationPerformanceWarning::Type::HasCurrentColor;
+    return KeyframeEffect::MatchForCompositor::NoAndBlockThisProperty;
   }
 
   return mAnimation->IsPlaying() ? KeyframeEffect::MatchForCompositor::Yes

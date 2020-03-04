@@ -2686,7 +2686,9 @@ TrackTime SourceMediaTrack::AppendData(MediaSegment* aSegment,
   mUpdateTrack->mData->AppendFrom(aSegment);  // note: aSegment is now dead
   {
     MonitorAutoLock lock(graph->GetMonitor());
-    graph->EnsureNextIteration();
+    if (graph->CurrentDriver()) {  // graph shutdown not forced
+      graph->EnsureNextIteration();
+    }
   }
 
   return appended;
@@ -3194,8 +3196,8 @@ void MediaTrackGraph::DestroyNonRealtimeInstance(MediaTrackGraph* aGraph) {
   graph->ForceShutDown();
 }
 
-NS_IMPL_ISUPPORTS(MediaTrackGraphImpl, nsIMemoryReporter, nsITimerCallback,
-                  nsINamed)
+NS_IMPL_ISUPPORTS(MediaTrackGraphImpl, nsIMemoryReporter, nsIThreadObserver,
+                  nsITimerCallback, nsINamed)
 
 NS_IMETHODIMP
 MediaTrackGraphImpl::CollectReports(nsIHandleReportCallback* aHandleReport,
@@ -3831,4 +3833,22 @@ GraphTime MediaTrackGraph::ProcessedTime() const {
   return static_cast<const MediaTrackGraphImpl*>(this)->mProcessedTime;
 }
 
+// nsIThreadObserver methods
+
+NS_IMETHODIMP
+MediaTrackGraphImpl::OnDispatchedEvent() {
+  MonitorAutoLock lock(mMonitor);
+  EnsureNextIteration();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+MediaTrackGraphImpl::OnProcessNextEvent(nsIThreadInternal*, bool) {
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+MediaTrackGraphImpl::AfterProcessNextEvent(nsIThreadInternal*, bool) {
+  return NS_OK;
+}
 }  // namespace mozilla

@@ -3983,8 +3983,12 @@ class MInt64ToFloatingPoint : public MUnaryInstruction,
 class MToNumeric : public MUnaryInstruction, public BoxInputsPolicy::Data {
   MToNumeric(MDefinition* arg, TemporaryTypeSet* types)
       : MUnaryInstruction(classOpcode, arg) {
-    MOZ_ASSERT(!IsNumericType(arg->type()),
-               "Unboxable definitions don't need ToNumeric");
+    if (!JitOptions.warpBuilder) {
+      // Note: unlike IonBuilder, WarpBuilder always adds MToNumeric and relies
+      // on specializing it later on.
+      MOZ_ASSERT(!IsNumericType(arg->type()),
+                 "Unboxable definitions don't need ToNumeric");
+    }
     setResultType(MIRType::Value);
     // Although `types' is always Int32|Double|BigInt, we have to compute it in
     // IonBuilder to know whether emitting an MToNumeric is needed, so we just
@@ -3996,10 +4000,7 @@ class MToNumeric : public MUnaryInstruction, public BoxInputsPolicy::Data {
 
  public:
   INSTRUCTION_HEADER(ToNumeric)
-  static MToNumeric* New(TempAllocator& alloc, MDefinition* arg,
-                         TemporaryTypeSet* types) {
-    return new (alloc) MToNumeric(arg, types);
-  }
+  TRIVIAL_NEW_WRAPPERS
 
   void computeRange(TempAllocator& alloc) override;
   bool congruentTo(const MDefinition* ins) const override {
@@ -6767,10 +6768,7 @@ struct LambdaFunctionInfo {
     if (!roots.append(fun_)) {
       return false;
     }
-    if (fun_->hasScript()) {
-      return roots.append(fun_->nonLazyScript());
-    }
-    return roots.append(fun_->lazyScript());
+    return roots.append(fun_->baseScript());
   }
 
  private:
@@ -7820,13 +7818,12 @@ class MArrayJoin : public MBinaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, array), (1, sep))
 
+  // MArrayJoin doesn't override |getAliasSet()|, because Array.prototype.join
+  // might coerce the elements of the Array to strings. This coercion might
+  // cause the evaluation of JavaScript code.
+
   bool optimizeForArray() const { return optimizeForArray_; }
   bool possiblyCalls() const override { return true; }
-  virtual AliasSet getAliasSet() const override {
-    // Array.join might coerce the elements of the Array to strings.  This
-    // coercion might cause the evaluation of the some JavaScript code.
-    return AliasSet::Store(AliasSet::Any);
-  }
   MDefinition* foldsTo(TempAllocator& alloc) override;
 };
 
@@ -11859,6 +11856,91 @@ class MWasmRegister64Result : public MWasmResultBase<Register64> {
  public:
   INSTRUCTION_HEADER(WasmRegister64Result)
   TRIVIAL_NEW_WRAPPERS
+};
+
+class MWasmStackResultArea : public MNullaryInstruction {
+ public:
+  class StackResult {
+    // Offset in bytes from lowest address of stack result area.
+    uint32_t offset_;
+    MIRType type_;
+
+   public:
+    StackResult() : type_(MIRType::Undefined) {}
+    StackResult(uint32_t offset, MIRType type) : offset_(offset), type_(type) {}
+
+    bool initialized() const { return type_ != MIRType::Undefined; }
+    uint32_t offset() const {
+      MOZ_ASSERT(initialized());
+      return offset_;
+    }
+    MIRType type() const {
+      MOZ_ASSERT(initialized());
+      return type_;
+    }
+    uint32_t endOffset() const { return offset() + MIRTypeToSize(type()); }
+  };
+
+ private:
+  FixedList<StackResult> results_;
+
+  explicit MWasmStackResultArea() : MNullaryInstruction(classOpcode) {
+    setResultType(MIRType::StackResults);
+  }
+
+  void assertInitialized() const {
+    MOZ_ASSERT(results_.length() != 0);
+#ifdef DEBUG
+    for (size_t i = 0; i < results_.length(); i++) {
+      MOZ_ASSERT(results_[i].initialized());
+    }
+#endif
+  }
+
+ public:
+  INSTRUCTION_HEADER(WasmStackResultArea)
+  TRIVIAL_NEW_WRAPPERS
+
+  MOZ_MUST_USE bool init(TempAllocator& alloc, size_t stackResultCount) {
+    MOZ_ASSERT(results_.length() == 0);
+    MOZ_ASSERT(stackResultCount > 0);
+    return results_.init(alloc, stackResultCount);
+  }
+
+  size_t resultCount() const { return results_.length(); }
+  const StackResult& result(size_t n) const {
+    MOZ_ASSERT(results_[n].initialized());
+    return results_[n];
+  }
+  void initResult(size_t n, const StackResult& loc) {
+    MOZ_ASSERT(!results_[n].initialized());
+    MOZ_ASSERT((n == 0) == (loc.offset() == 0));
+    MOZ_ASSERT_IF(n > 0, loc.offset() >= result(n - 1).endOffset());
+    results_[n] = loc;
+  }
+
+  uint32_t byteSize() const {
+    assertInitialized();
+    return result(resultCount() - 1).endOffset();
+  }
+};
+
+class MWasmStackResult : public MUnaryInstruction, public NoTypePolicy::Data {
+  uint32_t resultIdx_;
+
+  const MWasmStackResultArea::StackResult& result() const {
+    return resultArea()->toWasmStackResultArea()->result(resultIdx_);
+  }
+
+  MWasmStackResult(MWasmStackResultArea* resultArea, size_t idx)
+      : MUnaryInstruction(classOpcode, resultArea), resultIdx_(idx) {
+    setResultType(result().type());
+  }
+
+ public:
+  INSTRUCTION_HEADER(WasmStackResult)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, resultArea))
 };
 
 class MWasmCall final : public MVariadicInstruction, public NoTypePolicy::Data {

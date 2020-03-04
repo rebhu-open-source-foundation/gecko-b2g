@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{ColorF, ImageKey, YuvColorSpace, YuvFormat, ImageRendering};
+use api::{ColorF, YuvColorSpace, YuvFormat, ImageRendering};
 use api::units::{DeviceRect, DeviceIntSize, DeviceIntRect, DeviceIntPoint, WorldRect};
 use api::units::{DevicePixelScale, DevicePoint, PictureRect, TexelRect};
 use crate::batch::{resolve_image, get_buffer_kind};
 use crate::gpu_cache::GpuCache;
 use crate::gpu_types::{ZBufferId, ZBufferIdGenerator};
 use crate::internal_types::TextureSource;
-use crate::picture::{ResolvedSurfaceTexture, TileCacheInstance, TileSurface};
+use crate::picture::{ImageDependency, ResolvedSurfaceTexture, TileCacheInstance, TileSurface};
 use crate::prim_store::DeferredResolve;
 use crate::renderer::ImageBufferKind;
 use crate::resource_cache::{ImageRequest, ResourceCache};
@@ -71,17 +71,6 @@ pub enum CompositeSurfaceFormat {
     Yuv,
 }
 
-/// The ordering that this tile should be composited with.
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Copy, Clone)]
-pub enum TileCompositeMode {
-    /// Normal z-ordering for this tile
-    Default,
-    /// This tile overlaps a compositor surface - draw it after them
-    Over,
-}
-
 /// Describes the geometry and surface of a tile to be composited
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
@@ -93,7 +82,6 @@ pub struct CompositeTile {
     pub valid_rect: DeviceRect,
     pub z_id: ZBufferId,
     pub tile_id: Option<NativeTileId>,
-    pub mode: TileCompositeMode,
 }
 
 /// Describes information about drawing a primitive as a compositor surface.
@@ -101,13 +89,15 @@ pub struct CompositeTile {
 /// this will also support RGBA images.
 pub struct ExternalSurfaceDescriptor {
     pub local_rect: PictureRect,
+    pub world_rect: WorldRect,
     pub device_rect: DeviceRect,
     pub clip_rect: DeviceRect,
-    pub image_keys: [ImageKey; 3],
+    pub image_dependencies: [ImageDependency; 3],
     pub image_rendering: ImageRendering,
     pub yuv_color_space: YuvColorSpace,
     pub yuv_format: YuvFormat,
     pub yuv_rescale: f32,
+    pub z_id: ZBufferId,
 }
 
 /// Information about a plane in a YUV surface.
@@ -142,6 +132,7 @@ pub struct ResolvedExternalSurface {
     pub z_id: ZBufferId,
 
     // YUV specific information
+    pub image_dependencies: [ImageDependency; 3],
     pub yuv_planes: [YuvPlaneDescriptor; 3],
     pub yuv_color_space: YuvColorSpace,
     pub yuv_format: YuvFormat,
@@ -227,7 +218,7 @@ impl Default for CompositorKind {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 struct Occluder {
-    slice: usize,
+    z_id: ZBufferId,
     device_rect: DeviceIntRect,
 }
 
@@ -239,6 +230,11 @@ pub struct CompositeSurfaceDescriptor {
     pub surface_id: Option<NativeSurfaceId>,
     pub offset: DevicePoint,
     pub clip_rect: DeviceRect,
+    // A list of image keys and generations that this compositor surface
+    // depends on. This avoids composites being skipped when the only
+    // thing that has changed is the generation of an compositor surface
+    // image dependency.
+    pub image_dependencies: [ImageDependency; 3],
 }
 
 /// Describes surface properties used to composite a frame. This
@@ -331,22 +327,22 @@ impl CompositeState {
     /// used during frame building to occlude tiles.
     pub fn register_occluder(
         &mut self,
-        slice: usize,
+        z_id: ZBufferId,
         rect: WorldRect,
     ) {
         let device_rect = (rect * self.global_device_pixel_scale).round().to_i32();
 
         self.occluders.push(Occluder {
             device_rect,
-            slice,
+            z_id,
         });
     }
 
-    /// Returns true if a tile with the specified rectangle and slice
+    /// Returns true if a tile with the specified rectangle and z_id
     /// is occluded by an opaque surface in front of it.
     pub fn is_tile_occluded(
         &self,
-        slice: usize,
+        z_id: ZBufferId,
         device_rect: DeviceRect,
     ) -> bool {
         // It's often the case that a tile is only occluded by considering multiple
@@ -366,7 +362,7 @@ impl CompositeState {
         let ref_area = device_rect.size.width * device_rect.size.height;
 
         // Calculate the non-overlapping area of the valid occluders.
-        let cover_area = area_of_occluders(&self.occluders, slice, &device_rect);
+        let cover_area = area_of_occluders(&self.occluders, z_id, &device_rect);
         debug_assert!(cover_area <= ref_area);
 
         // Check if the tile area is completely covered
@@ -378,7 +374,6 @@ impl CompositeState {
         &mut self,
         tile_cache: &TileCacheInstance,
         device_clip_rect: DeviceRect,
-        z_id: ZBufferId,
         global_device_pixel_scale: DevicePixelScale,
         resource_cache: &ResourceCache,
         gpu_cache: &mut GpuCache,
@@ -423,33 +418,14 @@ impl CompositeState {
                 visible_alpha_tile_count += 1;
             }
 
-            // Determine ordering of this tile, based on presence of compositor
-            // surfaces that intersect the tile.
-            let mut mode = TileCompositeMode::Default;
-
-            if tile.has_compositor_surface {
-                // TODO(gw): This will almost always select over blend, due to the
-                //           background rectangle. In future, we can optimize this
-                //           case to only check items that come _after_ the compositor
-                //           surface z_id? A better option might be to tweak the z_id
-                //           values so that the alpha pixels get z-rejected?
-                for surface in &tile_cache.external_surfaces {
-                    if surface.device_rect.intersects(&tile.device_valid_rect) {
-                        mode = TileCompositeMode::Over;
-                        break;
-                    }
-                }
-            }
-
             let tile = CompositeTile {
                 surface,
                 rect: device_rect,
                 valid_rect: tile.device_valid_rect.translate(-device_rect.origin.to_vector()),
                 dirty_rect: tile.device_dirty_rect.translate(-device_rect.origin.to_vector()),
                 clip_rect: device_clip_rect,
-                z_id,
+                z_id: tile.z_id,
                 tile_id,
-                mode,
             };
 
             self.push_tile(tile, is_opaque);
@@ -469,7 +445,7 @@ impl CompositeState {
             let mut valid_plane_count = 0;
 
             for i in 0 .. required_plane_count {
-                let key = external_surface.image_keys[i];
+                let key = external_surface.image_dependencies[i].key;
                 let plane = &mut yuv_planes[i];
 
                 let request = ImageRequest {
@@ -510,18 +486,18 @@ impl CompositeState {
                 .intersection(&device_clip_rect)
                 .unwrap_or_else(DeviceRect::zero);
 
-            // z_id for compositor surfaces can be the same as the surface it
-            // exists on, because we use LessEqual depth function. We could
-            // in future consider disabling z-read completely for drawing
-            // surface overlay tiles, since it doesn't do anything useful.
+            // Get a new z_id for each compositor surface, to ensure correct ordering
+            // when drawing with the simple (Draw) compositor.
+
             self.external_surfaces.push(ResolvedExternalSurface {
                 device_rect: external_surface.device_rect,
                 clip_rect,
-                z_id,
+                z_id: external_surface.z_id,
                 yuv_color_space: external_surface.yuv_color_space,
                 yuv_format: external_surface.yuv_format,
                 yuv_rescale: external_surface.yuv_rescale,
                 image_buffer_kind: get_buffer_kind(yuv_planes[0].texture),
+                image_dependencies: external_surface.image_dependencies,
                 yuv_planes,
             });
         }
@@ -532,8 +508,30 @@ impl CompositeState {
                     surface_id: tile_cache.native_surface.as_ref().map(|s| s.opaque),
                     offset: tile_cache.device_position,
                     clip_rect: device_clip_rect,
+                    image_dependencies: [ImageDependency::INVALID; 3],
                 }
             );
+        }
+
+        // TODO(gw): When we merge support for native compositor surfaces, surfaces
+        //           need to be added here for both modes.
+        if let CompositorKind::Draw { .. } = self.compositor_kind {
+            // Add a surface descriptor for each compositor surface. For the Draw
+            // compositor, this is used to avoid composites being skipped by adding
+            // a dependency on the compositor surface external image keys / generations.
+            for external_surface in &self.external_surfaces {
+                self.descriptor.surfaces.push(
+                    CompositeSurfaceDescriptor {
+                        // TODO(gw): When we add native compositor surfaces, this be
+                        //           need to be set, as that's how native compositor
+                        //           surfaces are added to the visual tree.
+                        surface_id: None,
+                        offset: external_surface.device_rect.origin,
+                        clip_rect: external_surface.clip_rect,
+                        image_dependencies: external_surface.image_dependencies,
+                    }
+                );
+            }
         }
 
         if visible_alpha_tile_count > 0 {
@@ -542,6 +540,7 @@ impl CompositeState {
                     surface_id: tile_cache.native_surface.as_ref().map(|s| s.alpha),
                     offset: tile_cache.device_position,
                     clip_rect: device_clip_rect,
+                    image_dependencies: [ImageDependency::INVALID; 3],
                 }
             );
         }
@@ -564,19 +563,12 @@ impl CompositeState {
                 self.clear_tiles.push(tile);
             }
             CompositeTileSurface::Texture { .. } => {
-                match tile.mode {
-                    TileCompositeMode::Default => {
-                        // Texture surfaces get bucketed by opaque/alpha, for z-rejection
-                        // on the Draw compositor mode.
-                        if is_opaque {
-                            self.opaque_tiles.push(tile);
-                        } else {
-                            self.alpha_tiles.push(tile);
-                        }
-                    }
-                    TileCompositeMode::Over => {
-                        self.alpha_tiles.push(tile);
-                    }
+                // Texture surfaces get bucketed by opaque/alpha, for z-rejection
+                // on the Draw compositor mode.
+                if is_opaque {
+                    self.opaque_tiles.push(tile);
+                } else {
+                    self.alpha_tiles.push(tile);
                 }
             }
         }
@@ -727,7 +719,7 @@ pub trait Compositor {
 /// overlapping areas between those rectangles.
 fn area_of_occluders(
     occluders: &[Occluder],
-    slice: usize,
+    z_id: ZBufferId,
     clip_rect: &DeviceIntRect,
 ) -> i32 {
     // This implementation is based on the article https://leetcode.com/articles/rectangle-area-ii/.
@@ -768,7 +760,7 @@ fn area_of_occluders(
     let mut events = Vec::with_capacity(occluders.len() * 2);
     for occluder in occluders {
         // Only consider occluders in front of this rect
-        if occluder.slice > slice {
+        if occluder.z_id.0 > z_id.0 {
             // Clip the source rect to the rectangle we care about, since we only
             // want to record area for the tile we are comparing to.
             if let Some(rect) = occluder.device_rect.intersection(clip_rect) {

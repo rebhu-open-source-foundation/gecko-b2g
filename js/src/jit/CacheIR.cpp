@@ -423,11 +423,11 @@ static NativeGetPropCacheability IsCacheableGetPropCall(JSObject* obj,
     return CanAttachNativeGetter;
   }
 
-  if (getter.hasScript() || getter.isNativeWithJitEntry()) {
+  if (getter.hasBytecode() || getter.isNativeWithJitEntry()) {
     return CanAttachScriptedGetter;
   }
 
-  if (getter.isInterpretedLazy()) {
+  if (getter.isInterpreted()) {
     return CanAttachTemporarilyUnoptimizable;
   }
 
@@ -1793,7 +1793,7 @@ AttachDecision GetPropIRGenerator::tryAttachFunction(HandleObject obj,
     }
 
     // Lazy functions don't store the length.
-    if (fun->isInterpretedLazy()) {
+    if (!fun->hasBytecode()) {
       return AttachDecision::NoAction;
     }
 
@@ -2592,7 +2592,7 @@ static bool NeedEnvironmentShapeGuard(JSObject* envObj) {
   // conditions. In that case, we pessimistically create the guard.
   CallObject* callObj = &envObj->as<CallObject>();
   JSFunction* fun = &callObj->callee();
-  if (!fun->hasScript() || fun->baseScript()->funHasExtensibleScope()) {
+  if (!fun->hasBytecode() || fun->baseScript()->funHasExtensibleScope()) {
     return true;
   }
 
@@ -3583,7 +3583,7 @@ static bool IsCacheableSetPropCallScripted(
     return true;
   }
 
-  if (!setter.hasScript()) {
+  if (!setter.hasBytecode()) {
     if (isTemporarilyUnoptimizable) {
       *isTemporarilyUnoptimizable = true;
     }
@@ -4945,7 +4945,12 @@ AttachDecision CallIRGenerator::tryAttachIsSuspendedGenerator() {
   return AttachDecision::Attach;
 }
 
-AttachDecision CallIRGenerator::tryAttachFunCall() {
+AttachDecision CallIRGenerator::tryAttachFunCall(HandleFunction calleeFunc) {
+  MOZ_ASSERT(calleeFunc->isNative());
+  if (calleeFunc->native() != fun_call) {
+    return AttachDecision::NoAction;
+  }
+
   if (!thisval_.isObject() || !thisval_.toObject().is<JSFunction>()) {
     return AttachDecision::NoAction;
   }
@@ -4995,7 +5000,12 @@ AttachDecision CallIRGenerator::tryAttachFunCall() {
   return AttachDecision::Attach;
 }
 
-AttachDecision CallIRGenerator::tryAttachFunApply() {
+AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
+  MOZ_ASSERT(calleeFunc->isNative());
+  if (calleeFunc->native() != fun_apply) {
+    return AttachDecision::NoAction;
+  }
+
   if (argc_ != 2) {
     return AttachDecision::NoAction;
   }
@@ -5070,15 +5080,7 @@ AttachDecision CallIRGenerator::tryAttachSpecialCaseCallNative(
   MOZ_ASSERT(mode_ == ICState::Mode::Specialized);
   MOZ_ASSERT(callee->isNative());
 
-  // Check for fun_call and fun_apply.
-  if (op_ == JSOp::FunCall && callee->native() == fun_call) {
-    return tryAttachFunCall();
-  }
-  if (op_ == JSOp::FunApply && callee->native() == fun_apply) {
-    return tryAttachFunApply();
-  }
-
-  // Other functions are only optimized for normal calls.
+  // Special case functions are only optimized for normal calls.
   if (op_ != JSOp::Call && op_ != JSOp::CallIgnoresRv) {
     return AttachDecision::NoAction;
   }
@@ -5509,6 +5511,12 @@ AttachDecision CallIRGenerator::tryAttachStub() {
 
   // Check for native-function optimizations.
   if (calleeFunc->isNative()) {
+    if (op_ == JSOp::FunCall) {
+        return tryAttachFunCall(calleeFunc);
+    }
+    if (op_ == JSOp::FunApply) {
+        return tryAttachFunApply(calleeFunc);
+    }
     return tryAttachCallNative(calleeFunc);
   }
 

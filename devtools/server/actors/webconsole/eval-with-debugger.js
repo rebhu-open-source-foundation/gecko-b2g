@@ -5,6 +5,7 @@
 
 "use strict";
 
+const Debugger = require("Debugger");
 const DevToolsUtils = require("devtools/shared/DevToolsUtils");
 
 loader.lazyRequireGetter(
@@ -96,8 +97,9 @@ function isObject(value) {
  *        in the Inspector (or null, if there is no selection). This is used
  *        for helper functions that make reference to the currently selected
  *        node, like $0.
- *         - url: the url to evaluate the script as. Defaults to
- *         "debugger eval code".
+ *        - eager: Set to true if you want the evaluation to bail if it may have side effects.
+ *        - url: the url to evaluate the script as. Defaults to "debugger eval code",
+ *        or "debugger eager eval code" if eager is true.
  * @return object
  *         An object that holds the following properties:
  *         - dbg: the debugger where the string was evaluated.
@@ -138,8 +140,10 @@ exports.evalWithDebugger = function(string, options = {}, webConsole) {
   helpers.evalInput = string;
   const evalOptions = {};
 
-  if (typeof options.url === "string") {
-    evalOptions.url = options.url;
+  const urlOption =
+    options.url || (options.eager ? "debugger eager eval code" : null);
+  if (typeof urlOption === "string") {
+    evalOptions.url = urlOption;
   }
 
   if (typeof options.lineNumber === "number") {
@@ -162,7 +166,7 @@ exports.evalWithDebugger = function(string, options = {}, webConsole) {
   );
 
   if (options.eager) {
-    allowSideEffects(dbg, sideEffectData);
+    allowSideEffects(sideEffectData);
   }
 
   // Attempt to initialize any declarations found in the evaluated string
@@ -268,17 +272,17 @@ function preventSideEffects(dbg) {
     throw new Error("Debugger has hook installed");
   }
 
-  const data = {
-    executedScripts: new Set(),
-    debuggees: dbg.getDebuggees(),
-
-    handler: {
-      hit: () => null,
-    },
-  };
+  // Note: It is critical for debuggee performance that we implement all of
+  // this debuggee tracking logic with a separate Debugger instance.
+  // Bug 1617666 arises otherwise if we set an onEnterFrame hook on the
+  // existing debugger object and then later clear it.
+  const newDbg = new Debugger();
+  for (const debuggee of dbg.getDebuggees()) {
+    newDbg.addDebuggee(debuggee.unsafeDereference());
+  }
 
   // TODO: re-enable addAllGlobalsAsDebuggees(bug #1610532)
-  // dbg.addAllGlobalsAsDebuggees();
+  // newDbg.addAllGlobalsAsDebuggees();
 
   const timeoutDuration = 100;
   const endTime = Date.now() + timeoutDuration;
@@ -290,7 +294,12 @@ function preventSideEffects(dbg) {
     return ++count % 100 === 0 && Date.now() > endTime;
   }
 
-  dbg.onEnterFrame = frame => {
+  const executedScripts = new Set();
+  const handler = {
+    hit: () => null,
+  };
+
+  newDbg.onEnterFrame = frame => {
     if (shouldCancel()) {
       return null;
     }
@@ -303,19 +312,22 @@ function preventSideEffects(dbg) {
 
     const script = frame.script;
 
-    if (data.executedScripts.has(script)) {
+    if (executedScripts.has(script)) {
       return undefined;
     }
-    data.executedScripts.add(script);
+    executedScripts.add(script);
 
     const offsets = script.getEffectfulOffsets();
     for (const offset of offsets) {
-      script.setBreakpoint(offset, data.handler);
+      script.setBreakpoint(offset, handler);
     }
 
     return undefined;
   };
 
+  // The debugger only calls onNativeCall handlers on the debugger that is
+  // explicitly calling eval, so we need to add this hook on "dbg" even though
+  // the rest of our hooks work via "newDbg".
   dbg.onNativeCall = (callee, reason) => {
     // Getters are never considered effectful, and setters are always effectful.
     // Natives called normally are handled with a whitelist.
@@ -330,22 +342,15 @@ function preventSideEffects(dbg) {
     return null;
   };
 
-  return data;
+  return {
+    dbg,
+    newDbg,
+  };
 }
 
-function allowSideEffects(dbg, data) {
-  for (const script of data.executedScripts) {
-    script.clearBreakpoint(data.handler);
-  }
-
-  for (const global of dbg.getDebuggees()) {
-    if (!data.debuggees.includes(global)) {
-      dbg.removeDebuggee(global);
-    }
-  }
-
-  dbg.onEnterFrame = undefined;
-  dbg.onNativeCall = undefined;
+function allowSideEffects(data) {
+  data.dbg.onNativeCall = undefined;
+  data.newDbg.removeAllDebuggees();
 }
 
 // Native functions which are considered to be side effect free.

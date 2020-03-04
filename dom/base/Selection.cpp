@@ -442,8 +442,7 @@ static nsresult GetTableSelectionType(const nsRange* aRange,
   return NS_OK;
 }
 
-// static
-nsresult Selection::GetTableCellLocationFromRange(
+MOZ_CAN_RUN_SCRIPT static nsresult GetTableCellLocationFromRange(
     const nsRange* aRange, TableSelectionMode* aSelectionType, int32_t* aRow,
     int32_t* aCol) {
   if (!aRange || !aSelectionType || !aRow || !aCol) {
@@ -482,23 +481,23 @@ nsresult Selection::GetTableCellLocationFromRange(
   return cellLayout->GetCellIndexes(*aRow, *aCol);
 }
 
-nsresult Selection::MaybeAddTableCellRange(nsRange* aRange, bool* aDidAddRange,
+nsresult Selection::MaybeAddTableCellRange(nsRange& aRange, bool* aDidAddRange,
                                            int32_t* aOutIndex) {
-  if (!aDidAddRange || !aOutIndex) return NS_ERROR_NULL_POINTER;
+  if (!aDidAddRange || !aOutIndex) {
+    return NS_ERROR_NULL_POINTER;
+  }
 
   *aDidAddRange = false;
   *aOutIndex = -1;
 
   if (!mFrameSelection) return NS_OK;
 
-  if (!aRange) return NS_ERROR_NULL_POINTER;
-
   nsresult result;
 
   // Get if we are adding a cell selection and the row, col of cell if we are
   int32_t newRow, newCol;
   TableSelectionMode tableMode;
-  result = GetTableCellLocationFromRange(aRange, &tableMode, &newRow, &newCol);
+  result = GetTableCellLocationFromRange(&aRange, &tableMode, &newRow, &newCol);
   if (NS_FAILED(result)) return result;
 
   // If not adding a cell range, we are done here
@@ -517,7 +516,7 @@ nsresult Selection::MaybeAddTableCellRange(nsRange* aRange, bool* aDidAddRange,
   }
 
   *aDidAddRange = true;
-  return AddRangesForSelectableNodes(aRange, aOutIndex);
+  return AddRangesForSelectableNodes(&aRange, aOutIndex);
 }
 
 Selection::Selection(nsFrameSelection* aFrameSelection)
@@ -1857,7 +1856,7 @@ void Selection::AddRangeAndSelectFramesAndNotifyListeners(nsRange& aRange,
   // and returns NS_OK if range doesn't contain just one table cell
   bool didAddRange;
   int32_t rangeIndex;
-  nsresult result = MaybeAddTableCellRange(range, &didAddRange, &rangeIndex);
+  nsresult result = MaybeAddTableCellRange(*range, &didAddRange, &rangeIndex);
   if (NS_FAILED(result)) {
     aRv.Throw(result);
     return;
@@ -2127,9 +2126,8 @@ void Selection::CollapseToStart(ErrorResult& aRv) {
   }
 
   if (mFrameSelection) {
-    int16_t reason = mFrameSelection->PopReason() |
-                     nsISelectionListener::COLLAPSETOSTART_REASON;
-    mFrameSelection->PostReason(reason);
+    mFrameSelection->AddChangeReasons(
+        nsISelectionListener::COLLAPSETOSTART_REASON);
   }
   nsINode* container = firstRange->GetStartContainer();
   if (!container) {
@@ -2164,9 +2162,8 @@ void Selection::CollapseToEnd(ErrorResult& aRv) {
   }
 
   if (mFrameSelection) {
-    int16_t reason = mFrameSelection->PopReason() |
-                     nsISelectionListener::COLLAPSETOEND_REASON;
-    mFrameSelection->PostReason(reason);
+    mFrameSelection->AddChangeReasons(
+        nsISelectionListener::COLLAPSETOEND_REASON);
   }
   nsINode* container = lastRange->GetEndContainer();
   if (!container) {
@@ -2593,7 +2590,7 @@ void Selection::SelectAllChildren(nsINode& aNode, ErrorResult& aRv) {
   }
 
   if (mFrameSelection) {
-    mFrameSelection->PostReason(nsISelectionListener::SELECTALL_REASON);
+    mFrameSelection->AddChangeReasons(nsISelectionListener::SELECTALL_REASON);
   }
 
   // Chrome moves focus when aNode is outside of active editing host.
@@ -3060,7 +3057,7 @@ nsresult Selection::NotifySelectionListeners() {
   AutoTArray<nsCOMPtr<nsISelectionListener>, 5> selectionListeners(
       mSelectionListeners);
 
-  int16_t reason = frameSelection->PopReason();
+  int16_t reason = frameSelection->PopChangeReasons();
 
   if (mNotifyAutoCopy) {
     AutoCopyListener::OnSelectionChange(doc, *this, reason);

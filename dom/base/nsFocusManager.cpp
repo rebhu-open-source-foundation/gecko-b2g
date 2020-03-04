@@ -368,23 +368,6 @@ void nsFocusManager::FocusWindow(nsPIDOMWindowOuter* aWindow,
   }
 }
 
-NS_IMETHODIMP nsFocusManager::SetActiveWindow(mozIDOMWindowProxy* aWindow) {
-  return SetActiveWindowWithCallerType(aWindow, CallerType::System);
-}
-
-NS_IMETHODIMP
-nsFocusManager::SetActiveWindowWithCallerType(mozIDOMWindowProxy* aWindow,
-                                              CallerType aCallerType) {
-  NS_ENSURE_STATE(aWindow);
-
-  // only top-level windows can be made active
-  nsCOMPtr<nsPIDOMWindowOuter> piWindow = nsPIDOMWindowOuter::From(aWindow);
-  NS_ENSURE_TRUE(piWindow == piWindow->GetPrivateRoot(), NS_ERROR_INVALID_ARG);
-
-  RaiseWindow(piWindow, aCallerType);
-  return NS_OK;
-}
-
 NS_IMETHODIMP
 nsFocusManager::GetFocusedWindow(mozIDOMWindowProxy** aFocusedWindow) {
   NS_IF_ADDREF(*aFocusedWindow = mFocusedWindow);

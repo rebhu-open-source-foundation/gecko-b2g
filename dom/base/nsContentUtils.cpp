@@ -45,6 +45,7 @@
 #include "mozilla/Components.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/LoadInfo.h"
+#include "mozilla/dom/AncestorIterator.h"
 #include "mozilla/dom/BlobURLProtocolHandler.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/BrowsingContextGroup.h"
@@ -86,13 +87,14 @@
 #include "mozilla/dom/WorkerCommon.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
-#include "mozilla/net/CookieSettings.h"
+#include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventListenerManager.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/gfx/DataSurfaceHelpers.h"
 #include "mozilla/HTMLEditor.h"
 #include "mozilla/IMEStateManager.h"
+#include "mozilla/InputEventOptions.h"
 #include "mozilla/InternalMutationEvent.h"
 #include "mozilla/Likely.h"
 #include "mozilla/ManualNAC.h"
@@ -4115,19 +4117,18 @@ nsresult nsContentUtils::DispatchEvent(Document* aDoc, nsISupports* aTarget,
   return rv;
 }
 
-nsContentUtils::InputEventOptions::InputEventOptions(
-    DataTransfer* aDataTransfer)
-    : mDataTransfer(aDataTransfer) {
-  MOZ_ASSERT(mDataTransfer);
-  MOZ_ASSERT(mDataTransfer->IsReadOnly());
+// static
+nsresult nsContentUtils::DispatchInputEvent(Element* aEventTarget) {
+  return DispatchInputEvent(aEventTarget, mozilla::eEditorInput,
+                            mozilla::EditorInputType::eUnknown, nullptr,
+                            InputEventOptions());
 }
 
 // static
 nsresult nsContentUtils::DispatchInputEvent(
     Element* aEventTargetElement, EventMessage aEventMessage,
     EditorInputType aEditorInputType, TextEditor* aTextEditor,
-    const InputEventOptions& aOptions,
-    nsEventStatus* aEventStatus /* = nullptr */) {
+    InputEventOptions&& aOptions, nsEventStatus* aEventStatus /* = nullptr */) {
   MOZ_ASSERT(aEventMessage == eEditorInput ||
              aEventMessage == eEditorBeforeInput);
 
@@ -4225,7 +4226,7 @@ nsresult nsContentUtils::DispatchInputEvent(
 
   if (!aTextEditor || !aTextEditor->AsHTMLEditor()) {
     if (IsDataAvailableOnTextEditor(aEditorInputType)) {
-      inputEvent.mData = aOptions.mData;
+      inputEvent.mData = std::move(aOptions.mData);
       MOZ_ASSERT(!inputEvent.mData.IsVoid(),
                  "inputEvent.mData shouldn't be void");
     }
@@ -4234,16 +4235,19 @@ nsresult nsContentUtils::DispatchInputEvent(
       MOZ_ASSERT(inputEvent.mData.IsVoid(), "inputEvent.mData should be void");
     }
 #endif  // #ifdef DEBUG
+    MOZ_ASSERT(
+        aOptions.mTargetRanges.IsEmpty(),
+        "Target ranges for <input> and <textarea> should always be empty");
   } else {
     MOZ_ASSERT(aTextEditor->AsHTMLEditor());
     if (IsDataAvailableOnHTMLEditor(aEditorInputType)) {
-      inputEvent.mData = aOptions.mData;
+      inputEvent.mData = std::move(aOptions.mData);
       MOZ_ASSERT(!inputEvent.mData.IsVoid(),
                  "inputEvent.mData shouldn't be void");
     } else {
       MOZ_ASSERT(inputEvent.mData.IsVoid(), "inputEvent.mData should be void");
       if (IsDataTransferAvailableOnHTMLEditor(aEditorInputType)) {
-        inputEvent.mDataTransfer = aOptions.mDataTransfer;
+        inputEvent.mDataTransfer = std::move(aOptions.mDataTransfer);
         MOZ_ASSERT(inputEvent.mDataTransfer,
                    "inputEvent.mDataTransfer shouldn't be nullptr");
         MOZ_ASSERT(inputEvent.mDataTransfer->IsReadOnly(),
@@ -4256,6 +4260,16 @@ nsresult nsContentUtils::DispatchInputEvent(
       }
 #endif  // #ifdef DEBUG
     }
+    if (aEventMessage == eEditorBeforeInput &&
+        MayHaveTargetRangesOnHTMLEditor(aEditorInputType)) {
+      inputEvent.mTargetRanges = std::move(aOptions.mTargetRanges);
+    }
+#ifdef DEBUG
+    else {
+      MOZ_ASSERT(aOptions.mTargetRanges.IsEmpty(),
+                 "Target ranges shouldn't be set for the dispatching event");
+    }
+#endif  // #ifdef DEBUG
   }
 
   inputEvent.mInputType = aEditorInputType;
@@ -4685,8 +4699,7 @@ already_AddRefed<DocumentFragment> nsContentUtils::CreateContextualFragment(
 
   AutoTArray<nsString, 32> tagStack;
   nsAutoString uriStr, nameStr;
-  for (Element* element = aContextNode->GetAsElementOrParentElement(); element;
-       element = element->GetParentElement()) {
+  for (Element* element : InclusiveAncestorsOfType<Element>(*aContextNode)) {
     nsString& tagName = *tagStack.AppendElement();
     // It mostly doesn't actually matter what tag name we use here: XML doesn't
     // have parsing that depends on the open tag stack, apart from namespace
@@ -10370,4 +10383,53 @@ bool nsContentUtils::IsURIInList(nsIURI* aURI, const nsCString& aBlackList) {
   }
 
   return false;
+}
+
+/* static */
+ScreenIntMargin nsContentUtils::GetWindowSafeAreaInsets(
+    nsIScreen* aScreen, const ScreenIntMargin& aSafeAreaInsets,
+    const LayoutDeviceIntRect& aWindowRect) {
+  // This calculates safe area insets of window from screen rectangle, window
+  // rectangle and safe area insets of screen.
+  //
+  // +----------------------------------------+ <-- screen
+  // |  +-------------------------------+  <------- window
+  // |  | window's safe area inset top) |     |
+  // +--+-------------------------------+--+  |
+  // |  |                               |  |<------ safe area rectangle of
+  // |  |                               |  |  |     screen
+  // +--+-------------------------------+--+  |
+  // |  |window's safe area inset bottom|     |
+  // |  +-------------------------------+     |
+  // +----------------------------------------+
+  //
+  ScreenIntMargin windowSafeAreaInsets;
+
+  int32_t screenLeft, screenTop, screenWidth, screenHeight;
+  nsresult rv =
+      aScreen->GetRect(&screenLeft, &screenTop, &screenWidth, &screenHeight);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return windowSafeAreaInsets;
+  }
+
+  // Screen's rect of safe area
+  LayoutDeviceIntRect safeAreaRect(
+      screenLeft + aSafeAreaInsets.left, screenTop + aSafeAreaInsets.top,
+      screenWidth - aSafeAreaInsets.right - aSafeAreaInsets.left,
+      screenHeight - aSafeAreaInsets.bottom - aSafeAreaInsets.top);
+  // window's rect of safe area
+  safeAreaRect = safeAreaRect.Intersect(aWindowRect);
+
+  windowSafeAreaInsets.top = std::max(safeAreaRect.y - aWindowRect.y, 0);
+  windowSafeAreaInsets.left = std::max(safeAreaRect.x - aWindowRect.x, 0);
+  windowSafeAreaInsets.right =
+      std::max((aWindowRect.x + aWindowRect.width) -
+                   (safeAreaRect.x + safeAreaRect.width),
+               0);
+  windowSafeAreaInsets.bottom =
+      std::max(aWindowRect.y + aWindowRect.height -
+                   (safeAreaRect.y + safeAreaRect.height),
+               0);
+
+  return windowSafeAreaInsets;
 }

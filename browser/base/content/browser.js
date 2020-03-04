@@ -2572,28 +2572,33 @@ const SiteSpecificBrowserUI = {
   },
 
   removeSSBFromMenu(ssb) {
-    let button = document.getElementById("ssb-button-" + ssb.id);
-    if (!button) {
+    let container = document.getElementById("ssb-button-" + ssb.id);
+    if (!container) {
       return;
     }
 
-    if (!button.nextElementSibling && !button.previousElementSibling) {
+    if (!container.nextElementSibling && !container.previousElementSibling) {
       document.getElementById("appMenu-ssb-button").hidden = true;
     }
 
+    let button = container.querySelector(".ssb-launch");
     let uri = button.getAttribute("image");
     if (uri) {
       URL.revokeObjectURL(uri);
     }
 
-    button.remove();
+    container.remove();
   },
 
   addSSBToMenu(ssb) {
+    let container = document.createXULElement("toolbaritem");
+    container.id = `ssb-button-${ssb.id}`;
+    container.className = "toolbaritem-menu-buttons";
+
     let menu = document.createXULElement("toolbarbutton");
-    menu.id = "ssb-button-" + ssb.id;
-    menu.className = "subviewbutton subviewbutton-iconic";
+    menu.className = "ssb-launch subviewbutton subviewbutton-iconic";
     menu.setAttribute("label", ssb.name);
+    menu.setAttribute("flex", "1");
 
     ssb.getScaledIcon(16 * devicePixelRatio).then(
       icon => {
@@ -2610,7 +2615,18 @@ const SiteSpecificBrowserUI = {
       ssb.launch();
     });
 
-    this.panelBody.append(menu);
+    let uninstall = document.createXULElement("toolbarbutton");
+    uninstall.className = "ssb-uninstall subviewbutton subviewbutton-iconic";
+    // Hardcoded for now. Localization tracked in bug 1602528.
+    uninstall.setAttribute("tooltiptext", "Uninstall");
+
+    uninstall.addEventListener("command", () => {
+      ssb.uninstall();
+    });
+
+    container.append(menu);
+    container.append(uninstall);
+    this.panelBody.append(container);
     document.getElementById("appMenu-ssb-button").hidden = false;
   },
 
@@ -3558,11 +3574,6 @@ function PageProxyClickHandler(aEvent) {
     middleMousePaste(aEvent);
   }
 }
-
-const SEC_ERROR_BASE = Ci.nsINSSErrorsService.NSS_SEC_ERROR_BASE;
-const SEC_ERROR_UNKNOWN_ISSUER = SEC_ERROR_BASE + 13;
-
-const PREF_SSL_IMPACT_ROOTS = ["security.tls.version.", "security.ssl3."];
 
 /**
  * Handle command events bubbling up from error page content
@@ -9418,6 +9429,7 @@ function reportRemoteSubframesEnabledTelemetry() {
 if (AppConstants.NIGHTLY_BUILD) {
   var FissionTestingUI = {
     init() {
+      // Handle the Fission/Non-Fission testing UI.
       let autostart = Services.prefs.getBoolPref("fission.autostart");
       if (!autostart) {
         return;
@@ -9430,6 +9442,33 @@ if (AppConstants.NIGHTLY_BUILD) {
 
       newFissionWindow.hidden = gFissionBrowser;
       newNonFissionWindow.hidden = !gFissionBrowser;
+
+      if (!Cu.isInAutomation) {
+        // We don't want to display the warning in automation as it messes with many tests
+        // that rely on a specific state of the screen at the end of startup.
+        this.checkFissionWithoutWebRender();
+      }
+    },
+
+    // Display a warning if we're attempting to use Fission without WebRender
+    checkFissionWithoutWebRender() {
+      let isFissionEnabled = Services.prefs.getBoolPref("fission.autostart");
+      if (!isFissionEnabled) {
+        return;
+      }
+
+      let isWebRenderEnabled = Services.prefs.getBoolPref("gfx.webrender.all");
+
+      if (isWebRenderEnabled) {
+        return;
+      }
+      // Note: Test is hardcoded in English. This is a Nightly-locked warning, so we can afford to.
+      window.gNotificationBox.appendNotification(
+        "You are running with Fission enabled but without WebRender. This combination is untested, so use at your own risk.",
+        "warning-fission-without-webrender-notification",
+        "chrome://global/skin/icons/question-16.png",
+        window.gNotificationBox.PRIORITY_WARNING_LOW
+      );
     },
   };
 }

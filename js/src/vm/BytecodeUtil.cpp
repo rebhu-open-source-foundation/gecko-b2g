@@ -693,9 +693,6 @@ uint32_t BytecodeParser::simulateOp(JSOp op, uint32_t offset,
     case JSOp::SetArg:
     case JSOp::SetIntrinsic:
     case JSOp::SetLocal:
-    case JSOp::ThrowSetAliasedConst:
-    case JSOp::ThrowSetCallee:
-    case JSOp::ThrowSetConst:
     case JSOp::InitAliasedLexical:
     case JSOp::IterNext:
       // Keep the top value.
@@ -2972,15 +2969,14 @@ static bool GenerateLcovInfo(JSContext* cx, JS::Realm* realm,
       if (!gcThing.is<JSObject>()) {
         continue;
       }
-
-      // Only continue on JSFunction objects.
       JSObject* obj = &gcThing.as<JSObject>();
+
       if (!obj->is<JSFunction>()) {
         continue;
       }
       fun = &obj->as<JSFunction>();
 
-      // Let's skip wasm for now.
+      // Ignore asm.js functions
       if (!fun->isInterpreted()) {
         continue;
       }
@@ -3042,7 +3038,7 @@ bool js::GetSuccessorBytecodes(JSScript* script, jsbytecode* pc,
   MOZ_ASSERT(script->containsPC(pc));
 
   JSOp op = (JSOp)*pc;
-  if (FlowsIntoNext(op)) {
+  if (BytecodeFallsThrough(op)) {
     if (!successors.append(GetNextPc(pc))) {
       return false;
     }

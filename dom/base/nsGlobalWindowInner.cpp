@@ -250,7 +250,7 @@
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "mozilla/dom/BrowserChild.h"
 
-#include "mozilla/net/CookieSettings.h"
+#include "mozilla/net/CookieJarSettings.h"
 
 #include "AccessCheck.h"
 #include "SessionStorageCache.h"
@@ -4519,7 +4519,7 @@ Storage* nsGlobalWindowInner::GetLocalStorage(ErrorResult& aError) {
   if (ShouldPartitionStorage(access)) {
     if (!mDoc) {
       access = StorageAccess::eDeny;
-    } else if (!StoragePartitioningEnabled(access, mDoc->CookieSettings())) {
+    } else if (!StoragePartitioningEnabled(access, mDoc->CookieJarSettings())) {
       static const char* kPrefName =
           "privacy.restrict3rdpartystorage.partitionedHosts";
 
@@ -4538,14 +4538,15 @@ Storage* nsGlobalWindowInner::GetLocalStorage(ErrorResult& aError) {
     return nullptr;
   }
 
-  nsCOMPtr<nsICookieSettings> cookieSettings;
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
   if (mDoc) {
-    cookieSettings = mDoc->CookieSettings();
+    cookieJarSettings = mDoc->CookieJarSettings();
   } else {
-    cookieSettings = net::CookieSettings::CreateBlockingAll();
+    cookieJarSettings = net::CookieJarSettings::GetBlockingAll();
   }
 
-  bool partitioningEnabled = StoragePartitioningEnabled(access, cookieSettings);
+  bool partitioningEnabled =
+      StoragePartitioningEnabled(access, cookieJarSettings);
   bool shouldPartition = ShouldPartitionStorage(access);
   bool partition = partitioningEnabled && shouldPartition;
 
@@ -5628,8 +5629,9 @@ nsIPrincipal* nsGlobalWindowInner::GetTopLevelAntiTrackingPrincipal() {
     return nullptr;
   }
 
-  bool stopAtOurLevel = mDoc && mDoc->CookieSettings()->GetCookieBehavior() ==
-                                    nsICookieService::BEHAVIOR_REJECT_TRACKER;
+  bool stopAtOurLevel =
+      mDoc && mDoc->CookieJarSettings()->GetCookieBehavior() ==
+                  nsICookieService::BEHAVIOR_REJECT_TRACKER;
 
   if (stopAtOurLevel && topLevelOuterWindow == outerWindow) {
     return nullptr;
@@ -6598,6 +6600,24 @@ void nsGlobalWindowInner::Restore() {
 
   if (widget) {
     widget->SetSizeMode(nsSizeMode_Normal);
+  }
+}
+
+int32_t nsGlobalWindowInner::GetWorkspaceID() {
+  nsCOMPtr<nsIWidget> widget = GetMainWidget();
+
+  if (widget) {
+    return widget->GetWorkspaceID();
+  }
+
+  return 0;
+}
+
+void nsGlobalWindowInner::MoveToWorkspace(int32_t workspaceID) {
+  nsCOMPtr<nsIWidget> widget = GetMainWidget();
+
+  if (widget) {
+    widget->MoveToWorkspace(workspaceID);
   }
 }
 

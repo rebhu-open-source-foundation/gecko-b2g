@@ -58,6 +58,12 @@ AddonTestUtils.createAppInfo(
   "42"
 );
 
+// Allow telemetry probes which may otherwise be disabled for some applications (e.g. Thunderbird)
+Services.prefs.setBoolPref(
+  "toolkit.telemetry.testing.overrideProductsCheck",
+  true
+);
+
 /**
  * Load engines from test data located in particular folders.
  *
@@ -427,7 +433,7 @@ async function withGeoServer(
   let defaultBranch = Services.prefs.getDefaultBranch(
     SearchUtils.BROWSER_SEARCH_PREF
   );
-  let originalURL = defaultBranch.getCharPref(PREF_SEARCH_URL);
+  let originalURL = defaultBranch.getCharPref(PREF_SEARCH_URL, "");
   defaultBranch.setCharPref(PREF_SEARCH_URL, url);
   // Set a bogus user value so that running the test ensures we ignore it.
   Services.prefs.setCharPref(

@@ -668,6 +668,8 @@ class Accessible : public nsISupports {
 
   bool IsXULTabpanels() const { return mType == eXULTabpanelsType; }
 
+  bool IsXULTooltip() const { return mType == eXULTooltipType; }
+
   bool IsXULTree() const { return mType == eXULTreeType; }
   XULTreeAccessible* AsXULTree();
 
@@ -1066,6 +1068,11 @@ class Accessible : public nsISupports {
    * Returns the accessible name specified by ARIA.
    */
   void ARIAName(nsString& aName) const;
+
+  /**
+   * Returns the accessible description specified by ARIA.
+   */
+  void ARIADescription(nsString& aDescription) const;
 
   /**
    * Returns the accessible name specified for this control using XUL

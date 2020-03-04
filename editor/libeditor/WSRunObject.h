@@ -12,6 +12,7 @@
 #include "mozilla/EditorDOMPoint.h"  // for EditorDOMPoint
 #include "mozilla/HTMLEditor.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/Tuple.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLBRElement.h"
 #include "mozilla/dom/Text.h"
@@ -150,13 +151,15 @@ class MOZ_STACK_CLASS WSScanResult final {
       : mContent(aContent), mReason(aReason) {
     AssertIfInvalidData();
   }
-  MOZ_NEVER_INLINE_DEBUG WSScanResult(nsIContent* aContent, uint32_t aOffset,
+  MOZ_NEVER_INLINE_DEBUG WSScanResult(const EditorDOMPoint& aPoint,
                                       WSType aReason)
-      : mContent(aContent), mOffset(Some(aOffset)), mReason(aReason) {
+      : mContent(aPoint.GetContainerAsContent()),
+        mOffset(Some(aPoint.Offset())),
+        mReason(aReason) {
     AssertIfInvalidData();
   }
 
-  void AssertIfInvalidData() const {
+  MOZ_NEVER_INLINE_DEBUG void AssertIfInvalidData() const {
 #ifdef DEBUG
     MOZ_ASSERT(mReason == WSType::text || mReason == WSType::normalWS ||
                mReason == WSType::br || mReason == WSType::special ||
@@ -259,11 +262,11 @@ class MOZ_STACK_CLASS WSScanResult final {
    */
   MOZ_NEVER_INLINE_DEBUG EditorDOMPoint PointAfterContent() const {
     MOZ_ASSERT(mContent);
-    return mContent ? EditorDOMPoint::After(*mContent) : EditorDOMPoint();
+    return mContent ? EditorDOMPoint::After(mContent) : EditorDOMPoint();
   }
   MOZ_NEVER_INLINE_DEBUG EditorRawDOMPoint RawPointAfterContent() const {
     MOZ_ASSERT(mContent);
-    return mContent ? EditorRawDOMPoint::After(*mContent) : EditorRawDOMPoint();
+    return mContent ? EditorRawDOMPoint::After(mContent) : EditorRawDOMPoint();
   }
 
   /**
@@ -482,21 +485,6 @@ class MOZ_STACK_CLASS WSRunScanner {
     }
   };
 
-  // A WSPoint struct represents a unique location within the ws run.  It is
-  // always within a textnode that is one of the nodes stored in the list
-  // in the wsRunObject.  For convenience, the character at that point is also
-  // stored in the struct.
-  struct MOZ_STACK_CLASS WSPoint final {
-    RefPtr<dom::Text> mTextNode;
-    uint32_t mOffset;
-    char16_t mChar;
-
-    WSPoint() : mTextNode(nullptr), mOffset(0), mChar(0) {}
-
-    WSPoint(dom::Text* aTextNode, int32_t aOffset, char16_t aChar)
-        : mTextNode(aTextNode), mOffset(aOffset), mChar(aChar) {}
-  };
-
   /**
    * FindNearestRun() looks for a WSFragment which is closest to specified
    * direction from aPoint.
@@ -523,27 +511,30 @@ class MOZ_STACK_CLASS WSRunScanner {
                              bool aForward) const;
 
   /**
-   * GetNextCharPoint() returns next character's point of aPoint.  If there is
-   * no character after aPoint, mTextNode is set to nullptr.
+   * GetNextCharPoint() and GetNextCharPointFromPointInText() return next
+   * character's point of aPoint.  If there is no character after aPoint,
+   * mTextNode is set to nullptr.
    */
   template <typename PT, typename CT>
-  WSPoint GetNextCharPoint(const EditorDOMPointBase<PT, CT>& aPoint) const;
-  WSPoint GetNextCharPoint(const WSPoint& aPoint) const;
+  EditorDOMPointInText GetNextCharPoint(
+      const EditorDOMPointBase<PT, CT>& aPoint) const;
+  EditorDOMPointInText GetNextCharPointFromPointInText(
+      const EditorDOMPointInText& aPoint) const;
 
   /**
-   * GetNextCharPointInternal() and GetPreviousCharPointInternal() are
-   * helper methods of GetNextCharPoint(const EditorRawDOMPoint&) and
-   * GetPreviousCharPoint(const EditorRawDOMPoint&).  When the container
-   * isn't in mNodeArray, they call one of these methods.  Then, these
-   * methods look for nearest text node in mNodeArray from aPoint.
-   * Then, will call GetNextCharPoint(const WSPoint&) or
-   * GetPreviousCharPoint(const WSPoint&) and returns its result.
+   * LookForNextCharPointWithinAllTextNodes() and
+   * LookForPreviousCharPointWithinAllTextNodes() are helper methods of
+   * GetNextCharPoint(const EditorRawDOMPoint&) and GetPreviousCharPoint(const
+   * EditorRawDOMPoint&).  When the container isn't in mNodeArray, they call one
+   * of these methods.  Then, these methods look for nearest text node in
+   * mNodeArray from aPoint. Then, will call GetNextCharPointFromPointInText()
+   * or GetPreviousCharPointFromPointInText() and returns its result.
    */
   template <typename PT, typename CT>
-  WSPoint GetNextCharPointInternal(
+  EditorDOMPointInText LookForNextCharPointWithinAllTextNodes(
       const EditorDOMPointBase<PT, CT>& aPoint) const;
   template <typename PT, typename CT>
-  WSPoint GetPreviousCharPointInternal(
+  EditorDOMPointInText LookForPreviousCharPointWithinAllTextNodes(
       const EditorDOMPointBase<PT, CT>& aPoint) const;
 
   nsresult GetWSNodes();
@@ -569,12 +560,15 @@ class MOZ_STACK_CLASS WSRunScanner {
                             nsINode* aBlockParent) const;
 
   /**
-   * GetPreviousCharPoint() returns previous character's point of of aPoint.
-   * If there is no character before aPoint, mTextNode is set to nullptr.
+   * GetPreviousCharPoint() and GetPreviousCharPointFromPointInText() return
+   * previous character's point of of aPoint. If there is no character before
+   * aPoint, mTextNode is set to nullptr.
    */
   template <typename PT, typename CT>
-  WSPoint GetPreviousCharPoint(const EditorDOMPointBase<PT, CT>& aPoint) const;
-  WSPoint GetPreviousCharPoint(const WSPoint& aPoint) const;
+  EditorDOMPointInText GetPreviousCharPoint(
+      const EditorDOMPointBase<PT, CT>& aPoint) const;
+  EditorDOMPointInText GetPreviousCharPointFromPointInText(
+      const EditorDOMPointInText& aPoint) const;
 
   char16_t GetCharAt(dom::Text* aTextNode, int32_t aOffset) const;
 
@@ -657,21 +651,25 @@ class MOZ_STACK_CLASS WSRunObject final : public WSRunScanner {
    *       PrepareToDeleteNode() should be redesigned with aScanEndPoint.
    */
   template <typename PT, typename CT>
-  WSRunObject(HTMLEditor* aHTMLEditor,
-              const EditorDOMPointBase<PT, CT>& aScanStartPoint,
-              const EditorDOMPointBase<PT, CT>& aScanEndPoint);
+  MOZ_CAN_RUN_SCRIPT WSRunObject(
+      HTMLEditor& aHTMLEditor,
+      const EditorDOMPointBase<PT, CT>& aScanStartPoint,
+      const EditorDOMPointBase<PT, CT>& aScanEndPoint);
   template <typename PT, typename CT>
-  WSRunObject(HTMLEditor* aHTMLEditor,
-              const EditorDOMPointBase<PT, CT>& aScanStartPoint)
+  MOZ_CAN_RUN_SCRIPT WSRunObject(
+      HTMLEditor& aHTMLEditor,
+      const EditorDOMPointBase<PT, CT>& aScanStartPoint)
       : WSRunObject(aHTMLEditor, aScanStartPoint, aScanStartPoint) {}
-  WSRunObject(HTMLEditor* aHTMLEditor, nsINode* aScanStartNode,
-              int32_t aScanStartOffset, nsINode* aScanEndNode,
-              int32_t aScanEndOffset)
+  MOZ_CAN_RUN_SCRIPT WSRunObject(HTMLEditor& aHTMLEditor,
+                                 nsINode* aScanStartNode,
+                                 int32_t aScanStartOffset,
+                                 nsINode* aScanEndNode, int32_t aScanEndOffset)
       : WSRunObject(aHTMLEditor,
                     EditorRawDOMPoint(aScanStartNode, aScanStartOffset),
                     EditorRawDOMPoint(aScanEndNode, aScanEndOffset)) {}
-  WSRunObject(HTMLEditor* aHTMLEditor, nsINode* aScanStartNode,
-              int32_t aScanStartOffset)
+  MOZ_CAN_RUN_SCRIPT WSRunObject(HTMLEditor& aHTMLEditor,
+                                 nsINode* aScanStartNode,
+                                 int32_t aScanStartOffset)
       : WSRunObject(aHTMLEditor,
                     EditorRawDOMPoint(aScanStartNode, aScanStartOffset),
                     EditorRawDOMPoint(aScanStartNode, aScanStartOffset)) {}
@@ -691,36 +689,29 @@ class MOZ_STACK_CLASS WSRunObject final : public WSRunScanner {
       HTMLEditor& aHTMLEditor, dom::Element& aLeftBlockElement,
       dom::Element& aRightBlockElement);
 
-  // PrepareToDeleteRange fixes up ws before {aStartNode,aStartOffset}
-  // and after {aEndNode,aEndOffset} in preperation for content
-  // in that range to be deleted.  Note that the nodes and offsets
-  // are adjusted in response to any dom changes we make while
+  // PrepareToDeleteRange fixes up ws before aStartPoint and after aEndPoint in
+  // preperation for content in that range to be deleted.  Note that the nodes
+  // and offsets are adjusted in response to any dom changes we make while
   // adjusting ws.
-  // example of fixup: trailingws before {aStartNode,aStartOffset}
-  //                   needs to be removed.
-  MOZ_CAN_RUN_SCRIPT
-  static nsresult PrepareToDeleteRange(HTMLEditor* aHTMLEditor,
-                                       nsCOMPtr<nsINode>* aStartNode,
-                                       int32_t* aStartOffset,
-                                       nsCOMPtr<nsINode>* aEndNode,
-                                       int32_t* aEndOffset);
+  // example of fixup: trailingws before aStartPoint needs to be removed.
+  MOZ_CAN_RUN_SCRIPT static nsresult PrepareToDeleteRange(
+      HTMLEditor& aHTMLEditor, EditorDOMPoint* aStartPoint,
+      EditorDOMPoint* aEndPoint);
 
   // PrepareToDeleteNode fixes up ws before and after aContent in preparation
   // for aContent to be deleted.  Example of fixup: trailingws before
   // aContent needs to be removed.
-  MOZ_CAN_RUN_SCRIPT
-  static nsresult PrepareToDeleteNode(HTMLEditor* aHTMLEditor,
-                                      nsIContent* aContent);
+  MOZ_CAN_RUN_SCRIPT static nsresult PrepareToDeleteNode(
+      HTMLEditor& aHTMLEditor, nsIContent* aContent);
 
   // PrepareToSplitAcrossBlocks fixes up ws before and after
   // {aSplitNode,aSplitOffset} in preparation for a block parent to be split.
   // Note that the aSplitNode and aSplitOffset are adjusted in response to
   // any DOM changes we make while adjusting ws.  Example of fixup: normalws
   // before {aSplitNode,aSplitOffset} needs to end with nbsp.
-  MOZ_CAN_RUN_SCRIPT
-  static nsresult PrepareToSplitAcrossBlocks(HTMLEditor* aHTMLEditor,
-                                             nsCOMPtr<nsINode>* aSplitNode,
-                                             int32_t* aSplitOffset);
+  MOZ_CAN_RUN_SCRIPT static nsresult PrepareToSplitAcrossBlocks(
+      HTMLEditor& aHTMLEditor, nsCOMPtr<nsINode>* aSplitNode,
+      int32_t* aSplitOffset);
 
   /**
    * InsertBreak() inserts a <br> node at (before) aPointToInsert and delete
@@ -784,8 +775,6 @@ class MOZ_STACK_CLASS WSRunObject final : public WSRunScanner {
   MOZ_CAN_RUN_SCRIPT nsresult AdjustWhitespace();
 
  protected:
-  using WSPoint = WSRunScanner::WSPoint;
-
   MOZ_CAN_RUN_SCRIPT nsresult PrepareToDeleteRangePriv(WSRunObject* aEndObject);
   MOZ_CAN_RUN_SCRIPT nsresult PrepareToSplitAcrossBlocksPriv();
 
@@ -805,46 +794,36 @@ class MOZ_STACK_CLASS WSRunObject final : public WSRunScanner {
    * InsertNBSPAndRemoveFollowingASCIIWhitespaces() inserts an NBSP first.
    * Then, if following characters are ASCII whitespaces, will remove them.
    */
-  MOZ_CAN_RUN_SCRIPT
-  nsresult InsertNBSPAndRemoveFollowingASCIIWhitespaces(WSPoint aPoint);
+  MOZ_CAN_RUN_SCRIPT nsresult InsertNBSPAndRemoveFollowingASCIIWhitespaces(
+      const EditorDOMPointInText& aPoint);
 
   /**
-   * GetASCIIWhitespacesBounds() retrieves whitespaces before and/or after the
-   * point specified by aNode and aOffset.
+   * GetASCIIWhitespacesBounds() returns a range from start of whitespaces
+   * and end of whitespaces if the character at aPoint is an ASCII whitespace.
+   * Note that the end is next character of the last whitespace.
    *
    * @param aDir            Specify eBefore if you want to scan text backward.
    *                        Specify eAfter if you want to scan text forward.
    *                        Specify eBoth if you want to scan text to both
    *                        direction.
    * @param aPoint          The point to start to scan whitespaces from.
-   * @param outStartNode    [out] The container of first ASCII whitespace.
-   *                              If there is no whitespaces, returns nullptr.
-   * @param outStartOffset  [out] The offset of first ASCII whitespace in
-   *                              outStartNode.
-   * @param outEndNode      [out] The container of last ASCII whitespace.
-   *                              If there is no whitespaces, returns nullptr.
-   * @param outEndOffset    [out] The offset of last ASCII whitespace in
-   *                              outEndNode.
+   * @return                Start and end of the expanded range.
    */
   template <typename PT, typename CT>
-  void GetASCIIWhitespacesBounds(int16_t aDir,
-                                 const EditorDOMPointBase<PT, CT>& aPoint,
-                                 dom::Text** outStartNode,
-                                 int32_t* outStartOffset,
-                                 dom::Text** outEndNode,
-                                 int32_t* outEndOffset) const;
+  Tuple<EditorDOMPointInText, EditorDOMPointInText> GetASCIIWhitespacesBounds(
+      int16_t aDir, const EditorDOMPointBase<PT, CT>& aPoint) const;
 
   MOZ_CAN_RUN_SCRIPT nsresult CheckTrailingNBSPOfRun(WSFragment* aRun);
 
   /**
-   * ReplacePreviousNBSPIfUnncessary() replaces previous character of aPoint
+   * ReplacePreviousNBSPIfUnnecessary() replaces previous character of aPoint
    * if it's a NBSP and it's unnecessary.
    *
    * @param aRun        Current text run.  aPoint must be in this run.
    * @param aPoint      Current insertion point.  Its previous character is
    *                    unnecessary NBSP will be checked.
    */
-  MOZ_CAN_RUN_SCRIPT nsresult ReplacePreviousNBSPIfUnncessary(
+  MOZ_CAN_RUN_SCRIPT nsresult ReplacePreviousNBSPIfUnnecessary(
       WSFragment* aRun, const EditorDOMPoint& aPoint);
 
   MOZ_CAN_RUN_SCRIPT
@@ -859,8 +838,9 @@ class MOZ_STACK_CLASS WSRunObject final : public WSRunScanner {
     return EditorDOMPoint(mEndNode, mEndOffset);
   }
 
-  // Non-owning.
-  HTMLEditor* mHTMLEditor;
+  // Because of MOZ_CAN_RUN_SCRIPT constructors, each instanciater of this class
+  // guarantees the lifetime of the HTMLEditor.
+  HTMLEditor& mHTMLEditor;
 };
 
 }  // namespace mozilla

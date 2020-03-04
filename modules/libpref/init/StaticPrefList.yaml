@@ -774,6 +774,13 @@
   value: 2
   mirror: always
 
+# A percentage limit for media content type in the disk cache. When some entries
+# need to be evicted and media is over the limit, it's evicted first.
+- name: browser.cache.disk.content_type_media_limit
+  type: RelaxedAtomicInt32
+  value: 50
+  mirror: always
+
 - name: browser.contentblocking.database.enabled
   type: bool
   value: false
@@ -1334,7 +1341,7 @@
 # Is support for automatically removing replaced filling animations enabled?
 - name: dom.animations-api.autoremove.enabled
   type: bool
-  value: @IS_NOT_RELEASE_OR_BETA@
+  value: true
   mirror: always
 
 # Is support for composite operations from the Web Animations API enabled?
@@ -1364,13 +1371,13 @@
 # keyframes enabled?
 - name: dom.animations-api.implicit-keyframes.enabled
   type: bool
-  value: @IS_NOT_RELEASE_OR_BETA@
+  value: true
   mirror: always
 
 # Is support for timelines from the Web Animations API enabled?
 - name: dom.animations-api.timelines.enabled
   type: bool
-  value: @IS_NOT_RELEASE_OR_BETA@
+  value: true
   mirror: always
 
 # Is support for AudioWorklet enabled?
@@ -1751,6 +1758,11 @@
 - name: dom.IntersectionObserver.enabled
   type: bool
   value: true
+  mirror: always
+
+- name: dom.IntersectionObserverExplicitDocumentRoot.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.ipc.cancel_content_js_when_navigating
@@ -7262,9 +7274,9 @@
   value: true
   mirror: always
 
-# Allow CookieSettings to be unblocked for channels without a document.
+# Allow CookieJarSettings to be unblocked for channels without a document.
 # This is for testing only.
-- name: network.cookieSettings.unblocked_for_testing
+- name: network.cookieJarSettings.unblocked_for_testing
   type: bool
   value: false
   mirror: always

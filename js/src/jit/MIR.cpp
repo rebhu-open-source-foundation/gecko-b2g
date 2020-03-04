@@ -1095,8 +1095,8 @@ void MConstant::printOpcode(GenericPrinter& out) const {
         } else {
           out.put("unnamed function");
         }
-        if (fun->hasScript()) {
-          JSScript* script = fun->nonLazyScript();
+        if (fun->hasBaseScript()) {
+          BaseScript* script = fun->baseScript();
           out.printf(" (%s:%u)", script->filename() ? script->filename() : "",
                      script->lineno());
         }
@@ -2373,6 +2373,14 @@ bool MPhi::checkForTypeChange(TempAllocator& alloc, MDefinition* ins,
                               bool* ptypeChange) {
   MIRType resultType = this->type();
   TemporaryTypeSet* resultTypeSet = this->resultTypeSet();
+
+  if (JitOptions.warpBuilder) {
+    // WarpBuilder does not specialize phis during MIR building and does not
+    // rely on MIR type information.
+    MOZ_ASSERT(resultType == MIRType::Value);
+    MOZ_ASSERT(!resultTypeSet);
+    return true;
+  }
 
   if (!MergeTypes(alloc, &resultType, &resultTypeSet, ins->type(),
                   ins->resultTypeSet())) {
