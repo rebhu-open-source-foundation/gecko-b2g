@@ -19,7 +19,7 @@
 #include "BluetoothServiceBluedroid.h"
 
 #include "BluetoothA2dpManager.h"
-// #include "BluetoothAvrcpManager.h"
+#include "BluetoothAvrcpManager.h"
 // #include "BluetoothGattManager.h"
 // #include "BluetoothHfpManager.h"
 // #include "BluetoothHidManager.h"
@@ -149,8 +149,8 @@ public:
       // BluetoothPbapManager::InitPbapInterface,
       // BluetoothHidManager::InitHidInterface,
       // BluetoothHfpManager::InitHfpInterface,
-      BluetoothA2dpManager::InitA2dpInterface
-      // BluetoothAvrcpManager::InitAvrcpInterface,
+      BluetoothA2dpManager::InitA2dpInterface,
+      BluetoothAvrcpManager::InitAvrcpInterface,
       // BluetoothGattManager::InitGattInterface
     };
 
@@ -294,7 +294,7 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
 
   BluetoothProfileManagerBase* sProfiles[] = {
     // BluetoothGattManager not handled here
-    // BluetoothAvrcpManager::Get(),
+    BluetoothAvrcpManager::Get(),
     BluetoothA2dpManager::Get(),
     // BluetoothHfpManager::Get(),
     // BluetoothHidManager::Get(),
@@ -1911,37 +1911,37 @@ BluetoothServiceBluedroid::ConfirmReceivingFile(
 //   DispatchReplySuccess(aRunnable);
 // }
 
-// void
-// BluetoothServiceBluedroid::SendMetaData(const nsAString& aTitle,
-//                                         const nsAString& aArtist,
-//                                         const nsAString& aAlbum,
-//                                         int64_t aMediaNumber,
-//                                         int64_t aTotalMediaCount,
-//                                         int64_t aDuration,
-//                                         BluetoothReplyRunnable* aRunnable)
-// {
-//   BT_LOGR("title: %s, duration: %lld", NS_ConvertUTF16toUTF8(aTitle).get(),
-//                                       aDuration);
-//   BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
-//   if (avrcp) {
-//     avrcp->UpdateMetaData(aTitle, aArtist, aAlbum, aMediaNumber,
-//                           aTotalMediaCount, aDuration);
-//   }
-//   DispatchReplySuccess(aRunnable);
-// }
+void
+BluetoothServiceBluedroid::SendMetaData(const nsAString& aTitle,
+                                        const nsAString& aArtist,
+                                        const nsAString& aAlbum,
+                                        int64_t aMediaNumber,
+                                        int64_t aTotalMediaCount,
+                                        int64_t aDuration,
+                                        BluetoothReplyRunnable* aRunnable)
+{
+  BT_LOGR("title: %s, duration: %lld", NS_ConvertUTF16toUTF8(aTitle).get(),
+                                      aDuration);
+  BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
+  if (avrcp) {
+    avrcp->UpdateMetaData(aTitle, aArtist, aAlbum, aMediaNumber,
+                          aTotalMediaCount, aDuration);
+  }
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::SendPlayStatus(
-//   int64_t aDuration, int64_t aPosition, ControlPlayStatus aPlayStatus,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BT_LOGD("duration: %lld, position: %lld", aDuration, aPosition);
-//   BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
-//   if (avrcp) {
-//     avrcp->UpdatePlayStatus(aDuration, aPosition, aPlayStatus);
-//   }
-//   DispatchReplySuccess(aRunnable);
-// }
+void
+BluetoothServiceBluedroid::SendPlayStatus(
+  int64_t aDuration, int64_t aPosition, ControlPlayStatus aPlayStatus,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BT_LOGD("duration: %lld, position: %lld", aDuration, aPosition);
+  BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
+  if (avrcp) {
+    avrcp->UpdatePlayStatus(aDuration, aPosition, aPlayStatus);
+  }
+  DispatchReplySuccess(aRunnable);
+}
 
 // void
 // BluetoothServiceBluedroid::SendMessageEvent(
@@ -2103,7 +2103,7 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
     static void (* const sDeinitManager[])(BluetoothProfileResultHandler*) = {
       // Cleanup interfaces in opposite order to initialization.
       // BluetoothGattManager::DeinitGattInterface,
-      // BluetoothAvrcpManager::DeinitAvrcpInterface,
+      BluetoothAvrcpManager::DeinitAvrcpInterface,
       BluetoothA2dpManager::DeinitA2dpInterface,
       // BluetoothHfpManager::DeinitHfpInterface,
       // BluetoothHidManager::DeinitHidInterface,

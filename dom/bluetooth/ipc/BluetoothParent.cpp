@@ -234,10 +234,12 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
 //     case Request::TToggleCallsRequest:
 //       return actor->DoRequest(aRequest.get_ToggleCallsRequest());
 // #endif
-    // case Request::TSendMetaDataRequest:
-    //   return actor->DoRequest(aRequest.get_SendMetaDataRequest());
-    // case Request::TSendPlayStatusRequest:
-    //   return actor->DoRequest(aRequest.get_SendPlayStatusRequest());
+    case Request::TSendMetaDataRequest:
+      return actor->DoRequest(aRequest.get_SendMetaDataRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TSendPlayStatusRequest:
+      return actor->DoRequest(aRequest.get_SendPlayStatusRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     // case Request::TSendMessageEventRequest:
     //   return actor->DoRequest(aRequest.get_SendMessageEventRequest());
     // case Request::TConnectGattClientRequest:

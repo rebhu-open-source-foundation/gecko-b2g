@@ -234,20 +234,20 @@ public:
   // virtual void
   // ToggleCalls(BluetoothReplyRunnable* aRunnable);
 
-  // virtual void
-  // SendMetaData(const nsAString& aTitle,
-  //              const nsAString& aArtist,
-  //              const nsAString& aAlbum,
-  //              int64_t aMediaNumber,
-  //              int64_t aTotalMediaCount,
-  //              int64_t aDuration,
-  //              BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  SendMetaData(const nsAString& aTitle,
+               const nsAString& aArtist,
+               const nsAString& aAlbum,
+               int64_t aMediaNumber,
+               int64_t aTotalMediaCount,
+               int64_t aDuration,
+               BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // SendPlayStatus(int64_t aDuration,
-  //                int64_t aPosition,
-  //                ControlPlayStatus aPlayStatus,
-  //                BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  SendPlayStatus(int64_t aDuration,
+                 int64_t aPosition,
+                 ControlPlayStatus aPlayStatus,
+                 BluetoothReplyRunnable* aRunnable) override;
 
   // virtual void
   // SendMessageEvent(uint8_t aMasId,

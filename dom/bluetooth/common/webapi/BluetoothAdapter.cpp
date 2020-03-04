@@ -573,7 +573,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     BT_LOGR("dispatch event to %s with status: %d",
       NS_ConvertUTF16toUTF8(aData.name()).get(), status);
   } else if (aData.name().EqualsLiteral(REQUEST_MEDIA_PLAYSTATUS_ID)) {
-    // DispatchEmptyEvent(aData.name());
+    DispatchEmptyEvent(aData.name());
   } else if (aData.name().EqualsLiteral(PAIRING_ABORTED_ID)) {
     // HandlePairingAborted(aData.value());
   } else if (aData.name().EqualsLiteral(OBEX_PASSWORD_REQ_ID)) {
@@ -2081,69 +2081,69 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
 // #endif // MOZ_B2G_RIL
 // }
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::SendMediaMetaData(
-//   const MediaMetaData& aMediaMetaData, ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->SendMetaData(aMediaMetaData.mTitle,
-//                    aMediaMetaData.mArtist,
-//                    aMediaMetaData.mAlbum,
-//                    aMediaMetaData.mMediaNumber,
-//                    aMediaMetaData.mTotalMediaCount,
-//                    aMediaMetaData.mDuration,
-//                    results);
-//
-//   return request.forget();
-// }
+already_AddRefed<DOMRequest>
+BluetoothAdapter::SendMediaMetaData(
+  const MediaMetaData& aMediaMetaData, ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::SendMediaPlayStatus(
-//   const MediaPlayStatus& aMediaPlayStatus, ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   ControlPlayStatus playStatus;
-//   auto rv = StringToControlPlayStatus(aMediaPlayStatus.mPlayStatus, playStatus);
-//   if (NS_FAILED(rv)) {
-//     aRv.Throw(rv);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->SendPlayStatus(aMediaPlayStatus.mDuration,
-//                      aMediaPlayStatus.mPosition,
-//                      playStatus,
-//                      results);
-//
-//   return request.forget();
-// }
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->SendMetaData(aMediaMetaData.mTitle,
+                   aMediaMetaData.mArtist,
+                   aMediaMetaData.mAlbum,
+                   aMediaMetaData.mMediaNumber,
+                   aMediaMetaData.mTotalMediaCount,
+                   aMediaMetaData.mDuration,
+                   results);
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest>
+BluetoothAdapter::SendMediaPlayStatus(
+  const MediaPlayStatus& aMediaPlayStatus, ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  ControlPlayStatus playStatus;
+  auto rv = StringToControlPlayStatus(aMediaPlayStatus.mPlayStatus, playStatus);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->SendPlayStatus(aMediaPlayStatus.mDuration,
+                     aMediaPlayStatus.mPosition,
+                     playStatus,
+                     results);
+
+  return request.forget();
+}
 
 // already_AddRefed<Promise>
 // BluetoothAdapter::SendMessageEvent(uint8_t aMasId, Blob& aBlob, ErrorResult& aRv)

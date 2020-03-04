@@ -63,7 +63,7 @@ if CONFIG['MOZ_B2G_BT']:
         if CONFIG['MOZ_B2G_BT_DAEMON']:
             SOURCES += [
                 'bluedroid/BluetoothA2dpManager.cpp',
-#               'bluedroid/BluetoothAvrcpManager.cpp',
+                'bluedroid/BluetoothAvrcpManager.cpp',
                 'bluedroid/BluetoothDaemonA2dpInterface.cpp',
                 'bluedroid/BluetoothDaemonAvrcpInterface.cpp',
                 'bluedroid/BluetoothDaemonCoreInterface.cpp',

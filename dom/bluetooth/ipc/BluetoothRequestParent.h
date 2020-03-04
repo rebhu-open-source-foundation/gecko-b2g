@@ -185,11 +185,11 @@ protected:
 //   DoRequest(const ToggleCallsRequest& aRequest);
 // #endif
 
-  // bool
-  // DoRequest(const SendMetaDataRequest& aRequest);
+  bool
+  DoRequest(const SendMetaDataRequest& aRequest);
 
-  // bool
-  // DoRequest(const SendPlayStatusRequest& aRequest);
+  bool
+  DoRequest(const SendPlayStatusRequest& aRequest);
 
   // bool
   // DoRequest(const SendMessageEventRequest& aRequest);

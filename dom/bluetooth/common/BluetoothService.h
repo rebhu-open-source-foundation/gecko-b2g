@@ -439,20 +439,20 @@ public:
 //   ToggleCalls(BluetoothReplyRunnable* aRunnable) = 0;
 // #endif
 
-  // virtual void
-  // SendMetaData(const nsAString& aTitle,
-  //              const nsAString& aArtist,
-  //              const nsAString& aAlbum,
-  //              int64_t aMediaNumber,
-  //              int64_t aTotalMediaCount,
-  //              int64_t aDuration,
-  //              BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  SendMetaData(const nsAString& aTitle,
+               const nsAString& aArtist,
+               const nsAString& aAlbum,
+               int64_t aMediaNumber,
+               int64_t aTotalMediaCount,
+               int64_t aDuration,
+               BluetoothReplyRunnable* aRunnable) = 0;
 
-  // virtual void
-  // SendPlayStatus(int64_t aDuration,
-  //                int64_t aPosition,
-  //                ControlPlayStatus aPlayStatus,
-  //                BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  SendPlayStatus(int64_t aDuration,
+                 int64_t aPosition,
+                 ControlPlayStatus aPlayStatus,
+                 BluetoothReplyRunnable* aRunnable) = 0;
 
   // virtual void
   // SendMessageEvent(uint8_t aMasId,

@@ -636,34 +636,34 @@ BluetoothRequestParent::DoRequest(const DenyReceivingFileRequest& aRequest)
 // }
 // #endif // MOZ_B2G_RIL
 
-// bool
-// BluetoothRequestParent::DoRequest(const SendMetaDataRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TSendMetaDataRequest);
+bool
+BluetoothRequestParent::DoRequest(const SendMetaDataRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TSendMetaDataRequest);
 
-//   mService->SendMetaData(aRequest.title(),
-//                          aRequest.artist(),
-//                          aRequest.album(),
-//                          aRequest.mediaNumber(),
-//                          aRequest.totalMediaCount(),
-//                          aRequest.duration(),
-//                          mReplyRunnable.get());
-//   return true;
-// }
+  mService->SendMetaData(aRequest.title(),
+                         aRequest.artist(),
+                         aRequest.album(),
+                         aRequest.mediaNumber(),
+                         aRequest.totalMediaCount(),
+                         aRequest.duration(),
+                         mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const SendPlayStatusRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TSendPlayStatusRequest);
+bool
+BluetoothRequestParent::DoRequest(const SendPlayStatusRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TSendPlayStatusRequest);
 
-//   mService->SendPlayStatus(aRequest.duration(),
-//                            aRequest.position(),
-//                            aRequest.playStatus(),
-//                            mReplyRunnable.get());
-//   return true;
-// }
+  mService->SendPlayStatus(aRequest.duration(),
+                           aRequest.position(),
+                           aRequest.playStatus(),
+                           mReplyRunnable.get());
+  return true;
+}
 
 // bool
 // BluetoothRequestParent::DoRequest(const SendMessageEventRequest& aRequest)

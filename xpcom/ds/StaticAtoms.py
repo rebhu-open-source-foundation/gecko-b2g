@@ -2426,7 +2426,7 @@ STATIC_ATOMS = [
     # Atom("onpullphonebookreq", "onpullphonebookreq"),
     # Atom("onpullvcardentryreq", "onpullvcardentryreq"),
     # Atom("onpullvcardlistingreq", "onpullvcardlistingreq"),
-    # Atom("onrequestmediaplaystatus", "onrequestmediaplaystatus"),
+    Atom("onrequestmediaplaystatus", "onrequestmediaplaystatus"),
     # Atom("onscostatuschanged", "onscostatuschanged"),
 
     # Namespaces

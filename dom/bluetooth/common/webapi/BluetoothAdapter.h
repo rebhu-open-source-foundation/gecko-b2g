@@ -21,8 +21,8 @@ namespace mozilla {
 namespace dom {
 class Blob;
 class DOMRequest;
-// struct MediaMetaData;
-// struct MediaPlayStatus;
+struct MediaMetaData;
+struct MediaPlayStatus;
 }
 }
 
@@ -98,7 +98,7 @@ public:
   // IMPL_EVENT_HANDLER(hfpstatuschanged);
   // IMPL_EVENT_HANDLER(hidstatuschanged);
   // IMPL_EVENT_HANDLER(scostatuschanged);
-  // IMPL_EVENT_HANDLER(requestmediaplaystatus);
+  IMPL_EVENT_HANDLER(requestmediaplaystatus);
   // PBAP
   // IMPL_EVENT_HANDLER(obexpasswordreq);
   // IMPL_EVENT_HANDLER(pullphonebookreq);
@@ -175,11 +175,11 @@ public:
   // already_AddRefed<DOMRequest> ToggleCalls(ErrorResult& aRv);
 
   // AVRCP related methods
-  // already_AddRefed<DOMRequest>
-  //   SendMediaMetaData(const MediaMetaData& aMediaMetaData, ErrorResult& aRv);
-  // already_AddRefed<DOMRequest>
-  //   SendMediaPlayStatus(const MediaPlayStatus& aMediaPlayStatus,
-  //                       ErrorResult& aRv);
+  already_AddRefed<DOMRequest>
+    SendMediaMetaData(const MediaMetaData& aMediaMetaData, ErrorResult& aRv);
+  already_AddRefed<DOMRequest>
+    SendMediaPlayStatus(const MediaPlayStatus& aMediaPlayStatus,
+                        ErrorResult& aRv);
 
   // MAP SendEvent method
   // already_AddRefed<Promise> SendMessageEvent(uint8_t aMasId, Blob& aBlob,

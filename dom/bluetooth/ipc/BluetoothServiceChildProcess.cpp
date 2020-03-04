@@ -529,30 +529,30 @@ BluetoothServiceChildProcess::ConfirmReceivingFile(
 // }
 // #endif // MOZ_B2G_RIL
 
-// void
-// BluetoothServiceChildProcess::SendMetaData(const nsAString& aTitle,
-//                                            const nsAString& aArtist,
-//                                            const nsAString& aAlbum,
-//                                            int64_t aMediaNumber,
-//                                            int64_t aTotalMediaCount,
-//                                            int64_t aDuration,
-//                                            BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//               SendMetaDataRequest(nsString(aTitle), nsString(aArtist),
-//                                   nsString(aAlbum), aMediaNumber,
-//                                   aTotalMediaCount, aDuration));
-// }
+void
+BluetoothServiceChildProcess::SendMetaData(const nsAString& aTitle,
+                                           const nsAString& aArtist,
+                                           const nsAString& aAlbum,
+                                           int64_t aMediaNumber,
+                                           int64_t aTotalMediaCount,
+                                           int64_t aDuration,
+                                           BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              SendMetaDataRequest(nsString(aTitle), nsString(aArtist),
+                                  nsString(aAlbum), aMediaNumber,
+                                  aTotalMediaCount, aDuration));
+}
 
-// void
-// BluetoothServiceChildProcess::SendPlayStatus(int64_t aDuration,
-//                                              int64_t aPosition,
-//                                              ControlPlayStatus aPlayStatus,
-//                                              BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//               SendPlayStatusRequest(aDuration, aPosition, aPlayStatus));
-// }
+void
+BluetoothServiceChildProcess::SendPlayStatus(int64_t aDuration,
+                                             int64_t aPosition,
+                                             ControlPlayStatus aPlayStatus,
+                                             BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              SendPlayStatusRequest(aDuration, aPosition, aPlayStatus));
+}
 
 // void
 // BluetoothServiceChildProcess::SendMessageEvent(uint8_t aMasId,

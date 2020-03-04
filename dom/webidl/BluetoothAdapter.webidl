@@ -6,31 +6,31 @@
 
 // MediaMetadata and MediaPlayStatus are used to keep data from Applications.
 // Please see specification of AVRCP 1.3 for more details.
-// dictionary MediaMetaData
-// {
-//   // track title
-//   DOMString   title = "";
-//   // artist name
-//   DOMString   artist = "";
-//   // album name
-//   DOMString   album = "";
-//   // track number
-//   long long   mediaNumber = -1;
-//   // number of tracks in the album
-//   long long   totalMediaCount = -1;
-//   // playing time (ms)
-//   long long   duration = -1;
-// };
+dictionary MediaMetaData
+{
+  // track title
+  DOMString   title = "";
+  // artist name
+  DOMString   artist = "";
+  // album name
+  DOMString   album = "";
+  // track number
+  long long   mediaNumber = -1;
+  // number of tracks in the album
+  long long   totalMediaCount = -1;
+  // playing time (ms)
+  long long   duration = -1;
+};
 
-// dictionary MediaPlayStatus
-// {
-//   // current track length (ms)
-//   long long   duration = -1;
-//   // playing time (ms)
-//   long long   position = -1;
-//   // one of 'STOPPED'/'PLAYING'/'PAUSED'/'FWD_SEEK'/'REV_SEEK'/'ERROR'
-//   DOMString   playStatus = "";
-// };
+dictionary MediaPlayStatus
+{
+  // current track length (ms)
+  long long   duration = -1;
+  // playing time (ms)
+  long long   position = -1;
+  // one of 'STOPPED'/'PLAYING'/'PAUSED'/'FWD_SEEK'/'REV_SEEK'/'ERROR'
+  DOMString   playStatus = "";
+};
 
 [Exposed=Window]
 interface BluetoothAdapter : EventTarget {
@@ -76,7 +76,7 @@ interface BluetoothAdapter : EventTarget {
   //         attribute EventHandler   onscostatuschanged;
 
   // Fired when remote devices query current media play status
-  //         attribute EventHandler   onrequestmediaplaystatus;
+           attribute EventHandler   onrequestmediaplaystatus;
 
   // Fired when remote devices request password for OBEX authentication
   //         attribute EventHandler   onobexpasswordreq;
@@ -213,10 +213,10 @@ interface BluetoothAdapter : EventTarget {
   // DOMRequest toggleCalls();
 
   // AVRCP 1.3 methods
-  // [NewObject, Throws]
-  // DOMRequest sendMediaMetaData(optional MediaMetaData mediaMetaData = {});
-  // [NewObject, Throws]
-  // DOMRequest sendMediaPlayStatus(optional MediaPlayStatus mediaPlayStatus = {});
+  [NewObject, Throws]
+  DOMRequest sendMediaMetaData(optional MediaMetaData mediaMetaData = {});
+  [NewObject, Throws]
+  DOMRequest sendMediaPlayStatus(optional MediaPlayStatus mediaPlayStatus = {});
 
   // MAP event report
   // [NewObject, Throws]
