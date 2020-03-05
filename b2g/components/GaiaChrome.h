@@ -37,7 +37,7 @@ private:
 
   nsresult ComputeAppsPath(nsIFile*);
   bool EnsureIsDirectory(nsIFile*);
-  nsresult EnsureValidPath(nsIFile*);
+  nsresult EnsureValidSystemPath(nsIFile*);
   nsresult GetProfileDir();
 };
 

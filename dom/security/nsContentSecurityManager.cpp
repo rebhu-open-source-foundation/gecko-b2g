@@ -824,7 +824,7 @@ nsresult nsContentSecurityManager::CheckAllowLoadInSystemPrivilegedContext(
   static bool recvdPrefValues = false;
   if (!recvdPrefValues) {
     nsAutoCString discoveryURLString;
-    Preferences::GetCString("b2g.system_startup_url",
+    Preferences::GetCString("extensions.webservice.discoverURL",
                             discoveryURLString);
     // discoverURL is by default suffixed with parameters in path like
     // /%LOCALE%/ so, we use the prePath for comparison

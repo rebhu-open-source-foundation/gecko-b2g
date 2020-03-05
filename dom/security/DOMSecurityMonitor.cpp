@@ -83,6 +83,11 @@ void DOMSecurityMonitor::AuditParsingOfHTMLXMLFragments(
       NS_LITERAL_CSTRING("chrome://mochikit/content/tests/"),
       NS_LITERAL_CSTRING("chrome://mochitests/content/"),
       NS_LITERAL_CSTRING("chrome://reftest/content/"),
+      //-------------------------------------------------------------------
+      // b2g system app
+      //-------------------------------------------------------------------
+      NS_LITERAL_CSTRING("chrome://system/content/"),
+      NS_LITERAL_CSTRING("https://shared.local/"),
   };
 
   for (const nsLiteralCString& allowlistEntry : htmlFragmentAllowlist) {

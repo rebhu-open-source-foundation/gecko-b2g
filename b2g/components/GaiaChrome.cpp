@@ -96,7 +96,7 @@ GaiaChrome::EnsureIsDirectory(nsIFile* aPath)
 }
 
 nsresult
-GaiaChrome::EnsureValidPath(nsIFile* appsDir)
+GaiaChrome::EnsureValidSystemPath(nsIFile* appsDir)
 {
   // Ensure there is a valid "apps/system" directory
   nsCOMPtr<nsIFile> systemAppDir = new nsLocalFile();
@@ -105,7 +105,8 @@ GaiaChrome::EnsureValidPath(nsIFile* appsDir)
 
   bool hasSystemAppDir = EnsureIsDirectory(systemAppDir);
   if (!hasSystemAppDir) {
-    nsCString path; appsDir->GetNativePath(path);
+    nsCString path;
+    appsDir->GetNativePath(path);
     // We don't want to continue if the apps path does not exists ...
     printf_stderr("!!! Gaia chrome package is not a directory: %s\n", path.get());
     return NS_ERROR_UNEXPECTED;
@@ -144,8 +145,10 @@ GaiaChrome::Register()
   } else {
     // Check that we have a directory for the system app only
     // when loading from a file hierarchy, but not from a zip.
-    nsresult rv = EnsureValidPath(aPath);
+    nsresult rv = EnsureValidSystemPath(aPath);
     NS_ENSURE_SUCCESS(rv, rv);
+    aPath->Append(NS_LITERAL_STRING("system"));
+    aPath->Append(NS_LITERAL_STRING("."));
     appsLocation = FileLocation(aPath);
   }
 
