@@ -12,8 +12,13 @@
 namespace mozilla {
 namespace dom {
 
+class FileBlobImpl;
+
 class BaseBlobImpl : public BlobImpl {
+  friend class FileBlobImpl;
+
  public:
+  // File constructor.
   BaseBlobImpl(const nsAString& aBlobImplType, const nsAString& aName,
                const nsAString& aContentType, uint64_t aLength,
                int64_t aLastModifiedDate)
@@ -29,20 +34,7 @@ class BaseBlobImpl : public BlobImpl {
     mContentType.SetIsVoid(false);
   }
 
-  BaseBlobImpl(const nsAString& aBlobImplType, const nsAString& aName,
-               const nsAString& aContentType, uint64_t aLength)
-      : mBlobImplType(aBlobImplType),
-        mIsFile(true),
-        mContentType(aContentType),
-        mName(aName),
-        mStart(0),
-        mLength(aLength),
-        mLastModificationDate(INT64_MAX),
-        mSerialNumber(NextSerialNumber()) {
-    // Ensure non-null mContentType by default
-    mContentType.SetIsVoid(false);
-  }
-
+  // Blob constructor without starting point.
   BaseBlobImpl(const nsAString& aBlobImplType, const nsAString& aContentType,
                uint64_t aLength)
       : mBlobImplType(aBlobImplType),
@@ -50,12 +42,13 @@ class BaseBlobImpl : public BlobImpl {
         mContentType(aContentType),
         mStart(0),
         mLength(aLength),
-        mLastModificationDate(INT64_MAX),
+        mLastModificationDate(0),
         mSerialNumber(NextSerialNumber()) {
     // Ensure non-null mContentType by default
     mContentType.SetIsVoid(false);
   }
 
+  // Blob constructor with starting point.
   BaseBlobImpl(const nsAString& aBlobImplType, const nsAString& aContentType,
                uint64_t aStart, uint64_t aLength)
       : mBlobImplType(aBlobImplType),
@@ -63,9 +56,8 @@ class BaseBlobImpl : public BlobImpl {
         mContentType(aContentType),
         mStart(aStart),
         mLength(aLength),
-        mLastModificationDate(INT64_MAX),
+        mLastModificationDate(0),
         mSerialNumber(NextSerialNumber()) {
-    MOZ_ASSERT(aLength != UINT64_MAX, "Must know length when creating slice");
     // Ensure non-null mContentType by default
     mContentType.SetIsVoid(false);
   }
@@ -77,8 +69,6 @@ class BaseBlobImpl : public BlobImpl {
   virtual void SetDOMPath(const nsAString& aName) override;
 
   virtual int64_t GetLastModified(ErrorResult& aRv) override;
-
-  virtual void SetLastModified(int64_t aLastModified) override;
 
   virtual void GetMozFullPath(nsAString& aName,
                               SystemCallerGuarantee /* unused */,
@@ -118,10 +108,6 @@ class BaseBlobImpl : public BlobImpl {
 
   virtual int64_t GetFileId() override;
 
-  virtual nsresult GetSendInfo(nsIInputStream** aBody, uint64_t* aContentLength,
-                               nsACString& aContentType,
-                               nsACString& aCharset) override;
-
   virtual void SetLazyData(const nsAString& aName,
                            const nsAString& aContentType, uint64_t aLength,
                            int64_t aLastModifiedDate) override {
@@ -134,13 +120,7 @@ class BaseBlobImpl : public BlobImpl {
 
   virtual bool IsMemoryFile() const override { return false; }
 
-  virtual bool IsDateUnknown() const override {
-    return mIsFile && mLastModificationDate == INT64_MAX;
-  }
-
   virtual bool IsFile() const override { return mIsFile; }
-
-  virtual bool IsSizeUnknown() const override { return mLength == UINT64_MAX; }
 
   virtual void GetBlobImplType(nsAString& aBlobImplType) const override {
     aBlobImplType = mBlobImplType;

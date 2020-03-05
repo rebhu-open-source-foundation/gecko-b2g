@@ -351,7 +351,7 @@ AudioDestinationNode::AudioDestinationNode(
   }
 }
 
-AudioDestinationNode::~AudioDestinationNode() {}
+AudioDestinationNode::~AudioDestinationNode() = default;
 
 size_t AudioDestinationNode::SizeOfExcludingThis(
     MallocSizeOf aMallocSizeOf) const {

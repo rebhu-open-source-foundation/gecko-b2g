@@ -2485,6 +2485,7 @@ void Document::DisconnectNodeTree() {
     InvalidateChildNodes();
 
     while (HasChildren()) {
+      nsMutationGuard::DidMutate();
       nsCOMPtr<nsIContent> content = GetLastChild();
       nsIContent* previousSibling = content->GetPreviousSibling();
       DisconnectChild(content);
@@ -5783,7 +5784,7 @@ void Document::SetCookie(const nsAString& aCookie, ErrorResult& rv) {
     }
 
     NS_ConvertUTF16toUTF8 cookie(aCookie);
-    service->SetCookieString(principalURI, nullptr, cookie, channel);
+    service->SetCookieString(principalURI, cookie, channel);
   }
 }
 
@@ -14686,20 +14687,12 @@ void Document::NotifyIntersectionObservers() {
   }
 }
 
-DOMIntersectionObserver* Document::GetLazyLoadImageObserver() {
-  Document* rootDoc = nsContentUtils::GetRootDocument(this);
-  MOZ_ASSERT(rootDoc);
-
-  if (rootDoc->mLazyLoadImageObserver) {
-    return rootDoc->mLazyLoadImageObserver;
+DOMIntersectionObserver& Document::EnsureLazyLoadImageObserver() {
+  if (!mLazyLoadImageObserver) {
+    mLazyLoadImageObserver =
+        DOMIntersectionObserver::CreateLazyLoadObserver(*this);
   }
-
-  if (nsPIDOMWindowInner* inner = rootDoc->GetInnerWindow()) {
-    rootDoc->mLazyLoadImageObserver =
-        DOMIntersectionObserver::CreateLazyLoadObserver(inner);
-  }
-
-  return rootDoc->mLazyLoadImageObserver;
+  return *mLazyLoadImageObserver;
 }
 
 static CallState NotifyLayerManagerRecreatedCallback(Document& aDocument,

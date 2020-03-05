@@ -2379,7 +2379,7 @@ void MediaTrack::AddMainThreadListener(
     }
 
    private:
-    ~NotifyRunnable() {}
+    ~NotifyRunnable() = default;
 
     RefPtr<MediaTrack> mTrack;
   };
@@ -2850,7 +2850,7 @@ float SourceMediaTrack::GetVolumeLocked() {
   return mVolume;
 }
 
-SourceMediaTrack::~SourceMediaTrack() {}
+SourceMediaTrack::~SourceMediaTrack() = default;
 
 void MediaInputPort::Init() {
   LOG(LogLevel::Debug, ("%p: Adding MediaInputPort %p (from %p to %p)",
@@ -3258,7 +3258,7 @@ void MediaTrackGraphImpl::CollectSizesForMemoryReport(
     nsTArray<AudioNodeSizes> mAudioTrackSizes;
 
    private:
-    ~FinishCollectRunnable() {}
+    ~FinishCollectRunnable() = default;
 
     // Avoiding nsCOMPtr because NSCAP_ASSERT_NO_QUERY_NEEDED in its
     // constructor modifies the ref-count, which cannot be done off main

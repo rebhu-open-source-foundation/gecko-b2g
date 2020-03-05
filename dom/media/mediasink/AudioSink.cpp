@@ -70,7 +70,7 @@ AudioSink::AudioSink(AbstractThread* aThread,
   mOutputChannels = DecideAudioPlaybackChannels(mInfo);
 }
 
-AudioSink::~AudioSink() {}
+AudioSink::~AudioSink() = default;
 
 nsresult AudioSink::Init(const PlaybackParams& aParams,
                          RefPtr<MediaSink::EndedPromise>& aEndedPromise) {

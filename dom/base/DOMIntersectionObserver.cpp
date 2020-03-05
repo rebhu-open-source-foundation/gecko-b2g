@@ -152,10 +152,17 @@ static LengthPercentage PrefMargin(float aValue, bool aIsPercentage) {
                        : LengthPercentage::FromPixels(aValue);
 }
 
+DOMIntersectionObserver::DOMIntersectionObserver(Document& aDocument,
+                                                 NativeCallback aCallback)
+    : mOwner(aDocument.GetInnerWindow()),
+      mDocument(&aDocument),
+      mCallback(aCallback),
+      mConnected(false) {}
+
 already_AddRefed<DOMIntersectionObserver>
-DOMIntersectionObserver::CreateLazyLoadObserver(nsPIDOMWindowInner* aOwner) {
+DOMIntersectionObserver::CreateLazyLoadObserver(Document& aDocument) {
   RefPtr<DOMIntersectionObserver> observer =
-      new DOMIntersectionObserver(aOwner, LazyLoadCallback);
+      new DOMIntersectionObserver(aDocument, LazyLoadCallback);
   observer->mThresholds.AppendElement(std::numeric_limits<double>::min());
 
 #define SET_MARGIN(side_, side_lower_)                                 \
@@ -434,7 +441,7 @@ static Maybe<OopIframeMetrics> GetOopIframeMetrics(Document& aDocument) {
   MOZ_ASSERT(rootDoc && !rootDoc->IsTopLevelContentDocument());
 
   PresShell* rootPresShell = rootDoc->GetPresShell();
-  if (!rootPresShell) {
+  if (!rootPresShell || rootPresShell->IsDestroying()) {
     return Nothing();
   }
 
@@ -443,15 +450,17 @@ static Maybe<OopIframeMetrics> GetOopIframeMetrics(Document& aDocument) {
     return Nothing();
   }
 
+  BrowserChild* browserChild = BrowserChild::GetFrom(rootDoc->GetDocShell());
+  if (!browserChild) {
+    return Nothing();
+  }
+  MOZ_DIAGNOSTIC_ASSERT(!browserChild->IsTopLevel());
+
   nsRect inProcessRootRect;
   if (nsIScrollableFrame* scrollFrame =
           rootPresShell->GetRootScrollFrameAsScrollable()) {
     inProcessRootRect = scrollFrame->GetScrollPortRect();
   }
-
-  nsIDocShell* docShell = rootDoc->GetDocShell();
-  BrowserChild* browserChild = BrowserChild::GetFrom(docShell);
-  MOZ_ASSERT(browserChild && !browserChild->IsTopLevel());
 
   Maybe<LayoutDeviceRect> remoteDocumentVisibleRect =
       browserChild->GetTopLevelViewportVisibleRectInSelfCoords();
@@ -675,7 +684,7 @@ void DOMIntersectionObserver::Notify() {
         mCallback.as<RefPtr<dom::IntersectionCallback>>());
     callback->Call(this, entries, *this);
   } else {
-    mCallback.as<NativeIntersectionObserverCallback>()(entries);
+    mCallback.as<NativeCallback>()(entries);
   }
 }
 

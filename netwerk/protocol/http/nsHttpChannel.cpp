@@ -1402,15 +1402,12 @@ nsresult nsHttpChannel::SetupTransaction() {
   EnsureRequestContext();
 
   HttpTrafficCategory category = CreateTrafficCategory();
-  std::function<void()> observer;
+  std::function<void(TransactionObserverResult &&)> observer;
   if (mTransactionObserver) {
-    RefPtr<HttpTransactionShell> transaction = mTransaction;
-    observer = [transactionObserver{std::move(mTransactionObserver)},
-                transaction]() {
-      TransactionObserverResult result;
-      transaction->GetTransactionObserverResult(result);
-      transactionObserver->Complete(result.versionOk(), result.authOk(),
-                                    result.closeReason());
+    observer = [transactionObserver{std::move(mTransactionObserver)}](
+                   TransactionObserverResult&& aResult) {
+      transactionObserver->Complete(aResult.versionOk(), aResult.authOk(),
+                                    aResult.closeReason());
     };
   }
   rv = mTransaction->Init(
@@ -8396,6 +8393,8 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
 
   // Register entry to the PerformanceStorage resource timing
   MaybeReportTimingData();
+
+  MaybeFlushConsoleReports();
 
 #ifdef MOZ_GECKO_PROFILER
   if (profiler_can_accept_markers() && !mRedirectURI) {
