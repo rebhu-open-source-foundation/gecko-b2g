@@ -55,7 +55,7 @@ interface BluetoothAdapter : EventTarget {
   // Fired when map connection has been requested
   //         attribute EventHandler   onmapconnectionreq;
   // Fired when pbap connection has been requested
-  //         attribute EventHandler   onpbapconnectionreq;
+           attribute EventHandler   onpbapconnectionreq;
 
   // Fired when a remote device gets unpaired from the adapter
            attribute EventHandler   ondeviceunpaired;
@@ -82,13 +82,13 @@ interface BluetoothAdapter : EventTarget {
            attribute EventHandler   onobexpasswordreq;
 
   // Fired when PBAP manager requests for 'pullphonebook'
-  //         attribute EventHandler   onpullphonebookreq;
+           attribute EventHandler   onpullphonebookreq;
 
   // Fired when PBAP manager requests for 'pullvcardentry'
-  //         attribute EventHandler   onpullvcardentryreq;
+           attribute EventHandler   onpullvcardentryreq;
 
   // Fired when PBAP manager requests for 'pullvcardlisting'
-  //         attribute EventHandler   onpullvcardlistingreq;
+           attribute EventHandler   onpullvcardlistingreq;
 
   // Fired when remote devices request to list SMS/MMS/Email folders
   //         attribute EventHandler   onmapfolderlistingreq;

@@ -210,12 +210,15 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TRejectObexAuthRequest:
       return actor->DoRequest(aRequest.get_RejectObexAuthRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-    // case Request::TReplyTovCardPullingRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyTovCardPullingRequest());
-    // case Request::TReplyToPhonebookPullingRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyToPhonebookPullingRequest());
-    // case Request::TReplyTovCardListingRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyTovCardListingRequest());
+    case Request::TReplyTovCardPullingRequest:
+      return actor->DoRequest(aRequest.get_ReplyTovCardPullingRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TReplyToPhonebookPullingRequest:
+      return actor->DoRequest(aRequest.get_ReplyToPhonebookPullingRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TReplyTovCardListingRequest:
+      return actor->DoRequest(aRequest.get_ReplyTovCardListingRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     // case Request::TReplyToFolderListingRequest:
     //   return actor->DoRequest(aRequest.get_ReplyToFolderListingRequest());
     // case Request::TReplyToMessagesListingRequest:

@@ -18,24 +18,24 @@
 // #include "mozilla/dom/BluetoothMapSetMessageStatusEvent.h"
 // #include "mozilla/dom/BluetoothMapSendMessageEvent.h"
 #include "mozilla/dom/BluetoothObexAuthEvent.h"
-// #include "mozilla/dom/BluetoothPbapConnectionReqEvent.h"
-// #include "mozilla/dom/BluetoothPhonebookPullingEvent.h"
+#include "mozilla/dom/BluetoothPbapConnectionReqEvent.h"
+#include "mozilla/dom/BluetoothPhonebookPullingEvent.h"
 #include "mozilla/dom/BluetoothStatusChangedEvent.h"
-// #include "mozilla/dom/BluetoothVCardListingEvent.h"
-// #include "mozilla/dom/BluetoothVCardPullingEvent.h"
+#include "mozilla/dom/BluetoothVCardListingEvent.h"
+#include "mozilla/dom/BluetoothVCardPullingEvent.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/DOMRequest.h"
 #include "mozilla/dom/Event.h"
 
 #include "mozilla/dom/bluetooth/BluetoothAdapter.h"
 #include "mozilla/dom/bluetooth/BluetoothClassOfDevice.h"
-// #include "mozilla/dom/bluetooth/BluetoothConnectionHandle.h"
+#include "mozilla/dom/bluetooth/BluetoothConnectionHandle.h"
 #include "mozilla/dom/bluetooth/BluetoothDevice.h"
 #include "mozilla/dom/bluetooth/BluetoothDiscoveryHandle.h"
 // #include "mozilla/dom/bluetooth/BluetoothGattServer.h"
 #include "mozilla/dom/bluetooth/BluetoothObexAuthHandle.h"
 #include "mozilla/dom/bluetooth/BluetoothPairingListener.h"
-// #include "mozilla/dom/bluetooth/BluetoothPbapRequestHandle.h"
+#include "mozilla/dom/bluetooth/BluetoothPbapRequestHandle.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
 using namespace mozilla;
@@ -579,13 +579,13 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
   } else if (aData.name().EqualsLiteral(OBEX_PASSWORD_REQ_ID)) {
     HandleObexPasswordReq(aData.value());
   } else if (aData.name().EqualsLiteral(PBAP_CONNECTION_REQ_ID)) {
-    // HandlePbapConnectionReq(aData.value());
+    HandlePbapConnectionReq(aData.value());
   } else if (aData.name().EqualsLiteral(PULL_PHONEBOOK_REQ_ID)) {
-    // HandlePullPhonebookReq(aData.value());
+    HandlePullPhonebookReq(aData.value());
   } else if (aData.name().EqualsLiteral(PULL_VCARD_ENTRY_REQ_ID)) {
-    // HandlePullVCardEntryReq(aData.value());
+    HandlePullVCardEntryReq(aData.value());
   } else if (aData.name().EqualsLiteral(PULL_VCARD_LISTING_REQ_ID)) {
-    // HandlePullVCardListingReq(aData.value());
+    HandlePullVCardListingReq(aData.value());
   } else if (aData.name().EqualsLiteral(MAP_CONNECTION_REQ_ID)) {
     // HandleMapConnectionReq(aData.value());
   } else if (aData.name().EqualsLiteral(MAP_MESSAGES_LISTING_REQ_ID)) {
@@ -1112,23 +1112,23 @@ BluetoothAdapter::SetAdapterState(BluetoothAdapterState aState)
   DispatchAttributeEvent(types);
 }
 
-// void
-// BluetoothAdapter::HandlePbapConnectionReq(const BluetoothValue& aValue)
-// {
-//   MOZ_ASSERT(aValue.type() == BluetoothValue::TnsString);
+void
+BluetoothAdapter::HandlePbapConnectionReq(const BluetoothValue& aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TnsString);
 
-//   BluetoothPbapConnectionReqEventInit init;
-//   init.mAddress = aValue.get_nsString();
-//   init.mHandle =
-//     BluetoothConnectionHandle::Create(GetOwner(),
-//                                       BluetoothServiceClass::PBAP_PSE);
+  BluetoothPbapConnectionReqEventInit init;
+  init.mAddress = aValue.get_nsString();
+  init.mHandle =
+    BluetoothConnectionHandle::Create(GetOwner(),
+                                      BluetoothServiceClass::PBAP_PSE);
 
-//   RefPtr<BluetoothPbapConnectionReqEvent> event =
-//     BluetoothPbapConnectionReqEvent::Constructor(this,
-//       NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID), init);
+  RefPtr<BluetoothPbapConnectionReqEvent> event =
+    BluetoothPbapConnectionReqEvent::Constructor(this,
+      NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID), init);
 
-//   DispatchTrustedEvent(event);
-// }
+  DispatchTrustedEvent(event);
+}
 
 void
 BluetoothAdapter::HandlePropertyChanged(const BluetoothValue& aValue)
@@ -1325,143 +1325,143 @@ BluetoothAdapter::HandleObexPasswordReq(const BluetoothValue& aValue)
   DispatchTrustedEvent(event);
 }
 
-// void
-// BluetoothAdapter::HandlePullPhonebookReq(const BluetoothValue& aValue)
-// {
-//   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
-//   const nsTArray<BluetoothNamedValue>& arr =
-//     aValue.get_ArrayOfBluetoothNamedValue();
-//
-//   MOZ_ASSERT(arr.Length() >= 1 &&
-//              arr[0].value().type() == BluetoothValue::TnsString);
-//
-//   BluetoothPhonebookPullingEventInit init;
-//
-//   for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
-//     const nsString& name = arr[i].name();
-//     const BluetoothValue& value = arr[i].value();
-//     if (name.EqualsLiteral("name")) {
-//       init.mName = value.get_nsString();
-//     } else if (name.EqualsLiteral("format")) {
-//       init.mFormat = value.get_bool() ? vCardVersion::VCard30
-//                                       : vCardVersion::VCard21;
-//     } else if (name.EqualsLiteral("propSelector")) {
-//       init.mPropSelector = getVCardProperties(value);
-//     } else if (name.EqualsLiteral("maxListCount")) {
-//       init.mMaxListCount = value.get_uint32_t();
-//     } else if (name.EqualsLiteral("listStartOffset")) {
-//       init.mListStartOffset = value.get_uint32_t();
-//     } else if (name.EqualsLiteral("vCardSelector_AND")) {
-//       init.mVcardSelector = getVCardProperties(value);
-//       init.mVcardSelectorOperator = vCardSelectorOp::AND;
-//     } else if (name.EqualsLiteral("vCardSelector_OR")) {
-//       init.mVcardSelector = getVCardProperties(value);
-//       init.mVcardSelectorOperator = vCardSelectorOp::OR;
-//     }
-//   }
-//
-//   init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
-//
-//   RefPtr<BluetoothPhonebookPullingEvent> event =
-//     BluetoothPhonebookPullingEvent::Constructor(this,
-//       NS_LITERAL_STRING(PULL_PHONEBOOK_REQ_ID), init);
-//   DispatchTrustedEvent(event);
-// }
+void
+BluetoothAdapter::HandlePullPhonebookReq(const BluetoothValue& aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
+  const nsTArray<BluetoothNamedValue>& arr =
+    aValue.get_ArrayOfBluetoothNamedValue();
 
-// void
-// BluetoothAdapter::HandlePullVCardEntryReq(const BluetoothValue& aValue)
-// {
-//   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
-//   const nsTArray<BluetoothNamedValue>& arr =
-//     aValue.get_ArrayOfBluetoothNamedValue();
-//
-//   MOZ_ASSERT(arr.Length() >= 1 &&
-//              arr[0].value().type() == BluetoothValue::TnsString);
-//
-//   BluetoothVCardPullingEventInit init;
-//   Sequence<vCardProperties> propSelector;
-//
-//   for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
-//     const nsString& name = arr[i].name();
-//     const BluetoothValue& value = arr[i].value();
-//     if (name.EqualsLiteral("name")) {
-//       init.mName = value.get_nsString();
-//     } else if (name.EqualsLiteral("format")) {
-//       init.mFormat = value.get_bool() ? vCardVersion::VCard30
-//                                       : vCardVersion::VCard21;
-//     } else if (name.EqualsLiteral("propSelector")) {
-//       init.mPropSelector = getVCardProperties(value);
-//     }
-//   }
-//
-//   init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
-//
-//   RefPtr<BluetoothVCardPullingEvent> event =
-//     BluetoothVCardPullingEvent::Constructor(this,
-//       NS_LITERAL_STRING(PULL_VCARD_ENTRY_REQ_ID), init);
-//   DispatchTrustedEvent(event);
-// }
+  MOZ_ASSERT(arr.Length() >= 1 &&
+             arr[0].value().type() == BluetoothValue::TnsString);
 
-// void
-// BluetoothAdapter::HandlePullVCardListingReq(const BluetoothValue& aValue)
-// {
-//   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
-//   const nsTArray<BluetoothNamedValue>& arr =
-//     aValue.get_ArrayOfBluetoothNamedValue();
-//
-//   MOZ_ASSERT(arr.Length() >= 1 &&
-//              arr[0].value().type() == BluetoothValue::TnsString);
-//
-//   BluetoothVCardListingEventInit init;
-//
-//   for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
-//     const nsString& name = arr[i].name();
-//     const BluetoothValue& value = arr[i].value();
-//     if (name.EqualsLiteral("name")) {
-//       init.mName = value.get_nsString();
-//     } else if (name.EqualsLiteral("order")) {
-//       init.mOrder = static_cast<vCardOrderType>(value.get_uint32_t());
-//     } else if (name.EqualsLiteral("searchKey")) {
-//       init.mSearchKey = static_cast<vCardSearchKeyType>(value.get_uint32_t());
-//     } else if (name.EqualsLiteral("searchText")) {
-//       init.mSearchValue = NS_ConvertUTF8toUTF16(value.get_nsCString());
-//     } else if (name.EqualsLiteral("maxListCount")) {
-//       init.mMaxListCount = value.get_uint32_t();
-//     } else if (name.EqualsLiteral("listStartOffset")) {
-//       init.mListStartOffset = value.get_uint32_t();
-//     } else if (name.EqualsLiteral("vCardSelector_AND")) {
-//       init.mVcardSelector = getVCardProperties(value);
-//       init.mVcardSelectorOperator = vCardSelectorOp::AND;
-//     } else if (name.EqualsLiteral("vCardSelector_OR")) {
-//       init.mVcardSelector = getVCardProperties(value);
-//       init.mVcardSelectorOperator = vCardSelectorOp::OR;
-//     }
-//   }
-//
-//   init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
-//
-//   RefPtr<BluetoothVCardListingEvent> event =
-//     BluetoothVCardListingEvent::Constructor(this,
-//       NS_LITERAL_STRING(PULL_VCARD_LISTING_REQ_ID), init);
-//   DispatchTrustedEvent(event);
-// }
+  BluetoothPhonebookPullingEventInit init;
 
-// Sequence<vCardProperties>
-// BluetoothAdapter::getVCardProperties(const BluetoothValue &aValue)
-// {
-//   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfuint32_t);
-//
-//   Sequence<vCardProperties> propSelector;
-//
-//   const nsTArray<uint32_t>& propSelectorArr =
-//     aValue.get_ArrayOfuint32_t();
-//   for (uint32_t i = 0; i < propSelectorArr.Length(); ++i) {
-//     propSelector.AppendElement(
-//       static_cast<vCardProperties>(propSelectorArr[i]), mozilla::fallible);
-//   }
-//
-//   return propSelector;
-// }
+  for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
+    const nsString& name = arr[i].name();
+    const BluetoothValue& value = arr[i].value();
+    if (name.EqualsLiteral("name")) {
+      init.mName = value.get_nsString();
+    } else if (name.EqualsLiteral("format")) {
+      init.mFormat = value.get_bool() ? vCardVersion::VCard30
+                                      : vCardVersion::VCard21;
+    } else if (name.EqualsLiteral("propSelector")) {
+      init.mPropSelector = getVCardProperties(value);
+    } else if (name.EqualsLiteral("maxListCount")) {
+      init.mMaxListCount = value.get_uint32_t();
+    } else if (name.EqualsLiteral("listStartOffset")) {
+      init.mListStartOffset = value.get_uint32_t();
+    } else if (name.EqualsLiteral("vCardSelector_AND")) {
+      init.mVcardSelector = getVCardProperties(value);
+      init.mVcardSelectorOperator = vCardSelectorOp::AND;
+    } else if (name.EqualsLiteral("vCardSelector_OR")) {
+      init.mVcardSelector = getVCardProperties(value);
+      init.mVcardSelectorOperator = vCardSelectorOp::OR;
+    }
+  }
+
+  init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
+
+  RefPtr<BluetoothPhonebookPullingEvent> event =
+    BluetoothPhonebookPullingEvent::Constructor(this,
+      NS_LITERAL_STRING(PULL_PHONEBOOK_REQ_ID), init);
+  DispatchTrustedEvent(event);
+}
+
+void
+BluetoothAdapter::HandlePullVCardEntryReq(const BluetoothValue& aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
+  const nsTArray<BluetoothNamedValue>& arr =
+    aValue.get_ArrayOfBluetoothNamedValue();
+
+  MOZ_ASSERT(arr.Length() >= 1 &&
+             arr[0].value().type() == BluetoothValue::TnsString);
+
+  BluetoothVCardPullingEventInit init;
+  Sequence<vCardProperties> propSelector;
+
+  for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
+    const nsString& name = arr[i].name();
+    const BluetoothValue& value = arr[i].value();
+    if (name.EqualsLiteral("name")) {
+      init.mName = value.get_nsString();
+    } else if (name.EqualsLiteral("format")) {
+      init.mFormat = value.get_bool() ? vCardVersion::VCard30
+                                      : vCardVersion::VCard21;
+    } else if (name.EqualsLiteral("propSelector")) {
+      init.mPropSelector = getVCardProperties(value);
+    }
+  }
+
+  init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
+
+  RefPtr<BluetoothVCardPullingEvent> event =
+    BluetoothVCardPullingEvent::Constructor(this,
+      NS_LITERAL_STRING(PULL_VCARD_ENTRY_REQ_ID), init);
+  DispatchTrustedEvent(event);
+}
+
+void
+BluetoothAdapter::HandlePullVCardListingReq(const BluetoothValue& aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
+  const nsTArray<BluetoothNamedValue>& arr =
+    aValue.get_ArrayOfBluetoothNamedValue();
+
+  MOZ_ASSERT(arr.Length() >= 1 &&
+             arr[0].value().type() == BluetoothValue::TnsString);
+
+  BluetoothVCardListingEventInit init;
+
+  for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
+    const nsString& name = arr[i].name();
+    const BluetoothValue& value = arr[i].value();
+    if (name.EqualsLiteral("name")) {
+      init.mName = value.get_nsString();
+    } else if (name.EqualsLiteral("order")) {
+      init.mOrder = static_cast<vCardOrderType>(value.get_uint32_t());
+    } else if (name.EqualsLiteral("searchKey")) {
+      init.mSearchKey = static_cast<vCardSearchKeyType>(value.get_uint32_t());
+    } else if (name.EqualsLiteral("searchText")) {
+      init.mSearchValue = NS_ConvertUTF8toUTF16(value.get_nsCString());
+    } else if (name.EqualsLiteral("maxListCount")) {
+      init.mMaxListCount = value.get_uint32_t();
+    } else if (name.EqualsLiteral("listStartOffset")) {
+      init.mListStartOffset = value.get_uint32_t();
+    } else if (name.EqualsLiteral("vCardSelector_AND")) {
+      init.mVcardSelector = getVCardProperties(value);
+      init.mVcardSelectorOperator = vCardSelectorOp::AND;
+    } else if (name.EqualsLiteral("vCardSelector_OR")) {
+      init.mVcardSelector = getVCardProperties(value);
+      init.mVcardSelectorOperator = vCardSelectorOp::OR;
+    }
+  }
+
+  init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
+
+  RefPtr<BluetoothVCardListingEvent> event =
+    BluetoothVCardListingEvent::Constructor(this,
+      NS_LITERAL_STRING(PULL_VCARD_LISTING_REQ_ID), init);
+  DispatchTrustedEvent(event);
+}
+
+Sequence<vCardProperties>
+BluetoothAdapter::getVCardProperties(const BluetoothValue &aValue)
+{
+  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfuint32_t);
+
+  Sequence<vCardProperties> propSelector;
+
+  const nsTArray<uint32_t>& propSelectorArr =
+    aValue.get_ArrayOfuint32_t();
+  for (uint32_t i = 0; i < propSelectorArr.Length(); ++i) {
+    propSelector.AppendElement(
+      static_cast<vCardProperties>(propSelectorArr[i]), mozilla::fallible);
+  }
+
+  return propSelector;
+}
 
 // Sequence<ParameterMask>
 // BluetoothAdapter::GetParameterMask(const BluetoothValue &aValue)

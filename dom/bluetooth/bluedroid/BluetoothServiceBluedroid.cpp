@@ -25,7 +25,7 @@
 // #include "BluetoothHidManager.h"
 // #include "BluetoothMapSmsManager.h"
 #include "BluetoothOppManager.h"
-// #include "BluetoothPbapManager.h"
+#include "BluetoothPbapManager.h"
 #include "BluetoothProfileController.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothUtils.h"
@@ -146,7 +146,7 @@ public:
     static void (* const sInitManager[])(BluetoothProfileResultHandler*) = {
       // BluetoothMapSmsManager::InitMapSmsInterface,
       BluetoothOppManager::InitOppInterface,
-      // BluetoothPbapManager::InitPbapInterface,
+      BluetoothPbapManager::InitPbapInterface,
       // BluetoothHidManager::InitHidInterface,
       // BluetoothHfpManager::InitHfpInterface,
       BluetoothA2dpManager::InitA2dpInterface,
@@ -298,8 +298,8 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
     BluetoothA2dpManager::Get(),
     // BluetoothHfpManager::Get(),
     // BluetoothHidManager::Get(),
-    // BluetoothPbapManager::Get(),
-    BluetoothOppManager::Get()
+    BluetoothPbapManager::Get(),
+    BluetoothOppManager::Get(),
     // BluetoothMapSmsManager::Get()
   };
 
@@ -1640,15 +1640,15 @@ BluetoothServiceBluedroid::SetObexPassword(const nsAString& aPassword,
 
   ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
 
-  // BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-  // if (!pbap) {
-  //   DispatchReplyError(aRunnable,
-  //                      NS_LITERAL_STRING("Failed to set OBEX password"));
-  //   return;
-  // }
+  BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+  if (!pbap) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Failed to set OBEX password"));
+    return;
+  }
 
-  // pbap->ReplyToAuthChallenge(aPassword);
-  // DispatchReplySuccess(aRunnable);
+  pbap->ReplyToAuthChallenge(aPassword);
+  DispatchReplySuccess(aRunnable);
 }
 
 void
@@ -1659,119 +1659,66 @@ BluetoothServiceBluedroid::RejectObexAuth(
 
   ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
 
-  // BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-  // if (!pbap) {
-  //   DispatchReplyError(aRunnable,
-  //     NS_LITERAL_STRING("Failed to reject OBEX authentication request"));
-  //   return;
-  // }
+  BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+  if (!pbap) {
+    DispatchReplyError(aRunnable,
+      NS_LITERAL_STRING("Failed to reject OBEX authentication request"));
+    return;
+  }
 
-  // pbap->ReplyToAuthChallenge(EmptyString());
-  // DispatchReplySuccess(aRunnable);
+  pbap->ReplyToAuthChallenge(EmptyString());
+  DispatchReplySuccess(aRunnable);
 }
 
-// void
-// BluetoothServiceBluedroid::ReplyTovCardPulling(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to vCardPulling failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid::ReplyTovCardPulling(
+  BlobImpl* aBlob,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+  if (!pbap) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to vCardPulling failed"));
+    return;
+  }
 
-//   pbap->ReplyToPullvCardEntry(aBlobParent);
-//   DispatchReplySuccess(aRunnable);
-// }
+  pbap->ReplyToPullvCardEntry(aBlob);
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::ReplyTovCardPulling(
-//   Blob* aBlob,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to vCardPulling failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid::ReplyToPhonebookPulling(
+  BlobImpl* aBlob,
+  uint16_t aPhonebookSize,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+  if (!pbap) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to Phonebook Pulling failed"));
+    return;
+  }
 
-//   pbap->ReplyToPullvCardEntry(aBlob);
-//   DispatchReplySuccess(aRunnable);
-// }
+  pbap->ReplyToPullPhonebook(aBlob, aPhonebookSize);
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::ReplyToPhonebookPulling(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Phonebook Pulling failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid::ReplyTovCardListing(
+  BlobImpl* aBlob,
+  uint16_t aPhonebookSize,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+  if (!pbap) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to vCard Listing failed"));
+    return;
+  }
 
-//   pbap->ReplyToPullPhonebook(aBlobParent, aPhonebookSize);
-//   DispatchReplySuccess(aRunnable);
-// }
-
-// void
-// BluetoothServiceBluedroid::ReplyToPhonebookPulling(
-//   Blob* aBlob,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Phonebook Pulling failed"));
-//     return;
-//   }
-
-//   pbap->ReplyToPullPhonebook(aBlob, aPhonebookSize);
-//   DispatchReplySuccess(aRunnable);
-// }
-
-// void
-// BluetoothServiceBluedroid::ReplyTovCardListing(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to vCard Listing failed"));
-//     return;
-//   }
-
-//   pbap->ReplyToPullvCardListing(aBlobParent, aPhonebookSize);
-//   DispatchReplySuccess(aRunnable);
-// }
-
-// void
-// BluetoothServiceBluedroid::ReplyTovCardListing(
-//   Blob* aBlob,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-//   if (!pbap) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to vCard Listing failed"));
-//     return;
-//   }
-
-//   pbap->ReplyToPullvCardListing(aBlob, aPhonebookSize);
-//   DispatchReplySuccess(aRunnable);
-// }
+  pbap->ReplyToPullvCardListing(aBlob, aPhonebookSize);
+  DispatchReplySuccess(aRunnable);
+}
 
 // void
 // BluetoothServiceBluedroid::ReplyToMapFolderListing(
@@ -2107,8 +2054,8 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       BluetoothA2dpManager::DeinitA2dpInterface,
       // BluetoothHfpManager::DeinitHfpInterface,
       // BluetoothHidManager::DeinitHidInterface,
-      // BluetoothPbapManager::DeinitPbapInterface,
-      BluetoothOppManager::DeinitOppInterface
+      BluetoothPbapManager::DeinitPbapInterface,
+      BluetoothOppManager::DeinitOppInterface,
       // BluetoothMapSmsManager::DeinitMapSmsInterface
     };
 
@@ -2183,10 +2130,10 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       BT_LOGR("Fail to start BluetoothOppManager listening");
     }
 
-    // BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
-    // if (!pbap || !pbap->Listen()) {
-    //   BT_LOGR("Fail to start BluetoothPbapManager listening");
-    // }
+    BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
+    if (!pbap || !pbap->Listen()) {
+      BT_LOGR("Fail to start BluetoothPbapManager listening");
+    }
 
     // BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
     // if (!map || !map->Listen()) {

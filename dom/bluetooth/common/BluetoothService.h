@@ -15,13 +15,6 @@
 #include "nsTObserverArray.h"
 #include "nsThreadUtils.h"
 
-// namespace mozilla {
-// namespace dom {
-// class Blob;
-// class BlobChild;
-// class BlobParent;
-// }
-// }
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -350,36 +343,19 @@ public:
   virtual void
   RejectObexAuth(BluetoothReplyRunnable* aRunnable) = 0;
 
-  // virtual void
-  // ReplyTovCardPulling(BlobParent* aBlobParent,
-  //                     BlobChild* aBlobChild,
-  //                     BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  ReplyTovCardPulling(BlobImpl* aBlob,
+                      BluetoothReplyRunnable* aRunnable) = 0;
 
-  // virtual void
-  // ReplyTovCardPulling(Blob* aBlob,
-  //                     BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  ReplyToPhonebookPulling(BlobImpl* aBlob,
+                          uint16_t aPhonebookSize,
+                          BluetoothReplyRunnable* aRunnable) = 0;
 
-  // virtual void
-  // ReplyToPhonebookPulling(BlobParent* aBlobParent,
-  //                         BlobChild* aBlobChild,
-  //                         uint16_t aPhonebookSize,
-  //                         BluetoothReplyRunnable* aRunnable) = 0;
-
-  // virtual void
-  // ReplyToPhonebookPulling(Blob* aBlob,
-  //                         uint16_t aPhonebookSize,
-  //                         BluetoothReplyRunnable* aRunnable) = 0;
-
-  // virtual void
-  // ReplyTovCardListing(BlobParent* aBlobParent,
-  //                     BlobChild* aBlobChild,
-  //                     uint16_t aPhonebookSize,
-  //                     BluetoothReplyRunnable* aRunnable) = 0;
-
-  // virtual void
-  // ReplyTovCardListing(Blob* aBlob,
-  //                     uint16_t aPhonebookSize,
-  //                     BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void
+  ReplyTovCardListing(BlobImpl* aBlob,
+                      uint16_t aPhonebookSize,
+                      BluetoothReplyRunnable* aRunnable) = 0;
 
   // virtual void
   // ReplyToMapFolderListing(uint8_t aMasId,

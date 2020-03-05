@@ -363,65 +363,51 @@ BluetoothServiceChildProcess::RejectObexAuth(BluetoothReplyRunnable* aRunnable)
   SendRequest(aRunnable, RejectObexAuthRequest());
 }
 
-// void
-// BluetoothServiceChildProcess::ReplyTovCardPulling(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, ReplyTovCardPullingRequest(nullptr, aBlobChild));
-// }
+void
+BluetoothServiceChildProcess::ReplyTovCardPulling(
+  BlobImpl* aBlob,
+  BluetoothReplyRunnable* aRunnable)
+{
+  IPCBlob ipcBlob;
+  nsresult rv =
+      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+  SendRequest(aRunnable, ReplyTovCardPullingRequest(ipcBlob));
+}
 
-// void
-// BluetoothServiceChildProcess::ReplyTovCardPulling(
-//   Blob* aBlobChild,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   // Parent-process-only method
-//   MOZ_CRASH("This should never be called!");
-// }
+void
+BluetoothServiceChildProcess::ReplyToPhonebookPulling(
+  BlobImpl* aBlob,
+  uint16_t aPhonebookSize,
+  BluetoothReplyRunnable* aRunnable)
+{
+  IPCBlob ipcBlob;
+  nsresult rv =
+      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+  SendRequest(aRunnable,
+    ReplyToPhonebookPullingRequest(ipcBlob, aPhonebookSize));
+}
 
-// void
-// BluetoothServiceChildProcess::ReplyToPhonebookPulling(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     ReplyToPhonebookPullingRequest(nullptr, aBlobChild, aPhonebookSize));
-// }
-
-// void
-// BluetoothServiceChildProcess::ReplyToPhonebookPulling(
-//   Blob* aBlobChild,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   // Parent-process-only method
-//   MOZ_CRASH("This should never be called!");
-// }
-
-// void
-// BluetoothServiceChildProcess::ReplyTovCardListing(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     ReplyTovCardListingRequest(nullptr, aBlobChild, aPhonebookSize));
-// }
-
-// void
-// BluetoothServiceChildProcess::ReplyTovCardListing(
-//   Blob* aBlobChild,
-//   uint16_t aPhonebookSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   // Parent-process-only method
-//   MOZ_CRASH("This should never be called!");
-// }
+void
+BluetoothServiceChildProcess::ReplyTovCardListing(
+  BlobImpl* aBlob,
+  uint16_t aPhonebookSize,
+  BluetoothReplyRunnable* aRunnable)
+{
+  IPCBlob ipcBlob;
+  nsresult rv =
+      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+  SendRequest(aRunnable,
+    ReplyTovCardListingRequest(ipcBlob, aPhonebookSize));
+}
 
 // void
 // BluetoothServiceChildProcess::ReplyToMapFolderListing(uint8_t aMasId,

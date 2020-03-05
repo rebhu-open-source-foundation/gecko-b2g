@@ -146,36 +146,19 @@ public:
   virtual void
   RejectObexAuth(BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyTovCardPulling(BlobParent* aBlobParent,
-  //                     BlobChild* aBlobChild,
-  //                     BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyTovCardPulling(BlobImpl* aBlob,
+                      BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyTovCardPulling(Blob* aBlob,
-  //                     BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyToPhonebookPulling(BlobImpl* aBlob,
+                          uint16_t aPhonebookSize,
+                          BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyToPhonebookPulling(BlobParent* aBlobParent,
-  //                         BlobChild* aBlobChild,
-  //                         uint16_t aPhonebookSize,
-  //                         BluetoothReplyRunnable* aRunnable);
-
-  // virtual void
-  // ReplyToPhonebookPulling(Blob* aBlob,
-  //                         uint16_t aPhonebookSize,
-  //                         BluetoothReplyRunnable* aRunnable);
-
-  // virtual void
-  // ReplyTovCardListing(BlobParent* aBlobParent,
-  //                     BlobChild* aBlobChild,
-  //                     uint16_t aPhonebookSize,
-  //                     BluetoothReplyRunnable* aRunnable);
-
-  // virtual void
-  // ReplyTovCardListing(Blob* aBlob,
-  //                     uint16_t aPhonebookSize,
-  //                     BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyTovCardListing(BlobImpl* aBlob,
+                      uint16_t aPhonebookSize,
+                      BluetoothReplyRunnable* aRunnable) override;
 
   // virtual void
   // ReplyToMapFolderListing(uint8_t aMasId,

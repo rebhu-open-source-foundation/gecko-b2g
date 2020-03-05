@@ -188,22 +188,22 @@ struct RejectObexAuthRequest
 {
 };
 
-// struct ReplyTovCardPullingRequest
-// {
-//   PBlob blob;
-// };
+struct ReplyTovCardPullingRequest
+{
+  IPCBlob blob;
+};
 
-// struct ReplyToPhonebookPullingRequest
-// {
-//   PBlob blob;
-//   uint16_t phonebookSize;
-// };
+struct ReplyToPhonebookPullingRequest
+{
+  IPCBlob blob;
+  uint16_t phonebookSize;
+};
 
-// struct ReplyTovCardListingRequest
-// {
-//   PBlob blob;
-//   uint16_t phonebookSize;
-// };
+struct ReplyTovCardListingRequest
+{
+  IPCBlob blob;
+  uint16_t phonebookSize;
+};
 
 struct ReplyToFolderListingRequest
 {
@@ -478,9 +478,9 @@ union Request
   IsScoConnectedRequest;
   SetObexPasswordRequest;
   RejectObexAuthRequest;
-//  ReplyTovCardPullingRequest;
-//  ReplyToPhonebookPullingRequest;
-//  ReplyTovCardListingRequest;
+  ReplyTovCardPullingRequest;
+  ReplyToPhonebookPullingRequest;
+  ReplyTovCardListingRequest;
   ReplyToFolderListingRequest;
 //  ReplyToMessagesListingRequest;
 //  ReplyToGetMessageRequest;

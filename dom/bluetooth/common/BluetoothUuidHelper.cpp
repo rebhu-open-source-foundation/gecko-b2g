@@ -12,7 +12,7 @@
 // #include "BluetoothHidManager.h"
 // #include "BluetoothMapSmsManager.h"
 #include "BluetoothOppManager.h"
-// #include "BluetoothPbapManager.h"
+#include "BluetoothPbapManager.h"
 
 USING_BLUETOOTH_NAMESPACE
 
@@ -84,9 +84,9 @@ BluetoothUuidHelper::GetBluetoothProfileManager(uint16_t aServiceUuid)
     case BluetoothServiceClass::OBJECT_PUSH:
       profile = BluetoothOppManager::Get();
       break;
-    // case BluetoothServiceClass::PBAP_PSE:
-    //   profile = BluetoothPbapManager::Get();
-    //   break;
+    case BluetoothServiceClass::PBAP_PSE:
+      profile = BluetoothPbapManager::Get();
+      break;
     // case BluetoothServiceClass::MAP_MAS:
     //   profile = BluetoothMapSmsManager::Get();
     //   break;

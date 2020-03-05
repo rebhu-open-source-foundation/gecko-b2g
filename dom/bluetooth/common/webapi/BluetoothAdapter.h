@@ -13,7 +13,7 @@
 #include "mozilla/dom/BluetoothAdapterBinding.h"
 #include "mozilla/dom/BluetoothDeviceEvent.h"
 // #include "mozilla/dom/BluetoothMapParametersBinding.h"
-// #include "mozilla/dom/BluetoothPbapParametersBinding.h"
+#include "mozilla/dom/BluetoothPbapParametersBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "nsCOMPtr.h"
 
@@ -88,7 +88,7 @@ public:
   IMPL_EVENT_HANDLER(attributechanged);
   // Connection request
   // IMPL_EVENT_HANDLER(mapconnectionreq);
-  // IMPL_EVENT_HANDLER(pbapconnectionreq);
+  IMPL_EVENT_HANDLER(pbapconnectionreq);
   // PAIRING
   IMPL_EVENT_HANDLER(devicepaired);
   IMPL_EVENT_HANDLER(deviceunpaired);
@@ -101,9 +101,9 @@ public:
   IMPL_EVENT_HANDLER(requestmediaplaystatus);
   // PBAP
   IMPL_EVENT_HANDLER(obexpasswordreq);
-  // IMPL_EVENT_HANDLER(pullphonebookreq);
-  // IMPL_EVENT_HANDLER(pullvcardentryreq);
-  // IMPL_EVENT_HANDLER(pullvcardlistingreq);
+  IMPL_EVENT_HANDLER(pullphonebookreq);
+  IMPL_EVENT_HANDLER(pullvcardentryreq);
+  IMPL_EVENT_HANDLER(pullvcardlistingreq);
   // MAP
   // IMPL_EVENT_HANDLER(mapfolderlistingreq);
   // IMPL_EVENT_HANDLER(mapmessageslistingreq);
@@ -304,7 +304,7 @@ private:
    *                    - nsString   'address'
    *                    - uint16_t   'serviceUuid'
    */
-  // void HandlePbapConnectionReq(const BluetoothValue& aValue);
+  void HandlePbapConnectionReq(const BluetoothValue& aValue);
 
   /**
    * Handle "PropertyChanged" bluetooth signal.
@@ -368,7 +368,7 @@ private:
    *                    - uint32_t[] 'vCardSelector_AND'
    *                    - uint32_t[] 'vCardSelector_OR'
    */
-  // void HandlePullPhonebookReq(const BluetoothValue& aValue);
+  void HandlePullPhonebookReq(const BluetoothValue& aValue);
 
   /**
    * Handle PULL_VCARD_ENTRY_REQ_ID bluetooth signal.
@@ -379,7 +379,7 @@ private:
    *                    - bool       'format'
    *                    - uint32_t[] 'propSelector'
    */
-  // void HandlePullVCardEntryReq(const BluetoothValue& aValue);
+  void HandlePullVCardEntryReq(const BluetoothValue& aValue);
 
   /**
    * Handle PULL_VCARD_LISTING_REQ_ID bluetooth signal.
@@ -395,7 +395,7 @@ private:
    *                    - uint32_t[] 'vCardSelector_AND'
    *                    - uint32_t[] 'vCardSelector_OR'
    */
-  // void HandlePullVCardListingReq(const BluetoothValue& aValue);
+  void HandlePullVCardListingReq(const BluetoothValue& aValue);
 
   /**
    * Handle OBEX_PASSWORD_REQ_ID bluetooth signal.
@@ -414,7 +414,7 @@ private:
    *                    The name of BluetoothValue must be 'propSelector',
    *                    'vCardSelector_OR' or 'vCardSelector_AND'.
    */
-  // Sequence<vCardProperties> getVCardProperties(const BluetoothValue &aValue);
+  Sequence<vCardProperties> getVCardProperties(const BluetoothValue &aValue);
 
   /**
    * Handle MAP_CONNECTION_REQ_ID bluetooth signal.

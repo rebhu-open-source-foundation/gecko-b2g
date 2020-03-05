@@ -485,43 +485,46 @@ BluetoothRequestParent::DoRequest(const RejectObexAuthRequest& aRequest)
   return true;
 }
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyTovCardPullingRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyTovCardPullingRequest);
+bool
+BluetoothRequestParent::DoRequest(const ReplyTovCardPullingRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyTovCardPullingRequest);
 
-//   mService->ReplyTovCardPulling((BlobParent*)aRequest.blobParent(),
-//                                 (BlobChild*)aRequest.blobChild(),
-//                                 mReplyRunnable.get());
-//   return true;
-// }
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aRequest.blob());
+  mService->ReplyTovCardPulling(blobImpl.get(),
+                                mReplyRunnable.get());
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyToPhonebookPullingRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyToPhonebookPullingRequest);
+  return true;
+}
 
-//   mService->ReplyToPhonebookPulling((BlobParent*)aRequest.blobParent(),
-//                                     (BlobChild*)aRequest.blobChild(),
-//                                     aRequest.phonebookSize(),
-//                                     mReplyRunnable.get());
-//   return true;
-// }
+bool
+BluetoothRequestParent::DoRequest(const ReplyToPhonebookPullingRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyToPhonebookPullingRequest);
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyTovCardListingRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyTovCardListingRequest);
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aRequest.blob());
+  mService->ReplyToPhonebookPulling(blobImpl.get(),
+                                    aRequest.phonebookSize(),
+                                    mReplyRunnable.get());
 
-//   mService->ReplyTovCardListing((BlobParent*)aRequest.blobParent(),
-//                                 (BlobChild*)aRequest.blobChild(),
-//                                 aRequest.phonebookSize(),
-//                                 mReplyRunnable.get());
-//   return true;
-// }
+  return true;
+}
+
+bool
+BluetoothRequestParent::DoRequest(const ReplyTovCardListingRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyTovCardListingRequest);
+
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aRequest.blob());
+  mService->ReplyTovCardListing(blobImpl.get(),
+                                aRequest.phonebookSize(),
+                                mReplyRunnable.get());
+
+  return true;
+}
 
 // bool
 // BluetoothRequestParent::DoRequest(const ReplyToFolderListingRequest& aRequest)

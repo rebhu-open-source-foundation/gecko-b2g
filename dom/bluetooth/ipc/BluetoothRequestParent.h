@@ -147,14 +147,14 @@ protected:
   bool
   DoRequest(const RejectObexAuthRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyTovCardPullingRequest& aRequest);
+  bool
+  DoRequest(const ReplyTovCardPullingRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyToPhonebookPullingRequest& aRequest);
+  bool
+  DoRequest(const ReplyToPhonebookPullingRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyTovCardListingRequest& aRequest);
+  bool
+  DoRequest(const ReplyTovCardListingRequest& aRequest);
 
   // bool
   // DoRequest(const ReplyToFolderListingRequest& aRequest);
