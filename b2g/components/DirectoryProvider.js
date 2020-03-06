@@ -2,53 +2,64 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const Cc = Components.classes;
-const Ci = Components.interfaces;
-const Cu = Components.utils;
-const Cr = Components.results;
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/AppConstants.jsm");
-
-const XRE_OS_UPDATE_APPLY_TO_DIR = "OSUpdApplyToD"
-const UPDATE_ARCHIVE_DIR = "UpdArchD"
+const XRE_OS_UPDATE_APPLY_TO_DIR = "OSUpdApplyToD";
+const UPDATE_ARCHIVE_DIR = "UpdArchD";
 const LOCAL_DIR = "/data/local";
 const UPDATES_DIR = "updates/0";
 const FOTA_DIR = "updates/fota";
-const COREAPPSDIR_PREF = "b2g.coreappsdir"
+const COREAPPSDIR_PREF = "b2g.coreappsdir";
 
-XPCOMUtils.defineLazyServiceGetter(Services, "env",
-                                   "@mozilla.org/process/environment;1",
-                                   "nsIEnvironment");
+XPCOMUtils.defineLazyServiceGetter(
+  Services,
+  "env",
+  "@mozilla.org/process/environment;1",
+  "nsIEnvironment"
+);
 
-XPCOMUtils.defineLazyServiceGetter(Services, "um",
-                                   "@mozilla.org/updates/update-manager;1",
-                                   "nsIUpdateManager");
+XPCOMUtils.defineLazyServiceGetter(
+  Services,
+  "um",
+  "@mozilla.org/updates/update-manager;1",
+  "nsIUpdateManager"
+);
 
-XPCOMUtils.defineLazyServiceGetter(Services, "volumeService",
-                                   "@mozilla.org/telephony/volume-service;1",
-                                   "nsIVolumeService");
+XPCOMUtils.defineLazyServiceGetter(
+  Services,
+  "volumeService",
+  "@mozilla.org/telephony/volume-service;1",
+  "nsIVolumeService"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
-                                   "@mozilla.org/childprocessmessagemanager;1",
-                                   "nsISyncMessageSender");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "cpmm",
+  "@mozilla.org/childprocessmessagemanager;1",
+  "nsISyncMessageSender"
+);
 
 XPCOMUtils.defineLazyGetter(this, "gExtStorage", function dp_gExtStorage() {
-    return Services.env.get("EXTERNAL_STORAGE");
+  return Services.env.get("EXTERNAL_STORAGE");
 });
 
 // This exists to mark the affected code for bug 828858.
 const gUseSDCard = true;
 
 const VERBOSE = 1;
-var log =
-  VERBOSE ?
-  function log_dump(msg) { dump("DirectoryProvider: " + msg + "\n"); } :
-  function log_noop(msg) { };
+var log = VERBOSE
+  ? function log_dump(msg) {
+      dump("DirectoryProvider: " + msg + "\n");
+    }
+  : function log_noop(msg) {};
 
-function DirectoryProvider() {
-}
+function DirectoryProvider() {}
 
 DirectoryProvider.prototype = {
   classID: Components.ID("{9181eb7c-6f87-11e1-90b1-4f59d80dd2e5}"),
@@ -58,34 +69,39 @@ DirectoryProvider.prototype = {
 
   _profD: null,
 
-  getFile: function(prop, persistent) {
+  getFile(prop, persistent) {
     if (AppConstants.platform === "gonk") {
       return this.getFileOnGonk(prop, persistent);
     }
     return this.getFileNotGonk(prop, persistent);
   },
 
-  getFileOnGonk: function(prop, persistent) {
-    let localProps = ["cachePDir", "webappsDir", "PrefD", "indexedDBPDir",
-                      "permissionDBPDir", "UpdRootD", "customizationPDir"];
-    if (localProps.indexOf(prop) != -1) {
-      let file = Cc["@mozilla.org/file/local;1"]
-                   .createInstance(Ci.nsILocalFile)
+  getFileOnGonk(prop, persistent) {
+    let localProps = [
+      "cachePDir",
+      "webappsDir",
+      "PrefD",
+      "indexedDBPDir",
+      "permissionDBPDir",
+      "UpdRootD",
+      "customizationPDir",
+    ];
+    if (localProps.includes(prop)) {
+      let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
       file.initWithPath(LOCAL_DIR);
       persistent.value = true;
       return file;
     }
     if (prop == "ProfD") {
-      let dir = Cc["@mozilla.org/file/local;1"]
-                  .createInstance(Ci.nsILocalFile);
-      dir.initWithPath(LOCAL_DIR+"/tests/profile");
+      let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+      dir.initWithPath(LOCAL_DIR + "/tests/profile");
       if (dir.exists()) {
         persistent.value = true;
         return dir;
       }
     }
     if (prop == "coreAppsDir") {
-      let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile)
+      let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
       file.initWithPath("/system/b2g");
       persistent.value = true;
       return file;
@@ -107,34 +123,27 @@ DirectoryProvider.prototype = {
     return null;
   },
 
-  getFileNotGonk: function(prop, persistent) {
+  getFileNotGonk(prop, persistent) {
     // In desktop builds, coreAppsDir is the same as the profile
     // directory unless otherwise specified. We just need to get the
     // path from the parent, and it is then used to build
     // jar:remoteopenfile:// uris.
     if (prop == "coreAppsDir") {
-      let coreAppsDirPref;
-      try {
-        coreAppsDirPref = Services.prefs.getCharPref(COREAPPSDIR_PREF);
-      } catch (e) {
-        // coreAppsDirPref may not exist if we're on an older version
-        // of gaia, so just fail silently.
-      }
+      let coreAppsDirPref = Services.prefs.getCharPref(COREAPPSDIR_PREF, "");
       let appsDir;
       // If pref doesn't exist or isn't set, default to old value
       if (!coreAppsDirPref || coreAppsDirPref == "") {
         appsDir = Services.dirsvc.get("ProfD", Ci.nsIFile);
         appsDir.append("webapps");
       } else {
-        appsDir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile)
+        appsDir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
         appsDir.initWithPath(coreAppsDirPref);
       }
       persistent.value = true;
       return appsDir;
     } else if (prop == "ProfD") {
-      let inParent = Cc["@mozilla.org/xre/app-info;1"]
-                       .getService(Ci.nsIXULRuntime)
-                       .processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
+      let inParent =
+        Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
       if (inParent) {
         // Just bail out to use the default from toolkit.
         return null;
@@ -151,7 +160,10 @@ DirectoryProvider.prototype = {
   },
 
   // The VolumeService only exists on the device, and not on desktop
-  volumeHasFreeSpace: function dp_volumeHasFreeSpace(volumePath, requiredSpace) {
+  volumeHasFreeSpace: function dp_volumeHasFreeSpace(
+    volumePath,
+    requiredSpace
+  ) {
     if (!volumePath) {
       return false;
     }
@@ -169,7 +181,10 @@ DirectoryProvider.prototype = {
     return requiredSpace <= stat.freeBytes;
   },
 
-  findUpdateDirWithFreeSpace: function dp_findUpdateDirWithFreeSpace(requiredSpace, subdir) {
+  findUpdateDirWithFreeSpace: function dp_findUpdateDirWithFreeSpace(
+    requiredSpace,
+    subdir
+  ) {
     if (!Services.volumeService) {
       return this.createUpdatesDir(LOCAL_DIR, subdir);
     }
@@ -181,8 +196,13 @@ DirectoryProvider.prototype = {
         if (extUpdateDir !== null) {
           return extUpdateDir;
         }
-        log("Warning: " + gExtStorage + " has enough free space for update " +
-            activeUpdate.name + ", but is not writable");
+        log(
+          "Warning: " +
+            gExtStorage +
+            " has enough free space for update " +
+            activeUpdate.name +
+            ", but is not writable"
+        );
       }
     }
 
@@ -191,8 +211,13 @@ DirectoryProvider.prototype = {
       if (localUpdateDir !== null) {
         return localUpdateDir;
       }
-      log("Warning: " + LOCAL_DIR + " has enough free space for update " +
-          activeUpdate.name + ", but is not writable");
+      log(
+        "Warning: " +
+          LOCAL_DIR +
+          " has enough free space for update " +
+          activeUpdate.name +
+          ", but is not writable"
+      );
     }
 
     return null;
@@ -204,15 +229,19 @@ DirectoryProvider.prototype = {
 
     let activeUpdate = Services.um.activeUpdate;
     if (!activeUpdate) {
-      log("Warning: No active update found, using default update dir: " +
-          defaultUpdateDir);
+      log(
+        "Warning: No active update found, using default update dir: " +
+          defaultUpdateDir
+      );
       return defaultUpdateDir;
     }
 
     let selectedPatch = activeUpdate.selectedPatch;
     if (!selectedPatch) {
-      log("Warning: No selected patch, using default update dir: " +
-          defaultUpdateDir);
+      log(
+        "Warning: No selected patch, using default update dir: " +
+          defaultUpdateDir
+      );
       return defaultUpdateDir;
     }
 
@@ -225,40 +254,44 @@ DirectoryProvider.prototype = {
     // If we've gotten this far, there isn't enough free space to download the patch
     // on either external storage or /data/local. All we can do is report the
     // error and let upstream code handle it more gracefully.
-    log("Error: No volume found with " + requiredSpace + " bytes for downloading"+
-        " update " + activeUpdate.name);
+    log(
+      "Error: No volume found with " +
+        requiredSpace +
+        " bytes for downloading" +
+        " update " +
+        activeUpdate.name
+    );
     activeUpdate.errorCode = Cr.NS_ERROR_FILE_TOO_BIG;
     return null;
   },
 
   createUpdatesDir: function dp_createUpdatesDir(root, subdir) {
-      let dir = Cc["@mozilla.org/file/local;1"]
-                   .createInstance(Ci.nsILocalFile);
-      dir.initWithPath(root);
-      if (!dir.isWritable()) {
-        log("Error: " + dir.path + " isn't writable");
-        return null;
+    let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    dir.initWithPath(root);
+    if (!dir.isWritable()) {
+      log("Error: " + dir.path + " isn't writable");
+      return null;
+    }
+    dir.appendRelativePath(subdir);
+    if (dir.exists()) {
+      if (dir.isDirectory() && dir.isWritable()) {
+        return dir;
       }
-      dir.appendRelativePath(subdir);
-      if (dir.exists()) {
-        if (dir.isDirectory() && dir.isWritable()) {
-          return dir;
-        }
-        // subdir is either a file or isn't writable. In either case we
-        // can't use it.
-        log("Error: " + dir.path + " is a file or isn't writable");
-        return null;
-      }
-      // subdir doesn't exist, and the parent is writable, so try to
-      // create it. This can fail if a file named updates exists.
-      try {
-        dir.create(Ci.nsIFile.DIRECTORY_TYPE, parseInt('0770', 8));
-      } catch (e) {
-        // The create failed for some reason. We can't use it.
-        log("Error: " + dir.path + " unable to create directory");
-        return null;
-      }
-      return dir;
+      // subdir is either a file or isn't writable. In either case we
+      // can't use it.
+      log("Error: " + dir.path + " is a file or isn't writable");
+      return null;
+    }
+    // subdir doesn't exist, and the parent is writable, so try to
+    // create it. This can fail if a file named updates exists.
+    try {
+      dir.create(Ci.nsIFile.DIRECTORY_TYPE, parseInt("0770", 8));
+    } catch (e) {
+      // The create failed for some reason. We can't use it.
+      log("Error: " + dir.path + " unable to create directory");
+      return null;
+    }
+    return dir;
   },
 
   getDefaultUpdateDir: function dp_getDefaultUpdateDir() {
@@ -274,8 +307,7 @@ DirectoryProvider.prototype = {
       }
     }
 
-    let dir = Cc["@mozilla.org/file/local;1"]
-                 .createInstance(Ci.nsILocalFile)
+    let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     dir.initWithPath(path);
 
     if (!dir.exists() && path != LOCAL_DIR) {
@@ -289,7 +321,7 @@ DirectoryProvider.prototype = {
 
     dir.appendRelativePath("updates");
     return dir;
-  }
+  },
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([DirectoryProvider]);
