@@ -204,6 +204,12 @@ var CustomEventManager = {
   },
 };
 
+function toggle_bool_pref(name) {
+  let current = Services.prefs.getBoolPref(name);
+  Services.prefs.setBoolPref(name, !current);
+  debug(`${name} is now ${!current}`);
+}
+
 document.addEventListener(
   "DOMContentLoaded",
   () => {
@@ -217,11 +223,9 @@ document.addEventListener(
       "keydown",
       event => {
         if (event.key == "AudioVolumeUp") {
-          console.log("Toggle fps display");
-          let current = Services.prefs.getBoolPref(
-            "layers.acceleration.draw-fps"
-          );
-          Services.prefs.setBoolPref("layers.acceleration.draw-fps", !current);
+          console.log("Toggling GPU profiler display");
+          toggle_bool_pref("gfx.webrender.debug.profiler");
+          toggle_bool_pref("gfx.webrender.debug.compact-profiler");
         }
       },
       true
