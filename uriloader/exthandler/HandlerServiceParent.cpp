@@ -287,7 +287,11 @@ mozilla::ipc::IPCResult HandlerServiceParent::RecvExists(
   nsCOMPtr<nsIHandlerInfo> info(WrapHandlerInfo(aHandlerInfo));
   nsCOMPtr<nsIHandlerService> handlerSvc =
       do_GetService(NS_HANDLERSERVICE_CONTRACTID);
-  handlerSvc->Exists(info, exists);
+  if (handlerSvc) {
+      handlerSvc->Exists(info, exists);
+  } else {
+    *exists = false;
+  }
   return IPC_OK();
 }
 
@@ -333,7 +337,10 @@ mozilla::ipc::IPCResult HandlerServiceParent::RecvExistsForProtocol(
     *aHandlerExists = false;
   }
 #else
+#if !defined(MOZ_B2G)
+  // It's unclear why we should crash here in any case...
   MOZ_RELEASE_ASSERT(false, "No implementation on this platform.");
+#endif
   *aHandlerExists = false;
 #endif
   return IPC_OK();
