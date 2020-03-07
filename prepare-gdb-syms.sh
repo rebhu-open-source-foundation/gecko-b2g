@@ -1,5 +1,6 @@
 DIR=$(pwd)
 GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-gecko}
+GONK_PATH=${GONK_PATH:-$DIR}
 
 if [ -z "$GECKO_OBJDIR" -o ! -e "$GECKO_OBJDIR/config.log" ]; then
     echo "GECKO_OBJDIR is invalid!" >&2
@@ -38,4 +39,11 @@ if [ -z "$NO_PULL_SYSTEM" ]; then
     cd $DIST_DIR/sysroot/system
     adb pull /system/bin
     adb pull /system/lib
+
+    eval $(grep DEVICE_NAME $GONK_PATH/.config)
+    if [ "$DEVICE_NAME" = "modric_q_st" ]; then
+        cd $DIST_DIR/sysroot
+        adb pull /apex
+        adb pull /vendor
+    fi
 fi
