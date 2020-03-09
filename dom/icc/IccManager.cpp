@@ -38,8 +38,8 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(IccManager, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(IccManager, DOMEventTargetHelper)
 
-IccManager::IccManager(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
+IccManager::IccManager(nsIGlobalObject* aGlobal)
+  : DOMEventTargetHelper(aGlobal)
 {
   uint32_t numberOfServices =
     mozilla::Preferences::GetUint("ril.numRadioInterfaces", 1);

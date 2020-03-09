@@ -13,35 +13,3 @@ interface KaiOS {
   // objects implementing this interface also implement the interfaces given
   // below
 };
-
-#ifdef MOZ_B2G_RIL
-[Exposed=Window]
-partial interface KaiOS {
-  [Throws, Pref="dom.mobileconnection.enabled"]
-  readonly attribute MozMobileConnectionArray mozMobileConnections;
-};
-
-[Exposed=Window]
-partial interface KaiOS {
-  [Throws, Pref="dom.telephony.enabled"]
-  readonly attribute Telephony mozTelephony;
-};
-
-[Exposed=Window]
-partial interface KaiOS {
-  [Throws, Pref="dom.icc.enabled"]
-  readonly attribute MozIccManager? mozIccManager;
-};
-
-[Exposed=Window]
-partial interface KaiOS {
-  [Throws, Pref="dom.datacall.enabled"]
-  readonly attribute DataCallManager? dataCallManager;
-};
-
-[Exposed=Window]
-partial interface KaiOS {
-  [Throws, Pref="dom.voicemail.enabled"]
-  readonly attribute MozVoicemail mozVoicemail;
-};
-#endif //MOZ_B2G_RIL

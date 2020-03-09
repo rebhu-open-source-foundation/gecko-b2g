@@ -16,13 +16,14 @@ namespace dom {
 class MobileConnectionArray final : public nsISupports
                                   , public nsWrapperCache
 {
+  nsCOMPtr<nsIGlobalObject> mOwner;
 public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileConnectionArray)
 
-  explicit MobileConnectionArray(nsPIDOMWindowInner* aWindow);
+  explicit MobileConnectionArray(nsIGlobalObject* aGlobal);
 
-  nsPIDOMWindowInner*
+  nsIGlobalObject*
   GetParentObject() const;
 
   // WrapperCache
@@ -44,7 +45,6 @@ private:
 
   bool mLengthInitialized;
 
-  nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsTArray<RefPtr<MobileConnection>> mMobileConnections;
 };
 

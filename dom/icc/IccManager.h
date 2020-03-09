@@ -26,7 +26,7 @@ public:
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(IccManager, DOMEventTargetHelper)
 
-  explicit IccManager(nsPIDOMWindowInner* aWindow);
+  explicit IccManager(nsIGlobalObject* aGlobal);
 
   void
   Shutdown();

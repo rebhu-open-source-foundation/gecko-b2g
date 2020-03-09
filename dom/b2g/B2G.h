@@ -16,6 +16,15 @@
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 #include "mozilla/dom/TetheringManagerBinding.h"
+
+#ifdef MOZ_B2G_RIL
+#  include "mozilla/dom/IccManager.h"
+#  include "mozilla/dom/Voicemail.h"
+#  include "mozilla/dom/Telephony.h"
+#  include "mozilla/dom/MobileConnectionArray.h"
+#  include "mozilla/dom/DataCallManagerBinding.h"
+#endif
+
 #ifdef HAS_KOOST_MODULES
 #  include "mozilla/dom/ExternalAPI.h"
 #endif
@@ -44,6 +53,14 @@ class B2G final : public nsISupports, public nsWrapperCache {
 
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
 
+#ifdef MOZ_B2G_RIL
+  IccManager* GetIccManager(ErrorResult& aRv);
+  Voicemail* GetVoicemail(ErrorResult& aRv);
+  MobileConnectionArray* GetMobileConnections(ErrorResult& aRv);
+  Telephony* GetTelephony(ErrorResult& aRv);
+  DataCallManager* GetDataCallManager(ErrorResult& aRv);
+#endif  // MOZ_B2G_RIL
+
 #ifdef HAS_KOOST_MODULES
   ExternalAPI* GetExternalapi(ErrorResult& aRv);
 #endif
@@ -61,6 +78,14 @@ class B2G final : public nsISupports, public nsWrapperCache {
  private:
   ~B2G();
   RefPtr<TetheringManager> mTetheringManager;
+#ifdef MOZ_B2G_RIL
+  RefPtr<IccManager> mIccManager;
+  RefPtr<Voicemail> mVoicemail;
+  RefPtr<MobileConnectionArray> mMobileConnections;
+  RefPtr<Telephony> mTelephony;
+  RefPtr<DataCallManager> mDataCallManager;
+#endif
+
 #ifdef HAS_KOOST_MODULES
   RefPtr<ExternalAPI> mExternalAPI;
 #endif

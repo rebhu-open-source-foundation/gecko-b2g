@@ -35,6 +35,13 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
+#ifdef MOZ_B2G_RIL
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mVoicemail)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileConnections)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTelephony)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDataCallManager)
+#endif
 #ifdef HAS_KOOST_MODULES
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
 #endif
@@ -70,6 +77,77 @@ TetheringManager* B2G::GetTetheringManager(ErrorResult& aRv) {
 
   return mTetheringManager;
 }
+
+#ifdef MOZ_B2G_RIL
+IccManager* B2G::GetIccManager(ErrorResult& aRv) {
+  if (!mIccManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mIccManager = new IccManager(GetParentObject());
+  }
+
+  return mIccManager;
+}
+
+Voicemail*
+B2G::GetVoicemail(ErrorResult& aRv)
+{
+  if (!mVoicemail) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mVoicemail = Voicemail::Create(GetParentObject(), aRv);
+  }
+
+  return mVoicemail;
+}
+
+MobileConnectionArray* B2G::GetMobileConnections(ErrorResult& aRv) {
+  if (!mMobileConnections) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mMobileConnections = new MobileConnectionArray(GetParentObject());
+  }
+
+  return mMobileConnections;
+}
+
+Telephony* B2G::GetTelephony(ErrorResult& aRv) {
+  if (!mTelephony) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mTelephony = Telephony::Create(GetParentObject(), aRv);
+  }
+
+  return mTelephony;
+}
+
+DataCallManager* B2G::GetDataCallManager(ErrorResult& aRv) {
+  if (!mDataCallManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mDataCallManager = ConstructJSImplementation<DataCallManager>(
+        "@mozilla.org/datacallmanager;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+  return mDataCallManager;
+}
+#endif
+
 
 #ifdef HAS_KOOST_MODULES
 ExternalAPI* B2G::GetExternalapi(ErrorResult& aRv) {

@@ -37,6 +37,7 @@ class MobileConnection final : public DOMEventTargetHelper
    * 775997 comment #51.
    */
   class Listener;
+  nsCOMPtr<nsIGlobalObject> mOwner;
 
 public:
   NS_DECL_ISUPPORTS_INHERITED
@@ -45,7 +46,7 @@ public:
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MobileConnection,
                                            DOMEventTargetHelper)
 
-  MobileConnection(nsPIDOMWindowInner* aWindow, uint32_t aClientId);
+  MobileConnection(nsIGlobalObject* aGlobal, uint32_t aClientId);
 
   void
   Shutdown();
@@ -53,10 +54,10 @@ public:
   virtual void
   DisconnectFromOwner() override;
 
-  nsPIDOMWindowInner*
+  nsIGlobalObject*
   GetParentObject() const
   {
-    return GetOwner();
+    return mOwner;
   }
 
   // WrapperCache

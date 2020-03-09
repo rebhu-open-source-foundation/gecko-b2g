@@ -42,7 +42,7 @@ public:
                                            DOMEventTargetHelper)
 
   static already_AddRefed<Voicemail>
-  Create(nsPIDOMWindowInner* aOwner,
+  Create(nsIGlobalObject* aGlobal,
          ErrorResult& aRv);
 
   void
@@ -74,7 +74,7 @@ public:
   IMPL_EVENT_HANDLER(statuschanged)
 
 private:
-  Voicemail(nsPIDOMWindowInner* aWindow,
+  Voicemail(nsIGlobalObject* aGlobal,
             nsIVoicemailService* aService);
 
   // final suppresses -Werror,-Wdelete-non-virtual-dtor

@@ -178,7 +178,7 @@ public:
   IMPL_EVENT_HANDLER(telephonycoveragelosing)
 
   static already_AddRefed<Telephony>
-  Create(nsPIDOMWindowInner* aOwner, ErrorResult& aRv);
+  Create(nsIGlobalObject* aGlobal, ErrorResult& aRv);
 
   void
   AddCall(TelephonyCall* aCall)
@@ -209,7 +209,7 @@ public:
   }
 
 private:
-  explicit Telephony(nsPIDOMWindowInner* aOwner);
+  explicit Telephony(nsIGlobalObject* aGlobal);
   ~Telephony();
 
   void

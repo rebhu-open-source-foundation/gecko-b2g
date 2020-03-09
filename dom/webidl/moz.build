@@ -374,7 +374,6 @@ GENERATED_WEBIDL_FILES = [
 PREPROCESSED_WEBIDL_FILES = [
     'Animation.webidl',
     'B2G.webidl',
-    'KaiOS.webidl',
     'Navigator.webidl',
     'Node.webidl',
     'Telephony.webidl',
@@ -668,6 +667,7 @@ WEBIDL_FILES = [
     'IntersectionObserver.webidl',
     'IntlUtils.webidl',
     'IterableIterator.webidl',
+    'KaiOS.webidl',
     'KeyAlgorithm.webidl',
     'KeyboardEvent.webidl',
     'KeyEvent.webidl',

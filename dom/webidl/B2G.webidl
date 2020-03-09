@@ -18,6 +18,38 @@ partial interface B2G {
   readonly attribute TetheringManager tetheringManager;
 };
 
+#ifdef MOZ_B2G_RIL
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.mobileconnection.enabled"]
+  readonly attribute MozMobileConnectionArray mobileConnections;
+};
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.telephony.enabled"]
+  readonly attribute Telephony Telephony;
+};
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.icc.enabled"]
+  readonly attribute MozIccManager? iccManager;
+};
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.datacall.enabled"]
+  readonly attribute DataCallManager? dataCallManager;
+};
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.voicemail.enabled"]
+  readonly attribute MozVoicemail voicemail;
+};
+#endif //MOZ_B2G_RIL
+
 #ifdef HAS_KOOST_MODULES
 [Exposed=(Window,Worker)]
 partial interface B2G {

@@ -95,18 +95,16 @@ class Telephony::Listener : public nsITelephonyListener {
   }
 };
 
-Telephony::Telephony(nsPIDOMWindowInner* aOwner)
-    : DOMEventTargetHelper(aOwner),
+Telephony::Telephony(nsIGlobalObject* aGlobal)
+    : DOMEventTargetHelper(aGlobal),
       mIsAudioStartPlaying(false),
       mHaveDispatchedInterruptBeginEvent(false),
       // mMuted(AudioChannelService::IsAudioChannelMutedByDefault())
       mMuted(false) {
-  MOZ_ASSERT(aOwner);
-  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aOwner);
-  MOZ_ASSERT(global);
+  MOZ_ASSERT(aGlobal);
 
   ErrorResult rv;
-  RefPtr<Promise> promise = Promise::Create(global, rv);
+  RefPtr<Promise> promise = Promise::Create(aGlobal, rv);
   MOZ_ASSERT(!rv.Failed());
 
   mReadyPromise = promise;
@@ -133,9 +131,9 @@ JSObject* Telephony::WrapObject(JSContext* aCx,
 }
 
 // static
-already_AddRefed<Telephony> Telephony::Create(nsPIDOMWindowInner* aOwner,
+already_AddRefed<Telephony> Telephony::Create(nsIGlobalObject* aGlobal,
                                               ErrorResult& aRv) {
-  NS_ASSERTION(aOwner, "Null owner!");
+  NS_ASSERTION(aGlobal, "Null aGlobal!");
 
   nsCOMPtr<nsITelephonyService> ril =
       do_GetService(TELEPHONY_SERVICE_CONTRACTID);
@@ -144,19 +142,7 @@ already_AddRefed<Telephony> Telephony::Create(nsPIDOMWindowInner* aOwner,
     return nullptr;
   }
 
-  nsCOMPtr<nsIScriptGlobalObject> sgo = do_QueryInterface(aOwner);
-  if (!sgo) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return nullptr;
-  }
-
-  nsCOMPtr<nsIScriptContext> scriptContext = sgo->GetContext();
-  if (!scriptContext) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return nullptr;
-  }
-
-  RefPtr<Telephony> telephony = new Telephony(aOwner);
+  RefPtr<Telephony> telephony = new Telephony(aGlobal);
 
   telephony->mService = ril;
   telephony->mListener = new Listener(telephony);
