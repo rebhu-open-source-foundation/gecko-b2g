@@ -61,7 +61,6 @@ class Document;
 class TabGroup;
 class Element;
 class Navigator;
-class KaiOS;
 class Performance;
 class Report;
 class ReportBody;
@@ -544,7 +543,6 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   uint32_t GetMarkedCCGeneration() { return mMarkedCCGeneration; }
 
   mozilla::dom::Navigator* Navigator();
-  mozilla::dom::KaiOS* KaiOS();
   virtual mozilla::dom::Location* Location() = 0;
 
   virtual nsresult GetControllers(nsIControllers** aControllers) = 0;
@@ -614,8 +612,6 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   mozilla::UniquePtr<mozilla::dom::TimeoutManager> mTimeoutManager;
 
   RefPtr<mozilla::dom::Navigator> mNavigator;
-
-  RefPtr<mozilla::dom::KaiOS> mKaiOS;
 
   // These variables are only used on inner windows.
   uint32_t mMutationBits;
@@ -1022,7 +1018,6 @@ class nsPIDOMWindowOuter : public mozIDOMWindowProxy {
   // XXX(nika): These feel like they should be inner window only, but they're
   // called on the outer window.
   virtual mozilla::dom::Navigator* GetNavigator() = 0;
-  virtual mozilla::dom::KaiOS* GetKaiOS() = 0;
   virtual mozilla::dom::Location* GetLocation() = 0;
 
   virtual nsresult GetPrompter(nsIPrompt** aPrompt) = 0;

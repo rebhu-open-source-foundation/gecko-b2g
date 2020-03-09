@@ -26,7 +26,6 @@
 #include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/DOMJSProxyHandler.h"
 #include "mozilla/dom/EventTarget.h"
-#include "mozilla/dom/KaiOS.h"
 #include "mozilla/dom/LocalStorage.h"
 #include "mozilla/dom/LocalStorageCommon.h"
 #include "mozilla/dom/LSObject.h"
@@ -222,7 +221,6 @@
 #include "mozilla/dom/MediaQueryList.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/NavigatorBinding.h"
-#include "mozilla/dom/KaiOSBinding.h"
 #include "mozilla/dom/ImageBitmap.h"
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/dom/InstallTriggerBinding.h"
@@ -1095,11 +1093,6 @@ void nsGlobalWindowInner::FreeInnerObjects() {
     mNavigator = nullptr;
   }
 
-  if (mKaiOS) {
-    mKaiOS->Invalidate();
-    mKaiOS = nullptr;
-  }
-
   mScreen = nullptr;
 
 #if defined(MOZ_WIDGET_ANDROID)
@@ -1308,8 +1301,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowInner)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mNavigator)
 
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mKaiOS)
-
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPerformance)
 
 #ifdef MOZ_WEBSPEECH
@@ -1406,8 +1397,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowInner)
   }
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mNavigator)
-
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mKaiOS)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPerformance)
 
@@ -2133,14 +2122,6 @@ Navigator* nsPIDOMWindowInner::Navigator() {
   }
 
   return mNavigator;
-}
-
-KaiOS* nsPIDOMWindowInner::KaiOS() {
-  if (!mKaiOS) {
-    mKaiOS = new mozilla::dom::KaiOS(this);
-  }
-
-  return mKaiOS;
 }
 
 VisualViewport* nsGlobalWindowInner::VisualViewport() {
@@ -6271,11 +6252,6 @@ void nsGlobalWindowInner::AddSizeOfIncludingThis(
   if (mNavigator) {
     aWindowSizes.mDOMOtherSize +=
         mNavigator->SizeOfIncludingThis(aWindowSizes.mState.mMallocSizeOf);
-  }
-
-  if (mKaiOS) {
-    aWindowSizes.mDOMOtherSize +=
-        mKaiOS->SizeOfIncludingThis(aWindowSizes.mState.mMallocSizeOf);
   }
 
   ForEachEventTargetObject([&](DOMEventTargetHelper* et, bool* aDoneOut) {

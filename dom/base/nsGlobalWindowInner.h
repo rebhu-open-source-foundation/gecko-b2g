@@ -37,7 +37,6 @@
 #include "mozilla/dom/ChromeMessageBroadcaster.h"
 #include "mozilla/dom/DebuggerNotificationManager.h"
 #include "mozilla/dom/NavigatorBinding.h"
-#include "mozilla/dom/KaiOSBinding.h"
 #include "mozilla/dom/StorageEvent.h"
 #include "mozilla/dom/StorageEventBinding.h"
 #include "mozilla/dom/UnionTypes.h"

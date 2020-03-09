@@ -244,7 +244,6 @@ typedef OfflineResourceList ApplicationCache;
 
   // the user agent
   readonly attribute Navigator navigator;
-  readonly attribute KaiOS kaiOS;
 #ifdef HAVE_SIDEBAR
   [Replaceable, Throws] readonly attribute External external;
 #endif

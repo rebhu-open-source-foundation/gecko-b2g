@@ -61,7 +61,6 @@ DIRS += [
     'grid',
     'html',
     'jsurl',
-    'kaios',
     'mathml',
     'media',
     'midi',

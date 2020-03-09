@@ -103,7 +103,6 @@ class IntlUtils;
 class Location;
 class MediaQueryList;
 class Navigator;
-class KaiOS;
 class OwningExternalOrWindowProxy;
 class Promise;
 class PostMessageData;
@@ -569,7 +568,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                 bool aForceNoOpener,
                 mozilla::dom::BrowsingContext** _retval) override;
   mozilla::dom::Navigator* GetNavigator() override;
-  mozilla::dom::KaiOS* GetKaiOS() override;
 
 #if defined(MOZ_WIDGET_ANDROID)
   int16_t Orientation(mozilla::dom::CallerType aCallerType) const;
