@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #define LOG_TAG "WificondControl"
+
 #include "WificondControl.h"
 #include "nsIWifiElement.h"
 #include "nsIMutableArray.h"
@@ -61,9 +62,9 @@ void WificondControl::WificondDeathRecipient::binderDied(
   WIFI_LOGE(LOG_TAG, "wificond died...");
 }
 
-bool WificondControl::InitWificondInterface() {
+Result_t WificondControl::InitWificondInterface() {
   if (mWificond != nullptr) {
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
 
   android::sp<::android::IServiceManager> sm = defaultServiceManager();
@@ -84,33 +85,37 @@ bool WificondControl::InitWificondInterface() {
     binder->linkToDeath(mWificondDeathRecipient);
   } else {
     WIFI_LOGE(LOG_TAG, "Failed to create wificond instance");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WificondControl::StartWificond() {
+Result_t WificondControl::StartWificond() {
   // start wificond
   char value[PROPERTY_VALUE_MAX];
   property_get("init.svc.wificond", value, "");
   if (!strncmp(value, "running", 7)) {
     WIFI_LOGD(LOG_TAG, "wificond is already running...");
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
 
   if (property_set(CTL_START_PROPERTY, WIFICOND_SERVICE_NAME) != 0) {
     WIFI_LOGE(LOG_TAG, "start wificond failed");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WificondControl::StopWificond() { return true; }
+Result_t WificondControl::StopWificond() { return nsIWifiResult::SUCCESS; }
 
-bool WificondControl::TearDownClientInterface(const std::string& aIfaceName) {
-  if (!InitWificondInterface()) {
-    return false;
+Result_t WificondControl::TearDownClientInterface(
+    const std::string& aIfaceName) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = InitWificondInterface();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
 
   if (mScanner != nullptr) {
@@ -122,36 +127,37 @@ bool WificondControl::TearDownClientInterface(const std::string& aIfaceName) {
   if (!mWificond->tearDownClientInterface(aIfaceName, &success).isOk()) {
     WIFI_LOGE(LOG_TAG,
               "Failed to teardown client interface due to remote exception");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   if (!success) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown client interface");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   mWificond = nullptr;
   mClientInterface = nullptr;
   mScanner = nullptr;
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WificondControl::TearDownSoftapInterface(const std::string& aIfaceName) {
+Result_t WificondControl::TearDownSoftapInterface(
+    const std::string& aIfaceName) {
   if (mWificond == nullptr || mApInterface == nullptr) {
     WIFI_LOGE(LOG_TAG, "No valid interface handler");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   bool success = false;
   if (!mWificond->tearDownApInterface(aIfaceName, &success).isOk()) {
     WIFI_LOGE(LOG_TAG,
               "Failed to teardown ap interface due to remote exception");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   if (!success) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown ap interface");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   mApInterface = nullptr;
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
 /**
@@ -161,66 +167,69 @@ bool WificondControl::TearDownSoftapInterface(const std::string& aIfaceName) {
  * android 9.0: enable supplicant by IWificon -> libwifi-system.so -> ctl.start
  * android 10:  enable supplicant by ctl.start directly
  */
-bool WificondControl::StartSupplicant() {
+Result_t WificondControl::StartSupplicant() {
   bool supplicantStarted = false;
   supplicantStarted =
       (property_set(CTL_START_PROPERTY, SUPPLICANT_SERVICE_NAME) == 0);
-  return supplicantStarted;
+  return CHECK_SUCCESS(supplicantStarted);
 }
 
-bool WificondControl::StopSupplicant() {
+Result_t WificondControl::StopSupplicant() {
   bool supplicantStopped = false;
   supplicantStopped =
       (property_set(CTL_STOP_PROPERTY, SUPPLICANT_SERVICE_NAME) == 0);
-  return supplicantStopped;
+  return CHECK_SUCCESS(supplicantStopped);
 }
 
-bool WificondControl::SetupClientIface(
+Result_t WificondControl::SetupClientIface(
     const std::string& aIfaceName,
     const android::sp<IScanEvent>& aScanCallback) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
   // retrieve wificond handle
-  if (!InitWificondInterface()) {
-    return false;
+  result = InitWificondInterface();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
   if (!mWificond->createClientInterface(aIfaceName, &mClientInterface).isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to create client interface");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   if (!mClientInterface->getWifiScannerImpl(&mScanner).isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to get WificondScannerImpl");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   if (mScanner->subscribeScanEvents(aScanCallback).isOk()) {
     WIFI_LOGD(LOG_TAG, "subscribe scan event success");
   } else {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WificondControl::SetupApIface(
+Result_t WificondControl::SetupApIface(
     const std::string& aIfaceName,
     const android::sp<IApInterfaceEventCallback>& aApCallback) {
-  if (!InitWificondInterface()) {
-    return false;
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = InitWificondInterface();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
   if (!mWificond->createApInterface(aIfaceName, &mApInterface).isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to create ap interface");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   bool success = false;
   mApInterface->registerCallback(aApCallback, &success);
-  if (!success) {
-    WIFI_LOGE(LOG_TAG, "Failed to register softap callback");
-    return false;
-  }
-  return true;
+
+  return CHECK_SUCCESS(success);
 }
 
-bool WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
+Result_t WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
   if (mScanner == nullptr) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   SingleScanSettings settings;
   settings.scan_type_ = aScanSettings->mScanType;
@@ -247,43 +256,39 @@ bool WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
 
   bool success = false;
   mScanner->scan(settings, &success);
-  if (!success) {
-    WIFI_LOGE(LOG_TAG, "Failed to start single scan");
-    return false;
-  }
-  return true;
+  return CHECK_SUCCESS(success);
 }
 
-bool WificondControl::StopSingleScan() {
+Result_t WificondControl::StopSingleScan() {
   if (mScanner == nullptr) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
-  return mScanner->abortScan().isOk();
+  return CHECK_SUCCESS(mScanner->abortScan().isOk());
 }
 
-bool WificondControl::StartPnoScan() { return true; }
+Result_t WificondControl::StartPnoScan() { return nsIWifiResult::SUCCESS; }
 
-bool WificondControl::StopPnoScan() { return true; }
+Result_t WificondControl::StopPnoScan() { return nsIWifiResult::SUCCESS; }
 
-bool WificondControl::GetScanResults(
+Result_t WificondControl::GetScanResults(
     std::vector<NativeScanResult>& aScanResults) {
   if (mScanner == nullptr) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
   if (!mScanner->getScanResults(&aScanResults).isOk()) {
     WIFI_LOGE(LOG_TAG, "Get scan results failed");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WificondControl::GetChannelsForBand(uint32_t aBandMask,
-                                         std::vector<int32_t>& aChannels) {
+Result_t WificondControl::GetChannelsForBand(uint32_t aBandMask,
+                                             std::vector<int32_t>& aChannels) {
   if (mWificond == nullptr) {
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   std::unique_ptr<std::vector<int32_t>> channels;
   if (aBandMask & nsIScanSettings::BAND_2_4_GHZ) {
@@ -298,19 +303,19 @@ bool WificondControl::GetChannelsForBand(uint32_t aBandMask,
     mWificond->getAvailable5gNonDFSChannels(&channels);
     aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WificondControl::SignalPoll() {
+Result_t WificondControl::SignalPoll() {
   if (mClientInterface == nullptr) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi client interface");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
   std::vector<int32_t> signal;
   if (!mClientInterface->signalPoll(&signal).isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to get signal strength");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }

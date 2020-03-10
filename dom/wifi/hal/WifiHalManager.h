@@ -59,19 +59,19 @@ class WifiHal
   static WifiHal* Get();
   static void CleanUp();
 
-  bool InitHalInterface();
-  bool TearDownInterface(const wifiNameSpace::IfaceType& aType);
-  bool GetCapabilities(uint32_t& aCapabilities);
-  bool GetDriverModuleInfo(nsAString& aDriverVersion,
-                           nsAString& aFirmwareVersion);
-  bool SetLowLatencyMode(bool aEnable);
+  Result_t InitHalInterface();
+  Result_t TearDownInterface(const wifiNameSpace::IfaceType& aType);
+  Result_t GetCapabilities(uint32_t& aCapabilities);
+  Result_t GetDriverModuleInfo(nsAString& aDriverVersion,
+                               nsAString& aFirmwareVersion);
+  Result_t SetLowLatencyMode(bool aEnable);
 
-  bool StartWifiModule();
-  bool StopWifiModule();
-  bool ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
-                                std::string& aIfaceName);
-  bool GetStaCapabilities(uint32_t& aStaCapabilities);
-  bool SetSoftapCountryCode(std::string aCountryCode);
+  Result_t StartWifiModule();
+  Result_t StopWifiModule();
+  Result_t ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
+                                    std::string& aIfaceName);
+  Result_t GetStaCapabilities(uint32_t& aStaCapabilities);
+  Result_t SetSoftapCountryCode(std::string aCountryCode);
   std::string GetInterfaceName(const wifiNameSpace::IfaceType& aType);
 
   // IServiceNotification::onRegistration
@@ -253,11 +253,11 @@ class WifiHal
 
   WifiHal();
   virtual ~WifiHal() {}
-  bool InitServiceManager();
-  bool InitWifiInterface();
-  bool ConfigChipByType(const android::sp<IWifiChip>& aChip,
-                        const wifiNameSpace::IfaceType& aType);
-  bool RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType);
+  Result_t InitServiceManager();
+  Result_t InitWifiInterface();
+  Result_t ConfigChipByType(const android::sp<IWifiChip>& aChip,
+                            const wifiNameSpace::IfaceType& aType);
+  Result_t RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType);
   std::string QueryInterfaceName(const android::sp<IWifiIface>& aIface);
 
   static WifiHal* s_Instance;

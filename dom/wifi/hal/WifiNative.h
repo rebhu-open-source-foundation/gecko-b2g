@@ -25,53 +25,54 @@ class WifiNative {
                       const nsCString& aInterface);
 
  private:
-  bool InitHal();
-  bool DeinitHal();
-  bool GetCapabilities(uint32_t& aCapabilities);
-  bool GetDriverModuleInfo(nsAString& aDriverVersion,
-                           nsAString& aFirmwareVersion);
-  bool SetLowLatencyMode(bool aEnable);
-  bool SetConcurrencyPriority(bool aEnable);
-  bool GetHostWakeReason(uint32_t& aCapabilities);
+  Result_t InitHal();
+  Result_t DeinitHal();
+  Result_t GetCapabilities(uint32_t& aCapabilities);
+  Result_t GetDriverModuleInfo(nsAString& aDriverVersion,
+                               nsAString& aFirmwareVersion);
+  Result_t SetLowLatencyMode(bool aEnable);
+  Result_t SetConcurrencyPriority(bool aEnable);
+  Result_t GetHostWakeReason(uint32_t& aCapabilities);
 
-  bool StartWifi();
-  bool StopWifi();
-  bool GetMacAddress(nsAString& aMacAddress);
-  bool GetClientInterfaceName(nsAString& aIfaceName);
-  bool GetSoftApInterfaceName(nsAString& aIfaceName);
+  Result_t StartWifi(nsAString& aIfaceName);
+  Result_t StopWifi();
+  Result_t GetMacAddress(nsAString& aMacAddress);
+  Result_t GetClientInterfaceName(nsAString& aIfaceName);
+  Result_t GetSoftApInterfaceName(nsAString& aIfaceName);
 
-  bool StartSupplicant();
-  bool StopSupplicant();
-  bool GetStaCapabilities(uint32_t& aStaCapabilities);
-  bool GetDebugLevel(uint32_t& aDebugLevel);
-  bool SetDebugLevel(SupplicantDebugLevelOptions* aLevel);
-  bool SetPowerSave(bool aEnable);
-  bool SetSuspendMode(bool aEnable);
-  bool SetExternalSim(bool aEnable);
-  bool SetAutoReconnect(bool aEnable);
-  bool SetCountryCode(const nsAString& aCountryCode);
-  bool SetBtCoexistenceMode(uint8_t aMode);
-  bool SetBtCoexistenceScanMode(bool aEnable);
+  Result_t StartSupplicant();
+  Result_t StopSupplicant();
+  Result_t GetStaCapabilities(uint32_t& aStaCapabilities);
+  Result_t GetDebugLevel(uint32_t& aDebugLevel);
+  Result_t SetDebugLevel(SupplicantDebugLevelOptions* aLevel);
+  Result_t SetPowerSave(bool aEnable);
+  Result_t SetSuspendMode(bool aEnable);
+  Result_t SetExternalSim(bool aEnable);
+  Result_t SetAutoReconnect(bool aEnable);
+  Result_t SetCountryCode(const nsAString& aCountryCode);
+  Result_t SetBtCoexistenceMode(uint8_t aMode);
+  Result_t SetBtCoexistenceScanMode(bool aEnable);
 
-  bool StartSingleScan(ScanSettingsOptions* aScanSettings);
-  bool StopSingleScan();
-  bool StartPnoScan();
-  bool StopPnoScan();
-  bool GetScanResults(std::vector<NativeScanResult>& aScanResults);
-  bool GetPnoScanResults(std::vector<NativeScanResult>& aScanResults);
-  bool GetChannelsForBand(uint32_t aBandMask, std::vector<int32_t>& aChannels);
+  Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
+  Result_t StopSingleScan();
+  Result_t StartPnoScan();
+  Result_t StopPnoScan();
+  Result_t GetScanResults(std::vector<NativeScanResult>& aScanResults);
+  Result_t GetPnoScanResults(std::vector<NativeScanResult>& aScanResults);
+  Result_t GetChannelsForBand(uint32_t aBandMask,
+                              std::vector<int32_t>& aChannels);
 
-  bool Connect(ConfigurationOptions* aConfig);
-  bool Reconnect();
-  bool Reassociate();
-  bool Disconnect();
-  bool RemoveNetworks();
+  Result_t Connect(ConfigurationOptions* aConfig);
+  Result_t Reconnect();
+  Result_t Reassociate();
+  Result_t Disconnect();
+  Result_t RemoveNetworks();
 
-  bool StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
-                   nsAString& aIfaceName);
-  bool StopSoftAp();
-  bool StartAndConnectHostapd();
-  bool StopHostapd();
+  Result_t StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
+                       nsAString& aIfaceName);
+  Result_t StopSoftAp();
+  Result_t StartAndConnectHostapd();
+  Result_t StopHostapd();
 
   class SupplicantDeathHandler : virtual public SupplicantDeathEventHandler {
     virtual void OnDeath() override;

@@ -43,6 +43,8 @@
 
 #endif /* MOZ_WIDGET_GONK */
 
+typedef uint32_t Result_t;
+
 typedef void (*EventCallback)(nsWifiEvent* aEvent,
                               const nsACString& aInterface);
 
@@ -72,12 +74,15 @@ struct ConfigurationOptions {
   ConfigurationOptions(const mozilla::dom::WifiConfiguration& aOther) {
     COPY_OPT_FIELD(mSsid, EmptyString())
     COPY_OPT_FIELD(mBssid, EmptyString())
+    COPY_OPT_FIELD(mKeyMgmt, EmptyString())
     COPY_OPT_FIELD(mPsk, EmptyString())
-    COPY_OPT_FIELD(mWepKey, EmptyString())
+    COPY_OPT_FIELD(mWepKey0, EmptyString())
+    COPY_OPT_FIELD(mWepKey1, EmptyString())
+    COPY_OPT_FIELD(mWepKey2, EmptyString())
+    COPY_OPT_FIELD(mWepKey3, EmptyString())
     COPY_OPT_FIELD(mWepTxKeyIndex, 0)
     COPY_OPT_FIELD(mScanSsid, false)
     COPY_OPT_FIELD(mPmf, false)
-    COPY_OPT_FIELD(mKeyManagement, 0)
     COPY_OPT_FIELD(mProto, 0)
     COPY_OPT_FIELD(mAuthAlg, 0)
     COPY_OPT_FIELD(mGroupCipher, 0)
@@ -101,12 +106,15 @@ struct ConfigurationOptions {
 
   nsString mSsid;
   nsString mBssid;
+  nsString mKeyMgmt;
   nsString mPsk;
-  nsString mWepKey;
+  nsString mWepKey0;
+  nsString mWepKey1;
+  nsString mWepKey2;
+  nsString mWepKey3;
   int32_t  mWepTxKeyIndex;
   bool     mScanSsid;
   bool     mPmf;
-  int32_t  mKeyManagement;
   int32_t  mProto;
   int32_t  mAuthAlg;
   int32_t  mGroupCipher;
@@ -134,7 +142,7 @@ struct SoftapConfigurationOptions {
 
   SoftapConfigurationOptions(const mozilla::dom::SoftapConfiguration& aOther) {
     COPY_OPT_FIELD(mSsid, EmptyString())
-    COPY_OPT_FIELD(mKeyManagement, 0)
+    COPY_OPT_FIELD(mKeyMgmt, 0)
     COPY_OPT_FIELD(mKey, EmptyString())
     COPY_OPT_FIELD(mCountryCode, EmptyString())
     COPY_OPT_FIELD(mBand, 0)
@@ -147,7 +155,7 @@ struct SoftapConfigurationOptions {
   }
 
   nsString mSsid;
-  uint32_t mKeyManagement;
+  uint32_t mKeyMgmt;
   nsString mKey;
   nsString mCountryCode;
   uint32_t mBand;
@@ -230,6 +238,11 @@ struct CommandOptions {
 template <typename T>
 std::string ConvertMacToString(const T& mac);
 
+template <typename T>
+int32_t ConvertMacToByteArray(const std::string& mac, T& out);
+
+void Dequote(std::string& s);
+
 #define HIDL_CALL(interface, method, responseType, response)       \
   do {                                                             \
     if (interface != nullptr) {                                    \
@@ -246,5 +259,8 @@ std::string ConvertMacToString(const T& mac);
       });                                                              \
     }                                                                  \
   } while (0)
+
+#define CHECK_SUCCESS(condition) \
+  (condition) ? nsIWifiResult::SUCCESS : nsIWifiResult::ERROR_COMMAND_FAILED
 
 #endif /* WifiCommon_H */

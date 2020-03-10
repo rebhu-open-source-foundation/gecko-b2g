@@ -83,6 +83,9 @@ this.WifiConfigManager = (function() {
   var lastUserSelectedNetworkTimeStamp = 0;
   var configuredNetworks = Object.create(null);
 
+  // The network ID to be assigned on a new added network
+  var useNetworkId = 0
+
   // WifiConfigManager parameters
   configManager.configuredNetworks = configuredNetworks;
   configManager.NETWORK_SELECTION_ENABLE = NETWORK_SELECTION_ENABLE;
@@ -109,8 +112,9 @@ this.WifiConfigManager = (function() {
   configManager.clearDisableReasonCounter = clearDisableReasonCounter;
   configManager.getNetworkConfiguration = getNetworkConfiguration;
   configManager.getHiddenNetworks = getHiddenNetworks;
+  configManager.addOrUpdateNetwork = addOrUpdateNetwork;
+  configManager.removeNetwork = removeNetwork;
   configManager.loadFromStore = loadFromStore;
-  configManager.readFromStore = readFromStore;
   configManager.saveToStore = saveToStore;
   configManager.setDebug = setDebug;
 
@@ -129,7 +133,7 @@ this.WifiConfigManager = (function() {
     for (var networkKey in configuredNetworks) {
       if (configuredNetworks[networkKey].netId == netId) {
         found = true;
-        continue;
+        break;
       }
     }
     if (!found) {
@@ -292,7 +296,7 @@ this.WifiConfigManager = (function() {
 
   function setAndEnableLastSelectedConfiguration(netId, callback) {
     debug("setAndEnableLastSelectedConfiguration " + netId);
-    if (netId == INVALID_NETWORK_ID) {
+    if (netId === INVALID_NETWORK_ID) {
       lastUserSelectedNetwork = null;
       lastUserSelectedNetworkTimeStamp = 0;
       callback(false);
@@ -335,17 +339,72 @@ this.WifiConfigManager = (function() {
     if (networkKey in configuredNetworks) {
       return callback(configuredNetworks[networkKey]);
     }
+    // incoming config may not have entire security field
+    // also check id in configured networks
+    for (let net in configuredNetworks) {
+      if (config.netId == configuredNetworks[net].netId) {
+        return callback(configuredNetworks[net]);
+      }
+    }
     callback(null);
   }
 
   function getHiddenNetworks() {
     let networks = [];
     for (let net in configuredNetworks) {
-      if (net.hidden) {
+      if (net.scanSsid) {
         networks.push(configuredNetworks[net].ssid);
       }
     }
     return networks;
+  }
+
+  function addOrUpdateNetwork(config, callback) {
+    if (config == null) {
+      return callback(false);
+    }
+
+    let networkKey = WifiConfigUtils.getNetworkKey(config);
+    if (networkKey in configuredNetworks) {
+      // network already exist, try to update
+      let existConfig = configuredNetworks[networkKey];
+
+      for (let field in config) {
+        if (config[field]) {
+          existConfig[field] = config[field];
+        }
+      }
+    } else {
+      if (config.netId !== INVALID_NETWORK_ID) {
+        debug("Network id is exist");
+      }
+
+      // assign an unique id to this network
+      config.netId = useNetworkId;
+      useNetworkId = useNetworkId + 1;
+      configuredNetworks[networkKey] = config;
+    }
+
+    saveToStore(configuredNetworks, function() {
+      callback(true);
+    });
+  }
+
+  function removeNetwork(networkId, callback) {
+    if (networkId === INVALID_NETWORK_ID) {
+      debug("Trying to remove network by invalid network ID");
+      return callback(false);
+    }
+
+    for (let networkKey in configuredNetworks) {
+      if (configuredNetworks[networkKey].netId === networkId) {
+        delete configuredNetworks[networkKey];
+        saveToStore(configuredNetworks, function() {});
+        return callback(true);
+      }
+    }
+    debug("Network " + networkId + " is not in the list");
+    return callback(false);
   }
 
   function loadFromStore() {
@@ -354,6 +413,7 @@ this.WifiConfigManager = (function() {
       for (let i in wifiConfig) {
         let config = wifiConfig[i];
         let networkKey = WifiConfigUtils.getNetworkKey(config);
+        config.netId = useNetworkId++;
         configuredNetworks[networkKey] = config;
       }
     }
@@ -361,11 +421,6 @@ this.WifiConfigManager = (function() {
 
   function saveToStore(networks, callback) {
     WifiConfigStore.write(networks, callback);
-  }
-
-  function readFromStore() {
-    let wifiConfig = WifiConfigStore.read();
-    return wifiConfig;
   }
 
   return configManager;

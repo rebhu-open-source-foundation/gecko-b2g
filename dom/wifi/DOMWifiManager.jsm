@@ -34,17 +34,12 @@ function WifiNetwork() {}
 WifiNetwork.prototype = {
   init(aWindow) {
     this._window = aWindow;
-    this.security = [];
   },
 
   __init(obj) {
     for (let key in obj) {
       this[key] = obj[key];
     }
-  },
-
-  getSecurity() {
-    return this.security;
   },
 
   classID: Components.ID("{c01fd751-43c0-460a-8b64-abf652ec7220}"),

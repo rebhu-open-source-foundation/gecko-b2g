@@ -247,13 +247,14 @@ this.WifiNetworkSelector = (function() {
     // Penalty for no internet network. Make sure if there is any network with
     // Internet.However, if there is no any other network with internet, this
     // network can be chosen.
-    if (
-      typeof scanResult.hasInternet !== "undefined" &&
-      !scanResult.hasInternet
-    ) {
-      score -= NO_INTERNET_PENALTY;
-      debug(" No internet Penalty:-" + NO_INTERNET_PENALTY);
-    }
+    // FIXME: network validation is not ready
+    // if (
+    //   typeof scanResult.hasInternet !== "undefined" &&
+    //   !scanResult.hasInternet
+    // ) {
+    //   score -= NO_INTERNET_PENALTY;
+    //   debug(" No internet Penalty:-" + NO_INTERNET_PENALTY);
+    // }
 
     debug(
       " Score for scanResult: " + uneval(scanResult) + " final score:" + score
@@ -341,19 +342,19 @@ this.WifiNetworkSelector = (function() {
     //TODO: 1. 2.4GHz networks is not qualified whenever 5GHz is available.
     //      2. Tx/Rx Success rate shall be considered.
 
-    let currentRssi = wifiInfo.rssi;
-    let hasQualifiedRssi =
-      (wifiInfo.is24G && currentRssi > RSSI_THRESHOLD_LOW_24G) ||
-      (wifiInfo.is5G && currentRssi > RSSI_THRESHOLD_LOW_5G);
+    // let currentRssi = wifiInfo.rssi;
+    // let hasQualifiedRssi =
+    //   (wifiInfo.is24G && currentRssi > RSSI_THRESHOLD_LOW_24G) ||
+    //   (wifiInfo.is5G && currentRssi > RSSI_THRESHOLD_LOW_5G);
 
-    if (!hasQualifiedRssi) {
-      debug(
-        "Current network RSSI[" +
-          currentRssi +
-          "]-acceptable but not qualified."
-      );
-      return false;
-    }
+    // if (!hasQualifiedRssi) {
+    //   debug(
+    //     "Current network RSSI[" +
+    //       currentRssi +
+    //       "]-acceptable but not qualified."
+    //   );
+    //   return false;
+    // }
 
     return true;
   }

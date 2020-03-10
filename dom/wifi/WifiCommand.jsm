@@ -97,24 +97,19 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.setDebugLevel = function(level, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_DEBUG_LEVEL,
-      iface: aInterface,
-      debugLevel: level,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_DEBUG_LEVEL, "debugLevel", level, callback);
   };
 
   command.setLowLatencyMode = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_LOW_LATENCY_MODE, enable, callback);
+    doSetCommand(WIFI_CMD_SET_LOW_LATENCY_MODE, "enabled", enable, callback);
   };
 
   command.setStaHigherPriority = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_CONCURRENCY_PRIORITY, enable, callback);
+    doSetCommand(WIFI_CMD_SET_CONCURRENCY_PRIORITY, "enabled", enable, callback);
   };
 
   command.startWifi = function(callback) {
-    voidControlMessage(WIFI_CMD_START_WIFI, callback);
+    doGetCommand(WIFI_CMD_START_WIFI, callback);
   };
 
   command.stopWifi = function(callback) {
@@ -134,50 +129,35 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.setPowerSave = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_POWER_SAVE, enable, callback);
+    doSetCommand(WIFI_CMD_SET_POWER_SAVE, "enabled", enable, callback);
   };
 
   command.setSuspendMode = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_SUSPEND_MODE, enable, callback);
+    doSetCommand(WIFI_CMD_SET_SUSPEND_MODE, "enabled", enable, callback);
   };
 
   command.setExternalSim = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_EXTERNAL_SIM, enable, callback);
+    doSetCommand(WIFI_CMD_SET_EXTERNAL_SIM, "enabled", enable, callback);
   };
 
   command.enableAutoReconnect = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_AUTO_RECONNECT, enable, callback);
+    doSetCommand(WIFI_CMD_SET_AUTO_RECONNECT, "enabled", enable, callback);
   };
 
-  command.setCountryCode = function(countryCode, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_COUNTRY_CODE,
-      iface: aInterface,
-      countryCode: countryCode,
-    };
-    aControlMessage(msg, callback);
+  command.setCountryCode = function(code, callback) {
+    doSetCommand(WIFI_CMD_SET_COUNTRY_CODE, "countryCode", code, callback);
   };
 
   command.setBluetoothCoexistenceMode = function(mode, callback) {
-    let msg = {
-      cmd: WIFI_CMD_SET_BT_COEXIST_MODE,
-      iface: aInterface,
-      btCoexistenceMode: mode,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_SET_BT_COEXIST_MODE, "btCoexistenceMode", mode, callback);
   };
 
   command.setBluetoothCoexistenceScanMode = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_BT_COEXIST_SCAN_MODE, enable, callback);
+    doSetCommand(WIFI_CMD_SET_BT_COEXIST_SCAN_MODE, "enabled", enable, callback);
   };
 
   command.startScan = function(settings, callback) {
-    let msg = {
-      cmd: WIFI_CMD_START_SINGLE_SCAN,
-      iface: aInterface,
-      scanSettings: settings,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_START_SINGLE_SCAN, "scanSettings", settings, callback);
   };
 
   command.stopScan = function(callback) {
@@ -218,12 +198,7 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.connect = function(config, callback) {
-    let msg = {
-      cmd: WIFI_CMD_CONNECT,
-      iface: aInterface,
-      config: config,
-    };
-    aControlMessage(msg, callback);
+    doSetCommand(WIFI_CMD_CONNECT, "config", config, callback);
   };
 
   command.reconnect = function(callback) {
@@ -251,13 +226,7 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.startSoftap = function(config, callback) {
-    aControlMessage(
-      {
-        cmd: WIFI_CMD_START_SOFTAP,
-        iface: aInterface,
-        softapConfig: config
-      },
-      callback);
+    doSetCommand(WIFI_CMD_START_SOFTAP, "softapConfig", config, callback);
   };
 
   command.stopSoftap = function(callback) {
@@ -284,9 +253,11 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     });
   }
 
-  function doSetCommand(cmd, enable, callback) {
-    aControlMessage({ cmd, iface: aInterface, enabled: enable }, function(result) {
-      callback(result);
+  function doSetCommand(cmd, item, data, callback) {
+    let msg = { cmd, iface: aInterface };
+    msg[item] = data;
+    aControlMessage(msg, function(result) {
+      callback(result.status);
     });
   }
 

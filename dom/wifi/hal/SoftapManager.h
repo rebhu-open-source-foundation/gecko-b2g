@@ -40,15 +40,15 @@ class SoftapManager
   static void CleanUp();
 
   // HIDL initialization
-  bool InitInterface();
-  bool DeinitInterface();
+  Result_t InitInterface();
+  Result_t DeinitInterface();
   bool IsInterfaceInitializing();
   bool IsInterfaceReady();
 
-  bool StartSoftap(const std::string& aInterfaceName,
-                   SoftapConfigurationOptions* aSoftapConfig);
-  bool StopSoftap(const std::string& aInterfaceName);
-  void SetSoftapCountryCode(const std::string& aCountryCode);
+  Result_t StartSoftap(const std::string& aInterfaceName,
+                       const std::string& aCountryCode,
+                       SoftapConfigurationOptions* aSoftapConfig);
+  Result_t StopSoftap(const std::string& aInterfaceName);
 
   // IServiceNotification::onRegistration
   virtual Return<void> onRegistration(const hidl_string& fqName,
@@ -87,9 +87,9 @@ class SoftapManager
 
   SoftapManager();
   virtual ~SoftapManager();
-  bool InitServiceManager();
-  bool InitHostapdInterface();
-  bool TearDownInterface();
+  Result_t InitServiceManager();
+  Result_t InitHostapdInterface();
+  Result_t TearDownInterface();
 
   static SoftapManager* s_Instance;
   static mozilla::Mutex s_Lock;

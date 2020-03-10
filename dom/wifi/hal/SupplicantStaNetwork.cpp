@@ -13,6 +13,16 @@ constexpr uint32_t key_mgmt_none =
     (ISupplicantStaNetwork::KeyMgmtMask::NONE | 0x0);
 constexpr uint32_t key_mgmt_wpa_psk =
     (ISupplicantStaNetwork::KeyMgmtMask::WPA_PSK | 0x0);
+constexpr uint32_t key_mgmt_wpa_eap =
+    (ISupplicantStaNetwork::KeyMgmtMask::WPA_EAP | 0x0);
+constexpr uint32_t key_mgmt_ieee8021x =
+    (ISupplicantStaNetwork::KeyMgmtMask::IEEE8021X | 0x0);
+constexpr uint32_t key_mgmt_ft_psk =
+    (ISupplicantStaNetwork::KeyMgmtMask::FT_PSK | 0x0);
+constexpr uint32_t key_mgmt_ft_eap =
+    (ISupplicantStaNetwork::KeyMgmtMask::FT_EAP | 0x0);
+constexpr uint32_t key_mgmt_osen =
+    (ISupplicantStaNetwork::KeyMgmtMask::OSEN | 0x0);
 
 mozilla::Mutex SupplicantStaNetwork::s_Lock("supplicant-network");
 
@@ -22,17 +32,17 @@ SupplicantStaNetwork::SupplicantStaNetwork(ISupplicantStaNetwork* aNetwork) {
 
 SupplicantStaNetwork::~SupplicantStaNetwork() {}
 
-bool SupplicantStaNetwork::SetConfiguration(ConfigurationOptions* aConfig) {
+Result_t SupplicantStaNetwork::SetConfiguration(ConfigurationOptions* aConfig) {
   if (aConfig == nullptr) {
     WIFI_LOGE(LOG_TAG, "configuration is null");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_ARGS;
   }
 
   // ssid
   if (!aConfig->mSsid.IsEmpty()) {
     std::string ssid(NS_ConvertUTF16toUTF8(aConfig->mSsid).get());
     if (SetSsid(ssid) != SupplicantStatusCode::SUCCESS) {
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
 
@@ -40,37 +50,45 @@ bool SupplicantStaNetwork::SetConfiguration(ConfigurationOptions* aConfig) {
   if (!aConfig->mBssid.IsEmpty()) {
     std::string bssid(NS_ConvertUTF16toUTF8(aConfig->mBssid).get());
     if (SetBssid(bssid) != SupplicantStatusCode::SUCCESS) {
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
 
   // key management
-  if (SetKeyMgmt(aConfig->mKeyManagement) != SupplicantStatusCode::SUCCESS) {
-    return false;
+  uint32_t keyMgmtMask;
+  if (aConfig->mKeyMgmt.IsEmpty()) {
+    keyMgmtMask = key_mgmt_none;
+  } else {
+    std::string keyMgmt(NS_ConvertUTF16toUTF8(aConfig->mKeyMgmt).get());
+    // remove quotation marks
+    Dequote(keyMgmt);
+    keyMgmtMask = ConvertKeyMgmtToMask(keyMgmt);
+  }
+  if (SetKeyMgmt(keyMgmtMask) != SupplicantStatusCode::SUCCESS) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   // psk
   if (!aConfig->mPsk.IsEmpty()) {
     std::string psk(NS_ConvertUTF16toUTF8(aConfig->mPsk).get());
     if (SetPsk(psk) != SupplicantStatusCode::SUCCESS) {
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SupplicantStaNetwork::GetConfiguration() {
+Result_t SupplicantStaNetwork::GetConfiguration() {
   MOZ_ASSERT(mNetwork);
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SupplicantStaNetwork::SelectNetwork() {
+Result_t SupplicantStaNetwork::SelectNetwork() {
   MOZ_ASSERT(mNetwork);
-
   mNetwork->select([](const SupplicantStatus& status) {
     WIFI_LOGD(LOG_TAG, "select network: %d", status.code);
   });
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
 /**
@@ -78,10 +96,13 @@ bool SupplicantStaNetwork::SelectNetwork() {
  */
 SupplicantStatusCode SupplicantStaNetwork::SetSsid(const std::string& aSsid) {
   MOZ_ASSERT(mNetwork);
-  WIFI_LOGD(LOG_TAG, "ssid => %s", aSsid.c_str());
+  std::string ssid_str(aSsid);
+  Dequote(ssid_str);
+
+  WIFI_LOGD(LOG_TAG, "ssid => %s", ssid_str.c_str());
 
   SupplicantStatus response;
-  std::vector<uint8_t> ssid(aSsid.begin(), aSsid.end());
+  std::vector<uint8_t> ssid(ssid_str.begin(), ssid_str.end());
 
   mNetwork->setSsid(ssid, [&response](const SupplicantStatus& status) {
     response = status;
@@ -96,9 +117,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetBssid(const std::string& aBssid) {
 
   SupplicantStatus response;
   std::array<uint8_t, 6> bssid;
-
-  std::sscanf(aBssid.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x", bssid[0],
-              bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
+  ConvertMacToByteArray(aBssid, bssid);
 
   mNetwork->setBssid(bssid, [&response](const SupplicantStatus& status) {
     response = status;
@@ -107,7 +126,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetBssid(const std::string& aBssid) {
   return response.code;
 }
 
-SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(int32_t aKeyMgmtMask) {
+SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(uint32_t aKeyMgmtMask) {
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "key_mgmt => %d", aKeyMgmtMask);
 
@@ -130,6 +149,29 @@ SupplicantStatusCode SupplicantStaNetwork::SetPsk(const std::string& aPsk) {
     response = status;
   });
   return response.code;
+}
+
+uint32_t SupplicantStaNetwork::ConvertKeyMgmtToMask(
+    const std::string& aKeyMgmt) {
+  uint32_t mask;
+  if (aKeyMgmt.compare("NONE") == 0) {
+    mask = key_mgmt_none;
+  } else if (aKeyMgmt.compare("WPA-PSK") == 0 ||
+             aKeyMgmt.compare("WPA2-PSK") == 0) {
+    mask = key_mgmt_wpa_psk;
+  } else if (aKeyMgmt.compare("WPA-EAP") == 0) {
+    mask = key_mgmt_wpa_eap;
+  } else if (aKeyMgmt.compare("FT-PSK") == 0) {
+    mask = key_mgmt_ft_psk;
+  } else if (aKeyMgmt.compare("FT_EAP") == 0) {
+    mask = key_mgmt_ft_eap;
+  } else if (aKeyMgmt.compare("OSEN") == 0) {
+    mask = key_mgmt_osen;
+  } else {
+    WIFI_LOGD(LOG_TAG, "Unknown key management, use default NONE");
+    mask = key_mgmt_none;
+  }
+  return mask;
 }
 
 /**

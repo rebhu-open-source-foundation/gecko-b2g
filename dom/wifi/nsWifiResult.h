@@ -26,7 +26,7 @@ class nsWifiResult final : public nsIWifiResult {
   void updateChannels(nsTArray<int32_t>& aChannels);
 
   uint32_t mId;
-  bool mStatus;
+  uint32_t mStatus;
 
   nsString mDriverVersion;
   nsString mFirmwareVersion;

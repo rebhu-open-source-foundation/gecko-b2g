@@ -79,27 +79,27 @@ void SupplicantStaManager::UnregisterEventCallback() {
   mEventCallback = nullptr;
 }
 
-bool SupplicantStaManager::InitInterface() {
+Result_t SupplicantStaManager::InitInterface() {
   if (mSupplicant != nullptr) {
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
   return InitServiceManager();
 }
 
-bool SupplicantStaManager::DeinitInterface() { return TearDownInterface(); }
+Result_t SupplicantStaManager::DeinitInterface() { return TearDownInterface(); }
 
-bool SupplicantStaManager::InitServiceManager() {
+Result_t SupplicantStaManager::InitServiceManager() {
   MutexAutoLock lock(s_Lock);
   if (mServiceManager != nullptr) {
     // service already existed.
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
 
   mServiceManager =
       ::android::hidl::manager::V1_0::IServiceManager::getService();
   if (mServiceManager == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to get HIDL service manager");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
@@ -112,19 +112,19 @@ bool SupplicantStaManager::InitServiceManager() {
     WIFI_LOGE(LOG_TAG, "Error on linkToDeath to IServiceManager");
     supplicantServiceDiedHandler(mDeathRecipientCookie);
     mServiceManager = nullptr;
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   if (!mServiceManager->registerForNotifications(SUPPLICANT_INTERFACE_NAME, "",
                                                  this)) {
     WIFI_LOGE(LOG_TAG, "Failed to register for notifications to ISupplicant");
     mServiceManager = nullptr;
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SupplicantStaManager::InitSupplicantInterface() {
+Result_t SupplicantStaManager::InitSupplicantInterface() {
   MutexAutoLock lock(s_Lock);
   mSupplicant = ISupplicant::getService();
 
@@ -141,7 +141,7 @@ bool SupplicantStaManager::InitSupplicantInterface() {
                   "Failed to link to supplicant hal death notifications");
         supplicantServiceDiedHandler(mDeathRecipientCookie);
         mSupplicant = nullptr;
-        return false;
+        return nsIWifiResult::ERROR_COMMAND_FAILED;
       }
     }
 
@@ -155,10 +155,9 @@ bool SupplicantStaManager::InitSupplicantInterface() {
     }
   } else {
     WIFI_LOGE(LOG_TAG, "get supplicant hal failed");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
 bool SupplicantStaManager::IsInterfaceInitializing() {
@@ -171,7 +170,7 @@ bool SupplicantStaManager::IsInterfaceReady() {
   return mSupplicant != nullptr;
 }
 
-bool SupplicantStaManager::TearDownInterface() {
+Result_t SupplicantStaManager::TearDownInterface() {
   MutexAutoLock lock(s_Lock);
   if (mSupplicantStaIface.get()) {
     SupplicantStatus response;
@@ -184,16 +183,16 @@ bool SupplicantStaManager::TearDownInterface() {
 
     if (response.code != SupplicantStatusCode::SUCCESS) {
       WIFI_LOGE(LOG_TAG, "Failed to remove sta interface");
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
   mSupplicant = nullptr;
   mSupplicantStaIface = nullptr;
   mServiceManager = nullptr;
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SupplicantStaManager::GetMacAddress(nsAString& aMacAddress) {
+Result_t SupplicantStaManager::GetMacAddress(nsAString& aMacAddress) {
   SupplicantStatus response;
   mSupplicantStaIface->getMacAddress(
       [&](const SupplicantStatus& status,
@@ -205,31 +204,32 @@ bool SupplicantStaManager::GetMacAddress(nsAString& aMacAddress) {
           aMacAddress.Assign(address);
         }
       });
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::GetSupplicantDebugLevel(uint32_t& aLevel) {
+Result_t SupplicantStaManager::GetSupplicantDebugLevel(uint32_t& aLevel) {
   if (mSupplicant == nullptr) {
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   aLevel = (uint32_t)ISupplicant::DebugLevel(mSupplicant->getDebugLevel());
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SupplicantStaManager::SetSupplicantDebugLevel(
+Result_t SupplicantStaManager::SetSupplicantDebugLevel(
     SupplicantDebugLevelOptions* aLevel) {
   mSupplicant->setDebugParams(
       static_cast<ISupplicant::DebugLevel>(aLevel->mLogLevel),
-      aLevel->mShowTimeStamp, aLevel->mShowKeys,
+      aLevel->mShowTimeStamp,
+      aLevel->mShowKeys,
       [](const SupplicantStatus& status) {
         if (status.code != SupplicantStatusCode::SUCCESS) {
           WIFI_LOGE(LOG_TAG, "Failed to set suppliant debug level");
         }
       });
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SupplicantStaManager::SetConcurrencyPriority(bool aEnable) {
+Result_t SupplicantStaManager::SetConcurrencyPriority(bool aEnable) {
   SupplicantNameSpace::IfaceType type =
       (aEnable ? SupplicantNameSpace::IfaceType::STA
                : SupplicantNameSpace::IfaceType::P2P);
@@ -237,41 +237,41 @@ bool SupplicantStaManager::SetConcurrencyPriority(bool aEnable) {
   SupplicantStatus response;
   HIDL_SET(mSupplicant, setConcurrencyPriority, SupplicantStatus, response,
            type);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::SetPowerSave(bool aEnable) {
+Result_t SupplicantStaManager::SetPowerSave(bool aEnable) {
   SupplicantStatus response;
   HIDL_SET(mSupplicantStaIface, setPowerSave, SupplicantStatus, response,
            aEnable);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::SetSuspendMode(bool aEnable) {
+Result_t SupplicantStaManager::SetSuspendMode(bool aEnable) {
   SupplicantStatus response;
   HIDL_SET(mSupplicantStaIface, setSuspendModeEnabled, SupplicantStatus,
            response, aEnable);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::SetExternalSim(bool aEnable) {
+Result_t SupplicantStaManager::SetExternalSim(bool aEnable) {
   SupplicantStatus response;
   HIDL_SET(mSupplicantStaIface, setExternalSim, SupplicantStatus, response,
            aEnable);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::SetAutoReconnect(bool aEnable) {
+Result_t SupplicantStaManager::SetAutoReconnect(bool aEnable) {
   SupplicantStatus response;
   HIDL_SET(mSupplicantStaIface, enableAutoReconnect, SupplicantStatus, response,
            aEnable);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::SetCountryCode(const std::string& aCountryCode) {
+Result_t SupplicantStaManager::SetCountryCode(const std::string& aCountryCode) {
   if (aCountryCode.length() != 2) {
     WIFI_LOGE(LOG_TAG, "Invalid country code: %s", aCountryCode.c_str());
-    return false;
+    return nsIWifiResult::ERROR_INVALID_ARGS;
   }
   std::array<int8_t, 2> countryCode;
   countryCode[0] = aCountryCode.at(0);
@@ -280,25 +280,25 @@ bool SupplicantStaManager::SetCountryCode(const std::string& aCountryCode) {
   SupplicantStatus response;
   HIDL_SET(mSupplicantStaIface, setCountryCode, SupplicantStatus, response,
            countryCode);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::SetBtCoexistenceMode(uint8_t aMode) {
+Result_t SupplicantStaManager::SetBtCoexistenceMode(uint8_t aMode) {
   SupplicantStatus response;
   HIDL_SET(mSupplicantStaIface, setBtCoexistenceMode, SupplicantStatus,
            response, (ISupplicantStaIface::BtCoexistenceMode)aMode);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::SetBtCoexistenceScanMode(bool aEnable) {
+Result_t SupplicantStaManager::SetBtCoexistenceScanMode(bool aEnable) {
   SupplicantStatus response;
   HIDL_SET(mSupplicantStaIface, setBtCoexistenceScanModeEnabled,
            SupplicantStatus, response, aEnable);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
 // Helper function to find any iface of the desired type exposed.
-bool SupplicantStaManager::FindIfaceOfType(
+Result_t SupplicantStaManager::FindIfaceOfType(
     android::sp<ISupplicant> aSupplicant,
     SupplicantNameSpace::IfaceType aDesired, ISupplicant::IfaceInfo* aInfo) {
   SupplicantStatus response;
@@ -309,25 +309,25 @@ bool SupplicantStaManager::FindIfaceOfType(
     iface_infos = infos;
   });
   if (response.code != SupplicantStatusCode::SUCCESS) {
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   for (const auto& info : iface_infos) {
     if (info.type == aDesired) {
       *aInfo = info;
-      return true;
+      return nsIWifiResult::SUCCESS;
     }
   }
-  return false;
+  return nsIWifiResult::ERROR_COMMAND_FAILED;
 }
 
-bool SupplicantStaManager::SetupStaInterface(
+Result_t SupplicantStaManager::SetupStaInterface(
     const std::string& aInterfaceName) {
   mStaInterfaceName = aInterfaceName;
 
   if (mSupplicantStaIface == nullptr) {
     mSupplicantStaIface = AddSupplicantStaIface();
   }
-  return (mSupplicantStaIface != nullptr);
+  return CHECK_SUCCESS(mSupplicantStaIface != nullptr);
 }
 
 android::sp<ISupplicantStaIface> SupplicantStaManager::GetSupplicantStaIface() {
@@ -444,51 +444,75 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::GetNetwork(
               response.code);
     return nullptr;
   }
-
   return new SupplicantStaNetwork(sta_network.get());
 }
 
-bool SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
+Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
   // create network in supplicant and set configuration
   android::sp<SupplicantStaNetwork> sta_network = CreateStaNetwork();
 
   if (!sta_network.get()) {
     WIFI_LOGE(LOG_TAG, "Failed to create sta network");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
-  if (!sta_network->SetConfiguration(aConfig)) {
+  Result_t result = sta_network->SetConfiguration(aConfig);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to set wifi configuration.");
     // TODO: need to remove network here
-    return false;
+    return result;
   }
   // success, start to make connection
   sta_network->SelectNetwork();
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SupplicantStaManager::Reconnect() {
+Result_t SupplicantStaManager::Reconnect() {
   SupplicantStatus response;
   HIDL_CALL(mSupplicantStaIface, reconnect, SupplicantStatus, response);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::Reassociate() {
+Result_t SupplicantStaManager::Reassociate() {
   SupplicantStatus response;
   HIDL_CALL(mSupplicantStaIface, reassociate, SupplicantStatus, response);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::Disconnect() {
+Result_t SupplicantStaManager::Disconnect() {
   SupplicantStatus response;
   HIDL_CALL(mSupplicantStaIface, disconnect, SupplicantStatus, response);
-  return (response.code == SupplicantStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
-bool SupplicantStaManager::RemoveNetworks() {
-  // list network
+Result_t SupplicantStaManager::RemoveNetworks() {
+  SupplicantStatus response;
+  // first, get network id list from supplicant
+  std::vector<uint32_t> netIds;
+  mSupplicantStaIface->listNetworks(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_vec<uint32_t>& networkIds) {
+        response = status;
+        if (response.code == SupplicantStatusCode::SUCCESS) {
+          netIds = networkIds;
+        }
+      });
+
+  if (response.code != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to query saved networks in supplicant");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
   // remove network
-  return true;
+  for (uint32_t id : netIds) {
+    HIDL_SET(mSupplicantStaIface, removeNetwork, SupplicantStatus,
+             response, id);
+    if (response.code != SupplicantStatusCode::SUCCESS) {
+      WIFI_LOGE(LOG_TAG, "Failed to remove network %d", id);
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
+    }
+  }
+  return nsIWifiResult::SUCCESS;
 }
 
 /**
@@ -518,16 +542,16 @@ android::sp<ISupplicantP2pIface> SupplicantStaManager::GetSupplicantP2pIface() {
   return p2p_iface;
 }
 
-bool SupplicantStaManager::SetupP2pInterface() {
+Result_t SupplicantStaManager::SetupP2pInterface() {
   android::sp<ISupplicantP2pIface> p2p_iface = GetSupplicantP2pIface();
   if (!p2p_iface.get()) {
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
   p2p_iface->saveConfig([](const SupplicantStatus& status) {
     WIFI_LOGD(LOG_TAG, "[P2P] save config: %d", status.code);
   });
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
 void SupplicantStaManager::RegisterDeathHandler(
@@ -557,7 +581,7 @@ Return<void> SupplicantStaManager::onRegistration(const hidl_string& fqName,
                                                   const hidl_string& name,
                                                   bool preexisting) {
   // start to initialize supplicant hidl interface.
-  if (!InitSupplicantInterface()) {
+  if (InitSupplicantInterface() != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "initialize ISupplicant failed");
     supplicantServiceDiedHandler(mDeathRecipientCookie);
   }

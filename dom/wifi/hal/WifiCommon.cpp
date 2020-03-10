@@ -23,3 +23,37 @@ std::string ConvertMacToString(const T& mac) {
   }
   return stream.str();
 }
+
+static int32_t HexToNum(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+template <typename T>
+int32_t ConvertMacToByteArray(const std::string& mac, T& out) {
+  size_t pos = 0;
+  for (size_t i = 0; i < 6; i++) {
+    int32_t a, b;
+
+    while (mac.at(pos) == ':' || mac.at(pos) == '.' || mac.at(pos) == '-') {
+      pos = pos + 1;
+    }
+
+    a = HexToNum(mac.at(pos++));
+    if (a < 0) return -1;
+    b = HexToNum(mac.at(pos++));
+    if (b < 0) return -1;
+    out[i] = (a << 4) | b;
+  }
+  return pos;
+}
+
+void Dequote(std::string& s) {
+  if (s.front() != '"' || s.back() != '"') {
+    return;
+  }
+  s.erase(0, 1);
+  s.erase(s.length() - 1);
+}

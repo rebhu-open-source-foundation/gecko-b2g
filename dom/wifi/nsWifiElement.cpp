@@ -10,25 +10,25 @@
  * nsWifiConfiguration
  */
 nsWifiConfiguration::nsWifiConfiguration(
-    const nsAString& aSsid, const nsAString& aBssid, const nsAString& aPsk,
+    const nsAString& aSsid, const nsAString& aBssid,
+    const nsAString& aKeyManagement, const nsAString& aPsk,
     const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
-    uint32_t aKeyManagement, int32_t aProto, int32_t aAuthAlg,
-    int32_t aGroupCipher, int32_t aPairwiseCipher, int32_t aEap,
-    int32_t aEapPhase2, const nsAString& aIdentity,
-    const nsAString& aAnonymousId, const nsAString& aPassword,
-    const nsAString& aClientCert, const nsAString& aCaCert,
-    const nsAString& aCaPath, const nsAString& aSubjectMatch,
-    const nsAString& aEngineId, bool aEngine, const nsAString& aPrivateKeyId,
-    const nsAString& aAltSubjectMatch, const nsAString& aDomainSuffixMatch,
-    bool aProactiveKeyCaching) {
+    int32_t aProto, int32_t aAuthAlg, int32_t aGroupCipher,
+    int32_t aPairwiseCipher, int32_t aEap, int32_t aEapPhase2,
+    const nsAString& aIdentity, const nsAString& aAnonymousId,
+    const nsAString& aPassword, const nsAString& aClientCert,
+    const nsAString& aCaCert, const nsAString& aCaPath,
+    const nsAString& aSubjectMatch, const nsAString& aEngineId, bool aEngine,
+    const nsAString& aPrivateKeyId, const nsAString& aAltSubjectMatch,
+    const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching) {
   mSsid = aSsid;
   mBssid = aBssid;
+  mKeyManagement = aKeyManagement;
   mPsk = aPsk;
   mWepKey = aWepKey;
   mWepTxKeyIndex = aWepTxKeyIndex;
   mScanSsid = aScanSsid;
   mPmf = aPmf;
-  mKeyManagement = aKeyManagement;
   mProto = aProto;
   mAuthAlg = aAuthAlg;
   mGroupCipher = aGroupCipher;
@@ -92,8 +92,8 @@ nsWifiConfiguration::GetPmf(bool* aPmf) {
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetKeyManagement(uint32_t* aKeyManagement) {
-  *aKeyManagement = mKeyManagement;
+nsWifiConfiguration::GetKeyManagement(nsAString& aKeyManagement) {
+  aKeyManagement = mKeyManagement;
   return NS_OK;
 }
 

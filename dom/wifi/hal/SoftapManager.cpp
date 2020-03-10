@@ -59,19 +59,20 @@ void SoftapManager::CleanUp() {
   }
 }
 
-bool SoftapManager::InitInterface() {
+Result_t SoftapManager::InitInterface() {
   if (mHostapd != nullptr) {
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
-  if (!InitServiceManager()) {
-    return false;
+  Result_t result = InitServiceManager();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
   // start hostapd daemon through lazy HAL.
   IHostapd_1_1::getService();
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SoftapManager::DeinitInterface() { return TearDownInterface(); }
+Result_t SoftapManager::DeinitInterface() { return TearDownInterface(); }
 
 bool SoftapManager::IsInterfaceInitializing() {
   MutexAutoLock lock(s_Lock);
@@ -83,18 +84,18 @@ bool SoftapManager::IsInterfaceReady() {
   return mHostapd != nullptr;
 }
 
-bool SoftapManager::InitServiceManager() {
+Result_t SoftapManager::InitServiceManager() {
   MutexAutoLock lock(s_Lock);
   if (mServiceManager != nullptr) {
     // service already existed.
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
   mHostapd = nullptr;
   mServiceManager =
       ::android::hidl::manager::V1_0::IServiceManager::getService();
   if (mServiceManager == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to get HIDL service manager");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
@@ -106,7 +107,7 @@ bool SoftapManager::InitServiceManager() {
   if (!linked || !linked.isOk()) {
     WIFI_LOGE(LOG_TAG, "Error on linkToDeath to IServiceManager");
     mServiceManager = nullptr;
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   // interface name android.hardware.wifi.hostapd@1.1::IHostapd
@@ -114,21 +115,21 @@ bool SoftapManager::InitServiceManager() {
       IHostapd_1_1::descriptor, "", this)) {
     WIFI_LOGE(LOG_TAG, "Failed to register for notifications to IHostapd");
     mServiceManager = nullptr;
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SoftapManager::InitHostapdInterface() {
+Result_t SoftapManager::InitHostapdInterface() {
   MutexAutoLock lock(s_Lock);
   if (mHostapd != nullptr) {
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
 
   mHostapd = IHostapd_1_1::getService();
   if (mHostapd == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to get hostapd interface");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   if (mHostapdDeathRecipient == nullptr) {
@@ -140,7 +141,7 @@ bool SoftapManager::InitHostapdInterface() {
     if (!linked || !linked.isOk()) {
       WIFI_LOGE(LOG_TAG, "Failed to link to hostapd hal death notifications");
       mHostapd = nullptr;
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
 
@@ -151,31 +152,33 @@ bool SoftapManager::InitHostapdInterface() {
     WIFI_LOGE(LOG_TAG, "Failed to register hostapd callback: %d, reason: %s",
               response.code, response.debugMessage.c_str());
     mHostapd = nullptr;
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SoftapManager::TearDownInterface() {
+Result_t SoftapManager::TearDownInterface() {
   MutexAutoLock lock(s_Lock);
   if (mHostapd.get()) {
     mHostapd->terminate();
   }
   mHostapd = nullptr;
   mServiceManager = nullptr;
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool SoftapManager::StartSoftap(const std::string& aInterfaceName,
-                                SoftapConfigurationOptions* aSoftapConfig) {
+Result_t SoftapManager::StartSoftap(const std::string& aInterfaceName,
+                                    const std::string& aCountryCode,
+                                    SoftapConfigurationOptions* aSoftapConfig) {
   if (aSoftapConfig == nullptr || aSoftapConfig->mSsid.IsEmpty()) {
     WIFI_LOGE(LOG_TAG, "Invalid configuration");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_ARGS;
   }
+  mCountryCode = aCountryCode;
   if (aSoftapConfig->mBand == nsISoftapConfiguration::AP_BAND_5GHZ) {
     if (mCountryCode.empty()) {
       WIFI_LOGE(LOG_TAG, "Must have country code for 5G band");
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
   if (mHostapd == nullptr) {
@@ -200,15 +203,13 @@ bool SoftapManager::StartSoftap(const std::string& aInterfaceName,
   networkParams.ssid = std::vector<uint8_t>(ssid.begin(), ssid.end());
   networkParams.isHidden = aSoftapConfig->mHidden;
 
-  if (aSoftapConfig->mKeyManagement == nsISoftapConfiguration::SECURITY_NONE) {
+  if (aSoftapConfig->mKeyMgmt == nsISoftapConfiguration::SECURITY_NONE) {
     networkParams.encryptionType = IHostapd::EncryptionType::NONE;
-  } else if (aSoftapConfig->mKeyManagement ==
-             nsISoftapConfiguration::SECURITY_WPA) {
+  } else if (aSoftapConfig->mKeyMgmt == nsISoftapConfiguration::SECURITY_WPA) {
     networkParams.encryptionType = IHostapd::EncryptionType::WPA;
     std::string psk(NS_ConvertUTF16toUTF8(aSoftapConfig->mKey).get());
     networkParams.pskPassphrase = psk;
-  } else if (aSoftapConfig->mKeyManagement ==
-             nsISoftapConfiguration::SECURITY_WPA2) {
+  } else if (aSoftapConfig->mKeyMgmt == nsISoftapConfiguration::SECURITY_WPA2) {
     networkParams.encryptionType = IHostapd::EncryptionType::WPA2;
     std::string psk(NS_ConvertUTF16toUTF8(aSoftapConfig->mKey).get());
     networkParams.pskPassphrase = psk;
@@ -220,22 +221,14 @@ bool SoftapManager::StartSoftap(const std::string& aInterfaceName,
   mHostapd->addAccessPoint_1_1(
       ifaceParams_1_1, networkParams,
       [&](const HostapdStatus& status) { response = status; });
-  if (response.code != HostapdStatusCode::SUCCESS) {
-    WIFI_LOGE(LOG_TAG, "Failed to start softap: %s", ssid.c_str());
-    return false;
-  }
-  return true;
+  return CHECK_SUCCESS(response.code == HostapdStatusCode::SUCCESS);
 }
 
-bool SoftapManager::StopSoftap(const std::string& aInterfaceName) {
+Result_t SoftapManager::StopSoftap(const std::string& aInterfaceName) {
   HostapdStatus response;
   HIDL_SET(mHostapd, removeAccessPoint, HostapdStatus, response,
            aInterfaceName);
-  return (response.code == HostapdStatusCode::SUCCESS);
-}
-
-void SoftapManager::SetSoftapCountryCode(const std::string& aCountryCode) {
-  mCountryCode = aCountryCode;
+  return CHECK_SUCCESS(response.code == HostapdStatusCode::SUCCESS);
 }
 
 /**
@@ -245,7 +238,7 @@ Return<void> SoftapManager::onRegistration(const hidl_string& fqName,
                                            const hidl_string& name,
                                            bool preexisting) {
   // start to initialize hostapd hidl interface.
-  if (!InitHostapdInterface()) {
+  if (InitHostapdInterface() != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to initialize hostapd interface");
     mServiceManager = nullptr;
     mHostapd = nullptr;

@@ -7,11 +7,20 @@
 
 interface nsIScanResult;
 
-[scriptable, uuid(86d6ca17-5e9c-4939-a2ca-275d08c117ef)]
+[scriptable, uuid(cc3b1857-8bac-4c5c-917f-8cf72f71a392)]
 interface nsIWifiResult : nsISupports
 {
+  /* status code */
+  const unsigned long SUCCESS = 0;
+  const unsigned long ERROR_COMMAND_FAILED = 1;
+  const unsigned long ERROR_INVALID_INTERFACE = 2;
+  const unsigned long ERROR_INVALID_ARGS = 3;
+  const unsigned long ERROR_NOT_SUPPORTED = 4;
+  const unsigned long ERROR_TIMEOUT = 5;
+  const unsigned long ERROR_UNKNOWN = 6;
+
   readonly attribute unsigned long id;
-  readonly attribute boolean status;
+  readonly attribute unsigned long status;
 
   readonly attribute AString driverVersion;
   readonly attribute AString firmwareVersion;
@@ -22,8 +31,16 @@ interface nsIWifiResult : nsISupports
   readonly attribute unsigned long staCapabilities;
   readonly attribute unsigned long debugLevel;
 
+  /**
+   * Query supported channel list
+   *
+   * Invoke the function to get the return value for GET_CHANNELS_FOR_BAND.
+   */
   Array<int32_t> getChannels();
-
-  void getScanResults([optional] out unsigned long count,
-                      [array, size_is(count), retval] out nsIScanResult scanResults);
+  /**
+   * Query single scan results
+   *
+   * Invoke the function to get the return value for GET_SCAN_RESULTS.
+   */
+  Array<nsIScanResult> getScanResults();
 };

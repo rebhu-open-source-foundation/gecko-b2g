@@ -52,30 +52,30 @@ class SupplicantStaManager
   void UnregisterEventCallback();
 
   // HIDL initialization
-  bool InitInterface();
-  bool DeinitInterface();
+  Result_t InitInterface();
+  Result_t DeinitInterface();
   bool IsInterfaceInitializing();
   bool IsInterfaceReady();
 
   // functions to invoke supplicant APIs
-  bool GetMacAddress(nsAString& aMacAddress);
-  bool GetSupplicantDebugLevel(uint32_t& aLevel);
-  bool SetSupplicantDebugLevel(SupplicantDebugLevelOptions* aLevel);
-  bool SetConcurrencyPriority(bool aEnable);
-  bool SetPowerSave(bool aEnable);
-  bool SetSuspendMode(bool aEnable);
-  bool SetExternalSim(bool aEnable);
-  bool SetAutoReconnect(bool aEnable);
-  bool SetCountryCode(const std::string& aCountryCode);
-  bool SetBtCoexistenceMode(uint8_t aMode);
-  bool SetBtCoexistenceScanMode(bool aEnable);
-  bool ConnectToNetwork(ConfigurationOptions* aConfig);
-  bool SetupStaInterface(const std::string& aInterfaceName);
-  bool SetupP2pInterface();
-  bool Reconnect();
-  bool Reassociate();
-  bool Disconnect();
-  bool RemoveNetworks();
+  Result_t GetMacAddress(nsAString& aMacAddress);
+  Result_t GetSupplicantDebugLevel(uint32_t& aLevel);
+  Result_t SetSupplicantDebugLevel(SupplicantDebugLevelOptions* aLevel);
+  Result_t SetConcurrencyPriority(bool aEnable);
+  Result_t SetPowerSave(bool aEnable);
+  Result_t SetSuspendMode(bool aEnable);
+  Result_t SetExternalSim(bool aEnable);
+  Result_t SetAutoReconnect(bool aEnable);
+  Result_t SetCountryCode(const std::string& aCountryCode);
+  Result_t SetBtCoexistenceMode(uint8_t aMode);
+  Result_t SetBtCoexistenceScanMode(bool aEnable);
+  Result_t ConnectToNetwork(ConfigurationOptions* aConfig);
+  Result_t SetupStaInterface(const std::string& aInterfaceName);
+  Result_t SetupP2pInterface();
+  Result_t Reconnect();
+  Result_t Reassociate();
+  Result_t Disconnect();
+  Result_t RemoveNetworks();
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetNetwork(uint32_t aNetId);
 
@@ -300,16 +300,16 @@ class SupplicantStaManager
   SupplicantStaManager();
   virtual ~SupplicantStaManager();
 
-  bool InitServiceManager();
-  bool InitSupplicantInterface();
-  bool TearDownInterface();
+  Result_t InitServiceManager();
+  Result_t InitSupplicantInterface();
+  Result_t TearDownInterface();
 
   android::sp<ISupplicantStaIface> GetSupplicantStaIface();
   android::sp<ISupplicantStaIface> AddSupplicantStaIface();
   android::sp<ISupplicantP2pIface> GetSupplicantP2pIface();
-  bool FindIfaceOfType(android::sp<ISupplicant> aSupplicant,
-                       SupplicantNameSpace::IfaceType aDesired,
-                       ISupplicant::IfaceInfo* aInfo);
+  Result_t FindIfaceOfType(android::sp<ISupplicant> aSupplicant,
+                           SupplicantNameSpace::IfaceType aDesired,
+                           ISupplicant::IfaceInfo* aInfo);
 
   void supplicantServiceDiedHandler(int32_t aCookie);
 

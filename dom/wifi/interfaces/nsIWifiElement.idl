@@ -4,7 +4,7 @@
 
 #include "nsISupports.idl"
 
-[scriptable, uuid(4a4d867d-8b00-44e9-abc5-8426063978e6)]
+[scriptable, uuid(ee6eaa67-55bf-46f6-a8c8-cc904691492b)]
 interface nsIWifiConfiguration: nsISupports
 {
   // ParamSizeLimits
@@ -69,12 +69,12 @@ interface nsIWifiConfiguration: nsISupports
 
   readonly attribute AString ssid;
   readonly attribute AString bssid;
+  readonly attribute AString keyManagement;
   readonly attribute AString psk;
   readonly attribute AString wepKey;
   readonly attribute long    wepTxKeyIndex;
   readonly attribute boolean scanSsid;
   readonly attribute boolean pmf;
-  readonly attribute unsigned long keyManagement;
 
   readonly attribute long    proto;
   readonly attribute long    authAlg;

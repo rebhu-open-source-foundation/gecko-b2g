@@ -36,7 +36,7 @@ nsWifiResult::GetId(uint32_t* aId) {
 }
 
 NS_IMETHODIMP
-nsWifiResult::GetStatus(bool* aStatus) {
+nsWifiResult::GetStatus(uint32_t* aStatus) {
   *aStatus = mStatus;
   return NS_OK;
 }
@@ -96,16 +96,10 @@ nsWifiResult::GetChannels(nsTArray<int32_t>& aChannels) {
 }
 
 NS_IMETHODIMP
-nsWifiResult::GetScanResults(uint32_t* count, nsIScanResult*** aScanResults) {
-  *count = mScanResults.Length();
-  nsIScanResult** scanResult =
-      (nsIScanResult**)moz_xmalloc(*count * sizeof(nsIScanResult*));
-
-  for (uint32_t i = 0; i < *count; i++) {
-    NS_ADDREF(scanResult[i] = mScanResults[i]);
+nsWifiResult::GetScanResults(nsTArray<RefPtr<nsIScanResult>>& aScanResults) {
+  for (uint32_t i = 0; i < mScanResults.Length(); i++) {
+    aScanResults.AppendElement(mScanResults[i]);
   }
-
-  *aScanResults = scanResult;
   return NS_OK;
 }
 

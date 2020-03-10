@@ -46,12 +46,15 @@ dictionary WifiConfiguration
 {
   DOMString ssid;
   DOMString bssid;
+  DOMString keyMgmt;
   DOMString psk;
-  DOMString wepKey;
+  DOMString wepKey0;
+  DOMString wepKey1;
+  DOMString wepKey2;
+  DOMString wepKey3;
   long      wepTxKeyIndex;
   boolean   scanSsid;
   boolean   pmf;
-  long      keyManagement;
   long      proto;
   long      authAlg;
   long      groupCipher;
@@ -82,7 +85,7 @@ dictionary WifiConfiguration
 dictionary SoftapConfiguration
 {
   DOMString     ssid;
-  unsigned long keyManagement;
+  unsigned long keyMgmt;
   DOMString     key;
   DOMString     countryCode;
   unsigned long band;

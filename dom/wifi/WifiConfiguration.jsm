@@ -113,7 +113,8 @@ this.WifiConfigUtils = (function() {
 
   // WifiConfigUtils functions
   wifiConfigUtils.getMode = getMode;
-  wifiConfigUtils.getKeyManagement = getKeyManagement;
+  wifiConfigUtils.getSecurity = getSecurity;
+  wifiConfigUtils.getKeyMgmt = getKeyMgmt;
   wifiConfigUtils.calculateSignal = calculateSignal;
   wifiConfigUtils.getNetworkKey = getNetworkKey;
   wifiConfigUtils.parseInformationElements = parseInformationElements;
@@ -347,6 +348,35 @@ this.WifiConfigUtils = (function() {
     }
   }
 
+  function parseEncryption(flags) {
+    let encryptType = {
+      isWPA: false,
+      isRSN: false,
+      isPSK: false,
+      isEAP: false,
+    };
+
+    if (!flags) {
+      return encryptType;
+    }
+
+    for (let i = 0; i < flags.protocol.length; i++) {
+      if (flags.protocol[i] == PROTOCOL_WPA) {
+          encryptType.isWPA = true;
+      } else if (flags.protocol[i] == PROTOCOL_RSN) {
+          encryptType.isRSN = true;
+      }
+      for (let j = 0; j < flags.keyManagement[i].length; j++) {
+        if (flags.keyManagement[i][j] == KEY_MGMT_PSK) {
+            encryptType.isPSK = true;
+        } else if (flags.keyManagement[i][j] == KEY_MGMT_EAP) {
+            encryptType.isEAP = true;
+        }
+      }
+    }
+    return encryptType;
+  }
+
   function getMode(flags) {
     if (flags.ibss) {
       return MODE_IBSS;
@@ -354,48 +384,46 @@ this.WifiConfigUtils = (function() {
     return MODE_ESS;
   }
 
-  function getKeyManagement(flags) {
+  function getSecurity(flags) {
     var types = [];
     if (!flags) {
       return types;
     }
 
-    let isWPA = false;
-    let isRSN = false;
-    let isPSK = false;
-    let isEAP = false;
-    for (let i = 0; i < flags.protocol.length; i++) {
-      switch (flags.protocol[i]) {
-        case PROTOCOL_WPA:
-          isWPA = true; break;
-        case PROTOCOL_RSN:
-          isRSN = true; break;
-        default: break;
-      }
-      for (let j = 0; j < flags.keyManagement[i].length; j++) {
-        switch (flags.keyManagement[i][j]) {
-          case KEY_MGMT_PSK:
-            isPSK = true; break;
-          case KEY_MGMT_EAP:
-            isEAP = true; break;
-          default: break;
-        }
-      }
-    }
-    if (isEAP) {
+    let encrypt = parseEncryption(flags);
+    if (encrypt.isEAP) {
       types.push("WPA-EAP");
-    } else if (isPSK) {
-      if (isWPA && isRSN) {
+    } else if (encrypt.isPSK) {
+      if (encrypt.isWPA && encrypt.isRSN) {
         types.push("WPA/WPA2-PSK");
-      } else if (isWPA) {
+      } else if (encrypt.isWPA) {
         types.push("WPA-PSK");
-      } else if (isRSN) {
+      } else if (encrypt.isRSN) {
         types.push("WPA2-PSK");
       }
     } else if (flags.isWEP) {
       types.push("WEP");
     }
     return types;
+  }
+
+  function getKeyMgmt(flags) {
+    let keyMgmt = "NONE";
+    if (!flags) {
+      return keyMgmt;
+    }
+
+    let encrypt = parseEncryption(flags);
+    if (encrypt.isEAP) {
+      keyMgmt = "WPA-EAP";
+    } else if (encrypt.isPSK) {
+      if (encrypt.isWPA || encrypt.isRSN) {
+        keyMgmt = "WPA-PSK";
+      }
+    } else if (flags.isWEP) {
+      keyMgmt = "WEP";
+    }
+    return keyMgmt;
   }
 
   function calculateSignal(strength) {
@@ -425,12 +453,12 @@ this.WifiConfigUtils = (function() {
     var ssid = "",
       encryption = "OPEN";
 
-    if ("security" in network) {
+    if ("security" in network && !network.security) {
       // manager network object, represents an AP
       // object structure
       // {
       //   .ssid           : SSID of AP
-      //   .security[]     : "WPA-PSK" for WPA-PSK
+      //   .security       : "WPA-PSK" for WPA-PSK
       //                     "WPA-EAP" for WPA-EAP
       //                     "WEP" for WEP
       //                     "WAPI-PSK" for WAPI-PSK
@@ -438,38 +466,31 @@ this.WifiConfigUtils = (function() {
       //                     "" for OPEN
       //   other keys
       // }
-
       var security = network.security;
       ssid = network.ssid;
 
-      for (let j = 0; j < security.length; j++) {
-        if (
-          security[j] === "WPA-PSK" ||
-          security[j] === "WPA2-PSK" ||
-          security[j] === "WPA/WPA2-PSK"
-        ) {
-          encryption = "WPA-PSK";
-          break;
-        } else if (security[j] === "WPA-EAP") {
-          encryption = "WPA-EAP";
-          break;
-        } else if (security[j] === "WEP") {
-          encryption = "WEP";
-          break;
-        } else if (security[j] === "WAPI-PSK") {
-          encryption = "WAPI-PSK";
-          break;
-        } else if (security[j] === "WAPI-CERT") {
-          encryption = "WAPI-CERT";
-          break;
-        }
+      if (
+        security === "WPA-PSK" ||
+        security === "WPA2-PSK" ||
+        security === "WPA/WPA2-PSK"
+      ) {
+        encryption = "WPA-PSK";
+      } else if (security === "WPA-EAP") {
+        encryption = "WPA-EAP";
+      } else if (security === "WEP") {
+        encryption = "WEP";
+      } else if (security === "WAPI-PSK") {
+        encryption = "WAPI-PSK";
+      } else if (security === "WAPI-CERT") {
+        encryption = "WAPI-CERT";
       }
-    } else if ("key_mgmt" in network) {
+    } else if ("keyMgmt" in network ||
+               "keyManagement" in network) {
       // configure network object, represents a network
       // object structure
       // {
       //   .ssid           : SSID of network, quoted
-      //   .key_mgmt       : Encryption type
+      //   .keyMgmt       : Encryption type
       //                     "WPA-PSK" for WPA-PSK
       //                     "WPA-EAP" for WPA-EAP
       //                     "NONE" for WEP/OPEN
@@ -479,19 +500,23 @@ this.WifiConfigUtils = (function() {
       //                     "OPEN_SHARED" for WEP
       //   other keys
       // }
-      var key_mgmt = network.key_mgmt,
-        auth_alg = network.auth_alg;
-      ssid = dequote(network.ssid);
+      var keyMgmt = network.keyMgmt ?
+        network.keyMgmt :
+        network.keyManagement;
+      var auth_alg = network.auth_alg;
+      ssid = network.keyMgmt ?
+        dequote(network.ssid) :
+        network.ssid;
 
-      if (key_mgmt == "WPA-PSK") {
+      if (keyMgmt == "WPA-PSK") {
         encryption = "WPA-PSK";
-      } else if (key_mgmt.indexOf("WPA-EAP") != -1) {
+      } else if (keyMgmt.indexOf("WPA-EAP") != -1) {
         encryption = "WPA-EAP";
-      } else if (key_mgmt == "WAPI-PSK") {
+      } else if (keyMgmt == "WAPI-PSK") {
         encryption = "WAPI-PSK";
-      } else if (key_mgmt == "WAPI-CERT") {
+      } else if (keyMgmt == "WAPI-CERT") {
         encryption = "WAPI-CERT";
-      } else if (key_mgmt == "NONE" && auth_alg === "OPEN SHARED") {
+      } else if (keyMgmt == "NONE" && auth_alg === "OPEN SHARED") {
         encryption = "WEP";
       }
     }
@@ -546,7 +571,6 @@ WifiNetwork.api = {
   connected: "r",
 
   password: "rw",
-  keyManagement: "rw",
   psk: "rw",
   identity: "rw",
   wep: "rw",
@@ -571,10 +595,11 @@ this.ScanResult = function ScanResult(ssid, bssid, frequency, flags, signal) {
     ssid,
     WifiConfigUtils.getMode(flags),
     frequency,
-    WifiConfigUtils.getKeyManagement(flags),
+    WifiConfigUtils.getSecurity(flags),
     undefined
   );
   this.bssid = bssid;
+  this.keyManagement = WifiConfigUtils.getKeyMgmt(flags);
   this.signalStrength = signal;
   this.relSignalStrength = WifiConfigUtils.calculateSignal(Number(signal));
   this.is24G = this.is24GHz(frequency);

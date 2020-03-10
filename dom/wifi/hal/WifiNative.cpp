@@ -50,7 +50,7 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
   } else if (aOptions.mCmd == nsIWifiCommand::SET_CONCURRENCY_PRIORITY) {
     aResult->mStatus = SetConcurrencyPriority(aOptions.mEnabled);
   } else if (aOptions.mCmd == nsIWifiCommand::START_WIFI) {
-    aResult->mStatus = StartWifi();
+    aResult->mStatus = StartWifi(aResult->mStaInterface);
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_WIFI) {
     aResult->mStatus = StopWifi();
   } else if (aOptions.mCmd == nsIWifiCommand::GET_MAC_ADDRESS) {
@@ -160,55 +160,65 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
   return true;
 }
 
-bool WifiNative::InitHal() {
+Result_t WifiNative::InitHal() {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
   // make sure wifi hal is ready
-  if (!s_WifiHal->InitHalInterface()) {
-    return false;
+  result = s_WifiHal->InitHalInterface();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
 
-  if (!s_WificondControl->InitWificondInterface()) {
-    return false;
+  result = s_WificondControl->InitWificondInterface();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
 
   // init supplicant hal
-  if (!s_SupplicantStaManager->IsInterfaceInitializing() &&
-      !s_SupplicantStaManager->InitInterface()) {
-    return false;
+  if (!s_SupplicantStaManager->IsInterfaceInitializing()) {
+    result = s_SupplicantStaManager->InitInterface();
+    if (result != nsIWifiResult::SUCCESS) {
+      return result;
+    }
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiNative::DeinitHal() { return true; }
+Result_t WifiNative::DeinitHal() { return nsIWifiResult::SUCCESS; }
 
-bool WifiNative::GetCapabilities(uint32_t& aCapabilities) {
+Result_t WifiNative::GetCapabilities(uint32_t& aCapabilities) {
   return s_WifiHal->GetCapabilities(aCapabilities);
 }
 
-bool WifiNative::GetDriverModuleInfo(nsAString& aDriverVersion,
-                                     nsAString& aFirmwareVersion) {
+Result_t WifiNative::GetDriverModuleInfo(nsAString& aDriverVersion,
+                                         nsAString& aFirmwareVersion) {
   return s_WifiHal->GetDriverModuleInfo(aDriverVersion, aFirmwareVersion);
 }
 
-bool WifiNative::SetLowLatencyMode(bool aEnable) {
-  return true;  // s_WifiHal->SetLowLatencyMode(aEnable);
+Result_t WifiNative::SetLowLatencyMode(bool aEnable) {
+  return s_WifiHal->SetLowLatencyMode(aEnable);
 }
 
-bool WifiNative::SetConcurrencyPriority(bool aEnable) {
+Result_t WifiNative::SetConcurrencyPriority(bool aEnable) {
   return s_SupplicantStaManager->SetConcurrencyPriority(aEnable);
 }
 
 /**
- * StartWifi() - to enable wifi
+ * To enable wifi and start supplicant
+ *
+ * @param aIfaceName - output wlan module interface name
  *
  * 1. load wifi driver module, configure chip.
  * 2. setup client mode interface.
  * 3. start supplicant.
- *
  */
-bool WifiNative::StartWifi() {
-  if (!s_WifiHal->StartWifiModule()) {
+Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = s_WifiHal->StartWifiModule();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to start wifi");
-    return false;
+    return result;
   }
 
   WIFI_LOGD(LOG_TAG, "module loaded, try to configure...");
@@ -219,54 +229,72 @@ bool WifiNative::StartWifi() {
       WificondEventService::CreateService(mStaInterfaceName);
   if (eventService == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to create scan event service");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   eventService->RegisterEventCallback(mEventCallback);
 
-  if (!StartSupplicant()) {
+  result = StartSupplicant();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to initialize supplicant");
-    return false;
+    return result;
   }
+
   // supplicant initialized, register death handler
   SupplicantDeathHandler* deathHandler = new SupplicantDeathHandler();
   s_SupplicantStaManager->RegisterDeathHandler(deathHandler);
 
-  if (!s_WificondControl->SetupClientIface(
-          mStaInterfaceName,
-          android::interface_cast<android::net::wifi::IScanEvent>(
-              eventService))) {
+  result = s_WificondControl->SetupClientIface(
+      mStaInterfaceName,
+      android::interface_cast<android::net::wifi::IScanEvent>(eventService));
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to setup iface in wificond");
     s_WificondControl->TearDownClientInterface(mStaInterfaceName);
-    return false;
+    return result;
   }
 
-  if (!s_SupplicantStaManager->SetupStaInterface(mStaInterfaceName)) {
+  result = s_SupplicantStaManager->SetupStaInterface(mStaInterfaceName);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to setup iface in supplicant");
-    return false;
+    return result;
   }
-  return true;
+
+  nsString iface(NS_ConvertUTF8toUTF16(mStaInterfaceName.c_str()));
+  aIfaceName.Assign(iface);
+  return CHECK_SUCCESS(aIfaceName.Length() > 0);
 }
 
-bool WifiNative::StopWifi() {
-  if (!StopSupplicant()) {
+/**
+ * To disable wifi
+ *
+ * 1. clean supplicant hidl client and stop supplicant
+ * 2. clean client interfaces in wificond
+ * 3. clean wifi hidl client and unload wlan module
+ */
+Result_t WifiNative::StopWifi() {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = StopSupplicant();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop supplicant");
-    return false;
+    return result;
   }
 
   // teardown wificond interfaces.
-  if (!s_WificondControl->TearDownClientInterface(mStaInterfaceName)) {
+  result = s_WificondControl->TearDownClientInterface(mStaInterfaceName);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown wificond interfaces");
-    return false;
+    return result;
   }
 
   // unregister supplicant death Handler
   s_SupplicantStaManager->UnregisterDeathHandler();
 
-  if (!s_WifiHal->TearDownInterface(wifiNameSpace::IfaceType::STA)) {
+  result = s_WifiHal->TearDownInterface(wifiNameSpace::IfaceType::STA);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop wifi");
-    return false;
+    return result;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
 /**
@@ -275,20 +303,24 @@ bool WifiNative::StopWifi() {
  * 1. initialize supplicant hidl client.
  * 2. start supplicant daemon through wificond or ctl.stat.
  * 3. wait for hidl client registration ready.
- *
  */
-bool WifiNative::StartSupplicant() {
+Result_t WifiNative::StartSupplicant() {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
   // start supplicant hal
-  if (!s_SupplicantStaManager->IsInterfaceReady() &&
-      !s_SupplicantStaManager->InitInterface()) {
-    WIFI_LOGE(LOG_TAG, "Failed to initialize supplicant hal");
-    return false;
+  if (!s_SupplicantStaManager->IsInterfaceReady()) {
+    result = s_SupplicantStaManager->InitInterface();
+    if (result != nsIWifiResult::SUCCESS) {
+      WIFI_LOGE(LOG_TAG, "Failed to initialize supplicant hal");
+      return result;
+    }
   }
 
   // start supplicant from wificond.
-  if (!s_WificondControl->StartSupplicant()) {
+  result = s_WificondControl->StartSupplicant();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to start supplicant daemon");
-    return false;
+    return result;
   }
 
   bool connected = false;
@@ -301,203 +333,262 @@ bool WifiNative::StartSupplicant() {
     }
     usleep(CONNECTION_RETRY_INTERVAL_US);
   }
-  return connected;
+  return CHECK_SUCCESS(connected);
 }
 
-bool WifiNative::StopSupplicant() {
+Result_t WifiNative::StopSupplicant() {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
   // teardown supplicant hal interfaces
-  if (!s_SupplicantStaManager->DeinitInterface()) {
+  result = s_SupplicantStaManager->DeinitInterface();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown iface in supplicant");
-    return false;
+    return result;
   }
 
   // TODO: stop supplicant daemon for android 8.1
-  if (!s_WificondControl->StopSupplicant()) {
+  result = s_WificondControl->StopSupplicant();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop supplicant");
-    return false;
+    return result;
   }
-
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiNative::GetMacAddress(nsAString& aMacAddress) {
+Result_t WifiNative::GetMacAddress(nsAString& aMacAddress) {
   return s_SupplicantStaManager->GetMacAddress(aMacAddress);
 }
 
-bool WifiNative::GetClientInterfaceName(nsAString& aIfaceName) {
+Result_t WifiNative::GetClientInterfaceName(nsAString& aIfaceName) {
   nsString iface(NS_ConvertUTF8toUTF16(mStaInterfaceName.c_str()));
   aIfaceName.Assign(iface);
-  return (aIfaceName.Length() > 0 ? true : false);
+  return CHECK_SUCCESS(aIfaceName.Length() > 0);
 }
 
-bool WifiNative::GetSoftApInterfaceName(nsAString& aIfaceName) {
+Result_t WifiNative::GetSoftApInterfaceName(nsAString& aIfaceName) {
   nsString iface(NS_ConvertUTF8toUTF16(mApInterfaceName.c_str()));
   aIfaceName.Assign(iface);
-  return (aIfaceName.Length() > 0 ? true : false);
+  return CHECK_SUCCESS(aIfaceName.Length() > 0);
 }
 
-bool WifiNative::GetStaCapabilities(uint32_t& aStaCapabilities) {
+Result_t WifiNative::GetStaCapabilities(uint32_t& aStaCapabilities) {
   return s_WifiHal->GetStaCapabilities(aStaCapabilities);
 }
 
-bool WifiNative::GetDebugLevel(uint32_t& aLevel) {
+Result_t WifiNative::GetDebugLevel(uint32_t& aLevel) {
   return s_SupplicantStaManager->GetSupplicantDebugLevel(aLevel);
 }
 
-bool WifiNative::SetDebugLevel(SupplicantDebugLevelOptions* aLevel) {
+Result_t WifiNative::SetDebugLevel(SupplicantDebugLevelOptions* aLevel) {
   return s_SupplicantStaManager->SetSupplicantDebugLevel(aLevel);
 }
 
-bool WifiNative::SetPowerSave(bool aEnable) {
+Result_t WifiNative::SetPowerSave(bool aEnable) {
   return s_SupplicantStaManager->SetPowerSave(aEnable);
 }
 
-bool WifiNative::SetSuspendMode(bool aEnable) {
+Result_t WifiNative::SetSuspendMode(bool aEnable) {
   return s_SupplicantStaManager->SetSuspendMode(aEnable);
 }
 
-bool WifiNative::SetExternalSim(bool aEnable) {
+Result_t WifiNative::SetExternalSim(bool aEnable) {
   return s_SupplicantStaManager->SetExternalSim(aEnable);
 }
 
-bool WifiNative::SetAutoReconnect(bool aEnable) {
+Result_t WifiNative::SetAutoReconnect(bool aEnable) {
   return s_SupplicantStaManager->SetAutoReconnect(aEnable);
 }
 
-bool WifiNative::SetBtCoexistenceMode(uint8_t aMode) {
+Result_t WifiNative::SetBtCoexistenceMode(uint8_t aMode) {
   return s_SupplicantStaManager->SetBtCoexistenceMode(aMode);
 }
 
-bool WifiNative::SetBtCoexistenceScanMode(bool aEnable) {
+Result_t WifiNative::SetBtCoexistenceScanMode(bool aEnable) {
   return s_SupplicantStaManager->SetBtCoexistenceScanMode(aEnable);
 }
 
-bool WifiNative::SetCountryCode(const nsAString& aCountryCode) {
+Result_t WifiNative::SetCountryCode(const nsAString& aCountryCode) {
   std::string countryCode = NS_ConvertUTF16toUTF8(aCountryCode).get();
   return s_SupplicantStaManager->SetCountryCode(countryCode);
 }
 
-bool WifiNative::StartSingleScan(ScanSettingsOptions* aScanSettings) {
+Result_t WifiNative::StartSingleScan(ScanSettingsOptions* aScanSettings) {
   return s_WificondControl->StartSingleScan(aScanSettings);
 }
 
-bool WifiNative::StopSingleScan() {
+Result_t WifiNative::StopSingleScan() {
   return s_WificondControl->StopSingleScan();
 }
 
-bool WifiNative::StartPnoScan() { return true; }
+Result_t WifiNative::StartPnoScan() { return nsIWifiResult::SUCCESS; }
 
-bool WifiNative::StopPnoScan() { return true; }
+Result_t WifiNative::StopPnoScan() { return nsIWifiResult::SUCCESS; }
 
-bool WifiNative::GetScanResults(std::vector<NativeScanResult>& aScanResults) {
+Result_t WifiNative::GetScanResults(
+    std::vector<NativeScanResult>& aScanResults) {
   return s_WificondControl->GetScanResults(aScanResults);
 }
 
-bool WifiNative::GetPnoScanResults(
+Result_t WifiNative::GetPnoScanResults(
     std::vector<NativeScanResult>& aScanResults) {
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiNative::GetChannelsForBand(uint32_t aBandMask,
-                                    std::vector<int32_t>& aChannels) {
+Result_t WifiNative::GetChannelsForBand(uint32_t aBandMask,
+                                        std::vector<int32_t>& aChannels) {
   return s_WificondControl->GetChannelsForBand(aBandMask, aChannels);
 }
 
-bool WifiNative::Connect(ConfigurationOptions* aConfig) {
+/**
+ * To make wifi connection with assigned configuration
+ *
+ * @param aConfig - the network configuration to be set
+ */
+Result_t WifiNative::Connect(ConfigurationOptions* aConfig) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
   // abort ongoing scan before connect
   s_WificondControl->StopSingleScan();
 
-  if (!s_SupplicantStaManager->ConnectToNetwork(aConfig)) {
+  result = s_SupplicantStaManager->ConnectToNetwork(aConfig);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to connect %s",
               NS_ConvertUTF16toUTF8(aConfig->mSsid).get());
-    return false;
+    return result;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiNative::Reconnect() { return s_SupplicantStaManager->Reconnect(); }
+Result_t WifiNative::Reconnect() {
+  return s_SupplicantStaManager->Reconnect();
+}
 
-bool WifiNative::Reassociate() { return s_SupplicantStaManager->Reassociate(); }
+Result_t WifiNative::Reassociate() {
+  return s_SupplicantStaManager->Reassociate();
+}
 
-bool WifiNative::Disconnect() { return s_SupplicantStaManager->Disconnect(); }
+Result_t WifiNative::Disconnect() {
+  return s_SupplicantStaManager->Disconnect();
+}
 
-bool WifiNative::RemoveNetworks() {
+/**
+ * To remove all configured networks in supplicant
+ */
+Result_t WifiNative::RemoveNetworks() {
   return s_SupplicantStaManager->RemoveNetworks();
 }
 
-bool WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
-                             nsAString& aIfaceName) {
+/**
+ * To enable wifi hotspot
+ *
+ * @param aSoftapConfig - the softap configuration to be set
+ * @param aIfaceName - out the interface name for AP mode
+ *
+ * 1. load driver module and configure chip as AP mode
+ * 2. start hostapd hidl service an register callback
+ * 3. with lazy hal designed, hostapd daemon should be
+ *    started while getService() of IHostapd
+ * 4. setup ap in wificond, which will listen to event from driver
+ */
+Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
+                                 nsAString& aIfaceName) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
   // Load wifi driver module and configure as ap mode.
-  if (!s_WifiHal->StartWifiModule()) {
-    return false;
+  result = s_WifiHal->StartWifiModule();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
-  if (!StartAndConnectHostapd()) {
-    return false;
+  result = StartAndConnectHostapd();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
-  if (!s_WifiHal->ConfigChipAndCreateIface(wifiNameSpace::IfaceType::AP,
-                                           mApInterfaceName)) {
+  result = s_WifiHal->ConfigChipAndCreateIface(wifiNameSpace::IfaceType::AP,
+                                               mApInterfaceName);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to create AP interface");
-    return false;
+    return result;
   }
   SoftapEventService* eventService =
       SoftapEventService::CreateService(mApInterfaceName);
   if (eventService == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to create softap event service");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   eventService->RegisterEventCallback(mEventCallback);
-  if (!s_WificondControl->SetupApIface(
-          mApInterfaceName,
-          android::interface_cast<
-              android::net::wifi::IApInterfaceEventCallback>(eventService))) {
+
+  result = s_WificondControl->SetupApIface(
+      mApInterfaceName,
+      android::interface_cast<android::net::wifi::IApInterfaceEventCallback>(
+          eventService));
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to setup softap iface in wificond");
     s_WificondControl->TearDownSoftapInterface(mApInterfaceName);
-    return false;
+    return result;
   }
   // Up to now, ap interface should be ready to setup country code.
   std::string countryCode =
       NS_ConvertUTF16toUTF8(aSoftapConfig->mCountryCode).get();
-  if (!s_WifiHal->SetSoftapCountryCode(countryCode)) {
+  result = s_WifiHal->SetSoftapCountryCode(countryCode);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to set country code");
-    return false;
+    return result;
   }
-  s_SoftapManager->SetSoftapCountryCode(countryCode);
 
   // start softap from hostapd.
-  if (!s_SoftapManager->StartSoftap(mApInterfaceName, aSoftapConfig)) {
+  result = s_SoftapManager->StartSoftap(mApInterfaceName,
+                                        countryCode,
+                                        aSoftapConfig);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to start softap");
-    return false;
+    return result;
   }
 
   nsString iface(NS_ConvertUTF8toUTF16(mApInterfaceName.c_str()));
   aIfaceName.Assign(iface);
-  return (aIfaceName.Length() > 0 ? true : false);
+  return CHECK_SUCCESS(aIfaceName.Length() > 0);
 }
 
-bool WifiNative::StopSoftAp() {
-  if (!s_SoftapManager->StopSoftap(mApInterfaceName)) {
+/**
+ * To disable wifi hotspot
+ *
+ * 1. clean hostapd hidl client and stop daemon
+ * 2. clean ap interfaces in wificond
+ * 3. clean wifi hidl client and unload wlan module
+ */
+Result_t WifiNative::StopSoftAp() {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = s_SoftapManager->StopSoftap(mApInterfaceName);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop softap");
-    return false;
+    return result;
   }
-  if (!s_WificondControl->TearDownSoftapInterface(mApInterfaceName)) {
+  result = s_WificondControl->TearDownSoftapInterface(mApInterfaceName);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown ap interface in wificond");
-    return false;
+    return result;
   }
-  if (!StopHostapd()) {
+  result = StopHostapd();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop hostapd");
-    return false;
+    return result;
   }
-  if (!s_WifiHal->TearDownInterface(wifiNameSpace::IfaceType::AP)) {
+  result = s_WifiHal->TearDownInterface(wifiNameSpace::IfaceType::AP);
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown softap interface");
-    return false;
+    return result;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiNative::StartAndConnectHostapd() {
-  if (!s_SoftapManager->InitInterface()) {
+Result_t WifiNative::StartAndConnectHostapd() {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = s_SoftapManager->InitInterface();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to initialize hostapd interface");
-    return false;
+    return result;
   }
   bool connected = false;
   int32_t connectTries = 0;
@@ -509,15 +600,16 @@ bool WifiNative::StartAndConnectHostapd() {
     }
     usleep(CONNECTION_RETRY_INTERVAL_US);
   }
-  return connected;
+  return CHECK_SUCCESS(connected);
 }
 
-bool WifiNative::StopHostapd() {
-  if (!s_SoftapManager->DeinitInterface()) {
+Result_t WifiNative::StopHostapd() {
+  Result_t result = s_SoftapManager->DeinitInterface();
+  if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to tear down hostapd interface");
-    return false;
+    return result;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
 void WifiNative::SupplicantDeathHandler::OnDeath() {

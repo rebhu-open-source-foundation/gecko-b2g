@@ -28,9 +28,9 @@ class SupplicantStaNetwork
  public:
   SupplicantStaNetwork(ISupplicantStaNetwork* aNetwork);
 
-  bool SetConfiguration(ConfigurationOptions* aConfig);
-  bool GetConfiguration();
-  bool SelectNetwork();
+  Result_t SetConfiguration(ConfigurationOptions* aConfig);
+  Result_t GetConfiguration();
+  Result_t SelectNetwork();
 
  private:
   virtual ~SupplicantStaNetwork();
@@ -66,8 +66,10 @@ class SupplicantStaNetwork
 
   SupplicantStatusCode SetSsid(const std::string& aSsid);
   SupplicantStatusCode SetBssid(const std::string& aBssid);
-  SupplicantStatusCode SetKeyMgmt(int32_t aKeyMgmtMask);
+  SupplicantStatusCode SetKeyMgmt(uint32_t aKeyMgmtMask);
   SupplicantStatusCode SetPsk(const std::string& aPsk);
+
+  uint32_t ConvertKeyMgmtToMask(const std::string& aKeyMgmt);
 
   static mozilla::Mutex s_Lock;
 

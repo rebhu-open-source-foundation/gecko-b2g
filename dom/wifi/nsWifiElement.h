@@ -21,35 +21,33 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFICONFIGURATION
   nsWifiConfiguration(
-      const nsAString& aSsid, const nsAString& aBssid, const nsAString& aPsk,
+      const nsAString& aSsid, const nsAString& aBssid,
+      const nsAString& aKeyManagement, const nsAString& aPsk,
       const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid,
-      bool aPmf, uint32_t aKeyManagement, int32_t aProto, int32_t aAuthAlg,
-      int32_t aGroupCipher, int32_t aPairwiseCipher, int32_t aEap,
-      int32_t aEapPhase2, const nsAString& aIdentity,
-      const nsAString& aAnonymousId, const nsAString& aPassword,
-      const nsAString& aClientCert, const nsAString& aCaCert,
-      const nsAString& aCaPath, const nsAString& aSubjectMatch,
-      const nsAString& aEngineId, bool aEngine, const nsAString& aPrivateKeyId,
-      const nsAString& aAltSubjectMatch, const nsAString& aDomainSuffixMatch,
-      bool aProactiveKeyCaching);
+      bool aPmf, int32_t aProto, int32_t aAuthAlg, int32_t aGroupCipher,
+      int32_t aPairwiseCipher, int32_t aEap, int32_t aEapPhase2,
+      const nsAString& aIdentity, const nsAString& aAnonymousId,
+      const nsAString& aPassword, const nsAString& aClientCert,
+      const nsAString& aCaCert, const nsAString& aCaPath,
+      const nsAString& aSubjectMatch, const nsAString& aEngineId, bool aEngine,
+      const nsAString& aPrivateKeyId, const nsAString& aAltSubjectMatch,
+      const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching);
 
  private:
   ~nsWifiConfiguration(){};
 
   nsString mSsid;
   nsString mBssid;
+  nsString mKeyManagement;
   nsString mPsk;
   nsString mWepKey;
   int32_t mWepTxKeyIndex;
   bool mScanSsid;
   bool mPmf;
-  uint32_t mKeyManagement;
-
   int32_t mProto;
   int32_t mAuthAlg;
   int32_t mGroupCipher;
   int32_t mPairwiseCipher;
-
   int32_t mEap;
   int32_t mEapPhase2;
   nsString mIdentity;

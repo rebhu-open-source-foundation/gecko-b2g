@@ -62,13 +62,13 @@ void WifiHal::WifiServiceDeathRecipient::serviceDied(
   }
 }
 
-bool WifiHal::StartWifiModule() {
+Result_t WifiHal::StartWifiModule() {
   // initialize wifi hal interface at first.
   InitWifiInterface();
 
   if (mWifi == nullptr) {
     WIFI_LOGE(LOG_TAG, "startWifi: mWifi is null");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
   int32_t triedCount = 0;
@@ -84,24 +84,24 @@ bool WifiHal::StartWifiModule() {
         WIFI_LOGD(LOG_TAG, "start IWifi succeeded after trying %d times",
                   triedCount);
       }
-      return true;
+      return nsIWifiResult::SUCCESS;
     } else if (status.code == WifiStatusCode::ERROR_NOT_AVAILABLE) {
       WIFI_LOGD(LOG_TAG, "Cannot start IWifi: Retrying...");
       usleep(300);
       triedCount++;
     } else {
       WIFI_LOGE(LOG_TAG, "Cannot start IWifi");
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
   WIFI_LOGE(LOG_TAG, "Cannot start IWifi after trying %d times", triedCount);
-  return false;
+  return nsIWifiResult::ERROR_COMMAND_FAILED;
 }
 
-bool WifiHal::StopWifiModule() {
+Result_t WifiHal::StopWifiModule() {
   if (mWifi == nullptr) {
     WIFI_LOGE(LOG_TAG, "stopWifi: mWifi is null");
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
   WifiStatus status;
@@ -112,42 +112,46 @@ bool WifiHal::StopWifiModule() {
 
   if (status.code != WifiStatusCode::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Cannot stop IWifi: %d", status.code);
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiHal::TearDownInterface(const wifiNameSpace::IfaceType& aType) {
-  if (!RemoveInterfaceInternal(aType)) {
-    return false;
+Result_t WifiHal::TearDownInterface(const wifiNameSpace::IfaceType& aType) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = RemoveInterfaceInternal(aType);
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
-  if (!StopWifiModule()) {
-    return false;
+  result = StopWifiModule();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
   }
   mWifi = nullptr;
   mServiceManager = nullptr;
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiHal::InitHalInterface() {
+Result_t WifiHal::InitHalInterface() {
   if (mWifi != nullptr) {
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
   return InitServiceManager();
 }
 
-bool WifiHal::InitServiceManager() {
+Result_t WifiHal::InitServiceManager() {
   MutexAutoLock lock(s_Lock);
   if (mServiceManager != nullptr) {
     // service already existed.
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
 
   mServiceManager =
       ::android::hidl::manager::V1_0::IServiceManager::getService();
   if (mServiceManager == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to get HIDL service manager");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
@@ -159,22 +163,22 @@ bool WifiHal::InitServiceManager() {
   if (!linked || !linked.isOk()) {
     WIFI_LOGE(LOG_TAG, "Error on linkToDeath to IServiceManager");
     mServiceManager = nullptr;
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   if (!mServiceManager->registerForNotifications(WIFI_INTERFACE_NAME, "",
                                                  this)) {
     WIFI_LOGE(LOG_TAG, "Failed to register for notifications to IWifi");
     mServiceManager = nullptr;
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiHal::InitWifiInterface() {
+Result_t WifiHal::InitWifiInterface() {
   MutexAutoLock lock(s_Lock);
   if (mWifi != nullptr) {
-    return true;
+    return nsIWifiResult::SUCCESS;
   }
 
   mWifi = IWifi::getService();
@@ -187,7 +191,7 @@ bool WifiHal::InitWifiInterface() {
       Return<bool> linked = mWifi->linkToDeath(mDeathRecipient, 0 /*cookie*/);
       if (!linked || !linked.isOk()) {
         WIFI_LOGE(LOG_TAG, "Failed to link to wifi hal death notifications");
-        return false;
+        return nsIWifiResult::ERROR_COMMAND_FAILED;
       }
     }
 
@@ -198,21 +202,21 @@ bool WifiHal::InitWifiInterface() {
       WIFI_LOGE(LOG_TAG, "registerEventCallback failed: %d, reason: %s",
                 status.code, status.description.c_str());
       mWifi = nullptr;
-      return false;
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
 
     // wifi hal just initialized, stop wifi in case driver is loaded.
     StopWifiModule();
   } else {
     WIFI_LOGE(LOG_TAG, "get wifi hal failed");
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiHal::GetCapabilities(uint32_t& aCapabilities) {
+Result_t WifiHal::GetCapabilities(uint32_t& aCapabilities) {
   if (!mWifiChip.get()) {
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   WifiStatus response;
   mWifiChip->getCapabilities(
@@ -221,13 +225,13 @@ bool WifiHal::GetCapabilities(uint32_t& aCapabilities) {
         response = status;
         aCapabilities = capabilities;
       });
-  return (response.code == WifiStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
-bool WifiHal::GetDriverModuleInfo(nsAString& aDriverVersion,
-                                  nsAString& aFirmwareVersion) {
+Result_t WifiHal::GetDriverModuleInfo(nsAString& aDriverVersion,
+                                      nsAString& aFirmwareVersion) {
   if (!mWifiChip.get()) {
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   WifiStatus response;
   IWifiChip::ChipDebugInfo chipInfo;
@@ -247,11 +251,11 @@ bool WifiHal::GetDriverModuleInfo(nsAString& aDriverVersion,
     aDriverVersion.Assign(driverInfo);
     aFirmwareVersion.Assign(firmwareInfo);
   }
-  return (response.code == WifiStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
+Result_t WifiHal::SetLowLatencyMode(bool aEnable) {
 #if 0
-bool WifiHal::SetLowLatencyMode(bool aEnable) {
   IWifiChip::LatencyMode mode;
   if (aEnable) {
       mode = IWifiChip::LatencyMode::LOW;
@@ -262,14 +266,16 @@ bool WifiHal::SetLowLatencyMode(bool aEnable) {
   WifiStatus response;
   HIDL_SET(mWifiChip, setLatencyMode, WifiStatus,
             response, mode);
-  return response.code == WifiStatusCode::SUCCESS;
-}
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
+#else
+  return nsIWifiResult::ERROR_NOT_SUPPORTED;
 #endif
+}
 
-bool WifiHal::ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
-                                       std::string& aIfaceName /* out */) {
+Result_t WifiHal::ConfigChipAndCreateIface(
+    const wifiNameSpace::IfaceType& aType, std::string& aIfaceName /* out */) {
   if (mWifi == nullptr) {
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
   WifiStatus response;
@@ -288,7 +294,7 @@ bool WifiHal::ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
 
   if (mWifiChip == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to get wifi chip with error %d", response.code);
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   ConfigChipByType(mWifiChip, aType);
@@ -321,23 +327,23 @@ bool WifiHal::ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
         });
   } else {
     WIFI_LOGE(LOG_TAG, "invalid interface type %d", aType);
-    return false;
+    return nsIWifiResult::ERROR_INVALID_ARGS;
   }
 
   if (response.code != WifiStatusCode::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to create interface, type:%d, status code:%d",
               aType, response.code);
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
   mIfaceNameMap[aType] = aIfaceName;
   WIFI_LOGD(LOG_TAG, "chip configure completed");
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
-bool WifiHal::GetStaCapabilities(uint32_t& aStaCapabilities) {
+Result_t WifiHal::GetStaCapabilities(uint32_t& aStaCapabilities) {
   if (!mStaIface.get()) {
-    return false;
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   WifiStatus response;
   mStaIface->getCapabilities(
@@ -346,13 +352,13 @@ bool WifiHal::GetStaCapabilities(uint32_t& aStaCapabilities) {
         response = status;
         aStaCapabilities = capabilities;
       });
-  return (response.code == WifiStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
-bool WifiHal::SetSoftapCountryCode(std::string aCountryCode) {
+Result_t WifiHal::SetSoftapCountryCode(std::string aCountryCode) {
   if (aCountryCode.length() != 2) {
     WIFI_LOGE(LOG_TAG, "Invalid country code: %s", aCountryCode.c_str());
-    return false;
+    return nsIWifiResult::ERROR_INVALID_ARGS;
   }
   std::array<int8_t, 2> countryCode;
   countryCode[0] = aCountryCode.at(0);
@@ -360,15 +366,15 @@ bool WifiHal::SetSoftapCountryCode(std::string aCountryCode) {
 
   WifiStatus response;
   HIDL_SET(mApIface, setCountryCode, WifiStatus, response, countryCode);
-  return (response.code == WifiStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
 std::string WifiHal::GetInterfaceName(const wifiNameSpace::IfaceType& aType) {
   return mIfaceNameMap.at(aType);
 }
 
-bool WifiHal::ConfigChipByType(const android::sp<IWifiChip>& aChip,
-                               const wifiNameSpace::IfaceType& aType) {
+Result_t WifiHal::ConfigChipByType(const android::sp<IWifiChip>& aChip,
+                                   const wifiNameSpace::IfaceType& aType) {
   uint32_t modeId = UINT32_MAX;
   aChip->getAvailableModes(
       [&modeId, &aType](const WifiStatus& status,
@@ -393,9 +399,9 @@ bool WifiHal::ConfigChipByType(const android::sp<IWifiChip>& aChip,
   if (response.code != WifiStatusCode::SUCCESS) {
     WIFI_LOGD(LOG_TAG, "configureChip for %d failed, status code: %d", aType,
               response.code);
-    return false;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  return true;
+  return nsIWifiResult::SUCCESS;
 }
 
 std::string WifiHal::QueryInterfaceName(const android::sp<IWifiIface>& aIface) {
@@ -405,7 +411,8 @@ std::string WifiHal::QueryInterfaceName(const android::sp<IWifiIface>& aIface) {
   return ifaceName;
 }
 
-bool WifiHal::RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType) {
+Result_t WifiHal::RemoveInterfaceInternal(
+    const wifiNameSpace::IfaceType& aType) {
   WifiStatus response;
   std::string ifname = mIfaceNameMap.at(aType);
   switch (aType) {
@@ -423,9 +430,9 @@ bool WifiHal::RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType) {
       break;
     default:
       WIFI_LOGE(LOG_TAG, "Invalid interface type");
-      return false;
+      return nsIWifiResult::ERROR_INVALID_ARGS;
   }
-  return (response.code == WifiStatusCode::SUCCESS);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
 /**
@@ -434,7 +441,7 @@ bool WifiHal::RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType) {
 Return<void> WifiHal::onRegistration(const hidl_string& fqName,
                                      const hidl_string& name,
                                      bool preexisting) {
-  if (!InitWifiInterface()) {
+  if (InitWifiInterface() != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "initialize IWifi failed.");
     mWifi = nullptr;
   }

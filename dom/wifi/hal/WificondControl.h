@@ -29,30 +29,31 @@ class WificondControl : virtual public android::RefBase {
 
   static WificondControl* Get();
 
-  bool InitWificondInterface();
-  bool StartWificond();
-  bool StopWificond();
-  bool TearDownClientInterface(const std::string& aIfaceName);
-  bool TearDownSoftapInterface(const std::string& aIfaceName);
+  Result_t InitWificondInterface();
+  Result_t StartWificond();
+  Result_t StopWificond();
+  Result_t TearDownClientInterface(const std::string& aIfaceName);
+  Result_t TearDownSoftapInterface(const std::string& aIfaceName);
 
-  bool StartSupplicant();
-  bool StopSupplicant();
+  Result_t StartSupplicant();
+  Result_t StopSupplicant();
 
-  bool SetupClientIface(
+  Result_t SetupClientIface(
       const std::string& aIfaceName,
       const android::sp<android::net::wifi::IScanEvent>& aScanCallback);
-  bool SetupApIface(
+  Result_t SetupApIface(
       const std::string& aIfaceName,
       const android::sp<android::net::wifi::IApInterfaceEventCallback>& aApCallback);
-  bool StartSoftap(ConfigurationOptions* aConfig);
-  bool StartSingleScan(ScanSettingsOptions* aScanSettings);
-  bool StopSingleScan();
-  bool StartPnoScan();
-  bool StopPnoScan();
-  bool GetScanResults(std::vector<NativeScanResult>& aScanResults);
-  bool GetChannelsForBand(uint32_t aBandMask, std::vector<int32_t>& aChannels);
+  Result_t StartSoftap(ConfigurationOptions* aConfig);
+  Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
+  Result_t StopSingleScan();
+  Result_t StartPnoScan();
+  Result_t StopPnoScan();
+  Result_t GetScanResults(std::vector<NativeScanResult>& aScanResults);
+  Result_t GetChannelsForBand(uint32_t aBandMask,
+                              std::vector<int32_t>& aChannels);
 
-  bool SignalPoll();
+  Result_t SignalPoll();
 
  private:
   class WificondDeathRecipient : public android::IBinder::DeathRecipient {

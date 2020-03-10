@@ -8,13 +8,13 @@ if not CONFIG['DISABLE_WIFI']:
   XPIDL_MODULE = 'dom_wifi'
 
   XPIDL_SOURCES += [
-      'nsIWifi.idl',
-      'nsIWifiCommand.idl',
-      'nsIWifiElement.idl',
-      'nsIWifiEvent.idl',
-      'nsIWifiInfo.idl',
-      'nsIWifiResult.idl',
-      'nsIWifiService.idl',
+      'interfaces/nsIWifi.idl',
+      'interfaces/nsIWifiCommand.idl',
+      'interfaces/nsIWifiElement.idl',
+      'interfaces/nsIWifiEvent.idl',
+      'interfaces/nsIWifiInfo.idl',
+      'interfaces/nsIWifiResult.idl',
+      'interfaces/nsIWifiService.idl',
   ]
 
   EXTRA_COMPONENTS += [
