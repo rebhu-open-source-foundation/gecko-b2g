@@ -1096,7 +1096,9 @@ var SessionStoreInternal = {
             !browser.userTypedValue
           ) {
             browser.userTypedValue = tabData.userTypedValue;
-            win.URLBarSetURI();
+            if (tab.selected) {
+              win.gURLBar.setURI();
+            }
           }
 
           // Remove state we don't need any longer.
@@ -2532,9 +2534,7 @@ var SessionStoreInternal = {
     aReplaceBrowsingContext
   ) {
     debug(
-      `[process-switch]: performing switch from ${
-        aBrowser.remoteType
-      } to ${aRemoteType}`
+      `[process-switch]: performing switch from ${aBrowser.remoteType} to ${aRemoteType}`
     );
 
     // Don't try to switch tabs before delayed startup is completed.

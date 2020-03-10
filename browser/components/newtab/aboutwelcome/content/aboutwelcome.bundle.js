@@ -128,19 +128,25 @@ class AboutWelcome extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureComp
     });
   }
 
-  handleStartBtnClick() {
-    _lib_aboutwelcome_utils__WEBPACK_IMPORTED_MODULE_4__["AboutWelcomeUtils"].handleUserAction(this.props.startButton.action);
-  }
-
   componentDidMount() {
     this.fetchFxAFlowUri();
-  }
-
-  componentDidMount() {
     window.AWSendEventTelemetry({
       event: "IMPRESSION",
       message_id: "SIMPLIFIED_ABOUT_WELCOME"
-    });
+    }); // Captures user has seen about:welcome by setting
+    // firstrun.didSeeAboutWelcome pref to true
+
+    window.AWSendToParent("SET_WELCOME_MESSAGE_SEEN");
+  }
+
+  handleStartBtnClick() {
+    _lib_aboutwelcome_utils__WEBPACK_IMPORTED_MODULE_4__["AboutWelcomeUtils"].handleUserAction(this.props.startButton.action);
+    const ping = {
+      event: "CLICK_BUTTON",
+      message_id: this.props.startButton.message_id,
+      id: "ABOUT_WELCOME"
+    };
+    window.AWSendEventTelemetry(ping);
   }
 
   render() {
@@ -151,7 +157,7 @@ class AboutWelcome extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureComp
       className: "trailheadCards"
     }, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("div", {
       className: "trailheadCardsInner"
-    }, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(_components_HeroText__WEBPACK_IMPORTED_MODULE_2__["HeroText"], {
+    }, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("main", null, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(_components_HeroText__WEBPACK_IMPORTED_MODULE_2__["HeroText"], {
       title: props.title,
       subtitle: props.subtitle
     }), react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(_components_FxCards__WEBPACK_IMPORTED_MODULE_3__["FxCards"], {
@@ -162,7 +168,7 @@ class AboutWelcome extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureComp
       className: "start-button",
       "data-l10n-id": props.startButton.string_id,
       onClick: this.handleStartBtnClick
-    })));
+    }))));
   }
 
 }
@@ -298,7 +304,7 @@ class FxCards extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureComponent
       let url = new URL(action.data.args);
       Object(_asrouter_templates_FirstRun_addUtmParams__WEBPACK_IMPORTED_MODULE_1__["addUtmParams"])(url, UTMTerm);
 
-      if (action.addFlowParams) {
+      if (action.addFlowParams && this.state.flowParams) {
         url.searchParams.append("device_id", this.state.flowParams.deviceId);
         url.searchParams.append("flow_id", this.state.flowParams.flowId);
         url.searchParams.append("flow_begin_time", this.state.flowParams.flowBeginTime);
@@ -474,6 +480,7 @@ const DEFAULT_WELCOME_CONTENT = {
   },
   startButton: {
     string_id: "onboarding-start-browsing-button-label",
+    message_id: "START_BROWSING_BUTTON",
     action: {
       type: "OPEN_AWESOME_BAR"
     }

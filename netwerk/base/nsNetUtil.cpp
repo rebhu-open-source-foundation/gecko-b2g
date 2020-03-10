@@ -2663,8 +2663,7 @@ uint32_t NS_GetContentDispositionFromHeader(const nsACString& aHeader,
 }
 
 nsresult NS_GetFilenameFromDisposition(nsAString& aFilename,
-                                       const nsACString& aDisposition,
-                                       nsIURI* aURI /* = nullptr */) {
+                                       const nsACString& aDisposition) {
   aFilename.Truncate();
 
   nsresult rv;

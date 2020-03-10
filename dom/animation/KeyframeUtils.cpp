@@ -21,6 +21,7 @@
 #include "mozilla/StyleAnimationValue.h"
 #include "mozilla/TimingParams.h"
 #include "mozilla/dom/BaseKeyframeTypesBinding.h"  // For FastBaseKeyframe etc.
+#include "mozilla/dom/BindingCallContext.h"
 #include "mozilla/dom/Document.h"  // For Document::AreWebAnimationsImplicitKeyframesEnabled
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/KeyframeEffect.h"  // For PropertyValuesPair etc.
@@ -373,17 +374,6 @@ static void GetKeyframeListFromKeyframeSequence(
   }
 }
 
-// The class to suppress the exception of parsing easing automatically.
-class MOZ_STACK_CLASS AutoErrorSuppressor final {
- public:
-  explicit AutoErrorSuppressor(ErrorResult& aErrorResult)
-      : mErrorResult(aErrorResult) {}
-  ~AutoErrorSuppressor() { mErrorResult.SuppressException(); }
-
- private:
-  ErrorResult& mErrorResult;
-};
-
 /**
  * Converts a JS object wrapped by the given JS::ForIfIterator to an
  * IDL sequence<Keyframe> and stores the resulting Keyframe objects in
@@ -394,11 +384,10 @@ static bool ConvertKeyframeSequence(JSContext* aCx, dom::Document* aDocument,
                                     const char* aContext,
                                     nsTArray<Keyframe>& aResult) {
   JS::Rooted<JS::Value> value(aCx);
-  ErrorResult parseEasingResult;
   // Parsing errors should only be reported after we have finished iterating
   // through all values. If we have any early returns while iterating, we should
-  // suppress parsing errors.
-  AutoErrorSuppressor AutoErrorSuppressor(parseEasingResult);
+  // ignore parsing errors.
+  IgnoredErrorResult parseEasingResult;
 
   for (;;) {
     bool done;
@@ -413,15 +402,14 @@ static bool ConvertKeyframeSequence(JSContext* aCx, dom::Document* aDocument,
     // value).
     if (!value.isObject() && !value.isNullOrUndefined()) {
       dom::ThrowErrorMessage<dom::MSG_NOT_OBJECT>(
-          aCx,
-          nsPrintfCString("%sElement of sequence<Keyframe> argument", aContext)
-              .get());
+          aCx, aContext, "Element of sequence<Keyframe> argument");
       return false;
     }
 
     // Convert the JS value into a BaseKeyframe dictionary value.
     dom::binding_detail::FastBaseKeyframe keyframeDict;
-    if (!keyframeDict.Init(aCx, value,
+    BindingCallContext callCx(aCx, aContext);
+    if (!keyframeDict.Init(callCx, value,
                            "Element of sequence<Keyframe> argument")) {
       // This may happen if the value type of the member of BaseKeyframe is
       // invalid. e.g. `offset` only accept a double value, so if we provide a
@@ -993,8 +981,8 @@ static void GetKeyframeListFromPropertyIndexedKeyframe(
   // Convert the object to a property-indexed keyframe dictionary to
   // get its explicit dictionary members.
   dom::binding_detail::FastBasePropertyIndexedKeyframe keyframeDict;
-  if (!keyframeDict.Init(aCx, aValue, "BasePropertyIndexedKeyframe argument",
-                         false)) {
+  // XXXbz Pass in the method name from callers and set up a BindingCallContext?
+  if (!keyframeDict.Init(aCx, aValue, "BasePropertyIndexedKeyframe argument")) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }

@@ -50,6 +50,18 @@ exclude: true
   ([bug 1614894]({{bugzilla}}1603673)), to enable or check Web Manifest support.
 - Added [`GeckoDisplay.safeAreaInsetsChanged`][75.18] to notify the content of [safe area insets][75.19].
   ([bug 1503656]({{bugzilla}}1503656))
+- Added [`GeckoResult#cancel()`][75.22], [`GeckoResult#setCancellationDelegate()`][75.22],
+  and [`GeckoResult.CancellationDelegate`][75.23]. This adds the optional ability to cancel
+  an operation behind a pending `GeckoResult`.
+- Added [`baseUrl`][75.24] to [`WebExtension.MetaData`][75.25] to expose the
+  base URL for all WebExtension pages for a given extension.
+  ([bug 1560048]({{bugzilla}}1560048))
+- Added [`allowedInPrivateBrowsing`][75.26] and
+  [`setAllowedInPrivateBrowsing`][75.27] to control whether an extension can
+  run in private browsing or not.  Extensions installed with
+  [`registerWebExtension`][67.15] will always be allowed to run in private
+  browsing.
+  ([bug 1599139]({{bugzilla}}1599139))
 
 [75.1]: {{javadoc_uri}}/GeckoRuntimeSettings.Builder.html#useMultiprocess-boolean-
 [75.2]: {{javadoc_uri}}/WebExtensionController.DebuggerDelegate.html#onExtensionListUpdated--
@@ -71,6 +83,13 @@ exclude: true
 [75.18]: {{javadoc_uri}}/GeckoDisplay.html#safeAreaInsetsChanged-int-int-int-int-
 [75.19]: https://developer.mozilla.org/en-US/docs/Web/CSS/env
 [75.20]: {{javadoc_uri}}/WebExtension.InstallException.ErrorCodes.html#ERROR_POSTPONED-
+[75.21]: {{javadoc_uri}}/GeckoResult.html#cancel--
+[75.22]: {{javadoc_uri}}/GeckoResult.html#setCancellationDelegate-CancellationDelegate-
+[75.23]: {{javadoc_uri}}/GeckoResult.CancellationDelegate.html
+[75.24]: {{javadoc_uri}}/WebExtension.MetaData.html#baseUrl
+[75.25]: {{javadoc_uri}}/WebExtension.MetaData.html
+[75.26]: {{javadoc_uri}}/WebExtension.MetaData.html#allowedInPrivateBrowsing
+[75.27]: {{javadoc_uri}}/WebExtensionController.html#setAllowedInPrivateBrowsing-org.mozilla.geckoview.WebExtension-boolean-
 
 ## v74
 - Added [`WebExtensionController.enable`][74.1] and [`disable`][74.2] to
@@ -634,4 +653,4 @@ exclude: true
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport-android.content.Context-android.os.Bundle-java.lang.String-
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: 2d95173aa2669bb1ed0acff26af3978047ec274c
+[api-version]: 6b0849430f800a3e2226c1a87d26830d1cbe73ee

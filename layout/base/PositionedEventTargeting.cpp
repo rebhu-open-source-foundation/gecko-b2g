@@ -408,17 +408,14 @@ nsIFrame* FindFrameTargetedByInputEvent(
   nsIFrame* target = nsLayoutUtils::GetFrameForPoint(
       aRootFrame, aPointRelativeToRootFrame, options);
   PET_LOG(
-      "Found initial target %p for event class %s point %s relative to root "
-      "frame %p\n",
-      target,
-      (aEvent->mClass == eMouseEventClass
-           ? "mouse"
-           : (aEvent->mClass == eTouchEventClass ? "touch" : "other")),
+      "Found initial target %p for event class %s message %s point %s "
+      "relative to root frame %p\n",
+      target, ToChar(aEvent->mClass), ToChar(aEvent->mMessage),
       mozilla::layers::Stringify(aPointRelativeToRootFrame).c_str(),
       aRootFrame);
 
   const EventRadiusPrefs* prefs = GetPrefsFor(aEvent->mClass);
-  if (!prefs || !prefs->mEnabled) {
+  if (!prefs || !prefs->mEnabled || EventRetargetSuppression::IsActive()) {
     PET_LOG("Retargeting disabled\n");
     return target;
   }
@@ -511,5 +508,13 @@ nsIFrame* FindFrameTargetedByInputEvent(
   }
   return target;
 }
+
+uint32_t EventRetargetSuppression::sSuppressionCount = 0;
+
+EventRetargetSuppression::EventRetargetSuppression() { sSuppressionCount++; }
+
+EventRetargetSuppression::~EventRetargetSuppression() { sSuppressionCount--; }
+
+bool EventRetargetSuppression::IsActive() { return sSuppressionCount > 0; }
 
 }  // namespace mozilla

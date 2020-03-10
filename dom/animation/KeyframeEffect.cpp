@@ -224,7 +224,7 @@ void KeyframeEffect::SetKeyframes(JSContext* aContext,
                                   JS::Handle<JSObject*> aKeyframes,
                                   ErrorResult& aRv) {
   nsTArray<Keyframe> keyframes = KeyframeUtils::GetKeyframesFromObject(
-      aContext, mDocument, aKeyframes, "KeyframeEffect.setKeyframes: ", aRv);
+      aContext, mDocument, aKeyframes, "KeyframeEffect.setKeyframes", aRv);
   if (aRv.Failed()) {
     return;
   }
@@ -724,15 +724,16 @@ template <class OptionsType>
 static KeyframeEffectParams KeyframeEffectParamsFromUnion(
     const OptionsType& aOptions, CallerType aCallerType, ErrorResult& aRv) {
   KeyframeEffectParams result;
-  if (aOptions.IsUnrestrictedDouble() ||
-      // Ignore iterationComposite and composite if the corresponding pref is
-      // not set. The default value 'Replace' will be used instead.
-      !StaticPrefs::dom_animations_api_compositing_enabled()) {
+  if (aOptions.IsUnrestrictedDouble()) {
     return result;
   }
 
   const KeyframeEffectOptions& options =
       KeyframeEffectOptionsFromUnion(aOptions);
+
+  // If dom.animations-api.compositing.enabled is turned off,
+  // iterationComposite and composite are the default value 'replace' in the
+  // dictionary.
   result.mIterationComposite = options.mIterationComposite;
   result.mComposite = options.mComposite;
 
@@ -744,7 +745,8 @@ static KeyframeEffectParams KeyframeEffectParamsFromUnion(
   RefPtr<nsAtom> pseudoAtom =
       nsCSSPseudoElements::GetPseudoAtom(options.mPseudoElement);
   if (!pseudoAtom) {
-    aRv.ThrowTypeError<MSG_INVALID_PSEUDO_SELECTOR>(options.mPseudoElement);
+    aRv.ThrowTypeError<MSG_INVALID_PSEUDO_SELECTOR>(
+        NS_ConvertUTF16toUTF8(options.mPseudoElement));
     return result;
   }
 
@@ -752,7 +754,8 @@ static KeyframeEffectParams KeyframeEffectParamsFromUnion(
       pseudoAtom, CSSEnabledState::ForAllContent);
 
   if (!IsSupportedPseudoForWebAnimation(result.mPseudoType)) {
-    aRv.ThrowTypeError<MSG_UNSUPPORTED_PSEUDO_SELECTOR>(options.mPseudoElement);
+    aRv.ThrowTypeError<MSG_UNSUPPORTED_PSEUDO_SELECTOR>(
+        NS_ConvertUTF16toUTF8(options.mPseudoElement));
   }
 
   return result;
@@ -1061,14 +1064,16 @@ void KeyframeEffect::SetPseudoElement(const nsAString& aPseudoElement,
   RefPtr<nsAtom> pseudoAtom =
       nsCSSPseudoElements::GetPseudoAtom(aPseudoElement);
   if (!pseudoAtom) {
-    aRv.ThrowTypeError<MSG_INVALID_PSEUDO_SELECTOR>(aPseudoElement);
+    aRv.ThrowTypeError<MSG_INVALID_PSEUDO_SELECTOR>(
+        NS_ConvertUTF16toUTF8(aPseudoElement));
     return;
   }
 
   pseudoType = nsCSSPseudoElements::GetPseudoType(
       pseudoAtom, CSSEnabledState::ForAllContent);
   if (!IsSupportedPseudoForWebAnimation(pseudoType)) {
-    aRv.ThrowTypeError<MSG_UNSUPPORTED_PSEUDO_SELECTOR>(aPseudoElement);
+    aRv.ThrowTypeError<MSG_UNSUPPORTED_PSEUDO_SELECTOR>(
+        NS_ConvertUTF16toUTF8(aPseudoElement));
     return;
   }
 
@@ -1161,7 +1166,7 @@ void KeyframeEffect::GetProperties(
   }
 }
 
-void KeyframeEffect::GetKeyframes(JSContext*& aCx, nsTArray<JSObject*>& aResult,
+void KeyframeEffect::GetKeyframes(JSContext* aCx, nsTArray<JSObject*>& aResult,
                                   ErrorResult& aRv) const {
   MOZ_ASSERT(aResult.IsEmpty());
   MOZ_ASSERT(!aRv.Failed());

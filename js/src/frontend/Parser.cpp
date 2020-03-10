@@ -199,7 +199,7 @@ ParserBase::~ParserBase() { MOZ_ASSERT(checkOptionsCalled_); }
 template <class ParseHandler>
 PerHandlerParser<ParseHandler>::PerHandlerParser(
     JSContext* cx, const ReadOnlyCompileOptions& options, bool foldConstants,
-    CompilationInfo& compilationInfo, LazyScript* lazyOuterFunction,
+    CompilationInfo& compilationInfo, BaseScript* lazyOuterFunction,
     ScriptSourceObject* sourceObject, void* internalSyntaxParser)
     : ParserBase(cx, options, foldConstants, compilationInfo, sourceObject),
       handler_(cx, compilationInfo.allocScope.alloc(), lazyOuterFunction),
@@ -209,7 +209,7 @@ template <class ParseHandler, typename Unit>
 GeneralParser<ParseHandler, Unit>::GeneralParser(
     JSContext* cx, const ReadOnlyCompileOptions& options, const Unit* units,
     size_t length, bool foldConstants, CompilationInfo& compilationInfo,
-    SyntaxParser* syntaxParser, LazyScript* lazyOuterFunction,
+    SyntaxParser* syntaxParser, BaseScript* lazyOuterFunction,
     ScriptSourceObject* sourceObject)
     : Base(cx, options, foldConstants, compilationInfo, syntaxParser,
            lazyOuterFunction, sourceObject),
@@ -1785,7 +1785,7 @@ bool LazyScriptCreationData::create(JSContext* cx, FunctionBox* funbox,
                                     HandleScriptSourceObject sourceObject) {
   Rooted<JSFunction*> function(cx, funbox->function());
   MOZ_ASSERT(function);
-  LazyScript* lazy =
+  BaseScript* lazy =
       LazyScript::Create(cx, function, sourceObject, closedOverBindings,
                          innerFunctionBoxes, funbox->extent);
   if (!lazy) {
@@ -2584,7 +2584,9 @@ bool Parser<FullParseHandler, Unit>::skipLazyInnerFunction(
   }
 
   funbox->initFromLazyFunction(fun);
-  MOZ_ASSERT(fun->baseScript()->hasEnclosingLazyScript());
+  MOZ_ASSERT(fun->baseScript()->hasEnclosingScript(),
+             "Inner lazy function should not have a scope until we finish our "
+             "own compile");
 
   PropagateTransitiveParseFlags(funbox, pc_->sc());
 
@@ -7002,11 +7004,6 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
   }
 
   if (propType == PropertyType::Field) {
-    if (!options().fieldsEnabledOption) {
-      errorAt(propNameOffset, JSMSG_FIELDS_NOT_SUPPORTED);
-      return false;
-    }
-
     if (isStatic) {
       if (propAtom == cx_->names().prototype) {
         errorAt(propNameOffset, JSMSG_BAD_METHOD_DEF);

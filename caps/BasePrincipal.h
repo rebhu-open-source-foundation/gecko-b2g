@@ -150,6 +150,10 @@ class BasePrincipal : public nsJSPrincipals {
   NS_IMETHOD GetLocalStorageQuotaKey(nsACString& aRes) override;
   NS_IMETHOD AllowsRelaxStrictFileOriginPolicy(nsIURI* aURI,
                                                bool* aRes) override;
+  NS_IMETHOD CreateReferrerInfo(mozilla::dom::ReferrerPolicy aReferrerPolicy,
+                                nsIReferrerInfo** _retval) override;
+  NS_IMETHOD GetIsScriptAllowedByPolicy(
+      bool* aIsScriptAllowedByPolicy) override;
   nsresult ToJSON(nsACString& aJSON);
   static already_AddRefed<BasePrincipal> FromJSON(const nsACString& aJSON);
   // Method populates a passed Json::Value with serializable fields

@@ -15,6 +15,7 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/AutoRestore.h"
 #include "mozilla/BinarySearch.h"
+#include "mozilla/ContentBlockingAllowList.h"
 #include "mozilla/CSSEnabledState.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/EditorCommands.h"
@@ -3732,7 +3733,7 @@ void Document::SetPrincipals(nsIPrincipal* aNewPrincipal,
   mNodeInfoManager->SetDocumentPrincipal(aNewPrincipal);
   mIntrinsicStoragePrincipal = aNewStoragePrincipal;
 
-  AntiTrackingCommon::ComputeContentBlockingAllowListPrincipal(
+  ContentBlockingAllowList::ComputePrincipal(
       aNewPrincipal, getter_AddRefs(mContentBlockingAllowListPrincipal));
 
 #ifdef DEBUG
@@ -6032,7 +6033,7 @@ void Document::SetDocumentCharacterSet(NotNull<const Encoding*> aEncoding) {
     RecomputeLanguageFromCharset();
 
     if (nsPresContext* context = GetPresContext()) {
-      context->DispatchCharSetChange(aEncoding);
+      context->DocumentCharSetChanged(aEncoding);
     }
   }
 }
@@ -12909,7 +12910,7 @@ class PendingFullscreenChangeList {
             // Always automatically drop fullscreen changes which are
             // from a document detached from the doc shell.
             UniquePtr<T> change = TakeAndNextInternal();
-            change->MayRejectPromise(u"Document is not active");
+            change->MayRejectPromise("Document is not active");
             continue;
           }
           while (docShell && docShell != mRootShellForIteration) {
@@ -13154,11 +13155,11 @@ void Document::RestorePreviousFullscreenState(UniquePtr<FullscreenExit> aExit) {
                "Should have at least 1 fullscreen root when fullscreen!");
 
   if (!GetWindow()) {
-    aExit->MayRejectPromise(u"No active window");
+    aExit->MayRejectPromise("No active window");
     return;
   }
   if (!FullscreenStackTop() || FullscreenRoots::IsEmpty()) {
-    aExit->MayRejectPromise(u"Not in fullscreen mode");
+    aExit->MayRejectPromise("Not in fullscreen mode");
     return;
   }
 
@@ -13530,7 +13531,7 @@ bool Document::FullscreenElementReadyCheck(FullscreenRequest& aRequest) {
   nsFocusManager* fm = nsFocusManager::GetFocusManager();
   if (!fm) {
     NS_WARNING("Failed to retrieve focus manager in fullscreen request.");
-    aRequest.MayRejectPromise(u"An unexpected error occurred");
+    aRequest.MayRejectPromise("An unexpected error occurred");
     return false;
   }
   if (nsContentUtils::HasPluginWithUncontrolledEventDispatch(
@@ -13586,7 +13587,7 @@ void Document::RequestFullscreen(UniquePtr<FullscreenRequest> aRequest,
                                  bool applyFullScreenDirectly) {
   nsCOMPtr<nsPIDOMWindowOuter> rootWin = GetRootWindow(this);
   if (!rootWin) {
-    aRequest->MayRejectPromise(u"No active window");
+    aRequest->MayRejectPromise("No active window");
     return;
   }
 
@@ -13644,7 +13645,7 @@ static void ClearPendingFullscreenRequests(Document* aDoc) {
       aDoc, PendingFullscreenChangeList::eInclusiveDescendants);
   while (!iter.AtEnd()) {
     UniquePtr<FullscreenRequest> request = iter.TakeAndNext();
-    request->MayRejectPromise(u"Fullscreen request aborted");
+    request->MayRejectPromise("Fullscreen request aborted");
   }
 }
 
@@ -14682,7 +14683,14 @@ void Document::NotifyIntersectionObservers() {
   }
   for (const auto& observer : observers) {
     if (observer) {
-      observer->Notify();
+      // MOZ_KnownLive because 'observers' is guaranteed to
+      // keep it alive.
+      //
+      // Even with https://bugzilla.mozilla.org/show_bug.cgi?id=1620312 fixed
+      // this might need to stay, because 'observers' is not const, so it's not
+      // obvious how to prove via static analysis that it won't change and
+      // release us.
+      MOZ_KnownLive(observer)->Notify();
     }
   }
 }
@@ -15042,8 +15050,8 @@ void Document::MaybeAllowStorageForOpenerAfterUserInteraction() {
     return;
   }
 
-  // No tracking resource.
-  if (!nsContentUtils::IsThirdPartyTrackingResourceWindow(inner)) {
+  // We care about first-party tracking resources only.
+  if (!nsContentUtils::IsFirstPartyTrackingResourceWindow(inner)) {
     return;
   }
 
@@ -15622,11 +15630,10 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
       // Note: If this has returned true, the top-level document is guaranteed
       // to not be on the Content Blocking allow list.
       DebugOnly<bool> isOnAllowList = false;
-      MOZ_ASSERT_IF(
-          NS_SUCCEEDED(AntiTrackingCommon::IsOnContentBlockingAllowList(
-              parent->GetContentBlockingAllowListPrincipal(), false,
-              isOnAllowList)),
-          !isOnAllowList);
+      MOZ_ASSERT_IF(NS_SUCCEEDED(ContentBlockingAllowList::Check(
+                        parent->GetContentBlockingAllowListPrincipal(), false,
+                        isOnAllowList)),
+                    !isOnAllowList);
 
       RefPtr<Document> self(this);
 
@@ -16175,17 +16182,6 @@ bool Document::HasRecentlyStartedForegroundLoads() {
     idleScheduler->SendPrioritizedOperationDone();
   }
   return false;
-}
-
-already_AddRefed<nsIPrincipal>
-Document::RecomputeContentBlockingAllowListPrincipal(
-    nsIURI* aURIBeingLoaded, const OriginAttributes& aAttrs) {
-  AntiTrackingCommon::RecomputeContentBlockingAllowListPrincipal(
-      aURIBeingLoaded, aAttrs,
-      getter_AddRefs(mContentBlockingAllowListPrincipal));
-
-  nsCOMPtr<nsIPrincipal> copy = mContentBlockingAllowListPrincipal;
-  return copy.forget();
 }
 
 }  // namespace dom

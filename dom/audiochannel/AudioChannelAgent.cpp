@@ -266,15 +266,10 @@ void AudioChannelAgent::WindowSuspendChanged(nsSuspendedTypes aSuspend) {
     return;
   }
 
-  if (!IsDisposableSuspend(aSuspend)) {
-    aSuspend = GetMediaConfig().mSuspend;
-  }
-
   MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
           ("AudioChannelAgent, WindowSuspendChanged, this = %p, "
            "suspended = %s\n",
            this, SuspendTypeToStr(aSuspend)));
-
   callback->WindowSuspendChanged(aSuspend);
 }
 
@@ -285,11 +280,6 @@ AudioPlaybackConfig AudioChannelAgent::GetMediaConfig() const {
     config = service->GetMediaConfig(mWindow, mAudioChannelType);
   }
   return config;
-}
-
-bool AudioChannelAgent::IsDisposableSuspend(nsSuspendedTypes aSuspend) const {
-  return (aSuspend == nsISuspendedTypes::SUSPENDED_PAUSE_DISPOSABLE ||
-          aSuspend == nsISuspendedTypes::SUSPENDED_STOP_DISPOSABLE);
 }
 
 uint64_t AudioChannelAgent::WindowID() const {
@@ -322,9 +312,3 @@ bool AudioChannelAgent::IsWindowAudioCapturingEnabled() const {
 }
 
 bool AudioChannelAgent::IsPlayingStarted() const { return mIsRegToService; }
-
-bool AudioChannelAgent::ShouldBlockMedia() const {
-  return mWindow
-             ? mWindow->GetMediaSuspend() == nsISuspendedTypes::SUSPENDED_BLOCK
-             : false;
-}

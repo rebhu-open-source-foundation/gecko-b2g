@@ -93,6 +93,10 @@
 #  include <gdk/gdkwayland.h>
 #  include <wayland-egl.h>
 #  include <dlfcn.h>
+
+#  define IS_WAYLAND_DISPLAY()    \
+    (gdk_display_get_default() && \
+     !GDK_IS_X11_DISPLAY(gdk_display_get_default()))
 #endif
 
 using namespace mozilla::gfx;
@@ -119,7 +123,7 @@ static nsDataHashtable<nsPtrHashKey<void>, WaylandGLSurface*> sWaylandGLSurface;
 void DeleteWaylandGLSurface(EGLSurface surface) {
   // We're running on Wayland which means our EGLSurface may
   // have attached Wayland backend data which must be released.
-  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+  if (IS_WAYLAND_DISPLAY()) {
     auto entry = sWaylandGLSurface.Lookup(surface);
     if (entry) {
       delete entry.Data();
@@ -302,8 +306,7 @@ already_AddRefed<GLContext> GLContextEGLFactory::Create(
   gl->SetIsDoubleBuffered(doubleBuffered);
 
 #if defined(MOZ_WAYLAND)
-  if (surface != EGL_NO_SURFACE &&
-      !GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+  if (surface != EGL_NO_SURFACE && IS_WAYLAND_DISPLAY()) {
     // Make eglSwapBuffers() non-blocking on wayland
     egl->fSwapInterval(egl->Display(), 0);
   }
@@ -480,7 +483,7 @@ bool GLContextEGL::RenewSurface(CompositorWidget* aWidget) {
   const bool ok = MakeCurrent(true);
   MOZ_ASSERT(ok);
 #if defined(MOZ_WAYLAND)
-  if (mSurface && !GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+  if (mSurface && IS_WAYLAND_DISPLAY()) {
     // Make eglSwapBuffers() non-blocking on wayland
     mEgl->fSwapInterval(mEgl->Display(), 0);
   }
@@ -972,7 +975,7 @@ static void FillContextAttribs(bool alpha, bool depth, bool stencil, bool bpp16,
                                bool es3, nsTArray<EGLint>* out) {
   out->AppendElement(LOCAL_EGL_SURFACE_TYPE);
 #if defined(MOZ_WAYLAND)
-  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+  if (IS_WAYLAND_DISPLAY()) {
     // Wayland on desktop does not support PBuffer or FBO.
     // We create a dummy wl_egl_window instead.
     out->AppendElement(LOCAL_EGL_WINDOW_BIT);
@@ -1101,7 +1104,7 @@ already_AddRefed<GLContextEGL> GLContextEGL::CreateEGLPBufferOffscreenContext(
   mozilla::gfx::IntSize pbSize(size);
   EGLSurface surface = nullptr;
 #if defined(MOZ_WAYLAND)
-  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+  if (IS_WAYLAND_DISPLAY()) {
     surface = GLContextEGL::CreateWaylandBufferSurface(egl, config, pbSize);
   } else
 #endif

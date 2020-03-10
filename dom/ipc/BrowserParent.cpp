@@ -231,7 +231,7 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
   mIsReadyToHandleInputEvents = !ContentParent::IsInputEventQueueSupported();
 }
 
-BrowserParent::~BrowserParent() {}
+BrowserParent::~BrowserParent() = default;
 
 /* static */
 void BrowserParent::InitializeStatics() { MOZ_ASSERT(XRE_IsParentProcess()); }
@@ -1701,7 +1701,7 @@ class SynthesizedEventObserver : public nsIObserver {
   }
 
  private:
-  virtual ~SynthesizedEventObserver() {}
+  virtual ~SynthesizedEventObserver() = default;
 
   RefPtr<BrowserParent> mBrowserParent;
   uint64_t mObserverId;

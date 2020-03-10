@@ -360,10 +360,11 @@ class AliasSet {
     TypedArrayLengthOrOffset = 1 << 9,  // A typed array's length or byteOffset
     WasmGlobalCell = 1 << 10,           // A wasm global cell
     WasmTableElement = 1 << 11,         // An element of a wasm table
-    Last = WasmTableElement,
+    WasmStackResult = 1 << 12,  // A stack result from the current function
+    Last = WasmStackResult,
     Any = Last | (Last - 1),
 
-    NumCategories = 12,
+    NumCategories = 13,
 
     // Indicates load or store.
     Store_ = 1 << 31
@@ -2812,6 +2813,8 @@ class MApplyArgs : public MTernaryInstruction,
   bool ignoresReturnValue() const { return ignoresReturnValue_; }
   void setIgnoresReturnValue() { ignoresReturnValue_ = true; }
 
+  bool isConstructing() const { return false; }
+
   bool possiblyCalls() const override { return true; }
 
   bool appendRoots(MRootList& roots) const override {
@@ -2851,6 +2854,50 @@ class MApplyArray
 
   bool ignoresReturnValue() const { return ignoresReturnValue_; }
   void setIgnoresReturnValue() { ignoresReturnValue_ = true; }
+
+  bool isConstructing() const { return false; }
+
+  bool possiblyCalls() const override { return true; }
+
+  bool appendRoots(MRootList& roots) const override {
+    if (target_) {
+      return target_->appendRoots(roots);
+    }
+    return true;
+  }
+};
+
+// |new F(...args)| and |super(...args)|.
+class MConstructArray : public MQuaternaryInstruction,
+                        public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>,
+                                         BoxPolicy<2>, ObjectPolicy<3>>::Data {
+  // Monomorphic cache of single target from TI, or nullptr.
+  WrappedFunction* target_;
+  bool maybeCrossRealm_ = true;
+
+  MConstructArray(WrappedFunction* target, MDefinition* fun,
+                  MDefinition* elements, MDefinition* thisValue,
+                  MDefinition* newTarget)
+      : MQuaternaryInstruction(classOpcode, fun, elements, thisValue,
+                               newTarget),
+        target_(target) {
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(ConstructArray)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, getFunction), (1, getElements), (2, getThis),
+                 (3, getNewTarget))
+
+  // For TI-informed monomorphic callsites.
+  WrappedFunction* getSingleTarget() const { return target_; }
+
+  bool maybeCrossRealm() const { return maybeCrossRealm_; }
+  void setNotCrossRealm() { maybeCrossRealm_ = false; }
+
+  bool ignoresReturnValue() const { return false; }
+  bool isConstructing() const { return true; }
 
   bool possiblyCalls() const override { return true; }
 
@@ -4183,20 +4230,24 @@ class MToString : public MUnaryInstruction, public ToStringPolicy::Data {
       : MUnaryInstruction(classOpcode, def), sideEffects_(sideEffects) {
     setResultType(MIRType::String);
 
-    if (input()->mightBeType(MIRType::Object) ||
-        input()->mightBeType(MIRType::Symbol)) {
+    if (JitOptions.warpBuilder) {
       mightHaveSideEffects_ = true;
-    }
+    } else {
+      if (input()->mightBeType(MIRType::Object) ||
+          input()->mightBeType(MIRType::Symbol)) {
+        mightHaveSideEffects_ = true;
+      }
 
-    // If this instruction is not effectful, mark it as movable and set the
-    // Guard flag if needed. If the operation is effectful it won't be optimized
-    // anyway so there's no need to set any flags.
-    if (!isEffectful()) {
-      setMovable();
-      // Objects might override toString; Symbol throws. We bailout in those
-      // cases and run side-effects in baseline instead.
-      if (mightHaveSideEffects_) {
-        setGuard();
+      // If this instruction is not effectful, mark it as movable and set the
+      // Guard flag if needed. If the operation is effectful it won't be
+      // optimized anyway so there's no need to set any flags.
+      if (!isEffectful()) {
+        setMovable();
+        // Objects might override toString; Symbol throws. We bailout in those
+        // cases and run side-effects in baseline instead.
+        if (mightHaveSideEffects_) {
+          setGuard();
+        }
       }
     }
   }
@@ -6451,7 +6502,9 @@ class MRegExp : public MNullaryInstruction {
         source_(source),
         hasShared_(hasShared) {
     setResultType(MIRType::Object);
-    setResultTypeSet(MakeSingletonTypeSet(alloc, constraints, source));
+    if (!JitOptions.warpBuilder) {
+      setResultTypeSet(MakeSingletonTypeSet(alloc, constraints, source));
+    }
   }
 
  public:
@@ -11713,6 +11766,27 @@ class MWasmStoreGlobalCell : public MBinaryInstruction,
   }
 };
 
+class MWasmStoreStackResult : public MBinaryInstruction,
+                              public NoTypePolicy::Data {
+  MWasmStoreStackResult(MDefinition* stackResultArea, uint32_t offset,
+                        MDefinition* value)
+      : MBinaryInstruction(classOpcode, stackResultArea, value),
+        offset_(offset) {}
+
+  uint32_t offset_;
+
+ public:
+  INSTRUCTION_HEADER(WasmStoreStackResult)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, stackResultArea), (1, value))
+
+  uint32_t offset() const { return offset_; }
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Store(AliasSet::WasmStackResult);
+  }
+};
+
 // Represents a known-good derived pointer into an object or memory region (in
 // the most general sense) that will not move while the derived pointer is live.
 // The `offset` *must* be a valid offset into the object represented by `base`;
@@ -11883,8 +11957,10 @@ class MWasmStackResultArea : public MNullaryInstruction {
 
  private:
   FixedList<StackResult> results_;
+  uint32_t base_;
 
-  explicit MWasmStackResultArea() : MNullaryInstruction(classOpcode) {
+  explicit MWasmStackResultArea()
+      : MNullaryInstruction(classOpcode), base_(UINT32_MAX) {
     setResultType(MIRType::StackResults);
   }
 
@@ -11897,6 +11973,8 @@ class MWasmStackResultArea : public MNullaryInstruction {
 #endif
   }
 
+  bool baseInitialized() const { return base_ != UINT32_MAX; }
+
  public:
   INSTRUCTION_HEADER(WasmStackResultArea)
   TRIVIAL_NEW_WRAPPERS
@@ -11904,7 +11982,13 @@ class MWasmStackResultArea : public MNullaryInstruction {
   MOZ_MUST_USE bool init(TempAllocator& alloc, size_t stackResultCount) {
     MOZ_ASSERT(results_.length() == 0);
     MOZ_ASSERT(stackResultCount > 0);
-    return results_.init(alloc, stackResultCount);
+    if (!results_.init(alloc, stackResultCount)) {
+      return false;
+    }
+    for (size_t n = 0; n < stackResultCount; n++) {
+      results_[n] = StackResult();
+    }
+    return true;
   }
 
   size_t resultCount() const { return results_.length(); }
@@ -11923,14 +12007,21 @@ class MWasmStackResultArea : public MNullaryInstruction {
     assertInitialized();
     return result(resultCount() - 1).endOffset();
   }
+
+  // Stack index indicating base of stack area.
+  uint32_t base() const {
+    MOZ_ASSERT(baseInitialized());
+    return base_;
+  }
+  void setBase(uint32_t base) {
+    MOZ_ASSERT(!baseInitialized());
+    base_ = base;
+    MOZ_ASSERT(baseInitialized());
+  }
 };
 
 class MWasmStackResult : public MUnaryInstruction, public NoTypePolicy::Data {
   uint32_t resultIdx_;
-
-  const MWasmStackResultArea::StackResult& result() const {
-    return resultArea()->toWasmStackResultArea()->result(resultIdx_);
-  }
 
   MWasmStackResult(MWasmStackResultArea* resultArea, size_t idx)
       : MUnaryInstruction(classOpcode, resultArea), resultIdx_(idx) {
@@ -11941,6 +12032,10 @@ class MWasmStackResult : public MUnaryInstruction, public NoTypePolicy::Data {
   INSTRUCTION_HEADER(WasmStackResult)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, resultArea))
+
+  const MWasmStackResultArea::StackResult& result() const {
+    return resultArea()->toWasmStackResultArea()->result(resultIdx_);
+  }
 };
 
 class MWasmCall final : public MVariadicInstruction, public NoTypePolicy::Data {

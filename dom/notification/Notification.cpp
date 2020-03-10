@@ -114,7 +114,7 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
   NS_IMETHOD Done() override = 0;
 
  protected:
-  virtual ~ScopeCheckingGetCallback() {}
+  virtual ~ScopeCheckingGetCallback() = default;
 
   nsTArray<NotificationStrings> mStrings;
 };
@@ -157,7 +157,7 @@ class NotificationStorageCallback final : public ScopeCheckingGetCallback {
   }
 
  private:
-  virtual ~NotificationStorageCallback() {}
+  virtual ~NotificationStorageCallback() = default;
 
   nsCOMPtr<nsIGlobalObject> mWindow;
   RefPtr<Promise> mPromise;
@@ -454,7 +454,7 @@ class NotificationTask : public Runnable {
   Run() override;
 
  protected:
-  virtual ~NotificationTask() {}
+  virtual ~NotificationTask() = default;
 
   UniquePtr<NotificationRef> mNotificationRef;
   NotificationAction mAction;
@@ -772,8 +772,8 @@ already_AddRefed<Notification> Notification::Constructor(
   UNWRAP_OBJECT(ServiceWorkerGlobalScope, aGlobal.Get(), scope);
   if (scope) {
     aRv.ThrowTypeError(
-        u"Notification constructor cannot be used in ServiceWorkerGlobalScope. "
-        u"Use registration.showNotification() instead.");
+        "Notification constructor cannot be used in ServiceWorkerGlobalScope. "
+        "Use registration.showNotification() instead.");
     return nullptr;
   }
 
@@ -998,7 +998,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
   }
 
  private:
-  ~ServiceWorkerNotificationObserver() {}
+  ~ServiceWorkerNotificationObserver() = default;
 
   const nsString mScope;
   const nsString mID;
@@ -1766,7 +1766,7 @@ class WorkerGetCallback final : public ScopeCheckingGetCallback {
   }
 
  private:
-  ~WorkerGetCallback() {}
+  ~WorkerGetCallback() = default;
 };
 
 NS_IMPL_ISUPPORTS(WorkerGetCallback, nsINotificationStorageCallback)
@@ -1823,7 +1823,7 @@ class WorkerGetRunnable final : public Runnable {
   }
 
  private:
-  ~WorkerGetRunnable() {}
+  ~WorkerGetRunnable() = default;
 };
 
 // static
@@ -2181,7 +2181,7 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
 
     if (NS_WARN_IF(NS_FAILED(loadChecker->Result()))) {
       if (loadChecker->Result() == NS_ERROR_NOT_AVAILABLE) {
-        aRv.ThrowTypeError<MSG_NO_ACTIVE_WORKER>(aScope);
+        aRv.ThrowTypeError<MSG_NO_ACTIVE_WORKER>(NS_ConvertUTF16toUTF8(aScope));
       } else {
         aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
       }
@@ -2202,7 +2202,7 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
   // with a TypeError exception, and terminate these substeps."
   if (NS_WARN_IF(aRv.Failed()) ||
       permission == NotificationPermission::Denied) {
-    p->MaybeRejectWithTypeError(u"Permission to show Notification denied.");
+    p->MaybeRejectWithTypeError("Permission to show Notification denied.");
     return p.forget();
   }
 

@@ -101,17 +101,18 @@ inline bool ThrowErrorMessage(JSContext* aCx, Ts&&... aArgs) {
   return false;
 }
 
-struct StringArrayAppender {
-  static void Append(nsTArray<nsString>& aArgs, uint16_t aCount) {
+template <typename CharT>
+struct TStringArrayAppender {
+  static void Append(nsTArray<nsTString<CharT>>& aArgs, uint16_t aCount) {
     MOZ_RELEASE_ASSERT(aCount == 0,
                        "Must give at least as many string arguments as are "
                        "required by the ErrNum.");
   }
 
-  // Allow passing nsAString instances for our args.
+  // Allow passing nsAString/nsACString instances for our args.
   template <typename... Ts>
-  static void Append(nsTArray<nsString>& aArgs, uint16_t aCount,
-                     const nsAString& aFirst, Ts&&... aOtherArgs) {
+  static void Append(nsTArray<nsTString<CharT>>& aArgs, uint16_t aCount,
+                     const nsTSubstring<CharT>& aFirst, Ts&&... aOtherArgs) {
     if (aCount == 0) {
       MOZ_ASSERT(false,
                  "There should not be more string arguments provided than are "
@@ -122,20 +123,23 @@ struct StringArrayAppender {
     Append(aArgs, aCount - 1, std::forward<Ts>(aOtherArgs)...);
   }
 
-  // Also allow passing u"" instances for our args.
+  // Also allow passing literal instances for our args.
   template <int N, typename... Ts>
-  static void Append(nsTArray<nsString>& aArgs, uint16_t aCount,
-                     const char16_t (&aFirst)[N], Ts&&... aOtherArgs) {
+  static void Append(nsTArray<nsTString<CharT>>& aArgs, uint16_t aCount,
+                     const CharT (&aFirst)[N], Ts&&... aOtherArgs) {
     if (aCount == 0) {
       MOZ_ASSERT(false,
                  "There should not be more string arguments provided than are "
                  "required by the ErrNum.");
       return;
     }
-    aArgs.AppendElement(nsLiteralString(aFirst));
+    aArgs.AppendElement(nsTLiteralString<CharT>(aFirst));
     Append(aArgs, aCount - 1, std::forward<Ts>(aOtherArgs)...);
   }
 };
+
+using StringArrayAppender = TStringArrayAppender<char16_t>;
+using CStringArrayAppender = TStringArrayAppender<char>;
 
 }  // namespace dom
 
@@ -306,7 +310,7 @@ class TErrorResult {
   // To be used when throwing a TypeError with a completely custom
   // message string that's only used in one spot.
   inline void MOZ_MUST_RETURN_FROM_CALLER_IF_THIS_IS_ARG
-  ThrowTypeError(const nsAString& aMessage) {
+  ThrowTypeError(const nsACString& aMessage) {
     this->template ThrowTypeError<dom::MSG_ONE_OFF_TYPEERR>(aMessage);
   }
 
@@ -314,8 +318,8 @@ class TErrorResult {
   // message string that's a string literal that's only used in one spot.
   template <int N>
   void MOZ_MUST_RETURN_FROM_CALLER_IF_THIS_IS_ARG
-  ThrowTypeError(const char16_t (&aMessage)[N]) {
-    ThrowTypeError(nsLiteralString(aMessage));
+  ThrowTypeError(const char (&aMessage)[N]) {
+    ThrowTypeError(nsLiteralCString(aMessage));
   }
 
   template <dom::ErrNum errorNumber, typename... Ts>
@@ -330,7 +334,7 @@ class TErrorResult {
   // To be used when throwing a RangeError with a completely custom
   // message string that's only used in one spot.
   inline void MOZ_MUST_RETURN_FROM_CALLER_IF_THIS_IS_ARG
-  ThrowRangeError(const nsAString& aMessage) {
+  ThrowRangeError(const nsACString& aMessage) {
     this->template ThrowRangeError<dom::MSG_ONE_OFF_RANGEERR>(aMessage);
   }
 
@@ -338,8 +342,8 @@ class TErrorResult {
   // message string that's a string literal that's only used in one spot.
   template <int N>
   void MOZ_MUST_RETURN_FROM_CALLER_IF_THIS_IS_ARG
-  ThrowRangeError(const char16_t (&aMessage)[N]) {
-    ThrowRangeError(nsLiteralString(aMessage));
+  ThrowRangeError(const char (&aMessage)[N]) {
+    ThrowRangeError(nsLiteralCString(aMessage));
   }
 
   bool IsErrorWithMessage() const {
@@ -479,8 +483,8 @@ class TErrorResult {
 
   // Helper method that creates a new Message for this TErrorResult,
   // and returns the arguments array from that Message.
-  nsTArray<nsString>& CreateErrorMessageHelper(const dom::ErrNum errorNumber,
-                                               nsresult errorType);
+  nsTArray<nsCString>& CreateErrorMessageHelper(const dom::ErrNum errorNumber,
+                                                nsresult errorType);
 
   template <dom::ErrNum errorNumber, typename... Ts>
   void ThrowErrorWithMessage(nsresult errorType, Ts&&... messageArgs) {
@@ -493,7 +497,7 @@ class TErrorResult {
 
     ClearUnionData();
 
-    nsTArray<nsString>& messageArgsArray =
+    nsTArray<nsCString>& messageArgsArray =
         CreateErrorMessageHelper(errorNumber, errorType);
     uint16_t argCount = dom::GetErrorArgCount(errorNumber);
     if (dom::ErrorFormatHasContext[errorNumber]) {
@@ -506,8 +510,8 @@ class TErrorResult {
       --argCount;
       messageArgsArray.AppendElement();
     }
-    dom::StringArrayAppender::Append(messageArgsArray, argCount,
-                                     std::forward<Ts>(messageArgs)...);
+    dom::CStringArrayAppender::Append(messageArgsArray, argCount,
+                                      std::forward<Ts>(messageArgs)...);
 #ifdef DEBUG
     mUnionState = HasMessage;
 #endif  // DEBUG

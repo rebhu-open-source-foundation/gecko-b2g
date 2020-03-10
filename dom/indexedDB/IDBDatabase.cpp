@@ -480,9 +480,8 @@ RefPtr<IDBTransaction> IDBDatabase::Transaction(
     // Pretend that this mode doesn't exist. We don't have a way to annotate
     // certain enum values as depending on preferences so we just duplicate the
     // normal exception generation here.
-    aRv.ThrowTypeError<MSG_INVALID_ENUM_VALUE>(
-        u"Argument 2 of IDBDatabase.transaction", u"readwriteflush",
-        u"IDBTransactionMode");
+    aRv.ThrowTypeError<MSG_INVALID_ENUM_VALUE>("argument 2", "readwriteflush",
+                                               "IDBTransactionMode");
     return nullptr;
   }
 
@@ -582,7 +581,7 @@ RefPtr<IDBTransaction> IDBDatabase::Transaction(
       break;
     case IDBTransactionMode::Versionchange:
       // Step 6.
-      aRv.ThrowTypeError(u"Invalid transaction mode");
+      aRv.ThrowTypeError("Invalid transaction mode");
       return nullptr;
 
     default:
@@ -746,7 +745,7 @@ void IDBDatabase::AbortTransactions(bool aShouldWarn) {
       // additional strong references here.
       WeakTransactionArray transactionsThatNeedWarning;
 
-      for (RefPtr<IDBTransaction>& transaction : transactionsToAbort) {
+      for (const auto& transaction : transactionsToAbort) {
         MOZ_ASSERT(transaction);
         MOZ_ASSERT(!transaction->IsFinished());
 
@@ -778,22 +777,21 @@ void IDBDatabase::AbortTransactions(bool aShouldWarn) {
 }
 
 PBackgroundIDBDatabaseFileChild* IDBDatabase::GetOrCreateFileActorForBlob(
-    Blob* aBlob) {
+    Blob& aBlob) {
   AssertIsOnOwningThread();
-  MOZ_ASSERT(aBlob);
   MOZ_ASSERT(mBackgroundActor);
 
   // We use the File's nsIWeakReference as the key to the table because
   // a) it is unique per blob, b) it is reference-counted so that we can
   // guarantee that it stays alive, and c) it doesn't hold the actual File
   // alive.
-  nsWeakPtr weakRef = do_GetWeakReference(aBlob);
+  nsWeakPtr weakRef = do_GetWeakReference(&aBlob);
   MOZ_ASSERT(weakRef);
 
   PBackgroundIDBDatabaseFileChild* actor = nullptr;
 
   if (!mFileActors.Get(weakRef, &actor)) {
-    BlobImpl* blobImpl = aBlob->Impl();
+    BlobImpl* blobImpl = aBlob.Impl();
     MOZ_ASSERT(blobImpl);
 
     PBackgroundChild* backgroundManager =
@@ -829,15 +827,13 @@ void IDBDatabase::NoteFinishedFileActor(
   AssertIsOnOwningThread();
   MOZ_ASSERT(aFileActor);
 
-  for (auto iter = mFileActors.Iter(); !iter.Done(); iter.Next()) {
+  mFileActors.RemoveIf([aFileActor](const auto& iter) {
     MOZ_ASSERT(iter.Key());
     PBackgroundIDBDatabaseFileChild* actor = iter.Data();
     MOZ_ASSERT(actor);
 
-    if (actor == aFileActor) {
-      iter.Remove();
-    }
-  }
+    return actor == aFileActor;
+  });
 }
 
 void IDBDatabase::NoteActiveTransaction() {

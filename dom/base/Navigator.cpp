@@ -1299,13 +1299,14 @@ bool Navigator::SendBeaconInternal(const nsAString& aUrl,
   nsresult rv = nsContentUtils::NewURIWithDocumentCharset(
       getter_AddRefs(uri), aUrl, doc, doc->GetDocBaseURI());
   if (NS_FAILED(rv)) {
-    aRv.ThrowTypeError<MSG_INVALID_URL>(aUrl);
+    aRv.ThrowTypeError<MSG_INVALID_URL>(NS_ConvertUTF16toUTF8(aUrl));
     return false;
   }
 
   // Spec disallows any schemes save for HTTP/HTTPs
   if (!uri->SchemeIs("http") && !uri->SchemeIs("https")) {
-    aRv.ThrowTypeError<MSG_INVALID_URL_SCHEME>(u"Beacon", aUrl);
+    aRv.ThrowTypeError<MSG_INVALID_URL_SCHEME>("Beacon",
+                                               uri->GetSpecOrDefault());
     return false;
   }
 
@@ -1528,7 +1529,7 @@ Promise* Navigator::Share(const ShareData& aData, ErrorResult& aRv) {
                           aData.mUrl.WasPassed();
   if (!someMemberPassed) {
     aRv.ThrowTypeError(
-        u"Must have a title, text, or url in the ShareData dictionary");
+        "Must have a title, text, or url in the ShareData dictionary");
     return nullptr;
   }
 
@@ -1540,7 +1541,8 @@ Promise* Navigator::Share(const ShareData& aData, ErrorResult& aRv) {
   if (aData.mUrl.WasPassed()) {
     auto result = doc->ResolveWithBaseURI(aData.mUrl.Value());
     if (NS_WARN_IF(result.isErr())) {
-      aRv.ThrowTypeError<MSG_INVALID_URL>(aData.mUrl.Value());
+      aRv.ThrowTypeError<MSG_INVALID_URL>(
+          NS_ConvertUTF16toUTF8(aData.mUrl.Value()));
       return nullptr;
     }
     url = result.unwrap();
@@ -1707,7 +1709,7 @@ void Navigator::FinishGetVRDisplays(bool isWebVRSupportedInwindow, Promise* p) {
     // The Window has been torn down, so there is no further work that can
     // be done.
     p->MaybeRejectWithTypeError(
-        u"Unable to return VRDisplays for a closed window.");
+        "Unable to return VRDisplays for a closed window.");
     return;
   }
 
@@ -1723,7 +1725,7 @@ void Navigator::OnXRPermissionRequestAllow() {
   if (!VRDisplay::RefreshVRDisplays(win->WindowID())) {
     for (auto& p : mVRGetDisplaysPromises) {
       // Failed to refresh, reject the promise now
-      p->MaybeRejectWithTypeError(u"Failed to find attached VR displays.");
+      p->MaybeRejectWithTypeError("Failed to find attached VR displays.");
     }
   }
 }

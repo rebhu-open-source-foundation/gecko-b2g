@@ -972,10 +972,39 @@ BasePrincipal::GetLocalStorageQuotaKey(nsACString& aKey) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+BasePrincipal::GetIsScriptAllowedByPolicy(bool* aIsScriptAllowedByPolicy) {
+  *aIsScriptAllowedByPolicy = false;
+  nsCOMPtr<nsIURI> prinURI;
+  nsresult rv = GetURI(getter_AddRefs(prinURI));
+  if (NS_FAILED(rv) || !prinURI) {
+    return NS_OK;
+  }
+  nsIScriptSecurityManager* ssm = nsContentUtils::GetSecurityManager();
+  if (!ssm) {
+    return NS_ERROR_UNEXPECTED;
+  }
+  return ssm->PolicyAllowsScript(prinURI, aIsScriptAllowedByPolicy);
+}
+
 bool SiteIdentifier::Equals(const SiteIdentifier& aOther) const {
   MOZ_ASSERT(IsInitialized());
   MOZ_ASSERT(aOther.IsInitialized());
   return mPrincipal->FastEquals(aOther.mPrincipal);
+}
+
+NS_IMETHODIMP
+BasePrincipal::CreateReferrerInfo(mozilla::dom::ReferrerPolicy aReferrerPolicy,
+                                  nsIReferrerInfo** _retval) {
+  nsCOMPtr<nsIURI> prinURI;
+  nsresult rv = GetURI(getter_AddRefs(prinURI));
+  if (NS_FAILED(rv) || !prinURI) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  RefPtr<dom::ReferrerInfo> info =
+      new dom::ReferrerInfo(prinURI, aReferrerPolicy);
+  info.forget(_retval);
+  return NS_OK;
 }
 
 }  // namespace mozilla

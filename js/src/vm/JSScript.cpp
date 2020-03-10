@@ -664,9 +664,9 @@ js::ScriptSource* js::BaseScript::maybeForwardedScriptSource() const {
       .source();
 }
 
-void js::BaseScript::setEnclosingLazyScript(LazyScript* enclosingLazyScript) {
-  MOZ_ASSERT(enclosingLazyScript);
-  warmUpData_.initEnclosingScript(enclosingLazyScript);
+void js::BaseScript::setEnclosingScript(BaseScript* enclosingScript) {
+  MOZ_ASSERT(enclosingScript);
+  warmUpData_.initEnclosingScript(enclosingScript);
 }
 
 void js::BaseScript::setEnclosingScope(Scope* enclosingScope) {
@@ -683,7 +683,7 @@ void js::BaseScript::finalize(JSFreeOp* fop) {
   // per-zone maps. Note that a failed compilation must not have entries since
   // the script itself will not be marked as having bytecode.
   if (hasBytecode()) {
-    JSScript* script = static_cast<JSScript*>(this);
+    JSScript* script = this->asJSScript();
 
     if (coverage::IsLCovEnabled()) {
       coverage::CollectScriptCoverage(script, true);
@@ -704,7 +704,7 @@ void js::BaseScript::finalize(JSFreeOp* fop) {
   }
 
   if (warmUpData_.isJitScript()) {
-    JSScript* script = static_cast<JSScript*>(this);
+    JSScript* script = this->asJSScript();
     script->releaseJitScriptOnFinalize(fop);
   }
 
@@ -1144,7 +1144,10 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
     if (!sourceObjectArg) {
       xdrFlags |= OwnSource;
     }
-    if (script->maybeLazyScript()) {
+    // If script allows relazifying back to a LazyScript we must save that lazy
+    // script. If the lazy script only existed for the Debugger, we do not
+    // preserve it.
+    if (script->allowRelazify()) {
       xdrFlags |= HasLazyScript;
     }
   }
@@ -1289,6 +1292,7 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
 
     if (mode == XDR_DECODE) {
       script->setLazyScript(lazy);
+      script->setAllowRelazify();
     }
   }
 
@@ -1407,6 +1411,11 @@ void JSScript::setDefaultClassConstructorSpan(
   // Since this script has been changed to point into the user's source, we
   // can clear its self-hosted flag, allowing Debugger to see it.
   clearFlag(ImmutableFlags::SelfHosted);
+
+  // Even though the script was cloned from the self-hosted template, we cannot
+  // delazify back to a SelfHostedLazyScript. The script is no longer marked as
+  // SelfHosted either.
+  clearAllowRelazify();
 }
 
 bool JSScript::initScriptCounts(JSContext* cx) {
@@ -4310,7 +4319,7 @@ JSScript* JSScript::Create(JSContext* cx, js::HandleObject functionOrGlobal,
 }
 
 /* static */ JSScript* JSScript::CreateFromLazy(JSContext* cx,
-                                                Handle<LazyScript*> lazy) {
+                                                Handle<BaseScript*> lazy) {
   RootedScriptSourceObject sourceObject(cx, lazy->sourceObject());
   RootedObject fun(cx, lazy->function());
   RootedScript script(cx, JSScript::New(cx, fun, sourceObject, lazy->extent()));
@@ -5195,7 +5204,7 @@ void ScriptWarmUpData::trace(JSTracer* trc) {
   uintptr_t tag = data_ & TagMask;
   switch (tag) {
     case EnclosingScriptTag: {
-      LazyScript* enclosingScript = toEnclosingScript();
+      BaseScript* enclosingScript = toEnclosingScript();
       TraceManuallyBarrieredEdge(trc, &enclosingScript, "enclosingScript");
       setTaggedPtr<EnclosingScriptTag>(enclosingScript);
       break;
@@ -5647,8 +5656,8 @@ void JSScript::AutoDelazify::holdScript(JS::HandleFunction fun) {
       JSAutoRealm ar(cx_, fun);
       script_ = JSFunction::getOrCreateScript(cx_, fun);
       if (script_) {
-        oldDoNotRelazify_ = script_->hasFlag(MutableFlags::DoNotRelazify);
-        script_->setDoNotRelazify(true);
+        oldAllowRelazify_ = script_->allowRelazify();
+        script_->clearAllowRelazify();
       }
     }
   }
@@ -5658,7 +5667,7 @@ void JSScript::AutoDelazify::dropScript() {
   // Don't touch script_ if it's in the self-hosting realm, see the comment
   // in holdScript.
   if (script_ && !script_->realm()->isSelfHostingRealm()) {
-    script_->setDoNotRelazify(oldDoNotRelazify_);
+    script_->setAllowRelazify(oldAllowRelazify_);
   }
   script_ = nullptr;
 }
@@ -5672,7 +5681,7 @@ JS::ubi::Base::Size JS::ubi::Concrete<BaseScript>::size(
 
   // Include any JIT data if it exists.
   if (base->hasJitScript()) {
-    JSScript* script = static_cast<JSScript*>(base);
+    JSScript* script = base->asJSScript();
 
     size_t jitScriptSize = 0;
     size_t fallbackStubSize = 0;

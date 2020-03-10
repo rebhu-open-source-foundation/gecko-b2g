@@ -155,7 +155,6 @@ IonBuilder::IonBuilder(JSContext* analysisContext, MIRGenerator& mirGen,
       loopStack_(*alloc_),
       trackedOptimizationSites_(*alloc_),
       abortedPreliminaryGroups_(*alloc_),
-      lexicalCheck_(nullptr),
       callerResumePoint_(nullptr),
       callerBuilder_(nullptr),
       iterators_(*alloc_),
@@ -2001,8 +2000,6 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
       return Ok();
 
     case JSOp::ThrowSetConst:
-    case JSOp::ThrowSetAliasedConst:
-    case JSOp::ThrowSetCallee:
       return jsop_throwsetconst();
 
     case JSOp::CheckLexical:
@@ -2020,9 +2017,6 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
       current->push(value);
       return jsop_setprop(info().getAtom(pc)->asPropertyName());
     }
-
-    case JSOp::CheckAliasedLexical:
-      return jsop_checkaliasedlexical(EnvironmentCoordinate(pc));
 
     case JSOp::InitAliasedLexical:
       return jsop_setaliasedvar(EnvironmentCoordinate(pc));
@@ -2111,6 +2105,10 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
 
     case JSOp::SpreadCall:
       return jsop_spreadcall();
+
+    case JSOp::SpreadNew:
+    case JSOp::SpreadSuperCall:
+      return jsop_spreadnew();
 
     case JSOp::Call:
     case JSOp::CallIgnoresRv:
@@ -2471,8 +2469,6 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::LeaveWith:
 
     // Spread
-    case JSOp::SpreadNew:
-    case JSOp::SpreadSuperCall:
     case JSOp::SpreadEval:
     case JSOp::StrictSpreadEval:
 
@@ -5723,25 +5719,28 @@ AbortReasonOr<Ok> IonBuilder::jsop_funapply(uint32_t argc) {
   return jsop_funapplyarguments(argc);
 }
 
-AbortReasonOr<Ok> IonBuilder::jsop_spreadcall() {
-  // The arguments array is constructed by a JSOp::NewArray and not
-  // leaked to user. The complications of spread call iterator behaviour are
-  // handled when the user objects are expanded and copied into this hidden
-  // array.
-
+static void AssertSpreadArgIsArray(MDefinition* argument,
+                                   CompilerConstraintList* constraints) {
 #ifdef DEBUG
   // If we know class, ensure it is what we expected
-  MDefinition* argument = current->peek(-1);
   if (TemporaryTypeSet* objTypes = argument->resultTypeSet()) {
-    if (const JSClass* clasp = objTypes->getKnownClass(constraints())) {
+    if (const JSClass* clasp = objTypes->getKnownClass(constraints)) {
       MOZ_ASSERT(clasp == &ArrayObject::class_);
     }
   }
 #endif
+}
 
+AbortReasonOr<Ok> IonBuilder::jsop_spreadcall() {
   MDefinition* argArr = current->pop();
   MDefinition* argThis = current->pop();
   MDefinition* argFunc = current->pop();
+
+  // The arguments array is constructed by a JSOp::NewArray and not
+  // leaked to user. The complications of spread call iterator behaviour are
+  // handled when the user objects are expanded and copied into this hidden
+  // array.
+  AssertSpreadArgIsArray(argArr, constraints());
 
   // Extract call target.
   TemporaryTypeSet* funTypes = argFunc->resultTypeSet();
@@ -5767,6 +5766,50 @@ AbortReasonOr<Ok> IonBuilder::jsop_spreadcall() {
   }
 
   // TypeBarrier the call result
+  TemporaryTypeSet* types = bytecodeTypes(pc);
+  return pushTypeBarrier(apply, types, BarrierKind::TypeSet);
+}
+
+AbortReasonOr<Ok> IonBuilder::jsop_spreadnew() {
+  MDefinition* newTarget = current->pop();
+  MDefinition* argArr = current->pop();
+  MDefinition* thisValue = current->pop();
+  MDefinition* callee = current->pop();
+
+  // The arguments array is constructed by JSOp::NewArray and not leaked to the
+  // user. The complications of spread call iterator behaviour are handled when
+  // the user objects are expanded and copied into this hidden array.
+  AssertSpreadArgIsArray(argArr, constraints());
+
+  // Extract call target.
+  TemporaryTypeSet* funTypes = callee->resultTypeSet();
+  JSFunction* target = getSingleCallTarget(funTypes);
+  if (target && !target->isConstructor()) {
+    // Don't optimize when the target doesn't support construct calls.
+    target = nullptr;
+  }
+  WrappedFunction* wrappedTarget =
+      target ? new (alloc()) WrappedFunction(target) : nullptr;
+
+  // Inline the constructor on the caller-side.
+  MDefinition* create = createThis(target, callee, newTarget, false);
+  thisValue->setImplicitlyUsedUnchecked();
+
+  // Dense elements of the argument array.
+  MElements* elements = MElements::New(alloc(), argArr);
+  current->add(elements);
+
+  auto* apply = MConstructArray::New(alloc(), wrappedTarget, callee, elements,
+                                     create, newTarget);
+  current->add(apply);
+  current->push(apply);
+  MOZ_TRY(resumeAfter(apply));
+
+  if (target && target->realm() == script()->realm()) {
+    apply->setNotCrossRealm();
+  }
+
+  // TypeBarrier the call result.
   TemporaryTypeSet* types = bytecodeTypes(pc);
   return pushTypeBarrier(apply, types, BarrierKind::TypeSet);
 }
@@ -12038,30 +12081,11 @@ AbortReasonOr<Ok> IonBuilder::jsop_throwsetconst() {
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_checklexical() {
-  uint32_t slot = info().localSlot(GET_LOCALNO(pc));
+  MDefinition* val = current->peek(-1);
   MDefinition* lexical;
-  MOZ_TRY_VAR(lexical, addLexicalCheck(current->getSlot(slot)));
-  current->setSlot(slot, lexical);
-  return Ok();
-}
-
-AbortReasonOr<Ok> IonBuilder::jsop_checkaliasedlexical(
-    EnvironmentCoordinate ec) {
-  MDefinition* let;
-  MOZ_TRY_VAR(let, addLexicalCheck(getAliasedVar(ec)));
-
-  jsbytecode* nextPc = pc + JSOpLength_CheckAliasedLexical;
-  MOZ_ASSERT(JSOp(*nextPc) == JSOp::GetAliasedVar ||
-             JSOp(*nextPc) == JSOp::SetAliasedVar ||
-             JSOp(*nextPc) == JSOp::ThrowSetAliasedConst);
-  MOZ_ASSERT(ec == EnvironmentCoordinate(nextPc));
-
-  // If we are checking for a load, push the checked let so that the load
-  // can use it.
-  if (JSOp(*nextPc) == JSOp::GetAliasedVar) {
-    setLexicalCheck(let);
-  }
-
+  MOZ_TRY_VAR(lexical, addLexicalCheck(val));
+  current->pop();
+  current->push(lexical);
   return Ok();
 }
 
@@ -12267,11 +12291,7 @@ MDefinition* IonBuilder::getAliasedVar(EnvironmentCoordinate ec) {
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_getaliasedvar(EnvironmentCoordinate ec) {
-  // See jsop_checkaliasedlexical.
-  MDefinition* load = takeLexicalCheck();
-  if (!load) {
-    load = getAliasedVar(ec);
-  }
+  MDefinition* load = getAliasedVar(ec);
   current->push(load);
 
   TemporaryTypeSet* types = bytecodeTypes(pc);
@@ -13079,18 +13099,14 @@ void IonBuilder::addAbortedPreliminaryGroup(ObjectGroup* group) {
 }
 
 AbortReasonOr<MDefinition*> IonBuilder::addLexicalCheck(MDefinition* input) {
-  MOZ_ASSERT(JSOp(*pc) == JSOp::CheckLexical ||
-             JSOp(*pc) == JSOp::CheckAliasedLexical ||
-             JSOp(*pc) == JSOp::GetImport);
-
-  MInstruction* lexicalCheck;
+  MOZ_ASSERT(JSOp(*pc) == JSOp::CheckLexical || JSOp(*pc) == JSOp::GetImport);
 
   // If we're guaranteed to not be JS_UNINITIALIZED_LEXICAL, no need to check.
   if (input->type() == MIRType::MagicUninitializedLexical) {
     // Mark the input as implicitly used so the JS_UNINITIALIZED_LEXICAL
     // magic value will be preserved on bailout.
     input->setImplicitlyUsedUnchecked();
-    lexicalCheck =
+    MInstruction* lexicalCheck =
         MThrowRuntimeLexicalError::New(alloc(), JSMSG_UNINITIALIZED_LEXICAL);
     current->add(lexicalCheck);
     MOZ_TRY(resumeAfter(lexicalCheck));
@@ -13098,7 +13114,7 @@ AbortReasonOr<MDefinition*> IonBuilder::addLexicalCheck(MDefinition* input) {
   }
 
   if (input->type() == MIRType::Value) {
-    lexicalCheck = MLexicalCheck::New(alloc(), input);
+    MInstruction* lexicalCheck = MLexicalCheck::New(alloc(), input);
     current->add(lexicalCheck);
     if (failedLexicalCheck_) {
       lexicalCheck->setNotMovableUnchecked();
@@ -13106,6 +13122,7 @@ AbortReasonOr<MDefinition*> IonBuilder::addLexicalCheck(MDefinition* input) {
     return lexicalCheck;
   }
 
+  input->setImplicitlyUsedUnchecked();
   return input;
 }
 

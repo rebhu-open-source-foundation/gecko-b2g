@@ -226,11 +226,11 @@ class ColorPattern : public Pattern {
  public:
   // Explicit because consumers should generally use ToDeviceColor when
   // creating a ColorPattern.
-  explicit ColorPattern(const Color& aColor) : mColor(aColor) {}
+  explicit ColorPattern(const DeviceColor& aColor) : mColor(aColor) {}
 
   PatternType GetType() const override { return PatternType::COLOR; }
 
-  Color mColor;
+  DeviceColor mColor;
 };
 
 /**
@@ -298,14 +298,22 @@ class RadialGradientPattern : public Pattern {
 class ConicGradientPattern : public Pattern {
  public:
   /// For constructor parameter description, see member data documentation.
-  ConicGradientPattern(const Point& aCenter, Float aAngle,
-                       GradientStops* aStops, const Matrix& aMatrix = Matrix())
-      : mCenter(aCenter), mAngle(aAngle), mStops(aStops), mMatrix(aMatrix) {}
+  ConicGradientPattern(const Point& aCenter, Float aAngle, Float aStartOffset,
+                       Float aEndOffset, GradientStops* aStops,
+                       const Matrix& aMatrix = Matrix())
+      : mCenter(aCenter),
+        mAngle(aAngle),
+        mStartOffset(aStartOffset),
+        mEndOffset(aEndOffset),
+        mStops(aStops),
+        mMatrix(aMatrix) {}
 
   PatternType GetType() const override { return PatternType::CONIC_GRADIENT; }
 
   Point mCenter;  //!< Center of the gradient
   Float mAngle;   //!< Start angle of gradient
+  Float mStartOffset;  // Offset of first stop
+  Float mEndOffset;    // Offset of last stop
   RefPtr<GradientStops>
       mStops;      /**< GradientStops object for this gradient, this
                         should match the backend type of the draw target
@@ -1167,7 +1175,8 @@ class DrawTarget : public external::AtomicRefCounted<DrawTarget> {
    * @param aOperator Composition operator used
    */
   virtual void DrawSurfaceWithShadow(SourceSurface* aSurface,
-                                     const Point& aDest, const Color& aColor,
+                                     const Point& aDest,
+                                     const DeviceColor& aColor,
                                      const Point& aOffset, Float aSigma,
                                      CompositionOp aOperator) = 0;
 
@@ -1792,8 +1801,8 @@ class GFX2D_API Factory {
 #ifdef XP_DARWIN
   static already_AddRefed<ScaledFont> CreateScaledFontForMacFont(
       CGFontRef aCGFont, const RefPtr<UnscaledFont>& aUnscaledFont, Float aSize,
-      const Color& aFontSmoothingBackgroundColor, bool aUseFontSmoothing = true,
-      bool aApplySyntheticBold = false);
+      const DeviceColor& aFontSmoothingBackgroundColor,
+      bool aUseFontSmoothing = true, bool aApplySyntheticBold = false);
 #endif
 
 #ifdef MOZ_WIDGET_GTK

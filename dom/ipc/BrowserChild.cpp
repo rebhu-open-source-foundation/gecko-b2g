@@ -2983,8 +2983,33 @@ void BrowserChild::NotifyPainted() {
 }
 
 IPCResult BrowserChild::RecvUpdateEffects(const EffectsInfo& aEffects) {
+  bool needInvalidate = false;
+  if (mEffectsInfo.IsVisible() && aEffects.IsVisible() &&
+      mEffectsInfo != aEffects) {
+    // if we are staying visible and either the visrect or scale changed we need
+    // to invalidate
+    needInvalidate = true;
+  }
+
   mEffectsInfo = aEffects;
   UpdateVisibility();
+
+  if (needInvalidate) {
+    nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
+    if (docShell) {
+      // We don't use BrowserChildBase::GetPresShell() here because that would
+      // create a content viewer if one doesn't exist yet. Creating a content
+      // viewer can cause JS to run, which we want to avoid.
+      // nsIDocShell::GetPresShell returns null if no content viewer exists yet.
+      RefPtr<PresShell> presShell = docShell->GetPresShell();
+      if (presShell) {
+        if (nsIFrame* root = presShell->GetRootFrame()) {
+          root->InvalidateFrame();
+        }
+      }
+    }
+  }
+
   return IPC_OK();
 }
 
@@ -4214,7 +4239,7 @@ BrowserChildMessageManager::BrowserChildMessageManager(
     : ContentFrameMessageManager(new nsFrameMessageManager(aBrowserChild)),
       mBrowserChild(aBrowserChild) {}
 
-BrowserChildMessageManager::~BrowserChildMessageManager() {}
+BrowserChildMessageManager::~BrowserChildMessageManager() = default;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(BrowserChildMessageManager)
 

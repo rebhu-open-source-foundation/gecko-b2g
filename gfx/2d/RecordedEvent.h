@@ -111,7 +111,7 @@ class Translator {
 };
 
 struct ColorPatternStorage {
-  Color mColor;
+  DeviceColor mColor;
 };
 
 struct LinearGradientPatternStorage {
@@ -133,6 +133,8 @@ struct RadialGradientPatternStorage {
 struct ConicGradientPatternStorage {
   Point mCenter;
   Float mAngle;
+  Float mStartOffset;
+  Float mEndOffset;
   ReferencePtr mStops;
   Matrix mMatrix;
 };

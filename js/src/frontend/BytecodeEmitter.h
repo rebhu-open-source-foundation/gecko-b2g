@@ -46,7 +46,7 @@
 #include "vm/Interpreter.h"          // CheckIsObjectKind, CheckIsCallableKind
 #include "vm/Iteration.h"            // IteratorKind
 #include "vm/JSFunction.h"           // JSFunction, FunctionPrefixKind
-#include "vm/JSScript.h"  // JSScript, LazyScript, FieldInitializers, JSTryNoteKind
+#include "vm/JSScript.h"  // JSScript, BaseScript, FieldInitializers, JSTryNoteKind
 #include "vm/Runtime.h"     // ReportOutOfMemory
 #include "vm/StringType.h"  // JSAtom
 
@@ -70,6 +70,8 @@ class OptionalEmitter;
 class TDZCheckCache;
 class TryEmitter;
 
+enum class ValueIsOnStack { Yes, No };
+
 struct MOZ_STACK_CLASS BytecodeEmitter {
   // Context shared between parsing and bytecode generation.
   SharedContext* const sc = nullptr;
@@ -83,7 +85,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   JS::Rooted<JSScript*> script;
 
   // The lazy script if mode is LazyFunction, nullptr otherwise.
-  JS::Rooted<LazyScript*> lazyScript;
+  JS::Rooted<BaseScript*> lazyScript;
 
  private:
   BytecodeSection bytecodeSection_;
@@ -186,7 +188,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   // Internal constructor, for delegation use only.
   BytecodeEmitter(
       BytecodeEmitter* parent, SharedContext* sc, JS::Handle<JSScript*> script,
-      JS::Handle<LazyScript*> lazyScript, uint32_t line, uint32_t column,
+      JS::Handle<BaseScript*> lazyScript, uint32_t line, uint32_t column,
       CompilationInfo& compilationInfo, EmitterMode emitterMode,
       FieldInitializers fieldInitializers = FieldInitializers::Invalid());
 
@@ -204,14 +206,14 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
  public:
   BytecodeEmitter(
       BytecodeEmitter* parent, BCEParserHandle* parser, SharedContext* sc,
-      JS::Handle<JSScript*> script, JS::Handle<LazyScript*> lazyScript,
+      JS::Handle<JSScript*> script, JS::Handle<BaseScript*> lazyScript,
       uint32_t line, uint32_t column, CompilationInfo& compilationInfo,
       EmitterMode emitterMode = Normal,
       FieldInitializers fieldInitializers = FieldInitializers::Invalid());
 
   BytecodeEmitter(
       BytecodeEmitter* parent, const EitherParser& parser, SharedContext* sc,
-      JS::Handle<JSScript*> script, JS::Handle<LazyScript*> lazyScript,
+      JS::Handle<JSScript*> script, JS::Handle<BaseScript*> lazyScript,
       uint32_t line, uint32_t column, CompilationInfo& compilationInfo,
       EmitterMode emitterMode = Normal,
       FieldInitializers fieldInitializers = FieldInitializers::Invalid());
@@ -220,7 +222,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   BytecodeEmitter(
       BytecodeEmitter* parent, Parser<FullParseHandler, Unit>* parser,
       SharedContext* sc, JS::Handle<JSScript*> script,
-      JS::Handle<LazyScript*> lazyScript, uint32_t line, uint32_t column,
+      JS::Handle<BaseScript*> lazyScript, uint32_t line, uint32_t column,
       CompilationInfo& compilationInfo, EmitterMode emitterMode = Normal,
       FieldInitializers fieldInitializers = FieldInitializers::Invalid())
       : BytecodeEmitter(parent, EitherParser(parser), sc, script, lazyScript,
@@ -480,8 +482,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
 
   MOZ_MUST_USE bool emitInternedScopeOp(uint32_t index, JSOp op);
   MOZ_MUST_USE bool emitInternedObjectOp(uint32_t index, JSOp op);
-  MOZ_MUST_USE bool emitObjectPairOp(ObjectBox* objbox1, ObjectBox* objbox2,
-                                     JSOp op);
+  MOZ_MUST_USE bool emitObjectPairOp(uint32_t index1, uint32_t index2, JSOp op);
   MOZ_MUST_USE bool emitRegExp(uint32_t index);
 
   MOZ_NEVER_INLINE MOZ_MUST_USE bool emitFunction(
@@ -490,24 +491,23 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   MOZ_NEVER_INLINE MOZ_MUST_USE bool emitObject(ListNode* objNode,
                                                 bool isInner = false);
 
-  MOZ_MUST_USE bool replaceNewInitWithNewObject(JSObject* obj,
-                                                BytecodeOffset offset);
-
   MOZ_MUST_USE bool emitHoistedFunctionsInList(ListNode* stmtList);
 
   // Can we use the object-literal writer either in singleton-object mode (with
   // values) or in template mode (field names only, no values) for the property
   // list?
-  void isPropertyListObjLiteralCompatible(ListNode* obj, PropListType type,
-                                          bool* withValues,
+  void isPropertyListObjLiteralCompatible(ListNode* obj, bool* withValues,
                                           bool* withoutValues);
   bool isArrayObjLiteralCompatible(ParseNode* arrayHead);
 
   MOZ_MUST_USE bool emitPropertyList(ListNode* obj, PropertyEmitter& pe,
                                      PropListType type, bool isInner = false);
 
-  MOZ_MUST_USE bool emitPropertyListObjLiteral(ListNode* obj, PropListType type,
+  MOZ_MUST_USE bool emitPropertyListObjLiteral(ListNode* obj,
                                                ObjLiteralFlags flags);
+
+  MOZ_MUST_USE bool emitDestructuringRestExclusionSetObjLiteral(
+      ListNode* pattern);
 
   MOZ_MUST_USE bool emitObjLiteralArray(ParseNode* arrayHead, bool isCow);
 
@@ -553,7 +553,8 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   MOZ_MUST_USE bool emitGetName(NameNode* name);
 
   MOZ_MUST_USE bool emitTDZCheckIfNeeded(HandleAtom name,
-                                         const NameLocation& loc);
+                                         const NameLocation& loc,
+                                         ValueIsOnStack isOnStack);
 
   MOZ_MUST_USE bool emitNameIncDec(UnaryNode* incDec);
 
@@ -563,8 +564,6 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   MOZ_MUST_USE bool emitAssignmentRhs(ParseNode* rhs,
                                       HandleAtom anonFunctionName);
   MOZ_MUST_USE bool emitAssignmentRhs(uint8_t offset);
-
-  MOZ_MUST_USE bool emitNewInit();
 
   MOZ_MUST_USE bool emitPrepareIteratorResult();
   MOZ_MUST_USE bool emitFinishIteratorResult(bool done);
@@ -706,6 +705,8 @@ struct MOZ_STACK_CLASS BytecodeEmitter {
   MOZ_MUST_USE bool setFunName(FunctionBox* fun, JSAtom* name);
   MOZ_MUST_USE bool emitInitializer(ParseNode* initializer, ParseNode* pattern);
 
+  MOZ_MUST_USE bool emitCallSiteObjectArray(ListNode* cookedOrRaw,
+                                            uint32_t* arrayIndex);
   MOZ_MUST_USE bool emitCallSiteObject(CallSiteNode* callSiteObj);
   MOZ_MUST_USE bool emitTemplateString(ListNode* templateString);
   MOZ_MUST_USE bool emitAssignmentOrInit(ParseNodeKind kind, ParseNode* lhs,

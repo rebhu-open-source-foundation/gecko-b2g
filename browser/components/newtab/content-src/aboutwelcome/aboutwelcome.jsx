@@ -29,10 +29,19 @@ class AboutWelcome extends React.PureComponent {
       event: "IMPRESSION",
       message_id: "SIMPLIFIED_ABOUT_WELCOME",
     });
+    // Captures user has seen about:welcome by setting
+    // firstrun.didSeeAboutWelcome pref to true
+    window.AWSendToParent("SET_WELCOME_MESSAGE_SEEN");
   }
 
   handleStartBtnClick() {
     AboutWelcomeUtils.handleUserAction(this.props.startButton.action);
+    const ping = {
+      event: "CLICK_BUTTON",
+      message_id: this.props.startButton.message_id,
+      id: "ABOUT_WELCOME",
+    };
+    window.AWSendEventTelemetry(ping);
   }
 
   render() {
@@ -40,19 +49,21 @@ class AboutWelcome extends React.PureComponent {
     return (
       <div className="trailheadCards">
         <div className="trailheadCardsInner">
-          <HeroText title={props.title} subtitle={props.subtitle} />
-          <FxCards
-            cards={props.cards}
-            metricsFlowUri={this.state.metricsFlowUri}
-            sendTelemetry={window.AWSendEventTelemetry}
-          />
-          {props.startButton && props.startButton.string_id && (
-            <button
-              className="start-button"
-              data-l10n-id={props.startButton.string_id}
-              onClick={this.handleStartBtnClick}
+          <main>
+            <HeroText title={props.title} subtitle={props.subtitle} />
+            <FxCards
+              cards={props.cards}
+              metricsFlowUri={this.state.metricsFlowUri}
+              sendTelemetry={window.AWSendEventTelemetry}
             />
-          )}
+            {props.startButton && props.startButton.string_id && (
+              <button
+                className="start-button"
+                data-l10n-id={props.startButton.string_id}
+                onClick={this.handleStartBtnClick}
+              />
+            )}
+          </main>
         </div>
       </div>
     );

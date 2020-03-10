@@ -38,58 +38,6 @@ namespace {
 bool sAudioChannelSuspendedByDefault = false;
 bool sXPCOMShuttingDown = false;
 
-// If true, any new AudioChannelAgent will be muted when created.
-bool sAudioChannelMutedByDefault = false;
-class NotifyChannelActiveRunnable final : public Runnable {
- public:
-  NotifyChannelActiveRunnable(uint64_t aWindowID, AudioChannel aAudioChannel,
-                              bool aActive)
-      : Runnable("NotifyChannelActiveRunnable"),
-        mWindowID(aWindowID),
-        mAudioChannel(aAudioChannel),
-        mActive(aActive) {}
-
-  NS_IMETHOD Run() override {
-    nsCOMPtr<nsIObserverService> observerService =
-        services::GetObserverService();
-    if (NS_WARN_IF(!observerService)) {
-      return NS_ERROR_FAILURE;
-    }
-
-    nsCOMPtr<nsISupportsPRUint64> wrapper =
-        do_CreateInstance(NS_SUPPORTS_PRUINT64_CONTRACTID);
-    if (NS_WARN_IF(!wrapper)) {
-      return NS_ERROR_FAILURE;
-    }
-
-    wrapper->SetData(mWindowID);
-
-    nsAutoString name;
-    AudioChannelService::GetAudioChannelString(mAudioChannel, name);
-
-    nsAutoCString topic;
-    topic.Assign("audiochannel-activity-");
-    topic.Append(NS_ConvertUTF16toUTF8(name));
-
-    observerService->NotifyObservers(wrapper, topic.get(),
-                                     mActive ? u"active" : u"inactive");
-
-    observerService->NotifyObservers(wrapper, "media-playback",
-                                     mActive ? u"active" : u"inactive");
-
-    MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-            ("NotifyChannelActiveRunnable, type = %" PRIu32 ", active = %s\n",
-             static_cast<uint32_t>(mAudioChannel), mActive ? "true" : "false"));
-
-    return NS_OK;
-  }
-
- private:
-  const uint64_t mWindowID;
-  const AudioChannel mAudioChannel;
-  const bool mActive;
-};
-
 class AudioPlaybackRunnable final : public Runnable {
  public:
   AudioPlaybackRunnable(nsPIDOMWindowOuter* aWindow, bool aActive,
@@ -159,22 +107,13 @@ namespace dom {
 
 const char* SuspendTypeToStr(const nsSuspendedTypes& aSuspend) {
   MOZ_ASSERT(aSuspend == nsISuspendedTypes::NONE_SUSPENDED ||
-             aSuspend == nsISuspendedTypes::SUSPENDED_PAUSE ||
-             aSuspend == nsISuspendedTypes::SUSPENDED_BLOCK ||
-             aSuspend == nsISuspendedTypes::SUSPENDED_PAUSE_DISPOSABLE ||
-             aSuspend == nsISuspendedTypes::SUSPENDED_STOP_DISPOSABLE);
+             aSuspend == nsISuspendedTypes::SUSPENDED_BLOCK);
 
   switch (aSuspend) {
     case nsISuspendedTypes::NONE_SUSPENDED:
       return "none";
-    case nsISuspendedTypes::SUSPENDED_PAUSE:
-      return "pause";
     case nsISuspendedTypes::SUSPENDED_BLOCK:
       return "block";
-    case nsISuspendedTypes::SUSPENDED_PAUSE_DISPOSABLE:
-      return "disposable-pause";
-    case nsISuspendedTypes::SUSPENDED_STOP_DISPOSABLE:
-      return "disposable-stop";
     default:
       return "unknown";
   }
@@ -1067,12 +1006,6 @@ void AudioChannelService::AudioChannelWindow::AppendAgentAndIncreaseAgentsNum(
   mAgents.AppendElement(aAgent);
 
   ++mChannels[channel].mNumberOfAgents;
-
-  // The first one, we must inform the AudioChannelHandler.
-  if (mChannels[channel].mNumberOfAgents == 1) {
-    NotifyChannelActive(aAgent->WindowID(), static_cast<AudioChannel>(channel),
-                        true);
-  }
 }
 
 void AudioChannelService::AudioChannelWindow::RemoveAgentAndReduceAgentsNum(
@@ -1085,11 +1018,6 @@ void AudioChannelService::AudioChannelWindow::RemoveAgentAndReduceAgentsNum(
 
   MOZ_ASSERT(mChannels[channel].mNumberOfAgents > 0);
   --mChannels[channel].mNumberOfAgents;
-
-  if (mChannels[channel].mNumberOfAgents == 0) {
-    NotifyChannelActive(aAgent->WindowID(), static_cast<AudioChannel>(channel),
-                        false);
-  }
 }
 
 void AudioChannelService::AudioChannelWindow::AudioAudibleChanged(
@@ -1148,14 +1076,6 @@ void AudioChannelService::AudioChannelWindow::NotifyAudioAudibleChanged(
     AudibleChangedReasons aReason) {
   RefPtr<AudioPlaybackRunnable> runnable = new AudioPlaybackRunnable(
       aWindow, aAudible == AudibleState::eAudible, aReason);
-  DebugOnly<nsresult> rv = NS_DispatchToCurrentThread(runnable);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "NS_DispatchToCurrentThread failed");
-}
-
-void AudioChannelService::AudioChannelWindow::NotifyChannelActive(
-    uint64_t aWindowID, AudioChannel aChannel, bool aActive) {
-  RefPtr<NotifyChannelActiveRunnable> runnable =
-      new NotifyChannelActiveRunnable(aWindowID, aChannel, aActive);
   DebugOnly<nsresult> rv = NS_DispatchToCurrentThread(runnable);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "NS_DispatchToCurrentThread failed");
 }

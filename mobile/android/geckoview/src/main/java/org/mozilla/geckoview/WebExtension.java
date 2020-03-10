@@ -816,6 +816,16 @@ public class WebExtension {
 
         public Listener(final GeckoSession session) {
             this(session, null);
+            // TODO: Remove Bug 1618987
+            // Close tab event is forwarded to the main listener so we need to listen
+            // to it here.
+            mEventDispatcher.registerUiThreadListener(
+                    this,
+                    "GeckoView:WebExtension:NewTab",
+                    "GeckoView:WebExtension:UpdateTab",
+                    "GeckoView:WebExtension:CloseTab"
+            );
+            mTabDelegateRegistered = true;
         }
 
         private Listener(final GeckoSession session, final GeckoRuntime runtime) {
@@ -1768,6 +1778,18 @@ public class WebExtension {
         public final @EnabledFlags int disabledFlags;
 
         /**
+         * Root URL for this extension's pages. Can be used to determine if a given URL
+         * belongs to this extension.
+         */
+        public final @NonNull String baseUrl;
+
+        /**
+         * Whether this extension is allowed to run in private browsing or not.
+         * To modify this value use {@link WebExtensionController#setAllowedInPrivateBrowsing}.
+         */
+        public final boolean allowedInPrivateBrowsing;
+
+        /**
          * Whether this extension is enabled or not.
          */
         public final boolean enabled;
@@ -1790,6 +1812,8 @@ public class WebExtension {
             signedState = SignedStateFlags.UNKNOWN;
             disabledFlags = 0;
             enabled = true;
+            baseUrl = null;
+            allowedInPrivateBrowsing = false;
         }
 
         /* package */ MetaData(final GeckoBundle bundle) {
@@ -1806,6 +1830,8 @@ public class WebExtension {
             isRecommended = bundle.getBoolean("isRecommended");
             blocklistState = bundle.getInt("blocklistState", BlocklistStateFlags.NOT_BLOCKED);
             enabled = bundle.getBoolean("enabled", false);
+            baseUrl = bundle.getString("baseURL");
+            allowedInPrivateBrowsing = bundle.getBoolean("privateBrowsingAllowed", false);
 
             int signedState = bundle.getInt("signedState", SignedStateFlags.UNKNOWN);
             if (signedState <= SignedStateFlags.LAST) {

@@ -126,7 +126,7 @@ const XPI_PERMISSION = "install";
 
 const XPI_SIGNATURE_CHECK_PERIOD = 24 * 60 * 60;
 
-const DB_SCHEMA = 31;
+const DB_SCHEMA = 32;
 
 XPCOMUtils.defineLazyPreferenceGetter(
   this,
@@ -1128,7 +1128,7 @@ class SystemAddonDefaults extends DirectoryLocation {
     let manifest = XPIProvider.builtInAddons;
 
     if (!("system" in manifest)) {
-      logger.warn("No list of valid system add-ons found.");
+      logger.debug("No list of valid system add-ons found.");
       return addons;
     }
 
@@ -1786,9 +1786,7 @@ class BootstrapScope {
         );
       } else {
         logger.debug(
-          `Calling bootstrap method ${aMethod} on ${addon.id} version ${
-            addon.version
-          }`
+          `Calling bootstrap method ${aMethod} on ${addon.id} version ${addon.version}`
         );
 
         this._beforeCallBootstrapMethod(aMethod, params, aReason);
@@ -2042,6 +2040,10 @@ class BootstrapScope {
     let extraArgs = {
       oldVersion: this.addon.version,
       newVersion: newAddon.version,
+      userPermissions: newAddon.userPermissions,
+      optionalPermissions: newAddon.optionalPermissions,
+      oldPermissions: this.addon.userPermissions,
+      oldOptionalPermissions: this.addon.optionalPermissions,
     };
 
     let callUpdate = this.addon.isWebExtension && newAddon.isWebExtension;
@@ -2372,7 +2374,7 @@ var XPIProvider = {
         let data = Cu.readUTF8URI(url);
         this.builtInAddons = JSON.parse(data);
       } catch (e) {
-        logger.warn("List of valid built-in add-ons could not be parsed.", e);
+        logger.debug("List of valid built-in add-ons could not be parsed.", e);
       }
 
       this.registerBuiltinDictionaries();
@@ -2651,10 +2653,16 @@ var XPIProvider = {
 
       let promise;
       if (existing) {
-        promise = bootstrap.update(existing, false, () => {
-          cleanup();
-          XPIDatabase.makeAddonLocationVisible(id, existing.location);
-        });
+        // We need manifest data before calling update.
+        promise = XPIInstall.loadManifestFromFile(
+          existing.file,
+          existing.location
+        ).then(existingAddon =>
+          bootstrap.update(existingAddon, false, () => {
+            cleanup();
+            XPIDatabase.makeAddonLocationVisible(id, existing.location);
+          })
+        );
       } else {
         promise = bootstrap.uninstall().then(cleanup);
       }

@@ -8,6 +8,7 @@
 #include "nsIContentSecurityPolicy.idl"
 #include "nsISerializable.idl"
 #include "nsIAboutModule.idl"
+#include "nsIReferrerInfo.idl"
 
 %{C++
 struct JSPrincipals;
@@ -45,6 +46,7 @@ interface nsIURI;
 [ptr] native JSPrincipals(JSPrincipals);
 [ref] native PrincipalArray(const nsTArray<nsCOMPtr<nsIPrincipal>>);
 [ref] native const_OriginAttributes(const mozilla::OriginAttributes);
+native ReferrerPolicy(mozilla::dom::ReferrerPolicy);
 
 [scriptable, builtinclass, uuid(f75f502d-79fd-48be-a079-e5a7b8f80c8b)]
 interface nsIPrincipal : nsISerializable
@@ -324,6 +326,12 @@ interface nsIPrincipal : nsISerializable
     uint32_t getAboutModuleFlags();
 
     /**
+     * Creates and Returns a new ReferrerInfo with the 
+     * Principals URI
+     */
+    nsIReferrerInfo createReferrerInfo(in ReferrerPolicy aReferrerPolicy);
+
+    /**
      * The base part of |origin| without the concatenation with |originSuffix|.
      * This doesn't have the important invariants described above with |origin|,
      * and as such should only be used for legacy situations.
@@ -442,6 +450,12 @@ interface nsIPrincipal : nsISerializable
     * Returns true if the URI is an Onion URI
     */
     [infallible] readonly attribute boolean isOnion;
+
+    /*
+     * Returns true if the Domain Policy allows js execution
+     * for the Principals URI
+     */
+    readonly attribute boolean isScriptAllowedByPolicy;
 
     /**
      * Returns if the principal is for an IP address.

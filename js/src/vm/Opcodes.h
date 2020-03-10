@@ -804,15 +804,12 @@
     /*
      * Create and push a new object with no properties.
      *
-     * (This opcode has 4 unused bytes so it can be easily turned into
-     * `JSOp::NewObject` during bytecode generation.)
-     *
      *   Category: Objects
      *   Type: Creating objects
-     *   Operands: uint32_t _unused
+     *   Operands:
      *   Stack: => obj
      */ \
-    MACRO(NewInit, new_init, NULL, 5, 0, 1, JOF_UINT32|JOF_IC) \
+    MACRO(NewInit, new_init, NULL, 1, 0, 1, JOF_UINT32|JOF_IC) \
     /*
      * Create and push a new object of a predetermined shape.
      *
@@ -2402,39 +2399,14 @@
      */ \
     MACRO(ThrowMsg, throw_msg, NULL, 3, 0, 0, JOF_UINT16) \
     /*
-     * Throw a TypeError for invalid assignment to a `const`. The environment
-     * coordinate is used to get the variable name for the error message.
+     * Throws a runtime TypeError for invalid assignment to a `const` binding.
      *
      *   Category: Control flow
      *   Type: Exceptions
-     *   Operands: uint8_t hops, uint24_t slot
+     *   Operands: uint32_t nameIndex
      *   Stack:
      */ \
-    MACRO(ThrowSetAliasedConst, throw_set_aliased_const, NULL, 5, 0, 0, JOF_ENVCOORD|JOF_NAME|JOF_DETECTING) \
-    /*
-     * Throw a TypeError for invalid assignment to the callee binding in a named
-     * lambda, which is always a `const` binding. This is a different bytecode
-     * than `JSOp::ThrowSetConst` because the named lambda callee, if not closed
-     * over, does not have a frame slot to look up the name with for the error
-     * message.
-     *
-     *   Category: Control flow
-     *   Type: Exceptions
-     *   Operands:
-     *   Stack:
-     */ \
-    MACRO(ThrowSetCallee, throw_set_callee, NULL, 1, 0, 0, JOF_BYTE) \
-    /*
-     * Throws a runtime TypeError for invalid assignment to an optimized
-     * `const` binding. `localno` is used to get the variable name for the
-     * error message.
-     *
-     *   Category: Control flow
-     *   Type: Exceptions
-     *   Operands: uint24_t localno
-     *   Stack:
-     */ \
-    MACRO(ThrowSetConst, throw_set_const, NULL, 4, 0, 0, JOF_LOCAL|JOF_NAME|JOF_DETECTING) \
+    MACRO(ThrowSetConst, throw_set_const, NULL, 5, 0, 0, JOF_ATOM|JOF_NAME|JOF_DETECTING) \
     /*
      * No-op instruction that marks the top of the bytecode for a
      * *TryStatement*.
@@ -2635,13 +2607,9 @@
      */ \
     MACRO(InitAliasedLexical, init_aliased_lexical, NULL, 5, 1, 1, JOF_ENVCOORD|JOF_NAME|JOF_PROPINIT|JOF_DETECTING) \
     /*
-     * Throw a ReferenceError if the optimized local `localno` is
-     * uninitialized.
+     * Throw a ReferenceError if the value on top of the stack is uninitialized.
      *
-     * `localno` must be the number of a fixed slot in the current stack frame
-     * previously initialized or marked uninitialized using `JSOp::InitLexical`.
-     *
-     * Typically used before `JSOp::GetLocal` or `JSOp::SetLocal`.
+     * Typically used after `JSOp::GetLocal` or `JSOp::GetAliasedVar`.
      *
      * Implements: [GetBindingValue][1] step 3 and [SetMutableBinding][2] step
      * 4 for declarative Environment Records.
@@ -2651,23 +2619,10 @@
      *
      *   Category: Variables and scopes
      *   Type: Initialization
-     *   Operands: uint24_t localno
-     *   Stack: =>
+     *   Operands: uint32_t nameIndex
+     *   Stack: v => v
      */ \
-    MACRO(CheckLexical, check_lexical, NULL, 4, 0, 0, JOF_LOCAL|JOF_NAME) \
-    /*
-     * Like `JSOp::CheckLexical` but for aliased bindings.
-     *
-     * Note: There are no `CheckName` or `CheckGName` instructions because
-     * they're unnecessary. `JSOp::{Get,Set}{Name,GName}` all check for
-     * uninitialized lexicals and throw if needed.
-     *
-     *   Category: Variables and scopes
-     *   Type: Initialization
-     *   Operands: uint8_t hops, uint24_t slot
-     *   Stack: =>
-     */ \
-    MACRO(CheckAliasedLexical, check_aliased_lexical, NULL, 5, 0, 0, JOF_ENVCOORD|JOF_NAME) \
+    MACRO(CheckLexical, check_lexical, NULL, 5, 1, 1, JOF_ATOM|JOF_NAME) \
     /*
      * Throw a ReferenceError if the value on top of the stack is
      * `MagicValue(JS_UNINITIALIZED_LEXICAL)`. Used in derived class
@@ -3505,6 +3460,9 @@
  * a power of two.  Use this macro to do so.
  */
 #define FOR_EACH_TRAILING_UNUSED_OPCODE(MACRO) \
+  MACRO(236)                                   \
+  MACRO(237)                                   \
+  MACRO(238)                                   \
   MACRO(239)                                   \
   MACRO(240)                                   \
   MACRO(241)                                   \

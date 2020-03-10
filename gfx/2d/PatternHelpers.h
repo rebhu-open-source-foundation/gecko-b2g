@@ -66,7 +66,7 @@ class GeneralPattern final {
     return mPattern;
   }
 
-  ColorPattern* InitColorPattern(const Color& aColor) {
+  ColorPattern* InitColorPattern(const DeviceColor& aColor) {
     MOZ_ASSERT(!mPattern);
     mPattern = new (mColorPattern.addr()) ColorPattern(aColor);
     return mColorPattern.addr();
@@ -91,11 +91,11 @@ class GeneralPattern final {
   }
 
   ConicGradientPattern* InitConicGradientPattern(
-      const Point& aCenter, Float aAngle, GradientStops* aStops,
-      const Matrix& aMatrix = Matrix()) {
+      const Point& aCenter, Float aAngle, Float aStartOffset, Float aEndOffset,
+      GradientStops* aStops, const Matrix& aMatrix = Matrix()) {
     MOZ_ASSERT(!mPattern);
-    mPattern = new (mConicGradientPattern.addr())
-        ConicGradientPattern(aCenter, aAngle, aStops, aMatrix);
+    mPattern = new (mConicGradientPattern.addr()) ConicGradientPattern(
+        aCenter, aAngle, aStartOffset, aEndOffset, aStops, aMatrix);
     return mConicGradientPattern.addr();
   }
 

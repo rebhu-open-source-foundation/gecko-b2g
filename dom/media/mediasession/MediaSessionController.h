@@ -46,13 +46,18 @@ class MediaSessionController {
 
   // Use this function to store the media metadata when media session updated
   // its metadata in the content process.
-  void UpdateMetadata(uint64_t aSessionContextId, MediaMetadataBase& aMetadata);
+  void UpdateMetadata(uint64_t aSessionContextId,
+                      const Maybe<MediaMetadataBase>& aMetadata);
 
   // Return active media session's metadata if active media session exists and
   // it has already set its metadata. Otherwise, return default media metadata
   // which is based on website's title and favicon.
   MediaMetadataBase GetCurrentMediaMetadata() const;
   uint64_t Id() const { return mTopLevelBCId; }
+
+  MediaEventSource<MediaMetadataBase>& MetadataChangedEvent() {
+    return mMetadataChangedEvent;
+  }
 
  protected:
   ~MediaSessionController() = default;
@@ -61,10 +66,15 @@ class MediaSessionController {
 
  private:
   nsString GetDefaultFaviconURL() const;
+  nsString GetDefaultTitle() const;
   MediaMetadataBase CreateDefaultMetadata() const;
+  bool IsInPrivateBrowsing() const;
+  void FillMissingTitleAndArtworkIfNeeded(MediaMetadataBase& aMetadata) const;
+
   void UpdateActiveMediaSessionContextId();
 
   nsDataHashtable<nsUint64HashKey, Maybe<MediaMetadataBase>> mMetadataMap;
+  MediaEventProducer<MediaMetadataBase> mMetadataChangedEvent;
 };
 
 }  // namespace dom

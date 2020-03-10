@@ -1366,7 +1366,7 @@ enum class FunctionAsyncKind : bool { SyncFunction, AsyncFunction };
 // ScriptWarmUpData represents a pointer-sized field in BaseScript that stores
 // one of the following using low-bit tags:
 //
-// * The enclosing LazyScript. This is only used while this script is lazy and
+// * The enclosing BaseScript. This is only used while this script is lazy and
 //   its containing script is also lazy. This outer script must be compiled
 //   before the current script can in order to correctly build the scope chain.
 //
@@ -1436,10 +1436,10 @@ class ScriptWarmUpData {
   // NOTE: To change type safely, 'clear' the old tagged value and then 'init'
   //       the new one. This will notify the GC appropriately.
 
-  LazyScript* toEnclosingScript() const {
-    return getTaggedPtr<LazyScript*, EnclosingScriptTag>();
+  BaseScript* toEnclosingScript() const {
+    return getTaggedPtr<BaseScript*, EnclosingScriptTag>();
   }
-  inline void initEnclosingScript(LazyScript* enclosingScript);
+  inline void initEnclosingScript(BaseScript* enclosingScript);
   inline void clearEnclosingScript();
 
   Scope* toEnclosingScope() const {
@@ -2240,7 +2240,7 @@ setterLevel:                                                                  \
   // Access the flag for whether this script has a DebugScript in its realm's
   // map. This should only be used by the DebugScript class.
   MUTABLE_FLAG_GETTER_SETTER(hasDebugScript, HasDebugScript)
-  MUTABLE_FLAG_GETTER_SETTER(doNotRelazify, DoNotRelazify)
+  MUTABLE_FLAG_GETTER_SETTER(allowRelazify, AllowRelazify)
   MUTABLE_FLAG_GETTER_SETTER(failedBoundsCheck, FailedBoundsCheck)
   MUTABLE_FLAG_GETTER_SETTER(failedShapeGuard, FailedShapeGuard)
   MUTABLE_FLAG_GETTER_SETTER(hadFrequentBailouts, HadFrequentBailouts)
@@ -2294,16 +2294,14 @@ setterLevel:                                                                  \
 
   void setArgumentsHasVarBinding();
 
-  bool hasEnclosingLazyScript() const {
-    return warmUpData_.isEnclosingScript();
-  }
-  LazyScript* enclosingLazyScript() const {
+  bool hasEnclosingScript() const { return warmUpData_.isEnclosingScript(); }
+  BaseScript* enclosingScript() const {
     return warmUpData_.toEnclosingScript();
   }
-  void setEnclosingLazyScript(LazyScript* enclosingLazyScript);
+  void setEnclosingScript(BaseScript* enclosingScript);
 
   // Returns true if the enclosing script has ever been compiled. Once the
-  // enclosing script is compiled, the scope chain is created. This LazyScript
+  // enclosing script is compiled, the scope chain is created. This BaseScript
   // is delazify-able as long as it has the enclosing scope, even if the
   // enclosing JSScript is GCed.
   bool enclosingScriptHasEverBeenCompiled() const {
@@ -2373,6 +2371,8 @@ setterLevel:                                                                  \
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) {
     return mallocSizeOf(data_);
   }
+
+  inline JSScript* asJSScript();
 
   // JIT accessors
   static constexpr size_t offsetOfJitCodeRaw() {
@@ -2495,7 +2495,7 @@ class JSScript : public js::BaseScript {
                           bool hideScriptFromDebugger, js::SourceExtent extent);
 
   static JSScript* CreateFromLazy(JSContext* cx,
-                                  js::Handle<js::LazyScript*> lazy);
+                                  js::Handle<js::BaseScript*> lazy);
 
   // NOTE: If you use createPrivateScriptData directly instead of via
   // fullyInitFromStencil, you are responsible for notifying the debugger
@@ -2702,25 +2702,11 @@ class JSScript : public js::BaseScript {
     //    inner-functions) should not be relazified as their Scopes may be part
     //    of another scope-chain.
     //  - Generators and async functions may be re-entered in complex ways so
-    //    don't discard bytecode.
+    //    don't discard bytecode. The JIT resume code assumes this.
     //  - Functions with template literals must always return the same object
     //    instance so must not discard it by relazifying.
     return !hasInnerFunctions() && !hasDirectEval() && !isGenerator() &&
            !isAsync() && !hasCallSiteObj();
-  }
-  bool canRelazify() const {
-    // In order to actually relazify we must satisfy additional runtime
-    // conditions:
-    //  - The lazy form must still exist. This is either the original LazyScript
-    //    or the self-hosted script that we cloned from.
-    //  - There must not be any JIT code attached since the relazification
-    //    process does not know how to discard it. In general, the GC should
-    //    discard most JIT code before attempting relazification.
-    //  - Specific subsystems (such as the Debugger) may disable scripts for
-    //    their own reasons.
-    bool lazyAvailable = selfHosted() || u.lazyScript;
-    return isRelazifiable() && lazyAvailable && !hasJitScript() &&
-           !doNotRelazify();
   }
 
   void setLazyScript(js::LazyScript* lazy) { u.lazyScript = lazy; }
@@ -2978,12 +2964,12 @@ class JSScript : public js::BaseScript {
     return getAtom(pc)->asPropertyName();
   }
 
-  JSObject* getObject(size_t index) {
+  JSObject* getObject(size_t index) const {
     MOZ_ASSERT(gcthings()[index].asCell()->isTenured());
     return &gcthings()[index].as<JSObject>();
   }
 
-  JSObject* getObject(jsbytecode* pc) {
+  JSObject* getObject(jsbytecode* pc) const {
     MOZ_ASSERT(containsPC(pc) && containsPC(pc + sizeof(uint32_t)));
     return getObject(GET_UINT32_INDEX(pc));
   }
@@ -3002,18 +2988,18 @@ class JSScript : public js::BaseScript {
     return getScope(GET_UINT32_INDEX(pc));
   }
 
-  inline JSFunction* getFunction(size_t index);
-  inline JSFunction* getFunction(jsbytecode* pc);
+  inline JSFunction* getFunction(size_t index) const;
+  inline JSFunction* getFunction(jsbytecode* pc) const;
 
-  inline js::RegExpObject* getRegExp(size_t index);
-  inline js::RegExpObject* getRegExp(jsbytecode* pc);
+  inline js::RegExpObject* getRegExp(size_t index) const;
+  inline js::RegExpObject* getRegExp(jsbytecode* pc) const;
 
-  js::BigInt* getBigInt(size_t index) {
+  js::BigInt* getBigInt(size_t index) const {
     MOZ_ASSERT(gcthings()[index].asCell()->isTenured());
     return &gcthings()[index].as<js::BigInt>();
   }
 
-  js::BigInt* getBigInt(jsbytecode* pc) {
+  js::BigInt* getBigInt(jsbytecode* pc) const {
     MOZ_ASSERT(containsPC(pc));
     MOZ_ASSERT(js::JOF_OPTYPE(JSOp(*pc)) == JOF_BIGINT);
     return getBigInt(GET_UINT32_INDEX(pc));
@@ -3059,11 +3045,11 @@ class JSScript : public js::BaseScript {
   class AutoDelazify {
     JS::RootedScript script_;
     JSContext* cx_;
-    bool oldDoNotRelazify_;
+    bool oldAllowRelazify_ = false;
 
    public:
     explicit AutoDelazify(JSContext* cx, JS::HandleFunction fun = nullptr)
-        : script_(cx), cx_(cx), oldDoNotRelazify_(false) {
+        : script_(cx), cx_(cx) {
       holdScript(fun);
     }
 
@@ -3082,11 +3068,6 @@ class JSScript : public js::BaseScript {
     void dropScript();
   };
 };
-
-/* If this fails, add/remove padding within JSScript. */
-static_assert(
-    sizeof(JSScript) % js::gc::CellAlignBytes == 0,
-    "Size of JSScript must be an integral multiple of js::gc::CellAlignBytes");
 
 namespace js {
 
@@ -3230,11 +3211,6 @@ class LazyScript : public BaseScript {
   bool hasScript() const { return bool(u.script_); }
 };
 
-/* If this fails, add/remove padding within LazyScript. */
-static_assert(sizeof(LazyScript) % js::gc::CellAlignBytes == 0,
-              "Size of LazyScript must be an integral multiple of "
-              "js::gc::CellAlignBytes");
-
 struct ScriptAndCounts {
   /* This structure is stored and marked from the JSRuntime. */
   JSScript* script;
@@ -3317,8 +3293,6 @@ namespace ubi {
 
 template <>
 class Concrete<JSScript> : public Concrete<js::BaseScript> {};
-template <>
-class Concrete<js::LazyScript> : public Concrete<js::BaseScript> {};
 
 }  // namespace ubi
 }  // namespace JS

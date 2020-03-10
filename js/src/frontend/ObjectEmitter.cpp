@@ -315,12 +315,7 @@ bool PropertyEmitter::emitInit(JSOp op, JS::Handle<JSAtom*> key) {
 
   //                [stack] CTOR? OBJ CTOR? VAL
 
-  uint32_t index;
-  if (!bce_->makeAtomIndex(key, &index)) {
-    return false;
-  }
-
-  if (!bce_->emitAtomOp(op, index)) {
+  if (!bce_->emitAtomOp(op, key)) {
     //              [stack] CTOR? OBJ CTOR?
     return false;
   }
@@ -386,7 +381,7 @@ bool ObjectEmitter::emitObject(size_t propertyCount) {
   // Emit code for {p:a, '%q':b, 2:c} that is equivalent to constructing
   // a new object and defining (in source order) each property on the object
   // (or mutating the object's [[Prototype]], in the case of __proto__).
-  if (!bce_->emitNewInit()) {
+  if (!bce_->emit1(JSOp::NewInit)) {
     //              [stack] OBJ
     return false;
   }
@@ -477,7 +472,7 @@ bool ClassEmitter::emitClass(JS::Handle<JSAtom*> name,
   hasNameOnStack_ = hasNameOnStack;
   isDerived_ = false;
 
-  if (!bce_->emitNewInit()) {
+  if (!bce_->emit1(JSOp::NewInit)) {
     //              [stack] HOMEOBJ
     return false;
   }

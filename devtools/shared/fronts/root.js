@@ -317,6 +317,7 @@ class RootFront extends FrontClassWithSpec(rootSpec) {
     if (front) {
       if (!form.actor.includes("tabDescriptor")) {
         // Backwards compatibility for servers FF74 and older.
+        front.form(form);
         return front;
       }
 
@@ -412,6 +413,19 @@ class RootFront extends FrontClassWithSpec(rootSpec) {
     front = getFront(this._client, typeName, rootForm);
     this.fronts.set(typeName, front);
     return front;
+  }
+
+  /*
+   * This function returns true if the root actor has a registered global actor
+   * with a given name.
+   * @param {String} actorName
+   *        The name of a global actor.
+   *
+   * @return {Boolean}
+   */
+  async hasActor(actorName) {
+    const rootForm = await this.rootForm;
+    return !!rootForm[actorName + "Actor"];
   }
 }
 exports.RootFront = RootFront;

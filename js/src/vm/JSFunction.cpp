@@ -1629,15 +1629,14 @@ static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
     // stored on the function again in case of re-lazification.
     // Only functions without inner functions are re-lazified.
     script->setLazyScript(lazy);
+    script->setAllowRelazify();
   } else if (lazy->isWrappedByDebugger()) {
     // Associate the LazyScript with the JSScript even though the latter
     // can't be relazified. This is needed to ensure the Debugger can find
-    // the LazyScript when wrapping the JSScript. Mark the script as
-    // unrelazifiable so we don't get confused later.
+    // the LazyScript when wrapping the JSScript.
     //
     // See Debugger::wrapVariantReferent.
     script->setLazyScript(lazy);
-    script->setDoNotRelazify(true);
   }
 
   // XDR the newly delazified function.
@@ -1736,27 +1735,21 @@ void JSFunction::maybeRelazify(JSRuntime* rt) {
     return;
   }
 
-  // Don't relazify functions with JIT code.
+  // Check the script's eligibility.
   JSScript* script = nonLazyScript();
-  if (!script->canRelazify()) {
+  if (!script->allowRelazify()) {
+    return;
+  }
+  MOZ_ASSERT(script->isRelazifiable());
+
+  // There must not be any JIT code attached since the relazification process
+  // does not know how to discard it. In general, the GC should discard most JIT
+  // code before attempting relazification.
+  if (script->hasJitScript()) {
     return;
   }
 
-  // To delazify self-hosted builtins we need the name of the function
-  // to clone. This name is stored in the first extended slot.
-  if (isSelfHostedBuiltin() &&
-      (!isExtended() || !getExtendedSlot(LAZY_FUNCTION_NAME_SLOT).isString())) {
-    return;
-  }
-
-  MOZ_ASSERT(!script->isAsync() && !script->isGenerator(),
-             "Generator resume code in the JITs assumes non-lazy function");
-
-  MOZ_ASSERT(!script->isDefaultClassConstructor(),
-             "default class constructors are built-in, but have their "
-             "self-hosted flag cleared");
-
-  LazyScript* lazy = script->maybeLazyScript();
+  BaseScript* lazy = script->maybeLazyScript();
   if (lazy) {
     u.scripted.s.script_ = lazy;
     MOZ_ASSERT(hasBaseScript());
@@ -2278,7 +2271,7 @@ JSFunction* js::CloneFunctionReuseScript(JSContext* cx, HandleFunction fun,
     clone->initEnvironment(enclosingEnv);
   } else if (fun->hasBaseScript()) {
     MOZ_ASSERT(fun->compartment() == clone->compartment());
-    LazyScript* lazy = fun->lazyScript();
+    BaseScript* lazy = fun->baseScript();
     clone->initLazyScript(lazy);
     clone->initEnvironment(enclosingEnv);
   } else {

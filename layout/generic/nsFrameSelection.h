@@ -323,6 +323,8 @@ class nsFrameSelection final {
    * @param  aEndRowIndex       [in] row index where the cells range ends
    * @param  aEndColumnIndex    [in] column index where the cells range ends
    */
+  // TODO: annotate this with `MOZ_CAN_RUN_SCRIPT` instead.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsresult RemoveCellsFromSelection(nsIContent* aTable, int32_t aStartRowIndex,
                                     int32_t aStartColumnIndex,
                                     int32_t aEndRowIndex,
@@ -337,6 +339,8 @@ class nsFrameSelection final {
    * @param  aEndRowIndex       [in] row index where the cells range ends
    * @param  aEndColumnIndex    [in] column index where the cells range ends
    */
+  // TODO: annotate this with `MOZ_CAN_RUN_SCRIPT` instead.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsresult RestrictCellsToSelection(nsIContent* aTable, int32_t aStartRowIndex,
                                     int32_t aStartColumnIndex,
                                     int32_t aEndRowIndex,
@@ -670,7 +674,7 @@ class nsFrameSelection final {
                              nsIFrame** aFrameOut) const;
 
   /**
-   * MaintainSelection will track the current selection as being "sticky".
+   * MaintainSelection will track the normal selection as being "sticky".
    * Dragging or extending selection will never allow for a subset
    * (or the whole) of the maintained selection to become unselected.
    * Primary use: double click selecting then dragging on second click
@@ -720,8 +724,6 @@ class nsFrameSelection final {
                                                     uint32_t aContentOffset,
                                                     CaretAssociateHint aHint,
                                                     bool aJumpLines);
-
-  bool AdjustForMaintainedSelection(nsIContent* aContent, int32_t aOffset);
 
   /**
    * @param aReasons potentially multiple of the reasons defined in
@@ -820,24 +822,27 @@ class nsFrameSelection final {
     // (according to GetFirstCellNodeInRange).
     nsRange* GetNextCellRange(const mozilla::dom::Selection& aNormalSelection);
 
+    // TODO: annotate this with `MOZ_CAN_RUN_SCRIPT` instead.
+    MOZ_CAN_RUN_SCRIPT_BOUNDARY
     nsresult HandleSelection(nsINode* aParentContent, int32_t aContentOffset,
                              mozilla::TableSelectionMode aTarget,
                              mozilla::WidgetMouseEvent* aMouseEvent,
                              bool aDragState,
                              mozilla::dom::Selection& aNormalSelection);
 
+    // TODO: annotate this with `MOZ_CAN_RUN_SCRIPT` instead.
+    MOZ_CAN_RUN_SCRIPT_BOUNDARY
     nsresult SelectBlockOfCells(nsIContent* aStartCell, nsIContent* aEndCell,
                                 mozilla::dom::Selection& aNormalSelection);
 
     nsresult SelectRowOrColumn(nsIContent* aCellContent,
                                mozilla::dom::Selection& aNormalSelection);
 
-    // TODO: mark as `MOZ_CAN_RUN_SCRIPT`.
-    nsresult UnselectCells(nsIContent* aTable, int32_t aStartRowIndex,
-                           int32_t aStartColumnIndex, int32_t aEndRowIndex,
-                           int32_t aEndColumnIndex,
-                           bool aRemoveOutsideOfCellRange,
-                           mozilla::dom::Selection& aNormalSelection);
+    MOZ_CAN_RUN_SCRIPT nsresult
+    UnselectCells(nsIContent* aTable, int32_t aStartRowIndex,
+                  int32_t aStartColumnIndex, int32_t aEndRowIndex,
+                  int32_t aEndColumnIndex, bool aRemoveOutsideOfCellRange,
+                  mozilla::dom::Selection& aNormalSelection);
 
     nsCOMPtr<nsINode> mCellParent;  // used to snap to table selection
     nsCOMPtr<nsIContent> mStartSelectedCell;
@@ -851,9 +856,29 @@ class nsFrameSelection final {
 
   TableSelection mTableSelection;
 
-  // maintain selection
-  RefPtr<nsRange> mMaintainRange;
-  nsSelectionAmount mMaintainedAmount = eSelectNoAmount;
+  struct MaintainedRange {
+    /**
+     * @return true iff the point (aContent, aOffset) is inside and not at the
+     * boundaries of mRange.
+     */
+    bool AdjustNormalSelection(const nsIContent* aContent, int32_t aOffset,
+                               mozilla::dom::Selection& aNormalSelection) const;
+
+    /**
+     * @param aScrollViewStop see `nsPeekOffsetStruct::mScrollViewStop`.
+     */
+    void AdjustContentOffsets(nsIFrame::ContentOffsets& aOffsets,
+                              bool aScrollViewStop) const;
+
+    void MaintainAnchorFocusRange(
+        const mozilla::dom::Selection& aNormalSelection,
+        nsSelectionAmount aAmount);
+
+    RefPtr<nsRange> mRange;
+    nsSelectionAmount mAmount = eSelectNoAmount;
+  };
+
+  MaintainedRange mMaintainedRange;
 
   // batching
   int32_t mBatching = 0;

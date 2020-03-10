@@ -92,7 +92,7 @@ void MediaSource::IsTypeSupported(const nsAString& aType,
                                   DecoderDoctorDiagnostics* aDiagnostics,
                                   ErrorResult& aRv) {
   if (aType.IsEmpty()) {
-    return aRv.ThrowTypeError(u"Empty type");
+    return aRv.ThrowTypeError("Empty type");
   }
 
   Maybe<MediaContainerType> containerType = MakeMediaContainerType(aType);
@@ -215,7 +215,7 @@ void MediaSource::SetDuration(double aDuration, ErrorResult& aRv) {
   MSE_API("SetDuration(aDuration=%f, ErrorResult)", aDuration);
   if (aDuration < 0 || IsNaN(aDuration)) {
     nsPrintfCString error("Invalid duration value %f", aDuration);
-    aRv.ThrowTypeError(NS_ConvertUTF8toUTF16(error));
+    aRv.ThrowTypeError(error);
     return;
   }
   if (mReadyState != MediaSourceReadyState::Open ||
@@ -417,7 +417,7 @@ void MediaSource::SetLiveSeekableRange(double aStart, double aEnd,
   // 2. If start is negative or greater than end, then throw a TypeError
   // exception and abort these steps.
   if (aStart < 0 || aStart > aEnd) {
-    aRv.ThrowTypeError(u"Invalid start value");
+    aRv.ThrowTypeError("Invalid start value");
     return;
   }
 

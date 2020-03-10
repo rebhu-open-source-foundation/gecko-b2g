@@ -19,6 +19,7 @@ import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.AssertCalled
 import org.mozilla.geckoview.test.util.Callbacks
 import org.mozilla.geckoview.WebExtension.DisabledFlags
 import org.mozilla.geckoview.WebExtensionController.EnableSource
+import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.Setting
 
 import java.util.UUID
 
@@ -222,6 +223,58 @@ class WebExtensionTest : BaseSessionTest() {
     }
 
     @Test
+    @Setting.List(Setting(key = Setting.Key.USE_PRIVATE_MODE, value = "true"))
+    fun runInPrivateBrowsing() {
+        mainSession.loadUri("example.com")
+        sessionRule.waitForPageStop()
+
+        // Make sure border is empty before running the extension
+        assertBodyBorderEqualTo("")
+
+        sessionRule.delegateDuringNextWait(object : WebExtensionController.PromptDelegate {
+            @AssertCalled(count=1)
+            override fun onInstallPrompt(extension: WebExtension): GeckoResult<AllowOrDeny> {
+                return GeckoResult.fromValue(AllowOrDeny.ALLOW)
+            }
+        })
+
+        var borderify = sessionRule.waitForResult(
+                controller.install("resource://android/assets/web_extensions/borderify.xpi"))
+
+        // Make sure private mode is enabled
+        assertTrue(mainSession.settings.usePrivateMode)
+        assertFalse(borderify.metaData!!.allowedInPrivateBrowsing)
+        // Check that the WebExtension was not applied to a private mode page
+        assertBodyBorderEqualTo("")
+
+        borderify = sessionRule.waitForResult(
+                controller.setAllowedInPrivateBrowsing(borderify, true))
+
+        assertTrue(borderify.metaData!!.allowedInPrivateBrowsing)
+        // Check that the WebExtension was applied to a private mode page now that the extension
+        // is enabled in private mode
+        mainSession.reload();
+        sessionRule.waitForPageStop()
+        assertBodyBorderEqualTo("red")
+
+        borderify = sessionRule.waitForResult(
+                controller.setAllowedInPrivateBrowsing(borderify, false))
+
+        assertFalse(borderify.metaData!!.allowedInPrivateBrowsing)
+        // Check that the WebExtension was not applied to a private mode page after being
+        // not allowed to run in private mode
+        mainSession.reload();
+        sessionRule.waitForPageStop()
+        assertBodyBorderEqualTo("")
+
+        // Unregister WebExtension and check again
+        sessionRule.waitForResult(controller.uninstall(borderify))
+        mainSession.reload();
+        sessionRule.waitForPageStop()
+        assertBodyBorderEqualTo("")
+    }
+
+    @Test
     fun optionsPageMetadata() {
         // dummy.xpi is not signed, but it could be
         sessionRule.setPrefsUntilTestEnd(mapOf(
@@ -238,8 +291,10 @@ class WebExtensionTest : BaseSessionTest() {
         val dummy = sessionRule.waitForResult(
                 controller.install("resource://android/assets/web_extensions/dummy.xpi"))
 
-        assertTrue((dummy.metaData!!.optionsPageUrl ?: "").matches("^moz-extension://.*/options.html$".toRegex()));
-        assertEquals(dummy.metaData!!.openOptionsPageInTab, true);
+        val metadata = dummy.metaData!!
+        assertTrue((metadata.optionsPageUrl ?: "").matches("^moz-extension://[0-9a-f\\-]*/options.html$".toRegex()));
+        assertEquals(metadata.openOptionsPageInTab, true);
+        assertTrue(metadata.baseUrl.matches("^moz-extension://[0-9a-f\\-]*/$".toRegex()))
 
         sessionRule.waitForResult(controller.uninstall(dummy))
     }

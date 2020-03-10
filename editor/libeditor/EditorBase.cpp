@@ -2899,12 +2899,17 @@ nsresult EditorBase::NotifyDocumentListeners(
       }
       // Needs to store all listeners before notifying ComposerCommandsUpdate
       // since notifying it might change mDocStateListeners.
-      AutoDocumentStateListenerArray listeners(mDocStateListeners);
+      const AutoDocumentStateListenerArray listeners(mDocStateListeners);
       if (composerCommandsUpdate) {
         composerCommandsUpdate->OnBeforeHTMLEditorDestroyed();
       }
       for (auto& listener : listeners) {
-        nsresult rv = listener->NotifyDocumentWillBeDestroyed();
+        // MOZ_KnownLive because 'listeners' is guaranteed to
+        // keep it alive.
+        //
+        // This can go away once
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=1620312 is fixed.
+        nsresult rv = MOZ_KnownLive(listener)->NotifyDocumentWillBeDestroyed();
         if (NS_WARN_IF(NS_FAILED(rv))) {
           return rv;
         }
@@ -2931,12 +2936,18 @@ nsresult EditorBase::NotifyDocumentListeners(
       }
       // Needs to store all listeners before notifying ComposerCommandsUpdate
       // since notifying it might change mDocStateListeners.
-      AutoDocumentStateListenerArray listeners(mDocStateListeners);
+      const AutoDocumentStateListenerArray listeners(mDocStateListeners);
       if (composerCommandsUpdate) {
         composerCommandsUpdate->OnHTMLEditorDirtyStateChanged(mDocDirtyState);
       }
       for (auto& listener : listeners) {
-        nsresult rv = listener->NotifyDocumentStateChanged(mDocDirtyState);
+        // MOZ_KnownLive because 'listeners' is guaranteed to
+        // keep it alive.
+        //
+        // This can go away once
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=1620312 is fixed.
+        nsresult rv =
+            MOZ_KnownLive(listener)->NotifyDocumentStateChanged(mDocDirtyState);
         if (NS_WARN_IF(NS_FAILED(rv))) {
           return rv;
         }
@@ -5453,6 +5464,21 @@ NS_IMETHODIMP EditorBase::SetNewlineHandling(int32_t aNewlineHandling) {
       NS_ERROR("SetNewlineHandling() is called with wrong value");
       return NS_ERROR_INVALID_ARG;
   }
+}
+
+bool EditorBase::IsSelectionRangeContainerNotContent() const {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+
+  for (uint32_t i = 0; i < SelectionRefPtr()->RangeCount(); i++) {
+    nsRange* range = SelectionRefPtr()->GetRangeAt(i);
+    MOZ_ASSERT(range);
+    if (!range || !range->GetStartContainer() ||
+        !range->GetStartContainer()->IsContent() || !range->GetEndContainer() ||
+        !range->GetEndContainer()->IsContent()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 NS_IMETHODIMP EditorBase::InsertText(const nsAString& aStringToInsert) {

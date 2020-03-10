@@ -1702,7 +1702,7 @@ class GlyphBufferAzure {
       }
     } else {
       FlushStroke(aBuffer,
-                  ColorPattern(Color::FromABGR(mRunParams.textStrokeColor)));
+                  ColorPattern(ToDeviceColor(mRunParams.textStrokeColor)));
     }
   }
 
@@ -1875,8 +1875,7 @@ bool gfxFont::DrawGlyphs(const gfxShapedText* aShapedText,
 // coordinates (devPt) here.
 template <gfxFont::FontComplexityT FC>
 void gfxFont::DrawOneGlyph(uint32_t aGlyphID, const gfx::Point& aPt,
-                           GlyphBufferAzure& aBuffer,
-                           bool* aEmittedGlyphs) const {
+                           GlyphBufferAzure& aBuffer, bool* aEmittedGlyphs) {
   const TextRunDrawParams& runParams(aBuffer.mRunParams);
 
   gfx::Point devPt(ToDeviceUnits(aPt.x, runParams.devPerApp),
@@ -1897,7 +1896,8 @@ void gfxFont::DrawOneGlyph(uint32_t aGlyphID, const gfx::Point& aPt,
       // origin for each glyph, not once for the whole run.
       aBuffer.Flush();
       matrixRestore.SetContext(runParams.context);
-      gfx::Point skewPt(devPt.x + mVerticalMetrics->emHeight / 2, devPt.y);
+      gfx::Point skewPt(
+          devPt.x + GetMetrics(nsFontMetrics::eVertical).emHeight / 2, devPt.y);
       gfx::Matrix mat =
           runParams.context->CurrentMatrix()
               .PreTranslate(skewPt)
@@ -2361,11 +2361,11 @@ bool gfxFont::RenderColorGlyph(DrawTarget* aDrawTarget, gfxContext* aContext,
                                const mozilla::gfx::Point& aPoint,
                                uint32_t aGlyphId) const {
   AutoTArray<uint16_t, 8> layerGlyphs;
-  AutoTArray<mozilla::gfx::Color, 8> layerColors;
+  AutoTArray<mozilla::gfx::DeviceColor, 8> layerColors;
 
-  mozilla::gfx::Color defaultColor;
+  mozilla::gfx::DeviceColor defaultColor;
   if (!aContext->GetDeviceColor(defaultColor)) {
-    defaultColor = mozilla::gfx::Color(0, 0, 0);
+    defaultColor = ToDeviceColor(mozilla::gfx::sRGBColor::OpaqueBlack());
   }
   if (!GetFontEntry()->GetColorLayersInfo(aGlyphId, defaultColor, layerGlyphs,
                                           layerColors)) {
@@ -2404,7 +2404,7 @@ bool gfxFont::RenderColorGlyph(DrawTarget* aDrawTarget, gfxContext* aContext,
     buffer.mGlyphs = &glyph;
     buffer.mNumGlyphs = 1;
 
-    mozilla::gfx::Color layerColor = layerColors[layerIndex];
+    mozilla::gfx::DeviceColor layerColor = layerColors[layerIndex];
     layerColor.a *= alpha;
     aDrawTarget->FillGlyphs(scaledFont, buffer, ColorPattern(layerColor),
                             aDrawOptions);
