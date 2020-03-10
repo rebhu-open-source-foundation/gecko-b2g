@@ -12,11 +12,19 @@ typedef uint32_t nsSuspendedTypes;
 interface nsISuspendedTypes : nsISupports
 {
   /**
-   * The suspended enum is used for delaying autoplay video in non-visited tab
+   * The suspended enum is used in two different situations,
+   * - platform audio focus (B2G)
+   * - delay autoplay video in non-visited tab
    *
    * Note: the "remote side" must control the AudioChannelAgent using
    * nsIAudioChannelAgentCallback.windowSuspendChanged() callback instead using
    * play/pause methods or any button in the webpage.
+   *
+   * - SUSPENDED_PAUSE :
+   * It's used when transiently losing audio focus, the media can't be resumed
+   * until we gain the audio focus again. It would change the internal state of
+   * MediaElement when it's being suspended/resumed, and it would trigger the
+   * related JS event. eg. "play" and "pause" event.
    *
    * - SUSPENDED_BLOCK
    * It's used to prevent auto-playing media in inactive page in order to
@@ -27,7 +35,8 @@ interface nsISuspendedTypes : nsISupports
    */
 
   const uint32_t NONE_SUSPENDED             = 0;
-  const uint32_t SUSPENDED_BLOCK            = 1;
+  const uint32_t SUSPENDED_PAUSE            = 1;
+  const uint32_t SUSPENDED_BLOCK            = 2;
 };
 
 [uuid(15c05894-408e-4798-b527-a8c32d9c5f8c)]

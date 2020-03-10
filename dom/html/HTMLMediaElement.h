@@ -1256,6 +1256,9 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // Create or destroy the captured stream.
   void AudioCaptureTrackChange(bool aCapture);
 
+  // A method to check whether the media element is allowed to start playback.
+  bool AudioChannelAgentBlockedPlay();
+
   // If the network state is empty and then we would trigger DoLoad().
   void MaybeDoLoad();
 

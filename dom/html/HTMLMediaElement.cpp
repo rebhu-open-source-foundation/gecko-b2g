@@ -1351,6 +1351,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
         mAudioChannel(aChannel),
         mAudioChannelVolume(1.0),
         mPlayingThroughTheAudioChannel(false),
+        mSuspended(nsISuspendedTypes::NONE_SUSPENDED),
         mIsOwnerAudible(IsOwnerAudible()),
         mIsShutDown(false) {
     MOZ_ASSERT(mOwner);
@@ -1409,8 +1410,28 @@ class HTMLMediaElement::AudioChannelAgentCallback final
   }
 
   NS_IMETHODIMP WindowSuspendChanged(SuspendTypes aSuspend) override {
-    // Currently this method is only be used for delaying autoplay, and we've
-    // separated related codes to `MediaPlaybackDelayPolicy`.
+    MOZ_ASSERT(mAudioChannelAgent);
+
+    MOZ_LOG(
+        AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
+        ("HTMLMediaElement::AudioChannelAgentCallback, WindowSuspendChanged, "
+         "this = %p, aSuspend = %s\n",
+         this, SuspendTypeToStr(aSuspend)));
+
+    switch (aSuspend) {
+      case nsISuspendedTypes::NONE_SUSPENDED:
+        Resume();
+        break;
+      case nsISuspendedTypes::SUSPENDED_PAUSE:
+        Suspend(aSuspend);
+        break;
+      default:
+        MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
+                ("HTMLMediaElement::AudioChannelAgentCallback, "
+                 "WindowSuspendChanged, "
+                 "this = %p, Error : unknown suspended type!\n",
+                 this));
+    }
     return NS_OK;
   }
 
@@ -1460,6 +1481,11 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     return mOwner->Volume() * mAudioChannelVolume;
   }
 
+  SuspendTypes GetSuspendType() const {
+    MOZ_ASSERT(!mIsShutDown);
+    return mSuspended;
+  }
+
  private:
   ~AudioChannelAgentCallback() { MOZ_ASSERT(mIsShutDown); };
 
@@ -1504,6 +1530,64 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     mOwner->AudioCaptureTrackChange(false);
   }
 
+  void SetSuspended(SuspendTypes aSuspend) {
+    if (mSuspended == aSuspend) {
+      return;
+    }
+
+    mOwner->DispatchAsyncEvent(aSuspend == nsISuspendedTypes::NONE_SUSPENDED
+                                   ? NS_LITERAL_STRING("mozinterruptend")
+                                   : NS_LITERAL_STRING("mozinterruptbegin"));
+
+    mSuspended = aSuspend;
+    MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
+            ("HTMLMediaElement::AudioChannelAgentCallback, "
+             "SetAudioChannelSuspended, "
+             "this = %p, aSuspend = %s\n",
+             this, SuspendTypeToStr(aSuspend)));
+  }
+
+  void Resume() {
+    if (!IsSuspended()) {
+      MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
+              ("HTMLMediaElement::AudioChannelAgentCallback, "
+               "ResumeFromAudioChannel, "
+               "this = %p, don't need to be resumed!\n",
+               this));
+      return;
+    }
+
+    SetSuspended(nsISuspendedTypes::NONE_SUSPENDED);
+    IgnoredErrorResult rv;
+    RefPtr<Promise> toBeIgnored = mOwner->Play(rv);
+    MOZ_ASSERT_IF(
+        toBeIgnored && toBeIgnored->State() == Promise::PromiseState::Rejected,
+        rv.Failed());
+    if (rv.Failed()) {
+      NS_WARNING("Not able to resume from AudioChannel.");
+    }
+
+    NotifyAudioPlaybackChanged(
+        AudioChannelService::AudibleChangedReasons::ePauseStateChanged);
+  }
+
+  void Suspend(SuspendTypes aSuspend) {
+    if (IsSuspended()) {
+      return;
+    }
+
+    SetSuspended(aSuspend);
+    if (aSuspend == nsISuspendedTypes::SUSPENDED_PAUSE) {
+      IgnoredErrorResult rv;
+      mOwner->Pause(rv);
+      if (NS_WARN_IF(rv.Failed())) {
+        return;
+      }
+    }
+    NotifyAudioPlaybackChanged(
+        AudioChannelService::AudibleChangedReasons::ePauseStateChanged);
+  }
+
   bool IsPlayingStarted() {
     if (MaybeCreateAudioChannelAgent()) {
       return mAudioChannelAgent->IsPlayingStarted();
@@ -1511,9 +1595,13 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     return false;
   }
 
+  bool IsSuspended() const {
+    return (mSuspended == nsISuspendedTypes::SUSPENDED_PAUSE);
+  }
+
   AudibleState IsOwnerAudible() const {
-    // paused media doesn't produce any sound.
-    if (mOwner->mPaused) {
+    // Suspended or paused media doesn't produce any sound.
+    if (mSuspended != nsISuspendedTypes::NONE_SUSPENDED || mOwner->mPaused) {
       return AudibleState::eNotAudible;
     }
     return mOwner->IsAudible() ? AudibleState::eAudible
@@ -1529,6 +1617,11 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     // We should consider any bfcached page or inactive document as non-playing.
     if (!mOwner->IsActive()) {
       return false;
+    }
+
+    // It might be resumed from remote, we should keep the audio channel agent.
+    if (IsSuspended()) {
+      return true;
     }
 
     // Are we paused
@@ -1567,6 +1660,11 @@ class HTMLMediaElement::AudioChannelAgentCallback final
   float mAudioChannelVolume;
   // Is this media element playing?
   bool mPlayingThroughTheAudioChannel;
+  // We have different kinds of suspended cases,
+  // - SUSPENDED_PAUSE
+  // It's used when we temporary lost platform audio focus. MediaElement can
+  // only be resumed when we gain the audio focus again.
+  SuspendTypes mSuspended;
   // Indicate whether media element is audible for users.
   AudibleState mIsOwnerAudible;
   bool mIsShutDown;
@@ -4244,6 +4342,12 @@ already_AddRefed<Promise> HTMLMediaElement::Play(ErrorResult& aRv) {
     return promise.forget();
   }
 
+  if (AudioChannelAgentBlockedPlay()) {
+    LOG(LogLevel::Debug, ("%p play blocked by AudioChannelAgent.", this));
+    promise->MaybeReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR);
+    return promise.forget();
+  }
+
   UpdateHadAudibleAutoplayState();
 
   const bool handlingUserInput = UserActivation::IsHandlingUserInput();
@@ -6132,6 +6236,11 @@ bool HTMLMediaElement::CanActivateAutoplay() {
     return false;
   }
 
+  if (mAudioChannelWrapper && mAudioChannelWrapper->GetSuspendType() ==
+                                  nsISuspendedTypes::SUSPENDED_PAUSE) {
+    return false;
+  }
+
   return mReadyState >= HAVE_ENOUGH_DATA;
 }
 
@@ -6846,6 +6955,20 @@ void HTMLMediaElement::UpdateAudioChannelPlayingState() {
   if (mAudioChannelWrapper) {
     mAudioChannelWrapper->UpdateAudioChannelPlayingState();
   }
+}
+
+bool HTMLMediaElement::AudioChannelAgentBlockedPlay() {
+  if (!mAudioChannelWrapper) {
+    // If the mAudioChannelWrapper doesn't exist that means the CC happened.
+    LOG(LogLevel::Debug,
+        ("%p AudioChannelAgentBlockedPlay() returning true due to null "
+         "AudioChannelAgent.",
+         this));
+    return true;
+  }
+
+  const auto suspendType = mAudioChannelWrapper->GetSuspendType();
+  return suspendType == nsISuspendedTypes::SUSPENDED_PAUSE;
 }
 
 static const char* VisibilityString(Visibility aVisibility) {

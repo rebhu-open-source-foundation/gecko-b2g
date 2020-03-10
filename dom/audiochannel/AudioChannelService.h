@@ -322,6 +322,8 @@ class AudioChannelService final : public nsIObserver {
                                    AudibleState aAudible,
                                    AudibleChangedReasons aReason);
 
+    void NotifyChannelActive(uint64_t aWindowID, AudioChannel aChannel,
+                             bool aActive);
     void MaybeNotifyMediaBlockStart(AudioChannelAgent* aAgent);
   };
 
