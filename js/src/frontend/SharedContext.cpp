@@ -116,16 +116,18 @@ EvalSharedContext::EvalSharedContext(JSContext* cx, JSObject* enclosingEnv,
 bool FunctionBox::atomsAreKept() { return cx_->zone()->hasKeptAtoms(); }
 #endif
 
-FunctionBox::FunctionBox(JSContext* cx, TraceListNode* traceListHead,
+FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
                          uint32_t toStringStart,
                          CompilationInfo& compilationInfo,
                          Directives directives, bool extraWarnings,
                          GeneratorKind generatorKind,
                          FunctionAsyncKind asyncKind, JSAtom* explicitName,
                          FunctionFlags flags)
-    : ObjectBox(nullptr, traceListHead, TraceListNode::NodeType::Function),
-      SharedContext(cx, Kind::FunctionBox, compilationInfo, directives,
+    : SharedContext(cx, Kind::FunctionBox, compilationInfo, directives,
                     extraWarnings),
+      object_(nullptr),
+      traceLink_(traceListHead),
+      emitLink_(nullptr),
       enclosingScope_(),
       namedLambdaBindings_(nullptr),
       functionScopeBindings_(nullptr),
@@ -159,7 +161,7 @@ FunctionBox::FunctionBox(JSContext* cx, TraceListNode* traceListHead,
       explicitName_(explicitName),
       flags_(flags) {}
 
-FunctionBox::FunctionBox(JSContext* cx, TraceListNode* traceListHead,
+FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
                          JSFunction* fun, uint32_t toStringStart,
                          CompilationInfo& compilationInfo,
                          Directives directives, bool extraWarnings,
@@ -168,14 +170,14 @@ FunctionBox::FunctionBox(JSContext* cx, TraceListNode* traceListHead,
     : FunctionBox(cx, traceListHead, toStringStart, compilationInfo, directives,
                   extraWarnings, generatorKind, asyncKind, fun->explicitName(),
                   fun->flags()) {
-  gcThing = fun;
+  object_ = fun;
   // Functions created at parse time may be set singleton after parsing and
   // baked into JIT code, so they must be allocated tenured. They are held by
   // the JSScript so cannot be collected during a minor GC anyway.
   MOZ_ASSERT(fun->isTenured());
 }
 
-FunctionBox::FunctionBox(JSContext* cx, TraceListNode* traceListHead,
+FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
                          uint32_t toStringStart,
                          CompilationInfo& compilationInfo,
                          Directives directives, bool extraWarnings,
@@ -317,6 +319,25 @@ void FunctionBox::finish() {
   } else {
     // Non-lazy inner functions don't use the enclosingScope_ field.
     MOZ_ASSERT(!enclosingScope_);
+  }
+}
+
+/* static */
+void FunctionBox::TraceList(JSTracer* trc, FunctionBox* listHead) {
+  for (FunctionBox* node = listHead; node; node = node->traceLink_) {
+    node->trace(trc);
+  }
+}
+
+void FunctionBox::trace(JSTracer* trc) {
+  if (object_) {
+    TraceRoot(trc, &object_, "funbox-object");
+  }
+  if (enclosingScope_) {
+    enclosingScope_.trace(trc);
+  }
+  if (explicitName_) {
+    TraceRoot(trc, &explicitName_, "funbox-explicitName");
   }
 }
 

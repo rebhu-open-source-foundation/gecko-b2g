@@ -492,7 +492,7 @@ pref("browser.tabs.delayHidingAudioPlayingIconMS", 3000);
   // for about: pages. This pref name did not age well: we will have multiple
   // types of privileged content processes, each with different privileges.
   // types of privleged content processes, each with different privleges.
-  pref("browser.tabs.remote.separatePrivilegedContentProcess", false);
+  pref("browser.tabs.remote.separatePrivilegedContentProcess", true);
   // This pref will cause assertions when a remoteType triggers a process switch
   // to a new remoteType it should not be able to trigger.
   pref("browser.tabs.remote.enforceRemoteTypeRestrictions", true);
@@ -1735,6 +1735,7 @@ pref("signon.management.page.breachAlertUrl",
      "https://monitor.firefox.com/breach-details/");
 pref("signon.management.page.hideMobileFooter", false);
 pref("signon.management.page.showPasswordSyncNotification", true);
+pref("signon.passwordEditCapture.enabled", true);
 
 // Enable the "Simplify Page" feature in Print Preview. This feature
 // is disabled by default in toolkit.

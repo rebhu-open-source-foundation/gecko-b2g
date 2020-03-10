@@ -52,9 +52,10 @@
 #include "URIUtils.h"
 #include "gfxPlatform.h"
 #include "gfxPlatformFontList.h"
-#include "mozilla/AntiTrackingCommon.h"
+#include "mozilla/ContentBlocking.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/BenchmarkStorageParent.h"
+#include "mozilla/ContentBlockingUserInteraction.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Components.h"
 #include "mozilla/DataStorage.h"
@@ -6342,23 +6343,23 @@ ContentParent::RecvFirstPartyStorageAccessGrantedForOrigin(
     const Principal& aParentPrincipal, const Principal& aTrackingPrincipal,
     const nsCString& aTrackingOrigin, const int& aAllowMode,
     FirstPartyStorageAccessGrantedForOriginResolver&& aResolver) {
-  AntiTrackingCommon::
-      SaveFirstPartyStorageAccessGrantedForOriginOnParentProcess(
-          aParentPrincipal, aTrackingPrincipal, aTrackingOrigin, aAllowMode)
-          ->Then(GetCurrentThreadSerialEventTarget(), __func__,
-                 [aResolver = std::move(aResolver)](
-                     AntiTrackingCommon::FirstPartyStorageAccessGrantPromise::
-                         ResolveOrRejectValue&& aValue) {
-                   bool success = aValue.IsResolve() &&
-                                  NS_SUCCEEDED(aValue.ResolveValue());
-                   aResolver(success);
-                 });
+  ContentBlocking::SaveAccessForOriginOnParentProcess(
+      aParentPrincipal, aTrackingPrincipal, aTrackingOrigin, aAllowMode)
+      ->Then(
+          GetCurrentThreadSerialEventTarget(), __func__,
+          [aResolver = std::move(aResolver)](
+              ContentBlocking::ParentAccessGrantPromise::ResolveOrRejectValue&&
+                  aValue) {
+            bool success =
+                aValue.IsResolve() && NS_SUCCEEDED(aValue.ResolveValue());
+            aResolver(success);
+          });
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvStoreUserInteractionAsPermission(
     const Principal& aPrincipal) {
-  AntiTrackingCommon::StoreUserInteractionFor(aPrincipal);
+  ContentBlockingUserInteraction::Observe(aPrincipal);
   return IPC_OK();
 }
 

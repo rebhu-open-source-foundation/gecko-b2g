@@ -187,6 +187,8 @@ class RegExpCreationData {
     return true;
   }
 
+  MOZ_MUST_USE bool init(JSContext* cx, JSAtom* pattern, JS::RegExpFlags flags);
+
   RegExpObject* createRegExp(JSContext* cx) const;
 };
 
@@ -473,7 +475,7 @@ class ScriptStencil {
 
   // Store all atoms into `atoms`
   // `atoms` is the pointer to `this.natoms`-length array of `GCPtrAtom`.
-  virtual bool initAtomMap(JSContext* cx, GCPtrAtom* atoms) const = 0;
+  virtual void initAtomMap(GCPtrAtom* atoms) const = 0;
 
   // Store all resume offsets into `resumeOffsets`
   // `resumeOffsets.Length()` is `this.numResumeOffsets`.

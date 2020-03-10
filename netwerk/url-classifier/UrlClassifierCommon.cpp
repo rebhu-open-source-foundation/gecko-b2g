@@ -7,9 +7,10 @@
 #include "mozilla/net/UrlClassifierCommon.h"
 
 #include "ClassifierDummyChannel.h"
-#include "mozilla/AntiTrackingCommon.h"
+#include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/ContentBlockingAllowList.h"
+#include "mozilla/ContentBlockingNotifier.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/net/HttpBaseChannel.h"
 #include "mozilla/net/UrlClassifierFeatureFactory.h"
@@ -211,7 +212,7 @@ nsresult UrlClassifierCommon::SetBlockedContent(nsIChannel* channel,
     if (!state) {
       state = nsIWebProgressListener::STATE_BLOCKED_UNSAFE_CONTENT;
     }
-    AntiTrackingCommon::NotifyContentBlockingEvent(channel, state);
+    ContentBlockingNotifier::OnEvent(channel, state);
 
     return NS_OK;
   }
@@ -227,7 +228,7 @@ nsresult UrlClassifierCommon::SetBlockedContent(nsIChannel* channel,
   }
 
   nsCOMPtr<nsIURI> uriBeingLoaded =
-      AntiTrackingCommon::MaybeGetDocumentURIBeingLoaded(channel);
+      AntiTrackingUtils::MaybeGetDocumentURIBeingLoaded(channel);
   nsCOMPtr<mozIDOMWindowProxy> win;
   rv = thirdPartyUtil->GetTopWindowForChannel(channel, uriBeingLoaded,
                                               getter_AddRefs(win));
@@ -443,7 +444,7 @@ void UrlClassifierCommon::AnnotateChannel(nsIChannel* aChannel,
       IsCryptominingClassificationFlag(aClassificationFlags);
 
   if (validClassificationFlags && isThirdPartyWithTopLevelWinURI) {
-    AntiTrackingCommon::NotifyContentBlockingEvent(aChannel, aLoadingState);
+    ContentBlockingNotifier::OnEvent(aChannel, aLoadingState);
   }
 
   if (isThirdPartyWithTopLevelWinURI &&

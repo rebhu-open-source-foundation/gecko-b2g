@@ -6,14 +6,21 @@
 
 #include "mozilla/dom/Document.h"
 #include "mozilla/net/CookieJarSettings.h"
-#include "mozilla/AntiTrackingCommon.h"
+#include "mozilla/ContentBlocking.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/StorageAccess.h"
+#include "nsContentUtils.h"
+#include "nsICookiePermission.h"
 #include "nsICookieService.h"
 #include "nsICookieJarSettings.h"
+#include "nsIPermission.h"
 #include "nsIWebProgressListener.h"
+#include "nsSandboxFlags.h"
+
+using namespace mozilla;
+using namespace mozilla::dom;
 
 /**
  * Gets the cookie lifetime policy for a given cookieJarSettings and a given
@@ -168,9 +175,8 @@ static bool StorageDisabledByAntiTrackingInternal(
 
   if (aWindow) {
     nsIURI* documentURI = aURI ? aURI : aWindow->GetDocumentURI();
-    return !documentURI ||
-           !AntiTrackingCommon::IsFirstPartyStorageAccessGrantedFor(
-               aWindow, documentURI, &aRejectedReason);
+    return !documentURI || !ContentBlocking::ShouldAllowAccessFor(
+                               aWindow, documentURI, &aRejectedReason);
   }
 
   if (aChannel) {
@@ -180,13 +186,12 @@ static bool StorageDisabledByAntiTrackingInternal(
       return false;
     }
 
-    return !AntiTrackingCommon::IsFirstPartyStorageAccessGrantedFor(
-        aChannel, uri, &aRejectedReason);
+    return !ContentBlocking::ShouldAllowAccessFor(aChannel, uri,
+                                                  &aRejectedReason);
   }
 
   MOZ_ASSERT(aPrincipal);
-  return !AntiTrackingCommon::IsFirstPartyStorageAccessGrantedFor(
-      aPrincipal, aCookieJarSettings);
+  return !ContentBlocking::ShouldAllowAccessFor(aPrincipal, aCookieJarSettings);
 }
 
 namespace mozilla {
@@ -300,16 +305,16 @@ bool StorageDisabledByAntiTracking(nsPIDOMWindowInner* aWindow,
   bool disabled = StorageDisabledByAntiTrackingInternal(
       aWindow, aChannel, aPrincipal, aURI, cookieJarSettings, aRejectedReason);
   if (aWindow) {
-    AntiTrackingCommon::NotifyBlockingDecision(
+    ContentBlockingNotifier::OnDecision(
         aWindow,
-        disabled ? AntiTrackingCommon::BlockingDecision::eBlock
-                 : AntiTrackingCommon::BlockingDecision::eAllow,
+        disabled ? ContentBlockingNotifier::BlockingDecision::eBlock
+                 : ContentBlockingNotifier::BlockingDecision::eAllow,
         aRejectedReason);
   } else if (aChannel) {
-    AntiTrackingCommon::NotifyBlockingDecision(
+    ContentBlockingNotifier::OnDecision(
         aChannel,
-        disabled ? AntiTrackingCommon::BlockingDecision::eBlock
-                 : AntiTrackingCommon::BlockingDecision::eAllow,
+        disabled ? ContentBlockingNotifier::BlockingDecision::eBlock
+                 : ContentBlockingNotifier::BlockingDecision::eAllow,
         aRejectedReason);
   }
   return disabled;

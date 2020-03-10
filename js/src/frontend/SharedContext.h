@@ -7,14 +7,15 @@
 #ifndef frontend_SharedContext_h
 #define frontend_SharedContext_h
 
-#include "jspubtd.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/Maybe.h"
+
 #include "jstypes.h"
 
-#include "ds/InlineTable.h"
 #include "frontend/AbstractScope.h"
 #include "frontend/ParseNode.h"
 #include "frontend/Stencil.h"
-#include "vm/BytecodeUtil.h"
 #include "vm/JSFunction.h"
 #include "vm/JSScript.h"
 #include "vm/Scope.h"
@@ -23,7 +24,6 @@ namespace js {
 namespace frontend {
 
 class ParseContext;
-class ParseNode;
 
 enum class StatementKind : uint8_t {
   Label,
@@ -300,9 +300,15 @@ inline EvalSharedContext* SharedContext::asEvalContext() {
 
 enum class HasHeritage : bool { No, Yes };
 
-class FunctionBox : public ObjectBox, public SharedContext {
-  // The parser handles tracing the fields below via the TraceListNode linked
-  // list.
+class FunctionBox : public SharedContext {
+  friend struct GCThingList;
+
+  // The parser handles tracing the fields below via the FunctionBox linked
+  // list represented by |traceLink_|.
+
+  JSFunction* object_;
+  FunctionBox* traceLink_;
+  FunctionBox* emitLink_;
 
   // This field is used for two purposes:
   //   * If this FunctionBox refers to the function being compiled, this field
@@ -333,11 +339,11 @@ class FunctionBox : public ObjectBox, public SharedContext {
   // this index will be mozilla::Nothing.
   mozilla::Maybe<size_t> funcDataIndex_;
 
-  FunctionBox(JSContext* cx, TraceListNode* traceListHead,
-              uint32_t toStringStart, CompilationInfo& compilationInfo,
-              Directives directives, bool extraWarnings,
-              GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
-              JSAtom* explicitName, FunctionFlags flags);
+  FunctionBox(JSContext* cx, FunctionBox* traceListHead, uint32_t toStringStart,
+              CompilationInfo& compilationInfo, Directives directives,
+              bool extraWarnings, GeneratorKind generatorKind,
+              FunctionAsyncKind asyncKind, JSAtom* explicitName,
+              FunctionFlags flags);
 
   void initWithEnclosingParseContext(ParseContext* enclosing,
                                      FunctionSyntaxKind kind, bool isArrow,
@@ -437,16 +443,15 @@ class FunctionBox : public ObjectBox, public SharedContext {
 
   bool hasFunctionCreationIndex() const { return funcDataIndex_.isSome(); }
 
-  FunctionBox(JSContext* cx, TraceListNode* traceListHead, JSFunction* fun,
+  FunctionBox(JSContext* cx, FunctionBox* traceListHead, JSFunction* fun,
               uint32_t toStringStart, CompilationInfo& compilationInfo,
               Directives directives, bool extraWarnings,
               GeneratorKind generatorKind, FunctionAsyncKind asyncKind);
 
-  FunctionBox(JSContext* cx, TraceListNode* traceListHead,
-              uint32_t toStringStart, CompilationInfo& compilationInfo,
-              Directives directives, bool extraWarnings,
-              GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
-              size_t functionIndex);
+  FunctionBox(JSContext* cx, FunctionBox* traceListHead, uint32_t toStringStart,
+              CompilationInfo& compilationInfo, Directives directives,
+              bool extraWarnings, GeneratorKind generatorKind,
+              FunctionAsyncKind asyncKind, size_t functionIndex);
 
 #ifdef DEBUG
   bool atomsAreKept();
@@ -499,7 +504,9 @@ class FunctionBox : public ObjectBox, public SharedContext {
   // Clear any function creation data which will no longer be used.
   void clearFunctionCreationData() { functionCreationDataIndex().reset(); }
 
-  JSFunction* function() const { return &object()->as<JSFunction>(); }
+  bool hasObject() const { return object_ != nullptr; }
+
+  JSFunction* function() const { return object_; }
 
   // Initialize FunctionBox with a deferred allocation Function
   void initializeFunction(JSFunction* fun) {
@@ -508,7 +515,7 @@ class FunctionBox : public ObjectBox, public SharedContext {
   }
 
   void clobberFunction(JSFunction* function) {
-    gcThing = function;
+    object_ = function;
     // After clobbering, these flags need to be updated
     setIsInterpreted(function->isInterpreted());
   }
@@ -718,7 +725,9 @@ class FunctionBox : public ObjectBox, public SharedContext {
     return functionCreationData().get().hasInferredName();
   }
 
-  void trace(JSTracer* trc) override;
+  void trace(JSTracer* trc);
+
+  static void TraceList(JSTracer* trc, FunctionBox* listHead);
 };
 
 inline FunctionBox* SharedContext::asFunctionBox() {

@@ -361,12 +361,6 @@
 
       this._hasAnyPlayingMediaBeenBlocked = false;
 
-      /**
-       * Only send the message "Browser:UnselectedTabHover" when someone requests
-       * for the message, which can reduce non-necessary communication.
-       */
-      this._shouldSendUnselectedTabHover = false;
-
       this._unselectedTabHoverMessageListenerCount = 0;
 
       this._securityUI = null;
@@ -878,7 +872,11 @@
     }
 
     get shouldHandleUnselectedTabHover() {
-      return this._shouldSendUnselectedTabHover;
+      return this._unselectedTabHoverMessageListenerCount > 0;
+    }
+
+    set shouldHandleUnselectedTabHover(value) {
+      this._unselectedTabHoverMessageListenerCount += value ? 1 : -1;
     }
 
     get securityUI() {
@@ -1171,12 +1169,17 @@
     }
 
     unselectedTabHover(hovered) {
-      if (!this._shouldSendUnselectedTabHover) {
+      if (!this.shouldHandleUnselectedTabHover) {
         return;
       }
-      this.messageManager.sendAsyncMessage("Browser:UnselectedTabHover", {
-        hovered,
-      });
+      this.sendMessageToActor(
+        "Browser:UnselectedTabHover",
+        {
+          hovered,
+        },
+        "UnselectedTabHover",
+        "roots"
+      );
     }
 
     didStartLoadSinceLastUserTyping() {
@@ -1323,13 +1326,6 @@
 
         this.addEventListener("pagehide", this.onPageHide, true);
       }
-
-      if (this.messageManager) {
-        this.messageManager.addMessageListener(
-          "UnselectedTabHover:Toggle",
-          this
-        );
-      }
     }
 
     /**
@@ -1381,85 +1377,66 @@
       }
     }
 
-    /**
-     * We call this _receiveMessage (and alias receiveMessage to it) so that
-     * bindings that inherit from this one can delegate to it.
-     */
-    _receiveMessage(aMessage) {
-      let data = aMessage.data;
-      switch (aMessage.name) {
-        case "UnselectedTabHover:Toggle":
-          this._shouldSendUnselectedTabHover = data.enable
-            ? ++this._unselectedTabHoverMessageListenerCount > 0
-            : --this._unselectedTabHoverMessageListenerCount == 0;
-          break;
-      }
-      return undefined;
-    }
-
     receiveMessage(aMessage) {
-      if (!this.isRemoteBrowser) {
-        return this._receiveMessage(aMessage);
+      if (this.isRemoteBrowser) {
+        const data = aMessage.data;
+        switch (aMessage.name) {
+          case "Browser:Init":
+            this._outerWindowID = data.outerWindowID;
+            break;
+          case "DOMTitleChanged":
+            this._contentTitle = data.title;
+            break;
+          case "WebView::backgroundcolor":
+            this.webViewDispatchEventFromData("backgroundcolor", data, [
+              "backgroundcolor",
+            ]);
+            break;
+          case "WebView::close":
+            this.dispatchEvent(new CustomEvent("close"));
+            break;
+          case "WebView::contextmenu":
+            return this.webViewfireCtxMenuEvent(data);
+          case "WebView::documentfirstpaint":
+            this.dispatchEvent(new CustomEvent("documentfirstpaint"));
+            break;
+          case "WebView::iconchange":
+            this.webViewDispatchEventFromData("iconchange", data, [
+              "href",
+              "sizes",
+              "rel",
+            ]);
+            break;
+          case "WebView::manifestchange":
+            this.webViewDispatchEventFromData("manifestchange", data, ["href"]);
+            break;
+          case "WebView::metachange":
+            this.webViewDispatchEventFromData("metachange", data, [
+              "name",
+              "content",
+              "type",
+              "lang",
+            ]);
+            break;
+          case "WebView::opensearch":
+            this.webViewDispatchEventFromData("opensearch", data, [
+              "title",
+              "href",
+            ]);
+            break;
+          case "WebView::resize":
+            this.webViewDispatchEventFromData("resize", data, [
+              "width",
+              "height",
+            ]);
+            break;
+          case "WebView::scroll":
+            this.webViewDispatchEventFromData("scroll", data, ["top", "left"]);
+            break;
+          default:
+            break;
+        }
       }
-
-      let data = aMessage.data;
-      switch (aMessage.name) {
-        case "Browser:Init":
-          this._outerWindowID = data.outerWindowID;
-          break;
-        case "DOMTitleChanged":
-          this._contentTitle = data.title;
-          break;
-        case "WebView::backgroundcolor":
-          this.webViewDispatchEventFromData("backgroundcolor", data, [
-            "backgroundcolor",
-          ]);
-          break;
-        case "WebView::close":
-          this.dispatchEvent(new CustomEvent("close"));
-          break;
-        case "WebView::contextmenu":
-          return this.webViewfireCtxMenuEvent(data);
-        case "WebView::documentfirstpaint":
-          this.dispatchEvent(new CustomEvent("documentfirstpaint"));
-          break;
-        case "WebView::iconchange":
-          this.webViewDispatchEventFromData("iconchange", data, [
-            "href",
-            "sizes",
-            "rel",
-          ]);
-          break;
-        case "WebView::manifestchange":
-          this.webViewDispatchEventFromData("manifestchange", data, ["href"]);
-          break;
-        case "WebView::metachange":
-          this.webViewDispatchEventFromData("metachange", data, [
-            "name",
-            "content",
-            "type",
-            "lang",
-          ]);
-          break;
-        case "WebView::opensearch":
-          this.webViewDispatchEventFromData("opensearch", data, [
-            "title",
-            "href",
-          ]);
-          break;
-        case "WebView::resize":
-          this.webViewDispatchEventFromData("resize", data, [
-            "width",
-            "height",
-          ]);
-          break;
-        case "WebView::scroll":
-          this.webViewDispatchEventFromData("scroll", data, ["top", "left"]);
-          break;
-        default:
-          return this._receiveMessage(aMessage);
-      }
-      return undefined;
     }
 
     // Returns a promise resolving with the screenshot as a Blob.

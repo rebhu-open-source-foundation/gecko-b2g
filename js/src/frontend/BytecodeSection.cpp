@@ -11,7 +11,6 @@
 #include "mozilla/ReverseIterator.h"  // mozilla::Reversed
 
 #include "frontend/CompilationInfo.h"
-#include "frontend/ParseNode.h"      // ObjectBox
 #include "frontend/SharedContext.h"  // FunctionBox
 #include "frontend/Stencil.h"        // ScopeCreationData
 #include "vm/BytecodeUtil.h"         // INDEX_LIMIT, StackUses, StackDefs
@@ -21,26 +20,24 @@
 using namespace js;
 using namespace js::frontend;
 
-bool GCThingList::append(ObjectBox* objbox, uint32_t* index) {
-  // Append the object to the vector and return the index in *index. Also add
-  // the ObjectBox to the |lastbox| linked list for finishInnerFunctions below.
+bool GCThingList::append(FunctionBox* funbox, uint32_t* index) {
+  // Append the function to the vector and return the index in *index. Also add
+  // the FunctionBox to the |lastbox| linked list for finishInnerFunctions
+  // below.
 
-  MOZ_ASSERT(objbox->isObjectBox());
-  MOZ_ASSERT(!objbox->emitLink);
-  objbox->emitLink = lastbox;
-  lastbox = objbox;
+  MOZ_ASSERT(!funbox->emitLink_);
+  funbox->emitLink_ = lastbox;
+  lastbox = funbox;
 
   *index = vector.length();
-  return vector.append(mozilla::AsVariant(JS::GCCellPtr(objbox->object())));
+  return vector.append(mozilla::AsVariant(JS::GCCellPtr(funbox->function())));
 }
 
 void GCThingList::finishInnerFunctions() {
-  ObjectBox* objbox = lastbox;
-  while (objbox) {
-    if (objbox->isFunctionBox()) {
-      objbox->asFunctionBox()->finish();
-    }
-    objbox = objbox->emitLink;
+  FunctionBox* funbox = lastbox;
+  while (funbox) {
+    funbox->finish();
+    funbox = funbox->emitLink_;
   }
 }
 

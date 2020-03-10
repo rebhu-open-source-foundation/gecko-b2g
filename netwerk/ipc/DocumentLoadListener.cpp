@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "DocumentLoadListener.h"
+#include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/ContentBlockingAllowList.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/LoadInfo.h"
@@ -344,12 +345,10 @@ CanonicalBrowsingContext* DocumentLoadListener::GetBrowsingContext() {
 
 bool DocumentLoadListener::Open(
     nsDocShellLoadState* aLoadState, class LoadInfo* aLoadInfo,
-    nsLoadFlags aLoadFlags, uint32_t aLoadType, uint32_t aCacheKey,
-    bool aIsActive, bool aIsTopLevelDoc, bool aHasNonEmptySandboxingFlags,
-    const uint64_t& aChannelId, const TimeStamp& aAsyncOpenTime,
-    const Maybe<uint32_t>& aDocumentOpenFlags, bool aPluginsAllowed,
-    nsDOMNavigationTiming* aTiming, Maybe<ClientInfo>&& aInfo,
-    uint64_t aOuterWindowId, nsresult* aRv) {
+    nsLoadFlags aLoadFlags, uint32_t aCacheKey, const uint64_t& aChannelId,
+    const TimeStamp& aAsyncOpenTime, const Maybe<uint32_t>& aDocumentOpenFlags,
+    bool aPluginsAllowed, nsDOMNavigationTiming* aTiming,
+    Maybe<ClientInfo>&& aInfo, uint64_t aOuterWindowId, nsresult* aRv) {
   LOG(("DocumentLoadListener Open [this=%p, uri=%s]", this,
        aLoadState->URI()->GetSpecOrDefault().get()));
   RefPtr<CanonicalBrowsingContext> browsingContext =
@@ -374,14 +373,13 @@ bool DocumentLoadListener::Open(
 
   if (!nsDocShell::CreateAndConfigureRealChannelForLoadState(
           aLoadState, loadInfo, mParentChannelListener, nullptr, attrs,
-          aLoadFlags, aLoadType, aCacheKey, aIsActive, aIsTopLevelDoc,
-          aHasNonEmptySandboxingFlags, *aRv, getter_AddRefs(mChannel))) {
+          aLoadFlags, aCacheKey, *aRv, getter_AddRefs(mChannel))) {
     mParentChannelListener = nullptr;
     return false;
   }
 
   nsCOMPtr<nsIURI> uriBeingLoaded =
-      AntiTrackingCommon::MaybeGetDocumentURIBeingLoaded(mChannel);
+      AntiTrackingUtils::MaybeGetDocumentURIBeingLoaded(mChannel);
   CanonicalBrowsingContext* bc = GetBrowsingContext();
   RefPtr<WindowGlobalParent> topWindow =
       GetTopWindowExcludingExtensionAccessibleContentFrames(bc, uriBeingLoaded);

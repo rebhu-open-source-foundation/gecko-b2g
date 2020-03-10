@@ -2956,7 +2956,7 @@ mozilla::ipc::IPCResult ContentChild::RecvRemoveAllPermissions() {
 
 mozilla::ipc::IPCResult ContentChild::RecvFlushMemory(const nsString& reason) {
   nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
-  if (os) {
+  if (!mShuttingDown && os) {
     os->NotifyObservers(nullptr, "memory-pressure", reason.get());
   }
   return IPC_OK();

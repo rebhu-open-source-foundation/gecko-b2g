@@ -256,8 +256,8 @@ class MOZ_STACK_CLASS ParserSharedBase : private JS::AutoGCRooter {
   // Information for parsing with a lifetime longer than the parser itself.
   CompilationInfo& compilationInfo_;
 
-  // list of parsed objects and BigInts for GC tracing
-  TraceListNode* traceListHead_;
+  // List of parsed functions for GC tracing.
+  FunctionBox* traceListHead_;
 
   // innermost parse context (stack-allocated)
   ParseContext* pc_;
@@ -277,21 +277,8 @@ class MOZ_STACK_CLASS ParserSharedBase : private JS::AutoGCRooter {
                                               JS::AutoGCRooter* parser);
 #endif  // JS_BUILD_BINAST
 
- private:
-  // Create a new traceable node and store it into the trace list.
-  template <typename BoxT, typename ArgT>
-  BoxT* newTraceListNode(ArgT* arg);
-
-  void cleanupTraceList();
-
  public:
   CompilationInfo& getCompilationInfo() { return compilationInfo_; }
-
-  // Create a new JSObject and store it into the trace list.
-  ObjectBox* newObjectBox(JSObject* obj);
-
-  // Create a new BigInt and store it into the trace list.
-  BigIntBox* newBigIntBox(BigInt* val);
 };
 
 class MOZ_STACK_CLASS ParserBase : public ParserSharedBase,
@@ -422,7 +409,7 @@ class MOZ_STACK_CLASS ParserBase : public ParserSharedBase,
   class Mark {
     friend class ParserBase;
     LifoAlloc::Mark mark;
-    TraceListNode* traceListHead;
+    FunctionBox* traceListHead;
   };
   Mark mark() const {
     Mark m;

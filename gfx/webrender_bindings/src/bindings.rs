@@ -27,7 +27,7 @@ use thin_vec::ThinVec;
 
 use webrender::{
     api::*, api::units::*, ApiRecordingReceiver, AsyncPropertySampler, AsyncScreenshotHandle,
-    BinaryRecorder, Compositor, DebugFlags, Device,
+    BinaryRecorder, Compositor, CompositorCapabilities, DebugFlags, Device,
     NativeSurfaceId, PipelineInfo, ProfilerHooks, RecordedFrameHandle, Renderer, RendererOptions, RendererStats,
     SceneBuilderHooks, ShaderPrecacheFlags, Shaders, ThreadListener, UploadMethod, VertexUsageHint,
     WrShaders, set_profiler_hooks, CompositorConfig, NativeSurfaceInfo, NativeTileId
@@ -1200,6 +1200,7 @@ extern "C" {
     fn wr_compositor_create_surface(
         compositor: *mut c_void,
         id: NativeSurfaceId,
+        virtual_offset: DeviceIntPoint,
         tile_size: DeviceIntSize,
         is_opaque: bool,
     );
@@ -1240,6 +1241,9 @@ extern "C" {
         compositor: *mut c_void,
         enable: bool,
     );
+    fn wr_compositor_get_capabilities(
+        compositor: *mut c_void,
+    ) -> CompositorCapabilities;
 }
 
 pub struct WrCompositor(*mut c_void);
@@ -1248,6 +1252,7 @@ impl Compositor for WrCompositor {
     fn create_surface(
         &mut self,
         id: NativeSurfaceId,
+        virtual_offset: DeviceIntPoint,
         tile_size: DeviceIntSize,
         is_opaque: bool,
     ) {
@@ -1255,6 +1260,7 @@ impl Compositor for WrCompositor {
             wr_compositor_create_surface(
                 self.0,
                 id,
+                virtual_offset,
                 tile_size,
                 is_opaque,
             );
@@ -1374,6 +1380,12 @@ impl Compositor for WrCompositor {
                 self.0,
                 enable,
             );
+        }
+    }
+
+    fn get_capabilities(&self) -> CompositorCapabilities {
+        unsafe {
+            wr_compositor_get_capabilities(self.0)
         }
     }
 }
@@ -2690,12 +2702,19 @@ pub extern "C" fn wr_dp_push_iframe(state: &mut WrState,
 // A helper fn to construct a PrimitiveFlags
 fn prim_flags(
     is_backface_visible: bool,
+    prefer_compositor_surface: bool,
 ) -> PrimitiveFlags {
+    let mut flags = PrimitiveFlags::empty();
+
     if is_backface_visible {
-        PrimitiveFlags::IS_BACKFACE_VISIBLE
-    } else {
-        PrimitiveFlags::empty()
+        flags |= PrimitiveFlags::IS_BACKFACE_VISIBLE;
     }
+
+    if prefer_compositor_surface {
+        flags |= PrimitiveFlags::PREFER_COMPOSITOR_SURFACE;
+    }
+
+    flags
 }
 
 fn common_item_properties_for_rect(
@@ -2715,7 +2734,7 @@ fn common_item_properties_for_rect(
         clip_rect: clip_rect.unwrap_or(LayoutRect::zero()),
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     }
@@ -2798,7 +2817,7 @@ pub extern "C" fn wr_dp_push_rect_with_parent_clip(
         clip_rect: clip_rect.unwrap(),
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -2851,7 +2870,7 @@ pub extern "C" fn wr_dp_push_backdrop_filter_with_parent_clip(
         clip_rect: clip_rect.unwrap(),
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -2880,7 +2899,7 @@ pub extern "C" fn wr_dp_push_clear_rect(state: &mut WrState,
         clip_rect: clip_rect.unwrap(),
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(true),
+        flags: prim_flags(true, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -2907,7 +2926,7 @@ pub extern "C" fn wr_dp_push_hit_test(state: &mut WrState,
         clip_rect: clip_rect.unwrap(),
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -2935,7 +2954,7 @@ pub extern "C" fn wr_dp_push_clear_rect_with_parent_clip(
         clip_rect: clip_rect.unwrap(),
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(true),
+        flags: prim_flags(true, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -2954,7 +2973,8 @@ pub extern "C" fn wr_dp_push_image(state: &mut WrState,
                                    image_rendering: ImageRendering,
                                    key: WrImageKey,
                                    premultiplied_alpha: bool,
-                                   color: ColorF) {
+                                   color: ColorF,
+                                   prefer_compositor_surface: bool) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
@@ -2963,7 +2983,7 @@ pub extern "C" fn wr_dp_push_image(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3004,7 +3024,7 @@ pub extern "C" fn wr_dp_push_repeating_image(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3040,7 +3060,8 @@ pub extern "C" fn wr_dp_push_yuv_planar_image(state: &mut WrState,
                                               color_depth: WrColorDepth,
                                               color_space: WrYuvColorSpace,
                                               color_range: WrColorRange,
-                                              image_rendering: ImageRendering) {
+                                              image_rendering: ImageRendering,
+                                              prefer_compositor_surface: bool) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
@@ -3049,7 +3070,7 @@ pub extern "C" fn wr_dp_push_yuv_planar_image(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3077,7 +3098,8 @@ pub extern "C" fn wr_dp_push_yuv_NV12_image(state: &mut WrState,
                                             color_depth: WrColorDepth,
                                             color_space: WrYuvColorSpace,
                                             color_range: WrColorRange,
-                                            image_rendering: ImageRendering) {
+                                            image_rendering: ImageRendering,
+                                            prefer_compositor_surface: bool) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
@@ -3086,7 +3108,7 @@ pub extern "C" fn wr_dp_push_yuv_NV12_image(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3113,7 +3135,8 @@ pub extern "C" fn wr_dp_push_yuv_interleaved_image(state: &mut WrState,
                                                    color_depth: WrColorDepth,
                                                    color_space: WrYuvColorSpace,
                                                    color_range: WrColorRange,
-                                                   image_rendering: ImageRendering) {
+                                                   image_rendering: ImageRendering,
+                                                   prefer_compositor_surface: bool) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
     let space_and_clip = parent.to_webrender(state.pipeline_id);
@@ -3122,7 +3145,7 @@ pub extern "C" fn wr_dp_push_yuv_interleaved_image(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3159,7 +3182,7 @@ pub extern "C" fn wr_dp_push_text(state: &mut WrState,
         clip_rect: clip,
         spatial_id: space_and_clip.spatial_id,
         clip_id: space_and_clip.clip_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3216,7 +3239,7 @@ pub extern "C" fn wr_dp_push_line(state: &mut WrState,
         clip_rect: *clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3262,7 +3285,7 @@ pub extern "C" fn wr_dp_push_border(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3312,7 +3335,7 @@ pub extern "C" fn wr_dp_push_border_image(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3371,7 +3394,7 @@ pub extern "C" fn wr_dp_push_border_gradient(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3434,7 +3457,7 @@ pub extern "C" fn wr_dp_push_border_radial_gradient(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3497,7 +3520,7 @@ pub extern "C" fn wr_dp_push_border_conic_gradient(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3541,7 +3564,7 @@ pub extern "C" fn wr_dp_push_linear_gradient(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3586,7 +3609,7 @@ pub extern "C" fn wr_dp_push_radial_gradient(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3630,7 +3653,7 @@ pub extern "C" fn wr_dp_push_conic_gradient(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };
@@ -3664,7 +3687,7 @@ pub extern "C" fn wr_dp_push_box_shadow(state: &mut WrState,
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible),
+        flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
         item_key: state.current_item_key,
     };

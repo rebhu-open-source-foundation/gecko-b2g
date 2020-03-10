@@ -218,21 +218,6 @@ class nsFrameSelection final {
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(nsFrameSelection)
   NS_DECL_CYCLE_COLLECTION_NATIVE_CLASS(nsFrameSelection)
 
-  /**
-   * Init will initialize the frame selector with the necessary pres shell to
-   * be used by most of the methods
-   *
-   * @param aPresShell is the parameter to be used for most of the other calls
-   * for callbacks etc
-   *
-   * @param aLimiter limits the selection to nodes with aLimiter parents
-   *
-   * @param aAccessibleCaretEnabled true if we should enable the accessible
-   * caret.
-   */
-  void Init(mozilla::PresShell* aPresShell, nsIContent* aLimiter,
-            bool aAccessibleCaretEnabled);
-
   enum class FocusMode {
     kExtendSelection,     /** Keep old anchor point. */
     kCollapseToNewPoint,  /** Collapses the Selection to the new point. */
@@ -608,14 +593,14 @@ class nsFrameSelection final {
    * by the selection during MouseDown processing. It can be nullptr
    * if the data is no longer valid.
    */
-  bool HasDelayedCaretData() { return mDelayedMouseEventValid; }
+  bool HasDelayedCaretData() { return mDelayedMouseEvent.mIsValid; }
   bool IsShiftDownInDelayedCaretData() {
-    NS_ASSERTION(mDelayedMouseEventValid, "No valid delayed caret data");
-    return mDelayedMouseEventIsShift;
+    NS_ASSERTION(mDelayedMouseEvent.mIsValid, "No valid delayed caret data");
+    return mDelayedMouseEvent.mIsShift;
   }
   uint32_t GetClickCountInDelayedCaretData() {
-    NS_ASSERTION(mDelayedMouseEventValid, "No valid delayed caret data");
-    return mDelayedMouseEventClickCount;
+    NS_ASSERTION(mDelayedMouseEvent.mIsValid, "No valid delayed caret data");
+    return mDelayedMouseEvent.mClickCount;
   }
 
   bool MouseDownRecorded() {
@@ -689,7 +674,17 @@ class nsFrameSelection final {
                                                  nsIFrame** aRetFrame,
                                                  nsPoint& aRetPoint);
 
-  nsFrameSelection();
+  /**
+   * @param aPresShell is the parameter to be used for most of the other calls
+   * for callbacks etc
+   *
+   * @param aLimiter limits the selection to nodes with aLimiter parents
+   *
+   * @param aAccessibleCaretEnabled true if we should enable the accessible
+   * caret.
+   */
+  nsFrameSelection(mozilla::PresShell* aPresShell, nsIContent* aLimiter,
+                   bool aAccessibleCaretEnabled);
 
   void StartBatchChanges();
 
@@ -902,12 +897,16 @@ class nsFrameSelection final {
   nsBidiLevel mKbdBidiLevel = NSBIDI_LTR;
 
   nsPoint mDesiredPos;
-  bool mDelayedMouseEventValid = false;
-  // These values are not used since they are only valid when
-  // mDelayedMouseEventValid is true, and setting mDelayedMouseEventValid
-  // always overrides these values.
-  uint32_t mDelayedMouseEventClickCount = 0;
-  bool mDelayedMouseEventIsShift = false;
+
+  struct DelayedMouseEvent {
+    bool mIsValid = false;
+    // These values are not used since they are only valid when mIsValid is
+    // true, and setting mIsValid  always overrides these values.
+    bool mIsShift = false;
+    uint32_t mClickCount = 0;
+  };
+
+  DelayedMouseEvent mDelayedMouseEvent;
 
   bool mChangesDuringBatching = false;
   bool mDragState = false;  // for drag purposes

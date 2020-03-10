@@ -302,6 +302,45 @@ static void DecreasePrivateDocShellCount() {
   }
 }
 
+static bool IsTopLevelDoc(nsILoadInfo* aLoadInfo) {
+  if (aLoadInfo->GetExternalContentPolicyType() !=
+      nsIContentPolicy::TYPE_DOCUMENT) {
+    return false;
+  }
+
+  RefPtr<dom::BrowsingContext> bc;
+  MOZ_ALWAYS_SUCCEEDS(aLoadInfo->GetBrowsingContext(getter_AddRefs(bc)));
+  return bc && bc->IsTopContent();
+}
+
+// True if loading for top level document loading in active tab.
+static bool IsUrgentStart(nsILoadInfo* aLoadInfo, uint32_t aLoadType) {
+  if (!IsTopLevelDoc(aLoadInfo)) {
+    return false;
+  }
+
+  if (aLoadType &
+      (nsIDocShell::LOAD_CMD_NORMAL | nsIDocShell::LOAD_CMD_HISTORY)) {
+    return true;
+  }
+
+  RefPtr<BrowsingContext> bc;
+  MOZ_ALWAYS_SUCCEEDS(aLoadInfo->GetTargetBrowsingContext(getter_AddRefs(bc)));
+  return bc && bc->GetIsActive();
+}
+
+static bool HasNonEmptySandboxingFlags(nsILoadInfo* aLoadInfo) {
+  // NOTE: HasNonEmptySandboxingFlag used to come from
+  // nsDocShell::mBrowsingContext.  nsDocShell::OpenInitializedChannel sets the
+  // mBrowsingContext->ID() to BrowsingContextID/FrameBrowsingContextID
+  // depending on the value of loadInfo->GetExternalContextPolicyType(). Use
+  // GetTargetBrowsingContext() to retrieve nsDocShell::mBrowsingContext.
+
+  RefPtr<BrowsingContext> bc;
+  MOZ_ALWAYS_SUCCEEDS(aLoadInfo->GetTargetBrowsingContext(getter_AddRefs(bc)));
+  return bc && bc->GetSandboxFlags() != 0;
+}
+
 nsDocShell::nsDocShell(BrowsingContext* aBrowsingContext,
                        uint64_t aContentWindowID)
     : nsDocLoader(),
@@ -9371,8 +9410,9 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
     nsDocShellLoadState* aLoadState, LoadInfo* aLoadInfo,
     nsIInterfaceRequestor* aCallbacks, nsDocShell* aDocShell,
     const OriginAttributes& aOriginAttributes, nsLoadFlags aLoadFlags,
-    uint32_t aLoadType, uint32_t aCacheKey, bool aIsActive, bool aIsTopLevelDoc,
-    bool aHasNonEmptySandboxingFlags, nsresult& aRv, nsIChannel** aChannel) {
+    uint32_t aCacheKey, nsresult& aRv, nsIChannel** aChannel) {
+  MOZ_ASSERT(aLoadInfo);
+
   nsString srcdoc = VoidString();
   bool isSrcdoc = aLoadState->HasLoadFlags(INTERNAL_LOAD_FLAGS_IS_SRCDOC);
   if (isSrcdoc) {
@@ -9411,7 +9451,7 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
                   attrs == aOriginAttributes);
   } else {
     attrs = aOriginAttributes;
-    attrs.SetFirstPartyDomain(aIsTopLevelDoc, aLoadState->URI());
+    attrs.SetFirstPartyDomain(IsTopLevelDoc(aLoadInfo), aLoadState->URI());
   }
 
   aRv = aLoadInfo->SetOriginAttributes(attrs);
@@ -9501,12 +9541,10 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
       aRv = httpChannel->SetReferrerInfo(referrerInfo);
       MOZ_ASSERT(NS_SUCCEEDED(aRv));
     }
-  }
 
-  // Mark the http channel as UrgentStart for top level document loading
-  // in active tab.
-  if (aIsActive) {
-    if (httpChannel && aIsTopLevelDoc) {
+    // Mark the http channel as UrgentStart for top level document loading in
+    // active tab.
+    if (IsUrgentStart(aLoadInfo, aLoadState->LoadType())) {
       nsCOMPtr<nsIClassOfService> cos(do_QueryInterface(channel));
       if (cos) {
         cos->AddClassFlags(nsIClassOfService::UrgentStart);
@@ -9550,6 +9588,7 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
   }
 
   nsCOMPtr<nsICacheInfoChannel> cacheChannel(do_QueryInterface(channel));
+  auto loadType = aLoadState->LoadType();
 
   // figure out if we need to set the post data stream on the channel...
   if (aLoadState->PostDataStream()) {
@@ -9576,15 +9615,14 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
      * cache is free to go to the server for updated postdata.
      */
     if (cacheChannel && aCacheKey != 0) {
-      if (aLoadType == LOAD_HISTORY ||
-          aLoadType == LOAD_RELOAD_CHARSET_CHANGE) {
+      if (loadType == LOAD_HISTORY || loadType == LOAD_RELOAD_CHARSET_CHANGE) {
         cacheChannel->SetCacheKey(aCacheKey);
         uint32_t loadFlags;
         if (NS_SUCCEEDED(channel->GetLoadFlags(&loadFlags))) {
           channel->SetLoadFlags(loadFlags |
                                 nsICachingChannel::LOAD_ONLY_FROM_CACHE);
         }
-      } else if (aLoadType == LOAD_RELOAD_NORMAL) {
+      } else if (loadType == LOAD_RELOAD_NORMAL) {
         cacheChannel->SetCacheKey(aCacheKey);
       }
     }
@@ -9595,10 +9633,10 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
      * New cache may use it creatively on CGI pages with GET
      * method and even on those that say "no-cache"
      */
-    if (aLoadType == LOAD_HISTORY || aLoadType == LOAD_RELOAD_NORMAL ||
-        aLoadType == LOAD_RELOAD_CHARSET_CHANGE ||
-        aLoadType == LOAD_RELOAD_CHARSET_CHANGE_BYPASS_CACHE ||
-        aLoadType == LOAD_RELOAD_CHARSET_CHANGE_BYPASS_PROXY_AND_CACHE) {
+    if (loadType == LOAD_HISTORY || loadType == LOAD_RELOAD_NORMAL ||
+        loadType == LOAD_RELOAD_CHARSET_CHANGE ||
+        loadType == LOAD_RELOAD_CHARSET_CHANGE_BYPASS_CACHE ||
+        loadType == LOAD_RELOAD_CHARSET_CHANGE_BYPASS_PROXY_AND_CACHE) {
       if (cacheChannel && aCacheKey != 0) {
         cacheChannel->SetCacheKey(aCacheKey);
       }
@@ -9620,10 +9658,8 @@ static bool SchemeUsesDocChannel(nsIURI* aURI) {
     }
   }
 
-  if (aHasNonEmptySandboxingFlags) {
-    if (httpChannelInternal) {
-      httpChannelInternal->SetHasNonEmptySandboxingFlag(true);
-    }
+  if (httpChannelInternal && HasNonEmptySandboxingFlags(aLoadInfo)) {
+    httpChannelInternal->SetHasNonEmptySandboxingFlag(true);
   }
 
   nsCOMPtr<nsIURI> rpURI;
@@ -9908,13 +9944,6 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
                          Maybe<mozilla::dom::ServiceWorkerDescriptor>(),
                          sandboxFlags);
 
-  // We have to do this in case our OriginAttributes are different from the
-  // OriginAttributes of the parent document. Or in case there isn't a
-  // parent document.
-  bool isTopLevelDoc = mItemType == typeContent &&
-                       (contentPolicyType == nsIContentPolicy::TYPE_DOCUMENT ||
-                        GetIsMozBrowser());
-
   /* Get the cache Key from SH */
   uint32_t cacheKey = 0;
   if (mLSHE) {
@@ -9922,9 +9951,6 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
   } else if (mOSHE) {  // for reload cases
     cacheKey = mOSHE->GetCacheKey();
   }
-
-  bool isActive = mBrowsingContext->GetIsActive() ||
-                  (mLoadType & (LOAD_CMD_NORMAL | LOAD_CMD_HISTORY));
 
   // We want to use DocumentChannel if we're using a supported scheme, or if
   // we're a sandboxed srcdoc load. Non-sandboxed srcdoc loads need to share
@@ -9937,15 +9963,12 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
 
   if (StaticPrefs::browser_tabs_documentchannel() && XRE_IsContentProcess() &&
       canUseDocumentChannel) {
-    channel = new DocumentChannelChild(aLoadState, loadInfo, loadFlags,
-                                       mLoadType, cacheKey, isActive,
-                                       isTopLevelDoc, sandboxFlags);
+    channel =
+        new DocumentChannelChild(aLoadState, loadInfo, loadFlags, cacheKey);
     channel->SetNotificationCallbacks(this);
   } else if (!CreateAndConfigureRealChannelForLoadState(
                  aLoadState, loadInfo, this, this, GetOriginAttributes(),
-                 loadFlags, mLoadType, cacheKey, isActive, isTopLevelDoc,
-                 mBrowsingContext->GetSandboxFlags(), rv,
-                 getter_AddRefs(channel))) {
+                 loadFlags, cacheKey, rv, getter_AddRefs(channel))) {
     return rv;
   }
 

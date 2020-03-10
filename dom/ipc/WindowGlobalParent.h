@@ -7,7 +7,8 @@
 #ifndef mozilla_dom_WindowGlobalParent_h
 #define mozilla_dom_WindowGlobalParent_h
 
-#include "mozilla/AntiTrackingCommon.h"
+#include "mozilla/ContentBlockingLog.h"
+#include "mozilla/ContentBlockingNotifier.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/dom/DOMRect.h"
 #include "mozilla/dom/PWindowGlobalParent.h"
@@ -18,7 +19,6 @@
 #include "nsISupports.h"
 #include "mozilla/dom/WindowGlobalActor.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
-#include "mozilla/dom/ContentBlockingLog.h"
 
 class nsIPrincipal;
 class nsIURI;
@@ -146,8 +146,8 @@ class WindowGlobalParent final : public WindowContext,
       uint32_t aEvent, nsIRequest* aRequest, bool aBlocked,
       const nsACString& aTrackingOrigin,
       const nsTArray<nsCString>& aTrackingFullHashes,
-      const Maybe<AntiTrackingCommon::StorageAccessGrantedReason>& aReason =
-          Nothing());
+      const Maybe<ContentBlockingNotifier::StorageAccessGrantedReason>&
+          aReason = Nothing());
 
   ContentBlockingLog* GetContentBlockingLog() { return &mContentBlockingLog; }
 

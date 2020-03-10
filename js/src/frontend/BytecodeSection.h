@@ -39,12 +39,9 @@ namespace js {
 
 class Scope;
 
-using BigIntVector = JS::GCVector<js::BigInt*>;
-
 namespace frontend {
 
-class BigIntLiteral;
-class ObjectBox;
+class FunctionBox;
 
 struct MOZ_STACK_CLASS GCThingList {
   using ListType =
@@ -53,8 +50,8 @@ struct MOZ_STACK_CLASS GCThingList {
   CompilationInfo& compilationInfo;
   JS::RootedVector<ListType> vector;
 
-  // Last emitted object.
-  ObjectBox* lastbox = nullptr;
+  // Last emitted function.
+  FunctionBox* lastbox = nullptr;
 
   // Index of the first scope in the vector.
   mozilla::Maybe<uint32_t> firstScopeIndex;
@@ -88,17 +85,13 @@ struct MOZ_STACK_CLASS GCThingList {
   }
   MOZ_MUST_USE bool append(RegExpLiteral* literal, uint32_t* index) {
     *index = vector.length();
-    if (literal->isDeferred()) {
-      return vector.append(mozilla::AsVariant(literal->index()));
-    }
-    return vector.append(
-        mozilla::AsVariant(JS::GCCellPtr(literal->objbox()->object())));
+    return vector.append(mozilla::AsVariant(literal->index()));
   }
   MOZ_MUST_USE bool append(ObjLiteralCreationData&& objlit, uint32_t* index) {
     *index = vector.length();
     return vector.append(mozilla::AsVariant(std::move(objlit)));
   }
-  MOZ_MUST_USE bool append(ObjectBox* obj, uint32_t* index);
+  MOZ_MUST_USE bool append(FunctionBox* funbox, uint32_t* index);
 
   uint32_t length() const { return vector.length(); }
   MOZ_MUST_USE bool finish(JSContext* cx, CompilationInfo& compilationInfo,
