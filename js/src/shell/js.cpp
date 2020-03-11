@@ -967,7 +967,6 @@ static bool InitModuleLoader(JSContext* cx) {
   options.setFileAndLine("shell/ModuleLoader.js", 1);
   options.setSelfHostingMode(false);
   options.setForceFullParse();
-  options.werrorOption = true;
   options.setForceStrictMode();
 
   JS::SourceText<Utf8Unit> srcBuf;
@@ -1736,19 +1735,7 @@ static bool Options(JSContext* cx, unsigned argc, Value* vp) {
       return false;
     }
 
-    if (StringEqualsLiteral(opt, "strict")) {
-      JS::ContextOptionsRef(cx).toggleExtraWarnings();
-    } else if (StringEqualsLiteral(opt, "werror")) {
-      // Disallow toggling werror when there are off-thread jobs, to avoid
-      // confusing CompileError::throwError.
-      ShellContext* sc = GetShellContext(cx);
-      if (!sc->offThreadJobs.empty()) {
-        JS_ReportErrorASCII(
-            cx, "can't toggle werror when there are off-thread jobs");
-        return false;
-      }
-      JS::ContextOptionsRef(cx).toggleWerror();
-    } else if (StringEqualsLiteral(opt, "throw_on_asmjs_validation_failure")) {
+    if (StringEqualsLiteral(opt, "throw_on_asmjs_validation_failure")) {
       JS::ContextOptionsRef(cx).toggleThrowOnAsmJSValidationFailure();
     } else if (StringEqualsLiteral(opt, "strict_mode")) {
       JS::ContextOptionsRef(cx).toggleStrictMode();
@@ -1760,8 +1747,8 @@ static bool Options(JSContext* cx, unsigned argc, Value* vp) {
 
       JS_ReportErrorASCII(cx,
                           "unknown option name %s."
-                          " The valid names are strict,"
-                          " werror, and strict_mode.",
+                          " The valid names are "
+                          "throw_on_asmjs_validation_failure and strict_mode.",
                           optChars.get());
       return false;
     }
@@ -1769,16 +1756,6 @@ static bool Options(JSContext* cx, unsigned argc, Value* vp) {
 
   UniqueChars names = DuplicateString("");
   bool found = false;
-  if (names && oldContextOptions.extraWarnings()) {
-    names =
-        JS_sprintf_append(std::move(names), "%s%s", found ? "," : "", "strict");
-    found = true;
-  }
-  if (names && oldContextOptions.werror()) {
-    names =
-        JS_sprintf_append(std::move(names), "%s%s", found ? "," : "", "werror");
-    found = true;
-  }
   if (names && oldContextOptions.throwOnAsmJSValidationFailure()) {
     names = JS_sprintf_append(std::move(names), "%s%s", found ? "," : "",
                               "throw_on_asmjs_validation_failure");
@@ -5430,8 +5407,8 @@ static bool BinParse(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   js::frontend::Directives directives(false);
-  js::frontend::GlobalSharedContext globalsc(
-      cx, ScopeKind::Global, compilationInfo, directives, false);
+  js::frontend::GlobalSharedContext globalsc(cx, ScopeKind::Global,
+                                             compilationInfo, directives);
 
   auto parseFunc = mode == Multipart
                        ? ParseBinASTData<frontend::BinASTTokenReaderMultipart>
@@ -10159,10 +10136,6 @@ static bool OptionFailure(const char* option, const char* str) {
 static MOZ_MUST_USE bool ProcessArgs(JSContext* cx, OptionParser* op) {
   ShellContext* sc = GetShellContext(cx);
 
-  if (op->getBoolOption('s')) {
-    JS::ContextOptionsRef(cx).toggleExtraWarnings();
-  }
-
 #ifdef JS_ENABLE_SMOOSH
   if (op->getBoolOption("smoosh")) {
     JS::ContextOptionsRef(cx).setTrySmoosh(true);
@@ -11103,7 +11076,6 @@ int main(int argc, char** argv, char** envp) {
                         "Only compile, don't run (syntax checking mode)") ||
       !op.addBoolOption('w', "warnings", "Emit warnings") ||
       !op.addBoolOption('W', "nowarnings", "Don't emit warnings") ||
-      !op.addBoolOption('s', "strict", "Check strictness") ||
       !op.addBoolOption('D', "dump-bytecode",
                         "Dump bytecode with exec count for all scripts") ||
       !op.addBoolOption('b', "print-timing",

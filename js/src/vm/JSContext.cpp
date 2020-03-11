@@ -360,35 +360,9 @@ void js::ReportAllocationOverflow(JSContext* cx) {
   JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_ALLOC_OVERFLOW);
 }
 
-/*
- * Given flags and the state of cx, decide whether we should report an
- * error, a warning, or just continue execution normally.  Return
- * true if we should continue normally, without reporting anything;
- * otherwise, adjust *flags as appropriate and return false.
- */
-static bool checkReportFlags(JSContext* cx, unsigned* flags) {
-  if (JSREPORT_IS_STRICT(*flags)) {
-    /* Warning/error only when JSOPTION_STRICT is set. */
-    if (!cx->realm()->behaviors().extraWarnings(cx)) {
-      return true;
-    }
-  }
-
-  /* Warnings become errors when JSOPTION_WERROR is set. */
-  if (JSREPORT_IS_WARNING(*flags) && cx->options().werror()) {
-    *flags &= ~JSREPORT_WARNING;
-  }
-
-  return false;
-}
-
 bool js::ReportErrorVA(JSContext* cx, unsigned flags, const char* format,
                        ErrorArgumentsType argumentsType, va_list ap) {
   JSErrorReport report;
-
-  if (checkReportFlags(cx, &flags)) {
-    return true;
-  }
 
   UniqueChars message(JS_vsmprintf(format, ap));
   if (!message) {
@@ -850,9 +824,6 @@ bool js::ReportErrorNumberVA(JSContext* cx, unsigned flags,
   JSErrorReport report;
   bool warning;
 
-  if (checkReportFlags(cx, &flags)) {
-    return true;
-  }
   warning = JSREPORT_IS_WARNING(flags);
 
   report.flags = flags;
@@ -894,9 +865,6 @@ static bool ReportErrorNumberArray(JSContext* cx, unsigned flags,
           (argType != ArgumentsAreUnicode && std::is_same_v<CharT, char>),
       "Mismatch between character type and argument type");
 
-  if (checkReportFlags(cx, &flags)) {
-    return true;
-  }
   bool warning = JSREPORT_IS_WARNING(flags);
 
   JSErrorReport report;

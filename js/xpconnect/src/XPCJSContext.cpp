@@ -736,13 +736,6 @@ static mozilla::Atomic<bool> sDiscardSystemSource(false);
 
 bool xpc::ShouldDiscardSystemSource() { return sDiscardSystemSource; }
 
-#ifdef DEBUG
-static mozilla::Atomic<bool> sExtraWarningsForSystemJS(false);
-bool xpc::ExtraWarningsForSystemJS() { return sExtraWarningsForSystemJS; }
-#else
-bool xpc::ExtraWarningsForSystemJS() { return false; }
-#endif
-
 static mozilla::Atomic<bool> sSharedMemoryEnabled(false);
 static mozilla::Atomic<bool> sStreamsEnabled(false);
 
@@ -918,10 +911,6 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
   bool dumpStackOnDebuggeeWouldRun = Preferences::GetBool(
       JS_OPTIONS_DOT_STR "dump_stack_on_debuggee_would_run");
 
-  bool werror = Preferences::GetBool(JS_OPTIONS_DOT_STR "werror");
-
-  bool extraWarnings = Preferences::GetBool(JS_OPTIONS_DOT_STR "strict");
-
   sSharedMemoryEnabled =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "shared_memory");
   sStreamsEnabled = Preferences::GetBool(JS_OPTIONS_DOT_STR "streams");
@@ -930,11 +919,6 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
 #ifdef NIGHTLY_BUILD
   sWeakRefsEnabled =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.weakrefs");
-#endif
-
-#ifdef DEBUG
-  sExtraWarningsForSystemJS =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "strict.debug");
 #endif
 
 #ifdef JS_GC_ZEAL
@@ -952,6 +936,9 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
 
   JS::ContextOptionsRef(cx)
       .setAsmJS(useAsmJS)
+#ifdef FUZZING
+      .setFuzzing(fuzzingEnabled)
+#endif
       .setWasm(useWasm)
       .setWasmForTrustedPrinciples(useWasmTrustedPrincipals)
       .setWasmIon(useWasmIon)
@@ -966,12 +953,7 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
       .setThrowOnAsmJSValidationFailure(throwOnAsmJSValidationFailure)
       .setAsyncStack(useAsyncStack)
       .setThrowOnDebuggeeWouldRun(throwOnDebuggeeWouldRun)
-      .setDumpStackOnDebuggeeWouldRun(dumpStackOnDebuggeeWouldRun)
-      .setWerror(werror)
-#ifdef FUZZING
-      .setFuzzing(fuzzingEnabled)
-#endif
-      .setExtraWarnings(extraWarnings);
+      .setDumpStackOnDebuggeeWouldRun(dumpStackOnDebuggeeWouldRun);
 
   nsCOMPtr<nsIXULRuntime> xr = do_GetService("@mozilla.org/xre/runtime;1");
   if (xr) {

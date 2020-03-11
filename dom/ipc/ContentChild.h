@@ -683,7 +683,8 @@ class ContentChild final
       PSessionStorageObserverChild* aActor);
 
   PSHEntryChild* AllocPSHEntryChild(PSHistoryChild* aSHistory,
-                                    const PSHEntryOrSharedID& aEntryOrSharedID);
+                                    uint64_t aSharedID);
+
   void DeallocPSHEntryChild(PSHEntryChild*);
 
   PSHistoryChild* AllocPSHistoryChild(
@@ -712,15 +713,6 @@ class ContentChild final
   mozilla::ipc::IPCResult RecvSetPluginList(
       const uint32_t& aPluginEpoch, nsTArray<PluginTag>&& aPluginTags,
       nsTArray<FakePluginTag>&& aFakePluginTags);
-
-  PClientOpenWindowOpChild* AllocPClientOpenWindowOpChild(
-      const ClientOpenWindowArgs& aArgs);
-
-  mozilla::ipc::IPCResult RecvPClientOpenWindowOpConstructor(
-      PClientOpenWindowOpChild* aActor,
-      const ClientOpenWindowArgs& aArgs) override;
-
-  bool DeallocPClientOpenWindowOpChild(PClientOpenWindowOpChild* aActor);
 
   mozilla::ipc::IPCResult RecvSaveRecording(const FileDescriptor& aFile);
 
@@ -756,6 +748,10 @@ class ContentChild final
       uint64_t aTopContextId, const nsACString& aOriginAttrs,
       const nsACString& aOriginKey, const nsTArray<KeyValuePair>& aDefaultData,
       const nsTArray<KeyValuePair>& aSessionData);
+
+  mozilla::ipc::IPCResult RecvUpdateSHEntriesInDocShell(
+      CrossProcessSHEntry* aOldEntry, CrossProcessSHEntry* aNewEntry,
+      const MaybeDiscarded<BrowsingContext>& aContext);
 
 #ifdef NIGHTLY_BUILD
   // Fetch the current number of pending input events.

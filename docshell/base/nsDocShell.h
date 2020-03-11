@@ -661,6 +661,11 @@ class nsDocShell final : public nsDocLoader,
   // in the case of a subframe navigation.
   void SetHistoryEntry(nsCOMPtr<nsISHEntry>* aPtr, nsISHEntry* aEntry);
 
+  // This method calls SetHistoryEntry and updates mOSHE and mLSHE in BC to be
+  // the same as in docshell
+  void SetHistoryEntryAndUpdateBC(const Maybe<nsISHEntry*>& aLSHE,
+                                  const Maybe<nsISHEntry*>& aOSHE);
+
   //
   // URI Load
   //
@@ -902,6 +907,7 @@ class nsDocShell final : public nsDocLoader,
         mozilla::dom::BFCacheStatus::UNLOAD_LISTENER |
         mozilla::dom::BFCacheStatus::REQUEST |
         mozilla::dom::BFCacheStatus::ACTIVE_PEER_CONNECTION,
+    REMOTE_SUBFRAMES = mozilla::dom::BFCacheStatus::CONTAINS_REMOTE_SUBFRAMES
   };
 
   void ReportBFCacheComboTelemetry(uint16_t aCombo);

@@ -162,20 +162,18 @@ static bool ErrorTakesObjectArgument(unsigned msg) {
   return argCount == 2;
 }
 
-JS_PUBLIC_API bool JS::ObjectOpResult::reportStrictErrorOrWarning(
-    JSContext* cx, HandleObject obj, HandleId id, bool strict) {
+bool JS::ObjectOpResult::reportError(JSContext* cx, HandleObject obj,
+                                     HandleId id) {
   static_assert(unsigned(OkCode) == unsigned(JSMSG_NOT_AN_ERROR),
                 "unsigned value of OkCode must not be an error code");
   MOZ_ASSERT(code_ != Uninitialized);
   MOZ_ASSERT(!ok());
   cx->check(obj);
 
-  unsigned flags =
-      strict ? JSREPORT_ERROR : (JSREPORT_WARNING | JSREPORT_STRICT);
   if (code_ == JSMSG_OBJECT_NOT_EXTENSIBLE) {
     RootedValue val(cx, ObjectValue(*obj));
-    return ReportValueErrorFlags(cx, flags, code_, JSDVG_IGNORE_STACK, val,
-                                 nullptr, nullptr, nullptr);
+    return ReportValueErrorFlags(cx, JSREPORT_ERROR, code_, JSDVG_IGNORE_STACK,
+                                 val, nullptr, nullptr, nullptr);
   }
 
   if (ErrorTakesArguments(code_)) {
@@ -193,34 +191,32 @@ JS_PUBLIC_API bool JS::ObjectOpResult::reportStrictErrorOrWarning(
           return false;
         }
       }
-      return ReportValueErrorFlags(cx, flags, code_, JSDVG_IGNORE_STACK, val,
-                                   nullptr, propName.get(), nullptr);
+      return ReportValueErrorFlags(cx, JSREPORT_ERROR, code_,
+                                   JSDVG_IGNORE_STACK, val, nullptr,
+                                   propName.get(), nullptr);
     }
 
     if (ErrorTakesObjectArgument(code_)) {
       return JS_ReportErrorFlagsAndNumberUTF8(
-          cx, flags, GetErrorMessage, nullptr, code_, obj->getClass()->name,
-          propName.get());
+          cx, JSREPORT_ERROR, GetErrorMessage, nullptr, code_,
+          obj->getClass()->name, propName.get());
     }
 
-    return JS_ReportErrorFlagsAndNumberUTF8(cx, flags, GetErrorMessage, nullptr,
-                                            code_, propName.get());
+    return JS_ReportErrorFlagsAndNumberUTF8(cx, JSREPORT_ERROR, GetErrorMessage,
+                                            nullptr, code_, propName.get());
   }
-  return JS_ReportErrorFlagsAndNumberASCII(cx, flags, GetErrorMessage, nullptr,
-                                           code_);
+  return JS_ReportErrorFlagsAndNumberASCII(cx, JSREPORT_ERROR, GetErrorMessage,
+                                           nullptr, code_);
 }
 
-JS_PUBLIC_API bool JS::ObjectOpResult::reportStrictErrorOrWarning(
-    JSContext* cx, HandleObject obj, bool strict) {
+bool JS::ObjectOpResult::reportError(JSContext* cx, HandleObject obj) {
   MOZ_ASSERT(code_ != Uninitialized);
   MOZ_ASSERT(!ok());
   MOZ_ASSERT(!ErrorTakesArguments(code_));
   cx->check(obj);
 
-  unsigned flags =
-      strict ? JSREPORT_ERROR : (JSREPORT_WARNING | JSREPORT_STRICT);
-  return JS_ReportErrorFlagsAndNumberASCII(cx, flags, GetErrorMessage, nullptr,
-                                           code_);
+  return JS_ReportErrorFlagsAndNumberASCII(cx, JSREPORT_ERROR, GetErrorMessage,
+                                           nullptr, code_);
 }
 
 JS_PUBLIC_API bool JS::ObjectOpResult::failCantRedefineProp() {
@@ -1702,10 +1698,6 @@ JS_PUBLIC_API JSObject* JS_GetConstructor(JSContext* cx, HandleObject proto) {
     return nullptr;
   }
   return &cval.toObject();
-}
-
-bool JS::RealmBehaviors::extraWarnings(JSContext* cx) const {
-  return extraWarningsOverride_.get(cx->options().extraWarnings());
 }
 
 JS::RealmCreationOptions&
@@ -3443,8 +3435,6 @@ void JS::TransitiveCompileOptions::copyPODTransitiveOptions(
   forceFullParse_ = rhs.forceFullParse_;
   forceStrictMode_ = rhs.forceStrictMode_;
   selfHostingMode = rhs.selfHostingMode;
-  extraWarningsOption = rhs.extraWarningsOption;
-  werrorOption = rhs.werrorOption;
   asmJSOption = rhs.asmJSOption;
   throwOnAsmJSValidationFailureOption = rhs.throwOnAsmJSValidationFailureOption;
   forceAsync = rhs.forceAsync;
@@ -3538,9 +3528,7 @@ JS::CompileOptions::CompileOptions(JSContext* cx)
       elementAttributeNameRoot(cx),
       introductionScriptRoot(cx),
       scriptOrModuleRoot(cx) {
-  extraWarningsOption = cx->realm()->behaviors().extraWarnings(cx);
   discardSource = cx->realm()->behaviors().discardSource();
-  werrorOption = cx->options().werror();
   if (!cx->options().asmJS()) {
     asmJSOption = AsmJSOption::Disabled;
   } else if (cx->realm()->debuggerObservesAsmJS()) {

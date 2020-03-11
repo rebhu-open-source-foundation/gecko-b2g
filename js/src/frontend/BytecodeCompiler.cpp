@@ -147,9 +147,12 @@ class MOZ_STACK_CLASS frontend::SourceAwareCompiler {
                                 toStringEnd, len);
   }
 
-  MOZ_MUST_USE bool handleParseFailure(CompilationInfo& compilationInfo,
-                                       const Directives& newDirectives,
-                                       TokenStreamPosition& startPosition);
+  bool canHandleParseFailure(CompilationInfo& compilationInfo,
+                             const Directives& newDirectives);
+
+  void handleParseFailure(CompilationInfo& compilationInfo,
+                          const Directives& newDirectives,
+                          TokenStreamPosition& startPosition);
 };
 
 template <typename Unit>
@@ -162,6 +165,7 @@ class MOZ_STACK_CLASS frontend::ScriptCompiler
   using Base::sourceBuffer_;
 
   using Base::assertSourceParserAndScriptCreated;
+  using Base::canHandleParseFailure;
   using Base::emplaceEmitter;
   using Base::handleParseFailure;
 
@@ -292,6 +296,7 @@ class MOZ_STACK_CLASS frontend::StandaloneFunctionCompiler final
   using Base = SourceAwareCompiler<Unit>;
 
   using Base::assertSourceAndParserCreated;
+  using Base::canHandleParseFailure;
   using Base::createSourceAndParser;
   using Base::emplaceEmitter;
   using Base::handleParseFailure;
@@ -463,18 +468,25 @@ static bool EmplaceEmitter(CompilationInfo& compilationInfo,
 }
 
 template <typename Unit>
-bool frontend::SourceAwareCompiler<Unit>::handleParseFailure(
+bool frontend::SourceAwareCompiler<Unit>::canHandleParseFailure(
+    CompilationInfo& compilationInfo, const Directives& newDirectives) {
+  // Try to reparse if no parse errors were thrown and the directives changed.
+  //
+  // NOTE:
+  // Only the following two directive changes force us to reparse the script:
+  // - The "use asm" directive was encountered.
+  // - The "use strict" directive was encountered and duplicate parameter names
+  //   are present. We reparse in this case to display the error at the correct
+  //   source location. See |Parser::hasValidSimpleStrictParameterNames()|.
+  return !parser->anyChars.hadError() &&
+         compilationInfo.directives != newDirectives;
+}
+
+template <typename Unit>
+void frontend::SourceAwareCompiler<Unit>::handleParseFailure(
     CompilationInfo& compilationInfo, const Directives& newDirectives,
     TokenStreamPosition& startPosition) {
-  if (parser->hadAbortedSyntaxParse()) {
-    // Hit some unrecoverable ambiguity during an inner syntax parse.
-    // Syntax parsing has now been disabled in the parser, so retry
-    // the parse.
-    parser->clearAbortedSyntaxParse();
-  } else if (parser->anyChars.hadError() ||
-             compilationInfo.directives == newDirectives) {
-    return false;
-  }
+  MOZ_ASSERT(canHandleParseFailure(compilationInfo, newDirectives));
 
   // Rewind to starting position to retry.
   parser->tokenStream.rewind(startPosition);
@@ -483,7 +495,6 @@ bool frontend::SourceAwareCompiler<Unit>::handleParseFailure(
   MOZ_ASSERT_IF(compilationInfo.directives.strict(), newDirectives.strict());
   MOZ_ASSERT_IF(compilationInfo.directives.asmJS(), newDirectives.asmJS());
   compilationInfo.directives = newDirectives;
-  return true;
 }
 
 template <typename Unit>
@@ -497,49 +508,45 @@ JSScript* frontend::ScriptCompiler<Unit>::compileScript(
 
   JSContext* cx = compilationInfo.cx;
 
-  for (;;) {
-    ParseNode* pn;
-    {
-      AutoGeckoProfilerEntry pseudoFrame(cx, "script parsing",
-                                         JS::ProfilingCategoryPair::JS_Parsing);
-      if (sc->isEvalContext()) {
-        pn = parser->evalBody(sc->asEvalContext());
-      } else {
-        pn = parser->globalBody(sc->asGlobalContext());
-      }
+  ParseNode* pn;
+  {
+    AutoGeckoProfilerEntry pseudoFrame(cx, "script parsing",
+                                       JS::ProfilingCategoryPair::JS_Parsing);
+    if (sc->isEvalContext()) {
+      pn = parser->evalBody(sc->asEvalContext());
+    } else {
+      pn = parser->globalBody(sc->asGlobalContext());
     }
+  }
 
+  if (!pn) {
+    // Global and eval scripts don't get reparsed after a new directive was
+    // encountered:
+    // - "use strict" doesn't require any special error reporting for scripts.
+    // - "use asm" directives don't have an effect in global/eval contexts.
+    MOZ_ASSERT(
+        !canHandleParseFailure(compilationInfo, compilationInfo.directives));
+    return nullptr;
+  }
+
+  {
     // Successfully parsed. Emit the script.
     AutoGeckoProfilerEntry pseudoFrame(cx, "script emit",
                                        JS::ProfilingCategoryPair::JS_Parsing);
-    if (pn) {
-      // Publish deferred items
-      if (!parser->publishDeferredFunctions()) {
-        return nullptr;
-      }
 
-      Maybe<BytecodeEmitter> emitter;
-      if (!emplaceEmitter(compilationInfo, emitter, sc)) {
-        return nullptr;
-      }
-
-      if (!emitter->emitScript(pn)) {
-        return nullptr;
-      }
-
-      // Success!
-      break;
-    }
-
-    // Maybe we aborted a syntax parse. See if we can try again.
-    if (!handleParseFailure(compilationInfo, compilationInfo.directives,
-                            startPosition)) {
+    // Publish deferred items
+    if (!parser->publishDeferredFunctions()) {
       return nullptr;
     }
 
-    // Reset preserved state before trying again.
-    compilationInfo.usedNames.reset();
-    parser->getTreeHolder().resetFunctionTree();
+    Maybe<BytecodeEmitter> emitter;
+    if (!emplaceEmitter(compilationInfo, emitter, sc)) {
+      return nullptr;
+    }
+
+    if (!emitter->emitScript(pn)) {
+      return nullptr;
+    }
   }
 
   // We have just finished parsing the source. Inform the source so that we
@@ -636,16 +643,22 @@ FunctionNode* frontend::StandaloneFunctionCompiler<Unit>::parse(
   // of directives.
 
   FunctionNode* fn;
-  do {
+  for (;;) {
     Directives newDirectives = compilationInfo.directives;
     fn = parser->standaloneFunction(fun, enclosingScope, parameterListEnd,
                                     generatorKind, asyncKind,
                                     compilationInfo.directives, &newDirectives);
-    if (!fn &&
-        !handleParseFailure(compilationInfo, newDirectives, startPosition)) {
+    if (fn) {
+      break;
+    }
+
+    // Maybe we encountered a new directive. See if we can try again.
+    if (!canHandleParseFailure(compilationInfo, newDirectives)) {
       return nullptr;
     }
-  } while (!fn);
+
+    handleParseFailure(compilationInfo, newDirectives, startPosition);
+  }
 
   return fn;
 }
@@ -752,8 +765,7 @@ static JSScript* CompileGlobalBinASTScriptImpl(
   }
 
   GlobalSharedContext globalsc(cx, ScopeKind::Global, compilationInfo,
-                               compilationInfo.directives,
-                               compilationInfo.options.extraWarningsOption);
+                               compilationInfo.directives);
 
   frontend::BinASTParser<ParserT> parser(cx, compilationInfo, options,
                                          compilationInfo.sourceObject);

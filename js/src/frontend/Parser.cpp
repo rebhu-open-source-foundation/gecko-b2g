@@ -273,8 +273,7 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
    */
   FunctionBox* funbox = alloc_.new_<FunctionBox>(
       cx_, traceListHead_, fun, toStringStart, this->getCompilationInfo(),
-      inheritedDirectives, options().extraWarningsOption, generatorKind,
-      asyncKind);
+      inheritedDirectives, generatorKind, asyncKind);
   if (!funbox) {
     ReportOutOfMemory(cx_);
     return nullptr;
@@ -307,8 +306,7 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
    */
   FunctionBox* funbox = alloc_.new_<FunctionBox>(
       cx_, traceListHead_, toStringStart, this->getCompilationInfo(),
-      inheritedDirectives, options().extraWarningsOption, generatorKind,
-      asyncKind, index);
+      inheritedDirectives, generatorKind, asyncKind, index);
 
   if (!funbox) {
     ReportOutOfMemory(cx_);
@@ -381,8 +379,7 @@ typename ParseHandler::ListNodeType GeneralParser<ParseHandler, Unit>::parse() {
 
   Directives directives(options().forceStrictMode());
   GlobalSharedContext globalsc(cx_, ScopeKind::Global,
-                               this->getCompilationInfo(), directives,
-                               options().extraWarningsOption);
+                               this->getCompilationInfo(), directives);
   SourceParseContext globalpc(this, &globalsc, /* newDirectives = */ nullptr);
   if (!globalpc.init()) {
     return null();
@@ -551,7 +548,7 @@ bool GeneralParser<ParseHandler, Unit>::notePositionalFormalParameter(
     // in strict mode or not (since the function body hasn't been parsed).
     // In such cases, report will queue up the potential error and return
     // 'true'.
-    if (pc_->sc()->needStrictChecks()) {
+    if (pc_->sc()->strict()) {
       UniqueChars bytes = AtomToPrintableString(cx_, name);
       if (!bytes) {
         return false;
@@ -2673,11 +2670,10 @@ AutoPushTree::AutoPushTree(FunctionTreeHolder& holder)
 
 bool AutoPushTree::init(JSContext* cx, FunctionBox* funbox) {
   // Add a new child, and set it as the current parent.
-  FunctionTree* child = holder_.getCurrentParent()->add(cx);
+  FunctionTree* child = holder_.getCurrentParent()->add(cx, funbox);
   if (!child) {
     return false;
   }
-  child->setFunctionBox(funbox);
   holder_.setCurrentParent(child);
   return true;
 }
@@ -3529,18 +3525,6 @@ bool GeneralParser<ParseHandler, Unit>::maybeParseDirective(
   }
 
   if (IsEscapeFreeStringLiteral(directivePos, directive)) {
-    // Mark this statement as being a possibly legitimate part of a
-    // directive prologue, so the bytecode emitter won't warn about it being
-    // useless code. (We mustn't just omit the statement entirely yet, as it
-    // could be producing the value of an eval or JSScript execution.)
-    //
-    // Note that even if the string isn't one we recognize as a directive,
-    // the emitter still shouldn't flag it as useless, as it could become a
-    // directive in the future. We don't want to interfere with people
-    // taking advantage of directive-prologue-enabled features that appear
-    // in other browsers first.
-    handler_.setInDirectivePrologue(handler_.asUnary(possibleDirective));
-
     if (directive == cx_->names().useStrict) {
       // Functions with non-simple parameter lists (destructuring,
       // default or rest parameters) must not contain a "use strict"
@@ -3677,12 +3661,6 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::condition(
     return null();
   }
 
-  /* Check for (a = b) and warn about possible (a == b) mistype. */
-  if (handler_.isUnparenthesizedAssignment(pn)) {
-    if (!extraWarning(JSMSG_EQUAL_AS_ASSIGN)) {
-      return null();
-    }
-  }
   return pn;
 }
 
@@ -3791,33 +3769,21 @@ bool GeneralParser<ParseHandler, Unit>::PossibleError::checkForError(
 }
 
 template <class ParseHandler, typename Unit>
-bool GeneralParser<ParseHandler, Unit>::PossibleError::checkForWarning(
-    ErrorKind kind) {
-  if (!hasError(kind)) {
-    return true;
-  }
-
-  Error& err = error(kind);
-  return parser_.extraWarningAt(err.offset_, err.errorNumber_);
-}
-
-template <class ParseHandler, typename Unit>
 bool GeneralParser<ParseHandler,
                    Unit>::PossibleError::checkForDestructuringErrorOrWarning() {
   // Clear pending expression error, because we're definitely not in an
   // expression context.
   setResolved(ErrorKind::Expression);
 
-  // Report any pending destructuring error or warning.
-  return checkForError(ErrorKind::Destructuring) &&
-         checkForWarning(ErrorKind::DestructuringWarning);
+  // Report any pending destructuring error.
+  return checkForError(ErrorKind::Destructuring);
 }
 
 template <class ParseHandler, typename Unit>
 bool GeneralParser<ParseHandler,
                    Unit>::PossibleError::checkForExpressionError() {
-  // Clear pending destructuring error or warning, because we're definitely
-  // not in a destructuring context.
+  // Clear pending destructuring error, because we're definitely not
+  // in a destructuring context.
   setResolved(ErrorKind::Destructuring);
   setResolved(ErrorKind::DestructuringWarning);
 
@@ -5754,11 +5720,6 @@ GeneralParser<ParseHandler, Unit>::ifStatement(YieldHandling yieldHandling) {
     if (!tokenStream.peekToken(&tt, TokenStream::SlashIsRegExp)) {
       return null();
     }
-    if (tt == TokenKind::Semi) {
-      if (!extraWarning(JSMSG_EMPTY_CONSEQUENT)) {
-        return null();
-      }
-    }
 
     Node thenBranch = consequentOrAlternative(yieldHandling);
     if (!thenBranch) {
@@ -6511,11 +6472,6 @@ GeneralParser<ParseHandler, Unit>::withStatement(YieldHandling yieldHandling) {
   MOZ_ASSERT(anyChars.isCurrentTokenType(TokenKind::With));
   uint32_t begin = pos().begin;
 
-  // Usually we want the constructs forbidden in strict mode code to be a
-  // subset of those that ContextOptions::extraWarnings() warns about, and we
-  // use strictModeError directly.  But while 'with' is forbidden in strict
-  // mode code, it doesn't even merit a warning in non-strict code.  See
-  // https://bugzilla.mozilla.org/show_bug.cgi?id=514576#c1.
   if (pc_->sc()->strict()) {
     if (!strictModeError(JSMSG_STRICT_CODE_WITH)) {
       return null();
@@ -8059,9 +8015,6 @@ GeneralParser<ParseHandler, Unit>::statementListItem(
     case TokenKind::String:
       if (!canHaveDirectives &&
           anyChars.currentToken().atom() == cx_->names().useAsm) {
-        if (!abortIfSyntaxParser()) {
-          return null();
-        }
         if (!warning(JSMSG_USE_ASM_DIRECTIVE_FAIL)) {
           return null();
         }
@@ -8876,8 +8829,7 @@ bool GeneralParser<ParseHandler, Unit>::checkIncDecOperand(
   } else if (handler_.isFunctionCall(operand)) {
     // Assignment to function calls is forbidden in ES6.  We're still
     // somewhat concerned about sites using this in dead code, so forbid it
-    // only in strict mode code (or if the werror option has been set), and
-    // otherwise warn.
+    // only in strict mode code.
     if (!strictModeErrorAt(operandOffset, JSMSG_BAD_INCOP_OPERAND)) {
       return false;
     }
@@ -9628,7 +9580,7 @@ bool GeneralParser<ParseHandler, Unit>::checkLabelOrIdentifierReference(
         errorAt(offset, JSMSG_RESERVED_ID, "yield");
         return false;
       }
-      if (pc_->sc()->needStrictChecks()) {
+      if (pc_->sc()->strict()) {
         if (!strictModeErrorAt(offset, JSMSG_RESERVED_ID, "yield")) {
           return false;
         }
@@ -9642,7 +9594,7 @@ bool GeneralParser<ParseHandler, Unit>::checkLabelOrIdentifierReference(
       }
       return true;
     }
-    if (pc_->sc()->needStrictChecks()) {
+    if (pc_->sc()->strict()) {
       if (tt == TokenKind::Let) {
         if (!strictModeErrorAt(offset, JSMSG_RESERVED_ID, "let")) {
           return false;
@@ -9659,7 +9611,7 @@ bool GeneralParser<ParseHandler, Unit>::checkLabelOrIdentifierReference(
     return true;
   }
   if (TokenKindIsStrictReservedWord(tt)) {
-    if (pc_->sc()->needStrictChecks()) {
+    if (pc_->sc()->strict()) {
       if (!strictModeErrorAt(offset, JSMSG_RESERVED_ID,
                              ReservedWordToCharZ(tt))) {
         return false;
@@ -9683,7 +9635,7 @@ template <class ParseHandler, typename Unit>
 bool GeneralParser<ParseHandler, Unit>::checkBindingIdentifier(
     PropertyName* ident, uint32_t offset, YieldHandling yieldHandling,
     TokenKind hint /* = TokenKind::Limit */) {
-  if (pc_->sc()->needStrictChecks()) {
+  if (pc_->sc()->strict()) {
     if (ident == cx_->names().arguments) {
       if (!strictModeErrorAt(offset, JSMSG_BAD_STRICT_ASSIGN, "arguments")) {
         return false;
@@ -9959,7 +9911,7 @@ void GeneralParser<ParseHandler, Unit>::checkDestructuringAssignmentName(
     return;
   }
 
-  if (pc_->sc()->needStrictChecks()) {
+  if (pc_->sc()->strict()) {
     if (handler_.isArgumentsName(name, cx_)) {
       if (pc_->sc()->strict()) {
         possibleError->setPendingDestructuringErrorAt(

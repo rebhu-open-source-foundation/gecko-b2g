@@ -7,6 +7,7 @@
 #ifndef nsFrameSelection_h___
 #define nsFrameSelection_h___
 
+#include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/dom/Selection.h"
@@ -472,8 +473,8 @@ class nsFrameSelection final {
                                        nsIFrame* aFrame,
                                        SelectionIntoView aSelectionIntoView);
 
-  void SetHint(CaretAssociateHint aHintRight) { mHint = aHintRight; }
-  CaretAssociateHint GetHint() const { return mHint; }
+  void SetHint(CaretAssociateHint aHintRight) { mCaret.mHint = aHintRight; }
+  CaretAssociateHint GetHint() const { return mCaret.mHint; }
 
   /**
    * SetCaretBidiLevel sets the caret bidi level.
@@ -615,9 +616,9 @@ class nsFrameSelection final {
    * in an browser page, we must stop at this node else we reach into the
    * parent page, which is very bad!
    */
-  nsIContent* GetLimiter() const { return mLimiter; }
+  nsIContent* GetLimiter() const { return mLimiters.mLimiter; }
 
-  nsIContent* GetAncestorLimiter() const { return mAncestorLimiter; }
+  nsIContent* GetAncestorLimiter() const { return mLimiters.mAncestorLimiter; }
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void SetAncestorLimiter(nsIContent* aLimiter);
 
   /**
@@ -776,13 +777,16 @@ class nsFrameSelection final {
   nsresult FetchDesiredPos(
       nsPoint& aDesiredPos);  // the position requested by the Key Handling for
                               // up down
-  void
-  InvalidateDesiredPos();  // do not listen to mDesiredPos you must get another.
-  void SetDesiredPos(nsPoint aPos);  // set the mDesiredPos
+  void InvalidateDesiredPos();  // do not listen to mDesiredPos.mValue you must
+                                // get another.
+  void SetDesiredPos(nsPoint aPos);  // set the mDesiredPos.mValue
 
-  uint32_t GetBatching() const { return mBatching; }
-  void SetDirty(bool aDirty = true) {
-    if (mBatching) mChangesDuringBatching = aDirty;
+  bool IsBatching() const { return mBatching.mCounter > 0; }
+
+  void SetChangesDuringBatchingFlag() {
+    MOZ_ASSERT(mBatching.mCounter > 0);
+
+    mBatching.mChangesDuringBatching = true;
   }
 
   // nsFrameSelection may get deleted when calling this,
@@ -875,13 +879,21 @@ class nsFrameSelection final {
 
   MaintainedRange mMaintainedRange;
 
-  // batching
-  int32_t mBatching = 0;
+  struct Batching {
+    uint32_t mCounter = 0;
+    bool mChangesDuringBatching = false;
+  };
 
-  // Limit selection navigation to a child of this node.
-  nsCOMPtr<nsIContent> mLimiter;
-  // Limit selection navigation to a descendant of this node.
-  nsCOMPtr<nsIContent> mAncestorLimiter;
+  Batching mBatching;
+
+  struct Limiters {
+    // Limit selection navigation to a child of this node.
+    nsCOMPtr<nsIContent> mLimiter;
+    // Limit selection navigation to a descendant of this node.
+    nsCOMPtr<nsIContent> mAncestorLimiter;
+  };
+
+  Limiters mLimiters;
 
   mozilla::PresShell* mPresShell = nullptr;
   // Reasons for notifications of selection changing.
@@ -890,13 +902,25 @@ class nsFrameSelection final {
   // For visual display purposes.
   int16_t mDisplaySelection = nsISelectionController::SELECTION_OFF;
 
-  // Hint to tell if the selection is at the end of this line or beginning of
-  // next.
-  CaretAssociateHint mHint = mozilla::CARET_ASSOCIATE_BEFORE;
-  nsBidiLevel mCaretBidiLevel = BIDI_LEVEL_UNDEFINED;
+  struct Caret {
+    // Hint to tell if the selection is at the end of this line or beginning of
+    // next.
+    CaretAssociateHint mHint = mozilla::CARET_ASSOCIATE_BEFORE;
+    nsBidiLevel mBidiLevel = BIDI_LEVEL_UNDEFINED;
+    int8_t mMovementStyle = 0;
+  };
+
+  Caret mCaret;
+
   nsBidiLevel mKbdBidiLevel = NSBIDI_LTR;
 
-  nsPoint mDesiredPos;
+  // TODO: could presumably be transformed to a `mozilla::Maybe`.
+  struct DesiredPos {
+    nsPoint mValue;
+    bool mIsSet = false;
+  };
+
+  DesiredPos mDesiredPos;
 
   struct DelayedMouseEvent {
     bool mIsValid = false;
@@ -908,12 +932,8 @@ class nsFrameSelection final {
 
   DelayedMouseEvent mDelayedMouseEvent;
 
-  bool mChangesDuringBatching = false;
   bool mDragState = false;  // for drag purposes
-  bool mDesiredPosSet = false;
   bool mAccessibleCaretEnabled = false;
-
-  int8_t mCaretMovementStyle = 0;
 
   static bool sSelectionEventsOnTextControlsEnabled;
 };

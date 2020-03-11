@@ -107,6 +107,7 @@
 #include "PostMessageEvent.h"
 #include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/TabGroup.h"
+#include "mozilla/net/CookieJarSettings.h"
 
 // Interfaces Needed
 #include "nsIFrame.h"
@@ -2470,6 +2471,17 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
   // to the newly attached document.
   ReportLargeAllocStatus();
   mLargeAllocStatus = LargeAllocStatus::NONE;
+
+  // Set the cookie jar settings to the window context.
+  if (newInnerWindow) {
+    net::CookieJarSettingsArgs cookieJarSettings;
+    net::CookieJarSettings::Cast(aDocument->CookieJarSettings())
+        ->Serialize(cookieJarSettings);
+
+    newInnerWindow->GetWindowGlobalChild()
+        ->WindowContext()
+        ->SetCookieJarSettings(Some(cookieJarSettings));
+  }
 
   mHasStorageAccess = false;
   nsIURI* uri = aDocument->GetDocumentURI();
@@ -7187,7 +7199,7 @@ void nsGlobalWindowOuter::MaybeAllowStorageForOpenedWindow(nsIURI* aURI) {
       aURI, doc->NodePrincipal()->OriginAttributesRef());
 
   // We don't care when the asynchronous work finishes here.
-  Unused << ContentBlocking::AllowAccessFor(principal, inner,
+  Unused << ContentBlocking::AllowAccessFor(principal, GetBrowsingContext(),
                                             ContentBlockingNotifier::eOpener);
 }
 

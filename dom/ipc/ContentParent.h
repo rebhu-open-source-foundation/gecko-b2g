@@ -587,8 +587,8 @@ class ContentParent final
   bool DeallocPSessionStorageObserverParent(
       PSessionStorageObserverParent* aActor);
 
-  PSHEntryParent* AllocPSHEntryParent(
-      PSHistoryParent* aSHistory, const PSHEntryOrSharedID& aEntryOrSharedID);
+  PSHEntryParent* AllocPSHEntryParent(PSHistoryParent* aSHistory,
+                                      uint64_t aSharedID);
 
   void DeallocPSHEntryParent(PSHEntryParent*);
 
@@ -624,11 +624,6 @@ class ContentParent final
   nsresult TransmitPermissionsForPrincipal(nsIPrincipal* aPrincipal);
 
   void OnCompositorDeviceReset() override;
-
-  PClientOpenWindowOpParent* AllocPClientOpenWindowOpParent(
-      const ClientOpenWindowArgs& aArgs);
-
-  bool DeallocPClientOpenWindowOpParent(PClientOpenWindowOpParent* aActor);
 
   static hal::ProcessPriority GetInitialProcessPriority(Element* aFrameElement);
 
@@ -1361,6 +1356,10 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvReportServiceWorkerShutdownProgress(
       uint32_t aShutdownStateId,
       ServiceWorkerShutdownState::Progress aProgress);
+
+  mozilla::ipc::IPCResult RecvUpdateSHEntriesInBC(
+      PSHEntryParent* aNewLSHE, PSHEntryParent* aNewOSHE,
+      const MaybeDiscarded<BrowsingContext>& aMaybeContext);
 
   // Notify the ContentChild to enable the input event prioritization when
   // initializing.

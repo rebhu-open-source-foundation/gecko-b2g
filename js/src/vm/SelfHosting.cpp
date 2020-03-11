@@ -2556,8 +2556,6 @@ void js::FillSelfHostingCompileOptions(CompileOptions& options) {
   options.setSkipFilenameValidation(true);
   options.setSelfHostingMode(true);
   options.setForceFullParse();
-  options.werrorOption = true;
-  options.extraWarningsOption = true;
   options.setForceStrictMode();
 }
 
