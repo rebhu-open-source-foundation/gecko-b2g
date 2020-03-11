@@ -63,10 +63,11 @@ if CONFIG["OS_TARGET"] == "Android":
         "log"
     ]
 
-    UNIFIED_SOURCES += [
-        "/media/webrtc/trunk/webrtc/modules/utility/source/helpers_android.cc",
-        "/media/webrtc/trunk/webrtc/modules/utility/source/jvm_android.cc"
-    ]
+    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
+        UNIFIED_SOURCES += [
+                "/media/webrtc/trunk/webrtc/modules/utility/source/helpers_android.cc",
+                "/media/webrtc/trunk/webrtc/modules/utility/source/jvm_android.cc"
+        ]
 
 if CONFIG["OS_TARGET"] == "Darwin":
 
