@@ -711,13 +711,13 @@ DOMWifiManager.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([
-  DOMWifiManager,
-  WifiNetwork,
-  WifiConnection,
-  WifiCapabilities,
-  WifiConnectionInfo,
-]);
+this.EXPORTED_SYMBOLS = [
+  "DOMWifiManager",
+  "WifiNetwork",
+  "WifiConnection",
+  "WifiCapabilities",
+  "WifiConnectionInfo",
+];
 
 var debug;
 if (DEBUG) {
