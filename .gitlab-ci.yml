@@ -37,8 +37,8 @@ build:desktop:
   tags:
     - gecko-dev
   script:
+    - curl ftp://ftp.kaiostech.com/ndk/mozbuild.tar.bz2 | tar -C ~/ -xj
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
-    - ./mach bootstrap --no-interactive --application-choice browser
     - export MOZ_OBJDIR=objdir-desktop-gecko
     - export MOZCONFIG=mozconfig-b2g-desktop
     - ./mach build
@@ -54,12 +54,10 @@ build:arm:
   tags:
     - gecko-dev
   script:
-    - echo $RUSTUP_TOOLCHAIN
-    - export LOCAL_NDK_BASE_URL='ftp://ftp.kaiostech.com/ndk/android-ndk'
-    - export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b-canary
-    - ./mach bootstrap --no-interactive --application-choice mobile_android
+    - curl ftp://ftp.kaiostech.com/ndk/mozbuild.tar.bz2 | tar -C ~/ -xj
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy/gonk-q.git > /dev/null 2>&1
+    - export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b-canary
     - export PATH=~/.cargo/bin:$PATH
     - rustup default ${RUSTUP_TOOLCHAIN}
     - rustup target add armv7-linux-androideabi
