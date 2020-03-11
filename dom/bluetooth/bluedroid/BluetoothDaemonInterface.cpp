@@ -15,7 +15,7 @@
 // #include "BluetoothDaemonHandsfreeInterface.h"
 #include "BluetoothDaemonHelpers.h"
 // #include "BluetoothDaemonHidInterface.h"
-// #include "BluetoothDaemonSdpInterface.h"
+#include "BluetoothDaemonSdpInterface.h"
 #include "BluetoothDaemonSetupInterface.h"
 #include "BluetoothDaemonSocketInterface.h"
 #include "mozilla/Hal.h"
@@ -81,7 +81,7 @@ class BluetoothDaemonProtocol final
   , public BluetoothDaemonAvrcpModule
   // , public BluetoothDaemonGattModule
   // , public BluetoothDaemonHidModule
-  // , public BluetoothDaemonSdpModule
+  , public BluetoothDaemonSdpModule
 {
 public:
   BluetoothDaemonProtocol();
@@ -129,9 +129,9 @@ private:
   // void HandleHidSvc(const DaemonSocketPDUHeader& aHeader,
   //                   DaemonSocketPDU& aPDU,
   //                   DaemonSocketResultHandler* aRes);
-  // void HandleSdpSvc(const DaemonSocketPDUHeader& aHeader,
-  //                   DaemonSocketPDU& aPDU,
-  //                   DaemonSocketResultHandler* aRes);
+  void HandleSdpSvc(const DaemonSocketPDUHeader& aHeader,
+                    DaemonSocketPDU& aPDU,
+                    DaemonSocketResultHandler* aRes);
 
   DaemonSocket* mConnection;
   nsTArray<RefPtr<DaemonSocketResultHandler>> mResQ;
@@ -231,13 +231,13 @@ BluetoothDaemonProtocol::HandleAvrcpSvc(
 //   BluetoothDaemonHidModule::HandleSvc(aHeader, aPDU, aRes);
 // }
 
-// void
-// BluetoothDaemonProtocol::HandleSdpSvc(
-//   const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-//   DaemonSocketResultHandler* aRes)
-// {
-//   BluetoothDaemonSdpModule::HandleSvc(aHeader, aPDU, aRes);
-// }
+void
+BluetoothDaemonProtocol::HandleSdpSvc(
+  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+  DaemonSocketResultHandler* aRes)
+{
+  BluetoothDaemonSdpModule::HandleSvc(aHeader, aPDU, aRes);
+}
 
 void
 BluetoothDaemonProtocol::Handle(DaemonSocketPDU& aPDU)
@@ -270,9 +270,8 @@ BluetoothDaemonProtocol::Handle(DaemonSocketPDU& aPDU)
     [0x0B] = nullptr, // MAP client
     [0x0C] = nullptr, // AVRCP controller
     [0x0D] = nullptr, // A2DP sink
-    // [BluetoothDaemonSdpModule::SERVICE_ID] =  // 0x0E, not defined by BlueZ
-    //   &BluetoothDaemonProtocol::HandleSdpSvc
-    [0x0E] = nullptr,
+    [BluetoothDaemonSdpModule::SERVICE_ID] =
+      &BluetoothDaemonProtocol::HandleSdpSvc,
   };
 
   DaemonSocketPDUHeader header;
@@ -376,11 +375,6 @@ public:
         0x00,
         BluetoothDaemonSocketModule::MAX_NUM_CLIENTS, this);
     } else if (mRes) {
-      // Init, step 6: Signal success to caller
-      mRes->Init();
-    }
-
-    if (mRes) {
       // Init, step 6: Signal success to caller
       mRes->Init();
     }
@@ -702,17 +696,17 @@ BluetoothDaemonInterface::GetBluetoothAvrcpInterface()
 //   return mGattInterface.get();
 // }
 
-// BluetoothSdpInterface*
-// BluetoothDaemonInterface::GetBluetoothSdpInterface()
-// {
-//   if (mSdpInterface) {
-//     return mSdpInterface.get();
-//   }
+BluetoothSdpInterface*
+BluetoothDaemonInterface::GetBluetoothSdpInterface()
+{
+  if (mSdpInterface) {
+    return mSdpInterface.get();
+  }
 
-//   mSdpInterface = MakeUnique<BluetoothDaemonSdpInterface>(mProtocol.get());
+  mSdpInterface = MakeUnique<BluetoothDaemonSdpInterface>(mProtocol.get());
 
-//   return mSdpInterface.get();
-// }
+  return mSdpInterface.get();
+}
 
 // |DaemonSocketConsumer|, |ListenSocketConsumer|
 

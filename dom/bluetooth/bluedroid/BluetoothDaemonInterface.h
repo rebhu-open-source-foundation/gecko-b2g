@@ -29,7 +29,7 @@ class BluetoothDaemonCoreInterface;
 // class BluetoothDaemonGattInterface;
 // class BluetoothDaemonHandsfreeInterface;
 class BluetoothDaemonProtocol;
-// class BluetoothDaemonSdpInterface;
+class BluetoothDaemonSdpInterface;
 class BluetoothDaemonSetupInterface;
 class BluetoothDaemonSocketInterface;
 // class BluetoothDaemonHidInterface;
@@ -62,7 +62,7 @@ public:
   BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() override;
   // BluetoothGattInterface* GetBluetoothGattInterface() override;
   // BluetoothHidInterface* GetBluetoothHidInterface() override;
-  // BluetoothSdpInterface* GetBluetoothSdpInterface() override;
+  BluetoothSdpInterface* GetBluetoothSdpInterface() override;
 
 protected:
   enum Channel {
@@ -103,7 +103,7 @@ private:
   UniquePtr<BluetoothDaemonA2dpInterface> mA2dpInterface;
   UniquePtr<BluetoothDaemonAvrcpInterface> mAvrcpInterface;
   // UniquePtr<BluetoothDaemonGattInterface> mGattInterface;
-  // UniquePtr<BluetoothDaemonSdpInterface> mSdpInterface;
+  UniquePtr<BluetoothDaemonSdpInterface> mSdpInterface;
 };
 
 END_BLUETOOTH_NAMESPACE

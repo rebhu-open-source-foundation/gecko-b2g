@@ -1239,54 +1239,54 @@ protected:
 // SDP Interface
 //
 
-// class BluetoothSdpNotificationHandler
-// {
-// public:
-//   virtual void
-//   SdpSearchNotification(BluetoothStatus aStatus,
-//                         const BluetoothAddress& aBdAddr,
-//                         const BluetoothUuid& aUuid,
-//                         int aNumRecords,
-//                         const BluetoothSdpRecord& aRecords);
-//
-// protected:
-//   BluetoothSdpNotificationHandler();
-//   virtual ~BluetoothSdpNotificationHandler();
-// };
-//
-// class BluetoothSdpResultHandler
-//   : public mozilla::ipc::DaemonSocketResultHandler
-// {
-// public:
-//   virtual void OnError(BluetoothStatus aStatus);
-//   virtual void SdpSearch();
-//   virtual void CreateSdpRecord();
-//   virtual void RemoveSdpRecord();
-//
-// protected:
-//   virtual ~BluetoothSdpResultHandler() { }
-// };
-//
-// class BluetoothSdpInterface
-// {
-// public:
-//   virtual void SetNotificationHandler(
-//     BluetoothSdpNotificationHandler* aNotificationHandler) = 0;
-//
-//   virtual void SdpSearch(const BluetoothAddress& aBdAddr,
-//                          const BluetoothUuid& aUuid,
-//                          BluetoothSdpResultHandler* aRes) = 0;
-//
-//   virtual void CreateSdpRecord(const BluetoothSdpRecord& aRecord,
-//                                int& aRecordHandle,
-//                                BluetoothSdpResultHandler* aRes) = 0;
-//
-//   virtual void RemoveSdpRecord(int aSdpHandle,
-//                                BluetoothSdpResultHandler* aRes) = 0;
-// protected:
-//   BluetoothSdpInterface();
-//   virtual ~BluetoothSdpInterface();
-// };
+class BluetoothSdpNotificationHandler
+{
+public:
+  virtual void
+  SdpSearchNotification(BluetoothStatus aStatus,
+                        const BluetoothAddress& aBdAddr,
+                        const BluetoothUuid& aUuid,
+                        int aNumRecords,
+                        const BluetoothSdpRecord& aRecords);
+
+protected:
+  BluetoothSdpNotificationHandler();
+  virtual ~BluetoothSdpNotificationHandler();
+};
+
+class BluetoothSdpResultHandler
+  : public mozilla::ipc::DaemonSocketResultHandler
+{
+public:
+  virtual void OnError(BluetoothStatus aStatus);
+  virtual void SdpSearch();
+  virtual void CreateSdpRecord();
+  virtual void RemoveSdpRecord();
+
+protected:
+  virtual ~BluetoothSdpResultHandler() { }
+};
+
+class BluetoothSdpInterface
+{
+public:
+  virtual void SetNotificationHandler(
+    BluetoothSdpNotificationHandler* aNotificationHandler) = 0;
+
+  virtual void SdpSearch(const BluetoothAddress& aBdAddr,
+                         const BluetoothUuid& aUuid,
+                         BluetoothSdpResultHandler* aRes) = 0;
+
+  virtual void CreateSdpRecord(const BluetoothSdpRecord& aRecord,
+                               int& aRecordHandle,
+                               BluetoothSdpResultHandler* aRes) = 0;
+
+  virtual void RemoveSdpRecord(int aSdpHandle,
+                               BluetoothSdpResultHandler* aRes) = 0;
+protected:
+  BluetoothSdpInterface();
+  virtual ~BluetoothSdpInterface();
+};
 
 //
 // Bluetooth Interface
@@ -1334,7 +1334,7 @@ public:
   virtual BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() = 0;
   // virtual BluetoothGattInterface* GetBluetoothGattInterface() = 0;
   // virtual BluetoothHidInterface* GetBluetoothHidInterface() = 0;
-  // virtual BluetoothSdpInterface* GetBluetoothSdpInterface() = 0;
+  virtual BluetoothSdpInterface* GetBluetoothSdpInterface() = 0;
 
 protected:
   BluetoothInterface();
