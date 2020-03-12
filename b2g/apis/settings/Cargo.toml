@@ -1,0 +1,9 @@
+[package]
+name = "settings_api"
+version = "0.1.0"
+authors = ["fabrice@desre.org"]
+license = "MPL-2.0"
+description = "Settings API XPCOM component"
+
+[lib]
+path = "lib.rs"

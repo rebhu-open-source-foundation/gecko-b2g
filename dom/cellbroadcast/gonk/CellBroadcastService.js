@@ -30,7 +30,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
                                    "nsISettingsService");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gGonkCellBroadcastConfigService",
-                                   "@kaios.com/cellbroadcast/gonkconfigservice;1",
+                                   "@mozilla.org/cellbroadcast/gonkconfigservice;1",
                                    "nsIGonkCellBroadcastConfigService");
 
 XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {

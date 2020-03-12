@@ -225,7 +225,7 @@ GLCursorImageManager::PrepareCursorImage(nsCursor aCursor, nsWindow* aWindow)
     // Insert new element to ensure restyle
     nsCOMPtr<dom::Element> image = doc->CreateHTMLElement(nsGkAtoms::div);
     ErrorResult rv;
-    image->ClassList()->Add(NS_LITERAL_STRING("kaios-cursor"), rv);
+    image->ClassList()->Add(NS_LITERAL_STRING("gonk-cursor"), rv);
     image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
     cursorElementHolder = doc->InsertAnonymousContent(*image, rv);
 

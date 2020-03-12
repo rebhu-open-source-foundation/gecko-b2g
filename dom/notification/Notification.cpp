@@ -1385,7 +1385,7 @@ void Notification::ShowInternal() {
 #ifdef MOZ_B2G
   // TODO: We need to pass mManifestURL when appService is ready for gecko-dev.
   // We also need to pass ServiceWorkerRegistrationID, RequireInteraction,
-  // Actions and Silent for KaiOS notifications feature.
+  // Actions and Silent for enhanced notifications feature.
   nsCOMPtr<nsIAppNotificationService> appNotifier =
       do_GetService("@mozilla.org/system-alerts-service;1");
   if (appNotifier) {

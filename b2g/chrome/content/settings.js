@@ -205,7 +205,6 @@ Components.utils.import('resource://gre/modules/ctypes.jsm');
   // from configure.in, defaults to 1.0.0 if this value is not exist.
   let os_version = AppConstants.MOZ_B2G_VERSION;
   let os_name = AppConstants.MOZ_B2G_OS_NAME;
-  let release_tag = AppConstants.KAI_RELEASE_TAG;
 
   let appInfo = Cc["@mozilla.org/xre/app-info;1"]
                   .getService(Ci.nsIXULAppInfo);
@@ -235,16 +234,6 @@ Components.utils.import('resource://gre/modules/ctypes.jsm');
     cuRefStr = DeviceUtils.cuRef || null;
 
     let build_type = libcutils.property_get('ro.build.type');
-    if (build_type === 'eng' || build_type === 'userdebug') {
-      if (release_tag) {
-        os_version += ' {' + release_tag + '}';
-      } else {
-        let kaios_uid = libcutils.property_get('ro.build.kaios_uid');
-        if (kaios_uid && kaios_uid.length != 0) {
-          os_version += ' {' + kaios_uid.slice(0,7) + '}';
-        }
-      }
-    }
   }
 
   // Populate deviceinfo settings,
@@ -739,10 +728,7 @@ var settingsToObserve = {
     resetToPref: true
   },
   'wap.UAProf.tagname': 'x-wap-profile',
-  'wap.UAProf.url': '',
-  // Try to use setting from gaia build if it does exist.
-  'apps.serviceCenter.use_test_key': false,
-  'apps.serviceCenter.manifest': 'https://kaios-plus.kaiostech.com/update.webapp'
+  'wap.UAProf.url': ''
 };
 
 function settingObserver(setPref, prefName, setting) {

@@ -1516,7 +1516,7 @@ struct BluetoothSdpRecord {
 #define MAP_PROFILE_VERSION  0x0101
 
 /*
- * KaiOS supports feature bit 0, 1, 2, 3 and 4
+ * Gonk supports feature bit 0, 1, 2, 3 and 4
  * Bit 0 = Notification Registration Feature
  * Bit 1 = Notification Feature
  * Bit 2 = Browsing Feature
@@ -1528,7 +1528,7 @@ struct BluetoothSdpRecord {
 #define MAP_SUPPORTED_FEATURES  0x0000001F
 
 /*
- * KaiOS supports feature bit 1 and 2
+ * Gonk supports feature bit 1 and 2
  * Bit 0 = EMAIL
  * Bit 1 = SMS_GSM
  * Bit 2 = SMS_CDMA

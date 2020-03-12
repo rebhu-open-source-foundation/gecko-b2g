@@ -271,7 +271,7 @@ GonkGPSGeolocationProvider::Startup() {
         do_CreateInstance("@mozilla.org/toolkit/URLFormatterService;1", &rv);
     if (NS_SUCCEEDED(rv)) {
       nsString key;
-      rv = formatter->FormatURLPref(NS_LITERAL_STRING("geo.authorization.key"),
+      rv = formatter->FormatURLPref(NS_LITERAL_STRING("geo.fauthorization.key"),
                                     key);
       if (NS_SUCCEEDED(rv) && !key.IsEmpty()) {
         mNetworkLocationProvider =
@@ -657,7 +657,7 @@ Return<void> GnssCallback::gnssReleaseWakelockCb() {
 }
 
 Return<void> GnssCallback::gnssRequestTimeCb() {
-  LOG("%s: KaiOS doesn't support time injection.", __FUNCTION__);
+  LOG("%s: Gonk doesn't support time injection.", __FUNCTION__);
   return Void();
 }
 
@@ -676,13 +676,13 @@ Return<void> GnssCallback::gnssNameCb(
 
 Return<void> GnssCallback::gnssRequestLocationCb(
     const bool independentFromGnss) {
-  LOG("%s: KaiOS doesn't support gnssRequestLocationCb.", __FUNCTION__);
+  LOG("%s: Gonk doesn't support gnssRequestLocationCb.", __FUNCTION__);
   return Void();
 }
 
 Return<void> GnssCallback::gnssRequestLocationCb_2_0(
     const bool independentFromGnss, const bool isUserEmergency) {
-  LOG("%s: KaiOS doesn't support gnssRequestLocationCb_2_0.", __FUNCTION__);
+  LOG("%s: Gonk doesn't support gnssRequestLocationCb_2_0.", __FUNCTION__);
   return Void();
 }
 
@@ -857,6 +857,6 @@ pthread_t GonkGPSGeolocationProvider::CreateThreadCallback(const char* name,
 }
 
 void GonkGPSGeolocationProvider::RequestUtcTimeCallback() {
-  LOG("%s: KaiOS doesn't support time injection.", __FUNCTION__);
+  LOG("%s: Gonk doesn't support time injection.", __FUNCTION__);
 }
 #endif  // ANDROID_VERSION >= 26

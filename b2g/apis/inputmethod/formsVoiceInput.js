@@ -1,13 +1,9 @@
 /* -*- tab-width: 2; indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* vim: set ts=2 sw=2 sts=2 et: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* (c) 2018 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
- * file or any portion thereof may not be reproduced or used in any manner
- * whatsoever without the express written permission of KAI OS TECHNOLOGIES
- * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
- * LIMITED or its affiliate company and may be registered in some jurisdictions.
- * All other trademarks are the property of their respective owners.
- */
 
 "use strict";
 

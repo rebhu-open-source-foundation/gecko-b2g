@@ -30,7 +30,7 @@ pref("browser.cache.disk.smart_size.first_run", false);
 
 pref("browser.cache.memory.enable", true);
 
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("browser.cache.memory.capacity", 512); //kilobytes
 #else
 pref("browser.cache.memory.capacity", 1024); // kilobytes
@@ -38,7 +38,7 @@ pref("browser.cache.memory.capacity", 1024); // kilobytes
 pref("browser.cache.memory_limit", 2048); // 2 MB
 
 /* image cache prefs */
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("image.cache.size", 524288); //bytes
 #else
 pref("image.cache.size", 1048576); // bytes
@@ -187,24 +187,17 @@ pref("geo.cell.scan", true);
 
 // URL for geolocating service, the original URL of B2G OS is
 // "https://location.services.mozilla.com/v1/geolocate?key=%MOZILLA_API_KEY%"
-// KaiOS supports the following location servers
-// - Kai experimental server, "https://lbs.kaiostech.com/v2.0/lbs/locate"
-// - amap server, "http://apilocate.amap.com/position"
 // Empty string would disable WiFi/cell geolocating service
 pref("geo.wifi.uri", "");
-
-// The end point to get a access token for KaiOS location service
-pref("geo.token.uri", "https://lbs.kaiostech.com/v2.0/applications/ZL5uJA6yIVxXU3VyFO0z/tokens");
 
 // whether the network geolocation provider need authorization header or not
 pref("geo.provider.need_authorization", false);
 
-// the secret API key of KaiOS location service
-pref("geo.authorization.key", "%KAIOS_GEO_API_KEY%");
+// the secret API key of location service
+pref("geo.authorization.key", "%GONK_GEO_API_KEY%");
 
-// URL for geolocation crowdsourcing, the original URL of B2G OS is
-// "https://location.services.mozilla.com/v1/geosubmit?key=%MOZILLA_API_KEY%"
-pref("geo.stumbler.url", "https://lbs.kaiostech.com/v2.0/lbs/submit");
+// URL for geolocation crowdsourcing
+pref("geo.stumbler.url", "https://location.services.mozilla.com/v1/geosubmit?key=%MOZILLA_API_KEY%");
 
 // Whether to clean up location provider when Geolocation setting is turned off.
 pref("geo.provider.ondemand_cleanup", false);
@@ -314,7 +307,7 @@ pref("notification.feature.enabled", true);
 // prevent video elements from preloading too much data
 pref("media.preload.default", 1); // default to preload none
 pref("media.preload.auto", 2);    // preload metadata if preload=auto
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("media.cache_size", 2048);  //2MB media cache
 #else
 pref("media.cache_size", 4096);    // 4MB media cache
@@ -329,7 +322,7 @@ pref("media.cache_readahead_limit", 30);
 pref("media.gonk.enabled", true);
 #endif
 
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 //set maximum video buffer size to 20MB(20*1024*1024)
 pref("media.mediasource.eviction_threshold.video", 20971520); //byte
 ////set maximum Audio buffer size to 10MB(10*1024*1024)
@@ -355,7 +348,7 @@ pref("image.mem.allow_locking_in_content_processes", true);
 // Almost everything that was factored into 'max_decoded_image_kb' is now stored
 // in the surface cache.  1/8 of main memory is 32MB on a 256MB device, which is
 // about the same as the old 'max_decoded_image_kb'.
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("image.mem.surfacecache.max_size_kb", 8192);  // 8MB
 pref("image.mem.surfacecache.size_factor", 32);  // 1/32 of main memory
 #else
@@ -429,10 +422,6 @@ pref("content.ime.strict_policy", true);
 // $ adb shell setprop log.redirect-stdio true
 // $ adb shell start
 pref("browser.dom.window.dump.enabled", false);
-
-// Default Content Security Policy to apply to certified apps.
-// If you change this CSP, make sure to update the fast path in nsCSPService.cpp
-pref("security.apps.certified.CSP.default", "default-src * data: blob:; script-src 'self' http://127.0.0.1:8081 http://local-device.kaiostech.com:8081 app://theme.gaiamobile.org; object-src 'none'; style-src 'self' 'unsafe-inline' app://theme.gaiamobile.org app://shared.gaiamobile.org");
 
 // handle links targeting new windows
 // 1=current window/tab, 2=new window, 3=new tab in most recent window
@@ -697,7 +686,7 @@ pref("hal.processPriorityManager.gonk.FOREGROUND_HIGH.KillUnderKB", 5120);
 pref("hal.processPriorityManager.gonk.FOREGROUND_HIGH.cgroup", "apps/critical");
 
 pref("hal.processPriorityManager.gonk.FOREGROUND.OomScoreAdjust", 134);
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("hal.processPriorityManager.gonk.FOREGROUND.KillUnderKB", 6144);
 #else
 pref("hal.processPriorityManager.gonk.FOREGROUND.KillUnderKB", 20480);
@@ -708,7 +697,7 @@ pref("hal.processPriorityManager.gonk.FOREGROUND_KEYBOARD.OomScoreAdjust", 200);
 pref("hal.processPriorityManager.gonk.FOREGROUND_KEYBOARD.cgroup", "apps");
 
 pref("hal.processPriorityManager.gonk.BACKGROUND_PERCEIVABLE.OomScoreAdjust", 400);
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("hal.processPriorityManager.gonk.BACKGROUND_PERCEIVABLE.KillUnderKB", 8192);
 #else
 pref("hal.processPriorityManager.gonk.BACKGROUND_PERCEIVABLE.KillUnderKB", 40960);
@@ -716,7 +705,7 @@ pref("hal.processPriorityManager.gonk.BACKGROUND_PERCEIVABLE.KillUnderKB", 40960
 pref("hal.processPriorityManager.gonk.BACKGROUND_PERCEIVABLE.cgroup", "apps/bg_perceivable");
 
 pref("hal.processPriorityManager.gonk.BACKGROUND.OomScoreAdjust", 667);
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("hal.processPriorityManager.gonk.BACKGROUND.KillUnderKB", 20480);
 #else
 pref("hal.processPriorityManager.gonk.BACKGROUND.KillUnderKB", 65536);
@@ -769,7 +758,7 @@ pref("hal.gonk.COMPOSITOR.nice", -4);
 // this too high, then we'll send out a memory pressure event every Z seconds
 // (see below), even while we have processes that we would happily kill in
 // order to free up memory.
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("gonk.notifyHardLowMemUnderKB", 14336); //kilobytes
 #else
 pref("gonk.notifyHardLowMemUnderKB", 30720);
@@ -778,7 +767,7 @@ pref("gonk.notifyHardLowMemUnderKB", 30720);
 // Fire a memory pressure event when the system has less than Xmb of memory
 // remaining and then switch to the hard trigger, see above.  This should be
 // placed above the BACKGROUND priority class.
-#ifdef KAIOS_256MB_SUPPORT
+#ifdef DEVICE_256MB_SUPPORT
 pref("gonk.notifySoftLowMemUnderKB", 14336); //kilobytes
 #else
 pref("gonk.notifySoftLowMemUnderKB", 30720);
@@ -1061,9 +1050,6 @@ pref("layout.accessiblecaret.always_show_when_scrolling", false);
 // Enable mozId (IdentityManager) API
 pref("dom.identity.enabled", true);
 
-// Enable KaiOS Accounts.
-pref("identity.kaiaccounts.enabled", true);
-
 // Mobile Identity API.
 pref("services.mobileid.server.uri", "https://msisdn.services.mozilla.com");
 
@@ -1176,39 +1162,10 @@ pref("dom.keyboardEventGenerator.enabled", false);
 // In compatibility mode, 'Firefox' will be added to UA.
 pref("general.useragent.compatMode.firefox", true);
 
-// service center
-// Required by service center, values need to be updated accordingly.
-pref("apps.serviceCenter.enabled", true);
-pref("apps.serviceCenter.checkInterval", 86400);
-pref("apps.serviceCenter.allowedOrigins", "https://kaios-plus.kaiostech.com,app://kaios-plus.kaiostech.com");
-pref("apps.serviceCenter.devOrigins", "https://api.test.kaiostech.com,https://api.stage.kaiostech.com,https://storage.test.kaiostech.com,https://storage.stage.kaiostech.com,http://storage.test.kaiostech.com,http://storage.stage.kaiostech.com");
-pref("apps.serviceCenter.serverURL", "https://api.kaiostech.com/v2.0/apps?cu=%DEVICE_REF%");
-
-// Those api URLs are hosted by KaiOS which needs Kai specific header for sending request
-pref("apps.serviceCenter.kaiApiURLs", "api.kaiostech.com/,api.test.kaiostech.com/,api.stage.kaiostech.com/,api.prod.kaiostech.com/");
-
-// Those storage URLs are hosted by KaiOS which needs Kai specific header for sending request
-pref("apps.serviceCenter.kaiStorageURLs", "storage.kaiostech.com/,storage.test.kaiostech.com/,storage.stage.kaiostech.com/,storage.prod.kaiostech.com/");
-
-// The end point to get a access token for KaiOS apps service
-pref("apps.token.uri", "https://api.kaiostech.com/v3.0/applications/ZW8svGSlaw1ZLCxWZPQA/tokens");
-
-// The secret API key of KaiOS apps service
-pref("apps.authorization.key", "%KAIOS_APPS_API_KEY%");
-
-// The end point to get a access token for KaiOS metrices service
-pref("metrics.token.uri", "https://api.kaiostech.com/v3.0/applications/fAAuSR-dA8tCTi86Tt1m/tokens");
-
-// The secret API key of KaiOS apps service
-pref("metrics.authorization.key", "%KAIOS_METRICS_API_KEY%");
-
 // Disable sandboxed cookies for apps.
 // Turning this off treat apps as mozbrowser iframe when inserting cookies
 // into DB, allow us to do single-sign-on with services like Google, Facebook.
 pref("apps.sandboxed.cookies.enabled", false);
-
-// Enable navigator.kaiauth - the AuthorizationManager of KaiOS service
-pref("dom.kaiauth.enabled", true);
 
 // Disable Gecko Telemetry
 pref("toolkit.telemetry.enabled", false);
@@ -1254,10 +1211,6 @@ pref("hangmonitor.log.level", 1);
 // Disable Gecko wifi
 pref("device.capability.wifi", false);
 #endif
-
-// Kai daemon ws url
-pref("externalAPI.websocket.url", "ws://localhost/");
-pref("externalAPI.websocket.protocols", "kaios-services");
 
 // Enable IPv6 tethering router mode in Gecko
 pref("dom.b2g_ipv6_router_mode", true);
