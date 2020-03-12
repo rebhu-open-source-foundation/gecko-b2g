@@ -23,7 +23,7 @@
 // #include "BluetoothGattManager.h"
 // #include "BluetoothHfpManager.h"
 // #include "BluetoothHidManager.h"
-// #include "BluetoothMapSmsManager.h"
+#include "BluetoothMapSmsManager.h"
 #include "BluetoothOppManager.h"
 #include "BluetoothPbapManager.h"
 #include "BluetoothProfileController.h"
@@ -144,7 +144,7 @@ public:
   void Init() override
   {
     static void (* const sInitManager[])(BluetoothProfileResultHandler*) = {
-      // BluetoothMapSmsManager::InitMapSmsInterface,
+      BluetoothMapSmsManager::InitMapSmsInterface,
       BluetoothOppManager::InitOppInterface,
       BluetoothPbapManager::InitPbapInterface,
       // BluetoothHidManager::InitHidInterface,
@@ -300,7 +300,7 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
     // BluetoothHidManager::Get(),
     BluetoothPbapManager::Get(),
     BluetoothOppManager::Get(),
-    // BluetoothMapSmsManager::Get()
+    BluetoothMapSmsManager::Get(),
   };
 
   // Disconnect all connected profiles
@@ -1720,143 +1720,103 @@ BluetoothServiceBluedroid::ReplyTovCardListing(
   DispatchReplySuccess(aRunnable);
 }
 
-// void
-// BluetoothServiceBluedroid::ReplyToMapFolderListing(
-//   uint8_t aMasId,
-//   const nsAString& aFolderlists,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   // TODO: Implement for future Email support
-// }
+void
+BluetoothServiceBluedroid::ReplyToMapFolderListing(
+  uint8_t aMasId,
+  const nsAString& aFolderlists,
+  BluetoothReplyRunnable* aRunnable)
+{
+  // TODO: Implement for future Email support
+}
 
-// void
-// BluetoothServiceBluedroid::ReplyToMapMessagesListing(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint8_t aMasId,
-//   bool aNewMessage,
-//   const nsAString& aTimestamp,
-//   int aSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Messages Listing failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid:: ReplyToMapMessagesListing(
+  uint8_t aMasId,
+  BlobImpl* aBlob,
+  bool aNewMessage,
+  const nsAString& aTimestamp,
+  int aSize,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to Messages Listing failed"));
+    return;
+  }
 
-//   map->ReplyToMessagesListing(aBlobParent, aMasId, aNewMessage, aTimestamp,
-//                               aSize);
-//   DispatchReplySuccess(aRunnable);
-// }
+  map->ReplyToMessagesListing(aMasId, aBlob, aNewMessage, aTimestamp, aSize);
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid:: ReplyToMapMessagesListing(
-//   uint8_t aMasId,
-//   Blob* aBlob,
-//   bool aNewMessage,
-//   const nsAString& aTimestamp,
-//   int aSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Messages Listing failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid:: ReplyToMapGetMessage(
+  uint8_t aMasId,
+  BlobImpl* aBlob,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to Get Message failed"));
+    return;
+  }
 
-//   map->ReplyToMessagesListing(aBlob, aMasId, aNewMessage, aTimestamp, aSize);
-//   DispatchReplySuccess(aRunnable);
-// }
+  map->ReplyToGetMessage(aMasId, aBlob);
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid:: ReplyToMapGetMessage(
-//   BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint8_t aMasId,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Get Message failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid:: ReplyToMapSetMessageStatus(
+  uint8_t aMasId,
+  bool aStatus,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to Set Message failed"));
+    return;
+  }
 
-//   map->ReplyToGetMessage(aBlobParent, aMasId);
-//   DispatchReplySuccess(aRunnable);
-// }
+  map->ReplyToSetMessageStatus(aMasId, aStatus);
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid:: ReplyToMapGetMessage(
-//   Blob* aBlob,
-//   uint8_t aMasId,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Get Message failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid:: ReplyToMapSendMessage(
+  uint8_t aMasId,
+  const nsAString& aHandleId,
+  bool aStatus,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to Send Message failed"));
+    return;
+  }
 
-//   map->ReplyToGetMessage(aBlob, aMasId);
-//   DispatchReplySuccess(aRunnable);
-// }
+  map->ReplyToSendMessage(aMasId, aHandleId, aStatus);
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid:: ReplyToMapSetMessageStatus(
-//   uint8_t aMasId,
-//   bool aStatus,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Set Message failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid:: ReplyToMapMessageUpdate(
+  uint8_t aMasId,
+  bool aStatus,
+  BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Reply to MessageUpdate failed"));
+    return;
+  }
 
-//   map->ReplyToSetMessageStatus(aMasId, aStatus);
-//   DispatchReplySuccess(aRunnable);
-// }
-
-// void
-// BluetoothServiceBluedroid:: ReplyToMapSendMessage(
-//   uint8_t aMasId,
-//   const nsAString& aHandleId,
-//   bool aStatus,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to Send Message failed"));
-//     return;
-//   }
-
-//   map->ReplyToSendMessage(aMasId, aHandleId, aStatus);
-//   DispatchReplySuccess(aRunnable);
-// }
-
-// void
-// BluetoothServiceBluedroid:: ReplyToMapMessageUpdate(
-//   uint8_t aMasId,
-//   bool aStatus,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Reply to MessageUpdate failed"));
-//     return;
-//   }
-
-//   map->ReplyToMessageUpdate(aMasId, aStatus);
-//   DispatchReplySuccess(aRunnable);
-// }
+  map->ReplyToMessageUpdate(aMasId, aStatus);
+  DispatchReplySuccess(aRunnable);
+}
 
 void
 BluetoothServiceBluedroid::SendMetaData(const nsAString& aTitle,
@@ -1890,38 +1850,21 @@ BluetoothServiceBluedroid::SendPlayStatus(
   DispatchReplySuccess(aRunnable);
 }
 
-// void
-// BluetoothServiceBluedroid::SendMessageEvent(
-//   uint8_t aMasId, BlobParent* aBlobParent, BlobChild* aBlobChild,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   BT_LOGR("MAS ID: %u", aMasId);
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("SendMessageEvent failed"));
-//     return;
-//   }
+void
+BluetoothServiceBluedroid::SendMessageEvent(
+  uint8_t aMasId, BlobImpl* aBlob, BluetoothReplyRunnable* aRunnable)
+{
+  BT_LOGR("MAS ID: %u", aMasId);
+  BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+  if (!map) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("SendMessageEvent failed"));
+    return;
+  }
 
-//   map->SendMessageEvent(aMasId, aBlobParent);
-//   DispatchReplySuccess(aRunnable);
-// }
-
-// void
-// BluetoothServiceBluedroid::SendMessageEvent(
-//   uint8_t aMasId, Blob* aBlob, BluetoothReplyRunnable* aRunnable)
-// {
-//   BT_LOGR("MAS ID: %u", aMasId);
-//   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-//   if (!map) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("SendMessageEvent failed"));
-//     return;
-//   }
-
-//   map->SendMessageEvent(aMasId, aBlob);
-//   DispatchReplySuccess(aRunnable);
-// }
+  map->SendMessageEvent(aMasId, aBlob);
+  DispatchReplySuccess(aRunnable);
+}
 
 // void
 // BluetoothServiceBluedroid::AnswerWaitingCall(BluetoothReplyRunnable* aRunnable)
@@ -2056,7 +1999,7 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       // BluetoothHidManager::DeinitHidInterface,
       BluetoothPbapManager::DeinitPbapInterface,
       BluetoothOppManager::DeinitOppInterface,
-      // BluetoothMapSmsManager::DeinitMapSmsInterface
+      BluetoothMapSmsManager::DeinitMapSmsInterface,
     };
 
     // Return error if BluetoothService is unavailable
@@ -2135,10 +2078,10 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       BT_LOGR("Fail to start BluetoothPbapManager listening");
     }
 
-    // BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
-    // if (!map || !map->Listen()) {
-    //   BT_LOGR("Fail to start BluetoothMapSmsManager listening");
-    // }
+    BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
+    if (!map || !map->Listen()) {
+      BT_LOGR("Fail to start BluetoothMapSmsManager listening");
+    }
   }
 
   // Resolve promise if existed

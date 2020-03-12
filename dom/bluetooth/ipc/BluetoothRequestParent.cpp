@@ -526,83 +526,83 @@ BluetoothRequestParent::DoRequest(const ReplyTovCardListingRequest& aRequest)
   return true;
 }
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyToFolderListingRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyToFolderListingRequest);
+bool
+BluetoothRequestParent::DoRequest(const ReplyToFolderListingRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyToFolderListingRequest);
 
-//   mService->ReplyToMapFolderListing(aRequest.masId(),
-//                                            aRequest.folderList(),
-//                                            mReplyRunnable.get());
-//   return true;
-// }
+  mService->ReplyToMapFolderListing(aRequest.masId(),
+                                           aRequest.folderList(),
+                                           mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyToMessagesListingRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyToMessagesListingRequest);
+bool
+BluetoothRequestParent::DoRequest(const ReplyToMessagesListingRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyToMessagesListingRequest);
 
-//   mService->ReplyToMapMessagesListing((BlobParent*)aRequest.blobParent(),
-//                                              (BlobChild*)aRequest.blobChild(),
-//                                              aRequest.masId(),
-//                                              aRequest.newMessage(),
-//                                              aRequest.timeStamp(),
-//                                              aRequest.size(),
-//                                              mReplyRunnable.get());
-//   return true;
-// }
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aRequest.blob());
+  mService->ReplyToMapMessagesListing(aRequest.masId(),
+                                      blobImpl.get(),
+                                      aRequest.newMessage(),
+                                      aRequest.timeStamp(),
+                                      aRequest.size(),
+                                      mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyToGetMessageRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyToGetMessageRequest);
+bool
+BluetoothRequestParent::DoRequest(const ReplyToGetMessageRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyToGetMessageRequest);
 
-//   mService->ReplyToMapGetMessage((BlobParent*)aRequest.blobParent(),
-//                                      (BlobChild*)aRequest.blobChild(),
-//                                      aRequest.masId(),
-//                                      mReplyRunnable.get());
-//   return true;
-// }
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aRequest.blob());
+  mService->ReplyToMapGetMessage(aRequest.masId(),
+                                 blobImpl.get(),
+                                 mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyToSetMessageStatusRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyToSetMessageStatusRequest);
+bool
+BluetoothRequestParent::DoRequest(const ReplyToSetMessageStatusRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyToSetMessageStatusRequest);
 
-//   mService->ReplyToMapSetMessageStatus(aRequest.masId(),
-//                                        aRequest.messageStatus(),
-//                                        mReplyRunnable.get());
-//   return true;
-// }
+  mService->ReplyToMapSetMessageStatus(aRequest.masId(),
+                                       aRequest.messageStatus(),
+                                       mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyToSendMessageRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyToSendMessageRequest);
+bool
+BluetoothRequestParent::DoRequest(const ReplyToSendMessageRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyToSendMessageRequest);
 
-//   mService->ReplyToMapSendMessage(aRequest.masId(),
-//                                   aRequest.handleId(),
-//                                   aRequest.messageStatus(),
-//                                   mReplyRunnable.get());
-//   return true;
-// }
+  mService->ReplyToMapSendMessage(aRequest.masId(),
+                                  aRequest.handleId(),
+                                  aRequest.messageStatus(),
+                                  mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const ReplyToMessageUpdateRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TReplyToMessageUpdateRequest);
+bool
+BluetoothRequestParent::DoRequest(const ReplyToMessageUpdateRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TReplyToMessageUpdateRequest);
 
-//   mService->ReplyToMapMessageUpdate(aRequest.masId(),
-//                                     aRequest.messageStatus(),
-//                                     mReplyRunnable.get());
-//   return true;
-// }
+  mService->ReplyToMapMessageUpdate(aRequest.masId(),
+                                    aRequest.messageStatus(),
+                                    mReplyRunnable.get());
+  return true;
+}
 
 // #ifdef MOZ_B2G_RIL
 // bool
@@ -668,18 +668,18 @@ BluetoothRequestParent::DoRequest(const SendPlayStatusRequest& aRequest)
   return true;
 }
 
-// bool
-// BluetoothRequestParent::DoRequest(const SendMessageEventRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TSendMessageEventRequest);
+bool
+BluetoothRequestParent::DoRequest(const SendMessageEventRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TSendMessageEventRequest);
 
-//   mService->SendMessageEvent(aRequest.masId(),
-//                              (BlobParent*)aRequest.blobParent(),
-//                              (BlobChild*)aRequest.blobChild(),
-//                              mReplyRunnable.get());
-//   return true;
-// }
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aRequest.blob());
+  mService->SendMessageEvent(aRequest.masId(),
+                             blobImpl.get(),
+                             mReplyRunnable.get());
+  return true;
+}
 
 // bool
 // BluetoothRequestParent::DoRequest(const ConnectGattClientRequest& aRequest)

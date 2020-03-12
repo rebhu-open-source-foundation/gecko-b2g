@@ -156,23 +156,23 @@ protected:
   bool
   DoRequest(const ReplyTovCardListingRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyToFolderListingRequest& aRequest);
+  bool
+  DoRequest(const ReplyToFolderListingRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyToMessagesListingRequest& aRequest);
+  bool
+  DoRequest(const ReplyToMessagesListingRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyToGetMessageRequest& aRequest);
+  bool
+  DoRequest(const ReplyToGetMessageRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyToSetMessageStatusRequest& aRequest);
+  bool
+  DoRequest(const ReplyToSetMessageStatusRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyToSendMessageRequest& aRequest);
+  bool
+  DoRequest(const ReplyToSendMessageRequest& aRequest);
 
-  // bool
-  // DoRequest(const ReplyToMessageUpdateRequest& aRequest);
+  bool
+  DoRequest(const ReplyToMessageUpdateRequest& aRequest);
 
 // #ifdef MOZ_B2G_RIL
 //   bool
@@ -191,8 +191,8 @@ protected:
   bool
   DoRequest(const SendPlayStatusRequest& aRequest);
 
-  // bool
-  // DoRequest(const SendMessageEventRequest& aRequest);
+  bool
+  DoRequest(const SendMessageEventRequest& aRequest);
 
   // bool
   // DoRequest(const ConnectGattClientRequest& aRequest);

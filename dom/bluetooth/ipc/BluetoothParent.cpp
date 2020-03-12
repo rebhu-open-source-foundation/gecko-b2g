@@ -219,18 +219,24 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TReplyTovCardListingRequest:
       return actor->DoRequest(aRequest.get_ReplyTovCardListingRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-    // case Request::TReplyToFolderListingRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyToFolderListingRequest());
-    // case Request::TReplyToMessagesListingRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyToMessagesListingRequest());
-    // case Request::TReplyToGetMessageRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyToGetMessageRequest());
-    // case Request::TReplyToSetMessageStatusRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyToSetMessageStatusRequest());
-    // case Request::TReplyToSendMessageRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyToSendMessageRequest());
-    // case Request::TReplyToMessageUpdateRequest:
-    //   return actor->DoRequest(aRequest.get_ReplyToMessageUpdateRequest());
+    case Request::TReplyToFolderListingRequest:
+      return actor->DoRequest(aRequest.get_ReplyToFolderListingRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TReplyToMessagesListingRequest:
+      return actor->DoRequest(aRequest.get_ReplyToMessagesListingRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TReplyToGetMessageRequest:
+      return actor->DoRequest(aRequest.get_ReplyToGetMessageRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TReplyToSetMessageStatusRequest:
+      return actor->DoRequest(aRequest.get_ReplyToSetMessageStatusRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TReplyToSendMessageRequest:
+      return actor->DoRequest(aRequest.get_ReplyToSendMessageRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TReplyToMessageUpdateRequest:
+      return actor->DoRequest(aRequest.get_ReplyToMessageUpdateRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
 // #ifdef MOZ_B2G_RIL
 //     case Request::TAnswerWaitingCallRequest:
 //       return actor->DoRequest(aRequest.get_AnswerWaitingCallRequest());
@@ -245,8 +251,9 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TSendPlayStatusRequest:
       return actor->DoRequest(aRequest.get_SendPlayStatusRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-    // case Request::TSendMessageEventRequest:
-    //   return actor->DoRequest(aRequest.get_SendMessageEventRequest());
+    case Request::TSendMessageEventRequest:
+      return actor->DoRequest(aRequest.get_SendMessageEventRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     // case Request::TConnectGattClientRequest:
     //   return actor->DoRequest(aRequest.get_ConnectGattClientRequest());
     // case Request::TDisconnectGattClientRequest:

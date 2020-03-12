@@ -10,7 +10,7 @@
 #include "BluetoothAvrcpManager.h"
 // #include "BluetoothHfpManager.h"
 // #include "BluetoothHidManager.h"
-// #include "BluetoothMapSmsManager.h"
+#include "BluetoothMapSmsManager.h"
 #include "BluetoothOppManager.h"
 #include "BluetoothPbapManager.h"
 
@@ -87,12 +87,12 @@ BluetoothUuidHelper::GetBluetoothProfileManager(uint16_t aServiceUuid)
     case BluetoothServiceClass::PBAP_PSE:
       profile = BluetoothPbapManager::Get();
       break;
-    // case BluetoothServiceClass::MAP_MAS:
-    //   profile = BluetoothMapSmsManager::Get();
-    //   break;
-    // case BluetoothServiceClass::MAP_MNS:
-    //   profile = BluetoothMapSmsManager::Get();
-    //   break;
+    case BluetoothServiceClass::MAP_MAS:
+      profile = BluetoothMapSmsManager::Get();
+      break;
+    case BluetoothServiceClass::MAP_MNS:
+      profile = BluetoothMapSmsManager::Get();
+      break;
     default:
       profile = nullptr;
   }

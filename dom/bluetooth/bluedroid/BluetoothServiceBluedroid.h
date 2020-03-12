@@ -160,53 +160,38 @@ public:
                       uint16_t aPhonebookSize,
                       BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyToMapFolderListing(uint8_t aMasId,
-  //                         const nsAString& aFolderlists,
-  //                         BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyToMapFolderListing(uint8_t aMasId,
+                          const nsAString& aFolderlists,
+                          BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyToMapMessagesListing(BlobParent* aBlobParent,
-  //                           BlobChild* aBlobChild,
-  //                           uint8_t aMasId,
-  //                           bool aNewMessage,
-  //                           const nsAString& aTimestamp,
-  //                           int aSize,
-  //                           BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyToMapMessagesListing(uint8_t aMasId,
+                            BlobImpl* aBlob,
+                            bool aNewMessage,
+                            const nsAString& aTimestamp,
+                            int aSize,
+                            BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyToMapMessagesListing(uint8_t aMasId,
-  //                           Blob* aBlob,
-  //                           bool aNewMessage,
-  //                           const nsAString& aTimestamp,
-  //                           int aSize,
-  //                           BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyToMapGetMessage(uint8_t aMasId,
+                       BlobImpl* aBlob,
+                       BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyToMapGetMessage(BlobParent* aBlobParent,
-  //                      BlobChild* aBlobChild,
-  //                      uint8_t aMasId,
-  //                      BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyToMapSetMessageStatus(uint8_t aMasId,
+                             bool aStatus,
+                             BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyToMapGetMessage(Blob* aBlob,
-  //                      uint8_t aMasId,
-  //                      BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyToMapSendMessage(uint8_t aMasId,
+                        const nsAString& aHandleId,
+                        bool aStatus,
+                        BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ReplyToMapSetMessageStatus(uint8_t aMasId,
-  //                            bool aStatus,
-  //                            BluetoothReplyRunnable* aRunnable);
-
-  // virtual void
-  // ReplyToMapSendMessage(uint8_t aMasId,
-  //                       const nsAString& aHandleId,
-  //                       bool aStatus,
-  //                       BluetoothReplyRunnable* aRunnable);
-
-  // virtual void
-  // ReplyToMapMessageUpdate(
-  //   uint8_t aMasId, bool aStatus, BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ReplyToMapMessageUpdate(
+    uint8_t aMasId, bool aStatus, BluetoothReplyRunnable* aRunnable) override;
 
   // virtual void
   // AnswerWaitingCall(BluetoothReplyRunnable* aRunnable);
@@ -232,15 +217,10 @@ public:
                  ControlPlayStatus aPlayStatus,
                  BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // SendMessageEvent(uint8_t aMasId,
-  //                  BlobParent* aBlobParent,
-  //                  BlobChild* aBlobChild,
-  //                  BluetoothReplyRunnable* aRunnable) override;
-  // virtual void
-  // SendMessageEvent(uint8_t aMasId,
-  //                  Blob* aBlob,
-  //                  BluetoothReplyRunnable* aRunnable) override;
+  virtual void
+  SendMessageEvent(uint8_t aMasId,
+                   BlobImpl* aBlob,
+                   BluetoothReplyRunnable* aRunnable) override;
 
   //
   // GATT Client

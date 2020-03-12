@@ -91,22 +91,22 @@ interface BluetoothAdapter : EventTarget {
            attribute EventHandler   onpullvcardlistingreq;
 
   // Fired when remote devices request to list SMS/MMS/Email folders
-  //         attribute EventHandler   onmapfolderlistingreq;
+           attribute EventHandler   onmapfolderlistingreq;
 
   // Fired when remote devices request to list SMS/MMS/Email messages
-  //         attribute EventHandler   onmapmessageslistingreq;
+           attribute EventHandler   onmapmessageslistingreq;
 
   // Fired when remote devices fetch the specific message
-  //         attribute EventHandler   onmapgetmessagereq;
+           attribute EventHandler   onmapgetmessagereq;
 
   // Fired when remote devices set message status
-  //         attribute EventHandler   onmapsetmessagestatusreq;
+           attribute EventHandler   onmapsetmessagestatusreq;
 
   // Fired when remote devices send out SMS/MMS/Email message
-  //         attribute EventHandler   onmapsendmessagereq;
+           attribute EventHandler   onmapsendmessagereq;
 
   // Fired when remote devices download SMS/MMS/Email messages
-  //         attribute EventHandler   onmapmessageupdatereq;
+           attribute EventHandler   onmapmessageupdatereq;
 
 
   /**
@@ -219,8 +219,8 @@ interface BluetoothAdapter : EventTarget {
   DOMRequest sendMediaPlayStatus(optional MediaPlayStatus mediaPlayStatus = {});
 
   // MAP event report
-  // [NewObject, Throws]
-  // Promise<void> sendMessageEvent(octet masId, Blob eventObject);
+  [NewObject, Throws]
+  Promise<void> sendMessageEvent(octet masId, Blob eventObject);
 };
 
 enum BluetoothAdapterState

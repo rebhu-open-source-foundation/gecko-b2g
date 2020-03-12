@@ -12,7 +12,7 @@
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/dom/BluetoothAdapterBinding.h"
 #include "mozilla/dom/BluetoothDeviceEvent.h"
-// #include "mozilla/dom/BluetoothMapParametersBinding.h"
+#include "mozilla/dom/BluetoothMapParametersBinding.h"
 #include "mozilla/dom/BluetoothPbapParametersBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "nsCOMPtr.h"
@@ -87,7 +87,7 @@ public:
    ***************************************************************************/
   IMPL_EVENT_HANDLER(attributechanged);
   // Connection request
-  // IMPL_EVENT_HANDLER(mapconnectionreq);
+  IMPL_EVENT_HANDLER(mapconnectionreq);
   IMPL_EVENT_HANDLER(pbapconnectionreq);
   // PAIRING
   IMPL_EVENT_HANDLER(devicepaired);
@@ -105,12 +105,12 @@ public:
   IMPL_EVENT_HANDLER(pullvcardentryreq);
   IMPL_EVENT_HANDLER(pullvcardlistingreq);
   // MAP
-  // IMPL_EVENT_HANDLER(mapfolderlistingreq);
-  // IMPL_EVENT_HANDLER(mapmessageslistingreq);
-  // IMPL_EVENT_HANDLER(mapgetmessagereq);
-  // IMPL_EVENT_HANDLER(mapsetmessagestatusreq);
-  // IMPL_EVENT_HANDLER(mapsendmessagereq);
-  // IMPL_EVENT_HANDLER(mapmessageupdatereq);
+  IMPL_EVENT_HANDLER(mapfolderlistingreq);
+  IMPL_EVENT_HANDLER(mapmessageslistingreq);
+  IMPL_EVENT_HANDLER(mapgetmessagereq);
+  IMPL_EVENT_HANDLER(mapsetmessagestatusreq);
+  IMPL_EVENT_HANDLER(mapsendmessagereq);
+  IMPL_EVENT_HANDLER(mapmessageupdatereq);
 
   /****************************************************************************
    * Methods (Web API Implementation)
@@ -182,8 +182,8 @@ public:
                         ErrorResult& aRv);
 
   // MAP SendEvent method
-  // already_AddRefed<Promise> SendMessageEvent(uint8_t aMasId, Blob& aBlob,
-  //                                            ErrorResult& aRv);
+  already_AddRefed<Promise> SendMessageEvent(uint8_t aMasId, Blob& aBlob,
+                                             ErrorResult& aRv);
 
   /****************************************************************************
    * Others
@@ -422,7 +422,7 @@ private:
    * @param aValue [in] a BluetoothValue with 'TnsString' type
    *                    as the 'address' property.
    */
-  // void HandleMapConnectionReq(const BluetoothValue& aValue);
+  void HandleMapConnectionReq(const BluetoothValue& aValue);
 
    /**
    * Handle "MapFolderListing" bluetooth signal.
@@ -432,7 +432,7 @@ private:
    *                    - uint32_t  'MaxListCount'
    *                    - uint32_t  'ListStartOffset'
    */
-  // void HandleMapFolderListing(const BluetoothValue& aValue);
+  void HandleMapFolderListing(const BluetoothValue& aValue);
 
   /**
    * Handle "MapMessageListing" bluetooth signal.
@@ -451,7 +451,7 @@ private:
    *                    - nsString  'FilterOriginator'
    *                    - uint32_t  'FilterPriority'
    */
-  // void HandleMapMessagesListing(const BluetoothValue& aValue);
+  void HandleMapMessagesListing(const BluetoothValue& aValue);
 
   /**
    * Handle "MapGetMessage" bluetooth signal.
@@ -461,7 +461,7 @@ private:
    *                    - bool       'Attachment'
    *                    - nsString   'Charset'
    */
-  // void HandleMapGetMessage(const BluetoothValue& aValue);
+  void HandleMapGetMessage(const BluetoothValue& aValue);
 
   /**
    * Handle "MapSetMessageStatus" bluetooth signal.
@@ -472,7 +472,7 @@ private:
    *                    - uint32_t   'StatusIndicator'
    *                    - bool       'StatusValue'
    */
-  // void HandleMapSetMessageStatus(const BluetoothValue& aValue);
+  void HandleMapSetMessageStatus(const BluetoothValue& aValue);
 
   /**
    * Handle "MapSendMessage" bluetooth signal.
@@ -483,7 +483,7 @@ private:
    *                    - nsString    'MessageBody'
    *                    - uint32_t    'Retry'
    */
-  // void HandleMapSendMessage(const BluetoothValue& aValue);
+  void HandleMapSendMessage(const BluetoothValue& aValue);
 
   /**
    * Handle "MapMessageUpdate" bluetooth signal.
@@ -491,7 +491,7 @@ private:
    * @param aValue [in] Properties array of the scanned device.
    *                    - nsString     'MASInstanceID'
    */
-  // void HandleMapMessageUpdate(const BluetoothValue& aValue);
+  void HandleMapMessageUpdate(const BluetoothValue& aValue);
 
   /**
    * Get a Sequence of ParameterMask from a BluetoothValue. The name of
@@ -500,7 +500,7 @@ private:
    * @param aValue [in] a BluetoothValue with 'TArrayOfuint32_t' type
    *                    The name of BluetoothValue must be 'parameterMask'.
    */
-  // Sequence<ParameterMask> GetParameterMask(const BluetoothValue &aValue);
+  Sequence<ParameterMask> GetParameterMask(const BluetoothValue &aValue);
 
   /**
    * Fire BluetoothAttributeEvent to trigger onattributechanged event handler.

@@ -409,88 +409,76 @@ BluetoothServiceChildProcess::ReplyTovCardListing(
     ReplyTovCardListingRequest(ipcBlob, aPhonebookSize));
 }
 
-// void
-// BluetoothServiceChildProcess::ReplyToMapFolderListing(uint8_t aMasId,
-//   const nsAString& aFolderList,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//               ReplyToFolderListingRequest(aMasId, nsString(aFolderList)));
-// }
+void
+BluetoothServiceChildProcess::ReplyToMapFolderListing(uint8_t aMasId,
+  const nsAString& aFolderList,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              ReplyToFolderListingRequest(aMasId, nsString(aFolderList)));
+}
 
-// void
-// BluetoothServiceChildProcess::ReplyToMapMessagesListing(BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint8_t aMasId,
-//   bool aNewMessage,
-//   const nsAString& aTimestamp,
-//   int aSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//               ReplyToMessagesListingRequest(aMasId, nullptr, aBlobChild,
-//                                             aNewMessage, nsString(aTimestamp), aSize));
-// }
+void
+BluetoothServiceChildProcess::ReplyToMapMessagesListing(uint8_t aMasId,
+  BlobImpl* aBlob,
+  bool aNewMessage,
+  const nsAString& aTimestamp,
+  int aSize,
+  BluetoothReplyRunnable* aRunnable)
+{
+  IPCBlob ipcBlob;
+  nsresult rv =
+      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+  SendRequest(aRunnable,
+              ReplyToMessagesListingRequest(aMasId, ipcBlob,
+                                            aNewMessage, nsString(aTimestamp), aSize));
+}
 
-// void
-// BluetoothServiceChildProcess::ReplyToMapMessagesListing(uint8_t aMasId,
-//   Blob* aBlob,
-//   bool aNewMessage,
-//   const nsAString& aTimestamp,
-//   int aSize,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   // Parent-process-only method
-//   MOZ_CRASH("This should never be called!");
-// }
+void
+BluetoothServiceChildProcess::ReplyToMapGetMessage(uint8_t aMasId,
+  BlobImpl* aBlob,
+  BluetoothReplyRunnable* aRunnable)
+{
+  IPCBlob ipcBlob;
+  nsresult rv =
+      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+  SendRequest(aRunnable,
+    ReplyToGetMessageRequest(aMasId, ipcBlob));
+}
 
+void
+BluetoothServiceChildProcess::ReplyToMapSetMessageStatus(uint8_t aMasId,
+  bool aStatus,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    ReplyToSetMessageStatusRequest(aMasId, aStatus));
+}
 
-// void
-// BluetoothServiceChildProcess::ReplyToMapGetMessage(BlobParent* aBlobParent,
-//   BlobChild* aBlobChild,
-//   uint8_t aMasId,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     ReplyToGetMessageRequest(aMasId, nullptr, aBlobChild));
-// }
+void
+BluetoothServiceChildProcess::ReplyToMapSendMessage(uint8_t aMasId,
+  const nsAString& aHandleId,
+  bool aStatus,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    ReplyToSendMessageRequest(aMasId, nsString(aHandleId), aStatus));
+}
 
-// void
-// BluetoothServiceChildProcess::ReplyToMapGetMessage(Blob* aBlob,
-//   uint8_t aMasId,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   // Parent-process-only method
-//   MOZ_CRASH("This should never be called!");
-// }
-
-// void
-// BluetoothServiceChildProcess::ReplyToMapSetMessageStatus(uint8_t aMasId,
-//   bool aStatus,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     ReplyToSetMessageStatusRequest(aMasId, aStatus));
-// }
-
-// void
-// BluetoothServiceChildProcess::ReplyToMapSendMessage(uint8_t aMasId,
-//   const nsAString& aHandleId,
-//   bool aStatus,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     ReplyToSendMessageRequest(aMasId, nsString(aHandleId), aStatus));
-// }
-
-// void
-// BluetoothServiceChildProcess::ReplyToMapMessageUpdate(uint8_t aMasId,
-//   bool aStatus,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     ReplyToMessageUpdateRequest(aMasId, aStatus));
-// }
+void
+BluetoothServiceChildProcess::ReplyToMapMessageUpdate(uint8_t aMasId,
+  bool aStatus,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    ReplyToMessageUpdateRequest(aMasId, aStatus));
+}
 
 // #ifdef MOZ_B2G_RIL
 // void
@@ -540,24 +528,20 @@ BluetoothServiceChildProcess::SendPlayStatus(int64_t aDuration,
               SendPlayStatusRequest(aDuration, aPosition, aPlayStatus));
 }
 
-// void
-// BluetoothServiceChildProcess::SendMessageEvent(uint8_t aMasId,
-//                                                BlobParent* aBlobParent,
-//                                                BlobChild* aBlobChild,
-//                                                BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//               SendMessageEventRequest(aMasId, nullptr, aBlobChild));
-// }
-
-// void
-// BluetoothServiceChildProcess::SendMessageEvent(uint8_t aMasId,
-//                                                Blob* aBlobChild,
-//                                                BluetoothReplyRunnable* aRunnable)
-// {
-//   // Parent-process-only method
-//   MOZ_CRASH("This should never be called!");
-// }
+void
+BluetoothServiceChildProcess::SendMessageEvent(uint8_t aMasId,
+                                               BlobImpl* aBlob,
+                                               BluetoothReplyRunnable* aRunnable)
+{
+  IPCBlob ipcBlob;
+  nsresult rv =
+      IPCBlobUtils::Serialize(aBlob, ContentChild::GetSingleton(), ipcBlob);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return;
+  }
+  SendRequest(aRunnable,
+              SendMessageEventRequest(aMasId, ipcBlob));
+}
 
 // void
 // BluetoothServiceChildProcess::ConnectGattClientInternal(

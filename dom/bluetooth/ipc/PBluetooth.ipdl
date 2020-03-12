@@ -211,20 +211,20 @@ struct ReplyToFolderListingRequest
   nsString folderList;
 };
 
-// struct ReplyToMessagesListingRequest
-// {
-//   uint8_t masId;
-//   PBlob blob;
-//   bool newMessage;
-//   nsString timeStamp;
-//   uint16_t size;
-// };
+struct ReplyToMessagesListingRequest
+{
+  uint8_t masId;
+  IPCBlob blob;
+  bool newMessage;
+  nsString timeStamp;
+  uint16_t size;
+};
 
-// struct ReplyToGetMessageRequest
-// {
-//   uint8_t masId;
-//   PBlob blob;
-// };
+struct ReplyToGetMessageRequest
+{
+  uint8_t masId;
+  IPCBlob blob;
+};
 
 struct ReplyToSetMessageStatusRequest
 {
@@ -274,11 +274,11 @@ struct SendPlayStatusRequest
   ControlPlayStatus playStatus;
 };
 
-// struct SendMessageEventRequest
-// {
-//   uint8_t masId;
-//   PBlob blob;
-// };
+struct SendMessageEventRequest
+{
+  uint8_t masId;
+  IPCBlob blob;
+};
 
 // struct ConnectGattClientRequest
 // {
@@ -482,8 +482,8 @@ union Request
   ReplyToPhonebookPullingRequest;
   ReplyTovCardListingRequest;
   ReplyToFolderListingRequest;
-//  ReplyToMessagesListingRequest;
-//  ReplyToGetMessageRequest;
+  ReplyToMessagesListingRequest;
+  ReplyToGetMessageRequest;
   ReplyToSetMessageStatusRequest;
   ReplyToSendMessageRequest;
   ReplyToMessageUpdateRequest;
@@ -492,7 +492,7 @@ union Request
   ToggleCallsRequest;
   SendMetaDataRequest;
   SendPlayStatusRequest;
-//  SendMessageEventRequest;
+  SendMessageEventRequest;
 //  ConnectGattClientRequest;
 //  DisconnectGattClientRequest;
 //  DiscoverGattServicesRequest;
