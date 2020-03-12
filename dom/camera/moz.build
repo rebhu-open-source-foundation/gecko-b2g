@@ -49,9 +49,9 @@ if CONFIG['MOZ_B2G_CAMERA']:
             LOCAL_INCLUDES += [
                 '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
                     'frameworks/av/media/libaudioclient/include',
-                    'out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_arm_armv8-a_cortex-a53_core_shared/gen/aidl',
-                    'out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_arm_armv8-a_cortex-a53_core_shared/gen/aidl',
-                    'out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_arm_armv8-a_cortex-a53_core_shared/gen/aidl',
+                    'out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
+                    'out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
+                    'out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
                     'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
                     'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
                     'system/core/libprocessgroup/include',

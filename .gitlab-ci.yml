@@ -67,6 +67,9 @@ build:arm:
     - export GONK_PRODUCT_NAME=msm8937_32go
     - export GET_FRAMEBUFFER_FORMAT_FROM_HWC=1
     - export PLATFORM_VERSION=29
+    - export TARGET_ARCH=arm
+    - export TARGET_ARCH_VARIANT=armv8-a
+    - export TARGET_CPU_VARIANT=cortex-a53
     - ./build-b2g.sh
     - ./build-b2g.sh package
   artifacts:
