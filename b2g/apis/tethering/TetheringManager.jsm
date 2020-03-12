@@ -160,7 +160,7 @@ TetheringManager.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([TetheringManager]);
+this.EXPORTED_SYMBOLS = ["TetheringManager"];
 
 var debug;
 if (DEBUG) {

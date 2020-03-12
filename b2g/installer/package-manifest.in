@@ -174,12 +174,6 @@
 @RESPATH@/components/CameraTestHardware.manifest
 #endif // MOZ_B2G_CAMERA
 
-; Tethering
-#ifdef MOZ_WIDGET_GONK
-@RESPATH@/components/TetheringManager.js
-@RESPATH@/components/TetheringManager.manifest
-#endif
-
 ; ResourceStats
 #ifdef MOZ_WIDGET_GONK
 @RESPATH@/components/ResourceStats.js
