@@ -122,13 +122,13 @@ GLCursorImageManager::LoadCursorTask::~LoadCursorTask()
 {
 }
 
-NS_IMETHODIMP
+void
 GLCursorImageManager::LoadCursorTask::Notify(imgIRequest* aProxy,
                                              int32_t aType,
                                              const nsIntRect* aRect)
 {
   if (aType != imgINotificationObserver::DECODE_COMPLETE) {
-    return NS_OK;
+    return;
   }
 
   int32_t width, height;
@@ -159,7 +159,7 @@ GLCursorImageManager::LoadCursorTask::Notify(imgIRequest* aProxy,
     new RemoveLoadCursorTaskOnMainThread(mCursor,
                                          mManager));
 
-  return NS_OK;
+  return;
 }
 
 GLCursorImageManager::GLCursorImageManager()

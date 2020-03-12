@@ -80,9 +80,9 @@ private:
 
     // This callback function will be called on main thread and notify the
     // status of image decoding process.
-    NS_IMETHODIMP Notify(imgIRequest* aProxy,
-                         int32_t aType,
-                         const nsIntRect* aRect) override;
+    void Notify(imgIRequest* aProxy,
+                int32_t aType,
+                const nsIntRect* aRect) override;
   private:
     ~LoadCursorTask();
     nsCursor mCursor;
