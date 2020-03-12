@@ -101,7 +101,7 @@ static inline void PropagateTransitiveParseFlags(const T* inner, U* outer) {
 static bool StatementKindIsBraced(StatementKind kind) {
   return kind == StatementKind::Block || kind == StatementKind::Switch ||
          kind == StatementKind::Try || kind == StatementKind::Catch ||
-         kind == StatementKind::Finally || kind == StatementKind::Class;
+         kind == StatementKind::Finally;
 }
 
 template <class ParseHandler, typename Unit>
@@ -595,28 +595,6 @@ bool PerHandlerParser<ParseHandler>::noteDestructuredPositionalFormalParameter(
 }
 
 template <class ParseHandler, typename Unit>
-bool GeneralParser<ParseHandler, Unit>::
-    checkLexicalDeclarationDirectlyWithinBlock(ParseContext::Statement& stmt,
-                                               DeclarationKind kind,
-                                               TokenPos pos) {
-  MOZ_ASSERT(DeclarationKindIsLexical(kind));
-
-  // It is an early error to declare a lexical binding not directly
-  // within a block.
-  if (!StatementKindIsBraced(stmt.kind()) &&
-      stmt.kind() != StatementKind::ForLoopLexicalHead) {
-    errorAt(pos.begin,
-            stmt.kind() == StatementKind::Label
-                ? JSMSG_LEXICAL_DECL_LABEL
-                : JSMSG_LEXICAL_DECL_NOT_IN_BLOCK,
-            DeclarationKindString(kind));
-    return false;
-  }
-
-  return true;
-}
-
-template <class ParseHandler, typename Unit>
 bool GeneralParser<ParseHandler, Unit>::noteDeclaredName(
     HandlePropertyName name, DeclarationKind kind, TokenPos pos) {
   // The asm.js validator does all its own symbol-table management so, as an
@@ -733,24 +711,6 @@ bool GeneralParser<ParseHandler, Unit>::noteDeclaredName(
         return false;
       }
 
-      [[fallthrough]];
-
-    case DeclarationKind::Import:
-      // Module code is always strict, so 'let' is always a keyword and never a
-      // name.
-      MOZ_ASSERT(name != cx_->names().let);
-      [[fallthrough]];
-
-    case DeclarationKind::SimpleCatchParameter:
-    case DeclarationKind::CatchParameter: {
-      if (ParseContext::Statement* stmt = pc_->innermostStatement()) {
-        if (!checkLexicalDeclarationDirectlyWithinBlock(*stmt, kind, pos)) {
-          return false;
-        }
-      }
-
-      ParseContext::Scope* scope = pc_->innermostScope();
-
       // For body-level lexically declared names in a function, it is an
       // early error if there is a formal parameter of the same name. This
       // needs a special check if there is an extra var scope due to
@@ -762,6 +722,18 @@ bool GeneralParser<ParseHandler, Unit>::noteDeclaredName(
           return false;
         }
       }
+
+      [[fallthrough]];
+
+    case DeclarationKind::Import:
+      // Module code is always strict, so 'let' is always a keyword and never a
+      // name.
+      MOZ_ASSERT(name != cx_->names().let);
+      [[fallthrough]];
+
+    case DeclarationKind::SimpleCatchParameter:
+    case DeclarationKind::CatchParameter: {
+      ParseContext::Scope* scope = pc_->innermostScope();
 
       // It is an early error if there is another declaration with the same
       // name in the same scope.
@@ -8773,35 +8745,6 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::assignExpr(
 }
 
 template <class ParseHandler>
-bool PerHandlerParser<ParseHandler>::isValidSimpleAssignmentTarget(
-    Node node,
-    FunctionCallBehavior behavior /* = ForbidAssignmentToFunctionCalls */) {
-  // Note that this method implements *only* a boolean test.  Reporting an
-  // error for the various syntaxes that fail this, and warning for the
-  // various syntaxes that "pass" this but should not, occurs elsewhere.
-
-  if (handler_.isName(node)) {
-    if (!pc_->sc()->strict()) {
-      return true;
-    }
-
-    return !nameIsArgumentsOrEval(node);
-  }
-
-  if (handler_.isPropertyAccess(node)) {
-    return true;
-  }
-
-  if (behavior == PermitAssignmentToFunctionCalls) {
-    if (handler_.isFunctionCall(node)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-template <class ParseHandler>
 const char* PerHandlerParser<ParseHandler>::nameIsArgumentsOrEval(Node node) {
   MOZ_ASSERT(handler_.isName(node),
              "must only call this function on known names");
@@ -8837,10 +8780,6 @@ bool GeneralParser<ParseHandler, Unit>::checkIncDecOperand(
     errorAt(operandOffset, JSMSG_BAD_INCOP_OPERAND);
     return false;
   }
-
-  MOZ_ASSERT(
-      isValidSimpleAssignmentTarget(operand, PermitAssignmentToFunctionCalls),
-      "inconsistent increment/decrement operand validation");
   return true;
 }
 

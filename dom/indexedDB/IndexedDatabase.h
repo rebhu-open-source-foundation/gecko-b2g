@@ -58,7 +58,7 @@ struct StructuredCloneFile {
   inline explicit StructuredCloneFile(RefPtr<IDBMutableFile> aMutableFile);
 
   // In IndexedDatabaseInlines.h
-  inline ~StructuredCloneFile();
+  ~StructuredCloneFile();
 
   // In IndexedDatabaseInlines.h
   inline bool operator==(const StructuredCloneFile& aOther) const;
@@ -111,58 +111,104 @@ struct StructuredCloneFile {
 };
 
 struct StructuredCloneReadInfo {
-  JSStructuredCloneData mData;
-  nsTArray<StructuredCloneFile> mFiles;
-  IDBDatabase* mDatabase;
-  bool mHasPreprocessInfo;
+  // In IndexedDatabaseInlines.h
+  explicit StructuredCloneReadInfo(JS::StructuredCloneScope aScope);
 
   // In IndexedDatabaseInlines.h
-  inline explicit StructuredCloneReadInfo(JS::StructuredCloneScope aScope);
+  StructuredCloneReadInfo();
 
   // In IndexedDatabaseInlines.h
-  inline StructuredCloneReadInfo();
-
-  // In IndexedDatabaseInlines.h
-  inline StructuredCloneReadInfo(JSStructuredCloneData&& aData,
-                                 nsTArray<StructuredCloneFile> aFiles,
-                                 IDBDatabase* aDatabase,
-                                 bool aHasPreprocessInfo);
+  StructuredCloneReadInfo(JSStructuredCloneData&& aData,
+                          nsTArray<StructuredCloneFile> aFiles);
 
 #ifdef NS_BUILD_REFCNT_LOGGING
   // In IndexedDatabaseInlines.h
-  inline ~StructuredCloneReadInfo();
+  ~StructuredCloneReadInfo();
 
   // In IndexedDatabaseInlines.h
   //
   // This custom implementation of the move ctor is only necessary because of
   // MOZ_COUNT_CTOR. It is less efficient as the compiler-generated move ctor,
   // since it unnecessarily clears elements on the source.
-  inline StructuredCloneReadInfo(StructuredCloneReadInfo&& aOther) noexcept;
-
-  // In IndexedDatabaseInlines.h
-  //
-  // This custom implementation of the move assignment operator is only there
-  // for symmetry with the move ctor. It is less efficient as the
-  // compiler-generated move assignment operator, since it unnecessarily clears
-  // elements on the source.
-  inline StructuredCloneReadInfo& operator=(
-      StructuredCloneReadInfo&& aOther) noexcept;
+  StructuredCloneReadInfo(StructuredCloneReadInfo&& aOther) noexcept;
 #else
   StructuredCloneReadInfo(StructuredCloneReadInfo&& aOther) = default;
+#endif
   StructuredCloneReadInfo& operator=(StructuredCloneReadInfo&& aOther) =
       default;
-#endif
 
   StructuredCloneReadInfo(const StructuredCloneReadInfo& aOther) = delete;
   StructuredCloneReadInfo& operator=(const StructuredCloneReadInfo& aOther) =
       delete;
 
   // In IndexedDatabaseInlines.h
-  inline size_t Size() const;
+  size_t Size() const;
+
+  const JSStructuredCloneData& Data() const { return mData; }
+  JSStructuredCloneData ReleaseData() { return std::move(mData); }
+
+  // XXX This is only needed for a schema upgrade (UpgradeSchemaFrom19_0To20_0).
+  // If support for older schemas is dropped, we can probably remove this method
+  // and make mFiles InitializedOnce.
+  StructuredCloneFile& MutableFile(const size_t aIndex) {
+    return mFiles[aIndex];
+  }
+  const nsTArray<StructuredCloneFile>& Files() const { return mFiles; }
+
+  nsTArray<StructuredCloneFile> ReleaseFiles() { return std::move(mFiles); }
+
+  bool HasFiles() const { return !mFiles.IsEmpty(); }
+
+ private:
+  JSStructuredCloneData mData;
+  nsTArray<StructuredCloneFile> mFiles;
 };
+
+struct StructuredCloneReadInfoChild : StructuredCloneReadInfo {
+  inline StructuredCloneReadInfoChild(JSStructuredCloneData&& aData,
+                                      nsTArray<StructuredCloneFile> aFiles,
+                                      IDBDatabase* aDatabase);
+
+  IDBDatabase* Database() const { return mDatabase; }
+
+ private:
+  IDBDatabase* mDatabase;
+};
+
+// This is only defined in the header file to satisfy the clang-plugin static
+// analysis, it could be placed in ActorsParent.cpp otherwise.
+struct StructuredCloneReadInfoParent : StructuredCloneReadInfo {
+  StructuredCloneReadInfoParent(JSStructuredCloneData&& aData,
+                                nsTArray<StructuredCloneFile> aFiles,
+                                bool aHasPreprocessInfo)
+      : StructuredCloneReadInfo{std::move(aData), std::move(aFiles)},
+        mHasPreprocessInfo{aHasPreprocessInfo} {}
+
+  bool HasPreprocessInfo() const { return mHasPreprocessInfo; }
+
+ private:
+  bool mHasPreprocessInfo;
+};
+
+JSObject* CommonStructuredCloneReadCallback(
+    JSContext* aCx, JSStructuredCloneReader* aReader,
+    const JS::CloneDataPolicy& aCloneDataPolicy, uint32_t aTag, uint32_t aData,
+    StructuredCloneReadInfo* aCloneReadInfo, IDBDatabase* aDatabase);
+
+template <typename StructuredCloneReadInfoType>
+JSObject* StructuredCloneReadCallback(
+    JSContext* aCx, JSStructuredCloneReader* aReader,
+    const JS::CloneDataPolicy& aCloneDataPolicy, uint32_t aTag, uint32_t aData,
+    void* aClosure);
 
 }  // namespace indexedDB
 }  // namespace dom
 }  // namespace mozilla
+
+DECLARE_USE_COPY_CONSTRUCTORS(mozilla::dom::indexedDB::StructuredCloneReadInfo);
+DECLARE_USE_COPY_CONSTRUCTORS(
+    mozilla::dom::indexedDB::StructuredCloneReadInfoChild);
+DECLARE_USE_COPY_CONSTRUCTORS(
+    mozilla::dom::indexedDB::StructuredCloneReadInfoParent);
 
 #endif  // mozilla_dom_indexeddatabase_h__

@@ -147,6 +147,7 @@ class SharedPlanarYCbCrImage;
 class SharedSurfacesAnimation;
 class PlanarYCbCrImage;
 class TextureClient;
+class TextureClientRecycleAllocator;
 class KnowsCompositor;
 class NVImage;
 #ifdef XP_WIN
@@ -549,6 +550,8 @@ class ImageContainer final : public SupportsWeakPtr<ImageContainer> {
 
   ImageFactory* GetImageFactory() const { return mImageFactory; }
 
+  void EnsureRecycleAllocatorForRDD(KnowsCompositor* aKnowsCompositor);
+
 #ifdef XP_WIN
   D3D11YCbCrRecycleAllocator* GetD3D11YCbCrRecycleAllocator(
       KnowsCompositor* aKnowsCompositor);
@@ -632,6 +635,8 @@ class ImageContainer final : public SupportsWeakPtr<ImageContainer> {
   // RecursiveMutex to protect thread safe access to the "current
   // image", and any other state which is shared between threads.
   RecursiveMutex mRecursiveMutex;
+
+  RefPtr<TextureClientRecycleAllocator> mRecycleAllocator;
 
 #ifdef XP_WIN
   RefPtr<D3D11YCbCrRecycleAllocator> mD3D11YCbCrRecycleAllocator;

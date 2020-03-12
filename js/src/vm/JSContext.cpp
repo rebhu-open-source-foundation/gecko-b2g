@@ -694,6 +694,7 @@ static bool ExpandErrorArgumentsHelper(JSContext* cx, JSErrorCallback callback,
 
   if (efs) {
     SetExnType(reportp, efs->exnType);
+    reportp->errorMessageName = efs->name;
 
     MOZ_ASSERT_IF(argumentsType == ArgumentsAreASCII,
                   JS::StringIsASCII(efs->format));
@@ -986,10 +987,9 @@ void js::ReportIsNullOrUndefinedForPropertyAccess(JSContext* cx, HandleValue v,
                            NullOrUndefinedToCharZ(v));
 }
 
-bool js::ReportValueErrorFlags(JSContext* cx, unsigned flags,
-                               const unsigned errorNumber, int spindex,
-                               HandleValue v, HandleString fallback,
-                               const char* arg1, const char* arg2) {
+bool js::ReportValueError(JSContext* cx, const unsigned errorNumber,
+                          int spindex, HandleValue v, HandleString fallback,
+                          const char* arg1, const char* arg2) {
   MOZ_ASSERT(js_ErrorFormatString[errorNumber].argCount >= 1);
   MOZ_ASSERT(js_ErrorFormatString[errorNumber].argCount <= 3);
   UniqueChars bytes = DecompileValueGenerator(cx, spindex, v, fallback);
@@ -997,8 +997,9 @@ bool js::ReportValueErrorFlags(JSContext* cx, unsigned flags,
     return false;
   }
 
-  return JS_ReportErrorFlagsAndNumberUTF8(cx, flags, GetErrorMessage, nullptr,
-                                          errorNumber, bytes.get(), arg1, arg2);
+  JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr, errorNumber,
+                           bytes.get(), arg1, arg2);
+  return false;
 }
 
 JSObject* js::CreateErrorNotesArray(JSContext* cx, JSErrorReport* report) {

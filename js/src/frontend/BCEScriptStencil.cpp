@@ -6,15 +6,15 @@
 
 #include "frontend/BCEScriptStencil.h"
 
-#include "frontend/AbstractScope.h"    // AbstractScope
-#include "frontend/BytecodeEmitter.h"  // BytecodeEmitter
-#include "frontend/BytecodeSection.h"  // BytecodeSection, PerScriptData
+#include "frontend/AbstractScopePtr.h"  // AbstractScopePtr
+#include "frontend/BytecodeEmitter.h"   // BytecodeEmitter
+#include "frontend/BytecodeSection.h"   // BytecodeSection, PerScriptData
 
 using namespace js;
 using namespace js::frontend;
 
 BCEScriptStencil::BCEScriptStencil(BytecodeEmitter& bce, uint32_t nslots)
-    : bce_(bce) {
+    : ScriptStencil(bce.cx), bce_(bce) {
   init(nslots);
 }
 
@@ -52,6 +52,7 @@ void BCEScriptStencil::init(uint32_t nslots) {
   code = bce_.bytecodeSection().code();
   notes = bce_.bytecodeSection().notes();
 
+  gcThings = bce_.perScriptData().gcThingList().stealGCThings();
   if (isFunction) {
     functionBox = bce_.sc->asFunctionBox();
   }
@@ -59,7 +60,7 @@ void BCEScriptStencil::init(uint32_t nslots) {
 
 bool BCEScriptStencil::getNeedsFunctionEnvironmentObjects() const {
   // See JSFunction::needsCallObject()
-  js::AbstractScope bodyScope = bce_.bodyScope();
+  js::AbstractScopePtr bodyScope = bce_.bodyScope();
   if (bodyScope.kind() == js::ScopeKind::Function) {
     if (bodyScope.hasEnvironment()) {
       return true;
@@ -67,7 +68,7 @@ bool BCEScriptStencil::getNeedsFunctionEnvironmentObjects() const {
   }
 
   // See JSScript::maybeNamedLambdaScope()
-  js::AbstractScope outerScope = bce_.outermostScope();
+  js::AbstractScopePtr outerScope = bce_.outermostScope();
   if (outerScope.kind() == js::ScopeKind::NamedLambda ||
       outerScope.kind() == js::ScopeKind::StrictNamedLambda) {
     MOZ_ASSERT(bce_.sc->asFunctionBox()->isNamedLambda());
@@ -81,10 +82,8 @@ bool BCEScriptStencil::getNeedsFunctionEnvironmentObjects() const {
 }
 
 bool BCEScriptStencil::finishGCThings(
-    JSContext* cx, mozilla::Span<JS::GCCellPtr> gcthings) const {
-  return EmitScriptThingsVector(cx, bce_.compilationInfo,
-                                bce_.perScriptData().gcThingList().objects(),
-                                gcthings);
+    JSContext* cx, mozilla::Span<JS::GCCellPtr> output) const {
+  return EmitScriptThingsVector(cx, bce_.compilationInfo, gcThings, output);
 }
 
 void BCEScriptStencil::initAtomMap(GCPtrAtom* atoms) const {

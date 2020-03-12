@@ -12,6 +12,7 @@
 #endif
 
 #include "FileInfo.h"
+#include "FileManager.h"
 #include "IDBMutableFile.h"
 #include "mozilla/dom/indexedDB/PBackgroundIDBSharedTypes.h"
 #include "mozilla/dom/DOMStringList.h"
@@ -74,7 +75,7 @@ inline bool StructuredCloneFile::operator==(
 
 inline StructuredCloneReadInfo::StructuredCloneReadInfo(
     JS::StructuredCloneScope aScope)
-    : mData(aScope), mDatabase(nullptr), mHasPreprocessInfo(false) {
+    : mData(aScope) {
   MOZ_COUNT_CTOR(StructuredCloneReadInfo);
 }
 
@@ -83,47 +84,22 @@ inline StructuredCloneReadInfo::StructuredCloneReadInfo()
           JS::StructuredCloneScope::DifferentProcessForIndexedDB) {}
 
 inline StructuredCloneReadInfo::StructuredCloneReadInfo(
-    JSStructuredCloneData&& aData, nsTArray<StructuredCloneFile> aFiles,
-    IDBDatabase* aDatabase, bool aHasPreprocessInfo)
-    : mData{std::move(aData)},
-      mFiles{std::move(aFiles)},
-      mDatabase{aDatabase},
-      mHasPreprocessInfo{aHasPreprocessInfo} {
+    JSStructuredCloneData&& aData, nsTArray<StructuredCloneFile> aFiles)
+    : mData{std::move(aData)}, mFiles{std::move(aFiles)} {
   MOZ_COUNT_CTOR(StructuredCloneReadInfo);
 }
 
 #ifdef NS_BUILD_REFCNT_LOGGING
 inline StructuredCloneReadInfo::StructuredCloneReadInfo(
     StructuredCloneReadInfo&& aOther) noexcept
-    : mData(std::move(aOther.mData)) {
-  MOZ_ASSERT(&aOther != this);
+    : mData{std::move(aOther.mData)}, mFiles{std::move(aOther.mFiles)} {
   MOZ_COUNT_CTOR(StructuredCloneReadInfo);
-
-  mFiles.Clear();
-  mFiles.SwapElements(aOther.mFiles);
-  mDatabase = aOther.mDatabase;
-  aOther.mDatabase = nullptr;
-  mHasPreprocessInfo = aOther.mHasPreprocessInfo;
-  aOther.mHasPreprocessInfo = false;
 }
 
 inline StructuredCloneReadInfo::~StructuredCloneReadInfo() {
   MOZ_COUNT_DTOR(StructuredCloneReadInfo);
 }
 
-inline StructuredCloneReadInfo& StructuredCloneReadInfo::operator=(
-    StructuredCloneReadInfo&& aOther) noexcept {
-  MOZ_ASSERT(&aOther != this);
-
-  mData = std::move(aOther.mData);
-  mFiles.Clear();
-  mFiles.SwapElements(aOther.mFiles);
-  mDatabase = aOther.mDatabase;
-  aOther.mDatabase = nullptr;
-  mHasPreprocessInfo = aOther.mHasPreprocessInfo;
-  aOther.mHasPreprocessInfo = false;
-  return *this;
-}
 #endif
 
 inline size_t StructuredCloneReadInfo::Size() const {
@@ -137,6 +113,12 @@ inline size_t StructuredCloneReadInfo::Size() const {
 
   return size;
 }
+
+inline StructuredCloneReadInfoChild::StructuredCloneReadInfoChild(
+    JSStructuredCloneData&& aData, nsTArray<StructuredCloneFile> aFiles,
+    IDBDatabase* aDatabase)
+    : StructuredCloneReadInfo{std::move(aData), std::move(aFiles)},
+      mDatabase{aDatabase} {}
 
 template <typename E, typename Map>
 RefPtr<DOMStringList> CreateSortedDOMStringList(const nsTArray<E>& aArray,
@@ -154,6 +136,24 @@ RefPtr<DOMStringList> CreateSortedDOMStringList(const nsTArray<E>& aArray,
   }
 
   return list;
+}
+
+template <typename StructuredCloneReadInfoType>
+JSObject* StructuredCloneReadCallback(
+    JSContext* const aCx, JSStructuredCloneReader* const aReader,
+    const JS::CloneDataPolicy& aCloneDataPolicy, const uint32_t aTag,
+    const uint32_t aData, void* const aClosure) {
+  auto* const database = [aClosure]() -> IDBDatabase* {
+    if constexpr (std::is_same_v<StructuredCloneReadInfoType,
+                                 StructuredCloneReadInfoChild>) {
+      return static_cast<StructuredCloneReadInfoChild*>(aClosure)->Database();
+    }
+    Unused << aClosure;
+    return nullptr;
+  }();
+  return CommonStructuredCloneReadCallback(
+      aCx, aReader, aCloneDataPolicy, aTag, aData,
+      static_cast<StructuredCloneReadInfo*>(aClosure), database);
 }
 
 }  // namespace indexedDB

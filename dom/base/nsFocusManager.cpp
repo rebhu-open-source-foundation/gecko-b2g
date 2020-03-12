@@ -359,6 +359,7 @@ InputContextAction::Cause nsFocusManager::GetFocusMoveActionCause(
 
 NS_IMETHODIMP
 nsFocusManager::GetActiveWindow(mozIDOMWindowProxy** aWindow) {
+  // TODO mActiveWindow in content process
   NS_IF_ADDREF(*aWindow = mActiveWindow);
   return NS_OK;
 }
@@ -742,7 +743,17 @@ nsFocusManager::WindowLowered(mozIDOMWindowProxy* aWindow) {
     }
   }
 
-  if (mActiveWindow != window) return NS_OK;
+  if (XRE_IsParentProcess()) {
+    if (mActiveWindow != window) {
+      return NS_OK;
+    }
+  } else {
+    BrowsingContext* bc = window->GetBrowsingContext();
+    BrowsingContext* active = GetActiveBrowsingContext();
+    if (active != bc->Top()) {
+      return NS_OK;
+    }
+  }
 
   // clear the mouse capture as the active window has changed
   PresShell::ReleaseCapturingContent();
@@ -769,7 +780,7 @@ nsFocusManager::WindowLowered(mozIDOMWindowProxy* aWindow) {
   // keep track of the window being lowered, so that attempts to raise the
   // window can be prevented until we return. Otherwise, focus can get into
   // an unusual state.
-  mWindowBeingLowered = mActiveWindow;
+  mWindowBeingLowered = window;
   mActiveWindow = nullptr;
   if (!XRE_IsParentProcess()) {
     BrowsingContext* bc = window->GetBrowsingContext();
@@ -996,6 +1007,8 @@ nsFocusManager::WindowHidden(mozIDOMWindowProxy* aWindow) {
     // not happen if nsIAppStartup::eForceQuit is used to quit, and can cause
     // a leak. So if the active window is being destroyed, call WindowLowered
     // directly.
+
+    // TODO mActiveWindow in content process
     if (mActiveWindow == mFocusedWindow || mActiveWindow == window)
       WindowLowered(mActiveWindow);
     else
@@ -1391,12 +1404,28 @@ void nsFocusManager::SetFocusInner(Element* aNewContent, int32_t aFlags,
   if (StaticPrefs::full_screen_api_exit_on_windowRaise() &&
       !isElementInActiveWindow &&
       aFlags & (FLAG_RAISE | FLAG_NONSYSTEMCALLER)) {
-    if (Document* doc = mActiveWindow ? mActiveWindow->GetDoc() : nullptr) {
-      if (doc->GetFullscreenElement()) {
-        if (XRE_IsParentProcess()) {
+    if (XRE_IsParentProcess()) {
+      if (Document* doc = mActiveWindow ? mActiveWindow->GetDoc() : nullptr) {
+        if (doc->GetFullscreenElement()) {
           LogWarningFullscreenWindowRaise(mFocusedElement);
+          Document::AsyncExitFullscreen(doc);
         }
-        Document::AsyncExitFullscreen(doc);
+      }
+    } else {
+      BrowsingContext* activeBrowsingContext = GetActiveBrowsingContext();
+      if (activeBrowsingContext) {
+        nsIDocShell* shell = activeBrowsingContext->GetDocShell();
+        if (shell) {
+          Document* doc = shell->GetDocument();
+          if (doc && doc->GetFullscreenElement()) {
+            Document::AsyncExitFullscreen(doc);
+          }
+        } else {
+          mozilla::dom::ContentChild* contentChild =
+              mozilla::dom::ContentChild::GetSingleton();
+          MOZ_ASSERT(contentChild);
+          contentChild->SendMaybeExitFullscreen(activeBrowsingContext);
+        }
       }
     }
   }
@@ -2012,9 +2041,27 @@ bool nsFocusManager::BlurImpl(BrowsingContext* aBrowsingContextToClear,
     // if the object being blurred is a remote browser, deactivate remote
     // content
     if (BrowserParent* remote = BrowserParent::GetFrom(element)) {
+      MOZ_ASSERT(XRE_IsParentProcess());
+      // First, let's deactivate all out-of-process iframes.
+      BrowsingContext* topLevelBrowsingContext = remote->GetBrowsingContext();
+      topLevelBrowsingContext->PreOrderWalk([&](BrowsingContext* aContext) {
+        WindowGlobalParent* windowGlobalParent =
+            aContext->Canonical()->GetCurrentWindowGlobal();
+        if (windowGlobalParent) {
+          RefPtr<BrowserParent> browserParent =
+              windowGlobalParent->GetBrowserParent();
+          if (browserParent) {
+            browserParent->Deactivate(windowBeingLowered);
+            LOGFOCUS(("OOP iframe remote browser deactivated %p, %d", remote,
+                      windowBeingLowered));
+          }
+        }
+      });
+
+      // Now deactivate the top-level Web page.
       remote->Deactivate(windowBeingLowered);
-      LOGFOCUS(
-          ("Remote browser deactivated %p, %d", remote, windowBeingLowered));
+      LOGFOCUS(("Top-level Remote browser deactivated %p, %d", remote,
+                windowBeingLowered));
     }
 
     // Same as above but for out-of-process iframes
@@ -2540,13 +2587,31 @@ void nsFocusManager::RaiseWindow(nsPIDOMWindowOuter* aWindow,
                                  CallerType aCallerType) {
   // don't raise windows that are already raised or are in the process of
   // being lowered
-  if (!aWindow || aWindow == mActiveWindow || aWindow == mWindowBeingLowered)
+
+  if (!aWindow || aWindow == mWindowBeingLowered) {
     return;
+  }
+
+  if (XRE_IsParentProcess()) {
+    if (aWindow == mActiveWindow) {
+      return;
+    }
+  } else {
+    // We can only test for top-level Web content. We can't return
+    // early for out-of-process iframes, because when they need to
+    // to be "raised", their top-level Web content may already be
+    // "raised".
+    if (aWindow->GetBrowsingContext() == GetActiveBrowsingContext()) {
+      return;
+    }
+  }
 
   if (sTestMode) {
     // In test mode, emulate the existing window being lowered and the new
     // window being raised. This happens in a separate runnable to avoid
     // touching multiple windows in the current runnable.
+
+    // TODO mActiveWindow in content process
     nsCOMPtr<nsPIDOMWindowOuter> active(mActiveWindow);
     nsCOMPtr<nsPIDOMWindowOuter> window(aWindow);
     RefPtr<nsFocusManager> self(this);

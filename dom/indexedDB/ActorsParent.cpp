@@ -27,11 +27,14 @@
 #include "mozilla/AutoRestore.h"
 #include "mozilla/Casting.h"
 #include "mozilla/CheckedInt.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/CycleCollectedJSRuntime.h"
 #include "mozilla/EndianUtils.h"
 #include "mozilla/ErrorNames.h"
+#include "mozilla/JSObjectHolder.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/NullPrincipal.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Result.h"
 #include "mozilla/ResultExtensions.h"
@@ -46,7 +49,6 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/FileBlobImpl.h"
-#include "mozilla/dom/StructuredCloneTags.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/filehandle/ActorsParent.h"
 #include "mozilla/dom/indexedDB/PBackgroundIDBCursorParent.h"
@@ -103,6 +105,7 @@
 #include "nsITimer.h"
 #include "nsIURI.h"
 #include "nsIURIMutator.h"
+#include "nsIXPConnect.h"
 #include "nsNetUtil.h"
 #include "nsPrintfCString.h"
 #include "nsQueryObject.h"
@@ -5533,7 +5536,7 @@ class DatabaseOperationBase : public Runnable,
 
   bool HasFailed() const { return NS_FAILED(mResultCode); }
 
-  static Result<StructuredCloneReadInfo, nsresult>
+  static Result<StructuredCloneReadInfoParent, nsresult>
   GetStructuredCloneReadInfoFromStatement(mozIStorageStatement* aStatement,
                                           uint32_t aDataIndex,
                                           uint32_t aFileIdsIndex,
@@ -5570,7 +5573,7 @@ class DatabaseOperationBase : public Runnable,
 
   static uint64_t ReinterpretDoubleAsUInt64(double aDouble);
 
-  static Result<StructuredCloneReadInfo, nsresult>
+  static Result<StructuredCloneReadInfoParent, nsresult>
   GetStructuredCloneReadInfoFromValueArray(mozIStorageValueArray* aValues,
                                            uint32_t aDataIndex,
                                            uint32_t aFileIdsIndex,
@@ -5620,18 +5623,18 @@ class DatabaseOperationBase : public Runnable,
 
  private:
   template <typename T>
-  static Result<StructuredCloneReadInfo, nsresult>
+  static Result<StructuredCloneReadInfoParent, nsresult>
   GetStructuredCloneReadInfoFromSource(T* aSource, uint32_t aDataIndex,
                                        uint32_t aFileIdsIndex,
                                        const FileManager& aFileManager);
 
-  static Result<StructuredCloneReadInfo, nsresult>
+  static Result<StructuredCloneReadInfoParent, nsresult>
   GetStructuredCloneReadInfoFromBlob(const uint8_t* aBlobData,
                                      uint32_t aBlobDataLength,
                                      const FileManager& aFileManager,
                                      const nsAString& aFileIds);
 
-  static Result<StructuredCloneReadInfo, nsresult>
+  static Result<StructuredCloneReadInfoParent, nsresult>
   GetStructuredCloneReadInfoFromExternalBlob(uint64_t aIntData,
                                              const FileManager& aFileManager,
                                              const nsAString& aFileIds);
@@ -6123,6 +6126,9 @@ class Database final
   mozilla::ipc::IPCResult RecvBlocked() override;
 
   mozilla::ipc::IPCResult RecvClose() override;
+
+  template <typename T>
+  static bool InvalidateAll(const nsTHashtable<nsPtrHashKey<T>>& aTable);
 };
 
 class Database::StartTransactionOp final
@@ -7700,7 +7706,7 @@ class ObjectStoreGetRequestOp final : public NormalTransactionOp {
   const IndexOrObjectStoreId mObjectStoreId;
   RefPtr<Database> mDatabase;
   const Maybe<SerializedKeyRange> mOptionalKeyRange;
-  AutoTArray<StructuredCloneReadInfo, 1> mResponse;
+  AutoTArray<StructuredCloneReadInfoParent, 1> mResponse;
   PBackgroundParent* mBackgroundParent;
   uint32_t mPreprocessInfoCount;
   const uint32_t mLimit;
@@ -7714,7 +7720,7 @@ class ObjectStoreGetRequestOp final : public NormalTransactionOp {
   ~ObjectStoreGetRequestOp() override = default;
 
   template <bool aForPreprocess, typename T>
-  nsresult ConvertResponse(StructuredCloneReadInfo& aInfo, T& aResult);
+  nsresult ConvertResponse(StructuredCloneReadInfoParent& aInfo, T& aResult);
 
   nsresult DoDatabaseWork(DatabaseConnection* aConnection) override;
 
@@ -10106,9 +10112,9 @@ struct ValuePopulateResponseHelper {
       return cloneInfoOrErr.unwrapErr();
     }
 
-    mCloneInfo = cloneInfoOrErr.unwrap();
+    mCloneInfo.init(cloneInfoOrErr.unwrap());
 
-    if (mCloneInfo.mHasPreprocessInfo) {
+    if (mCloneInfo->HasPreprocessInfo()) {
       IDB_WARNING("Preprocessing for cursors not yet implemented!");
       return NS_ERROR_NOT_IMPLEMENTED;
     }
@@ -10118,14 +10124,16 @@ struct ValuePopulateResponseHelper {
 
   template <typename Response>
   void MaybeFillCloneInfo(Response* const aResponse, FilesArray* const aFiles) {
-    aResponse->cloneInfo().data().data = std::move(mCloneInfo.mData);
+    auto cloneInfo = mCloneInfo.release();
+    aResponse->cloneInfo().data().data = cloneInfo.ReleaseData();
 
     // TODO (Bug 1620632) On gcc, the following fails to compile:
-    //     aFiles->AppendElement(std::move(mCloneInfo.mFiles));
+    //     aFiles->AppendElement(cloneInfo.ReleaseFiles());
     // so we construct a FallibleTArray and swap the elements...
 
+    auto files = cloneInfo.ReleaseFiles();
     FallibleTArray<mozilla::dom::indexedDB::StructuredCloneFile> temp;
-    temp.SwapElements(mCloneInfo.mFiles);
+    temp.SwapElements(files);
     aFiles->AppendElement(std::move(temp));
   }
 
@@ -10135,8 +10143,9 @@ struct ValuePopulateResponseHelper {
   }
 
  private:
-  StructuredCloneReadInfo mCloneInfo{
-      JS::StructuredCloneScope::DifferentProcess};
+  InitializedOnce<const StructuredCloneReadInfoParent,
+                  LazyInit::AllowResettable>
+      mCloneInfo;
 };
 
 template <>
@@ -10248,6 +10257,318 @@ nsresult DispatchAndReturnFileReferences(
   }
 
   return NS_OK;
+}
+
+// This class helps to create only 1 sandbox.
+class SandboxHolder final {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(SandboxHolder)
+
+  static JSObject* GetSandbox(JSContext* aCx) {
+    SandboxHolder* holder = GetOrCreate();
+    return holder->GetSandboxInternal(aCx);
+  }
+
+ private:
+  ~SandboxHolder() = default;
+
+  static SandboxHolder* GetOrCreate() {
+    MOZ_ASSERT(XRE_IsParentProcess());
+    MOZ_ASSERT(NS_IsMainThread());
+
+    static StaticRefPtr<SandboxHolder> sHolder;
+    if (!sHolder) {
+      sHolder = new SandboxHolder();
+      ClearOnShutdown(&sHolder);
+    }
+    return sHolder;
+  }
+
+  JSObject* GetSandboxInternal(JSContext* aCx) {
+    if (!mSandbox) {
+      nsIXPConnect* const xpc = nsContentUtils::XPConnect();
+      MOZ_ASSERT(xpc, "This should never be null!");
+
+      // Let's use a null principal.
+      const nsCOMPtr<nsIPrincipal> principal =
+          NullPrincipal::CreateWithoutOriginAttributes();
+
+      JS::Rooted<JSObject*> sandbox(aCx);
+      nsresult rv = xpc->CreateSandbox(aCx, principal, sandbox.address());
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return nullptr;
+      }
+
+      mSandbox = new JSObjectHolder(aCx, sandbox);
+    }
+
+    return mSandbox->GetJSObject();
+  }
+
+  RefPtr<JSObjectHolder> mSandbox;
+};
+
+class DeserializeIndexValueHelper final : public Runnable {
+ public:
+  DeserializeIndexValueHelper(int64_t aIndexID, const KeyPath& aKeyPath,
+                              bool aMultiEntry, const nsCString& aLocale,
+                              StructuredCloneReadInfoParent& aCloneReadInfo,
+                              nsTArray<IndexUpdateInfo>& aUpdateInfoArray)
+      : Runnable("DeserializeIndexValueHelper"),
+        mMonitor("DeserializeIndexValueHelper::mMonitor"),
+        mIndexID(aIndexID),
+        mKeyPath(aKeyPath),
+        mMultiEntry(aMultiEntry),
+        mLocale(aLocale),
+        mCloneReadInfo(aCloneReadInfo),
+        mUpdateInfoArray(aUpdateInfoArray),
+        mStatus(NS_ERROR_FAILURE) {}
+
+  void DispatchAndWait(ErrorResult& aRv) {
+    // We don't need to go to the main-thread and use the sandbox. Let's create
+    // the updateInfo data here.
+    if (!mCloneReadInfo.Data().Size()) {
+      AutoJSAPI jsapi;
+      jsapi.Init();
+
+      JS::Rooted<JS::Value> value(jsapi.cx());
+      value.setUndefined();
+
+      IDBObjectStore::AppendIndexUpdateInfo(mIndexID, mKeyPath, mMultiEntry,
+                                            mLocale, jsapi.cx(), value,
+                                            &mUpdateInfoArray, &aRv);
+      return;
+    }
+
+    // The operation will continue on the main-thread.
+
+    MOZ_ASSERT(!(mCloneReadInfo.Data().Size() % sizeof(uint64_t)));
+
+    MonitorAutoLock lock(mMonitor);
+
+    RefPtr<Runnable> self = this;
+    const nsresult rv =
+        SystemGroup::Dispatch(TaskCategory::Other, self.forget());
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      aRv.Throw(rv);
+      return;
+    }
+
+    lock.Wait();
+    aRv = mStatus;
+  }
+
+  NS_IMETHOD
+  Run() override {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    AutoJSAPI jsapi;
+    jsapi.Init();
+    JSContext* const cx = jsapi.cx();
+
+    JS::Rooted<JSObject*> global(cx, SandboxHolder::GetSandbox(cx));
+    if (NS_WARN_IF(!global)) {
+      OperationCompleted(NS_ERROR_FAILURE);
+      return NS_OK;
+    }
+
+    const JSAutoRealm ar(cx, global);
+
+    JS::Rooted<JS::Value> value(cx);
+    const nsresult rv = DeserializeIndexValue(cx, &value);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      OperationCompleted(rv);
+      return NS_OK;
+    }
+
+    ErrorResult errorResult;
+    IDBObjectStore::AppendIndexUpdateInfo(mIndexID, mKeyPath, mMultiEntry,
+                                          mLocale, cx, value, &mUpdateInfoArray,
+                                          &errorResult);
+    if (NS_WARN_IF(errorResult.Failed())) {
+      OperationCompleted(errorResult.StealNSResult());
+      return NS_OK;
+    }
+
+    OperationCompleted(NS_OK);
+    return NS_OK;
+  }
+
+ private:
+  nsresult DeserializeIndexValue(JSContext* aCx,
+                                 JS::MutableHandle<JS::Value> aValue) {
+    static const JSStructuredCloneCallbacks callbacks = {
+        StructuredCloneReadCallback<StructuredCloneReadInfoParent>,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr};
+
+    if (!JS_ReadStructuredClone(
+            aCx, mCloneReadInfo.Data(), JS_STRUCTURED_CLONE_VERSION,
+            JS::StructuredCloneScope::DifferentProcessForIndexedDB, aValue,
+            JS::CloneDataPolicy(), &callbacks, &mCloneReadInfo)) {
+      return NS_ERROR_DOM_DATA_CLONE_ERR;
+    }
+
+    return NS_OK;
+  }
+
+  void OperationCompleted(nsresult aStatus) {
+    mStatus = aStatus;
+
+    MonitorAutoLock lock(mMonitor);
+    lock.Notify();
+  }
+
+  Monitor mMonitor;
+
+  const int64_t mIndexID;
+  const KeyPath& mKeyPath;
+  const bool mMultiEntry;
+  const nsCString mLocale;
+  StructuredCloneReadInfoParent& mCloneReadInfo;
+  nsTArray<IndexUpdateInfo>& mUpdateInfoArray;
+  nsresult mStatus;
+};
+
+class DeserializeUpgradeValueHelper final : public Runnable {
+ public:
+  explicit DeserializeUpgradeValueHelper(
+      StructuredCloneReadInfoParent& aCloneReadInfo)
+      : Runnable("DeserializeUpgradeValueHelper"),
+        mMonitor("DeserializeUpgradeValueHelper::mMonitor"),
+        mCloneReadInfo(aCloneReadInfo),
+        mStatus(NS_ERROR_FAILURE) {}
+
+  nsresult DispatchAndWait(nsAString& aFileIds) {
+    // We don't need to go to the main-thread and use the sandbox.
+    if (!mCloneReadInfo.Data().Size()) {
+      PopulateFileIds(aFileIds);
+      return NS_OK;
+    }
+
+    // The operation will continue on the main-thread.
+
+    MOZ_ASSERT(!(mCloneReadInfo.Data().Size() % sizeof(uint64_t)));
+
+    MonitorAutoLock lock(mMonitor);
+
+    RefPtr<Runnable> self = this;
+    const nsresult rv =
+        SystemGroup::Dispatch(TaskCategory::Other, self.forget());
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    lock.Wait();
+
+    if (NS_FAILED(mStatus)) {
+      return mStatus;
+    }
+
+    PopulateFileIds(aFileIds);
+    return NS_OK;
+  }
+
+  NS_IMETHOD
+  Run() override {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    AutoJSAPI jsapi;
+    jsapi.Init();
+    JSContext* cx = jsapi.cx();
+
+    JS::Rooted<JSObject*> global(cx, SandboxHolder::GetSandbox(cx));
+    if (NS_WARN_IF(!global)) {
+      OperationCompleted(NS_ERROR_FAILURE);
+      return NS_OK;
+    }
+
+    const JSAutoRealm ar(cx, global);
+
+    JS::Rooted<JS::Value> value(cx);
+    const nsresult rv = DeserializeUpgradeValue(cx, &value);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      OperationCompleted(rv);
+      return NS_OK;
+    }
+
+    OperationCompleted(NS_OK);
+    return NS_OK;
+  }
+
+ private:
+  nsresult DeserializeUpgradeValue(JSContext* aCx,
+                                   JS::MutableHandle<JS::Value> aValue) {
+    static const JSStructuredCloneCallbacks callbacks = {
+        StructuredCloneReadCallback<StructuredCloneReadInfoParent>,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr};
+
+    if (!JS_ReadStructuredClone(
+            aCx, mCloneReadInfo.Data(), JS_STRUCTURED_CLONE_VERSION,
+            JS::StructuredCloneScope::DifferentProcessForIndexedDB, aValue,
+            JS::CloneDataPolicy(), &callbacks, &mCloneReadInfo)) {
+      return NS_ERROR_DOM_DATA_CLONE_ERR;
+    }
+
+    return NS_OK;
+  }
+
+  void PopulateFileIds(nsAString& aFileIds) {
+    for (uint32_t count = mCloneReadInfo.Files().Length(), index = 0;
+         index < count; index++) {
+      const StructuredCloneFile& file = mCloneReadInfo.Files()[index];
+
+      const int64_t id = file.FileInfo().Id();
+
+      if (index) {
+        aFileIds.Append(' ');
+      }
+      aFileIds.AppendInt(file.Type() == StructuredCloneFile::eBlob ? id : -id);
+    }
+  }
+
+  void OperationCompleted(nsresult aStatus) {
+    mStatus = aStatus;
+
+    MonitorAutoLock lock(mMonitor);
+    lock.Notify();
+  }
+
+  Monitor mMonitor;
+  StructuredCloneReadInfoParent& mCloneReadInfo;
+  nsresult mStatus;
+};
+
+void DeserializeIndexValueToUpdateInfos(
+    int64_t aIndexID, const KeyPath& aKeyPath, bool aMultiEntry,
+    const nsCString& aLocale, StructuredCloneReadInfoParent& aCloneReadInfo,
+    nsTArray<IndexUpdateInfo>& aUpdateInfoArray, ErrorResult& aRv) {
+  MOZ_ASSERT(!NS_IsMainThread());
+
+  const RefPtr<DeserializeIndexValueHelper> helper =
+      new DeserializeIndexValueHelper(aIndexID, aKeyPath, aMultiEntry, aLocale,
+                                      aCloneReadInfo, aUpdateInfoArray);
+  helper->DispatchAndWait(aRv);
+}
+
+nsresult DeserializeUpgradeValueToFileIds(
+    StructuredCloneReadInfoParent& aCloneReadInfo, nsAString& aFileIds) {
+  MOZ_ASSERT(!NS_IsMainThread());
+
+  const RefPtr<DeserializeUpgradeValueHelper> helper =
+      new DeserializeUpgradeValueHelper(aCloneReadInfo);
+  return helper->DispatchAndWait(aFileIds);
 }
 
 }  // namespace
@@ -13452,79 +13773,42 @@ Database::Database(RefPtr<Factory> aFactory,
   mDirectoryLockId = mDirectoryLock->Id();
 }
 
-void Database::Invalidate() {
+template <typename T>
+bool Database::InvalidateAll(const nsTHashtable<nsPtrHashKey<T>>& aTable) {
   AssertIsOnBackgroundThread();
 
-  class MOZ_STACK_CLASS Helper final {
-   public:
-    static bool InvalidateTransactions(
-        nsTHashtable<nsPtrHashKey<TransactionBase>>& aTable) {
-      AssertIsOnBackgroundThread();
+  const uint32_t count = aTable.Count();
+  if (!count) {
+    return true;
+  }
 
-      const uint32_t count = aTable.Count();
-      if (!count) {
-        return true;
-      }
+  FallibleTArray<RefPtr<T>> elementsToInvalidate;
+  if (NS_WARN_IF(!elementsToInvalidate.SetCapacity(count, fallible))) {
+    return false;
+  }
 
-      FallibleTArray<RefPtr<TransactionBase>> transactions;
-      if (NS_WARN_IF(!transactions.SetCapacity(count, fallible))) {
-        return false;
-      }
-
-      for (auto iter = aTable.Iter(); !iter.Done(); iter.Next()) {
-        if (NS_WARN_IF(
-                !transactions.AppendElement(iter.Get()->GetKey(), fallible))) {
-          return false;
-        }
-      }
-
-      if (count) {
-        IDB_REPORT_INTERNAL_ERR();
-
-        for (auto& transaction : transactions) {
-          MOZ_ASSERT(transaction);
-
-          transaction->Invalidate();
-        }
-      }
-
-      return true;
+  for (auto iter = aTable.ConstIter(); !iter.Done(); iter.Next()) {
+    if (NS_WARN_IF(!elementsToInvalidate.AppendElement(iter.Get()->GetKey(),
+                                                       fallible))) {
+      return false;
     }
+  }
 
-    static bool InvalidateMutableFiles(
-        nsTHashtable<nsPtrHashKey<MutableFile>>& aTable) {
-      AssertIsOnBackgroundThread();
+  if (count) {
+    IDB_REPORT_INTERNAL_ERR();
 
-      const uint32_t count = aTable.Count();
-      if (!count) {
-        return true;
-      }
+    for (const auto& elementToInvalidate : elementsToInvalidate) {
+      MOZ_ASSERT(elementToInvalidate);
 
-      FallibleTArray<RefPtr<MutableFile>> mutableFiles;
-      if (NS_WARN_IF(!mutableFiles.SetCapacity(count, fallible))) {
-        return false;
-      }
-
-      for (auto iter = aTable.Iter(); !iter.Done(); iter.Next()) {
-        if (NS_WARN_IF(
-                !mutableFiles.AppendElement(iter.Get()->GetKey(), fallible))) {
-          return false;
-        }
-      }
-
-      if (count) {
-        IDB_REPORT_INTERNAL_ERR();
-
-        for (auto& mutableFile : mutableFiles) {
-          MOZ_ASSERT(mutableFile);
-
-          mutableFile->Invalidate();
-        }
-      }
-
-      return true;
+      elementToInvalidate->Invalidate();
     }
-  };
+  }
+
+  return true;
+}
+
+void Database::Invalidate() {
+  AssertIsOnBackgroundThread();
 
   if (mInvalidated) {
     return;
@@ -13536,11 +13820,11 @@ void Database::Invalidate() {
     Unused << SendInvalidate();
   }
 
-  if (!Helper::InvalidateTransactions(mTransactions)) {
+  if (!InvalidateAll(mTransactions)) {
     NS_WARNING("Failed to abort all transactions!");
   }
 
-  if (!Helper::InvalidateMutableFiles(mMutableFiles)) {
+  if (!InvalidateAll(mMutableFiles)) {
     NS_WARNING("Failed to abort all mutable files!");
   }
 
@@ -19155,7 +19439,7 @@ UpgradeFileIdsFunction::OnFunctionCall(mozIStorageValueArray* aArguments,
 
   nsAutoString fileIds;
   // XXX does this really need non-const cloneInfo?
-  rv = IDBObjectStore::DeserializeUpgradeValueToFileIds(cloneInfo, fileIds);
+  rv = DeserializeUpgradeValueToFileIds(cloneInfo, fileIds);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return NS_ERROR_DOM_DATA_CLONE_ERR;
   }
@@ -19225,7 +19509,7 @@ uint64_t DatabaseOperationBase::ReinterpretDoubleAsUInt64(double aDouble) {
 
 // static
 template <typename T>
-Result<StructuredCloneReadInfo, nsresult>
+Result<StructuredCloneReadInfoParent, nsresult>
 DatabaseOperationBase::GetStructuredCloneReadInfoFromSource(
     T* aSource, uint32_t aDataIndex, uint32_t aFileIdsIndex,
     const FileManager& aFileManager) {
@@ -19281,7 +19565,7 @@ DatabaseOperationBase::GetStructuredCloneReadInfoFromSource(
 }
 
 // static
-Result<StructuredCloneReadInfo, nsresult>
+Result<StructuredCloneReadInfoParent, nsresult>
 DatabaseOperationBase::GetStructuredCloneReadInfoFromBlob(
     const uint8_t* aBlobData, uint32_t aBlobDataLength,
     const FileManager& aFileManager, const nsAString& aFileIds) {
@@ -19312,25 +19596,27 @@ DatabaseOperationBase::GetStructuredCloneReadInfoFromBlob(
     return Err(NS_ERROR_FILE_CORRUPTED);
   }
 
-  StructuredCloneReadInfo info(JS::StructuredCloneScope::DifferentProcess);
-  if (!info.mData.AppendBytes(uncompressedBuffer, uncompressed.Length())) {
+  JSStructuredCloneData data(JS::StructuredCloneScope::DifferentProcess);
+  if (!data.AppendBytes(uncompressedBuffer, uncompressed.Length())) {
     return Err(NS_ERROR_OUT_OF_MEMORY);
   }
 
+  nsTArray<StructuredCloneFile> files;
   if (!aFileIds.IsVoid()) {
     auto filesOrErr = DeserializeStructuredCloneFiles(aFileManager, aFileIds);
     if (NS_WARN_IF(filesOrErr.isErr())) {
       return Err(filesOrErr.unwrapErr());
     }
 
-    info.mFiles = filesOrErr.unwrap();
+    files = filesOrErr.unwrap();
   }
 
-  return info;
+  return StructuredCloneReadInfoParent{std::move(data), std::move(files),
+                                       false};
 }
 
 // static
-Result<StructuredCloneReadInfo, nsresult>
+Result<StructuredCloneReadInfoParent, nsresult>
 DatabaseOperationBase::GetStructuredCloneReadInfoFromExternalBlob(
     uint64_t aIntData, const FileManager& aFileManager,
     const nsAString& aFileIds) {
@@ -19341,32 +19627,33 @@ DatabaseOperationBase::GetStructuredCloneReadInfoFromExternalBlob(
 
   nsresult rv;
 
-  StructuredCloneReadInfo info(JS::StructuredCloneScope::DifferentProcess);
-
+  nsTArray<StructuredCloneFile> files;
   if (!aFileIds.IsVoid()) {
     auto filesOrErr = DeserializeStructuredCloneFiles(aFileManager, aFileIds);
     if (NS_WARN_IF(filesOrErr.isErr())) {
       return Err(filesOrErr.unwrapErr());
     }
 
-    info.mFiles = filesOrErr.unwrap();
+    files = filesOrErr.unwrap();
   }
 
   // Higher and lower 32 bits described
   // in ObjectStoreAddOrPutRequestOp::DoDatabaseWork.
   const uint32_t index = uint32_t(aIntData & 0xFFFFFFFF);
 
-  if (index >= info.mFiles.Length()) {
+  if (index >= files.Length()) {
     MOZ_ASSERT(false, "Bad index value!");
     return Err(NS_ERROR_UNEXPECTED);
   }
 
   if (IndexedDatabaseManager::PreprocessingEnabled()) {
-    info.mHasPreprocessInfo = true;
-    return info;
+    return StructuredCloneReadInfoParent{
+        JSStructuredCloneData{JS::StructuredCloneScope::DifferentProcess},
+        std::move(files), true};
   }
 
-  StructuredCloneFile& file = info.mFiles[index];
+  // XXX Why can there be multiple files, but we use only a single one here?
+  const StructuredCloneFile& file = files[index];
   MOZ_ASSERT(file.Type() == StructuredCloneFile::eStructuredClone);
 
   const nsCOMPtr<nsIFile> nativeFile =
@@ -19384,6 +19671,7 @@ DatabaseOperationBase::GetStructuredCloneReadInfoFromExternalBlob(
   const auto snappyInputStream =
       MakeRefPtr<SnappyUncompressInputStream>(fileInputStream);
 
+  auto data = JSStructuredCloneData{JS::StructuredCloneScope::DifferentProcess};
   do {
     char buffer[kFileCopyBufferSize];
 
@@ -19397,12 +19685,13 @@ DatabaseOperationBase::GetStructuredCloneReadInfoFromExternalBlob(
       break;
     }
 
-    if (NS_WARN_IF(!info.mData.AppendBytes(buffer, numRead))) {
+    if (NS_WARN_IF(!data.AppendBytes(buffer, numRead))) {
       return Err(NS_ERROR_OUT_OF_MEMORY);
     }
   } while (true);
 
-  return info;
+  return StructuredCloneReadInfoParent{std::move(data), std::move(files),
+                                       false};
 }
 
 // static
@@ -24162,9 +24451,9 @@ CreateIndexOp::UpdateIndexDataValuesFunction::OnFunctionCall(
   AutoTArray<IndexUpdateInfo, 32> updateInfos;
   ErrorResult errorResult;
   // XXX does this really need a non-const cloneInfo?
-  IDBObjectStore::DeserializeIndexValueToUpdateInfos(
-      metadata.id(), metadata.keyPath(), metadata.multiEntry(),
-      metadata.locale(), cloneInfo, updateInfos, errorResult);
+  DeserializeIndexValueToUpdateInfos(metadata.id(), metadata.keyPath(),
+                                     metadata.multiEntry(), metadata.locale(),
+                                     cloneInfo, updateInfos, errorResult);
   if (NS_WARN_IF(errorResult.Failed())) {
     return errorResult.StealNSResult();
   }
@@ -25559,27 +25848,27 @@ ObjectStoreGetRequestOp::ObjectStoreGetRequestOp(
 }
 
 template <typename T>
-void MoveData(StructuredCloneReadInfo& aInfo, T& aResult);
+void MoveData(StructuredCloneReadInfoParent& aInfo, T& aResult);
 
 template <>
 void MoveData<SerializedStructuredCloneReadInfo>(
-    StructuredCloneReadInfo& aInfo,
+    StructuredCloneReadInfoParent& aInfo,
     SerializedStructuredCloneReadInfo& aResult) {
-  aResult.data().data = std::move(aInfo.mData);
-  aResult.hasPreprocessInfo() = aInfo.mHasPreprocessInfo;
+  aResult.data().data = aInfo.ReleaseData();
+  aResult.hasPreprocessInfo() = aInfo.HasPreprocessInfo();
 }
 
 template <>
-void MoveData<PreprocessInfo>(StructuredCloneReadInfo& aInfo,
+void MoveData<PreprocessInfo>(StructuredCloneReadInfoParent& aInfo,
                               PreprocessInfo& aResult) {}
 
 template <bool aForPreprocess, typename T>
 nsresult ObjectStoreGetRequestOp::ConvertResponse(
-    StructuredCloneReadInfo& aInfo, T& aResult) {
+    StructuredCloneReadInfoParent& aInfo, T& aResult) {
   MoveData(aInfo, aResult);
 
   auto res = SerializeStructuredCloneFiles(mBackgroundParent, mDatabase,
-                                           aInfo.mFiles, aForPreprocess);
+                                           aInfo.Files(), aForPreprocess);
   if (NS_WARN_IF(res.isErr())) {
     return res.unwrapErr();
   }
@@ -25642,7 +25931,7 @@ nsresult ObjectStoreGetRequestOp::DoDatabaseWork(
       return Err(cloneInfoOrErr.unwrapErr());
     }
 
-    if (cloneInfoOrErr.inspect().mHasPreprocessInfo) {
+    if (cloneInfoOrErr.inspect().HasPreprocessInfo()) {
       mPreprocessInfoCount++;
     }
 
@@ -25680,7 +25969,7 @@ nsresult ObjectStoreGetRequestOp::GetPreprocessParams(
 
     uint32_t fallibleIndex = 0;
     for (auto& info : mResponse) {
-      if (info.mHasPreprocessInfo) {
+      if (info.HasPreprocessInfo()) {
         nsresult rv = ConvertResponse<true>(
             info, falliblePreprocessInfos[fallibleIndex++]);
         if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -26227,7 +26516,7 @@ nsresult IndexGetRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
       return cloneInfoOrErr.unwrapErr();
     }
 
-    if (cloneInfoOrErr.inspect().mHasPreprocessInfo) {
+    if (cloneInfoOrErr.inspect().HasPreprocessInfo()) {
       IDB_WARNING("Preprocessing for indexes not yet implemented!");
       return NS_ERROR_NOT_IMPLEMENTED;
     }
@@ -26270,10 +26559,10 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
         SerializedStructuredCloneReadInfo& serializedInfo =
             fallibleCloneInfos[index];
 
-        serializedInfo.data().data = std::move(info.mData);
+        serializedInfo.data().data = info.ReleaseData();
 
         auto res = SerializeStructuredCloneFiles(mBackgroundParent, mDatabase,
-                                                 info.mFiles,
+                                                 info.Files(),
                                                  /* aForPreprocess */ false);
         if (NS_WARN_IF(res.isErr())) {
           aResponse = res.unwrapErr();
@@ -26304,11 +26593,11 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
     SerializedStructuredCloneReadInfo& serializedInfo =
         aResponse.get_IndexGetResponse().cloneInfo();
 
-    serializedInfo.data().data = std::move(info.mData);
+    serializedInfo.data().data = info.ReleaseData();
 
-    auto res =
-        SerializeStructuredCloneFiles(mBackgroundParent, mDatabase, info.mFiles,
-                                      /* aForPreprocess */ false);
+    auto res = SerializeStructuredCloneFiles(mBackgroundParent, mDatabase,
+                                             info.Files(),
+                                             /* aForPreprocess */ false);
     if (NS_WARN_IF(res.isErr())) {
       aResponse = res.unwrapErr();
       return;

@@ -2530,7 +2530,7 @@ class nsDisplayItem : public nsDisplayItemBase {
   }
 
   struct HitTestState {
-    explicit HitTestState() : mInPreserves3D(false) {}
+    explicit HitTestState() = default;
 
     ~HitTestState() {
       NS_ASSERTION(mItemBuffer.Length() == 0,
@@ -2538,7 +2538,11 @@ class nsDisplayItem : public nsDisplayItemBase {
     }
 
     // Handling transform items for preserve 3D frames.
-    bool mInPreserves3D;
+    bool mInPreserves3D = false;
+    // When hit-testing for visibility, we may hit a fully opaque item in a
+    // nested display list. We want to stop at that point, without looking
+    // further on other items.
+    bool mHitFullyOpaqueItem = false;
     AutoTArray<nsDisplayItem*, 100> mItemBuffer;
   };
 
@@ -3214,16 +3218,6 @@ class nsPaintedDisplayItem : public nsDisplayItem {
     // TODO(miko): Make this a pure virtual function to force implementation.
     MOZ_ASSERT_UNREACHABLE("Paint() is not implemented!");
   }
-
-  /**
-   * Display items that are guaranteed to produce the same output from
-   * |CreateWebRenderCommands()|, regardless of the surrounding state,
-   * can return true. This allows |DisplayItemCache| to cache the output of
-   * |CreateWebRenderCommands()|, and avoid the call for successive paints, if
-   * the item is reused. If calling |CreateWebRenderCommands()| would not create
-   * any WebRender display items, |CanBeCached()| should return false.
-   */
-  virtual bool CanBeCached() const { return false; }
 
   /**
    * External storage used by |DisplayItemCache| to avoid hashmap lookups.
@@ -4923,8 +4917,6 @@ class nsDisplayBackgroundColor : public nsPaintedDisplayItem {
     }
   }
 
-  bool CanBeCached() const final { return !HasBackgroundClipText(); }
-
   NS_DISPLAY_DECL_NAME("BackgroundColor", TYPE_BACKGROUND_COLOR)
 
   void RestoreState() override {
@@ -5314,12 +5306,6 @@ class nsDisplayCompositorHitTestInfo : public nsDisplayHitTestInfoBase {
       mozilla::UniquePtr<HitTestInfo>&& aHitTestInfo);
 
   MOZ_COUNTED_DTOR_OVERRIDE(nsDisplayCompositorHitTestInfo)
-
-  bool CanBeCached() const final {
-    // Do not try to cache gecko hit test items with empty hit test area,
-    // because they would not create any WebRender display items.
-    return !HitTestArea().IsEmpty();
-  }
 
   NS_DISPLAY_DECL_NAME("CompositorHitTestInfo", TYPE_COMPOSITOR_HITTEST_INFO)
 

@@ -168,12 +168,16 @@ class MessageLogger(object):
         self.logger = logger
         self.structured = structured
         self.gecko_id = 'GECKO'
+        self.is_test_running = False
 
         # Even if buffering is enabled, we only want to buffer messages between
         # TEST-START/TEST-END. So it is off to begin, but will be enabled after
         # a TEST-START comes in.
-        self.buffering = False
+        self._buffering = False
         self.restore_buffering = buffering
+
+        # Guard to ensure we never buffer if this value was initially `False`
+        self._buffering_initially_enabled = buffering
 
         # Message buffering
         self.buffered_messages = []
@@ -245,11 +249,22 @@ class MessageLogger(object):
 
         return messages
 
+    @property
+    def buffering(self):
+        if not self._buffering_initially_enabled:
+            return False
+        return self._buffering
+
+    @buffering.setter
+    def buffering(self, val):
+        self._buffering = val
+
     def process_message(self, message):
         """Processes a structured message. Takes into account buffering, errors, ..."""
         # Activation/deactivating message buffering from the JS side
         if message['action'] == 'buffering_on':
-            self.buffering = True
+            if self.is_test_running:
+                self.buffering = True
             return
         if message['action'] == 'buffering_off':
             self.buffering = False
@@ -283,11 +298,14 @@ class MessageLogger(object):
 
         # If a test ended, we clean the buffer
         if message['action'] == 'test_end':
+            self.is_test_running = False
             self.buffered_messages = []
             self.restore_buffering = self.restore_buffering or self.buffering
             self.buffering = False
 
         if message['action'] == 'test_start':
+            self.is_test_running = True
+
             if self.restore_buffering:
                 self.restore_buffering = False
                 self.buffering = True

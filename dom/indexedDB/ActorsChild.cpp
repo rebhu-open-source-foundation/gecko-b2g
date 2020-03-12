@@ -202,8 +202,8 @@ class MOZ_STACK_CLASS ResultHelper final : public IDBRequest::ResultCallback {
     IDBDatabase* mDatabase;
     IDBCursor* mCursor;
     IDBMutableFile* mMutableFile;
-    StructuredCloneReadInfo* mStructuredClone;
-    nsTArray<StructuredCloneReadInfo>* mStructuredCloneArray;
+    StructuredCloneReadInfoChild* mStructuredClone;
+    nsTArray<StructuredCloneReadInfoChild>* mStructuredCloneArray;
     const Key* mKey;
     const nsTArray<Key>* mKeyArray;
     const JS::Value* mJSVal;
@@ -255,7 +255,7 @@ class MOZ_STACK_CLASS ResultHelper final : public IDBRequest::ResultCallback {
   }
 
   ResultHelper(IDBRequest* aRequest, IDBTransaction* aTransaction,
-               StructuredCloneReadInfo* aResult)
+               StructuredCloneReadInfoChild* aResult)
       : mRequest(aRequest),
         mAutoTransaction(aTransaction),
         mResultType(ResultTypeStructuredClone) {
@@ -266,7 +266,7 @@ class MOZ_STACK_CLASS ResultHelper final : public IDBRequest::ResultCallback {
   }
 
   ResultHelper(IDBRequest* aRequest, IDBTransaction* aTransaction,
-               nsTArray<StructuredCloneReadInfo>* aResult)
+               nsTArray<StructuredCloneReadInfoChild>* aResult)
       : mRequest(aRequest),
         mAutoTransaction(aTransaction),
         mResultType(ResultTypeStructuredCloneArray) {
@@ -388,7 +388,7 @@ class MOZ_STACK_CLASS ResultHelper final : public IDBRequest::ResultCallback {
     return NS_OK;
   }
 
-  nsresult GetResult(JSContext* aCx, StructuredCloneReadInfo&& aCloneInfo,
+  nsresult GetResult(JSContext* aCx, StructuredCloneReadInfoChild&& aCloneInfo,
                      JS::MutableHandle<JS::Value> aResult) {
     const bool ok =
         IDBObjectStore::DeserializeValue(aCx, std::move(aCloneInfo), aResult);
@@ -401,7 +401,7 @@ class MOZ_STACK_CLASS ResultHelper final : public IDBRequest::ResultCallback {
   }
 
   nsresult GetResult(JSContext* aCx,
-                     nsTArray<StructuredCloneReadInfo>&& aCloneInfos,
+                     nsTArray<StructuredCloneReadInfoChild>&& aCloneInfos,
                      JS::MutableHandle<JS::Value> aResult) {
     JS::Rooted<JSObject*> array(aCx, JS::NewArrayObject(aCx, 0));
     if (NS_WARN_IF(!array)) {
@@ -627,13 +627,23 @@ auto DeserializeStructuredCloneFiles(
   return files;
 }
 
-StructuredCloneReadInfo DeserializeStructuredCloneReadInfo(
-    SerializedStructuredCloneReadInfo&& aSerialized, IDBDatabase* aDatabase) {
-  return StructuredCloneReadInfo{
-      std::move(aSerialized.data().data),
-      DeserializeStructuredCloneFiles(aDatabase, aSerialized.files(),
-                                      /* aForPreprocess */ false),
-      aDatabase, aSerialized.hasPreprocessInfo()};
+JSStructuredCloneData PreprocessingNotSupported() {
+  MOZ_CRASH("Preprocessing not (yet) supported!");
+}
+
+template <typename PreprocessInfoAccessor>
+StructuredCloneReadInfoChild DeserializeStructuredCloneReadInfo(
+    SerializedStructuredCloneReadInfo&& aSerialized,
+    IDBDatabase* const aDatabase,
+    PreprocessInfoAccessor preprocessInfoAccessor) {
+  // XXX Make this a class invariant of SerializedStructuredCloneReadInfo.
+  MOZ_ASSERT_IF(aSerialized.hasPreprocessInfo(),
+                0 == aSerialized.data().data.Size());
+  return {aSerialized.hasPreprocessInfo() ? preprocessInfoAccessor()
+                                          : std::move(aSerialized.data().data),
+          DeserializeStructuredCloneFiles(aDatabase, aSerialized.files(),
+                                          /* aForPreprocess */ false),
+          aDatabase};
 }
 
 // TODO: Remove duplication between DispatchErrorEvent and DispatchSucessEvent.
@@ -2668,12 +2678,8 @@ void BackgroundRequestChild::HandleResponse(
   AssertIsOnOwningThread();
 
   auto cloneReadInfo = DeserializeStructuredCloneReadInfo(
-      std::move(aResponse), mTransaction->Database());
-
-  if (cloneReadInfo.mHasPreprocessInfo) {
-    UniquePtr<JSStructuredCloneData> cloneData = GetNextCloneData();
-    cloneReadInfo.mData = std::move(*cloneData);
-  }
+      std::move(aResponse), mTransaction->Database(),
+      [this] { return std::move(*GetNextCloneData()); });
 
   ResultHelper helper(mRequest, mTransaction, &cloneReadInfo);
 
@@ -2684,7 +2690,7 @@ void BackgroundRequestChild::HandleResponse(
     nsTArray<SerializedStructuredCloneReadInfo>&& aResponse) {
   AssertIsOnOwningThread();
 
-  nsTArray<StructuredCloneReadInfo> cloneReadInfos;
+  nsTArray<StructuredCloneReadInfoChild> cloneReadInfos;
 
   if (!aResponse.IsEmpty()) {
     const uint32_t count = aResponse.Length();
@@ -2697,14 +2703,9 @@ void BackgroundRequestChild::HandleResponse(
         MakeBackInserter(cloneReadInfos),
         [database = mTransaction->Database(),
          this](SerializedStructuredCloneReadInfo&& serializedCloneInfo) {
-          auto cloneReadInfo = DeserializeStructuredCloneReadInfo(
-              std::move(serializedCloneInfo), database);
-
-          if (cloneReadInfo.mHasPreprocessInfo) {
-            cloneReadInfo.mData = std::move(*GetNextCloneData());
-          }
-
-          return cloneReadInfo;
+          return DeserializeStructuredCloneReadInfo(
+              std::move(serializedCloneInfo), database,
+              [this] { return std::move(*GetNextCloneData()); });
         });
   }
 
@@ -3615,7 +3616,8 @@ void BackgroundCursorChild<CursorType>::HandleResponse(
         return HandleIndividualCursorResponse(
             useAsCurrentResult, std::move(response.key()),
             DeserializeStructuredCloneReadInfo(std::move(response.cloneInfo()),
-                                               mTransaction->Database()));
+                                               mTransaction->Database(),
+                                               PreprocessingNotSupported));
       });
 }
 
@@ -3645,7 +3647,8 @@ void BackgroundCursorChild<CursorType>::HandleResponse(
             useAsCurrentResult, std::move(response.key()),
             std::move(response.sortKey()), std::move(response.objectKey()),
             DeserializeStructuredCloneReadInfo(std::move(response.cloneInfo()),
-                                               mTransaction->Database()));
+                                               mTransaction->Database(),
+                                               PreprocessingNotSupported));
       });
 }
 

@@ -479,7 +479,7 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
 }
 
 - (NSArray*)accessibilityActionNames {
-  return @[NSAccessibilityScrollToVisibleAction];
+  return @[ NSAccessibilityScrollToVisibleAction ];
 }
 
 - (NSString*)accessibilityActionDescription:(NSString*)action {
@@ -495,34 +495,41 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
     return nil;
   }
 
-  /* If our accessible is labelled by exactly one item, or if its
-   * name is obtained from a subtree, we should let
-   * NSAccessibilityTitleUIElementAttribute determine its label. */
+  nsAutoString name;
+
+  /* If our accessible is:
+   * 1. Named by invisible text, or
+   * 2. Has more than one labeling relation, or
+   * 3. Is a grouping
+   *   ... return its name as a label (AXDescription).
+   */
   if (accWrap) {
-    nsAutoString name;
     ENameValueFlag flag = accWrap->Name(name);
     if (flag == eNameFromSubtree) {
       return nil;
     }
 
-    Relation rel = accWrap->RelationByType(RelationType::LABELLED_BY);
-    if (rel.Next() && !rel.Next()) {
-      return nil;
+    if (mRole != roles::GROUPING && mRole != roles::RADIO_GROUP) {
+      Relation rel = accWrap->RelationByType(RelationType::LABELLED_BY);
+      if (rel.Next() && !rel.Next()) {
+        return nil;
+      }
     }
   } else if (proxy) {
-    nsAutoString name;
     uint32_t flag = proxy->Name(name);
     if (flag == eNameFromSubtree) {
       return nil;
     }
 
-    nsTArray<ProxyAccessible*> rels = proxy->RelationByType(RelationType::LABELLED_BY);
-    if (rels.Length() == 1) {
-      return nil;
+    if (mRole != roles::GROUPING && mRole != roles::RADIO_GROUP) {
+      nsTArray<ProxyAccessible*> rels = proxy->RelationByType(RelationType::LABELLED_BY);
+      if (rels.Length() == 1) {
+        return nil;
+      }
     }
   }
 
-  return [self title];
+  return nsCocoaUtils::ToNSString(name);
 }
 
 - (void)accessibilityPerformAction:(NSString*)action {
@@ -729,8 +736,7 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
   else if (proxy)
     landmark = proxy->LandmarkRole();
 
-  // HTML Elements treated as landmarks
-  // XXX bug 1371712
+  // HTML Elements treated as landmarks, and ARIA landmarks.
   if (landmark) {
     if (landmark == nsGkAtoms::application) return @"AXLandmarkApplication";
     if (landmark == nsGkAtoms::banner) return @"AXLandmarkBanner";
@@ -968,6 +974,11 @@ struct RoleDescrComparator {
 - (NSString*)title {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NIL;
 
+  // If this is a grouping we provide the name in the label (AXDescription).
+  if (mRole == roles::GROUPING || mRole == roles::RADIO_GROUP) {
+    return nil;
+  }
+
   nsAutoString title;
   if (AccessibleWrap* accWrap = [self getGeckoAccessible])
     accWrap->Name(title);
@@ -1171,8 +1182,7 @@ struct RoleDescrComparator {
 - (void)expire {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
-  NSAccessibilityPostNotification(
-      self, NSAccessibilityUIElementDestroyedNotification);
+  NSAccessibilityPostNotification(self, NSAccessibilityUIElementDestroyedNotification);
 
   [self invalidateChildren];
 
