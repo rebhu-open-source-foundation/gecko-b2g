@@ -321,6 +321,10 @@ static TextureType GetTextureType(gfx::SurfaceFormat aFormat,
   }
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+  return TextureType::GrallocBuffer;
+#endif
+
   return TextureType::Unknown;
 }
 
@@ -390,6 +394,20 @@ TextureData* TextureData::Create(TextureForwarder* aAllocator,
     case TextureType::AndroidNativeWindow:
       return AndroidNativeWindowTextureData::Create(aSize, aFormat);
 #endif
+
+#ifdef MOZ_WIDGET_GONK
+    case TextureType::GrallocBuffer:
+      {
+        TextureAllocationFlags allocFlags = aAllocFlags;
+        if (aFormat == SurfaceFormat::R8G8B8X8) {
+          // Skia doesn't support BGRX | RGBX, so ensure we clear the buffer for the proper
+          // alpha values.
+          allocFlags = TextureAllocationFlags(aAllocFlags | ALLOC_CLEAR_BUFFER);
+        }
+        return GrallocTextureData::CreateForDrawing(aSize, aFormat, moz2DBackend, aAllocator, allocFlags);
+      }
+#endif
+
     default:
       return nullptr;
   }
@@ -1219,18 +1237,6 @@ already_AddRefed<TextureClient> TextureClient::CreateForDrawing(
   TextureData* data = TextureData::Create(
       aAllocator, aFormat, aSize, aLayersBackend, aMaxTextureSize, aSelector,
       aTextureFlags, aAllocFlags);
-
-#ifdef MOZ_WIDGET_GONK
-  if (!data) {
-    TextureAllocationFlags allocFlags = aAllocFlags;
-    if (aFormat == SurfaceFormat::B8G8R8X8) {
-      // Skia doesn't support RGBX, so ensure we clear the buffer for the proper
-      // alpha values.
-      allocFlags = TextureAllocationFlags(aAllocFlags | ALLOC_CLEAR_BUFFER);
-    }
-    data = GrallocTextureData::CreateForDrawing(aSize, aFormat, moz2DBackend, aAllocator, allocFlags);
-  }
-#endif
 
   if (data) {
     return MakeAndAddRef<TextureClient>(data, aTextureFlags, aAllocator);

@@ -171,8 +171,9 @@ GrallocTextureHostOGL::GetFormat() const
 void
 GrallocTextureHostOGL::CreateRenderTexture(
     const wr::ExternalImageId& aExternalImageId) {
-  // FIXME: Bug 85054 temp to avoid crash
-  printf_stderr("GrallocTextureHostOGL::CreateRenderTexture :: not implemented yet");
+  mExternalImageId = Some(aExternalImageId);
+
+  CreateEGLImage();
 }
 
 void
@@ -299,12 +300,34 @@ GLenum GetTextureTarget(gl::GLContext* aGL, android::PixelFormat aFormat) {
 }
 
 void
+GrallocTextureHostOGL::CreateEGLImage()
+{
+  gfx::IntSize cropSize(0, 0);
+  if (mCropSize != mSize) {
+    cropSize = mCropSize;
+  }
+  
+  if (mEGLImage == EGL_NO_IMAGE) {
+    android::GraphicBuffer* graphicBuffer = GetGraphicBufferFromDesc(mGrallocHandle).get();
+    MOZ_ASSERT(graphicBuffer);
+
+    mEGLImage = EGLImageCreateFromNativeBuffer(nullptr, graphicBuffer->getNativeBuffer(), cropSize);
+  }
+
+  if (mExternalImageId.isSome()) {
+    RefPtr<wr::RenderTextureHost> texture =
+        new wr::RenderEGLImageTextureHost(mEGLImage, nullptr, cropSize);
+    wr::RenderThread::Get()->RegisterExternalImage(wr::AsUint64(mExternalImageId.ref()), texture.forget());
+  }
+}
+
+void
 GrallocTextureHostOGL::DestroyEGLImage()
 {
   // Only called when we want to get rid of the gralloc buffer, usually
   // around the end of life of the TextureHost.
-  if (mEGLImage != EGL_NO_IMAGE && GetGLContext()) {
-    EGLImageDestroy(GetGLContext(), mEGLImage);
+  if (mEGLImage != EGL_NO_IMAGE) {
+    EGLImageDestroy(nullptr, mEGLImage);
     mEGLImage = EGL_NO_IMAGE;
   }
 }
@@ -361,14 +384,7 @@ GrallocTextureHostOGL::PrepareTextureSource(CompositableTextureSourceRef& aTextu
     return;
   }
 
-  if (mEGLImage == EGL_NO_IMAGE) {
-    gfx::IntSize cropSize(0, 0);
-    if (mCropSize != mSize) {
-      cropSize = mCropSize;
-    }
-    // Should only happen the first time.
-    mEGLImage = EGLImageCreateFromNativeBuffer(gl, graphicBuffer->getNativeBuffer(), cropSize);
-  }
+  CreateEGLImage();
 
   GLenum textureTarget = GetTextureTarget(gl, graphicBuffer->getPixelFormat());
 
@@ -452,6 +468,12 @@ GrallocTextureHostOGL::SetCropRect(nsIntRect aCropRect)
 
   mCropSize = cropSize;
   mGLTextureSource = nullptr;
+
+  // Crop is changed to re-create eglImage for WebRender
+  if (mExternalImageId.isSome()) {
+    DestroyEGLImage();
+    CreateEGLImage();
+  }
 }
 
 bool

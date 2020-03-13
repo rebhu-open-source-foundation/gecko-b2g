@@ -78,6 +78,7 @@ public:
   virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() override { return this; }
 
 private:
+  void CreateEGLImage();
   void DestroyEGLImage();
 
   SurfaceDescriptorGralloc mGrallocHandle;
@@ -91,6 +92,7 @@ private:
   gfx::SurfaceFormat mFormat;
   EGLImage mEGLImage;
   bool mIsOpaque;
+  wr::MaybeExternalImageId mExternalImageId;
 };
 
 } // namespace layers
