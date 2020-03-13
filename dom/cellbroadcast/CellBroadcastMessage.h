@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_cellbroadcast_CellBroadcastMessage_h
 #define mozilla_dom_cellbroadcast_CellBroadcastMessage_h
 
-#include "mozilla/dom/MozCellBroadcastMessageBinding.h"
+#include "mozilla/dom/CellBroadcastMessageBinding.h"
 #include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"

@@ -8,7 +8,8 @@ XPIDL_SOURCES += [
     'nsICellBroadcastService.idl',
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+#if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     XPIDL_SOURCES += [
         'nsICellbroadcastMessenger.idl',
         'nsIGonkCellBroadcastConfigService.idl',

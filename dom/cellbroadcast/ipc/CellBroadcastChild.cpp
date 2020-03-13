@@ -4,23 +4,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "CellBroadcastIPCService.h"
+#include "CellBroadcastChild.h"
 #include "mozilla/dom/ContentChild.h"
 
 namespace mozilla {
 namespace dom {
 namespace cellbroadcast {
 
-NS_IMPL_ISUPPORTS(CellBroadcastIPCService, nsICellBroadcastService)
+NS_IMPL_ISUPPORTS(CellBroadcastChild, nsICellBroadcastService)
 
-CellBroadcastIPCService::CellBroadcastIPCService()
-  : mActorDestroyed(false)
-{
+CellBroadcastChild::CellBroadcastChild() : mActorDestroyed(false) {
   ContentChild::GetSingleton()->SendPCellBroadcastConstructor(this);
 }
 
-CellBroadcastIPCService::~CellBroadcastIPCService()
-{
+CellBroadcastChild::~CellBroadcastChild() {
   if (!mActorDestroyed) {
     Send__delete__(this);
   }
@@ -33,8 +30,7 @@ CellBroadcastIPCService::~CellBroadcastIPCService()
  */
 
 NS_IMETHODIMP
-CellBroadcastIPCService::RegisterListener(nsICellBroadcastListener* aListener)
-{
+CellBroadcastChild::RegisterListener(nsICellBroadcastListener* aListener) {
   MOZ_ASSERT(!mListeners.Contains(aListener));
 
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_UNEXPECTED);
@@ -46,8 +42,7 @@ CellBroadcastIPCService::RegisterListener(nsICellBroadcastListener* aListener)
 }
 
 NS_IMETHODIMP
-CellBroadcastIPCService::UnregisterListener(nsICellBroadcastListener* aListener)
-{
+CellBroadcastChild::UnregisterListener(nsICellBroadcastListener* aListener) {
   MOZ_ASSERT(mListeners.Contains(aListener));
 
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_UNEXPECTED);
@@ -59,15 +54,14 @@ CellBroadcastIPCService::UnregisterListener(nsICellBroadcastListener* aListener)
 }
 
 NS_IMETHODIMP
-CellBroadcastIPCService::SetCBSearchList(uint32_t aClientId, uint32_t aGsmCount, uint16_t *aGsms,
-                                         uint32_t aCdmaCount, uint16_t *aCdmas)
-{
+CellBroadcastChild::SetCBSearchList(uint32_t aClientId, uint32_t aGsmCount,
+                                    uint16_t* aGsms, uint32_t aCdmaCount,
+                                    uint16_t* aCdmas) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-CellBroadcastIPCService::SetCBDisabled(uint32_t aClientId, bool aDisabled)
-{
+CellBroadcastChild::SetCBDisabled(uint32_t aClientId, bool aDisabled) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -75,21 +69,14 @@ CellBroadcastIPCService::SetCBDisabled(uint32_t aClientId, bool aDisabled)
  * Implementation of PCellBroadcastChild.
  */
 
-bool
-CellBroadcastIPCService::RecvNotifyReceivedMessage(const uint32_t& aServiceId,
-                                              const uint32_t& aGsmGeographicalScope,
-                                              const uint16_t& aMessageCode,
-                                              const uint16_t& aMessageId,
-                                              const nsString& aLanguage,
-                                              const nsString& aBody,
-                                              const uint32_t& aMessageClass,
-                                              const uint64_t& aTimestamp,
-                                              const uint32_t& aCdmaServiceCategory,
-                                              const bool& aHasEtwsInfo,
-                                              const uint32_t& aEtwsWarningType,
-                                              const bool& aEtwsEmergencyUserAlert,
-                                              const bool& aEtwsPopup)
-{
+mozilla::ipc::IPCResult CellBroadcastChild::RecvNotifyReceivedMessage(
+    const uint32_t& aServiceId, const uint32_t& aGsmGeographicalScope,
+    const uint16_t& aMessageCode, const uint16_t& aMessageId,
+    const nsString& aLanguage, const nsString& aBody,
+    const uint32_t& aMessageClass, const uint64_t& aTimestamp,
+    const uint32_t& aCdmaServiceCategory, const bool& aHasEtwsInfo,
+    const uint32_t& aEtwsWarningType, const bool& aEtwsEmergencyUserAlert,
+    const bool& aEtwsPopup) {
   // UnregisterListener() could be triggered in
   // nsICellBroadcastListener::NotifyMessageReceived().
   // Make a immutable copy for notifying the event.
@@ -110,12 +97,10 @@ CellBroadcastIPCService::RecvNotifyReceivedMessage(const uint32_t& aServiceId,
                                                  aEtwsPopup);
   }
 
-  return true;
+  return IPC_OK();
 }
 
-void
-CellBroadcastIPCService::ActorDestroy(ActorDestroyReason aWhy)
-{
+void CellBroadcastChild::ActorDestroy(ActorDestroyReason aWhy) {
   mActorDestroyed = true;
 }
 

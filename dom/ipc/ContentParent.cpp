@@ -90,7 +90,7 @@
 #include "mozilla/dom/BrowsingContextGroup.h"
 #include "mozilla/dom/CancelContentJSOptionsBinding.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
-// #include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
+#include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
 #include "mozilla/dom/ClientManager.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/ContentMediaController.h"
@@ -355,7 +355,7 @@ using base::KillProcess;
 
 using namespace CrashReporter;
 using namespace mozilla::dom::bluetooth;
-// using namespace mozilla::dom::cellbroadcast;
+using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::icc;
 using namespace mozilla::dom::power;
@@ -4104,31 +4104,25 @@ bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
 
 // }
 
+PCellBroadcastParent* ContentParent::AllocPCellBroadcastParent() {
+  // if (!AssertAppProcessPermission(this, "cellbroadcast")) {
+  //   return nullptr;
+  // }
 
-// PCellBroadcastParent*
-// ContentParent::AllocPCellBroadcastParent()
-// {
-//   if (!AssertAppProcessPermission(this, "cellbroadcast")) {
-//     return nullptr;
-//   }
+  CellBroadcastParent* actor = new CellBroadcastParent();
+  actor->AddRef();
+  return actor;
+}
 
-//   CellBroadcastParent* actor = new CellBroadcastParent();
-//   actor->AddRef();
-//   return actor;
-// }
+bool ContentParent::DeallocPCellBroadcastParent(PCellBroadcastParent* aActor) {
+  static_cast<CellBroadcastParent*>(aActor)->Release();
+  return true;
+}
 
-// bool
-// ContentParent::DeallocPCellBroadcastParent(PCellBroadcastParent* aActor)
-// {
-//   static_cast<CellBroadcastParent*>(aActor)->Release();
-//   return true;
-// }
-
-// bool
-// ContentParent::RecvPCellBroadcastConstructor(PCellBroadcastParent* aActor)
-// {
-//   return static_cast<CellBroadcastParent*>(aActor)->Init();
-// }
+mozilla::ipc::IPCResult ContentParent::RecvPCellBroadcastConstructor(
+    PCellBroadcastParent* aActor) {
+  return static_cast<CellBroadcastParent*>(aActor)->Init();
+}
 
 // PSmsParent*
 // ContentParent::AllocPSmsParent()

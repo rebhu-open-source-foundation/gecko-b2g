@@ -6,12 +6,12 @@
 
 #include "mozilla/dom/CellBroadcast.h"
 #include "mozilla/dom/CellBroadcastMessage.h"
-#include "mozilla/dom/MozCellBroadcastBinding.h"
-#include "mozilla/dom/MozCellBroadcastEvent.h"
+#include "mozilla/dom/CellBroadcastBinding.h"
+#include "mozilla/dom/CellBroadcastEvent.h"
 #include "nsServiceManagerUtils.h"
 
 // Service instantiation
-#include "ipc/CellBroadcastIPCService.h"
+#include "ipc/CellBroadcastChild.h"
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
 #include "nsIGonkCellBroadcastService.h"
 #endif
@@ -59,12 +59,8 @@ NS_IMPL_ISUPPORTS(CellBroadcast::Listener, nsICellBroadcastListener)
  */
 
 // static
-already_AddRefed<CellBroadcast>
-CellBroadcast::Create(nsPIDOMWindowInner* aWindow, ErrorResult& aRv)
-{
-  MOZ_ASSERT(aWindow);
-  MOZ_ASSERT(aWindow->IsInnerWindow());
-
+already_AddRefed<CellBroadcast> CellBroadcast::Create(nsIGlobalObject* aGlobal,
+                                                      ErrorResult& aRv) {
   nsCOMPtr<nsICellBroadcastService> service =
     do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
   if (!service) {
@@ -72,18 +68,18 @@ CellBroadcast::Create(nsPIDOMWindowInner* aWindow, ErrorResult& aRv)
     return nullptr;
   }
 
-  RefPtr<CellBroadcast> cb = new CellBroadcast(aWindow, service);
+  RefPtr<CellBroadcast> cb = new CellBroadcast(aGlobal, service);
   return cb.forget();
 }
 
-CellBroadcast::CellBroadcast(nsPIDOMWindowInner* aWindow,
+CellBroadcast::CellBroadcast(nsIGlobalObject* aGlobal,
                              nsICellBroadcastService* aService)
-  : DOMEventTargetHelper(aWindow)
-{
+    : DOMEventTargetHelper(aGlobal) {
   mListener = new Listener(this);
-  DebugOnly<nsresult> rv = aService->RegisterListener(mListener);
-  NS_WARN_IF_FALSE(NS_SUCCEEDED(rv),
-                   "Failed registering Cell Broadcast callback");
+  nsresult rv = aService->RegisterListener(mListener);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed registering Cell Broadcast callback");
+  }
 }
 
 CellBroadcast::~CellBroadcast()
@@ -100,12 +96,28 @@ CellBroadcast::~CellBroadcast()
   mListener = nullptr;
 }
 
-NS_IMPL_ISUPPORTS_INHERITED0(CellBroadcast, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_CLASS(CellBroadcast)
+
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(CellBroadcast,
+                                                  DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(CellBroadcast,
+                                                DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CellBroadcast)
+  // CellBroadcast does not expose nsICellBroadcastListener.  mListener is the
+  // exposed nsICellBroadcastListener and forwards the calls it receives to us.
+NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
+
+NS_IMPL_ADDREF_INHERITED(CellBroadcast, DOMEventTargetHelper)
+NS_IMPL_RELEASE_INHERITED(CellBroadcast, DOMEventTargetHelper)
 
 JSObject*
 CellBroadcast::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozCellBroadcastBinding::Wrap(aCx, this, aGivenProto);
+  return CellBroadcast_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // Forwarded nsICellBroadcastListener methods
@@ -124,7 +136,7 @@ CellBroadcast::NotifyMessageReceived(uint32_t aServiceId,
                                      uint32_t aEtwsWarningType,
                                      bool aEtwsEmergencyUserAlert,
                                      bool aEtwsPopup) {
-  MozCellBroadcastEventInit init;
+  CellBroadcastEventInit init;
   init.mBubbles = true;
   init.mCancelable = false;
   init.mMessage = new CellBroadcastMessage(GetOwner(),
@@ -142,8 +154,8 @@ CellBroadcast::NotifyMessageReceived(uint32_t aServiceId,
                                            aEtwsEmergencyUserAlert,
                                            aEtwsPopup);
 
-  RefPtr<MozCellBroadcastEvent> event =
-    MozCellBroadcastEvent::Constructor(this, NS_LITERAL_STRING("received"), init);
+  RefPtr<CellBroadcastEvent> event = CellBroadcastEvent::Constructor(
+      this, NS_LITERAL_STRING("received"), init);
   return DispatchTrustedEvent(event);
 }
 
@@ -153,7 +165,7 @@ NS_CreateCellBroadcastService()
   nsCOMPtr<nsICellBroadcastService> service;
 
   if (XRE_IsContentProcess()) {
-    service = new mozilla::dom::cellbroadcast::CellBroadcastIPCService();
+    service = new mozilla::dom::cellbroadcast::CellBroadcastChild();
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
   } else {
     service = do_GetService(GONK_CELLBROADCAST_SERVICE_CONTRACTID);

@@ -15,7 +15,7 @@ enum CellBroadcastEtwsWarningType {"earthquake", "tsunami",
  Exposed=Window]
 // CheckAnyPermissions="cellbroadcast",
 // AvailableIn="CertifiedApps"]
-interface MozCellBroadcastMessage
+interface CellBroadcastMessage
 {
   /**
    * The Service Id in the device where the message is received from.
@@ -67,7 +67,7 @@ interface MozCellBroadcastMessage
   /**
    * Additional ETWS-specific info.
    */
-  readonly attribute MozCellBroadcastEtwsInfo? etws;
+  readonly attribute CellBroadcastEtwsInfo? etws;
 
   /**
    * Service Category.
@@ -79,7 +79,7 @@ interface MozCellBroadcastMessage
  Exposed=Window]
  //CheckAnyPermissions="cellbroadcast",
  //AvailableIn="CertifiedApps"]
-interface MozCellBroadcastEtwsInfo
+interface CellBroadcastEtwsInfo
 {
   /**
    * Warning type. Possible values are "earthquake", "tsunami",

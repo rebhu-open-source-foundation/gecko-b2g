@@ -1,7 +1,0 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-component {50e98d38-536a-4f13-99c2-7fb2de6bf2e0} GonkCellBroadcastConfigService.js
-contract @mozilla.org/cellbroadcast/gonkconfigservice;1 {50e98d38-536a-4f13-99c2-7fb2de6bf2e0}
-category profile-after-change CellBroadcastConfigService @mozilla.org/cellbroadcast/gonkconfigservice;1

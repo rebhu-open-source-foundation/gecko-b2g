@@ -255,7 +255,7 @@
 #endif
 
 #include "mozilla/dom/File.h"
-//#include "mozilla/dom/cellbroadcast/CellBroadcastIPCService.h"
+#include "mozilla/dom/cellbroadcast/CellBroadcastChild.h"
 #include "mozilla/dom/icc/IccChild.h"
 #include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
 #include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
@@ -313,7 +313,7 @@ using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::ipc;
 // MOZ_B2G_RIL
 //#if define(MOZ_B2G_RIL)
-// using namespace mozilla::dom::cellbroadcast;
+using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::icc;
 using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
@@ -2147,9 +2147,7 @@ bool ContentChild::DeallocPDeviceStorageRequestChild(
 }
 
 // MOZ_B2G_RIL
-/*PCellBroadcastChild*
-ContentChild::AllocPCellBroadcastChild()
-{
+PCellBroadcastChild* ContentChild::AllocPCellBroadcastChild() {
   MOZ_CRASH("No one should be allocating PCellBroadcastChild actors");
 }
 
@@ -2158,7 +2156,7 @@ ContentChild::SendPCellBroadcastConstructor(PCellBroadcastChild* aActor)
 {
   aActor = PContentChild::SendPCellBroadcastConstructor(aActor);
   if (aActor) {
-    static_cast<CellBroadcastIPCService*>(aActor)->AddRef();
+    static_cast<CellBroadcastChild*>(aActor)->AddRef();
   }
 
   return aActor;
@@ -2167,10 +2165,10 @@ ContentChild::SendPCellBroadcastConstructor(PCellBroadcastChild* aActor)
 bool
 ContentChild::DeallocPCellBroadcastChild(PCellBroadcastChild* aActor)
 {
-  static_cast<CellBroadcastIPCService*>(aActor)->Release();
+  static_cast<CellBroadcastChild*>(aActor)->Release();
   return true;
 }
-
+/*
 PSmsChild*
 ContentChild::AllocPSmsChild()
 {

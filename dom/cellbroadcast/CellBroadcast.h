@@ -19,8 +19,7 @@ namespace mozilla {
 namespace dom {
 
 class CellBroadcast final : public DOMEventTargetHelper,
-                                private nsICellBroadcastListener
-{
+                            private nsICellBroadcastListener {
   /**
    * Class CellBroadcast doesn't actually expose nsICellBroadcastListener.
    * Instead, it owns an nsICellBroadcastListener derived instance mListener
@@ -37,17 +36,15 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSICELLBROADCASTLISTENER
 
-  NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(CellBroadcast, DOMEventTargetHelper)
 
-  static already_AddRefed<CellBroadcast>
-  Create(nsPIDOMWindowInner* aOwner, ErrorResult& aRv);
+  static already_AddRefed<CellBroadcast> Create(nsIGlobalObject* aGlobal,
+                                                ErrorResult& aRv);
+
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   CellBroadcast() = delete;
-  CellBroadcast(nsPIDOMWindowInner* aWindow,
-                nsICellBroadcastService* aService);
-
-  nsPIDOMWindowInner*
-  GetParentObject() const { return GetOwner(); }
+  CellBroadcast(nsIGlobalObject* aGlobal, nsICellBroadcastService* aService);
 
   virtual JSObject*
   WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;

@@ -212,7 +212,6 @@ IccService.prototype = {
    * nsIIccService interface.
    */
   getIccByServiceId: function(aServiceId) {
-    console.log("Cameron , getIccByServiceId. aServiceId=" + aServiceId);
     let icc = this._iccs[aServiceId];
     if (!icc) {
       throw Cr.NS_ERROR_UNEXPECTED;

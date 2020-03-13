@@ -5,7 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "CellBroadcastMessage.h"
-#include "mozilla/dom/MozCellBroadcastMessageBinding.h"
+#include "mozilla/dom/CellBroadcastMessageBinding.h"
 #include "nsPIDOMWindow.h"
 #include "nsICellBroadcastService.h"
 
@@ -105,7 +105,7 @@ CellBroadcastMessage::CellBroadcastMessage(nsPIDOMWindowInner* aWindow,
 JSObject*
 CellBroadcastMessage::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozCellBroadcastMessageBinding::Wrap(aCx, this, aGivenProto);
+  return CellBroadcastMessage_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 already_AddRefed<CellBroadcastEtwsInfo>
@@ -147,7 +147,7 @@ CellBroadcastEtwsInfo::CellBroadcastEtwsInfo(nsPIDOMWindowInner* aWindow,
 JSObject*
 CellBroadcastEtwsInfo::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozCellBroadcastEtwsInfoBinding::Wrap(aCx, this, aGivenProto);
+  return CellBroadcastEtwsInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 } // namespace dom

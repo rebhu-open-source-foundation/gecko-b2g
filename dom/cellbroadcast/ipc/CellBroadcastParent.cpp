@@ -13,17 +13,19 @@ namespace cellbroadcast {
 
 NS_IMPL_ISUPPORTS(CellBroadcastParent, nsICellBroadcastListener)
 
-bool
-CellBroadcastParent::Init()
-{
+mozilla::ipc::IPCResult CellBroadcastParent::Init() {
   nsCOMPtr<nsICellBroadcastService> service =
     do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
 
   if (service) {
-    return NS_SUCCEEDED(service->RegisterListener(this));
+    if (NS_SUCCEEDED(service->RegisterListener(this))) {
+      return IPC_OK();
+    } else {
+      return IPC_FAIL_NO_REASON(this);
+    }
   }
 
-  return false;
+  return IPC_FAIL_NO_REASON(this);
 }
 
 void

@@ -4124,6 +4124,12 @@ RadioInterface.prototype = {
           this.rilworker.setCellInfoListRate(message.rilMessageToken);
         }
         break;
+      case "setCellBroadcastDisabled":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GSM_BROADCAST_ACTIVATION disabled = " + message.disabled);
+        break;
+      case "setCellBroadcastSearchList":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GSM_SET_BROADCAST_CONFIG searchList = " + message.searchList);
+        break;
       default:
     }
   },

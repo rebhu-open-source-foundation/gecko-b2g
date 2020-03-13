@@ -38,7 +38,7 @@ include protocol POfflineCacheUpdate;
 #ifdef MOZ_WEBSPEECH
 include protocol PSpeechSynthesis;
 #endif
-//include protocol PCellBroadcast;
+include protocol PCellBroadcast;
 include protocol PIcc;
 //include protocol PSms;
 //include protocol PSubsidyLock;
@@ -528,7 +528,7 @@ nested(upto inside_cpow) sync protocol PContent
 #ifdef MOZ_WEBSPEECH
     manages PSpeechSynthesis;
 #endif
-    //manages PCellBroadcast;
+    manages PCellBroadcast;
     manages PIcc;
     //manages PSms;
     //manages PSubsidyLock;
@@ -1107,7 +1107,7 @@ parent:
 
     async PIcc(uint32_t serviceId);
 
-    //async PCellBroadcast();
+    async PCellBroadcast();
 
     //async PSms();
 

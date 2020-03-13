@@ -7,8 +7,12 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import(
+  "resource://gre/modules/Services.jsm"
+);
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
   let obj = {};
@@ -25,9 +29,9 @@ XPCOMUtils.defineLazyServiceGetter(this, "gCellbroadcastMessenger",
                                    "@mozilla.org/ril/system-messenger-helper;1",
                                    "nsICellbroadcastMessenger");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
-                                   "@mozilla.org/settingsService;1",
-                                   "nsISettingsService");
+// XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
+//                                    "@mozilla.org/settingsService;1",
+//                                    "nsISettingsService");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gGonkCellBroadcastConfigService",
                                    "@mozilla.org/cellbroadcast/gonkconfigservice;1",
@@ -77,7 +81,8 @@ function CellBroadcastService() {
         Services.prefs.getBoolPref(kPrefAppCBConfigurationEnabled) || false;
   } catch (e) {}
 
-  if (CB_SEARCH_LIST_GECKO_CONFIG) {
+  // TODO renable it when nsISetting get ready.
+  if (CB_SEARCH_LIST_GECKO_CONFIG && false) {
     let lock = gSettingsService.createLock();
 
     /**
@@ -112,16 +117,9 @@ function CellBroadcastService() {
 CellBroadcastService.prototype = {
   classID: GONK_CELLBROADCAST_SERVICE_CID,
 
-  classInfo: XPCOMUtils.generateCI({classID: GONK_CELLBROADCAST_SERVICE_CID,
-                                    contractID: GONK_CELLBROADCAST_SERVICE_CONTRACTID,
-                                    classDescription: "CellBroadcastService",
-                                    interfaces: [Ci.nsICellBroadcastService,
-                                                 Ci.nsIGonkCellBroadcastService],
-                                    flags: Ci.nsIClassInfo.SINGLETON}),
-
   QueryInterface: ChromeUtils.generateQI([Ci.nsICellBroadcastService,
                                          Ci.nsIGonkCellBroadcastService,
-                                         Ci.nsISettingsServiceCallback,
+                                        //  Ci.nsISettingsServiceCallback,
                                          Ci.nsIObserver]),
 
   // An array of nsICellBroadcastListener instances.
@@ -203,9 +201,10 @@ CellBroadcastService.prototype = {
             this._cellBroadcastSearchList = aSettings;
           } else {
             // Rollback the change when failure.
-            let lock = gSettingsService.createLock();
-            lock.set(kSettingsCellBroadcastSearchList,
-                     this._cellBroadcastSearchList, null);
+            // TODO Renable it after nsISetting get ready
+            // let lock = gSettingsService.createLock();
+            // lock.set(kSettingsCellBroadcastSearchList,
+            //          this._cellBroadcastSearchList, null);
           }
         }
 
@@ -439,4 +438,4 @@ CellBroadcastService.prototype = {
   }
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([CellBroadcastService]);
+var EXPORTED_SYMBOLS = ["CellBroadcastService"];

@@ -281,7 +281,7 @@ class ContentChild final
   PPrintingChild* AllocPPrintingChild();
 
   bool DeallocPPrintingChild(PPrintingChild*);
-  
+
   PVoicemailChild* AllocPVoicemailChild();
 
   PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
@@ -764,12 +764,12 @@ class ContentChild final
       const FileDescriptor& aFD) override;
 
   // MOZ_B2G_RIL
-  //    virtual PCellBroadcastChild* AllocPCellBroadcastChild();
+  PCellBroadcastChild* AllocPCellBroadcastChild();
 
-  //    PCellBroadcastChild* SendPCellBroadcastConstructor(PCellBroadcastChild*
-  //    aActor);
+  PCellBroadcastChild* SendPCellBroadcastConstructor(
+      PCellBroadcastChild* aActor);
 
-  //    virtual bool DeallocPCellBroadcastChild(PCellBroadcastChild* aActor);
+  bool DeallocPCellBroadcastChild(PCellBroadcastChild* aActor);
 
   //    virtual PSmsChild* AllocPSmsChild();
 

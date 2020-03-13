@@ -13,6 +13,7 @@
 #include "mozilla/dom/TetheringManagerBinding.h"
 
 #ifdef MOZ_B2G_RIL
+#  include "mozilla/dom/CellBroadcast.h"
 #  include "mozilla/dom/IccManager.h"
 #  include "mozilla/dom/Voicemail.h"
 #  include "mozilla/dom/Telephony.h"
@@ -54,6 +55,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
   MobileConnectionArray* GetMobileConnections(ErrorResult& aRv);
   Telephony* GetTelephony(ErrorResult& aRv);
   DataCallManager* GetDataCallManager(ErrorResult& aRv);
+  CellBroadcast* GetCellBroadcast(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
 #ifdef HAS_KOOST_MODULES
@@ -74,6 +76,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
   ~B2G();
   RefPtr<TetheringManager> mTetheringManager;
 #ifdef MOZ_B2G_RIL
+  RefPtr<CellBroadcast> mCellBroadcast;
   RefPtr<IccManager> mIccManager;
   RefPtr<Voicemail> mVoicemail;
   RefPtr<MobileConnectionArray> mMobileConnections;

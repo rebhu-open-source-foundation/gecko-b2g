@@ -99,6 +99,9 @@ interface nsIRilWorker : nsISupports
   void changeIccPinForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
   void changeIccPin2ForApp(in long serial, in AString oldPin, in AString newPin, in AString aid);
   void reportStkServiceIsRunning(in long serial);
+
+  void setGsmBroadcastActivation(in long serial, in boolean activate);
+  void setGsmBroadcastConfig(in long serial, in Array<long> ranges);
 };
 
 /**

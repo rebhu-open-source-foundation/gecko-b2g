@@ -22,9 +22,9 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICELLBROADCASTLISTENER
 
-  bool Init();
+  mozilla::ipc::IPCResult Init();
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~CellBroadcastParent() {};
 

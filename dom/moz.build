@@ -121,6 +121,7 @@ DIRS += ['presentation']
 # MOZ_B2G_RIL
 #if CONFIG['MOZ_B2G']:
 DIRS += [
+    'cellbroadcast',
     'datacall',
     'icc',
     'mobileconnection',

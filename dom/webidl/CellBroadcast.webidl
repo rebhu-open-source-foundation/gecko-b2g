@@ -12,7 +12,7 @@
  Exposed=Window]
 // CheckAnyPermissions="cellbroadcast",
 // AvailableIn="CertifiedApps"]
-interface MozCellBroadcast : EventTarget
+interface CellBroadcast : EventTarget
 {
   /**
    * Cell Broadcast messages received.

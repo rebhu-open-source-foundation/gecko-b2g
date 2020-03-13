@@ -8,13 +8,13 @@
  Exposed=Window]
 // CheckAnyPermissions="cellbroadcast",
 // AvailableIn="CertifiedApps"]
-interface MozCellBroadcastEvent : Event
+interface CellBroadcastEvent : Event
 {
-  constructor(DOMString type, optional MozCellBroadcastEventInit eventInitDict);
-  readonly attribute MozCellBroadcastMessage? message;
+  constructor(DOMString type, optional CellBroadcastEventInit eventInitDict={});
+  readonly attribute CellBroadcastMessage? message;
 };
 
-dictionary MozCellBroadcastEventInit : EventInit
+dictionary CellBroadcastEventInit : EventInit
 {
-  MozCellBroadcastMessage? message = null;
+  CellBroadcastMessage? message = null;
 };

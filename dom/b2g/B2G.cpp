@@ -87,6 +87,19 @@ IccManager* B2G::GetIccManager(ErrorResult& aRv) {
   return mIccManager;
 }
 
+CellBroadcast* B2G::GetCellBroadcast(ErrorResult& aRv) {
+  if (!mCellBroadcast) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mCellBroadcast = CellBroadcast::Create(GetParentObject(), aRv);
+  }
+
+  return mCellBroadcast;
+}
+
 Voicemail*
 B2G::GetVoicemail(ErrorResult& aRv)
 {

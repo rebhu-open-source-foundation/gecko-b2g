@@ -978,6 +978,17 @@ NS_IMETHODIMP nsRilWorker::ReportStkServiceIsRunning(int32_t serial) {
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilWorker::SetGsmBroadcastActivation(int32_t serial,
+                                                     bool activate) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_GSM_BROADCAST_ACTIVATION ", serial);
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetGsmBroadcastConfig(
+    int32_t serial, const nsTArray<int32_t>& ranges) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_GSM_SET_BROADCAST_CONFIG ", serial);
+  return NS_OK;
+}
 
 nsRilWorker::~nsRilWorker() {
   INFO("Destructor nsRilWorker");

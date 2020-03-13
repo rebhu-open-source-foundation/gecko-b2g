@@ -967,11 +967,11 @@ class ContentParent final
   virtual PTelephonyParent* AllocPTelephonyParent();
 
   virtual bool DeallocPTelephonyParent(PTelephonyParent*);
-  
+
   virtual PVoicemailParent* AllocPVoicemailParent();
 
   virtual mozilla::ipc::IPCResult RecvPVoicemailConstructor(PVoicemailParent* aActor) override;
-  
+
   virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
 
   PMediaParent* AllocPMediaParent();
@@ -1027,12 +1027,12 @@ class ContentParent final
 
   //   virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
 
+  virtual PCellBroadcastParent* AllocPCellBroadcastParent();
 
-  //   virtual PCellBroadcastParent* AllocPCellBroadcastParent();
+  virtual bool DeallocPCellBroadcastParent(PCellBroadcastParent*);
 
-  //   virtual bool DeallocPCellBroadcastParent(PCellBroadcastParent*);
-
-  //   virtual bool RecvPCellBroadcastConstructor(PCellBroadcastParent* aActor);
+  virtual mozilla::ipc::IPCResult RecvPCellBroadcastConstructor(
+      PCellBroadcastParent* aActor);
 
   //   virtual PSmsParent* AllocPSmsParent();
 

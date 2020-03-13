@@ -15,8 +15,8 @@ interface nsICellBroadcastListener : nsISupports
                              in unsigned long aGsmGeographicalScope,
                              in unsigned short aMessageCode,
                              in unsigned short aMessageId,
-                             in DOMString aLanguage,
-                             in DOMString aBody,
+                             in AString aLanguage,
+                             in AString aBody,
                              in unsigned long aMessageClass,
                              in DOMTimeStamp aTimestamp,
                              in unsigned long aCdmaServiceCategory,
@@ -28,7 +28,8 @@ interface nsICellBroadcastListener : nsISupports
 
 %{C++
 #define CELLBROADCAST_SERVICE_CID \
-  { 0xc870bdca, 0x277c, 0x11e4, { 0xac, 0xa3, 0x33, 0x73, 0xa1, 0xef, 0x48, 0xf8 } }
+  { 0x6884b093, 0x5f58, 0x44c5, \
+  { 0xa4, 0x34, 0xb2, 0x63, 0x8b, 0xa4, 0xeb, 0x63 } }
 #define CELLBROADCAST_SERVICE_CONTRACTID \
   "@mozilla.org/cellbroadcast/cellbroadcastservice;1"
 %}

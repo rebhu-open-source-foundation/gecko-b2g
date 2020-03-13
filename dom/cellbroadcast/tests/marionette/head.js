@@ -182,11 +182,11 @@ function decodeGsmDataCodingScheme(aDcs) {
 }
 
 /**
- * Push required permissions and test if |navigator.mozCellBroadcast| exists.
+ * Push required permissions and test if |navigator.b2g.cellBroadcast| exists.
  * Resolve if it does, reject otherwise.
  *
  * Fulfill params:
- *   cbManager -- an reference to navigator.mozCellBroadcast.
+ *   cbManager -- an reference to navigator.b2g.cellBroadcast.
  *
  * Reject params: (none)
  *
@@ -210,15 +210,15 @@ function ensureCellBroadcast() {
     workingFrame.addEventListener("load", function load() {
       workingFrame.removeEventListener("load", load);
 
-      cbManager = workingFrame.contentWindow.navigator.mozCellBroadcast;
+      cbManager = workingFrame.contentWindow.navigator.b2g.cellBroadcast;
 
       if (cbManager) {
-        log("navigator.mozCellBroadcast is instance of " + cbManager.constructor);
+        log("navigator.b2g.cellBroadcast is instance of " + cbManager.constructor);
       } else {
-        log("navigator.mozCellBroadcast is undefined.");
+        log("navigator.b2g.cellBroadcast is undefined.");
       }
 
-      if (cbManager instanceof window.MozCellBroadcast) {
+      if (cbManager instanceof window.CellBroadcast) {
         deferred.resolve(cbManager);
       } else {
         deferred.reject();

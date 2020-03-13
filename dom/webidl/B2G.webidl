@@ -45,6 +45,12 @@ partial interface B2G {
   [Throws, Pref="dom.voicemail.enabled"]
   readonly attribute MozVoicemail voicemail;
 };
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.cellbroadcast.enabled"]
+  readonly attribute CellBroadcast cellBroadcast;
+};
 #endif //MOZ_B2G_RIL
 
 #ifdef HAS_KOOST_MODULES

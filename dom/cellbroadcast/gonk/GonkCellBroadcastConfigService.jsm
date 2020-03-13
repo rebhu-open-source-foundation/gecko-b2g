@@ -7,8 +7,12 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import(
+  "resource://gre/modules/Services.jsm"
+);
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
   let obj = {};
@@ -53,10 +57,6 @@ XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
                                    "@mozilla.org/icc/iccservice;1",
                                    "nsIIccService");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
-                                   "@mozilla.org/settingsService;1",
-                                   "nsISettingsService");
-
 XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
                                    "@mozilla.org/mobileconnection/mobileconnectionservice;1",
                                    "nsIMobileConnectionService");
@@ -77,13 +77,6 @@ function GonkCellBroadcastConfigService() {
 }
 GonkCellBroadcastConfigService.prototype = {
   classID:   GONK_CELLBROADCASTCONFIGSERVICE_CID,
-
-  classInfo: XPCOMUtils.generateCI({classID: GONK_CELLBROADCASTCONFIGSERVICE_CID,
-                                    contactID: GONK_CELLBROADCASTCONFIGSERVICE_CONTRACTID,
-                                    classDescription: "Cell Broadcast Cconfiguration Service",
-                                    interfaces: [Ci.nsIGonkCellBroadcastConfigService],
-                                    flags: Ci.nsIClassInfo.SINGLETON}),
-  contactID: GONK_CELLBROADCASTCONFIGSERVICE_CONTRACTID,
 
   QueryInterface: ChromeUtils.generateQI([Ci.nsIGonkCellBroadcastConfigService,
                                          Ci.nsIObserver]),
@@ -429,4 +422,4 @@ GonkCellBroadcastConfigHandler.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([GonkCellBroadcastConfigService]);
+var EXPORTED_SYMBOLS = ["GonkCellBroadcastConfigService"];
