@@ -386,9 +386,9 @@ interface CameraControl : MediaStream
      (depending on your usage model).
 
      once this is called, the camera control object is to be considered
-     defunct; a new instance will need to be created to access the camera.
-  [Throws]
-  Promise<void> release();*/
+     defunct; a new instance will need to be created to access the camera. */
+  [Throws, BinaryName="ReleaseHardware"]
+  Promise<void> release();
 
   /* changes the camera configuration on the fly. */
   [Throws]
