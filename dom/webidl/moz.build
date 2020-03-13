@@ -522,7 +522,7 @@ WEBIDL_FILES = [
     'DOMStringList.webidl',
     'DOMStringMap.webidl',
     'DOMTokenList.webidl',
-    'Downloads.webidl',
+    'DownloadManager.webidl',
     'DragEvent.webidl',
     'DynamicsCompressorNode.webidl',
     'Element.webidl',

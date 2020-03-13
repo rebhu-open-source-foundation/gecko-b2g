@@ -4,39 +4,30 @@
 
 "use strict";
 
-const Cc = Components.classes;
-const Ci = Components.interfaces;
-const Cu = Components.utils;
+this.EXPORTED_SYMBOLS = ["DownloadService"];
 
-this.EXPORTED_SYMBOLS = [];
-
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Downloads.jsm");
-Cu.import("resource://gre/modules/Task.jsm");
-Cu.import("resource://gre/modules/osfile.jsm");
-
-XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
-                                   "@mozilla.org/parentprocessmessagemanager;1",
-                                   "nsIMessageBroadcaster");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Downloads } = ChromeUtils.import(
+  "resource://gre/modules/Downloads.jsm"
+);
+const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 
 /**
-  * Parent process logic that services download API requests from the
-  * DownloadAPI.js instances in content processeses.  The actual work of managing
-  * downloads is done by Toolkit's Downloads.jsm.  This module is loaded by B2G's
-  * shell.js
-  */
+ * Parent process logic that services download API requests from the
+ * DownloadAPI.js instances in content processeses.  The actual work of managing
+ * downloads is done by Toolkit's Downloads.jsm.  This module is loaded by B2G's
+ * shell.js
+ */
 
 function debug(aStr) {
-#ifdef MOZ_DEBUG
-  dump("-*- DownloadsAPI.jsm : " + aStr + "\n");
-#endif
+  dump("-*- DownloadService.jsm : " + aStr + "\n");
 }
 
 function sendPromiseMessage(aMm, aMessageName, aData, aError) {
   debug("sendPromiseMessage " + aMessageName);
   let msg = {
     id: aData.id,
-    promiseId: aData.promiseId
+    promiseId: aData.promiseId,
   };
 
   if (aError) {
@@ -46,37 +37,39 @@ function sendPromiseMessage(aMm, aMessageName, aData, aError) {
   aMm.sendAsyncMessage(aMessageName, msg);
 }
 
-var DownloadsAPI = {
-  init: function() {
+var DownloadService = {
+  init() {
     debug("init");
 
     this._ids = new WeakMap(); // Maps toolkit download objects to ids.
-    this._index = {};          // Maps ids to downloads.
+    this._index = {}; // Maps ids to downloads.
 
-    ["Downloads:GetList",
-     "Downloads:ClearAllDone",
-     "Downloads:Remove",
-     "Downloads:Pause",
-     "Downloads:Resume",
-     "Downloads:Adopt"].forEach((msgName) => {
-      ppmm.addMessageListener(msgName, this);
+    [
+      "Downloads:GetList",
+      "Downloads:ClearAllDone",
+      "Downloads:Remove",
+      "Downloads:Pause",
+      "Downloads:Resume",
+      "Downloads:Adopt",
+    ].forEach(msgName => {
+      Services.ppmm.addMessageListener(msgName, this);
     });
 
     let self = this;
-    Task.spawn(function () {
-      let list = yield Downloads.getList(Downloads.ALL);
-      yield list.addView(self);
+    (async function() {
+      let list = await Downloads.getList(Downloads.ALL);
+      await list.addView(self);
 
       debug("view added to download list.");
-    }).then(null, Components.utils.reportError);
+    })().then(null, Cu.reportError);
 
     this._currentId = 0;
   },
 
   /**
-    * Returns a unique id for each download, hashing the url and the path.
-    */
-  downloadId: function(aDownload) {
+   * Returns a unique id for each download, hashing the url and the path.
+   */
+  downloadId(aDownload) {
     let id = this._ids.get(aDownload, null);
     if (!id) {
       id = "download-" + this._currentId++;
@@ -86,15 +79,15 @@ var DownloadsAPI = {
     return id;
   },
 
-  getDownloadById: function(aId) {
+  getDownloadById(aId) {
     return this._index[aId];
   },
 
   /**
-    * Converts a download object into a plain json object that we'll
-    * send to the DOM side.
-    */
-  jsonDownload: function(aDownload) {
+   * Converts a download object into a plain json object that we'll
+   * send to the DOM side.
+   */
+  jsonDownload(aDownload) {
     let res = {
       totalBytes: aDownload.totalBytes,
       currentBytes: aDownload.currentBytes,
@@ -102,8 +95,9 @@ var DownloadsAPI = {
       path: aDownload.target.path,
       contentType: aDownload.contentType,
       startTime: aDownload.startTime.getTime(),
-      sourceAppManifestURL: aDownload._unknownProperties &&
-                              aDownload._unknownProperties.sourceAppManifestURL
+      sourceAppManifestURL:
+        aDownload._unknownProperties &&
+        aDownload._unknownProperties.sourceAppManifestURL,
     };
 
     if (aDownload.error) {
@@ -117,10 +111,12 @@ var DownloadsAPI = {
 
     // Default to "stopped"
     res.state = "stopped";
-    if (!aDownload.stopped &&
-        !aDownload.canceled &&
-        !aDownload.succeeded &&
-        !aDownload.DownloadError) {
+    if (
+      !aDownload.stopped &&
+      !aDownload.canceled &&
+      !aDownload.succeeded &&
+      !aDownload.DownloadError
+    ) {
       res.state = "downloading";
     } else if (aDownload.succeeded) {
       res.state = "succeeded";
@@ -129,108 +125,120 @@ var DownloadsAPI = {
   },
 
   /**
-    * download view methods.
-    */
-  onDownloadAdded: function(aDownload) {
+   * download view methods.
+   */
+  onDownloadAdded(aDownload) {
     let download = this.jsonDownload(aDownload);
     debug("onDownloadAdded " + uneval(download));
-    ppmm.broadcastAsyncMessage("Downloads:Added", download);
+    Services.ppmm.broadcastAsyncMessage("Downloads:Added", download);
   },
 
-  onDownloadRemoved: function(aDownload) {
+  onDownloadRemoved(aDownload) {
     let download = this.jsonDownload(aDownload);
     download.state = "finalized";
     debug("onDownloadRemoved " + uneval(download));
-    ppmm.broadcastAsyncMessage("Downloads:Removed", download);
+    Services.ppmm.broadcastAsyncMessage("Downloads:Removed", download);
     this._index[this._ids.get(aDownload)] = null;
     this._ids.delete(aDownload);
   },
 
-  onDownloadChanged: function(aDownload) {
+  onDownloadChanged(aDownload) {
     let download = this.jsonDownload(aDownload);
     debug("onDownloadChanged " + uneval(download));
-    ppmm.broadcastAsyncMessage("Downloads:Changed", download);
+    Services.ppmm.broadcastAsyncMessage("Downloads:Changed", download);
   },
 
-  receiveMessage: function(aMessage) {
+  receiveMessage(aMessage) {
     debug("message: " + aMessage.name);
 
     switch (aMessage.name) {
-    case "Downloads:GetList":
-      this.getList(aMessage.data, aMessage.target);
-      break;
-    case "Downloads:ClearAllDone":
-      this.clearAllDone(aMessage.data, aMessage.target);
-      break;
-    case "Downloads:Remove":
-      this.remove(aMessage.data, aMessage.target);
-      break;
-    case "Downloads:Pause":
-      this.pause(aMessage.data, aMessage.target);
-      break;
-    case "Downloads:Resume":
-      this.resume(aMessage.data, aMessage.target);
-      break;
-    case "Downloads:Adopt":
-      this.adoptDownload(aMessage.data, aMessage.target);
-      break;
-    default:
-      debug("Invalid message: " + aMessage.name);
+      case "Downloads:GetList":
+        this.getList(aMessage.data, aMessage.target);
+        break;
+      case "Downloads:ClearAllDone":
+        this.clearAllDone(aMessage.data, aMessage.target);
+        break;
+      case "Downloads:Remove":
+        this.remove(aMessage.data, aMessage.target);
+        break;
+      case "Downloads:Pause":
+        this.pause(aMessage.data, aMessage.target);
+        break;
+      case "Downloads:Resume":
+        this.resume(aMessage.data, aMessage.target);
+        break;
+      case "Downloads:Adopt":
+        this.adoptDownload(aMessage.data, aMessage.target);
+        break;
+      default:
+        debug("Invalid message: " + aMessage.name);
     }
   },
 
-  getList: function(aData, aMm) {
+  getList(aData, aMm) {
     debug("getList called!");
     let self = this;
-    Task.spawn(function () {
-      let list = yield Downloads.getList(Downloads.ALL);
-      let downloads = yield list.getAll();
+    (async function() {
+      let list = await Downloads.getList(Downloads.ALL);
+      let downloads = await list.getAll();
       let res = [];
-      downloads.forEach((aDownload) => {
+      downloads.forEach(aDownload => {
         res.push(self.jsonDownload(aDownload));
       });
       aMm.sendAsyncMessage("Downloads:GetList:Return", res);
-    }).then(null, Components.utils.reportError);
+    })().then(null, Cu.reportError);
   },
 
-  clearAllDone: function(aData, aMm) {
+  clearAllDone(aData, aMm) {
     debug("clearAllDone called!");
-    Task.spawn(function () {
-      let list = yield Downloads.getList(Downloads.ALL);
+    (async function() {
+      let list = await Downloads.getList(Downloads.ALL);
       list.removeFinished();
-    }).then(null, Components.utils.reportError);
+    })().then(null, Cu.reportError);
   },
 
-  remove: function(aData, aMm) {
+  remove(aData, aMm) {
     debug("remove id " + aData.id);
     let download = this.getDownloadById(aData.id);
     if (!download) {
-      sendPromiseMessage(aMm, "Downloads:Remove:Return",
-                         aData, "NoSuchDownload");
+      sendPromiseMessage(
+        aMm,
+        "Downloads:Remove:Return",
+        aData,
+        "NoSuchDownload"
+      );
       return;
     }
 
-    Task.spawn(function() {
-      yield download.finalize(true);
-      let list = yield Downloads.getList(Downloads.ALL);
-      yield list.remove(download);
-    }).then(
+    (async function() {
+      await download.finalize(true);
+      let list = await Downloads.getList(Downloads.ALL);
+      await list.remove(download);
+    })().then(
       function() {
         sendPromiseMessage(aMm, "Downloads:Remove:Return", aData);
       },
       function() {
-        sendPromiseMessage(aMm, "Downloads:Remove:Return",
-                           aData, "RemoveError");
+        sendPromiseMessage(
+          aMm,
+          "Downloads:Remove:Return",
+          aData,
+          "RemoveError"
+        );
       }
     );
   },
 
-  pause: function(aData, aMm) {
+  pause(aData, aMm) {
     debug("pause id " + aData.id);
     let download = this.getDownloadById(aData.id);
     if (!download) {
-      sendPromiseMessage(aMm, "Downloads:Pause:Return",
-                         aData, "NoSuchDownload");
+      sendPromiseMessage(
+        aMm,
+        "Downloads:Pause:Return",
+        aData,
+        "NoSuchDownload"
+      );
       return;
     }
 
@@ -239,18 +247,21 @@ var DownloadsAPI = {
         sendPromiseMessage(aMm, "Downloads:Pause:Return", aData);
       },
       function() {
-        sendPromiseMessage(aMm, "Downloads:Pause:Return",
-                           aData, "PauseError");
+        sendPromiseMessage(aMm, "Downloads:Pause:Return", aData, "PauseError");
       }
     );
   },
 
-  resume: function(aData, aMm) {
+  resume(aData, aMm) {
     debug("resume id " + aData.id);
     let download = this.getDownloadById(aData.id);
     if (!download) {
-      sendPromiseMessage(aMm, "Downloads:Resume:Return",
-                         aData, "NoSuchDownload");
+      sendPromiseMessage(
+        aMm,
+        "Downloads:Resume:Return",
+        aData,
+        "NoSuchDownload"
+      );
       return;
     }
 
@@ -259,26 +270,30 @@ var DownloadsAPI = {
         sendPromiseMessage(aMm, "Downloads:Resume:Return", aData);
       },
       function() {
-        sendPromiseMessage(aMm, "Downloads:Resume:Return",
-                           aData, "ResumeError");
+        sendPromiseMessage(
+          aMm,
+          "Downloads:Resume:Return",
+          aData,
+          "ResumeError"
+        );
       }
     );
   },
 
   /**
-    * Receive a download to adopt in the same representation we produce from
-    * our "jsonDownload" normalizer and add it to the list of downloads.
-    */
-  adoptDownload: function(aData, aMm) {
+   * Receive a download to adopt in the same representation we produce from
+   * our "jsonDownload" normalizer and add it to the list of downloads.
+   */
+  adoptDownload(aData, aMm) {
     let adoptJsonRep = aData.jsonDownload;
     debug("adoptDownload " + uneval(adoptJsonRep));
 
-    Task.spawn(function* () {
+    (async function() {
       // Verify that the file exists on disk.  This will result in a rejection
       // if the file does not exist.  We will also use this information for the
       // file size to avoid weird inconsistencies.  We ignore the filesystem
       // timestamp in favor of whatever the caller is telling us.
-      let fileInfo = yield OS.File.stat(adoptJsonRep.path);
+      let fileInfo = await OS.File.stat(adoptJsonRep.path);
 
       // We also require that the file is not a directory.
       if (fileInfo.isDir) {
@@ -290,7 +305,7 @@ var DownloadsAPI = {
       let serializedRep = {
         // explicit initializations in toSerializable
         source: {
-          url: adoptJsonRep.url
+          url: adoptJsonRep.url,
           // This is where isPrivate would go if adoption supported private
           // browsing.
         },
@@ -302,24 +317,24 @@ var DownloadsAPI = {
         succeeded: true, // (all adopted downloads are required to be completed)
         totalBytes: fileInfo.size,
         contentType: adoptJsonRep.contentType,
-        // unknown properties added/used by the DownloadsAPI
+        // unknown properties added/used by the DownloadService
         currentBytes: fileInfo.size,
-        sourceAppManifestURL: adoptJsonRep.sourceAppManifestURL
+        sourceAppManifestURL: adoptJsonRep.sourceAppManifestURL,
       };
 
-      let download = yield Downloads.createDownload(serializedRep);
+      let download = await Downloads.createDownload(serializedRep);
 
       // The ALL list is a DownloadCombinedList instance that combines the
       // PUBLIC (persisted to disk) and PRIVATE (ephemeral) download lists..
       // When we call add on it, it dispatches to the appropriate list based on
       // the 'isPrivate' field of the source.  (Which we don't initialize and
       // defaults to false.)
-      let allDownloadList = yield Downloads.getList(Downloads.ALL);
+      let allDownloadList = await Downloads.getList(Downloads.ALL);
 
       // This add will automatically notify all views of the added download,
-      // including DownloadsAPI instances and the DownloadAutoSaveView that's
+      // including DownloadService instances and the DownloadAutoSaveView that's
       // subscribed to the PUBLIC list and will save the download.
-      yield allDownloadList.add(download);
+      await allDownloadList.add(download);
 
       debug("download adopted");
       // The notification above occurred synchronously, and so we will have
@@ -327,15 +342,14 @@ var DownloadsAPI = {
       // process in question.  As such, we only need to relay the download id
       // since the download will already have been cached.
       return download;
-    }.bind(this)).then(
-      (download) => {
-        sendPromiseMessage(aMm, "Downloads:Adopt:Return",
-                           {
-                             id: this.downloadId(download),
-                             promiseId: aData.promiseId
-                           });
+    })().then(
+      download => {
+        sendPromiseMessage(aMm, "Downloads:Adopt:Return", {
+          id: this.downloadId(download),
+          promiseId: aData.promiseId,
+        });
       },
-      (ex) => {
+      ex => {
         let reportAs = "AdoptError";
         // Provide better error codes for expected errors.
         if (ex instanceof OS.File.Error && ex.becauseNoSuchFile) {
@@ -348,13 +362,17 @@ var DownloadsAPI = {
           debug("unexpected download error: " + ex);
           Cu.reportError(ex);
         }
-        sendPromiseMessage(aMm, "Downloads:Adopt:Return",
-                           {
-                             promiseId: aData.promiseId
-                           },
-                           reportAs);
-    });
-  }
+        sendPromiseMessage(
+          aMm,
+          "Downloads:Adopt:Return",
+          {
+            promiseId: aData.promiseId,
+          },
+          reportAs
+        );
+      }
+    );
+  },
 };
 
-DownloadsAPI.init();
+DownloadService.init();

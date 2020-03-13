@@ -1516,6 +1516,12 @@
   value: @IS_NOT_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+# Enable Downloads API
+- name: dom.downloads.enabled
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.enable_window_print
   type: bool
   value: @IS_NOT_ANDROID@

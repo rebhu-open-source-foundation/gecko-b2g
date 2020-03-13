@@ -881,8 +881,7 @@ pref("media.webspeech.synth.enabled", true);
 pref("media.webspeech.recognition.enable", true);
 
 // Downloads API
-pref("dom.mozDownloads.enabled", true);
-pref("dom.downloads.max_retention_days", 7);
+pref("dom.downloads.enabled", true);
 
 // External Helper Application Handling
 //

@@ -4,90 +4,85 @@
 
 "use strict";
 
-const Cc = Components.classes;
-const Ci = Components.interfaces;
-const Cu = Components.utils;
-
 this.EXPORTED_SYMBOLS = ["DownloadsIPC"];
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/Promise.jsm");
-
-XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
-                                   "@mozilla.org/childprocessmessagemanager;1",
-                                   "nsIMessageSender");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Promise } = ChromeUtils.import("resource://gre/modules/Promise.jsm");
 
 /**
-  * This module lives in the child process and receives the ipc messages
-  * from the parent. It saves the download's state and redispatch changes
-  * to DOM objects using an observer notification.
-  *
-  * This module needs to be loaded once and only once per process.
-  */
+ * This module lives in the child process and receives the ipc messages
+ * from the parent. It saves the download's state and redispatch changes
+ * to DOM objects using an observer notification.
+ *
+ * This module needs to be loaded once and only once per process.
+ */
 
 function debug(aStr) {
-#ifdef MOZ_DEBUG
   dump("-*- DownloadsIPC.jsm : " + aStr + "\n");
-#endif
 }
 
-const ipcMessages = ["Downloads:Added",
-                     "Downloads:Removed",
-                     "Downloads:Changed",
-                     "Downloads:GetList:Return",
-                     "Downloads:Remove:Return",
-                     "Downloads:Pause:Return",
-                     "Downloads:Resume:Return",
-                     "Downloads:Adopt:Return"];
+const ipcMessages = [
+  "Downloads:Added",
+  "Downloads:Removed",
+  "Downloads:Changed",
+  "Downloads:GetList:Return",
+  "Downloads:Remove:Return",
+  "Downloads:Pause:Return",
+  "Downloads:Resume:Return",
+  "Downloads:Adopt:Return",
+];
 
 this.DownloadsIPC = {
   downloads: {},
 
-  init: function() {
+  init() {
     debug("init");
-    Services.obs.addObserver(this, "xpcom-shutdown", false);
-    ipcMessages.forEach((aMessage) => {
-      cpmm.addMessageListener(aMessage, this);
+    Services.obs.addObserver(this, "xpcom-shutdown");
+    ipcMessages.forEach(aMessage => {
+      Services.cpmm.addMessageListener(aMessage, this);
     });
 
     // We need to get the list of current downloads.
     this.ready = false;
     this.getListPromises = [];
     this.downloadPromises = {};
-    cpmm.sendAsyncMessage("Downloads:GetList", {});
+    Services.cpmm.sendAsyncMessage("Downloads:GetList", {});
     this._promiseId = 0;
   },
 
-  notifyChanges: function(aId) {
+  notifyChanges(aId) {
     // TODO: use the subject instead of stringifying.
     if (this.downloads[aId]) {
       debug("notifyChanges notifying changes for " + aId);
-      Services.obs.notifyObservers(null, "downloads-state-change-" + aId,
-                                   JSON.stringify(this.downloads[aId]));
+      Services.obs.notifyObservers(
+        null,
+        "downloads-state-change-" + aId,
+        JSON.stringify(this.downloads[aId])
+      );
     } else {
-      debug("notifyChanges failed for " + aId)
+      debug("notifyChanges failed for " + aId);
     }
   },
 
-  _updateDownloadsArray: function(aDownloads) {
+  _updateDownloadsArray(aDownloads) {
     this.downloads = [];
     // We actually have an array of downloads.
-    aDownloads.forEach((aDownload) => {
+    aDownloads.forEach(aDownload => {
       this.downloads[aDownload.id] = aDownload;
     });
   },
 
-  receiveMessage: function(aMessage) {
+  receiveMessage(aMessage) {
     let download = aMessage.data;
     debug("message: " + aMessage.name);
-    switch(aMessage.name) {
+    switch (aMessage.name) {
       case "Downloads:GetList:Return":
         this._updateDownloadsArray(download);
 
         if (!this.ready) {
           this.getListPromises.forEach(aPromise =>
-                                       aPromise.resolve(this.downloads));
+            aPromise.resolve(this.downloads)
+          );
           this.getListPromises.length = 0;
         }
         this.ready = true;
@@ -110,12 +105,19 @@ this.DownloadsIPC = {
           debug("No download found for " + download.id);
           return;
         }
-        let props = ["totalBytes", "currentBytes", "url", "path", "state",
-                     "contentType", "startTime"];
+        let props = [
+          "totalBytes",
+          "currentBytes",
+          "url",
+          "path",
+          "state",
+          "contentType",
+          "startTime",
+        ];
         let changed = false;
 
-        props.forEach((aProp) => {
-          if (download[aProp] && (download[aProp] != cached[aProp])) {
+        props.forEach(aProp => {
+          if (download[aProp] && download[aProp] != cached[aProp]) {
             cached[aProp] = download[aProp];
             changed = true;
           }
@@ -146,9 +148,9 @@ this.DownloadsIPC = {
   },
 
   /**
-    * Returns a promise that is resolved with the list of current downloads.
-    */
-  getDownloads: function() {
+   * Returns a promise that is resolved with the list of current downloads.
+   */
+  getDownloads() {
     debug("getDownloads()");
     let deferred = Promise.defer();
     if (this.ready) {
@@ -163,62 +165,70 @@ this.DownloadsIPC = {
   /**
    * Void function to trigger removal of completed downloads.
    */
-  clearAllDone: function() {
+  clearAllDone() {
     debug("clearAllDone");
-    cpmm.sendAsyncMessage("Downloads:ClearAllDone", {});
+    Services.cpmm.sendAsyncMessage("Downloads:ClearAllDone", {});
   },
 
-  promiseId: function() {
+  promiseId() {
     return this._promiseId++;
   },
 
-  remove: function(aId) {
+  remove(aId) {
     debug("remove " + aId);
     let deferred = Promise.defer();
     let pId = this.promiseId();
     this.downloadPromises[pId] = deferred;
-    cpmm.sendAsyncMessage("Downloads:Remove",
-                          { id: aId, promiseId: pId });
+    Services.cpmm.sendAsyncMessage("Downloads:Remove", {
+      id: aId,
+      promiseId: pId,
+    });
     return deferred.promise;
   },
 
-  pause: function(aId) {
+  pause(aId) {
     debug("pause " + aId);
     let deferred = Promise.defer();
     let pId = this.promiseId();
     this.downloadPromises[pId] = deferred;
-    cpmm.sendAsyncMessage("Downloads:Pause",
-                          { id: aId, promiseId: pId });
+    Services.cpmm.sendAsyncMessage("Downloads:Pause", {
+      id: aId,
+      promiseId: pId,
+    });
     return deferred.promise;
   },
 
-  resume: function(aId) {
+  resume(aId) {
     debug("resume " + aId);
     let deferred = Promise.defer();
     let pId = this.promiseId();
     this.downloadPromises[pId] = deferred;
-    cpmm.sendAsyncMessage("Downloads:Resume",
-                          { id: aId, promiseId: pId });
+    Services.cpmm.sendAsyncMessage("Downloads:Resume", {
+      id: aId,
+      promiseId: pId,
+    });
     return deferred.promise;
   },
 
-  adoptDownload: function(aJsonDownload) {
+  adoptDownload(aJsonDownload) {
     debug("adoptDownload");
     let deferred = Promise.defer();
     let pId = this.promiseId();
     this.downloadPromises[pId] = deferred;
-    cpmm.sendAsyncMessage("Downloads:Adopt",
-                          { jsonDownload: aJsonDownload, promiseId: pId });
+    Services.cpmm.sendAsyncMessage("Downloads:Adopt", {
+      jsonDownload: aJsonDownload,
+      promiseId: pId,
+    });
     return deferred.promise;
   },
 
-  observe: function(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic, aData) {
     if (aTopic == "xpcom-shutdown") {
-      ipcMessages.forEach((aMessage) => {
-        cpmm.removeMessageListener(aMessage, this);
+      ipcMessages.forEach(aMessage => {
+        Services.cpmm.removeMessageListener(aMessage, this);
       });
     }
-  }
+  },
 };
 
 DownloadsIPC.init();

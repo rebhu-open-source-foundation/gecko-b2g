@@ -17,20 +17,18 @@ enum DownloadState {
   "finalized"
 };
 
-[NoInterfaceObject,
- NavigatorProperty="mozDownloadManager",
- JSImplementation="@mozilla.org/downloads/manager;1",
- Pref="dom.mozDownloads.enabled",
+[JSImplementation="@mozilla.org/downloads/manager;1",
+ Pref="dom.downloads.enabled",
+ Exposed=Window,
  ChromeOnly]
-interface DOMDownloadManager : EventTarget {
+interface DownloadManager : EventTarget {
   // This promise returns an array of downloads with all the current
   // download objects.
-  Promise<sequence<DOMDownload>> getDownloads();
+  Promise<sequence<DownloadObject>> getDownloads();
 
   // Removes one download from the downloads set. Returns a promise resolved
   // with the finalized download.
-  [UnsafeInPrerendering]
-  Promise<DOMDownload> remove(DOMDownload download);
+  Promise<DownloadObject> remove(DownloadObject download);
 
   // Removes all completed downloads.  This kicks off an asynchronous process
   // that will eventually complete, but will not have completed by the time this
@@ -38,12 +36,11 @@ interface DOMDownloadManager : EventTarget {
   // that each existing download will have its onstatechange method invoked and
   // will have a new state of "finalized".  (After the download is finalized, no
   // further events will be generated on it.)
-  [UnsafeInPrerendering]
   void clearAllDone();
 
   // Add completed downloads from applications that must perform the download
   // process themselves. For example, email.  The method is resolved with a
-  // fully populated DOMDownload instance on success, or rejected in the
+  // fully populated DownloadObject instance on success, or rejected in the
   // event all required options were not provided.
   //
   // The adopted download will also be reported via the ondownloadstart event
@@ -56,16 +53,17 @@ interface DOMDownloadManager : EventTarget {
   // be marked as such because it is not followed by a required argument.  The
   // promise will be rejected if the dictionary is omitted or the specified
   // file does not exist on disk.
-  Promise<DOMDownload> adoptDownload(optional AdoptDownloadDict download);
+  Promise<DownloadObject> adoptDownload(optional AdoptDownloadDict download = {});
 
   // Fires when a new download starts.
   attribute EventHandler ondownloadstart;
 };
 
-[JSImplementation="@mozilla.org/downloads/download;1",
- Pref="dom.mozDownloads.enabled",
+[JSImplementation="@mozilla.org/downloads/object;1",
+ Pref="dom.downloads.enabled",
+ Exposed=Window,
  ChromeOnly]
-interface DOMDownload : EventTarget {
+interface DownloadObject : EventTarget {
   // The full size of the resource.
   readonly attribute long long totalBytes;
 
@@ -98,7 +96,7 @@ interface DOMDownload : EventTarget {
   readonly attribute DOMString contentType;
 
   // The timestamp this download started.
-  readonly attribute Date startTime;
+  readonly attribute object startTime;
 
   // An opaque identifier for this download. All instances of the same
   // download (eg. in different windows) will have the same id.
@@ -110,16 +108,14 @@ interface DOMDownload : EventTarget {
 
   // A DOM error object, that will be not null when a download is stopped
   // because something failed.
-  readonly attribute DOMError? error;
+  readonly attribute DOMException? error;
 
   // Pauses the download.
-  [UnsafeInPrerendering]
-  Promise<DOMDownload> pause();
+  Promise<DownloadObject> pause();
 
   // Resumes the download. This resolves only once the download has
   // succeeded.
-  [UnsafeInPrerendering]
-  Promise<DOMDownload> resume();
+  Promise<DownloadObject> resume();
 
   // This event is triggered anytime a property of the object changes:
   // - when the transfer progresses, updating currentBytes.
@@ -127,8 +123,8 @@ interface DOMDownload : EventTarget {
   attribute EventHandler onstatechange;
 };
 
-// Used to initialize the DOMDownload object for adopted downloads.
-// fields directly maps to the DOMDownload fields.
+// Used to initialize the DownloadObject object for adopted downloads.
+// fields directly maps to the DownloadObject fields.
 dictionary AdoptDownloadDict {
   // The URL of this resource if there is one available. An empty string if
   // the download is not accessible via URL. An empty string is chosen over
@@ -162,5 +158,5 @@ dictionary AdoptDownloadDict {
   DOMString? contentType;
 
   // The time the download was started. If omitted, the current time is used.
-  Date? startTime;
+  object? startTime;
 };

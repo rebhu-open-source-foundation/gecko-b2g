@@ -4,15 +4,14 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Constructor(DOMString type, optional DownloadEventInit eventInitDict),
- Pref="dom.mozDownloads.enabled",
- ChromeOnly]
+[Exposed=Window, Pref="dom.downloads.enabled", ChromeOnly]
 interface DownloadEvent : Event
 {
-  readonly attribute DOMDownload? download;
+  constructor(DOMString type, optional DownloadEventInit eventInitDict = {});
+  readonly attribute DownloadObject? download;
 };
 
 dictionary DownloadEventInit : EventInit
 {
-  DOMDownload? download = null;
+  DownloadObject? download = null;
 };
