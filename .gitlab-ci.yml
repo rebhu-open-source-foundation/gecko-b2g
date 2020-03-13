@@ -5,42 +5,31 @@
 # LIMITED or its affiliate company and may be registered in some jurisdictions.
 # All other trademarks are the property of their respective owners.
 
-variables:
+variables: &global_variables
   GIT_DEPTH: 1
-  DEFAULT_ARM_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/arm:latest"
-  DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
 
-before_script:
-  # Install ssh-agent if not already installed, it is required by Docker.
-  # (change apt-get to yum if you use a CentOS-based image)
-  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client apt-utils -y )'
-
-  # Run ssh-agent (inside the build environment)
-  - eval $(ssh-agent -s)
-
-  # Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
-  - ssh-add <(echo "$SSH_PRIVATE_KEY")
-
-  # For Docker builds disable host key checking. Be aware that by adding that
-  # you are suspectible to man-in-the-middle attacks.
-  # WARNING: Use this only with the Docker executor, if you use it with shell
-  # you will overwrite your user's SSH config.
-  - mkdir -p ~/.ssh
-  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+.global_setup: &global_setup
+  - echo -e "machine ${CI_SERVER_HOST}\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
+  - git config --global url."${CI_SERVER_URL}/".insteadOf "git@${CI_SERVER_HOST}:"
+  - '[ "$(ls -A ${HOME}/.mozbuild)" ] || curl ftp://ftp.kaiostech.com/ndk/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
 
 stages:
   - build
 
 build:desktop:
+  before_script:
+    - *global_setup
+    - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
+  variables:
+    <<: *global_variables
+    DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
+    MOZ_OBJDIR: 'objdir-desktop-gecko'
+    MOZCONFIG: 'mozconfig-b2g-desktop'
   image: $DEFAULT_DESKTOP_DOCKER_IMAGE
   stage: build
   tags:
     - gecko-dev
   script:
-    - curl ftp://ftp.kaiostech.com/ndk/mozbuild.tar.bz2 | tar -C ~/ -xj
-    - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
-    - export MOZ_OBJDIR=objdir-desktop-gecko
-    - export MOZCONFIG=mozconfig-b2g-desktop
     - ./mach build
     - ./mach package
   artifacts:
@@ -49,27 +38,27 @@ build:desktop:
       - "objdir-desktop-gecko/dist/b2g-*"
 
 build:arm:
+  before_script:
+    - *global_setup
+    - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
+    - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy/gonk-q.git > /dev/null 2>&1
+  variables:
+    <<: *global_variables
+    DEFAULT_ARM_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
+    GONK_PATH: "${CI_PROJECT_DIR}/gonk-q"
+    GECKO_OBJDIR: "${CI_PROJECT_DIR}/objdir-arm-gecko"
+    GONK_PRODUCT_NAME: msm8937_32go
+    GET_FRAMEBUFFER_FORMAT_FROM_HWC: 1
+    PLATFORM_VERSION: 29
+    TARGET_ARCH: arm
+    TARGET_ARCH_VARIANT: armv8-a
+    TARGET_CPU_VARIANT: cortex-a53
+    ANDROID_NDK: '~/.mozbuild/android-ndk-r20b-canary'
   image: $DEFAULT_ARM_DOCKER_IMAGE
   stage: build
   tags:
     - gecko-dev
   script:
-    - curl ftp://ftp.kaiostech.com/ndk/mozbuild.tar.bz2 | tar -C ~/ -xj
-    - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
-    - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy/gonk-q.git > /dev/null 2>&1
-    - export ANDROID_NDK=$HOME/.mozbuild/android-ndk-r20b-canary
-    - export PATH=~/.cargo/bin:$PATH
-    - rustup default ${RUSTUP_TOOLCHAIN}
-    - rustup target add armv7-linux-androideabi
-    - rustup target add thumbv7neon-linux-androideabi
-    - export GONK_PATH=$CI_PROJECT_DIR/gonk-q
-    - export GECKO_OBJDIR=$CI_PROJECT_DIR/objdir-arm-gecko
-    - export GONK_PRODUCT_NAME=msm8937_32go
-    - export GET_FRAMEBUFFER_FORMAT_FROM_HWC=1
-    - export PLATFORM_VERSION=29
-    - export TARGET_ARCH=arm
-    - export TARGET_ARCH_VARIANT=armv8-a
-    - export TARGET_CPU_VARIANT=cortex-a53
     - ./build-b2g.sh
     - ./build-b2g.sh package
   artifacts:
