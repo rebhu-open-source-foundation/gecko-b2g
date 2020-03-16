@@ -8,14 +8,6 @@ EXTRA_JS_MODULES += [
     'TetheringManager.jsm',
 ]
 
-WEBIDL_FILES += [
-    'TetheringManager.webidl',
-]
-
-GENERATED_EVENTS_WEBIDL_FILES += [
-    'TetheringStatusChangeEvent.webidl',
-]
-
 XPCOM_MANIFESTS += [
     'components.conf',
 ]

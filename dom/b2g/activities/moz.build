@@ -29,11 +29,6 @@ EXPORTS.mozilla.dom += [
     'WebActivityRequestHandler.h',
 ]
 
-WEBIDL_FILES += [
-    'WebActivity.webidl',
-    'WebActivityRequestHandler.webidl',
-]
-
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'

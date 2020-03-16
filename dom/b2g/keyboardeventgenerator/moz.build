@@ -12,10 +12,6 @@ EXPORTS.mozilla.dom += [
     'KeyboardEventGenerator.h',
 ]
 
-WEBIDL_FILES += [
-    'KeyboardEventGenerator.webidl',
-]
-
 LOCAL_INCLUDES += [
     '/dom/events',
 ]

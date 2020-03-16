@@ -24,12 +24,6 @@ EXPORTS.mozilla.dom += [
     'SystemMessageSubscription.h',
 ]
 
-WEBIDL_FILES += [
-    'SystemMessageData.webidl',
-    'SystemMessageEvent.webidl',
-    'SystemMessageManager.webidl',
-]
-
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'

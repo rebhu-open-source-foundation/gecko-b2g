@@ -12,6 +12,13 @@ UNIFIED_SOURCES += [
     'B2G.cpp',
 ]
 
+DIRS += [
+    'activities',
+    'keyboardeventgenerator',
+    'messages',
+    'tethering',
+]
+
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'
