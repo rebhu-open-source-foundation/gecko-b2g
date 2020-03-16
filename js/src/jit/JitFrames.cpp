@@ -730,6 +730,19 @@ void EnsureBareExitFrame(JitActivation* act, JitFrameLayout* frame) {
   MOZ_ASSERT(exitFrame->isBareExit());
 }
 
+JSScript* MaybeForwardedScriptFromCalleeToken(CalleeToken token) {
+  switch (GetCalleeTokenTag(token)) {
+    case CalleeToken_Script:
+      return MaybeForwarded(CalleeTokenToScript(token));
+    case CalleeToken_Function:
+    case CalleeToken_FunctionConstructing: {
+      JSFunction* fun = MaybeForwarded(CalleeTokenToFunction(token));
+      return MaybeForwarded(fun)->nonLazyScript();
+    }
+  }
+  MOZ_CRASH("invalid callee token tag");
+}
+
 CalleeToken TraceCalleeToken(JSTracer* trc, CalleeToken token) {
   switch (CalleeTokenTag tag = GetCalleeTokenTag(token)) {
     case CalleeToken_Function:
@@ -2055,11 +2068,7 @@ void InlineFrameIterator::findNextFrame() {
     si_.nextFrame();
 
     calleeTemplate_ = &funval.toObject().as<JSFunction>();
-
-    // Inlined functions may be clones that still point to the lazy script
-    // for the executed script, if they are clones. The actual script
-    // exists though, just make sure the function points to it.
-    script_ = calleeTemplate_->existingScript();
+    script_ = calleeTemplate_->nonLazyScript();
     MOZ_ASSERT(script_->hasBaselineScript());
 
     pc_ = script_->offsetToPC(si_.pcOffset());

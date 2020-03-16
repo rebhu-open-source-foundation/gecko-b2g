@@ -85,22 +85,22 @@ extern void CallWarningReporter(JSContext* cx, JSErrorReport* report);
  */
 extern void ReportCompileErrorLatin1(JSContext* cx, ErrorMetadata&& metadata,
                                      UniquePtr<JSErrorNotes> notes,
-                                     unsigned flags, unsigned errorNumber,
-                                     va_list* args);
+                                     unsigned errorNumber, va_list* args);
 
 extern void ReportCompileErrorUTF8(JSContext* cx, ErrorMetadata&& metadata,
                                    UniquePtr<JSErrorNotes> notes,
-                                   unsigned flags, unsigned errorNumber,
-                                   va_list* args);
+                                   unsigned errorNumber, va_list* args);
 
 /**
  * Report a compile warning during script processing prior to execution of the
  * script.  Returns true if the warning was successfully reported, false if an
  * error occurred.
  */
-extern MOZ_MUST_USE bool ReportCompileWarning(
-    JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNotes> notes,
-    unsigned flags, unsigned errorNumber, va_list* args);
+extern MOZ_MUST_USE bool ReportCompileWarning(JSContext* cx,
+                                              ErrorMetadata&& metadata,
+                                              UniquePtr<JSErrorNotes> notes,
+                                              unsigned errorNumber,
+                                              va_list* args);
 
 class GlobalObject;
 

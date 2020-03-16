@@ -12,19 +12,11 @@
 }
 - (BOOL)hasPopup;
 - (void)click;
-- (BOOL)isTab;
 @end
 
 @interface mozCheckboxAccessible : mozButtonAccessible
 // returns one of the constants defined in CheckboxValue
 - (int)isChecked;
-@end
-
-/* Class for tabs - not individual tabs */
-@interface mozTabsAccessible : mozAccessible {
-  NSMutableArray* mTabs;
-}
-- (id)tabs;
 @end
 
 /**

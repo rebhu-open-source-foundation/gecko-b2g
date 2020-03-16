@@ -32,6 +32,7 @@ using namespace mozilla;
 using namespace mozilla::a11y;
 
 #define NSAccessibilityDOMIdentifierAttribute @"AXDOMIdentifier"
+#define NSAccessibilityHasPopupAttribute @"AXHasPopup"
 #define NSAccessibilityMathRootRadicandAttribute @"AXMathRootRadicand"
 #define NSAccessibilityMathRootIndexAttribute @"AXMathRootIndex"
 #define NSAccessibilityMathFractionNumeratorAttribute @"AXMathFractionNumerator"
@@ -132,14 +133,8 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
   // unknown (either unimplemented, or irrelevant) elements are marked as ignored
   // as well as expired elements.
 
-  bool noRole = [[self role] isEqualToString:NSAccessibilityUnknownRole];
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible])
-    return (noRole && !(accWrap->InteractiveState() & states::FOCUSABLE));
-
-  if (ProxyAccessible* proxy = [self getProxyAccessible])
-    return (noRole && !(proxy->State() & states::FOCUSABLE));
-
-  return true;
+  return [[self role] isEqualToString:NSAccessibilityUnknownRole] &&
+    ([self state] & states::FOCUSABLE);
 
   NS_OBJC_END_TRY_ABORT_BLOCK_RETURN(NO);
 }
@@ -209,7 +204,7 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
                         NSAccessibilityEnabledAttribute, NSAccessibilitySizeAttribute,
                         NSAccessibilityWindowAttribute, NSAccessibilityFocusedAttribute,
                         NSAccessibilityHelpAttribute, NSAccessibilityTitleUIElementAttribute,
-                        NSAccessibilityTopLevelUIElementAttribute,
+                        NSAccessibilityTopLevelUIElementAttribute, NSAccessibilityHasPopupAttribute,
 #if DEBUG
                         @"AXMozDescription",
 #endif
@@ -243,6 +238,18 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
   NS_OBJC_END_TRY_ABORT_BLOCK_NIL;
 }
 
+- (uint64_t)state {
+  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) {
+    return accWrap->State();
+  }
+
+  if (ProxyAccessible* proxy = [self getProxyAccessible]) {
+    return proxy->State();
+  }
+
+  return 0;
+}
+
 - (id)accessibilityAttributeValue:(NSString*)attribute {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NIL;
 
@@ -267,6 +274,9 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
   if ([attribute isEqualToString:NSAccessibilitySubroleAttribute]) return [self subrole];
   if ([attribute isEqualToString:NSAccessibilityEnabledAttribute])
     return [NSNumber numberWithBool:[self isEnabled]];
+  if ([attribute isEqualToString:NSAccessibilityHasPopupAttribute]) {
+    return [NSNumber numberWithBool:([self state] & states::HASPOPUP) != 0];
+  }
   if ([attribute isEqualToString:NSAccessibilityValueAttribute]) return [self value];
   if ([attribute isEqualToString:NSAccessibilityRoleDescriptionAttribute])
     return [self roleDescription];
@@ -1056,16 +1066,15 @@ struct RoleDescrComparator {
 - (NSString*)orientation {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NIL;
 
-  uint64_t state;
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible])
-    state = accWrap->InteractiveState();
-  else if (ProxyAccessible* proxy = [self getProxyAccessible])
-    state = proxy->State();
-  else
-    state = 0;
+  uint64_t state = [self state];
 
-  if (state & states::HORIZONTAL) return NSAccessibilityHorizontalOrientationValue;
-  if (state & states::VERTICAL) return NSAccessibilityVerticalOrientationValue;
+  if (state & states::HORIZONTAL) {
+    return NSAccessibilityHorizontalOrientationValue;
+  }
+
+  if (state & states::VERTICAL) {
+    return NSAccessibilityVerticalOrientationValue;
+  }
 
   return NSAccessibilityUnknownOrientationValue;
 
@@ -1090,15 +1099,7 @@ struct RoleDescrComparator {
 }
 
 - (BOOL)canBeFocused {
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) {
-    return (accWrap->InteractiveState() & states::FOCUSABLE) != 0;
-  }
-
-  if (ProxyAccessible* proxy = [self getProxyAccessible]) {
-    return (proxy->State() & states::FOCUSABLE) != 0;
-  }
-
-  return false;
+  return (([self state] & states::FOCUSABLE) != 0);
 }
 
 - (BOOL)focus {
@@ -1113,13 +1114,7 @@ struct RoleDescrComparator {
 }
 
 - (BOOL)isEnabled {
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible])
-    return ((accWrap->InteractiveState() & states::UNAVAILABLE) == 0);
-
-  if (ProxyAccessible* proxy = [self getProxyAccessible])
-    return ((proxy->State() & states::UNAVAILABLE) == 0);
-
-  return false;
+  return (([self state] & states::UNAVAILABLE) == 0);
 }
 
 // The root accessible calls this when the focused node was
@@ -1132,6 +1127,16 @@ struct RoleDescrComparator {
 #endif
   NSAccessibilityPostNotification(GetObjectOrRepresentedView(self),
                                   NSAccessibilityFocusedUIElementChangedNotification);
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+- (void)selectionDidChange {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  // One of our selected children changed.
+  NSAccessibilityPostNotification(GetObjectOrRepresentedView(self),
+                                  NSAccessibilitySelectedChildrenChangedNotification);
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }

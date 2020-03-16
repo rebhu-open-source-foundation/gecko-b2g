@@ -2349,15 +2349,17 @@ static AllocKinds ForegroundUpdateKinds(AllocKinds kinds) {
 
 void GCRuntime::updateTypeDescrObjects(MovingTracer* trc, Zone* zone) {
   // We need to update each type descriptor object and any objects stored in
-  // its slots, since some of these contain array objects which also need to
-  // be updated.
+  // its reserved slots, since some of these contain array objects that also
+  // need to be updated. Do not update any non-reserved slots, since they might
+  // point back to unprocessed descriptor objects.
 
   zone->typeDescrObjects().sweep();
 
   for (auto r = zone->typeDescrObjects().all(); !r.empty(); r.popFront()) {
     NativeObject* obj = &r.front()->as<NativeObject>();
     UpdateCellPointers(trc, obj);
-    for (size_t i = 0; i < obj->slotSpan(); i++) {
+    MOZ_ASSERT(JSCLASS_RESERVED_SLOTS(obj->getClass()) == JS_DESCR_SLOTS);
+    for (size_t i = 0; i < JS_DESCR_SLOTS; i++) {
       Value value = obj->getSlot(i);
       if (value.isObject()) {
         UpdateCellPointers(trc, &value.toObject());
@@ -4948,22 +4950,6 @@ void GCRuntime::sweepCompressionTasks() {
   }
 }
 
-void GCRuntime::sweepLazyScripts() {
-  for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
-    AutoSetThreadIsSweeping threadIsSweeping(zone);
-    for (auto iter = zone->cellIter<BaseScript>(); !iter.done(); iter.next()) {
-      BaseScript* base = iter.unbarrieredGet();
-      if (!base->isLazyScript()) {
-        continue;
-      }
-      WeakHeapPtrScript* edge = base->getLazyScriptScriptEdgeForTracing();
-      if (*edge && IsAboutToBeFinalized(edge)) {
-        *edge = nullptr;
-      }
-    }
-  }
-}
-
 void GCRuntime::sweepWeakMaps() {
   AutoSetThreadIsSweeping threadIsSweeping;  // This may touch any zone.
   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
@@ -5258,8 +5244,6 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JSFreeOp* fop,
                                   PhaseKind::SWEEP_MISC, lock);
     AutoRunParallelTask sweepCompTasks(this, &GCRuntime::sweepCompressionTasks,
                                        PhaseKind::SWEEP_COMPRESSION, lock);
-    AutoRunParallelTask sweepLazyScripts(this, &GCRuntime::sweepLazyScripts,
-                                         PhaseKind::SWEEP_LAZYSCRIPTS, lock);
     AutoRunParallelTask sweepWeakMaps(this, &GCRuntime::sweepWeakMaps,
                                       PhaseKind::SWEEP_WEAKMAPS, lock);
     AutoRunParallelTask sweepUniqueIds(this, &GCRuntime::sweepUniqueIds,

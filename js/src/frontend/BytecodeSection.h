@@ -124,25 +124,24 @@ struct CGTryNoteList {
 
   MOZ_MUST_USE bool append(JSTryNoteKind kind, uint32_t stackDepth,
                            BytecodeOffset start, BytecodeOffset end);
+  mozilla::Span<const JSTryNote> span() const {
+    return {list.begin(), list.length()};
+  }
   size_t length() const { return list.length(); }
-  void finish(mozilla::Span<JSTryNote> array);
-};
-
-struct CGScopeNote : public ScopeNote {
-  // The end offset. Used to compute the length.
-  uint32_t end;
 };
 
 struct CGScopeNoteList {
-  Vector<CGScopeNote> list;
+  Vector<ScopeNote> list;
   explicit CGScopeNoteList(JSContext* cx) : list(cx) {}
 
   MOZ_MUST_USE bool append(uint32_t scopeIndex, BytecodeOffset offset,
                            uint32_t parent);
   void recordEnd(uint32_t index, BytecodeOffset offset);
   void recordEndFunctionBodyVar(uint32_t index);
+  mozilla::Span<const ScopeNote> span() const {
+    return {list.begin(), list.length()};
+  }
   size_t length() const { return list.length(); }
-  void finish(mozilla::Span<ScopeNote> array);
 
  private:
   void recordEndImpl(uint32_t index, uint32_t offset);
@@ -153,8 +152,10 @@ struct CGResumeOffsetList {
   explicit CGResumeOffsetList(JSContext* cx) : list(cx) {}
 
   MOZ_MUST_USE bool append(uint32_t offset) { return list.append(offset); }
+  mozilla::Span<const uint32_t> span() const {
+    return {list.begin(), list.length()};
+  }
   size_t length() const { return list.length(); }
-  void finish(mozilla::Span<uint32_t> array);
 };
 
 static constexpr size_t MaxBytecodeLength = INT32_MAX;

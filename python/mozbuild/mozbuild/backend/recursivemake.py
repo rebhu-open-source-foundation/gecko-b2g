@@ -802,7 +802,7 @@ class RecursiveMakeBackend(MakeBackend):
                     r = root_deps_mk.create_rule([target])
                     r.add_dependencies([prior_target])
 
-            rule.add_dependencies(sorted(chain(rust_roots, roots)))
+            rule.add_dependencies(chain(rust_roots, roots))
             for target, deps in sorted(graph.items()):
                 if deps:
                     rule = root_deps_mk.create_rule([target])

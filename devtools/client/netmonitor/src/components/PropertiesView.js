@@ -45,7 +45,7 @@ loader.lazyGetter(this, "SourceEditor", function() {
 });
 loader.lazyGetter(this, "HTMLPreview", function() {
   return createFactory(
-    require("devtools/client/netmonitor/src/components/HtmlPreview")
+    require("devtools/client/netmonitor/src/components/previews/HtmlPreview")
   );
 });
 
@@ -324,9 +324,6 @@ class PropertiesView extends Component {
   }
 }
 
-module.exports = connect(
-  null,
-  dispatch => ({
-    resetTargetSearchResult: () => dispatch(setTargetSearchResult(null)),
-  })
-)(PropertiesView);
+module.exports = connect(null, dispatch => ({
+  resetTargetSearchResult: () => dispatch(setTargetSearchResult(null)),
+}))(PropertiesView);

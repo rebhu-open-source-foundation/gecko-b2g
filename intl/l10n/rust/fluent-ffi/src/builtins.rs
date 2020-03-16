@@ -305,21 +305,21 @@ impl FluentDateTimeOptionsRaw {
             FluentDateTimeTextComponent::None => {}
         }
         match input.year {
-            FluentDateTimeNumericComponent::Numeric => result.push_str("yy"),
-            FluentDateTimeNumericComponent::TwoDigit => result.push_str("y"),
+            FluentDateTimeNumericComponent::Numeric => result.push_str("y"),
+            FluentDateTimeNumericComponent::TwoDigit => result.push_str("yy"),
             FluentDateTimeNumericComponent::None => {}
         }
         match input.month {
-            FluentDateTimeMonthComponent::TwoDigit => result.push_str("MM"),
             FluentDateTimeMonthComponent::Numeric => result.push_str("M"),
+            FluentDateTimeMonthComponent::TwoDigit => result.push_str("MM"),
             FluentDateTimeMonthComponent::Narrow => result.push_str("MMMMM"),
             FluentDateTimeMonthComponent::Short => result.push_str("MMM"),
             FluentDateTimeMonthComponent::Long => result.push_str("MMMM"),
             FluentDateTimeMonthComponent::None => {}
         }
         match input.day {
-            FluentDateTimeNumericComponent::Numeric => result.push_str("dd"),
-            FluentDateTimeNumericComponent::TwoDigit => result.push_str("d"),
+            FluentDateTimeNumericComponent::Numeric => result.push_str("d"),
+            FluentDateTimeNumericComponent::TwoDigit => result.push_str("dd"),
             FluentDateTimeNumericComponent::None => {}
         }
         let hour_skeleton_char = match input.hour_cycle {
@@ -338,13 +338,13 @@ impl FluentDateTimeOptionsRaw {
             FluentDateTimeNumericComponent::None => {}
         }
         match input.minute {
-            FluentDateTimeNumericComponent::Numeric => result.push_str("mm"),
-            FluentDateTimeNumericComponent::TwoDigit => result.push_str("m"),
+            FluentDateTimeNumericComponent::Numeric => result.push_str("m"),
+            FluentDateTimeNumericComponent::TwoDigit => result.push_str("mm"),
             FluentDateTimeNumericComponent::None => {}
         }
         match input.second {
-            FluentDateTimeNumericComponent::Numeric => result.push_str("ss"),
-            FluentDateTimeNumericComponent::TwoDigit => result.push_str("s"),
+            FluentDateTimeNumericComponent::Numeric => result.push_str("s"),
+            FluentDateTimeNumericComponent::TwoDigit => result.push_str("ss"),
             FluentDateTimeNumericComponent::None => {}
         }
         match input.time_zone_name {
@@ -375,7 +375,7 @@ impl From<&FluentDateTimeOptions> for FluentDateTimeOptionsRaw {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FluentDateTime {
-    epoch: usize,
+    epoch: f64,
     options: FluentDateTimeOptions,
 }
 
@@ -406,7 +406,7 @@ impl std::fmt::Display for FluentDateTime {
 }
 
 impl FluentDateTime {
-    pub fn new(epoch: usize, options: FluentDateTimeOptions) -> Self {
+    pub fn new(epoch: f64, options: FluentDateTimeOptions) -> Self {
         Self { epoch, options }
     }
 }
@@ -436,7 +436,7 @@ impl DateTimeFormat {
         }
     }
 
-    pub fn format(&self, input: usize) -> String {
+    pub fn format(&self, input: f64) -> String {
         unsafe {
             let mut byte_count = 0;
             let buffer = ffi::FluentBuiltInDateTimeFormatterFormat(

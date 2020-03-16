@@ -17,7 +17,7 @@ test "$FLATPAK_BRANCH"
 pwd
 
 SCRIPT_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-TARGET_TAR_GZ_FULL_PATH="$ARTIFACTS_DIR/target.flatpak.tar.gz"
+TARGET_TAR_XZ_FULL_PATH="$ARTIFACTS_DIR/target.flatpak.tar.xz"
 SOURCE_DEST="${WORKSPACE}/source"
 FREEDESKTOP_VERSION="19.08"
 FIREFOX_BASEAPP_CHANNEL="stable"
@@ -51,18 +51,18 @@ for locale in $locales; do
         "$CANDIDATES_DIR/${VERSION}-candidates/build${BUILD_NUMBER}/linux-x86_64/xpi/${locale}.xpi"
 done
 
-# Add a group policy file to disable app updates, as those are handled by Flathub
-cp -v "$SCRIPT_DIRECTORY/policies.json" "$DISTRIBUTION_DIR"
-
 envsubst < "$SCRIPT_DIRECTORY/org.mozilla.firefox.appdata.xml.in" > "${WORKSPACE}/org.mozilla.firefox.appdata.xml"
 cp -v "$SCRIPT_DIRECTORY/org.mozilla.firefox.desktop" "$WORKSPACE"
 cp -v "$SCRIPT_DIRECTORY/distribution.ini" "$WORKSPACE"
+# Add a group policy file to disable app updates, as those are handled by Flathub
+cp -v "$SCRIPT_DIRECTORY/policies.json" "$WORKSPACE"
 cp -v "$SCRIPT_DIRECTORY/default-preferences.js" "$WORKSPACE"
 cp -v "$SCRIPT_DIRECTORY/launch-script.sh" "$WORKSPACE"
 cd "${WORKSPACE}"
 
 flatpak remote-add --user --if-not-exists --from flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install -y flathub org.mozilla.Firefox.BaseApp//${FIREFOX_BASEAPP_CHANNEL} --no-deps
+# XXX: added --user to `flatpak install` to avoid ambiguity
+flatpak install --user -y flathub org.mozilla.Firefox.BaseApp//${FIREFOX_BASEAPP_CHANNEL} --no-deps
 
 # XXX: this command is temporarily, there's an upcoming fix in the upstream Docker image
 # that we work on top of, from `freedesktopsdk`, that will make these two lines go away eventually
@@ -76,6 +76,18 @@ name=org.mozilla.firefox
 runtime=org.freedesktop.Platform/${ARCH}/${FREEDESKTOP_VERSION}
 sdk=org.freedesktop.Sdk/${ARCH}/${FREEDESKTOP_VERSION}
 base=app/org.mozilla.Firefox.BaseApp/${ARCH}/${FIREFOX_BASEAPP_CHANNEL}
+[Extension org.mozilla.firefox.Locale]
+directory=share/runtime/langpack
+autodelete=true
+locale-subset=true
+EOF
+
+cat <<EOF > build/metadata.locale
+[Runtime]
+name=org.mozilla.firefox.Locale
+
+[ExtensionOf]
+ref=app/org.mozilla.firefox/${ARCH}/${FLATPAK_BRANCH}
 EOF
 
 appdir=build/files
@@ -94,10 +106,11 @@ mkdir -p "${appdir}/lib/firefox/distribution/extensions"
 # directory to where Firefox looks them up; this way only subset configured
 # on user system is downloaded vs all locales
 for locale in $locales; do
-    install -D -m644 -t "${appdir}/share/locales/${locale}/" "${DISTRIBUTION_DIR}/extensions/langpack-${locale}@firefox.mozilla.org.xpi"
-    ln -sf "${appdir}/share/locales/${locale}/langpack-${locale}@firefox.mozilla.org.xpi" "${appdir}/lib/firefox/distribution/extensions/langpack-${locale}@firefox.mozilla.org.xpi"
+    install -D -m644 -t "${appdir}/share/runtime/langpack/${locale:0:2}/" "${DISTRIBUTION_DIR}/extensions/langpack-${locale}@firefox.mozilla.org.xpi"
+    ln -sf "/app/share/runtime/langpack/${locale:0:2}/langpack-${locale}@firefox.mozilla.org.xpi" "${appdir}/lib/firefox/distribution/extensions/langpack-${locale}@firefox.mozilla.org.xpi"
 done
 install -D -m644 -t "${appdir}/lib/firefox/distribution" distribution.ini
+install -D -m644 -t "${appdir}/lib/firefox/distribution" policies.json
 install -D -m644 -t "${appdir}/lib/firefox/browser/defaults/preferences" default-preferences.js
 install -D -m755 launch-script.sh "${appdir}/bin/firefox"
 
@@ -108,10 +121,6 @@ flatpak build-finish build                                      \
         --persist=.mozilla                                      \
         --filesystem=xdg-download:rw                            \
         --device=all                                            \
-        --filesystem=xdg-run/dconf                              \
-        --filesystem=xdg-config/dconf:ro                        \
-        --talk-name=ca.desrt.dconf                              \
-        --env=DCONF_USER_CONFIG_DIR=.config/dconf               \
         --talk-name=org.freedesktop.FileManager1                \
         --system-talk-name=org.freedesktop.NetworkManager       \
         --talk-name=org.a11y.Bus                                \
@@ -120,11 +129,12 @@ flatpak build-finish build                                      \
         --talk-name="org.gtk.vfs.*"                             \
         --command=firefox
 
-flatpak build-export --disable-sandbox repo build "$FLATPAK_BRANCH"
+flatpak build-export --disable-sandbox --no-update-summary --exclude='/share/runtime/langpack/*/*' repo build "$FLATPAK_BRANCH"
+flatpak build-export --disable-sandbox --no-update-summary --metadata=metadata.locale --files=files/share/runtime/langpack repo build "$FLATPAK_BRANCH"
 flatpak build-update-repo repo
-tar cvfz flatpak.tar.gz repo
+tar cvfJ flatpak.tar.xz repo
 
-mv -- flatpak.tar.gz "$TARGET_TAR_GZ_FULL_PATH"
+mv -- flatpak.tar.xz "$TARGET_TAR_XZ_FULL_PATH"
 
 # XXX: if we ever wanted to go back to building flatpak bundles, we can revert this command; useful for testing individual artifacts, not publishable
 # flatpak build-bundle "$WORKSPACE"/repo org.mozilla.firefox.flatpak org.mozilla.firefox

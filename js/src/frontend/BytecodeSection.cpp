@@ -7,7 +7,6 @@
 #include "frontend/BytecodeSection.h"
 
 #include "mozilla/Assertions.h"       // MOZ_ASSERT
-#include "mozilla/PodOperations.h"    // PodZero
 #include "mozilla/ReverseIterator.h"  // mozilla::Reversed
 
 #include "frontend/CompilationInfo.h"
@@ -30,7 +29,10 @@ bool GCThingList::append(FunctionBox* funbox, uint32_t* index) {
   lastbox = funbox;
 
   *index = vector.length();
-  return vector.append(mozilla::AsVariant(JS::GCCellPtr(funbox->function())));
+  // To avoid circular include issues, funbox can't return a FunctionIndex, so
+  // instead it returns a size_t, which we wrap in FunctionIndex here to
+  // disambiguate the variant.
+  return vector.append(mozilla::AsVariant(FunctionIndex(funbox->index())));
 }
 
 void GCThingList::finishInnerFunctions() {
@@ -99,6 +101,17 @@ bool js::frontend::EmitScriptThingsVector(JSContext* cx,
       output[i] = JS::GCCellPtr(scope);
       return true;
     }
+
+    bool operator()(const FunctionIndex& index) {
+      MutableHandle<FunctionType> data = compilationInfo.funcData[index];
+      // We should have already converted this data to a JSFunction as part
+      // of publishDeferredFunctions, which currently happens before BCE begins.
+      // Once we can do LazyScriptCreationData::create without referencing the
+      // functionbox, then we should be able to do JSFunction allocation here.
+      MOZ_ASSERT(!data.is<FunctionCreationData>());
+      output[i] = JS::GCCellPtr(data.as<JSFunction*>());
+      return true;
+    }
   };
 
   for (uint32_t i = 0; i < objects.length(); i++) {
@@ -126,24 +139,12 @@ bool CGTryNoteList::append(JSTryNoteKind kind, uint32_t stackDepth,
   return list.append(note);
 }
 
-void CGTryNoteList::finish(mozilla::Span<JSTryNote> array) {
-  MOZ_ASSERT(length() == array.size());
-
-  for (unsigned i = 0; i < length(); i++) {
-    array[i] = list[i];
-  }
-}
-
 bool CGScopeNoteList::append(uint32_t scopeIndex, BytecodeOffset offset,
                              uint32_t parent) {
-  CGScopeNote note;
-  mozilla::PodZero(&note);
-
-  // Offsets are given relative to sections. In finish() we will fixup base
-  // offset if needed.
-
+  ScopeNote note;
   note.index = scopeIndex;
   note.start = offset.toUint32();
+  note.length = 0;
   note.parent = parent;
 
   return list.append(note);
@@ -160,25 +161,8 @@ void CGScopeNoteList::recordEndFunctionBodyVar(uint32_t index) {
 void CGScopeNoteList::recordEndImpl(uint32_t index, uint32_t offset) {
   MOZ_ASSERT(index < length());
   MOZ_ASSERT(list[index].length == 0);
-  list[index].end = offset;
-}
-
-void CGScopeNoteList::finish(mozilla::Span<ScopeNote> array) {
-  MOZ_ASSERT(length() == array.size());
-
-  for (unsigned i = 0; i < length(); i++) {
-    MOZ_ASSERT(list[i].end >= list[i].start);
-    list[i].length = list[i].end - list[i].start;
-    array[i] = list[i];
-  }
-}
-
-void CGResumeOffsetList::finish(mozilla::Span<uint32_t> array) {
-  MOZ_ASSERT(length() == array.size());
-
-  for (unsigned i = 0; i < length(); i++) {
-    array[i] = list[i];
-  }
+  MOZ_ASSERT(offset >= list[index].start);
+  list[index].length = offset - list[index].start;
 }
 
 JSObject* ObjLiteralCreationData::create(JSContext* cx) const {

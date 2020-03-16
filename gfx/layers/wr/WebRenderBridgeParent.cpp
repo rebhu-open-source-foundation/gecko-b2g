@@ -342,7 +342,8 @@ WebRenderBridgeParent::WebRenderBridgeParent(
       mDestroyed(false),
       mReceivedDisplayList(false),
       mIsFirstPaint(true),
-      mSkippedComposite(false) {
+      mSkippedComposite(false),
+      mPendingScrollPayloads("WebRenderBridgeParent::mPendingScrollPayloads") {
   MOZ_ASSERT(mAsyncImageManager);
   MOZ_ASSERT(mAnimStorage);
   mAsyncImageManager->AddPipeline(mPipelineId, this);
@@ -377,7 +378,8 @@ WebRenderBridgeParent::WebRenderBridgeParent(const wr::PipelineId& aPipelineId)
       mDestroyed(true),
       mReceivedDisplayList(false),
       mIsFirstPaint(false),
-      mSkippedComposite(false) {}
+      mSkippedComposite(false),
+      mPendingScrollPayloads("WebRenderBridgeParent::mPendingScrollPayloads") {}
 
 WebRenderBridgeParent::~WebRenderBridgeParent() {
   if (RefPtr<WebRenderBridgeParent> root = GetRootWebRenderBridgeParent()) {
@@ -1043,6 +1045,28 @@ WebRenderBridgeParent::WriteCollectedFrames() {
 RefPtr<wr::WebRenderAPI::GetCollectedFramesPromise>
 WebRenderBridgeParent::GetCollectedFrames() {
   return Api(wr::RenderRoot::Default)->GetCollectedFrames();
+}
+
+void WebRenderBridgeParent::AddPendingScrollPayload(
+    CompositionPayload& aPayload,
+    const std::pair<wr::PipelineId, wr::Epoch>& aKey) {
+  auto pendingScrollPayloads = mPendingScrollPayloads.Lock();
+  nsTArray<CompositionPayload>* payloads =
+      pendingScrollPayloads->LookupOrAdd(aKey);
+
+  payloads->AppendElement(aPayload);
+}
+
+nsTArray<CompositionPayload>* WebRenderBridgeParent::GetPendingScrollPayload(
+    const std::pair<wr::PipelineId, wr::Epoch>& aKey) {
+  auto pendingScrollPayloads = mPendingScrollPayloads.Lock();
+  return pendingScrollPayloads->Get(aKey);
+}
+
+bool WebRenderBridgeParent::RemovePendingScrollPayload(
+    const std::pair<wr::PipelineId, wr::Epoch>& aKey) {
+  auto pendingScrollPayloads = mPendingScrollPayloads.Lock();
+  return pendingScrollPayloads->Remove(aKey);
 }
 
 CompositorBridgeParent* WebRenderBridgeParent::GetRootCompositorBridgeParent()
@@ -2275,10 +2299,7 @@ bool WebRenderBridgeParent::AdvanceAnimations() {
   return isAnimating;
 }
 
-bool WebRenderBridgeParent::SampleAnimations(
-    wr::RenderRootArray<nsTArray<wr::WrOpacityProperty>>& aOpacityArrays,
-    wr::RenderRootArray<nsTArray<wr::WrTransformProperty>>& aTransformArrays,
-    wr::RenderRootArray<nsTArray<wr::WrColorProperty>>& aColorArrays) {
+bool WebRenderBridgeParent::SampleAnimations(WrAnimations& aAnimations) {
   const bool isAnimating = AdvanceAnimations();
 
   // return the animated data if has
@@ -2287,20 +2308,22 @@ bool WebRenderBridgeParent::SampleAnimations(
          iter.Next()) {
       AnimatedValue* value = iter.UserData();
       wr::RenderRoot renderRoot = mAnimStorage->AnimationRenderRoot(iter.Key());
-      auto& transformArray = aTransformArrays[renderRoot];
-      auto& opacityArray = aOpacityArrays[renderRoot];
-      auto& colorArray = aColorArrays[renderRoot];
-      if (value->Is<AnimationTransform>()) {
-        transformArray.AppendElement(wr::ToWrTransformProperty(
-            iter.Key(), value->Transform().mTransformInDevSpace));
-      } else if (value->Is<float>()) {
-        opacityArray.AppendElement(
-            wr::ToWrOpacityProperty(iter.Key(), value->Opacity()));
-      } else if (value->Is<nscolor>()) {
-        colorArray.AppendElement(wr::ToWrColorProperty(
-            iter.Key(),
-            ToDeviceColor(gfx::sRGBColor::FromABGR(value->Color()))));
-      }
+      value->Value().match(
+          [&](const AnimationTransform& aTransform) {
+            auto& transformArray = aAnimations.mTransformArrays[renderRoot];
+            transformArray.AppendElement(wr::ToWrTransformProperty(
+                iter.Key(), aTransform.mTransformInDevSpace));
+          },
+          [&](const float& aOpacity) {
+            auto& opacityArray = aAnimations.mOpacityArrays[renderRoot];
+            opacityArray.AppendElement(
+                wr::ToWrOpacityProperty(iter.Key(), aOpacity));
+          },
+          [&](const nscolor& aColor) {
+            auto& colorArray = aAnimations.mColorArrays[renderRoot];
+            colorArray.AppendElement(wr::ToWrColorProperty(
+                iter.Key(), ToDeviceColor(gfx::sRGBColor::FromABGR(aColor))));
+          });
     }
   }
 
@@ -2427,11 +2450,8 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
     return;
   }
 
-  wr::RenderRootArray<nsTArray<wr::WrOpacityProperty>> opacityArrays;
-  wr::RenderRootArray<nsTArray<wr::WrTransformProperty>> transformArrays;
-  wr::RenderRootArray<nsTArray<wr::WrColorProperty>> colorArrays;
-
-  if (SampleAnimations(opacityArrays, transformArrays, colorArrays)) {
+  WrAnimations animations;
+  if (SampleAnimations(animations)) {
     // TODO we should have a better way of assessing whether we need a content
     // or a chrome frame generation.
     ScheduleGenerateFrameAllRenderRoots();
@@ -2443,9 +2463,10 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
       continue;
     }
     auto renderRoot = api->GetRenderRoot();
-    fastTxns[renderRoot]->UpdateDynamicProperties(opacityArrays[renderRoot],
-                                                  transformArrays[renderRoot],
-                                                  colorArrays[renderRoot]);
+    fastTxns[renderRoot]->UpdateDynamicProperties(
+        animations.mOpacityArrays[renderRoot],
+        animations.mTransformArrays[renderRoot],
+        animations.mColorArrays[renderRoot]);
   }
 
   SetAPZSampleTime();

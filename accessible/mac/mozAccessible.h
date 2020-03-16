@@ -123,12 +123,15 @@ static const uintptr_t IS_PROXY = 1;
 - (void)didReceiveFocus;
 - (void)valueDidChange;
 - (void)selectedTextDidChange;
+- (void)selectionDidChange;
 - (void)documentLoadComplete;
 - (void)menuOpened;
 - (void)menuClosed;
 
 // internal method to retrieve a child at a given index.
 - (id)childAt:(uint32_t)i;
+
+- (uint64_t)state;
 
 #pragma mark -
 

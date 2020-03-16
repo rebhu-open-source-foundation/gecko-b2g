@@ -409,7 +409,8 @@ parent:
      * Indicate, based on the current state, that some commands are enabled and
      * some are disabled.
      */
-    async EnableDisableCommands(nsString action,
+    async EnableDisableCommands(MaybeDiscardedBrowsingContext bc,
+                                nsString action,
                                 nsCString[] enabledCommands,
                                 nsCString[] disabledCommands);
 
@@ -704,8 +705,7 @@ parent:
      * Called once this PBrowser's OOP subdoc no longer blocks its
      * embedding element's and embedding doc's 'load' events.
      */
-    async MaybeFireEmbedderLoadEvents(bool aIsTrusted,
-                                      bool aFireLoadAtEmbeddingElement);
+    async MaybeFireEmbedderLoadEvents(bool aFireLoadAtEmbeddingElement);
 
     async ScrollRectIntoView(nsRect aRect, ScrollAxis aVertical,
                              ScrollAxis aHorizontal, ScrollFlags aScrollFlags,
@@ -827,11 +827,19 @@ child:
     prio(input) async RealTouchMoveEvent(WidgetTouchEvent aEvent,
                                          ScrollableLayerGuid aGuid,
                                          uint64_t aInputBlockId,
-                                         nsEventStatus aApzResponse);
+                                         nsEventStatus aApzResponse) compress;
     async NormalPriorityRealTouchMoveEvent(WidgetTouchEvent aEvent,
                                            ScrollableLayerGuid aGuid,
                                            uint64_t aInputBlockId,
-                                           nsEventStatus aApzResponse);
+                                           nsEventStatus aApzResponse) compress;
+    prio(input) async RealTouchMoveEvent2(WidgetTouchEvent aEvent,
+                                          ScrollableLayerGuid aGuid,
+                                          uint64_t aInputBlockId,
+                                          nsEventStatus aApzResponse) compress;
+    async NormalPriorityRealTouchMoveEvent2(WidgetTouchEvent aEvent,
+                                            ScrollableLayerGuid aGuid,
+                                            uint64_t aInputBlockId,
+                                            nsEventStatus aApzResponse) compress;
 
     /*
      * We disable the input event queue when there is an active dnd session. We

@@ -278,9 +278,16 @@ JS::Result<FunctionBox*> BinASTParserPerTokenizer<Tok>::buildFunctionBox(
     directives.emplace(lazyScript_->strict());
   }
 
+  size_t index = this->getCompilationInfo().funcData.length();
+  if (!this->getCompilationInfo().funcData.emplaceBack(
+          mozilla::AsVariant(fun.get()))) {
+    return nullptr;
+  }
+
   auto* funbox = alloc_.new_<FunctionBox>(
-      cx_, traceListHead_, fun, /* toStringStart = */ 0, getCompilationInfo(),
-      *directives, generatorKind, functionAsyncKind);
+      cx_, traceListHead_, /* toStringStart = */ 0, getCompilationInfo(),
+      *directives, generatorKind, functionAsyncKind, fun->displayAtom(),
+      fun->flags(), index);
   if (MOZ_UNLIKELY(!funbox)) {
     return raiseOOM();
   }
@@ -372,10 +379,10 @@ JS::Result<Ok> BinASTParserPerTokenizer<Tok>::finishLazyFunction(
 
   SourceExtent extent(start, end, start, end,
                       /* lineno = */ 0, start);
-  BINJS_TRY_DECL(lazy,
-                 LazyScript::Create(cx_, fun, sourceObject_,
-                                    pc_->closedOverBindingsForLazy(),
-                                    pc_->innerFunctionBoxesForLazy, extent));
+  BINJS_TRY_DECL(
+      lazy, LazyScript::Create(cx_, this->getCompilationInfo(), fun,
+                               sourceObject_, pc_->closedOverBindingsForLazy(),
+                               pc_->innerFunctionIndexesForLazy, extent));
 
   if (funbox->strict()) {
     lazy->setStrict();

@@ -128,6 +128,7 @@ enum class OperatingSystem : uint8_t {
   Windows8_1,
   Windows10,
   RecentWindows10,
+  NotRecentWindows10,
   Linux,
   OSX,
   OSX10_5,
@@ -194,6 +195,7 @@ enum class DeviceFamily : uint8_t {
   NvidiaBlockWebRender,
   NvidiaRolloutWebRender,
   IntelRolloutWebRender,
+  IntelModernRolloutWebRender,
   AtiRolloutWebRender,
 
   Max

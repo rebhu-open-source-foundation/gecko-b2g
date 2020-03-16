@@ -82,6 +82,22 @@ let gGeneratedPasswordObserver = {
   addedObserver: false,
 
   observe(subject, topic, data) {
+    if (topic == "last-pb-context-exited") {
+      // The last private browsing context closed so clear all cached generated
+      // passwords for private window origins.
+      for (let principalOrigin of gGeneratedPasswordsByPrincipalOrigin.keys()) {
+        let principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(
+          principalOrigin
+        );
+        if (!principal.privateBrowsingId) {
+          // The origin isn't for a private context so leave it alone.
+          continue;
+        }
+        gGeneratedPasswordsByPrincipalOrigin.delete(principalOrigin);
+      }
+      return;
+    }
+
     if (
       topic == "passwordmgr-autosaved-login-merged" ||
       (topic == "passwordmgr-storage-changed" && data == "removeLogin")
@@ -536,6 +552,7 @@ class LoginManagerParent extends JSWindowActorParent {
     }
 
     generatedPW = {
+      autocompleteShown: false,
       edited: false,
       filled: false,
       /**
@@ -558,11 +575,46 @@ class LoginManagerParent extends JSWindowActorParent {
         gGeneratedPasswordObserver,
         "passwordmgr-storage-changed"
       );
+      Services.obs.addObserver(
+        gGeneratedPasswordObserver,
+        "last-pb-context-exited"
+      );
       gGeneratedPasswordObserver.addedObserver = true;
     }
 
     gGeneratedPasswordsByPrincipalOrigin.set(framePrincipalOrigin, generatedPW);
     return generatedPW.value;
+  }
+
+  maybeRecordPasswordGenerationShownTelemetryEvent(autocompleteResults) {
+    let browsingContext = this.getBrowsingContextToUse();
+
+    let framePrincipalOrigin =
+      browsingContext.currentWindowGlobal.documentPrincipal.origin;
+    let generatedPW = gGeneratedPasswordsByPrincipalOrigin.get(
+      framePrincipalOrigin
+    );
+
+    // We only want to record the first time it was shown for an origin
+    if (generatedPW.autocompleteShown) {
+      return;
+    }
+
+    let resultStyles = new Set(
+      autocompleteResults.map(r => r.style).filter(r => !!r)
+    );
+    if (!resultStyles.has("generatedPassword")) {
+      return;
+    }
+
+    generatedPW.autocompleteShown = true;
+    gGeneratedPasswordsByPrincipalOrigin.set(framePrincipalOrigin, generatedPW);
+
+    Services.telemetry.recordEvent(
+      "pwmgr",
+      "autocomplete_shown",
+      "generatedpassword"
+    );
   }
 
   /**

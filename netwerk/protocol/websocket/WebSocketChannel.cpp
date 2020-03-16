@@ -45,6 +45,7 @@
 #include "nsCRT.h"
 #include "nsThreadUtils.h"
 #include "nsError.h"
+#include "mozilla/Base64.h"
 #include "nsStringStream.h"
 #include "nsAlgorithm.h"
 #include "nsProxyRelease.h"
@@ -324,9 +325,8 @@ class nsWSAdmissionManager {
     bool found = (sManager->IndexOf(ws->mAddress) >= 0);
 
     // Always add ourselves to queue, even if we'll connect immediately
-    nsOpenConn* newdata = new nsOpenConn(ws->mAddress, ws);
-    LOG(("Websocket: adding conn %p to the queue", newdata));
-    sManager->mQueue.AppendElement(newdata);
+    UniquePtr<nsOpenConn> newdata(new nsOpenConn(ws->mAddress, ws));
+    sManager->mQueue.AppendElement(std::move(newdata));
 
     if (found) {
       LOG(
@@ -448,10 +448,7 @@ class nsWSAdmissionManager {
     MOZ_COUNT_CTOR(nsWSAdmissionManager);
   }
 
-  ~nsWSAdmissionManager() {
-    MOZ_COUNT_DTOR(nsWSAdmissionManager);
-    for (uint32_t i = 0; i < mQueue.Length(); i++) delete mQueue[i];
-  }
+  ~nsWSAdmissionManager() { MOZ_COUNT_DTOR(nsWSAdmissionManager); }
 
   class nsOpenConn {
    public:
@@ -485,10 +482,7 @@ class nsWSAdmissionManager {
     int32_t index = IndexOf(aChannel);
     MOZ_ASSERT(index >= 0, "connection to remove not in queue");
     if (index >= 0) {
-      nsOpenConn* olddata = mQueue[index];
       mQueue.RemoveElementAt(index);
-      LOG(("Websocket: removing conn %p from the queue", olddata));
-      delete olddata;
     }
   }
 
@@ -515,7 +509,7 @@ class nsWSAdmissionManager {
   //
   // We could hash hostnames instead of using a single big vector here, but the
   // dataset is expected to be small.
-  nsTArray<nsOpenConn*> mQueue;
+  nsTArray<UniquePtr<nsOpenConn>> mQueue;
 
   FailDelayManager mFailures;
 
@@ -2745,11 +2739,12 @@ nsresult WebSocketChannel::SetupRequest() {
 
   rv = mRandomGenerator->GenerateRandomBytes(16, &secKey);
   NS_ENSURE_SUCCESS(rv, rv);
-  char* b64 = PL_Base64Encode((const char*)secKey, 16, nullptr);
+  rv = Base64Encode(nsDependentCSubstring((char*)secKey, 16), secKeyString);
   free(secKey);
-  if (!b64) return NS_ERROR_OUT_OF_MEMORY;
-  secKeyString.Assign(b64);
-  PR_Free(b64);  // PL_Base64Encode() uses PR_Malloc.
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
   rv = mHttpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Sec-WebSocket-Key"),
                                       secKeyString, false);
   MOZ_ASSERT(NS_SUCCEEDED(rv));

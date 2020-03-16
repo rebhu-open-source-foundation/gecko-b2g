@@ -321,8 +321,6 @@
 
       this._lastSearchString = null;
 
-      this._controller = null;
-
       this._remoteWebNavigation = null;
 
       this._remoteWebProgress = null;
@@ -1266,12 +1264,6 @@
             true
           );
         }
-
-        const { RemoteController } = ChromeUtils.import(
-          "resource://gre/modules/RemoteController.jsm"
-        );
-        this._controller = new RemoteController(this);
-        this.controllers.appendController(this._controller);
       }
 
       try {
@@ -1344,17 +1336,6 @@
           let resourcePath = "resource://gre/actors/SelectParent.jsm";
           let { SelectParentHelper } = ChromeUtils.import(resourcePath);
           SelectParentHelper.hide(menulist, this);
-        }
-      }
-
-      // All controllers are released upon browser element removal, but not
-      // when destruction is triggered before element removal in tabbrowser.
-      // Release the controller in the latter case.
-      if (this._controller && this.controllers.getControllerCount()) {
-        try {
-          this.controllers.removeController(this._controller);
-        } catch (ex) {
-          Cu.reportError(ex);
         }
       }
 
@@ -1867,7 +1848,8 @@
             if (
               x > this._AUTOSCROLL_SNAP ||
               x < -this._AUTOSCROLL_SNAP ||
-              (y > this._AUTOSCROLL_SNAP || y < -this._AUTOSCROLL_SNAP)
+              y > this._AUTOSCROLL_SNAP ||
+              y < -this._AUTOSCROLL_SNAP
             ) {
               this._ignoreMouseEvents = false;
             }

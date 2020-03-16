@@ -2157,7 +2157,7 @@ void nsDocShell::TriggerParentCheckDocShellIsEmpty() {
       !GetBrowsingContext()->GetParent()->IsInProcess()) {
     if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
       mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
-          /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+          /*aFireLoadAtEmbeddingElement*/ false);
     }
   }
 }
@@ -3540,7 +3540,7 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
       !GetBrowsingContext()->GetParent()->IsInProcess()) {
     if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
       mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
-          /*aIsTrusted*/ true, /*aFireLoadAtEmbeddingElement*/ false);
+          /*aFireLoadAtEmbeddingElement*/ false);
     }
   }
 
@@ -8193,6 +8193,10 @@ nsresult nsDocShell::MaybeHandleLoadDelegate(nsDocShellLoadState* aLoadState,
 
   *aDidHandleLoad = false;
 
+  if (aLoadState->HasLoadFlags(INTERNAL_LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE)) {
+    return NS_OK;
+  }
+
   nsCOMPtr<nsILoadURIDelegate> loadURIDelegate = GetLoadURIDelegate();
   // If we don't have a delegate or we're trying to load the error page, we
   // shouldn't be trying to do sandbox loads.
@@ -11383,22 +11387,21 @@ void nsDocShell::SetHistoryEntryAndUpdateBC(const Maybe<nsISHEntry*>& aLSHE,
     MOZ_ASSERT(mOSHE.get() == aOSHE.value());
   }
 
-  // If the SH pref is off and we are not a parent process do not update
-  // canonical BC
-  if (!StaticPrefs::fission_sessionHistoryInParent() &&
-      XRE_IsContentProcess()) {
+  // Do not update the BC if the SH pref is off and we are not a parent process
+  // or if it is discarded
+  if ((!StaticPrefs::fission_sessionHistoryInParent() &&
+      XRE_IsContentProcess()) || mBrowsingContext->IsDiscarded()) {
     return;
   }
-  ContentChild* cc = ContentChild::GetSingleton();
-  RefPtr<BrowsingContext> bc =
-      mBrowsingContext->IsDiscarded() ? nullptr : mBrowsingContext;
   if (XRE_IsParentProcess()) {
     // We are in the parent process, thus we can update the entries directly
     mBrowsingContext->Canonical()->UpdateSHEntries(mLSHE, mOSHE);
   } else {
+    ContentChild* cc = ContentChild::GetSingleton();
     // We can't update canonical BC directly, so do it over IPC call
     cc->SendUpdateSHEntriesInBC(static_cast<SHEntryChild*>(mLSHE.get()),
-                                static_cast<SHEntryChild*>(mOSHE.get()), bc);
+                                static_cast<SHEntryChild*>(mOSHE.get()),
+                                mBrowsingContext);
   }
 }
 

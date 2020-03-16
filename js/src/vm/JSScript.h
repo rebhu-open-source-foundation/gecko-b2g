@@ -78,6 +78,8 @@ class DebugAPI;
 class DebugScript;
 
 namespace frontend {
+struct CompilationInfo;
+class FunctionIndex;
 class FunctionBox;
 class ModuleSharedContext;
 class ScriptStencil;
@@ -182,13 +184,18 @@ struct ScopeNote {
   // Sentinel index for no ScopeNote.
   static const uint32_t NoScopeNoteIndex = UINT32_MAX;
 
-  uint32_t index;   // Index of Scope in the scopes array, or
-                    // NoScopeIndex if there is no block scope in
-                    // this range.
-  uint32_t start;   // Bytecode offset at which this scope starts
-                    // relative to script->code().
-  uint32_t length;  // Bytecode length of scope.
-  uint32_t parent;  // Index of parent block scope in notes, or NoScopeNote.
+  // Index of the js::Scope in the script's gcthings array, or NoScopeIndex if
+  // there is no block scope in this range.
+  uint32_t index = 0;
+
+  // Bytecode offset at which this scope starts relative to script->code().
+  uint32_t start = 0;
+
+  // Length of bytecode span this scope covers.
+  uint32_t length = 0;
+
+  // Index of parent block scope in notes, or NoScopeNote.
+  uint32_t parent = 0;
 
   template <js::XDRMode mode>
   js::XDRResult XDR(js::XDRState<mode>* xdr);
@@ -270,23 +277,23 @@ class ScriptCounts {
 // TODO: Clean this up by either aggregating coverage results in some other
 // way, or by tweaking sweep ordering.
 using UniqueScriptCounts = js::UniquePtr<ScriptCounts>;
-using ScriptCountsMap = HashMap<JSScript*, UniqueScriptCounts,
-                                DefaultHasher<JSScript*>, SystemAllocPolicy>;
+using ScriptCountsMap = HashMap<BaseScript*, UniqueScriptCounts,
+                                DefaultHasher<BaseScript*>, SystemAllocPolicy>;
 
 // The 'const char*' for the function name is a pointer within the LCovSource's
 // LifoAlloc and will be discarded at the same time.
 using ScriptLCovEntry = mozilla::Tuple<coverage::LCovSource*, const char*>;
-using ScriptLCovMap = HashMap<JSScript*, ScriptLCovEntry,
-                              DefaultHasher<JSScript*>, SystemAllocPolicy>;
+using ScriptLCovMap = HashMap<BaseScript*, ScriptLCovEntry,
+                              DefaultHasher<BaseScript*>, SystemAllocPolicy>;
 
 #ifdef MOZ_VTUNE
-using ScriptVTuneIdMap =
-    HashMap<JSScript*, uint32_t, DefaultHasher<JSScript*>, SystemAllocPolicy>;
+using ScriptVTuneIdMap = HashMap<BaseScript*, uint32_t,
+                                 DefaultHasher<BaseScript*>, SystemAllocPolicy>;
 #endif
 
 using UniqueDebugScript = js::UniquePtr<DebugScript, JS::FreePolicy>;
-using DebugScriptMap = HashMap<JSScript*, UniqueDebugScript,
-                               DefaultHasher<JSScript*>, SystemAllocPolicy>;
+using DebugScriptMap = HashMap<BaseScript*, UniqueDebugScript,
+                               DefaultHasher<BaseScript*>, SystemAllocPolicy>;
 
 class ScriptSource;
 
@@ -1764,11 +1771,19 @@ class alignas(uint32_t) ImmutableScriptData final {
   }
 
  public:
-  static ImmutableScriptData* new_(JSContext* cx, uint32_t codeLength,
-                                   uint32_t noteLength,
-                                   uint32_t numResumeOffsets,
-                                   uint32_t numScopeNotes,
-                                   uint32_t numTryNotes);
+  static js::UniquePtr<ImmutableScriptData> new_(
+      JSContext* cx, uint32_t mainOffset, uint32_t nfixed, uint32_t nslots,
+      uint32_t bodyScopeIndex, uint32_t numICEntries,
+      uint32_t numBytecodeTypeSets, bool isFunction, uint16_t funLength,
+      mozilla::Span<const jsbytecode> code,
+      mozilla::Span<const jssrcnote> notes,
+      mozilla::Span<const uint32_t> resumeOffsets,
+      mozilla::Span<const ScopeNote> scopeNotes,
+      mozilla::Span<const JSTryNote> tryNotes);
+
+  static js::UniquePtr<ImmutableScriptData> new_(
+      JSContext* cx, uint32_t codeLength, uint32_t noteLength,
+      uint32_t numResumeOffsets, uint32_t numScopeNotes, uint32_t numTryNotes);
 
   // The code() and note() arrays together maintain an target alignment by
   // padding the source notes with null. This allows arrays with stricter
@@ -1800,9 +1815,11 @@ class alignas(uint32_t) ImmutableScriptData final {
 
   uint32_t codeLength() const { return codeLength_; }
   jsbytecode* code() { return offsetToPointer<jsbytecode>(codeOffset()); }
+  mozilla::Span<jsbytecode> codeSpan() { return {code(), codeLength()}; }
 
   uint32_t noteLength() const { return optionalOffsetsOffset() - noteOffset(); }
   jssrcnote* notes() { return offsetToPointer<jssrcnote>(noteOffset()); }
+  mozilla::Span<jssrcnote> notesSpan() { return {notes(), noteLength()}; }
 
   mozilla::Span<uint32_t> resumeOffsets() {
     return mozilla::MakeSpan(offsetToPointer<uint32_t>(resumeOffsetsOffset()),
@@ -1837,10 +1854,7 @@ class alignas(uint32_t) ImmutableScriptData final {
 
   template <XDRMode mode>
   static MOZ_MUST_USE XDRResult XDR(js::XDRState<mode>* xdr,
-                                    js::HandleScript script);
-
-  static bool InitFromStencil(JSContext* cx, js::HandleScript script,
-                              const js::frontend::ScriptStencil& stencil);
+                                    js::UniquePtr<ImmutableScriptData>& script);
 
   // ImmutableScriptData has trailing data so isn't copyable or movable.
   ImmutableScriptData(const ImmutableScriptData&) = delete;
@@ -1922,7 +1936,7 @@ class RuntimeScriptData final {
   void markForCrossZone(JSContext* cx);
 
   static bool InitFromStencil(JSContext* cx, js::HandleScript script,
-                              const js::frontend::ScriptStencil& stencil);
+                              js::frontend::ScriptStencil& stencil);
 
   size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
     return mallocSizeOf(this) + mallocSizeOf(isd_.get());
@@ -2055,25 +2069,6 @@ class BaseScript : public gc::TenuredCell {
 
   ScriptWarmUpData warmUpData_ = {};
 
-  union TwinPointer {
-    // Information used to re-lazify a lazily-parsed interpreted function.
-    js::LazyScript* lazyScript;
-
-    // If non-nullptr, the script has been compiled and this is a forwarding
-    // pointer to the result. This is a weak pointer: after relazification, we
-    // can collect the script if there are no other pointers to it.
-    WeakHeapPtrScript script_;
-
-    // Default to the lazyScript union arm which is used by JSScripts. This
-    // corresponds to the default IsLazyScript flag being clear. Remember that a
-    // non-lazy script points *to* a LazyScript.
-    TwinPointer() : lazyScript(nullptr) {}
-
-    // The BaseScript uses a finalizer instead of a C++ destructor so this
-    // should never be run. We need to define to appease compiler though.
-    ~TwinPointer() { MOZ_CRASH(); }
-  } u;
-
   BaseScript(uint8_t* stubEntry, JSObject* functionOrGlobal,
              ScriptSourceObject* sourceObject, SourceExtent extent)
       : jitCodeRaw_(stubEntry),
@@ -2088,6 +2083,7 @@ class BaseScript : public gc::TenuredCell {
 
  public:
   uint8_t* jitCodeRaw() const { return jitCodeRaw_; }
+  bool isUsingInterpreterTrampoline(JSRuntime* rt) const;
 
   // Canonical function for the script, if it has a function. For global and
   // eval scripts this is nullptr.
@@ -2211,6 +2207,7 @@ setterLevel:                                                                  \
   IMMUTABLE_FLAG_GETTER(noScriptRval, NoScriptRval)
   IMMUTABLE_FLAG_GETTER(selfHosted, SelfHosted)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(treatAsRunOnce, TreatAsRunOnce)
+  IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(forceStrict, ForceStrict)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(strict, Strict)
   IMMUTABLE_FLAG_GETTER(hasNonSyntacticScope, HasNonSyntacticScope)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(bindingsAccessedDynamically,
@@ -2227,8 +2224,6 @@ setterLevel:                                                                  \
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(needsHomeObject, NeedsHomeObject)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(isDerivedClassConstructor,
                                       IsDerivedClassConstructor)
-  IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(isDefaultClassConstructor,
-                                      IsDefaultClassConstructor)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(isLikelyConstructorWrapper,
                                       IsLikelyConstructorWrapper)
   IMMUTABLE_FLAG_GETTER(isGenerator, IsGenerator)
@@ -2237,7 +2232,7 @@ setterLevel:                                                                  \
   // See FunctionBox::argumentsHasLocalBinding_ comment.
   // N.B.: no setter -- custom logic in JSScript.
   IMMUTABLE_FLAG_GETTER(argumentsHasVarBinding, ArgumentsHasVarBinding)
-  // IsForEval: custom logic below.
+  IMMUTABLE_FLAG_GETTER(isForEval, IsForEval)
   IMMUTABLE_FLAG_GETTER(isModule, IsModule)
   IMMUTABLE_FLAG_GETTER(needsFunctionEnvironmentObjects,
                         NeedsFunctionEnvironmentObjects)
@@ -2245,12 +2240,10 @@ setterLevel:                                                                  \
                                       ShouldDeclareArguments)
   IMMUTABLE_FLAG_GETTER(isFunction, IsFunction)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(hasDirectEval, HasDirectEval)
-  IMMUTABLE_FLAG_GETTER(isLazyScript, IsLazyScript)
 
   MUTABLE_FLAG_GETTER_SETTER(hasRunOnce, HasRunOnce)
   MUTABLE_FLAG_GETTER_SETTER(hasBeenCloned, HasBeenCloned)
-  // N.B.: no setter -- custom logic in JSScript.
-  MUTABLE_FLAG_GETTER(hasScriptCounts, HasScriptCounts)
+  MUTABLE_FLAG_GETTER_SETTER(hasScriptCounts, HasScriptCounts)
   // Access the flag for whether this script has a DebugScript in its realm's
   // map. This should only be used by the DebugScript class.
   MUTABLE_FLAG_GETTER_SETTER(hasDebugScript, HasDebugScript)
@@ -2267,7 +2260,7 @@ setterLevel:                                                                  \
   // NeedsArgsObj: custom logic below.
   MUTABLE_FLAG_GETTER_SETTER(hideScriptFromDebugger, HideScriptFromDebugger)
   MUTABLE_FLAG_GETTER_SETTER(spewEnabled, SpewEnabled)
-  MUTABLE_FLAG_GETTER_SETTER(isWrappedByDebugger, WrappedByDebugger);
+  MUTABLE_FLAG_GETTER_SETTER(isLazyScript, IsLazyScript)
 
 #undef IMMUTABLE_FLAG_GETTER
 #undef IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC
@@ -2336,6 +2329,7 @@ setterLevel:                                                                  \
     return gcthings()[outermostScopeIndex].as<Scope>().enclosing();
   }
   void setEnclosingScope(Scope* enclosingScope);
+  Scope* releaseEnclosingScope();
 
   bool hasJitScript() const { return warmUpData_.isJitScript(); }
   js::jit::JitScript* jitScript() const {
@@ -2345,6 +2339,11 @@ setterLevel:                                                                  \
   js::jit::JitScript* maybeJitScript() const {
     return hasJitScript() ? jitScript() : nullptr;
   }
+
+  bool hasPrivateScriptData() const { return data_ != nullptr; }
+
+  // Update data_ pointer while also informing GC MemoryUse tracking.
+  void swapData(UniquePtr<PrivateScriptData>& other);
 
   mozilla::Span<const JS::GCCellPtr> gcthings() const {
     return data_ ? data_->gcthings() : mozilla::Span<JS::GCCellPtr>();
@@ -2376,11 +2375,6 @@ setterLevel:                                                                  \
 
   void traceChildren(JSTracer* trc);
   void finalize(JSFreeOp* fop);
-
-  WeakHeapPtrScript* getLazyScriptScriptEdgeForTracing() {
-    MOZ_ASSERT(isLazyScript());
-    return &u.script_;
-  }
 
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) {
     return mallocSizeOf(data_);
@@ -2459,17 +2453,9 @@ class JSScript : public js::BaseScript {
   friend js::XDRResult js::RuntimeScriptData::XDR(js::XDRState<mode>* xdr,
                                                   js::HandleScript script);
 
-  template <js::XDRMode mode>
-  friend js::XDRResult js::ImmutableScriptData::XDR(js::XDRState<mode>* xdr,
-                                                    js::HandleScript script);
-
   friend bool js::RuntimeScriptData::InitFromStencil(
       JSContext* cx, js::HandleScript script,
-      const js::frontend::ScriptStencil& stencil);
-
-  friend bool js::ImmutableScriptData::InitFromStencil(
-      JSContext* cx, js::HandleScript script,
-      const js::frontend::ScriptStencil& stencil);
+      js::frontend::ScriptStencil& stencil);
 
   template <js::XDRMode mode>
   friend js::XDRResult js::PrivateScriptData::XDR(
@@ -2508,8 +2494,10 @@ class JSScript : public js::BaseScript {
                           js::ImmutableScriptFlags flags,
                           bool hideScriptFromDebugger, js::SourceExtent extent);
 
-  static JSScript* CreateFromLazy(JSContext* cx,
-                                  js::Handle<js::BaseScript*> lazy);
+  // NOTE: This should only be used while delazifying.
+  static JSScript* CastFromLazy(js::BaseScript* lazy) {
+    return static_cast<JSScript*>(lazy);
+  }
 
   // NOTE: If you use createPrivateScriptData directly instead of via
   // fullyInitFromStencil, you are responsible for notifying the debugger
@@ -2523,7 +2511,7 @@ class JSScript : public js::BaseScript {
 
  public:
   static bool fullyInitFromStencil(JSContext* cx, js::HandleScript script,
-                                   const js::frontend::ScriptStencil& stencil);
+                                   js::frontend::ScriptStencil& stencil);
 
 #ifdef DEBUG
  private:
@@ -2723,9 +2711,6 @@ class JSScript : public js::BaseScript {
            !isAsync() && !hasCallSiteObj();
   }
 
-  void setLazyScript(js::LazyScript* lazy) { u.lazyScript = lazy; }
-  js::LazyScript* maybeLazyScript() { return u.lazyScript; }
-
   js::ModuleObject* module() const {
     if (bodyScope()->is<js::ModuleScope>()) {
       return bodyScope()->as<js::ModuleScope>().module();
@@ -2752,13 +2737,6 @@ class JSScript : public js::BaseScript {
 #endif
 
  public:
-  /* Return whether this script was compiled for 'eval' */
-  bool isForEval() const {
-    MOZ_ASSERT(hasFlag(ImmutableFlags::IsForEval) ==
-               bodyScope()->is<js::EvalScope>());
-    return hasFlag(ImmutableFlags::IsForEval);
-  }
-
   /* Return whether this is a 'direct eval' script in a function scope. */
   bool isDirectEvalInFunction() const {
     if (!isForEval()) {
@@ -2851,13 +2829,17 @@ class JSScript : public js::BaseScript {
 
   inline js::LexicalScope* maybeNamedLambdaScope() const;
 
+  // Drop script data and set the IsLazyScript flag.
+  void relazify(JSRuntime* rt);
+
  private:
   bool createJitScript(JSContext* cx);
 
   bool createScriptData(JSContext* cx, uint32_t natoms);
-  bool createImmutableScriptData(JSContext* cx, uint32_t codeLength,
-                                 uint32_t noteLength, uint32_t numResumeOffsets,
-                                 uint32_t numScopeNotes, uint32_t numTryNotes);
+  void initImmutableScriptData(js::UniquePtr<js::ImmutableScriptData>&& data) {
+    MOZ_ASSERT(!sharedData_->isd_);
+    sharedData_->isd_ = std::move(data);
+  }
   bool shareScriptData(JSContext* cx);
 
  public:
@@ -2896,7 +2878,6 @@ class JSScript : public js::BaseScript {
   js::jit::IonScriptCounts* getIonCounts();
   void releaseScriptCounts(js::ScriptCounts* counts);
   void destroyScriptCounts();
-  void clearHasScriptCounts();
   void resetScriptCounts();
 
   jsbytecode* main() const { return code() + mainOffset(); }
@@ -3187,9 +3168,10 @@ class LazyScript : public BaseScript {
   // Create a LazyScript and initialize closedOverBindings and innerFunctions
   // with the provided vectors.
   static LazyScript* Create(
-      JSContext* cx, HandleFunction fun, HandleScriptSourceObject sourceObject,
+      JSContext* cx, const frontend::CompilationInfo& compilationInfo,
+      HandleFunction fun, HandleScriptSourceObject sourceObject,
       const frontend::AtomVector& closedOverBindings,
-      const frontend::FunctionBoxVector& innerFunctionBoxes,
+      const Vector<frontend::FunctionIndex>& innerFunctionIndexes,
       const SourceExtent& extent);
 
   // Create a LazyScript and initialize the closedOverBindings and the
@@ -3215,14 +3197,6 @@ class LazyScript : public BaseScript {
                                  HandleScriptSourceObject sourceObject,
                                  Handle<LazyScript*> lazy,
                                  bool hasFieldInitializer);
-
-  void initScript(JSScript* script);
-
-  JSScript* maybeScript() { return u.script_; }
-  const JSScript* maybeScriptUnbarriered() const {
-    return u.script_.unbarrieredGet();
-  }
-  bool hasScript() const { return bool(u.script_); }
 };
 
 struct ScriptAndCounts {

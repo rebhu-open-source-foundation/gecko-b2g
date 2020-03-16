@@ -63,43 +63,45 @@ enum class ImmutableScriptFlagsEnum : uint32_t {
   // that will only run once.  Which one it is can be disambiguated by
   // checking whether function() is null.
   TreatAsRunOnce = 1 << 2,
+
+  // Code was forced into strict mode using CompileOptions.
+  ForceStrict = 1 << 3,
   // ----
 
   // Code is in strict mode.
-  Strict = 1 << 3,
+  Strict = 1 << 4,
 
   // True if the script has a non-syntactic scope on its dynamic scope chain.
   // That is, there are objects about which we know nothing between the
   // outermost syntactic scope and the global.
-  HasNonSyntacticScope = 1 << 4,
+  HasNonSyntacticScope = 1 << 5,
 
   // See FunctionBox.
-  BindingsAccessedDynamically = 1 << 5,
-  FunHasExtensibleScope = 1 << 6,
+  BindingsAccessedDynamically = 1 << 6,
+  FunHasExtensibleScope = 1 << 7,
 
   // Bytecode contains JSOp::CallSiteObj
   // (We don't relazify functions with template strings, due to observability)
-  HasCallSiteObj = 1 << 7,
+  HasCallSiteObj = 1 << 8,
 
   // Script is parsed with a top-level goal of Module. This may be a top-level
   // or an inner-function script.
-  HasModuleGoal = 1 << 8,
+  HasModuleGoal = 1 << 9,
 
-  FunctionHasThisBinding = 1 << 9,
-  FunctionHasExtraBodyVarScope = 1 << 10,
+  FunctionHasThisBinding = 1 << 10,
+  FunctionHasExtraBodyVarScope = 1 << 11,
 
   // Whether the arguments object for this script, if it needs one, should be
   // mapped (alias formal parameters).
-  HasMappedArgsObj = 1 << 11,
+  HasMappedArgsObj = 1 << 12,
 
   // Script contains inner functions. Used to check if we can relazify the
   // script.
-  HasInnerFunctions = 1 << 12,
+  HasInnerFunctions = 1 << 13,
 
-  NeedsHomeObject = 1 << 13,
+  NeedsHomeObject = 1 << 14,
 
-  IsDerivedClassConstructor = 1 << 14,
-  IsDefaultClassConstructor = 1 << 15,
+  IsDerivedClassConstructor = 1 << 15,
 
   // 'this', 'arguments' and f.apply() are used. This is likely to be a
   // wrapper.
@@ -134,10 +136,6 @@ enum class ImmutableScriptFlagsEnum : uint32_t {
 
   // Whether this script contains a direct eval statement.
   HasDirectEval = 1 << 26,
-
-  // Whether this BaseScript is a LazyScript. This flag will be removed after
-  // LazyScript and JSScript are merged in Bug 1529456.
-  IsLazyScript = 1 << 27,
 };
 
 class ImmutableScriptFlags : public ScriptFlagBase<ImmutableScriptFlagsEnum> {
@@ -166,6 +164,8 @@ class ImmutableScriptFlags : public ScriptFlagBase<ImmutableScriptFlagsEnum> {
     isf.setFlag(ImmutableScriptFlagsEnum::NoScriptRval, options.noScriptRval);
     isf.setFlag(ImmutableScriptFlagsEnum::SelfHosted, options.selfHostingMode);
     isf.setFlag(ImmutableScriptFlagsEnum::TreatAsRunOnce, options.isRunOnce);
+    isf.setFlag(ImmutableScriptFlagsEnum::ForceStrict,
+                options.forceStrictMode());
     return isf;
   };
 
@@ -177,6 +177,8 @@ class ImmutableScriptFlags : public ScriptFlagBase<ImmutableScriptFlagsEnum> {
     isf.setFlag(ImmutableScriptFlagsEnum::SelfHosted, options.selfHostingMode);
     isf.setFlag(ImmutableScriptFlagsEnum::TreatAsRunOnce,
                 /* isRunOnce (non-transitive compile option) = */ false);
+    isf.setFlag(ImmutableScriptFlagsEnum::ForceStrict,
+                options.forceStrictMode());
     return isf;
   };
 };
@@ -242,8 +244,8 @@ enum class MutableScriptFlagsEnum : uint32_t {
   // Set if the script has opted into spew
   SpewEnabled = 1 << 27,
 
-  // Set for LazyScripts which have been wrapped by some Debugger.
-  WrappedByDebugger = 1 << 28,
+  // Set if this is a LazyScript.
+  IsLazyScript = 1 << 28,
 };
 
 class MutableScriptFlags : public ScriptFlagBase<MutableScriptFlagsEnum> {

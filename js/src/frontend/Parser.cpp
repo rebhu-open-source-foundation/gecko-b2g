@@ -262,38 +262,12 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
     FunctionNodeType funNode, JSFunction* fun, uint32_t toStringStart,
     Directives inheritedDirectives, GeneratorKind generatorKind,
     FunctionAsyncKind asyncKind) {
+  MOZ_ASSERT(funNode);
   MOZ_ASSERT(fun);
 
-  /*
-   * We use JSContext.tempLifoAlloc to allocate parsed objects and place them
-   * on a list in this Parser to ensure GC safety. Thus the tempLifoAlloc
-   * arenas containing the entries must be alive until we are done with
-   * scanning, parsing and code generation for the whole script or top-level
-   * function.
-   */
-  FunctionBox* funbox = alloc_.new_<FunctionBox>(
-      cx_, traceListHead_, fun, toStringStart, this->getCompilationInfo(),
-      inheritedDirectives, generatorKind, asyncKind);
-  if (!funbox) {
-    ReportOutOfMemory(cx_);
-    return nullptr;
-  }
-
-  traceListHead_ = funbox;
-  if (funNode) {
-    handler_.setFunctionBox(funNode, funbox);
-  }
-
-  return funbox;
-}
-
-template <class ParseHandler>
-FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
-    FunctionNodeType funNode, Handle<FunctionCreationData> fcd,
-    uint32_t toStringStart, Directives inheritedDirectives,
-    GeneratorKind generatorKind, FunctionAsyncKind asyncKind) {
   size_t index = this->getCompilationInfo().funcData.length();
-  if (!this->getCompilationInfo().funcData.emplaceBack(fcd.get())) {
+  if (!this->getCompilationInfo().funcData.emplaceBack(
+          mozilla::AsVariant(fun))) {
     return nullptr;
   }
 
@@ -306,7 +280,43 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
    */
   FunctionBox* funbox = alloc_.new_<FunctionBox>(
       cx_, traceListHead_, toStringStart, this->getCompilationInfo(),
-      inheritedDirectives, generatorKind, asyncKind, index);
+      inheritedDirectives, generatorKind, asyncKind, fun->displayAtom(),
+      fun->flags(), index);
+  if (!funbox) {
+    ReportOutOfMemory(cx_);
+    return nullptr;
+  }
+
+  traceListHead_ = funbox;
+  handler_.setFunctionBox(funNode, funbox);
+
+  return funbox;
+}
+
+template <class ParseHandler>
+FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
+    FunctionNodeType funNode, Handle<FunctionCreationData> fcd,
+    uint32_t toStringStart, Directives inheritedDirectives,
+    GeneratorKind generatorKind, FunctionAsyncKind asyncKind) {
+  MOZ_ASSERT(funNode);
+
+  size_t index = this->getCompilationInfo().funcData.length();
+  if (!this->getCompilationInfo().funcData.emplaceBack(
+          mozilla::AsVariant(fcd.get()))) {
+    return nullptr;
+  }
+
+  /*
+   * We use JSContext.tempLifoAlloc to allocate parsed objects and place them
+   * on a list in this Parser to ensure GC safety. Thus the tempLifoAlloc
+   * arenas containing the entries must be alive until we are done with
+   * scanning, parsing and code generation for the whole script or top-level
+   * function.
+   */
+  FunctionBox* funbox = alloc_.new_<FunctionBox>(
+      cx_, traceListHead_, toStringStart, this->getCompilationInfo(),
+      inheritedDirectives, generatorKind, asyncKind, fcd.get().atom,
+      fcd.get().flags, index);
 
   if (!funbox) {
     ReportOutOfMemory(cx_);
@@ -314,9 +324,7 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
   }
 
   traceListHead_ = funbox;
-  if (funNode) {
-    handler_.setFunctionBox(funNode, funbox);
-  }
+  handler_.setFunctionBox(funNode, funbox);
 
   return funbox;
 }
@@ -1666,7 +1674,7 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
   // LazyScript. Do a full parse.
   if (pc_->closedOverBindingsForLazy().length() >=
           LazyScript::NumClosedOverBindingsLimit ||
-      pc_->innerFunctionBoxesForLazy.length() >=
+      pc_->innerFunctionIndexesForLazy.length() >=
           LazyScript::NumInnerFunctionsLimit) {
     MOZ_ALWAYS_FALSE(abortIfSyntaxParser());
     return false;
@@ -1677,7 +1685,8 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
 
   LazyScriptCreationData data(cx_);
   if (!data.init(cx_, pc_->closedOverBindingsForLazy(),
-                 pc_->innerFunctionBoxesForLazy, pc_->sc()->strict())) {
+                 std::move(pc_->innerFunctionIndexesForLazy),
+                 options().forceStrictMode(), pc_->sc()->strict())) {
     return false;
   }
 
@@ -1694,11 +1703,16 @@ bool ParserBase::publishDeferredFunctions(FunctionTree* root) {
         return true;
       }
 
-      if (!funbox->hasFunctionCreationIndex()) {
+      if (!funbox->hasFunctionCreationData()) {
         return true;
       }
 
-      MutableHandle<FunctionCreationData> fcd = funbox->functionCreationData();
+      // Move the FCD out of the funcDataArray onto the stack here, because
+      // funbox->initializeFunction() below clobbers the funcDataAray element,
+      // and we want fcd to remain alive so that we can work on the lazy
+      // script creation data.
+      Rooted<FunctionCreationData> fcd(
+          parser->cx_, std::move(funbox->functionCreationData().get()));
       RootedFunction fun(parser->cx_, AllocNewFunction(parser->cx_, fcd));
       if (!fun) {
         return false;
@@ -1712,26 +1726,32 @@ bool ParserBase::publishDeferredFunctions(FunctionTree* root) {
         return true;
       }
 
-      return data->create(parser->cx_, funbox, parser->sourceObject_);
+      return data->create(parser->cx_, parser->compilationInfo_, fun, funbox,
+                          parser->sourceObject_);
     };
     return root->visitRecursively(this->cx_, this, visitor);
   }
   return true;
 }
 
-bool LazyScriptCreationData::create(JSContext* cx, FunctionBox* funbox,
+bool LazyScriptCreationData::create(JSContext* cx,
+                                    CompilationInfo& compilationInfo,
+                                    HandleFunction function,
+                                    FunctionBox* funbox,
                                     HandleScriptSourceObject sourceObject) {
-  Rooted<JSFunction*> function(cx, funbox->function());
   MOZ_ASSERT(function);
-  BaseScript* lazy =
-      LazyScript::Create(cx, function, sourceObject, closedOverBindings,
-                         innerFunctionBoxes, funbox->extent);
+  BaseScript* lazy = LazyScript::Create(cx, compilationInfo, function,
+                                        sourceObject, closedOverBindings,
+                                        innerFunctionIndexes, funbox->extent);
   if (!lazy) {
     return false;
   }
 
   // Flags that need to be copied into the JSScript when we do the full
   // parse.
+  if (forceStrict) {
+    lazy->setForceStrict();
+  }
   if (strict) {
     lazy->setStrict();
   }
@@ -1860,7 +1880,6 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneFunction(
   if (!funpc.init()) {
     return null();
   }
-  funpc.setIsStandaloneFunctionBody();
 
   YieldHandling yieldHandling = GetYieldHandling(generatorKind);
   AwaitHandling awaitHandling = GetAwaitHandling(asyncKind);
@@ -2155,10 +2174,11 @@ bool ParserBase::leaveInnerFunction(ParseContext* outerpc) {
   // the inner function so that if the outer function is eventually parsed
   // we do not need any further parsing or processing of the inner function.
   //
-  // Append the inner functionbox here unconditionally; the vector is only used
-  // if the Parser using outerpc is a syntax parsing. See
+  // Append the inner function index here unconditionally; the vector is only
+  // used if the Parser using outerpc is a syntax parsing. See
   // GeneralParser<SyntaxParseHandler>::finishFunction.
-  if (!outerpc->innerFunctionBoxesForLazy.append(pc_->functionBox())) {
+  if (!outerpc->innerFunctionIndexesForLazy.append(
+          pc_->functionBox()->index())) {
     return false;
   }
 
@@ -7116,7 +7136,7 @@ bool GeneralParser<ParseHandler, Unit>::finishClassConstructor(
     }
 
     // Set the same information, but on the lazyScript.
-    if (ctorbox->hasObject()) {
+    if (ctorbox->hasFunction()) {
       if (!ctorbox->emitBytecode) {
         ctorbox->function()->baseScript()->setToStringEnd(classEndOffset);
 

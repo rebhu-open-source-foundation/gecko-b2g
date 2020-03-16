@@ -128,6 +128,7 @@
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/net/SocketProcessParent.h"
 #include "js/Conversions.h"
+#include "mozilla/dom/SecFetch.h"
 
 #ifdef MOZ_TASK_TRACER
 #  include "GeckoTaskTracer.h"
@@ -583,6 +584,8 @@ nsresult nsHttpChannel::OnBeforeConnect() {
                           NS_LITERAL_CSTRING("1"), false);
     NS_ENSURE_SUCCESS(rv, rv);
   }
+
+  SecFetch::AddSecFetchHeader(this);
 
   nsCOMPtr<nsIPrincipal> resultPrincipal;
   if (!mURI->SchemeIs("https")) {
@@ -7663,10 +7666,6 @@ nsresult nsHttpChannel::ProcessCrossOriginEmbedderPolicyHeader() {
 
 // https://mikewest.github.io/corpp/#corp-check
 nsresult nsHttpChannel::ProcessCrossOriginResourcePolicyHeader() {
-  if (!StaticPrefs::browser_tabs_remote_useCORP()) {
-    return NS_OK;
-  }
-
   // Fetch 4.5.9
   uint32_t corsMode;
   MOZ_ALWAYS_SUCCEEDS(GetCorsMode(&corsMode));

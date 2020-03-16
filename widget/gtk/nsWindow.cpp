@@ -1599,35 +1599,12 @@ void nsWindow::SetSizeMode(nsSizeMode aMode) {
   mSizeState = mSizeMode;
 }
 
-static int32_t GdkX11ScreenGetNumberOfDesktops(GdkScreen* screen) {
-  GdkAtom cardinal_atom = gdk_x11_xatom_to_atom(XA_CARDINAL);
-  GdkAtom type_returned;
-  int format_returned;
-  int length_returned;
-  long* number_of_desktops;
-
-  if (!gdk_property_get(gdk_screen_get_root_window(screen),
-                        gdk_atom_intern("_NET_NUMBER_OF_DESKTOPS", FALSE),
-                        cardinal_atom,
-                        0,          // offset
-                        INT32_MAX,  // length
-                        FALSE,      // delete
-                        &type_returned, &format_returned, &length_returned,
-                        (guchar**)&number_of_desktops)) {
-    return 0;
-  }
-
-  auto desktops = int32_t(number_of_desktops[0]);
-  g_free(number_of_desktops);
-  return desktops;
-}
-
 int32_t nsWindow::GetWorkspaceID() {
-  if (!mIsX11Display) {
+  if (!mIsX11Display || !mShell) {
     return 0;
   }
   // Get the gdk window for this widget.
-  GdkWindow* gdk_window = mGdkWindow;
+  GdkWindow* gdk_window = gtk_widget_get_window(mShell);
   if (!gdk_window) {
     return 0;
   }
@@ -1654,17 +1631,13 @@ int32_t nsWindow::GetWorkspaceID() {
 }
 
 void nsWindow::MoveToWorkspace(int32_t workspaceID) {
-  if (!workspaceID || !mIsX11Display) {
+  if (!workspaceID || !mIsX11Display || !mShell) {
     return;
   }
 
   // Get the gdk window for this widget.
-  GdkWindow* gdk_window = mGdkWindow;
+  GdkWindow* gdk_window = gtk_widget_get_window(mShell);
   if (!gdk_window) {
-    return;
-  }
-  GdkScreen* screen = gdk_window_get_screen(gdk_window);
-  if (workspaceID > GdkX11ScreenGetNumberOfDesktops(screen) - 1) {
     return;
   }
 
@@ -1673,6 +1646,7 @@ void nsWindow::MoveToWorkspace(int32_t workspaceID) {
   XEvent xevent;
   guint value = workspaceID;
   Display* xdisplay = gdk_x11_get_default_xdisplay();
+  GdkScreen* screen = gdk_window_get_screen(gdk_window);
   Window root_win = GDK_WINDOW_XID(gdk_screen_get_root_window(screen));
   GdkDisplay* display = gdk_window_get_display(gdk_window);
   Atom type = gdk_x11_get_xatom_by_name_for_display(display, "_NET_WM_DESKTOP");
@@ -4394,8 +4368,9 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 #endif
   }
 
-  LOG(("nsWindow [%p] %s\n", (void*)this,
-       mWindowType == eWindowType_toplevel ? "Toplevel" : "Popup"));
+  LOG(("nsWindow [%p] %s %s\n", (void*)this,
+       mWindowType == eWindowType_toplevel ? "Toplevel" : "Popup",
+       mIsPIPWindow ? "PIP window" : ""));
   if (mShell) {
     LOG(("\tmShell %p mContainer %p mGdkWindow %p 0x%lx\n", mShell, mContainer,
          mGdkWindow, mIsX11Display ? gdk_x11_window_get_xid(mGdkWindow) : 0));
@@ -4977,24 +4952,18 @@ void nsWindow::UpdateTopLevelOpaqueRegionWayland(bool aSubtractCorners) {
     return;
   }
 
-  // Set opaque region to toplevel window only in fullscreen mode.
-  bool fullScreen = mSizeState != nsSizeMode_Normal && !mIsTiled;
-  if (fullScreen) {
-    wl_region* region =
-        CreateOpaqueRegionWayland(x, y, width, height, aSubtractCorners);
-    wl_surface_set_opaque_region(surface, region);
-    wl_region_destroy(region);
-  } else {
-    wl_surface_set_opaque_region(surface, nullptr);
-  }
+  wl_region* region =
+      CreateOpaqueRegionWayland(x, y, width, height, aSubtractCorners);
+  wl_surface_set_opaque_region(surface, region);
+  wl_region_destroy(region);
 
-  // TODO -> create a function for it
   GdkWindow* window = gtk_widget_get_window(mShell);
   if (window) {
     gdk_window_invalidate_rect(window, &rect, false);
   }
-
-  moz_container_update_opaque_region(mContainer, aSubtractCorners, fullScreen);
+  // We don't set opaque region to mozContainer due to Bug 1615098.
+  // moz_container_update_opaque_region(mContainer, aSubtractCorners,
+  //                                    fullScreen);
 }
 #endif
 
@@ -5724,10 +5693,21 @@ nsresult nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen* aTargetScreen) {
     if (mSizeMode != nsSizeMode_Fullscreen) mLastSizeMode = mSizeMode;
 
     mSizeMode = nsSizeMode_Fullscreen;
+
+    if (mIsPIPWindow) {
+      gtk_window_set_type_hint(GTK_WINDOW(mShell),
+                               GDK_WINDOW_TYPE_HINT_NORMAL);
+    }
+
     gtk_window_fullscreen(GTK_WINDOW(mShell));
   } else {
     mSizeMode = mLastSizeMode;
     gtk_window_unfullscreen(GTK_WINDOW(mShell));
+
+    if (mIsPIPWindow) {
+      gtk_window_set_type_hint(GTK_WINDOW(mShell),
+                               GDK_WINDOW_TYPE_HINT_UTILITY);
+    }
   }
 
   NS_ASSERTION(mLastSizeMode != nsSizeMode_Fullscreen,
@@ -7490,10 +7470,10 @@ nsWindow::CSDSupportLevel nsWindow::GetSystemCSDSupportLevel() {
   if (currentDesktop) {
     // GNOME Flashback (fallback)
     if (strstr(currentDesktop, "GNOME-Flashback:GNOME") != nullptr) {
-      sCSDSupportLevel = CSD_SUPPORT_SYSTEM;
+      sCSDSupportLevel = CSD_SUPPORT_CLIENT;
       // gnome-shell
     } else if (strstr(currentDesktop, "GNOME") != nullptr) {
-      sCSDSupportLevel = CSD_SUPPORT_SYSTEM;
+      sCSDSupportLevel = CSD_SUPPORT_CLIENT;
     } else if (strstr(currentDesktop, "XFCE") != nullptr) {
       sCSDSupportLevel = CSD_SUPPORT_CLIENT;
     } else if (strstr(currentDesktop, "X-Cinnamon") != nullptr) {
@@ -7907,6 +7887,8 @@ void nsWindow::LockAspectRatio(bool aShouldLock) {
     if (mCSDSupportLevel == CSD_SUPPORT_CLIENT) {
       GtkBorder decorationSize = GetCSDDecorationSize(
           gtk_window_get_window_type(GTK_WINDOW(mShell)) == GTK_WINDOW_POPUP);
+      LOG(("Addind decoration size l:%d t:%d r:%d b:%d\n", decorationSize.left,
+           decorationSize.top, decorationSize.right, decorationSize.bottom));
       width += decorationSize.left + decorationSize.right;
       height += decorationSize.top + decorationSize.bottom;
     }

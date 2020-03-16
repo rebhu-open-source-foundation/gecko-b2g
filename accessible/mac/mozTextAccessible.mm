@@ -112,8 +112,14 @@ inline NSString* ToNSString(id aValue) {
         // If the attribute exists, it has one of four values: true, false,
         // grammar, or spelling. We query the attribute value here in order
         // to find the correct string to return.
+        HyperTextAccessible* text = accWrap->AsHyperText();
+        if (!text || !text->IsTextRole()) {
+          // we can't get the attribute, but we should still respect the
+          // invalid state flag
+          return @"true";
+        }
         nsAutoString invalidStr;
-        nsCOMPtr<nsIPersistentProperties> attributes = accWrap->Attributes();
+        nsCOMPtr<nsIPersistentProperties> attributes = text->DefaultTextAttributes();
         nsAccUtils::GetAccAttr(attributes, nsGkAtoms::invalid, invalidStr);
         if (invalidStr.IsEmpty()) {
           // if the attribute had no value, we should still respect the
@@ -559,6 +565,9 @@ inline NSString* ToNSString(id aValue) {
   if (!supportedAttributes) {
     supportedAttributes = [[super accessibilityAttributeNames] mutableCopy];
     [supportedAttributes removeObject:NSAccessibilityChildrenAttribute];
+    // We remove our AXTitleUIElement here to avoid an IPC call in the
+    // parent class when locating values for our attributes.
+    [supportedAttributes removeObject:NSAccessibilityTitleUIElementAttribute];
   }
 
   return supportedAttributes;
@@ -598,6 +607,10 @@ inline NSString* ToNSString(id aValue) {
   }
 
   return 0;
+}
+
+- (NSString*)accessibilityLabel {
+  return nil;
 }
 
 @end

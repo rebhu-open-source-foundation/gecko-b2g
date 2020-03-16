@@ -431,7 +431,8 @@ class BrowserParent final : public PBrowserParent,
       const bool& aIsVertical, const LayoutDeviceIntPoint& aPoint);
 
   mozilla::ipc::IPCResult RecvEnableDisableCommands(
-      const nsString& aAction, nsTArray<nsCString>&& aEnabledCommands,
+      const MaybeDiscarded<BrowsingContext>& aContext, const nsString& aAction,
+      nsTArray<nsCString>&& aEnabledCommands,
       nsTArray<nsCString>&& aDisabledCommands);
 
   mozilla::ipc::IPCResult RecvSetCursor(
@@ -790,7 +791,7 @@ class BrowserParent final : public PBrowserParent,
   mozilla::ipc::IPCResult RecvQueryVisitedState(nsTArray<URIParams>&& aURIs);
 
   mozilla::ipc::IPCResult RecvMaybeFireEmbedderLoadEvents(
-      bool aIsTrusted, bool aFireLoadAtEmbeddingElement);
+      bool aFireLoadAtEmbeddingElement);
 
  private:
   void SuppressDisplayport(bool aEnabled);
@@ -857,6 +858,21 @@ class BrowserParent final : public PBrowserParent,
   static BrowserParent* UpdateFocus();
 
   void OnSubFrameCrashed();
+
+  struct APZData {
+    bool operator==(const APZData& aOther) {
+      return aOther.guid == guid && aOther.blockId == blockId &&
+             aOther.apzResponse == apzResponse;
+    }
+
+    bool operator!=(const APZData& aOther) { return !(*this == aOther); }
+
+    ScrollableLayerGuid guid;
+    uint64_t blockId;
+    nsEventStatus apzResponse;
+  };
+  void SendRealTouchMoveEvent(WidgetTouchEvent& aEvent, APZData& aAPZData,
+                              uint32_t aConsecutiveTouchMoveCount);
 
  public:
   // Unsets sTopLevelWebFocus regardless of its current value.

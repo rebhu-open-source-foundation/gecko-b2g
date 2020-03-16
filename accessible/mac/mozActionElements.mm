@@ -61,12 +61,6 @@ enum CheckboxValue {
     return nil;
   }
 
-  if ([attribute isEqualToString:NSAccessibilityRoleDescriptionAttribute]) {
-    if ([self isTab]) return utils::LocalizedString(NS_LITERAL_STRING("tab"));
-
-    return NSAccessibilityRoleDescription([self role], nil);
-  }
-
   return [super accessibilityAttributeValue:attribute];
 
   NS_OBJC_END_TRY_ABORT_BLOCK_NIL;
@@ -98,8 +92,6 @@ enum CheckboxValue {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NIL;
 
   if ([action isEqualToString:NSAccessibilityPressAction]) {
-    if ([self isTab]) return utils::LocalizedString(NS_LITERAL_STRING("switch"));
-
     return @"press button";  // XXX: localize this later?
   }
 
@@ -130,18 +122,11 @@ enum CheckboxValue {
 - (void)click {
   // both buttons and checkboxes have only one action. we should really stop using arbitrary
   // arrays with actions, and define constants for these actions.
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible])
+  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) {
     accWrap->DoAction(0);
-  else if (ProxyAccessible* proxy = [self getProxyAccessible])
+  } else if (ProxyAccessible* proxy = [self getProxyAccessible]) {
     proxy->DoAction(0);
-}
-
-- (BOOL)isTab {
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) return accWrap->Role() == roles::PAGETAB;
-
-  if (ProxyAccessible* proxy = [self getProxyAccessible]) return proxy->Role() == roles::PAGETAB;
-
-  return false;
+  }
 }
 
 - (BOOL)hasPopup {
@@ -173,15 +158,9 @@ enum CheckboxValue {
 }
 
 - (int)isChecked {
-  uint64_t state = 0;
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible])
-    state = accWrap->NativeState();
-  else if (ProxyAccessible* proxy = [self getProxyAccessible])
-    state = proxy->NativeState();
-
   // check if we're checked or in a mixed state
-  if (state & states::CHECKED) {
-    return (state & states::MIXED) ? kMixed : kChecked;
+  if ([self state] & states::CHECKED) {
+    return ([self state] & states::MIXED) ? kMixed : kChecked;
   }
 
   return kUnchecked;
@@ -193,78 +172,6 @@ enum CheckboxValue {
   return [NSNumber numberWithInt:[self isChecked]];
 
   NS_OBJC_END_TRY_ABORT_BLOCK_NIL;
-}
-
-@end
-
-@implementation mozTabsAccessible
-
-- (void)dealloc {
-  [mTabs release];
-
-  [super dealloc];
-}
-
-- (NSArray*)accessibilityAttributeNames {
-  // standard attributes that are shared and supported by root accessible (AXMain) elements.
-  static NSMutableArray* attributes = nil;
-
-  if (!attributes) {
-    attributes = [[super accessibilityAttributeNames] mutableCopy];
-    [attributes addObject:NSAccessibilityContentsAttribute];
-    [attributes addObject:NSAccessibilityTabsAttribute];
-  }
-
-  return attributes;
-}
-
-- (id)accessibilityAttributeValue:(NSString*)attribute {
-  if ([attribute isEqualToString:NSAccessibilityContentsAttribute]) return [super children];
-  if ([attribute isEqualToString:NSAccessibilityTabsAttribute]) return [self tabs];
-
-  return [super accessibilityAttributeValue:attribute];
-}
-
-/**
- * Returns the selected tab (the mozAccessible)
- */
-- (id)value {
-  mozAccessible* nativeAcc = nil;
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) {
-    if (Accessible* accTab = accWrap->GetSelectedItem(0)) {
-      accTab->GetNativeInterface((void**)&nativeAcc);
-    }
-  } else if (ProxyAccessible* proxy = [self getProxyAccessible]) {
-    if (ProxyAccessible* proxyTab = proxy->GetSelectedItem(0)) {
-      nativeAcc = GetNativeFromProxy(proxyTab);
-    }
-  }
-
-  return nativeAcc;
-}
-
-/**
- * Return the mozAccessibles that are the tabs.
- */
-- (id)tabs {
-  if (mTabs) return mTabs;
-
-  NSArray* children = [self children];
-  NSEnumerator* enumerator = [children objectEnumerator];
-  mTabs = [[NSMutableArray alloc] init];
-
-  id obj;
-  while ((obj = [enumerator nextObject]))
-    if ([obj isTab]) [mTabs addObject:obj];
-
-  return mTabs;
-}
-
-- (void)invalidateChildren {
-  [super invalidateChildren];
-
-  [mTabs release];
-  mTabs = nil;
 }
 
 @end

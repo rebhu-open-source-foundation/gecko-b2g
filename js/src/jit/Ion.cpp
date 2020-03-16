@@ -2018,9 +2018,6 @@ MethodStatus jit::CanEnterIon(JSContext* cx, RunState& state) {
     return Method_Skipped;
   }
 
-  // If constructing, allocate a new |this| object before building Ion.
-  // Creating |this| is done before building Ion because it may change the
-  // type information and invalidate compilation results.
   if (state.isInvoke()) {
     InvokeState& invoke = *state.asInvoke();
 
@@ -2430,7 +2427,7 @@ static void InvalidateActivation(JSFreeOp* fop,
         } else if (frame.isBailoutJS()) {
           type = "Bailing";
         }
-        JSScript* script = MaybeForwarded(frame.script());
+        JSScript* script = frame.maybeForwardedScript();
         JitSpew(JitSpew_IonInvalidate,
                 "#%zu %s JS frame @ %p, %s:%u:%u (fun: %p, script: %p, pc %p)",
                 frameno, type, frame.fp(), script->maybeForwardedFilename(),
@@ -2470,7 +2467,7 @@ static void InvalidateActivation(JSFreeOp* fop,
       continue;
     }
 
-    JSScript* script = MaybeForwarded(frame.script());
+    JSScript* script = frame.maybeForwardedScript();
     if (!script->hasIonScript()) {
       continue;
     }

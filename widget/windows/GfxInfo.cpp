@@ -1811,6 +1811,14 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
         "FEATURE_ROLLOUT_DESKTOP_INTEL_S_SCRN");
 
     APPEND_TO_DRIVER_BLOCKLIST2_EXT(
+        OperatingSystem::RecentWindows10, ScreenSizeStatus::Small,
+        BatteryStatus::Present, DesktopEnvironment::All, WindowProtocol::All,
+        DriverVendor::All, DeviceFamily::IntelModernRolloutWebRender,
+        nsIGfxInfo::FEATURE_WEBRENDER, nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
+        DRIVER_GREATER_THAN, V(25, 20, 100, 6472),
+        "FEATURE_ROLLOUT_DESKTOP_INTEL_S_SCRN");
+
+    APPEND_TO_DRIVER_BLOCKLIST2_EXT(
         OperatingSystem::Windows10, ScreenSizeStatus::All, BatteryStatus::None,
         DesktopEnvironment::All, WindowProtocol::All, DriverVendor::All,
         DeviceFamily::AtiRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
@@ -1868,11 +1876,34 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
     ////////////////////////////////////
     // FEATURE_WEBRENDER_COMPOSITOR
 
+#ifndef EARLY_BETA_OR_EARLIER
+    // See also bug 161687
     APPEND_TO_DRIVER_BLOCKLIST2(
-        OperatingSystem::Windows10, DeviceFamily::IntelHD520,
+        OperatingSystem::Windows, DeviceFamily::IntelAll,
         nsIGfxInfo::FEATURE_WEBRENDER_COMPOSITOR,
         nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_LESS_THAN_OR_EQUAL,
         V(25, 20, 100, 6472), "FEATURE_FAILURE_BUG_1602511");
+
+    APPEND_TO_DRIVER_BLOCKLIST2(
+        OperatingSystem::Windows, DeviceFamily::AtiAll,
+        nsIGfxInfo::FEATURE_WEBRENDER_COMPOSITOR,
+        nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_EQUAL,
+        V(8, 17, 10, 1129), "FEATURE_FAILURE_CHROME_BUG_800950");
+
+    // Block all AMD for now
+    APPEND_TO_DRIVER_BLOCKLIST2(
+        OperatingSystem::Windows, DeviceFamily::AtiAll,
+        nsIGfxInfo::FEATURE_WEBRENDER_COMPOSITOR,
+        nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_COMPARISON_IGNORED,
+        V(0, 0, 0, 0), "FEATURE_FAILURE_ALL_AMD");
+
+    // Block all non-recent Win10
+    APPEND_TO_DRIVER_BLOCKLIST2(
+        OperatingSystem::NotRecentWindows10, DeviceFamily::All,
+        nsIGfxInfo::FEATURE_WEBRENDER_COMPOSITOR,
+        nsIGfxInfo::FEATURE_BLOCKED_OS_VERSION, DRIVER_COMPARISON_IGNORED,
+        V(0, 0, 0, 0), "FEATURE_FAILURE_NOT_RECENT_WIN10");
+#endif
   }
   return *sDriverInfo;
 }

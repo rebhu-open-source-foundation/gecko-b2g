@@ -160,6 +160,114 @@ bool WarpBuilder::build() {
   return true;
 }
 
+MInstruction* WarpBuilder::buildNamedLambdaEnv(
+    MDefinition* callee, MDefinition* env,
+    LexicalEnvironmentObject* templateObj) {
+  MOZ_ASSERT(!templateObj->hasDynamicSlots());
+
+  MInstruction* namedLambda = MNewNamedLambdaObject::New(alloc(), templateObj);
+  current->add(namedLambda);
+
+  // Initialize the object's reserved slots. No post barrier is needed here:
+  // the object will be allocated in the nursery if possible, and if the
+  // tenured heap is used instead, a minor collection will have been performed
+  // that moved env/callee to the tenured heap.
+  size_t enclosingSlot = NamedLambdaObject::enclosingEnvironmentSlot();
+  size_t lambdaSlot = NamedLambdaObject::lambdaSlot();
+  current->add(MStoreFixedSlot::New(alloc(), namedLambda, enclosingSlot, env));
+  current->add(MStoreFixedSlot::New(alloc(), namedLambda, lambdaSlot, callee));
+
+  return namedLambda;
+}
+
+MInstruction* WarpBuilder::buildCallObject(MDefinition* callee,
+                                           MDefinition* env,
+                                           CallObject* templateObj) {
+  MConstant* templateCst = constant(ObjectValue(*templateObj));
+
+  MNewCallObject* callObj = MNewCallObject::New(alloc(), templateCst);
+  current->add(callObj);
+
+  // Initialize the object's reserved slots. No post barrier is needed here,
+  // for the same reason as in buildNamedLambdaEnv.
+  size_t enclosingSlot = CallObject::enclosingEnvironmentSlot();
+  size_t calleeSlot = CallObject::calleeSlot();
+  current->add(MStoreFixedSlot::New(alloc(), callObj, enclosingSlot, env));
+  current->add(MStoreFixedSlot::New(alloc(), callObj, calleeSlot, callee));
+
+  // Copy closed-over argument slots if there aren't parameter expressions.
+  MSlots* slots = nullptr;
+  for (PositionalFormalParameterIter fi(script_); fi; fi++) {
+    if (!fi.closedOver()) {
+      continue;
+    }
+
+    if (!alloc().ensureBallast()) {
+      return nullptr;
+    }
+
+    uint32_t slot = fi.location().slot();
+    uint32_t formal = fi.argumentSlot();
+    uint32_t numFixedSlots = templateObj->numFixedSlots();
+    MDefinition* param;
+    if (script_->functionHasParameterExprs()) {
+      param = constant(MagicValue(JS_UNINITIALIZED_LEXICAL));
+    } else {
+      param = current->getSlot(info().argSlotUnchecked(formal));
+    }
+
+    if (slot >= numFixedSlots) {
+      if (!slots) {
+        slots = MSlots::New(alloc(), callObj);
+        current->add(slots);
+      }
+      uint32_t dynamicSlot = slot - numFixedSlots;
+      current->add(MStoreSlot::New(alloc(), slots, dynamicSlot, param));
+    } else {
+      current->add(MStoreFixedSlot::New(alloc(), callObj, slot, param));
+    }
+  }
+
+  return callObj;
+}
+
+bool WarpBuilder::buildEnvironmentChain() {
+  const WarpEnvironment& env = input_.script()->environment();
+
+  MInstruction* envDef = nullptr;
+  switch (env.kind()) {
+    case WarpEnvironment::Kind::None:
+      // Leave the slot |undefined|, nothing to do.
+      return true;
+    case WarpEnvironment::Kind::ConstantObject:
+      envDef = constant(ObjectValue(*env.constantObject()));
+      break;
+    case WarpEnvironment::Kind::Function: {
+      // TODO: fix this for inlining.
+      MCallee* callee = MCallee::New(alloc());
+      current->add(callee);
+      envDef = MFunctionEnvironment::New(alloc(), callee);
+      current->add(envDef);
+      if (LexicalEnvironmentObject* obj = env.maybeNamedLambdaTemplate()) {
+        envDef = buildNamedLambdaEnv(callee, envDef, obj);
+      }
+      if (CallObject* obj = env.maybeCallObjectTemplate()) {
+        envDef = buildCallObject(callee, envDef, obj);
+        if (!envDef) {
+          return false;
+        }
+      }
+      break;
+    }
+  }
+
+  // Update the environment slot from UndefinedValue only after the initial
+  // environment is created so that bailout doesn't see a partial environment.
+  // See: |InitFromBailout|
+  current->setEnvironmentChain(envDef);
+  return true;
+}
+
 bool WarpBuilder::buildPrologue() {
   BytecodeLocation startLoc(script_, script_->code());
   if (!startNewEntryBlock(info().firstStackSlot(), startLoc)) {
@@ -200,11 +308,13 @@ bool WarpBuilder::buildPrologue() {
 
   current->add(MStart::New(alloc()));
 
-  // TODO: environment chain initialization
-
   // Guard against over-recursion.
   MCheckOverRecursed* check = MCheckOverRecursed::New(alloc());
   current->add(check);
+
+  if (!buildEnvironmentChain()) {
+    return false;
+  }
 
   return true;
 }
@@ -1149,5 +1259,76 @@ bool WarpBuilder::build_Arguments(BytecodeLocation loc) {
   current->add(argsObj);
   current->setArgumentsObject(argsObj);
   current->push(argsObj);
+  return true;
+}
+
+bool WarpBuilder::build_ObjWithProto(BytecodeLocation loc) {
+  MDefinition* proto = current->pop();
+  MInstruction* ins = MObjectWithProto::New(alloc(), proto);
+  current->add(ins);
+  current->push(ins);
+  return resumeAfter(ins, loc);
+}
+
+MDefinition* WarpBuilder::walkEnvironmentChain(uint32_t numHops) {
+  MDefinition* env = current->environmentChain();
+
+  for (uint32_t i = 0; i < numHops; i++) {
+    MInstruction* ins = MEnclosingEnvironment::New(alloc(), env);
+    current->add(ins);
+    env = ins;
+  }
+
+  return env;
+}
+
+bool WarpBuilder::build_GetAliasedVar(BytecodeLocation loc) {
+  EnvironmentCoordinate ec = loc.getEnvironmentCoordinate();
+  MDefinition* obj = walkEnvironmentChain(ec.hops());
+
+  MInstruction* load;
+  if (EnvironmentObject::nonExtensibleIsFixedSlot(ec)) {
+    load = MLoadFixedSlot::New(alloc(), obj, ec.slot());
+  } else {
+    MInstruction* slots = MSlots::New(alloc(), obj);
+    current->add(slots);
+
+    uint32_t slot = EnvironmentObject::nonExtensibleDynamicSlotIndex(ec);
+    load = MLoadSlot::New(alloc(), slots, slot);
+  }
+
+  current->add(load);
+  current->push(load);
+  return true;
+}
+
+bool WarpBuilder::build_SetAliasedVar(BytecodeLocation loc) {
+  EnvironmentCoordinate ec = loc.getEnvironmentCoordinate();
+  MDefinition* val = current->peek(-1);
+  MDefinition* obj = walkEnvironmentChain(ec.hops());
+
+  current->add(MPostWriteBarrier::New(alloc(), obj, val));
+
+  MInstruction* store;
+  if (EnvironmentObject::nonExtensibleIsFixedSlot(ec)) {
+    store = MStoreFixedSlot::NewBarriered(alloc(), obj, ec.slot(), val);
+  } else {
+    MInstruction* slots = MSlots::New(alloc(), obj);
+    current->add(slots);
+
+    uint32_t slot = EnvironmentObject::nonExtensibleDynamicSlotIndex(ec);
+    store = MStoreSlot::NewBarriered(alloc(), slots, slot, val);
+  }
+
+  current->add(store);
+  return resumeAfter(store, loc);
+}
+
+bool WarpBuilder::build_EnvCallee(BytecodeLocation loc) {
+  uint32_t numHops = loc.getEnvCalleeNumHops();
+  MDefinition* env = walkEnvironmentChain(numHops);
+  auto* callee = MLoadFixedSlot::New(alloc(), env, CallObject::calleeSlot());
+  current->add(callee);
+  current->push(callee);
   return true;
 }

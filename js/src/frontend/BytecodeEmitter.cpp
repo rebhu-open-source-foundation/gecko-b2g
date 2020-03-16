@@ -1706,10 +1706,19 @@ bool BytecodeEmitter::emitTDZCheckIfNeeded(HandleAtom name,
     }
   }
 
-  if (!emitAtomOp(JSOp::CheckLexical, name)) {
-    return false;
+  // Emit the lexical check.
+  if (loc.kind() == NameLocation::Kind::FrameSlot) {
+    if (!emitLocalOp(JSOp::CheckLexical, loc.frameSlot())) {
+      return false;
+    }
+  } else {
+    if (!emitEnvCoordOp(JSOp::CheckAliasedLexical,
+                        loc.environmentCoordinate())) {
+      return false;
+    }
   }
 
+  // Pop the value if needed.
   if (isOnStack == ValueIsOnStack::No) {
     if (!emit1(JSOp::Pop)) {
       return false;
@@ -2429,8 +2438,12 @@ bool BytecodeEmitter::emitScript(ParseNode* body) {
     return false;
   }
 
-  JS::Rooted<BCEScriptStencil> stencil(cx, BCEScriptStencil(*this, nslots));
-  if (!JSScript::fullyInitFromStencil(cx, script, stencil)) {
+  JS::Rooted<BCEScriptStencil> stencil(cx, BCEScriptStencil(*this));
+  if (!stencil.get().init(cx, nslots)) {
+    return false;
+  }
+
+  if (!JSScript::fullyInitFromStencil(cx, script, stencil.get())) {
     return false;
   }
 

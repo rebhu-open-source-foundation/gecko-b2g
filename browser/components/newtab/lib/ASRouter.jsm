@@ -138,9 +138,11 @@ const MessageLoaderUtils = {
   async _localJsonLoader(provider) {
     let payload;
     try {
-      payload = await (await fetch(provider.location, {
-        credentials: "omit",
-      })).json();
+      payload = await (
+        await fetch(provider.location, {
+          credentials: "omit",
+        })
+      ).json();
     } catch (e) {
       return [];
     }
@@ -212,7 +214,8 @@ const MessageLoaderUtils = {
       if (
         response &&
         response.ok &&
-        (response.status >= 200 && response.status < 400)
+        response.status >= 200 &&
+        response.status < 400
       ) {
         let jsonResponse;
         try {
@@ -607,13 +610,13 @@ class _ASRouter {
       ...ASRouterPreferences.providers.filter(
         p =>
           p.enabled &&
-          (ASRouterPreferences.getUserPreference(p.id) !== false &&
-            // Provider is enabled or if provider has multiple categories
-            // check that at least one category is enabled
-            (!p.categories ||
-              p.categories.some(
-                c => ASRouterPreferences.getUserPreference(c) !== false
-              )))
+          ASRouterPreferences.getUserPreference(p.id) !== false &&
+          // Provider is enabled or if provider has multiple categories
+          // check that at least one category is enabled
+          (!p.categories ||
+            p.categories.some(
+              c => ASRouterPreferences.getUserPreference(c) !== false
+            ))
       ),
     ].map(_provider => {
       // make a copy so we don't modify the source of the pref
@@ -1341,6 +1344,18 @@ class _ASRouter {
           );
         }
         break;
+      case "cfr_urlbar_chiclet":
+        if (force) {
+          CFRPageActions.forceRecommendation(target, message, this.dispatch);
+        } else {
+          CFRPageActions.addRecommendation(
+            target,
+            null,
+            message,
+            this.dispatch
+          );
+        }
+        break;
       case "fxa_bookmark_panel":
         if (force) {
           BookmarkPanelHub._forceShowMessage(target, message);
@@ -1884,7 +1899,7 @@ class _ASRouter {
         break;
       case ra.OPEN_URL:
         target.browser.ownerGlobal.openLinkIn(
-          action.data.args,
+          Services.urlFormatter.formatURL(action.data.args),
           action.data.where || "current",
           {
             private: false,

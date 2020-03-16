@@ -61,25 +61,36 @@ class FunctionBox;
 
 enum class FunctionSyntaxKind : uint8_t;
 
+// Arbitrary typename to disambiguate TypedIndexes;
+class FunctionIndexType;
+
+// We need to be able to forward declare this type, so make a subclass
+// rather than just using.
+class FunctionIndex : public TypedIndex<FunctionIndexType> {
+  // Delegate constructors;
+  using Base = TypedIndex<FunctionIndexType>;
+  using Base::Base;
+};
+
 // Data used to instantiate the lazy script before script emission.
 struct LazyScriptCreationData {
   frontend::AtomVector closedOverBindings;
 
   // This is traced by the functionbox which owns this LazyScriptCreationData
-  FunctionBoxVector innerFunctionBoxes;
+  Vector<FunctionIndex> innerFunctionIndexes;
+  bool forceStrict = false;
   bool strict = false;
 
   mozilla::Maybe<FieldInitializers> fieldInitializers;
 
-  explicit LazyScriptCreationData(JSContext* cx) : innerFunctionBoxes(cx) {}
+  explicit LazyScriptCreationData(JSContext* cx) : innerFunctionIndexes(cx) {}
 
   bool init(JSContext* cx, const frontend::AtomVector& COB,
-            FunctionBoxVector& innerBoxes, bool isStrict) {
+            Vector<FunctionIndex>&& innerIndexes, bool isForceStrict,
+            bool isStrict) {
+    forceStrict = isForceStrict;
     strict = isStrict;
-    // Copy out of the stack allocated vectors.
-    if (!innerFunctionBoxes.appendAll(innerBoxes)) {
-      return false;
-    }
+    innerFunctionIndexes = std::move(innerIndexes);
 
     if (!closedOverBindings.appendAll(COB)) {
       ReportOutOfMemory(cx);  // closedOverBindings uses SystemAllocPolicy.
@@ -88,7 +99,8 @@ struct LazyScriptCreationData {
     return true;
   }
 
-  bool create(JSContext* cx, FunctionBox* funbox,
+  bool create(JSContext* cx, CompilationInfo& compilationInfo,
+              HandleFunction function, FunctionBox* funbox,
               HandleScriptSourceObject sourceObject);
 };
 
@@ -424,7 +436,7 @@ class ScopeCreationData {
 // Stencil, but eventually will be removed.
 using ScriptThingVariant =
     mozilla::Variant<JS::GCCellPtr, BigIntIndex, ObjLiteralCreationData,
-                     RegExpIndex, ScopeIndex>;
+                     RegExpIndex, ScopeIndex, FunctionIndex>;
 
 // A vector of things destined to be converted to GC things.
 using ScriptThingsVector = GCVector<ScriptThingVariant>;
@@ -432,6 +444,8 @@ using ScriptThingsVector = GCVector<ScriptThingVariant>;
 // Data used to instantiate the non-lazy script.
 class ScriptStencil {
  public:
+  js::UniquePtr<js::ImmutableScriptData> immutableScriptData = nullptr;
+
   // See `BaseScript::{lineno_,column_}`.
   unsigned lineno = 0;
   unsigned column = 0;
@@ -441,23 +455,6 @@ class ScriptStencil {
 
   // See `finishGCThings` method.
   uint32_t ngcthings = 0;
-
-  // See `finishResumeOffsets` method.
-  uint32_t numResumeOffsets = 0;
-
-  // See `finishScopeNotes` method.
-  uint32_t numScopeNotes = 0;
-
-  // See `finishTryNotes` method.
-  uint32_t numTryNotes = 0;
-
-  // See `ImmutableScriptData`.
-  uint32_t mainOffset = 0;
-  uint32_t nfixed = 0;
-  uint32_t nslots = 0;
-  uint32_t bodyScopeIndex = 0;
-  uint32_t numICEntries = 0;
-  uint32_t numBytecodeTypeSets = 0;
 
   // `See BaseScript::ImmutableFlags`.
   bool strict = false;
@@ -470,12 +467,6 @@ class ScriptStencil {
   bool needsFunctionEnvironmentObjects = false;
   bool hasModuleGoal = false;
   bool hasInnerFunctions = false;
-
-  // FIXME: Create Stencil structs for the following fields, instead of
-  //        relying on the data owned by BytecodeEmitter.
-
-  mozilla::Span<const jsbytecode> code;
-  mozilla::Span<const jssrcnote> notes;
 
   ScriptThingsVector gcThings;
 
@@ -491,19 +482,6 @@ class ScriptStencil {
   // Store all atoms into `atoms`
   // `atoms` is the pointer to `this.natoms`-length array of `GCPtrAtom`.
   virtual void initAtomMap(GCPtrAtom* atoms) const = 0;
-
-  // Store all resume offsets into `resumeOffsets`
-  // `resumeOffsets.Length()` is `this.numResumeOffsets`.
-  virtual void finishResumeOffsets(
-      mozilla::Span<uint32_t> resumeOffsets) const = 0;
-
-  // Store all scope notes into `scopeNotes`.
-  // `scopeNotes.Length()` is `this.numScopeNotes`.
-  virtual void finishScopeNotes(mozilla::Span<ScopeNote> scopeNotes) const = 0;
-
-  // Store all try notes into `tryNotes`.
-  // `tryNotes.Length()` is `this.numTryNotes`.
-  virtual void finishTryNotes(mozilla::Span<JSTryNote> tryNotes) const = 0;
 
   // Call `FunctionBox::finish` for all inner functions.
   virtual void finishInnerFunctions() const = 0;
@@ -526,5 +504,9 @@ struct GCPolicy<js::frontend::ScopeCreationData*> {
 template <typename T>
 struct GCPolicy<js::frontend::TypedIndex<T>>
     : JS::IgnoreGCPolicy<js::frontend::TypedIndex<T>> {};
+
+template <>
+struct GCPolicy<js::frontend::FunctionIndex>
+    : JS::IgnoreGCPolicy<js::frontend::FunctionIndex> {};
 }  // namespace JS
 #endif /* frontend_Stencil_h */

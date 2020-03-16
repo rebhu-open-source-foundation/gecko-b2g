@@ -1891,7 +1891,7 @@ bool nsGlobalWindowInner::DialogsAreBeingAbused() {
   return false;
 }
 
-void nsGlobalWindowInner::FireFrameLoadEvent(bool aIsTrusted) {
+void nsGlobalWindowInner::FireFrameLoadEvent() {
   // If we're not in a content frame, or are at a BrowsingContext tree boundary,
   // such as the content-chrome boundary, don't fire the "load" event.
   if (GetBrowsingContext()->IsTopContent() ||
@@ -1906,7 +1906,7 @@ void nsGlobalWindowInner::FireFrameLoadEvent(bool aIsTrusted) {
   RefPtr<Element> element = GetBrowsingContext()->GetEmbedderElement();
   if (element) {
     nsEventStatus status = nsEventStatus_eIgnore;
-    WidgetEvent event(aIsTrusted, eLoad);
+    WidgetEvent event(/* aIsTrusted = */ true, eLoad);
     event.mFlags.mBubbles = false;
     event.mFlags.mCancelable = false;
 
@@ -1944,7 +1944,7 @@ void nsGlobalWindowInner::FireFrameLoadEvent(bool aIsTrusted) {
     }
 
     mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
-        aIsTrusted, /*aFireLoadAtEmbeddingElement*/ true);
+        /*aFireLoadAtEmbeddingElement*/ true);
   }
 }
 
@@ -2003,7 +2003,8 @@ nsresult nsGlobalWindowInner::PostHandleEvent(EventChainPostVisitor& aVisitor) {
 
     mTimeoutManager->OnDocumentLoaded();
 
-    FireFrameLoadEvent(aVisitor.mEvent->IsTrusted());
+    MOZ_ASSERT(aVisitor.mEvent->IsTrusted());
+    FireFrameLoadEvent();
 
     if (mVREventObserver) {
       mVREventObserver->NotifyAfterLoad();
@@ -4249,8 +4250,6 @@ nsresult nsGlobalWindowInner::FireHashchange(const nsAString& aOldURL,
   NS_ENSURE_STATE(IsCurrentInnerWindow());
 
   HashChangeEventInit init;
-  init.mBubbles = true;
-  init.mCancelable = false;
   init.mNewURL = aNewURL;
   init.mOldURL = aOldURL;
 
@@ -4290,8 +4289,6 @@ nsresult nsGlobalWindowInner::DispatchSyncPopState() {
   NS_ENSURE_TRUE(result, NS_ERROR_FAILURE);
 
   RootedDictionary<PopStateEventInit> init(cx);
-  init.mBubbles = true;
-  init.mCancelable = false;
   init.mState = stateJSValue;
 
   RefPtr<PopStateEvent> event =

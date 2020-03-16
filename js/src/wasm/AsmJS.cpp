@@ -1914,8 +1914,7 @@ class MOZ_STACK_CLASS JS_HAZ_ROOTED ModuleValidator
     if (ts.computeErrorMetadata(&metadata, AsVariant(offset))) {
       if (ts.anyCharsAccess().options().throwOnAsmJSValidationFailureOption) {
         ReportCompileErrorLatin1(cx_, std::move(metadata), nullptr,
-                                 JSREPORT_ERROR, JSMSG_USE_ASM_TYPE_FAIL,
-                                 &args);
+                                 JSMSG_USE_ASM_TYPE_FAIL, &args);
       } else {
         // asm.js type failure is indicated by calling one of the fail*
         // functions below.  These functions always return false to
@@ -1926,8 +1925,7 @@ class MOZ_STACK_CLASS JS_HAZ_ROOTED ModuleValidator
         // an exception is set and execution will halt.  Thus it's safe
         // and correct to ignore the return value here.
         Unused << ts.compileWarning(std::move(metadata), nullptr,
-                                    JSREPORT_WARNING, JSMSG_USE_ASM_TYPE_FAIL,
-                                    &args);
+                                    JSMSG_USE_ASM_TYPE_FAIL, &args);
       }
     }
 
@@ -7119,13 +7117,6 @@ static bool DoCompileAsmJS(JSContext* cx, AsmJSParser<Unit>& parser,
   // function to be the finished result.
   MOZ_ASSERT(funbox->isInterpreted());
   funbox->clobberFunction(moduleFun);
-
-  // Clear any function creation data. This is important in particular
-  // to avoid publishing a deferred function allocation on top of the
-  // module function set on the funbox above.
-  if (funbox->hasFunctionCreationIndex()) {
-    funbox->clearFunctionCreationData();
-  }
 
   // Success! Write to the console with a "warning" message indicating
   // total compilation time.

@@ -659,6 +659,8 @@ void SurfaceTextureHost::CreateRenderTexture(
                                                  texture.forget());
 }
 
+uint32_t SurfaceTextureHost::NumSubTextures() { return mSurfTex ? 1 : 0; }
+
 void SurfaceTextureHost::PushResourceUpdates(
     wr::TransactionBuilder& aResources, ResourceUpdateOp aOp,
     const Range<wr::ImageKey>& aImageKeys, const wr::ExternalImageId& aExtID) {

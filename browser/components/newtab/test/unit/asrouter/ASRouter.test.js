@@ -711,6 +711,43 @@ describe("ASRouter", () => {
       assert.notCalled(target.sendAsyncMessage);
       assert.notCalled(FakeMomentsPageHub.executeAction);
     });
+    it("should route cfr_urlbar_chiclet message to the right hub force = false", () => {
+      Router.routeMessageToTarget(
+        { template: "cfr_urlbar_chiclet" },
+        target,
+        { param: {} },
+        false
+      );
+
+      assert.calledOnce(CFRPageActions.addRecommendation);
+      const { args } = CFRPageActions.addRecommendation.firstCall;
+      // Host should be null
+      assert.isNull(args[1]);
+      assert.notCalled(FakeToolbarPanelHub.forceShowMessage);
+      assert.notCalled(FakeBookmarkPanelHub._forceShowMessage);
+      assert.notCalled(FakeToolbarBadgeHub.registerBadgeNotificationListener);
+      assert.notCalled(CFRPageActions.forceRecommendation);
+      assert.notCalled(CFRPageActions.showMilestone);
+      assert.notCalled(target.sendAsyncMessage);
+      assert.notCalled(FakeMomentsPageHub.executeAction);
+    });
+    it("should route cfr_urlbar_chiclet message to the right hub force = true", () => {
+      Router.routeMessageToTarget(
+        { template: "cfr_urlbar_chiclet" },
+        target,
+        {},
+        true
+      );
+
+      assert.calledOnce(CFRPageActions.forceRecommendation);
+      assert.notCalled(FakeToolbarPanelHub.forceShowMessage);
+      assert.notCalled(CFRPageActions.addRecommendation);
+      assert.notCalled(CFRPageActions.showMilestone);
+      assert.notCalled(FakeBookmarkPanelHub._forceShowMessage);
+      assert.notCalled(FakeToolbarBadgeHub.registerBadgeNotificationListener);
+      assert.notCalled(target.sendAsyncMessage);
+      assert.notCalled(FakeMomentsPageHub.executeAction);
+    });
     it("should route default to sending to content", () => {
       Router.routeMessageToTarget({ template: "snippets" }, target, {}, true);
 
@@ -1669,7 +1706,10 @@ describe("ASRouter", () => {
         await Router.onMessage(msg);
 
         assert.calledWith(global.fetch, url);
-        assert.lengthOf(Router.state.providers.filter(p => p.url === url), 0);
+        assert.lengthOf(
+          Router.state.providers.filter(p => p.url === url),
+          0
+        );
       });
       it("should make a request to the provided endpoint on ADMIN_CONNECT_STATE and remove the endpoint", async () => {
         const url = "https://snippets-admin.mozilla.org/foo";
@@ -1680,7 +1720,10 @@ describe("ASRouter", () => {
         await Router.onMessage(msg);
 
         assert.calledWith(global.fetch, url);
-        assert.lengthOf(Router.state.providers.filter(p => p.url === url), 0);
+        assert.lengthOf(
+          Router.state.providers.filter(p => p.url === url),
+          0
+        );
       });
       it("should dispatch SNIPPETS_PREVIEW_MODE when adding a preview endpoint", async () => {
         const url = "https://snippets-admin.mozilla.org/foo";
@@ -1706,7 +1749,10 @@ describe("ASRouter", () => {
         });
         await Router.onMessage(msg);
 
-        assert.lengthOf(Router.state.providers.filter(p => p.url === url), 0);
+        assert.lengthOf(
+          Router.state.providers.filter(p => p.url === url),
+          0
+        );
       });
       it("should reject bad urls", async () => {
         const url = "foo";
@@ -1716,7 +1762,10 @@ describe("ASRouter", () => {
         });
         await Router.onMessage(msg);
 
-        assert.lengthOf(Router.state.providers.filter(p => p.url === url), 0);
+        assert.lengthOf(
+          Router.state.providers.filter(p => p.url === url),
+          0
+        );
       });
       it("should handle onboarding message provider", async () => {
         const handleMessageRequestStub = sandbox.stub(
@@ -3988,7 +4037,10 @@ describe("ASRouter", () => {
   describe("#setGroupState", () => {
     it("should clear group impressions", async () => {
       await Router.setState({
-        groups: [{ id: "foo", enabled: true }, { id: "bar", enabled: true }],
+        groups: [
+          { id: "foo", enabled: true },
+          { id: "bar", enabled: true },
+        ],
         groupImpressions: { foo: [1], bar: [2] },
       });
 

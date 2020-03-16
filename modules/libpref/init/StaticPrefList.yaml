@@ -184,6 +184,11 @@
   value: false
   mirror: always
 
+- name: accessibility.xpcom.traverse_outerdoc
+  type: bool
+  value: false
+  mirror: always
+
 #ifdef ANDROID
   #---------------------------------------------------------------------------
   # Prefs starting with "android."
@@ -1007,15 +1012,6 @@
 #endif
   mirror: always
 
-# When this pref is enabled, the browser will check no-cors responses that
-# have the Cross-Origin-Resource-Policy header and will fail the request if
-# the origin of the resource's loading document doesn't match the origin
-# (or base domain) of the loaded resource.
-- name: browser.tabs.remote.useCORP
-  type: bool
-  value: true
-  mirror: always
-
 # The percentage of the screen that needs to be scrolled before toolbar
 # manipulation is allowed.
 - name: browser.ui.scroll-toolbar-threshold
@@ -1580,6 +1576,12 @@
 - name: dom.events.user_interaction_interval
   type: uint32_t
   value: 5000
+  mirror: always
+
+# Whether to try to compress touchmove events on IPC layer.
+- name: dom.events.compress.touchmove
+  type: bool
+  value: true
   mirror: always
 
 # Whether to expose test interfaces of various sorts
@@ -2390,6 +2392,13 @@
 - name: dom.security.featurePolicy.enabled
   type: bool
   value: true
+  mirror: always
+
+# This pref enables Sec-Fetch-* logic and causes corresponding
+# request headers to be set.
+- name: dom.security.secFetch.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # This pref enables the featurePolicy header support.
@@ -8614,7 +8623,11 @@
 # Global user preference for disabling native theme in content processes.
 - name: widget.disable-native-theme-for-content
   type: bool
+#if defined(ANDROID)
+  value: @IS_NIGHTLY_BUILD@
+#else
   value: false
+#endif
   mirror: always
 
 # Preference to disable dark scrollbar implementation.
