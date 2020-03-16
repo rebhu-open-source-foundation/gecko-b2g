@@ -2168,24 +2168,25 @@ CommandResult NetworkUtils::setTcpBufferSize(NetworkParams& aOptions) {
 
   char buf[BUF_SIZE];
   snprintf(buf, sizeof(buf), "%s", GET_CHAR(mTcpBufferSizes));
-  nsTArray<nsString> bufferResult;
+  nsTArray<nsCString> bufferResult;
   split(buf, TCP_BUFFER_DELIMIT, bufferResult);
 
-  const char* prefix = "/sys/kernel/ipv4/tcp_";
-  const char* suffix[] = {"rmem_min", "rmem_def", "rmem_max",
-                          "wmem_min", "wmem_def", "wmem_max"};
-
-  uint32_t length = bufferResult.Length();
-  for (uint32_t i = 0; i < length; i++) {
-    NS_ConvertUTF16toUTF8 autoTcpBuffer(bufferResult[i]);
-    if (!mozilla::WriteSysFile(nsPrintfCString("%s%s", prefix, suffix[i]).get(),
-                               autoTcpBuffer.get())) {
-      NU_DBG("Write Buffer Size %s failed", suffix[i]);
-      return result;
-    }
+  if (bufferResult.Length() < 6) {
+    NU_DBG("mTcpBufferSizes length is not enough");
+    return result;
   }
 
-  result.mResult = true;
+  std::string rmemValues = std::string(bufferResult[0].get()) + " " +
+                           std::string(bufferResult[1].get()) + " " +
+                           std::string(bufferResult[2].get());
+  std::string wmemValues = std::string(bufferResult[3].get()) + " " +
+                           std::string(bufferResult[4].get()) + " " +
+                           std::string(bufferResult[5].get());
+
+  Status status = gNetd->setTcpRWmemorySize(rmemValues, wmemValues);
+  result.mResult = status.isOk();
+  NU_DBG("setTcpBufferSizes result: %s", result.mResult ? "success" : "failed");
+
   return result;
 }
 
