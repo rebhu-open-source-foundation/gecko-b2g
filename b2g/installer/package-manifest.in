@@ -204,8 +204,6 @@
 @RESPATH@/components/SubsidyLockService.manifest
 #endif // DISABLE_MOZ_RIL
 #endif // DISABLE_MOZ_RIL_GEOLOC
-@RESPATH@/components/DOMDataCallManager.js
-@RESPATH@/components/DOMDataCallManager.manifest
 @RESPATH@/components/StkCmdFactory.js
 @RESPATH@/components/StkCmdFactory.manifest
 @RESPATH@/components/RILSystemMessengerHelper.js

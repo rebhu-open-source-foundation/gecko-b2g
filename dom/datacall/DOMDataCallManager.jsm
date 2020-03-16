@@ -580,5 +580,4 @@ DOMDataCall.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([DOMDataCallManager,
-                                                     DOMDataCall]);
+var EXPORTED_SYMBOLS = ["DOMDataCallManager" , "DOMDataCall"];

@@ -5,12 +5,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXTRA_JS_MODULES += [
+    'DOMDataCallManager.jsm',
     'gonk/DataCallService.jsm',
 ]
 
 EXTRA_COMPONENTS += [
-    'DOMDataCallManager.js',
-    'DOMDataCallManager.manifest',
     'gonk/DataCallService.manifest',
 ]
 
