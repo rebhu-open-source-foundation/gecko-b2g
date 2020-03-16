@@ -2512,15 +2512,6 @@ CommandResult NetworkUtils::setWifiTethering(NetworkParams& aOptions) {
     }
   }
 
-  // TODO: need more conditions if we support 5GHz hotspot
-  // Random choose 1, 6, 11 if there's no specify channel.
-  if (enable &&
-      (!aOptions.mChannel || aOptions.mChannel < 1 || aOptions.mChannel > 11)) {
-    NU_DBG("No valid channel");
-    aOptions.mChannel = 1 + (rand() % 3) * 5;
-  }
-  NU_DBG("Setup %ld as current channel", GET_FIELD(mChannel));
-
   // Collect external interface Ipv6 prefix.
   if (!aOptions.mIpv6Ip.IsEmpty() &&
       getIpv6Prefix(GET_CHAR(mIpv6Ip), ipv6Prefix)) {

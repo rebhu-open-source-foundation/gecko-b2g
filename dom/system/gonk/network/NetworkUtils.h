@@ -110,7 +110,6 @@ class NetworkParams {
     COPY_OPT_STRING_FIELD(mSsid, EmptyString())
     COPY_OPT_STRING_FIELD(mSecurity, EmptyString())
     COPY_OPT_STRING_FIELD(mKey, EmptyString())
-    COPY_OPT_FIELD(mChannel, 0)
     COPY_OPT_STRING_FIELD(mPrefix, EmptyString())
     COPY_OPT_STRING_FIELD(mLink, EmptyString())
     COPY_SEQUENCE_FIELD(mInterfaceList, nsString)
@@ -174,7 +173,6 @@ class NetworkParams {
   nsString mSsid;
   nsString mSecurity;
   nsString mKey;
-  long mChannel;
   nsString mPrefix;
   nsString mLink;
   nsTArray<nsString> mInterfaceList;

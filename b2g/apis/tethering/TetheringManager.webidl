@@ -28,6 +28,7 @@ dictionary TetheringConfiguration {
   DOMString endIp;
   DOMString dns1;
   DOMString dns2;
+  unsigned long channel;
 };
 
 [JSImplementation="@mozilla.org/tetheringmanager;1",

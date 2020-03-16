@@ -4262,6 +4262,9 @@ WifiWorker.prototype = {
   ) {
     let config = {};
     let params = this.tetheringConfig;
+    // TODO: need more conditions if we support 5GHz hotspot.
+    // Random choose 1, 6, 11 if there's no specify channel.
+    let defaultChannel = 11 - Math.floor(Math.random() * 3) * 5;
 
     let check = function(field, _default) {
       config[field] = field in params ? params[field] : _default;
@@ -4284,6 +4287,7 @@ WifiWorker.prototype = {
     check("usbEndIp", DEFAULT_USB_DHCPSERVER_ENDIP);
     check("dns1", DEFAULT_DNS1);
     check("dns2", DEFAULT_DNS2);
+    check("channel", defaultChannel);
 
     config.enable = enable;
     config.mode = enable ? WIFI_FIRMWARE_AP : WIFI_FIRMWARE_STATION;
@@ -4333,6 +4337,11 @@ WifiWorker.prototype = {
       config.usbEndIp == ""
     ) {
       debug("Invalid subnet information.");
+      return null;
+    }
+
+    if (config.channel > 11 || config.channel < 1) {
+      debug("Invalid channel value.");
       return null;
     }
 
