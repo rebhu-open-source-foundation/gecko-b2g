@@ -1222,12 +1222,6 @@ if CONFIG['ACCESSIBILITY']:
         'AccessibleNode.webidl',
     ]
 
-if CONFIG['HAS_KOOST_MODULES']:
-    WEBIDL_FILES += [
-        'ExternalAPI.webidl',
-    ]
-
-
 if CONFIG['MOZ_B2G_BT']:
     WEBIDL_FILES += [
         'BluetoothAdapter.webidl',

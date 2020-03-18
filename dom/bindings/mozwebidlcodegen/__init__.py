@@ -613,7 +613,7 @@ def create_build_system_manager(topsrcdir, topobjdir, dist_dir):
     src_dir = os.path.join(topsrcdir, 'dom', 'bindings')
     obj_dir = os.path.join(topobjdir, 'dom', 'bindings')
     webidl_root = os.path.join(topsrcdir, 'dom', 'webidl')
-    extra_webidl_root = os.path.join(topsrcdir, 'b2g', 'apis')
+    extra_webidl_root = os.path.join(topsrcdir, 'koost', 'webidl')
 
     with open(os.path.join(obj_dir, 'file-lists.json'), 'rb') as fh:
         files = json.load(fh)
