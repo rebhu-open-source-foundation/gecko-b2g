@@ -8,6 +8,28 @@
     "resource://gre/modules/Services.jsm"
   );
 
+  // Enable logs when according to the pref value, and listen to changes.
+  let webViewLogEnabled = Services.prefs.getBoolPref(
+    "webview.log.enabled",
+    false
+  );
+
+  function updateLogStatus() {
+    webViewLogEnabled = Services.prefs.getBoolPref(
+      "webview.log.enabled",
+      false
+    );
+  }
+
+  Services.prefs.addObserver("webview.log.enabled", updateLogStatus);
+  window.document.addEventListener(
+    "unload",
+    () => {
+      Services.prefs.removeObserver("webview.log.enabled", updateLogStatus);
+    },
+    { once: true }
+  );
+
   // Use a prefix to help with backward compatibility and ease UI porting.
   const EVENT_PREFIX = "mozbrowser";
 
@@ -18,7 +40,7 @@
 
   ProgressListener.prototype = {
     log(msg) {
-      console.log(`<web-view-listener> ${msg}`);
+      webViewLogEnabled && console.log(`<web-view-listener> ${msg}`);
     },
 
     error(msg) {
@@ -56,7 +78,7 @@
       }
 
       // Remove password from uri.
-      location = Services.uriFixup.createExposableURI(location);
+      location = Services.io.createExposableURI(location);
 
       this.dispatchEvent(`locationchange`, {
         url: location.spec,
@@ -279,7 +301,7 @@
     }
 
     log(msg) {
-      console.log(`<web-view> ${msg}`);
+      webViewLogEnabled && console.log(`<web-view> ${msg}`);
     }
 
     error(msg) {
@@ -540,6 +562,6 @@
     }
   }
 
-  console.log(`Setting up <web-view> custom element`);
+  webViewLogEnabled && console.log(`Setting up <web-view> custom element`);
   window.customElements.define("web-view", WebView);
 })();

@@ -13,8 +13,30 @@
     "resource://gre/modules/AlertsHelper.jsm"
   );
 
+  // Enable logs when according to the pref value, and listen to changes.
+  let webEmbedLogEnabled = Services.prefs.getBoolPref(
+    "webembed.log.enabled",
+    false
+  );
+
+  function updateLogStatus() {
+    webEmbedLogEnabled = Services.prefs.getBoolPref(
+      "webembed.log.enabled",
+      false
+    );
+  }
+
+  Services.prefs.addObserver("webembed.log.enabled", updateLogStatus);
+  window.document.addEventListener(
+    "unload",
+    () => {
+      Services.prefs.removeObserver("webembed.log.enabled", updateLogStatus);
+    },
+    { once: true }
+  );
+
   function _webembed_log(msg) {
-    console.log(`WebEmbedder: ${msg}`);
+    webEmbedLogEnabled && console.log(`WebEmbedder: ${msg}`);
   }
 
   function _webembed_error(msg) {
@@ -43,7 +65,7 @@
           aCsp
         );
       }
-      _webembed_error("NOT IMPLEMENTED");
+      _webembed_error("openURI NOT IMPLEMENTED");
       throw new Error("NOT IMPLEMENTED");
     },
 
@@ -66,7 +88,7 @@
           aCsp
         );
       }
-      _webembed_error("NOT IMPLEMENTED");
+      _webembed_error("createContentWindow NOT IMPLEMENTED");
       throw new Error("NOT IMPLEMENTED");
     },
 
@@ -91,7 +113,7 @@
           return res.frame;
         }
       }
-      _webembed_error("NOT IMPLEMENTED");
+      _webembed_error("openURIInFrame NOT IMPLEMENTED");
       throw new Error("NOT IMPLEMENTED");
     },
 
@@ -119,7 +141,7 @@
           return res.frame;
         }
       }
-      _webembed_error("NOT IMPLEMENTED");
+      _webembed_error("createContentWindowInFrame NOT IMPLEMENTED");
       throw new Error("NOT IMPLEMENTED");
     },
 
@@ -187,7 +209,7 @@
             );
           },
           error => {
-            _webembed_log("Error in choseActivity: " + error);
+            _webembed_log(`Error in choseActivity: ${error}`);
           }
         );
       }, "activity-choice");
