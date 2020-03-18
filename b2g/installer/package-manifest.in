@@ -154,7 +154,6 @@
 ; WiFi, NetworkManager, NetworkStats
 #ifdef MOZ_WIDGET_GONK
 #ifndef DISABLE_WIFI
-@RESPATH@/components/DOMWifiManager.manifest
 @RESPATH@/components/DOMWifiP2pManager.js
 @RESPATH@/components/DOMWifiP2pManager.manifest
 @RESPATH@/components/WifiWorker.manifest

@@ -18,7 +18,6 @@ if not CONFIG['DISABLE_WIFI']:
   ]
 
   EXTRA_COMPONENTS += [
-      'DOMWifiManager.manifest',
       'DOMWifiP2pManager.js',
       'DOMWifiP2pManager.manifest',
       'WifiWorker.manifest',
