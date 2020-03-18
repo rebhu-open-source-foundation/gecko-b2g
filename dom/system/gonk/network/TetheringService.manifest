@@ -1,2 +1,0 @@
-# TetheringService.jsm
-category profile-after-change TetheringService @mozilla.org/tethering/service;1 process=main

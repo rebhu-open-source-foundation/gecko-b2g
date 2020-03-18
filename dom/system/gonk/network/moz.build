@@ -17,10 +17,6 @@ XPCOM_MANIFESTS += [
     'components.conf',
 ]
 
-EXTRA_COMPONENTS += [
-    'TetheringService.manifest',
-]
-
 XPIDL_SOURCES += [
     'nsINat464XlatInfo.idl',
     'nsINetworkInterface.idl',
