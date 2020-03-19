@@ -49,6 +49,8 @@
 #define ERROR(args...) \
   __android_log_print(ANDROID_LOG_ERROR, "NetworkUtils", ##args)
 
+#define PREF_NETWORK_DEBUG_ENABLED "network.debugging.enabled"
+
 namespace binder = android::binder;
 using android::IBinder;
 using android::IServiceManager;
@@ -65,7 +67,6 @@ static bool ENABLE_DEBUG = false;
 
 static const int32_t SUCCESS = 0;
 
-static const char* PREF_NETWORK_DEBUG_ENABLED = "network.debugging.enabled";
 static const char* PERSIST_SYS_USB_CONFIG_PROPERTY = "persist.sys.usb.config";
 static const char* SYS_USB_CONFIG_PROPERTY = "sys.usb.config";
 static const char* SYS_USB_STATE_PROPERTY = "sys.usb.state";

@@ -362,6 +362,9 @@ extern const mozilla::Module kGaiaChromeModule;
 extern const mozilla::Module kNetworkWorkerModule;
 extern const mozilla::Module kRilWorkerServiceModule;
 extern const mozilla::Module kAudioManagerModule;
+#ifdef HAS_KOOST_MODULES
+extern const mozilla::Module kDhcpServiceModule;
+#endif
 #ifndef DISABLE_WIFI
 extern const mozilla::Module kWifiProxyServiceModule;
 #endif
@@ -458,6 +461,9 @@ nsresult nsComponentManagerImpl::Init() {
   RegisterModule(&kNetworkWorkerModule);
   RegisterModule(&kRilWorkerServiceModule);
   RegisterModule(&kAudioManagerModule);
+#ifdef HAS_KOOST_MODULES
+  RegisterModule(&kDhcpServiceModule);
+#endif
 #ifndef DISABLE_WIFI
   RegisterModule(&kWifiProxyServiceModule);
 #endif

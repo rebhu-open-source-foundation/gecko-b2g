@@ -14,6 +14,11 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
+#ifdef HAS_KOOST_MODULES
+const { IpClient } = ChromeUtils.import(
+  "resource://gre/modules/IpClient.jsm"
+);
+#endif
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -36,8 +41,25 @@ this.WifiNetUtil = function(controlMessage) {
   }
 
   var util = {};
+#ifdef HAS_KOOST_MODULES
+  var ipClient = new IpClient("WiFi");
+#endif
 
   util.runDhcp = function(ifname, gen, callback) {
+#ifdef HAS_KOOST_MODULES
+    util.stopDhcp(ifname, function(success) {
+      ipClient.requestDhcp(ifname, function(success, dhcpInfo) {
+        if (!success) {
+          callback({ info: null }, gen);
+          return;
+        }
+
+        util.runIpConfig(ifname, dhcpInfo, function(data) {
+          callback(data, gen);
+        });
+      });
+    });
+#else
     util.stopDhcp(ifname, function() {
       gNetworkService.dhcpRequest(ifname, function(success, dhcpInfo) {
         util.runIpConfig(ifname, dhcpInfo, function(data) {
@@ -45,9 +67,15 @@ this.WifiNetUtil = function(controlMessage) {
         });
       });
     });
+#endif
   };
 
   util.stopDhcp = function(ifname, callback) {
+#ifdef HAS_KOOST_MODULES
+    ipClient.stopDhcp(ifname, function(success) {
+      callback(success);
+    });
+#else
     // This function does exactly what dhcp_stop does. Unforunately, if we call
     // this function twice before the previous callback is returned. We may block
     // our self waiting for the callback. It slows down the wifi startup procedure.
@@ -65,6 +93,7 @@ this.WifiNetUtil = function(controlMessage) {
     setProperty("dhcp." + suffix + ".result", "ko", function() {
       stopProcess(dhcpService, processName, callback);
     });
+#endif
   };
 
   util.startDhcpServer = function(config, callback) {
