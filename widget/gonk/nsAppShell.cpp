@@ -19,6 +19,7 @@
 #define _GNU_SOURCE
 #endif
 
+#include <cutils/properties.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -1236,6 +1237,7 @@ nsAppShell::Init()
 
         /* Start boot animation */
         mozilla::StartBootAnimation();
+        property_set("sys.boot_completed", "1");
 
         ScreenManager& screenManager = ScreenManager::GetSingleton();
         screenManager.SetHelper(mozilla::MakeUnique<ScreenHelperGonk>());
@@ -1303,6 +1305,8 @@ nsAppShell::Observe(nsISupports* aSubject,
             updateHeadphoneSwitch();
         }
         mEnableDraw = true;
+
+        gAppShell->InitInputDevices();
 
         // System is almost booting up. Stop the bootAnim now.
         mozilla::StopBootAnimation();
@@ -1418,8 +1422,6 @@ nsAppShell::NotifyNativeEvent()
 /* static */ void
 nsAppShell::NotifyScreenInitialized()
 {
-    gAppShell->InitInputDevices();
-
     // Getting the instance of OrientationObserver to initialize it.
     // OrientationObserver::GetInstance();
 }
