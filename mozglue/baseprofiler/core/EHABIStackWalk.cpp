@@ -621,7 +621,7 @@ void EHAddrSpace::Update() {
 }
 
 EHState::EHState(const mcontext_t& context) {
-#  ifdef linux
+#  ifdef XP_LINUX
   mRegs[0] = context.arm_r0;
   mRegs[1] = context.arm_r1;
   mRegs[2] = context.arm_r2;
