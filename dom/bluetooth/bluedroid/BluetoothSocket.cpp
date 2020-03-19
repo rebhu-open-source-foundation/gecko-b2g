@@ -115,9 +115,9 @@ public:
   // Methods for |DataSocket|
   //
 
-  nsresult QueryReceiveBuffer(UnixSocketIOBuffer** aBuffer);
-  void ConsumeBuffer();
-  void DiscardBuffer();
+  nsresult QueryReceiveBuffer(UnixSocketIOBuffer** aBuffer) override;
+  void ConsumeBuffer() override;
+  void DiscardBuffer() override;
 
   // Methods for |SocketIOBase|
   //
@@ -165,7 +165,7 @@ private:
    *
    * @param aFd [in] File descriptor to read from
    */
-  virtual void OnFileCanReadWithoutBlocking(int aFd);
+  virtual void OnFileCanReadWithoutBlocking(int aFd) override;
 
   /**
    * libevent or developer triggered functions that writes data to socket when
@@ -173,7 +173,7 @@ private:
    *
    * @param aFd [in] File descriptor to read from
    */
-  virtual void OnFileCanWriteWithoutBlocking(int aFd);
+  virtual void OnFileCanWriteWithoutBlocking(int aFd) override;
 
   void OnSocketCanReceiveWithoutBlocking(int aFd);
   void OnSocketCanAcceptWithoutBlocking(int aFd);

@@ -26,7 +26,8 @@ Convert(bool aIn, BluetoothScanMode& aOut)
     [true] = SCAN_MODE_CONNECTABLE_DISCOVERABLE
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sScanMode), bool, BluetoothScanMode)) {
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sScanMode), bool,
+        BluetoothScanMode)) {
     aOut = SCAN_MODE_NONE; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
   }
@@ -666,8 +667,8 @@ Convert(BluetoothAvrcpNotification aIn, uint8_t& aOut)
     [AVRCP_NTF_CHANGED] = 0x01
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sValue), BluetoothAvrcpNotification,
-        uint8_t)) {
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sValue),
+        BluetoothAvrcpNotification, uint8_t)) {
     return NS_ERROR_ILLEGAL_VALUE;
   }
   aOut = sValue[aIn];
@@ -684,7 +685,8 @@ Convert(BluetoothAvrcpPlayerAttribute aIn, uint8_t& aOut)
     [AVRCP_PLAYER_ATTRIBUTE_SCAN] = 0x04
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sValue), BluetoothAvrcpPlayerAttribute, uint8_t)) {
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sValue),
+        BluetoothAvrcpPlayerAttribute, uint8_t)) {
     return NS_ERROR_ILLEGAL_VALUE;
   }
   aOut = sValue[aIn];
@@ -697,8 +699,8 @@ Convert(BluetoothAvrcpRemoteFeatureBits aIn, unsigned long& aOut)
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
         aIn < std::numeric_limits<unsigned long>::min(),
         BluetoothAvrcpRemoteFeature, unsigned long) ||
-      MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn > std::numeric_limits<unsigned long>::max(),
+      MOZ_HAL_IPC_CONVERT_WARN_IF(static_cast<unsigned long>(aIn) >
+        std::numeric_limits<unsigned long>::max(),
         BluetoothAvrcpRemoteFeature, unsigned long)) {
     aOut = 0; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
@@ -733,7 +735,8 @@ Convert(BluetoothHandsfreeAtResponse aIn, uint8_t& aOut)
     [HFP_AT_RESPONSE_OK] = 0x01
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sAtResponse), BluetoothHandsfreeAtResponse,
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sAtResponse),
+        BluetoothHandsfreeAtResponse,
         uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
@@ -750,7 +753,7 @@ Convert(BluetoothHandsfreeCallAddressType aIn, uint8_t& aOut)
     [HFP_CALL_ADDRESS_TYPE_INTERNATIONAL] = 0x91
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sCallAddressType),
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sCallAddressType),
         BluetoothHandsfreeCallAddressType, uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
@@ -767,7 +770,7 @@ Convert(BluetoothHandsfreeCallDirection aIn, uint8_t& aOut)
     [HFP_CALL_DIRECTION_INCOMING] = 0x01
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sCallDirection),
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sCallDirection),
         BluetoothHandsfreeCallDirection, uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
@@ -823,7 +826,7 @@ Convert(BluetoothHandsfreeCallMptyType aIn, uint8_t& aOut)
     [HFP_CALL_MPTY_TYPE_MULTI] = 0x01
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sCallMptyType),
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sCallMptyType),
         BluetoothHandsfreeCallMptyType, uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
@@ -840,8 +843,8 @@ Convert(BluetoothHandsfreeNetworkState aIn, uint8_t& aOut)
     [HFP_NETWORK_STATE_AVAILABLE] = 0x01
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sNetworkState), BluetoothHandsfreeNetworkState,
-        uint8_t)) {
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sNetworkState),
+        BluetoothHandsfreeNetworkState, uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
   }
@@ -857,8 +860,8 @@ Convert(BluetoothHandsfreeServiceType aIn, uint8_t& aOut)
     [HFP_SERVICE_TYPE_ROAMING] = 0x01
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sServiceType), BluetoothHandsfreeServiceType,
-        uint8_t)) {
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sServiceType),
+        BluetoothHandsfreeServiceType, uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
   }
@@ -874,8 +877,8 @@ Convert(BluetoothHandsfreeVolumeType aIn, uint8_t& aOut)
     [HFP_VOLUME_TYPE_MICROPHONE] = 0x01
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sVolumeType), BluetoothHandsfreeVolumeType,
-        uint8_t)) {
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sVolumeType),
+        BluetoothHandsfreeVolumeType, uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
   }
@@ -1111,7 +1114,7 @@ Convert(BluetoothHidReportType aIn, uint8_t& aOut)
     [HID_REPORT_TYPE_FEATURE] = 0x03
   };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(
-        aIn >= MOZ_ARRAY_LENGTH(sType),
+        static_cast<unsigned int>(aIn) >= MOZ_ARRAY_LENGTH(sType),
         BluetoothHidReportType, uint8_t)) {
     aOut = 0x00; // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;

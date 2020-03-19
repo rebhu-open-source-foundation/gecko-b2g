@@ -272,8 +272,8 @@ SocketMessageWatcher::ReadBdAddress(unsigned long aOffset,
 
 SocketMessageWatcherTask::SocketMessageWatcherTask(
   SocketMessageWatcher* aWatcher)
-  : mWatcher(aWatcher)
-  , Runnable("SocketMessageWatcherTask")
+  : Runnable("SocketMessageWatcherTask")
+  , mWatcher(aWatcher)
 {
   MOZ_ASSERT(mWatcher);
 }
@@ -291,8 +291,8 @@ SocketMessageWatcherTask::Run()
 
 DeleteSocketMessageWatcherTask::DeleteSocketMessageWatcherTask(
   BluetoothSocketResultHandler* aRes)
-  : mRes(aRes)
-  , Runnable("DeleteSocketMessageWatcherTask")
+  : Runnable("DeleteSocketMessageWatcherTask")
+  , mRes(aRes)
 {
   MOZ_ASSERT(mRes);
 }

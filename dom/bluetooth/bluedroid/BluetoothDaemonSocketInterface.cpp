@@ -92,8 +92,8 @@ class DeleteTask final : public Runnable
 {
 public:
   DeleteTask(T* aPtr)
-  : mPtr(aPtr)
-  , Runnable("DeleteTask")
+  : Runnable("DeleteTask")
+  , mPtr(aPtr)
   { }
 
   NS_IMETHOD Run() override
