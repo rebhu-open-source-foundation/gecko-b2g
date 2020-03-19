@@ -807,7 +807,7 @@ bool PerHandlerParser<ParseHandler>::
   }
 
   if (handler_.canSkipLazyClosedOverBindings()) {
-    // Scopes are nullptr-delimited in the LazyScript closed over bindings
+    // Scopes are nullptr-delimited in the BaseScript closed over bindings
     // array.
     while (JSAtom* name = handler_.nextLazyClosedOverBinding()) {
       scope.lookupDeclaredName(name)->value()->setClosedOver();
@@ -873,6 +873,16 @@ typename Scope::Data* NewEmptyBindingData(JSContext* cx, LifoAlloc& alloc,
     ReportOutOfMemory(cx);
   }
   return bindings;
+}
+
+GlobalScope::Data* NewEmptyGlobalScopeData(JSContext* cx, LifoAlloc& alloc,
+                                           uint32_t numBindings) {
+  return NewEmptyBindingData<GlobalScope>(cx, alloc, numBindings);
+}
+
+LexicalScope::Data* NewEmptyLexicalScopeData(JSContext* cx, LifoAlloc& alloc,
+                                             uint32_t numBindings) {
+  return NewEmptyBindingData<LexicalScope>(cx, alloc, numBindings);
 }
 
 namespace detail {
@@ -1652,7 +1662,7 @@ template <>
 bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
     bool isStandaloneFunction /* = false */,
     IsFieldInitializer isFieldInitializer /* = IsFieldInitializer::Yes */) {
-  // The LazyScript for a lazily parsed function needs to know its set of
+  // The BaseScript for a lazily parsed function needs to know its set of
   // free variables and inner functions so that when it is fully parsed, we
   // can skip over any already syntax parsed inner functions and still
   // retain correct scope information.
@@ -1668,16 +1678,6 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
     while (!COB.empty() && (COB.back() == nullptr)) {
       COB.popBack();
     }
-  }
-
-  // There are too many bindings or inner functions to be saved into the
-  // LazyScript. Do a full parse.
-  if (pc_->closedOverBindingsForLazy().length() >=
-          LazyScript::NumClosedOverBindingsLimit ||
-      pc_->innerFunctionIndexesForLazy.length() >=
-          LazyScript::NumInnerFunctionsLimit) {
-    MOZ_ALWAYS_FALSE(abortIfSyntaxParser());
-    return false;
   }
 
   FunctionBox* funbox = pc_->functionBox();
@@ -1740,9 +1740,9 @@ bool LazyScriptCreationData::create(JSContext* cx,
                                     FunctionBox* funbox,
                                     HandleScriptSourceObject sourceObject) {
   MOZ_ASSERT(function);
-  BaseScript* lazy = LazyScript::Create(cx, compilationInfo, function,
-                                        sourceObject, closedOverBindings,
-                                        innerFunctionIndexes, funbox->extent);
+  BaseScript* lazy = BaseScript::CreateLazy(
+      cx, compilationInfo, function, sourceObject, closedOverBindings,
+      innerFunctionIndexes, funbox->extent);
   if (!lazy) {
     return false;
   }
@@ -2706,9 +2706,9 @@ GeneralParser<ParseHandler, Unit>::functionDefinition(
   // definition for consistency between lazy and full parsing.
   pc_->sc()->setHasInnerFunctions();
 
-  // When fully parsing a LazyScript, we do not fully reparse its inner
-  // functions, which are also lazy. Instead, their free variables and
-  // source extents are recorded and may be skipped.
+  // When fully parsing a lazy script, we do not fully reparse its inner
+  // functions, which are also lazy. Instead, their free variables and source
+  // extents are recorded and may be skipped.
   if (handler_.canSkipLazyInnerFunctions()) {
     if (!skipLazyInnerFunction(funNode, toStringStart, kind, tryAnnexB)) {
       return null();

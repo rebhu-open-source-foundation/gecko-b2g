@@ -125,8 +125,8 @@ class XDRIncrementalEncoder;
 // XDRIncrementalEncoder.
 //
 // Its primary goal is to identify functions, such that we can first encode them
-// as LazyScript, and later replaced by them by their corresponding bytecode
-// once delazified.
+// as a lazy BaseScript, and later replaced by them by their corresponding
+// bytecode once delazified.
 //
 // As a convenience, this is also used to identify the top-level of the content
 // encoded by an XDRIncrementalEncoder.
@@ -223,7 +223,7 @@ class XDRState : public XDRCoderBase {
   XDRState(const XDRState&) = delete;
   XDRState& operator=(const XDRState&) = delete;
 
-  virtual ~XDRState(){};
+  virtual ~XDRState() = default;
 
   JSContext* cx() const { return mainBuf.cx(); }
 
@@ -569,7 +569,7 @@ class XDRIncrementalEncoder : public XDREncoder {
         headerBuf_(cx, header_, 0),
         oom_(false) {}
 
-  virtual ~XDRIncrementalEncoder() {}
+  virtual ~XDRIncrementalEncoder() = default;
 
   bool hasAtomMap() const override { return true; }
   XDRAtomMap& atomMap() override { return atomMap_; }

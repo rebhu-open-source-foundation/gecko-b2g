@@ -322,10 +322,46 @@ XPCOMUtils.defineLazyGetter(this, "gNavToolbox", () => {
 });
 
 XPCOMUtils.defineLazyGetter(this, "gURLBar", () => {
-  return new UrlbarInput({
+  let urlbar = new UrlbarInput({
     textbox: document.getElementById("urlbar"),
     eventTelemetryCategory: "urlbar",
   });
+
+  let beforeFocusOrSelect = event => {
+    // In customize mode, the url bar is disabled. If a new tab is opened or the
+    // user switches to a different tab, this function gets called before we've
+    // finished leaving customize mode, and the url bar will still be disabled.
+    // We can't focus it when it's disabled, so we need to re-run ourselves when
+    // we've finished leaving customize mode.
+    if (
+      CustomizationHandler.isCustomizing() ||
+      CustomizationHandler.isExitingCustomizeMode
+    ) {
+      gNavToolbox.addEventListener(
+        "aftercustomization",
+        () => {
+          if (event.type == "beforeselect") {
+            gURLBar.select();
+          } else {
+            gURLBar.focus();
+          }
+        },
+        {
+          once: true,
+        }
+      );
+      event.preventDefault();
+      return;
+    }
+
+    if (window.fullScreen) {
+      FullScreen.showNavToolbox();
+    }
+  };
+  urlbar.addEventListener("beforefocus", beforeFocusOrSelect);
+  urlbar.addEventListener("beforeselect", beforeFocusOrSelect);
+
+  return urlbar;
 });
 
 XPCOMUtils.defineLazyGetter(this, "ReferrerInfo", () =>
@@ -1900,14 +1936,6 @@ var gBrowserInit = {
     Services.appShell.hiddenDOMWindow;
 
     gBrowser.addEventListener(
-      "InsecureLoginFormsStateChange",
-      function() {
-        gIdentityHandler.refreshForInsecureLoginForms();
-      },
-      true
-    );
-
-    gBrowser.addEventListener(
       "PermissionStateChange",
       function() {
         gIdentityHandler.refreshIdentityBlock();
@@ -2100,7 +2128,7 @@ var gBrowserInit = {
     let shouldRemoveFocusedAttribute = true;
     this._callWithURIToLoad(uriToLoad => {
       if (isBlankPageURL(uriToLoad) || uriToLoad == "about:privatebrowsing") {
-        focusAndSelectUrlBar();
+        gURLBar.select();
         shouldRemoveFocusedAttribute = false;
         return;
       }
@@ -2329,9 +2357,7 @@ var gBrowserInit = {
       }
 
       let uri = window.arguments[0];
-      let defaultArgs = Cc["@mozilla.org/browser/clh;1"].getService(
-        Ci.nsIBrowserHandler
-      ).defaultArgs;
+      let defaultArgs = BrowserHandler.defaultArgs;
 
       // If the given URI is different from the homepage, we want to load it.
       if (uri != defaultArgs) {
@@ -2823,7 +2849,7 @@ function BrowserHome(aEvent) {
         null
       );
       if (isBlankPageURL(homePage)) {
-        focusAndSelectUrlBar();
+        gURLBar.select();
       } else {
         gBrowser.selectedBrowser.focus();
       }
@@ -2886,35 +2912,9 @@ function loadOneOrMoreURIs(aURIString, aTriggeringPrincipal, aCsp) {
   } catch (e) {}
 }
 
-/**
- * Focuses and expands the location bar input field and selects its contents.
- */
-function focusAndSelectUrlBar() {
-  // In customize mode, the url bar is disabled. If a new tab is opened or the
-  // user switches to a different tab, this function gets called before we've
-  // finished leaving customize mode, and the url bar will still be disabled.
-  // We can't focus it when it's disabled, so we need to re-run ourselves when
-  // we've finished leaving customize mode.
-  if (
-    CustomizationHandler.isCustomizing() ||
-    CustomizationHandler.isExitingCustomizeMode
-  ) {
-    gNavToolbox.addEventListener("aftercustomization", focusAndSelectUrlBar, {
-      once: true,
-    });
-    return;
-  }
-
-  if (window.fullScreen) {
-    FullScreen.showNavToolbox();
-  }
-
-  gURLBar.select();
-}
-
 function openLocation(event) {
   if (window.location.href == AppConstants.BROWSER_CHROME_URL) {
-    focusAndSelectUrlBar();
+    gURLBar.select();
     gURLBar.view.autoOpen({ event });
     return;
   }
@@ -4667,10 +4667,7 @@ function OpenBrowserWindow(options) {
   var telemetryObj = {};
   TelemetryStopwatch.start("FX_NEW_WINDOW_MS", telemetryObj);
 
-  var handler = Cc["@mozilla.org/browser/clh;1"].getService(
-    Ci.nsIBrowserHandler
-  );
-  var defaultArgs = handler.defaultArgs;
+  var defaultArgs = BrowserHandler.defaultArgs;
   var wintype = document.documentElement.getAttribute("windowtype");
 
   var extraFeatures = "";
@@ -5013,7 +5010,7 @@ var XULBrowserWindow = {
 
   setOverLink(url) {
     if (url) {
-      url = Services.textToSubURI.unEscapeURIForUI("UTF-8", url);
+      url = Services.textToSubURI.unEscapeURIForUI(url);
 
       // Encode bidirectional formatting characters.
       // (RFC 3987 sections 3.2 and 4.1 paragraph 6)
@@ -5451,7 +5448,7 @@ var XULBrowserWindow = {
     gURLBar.formatValue();
 
     try {
-      uri = Services.uriFixup.createExposableURI(uri);
+      uri = Services.io.createExposableURI(uri);
     } catch (e) {}
     gIdentityHandler.updateIdentity(this._state, uri);
   },
@@ -9076,6 +9073,8 @@ TabModalPromptBox.prototype = {
 };
 
 var ConfirmationHint = {
+  _timerID: null,
+
   /**
    * Shows a transient, non-interactive confirmation hint anchored to an
    * element, usually used in response to a user action to reaffirm that it was
@@ -9098,6 +9097,8 @@ var ConfirmationHint = {
    *
    */
   show(anchor, messageId, options = {}) {
+    this._reset();
+
     this._message.textContent = gBrowserBundle.GetStringFromName(
       `confirmationHint.${messageId}.label`
     );
@@ -9125,8 +9126,7 @@ var ConfirmationHint = {
       "popupshown",
       () => {
         this._animationBox.setAttribute("animate", "true");
-
-        setTimeout(() => {
+        this._timerID = setTimeout(() => {
           this._panel.hidePopup(true);
         }, DURATION + 120);
       },
@@ -9136,8 +9136,8 @@ var ConfirmationHint = {
     this._panel.addEventListener(
       "popuphidden",
       () => {
-        this._panel.removeAttribute("hidearrow");
-        this._animationBox.removeAttribute("animate");
+        // reset the timerId in case our timeout wasn't the cause of the popup being hidden
+        this._reset();
       },
       { once: true }
     );
@@ -9147,6 +9147,15 @@ var ConfirmationHint = {
       position: "bottomcenter topleft",
       triggerEvent: options.event,
     });
+  },
+
+  _reset() {
+    if (this._timerID) {
+      clearTimeout(this._timerID);
+      this._timerID = null;
+    }
+    this._panel.removeAttribute("hidearrow");
+    this._animationBox.removeAttribute("animate");
   },
 
   get _panel() {

@@ -10,10 +10,15 @@
 #include "js/Array.h"  // JS::{Get,Set}ArrayLength, JS::NewArrayLength
 #include "mozilla/dom/AudioWorkletNodeBinding.h"
 #include "mozilla/dom/AudioParamMapBinding.h"
+#include "mozilla/dom/RootedDictionary.h"
+#include "mozilla/dom/ErrorEvent.h"
+#include "nsIScriptGlobalObject.h"
 #include "AudioParam.h"
 #include "AudioDestinationNode.h"
 #include "mozilla/dom/MessageChannel.h"
 #include "mozilla/dom/MessagePort.h"
+#include "nsReadableUtils.h"
+#include "mozilla/Span.h"
 #include "PlayingRefChangeHandler.h"
 #include "nsPrintfCString.h"
 
@@ -30,6 +35,14 @@ struct NamedAudioParamTimeline {
         mTimeline(aParamDescriptor.mDefaultValue) {}
   const nsString mName;
   AudioParamTimeline mTimeline;
+};
+
+struct ProcessorErrorDetails {
+  ProcessorErrorDetails() : mLineno(0), mColno(0) {}
+  unsigned mLineno;
+  unsigned mColno;
+  nsString mFilename;
+  nsString mMessage;
 };
 
 class WorkletNodeEngine final : public AudioNodeEngine {
@@ -50,7 +63,8 @@ class WorkletNodeEngine final : public AudioNodeEngine {
   void ConstructProcessor(AudioWorkletImpl* aWorkletImpl,
                           const nsAString& aName,
                           NotNull<StructuredCloneHolder*> aSerializedOptions,
-                          UniqueMessagePortId& aPortIdentifier);
+                          UniqueMessagePortId& aPortIdentifier,
+                          AudioNodeTrack* aTrack);
 
   void RecvTimelineEvent(uint32_t aIndex, AudioTimelineEvent& aEvent) override {
     MOZ_ASSERT(mDestination);
@@ -104,10 +118,12 @@ class WorkletNodeEngine final : public AudioNodeEngine {
 
  private:
   size_t ParameterCount() { return mParamTimelines.Length(); }
-  void SendProcessorError();
+  void SendProcessorError(AudioNodeTrack* aTrack, JSContext* aCx);
   bool CallProcess(AudioNodeTrack* aTrack, JSContext* aCx,
                    JS::Handle<JS::Value> aCallable);
   void ProduceSilence(AudioNodeTrack* aTrack, Span<AudioBlock> aOutput);
+  void SendErrorToMainThread(AudioNodeTrack* aTrack,
+                             const ProcessorErrorDetails& aDetails);
 
   void ReleaseJSResources() {
     mInputs.mPorts.clearAndFree();
@@ -158,42 +174,93 @@ class WorkletNodeEngine final : public AudioNodeEngine {
   bool mKeepEngineActive = true;
 };
 
-void WorkletNodeEngine::SendProcessorError() {
-  /**
-   * https://webaudio.github.io/web-audio-api/#dom-audioworkletnode-onprocessorerror
-   * TODO: bug 1558124
-   * queue a task on the control thread to fire onprocessorerror event
-   * to the node.
-   */
+void WorkletNodeEngine::SendErrorToMainThread(
+    AudioNodeTrack* aTrack, const ProcessorErrorDetails& aDetails) {
+  RefPtr<AudioNodeTrack> track = aTrack;
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "WorkletNodeEngine::SendProcessorError",
+      [track = std::move(track), aDetails]() mutable {
+        AudioWorkletNode* node =
+            static_cast<AudioWorkletNode*>(track->Engine()->NodeMainThread());
+        if (!node) {
+          return;
+        }
+        node->DispatchProcessorErrorEvent(aDetails);
+      }));
+}
 
-  /**
-   * Note that once an exception is thrown, the processor will output silence
-   * throughout its lifetime.
-   */
+void WorkletNodeEngine::SendProcessorError(AudioNodeTrack* aTrack,
+                                           JSContext* aCx) {
+  // Note that once an exception is thrown, the processor will output silence
+  // throughout its lifetime.
   ReleaseJSResources();
+  // The processor errored out while getting a context, try to tell the node
+  // anyways.
+  if (!aCx) {
+    ProcessorErrorDetails details;
+    details.mMessage.Assign(u"Unknown processor error");
+    SendErrorToMainThread(aTrack, details);
+    return;
+  }
+
+  js::ErrorReport jsReport(aCx);
+  JS::Rooted<JS::Value> exn(aCx);
+  JS::Rooted<JSObject*> exnStack(aCx);
+  if (JS_GetPendingException(aCx, &exn)) {
+    exnStack.set(JS::GetPendingExceptionStack(aCx));
+    JS_ClearPendingException(aCx);
+    if (!jsReport.init(aCx, exn, js::ErrorReport::WithSideEffects)) {
+      ProcessorErrorDetails details;
+      details.mMessage.Assign(u"Unknown processor error");
+      SendErrorToMainThread(aTrack, details);
+      // Set the exception and stack back to have it in the console with a stack
+      // trace.
+      JS::SetPendingExceptionAndStack(aCx, exn, exnStack);
+      return;
+    }
+
+    ProcessorErrorDetails details;
+
+    CopyUTF8toUTF16(mozilla::MakeStringSpan(jsReport.report()->filename),
+                    details.mFilename);
+
+    xpc::ErrorReport::ErrorReportToMessageString(jsReport.report(),
+                                                 details.mMessage);
+    details.mLineno = jsReport.report()->lineno;
+    details.mColno = jsReport.report()->column;
+    MOZ_ASSERT(!jsReport.report()->isMuted);
+
+    SendErrorToMainThread(aTrack, details);
+
+    // Set the exception and stack back to have it in the console with a stack
+    // trace.
+    JS::SetPendingExceptionAndStack(aCx, exn, exnStack);
+  } else {
+    NS_WARNING("No exception, but processor errored out?");
+  }
 }
 
 void WorkletNodeEngine::ConstructProcessor(
     AudioWorkletImpl* aWorkletImpl, const nsAString& aName,
     NotNull<StructuredCloneHolder*> aSerializedOptions,
-    UniqueMessagePortId& aPortIdentifier) {
+    UniqueMessagePortId& aPortIdentifier, AudioNodeTrack* aTrack) {
   MOZ_ASSERT(mInputs.mPorts.empty() && mOutputs.mPorts.empty());
   RefPtr<AudioWorkletGlobalScope> global = aWorkletImpl->GetGlobalScope();
   MOZ_ASSERT(global);  // global has already been used to register processor
   AutoJSAPI api;
   if (NS_WARN_IF(!api.Init(global))) {
-    SendProcessorError();
+    SendProcessorError(aTrack, nullptr);
     return;
   }
   JSContext* cx = api.cx();
   mProcessor.init(cx);
-  if (!global->ConstructProcessor(aName, aSerializedOptions, aPortIdentifier,
-                                  &mProcessor) ||
+  if (!global->ConstructProcessor(cx, aName, aSerializedOptions,
+                                  aPortIdentifier, &mProcessor) ||
       // mInputs and mOutputs outer arrays are fixed length and so much of the
       // initialization need only be performed once (i.e. here).
       NS_WARN_IF(!mInputs.mPorts.growBy(InputCount())) ||
       NS_WARN_IF(!mOutputs.mPorts.growBy(OutputCount()))) {
-    SendProcessorError();
+    SendProcessorError(aTrack, cx);
     return;
   }
   mGlobal = std::move(global);
@@ -207,13 +274,13 @@ void WorkletNodeEngine::ConstructProcessor(
   }
   JSObject* object = JS_NewPlainObject(cx);
   if (NS_WARN_IF(!object)) {
-    SendProcessorError();
+    SendProcessorError(aTrack, cx);
     return;
   }
 
   mParameters.mJSObject.init(cx, object);
   if (NS_WARN_IF(!mParameters.mFloat32Arrays.growBy(ParameterCount()))) {
-    SendProcessorError();
+    SendProcessorError(aTrack, cx);
     return;
   }
   for (size_t i = 0; i < mParamTimelines.Length(); i++) {
@@ -221,7 +288,7 @@ void WorkletNodeEngine::ConstructProcessor(
     float32ArraysRef[i].init(cx);
     JSObject* array = JS_NewFloat32Array(cx, WEBAUDIO_BLOCK_SIZE);
     if (NS_WARN_IF(!array)) {
-      SendProcessorError();
+      SendProcessorError(aTrack, cx);
       return;
     }
 
@@ -230,12 +297,12 @@ void WorkletNodeEngine::ConstructProcessor(
             cx, mParameters.mJSObject, mParamTimelines[i].mName.get(),
             mParamTimelines[i].mName.Length(), float32ArraysRef[i],
             JSPROP_ENUMERATE))) {
-      SendProcessorError();
+      SendProcessorError(aTrack, cx);
       return;
     }
   }
   if (NS_WARN_IF(!JS_FreezeObject(cx, mParameters.mJSObject))) {
-    SendProcessorError();
+    SendProcessorError(aTrack, cx);
     return;
   }
 }
@@ -431,7 +498,7 @@ void WorkletNodeEngine::ProcessBlocksOnPorts(AudioNodeTrack* aTrack,
       !PrepareBufferArrays(cx, aInput, &mInputs, ArrayElementInit::None) ||
       !PrepareBufferArrays(cx, aOutput, &mOutputs, ArrayElementInit::Zero)) {
     // process() not callable or OOM.
-    SendProcessorError();
+    SendProcessorError(aTrack, cx);
     ProduceSilence(aTrack, aOutput);
     return;
   }
@@ -468,7 +535,7 @@ void WorkletNodeEngine::ProcessBlocksOnPorts(AudioNodeTrack* aTrack,
     // https://github.com/WebAudio/web-audio-api/issues/1933 and
     // https://bugzilla.mozilla.org/show_bug.cgi?id=1619486
     if (length != WEBAUDIO_BLOCK_SIZE) {
-      SendProcessorError();
+      SendProcessorError(aTrack, cx);
       ProduceSilence(aTrack, aOutput);
       return;
     }
@@ -488,7 +555,7 @@ void WorkletNodeEngine::ProcessBlocksOnPorts(AudioNodeTrack* aTrack,
 
   if (!CallProcess(aTrack, cx, process)) {
     // An exception occurred.
-    SendProcessorError();
+    SendProcessorError(aTrack, cx);
     /**
      * https://webaudio.github.io/web-audio-api/#dom-audioworkletnode-onprocessorerror
      * Note that once an exception is thrown, the processor will output silence
@@ -744,8 +811,8 @@ already_AddRefed<AudioWorkletNode> AudioWorkletNode::Constructor(
        portId = std::move(processorPortId)]()
           MOZ_CAN_RUN_SCRIPT_BOUNDARY mutable {
             auto engine = static_cast<WorkletNodeEngine*>(track->Engine());
-            engine->ConstructProcessor(workletImpl, name,
-                                       WrapNotNull(options.get()), portId);
+            engine->ConstructProcessor(
+                workletImpl, name, WrapNotNull(options.get()), portId, track);
           }));
 
   // [[active source]] is initially true and so at least the first process()
@@ -757,6 +824,21 @@ already_AddRefed<AudioWorkletNode> AudioWorkletNode::Constructor(
 
 AudioParamMap* AudioWorkletNode::GetParameters(ErrorResult& aRv) const {
   return mParameters.get();
+}
+
+void AudioWorkletNode::DispatchProcessorErrorEvent(
+    const ProcessorErrorDetails& aDetails) {
+  if (HasListenersFor(nsGkAtoms::onprocessorerror)) {
+    RootedDictionary<ErrorEventInit> init(RootingCx());
+    init.mMessage = aDetails.mMessage;
+    init.mFilename = aDetails.mFilename;
+    init.mLineno = aDetails.mLineno;
+    init.mColno = aDetails.mColno;
+    RefPtr<ErrorEvent> errorEvent = ErrorEvent::Constructor(
+        this, NS_LITERAL_STRING("processorerror"), init);
+    MOZ_ASSERT(errorEvent);
+    DispatchTrustedEvent(errorEvent);
+  }
 }
 
 JSObject* AudioWorkletNode::WrapObject(JSContext* aCx,

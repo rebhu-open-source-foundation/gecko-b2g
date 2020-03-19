@@ -485,7 +485,6 @@ class HttpBaseChannel : public nsHashPropertyBag,
     explicit ReplacementChannelConfig(
         const dom::ReplacementChannelConfigInit& aInit);
 
-    uint32_t loadFlags = 0;
     uint32_t redirectFlags = 0;
     uint32_t classOfService = 0;
     Maybe<bool> privateBrowsing = Nothing();
@@ -509,8 +508,7 @@ class HttpBaseChannel : public nsHashPropertyBag,
   // Create a ReplacementChannelConfig object that can be used to duplicate the
   // current channel.
   ReplacementChannelConfig CloneReplacementChannelConfig(
-      bool aPreserveMethod, uint32_t aRedirectFlags, ReplacementReason aReason,
-      uint32_t aExtraLoadFlags = 0);
+      bool aPreserveMethod, uint32_t aRedirectFlags, ReplacementReason aReason);
 
   static void ConfigureReplacementChannel(nsIChannel*,
                                           const ReplacementChannelConfig&,
@@ -686,7 +684,7 @@ class HttpBaseChannel : public nsHashPropertyBag,
   NetAddr mSelfAddr;
   NetAddr mPeerAddr;
 
-  nsTArray<Pair<nsString, nsString>> mSecurityConsoleMessages;
+  nsTArray<std::pair<nsString, nsString>> mSecurityConsoleMessages;
   nsTArray<nsCString> mUnsafeHeaders;
 
   // A time value equal to the starting time of the fetch that initiates the

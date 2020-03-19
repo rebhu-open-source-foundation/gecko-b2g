@@ -76,23 +76,27 @@ function recreateTree(element) {
  * *labels* are being shown correctly as items in the popup.
  */
 function checkAutoCompleteResults(actualValues, expectedValues, hostname, msg) {
-  if (hostname !== null) {
-    isnot(
-      actualValues.length,
-      0,
-      "There should be items in the autocomplete popup: " +
-        JSON.stringify(actualValues)
-    );
-
-    // Check the footer first.
-    let footerResult = actualValues[actualValues.length - 1];
-    is(footerResult, "View Saved Logins", "the footer text is shown correctly");
-  }
-
   if (hostname === null) {
     checkArrayValues(actualValues, expectedValues, msg);
     return;
   }
+
+  is(
+    typeof hostname,
+    "string",
+    "checkAutoCompleteResults: hostname must be a string"
+  );
+
+  isnot(
+    actualValues.length,
+    0,
+    "There should be items in the autocomplete popup: " +
+      JSON.stringify(actualValues)
+  );
+
+  // Check the footer first.
+  let footerResult = actualValues[actualValues.length - 1];
+  is(footerResult, "View Saved Logins", "the footer text is shown correctly");
 
   if (actualValues.length == 1) {
     is(
@@ -539,7 +543,7 @@ const PWMGR_COMMON_PARENT = runInParent(
 );
 
 SimpleTest.registerCleanupFunction(() => {
-  SpecialPowers.popPrefEnv();
+  SpecialPowers.flushPrefEnv();
 
   PWMGR_COMMON_PARENT.sendAsyncMessage("cleanup");
 
@@ -566,7 +570,9 @@ SimpleTest.registerCleanupFunction(() => {
     );
     authMgr.clearAll();
 
-    if (LoginManagerParent._recipeManager) {
+    // Check that it's not null, instead of truthy to catch it becoming undefined
+    // in a refactoring.
+    if (LoginManagerParent._recipeManager !== null) {
       LoginManagerParent._recipeManager.reset();
     }
 
@@ -581,6 +587,9 @@ SimpleTest.registerCleanupFunction(() => {
         note.remove();
       }
     }
+
+    // Clear events last in case the above cleanup records events.
+    Services.telemetry.clearEvents();
   });
 });
 

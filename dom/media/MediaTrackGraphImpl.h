@@ -116,6 +116,7 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
                                GraphRunType aRunTypeRequested,
                                TrackRate aSampleRate, uint32_t aChannelCount,
                                dom::AudioChannel aChannel,
+                               CubebUtils::AudioDeviceID aOutputDeviceID,
                                AbstractThread* aWindow);
 
   // Intended only for assertions, either on graph thread or not running (in

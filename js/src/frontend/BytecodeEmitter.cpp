@@ -2164,9 +2164,9 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitSwitch(SwitchStatement* switchStmt) {
 
 bool BytecodeEmitter::isRunOnceLambda() {
   if (lazyScript) {
-    // NOTE: The TreatAsRunOnce flag on LazyScript was computed without a
-    // complete 'funbox' so we must compute the shouldSuppressRunOnce
-    // conditions now that we have the full parse info.
+    // NOTE: The TreatAsRunOnce flag on lazy BaseScript was computed without a
+    // complete 'funbox' so we must compute the shouldSuppressRunOnce conditions
+    // now that we have the full parse info.
     return lazyScript->treatAsRunOnce() &&
            !sc->asFunctionBox()->shouldSuppressRunOnce();
   }
@@ -7723,7 +7723,12 @@ bool BytecodeEmitter::emitOptionalTree(
       bool isCallExpression = kind == ParseNodeKind::SetThis ||
                               kind == ParseNodeKind::CallImportExpr;
 
-      MOZ_ASSERT(isMemberExpression || isCallExpression,
+      // These should be handled through the main parse tree
+      bool isOptionalExpression =
+          kind == ParseNodeKind::OptionalChain ||
+          kind == ParseNodeKind::DeleteOptionalChainExpr;
+
+      MOZ_ASSERT(isMemberExpression || isCallExpression || isOptionalExpression,
                  "Unknown ParseNodeKind for OptionalChain");
 #endif
       return emitTree(pn);

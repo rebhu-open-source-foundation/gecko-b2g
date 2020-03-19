@@ -39,6 +39,7 @@ Var InstallOptionalExtensions
 Var ExtensionRecommender
 Var PageName
 Var PreventRebootRequired
+Var RegisterDefaultAgent
 
 ; Telemetry ping fields
 Var SetAsDefault
@@ -704,6 +705,16 @@ Section "-Application" APP_IDX
     ${AddMaintCertKeys}
   ${EndIf}
 !endif
+
+!ifdef MOZ_DEFAULT_BROWSER_AGENT
+  ${If} $RegisterDefaultAgent != "0"
+    Exec '"$INSTDIR\default-browser-agent.exe" register-task $AppUserModelID'
+  ${EndIf}
+  ; Remember whether we were told to skip registering the agent, so that updates
+  ; won't try to create a registration when they don't find an existing one.
+  WriteRegDWORD HKCU "Software\Mozilla\${AppName}\Installer\$AppUserModelID" \
+                     "DidRegisterDefaultBrowserAgent" $RegisterDefaultAgent
+!endif
 SectionEnd
 
 ; Cleanup operations to perform at the end of the installation.
@@ -768,7 +779,7 @@ Section "-InstallEndCleanup"
   Call AddFirewallEntries
 
   ; Refresh desktop icons
-  System::Call "shell32::SHChangeNotify(i ${SHCNE_ASSOCCHANGED}, i ${SHCNF_DWORDFLUSH}, i 0, i 0)"
+  ${RefreshShellIcons}
 
   ${InstallEndCleanupCommon}
 
@@ -782,7 +793,7 @@ Section "-InstallEndCleanup"
     ; user is an admin.
     UAC::IsAdmin
     ${If} "$0" == "1"
-      ; When a reboot is required give SHChangeNotify time to finish the
+      ; When a reboot is required give RefreshShellIcons time to finish the
       ; refreshing the icons so the OS doesn't display the icons from helper.exe
       Sleep 10000
       ${LogHeader} "Reboot Required To Finish Installation"

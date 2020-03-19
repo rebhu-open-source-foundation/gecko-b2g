@@ -10,6 +10,7 @@
 #include "mozilla/dom/PContentParent.h"
 #include "mozilla/dom/CPOWManagerGetter.h"
 #include "mozilla/dom/ipc/IdType.h"
+#include "mozilla/dom/MediaSessionBinding.h"
 #include "mozilla/dom/RemoteBrowser.h"
 #include "mozilla/gfx/gfxVarReceiver.h"
 #include "mozilla/gfx/GPUProcessListener.h"
@@ -521,17 +522,17 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvCreateWindow(
       PBrowserParent* aThisBrowserParent, PBrowserParent* aNewTab,
       const uint32_t& aChromeFlags, const bool& aCalledFromJS,
-      const bool& aPositionSpecified, const bool& aSizeSpecified,
-      const Maybe<URIParams>& aURIToLoad, const nsCString& aFeatures,
-      const float& aFullZoom, const IPC::Principal& aTriggeringPrincipal,
+      const bool& aWidthSpecified, const Maybe<URIParams>& aURIToLoad,
+      const nsCString& aFeatures, const float& aFullZoom,
+      const IPC::Principal& aTriggeringPrincipal,
       nsIContentSecurityPolicy* aCsp, nsIReferrerInfo* aReferrerInfo,
       CreateWindowResolver&& aResolve);
 
   mozilla::ipc::IPCResult RecvCreateWindowInDifferentProcess(
       PBrowserParent* aThisTab, const uint32_t& aChromeFlags,
-      const bool& aCalledFromJS, const bool& aPositionSpecified,
-      const bool& aSizeSpecified, const Maybe<URIParams>& aURIToLoad,
-      const nsCString& aFeatures, const float& aFullZoom, const nsString& aName,
+      const bool& aCalledFromJS, const bool& aWidthSpecified,
+      const Maybe<URIParams>& aURIToLoad, const nsCString& aFeatures,
+      const float& aFullZoom, const nsString& aName,
       nsIPrincipal* aTriggeringPrincipal, nsIContentSecurityPolicy* aCsp,
       nsIReferrerInfo* aReferrerInfo);
 
@@ -727,9 +728,8 @@ class ContentParent final
   // compatibility with GeckoView.
   mozilla::ipc::IPCResult CommonCreateWindow(
       PBrowserParent* aThisTab, bool aSetOpener, const uint32_t& aChromeFlags,
-      const bool& aCalledFromJS, const bool& aPositionSpecified,
-      const bool& aSizeSpecified, nsIURI* aURIToLoad,
-      const nsCString& aFeatures, const float& aFullZoom,
+      const bool& aCalledFromJS, const bool& aWidthSpecified,
+      nsIURI* aURIToLoad, const nsCString& aFeatures, const float& aFullZoom,
       uint64_t aNextRemoteTabId, const nsString& aName, nsresult& aResult,
       nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
       int32_t& aOpenLocation, nsIPrincipal* aTriggeringPrincipal,
@@ -937,12 +937,6 @@ class ContentParent final
   bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
 
   bool DeallocPNeckoParent(PNeckoParent* necko);
-
-  PPSMContentDownloaderParent* AllocPPSMContentDownloaderParent(
-      const uint32_t& aCertType);
-
-  bool DeallocPPSMContentDownloaderParent(
-      PPSMContentDownloaderParent* aDownloader);
 
   already_AddRefed<PExternalHelperAppParent> AllocPExternalHelperAppParent(
       const Maybe<URIParams>& aUri,
@@ -1345,6 +1339,10 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvNotifyUpdateMediaMetadata(
       const MaybeDiscarded<BrowsingContext>& aContext,
       const Maybe<MediaMetadataBase>& aMetadata);
+
+  mozilla::ipc::IPCResult RecvNotifyMediaSessionPlaybackStateChanged(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      MediaSessionPlaybackState aPlaybackState);
 
   mozilla::ipc::IPCResult RecvGetModulesTrust(
       ModulePaths&& aModPaths, bool aRunAtNormalPriority,

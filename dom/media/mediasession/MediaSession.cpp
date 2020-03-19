@@ -39,6 +39,34 @@ void MediaSession::SetMetadata(MediaMetadata* aMetadata) {
   NotifyMetadataUpdated();
 }
 
+void MediaSession::SetPlaybackState(
+    const MediaSessionPlaybackState& aPlaybackState) {
+  if (mDeclaredPlaybackState == aPlaybackState) {
+    return;
+  }
+  mDeclaredPlaybackState = aPlaybackState;
+
+  RefPtr<BrowsingContext> currentBC = GetParentObject()->GetBrowsingContext();
+  MOZ_ASSERT(currentBC,
+             "Update session playback state after context destroyed!");
+  if (XRE_IsContentProcess()) {
+    ContentChild* contentChild = ContentChild::GetSingleton();
+    Unused << contentChild->SendNotifyMediaSessionPlaybackStateChanged(
+        currentBC, mDeclaredPlaybackState);
+    return;
+  }
+  // This would only happen when we disable e10s.
+  if (RefPtr<MediaController> controller =
+          currentBC->Canonical()->GetMediaController()) {
+    controller->SetDeclaredPlaybackState(currentBC->Id(),
+                                         mDeclaredPlaybackState);
+  }
+}
+
+MediaSessionPlaybackState MediaSession::PlaybackState() const {
+  return mDeclaredPlaybackState;
+}
+
 void MediaSession::SetActionHandler(MediaSessionAction aAction,
                                     MediaSessionActionHandler* aHandler) {
   size_t index = static_cast<size_t>(aAction);
@@ -68,21 +96,19 @@ void MediaSession::DispatchNotifyHandler(
              const MediaSessionActionDetails& aDetails)
         : mozilla::Runnable("MediaSession::DispatchNotifyHandler"),
           mSession(aSession),
-          mAction(aDetails.mAction) {}
+          mDetails(aDetails) {}
 
     MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD Run() override {
       if (RefPtr<MediaSessionActionHandler> handler =
-              mSession->GetActionHandler(mAction)) {
-        MediaSessionActionDetails details;
-        details.mAction = mAction;
-        handler->Call(details);
+              mSession->GetActionHandler(mDetails.mAction)) {
+        handler->Call(mDetails);
       }
       return NS_OK;
     }
 
    private:
     RefPtr<const MediaSession> mSession;
-    MediaSessionAction mAction;
+    MediaSessionActionDetails mDetails;
   };
 
   RefPtr<nsIRunnable> runnable = new Runnable(this, aDetails);

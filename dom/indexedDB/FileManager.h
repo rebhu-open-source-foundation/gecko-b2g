@@ -7,13 +7,8 @@
 #ifndef mozilla_dom_indexeddb_filemanager_h__
 #define mozilla_dom_indexeddb_filemanager_h__
 
-#include "mozilla/Attributes.h"
-#include "mozilla/Mutex.h"
 #include "mozilla/dom/quota/PersistenceType.h"
-#include "nsDataHashtable.h"
-#include "nsHashKeys.h"
-#include "nsISupportsImpl.h"
-#include "FlippedOnce.h"
+#include "FileManagerBase.h"
 #include "InitializedOnce.h"
 
 class nsIFile;
@@ -23,11 +18,10 @@ namespace mozilla {
 namespace dom {
 namespace indexedDB {
 
-class FileInfo;
-
 // Implemented in ActorsParent.cpp.
-class FileManager final {
-  typedef mozilla::dom::quota::PersistenceType PersistenceType;
+class FileManager final : public FileManagerBase<FileManager> {
+  using PersistenceType = mozilla::dom::quota::PersistenceType;
+  using FileManagerBase<FileManager>::MutexType;
 
   const PersistenceType mPersistenceType;
   const nsCString mGroup;
@@ -37,13 +31,12 @@ class FileManager final {
   InitializedOnce<const nsString, LazyInit::Allow> mDirectoryPath;
   InitializedOnce<const nsString, LazyInit::Allow> mJournalDirectoryPath;
 
-  int64_t mLastFileId;
-
-  // Protected by IndexedDatabaseManager::FileMutex()
-  nsDataHashtable<nsUint64HashKey, FileInfo*> mFileInfos;
-
   const bool mEnforcingQuota;
-  FlippedOnce<false> mInvalidated;
+
+  // Lock protecting FileManager.mFileInfos.
+  // It's s also used to atomically update FileInfo.mRefCnt and
+  // FileInfo.mDBRefCnt
+  static MutexType sMutex;
 
  public:
   static MOZ_MUST_USE nsCOMPtr<nsIFile> GetFileForId(nsIFile* aDirectory,
@@ -74,11 +67,7 @@ class FileManager final {
 
   bool EnforcingQuota() const { return mEnforcingQuota; }
 
-  bool Invalidated() const { return mInvalidated; }
-
   nsresult Init(nsIFile* aDirectory, mozIStorageConnection* aConnection);
-
-  nsresult Invalidate();
 
   MOZ_MUST_USE nsCOMPtr<nsIFile> GetDirectory();
 
@@ -88,13 +77,13 @@ class FileManager final {
 
   MOZ_MUST_USE nsCOMPtr<nsIFile> EnsureJournalDirectory();
 
-  MOZ_MUST_USE RefPtr<FileInfo> GetFileInfo(int64_t aId) const;
+  MOZ_MUST_USE nsresult SyncDeleteFile(int64_t aId);
 
-  MOZ_MUST_USE RefPtr<FileInfo> CreateFileInfo();
-
-  void RemoveFileInfo(int64_t aId, const MutexAutoLock& aFilesMutexLock);
+  MOZ_MUST_USE nsresult AsyncDeleteFile(int64_t aFileId);
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FileManager)
+
+  static StaticMutex& Mutex() { return sMutex; }
 
  private:
   ~FileManager() = default;

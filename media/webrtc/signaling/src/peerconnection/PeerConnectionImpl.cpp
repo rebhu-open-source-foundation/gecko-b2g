@@ -1823,7 +1823,8 @@ OwningNonNull<dom::MediaStreamTrack> PeerConnectionImpl::CreateReceiveTrack(
       audio ? MediaTrackGraph::AUDIO_THREAD_DRIVER
             : MediaTrackGraph::SYSTEM_THREAD_DRIVER,
       AudioChannel::Normal, GetWindow(),
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
+      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
   RefPtr<MediaStreamTrack> track;
   RefPtr<RemoteTrackSource> trackSource;
@@ -2500,51 +2501,6 @@ void PeerConnectionImpl::IceConnectionStateChange(
       break;
     default:
       MOZ_ASSERT_UNREACHABLE("Unexpected mIceConnectionState!");
-  }
-
-  // Collect telemetry for situations where hostname obfuscation would be used
-  uint64_t winId = GetWindow()->WindowID();
-  bool iceJustFailed =
-      mIceConnectionState == dom::RTCIceConnectionState::Failed;
-  bool iceJustSucceeded =
-      mIceConnectionState == dom::RTCIceConnectionState::Connected;
-  if (!MediaManager::Get()->IsActivelyCapturingOrHasAPermission(winId)) {
-    bool enabled = Preferences::GetBool(
-        "media.peerconnection.ice.obfuscate_host_addresses", false);
-    if (enabled) {
-      if (!mIceFinished && !mIceStartTime.IsNull() &&
-          (iceJustFailed || iceJustSucceeded)) {
-        Telemetry::AccumulateTimeDelta(
-            Telemetry::WEBRTC_HOSTNAME_OBFUSCATION_ENABLED_ICE_DURATION_MS,
-            mIceStartTime, TimeStamp::Now());
-      }
-      if (iceJustSucceeded) {
-        Telemetry::ScalarAdd(
-            Telemetry::ScalarID::WEBRTC_HOSTNAMEOBFUSCATION_ENABLED_SUCCEEDED,
-            1);
-      } else if (iceJustFailed) {
-        Telemetry::ScalarAdd(
-            Telemetry::ScalarID::WEBRTC_HOSTNAMEOBFUSCATION_ENABLED_FAILED, 1);
-      }
-    } else {
-      if (!mIceFinished && !mIceStartTime.IsNull() &&
-          (iceJustFailed || iceJustSucceeded)) {
-        Telemetry::AccumulateTimeDelta(
-            Telemetry::WEBRTC_HOSTNAME_OBFUSCATION_DISABLED_ICE_DURATION_MS,
-            mIceStartTime, TimeStamp::Now());
-      }
-      if (iceJustSucceeded) {
-        Telemetry::ScalarAdd(
-            Telemetry::ScalarID::WEBRTC_HOSTNAMEOBFUSCATION_DISABLED_SUCCEEDED,
-            1);
-      } else if (iceJustFailed) {
-        Telemetry::ScalarAdd(
-            Telemetry::ScalarID::WEBRTC_HOSTNAMEOBFUSCATION_DISABLED_FAILED, 1);
-      }
-    }
-    if (iceJustFailed || iceJustSucceeded) {
-      mIceFinished = true;
-    }
   }
 
   WrappableJSErrorResult rv;

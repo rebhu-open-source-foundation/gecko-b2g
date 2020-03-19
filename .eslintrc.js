@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
 const xpcshellTestConfig = require("eslint-plugin-mozilla/lib/configs/xpcshell-test.js");
@@ -253,6 +257,7 @@ module.exports = {
         "dom/security/test/cors/**",
         "dom/security/test/csp/**",
         "dom/security/test/general/**",
+        "dom/security/test/https-only/**",
         "dom/security/test/mixedcontentblocker/**",
         "dom/security/test/sri/**",
         "dom/security/test/referrer-policy/**",

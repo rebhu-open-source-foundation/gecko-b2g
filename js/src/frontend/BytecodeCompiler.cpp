@@ -230,12 +230,20 @@ JSScript* frontend::CompileGlobalScript(CompilationInfo& compilationInfo,
 #ifdef JS_ENABLE_SMOOSH
   if (compilationInfo.cx->options().trySmoosh()) {
     bool unimplemented = false;
+    JSContext* cx = compilationInfo.cx;
+    JSRuntime* rt = cx->runtime();
     auto script =
         Smoosh::compileGlobalScript(compilationInfo, srcBuf, &unimplemented);
     if (!unimplemented) {
+      if (compilationInfo.cx->options().trackNotImplemented()) {
+        rt->parserWatcherFile.put("1");
+      }
       return script;
     }
 
+    if (compilationInfo.cx->options().trackNotImplemented()) {
+      rt->parserWatcherFile.put("0");
+    }
     fprintf(stderr, "Falling back!\n");
   }
 #endif  // JS_ENABLE_SMOOSH
@@ -951,8 +959,7 @@ static bool CompileLazyFunctionImpl(JSContext* cx, Handle<BaseScript*> lazy,
   // We can only compile functions whose parents have previously been
   // compiled, because compilation requires full information about the
   // function's immediately enclosing scope.
-  MOZ_ASSERT(lazy->enclosingScriptHasEverBeenCompiled());
-
+  MOZ_ASSERT(lazy->isReadyForDelazification());
   MOZ_ASSERT(!lazy->isBinAST());
 
   AutoAssertReportedException assertException(cx);
@@ -1053,7 +1060,7 @@ static bool CompileLazyBinASTFunctionImpl(JSContext* cx,
   // We can only compile functions whose parents have previously been
   // compiled, because compilation requires full information about the
   // function's immediately enclosing scope.
-  MOZ_ASSERT(lazy->enclosingScriptHasEverBeenCompiled());
+  MOZ_ASSERT(lazy->isReadyForDelazification());
   MOZ_ASSERT(lazy->isBinAST());
 
   AutoAssertReportedException assertException(cx);

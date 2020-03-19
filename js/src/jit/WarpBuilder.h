@@ -113,6 +113,48 @@ namespace jit {
   _(GetAliasedVar)          \
   _(SetAliasedVar)          \
   _(EnvCallee)              \
+  _(Iter)                   \
+  _(IterNext)               \
+  _(MoreIter)               \
+  _(EndIter)                \
+  _(IsNoIter)               \
+  _(Call)                   \
+  _(CallIgnoresRv)          \
+  _(CallIter)               \
+  _(New)                    \
+  _(SuperCall)              \
+  _(FunctionThis)           \
+  _(GlobalThis)             \
+  _(GetName)                \
+  _(GetGName)               \
+  _(BindName)               \
+  _(BindGName)              \
+  _(GetProp)                \
+  _(CallProp)               \
+  _(Length)                 \
+  _(GetElem)                \
+  _(CallElem)               \
+  _(SetProp)                \
+  _(StrictSetProp)          \
+  _(SetName)                \
+  _(StrictSetName)          \
+  _(SetElem)                \
+  _(StrictSetElem)          \
+  _(DelProp)                \
+  _(StrictDelProp)          \
+  _(DelElem)                \
+  _(StrictDelElem)          \
+  _(SetFunName)             \
+  _(PushLexicalEnv)         \
+  _(PopLexicalEnv)          \
+  _(FreshenLexicalEnv)      \
+  _(RecreateLexicalEnv)     \
+  _(ImplicitThis)           \
+  _(GImplicitThis)          \
+  _(CheckClassHeritage)     \
+  _(CheckThis)              \
+  _(CheckThisReinit)        \
+  _(CheckReturn)            \
   _(SetRval)                \
   _(Return)                 \
   _(RetRval)
@@ -124,7 +166,7 @@ class WarpSnapshot;
 // WarpBuilder builds a MIR graph from WarpSnapshot. Unlike WarpOracle,
 // WarpBuilder can run off-thread.
 class MOZ_STACK_CLASS WarpBuilder {
-  WarpSnapshot& input_;
+  WarpSnapshot& snapshot_;
   MIRGenerator& mirGen_;
   MIRGraph& graph_;
   TempAllocator& alloc_;
@@ -148,7 +190,7 @@ class MOZ_STACK_CLASS WarpBuilder {
   TempAllocator& alloc() { return alloc_; }
   MIRGraph& graph() { return graph_; }
   const CompileInfo& info() const { return info_; }
-  WarpSnapshot& input() const { return input_; }
+  WarpSnapshot& snapshot() const { return snapshot_; }
 
   BytecodeSite* newBytecodeSite(BytecodeLocation loc);
 
@@ -191,11 +233,23 @@ class MOZ_STACK_CLASS WarpBuilder {
   MInstruction* buildCallObject(MDefinition* callee, MDefinition* env,
                                 CallObject* templateObj);
 
+  MConstant* globalLexicalEnvConstant();
+
   MOZ_MUST_USE bool buildUnaryOp(BytecodeLocation loc);
   MOZ_MUST_USE bool buildBinaryOp(BytecodeLocation loc);
   MOZ_MUST_USE bool buildCompareOp(BytecodeLocation loc);
   MOZ_MUST_USE bool buildTestOp(BytecodeLocation loc);
   MOZ_MUST_USE bool buildDefLexicalOp(BytecodeLocation loc);
+  MOZ_MUST_USE bool buildCallOp(BytecodeLocation loc);
+
+  MOZ_MUST_USE bool buildGetNameOp(BytecodeLocation loc, MDefinition* env);
+  MOZ_MUST_USE bool buildBindNameOp(BytecodeLocation loc, MDefinition* env);
+  MOZ_MUST_USE bool buildGetPropOp(BytecodeLocation loc, MDefinition* val,
+                                   MDefinition* id);
+  MOZ_MUST_USE bool buildSetPropOp(BytecodeLocation loc, MDefinition* obj,
+                                   MDefinition* id, MDefinition* val);
+
+  void buildCopyLexicalEnvOp(bool copySlots);
 
   bool usesEnvironmentChain() const;
   MDefinition* walkEnvironmentChain(uint32_t numHops);
@@ -205,7 +259,7 @@ class MOZ_STACK_CLASS WarpBuilder {
 #undef BUILD_OP
 
  public:
-  WarpBuilder(WarpSnapshot& input, MIRGenerator& mirGen);
+  WarpBuilder(WarpSnapshot& snapshot, MIRGenerator& mirGen);
 
   MOZ_MUST_USE bool build();
 };

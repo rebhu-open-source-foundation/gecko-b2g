@@ -240,13 +240,13 @@ template XDRResult js::XDRScriptConst(XDRState<XDR_ENCODE>*,
 template XDRResult js::XDRScriptConst(XDRState<XDR_DECODE>*,
                                       MutableHandleValue);
 
-// Code LazyScript's closed over bindings.
+// Code lazy scripts's closed over bindings.
 template <XDRMode mode>
 /* static */
-XDRResult LazyScript::XDRScriptData(XDRState<mode>* xdr,
-                                    HandleScriptSourceObject sourceObject,
-                                    Handle<LazyScript*> lazy,
-                                    bool hasFieldInitializers) {
+XDRResult BaseScript::XDRLazyScriptData(XDRState<mode>* xdr,
+                                        HandleScriptSourceObject sourceObject,
+                                        Handle<BaseScript*> lazy,
+                                        bool hasFieldInitializers) {
   JSContext* cx = xdr->cx();
 
   RootedAtom atom(cx);
@@ -1125,9 +1125,7 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
     if (!sourceObjectArg) {
       xdrFlags |= OwnSource;
     }
-    // If script allows relazifying back to a LazyScript we must save that lazy
-    // script. If the lazy script only existed for the Debugger, we do not
-    // preserve it.
+    // Preserve the MutableFlags::AllowRelazify flag.
     if (script->allowRelazify()) {
       xdrFlags |= HasLazyScript;
     }
@@ -1297,54 +1295,50 @@ template <XDRMode mode>
 XDRResult js::XDRLazyScript(XDRState<mode>* xdr, HandleScope enclosingScope,
                             HandleScriptSourceObject sourceObject,
                             HandleFunction fun,
-                            MutableHandle<LazyScript*> lazy) {
+                            MutableHandle<BaseScript*> lazy) {
   MOZ_ASSERT_IF(mode == XDR_DECODE, sourceObject);
 
   JSContext* cx = xdr->cx();
 
   {
-    uint32_t sourceStart;
-    uint32_t sourceEnd;
-    uint32_t toStringStart;
-    uint32_t toStringEnd;
-    uint32_t lineno;
-    uint32_t column;
+    SourceExtent extent;
     uint32_t immutableFlags;
     uint32_t ngcthings;
 
     if (mode == XDR_ENCODE) {
-      // Note: it's possible the LazyScript has a non-null script_ pointer
-      // to a JSScript. We don't encode it: we can just delazify the
-      // lazy script.
-
       MOZ_ASSERT(fun == lazy->function());
 
-      sourceStart = lazy->sourceStart();
-      sourceEnd = lazy->sourceEnd();
-      toStringStart = lazy->toStringStart();
-      toStringEnd = lazy->toStringEnd();
-      lineno = lazy->lineno();
-      column = lazy->column();
+      extent = lazy->extent();
       immutableFlags = lazy->immutableFlags();
       ngcthings = lazy->gcthings().size();
     }
 
-    MOZ_TRY(xdr->codeUint32(&sourceStart));
-    MOZ_TRY(xdr->codeUint32(&sourceEnd));
-    MOZ_TRY(xdr->codeUint32(&toStringStart));
-    MOZ_TRY(xdr->codeUint32(&toStringEnd));
-    MOZ_TRY(xdr->codeUint32(&lineno));
-    MOZ_TRY(xdr->codeUint32(&column));
+    MOZ_TRY(xdr->codeUint32(&extent.sourceStart));
+    MOZ_TRY(xdr->codeUint32(&extent.sourceEnd));
+    MOZ_TRY(xdr->codeUint32(&extent.toStringStart));
+    MOZ_TRY(xdr->codeUint32(&extent.toStringEnd));
+    MOZ_TRY(xdr->codeUint32(&extent.lineno));
+    MOZ_TRY(xdr->codeUint32(&extent.column));
+
     MOZ_TRY(xdr->codeUint32(&immutableFlags));
     MOZ_TRY(xdr->codeUint32(&ngcthings));
 
     if (mode == XDR_DECODE) {
-      lazy.set(LazyScript::CreateForXDR(
-          cx, ngcthings, fun, nullptr, enclosingScope, sourceObject,
-          immutableFlags, sourceStart, sourceEnd, toStringStart, toStringEnd,
-          lineno, column));
+      lazy.set(
+          BaseScript::CreateRawLazy(cx, ngcthings, fun, sourceObject, extent));
       if (!lazy) {
         return xdr->fail(JS::TranscodeResult_Throw);
+      }
+
+      lazy->setImmutableFlags(immutableFlags);
+
+      // Set the enclosing scope of the lazy function. This value should only be
+      // set if we have a non-lazy enclosing script at this point.
+      // BaseScript::enclosingScriptHasEverBeenCompiled relies on the enclosing
+      // scope being non-null if we have ever been nested inside non-lazy
+      // function.
+      if (enclosingScope) {
+        lazy->setEnclosingScope(enclosingScope);
       }
 
       fun->initLazyScript(lazy);
@@ -1353,19 +1347,19 @@ XDRResult js::XDRLazyScript(XDRState<mode>* xdr, HandleScope enclosingScope,
 
   bool hasFieldInitializers = fun->isClassConstructor();
 
-  MOZ_TRY(
-      LazyScript::XDRScriptData(xdr, sourceObject, lazy, hasFieldInitializers));
+  MOZ_TRY(BaseScript::XDRLazyScriptData(xdr, sourceObject, lazy,
+                                        hasFieldInitializers));
 
   return Ok();
 }
 
 template XDRResult js::XDRLazyScript(XDRState<XDR_ENCODE>*, HandleScope,
                                      HandleScriptSourceObject, HandleFunction,
-                                     MutableHandle<LazyScript*>);
+                                     MutableHandle<BaseScript*>);
 
 template XDRResult js::XDRLazyScript(XDRState<XDR_DECODE>*, HandleScope,
                                      HandleScriptSourceObject, HandleFunction,
-                                     MutableHandle<LazyScript*>);
+                                     MutableHandle<BaseScript*>);
 
 void JSScript::setDefaultClassConstructorSpan(
     js::ScriptSourceObject* sourceObject, uint32_t start, uint32_t end,
@@ -4103,7 +4097,7 @@ void JSScript::relazify(JSRuntime* rt) {
   warmUpData_.resetWarmUpCount(0);
   warmUpData_.initEnclosingScope(scope);
 
-  setIsLazyScript();
+  MOZ_ASSERT(isReadyForDelazification());
 }
 
 // Takes ownership of the script's scriptData_ and either adds it into the
@@ -4392,14 +4386,12 @@ bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
 
   // If we are using an existing lazy script, record enough info to be able to
   // rollback on failure.
-  if (script->isLazyScript()) {
+  if (script->isReadyForDelazification()) {
     lazyFlags = script->immutableScriptFlags_;
     lazyMutableFlags = script->mutableFlags_;
     lazyEnclosingScope = script->releaseEnclosingScope();
     script->swapData(lazyData.get());
     MOZ_ASSERT(script->sharedData_ == nullptr);
-
-    script->clearIsLazyScript();
   }
 
   // Restore the script to lazy state on failure. If this was a fresh script, we
@@ -4412,7 +4404,7 @@ bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
       script->swapData(lazyData.get());
       script->sharedData_ = nullptr;
 
-      MOZ_ASSERT(script->isLazyScript());
+      MOZ_ASSERT(script->isReadyForDelazification());
     } else {
       script->sharedData_ = nullptr;
     }
@@ -5456,10 +5448,10 @@ bool JSScript::formalLivesInArgumentsObject(unsigned argSlot) {
 }
 
 /* static */
-LazyScript* LazyScript::CreateRaw(JSContext* cx, uint32_t ngcthings,
-                                  HandleFunction fun,
-                                  HandleScriptSourceObject sourceObject,
-                                  const SourceExtent& extent) {
+BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
+                                      HandleFunction fun,
+                                      HandleScriptSourceObject sourceObject,
+                                      const SourceExtent& extent) {
   cx->check(fun);
 
   void* res = Allocate<BaseScript>(cx);
@@ -5473,13 +5465,10 @@ LazyScript* LazyScript::CreateRaw(JSContext* cx, uint32_t ngcthings,
   uint8_t* stubEntry = nullptr;
 #endif
 
-  LazyScript* lazy = new (res) LazyScript(stubEntry, fun, sourceObject, extent);
+  BaseScript* lazy = new (res) BaseScript(stubEntry, fun, sourceObject, extent);
   if (!lazy) {
     return nullptr;
   }
-
-  // Flag this script as a LazyScript
-  lazy->setIsLazyScript();
 
   // Allocate a PrivateScriptData if it will not be empty. Lazy class
   // constructors also need PrivateScriptData for field lists.
@@ -5498,7 +5487,7 @@ LazyScript* LazyScript::CreateRaw(JSContext* cx, uint32_t ngcthings,
 }
 
 /* static */
-LazyScript* LazyScript::Create(
+BaseScript* BaseScript::CreateLazy(
     JSContext* cx, const frontend::CompilationInfo& compilationInfo,
     HandleFunction fun, HandleScriptSourceObject sourceObject,
     const frontend::AtomVector& closedOverBindings,
@@ -5507,8 +5496,8 @@ LazyScript* LazyScript::Create(
   uint32_t ngcthings =
       innerFunctionIndexes.length() + closedOverBindings.length();
 
-  LazyScript* lazy =
-      LazyScript::CreateRaw(cx, ngcthings, fun, sourceObject, extent);
+  BaseScript* lazy =
+      BaseScript::CreateRawLazy(cx, ngcthings, fun, sourceObject, extent);
   if (!lazy) {
     return nullptr;
   }
@@ -5539,35 +5528,6 @@ LazyScript* LazyScript::Create(
   }
 
   MOZ_ASSERT(iter == gcThings.end());
-
-  return lazy;
-}
-
-/* static */
-LazyScript* LazyScript::CreateForXDR(
-    JSContext* cx, uint32_t ngcthings, HandleFunction fun, HandleScript script,
-    HandleScope enclosingScope, HandleScriptSourceObject sourceObject,
-    uint32_t immutableFlags, uint32_t sourceStart, uint32_t sourceEnd,
-    uint32_t toStringStart, uint32_t toStringEnd, uint32_t lineno,
-    uint32_t column) {
-  SourceExtent extent{sourceStart, sourceEnd, toStringStart,
-                      toStringEnd, lineno,    column};
-  LazyScript* lazy =
-      LazyScript::CreateRaw(cx, ngcthings, fun, sourceObject, extent);
-  if (!lazy) {
-    return nullptr;
-  }
-
-  lazy->setImmutableFlags(immutableFlags);
-
-  // Set the enclosing scope of the lazy function. This value should only be
-  // set if we have a non-lazy enclosing script at this point.
-  // LazyScript::enclosingScriptHasEverBeenCompiled relies on the enclosing
-  // scope being non-null if we have ever been nested inside non-lazy
-  // function.
-  if (enclosingScope) {
-    lazy->setEnclosingScope(enclosingScope);
-  }
 
   return lazy;
 }

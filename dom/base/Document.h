@@ -9,7 +9,6 @@
 #include "mozilla/EventStates.h"  // for EventStates
 #include "mozilla/FlushType.h"    // for enum
 #include "mozilla/MozPromise.h"   // for MozPromise
-#include "mozilla/Pair.h"         // for Pair
 #include "mozilla/Saturate.h"     // for SaturateUint32
 #include "nsAutoPtr.h"            // for member
 #include "nsCOMArray.h"           // for member
@@ -489,6 +488,10 @@ class Document : public nsINode,
  public:
   typedef dom::ExternalResourceMap::ExternalResourceLoad ExternalResourceLoad;
   typedef dom::ReferrerPolicy ReferrerPolicyEnum;
+
+  // nsINode overrides the new operator for DOM Arena allocation.
+  // to use the default one, we need to bring it back again
+  void* operator new(size_t aSize) { return ::operator new(aSize); }
 
   /**
    * Called when XPCOM shutdown.
@@ -3582,6 +3585,8 @@ class Document : public nsINode,
 #endif
     return mDocGroup;
   }
+
+  DocGroup* GetDocGroupOrCreate();
 
   /**
    * If we're a sub-document, the parent document's layout can affect our style

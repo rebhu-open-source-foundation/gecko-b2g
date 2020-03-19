@@ -8,6 +8,7 @@
 #define frontend_Stencil_h
 
 #include "mozilla/Assertions.h"  // MOZ_ASSERT, MOZ_RELEASE_ASSERT
+#include "mozilla/CheckedInt.h"  // CheckedUint32
 #include "mozilla/Maybe.h"       // mozilla::{Maybe, Nothing}
 #include "mozilla/Range.h"       // mozilla::Range
 #include "mozilla/Span.h"        // mozilla::Span
@@ -88,6 +89,15 @@ struct LazyScriptCreationData {
   bool init(JSContext* cx, const frontend::AtomVector& COB,
             Vector<FunctionIndex>&& innerIndexes, bool isForceStrict,
             bool isStrict) {
+    // Check if we will overflow the `ngcthings` field later.
+    mozilla::CheckedUint32 ngcthings =
+        mozilla::CheckedUint32(COB.length()) +
+        mozilla::CheckedUint32(innerIndexes.length());
+    if (!ngcthings.isValid()) {
+      ReportAllocationOverflow(cx);
+      return false;
+    }
+
     forceStrict = isForceStrict;
     strict = isStrict;
     innerFunctionIndexes = std::move(innerIndexes);
@@ -431,12 +441,15 @@ class ScopeCreationData {
   }
 };
 
+class EmptyGlobalScopeType {};
+
 // These types all end up being baked into GC things as part of stencil
 // instantiation. Currently, GCCellPtr is part of this list while we complete
 // Stencil, but eventually will be removed.
 using ScriptThingVariant =
     mozilla::Variant<JS::GCCellPtr, BigIntIndex, ObjLiteralCreationData,
-                     RegExpIndex, ScopeIndex, FunctionIndex>;
+                     RegExpIndex, ScopeIndex, FunctionIndex,
+                     EmptyGlobalScopeType>;
 
 // A vector of things destined to be converted to GC things.
 using ScriptThingsVector = GCVector<ScriptThingVariant>;
@@ -508,5 +521,9 @@ struct GCPolicy<js::frontend::TypedIndex<T>>
 template <>
 struct GCPolicy<js::frontend::FunctionIndex>
     : JS::IgnoreGCPolicy<js::frontend::FunctionIndex> {};
+
+template <>
+struct GCPolicy<js::frontend::EmptyGlobalScopeType>
+    : JS::IgnoreGCPolicy<js::frontend::EmptyGlobalScopeType> {};
 }  // namespace JS
 #endif /* frontend_Stencil_h */

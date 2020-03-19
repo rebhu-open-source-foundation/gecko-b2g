@@ -228,6 +228,10 @@
       }
     },
 
+    "DisableDefaultBrowserAgent": {
+      "type": "boolean"
+    },
+
     "DisableDeveloperTools": {
       "type": "boolean"
     },
@@ -1107,6 +1111,9 @@
           "type": "boolean"
         },
         "FeatureRecommendations": {
+          "type": "boolean"
+        },
+        "UrlbarInterventions": {
           "type": "boolean"
         },
         "Locked": {

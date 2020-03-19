@@ -458,6 +458,10 @@ Section "Uninstall"
   nsExec::Exec '"$INSTDIR\updateagent.exe" unregister-task "${UpdateAgentFullName} $AppUserModelID"'
 !endif
 
+  ; Uninstall the default browser agent scheduled task.
+  ; This also removes the registry entries it creates.
+  Exec '"$INSTDIR\default-browser-agent.exe" unregister-task $AppUserModelID'
+
   ${un.RemovePrecompleteEntries} "false"
 
   ${If} ${FileExists} "$INSTDIR\defaults\pref\channel-prefs.js"
@@ -505,7 +509,7 @@ Section "Uninstall"
   ; Refresh desktop icons otherwise the start menu internet item won't be
   ; removed and other ugly things will happen like recreation of the app's
   ; clients registry key by the OS under some conditions.
-  System::Call "shell32::SHChangeNotify(i ${SHCNE_ASSOCCHANGED}, i 0, i 0, i 0)"
+  ${RefreshShellIcons}
 
   ; Users who uninstall then reinstall expecting Firefox to use a clean profile
   ; may be surprised during first-run. This key is checked during startup of Firefox and

@@ -560,7 +560,7 @@ XDRResult js::XDRInterpretedFunction(XDRState<mode>* xdr,
   RootedFunction fun(cx);
   RootedAtom atom(cx);
   RootedScript script(cx);
-  Rooted<LazyScript*> lazy(cx);
+  Rooted<BaseScript*> lazy(cx);
 
   if (mode == XDR_ENCODE) {
     fun = objp;
@@ -585,7 +585,7 @@ XDRResult js::XDRInterpretedFunction(XDRState<mode>* xdr,
     } else {
       // Encode a lazy script.
       xdrFlags |= IsLazy;
-      lazy = fun->lazyScript();
+      lazy = fun->baseScript();
     }
 
     if (fun->displayAtom()) {
@@ -1379,18 +1379,18 @@ static const js::Value& BoundFunctionEnvironmentSlotValue(const JSFunction* fun,
 
 JSObject* JSFunction::getBoundFunctionTarget() const {
   js::Value targetVal =
-      BoundFunctionEnvironmentSlotValue(this, JSSLOT_BOUND_FUNCTION_TARGET);
+      BoundFunctionEnvironmentSlotValue(this, BoundFunctionEnvTargetSlot);
   MOZ_ASSERT(IsCallable(targetVal));
   return &targetVal.toObject();
 }
 
 const js::Value& JSFunction::getBoundFunctionThis() const {
-  return BoundFunctionEnvironmentSlotValue(this, JSSLOT_BOUND_FUNCTION_THIS);
+  return BoundFunctionEnvironmentSlotValue(this, BoundFunctionEnvThisSlot);
 }
 
 static ArrayObject* GetBoundFunctionArguments(const JSFunction* boundFun) {
   js::Value argsVal =
-      BoundFunctionEnvironmentSlotValue(boundFun, JSSLOT_BOUND_FUNCTION_ARGS);
+      BoundFunctionEnvironmentSlotValue(boundFun, BoundFunctionEnvArgsSlot);
   return &argsVal.toObject().as<ArrayObject>();
 }
 
@@ -1544,9 +1544,9 @@ bool JSFunction::finishBoundFunctionInit(JSContext* cx, HandleFunction bound,
 
 static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
                                               HandleFunction fun) {
-  Rooted<LazyScript*> lazy(cx, fun->lazyScript());
+  Rooted<BaseScript*> lazy(cx, fun->baseScript());
 
-  MOZ_ASSERT(lazy->isLazyScript(), "Script is already compiled!");
+  MOZ_ASSERT(!lazy->hasBytecode(), "Script is already compiled!");
   MOZ_ASSERT(lazy->function() == fun);
 
   ScriptSource* ss = lazy->scriptSource();
@@ -1559,7 +1559,7 @@ static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
     if (!frontend::CompileLazyBinASTFunction(
             cx, lazy, ss->binASTSource() + sourceStart, sourceLength)) {
       MOZ_ASSERT(fun->baseScript() == lazy);
-      MOZ_ASSERT(lazy->isLazyScript());
+      MOZ_ASSERT(lazy->isReadyForDelazification());
       return false;
     }
 #else
@@ -1583,7 +1583,7 @@ static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
         // The frontend shouldn't fail after linking the function and the
         // non-lazy script together.
         MOZ_ASSERT(fun->baseScript() == lazy);
-        MOZ_ASSERT(lazy->isLazyScript());
+        MOZ_ASSERT(lazy->isReadyForDelazification());
         return false;
       }
     } else {
@@ -1600,7 +1600,7 @@ static bool DelazifyCanonicalScriptedFunction(JSContext* cx,
         // The frontend shouldn't fail after linking the function and the
         // non-lazy script together.
         MOZ_ASSERT(fun->baseScript() == lazy);
-        MOZ_ASSERT(lazy->isLazyScript());
+        MOZ_ASSERT(lazy->isReadyForDelazification());
         return false;
       }
     }
@@ -1635,7 +1635,7 @@ bool JSFunction::delazifyLazilyInterpretedFunction(JSContext* cx,
   // the script is created in the function's realm.
   AutoRealm ar(cx, fun);
 
-  Rooted<LazyScript*> lazy(cx, fun->lazyScript());
+  Rooted<BaseScript*> lazy(cx, fun->baseScript());
   RootedFunction canonicalFun(cx, lazy->function());
 
   // If this function is non-canonical, then use the canonical function first
@@ -1653,8 +1653,6 @@ bool JSFunction::delazifyLazilyInterpretedFunction(JSContext* cx,
     MOZ_ASSERT(fun->hasBytecode());
     return true;
   }
-
-  MOZ_ASSERT(lazy->isLazyScript());
 
   // Finally, compile the script if it really doesn't exist.
   return DelazifyCanonicalScriptedFunction(cx, fun);

@@ -8,6 +8,7 @@
 #include "HttpLog.h"
 
 #include "HttpTransactionParent.h"
+#include "HttpTrafficAnalyzer.h"
 #include "mozilla/ipc/IPCStreamUtils.h"
 #include "mozilla/net/InputChannelThrottleQueueParent.h"
 #include "mozilla/net/ChannelEventQueue.h"
@@ -180,7 +181,7 @@ nsresult HttpTransactionParent::AsyncRead(nsIStreamListener* listener,
                                           nsIRequest** pump) {
   MOZ_ASSERT(pump);
 
-  NS_ADDREF(*pump = this);
+  *pump = do_AddRef(this).take();
   mChannel = listener;
   return NS_OK;
 }

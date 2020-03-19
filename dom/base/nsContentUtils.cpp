@@ -466,6 +466,11 @@ static NS_DEFINE_CID(kCParserCID, NS_PARSER_CID);
 
 static PLDHashTable* sEventListenerManagersHash;
 
+// A global hashtable to for keeping the arena alive for cross docGroup node
+// adoption.
+static nsRefPtrHashtable<nsPtrHashKey<const nsINode>, mozilla::dom::DOMArena>*
+    sDOMArenaHashtable;
+
 class DOMEventListenerManagersHashReporter final : public nsIMemoryReporter {
   MOZ_DEFINE_MALLOC_SIZE_OF(MallocSizeOf)
 
@@ -1818,6 +1823,13 @@ void nsContentUtils::Shutdown() {
       delete sEventListenerManagersHash;
       sEventListenerManagersHash = nullptr;
     }
+  }
+
+  if (sDOMArenaHashtable) {
+    MOZ_ASSERT(sDOMArenaHashtable->Count() == 0);
+    MOZ_ASSERT(StaticPrefs::dom_arena_allocator_enabled_AtStartup());
+    delete sDOMArenaHashtable;
+    sDOMArenaHashtable = nullptr;
   }
 
   NS_ASSERTION(!sBlockedScriptRunners || sBlockedScriptRunners->Length() == 0,
@@ -3752,18 +3764,19 @@ nsresult nsContentUtils::FormatLocalizedString(
 
 /* static */
 void nsContentUtils::LogSimpleConsoleError(const nsAString& aErrorText,
-                                           const char* classification,
+                                           const char* aCategory,
                                            bool aFromPrivateWindow,
-                                           bool aFromChromeContext) {
+                                           bool aFromChromeContext,
+                                           uint32_t aErrorFlags) {
   nsCOMPtr<nsIScriptError> scriptError =
       do_CreateInstance(NS_SCRIPTERROR_CONTRACTID);
   if (scriptError) {
     nsCOMPtr<nsIConsoleService> console =
         do_GetService(NS_CONSOLESERVICE_CONTRACTID);
-    if (console && NS_SUCCEEDED(scriptError->Init(
-                       aErrorText, EmptyString(), EmptyString(), 0, 0,
-                       nsIScriptError::errorFlag, classification,
-                       aFromPrivateWindow, aFromChromeContext))) {
+    if (console &&
+        NS_SUCCEEDED(scriptError->Init(
+            aErrorText, EmptyString(), EmptyString(), 0, 0, aErrorFlags,
+            aCategory, aFromPrivateWindow, aFromChromeContext))) {
       console->LogMessage(scriptError);
     }
   }
@@ -4612,6 +4625,26 @@ EventListenerManager* nsContentUtils::GetExistingListenerManagerForNode(
   return nullptr;
 }
 
+void nsContentUtils::AddEntryToDOMArenaTable(nsINode* aNode,
+                                             DOMArena* aDOMArena) {
+  MOZ_ASSERT(StaticPrefs::dom_arena_allocator_enabled_AtStartup());
+  if (!sDOMArenaHashtable) {
+    sDOMArenaHashtable =
+        new nsRefPtrHashtable<nsPtrHashKey<const nsINode>, dom::DOMArena>();
+  }
+  aNode->SetFlags(NODE_KEEPS_DOMARENA);
+  sDOMArenaHashtable->Put(aNode, RefPtr<DOMArena>(aDOMArena));
+}
+
+already_AddRefed<DOMArena> nsContentUtils::TakeEntryFromDOMArenaTable(
+    const nsINode* aNode) {
+  MOZ_ASSERT(sDOMArenaHashtable->Contains(aNode));
+  MOZ_ASSERT(StaticPrefs::dom_arena_allocator_enabled_AtStartup());
+  RefPtr<DOMArena> arena;
+  sDOMArenaHashtable->Remove(aNode, getter_AddRefs(arena));
+  return arena.forget();
+}
+
 /* static */
 void nsContentUtils::RemoveListenerManager(nsINode* aNode) {
   if (sEventListenerManagersHash) {
@@ -4677,8 +4710,8 @@ already_AddRefed<DocumentFragment> nsContentUtils::CreateContextualFragment(
   bool isHTML = document->IsHTMLDocument();
 
   if (isHTML) {
-    RefPtr<DocumentFragment> frag =
-        new DocumentFragment(document->NodeInfoManager());
+    RefPtr<DocumentFragment> frag = new (document->NodeInfoManager())
+        DocumentFragment(document->NodeInfoManager());
 
     Element* element = aContextNode->GetAsElementOrParentElement();
     if (element && !element->IsHTMLElement(nsGkAtoms::html)) {
@@ -4856,8 +4889,8 @@ nsresult nsContentUtils::ParseFragmentHTML(
                         nodePrincipal->SchemeIs("about") || aFlags >= 0;
   if (shouldSanitize) {
     if (!AllowsUnsanitizedContentForAboutNewTab(nodePrincipal)) {
-      fragment =
-          new DocumentFragment(aTargetNode->OwnerDoc()->NodeInfoManager());
+      fragment = new (aTargetNode->OwnerDoc()->NodeInfoManager())
+          DocumentFragment(aTargetNode->OwnerDoc()->NodeInfoManager());
       target = fragment;
     }
   }
@@ -5094,8 +5127,8 @@ nsresult nsContentUtils::SetNodeTextContent(nsIContent* aContent,
     return NS_OK;
   }
 
-  RefPtr<nsTextNode> textContent =
-      new nsTextNode(aContent->NodeInfo()->NodeInfoManager());
+  RefPtr<nsTextNode> textContent = new (aContent->NodeInfo()->NodeInfoManager())
+      nsTextNode(aContent->NodeInfo()->NodeInfoManager());
 
   textContent->SetText(aValue, true);
 
@@ -10428,6 +10461,11 @@ ScreenIntMargin nsContentUtils::GetWindowSafeAreaInsets(
   //
   ScreenIntMargin windowSafeAreaInsets;
 
+  if (windowSafeAreaInsets == aSafeAreaInsets) {
+    // no safe area insets.
+    return windowSafeAreaInsets;
+  }
+
   int32_t screenLeft, screenTop, screenWidth, screenHeight;
   nsresult rv =
       aScreen->GetRect(&screenLeft, &screenTop, &screenWidth, &screenHeight);
@@ -10443,16 +10481,22 @@ ScreenIntMargin nsContentUtils::GetWindowSafeAreaInsets(
   // window's rect of safe area
   safeAreaRect = safeAreaRect.Intersect(aWindowRect);
 
-  windowSafeAreaInsets.top = std::max(safeAreaRect.y - aWindowRect.y, 0);
-  windowSafeAreaInsets.left = std::max(safeAreaRect.x - aWindowRect.x, 0);
+  windowSafeAreaInsets.top =
+      aSafeAreaInsets.top ? std::max(safeAreaRect.y - aWindowRect.y, 0) : 0;
+  windowSafeAreaInsets.left =
+      aSafeAreaInsets.left ? std::max(safeAreaRect.x - aWindowRect.x, 0) : 0;
   windowSafeAreaInsets.right =
-      std::max((aWindowRect.x + aWindowRect.width) -
-                   (safeAreaRect.x + safeAreaRect.width),
-               0);
+      aSafeAreaInsets.right
+          ? std::max((aWindowRect.x + aWindowRect.width) -
+                         (safeAreaRect.x + safeAreaRect.width),
+                     0)
+          : 0;
   windowSafeAreaInsets.bottom =
-      std::max(aWindowRect.y + aWindowRect.height -
-                   (safeAreaRect.y + safeAreaRect.height),
-               0);
+      aSafeAreaInsets.bottom
+          ? std::max(aWindowRect.y + aWindowRect.height -
+                         (safeAreaRect.y + safeAreaRect.height),
+                     0)
+          : 0;
 
   return windowSafeAreaInsets;
 }

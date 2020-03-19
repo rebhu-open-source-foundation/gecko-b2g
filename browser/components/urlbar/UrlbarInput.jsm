@@ -121,12 +121,7 @@ class UrlbarInput {
       "removeAttribute",
       "toggleAttribute",
     ];
-    const INPUT_METHODS = [
-      "addEventListener",
-      "blur",
-      "focus",
-      "removeEventListener",
-    ];
+    const INPUT_METHODS = ["addEventListener", "blur", "removeEventListener"];
     const READ_WRITE_PROPERTIES = [
       "placeholder",
       "readOnly",
@@ -245,7 +240,29 @@ class UrlbarInput {
     }
   }
 
+  focus() {
+    let beforeFocus = new CustomEvent("beforefocus", {
+      bubbles: true,
+      cancelable: true,
+    });
+    this.inputField.dispatchEvent(beforeFocus);
+    if (beforeFocus.defaultPrevented) {
+      return;
+    }
+
+    this.inputField.focus();
+  }
+
   select() {
+    let beforeSelect = new CustomEvent("beforeselect", {
+      bubbles: true,
+      cancelable: true,
+    });
+    this.inputField.dispatchEvent(beforeSelect);
+    if (beforeSelect.defaultPrevented) {
+      return;
+    }
+
     // See _on_select().  HTMLInputElement.select() dispatches a "select"
     // event but does not set the primary selection.
     this._suppressPrimaryAdjustment = true;
@@ -272,7 +289,7 @@ class UrlbarInput {
       uri = uri || this.window.gBrowser.currentURI;
       // Strip off usernames and passwords for the location bar
       try {
-        uri = Services.uriFixup.createExposableURI(uri);
+        uri = Services.io.createExposableURI(uri);
       } catch (e) {}
 
       // Replace initial page URIs with an empty string
@@ -340,7 +357,7 @@ class UrlbarInput {
     }
 
     try {
-      return Services.uriFixup.createExposableURI(uri);
+      return Services.io.createExposableURI(uri);
     } catch (ex) {}
 
     return uri;
@@ -942,7 +959,7 @@ class UrlbarInput {
    */
   search(value, { focus = true } = {}) {
     if (focus) {
-      this.window.focusAndSelectUrlBar();
+      this.focus();
     }
 
     // If the value is a restricted token, append a space.
@@ -2102,9 +2119,8 @@ class UrlbarInput {
   }
 
   _on_overflow(event) {
-    const targetIsPlaceholder = !event.originalTarget.classList.contains(
-      "anonymous-div"
-    );
+    const targetIsPlaceholder =
+      event.originalTarget.implementedPseudoElement == "::placeholder";
     // We only care about the non-placeholder text.
     // This shouldn't be needed, see bug 1487036.
     if (targetIsPlaceholder) {
@@ -2115,9 +2131,8 @@ class UrlbarInput {
   }
 
   _on_underflow(event) {
-    const targetIsPlaceholder = !event.originalTarget.classList.contains(
-      "anonymous-div"
-    );
+    const targetIsPlaceholder =
+      event.originalTarget.implementedPseudoElement == "::placeholder";
     // We only care about the non-placeholder text.
     // This shouldn't be needed, see bug 1487036.
     if (targetIsPlaceholder) {

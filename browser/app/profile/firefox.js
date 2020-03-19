@@ -1048,10 +1048,6 @@ pref("dom.ipc.shims.enabledWarnings", false);
 #endif
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
-  // Start the Mac sandbox early during child process startup instead
-  // of when messaged by the parent after the message loop is running.
-  pref("security.sandbox.content.mac.earlyinit", true);
-
   // This pref is discussed in bug 1083344, the naming is inspired from its
   // Windows counterpart, but on Mac it's an integer which means:
   // 0 -> "no sandbox" (nightly only)
@@ -1320,6 +1316,9 @@ pref("trailhead.firstrun.branches", "");
 
 // Separate about welcome
 pref("browser.aboutwelcome.enabled", false);
+// Temporary utility to unblock testing on about:welcome experiment variations
+pref("browser.aboutwelcome.temp.testExperiment.slug", "");
+pref("browser.aboutwelcome.temp.testExperiment.branch", "control");
 // See Console.jsm LOG_LEVELS for all possible values
 pref("browser.aboutwelcome.log", "warn");
 
@@ -1364,9 +1363,6 @@ pref("security.app_menu.recordEventTelemetry", true);
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
-
-// Show degraded UI for http pages with password fields.
-pref("security.insecure_password.ui.enabled", true);
 
 // Show in-content login form warning UI for insecure login fields
 pref("security.insecure_field_warning.contextual.enabled", true);
@@ -1735,6 +1731,7 @@ pref("signon.management.page.breachAlertUrl",
      "https://monitor.firefox.com/breach-details/");
 pref("signon.management.page.hideMobileFooter", false);
 pref("signon.management.page.showPasswordSyncNotification", true);
+pref("signon.passwordEditCapture.enabled", true);
 
 // Enable the "Simplify Page" feature in Print Preview. This feature
 // is disabled by default in toolkit.
@@ -2144,11 +2141,7 @@ pref("devtools.webconsole.input.context", false);
 
 // Set to true to eagerly show the results of webconsole terminal evaluations
 // when they don't have side effects.
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
-  pref("devtools.webconsole.input.eagerEvaluation", true);
-#else
-  pref("devtools.webconsole.input.eagerEvaluation", false);
-#endif
+pref("devtools.webconsole.input.eagerEvaluation", true);
 
 // Browser console filters
 pref("devtools.browserconsole.filter.error", true);
@@ -2310,3 +2303,10 @@ pref("devtools.whatsnew.feature-enabled", true);
 
 // FirstStartup service time-out in ms
 pref("first-startup.timeout", 30000);
+
+// Enable the default browser agent.
+// The agent still runs as scheduled if this pref is disabled,
+// but it exits immediately before taking any action.
+#ifdef XP_WIN
+  pref("default-browser-agent.enabled", true);
+#endif

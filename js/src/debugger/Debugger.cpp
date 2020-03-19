@@ -599,6 +599,23 @@ bool Debugger::getFrame(JSContext* cx, const FrameIter& iter,
   return true;
 }
 
+bool Debugger::getFrame(JSContext* cx, MutableHandleDebuggerFrame result) {
+  RootedObject proto(
+      cx, &object->getReservedSlot(JSSLOT_DEBUG_FRAME_PROTO).toObject());
+  RootedNativeObject debugger(cx, object);
+
+  // Since there is no frame/generator data to associate with this frame, this
+  // will create a new, "terminated" Debugger.Frame object.
+  RootedDebuggerFrame frame(
+      cx, DebuggerFrame::create(cx, proto, debugger, nullptr, nullptr));
+  if (!frame) {
+    return false;
+  }
+
+  result.set(frame);
+  return true;
+}
+
 bool Debugger::getFrame(JSContext* cx, const FrameIter& iter,
                         MutableHandleDebuggerFrame result) {
   AbstractFramePtr referent = iter.abstractFramePtr();
@@ -762,7 +779,7 @@ bool DebuggerList<HookIsEnabledFun>::init(JSContext* cx) {
   Handle<GlobalObject*> global = cx->global();
   for (Realm::DebuggerVectorEntry& entry : global->getDebuggers()) {
     Debugger* dbg = entry.dbg;
-    if (hookIsEnabled(dbg)) {
+    if (dbg->isHookCallAllowed(cx) && hookIsEnabled(dbg)) {
       if (!debuggers.append(ObjectValue(*dbg->toJSObject()))) {
         return false;
       }
@@ -901,9 +918,18 @@ bool DebugAPI::slowPathOnResumeFrame(JSContext* cx, AbstractFramePtr frame) {
 NativeResumeMode DebugAPI::slowPathOnNativeCall(JSContext* cx,
                                                 const CallArgs& args,
                                                 CallReason reason) {
-  DebuggerList debuggerList(cx, [cx](Debugger* dbg) -> bool {
-    return dbg == cx->insideDebuggerEvaluationWithOnNativeCallHook &&
-           dbg->getHook(Debugger::OnNativeCall);
+  // "onNativeCall" only works consistently in the context of an explicit eval
+  // that has set the "insideDebuggerEvaluationWithOnNativeCallHook" state
+  // on the JSContext, so we fast-path this hook to bail right away if that is
+  // not currently set. If this flag is set to a _different_ debugger, the
+  // standard "isHookCallAllowed" debugger logic will apply and only hooks on
+  // that debugger will be callable.
+  if (!cx->insideDebuggerEvaluationWithOnNativeCallHook) {
+    return NativeResumeMode::Continue;
+  }
+
+  DebuggerList debuggerList(cx, [](Debugger* dbg) -> bool {
+    return dbg->getHook(Debugger::OnNativeCall);
   });
 
   if (!debuggerList.init(cx)) {
@@ -3110,7 +3136,7 @@ static bool UpdateExecutionObservabilityOfScriptsInZone(
     } else {
       for (auto base = zone->cellIter<BaseScript>(); !base.done();
            base.next()) {
-        if (base->isLazyScript()) {
+        if (!base->hasJitScript()) {
           continue;
         }
         JSScript* script = base->asJSScript();
@@ -3985,6 +4011,7 @@ struct MOZ_STACK_CLASS Debugger::CallData {
   bool findSourceURLs();
   bool makeGlobalObjectReference();
   bool adoptDebuggeeValue();
+  bool adoptFrame();
   bool adoptSource();
 
   using Method = bool (CallData::*)();
@@ -5148,8 +5175,7 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
   static void considerLazyScript(JSRuntime* rt, void* data, BaseScript* script,
                                  const JS::AutoRequireNoGC& nogc) {
     ScriptQuery* self = static_cast<ScriptQuery*>(data);
-    LazyScript* lazy = static_cast<LazyScript*>(script);
-    self->consider(lazy, nogc);
+    self->considerLazy(script, nogc);
   }
 
   bool needsDelazifyBeforeQuery() const {
@@ -5257,7 +5283,7 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery : public Debugger::QueryBase {
     }
   }
 
-  void consider(LazyScript* lazyScript, const JS::AutoRequireNoGC& nogc) {
+  void considerLazy(BaseScript* lazyScript, const JS::AutoRequireNoGC& nogc) {
     MOZ_ASSERT(!needsDelazifyBeforeQuery());
 
     if (oom) {
@@ -5413,8 +5439,7 @@ class MOZ_STACK_CLASS Debugger::SourceQuery : public Debugger::QueryBase {
   static void considerLazyScript(JSRuntime* rt, void* data, BaseScript* script,
                                  const JS::AutoRequireNoGC& nogc) {
     SourceQuery* self = static_cast<SourceQuery*>(data);
-    LazyScript* lazy = static_cast<LazyScript*>(script);
-    self->consider(lazy, nogc);
+    self->considerLazy(script, nogc);
   }
 
   void consider(JSScript* script, const JS::AutoRequireNoGC& nogc) {
@@ -5437,7 +5462,7 @@ class MOZ_STACK_CLASS Debugger::SourceQuery : public Debugger::QueryBase {
     }
   }
 
-  void consider(LazyScript* lazyScript, const JS::AutoRequireNoGC& nogc) {
+  void considerLazy(BaseScript* lazyScript, const JS::AutoRequireNoGC& nogc) {
     if (oom) {
       return;
     }
@@ -5944,6 +5969,58 @@ class DebuggerAdoptSourceMatcher {
   }
 };
 
+bool Debugger::CallData::adoptFrame() {
+  if (!args.requireAtLeast(cx, "Debugger.adoptFrame", 1)) {
+    return false;
+  }
+
+  RootedObject obj(cx, RequireObject(cx, args[0]));
+  if (!obj) {
+    return false;
+  }
+
+  obj = UncheckedUnwrap(obj);
+  if (!obj->is<DebuggerFrame>()) {
+    JS_ReportErrorASCII(cx, "Argument is not a Debugger.Frame");
+    return false;
+  }
+
+  RootedValue objVal(cx, ObjectValue(*obj));
+  RootedDebuggerFrame frameObj(cx, DebuggerFrame::check(cx, objVal));
+  if (!frameObj) {
+    return false;
+  }
+
+  RootedDebuggerFrame adoptedFrame(cx);
+  if (frameObj->isOnStack()) {
+    FrameIter iter(*frameObj->frameIterData());
+    if (!dbg->observesFrame(iter)) {
+      JS_ReportErrorASCII(cx, "Debugger.Frame's global is not a debuggee");
+      return false;
+    }
+    if (!dbg->getFrame(cx, iter, &adoptedFrame)) {
+      return false;
+    }
+  } else if (frameObj->hasGenerator()) {
+    Rooted<AbstractGeneratorObject*> gen(cx, &frameObj->unwrappedGenerator());
+    if (!dbg->observesGlobal(&gen->global())) {
+      JS_ReportErrorASCII(cx, "Debugger.Frame's global is not a debuggee");
+      return false;
+    }
+
+    if (!dbg->getFrame(cx, gen, &adoptedFrame)) {
+      return false;
+    }
+  } else {
+    if (!dbg->getFrame(cx, &adoptedFrame)) {
+      return false;
+    }
+  }
+
+  args.rval().setObject(*adoptedFrame);
+  return true;
+}
+
 bool Debugger::CallData::adoptSource() {
   if (!args.requireAtLeast(cx, "Debugger.adoptSource", 1)) {
     return false;
@@ -6015,6 +6092,7 @@ const JSFunctionSpec Debugger::methods[] = {
     JS_DEBUG_FN("findSourceURLs", findSourceURLs, 0),
     JS_DEBUG_FN("makeGlobalObjectReference", makeGlobalObjectReference, 1),
     JS_DEBUG_FN("adoptDebuggeeValue", adoptDebuggeeValue, 1),
+    JS_DEBUG_FN("adoptFrame", adoptFrame, 1),
     JS_DEBUG_FN("adoptSource", adoptSource, 1),
     JS_FS_END};
 

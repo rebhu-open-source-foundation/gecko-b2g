@@ -11,7 +11,6 @@ const { webconsoleSpec } = require("devtools/shared/specs/webconsole");
 const Services = require("Services");
 const { Cc, Ci, Cu } = require("chrome");
 const { DevToolsServer } = require("devtools/server/devtools-server");
-const { ActorPool } = require("devtools/server/actors/common");
 const { ThreadActor } = require("devtools/server/actors/thread");
 const { ObjectActor } = require("devtools/server/actors/object");
 const { LongStringActor } = require("devtools/server/actors/string");
@@ -184,9 +183,6 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
     this.conn = connection;
     this.parentActor = parentActor;
 
-    this._actorPool = new ActorPool(this.conn);
-    this.conn.addActorPool(this._actorPool);
-
     this._prefs = {};
     this.dbg = this.parentActor.dbg;
 
@@ -232,14 +228,6 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
    * @type number
    */
   _gripDepth: null,
-
-  /**
-   * Actor pool for all of the actors we send to the client.
-   * @private
-   * @type object
-   * @see ActorPool
-   */
-  _actorPool: null,
 
   /**
    * Web Console-related preferences.
@@ -447,8 +435,6 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       this._onChangedToplevelDocument
     );
 
-    this.conn.removeActorPool(this._actorPool);
-
     if (this.parentActor.isRootActor) {
       Services.obs.removeObserver(
         this._onObserverNotification,
@@ -460,7 +446,6 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       this.dbg.onConsoleMessage = null;
     }
 
-    this._actorPool = null;
     this._webConsoleCommandsCache = null;
     this._lastConsoleInputEvaluation = null;
     this._evalWindow = null;
@@ -489,7 +474,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
     }
 
     const actor = new EnvironmentActor(environment, this);
-    this._actorPool.addActor(actor);
+    this.manage(actor);
     environment.actor = actor;
 
     return actor;
@@ -502,7 +487,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
    * @return object
    */
   createValueGrip: function(value) {
-    return createValueGrip(value, this._actorPool, this.objectGrip);
+    return createValueGrip(value, this, this.objectGrip);
   },
 
   /**
@@ -542,7 +527,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
    * @param object object
    *        The object you want.
    * @param object pool
-   *        An ActorPool where the new actor instance is added.
+   *        A Pool where the new actor instance is added.
    * @param object
    *        The object grip.
    */
@@ -564,7 +549,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       },
       this.conn
     );
-    pool.addActor(actor);
+    pool.manage(actor);
     return actor.form();
   },
 
@@ -574,13 +559,13 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
    * @param string string
    *        The string you want to create the grip for.
    * @param object pool
-   *        An ActorPool where the new actor instance is added.
+   *        A Pool where the new actor instance is added.
    * @return object
    *         A LongStringActor object that wraps the given string.
    */
   longStringGrip: function(string, pool) {
     const actor = new LongStringActor(this.conn, string);
-    pool.addActor(actor);
+    pool.manage(actor);
     return actor.form();
   },
 
@@ -596,29 +581,9 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
    */
   _createStringGrip: function(string) {
     if (string && stringIsLong(string)) {
-      return this.longStringGrip(string, this._actorPool);
+      return this.longStringGrip(string, this);
     }
     return string;
-  },
-
-  /**
-   * Get an object actor by its ID.
-   *
-   * @param string actorID
-   * @return object
-   */
-  getActorByID: function(actorID) {
-    return this._actorPool.get(actorID);
-  },
-
-  /**
-   * Release an actor.
-   *
-   * @param object actor
-   *        The actor instance you want to release.
-   */
-  releaseActor: function(actor) {
-    this._actorPool.removeActor(actor);
   },
 
   /**
@@ -2124,7 +2089,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
     const needEntries = ["Map", "WeakMap", "Set", "WeakSet"].includes(dataType);
     const ignoreNonIndexedProperties = isArray(tableItemGrip);
 
-    const tableItemActor = this.getActorByID(tableItemGrip.actor);
+    const tableItemActor = this.actor(tableItemGrip.actor);
     if (!tableItemActor) {
       return null;
     }
@@ -2148,7 +2113,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
             const grip = desc[key];
 
             // We need to load sub-properties as well to render the table in a nice way.
-            const actor = grip && this.getActorByID(grip.actor);
+            const actor = grip && this.actor(grip.actor);
             if (actor) {
               const res = actor
                 .enumProperties({

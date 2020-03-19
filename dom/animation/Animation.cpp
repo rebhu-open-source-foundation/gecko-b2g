@@ -19,6 +19,7 @@
 #include "mozilla/AutoRestore.h"
 #include "mozilla/DeclarationBlock.h"
 #include "mozilla/Maybe.h"       // For Maybe
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/TypeTraits.h"  // For std::forward<>
 #include "nsAnimationManager.h"  // For CSSAnimation
 #include "nsComputedDOMStyle.h"
@@ -506,6 +507,7 @@ void Animation::Cancel(PostRestyleMode aPostRestyle) {
 
     if (mFinished) {
       mFinished->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+      mFinished->SetSettledPromiseIsHandled();
     }
     ResetFinishedPromise();
 
@@ -978,7 +980,9 @@ bool Animation::ShouldBeSynchronizedWithMainThread(
   // We check this before calling ShouldBlockAsyncTransformAnimations, partly
   // because it's cheaper, but also because it's often the most useful thing
   // to know when you're debugging performance.
-  if (mSyncWithGeometricAnimations &&
+  if (StaticPrefs::
+          dom_animations_mainthread_synchronization_with_geometric_animations() &&
+      mSyncWithGeometricAnimations &&
       keyframeEffect->HasAnimationOfPropertySet(
           nsCSSPropertyIDSet::TransformLikeProperties())) {
     aPerformanceWarning =
@@ -1617,6 +1621,7 @@ void Animation::ResetPendingTasks() {
 
   if (mReady) {
     mReady->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    mReady->SetSettledPromiseIsHandled();
     mReady = nullptr;
   }
 }

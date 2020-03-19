@@ -752,6 +752,7 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
   friend class TextureParent;
   friend class TiledLayerBufferComposite;
   friend class TextureSourceProvider;
+  friend class GPUVideoTextureHost;
 };
 
 /**

@@ -22,11 +22,10 @@ class FunctionExtended;
 struct SelfHostedLazyScript;
 
 using Native = JSNative;
-}  // namespace js
 
-static const uint32_t JSSLOT_BOUND_FUNCTION_TARGET = 2;
-static const uint32_t JSSLOT_BOUND_FUNCTION_THIS = 3;
-static const uint32_t JSSLOT_BOUND_FUNCTION_ARGS = 4;
+static constexpr uint32_t BoundFunctionEnvTargetSlot = 2;
+static constexpr uint32_t BoundFunctionEnvThisSlot = 3;
+static constexpr uint32_t BoundFunctionEnvArgsSlot = 4;
 
 static const char FunctionConstructorMedialSigils[] = ") {\n";
 static const char FunctionConstructorFinalBrace[] = "\n}";
@@ -162,6 +161,8 @@ class FunctionFlags {
                 "FunctionKind doesn't fit into flags_");
 
   uint16_t toRaw() const { return flags_; }
+
+  uint16_t stableAcrossClones() const { return flags_ & STABLE_ACROSS_CLONES; }
 
   // For flag combinations the type is int.
   bool hasFlags(uint16_t flags) const { return flags_ & flags; }
@@ -331,6 +332,8 @@ class FunctionFlags {
   bool isNativeConstructor() const { return hasFlags(NATIVE_CTOR); }
 };
 
+}  // namespace js
+
 class JSFunction : public js::NativeObject {
  public:
   static const JSClass class_;
@@ -348,6 +351,7 @@ class JSFunction : public js::NativeObject {
    * If any of these flags needs to be accessed in off-thread JIT
    * compilation, copy it to js::jit::WrappedFunction.
    */
+  using FunctionFlags = js::FunctionFlags;
   FunctionFlags flags_;
 
   union U {
@@ -680,12 +684,9 @@ class JSFunction : public js::NativeObject {
 
   // Function Scripts
   //
-  // Interpreted functions may either have an explicit JSScript (hasScript())
-  // or be lazy with sufficient information to construct the JSScript if
-  // necessary (isInterpretedLazy()).
-  //
-  // A lazy function will have a LazyScript if the function came from parsed
-  // source, or nullptr if the function is a clone of a self hosted function.
+  // Interpreted functions have either a BaseScript or a SelfHostedLazyScript. A
+  // BaseScript may either be lazy or non-lazy (hasBytecode()). Methods may
+  // return a JSScript* if underlying BaseScript is known to have bytecode.
   //
   // There are several methods to get the script of an interpreted function:
   //
@@ -739,12 +740,6 @@ class JSFunction : public js::NativeObject {
     MOZ_ASSERT(hasBaseScript());
     MOZ_ASSERT(u.scripted.s.script_);
     return static_cast<JSScript*>(u.scripted.s.script_);
-  }
-
-  js::LazyScript* lazyScript() const {
-    MOZ_ASSERT(hasBaseScript());
-    MOZ_ASSERT(u.scripted.s.script_);
-    return static_cast<js::LazyScript*>(u.scripted.s.script_);
   }
 
   js::SelfHostedLazyScript* selfHostedLazyScript() const {
@@ -808,7 +803,7 @@ class JSFunction : public js::NativeObject {
 
   // Release the lazyScript() pointer while triggering barriers.
   void clearLazyScript() {
-    js::BaseScript::writeBarrierPre(lazyScript());
+    js::BaseScript::writeBarrierPre(baseScript());
     u.scripted.s.script_ = nullptr;
     MOZ_ASSERT(isIncomplete());
   }

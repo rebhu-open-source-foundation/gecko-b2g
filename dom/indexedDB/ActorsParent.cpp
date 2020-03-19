@@ -10,7 +10,6 @@
 #include <numeric>
 #include <stdint.h>  // UINTPTR_MAX, uintptr_t
 #include <utility>
-#include "FileInfo.h"
 #include "FileManager.h"
 #include "IDBCursorType.h"
 #include "IDBObjectStore.h"
@@ -8441,7 +8440,7 @@ class Utils final : public PBackgroundIndexedDBUtilsParent {
   mozilla::ipc::IPCResult RecvGetFileReferences(
       const PersistenceType& aPersistenceType, const nsCString& aOrigin,
       const nsString& aDatabaseName, const int64_t& aFileId, int32_t* aRefCnt,
-      int32_t* aDBRefCnt, int32_t* aSliceRefCnt, bool* aResult) override;
+      int32_t* aDBRefCnt, bool* aResult) override;
 };
 
 /*******************************************************************************
@@ -10191,18 +10190,15 @@ struct PopulateResponseHelper<IDBCursorType::IndexKey>
 nsresult DispatchAndReturnFileReferences(
     PersistenceType aPersistenceType, const nsACString& aOrigin,
     const nsAString& aDatabaseName, const int64_t aFileId,
-    int32_t* const aMemRefCnt, int32_t* const aDBRefCnt,
-    int32_t* const aSliceRefCnt, bool* const aResult) {
+    int32_t* const aMemRefCnt, int32_t* const aDBRefCnt, bool* const aResult) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aMemRefCnt);
   MOZ_ASSERT(aDBRefCnt);
-  MOZ_ASSERT(aSliceRefCnt);
   MOZ_ASSERT(aResult);
 
   *aResult = false;
   *aMemRefCnt = -1;
   *aDBRefCnt = -1;
-  *aSliceRefCnt = -1;
 
   mozilla::Monitor monitor(__func__);
   bool waiting = true;
@@ -10221,7 +10217,7 @@ nsresult DispatchAndReturnFileReferences(
         const RefPtr<FileInfo> fileInfo = fileManager->GetFileInfo(aFileId);
 
         if (fileInfo) {
-          fileInfo->GetReferences(aMemRefCnt, aDBRefCnt, aSliceRefCnt);
+          fileInfo->GetReferences(aMemRefCnt, aDBRefCnt);
 
           if (*aMemRefCnt != -1) {
             // We added an extra temp ref, so account for that accordingly.
@@ -10668,12 +10664,13 @@ FileHandleThreadPool* GetFileHandleThreadPool() {
   return gFileHandleThreadPool;
 }
 
-nsresult AsyncDeleteFile(FileManager* aFileManager, int64_t aFileId) {
+nsresult FileManager::AsyncDeleteFile(int64_t aFileId) {
   AssertIsOnBackgroundThread();
+  MOZ_ASSERT(!mFileInfos.Contains(aFileId));
 
   QuotaClient* quotaClient = QuotaClient::GetInstance();
   if (quotaClient) {
-    nsresult rv = quotaClient->AsyncDeleteFile(aFileManager, aFileId);
+    nsresult rv = quotaClient->AsyncDeleteFile(this, aFileId);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -11636,70 +11633,6 @@ void DatabaseConnection::UpdateRefcountFunction::Reset() {
   MOZ_ASSERT(!mSavepointEntriesIndex.Count());
   MOZ_ASSERT(!mInSavepoint);
 
-  class MOZ_STACK_CLASS CustomCleanupCallback final
-      : public FileInfo::CustomCleanupCallback {
-    nsCOMPtr<nsIFile> mDirectory;
-    nsCOMPtr<nsIFile> mJournalDirectory;
-
-   public:
-    nsresult Cleanup(FileManager* aFileManager, int64_t aId) override {
-      if (!mDirectory) {
-        MOZ_ASSERT(!mJournalDirectory);
-
-        mDirectory = aFileManager->GetDirectory();
-        if (NS_WARN_IF(!mDirectory)) {
-          return NS_ERROR_FAILURE;
-        }
-
-        mJournalDirectory = aFileManager->GetJournalDirectory();
-        if (NS_WARN_IF(!mJournalDirectory)) {
-          return NS_ERROR_FAILURE;
-        }
-      }
-
-      nsCOMPtr<nsIFile> file = FileManager::GetFileForId(mDirectory, aId);
-      if (NS_WARN_IF(!file)) {
-        return NS_ERROR_FAILURE;
-      }
-
-      nsresult rv;
-      int64_t fileSize;
-
-      if (aFileManager->EnforcingQuota()) {
-        rv = file->GetFileSize(&fileSize);
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          return rv;
-        }
-      }
-
-      rv = file->Remove(false);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
-
-      if (aFileManager->EnforcingQuota()) {
-        QuotaManager* const quotaManager = QuotaManager::Get();
-        MOZ_ASSERT(quotaManager);
-
-        quotaManager->DecreaseUsageForOrigin(
-            aFileManager->Type(), aFileManager->Group(), aFileManager->Origin(),
-            Client::IDB, fileSize);
-      }
-
-      file = FileManager::GetFileForId(mJournalDirectory, aId);
-      if (NS_WARN_IF(!file)) {
-        return NS_ERROR_FAILURE;
-      }
-
-      rv = file->Remove(false);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
-
-      return NS_OK;
-    }
-  };
-
   mJournalsToCreateBeforeCommit.Clear();
   mJournalsToRemoveAfterCommit.Clear();
   mJournalsToRemoveAfterAbort.Clear();
@@ -11712,12 +11645,11 @@ void DatabaseConnection::UpdateRefcountFunction::Reset() {
     MOZ_ASSERT(value);
 
     // We need to move mFileInfo into a raw pointer in order to release it
-    // explicitly with CustomCleanupCallback.
+    // explicitly with aSyncDeleteFile == true.
     FileInfo* const fileInfo = value->ReleaseFileInfo().forget().take();
     MOZ_ASSERT(fileInfo);
 
-    CustomCleanupCallback customCleanupCallback;
-    fileInfo->Release(&customCleanupCallback);
+    fileInfo->Release(/* aSyncDeleteFile */ true);
   }
 
   mFileInfoEntries.Clear();
@@ -13554,9 +13486,7 @@ Factory::AllocPBackgroundIDBFactoryRequestParent(
   MOZ_ASSERT(commonParams);
 
   const DatabaseMetadata& metadata = commonParams->metadata();
-  if (NS_WARN_IF(metadata.persistenceType() != PERSISTENCE_TYPE_PERSISTENT &&
-                 metadata.persistenceType() != PERSISTENCE_TYPE_TEMPORARY &&
-                 metadata.persistenceType() != PERSISTENCE_TYPE_DEFAULT)) {
+  if (NS_WARN_IF(!IsValidPersistenceType(metadata.persistenceType()))) {
     ASSERT_UNLESS_FUZZING();
     return nullptr;
   }
@@ -16523,6 +16453,8 @@ mozilla::ipc::IPCResult Cursor<CursorType>::RecvContinue(
  * FileManager
  ******************************************************************************/
 
+FileManager::MutexType FileManager::sMutex;
+
 FileManager::FileManager(PersistenceType aPersistenceType,
                          const nsACString& aGroup, const nsACString& aOrigin,
                          const nsAString& aDatabaseName, bool aEnforcingQuota)
@@ -16530,7 +16462,6 @@ FileManager::FileManager(PersistenceType aPersistenceType,
       mGroup(aGroup),
       mOrigin(aOrigin),
       mDatabaseName(aDatabaseName),
-      mLastFileId(0),
       mEnforcingQuota(aEnforcingQuota) {}
 
 nsresult FileManager::Init(nsIFile* aDirectory,
@@ -16634,7 +16565,8 @@ nsresult FileManager::Init(nsIFile* aDirectory,
     // 0, but the dbRefCnt is non-zero, which will keep the FileInfo object
     // alive.
     MOZ_ASSERT(dbRefCnt > 0);
-    mFileInfos.Put(id, new FileInfo(this, id, static_cast<nsrefcnt>(dbRefCnt)));
+    mFileInfos.Put(id, new FileInfo(FileManagerGuard{}, this, id,
+                                    static_cast<nsrefcnt>(dbRefCnt)));
 
     mLastFileId = std::max(id, mLastFileId);
   }
@@ -16646,27 +16578,11 @@ nsresult FileManager::Init(nsIFile* aDirectory,
   return NS_OK;
 }
 
-nsresult FileManager::Invalidate() {
-  if (IndexedDatabaseManager::IsClosed()) {
-    MOZ_ASSERT(false, "Shouldn't be called after shutdown!");
-    return NS_ERROR_UNEXPECTED;
+nsCOMPtr<nsIFile> FileManager::GetDirectory() {
+  if (!this->AssertValid()) {
+    return nullptr;
   }
 
-  MutexAutoLock lock(IndexedDatabaseManager::FileMutex());
-
-  mInvalidated.Flip();
-
-  mFileInfos.RemoveIf([](const auto& iter) {
-    FileInfo* info = iter.Data();
-    MOZ_ASSERT(info);
-
-    return !info->LockedClearDBRefs();
-  });
-
-  return NS_OK;
-}
-
-nsCOMPtr<nsIFile> FileManager::GetDirectory() {
   return GetFileForPath(*mDirectoryPath);
 }
 
@@ -16688,6 +16604,10 @@ nsCOMPtr<nsIFile> FileManager::GetCheckedDirectory() {
 }
 
 nsCOMPtr<nsIFile> FileManager::GetJournalDirectory() {
+  if (!this->AssertValid()) {
+    return nullptr;
+  }
+
   return GetFileForPath(*mJournalDirectoryPath);
 }
 
@@ -16724,46 +16644,6 @@ nsCOMPtr<nsIFile> FileManager::EnsureJournalDirectory() {
   }
 
   return journalDirectory;
-}
-
-RefPtr<FileInfo> FileManager::GetFileInfo(int64_t aId) const {
-  if (IndexedDatabaseManager::IsClosed()) {
-    MOZ_ASSERT(false, "Shouldn't be called after shutdown!");
-    return nullptr;
-  }
-
-  // TODO: We cannot simply change this to RefPtr<FileInfo>, because
-  // FileInfo::AddRef also acquires the IndexedDatabaseManager::FileMutex. This
-  // looks quirky at least.
-  FileInfo* fileInfo;
-  {
-    MutexAutoLock lock(IndexedDatabaseManager::FileMutex());
-    fileInfo = mFileInfos.Get(aId);
-  }
-
-  return fileInfo;
-}
-
-RefPtr<FileInfo> FileManager::CreateFileInfo() {
-  MOZ_ASSERT(!IndexedDatabaseManager::IsClosed());
-
-  // TODO: We cannot simply change this to RefPtr<FileInfo>, because
-  // FileInfo::AddRef also acquires the IndexedDatabaseManager::FileMutex. This
-  // looks quirky at least.
-  FileInfo* fileInfo;
-  {
-    MutexAutoLock lock(IndexedDatabaseManager::FileMutex());
-
-    int64_t id = mLastFileId + 1;
-
-    fileInfo = new FileInfo(this, id);
-
-    mFileInfos.Put(id, fileInfo);
-
-    mLastFileId = id;
-  }
-
-  return fileInfo;
 }
 
 // static
@@ -17044,12 +16924,62 @@ nsresult FileManager::GetUsage(nsIFile* aDirectory, uint64_t& aUsage) {
   return NS_OK;
 }
 
-void FileManager::RemoveFileInfo(const int64_t aId,
-                                 const MutexAutoLock& aFilesMutexLock) {
-#ifdef DEBUG
-  aFilesMutexLock.AssertOwns(IndexedDatabaseManager::FileMutex());
-#endif
-  mFileInfos.Remove(aId);
+nsresult FileManager::SyncDeleteFile(const int64_t aId) {
+  MOZ_ASSERT(!mFileInfos.Contains(aId));
+
+  if (!this->AssertValid()) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  const auto directory = GetDirectory();
+  if (NS_WARN_IF(!directory)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  const auto journalDirectory = GetJournalDirectory();
+  if (NS_WARN_IF(!journalDirectory)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIFile> file = GetFileForId(directory, aId);
+  if (NS_WARN_IF(!file)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsresult rv;
+  int64_t fileSize;
+
+  if (EnforcingQuota()) {
+    rv = file->GetFileSize(&fileSize);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+  }
+
+  rv = file->Remove(false);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  if (EnforcingQuota()) {
+    QuotaManager* const quotaManager = QuotaManager::Get();
+    MOZ_ASSERT(quotaManager);
+
+    quotaManager->DecreaseUsageForOrigin(Type(), Group(), Origin(), Client::IDB,
+                                         fileSize);
+  }
+
+  file = GetFileForId(journalDirectory, aId);
+  if (NS_WARN_IF(!file)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  rv = file->Remove(false);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  return NS_OK;
 }
 
 /*******************************************************************************
@@ -19656,8 +19586,7 @@ DatabaseOperationBase::GetStructuredCloneReadInfoFromExternalBlob(
   const StructuredCloneFile& file = files[index];
   MOZ_ASSERT(file.Type() == StructuredCloneFile::eStructuredClone);
 
-  const nsCOMPtr<nsIFile> nativeFile =
-      FileInfo::GetFileForFileInfo(file.FileInfo());
+  const nsCOMPtr<nsIFile> nativeFile = file.FileInfo().GetFileForFileInfo();
   if (NS_WARN_IF(!nativeFile)) {
     return Err(NS_ERROR_FAILURE);
   }
@@ -23672,7 +23601,7 @@ CreateFileOp::CreateFileOp(Database* aDatabase,
 }
 
 nsresult CreateFileOp::CreateMutableFile(RefPtr<MutableFile>* aMutableFile) {
-  nsCOMPtr<nsIFile> file = FileInfo::GetFileForFileInfo(**mFileInfo);
+  nsCOMPtr<nsIFile> file = (*mFileInfo)->GetFileForFileInfo();
   if (NS_WARN_IF(!file)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
@@ -27724,11 +27653,10 @@ mozilla::ipc::IPCResult Utils::RecvDeleteMe() {
 mozilla::ipc::IPCResult Utils::RecvGetFileReferences(
     const PersistenceType& aPersistenceType, const nsCString& aOrigin,
     const nsString& aDatabaseName, const int64_t& aFileId, int32_t* aRefCnt,
-    int32_t* aDBRefCnt, int32_t* aSliceRefCnt, bool* aResult) {
+    int32_t* aDBRefCnt, bool* aResult) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aRefCnt);
   MOZ_ASSERT(aDBRefCnt);
-  MOZ_ASSERT(aSliceRefCnt);
   MOZ_ASSERT(aResult);
   MOZ_ASSERT(!mActorDestroyed);
 
@@ -27742,9 +27670,7 @@ mozilla::ipc::IPCResult Utils::RecvGetFileReferences(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  if (NS_WARN_IF(aPersistenceType != quota::PERSISTENCE_TYPE_PERSISTENT &&
-                 aPersistenceType != quota::PERSISTENCE_TYPE_TEMPORARY &&
-                 aPersistenceType != quota::PERSISTENCE_TYPE_DEFAULT)) {
+  if (NS_WARN_IF(!IsValidPersistenceType(aPersistenceType))) {
     ASSERT_UNLESS_FUZZING();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -27764,9 +27690,9 @@ mozilla::ipc::IPCResult Utils::RecvGetFileReferences(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  nsresult rv = DispatchAndReturnFileReferences(
-      aPersistenceType, aOrigin, aDatabaseName, aFileId, aRefCnt, aDBRefCnt,
-      aSliceRefCnt, aResult);
+  nsresult rv =
+      DispatchAndReturnFileReferences(aPersistenceType, aOrigin, aDatabaseName,
+                                      aFileId, aRefCnt, aDBRefCnt, aResult);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return IPC_FAIL_NO_REASON(this);
   }

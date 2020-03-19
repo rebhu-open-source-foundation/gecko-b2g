@@ -1551,6 +1551,8 @@ class Element : public FragmentOrElement {
    */
   float FontSizeInflation();
 
+  void GetImplementedPseudoElement(nsAString&) const;
+
   ReferrerPolicy GetReferrerPolicyAsEnum();
   ReferrerPolicy ReferrerPolicyFromAttr(const nsAttrValue* aValue);
 
@@ -2022,7 +2024,8 @@ inline mozilla::dom::Element* nsINode::GetNextElementSibling() const {
                                nsINode** aResult) const {           \
     *aResult = nullptr;                                             \
     RefPtr<mozilla::dom::NodeInfo> ni(aNodeInfo);                   \
-    RefPtr<_elementName> it = new _elementName(ni.forget());        \
+    auto* nim = ni->NodeInfoManager();                              \
+    RefPtr<_elementName> it = new (nim) _elementName(ni.forget());  \
     nsresult rv = const_cast<_elementName*>(this)->CopyInnerTo(it); \
     if (NS_SUCCEEDED(rv)) {                                         \
       it.forget(aResult);                                           \
@@ -2037,8 +2040,9 @@ inline mozilla::dom::Element* nsINode::GetNextElementSibling() const {
                                nsINode** aResult) const {                 \
     *aResult = nullptr;                                                   \
     RefPtr<mozilla::dom::NodeInfo> ni(aNodeInfo);                         \
+    auto* nim = ni->NodeInfoManager();                                    \
     RefPtr<_elementName> it =                                             \
-        new _elementName(ni.forget() EXPAND extra_args_);                 \
+        new (nim) _elementName(ni.forget() EXPAND extra_args_);           \
     nsresult rv = it->Init();                                             \
     nsresult rv2 = const_cast<_elementName*>(this)->CopyInnerTo(it);      \
     if (NS_FAILED(rv2)) {                                                 \

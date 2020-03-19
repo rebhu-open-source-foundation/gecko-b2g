@@ -11,7 +11,6 @@
 #  error Must include IndexedDatabase.h first
 #endif
 
-#include "FileInfo.h"
 #include "FileManager.h"
 #include "IDBMutableFile.h"
 #include "mozilla/dom/indexedDB/PBackgroundIDBSharedTypes.h"
@@ -154,6 +153,18 @@ JSObject* StructuredCloneReadCallback(
   return CommonStructuredCloneReadCallback(
       aCx, aReader, aCloneDataPolicy, aTag, aData,
       static_cast<StructuredCloneReadInfo*>(aClosure), database);
+}
+
+template <typename T>
+bool WrapAsJSObject(JSContext* const aCx, T& aBaseObject,
+                    JS::MutableHandle<JSObject*> aResult) {
+  JS::Rooted<JS::Value> wrappedValue(aCx);
+  if (!ToJSValue(aCx, aBaseObject, &wrappedValue)) {
+    return false;
+  }
+
+  aResult.set(&wrappedValue.toObject());
+  return true;
 }
 
 }  // namespace indexedDB

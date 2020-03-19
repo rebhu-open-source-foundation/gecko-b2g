@@ -5693,13 +5693,17 @@ bool nsDisplayBorder::CreateWebRenderCommands(
     nsDisplayListBuilder* aDisplayListBuilder) {
   nsRect rect = nsRect(ToReferenceFrame(), mFrame->GetSize());
 
+  aBuilder.StartGroup(this);
   ImgDrawResult drawResult = nsCSSRendering::CreateWebRenderCommandsForBorder(
       this, mFrame, rect, aBuilder, aResources, aSc, aManager,
       aDisplayListBuilder);
 
   if (drawResult == ImgDrawResult::NOT_SUPPORTED) {
+    aBuilder.CancelGroup();
     return false;
   }
+
+  aBuilder.FinishGroup();
 
   nsDisplayBorderGeometry::UpdateDrawResult(this, drawResult);
   return true;
@@ -9539,9 +9543,18 @@ bool nsDisplayText::CreateWebRenderCommands(
   RefPtr<gfxContext> textDrawer = aBuilder.GetTextContext(
       aResources, aSc, aManager, this, bounds, deviceOffset);
 
-  RenderToContext(textDrawer, aDisplayListBuilder, true);
+  aBuilder.StartGroup(this);
 
-  return textDrawer->GetTextDrawer()->Finish();
+  RenderToContext(textDrawer, aDisplayListBuilder, true);
+  const bool result = textDrawer->GetTextDrawer()->Finish();
+
+  if (result) {
+    aBuilder.FinishGroup();
+  } else {
+    aBuilder.CancelGroup();
+  }
+
+  return result;
 }
 
 void nsDisplayText::RenderToContext(gfxContext* aCtx,
@@ -10165,13 +10178,13 @@ enum class HandleOpacity {
   Yes,
 };
 
-static Maybe<Pair<wr::WrClipId, HandleOpacity>> CreateWRClipPathAndMasks(
+static Maybe<std::pair<wr::WrClipId, HandleOpacity>> CreateWRClipPathAndMasks(
     nsDisplayMasksAndClipPaths* aDisplayItem, const LayoutDeviceRect& aBounds,
     wr::IpcResourceUpdateQueue& aResources, wr::DisplayListBuilder& aBuilder,
     const StackingContextHelper& aSc, layers::RenderRootStateManager* aManager,
     nsDisplayListBuilder* aDisplayListBuilder) {
   if (auto clip = CreateSimpleClipRegion(*aDisplayItem, aBuilder)) {
-    return Some(MakePair(*clip, HandleOpacity::Yes));
+    return Some(std::make_pair(*clip, HandleOpacity::Yes));
   }
 
   Maybe<wr::ImageMask> mask = aManager->CommandBuilder().BuildWrMaskImage(
@@ -10183,7 +10196,7 @@ static Maybe<Pair<wr::WrClipId, HandleOpacity>> CreateWRClipPathAndMasks(
   wr::WrClipId clipId = aBuilder.DefineClip(
       Nothing(), wr::ToLayoutRect(aBounds), nullptr, mask.ptr());
 
-  return Some(MakePair(clipId, HandleOpacity::No));
+  return Some(std::make_pair(clipId, HandleOpacity::No));
 }
 
 bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
@@ -10198,7 +10211,7 @@ bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
   LayoutDeviceRect bounds =
       LayoutDeviceRect::FromAppUnits(displayBounds, appUnitsPerDevPixel);
 
-  Maybe<Pair<wr::WrClipId, HandleOpacity>> clip = CreateWRClipPathAndMasks(
+  Maybe<std::pair<wr::WrClipId, HandleOpacity>> clip = CreateWRClipPathAndMasks(
       this, bounds, aResources, aBuilder, aSc, aManager, aDisplayListBuilder);
 
   Maybe<StackingContextHelper> layer;
@@ -10210,9 +10223,9 @@ bool nsDisplayMasksAndClipPaths::CreateWebRenderCommands(
     // The stacking context shouldn't have any offset.
     bounds.MoveTo(0, 0);
 
-    wr::WrClipId clipId = clip->first();
+    wr::WrClipId clipId = clip->first;
 
-    Maybe<float> opacity = clip->second() == HandleOpacity::Yes
+    Maybe<float> opacity = clip->second == HandleOpacity::Yes
                                ? Some(mFrame->StyleEffects()->mOpacity)
                                : Nothing();
 

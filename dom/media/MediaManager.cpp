@@ -1180,7 +1180,8 @@ class GetUserMediaStreamRunnable : public Runnable {
                      : MediaTrackGraph::SYSTEM_THREAD_DRIVER;
     MediaTrackGraph* mtg = MediaTrackGraph::GetInstance(
         graphDriverType, dom::AudioChannel::Normal, window,
-        MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
+        MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+        MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
     auto domStream = MakeRefPtr<DOMMediaStream>(window);
     RefPtr<LocalTrackSource> audioTrackSource;

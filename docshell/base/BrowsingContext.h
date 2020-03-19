@@ -101,6 +101,9 @@ class WindowProxyHolder;
   FIELD(InRDMPane, bool)                                                     \
   FIELD(Loading, bool)                                                       \
   FIELD(AncestorLoading, bool)                                               \
+  FIELD(AllowPlugins, bool)                                                  \
+  FIELD(AllowContentRetargeting, bool)                                       \
+  FIELD(AllowContentRetargetingOnChildren, bool)                             \
   /* These field are used to store the states of autoplay media request on   \
    * GeckoView only, and it would only be modified on the top level browsing \
    * context. */                                                             \
@@ -305,6 +308,9 @@ class BrowsingContext : public nsISupports, public nsWrapperCache {
 
   bool HadOriginalOpener() const { return GetHadOriginalOpener(); }
 
+  // Returns true if the browsing context and top context are same origin
+  bool SameOriginWithTop();
+
   /**
    * When a new browsing context is opened by a sandboxed document, it needs to
    * keep track of the browsing context that opened it, so that it can be
@@ -351,6 +357,8 @@ class BrowsingContext : public nsISupports, public nsWrapperCache {
       SetCurrentOrientation(aType, aAngle);
     }
   }
+
+  void SetAllowContentRetargeting(bool aAllowContentRetargeting);
 
   // Using the rules for choosing a browsing context we try to find
   // the browsing context with the given name in the set of
@@ -642,6 +650,14 @@ class BrowsingContext : public nsISupports, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_EmbedderElementType>,
               const Maybe<nsString>& aInitiatorType, ContentParent* aSource);
 
+  bool CanSet(FieldIndex<IDX_AllowContentRetargeting>,
+              const bool& aAllowContentRetargeting, ContentParent* aSource);
+  bool CanSet(FieldIndex<IDX_AllowContentRetargetingOnChildren>,
+              const bool& aAllowContentRetargetingOnChildren,
+              ContentParent* aSource);
+  bool CanSet(FieldIndex<IDX_AllowPlugins>, const bool& aAllowPlugins,
+              ContentParent* aSource);
+
   template <size_t I, typename T>
   bool CanSet(FieldIndex<I>, const T&, ContentParent*) {
     return true;
@@ -649,6 +665,10 @@ class BrowsingContext : public nsISupports, public nsWrapperCache {
 
   template <size_t I>
   void DidSet(FieldIndex<I>) {}
+
+  // True if the process attemping to set field is the same as the owning
+  // process.
+  bool CheckOnlyOwningProcessCanSet(ContentParent* aSource);
 
   // True if the process attempting to set field is the same as the embedder's
   // process.

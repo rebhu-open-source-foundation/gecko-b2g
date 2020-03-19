@@ -173,7 +173,6 @@
 #include "mozilla/net/NeckoParent.h"
 #include "mozilla/net/PCookieServiceParent.h"
 #include "mozilla/plugins/PluginBridge.h"
-#include "mozilla/psm/PSMContentListener.h"
 #include "mozilla/widget/ScreenManager.h"
 #include "nsAnonymousTemporaryFile.h"
 #include "nsAppRunner.h"
@@ -686,10 +685,6 @@ static const char* sObserverTopics[] = {
     "private-cookie-changed",
     NS_NETWORK_LINK_TYPE_TOPIC,
 };
-
-#if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
-bool ContentParent::sEarlySandboxInit = false;
-#endif
 
 // PreallocateProcess is called by the PreallocatedProcessManager.
 // ContentParent then takes this process back within GetNewOrUsedBrowserProcess.
@@ -2200,11 +2195,8 @@ bool ContentParent::BeginSubprocessLaunch(bool aIsSync,
   }
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
-  bool sandboxEnabled = IsContentSandboxEnabled();
-  if (sandboxEnabled && sEarlySandboxInit) {
+  if (IsContentSandboxEnabled()) {
     AppendSandboxParams(extraArgs);
-  }
-  if (sandboxEnabled) {
     mSubprocess->DisableOSActivityMode();
   }
 #endif
@@ -2384,17 +2376,6 @@ ContentParent::ContentParent(ContentParent* aOpener,
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
   bool isFile = mRemoteType.EqualsLiteral(FILE_REMOTE_TYPE);
   mSubprocess = new GeckoChildProcessHost(GeckoProcessType_Content, isFile);
-
-#if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
-  // sEarlySandboxInit is statically initialized to false.
-  // Once we've set it to true due to the pref, avoid checking the
-  // pref on subsequent calls. As a result, changing the earlyinit
-  // pref requires restarting the browser to take effect.
-  if (!ContentParent::sEarlySandboxInit) {
-    ContentParent::sEarlySandboxInit =
-        Preferences::GetBool("security.sandbox.content.mac.earlyinit");
-  }
-#endif
 }
 
 ContentParent::~ContentParent() {
@@ -2732,9 +2713,11 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
       // We send all moz-extension Blob URL's to all content processes because
       // content scripts mean that a moz-extension can live in any process.
+      // Same thing for system principal Blob URLs.
       // Content Blob URL's are sent for content principals on-demand by
       // AboutToLoadHttpFtpDocumentForChild and RemoteWorkerManager.
-      if (!StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"))) {
+      if (!StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://")) &&
+          !aPrincipal->IsSystemPrincipal()) {
         return true;
       }
 
@@ -3899,20 +3882,6 @@ PParentToChildStreamParent* ContentParent::AllocPParentToChildStreamParent() {
 bool ContentParent::DeallocPParentToChildStreamParent(
     PParentToChildStreamParent* aActor) {
   delete aActor;
-  return true;
-}
-
-PPSMContentDownloaderParent* ContentParent::AllocPPSMContentDownloaderParent(
-    const uint32_t& aCertType) {
-  RefPtr<PSMContentDownloaderParent> downloader =
-      new PSMContentDownloaderParent(aCertType);
-  return downloader.forget().take();
-}
-
-bool ContentParent::DeallocPPSMContentDownloaderParent(
-    PPSMContentDownloaderParent* aListener) {
-  auto* listener = static_cast<PSMContentDownloaderParent*>(aListener);
-  RefPtr<PSMContentDownloaderParent> downloader = dont_AddRef(listener);
   return true;
 }
 
@@ -5151,13 +5120,13 @@ bool ContentParent::DeallocPWebBrowserPersistDocumentParent(
 
 mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     PBrowserParent* aThisTab, bool aSetOpener, const uint32_t& aChromeFlags,
-    const bool& aCalledFromJS, const bool& aPositionSpecified,
-    const bool& aSizeSpecified, nsIURI* aURIToLoad, const nsCString& aFeatures,
-    const float& aFullZoom, uint64_t aNextRemoteTabId, const nsString& aName,
-    nsresult& aResult, nsCOMPtr<nsIRemoteTab>& aNewRemoteTab,
-    bool* aWindowIsNew, int32_t& aOpenLocation,
-    nsIPrincipal* aTriggeringPrincipal, nsIReferrerInfo* aReferrerInfo,
-    bool aLoadURI, nsIContentSecurityPolicy* aCsp)
+    const bool& aCalledFromJS, const bool& aWidthSpecified, nsIURI* aURIToLoad,
+    const nsCString& aFeatures, const float& aFullZoom,
+    uint64_t aNextRemoteTabId, const nsString& aName, nsresult& aResult,
+    nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
+    int32_t& aOpenLocation, nsIPrincipal* aTriggeringPrincipal,
+    nsIReferrerInfo* aReferrerInfo, bool aLoadURI,
+    nsIContentSecurityPolicy* aCsp)
 
 {
   // The content process should never be in charge of computing whether or
@@ -5231,8 +5200,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   }
 
   aOpenLocation = nsWindowWatcher::GetWindowOpenLocation(
-      outerWin, aChromeFlags, aCalledFromJS, aPositionSpecified,
-      aSizeSpecified);
+      outerWin, aChromeFlags, aCalledFromJS, aWidthSpecified);
 
   MOZ_ASSERT(aOpenLocation == nsIBrowserDOMWindow::OPEN_NEWTAB ||
              aOpenLocation == nsIBrowserDOMWindow::OPEN_NEWWINDOW);
@@ -5373,11 +5341,10 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
     PBrowserParent* aThisTab, PBrowserParent* aNewTab,
     const uint32_t& aChromeFlags, const bool& aCalledFromJS,
-    const bool& aPositionSpecified, const bool& aSizeSpecified,
-    const Maybe<URIParams>& aURIToLoad, const nsCString& aFeatures,
-    const float& aFullZoom, const IPC::Principal& aTriggeringPrincipal,
-    nsIContentSecurityPolicy* aCsp, nsIReferrerInfo* aReferrerInfo,
-    CreateWindowResolver&& aResolve) {
+    const bool& aWidthSpecified, const Maybe<URIParams>& aURIToLoad,
+    const nsCString& aFeatures, const float& aFullZoom,
+    const IPC::Principal& aTriggeringPrincipal, nsIContentSecurityPolicy* aCsp,
+    nsIReferrerInfo* aReferrerInfo, CreateWindowResolver&& aResolve) {
   nsresult rv = NS_OK;
   CreatedWindowInfo cwi;
 
@@ -5416,9 +5383,9 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   int32_t openLocation = nsIBrowserDOMWindow::OPEN_NEWWINDOW;
   mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
       aThisTab, /* aSetOpener = */ true, aChromeFlags, aCalledFromJS,
-      aPositionSpecified, aSizeSpecified, uriToLoad, aFeatures, aFullZoom,
-      nextRemoteTabId, VoidString(), rv, newRemoteTab, &cwi.windowOpened(),
-      openLocation, aTriggeringPrincipal, aReferrerInfo,
+      aWidthSpecified, uriToLoad, aFeatures, aFullZoom, nextRemoteTabId,
+      VoidString(), rv, newRemoteTab, &cwi.windowOpened(), openLocation,
+      aTriggeringPrincipal, aReferrerInfo,
       /* aLoadUri = */ false, aCsp);
   if (!ipcResult) {
     return ipcResult;
@@ -5454,9 +5421,9 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
 
 mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
     PBrowserParent* aThisTab, const uint32_t& aChromeFlags,
-    const bool& aCalledFromJS, const bool& aPositionSpecified,
-    const bool& aSizeSpecified, const Maybe<URIParams>& aURIToLoad,
-    const nsCString& aFeatures, const float& aFullZoom, const nsString& aName,
+    const bool& aCalledFromJS, const bool& aWidthSpecified,
+    const Maybe<URIParams>& aURIToLoad, const nsCString& aFeatures,
+    const float& aFullZoom, const nsString& aName,
     nsIPrincipal* aTriggeringPrincipal, nsIContentSecurityPolicy* aCsp,
     nsIReferrerInfo* aReferrerInfo) {
   MOZ_DIAGNOSTIC_ASSERT(!nsContentUtils::IsSpecialName(aName));
@@ -5494,7 +5461,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindowInDifferentProcess(
   nsresult rv;
   mozilla::ipc::IPCResult ipcResult = CommonCreateWindow(
       aThisTab, /* aSetOpener = */ false, aChromeFlags, aCalledFromJS,
-      aPositionSpecified, aSizeSpecified, uriToLoad, aFeatures, aFullZoom,
+      aWidthSpecified, uriToLoad, aFeatures, aFullZoom,
       /* aNextRemoteTabId = */ 0, aName, rv, newRemoteTab, &windowIsNew,
       openLocation, aTriggeringPrincipal, aReferrerInfo,
       /* aLoadUri = */ true, aCsp);
@@ -5714,7 +5681,8 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
   uint64_t originHash = ComputeLoadedOriginHash(aPrincipal);
 
   bool toBeSent =
-      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"));
+      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://")) ||
+      aPrincipal->IsSystemPrincipal();
 
   nsCString uri(aURI);
   IPC::Principal principal(aPrincipal);
@@ -5752,7 +5720,8 @@ void ContentParent::BroadcastBlobURLUnregistration(
   uint64_t originHash = ComputeLoadedOriginHash(aPrincipal);
 
   bool toBeSent =
-      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://"));
+      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://")) ||
+      aPrincipal->IsSystemPrincipal();
 
   nsCString uri(aURI);
 
@@ -5984,11 +5953,11 @@ nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
 nsresult ContentParent::TransmitPermissionsForPrincipal(
     nsIPrincipal* aPrincipal) {
   // Create the key, and send it down to the content process.
-  nsTArray<Pair<nsCString, nsCString>> pairs =
+  nsTArray<std::pair<nsCString, nsCString>> pairs =
       nsPermissionManager::GetAllKeysForPrincipal(aPrincipal);
   MOZ_ASSERT(pairs.Length() >= 1);
   for (auto& pair : pairs) {
-    EnsurePermissionsByKey(pair.first(), pair.second());
+    EnsurePermissionsByKey(pair.first, pair.second);
   }
 
   return NS_OK;
@@ -6408,6 +6377,20 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyUpdateMediaMetadata(
   if (RefPtr<MediaController> controller =
           aContext.get_canonical()->GetMediaController()) {
     controller->UpdateMetadata(aContext.ContextId(), aMetadata);
+  }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult
+ContentParent::RecvNotifyMediaSessionPlaybackStateChanged(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    MediaSessionPlaybackState aPlaybackState) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+  if (RefPtr<MediaController> controller =
+          aContext.get_canonical()->GetMediaController()) {
+    controller->SetDeclaredPlaybackState(aContext.ContextId(), aPlaybackState);
   }
   return IPC_OK();
 }

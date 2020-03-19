@@ -112,8 +112,8 @@ class ContentChild final
   nsresult ProvideWindowCommon(BrowserChild* aTabOpener,
                                mozIDOMWindowProxy* aParent, bool aIframeMoz,
                                uint32_t aChromeFlags, bool aCalledFromJS,
-                               bool aPositionSpecified, bool aSizeSpecified,
-                               nsIURI* aURI, const nsAString& aName,
+                               bool aWidthSpecified, nsIURI* aURI,
+                               const nsAString& aName,
                                const nsACString& aFeatures, bool aForceNoOpener,
                                bool aForceNoReferrer,
                                nsDocShellLoadState* aLoadState,
@@ -290,12 +290,6 @@ class ContentChild final
 
   PParentToChildStreamChild* AllocPParentToChildStreamChild();
   bool DeallocPParentToChildStreamChild(PParentToChildStreamChild*);
-
-  PPSMContentDownloaderChild* AllocPPSMContentDownloaderChild(
-      const uint32_t& aCertType);
-
-  bool DeallocPPSMContentDownloaderChild(
-      PPSMContentDownloaderChild* aDownloader);
 
   PMediaChild* AllocPMediaChild();
 

@@ -48,7 +48,6 @@
 #include "vm/BytecodeUtil-inl.h"      // for BytecodeRangeWithPosition
 #include "vm/JSAtom-inl.h"            // for ValueToId
 #include "vm/JSObject-inl.h"          // for NewBuiltinClassInstance
-#include "vm/JSScript-inl.h"          // for LazyScript::functionDelazifying
 #include "vm/ObjectOperations-inl.h"  // for GetProperty
 #include "vm/Realm-inl.h"             // for AutoRealm::AutoRealm
 
@@ -135,7 +134,7 @@ static JSScript* DelazifyScript(JSContext* cx, Handle<BaseScript*> script) {
       return nullptr;
     }
 
-    if (!script->enclosingScriptHasEverBeenCompiled()) {
+    if (!script->isReadyForDelazification()) {
       // It didn't work! Delazifying the enclosing script still didn't
       // delazify this script. This happens when the function
       // corresponding to this script was removed by constant folding.

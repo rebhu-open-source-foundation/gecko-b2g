@@ -3001,6 +3001,7 @@ MediaTrackGraphImpl::MediaTrackGraphImpl(GraphDriverType aDriverRequested,
                                          TrackRate aSampleRate,
                                          uint32_t aChannelCount,
                                          dom::AudioChannel aChannel,
+                                         CubebUtils::AudioDeviceID aOutputDeviceID,
                                          AbstractThread* aMainThread)
     : MediaTrackGraph(aSampleRate),
       mGraphRunner(aRunTypeRequested == SINGLE_THREAD
@@ -3012,7 +3013,7 @@ MediaTrackGraphImpl::MediaTrackGraphImpl(GraphDriverType aDriverRequested,
       mEndTime(aDriverRequested == OFFLINE_THREAD_DRIVER ? 0 : GRAPH_TIME_MAX),
       mPortCount(0),
       mInputDeviceID(nullptr),
-      mOutputDeviceID(nullptr),
+      mOutputDeviceID(aOutputDeviceID),
       mMonitor("MediaTrackGraphImpl"),
       mLifecycleState(LIFECYCLE_THREAD_NOT_STARTED),
       mForceShutDown(false),
@@ -3090,24 +3091,26 @@ void MediaTrackGraphImpl::Destroy() {
 
 static uint32_t ChannelAndWindowToHash(dom::AudioChannel aChannel,
                                        nsPIDOMWindowInner* aWindow,
-                                       TrackRate aSampleRate) {
+                                       TrackRate aSampleRate,
+                                       CubebUtils::AudioDeviceID aOutputDeviceID) {
   uint32_t hashkey = 0;
 
   hashkey = AddToHash(hashkey, static_cast<uint32_t>(aChannel));
   hashkey = AddToHash(hashkey, aWindow);
   hashkey = AddToHash(hashkey, aSampleRate);
+  hashkey = AddToHash(hashkey, aOutputDeviceID);
 
   return hashkey;
 }
 
 MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
     dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
-    TrackRate aSampleRate) {
+    TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID) {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   TrackRate sampleRate =
       aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
-  uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate);
+  uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate, aOutputDeviceID);
 
   MediaTrackGraphImpl* graph = nullptr;
   gGraphs.Get(hashkey, &graph);
@@ -3117,14 +3120,14 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
 MediaTrackGraph* MediaTrackGraph::GetInstance(
     MediaTrackGraph::GraphDriverType aGraphDriverRequested,
     dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
-    TrackRate aSampleRate) {
+    TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID) {
   MOZ_ASSERT(NS_IsMainThread(), "Main thread only");
 
   uint32_t channel = static_cast<uint32_t>(aChannel);
   TrackRate sampleRate =
       aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
   MediaTrackGraphImpl* graph = static_cast<MediaTrackGraphImpl*>(
-      GetInstanceIfExists(aChannel, aWindow, sampleRate));
+      GetInstanceIfExists(aChannel, aWindow, sampleRate, aOutputDeviceID));
 
   if (!graph) {
     AbstractThread* mainThread;
@@ -3150,9 +3153,9 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     uint32_t channelCount =
         std::min<uint32_t>(8, CubebUtils::MaxNumberOfChannels());
     graph = new MediaTrackGraphImpl(aGraphDriverRequested, runType, sampleRate,
-                                    channelCount, aChannel, mainThread);
+                                    channelCount, aChannel, aOutputDeviceID, mainThread);
 
-    uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate);
+    uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate, aOutputDeviceID);
     gGraphs.Put(hashkey, graph);
 
     LOG(LogLevel::Debug,
@@ -3179,7 +3182,7 @@ MediaTrackGraph* MediaTrackGraph::CreateNonRealtimeInstance(
   // buffer, not an audio output track.
   MediaTrackGraphImpl* graph =
       new MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aSampleRate,
-                              0, AudioChannel::Normal, mainThread);
+                              0, AudioChannel::Normal, DEFAULT_OUTPUT_DEVICE, mainThread);
 
   LOG(LogLevel::Debug, ("Starting up Offline MediaTrackGraph %p", graph));
 

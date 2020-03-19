@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 const { AppConstants } = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 // eslint-disable-next-line mozilla/use-services
@@ -670,7 +674,9 @@ L10nRegistry.loadSync = function(uri) {
           charset: "UTF-8",
         });
       } catch (e) {
-        Cu.reportError(e);
+        if (e.result != Cr.NS_ERROR_FILE_NOT_FOUND) {
+          Cu.reportError(e);
+        }
       }
     } else if (e.result != Cr.NS_ERROR_FILE_NOT_FOUND) {
       Cu.reportError(e);

@@ -32,7 +32,7 @@ use num_cpus;
 use program_cache::{remove_disk_cache, WrProgramCache};
 use rayon;
 use swgl_bindings::SwCompositor;
-use thread_profiler::register_thread_with_profiler;
+use tracy_rs::register_thread_with_profiler;
 use webrender::{
     api::units::*, api::*, set_profiler_hooks, ApiRecordingReceiver, AsyncPropertySampler, AsyncScreenshotHandle,
     BinaryRecorder, Compositor, CompositorCapabilities, CompositorConfig, DebugFlags, Device, FastHashMap,
@@ -189,22 +189,35 @@ unsafe fn make_slice_mut<'a, T>(ptr: *mut T, len: usize) -> &'a mut [T] {
 pub struct DocumentHandle {
     api: RenderApi,
     document_id: DocumentId,
+    // One of the two options below is Some and the other None at all times.
+    // It would be nice to model with an enum, however it is tricky to express moving
+    // a variant's content into another variant without movign the containing enum.
+    hit_tester_request: Option<HitTesterRequest>,
+    hit_tester: Option<Arc<dyn ApiHitTester>>,
 }
 
 impl DocumentHandle {
-    pub fn new(api: RenderApi, size: DeviceIntSize, layer: i8) -> DocumentHandle {
-        let doc = api.add_document(size, layer);
+    pub fn new(api: RenderApi, hit_tester: Option<Arc<dyn ApiHitTester>>, size: DeviceIntSize, layer: i8, id: u32) -> DocumentHandle {
+        let doc = api.add_document_with_id(size, layer, id);
+        let hit_tester_request = if hit_tester.is_none() {
+            // Request the hit tester early to reduce the likelihood of blocking on the
+            // first hit testing query.
+            Some(api.request_hit_tester(doc))
+        } else {
+            None
+        };
+
         DocumentHandle {
             api: api,
             document_id: doc,
+            hit_tester_request,
+            hit_tester,
         }
     }
 
-    pub fn new_with_id(api: RenderApi, size: DeviceIntSize, layer: i8, id: u32) -> DocumentHandle {
-        let doc = api.add_document_with_id(size, layer, id);
-        DocumentHandle {
-            api: api,
-            document_id: doc,
+    fn ensure_hit_tester(&mut self) {
+        if self.hit_tester.is_none() {
+            self.hit_tester = Some(self.hit_tester_request.take().unwrap().resolve());
         }
     }
 }
@@ -810,6 +823,7 @@ pub unsafe extern "C" fn wr_renderer_flush_pipeline_info(renderer: &mut Renderer
 extern "C" {
     pub fn gecko_profiler_start_marker(name: *const c_char);
     pub fn gecko_profiler_end_marker(name: *const c_char);
+    pub fn gecko_profiler_event_marker(name: *const c_char);
     pub fn gecko_profiler_add_text_marker(
         name: *const c_char,
         text_bytes: *const c_char,
@@ -833,6 +847,12 @@ impl ProfilerHooks for GeckoProfilerHooks {
     fn end_marker(&self, label: &CStr) {
         unsafe {
             gecko_profiler_end_marker(label.as_ptr());
+        }
+    }
+
+    fn event_marker(&self, label: &CStr) {
+        unsafe {
+            gecko_profiler_event_marker(label.as_ptr());
         }
     }
 
@@ -977,58 +997,6 @@ impl AsyncPropertySampler for SamplerCallback {
     fn deregister(&self) {
         unsafe { apz_deregister_sampler(self.window_id) }
     }
-}
-
-// cbindgen's parser currently does not handle the dyn keyword.
-// We work around it by wrapping the referece counted pointer into
-// a struct and boxing it.
-//
-// See https://github.com/eqrion/cbindgen/issues/385
-//
-// Once this is fixed we should be able to pass `*mut dyn ApiHitTester`
-// and avoid the extra indirection.
-pub struct WrHitTester {
-    ptr: Arc<dyn ApiHitTester>,
-}
-
-#[no_mangle]
-pub extern "C" fn wr_api_request_hit_tester(dh: &DocumentHandle) -> *mut WrHitTester {
-    let hit_tester = dh.api.request_hit_tester(dh.document_id);
-    Box::into_raw(Box::new(WrHitTester { ptr: hit_tester }))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wr_hit_tester_clone(hit_tester: *mut WrHitTester) -> *mut WrHitTester {
-    let new_ref = Arc::clone(&(*hit_tester).ptr);
-    Box::into_raw(Box::new(WrHitTester { ptr: new_ref }))
-}
-
-#[no_mangle]
-pub extern "C" fn wr_hit_tester_hit_test(
-    hit_tester: &WrHitTester,
-    point: WorldPoint,
-    out_pipeline_id: &mut WrPipelineId,
-    out_scroll_id: &mut u64,
-    out_hit_info: &mut u16,
-) -> bool {
-    let result = hit_tester.ptr.hit_test(None, point, HitTestFlags::empty());
-
-    for item in &result.items {
-        // For now we should never be getting results back for which the tag is
-        // 0 (== CompositorHitTestInvisibleToHit). In the future if we allow this,
-        // we'll want to |continue| on the loop in this scenario.
-        debug_assert!(item.tag.1 != 0);
-        *out_pipeline_id = item.pipeline;
-        *out_scroll_id = item.tag.0;
-        *out_hit_info = item.tag.1;
-        return true;
-    }
-    return false;
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wr_hit_tester_delete(hit_tester: *mut WrHitTester) {
-    let _ = Box::from_raw(hit_tester);
 }
 
 extern "C" {
@@ -1502,8 +1470,9 @@ pub extern "C" fn wr_window_new(
         *out_max_texture_size = renderer.get_max_texture_size();
     }
     let layer = 0;
-    *out_handle = Box::into_raw(Box::new(DocumentHandle::new_with_id(
+    *out_handle = Box::into_raw(Box::new(DocumentHandle::new(
         sender.create_api_by_client(next_namespace_id()),
+        None,
         window_size,
         layer,
         document_id,
@@ -1523,8 +1492,11 @@ pub extern "C" fn wr_api_create_document(
 ) {
     assert!(unsafe { is_in_compositor_thread() });
 
-    *out_handle = Box::into_raw(Box::new(DocumentHandle::new_with_id(
+    root_dh.ensure_hit_tester();
+
+    *out_handle = Box::into_raw(Box::new(DocumentHandle::new(
         root_dh.api.clone_sender().create_api_by_client(next_namespace_id()),
+        root_dh.hit_tester.clone(),
         doc_size,
         layer,
         document_id,
@@ -1540,9 +1512,13 @@ pub unsafe extern "C" fn wr_api_delete_document(dh: &mut DocumentHandle) {
 pub extern "C" fn wr_api_clone(dh: &mut DocumentHandle, out_handle: &mut *mut DocumentHandle) {
     assert!(unsafe { is_in_compositor_thread() });
 
+    dh.ensure_hit_tester();
+
     let handle = DocumentHandle {
         api: dh.api.clone_sender().create_api_by_client(next_namespace_id()),
         document_id: dh.document_id,
+        hit_tester: dh.hit_tester.clone(),
+        hit_tester_request: None,
     };
     *out_handle = Box::into_raw(Box::new(handle));
 }
@@ -2220,7 +2196,6 @@ pub struct WrState {
     pipeline_id: WrPipelineId,
     frame_builder: WebRenderFrameBuilder,
     current_tag: Option<ItemTag>,
-    current_item_key: Option<ItemKey>,
 }
 
 #[no_mangle]
@@ -2231,7 +2206,6 @@ pub extern "C" fn wr_state_new(pipeline_id: WrPipelineId, content_size: LayoutSi
         pipeline_id: pipeline_id,
         frame_builder: WebRenderFrameBuilder::with_capacity(pipeline_id, content_size, capacity),
         current_tag: None,
-        current_item_key: None,
     });
 
     Box::into_raw(state)
@@ -2607,7 +2581,6 @@ fn common_item_properties_for_rect(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     }
 }
 
@@ -2678,7 +2651,6 @@ pub extern "C" fn wr_dp_push_rect_with_parent_clip(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_rect(&prim_info, color);
@@ -2729,7 +2701,6 @@ pub extern "C" fn wr_dp_push_backdrop_filter_with_parent_clip(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -2760,7 +2731,6 @@ pub extern "C" fn wr_dp_push_clear_rect(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(true, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_clear_rect(&prim_info);
@@ -2789,7 +2759,6 @@ pub extern "C" fn wr_dp_push_hit_test(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_hit_test(&prim_info);
@@ -2817,7 +2786,6 @@ pub extern "C" fn wr_dp_push_clear_rect_with_parent_clip(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(true, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_clear_rect(&prim_info);
@@ -2846,7 +2814,6 @@ pub extern "C" fn wr_dp_push_image(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     let alpha_type = if premultiplied_alpha {
@@ -2885,7 +2852,6 @@ pub extern "C" fn wr_dp_push_repeating_image(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     let alpha_type = if premultiplied_alpha {
@@ -2933,7 +2899,6 @@ pub extern "C" fn wr_dp_push_yuv_planar_image(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_yuv_image(
@@ -2973,7 +2938,6 @@ pub extern "C" fn wr_dp_push_yuv_NV12_image(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_yuv_image(
@@ -3012,7 +2976,6 @@ pub extern "C" fn wr_dp_push_yuv_interleaved_image(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, prefer_compositor_surface),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_yuv_image(
@@ -3051,7 +3014,6 @@ pub extern "C" fn wr_dp_push_text(
         clip_id: space_and_clip.clip_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3109,7 +3071,6 @@ pub extern "C" fn wr_dp_push_line(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3152,7 +3113,6 @@ pub extern "C" fn wr_dp_push_border(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3202,7 +3162,6 @@ pub extern "C" fn wr_dp_push_border_image(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3261,7 +3220,6 @@ pub extern "C" fn wr_dp_push_border_gradient(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3324,7 +3282,6 @@ pub extern "C" fn wr_dp_push_border_radial_gradient(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3386,7 +3343,6 @@ pub extern "C" fn wr_dp_push_border_conic_gradient(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3430,7 +3386,6 @@ pub extern "C" fn wr_dp_push_linear_gradient(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3474,7 +3429,6 @@ pub extern "C" fn wr_dp_push_radial_gradient(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3517,7 +3471,6 @@ pub extern "C" fn wr_dp_push_conic_gradient(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state
@@ -3551,7 +3504,6 @@ pub extern "C" fn wr_dp_push_box_shadow(
         spatial_id: space_and_clip.spatial_id,
         flags: prim_flags(is_backface_visible, /* prefer_compositor_surface */ false),
         hit_info: state.current_tag,
-        item_key: state.current_item_key,
     };
 
     state.frame_builder.dl_builder.push_box_shadow(
@@ -3567,20 +3519,20 @@ pub extern "C" fn wr_dp_push_box_shadow(
 }
 
 #[no_mangle]
-pub extern "C" fn wr_dp_start_item_group(state: &mut WrState, key: ItemKey) {
-    state.current_item_key = Some(key);
-    state.frame_builder.dl_builder.start_item_group(key);
+pub extern "C" fn wr_dp_start_item_group(state: &mut WrState) {
+    state.frame_builder.dl_builder.start_item_group();
 }
 
 #[no_mangle]
 pub extern "C" fn wr_dp_cancel_item_group(state: &mut WrState) {
-    state.current_item_key = None;
     state.frame_builder.dl_builder.cancel_item_group();
 }
 
 #[no_mangle]
-pub extern "C" fn wr_dp_finish_item_group(state: &mut WrState, key: ItemKey) -> bool {
-    state.current_item_key = None;
+pub extern "C" fn wr_dp_finish_item_group(
+    state: &mut WrState,
+    key: ItemKey
+) -> bool {
     state.frame_builder.dl_builder.finish_item_group(key)
 }
 
@@ -3669,7 +3621,14 @@ pub extern "C" fn wr_api_hit_test(
     out_scroll_id: &mut u64,
     out_hit_info: &mut u16,
 ) -> bool {
-    let result = dh.api.hit_test(dh.document_id, None, point, HitTestFlags::empty());
+    dh.ensure_hit_tester();
+
+    let result = dh.hit_tester.as_ref().unwrap().hit_test(
+        None,
+        point,
+        HitTestFlags::empty()
+    );
+
     for item in &result.items {
         // For now we should never be getting results back for which the tag is
         // 0 (== CompositorHitTestInvisibleToHit). In the future if we allow this,
@@ -3680,7 +3639,8 @@ pub extern "C" fn wr_api_hit_test(
         *out_hit_info = item.tag.1;
         return true;
     }
-    return false;
+
+    false
 }
 
 pub type VecU8 = Vec<u8>;

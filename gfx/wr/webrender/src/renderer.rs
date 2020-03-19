@@ -78,7 +78,7 @@ use crate::picture::{RecordedDirtyRegion, tile_cache_sizes, ResolvedSurfaceTextu
 use crate::prim_store::DeferredResolve;
 use crate::profiler::{BackendProfileCounters, FrameProfileCounters, TimeProfileCounter,
                GpuProfileTag, RendererProfileCounters, RendererProfileTimers};
-use crate::profiler::{Profiler, ChangeIndicator, ProfileStyle};
+use crate::profiler::{Profiler, ChangeIndicator, ProfileStyle, add_event_marker};
 use crate::device::query::{GpuProfiler, GpuDebugMethod};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use crate::record::ApiRecordingReceiver;
@@ -96,6 +96,7 @@ use crate::render_target::{RenderTarget, TextureCacheRenderTarget, RenderTargetL
 use crate::render_target::{RenderTargetKind, BlitJob, BlitJobSource};
 use crate::render_task_graph::RenderPassKind;
 use crate::util::drain_filter;
+use crate::c_str;
 
 use std;
 use std::cmp;
@@ -112,7 +113,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::cell::RefCell;
-use thread_profiler::{register_thread_with_profiler, write_profile};
+use tracy_rs::register_thread_with_profiler;
 use time::precise_time_ns;
 
 cfg_if! {
@@ -2033,6 +2034,16 @@ impl Renderer {
         start_size: DeviceIntSize,
     ) -> Result<(Self, RenderApiSender), RendererError> {
         if !wr_has_been_initialized() {
+            // If the profiler feature is enabled, try to load the profiler shared library
+            // if the path was provided.
+            #[cfg(feature = "profiler")]
+            unsafe {
+                if let Ok(ref tracy_path) = std::env::var("WR_TRACY_PATH") {
+                    let ok = tracy_rs::load(tracy_path);
+                    println!("Load tracy from {} -> {}", tracy_path, ok);
+                }
+            }
+
             register_thread_with_profiler("Compositor".to_owned());
         }
 
@@ -3051,6 +3062,8 @@ impl Renderer {
         // event. Otherwise they would just pile up in this vector forever.
         self.notifications.clear();
 
+        tracy_frame_marker!();
+
         result
     }
 
@@ -3569,6 +3582,12 @@ impl Renderer {
         upload_time.profile(|| {
             for update_list in pending_texture_updates.drain(..) {
                 for allocation in update_list.allocations {
+                    match allocation.kind {
+                        TextureCacheAllocationKind::Alloc(_) => add_event_marker(c_str!("TextureCacheAlloc")),
+                        TextureCacheAllocationKind::Realloc(_) => add_event_marker(c_str!("TextureCacheRealloc")),
+                        TextureCacheAllocationKind::Reset(_) => add_event_marker(c_str!("TextureCacheReset")),
+                        TextureCacheAllocationKind::Free => add_event_marker(c_str!("TextureCacheFree")),
+                    };
                     let old = match allocation.kind {
                         TextureCacheAllocationKind::Alloc(ref info) |
                         TextureCacheAllocationKind::Realloc(ref info) |
@@ -5936,10 +5955,6 @@ impl Renderer {
         }
 
         self.debug_flags = flags;
-    }
-
-    pub fn save_cpu_profile(&self, filename: &str) {
-        write_profile(filename);
     }
 
     fn draw_frame_debug_items(&mut self, items: &[DebugItem]) {

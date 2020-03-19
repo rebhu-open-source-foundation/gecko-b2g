@@ -3892,7 +3892,8 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStream(
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
       graphDriverType, mAudioChannel, window,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
+      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
@@ -3924,7 +3925,8 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStreamUntilEnded(
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
       graphDriverType, mAudioChannel, window,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
+      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::FINISH_WHEN_ENDED,
@@ -4130,7 +4132,7 @@ HTMLMediaElement::HTMLMediaElement(
       mAudioChannel(AudioChannelService::GetDefaultAudioChannel()),
       mErrorSink(new ErrorSink(this)),
       mAudioChannelWrapper(new AudioChannelAgentCallback(this, mAudioChannel)),
-      mSink(MakePair(nsString(), RefPtr<AudioDeviceInfo>())),
+      mSink(std::pair(nsString(), RefPtr<AudioDeviceInfo>())),
       mShowPoster(IsVideo()) {
   MOZ_ASSERT(mMainThreadEventTarget);
   MOZ_ASSERT(mAbstractMainThread);
@@ -5188,9 +5190,9 @@ nsresult HTMLMediaElement::FinishDecoderSetup(MediaDecoder* aDecoder) {
   NotifyDecoderPrincipalChanged();
 
   // Set sink device if we have one. Otherwise the default is used.
-  if (mSink.second()) {
+  if (mSink.second) {
     mDecoder
-        ->SetSink(mSink.second())
+        ->SetSink(mSink.second)
 #ifdef DEBUG
         ->Then(mAbstractMainThread, __func__,
                [](const GenericPromise::ResolveOrRejectValue& aValue) {
@@ -5268,7 +5270,7 @@ void HTMLMediaElement::UpdateSrcMediaStreamPlaying(uint32_t aFlags) {
       mMediaStreamRenderer->Start();
     }
 
-    if (mSink.second()) {
+    if (mSink.second) {
       NS_WARNING(
           "setSinkId() when playing a MediaStream is not supported yet and "
           "will be ignored");
@@ -7504,7 +7506,8 @@ void HTMLMediaElement::AudioCaptureTrackChange(bool aCapture) {
 
     MediaTrackGraph* mtg = MediaTrackGraph::GetInstance(
         MediaTrackGraph::AUDIO_THREAD_DRIVER, mAudioChannel, window,
-        MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE);
+        MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+        MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
     RefPtr<DOMMediaStream> stream =
         CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
                               StreamCaptureType::CAPTURE_AUDIO, mtg);
@@ -7786,7 +7789,7 @@ already_AddRefed<Promise> HTMLMediaElement::SetSinkId(const nsAString& aSinkId,
     return nullptr;
   }
 
-  if (mSink.first().Equals(aSinkId)) {
+  if (mSink.first.Equals(aSinkId)) {
     promise->MaybeResolveWithUndefined();
     return promise.forget();
   }
@@ -7827,7 +7830,7 @@ already_AddRefed<Promise> HTMLMediaElement::SetSinkId(const nsAString& aSinkId,
              [promise, self = RefPtr<HTMLMediaElement>(this),
               sinkId](const SinkInfoPromise::ResolveOrRejectValue& aValue) {
                if (aValue.IsResolve()) {
-                 self->mSink = MakePair(sinkId, aValue.ResolveValue());
+                 self->mSink = std::pair(sinkId, aValue.ResolveValue());
                  promise->MaybeResolveWithUndefined();
                } else {
                  switch (aValue.RejectValue()) {

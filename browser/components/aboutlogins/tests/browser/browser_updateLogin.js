@@ -30,6 +30,10 @@ add_task(async function test_show_logins() {
 });
 
 add_task(async function test_login_item() {
+  if (!OSKeyStoreTestUtils.canTestOSKeyStoreLogin()) {
+    return;
+  }
+
   async function test_discard_dialog(login, exitPointSelector) {
     let loginItem = Cu.waiveXrays(content.document.querySelector("login-item"));
     let loginList = Cu.waiveXrays(content.document.querySelector("login-list"));
@@ -149,7 +153,9 @@ add_task(async function test_login_item() {
     [LoginHelper.loginToVanillaObject(TEST_LOGIN1), ".create-login-button"],
     test_discard_dialog
   );
-  reauthObserved = OSKeyStoreTestUtils.waitForOSKeyStoreLogin(true);
+  reauthObserved = forceAuthTimeoutAndWaitForOSKeyStoreLogin({
+    loginResult: true,
+  });
   await SpecialPowers.spawn(browser, [], async () => {
     let loginItem = Cu.waiveXrays(content.document.querySelector("login-item"));
     let editButton = loginItem.shadowRoot.querySelector(".edit-button");
@@ -162,7 +168,9 @@ add_task(async function test_login_item() {
     [LoginHelper.loginToVanillaObject(TEST_LOGIN1), ".cancel-button"],
     test_discard_dialog
   );
-  reauthObserved = OSKeyStoreTestUtils.waitForOSKeyStoreLogin(true);
+  reauthObserved = forceAuthTimeoutAndWaitForOSKeyStoreLogin({
+    loginResult: true,
+  });
   await SpecialPowers.spawn(browser, [], async () => {
     let loginItem = Cu.waiveXrays(content.document.querySelector("login-item"));
     let editButton = loginItem.shadowRoot.querySelector(".edit-button");
@@ -241,7 +249,9 @@ add_task(async function test_login_item() {
       );
     }
   );
-  reauthObserved = OSKeyStoreTestUtils.waitForOSKeyStoreLogin(true);
+  reauthObserved = forceAuthTimeoutAndWaitForOSKeyStoreLogin({
+    loginResult: true,
+  });
   await SpecialPowers.spawn(browser, [], async () => {
     let loginItem = Cu.waiveXrays(content.document.querySelector("login-item"));
     let editButton = loginItem.shadowRoot.querySelector(".edit-button");

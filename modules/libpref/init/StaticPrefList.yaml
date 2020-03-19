@@ -1372,6 +1372,13 @@
   value: true
   mirror: always
 
+# Synchronize transform animations with geometric animations on the
+# main thread.
+- name: dom.animations.mainthread-synchronization-with-geometric-animations
+  type: bool
+  value: true
+  mirror: always
+
 # Is support for AudioWorklet enabled?
 - name: dom.audioworklet.enabled
   type: bool
@@ -2454,6 +2461,13 @@
   value: false
   mirror: always
 
+# If true, all content requests will get upgraded to HTTPS://
+# (some Firefox functionality requests, like OCSP will not be affected)
+- name: dom.security.https_only_mode
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Is support for selection event APIs enabled?
 - name: dom.select_events.enabled
   type: bool
@@ -2464,6 +2478,11 @@
   type: bool
   value: true
   mirror: always
+
+- name: dom.arena_allocator.enabled
+  type: bool
+  value: false
+  mirror: once
 
 - name: dom.serviceWorkers.enabled
   type: RelaxedAtomicBool
@@ -4087,7 +4106,11 @@
 
 - name: gfx.webrender.max-partial-present-rects
   type: uint32_t
+#if defined(XP_WIN)
+  value: 1
+#else
   value: 0
+#endif
   mirror: once
 
 - name: gfx.webrender.enable-gpu-markers
@@ -4101,7 +4124,7 @@
 
 - name: gfx.webrender.enable-item-cache
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: once
 
 #ifdef NIGHTLY_BUILD
@@ -4501,7 +4524,7 @@
 
 #ifdef NIGHTLY_BUILD
   # Experimental support for weak references in JavaScript (WeakRef and
-  # FinalizationGroup).
+  # FinalizationRegistry).
 - name: javascript.options.experimental.weakrefs
   type: RelaxedAtomicBool
   value: false
@@ -8623,11 +8646,7 @@
 # Global user preference for disabling native theme in content processes.
 - name: widget.disable-native-theme-for-content
   type: bool
-#if defined(ANDROID)
-  value: @IS_NIGHTLY_BUILD@
-#else
-  value: false
-#endif
+  value: @IS_ANDROID@
   mirror: always
 
 # Preference to disable dark scrollbar implementation.
@@ -8683,15 +8702,6 @@
 - name: widget.wayland-dmabuf-vaapi.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-
-# Wayland basic (non-accelerated) compositor cache mode.
-# 0 = Default (everything is cached).
-# 1 = Cache only missing drawing.
-# 2 = No cache
-- name: widget.wayland-cache-mode
-  type: RelaxedAtomicInt32
-  value: 0
   mirror: always
 #endif
 

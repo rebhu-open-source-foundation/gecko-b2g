@@ -1336,7 +1336,7 @@
     MACRO(IsNoIter, is_no_iter, NULL, 1, 1, 2, JOF_BYTE) \
     /*
      * No-op instruction to hint to IonBuilder that the value on top of the
-     * stack is the (likely string) key in a for-in loop.
+     * stack is the string key in a for-in loop.
      *
      *   Category: Objects
      *   Type: Enumeration
@@ -3306,6 +3306,10 @@
      * Functions that have a `this` binding have a local variable named
      * `".this"`, which is initialized using this instruction in the function
      * prologue.
+     *
+     * In non-strict functions, `this` is always an object. Undefined/null
+     * `this` is converted into the global `this` value. Other primitive values
+     * are boxed. See `js::BoxNonStrictThis`.
      *
      *   Category: Variables and scopes
      *   Type: Function environment setup

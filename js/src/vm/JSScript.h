@@ -68,7 +68,6 @@ class JitScript;
 }  // namespace jit
 
 class AutoSweepJitScript;
-class LazyScript;
 class ModuleObject;
 class RegExpObject;
 class ScriptSourceHolder;
@@ -1994,6 +1993,8 @@ using RuntimeScriptDataTable =
 //
 // NOTE: These are counted in Code Units from the start of the script source.
 struct SourceExtent {
+  SourceExtent() = default;
+
   SourceExtent(uint32_t sourceStart, uint32_t sourceEnd, uint32_t toStringStart,
                uint32_t toStringEnd, uint32_t lineno, uint32_t column)
       : sourceStart(sourceStart),
@@ -2082,6 +2083,21 @@ class BaseScript : public gc::TenuredCell {
   }
 
  public:
+  // Create a lazy BaseScript without initializing any gc-things.
+  static BaseScript* CreateRawLazy(JSContext* cx, uint32_t ngcthings,
+                                   HandleFunction fun,
+                                   HandleScriptSourceObject sourceObject,
+                                   const SourceExtent& extent);
+
+  // Create a lazy BaseScript and initialize gc-things with provided
+  // closedOverBindings and innerFunctions.
+  static BaseScript* CreateLazy(
+      JSContext* cx, const frontend::CompilationInfo& compilationInfo,
+      HandleFunction fun, HandleScriptSourceObject sourceObject,
+      const frontend::AtomVector& closedOverBindings,
+      const Vector<frontend::FunctionIndex>& innerFunctionIndexes,
+      const SourceExtent& extent);
+
   uint8_t* jitCodeRaw() const { return jitCodeRaw_; }
   bool isUsingInterpreterTrampoline(JSRuntime* rt) const;
 
@@ -2129,11 +2145,10 @@ class BaseScript : public gc::TenuredCell {
 #if defined(JS_BUILD_BINAST)
   // Set the position of the function in the source code.
   //
-  // BinAST file format can put lazy functions after the entire tree,
-  // and in that case LazyScript::Create will be called with
-  // dummy values for those positions, and then once it reaches to the lazy
-  // function part, this function is called to set those positions to
-  // correct value.
+  // BinAST file format can put lazy functions after the entire tree, and in
+  // that case BaseScript::CreateLazy will be called with dummy values for those
+  // positions, and then once it reaches to the lazy function part, this
+  // function is called to set those positions to correct value.
   void setPositions(uint32_t sourceStart, uint32_t sourceEnd,
                     uint32_t toStringStart, uint32_t toStringEnd) {
     MOZ_ASSERT(toStringStart <= sourceStart);
@@ -2260,7 +2275,6 @@ setterLevel:                                                                  \
   // NeedsArgsObj: custom logic below.
   MUTABLE_FLAG_GETTER_SETTER(hideScriptFromDebugger, HideScriptFromDebugger)
   MUTABLE_FLAG_GETTER_SETTER(spewEnabled, SpewEnabled)
-  MUTABLE_FLAG_GETTER_SETTER(isLazyScript, IsLazyScript)
 
 #undef IMMUTABLE_FLAG_GETTER
 #undef IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC
@@ -2307,11 +2321,12 @@ setterLevel:                                                                  \
   }
   void setEnclosingScript(BaseScript* enclosingScript);
 
-  // Returns true if the enclosing script has ever been compiled. Once the
-  // enclosing script is compiled, the scope chain is created. This BaseScript
-  // is delazify-able as long as it has the enclosing scope, even if the
-  // enclosing JSScript is GCed.
-  bool enclosingScriptHasEverBeenCompiled() const {
+  // Returns true is the script has an enclosing scope but no bytecode. It is
+  // ready for delazification.
+  // NOTE: The enclosing script must have been successfully compiled at some
+  // point for the enclosing scope to exist. That script may have since been
+  // GC'd, but we kept the scope live so we can still compile ourselves.
+  bool isReadyForDelazification() const {
     return warmUpData_.isEnclosingScope();
   }
 
@@ -2332,13 +2347,16 @@ setterLevel:                                                                  \
   Scope* releaseEnclosingScope();
 
   bool hasJitScript() const { return warmUpData_.isJitScript(); }
-  js::jit::JitScript* jitScript() const {
+  jit::JitScript* jitScript() const {
     MOZ_ASSERT(hasJitScript());
     return warmUpData_.toJitScript();
   }
-  js::jit::JitScript* maybeJitScript() const {
+  jit::JitScript* maybeJitScript() const {
     return hasJitScript() ? jitScript() : nullptr;
   }
+
+  inline bool hasBaselineScript() const;
+  inline bool hasIonScript() const;
 
   bool hasPrivateScriptData() const { return data_ != nullptr; }
 
@@ -2361,6 +2379,8 @@ setterLevel:                                                                  \
   RuntimeScriptData* sharedData() const { return sharedData_; }
   void freeSharedData() { sharedData_ = nullptr; }
 
+  // NOTE: Script only has bytecode if JSScript::fullyInitFromStencil completes
+  // successfully.
   bool hasBytecode() const {
     if (sharedData_) {
       MOZ_ASSERT(data_);
@@ -2381,6 +2401,12 @@ setterLevel:                                                                  \
   }
 
   inline JSScript* asJSScript();
+
+  template <XDRMode mode>
+  static XDRResult XDRLazyScriptData(XDRState<mode>* xdr,
+                                     HandleScriptSourceObject sourceObject,
+                                     Handle<BaseScript*> lazy,
+                                     bool hasFieldInitializer);
 
   // JIT accessors
   static constexpr size_t offsetOfJitCodeRaw() {
@@ -2418,7 +2444,7 @@ XDRResult XDRScript(XDRState<mode>* xdr, HandleScope enclosingScope,
 template <XDRMode mode>
 XDRResult XDRLazyScript(XDRState<mode>* xdr, HandleScope enclosingScope,
                         HandleScriptSourceObject sourceObject,
-                        HandleFunction fun, MutableHandle<LazyScript*> lazy);
+                        HandleFunction fun, MutableHandle<BaseScript*> lazy);
 
 /*
  * Code any constant value.
@@ -2543,12 +2569,6 @@ class JSScript : public js::BaseScript {
   }
 
   js::BytecodeLocation location() { return js::BytecodeLocation(this, code()); }
-
-  bool isUncompleted() const {
-    // code() becomes non-null only if this script is complete.
-    // See the comment in JSScript::fullyInitFromStencil.
-    return !code();
-  }
 
   size_t length() const {
     MOZ_ASSERT(sharedData_);
@@ -2764,9 +2784,6 @@ class JSScript : public js::BaseScript {
   void releaseJitScript(JSFreeOp* fop);
   void releaseJitScriptOnFinalize(JSFreeOp* fop);
 
-  inline bool hasBaselineScript() const;
-  inline bool hasIonScript() const;
-
   inline js::jit::BaselineScript* baselineScript() const;
   inline js::jit::IonScript* ionScript() const;
 
@@ -2829,7 +2846,7 @@ class JSScript : public js::BaseScript {
 
   inline js::LexicalScope* maybeNamedLambdaScope() const;
 
-  // Drop script data and set the IsLazyScript flag.
+  // Drop script data and reset warmUpData to reference enclosing scope.
   void relazify(JSRuntime* rt);
 
  private:
@@ -3066,139 +3083,6 @@ class JSScript : public js::BaseScript {
 
 namespace js {
 
-// Information about a script which may be (or has been) lazily compiled to
-// bytecode from its source.
-class LazyScript : public BaseScript {
-  // The BaseScript::warmUpData_ field is used as follows:
-  //   * LazyScript in which the script is nested.  This case happens if the
-  //     enclosing script is lazily parsed and have never been compiled.
-  //
-  //     This is used by the debugger to delazify the enclosing scripts
-  //     recursively.  The all ancestor LazyScripts in this linked-list are
-  //     kept alive as long as this LazyScript is alive, which doesn't result
-  //     in keeping them unnecessarily alive outside of the debugger for the
-  //     following reasons:
-  //
-  //       * Outside of the debugger, a LazyScript is visible to user (which
-  //         means the LazyScript can be pointed from somewhere else than the
-  //         enclosing script) only if the enclosing script is compiled and
-  //         executed.  While compiling the enclosing script, this field is
-  //         changed to point the enclosing scope.  So the enclosing
-  //         LazyScript is no more in the list.
-  //       * Before the enclosing script gets compiled, this LazyScript is
-  //         kept alive only if the outermost LazyScript in the list is kept
-  //         alive.
-  //       * Once this field is changed to point the enclosing scope, this
-  //         field will never point the enclosing LazyScript again, since
-  //         relazification is not performed on non-leaf scripts.
-  //
-  //   * Scope in which the script is nested.  This case happens if the
-  //     enclosing script has ever been compiled.
-  //
-  //   * nullptr for incomplete (initial or failure) state
-  //      NOTE: We currently represent this as WarmUpCount(0) inside the
-  //      ScriptWarmUpData tagged pointer.
-  //
-  // This field should be accessed via accessors:
-  //   * enclosingScope
-  //   * setEnclosingScope (cannot be called twice)
-  //   * enclosingLazyScript
-  //   * setEnclosingLazyScript (cannot be called twice)
-  // after checking:
-  //   * hasEnclosingLazyScript
-  //   * hasEnclosingScope
-  //
-  // The transition of fields are following:
-  //
-  //  o                               o
-  //  | when function is lazily       | when decoded from XDR,
-  //  | parsed inside a function      | and enclosing script is lazy
-  //  | which is lazily parsed        | (CreateForXDR without enclosingScope)
-  //  | (Create)                      |
-  //  v                               v
-  // +---------+                     +---------+
-  // | nullptr |                     | nullptr |
-  // +---------+                     +---------+
-  //  |                               |
-  //  | when enclosing function is    | when enclosing script is decoded
-  //  | lazily parsed and this        | and this script's function is put
-  //  | script's function is put      | into innerFunctions()
-  //  | into innerFunctions()         | (setEnclosingLazyScript)
-  //  | (setEnclosingLazyScript)      |
-  //  |                               |
-  //  |                               |     o
-  //  |                               |     | when function is lazily
-  //  |                               |     | parsed inside a function
-  //  |                               |     | which is eagerly parsed
-  //  |                               |     | (Create)
-  //  v                               |     v
-  // +----------------------+         |    +---------+
-  // | enclosing LazyScript |<--------+    | nullptr |
-  // +----------------------+              +---------+
-  //  |                                     |
-  //  v                                     |
-  //  +<------------------------------------+
-  //  |
-  //  | when the enclosing script     o
-  //  | is successfully compiled      | when decoded from XDR,
-  //  | (setEnclosingScope)           | and enclosing script is not lazy
-  //  v                               | (CreateForXDR with enclosingScope)
-  // +-----------------+              |
-  // | enclosing Scope |<-------------+
-  // +-----------------+
-
-  static const uint32_t NumClosedOverBindingsBits = 20;
-  static const uint32_t NumInnerFunctionsBits = 20;
-
-  using BaseScript::BaseScript;
-
-  // Create a LazyScript without initializing the closedOverBindings and the
-  // innerFunctions. To be GC-safe, the caller must initialize both vectors
-  // with valid atoms and functions.
-  static LazyScript* CreateRaw(JSContext* cx, uint32_t ngcthings,
-                               HandleFunction fun,
-                               HandleScriptSourceObject sourceObject,
-                               const SourceExtent& extent);
-
- public:
-  static const uint32_t NumClosedOverBindingsLimit =
-      1 << NumClosedOverBindingsBits;
-  static const uint32_t NumInnerFunctionsLimit = 1 << NumInnerFunctionsBits;
-
-  // Create a LazyScript and initialize closedOverBindings and innerFunctions
-  // with the provided vectors.
-  static LazyScript* Create(
-      JSContext* cx, const frontend::CompilationInfo& compilationInfo,
-      HandleFunction fun, HandleScriptSourceObject sourceObject,
-      const frontend::AtomVector& closedOverBindings,
-      const Vector<frontend::FunctionIndex>& innerFunctionIndexes,
-      const SourceExtent& extent);
-
-  // Create a LazyScript and initialize the closedOverBindings and the
-  // innerFunctions with dummy values to be replaced in a later initialization
-  // phase.
-  //
-  // The "script" argument to this function can be null.  If it's non-null,
-  // then this LazyScript should be associated with the given JSScript.
-  //
-  // The sourceObject and enclosingScope arguments may be null if the
-  // enclosing function is also lazy.
-  static LazyScript* CreateForXDR(JSContext* cx, uint32_t ngcthings,
-                                  HandleFunction fun, HandleScript script,
-                                  HandleScope enclosingScope,
-                                  HandleScriptSourceObject sourceObject,
-                                  uint32_t immutableFlags, uint32_t sourceStart,
-                                  uint32_t sourceEnd, uint32_t toStringStart,
-                                  uint32_t toStringEnd, uint32_t lineno,
-                                  uint32_t column);
-
-  template <XDRMode mode>
-  static XDRResult XDRScriptData(XDRState<mode>* xdr,
-                                 HandleScriptSourceObject sourceObject,
-                                 Handle<LazyScript*> lazy,
-                                 bool hasFieldInitializer);
-};
-
 struct ScriptAndCounts {
   /* This structure is stored and marked from the JSRuntime. */
   JSScript* script;
@@ -3274,8 +3158,6 @@ JSScript* CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
 
 } /* namespace js */
 
-// JS::ubi::Nodes can point to js::LazyScripts; they're js::gc::Cell instances
-// with no associated compartment.
 namespace JS {
 namespace ubi {
 

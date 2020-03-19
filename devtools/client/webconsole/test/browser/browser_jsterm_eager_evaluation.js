@@ -23,7 +23,6 @@ const EAGER_EVALUATION_PREF = "devtools.webconsole.input.eagerEvaluation";
 // eagerly evaluated should show their results, and expressions with side
 // effects should not perform those side effects.
 add_task(async function() {
-  await pushPref(EAGER_EVALUATION_PREF, true);
   const hud = await openNewTabAndConsole(TEST_URI);
 
   // Do an evaluation to populate $_
@@ -228,7 +227,6 @@ add_task(async function() {
 
 // Test that the currently selected autocomplete result is eagerly evaluated.
 add_task(async function() {
-  await pushPref(EAGER_EVALUATION_PREF, true);
   const hud = await openNewTabAndConsole(TEST_URI);
   const { jsterm } = hud;
 
@@ -259,20 +257,28 @@ add_task(async function() {
   await waitForEagerEvaluationResult(hud, `"B"`);
 
   // closing the autocomplete popup updates the eager evaluation result
-  const onPopupClose = popup.once("popup-closed");
+  let onPopupClose = popup.once("popup-closed");
   EventUtils.synthesizeKey("KEY_Escape");
   await onPopupClose;
   await waitForNoEagerEvaluationResult(hud);
+
+  info(
+    "Check that closing the popup by adding a space will update the instant eval result"
+  );
+  await setInputValueForAutocompletion(hud, "x");
+  await waitForEagerEvaluationResult(hud, "3");
+
+  EventUtils.synthesizeKey("KEY_ArrowDown");
+  // Navigates to the XMLDocument item in the popup
+  await waitForEagerEvaluationResult(hud, `function ()`);
+
+  onPopupClose = popup.once("popup-closed");
+  EventUtils.sendString(" ");
+  await waitForEagerEvaluationResult(hud, `3`);
 });
 
 // Test that the setting works as expected.
 add_task(async function() {
-  // Settings is only enabled on Nightly at the moment.
-  if (!AppConstants.NIGHTLY_BUILD) {
-    ok(true);
-    return;
-  }
-
   // start with the pref off.
   await pushPref(EAGER_EVALUATION_PREF, false);
   const hud = await openNewTabAndConsole(TEST_URI);

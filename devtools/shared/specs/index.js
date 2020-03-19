@@ -23,11 +23,6 @@ const Types = (exports.__TypesForTests = [
     front: "devtools/shared/fronts/accessibility",
   },
   {
-    types: ["actorActor", "actorRegistry"],
-    spec: "devtools/shared/specs/actor-registry",
-    front: "devtools/shared/fronts/actor-registry",
-  },
-  {
     types: ["addons"],
     spec: "devtools/shared/specs/addon/addons",
     front: "devtools/shared/fronts/addon/addons",
@@ -190,6 +185,11 @@ const Types = (exports.__TypesForTests = [
     front: "devtools/shared/fronts/responsive",
   },
   {
+    types: ["root"],
+    spec: "devtools/shared/specs/root",
+    front: "devtools/shared/fronts/root",
+  },
+  {
     types: ["screenshot"],
     spec: "devtools/shared/specs/screenshot",
     front: "devtools/shared/fronts/screenshot",
@@ -340,7 +340,8 @@ function lazyLoadSpec(type) {
       require(modulePath);
     } catch (e) {
       throw new Error(
-        `Unable to load lazy spec module '${modulePath}' for type '${type}'`
+        `Unable to load lazy spec module '${modulePath}' for type '${type}'.
+        Error: ${e}`
       );
     }
     lazySpecs.delete(type);

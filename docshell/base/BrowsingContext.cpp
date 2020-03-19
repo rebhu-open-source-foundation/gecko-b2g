@@ -125,6 +125,36 @@ CanonicalBrowsingContext* BrowsingContext::Canonical() {
   return CanonicalBrowsingContext::Cast(this);
 }
 
+bool BrowsingContext::SameOriginWithTop() {
+  MOZ_ASSERT(IsInProcess());
+  // If the top BrowsingContext is not same-process to us, it is cross-origin
+  if (!Top()->IsInProcess()) {
+    return false;
+  }
+
+  nsIDocShell* docShell = GetDocShell();
+  if (!docShell) {
+    return false;
+  }
+  Document* doc = docShell->GetDocument();
+  if (!doc) {
+    return false;
+  }
+  nsIPrincipal* principal = doc->NodePrincipal();
+
+  nsIDocShell* topDocShell = Top()->GetDocShell();
+  if (!topDocShell) {
+    return false;
+  }
+  Document* topDoc = topDocShell->GetDocument();
+  if (!topDoc) {
+    return false;
+  }
+  nsIPrincipal* topPrincipal = topDoc->NodePrincipal();
+
+  return principal->Equals(topPrincipal);
+}
+
 /* static */
 already_AddRefed<BrowsingContext> BrowsingContext::CreateDetached(
     BrowsingContext* aParent, BrowsingContext* aOpener, const nsAString& aName,
@@ -166,11 +196,25 @@ already_AddRefed<BrowsingContext> BrowsingContext::CreateDetached(
   }
   context->mFields.SetWithoutSyncing<IDX_EmbedderPolicy>(
       nsILoadInfo::EMBEDDER_POLICY_NULL);
+  context->mFields.SetWithoutSyncing<IDX_OpenerPolicy>(
+      nsILoadInfo::OPENER_POLICY_UNSAFE_NONE);
+
+  if (aOpener && aOpener->SameOriginWithTop()) {
+    // We inherit the opener policy if there is a creator and if the creator's
+    // origin is same origin with the creator's top-level origin.
+    // If it is cross origin we should not inherit the CrossOriginOpenerPolicy
+    context->mFields.SetWithoutSyncing<IDX_OpenerPolicy>(
+        aOpener->Top()->GetOpenerPolicy());
+  } else if (aOpener) {
+    // They are not same origin
+    auto topPolicy = aOpener->Top()->GetOpenerPolicy();
+    MOZ_RELEASE_ASSERT(topPolicy == nsILoadInfo::OPENER_POLICY_UNSAFE_NONE ||
+                       topPolicy ==
+                           nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_ALLOW_POPUPS);
+  }
 
   BrowsingContext* inherit = aParent ? aParent : aOpener;
   if (inherit) {
-    context->mFields.SetWithoutSyncing<IDX_OpenerPolicy>(
-        inherit->Top()->GetOpenerPolicy());
     // CORPP 3.1.3 https://mikewest.github.io/corpp/#integration-html
     context->mFields.SetWithoutSyncing<IDX_EmbedderPolicy>(
         inherit->GetEmbedderPolicy());
@@ -196,6 +240,16 @@ already_AddRefed<BrowsingContext> BrowsingContext::CreateDetached(
       context->mFields.GetNonSyncingReference<IDX_HistoryID>());
 
   context->mFields.SetWithoutSyncing<IDX_IsActive>(true);
+
+  const bool allowContentRetargeting =
+      inherit ? inherit->GetAllowContentRetargetingOnChildren() : true;
+  context->mFields.SetWithoutSyncing<IDX_AllowContentRetargeting>(
+      allowContentRetargeting);
+  context->mFields.SetWithoutSyncing<IDX_AllowContentRetargetingOnChildren>(
+      allowContentRetargeting);
+
+  const bool allowPlugins = inherit ? inherit->GetAllowPlugins() : true;
+  context->mFields.SetWithoutSyncing<IDX_AllowPlugins>(allowPlugins);
 
   return context.forget();
 }
@@ -1361,6 +1415,14 @@ void BrowsingContext::DidSet(FieldIndex<IDX_Muted>) {
   });
 }
 
+void BrowsingContext::SetAllowContentRetargeting(
+    bool aAllowContentRetargeting) {
+  Transaction txn;
+  txn.SetAllowContentRetargeting(aAllowContentRetargeting);
+  txn.SetAllowContentRetargetingOnChildren(aAllowContentRetargeting);
+  txn.Commit(this);
+}
+
 void BrowsingContext::SetCustomUserAgent(const nsAString& aUserAgent) {
   Top()->SetUserAgentOverride(aUserAgent);
 }
@@ -1376,13 +1438,7 @@ void BrowsingContext::DidSet(FieldIndex<IDX_UserAgentOverride>) {
   });
 }
 
-bool BrowsingContext::CanSet(FieldIndex<IDX_UserAgentOverride>,
-                             const nsString& aUserAgent,
-                             ContentParent* aSource) {
-  if (!IsTop()) {
-    return false;
-  }
-
+bool BrowsingContext::CheckOnlyOwningProcessCanSet(ContentParent* aSource) {
   if (aSource) {
     MOZ_ASSERT(XRE_IsParentProcess());
 
@@ -1398,6 +1454,34 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_UserAgentOverride>,
   }
 
   return true;
+}
+
+bool BrowsingContext::CanSet(FieldIndex<IDX_AllowContentRetargeting>,
+                             const bool& aAllowContentRetargeting,
+                             ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
+bool BrowsingContext::CanSet(FieldIndex<IDX_AllowContentRetargetingOnChildren>,
+                             const bool& aAllowContentRetargetingOnChildren,
+                             ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
+bool BrowsingContext::CanSet(FieldIndex<IDX_AllowPlugins>,
+                             const bool& aAllowPlugins,
+                             ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
+bool BrowsingContext::CanSet(FieldIndex<IDX_UserAgentOverride>,
+                             const nsString& aUserAgent,
+                             ContentParent* aSource) {
+  if (!IsTop()) {
+    return false;
+  }
+
+  return CheckOnlyOwningProcessCanSet(aSource);
 }
 
 bool BrowsingContext::CheckOnlyEmbedderCanSet(ContentParent* aSource) {

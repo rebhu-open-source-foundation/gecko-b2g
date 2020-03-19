@@ -118,11 +118,13 @@ const WR_SHADERS: &'static [&'static str] = &[
     "brush_yuv_image",
     "brush_yuv_imageTEXTURE_2D_YUV_NV12",
     "brush_yuv_imageYUV",
+    "brush_yuv_imageYUV_ALPHA_PASS",
     "brush_yuv_imageYUV_INTERLEAVED",
     "brush_yuv_imageYUV_NV12_ALPHA_PASS",
     "brush_yuv_imageYUV_NV12",
     "brush_yuv_imageYUV_PLANAR",
     "composite",
+    "compositeYUV",
     "cs_blurALPHA_TARGET",
     "cs_blurCOLOR_TARGET",
     "cs_border_segment",
@@ -138,10 +140,10 @@ const WR_SHADERS: &'static [&'static str] = &[
     "debug_color",
     "debug_font",
     "ps_split_composite",
-    "ps_text_runDUAL_SOURCE_BLENDING",
-    "ps_text_runGLYPH_TRANSFORM",
-    "ps_text_runDUAL_SOURCE_BLENDING_GLYPH_TRANSFORM",
-    "ps_text_run",
+    "ps_text_runDUAL_SOURCE_BLENDING_ALPHA_PASS",
+    "ps_text_runGLYPH_TRANSFORM_ALPHA_PASS",
+    "ps_text_runDUAL_SOURCE_BLENDING_GLYPH_TRANSFORM_ALPHA_PASS",
+    "ps_text_runALPHA_PASS",
 ];
 
 fn main() {

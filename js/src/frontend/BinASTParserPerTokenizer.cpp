@@ -306,7 +306,7 @@ template <typename Tok>
 JS::Result<FunctionNode*> BinASTParserPerTokenizer<Tok>::makeEmptyFunctionNode(
     const size_t start, const FunctionSyntaxKind syntaxKind,
     FunctionBox* funbox) {
-  // LazyScript compilation requires basically none of the fields filled out.
+  // Lazy script compilation requires basically none of the fields filled out.
   TokenPos pos = tokenizer_->pos(start);
 
   BINJS_TRY_DECL(result, handler_.newFunction(syntaxKind, pos));
@@ -379,10 +379,10 @@ JS::Result<Ok> BinASTParserPerTokenizer<Tok>::finishLazyFunction(
 
   SourceExtent extent(start, end, start, end,
                       /* lineno = */ 0, start);
-  BINJS_TRY_DECL(
-      lazy, LazyScript::Create(cx_, this->getCompilationInfo(), fun,
-                               sourceObject_, pc_->closedOverBindingsForLazy(),
-                               pc_->innerFunctionIndexesForLazy, extent));
+  BINJS_TRY_DECL(lazy, BaseScript::CreateLazy(
+                           cx_, this->getCompilationInfo(), fun, sourceObject_,
+                           pc_->closedOverBindingsForLazy(),
+                           pc_->innerFunctionIndexesForLazy, extent));
 
   if (funbox->strict()) {
     lazy->setStrict();

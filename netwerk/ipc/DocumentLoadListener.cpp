@@ -63,12 +63,11 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
                                             public nsIMultiPartChannelListener {
  public:
   ParentProcessDocumentOpenInfo(ParentChannelListener* aListener,
-                                bool aPluginsAllowed, uint32_t aFlags,
+                                uint32_t aFlags,
                                 mozilla::dom::BrowsingContext* aBrowsingContext)
       : nsDocumentOpenInfo(aFlags, false),
         mBrowsingContext(aBrowsingContext),
-        mListener(aListener),
-        mPluginsAllowed(aPluginsAllowed) {
+        mListener(aListener) {
     LOG(("ParentProcessDocumentOpenInfo ctor [this=%p]", this));
   }
 
@@ -79,8 +78,8 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
   // channel listener so that we forward onto DocumentLoadListener.
   bool TryDefaultContentListener(nsIChannel* aChannel,
                                  const nsCString& aContentType) {
-    uint32_t canHandle =
-        nsWebNavigationInfo::IsTypeSupported(aContentType, mPluginsAllowed);
+    uint32_t canHandle = nsWebNavigationInfo::IsTypeSupported(
+        aContentType, mBrowsingContext->GetAllowPlugins());
     if (canHandle != nsIWebNavigationInfo::UNSUPPORTED) {
       m_targetStreamListener = mListener;
       nsLoadFlags loadFlags = 0;
@@ -140,7 +139,7 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
 
   nsDocumentOpenInfo* Clone() override {
     mCloned = true;
-    return new ParentProcessDocumentOpenInfo(mListener, mPluginsAllowed, mFlags,
+    return new ParentProcessDocumentOpenInfo(mListener, mFlags,
                                              mBrowsingContext);
   }
 
@@ -206,7 +205,6 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
 
   RefPtr<mozilla::dom::BrowsingContext> mBrowsingContext;
   RefPtr<ParentChannelListener> mListener;
-  bool mPluginsAllowed;
 
   /**
    * Set to true if we got cloned to create a chained listener.
@@ -336,8 +334,7 @@ GetTopWindowExcludingExtensionAccessibleContentFrames(
 bool DocumentLoadListener::Open(
     nsDocShellLoadState* aLoadState, class LoadInfo* aLoadInfo,
     nsLoadFlags aLoadFlags, uint32_t aCacheKey, const uint64_t& aChannelId,
-    const TimeStamp& aAsyncOpenTime, const Maybe<uint32_t>& aDocumentOpenFlags,
-    bool aPluginsAllowed, nsDOMNavigationTiming* aTiming,
+    const TimeStamp& aAsyncOpenTime, nsDOMNavigationTiming* aTiming,
     Maybe<ClientInfo>&& aInfo, uint64_t aOuterWindowId, nsresult* aRv) {
   LOG(("DocumentLoadListener Open [this=%p, uri=%s]", this,
        aLoadState->URI()->GetSpecOrDefault().get()));
@@ -448,17 +445,19 @@ bool DocumentLoadListener::Open(
   // across any serviceworker related data between channels as needed.
   AddClientChannelHelperInParent(mChannel, std::move(aInfo));
 
-  if (aDocumentOpenFlags) {
-    RefPtr<ParentProcessDocumentOpenInfo> openInfo =
-        new ParentProcessDocumentOpenInfo(mParentChannelListener,
-                                          aPluginsAllowed, *aDocumentOpenFlags,
-                                          browsingContext);
-    openInfo->Prepare();
+  // Recalculate the openFlags, matching the logic in use in Content process.
+  // NOTE: The only case not handled here to mirror Content process is
+  // redirecting to re-use the channel.
+  MOZ_ASSERT(!aLoadState->GetPendingRedirectedChannel());
+  uint32_t openFlags = nsDocShell::ComputeURILoaderFlags(
+      browsingContext, aLoadState->LoadType());
 
-    *aRv = mChannel->AsyncOpen(openInfo);
-  } else {
-    *aRv = mChannel->AsyncOpen(mParentChannelListener);
-  }
+  RefPtr<ParentProcessDocumentOpenInfo> openInfo =
+      new ParentProcessDocumentOpenInfo(mParentChannelListener, openFlags,
+                                        browsingContext);
+  openInfo->Prepare();
+
+  *aRv = mChannel->AsyncOpen(openInfo);
   if (NS_FAILED(*aRv)) {
     mParentChannelListener = nullptr;
     return false;
@@ -805,17 +804,12 @@ void DocumentLoadListener::SerializeRedirectData(
   }
 
   if (baseChannel) {
-    uint32_t loadFlags = 0;
-    if (!aIsCrossProcess) {
-      loadFlags |= nsIChannel::LOAD_REPLACE;
-    }
-
-    aArgs.init() = Some(
-        baseChannel
-            ->CloneReplacementChannelConfig(
-                true, aRedirectFlags,
-                HttpBaseChannel::ReplacementReason::DocumentChannel, loadFlags)
-            .Serialize());
+    aArgs.init() =
+        Some(baseChannel
+                 ->CloneReplacementChannelConfig(
+                     true, aRedirectFlags,
+                     HttpBaseChannel::ReplacementReason::DocumentChannel)
+                 .Serialize());
   }
 
   uint32_t contentDispositionTemp;

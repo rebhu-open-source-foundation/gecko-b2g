@@ -533,6 +533,9 @@ class nsDocShell final : public nsDocLoader,
   static void ExtractLastVisit(nsIChannel* aChannel, nsIURI** aURI,
                                uint32_t* aChannelRedirectFlags);
 
+  static uint32_t ComputeURILoaderFlags(
+      mozilla::dom::BrowsingContext* aBrowsingContext, uint32_t aLoadType);
+
  private:  // member functions
   friend class nsDSURIContentListener;
   friend class FramingChecker;
@@ -663,7 +666,9 @@ class nsDocShell final : public nsDocLoader,
   // Call this method to swap in a new history entry to m[OL]SHE, rather than
   // setting it directly. This completes the navigation in all docshells
   // in the case of a subframe navigation.
-  void SetHistoryEntry(nsCOMPtr<nsISHEntry>* aPtr, nsISHEntry* aEntry);
+  // Returns old mOSHE/mLSHE.
+  already_AddRefed<nsISHEntry> SetHistoryEntry(nsCOMPtr<nsISHEntry>* aPtr,
+                                               nsISHEntry* aEntry);
 
   // This method calls SetHistoryEntry and updates mOSHE and mLSHE in BC to be
   // the same as in docshell
@@ -1291,15 +1296,12 @@ class nsDocShell final : public nsDocLoader,
 
   bool mCreated : 1;
   bool mAllowSubframes : 1;
-  bool mAllowPlugins : 1;
   bool mAllowJavascript : 1;
   bool mAllowMetaRedirects : 1;
   bool mAllowImages : 1;
   bool mAllowMedia : 1;
   bool mAllowDNSPrefetch : 1;
   bool mAllowWindowControl : 1;
-  bool mAllowContentRetargeting : 1;
-  bool mAllowContentRetargetingOnChildren : 1;
   bool mUseErrorPages : 1;
   bool mObserveErrorPages : 1;
   bool mCSSErrorReportingEnabled : 1;

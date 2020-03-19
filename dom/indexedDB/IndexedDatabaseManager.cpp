@@ -101,8 +101,6 @@ namespace {
 
 NS_DEFINE_IID(kIDBPrivateRequestIID, PRIVATE_IDBREQUEST_IID);
 
-const uint32_t kDeleteTimeoutMs = 1000;
-
 // The threshold we use for structured clone data storing.
 // Anything smaller than the threshold is compressed and stored in the database.
 // Anything larger is compressed and stored outside the database.
@@ -217,9 +215,7 @@ auto DatabaseNameMatchPredicate(const nsAString* const aName) {
 
 }  // namespace
 
-IndexedDatabaseManager::IndexedDatabaseManager()
-    : mFileMutex("IndexedDatabaseManager.mFileMutex"),
-      mBackgroundActor(nullptr) {
+IndexedDatabaseManager::IndexedDatabaseManager() : mBackgroundActor(nullptr) {
   NS_ASSERTION(NS_IsMainThread(), "Wrong thread!");
 }
 
@@ -759,7 +755,7 @@ void IndexedDatabaseManager::InvalidateFileManager(
 nsresult IndexedDatabaseManager::BlockAndGetFileReferences(
     PersistenceType aPersistenceType, const nsACString& aOrigin,
     const nsAString& aDatabaseName, int64_t aFileId, int32_t* aRefCnt,
-    int32_t* aDBRefCnt, int32_t* aSliceRefCnt, bool* aResult) {
+    int32_t* aDBRefCnt, bool* aResult) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (NS_WARN_IF(!InTestingMode())) {
@@ -790,7 +786,7 @@ nsresult IndexedDatabaseManager::BlockAndGetFileReferences(
 
   if (!mBackgroundActor->SendGetFileReferences(
           aPersistenceType, nsCString(aOrigin), nsString(aDatabaseName),
-          aFileId, aRefCnt, aDBRefCnt, aSliceRefCnt, aResult)) {
+          aFileId, aRefCnt, aDBRefCnt, aResult)) {
     return NS_ERROR_FAILURE;
   }
 
