@@ -6,9 +6,7 @@
 
 #include <unistd.h>
 #include "BluetoothInterface.h"
-#if ANDROID_VERSION >= 17
 #include <cutils/properties.h>
-#endif
 #ifdef MOZ_B2G_BT_DAEMON
 #include "BluetoothDaemonInterface.h"
 #endif
@@ -1196,7 +1194,6 @@ BluetoothResultHandler::Cleanup()
 BluetoothInterface*
 BluetoothInterface::GetInstance()
 {
-#if ANDROID_VERSION >= 17
   /* We pick a default backend from the available ones. The options are
    * ordered by preference. If a backend is supported but not available
    * on the current system, we pick the next one. The selected default
@@ -1254,14 +1251,6 @@ BluetoothInterface::GetInstance()
                backend.get());
   }
   return nullptr;
-
-#else
-  /* Anything that's not Android 4.2 or later uses BlueZ instead. The
-   * code should actually never reach this point.
-   */
-  BT_WARNING("No Bluetooth backend available for your system.");
-  return nullptr;
-#endif
 }
 
 BluetoothInterface::BluetoothInterface()

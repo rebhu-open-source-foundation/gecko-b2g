@@ -731,7 +731,6 @@ BluetoothDaemonAvrcpModule::RegisterNotificationNtf(
     UnpackPDUInitOp(aPDU));
 }
 
-#if ANDROID_VERSION >= 19
 void
 BluetoothDaemonAvrcpModule::VolumeChangeNtf(
   const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
@@ -749,7 +748,6 @@ BluetoothDaemonAvrcpModule::PassthroughCmdNtf(
     &BluetoothAvrcpNotificationHandler::PassthroughCmdNotification,
     UnpackPDUInitOp(aPDU));
 }
-#endif
 
 void
 BluetoothDaemonAvrcpModule::HandleNtf(
@@ -758,7 +756,6 @@ BluetoothDaemonAvrcpModule::HandleNtf(
 {
   static void (BluetoothDaemonAvrcpModule::* const HandleNtf[])(
     const DaemonSocketPDUHeader&, DaemonSocketPDU&) = {
-#if ANDROID_VERSION >= 19
     [0] = &BluetoothDaemonAvrcpModule::RemoteFeatureNtf,
     [1] = &BluetoothDaemonAvrcpModule::GetPlayStatusNtf,
     [2] = &BluetoothDaemonAvrcpModule::ListPlayerAppAttrNtf,
@@ -771,17 +768,6 @@ BluetoothDaemonAvrcpModule::HandleNtf(
     [9] = &BluetoothDaemonAvrcpModule::RegisterNotificationNtf,
     [10] = &BluetoothDaemonAvrcpModule::VolumeChangeNtf,
     [11] = &BluetoothDaemonAvrcpModule::PassthroughCmdNtf
-#else
-    [0] = &BluetoothDaemonAvrcpModule::GetPlayStatusNtf,
-    [1] = &BluetoothDaemonAvrcpModule::ListPlayerAppAttrNtf,
-    [2] = &BluetoothDaemonAvrcpModule::ListPlayerAppValuesNtf,
-    [3] = &BluetoothDaemonAvrcpModule::GetPlayerAppValueNtf,
-    [4] = &BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextNtf,
-    [5] = &BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextNtf,
-    [6] = &BluetoothDaemonAvrcpModule::SetPlayerAppValueNtf,
-    [7] = &BluetoothDaemonAvrcpModule::GetElementAttrNtf,
-    [8] = &BluetoothDaemonAvrcpModule::RegisterNotificationNtf
-#endif
   };
 
   MOZ_ASSERT(!NS_IsMainThread());

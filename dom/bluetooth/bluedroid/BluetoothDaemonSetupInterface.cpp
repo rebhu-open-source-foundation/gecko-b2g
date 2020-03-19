@@ -66,11 +66,7 @@ BluetoothDaemonSetupModule::RegisterModuleCmd(
     MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REGISTER_MODULE,
                                 0);
 
-#if ANDROID_VERSION >= 21
   nsresult rv = PackPDU(aId, aMode, aMaxNumClients, *pdu);
-#else
-  nsresult rv = PackPDU(aId, aMode, *pdu);
-#endif
   if (NS_FAILED(rv)) {
     return rv;
   }

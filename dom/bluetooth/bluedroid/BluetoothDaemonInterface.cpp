@@ -422,8 +422,6 @@ BluetoothDaemonInterface::Init(
   BluetoothResultHandler* aRes)
 {
 #define BASE_SOCKET_NAME "bluetoothd"
-  static unsigned long POSTFIX_LENGTH = 16;
-
   // First of all, we set the notification handler. Backend crashes
   // will be reported this way.
   sNotificationHandler = aNotificationHandler;
@@ -453,19 +451,6 @@ BluetoothDaemonInterface::Init(
     mCmdChannel->Close();
   }
 
-  // The listen socket's name is generated with a random postfix. This
-  // avoids naming collisions if we still have a listen socket from a
-  // previously failed cleanup. It also makes it hard for malicious
-  // external programs to capture the socket name or connect before
-  // the daemon can do so. If no random postfix can be generated, we
-  // simply use the base name as-is.
-#if ANDROID_VERSION <= 23
-  nsresult rv = DaemonSocketConnector::CreateRandomAddressString(
-    NS_LITERAL_CSTRING(BASE_SOCKET_NAME), POSTFIX_LENGTH, mListenSocketName);
-  if (NS_FAILED(rv)) {
-    mListenSocketName.AssignLiteral(BASE_SOCKET_NAME);
-  }
-#else
   const static nsTArray<nsCString> sDaemonCandidates({
     NS_LITERAL_CSTRING("bluetoothd_socket1"),
     NS_LITERAL_CSTRING("bluetoothd_socket2"),
@@ -476,11 +461,8 @@ BluetoothDaemonInterface::Init(
   static int socketIdx = 0;
   mListenSocketName = sDaemonCandidates[socketIdx++ % kBluetoothSocketLength];
 
-  nsresult rv;
-#endif
-
-  rv = mListenSocket->Listen(new DaemonSocketConnector(mListenSocketName),
-                             mCmdChannel);
+  nsresult rv = mListenSocket->Listen(
+    new DaemonSocketConnector(mListenSocketName), mCmdChannel);
   if (NS_FAILED(rv)) {
     OnConnectError(CMD_CHANNEL);
     return;
@@ -719,14 +701,8 @@ BluetoothDaemonInterface::OnConnectSuccess(int aIndex)
   switch (aIndex) {
     case LISTEN_SOCKET: {
         // Init, step 2: Start Bluetooth daemon
-#if ANDROID_VERSION > 23
-      // use socket name as service name to start 'bluetoothd' with argument
-      mozilla::hal::StartSystemService(mListenSocketName.get(), nullptr);
-#else
-      nsCString args("-a ");
-      args.Append(mListenSocketName);
-      mozilla::hal::StartSystemService("bluetoothd", args.get());
-#endif
+        // use socket name as service name to start 'bluetoothd' with argument
+        mozilla::hal::StartSystemService(mListenSocketName.get(), nullptr);
       }
       break;
     case CMD_CHANNEL:

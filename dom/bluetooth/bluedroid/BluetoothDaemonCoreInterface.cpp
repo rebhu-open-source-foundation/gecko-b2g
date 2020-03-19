@@ -304,11 +304,7 @@ BluetoothDaemonCoreModule::CreateBondCmd(const BluetoothAddress& aBdAddr,
     MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CREATE_BOND,
                                 0);
 
-#if ANDROID_VERSION >= 21
   nsresult rv = PackPDU(aBdAddr, aTransport, *pdu);
-#else
-  nsresult rv = PackPDU(aBdAddr, *pdu);
-#endif
   if (NS_FAILED(rv)) {
     return rv;
   }
