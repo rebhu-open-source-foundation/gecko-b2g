@@ -9,10 +9,6 @@
 #include "nsIVolume.h"
 #include "nsXULAppAPI.h"
 
-#if ANDROID_VERSION < 28
-#include <vold/ResponseCode.h>
-#endif
-
 namespace mozilla {
 namespace system {
 
@@ -87,7 +83,6 @@ Volume::Volume(const nsACString& aName)
   DBG("Volume %s: created", NameStr());
 }
 
-#if ANDROID_VERSION >= 23
 Volume::Volume(const nsACString& aName, const nsACString& aUuid)
     : mMediaPresent(true),
       mState(nsIVolume::STATE_INIT),
@@ -108,7 +103,6 @@ Volume::Volume(const nsACString& aName, const nsACString& aUuid)
       mId(sNextId++) {
   DBG("Volume %s: created", NameStr());
 }
-#endif
 
 void Volume::Dump(const char* aLabel) const {
   LOG("%s: Volume: %s (%d) is %s and %s @ %s gen %d locked %d", aLabel,
@@ -415,11 +409,7 @@ void Volume::StartFormat(VolumeResponseCallback* aCallback) {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
-#if ANDROID_VERSION >= 23
   StartCommand(new VolumeActionCommand(this, "format", "auto", aCallback));
-#else
-  StartCommand(new VolumeActionCommand(this, "format", "", aCallback));
-#endif
 }
 
 void Volume::StartShare(VolumeResponseCallback* aCallback) {
@@ -498,95 +488,6 @@ void Volume::HandleVoldResponse(int aResponseCode,
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
-#if ANDROID_VERSION < 28
-  // The volume name will have already been parsed, and the tokenizer will point
-  // to the token after the volume name
-  switch (aResponseCode) {
-    case ::ResponseCode::VolumeListResult: {
-      // Each line will look something like:
-      //
-      //  sdcard /mnt/sdcard 1
-      //
-      nsDependentCSubstring mntPoint(aTokenizer.nextToken());
-      SetMountPoint(mntPoint);
-      nsresult errCode;
-      nsCString state(aTokenizer.nextToken());
-      if (state.EqualsLiteral("X")) {
-        // Special state for creating fake volumes which can't be shared.
-        mCanBeShared = false;
-        SetState(nsIVolume::STATE_MOUNTED);
-      } else {
-        SetState((STATE)state.ToInteger(&errCode));
-      }
-      break;
-    }
-
-    case ::ResponseCode::VolumeStateChange: {
-      // Format of the line looks something like:
-      //
-      //  Volume sdcard /mnt/sdcard state changed from 7 (Shared-Unmounted) to 1
-      //  (Idle-Unmounted)
-      //
-      // So we parse out the state after the string " to "
-      while (aTokenizer.hasMoreTokens()) {
-        nsAutoCString token(aTokenizer.nextToken());
-        if (token.EqualsLiteral("to")) {
-          nsresult errCode;
-          token = aTokenizer.nextToken();
-          STATE newState = (STATE)(token.ToInteger(&errCode));
-          if (newState == nsIVolume::STATE_MOUNTED) {
-            // We set the state to STATE_CHECKMNT here, and the once the
-            // AutoMounter detects that the volume is actually accessible
-            // then the AutoMounter will set the volume as STATE_MOUNTED.
-            SetState(nsIVolume::STATE_CHECKMNT);
-          } else {
-            if (State() == nsIVolume::STATE_CHECKING &&
-                newState == nsIVolume::STATE_IDLE) {
-              LOG("Mount of volume '%s' failed", NameStr());
-              SetState(nsIVolume::STATE_MOUNT_FAIL);
-            } else {
-              SetState(newState);
-            }
-          }
-          break;
-        }
-      }
-      break;
-    }
-
-    case ::ResponseCode::VolumeDiskInserted:
-      SetMediaPresent(true);
-      break;
-
-    case ::ResponseCode::VolumeDiskRemoved:  // fall-thru
-    case ::ResponseCode::VolumeBadRemoval:
-      SetMediaPresent(false);
-      break;
-#if ANDROID_VERSION >= 23
-    case ::ResponseCode::VolumeStateChanged: {
-      nsDependentCSubstring id(aTokenizer.nextToken());
-      nsresult errCode;
-      nsCString token(aTokenizer.nextToken());
-      STATE newState = (STATE)(token.ToInteger(&errCode));
-      nsDependentCSubstring mountpoint(aTokenizer.nextToken());
-      if (newState == VolumeInfo::STATE_MOUNTED) {
-        SetMountPoint(mountpoint);
-        SetState(nsIVolume::STATE_MOUNTED);
-      } else if (newState == VolumeInfo::STATE_EJECTING) {
-        SetState(nsIVolume::STATE_UNMOUNTING);
-      } else if (newState == VolumeInfo::STATE_FORMATTING) {
-        SetState(nsIVolume::STATE_FORMATTING);
-      } else if (newState == VolumeInfo::STATE_UNMOUNTED) {
-        SetState(nsIVolume::STATE_IDLE);
-      }
-      break;
-    }
-#endif
-    default:
-      LOG("Volume: %s unrecognized reponse code (ignored)", NameStr());
-      break;
-  }
-#endif // if ANDROID_VERSION < 28
 }
 
 }  // namespace system

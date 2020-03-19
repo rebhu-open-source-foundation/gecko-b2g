@@ -17,10 +17,6 @@
 
 #include "GonkGPSGeolocationProvider.h"
 
-#if ANDROID_VERSION < 26
-#  include <pthread.h>  // for pthread_t
-#endif
-
 #include "GeolocationUtil.h"
 #include "hardware_legacy/power.h"
 #include "mozilla/dom/GeolocationPosition.h"
@@ -48,7 +44,6 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-#if ANDROID_VERSION >= 26
 using android::hardware::Return;
 using android::hardware::Void;
 
@@ -56,15 +51,11 @@ using IGnss_V1_0 = android::hardware::gnss::V1_0::IGnss;
 using IGnssCallback_V1_0 = android::hardware::gnss::V1_0::IGnssCallback;
 using GnssLocation_V1_0 = android::hardware::gnss::V1_0::GnssLocation;
 
-#  if ANDROID_VERSION >= 29
 using android::hardware::hidl_vec;
 using android::hardware::gnss::V2_0::IGnssCallback;
 using IGnss_V1_1 = android::hardware::gnss::V1_1::IGnss;
 using IGnss_V2_0 = android::hardware::gnss::V2_0::IGnss;
 using GnssLocation_V2_0 = android::hardware::gnss::V2_0::GnssLocation;
-#  else
-using android::hardware::gnss::V1_0::IGnssCallback;
-#  endif
 
 // GnssCallback class implements the callback methods for IGnss interface.
 struct GnssCallback : public IGnssCallback {
@@ -82,7 +73,6 @@ struct GnssCallback : public IGnssCallback {
   Return<void> gnssSetSystemInfoCb(
       const IGnssCallback::GnssSystemInfo& info) override;
 
-#  if ANDROID_VERSION >= 29
   // New in gnss 1.1
   Return<void> gnssNameCb(const android::hardware::hidl_string& name) override;
   Return<void> gnssRequestLocationCb(const bool independentFromGnss) override;
@@ -94,11 +84,7 @@ struct GnssCallback : public IGnssCallback {
   Return<void> gnssLocationCb_2_0(const GnssLocation_V2_0& location) override;
   Return<void> gnssSvStatusCb_2_0(
       const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) override;
-#  endif
 };
-#else
-/* static */ GpsCallbacks GonkGPSGeolocationProvider::mCallbacks;
-#endif  // ANDROID_VERSION >= 26
 
 static const int kDefaultPeriod = 1000;  // ms
 
@@ -113,7 +99,6 @@ NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider::NetworkLocationUpdate,
                   nsIGeolocationUpdate)
 
 void GonkGPSGeolocationProvider::InitGnssHal() {
-#if ANDROID_VERSION >= 29
   mGnssHal_V2_0 = IGnss_V2_0::getService();
   if (mGnssHal_V2_0 != nullptr) {
     mGnssHal = mGnssHal_V2_0;
@@ -127,7 +112,6 @@ void GonkGPSGeolocationProvider::InitGnssHal() {
     mGnssHal = mGnssHal_V1_1;
     return;
   }
-#endif
 
   LOG("gnssHal 1.1 was null, trying 1.0");
   mGnssHal = IGnss_V1_0::getService();
@@ -231,15 +215,9 @@ GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mStarted, "Must call Shutdown before destruction");
 
-#if ANDROID_VERSION >= 26
   if (mGnssHal != nullptr) {
     mGnssHal->cleanup();
   }
-#else
-  if (mGpsInterface != nullptr) {
-    mGpsInterface->cleanup();
-  }
-#endif  // ANDROID_VERSION >= 26
 
   sSingleton = nullptr;
 }
@@ -344,18 +322,15 @@ GonkGPSGeolocationProvider::Watch(nsIGeolocationUpdate* aCallback) {
 NS_IMETHODIMP
 GonkGPSGeolocationProvider::SetHighAccuracy(bool) { return NS_OK; }
 
-#if ANDROID_VERSION >= 26
 void GonkGPSGeolocationProvider::GnssDeathRecipient::serviceDied(
     uint64_t cookie, const android::wp<android::hidl::base::V1_0::IBase>& who) {
   ERR("Abort due to IGNSS hidl service failure.");
 }
-#endif  // ANDROID_VERSION >= 26
 
 void GonkGPSGeolocationProvider::Init() {
   // Must not be main thread. Some GPS driver's first init takes very long.
   MOZ_ASSERT(!NS_IsMainThread());
 
-#if ANDROID_VERSION >= 26
   InitGnssHal();
   if (mGnssHal == nullptr) {
     ERR("Failed to get Gnss HAL.");
@@ -377,7 +352,6 @@ void GonkGPSGeolocationProvider::Init() {
   android::sp<IGnssCallback> gnssCbIface = new GnssCallback();
 
   Return<bool> result = false;
-#  if ANDROID_VERSION >= 29
   if (mGnssHal_V2_0 != nullptr) {
     result = mGnssHal_V2_0->setCallback_2_0(gnssCbIface);
   } else if (mGnssHal_V1_1 != nullptr) {
@@ -385,39 +359,11 @@ void GonkGPSGeolocationProvider::Init() {
   } else {
     result = mGnssHal->setCallback(gnssCbIface);
   }
-#  else
-  result = mGnssHal->setCallback(gnssCbIface);
-#  endif
 
   if (!result.isOk() || !result) {
     ERR("SetCallback for Gnss Interface fails");
     return;
   }
-#else
-  mGpsInterface = GetGPSInterface();
-  if (mGpsInterface == nullptr) {
-    ERR("Failed to get GPS HAL.");
-    return;
-  }
-
-  if (!mCallbacks.size) {
-    mCallbacks.size = sizeof(GpsCallbacks);
-    mCallbacks.location_cb = LocationCallback;
-    mCallbacks.status_cb = StatusCallback;
-    mCallbacks.sv_status_cb = SvStatusCallback;
-    mCallbacks.nmea_cb = NmeaCallback;
-    mCallbacks.set_capabilities_cb = SetCapabilitiesCallback;
-    mCallbacks.acquire_wakelock_cb = AcquireWakelockCallback;
-    mCallbacks.release_wakelock_cb = ReleaseWakelockCallback;
-    mCallbacks.create_thread_cb = CreateThreadCallback;
-    mCallbacks.request_utc_time_cb = RequestUtcTimeCallback;
-  }
-
-  if (mGpsInterface->init(&mCallbacks) != 0) {
-    ERR("Failed to init GPS HAL.");
-    return;
-  }
-#endif  // ANDROID_VERSION >= 26
 
   mInitialized = true;
 
@@ -441,11 +387,9 @@ void GonkGPSGeolocationProvider::StartGPS() {
     update = kDefaultPeriod;
   }
 
-#if ANDROID_VERSION >= 26
   MOZ_ASSERT(mGnssHal != nullptr);
 
   Return<bool> result = false;
-#  if ANDROID_VERSION >= 29
   if (mGnssHal_V1_1 != nullptr) {
     result = mGnssHal_V1_1->setPositionMode_1_1(
         IGnss_V1_1::GnssPositionMode::STANDALONE,
@@ -453,9 +397,7 @@ void GonkGPSGeolocationProvider::StartGPS() {
         0,       // preferred accuracy
         0,       // preferred time
         false);  // low power mode
-  } else
-#  endif
-      if (mGnssHal != nullptr) {
+  } else if (mGnssHal != nullptr) {
     result = mGnssHal->setPositionMode(
         IGnss_V1_0::GnssPositionMode::STANDALONE,
         IGnss_V1_0::GnssPositionRecurrence::RECURRENCE_PERIODIC, update,
@@ -471,13 +413,6 @@ void GonkGPSGeolocationProvider::StartGPS() {
   if (!result.isOk()) {
     ERR("failed to start IGnss HAL");
   }
-#else
-  MOZ_ASSERT(mGpsInterface);
-  mGpsInterface->set_position_mode(GPS_POSITION_MODE_STANDALONE,
-                                   GPS_POSITION_RECURRENCE_PERIODIC, update, 0,
-                                   0);
-  mGpsInterface->start();
-#endif  // ANDROID_VERSION >= 26
 }
 
 void GonkGPSGeolocationProvider::ShutdownGPS() {
@@ -485,18 +420,12 @@ void GonkGPSGeolocationProvider::ShutdownGPS() {
 
   LOG("Stops GPS");
 
-#if ANDROID_VERSION >= 26
   if (mGnssHal != nullptr) {
     auto result = mGnssHal->stop();
     if (!result.isOk()) {
       ERR("failed to stop IGnss HAL");
     }
   }
-#else
-  if (mGpsInterface != nullptr) {
-    mGpsInterface->stop();
-  }
-#endif  // ANDROID_VERSION >= 26
 }
 
 void GonkGPSGeolocationProvider::InjectLocation(double latitude,
@@ -507,18 +436,12 @@ void GonkGPSGeolocationProvider::InjectLocation(double latitude,
   DBG("injecting location (%f, %f) accuracy: %f", latitude, longitude,
       accuracy);
 
-#if ANDROID_VERSION >= 26
   if (mGnssHal != nullptr) {
     auto result = mGnssHal->injectLocation(latitude, longitude, accuracy);
     if (!result.isOk() || !result) {
       ERR("%s: Gnss injectLocation() failed");
     }
   }
-#else
-  if (mGpsInterface != nullptr) {
-    mGpsInterface->inject_location(latitude, longitude, accuracy);
-  }
-#endif
 }
 
 class GonkGPSGeolocationProvider::UpdateLocationEvent final
@@ -551,19 +474,12 @@ class GonkGPSGeolocationProvider::UpdateCapabilitiesEvent final
     RefPtr<GonkGPSGeolocationProvider> provider =
         GonkGPSGeolocationProvider::GetSingleton();
 
-#if ANDROID_VERSION >= 26
     provider->mSupportsScheduling =
         mCapabilities & IGnssCallback::Capabilities::SCHEDULING;
     provider->mSupportsSingleShot =
         mCapabilities & IGnssCallback::Capabilities::SINGLE_SHOT;
     provider->mSupportsTimeInjection =
         mCapabilities & IGnssCallback::Capabilities::ON_DEMAND_TIME;
-#else
-    provider->mSupportsScheduling = mCapabilities & GPS_CAPABILITY_SCHEDULING;
-    provider->mSupportsSingleShot = mCapabilities & GPS_CAPABILITY_SINGLE_SHOT;
-    provider->mSupportsTimeInjection =
-        mCapabilities & GPS_CAPABILITY_ON_DEMAND_TIME;
-#endif  // ANDROID_VERSION >= 26
 
     return NS_OK;
   }
@@ -572,7 +488,6 @@ class GonkGPSGeolocationProvider::UpdateCapabilitiesEvent final
   uint32_t mCapabilities;
 };
 
-#if ANDROID_VERSION >= 26
 Return<void> GnssCallback::gnssLocationCb(const GnssLocation_V1_0& location) {
   const float kImpossibleAccuracy_m = 0.001;
   if (location.horizontalAccuracyMeters < kImpossibleAccuracy_m) {
@@ -667,7 +582,6 @@ Return<void> GnssCallback::gnssSetSystemInfoCb(
   return Void();
 }
 
-#  if ANDROID_VERSION >= 29
 Return<void> GnssCallback::gnssNameCb(
     const android::hardware::hidl_string& name) {
   LOG("%s: name=%s", __FUNCTION__, name.c_str());
@@ -700,163 +614,3 @@ Return<void> GnssCallback::gnssSvStatusCb_2_0(
   DBG("%s: numSvs: %u", __FUNCTION__, svInfoList.size());
   return Void();
 }
-#  endif
-#else
-const GpsInterface* GonkGPSGeolocationProvider::GetGPSInterface() {
-  hw_module_t* module;
-
-  if (hw_get_module(GPS_HARDWARE_MODULE_ID, (hw_module_t const**)&module))
-    return nullptr;
-
-  hw_device_t* device;
-  if (module->methods->open(module, GPS_HARDWARE_MODULE_ID, &device))
-    return nullptr;
-
-  gps_device_t* gps_device = (gps_device_t*)device;
-  const GpsInterface* result = gps_device->get_gps_interface(gps_device);
-
-  if (!result || result->size != sizeof(GpsInterface)) {
-    ERR("GpsInterface is not available.");
-    return nullptr;
-  }
-  return result;
-}
-
-void GonkGPSGeolocationProvider::LocationCallback(GpsLocation* location) {
-  MOZ_ASSERT(location);
-
-  const float kImpossibleAccuracy_m = 0.001;
-  if (location->accuracy < kImpossibleAccuracy_m) {
-    return;
-  }
-
-  RefPtr<nsGeoPosition> somewhere = new nsGeoPosition(
-      location->latitude, location->longitude, location->altitude,
-      location->accuracy, location->accuracy, location->bearing,
-      location->speed, PR_Now() / PR_USEC_PER_MSEC);
-  // Note above: Can't use location->timestamp as the time from the satellite is
-  // a minimum of 16 secs old (see http://leapsecond.com/java/gpsclock.htm). All
-  // code from this point on expects the gps location to be timestamped with the
-  // current time, most notably: the geolocation service which respects
-  // maximumAge set in the DOM JS.
-
-  DBG("geo: GPS got a fix (%f, %f). accuracy: %f", location->latitude,
-      location->longitude, location->accuracy);
-
-  nsCOMPtr<nsIRunnable> runnable = new UpdateLocationEvent(somewhere);
-  NS_DispatchToMainThread(runnable);
-}
-
-void GonkGPSGeolocationProvider::StatusCallback(GpsStatus* status) {
-  const char* msgStream = 0;
-  switch (status->status) {
-    case GPS_STATUS_NONE:
-      msgStream = "geo: GPS_STATUS_NONE\n";
-      break;
-    case GPS_STATUS_SESSION_BEGIN:
-      msgStream = "geo: GPS_STATUS_SESSION_BEGIN\n";
-      break;
-    case GPS_STATUS_SESSION_END:
-      msgStream = "geo: GPS_STATUS_SESSION_END\n";
-      break;
-    case GPS_STATUS_ENGINE_ON:
-      msgStream = "geo: GPS_STATUS_ENGINE_ON\n";
-      break;
-    case GPS_STATUS_ENGINE_OFF:
-      msgStream = "geo: GPS_STATUS_ENGINE_OFF\n";
-      break;
-    default:
-      msgStream = "geo: Unknown GPS status\n";
-      break;
-  }
-  DBG("%s", msgStream);
-}
-
-void GonkGPSGeolocationProvider::SvStatusCallback(GpsSvStatus* sv_info) {
-  if (gDebug_isLoggingEnabled) {
-    static int numSvs = 0;
-    static uint32_t numEphemeris = 0;
-    static uint32_t numAlmanac = 0;
-    static uint32_t numUsedInFix = 0;
-
-    uint32_t i = 1;
-    uint32_t svAlmanacCount = 0;
-    uint32_t svEphemerisCount = 0;
-    uint32_t svUsedCount = 0;
-
-    for (i = 1; i > 0; i <<= 1) {
-      if (i & sv_info->almanac_mask) {
-        svAlmanacCount++;
-      }
-    }
-
-    for (i = 1; i > 0; i <<= 1) {
-      if (i & sv_info->ephemeris_mask) {
-        svEphemerisCount++;
-      }
-    }
-
-    for (i = 1; i > 0; i <<= 1) {
-      if (i & sv_info->used_in_fix_mask) {
-        svUsedCount++;
-      }
-    }
-
-    // Log the message only if the the status changed.
-    if (sv_info->num_svs != numSvs || svAlmanacCount != numAlmanac ||
-        svEphemerisCount != numEphemeris || svUsedCount != numUsedInFix) {
-      LOG("geo: Number of SVs have (visibility, almanac, ephemeris): (%d, %d, "
-          "%d)."
-          "  %d of these SVs were used in fix.\n",
-          sv_info->num_svs, svAlmanacCount, svEphemerisCount, svUsedCount);
-
-      numSvs = sv_info->num_svs;
-      numAlmanac = svAlmanacCount;
-      numEphemeris = svEphemerisCount;
-      numUsedInFix = svUsedCount;
-    }
-  }
-}
-
-void GonkGPSGeolocationProvider::NmeaCallback(GpsUtcTime timestamp,
-                                              const char* nmea, int length) {
-  DBG("NMEA: timestamp:\t%lld, length: %d, %s", timestamp, length, nmea);
-}
-
-void GonkGPSGeolocationProvider::SetCapabilitiesCallback(
-    uint32_t capabilities) {
-  NS_DispatchToMainThread(new UpdateCapabilitiesEvent(capabilities));
-}
-
-void GonkGPSGeolocationProvider::AcquireWakelockCallback() {
-  acquire_wake_lock(PARTIAL_WAKE_LOCK, kWakeLockName);
-}
-
-void GonkGPSGeolocationProvider::ReleaseWakelockCallback() {
-  release_wake_lock(kWakeLockName);
-}
-
-typedef void* (*pthread_func)(void*);
-
-/** Callback for creating a thread that can call into the JS codes.
- */
-pthread_t GonkGPSGeolocationProvider::CreateThreadCallback(const char* name,
-                                                           void (*start)(void*),
-                                                           void* arg) {
-  pthread_t thread;
-  pthread_attr_t attr;
-
-  pthread_attr_init(&attr);
-
-  /* Unfortunately pthread_create and the callback disagreed on what
-   * start function should return.
-   */
-  pthread_create(&thread, &attr, reinterpret_cast<pthread_func>(start), arg);
-
-  return thread;
-}
-
-void GonkGPSGeolocationProvider::RequestUtcTimeCallback() {
-  LOG("%s: Gonk doesn't support time injection.", __FUNCTION__);
-}
-#endif  // ANDROID_VERSION >= 26

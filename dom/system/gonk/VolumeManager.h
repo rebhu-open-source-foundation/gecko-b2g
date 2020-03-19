@@ -28,7 +28,6 @@ namespace system {
  *
  ***************************************************************************/
 
-#if ANDROID_VERSION >= 23
 class VolumeInfo final {
  public:
   NS_INLINE_DECL_REFCOUNTING(VolumeInfo)
@@ -88,7 +87,6 @@ class VolumeInfo final {
   nsCString mMountPoint;
   nsCString mUuid;
 };
-#endif
 
 /***************************************************************************
  *
@@ -142,9 +140,7 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   NS_INLINE_DECL_REFCOUNTING(VolumeManager)
 
   typedef nsTArray<RefPtr<Volume>> VolumeArray;
-#if ANDROID_VERSION >= 23
   typedef nsTArray<RefPtr<VolumeInfo>> VolumeInfoArray;
-#endif
 
   VolumeManager();
 
@@ -186,10 +182,8 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   static already_AddRefed<Volume> GetVolume(VolumeArray::index_type aIndex);
   static already_AddRefed<Volume> FindVolumeByName(const nsACString& aName);
   static already_AddRefed<Volume> FindAddVolumeByName(const nsACString& aName);
-#if ANDROID_VERSION >= 23
   static already_AddRefed<Volume> FindAddVolumeByName(const nsACString& aName,
                                                       const nsACString& aUuid);
-#endif
   static bool RemoveVolumeByName(const nsACString& aName);
   static void InitConfig();
 
@@ -205,11 +199,7 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
  private:
   bool OpenSocket();
 
-#if ANDROID_VERSION >= 23
   friend class VolumeResetCallback;
-#else
-  friend class VolumeListCallback;  // Calls SetState
-#endif
 
   static void SetState(STATE aNewState);
 
@@ -227,9 +217,7 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   VolumeArray mVolumeArray;
   CommandQueue mCommands;
   bool mCommandPending;
-#if ANDROID_VERSION >= 23
   VolumeInfoArray mVolumeInfoArray;
-#endif
   MessageLoopForIO::FileDescriptorWatcher mReadWatcher;
   MessageLoopForIO::FileDescriptorWatcher mWriteWatcher;
   RefPtr<VolumeResponseCallback> mBroadcastCallback;

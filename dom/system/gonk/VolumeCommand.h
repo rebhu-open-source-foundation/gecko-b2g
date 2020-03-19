@@ -10,10 +10,6 @@
 #include "mozilla/RefPtr.h"
 #include <algorithm>
 
-#if ANDROID_VERSION < 28
-#include <vold/ResponseCode.h>
-#endif
-
 namespace mozilla {
 namespace system {
 
@@ -48,20 +44,11 @@ class VolumeResponseCallback {
     // Response codes from the 200, 400, and 500 series all indicated that
     // the command has completed.
 
-#if ANDROID_VERSION < 28
-    return (mResponseCode >= ::ResponseCode::CommandOkay) &&
-           (mResponseCode < ::ResponseCode::UnsolicitedInformational);
-#else
     return false;
-#endif
   }
 
   bool WasSuccessful() const {
-#if ANDROID_VERSION < 28
-    return mResponseCode == ::ResponseCode::CommandOkay;
-#else
     return false;
-#endif
   }
 
   bool IsPending() const { return mPending; }
@@ -77,19 +64,9 @@ class VolumeResponseCallback {
   void HandleResponse(const VolumeCommand* aCommand, int aResponseCode,
                       nsACString& aResponseStr) {
     mResponseCode = aResponseCode;
-#if ANDROID_VERSION >= 17
     // There's a sequence number here that we don't care about
     // We expect it to be 0. See VolumeCommand::SetCmd
     mResponseStr = Substring(aResponseStr, 2);
-#else
-    mResponseStr = aResponseStr;
-#endif
-#if ANDROID_VERSION < 28
-    if (mResponseCode >= ::ResponseCode::CommandOkay) {
-      // This is a final response.
-      mPending = false;
-    }
-#endif // #if ANDROID_VERSION < 28
     ResponseReceived(aCommand);
   }
 
@@ -134,11 +111,9 @@ class VolumeCommand {
 
   void SetCmd(const nsACString& aCommand) {
     mCmd.Truncate();
-#if ANDROID_VERSION >= 17
     // JB requires a sequence number at the beginning of messages.
     // It doesn't matter what we use, so we use 0.
     mCmd = "0 ";
-#endif
     mCmd.Append(aCommand);
     // Add a null character. We want this to be included in the length since
     // vold uses it to determine the end of the command.
@@ -189,18 +164,11 @@ class VolumeActionCommand : public VolumeCommand {
   RefPtr<Volume> mVolume;
 };
 
-#if ANDROID_VERSION >= 23
 class VolumeResetCommand : public VolumeCommand {
  public:
   VolumeResetCommand(VolumeResponseCallback* aCallback);
 };
 
-#else
-class VolumeListCommand : public VolumeCommand {
- public:
-  VolumeListCommand(VolumeResponseCallback* aCallback);
-};
-#endif
 
 }  // namespace system
 }  // namespace mozilla

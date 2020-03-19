@@ -48,11 +48,7 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume, const char* aAction,
   cmd = "volume ";
   cmd += aAction;
   cmd += " ";
-#if ANDROID_VERSION >= 23
   cmd += aVolume->Uuid().get() ? aVolume->Uuid().get() : aVolume->Name().get();
-#else
-  cmd += aVolume->Name().get();
-#endif
 
   // vold doesn't like trailing white space, so only add it if we really need
   // to.
@@ -63,7 +59,6 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume, const char* aAction,
   SetCmd(cmd);
 }
 
-#if ANDROID_VERSION >= 23
 /***************************************************************************
  *
  * The VolumeResetCommand class is used to send the "volume reset" command to
@@ -73,24 +68,6 @@ VolumeActionCommand::VolumeActionCommand(Volume* aVolume, const char* aAction,
 
 VolumeResetCommand::VolumeResetCommand(VolumeResponseCallback* aCallback)
     : VolumeCommand(NS_LITERAL_CSTRING("volume reset"), aCallback) {}
-#else
-/***************************************************************************
- *
- * The VolumeListCommand class is used to send the "volume list" command to
- * vold.
- *
- * A typical response looks like:
- *
- *   # vdc volume list
- *   110 sdcard /mnt/sdcard 4
- *   110 sdcard1 /mnt/sdcard/external_sd 4
- *   200 Volumes listed.
- *
- ***************************************************************************/
-
-VolumeListCommand::VolumeListCommand(VolumeResponseCallback* aCallback)
-    : VolumeCommand(NS_LITERAL_CSTRING("volume list"), aCallback){} {}
-#endif
 
 }  // namespace system
 }  // namespace mozilla

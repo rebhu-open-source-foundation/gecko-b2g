@@ -18,16 +18,9 @@
 #ifndef GonkGPSGeolocationProvider_h
 #define GonkGPSGeolocationProvider_h
 
-#if ANDROID_VERSION >= 29
-#  include "android/hardware/gnss/1.1/IGnss.h"
-#  include "android/hardware/gnss/2.0/IGnss.h"
-#endif
-
-#if ANDROID_VERSION >= 26
-#  include "android/hardware/gnss/1.0/IGnss.h"
-#else
-#  include <hardware/gps.h>  // for GpsInterface
-#endif
+#include "android/hardware/gnss/1.1/IGnss.h"
+#include "android/hardware/gnss/2.0/IGnss.h"
+#include "android/hardware/gnss/1.0/IGnss.h"
 
 #include "nsCOMPtr.h"
 #include "nsIDOMGeoPosition.h"
@@ -83,7 +76,6 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
   nsCOMPtr<nsIDOMGeoPosition> mLastGPSPosition;
   nsCOMPtr<nsIGeolocationProvider> mNetworkLocationProvider;
 
-#if ANDROID_VERSION >= 26
   friend struct GnssCallback;
 
   struct GnssDeathRecipient
@@ -98,27 +90,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
 
   android::sp<GnssDeathRecipient> mGnssHalDeathRecipient;
   android::sp<android::hardware::gnss::V1_0::IGnss> mGnssHal;
-#  if ANDROID_VERSION >= 29
   android::sp<android::hardware::gnss::V1_1::IGnss> mGnssHal_V1_1;
   android::sp<android::hardware::gnss::V2_0::IGnss> mGnssHal_V2_0;
-#  endif
-#else
-  const GpsInterface* GetGPSInterface();
-
-  static void LocationCallback(GpsLocation* location);
-  static void StatusCallback(GpsStatus* status);
-  static void SvStatusCallback(GpsSvStatus* sv_info);
-  static void NmeaCallback(GpsUtcTime timestamp, const char* nmea, int length);
-  static void AcquireWakelockCallback();
-  static void ReleaseWakelockCallback();
-  static void SetCapabilitiesCallback(uint32_t capabilities);
-  static pthread_t CreateThreadCallback(const char* name, void (*start)(void*),
-                                        void* arg);
-  static void RequestUtcTimeCallback();
-
-  const GpsInterface* mGpsInterface = nullptr;
-  static GpsCallbacks mCallbacks;
-#endif
 
   class NetworkLocationUpdate : public nsIGeolocationUpdate {
    public:
