@@ -116,15 +116,13 @@ var shell = {
     };
     this.contentBrowser.addProgressListener(listener);
 
-    CustomEventManager.init();
-
     debug(`Setting system url to ${startURL}`);
 
     this.contentBrowser.src = startURL;
 
-    if (isGonk) {
+    try {
       ChromeUtils.import("resource://gre/modules/ExternalAPIService.jsm");
-    }
+    } catch (e) {}
   },
 
   stop() {
@@ -149,12 +147,6 @@ var shell = {
         break;
       case "MozAfterPaint":
         window.removeEventListener("MozAfterPaint", this);
-        // This event should be sent before System app returns with
-        // system-message-listener-ready mozContentEvent, because it"s on
-        // the critical launch path of the app.
-        // SystemAppProxy._sendCustomEvent("mozChromeEvent", {
-        //   type: "system-first-paint"
-        // }, /* noPending */ true);
         break;
       case "unload":
         this.stop();
@@ -171,36 +163,6 @@ var shell = {
     // This will cause Gonk Widget to remove boot animation from the screen
     // and reveals the page.
     Services.obs.notifyObservers(null, "browser-ui-startup-complete");
-  },
-};
-
-var CustomEventManager = {
-  init: function custevt_init() {
-    window.addEventListener(
-      "ContentStart",
-      function(evt) {
-        let content = shell.contentBrowser.contentWindow;
-        content.addEventListener("mozContentEvent", this, false, true);
-      }.bind(this)
-    );
-  },
-
-  handleEvent: function custevt_handleEvent(evt) {
-    let detail = evt.detail;
-    debug(`XXX FIXME : Got a mozContentEvent:  ${detail.type}`);
-
-    switch (detail.type) {
-      case "captive-portal-login-cancel":
-        // CaptivePortalLoginHelper.handleEvent(detail);
-        break;
-      case "copypaste-do-command":
-        Services.obs.notifyObservers(
-          { wrappedJSObject: shell.contentBrowser },
-          "ask-children-to-execute-copypaste-command",
-          detail.cmd
-        );
-        break;
-    }
   },
 };
 
@@ -230,29 +192,6 @@ document.addEventListener(
       },
       true
     );
-
-    // Loads the Keyboard API.
-    if (Services.prefs.getBoolPref("dom.mozInputMethod.enabled")) {
-      debug(`Loading Keyboard API`);
-      ChromeUtils.import("resource://gre/modules/Keyboard.jsm");
-
-      let mm = Services.mm;
-      mm.loadFrameScript("chrome://global/content/forms.js", false, true);
-      mm.loadFrameScript(
-        "chrome://global/content/formsVoiceInput.js",
-        false,
-        true
-      );
-    }
-
-    // debug(`Input Method API enabled: ${Services.prefs.getBoolPref("dom.mozInputMethod.enabled")}`);
-    // debug(`Input Method implementation: ${Cc["@mozilla.org/b2g-inputmethod;1"].createInstance()}`);
-
-    // Give the needed permissions to the system app.
-    // TODO: switch to perms.addFromPrincipal if needed.
-    // ["browser", "input", "input-manage"].forEach(permission => {
-    //   Services.perms.add(Services.io.newURI(shell.startURL), permission, Services.perms.ALLOW_ACTION);
-    // });
 
     // eslint-disable-next-line no-undef
     RemoteDebugger.init(window);

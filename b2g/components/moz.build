@@ -9,19 +9,12 @@ DIRS += ['test']
 EXTRA_COMPONENTS += [
     'AlertsService.js',
     'B2GAboutRedirector.js',
-    'BootstrapCommandLine.js',
     'FilePicker.js',
-    'FxAccountsUIGlue.js',
     'HelperAppDialog.js',
-    'InterAppCommUIGlue.js',
     'KillSwitch.js',
     'MailtoProtocolHandler.js',
-    'MobileIdentityUIGlue.js',
     'OMAContentHandler.js',
-    'PaymentGlue.js',
-    'PaymentProviderStrategy.js',
     'ProcessGlobal.js',
-    'ServiceWorkerIPCHelper.js',
     'SmsProtocolHandler.js',
     'TelProtocolHandler.js',
 ]
@@ -54,24 +47,17 @@ if CONFIG['MOZ_UPDATER']:
     ]
 
 EXTRA_JS_MODULES += [
-    'AboutServiceWorkers.jsm',
     'ActivityChannel.jsm',
     'AlertsHelper.jsm',
     'B2GProcessSelector.jsm',
-    'Bootstraper.jsm',
     'ContentPermissionPrompt.jsm',
-    'ContentRequestHelper.jsm',
     'dbg-browser-actors.js',
     'ErrorPage.jsm',
-    'Frames.jsm',
-    'KaiAccountsMgmtService.jsm',
     'KillSwitchMain.jsm',
     'LocalDomains.jsm',
     'MultiscreenHandler.jsm',
     'OrientationChangeHandler.jsm',
     'PersistentDataBlock.jsm',
-    'Screenshot.jsm',
-    'SystemAppProxy.jsm',
     'TelURIParser.jsm',
 ]
 
