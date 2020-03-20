@@ -42,6 +42,21 @@ public:
   virtual void CreateRenderTexture(
       const wr::ExternalImageId& aExternalImageId) override;
 
+  virtual bool AcquireTextureSource(CompositableTextureSourceRef& aTexture) override;
+  
+  virtual void PushResourceUpdates(
+      wr::TransactionBuilder& aResources,
+      ResourceUpdateOp aOp,
+      const Range<wr::ImageKey>& aImageKeys,
+      const wr::ExternalImageId& aExtID) override;
+
+  virtual void PushDisplayItems(
+      wr::DisplayListBuilder& aBuilder,
+      const wr::LayoutRect& aBounds,
+      const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
+      const Range<wr::ImageKey>& aImageKeys,
+      const bool aPreferCompositorSurface) override;
+
   virtual gfx::IntSize GetSize() const override { return mCropSize; }
 
   virtual LayerRenderState GetRenderState() override;

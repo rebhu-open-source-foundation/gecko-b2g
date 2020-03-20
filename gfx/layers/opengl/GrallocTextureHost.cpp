@@ -14,6 +14,8 @@
 #include "mozilla/layers/GrallocTextureHost.h"
 #include "mozilla/layers/SharedBufferManagerParent.h"
 #include "mozilla/webrender/RenderEGLImageTextureHost.h"
+#include "mozilla/webrender/RenderThread.h"
+#include "mozilla/webrender/WebRenderAPI.h"
 #include "EGLImageHelpers.h"
 #include "GLReadTexImageHelper.h"
 
@@ -302,10 +304,7 @@ GLenum GetTextureTarget(gl::GLContext* aGL, android::PixelFormat aFormat) {
 void
 GrallocTextureHostOGL::CreateEGLImage()
 {
-  gfx::IntSize cropSize(0, 0);
-  if (mCropSize != mSize) {
-    cropSize = mCropSize;
-  }
+  gfx::IntSize cropSize = (mCropSize != mSize) ? mCropSize : mSize;
   
   if (mEGLImage == EGL_NO_IMAGE) {
     android::GraphicBuffer* graphicBuffer = GetGraphicBufferFromDesc(mGrallocHandle).get();
@@ -508,6 +507,49 @@ GrallocTextureHostOGL::GetCompositorReleaseFence()
   return mCompositor->GetReleaseFence();
 }
 
+bool 
+GrallocTextureHostOGL::AcquireTextureSource(CompositableTextureSourceRef& aTexture)
+{  
+  if (!mGLTextureSource) {
+    return false;
+  }
+  aTexture = mGLTextureSource.get();
+  return true;
+}
+
+void 
+GrallocTextureHostOGL::PushResourceUpdates(
+  wr::TransactionBuilder& aResources,
+  ResourceUpdateOp aOp,
+  const Range<wr::ImageKey>& aImageKeys,
+  const wr::ExternalImageId& aExtID) 
+{
+  auto method = aOp == TextureHost::ADD_IMAGE
+                    ? &wr::TransactionBuilder::AddExternalImage
+                    : &wr::TransactionBuilder::UpdateExternalImage;
+  auto imageType =
+      wr::ExternalImageType::TextureHandle(wr::TextureTarget::External);
+
+  MOZ_ASSERT(aImageKeys.length() == 1);
+
+  wr::ImageDescriptor descriptor(GetSize(), mFormat);
+  (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0);
+}
+
+void 
+GrallocTextureHostOGL::PushDisplayItems(
+  wr::DisplayListBuilder& aBuilder,
+  const wr::LayoutRect& aBounds,
+  const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
+  const Range<wr::ImageKey>& aImageKeys,
+  const bool aPreferCompositorSurface)
+{
+  MOZ_ASSERT(aImageKeys.length() == 1);
+  aBuilder.PushImage(aBounds, aClip, true, aFilter, aImageKeys[0],
+                     !(mFlags & TextureFlags::NON_PREMULTIPLIED),
+                     wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
+                     aPreferCompositorSurface);
+}
 
 } // namepsace layers
 } // namepsace mozilla
