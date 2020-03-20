@@ -493,6 +493,9 @@ bool shell::enableWasmCranelift = false;
 #ifdef ENABLE_WASM_GC
 bool shell::enableWasmGc = false;
 #endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+bool shell::enableWasmMultiValue = true;
+#endif
 bool shell::enableWasmVerbose = false;
 bool shell::enableTestWasmAwaitTier2 = false;
 #ifdef ENABLE_WASM_BIGINT
@@ -3084,7 +3087,7 @@ static bool Notes(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-static const char* TryNoteName(JSTryNoteKind kind) {
+static const char* TryNoteName(TryNoteKind kind) {
   switch (kind) {
     case JSTRY_CATCH:
       return "catch";
@@ -3102,7 +3105,7 @@ static const char* TryNoteName(JSTryNoteKind kind) {
       return "destructuring";
   }
 
-  MOZ_CRASH("Bad JSTryNoteKind");
+  MOZ_CRASH("Bad TryNoteKind");
 }
 
 static MOZ_MUST_USE bool TryNotes(JSContext* cx, HandleScript script,
@@ -3112,9 +3115,9 @@ static MOZ_MUST_USE bool TryNotes(JSContext* cx, HandleScript script,
     return false;
   }
 
-  for (const JSTryNote& tn : script->trynotes()) {
+  for (const TryNote& tn : script->trynotes()) {
     if (!sp->jsprintf(" %-16s %6u %8u %8u\n",
-                      TryNoteName(static_cast<JSTryNoteKind>(tn.kind)),
+                      TryNoteName(static_cast<TryNoteKind>(tn.kind)),
                       tn.stackDepth, tn.start, tn.start + tn.length)) {
       return false;
     }
@@ -10348,6 +10351,9 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 #ifdef ENABLE_WASM_GC
   enableWasmGc = op.getBoolOption("wasm-gc");
 #endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+  enableWasmMultiValue = !op.getBoolOption("no-wasm-multi-value");
+#endif
   enableWasmVerbose = op.getBoolOption("wasm-verbose");
   enableTestWasmAwaitTier2 = op.getBoolOption("test-wasm-await-tier2");
   enableAsyncStacks = !op.getBoolOption("no-async-stacks");
@@ -10375,6 +10381,9 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 #endif
 #ifdef ENABLE_WASM_GC
       .setWasmGc(enableWasmGc)
+#endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+      .setWasmMultiValue(enableWasmMultiValue)
 #endif
       .setWasmVerbose(enableWasmVerbose)
       .setTestWasmAwaitTier2(enableTestWasmAwaitTier2)
@@ -10720,6 +10729,9 @@ static void SetWorkerContextOptions(JSContext* cx) {
 #endif
 #ifdef ENABLE_WASM_GC
       .setWasmGc(enableWasmGc)
+#endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+      .setWasmMultiValue(enableWasmMultiValue)
 #endif
 #ifdef ENABLE_WASM_BIGINT
       .setWasmBigIntEnabled(enableWasmBigInt)
@@ -11152,6 +11164,13 @@ int main(int argc, char** argv, char** envp) {
 #else
       !op.addBoolOption('\0', "wasm-gc", "No-op") ||
 #endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+      !op.addBoolOption('\0', "no-wasm-multi-value",
+                        "Disable wasm multi-value features") ||
+#else
+      !op.addBoolOption('\0', "no-wasm-multi-value", "No-op") ||
+#endif
+
       !op.addBoolOption('\0', "no-native-regexp",
                         "Disable native regexp compilation") ||
       !op.addBoolOption('\0', "no-unboxed-objects",

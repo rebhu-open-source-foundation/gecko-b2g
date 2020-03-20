@@ -23,6 +23,8 @@ var SearchUtils = {
 
   BROWSER_SEARCH_PREF,
 
+  SETTINGS_KEY: "search-config",
+
   /**
    * Topic used for events involving the service itself.
    */
@@ -43,6 +45,17 @@ var SearchUtils = {
     SUGGEST_JSON: "application/x-suggestions+json",
     SEARCH: "text/html",
     OPENSEARCH: "application/opensearchdescription+xml",
+  },
+
+  ENGINES_URLS: {
+    "prod-main":
+      "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/search-config/records",
+    "prod-preview":
+      "https://firefox.settings.services.mozilla.com/v1/buckets/main-preview/collections/search-config/records",
+    "stage-main":
+      "https://settings.stage.mozaws.net/v1/buckets/main/collections/search-config/records",
+    "stage-preview":
+      "https://settings.stage.mozaws.net/v1/buckets/main-preview/collections/search-config/records",
   },
 
   // The following constants are left undocumented in nsISearchService.idl
