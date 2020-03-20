@@ -96,7 +96,6 @@ rustc --version
 
 HIDL_HW=$GONK_PATH/out/soong/.intermediates/hardware/interfaces
 HIDL_TRANSPORT=$GONK_PATH/out/soong/.intermediates/system/libhidl/transport
-AIDL_CAMERA=$GONK_PATH/out/soong/.intermediates/frameworks/av/camera
 
 export CFLAGS="-DANDROID -DTARGET_OS_GONK \
 -DJE_FORCE_SYNC_COMPARE_AND_SWAP_4=1 \
@@ -117,8 +116,6 @@ $HWC_DEFINE \
 -isystem $GONK_PATH/bionic/libm/include \
 -I$GONK_PATH/system/core/libpixelflinger/include/ \
 -I$GONK_PATH/frameworks/av/include \
--I$GONK_PATH/frameworks/av/include/camera \
--I$GONK_PATH/frameworks/av/media/libstagefright/include/media/ \
 -I$GONK_PATH/frameworks/native/include \
 -I$GONK_PATH/frameworks/native/include/android \
 -I$GONK_PATH/frameworks/native/libs/nativewindow/include \
@@ -131,10 +128,6 @@ $HWC_DEFINE \
 -I$GONK_PATH/system/core/libpixelflinger/include \
 -I$GONK_PATH/hardware/libhardware/include/ \
 -I$GONK_PATH/system/libhidl/base/include \
--I$GONK_PATH/system/libhidl/transport/token/1.0/utils/include/ \
--I$GONK_PATH/system/media/audio/include/ \
--I$GONK_PATH/system/media/camera/include/ \
--I$AIDL_CAMERA/libcamera_client/android_${TARGET_ARCH}_${TARGET_ARCH_VARIANT}_${TARGET_CPU_VARIANT}_core_shared/gen/aidl/ \
 -I$HIDL_TRANSPORT/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
 -I$HIDL_TRANSPORT/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
 -I$HIDL_HW/gnss/1.0/android.hardware.gnss@1.0_genc++_headers/gen \
@@ -142,12 +135,6 @@ $HWC_DEFINE \
 -I$HIDL_HW/gnss/2.0/android.hardware.gnss@2.0_genc++_headers/gen \
 -I$HIDL_HW/gnss/measurement_corrections/1.0/android.hardware.gnss.measurement_corrections@1.0_genc++_headers/gen \
 -I$HIDL_HW/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen \
--I$HIDL_HW/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen/ \
--I$HIDL_HW/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen/ \
--I$HIDL_HW/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen/ \
--I$HIDL_HW/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen/ \
--I$HIDL_HW/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen/ \
--I$HIDL_HW/media/1.0/android.hardware.media@1.0_genc++_headers/gen/ \
 -I$HIDL_HW/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen/ \
 -I$HIDL_HW/radio/1.1/android.hardware.radio@1.1_genc++_headers/gen/ \
 -I$HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"

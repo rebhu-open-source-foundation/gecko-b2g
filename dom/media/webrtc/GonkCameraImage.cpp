@@ -5,7 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "GonkCameraImage.h"
-#include "stagefright/MediaBuffer.h"
+#include <media/stagefright/MediaBuffer.h>
 
 namespace mozilla {
 
