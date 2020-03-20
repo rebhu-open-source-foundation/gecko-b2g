@@ -575,7 +575,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
   } else if (aData.name().EqualsLiteral(REQUEST_MEDIA_PLAYSTATUS_ID)) {
     DispatchEmptyEvent(aData.name());
   } else if (aData.name().EqualsLiteral(PAIRING_ABORTED_ID)) {
-    // HandlePairingAborted(aData.value());
+    HandlePairingAborted(aData.value());
   } else if (aData.name().EqualsLiteral(OBEX_PASSWORD_REQ_ID)) {
     HandleObexPasswordReq(aData.value());
   } else if (aData.name().EqualsLiteral(PBAP_CONNECTION_REQ_ID)) {
