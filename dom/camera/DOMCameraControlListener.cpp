@@ -360,9 +360,9 @@ DOMCameraControlListener::OnTakePictureComplete(const uint8_t* aData, uint32_t a
     void
     RunCallback(nsDOMCameraControl* aDOMCameraControl) override
     {
-      nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mDOMCameraControl);
+      RefPtr<nsDOMCameraControl> camera = do_QueryObject(mDOMCameraControl.get());
       RefPtr<Blob> picture =
-        Blob::CreateMemoryBlob(global,
+        Blob::CreateMemoryBlob(camera->GetOwnerGlobal(),
                                static_cast<void*>(mData),
                                static_cast<uint64_t>(mLength),
                                mMimeType);
