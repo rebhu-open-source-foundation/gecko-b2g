@@ -13,12 +13,6 @@ pref("toolkit.defaultChromeFeatures", "chrome,dialog=no,close,resizable,scrollba
 // Disable focus rings
 pref("browser.display.focus_ring_width", 0);
 
-// Device pixel to CSS px ratio, in percent. Set to -1 to calculate based on display density.
-pref("browser.viewport.scaleRatio", -1);
-
-/* disable text selection */
-pref("browser.ignoreNativeFrameTextSelection", true);
-
 /* cache prefs */
 #ifdef MOZ_WIDGET_GONK
 pref("browser.cache.disk.enable", true);
@@ -44,11 +38,6 @@ pref("image.cache.size", 524288); //bytes
 pref("image.cache.size", 1048576); // bytes
 #endif
 pref("canvas.image.cache.limit", 20971520); // 20 MB
-
-/* offline cache prefs */
-pref("browser.offline-apps.notify", false);
-pref("browser.cache.offline.enable", true);
-pref("offline-apps.allow_by_default", true);
 
 /* protocol warning prefs */
 pref("network.protocol-handler.warn-external.tel", false);
@@ -279,8 +268,6 @@ pref("ui.threedhighlight", "#fff");
 pref("ui.threedlightshadow", "#ece7e2");
 pref("ui.threedshadow", "#aea194");
 pref("ui.windowframe", "#efebe7");
-
-// Themable via mozSettings
 pref("ui.menu", "#f97c17");
 pref("ui.menutext", "#ffffff");
 pref("ui.infobackground", "#343e40");
@@ -323,9 +310,9 @@ pref("media.gonk.enabled", true);
 #endif
 
 #ifdef DEVICE_256MB_SUPPORT
-//set maximum video buffer size to 20MB(20*1024*1024)
+// Set maximum video buffer size to 20MB(20*1024*1024)
 pref("media.mediasource.eviction_threshold.video", 20971520); //byte
-////set maximum Audio buffer size to 10MB(10*1024*1024)
+// Set maximum Audio buffer size to 10MB(10*1024*1024)
 pref("media.mediasource.eviction_threshold.audio", 10485760); //byte
 #else
 // Set maximum Video buffer size to 40MB(40*1024*1024).
@@ -334,14 +321,14 @@ pref("media.mediasource.eviction_threshold.video", 41943040);
 pref("media.mediasource.eviction_threshold.audio", 20971520);
 #endif
 
-//Encrypted media extensions.
+// Encrypted media extensions.
 pref("media.eme.enabled", true);
 pref("media.eme.apiVisible", true);
 // The default number of decoded video frames that are enqueued in
 // MediaDecoderReader's mVideoQueue.
 pref("media.video-queue.default-size", 3);
 
-// optimize images' memory usage
+// Optimize images' memory usage
 pref("image.downscale-during-decode.enabled", true);
 pref("image.mem.allow_locking_in_content_processes", true);
 // Limit the surface cache to 1/8 of main memory or 128MB, whichever is smaller.
@@ -401,7 +388,7 @@ pref("urlclassifier.gethash.timeout_ms", 5000);
 pref("urlclassifier.max-complete-age", 2700);
 
 // Tracking protection
-pref("privacy.trackingprotection.enabled", false);
+pref("privacy.trackingprotection.enabled", true);
 pref("privacy.trackingprotection.pbmode.enabled", true);
 
 #endif
@@ -432,11 +419,7 @@ pref("browser.link.open_newwindow", 3);
 // 2: don't divert window.open with features
 pref("browser.link.open_newwindow.restriction", 0);
 
-// Enable browser frames (including OOP, except on Windows, where it doesn't
-// work), but make in-process browser frames the default.
-pref("dom.mozBrowserFramesEnabled", true);
-
-// Enable a (virtually) unlimited number of mozbrowser processes.
+// Enable a (virtually) unlimited number of content processes.
 // We'll run out of PIDs on UNIX-y systems before we hit this limit.
 pref("dom.ipc.processCount", 100000);
 
@@ -464,7 +447,6 @@ pref("dom.mozAlarms.enabled", true);
 // NetworkStats
 #ifdef MOZ_WIDGET_GONK
 pref("dom.mozNetworkStats.enabled", true);
-pref("dom.webapps.firstRunWithSIM", true);
 #endif
 
 // ResourceStats
@@ -472,13 +454,6 @@ pref("dom.webapps.firstRunWithSIM", true);
 pref("dom.resource_stats.enabled", true);
 #endif
 
-#ifdef MOZ_B2G_RIL
-// SingleVariant
-pref("dom.mozApps.single_variant_sourcedir", "/persist/svoperapps");
-#endif
-
-// WebSettings
-pref("dom.mozSettings.enabled", true);
 pref("dom.mozPermissionSettings.enabled", true);
 
 // controls if we want camera support
@@ -487,27 +462,6 @@ pref("media.realtime_decoder.enabled", true);
 
 // TCPSocket
 pref("dom.mozTCPSocket.enabled", true);
-
-// WebPayment
-pref("dom.mozPay.enabled", true);
-
-// "Preview" landing of bug 710563, which is bogged down in analysis
-// of talos regression.  This is a needed change for higher-framerate
-// CSS animations, and incidentally works around an apparent bug in
-// our handling of requestAnimationFrame() listeners, which are
-// supposed to enable this REPEATING_PRECISE_CAN_SKIP behavior.  The
-// secondary bug isn't really worth investigating since it's obseleted
-// by bug 710563.
-pref("layout.frame_rate.precise", true);
-
-// Handle hardware buttons in the b2g chrome package
-pref("b2g.keys.menu.enabled", true);
-
-// Display simulator software buttons
-pref("b2g.software-buttons", false);
-
-// Screen timeout in seconds
-pref("power.screen.timeout", 60);
 
 pref("full-screen-api.enabled", true);
 
@@ -571,12 +525,6 @@ pref("dom.system_update.active", "@mozilla.org/updates/update-prompt;1");
 pref("shutdown.watchdog.timeoutSecs", -1);
 #endif
 
-// Allow webapps update checking
-pref("webapps.update.enabled", true);
-
-// Check daily for apps updates.
-pref("webapps.update.interval", 86400);
-
 // Extensions preferences
 pref("extensions.update.enabled", false);
 pref("extensions.getAddons.cache.enabled", false);
@@ -588,17 +536,8 @@ pref("ui.click_hold_context_menus.delay", 400);
 // Enable device storage
 pref("device.storage.enabled", true);
 
-pref("dom.softkey.enabled", true);
-
-// Enable pre-installed applications
-pref("dom.webapps.useCurrentProfile", true);
-
-// Enable system message
-pref("dom.sysmsg.enabled", true);
 pref("media.plugins.enabled", false);
 pref("media.omx.enabled", true);
-pref("media.rtsp.enabled", true);
-pref("media.rtsp.video.enabled", true);
 
 // Disable printing (particularly, window.print())
 pref("dom.disable_window_print", true);
@@ -778,24 +717,8 @@ pref("gonk.notifySoftLowMemUnderKB", 30720);
 // blocked on a poll(), and this pref has no effect.)
 pref("gonk.systemMemoryPressureRecoveryPollMS", 5000);
 
-// Enable pre-launching content processes for improved startup time
-// (hiding latency).
-pref("dom.ipc.processPrelaunch.enabled", true);
-// Wait this long before pre-launching a new subprocess.
-pref("dom.ipc.processPrelaunch.delayMs", 5000);
-
-pref("dom.ipc.reuse_parent_app", false);
-
-// When a process receives a system message, we hold a CPU wake lock on its
-// behalf for this many seconds, or until it handles the system message,
-// whichever comes first.
-pref("dom.ipc.systemMessageCPULockTimeoutSec", 30);
-
 // Ignore the "dialog=1" feature in window.open.
 pref("dom.disable_window_open_dialog_feature", true);
-
-// Enable before keyboard events and after keyboard events.
-pref("dom.beforeAfterKeyboardEvent.enabled", true);
 
 // Screen reader support
 pref("accessibility.accessfu.activate", 2);
@@ -896,9 +819,6 @@ pref("consoleservice.buffered", false);
 pref("toolkit.storage.pageSize", 2048);
 #endif
 
-// The url of the manifest we use for ADU pings.
-pref("ping.manifestURL", "https://marketplace.firefox.com/packaged.webapp");
-
 // Enable the disk space watcher
 pref("disk_space_watcher.enabled", true);
 
@@ -910,23 +830,10 @@ pref("network.sntp.pools", // Servers separated by ';'.
 pref("network.sntp.port", 123);
 pref("network.sntp.timeout", 30); // In seconds.
 
-// Enable dataStore
-pref("dom.datastore.enabled", true);
-// When an entry is changed, use two timers to fire system messages in a more
-// moderate pattern.
-pref("dom.datastore.sysMsgOnChangeShortTimeoutSec", 10);
-pref("dom.datastore.sysMsgOnChangeLongTimeoutSec", 60);
-
-// DOM Inter-App Communication API.
-pref("dom.inter-app-communication-api.enabled", true);
-
 // Allow ADB to run for this many hours before disabling
 // (only applies when marionette is disabled)
 // 0 disables the timer.
 pref("b2g.adb.timeout-hours", 12);
-
-// InputMethod so we can do soft keyboards
-pref("dom.mozInputMethod.enabled", false);
 
 // Absolute path to the devtool unix domain socket file used
 // to communicate with a usb cable via adb forward
@@ -964,17 +871,8 @@ pref("gfx.screen-mirroring.enabled", false);
 // The url of the page used to display network error details.
 pref("b2g.neterror.url", "net_error.html");
 
-// The origin used for the shared themes uri space.
-pref("b2g.theme.origin", "app://theme.gaiamobile.org");
-pref("dom.mozApps.themable", true);
-pref("dom.mozApps.selected_theme", "default_theme.gaiamobile.org");
-
 // Enable PAC generator for B2G.
 pref("network.proxy.pac_generator", true);
-
-// List of app origins to apply browsing traffic proxy setting, separated by
-// comma.  Specify '*' in the list to apply to all apps.
-pref("network.proxy.browsing.app_origins", "app://system.gaiamobile.org");
 
 // Enable Web Speech synthesis API
 pref("media.webspeech.synth.enabled", true);
@@ -1030,8 +928,6 @@ pref("browser.autofocus", false);
 // Enable wakelock
 pref("dom.wakelock.enabled", true);
 
-pref("dom.apps.reviewer_paths", "/reviewers/,/extension/reviewers/");
-
 // New implementation to unify touch-caret and selection-carets.
 pref("layout.accessiblecaret.enabled", false);
 
@@ -1047,19 +943,10 @@ pref("layout.accessiblecaret.use_long_tap_injector", false);
 // Hide carets and text selection dialog during scrolling.
 pref("layout.accessiblecaret.always_show_when_scrolling", false);
 
-// Enable mozId (IdentityManager) API
-pref("dom.identity.enabled", true);
-
-// Mobile Identity API.
-pref("services.mobileid.server.uri", "https://msisdn.services.mozilla.com");
-
 // Enable mapped array buffer.
 #ifndef XP_WIN
 pref("dom.mapped_arraybuffer.enabled", true);
 #endif
-
-// SystemUpdate API
-pref("dom.system_update.enabled", true);
 
 // UDPSocket API
 pref("dom.udpsocket.enabled", true);
@@ -1071,24 +958,6 @@ pref("dom.tv.simulator.enabled", false);
 
 // Enable Inputport Manager API
 pref("dom.inputport.enabled", true);
-
-pref("dom.mozSettings.SettingsDB.debug.enabled", true);
-pref("dom.mozSettings.SettingsManager.debug.enabled", true);
-pref("dom.mozSettings.SettingsRequestManager.debug.enabled", true);
-pref("dom.mozSettings.SettingsService.debug.enabled", true);
-
-pref("dom.mozSettings.SettingsDB.verbose.enabled", false);
-pref("dom.mozSettings.SettingsManager.verbose.enabled", false);
-pref("dom.mozSettings.SettingsRequestManager.verbose.enabled", false);
-pref("dom.mozSettings.SettingsService.verbose.enabled", false);
-
-// Controlling whether we want to allow forcing some Settings
-// IndexedDB transactions to be opened as readonly or keep everything as
-// readwrite.
-pref("dom.mozSettings.allowForceReadOnly", false);
-
-// RequestSync API is enabled by default on B2G.
-pref("dom.requestSync.enabled", true);
 
 // Comma separated list of activity names that can only be provided by
 // the system app in dev mode.
@@ -1123,7 +992,7 @@ pref("dom.flip.enabled", true);
 pref("dom.flashlight.enabled", true);
 
 // Default device name for Presentation API
-pref("dom.presentation.device.name", "Firefox OS");
+pref("dom.presentation.device.name", "B2G OS");
 
 // Enable notification of performance timing
 pref("dom.performance.enable_notify_performance_timing", true);
@@ -1161,11 +1030,6 @@ pref("dom.keyboardEventGenerator.enabled", false);
 
 // In compatibility mode, 'Firefox' will be added to UA.
 pref("general.useragent.compatMode.firefox", true);
-
-// Disable sandboxed cookies for apps.
-// Turning this off treat apps as mozbrowser iframe when inserting cookies
-// into DB, allow us to do single-sign-on with services like Google, Facebook.
-pref("apps.sandboxed.cookies.enabled", false);
 
 // Disable Gecko Telemetry
 pref("toolkit.telemetry.enabled", false);
@@ -1236,9 +1100,6 @@ pref("devtools.console.stdout.content", true);
 pref("dom.w3c_touch_events.enabled", 1);
 pref("dom.w3c_pointer_events.enabled", true);
 
-// Useful to debug.
-pref("layers.acceleration.draw-fps", false);
-
 pref("extensions.systemAddon.update.enabled", false);
 
 pref("browser.privatebrowsing.autostart", false);
@@ -1270,5 +1131,8 @@ pref("dom.ipc.forkserver.enable", true);
 // the system app, until nsContentSecurityManager.cpp stabilizes (eg. bug 1544011)
 pref("dom.security.skip_remote_script_assertion_in_system_priv_context", true);
 
-// Enable WebRedner by default
+// Enable WebRender by default
 pref("gfx.webrender.all", true);
+
+// We control process prelaunch from the embedding api.
+pref("dom.ipc.processPrelaunch.enabled", false);
