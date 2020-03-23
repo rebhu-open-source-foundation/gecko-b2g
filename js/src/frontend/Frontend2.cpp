@@ -25,9 +25,10 @@
 #include "js/RootingAPI.h"         // JS::Handle, JS::Rooted
 #include "js/TypeDecls.h"          // Rooted{Script,Value,String,Object}
 #include "vm/JSAtom.h"             // AtomizeUTF8Chars
-#include "vm/JSScript.h"           // JSScript, ScopeNote
+#include "vm/JSScript.h"           // JSScript
 #include "vm/Scope.h"              // BindingName
 #include "vm/ScopeKind.h"          // ScopeKind
+#include "vm/SharedStencil.h"      // ImmutableScriptData, ScopeNote, TryNote
 
 #include "vm/JSContext-inl.h"  // AutoKeepAtoms (used by BytecodeCompiler)
 
@@ -85,7 +86,7 @@ class SmooshScriptStencil : public ScriptStencil {
         result_.is_function, /* funLength = */ 0,
         mozilla::MakeSpan(result_.bytecode.data, result_.bytecode.len),
         mozilla::Span<const jssrcnote>(), mozilla::Span<const uint32_t>(),
-        scopeNotes, mozilla::Span<const JSTryNote>());
+        scopeNotes, mozilla::Span<const TryNote>());
     if (!immutableScriptData) {
       return false;
     }
@@ -352,13 +353,12 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
   RootedScript script(cx,
                       JSScript::Create(cx, cx->global(), options, sso, extent));
 
-  Rooted<SmooshScriptStencil> stencil(
-      cx, SmooshScriptStencil(cx, smoosh, compilationInfo));
-  if (!stencil.get().init(cx)) {
+  SmooshScriptStencil stencil(cx, smoosh, compilationInfo);
+  if (!stencil.init(cx)) {
     return nullptr;
   }
 
-  if (!JSScript::fullyInitFromStencil(cx, script, stencil.get())) {
+  if (!JSScript::fullyInitFromStencil(cx, script, stencil)) {
     return nullptr;
   }
 

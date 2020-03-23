@@ -15,7 +15,6 @@
 #include "mozilla/ScopeExit.h"         // for MakeScopeExit, ScopeExit
 #include "mozilla/ThreadLocal.h"       // for ThreadLocal
 #include "mozilla/TimeStamp.h"         // for TimeStamp, TimeDuration
-#include "mozilla/TypeTraits.h"        // for RemoveConst<>::Type
 #include "mozilla/UniquePtr.h"         // for UniquePtr
 #include "mozilla/Variant.h"           // for AsVariant, AsVariantTemporary
 #include "mozilla/Vector.h"            // for Vector, Vector<>::ConstRange
@@ -1694,7 +1693,7 @@ static MOZ_MUST_USE bool AdjustGeneratorResumptionValue(JSContext* cx,
     // C++ implementation of AsyncGeneratorResolve will do this. So don't do it
     // twice:
     if (!genObj->is<AsyncGeneratorObject>()) {
-      JSObject* pair = CreateIterResultObject(cx, vp, true);
+      PlainObject* pair = CreateIterResultObject(cx, vp, true);
       if (!pair) {
         return false;
       }

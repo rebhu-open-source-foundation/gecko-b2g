@@ -23,7 +23,7 @@ const { getVerificationHash } = ChromeUtils.import(
 var cacheTemplate, appPluginsPath, profPlugins;
 
 const enginesCache = {
-  version: gModernConfig ? 4 : 3,
+  version: SearchUtils.CACHE_VERSION,
   buildID: "TBD",
   appVersion: "TBD",
   locale: "en-US",
@@ -84,7 +84,6 @@ const enginesCache = {
         },
       ],
       queryCharset: "UTF-8",
-      _readOnly: false,
       filePath: "TBD",
     },
   ],

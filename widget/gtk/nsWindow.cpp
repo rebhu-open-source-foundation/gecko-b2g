@@ -334,6 +334,7 @@ static bool gGlobalsInitialized = false;
 static bool gRaiseWindows = true;
 static bool gUseWaylandVsync = false;
 static bool gUseWaylandUseOpaqueRegion = true;
+static bool gUseAspectRatio = true;
 static GList* gVisibleWaylandPopupWindows = nullptr;
 
 #if GTK_CHECK_VERSION(3, 4, 0)
@@ -3532,8 +3533,9 @@ void nsWindow::OnWindowStateEvent(GtkWidget* aWidget,
   //
   // See https://gitlab.gnome.org/GNOME/gtk/issues/1044
   //
-  // This is fixed in Gtk 3.24+
-  if (gtk_check_version(3, 24, 0) != nullptr) {
+  // This may be fixed in Gtk 3.24+ but some DE still have this issue
+  // (Bug 1624199) so let's remove it for Wayland only.
+  if (mIsX11Display) {
     if (!mIsShown) {
       aEvent->changed_mask = static_cast<GdkWindowState>(
           aEvent->changed_mask & ~GDK_WINDOW_STATE_MAXIMIZED);
@@ -6683,6 +6685,14 @@ static nsresult initialize_prefs(void) {
   gUseWaylandUseOpaqueRegion =
       Preferences::GetBool("widget.wayland.use-opaque-region", true);
 
+  if (Preferences::HasUserValue("widget.use-aspect-ratio")) {
+    gUseAspectRatio = Preferences::GetBool("widget.use-aspect-ratio", true);
+  } else {
+    static const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
+    gUseAspectRatio =
+        currentDesktop ? (strstr(currentDesktop, "GNOME") != nullptr) : false;
+  }
+
   return NS_OK;
 }
 
@@ -7876,10 +7886,7 @@ GtkTextDirection nsWindow::GetTextDirection() {
 }
 
 void nsWindow::LockAspectRatio(bool aShouldLock) {
-  static const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
-  static bool setLock =
-      currentDesktop ? (strstr(currentDesktop, "GNOME") != nullptr) : false;
-  if (!setLock) {
+  if (!gUseAspectRatio) {
     return;
   }
 

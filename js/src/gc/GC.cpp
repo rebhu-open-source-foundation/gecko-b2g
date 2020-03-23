@@ -197,7 +197,6 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/TextUtils.h"
 #include "mozilla/TimeStamp.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Unused.h"
 
 #include <algorithm>
@@ -2368,10 +2367,12 @@ void GCRuntime::updateCellPointers(Zone* zone, AllocKinds kinds) {
                               gcstats::PhaseKind::COMPACT_UPDATE_CELLS,
                               bgArenas, SliceBudget::unlimited(), lock);
 
-  AutoUnlockHelperThreadState unlock(lock);
+  ParallelWorker fgTask(this, UpdateArenaListSegmentPointers, fgArenas,
+                        SliceBudget::unlimited(), lock);
 
-  for (; !fgArenas.done(); fgArenas.next()) {
-    UpdateArenaListSegmentPointers(this, fgArenas.get());
+  {
+    AutoUnlockHelperThreadState unlock(lock);
+    fgTask.runFromMainThread();
   }
 }
 
@@ -4956,8 +4957,9 @@ void GCRuntime::sweepWeakRefs() {
 void GCRuntime::sweepFinalizationRegistriesOnMainThread() {
   // This calls back into the browser which expects to be called from the main
   // thread.
-  gcstats::AutoPhase ap(stats(),
-                        gcstats::PhaseKind::SWEEP_FINALIZATION_REGISTRIES);
+  gcstats::AutoPhase ap1(stats(), gcstats::PhaseKind::SWEEP_COMPARTMENTS);
+  gcstats::AutoPhase ap2(stats(),
+                         gcstats::PhaseKind::SWEEP_FINALIZATION_REGISTRIES);
   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
     sweepFinalizationRegistries(zone);
   }
@@ -5242,7 +5244,6 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JSFreeOp* fop,
     {
       AutoUnlockHelperThreadState unlock(lock);
       sweepJitDataOnMainThread(fop);
-      sweepFinalizationRegistriesOnMainThread();
     }
 
     for (auto& task : sweepCacheTasks) {
@@ -5253,6 +5254,10 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JSFreeOp* fop,
   if (sweepingAtoms) {
     startSweepingAtomsTable();
   }
+
+  // FinalizationRegistry sweeping touches weak maps and so must not run in
+  // parallel with that.
+  sweepFinalizationRegistriesOnMainThread();
 
   // Queue all GC things in all zones for sweeping, either on the foreground
   // or on the background thread.
@@ -5684,8 +5689,8 @@ IncrementalProgress GCRuntime::sweepShapeTree(JSFreeOp* fop,
 // interface. This iterator provides a done()/get()/next() style interface.
 template <typename Container>
 class ContainerIter {
-  using Iter = decltype(mozilla::DeclVal<const Container>().begin());
-  using Elem = decltype(*mozilla::DeclVal<Iter>());
+  using Iter = decltype(std::declval<const Container>().begin());
+  using Elem = decltype(*std::declval<Iter>());
 
   Iter iter;
   const Iter end;
@@ -5711,7 +5716,7 @@ class ContainerIter {
 template <typename Iter>
 struct IncrementalIter {
   using State = Maybe<Iter>;
-  using Elem = decltype(mozilla::DeclVal<Iter>().get());
+  using Elem = decltype(std::declval<Iter>().get());
 
  private:
   State& maybeIter;
@@ -5857,7 +5862,7 @@ class SweepActionSequence final : public SweepAction {
 
 template <typename Iter, typename Init>
 class SweepActionForEach final : public SweepAction {
-  using Elem = decltype(mozilla::DeclVal<Iter>().get());
+  using Elem = decltype(std::declval<Iter>().get());
   using IncrIter = IncrementalIter<Iter>;
 
   Init iterInit;

@@ -402,7 +402,7 @@ class ArgSeq<> {
 template <typename HeadType, typename... TailTypes>
 class ArgSeq<HeadType, TailTypes...> : public ArgSeq<TailTypes...> {
  private:
-  using RawHeadType = typename mozilla::RemoveReference<HeadType>::Type;
+  using RawHeadType = std::remove_reference_t<HeadType>;
   RawHeadType head_;
 
  public:
@@ -528,7 +528,7 @@ OutOfLineCode* CodeGenerator::oolCallVM(LInstruction* lir, const ArgSeq& args,
   const VMFunctionData& fun = GetVMFunction(id);
   MOZ_ASSERT(fun.explicitArgs == args.numArgs);
   MOZ_ASSERT(fun.returnsData() !=
-             (mozilla::IsSame<StoreOutputTo, StoreNothing>::value));
+             (std::is_same_v<StoreOutputTo, StoreNothing>));
 #endif
 
   OutOfLineCode* ool = new (alloc())

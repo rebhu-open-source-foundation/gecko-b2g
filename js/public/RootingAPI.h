@@ -11,7 +11,6 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/GuardObjects.h"
 #include "mozilla/LinkedList.h"
-#include "mozilla/TypeTraits.h"
 
 #include <type_traits>
 #include <utility>
@@ -586,15 +585,14 @@ class MOZ_NONHEAP_CLASS Handle : public js::HandleBase<T, Handle<T>> {
   template <typename S>
   MOZ_IMPLICIT Handle(
       Handle<S> handle,
-      typename mozilla::EnableIf<mozilla::IsConvertible<S, T>::value, int>::Type
-          dummy = 0) {
+      std::enable_if_t<std::is_convertible_v<S, T>, int> dummy = 0) {
     static_assert(sizeof(Handle<T>) == sizeof(T*),
                   "Handle must be binary compatible with T*.");
     ptr = reinterpret_cast<const T*>(handle.address());
   }
 
   MOZ_IMPLICIT Handle(decltype(nullptr)) {
-    static_assert(mozilla::IsPointer<T>::value,
+    static_assert(std::is_pointer_v<T>,
                   "nullptr_t overload not valid for non-pointer types");
     static void* const ConstNullValue = nullptr;
     ptr = reinterpret_cast<const T*>(&ConstNullValue);
@@ -629,21 +627,18 @@ class MOZ_NONHEAP_CLASS Handle : public js::HandleBase<T, Handle<T>> {
   template <typename S>
   inline MOZ_IMPLICIT Handle(
       const Rooted<S>& root,
-      typename mozilla::EnableIf<mozilla::IsConvertible<S, T>::value, int>::Type
-          dummy = 0);
+      std::enable_if_t<std::is_convertible_v<S, T>, int> dummy = 0);
 
   template <typename S>
   inline MOZ_IMPLICIT Handle(
       const PersistentRooted<S>& root,
-      typename mozilla::EnableIf<mozilla::IsConvertible<S, T>::value, int>::Type
-          dummy = 0);
+      std::enable_if_t<std::is_convertible_v<S, T>, int> dummy = 0);
 
   /* Construct a read only handle from a mutable handle. */
   template <typename S>
   inline MOZ_IMPLICIT Handle(
       MutableHandle<S>& root,
-      typename mozilla::EnableIf<mozilla::IsConvertible<S, T>::value, int>::Type
-          dummy = 0);
+      std::enable_if_t<std::is_convertible_v<S, T>, int> dummy = 0);
 
   DECLARE_POINTER_CONSTREF_OPS(T);
   DECLARE_NONPOINTER_ACCESSOR_METHODS(*ptr);
@@ -1042,9 +1037,8 @@ namespace detail {
  */
 template <typename T>
 using MaybeWrapped =
-    typename mozilla::Conditional<MapTypeToRootKind<T>::kind ==
-                                      JS::RootKind::Traceable,
-                                  js::DispatchWrapper<T>, T>::Type;
+    std::conditional_t<MapTypeToRootKind<T>::kind == JS::RootKind::Traceable,
+                       js::DispatchWrapper<T>, T>;
 
 // Dummy types to make it easier to understand template overload preference
 // ordering.
@@ -1243,8 +1237,7 @@ template <typename T>
 template <typename S>
 inline Handle<T>::Handle(
     const Rooted<S>& root,
-    typename mozilla::EnableIf<mozilla::IsConvertible<S, T>::value, int>::Type
-        dummy) {
+    std::enable_if_t<std::is_convertible_v<S, T>, int> dummy) {
   ptr = reinterpret_cast<const T*>(root.address());
 }
 
@@ -1252,8 +1245,7 @@ template <typename T>
 template <typename S>
 inline Handle<T>::Handle(
     const PersistentRooted<S>& root,
-    typename mozilla::EnableIf<mozilla::IsConvertible<S, T>::value, int>::Type
-        dummy) {
+    std::enable_if_t<std::is_convertible_v<S, T>, int> dummy) {
   ptr = reinterpret_cast<const T*>(root.address());
 }
 
@@ -1261,8 +1253,7 @@ template <typename T>
 template <typename S>
 inline Handle<T>::Handle(
     MutableHandle<S>& root,
-    typename mozilla::EnableIf<mozilla::IsConvertible<S, T>::value, int>::Type
-        dummy) {
+    std::enable_if_t<std::is_convertible_v<S, T>, int> dummy) {
   ptr = reinterpret_cast<const T*>(root.address());
 }
 

@@ -9,8 +9,9 @@
 
 #include "mozilla/EndianUtils.h"
 #include "mozilla/MaybeOneOf.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Utf8.h"
+
+#include <type_traits>
 
 #include "jsapi.h"
 #include "jsfriendapi.h"
@@ -344,9 +345,7 @@ class XDRState : public XDRCoderBase {
    * as C++ will extract the parameterized from the argument list.
    */
   template <typename T>
-  XDRResult codeEnum32(
-      T* val,
-      typename mozilla::EnableIf<mozilla::IsEnum<T>::value, T>::Type* = NULL) {
+  XDRResult codeEnum32(T* val, std::enable_if_t<std::is_enum_v<T>>* = nullptr) {
     // Mix the enumeration value with a random magic number, such that a
     // corruption with a low-ranged value (like 0) is less likely to cause a
     // miss-interpretation of the XDR content and instead cause a failure.

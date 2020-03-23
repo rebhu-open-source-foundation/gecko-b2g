@@ -9,6 +9,9 @@
 
 #include "vm/JSContext.h"
 
+#include <type_traits>
+#include <utility>
+
 #include "builtin/Object.h"
 #include "gc/Zone.h"
 #include "jit/JitFrames.h"
@@ -94,8 +97,7 @@ class ContextChecks {
 
   template <typename T>
   void checkAtom(T* thing, int argIndex) {
-    static_assert(mozilla::IsSame<T, JSAtom>::value ||
-                      mozilla::IsSame<T, JS::Symbol>::value,
+    static_assert(std::is_same_v<T, JSAtom> || std::is_same_v<T, JS::Symbol>,
                   "Should only be called with JSAtom* or JS::Symbol* argument");
 
 #ifdef DEBUG
@@ -138,9 +140,8 @@ class ContextChecks {
   // Check the contents of any container class that supports the C++
   // iteration protocol, eg GCVector<jsid>.
   template <typename Container>
-  typename mozilla::EnableIf<
-      mozilla::IsSame<decltype(((Container*)nullptr)->begin()),
-                      decltype(((Container*)nullptr)->end())>::value>::Type
+  std::enable_if_t<std::is_same_v<decltype(std::declval<Container>().begin()),
+                                  decltype(std::declval<Container>().end())>>
   check(const Container& container, int argIndex) {
     for (auto i : container) {
       check(i, argIndex);

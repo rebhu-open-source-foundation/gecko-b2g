@@ -506,10 +506,11 @@ pref("media.videocontrols.picture-in-picture.video-toggle.always-show", false);
   pref("media.peerconnection.mute_on_bye_or_timeout", false);
 
   // 770 = DTLS 1.0, 771 = DTLS 1.2, 772 = DTLS 1.3
-  pref("media.peerconnection.dtls.version.min", 771);
 #if defined(NIGHTLY_BUILD)
+  pref("media.peerconnection.dtls.version.min", 771);
   pref("media.peerconnection.dtls.version.max", 772);
 #else
+  pref("media.peerconnection.dtls.version.min", 770);
   pref("media.peerconnection.dtls.version.max", 771);
 #endif
 
@@ -3942,6 +3943,8 @@ pref("signon.autofillForms.http",           false);
 pref("signon.autologin.proxy",              false);
 pref("signon.formlessCapture.enabled",      true);
 pref("signon.generation.available",               true);
+// A value of "-1" disables new-password heuristics. Can be updated once Bug 1618058 is resolved.
+pref("signon.generation.confidenceThreshold",     "-1");
 pref("signon.generation.enabled",                 true);
 pref("signon.passwordEditCapture.enabled",        false);
 pref("signon.privateBrowsingCapture.enabled",     true);
