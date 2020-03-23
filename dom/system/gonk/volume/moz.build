@@ -14,41 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+XPIDL_MODULE = 'dom_system_gonk_volume'
+
 XPIDL_SOURCES += [
-    'nsIAudioManager.idl',
-    'nsISystemWorkerManager.idl',
-]
-
-XPIDL_MODULE = 'dom_system_gonk'
-
-EXPORTS += [
-    'AudioChannelManager.h',
-    'GeolocationUtil.h',
-    'SystemProperty.h',
-    'SystemWorkerManager.h',
-]
-
-UNIFIED_SOURCES += [
-    'AudioChannelManager.cpp',
-    'AudioManager.cpp',
-    'GeolocationUtil.cpp',
-    'SystemProperty.cpp',
-    'SystemWorkerManager.cpp',
+    'nsIVolume.idl',
+    'nsIVolumeMountLock.idl',
+    'nsIVolumeService.idl',
+    'nsIVolumeStat.idl',
 ]
 
 EXPORTS += [
-    'GonkGPSGeolocationProvider.h',
+    'nsVolume.h',
+    'nsVolumeService.h',
 ]
+
 UNIFIED_SOURCES += [
-    'GonkGPSGeolocationProvider.cpp',
-]
-
-XPCOM_MANIFESTS += [
-    'components.conf',
-]
-
-EXTRA_JS_MODULES += [
-    'systemlibs.js',
+    'AutoMounter.cpp',
+    'nsVolume.cpp',
+    'nsVolumeMountLock.cpp',
+    'nsVolumeService.cpp',
+    'nsVolumeStat.cpp',
+    'Volume.cpp',
+    'VolumeCommand.cpp',
+    'VolumeManager.cpp',
+    'VolumeServiceIOThread.cpp',
+    'VolumeServiceTest.cpp',
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')
@@ -59,12 +49,6 @@ LOCAL_INCLUDES += [
     # libhardware_legacy is needed for acquiring/releasing wake lock
     '%' + '%s/hardware/libhardware_legacy/include' % CONFIG['GONK_PATH'],
     '/dom/base',
-]
-
-DIRS += [
-    'network',
-    'radio',
-    'volume',
 ]
 
 FINAL_LIBRARY = 'xul'

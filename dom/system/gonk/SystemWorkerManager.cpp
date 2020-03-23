@@ -27,7 +27,7 @@
 #  include "jsfriendapi.h"
 #  include "mozilla/dom/workers/Workers.h"
 #endif
-#include "AutoMounter.h"
+#include "volume/AutoMounter.h"
 #include "nsIObserverService.h"
 #if 0
 #  include "TimeZoneSettingObserver.h"
