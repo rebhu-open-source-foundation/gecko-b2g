@@ -45,32 +45,22 @@ if CONFIG['MOZ_B2G_CAMERA']:
     ]
 
     if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-        if CONFIG['ANDROID_VERSION'] >= '29':
-            LOCAL_INCLUDES += [
-                '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-                    'frameworks/av/media/libaudioclient/include',
-                    'out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
-                    'out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
-                    'out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
-                    'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
-                    'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
-                    'system/core/libprocessgroup/include',
-                ]
+        LOCAL_INCLUDES += [
+            '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+                'frameworks/av/media/libaudioclient/include',
+                'out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
+                'out/soong/.intermediates/frameworks/av/media/libaudioclient/libaudioclient/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
+                'out/soong/.intermediates/frameworks/av/media/libmedia/libmedia_omx/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
+                'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
+                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
+                'system/core/libprocessgroup/include',
             ]
-        else:
-            LOCAL_INCLUDES += [
-                '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-                    'out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_arm_armv7-a-neon_cortex-a7_shared_core/gen/aidl',
-                    'out/soong/.intermediates/frameworks/av/media/libmedia/libmedia/android_arm_armv7-a-neon_cortex-a7_shared_core/gen/aidl',
-                ]
+        ]
+        LOCAL_INCLUDES += [
+            '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
             ]
-
-        if CONFIG['ANDROID_VERSION'] >= '28':
-            LOCAL_INCLUDES += [
-                '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-                    'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
-                ]
-            ]
+        ]
 
         LOCAL_INCLUDES += [
             '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
@@ -124,10 +114,9 @@ LOCAL_INCLUDES += [
 
 include('/ipc/chromium/chromium-config.mozbuild')
 
-if CONFIG['ANDROID_VERSION'] >= '29':
-    CXXFLAGS += [
-        '-std=c++17',
-    ]
+CXXFLAGS += [
+    '-std=c++17',
+]
 
 # Suppress some GCC warnings being treated as errors:
 #  - about attributes on forward declarations for types that are already

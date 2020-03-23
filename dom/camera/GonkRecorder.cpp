@@ -29,7 +29,7 @@
 #define RE_LOGE(fmt, ...) DOM_CAMERA_LOGE("[%s:%d]" fmt,__FILE__,__LINE__, ## __VA_ARGS__)
 
 #include <binder/IPCThreadState.h>
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
 # include <media/openmax/OMX_Audio.h>
 #endif
 #include <media/stagefright/foundation/ADebug.h>
@@ -41,11 +41,7 @@
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/OMXClient.h>
-#if ANDROID_VERSION >= 21
 #include <media/stagefright/MediaCodecSource.h>
-#else
-#include <media/stagefright/OMXCodec.h>
-#endif
 #include <media/MediaProfiles.h>
 
 #include <utils/Errors.h>
@@ -65,11 +61,7 @@ public:
     status_t start(MetaData *params = NULL) override;
     status_t stop() override;
     sp<MetaData> getFormat() override;
-#if ANDROID_VERSION >= 29
     status_t read(MediaBufferBase **buffer, const ReadOptions *options = NULL) override;
-#else
-    status_t read(MediaBuffer **buffer, const ReadOptions *options = NULL) override;
-#endif
     void block();
     status_t resume();
 
@@ -122,13 +114,8 @@ GonkRecorder::WrappedMediaSource::getFormat()
     return mEncoder->getFormat();
 }
 
-#if ANDROID_VERSION >= 29
 status_t
 GonkRecorder::WrappedMediaSource::read(MediaBufferBase **buffer, const ReadOptions *options)
-#else
-status_t
-GonkRecorder::WrappedMediaSource::read(MediaBuffer **buffer, const ReadOptions *options)
-#endif
 {
     MutexAutoLock lock(mMutex);
     while (mWait) {
@@ -136,11 +123,7 @@ GonkRecorder::WrappedMediaSource::read(MediaBuffer **buffer, const ReadOptions *
     }
 
     status_t rv = UNKNOWN_ERROR;
-#if ANDROID_VERSION >= 29
     MediaBufferBase *buf = NULL;
-#else
-    MediaBuffer *buf = NULL;
-#endif
 
     do {
         rv = mEncoder->read(&buf, options);
@@ -156,11 +139,7 @@ GonkRecorder::WrappedMediaSource::read(MediaBuffer **buffer, const ReadOptions *
         }
 
         int32_t isSync = 0;
-    #if ANDROID_VERSION >= 29
         buf->meta_data().findInt32(kKeyIsSyncFrame, &isSync);
-    #else
-        buf->meta_data()->findInt32(kKeyIsSyncFrame, &isSync);
-    #endif
         if (isSync) {
             mResume = false;
             mResumeStatus = OK;
@@ -217,20 +196,16 @@ GonkRecorder::~GonkRecorder() {
     RE_LOGV("Destructor");
     stop();
 
-#if ANDROID_VERSION >= 21
     if (mLooper != NULL) {
         mLooper->stop();
     }
-#endif
 }
 
 status_t GonkRecorder::init() {
     RE_LOGV("init");
-#if ANDROID_VERSION >= 21
     mLooper = new ALooper;
     mLooper->setName("recorder_looper");
     mLooper->start();
-#endif
     return OK;
 }
 
@@ -855,7 +830,7 @@ status_t GonkRecorder::start() {
             status = startAMRRecording();
             break;
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
         case OUTPUT_FORMAT_AAC_ADIF:
         case OUTPUT_FORMAT_AAC_ADTS:
             status = startAACRecording();
@@ -883,7 +858,7 @@ status_t GonkRecorder::start() {
     return status;
 }
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
+#if defined(MOZ_WIDGET_GONK)
 sp<MediaSource> GonkRecorder::createAudioSource() {
     sp<AudioSource> audioSource =
         new AudioSource(
@@ -973,7 +948,7 @@ sp<MediaSource> GonkRecorder::createAudioSource() {
         case AUDIO_ENCODER_AMR_WB:
             mime = MEDIA_MIMETYPE_AUDIO_AMR_WB;
             break;
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
         case AUDIO_ENCODER_AAC:
             mime = MEDIA_MIMETYPE_AUDIO_AAC;
             encMeta->setInt32(kKeyAACProfile, OMX_AUDIO_AACObjectLC);
@@ -1019,7 +994,7 @@ sp<MediaSource> GonkRecorder::createAudioSource() {
 }
 #endif
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
 status_t GonkRecorder::startAACRecording() {
     // FIXME:
     // Add support for OUTPUT_FORMAT_AAC_ADIF
@@ -1110,7 +1085,7 @@ status_t GonkRecorder::startMPEG2TSRecording() {
     sp<MediaWriter> writer = new MPEG2TSWriter(mOutputFd);
 
     if (mAudioSource != AUDIO_SOURCE_CNT) {
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
         if (mAudioEncoder != AUDIO_ENCODER_AAC &&
             mAudioEncoder != AUDIO_ENCODER_HE_AAC &&
             mAudioEncoder != AUDIO_ENCODER_AAC_ELD) {
@@ -1380,11 +1355,7 @@ status_t GonkRecorder::setupMediaSource(
             return err;
         }
         *mediaSource = cameraSource;
-#if ANDROID_VERSION >= 21
     } else if (mVideoSource == VIDEO_SOURCE_SURFACE) {
-#else
-    } else if (mVideoSource == VIDEO_SOURCE_GRALLOC_BUFFER) {
-#endif
         return BAD_VALUE;
     } else {
         return INVALID_OPERATION;
@@ -1439,7 +1410,7 @@ status_t GonkRecorder::setupCameraSource(
     return OK;
 }
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
+#if defined(MOZ_WIDGET_GONK)
 status_t GonkRecorder::setupVideoEncoder(
         sp<MediaSource> cameraSource,
         int32_t videoBitRate,
@@ -1507,11 +1478,7 @@ status_t GonkRecorder::setupVideoEncoder(
     #endif
 
     sp<MediaCodecSource> encoder =
-#if ANDROID_VERSION >= 23
         MediaCodecSource::Create(mLooper, format, cameraSource, NULL,  flags);
-#else
-        MediaCodecSource::Create(mLooper, format, cameraSource, flags);
-#endif
     if (encoder == NULL) {
         RE_LOGE("Failed to create video encoder");
         // When the encoder fails to be created, we need
@@ -1589,7 +1556,7 @@ status_t GonkRecorder::setupVideoEncoder(
                              ? 0
                              : OMXCodec::kHardwareCodecsOnly;
     if (mIsMetaDataStoredInVideoBuffers) {
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
         encoder_flags |= OMXCodec::kStoreMetaDataInVideoBuffers;
 #else
         encoder_flags |= OMXCodec::kStoreMetaDataInVideoBuffers;
@@ -1625,7 +1592,7 @@ status_t GonkRecorder::setupAudioEncoder(const sp<MediaWriter>& writer) {
     switch(mAudioEncoder) {
         case AUDIO_ENCODER_AMR_NB:
         case AUDIO_ENCODER_AMR_WB:
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
         case AUDIO_ENCODER_AAC:
         case AUDIO_ENCODER_HE_AAC:
         case AUDIO_ENCODER_AAC_ELD:

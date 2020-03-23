@@ -28,13 +28,10 @@
 #include "mozilla/layers/TextureClient.h"
 #include "CameraPreferences.h"
 #include "mozilla/RefPtr.h"
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
+#if defined(MOZ_WIDGET_GONK)
 #include "GonkBufferQueueProducer.h"
-#if ANDROID_VERSION >= 23
 #include <binder/IServiceManager.h>
 #include <gui/BufferQueue.h>
-
-#endif
 #endif
 #include "GonkCameraControl.h"
 #include "CameraCommon.h"
@@ -48,7 +45,7 @@ NS_IMPL_ISUPPORTS0(GonkCameraHardware);
 NS_IMPL_ISUPPORTS0(android::Camera);
 #endif
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 23
+#if defined(MOZ_WIDGET_GONK)
 // We hard-code user id here to adapt to AOSP's multi-user support check for any
 // request to connect to Camera Service, as we only support single user at the moment
 #define DEFAULT_USER_ID           0
@@ -141,11 +138,9 @@ GonkCameraHardware::notify(int32_t aMsgType, int32_t ext1, int32_t ext2)
       OnAutoFocusComplete(mTarget, !!ext1);
       break;
 
-#if ANDROID_VERSION >= 16
     case CAMERA_MSG_FOCUS_MOVE:
       OnAutoFocusMoving(mTarget, !!ext1);
       break;
-#endif
 
     case CAMERA_MSG_SHUTTER:
       OnShutter(mTarget);
@@ -235,37 +230,20 @@ GonkCameraHardware::Init()
   // Disable shutter sound in android CameraService because gaia camera app will play it
   mCamera->sendCommand(CAMERA_CMD_ENABLE_SHUTTER_SOUND, 0, 0);
 
-#if ANDROID_VERSION >= 21
   sp<IGraphicBufferProducer> producer;
   sp<IGonkGraphicBufferConsumer> consumer;
   GonkBufferQueue::createBufferQueue(&producer, &consumer);
   static_cast<GonkBufferQueueProducer*>(producer.get())->setSynchronousMode(false);
   mNativeWindow = new GonkNativeWindow(consumer, GonkCameraHardware::MIN_UNDEQUEUED_BUFFERS);
   mCamera->setPreviewTarget(producer);
-#elif ANDROID_VERSION >= 19
-  mNativeWindow = new GonkNativeWindow(GonkCameraHardware::MIN_UNDEQUEUED_BUFFERS);
-  sp<GonkBufferQueue> bq = mNativeWindow->getBufferQueue();
-  bq->setSynchronousMode(false);
-  mCamera->setPreviewTarget(mNativeWindow->getBufferQueue());
-#elif ANDROID_VERSION >= 17
-  mNativeWindow = new GonkNativeWindow(GonkCameraHardware::MIN_UNDEQUEUED_BUFFERS);
-  sp<GonkBufferQueue> bq = mNativeWindow->getBufferQueue();
-  bq->setSynchronousMode(false);
-  mCamera->setPreviewTexture(mNativeWindow->getBufferQueue());
-#else
-  mNativeWindow = new GonkNativeWindow();
-  mCamera->setPreviewTexture(mNativeWindow);
-#endif
+
   mNativeWindow->setNewFrameCallback(this);
   mCamera->setListener(this);
 
-#if ANDROID_VERSION >= 16
   rv = mCamera->sendCommand(CAMERA_CMD_ENABLE_FOCUS_MOVE_MSG, 1, 0);
   if (rv != OK) {
     NS_WARNING("Failed to send command CAMERA_CMD_ENABLE_FOCUS_MOVE_MSG");
   }
-#endif
-
 #endif
 
   return NS_OK;
@@ -281,7 +259,6 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
 
   if (!test.EqualsASCII("hardware")) {
 #ifdef MOZ_WIDGET_GONK
-  #if ANDROID_VERSION >= 23
     sp<IServiceManager> sm = defaultServiceManager();
     sp<IBinder> binder;
     sp<hardware::ICameraService> gCameraService;
@@ -297,21 +274,11 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
     gCameraService = interface_cast<hardware::ICameraService>(binder);
 
     int32_t event = EVENT_USER_SWITCHED;
-    #if ANDROID_VERSION >= 26
-      std::vector<int32_t> args;
-      args.push_back(DEFAULT_USER_ID);
+    std::vector<int32_t> args;
+    args.push_back(DEFAULT_USER_ID);
 
-      gCameraService->notifySystemEvent(event, args);
-    #else
-      int32_t args[1];
-      args[0] = DEFAULT_USER_ID;
-      size_t length = 1;
+    gCameraService->notifySystemEvent(event, args);
 
-      gCameraService->notifySystemEvent(event, args, length);
-    #endif
-  #endif /* ANDROID_VERSION >= 23 */
-
-  #if ANDROID_VERSION >= 26
     ProcessState::self()->startThreadPool();
     camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
       Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
@@ -323,12 +290,6 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
       camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
         Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
     }
-  #elif ANDROID_VERSION >= 18
-    camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
-      Camera::USE_CALLING_UID);
-  #else
-    camera = Camera::connect(aCameraId);
-  #endif
 #endif
 
     if (camera.get() == nullptr) {
@@ -438,10 +399,7 @@ GonkCameraHardware::StartFaceDetection()
     return DEAD_OBJECT;
   }
 
-  int rv = INVALID_OPERATION;
-#if ANDROID_VERSION >= 15
-  rv = mCamera->sendCommand(CAMERA_CMD_START_FACE_DETECTION, CAMERA_FACE_DETECTION_HW, 0);
-#endif
+  int rv = mCamera->sendCommand(CAMERA_CMD_START_FACE_DETECTION, CAMERA_FACE_DETECTION_HW, 0);
   if (rv != OK) {
     DOM_CAMERA_LOGE("Start face detection failed with status %d", rv);
   }
@@ -457,10 +415,7 @@ GonkCameraHardware::StopFaceDetection()
     return DEAD_OBJECT;
   }
 
-  int rv = INVALID_OPERATION;
-#if ANDROID_VERSION >= 15
-  rv = mCamera->sendCommand(CAMERA_CMD_STOP_FACE_DETECTION, 0, 0);
-#endif
+  int rv = mCamera->sendCommand(CAMERA_CMD_STOP_FACE_DETECTION, 0, 0);
   if (rv != OK) {
     DOM_CAMERA_LOGE("Stop face detection failed with status %d", rv);
   }

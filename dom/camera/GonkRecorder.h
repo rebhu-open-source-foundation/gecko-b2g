@@ -24,10 +24,8 @@
 #include <camera/CameraParameters.h>
 #include <utils/String8.h>
 #include <system/audio.h>
-#if ANDROID_VERSION >= 21
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/stagefright/foundation/AMessage.h>
-#endif
 
 #include "mozilla/RefPtr.h"
 #include "GonkCameraHwMgr.h"
@@ -120,9 +118,7 @@ private:
 
     bool mStarted;
 
-#if ANDROID_VERSION >= 21
     sp<ALooper> mLooper;
-#endif
 
     sp<GonkCameraHardware> mCameraHw;
 
@@ -137,7 +133,7 @@ private:
         sp<MetaData> *meta);
     status_t startMPEG4Recording();
     status_t startAMRRecording();
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
     status_t startAACRecording();
 #endif
     status_t startRawAudioRecording();

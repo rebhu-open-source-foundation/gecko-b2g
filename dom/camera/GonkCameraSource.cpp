@@ -135,7 +135,7 @@ static int32_t getColorFormat(const char* colorFormat) {
     if (!strcmp(colorFormat, "OMX_TI_COLOR_FormatYUV420PackedSemiPlanar")) {
        return OMX_TI_COLOR_FormatYUV420PackedSemiPlanar;
     }
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
     if (!strcmp(colorFormat, CameraParameters::PIXEL_FORMAT_ANDROID_OPAQUE)) {
         return OMX_COLOR_FormatAndroidOpaque;
     }
@@ -569,7 +569,7 @@ status_t GonkCameraSource::start(MetaData *meta) {
         if (meta->findInt64(kKeyTime, &startTimeUs)) {
             mStartTimeUs = startTimeUs;
         }
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
         int32_t nBuffers;
         if (meta->findInt32(kKeyNumBuffers, &nBuffers)) {
             CHECK_GT(nBuffers, 0);
@@ -660,11 +660,7 @@ void GonkCameraSource::releaseOneRecordingFrame(const sp<IMemory>& frame) {
     releaseRecordingFrame(frame);
 }
 
-#if ANDROID_VERSION >= 29
 void GonkCameraSource::signalBufferReturned(MediaBufferBase *buffer)
-#else
-void GonkCameraSource::signalBufferReturned(MediaBuffer *buffer)
-#endif
 {
     CS_LOGV("signalBufferReturned: %p", buffer->data());
     Mutex::Autolock autoLock(mLock);
@@ -691,15 +687,10 @@ status_t GonkCameraSource::AddDirectBufferListener(DirectBufferListener* aListen
     return OK;
 }
 
-#if ANDROID_VERSION >= 29
 status_t GonkCameraSource::read(
         MediaBufferBase **buffer, const ReadOptions *options)
-#else
-status_t GonkCameraSource::read(
-        MediaBuffer **buffer, const ReadOptions *options)
-#endif
 {
-#if ANDROID_VERSION < 29 //TODO: need to solve 2 linking errors for support GonkCameraSource::read
+#if 0 //TODO: need to solve 2 linking errors for support GonkCameraSource::read
     CS_LOGV("read");
 
     *buffer = NULL;
@@ -736,11 +727,7 @@ status_t GonkCameraSource::read(
         *buffer = new MediaBuffer(frame->pointer(), frame->size());
         (*buffer)->setObserver(this);
         (*buffer)->add_ref();
-    #if ANDROID_VERSION >= 29
         (*buffer)->meta_data().setInt64(kKeyTime, frameTime);
-    #else
-        (*buffer)->meta_data()->setInt64(kKeyTime, frameTime);
-    #endif
     }
     return OK;
 #else
@@ -816,11 +803,7 @@ void GonkCameraSource::dataCallbackTimestamp(int64_t timestampUs,
     }
 
     if (mDirectBufferListener.get()) {
-#if ANDROID_VERSION >= 29
         MediaBufferBase* mediaBuffer;
-#else
-        MediaBuffer* mediaBuffer;
-#endif
         if (read(&mediaBuffer) == OK) {
             mDirectBufferListener->BufferAvailable(mediaBuffer);
             // read() calls MediaBuffer->add_ref() so it needs to be released here.
