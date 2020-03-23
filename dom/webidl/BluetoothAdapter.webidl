@@ -53,7 +53,7 @@ interface BluetoothAdapter : EventTarget {
            attribute EventHandler   ondevicepaired;
 
   // Fired when map connection has been requested
-  //         attribute EventHandler   onmapconnectionreq;
+           attribute EventHandler   onmapconnectionreq;
   // Fired when pbap connection has been requested
            attribute EventHandler   onpbapconnectionreq;
 
