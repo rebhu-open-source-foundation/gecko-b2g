@@ -2410,7 +2410,7 @@ STATIC_ATOMS = [
     Atom("ondisplaypasskeyreq", "ondisplaypasskeyreq"),
     Atom("onenterpincodereq", "onenterpincodereq"),
     # Atom("onhfpstatuschanged", "onhfpstatuschanged"),
-    # Atom("onhidstatuschanged", "onhidstatuschanged"),
+    Atom("onhidstatuschanged", "onhidstatuschanged"),
     Atom("onmapconnectionreq", "onmapconnectionreq"),
     Atom("onmapfolderlistingreq", "onmapfolderlistingreq"),
     Atom("onmapgetmessagereq", "onmapgetmessagereq"),

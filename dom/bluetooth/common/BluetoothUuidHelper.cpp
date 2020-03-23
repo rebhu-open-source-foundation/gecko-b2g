@@ -9,7 +9,7 @@
 #include "BluetoothA2dpManager.h"
 #include "BluetoothAvrcpManager.h"
 // #include "BluetoothHfpManager.h"
-// #include "BluetoothHidManager.h"
+#include "BluetoothHidManager.h"
 #include "BluetoothMapSmsManager.h"
 #include "BluetoothOppManager.h"
 #include "BluetoothPbapManager.h"
@@ -72,9 +72,9 @@ BluetoothUuidHelper::GetBluetoothProfileManager(uint16_t aServiceUuid)
     // case BluetoothServiceClass::HEADSET:
     //   profile = BluetoothHfpManager::Get();
     //   break;
-    // case BluetoothServiceClass::HID:
-    //   profile = BluetoothHidManager::Get();
-    //   break;
+    case BluetoothServiceClass::HID:
+      profile = BluetoothHidManager::Get();
+      break;
     case BluetoothServiceClass::A2DP:
       profile = BluetoothA2dpManager::Get();
       break;

@@ -9,7 +9,7 @@
 #include "BluetoothA2dpManager.h"
 #include "BluetoothAvrcpManager.h"
 // #include "BluetoothHfpManager.h"
-// #include "BluetoothHidManager.h"
+#include "BluetoothHidManager.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
 #include "BluetoothUtils.h"
@@ -116,9 +116,9 @@ BluetoothProfileController::AddProfileWithServiceClass(
     case BluetoothServiceClass::AVRCP:
       profile = BluetoothAvrcpManager::Get();
       break;
-    // case BluetoothServiceClass::HID:
-    //   profile = BluetoothHidManager::Get();
-    //   break;
+    case BluetoothServiceClass::HID:
+      profile = BluetoothHidManager::Get();
+      break;
     default:
       DispatchReplyError(mRunnable, NS_LITERAL_STRING(ERR_UNKNOWN_PROFILE));
       mCallback();
@@ -162,7 +162,7 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
 
   // For a disconnect request, all connected profiles are put into array.
   if (!mConnect) {
-    // AddProfile(BluetoothHidManager::Get(), true);
+    AddProfile(BluetoothHidManager::Get(), true);
     AddProfile(BluetoothAvrcpManager::Get(), true);
     AddProfile(BluetoothA2dpManager::Get(), true);
     // AddProfile(BluetoothHfpManager::Get(), true);
@@ -189,7 +189,7 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
     // AddProfile(BluetoothHfpManager::Get());
     AddProfile(BluetoothA2dpManager::Get());
     AddProfile(BluetoothAvrcpManager::Get()); // register after A2DP
-    // AddProfile(BluetoothHidManager::Get());
+    AddProfile(BluetoothHidManager::Get());
     return;
   }
 
@@ -212,14 +212,14 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
     if (hasRendering) {
       AddProfile(BluetoothAvrcpManager::Get());
     } else {
-      // AddProfile(BluetoothHidManager::Get());
+      AddProfile(BluetoothHidManager::Get());
     }
   }
 
   // A device which supports HID should claim that it's a peripheral and it's
   // either a keyboard, a pointing device, or both.
   if (isPeripheral && (isKeyboard || isPointingDevice)) {
-    // AddProfile(BluetoothHidManager::Get());
+    AddProfile(BluetoothHidManager::Get());
   }
 }
 

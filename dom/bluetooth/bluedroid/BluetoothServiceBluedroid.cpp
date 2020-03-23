@@ -22,7 +22,7 @@
 #include "BluetoothAvrcpManager.h"
 // #include "BluetoothGattManager.h"
 // #include "BluetoothHfpManager.h"
-// #include "BluetoothHidManager.h"
+#include "BluetoothHidManager.h"
 #include "BluetoothMapSmsManager.h"
 #include "BluetoothOppManager.h"
 #include "BluetoothPbapManager.h"
@@ -147,7 +147,7 @@ public:
       BluetoothMapSmsManager::InitMapSmsInterface,
       BluetoothOppManager::InitOppInterface,
       BluetoothPbapManager::InitPbapInterface,
-      // BluetoothHidManager::InitHidInterface,
+      BluetoothHidManager::InitHidInterface,
       // BluetoothHfpManager::InitHfpInterface,
       BluetoothA2dpManager::InitA2dpInterface,
       BluetoothAvrcpManager::InitAvrcpInterface,
@@ -297,7 +297,7 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
     BluetoothAvrcpManager::Get(),
     BluetoothA2dpManager::Get(),
     // BluetoothHfpManager::Get(),
-    // BluetoothHidManager::Get(),
+    BluetoothHidManager::Get(),
     BluetoothPbapManager::Get(),
     BluetoothOppManager::Get(),
     BluetoothMapSmsManager::Get(),
@@ -1952,7 +1952,7 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       BluetoothAvrcpManager::DeinitAvrcpInterface,
       BluetoothA2dpManager::DeinitA2dpInterface,
       // BluetoothHfpManager::DeinitHfpInterface,
-      // BluetoothHidManager::DeinitHidInterface,
+      BluetoothHidManager::DeinitHidInterface,
       BluetoothPbapManager::DeinitPbapInterface,
       BluetoothOppManager::DeinitOppInterface,
       BluetoothMapSmsManager::DeinitMapSmsInterface,
@@ -2586,9 +2586,9 @@ BluetoothServiceBluedroid::BackendErrorNotification(bool aCrashed)
   BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
   NS_ENSURE_TRUE_VOID(a2dp);
   a2dp->HandleBackendError();
-  // BluetoothHidManager* hid = BluetoothHidManager::Get();
-  // NS_ENSURE_TRUE_VOID(hid);
-  // hid->HandleBackendError();
+  BluetoothHidManager* hid = BluetoothHidManager::Get();
+  NS_ENSURE_TRUE_VOID(hid);
+  hid->HandleBackendError();
 
   mIsRestart = true;
   BT_LOGR("Recovery step2: stop bluetooth");
