@@ -351,7 +351,8 @@ var DownloadIntegration = {
       !aDownload.stopped ||
       aDownload.hasPartialData ||
       aDownload.hasBlockedData ||
-      AppConstants.platform == "android"
+      AppConstants.platform == "android" ||
+      AppConstants.platform == "gonk"
     );
   },
 
