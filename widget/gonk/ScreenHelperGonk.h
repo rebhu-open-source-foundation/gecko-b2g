@@ -23,6 +23,7 @@
 
 #include "libdisplay/GonkDisplay.h"
 #include "mozilla/Atomics.h"
+#include "mozilla/dom/DOMTypes.h"
 #include "mozilla/Hal.h"
 #include "mozilla/Mutex.h"
 #include "nsBaseScreen.h"

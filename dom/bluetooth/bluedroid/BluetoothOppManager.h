@@ -30,8 +30,20 @@ class BluetoothOppManager : public BluetoothSocketObserver
 {
   class CloseSocketTask;
   class ReadFileTask;
-  class SendFileBatch;
   class SendSocketDataTask;
+
+  class SendFileBatch final
+  {
+  public:
+    SendFileBatch(const BluetoothAddress& aDeviceAddress, BlobImpl* aBlob)
+      : mDeviceAddress(aDeviceAddress)
+    {
+      mBlobs.AppendElement(aBlob);
+    }
+
+    BluetoothAddress mDeviceAddress;
+    nsTArray<RefPtr<BlobImpl>> mBlobs;
+  };
 
 public:
 

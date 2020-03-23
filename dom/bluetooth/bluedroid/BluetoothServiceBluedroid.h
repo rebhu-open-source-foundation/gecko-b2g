@@ -35,9 +35,53 @@ class BluetoothServiceBluedroid
   class SetAdapterPropertyDiscoverableResultHandler;
   class SspReplyResultHandler;
 
-  class GetDeviceRequest;
-  struct GetRemoteServiceRecordRequest;
-  struct GetRemoteServicesRequest;
+  // class GetDeviceRequest;
+  // struct GetRemoteServiceRecordRequest;
+  // struct GetRemoteServicesRequest;
+
+  class GetDeviceRequest final
+  {
+  public:
+    GetDeviceRequest(int aDeviceCount, BluetoothReplyRunnable* aRunnable)
+      : mDeviceCount(aDeviceCount)
+      , mRunnable(aRunnable)
+    { }
+
+    int mDeviceCount;
+    nsTArray<BluetoothNamedValue> mDevicesPack;
+    RefPtr<BluetoothReplyRunnable> mRunnable;
+  };
+
+  struct GetRemoteServicesRequest final
+  {
+    GetRemoteServicesRequest(const BluetoothAddress& aDeviceAddress,
+                            BluetoothProfileManagerBase* aManager)
+      : mDeviceAddress(aDeviceAddress)
+      , mManager(aManager)
+    {
+      MOZ_ASSERT(mManager);
+    }
+
+    BluetoothAddress mDeviceAddress;
+    BluetoothProfileManagerBase* mManager;
+  };
+
+  struct GetRemoteServiceRecordRequest final
+  {
+    GetRemoteServiceRecordRequest(const BluetoothAddress& aDeviceAddress,
+                                  const BluetoothUuid& aUuid,
+                                  BluetoothProfileManagerBase* aManager)
+      : mDeviceAddress(aDeviceAddress)
+      , mUuid(aUuid)
+      , mManager(aManager)
+    {
+      MOZ_ASSERT(mManager);
+    }
+
+    BluetoothAddress mDeviceAddress;
+    BluetoothUuid mUuid;
+    BluetoothProfileManagerBase* mManager;
+  };
 
 public:
   BluetoothServiceBluedroid();

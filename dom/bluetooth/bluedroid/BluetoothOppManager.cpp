@@ -67,19 +67,6 @@ namespace {
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothOppManager::SendFileBatch final
-{
-public:
-  SendFileBatch(const BluetoothAddress& aDeviceAddress, BlobImpl* aBlob)
-    : mDeviceAddress(aDeviceAddress)
-  {
-    mBlobs.AppendElement(aBlob);
-  }
-
-  BluetoothAddress mDeviceAddress;
-  nsTArray<RefPtr<BlobImpl>> mBlobs;
-};
-
 NS_IMETHODIMP
 BluetoothOppManager::Observe(nsISupports* aSubject,
                              const char* aTopic,

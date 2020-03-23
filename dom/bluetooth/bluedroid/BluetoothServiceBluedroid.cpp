@@ -858,19 +858,6 @@ BluetoothServiceBluedroid::GetAdaptersInternal(
   return NS_OK;
 }
 
-class BluetoothServiceBluedroid::GetDeviceRequest final
-{
-public:
-  GetDeviceRequest(int aDeviceCount, BluetoothReplyRunnable* aRunnable)
-    : mDeviceCount(aDeviceCount)
-    , mRunnable(aRunnable)
-  { }
-
-  int mDeviceCount;
-  nsTArray<BluetoothNamedValue> mDevicesPack;
-  RefPtr<BluetoothReplyRunnable> mRunnable;
-};
-
 class BluetoothServiceBluedroid::GetRemoteDevicePropertiesResultHandler final
   : public BluetoothCoreResultHandler
 {
@@ -1071,23 +1058,6 @@ BluetoothServiceBluedroid::SetProperty(BluetoothObjectType aType,
   return NS_OK;
 }
 
-struct BluetoothServiceBluedroid::GetRemoteServiceRecordRequest final
-{
-  GetRemoteServiceRecordRequest(const BluetoothAddress& aDeviceAddress,
-                                const BluetoothUuid& aUuid,
-                                BluetoothProfileManagerBase* aManager)
-    : mDeviceAddress(aDeviceAddress)
-    , mUuid(aUuid)
-    , mManager(aManager)
-  {
-    MOZ_ASSERT(mManager);
-  }
-
-  BluetoothAddress mDeviceAddress;
-  BluetoothUuid mUuid;
-  BluetoothProfileManagerBase* mManager;
-};
-
 class BluetoothServiceBluedroid::GetRemoteServiceRecordResultHandler final
   : public BluetoothCoreResultHandler
 {
@@ -1167,20 +1137,6 @@ BluetoothServiceBluedroid::GetServiceChannel(
 
   return NS_OK;
 }
-
-struct BluetoothServiceBluedroid::GetRemoteServicesRequest final
-{
-  GetRemoteServicesRequest(const BluetoothAddress& aDeviceAddress,
-                           BluetoothProfileManagerBase* aManager)
-    : mDeviceAddress(aDeviceAddress)
-    , mManager(aManager)
-  {
-    MOZ_ASSERT(mManager);
-  }
-
-  BluetoothAddress mDeviceAddress;
-  BluetoothProfileManagerBase* mManager;
-};
 
 class BluetoothServiceBluedroid::GetRemoteServicesResultHandler final
   : public BluetoothCoreResultHandler
