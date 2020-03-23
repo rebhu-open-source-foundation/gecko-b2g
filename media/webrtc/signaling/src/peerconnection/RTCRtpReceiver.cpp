@@ -58,6 +58,8 @@ static already_AddRefed<dom::MediaStreamTrack> CreateTrack(
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
       aAudio ? MediaTrackGraph::AUDIO_THREAD_DRIVER
              : MediaTrackGraph::SYSTEM_THREAD_DRIVER,
+      // TODO B2G: proper AudioChannel setup.
+      mozilla::dom::AudioChannel::Normal,
       aWindow, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
