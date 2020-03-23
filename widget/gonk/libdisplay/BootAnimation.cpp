@@ -816,7 +816,6 @@ AnimationThread(void *)
     // Load boot animation for primary screen
     animVec.push_back(Animation());
     Animation &primAnimation = animVec.back();
-#if ANDROID_VERSION >= 26
     primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
     primAnimation.format = dispData.mSurfaceformat;
     if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
@@ -825,39 +824,7 @@ AnimationThread(void *)
                             DisplayType::DISPLAY_PRIMARY);
         return nullptr;
     }
-#else
-    primAnimation.dpy = DisplayType::DISPLAY_PRIMARY;
-    primAnimation.format = dispData.mSurfaceformat;
-    if (!primAnimation.LoadAnimations("/system/media/bootanimation.zip")) {
-        LOGW("Failed to load boot animation file for primary screen");
-        ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
-                            DisplayType::DISPLAY_PRIMARY);
-        return nullptr;
-    }
 
-    if (display->IsExtFBDeviceEnabled()) {
-        animVec.push_back(Animation());
-        Animation &extAnimation = animVec.back();
-        extAnimation.dpy = DisplayType::DISPLAY_EXTERNAL;
-        extAnimation.format = extDispData.mSurfaceformat;
-        if (!extAnimation.LoadAnimations("/system/media/bootanimation_external.zip") ||
-            !animVec[0].CanPlaySimultaneously(extAnimation)) {
-
-            LOGW("Failed to load boot animation file for external screen");
-            ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
-                                DisplayType::DISPLAY_EXTERNAL);
-            animVec.pop_back();
-        }
-        else {
-            // Turn on external screen backlight before playing animation and
-            // draw a solid frame to clear noise on panel.
-            ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
-                            DisplayType::DISPLAY_EXTERNAL);
-            usleep(20000);
-            setExtBacklight(1);
-        }
-    }
-#endif
     // Turn on primary screen backlight before playing animation,
     setBacklight(1);
     bool animPlayed = false;
@@ -939,17 +906,8 @@ AnimationThread(void *)
     }
 
     if (!animPlayed) {
-#if ANDROID_VERSION >= 26
         ShowSolidColorFrame(display, dispData.mSurfaceformat,
                             DisplayType::DISPLAY_PRIMARY);
-#else
-        ShowSolidColorFrame(display, grmodule, dispData.mSurfaceformat,
-                            DisplayType::DISPLAY_PRIMARY);
-        if (display->IsExtFBDeviceEnabled()) {
-            ShowSolidColorFrame(display, grmodule, extDispData.mSurfaceformat,
-                                DisplayType::DISPLAY_EXTERNAL);
-        }
-#endif
     }
 
     return nullptr;

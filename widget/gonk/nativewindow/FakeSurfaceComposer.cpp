@@ -31,9 +31,7 @@
 #include <gui/Surface.h>
 #include <ui/DisplayInfo.h>
 
-#if ANDROID_VERSION >= 21
 #include <ui/Rect.h>
-#endif
 
 #include "../libdisplay/GonkDisplay.h"
 #include "../ScreenHelperGonk.h"
@@ -121,7 +119,6 @@ public:
 sp<IBinder> FakeSurfaceComposer::createDisplay(const String8& displayName,
         bool secure)
 {
-#if ANDROID_VERSION >= 19
     class DisplayToken : public BBinder {
         sp<FakeSurfaceComposer> composer;
         virtual ~DisplayToken() {
@@ -149,12 +146,8 @@ sp<IBinder> FakeSurfaceComposer::createDisplay(const String8& displayName,
     info.isSecure = secure;
     mDisplays.add(token, info);
     return token;
-#else
-    return nullptr;
-#endif
 }
 
-#if ANDROID_VERSION >= 19
 void FakeSurfaceComposer::destroyDisplay(const sp<IBinder>& display)
 {
     Mutex::Autolock _l(mStateLock);
@@ -168,7 +161,6 @@ void FakeSurfaceComposer::destroyDisplay(const sp<IBinder>& display)
     nsCOMPtr<nsIRunnable> task(new DestroyDisplayRunnable(this, idx));
     NS_DispatchToMainThread(task);
 }
-#endif
 
 sp<IBinder> FakeSurfaceComposer::getBuiltInDisplay(int32_t id)
 {
@@ -237,7 +229,7 @@ uint32_t FakeSurfaceComposer::setDisplayStateLocked(const DisplayState& s)
             flags |= eDisplayTransactionNeeded;
         }
     }
-#if ANDROID_VERSION >= 21
+
     if (what & DisplayState::eDisplaySizeChanged) {
         if (disp.width != s.width) {
             disp.width = s.width;
@@ -248,7 +240,6 @@ uint32_t FakeSurfaceComposer::setDisplayStateLocked(const DisplayState& s)
             flags |= eDisplayTransactionNeeded;
         }
     }
-#endif
 
     if (what & DisplayState::eSurfaceChanged) {
         nsCOMPtr<nsIRunnable> runnable =
@@ -400,19 +391,13 @@ public:
 status_t
 FakeSurfaceComposer::captureScreen(const sp<IBinder>& display
                                  , const sp<IGraphicBufferProducer>& producer
-#if ANDROID_VERSION >= 21
                                  , Rect sourceCrop
-#endif
                                  , uint32_t reqWidth
                                  , uint32_t reqHeight
                                  , uint32_t minLayerZ
                                  , uint32_t maxLayerZ
-#if ANDROID_VERSION >= 21
                                  , bool useIdentityTransform
                                  , Rotation rotation
-#elif ANDROID_VERSION < 19
-                                 , bool isCpuConsumer
-#endif
                                   )
 {
     if (display == 0 || producer == 0) {

@@ -37,12 +37,7 @@
 #include "hardware/hardware.h"
 #include "hardware/lights.h"
 #include "hardware_legacy/uevent.h"
-#if ANDROID_VERSION < 27
-#include "hardware_legacy/vibrator.h"
-#include "hardware_legacy/power.h"
-#else
 #include "android/hardware/vibrator/1.0/IVibrator.h"
-#endif
 #include "libdisplay/GonkDisplay.h"
 
 #include "utils/threads.h"
@@ -124,7 +119,6 @@ using namespace mozilla;
 using namespace mozilla::hal;
 using namespace mozilla::dom;
 
-#if ANDROID_VERSION >= 26
 typedef android::GonkDisplay GonkDisplay;
 extern GonkDisplay * GetGonkDisplay();
 
@@ -182,7 +176,6 @@ int native_gralloc_unlock(buffer_handle_t handle) {
   return result;
 }
 
-#endif
 
 namespace mozilla {
 namespace hal_impl {
@@ -411,13 +404,9 @@ VibratorRunnable::Run()
     if (mIndex < mPattern.Length()) {
       uint32_t duration = mPattern[mIndex];
       if (mIndex % 2 == 0) {
-#if ANDROID_VERSION < 27
-        vibrator_on(duration);
-#else
         // Get a handle to the HIDL vibrator service.
         auto vibrator = android::hardware::vibrator::V1_0::IVibrator::getService();
         vibrator->on(duration);
-#endif
       }
       mIndex++;
       mMonitor.Wait(TimeDuration::FromMilliseconds(duration));
