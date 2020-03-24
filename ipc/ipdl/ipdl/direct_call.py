@@ -101,6 +101,18 @@ DIRECT_CALL_OVERRIDES = {
     ("PTelephonyRequest", "parent"): (
         "TelephonyRequestParent", "mozilla/dom/telephony/TelephonyParent.h"
     ),
+    ("PSubsidyLock", "child"): (
+        "SubsidyLockChild", "mozilla/dom/subsidylock/SubsidyLockChild.h"
+    ),
+    ("PSubsidyLock", "parent"): (
+        "SubsidyLockParent", "mozilla/dom/subsidylock/SubsidyLockParent.h"
+    ),
+    ("PSubsidyLockRequest", "child"): (
+        "SubsidyLockRequestChild", "mozilla/dom/subsidylock/SubsidyLockChild.h"
+    ),
+    ("PSubsidyLockRequest", "parent"): (
+        "SubsidyLockRequestParent", "mozilla/dom/subsidylock/SubsidyLockParent.h"
+    ),
 #    ("PSms", "child"): (
 #        "PSmsChild", "mozilla/dom/mobilemessage/SmsChild.h"
 #    ),

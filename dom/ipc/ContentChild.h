@@ -780,15 +780,12 @@ class ContentChild final
 
   bool DeallocPTelephonyChild(PTelephonyChild*);
 
-  //   PSubsidyLockChild*
-  //   SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
-  //                               const uint32_t& aClientId);
+  PSubsidyLockChild* SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
+                                                 const uint32_t& aClientId);
 
-  //   virtual PSubsidyLockChild*
-  //   AllocPSubsidyLockChild(const uint32_t& aClientId);
+  virtual PSubsidyLockChild* AllocPSubsidyLockChild(const uint32_t& aClientId);
 
-  //   virtual bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
-
+  virtual bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
 
   PIccChild* SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
 

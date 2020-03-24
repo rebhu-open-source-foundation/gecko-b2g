@@ -41,7 +41,7 @@ include protocol PSpeechSynthesis;
 include protocol PCellBroadcast;
 include protocol PIcc;
 //include protocol PSms;
-//include protocol PSubsidyLock;
+include protocol PSubsidyLock;
 include protocol PTelephony;
 include protocol PTestShell;
 include protocol PVoicemail;
@@ -531,7 +531,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PCellBroadcast;
     manages PIcc;
     //manages PSms;
-    //manages PSubsidyLock;
+    manages PSubsidyLock;
     manages PTelephony;
     //manages PVoicemail;
     manages PTestShell;
@@ -1111,7 +1111,7 @@ parent:
 
     //async PSms();
 
-    //async PSubsidyLock(uint32_t clientId);
+    async PSubsidyLock(uint32_t clientId);
 
     async PTelephony();
 

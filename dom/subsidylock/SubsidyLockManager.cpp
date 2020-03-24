@@ -56,7 +56,7 @@ JSObject*
 SubsidyLockManager::WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto)
 {
-  return SubsidyLockManagerBinding::Wrap(aCx, this, aGivenProto);
+  return SubsidyLockManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 SubsidyLock*

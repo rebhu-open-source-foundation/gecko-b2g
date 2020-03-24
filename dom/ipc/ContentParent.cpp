@@ -131,7 +131,7 @@
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/StorageIPC.h"
-// #include "mozilla/dom/subsidylock/SubsidyLockParent.h"
+#include "mozilla/dom/subsidylock/SubsidyLockParent.h"
 #include "mozilla/dom/telephony/TelephonyParent.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WakeLock.h"
@@ -363,7 +363,7 @@ using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
-// using namespace mozilla::dom::subsidylock;
+using namespace mozilla::dom::subsidylock;
 using namespace mozilla::media;
 using namespace mozilla::embedding;
 using namespace mozilla::gfx;
@@ -4078,32 +4078,23 @@ bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
   return true;
 }
 
-// PSubsidyLockParent*
-// ContentParent::AllocPSubsidyLockParent(const uint32_t& aClientId)
-// {
-// #ifdef MOZ_B2G_RIL
-//   RefPtr<SubsidyLockParent> parent = new SubsidyLockParent(aClientId);
-//   // We release this ref in DeallocPSubsidyLockParent().
-//   parent->AddRef();
+PSubsidyLockParent* ContentParent::AllocPSubsidyLockParent(
+    const uint32_t& aClientId) {
+#ifdef MOZ_B2G_RIL
+  return new SubsidyLockParent(aClientId);
+#else
+  MOZ_CRASH("No support for subsidylock on this platform!");
+#endif
+}
 
-//   return parent;
-// #else
-//   MOZ_CRASH("No support for subsidylock on this platform!");
-// #endif
-// }
-
-// bool
-// ContentParent::DeallocPSubsidyLockParent(PSubsidyLockParent* aActor)
-// {
-// #ifdef MOZ_B2G_RIL
-//   // SubsidyLockParent is refcounted, must not be freed manually.
-//   static_cast<SubsidyLockParent*>(aActor)->Release();
-//   return true;
-// #else
-//   MOZ_CRASH("No support for subsidylock on this platform!");
-// #endif
-
-// }
+bool ContentParent::DeallocPSubsidyLockParent(PSubsidyLockParent* aActor) {
+#ifdef MOZ_B2G_RIL
+  delete aActor;
+  return true;
+#else
+  MOZ_CRASH("No support for subsidylock on this platform!");
+#endif
+}
 
 PCellBroadcastParent* ContentParent::AllocPCellBroadcastParent() {
   // if (!AssertAppProcessPermission(this, "cellbroadcast")) {

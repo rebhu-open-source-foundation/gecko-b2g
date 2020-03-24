@@ -55,7 +55,7 @@ SubsidyLockCallback::NotifyGetSubsidyLockStatusSuccess(uint32_t aCount,
 
   if (!ToJSValue(cx, result, &jsResult)) {
     jsapi.ClearException();
-    return NS_ERROR_TYPE_ERR;
+    return NS_ERROR_UNEXPECTED;
   }
 
   return NotifySuccess(jsResult);

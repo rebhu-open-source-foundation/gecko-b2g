@@ -1,7 +1,0 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-component {edfdc311-cf16-40c5-b2f0-fb6094946179} SubsidyLockService.js
-
-contract @mozilla.org/subsidylock/gonksubsidylockservice;1 {edfdc311-cf16-40c5-b2f0-fb6094946179}

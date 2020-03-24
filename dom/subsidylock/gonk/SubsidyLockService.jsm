@@ -4,11 +4,19 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import(
+  "resource://gre/modules/Services.jsm"
+);
 
-var RIL = {};
-Cu.import("resource://gre/modules/ril_consts.js", RIL);
+/* global RIL */
+XPCOMUtils.defineLazyGetter(this, "RIL", function () {
+  let obj = {};
+  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  return obj;
+});
 
 XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
   let ril = { numRadioInterfaces: 0 };
@@ -18,7 +26,7 @@ XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
   return ril;
 });
 
-const GONK_SUBSIDY_LOCK_SERVICE_CID = Components.ID("{edfdc311-cf16-40c5-b2f0-fb6094946179}");
+const GONK_SUBSIDY_LOCK_SERVICE_CID = Components.ID("{bcac78c1-38d5-46fa-a8a4-2feae85db443}");
 const GONK_SUBSIDY_LOCK_SERVICE_CONTRACTID = "@mozilla.org/subsidylock/gonksubsidylockservice;1";
 
 var DEBUG = RIL.DEBUG_RIL;
@@ -38,11 +46,7 @@ function SubsidyLockService() {
 }
 SubsidyLockService.prototype = {
   classID: GONK_SUBSIDY_LOCK_SERVICE_CID,
-  classInfo: XPCOMUtils.generateCI({classID: GONK_SUBSIDY_LOCK_SERVICE_CID,
-                                    contractID: GONK_SUBSIDY_LOCK_SERVICE_CONTRACTID,
-                                    classDescription: "SubsidyLockService",
-                                    interfaces: [Ci.nsISubsidyLockService],
-                                    flags: Ci.nsIClassInfo.SINGLETON}),
+
   QueryInterface: ChromeUtils.generateQI([Ci.nsISubsidyLockService]),
 
   // An array of SubsidyLockProvider instances.
@@ -131,4 +135,4 @@ SubsidyLockProvider.prototype = {
   }
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SubsidyLockService]);
+var EXPORTED_SYMBOLS = ["SubsidyLockService"];

@@ -11,7 +11,6 @@
 #include "mozilla/dom/SubsidyLockBinding.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsISubsidyLockService.h"
-#include "nsWeakPtr.h"
 
 namespace mozilla {
 namespace dom {

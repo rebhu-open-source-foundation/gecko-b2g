@@ -19,6 +19,7 @@
 #  include "mozilla/dom/Telephony.h"
 #  include "mozilla/dom/MobileConnectionArray.h"
 #  include "mozilla/dom/DataCallManagerBinding.h"
+#  include "mozilla/dom/SubsidyLockManager.h"
 #endif
 
 #ifdef HAS_KOOST_MODULES
@@ -56,6 +57,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
   Telephony* GetTelephony(ErrorResult& aRv);
   DataCallManager* GetDataCallManager(ErrorResult& aRv);
   CellBroadcast* GetCellBroadcast(ErrorResult& aRv);
+  SubsidyLockManager* GetSubsidyLockManager(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
 #ifdef HAS_KOOST_MODULES
@@ -82,6 +84,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
   RefPtr<MobileConnectionArray> mMobileConnections;
   RefPtr<Telephony> mTelephony;
   RefPtr<DataCallManager> mDataCallManager;
+  RefPtr<SubsidyLockManager> mSubsidyLocks;
 #endif
 
 #ifdef HAS_KOOST_MODULES

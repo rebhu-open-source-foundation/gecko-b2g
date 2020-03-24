@@ -264,7 +264,7 @@
 #include "mozilla/dom/MediaControlKeysEvent.h"
 #include "mozilla/dom/PPresentationChild.h"
 #include "mozilla/dom/PresentationIPCService.h"
-//#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
+#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
 #include "mozilla/ipc/IPCStreamAlloc.h"
 #include "mozilla/ipc/IPCStreamDestination.h"
 #include "mozilla/ipc/IPCStreamSource.h"
@@ -319,7 +319,7 @@ using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
-// using namespace mozilla::dom::subsidylock;
+using namespace mozilla::dom::subsidylock;
 //#endif
 // MOZ_B2G_RIL_END
 using namespace mozilla::media;
@@ -2191,7 +2191,6 @@ bool ContentChild::DeallocPTelephonyChild(PTelephonyChild* aActor) {
   return true;
 }
 
-/*
 PSubsidyLockChild*
 ContentChild::SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
                                           const uint32_t& aClientId)
@@ -2227,7 +2226,7 @@ ContentChild::DeallocPSubsidyLockChild(PSubsidyLockChild* aActor)
 #else
   MOZ_CRASH("No support for subsidylock on this platform!");
 #endif
-}*/
+}
 
 PVoicemailChild*
 ContentChild::AllocPVoicemailChild()

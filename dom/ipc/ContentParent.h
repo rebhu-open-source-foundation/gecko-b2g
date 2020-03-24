@@ -1022,10 +1022,10 @@ class ContentParent final
 
   bool DeallocPIccParent(PIccParent* aActor);
 
-  //   virtual PSubsidyLockParent* AllocPSubsidyLockParent(const uint32_t&
-  //   aClientId);
+  virtual PSubsidyLockParent* AllocPSubsidyLockParent(
+      const uint32_t& aClientId);
 
-  //   virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
+  virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
 
   virtual PCellBroadcastParent* AllocPCellBroadcastParent();
 

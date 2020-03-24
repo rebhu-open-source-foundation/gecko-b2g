@@ -154,6 +154,25 @@ DataCallManager* B2G::GetDataCallManager(ErrorResult& aRv) {
   }
   return mDataCallManager;
 }
+
+SubsidyLockManager* B2G::GetSubsidyLockManager(ErrorResult& aRv) {
+  if (!mSubsidyLocks) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+  }
+
+  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  if (!innerWindow) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  mSubsidyLocks = new SubsidyLockManager(innerWindow);
+
+  return mSubsidyLocks;
+}
 #endif
 
 

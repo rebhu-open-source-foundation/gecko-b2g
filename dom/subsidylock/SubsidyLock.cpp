@@ -12,7 +12,6 @@
 #include "mozilla/dom/DOMRequest.h"
 #include "nsIPermissionManager.h"
 #include "nsIVariant.h"
-#include "nsJSON.h"
 #include "nsJSUtils.h"
 #include "nsServiceManagerUtils.h"
 
@@ -81,19 +80,20 @@ SubsidyLock::GetParentObject() const
 JSObject*
 SubsidyLock::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return SubsidyLockBinding::Wrap(aCx, this, aGivenProto);
+  return SubsidyLock_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 bool
 SubsidyLock::CheckPermission(const char* aType) const
 {
-  nsCOMPtr<nsIPermissionManager> permMgr =
-    mozilla::services::GetPermissionManager();
-  NS_ENSURE_TRUE(permMgr, false);
+  // nsCOMPtr<nsIPermissionManager> permMgr =
+  //  mozilla::services::GetPermissionManager();
+  // NS_ENSURE_TRUE(permMgr, false);
 
-  uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  permMgr->TestPermissionFromWindow(mWindow, aType, &permission);
-  return permission == nsIPermissionManager::ALLOW_ACTION;
+  // uint32_t permission = nsIPermissionManager::DENY_ACTION;
+  // permMgr->TestPermissionFromWindow(mWindow, aType, &permission);
+  // return permission == nsIPermissionManager::ALLOW_ACTION;
+  return true;
 }
 
 // WebIDL interface

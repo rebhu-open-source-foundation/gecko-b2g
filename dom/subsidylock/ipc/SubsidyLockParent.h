@@ -23,33 +23,28 @@ namespace subsidylock {
 class SubsidyLockParent : public PSubsidyLockParent
 {
   NS_INLINE_DECL_REFCOUNTING(SubsidyLockParent)
+  friend PSubsidyLockParent;
 
-public:
+ public:
   explicit SubsidyLockParent(uint32_t aClientId);
 
 protected:
-  virtual
-  ~SubsidyLockParent()
-  {
-    MOZ_COUNT_DTOR(SubsidyLockParent);
-  }
+ virtual ~SubsidyLockParent() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+ virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool
-  RecvPSubsidyLockRequestConstructor(PSubsidyLockRequestParent* actor,
-                                     const SubsidyLockRequest& aRequest) override;
+ virtual mozilla::ipc::IPCResult RecvPSubsidyLockRequestConstructor(
+     PSubsidyLockRequestParent* actor,
+     const SubsidyLockRequest& aRequest) override;
 
-  virtual PSubsidyLockRequestParent*
-  AllocPSubsidyLockRequestParent(const SubsidyLockRequest& aRequest) override;
+ PSubsidyLockRequestParent* AllocPSubsidyLockRequestParent(
+     const SubsidyLockRequest& aRequest);
 
-  virtual bool
-  DeallocPSubsidyLockRequestParent(PSubsidyLockRequestParent* aActor) override;
+ bool DeallocPSubsidyLockRequestParent(PSubsidyLockRequestParent* aActor);
 
 private:
-  nsCOMPtr<nsISubsidyLock> mSubsidyLock;
-  bool mLive;
+ nsCOMPtr<nsISubsidyLock> mSubsidyLock;
+ bool mLive;
 };
 
 /******************************************************************************
@@ -66,7 +61,9 @@ private:
 class SubsidyLockRequestParent : public PSubsidyLockRequestParent
                                , public nsISubsidyLockCallback
 {
-public:
+  friend PSubsidyLockRequestParent;
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISUBSIDYLOCKCALLBACK
 
@@ -74,7 +71,6 @@ public:
     : mSubsidyLock(aSubsidyLock)
     , mLive(true)
   {
-    MOZ_COUNT_CTOR(SubsidyLockRequestParent);
   }
 
   bool
@@ -87,7 +83,6 @@ protected:
   virtual
   ~SubsidyLockRequestParent()
   {
-    MOZ_COUNT_DTOR(SubsidyLockRequestParent);
   }
 
   virtual void

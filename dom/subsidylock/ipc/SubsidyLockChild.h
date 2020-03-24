@@ -24,6 +24,7 @@ namespace subsidylock {
 class SubsidyLockChild final : public PSubsidyLockChild
                              , public nsISubsidyLock
 {
+  friend PSubsidyLockChild;
   NS_DECL_ISUPPORTS
   NS_DECL_NSISUBSIDYLOCK
 
@@ -36,12 +37,9 @@ private:
   SubsidyLockChild() = delete;
 
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~SubsidyLockChild()
-  {
-    MOZ_COUNT_DTOR(SubsidyLockChild);
-  }
+  virtual ~SubsidyLockChild() {}
 
-protected:
+ protected:
   bool
   SendRequest(const SubsidyLockRequest& aRequest,
               nsISubsidyLockCallback* aCallback);
@@ -49,13 +47,12 @@ protected:
   virtual void
   ActorDestroy(ActorDestroyReason why) override;
 
-  virtual PSubsidyLockRequestChild*
-  AllocPSubsidyLockRequestChild(const SubsidyLockRequest& request) override;
+  PSubsidyLockRequestChild* AllocPSubsidyLockRequestChild(
+      const SubsidyLockRequest& request);
 
-  virtual bool
-  DeallocPSubsidyLockRequestChild(PSubsidyLockRequestChild* aActor) override;
+  bool DeallocPSubsidyLockRequestChild(PSubsidyLockRequestChild* aActor);
 
-private:
+ private:
   uint32_t mServiceId;
   bool mLive;
 };
@@ -71,11 +68,12 @@ private:
  */
 class SubsidyLockRequestChild : public PSubsidyLockRequestChild
 {
-public:
+  friend PSubsidyLockRequestChild;
+
+ public:
   explicit SubsidyLockRequestChild(nsISubsidyLockCallback* aRequestCallback)
     : mRequestCallback(aRequestCallback)
   {
-    MOZ_COUNT_CTOR(SubsidyLockRequestChild);
     MOZ_ASSERT(mRequestCallback);
   }
 
@@ -95,16 +93,14 @@ protected:
   virtual
   ~SubsidyLockRequestChild()
   {
-    MOZ_COUNT_DTOR(SubsidyLockRequestChild);
   }
 
   virtual void
   ActorDestroy(ActorDestroyReason why) override;
 
-  virtual bool
-  Recv__delete__(const SubsidyLockReply& aReply) override;
+  mozilla::ipc::IPCResult Recv__delete__(const SubsidyLockReply& aReply);
 
-private:
+ private:
   nsCOMPtr<nsISubsidyLockCallback> mRequestCallback;
 };
 

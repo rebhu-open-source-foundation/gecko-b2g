@@ -127,6 +127,7 @@ DIRS += [
     'mobileconnection',
     'mobilemessage',
     'telephony',
+    'subsidylock',
     'videocallprovider',
     'voicemail',
 ]

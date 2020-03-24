@@ -24,7 +24,7 @@ interface nsISubsidyLockCallback : nsISupports
   /**
    * The error callback of |getSubsidyLockStatus|.
    */
-  void notifyError(in DOMString aErrorMsg);
+  void notifyError(in AString aErrorMsg);
 
   /**
    * The success callback of |unlockSubsidyLock|.
@@ -39,13 +39,13 @@ interface nsISubsidyLockCallback : nsISupports
    * @param aRetryCount
    *        The number of remaining retries. -1 if unknown.
    */
-  void notifyUnlockSubsidyLockError(in DOMString aErrorMsg, in long aRetryCount);
+  void notifyUnlockSubsidyLockError(in AString aErrorMsg, in long aRetryCount);
 };
 
 %{C++
 #define NS_SUBSIDY_LOCK_SERVICE_CID \
-  { 0x2238d560, 0xf4f9, 0x45bf, \
-    { 0xb0, 0x96, 0x39, 0xde, 0x79, 0xd0, 0x4b, 0x7a } }
+  { 0x147e18e3, 0x1f0e, 0x4cb0, \
+    { 0x89, 0x7b, 0x72, 0x92, 0x75, 0x24, 0x7a, 0x44 } }
 #define NS_SUBSIDY_LOCK_SERVICE_CONTRACTID \
   "@mozilla.org/subsidylock/subsidylockservice;1"
 %}
@@ -101,6 +101,6 @@ interface nsISubsidyLock : nsISupports
   void getSubsidyLockStatus(in nsISubsidyLockCallback aCallback);
 
   void unlockSubsidyLock(in unsigned long aLockType,
-                         in DOMString aPassword,
+                         in AString aPassword,
                          in nsISubsidyLockCallback aCallback);
 };

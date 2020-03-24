@@ -1466,6 +1466,15 @@
   value: true
   mirror: always
 
+# B2G_RIL
+# Should be false by default, and enable it when necessary.
+# Besides, this API should be only for sim lock without sim inserted case.
+# Regarding normal sim lock, we still need to go through icc APIs.
+- name: dom.subsidylock.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Is support for CSSPseudoElement enabled?
 - name: dom.css_pseudo_element.enabled
   type: bool

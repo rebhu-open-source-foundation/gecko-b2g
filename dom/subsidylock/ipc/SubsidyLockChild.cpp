@@ -15,7 +15,6 @@ SubsidyLockChild::SubsidyLockChild(uint32_t aServiceId)
   : mServiceId(aServiceId)
   , mLive(true)
 {
-  MOZ_COUNT_CTOR(SubsidyLockChild);
 }
 
 void
@@ -127,24 +126,30 @@ SubsidyLockRequestChild::DoReply(const SubsidyLockUnlockError& aReply)
                                                                      aReply.remainingRetry()));
 }
 
-bool
-SubsidyLockRequestChild::Recv__delete__(const SubsidyLockReply& aReply)
-{
+mozilla::ipc::IPCResult SubsidyLockRequestChild::Recv__delete__(
+    const SubsidyLockReply& aReply) {
   MOZ_ASSERT(mRequestCallback);
 
   switch (aReply.type()) {
     case SubsidyLockReply::TSubsidyLockGetStatusSuccess:
-      return DoReply(aReply.get_SubsidyLockGetStatusSuccess());
+      return DoReply(aReply.get_SubsidyLockGetStatusSuccess())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case SubsidyLockReply::TSubsidyLockReplySuccess:
-      return DoReply(aReply.get_SubsidyLockReplySuccess());
+      return DoReply(aReply.get_SubsidyLockReplySuccess())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case SubsidyLockReply::TSubsidyLockReplyError:
-      return DoReply(aReply.get_SubsidyLockReplyError());
+      return DoReply(aReply.get_SubsidyLockReplyError())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case SubsidyLockReply::TSubsidyLockUnlockError:
-      return DoReply(aReply.get_SubsidyLockUnlockError());
+      return DoReply(aReply.get_SubsidyLockUnlockError())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     default:
       MOZ_CRASH("Received invalid response type!");
   }
 
-  return false;
-
+  return IPC_OK();
 }

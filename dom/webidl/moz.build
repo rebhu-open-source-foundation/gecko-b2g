@@ -835,6 +835,8 @@ WEBIDL_FILES = [
     'StructuredCloneTester.webidl',
     'StyleSheet.webidl',
     'StyleSheetList.webidl',
+    'SubsidyLock.webidl',
+    'SubsidyLockManager.webidl',
     'SubtleCrypto.webidl',
     'SVGAElement.webidl',
     'SVGAngle.webidl',

@@ -25,7 +25,7 @@ partial interface B2G {
 [Exposed=Window]
 partial interface B2G {
   [Throws, Pref="dom.telephony.enabled"]
-  readonly attribute Telephony Telephony;
+  readonly attribute Telephony telephony;
 };
 
 [Exposed=Window]
@@ -38,6 +38,12 @@ partial interface B2G {
 partial interface B2G {
   [Throws, Pref="dom.datacall.enabled"]
   readonly attribute DataCallManager? dataCallManager;
+};
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.subsidylock.enabled"]
+  readonly attribute SubsidyLockManager? subsidyLockManager;
 };
 
 [Exposed=Window]
