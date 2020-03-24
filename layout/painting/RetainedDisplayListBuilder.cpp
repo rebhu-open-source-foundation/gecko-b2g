@@ -983,7 +983,7 @@ static bool IsInPreserve3DContext(const nsIFrame* aFrame) {
 static bool ProcessFrameInternal(nsIFrame* aFrame,
                                  nsDisplayListBuilder* aBuilder,
                                  AnimatedGeometryRoot** aAGR, nsRect& aOverflow,
-                                 nsIFrame* aStopAtFrame,
+                                 const nsIFrame* aStopAtFrame,
                                  nsTArray<nsIFrame*>& aOutFramesWithProps,
                                  const bool aStopAtStackingContext) {
   nsIFrame* currentFrame = aFrame;
@@ -1023,7 +1023,7 @@ static bool ProcessFrameInternal(nsIFrame* aFrame,
       // Find a common ancestor frame to handle frame continuations.
       // TODO: It might be possible to write a more specific and efficient
       // function for this.
-      nsIFrame* ancestor = nsLayoutUtils::FindNearestCommonAncestorFrame(
+      const nsIFrame* ancestor = nsLayoutUtils::FindNearestCommonAncestorFrame(
           currentFrame->GetParent(), placeholder->GetParent());
 
       if (!ProcessFrameInternal(placeholder, aBuilder, &dummyAGR,
@@ -1052,7 +1052,8 @@ static bool ProcessFrameInternal(nsIFrame* aFrame,
       MOZ_ASSERT(sf);
       nsRect displayPort;
       DebugOnly<bool> hasDisplayPort = nsLayoutUtils::GetDisplayPort(
-          currentFrame->GetContent(), &displayPort, RelativeTo::ScrollPort);
+          currentFrame->GetContent(), &displayPort,
+          DisplayportRelativeTo::ScrollPort);
       MOZ_ASSERT(hasDisplayPort);
       // get it relative to the scrollport (from the scrollframe)
       nsRect r = aOverflow - sf->GetScrollPortRect().TopLeft();

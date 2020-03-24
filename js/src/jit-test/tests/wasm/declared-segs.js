@@ -4,20 +4,20 @@
 wasmFullPass(`
 	(module
 		(func $f1)
-		(elem declared $f1)
+		(elem declare $f1)
 		(func $run)
-		(export "run" $run)
+		(export "run" (func $run))
 	)
 `);
 
 // Declared segments cannot use ref.null
 assertThrowsInstanceOf(() => {
-	wasmTextToBinary(`
+	new WebAssembly.Module(wasmTextToBinary(`
 		(module
-			(elem declared (ref.null))
+			(elem declare (ref.null))
 		)
-	`)
-}, SyntaxError);
+	`))
+}, WebAssembly.CompileError);
 
 // Declared segments cannot be used by bulk-memory operations
 function test(ins) {
@@ -26,7 +26,7 @@ function test(ins) {
 			(module
 				(func $f1)
 				(table 1 1 funcref)
-				(elem declared $f1)
+				(elem declare $f1)
 				(func $start ${ins})
 				(start $start)
 			)
@@ -41,12 +41,12 @@ wasmAssert(`
 	(module
 		(func $f1)
 		(table 1 1 funcref)
-		(elem declared $f1)
+		(elem declare $f1)
 		(func $at (param i32) (result i32)
 			local.get 0
 			table.get 0
 			ref.is_null
 		)
-		(export "at" $at)
+		(export "at" (func $at))
 	)
 `, [{type: 'i32', func: '$at', args: ['i32.const 0'], expected: '1'}]);

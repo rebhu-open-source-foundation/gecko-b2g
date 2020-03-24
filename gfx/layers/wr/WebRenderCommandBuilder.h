@@ -9,7 +9,6 @@
 
 #include "mozilla/webrender/WebRenderAPI.h"
 #include "mozilla/layers/ClipManager.h"
-#include "mozilla/layers/RenderRootBoundary.h"
 #include "mozilla/layers/WebRenderMessages.h"
 #include "mozilla/layers/WebRenderScrollData.h"
 #include "mozilla/layers/WebRenderUserData.h"
@@ -52,9 +51,6 @@ class WebRenderScrollDataCollection {
 
   void AppendRoot(Maybe<ScrollMetadata>& aRootMetadata,
                   wr::RenderRootArray<WebRenderScrollData>& aScrollDatas);
-
-  void AppendWrapper(const RenderRootBoundary& aBoundary,
-                     size_t aLayerCountBeforeRecursing);
 
   void AppendScrollData(const wr::DisplayListBuilder& aBuilder,
                         WebRenderLayerManager* aManager, nsDisplayItem* aItem,

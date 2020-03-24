@@ -184,7 +184,7 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * shadow layers in that scenario.
    */
   void UpdateHitTestingTree(const WebRenderScrollDataWrapper& aScrollWrapper,
-                            bool aIsFirstPaint, WRRootId aOriginatingWrRootId,
+                            bool aIsFirstPaint, LayersId aOriginatingLayersId,
                             uint32_t aPaintSequenceNumber);
 
   /**
@@ -544,8 +544,7 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
 
   // Protected hooks for gtests subclass
   virtual AsyncPanZoomController* NewAPZCInstance(
-      LayersId aLayersId, GeckoContentController* aController,
-      wr::RenderRoot aRenderRoot);
+      LayersId aLayersId, GeckoContentController* aController);
 
  public:
   // Public hook for gtests subclass
@@ -635,7 +634,7 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
   /* Helpers */
   template <class ScrollNode>
   void UpdateHitTestingTreeImpl(const ScrollNode& aRoot, bool aIsFirstPaint,
-                                WRRootId aOriginatingWrRootId,
+                                LayersId aOriginatingLayersId,
                                 uint32_t aPaintSequenceNumber);
 
   void AttachNodeToTree(HitTestingTreeNode* aNode, HitTestingTreeNode* aParent,
@@ -728,8 +727,7 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
       const RecursiveMutexAutoLock& aProofOfTreeLock, const ScrollNode& aLayer,
       const FrameMetrics& aMetrics, LayersId aLayersId,
       const AncestorTransform& aAncestorTransform, HitTestingTreeNode* aParent,
-      HitTestingTreeNode* aNextSibling, TreeBuildingState& aState,
-      wr::RenderRoot aRenderRoot);
+      HitTestingTreeNode* aNextSibling, TreeBuildingState& aState);
   template <class ScrollNode>
   Maybe<ParentLayerIntRegion> ComputeClipRegion(const ScrollNode& aLayer);
 

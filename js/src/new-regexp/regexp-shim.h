@@ -60,6 +60,7 @@ class RegExpStack;
 #define DCHECK_NOT_NULL(val) MOZ_ASSERT((val) != nullptr)
 #define DCHECK_IMPLIES(lhs, rhs) MOZ_ASSERT_IF(lhs, rhs)
 #define CHECK MOZ_RELEASE_ASSERT
+#define CHECK_LE(lhs, rhs) MOZ_RELEASE_ASSERT((lhs) <= (rhs))
 
 template <class T>
 static constexpr inline T Min(T t1, T t2) {
@@ -926,27 +927,16 @@ class JSRegExp : public HeapObject {
   // JSRegExp::Flags
   // **************************************************
 
-  struct FlagShiftBit {
-    static constexpr int kGlobal = 0;
-    static constexpr int kIgnoreCase = 1;
-    static constexpr int kMultiline = 2;
-    static constexpr int kSticky = 3;
-    static constexpr int kUnicode = 4;
-    static constexpr int kDotAll = 5;
-    static constexpr int kInvalid = 6;
-  };
   enum Flag : uint8_t {
-    kNone = 0,
-    kGlobal = 1 << FlagShiftBit::kGlobal,
-    kIgnoreCase = 1 << FlagShiftBit::kIgnoreCase,
-    kMultiline = 1 << FlagShiftBit::kMultiline,
-    kSticky = 1 << FlagShiftBit::kSticky,
-    kUnicode = 1 << FlagShiftBit::kUnicode,
-    kDotAll = 1 << FlagShiftBit::kDotAll,
-    kInvalid = 1 << FlagShiftBit::kInvalid,  // Not included in FlagCount.
+    kNone = JS::RegExpFlag::NoFlags,
+    kGlobal = JS::RegExpFlag::Global,
+    kIgnoreCase = JS::RegExpFlag::IgnoreCase,
+    kMultiline = JS::RegExpFlag::Multiline,
+    kSticky = JS::RegExpFlag::Sticky,
+    kUnicode = JS::RegExpFlag::Unicode,
+    kDotAll = JS::RegExpFlag::DotAll,
   };
-  using Flags = base::Flags<Flag>;
-  static constexpr int kFlagCount = 6;
+  using Flags = JS::RegExpFlags;
 
   static constexpr int kNoBacktrackLimit = 0;
 
@@ -1009,7 +999,7 @@ private:
 
 public:
   // An empty stub for telemetry we don't support
-  void IncreaseTotalRegexpCodeGenerated(int size) {}
+  void IncreaseTotalRegexpCodeGenerated(Handle<HeapObject> code) {}
 
   Counters* counters() { return &counters_; }
 
@@ -1155,6 +1145,7 @@ extern bool FLAG_trace_regexp_parser;
 extern bool FLAG_trace_regexp_peephole_optimization;
 
 #define V8_USE_COMPUTED_GOTO 1
+#define COMPILING_IRREGEXP_FOR_EXTERNAL_EMBEDDER
 
 }  // namespace internal
 }  // namespace v8

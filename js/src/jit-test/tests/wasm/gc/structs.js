@@ -44,7 +44,7 @@ var bin = wasmTextToBinary(
       (func $x2 (import "m" "x2") (type $f2))
 
       (func (export "hello") (param f64) (param i32) (result f64)
-       (call_indirect $f2 (local.get 0) (local.get 1)))
+       (call_indirect (type $f2) (local.get 0) (local.get 1)))
 
       (func $doit (param f64) (result f64)
        (f64.sqrt (local.get 0)))
@@ -484,7 +484,7 @@ assertErrorMessage(() => wasmTextToBinary(
       (type $t (struct (field $x i32)))
      )`),
                   SyntaxError,
-                  /duplicate field name/);
+                  /duplicate identifier for field/);
 
 // negative tests
 
@@ -571,7 +571,7 @@ assertErrorMessage(() => wasmEvalText(`
  (type $s (struct (field $x i32)))
  (type $s (struct (field $y i32))))
 `),
-SyntaxError, /duplicate type name/);
+SyntaxError, /duplicate identifier for type/);
 
 // Bogus type definition syntax.
 
@@ -580,35 +580,35 @@ assertErrorMessage(() => wasmEvalText(`
  (gc_feature_opt_in 3)
  (type $s))
 `),
-SyntaxError, /parsing wasm text/);
+SyntaxError, /wasm text error/);
 
 assertErrorMessage(() => wasmEvalText(`
 (module
  (gc_feature_opt_in 3)
  (type $s (field $x i32)))
 `),
-SyntaxError, /bad type definition/);
+SyntaxError, /expected `func` or `struct`/);
 
 assertErrorMessage(() => wasmEvalText(`
 (module
  (gc_feature_opt_in 3)
  (type $s (struct (field $x i31))))
 `),
-SyntaxError, /parsing wasm text/);
+SyntaxError, /wasm text error/);
 
 assertErrorMessage(() => wasmEvalText(`
 (module
  (gc_feature_opt_in 3)
  (type $s (struct (fjeld $x i32))))
 `),
-SyntaxError, /parsing wasm text/);
+SyntaxError, /wasm text error/);
 
 assertErrorMessage(() => wasmEvalText(`
 (module
  (gc_feature_opt_in 3)
  (type $s (struct abracadabra)))
 `),
-SyntaxError, /parsing wasm text/);
+SyntaxError, /wasm text error/);
 
 // Function should not reference struct type: syntactic test
 
