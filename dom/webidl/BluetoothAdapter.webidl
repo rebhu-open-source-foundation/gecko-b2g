@@ -67,13 +67,13 @@ interface BluetoothAdapter : EventTarget {
            attribute EventHandler   ona2dpstatuschanged;
 
   // Fired when handsfree connection status changed
-  //         attribute EventHandler   onhfpstatuschanged;
+           attribute EventHandler   onhfpstatuschanged;
 
   // Fired when handsfree connection status changed
            attribute EventHandler   onhidstatuschanged;
 
   // Fired when sco connection status changed
-  //         attribute EventHandler   onscostatuschanged;
+           attribute EventHandler   onscostatuschanged;
 
   // Fired when remote devices query current media play status
            attribute EventHandler   onrequestmediaplaystatus;
@@ -188,12 +188,12 @@ interface BluetoothAdapter : EventTarget {
   DOMRequest confirmReceivingFile(DOMString deviceAddress, boolean confirmation);
 
   // Connect/Disconnect SCO (audio) connection
-  // [NewObject, Throws]
-  // DOMRequest connectSco();
-  // [NewObject, Throws]
-  // DOMRequest disconnectSco();
-  // [NewObject, Throws]
-  // DOMRequest isScoConnected();
+  [NewObject, Throws]
+  DOMRequest connectSco();
+  [NewObject, Throws]
+  DOMRequest disconnectSco();
+  [NewObject, Throws]
+  DOMRequest isScoConnected();
 
   /**
    * Additional HFP methods to handle CDMA network.
@@ -205,12 +205,12 @@ interface BluetoothAdapter : EventTarget {
    *
    * For more information please refer to bug 912005 and 925638.
    */
-  // [NewObject, Throws]
-  // DOMRequest answerWaitingCall();
-  // [NewObject, Throws]
-  // DOMRequest ignoreWaitingCall();
-  // [NewObject, Throws]
-  // DOMRequest toggleCalls();
+  [NewObject, Throws]
+  DOMRequest answerWaitingCall();
+  [NewObject, Throws]
+  DOMRequest ignoreWaitingCall();
+  [NewObject, Throws]
+  DOMRequest toggleCalls();
 
   // AVRCP 1.3 methods
   [NewObject, Throws]

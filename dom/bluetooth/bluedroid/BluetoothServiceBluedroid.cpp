@@ -21,7 +21,7 @@
 #include "BluetoothA2dpManager.h"
 #include "BluetoothAvrcpManager.h"
 // #include "BluetoothGattManager.h"
-// #include "BluetoothHfpManager.h"
+#include "BluetoothHfpManager.h"
 #include "BluetoothHidManager.h"
 #include "BluetoothMapSmsManager.h"
 #include "BluetoothOppManager.h"
@@ -148,7 +148,7 @@ public:
       BluetoothOppManager::InitOppInterface,
       BluetoothPbapManager::InitPbapInterface,
       BluetoothHidManager::InitHidInterface,
-      // BluetoothHfpManager::InitHfpInterface,
+      BluetoothHfpManager::InitHfpInterface,
       BluetoothA2dpManager::InitA2dpInterface,
       BluetoothAvrcpManager::InitAvrcpInterface,
       // BluetoothGattManager::InitGattInterface
@@ -296,7 +296,7 @@ BluetoothServiceBluedroid::StopInternal(BluetoothReplyRunnable* aRunnable)
     // BluetoothGattManager not handled here
     BluetoothAvrcpManager::Get(),
     BluetoothA2dpManager::Get(),
-    // BluetoothHfpManager::Get(),
+    BluetoothHfpManager::Get(),
     BluetoothHidManager::Get(),
     BluetoothPbapManager::Get(),
     BluetoothOppManager::Get(),
@@ -1544,49 +1544,49 @@ BluetoothServiceBluedroid::ConfirmReceivingFile(
   DispatchReplySuccess(aRunnable);
 }
 
-// void
-// BluetoothServiceBluedroid::ConnectSco(BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
-//   BT_LOGR("");
+void
+BluetoothServiceBluedroid::ConnectSco(BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  BT_LOGR("");
 
-//   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-//   if (!hfp || !hfp->ConnectSco()) {
-//     DispatchReplyError(aRunnable, NS_LITERAL_STRING("ConnectSco failed"));
-//     return;
-//   }
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+  if (!hfp || !hfp->ConnectSco()) {
+    DispatchReplyError(aRunnable, NS_LITERAL_STRING("ConnectSco failed"));
+    return;
+  }
 
-//   DispatchReplySuccess(aRunnable);
-// }
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::DisconnectSco(BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
-//   BT_LOGR("");
+void
+BluetoothServiceBluedroid::DisconnectSco(BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  BT_LOGR("");
 
-//   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-//   if (!hfp || !hfp->DisconnectSco()) {
-//     DispatchReplyError(aRunnable, NS_LITERAL_STRING("DisconnectSco failed"));
-//     return;
-//   }
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+  if (!hfp || !hfp->DisconnectSco()) {
+    DispatchReplyError(aRunnable, NS_LITERAL_STRING("DisconnectSco failed"));
+    return;
+  }
 
-//   DispatchReplySuccess(aRunnable);
-// }
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::IsScoConnected(BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
+void
+BluetoothServiceBluedroid::IsScoConnected(BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
 
-//   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-//   if (!hfp) {
-//     DispatchReplyError(aRunnable, NS_LITERAL_STRING("IsScoConnected failed"));
-//     return;
-//   }
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+  if (!hfp) {
+    DispatchReplyError(aRunnable, NS_LITERAL_STRING("IsScoConnected failed"));
+    return;
+  }
 
-//   DispatchReplySuccess(aRunnable, BluetoothValue(hfp->IsScoConnected()));
-// }
+  DispatchReplySuccess(aRunnable, BluetoothValue(hfp->IsScoConnected()));
+}
 
 void
 BluetoothServiceBluedroid::SetObexPassword(const nsAString& aPassword,
@@ -1822,31 +1822,33 @@ BluetoothServiceBluedroid::SendMessageEvent(
   DispatchReplySuccess(aRunnable);
 }
 
-// void
-// BluetoothServiceBluedroid::AnswerWaitingCall(BluetoothReplyRunnable* aRunnable)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
+#ifdef MOZ_B2G_RIL
+void
+BluetoothServiceBluedroid::AnswerWaitingCall(BluetoothReplyRunnable* aRunnable)
+{
+  MOZ_ASSERT(NS_IsMainThread());
 
-//   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-//   if (!hfp) {
-//     DispatchReplyError(aRunnable,
-//                        NS_LITERAL_STRING("Fail to get BluetoothHfpManager"));
-//     return;
-//   }
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+  if (!hfp) {
+    DispatchReplyError(aRunnable,
+                       NS_LITERAL_STRING("Fail to get BluetoothHfpManager"));
+    return;
+  }
 
-//   hfp->AnswerWaitingCall();
-//   DispatchReplySuccess(aRunnable);
-// }
+  hfp->AnswerWaitingCall();
+  DispatchReplySuccess(aRunnable);
+}
 
-// void
-// BluetoothServiceBluedroid::IgnoreWaitingCall(BluetoothReplyRunnable* aRunnable)
-// {
-// }
+void
+BluetoothServiceBluedroid::IgnoreWaitingCall(BluetoothReplyRunnable* aRunnable)
+{
+}
 
-// void
-// BluetoothServiceBluedroid::ToggleCalls(BluetoothReplyRunnable* aRunnable)
-// {
-// }
+void
+BluetoothServiceBluedroid::ToggleCalls(BluetoothReplyRunnable* aRunnable)
+{
+}
+#endif // MOZ_B2G_RIL
 
 //
 // Bluetooth notifications
@@ -1951,7 +1953,7 @@ BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState)
       // BluetoothGattManager::DeinitGattInterface,
       BluetoothAvrcpManager::DeinitAvrcpInterface,
       BluetoothA2dpManager::DeinitA2dpInterface,
-      // BluetoothHfpManager::DeinitHfpInterface,
+      BluetoothHfpManager::DeinitHfpInterface,
       BluetoothHidManager::DeinitHidInterface,
       BluetoothPbapManager::DeinitPbapInterface,
       BluetoothOppManager::DeinitOppInterface,
@@ -2580,9 +2582,9 @@ BluetoothServiceBluedroid::BackendErrorNotification(bool aCrashed)
    * - A2DP: connection state
    * - HID: connection state
    */
-  // BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-  // NS_ENSURE_TRUE_VOID(hfp);
-  // hfp->HandleBackendError();
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+  NS_ENSURE_TRUE_VOID(hfp);
+  hfp->HandleBackendError();
   BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
   NS_ENSURE_TRUE_VOID(a2dp);
   a2dp->HandleBackendError();

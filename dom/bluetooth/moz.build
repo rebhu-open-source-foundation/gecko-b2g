@@ -10,10 +10,13 @@ if CONFIG['MOZ_B2G_BT']:
     # Generic code
     #
 
-#   if CONFIG['MOZ_B2G_RIL']:
-#       SOURCES += [
-#           'common/BluetoothRilListener.cpp'
-#       ]
+    # TODO: Replace CONFIG['MOZ_B2G_BT'] by CONFIG['MOZ_B2G_RIL']
+    #       Current MOZ_B2G_RIL is true as AC_DEFINE but false as AC_SUBST,
+    #       therefore, using CONFIG['MOZ_B2G_RIL'] would break the build
+    if CONFIG['MOZ_B2G_BT']:
+        SOURCES += [
+            'common/BluetoothRilListener.cpp'
+        ]
 
     SOURCES += [
 #       'common/BluetoothGattReplyRunnable.cpp',
@@ -90,20 +93,23 @@ if CONFIG['MOZ_B2G_BT']:
                 'bluedroid',
             ]
 
-#           if CONFIG['MOZ_B2G_RIL']:
-#               SOURCES += [
-#                   'bluedroid/hfp/BluetoothHfpManager.cpp',
-#               ]
-#               LOCAL_INCLUDES += [
-#                   'bluedroid/hfp',
-#               ]
-#           else:
-#               SOURCES += [
-#                   'bluedroid/hfp-fallback/BluetoothHfpManager.cpp',
-#               ]
-#               LOCAL_INCLUDES += [
-#                   'bluedroid/hfp-fallback',
-#               ]
+            # TODO: Replace CONFIG['MOZ_B2G_BT'] by CONFIG['MOZ_B2G_RIL']
+            #       Current MOZ_B2G_RIL is true as AC_DEFINE but false as AC_SUBST,
+            #       therefore, using CONFIG['MOZ_B2G_RIL'] would break the build
+            if CONFIG['MOZ_B2G_BT']:
+                SOURCES += [
+                    'bluedroid/hfp/BluetoothHfpManager.cpp',
+                ]
+                LOCAL_INCLUDES += [
+                    'bluedroid/hfp',
+                ]
+            else:
+                SOURCES += [
+                    'bluedroid/hfp-fallback/BluetoothHfpManager.cpp',
+                ]
+                LOCAL_INCLUDES += [
+                    'bluedroid/hfp-fallback',
+                ]
 
             DEFINES['MOZ_B2G_BT_DAEMON'] = True
 

@@ -95,9 +95,9 @@ public:
   IMPL_EVENT_HANDLER(pairingaborted);
   // HFP/A2DP/AVRCP/HID
   IMPL_EVENT_HANDLER(a2dpstatuschanged);
-  // IMPL_EVENT_HANDLER(hfpstatuschanged);
+  IMPL_EVENT_HANDLER(hfpstatuschanged);
   IMPL_EVENT_HANDLER(hidstatuschanged);
-  // IMPL_EVENT_HANDLER(scostatuschanged);
+  IMPL_EVENT_HANDLER(scostatuschanged);
   IMPL_EVENT_HANDLER(requestmediaplaystatus);
   // PBAP
   IMPL_EVENT_HANDLER(obexpasswordreq);
@@ -165,14 +165,14 @@ public:
                          ErrorResult& aRv);
 
   // SCO related methods
-  // already_AddRefed<DOMRequest> ConnectSco(ErrorResult& aRv);
-  // already_AddRefed<DOMRequest> DisconnectSco(ErrorResult& aRv);
-  // already_AddRefed<DOMRequest> IsScoConnected(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> ConnectSco(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> DisconnectSco(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> IsScoConnected(ErrorResult& aRv);
 
   // Handfree CDMA related methods
-  // already_AddRefed<DOMRequest> AnswerWaitingCall(ErrorResult& aRv);
-  // already_AddRefed<DOMRequest> IgnoreWaitingCall(ErrorResult& aRv);
-  // already_AddRefed<DOMRequest> ToggleCalls(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> AnswerWaitingCall(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> IgnoreWaitingCall(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> ToggleCalls(ErrorResult& aRv);
 
   // AVRCP related methods
   already_AddRefed<DOMRequest>

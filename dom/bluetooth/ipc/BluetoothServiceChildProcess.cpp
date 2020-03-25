@@ -331,23 +331,23 @@ BluetoothServiceChildProcess::ConfirmReceivingFile(
   SendRequest(aRunnable, DenyReceivingFileRequest(aDeviceAddress));
 }
 
-// void
-// BluetoothServiceChildProcess::ConnectSco(BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, ConnectScoRequest());
-// }
+void
+BluetoothServiceChildProcess::ConnectSco(BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, ConnectScoRequest());
+}
 
-// void
-// BluetoothServiceChildProcess::DisconnectSco(BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, DisconnectScoRequest());
-// }
+void
+BluetoothServiceChildProcess::DisconnectSco(BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, DisconnectScoRequest());
+}
 
-// void
-// BluetoothServiceChildProcess::IsScoConnected(BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, IsScoConnectedRequest());
-// }
+void
+BluetoothServiceChildProcess::IsScoConnected(BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, IsScoConnectedRequest());
+}
 
 void
 BluetoothServiceChildProcess::SetObexPassword(
@@ -480,28 +480,28 @@ BluetoothServiceChildProcess::ReplyToMapMessageUpdate(uint8_t aMasId,
     ReplyToMessageUpdateRequest(aMasId, aStatus));
 }
 
-// #ifdef MOZ_B2G_RIL
-// void
-// BluetoothServiceChildProcess::AnswerWaitingCall(
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, AnswerWaitingCallRequest());
-// }
+#ifdef MOZ_B2G_RIL
+void
+BluetoothServiceChildProcess::AnswerWaitingCall(
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, AnswerWaitingCallRequest());
+}
 
-// void
-// BluetoothServiceChildProcess::IgnoreWaitingCall(
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, IgnoreWaitingCallRequest());
-// }
+void
+BluetoothServiceChildProcess::IgnoreWaitingCall(
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, IgnoreWaitingCallRequest());
+}
 
-// void
-// BluetoothServiceChildProcess::ToggleCalls(
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, ToggleCallsRequest());
-// }
-// #endif // MOZ_B2G_RIL
+void
+BluetoothServiceChildProcess::ToggleCalls(
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, ToggleCallsRequest());
+}
+#endif // MOZ_B2G_RIL
 
 void
 BluetoothServiceChildProcess::SendMetaData(const nsAString& aTitle,

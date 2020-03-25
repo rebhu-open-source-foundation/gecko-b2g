@@ -8,7 +8,7 @@
 
 #include "BluetoothA2dpManager.h"
 #include "BluetoothAvrcpManager.h"
-// #include "BluetoothHfpManager.h"
+#include "BluetoothHfpManager.h"
 #include "BluetoothHidManager.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
@@ -106,10 +106,10 @@ BluetoothProfileController::AddProfileWithServiceClass(
 {
   BluetoothProfileManagerBase* profile;
   switch (aClass) {
-    // case BluetoothServiceClass::HANDSFREE:
-    // case BluetoothServiceClass::HEADSET:
-    //   profile = BluetoothHfpManager::Get();
-    //   break;
+    case BluetoothServiceClass::HANDSFREE:
+    case BluetoothServiceClass::HEADSET:
+      profile = BluetoothHfpManager::Get();
+      break;
     case BluetoothServiceClass::A2DP:
       profile = BluetoothA2dpManager::Get();
       break;
@@ -165,7 +165,7 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
     AddProfile(BluetoothHidManager::Get(), true);
     AddProfile(BluetoothAvrcpManager::Get(), true);
     AddProfile(BluetoothA2dpManager::Get(), true);
-    // AddProfile(BluetoothHfpManager::Get(), true);
+    AddProfile(BluetoothHfpManager::Get(), true);
     return;
   }
 
@@ -186,7 +186,7 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
   // Note the invalid CoD from bluedroid callback usually results from
   // NFC-triggered direct pairing for no EIR query records.
   if (isInvalid) {
-    // AddProfile(BluetoothHfpManager::Get());
+    AddProfile(BluetoothHfpManager::Get());
     AddProfile(BluetoothA2dpManager::Get());
     AddProfile(BluetoothAvrcpManager::Get()); // register after A2DP
     AddProfile(BluetoothHidManager::Get());
@@ -197,7 +197,7 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
 
   // Audio bit should be set if remote device supports HFP/HSP.
   if (hasAudio) {
-    // AddProfile(BluetoothHfpManager::Get());
+    AddProfile(BluetoothHfpManager::Get());
   }
 
   // Rendering bit should be set if remote device supports A2DP.

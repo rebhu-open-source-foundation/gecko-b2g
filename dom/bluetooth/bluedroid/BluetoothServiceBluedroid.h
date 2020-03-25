@@ -174,14 +174,14 @@ public:
   ConfirmReceivingFile(const BluetoothAddress& aDeviceAddress, bool aConfirm,
                        BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ConnectSco(BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ConnectSco(BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // DisconnectSco(BluetoothReplyRunnable* aRunnable);
+  virtual void
+  DisconnectSco(BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // IsScoConnected(BluetoothReplyRunnable* aRunnable);
+  virtual void
+  IsScoConnected(BluetoothReplyRunnable* aRunnable) override;
 
   virtual void
   SetObexPassword(const nsAString& aPassword,
@@ -237,14 +237,16 @@ public:
   ReplyToMapMessageUpdate(
     uint8_t aMasId, bool aStatus, BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // AnswerWaitingCall(BluetoothReplyRunnable* aRunnable);
+#ifdef MOZ_B2G_RIL
+  virtual void
+  AnswerWaitingCall(BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // IgnoreWaitingCall(BluetoothReplyRunnable* aRunnable);
+  virtual void
+  IgnoreWaitingCall(BluetoothReplyRunnable* aRunnable) override;
 
-  // virtual void
-  // ToggleCalls(BluetoothReplyRunnable* aRunnable);
+  virtual void
+  ToggleCalls(BluetoothReplyRunnable* aRunnable) override;
+#endif
 
   virtual void
   SendMetaData(const nsAString& aTitle,

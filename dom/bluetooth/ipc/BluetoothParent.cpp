@@ -198,12 +198,15 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TDenyReceivingFileRequest:
       return actor->DoRequest(aRequest.get_DenyReceivingFileRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-    // case Request::TConnectScoRequest:
-    //   return actor->DoRequest(aRequest.get_ConnectScoRequest());
-    // case Request::TDisconnectScoRequest:
-    //   return actor->DoRequest(aRequest.get_DisconnectScoRequest());
-    // case Request::TIsScoConnectedRequest:
-    //   return actor->DoRequest(aRequest.get_IsScoConnectedRequest());
+    case Request::TConnectScoRequest:
+      return actor->DoRequest(aRequest.get_ConnectScoRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TDisconnectScoRequest:
+      return actor->DoRequest(aRequest.get_DisconnectScoRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TIsScoConnectedRequest:
+      return actor->DoRequest(aRequest.get_IsScoConnectedRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     case Request::TSetObexPasswordRequest:
       return actor->DoRequest(aRequest.get_SetObexPasswordRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
@@ -237,14 +240,17 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TReplyToMessageUpdateRequest:
       return actor->DoRequest(aRequest.get_ReplyToMessageUpdateRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-// #ifdef MOZ_B2G_RIL
-//     case Request::TAnswerWaitingCallRequest:
-//       return actor->DoRequest(aRequest.get_AnswerWaitingCallRequest());
-//     case Request::TIgnoreWaitingCallRequest:
-//       return actor->DoRequest(aRequest.get_IgnoreWaitingCallRequest());
-//     case Request::TToggleCallsRequest:
-//       return actor->DoRequest(aRequest.get_ToggleCallsRequest());
-// #endif
+#ifdef MOZ_B2G_RIL
+    case Request::TAnswerWaitingCallRequest:
+      return actor->DoRequest(aRequest.get_AnswerWaitingCallRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TIgnoreWaitingCallRequest:
+      return actor->DoRequest(aRequest.get_IgnoreWaitingCallRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TToggleCallsRequest:
+      return actor->DoRequest(aRequest.get_ToggleCallsRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+#endif
     case Request::TSendMetaDataRequest:
       return actor->DoRequest(aRequest.get_SendMetaDataRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);

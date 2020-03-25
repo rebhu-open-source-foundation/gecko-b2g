@@ -426,35 +426,35 @@ BluetoothRequestParent::DoRequest(const DenyReceivingFileRequest& aRequest)
   return true;
 }
 
-// bool
-// BluetoothRequestParent::DoRequest(const ConnectScoRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TConnectScoRequest);
+bool
+BluetoothRequestParent::DoRequest(const ConnectScoRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TConnectScoRequest);
 
-//   mService->ConnectSco(mReplyRunnable.get());
-//   return true;
-// }
+  mService->ConnectSco(mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const DisconnectScoRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TDisconnectScoRequest);
+bool
+BluetoothRequestParent::DoRequest(const DisconnectScoRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TDisconnectScoRequest);
 
-//   mService->DisconnectSco(mReplyRunnable.get());
-//   return true;
-// }
+  mService->DisconnectSco(mReplyRunnable.get());
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const IsScoConnectedRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TIsScoConnectedRequest);
+bool
+BluetoothRequestParent::DoRequest(const IsScoConnectedRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TIsScoConnectedRequest);
 
-//   mService->IsScoConnected(mReplyRunnable.get());
-//   return true;
-// }
+  mService->IsScoConnected(mReplyRunnable.get());
+  return true;
+}
 
 bool
 BluetoothRequestParent::DoRequest(const SetObexPasswordRequest& aRequest)
@@ -597,40 +597,40 @@ BluetoothRequestParent::DoRequest(const ReplyToMessageUpdateRequest& aRequest)
   return true;
 }
 
-// #ifdef MOZ_B2G_RIL
-// bool
-// BluetoothRequestParent::DoRequest(const AnswerWaitingCallRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TAnswerWaitingCallRequest);
+#ifdef MOZ_B2G_RIL
+bool
+BluetoothRequestParent::DoRequest(const AnswerWaitingCallRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TAnswerWaitingCallRequest);
 
-//   mService->AnswerWaitingCall(mReplyRunnable.get());
+  mService->AnswerWaitingCall(mReplyRunnable.get());
 
-//   return true;
-// }
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const IgnoreWaitingCallRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TAnswerWaitingCallRequest);
+bool
+BluetoothRequestParent::DoRequest(const IgnoreWaitingCallRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TIgnoreWaitingCallRequest);
 
-//   mService->IgnoreWaitingCall(mReplyRunnable.get());
+  mService->IgnoreWaitingCall(mReplyRunnable.get());
 
-//   return true;
-// }
+  return true;
+}
 
-// bool
-// BluetoothRequestParent::DoRequest(const ToggleCallsRequest& aRequest)
-// {
-//   MOZ_ASSERT(mService);
-//   MOZ_ASSERT(mRequestType == Request::TAnswerWaitingCallRequest);
+bool
+BluetoothRequestParent::DoRequest(const ToggleCallsRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TToggleCallsRequest);
 
-//   mService->ToggleCalls(mReplyRunnable.get());
+  mService->ToggleCalls(mReplyRunnable.get());
 
-//   return true;
-// }
-// #endif // MOZ_B2G_RIL
+  return true;
+}
+#endif // MOZ_B2G_RIL
 
 bool
 BluetoothRequestParent::DoRequest(const SendMetaDataRequest& aRequest)

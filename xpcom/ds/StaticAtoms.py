@@ -2410,7 +2410,7 @@ STATIC_ATOMS = [
     Atom("ondeviceunpaired", "ondeviceunpaired"),
     Atom("ondisplaypasskeyreq", "ondisplaypasskeyreq"),
     Atom("onenterpincodereq", "onenterpincodereq"),
-    # Atom("onhfpstatuschanged", "onhfpstatuschanged"),
+    Atom("onhfpstatuschanged", "onhfpstatuschanged"),
     Atom("onhidstatuschanged", "onhidstatuschanged"),
     Atom("onmapconnectionreq", "onmapconnectionreq"),
     Atom("onmapfolderlistingreq", "onmapfolderlistingreq"),
@@ -2428,7 +2428,7 @@ STATIC_ATOMS = [
     Atom("onpullvcardentryreq", "onpullvcardentryreq"),
     Atom("onpullvcardlistingreq", "onpullvcardlistingreq"),
     Atom("onrequestmediaplaystatus", "onrequestmediaplaystatus"),
-    # Atom("onscostatuschanged", "onscostatuschanged"),
+    Atom("onscostatuschanged", "onscostatuschanged"),
 
     # Namespaces
     Atom("nsuri_xmlns", "http://www.w3.org/2000/xmlns/"),

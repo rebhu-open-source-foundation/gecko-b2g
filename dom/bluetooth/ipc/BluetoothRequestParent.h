@@ -125,14 +125,14 @@ protected:
   bool
   DoRequest(const DenyReceivingFileRequest& aRequest);
 
-  // bool
-  // DoRequest(const ConnectScoRequest& aRequest);
+  bool
+  DoRequest(const ConnectScoRequest& aRequest);
 
-  // bool
-  // DoRequest(const DisconnectScoRequest& aRequest);
+  bool
+  DoRequest(const DisconnectScoRequest& aRequest);
 
-  // bool
-  // DoRequest(const IsScoConnectedRequest& aRequest);
+  bool
+  DoRequest(const IsScoConnectedRequest& aRequest);
 
   bool
   DoRequest(const SetObexPasswordRequest& aRequest);
@@ -167,16 +167,16 @@ protected:
   bool
   DoRequest(const ReplyToMessageUpdateRequest& aRequest);
 
-// #ifdef MOZ_B2G_RIL
-//   bool
-//   DoRequest(const AnswerWaitingCallRequest& aRequest);
+#ifdef MOZ_B2G_RIL
+  bool
+  DoRequest(const AnswerWaitingCallRequest& aRequest);
 
-//   bool
-//   DoRequest(const IgnoreWaitingCallRequest& aRequest);
+  bool
+  DoRequest(const IgnoreWaitingCallRequest& aRequest);
 
-//   bool
-//   DoRequest(const ToggleCallsRequest& aRequest);
-// #endif
+  bool
+  DoRequest(const ToggleCallsRequest& aRequest);
+#endif
 
   bool
   DoRequest(const SendMetaDataRequest& aRequest);

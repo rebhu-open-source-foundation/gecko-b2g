@@ -288,36 +288,36 @@ private:
   RefPtr<BluetoothAdapter> mAdapterPtr;
 };
 
-// class GetScoConnectionStatusTask : public BluetoothReplyRunnable
-// {
-// public:
-//   GetScoConnectionStatusTask(DOMRequest* aReq) :
-//     BluetoothReplyRunnable(aReq)
-//   {
-//     MOZ_ASSERT(aReq);
-//   }
-//
-//   virtual bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue)
-//   {
-//     aValue.setUndefined();
-//
-//     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
-//     if (v.type() != BluetoothValue::Tbool) {
-//       BT_WARNING("Not a boolean!");
-//       SetError(NS_LITERAL_STRING("BluetoothReplyTypeError"));
-//       return false;
-//     }
-//
-//     aValue.setBoolean(v.get_bool());
-//     return true;
-//   }
-//
-//   void
-//   ReleaseMembers()
-//   {
-//     BluetoothReplyRunnable::ReleaseMembers();
-//   }
-// };
+class GetScoConnectionStatusTask : public BluetoothReplyRunnable
+{
+public:
+  GetScoConnectionStatusTask(DOMRequest* aReq) :
+    BluetoothReplyRunnable(aReq)
+  {
+    MOZ_ASSERT(aReq);
+  }
+
+  virtual bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue)
+  {
+    aValue.setUndefined();
+
+    const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
+    if (v.type() != BluetoothValue::Tbool) {
+      BT_WARNING("Not a boolean!");
+      SetError(NS_LITERAL_STRING("BluetoothReplyTypeError"));
+      return false;
+    }
+
+    aValue.setBoolean(v.get_bool());
+    return true;
+  }
+
+  void
+  ReleaseMembers()
+  {
+    BluetoothReplyRunnable::ReleaseMembers();
+  }
+};
 
 static int kCreatePairedDeviceTimeout = 50000; // unit: msec
 
@@ -1927,158 +1927,158 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
   return request.forget();
 }
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::ConnectSco(ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->ConnectSco(results);
-//
-//   return request.forget();
-// }
+already_AddRefed<DOMRequest>
+BluetoothAdapter::ConnectSco(ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::DisconnectSco(ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->DisconnectSco(results);
-//
-//   return request.forget();
-// }
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::IsScoConnected(ErrorResult& aRv)
-// {
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothReplyRunnable> results =
-//     new GetScoConnectionStatusTask(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->IsScoConnected(results);
-//
-//   return request.forget();
-// }
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->ConnectSco(results);
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::AnswerWaitingCall(ErrorResult& aRv)
-// {
-// #ifdef MOZ_B2G_RIL
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->AnswerWaitingCall(results);
-//
-//   return request.forget();
-// #else
-//   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-//   return nullptr;
-// #endif // MOZ_B2G_RIL
-// }
+  return request.forget();
+}
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::IgnoreWaitingCall(ErrorResult& aRv)
-// {
-// #ifdef MOZ_B2G_RIL
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->IgnoreWaitingCall(results);
-//
-//   return request.forget();
-// #else
-//   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-//   return nullptr;
-// #endif // MOZ_B2G_RIL
-// }
+already_AddRefed<DOMRequest>
+BluetoothAdapter::DisconnectSco(ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-// already_AddRefed<DOMRequest>
-// BluetoothAdapter::ToggleCalls(ErrorResult& aRv)
-// {
-// #ifdef MOZ_B2G_RIL
-//   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
-//   if (!win) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//
-//   RefPtr<DOMRequest> request = new DOMRequest(win);
-//   RefPtr<BluetoothVoidReplyRunnable> results =
-//     new BluetoothVoidReplyRunnable(request);
-//
-//   BluetoothService* bs = BluetoothService::Get();
-//   if (!bs) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
-//   bs->ToggleCalls(results);
-//
-//   return request.forget();
-// #else
-//   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-//   return nullptr;
-// #endif // MOZ_B2G_RIL
-// }
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->DisconnectSco(results);
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest>
+BluetoothAdapter::IsScoConnected(ErrorResult& aRv)
+{
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothReplyRunnable> results =
+    new GetScoConnectionStatusTask(request);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->IsScoConnected(results);
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest>
+BluetoothAdapter::AnswerWaitingCall(ErrorResult& aRv)
+{
+#ifdef MOZ_B2G_RIL
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->AnswerWaitingCall(results);
+
+  return request.forget();
+#else
+  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
+  return nullptr;
+#endif // MOZ_B2G_RIL
+}
+
+already_AddRefed<DOMRequest>
+BluetoothAdapter::IgnoreWaitingCall(ErrorResult& aRv)
+{
+#ifdef MOZ_B2G_RIL
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->IgnoreWaitingCall(results);
+
+  return request.forget();
+#else
+  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
+  return nullptr;
+#endif // MOZ_B2G_RIL
+}
+
+already_AddRefed<DOMRequest>
+BluetoothAdapter::ToggleCalls(ErrorResult& aRv)
+{
+#ifdef MOZ_B2G_RIL
+  nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
+  if (!win) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(win);
+  RefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(request);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  bs->ToggleCalls(results);
+
+  return request.forget();
+#else
+  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
+  return nullptr;
+#endif // MOZ_B2G_RIL
+}
 
 already_AddRefed<DOMRequest>
 BluetoothAdapter::SendMediaMetaData(
