@@ -1088,11 +1088,11 @@ pref("dom.app_cb_configuration", false);
 // reboot reason
 pref("device.rebootReason", "normal");
 
-// Use chrome://b2g to use the in-tree system app, and chrome://gaia to
+// Use chrome://b2g to use the in-tree system app, and chrome://system to
 // load it from either /system/b2g/webapps or /data/local/webapps
 // We keep the internal one has default to ensure we start.
-// pref("b2g.system_startup_url", "chrome://b2g/content/system/index.html");
-pref("b2g.system_startup_url", "chrome://system/content/index.html");
+pref("b2g.system_startup_url", "chrome://b2g/content/system/index.html");
+// pref("b2g.system_startup_url", "chrome://system/content/index.html");
 
 pref("devtools.console.stdout.content", true);
 

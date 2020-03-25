@@ -61,7 +61,17 @@ chrome.jar:
   content/images/controls/keypad_number_normal.png (content/images/controls/keypad_number_normal.png)
   content/images/controls/keypad_number_press.png  (content/images/controls/keypad_number_press.png)
 
-# System app
-  content/system/index.html                   (content/system-app/index.html)
-  content/system/js                           (content/system-app/js/*)
-  content/system/images                       (content/system-app/images/*)
+# <web-view> and embedder
+  content/embedding                           (content/embedding/*)
+
+# Default apps: system, homescreen and settings.
+  content/system/index.html                   (content/default-apps/system/index.html)
+  content/system/js                           (content/default-apps/system/js/*)
+  content/system/style                        (content/default-apps/system/style/*)
+
+  content/settings/index.html                 (content/default-apps/settings/index.html)
+  content/settings/js                         (content/default-apps/settings/js/*)
+  content/settings/style                      (content/default-apps/settings/style/*)
+
+  content/homescreen/index.html               (content/default-apps/homescreen/index.html)
+  content/homescreen/style                    (content/default-apps/homescreen/style/*)

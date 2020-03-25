@@ -1,0 +1,39 @@
+/* <gaia-statusbar> styling */
+
+:host > div {
+  display: grid;
+  grid-template-columns: 1fr min-content;
+  align-items: center;
+  font-size: 1rem;
+  color: beige;
+}
+
+.left {
+  padding-left: 0.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: smaller;
+}
+
+.right {
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  display: flex;
+  align-items: center;
+  border-left: 2px solid lightgray;
+  font-size: smaller;
+  font-family: monospace;
+}
+
+.clock {
+  text-align: end;
+}
+
+.battery-percent {
+  margin-right: 0.25em;
+}
+
+.insecure {
+  color: orange;
+}
