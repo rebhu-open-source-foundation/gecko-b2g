@@ -81,3 +81,8 @@ partial interface B2G {
   readonly attribute WifiManager wifiManager;
 };
 #endif // DISABLE_WIFI
+
+partial interface B2G {
+  [Throws, Pref="dom.downloads.enabled", Exposed=Window]
+  readonly attribute DownloadManager downloadManager;
+};

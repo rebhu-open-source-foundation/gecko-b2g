@@ -245,5 +245,20 @@ bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
   return true;
 }
 
+DownloadManager* B2G::GetDownloadManager(ErrorResult& aRv) {
+  if (!mDownloadManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mDownloadManager = ConstructJSImplementation<DownloadManager>(
+        "@mozilla.org/download/manager;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+  return mDownloadManager;
+}
+
 }  // namespace dom
 }  // namespace mozilla

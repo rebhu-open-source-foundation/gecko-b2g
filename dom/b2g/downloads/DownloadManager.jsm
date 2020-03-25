@@ -25,7 +25,7 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 
 /**
- * The content process implementations of navigator.mozDownloadManager and its
+ * The content process implementations of navigator.b2g.downloadManager and its
  * DownloadObject download objects.  Uses DownloadsIPC.jsm to communicate with
  * DownloadManager.jsm in the parent process.
  */

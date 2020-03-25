@@ -32,6 +32,8 @@
 #  include "mozilla/dom/WifiManagerBinding.h"
 #endif
 
+#include "mozilla/dom/DownloadManagerBinding.h"
+
 namespace mozilla {
 namespace dom {
 
@@ -71,6 +73,8 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #endif
   static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
 
+  DownloadManager* GetDownloadManager(ErrorResult& aRv);
+
   // Shutting down.
   void Shutdown();
 
@@ -96,6 +100,8 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifndef DISABLE_WIFI
   RefPtr<WifiManager> mWifiManager;
 #endif
+
+  RefPtr<DownloadManager> mDownloadManager;
 };
 
 }  // namespace dom
