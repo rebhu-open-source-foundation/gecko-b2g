@@ -2299,13 +2299,12 @@ static nsIFrame* GetActiveSelectionFrame(nsPresContext* aPresContext,
   return aFrame;
 }
 
-int16_t nsFrame::DisplaySelection(nsPresContext* aPresContext,
-                                  bool isOkToTurnOn) {
+int16_t nsFrame::DetermineDisplaySelection() {
   int16_t selType = nsISelectionController::SELECTION_OFF;
 
   nsCOMPtr<nsISelectionController> selCon;
   nsresult result =
-      GetSelectionController(aPresContext, getter_AddRefs(selCon));
+      GetSelectionController(PresContext(), getter_AddRefs(selCon));
   if (NS_SUCCEEDED(result) && selCon) {
     result = selCon->GetDisplaySelection(&selType);
     if (NS_SUCCEEDED(result) &&
@@ -2313,12 +2312,7 @@ int16_t nsFrame::DisplaySelection(nsPresContext* aPresContext,
       // Check whether style allows selection.
       if (!IsSelectable(nullptr)) {
         selType = nsISelectionController::SELECTION_OFF;
-        isOkToTurnOn = false;
       }
-    }
-    if (isOkToTurnOn && (selType == nsISelectionController::SELECTION_OFF)) {
-      selCon->SetDisplaySelection(nsISelectionController::SELECTION_ON);
-      selType = nsISelectionController::SELECTION_ON;
     }
   }
   return selType;
@@ -2326,6 +2320,9 @@ int16_t nsFrame::DisplaySelection(nsPresContext* aPresContext,
 
 class nsDisplaySelectionOverlay : public nsPaintedDisplayItem {
  public:
+  /**
+   * @param aSelectionValue nsISelectionController::getDisplaySelection.
+   */
   nsDisplaySelectionOverlay(nsDisplayListBuilder* aBuilder, nsFrame* aFrame,
                             int16_t aSelectionValue)
       : nsPaintedDisplayItem(aBuilder, aFrame),
@@ -2348,6 +2345,7 @@ class nsDisplaySelectionOverlay : public nsPaintedDisplayItem {
   static DeviceColor ComputeColorFromSelectionStyle(ComputedStyle&);
   static DeviceColor ApplyTransparencyIfNecessary(nscolor);
 
+  // nsISelectionController::getDisplaySelection.
   int16_t mSelectionValue;
 };
 
@@ -4788,8 +4786,9 @@ nsresult nsFrame::SelectByTypeAtPoint(nsPresContext* aPresContext,
   NS_ENSURE_ARG_POINTER(aPresContext);
 
   // No point in selecting if selection is turned off
-  if (DisplaySelection(aPresContext) == nsISelectionController::SELECTION_OFF)
+  if (DetermineDisplaySelection() == nsISelectionController::SELECTION_OFF) {
     return NS_OK;
+  }
 
   ContentOffsets offsets = GetContentOffsetsFromPoint(aPoint, SKIP_HIDDEN);
   if (!offsets.content) return NS_ERROR_FAILURE;
@@ -4817,7 +4816,7 @@ nsFrame::HandleMultiplePress(nsPresContext* aPresContext,
   NS_ENSURE_ARG_POINTER(aEventStatus);
 
   if (nsEventStatus_eConsumeNoDefault == *aEventStatus ||
-      DisplaySelection(aPresContext) == nsISelectionController::SELECTION_OFF) {
+      DetermineDisplaySelection() == nsISelectionController::SELECTION_OFF) {
     return NS_OK;
   }
 
@@ -4933,9 +4932,9 @@ NS_IMETHODIMP nsFrame::HandleDrag(nsPresContext* aPresContext,
     // XXX Do we really need to exclude non-selectable content here?
     // GetContentOffsetsFromPoint can handle it just fine, although some
     // other stuff might not like it.
-    // NOTE: DisplaySelection() returns SELECTION_OFF for non-selectable frames.
-    if (DisplaySelection(aPresContext) ==
-        nsISelectionController::SELECTION_OFF) {
+    // NOTE: DetermineDisplaySelection() returns SELECTION_OFF for
+    // non-selectable frames.
+    if (DetermineDisplaySelection() == nsISelectionController::SELECTION_OFF) {
       return NS_OK;
     }
   }
@@ -5064,7 +5063,7 @@ NS_IMETHODIMP nsFrame::HandleRelease(nsPresContext* aPresContext,
   PresShell::ReleaseCapturingContent();
 
   bool selectionOff =
-      (DisplaySelection(aPresContext) == nsISelectionController::SELECTION_OFF);
+      (DetermineDisplaySelection() == nsISelectionController::SELECTION_OFF);
 
   RefPtr<nsFrameSelection> frameselection;
   ContentOffsets offsets;
@@ -5098,8 +5097,7 @@ NS_IMETHODIMP nsFrame::HandleRelease(nsPresContext* aPresContext,
   // Note, this may cause the current nsFrame object to be deleted, bug 336592.
   RefPtr<nsFrameSelection> frameSelection;
   if (activeFrame != this &&
-      static_cast<nsFrame*>(activeFrame)
-              ->DisplaySelection(activeFrame->PresContext()) !=
+      static_cast<nsFrame*>(activeFrame)->DetermineDisplaySelection() !=
           nsISelectionController::SELECTION_OFF) {
     frameSelection = activeFrame->GetFrameSelection();
   }

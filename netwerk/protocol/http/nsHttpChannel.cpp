@@ -667,6 +667,8 @@ nsresult nsHttpChannel::ContinueOnBeforeConnect(bool aShouldUpgrade,
     } else {
       mCaps |= NS_HTTP_DISALLOW_SPDY;
     }
+    // Upgrades cannot use HTTP/3.
+    mCaps |= NS_HTTP_DISALLOW_HTTP3;
   }
 
   if (mIsTRRServiceChannel) {
@@ -995,7 +997,8 @@ void nsHttpChannel::SpeculativeConnect() {
   Unused << gHttpHandler->SpeculativeConnect(
       mConnectionInfo, callbacks,
       mCaps & (NS_HTTP_DISALLOW_SPDY | NS_HTTP_TRR_MODE_MASK |
-               NS_HTTP_DISABLE_IPV4 | NS_HTTP_DISABLE_IPV6));
+               NS_HTTP_DISABLE_IPV4 | NS_HTTP_DISABLE_IPV6 |
+               NS_HTTP_DISALLOW_HTTP3));
 }
 
 void nsHttpChannel::DoNotifyListenerCleanup() {
@@ -6726,7 +6729,8 @@ nsresult nsHttpChannel::BeginConnect() {
       (scheme.EqualsLiteral("http") || scheme.EqualsLiteral("https")) &&
       (mapping = gHttpHandler->GetAltServiceMapping(
            scheme, host, port, mPrivateBrowsing, IsIsolated(),
-           GetTopWindowOrigin(), originAttributes))) {
+           GetTopWindowOrigin(), originAttributes,
+           !mUpgradeProtocolCallback && !mProxyInfo))) {
     LOG(("nsHttpChannel %p Alt Service Mapping Found %s://%s:%d [%s]\n", this,
          scheme.get(), mapping->AlternateHost().get(), mapping->AlternatePort(),
          mapping->HashKey().get()));
@@ -8238,7 +8242,7 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
     // Browser upgrading is disabled and the content is already HTTPS
     upgradeKey = NS_LITERAL_CSTRING("disabledNoReason");
     // Checks "security.mixed_content.upgrade_display_content" is true
-    if (nsMixedContentBlocker::ShouldUpgradeMixedDisplayContent()) {
+    if (StaticPrefs::security_mixed_content_upgrade_display_content()) {
       if (mLoadInfo->GetBrowserUpgradeInsecureRequests()) {
         // HTTP content the browser has upgraded to HTTPS
         upgradeKey = NS_LITERAL_CSTRING("enabledUpgrade");
@@ -8256,7 +8260,7 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
     upgradeKey = NS_LITERAL_CSTRING("disabledUpgrade");
   } else {
     // HTTP content that wouldn't upgrade
-    upgradeKey = nsMixedContentBlocker::ShouldUpgradeMixedDisplayContent()
+    upgradeKey = StaticPrefs::security_mixed_content_upgrade_display_content()
                      ? NS_LITERAL_CSTRING("enabledWont")
                      : NS_LITERAL_CSTRING("disabledWont");
   }

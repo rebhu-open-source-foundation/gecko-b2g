@@ -37,6 +37,7 @@
 #include "nsIViewSourceChannel.h"
 #include "nsIOService.h"
 #include "mozilla/dom/WindowGlobalParent.h"
+#include "mozilla/StaticPrefs_security.h"
 
 mozilla::LazyLogModule gDocumentChannelLog("DocumentChannel");
 #define LOG(fmt) MOZ_LOG(gDocumentChannelLog, mozilla::LogLevel::Verbose, fmt)
@@ -237,8 +238,8 @@ NS_INTERFACE_MAP_END
 
 DocumentLoadListener::DocumentLoadListener(
     CanonicalBrowsingContext* aBrowsingContext, nsILoadContext* aLoadContext,
-    PBOverrideStatus aOverrideStatus, ADocumentChannelBridge* aBridge)
-    : mLoadContext(aLoadContext), mPBOverride(aOverrideStatus) {
+    ADocumentChannelBridge* aBridge)
+    : mLoadContext(aLoadContext) {
   LOG(("DocumentLoadListener ctor [this=%p]", this));
   mParentChannelListener = new ParentChannelListener(
       this, aBrowsingContext, aLoadContext->UsePrivateBrowsing());
@@ -266,8 +267,9 @@ already_AddRefed<LoadInfo> DocumentLoadListener::CreateLoadInfo(
         true,  // aInheritForAboutBlank
         isSrcdoc);
 
-    bool isURIUniqueOrigin = nsIOService::IsDataURIUniqueOpaqueOrigin() &&
-                             SchemeIsData(aLoadState->URI());
+    bool isURIUniqueOrigin =
+        StaticPrefs::security_data_uri_unique_opaque_origin() &&
+        SchemeIsData(aLoadState->URI());
     inheritPrincipal = inheritAttrs && !isURIUniqueOrigin;
   }
 
@@ -409,12 +411,6 @@ bool DocumentLoadListener::Open(
       httpBaseChannel->SetContentBlockingAllowListPrincipal(
           contentBlockingAllowListPrincipal);
     }
-  }
-
-  nsCOMPtr<nsIPrivateBrowsingChannel> privateChannel =
-      do_QueryInterface(mChannel);
-  if (mPBOverride != kPBOverride_Unset) {
-    privateChannel->SetPrivate(mPBOverride == kPBOverride_Private);
   }
 
   nsCOMPtr<nsIIdentChannel> identChannel = do_QueryInterface(mChannel);

@@ -307,7 +307,7 @@ class nsCookieService final : public nsICookieService,
                           nsIURI* aHostURI, const nsCString& aBaseDomain,
                           bool aRequireHostMatch);
   static bool CheckPath(mozilla::net::CookieStruct& aCookieData,
-                        nsIURI* aHostURI);
+                        nsIChannel* aChannel, nsIURI* aHostURI);
   static bool CheckPrefixes(mozilla::net::CookieStruct& aCookieData,
                             bool aSecureRequest);
   static bool GetExpiry(mozilla::net::CookieStruct& aCookieData,
@@ -350,9 +350,10 @@ class nsCookieService final : public nsICookieService,
       const mozilla::OriginAttributesPattern& aPattern);
 
   static void LogMessageToConsole(nsIChannel* aChannel, nsIURI* aURI,
-                                  uint32_t aErrorFlags, const nsACString& aMsg,
-                                  const nsACString& aCookieName,
-                                  const nsAString& aMDNURL = VoidString());
+                                  uint32_t aErrorFlags,
+                                  const nsACString& aCategory,
+                                  const nsACString& aMsg,
+                                  const nsTArray<nsString>& aParams);
 
   // cached members.
   nsCOMPtr<nsICookiePermission> mPermissionService;

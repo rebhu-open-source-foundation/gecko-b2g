@@ -1387,7 +1387,7 @@ bool WarpBuilder::buildCallOp(BytecodeLocation loc) {
   uint32_t argc = loc.getCallArgc();
   JSOp op = loc.getOp();
   bool constructing = IsConstructOp(op);
-  bool ignoresReturnValue = (op == JSOp::CallIgnoresRv);
+  bool ignoresReturnValue = (op == JSOp::CallIgnoresRv || loc.resultIsPopped());
 
   CallInfo callInfo(alloc(), loc.toRawBytecode(), constructing,
                     ignoresReturnValue);
@@ -1452,6 +1452,14 @@ bool WarpBuilder::build_CallIgnoresRv(BytecodeLocation loc) {
 }
 
 bool WarpBuilder::build_CallIter(BytecodeLocation loc) {
+  return buildCallOp(loc);
+}
+
+bool WarpBuilder::build_FunCall(BytecodeLocation loc) {
+  return buildCallOp(loc);
+}
+
+bool WarpBuilder::build_FunApply(BytecodeLocation loc) {
   return buildCallOp(loc);
 }
 
@@ -2159,4 +2167,278 @@ bool WarpBuilder::build_GetElemSuper(BytecodeLocation loc) {
   MDefinition* receiver = current->pop();
 
   return buildGetPropSuperOp(loc, obj, receiver, id);
+}
+
+bool WarpBuilder::buildInitPropOp(BytecodeLocation loc, MDefinition* obj,
+                                  MDefinition* id, MDefinition* val) {
+  // We need a GC post barrier. We don't need a TI barrier. We pass true for
+  // guardHoles, although the prototype chain is ignored for InitProp/InitElem.
+  bool strict = false;
+  bool needsPostBarrier = true;
+  bool needsTypeBarrier = false;
+  bool guardHoles = true;
+  auto* ins =
+      MSetPropertyCache::New(alloc(), obj, id, val, strict, needsPostBarrier,
+                             needsTypeBarrier, guardHoles);
+  current->add(ins);
+  return resumeAfter(ins, loc);
+}
+
+bool WarpBuilder::build_InitProp(BytecodeLocation loc) {
+  MDefinition* val = current->pop();
+  MDefinition* obj = current->peek(-1);
+
+  PropertyName* name = loc.getPropertyName(script_);
+  MConstant* id = constant(StringValue(name));
+
+  return buildInitPropOp(loc, obj, id, val);
+}
+
+bool WarpBuilder::build_InitLockedProp(BytecodeLocation loc) {
+  return build_InitProp(loc);
+}
+
+bool WarpBuilder::build_InitHiddenProp(BytecodeLocation loc) {
+  return build_InitProp(loc);
+}
+
+bool WarpBuilder::build_InitElem(BytecodeLocation loc) {
+  MDefinition* val = current->pop();
+  MDefinition* id = current->pop();
+  MDefinition* obj = current->peek(-1);
+  return buildInitPropOp(loc, obj, id, val);
+}
+
+bool WarpBuilder::build_InitHiddenElem(BytecodeLocation loc) {
+  return build_InitElem(loc);
+}
+
+bool WarpBuilder::build_InitElemArray(BytecodeLocation loc) {
+  MDefinition* val = current->pop();
+  MDefinition* obj = current->peek(-1);
+
+  // Note: getInitElemArrayIndex asserts the index fits in int32_t.
+  uint32_t index = loc.getInitElemArrayIndex();
+  MConstant* indexConst = constant(Int32Value(index));
+
+  // TODO: we can probably just use MStoreElement like IonBuilder's fast path.
+  // Simpler than IonBuilder because we don't have to worry about maintaining TI
+  // invariants.
+  return buildInitPropOp(loc, obj, indexConst, val);
+}
+
+bool WarpBuilder::build_InitElemInc(BytecodeLocation loc) {
+  MDefinition* val = current->pop();
+  MDefinition* index = current->pop();
+  MDefinition* obj = current->peek(-1);
+
+  // Push index + 1.
+  MConstant* constOne = constant(Int32Value(1));
+  MAdd* nextIndex = MAdd::New(alloc(), index, constOne, MIRType::Int32);
+  current->add(nextIndex);
+  current->push(nextIndex);
+
+  return buildInitPropOp(loc, obj, index, val);
+}
+
+static LambdaFunctionInfo LambdaInfoFromSnapshot(JSFunction* fun,
+                                                 const WarpLambda* snapshot) {
+  // Pass false for singletonType and useSingletonForClone as asserted in
+  // WarpOracle.
+  return LambdaFunctionInfo(fun, snapshot->baseScript(), snapshot->flags(),
+                            snapshot->nargs(), /* singletonType = */ false,
+                            /* useSingletonForClone = */ false);
+}
+
+bool WarpBuilder::build_Lambda(BytecodeLocation loc) {
+  MOZ_ASSERT(usesEnvironmentChain());
+
+  auto* snapshot = getOpSnapshot<WarpLambda>(loc);
+
+  MDefinition* env = current->environmentChain();
+
+  JSFunction* fun = loc.getFunction(script_);
+  MConstant* funConst = constant(ObjectValue(*fun));
+
+  auto* ins = MLambda::New(alloc(), /* constraints = */ nullptr, env, funConst,
+                           LambdaInfoFromSnapshot(fun, snapshot));
+  current->add(ins);
+  current->push(ins);
+  return resumeAfter(ins, loc);
+}
+
+bool WarpBuilder::build_LambdaArrow(BytecodeLocation loc) {
+  MOZ_ASSERT(usesEnvironmentChain());
+
+  auto* snapshot = getOpSnapshot<WarpLambda>(loc);
+
+  MDefinition* env = current->environmentChain();
+  MDefinition* newTarget = current->pop();
+
+  JSFunction* fun = loc.getFunction(script_);
+  MConstant* funConst = constant(ObjectValue(*fun));
+
+  auto* ins =
+      MLambdaArrow::New(alloc(), /* constraints = */ nullptr, env, newTarget,
+                        funConst, LambdaInfoFromSnapshot(fun, snapshot));
+  current->add(ins);
+  current->push(ins);
+  return resumeAfter(ins, loc);
+}
+
+bool WarpBuilder::build_FunWithProto(BytecodeLocation loc) {
+  MOZ_ASSERT(usesEnvironmentChain());
+
+  MDefinition* proto = current->pop();
+  MDefinition* env = current->environmentChain();
+
+  JSFunction* fun = loc.getFunction(script_);
+  MConstant* funConst = constant(ObjectValue(*fun));
+
+  auto* ins = MFunctionWithProto::New(alloc(), env, proto, funConst);
+  current->add(ins);
+  current->push(ins);
+  return resumeAfter(ins, loc);
+}
+
+bool WarpBuilder::build_SpreadCall(BytecodeLocation loc) {
+  MDefinition* argArr = current->pop();
+  MDefinition* argThis = current->pop();
+  MDefinition* argFunc = current->pop();
+
+  // Load dense elements of the argument array. Note that the bytecode ensures
+  // this is an array.
+  MElements* elements = MElements::New(alloc(), argArr);
+  current->add(elements);
+
+  WrappedFunction* wrappedTarget = nullptr;
+  auto* apply =
+      MApplyArray::New(alloc(), wrappedTarget, argFunc, elements, argThis);
+  current->add(apply);
+  current->push(apply);
+
+  if (loc.resultIsPopped()) {
+    apply->setIgnoresReturnValue();
+  }
+
+  return resumeAfter(apply, loc);
+}
+
+bool WarpBuilder::build_SpreadNew(BytecodeLocation loc) {
+  MDefinition* newTarget = current->pop();
+  MDefinition* argArr = current->pop();
+  MDefinition* thisValue = current->pop();
+  MDefinition* callee = current->pop();
+
+  // Inline the constructor on the caller-side.
+  MCreateThis* createThis = MCreateThis::New(alloc(), callee, newTarget);
+  current->add(createThis);
+  thisValue->setImplicitlyUsedUnchecked();
+
+  // Load dense elements of the argument array. Note that the bytecode ensures
+  // this is an array.
+  MElements* elements = MElements::New(alloc(), argArr);
+  current->add(elements);
+
+  WrappedFunction* wrappedTarget = nullptr;
+  auto* apply = MConstructArray::New(alloc(), wrappedTarget, callee, elements,
+                                     createThis, newTarget);
+  current->add(apply);
+  current->push(apply);
+  return resumeAfter(apply, loc);
+}
+
+bool WarpBuilder::build_SpreadSuperCall(BytecodeLocation loc) {
+  return build_SpreadNew(loc);
+}
+
+bool WarpBuilder::build_OptimizeSpreadCall(BytecodeLocation loc) {
+  // TODO: like IonBuilder's slow path always deoptimize for now. Consider using
+  // an IC for this so that we can optimize by inlining Baseline's CacheIR.
+  MDefinition* arr = current->peek(-1);
+  arr->setImplicitlyUsedUnchecked();
+  pushConstant(BooleanValue(false));
+  return true;
+}
+
+bool WarpBuilder::build_Debugger(BytecodeLocation loc) {
+  // The |debugger;| statement will bail out to Baseline if the realm is a
+  // debuggee realm with an onDebuggerStatement hook.
+  MDebugger* debugger = MDebugger::New(alloc());
+  current->add(debugger);
+  return resumeAfter(debugger, loc);
+}
+
+bool WarpBuilder::build_InstrumentationActive(BytecodeLocation) {
+  bool active = snapshot_.script()->instrumentationActive();
+  pushConstant(BooleanValue(active));
+  return true;
+}
+
+bool WarpBuilder::build_InstrumentationCallback(BytecodeLocation) {
+  JSObject* callback = snapshot_.script()->instrumentationCallback();
+  pushConstant(ObjectValue(*callback));
+  return true;
+}
+
+bool WarpBuilder::build_InstrumentationScriptId(BytecodeLocation) {
+  int32_t scriptId = snapshot_.script()->instrumentationScriptId();
+  pushConstant(Int32Value(scriptId));
+  return true;
+}
+
+bool WarpBuilder::build_TableSwitch(BytecodeLocation loc) {
+  int32_t low = loc.getTableSwitchLow();
+  int32_t high = loc.getTableSwitchHigh();
+  size_t numCases = high - low + 1;
+
+  MDefinition* input = current->pop();
+  MTableSwitch* tableswitch = MTableSwitch::New(alloc(), input, low, high);
+  current->end(tableswitch);
+
+  MBasicBlock* switchBlock = current;
+
+  // Create |default| block.
+  {
+    BytecodeLocation defaultLoc = loc.getTableSwitchDefaultTarget();
+    if (!startNewBlock(switchBlock, defaultLoc)) {
+      return false;
+    }
+
+    size_t index;
+    if (!tableswitch->addDefault(current, &index)) {
+      return false;
+    }
+    MOZ_ASSERT(index == 0);
+
+    if (!buildForwardGoto(defaultLoc)) {
+      return false;
+    }
+  }
+
+  // Create blocks for all cases.
+  for (size_t i = 0; i < numCases; i++) {
+    BytecodeLocation caseLoc = loc.getTableSwitchCaseTarget(script_, i);
+    if (!startNewBlock(switchBlock, caseLoc)) {
+      return false;
+    }
+
+    size_t index;
+    if (!tableswitch->addSuccessor(current, &index)) {
+      return false;
+    }
+    if (!tableswitch->addCase(index)) {
+      return false;
+    }
+
+    // TODO: IonBuilder has an optimization where it replaces the switch input
+    // with the case value. This probably matters less for Warp. Re-evaluate.
+
+    if (!buildForwardGoto(caseLoc)) {
+      return false;
+    }
+  }
+
+  MOZ_ASSERT(hasTerminatedBlock());
+  return true;
 }

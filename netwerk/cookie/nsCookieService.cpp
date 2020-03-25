@@ -110,6 +110,9 @@ static const int64_t kCookiePurgeAge =
 #undef ADD_TEN_PERCENT
 #define ADD_TEN_PERCENT(i) static_cast<uint32_t>((i) + (i) / 10)
 
+#define CONSOLE_SAMESITE_CATEGORY NS_LITERAL_CSTRING("cookieSameSite")
+#define CONSOLE_GENERIC_CATEGORY NS_LITERAL_CSTRING("cookies")
+
 // default limits for the cookie list. these can be tuned by the
 // network.cookie.maxNumber and network.cookie.maxPerHost prefs respectively.
 static const uint32_t kMaxNumberOfCookies = 3000;
@@ -494,7 +497,8 @@ class CompareCookiesByIndex {
 // Return false if the cookie should be ignored for the current channel.
 bool ProcessSameSiteCookieForForeignRequest(nsIChannel* aChannel,
                                             nsCookie* aCookie,
-                                            bool aIsSafeTopLevelNav) {
+                                            bool aIsSafeTopLevelNav,
+                                            bool aLaxByDefault) {
   int32_t sameSiteAttr = 0;
   aCookie->GetSameSite(&sameSiteAttr);
 
@@ -509,8 +513,7 @@ bool ProcessSameSiteCookieForForeignRequest(nsIChannel* aChannel,
   // 2 minutes of tolerance for 'sameSite=lax by default' for cookies set
   // without a sameSite value when used for unsafe http methods.
   if (StaticPrefs::network_cookie_sameSite_laxPlusPOST_timeout() > 0 &&
-      StaticPrefs::network_cookie_sameSite_laxByDefault() &&
-      sameSiteAttr == nsICookie::SAMESITE_LAX &&
+      aLaxByDefault && sameSiteAttr == nsICookie::SAMESITE_LAX &&
       aCookie->RawSameSite() == nsICookie::SAMESITE_NONE &&
       currentTimeInUsec - aCookie->CreationTime() <=
           (StaticPrefs::network_cookie_sameSite_laxPlusPOST_timeout() *
@@ -3073,6 +3076,11 @@ void nsCookieService::GetCookiesForURI(
   nsCookieEntry* entry = mDBState->hostTable.GetEntry(key);
   if (!entry) return;
 
+  bool laxByDefault =
+      StaticPrefs::network_cookie_sameSite_laxByDefault() &&
+      !nsContentUtils::IsURIInPrefList(
+          aHostURI, "network.cookie.sameSite.laxByDefault.disabledHosts");
+
   // iterate the cookies!
   const nsCookieEntry::ArrayType& cookies = entry->GetCookies();
   for (nsCookieEntry::IndexType i = 0; i < cookies.Length(); ++i) {
@@ -3084,8 +3092,9 @@ void nsCookieService::GetCookiesForURI(
     // if the cookie is secure and the host scheme isn't, we can't send it
     if (cookie->IsSecure() && !potentiallyTurstworthy) continue;
 
-    if (aIsSameSiteForeign && !ProcessSameSiteCookieForForeignRequest(
-                                  aChannel, cookie, aIsSafeTopLevelNav)) {
+    if (aIsSameSiteForeign &&
+        !ProcessSameSiteCookieForForeignRequest(
+            aChannel, cookie, aIsSafeTopLevelNav, laxByDefault)) {
       continue;
     }
 
@@ -3255,6 +3264,17 @@ bool nsCookieService::CanSetCookie(nsIURI* aHostURI, const nsCookieKey& aKey,
       kMaxBytesPerCookie) {
     COOKIE_LOGFAILURE(SET_COOKIE, aHostURI, savedCookieHeader,
                       "cookie too big (> 4kb)");
+
+    AutoTArray<nsString, 2> params = {
+        NS_ConvertUTF8toUTF16(aCookieData.name())};
+
+    nsString size;
+    size.AppendInt(kMaxBytesPerCookie);
+    params.AppendElement(size);
+
+    LogMessageToConsole(aChannel, aHostURI, nsIScriptError::warningFlag,
+                        CONSOLE_GENERIC_CATEGORY,
+                        NS_LITERAL_CSTRING("CookieOversize"), params);
     return newCookie;
   }
 
@@ -3277,7 +3297,7 @@ bool nsCookieService::CanSetCookie(nsIURI* aHostURI, const nsCookieKey& aKey,
     return newCookie;
   }
 
-  if (!CheckPath(aCookieData, aHostURI)) {
+  if (!CheckPath(aCookieData, aChannel, aHostURI)) {
     COOKIE_LOGFAILURE(SET_COOKIE, aHostURI, savedCookieHeader,
                       "failed the path tests");
     return newCookie;
@@ -3771,7 +3791,12 @@ bool nsCookieService::ParseAttributes(nsIChannel* aChannel, nsIURI* aHostURI,
   aCookieData.sameSite() = nsICookie::SAMESITE_NONE;
   aCookieData.rawSameSite() = nsICookie::SAMESITE_NONE;
 
-  if (StaticPrefs::network_cookie_sameSite_laxByDefault()) {
+  bool laxByDefault =
+      StaticPrefs::network_cookie_sameSite_laxByDefault() &&
+      !nsContentUtils::IsURIInPrefList(
+          aHostURI, "network.cookie.sameSite.laxByDefault.disabledHosts");
+
+  if (laxByDefault) {
     aCookieData.sameSite() = nsICookie::SAMESITE_LAX;
   }
 
@@ -3841,9 +3866,11 @@ bool nsCookieService::ParseAttributes(nsIChannel* aChannel, nsIURI* aHostURI,
         aCookieData.rawSameSite() = nsICookie::SAMESITE_NONE;
         sameSiteSet = true;
       } else {
-        LogMessageToConsole(aChannel, aHostURI, nsIScriptError::infoFlag,
-                            NS_LITERAL_CSTRING("CookieSameSiteValueInvalid"),
-                            aCookieData.name());
+        LogMessageToConsole(
+            aChannel, aHostURI, nsIScriptError::infoFlag,
+            CONSOLE_GENERIC_CATEGORY,
+            NS_LITERAL_CSTRING("CookieSameSiteValueInvalid"),
+            AutoTArray<nsString, 1>{NS_ConvertUTF8toUTF16(aCookieData.name())});
       }
     }
   }
@@ -3858,31 +3885,39 @@ bool nsCookieService::ParseAttributes(nsIChannel* aChannel, nsIURI* aHostURI,
   // the parsing.
   if (!aCookieData.isSecure() &&
       aCookieData.sameSite() == nsICookie::SAMESITE_NONE) {
-    if (StaticPrefs::network_cookie_sameSite_laxByDefault() &&
+    if (laxByDefault &&
         StaticPrefs::network_cookie_sameSite_noneRequiresSecure()) {
-      LogMessageToConsole(aChannel, aHostURI, nsIScriptError::infoFlag,
-                          NS_LITERAL_CSTRING("CookieRejectedNonRequiresSecure"),
-                          aCookieData.name());
+      LogMessageToConsole(
+          aChannel, aHostURI, nsIScriptError::infoFlag,
+          CONSOLE_SAMESITE_CATEGORY,
+          NS_LITERAL_CSTRING("CookieRejectedNonRequiresSecure"),
+          AutoTArray<nsString, 1>{NS_ConvertUTF8toUTF16(aCookieData.name())});
       return newCookie;
     }
 
     // if sameSite=lax by default is disabled, we want to warn the user.
     LogMessageToConsole(
         aChannel, aHostURI, nsIScriptError::warningFlag,
+        CONSOLE_SAMESITE_CATEGORY,
         NS_LITERAL_CSTRING("CookieRejectedNonRequiresSecureForBeta"),
-        aCookieData.name(), SAMESITE_MDN_URL);
+        AutoTArray<nsString, 2>{NS_ConvertUTF8toUTF16(aCookieData.name()),
+                                SAMESITE_MDN_URL});
   }
 
   if (aCookieData.rawSameSite() == nsICookie::SAMESITE_NONE &&
       aCookieData.sameSite() == nsICookie::SAMESITE_LAX) {
-    if (StaticPrefs::network_cookie_sameSite_laxByDefault()) {
-      LogMessageToConsole(aChannel, aHostURI, nsIScriptError::infoFlag,
-                          NS_LITERAL_CSTRING("CookieLaxForced"),
-                          aCookieData.name());
+    if (laxByDefault) {
+      LogMessageToConsole(
+          aChannel, aHostURI, nsIScriptError::infoFlag,
+          CONSOLE_SAMESITE_CATEGORY, NS_LITERAL_CSTRING("CookieLaxForced"),
+          AutoTArray<nsString, 1>{NS_ConvertUTF8toUTF16(aCookieData.name())});
     } else {
-      LogMessageToConsole(aChannel, aHostURI, nsIScriptError::warningFlag,
-                          NS_LITERAL_CSTRING("CookieLaxForcedForBeta"),
-                          aCookieData.name(), SAMESITE_MDN_URL);
+      LogMessageToConsole(
+          aChannel, aHostURI, nsIScriptError::warningFlag,
+          CONSOLE_SAMESITE_CATEGORY,
+          NS_LITERAL_CSTRING("CookieLaxForcedForBeta"),
+          AutoTArray<nsString, 2>{NS_ConvertUTF8toUTF16(aCookieData.name()),
+                                  SAMESITE_MDN_URL});
     }
   }
 
@@ -3896,9 +3931,9 @@ bool nsCookieService::ParseAttributes(nsIChannel* aChannel, nsIURI* aHostURI,
 // static
 void nsCookieService::LogMessageToConsole(nsIChannel* aChannel, nsIURI* aURI,
                                           uint32_t aErrorFlags,
+                                          const nsACString& aCategory,
                                           const nsACString& aMsg,
-                                          const nsACString& aCookieName,
-                                          const nsAString& aMDNURL) {
+                                          const nsTArray<nsString>& aParams) {
   MOZ_ASSERT(aURI);
 
   nsCOMPtr<HttpBaseChannel> httpChannel = do_QueryInterface(aChannel);
@@ -3912,15 +3947,9 @@ void nsCookieService::LogMessageToConsole(nsIChannel* aChannel, nsIURI* aURI,
     return;
   }
 
-  AutoTArray<nsString, 1> params = {NS_ConvertUTF8toUTF16(aCookieName)};
-
-  if (!aMDNURL.IsEmpty()) {
-    params.AppendElement(aMDNURL);
-  }
-
-  httpChannel->AddConsoleReport(aErrorFlags, NS_LITERAL_CSTRING("Security"),
+  httpChannel->AddConsoleReport(aErrorFlags, aCategory,
                                 nsContentUtils::eNECKO_PROPERTIES, uri, 0, 0,
-                                aMsg, params);
+                                aMsg, aParams);
 }
 
 /******************************************************************************
@@ -4233,7 +4262,8 @@ nsAutoCString nsCookieService::GetPathFromURI(nsIURI* aHostURI) {
   return path;
 }
 
-bool nsCookieService::CheckPath(CookieStruct& aCookieData, nsIURI* aHostURI) {
+bool nsCookieService::CheckPath(CookieStruct& aCookieData, nsIChannel* aChannel,
+                                nsIURI* aHostURI) {
   // if a path is given, check the host has permission
   if (aCookieData.path().IsEmpty() || aCookieData.path().First() != '/') {
     aCookieData.path() = GetPathFromURI(aHostURI);
@@ -4255,9 +4285,23 @@ bool nsCookieService::CheckPath(CookieStruct& aCookieData, nsIURI* aHostURI) {
 #endif
   }
 
-  if (aCookieData.path().Length() > kMaxBytesPerPath ||
-      aCookieData.path().Contains('\t'))
+  if (aCookieData.path().Length() > kMaxBytesPerPath) {
+    AutoTArray<nsString, 2> params = {
+        NS_ConvertUTF8toUTF16(aCookieData.name())};
+
+    nsString size;
+    size.AppendInt(kMaxBytesPerPath);
+    params.AppendElement(size);
+
+    LogMessageToConsole(aChannel, aHostURI, nsIScriptError::warningFlag,
+                        CONSOLE_GENERIC_CATEGORY,
+                        NS_LITERAL_CSTRING("CookiePathOversize"), params);
     return false;
+  }
+
+  if (aCookieData.path().Contains('\t')) {
+    return false;
+  }
 
   return true;
 }

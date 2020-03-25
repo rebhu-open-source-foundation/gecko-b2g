@@ -5,7 +5,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "necko-config.h"
 #include "nsHttp.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/ContentPrincipal.h"
@@ -429,10 +428,8 @@ NeckoParent::AllocPDocumentChannelParent(
   if (error) {
     return nullptr;
   }
-  PBOverrideStatus overrideStatus =
-      PBOverrideStatusFromLoadContext(aSerialized);
   RefPtr<DocumentChannelParent> p =
-      new DocumentChannelParent(context, loadContext, overrideStatus);
+      new DocumentChannelParent(context, loadContext);
   return p.forget();
 }
 

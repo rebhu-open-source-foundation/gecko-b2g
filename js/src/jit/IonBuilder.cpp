@@ -11863,6 +11863,12 @@ AbortReasonOr<Ok> IonBuilder::jsop_derivedclassconstructor() {
   return resumeAfter(constructor);
 }
 
+static LambdaFunctionInfo LambdaInfoFromFunction(JSFunction* fun) {
+  return LambdaFunctionInfo(fun, fun->baseScript(), fun->flags(), fun->nargs(),
+                            fun->isSingleton(),
+                            ObjectGroup::useSingletonForClone(fun));
+}
+
 AbortReasonOr<Ok> IonBuilder::jsop_lambda(JSFunction* fun) {
   MOZ_ASSERT(usesEnvironmentChain());
   MOZ_ASSERT(!fun->isArrow());
@@ -11873,8 +11879,8 @@ AbortReasonOr<Ok> IonBuilder::jsop_lambda(JSFunction* fun) {
 
   MConstant* cst = MConstant::NewConstraintlessObject(alloc(), fun);
   current->add(cst);
-  MLambda* ins =
-      MLambda::New(alloc(), constraints(), current->environmentChain(), cst);
+  auto* ins = MLambda::New(alloc(), constraints(), current->environmentChain(),
+                           cst, LambdaInfoFromFunction(fun));
   current->add(ins);
   current->push(ins);
 
@@ -11889,8 +11895,9 @@ AbortReasonOr<Ok> IonBuilder::jsop_lambda_arrow(JSFunction* fun) {
   MDefinition* newTargetDef = current->pop();
   MConstant* cst = MConstant::NewConstraintlessObject(alloc(), fun);
   current->add(cst);
-  MLambdaArrow* ins = MLambdaArrow::New(
-      alloc(), constraints(), current->environmentChain(), newTargetDef, cst);
+  auto* ins =
+      MLambdaArrow::New(alloc(), constraints(), current->environmentChain(),
+                        newTargetDef, cst, LambdaInfoFromFunction(fun));
   current->add(ins);
   current->push(ins);
 
@@ -12700,13 +12707,11 @@ AbortReasonOr<Ok> IonBuilder::jsop_instanceof() {
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_debugger() {
+  // The |debugger;| statement will bail out to Baseline if the realm is a
+  // debuggee realm with an onDebuggerStatement hook.
   MDebugger* debugger = MDebugger::New(alloc());
   current->add(debugger);
-
-  // The |debugger;| statement will always bail out to baseline if
-  // cx->compartment()->isDebuggee(). Resume in-place and have baseline
-  // handle the details.
-  return resumeAt(debugger, pc);
+  return resumeAfter(debugger);
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_implicitthis(PropertyName* name) {

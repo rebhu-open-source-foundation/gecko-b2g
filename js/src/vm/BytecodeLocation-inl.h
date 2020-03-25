@@ -56,6 +56,13 @@ inline JSObject* BytecodeLocation::getObject(const JSScript* script) const {
   return script->getObject(this->rawBytecode_);
 }
 
+inline JSFunction* BytecodeLocation::getFunction(const JSScript* script) const {
+  MOZ_ASSERT(this->isValid());
+  MOZ_ASSERT(is(JSOp::Lambda) || is(JSOp::LambdaArrow) ||
+             is(JSOp::FunWithProto));
+  return script->getFunction(this->rawBytecode_);
+}
+
 inline js::RegExpObject* BytecodeLocation::getRegExp(
     const JSScript* script) const {
   MOZ_ASSERT(this->isValid());
@@ -80,7 +87,7 @@ inline uint32_t BytecodeLocation::tableSwitchCaseOffset(
 
 inline uint32_t BytecodeLocation::getJumpTargetOffset(
     const JSScript* script) const {
-  MOZ_ASSERT(this->isJump() || this->is(JSOp::TableSwitch));
+  MOZ_ASSERT(this->isJump());
   return this->bytecodeToOffset(script) + GET_JUMP_OFFSET(this->rawBytecode_);
 }
 
@@ -88,6 +95,18 @@ inline uint32_t BytecodeLocation::getTableSwitchDefaultOffset(
     const JSScript* script) const {
   MOZ_ASSERT(this->is(JSOp::TableSwitch));
   return this->bytecodeToOffset(script) + GET_JUMP_OFFSET(this->rawBytecode_);
+}
+
+BytecodeLocation BytecodeLocation::getTableSwitchDefaultTarget() const {
+  MOZ_ASSERT(is(JSOp::TableSwitch));
+  return BytecodeLocation(*this, rawBytecode_ + GET_JUMP_OFFSET(rawBytecode_));
+}
+
+BytecodeLocation BytecodeLocation::getTableSwitchCaseTarget(
+    const JSScript* script, uint32_t caseIndex) const {
+  MOZ_ASSERT(is(JSOp::TableSwitch));
+  jsbytecode* casePC = script->tableSwitchCasePC(rawBytecode_, caseIndex);
+  return BytecodeLocation(*this, casePC);
 }
 
 inline uint32_t BytecodeLocation::useCount() const {

@@ -25,7 +25,8 @@ class MIRGenerator;
   _(WarpRegExp)                  \
   _(WarpBuiltinProto)            \
   _(WarpGetIntrinsic)            \
-  _(WarpGetImport)
+  _(WarpGetImport)               \
+  _(WarpLambda)
 
 // WarpOpSnapshot is the base class for data attached to a single bytecode op by
 // WarpOracle. This is typically data that WarpBuilder can't read off-thread
@@ -143,6 +144,28 @@ class WarpGetImport : public WarpOpSnapshot {
   bool needsLexicalCheck() const { return needsLexicalCheck_; }
 };
 
+// JSFunction info we don't want to read off-thread for JSOp::Lambda and
+// JSOp::LambdaArrow.
+class WarpLambda : public WarpOpSnapshot {
+  // TODO: trace this
+  BaseScript* baseScript_;
+  FunctionFlags flags_;
+  uint16_t nargs_;
+
+ public:
+  static constexpr Kind ThisKind = Kind::WarpLambda;
+
+  WarpLambda(uint32_t offset, BaseScript* baseScript, FunctionFlags flags,
+             uint16_t nargs)
+      : WarpOpSnapshot(ThisKind, offset),
+        baseScript_(baseScript),
+        flags_(flags),
+        nargs_(nargs) {}
+  BaseScript* baseScript() const { return baseScript_; }
+  FunctionFlags flags() const { return flags_; }
+  uint16_t nargs() const { return nargs_; }
+};
+
 // Snapshot data for the environment object(s) created in the script's prologue.
 // TODO: trace object pointers.
 class WarpEnvironment {
@@ -214,18 +237,35 @@ class WarpScriptSnapshot : public TempObject {
   // TODO: trace this
   ModuleObject* moduleObject_;
 
+  // Constants pushed by JSOp::Instrumentation* ops in the script.
+  // TODO: trace this
+  JSObject* instrumentationCallback_;
+  mozilla::Maybe<int32_t> instrumentationScriptId_;
+  mozilla::Maybe<bool> instrumentationActive_;
+
   // Whether this script is for an arrow function.
   bool isArrowFunction_;
 
  public:
   WarpScriptSnapshot(JSScript* script, const WarpEnvironment& env,
                      WarpOpSnapshotList&& opSnapshots,
-                     ModuleObject* moduleObject);
+                     ModuleObject* moduleObject,
+                     JSObject* instrumentationCallback,
+                     mozilla::Maybe<int32_t> instrumentationScriptId,
+                     mozilla::Maybe<bool> instrumentationActive);
 
   JSScript* script() const { return script_; }
   const WarpEnvironment& environment() const { return environment_; }
   const WarpOpSnapshotList& opSnapshots() const { return opSnapshots_; }
   ModuleObject* moduleObject() const { return moduleObject_; }
+
+  JSObject* instrumentationCallback() const {
+    MOZ_ASSERT(instrumentationCallback_);
+    return instrumentationCallback_;
+  }
+  int32_t instrumentationScriptId() const { return *instrumentationScriptId_; }
+  bool instrumentationActive() const { return *instrumentationActive_; }
+
   bool isArrowFunction() const { return isArrowFunction_; }
 };
 

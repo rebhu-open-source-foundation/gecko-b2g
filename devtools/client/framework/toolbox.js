@@ -607,18 +607,25 @@ Toolbox.prototype = {
     return this.hostType === Toolbox.HostType.BROWSERTOOLBOX;
   },
 
-  selectThread(threadActor) {
-    const thread = this.target.client.getFrontByID(threadActor);
-    this.store.dispatch(selectThread(thread));
+  /**
+   * Set a given thread as selected (which may impact the console evaluation context selector).
+   *
+   * @param {String} threadActorID: The actorID of the thread we want to select.
+   */
+  selectThread(threadActorID) {
+    this.store.dispatch(selectThread(threadActorID));
   },
 
+  /**
+   * @returns {ThreadFront|null} The selected thread front, or null if there is none.
+   */
   getSelectedThreadFront: function() {
-    const thread = getSelectedThread(this.store.getState());
-    if (!thread) {
+    const selectedThread = getSelectedThread(this.store.getState());
+    if (!selectedThread) {
       return null;
     }
 
-    return this.target.client.getFrontByID(thread.actor);
+    return this.target.client.getFrontByID(selectedThread.actorID);
   },
 
   _onPausedState: function(packet, threadFront) {
@@ -3491,11 +3498,18 @@ Toolbox.prototype = {
     };
   },
 
-  _onNewSelectedNodeFront: function() {
+  _onNewSelectedNodeFront: async function() {
     // Emit a "selection-changed" event when the toolbox.selection has been set
     // to a new node (or cleared). Currently used in the WebExtensions APIs (to
     // provide the `devtools.panels.elements.onSelectionChanged` event).
     this.emit("selection-changed");
+
+    const threadFront = await this.selection?.nodeFront?.targetFront.getFront(
+      "thread"
+    );
+    if (threadFront) {
+      this.selectThread(threadFront.actorID);
+    }
   },
 
   _onInspectObject: function(packet) {
@@ -3587,6 +3601,14 @@ Toolbox.prototype = {
 
   _destroyToolbox: async function() {
     this.emit("destroy");
+
+    // This flag will be checked by Fronts in order to decide if they should
+    // skip their destroy.
+    if (this.target.client) {
+      // Note: this.target.client might be null if the target was already
+      // destroyed (eg: tab is closed during remote debugging).
+      this.target.client.isToolboxDestroy = true;
+    }
 
     this.off("select", this._onToolSelected);
     this.off("host-changed", this._refreshHostTitle);

@@ -16,6 +16,7 @@
  */
 
 use bumpalo;
+use env_logger;
 use jsparagus::ast::source_atom_set::SourceAtomSet;
 use jsparagus::ast::types::Program;
 use jsparagus::emitter::{
@@ -270,6 +271,20 @@ enum SmooshError {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn init_smoosh() {
+    // Gecko might set a logger before we do, which is all fine; try to
+    // initialize ours, and reset the FilterLevel env_logger::try_init might
+    // have set to what it was in case of initialization failure
+    let filter = log::max_level();
+    match env_logger::try_init() {
+        Ok(_) => {}
+        Err(_) => {
+            log::set_max_level(filter);
+        }
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn run_smoosh(
     text: *const u8,
     text_len: usize,
@@ -442,8 +457,12 @@ pub unsafe extern "C" fn free_smoosh(result: SmooshResult) {
     let _ = result.scope_notes.into();
     //Vec::from_raw_parts(bytecode.data, bytecode.len, bytecode.capacity);
 
-    let _ = Box::from_raw(result.all_atoms as *mut Vec<&str>);
-    let _ = Box::from_raw(result.allocator as *mut bumpalo::Bump);
+    if !result.all_atoms.is_null() {
+        let _ = Box::from_raw(result.all_atoms as *mut Vec<&str>);
+    }
+    if !result.allocator.is_null() {
+        let _ = Box::from_raw(result.allocator as *mut bumpalo::Bump);
+    }
 }
 
 fn smoosh<'alloc>(

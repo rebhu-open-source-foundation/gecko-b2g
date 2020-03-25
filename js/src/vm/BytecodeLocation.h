@@ -89,6 +89,10 @@ class BytecodeLocation {
 
   uint32_t getTableSwitchDefaultOffset(const JSScript* script) const;
 
+  inline BytecodeLocation getTableSwitchDefaultTarget() const;
+  inline BytecodeLocation getTableSwitchCaseTarget(const JSScript* script,
+                                                   uint32_t caseIndex) const;
+
   uint32_t useCount() const;
 
   uint32_t defCount() const;
@@ -100,6 +104,7 @@ class BytecodeLocation {
   inline PropertyName* getPropertyName(const JSScript* script) const;
   inline JS::BigInt* getBigInt(const JSScript* script) const;
   inline JSObject* getObject(const JSScript* script) const;
+  inline JSFunction* getFunction(const JSScript* script) const;
   inline js::RegExpObject* getRegExp(const JSScript* script) const;
   inline js::Scope* getScope(const JSScript* script) const;
 
@@ -193,12 +198,16 @@ class BytecodeLocation {
 
   bool isNameOp() const { return IsNameOp(getOp()); }
 
+  bool resultIsPopped() const {
+    MOZ_ASSERT(StackDefs(rawBytecode_) == 1);
+    return BytecodeIsPopped(rawBytecode_);
+  }
+
   // Accessors:
   JSOp getOp() const { return JSOp(*rawBytecode_); }
 
   BytecodeLocation getJumpTarget() const {
-    // The default target of a JSOp::TableSwitch also follows this format.
-    MOZ_ASSERT(isJump() || is(JSOp::TableSwitch));
+    MOZ_ASSERT(isJump());
     return BytecodeLocation(*this,
                             rawBytecode_ + GET_JUMP_OFFSET(rawBytecode_));
   }
@@ -247,6 +256,15 @@ class BytecodeLocation {
   uint32_t getCallArgc() const {
     MOZ_ASSERT(JOF_OPTYPE(getOp()) == JOF_ARGC);
     return GET_ARGC(rawBytecode_);
+  }
+
+  uint32_t getInitElemArrayIndex() const {
+    MOZ_ASSERT(is(JSOp::InitElemArray));
+    uint32_t index = GET_UINT32(rawBytecode_);
+    MOZ_ASSERT(index <= INT32_MAX,
+               "the bytecode emitter must never generate JSOp::InitElemArray "
+               "with an index exceeding int32_t range");
+    return index;
   }
 
   FunctionPrefixKind getFunctionPrefixKind() const {

@@ -35,8 +35,7 @@ using FlexItem = nsFlexContainerFrame::FlexItem;
 using FlexLine = nsFlexContainerFrame::FlexLine;
 using FlexboxAxisTracker = nsFlexContainerFrame::FlexboxAxisTracker;
 using StrutInfo = nsFlexContainerFrame::StrutInfo;
-using CachedMeasuringReflowResult =
-    nsFlexContainerFrame::CachedMeasuringReflowResult;
+using CachedBAxisMeasurement = nsFlexContainerFrame::CachedBAxisMeasurement;
 
 static mozilla::LazyLogModule gFlexContainerLog("FlexContainer");
 #define FLEX_LOG(...) \
@@ -798,6 +797,12 @@ class nsFlexContainerFrame::FlexItem final {
   // Once the main size has been resolved, should we bother doing layout to
   // establish the cross size?
   bool CanMainSizeInfluenceCrossSize() const;
+
+  // Indicates whether we think this flex item needs a "final" reflow
+  // (after its final flexed size & final position have been determined).
+  // Retuns true if such a reflow is needed, or false if we believe it can
+  // simply be moved to its final position and skip the reflow.
+  bool NeedsFinalReflow() const;
 
   // Gets the block frame that contains the flex item's content.  This is
   // Frame() itself or one of its descendants.
@@ -1625,8 +1630,9 @@ void nsFlexContainerFrame::ResolveAutoFlexBasisAndMinSize(
 }
 
 /**
- * A cached result for a measuring reflow. This cache prevents us from doing
- * exponential reflows in cases of deeply nested flex and scroll frames.
+ * A cached result for a flex item's block-axis measuring reflow. This cache
+ * prevents us from doing exponential reflows in cases of deeply nested flex
+ * and scroll frames.
  *
  * We store the cached value in the flex item's frame property table, for
  * simplicity.
@@ -1636,7 +1642,7 @@ void nsFlexContainerFrame::ResolveAutoFlexBasisAndMinSize(
  *   - its min/max block size (in case its ComputedBSize is unconstrained)
  *   - its AvailableBSize
  * ...and we cache the following as the "value", from the item's ReflowOutput:
- *   - its final BSize
+ *   - its final content-box BSize
  *   - its ascent
  *
  * The assumption here is that a given flex item measurement from our "value"
@@ -1664,12 +1670,12 @@ void nsFlexContainerFrame::ResolveAutoFlexBasisAndMinSize(
  * size computation (see bug 1336708). This is one reason we need to use the
  * computed BSize as part of the key.
  */
-class nsFlexContainerFrame::CachedMeasuringReflowResult {
+class nsFlexContainerFrame::CachedBAxisMeasurement {
   struct Key {
-    LogicalSize mComputedSize;
-    nscoord mComputedMinBSize;
-    nscoord mComputedMaxBSize;
-    nscoord mAvailableBSize;
+    const LogicalSize mComputedSize;
+    const nscoord mComputedMinBSize;
+    const nscoord mComputedMaxBSize;
+    const nscoord mAvailableBSize;
 
     explicit Key(const ReflowInput& aRI)
         : mComputedSize(aRI.ComputedSize()),
@@ -1685,17 +1691,25 @@ class nsFlexContainerFrame::CachedMeasuringReflowResult {
     }
   };
 
-  Key mKey;
+  const Key mKey;
 
+  // This could/should be const, but it's non-const for now just because it's
+  // assigned via a series of steps in the constructor body:
   nscoord mBSize;
-  nscoord mAscent;
+  const nscoord mAscent;
 
  public:
-  CachedMeasuringReflowResult(const ReflowInput& aReflowInput,
-                              const ReflowOutput& aReflowOutput)
-      : mKey(aReflowInput),
-        mBSize(aReflowOutput.BSize(aReflowInput.GetWritingMode())),
-        mAscent(aReflowOutput.BlockStartAscent()) {}
+  CachedBAxisMeasurement(const ReflowInput& aReflowInput,
+                         const ReflowOutput& aReflowOutput)
+      : mKey(aReflowInput), mAscent(aReflowOutput.BlockStartAscent()) {
+    // To get content-box bsize, we have to subtract off border & padding
+    // (and floor at 0 in case the border/padding are too large):
+    WritingMode itemWM = aReflowInput.GetWritingMode();
+    nscoord borderBoxBSize = aReflowOutput.BSize(itemWM);
+    mBSize = borderBoxBSize -
+             aReflowInput.ComputedLogicalBorderPadding().BStartEnd(itemWM);
+    mBSize = std::max(0, mBSize);
+  }
 
   /**
    * Returns true if this cached flex item measurement is valid for (i.e. can
@@ -1709,25 +1723,62 @@ class nsFlexContainerFrame::CachedMeasuringReflowResult {
   nscoord BSize() const { return mBSize; }
 
   nscoord Ascent() const { return mAscent; }
+};
+
+/**
+ * When we instantiate/update a CachedFlexItemData, this enum must be used to
+ * indicate the sort of reflow whose results we're capturing. This impacts
+ * what we cache & how we use the cached information.
+ */
+enum class FlexItemReflowType {
+  // A reflow to measure the block-axis size of a flex item (as an input to the
+  // flex layout algorithm).
+  Measuring,
+
+  // A reflow with the flex item's "final" size at the end of the flex layout
+  // algorithm.
+  // XXXdholbert Unused for now, but will be used in a later patch.
+  Final,
+};
+
+/**
+ * This class stores information about the previous reflow for a given flex
+ * item.  This should hopefully help us avoid redundant reflows of that
+ * flex item.
+ */
+class nsFlexContainerFrame::CachedFlexItemData {
+ public:
+  CachedFlexItemData(const ReflowInput& aReflowInput,
+                     const ReflowOutput& aReflowOutput,
+                     FlexItemReflowType aType) {
+    if (aType == FlexItemReflowType::Measuring) {
+      mBAxisMeasurement.emplace(aReflowInput, aReflowOutput);
+    }
+  }
+
+  // If the flex container needs a measuring reflow for the flex item, then the
+  // resulting block-axis measurements can be cached here.  If no measurement
+  // has been needed so far, then this member will be Nothing().
+  Maybe<CachedBAxisMeasurement> mBAxisMeasurement;
 
   // Instances of this class are stored under this frame property, on
   // frames that are flex items:
-  NS_DECLARE_FRAME_PROPERTY_DELETABLE(Prop, CachedMeasuringReflowResult)
+  NS_DECLARE_FRAME_PROPERTY_DELETABLE(Prop, CachedFlexItemData)
 };
 
 void nsFlexContainerFrame::MarkCachedFlexMeasurementsDirty(
     nsIFrame* aItemFrame) {
-  aItemFrame->RemoveProperty(CachedMeasuringReflowResult::Prop());
+  aItemFrame->RemoveProperty(CachedFlexItemData::Prop());
 }
 
-const CachedMeasuringReflowResult&
+const CachedBAxisMeasurement&
 nsFlexContainerFrame::MeasureAscentAndBSizeForFlexItem(
     FlexItem& aItem, ReflowInput& aChildReflowInput) {
-  auto* cachedResult =
-      aItem.Frame()->GetProperty(CachedMeasuringReflowResult::Prop());
-  if (cachedResult) {
-    if (cachedResult->IsValidFor(aChildReflowInput)) {
-      return *cachedResult;
+  auto* cachedData = aItem.Frame()->GetProperty(CachedFlexItemData::Prop());
+
+  if (cachedData && cachedData->mBAxisMeasurement) {
+    if (cachedData->mBAxisMeasurement->IsValidFor(aChildReflowInput)) {
+      return *(cachedData->mBAxisMeasurement);
     }
     FLEX_LOG("[perf] MeasureAscentAndBSizeForFlexItem rejected cached value");
   } else {
@@ -1765,16 +1816,15 @@ nsFlexContainerFrame::MeasureAscentAndBSizeForFlexItem(
 
   // Update (or add) our cached measurement, so that we can hopefully skip this
   // measuring reflow the next time around:
-  if (cachedResult) {
-    *cachedResult =
-        CachedMeasuringReflowResult(aChildReflowInput, childReflowOutput);
+  if (cachedData) {
+    cachedData->mBAxisMeasurement.reset();
+    cachedData->mBAxisMeasurement.emplace(aChildReflowInput, childReflowOutput);
   } else {
-    cachedResult =
-        new CachedMeasuringReflowResult(aChildReflowInput, childReflowOutput);
-    aItem.Frame()->SetProperty(CachedMeasuringReflowResult::Prop(),
-                               cachedResult);
+    cachedData = new CachedFlexItemData(aChildReflowInput, childReflowOutput,
+                                        FlexItemReflowType::Measuring);
+    aItem.Frame()->SetProperty(CachedFlexItemData::Prop(), cachedData);
   }
-  return *cachedResult;
+  return *(cachedData->mBAxisMeasurement);
 }
 
 /* virtual */
@@ -1812,18 +1862,11 @@ nscoord nsFlexContainerFrame::MeasureFlexItemContentBSize(
     childRIForMeasuringBSize.mFlags.mIsBResizeForPercentages = true;
   }
 
-  const CachedMeasuringReflowResult& reflowResult =
+  const CachedBAxisMeasurement& measurement =
       MeasureAscentAndBSizeForFlexItem(aFlexItem, childRIForMeasuringBSize);
 
-  aFlexItem.SetAscent(reflowResult.Ascent());
-
-  // Subtract border/padding in block axis, to get _just_
-  // the effective computed value of the BSize property.
-  nscoord childDesiredBSize =
-      reflowResult.BSize() -
-      childRIForMeasuringBSize.ComputedLogicalBorderPadding().BStartEnd(wm);
-
-  return std::max(0, childDesiredBSize);
+  aFlexItem.SetAscent(measurement.Ascent());
+  return measurement.BSize();
 }
 
 FlexItem::FlexItem(ReflowInput& aFlexItemReflowInput, float aFlexGrow,
@@ -2121,6 +2164,71 @@ bool FlexItem::CanMainSizeInfluenceCrossSize() const {
 
   // Default assumption, if we haven't proven otherwise: the resolved main size
   // *can* change the cross size.
+  return true;
+}
+
+/**
+ * Returns true if aFrame or any of its children have the
+ * NS_FRAME_CONTAINS_RELATIVE_BSIZE flag set -- i.e. if any of these frames (or
+ * their descendants) might have a relative-BSize dependency on aFrame (or its
+ * ancestors).
+ */
+static bool FrameHasRelativeBSizeDependency(nsIFrame* aFrame) {
+  if (aFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
+    return true;
+  }
+  for (nsIFrame::ChildListIterator childLists(aFrame); !childLists.IsDone();
+       childLists.Next()) {
+    for (nsIFrame* childFrame : childLists.CurrentList()) {
+      if (childFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool FlexItem::NeedsFinalReflow() const {
+  // Flex item's final content-box size (in terms of its own writing-mode):
+  const LogicalSize finalSize = mIsInlineAxisMainAxis
+                                    ? LogicalSize(mWM, mMainSize, mCrossSize)
+                                    : LogicalSize(mWM, mCrossSize, mMainSize);
+
+  if (HadMeasuringReflow()) {
+    // We've already reflowed this flex item once, to measure it. In that
+    // reflow, did its frame happen to end up with the correct final size
+    // that the flex container would like it to have?
+    if (finalSize !=
+        LogicalSize(mWM, mFrame->GetContentRectRelativeToSelf().Size())) {
+      // The measuring reflow left the item with a different size than its
+      // final flexed size. So, we need to reflow to give it the correct size.
+      FLEX_LOG(
+          "[perf] Flex item needed both a measuring reflow and a final "
+          "reflow due to measured size disagreeing with final size");
+      return true;
+    }
+
+    if (FrameHasRelativeBSizeDependency(mFrame)) {
+      // This item has descendants with relative BSizes who may care that its
+      // size may now be considered "definite" in the final reflow (whereas it
+      // was indefinite during the measuring reflow).
+      FLEX_LOG(
+          "[perf] Flex item needed both a measuring reflow and a final "
+          "reflow due to BSize potentially becoming definite");
+      return true;
+    }
+    // If we get here, then this flex item had a measuring reflow, and it left
+    // us with the correct size, and none of our descendants care that our
+    // BSize may now be considered definite. So we don't need a final reflow.
+    return false;
+  }
+
+  // This item didn't receive a measuring reflow. Does it need to be reflowed
+  // at all?
+
+  // XXXdholbert in a later patch, we'll add some special cases here, making
+  // use of "finalSize" (which is why it's declared at this outer scope).  For
+  // now, we assume that we unconditionally must reflow the item.
   return true;
 }
 
@@ -3821,27 +3929,6 @@ static nscoord GetLargestLineMainSize(nsTArray<FlexLine>& aLines) {
   return largestLineOuterSize;
 }
 
-/**
- * Returns true if aFrame or any of its children have the
- * NS_FRAME_CONTAINS_RELATIVE_BSIZE flag set -- i.e. if any of these frames (or
- * their descendants) might have a relative-BSize dependency on aFrame (or its
- * ancestors).
- */
-static bool FrameHasRelativeBSizeDependency(nsIFrame* aFrame) {
-  if (aFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
-    return true;
-  }
-  for (nsIFrame::ChildListIterator childLists(aFrame); !childLists.IsDone();
-       childLists.Next()) {
-    for (nsIFrame* childFrame : childLists.CurrentList()) {
-      if (childFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 nscoord nsFlexContainerFrame::ComputeMainSize(
     const ReflowInput& aReflowInput, const FlexboxAxisTracker& aAxisTracker,
     nscoord aTentativeMainSize, nscoord aAvailableBSizeForContent,
@@ -4023,33 +4110,15 @@ void nsFlexContainerFrame::SizeItemInCrossAxis(ReflowInput& aChildReflowInput,
   }
 
   // Potentially reflow the item, and get the sizing info.
-  const CachedMeasuringReflowResult& reflowResult =
+  const CachedBAxisMeasurement& measurement =
       MeasureAscentAndBSizeForFlexItem(aItem, aChildReflowInput);
 
   // Save the sizing info that we learned from this reflow
   // -----------------------------------------------------
 
   // Tentatively store the child's desired content-box cross-size.
-  // Note that childReflowOutput is the border-box size, so we have to
-  // subtract border & padding to get the content-box size.
-  nscoord crossAxisBorderPadding = aItem.BorderPaddingSizeInCrossAxis();
-  if (reflowResult.BSize() < crossAxisBorderPadding) {
-    // Child's requested size isn't large enough for its border/padding!
-    // This is OK for the trivial nsFrame::Reflow() impl, but other frame
-    // classes should know better. So, if we get here, the child had better be
-    // an instance of nsFrame (i.e. it should return null from GetType()).
-    // XXXdholbert Once we've fixed bug 765861, we should upgrade this to an
-    // assertion that trivially passes if bug 765861's flag has been flipped.
-    NS_WARNING_ASSERTION(
-        aItem.Frame()->Type() == LayoutFrameType::None,
-        "Child should at least request space for border/padding");
-    aItem.SetCrossSize(0);
-  } else {
-    // (normal case)
-    aItem.SetCrossSize(reflowResult.BSize() - crossAxisBorderPadding);
-  }
-
-  aItem.SetAscent(reflowResult.Ascent());
+  aItem.SetCrossSize(measurement.BSize());
+  aItem.SetAscent(measurement.Ascent());
 }
 
 void FlexLine::PositionItemsInCrossAxis(
@@ -4785,49 +4854,23 @@ void nsFlexContainerFrame::ReflowChildren(
       // it with the right content-box size, and there is no need to do a reflow
       // to clear out a -webkit-line-clamp ellipsis, we can just reposition it
       // as-needed.
-      bool itemNeedsReflow = true;  // (Start out assuming the worst.)
-      if (item.HadMeasuringReflow()) {
-        LogicalSize finalFlexItemSize =
-            aAxisTracker.LogicalSizeFromFlexRelativeSizes(item.MainSize(),
-                                                          item.CrossSize());
-        // We've already reflowed the child once. Was the size we gave it in
-        // that reflow the same as its final (post-flexing/stretching) size?
-        if (finalFlexItemSize ==
-            LogicalSize(flexWM,
-                        item.Frame()->GetContentRectRelativeToSelf().Size())) {
-          // Even if the child's size hasn't changed, some of its descendants
-          // might care that its bsize is now considered "definite" (whereas it
-          // wasn't in our previous "measuring" reflow), if they have a
-          // relative bsize.
-          if (!FrameHasRelativeBSizeDependency(item.Frame())) {
-            // Item has the correct size (and its children don't care that
-            // it's now "definite"). Let's just make sure it's at the right
-            // position.
-            itemNeedsReflow = false;
-            MoveFlexItemToFinalPosition(aReflowInput, item, framePos,
-                                        containerSize);
-          }
-        }
-        if (itemNeedsReflow) {
-          FLEX_LOG(
-              "[perf] Flex item needed both a measuring reflow and a final "
-              "reflow");
-        }
-      }
-      if (itemNeedsReflow) {
+      if (item.NeedsFinalReflow()) {
         ReflowFlexItem(aAxisTracker, aReflowInput, item, framePos,
                        containerSize, aHasLineClampEllipsis);
-      }
-
-      // If we didn't perform a final reflow of the item, we still have a
-      // -webkit-line-clamp ellipsis hanging around, but we shouldn't have one
-      // any more, we need to clear that now.  We strictly only need to do this
-      // if we didn't do a bsize measuring reflow of the item earlier (since
-      // that is normally when we deal with -webkit-line-clamp ellipses) but
-      // not all flex items need such a reflow.
-      if (!itemNeedsReflow && aHasLineClampEllipsis &&
-          GetLineClampValue() == 0) {
-        item.BlockFrame()->ClearLineClampEllipsis();
+      } else {
+        MoveFlexItemToFinalPosition(aReflowInput, item, framePos,
+                                    containerSize);
+        // We didn't perform a final reflow of the item. If we still have a
+        // -webkit-line-clamp ellipsis hanging around, but we shouldn't have
+        // one any more, we need to clear that now.  Technically, we only need
+        // to do this if we *didn't* do a bsize measuring reflow of the item
+        // earlier (since that is normally when we deal with -webkit-line-clamp
+        // ellipses) but not all flex items need such a reflow.
+        // XXXdholbert This comment implies that we could skip this if
+        // HadMeasuringReflow() is true.  Maybe we should try doing that?
+        if (aHasLineClampEllipsis && GetLineClampValue() == 0) {
+          item.BlockFrame()->ClearLineClampEllipsis();
+        }
       }
 
       // If the item has auto margins, and we were tracking the UsedMargin

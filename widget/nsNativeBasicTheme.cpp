@@ -107,6 +107,7 @@ static void ComputeCheckColors(const EventStates& aState,
   bool isPressed = !isDisabled && aState.HasAllStates(NS_EVENT_STATE_HOVER |
                                                       NS_EVENT_STATE_ACTIVE);
   bool isHovered = !isDisabled && aState.HasState(NS_EVENT_STATE_HOVER);
+  bool isFocused = aState.HasState(NS_EVENT_STATE_FOCUS);
   bool isChecked = aState.HasState(NS_EVENT_STATE_CHECKED);
 
   sRGBColor fillColor = sBackgroundColor;
@@ -130,6 +131,9 @@ static void ComputeCheckColors(const EventStates& aState,
     } else if (isPressed) {
       fillColor = sBackgroundActiveColor;
       borderColor = sBorderHoverColor;
+    } else if (isFocused) {
+      fillColor = sBackgroundActiveColor;
+      borderColor = sBorderFocusColor;
     } else if (isHovered) {
       fillColor = sBackgroundColor;
       borderColor = sBorderHoverColor;
@@ -298,14 +302,25 @@ static void PaintCheckedRadioButton(DrawTarget* aDrawTarget, const Rect& aRect,
   aDrawTarget->Fill(ellipse, ColorPattern(ToDeviceColor(sBackgroundColor)));
 }
 
+static sRGBColor ComputeBorderColor(const EventStates& aState) {
+  bool isDisabled = aState.HasState(NS_EVENT_STATE_DISABLED);
+  bool isHovered = !isDisabled && aState.HasState(NS_EVENT_STATE_HOVER);
+  bool isFocused = aState.HasState(NS_EVENT_STATE_FOCUS);
+  if (isFocused) {
+    return sBorderFocusColor;
+  }
+  if (isHovered) {
+    return sBorderHoverColor;
+  }
+  return sBorderColor;
+}
+
 static void PaintTextField(DrawTarget* aDrawTarget, const Rect& aRect,
                            const EventStates& aState, uint32_t aDpi) {
   bool isDisabled = aState.HasState(NS_EVENT_STATE_DISABLED);
-  bool isHovered = !isDisabled && aState.HasState(NS_EVENT_STATE_HOVER);
-
   const sRGBColor& backgroundColor =
       isDisabled ? sDisabledColor : sBackgroundColor;
-  const sRGBColor& borderColor = isHovered ? sBorderHoverColor : sBorderColor;
+  const sRGBColor borderColor = ComputeBorderColor(aState);
 
   const CSSCoord kRadius = 4.0f;
 
@@ -336,7 +351,7 @@ std::pair<sRGBColor, sRGBColor> ComputeButtonColors(
     return sButtonColor;
   }();
 
-  const sRGBColor& borderColor = isHovered ? sBorderHoverColor : sBorderColor;
+  const sRGBColor borderColor = ComputeBorderColor(aState);
 
   return std::make_pair(backgroundColor, borderColor);
 }
@@ -725,20 +740,6 @@ bool nsNativeBasicTheme::GetWidgetPadding(nsDeviceContext* aContext,
                                           nsIFrame* aFrame,
                                           StyleAppearance aAppearance,
                                           LayoutDeviceIntMargin* aResult) {
-  if (aAppearance == StyleAppearance::Menulist ||
-      aAppearance == StyleAppearance::MenulistTextfield ||
-      aAppearance == StyleAppearance::NumberInput ||
-      aAppearance == StyleAppearance::Textarea ||
-      aAppearance == StyleAppearance::Textfield) {
-    // If we have author-specified padding for these elements, don't do the
-    // fixups below.
-    if (aFrame->PresContext()->HasAuthorSpecifiedRules(
-            aFrame, NS_AUTHOR_SPECIFIED_PADDING)) {
-      return false;
-    }
-  }
-
-  uint32_t dpi = GetDPIRatio(aFrame);
   switch (aAppearance) {
     // Radios and checkboxes return a fixed size in GetMinimumWidgetSize
     // and have a meaningful baseline, so they can't have
@@ -748,6 +749,21 @@ bool nsNativeBasicTheme::GetWidgetPadding(nsDeviceContext* aContext,
     case StyleAppearance::MozMenulistArrowButton:
       aResult->SizeTo(0, 0, 0, 0);
       return true;
+    default:
+      break;
+  }
+
+  // Respect author padding.
+  //
+  // TODO(emilio): Consider just unconditionally returning false, so that the
+  // default size of all elements matches other platforms and the UA stylesheet.
+  if (aFrame->PresContext()->HasAuthorSpecifiedRules(
+          aFrame, NS_AUTHOR_SPECIFIED_PADDING)) {
+    return false;
+  }
+
+  uint32_t dpi = GetDPIRatio(aFrame);
+  switch (aAppearance) {
     case StyleAppearance::Textarea:
     case StyleAppearance::Listbox:
     case StyleAppearance::Menulist:
@@ -767,10 +783,8 @@ bool nsNativeBasicTheme::GetWidgetPadding(nsDeviceContext* aContext,
       aResult->SizeTo(6 * dpi, 7 * dpi, 6 * dpi, 7 * dpi);
       return true;
     default:
-      break;
+      return false;
   }
-
-  return false;
 }
 
 bool nsNativeBasicTheme::GetWidgetOverflow(nsDeviceContext* aContext,
