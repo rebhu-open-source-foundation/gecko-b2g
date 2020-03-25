@@ -404,185 +404,185 @@ protected:
 // Handsfree Interface
 //
 
-// class BluetoothHandsfreeNotificationHandler
-// {
-// public:
-//   virtual void
-//   ConnectionStateNotification(BluetoothHandsfreeConnectionState aState,
-//                               const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   AudioStateNotification(BluetoothHandsfreeAudioState aState,
-//                          const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   VoiceRecognitionNotification(BluetoothHandsfreeVoiceRecognitionState aState,
-//                                const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   AnswerCallNotification(const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   HangupCallNotification(const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   VolumeNotification(BluetoothHandsfreeVolumeType aType,
-//                      int aVolume,
-//                      const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   DialCallNotification(const nsAString& aNumber,
-//                        const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   DtmfNotification(char aDtmf,
-//                    const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   NRECNotification(BluetoothHandsfreeNRECState aNrec,
-//                    const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   WbsNotification(BluetoothHandsfreeWbsConfig aWbs,
-//                   const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   CallHoldNotification(BluetoothHandsfreeCallHoldType aChld,
-//                        const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   CnumNotification(const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   CindNotification(const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   CopsNotification(const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   ClccNotification(const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   UnknownAtNotification(const nsACString& aAtString,
-//                         const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   KeyPressedNotification(const BluetoothAddress& aBdAddr);
-//
-// protected:
-//   BluetoothHandsfreeNotificationHandler();
-//   virtual ~BluetoothHandsfreeNotificationHandler();
-// };
-//
-// class BluetoothHandsfreeResultHandler
-//   : public mozilla::ipc::DaemonSocketResultHandler
-// {
-// public:
-//   virtual void OnError(BluetoothStatus aStatus);
-//
-//   virtual void Connect();
-//   virtual void Disconnect();
-//   virtual void ConnectAudio();
-//   virtual void DisconnectAudio();
-//
-//   virtual void StartVoiceRecognition();
-//   virtual void StopVoiceRecognition();
-//
-//   virtual void VolumeControl();
-//
-//   virtual void DeviceStatusNotification();
-//
-//   virtual void CopsResponse();
-//   virtual void CindResponse();
-//   virtual void FormattedAtResponse();
-//   virtual void AtResponse();
-//   virtual void ClccResponse();
-//   virtual void PhoneStateChange();
-//
-//   virtual void ConfigureWbs();
-//
-// protected:
-//   virtual ~BluetoothHandsfreeResultHandler() { }
-// };
-//
-// class BluetoothHandsfreeInterface
-// {
-// public:
-//   virtual void SetNotificationHandler(
-//     BluetoothHandsfreeNotificationHandler* aNotificationHandler) = 0;
-//
-//   /* Connect / Disconnect */
-//
-//   virtual void Connect(const BluetoothAddress& aBdAddr,
-//                        BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void Disconnect(const BluetoothAddress& aBdAddr,
-//                           BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void ConnectAudio(const BluetoothAddress& aBdAddr,
-//                             BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void DisconnectAudio(const BluetoothAddress& aBdAddr,
-//                                BluetoothHandsfreeResultHandler* aRes) = 0;
-//
-//   /* Voice Recognition */
-//
-//   virtual void StartVoiceRecognition(const BluetoothAddress& aBdAddr,
-//                                      BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void StopVoiceRecognition(const BluetoothAddress& aBdAddr,
-//                                     BluetoothHandsfreeResultHandler* aRes) = 0;
-//
-//   /* Volume */
-//
-//   virtual void VolumeControl(BluetoothHandsfreeVolumeType aType, int aVolume,
-//                              const BluetoothAddress& aBdAddr,
-//                              BluetoothHandsfreeResultHandler* aRes) = 0;
-//
-//   /* Device status */
-//
-//   virtual void DeviceStatusNotification(
-//     BluetoothHandsfreeNetworkState aNtkState,
-//     BluetoothHandsfreeServiceType aSvcType,
-//     int aSignal, int aBattChg, BluetoothHandsfreeResultHandler* aRes) = 0;
-//
-//   /* Responses */
-//
-//   virtual void CopsResponse(const char* aCops, const BluetoothAddress& aBdAddr,
-//                             BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void CindResponse(int aSvc, int aNumActive, int aNumHeld,
-//                             BluetoothHandsfreeCallState aCallSetupState,
-//                             int aSignal, int aRoam, int aBattChg,
-//                             const BluetoothAddress& aBdAddr,
-//                             BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void FormattedAtResponse(const char* aRsp,
-//                                    const BluetoothAddress& aBdAddr,
-//                                    BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void AtResponse(BluetoothHandsfreeAtResponse aResponseCode,
-//                           int aErrorCode, const BluetoothAddress& aBdAddr,
-//                           BluetoothHandsfreeResultHandler* aRes) = 0;
-//   virtual void ClccResponse(int aIndex, BluetoothHandsfreeCallDirection aDir,
-//                             BluetoothHandsfreeCallState aState,
-//                             BluetoothHandsfreeCallMode aMode,
-//                             BluetoothHandsfreeCallMptyType aMpty,
-//                             const nsAString& aNumber,
-//                             BluetoothHandsfreeCallAddressType aType,
-//                             const BluetoothAddress& aBdAddr,
-//                             BluetoothHandsfreeResultHandler* aRes) = 0;
-//
-//   /* Phone State */
-//
-//   virtual void PhoneStateChange(int aNumActive, int aNumHeld,
-//                                 BluetoothHandsfreeCallState aCallSetupState,
-//                                 const nsAString& aNumber,
-//                                 BluetoothHandsfreeCallAddressType aType,
-//                                 BluetoothHandsfreeResultHandler* aRes) = 0;
-//
-//   /* Wide Band Speech */
-//   virtual void ConfigureWbs(const BluetoothAddress& aBdAddr,
-//                             BluetoothHandsfreeWbsConfig aConfig,
-//                             BluetoothHandsfreeResultHandler* aRes) = 0;
-//
-// protected:
-//   BluetoothHandsfreeInterface();
-//   virtual ~BluetoothHandsfreeInterface();
-// };
+class BluetoothHandsfreeNotificationHandler
+{
+public:
+  virtual void
+  ConnectionStateNotification(BluetoothHandsfreeConnectionState aState,
+                              const BluetoothAddress& aBdAddr);
+
+  virtual void
+  AudioStateNotification(BluetoothHandsfreeAudioState aState,
+                         const BluetoothAddress& aBdAddr);
+
+  virtual void
+  VoiceRecognitionNotification(BluetoothHandsfreeVoiceRecognitionState aState,
+                               const BluetoothAddress& aBdAddr);
+
+  virtual void
+  AnswerCallNotification(const BluetoothAddress& aBdAddr);
+
+  virtual void
+  HangupCallNotification(const BluetoothAddress& aBdAddr);
+
+  virtual void
+  VolumeNotification(BluetoothHandsfreeVolumeType aType,
+                     int aVolume,
+                     const BluetoothAddress& aBdAddr);
+
+  virtual void
+  DialCallNotification(const nsAString& aNumber,
+                       const BluetoothAddress& aBdAddr);
+
+  virtual void
+  DtmfNotification(char aDtmf,
+                   const BluetoothAddress& aBdAddr);
+
+  virtual void
+  NRECNotification(BluetoothHandsfreeNRECState aNrec,
+                   const BluetoothAddress& aBdAddr);
+
+  virtual void
+  WbsNotification(BluetoothHandsfreeWbsConfig aWbs,
+                  const BluetoothAddress& aBdAddr);
+
+  virtual void
+  CallHoldNotification(BluetoothHandsfreeCallHoldType aChld,
+                       const BluetoothAddress& aBdAddr);
+
+  virtual void
+  CnumNotification(const BluetoothAddress& aBdAddr);
+
+  virtual void
+  CindNotification(const BluetoothAddress& aBdAddr);
+
+  virtual void
+  CopsNotification(const BluetoothAddress& aBdAddr);
+
+  virtual void
+  ClccNotification(const BluetoothAddress& aBdAddr);
+
+  virtual void
+  UnknownAtNotification(const nsACString& aAtString,
+                        const BluetoothAddress& aBdAddr);
+
+  virtual void
+  KeyPressedNotification(const BluetoothAddress& aBdAddr);
+
+protected:
+  BluetoothHandsfreeNotificationHandler();
+  virtual ~BluetoothHandsfreeNotificationHandler();
+};
+
+class BluetoothHandsfreeResultHandler
+  : public mozilla::ipc::DaemonSocketResultHandler
+{
+public:
+  virtual void OnError(BluetoothStatus aStatus);
+
+  virtual void Connect();
+  virtual void Disconnect();
+  virtual void ConnectAudio();
+  virtual void DisconnectAudio();
+
+  virtual void StartVoiceRecognition();
+  virtual void StopVoiceRecognition();
+
+  virtual void VolumeControl();
+
+  virtual void DeviceStatusNotification();
+
+  virtual void CopsResponse();
+  virtual void CindResponse();
+  virtual void FormattedAtResponse();
+  virtual void AtResponse();
+  virtual void ClccResponse();
+  virtual void PhoneStateChange();
+
+  virtual void ConfigureWbs();
+
+protected:
+  virtual ~BluetoothHandsfreeResultHandler() { }
+};
+
+class BluetoothHandsfreeInterface
+{
+public:
+  virtual void SetNotificationHandler(
+    BluetoothHandsfreeNotificationHandler* aNotificationHandler) = 0;
+
+  /* Connect / Disconnect */
+
+  virtual void Connect(const BluetoothAddress& aBdAddr,
+                       BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void Disconnect(const BluetoothAddress& aBdAddr,
+                          BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void ConnectAudio(const BluetoothAddress& aBdAddr,
+                            BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void DisconnectAudio(const BluetoothAddress& aBdAddr,
+                               BluetoothHandsfreeResultHandler* aRes) = 0;
+
+  /* Voice Recognition */
+
+  virtual void StartVoiceRecognition(const BluetoothAddress& aBdAddr,
+                                     BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void StopVoiceRecognition(const BluetoothAddress& aBdAddr,
+                                    BluetoothHandsfreeResultHandler* aRes) = 0;
+
+  /* Volume */
+
+  virtual void VolumeControl(BluetoothHandsfreeVolumeType aType, int aVolume,
+                             const BluetoothAddress& aBdAddr,
+                             BluetoothHandsfreeResultHandler* aRes) = 0;
+
+  /* Device status */
+
+  virtual void DeviceStatusNotification(
+    BluetoothHandsfreeNetworkState aNtkState,
+    BluetoothHandsfreeServiceType aSvcType,
+    int aSignal, int aBattChg, BluetoothHandsfreeResultHandler* aRes) = 0;
+
+  /* Responses */
+
+  virtual void CopsResponse(const char* aCops, const BluetoothAddress& aBdAddr,
+                            BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void CindResponse(int aSvc, int aNumActive, int aNumHeld,
+                            BluetoothHandsfreeCallState aCallSetupState,
+                            int aSignal, int aRoam, int aBattChg,
+                            const BluetoothAddress& aBdAddr,
+                            BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void FormattedAtResponse(const char* aRsp,
+                                   const BluetoothAddress& aBdAddr,
+                                   BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void AtResponse(BluetoothHandsfreeAtResponse aResponseCode,
+                          int aErrorCode, const BluetoothAddress& aBdAddr,
+                          BluetoothHandsfreeResultHandler* aRes) = 0;
+  virtual void ClccResponse(int aIndex, BluetoothHandsfreeCallDirection aDir,
+                            BluetoothHandsfreeCallState aState,
+                            BluetoothHandsfreeCallMode aMode,
+                            BluetoothHandsfreeCallMptyType aMpty,
+                            const nsAString& aNumber,
+                            BluetoothHandsfreeCallAddressType aType,
+                            const BluetoothAddress& aBdAddr,
+                            BluetoothHandsfreeResultHandler* aRes) = 0;
+
+  /* Phone State */
+
+  virtual void PhoneStateChange(int aNumActive, int aNumHeld,
+                                BluetoothHandsfreeCallState aCallSetupState,
+                                const nsAString& aNumber,
+                                BluetoothHandsfreeCallAddressType aType,
+                                BluetoothHandsfreeResultHandler* aRes) = 0;
+
+  /* Wide Band Speech */
+  virtual void ConfigureWbs(const BluetoothAddress& aBdAddr,
+                            BluetoothHandsfreeWbsConfig aConfig,
+                            BluetoothHandsfreeResultHandler* aRes) = 0;
+
+protected:
+  BluetoothHandsfreeInterface();
+  virtual ~BluetoothHandsfreeInterface();
+};
 
 //
 // Bluetooth Advanced Audio Interface
@@ -1329,7 +1329,7 @@ public:
   virtual BluetoothSetupInterface* GetBluetoothSetupInterface() = 0;
   virtual BluetoothCoreInterface* GetBluetoothCoreInterface() = 0;
   virtual BluetoothSocketInterface* GetBluetoothSocketInterface() = 0;
-  // virtual BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() = 0;
+  virtual BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() = 0;
   virtual BluetoothA2dpInterface* GetBluetoothA2dpInterface() = 0;
   virtual BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() = 0;
   // virtual BluetoothGattInterface* GetBluetoothGattInterface() = 0;

@@ -378,174 +378,174 @@ BluetoothHidInterface::~BluetoothHidInterface()
 // Notification handling
 //
 
-// BluetoothHandsfreeNotificationHandler::BluetoothHandsfreeNotificationHandler()
-// { }
+BluetoothHandsfreeNotificationHandler::BluetoothHandsfreeNotificationHandler()
+{ }
 
-// BluetoothHandsfreeNotificationHandler::~BluetoothHandsfreeNotificationHandler()
-// { }
+BluetoothHandsfreeNotificationHandler::~BluetoothHandsfreeNotificationHandler()
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::ConnectionStateNotification(
-//   BluetoothHandsfreeConnectionState aState, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::ConnectionStateNotification(
+  BluetoothHandsfreeConnectionState aState, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::AudioStateNotification(
-//   BluetoothHandsfreeAudioState aState, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::AudioStateNotification(
+  BluetoothHandsfreeAudioState aState, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::VoiceRecognitionNotification(
-//   BluetoothHandsfreeVoiceRecognitionState aState, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::VoiceRecognitionNotification(
+  BluetoothHandsfreeVoiceRecognitionState aState, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::AnswerCallNotification(
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::AnswerCallNotification(
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::HangupCallNotification(
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::HangupCallNotification(
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::VolumeNotification(
-//   BluetoothHandsfreeVolumeType aType, int aVolume, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::VolumeNotification(
+  BluetoothHandsfreeVolumeType aType, int aVolume, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::DialCallNotification(
-//   const nsAString& aNumber, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::DialCallNotification(
+  const nsAString& aNumber, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::DtmfNotification(
-//   char aDtmf, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::DtmfNotification(
+  char aDtmf, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::NRECNotification(
-//   BluetoothHandsfreeNRECState aNrec, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::NRECNotification(
+  BluetoothHandsfreeNRECState aNrec, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::WbsNotification(
-//   BluetoothHandsfreeWbsConfig aWbs, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::WbsNotification(
+  BluetoothHandsfreeWbsConfig aWbs, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::CallHoldNotification(
-//   BluetoothHandsfreeCallHoldType aChld, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::CallHoldNotification(
+  BluetoothHandsfreeCallHoldType aChld, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::CnumNotification(
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::CnumNotification(
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::CindNotification(
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::CindNotification(
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::CopsNotification(
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::CopsNotification(
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::ClccNotification(
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::ClccNotification(
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::UnknownAtNotification(
-//   const nsACString& aAtString, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::UnknownAtNotification(
+  const nsACString& aAtString, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothHandsfreeNotificationHandler::KeyPressedNotification(
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothHandsfreeNotificationHandler::KeyPressedNotification(
+  const BluetoothAddress& aBdAddr)
+{ }
 
 // Result handling
 //
 
-// void
-// BluetoothHandsfreeResultHandler::OnError(BluetoothStatus aStatus)
-// {
-//   BT_WARNING("Received error code %d", (int)aStatus);
-// }
+void
+BluetoothHandsfreeResultHandler::OnError(BluetoothStatus aStatus)
+{
+  BT_WARNING("Received error code %d", (int)aStatus);
+}
 
-// void
-// BluetoothHandsfreeResultHandler::Connect()
-// { }
+void
+BluetoothHandsfreeResultHandler::Connect()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::Disconnect()
-// { }
+void
+BluetoothHandsfreeResultHandler::Disconnect()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::ConnectAudio()
-// { }
+void
+BluetoothHandsfreeResultHandler::ConnectAudio()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::DisconnectAudio()
-// { }
+void
+BluetoothHandsfreeResultHandler::DisconnectAudio()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::StartVoiceRecognition()
-// { }
+void
+BluetoothHandsfreeResultHandler::StartVoiceRecognition()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::StopVoiceRecognition()
-// { }
+void
+BluetoothHandsfreeResultHandler::StopVoiceRecognition()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::VolumeControl()
-// { }
+void
+BluetoothHandsfreeResultHandler::VolumeControl()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::DeviceStatusNotification()
-// { }
+void
+BluetoothHandsfreeResultHandler::DeviceStatusNotification()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::CopsResponse()
-// { }
+void
+BluetoothHandsfreeResultHandler::CopsResponse()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::CindResponse()
-// { }
+void
+BluetoothHandsfreeResultHandler::CindResponse()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::FormattedAtResponse()
-// { }
+void
+BluetoothHandsfreeResultHandler::FormattedAtResponse()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::AtResponse()
-// { }
+void
+BluetoothHandsfreeResultHandler::AtResponse()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::ClccResponse()
-// { }
+void
+BluetoothHandsfreeResultHandler::ClccResponse()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::PhoneStateChange()
-// { }
+void
+BluetoothHandsfreeResultHandler::PhoneStateChange()
+{ }
 
-// void
-// BluetoothHandsfreeResultHandler::ConfigureWbs()
-// { }
+void
+BluetoothHandsfreeResultHandler::ConfigureWbs()
+{ }
 
 // Interface
 //
 
-// BluetoothHandsfreeInterface::BluetoothHandsfreeInterface()
-// { }
+BluetoothHandsfreeInterface::BluetoothHandsfreeInterface()
+{ }
 
-// BluetoothHandsfreeInterface::~BluetoothHandsfreeInterface()
-// { }
+BluetoothHandsfreeInterface::~BluetoothHandsfreeInterface()
+{ }
 
 //
 // Bluetooth Advanced Audio Interface
