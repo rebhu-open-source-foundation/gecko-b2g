@@ -564,17 +564,17 @@ GenerateUuid(nsAString &aUuidString)
 //   return NS_OK;
 // }
 
-// void
-// GeneratePathFromGattId(const BluetoothGattId& aId,
-//                        nsAString& aPath)
-// {
-//   nsString uuidStr;
-//   UuidToString(aId.mUuid, uuidStr);
+void
+GeneratePathFromGattId(const BluetoothGattId& aId,
+                       nsAString& aPath)
+{
+  nsString uuidStr;
+  UuidToString(aId.mUuid, uuidStr);
 
-//   aPath.Assign(uuidStr);
-//   aPath.AppendLiteral("_");
-//   aPath.AppendInt(aId.mInstanceId);
-// }
+  aPath.Assign(uuidStr);
+  aPath.AppendLiteral("_");
+  aPath.AppendInt(aId.mInstanceId);
+}
 
 void
 RegisterBluetoothSignalHandler(const nsAString& aPath,

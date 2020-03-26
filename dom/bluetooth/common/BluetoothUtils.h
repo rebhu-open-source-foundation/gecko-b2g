@@ -226,9 +226,9 @@ GenerateUuid(nsAString &aUuidString);
  * @param aId   [in] GattId value to convert.
  * @param aPath [out] Bluetooth signal path generated from aId.
  */
-// void
-// GeneratePathFromGattId(const BluetoothGattId& aId,
-//                        nsAString& aPath);
+void
+GeneratePathFromGattId(const BluetoothGattId& aId,
+                       nsAString& aPath);
 
 /**
  * Convert BluetoothAdvertisingData object used by applications to

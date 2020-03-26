@@ -12,16 +12,16 @@ using mozilla::dom::bluetooth::BluetoothAttributeHandle
   from "mozilla/dom/bluetooth/BluetoothCommon.h";
 // using mozilla::dom::bluetooth::BluetoothGattAttrPerm
 //  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattCharAttribute
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattCharAttribute
+ from "mozilla/dom/bluetooth/BluetoothCommon.h";
 // using mozilla::dom::bluetooth::BluetoothGattCharProp
 //  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattId
-//   from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattId
+  from "mozilla/dom/bluetooth/BluetoothCommon.h";
 // using mozilla::dom::bluetooth::BluetoothGattResponse
 //  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattServiceId
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattServiceId
+ from "mozilla/dom/bluetooth/BluetoothCommon.h";
 // using mozilla::dom::bluetooth::BluetoothGattStatus
 //  from "mozilla/dom/bluetooth/BluetoothCommon.h";
 // using mozilla::dom::bluetooth::BluetoothGattWriteType
@@ -55,11 +55,11 @@ union BluetoothValue
   uint8_t[];
   uint32_t[];
   BluetoothNamedValue[];
-//  BluetoothGattId;
-//  BluetoothGattId[];
-//  BluetoothGattServiceId;
-//  BluetoothGattServiceId[];
-//  BluetoothGattCharAttribute[];
+  BluetoothGattId;
+  BluetoothGattId[];
+  BluetoothGattServiceId;
+  BluetoothGattServiceId[];
+  BluetoothGattCharAttribute[];
   BluetoothAddress;
   BluetoothAddress[];
   BluetoothAttributeHandle;
