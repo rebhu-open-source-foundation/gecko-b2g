@@ -807,6 +807,7 @@ struct MOZ_NEEDS_MEMMOVABLE_TYPE nsTArray_RelocationStrategy {
     using Type = nsTArray_RelocateUsingMoveConstructor<T<S>>;       \
   };
 
+MOZ_DECLARE_COPY_CONSTRUCTIBLE(nsTString<char>)
 MOZ_DECLARE_COPY_CONSTRUCTIBLE(nsTString<char16_t>)
 
 MOZ_DECLARE_COPY_CONSTRUCTIBLE(mozilla::a11y::BatchData)
@@ -2766,6 +2767,12 @@ class MOZ_NON_MEMMOVABLE AutoTArray : public nsTArray<E> {
   }
 
   self_type& operator=(self_type&& aOther) {
+    base_type::operator=(std::move(aOther));
+    return *this;
+  }
+
+  template <typename Allocator>
+  self_type& operator=(nsTArray_Impl<elem_type, Allocator>&& aOther) {
     base_type::operator=(std::move(aOther));
     return *this;
   }

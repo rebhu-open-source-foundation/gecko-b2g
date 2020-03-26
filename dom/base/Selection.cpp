@@ -525,7 +525,8 @@ nsresult Selection::MaybeAddTableCellRange(nsRange& aRange, bool* aDidAddRange,
   }
 
   *aDidAddRange = true;
-  return AddRangesForSelectableNodes(&aRange, aOutIndex);
+  return AddRangesForSelectableNodes(&aRange, aOutIndex,
+                                     DispatchSelectstartEvent::Maybe);
 }
 
 Selection::Selection(SelectionType aSelectionType,
@@ -805,9 +806,117 @@ static void UserSelectRangesToAdd(nsRange* aItem,
   }
 }
 
-nsresult Selection::AddRangesForSelectableNodes(nsRange* aRange,
-                                                int32_t* aOutIndex,
-                                                bool aNoStartSelect) {
+static nsINode* DetermineSelectstartEventTarget(
+    const bool aSelectionEventsOnTextControlsEnabled, const nsRange& aRange) {
+  nsINode* target = aRange.GetStartContainer();
+  if (aSelectionEventsOnTextControlsEnabled) {
+    // Get the first element which isn't in a native anonymous subtree
+    while (target && target->IsInNativeAnonymousSubtree()) {
+      target = target->GetParent();
+    }
+  } else {
+    if (target->IsInNativeAnonymousSubtree()) {
+      // This is a selection under a text control, so don't dispatch the
+      // event.
+      target = nullptr;
+    }
+  }
+  return target;
+}
+
+nsresult Selection::AddRangesForUserSelectableNodes(
+    nsRange* aRange, int32_t* aOutIndex,
+    const DispatchSelectstartEvent aDispatchSelectstartEvent) {
+  MOZ_ASSERT(mUserInitiated);
+  MOZ_ASSERT(aOutIndex);
+
+  if (!aRange) {
+    return NS_ERROR_NULL_POINTER;
+  }
+
+  if (!aRange->IsPositioned()) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  AutoTArray<RefPtr<nsRange>, 4> rangesToAdd;
+  *aOutIndex = int32_t(mRanges.Length()) - 1;
+
+  Document* doc = GetDocument();
+  bool selectEventsEnabled = StaticPrefs::dom_select_events_enabled() ||
+                             (doc && doc->NodePrincipal()->IsSystemPrincipal());
+
+  if (aDispatchSelectstartEvent == DispatchSelectstartEvent::Maybe &&
+      mSelectionType == SelectionType::eNormal && selectEventsEnabled &&
+      IsCollapsed() && !IsBlockingSelectionChangeEvents()) {
+    // First, we generate the ranges to add with a scratch range, which is a
+    // clone of the original range passed in. We do this seperately, because
+    // the selectstart event could have caused the world to change, and
+    // required ranges to be re-generated
+    RefPtr<nsRange> scratchRange = aRange->CloneRange();
+    UserSelectRangesToAdd(scratchRange, rangesToAdd);
+    bool newRangesNonEmpty =
+        rangesToAdd.Length() > 1 ||
+        (rangesToAdd.Length() == 1 && !rangesToAdd[0]->Collapsed());
+
+    MOZ_ASSERT(!newRangesNonEmpty || nsContentUtils::IsSafeToRunScript());
+    if (newRangesNonEmpty && nsContentUtils::IsSafeToRunScript()) {
+      // The spec currently doesn't say that we should dispatch this event
+      // on text controls, so for now we only support doing that under a
+      // pref, disabled by default.
+      // See https://github.com/w3c/selection-api/issues/53.
+      nsCOMPtr<nsINode> selectstartEventTarget =
+          DetermineSelectstartEventTarget(
+              nsFrameSelection::sSelectionEventsOnTextControlsEnabled, *aRange);
+
+      if (selectstartEventTarget) {
+        // We consider a selection to be starting if we are currently collapsed,
+        // and the selection is becoming uncollapsed, and this is caused by a
+        // user initiated event.
+        bool defaultAction = true;
+
+        nsContentUtils::DispatchTrustedEvent(
+            GetDocument(), selectstartEventTarget,
+            NS_LITERAL_STRING("selectstart"), CanBubble::eYes, Cancelable::eYes,
+            &defaultAction);
+
+        if (!defaultAction) {
+          return NS_OK;
+        }
+
+        // As we just dispatched an event to the DOM, something could have
+        // changed under our feet. Re-generate the rangesToAdd array, and
+        // ensure that the range we are about to add is still valid.
+        if (!aRange->IsPositioned()) {
+          return NS_ERROR_UNEXPECTED;
+        }
+      }
+    }
+
+    // The scratch ranges we generated may be invalid now, throw them out
+    rangesToAdd.ClearAndRetainStorage();
+  }
+
+  // Generate the ranges to add
+  UserSelectRangesToAdd(aRange, rangesToAdd);
+  size_t newAnchorFocusIndex =
+      GetDirection() == eDirPrevious ? 0 : rangesToAdd.Length() - 1;
+  for (size_t i = 0; i < rangesToAdd.Length(); ++i) {
+    int32_t index;
+    nsresult rv = MaybeAddRangeAndTruncateOverlaps(rangesToAdd[i], &index);
+    NS_ENSURE_SUCCESS(rv, rv);
+    if (i == newAnchorFocusIndex) {
+      *aOutIndex = index;
+      rangesToAdd[i]->SetIsGenerated(false);
+    } else {
+      rangesToAdd[i]->SetIsGenerated(true);
+    }
+  }
+  return NS_OK;
+}
+
+nsresult Selection::AddRangesForSelectableNodes(
+    nsRange* aRange, int32_t* aOutIndex,
+    const DispatchSelectstartEvent aDispatchSelectstartEvent) {
   if (!aRange) {
     return NS_ERROR_NULL_POINTER;
   }
@@ -819,92 +928,10 @@ nsresult Selection::AddRangesForSelectableNodes(nsRange* aRange,
   NS_ASSERTION(aOutIndex, "aOutIndex can't be null");
 
   if (mUserInitiated) {
-    AutoTArray<RefPtr<nsRange>, 4> rangesToAdd;
-    *aOutIndex = int32_t(mRanges.Length()) - 1;
-
-    Document* doc = GetDocument();
-    bool selectEventsEnabled =
-        StaticPrefs::dom_select_events_enabled() ||
-        (doc && doc->NodePrincipal()->IsSystemPrincipal());
-
-    if (!aNoStartSelect && mSelectionType == SelectionType::eNormal &&
-        selectEventsEnabled && IsCollapsed() &&
-        !IsBlockingSelectionChangeEvents()) {
-      // First, we generate the ranges to add with a scratch range, which is a
-      // clone of the original range passed in. We do this seperately, because
-      // the selectstart event could have caused the world to change, and
-      // required ranges to be re-generated
-      RefPtr<nsRange> scratchRange = aRange->CloneRange();
-      UserSelectRangesToAdd(scratchRange, rangesToAdd);
-      bool newRangesNonEmpty =
-          rangesToAdd.Length() > 1 ||
-          (rangesToAdd.Length() == 1 && !rangesToAdd[0]->Collapsed());
-
-      MOZ_ASSERT(!newRangesNonEmpty || nsContentUtils::IsSafeToRunScript());
-      if (newRangesNonEmpty && nsContentUtils::IsSafeToRunScript()) {
-        // We consider a selection to be starting if we are currently collapsed,
-        // and the selection is becoming uncollapsed, and this is caused by a
-        // user initiated event.
-        bool defaultAction = true;
-
-        // The spec currently doesn't say that we should dispatch this event
-        // on text controls, so for now we only support doing that under a
-        // pref, disabled by default.
-        // See https://github.com/w3c/selection-api/issues/53.
-        bool dispatchEvent = true;
-        nsCOMPtr<nsINode> target = aRange->GetStartContainer();
-        if (nsFrameSelection::sSelectionEventsOnTextControlsEnabled) {
-          // Get the first element which isn't in a native anonymous subtree
-          while (target && target->IsInNativeAnonymousSubtree()) {
-            target = target->GetParent();
-          }
-        } else {
-          if (target->IsInNativeAnonymousSubtree()) {
-            // This is a selection under a text control, so don't dispatch the
-            // event.
-            dispatchEvent = false;
-          }
-        }
-
-        if (dispatchEvent) {
-          nsContentUtils::DispatchTrustedEvent(
-              GetDocument(), target, NS_LITERAL_STRING("selectstart"),
-              CanBubble::eYes, Cancelable::eYes, &defaultAction);
-
-          if (!defaultAction) {
-            return NS_OK;
-          }
-
-          // As we just dispatched an event to the DOM, something could have
-          // changed under our feet. Re-generate the rangesToAdd array, and
-          // ensure that the range we are about to add is still valid.
-          if (!aRange->IsPositioned()) {
-            return NS_ERROR_UNEXPECTED;
-          }
-        }
-      }
-
-      // The scratch ranges we generated may be invalid now, throw them out
-      rangesToAdd.ClearAndRetainStorage();
-    }
-
-    // Generate the ranges to add
-    UserSelectRangesToAdd(aRange, rangesToAdd);
-    size_t newAnchorFocusIndex =
-        GetDirection() == eDirPrevious ? 0 : rangesToAdd.Length() - 1;
-    for (size_t i = 0; i < rangesToAdd.Length(); ++i) {
-      int32_t index;
-      nsresult rv = MaybeAddRangeAndTruncateOverlaps(rangesToAdd[i], &index);
-      NS_ENSURE_SUCCESS(rv, rv);
-      if (i == newAnchorFocusIndex) {
-        *aOutIndex = index;
-        rangesToAdd[i]->SetIsGenerated(false);
-      } else {
-        rangesToAdd[i]->SetIsGenerated(true);
-      }
-    }
-    return NS_OK;
+    return AddRangesForUserSelectableNodes(aRange, aOutIndex,
+                                           aDispatchSelectstartEvent);
   }
+
   return MaybeAddRangeAndTruncateOverlaps(aRange, aOutIndex);
 }
 
@@ -1887,7 +1914,8 @@ void Selection::AddRangeAndSelectFramesAndNotifyListeners(nsRange& aRange,
   }
 
   if (!didAddRange) {
-    result = AddRangesForSelectableNodes(range, &rangeIndex);
+    result = AddRangesForSelectableNodes(range, &rangeIndex,
+                                         DispatchSelectstartEvent::Maybe);
     if (NS_FAILED(result)) {
       aRv.Throw(result);
       return;
@@ -2110,7 +2138,8 @@ void Selection::Collapse(const RawRangeBoundary& aPoint, ErrorResult& aRv) {
 #endif
 
   int32_t rangeIndex = -1;
-  result = AddRangesForSelectableNodes(range, &rangeIndex);
+  result = AddRangesForSelectableNodes(range, &rangeIndex,
+                                       DispatchSelectstartEvent::Maybe);
   if (NS_FAILED(result)) {
     aRv.Throw(result);
     return;
@@ -2228,13 +2257,16 @@ utility function
 nsresult Selection::SetAnchorFocusToRange(nsRange* aRange) {
   NS_ENSURE_STATE(mAnchorFocusRange);
 
-  bool collapsed = IsCollapsed();
+  const DispatchSelectstartEvent dispatchSelectstartEvent =
+      IsCollapsed() ? DispatchSelectstartEvent::Maybe
+                    : DispatchSelectstartEvent::No;
 
   nsresult res = RemoveRangeInternal(*mAnchorFocusRange);
   if (NS_FAILED(res)) return res;
 
   int32_t aOutIndex = -1;
-  res = AddRangesForSelectableNodes(aRange, &aOutIndex, !collapsed);
+  res =
+      AddRangesForSelectableNodes(aRange, &aOutIndex, dispatchSelectstartEvent);
   if (NS_FAILED(res)) return res;
   SetAnchorFocusRange(aOutIndex);
 

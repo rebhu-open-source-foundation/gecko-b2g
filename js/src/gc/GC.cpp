@@ -286,12 +286,15 @@ const AllocKind gc::slotsToThingKind[] = {
 
 // Check that reserved bits of a Cell are compatible with our typical allocators
 // since most derived classes will store a pointer in the first word.
-static_assert(js::detail::LIFO_ALLOC_ALIGN > BitMask(Cell::ReservedBits),
-              "Cell::ReservedBits should support LifoAlloc");
-static_assert(CellAlignBytes > BitMask(Cell::ReservedBits),
-              "Cell::ReservedBits should support gc::Cell");
-static_assert(js::jit::CodeAlignment > BitMask(Cell::ReservedBits),
-              "Cell::ReservedBits should support JIT code");
+static const size_t MinFirstWordAlignment = 1u << CellFlagBitsReservedForGC;
+static_assert(js::detail::LIFO_ALLOC_ALIGN >= MinFirstWordAlignment,
+              "CellFlagBitsReservedForGC should support LifoAlloc");
+static_assert(CellAlignBytes >= MinFirstWordAlignment,
+              "CellFlagBitsReservedForGC should support gc::Cell");
+static_assert(js::jit::CodeAlignment >= MinFirstWordAlignment,
+              "CellFlagBitsReservedForGC should support JIT code");
+static_assert(js::gc::JSClassAlignBytes >= MinFirstWordAlignment,
+              "CellFlagBitsReservedForGC should support JSClass pointers");
 
 static_assert(mozilla::ArrayLength(slotsToThingKind) ==
                   SLOTS_TO_THING_KIND_LIMIT,
@@ -2188,7 +2191,8 @@ static bool CanUpdateKindInBackground(AllocKind kind) {
   //  - we assume JSObjects that are foreground finalized are not safe to
   //    update in parallel
   //  - updating a shape touches child shapes in fixupShapeTreeAfterMovingGC()
-  return js::gc::IsBackgroundFinalized(kind) && !IsShapeAllocKind(kind);
+  return js::gc::IsBackgroundFinalized(kind) && !IsShapeAllocKind(kind) &&
+         kind != AllocKind::BASE_SHAPE;
 }
 
 /*

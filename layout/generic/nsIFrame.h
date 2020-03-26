@@ -957,6 +957,17 @@ class nsIFrame : public nsQueryFrame {
   nsRect GetRectRelativeToSelf() const {
     return nsRect(nsPoint(0, 0), mRect.Size());
   }
+
+  /**
+   * Like the frame's rect (see |GetRect|), which is the border rect,
+   * other rectangles of the frame, in app units, relative to the parent.
+   */
+  nsRect GetPaddingRect() const;
+  nsRect GetPaddingRectRelativeToSelf() const;
+  nsRect GetContentRect() const;
+  nsRect GetContentRectRelativeToSelf() const;
+  nsRect GetMarginRectRelativeToSelf() const;
+
   /**
    * Dimensions and position in logical coordinates in the frame's writing mode
    *  or another writing mode
@@ -1003,11 +1014,13 @@ class nsIFrame : public nsQueryFrame {
   nscoord BSize(mozilla::WritingMode aWritingMode) const {
     return GetLogicalSize(aWritingMode).BSize(aWritingMode);
   }
-  nscoord ContentBSize() const { return ContentBSize(GetWritingMode()); }
-  nscoord ContentBSize(mozilla::WritingMode aWritingMode) const {
+  mozilla::LogicalSize ContentSize() const {
+    return ContentSize(GetWritingMode());
+  }
+  mozilla::LogicalSize ContentSize(mozilla::WritingMode aWritingMode) const {
     auto bp = GetLogicalUsedBorderAndPadding(aWritingMode);
     bp.ApplySkipSides(GetLogicalSkipSides());
-    return std::max(0, BSize(aWritingMode) - bp.BStartEnd(aWritingMode));
+    return GetLogicalSize(aWritingMode) - bp.Size(aWritingMode);
   }
 
   /**
@@ -1325,16 +1338,6 @@ class nsIFrame : public nsQueryFrame {
       mozilla::WritingMode aWritingMode) const {
     return mozilla::LogicalMargin(aWritingMode, GetUsedBorderAndPadding());
   }
-
-  /**
-   * Like the frame's rect (see |GetRect|), which is the border rect,
-   * other rectangles of the frame, in app units, relative to the parent.
-   */
-  nsRect GetPaddingRect() const;
-  nsRect GetPaddingRectRelativeToSelf() const;
-  nsRect GetContentRect() const;
-  nsRect GetContentRectRelativeToSelf() const;
-  nsRect GetMarginRectRelativeToSelf() const;
 
   /**
    * The area to paint box-shadows around.  The default is the border rect.

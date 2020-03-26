@@ -337,8 +337,6 @@
 
       this._contentStoragePrincipal = null;
 
-      this._contentBlockingAllowListPrincipal = null;
-
       this._csp = null;
 
       this._referrerInfo = null;
@@ -771,9 +769,12 @@
     }
 
     get contentBlockingAllowListPrincipal() {
-      return this.isRemoteBrowser
-        ? this._contentBlockingAllowListPrincipal
-        : this.contentDocument.contentBlockingAllowListPrincipal;
+      if (!this.isRemoteBrowser) {
+        return this.contentDocument.contentBlockingAllowListPrincipal;
+      }
+
+      return this.browsingContext.currentWindowGlobal
+        .contentBlockingAllowListPrincipal;
     }
 
     get csp() {
@@ -1563,7 +1564,6 @@
       aTitle,
       aContentPrincipal,
       aContentStoragePrincipal,
-      aContentBlockingAllowListPrincipal,
       aCSP,
       aReferrerInfo,
       aIsSynthetic,
@@ -1588,7 +1588,6 @@
         this._contentTitle = aTitle;
         this._contentPrincipal = aContentPrincipal;
         this._contentStoragePrincipal = aContentStoragePrincipal;
-        this._contentBlockingAllowListPrincipal = aContentBlockingAllowListPrincipal;
         this._csp = aCSP;
         this._referrerInfo = aReferrerInfo;
         this._isSyntheticDocument = aIsSynthetic;
@@ -1987,7 +1986,6 @@
             "_charsetAutodetected",
             "_contentPrincipal",
             "_contentStoragePrincipal",
-            "_contentBlockingAllowListPrincipal",
             "_fullZoom",
             "_textZoom",
             "_isSyntheticDocument",

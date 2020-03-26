@@ -2515,7 +2515,7 @@
 
 - name: dom.arena_allocator.enabled
   type: bool
-  value: false
+  value: true
   mirror: once
 
 - name: dom.serviceWorkers.enabled
@@ -2532,6 +2532,11 @@
   mirror: never
 
 - name: dom.serviceWorkers.testing.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: dom.workers.serialized-sab-access
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -4144,6 +4149,11 @@
 #else
   value: false
 #endif
+  mirror: once
+
+- name: gfx.webrender.compositor.force-enabled
+  type: bool
+  value: false
   mirror: once
 
 - name: gfx.webrender.compositor.max_update_rects
@@ -6202,7 +6212,7 @@
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
 #elif defined(XP_WIN) && !defined(_ARM64_)
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
 #else
   value: false
 #endif

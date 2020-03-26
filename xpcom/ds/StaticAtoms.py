@@ -904,6 +904,7 @@ STATIC_ATOMS = [
     Atom("onterminate", "onterminate"),
     Atom("ontext", "ontext"),
     Atom("ontoggle", "ontoggle"),
+    Atom("ontonechange", "ontonechange"),
     Atom("ontouchstart", "ontouchstart"),
     Atom("ontouchend", "ontouchend"),
     Atom("ontouchmove", "ontouchmove"),

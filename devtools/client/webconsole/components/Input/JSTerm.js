@@ -564,6 +564,10 @@ class JSTerm extends Component {
       } else {
         this.setEditorWidth(null);
       }
+
+      if (this.autocompletePopup.isOpen) {
+        this.autocompletePopup.hidePopup();
+      }
     }
 
     if (
@@ -746,6 +750,18 @@ class JSTerm extends Component {
     const { from, to, origin, text } = change;
     const isAddedText =
       from.line === to.line && from.ch === to.ch && origin === "+input";
+
+    // if there was no changes (hitting delete on an empty input, or suppr when at the end
+    // of the input), we bail out.
+    if (
+      !isAddedText &&
+      origin === "+delete" &&
+      from.line === to.line &&
+      from.ch === to.ch
+    ) {
+      return;
+    }
+
     const addedText = text.join("");
     const completionText = this.getAutoCompletionText();
 

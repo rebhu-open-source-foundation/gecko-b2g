@@ -6,8 +6,6 @@
 
 #include "AntiTrackingLog.h"
 #include "ContentBlockingAllowList.h"
-#include "ContentBlockingAllowListCache.h"
-#include "SettingsChangeObserver.h"
 
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/Document.h"
@@ -17,20 +15,6 @@
 #include "nsPermissionManager.h"
 
 using namespace mozilla;
-
-/* static */ ContentBlockingAllowListCache& ContentBlockingAllowList::Cache() {
-  static bool initialized = false;
-  static ContentBlockingAllowListCache cache;
-  if (!initialized) {
-    SettingsChangeObserver::OnAntiTrackingSettingsChanged([&] {
-      // Drop everything in the cache, since the result of content blocking
-      // allow list checks may change past this point.
-      cache.Clear();
-    });
-    initialized = true;
-  }
-  return cache;
-}
 
 /* static */ bool ContentBlockingAllowList::Check(
     nsIPrincipal* aTopWinPrincipal, bool aIsPrivateBrowsing) {
@@ -49,70 +33,51 @@ using namespace mozilla;
   return false;
 }
 
+/* static */ bool ContentBlockingAllowList::Check(
+    nsICookieJarSettings* aCookieJarSettings) {
+  if (!aCookieJarSettings) {
+    LOG(
+        ("Could not check the content blocking allow list because the cookie "
+         "jar settings wasn't available"));
+    return false;
+  }
+
+  return aCookieJarSettings->GetIsOnContentBlockingAllowList();
+}
+
 /* static */ bool ContentBlockingAllowList::Check(nsPIDOMWindowInner* aWindow) {
-  ContentBlockingAllowListKey cacheKey(aWindow);
-  auto entry = Cache().Lookup(cacheKey);
-  if (entry) {
-    // We've recently performed a content blocking allow list check for this
-    // window, so let's quickly return the answer instead of continuing with the
-    // rest of this potentially expensive computation.
-    return entry.Data().mResult;
+  // We can check the IsOnContentBlockingAllowList flag in the document's
+  // CookieJarSettings. Because this flag represents the fact that whether the
+  // top-level document is on the content blocking allow list. And this flag was
+  // propagated from the top-level as the CookieJarSettings inherits from the
+  // parent.
+  RefPtr<dom::Document> doc = nsGlobalWindowInner::Cast(aWindow)->GetDocument();
+
+  if (!doc) {
+    LOG(
+        ("Could not check the content blocking allow list because the document "
+         "wasn't available"));
+    return false;
   }
 
-  nsPIDOMWindowOuter* top =
-      aWindow->GetBrowsingContext()->Top()->GetDOMWindow();
-  dom::Document* doc = top ? top->GetExtantDoc() : nullptr;
-  if (doc) {
-    bool isPrivateBrowsing = nsContentUtils::IsInPrivateBrowsing(doc);
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings = doc->CookieJarSettings();
 
-    const bool result = ContentBlockingAllowList::Check(
-        doc->GetContentBlockingAllowListPrincipal(), isPrivateBrowsing);
-
-    entry.Set(ContentBlockingAllowListEntry(aWindow, result));
-
-    return result;
-  }
-
-  LOG(
-      ("Could not check the content blocking allow list because the top "
-       "window wasn't accessible"));
-  entry.Set(ContentBlockingAllowListEntry(aWindow, false));
-  return false;
+  return ContentBlockingAllowList::Check(cookieJarSettings);
 }
 
 /* static */ bool ContentBlockingAllowList::Check(nsIHttpChannel* aChannel) {
-  ContentBlockingAllowListKey cacheKey(aChannel);
-  auto entry = Cache().Lookup(cacheKey);
-  if (entry) {
-    // We've recently performed a content blocking allow list check for this
-    // channel, so let's quickly return the answer instead of continuing with
-    // the rest of this potentially expensive computation.
-    return entry.Data().mResult;
-  }
+  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
 
-  nsCOMPtr<nsIPrincipal> principal;
-  nsCOMPtr<nsIHttpChannelInternal> httpChan = do_QueryInterface(aChannel);
-  if (httpChan) {
-    nsresult rv = httpChan->GetContentBlockingAllowListPrincipal(
-        getter_AddRefs(principal));
-    if (NS_FAILED(rv) || !principal) {
-      LOG(
-          ("Could not check the content blocking allow list because the top "
-           "window wasn't accessible"));
-      entry.Set(ContentBlockingAllowListEntry(aChannel, false));
-      return false;
-    }
-  }
+  Unused << loadInfo->GetCookieJarSettings(getter_AddRefs(cookieJarSettings));
 
-  const bool result = ContentBlockingAllowList::Check(
-      principal, NS_UsePrivateBrowsing(aChannel));
-  entry.Set(ContentBlockingAllowListEntry(aChannel, result));
-  return result;
+  return ContentBlockingAllowList::Check(cookieJarSettings);
 }
 
 nsresult ContentBlockingAllowList::Check(
     nsIPrincipal* aContentBlockingAllowListPrincipal, bool aIsPrivateBrowsing,
     bool& aIsAllowListed) {
+  MOZ_ASSERT(XRE_IsParentProcess());
   aIsAllowListed = false;
 
   if (!aContentBlockingAllowListPrincipal) {

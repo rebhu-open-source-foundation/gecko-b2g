@@ -24,6 +24,7 @@
 #include "nsXPCOMPrivate.h"
 #include "nsXPCOMCIDInternal.h"
 
+#include "mozilla/dom/JSExecutionManager.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
 
@@ -491,6 +492,8 @@ NS_InitXPCOM(nsIServiceManager** aResult, nsIFile* aBinDirectory,
       loop->thread_name().c_str(), loop->transient_hang_timeout(),
       loop->permanent_hang_timeout());
 
+  mozilla::dom::JSExecutionManager::Initialize();
+
   if (aInitJSContext) {
     xpc::InitializeJSContext();
   }
@@ -665,6 +668,8 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
     NS_ProcessPendingEvents(thread);
 
     BackgroundHangMonitor().NotifyActivity();
+
+    mozilla::dom::JSExecutionManager::Shutdown();
 
     if (observerService) {
       mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownLoaders);
