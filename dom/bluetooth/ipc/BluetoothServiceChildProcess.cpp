@@ -169,38 +169,38 @@ BluetoothServiceChildProcess::StartDiscoveryInternal(
   SendRequest(aRunnable, StartDiscoveryRequest());
 }
 
-// void
-// BluetoothServiceChildProcess::StopLeScanInternal(
-//   const BluetoothUuid& aScanUuid,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, StopLeScanRequest(aScanUuid));
-// }
+void
+BluetoothServiceChildProcess::StopLeScanInternal(
+  const BluetoothUuid& aScanUuid,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, StopLeScanRequest(aScanUuid));
+}
 
-// void
-// BluetoothServiceChildProcess::StartLeScanInternal(
-//   const nsTArray<BluetoothUuid>& aServiceUuids,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, StartLeScanRequest(aServiceUuids));
-// }
+void
+BluetoothServiceChildProcess::StartLeScanInternal(
+  const nsTArray<BluetoothUuid>& aServiceUuids,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, StartLeScanRequest(aServiceUuids));
+}
 
-// void
-// BluetoothServiceChildProcess::StartAdvertisingInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothGattAdvertisingData& aAdvData,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, StartAdvertisingRequest(aAppUuid, aAdvData));
-// }
+void
+BluetoothServiceChildProcess::StartAdvertisingInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothGattAdvertisingData& aAdvData,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, StartAdvertisingRequest(aAppUuid, aAdvData));
+}
 
-// void
-// BluetoothServiceChildProcess::StopAdvertisingInternal(
-//   const BluetoothUuid& aAppUuid,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, StopAdvertisingRequest(aAppUuid));
-// }
+void
+BluetoothServiceChildProcess::StopAdvertisingInternal(
+  const BluetoothUuid& aAppUuid,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, StopAdvertisingRequest(aAppUuid));
+}
 
 nsresult
 BluetoothServiceChildProcess::SetProperty(BluetoothObjectType aType,
@@ -543,282 +543,282 @@ BluetoothServiceChildProcess::SendMessageEvent(uint8_t aMasId,
               SendMessageEventRequest(aMasId, ipcBlob));
 }
 
-// void
-// BluetoothServiceChildProcess::ConnectGattClientInternal(
-//   const BluetoothUuid& aAppUuid, const BluetoothAddress& aDeviceAddress,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, ConnectGattClientRequest(aAppUuid, aDeviceAddress));
-// }
+void
+BluetoothServiceChildProcess::ConnectGattClientInternal(
+  const BluetoothUuid& aAppUuid, const BluetoothAddress& aDeviceAddress,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, ConnectGattClientRequest(aAppUuid, aDeviceAddress));
+}
 
-// void
-// BluetoothServiceChildProcess::DisconnectGattClientInternal(
-//   const BluetoothUuid& aAppUuid, const BluetoothAddress& aDeviceAddress,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//               DisconnectGattClientRequest(aAppUuid, aDeviceAddress));
-// }
+void
+BluetoothServiceChildProcess::DisconnectGattClientInternal(
+  const BluetoothUuid& aAppUuid, const BluetoothAddress& aDeviceAddress,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              DisconnectGattClientRequest(aAppUuid, aDeviceAddress));
+}
 
-// void
-// BluetoothServiceChildProcess::DiscoverGattServicesInternal(
-//   const BluetoothUuid& aAppUuid, BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, DiscoverGattServicesRequest(aAppUuid));
-// }
+void
+BluetoothServiceChildProcess::DiscoverGattServicesInternal(
+  const BluetoothUuid& aAppUuid, BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, DiscoverGattServicesRequest(aAppUuid));
+}
 
-// void
-// BluetoothServiceChildProcess::GattClientStartNotificationsInternal(
-//   const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
-//   const BluetoothGattId& aCharId, BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattClientStartNotificationsRequest(aAppUuid, aServId, aCharId));
-// }
+void
+BluetoothServiceChildProcess::GattClientStartNotificationsInternal(
+  const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
+  const BluetoothGattId& aCharId, BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattClientStartNotificationsRequest(aAppUuid, aServId, aCharId));
+}
 
-// void
-// BluetoothServiceChildProcess::GattClientStopNotificationsInternal(
-//   const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
-//   const BluetoothGattId& aCharId, BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattClientStopNotificationsRequest(aAppUuid, aServId, aCharId));
-// }
+void
+BluetoothServiceChildProcess::GattClientStopNotificationsInternal(
+  const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
+  const BluetoothGattId& aCharId, BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattClientStopNotificationsRequest(aAppUuid, aServId, aCharId));
+}
 
-// void
-// BluetoothServiceChildProcess::UnregisterGattClientInternal(
-//   int aClientIf, BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, UnregisterGattClientRequest(aClientIf));
-// }
+void
+BluetoothServiceChildProcess::UnregisterGattClientInternal(
+  int aClientIf, BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, UnregisterGattClientRequest(aClientIf));
+}
 
-// void
-// BluetoothServiceChildProcess::GattClientReadRemoteRssiInternal(
-//   int aClientIf, const BluetoothAddress& aDeviceAddress,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//               GattClientReadRemoteRssiRequest(aClientIf, aDeviceAddress));
-// }
+void
+BluetoothServiceChildProcess::GattClientReadRemoteRssiInternal(
+  int aClientIf, const BluetoothAddress& aDeviceAddress,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              GattClientReadRemoteRssiRequest(aClientIf, aDeviceAddress));
+}
 
-// void
-// BluetoothServiceChildProcess::GattClientReadCharacteristicValueInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothGattId& aCharacteristicId,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattClientReadCharacteristicValueRequest(aAppUuid,
-//                                              aServiceId,
-//                                              aCharacteristicId));
-// }
+void
+BluetoothServiceChildProcess::GattClientReadCharacteristicValueInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothGattId& aCharacteristicId,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattClientReadCharacteristicValueRequest(aAppUuid,
+                                             aServiceId,
+                                             aCharacteristicId));
+}
 
-// void
-// BluetoothServiceChildProcess::GattClientWriteCharacteristicValueInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothGattId& aCharacteristicId,
-//   const BluetoothGattWriteType& aWriteType,
-//   const nsTArray<uint8_t>& aValue,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattClientWriteCharacteristicValueRequest(aAppUuid,
-//                                               aServiceId,
-//                                               aCharacteristicId,
-//                                               aWriteType,
-//                                               aValue));
-// }
+void
+BluetoothServiceChildProcess::GattClientWriteCharacteristicValueInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothGattId& aCharacteristicId,
+  const BluetoothGattWriteType& aWriteType,
+  const nsTArray<uint8_t>& aValue,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattClientWriteCharacteristicValueRequest(aAppUuid,
+                                              aServiceId,
+                                              aCharacteristicId,
+                                              aWriteType,
+                                              aValue));
+}
 
-// void
-// BluetoothServiceChildProcess::GattClientReadDescriptorValueInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothGattId& aCharacteristicId,
-//   const BluetoothGattId& aDescriptorId,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattClientReadDescriptorValueRequest(aAppUuid,
-//                                          aServiceId,
-//                                          aCharacteristicId,
-//                                          aDescriptorId));
-// }
+void
+BluetoothServiceChildProcess::GattClientReadDescriptorValueInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothGattId& aCharacteristicId,
+  const BluetoothGattId& aDescriptorId,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattClientReadDescriptorValueRequest(aAppUuid,
+                                         aServiceId,
+                                         aCharacteristicId,
+                                         aDescriptorId));
+}
 
-// void
-// BluetoothServiceChildProcess::GattClientWriteDescriptorValueInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothGattId& aCharacteristicId,
-//   const BluetoothGattId& aDescriptorId,
-//   const nsTArray<uint8_t>& aValue,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattClientWriteDescriptorValueRequest(aAppUuid,
-//                                           aServiceId,
-//                                           aCharacteristicId,
-//                                           aDescriptorId,
-//                                           aValue));
-// }
+void
+BluetoothServiceChildProcess::GattClientWriteDescriptorValueInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothGattId& aCharacteristicId,
+  const BluetoothGattId& aDescriptorId,
+  const nsTArray<uint8_t>& aValue,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattClientWriteDescriptorValueRequest(aAppUuid,
+                                          aServiceId,
+                                          aCharacteristicId,
+                                          aDescriptorId,
+                                          aValue));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerRegisterInternal(
-//   const BluetoothUuid& aAppUuid,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,GattServerRegisterRequest(aAppUuid));
-// }
+void
+BluetoothServiceChildProcess::GattServerRegisterInternal(
+  const BluetoothUuid& aAppUuid,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,GattServerRegisterRequest(aAppUuid));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerConnectPeripheralInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAddress& aAddress,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerConnectPeripheralRequest(aAppUuid, aAddress));
-// }
+void
+BluetoothServiceChildProcess::GattServerConnectPeripheralInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAddress& aAddress,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerConnectPeripheralRequest(aAppUuid, aAddress));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerDisconnectPeripheralInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAddress& aAddress,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerDisconnectPeripheralRequest(aAppUuid, aAddress));
-// }
+void
+BluetoothServiceChildProcess::GattServerDisconnectPeripheralInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAddress& aAddress,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerDisconnectPeripheralRequest(aAppUuid, aAddress));
+}
 
-// void
-// BluetoothServiceChildProcess::UnregisterGattServerInternal(
-//   int aServerIf, BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable, UnregisterGattServerRequest(aServerIf));
-// }
+void
+BluetoothServiceChildProcess::UnregisterGattServerInternal(
+  int aServerIf, BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, UnregisterGattServerRequest(aServerIf));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerAddServiceInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothGattServiceId& aServiceId,
-//   uint16_t aHandleCount,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerAddServiceRequest(aAppUuid, aServiceId, aHandleCount));
-// }
+void
+BluetoothServiceChildProcess::GattServerAddServiceInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothGattServiceId& aServiceId,
+  uint16_t aHandleCount,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerAddServiceRequest(aAppUuid, aServiceId, aHandleCount));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerAddIncludedServiceInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   const BluetoothAttributeHandle& aIncludedServiceHandle,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerAddIncludedServiceRequest(aAppUuid,
-//                                         aServiceHandle,
-//                                         aIncludedServiceHandle));
-// }
+void
+BluetoothServiceChildProcess::GattServerAddIncludedServiceInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAttributeHandle& aServiceHandle,
+  const BluetoothAttributeHandle& aIncludedServiceHandle,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerAddIncludedServiceRequest(aAppUuid,
+                                        aServiceHandle,
+                                        aIncludedServiceHandle));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerAddCharacteristicInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   const BluetoothUuid& aCharacteristicUuid,
-//   BluetoothGattAttrPerm aPermissions,
-//   BluetoothGattCharProp aProperties,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerAddCharacteristicRequest(aAppUuid,
-//                                        aServiceHandle,
-//                                        aCharacteristicUuid,
-//                                        aPermissions,
-//                                        aProperties));
-// }
+void
+BluetoothServiceChildProcess::GattServerAddCharacteristicInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAttributeHandle& aServiceHandle,
+  const BluetoothUuid& aCharacteristicUuid,
+  BluetoothGattAttrPerm aPermissions,
+  BluetoothGattCharProp aProperties,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerAddCharacteristicRequest(aAppUuid,
+                                       aServiceHandle,
+                                       aCharacteristicUuid,
+                                       aPermissions,
+                                       aProperties));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerAddDescriptorInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   const BluetoothAttributeHandle& aCharacteristicHandle,
-//   const BluetoothUuid& aDescriptorUuid,
-//   BluetoothGattAttrPerm aPermissions,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerAddDescriptorRequest(aAppUuid,
-//                                    aServiceHandle,
-//                                    aCharacteristicHandle,
-//                                    aDescriptorUuid,
-//                                    aPermissions));
-// }
+void
+BluetoothServiceChildProcess::GattServerAddDescriptorInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAttributeHandle& aServiceHandle,
+  const BluetoothAttributeHandle& aCharacteristicHandle,
+  const BluetoothUuid& aDescriptorUuid,
+  BluetoothGattAttrPerm aPermissions,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerAddDescriptorRequest(aAppUuid,
+                                   aServiceHandle,
+                                   aCharacteristicHandle,
+                                   aDescriptorUuid,
+                                   aPermissions));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerRemoveServiceInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerRemoveServiceRequest(aAppUuid, aServiceHandle));
-// }
+void
+BluetoothServiceChildProcess::GattServerRemoveServiceInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAttributeHandle& aServiceHandle,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerRemoveServiceRequest(aAppUuid, aServiceHandle));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerStartServiceInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerStartServiceRequest(aAppUuid, aServiceHandle));
-// }
+void
+BluetoothServiceChildProcess::GattServerStartServiceInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAttributeHandle& aServiceHandle,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerStartServiceRequest(aAppUuid, aServiceHandle));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerStopServiceInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerStopServiceRequest(aAppUuid, aServiceHandle));
-// }
+void
+BluetoothServiceChildProcess::GattServerStopServiceInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAttributeHandle& aServiceHandle,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerStopServiceRequest(aAppUuid, aServiceHandle));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerSendResponseInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAddress& aAddress,
-//   uint16_t aStatus,
-//   int32_t aRequestId,
-//   const BluetoothGattResponse& aRsp,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerSendResponseRequest(aAppUuid,
-//                                   aAddress,
-//                                   aStatus,
-//                                   aRequestId,
-//                                   aRsp));
-// }
+void
+BluetoothServiceChildProcess::GattServerSendResponseInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAddress& aAddress,
+  uint16_t aStatus,
+  int32_t aRequestId,
+  const BluetoothGattResponse& aRsp,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerSendResponseRequest(aAppUuid,
+                                  aAddress,
+                                  aStatus,
+                                  aRequestId,
+                                  aRsp));
+}
 
-// void
-// BluetoothServiceChildProcess::GattServerSendIndicationInternal(
-//   const BluetoothUuid& aAppUuid,
-//   const BluetoothAddress& aAddress,
-//   const BluetoothAttributeHandle& aCharacteristicHandle,
-//   bool aConfirm,
-//   const nsTArray<uint8_t>& aValue,
-//   BluetoothReplyRunnable* aRunnable)
-// {
-//   SendRequest(aRunnable,
-//     GattServerSendIndicationRequest(aAppUuid,
-//                                     aAddress,
-//                                     aCharacteristicHandle,
-//                                     aConfirm,
-//                                     aValue));
-// }
+void
+BluetoothServiceChildProcess::GattServerSendIndicationInternal(
+  const BluetoothUuid& aAppUuid,
+  const BluetoothAddress& aAddress,
+  const BluetoothAttributeHandle& aCharacteristicHandle,
+  bool aConfirm,
+  const nsTArray<uint8_t>& aValue,
+  BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+    GattServerSendIndicationRequest(aAppUuid,
+                                    aAddress,
+                                    aCharacteristicHandle,
+                                    aConfirm,
+                                    aValue));
+}
 
 nsresult
 BluetoothServiceChildProcess::HandleStartup()

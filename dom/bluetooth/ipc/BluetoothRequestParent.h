@@ -68,17 +68,17 @@ protected:
   bool
   DoRequest(const StopDiscoveryRequest& aRequest);
 
-  // bool
-  // DoRequest(const StartLeScanRequest& aRequest);
+  bool
+  DoRequest(const StartLeScanRequest& aRequest);
 
-  // bool
-  // DoRequest(const StopLeScanRequest& aRequest);
+  bool
+  DoRequest(const StopLeScanRequest& aRequest);
 
-  // bool
-  // DoRequest(const StartAdvertisingRequest& aRequest);
+  bool
+  DoRequest(const StartAdvertisingRequest& aRequest);
 
-  // bool
-  // DoRequest(const StopAdvertisingRequest& aRequest);
+  bool
+  DoRequest(const StopAdvertisingRequest& aRequest);
 
   bool
   DoRequest(const PairRequest& aRequest);
@@ -187,77 +187,77 @@ protected:
   bool
   DoRequest(const SendMessageEventRequest& aRequest);
 
-  // bool
-  // DoRequest(const ConnectGattClientRequest& aRequest);
+  bool
+  DoRequest(const ConnectGattClientRequest& aRequest);
 
-  // bool
-  // DoRequest(const DisconnectGattClientRequest& aRequest);
+  bool
+  DoRequest(const DisconnectGattClientRequest& aRequest);
 
-  // bool
-  // DoRequest(const DiscoverGattServicesRequest& aRequest);
+  bool
+  DoRequest(const DiscoverGattServicesRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattClientStartNotificationsRequest& aRequest);
+  bool
+  DoRequest(const GattClientStartNotificationsRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattClientStopNotificationsRequest& aRequest);
+  bool
+  DoRequest(const GattClientStopNotificationsRequest& aRequest);
 
-  // bool
-  // DoRequest(const UnregisterGattClientRequest& aRequest);
+  bool
+  DoRequest(const UnregisterGattClientRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattClientReadRemoteRssiRequest& aRequest);
+  bool
+  DoRequest(const GattClientReadRemoteRssiRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattClientReadCharacteristicValueRequest& aRequest);
+  bool
+  DoRequest(const GattClientReadCharacteristicValueRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattClientWriteCharacteristicValueRequest& aRequest);
+  bool
+  DoRequest(const GattClientWriteCharacteristicValueRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattClientReadDescriptorValueRequest& aRequest);
+  bool
+  DoRequest(const GattClientReadDescriptorValueRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattClientWriteDescriptorValueRequest& aRequest);
+  bool
+  DoRequest(const GattClientWriteDescriptorValueRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerRegisterRequest& aRequest);
+  bool
+  DoRequest(const GattServerRegisterRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerConnectPeripheralRequest& aRequest);
+  bool
+  DoRequest(const GattServerConnectPeripheralRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerDisconnectPeripheralRequest& aRequest);
+  bool
+  DoRequest(const GattServerDisconnectPeripheralRequest& aRequest);
 
-  // bool
-  // DoRequest(const UnregisterGattServerRequest& aRequest);
+  bool
+  DoRequest(const UnregisterGattServerRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerAddServiceRequest& aRequest);
+  bool
+  DoRequest(const GattServerAddServiceRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerAddIncludedServiceRequest& aRequest);
+  bool
+  DoRequest(const GattServerAddIncludedServiceRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerAddCharacteristicRequest& aRequest);
+  bool
+  DoRequest(const GattServerAddCharacteristicRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerAddDescriptorRequest& aRequest);
+  bool
+  DoRequest(const GattServerAddDescriptorRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerRemoveServiceRequest& aRequest);
+  bool
+  DoRequest(const GattServerRemoveServiceRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerStartServiceRequest& aRequest);
+  bool
+  DoRequest(const GattServerStartServiceRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerStopServiceRequest& aRequest);
+  bool
+  DoRequest(const GattServerStopServiceRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerSendResponseRequest& aRequest);
+  bool
+  DoRequest(const GattServerSendResponseRequest& aRequest);
 
-  // bool
-  // DoRequest(const GattServerSendIndicationRequest& aRequest);
+  bool
+  DoRequest(const GattServerSendIndicationRequest& aRequest);
 };
 
 END_BLUETOOTH_NAMESPACE

@@ -14,8 +14,8 @@ include "mozilla/dom/bluetooth/ipc/BluetoothMessageUtils.h";
 
 using mozilla::dom::bluetooth::BluetoothAddress
   from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattAdvertisingData
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattAdvertisingData
+  from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothObjectType
   from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothPinCode
@@ -62,26 +62,26 @@ struct StopDiscoveryRequest
 {
 };
 
-// struct StartLeScanRequest
-// {
-//   BluetoothUuid[] serviceUuids;
-// };
+struct StartLeScanRequest
+{
+  BluetoothUuid[] serviceUuids;
+};
 
-// struct StopLeScanRequest
-// {
-//   BluetoothUuid scanUuid;
-// };
+struct StopLeScanRequest
+{
+  BluetoothUuid scanUuid;
+};
 
-// struct StartAdvertisingRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattAdvertisingData data;
-// };
+struct StartAdvertisingRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattAdvertisingData data;
+};
 
-// struct StopAdvertisingRequest
-// {
-//   BluetoothUuid appUuid;
-// };
+struct StopAdvertisingRequest
+{
+  BluetoothUuid appUuid;
+};
 
 struct PairRequest
 {
@@ -280,170 +280,170 @@ struct SendMessageEventRequest
   IPCBlob blob;
 };
 
-// struct ConnectGattClientRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAddress deviceAddress;
-// };
+struct ConnectGattClientRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAddress deviceAddress;
+};
 
-// struct DisconnectGattClientRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAddress deviceAddress;
-// };
+struct DisconnectGattClientRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAddress deviceAddress;
+};
 
-// struct DiscoverGattServicesRequest
-// {
-//   BluetoothUuid appUuid;
-// };
+struct DiscoverGattServicesRequest
+{
+  BluetoothUuid appUuid;
+};
 
-// struct GattClientStartNotificationsRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattServiceId servId;
-//   BluetoothGattId charId;
-// };
+struct GattClientStartNotificationsRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattServiceId servId;
+  BluetoothGattId charId;
+};
 
-// struct GattClientStopNotificationsRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattServiceId servId;
-//   BluetoothGattId charId;
-// };
+struct GattClientStopNotificationsRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattServiceId servId;
+  BluetoothGattId charId;
+};
 
-// struct UnregisterGattClientRequest
-// {
-//   int clientIf;
-// };
+struct UnregisterGattClientRequest
+{
+  int clientIf;
+};
 
-// struct GattClientReadRemoteRssiRequest
-// {
-//   int clientIf;
-//   BluetoothAddress deviceAddress;
-// };
+struct GattClientReadRemoteRssiRequest
+{
+  int clientIf;
+  BluetoothAddress deviceAddress;
+};
 
-// struct GattClientReadCharacteristicValueRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattServiceId serviceId;
-//   BluetoothGattId charId;
-// };
+struct GattClientReadCharacteristicValueRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattServiceId serviceId;
+  BluetoothGattId charId;
+};
 
-// struct GattClientWriteCharacteristicValueRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattServiceId serviceId;
-//   BluetoothGattId charId;
-//   BluetoothGattWriteType writeType;
-//   uint8_t[] value;
-// };
+struct GattClientWriteCharacteristicValueRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattServiceId serviceId;
+  BluetoothGattId charId;
+  BluetoothGattWriteType writeType;
+  uint8_t[] value;
+};
 
-// struct GattClientReadDescriptorValueRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattServiceId serviceId;
-//   BluetoothGattId charId;
-//   BluetoothGattId descId;
-// };
+struct GattClientReadDescriptorValueRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattServiceId serviceId;
+  BluetoothGattId charId;
+  BluetoothGattId descId;
+};
 
-// struct GattClientWriteDescriptorValueRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattServiceId serviceId;
-//   BluetoothGattId charId;
-//   BluetoothGattId descId;
-//   uint8_t[] value;
-// };
+struct GattClientWriteDescriptorValueRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattServiceId serviceId;
+  BluetoothGattId charId;
+  BluetoothGattId descId;
+  uint8_t[] value;
+};
 
-// struct GattServerRegisterRequest
-// {
-//   BluetoothUuid appUuid;
-// };
+struct GattServerRegisterRequest
+{
+  BluetoothUuid appUuid;
+};
 
-// struct GattServerConnectPeripheralRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAddress address;
-// };
+struct GattServerConnectPeripheralRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAddress address;
+};
 
-// struct GattServerDisconnectPeripheralRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAddress address;
-// };
+struct GattServerDisconnectPeripheralRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAddress address;
+};
 
-// struct UnregisterGattServerRequest
-// {
-//   int serverIf;
-// };
+struct UnregisterGattServerRequest
+{
+  int serverIf;
+};
 
-// struct GattServerAddServiceRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothGattServiceId serviceId;
-//   uint16_t handleCount;
-// };
+struct GattServerAddServiceRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothGattServiceId serviceId;
+  uint16_t handleCount;
+};
 
-// struct GattServerAddIncludedServiceRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAttributeHandle serviceHandle;
-//   BluetoothAttributeHandle includedServiceHandle;
-// };
+struct GattServerAddIncludedServiceRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAttributeHandle serviceHandle;
+  BluetoothAttributeHandle includedServiceHandle;
+};
 
-// struct GattServerAddCharacteristicRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAttributeHandle serviceHandle;
-//   BluetoothUuid characteristicUuid;
-//   BluetoothGattAttrPerm permissions;
-//   BluetoothGattCharProp properties;
-// };
+struct GattServerAddCharacteristicRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAttributeHandle serviceHandle;
+  BluetoothUuid characteristicUuid;
+  BluetoothGattAttrPerm permissions;
+  BluetoothGattCharProp properties;
+};
 
-// struct GattServerAddDescriptorRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAttributeHandle serviceHandle;
-//   BluetoothAttributeHandle characteristicHandle;
-//   BluetoothUuid descriptorUuid;
-//   BluetoothGattAttrPerm permissions;
-// };
+struct GattServerAddDescriptorRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAttributeHandle serviceHandle;
+  BluetoothAttributeHandle characteristicHandle;
+  BluetoothUuid descriptorUuid;
+  BluetoothGattAttrPerm permissions;
+};
 
-// struct GattServerRemoveServiceRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAttributeHandle serviceHandle;
-// };
+struct GattServerRemoveServiceRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAttributeHandle serviceHandle;
+};
 
-// struct GattServerStartServiceRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAttributeHandle serviceHandle;
-// };
+struct GattServerStartServiceRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAttributeHandle serviceHandle;
+};
 
-// struct GattServerStopServiceRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAttributeHandle serviceHandle;
-// };
+struct GattServerStopServiceRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAttributeHandle serviceHandle;
+};
 
-// struct GattServerSendResponseRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAddress address;
-//   uint16_t status;
-//   int32_t requestId;
-//   BluetoothGattResponse response;
-// };
+struct GattServerSendResponseRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAddress address;
+  uint16_t status;
+  int32_t requestId;
+  BluetoothGattResponse response;
+};
 
-// struct GattServerSendIndicationRequest
-// {
-//   BluetoothUuid appUuid;
-//   BluetoothAddress address;
-//   BluetoothAttributeHandle characteristicHandle;
-//   bool confirm;
-//   uint8_t[] value;
-// };
+struct GattServerSendIndicationRequest
+{
+  BluetoothUuid appUuid;
+  BluetoothAddress address;
+  BluetoothAttributeHandle characteristicHandle;
+  bool confirm;
+  uint8_t[] value;
+};
 
 union Request
 {
@@ -454,10 +454,10 @@ union Request
   GetPropertyRequest;
   StartDiscoveryRequest;
   StopDiscoveryRequest;
-//  StartLeScanRequest;
-//  StopLeScanRequest;
-//  StartAdvertisingRequest;
-//  StopAdvertisingRequest;
+  StartLeScanRequest;
+  StopLeScanRequest;
+  StartAdvertisingRequest;
+  StopAdvertisingRequest;
   PairRequest;
   UnpairRequest;
   PinReplyRequest;
@@ -493,30 +493,30 @@ union Request
   SendMetaDataRequest;
   SendPlayStatusRequest;
   SendMessageEventRequest;
-//  ConnectGattClientRequest;
-//  DisconnectGattClientRequest;
-//  DiscoverGattServicesRequest;
-//  GattClientStartNotificationsRequest;
-//  GattClientStopNotificationsRequest;
-//  UnregisterGattClientRequest;
-//  GattClientReadRemoteRssiRequest;
-//  GattClientReadCharacteristicValueRequest;
-//  GattClientWriteCharacteristicValueRequest;
-//  GattClientReadDescriptorValueRequest;
-//  GattClientWriteDescriptorValueRequest;
-//  GattServerRegisterRequest;
-//  GattServerConnectPeripheralRequest;
-//  GattServerDisconnectPeripheralRequest;
-//  UnregisterGattServerRequest;
-//  GattServerAddServiceRequest;
-//  GattServerAddIncludedServiceRequest;
-//  GattServerAddCharacteristicRequest;
-//  GattServerAddDescriptorRequest;
-//  GattServerRemoveServiceRequest;
-//  GattServerStartServiceRequest;
-//  GattServerStopServiceRequest;
-//  GattServerSendResponseRequest;
-//  GattServerSendIndicationRequest;
+  ConnectGattClientRequest;
+  DisconnectGattClientRequest;
+  DiscoverGattServicesRequest;
+  GattClientStartNotificationsRequest;
+  GattClientStopNotificationsRequest;
+  UnregisterGattClientRequest;
+  GattClientReadRemoteRssiRequest;
+  GattClientReadCharacteristicValueRequest;
+  GattClientWriteCharacteristicValueRequest;
+  GattClientReadDescriptorValueRequest;
+  GattClientWriteDescriptorValueRequest;
+  GattServerRegisterRequest;
+  GattServerConnectPeripheralRequest;
+  GattServerDisconnectPeripheralRequest;
+  UnregisterGattServerRequest;
+  GattServerAddServiceRequest;
+  GattServerAddIncludedServiceRequest;
+  GattServerAddCharacteristicRequest;
+  GattServerAddDescriptorRequest;
+  GattServerRemoveServiceRequest;
+  GattServerStartServiceRequest;
+  GattServerStopServiceRequest;
+  GattServerSendResponseRequest;
+  GattServerSendIndicationRequest;
 };
 
 protocol PBluetooth

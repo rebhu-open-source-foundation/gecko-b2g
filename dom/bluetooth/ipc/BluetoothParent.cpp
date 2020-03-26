@@ -145,14 +145,18 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TStopDiscoveryRequest:
     return actor->DoRequest(aRequest.get_StopDiscoveryRequest())
       ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-    // case Request::TStartLeScanRequest:
-    //   return actor->DoRequest(aRequest.get_StartLeScanRequest());
-    // case Request::TStopLeScanRequest:
-    //   return actor->DoRequest(aRequest.get_StopLeScanRequest());
-    // case Request::TStartAdvertisingRequest:
-    //   return actor->DoRequest(aRequest.get_StartAdvertisingRequest());
-    // case Request::TStopAdvertisingRequest:
-    //   return actor->DoRequest(aRequest.get_StopAdvertisingRequest());
+    case Request::TStartLeScanRequest:
+      return actor->DoRequest(aRequest.get_StartLeScanRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TStopLeScanRequest:
+      return actor->DoRequest(aRequest.get_StopLeScanRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TStartAdvertisingRequest:
+      return actor->DoRequest(aRequest.get_StartAdvertisingRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TStopAdvertisingRequest:
+      return actor->DoRequest(aRequest.get_StopAdvertisingRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     case Request::TPairRequest:
       return actor->DoRequest(aRequest.get_PairRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
@@ -260,66 +264,90 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TSendMessageEventRequest:
       return actor->DoRequest(aRequest.get_SendMessageEventRequest())
         ? IPC_OK() : IPC_FAIL_NO_REASON(this);
-    // case Request::TConnectGattClientRequest:
-    //   return actor->DoRequest(aRequest.get_ConnectGattClientRequest());
-    // case Request::TDisconnectGattClientRequest:
-    //   return actor->DoRequest(aRequest.get_DisconnectGattClientRequest());
-    // case Request::TDiscoverGattServicesRequest:
-    //   return actor->DoRequest(aRequest.get_DiscoverGattServicesRequest());
-    // case Request::TGattClientStartNotificationsRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattClientStartNotificationsRequest());
-    // case Request::TGattClientStopNotificationsRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattClientStopNotificationsRequest());
-    // case Request::TUnregisterGattClientRequest:
-    //   return actor->DoRequest(aRequest.get_UnregisterGattClientRequest());
-    // case Request::TGattClientReadRemoteRssiRequest:
-    //   return actor->DoRequest(aRequest.get_GattClientReadRemoteRssiRequest());
-    // case Request::TGattClientReadCharacteristicValueRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattClientReadCharacteristicValueRequest());
-    // case Request::TGattClientWriteCharacteristicValueRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattClientWriteCharacteristicValueRequest());
-    // case Request::TGattClientReadDescriptorValueRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattClientReadDescriptorValueRequest());
-    // case Request::TGattClientWriteDescriptorValueRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattClientWriteDescriptorValueRequest());
-    // case Request::TGattServerRegisterRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattServerRegisterRequest());
-    // case Request::TGattServerConnectPeripheralRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattServerConnectPeripheralRequest());
-    // case Request::TGattServerDisconnectPeripheralRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattServerDisconnectPeripheralRequest());
-    // case Request::TUnregisterGattServerRequest:
-    //   return actor->DoRequest(aRequest.get_UnregisterGattServerRequest());
-    // case Request::TGattServerAddServiceRequest:
-    //   return actor->DoRequest(aRequest.get_GattServerAddServiceRequest());
-    // case Request::TGattServerAddIncludedServiceRequest:
-    //   return actor->DoRequest(
-    //            aRequest.get_GattServerAddIncludedServiceRequest());
-    // case Request::TGattServerAddCharacteristicRequest:
-    //   return actor->DoRequest(
-    //            aRequest.get_GattServerAddCharacteristicRequest());
-    // case Request::TGattServerAddDescriptorRequest:
-    //   return actor->DoRequest(aRequest.get_GattServerAddDescriptorRequest());
-    // case Request::TGattServerRemoveServiceRequest:
-    //   return actor->DoRequest(aRequest.get_GattServerRemoveServiceRequest());
-    // case Request::TGattServerStartServiceRequest:
-    //   return actor->DoRequest(aRequest.get_GattServerStartServiceRequest());
-    // case Request::TGattServerStopServiceRequest:
-    //   return actor->DoRequest(aRequest.get_GattServerStopServiceRequest());
-    // case Request::TGattServerSendResponseRequest:
-    //   return actor->DoRequest(aRequest.get_GattServerSendResponseRequest());
-    // case Request::TGattServerSendIndicationRequest:
-    //   return actor->DoRequest(
-    //     aRequest.get_GattServerSendIndicationRequest());
+    case Request::TConnectGattClientRequest:
+      return actor->DoRequest(aRequest.get_ConnectGattClientRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TDisconnectGattClientRequest:
+      return actor->DoRequest(aRequest.get_DisconnectGattClientRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TDiscoverGattServicesRequest:
+      return actor->DoRequest(aRequest.get_DiscoverGattServicesRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattClientStartNotificationsRequest:
+      return actor->DoRequest(
+        aRequest.get_GattClientStartNotificationsRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattClientStopNotificationsRequest:
+      return actor->DoRequest(
+        aRequest.get_GattClientStopNotificationsRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TUnregisterGattClientRequest:
+      return actor->DoRequest(aRequest.get_UnregisterGattClientRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattClientReadRemoteRssiRequest:
+      return actor->DoRequest(aRequest.get_GattClientReadRemoteRssiRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattClientReadCharacteristicValueRequest:
+      return actor->DoRequest(
+        aRequest.get_GattClientReadCharacteristicValueRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattClientWriteCharacteristicValueRequest:
+      return actor->DoRequest(
+        aRequest.get_GattClientWriteCharacteristicValueRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattClientReadDescriptorValueRequest:
+      return actor->DoRequest(
+        aRequest.get_GattClientReadDescriptorValueRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattClientWriteDescriptorValueRequest:
+      return actor->DoRequest(
+        aRequest.get_GattClientWriteDescriptorValueRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerRegisterRequest:
+      return actor->DoRequest(
+        aRequest.get_GattServerRegisterRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerConnectPeripheralRequest:
+      return actor->DoRequest(
+        aRequest.get_GattServerConnectPeripheralRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerDisconnectPeripheralRequest:
+      return actor->DoRequest(
+        aRequest.get_GattServerDisconnectPeripheralRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TUnregisterGattServerRequest:
+      return actor->DoRequest(aRequest.get_UnregisterGattServerRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerAddServiceRequest:
+      return actor->DoRequest(aRequest.get_GattServerAddServiceRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerAddIncludedServiceRequest:
+      return actor->DoRequest(
+               aRequest.get_GattServerAddIncludedServiceRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerAddCharacteristicRequest:
+      return actor->DoRequest(
+               aRequest.get_GattServerAddCharacteristicRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerAddDescriptorRequest:
+      return actor->DoRequest(aRequest.get_GattServerAddDescriptorRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerRemoveServiceRequest:
+      return actor->DoRequest(aRequest.get_GattServerRemoveServiceRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerStartServiceRequest:
+      return actor->DoRequest(aRequest.get_GattServerStartServiceRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerStopServiceRequest:
+      return actor->DoRequest(aRequest.get_GattServerStopServiceRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerSendResponseRequest:
+      return actor->DoRequest(aRequest.get_GattServerSendResponseRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
+    case Request::TGattServerSendIndicationRequest:
+      return actor->DoRequest(
+        aRequest.get_GattServerSendIndicationRequest())
+        ? IPC_OK() : IPC_FAIL_NO_REASON(this);
     default:
       MOZ_CRASH("Unknown type!");
   }

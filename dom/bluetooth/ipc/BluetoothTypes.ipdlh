@@ -10,22 +10,22 @@ using mozilla::dom::bluetooth::BluetoothAddress
   from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothAttributeHandle
   from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattAttrPerm
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattAttrPerm
+ from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothGattCharAttribute
  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattCharProp
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattCharProp
+ from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothGattId
   from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattResponse
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattResponse
+ from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothGattServiceId
  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattStatus
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-// using mozilla::dom::bluetooth::BluetoothGattWriteType
-//  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattStatus
+ from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattWriteType
+ from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothRemoteName
   from "mozilla/dom/bluetooth/BluetoothCommon.h";
 using mozilla::dom::bluetooth::BluetoothSspVariant
@@ -93,7 +93,7 @@ struct BluetoothReplySuccess
 union BluetoothErrorStatus
 {
   BluetoothStatus;
-  // BluetoothGattStatus;
+  BluetoothGattStatus;
 };
 
 struct BluetoothReplyError
