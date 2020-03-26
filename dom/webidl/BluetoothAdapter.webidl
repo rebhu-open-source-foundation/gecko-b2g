@@ -152,8 +152,8 @@ interface BluetoothAdapter : EventTarget {
   // Promise<void> stopLeScan(BluetoothDiscoveryHandle discoveryHandle);
 
 
-  // [NewObject, Throws]
-  // DOMRequest getConnectedDevices(unsigned short serviceUuid);
+  [NewObject, Throws]
+  DOMRequest getConnectedDevices(unsigned short serviceUuid);
 
   /**
    * Connect/Disconnect to a specific service of a target remote device.
@@ -173,11 +173,11 @@ interface BluetoothAdapter : EventTarget {
    * @param profile 2-octets service UUID. This is optional.
    */
 
-  // [NewObject, Throws]
-  // DOMRequest connect(BluetoothDevice device, optional unsigned short serviceUuid);
+  [NewObject, Throws]
+  DOMRequest connect(BluetoothDevice device, optional unsigned short serviceUuid);
 
-  // [NewObject, Throws]
-  // DOMRequest disconnect(BluetoothDevice device, optional unsigned short serviceUuid);
+  [NewObject, Throws]
+  DOMRequest disconnect(BluetoothDevice device, optional unsigned short serviceUuid);
 
   // One device can only send one file at a time
   [NewObject, Throws]
