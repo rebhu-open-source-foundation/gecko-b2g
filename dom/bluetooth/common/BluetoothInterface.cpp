@@ -738,369 +738,369 @@ BluetoothAvrcpInterface::~BluetoothAvrcpInterface()
 // Notification handling
 //
 
-// BluetoothGattNotificationHandler::BluetoothGattNotificationHandler()
-// { }
+BluetoothGattNotificationHandler::BluetoothGattNotificationHandler()
+{ }
 
-// BluetoothGattNotificationHandler::~BluetoothGattNotificationHandler()
-// { }
+BluetoothGattNotificationHandler::~BluetoothGattNotificationHandler()
+{ }
 
-// void
-// BluetoothGattNotificationHandler::RegisterClientNotification(
-//   BluetoothGattStatus aStatus, int aClientIf, const BluetoothUuid& aAppUuid)
-// { }
+void
+BluetoothGattNotificationHandler::RegisterClientNotification(
+  BluetoothGattStatus aStatus, int aClientIf, const BluetoothUuid& aAppUuid)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ScanResultNotification(
-//   const BluetoothAddress& aBdAddr, int aRssi, const BluetoothGattAdvData& aAdvData)
-// { }
+void
+BluetoothGattNotificationHandler::ScanResultNotification(
+  const BluetoothAddress& aBdAddr, int aRssi, const BluetoothGattAdvData& aAdvData)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ConnectNotification(
-//   int aConnId, BluetoothGattStatus aStatus, int aClientIf,
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothGattNotificationHandler::ConnectNotification(
+  int aConnId, BluetoothGattStatus aStatus, int aClientIf,
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::DisconnectNotification(
-//   int aConnId, BluetoothGattStatus aStatus, int aClientIf,
-//   const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothGattNotificationHandler::DisconnectNotification(
+  int aConnId, BluetoothGattStatus aStatus, int aClientIf,
+  const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::SearchCompleteNotification(
-//   int aConnId, BluetoothGattStatus aStatus)
-// { }
+void
+BluetoothGattNotificationHandler::SearchCompleteNotification(
+  int aConnId, BluetoothGattStatus aStatus)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::SearchResultNotification(
-//   int aConnId, const BluetoothGattServiceId& aServiceId)
-// { }
+void
+BluetoothGattNotificationHandler::SearchResultNotification(
+  int aConnId, const BluetoothGattServiceId& aServiceId)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::GetCharacteristicNotification(
-//   int aConnId, BluetoothGattStatus aStatus,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothGattId& aCharId,
-//   const BluetoothGattCharProp& aCharProperty)
-// { }
+void
+BluetoothGattNotificationHandler::GetCharacteristicNotification(
+  int aConnId, BluetoothGattStatus aStatus,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothGattId& aCharId,
+  const BluetoothGattCharProp& aCharProperty)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::GetDescriptorNotification(
-//   int aConnId, BluetoothGattStatus aStatus,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothGattId& aCharId,
-//   const BluetoothGattId& aDescriptorId)
-// { }
+void
+BluetoothGattNotificationHandler::GetDescriptorNotification(
+  int aConnId, BluetoothGattStatus aStatus,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothGattId& aCharId,
+  const BluetoothGattId& aDescriptorId)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::GetIncludedServiceNotification(
-//   int aConnId, BluetoothGattStatus aStatus,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothGattServiceId& aIncludedServId)
-// { }
+void
+BluetoothGattNotificationHandler::GetIncludedServiceNotification(
+  int aConnId, BluetoothGattStatus aStatus,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothGattServiceId& aIncludedServId)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::RegisterNotificationNotification(
-//   int aConnId, int aIsRegister, BluetoothGattStatus aStatus,
-//   const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId)
-// { }
+void
+BluetoothGattNotificationHandler::RegisterNotificationNotification(
+  int aConnId, int aIsRegister, BluetoothGattStatus aStatus,
+  const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::NotifyNotification(
-//   int aConnId, const BluetoothGattNotifyParam& aNotifyParam)
-// { }
+void
+BluetoothGattNotificationHandler::NotifyNotification(
+  int aConnId, const BluetoothGattNotifyParam& aNotifyParam)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ReadCharacteristicNotification(
-//   int aConnId, BluetoothGattStatus aStatus,
-//   const BluetoothGattReadParam& aReadParam)
-// { }
+void
+BluetoothGattNotificationHandler::ReadCharacteristicNotification(
+  int aConnId, BluetoothGattStatus aStatus,
+  const BluetoothGattReadParam& aReadParam)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::WriteCharacteristicNotification(
-//   int aConnId, BluetoothGattStatus aStatus,
-//   const BluetoothGattWriteParam& aWriteParam)
-// { }
+void
+BluetoothGattNotificationHandler::WriteCharacteristicNotification(
+  int aConnId, BluetoothGattStatus aStatus,
+  const BluetoothGattWriteParam& aWriteParam)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ReadDescriptorNotification(
-//   int aConnId, BluetoothGattStatus aStatus,
-//   const BluetoothGattReadParam& aReadParam)
-// { }
+void
+BluetoothGattNotificationHandler::ReadDescriptorNotification(
+  int aConnId, BluetoothGattStatus aStatus,
+  const BluetoothGattReadParam& aReadParam)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::WriteDescriptorNotification(
-//   int aConnId, BluetoothGattStatus aStatus,
-//   const BluetoothGattWriteParam& aWriteParam)
-// { }
+void
+BluetoothGattNotificationHandler::WriteDescriptorNotification(
+  int aConnId, BluetoothGattStatus aStatus,
+  const BluetoothGattWriteParam& aWriteParam)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ExecuteWriteNotification(
-//   int aConnId, BluetoothGattStatus aStatus)
-// { }
+void
+BluetoothGattNotificationHandler::ExecuteWriteNotification(
+  int aConnId, BluetoothGattStatus aStatus)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ReadRemoteRssiNotification(
-//   int aClientIf, const BluetoothAddress& aBdAddr, int aRssi,
-//   BluetoothGattStatus aStatus)
-// { }
+void
+BluetoothGattNotificationHandler::ReadRemoteRssiNotification(
+  int aClientIf, const BluetoothAddress& aBdAddr, int aRssi,
+  BluetoothGattStatus aStatus)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ListenNotification(
-//   BluetoothGattStatus aStatus, int aServerIf)
-// { }
+void
+BluetoothGattNotificationHandler::ListenNotification(
+  BluetoothGattStatus aStatus, int aServerIf)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::RegisterServerNotification(
-//   BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aAppUuid)
-// { }
+void
+BluetoothGattNotificationHandler::RegisterServerNotification(
+  BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aAppUuid)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ConnectionNotification(
-//   int aConnId, int aServerIf, bool aConnected, const BluetoothAddress& aBdAddr)
-// { }
+void
+BluetoothGattNotificationHandler::ConnectionNotification(
+  int aConnId, int aServerIf, bool aConnected, const BluetoothAddress& aBdAddr)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ServiceAddedNotification(
-//   BluetoothGattStatus aStatus, int aServerIf,
-//   const BluetoothGattServiceId& aServiceId,
-//   const BluetoothAttributeHandle& aServiceHandle)
-// { }
+void
+BluetoothGattNotificationHandler::ServiceAddedNotification(
+  BluetoothGattStatus aStatus, int aServerIf,
+  const BluetoothGattServiceId& aServiceId,
+  const BluetoothAttributeHandle& aServiceHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::IncludedServiceAddedNotification(
-//   BluetoothGattStatus aStatus, int aServerIf,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   const BluetoothAttributeHandle& aIncludedServiceHandle)
-// { }
+void
+BluetoothGattNotificationHandler::IncludedServiceAddedNotification(
+  BluetoothGattStatus aStatus, int aServerIf,
+  const BluetoothAttributeHandle& aServiceHandle,
+  const BluetoothAttributeHandle& aIncludedServiceHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::CharacteristicAddedNotification(
-//   BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   const BluetoothAttributeHandle& aCharacteristicHandle)
-// { }
+void
+BluetoothGattNotificationHandler::CharacteristicAddedNotification(
+  BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
+  const BluetoothAttributeHandle& aServiceHandle,
+  const BluetoothAttributeHandle& aCharacteristicHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::DescriptorAddedNotification(
-//   BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-//   const BluetoothAttributeHandle& aServiceHandle,
-//   const BluetoothAttributeHandle& aDescriptorHandle)
-// { }
+void
+BluetoothGattNotificationHandler::DescriptorAddedNotification(
+  BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
+  const BluetoothAttributeHandle& aServiceHandle,
+  const BluetoothAttributeHandle& aDescriptorHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ServiceStartedNotification(
-//   BluetoothGattStatus aStatus, int aServerIf,
-//   const BluetoothAttributeHandle& aServiceHandle)
-// { }
+void
+BluetoothGattNotificationHandler::ServiceStartedNotification(
+  BluetoothGattStatus aStatus, int aServerIf,
+  const BluetoothAttributeHandle& aServiceHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ServiceStoppedNotification(
-//   BluetoothGattStatus aStatus, int aServerIf,
-//   const BluetoothAttributeHandle& aServiceHandle)
-// { }
+void
+BluetoothGattNotificationHandler::ServiceStoppedNotification(
+  BluetoothGattStatus aStatus, int aServerIf,
+  const BluetoothAttributeHandle& aServiceHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ServiceDeletedNotification(
-//   BluetoothGattStatus aStatus, int aServerIf,
-//   const BluetoothAttributeHandle& aServiceHandle)
-// { }
+void
+BluetoothGattNotificationHandler::ServiceDeletedNotification(
+  BluetoothGattStatus aStatus, int aServerIf,
+  const BluetoothAttributeHandle& aServiceHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::RequestReadNotification(
-//   int aConnId, int aTransId, const BluetoothAddress& aBdAddr,
-//   const BluetoothAttributeHandle& aAttributeHandle, int aOffset, bool aIsLong)
-// { }
+void
+BluetoothGattNotificationHandler::RequestReadNotification(
+  int aConnId, int aTransId, const BluetoothAddress& aBdAddr,
+  const BluetoothAttributeHandle& aAttributeHandle, int aOffset, bool aIsLong)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::RequestWriteNotification(
-//   int aConnId, int aTransId, const BluetoothAddress& aBdAddr,
-//   const BluetoothAttributeHandle& aAttributeHandle, int aOffset, int aLength,
-//   const uint8_t* aValue, bool aNeedResponse, bool aIsPrepareWrite)
-// { }
+void
+BluetoothGattNotificationHandler::RequestWriteNotification(
+  int aConnId, int aTransId, const BluetoothAddress& aBdAddr,
+  const BluetoothAttributeHandle& aAttributeHandle, int aOffset, int aLength,
+  const uint8_t* aValue, bool aNeedResponse, bool aIsPrepareWrite)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::RequestExecuteWriteNotification(
-//   int aConnId, int aTransId, const BluetoothAddress& aBdAddr, bool aExecute)
-// { }
+void
+BluetoothGattNotificationHandler::RequestExecuteWriteNotification(
+  int aConnId, int aTransId, const BluetoothAddress& aBdAddr, bool aExecute)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::ResponseConfirmationNotification(
-//   BluetoothGattStatus aStatus, int aHandle)
-// { }
+void
+BluetoothGattNotificationHandler::ResponseConfirmationNotification(
+  BluetoothGattStatus aStatus, int aHandle)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::IndicationSentNotification(
-//   int aConnId, BluetoothGattStatus aStatus)
-// { }
+void
+BluetoothGattNotificationHandler::IndicationSentNotification(
+  int aConnId, BluetoothGattStatus aStatus)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::CongestionNotification(int aConnId,
-//                                                          bool aCongested)
-// { }
+void
+BluetoothGattNotificationHandler::CongestionNotification(int aConnId,
+                                                         bool aCongested)
+{ }
 
-// void
-// BluetoothGattNotificationHandler::MtuChangedNotification(int aConnId,
-//                                                          int aMtu)
-// { }
+void
+BluetoothGattNotificationHandler::MtuChangedNotification(int aConnId,
+                                                         int aMtu)
+{ }
 
 // Result handling
 //
 
-// void
-// BluetoothGattResultHandler::OnError(BluetoothStatus aStatus)
-// {
-//   BT_WARNING("Received error code %d", (int)aStatus);
-// }
+void
+BluetoothGattResultHandler::OnError(BluetoothStatus aStatus)
+{
+  BT_WARNING("Received error code %d", (int)aStatus);
+}
 
-// void
-// BluetoothGattResultHandler::RegisterClient()
-// { }
+void
+BluetoothGattResultHandler::RegisterClient()
+{ }
 
-// void
-// BluetoothGattResultHandler::UnregisterClient()
-// { }
+void
+BluetoothGattResultHandler::UnregisterClient()
+{ }
 
-// void
-// BluetoothGattResultHandler::Scan()
-// { }
+void
+BluetoothGattResultHandler::Scan()
+{ }
 
-// void
-// BluetoothGattResultHandler::Connect()
-// { }
+void
+BluetoothGattResultHandler::Connect()
+{ }
 
-// void
-// BluetoothGattResultHandler::Disconnect()
-// { }
+void
+BluetoothGattResultHandler::Disconnect()
+{ }
 
-// void
-// BluetoothGattResultHandler::Listen()
-// { }
+void
+BluetoothGattResultHandler::Listen()
+{ }
 
-// void
-// BluetoothGattResultHandler::Refresh()
-// { }
+void
+BluetoothGattResultHandler::Refresh()
+{ }
 
-// void
-// BluetoothGattResultHandler::SearchService()
-// { }
+void
+BluetoothGattResultHandler::SearchService()
+{ }
 
-// void
-// BluetoothGattResultHandler::GetIncludedService()
-// { }
+void
+BluetoothGattResultHandler::GetIncludedService()
+{ }
 
-// void
-// BluetoothGattResultHandler::GetCharacteristic()
-// { }
+void
+BluetoothGattResultHandler::GetCharacteristic()
+{ }
 
-// void
-// BluetoothGattResultHandler::GetDescriptor()
-// { }
+void
+BluetoothGattResultHandler::GetDescriptor()
+{ }
 
-// void
-// BluetoothGattResultHandler::ReadCharacteristic()
-// { }
+void
+BluetoothGattResultHandler::ReadCharacteristic()
+{ }
 
-// void
-// BluetoothGattResultHandler::WriteCharacteristic()
-// { }
+void
+BluetoothGattResultHandler::WriteCharacteristic()
+{ }
 
-// void
-// BluetoothGattResultHandler::ReadDescriptor()
-// { }
+void
+BluetoothGattResultHandler::ReadDescriptor()
+{ }
 
-// void
-// BluetoothGattResultHandler::WriteDescriptor()
-// { }
+void
+BluetoothGattResultHandler::WriteDescriptor()
+{ }
 
-// void
-// BluetoothGattResultHandler::ExecuteWrite()
-// { }
+void
+BluetoothGattResultHandler::ExecuteWrite()
+{ }
 
-// void
-// BluetoothGattResultHandler::RegisterNotification()
-// { }
+void
+BluetoothGattResultHandler::RegisterNotification()
+{ }
 
-// void
-// BluetoothGattResultHandler::DeregisterNotification()
-// { }
+void
+BluetoothGattResultHandler::DeregisterNotification()
+{ }
 
-// void
-// BluetoothGattResultHandler::ReadRemoteRssi()
-// { }
+void
+BluetoothGattResultHandler::ReadRemoteRssi()
+{ }
 
-// void
-// BluetoothGattResultHandler::GetDeviceType(BluetoothTypeOfDevice aType)
-// { }
+void
+BluetoothGattResultHandler::GetDeviceType(BluetoothTypeOfDevice aType)
+{ }
 
-// void
-// BluetoothGattResultHandler::SetAdvData()
-// { }
+void
+BluetoothGattResultHandler::SetAdvData()
+{ }
 
-// void
-// BluetoothGattResultHandler::TestCommand()
-// { }
+void
+BluetoothGattResultHandler::TestCommand()
+{ }
 
-// void
-// BluetoothGattResultHandler::RegisterServer()
-// { }
+void
+BluetoothGattResultHandler::RegisterServer()
+{ }
 
-// void
-// BluetoothGattResultHandler::UnregisterServer()
-// { }
+void
+BluetoothGattResultHandler::UnregisterServer()
+{ }
 
-// void
-// BluetoothGattResultHandler::ConnectPeripheral()
-// { }
+void
+BluetoothGattResultHandler::ConnectPeripheral()
+{ }
 
-// void
-// BluetoothGattResultHandler::DisconnectPeripheral()
-// { }
+void
+BluetoothGattResultHandler::DisconnectPeripheral()
+{ }
 
-// void
-// BluetoothGattResultHandler::AddService()
-// { }
+void
+BluetoothGattResultHandler::AddService()
+{ }
 
-// void
-// BluetoothGattResultHandler::AddIncludedService()
-// { }
+void
+BluetoothGattResultHandler::AddIncludedService()
+{ }
 
-// void
-// BluetoothGattResultHandler::AddCharacteristic()
-// { }
+void
+BluetoothGattResultHandler::AddCharacteristic()
+{ }
 
-// void
-// BluetoothGattResultHandler::AddDescriptor()
-// { }
+void
+BluetoothGattResultHandler::AddDescriptor()
+{ }
 
-// void
-// BluetoothGattResultHandler::StartService()
-// { }
+void
+BluetoothGattResultHandler::StartService()
+{ }
 
-// void
-// BluetoothGattResultHandler::StopService()
-// { }
+void
+BluetoothGattResultHandler::StopService()
+{ }
 
-// void
-// BluetoothGattResultHandler::DeleteService()
-// { }
+void
+BluetoothGattResultHandler::DeleteService()
+{ }
 
-// void
-// BluetoothGattResultHandler::SendIndication()
-// { }
+void
+BluetoothGattResultHandler::SendIndication()
+{ }
 
-// void
-// BluetoothGattResultHandler::SendResponse()
-// { }
+void
+BluetoothGattResultHandler::SendResponse()
+{ }
 
 // Interface
 //
 
-// BluetoothGattInterface::BluetoothGattInterface()
-// { }
+BluetoothGattInterface::BluetoothGattInterface()
+{ }
 
-// BluetoothGattInterface::~BluetoothGattInterface()
-// { }
+BluetoothGattInterface::~BluetoothGattInterface()
+{ }
 
 //
 // Bluetooth SDP Interface

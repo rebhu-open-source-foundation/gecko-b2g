@@ -774,465 +774,465 @@ protected:
 // GATT Interface
 //
 
-// class BluetoothGattNotificationHandler
-// {
-// public:
-//   virtual void
-//   RegisterClientNotification(BluetoothGattStatus aStatus,
-//                              int aClientIf,
-//                              const BluetoothUuid& aAppUuid);
-//
-//   virtual void
-//   ScanResultNotification(const BluetoothAddress& aBdAddr,
-//                          int aRssi,
-//                          const BluetoothGattAdvData& aAdvData);
-//
-//   virtual void
-//   ConnectNotification(int aConnId,
-//                       BluetoothGattStatus aStatus,
-//                       int aClientIf,
-//                       const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   DisconnectNotification(int aConnId,
-//                          BluetoothGattStatus aStatus,
-//                          int aClientIf,
-//                          const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   SearchCompleteNotification(int aConnId, BluetoothGattStatus aStatus);
-//
-//   virtual void
-//   SearchResultNotification(int aConnId,
-//                            const BluetoothGattServiceId& aServiceId);
-//
-//   virtual void
-//   GetCharacteristicNotification(int aConnId,
-//                                 BluetoothGattStatus aStatus,
-//                                 const BluetoothGattServiceId& aServiceId,
-//                                 const BluetoothGattId& aCharId,
-//                                 const BluetoothGattCharProp& aCharProperty);
-//
-//   virtual void
-//   GetDescriptorNotification(int aConnId,
-//                             BluetoothGattStatus aStatus,
-//                             const BluetoothGattServiceId& aServiceId,
-//                             const BluetoothGattId& aCharId,
-//                             const BluetoothGattId& aDescriptorId);
-//
-//   virtual void
-//   GetIncludedServiceNotification(int aConnId,
-//                                  BluetoothGattStatus aStatus,
-//                                  const BluetoothGattServiceId& aServiceId,
-//                                  const BluetoothGattServiceId& aIncludedServId);
-//
-//   virtual void
-//   RegisterNotificationNotification(int aConnId,
-//                                    int aIsRegister,
-//                                    BluetoothGattStatus aStatus,
-//                                    const BluetoothGattServiceId& aServiceId,
-//                                    const BluetoothGattId& aCharId);
-//
-//   virtual void
-//   NotifyNotification(int aConnId,
-//                      const BluetoothGattNotifyParam& aNotifyParam);
-//
-//   virtual void
-//   ReadCharacteristicNotification(int aConnId,
-//                                  BluetoothGattStatus aStatus,
-//                                  const BluetoothGattReadParam& aReadParam);
-//
-//   virtual void
-//   WriteCharacteristicNotification(int aConnId,
-//                                   BluetoothGattStatus aStatus,
-//                                   const BluetoothGattWriteParam& aWriteParam);
-//
-//   virtual void
-//   ReadDescriptorNotification(int aConnId,
-//                              BluetoothGattStatus aStatus,
-//                              const BluetoothGattReadParam& aReadParam);
-//
-//   virtual void
-//   WriteDescriptorNotification(int aConnId,
-//                               BluetoothGattStatus aStatus,
-//                               const BluetoothGattWriteParam& aWriteParam);
-//
-//   virtual void
-//   ExecuteWriteNotification(int aConnId, BluetoothGattStatus aStatus);
-//
-//   virtual void
-//   ReadRemoteRssiNotification(int aClientIf,
-//                              const BluetoothAddress& aBdAddr,
-//                              int aRssi,
-//                              BluetoothGattStatus aStatus);
-//
-//   virtual void
-//   ListenNotification(BluetoothGattStatus aStatus, int aServerIf);
-//
-//   virtual void
-//   RegisterServerNotification(BluetoothGattStatus aStatus,
-//                              int aServerIf,
-//                              const BluetoothUuid& aAppUuid);
-//
-//   virtual void
-//   ConnectionNotification(int aConnId,
-//                          int aServerIf,
-//                          bool aConnected,
-//                          const BluetoothAddress& aBdAddr);
-//
-//   virtual void
-//   ServiceAddedNotification(BluetoothGattStatus aStatus,
-//                            int aServerIf,
-//                            const BluetoothGattServiceId& aServiceId,
-//                            const BluetoothAttributeHandle& aServiceHandle);
-//
-//   virtual void
-//   IncludedServiceAddedNotification(
-//     BluetoothGattStatus aStatus,
-//     int aServerIf,
-//     const BluetoothAttributeHandle& aServiceHandle,
-//     const BluetoothAttributeHandle& aIncludedServiceHandle);
-//
-//   virtual void
-//   CharacteristicAddedNotification(
-//     BluetoothGattStatus aStatus,
-//     int aServerIf,
-//     const BluetoothUuid& aCharId,
-//     const BluetoothAttributeHandle& aServiceHandle,
-//     const BluetoothAttributeHandle& aCharacteristicHandle);
-//
-//   virtual void
-//   DescriptorAddedNotification(
-//     BluetoothGattStatus aStatus,
-//     int aServerIf,
-//     const BluetoothUuid& aCharId,
-//     const BluetoothAttributeHandle& aServiceHandle,
-//     const BluetoothAttributeHandle& aDescriptorHandle);
-//
-//   virtual void
-//   ServiceStartedNotification(BluetoothGattStatus aStatus,
-//                              int aServerIf,
-//                              const BluetoothAttributeHandle& aServiceHandle);
-//
-//   virtual void
-//   ServiceStoppedNotification(BluetoothGattStatus aStatus,
-//                              int aServerIf,
-//                              const BluetoothAttributeHandle& aServiceHandle);
-//
-//   virtual void
-//   ServiceDeletedNotification(BluetoothGattStatus aStatus,
-//                              int aServerIf,
-//                              const BluetoothAttributeHandle& aServiceHandle);
-//
-//   virtual void
-//   RequestReadNotification(int aConnId,
-//                           int aTransId,
-//                           const BluetoothAddress& aBdAddr,
-//                           const BluetoothAttributeHandle& aAttributeHandle,
-//                           int aOffset,
-//                           bool aIsLong);
-//
-//   virtual void
-//   RequestWriteNotification(int aConnId,
-//                            int aTransId,
-//                            const BluetoothAddress& aBdAddr,
-//                            const BluetoothAttributeHandle& aAttributeHandle,
-//                            int aOffset,
-//                            int aLength,
-//                            const uint8_t* aValue,
-//                            bool aNeedResponse,
-//                            bool aIsPrepareWrite);
-//
-//   virtual void
-//   RequestExecuteWriteNotification(int aConnId,
-//                                   int aTransId,
-//                                   const BluetoothAddress& aBdAddr,
-//                                   bool aExecute); /* true: execute */
-//                                                   /* false: cancel */
-//
-//   virtual void
-//   ResponseConfirmationNotification(BluetoothGattStatus aStatus,
-//                                    int aHandle);
-//
-//   virtual void
-//   IndicationSentNotification(int aConnId,
-//                              BluetoothGattStatus aStatus);
-//
-//   virtual void
-//   CongestionNotification(int aConnId,
-//                          bool aCongested);
-//
-//   virtual void
-//   MtuChangedNotification(int aConnId,
-//                          int aMtu);
-//
-// protected:
-//   BluetoothGattNotificationHandler();
-//   virtual ~BluetoothGattNotificationHandler();
-// };
-//
-// class BluetoothGattResultHandler
-//   : public mozilla::ipc::DaemonSocketResultHandler
-// {
-// public:
-//   virtual void OnError(BluetoothStatus aStatus);
-//
-//   virtual void RegisterClient();
-//   virtual void UnregisterClient();
-//
-//   virtual void Scan();
-//
-//   virtual void Connect();
-//   virtual void Disconnect();
-//
-//   virtual void Listen();
-//   virtual void Refresh();
-//
-//   virtual void SearchService();
-//   virtual void GetIncludedService();
-//   virtual void GetCharacteristic();
-//   virtual void GetDescriptor();
-//
-//   virtual void ReadCharacteristic();
-//   virtual void WriteCharacteristic();
-//   virtual void ReadDescriptor();
-//   virtual void WriteDescriptor();
-//
-//   virtual void ExecuteWrite();
-//
-//   virtual void RegisterNotification();
-//   virtual void DeregisterNotification();
-//
-//   virtual void ReadRemoteRssi();
-//   virtual void GetDeviceType(BluetoothTypeOfDevice aType);
-//   virtual void SetAdvData();
-//   virtual void TestCommand();
-//
-//   virtual void RegisterServer();
-//   virtual void UnregisterServer();
-//
-//   virtual void ConnectPeripheral();
-//   virtual void DisconnectPeripheral();
-//
-//   virtual void AddService();
-//   virtual void AddIncludedService();
-//   virtual void AddCharacteristic();
-//   virtual void AddDescriptor();
-//
-//   virtual void StartService();
-//   virtual void StopService();
-//   virtual void DeleteService();
-//
-//   virtual void SendIndication();
-//
-//   virtual void SendResponse();
-//
-// protected:
-//   virtual ~BluetoothGattResultHandler() { }
-// };
-//
-// class BluetoothGattInterface
-// {
-// public:
-//   virtual void SetNotificationHandler(
-//     BluetoothGattNotificationHandler* aNotificationHandler) = 0;
-//
-//   /* Register / Unregister */
-//   virtual void RegisterClient(const BluetoothUuid& aUuid,
-//                               BluetoothGattResultHandler* aRes) = 0;
-//   virtual void UnregisterClient(int aClientIf,
-//                                 BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Start / Stop LE Scan */
-//   virtual void Scan(int aClientIf, bool aStart,
-//                     BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Connect / Disconnect */
-//   virtual void Connect(int aClientIf,
-//                        const BluetoothAddress& aBdAddr,
-//                        bool aIsDirect, /* auto connect */
-//                        BluetoothTransport aTransport,
-//                        BluetoothGattResultHandler* aRes) = 0;
-//   virtual void Disconnect(int aClientIf,
-//                           const BluetoothAddress& aBdAddr,
-//                           int aConnId,
-//                           BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Start / Stop advertisements to listen for incoming connections */
-//   virtual void Listen(int aClientIf,
-//                       bool aIsStart,
-//                       BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Clear the attribute cache for a given device*/
-//   virtual void Refresh(int aClientIf,
-//                        const BluetoothAddress& aBdAddr,
-//                        BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Enumerate Attributes */
-//   virtual void SearchService(int aConnId,
-//                              bool aSearchAll,
-//                              const BluetoothUuid& aUuid,
-//                              BluetoothGattResultHandler* aRes) = 0;
-//   virtual void GetIncludedService(
-//     int aConnId,
-//     const BluetoothGattServiceId& aServiceId,
-//     bool aFirst,
-//     const BluetoothGattServiceId& aStartServiceId,
-//     BluetoothGattResultHandler* aRes) = 0;
-//   virtual void GetCharacteristic(int aConnId,
-//                                  const BluetoothGattServiceId& aServiceId,
-//                                  bool aFirst,
-//                                  const BluetoothGattId& aStartCharId,
-//                                  BluetoothGattResultHandler* aRes) = 0;
-//   virtual void GetDescriptor(int aConnId,
-//                              const BluetoothGattServiceId& aServiceId,
-//                              const BluetoothGattId& aCharId,
-//                              bool aFirst,
-//                              const BluetoothGattId& aDescriptorId,
-//                              BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Read / Write An Attribute */
-//   virtual void ReadCharacteristic(int aConnId,
-//                                   const BluetoothGattServiceId& aServiceId,
-//                                   const BluetoothGattId& aCharId,
-//                                   BluetoothGattAuthReq aAuthReq,
-//                                   BluetoothGattResultHandler* aRes) = 0;
-//   virtual void WriteCharacteristic(int aConnId,
-//                                    const BluetoothGattServiceId& aServiceId,
-//                                    const BluetoothGattId& aCharId,
-//                                    BluetoothGattWriteType aWriteType,
-//                                    BluetoothGattAuthReq aAuthReq,
-//                                    const nsTArray<uint8_t>& aValue,
-//                                    BluetoothGattResultHandler* aRes) = 0;
-//   virtual void ReadDescriptor(int aConnId,
-//                               const BluetoothGattServiceId& aServiceId,
-//                               const BluetoothGattId& aCharId,
-//                               const BluetoothGattId& aDescriptorId,
-//                               BluetoothGattAuthReq aAuthReq,
-//                               BluetoothGattResultHandler* aRes) = 0;
-//   virtual void WriteDescriptor(int aConnId,
-//                                const BluetoothGattServiceId& aServiceId,
-//                                const BluetoothGattId& aCharId,
-//                                const BluetoothGattId& aDescriptorId,
-//                                BluetoothGattWriteType aWriteType,
-//                                BluetoothGattAuthReq aAuthReq,
-//                                const nsTArray<uint8_t>& aValue,
-//                                BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Execute / Abort Prepared Write*/
-//   virtual void ExecuteWrite(int aConnId,
-//                             int aIsExecute,
-//                             BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Register / Deregister Characteristic Notifications or Indications */
-//   virtual void RegisterNotification(
-//     int aClientIf,
-//     const BluetoothAddress& aBdAddr,
-//     const BluetoothGattServiceId& aServiceId,
-//     const BluetoothGattId& aCharId,
-//     BluetoothGattResultHandler* aRes) = 0;
-//   virtual void DeregisterNotification(
-//     int aClientIf,
-//     const BluetoothAddress& aBdAddr,
-//     const BluetoothGattServiceId& aServiceId,
-//     const BluetoothGattId& aCharId,
-//     BluetoothGattResultHandler* aRes) = 0;
-//
-//   virtual void ReadRemoteRssi(int aClientIf,
-//                               const BluetoothAddress& aBdAddr,
-//                               BluetoothGattResultHandler* aRes) = 0;
-//
-//   virtual void GetDeviceType(const BluetoothAddress& aBdAddr,
-//                              BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Set advertising data or scan response data */
-//   virtual void SetAdvData(int aServerIf,
-//                           bool aIsScanRsp,
-//                           bool aIsNameIncluded,
-//                           bool aIsTxPowerIncluded,
-//                           int aMinInterval,
-//                           int aMaxInterval,
-//                           int aApperance,
-//                           const nsTArray<uint8_t>& aManufacturerData,
-//                           const nsTArray<uint8_t>& aServiceData,
-//                           const nsTArray<BluetoothUuid>& aServiceUuids,
-//                           BluetoothGattResultHandler* aRes) = 0;
-//
-//   virtual void TestCommand(int aCommand,
-//                            const BluetoothGattTestParam& aTestParam,
-//                            BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Register / Unregister */
-//   virtual void RegisterServer(const BluetoothUuid& aUuid,
-//                               BluetoothGattResultHandler* aRes) = 0;
-//   virtual void UnregisterServer(int aServerIf,
-//                                 BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Connect / Disconnect */
-//   virtual void ConnectPeripheral(int aServerIf,
-//                                  const BluetoothAddress& aBdAddr,
-//                                  bool aIsDirect, /* auto connect */
-//                                  BluetoothTransport aTransport,
-//                                  BluetoothGattResultHandler* aRes) = 0;
-//   virtual void DisconnectPeripheral(int aServerIf,
-//                                     const BluetoothAddress& aBdAddr,
-//                                     int aConnId,
-//                                     BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Add a services / a characteristic / a descriptor */
-//   virtual void AddService(int aServerIf,
-//                           const BluetoothGattServiceId& aServiceId,
-//                           uint16_t aNumHandles,
-//                           BluetoothGattResultHandler* aRes) = 0;
-//   virtual void AddIncludedService(
-//     int aServerIf,
-//     const BluetoothAttributeHandle& aServiceHandle,
-//     const BluetoothAttributeHandle& aIncludedServiceHandle,
-//     BluetoothGattResultHandler* aRes) = 0;
-//   virtual void AddCharacteristic(int aServerIf,
-//                                  const BluetoothAttributeHandle& aServiceHandle,
-//                                  const BluetoothUuid& aUuid,
-//                                  BluetoothGattCharProp aProperties,
-//                                  BluetoothGattAttrPerm aPermissions,
-//                                  BluetoothGattResultHandler* aRes) = 0;
-//   virtual void AddDescriptor(int aServerIf,
-//                              const BluetoothAttributeHandle& aServiceHandle,
-//                              const BluetoothUuid& aUuid,
-//                              BluetoothGattAttrPerm aPermissions,
-//                              BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Start / Stop / Delete a service */
-//   virtual void StartService(int aServerIf,
-//                             const BluetoothAttributeHandle& aServiceHandle,
-//                             BluetoothTransport aTransport,
-//                             BluetoothGattResultHandler* aRes) = 0;
-//   virtual void StopService(int aServerIf,
-//                            const BluetoothAttributeHandle& aServiceHandle,
-//                            BluetoothGattResultHandler* aRes) = 0;
-//   virtual void DeleteService(int aServerIf,
-//                              const BluetoothAttributeHandle& aServiceHandle,
-//                              BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Send an indication or a notification */
-//   virtual void SendIndication(
-//     int aServerIf,
-//     const BluetoothAttributeHandle& aCharacteristicHandle,
-//     int aConnId,
-//     const nsTArray<uint8_t>& aValue,
-//     bool aConfirm, /* true: indication; false: notification */
-//     BluetoothGattResultHandler* aRes) = 0;
-//
-//   /* Send a response for an incoming indication */
-//   virtual void SendResponse(int aConnId,
-//                             int aTransId,
-//                             uint16_t aStatus,
-//                             const BluetoothGattResponse& aResponse,
-//                             BluetoothGattResultHandler* aRes) = 0;
-//
-// protected:
-//   BluetoothGattInterface();
-//   virtual ~BluetoothGattInterface();
-// };
+class BluetoothGattNotificationHandler
+{
+public:
+  virtual void
+  RegisterClientNotification(BluetoothGattStatus aStatus,
+                             int aClientIf,
+                             const BluetoothUuid& aAppUuid);
+
+  virtual void
+  ScanResultNotification(const BluetoothAddress& aBdAddr,
+                         int aRssi,
+                         const BluetoothGattAdvData& aAdvData);
+
+  virtual void
+  ConnectNotification(int aConnId,
+                      BluetoothGattStatus aStatus,
+                      int aClientIf,
+                      const BluetoothAddress& aBdAddr);
+
+  virtual void
+  DisconnectNotification(int aConnId,
+                         BluetoothGattStatus aStatus,
+                         int aClientIf,
+                         const BluetoothAddress& aBdAddr);
+
+  virtual void
+  SearchCompleteNotification(int aConnId, BluetoothGattStatus aStatus);
+
+  virtual void
+  SearchResultNotification(int aConnId,
+                           const BluetoothGattServiceId& aServiceId);
+
+  virtual void
+  GetCharacteristicNotification(int aConnId,
+                                BluetoothGattStatus aStatus,
+                                const BluetoothGattServiceId& aServiceId,
+                                const BluetoothGattId& aCharId,
+                                const BluetoothGattCharProp& aCharProperty);
+
+  virtual void
+  GetDescriptorNotification(int aConnId,
+                            BluetoothGattStatus aStatus,
+                            const BluetoothGattServiceId& aServiceId,
+                            const BluetoothGattId& aCharId,
+                            const BluetoothGattId& aDescriptorId);
+
+  virtual void
+  GetIncludedServiceNotification(int aConnId,
+                                 BluetoothGattStatus aStatus,
+                                 const BluetoothGattServiceId& aServiceId,
+                                 const BluetoothGattServiceId& aIncludedServId);
+
+  virtual void
+  RegisterNotificationNotification(int aConnId,
+                                   int aIsRegister,
+                                   BluetoothGattStatus aStatus,
+                                   const BluetoothGattServiceId& aServiceId,
+                                   const BluetoothGattId& aCharId);
+
+  virtual void
+  NotifyNotification(int aConnId,
+                     const BluetoothGattNotifyParam& aNotifyParam);
+
+  virtual void
+  ReadCharacteristicNotification(int aConnId,
+                                 BluetoothGattStatus aStatus,
+                                 const BluetoothGattReadParam& aReadParam);
+
+  virtual void
+  WriteCharacteristicNotification(int aConnId,
+                                  BluetoothGattStatus aStatus,
+                                  const BluetoothGattWriteParam& aWriteParam);
+
+  virtual void
+  ReadDescriptorNotification(int aConnId,
+                             BluetoothGattStatus aStatus,
+                             const BluetoothGattReadParam& aReadParam);
+
+  virtual void
+  WriteDescriptorNotification(int aConnId,
+                              BluetoothGattStatus aStatus,
+                              const BluetoothGattWriteParam& aWriteParam);
+
+  virtual void
+  ExecuteWriteNotification(int aConnId, BluetoothGattStatus aStatus);
+
+  virtual void
+  ReadRemoteRssiNotification(int aClientIf,
+                             const BluetoothAddress& aBdAddr,
+                             int aRssi,
+                             BluetoothGattStatus aStatus);
+
+  virtual void
+  ListenNotification(BluetoothGattStatus aStatus, int aServerIf);
+
+  virtual void
+  RegisterServerNotification(BluetoothGattStatus aStatus,
+                             int aServerIf,
+                             const BluetoothUuid& aAppUuid);
+
+  virtual void
+  ConnectionNotification(int aConnId,
+                         int aServerIf,
+                         bool aConnected,
+                         const BluetoothAddress& aBdAddr);
+
+  virtual void
+  ServiceAddedNotification(BluetoothGattStatus aStatus,
+                           int aServerIf,
+                           const BluetoothGattServiceId& aServiceId,
+                           const BluetoothAttributeHandle& aServiceHandle);
+
+  virtual void
+  IncludedServiceAddedNotification(
+    BluetoothGattStatus aStatus,
+    int aServerIf,
+    const BluetoothAttributeHandle& aServiceHandle,
+    const BluetoothAttributeHandle& aIncludedServiceHandle);
+
+  virtual void
+  CharacteristicAddedNotification(
+    BluetoothGattStatus aStatus,
+    int aServerIf,
+    const BluetoothUuid& aCharId,
+    const BluetoothAttributeHandle& aServiceHandle,
+    const BluetoothAttributeHandle& aCharacteristicHandle);
+
+  virtual void
+  DescriptorAddedNotification(
+    BluetoothGattStatus aStatus,
+    int aServerIf,
+    const BluetoothUuid& aCharId,
+    const BluetoothAttributeHandle& aServiceHandle,
+    const BluetoothAttributeHandle& aDescriptorHandle);
+
+  virtual void
+  ServiceStartedNotification(BluetoothGattStatus aStatus,
+                             int aServerIf,
+                             const BluetoothAttributeHandle& aServiceHandle);
+
+  virtual void
+  ServiceStoppedNotification(BluetoothGattStatus aStatus,
+                             int aServerIf,
+                             const BluetoothAttributeHandle& aServiceHandle);
+
+  virtual void
+  ServiceDeletedNotification(BluetoothGattStatus aStatus,
+                             int aServerIf,
+                             const BluetoothAttributeHandle& aServiceHandle);
+
+  virtual void
+  RequestReadNotification(int aConnId,
+                          int aTransId,
+                          const BluetoothAddress& aBdAddr,
+                          const BluetoothAttributeHandle& aAttributeHandle,
+                          int aOffset,
+                          bool aIsLong);
+
+  virtual void
+  RequestWriteNotification(int aConnId,
+                           int aTransId,
+                           const BluetoothAddress& aBdAddr,
+                           const BluetoothAttributeHandle& aAttributeHandle,
+                           int aOffset,
+                           int aLength,
+                           const uint8_t* aValue,
+                           bool aNeedResponse,
+                           bool aIsPrepareWrite);
+
+  virtual void
+  RequestExecuteWriteNotification(int aConnId,
+                                  int aTransId,
+                                  const BluetoothAddress& aBdAddr,
+                                  bool aExecute); /* true: execute */
+                                                  /* false: cancel */
+
+  virtual void
+  ResponseConfirmationNotification(BluetoothGattStatus aStatus,
+                                   int aHandle);
+
+  virtual void
+  IndicationSentNotification(int aConnId,
+                             BluetoothGattStatus aStatus);
+
+  virtual void
+  CongestionNotification(int aConnId,
+                         bool aCongested);
+
+  virtual void
+  MtuChangedNotification(int aConnId,
+                         int aMtu);
+
+protected:
+  BluetoothGattNotificationHandler();
+  virtual ~BluetoothGattNotificationHandler();
+};
+
+class BluetoothGattResultHandler
+  : public mozilla::ipc::DaemonSocketResultHandler
+{
+public:
+  virtual void OnError(BluetoothStatus aStatus);
+
+  virtual void RegisterClient();
+  virtual void UnregisterClient();
+
+  virtual void Scan();
+
+  virtual void Connect();
+  virtual void Disconnect();
+
+  virtual void Listen();
+  virtual void Refresh();
+
+  virtual void SearchService();
+  virtual void GetIncludedService();
+  virtual void GetCharacteristic();
+  virtual void GetDescriptor();
+
+  virtual void ReadCharacteristic();
+  virtual void WriteCharacteristic();
+  virtual void ReadDescriptor();
+  virtual void WriteDescriptor();
+
+  virtual void ExecuteWrite();
+
+  virtual void RegisterNotification();
+  virtual void DeregisterNotification();
+
+  virtual void ReadRemoteRssi();
+  virtual void GetDeviceType(BluetoothTypeOfDevice aType);
+  virtual void SetAdvData();
+  virtual void TestCommand();
+
+  virtual void RegisterServer();
+  virtual void UnregisterServer();
+
+  virtual void ConnectPeripheral();
+  virtual void DisconnectPeripheral();
+
+  virtual void AddService();
+  virtual void AddIncludedService();
+  virtual void AddCharacteristic();
+  virtual void AddDescriptor();
+
+  virtual void StartService();
+  virtual void StopService();
+  virtual void DeleteService();
+
+  virtual void SendIndication();
+
+  virtual void SendResponse();
+
+protected:
+  virtual ~BluetoothGattResultHandler() { }
+};
+
+class BluetoothGattInterface
+{
+public:
+  virtual void SetNotificationHandler(
+    BluetoothGattNotificationHandler* aNotificationHandler) = 0;
+
+  /* Register / Unregister */
+  virtual void RegisterClient(const BluetoothUuid& aUuid,
+                              BluetoothGattResultHandler* aRes) = 0;
+  virtual void UnregisterClient(int aClientIf,
+                                BluetoothGattResultHandler* aRes) = 0;
+
+  /* Start / Stop LE Scan */
+  virtual void Scan(int aClientIf, bool aStart,
+                    BluetoothGattResultHandler* aRes) = 0;
+
+  /* Connect / Disconnect */
+  virtual void Connect(int aClientIf,
+                       const BluetoothAddress& aBdAddr,
+                       bool aIsDirect, /* auto connect */
+                       BluetoothTransport aTransport,
+                       BluetoothGattResultHandler* aRes) = 0;
+  virtual void Disconnect(int aClientIf,
+                          const BluetoothAddress& aBdAddr,
+                          int aConnId,
+                          BluetoothGattResultHandler* aRes) = 0;
+
+  /* Start / Stop advertisements to listen for incoming connections */
+  virtual void Listen(int aClientIf,
+                      bool aIsStart,
+                      BluetoothGattResultHandler* aRes) = 0;
+
+  /* Clear the attribute cache for a given device*/
+  virtual void Refresh(int aClientIf,
+                       const BluetoothAddress& aBdAddr,
+                       BluetoothGattResultHandler* aRes) = 0;
+
+  /* Enumerate Attributes */
+  virtual void SearchService(int aConnId,
+                             bool aSearchAll,
+                             const BluetoothUuid& aUuid,
+                             BluetoothGattResultHandler* aRes) = 0;
+  virtual void GetIncludedService(
+    int aConnId,
+    const BluetoothGattServiceId& aServiceId,
+    bool aFirst,
+    const BluetoothGattServiceId& aStartServiceId,
+    BluetoothGattResultHandler* aRes) = 0;
+  virtual void GetCharacteristic(int aConnId,
+                                 const BluetoothGattServiceId& aServiceId,
+                                 bool aFirst,
+                                 const BluetoothGattId& aStartCharId,
+                                 BluetoothGattResultHandler* aRes) = 0;
+  virtual void GetDescriptor(int aConnId,
+                             const BluetoothGattServiceId& aServiceId,
+                             const BluetoothGattId& aCharId,
+                             bool aFirst,
+                             const BluetoothGattId& aDescriptorId,
+                             BluetoothGattResultHandler* aRes) = 0;
+
+  /* Read / Write An Attribute */
+  virtual void ReadCharacteristic(int aConnId,
+                                  const BluetoothGattServiceId& aServiceId,
+                                  const BluetoothGattId& aCharId,
+                                  BluetoothGattAuthReq aAuthReq,
+                                  BluetoothGattResultHandler* aRes) = 0;
+  virtual void WriteCharacteristic(int aConnId,
+                                   const BluetoothGattServiceId& aServiceId,
+                                   const BluetoothGattId& aCharId,
+                                   BluetoothGattWriteType aWriteType,
+                                   BluetoothGattAuthReq aAuthReq,
+                                   const nsTArray<uint8_t>& aValue,
+                                   BluetoothGattResultHandler* aRes) = 0;
+  virtual void ReadDescriptor(int aConnId,
+                              const BluetoothGattServiceId& aServiceId,
+                              const BluetoothGattId& aCharId,
+                              const BluetoothGattId& aDescriptorId,
+                              BluetoothGattAuthReq aAuthReq,
+                              BluetoothGattResultHandler* aRes) = 0;
+  virtual void WriteDescriptor(int aConnId,
+                               const BluetoothGattServiceId& aServiceId,
+                               const BluetoothGattId& aCharId,
+                               const BluetoothGattId& aDescriptorId,
+                               BluetoothGattWriteType aWriteType,
+                               BluetoothGattAuthReq aAuthReq,
+                               const nsTArray<uint8_t>& aValue,
+                               BluetoothGattResultHandler* aRes) = 0;
+
+  /* Execute / Abort Prepared Write*/
+  virtual void ExecuteWrite(int aConnId,
+                            int aIsExecute,
+                            BluetoothGattResultHandler* aRes) = 0;
+
+  /* Register / Deregister Characteristic Notifications or Indications */
+  virtual void RegisterNotification(
+    int aClientIf,
+    const BluetoothAddress& aBdAddr,
+    const BluetoothGattServiceId& aServiceId,
+    const BluetoothGattId& aCharId,
+    BluetoothGattResultHandler* aRes) = 0;
+  virtual void DeregisterNotification(
+    int aClientIf,
+    const BluetoothAddress& aBdAddr,
+    const BluetoothGattServiceId& aServiceId,
+    const BluetoothGattId& aCharId,
+    BluetoothGattResultHandler* aRes) = 0;
+
+  virtual void ReadRemoteRssi(int aClientIf,
+                              const BluetoothAddress& aBdAddr,
+                              BluetoothGattResultHandler* aRes) = 0;
+
+  virtual void GetDeviceType(const BluetoothAddress& aBdAddr,
+                             BluetoothGattResultHandler* aRes) = 0;
+
+  /* Set advertising data or scan response data */
+  virtual void SetAdvData(int aServerIf,
+                          bool aIsScanRsp,
+                          bool aIsNameIncluded,
+                          bool aIsTxPowerIncluded,
+                          int aMinInterval,
+                          int aMaxInterval,
+                          int aApperance,
+                          const nsTArray<uint8_t>& aManufacturerData,
+                          const nsTArray<uint8_t>& aServiceData,
+                          const nsTArray<BluetoothUuid>& aServiceUuids,
+                          BluetoothGattResultHandler* aRes) = 0;
+
+  virtual void TestCommand(int aCommand,
+                           const BluetoothGattTestParam& aTestParam,
+                           BluetoothGattResultHandler* aRes) = 0;
+
+  /* Register / Unregister */
+  virtual void RegisterServer(const BluetoothUuid& aUuid,
+                              BluetoothGattResultHandler* aRes) = 0;
+  virtual void UnregisterServer(int aServerIf,
+                                BluetoothGattResultHandler* aRes) = 0;
+
+  /* Connect / Disconnect */
+  virtual void ConnectPeripheral(int aServerIf,
+                                 const BluetoothAddress& aBdAddr,
+                                 bool aIsDirect, /* auto connect */
+                                 BluetoothTransport aTransport,
+                                 BluetoothGattResultHandler* aRes) = 0;
+  virtual void DisconnectPeripheral(int aServerIf,
+                                    const BluetoothAddress& aBdAddr,
+                                    int aConnId,
+                                    BluetoothGattResultHandler* aRes) = 0;
+
+  /* Add a services / a characteristic / a descriptor */
+  virtual void AddService(int aServerIf,
+                          const BluetoothGattServiceId& aServiceId,
+                          uint16_t aNumHandles,
+                          BluetoothGattResultHandler* aRes) = 0;
+  virtual void AddIncludedService(
+    int aServerIf,
+    const BluetoothAttributeHandle& aServiceHandle,
+    const BluetoothAttributeHandle& aIncludedServiceHandle,
+    BluetoothGattResultHandler* aRes) = 0;
+  virtual void AddCharacteristic(int aServerIf,
+                                 const BluetoothAttributeHandle& aServiceHandle,
+                                 const BluetoothUuid& aUuid,
+                                 BluetoothGattCharProp aProperties,
+                                 BluetoothGattAttrPerm aPermissions,
+                                 BluetoothGattResultHandler* aRes) = 0;
+  virtual void AddDescriptor(int aServerIf,
+                             const BluetoothAttributeHandle& aServiceHandle,
+                             const BluetoothUuid& aUuid,
+                             BluetoothGattAttrPerm aPermissions,
+                             BluetoothGattResultHandler* aRes) = 0;
+
+  /* Start / Stop / Delete a service */
+  virtual void StartService(int aServerIf,
+                            const BluetoothAttributeHandle& aServiceHandle,
+                            BluetoothTransport aTransport,
+                            BluetoothGattResultHandler* aRes) = 0;
+  virtual void StopService(int aServerIf,
+                           const BluetoothAttributeHandle& aServiceHandle,
+                           BluetoothGattResultHandler* aRes) = 0;
+  virtual void DeleteService(int aServerIf,
+                             const BluetoothAttributeHandle& aServiceHandle,
+                             BluetoothGattResultHandler* aRes) = 0;
+
+  /* Send an indication or a notification */
+  virtual void SendIndication(
+    int aServerIf,
+    const BluetoothAttributeHandle& aCharacteristicHandle,
+    int aConnId,
+    const nsTArray<uint8_t>& aValue,
+    bool aConfirm, /* true: indication; false: notification */
+    BluetoothGattResultHandler* aRes) = 0;
+
+  /* Send a response for an incoming indication */
+  virtual void SendResponse(int aConnId,
+                            int aTransId,
+                            uint16_t aStatus,
+                            const BluetoothGattResponse& aResponse,
+                            BluetoothGattResultHandler* aRes) = 0;
+
+protected:
+  BluetoothGattInterface();
+  virtual ~BluetoothGattInterface();
+};
 
 
 //
@@ -1332,7 +1332,7 @@ public:
   virtual BluetoothHandsfreeInterface* GetBluetoothHandsfreeInterface() = 0;
   virtual BluetoothA2dpInterface* GetBluetoothA2dpInterface() = 0;
   virtual BluetoothAvrcpInterface* GetBluetoothAvrcpInterface() = 0;
-  // virtual BluetoothGattInterface* GetBluetoothGattInterface() = 0;
+  virtual BluetoothGattInterface* GetBluetoothGattInterface() = 0;
   virtual BluetoothHidInterface* GetBluetoothHidInterface() = 0;
   virtual BluetoothSdpInterface* GetBluetoothSdpInterface() = 0;
 
