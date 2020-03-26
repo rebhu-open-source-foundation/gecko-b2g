@@ -183,7 +183,7 @@ SharedSurface_Gralloc::ProducerReleaseImpl()
                                          nullptr);
         if (sync) {
             mGL->fFlush();
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
             int fenceFd = mEGL->fDupNativeFenceFDANDROID(mEGL->Display(), sync);
             if (fenceFd != -1) {
                 mEGL->fDestroySync(mEGL->Display(), sync);

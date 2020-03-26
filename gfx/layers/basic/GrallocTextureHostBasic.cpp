@@ -7,9 +7,7 @@
 #include "GrallocImages.h"  // for GetDataSourceSurfaceFrom()
 #include "mozilla/layers/SharedBufferManagerParent.h"
 
-#if ANDROID_VERSION >= 17
 #include <ui/Fence.h>
-#endif
 
 namespace mozilla {
 namespace layers {
@@ -33,7 +31,7 @@ HalFormatToSurfaceFormat(int aHalFormat, TextureFlags aFlags)
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
   case HAL_PIXEL_FORMAT_YV12:
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
 #endif
       // Needs convert to RGB565
@@ -65,7 +63,7 @@ NeedsConvertFromYUVtoRGB565(int aHalFormat)
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
   case HAL_PIXEL_FORMAT_YV12:
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
 #endif
       return true;
@@ -205,7 +203,6 @@ GrallocTextureHostBasic::WaitAcquireFenceHandleSyncComplete()
     return;
   }
 
-#if ANDROID_VERSION >= 17
   RefPtr<FenceHandle::FdObj> fdObj = mAcquireFenceHandle.GetAndResetFdObj();
   android::sp<android::Fence> fence(
     new android::Fence(fdObj->GetAndResetFd()));
@@ -217,7 +214,6 @@ GrallocTextureHostBasic::WaitAcquireFenceHandleSyncComplete()
   if (rv != android::OK) {
     NS_ERROR("failed to wait fence complete");
   }
-#endif
 }
 
 void

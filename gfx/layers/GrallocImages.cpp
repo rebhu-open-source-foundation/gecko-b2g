@@ -221,7 +221,6 @@ ConvertVendorYUVFormatToRGB565(android::sp<GraphicBuffer>& aBuffer,
 {
   status_t rv = BAD_VALUE;
 
-#if ANDROID_VERSION >= 18
   android_ycbcr ycbcr;
 
   // Check if the vendor provides explicit addresses of Y/Cb/Cr buffer from lockYCbCr
@@ -263,7 +262,6 @@ ConvertVendorYUVFormatToRGB565(android::sp<GraphicBuffer>& aBuffer,
                            aMappedSurface->mData,
                            aMappedSurface->mStride);
   }
-#endif
 
   return rv;
 }

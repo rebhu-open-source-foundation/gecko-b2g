@@ -44,7 +44,7 @@ SurfaceFormatForAndroidPixelFormat(android::PixelFormat aFormat,
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
   case HAL_PIXEL_FORMAT_YV12:
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
 #endif
     return gfx::SurfaceFormat::R8G8B8A8; // yup, use SurfaceFormat::R8G8B8A8 even though it's a YUV texture. This is an external texture.
@@ -75,7 +75,7 @@ TextureTargetForAndroidPixelFormat(android::PixelFormat aFormat)
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
   case GrallocImage::HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
   case HAL_PIXEL_FORMAT_YV12:
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
 #endif
     return LOCAL_GL_TEXTURE_EXTERNAL;
@@ -491,7 +491,7 @@ GrallocTextureHostOGL::BindTextureSource(CompositableTextureSourceRef& aTextureS
   MOZ_ASSERT(mGLTextureSource == aTextureSource);
   aTextureSource = mGLTextureSource.get();
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   // Wait until it's ready.
   WaitAcquireFenceHandleSyncComplete();
 #endif

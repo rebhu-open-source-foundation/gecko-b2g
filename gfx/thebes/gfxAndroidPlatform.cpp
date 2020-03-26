@@ -453,7 +453,7 @@ private:
 
 already_AddRefed<mozilla::gfx::VsyncSource>
 gfxAndroidPlatform::CreateHardwareVsyncSource() {
-#if defined(MOZ_WIDGET_GONK) && (ANDROID_VERSION == 19 || ANDROID_VERSION >= 21)
+#if defined(MOZ_WIDGET_GONK)
   // Only enable true hardware vsync on kit-kat and L device. Jelly Bean has
   // inaccurate hardware vsync so disable on JB. Android pre-JB doesn't have
   // hardware vsync.

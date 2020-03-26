@@ -82,21 +82,17 @@ CompositorVsyncScheduler::CompositorVsyncScheduler(
       , mSetNeedsCompositeMonitor("SetNeedsCompositeMonitor")
       , mSetNeedsCompositeTask(nullptr)
 #ifdef MOZ_WIDGET_GONK
-#if ANDROID_VERSION >= 19
       , mDisplayEnabled(hal::GetScreenEnabled())
       , mSetDisplayMonitor("SetDisplayMonitor")
       , mSetDisplayTask(nullptr)
-#endif
 #endif
 {
   mVsyncObserver = new Observer(this);
 #ifdef MOZ_WIDGET_GONK
   GeckoTouchDispatcher::GetInstance()->SetCompositorVsyncScheduler(this);
 
-#if ANDROID_VERSION >= 19
   widget::ScreenHelperGonk *screenHelper = widget::ScreenHelperGonk::GetSingleton();
   screenHelper->SetCompositorVsyncScheduler(this);
-#endif
 #endif
 
   // mAsapScheduling is set on the main thread during init,
@@ -115,7 +111,6 @@ CompositorVsyncScheduler::~CompositorVsyncScheduler() {
 }
 
 #ifdef MOZ_WIDGET_GONK
-#if ANDROID_VERSION >= 19
 void
 CompositorVsyncScheduler::SetDisplay(bool aDisplayEnable)
 {
@@ -165,7 +160,6 @@ CompositorVsyncScheduler::CancelSetDisplayTask()
   // mDisplayEnabled could be false there.
   mDisplayEnabled = false;
 }
-#endif //ANDROID_VERSION >= 19
 #endif //MOZ_WIDGET_GONK
 
 void CompositorVsyncScheduler::Destroy() {
@@ -181,9 +175,7 @@ void CompositorVsyncScheduler::Destroy() {
 
   mCompositeRequestedAt = TimeStamp();
 #ifdef MOZ_WIDGET_GONK
-#if ANDROID_VERSION >= 19
   CancelSetDisplayTask();
-#endif
 #endif
   CancelCurrentSetNeedsCompositeTask();
   CancelCurrentCompositeTask();
@@ -291,12 +283,10 @@ CompositorVsyncScheduler::SetNeedsComposite()
   }
 
 #ifdef MOZ_WIDGET_GONK
-#if ANDROID_VERSION >= 19
   // Skip composition when display off.
   if (!mDisplayEnabled) {
     return;
   }
-#endif
 #endif
 
   mCompositeRequestedAt = TimeStamp::Now();

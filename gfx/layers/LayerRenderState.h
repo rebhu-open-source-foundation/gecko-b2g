@@ -13,9 +13,7 @@
 
 #ifdef MOZ_WIDGET_GONK
 #  include <utils/RefBase.h>
-#if ANDROID_VERSION >= 21
 #  include <utils/NativeHandle.h>
-#endif
 #endif
 
 namespace android {
@@ -77,12 +75,9 @@ struct LayerRenderState {
   android::GraphicBuffer* GetGrallocBuffer() const
   { return mSurface.get(); }
 
-#if ANDROID_VERSION >= 21
-//FIXME
 #if 0
   android::NativeHandle* GetSidebandStream() const
   { return mSidebandStream.get(); }
-#endif
 #endif
 #endif
 
@@ -107,11 +102,9 @@ struct LayerRenderState {
   // size of mSurface
   gfx::IntSize mSize;
   TextureHost* mTexture;
-#if ANDROID_VERSION >= 21
 //FIXME
 #if 0
   android::sp<android::NativeHandle> mSidebandStream;
-#endif
 #endif
 #endif
 };

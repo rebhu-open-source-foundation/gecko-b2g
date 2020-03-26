@@ -81,7 +81,7 @@ public:
 
   bool NeedsFenceHandle()
   {
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
     return true;
 #else
     return false;

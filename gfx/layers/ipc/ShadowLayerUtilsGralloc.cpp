@@ -68,18 +68,13 @@ void
 ParamTraits<MagicGrallocBufferHandle>::Write(Message* aMsg,
                                              const paramType& aParam)
 {
-#if ANDROID_VERSION >= 19
   sp<GraphicBuffer> flattenable = aParam.mGraphicBuffer;
-#else
-  Flattenable *flattenable = aParam.mGraphicBuffer.get();
-#endif
   size_t nbytes = flattenable->getFlattenedSize();
   size_t nfds = flattenable->getFdCount();
 
   char data[nbytes];
   int fds[nfds];
 
-#if ANDROID_VERSION >= 19
   // Make a copy of "data" and "fds" for flatten() to avoid casting problem
   void *pdata = (void *)data;
   int *pfds = fds;
@@ -92,9 +87,6 @@ ParamTraits<MagicGrallocBufferHandle>::Write(Message* aMsg,
   // So we change nbytes and nfds back by call corresponding calls.
   nbytes = flattenable->getFlattenedSize();
   nfds = flattenable->getFdCount();
-#else
-  flattenable->flatten(data, nbytes, fds, nfds);
-#endif
   aMsg->WriteInt(aParam.mRef.mOwner);
   aMsg->WriteInt64(aParam.mRef.mKey);
   // TODO: verify this is correct after bug 1525199.
@@ -162,20 +154,12 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
   } else {
     // Deserialize GraphicBuffer
     size_t size = static_cast<size_t>(nbytes);
-#if ANDROID_VERSION >= 19
     sp<GraphicBuffer> buffer(new GraphicBuffer());
     const void* datap = (const void*)data.get();
     const int* fdsp = &fds[0];
     if (NO_ERROR != buffer->unflatten(datap, size, fdsp, nfds)) {
       buffer = nullptr;
     }
-#else
-    sp<GraphicBuffer> buffer(new GraphicBuffer());
-    Flattenable *flattenable = buffer.get();
-    if (NO_ERROR != flattenable->unflatten(data.get(), size, fds, nfds)) {
-      buffer = nullptr;
-    }
-#endif
     if (buffer.get()) {
       aResult->mGraphicBuffer = buffer;
     }

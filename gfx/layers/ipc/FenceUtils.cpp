@@ -7,12 +7,9 @@
 
 // TODO: FIXME
 #if 0
-
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
 #pragma GCC visibility push(default)
 #include "sync/sync.h"       // for sync_merge
 #pragma GCC visibility pop
-#endif
 
 #endif
 
@@ -30,7 +27,7 @@ ParamTraits<FenceHandle>::Write(Message* aMsg,
 
   MOZ_ASSERT(handle.IsValid());
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   RefPtr<FenceHandle::FdObj> fence = handle.GetAndResetFdObj();
   aMsg->WriteFileDescriptor(base::FileDescriptor(fence->GetAndResetFd(), true));
 #endif
@@ -40,7 +37,7 @@ bool
 ParamTraits<FenceHandle>::Read(const Message* aMsg,
                                PickleIterator* aIter, paramType* aResult)
 {
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   base::FileDescriptor fd;
   if (aMsg->ReadFileDescriptor(aIter, &fd)) {
     aResult->Merge(FenceHandle(new FenceHandle::FdObj(fd.fd)));
@@ -70,8 +67,7 @@ FenceHandle::Merge(const FenceHandle& aFenceHandle)
 {
 // TODO: FIXME
 #if 0
-
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
   if (!aFenceHandle.IsValid()) {
     return;
   }
@@ -87,7 +83,6 @@ FenceHandle::Merge(const FenceHandle& aFenceHandle)
     }
   }
 #endif
-
 #endif
 }
 

@@ -17,7 +17,7 @@
 #include "gfx2DGlue.h"
 #include "SharedSurfaceGralloc.h"
 
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
 #include <ui/Fence.h>
 #endif
 
@@ -155,17 +155,11 @@ GrallocTextureData::Serialize(SurfaceDescriptor& aOutDescriptor)
 void
 GrallocTextureData::WaitForBufferOwnership()
 {
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 17
+#if defined(MOZ_WIDGET_GONK)
    if (mReleaseFenceHandle.IsValid()) {
      RefPtr<FenceHandle::FdObj> fdObj = mReleaseFenceHandle.GetAndResetFdObj();
      android::sp<android::Fence> fence = new android::Fence(fdObj->GetAndResetFd());
-#if ANDROID_VERSION == 17
-     fence->waitForever(1000, "GrallocTextureClientOGL::Lock");
-     // 1000 is what Android uses. It is a warning timeout in ms.
-     // This timeout was removed in ANDROID_VERSION 18.
-#else
      fence->waitForever("GrallocTextureClientOGL::Lock");
-#endif
      mReleaseFenceHandle = FenceHandle();
    }
 #endif
@@ -174,19 +168,6 @@ GrallocTextureData::WaitForBufferOwnership()
 void
 GrallocTextureData::WaitForFence(FenceHandle* aFence)
 {
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION < 21 && ANDROID_VERSION >= 17
-   if (aFence && aFence->IsValid()) {
-     RefPtr<FenceHandle::FdObj> fdObj = aFence->GetAndResetFdObj();
-     android::sp<Fence> fence = new Fence(fdObj->GetAndResetFd());
-#if ANDROID_VERSION == 17
-     fence->waitForever(1000, "GrallocTextureData::Lock");
-     // 1000 is what Android uses. It is a warning timeout in ms.
-     // This timeout was removed in ANDROID_VERSION 18.
-#else
-     fence->waitForever("GrallocTextureData::Lock");
-#endif
-   }
-#endif
 }
 
 bool
@@ -207,7 +188,7 @@ GrallocTextureData::Lock(OpenMode aMode)
   void** mappedBufferPtr = reinterpret_cast<void**>(&mMappedBuffer);
 
   int32_t rv = 0;
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
+#if defined(MOZ_WIDGET_GONK)
   if (aReleaseFence) {
     RefPtr<FenceHandle::FdObj> fdObj = aReleaseFence->GetAndResetFdObj();
     rv = mGraphicBuffer->lockAsync(usage, mappedBufferPtr,
@@ -215,10 +196,6 @@ GrallocTextureData::Lock(OpenMode aMode)
   } else {
     rv = mGraphicBuffer->lock(usage, mappedBufferPtr);
   }
-#else
-  // older versions of android don't have lockAsync
-  WaitForFence(aReleaseFence);
-  rv = mGraphicBuffer->lock(usage, mappedBufferPtr);
 #endif
 
   if (rv) {
@@ -374,19 +351,6 @@ GrallocTextureData::CreateForDrawing(gfx::IntSize aSize, gfx::SurfaceFormat aFor
   if (DisableGralloc(aFormat, aSize)) {
     return nullptr;
   }
-
-#if ANDROID_VERSION <= 15
-  // Adreno 200 has a problem of drawing gralloc buffer width less than 64 and
-  // drawing gralloc buffer with a height 9px-16px.
-  // See Bug 983971.
-  // We only have this restriction in TextureClients that we'll use for drawing
-  // (not with WebGL for instance). Not sure why that's OK, but we have tests that
-  // rely on being able to create 32x32 webgl canvases with gralloc, so moving
-  // this check in DisableGralloc will break them.
-  if (aSize.width < 64 || aSize.height < 32) {
-    return nullptr;
-  }
-#endif
 
   uint32_t usage = android::GraphicBuffer::USAGE_SW_READ_OFTEN |
                    android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |

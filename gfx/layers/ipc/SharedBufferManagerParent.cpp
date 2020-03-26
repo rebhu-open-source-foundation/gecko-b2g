@@ -236,7 +236,6 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
   }
 
   sp<GraphicBuffer> outgoingBuffer;
-#if ANDROID_VERSION >= 26
   typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
   typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
                                                 AHardwareBuffer_Desc* outDesc);
@@ -270,10 +269,6 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
       outgoingBuffer = reinterpret_cast< GraphicBuffer*>(graphicBuf);
     }
   }
-#else
-  // for old ANDROID_VERSION, use original GraphicBuffer
-  outgoingBuffer = new GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
-#endif
   if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != NO_ERROR) {
     printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
     return true;
