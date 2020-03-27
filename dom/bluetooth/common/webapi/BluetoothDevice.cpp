@@ -12,7 +12,7 @@
 #include "mozilla/dom/BluetoothDeviceBinding.h"
 #include "mozilla/dom/bluetooth/BluetoothClassOfDevice.h"
 #include "mozilla/dom/bluetooth/BluetoothDevice.h"
-// #include "mozilla/dom/bluetooth/BluetoothGatt.h"
+#include "mozilla/dom/bluetooth/BluetoothGatt.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "mozilla/dom/Promise.h"
 
@@ -26,7 +26,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(BluetoothDevice)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothDevice,
                                                 DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCod)
-  // NS_IMPL_CYCLE_COLLECTION_UNLINK(mGatt)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mGatt)
 
   /**
    * Unregister the bluetooth signal handler after unlinked.
@@ -41,7 +41,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothDevice,
                                                   DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCod)
-  // NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGatt)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGatt)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothDevice)
@@ -188,11 +188,11 @@ BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
     BluetoothDevice_Binding::ClearCachedUuidsValue(this);
   } else if (name.EqualsLiteral("Type")) {
     mType = ConvertUint32ToDeviceType(value.get_uint32_t());
-  // } else if (name.EqualsLiteral("GattAdv")) {
-  //   MOZ_ASSERT(value.type() == BluetoothValue::TArrayOfuint8_t);
-  //   nsTArray<uint8_t> advData;
-  //   advData = value.get_ArrayOfuint8_t();
-  //   UpdatePropertiesFromAdvData(advData);
+  } else if (name.EqualsLiteral("GattAdv")) {
+    MOZ_ASSERT(value.type() == BluetoothValue::TArrayOfuint8_t);
+    nsTArray<uint8_t> advData;
+    advData = value.get_ArrayOfuint8_t();
+    UpdatePropertiesFromAdvData(advData);
   } else {
     // "Rssi" is handled by BluetoothAdapter::HandleLeDeviceFound()
     BT_LOGD("Not handling device property: %s",
@@ -353,107 +353,108 @@ BluetoothDevice::DispatchAttributeEvent(const Sequence<nsString>& aTypes)
   DispatchTrustedEvent(event);
 }
 
-// BluetoothGatt*
-// BluetoothDevice::GetGatt()
-// {
-//   NS_ENSURE_TRUE(mType == BluetoothDeviceType::Le ||
-//                  mType == BluetoothDeviceType::Dual,
-//                  nullptr);
-//   if (!mGatt) {
-//     mGatt = new BluetoothGatt(GetOwner(), mAddress);
-//   }
+BluetoothGatt*
+BluetoothDevice::GetGatt()
+{
+  NS_ENSURE_TRUE(mType == BluetoothDeviceType::Le ||
+                 mType == BluetoothDeviceType::Dual,
+                 nullptr);
+  if (!mGatt) {
+    mGatt = new BluetoothGatt(GetOwner(), mAddress);
+  }
 
-//   return mGatt;
-// }
+  return mGatt;
+}
 
-// void
-// BluetoothDevice::UpdatePropertiesFromAdvData(const nsTArray<uint8_t>& aAdvData)
-// {
-//   // According to BT Core Spec. Vol 3 - Ch 11, advertisement data consists of a
-//   // significant part and a non-significant part.
-//   // The significant part contains a sequence of AD structures. Each AD
-//   // structure shall have a Length field of one octet, which contains the
-//   // Length value, and a Data field of Length octets.
-//   unsigned int offset = 0;
-//   while (offset < aAdvData.Length()) {
-//     int dataFieldLength = aAdvData[offset++];
+void
+BluetoothDevice::UpdatePropertiesFromAdvData(const nsTArray<uint8_t>& aAdvData)
+{
+  // According to BT Core Spec. Vol 3 - Ch 11, advertisement data consists of a
+  // significant part and a non-significant part.
+  // The significant part contains a sequence of AD structures. Each AD
+  // structure shall have a Length field of one octet, which contains the
+  // Length value, and a Data field of Length octets.
+  unsigned int offset = 0;
+  while (offset < aAdvData.Length()) {
+    int dataFieldLength = aAdvData[offset++];
 
-//     // According to BT Core Spec, it only occurs to allow an early termination
-//     // of the Advertising data.
-//     if (dataFieldLength <= 0) {
-//       break;
-//     }
+    // According to BT Core Spec, it only occurs to allow an early termination
+    // of the Advertising data.
+    if (dataFieldLength <= 0) {
+      break;
+    }
 
-//     // Length of the data field which is composed by AD type (1 byte) and
-//     // AD data (dataFieldLength -1 bytes)
-//     int dataLength = dataFieldLength - 1;
-//     if (offset + dataLength >= aAdvData.Length()) {
-//       break;
-//     }
+    // Length of the data field which is composed by AD type (1 byte) and
+    // AD data (dataFieldLength -1 bytes)
+    int dataLength = dataFieldLength - 1;
+    if (offset + dataLength >= aAdvData.Length()) {
+      break;
+    }
 
-//     // Update UUIDs and name of BluetoothDevice.
-//     BluetoothGapDataType type =
-//       static_cast<BluetoothGapDataType>(aAdvData[offset++]);
-//     switch (type) {
-//       case GAP_INCOMPLETE_UUID16:
-//       case GAP_COMPLETE_UUID16:
-//       case GAP_INCOMPLETE_UUID32:
-//       case GAP_COMPLETE_UUID32:
-//       case GAP_INCOMPLETE_UUID128:
-//       case GAP_COMPLETE_UUID128: {
-//         mUuids.Clear();
+    // Update UUIDs and name of BluetoothDevice.
+    BluetoothGapDataType type =
+      static_cast<BluetoothGapDataType>(aAdvData[offset++]);
+    switch (type) {
+      case GAP_INCOMPLETE_UUID16:
+      case GAP_COMPLETE_UUID16:
+      case GAP_INCOMPLETE_UUID32:
+      case GAP_COMPLETE_UUID32:
+      case GAP_INCOMPLETE_UUID128:
+      case GAP_COMPLETE_UUID128: {
+        mUuids.Clear();
 
-//         while (dataLength > 0) {
-//           BluetoothUuid uuid;
-//           size_t length = 0;
-//           if (type == GAP_INCOMPLETE_UUID16 || type == GAP_COMPLETE_UUID16) {
-//             length = 2;
-//             if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_16_BIT,
-//                                       ENDIAN_GAP, uuid))) {
-//               break;
-//             }
-//           } else if (type == GAP_INCOMPLETE_UUID32 ||
-//                      type == GAP_COMPLETE_UUID32) {
-//             length = 4;
-//             if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_32_BIT,
-//                                       ENDIAN_GAP, uuid))) {
-//               break;
-//             }
-//           } else if (type == GAP_INCOMPLETE_UUID128 ||
-//                      type == GAP_COMPLETE_UUID128) {
-//             length = 16;
-//             if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_128_BIT,
-//                                       ENDIAN_GAP, uuid))) {
-//               break;
-//             }
-//           }
-//           mUuids.AppendElement(uuid);
-//           offset += length;
-//           dataLength -= length;
-//         }
+        while (dataLength > 0) {
+          BluetoothUuid uuid;
+          size_t length = 0;
+          if (type == GAP_INCOMPLETE_UUID16 || type == GAP_COMPLETE_UUID16) {
+            length = 2;
+            if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_16_BIT,
+                                      ENDIAN_GAP, uuid))) {
+              break;
+            }
+          } else if (type == GAP_INCOMPLETE_UUID32 ||
+                     type == GAP_COMPLETE_UUID32) {
+            length = 4;
+            if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_32_BIT,
+                                      ENDIAN_GAP, uuid))) {
+              break;
+            }
+          } else if (type == GAP_INCOMPLETE_UUID128 ||
+                     type == GAP_COMPLETE_UUID128) {
+            length = 16;
+            if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_128_BIT,
+                                      ENDIAN_GAP, uuid))) {
+              break;
+            }
+          }
+          mUuids.AppendElement(uuid);
+          offset += length;
+          dataLength -= length;
+        }
 
-//         // BluetoothDeviceBinding::ClearCachedUuidsValue(this);
-//         BluetoothDevice_Binding::ClearCachedUuidsValue(this);
-//         break;
-//       }
-//       case GAP_SHORTENED_NAME:
-//         if (!mName.IsEmpty()) break;
-//       case GAP_COMPLETE_NAME: {
-//         // Read device name from data buffer.
-//         char deviceName[dataLength];
-//         for (int i = 0; i < dataLength; ++i) {
-//           deviceName[i] = aAdvData[offset++];
-//         }
+        // BluetoothDeviceBinding::ClearCachedUuidsValue(this);
+        BluetoothDevice_Binding::ClearCachedUuidsValue(this);
+        break;
+      }
+      case GAP_SHORTENED_NAME:
+        if (!mName.IsEmpty()) break;
+        [[fallthrough]];
+      case GAP_COMPLETE_NAME: {
+        // Read device name from data buffer.
+        char deviceName[dataLength];
+        for (int i = 0; i < dataLength; ++i) {
+          deviceName[i] = aAdvData[offset++];
+        }
 
-//         mName.AssignASCII(deviceName, dataLength);
-//         break;
-//       }
-//       default:
-//         offset += dataLength;
-//         break;
-//     }
-//   }
-// }
+        mName.AssignASCII(deviceName, dataLength);
+        break;
+      }
+      default:
+        offset += dataLength;
+        break;
+    }
+  }
+}
 
 JSObject*
 BluetoothDevice::WrapObject(JSContext* aContext,

@@ -10,13 +10,13 @@
 #include "BluetoothCommon.h"
 #include "js/TypeDecls.h"
 
-// namespace mozilla {
-// namespace dom {
-// class GattPermissions;
-// class GattCharacteristicProperties;
-// class BluetoothAdvertisingData;
-// }
-// }
+namespace mozilla {
+namespace dom {
+class GattPermissions;
+class GattCharacteristicProperties;
+class BluetoothAdvertisingData;
+}
+}
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -180,9 +180,9 @@ GenerateUuid(nsAString &aUuidString);
  * @param aBits [in] BluetoothGattAttrPerm bit masks.
  * @param aPermissions [out] GattPermissions object.
  */
-// void
-// GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
-//                             GattPermissions& aPermissions);
+void
+GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
+                            GattPermissions& aPermissions);
 
 /**
  * Convert GattPermissions object to BluetoothGattAttrPerm bit masks.
@@ -190,9 +190,9 @@ GenerateUuid(nsAString &aUuidString);
  * @param aPermissions [in] GattPermissions object.
  * @param aBits [out] BluetoothGattAttrPerm bit masks.
  */
-// void
-// GattPermissionsToBits(const GattPermissions& aPermissions,
-//                       BluetoothGattAttrPerm& aBits);
+void
+GattPermissionsToBits(const GattPermissions& aPermissions,
+                      BluetoothGattAttrPerm& aBits);
 
 /**
  * Convert BluetoothGattCharProp bit masks to GattCharacteristicProperties
@@ -201,9 +201,9 @@ GenerateUuid(nsAString &aUuidString);
  * @param aBits [in] BluetoothGattCharProp bit masks.
  * @param aProperties [out] GattCharacteristicProperties object.
  */
-// void
-// GattPropertiesToDictionary(BluetoothGattCharProp aBits,
-//                            GattCharacteristicProperties& aProperties);
+void
+GattPropertiesToDictionary(BluetoothGattCharProp aBits,
+                           GattCharacteristicProperties& aProperties);
 
 /**
  * Convert GattCharacteristicProperties object to BluetoothGattCharProp bit
@@ -212,9 +212,9 @@ GenerateUuid(nsAString &aUuidString);
  * @param aProperties [in] GattCharacteristicProperties object.
  * @param aBits [out] BluetoothGattCharProp bit masks.
  */
-// void
-// GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
-//                      BluetoothGattCharProp& aBits);
+void
+GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
+                     BluetoothGattCharProp& aBits);
 
 //
 // Generate bluetooth signal path from GattId
@@ -238,10 +238,10 @@ GeneratePathFromGattId(const BluetoothGattId& aId,
  * @param aGattAdData [out] Target BluetoothGattAdvertisingData.
  * @return NS_OK on success, NS_ERROR_ILLEGAL_VALUE otherwise.
  */
-// nsresult
-// AdvertisingDataToGattAdvertisingData(
-//   const BluetoothAdvertisingData& aAdvData,
-//   BluetoothGattAdvertisingData& aGattAdvData);
+nsresult
+AdvertisingDataToGattAdvertisingData(
+  const BluetoothAdvertisingData& aAdvData,
+  BluetoothGattAdvertisingData& aGattAdvData);
 
 //
 // Register/Unregister bluetooth signal handlers

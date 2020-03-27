@@ -8,8 +8,8 @@
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
 #include "jsapi.h"
-// #include "mozilla/dom/BluetoothGattCharacteristicBinding.h"
-// #include "mozilla/dom/BluetoothGattServerBinding.h"
+#include "mozilla/dom/BluetoothGattCharacteristicBinding.h"
+#include "mozilla/dom/BluetoothGattServerBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "nsContentUtils.h"
@@ -400,169 +400,169 @@ GenerateUuid(nsAString &aUuidString)
   return NS_OK;
 }
 
-// void
-// GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
-//                             GattPermissions& aPermissions)
-// {
-//   aPermissions.mRead = aBits & GATT_ATTR_PERM_BIT_READ;
-//   aPermissions.mReadEncrypted = aBits & GATT_ATTR_PERM_BIT_READ_ENCRYPTED;
-//   aPermissions.mReadEncryptedMITM =
-//     aBits & GATT_ATTR_PERM_BIT_READ_ENCRYPTED_MITM;
-//   aPermissions.mWrite = aBits & GATT_ATTR_PERM_BIT_WRITE;
-//   aPermissions.mWriteEncrypted = aBits & GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED;
-//   aPermissions.mWriteEncryptedMITM =
-//     aBits & GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED_MITM;
-//   aPermissions.mWriteSigned = aBits & GATT_ATTR_PERM_BIT_WRITE_SIGNED;
-//   aPermissions.mWriteSignedMITM = aBits & GATT_ATTR_PERM_BIT_WRITE_SIGNED_MITM;
-// }
+void
+GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
+                            GattPermissions& aPermissions)
+{
+  aPermissions.mRead = aBits & GATT_ATTR_PERM_BIT_READ;
+  aPermissions.mReadEncrypted = aBits & GATT_ATTR_PERM_BIT_READ_ENCRYPTED;
+  aPermissions.mReadEncryptedMITM =
+    aBits & GATT_ATTR_PERM_BIT_READ_ENCRYPTED_MITM;
+  aPermissions.mWrite = aBits & GATT_ATTR_PERM_BIT_WRITE;
+  aPermissions.mWriteEncrypted = aBits & GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED;
+  aPermissions.mWriteEncryptedMITM =
+    aBits & GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED_MITM;
+  aPermissions.mWriteSigned = aBits & GATT_ATTR_PERM_BIT_WRITE_SIGNED;
+  aPermissions.mWriteSignedMITM = aBits & GATT_ATTR_PERM_BIT_WRITE_SIGNED_MITM;
+}
 
-// void
-// GattPermissionsToBits(const GattPermissions& aPermissions,
-//                       BluetoothGattAttrPerm& aBits)
-// {
-//   aBits = BLUETOOTH_EMPTY_GATT_ATTR_PERM;
+void
+GattPermissionsToBits(const GattPermissions& aPermissions,
+                      BluetoothGattAttrPerm& aBits)
+{
+  aBits = BLUETOOTH_EMPTY_GATT_ATTR_PERM;
 
-//   if (aPermissions.mRead) {
-//     aBits |= GATT_ATTR_PERM_BIT_READ;
-//   }
-//   if (aPermissions.mReadEncrypted) {
-//     aBits |= GATT_ATTR_PERM_BIT_READ_ENCRYPTED;
-//   }
-//   if (aPermissions.mReadEncryptedMITM) {
-//     aBits |= GATT_ATTR_PERM_BIT_READ_ENCRYPTED_MITM;
-//   }
-//   if (aPermissions.mWrite) {
-//     aBits |= GATT_ATTR_PERM_BIT_WRITE;
-//   }
-//   if (aPermissions.mWriteEncrypted) {
-//     aBits |= GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED;
-//   }
-//   if (aPermissions.mWriteEncryptedMITM) {
-//     aBits |= GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED_MITM;
-//   }
-//   if (aPermissions.mWriteSigned) {
-//     aBits |= GATT_ATTR_PERM_BIT_WRITE_SIGNED;
-//   }
-//   if (aPermissions.mWriteSignedMITM) {
-//     aBits |= GATT_ATTR_PERM_BIT_WRITE_SIGNED_MITM;
-//   }
-// }
+  if (aPermissions.mRead) {
+    aBits |= GATT_ATTR_PERM_BIT_READ;
+  }
+  if (aPermissions.mReadEncrypted) {
+    aBits |= GATT_ATTR_PERM_BIT_READ_ENCRYPTED;
+  }
+  if (aPermissions.mReadEncryptedMITM) {
+    aBits |= GATT_ATTR_PERM_BIT_READ_ENCRYPTED_MITM;
+  }
+  if (aPermissions.mWrite) {
+    aBits |= GATT_ATTR_PERM_BIT_WRITE;
+  }
+  if (aPermissions.mWriteEncrypted) {
+    aBits |= GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED;
+  }
+  if (aPermissions.mWriteEncryptedMITM) {
+    aBits |= GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED_MITM;
+  }
+  if (aPermissions.mWriteSigned) {
+    aBits |= GATT_ATTR_PERM_BIT_WRITE_SIGNED;
+  }
+  if (aPermissions.mWriteSignedMITM) {
+    aBits |= GATT_ATTR_PERM_BIT_WRITE_SIGNED_MITM;
+  }
+}
 
-// void
-// GattPropertiesToDictionary(BluetoothGattCharProp aBits,
-//                            GattCharacteristicProperties& aProperties)
-// {
-//   aProperties.mBroadcast = aBits & GATT_CHAR_PROP_BIT_BROADCAST;
-//   aProperties.mRead = aBits & GATT_CHAR_PROP_BIT_READ;
-//   aProperties.mWriteNoResponse = aBits & GATT_CHAR_PROP_BIT_WRITE_NO_RESPONSE;
-//   aProperties.mWrite = aBits & GATT_CHAR_PROP_BIT_WRITE;
-//   aProperties.mNotify = aBits & GATT_CHAR_PROP_BIT_NOTIFY;
-//   aProperties.mIndicate = aBits & GATT_CHAR_PROP_BIT_INDICATE;
-//   aProperties.mSignedWrite = aBits & GATT_CHAR_PROP_BIT_SIGNED_WRITE;
-//   aProperties.mExtendedProps = aBits & GATT_CHAR_PROP_BIT_EXTENDED_PROPERTIES;
-// }
+void
+GattPropertiesToDictionary(BluetoothGattCharProp aBits,
+                           GattCharacteristicProperties& aProperties)
+{
+  aProperties.mBroadcast = aBits & GATT_CHAR_PROP_BIT_BROADCAST;
+  aProperties.mRead = aBits & GATT_CHAR_PROP_BIT_READ;
+  aProperties.mWriteNoResponse = aBits & GATT_CHAR_PROP_BIT_WRITE_NO_RESPONSE;
+  aProperties.mWrite = aBits & GATT_CHAR_PROP_BIT_WRITE;
+  aProperties.mNotify = aBits & GATT_CHAR_PROP_BIT_NOTIFY;
+  aProperties.mIndicate = aBits & GATT_CHAR_PROP_BIT_INDICATE;
+  aProperties.mSignedWrite = aBits & GATT_CHAR_PROP_BIT_SIGNED_WRITE;
+  aProperties.mExtendedProps = aBits & GATT_CHAR_PROP_BIT_EXTENDED_PROPERTIES;
+}
 
-// void
-// GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
-//                      BluetoothGattCharProp& aBits)
-// {
-//   aBits = BLUETOOTH_EMPTY_GATT_CHAR_PROP;
+void
+GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
+                     BluetoothGattCharProp& aBits)
+{
+  aBits = BLUETOOTH_EMPTY_GATT_CHAR_PROP;
 
-//   if (aProperties.mBroadcast) {
-//     aBits |= GATT_CHAR_PROP_BIT_BROADCAST;
-//   }
-//   if (aProperties.mRead) {
-//     aBits |= GATT_CHAR_PROP_BIT_READ;
-//   }
-//   if (aProperties.mWriteNoResponse) {
-//     aBits |= GATT_CHAR_PROP_BIT_WRITE_NO_RESPONSE;
-//   }
-//   if (aProperties.mWrite) {
-//     aBits |= GATT_CHAR_PROP_BIT_WRITE;
-//   }
-//   if (aProperties.mNotify) {
-//     aBits |= GATT_CHAR_PROP_BIT_NOTIFY;
-//   }
-//   if (aProperties.mIndicate) {
-//     aBits |= GATT_CHAR_PROP_BIT_INDICATE;
-//   }
-//   if (aProperties.mSignedWrite) {
-//     aBits |= GATT_CHAR_PROP_BIT_SIGNED_WRITE;
-//   }
-//   if (aProperties.mExtendedProps) {
-//     aBits |= GATT_CHAR_PROP_BIT_EXTENDED_PROPERTIES;
-//   }
-// }
+  if (aProperties.mBroadcast) {
+    aBits |= GATT_CHAR_PROP_BIT_BROADCAST;
+  }
+  if (aProperties.mRead) {
+    aBits |= GATT_CHAR_PROP_BIT_READ;
+  }
+  if (aProperties.mWriteNoResponse) {
+    aBits |= GATT_CHAR_PROP_BIT_WRITE_NO_RESPONSE;
+  }
+  if (aProperties.mWrite) {
+    aBits |= GATT_CHAR_PROP_BIT_WRITE;
+  }
+  if (aProperties.mNotify) {
+    aBits |= GATT_CHAR_PROP_BIT_NOTIFY;
+  }
+  if (aProperties.mIndicate) {
+    aBits |= GATT_CHAR_PROP_BIT_INDICATE;
+  }
+  if (aProperties.mSignedWrite) {
+    aBits |= GATT_CHAR_PROP_BIT_SIGNED_WRITE;
+  }
+  if (aProperties.mExtendedProps) {
+    aBits |= GATT_CHAR_PROP_BIT_EXTENDED_PROPERTIES;
+  }
+}
 
-// nsresult
-// AdvertisingDataToGattAdvertisingData(
-//   const BluetoothAdvertisingData& aAdvData,
-//   BluetoothGattAdvertisingData& aGattAdvData)
-// {
-//   aGattAdvData.mAppearance = aAdvData.mAppearance;
-//   aGattAdvData.mIncludeDevName = aAdvData.mIncludeDevName;
-//   aGattAdvData.mIncludeTxPower = aAdvData.mIncludeTxPower;
+nsresult
+AdvertisingDataToGattAdvertisingData(
+  const BluetoothAdvertisingData& aAdvData,
+  BluetoothGattAdvertisingData& aGattAdvData)
+{
+  aGattAdvData.mAppearance = aAdvData.mAppearance;
+  aGattAdvData.mIncludeDevName = aAdvData.mIncludeDevName;
+  aGattAdvData.mIncludeTxPower = aAdvData.mIncludeTxPower;
 
-//   for (size_t i = 0; i < aAdvData.mServiceUuids.Length(); i++) {
-//     BluetoothUuid uuid;
-//     if (NS_WARN_IF(NS_FAILED(StringToUuid(aAdvData.mServiceUuids[i], uuid)))) {
-//       return NS_ERROR_ILLEGAL_VALUE;
-//     }
-//     aGattAdvData.mServiceUuids.AppendElement(uuid);
-//   }
+  for (size_t i = 0; i < aAdvData.mServiceUuids.Length(); i++) {
+    BluetoothUuid uuid;
+    if (NS_WARN_IF(NS_FAILED(StringToUuid(aAdvData.mServiceUuids[i], uuid)))) {
+      return NS_ERROR_ILLEGAL_VALUE;
+    }
+    aGattAdvData.mServiceUuids.AppendElement(uuid);
+  }
 
-//   if (!aAdvData.mManufacturerData.IsNull()) {
-//     // First two bytes are manufacturer ID in little-endian.
-//     aGattAdvData.mManufacturerData.SetLength(2);
-//     LittleEndian::writeUint16(aGattAdvData.mManufacturerData.Elements(),
-//                               aAdvData.mManufacturerId);
+  if (!aAdvData.mManufacturerData.IsNull()) {
+    // First two bytes are manufacturer ID in little-endian.
+    aGattAdvData.mManufacturerData.SetLength(2);
+    LittleEndian::writeUint16(aGattAdvData.mManufacturerData.Elements(),
+                              aAdvData.mManufacturerId);
 
-//     // Concatenate custom manufacturer data.
-//     const ArrayBuffer& manufacturerData = aAdvData.mManufacturerData.Value();
-//     manufacturerData.ComputeLengthAndData();
-//     aGattAdvData.mManufacturerData.AppendElements(manufacturerData.Data(),
-//                                                   manufacturerData.Length());
-//   }
+    // Concatenate custom manufacturer data.
+    const ArrayBuffer& manufacturerData = aAdvData.mManufacturerData.Value();
+    manufacturerData.ComputeState();
+    aGattAdvData.mManufacturerData.AppendElements(manufacturerData.Data(),
+                                                  manufacturerData.Length());
+  }
 
-//   if (!aAdvData.mServiceData.IsNull()) {
-//     BluetoothUuid uuid;
-//     if (NS_WARN_IF(NS_FAILED(StringToUuid(aAdvData.mServiceUuid, uuid)))) {
-//       return NS_ERROR_ILLEGAL_VALUE;
-//     }
+  if (!aAdvData.mServiceData.IsNull()) {
+    BluetoothUuid uuid;
+    if (NS_WARN_IF(NS_FAILED(StringToUuid(aAdvData.mServiceUuid, uuid)))) {
+      return NS_ERROR_ILLEGAL_VALUE;
+    }
 
-//     // Some BSPs can only accept 16-bit UUID since Android only takes 16-bit
-//     // UUID for serviceData of advertising data
-//     // Let's convert 128-bit UUID into 16-bit if it's posible.
-//     BluetoothUuid tmpUuid;
-//     tmpUuid.SetUuid16(uuid.GetUuid16());
-//     // Whether the uuid can be converted to 16 bit UUID
-//     if (tmpUuid == uuid) {
-//       // First 2 bytes are 16-bit service UUID in little-endian.
-//       // Extract 16-bit UUID from a 128-bit UUID.
-//       // BASE_UUID: 00000000-0000-1000-8000-00805F9B34FB
-//       //                ^^^^
-//       //                16-bit UUID is composed by mUuid[2] and mUuid[3]
-//       aGattAdvData.mServiceData.SetLength(2);
-//       aGattAdvData.mServiceData[0] = uuid.mUuid[3];
-//       aGattAdvData.mServiceData[1] = uuid.mUuid[2];
-//     } else {
-//       BT_LOGR("Sending serviceData with 128-bit UUID");
-//       // First 16 bytes are service UUID in little-endian.
-//       aGattAdvData.mServiceData.SetLength(16);
-//       for (size_t i = 0; i < sizeof(uuid.mUuid); i++) {
-//         aGattAdvData.mServiceData[i] = uuid.mUuid[sizeof(uuid.mUuid) - i - 1];
-//       }
-//     }
+    // Some BSPs can only accept 16-bit UUID since Android only takes 16-bit
+    // UUID for serviceData of advertising data
+    // Let's convert 128-bit UUID into 16-bit if it's posible.
+    BluetoothUuid tmpUuid;
+    tmpUuid.SetUuid16(uuid.GetUuid16());
+    // Whether the uuid can be converted to 16 bit UUID
+    if (tmpUuid == uuid) {
+      // First 2 bytes are 16-bit service UUID in little-endian.
+      // Extract 16-bit UUID from a 128-bit UUID.
+      // BASE_UUID: 00000000-0000-1000-8000-00805F9B34FB
+      //                ^^^^
+      //                16-bit UUID is composed by mUuid[2] and mUuid[3]
+      aGattAdvData.mServiceData.SetLength(2);
+      aGattAdvData.mServiceData[0] = uuid.mUuid[3];
+      aGattAdvData.mServiceData[1] = uuid.mUuid[2];
+    } else {
+      BT_LOGR("Sending serviceData with 128-bit UUID");
+      // First 16 bytes are service UUID in little-endian.
+      aGattAdvData.mServiceData.SetLength(16);
+      for (size_t i = 0; i < sizeof(uuid.mUuid); i++) {
+        aGattAdvData.mServiceData[i] = uuid.mUuid[sizeof(uuid.mUuid) - i - 1];
+      }
+    }
 
-//     // Concatenate custom service data.
-//     const ArrayBuffer& serviceData = aAdvData.mServiceData.Value();
-//     serviceData.ComputeLengthAndData();
-//     aGattAdvData.mServiceData.AppendElements(serviceData.Data(),
-//                                              serviceData.Length());
-//   }
+    // Concatenate custom service data.
+    const ArrayBuffer& serviceData = aAdvData.mServiceData.Value();
+    serviceData.ComputeState();
+    aGattAdvData.mServiceData.AppendElements(serviceData.Data(),
+                                             serviceData.Length());
+  }
 
-//   return NS_OK;
-// }
+  return NS_OK;
+}
 
 void
 GeneratePathFromGattId(const BluetoothGattId& aId,
@@ -836,19 +836,19 @@ DispatchReplyError(BluetoothReplyRunnable* aRunnable,
   NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
-// void
-// DispatchReplyError(BluetoothReplyRunnable* aRunnable,
-//                    const enum BluetoothGattStatus aGattStatus)
-// {
-//   MOZ_ASSERT(aRunnable);
+void
+DispatchReplyError(BluetoothReplyRunnable* aRunnable,
+                   const enum BluetoothGattStatus aGattStatus)
+{
+  MOZ_ASSERT(aRunnable);
 
-//   // Reply will be deleted by the runnable after running on main thread
-//   BluetoothReply* reply =
-//     new BluetoothReply(BluetoothReplyError(aGattStatus, EmptyString()));
+  // Reply will be deleted by the runnable after running on main thread
+  BluetoothReply* reply =
+    new BluetoothReply(BluetoothReplyError(aGattStatus, EmptyString()));
 
-//   aRunnable->SetReply(reply);
-//   NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
-// }
+  aRunnable->SetReply(reply);
+  NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
+}
 
 void
 DispatchStatusChangedEvent(const nsAString& aType,

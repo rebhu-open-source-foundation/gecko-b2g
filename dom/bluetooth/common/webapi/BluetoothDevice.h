@@ -23,7 +23,7 @@ namespace dom {
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothClassOfDevice;
-// class BluetoothGatt;
+class BluetoothGatt;
 class BluetoothNamedValue;
 class BluetoothValue;
 class BluetoothSignal;
@@ -66,7 +66,7 @@ public:
     return mType;
   }
 
-  // BluetoothGatt* GetGatt();
+  BluetoothGatt* GetGatt();
 
   /****************************************************************************
    * Event Handlers
@@ -200,7 +200,7 @@ private:
   /**
    * GATT client object to interact with the remote device.
    */
-  // RefPtr<BluetoothGatt> mGatt;
+  RefPtr<BluetoothGatt> mGatt;
 };
 
 END_BLUETOOTH_NAMESPACE

@@ -39,7 +39,7 @@ interface BluetoothAdapter : EventTarget {
   readonly attribute DOMString              name;
   readonly attribute boolean                discoverable;
   readonly attribute boolean                discovering;
-  // readonly attribute BluetoothGattServer?   gattServer;
+  readonly attribute BluetoothGattServer?   gattServer;
 
 
   readonly attribute BluetoothPairingListener? pairingReqs;
@@ -47,7 +47,6 @@ interface BluetoothAdapter : EventTarget {
 
   // Fired when attribute(s) of BluetoothAdapter changed
            attribute EventHandler   onattributechanged;
-
 
   // Fired when a remote device gets paired with the adapter
            attribute EventHandler   ondevicepaired;
@@ -143,13 +142,13 @@ interface BluetoothAdapter : EventTarget {
    * |startLeScan| and |stopLeScan| methods are exposed only if
    * "dom.bluetooth.webbluetooth.enabled" preference is false.
    */
-  // [NewObject,
-  //  Func="mozilla::dom::bluetooth::BluetoothManager::B2GGattClientEnabled"]
-  // Promise<BluetoothDiscoveryHandle> startLeScan(sequence<DOMString> serviceUuids);
+  [NewObject,
+   Func="mozilla::dom::bluetooth::BluetoothManager::B2GGattClientEnabled"]
+  Promise<BluetoothDiscoveryHandle> startLeScan(sequence<DOMString> serviceUuids);
 
-  // [NewObject,
-  //  Func="mozilla::dom::bluetooth::BluetoothManager::B2GGattClientEnabled"]
-  // Promise<void> stopLeScan(BluetoothDiscoveryHandle discoveryHandle);
+  [NewObject,
+   Func="mozilla::dom::bluetooth::BluetoothManager::B2GGattClientEnabled"]
+  Promise<void> stopLeScan(BluetoothDiscoveryHandle discoveryHandle);
 
 
   [NewObject, Throws]

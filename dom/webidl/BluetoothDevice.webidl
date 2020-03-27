@@ -21,8 +21,8 @@ interface BluetoothDevice : EventTarget
    * gatt attribute is exposed only if "dom.bluetooth.webbluetooth.enabled"
    * preference is false.
    */
-  // [Func="mozilla::dom::bluetooth::BluetoothManager::B2GGattClientEnabled"]
-  // readonly attribute BluetoothGatt?         gatt;
+  [Func="mozilla::dom::bluetooth::BluetoothManager::B2GGattClientEnabled"]
+  readonly attribute BluetoothGatt?         gatt;
 
   [Cached, Pure]
   readonly attribute sequence<DOMString>    uuids;

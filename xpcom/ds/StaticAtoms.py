@@ -2428,6 +2428,10 @@ STATIC_ATOMS = [
     Atom("onpullvcardlistingreq", "onpullvcardlistingreq"),
     Atom("onrequestmediaplaystatus", "onrequestmediaplaystatus"),
     Atom("onscostatuschanged", "onscostatuschanged"),
+    Atom("oncharacteristicchanged", "oncharacteristicchanged"),
+    Atom("onconnectionstatechanged", "onconnectionstatechanged"),
+    Atom("onattributereadreq", "onattributereadreq"),
+    Atom("onattributewritereq", "onattributewritereq"),
 
     # Namespaces
     Atom("nsuri_xmlns", "http://www.w3.org/2000/xmlns/"),

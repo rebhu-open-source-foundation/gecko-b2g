@@ -16,7 +16,7 @@ if CONFIG['MOZ_B2G_BT']:
         ]
 
     SOURCES += [
-#       'common/BluetoothGattReplyRunnable.cpp',
+        'common/BluetoothGattReplyRunnable.cpp',
         'common/BluetoothInterface.cpp',
         'common/BluetoothProfileController.cpp',
         'common/BluetoothReplyRunnable.cpp',
@@ -29,20 +29,20 @@ if CONFIG['MOZ_B2G_BT']:
         'common/webapi/BluetoothConnectionHandle.cpp',
         'common/webapi/BluetoothDevice.cpp',
         'common/webapi/BluetoothDiscoveryHandle.cpp',
-#       'common/webapi/BluetoothGatt.cpp',
-#       'common/webapi/BluetoothGattAttributeEvent.cpp',
-#       'common/webapi/BluetoothGattCharacteristic.cpp',
-#       'common/webapi/BluetoothGattDescriptor.cpp',
-#       'common/webapi/BluetoothGattServer.cpp',
-#       'common/webapi/BluetoothGattService.cpp',
-#       'common/webapi/BluetoothLeDeviceEvent.cpp',
+        'common/webapi/BluetoothGatt.cpp',
+        'common/webapi/BluetoothGattAttributeEvent.cpp',
+        'common/webapi/BluetoothGattCharacteristic.cpp',
+        'common/webapi/BluetoothGattDescriptor.cpp',
+        'common/webapi/BluetoothGattServer.cpp',
+        'common/webapi/BluetoothGattService.cpp',
+        'common/webapi/BluetoothLeDeviceEvent.cpp',
         'common/webapi/BluetoothManager.cpp',
         'common/webapi/BluetoothMapRequestHandle.cpp',
         'common/webapi/BluetoothObexAuthHandle.cpp',
         'common/webapi/BluetoothPairingHandle.cpp',
         'common/webapi/BluetoothPairingListener.cpp',
         'common/webapi/BluetoothPbapRequestHandle.cpp',
-#       'common/webapi/BluetoothUUID.cpp',
+        'common/webapi/BluetoothUUID.cpp',
         'ipc/BluetoothChild.cpp',
         'ipc/BluetoothParent.cpp',
         'ipc/BluetoothRequestChild.cpp',
@@ -117,20 +117,20 @@ EXPORTS.mozilla.dom.bluetooth.ipc += [
 
 EXPORTS.mozilla.dom.bluetooth += [
     'common/BluetoothCommon.h',
-#   'common/BluetoothGattUUIDName.h',
+    'common/BluetoothGattUUIDName.h',
     'common/BluetoothHashKeys.h',
     'common/webapi/BluetoothAdapter.h',
     'common/webapi/BluetoothClassOfDevice.h',
     'common/webapi/BluetoothConnectionHandle.h',
     'common/webapi/BluetoothDevice.h',
     'common/webapi/BluetoothDiscoveryHandle.h',
-#   'common/webapi/BluetoothGatt.h',
-#   'common/webapi/BluetoothGattAttributeEvent.h',
-#   'common/webapi/BluetoothGattCharacteristic.h',
-#   'common/webapi/BluetoothGattDescriptor.h',
-#   'common/webapi/BluetoothGattServer.h',
-#   'common/webapi/BluetoothGattService.h',
-#   'common/webapi/BluetoothLeDeviceEvent.h',
+    'common/webapi/BluetoothGatt.h',
+    'common/webapi/BluetoothGattAttributeEvent.h',
+    'common/webapi/BluetoothGattCharacteristic.h',
+    'common/webapi/BluetoothGattDescriptor.h',
+    'common/webapi/BluetoothGattServer.h',
+    'common/webapi/BluetoothGattService.h',
+    'common/webapi/BluetoothLeDeviceEvent.h',
     'common/webapi/BluetoothManager.h',
     'common/webapi/BluetoothMapRequestHandle.h',
     'common/webapi/BluetoothObexAuthHandle.h',
@@ -143,9 +143,9 @@ EXPORTS.mozilla.dom.bluetooth += [
     'ipc/BluetoothRequestParent.h',
 ]
 
-# EXPORTS.mozilla.dom += [
-#     'common/webapi/BluetoothUUID.h'
-# ]
+EXPORTS.mozilla.dom += [
+    'common/webapi/BluetoothUUID.h'
+]
 
 UNIFIED_SOURCES += [
     'common/BluetoothCommon.cpp',

@@ -26,23 +26,23 @@ public:
   static already_AddRefed<BluetoothDiscoveryHandle>
     Create(nsPIDOMWindowInner* aWindow);
 
-  // static already_AddRefed<BluetoothDiscoveryHandle>
-  //   Create(nsPIDOMWindowInner* aWindow,
-  //          const nsTArray<BluetoothUuid>& aServiceUuids,
-  //          const BluetoothUuid& aLeScanUuid);
+  static already_AddRefed<BluetoothDiscoveryHandle>
+    Create(nsPIDOMWindowInner* aWindow,
+           const nsTArray<BluetoothUuid>& aServiceUuids,
+           const BluetoothUuid& aLeScanUuid);
 
   void DispatchDeviceEvent(BluetoothDevice* aDevice);
 
-  // void DispatchLeDeviceEvent(BluetoothDevice* aLeDevice,
-  //                            int32_t aRssi,
-  //                            nsTArray<uint8_t>& aScanRecord);
+  void DispatchLeDeviceEvent(BluetoothDevice* aLeDevice,
+                             int32_t aRssi,
+                             nsTArray<uint8_t>& aScanRecord);
 
   IMPL_EVENT_HANDLER(devicefound);
 
-  // void GetLeScanUuid(BluetoothUuid& aLeScanUuid) const
-  // {
-  //   aLeScanUuid = mLeScanUuid;
-  // }
+  void GetLeScanUuid(BluetoothUuid& aLeScanUuid) const
+  {
+    aLeScanUuid = mLeScanUuid;
+  }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -50,9 +50,9 @@ public:
 private:
   BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow);
 
-  // BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow,
-  //                          const nsTArray<BluetoothUuid>& aServiceUuids,
-  //                          const BluetoothUuid& aLeScanUuid);
+  BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow,
+                           const nsTArray<BluetoothUuid>& aServiceUuids,
+                           const BluetoothUuid& aLeScanUuid);
 
   ~BluetoothDiscoveryHandle();
 
@@ -63,7 +63,7 @@ private:
    * If BluetoothDiscoveryHandle is built for classic discovery, the value would
    * remain empty string during the entire life cycle.
    */
-  // BluetoothUuid mLeScanUuid;
+  BluetoothUuid mLeScanUuid;
 
   /**
    * A BluetoothUuid array of service UUIDs to discover / scan for.
@@ -71,7 +71,7 @@ private:
    * This array is only used by LE scan. If BluetoothDiscoveryHandle is built
    * for classic discovery, the array should be empty.
    */
-  // nsTArray<BluetoothUuid> mServiceUuids;
+  nsTArray<BluetoothUuid> mServiceUuids;
 };
 
 END_BLUETOOTH_NAMESPACE

@@ -30,7 +30,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothDevice;
 class BluetoothDiscoveryHandle;
-// class BluetoothGattServer;
+class BluetoothGattServer;
 class BluetoothNamedValue;
 class BluetoothPairingListener;
 class BluetoothSignal;
@@ -80,7 +80,7 @@ public:
     return mPairingReqs;
   }
 
-  // BluetoothGattServer* GetGattServer();
+  BluetoothGattServer* GetGattServer();
 
   /****************************************************************************
    * Event Handlers
@@ -124,10 +124,10 @@ public:
   already_AddRefed<Promise> StartDiscovery(ErrorResult& aRv);
   already_AddRefed<Promise> StopDiscovery(ErrorResult& aRv);
 
-  // already_AddRefed<Promise> StartLeScan(
-  //   const nsTArray<nsString>& aServiceUuids, ErrorResult& aRv);
-  // already_AddRefed<Promise> StopLeScan(
-  //   BluetoothDiscoveryHandle& aDiscoveryHandle, ErrorResult& aRv);
+  already_AddRefed<Promise> StartLeScan(
+    const nsTArray<nsString>& aServiceUuids, ErrorResult& aRv);
+  already_AddRefed<Promise> StopLeScan(
+    BluetoothDiscoveryHandle& aDiscoveryHandle, ErrorResult& aRv);
 
   already_AddRefed<Promise> Pair(const nsAString& aDeviceAddress,
                                  ErrorResult& aRv);
@@ -244,7 +244,7 @@ public:
    *
    * @param aDiscoveryHandle [in] Discovery handle to be appended.
    */
-  // void AppendLeScanHandle(BluetoothDiscoveryHandle* aDiscoveryHandle);
+  void AppendLeScanHandle(BluetoothDiscoveryHandle* aDiscoveryHandle);
 
   /**
    * Remove the BluetoothDiscoverHandle with the given UUID from LeScan handle
@@ -252,7 +252,7 @@ public:
    *
    * @param aScanUuid [in] The UUID of the LE scan task.
    */
-  // void RemoveLeScanHandle(const BluetoothUuid& aScanUuid);
+  void RemoveLeScanHandle(const BluetoothUuid& aScanUuid);
 
 private:
   BluetoothAdapter(nsPIDOMWindowInner* aOwner, const BluetoothValue& aValue);
@@ -353,7 +353,7 @@ private:
    *
    * @param aValue [in] Properties array of the scanned device.
    */
-  // void HandleLeDeviceFound(const BluetoothValue& aValue);
+  void HandleLeDeviceFound(const BluetoothValue& aValue);
 
   /**
    * Handle PULL_PHONEBOOK_REQ_ID bluetooth signal.
@@ -597,7 +597,7 @@ private:
    * end of its life. When |GetGattServer| is called after the adapter has been
    * enabled again, a new GATT server object will be created.
    */
-  // RefPtr<BluetoothGattServer> mGattServer;
+  RefPtr<BluetoothGattServer> mGattServer;
 
   /**
    * Handle to fire pairing requests of different pairing types.
@@ -619,7 +619,7 @@ private:
    * Each non-stopped LeScan process has a LeScan handle which is
    * responsible to dispatch LeDeviceEvent.
    */
-  // nsTArray<RefPtr<BluetoothDiscoveryHandle> > mLeScanHandleArray;
+  nsTArray<RefPtr<BluetoothDiscoveryHandle> > mLeScanHandleArray;
 
   /**
    * RefPtr array of BluetoothDevices created by this adapter. The array is
