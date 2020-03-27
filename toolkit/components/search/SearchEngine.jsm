@@ -747,14 +747,15 @@ EngineURL.prototype = {
  *   The options for this search engine. At least one of options.name,
  *   options.fileURI or options.uri are required.
  * @param {string} [options.name]
- *   The short name to use for the search engine.
+ *   The name to base the short name of the engine on. This is typically the
+ *   display name where a pre-defined/sanitized short name is not available.
+ * @param {string} [options.shortName]
+ *   The short name to use for the engine. This should be known to match
+ *   the basic requirements in sanitizeName for a short name.
  * @param {nsIFile} [options.fileURI]
  *   The file URI that points to the search engine data.
  * @param {nsIURI|string} [options.uri]
  *   Represents the location of the search engine data file.
- * @param {boolean} [options.sanitizeName]
- *   Only applies when options.name is specified, will santize the name so
- *   it can be used as a file name, defaults to false.
  * @param {boolean} options.isBuiltin
  *   Indicates whether the engine is a app-provided or not. If it is, it will
  *   be treated as read-only.
@@ -769,11 +770,9 @@ function SearchEngine(options = {}) {
 
   let file, uri;
   if ("name" in options) {
-    if ("sanitizeName" in options && options.sanitizeName) {
-      this._shortName = sanitizeName(options.name);
-    } else {
-      this._shortName = options.name;
-    }
+    this._shortName = sanitizeName(options.name);
+  } else if ("shortName" in options) {
+    this._shortName = options.shortName;
   } else if ("fileURI" in options && options.fileURI instanceof Ci.nsIFile) {
     file = options.fileURI;
   } else if ("uri" in options) {
@@ -830,33 +829,6 @@ function SearchEngine(options = {}) {
       this._shortName = shortName.slice(0, -4);
     }
     this._loadPath = this.getAnonymizedLoadPath(file, uri);
-
-    if (!shortName && !this._isBuiltin) {
-      // We are in the process of downloading and installing the engine.
-      // We'll have the shortName and id once we are done parsing it.
-      return;
-    }
-
-    // Build the id used for the legacy metadata storage, so that we
-    // can do a one-time import of data from old profiles.
-    if (
-      this._isDefault ||
-      (uri && uri.spec.startsWith(SearchUtils.APP_SEARCH_PREFIX))
-    ) {
-      // The second part of the check is to catch engines from language packs.
-      // They aren't default engines (because they aren't app-shipped), but we
-      // still need to give their id an [app] prefix for backward compat.
-      this._id = "[app]/" + this._shortName + ".xml";
-    } else if (!this._isBuiltin) {
-      this._id = "[profile]/" + this._shortName + ".xml";
-    } else {
-      // If the engine is neither a default one, nor a user-installed one,
-      // it must be extension-shipped, so use the full path as id.
-      SearchUtils.log(
-        "Setting _id to full path for engine from " + this._loadPath
-      );
-      this._id = file ? file.path : uri.spec;
-    }
   }
 }
 
@@ -1878,12 +1850,6 @@ SearchEngine.prototype = {
 
   /**
    * Return the built-in identifier of app-provided engines.
-   *
-   * Note that this identifier is substantially similar to _id, with the
-   * following exceptions:
-   *
-   * * There is no trailing file extension.
-   * * There is no [app] prefix.
    *
    * @returns {string|null}
    *   Returns a valid if this is a built-in engine, null otherwise.

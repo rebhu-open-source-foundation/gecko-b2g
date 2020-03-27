@@ -10,6 +10,7 @@
 #include "ContentMediaController.h"
 #include "MediaEventSource.h"
 #include "mozilla/dom/MediaSessionController.h"
+#include "mozilla/LinkedList.h"
 #include "nsDataHashtable.h"
 #include "nsISupportsImpl.h"
 
@@ -43,7 +44,9 @@ enum class MediaControlKeysEvent : uint32_t;
  * tabs playing media at the same time, we can use the ID to query the specific
  * controller from `MediaControlService`.
  */
-class MediaController final : public MediaSessionController {
+class MediaController final
+    : public MediaSessionController,
+      public LinkedListElement<RefPtr<MediaController>> {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaController, override);
 
@@ -64,10 +67,6 @@ class MediaController final : public MediaSessionController {
   bool IsAudible() const;
   uint64_t ControlledMediaNum() const;
   MediaSessionPlaybackState GetState() const;
-
-  MediaEventSource<MediaSessionPlaybackState>& PlaybackStateChangedEvent() {
-    return mPlaybackStateChangedEvent;
-  }
 
   void SetDeclaredPlaybackState(uint64_t aSessionContextId,
                                 MediaSessionPlaybackState aState) override;
@@ -118,8 +117,6 @@ class MediaController final : public MediaSessionController {
   // https://w3c.github.io/mediasession/#actual-playback-state
   MediaSessionPlaybackState mActualPlaybackState =
       MediaSessionPlaybackState::None;
-
-  MediaEventProducer<MediaSessionPlaybackState> mPlaybackStateChangedEvent;
 };
 
 }  // namespace dom

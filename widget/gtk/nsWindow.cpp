@@ -2713,7 +2713,7 @@ gboolean nsWindow::OnConfigureEvent(GtkWidget* aWidget,
     OnSizeAllocate(&allocation);
   }
 
-  // Client offset are upated by _NET_FRAME_EXTENTS on X11 when system titlebar
+  // Client offset are updated by _NET_FRAME_EXTENTS on X11 when system titlebar
   // is enabled. In ither cases (Wayland or system titlebar is off on X11)
   // we don't get _NET_FRAME_EXTENTS X11 property notification so we derive
   // it from mContainer position.
@@ -3689,6 +3689,26 @@ void nsWindow::OnScaleChanged(GtkAllocation* aAllocation) {
   // configure_event is already fired before scale-factor signal,
   // but size-allocate isn't fired by changing scale
   OnSizeAllocate(aAllocation);
+
+  // Client offset are updated by _NET_FRAME_EXTENTS on X11 when system titlebar
+  // is enabled. In ither cases (Wayland or system titlebar is off on X11)
+  // we don't get _NET_FRAME_EXTENTS X11 property notification so we derive
+  // it from mContainer position.
+  if (mCSDSupportLevel == CSD_SUPPORT_CLIENT) {
+    if (!mIsX11Display || (mIsX11Display && mDrawInTitlebar)) {
+      UpdateClientOffsetFromCSDWindow();
+    }
+  }
+
+#ifdef MOZ_WAYLAND
+  // We need to update scale and opaque region when scale of egl window
+  // is changed.
+  if (mContainer && moz_container_has_wl_egl_window(mContainer)) {
+    moz_container_set_scale_factor(mContainer);
+    LayoutDeviceIntRegion tmpRegion;
+    UpdateOpaqueRegion(tmpRegion);
+  }
+#endif
 }
 
 void nsWindow::DispatchDragEvent(EventMessage aMsg,
@@ -3941,7 +3961,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 
       if (mWindowType == eWindowType_toplevel) {
         // We enable titlebar rendering for toplevel windows only.
-        mCSDSupportLevel = GetSystemCSDSupportLevel();
+        mCSDSupportLevel = GetSystemCSDSupportLevel(mIsPIPWindow);
 
         // There's no point to configure transparency
         // on non-composited screens.
@@ -4138,7 +4158,6 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
           self->mNeedsCompositorResume = true;
           self->MaybeResumeCompositor();
         });
-        moz_container_set_accelerated(mContainer);
       }
 #endif
 
@@ -7450,7 +7469,8 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
 }
 #endif
 
-nsWindow::CSDSupportLevel nsWindow::GetSystemCSDSupportLevel() {
+nsWindow::CSDSupportLevel nsWindow::GetSystemCSDSupportLevel(
+    bool aIsPIPWindow) {
   if (sCSDSupportLevel != CSD_SUPPORT_UNKNOWN) {
     return sCSDSupportLevel;
   }
@@ -7484,10 +7504,10 @@ nsWindow::CSDSupportLevel nsWindow::GetSystemCSDSupportLevel() {
   if (currentDesktop) {
     // GNOME Flashback (fallback)
     if (strstr(currentDesktop, "GNOME-Flashback:GNOME") != nullptr) {
-      sCSDSupportLevel = CSD_SUPPORT_CLIENT;
+      sCSDSupportLevel = aIsPIPWindow ? CSD_SUPPORT_CLIENT : CSD_SUPPORT_SYSTEM;
       // gnome-shell
     } else if (strstr(currentDesktop, "GNOME") != nullptr) {
-      sCSDSupportLevel = CSD_SUPPORT_CLIENT;
+      sCSDSupportLevel = aIsPIPWindow ? CSD_SUPPORT_CLIENT : CSD_SUPPORT_SYSTEM;
     } else if (strstr(currentDesktop, "XFCE") != nullptr) {
       sCSDSupportLevel = CSD_SUPPORT_CLIENT;
     } else if (strstr(currentDesktop, "X-Cinnamon") != nullptr) {
@@ -7619,12 +7639,7 @@ void nsWindow::GetCompositorWidgetInitData(
 #ifdef MOZ_WAYLAND
 wl_surface* nsWindow::GetWaylandSurface() {
   if (mContainer) {
-    struct wl_surface* surface =
-        moz_container_get_wl_surface(MOZ_CONTAINER(mContainer));
-    if (surface != NULL) {
-      wl_surface_set_buffer_scale(surface, GdkScaleFactor());
-    }
-    return surface;
+    return moz_container_get_wl_surface(MOZ_CONTAINER(mContainer));
   }
 
   NS_WARNING(

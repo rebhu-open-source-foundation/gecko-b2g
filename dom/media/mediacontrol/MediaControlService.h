@@ -48,6 +48,9 @@ class MediaControlService final : public nsIObserver {
   bool UnregisterActiveMediaController(MediaController* aController);
   uint64_t GetActiveControllersNum() const;
 
+  // This method would be called when the controller changes its playback state.
+  void NotifyControllerPlaybackStateChanged(MediaController* aController);
+
   // The main controller is the controller which can receive the media control
   // key events and would show its metadata to virtual controller interface.
   MediaController* GetMainController() const;
@@ -94,23 +97,25 @@ class MediaControlService final : public nsIObserver {
 
     bool AddController(MediaController* aController);
     bool RemoveController(MediaController* aController);
+    void UpdateMainController(MediaController* aController);
 
     void Shutdown();
 
     MediaController* GetMainController() const;
     MediaController* GetControllerById(uint64_t aId) const;
+    bool Contains(MediaController* aController) const;
     uint64_t GetControllersNum() const;
 
-    // Callback functions for monitoring main controller's status change.
-    void ControllerPlaybackStateChanged(MediaSessionPlaybackState aState);
-    void ControllerMetadataChanged(const MediaMetadataBase& aMetadata);
+    // These functions are used for monitoring main controller's status change.
+    void MainControllerPlaybackStateChanged(MediaSessionPlaybackState aState);
+    void MainControllerMetadataChanged(const MediaMetadataBase& aMetadata);
 
    private:
-    void UpdateMainController(MediaController* aController);
+    void UpdateMainControllerInternal(MediaController* aController);
     void ConnectToMainControllerEvents();
     void DisconnectMainControllerEvents();
 
-    nsTArray<RefPtr<MediaController>> mControllers;
+    LinkedList<RefPtr<MediaController>> mControllers;
     RefPtr<MediaController> mMainController;
 
     // These member are use to listen main controller's play state changes and

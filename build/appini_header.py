@@ -29,11 +29,11 @@ def main(output, file):
     appdata['App:profile'] = ('"%s"' % appdata['App:profile']
                               if 'App:profile' in appdata else 'NULL')
     expected = ('App:vendor', 'App:name', 'App:remotingname', 'App:version', 'App:buildid',
-                'App:id', 'Gecko:minversion', 'Gecko:maxversion')
+                'App:id', 'Gecko:minversion', 'Gecko:maxversion', 'AppUpdate:url')
     missing = [var for var in expected if var not in appdata]
     if missing:
-        print >>sys.stderr, \
-            "Missing values in %s: %s" % (file, ', '.join(missing))
+        print("Missing values in %s: %s" % (file, ', '.join(missing)),
+              file=sys.stderr)
         sys.exit(1)
 
     if 'Crash Reporter:serverurl' not in appdata:
@@ -59,7 +59,8 @@ def main(output, file):
                  "%(Crash Reporter:serverurl)s",
                  %(App:profile)s,
                  NULL, // UAName
-                 %(App:sourceurl)s
+                 %(App:sourceurl)s,
+                 "%(AppUpdate:url)s"
              };''' % appdata)
 
 
@@ -67,4 +68,5 @@ if __name__ == '__main__':
     if len(sys.argv) != 1:
         main(sys.stdout, sys.argv[1])
     else:
-        print >>sys.stderr, "Usage: %s /path/to/application.ini" % sys.argv[0]
+        print("Usage: %s /path/to/application.ini" % sys.argv[0],
+              file=sys.stderr)

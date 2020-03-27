@@ -184,11 +184,6 @@
   value: false
   mirror: always
 
-- name: accessibility.xpcom.traverse_outerdoc
-  type: bool
-  value: false
-  mirror: always
-
 #ifdef ANDROID
   #---------------------------------------------------------------------------
   # Prefs starting with "android."
@@ -2515,7 +2510,7 @@
 
 - name: dom.arena_allocator.enabled
   type: bool
-  value: true
+  value: false
   mirror: once
 
 - name: dom.serviceWorkers.enabled
@@ -7679,6 +7674,12 @@
   value: ""
   mirror: never
 
+# Receive buffer size of QUIC socket
+- name: network.http.http3.recvBufferSize
+  type: RelaxedAtomicInt32
+  value: 1048576
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "nglayout."
 #---------------------------------------------------------------------------
@@ -8791,6 +8792,10 @@
   mirror: always
 
 #ifdef MOZ_WAYLAND
+#ifdef NIGHTLY_BUILD
+# Keep those pref hidden on non-nightly builds to avoid people accidentally
+# turning it on.
+
 # Use DMABuf backend for Basic compositor.
 # For testing purposes only.
 - name: widget.wayland-dmabuf-basic-compositor.enabled
@@ -8804,6 +8809,7 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+#endif
 
 # Use DMABuf backend for WebGL on Wayland.
 - name: widget.wayland-dmabuf-webgl.enabled

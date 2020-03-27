@@ -30,6 +30,11 @@ unset VC_PATH
 
 fi
 
+export WINCHECKSEC="${MOZ_FETCHES_DIR}/winchecksec/winchecksec.exe"
+if [ ! -f "${WINCHECKSEC}" ]; then
+    unset WINCHECKSEC
+fi
+
 export PDBSTR="${MOZ_FETCHES_DIR}/pdbstr/pdbstr.exe"
 if [ -f "${PDBSTR}" ]; then
     chmod +x "${PDBSTR}"

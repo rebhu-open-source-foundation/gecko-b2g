@@ -4067,6 +4067,21 @@ class MToNumeric : public MUnaryInstruction, public BoxInputsPolicy::Data {
   ALLOW_CLONE(MToNumeric)
 };
 
+// This corresponds to JS::ToNumber(value).
+class MToNumber : public MUnaryInstruction, public BoxInputsPolicy::Data {
+  explicit MToNumber(MDefinition* arg) : MUnaryInstruction(classOpcode, arg) {
+    // Note: this returns a Value instead of double to prevent unnecessary int32
+    // to double conversions.
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(ToNumber)
+  TRIVIAL_NEW_WRAPPERS
+
+  ALLOW_CLONE(MToNumber)
+};
+
 // Applies ECMA's ToNumber on a primitive (either typed or untyped) and expects
 // the result to be precisely representable as an Int32, otherwise bails.
 //
@@ -10050,35 +10065,30 @@ class MNewTarget : public MNullaryInstruction {
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
-class MRestCommon {
+class MRest : public MUnaryInstruction, public UnboxedInt32Policy<0>::Data {
   unsigned numFormals_;
   CompilerGCPointer<ArrayObject*> templateObject_;
 
- protected:
-  MRestCommon(unsigned numFormals, ArrayObject* templateObject)
-      : numFormals_(numFormals), templateObject_(templateObject) {}
-
- public:
-  unsigned numFormals() const { return numFormals_; }
-  ArrayObject* templateObject() const { return templateObject_; }
-};
-
-class MRest : public MUnaryInstruction,
-              public MRestCommon,
-              public UnboxedInt32Policy<0>::Data {
   MRest(TempAllocator& alloc, CompilerConstraintList* constraints,
         MDefinition* numActuals, unsigned numFormals,
         ArrayObject* templateObject)
       : MUnaryInstruction(classOpcode, numActuals),
-        MRestCommon(numFormals, templateObject) {
+        numFormals_(numFormals),
+        templateObject_(templateObject) {
     setResultType(MIRType::Object);
-    setResultTypeSet(MakeSingletonTypeSet(alloc, constraints, templateObject));
+    if (!JitOptions.warpBuilder) {
+      setResultTypeSet(
+          MakeSingletonTypeSet(alloc, constraints, templateObject));
+    }
   }
 
  public:
   INSTRUCTION_HEADER(Rest)
   TRIVIAL_NEW_WRAPPERS_WITH_ALLOC
   NAMED_OPERANDS((0, numActuals))
+
+  unsigned numFormals() const { return numFormals_; }
+  ArrayObject* templateObject() const { return templateObject_; }
 
   AliasSet getAliasSet() const override { return AliasSet::None(); }
   bool possiblyCalls() const override { return true; }

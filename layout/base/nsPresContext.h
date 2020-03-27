@@ -117,9 +117,8 @@ enum class nsLayoutPhase : uint8_t {
 #endif
 
 /* Used by nsPresContext::HasAuthorSpecifiedRules */
-#define NS_AUTHOR_SPECIFIED_BACKGROUND (1 << 0)
-#define NS_AUTHOR_SPECIFIED_BORDER (1 << 1)
-#define NS_AUTHOR_SPECIFIED_PADDING (1 << 2)
+#define NS_AUTHOR_SPECIFIED_BORDER_OR_BACKGROUND (1 << 0)
+#define NS_AUTHOR_SPECIFIED_PADDING (1 << 1)
 
 class nsRootPresContext;
 
@@ -1070,12 +1069,6 @@ class nsPresContext : public nsISupports,
   // (otherwise get it from the widget)
   void UIResolutionChangedInternalScale(double aScale);
 
-  // aData here is a pointer to a double that holds the CSS to device-pixel
-  // scale factor from the parent, which will be applied to the subdocument's
-  // device context instead of retrieving a scale from the widget.
-  static mozilla::CallState UIResolutionChangedSubdocumentCallback(
-      mozilla::dom::Document&, void* aData);
-
   void SetImgAnimations(nsIContent* aParent, uint16_t aMode);
   void SetSMILAnimations(mozilla::dom::Document* aDoc, uint16_t aNewMode,
                          uint16_t aOldMode);
@@ -1089,11 +1082,6 @@ class nsPresContext : public nsISupports,
   void GetUserPreferences();
 
   void UpdateCharSet(NotNull<const Encoding*> aCharSet);
-
-  static mozilla::CallState NotifyDidPaintSubdocumentCallback(
-      mozilla::dom::Document&, void* aData);
-  static mozilla::CallState NotifyRevokingDidPaintSubdocumentCallback(
-      mozilla::dom::Document&, void* aData);
 
  public:
   // Used by the PresShell to force a reflow when some aspect of font info

@@ -1395,20 +1395,6 @@ void nsPresContext::UIResolutionChangedSync() {
   }
 }
 
-/* static */
-CallState nsPresContext::UIResolutionChangedSubdocumentCallback(
-    dom::Document& aDocument, void* aData) {
-  if (nsPresContext* pc = aDocument.GetPresContext()) {
-    // For subdocuments, we want to apply the parent's scale, because there
-    // are cases where the subdoc's device context is connected to a widget
-    // that has an out-of-date resolution (it's on a different screen, but
-    // currently hidden, and will not be updated until shown): bug 1249279.
-    double scale = *static_cast<double*>(aData);
-    pc->UIResolutionChangedInternalScale(scale);
-  }
-  return CallState::Continue;
-}
-
 static void NotifyTabUIResolutionChanged(nsIRemoteTab* aTab, void* aArg) {
   aTab->NotifyResolutionChanged();
 }
@@ -1439,8 +1425,17 @@ void nsPresContext::UIResolutionChangedInternalScale(double aScale) {
     NotifyChildrenUIResolutionChanged(window);
   }
 
-  mDocument->EnumerateSubDocuments(UIResolutionChangedSubdocumentCallback,
-                                   &aScale);
+  auto recurse = [aScale](dom::Document& aSubDoc) {
+    if (nsPresContext* pc = aSubDoc.GetPresContext()) {
+      // For subdocuments, we want to apply the parent's scale, because there
+      // are cases where the subdoc's device context is connected to a widget
+      // that has an out-of-date resolution (it's on a different screen, but
+      // currently hidden, and will not be updated until shown): bug 1249279.
+      pc->UIResolutionChangedInternalScale(aScale);
+    }
+    return CallState::Continue;
+  };
+  mDocument->EnumerateSubDocuments(recurse);
 }
 
 void nsPresContext::EmulateMedium(nsAtom* aMediaType) {
@@ -1503,15 +1498,6 @@ void nsPresContext::PostRebuildAllStyleDataEvent(
   RestyleManager()->RebuildAllStyleData(aExtraHint, aRestyleHint);
 }
 
-static CallState MediaFeatureValuesChangedAllDocumentsCallback(
-    Document& aDocument, void* aChange) {
-  auto* change = static_cast<const MediaFeatureChange*>(aChange);
-  if (nsPresContext* pc = aDocument.GetPresContext()) {
-    pc->MediaFeatureValuesChangedAllDocuments(*change);
-  }
-  return CallState::Continue;
-}
-
 void nsPresContext::MediaFeatureValuesChangedAllDocuments(
     const MediaFeatureChange& aChange) {
   // Handle the media feature value change in this document.
@@ -1522,9 +1508,13 @@ void nsPresContext::MediaFeatureValuesChangedAllDocuments(
   mDocument->ImageTracker()->MediaFeatureValuesChangedAllDocuments(aChange);
 
   // And then into any subdocuments.
-  mDocument->EnumerateSubDocuments(
-      MediaFeatureValuesChangedAllDocumentsCallback,
-      const_cast<MediaFeatureChange*>(&aChange));
+  auto recurse = [&aChange](dom::Document& aSubDoc) {
+    if (nsPresContext* pc = aSubDoc.GetPresContext()) {
+      pc->MediaFeatureValuesChangedAllDocuments(aChange);
+    }
+    return CallState::Continue;
+  };
+  mDocument->EnumerateSubDocuments(recurse);
 }
 
 void nsPresContext::FlushPendingMediaFeatureValuesChanged() {
@@ -1638,28 +1628,20 @@ void nsPresContext::CountReflows(const char* aName, nsIFrame* aFrame) {
 
 bool nsPresContext::HasAuthorSpecifiedRules(const nsIFrame* aFrame,
                                             uint32_t aRuleTypeMask) const {
-  Element* elem = aFrame->GetContent()->AsElement();
+  const bool padding = aRuleTypeMask & NS_AUTHOR_SPECIFIED_PADDING;
+  const bool borderBackground =
+      aRuleTypeMask & NS_AUTHOR_SPECIFIED_BORDER_OR_BACKGROUND;
+  const auto& style = *aFrame->Style();
 
-  // We need to handle non-generated content pseudos too, so we use
-  // the parent of generated content pseudo to be consistent.
-  if (elem->GetPseudoElementType() != PseudoStyleType::NotPseudo) {
-    MOZ_ASSERT(elem->GetParent(), "Pseudo element has no parent element?");
-    elem = elem->GetParent()->AsElement();
-  }
-  if (MOZ_UNLIKELY(!elem->HasServoData())) {
-    // Probably shouldn't happen, but does. See bug 1387953
-    return false;
+  if (padding && style.HasAuthorSpecifiedPadding()) {
+    return true;
   }
 
-  // Anonymous boxes are more complicated, and we just assume that they
-  // cannot have any author-specified rules here.
-  if (aFrame->Style()->IsAnonBox()) {
-    return false;
+  if (borderBackground && style.HasAuthorSpecifiedBorderOrBackground()) {
+    return true;
   }
 
-  auto* set = PresShell()->StyleSet()->RawSet();
-  return Servo_HasAuthorSpecifiedRules(set, aFrame->Style(), elem,
-                                       aRuleTypeMask);
+  return false;
 }
 
 gfxUserFontSet* nsPresContext::GetUserFontSet() {
@@ -1811,19 +1793,6 @@ void nsPresContext::FireDOMPaintEvent(
                                     static_cast<Event*>(event), this, nullptr);
 }
 
-static CallState MayHavePaintEventListenerSubdocumentCallback(
-    Document& aDocument, void* aData) {
-  bool* result = static_cast<bool*>(aData);
-  if (nsPresContext* pc = aDocument.GetPresContext()) {
-    *result = pc->MayHavePaintEventListenerInSubDocument();
-
-    // If we found a paint event listener, then we can stop enumerating
-    // sub documents.
-    return !*result ? CallState::Continue : CallState::Stop;
-  }
-  return CallState::Continue;
-}
-
 static bool MayHavePaintEventListener(nsPIDOMWindowInner* aInnerWindow) {
   if (!aInnerWindow) return false;
   if (aInnerWindow->HasPaintEventListeners()) return true;
@@ -1872,8 +1841,17 @@ bool nsPresContext::MayHavePaintEventListenerInSubDocument() {
   }
 
   bool result = false;
-  mDocument->EnumerateSubDocuments(MayHavePaintEventListenerSubdocumentCallback,
-                                   &result);
+  auto recurse = [&result](dom::Document& aSubDoc) {
+    if (nsPresContext* pc = aSubDoc.GetPresContext()) {
+      if (pc->MayHavePaintEventListenerInSubDocument()) {
+        result = true;
+        return CallState::Stop;
+      }
+    }
+    return CallState::Continue;
+  };
+
+  mDocument->EnumerateSubDocuments(recurse);
   return result;
 }
 
@@ -1977,30 +1955,6 @@ void nsPresContext::ClearNotifySubDocInvalidationData(
   aContainer->SetUserData(&gNotifySubDocInvalidationData, nullptr);
 }
 
-struct NotifyDidPaintSubdocumentCallbackClosure {
-  TransactionId mTransactionId;
-  const mozilla::TimeStamp& mTimeStamp;
-};
-/* static */
-CallState nsPresContext::NotifyDidPaintSubdocumentCallback(
-    dom::Document& aDocument, void* aData) {
-  auto* closure = static_cast<NotifyDidPaintSubdocumentCallbackClosure*>(aData);
-  if (nsPresContext* pc = aDocument.GetPresContext()) {
-    pc->NotifyDidPaintForSubtree(closure->mTransactionId, closure->mTimeStamp);
-  }
-  return CallState::Continue;
-}
-
-/* static */
-CallState nsPresContext::NotifyRevokingDidPaintSubdocumentCallback(
-    dom::Document& aDocument, void* aData) {
-  auto* closure = static_cast<NotifyDidPaintSubdocumentCallbackClosure*>(aData);
-  if (nsPresContext* pc = aDocument.GetPresContext()) {
-    pc->NotifyRevokingDidPaint(closure->mTransactionId);
-  }
-  return CallState::Continue;
-}
-
 class DelayedFireDOMPaintEvent : public Runnable {
  public:
   DelayedFireDOMPaintEvent(
@@ -2064,10 +2018,13 @@ void nsPresContext::NotifyRevokingDidPaint(TransactionId aTransactionId) {
     transaction->mIsWaitingForPreviousTransaction = true;
   }
 
-  NotifyDidPaintSubdocumentCallbackClosure closure = {aTransactionId,
-                                                      mozilla::TimeStamp()};
-  mDocument->EnumerateSubDocuments(
-      nsPresContext::NotifyRevokingDidPaintSubdocumentCallback, &closure);
+  auto recurse = [&aTransactionId](dom::Document& aSubDoc) {
+    if (nsPresContext* pc = aSubDoc.GetPresContext()) {
+      pc->NotifyRevokingDidPaint(aTransactionId);
+    }
+    return CallState::Continue;
+  };
+  mDocument->EnumerateSubDocuments(recurse);
 }
 
 void nsPresContext::NotifyDidPaintForSubtree(
@@ -2131,10 +2088,13 @@ void nsPresContext::NotifyDidPaintForSubtree(
     nsContentUtils::AddScriptRunner(ev);
   }
 
-  NotifyDidPaintSubdocumentCallbackClosure closure = {aTransactionId,
-                                                      aTimeStamp};
-  mDocument->EnumerateSubDocuments(
-      nsPresContext::NotifyDidPaintSubdocumentCallback, &closure);
+  auto recurse = [&aTransactionId, &aTimeStamp](dom::Document& aSubDoc) {
+    if (nsPresContext* pc = aSubDoc.GetPresContext()) {
+      pc->NotifyDidPaintForSubtree(aTransactionId, aTimeStamp);
+    }
+    return CallState::Continue;
+  };
+  mDocument->EnumerateSubDocuments(recurse);
 }
 
 already_AddRefed<nsITimer> nsPresContext::CreateTimer(

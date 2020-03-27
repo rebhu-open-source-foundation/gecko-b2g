@@ -16,6 +16,7 @@ namespace mozilla {
 namespace dom {
 
 class AudioContext;
+class WakeLock;
 
 class AudioDestinationNode final : public AudioNode,
                                    public nsIAudioChannelAgentCallback,
@@ -86,6 +87,8 @@ class AudioDestinationNode final : public AudioNode,
   bool IsCapturingAudio() const;
   void StartAudioCapturingTrack();
   void StopAudioCapturingTrack();
+  void CreateAudioWakeLockIfNeeded();
+  void ReleaseAudioWakeLockIfExists();
 
   void SetMozAudioChannelType(AudioChannel aValue, ErrorResult& aRv);
   bool CheckAudioChannelPermissions(AudioChannel aValue);
@@ -97,6 +100,7 @@ class AudioDestinationNode final : public AudioNode,
   RefPtr<MediaInputPort> mCaptureTrackPort;
 
   RefPtr<Promise> mOfflineRenderingPromise;
+  RefPtr<WakeLock> mWakeLock;
 
   // Audio Channel Type.
   AudioChannel mAudioChannel;

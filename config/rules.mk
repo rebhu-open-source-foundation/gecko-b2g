@@ -703,10 +703,10 @@ syms:: $(2)
 $(2): $(1)
 ifdef MOZ_CRASHREPORTER
 	$$(call py3_action,dumpsymbols,$$(abspath $$<) $$(abspath $$@) $$(DUMP_SYMBOLS_FLAGS))
-ifeq ($(HOST_OS_ARCH),WINNT)
-ifdef BINSCOPE
-	$$(PYTHON) $$(topsrcdir)/build/win32/autobinscope.py $$< $$(DIST)/crashreporter-symbols
-endif # BINSCOPE
+ifeq ($(OS_ARCH),WINNT)
+ifdef WINCHECKSEC
+	$$(PYTHON3) $$(topsrcdir)/build/win32/autowinchecksec.py $$<
+endif # WINCHECKSEC
 endif # WINNT
 endif
 endef

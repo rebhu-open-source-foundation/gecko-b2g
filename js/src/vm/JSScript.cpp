@@ -4076,8 +4076,10 @@ void JSScript::relazify(JSRuntime* rt) {
   clearFlag(ImmutableFlags::NeedsFunctionEnvironmentObjects);
 
   // We should not still be in any side-tables for the debugger or
-  // code-coverage. These are checked on a realm-level in
-  // JSFunction::maybeRelazify().
+  // code-coverage. The finalizer will not be able to clean them up once
+  // bytecode is released. We check in JSFunction::maybeRelazify() for these
+  // conditions before requesting relazification.
+  MOZ_ASSERT(!coverage::IsLCovEnabled());
   MOZ_ASSERT(!hasScriptCounts());
   MOZ_ASSERT(!hasDebugScript());
 
@@ -4258,14 +4260,14 @@ JSScript* JSScript::Create(JSContext* cx, HandleObject functionOrGlobal,
                            const SourceExtent& extent) {
   return JSScript::Create(cx, functionOrGlobal, sourceObject,
                           ImmutableScriptFlags::fromCompileOptions(options),
-                          options.hideScriptFromDebugger, extent);
+                          extent);
 }
 
 /*static*/
 JSScript* JSScript::Create(JSContext* cx, js::HandleObject functionOrGlobal,
                            js::HandleScriptSourceObject sourceObject,
                            js::ImmutableScriptFlags flags,
-                           bool hideScriptFromDebugger, SourceExtent extent) {
+                           SourceExtent extent) {
   RootedScript script(
       cx, JSScript::New(cx, functionOrGlobal, sourceObject, extent));
   if (!script) {
@@ -4275,8 +4277,6 @@ JSScript* JSScript::Create(JSContext* cx, js::HandleObject functionOrGlobal,
   // Record compile options that get checked at runtime.
   MOZ_ASSERT(script->immutableScriptFlags_ == 0);
   script->setImmutableFlags(flags);
-
-  script->setFlag(MutableFlags::HideScriptFromDebugger, hideScriptFromDebugger);
 
   return script;
 }
@@ -4950,10 +4950,6 @@ JSScript* js::detail::CopyScript(JSContext* cx, HandleScript src,
                                  HandleObject functionOrGlobal,
                                  HandleScriptSourceObject sourceObject,
                                  MutableHandle<GCVector<Scope*>> scopes) {
-  // We don't copy the HideScriptFromDebugger flag and it's not clear what
-  // should happen if it's set on the source script.
-  MOZ_ASSERT(!src->hideScriptFromDebugger());
-
   if (src->treatAsRunOnce() && !src->isFunction()) {
     JS_ReportErrorASCII(cx, "No cloning toplevel run-once scripts");
     return nullptr;
