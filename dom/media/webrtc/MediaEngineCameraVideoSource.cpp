@@ -326,7 +326,6 @@ bool MediaEngineCameraVideoSource::ChooseCapability(
     // add a couple of default candidates based on prefs and constraints.
     // The chosen candidate will be propagated to StartCapture() which will fail
     // for an invalid candidate.
-    MOZ_DIAGNOSTIC_ASSERT(mCapabilities.Length() == 1);
     MOZ_DIAGNOSTIC_ASSERT(candidateSet.Length() == 1);
     candidateSet.Clear();
 
