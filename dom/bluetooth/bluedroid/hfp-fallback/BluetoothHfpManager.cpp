@@ -113,6 +113,13 @@ BluetoothHfpManager::IsNrecEnabled()
 }
 
 bool
+BluetoothHfpManager::ReplyToConnectionRequest(bool aAccept)
+{
+  MOZ_ASSERT(false, "BluetoothHfpManager hasn't implemented this function yet.  ");
+  return false;
+}
+
+bool
 BluetoothHfpManager::IsWbsEnabled()
 {
   return false;

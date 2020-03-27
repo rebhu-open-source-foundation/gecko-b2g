@@ -42,18 +42,18 @@ XPCOM_MANIFESTS += [
     'components.conf',
 ]
 
-#if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
     XPIDL_SOURCES += [
         'gonk/nsIGonkVoicemailService.idl',
     ]
-    if not CONFIG['DISABLE_MOZ_RIL_GEOLOC'] and not CONFIG['DISABLE_MOZ_RIL']:
-        EXTRA_COMPONENTS += [
-            'gonk/VoicemailService.manifest',
-        ]
-        EXTRA_JS_MODULES += [
-            'gonk/VoicemailService.jsm',
-        ]
+
+    EXTRA_JS_MODULES += [
+        'gonk/VoicemailService.jsm',
+    ]
+
+    XPCOM_MANIFESTS += [
+        'gonk/components.conf',
+    ]
 
 LOCAL_INCLUDES += [
     '../base',

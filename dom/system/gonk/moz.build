@@ -63,8 +63,12 @@ LOCAL_INCLUDES += [
 
 DIRS += [
     'network',
-    'radio',
     'volume',
 ]
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+    DIRS += [
+        'radio',
+    ]
 
 FINAL_LIBRARY = 'xul'

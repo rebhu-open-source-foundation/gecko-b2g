@@ -359,8 +359,10 @@ extern const mozilla::Module kEmbeddingModule;
 extern const mozilla::Module kGaiaChromeModule;
 #endif
 #if defined(MOZ_WIDGET_GONK)
-extern const mozilla::Module kNetworkWorkerModule;
+#if defined(MOZ_B2G_RIL)
 extern const mozilla::Module kRilWorkerServiceModule;
+#endif
+extern const mozilla::Module kNetworkWorkerModule;
 extern const mozilla::Module kAudioManagerModule;
 #ifdef HAS_KOOST_MODULES
 extern const mozilla::Module kDhcpServiceModule;
@@ -458,8 +460,10 @@ nsresult nsComponentManagerImpl::Init() {
   RegisterModule(&kGaiaChromeModule);
 #endif
 #if defined(MOZ_WIDGET_GONK)
-  RegisterModule(&kNetworkWorkerModule);
+#if defined(MOZ_B2G_RIL)
   RegisterModule(&kRilWorkerServiceModule);
+#endif
+  RegisterModule(&kNetworkWorkerModule);
   RegisterModule(&kAudioManagerModule);
 #ifdef HAS_KOOST_MODULES
   RegisterModule(&kDhcpServiceModule);

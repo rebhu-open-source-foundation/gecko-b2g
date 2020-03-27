@@ -18,18 +18,16 @@ UNIFIED_SOURCES += [
     'ipc/CellBroadcastParent.cpp',
 ]
 
-#if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
     EXTRA_JS_MODULES += [
+        'gonk/CellBroadcastService.jsm',
         'gonk/GonkCellBroadcastConfigService.jsm',
         'gonk/sms_cb_consts.js',
     ]
 
-#    if not CONFIG['DISABLE_MOZ_RIL_GEOLOC'] and not CONFIG['DISABLE_MOZ_RIL']:
-    if not CONFIG['DISABLE_MOZ_RIL_GEOLOC']:
-        EXTRA_JS_MODULES += [
-            'gonk/CellBroadcastService.jsm',
-        ]
+    XPCOM_MANIFESTS += [
+        'gonk/components.conf',
+    ]
 
 EXPORTS.mozilla.dom.cellbroadcast += [
     'ipc/CellBroadcastChild.h',

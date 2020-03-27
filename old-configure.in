@@ -2359,13 +2359,14 @@ dnl ========================================================
 dnl = Enable Radio Interface for B2G (Gonk usually)
 dnl ========================================================
 
-# if test -n "$MOZ_B2G_RIL"; then
-    # if test -n "$_PLATFORM_HAVE_RIL"; then   //TODO:Force defind MOZ_B2G_RIL for development
-        AC_DEFINE(MOZ_B2G_RIL)
-    # else
-    #    AC_MSG_ERROR([b2g-ril cannot be enabled because target platform doesn't support it.])
-    # fi
-# fi
+MOZ_ARG_ENABLE_BOOL(b2g-ril,
+[  --enable-b2g-ril      Enable b2g-ril ],
+    MOZ_B2G_RIL=1,
+    MOZ_B2G_RIL= )
+
+if test "$MOZ_B2G_RIL"; then
+    AC_DEFINE(MOZ_B2G_RIL)
+fi
 AC_SUBST(MOZ_B2G_RIL)
 
 dnl ========================================================

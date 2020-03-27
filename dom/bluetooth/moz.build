@@ -10,10 +10,7 @@ if CONFIG['MOZ_B2G_BT']:
     # Generic code
     #
 
-    # TODO: Replace CONFIG['MOZ_B2G_BT'] by CONFIG['MOZ_B2G_RIL']
-    #       Current MOZ_B2G_RIL is true as AC_DEFINE but false as AC_SUBST,
-    #       therefore, using CONFIG['MOZ_B2G_RIL'] would break the build
-    if CONFIG['MOZ_B2G_BT']:
+    if CONFIG['MOZ_B2G_RIL']:
         SOURCES += [
             'common/BluetoothRilListener.cpp'
         ]
@@ -93,10 +90,7 @@ if CONFIG['MOZ_B2G_BT']:
                 'bluedroid',
             ]
 
-            # TODO: Replace CONFIG['MOZ_B2G_BT'] by CONFIG['MOZ_B2G_RIL']
-            #       Current MOZ_B2G_RIL is true as AC_DEFINE but false as AC_SUBST,
-            #       therefore, using CONFIG['MOZ_B2G_RIL'] would break the build
-            if CONFIG['MOZ_B2G_BT']:
+            if CONFIG['MOZ_B2G_RIL']:
                 SOURCES += [
                     'bluedroid/hfp/BluetoothHfpManager.cpp',
                 ]

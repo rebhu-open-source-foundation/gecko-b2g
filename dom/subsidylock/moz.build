@@ -37,13 +37,18 @@ IPDL_SOURCES += [
   'ipc/PSubsidyLockRequest.ipdl',
 ]
 
-EXTRA_JS_MODULES += [
-  'gonk/SubsidyLockService.jsm',
-]
-
 XPCOM_MANIFESTS += [
     'components.conf',
 ]
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+    EXTRA_COMPONENTS += [
+      'gonk/SubsidyLockService.jsm',
+    ]
+
+    XPCOM_MANIFESTS += [
+        'gonk/components.conf',
+    ]
 
 LOCAL_INCLUDES += [
   '/dom/system/gonk',
