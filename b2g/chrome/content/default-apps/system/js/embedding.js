@@ -38,7 +38,9 @@
       // We also ignore aName if it is set, as it is currently only used on the
       // e10s codepath.
       log(
-        `browserWindow::openURIInFrame ${aURI.spec} ${aParams} ${aWhere} ${aFlags} ${aName}`
+        `browserWindow::openURIInFrame ${
+          aURI.spec
+        } ${aParams} ${aWhere} ${aFlags} ${aName}`
       );
 
       // Need to return the new WebView here.
@@ -56,7 +58,9 @@
     ) {
       let url = aURI.spec;
       log(
-        `browserWindow::createContentWindowInFrame ${url} ${aParams.features} ${aNextRemoteTabId}`
+        `browserWindow::createContentWindowInFrame ${url} ${
+          aParams.features
+        } ${aNextRemoteTabId}`
       );
 
       let wm = exports["wm"];
@@ -72,7 +76,7 @@
     canClose() {
       log(`browserWindow::canClose`);
       return true;
-    }
+    },
   };
 
   const processSelector = {
@@ -91,7 +95,7 @@
           log(`Re-using process #${i}`);
           // If we re-use a preallocated process, spawn a new one.
           window.setTimeout(() => {
-            embedder.launch_preallocated_process();
+            embedder.launchPreallocatedProcess();
           }, kPreallocLaunchDelay);
           return i;
         }
@@ -100,16 +104,16 @@
       // Fallback to creating a new process.
       log(`No reusable process found, will create a new one.`);
       return processSelector.NEW_PROCESS;
-    }
+    },
   };
 
   const embedder = new WebEmbedder({
-    window_provider: windowProvider,
-    process_selector: processSelector
+    windowProvider,
+    processSelector,
   });
   embedder.addEventListener("runtime-ready", e => {
     log(`Embedder event: ${e.type}`);
-    embedder.launch_preallocated_process();
+    embedder.launchPreallocatedProcess();
   });
 
   // Hacks.

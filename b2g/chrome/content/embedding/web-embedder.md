@@ -6,8 +6,8 @@ The embedder is responsible for providing delegates that are used for each funct
 
 ```js
 const embedder = new WebEmbedder({
-  window_provider: windowProvider,
-  process_selector: processSelector
+  windowProvider: windowProvider,
+  processSelector: processSelector
 });
 embedder.addEventListener("runtime-ready", e => {
   console.log(`Embedder event: ${e.type}`);
@@ -21,10 +21,10 @@ The `WebEmbedder` object is an `EventTarget` that will dispatch a `runtime-ready
 The `WebEmbedder` constructor accepts one parameter used to provide the supported delegates:
 ```js
 const embedder = new WebEmbedder({
-  window_provider: <WindowProvider implementation>,
-  process_selector: <ProcessSelector implementation>,
+  windowProvider: <WindowProvider implementation>,
+  processSelector: <ProcessSelector implementation>,
   notifications: <Notifications implementation>,
-  activity_chooser: <ActivityChooser implementation>,
+  activityChooser: <ActivityChooser implementation>,
 });
 ```
 All delegates are optional.
@@ -32,7 +32,7 @@ All delegates are optional.
 ### Methods
 
 The `WebEmbedder` object exposes the following methods:
-- `launch_preallocated_process()`: this will create a new content process with no content.
+- `launchPreallocatedProcess()`: this will create a new content process with no content.
 
 ## WindowProvider delegate
 

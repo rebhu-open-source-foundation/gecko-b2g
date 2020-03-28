@@ -168,7 +168,7 @@
 
       _webembed_log(`constructor in ${window}`);
 
-      this.browserDomWindow = delegates.window_provider;
+      this.browserDomWindow = delegates.windowProvider;
 
       Services.obs.addObserver(
         (/* shell_window */) => {
@@ -188,7 +188,7 @@
       }
 
       Services.obs.notifyObservers(
-        { wrappedJSObject: delegates.process_selector },
+        { wrappedJSObject: delegates.processSelector },
         "web-embedder-set-process-selector"
       );
 
@@ -201,7 +201,7 @@
       Services.obs.addObserver(wrappedDetail => {
         _webembed_log("receive activity-choice");
         let detail = wrappedDetail.wrappedJSObject;
-        delegates.activity_chooser.choseActivity(detail).then(
+        delegates.activityChooser.choseActivity(detail).then(
           choice => {
             Services.obs.notifyObservers(
               { wrappedJSObject: choice },
@@ -222,8 +222,8 @@
       }
     }
 
-    launch_preallocated_process() {
-      _webembed_log(`launch_preallocated_process`);
+    launchPreallocatedProcess() {
+      _webembed_log(`launchPreallocatedProcess`);
       return Services.appinfo.ensureContentProcess();
     }
 
