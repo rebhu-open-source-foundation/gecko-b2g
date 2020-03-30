@@ -10,10 +10,10 @@
 #include <algorithm>
 #include <cmath>
 #include <ostream>
+#include <type_traits>
 
 #include "mozilla/Assertions.h"
 #include "mozilla/FloatingPoint.h"
-#include "mozilla/TypeTraits.h"
 #include "Types.h"
 
 namespace mozilla {
@@ -64,8 +64,8 @@ struct BaseRect {
 
   // "Finite" means not inf and not NaN
   bool IsFinite() const {
-    typedef typename mozilla::Conditional<mozilla::IsSame<T, float>::value,
-                                          float, double>::Type FloatType;
+    using FloatType =
+        std::conditional_t<std::is_same_v<T, float>, float, double>;
     return (mozilla::IsFinite(FloatType(x)) &&
             mozilla::IsFinite(FloatType(y)) &&
             mozilla::IsFinite(FloatType(width)) &&

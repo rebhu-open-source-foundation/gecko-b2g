@@ -57,7 +57,6 @@
 #include "mozilla/SystemGroup.h"
 #include "mozilla/ThreadLocal.h"
 #include "mozilla/TimeStamp.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Tuple.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Vector.h"
@@ -84,6 +83,7 @@
 #include <fstream>
 #include <ostream>
 #include <sstream>
+#include <type_traits>
 
 #ifdef MOZ_TASK_TRACER
 #  include "GeckoTaskTracer.h"
@@ -2790,8 +2790,8 @@ class SamplerThread {
     // It may be tempting for a future maintainer to change aCallbacks into an
     // rvalue reference; this will remind them not to do that!
     static_assert(
-        IsSame<decltype(aCallbacks),
-               UniquePtr<PostSamplingCallbackListItem>>::value,
+        std::is_same_v<decltype(aCallbacks),
+                       UniquePtr<PostSamplingCallbackListItem>>,
         "We need to capture the list by-value, to implicitly destroy it");
   }
 

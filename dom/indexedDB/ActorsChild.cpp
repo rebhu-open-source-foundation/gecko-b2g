@@ -6,6 +6,8 @@
 
 #include "ActorsChild.h"
 
+#include <type_traits>
+
 #include "BackgroundChildImpl.h"
 #include "IDBDatabase.h"
 #include "IDBEvents.h"
@@ -25,7 +27,6 @@
 #include "mozilla/CycleCollectedJSRuntime.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/SnappyUncompressInputStream.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/PermissionMessageUtils.h"
@@ -368,10 +369,10 @@ class MOZ_STACK_CLASS ResultHelper final : public IDBRequest::ResultCallback {
 
  private:
   template <class T>
-  typename EnableIf<IsSame<T, IDBDatabase>::value ||
-                        IsSame<T, IDBCursor>::value ||
-                        IsSame<T, IDBMutableFile>::value,
-                    nsresult>::Type
+  std::enable_if_t<std::is_same_v<T, IDBDatabase> ||
+                       std::is_same_v<T, IDBCursor> ||
+                       std::is_same_v<T, IDBMutableFile>,
+                   nsresult>
   GetResult(JSContext* aCx, T* aDOMObject,
             JS::MutableHandle<JS::Value> aResult) {
     if (!aDOMObject) {

@@ -22,7 +22,6 @@
 #ifdef XP_WIN
 #  include "mozilla/TimeStamp_windows.h"
 #endif
-#include "mozilla/TypeTraits.h"
 #include "mozilla/IntegerTypeTraits.h"
 #include "mozilla/Vector.h"
 
@@ -545,7 +544,7 @@ struct ParamTraits<nsTArray<E>> {
   // a data structure T for which IsPod<T>::value is true, yet also have a
   // ParamTraits<T> specialization.
   static const bool sUseWriteBytes =
-      (mozilla::IsIntegral<E>::value || mozilla::IsFloatingPoint<E>::value);
+      (std::is_integral_v<E> || std::is_floating_point_v<E>);
 
   static void Write(Message* aMsg, const paramType& aParam) {
     uint32_t length = aParam.Length();
@@ -648,7 +647,7 @@ struct ParamTraits<mozilla::Vector<E, N, AP>> {
   // a data structure T for which IsPod<T>::value is true, yet also have a
   // ParamTraits<T> specialization.
   static const bool sUseWriteBytes =
-      (mozilla::IsIntegral<E>::value || mozilla::IsFloatingPoint<E>::value);
+      (std::is_integral_v<E> || std::is_floating_point_v<E>);
 
   static void Write(Message* aMsg, const paramType& aParam) {
     uint32_t length = aParam.length();
@@ -729,7 +728,7 @@ struct ParamTraits<std::vector<E>> {
   // a data structure T for which IsPod<T>::value is true, yet also have a
   // ParamTraits<T> specialization.
   static const bool sUseWriteBytes =
-      (mozilla::IsIntegral<E>::value || mozilla::IsFloatingPoint<E>::value);
+      (std::is_integral_v<E> || std::is_floating_point_v<E>);
 
   static void Write(Message* aMsg, const paramType& aParam) {
     uint32_t length = aParam.size();

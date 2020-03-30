@@ -81,6 +81,7 @@
 #endif
 #include "frontend/ModuleSharedContext.h"
 #include "frontend/Parser.h"
+#include "frontend/SourceNotes.h"  // SrcNote, SrcNoteType, SrcNoteIterator
 #include "gc/PublicIterators.h"
 #include "jit/arm/Simulator-arm.h"
 #include "jit/InlinableNatives.h"
@@ -208,7 +209,7 @@ static const size_t gMaxStackSize = 128 * sizeof(size_t) * 1024;
 static const double MAX_TIMEOUT_SECONDS = 1800.0;
 
 // Not necessarily in sync with the browser
-#ifdef ENABLE_WASM_THREADS
+#ifdef ENABLE_SHARED_MEMORY
 #  define SHARED_MEMORY_DEFAULT 1
 #else
 #  define SHARED_MEMORY_DEFAULT 0
@@ -3012,41 +3013,42 @@ static MOZ_MUST_USE bool SrcNotes(JSContext* cx, HandleScript script,
   unsigned offset = 0;
   unsigned colspan = 0;
   unsigned lineno = script->lineno();
-  jssrcnote* notes = script->notes();
-  for (jssrcnote* sn = notes; !SN_IS_TERMINATOR(sn); sn = SN_NEXT(sn)) {
-    unsigned delta = SN_DELTA(sn);
+  SrcNote* notes = script->notes();
+  for (SrcNoteIterator iter(notes); !iter.atEnd(); ++iter) {
+    auto sn = *iter;
+
+    unsigned delta = sn->delta();
     offset += delta;
-    SrcNoteType type = SN_TYPE(sn);
-    const char* name = js_SrcNoteSpec[type].name;
+    SrcNoteType type = sn->type();
+    const char* name = sn->name();
     if (!sp->jsprintf("%3u: %4u %5u [%4u] %-8s", unsigned(sn - notes), lineno,
                       offset, delta, name)) {
       return false;
     }
 
     switch (type) {
-      case SRC_NULL:
-      case SRC_ASSIGNOP:
-      case SRC_BREAKPOINT:
-      case SRC_STEP_SEP:
-      case SRC_XDELTA:
+      case SrcNoteType::Null:
+      case SrcNoteType::AssignOp:
+      case SrcNoteType::Breakpoint:
+      case SrcNoteType::StepSep:
+      case SrcNoteType::XDelta:
         break;
 
-      case SRC_COLSPAN:
-        colspan =
-            SN_OFFSET_TO_COLSPAN(GetSrcNoteOffset(sn, SrcNote::ColSpan::Span));
+      case SrcNoteType::ColSpan:
+        colspan = SrcNote::ColSpan::getSpan(sn);
         if (!sp->jsprintf("%d", colspan)) {
           return false;
         }
         break;
 
-      case SRC_SETLINE:
-        lineno = GetSrcNoteOffset(sn, SrcNote::SetLine::Line);
+      case SrcNoteType::SetLine:
+        lineno = SrcNote::SetLine::getLine(sn);
         if (!sp->jsprintf(" lineno %u", lineno)) {
           return false;
         }
         break;
 
-      case SRC_NEWLINE:
+      case SrcNoteType::NewLine:
         ++lineno;
         break;
 
@@ -3089,19 +3091,19 @@ static bool Notes(JSContext* cx, unsigned argc, Value* vp) {
 
 static const char* TryNoteName(TryNoteKind kind) {
   switch (kind) {
-    case JSTRY_CATCH:
+    case TryNoteKind::Catch:
       return "catch";
-    case JSTRY_FINALLY:
+    case TryNoteKind::Finally:
       return "finally";
-    case JSTRY_FOR_IN:
+    case TryNoteKind::ForIn:
       return "for-in";
-    case JSTRY_FOR_OF:
+    case TryNoteKind::ForOf:
       return "for-of";
-    case JSTRY_LOOP:
+    case TryNoteKind::Loop:
       return "loop";
-    case JSTRY_FOR_OF_ITERCLOSE:
+    case TryNoteKind::ForOfIterClose:
       return "for-of-iterclose";
-    case JSTRY_DESTRUCTURING:
+    case TryNoteKind::Destructuring:
       return "destructuring";
   }
 
@@ -3116,8 +3118,7 @@ static MOZ_MUST_USE bool TryNotes(JSContext* cx, HandleScript script,
   }
 
   for (const TryNote& tn : script->trynotes()) {
-    if (!sp->jsprintf(" %-16s %6u %8u %8u\n",
-                      TryNoteName(static_cast<TryNoteKind>(tn.kind)),
+    if (!sp->jsprintf(" %-16s %6u %8u %8u\n", TryNoteName(tn.kind()),
                       tn.stackDepth, tn.start, tn.start + tn.length)) {
       return false;
     }

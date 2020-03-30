@@ -1150,51 +1150,28 @@ void BaselineInterpreterCodeGen::emitInitFrameFields(Register nonFunctionEnv) {
 }
 
 template <>
-template <typename F1, typename F2>
+template <typename F>
 bool BaselineCompilerCodeGen::initEnvironmentChainHelper(
-    const F1& initFunctionEnv, const F2& initGlobalOrEvalEnv,
-    Register scratch) {
+    const F& initFunctionEnv) {
   if (handler.function()) {
     return initFunctionEnv();
   }
-  if (handler.module()) {
-    return true;
-  }
-  return initGlobalOrEvalEnv();
+  return true;
 }
 
 template <>
-template <typename F1, typename F2>
+template <typename F>
 bool BaselineInterpreterCodeGen::initEnvironmentChainHelper(
-    const F1& initFunctionEnv, const F2& initGlobalOrEvalEnv,
-    Register scratch) {
-  // There are three cases:
-  //
-  // 1) Function script: use code emitted by initFunctionEnv.
-  // 2) Module script: no-op.
-  // 3) Global or eval script: use code emitted by initGlobalOrEvalEnv.
+    const F& initFunctionEnv) {
+  // For function scripts use the code emitted by initFunctionEnv. For other
+  // scripts this is a no-op.
 
-  Label notFunction, done;
-  masm.loadPtr(frame.addressOfCalleeToken(), scratch);
-  masm.branchTestPtr(Assembler::NonZero, scratch, Imm32(CalleeTokenScriptBit),
-                     &notFunction);
+  Label done;
+  masm.branchTestPtr(Assembler::NonZero, frame.addressOfCalleeToken(),
+                     Imm32(CalleeTokenScriptBit), &done);
   {
     if (!initFunctionEnv()) {
       return false;
-    }
-    masm.jump(&done);
-  }
-  masm.bind(&notFunction);
-  {
-    masm.andPtr(Imm32(uint32_t(CalleeTokenMask)), scratch);
-    masm.branchTest32(Assembler::NonZero,
-                      Address(scratch, JSScript::offsetOfImmutableFlags()),
-                      Imm32(uint32_t(JSScript::ImmutableFlags::IsModule)),
-                      &done);
-    {
-      if (!initGlobalOrEvalEnv()) {
-        return false;
-      }
     }
   }
 
@@ -1222,25 +1199,7 @@ bool BaselineCodeGen<Handler>::initEnvironmentChain() {
         initEnv, R2.scratchReg());
   };
 
-  auto initGlobalOrEvalEnv = [this]() {
-    // EnvironmentChain pointer in BaselineFrame has already been initialized
-    // in prologue, but we need to check for redeclaration errors in global and
-    // eval scripts.
-
-    prepareVMCall();
-
-    pushScriptArg();
-    masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
-    pushArg(R0.scratchReg());
-
-    const CallVMPhase phase = CallVMPhase::BeforePushingLocals;
-
-    using Fn = bool (*)(JSContext*, HandleObject, HandleScript);
-    return callVMNonOp<Fn, js::CheckGlobalOrEvalDeclarationConflicts>(phase);
-  };
-
-  return initEnvironmentChainHelper(initFunctionEnv, initGlobalOrEvalEnv,
-                                    R2.scratchReg());
+  return initEnvironmentChainHelper(initFunctionEnv);
 }
 
 template <typename Handler>
@@ -4047,6 +4006,20 @@ bool BaselineCodeGen<Handler>::emit_DefFun() {
 }
 
 template <typename Handler>
+bool BaselineCodeGen<Handler>::emit_CheckGlobalOrEvalDecl() {
+  frame.syncStack(0);
+
+  prepareVMCall();
+
+  pushScriptArg();
+  masm.loadPtr(frame.addressOfEnvironmentChain(), R0.scratchReg());
+  pushArg(R0.scratchReg());
+
+  using Fn = bool (*)(JSContext*, HandleObject, HandleScript);
+  return callVM<Fn, js::CheckGlobalOrEvalDeclarationConflicts>();
+}
+
+template <typename Handler>
 bool BaselineCodeGen<Handler>::emitInitPropGetterSetter() {
   // Keep values on the stack for the decompiler.
   frame.syncStack(0);
@@ -4744,7 +4717,7 @@ bool BaselineCodeGen<Handler>::emit_TypeofExpr() {
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_ThrowMsg() {
   prepareVMCall();
-  pushUint16BytecodeOperandArg(R2.scratchReg());
+  pushUint8BytecodeOperandArg(R2.scratchReg());
 
   using Fn = bool (*)(JSContext*, const unsigned);
   return callVM<Fn, js::ThrowMsgOperation>();
@@ -6402,24 +6375,22 @@ bool BaselineCodeGen<Handler>::emit_InitHomeObject() {
 }
 
 template <>
-bool BaselineCompilerCodeGen::emit_BuiltinProto() {
-  // The builtin prototype is a constant for a given global.
-  JSObject* builtin = BuiltinProtoOperation(cx, handler.pc());
-  if (!builtin) {
+bool BaselineCompilerCodeGen::emit_FunctionProto() {
+  // The function prototype is a constant for a given global.
+  JSObject* funProto = FunctionProtoOperation(cx);
+  if (!funProto) {
     return false;
   }
-  frame.push(ObjectValue(*builtin));
+  frame.push(ObjectValue(*funProto));
   return true;
 }
 
 template <>
-bool BaselineInterpreterCodeGen::emit_BuiltinProto() {
+bool BaselineInterpreterCodeGen::emit_FunctionProto() {
   prepareVMCall();
 
-  pushBytecodePCArg();
-
-  using Fn = JSObject* (*)(JSContext*, jsbytecode*);
-  if (!callVM<Fn, BuiltinProtoOperation>()) {
+  using Fn = JSObject* (*)(JSContext*);
+  if (!callVM<Fn, FunctionProtoOperation>()) {
     return false;
   }
 

@@ -9,10 +9,10 @@
 #ifndef mozilla_CompactPair_h
 #define mozilla_CompactPair_h
 
+#include <type_traits>
 #include <utility>
 
 #include "mozilla/Attributes.h"
-#include "mozilla/TypeTraits.h"
 
 namespace mozilla {
 
@@ -27,13 +27,14 @@ enum StorageType { AsBase, AsMember };
 // The extra conditions on storage for B are necessary so that CompactPairHelper
 // won't ambiguously inherit from either A or B, such that one or the other base
 // class would be inaccessible.
-template <
-    typename A, typename B,
-    detail::StorageType = IsEmpty<A>::value ? detail::AsBase : detail::AsMember,
-    detail::StorageType = IsEmpty<B>::value && !std::is_base_of<A, B>::value &&
-                                  !std::is_base_of<B, A>::value
-                              ? detail::AsBase
-                              : detail::AsMember>
+template <typename A, typename B,
+          detail::StorageType =
+              std::is_empty_v<A> ? detail::AsBase : detail::AsMember,
+          detail::StorageType = std::is_empty_v<B> &&
+                                        !std::is_base_of<A, B>::value &&
+                                        !std::is_base_of<B, A>::value
+                                    ? detail::AsBase
+                                    : detail::AsMember>
 struct CompactPairHelper;
 
 template <typename A, typename B>
@@ -169,12 +170,11 @@ struct CompactPair : private detail::CompactPairHelper<A, B> {
  * will return a CompactPair<Foo, Bar>.
  */
 template <typename A, typename B>
-CompactPair<typename RemoveCV<typename RemoveReference<A>::Type>::Type,
-            typename RemoveCV<typename RemoveReference<B>::Type>::Type>
+CompactPair<std::remove_cv_t<std::remove_reference_t<A>>,
+            std::remove_cv_t<std::remove_reference_t<B>>>
 MakeCompactPair(A&& aA, B&& aB) {
-  return CompactPair<
-      typename RemoveCV<typename RemoveReference<A>::Type>::Type,
-      typename RemoveCV<typename RemoveReference<B>::Type>::Type>(
+  return CompactPair<std::remove_cv_t<std::remove_reference_t<A>>,
+                     std::remove_cv_t<std::remove_reference_t<B>>>(
       std::forward<A>(aA), std::forward<B>(aB));
 }
 

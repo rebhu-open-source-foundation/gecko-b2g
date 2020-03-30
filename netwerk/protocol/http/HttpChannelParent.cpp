@@ -309,19 +309,23 @@ HttpChannelParent::GetInterface(const nsIID& aIID, void** result) {
     nsresult rv;
     nsCOMPtr<nsIWindowWatcher> wwatch =
         do_GetService(NS_WINDOWWATCHER_CONTRACTID, &rv);
-    NS_ENSURE_SUCCESS(rv, rv);
+    NS_ENSURE_SUCCESS(rv, NS_ERROR_NO_INTERFACE);
 
     bool hasWindowCreator = false;
     Unused << wwatch->HasWindowCreator(&hasWindowCreator);
     if (!hasWindowCreator) {
-      return NS_ERROR_FAILURE;
+      return NS_ERROR_NO_INTERFACE;
     }
 
     nsCOMPtr<nsIPromptFactory> factory = do_QueryInterface(wwatch);
     if (!factory) {
       return NS_ERROR_NO_INTERFACE;
     }
-    return factory->GetPrompt(nullptr, aIID, reinterpret_cast<void**>(result));
+    rv = factory->GetPrompt(nullptr, aIID, reinterpret_cast<void**>(result));
+    if (NS_FAILED(rv)) {
+      return NS_ERROR_NO_INTERFACE;
+    }
+    return NS_OK;
   }
 
   // Only support nsILoadContext if child channel's callbacks did too
@@ -1835,8 +1839,8 @@ mozilla::ipc::IPCResult HttpChannelParent::RecvOpenAltDataCacheInputStream(
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-HttpChannelParent::OnProgress(nsIRequest* aRequest, nsISupports* aContext,
-                              int64_t aProgress, int64_t aProgressMax) {
+HttpChannelParent::OnProgress(nsIRequest* aRequest, int64_t aProgress,
+                              int64_t aProgressMax) {
   LOG(("HttpChannelParent::OnProgress [this=%p progress=%" PRId64 "max=%" PRId64
        "]\n",
        this, aProgress, aProgressMax));
@@ -1865,8 +1869,8 @@ HttpChannelParent::OnProgress(nsIRequest* aRequest, nsISupports* aContext,
 }
 
 NS_IMETHODIMP
-HttpChannelParent::OnStatus(nsIRequest* aRequest, nsISupports* aContext,
-                            nsresult aStatus, const char16_t* aStatusArg) {
+HttpChannelParent::OnStatus(nsIRequest* aRequest, nsresult aStatus,
+                            const char16_t* aStatusArg) {
   LOG(("HttpChannelParent::OnStatus [this=%p status=%" PRIx32 "]\n", this,
        static_cast<uint32_t>(aStatus)));
   MOZ_ASSERT(NS_IsMainThread());

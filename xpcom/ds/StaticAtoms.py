@@ -737,7 +737,6 @@ STATIC_ATOMS = [
     Atom("onanimationiteration", "onanimationiteration"),
     Atom("onanimationstart", "onanimationstart"),
     Atom("onAppCommand", "onAppCommand"),
-    Atom("onappinstalled", "onappinstalled"),
     Atom("onaudioprocess", "onaudioprocess"),
     Atom("onauxclick", "onauxclick"),
     Atom("onbeforecopy", "onbeforecopy"),

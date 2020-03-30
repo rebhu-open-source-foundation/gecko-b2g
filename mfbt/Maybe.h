@@ -20,7 +20,6 @@
 #include "mozilla/MemoryChecking.h"
 #include "mozilla/OperatorNewExtensions.h"
 #include "mozilla/Poison.h"
-#include "mozilla/TypeTraits.h"
 
 class nsCycleCollectionTraversalCallback;
 
@@ -85,9 +84,9 @@ struct OutOfLinePoisoner {
 template <typename T>
 inline void PoisonObject(T* p) {
   const uintptr_t POISON = mozPoisonValue();
-  Conditional<(sizeof(T) <= 8 * sizeof(POISON)),
-              InlinePoisoner<0, sizeof(T) / sizeof(POISON)>,
-              OutOfLinePoisoner<sizeof(T)>>::Type::poison(p, POISON);
+  std::conditional_t<(sizeof(T) <= 8 * sizeof(POISON)),
+                     InlinePoisoner<0, sizeof(T) / sizeof(POISON)>,
+                     OutOfLinePoisoner<sizeof(T)>>::poison(p, POISON);
 }
 
 template <typename T>
@@ -97,7 +96,7 @@ struct MaybePoisoner {
   static void poison(void* aPtr) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     if (N >= sizeof(uintptr_t)) {
-      PoisonObject(static_cast<typename RemoveCV<T>::Type*>(aPtr));
+      PoisonObject(static_cast<std::remove_cv_t<T>*>(aPtr));
     }
 #endif
     MOZ_MAKE_MEM_UNDEFINED(aPtr, N);
@@ -217,7 +216,7 @@ struct MaybeStorage;
 
 template <typename T>
 struct MaybeStorage<T, false> {
-  using NonConstT = typename RemoveConst<T>::Type;
+  using NonConstT = std::remove_const_t<T>;
 
   union Union {
     Union() {}
@@ -254,7 +253,7 @@ struct MaybeStorage<T, false> {
 
 template <typename T>
 struct MaybeStorage<T, true> {
-  using NonConstT = typename RemoveConst<T>::Type;
+  using NonConstT = std::remove_const_t<T>;
 
   union Union {
     constexpr Union() : dummy() {}
@@ -774,8 +773,7 @@ constexpr Maybe<T&> SomeRef(T& aValue) {
 }
 
 template <typename T>
-Maybe<typename RemoveCV<typename RemoveReference<T>::Type>::Type> ToMaybe(
-    T* aPtr) {
+Maybe<std::remove_cv_t<std::remove_reference_t<T>>> ToMaybe(T* aPtr) {
   if (aPtr) {
     return Some(*aPtr);
   }

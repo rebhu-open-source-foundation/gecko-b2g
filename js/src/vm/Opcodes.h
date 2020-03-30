@@ -1358,7 +1358,7 @@
     /*
      * Check that the top value on the stack is an object, and throw a
      * TypeError if not. `kind` is used only to generate an appropriate error
-     * message. It must be in range for `js::CheckIsObjectKind`.
+     * message.
      *
      * Implements: [GetIterator][1] step 5, [IteratorNext][2] step 3. Both
      * operations call a JS method which scripts can define however they want,
@@ -1369,18 +1369,18 @@
      *
      *   Category: Objects
      *   Type: Iteration
-     *   Operands: uint8_t kind
+     *   Operands: CheckIsObjectKind kind
      *   Stack: result => result
      */ \
     MACRO(CheckIsObj, check_is_obj, NULL, 2, 1, 1, JOF_UINT8) \
     /*
      * Check that the top value on the stack is callable, and throw a TypeError
      * if not. The operand `kind` is used only to generate an appropriate error
-     * message. It must be in range for `js::CheckIsCallableKind`.
+     * message.
      *
      *   Category: Objects
      *   Type: Iteration
-     *   Operands: uint8_t kind
+     *   Operands: CheckIsCallableKind kind
      *   Stack: obj => obj
      */ \
     MACRO(CheckIsCallable, check_is_callable, NULL, 2, 1, 1, JOF_UINT8) \
@@ -1593,7 +1593,7 @@
      *
      *   Category: Functions
      *   Type: Creating functions
-     *   Operands: uint8_t prefixKind
+     *   Operands: FunctionPrefixKind prefixKind
      *   Stack: fun, name => fun
      */ \
     MACRO(SetFunName, set_fun_name, NULL, 2, 2, 1, JOF_UINT8) \
@@ -1679,14 +1679,14 @@
      */ \
     MACRO(DerivedConstructor, derived_constructor, NULL, 13, 1, 1, JOF_CLASS_CTOR) \
     /*
-     * Pushes the current global's builtin prototype for a given proto key.
+     * Pushes the current global's FunctionPrototype.
      *
      *   Category: Functions
      *   Type: Creating constructors
-     *   Operands: uint8_t kind
-     *   Stack: => %BuiltinPrototype%
+     *   Operands:
+     *   Stack: => %FunctionPrototype%
      */ \
-    MACRO(BuiltinProto, builtin_proto, NULL, 2, 0, 1, JOF_UINT8) \
+    MACRO(FunctionProto, function_proto, NULL, 1, 0, 1, JOF_BYTE) \
     /*
      * Invoke `callee` with `this` and `args`, and push the return value. Throw
      * a TypeError if `callee` isn't a function.
@@ -2046,7 +2046,7 @@
      *
      *   Category: Functions
      *   Type: Generators and async functions
-     *   Operands: uint8_t fulfillOrReject
+     *   Operands: AsyncFunctionResolveKind fulfillOrReject
      *   Stack: valueOrReason, gen => promise
      */ \
     MACRO(AsyncResolve, async_resolve, NULL, 2, 2, 1, JOF_UINT8) \
@@ -2394,10 +2394,10 @@
      *
      *   Category: Control flow
      *   Type: Exceptions
-     *   Operands: uint16_t msgNumber
+     *   Operands: ThrowMsgKind msgNumber
      *   Stack: =>
      */ \
-    MACRO(ThrowMsg, throw_msg, NULL, 3, 0, 0, JOF_UINT16) \
+    MACRO(ThrowMsg, throw_msg, NULL, 2, 0, 0, JOF_UINT8) \
     /*
      * Throws a runtime TypeError for invalid assignment to a `const` binding.
      *
@@ -3159,8 +3159,9 @@
      * before anything else that might add bindings to the environment, and
      * only once per binding. There must be a correct entry for the new binding
      * in `script->bodyScope()`. (All this ensures that at run time, there is
-     * no existing conflicting binding. We check before running the script, in
-     * `js::CheckGlobalOrEvalDeclarationConflicts`.)
+     * no existing conflicting binding. This is checked by the
+     * `JSOp::CheckGlobalOrEvalDecl` bytecode instruction that must appear
+     * before `JSOp::Def{Var,Let,Const,Fun}`.)
      *
      * Throw a SyntaxError if the current VariableEnvironment is the global
      * environment and a binding with the same name exists on the global
@@ -3220,6 +3221,22 @@
      *   Stack: =>
      */ \
     MACRO(DefConst, def_const, NULL, 5, 0, 0, JOF_ATOM) \
+    /*
+     * Check for conflicting bindings before `JSOp::Def{Var,Let,Const,Fun}` in
+     * global or sloppy eval scripts.
+     *
+     * Implements: [GlobalDeclarationInstantiation][1] steps 5, 6, 10 and 12,
+     * and [EvalDeclarationInstantiation][2] steps 5 and 8.
+     *
+     * [1]: https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
+     * [2]: https://tc39.es/ecma262/#sec-evaldeclarationinstantiation
+     *
+     *   Category: Variables and scopes
+     *   Type: Creating and deleting bindings
+     *   Operands:
+     *   Stack: =>
+     */ \
+    MACRO(CheckGlobalOrEvalDecl, check_global_or_eval_decl, NULL, 1, 0, 0, JOF_BYTE) \
     /*
      * Look up a variable on the environment chain and delete it. Push `true`
      * on success (if a binding was deleted, or if no such binding existed in
@@ -3479,7 +3496,6 @@
  * a power of two.  Use this macro to do so.
  */
 #define FOR_EACH_TRAILING_UNUSED_OPCODE(MACRO) \
-  MACRO(237)                                   \
   MACRO(238)                                   \
   MACRO(239)                                   \
   MACRO(240)                                   \

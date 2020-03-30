@@ -1181,6 +1181,13 @@ bool WarpBuilder::build_DefFun(BytecodeLocation loc) {
   return resumeAfter(deffun, loc);
 }
 
+bool WarpBuilder::build_CheckGlobalOrEvalDecl(BytecodeLocation loc) {
+  MOZ_ASSERT(!script_->isForEval(), "Eval scripts not supported");
+  auto* redeclCheck = MGlobalNameConflictsCheck::New(alloc());
+  current->add(redeclCheck);
+  return resumeAfter(redeclCheck, loc);
+}
+
 bool WarpBuilder::build_BindVar(BytecodeLocation) {
   MOZ_ASSERT(usesEnvironmentChain());
 
@@ -1873,14 +1880,14 @@ bool WarpBuilder::build_SuperFun(BytecodeLocation) {
   return true;
 }
 
-bool WarpBuilder::build_BuiltinProto(BytecodeLocation loc) {
-  if (auto* snapshot = getOpSnapshot<WarpBuiltinProto>(loc)) {
+bool WarpBuilder::build_FunctionProto(BytecodeLocation loc) {
+  if (auto* snapshot = getOpSnapshot<WarpFunctionProto>(loc)) {
     JSObject* proto = snapshot->proto();
     pushConstant(ObjectValue(*proto));
     return true;
   }
 
-  auto* ins = MBuiltinProto::New(alloc(), loc.toRawBytecode());
+  auto* ins = MFunctionProto::New(alloc());
   current->add(ins);
   current->push(ins);
   return resumeAfter(ins, loc);

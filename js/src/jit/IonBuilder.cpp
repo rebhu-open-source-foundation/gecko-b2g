@@ -888,21 +888,6 @@ AbortReasonOr<Ok> IonBuilder::build() {
   // what we can in an infallible manner.
   MOZ_TRY(rewriteParameters());
 
-  // Check for redeclaration errors for global scripts.
-  if (!info().funMaybeLazy() && !info().module() &&
-      script()->bodyScope()->is<GlobalScope>() &&
-      script()->bodyScope()->as<GlobalScope>().hasBindings()) {
-    MGlobalNameConflictsCheck* redeclCheck =
-        MGlobalNameConflictsCheck::New(alloc());
-    current->add(redeclCheck);
-    MResumePoint* entryRpCopy =
-        MResumePoint::Copy(alloc(), current->entryResumePoint());
-    if (!entryRpCopy) {
-      return abort(AbortReason::Alloc);
-    }
-    redeclCheck->setResumePoint(entryRpCopy);
-  }
-
   // It's safe to start emitting actual IR, so now build the env chain.
   MOZ_TRY(initEnvironmentChain());
   if (info().needsArgsObj()) {
@@ -1884,6 +1869,9 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::DefFun:
       return jsop_deffun();
 
+    case JSOp::CheckGlobalOrEvalDecl:
+      return jsop_checkGlobalOrEvalDecl();
+
     case JSOp::Eq:
     case JSOp::Ne:
     case JSOp::StrictEq:
@@ -2402,8 +2390,8 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::ObjWithProto:
       return jsop_objwithproto();
 
-    case JSOp::BuiltinProto:
-      return jsop_builtinproto();
+    case JSOp::FunctionProto:
+      return jsop_functionproto();
 
     case JSOp::CheckReturn:
       return jsop_checkreturn();
@@ -7555,9 +7543,9 @@ AbortReasonOr<MBasicBlock*> IonBuilder::newPendingLoopHeader(
         }
       }
 
-      switch (tn.kind) {
-        case JSTRY_DESTRUCTURING:
-        case JSTRY_FOR_IN: {
+      switch (tn.kind()) {
+        case TryNoteKind::Destructuring:
+        case TryNoteKind::ForIn: {
           // For for-in loops we add the iterator object to iterators_. For
           // destructuring loops we add the "done" value that's on top of the
           // stack and used in the exception handler.
@@ -12028,6 +12016,13 @@ AbortReasonOr<Ok> IonBuilder::jsop_deffun() {
   return resumeAfter(deffun);
 }
 
+AbortReasonOr<Ok> IonBuilder::jsop_checkGlobalOrEvalDecl() {
+  MOZ_ASSERT(!script()->isForEval(), "Eval scripts not supported");
+  auto* redeclCheck = MGlobalNameConflictsCheck::New(alloc());
+  current->add(redeclCheck);
+  return resumeAfter(redeclCheck);
+}
+
 AbortReasonOr<Ok> IonBuilder::jsop_throwsetconst() {
   MInstruction* lexicalError =
       MThrowRuntimeLexicalError::New(alloc(), JSMSG_BAD_CONST_ASSIGN);
@@ -12765,9 +12760,8 @@ AbortReasonOr<Ok> IonBuilder::jsop_objwithproto() {
   return resumeAfter(ins);
 }
 
-AbortReasonOr<Ok> IonBuilder::jsop_builtinproto() {
-  MOZ_ASSERT(GET_UINT8(pc) < JSProto_LIMIT);
-  JSProtoKey key = static_cast<JSProtoKey>(GET_UINT8(pc));
+AbortReasonOr<Ok> IonBuilder::jsop_functionproto() {
+  JSProtoKey key = JSProto_Function;
 
   // Bake in the prototype if it exists.
   if (JSObject* proto = script()->global().maybeGetPrototype(key)) {
@@ -12776,7 +12770,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_builtinproto() {
   }
 
   // Otherwise emit code to generate it.
-  auto* ins = MBuiltinProto::New(alloc(), pc);
+  auto* ins = MFunctionProto::New(alloc());
   current->add(ins);
   current->push(ins);
   return resumeAfter(ins);
