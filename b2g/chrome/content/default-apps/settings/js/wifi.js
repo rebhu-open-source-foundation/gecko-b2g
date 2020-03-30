@@ -61,26 +61,24 @@ function onNetworks(networks, manager) {
     if (network.ssid.trim().length == 0) {
       return;
     }
-    console.log(`WIFI ${network.ssid} ${network.getSecurity()}`);
+    console.log(`WIFI ${network.ssid} ${network.security}`);
     html += `<li>${network.ssid} `;
-    let security = network.getSecurity();
-    if (security.length == 0) {
+    if (network.security.trim().length == 0) {
       html += `<button id="wifi-network-${index}-connect">Connect</button>`;
     } else {
-      html += `(${security})`;
+      html += `(${network.security})`;
     }
     html += `</li>`;
   });
   list.innerHTML = html;
   networks.forEach((network, index) => {
-    let security = network.getSecurity();
     // Only try to associate to open networks.
-    if (network.ssid.trim().length == 0 || security.length != 0) {
+    if (network.ssid.trim().length == 0 || network.security.trim().length > 0) {
       return;
     }
     document.getElementById(`wifi-network-${index}-connect`).onclick = () => {
       console.log(`WIFI Trying to associate with ${network.ssid}`);
-      network.keyManagement = 4; // "NONE"
+      network.keyManagement = "NONE";
       console.log(
         `WIFI object is ${network} ${network.ssid} ${network.keyManagement}`
       );
