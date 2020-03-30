@@ -8,6 +8,7 @@
 #include <binder/IServiceManager.h>
 #include "mozilla/ClearOnShutdown.h"
 #include "NetdUnsolService.h"
+#include <android-base/strings.h>
 #include <android/log.h>
 
 using android::binder::Status;
@@ -77,16 +78,9 @@ Status NetdUnsolService::onInterfaceDnsServerInfo(
     const std::string& ifName, int64_t lifetime,
     const std::vector<std::string>& servers) {
   char message[BUF_SIZE];
-  char dnses[BUF_SIZE];
-  char buffer[BUF_SIZE];
-  for (uint32_t i = 0; i < servers.size(); i++) {
-    memset(&buffer, 0, sizeof(buffer));
-    snprintf(buffer, sizeof(buffer), " %s", servers[i].c_str());
-    strcat(dnses, buffer);
-  }
 
-  snprintf(message, sizeof(message), "DnsInfo servers %s %ld%s", ifName.c_str(),
-           lifetime, dnses);
+  snprintf(message, sizeof(message), "DnsInfo servers %s %" PRId64 " %s",
+           ifName.c_str(), lifetime, android::base::Join(servers, " ").c_str());
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceDnsServersAdded, message);
   return Status::ok();
