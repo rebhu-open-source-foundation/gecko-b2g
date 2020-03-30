@@ -155,6 +155,8 @@ public:
 
     static const sp<IAudioPolicyService> get_audio_policy_service();
 
+    static status_t setAssistantUid(uid_t uid);
+
     class AudioPortCallback : public RefBase
     {
     public:

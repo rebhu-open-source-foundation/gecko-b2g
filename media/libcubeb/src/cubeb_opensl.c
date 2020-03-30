@@ -985,10 +985,13 @@ opensl_configure_capture(cubeb_stream * stm, cubeb_stream_params * params)
       return CUBEB_ERROR;
     }
 
-    // Voice recognition is the lowest latency, according to the docs. Camcorder
-    // uses a microphone that is in the same direction as the camera.
-    SLint32 streamType = stm->voice ? SL_ANDROID_RECORDING_PRESET_VOICE_RECOGNITION
-                                    : SL_ANDROID_RECORDING_PRESET_CAMCORDER;
+    // Choose VOICE_COMMUNICATION for voice input because on Android 10 AEC is
+    // provided for this source type according to:
+    // https://source.android.com/devices/audio/implement-pre-processing
+    // And Choose GENERIC instead of CAMCORDER for non-voice input because
+    // CAMCORDER doesn't use the MIC on the headset.
+    SLint32 streamType = stm->voice ? SL_ANDROID_RECORDING_PRESET_VOICE_COMMUNICATION
+                                    : SL_ANDROID_RECORDING_PRESET_GENERIC;
 
     res = (*recorderConfig)
               ->SetConfiguration(recorderConfig, SL_ANDROID_KEY_RECORDING_PRESET,

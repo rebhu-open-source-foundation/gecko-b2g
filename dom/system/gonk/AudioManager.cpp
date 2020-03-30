@@ -830,6 +830,12 @@ AudioManager::AudioManager()
     mMuteCallToRIL = true;
   }
 #endif
+
+  // Android 10 introduces new rules for sharing audio input. This call can
+  // prevent AudioPolicyService from treating us as assistant app and
+  // incorrectly muting our audio input because we don't meet some criteria of
+  // assistant app.
+  android::AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
 }
 
 AudioManager::~AudioManager() {
