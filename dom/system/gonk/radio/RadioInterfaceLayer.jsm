@@ -4147,7 +4147,10 @@ RadioInterface.prototype = {
 
   processRequestDial: function(message) {
     if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DIAL address = " + message.number + " , clirMode = " + message.clirMode + " , uusInfo = " + message.uusInfo);
-    this.rilworker.requestDial(message.rilMessageToken, message.number || "", message.clirMode, /*message.uusInfo.uusType || 0*/0, /*message.uusInfo.uusDcs || 0*/0, /*message.uusInfo.uusData || ""*/"");
+    this.rilworker.requestDial(message.rilMessageToken, message.number || "", message.clirMode
+      , (message.uusInfo ? message.uusInfo.uusType || 0 : 0)
+      , (message.uusInfo ? message.uusInfo.uusDcs || 0 : 0)
+      , (message.uusInfo ? message.uusInfo.uusData || "" : ""));
   },
 
   processHangUpCall: function(message) {

@@ -292,8 +292,8 @@ NS_IMETHODIMP nsRilWorker::RequestDial(int32_t serial, const nsAString& address,
     ERROR("No Radio HAL exist");
   }
 
-  INFO("nsRilWorker: Uusinfo");
   UusInfo info;
+  std::vector<UusInfo> uusInfo;
   info.uusType = UusType(uusType);
   info.uusDcs = UusDcs(uusDcs);
   if (uusData.Length() == 0) {
@@ -301,21 +301,13 @@ NS_IMETHODIMP nsRilWorker::RequestDial(int32_t serial, const nsAString& address,
   } else {
     info.uusData = NS_ConvertUTF16toUTF8(uusData).get();
   }
+  uusInfo.push_back(info);
 
-  // hidl_vec<UusInfo> uusResult;
-  // uusResult.setToExternal(const_cast<UusInfo*>(&info), sizeof(info));
-
-  INFO("nsRilWorker: dial");
   Dial dialInfo;
   dialInfo.address = NS_ConvertUTF16toUTF8(address).get();
-  __android_log_print(ANDROID_LOG_INFO, "nsRilWorker", "dialInfo.address= %s",
-                      NS_ConvertUTF16toUTF8(address).get());
   dialInfo.clir = Clir(clirMode);
-  // TODO it would cause crash...
-  // dialInfo.uusInfo = uusResult;
-  INFO("nsRilWorker: dial start.");
+  dialInfo.uusInfo = uusInfo;
   mRadioProxy->dial(serial, dialInfo);
-  INFO("nsRilWorker: dial done.");
 
   return NS_OK;
 }
