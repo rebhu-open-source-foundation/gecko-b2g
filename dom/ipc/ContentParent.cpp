@@ -3715,11 +3715,7 @@ bool ContentParent::DeallocPTestShellParent(PTestShellParent* shell) {
 PMobileConnectionParent* ContentParent::AllocPMobileConnectionParent(
     const uint32_t& aClientId) {
 #ifdef MOZ_B2G_RIL
-  RefPtr<MobileConnectionParent> parent = new MobileConnectionParent(aClientId);
-  // We release this ref in DeallocPMobileConnectionParent().
-  parent->AddRef();
-
-  return parent;
+  return new mozilla::dom::mobileconnection::MobileConnectionParent(aClientId);
 #else
   MOZ_CRASH("No support for mobileconnection on this platform!");
 #endif
@@ -3728,8 +3724,7 @@ PMobileConnectionParent* ContentParent::AllocPMobileConnectionParent(
 bool ContentParent::DeallocPMobileConnectionParent(
     PMobileConnectionParent* aActor) {
 #ifdef MOZ_B2G_RIL
-  // MobileConnectionParent is refcounted, must not be freed manually.
-  static_cast<MobileConnectionParent*>(aActor)->Release();
+  delete aActor;
   return true;
 #else
   MOZ_CRASH("No support for mobileconnection on this platform!");
@@ -3742,7 +3737,7 @@ PImsRegServiceFinderParent* ContentParent::AllocPImsRegServiceFinderParent() {
   //    return nullptr;
   //}
 
-  return new ImsRegServiceFinderParent();
+  return new mozilla::dom::mobileconnection::ImsRegServiceFinderParent();
 }
 
 bool ContentParent::DeallocPImsRegServiceFinderParent(
@@ -3757,18 +3752,13 @@ PImsRegistrationParent* ContentParent::AllocPImsRegistrationParent(
   // if (!AssertAppProcessPermission(this, "mobileconnection")) {
   //    return nullptr;
   //}
-
-  RefPtr<ImsRegistrationParent> parent = new ImsRegistrationParent(aServiceId);
-  // We release this ref in DeallocPImsRegistrationParent().
-  parent->AddRef();
-
-  return parent;
+  return new mozilla::dom::mobileconnection::ImsRegistrationParent(aServiceId);
 }
 
 bool ContentParent::DeallocPImsRegistrationParent(
     PImsRegistrationParent* aActor) {
   // ImsRegistrationParent is refcounted, must not be freed manually.
-  static_cast<ImsRegistrationParent*>(aActor)->Release();
+  delete aActor;
   return true;
 }
 
@@ -3890,14 +3880,11 @@ PTelephonyParent* ContentParent::AllocPTelephonyParent() {
   // if (!AssertAppProcessPermission(this, "telephony")) {
   //  return nullptr;
   //}
-
-  TelephonyParent* actor = new TelephonyParent();
-  NS_ADDREF(actor);
-  return actor;
+  return new mozilla::dom::telephony::TelephonyParent();
 }
 
 bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
-  static_cast<TelephonyParent*>(aActor)->Release();
+  delete aActor;
   return true;
 }
 
@@ -3907,10 +3894,7 @@ ContentParent::AllocPVoicemailParent()
   /*if (!AssertAppProcessPermission(this, "voicemail")) {
     return nullptr;
   }*/
-
-  VoicemailParent* actor = new VoicemailParent();
-  actor->AddRef();
-  return actor;
+  return new mozilla::dom::voicemail::VoicemailParent();
 }
 
 mozilla::ipc::IPCResult
@@ -3922,7 +3906,7 @@ ContentParent::RecvPVoicemailConstructor(PVoicemailParent* aActor)
 bool
 ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor)
 {
-  static_cast<VoicemailParent*>(aActor)->Release();
+  delete aActor;
   return true;
 }
 
@@ -4046,23 +4030,19 @@ PIccParent* ContentParent::AllocPIccParent(const uint32_t& aServiceId) {
   // if (!AssertAppProcessPermission(this, "mobileconnection")) {
   //   return nullptr;
   // }
-  IccParent* parent = new IccParent(aServiceId);
-  // We release this ref in DeallocPIccParent().
-  parent->AddRef();
-
-  return parent;
+  return new mozilla::dom::icc::IccParent(aServiceId);
 }
 
 bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
   // IccParent is refcounted, must not be freed manually.
-  static_cast<IccParent*>(aActor)->Release();
+  delete aActor;
   return true;
 }
 
 PSubsidyLockParent* ContentParent::AllocPSubsidyLockParent(
     const uint32_t& aClientId) {
 #ifdef MOZ_B2G_RIL
-  return new SubsidyLockParent(aClientId);
+  return new mozilla::dom::subsidylock::SubsidyLockParent(aClientId);
 #else
   MOZ_CRASH("No support for subsidylock on this platform!");
 #endif
@@ -4081,14 +4061,11 @@ PCellBroadcastParent* ContentParent::AllocPCellBroadcastParent() {
   // if (!AssertAppProcessPermission(this, "cellbroadcast")) {
   //   return nullptr;
   // }
-
-  CellBroadcastParent* actor = new CellBroadcastParent();
-  actor->AddRef();
-  return actor;
+  return new mozilla::dom::cellbroadcast::CellBroadcastParent();
 }
 
 bool ContentParent::DeallocPCellBroadcastParent(PCellBroadcastParent* aActor) {
-  static_cast<CellBroadcastParent*>(aActor)->Release();
+  delete aActor;
   return true;
 }
 
