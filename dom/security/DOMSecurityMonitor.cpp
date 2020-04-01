@@ -84,8 +84,9 @@ void DOMSecurityMonitor::AuditParsingOfHTMLXMLFragments(
       NS_LITERAL_CSTRING("chrome://mochitests/content/"),
       NS_LITERAL_CSTRING("chrome://reftest/content/"),
       //-------------------------------------------------------------------
-      // b2g system app
+      // b2g system app (both the default and external ones)
       //-------------------------------------------------------------------
+      NS_LITERAL_CSTRING("chrome://b2g/content/"),
       NS_LITERAL_CSTRING("chrome://system/content/"),
       NS_LITERAL_CSTRING("https://shared.local/"),
   };
