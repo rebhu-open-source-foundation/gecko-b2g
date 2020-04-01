@@ -81,7 +81,11 @@ class Selection final : public nsSupportsWeakReference,
   /**
    * NotifyAutoCopy() starts to notify AutoCopyListener of selection changes.
    */
-  void NotifyAutoCopy() { mNotifyAutoCopy = true; }
+  void NotifyAutoCopy() {
+    MOZ_ASSERT(mSelectionType == SelectionType::eNormal);
+
+    mNotifyAutoCopy = true;
+  }
 
   /**
    * MaybeNotifyAccessibleCaretEventHub() starts to notify
@@ -152,6 +156,8 @@ class Selection final : public nsSupportsWeakReference,
                                 nsTArray<StyledRange>* aOutput);
 
  private:
+  static bool AreUserSelectedRangesNonEmpty(
+      const nsRange& aRange, nsTArray<RefPtr<nsRange>>& aTempRangesToAdd);
   /**
    * https://w3c.github.io/selection-api/#selectstart-event.
    */
@@ -741,8 +747,6 @@ class Selection final : public nsSupportsWeakReference,
                                                      int32_t* aOutIndex);
 
   Document* GetDocument() const;
-  nsPIDOMWindowOuter* GetWindow() const;
-  HTMLEditor* GetHTMLEditor() const;
 
   void Disconnect();
 
@@ -797,7 +801,7 @@ class Selection final : public nsSupportsWeakReference,
         nsRange* aRange, int32_t* aOutIndex, Selection& aSelection);
 
     /**
-     * GetCommonEditingHostForAllRanges() returns common editing host of all
+     * GetCommonEditingHost() returns common editing host of all
      * ranges if there is. If at least one of the ranges is in non-editable
      * element, returns nullptr.  See following examples for the detail:
      *
@@ -827,7 +831,9 @@ class Selection final : public nsSupportsWeakReference,
      *  in this case, this returns nullptr because the second range is in
      *  non-editable area.
      */
-    Element* GetCommonEditingHostForAllRanges();
+    Element* GetCommonEditingHost() const;
+
+    void MaybeFocusCommonEditingHost(PresShell* aPresShell) const;
 
     // These are the ranges inside this selection. They are kept sorted in order
     // of DOM start position.

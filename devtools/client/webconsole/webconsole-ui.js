@@ -73,6 +73,7 @@ class WebConsoleUI {
     );
     this._onTargetAvailable = this._onTargetAvailable.bind(this);
     this._onTargetDestroyed = this._onTargetDestroyed.bind(this);
+    this._onResourceAvailable = this._onResourceAvailable.bind(this);
 
     EventEmitter.decorate(this);
   }
@@ -179,7 +180,7 @@ class WebConsoleUI {
       this.jsterm = null;
     }
 
-    const toolbox = this.hud.toolbox;
+    const { toolbox } = this.hud;
     if (toolbox) {
       toolbox.off("webconsole-selected", this._onPanelSelected);
       toolbox.off("split-console", this._onChangeSplitConsoleState);
@@ -187,11 +188,16 @@ class WebConsoleUI {
     }
 
     // Stop listening for targets
-    const targetList = this.hud.targetList;
+    const { targetList } = this.hud;
     targetList.unwatchTargets(
       targetList.ALL_TYPES,
       this._onTargetAvailable,
       this._onTargetDestroy
+    );
+    const resourceWatcher = this.hud.resourceWatcher;
+    resourceWatcher.unwatch(
+      [resourceWatcher.TYPES.CONSOLE_MESSAGES],
+      this._onResourceAvailable
     );
 
     for (const proxy of this.getAllProxies()) {
@@ -254,7 +260,7 @@ class WebConsoleUI {
   }
 
   inspectObjectActor(objectActor) {
-    const webConsoleFront = this.webConsoleFront;
+    const { webConsoleFront } = this;
     this.wrapper.dispatchMessageAdd(
       {
         helperResult: {
@@ -322,6 +328,21 @@ class WebConsoleUI {
       this._onTargetAvailable,
       this._onTargetDestroy
     );
+    const resourceWatcher = this.hud.resourceWatcher;
+    await resourceWatcher.watch(
+      [resourceWatcher.TYPES.CONSOLE_MESSAGES],
+      this._onResourceAvailable
+    );
+  }
+
+  _onResourceAvailable({ resourceType, targetFront, resource }) {
+    const resourceWatcher = this.hud.resourceWatcher;
+    if (resourceType == resourceWatcher.TYPES.CONSOLE_MESSAGES) {
+      // resource is the packet sent from `ConsoleActor.getCachedMessages().messages`
+      // or via ConsoleActor's `consoleAPICall` event.
+      resource.type = "consoleAPICall";
+      this.wrapper.dispatchMessageAdd(resource);
+    }
   }
 
   /**
@@ -415,7 +436,7 @@ class WebConsoleUI {
 
     this.outputNode = this.document.getElementById("app-wrapper");
 
-    const toolbox = this.hud.toolbox;
+    const { toolbox } = this.hud;
 
     // Initialize module loader and load all the WebConsoleWrapper. The entire code-base
     // doesn't need any extra privileges and runs entirely in content scope.

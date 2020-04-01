@@ -692,7 +692,7 @@ static bool ProcessUtf8Line(AutoJSAPI& jsapi, const char* buffer,
     return false;
   }
 
-  JS::RootedScript script(cx, JS::CompileDontInflate(cx, options, srcBuf));
+  JS::RootedScript script(cx, JS::Compile(cx, options, srcBuf));
   if (!script) {
     return false;
   }
@@ -955,7 +955,7 @@ static bool ProcessArgs(AutoJSAPI& jsapi, char** argv, int argc,
         JS::SourceText<mozilla::Utf8Unit> srcBuf;
         if (srcBuf.init(cx, argv[i], strlen(argv[i]),
                         JS::SourceOwnership::Borrowed)) {
-          JS::EvaluateDontInflate(cx, opts, srcBuf, &rval);
+          JS::Evaluate(cx, opts, srcBuf, &rval);
         }
 
         isInteractive = false;

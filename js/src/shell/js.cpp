@@ -121,6 +121,7 @@
 #include "threading/ExclusiveData.h"
 #include "threading/LockGuard.h"
 #include "threading/Thread.h"
+#include "util/CompleteFile.h"  // js::FileContents, js::ReadCompleteFile
 #include "util/StringBuffer.h"
 #include "util/Text.h"
 #include "util/Windows.h"
@@ -893,10 +894,33 @@ static MOZ_MUST_USE bool RunFile(JSContext* cx, const char* filename,
         .setNoScriptRval(true);
 
     if (compileMethod == CompileUtf8::DontInflate) {
-      script = JS::CompileUtf8FileDontInflate(cx, options, file);
+      script = JS::CompileUtf8File(cx, options, file);
     } else {
       fprintf(stderr, "(compiling '%s' after inflating to UTF-16)\n", filename);
-      script = JS::CompileUtf8File(cx, options, file);
+
+      FileContents buffer(cx);
+      if (!ReadCompleteFile(cx, file, buffer)) {
+        return false;
+      }
+
+      size_t length = buffer.length();
+      auto chars = UniqueTwoByteChars(
+          UTF8CharsToNewTwoByteCharsZ(
+              cx,
+              UTF8Chars(reinterpret_cast<const char*>(buffer.begin()),
+                        buffer.length()),
+              &length, js::MallocArena)
+              .get());
+      if (!chars) {
+        return false;
+      }
+
+      JS::SourceText<char16_t> source;
+      if (!source.init(cx, std::move(chars), length)) {
+        return false;
+      }
+
+      script = JS::Compile(cx, options, source);
     }
 
     if (!script) {
@@ -983,7 +1007,7 @@ static bool InitModuleLoader(JSContext* cx) {
   }
 
   RootedValue rv(cx);
-  return JS::EvaluateDontInflate(cx, options, srcBuf, &rv);
+  return JS::Evaluate(cx, options, srcBuf, &rv);
 }
 
 static bool GetModuleImportHook(JSContext* cx,
@@ -1376,7 +1400,7 @@ static MOZ_MUST_USE bool EvalUtf8AndPrint(JSContext* cx, const char* bytes,
     return false;
   }
 
-  RootedScript script(cx, JS::CompileDontInflate(cx, options, srcBuf));
+  RootedScript script(cx, JS::Compile(cx, options, srcBuf));
   if (!script) {
     return false;
   }
@@ -1820,10 +1844,9 @@ static bool LoadScript(JSContext* cx, unsigned argc, Value* vp,
         .setNoScriptRval(true);
 
     RootedValue unused(cx);
-    if (!(compileOnly ? JS::CompileUtf8PathDontInflate(
-                            cx, opts, filename.get()) != nullptr
-                      : JS::EvaluateUtf8PathDontInflate(
-                            cx, opts, filename.get(), &unused))) {
+    if (!(compileOnly
+              ? JS::CompileUtf8Path(cx, opts, filename.get()) != nullptr
+              : JS::EvaluateUtf8Path(cx, opts, filename.get(), &unused))) {
       return false;
     }
   }
@@ -3538,7 +3561,7 @@ static bool DisassFile(JSContext* cx, unsigned argc, Value* vp) {
         .setIsRunOnce(true)
         .setNoScriptRval(true);
 
-    script = JS::CompileUtf8PathDontInflate(cx, options, filename.get());
+    script = JS::CompileUtf8Path(cx, options, filename.get());
     if (!script) {
       return false;
     }
@@ -9564,7 +9587,7 @@ js::shell::AutoReportException::~AutoReportException() {
 
   ShellContext* sc = GetShellContext(cx);
   js::ErrorReport report(cx);
-  if (!report.init(cx, exn, js::ErrorReport::WithSideEffects)) {
+  if (!report.init(cx, exn, js::ErrorReport::WithSideEffects, stack)) {
     fprintf(stderr, "out of memory initializing ErrorReport\n");
     fflush(stderr);
     JS_ClearPendingException(cx);
@@ -10264,7 +10287,7 @@ static MOZ_MUST_USE bool ProcessArgs(JSContext* cx, OptionParser* op) {
       }
 
       RootedValue rval(cx);
-      if (!JS::EvaluateDontInflate(cx, opts, srcBuf, &rval)) {
+      if (!JS::Evaluate(cx, opts, srcBuf, &rval)) {
         return false;
       }
 

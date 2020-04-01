@@ -1204,14 +1204,12 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
 
     SourceExtent extent{sourceStart, sourceEnd, toStringStart,
                         toStringEnd, lineno,    column};
-    script =
-        JSScript::Create(cx, functionOrGlobal, *options, sourceObject, extent);
+    script = JSScript::New(cx, functionOrGlobal, sourceObject, extent,
+                           immutableFlags);
     if (!script) {
       return xdr->fail(JS::TranscodeResult_Throw);
     }
     scriptp.set(script);
-
-    script->setImmutableFlags(immutableFlags);
 
     if (script->argumentsHasVarBinding()) {
       // Call setArgumentsHasVarBinding to initialize the
@@ -1311,13 +1309,11 @@ XDRResult js::XDRLazyScript(XDRState<mode>* xdr, HandleScope enclosingScope,
     MOZ_TRY(xdr->codeUint32(&ngcthings));
 
     if (mode == XDR_DECODE) {
-      lazy.set(
-          BaseScript::CreateRawLazy(cx, ngcthings, fun, sourceObject, extent));
+      lazy.set(BaseScript::CreateRawLazy(cx, ngcthings, fun, sourceObject,
+                                         extent, immutableFlags));
       if (!lazy) {
         return xdr->fail(JS::TranscodeResult_Throw);
       }
-
-      lazy->setImmutableFlags(immutableFlags);
 
       // Set the enclosing scope of the lazy function. This value should only be
       // set if we have a non-lazy enclosing script at this point.
@@ -1348,17 +1344,15 @@ template XDRResult js::XDRLazyScript(XDRState<XDR_DECODE>*, HandleScope,
                                      HandleScriptSourceObject, HandleFunction,
                                      MutableHandle<BaseScript*>);
 
-void JSScript::setDefaultClassConstructorSpan(
-    js::ScriptSourceObject* sourceObject, uint32_t start, uint32_t end,
-    unsigned line, unsigned column) {
-  MOZ_ASSERT(compartment() == sourceObject->compartment());
-  sourceObject_ = sourceObject;
+void JSScript::setDefaultClassConstructorSpan(uint32_t start, uint32_t end,
+                                              unsigned line, unsigned column) {
   extent_.toStringStart = start;
   extent_.toStringEnd = end;
   extent_.sourceStart = start;
   extent_.sourceEnd = end;
   extent_.lineno = line;
   extent_.column = column;
+
   // Since this script has been changed to point into the user's source, we
   // can clear its self-hosted flag, allowing Debugger to see it.
   clearFlag(ImmutableFlags::SelfHosted);
@@ -4075,6 +4069,7 @@ void JSScript::relazify(JSRuntime* rt) {
   clearFlag(ImmutableFlags::HasNonSyntacticScope);
   clearFlag(ImmutableFlags::FunctionHasExtraBodyVarScope);
   clearFlag(ImmutableFlags::NeedsFunctionEnvironmentObjects);
+  clearFlag(ImmutableFlags::AlwaysNeedsArgsObj);
 
   // We should not still be in any side-tables for the debugger or
   // code-coverage. The finalizer will not be able to clean them up once
@@ -4238,7 +4233,7 @@ void PrivateScriptData::trace(JSTracer* trc) {
 /* static */
 JSScript* JSScript::New(JSContext* cx, HandleObject functionOrGlobal,
                         HandleScriptSourceObject sourceObject,
-                        const SourceExtent& extent) {
+                        const SourceExtent& extent, uint32_t immutableFlags) {
   void* script = Allocate<BaseScript>(cx);
   if (!script) {
     return nullptr;
@@ -4250,8 +4245,8 @@ JSScript* JSScript::New(JSContext* cx, HandleObject functionOrGlobal,
   uint8_t* stubEntry = nullptr;
 #endif
 
-  return new (script)
-      JSScript(stubEntry, functionOrGlobal, sourceObject, extent);
+  return new (script) JSScript(stubEntry, functionOrGlobal, sourceObject,
+                               extent, immutableFlags);
 }
 
 /* static */
@@ -4270,14 +4265,10 @@ JSScript* JSScript::Create(JSContext* cx, js::HandleObject functionOrGlobal,
                            js::ImmutableScriptFlags flags,
                            SourceExtent extent) {
   RootedScript script(
-      cx, JSScript::New(cx, functionOrGlobal, sourceObject, extent));
+      cx, JSScript::New(cx, functionOrGlobal, sourceObject, extent, flags));
   if (!script) {
     return nullptr;
   }
-
-  // Record compile options that get checked at runtime.
-  MOZ_ASSERT(script->immutableScriptFlags_ == 0);
-  script->setImmutableFlags(flags);
 
   return script;
 }
@@ -4325,33 +4316,10 @@ bool JSScript::createPrivateScriptData(JSContext* cx, HandleScript script,
   return true;
 }
 
-void JSScript::initFromFunctionBox(frontend::FunctionBox* funbox) {
-  setFlag(ImmutableFlags::FunHasExtensibleScope, funbox->hasExtensibleScope());
-  setFlag(ImmutableFlags::NeedsHomeObject, funbox->needsHomeObject());
-  setFlag(ImmutableFlags::IsDerivedClassConstructor,
-          funbox->isDerivedClassConstructor());
-  setFlag(ImmutableFlags::HasMappedArgsObj, funbox->hasMappedArgsObj());
-  setFlag(ImmutableFlags::FunctionHasThisBinding, funbox->hasThisBinding());
-  setFlag(ImmutableFlags::FunctionHasExtraBodyVarScope,
-          funbox->hasExtraBodyVarScope());
-  setFlag(ImmutableFlags::IsGenerator, funbox->isGenerator());
-  setFlag(ImmutableFlags::IsAsync, funbox->isAsync());
-  setFlag(ImmutableFlags::HasRest, funbox->hasRest());
-  setFlag(ImmutableFlags::HasDirectEval, funbox->hasDirectEval());
-  setFlag(ImmutableFlags::ShouldDeclareArguments, funbox->declaredArguments);
-
-  if (funbox->argumentsHasLocalBinding()) {
-    setArgumentsHasVarBinding();
-    if (funbox->definitelyNeedsArgsObj()) {
-      setNeedsArgsObj(true);
-    }
-  } else {
-    MOZ_ASSERT(!funbox->definitelyNeedsArgsObj());
-  }
-}
-
 /* static */
-bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
+bool JSScript::fullyInitFromStencil(JSContext* cx,
+                                    frontend::CompilationInfo& compilationInfo,
+                                    HandleScript script,
                                     frontend::ScriptStencil& stencil) {
   ImmutableScriptFlags lazyFlags;
   MutableScriptFlags lazyMutableFlags;
@@ -4378,7 +4346,7 @@ bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
   // If we are using an existing lazy script, record enough info to be able to
   // rollback on failure.
   if (script->isReadyForDelazification()) {
-    lazyFlags = script->immutableScriptFlags_;
+    lazyFlags = script->immutableFlags_;
     lazyMutableFlags = script->mutableFlags_;
     lazyEnclosingScope = script->releaseEnclosingScope();
     script->swapData(lazyData.get());
@@ -4389,7 +4357,7 @@ bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
   // just need to clear bytecode to mark script as incomplete.
   auto rollbackGuard = mozilla::MakeScopeExit([&] {
     if (lazyEnclosingScope) {
-      script->immutableScriptFlags_ = lazyFlags;
+      script->immutableFlags_ = lazyFlags;
       script->mutableFlags_ = lazyMutableFlags;
       script->warmUpData_.initEnclosingScope(lazyEnclosingScope);
       script->swapData(lazyData.get());
@@ -4407,25 +4375,10 @@ bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
   MOZ_ASSERT(script->extent_.lineno == stencil.lineno);
   MOZ_ASSERT(script->extent_.column == stencil.column);
 
-  // Initialize script flags from BytecodeEmitter
-  script->setFlag(ImmutableFlags::Strict, stencil.strict);
-  script->setFlag(ImmutableFlags::BindingsAccessedDynamically,
-                  stencil.bindingsAccessedDynamically);
-  script->setFlag(ImmutableFlags::HasCallSiteObj, stencil.hasCallSiteObj);
-  script->setFlag(ImmutableFlags::IsForEval, stencil.isForEval);
-  script->setFlag(ImmutableFlags::IsModule, stencil.isModule);
-  script->setFlag(ImmutableFlags::IsFunction, stencil.isFunction);
-  script->setFlag(ImmutableFlags::HasNonSyntacticScope,
-                  stencil.hasNonSyntacticScope);
-  script->setFlag(ImmutableFlags::NeedsFunctionEnvironmentObjects,
-                  stencil.needsFunctionEnvironmentObjects);
-  script->setFlag(ImmutableFlags::HasModuleGoal, stencil.hasModuleGoal);
-  script->setFlag(ImmutableFlags::HasInnerFunctions, stencil.hasInnerFunctions);
+  script->addToImmutableFlags(stencil.immutableFlags);
 
-  // Initialize script flags from FunctionBox
-  if (stencil.isFunction) {
-    script->initFromFunctionBox(stencil.functionBox);
-  }
+  // Derive initial mutable flags
+  script->resetArgsUsageAnalysis();
 
   // Create and initialize PrivateScriptData
   if (!PrivateScriptData::InitFromStencil(cx, script, stencil)) {
@@ -4444,8 +4397,9 @@ bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
   rollbackGuard.release();
 
   // Link JSFunction to this JSScript.
-  if (stencil.isFunction) {
-    JSFunction* fun = stencil.functionBox->function();
+  if (stencil.isFunction()) {
+    JSFunction* fun =
+        compilationInfo.funcData[*stencil.functionIndex].as<JSFunction*>();
     if (fun->isIncomplete()) {
       fun->initScript(script);
     } else if (fun->hasSelfHostedLazyScript()) {
@@ -4479,6 +4433,16 @@ bool JSScript::fullyInitFromStencil(JSContext* cx, HandleScript script,
   }
 
   return true;
+}
+
+void JSScript::resetArgsUsageAnalysis() {
+  bool alwaysNeedsArgsObj =
+      immutableFlags_.hasFlag(ImmutableFlags::AlwaysNeedsArgsObj);
+  MOZ_ASSERT_IF(alwaysNeedsArgsObj, argumentsHasVarBinding());
+  if (argumentsHasVarBinding()) {
+    mutableFlags_.setFlag(MutableFlags::NeedsArgsObj, alwaysNeedsArgsObj);
+    mutableFlags_.setFlag(MutableFlags::NeedsArgsAnalysis, !alwaysNeedsArgsObj);
+  }
 }
 
 #ifdef DEBUG
@@ -4964,23 +4928,15 @@ JSScript* js::detail::CopyScript(JSContext* cx, HandleScript src,
   // Some embeddings are not careful to use ExposeObjectToActiveJS as needed.
   JS::AssertObjectIsNotGray(sourceObject);
 
-  CompileOptions options(cx);
-  options.setMutedErrors(src->mutedErrors())
-      .setSelfHostingMode(src->selfHosted())
-      .setNoScriptRval(src->noScriptRval());
-
   // Create a new JSScript to fill in
   SourceExtent extent{src->sourceStart(),   src->sourceEnd(),
                       src->toStringStart(), src->toStringEnd(),
                       src->lineno(),        src->column()};
-  RootedScript dst(cx, JSScript::Create(cx, functionOrGlobal, options,
-                                        sourceObject, extent));
+  RootedScript dst(cx, JSScript::New(cx, functionOrGlobal, sourceObject, extent,
+                                     src->immutableFlags()));
   if (!dst) {
     return nullptr;
   }
-
-  // Copy POD fields
-  dst->setImmutableFlags(src->immutableFlags());
 
   dst->setFlag(JSScript::ImmutableFlags::HasNonSyntacticScope,
                scopes[0]->hasOnChain(ScopeKind::NonSyntactic));
@@ -5037,6 +4993,8 @@ JSScript* js::CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
       return nullptr;
     }
   }
+
+  DebugAPI::onNewScript(cx, dst);
 
   return dst;
 }
@@ -5440,7 +5398,8 @@ bool JSScript::formalLivesInArgumentsObject(unsigned argSlot) {
 BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
                                       HandleFunction fun,
                                       HandleScriptSourceObject sourceObject,
-                                      const SourceExtent& extent) {
+                                      const SourceExtent& extent,
+                                      uint32_t immutableFlags) {
   cx->check(fun);
 
   void* res = Allocate<BaseScript>(cx);
@@ -5454,7 +5413,8 @@ BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
   uint8_t* stubEntry = nullptr;
 #endif
 
-  BaseScript* lazy = new (res) BaseScript(stubEntry, fun, sourceObject, extent);
+  BaseScript* lazy = new (res)
+      BaseScript(stubEntry, fun, sourceObject, extent, immutableFlags);
   if (!lazy) {
     return nullptr;
   }
@@ -5481,19 +5441,15 @@ BaseScript* BaseScript::CreateLazy(
     HandleFunction fun, HandleScriptSourceObject sourceObject,
     const frontend::AtomVector& closedOverBindings,
     const Vector<frontend::FunctionIndex>& innerFunctionIndexes,
-    const SourceExtent& extent) {
+    const SourceExtent& extent, uint32_t immutableFlags) {
   uint32_t ngcthings =
       innerFunctionIndexes.length() + closedOverBindings.length();
 
-  BaseScript* lazy =
-      BaseScript::CreateRawLazy(cx, ngcthings, fun, sourceObject, extent);
+  BaseScript* lazy = BaseScript::CreateRawLazy(cx, ngcthings, fun, sourceObject,
+                                               extent, immutableFlags);
   if (!lazy) {
     return nullptr;
   }
-
-  lazy->setFlag(ImmutableFlags::HasInnerFunctions,
-                !innerFunctionIndexes.empty());
-  lazy->setFlag(ImmutableFlags::IsFunction);
 
   // Fill in gcthing data with inner functions followed by binding data.
   mozilla::Span<JS::GCCellPtr> gcThings =

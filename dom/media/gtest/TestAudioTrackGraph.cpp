@@ -55,6 +55,8 @@ TEST(TestAudioTrackGraph, DifferentDeviceIDs)
   dummySource2->Destroy();
 }
 
+// Disabled on android due to high failure rate in bug 1622897
+#if !defined(ANDROID)
 TEST(TestAudioTrackGraph, SetOutputDeviceID)
 {
   MockCubeb* cubeb = new MockCubeb();
@@ -111,3 +113,4 @@ TEST(TestAudioTrackGraph, SetOutputDeviceID)
 
   mon.AwaitFinished();
 }
+#endif

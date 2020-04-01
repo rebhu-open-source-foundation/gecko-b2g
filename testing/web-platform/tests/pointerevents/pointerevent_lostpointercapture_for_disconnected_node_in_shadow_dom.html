@@ -37,75 +37,74 @@
     <input type="button" id="btnCapture" value="Set Capture">
     <div id="log"></div>
     <script>
-      var logDiv = document.getElementById("log");
-      function logMessage(message){
-        var log = document.createElement("div");
-        var messageNode = document.createTextNode(message);
-        log.appendChild(messageNode);
-        logDiv.appendChild(log);
-      }
-      var events = [];
-
-      var host = document.getElementById("shadowhost");
-      var shadowRoot = host.attachShadow({mode: "open"});
-      var template = document.getElementById("template");
-      var node = template.content.cloneNode(true);
-      shadowRoot.appendChild(node);
-
-      var content = host.shadowRoot.getElementById("content");
-      var captureButton = document.getElementById("btnCapture");
-
-      captureButton.addEventListener("pointerdown", function(event){
-        logMessage("Pointer will be captured by the shadow dom gray rectangle.");
-        content.setPointerCapture(event.pointerId);
-        events.push("pointerdown@captureButton");
-      });
-      content.addEventListener("gotpointercapture", function(event){
-        logMessage("Gray rectangle received pointercapture.");
-        logMessage("Removing gray rectangle from shadow dom.")
-        content.parentNode.removeChild(content);
-        events.push("gotpointercapture@content");
-      });
-      content.addEventListener("lostpointercapture", function(event){
-        logMessage("Test Failed! The element removed from shadow dom should not receive lostpointercapture.")
-        events.push("lostpointercapture@content");
-        if(window.promise_test && shadow_dom_test){
-          shadow_dom_test.step(function(){
-            assert_unreached("lostpointercapture must be fired on the document, not the capturing element");
-            reject_test("lostpointercapture must not be dispatched on the disconnected node");
-            shadow_dom_test.done();
-          });
+      async function onLoad(){
+        var logDiv = document.getElementById("log");
+        function logMessage(message){
+          var log = document.createElement("div");
+          var messageNode = document.createTextNode(message);
+          log.appendChild(messageNode);
+          logDiv.appendChild(log);
         }
-      });
-      document.addEventListener("lostpointercapture", function(event){
-        logMessage("Test Passed! Document received lostpointercapture.");
-        events.push("lostpointercapture@document");
-        if(window.promise_test && shadow_dom_test){
-          shadow_dom_test.step(function(){
-            assert_array_equals(events, ["pointerdown@captureButton",
-              "gotpointercapture@content",
-              "lostpointercapture@document"]);
-            resolve_test();
-            shadow_dom_test.done();
-          });
+        var events = [];
+
+        var host = document.getElementById("shadowhost");
+        var shadowRoot = host.attachShadow({mode: "open"});
+        var template = document.getElementById("template");
+        var node = template.content.cloneNode(true);
+        shadowRoot.appendChild(node);
+
+        var content = host.shadowRoot.getElementById("content");
+        var captureButton = document.getElementById("btnCapture");
+
+        captureButton.addEventListener("pointerdown", function(event){
+          logMessage("Pointer will be captured by the shadow dom gray rectangle.");
+          content.setPointerCapture(event.pointerId);
+          events.push("pointerdown@captureButton");
+        });
+        content.addEventListener("gotpointercapture", function(event){
+          logMessage("Gray rectangle received pointercapture.");
+          logMessage("Removing gray rectangle from shadow dom.")
+          content.parentNode.removeChild(content);
+          events.push("gotpointercapture@content");
+        });
+        content.addEventListener("lostpointercapture", function(event){
+          logMessage("Test Failed! The element removed from shadow dom should not receive lostpointercapture.")
+          events.push("lostpointercapture@content");
+          if(window.promise_test && shadow_dom_test){
+            shadow_dom_test.step(function(){
+              assert_unreached("lostpointercapture must be fired on the document, not the capturing element");
+              reject_test("lostpointercapture must not be dispatched on the disconnected node");
+              shadow_dom_test.done();
+            });
+          }
+        });
+        document.addEventListener("lostpointercapture", function(event){
+          logMessage("Test Passed! Document received lostpointercapture.");
+          events.push("lostpointercapture@document");
+          if(window.promise_test && shadow_dom_test){
+            shadow_dom_test.step(function(){
+              assert_array_equals(events, ["pointerdown@captureButton",
+                "gotpointercapture@content",
+                "lostpointercapture@document"]);
+              resolve_test();
+            });
+          }
+        });
+
+        var shadow_dom_test = null;
+        var resolve_test = null;
+        var reject_test = null;
+
+        function cleanup(){
+          events = [];
+          shadow_dom_test = null;
+          resolve_test = null;
+          reject_test = null;
         }
-      });
-
-      var shadow_dom_test = null;
-      var resolve_test = null;
-      var reject_test = null;
-
-      function cleanup(){
-        events = [];
-        shadow_dom_test = null;
-        resolve_test = null;
-        reject_test = null;
-      }
-
-      function onLoad(){
         if(window.promise_test){
-          promise_test(function(t){
-            return new Promise(function(resolve, reject){
+          promise_test(async function(t){
+            var actions_promise;
+            return new Promise(async function(resolve, reject){
               shadow_dom_test = t;
               resolve_test = resolve;
               reject_test = reject;
@@ -113,11 +112,14 @@
                 cleanup();
               });
               var actions = new test_driver.Actions();
-              var actions_promise = actions
+              actions_promise = actions
                   .pointerMove(0, 0, {origin:captureButton})
                   .pointerDown({button: actions.ButtonType.LEFT})
                   .pointerUp({button: actions.ButtonType.LEFT})
                   .send();
+            }).finally(async () => {
+              await actions_promise;
+              t.done();
             });
           }, "lostpointercapture is dispatched on the document when shadow dom capturing element is removed");
         }
@@ -125,4 +127,3 @@
     </script>
   </body>
 </html>
-

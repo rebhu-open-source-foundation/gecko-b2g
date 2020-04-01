@@ -18,7 +18,7 @@
 #include "jsapi.h"
 #include "jsfriendapi.h"
 #include "xpcprivate.h"                   // xpc::OptionsBase
-#include "js/CompilationAndEvaluation.h"  // JS::Compile{,ForNonSyntacticScope}DontInflate
+#include "js/CompilationAndEvaluation.h"  // JS::Compile{,ForNonSyntacticScope}
 #include "js/SourceText.h"                // JS::Source{Ownership,Text}
 #include "js/Wrapper.h"
 
@@ -47,16 +47,19 @@ class MOZ_STACK_CLASS LoadSubScriptOptions : public OptionsBase {
       : OptionsBase(cx, options),
         target(cx),
         ignoreCache(false),
+        useCompilationScope(false),
         wantReturnValue(false) {}
 
   virtual bool Parse() override {
     return ParseObject("target", &target) &&
            ParseBoolean("ignoreCache", &ignoreCache) &&
+           ParseBoolean("useCompilationScope", &useCompilationScope) &&
            ParseBoolean("wantReturnValue", &wantReturnValue);
   }
 
   RootedObject target;
   bool ignoreCache;
+  bool useCompilationScope;
   bool wantReturnValue;
 };
 
@@ -142,9 +145,9 @@ static JSScript* PrepareScript(nsIURI* uri, JSContext* cx,
   }
 
   if (wantGlobalScript) {
-    return JS::CompileDontInflate(cx, options, srcBuf);
+    return JS::Compile(cx, options, srcBuf);
   }
-  return JS::CompileForNonSyntacticScopeDontInflate(cx, options, srcBuf);
+  return JS::CompileForNonSyntacticScope(cx, options, srcBuf);
 }
 
 static bool EvalScript(JSContext* cx, HandleObject targetObj,
@@ -446,6 +449,9 @@ nsresult mozJSSubScriptLoader::DoLoadSubScriptWithOptions(
                             filePath.EqualsLiteral("welcome");
       isSystem = true;
     }
+  }
+  if (options.useCompilationScope) {
+    useCompilationScope = true;
   }
   bool ignoreCache =
       options.ignoreCache || !isSystem || scheme.EqualsLiteral("blob");

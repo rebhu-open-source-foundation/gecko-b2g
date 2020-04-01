@@ -188,7 +188,7 @@ Maybe<NameLocation> BytecodeEmitter::locationOfNameBoundInFunctionScope(
 }
 
 bool BytecodeEmitter::markStepBreakpoint() {
-  if (inPrologue()) {
+  if (skipBreakpointSrcNotes()) {
     return true;
   }
 
@@ -213,7 +213,7 @@ bool BytecodeEmitter::markStepBreakpoint() {
 }
 
 bool BytecodeEmitter::markSimpleBreakpoint() {
-  if (inPrologue()) {
+  if (skipBreakpointSrcNotes()) {
     return true;
   }
 
@@ -509,8 +509,7 @@ bool BytecodeEmitter::emitCheckIsCallable(CheckIsCallableKind kind) {
 
 /* Updates line number notes, not column notes. */
 bool BytecodeEmitter::updateLineNumberNotes(uint32_t offset) {
-  // Don't emit line/column number notes in the prologue.
-  if (inPrologue()) {
+  if (skipLocationSrcNotes()) {
     return true;
   }
 
@@ -561,8 +560,7 @@ bool BytecodeEmitter::updateSourceCoordNotes(uint32_t offset) {
     return false;
   }
 
-  // Don't emit line/column number notes in the prologue.
-  if (inPrologue()) {
+  if (skipLocationSrcNotes()) {
     return true;
   }
 
@@ -2435,21 +2433,33 @@ bool BytecodeEmitter::emitScript(ParseNode* body) {
     return false;
   }
 
+  js::UniquePtr<ImmutableScriptData> immutableScriptData =
+      createImmutableScriptData(cx);
+  if (!immutableScriptData) {
+    return false;
+  }
+
+  BCEScriptStencil stencil(*this, std::move(immutableScriptData));
+  return JSScript::fullyInitFromStencil(cx, compilationInfo, script, stencil);
+}
+
+js::UniquePtr<ImmutableScriptData> BytecodeEmitter::createImmutableScriptData(
+    JSContext* cx) {
   uint32_t nslots;
   if (!getNslots(&nslots)) {
-    return false;
+    return nullptr;
   }
 
-  BCEScriptStencil stencil(*this);
-  if (!stencil.init(cx, nslots)) {
-    return false;
-  }
+  bool isFunction = sc->isFunctionBox();
+  uint16_t funLength = isFunction ? sc->asFunctionBox()->length : 0;
 
-  if (!JSScript::fullyInitFromStencil(cx, script, stencil)) {
-    return false;
-  }
-
-  return true;
+  return ImmutableScriptData::new_(
+      cx, mainOffset(), maxFixedSlots, nslots, bodyScopeIndex,
+      bytecodeSection().numICEntries(), bytecodeSection().numTypeSets(),
+      isFunction, funLength, bytecodeSection().code(),
+      bytecodeSection().notes(), bytecodeSection().resumeOffsetList().span(),
+      bytecodeSection().scopeNoteList().span(),
+      bytecodeSection().tryNoteList().span());
 }
 
 bool BytecodeEmitter::getNslots(uint32_t* nslots) {
@@ -10478,8 +10488,11 @@ bool BytecodeEmitter::addTryNote(TryNoteKind kind, uint32_t stackDepth,
 }
 
 bool BytecodeEmitter::newSrcNote(SrcNoteType type, unsigned* indexp) {
-  // Prologue shouldn't have source notes.
-  MOZ_ASSERT(!inPrologue());
+  // Non-gettable source notes such as column/lineno and debugger should not be
+  // emitted for prologue / self-hosted.
+  MOZ_ASSERT_IF(skipLocationSrcNotes() || skipBreakpointSrcNotes(),
+                type <= SrcNoteType::LastGettable);
+
   SrcNotesVector& notes = bytecodeSection().notes();
   unsigned index;
 

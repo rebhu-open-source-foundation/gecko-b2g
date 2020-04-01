@@ -862,6 +862,8 @@ class nsIFrame : public nsQueryFrame {
    */
   nsContainerFrame* GetParent() const { return mParent; }
 
+  bool CanBeDynamicReflowRoot() const;
+
   /**
    * Gets the parent of a frame, using the parent of the placeholder for
    * out-of-flow frames.
@@ -2128,6 +2130,8 @@ class nsIFrame : public nsQueryFrame {
   bool IsPrimaryFrame() const { return mIsPrimaryFrame; }
 
   void SetIsPrimaryFrame(bool aIsPrimary) { mIsPrimaryFrame = aIsPrimary; }
+
+  bool IsPrimaryFrameOfRootOrBodyElement() const;
 
   /**
    * This call is invoked on the primary frame for a character data content

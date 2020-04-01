@@ -1363,6 +1363,7 @@ Document::Document(const char* aContentType)
       mSavedResolution(1.0f),
       mSavedResolutionBeforeMVM(1.0f),
       mPendingInitialTranslation(false),
+      mHasStoragePermission(false),
       mGeneration(0),
       mCachedTabSizeGeneration(0),
       mNextFormNumber(0),
@@ -1808,11 +1809,9 @@ void Document::GetFailedCertSecurityInfo(FailedCertSecurityInfo& aInfo,
   if (XRE_IsContentProcess()) {
     ContentChild* cc = ContentChild::GetSingleton();
     MOZ_ASSERT(cc);
-    mozilla::ipc::URIParams uri;
-    SerializeURI(aURI, uri);
-    cc->SendIsSecureURI(nsISiteSecurityService::HEADER_HSTS, uri, flags, attrs,
+    cc->SendIsSecureURI(nsISiteSecurityService::HEADER_HSTS, aURI, flags, attrs,
                         &aInfo.mHasHSTS);
-    cc->SendIsSecureURI(nsISiteSecurityService::HEADER_HPKP, uri, flags, attrs,
+    cc->SendIsSecureURI(nsISiteSecurityService::HEADER_HPKP, aURI, flags, attrs,
                         &aInfo.mHasHPKP);
   } else {
     nsCOMPtr<nsISiteSecurityService> sss =
@@ -3228,6 +3227,8 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
   rv = loadInfo->GetCookieJarSettings(getter_AddRefs(mCookieJarSettings));
   NS_ENSURE_SUCCESS(rv, rv);
 
+  mHasStoragePermission = loadInfo->GetHasStoragePermission();
+
   return NS_OK;
 }
 
@@ -4091,6 +4092,19 @@ void Document::SetDesignMode(const nsAString& aDesignMode,
   SetDesignMode(aDesignMode, Some(&aSubjectPrincipal), rv);
 }
 
+static void NotifyEditableStateChange(Document& aDoc) {
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+  nsMutationGuard g;
+#endif
+  for (nsIContent* node = aDoc.GetNextNode(&aDoc); node;
+       node = node->GetNextNode(&aDoc)) {
+    if (auto* element = Element::FromNode(node)) {
+      element->UpdateState(true);
+    }
+  }
+  MOZ_DIAGNOSTIC_ASSERT(!g.Mutated(0));
+}
+
 void Document::SetDesignMode(const nsAString& aDesignMode,
                              const Maybe<nsIPrincipal*>& aSubjectPrincipal,
                              ErrorResult& rv) {
@@ -4102,7 +4116,9 @@ void Document::SetDesignMode(const nsAString& aDesignMode,
   bool editableMode = HasFlag(NODE_IS_EDITABLE);
   if (aDesignMode.LowerCaseEqualsASCII(editableMode ? "off" : "on")) {
     SetEditableFlag(!editableMode);
-
+    // Changing the NODE_IS_EDITABLE flags on document changes the intrinsic
+    // state of all descendant elements of it. Update that now.
+    NotifyEditableStateChange(*this);
     rv = EditingStateChanged();
   }
 }
@@ -5212,16 +5228,6 @@ void Document::MaybeEditingStateChanged() {
   }
 }
 
-static void NotifyEditableStateChange(nsINode* aNode, Document* aDocument) {
-  for (nsIContent* child = aNode->GetFirstChild(); child;
-       child = child->GetNextSibling()) {
-    if (child->IsElement()) {
-      child->AsElement()->UpdateState(true);
-    }
-    NotifyEditableStateChange(child, aDocument);
-  }
-}
-
 void Document::TearingDownEditor() {
   if (IsEditingOn()) {
     mEditingState = EditingState::eTearingDown;
@@ -5307,7 +5313,7 @@ nsresult Document::EditingStateChanged() {
   if (newState == EditingState::eOff) {
     // Editing is being turned off.
     nsAutoScriptBlocker scriptBlocker;
-    NotifyEditableStateChange(this, this);
+    NotifyEditableStateChange(*this);
     return TurnEditingOff();
   }
 
@@ -5360,7 +5366,6 @@ nsresult Document::EditingStateChanged() {
   }
 
   bool makeWindowEditable = mEditingState == EditingState::eOff;
-  bool updateState = false;
   bool spellRecheckAll = false;
   bool putOffToRemoveScriptBlockerUntilModifyingEditingState = false;
   htmlEditor = nullptr;
@@ -5402,10 +5407,6 @@ nsresult Document::EditingStateChanged() {
       AddContentEditableStyleSheetsToStyleSet(designMode);
     }
 
-    // Should we update the editable state of all the nodes in the document? We
-    // need to do this when the designMode value changes, as that overrides
-    // specific states on the elements.
-    updateState = designMode || oldState == EditingState::eDesignMode;
     if (designMode) {
       // designMode is being turned on (overrides contentEditable).
       spellRecheckAll = oldState == EditingState::eContentEditable;
@@ -5501,11 +5502,6 @@ nsresult Document::EditingStateChanged() {
 
       return errorResult.StealNSResult();
     }
-  }
-
-  if (updateState) {
-    nsAutoScriptBlocker scriptBlocker;
-    NotifyEditableStateChange(this, this);
   }
 
   // Resync the editor's spellcheck state.

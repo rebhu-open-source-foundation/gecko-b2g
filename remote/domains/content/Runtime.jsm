@@ -105,7 +105,9 @@ class Runtime extends ContentProcessDomain {
       }
     }
     if (!context) {
-      throw new Error(`Unable to get execution context by ID: ${objectId}`);
+      throw new Error(
+        `Unable to get execution context by object ID: ${objectId}`
+      );
     }
     context.releaseObject(objectId);
   }
@@ -255,8 +257,8 @@ class Runtime extends ContentProcessDomain {
 
   getProperties({ objectId, ownProperties }) {
     for (const ctx of this.contexts.values()) {
-      const obj = ctx.getRemoteObject(objectId);
-      if (typeof obj != "undefined") {
+      const debuggerObj = ctx.getRemoteObject(objectId);
+      if (debuggerObj) {
         return ctx.getProperties({ objectId, ownProperties });
       }
     }
@@ -278,12 +280,40 @@ class Runtime extends ContentProcessDomain {
 
   _getRemoteObject(objectId) {
     for (const ctx of this.contexts.values()) {
-      const obj = ctx.getRemoteObject(objectId);
-      if (typeof obj != "undefined") {
-        return obj;
+      const debuggerObj = ctx.getRemoteObject(objectId);
+      if (debuggerObj) {
+        return debuggerObj;
       }
     }
     return null;
+  }
+
+  _serializeRemoteObject(debuggerObj, executionContextId) {
+    const ctx = this.contexts.get(executionContextId);
+    return ctx._toRemoteObject(debuggerObj);
+  }
+
+  _getRemoteObjectByNodeId(nodeId, executionContextId) {
+    let debuggerObj = null;
+
+    if (typeof executionContextId != "undefined") {
+      const ctx = this.contexts.get(executionContextId);
+      debuggerObj = ctx.getRemoteObjectByNodeId(nodeId);
+    } else {
+      for (const ctx of this.contexts.values()) {
+        const obj = ctx.getRemoteObjectByNodeId(nodeId);
+        if (obj) {
+          debuggerObj = obj;
+          break;
+        }
+      }
+    }
+
+    return debuggerObj;
+  }
+
+  _setRemoteObject(debuggerObj, context) {
+    return context.setRemoteObject(debuggerObj);
   }
 
   _getDefaultContextForWindow(innerWindowId) {

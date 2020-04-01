@@ -77,28 +77,6 @@ static JSScript* CompileSourceBuffer(JSContext* cx,
   return frontend::CompileGlobalScript(compilationInfo, globalsc, srcBuf);
 }
 
-static JSScript* CompileUtf8Inflating(JSContext* cx,
-                                      const ReadOnlyCompileOptions& options,
-                                      SourceText<Utf8Unit>& srcBuf) {
-  auto bytes = srcBuf.get();
-  size_t length = srcBuf.length();
-
-  auto chars = UniqueTwoByteChars(
-      UTF8CharsToNewTwoByteCharsZ(cx, UTF8Chars(bytes, length), &length,
-                                  js::MallocArena)
-          .get());
-  if (!chars) {
-    return nullptr;
-  }
-
-  SourceText<char16_t> source;
-  if (!source.init(cx, std::move(chars), length)) {
-    return nullptr;
-  }
-
-  return CompileSourceBuffer(cx, options, source);
-}
-
 JSScript* JS::Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
                       SourceText<char16_t>& srcBuf) {
   return CompileSourceBuffer(cx, options, srcBuf);
@@ -106,35 +84,12 @@ JSScript* JS::Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
 
 JSScript* JS::Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
                       SourceText<Utf8Unit>& srcBuf) {
-  return CompileUtf8Inflating(cx, options, srcBuf);
-}
-
-JSScript* JS::CompileDontInflate(JSContext* cx,
-                                 const ReadOnlyCompileOptions& options,
-                                 SourceText<Utf8Unit>& srcBuf) {
   return CompileSourceBuffer(cx, options, srcBuf);
 }
 
 JSScript* JS::CompileUtf8File(JSContext* cx,
                               const ReadOnlyCompileOptions& options,
                               FILE* file) {
-  FileContents buffer(cx);
-  if (!ReadCompleteFile(cx, file, buffer)) {
-    return nullptr;
-  }
-
-  SourceText<Utf8Unit> srcBuf;
-  if (!srcBuf.init(cx, reinterpret_cast<const char*>(buffer.begin()),
-                   buffer.length(), SourceOwnership::Borrowed)) {
-    return nullptr;
-  }
-
-  return CompileUtf8Inflating(cx, options, srcBuf);
-}
-
-JSScript* JS::CompileUtf8FileDontInflate(JSContext* cx,
-                                         const ReadOnlyCompileOptions& options,
-                                         FILE* file) {
   FileContents buffer(cx);
   if (!ReadCompleteFile(cx, file, buffer)) {
     return nullptr;
@@ -162,19 +117,6 @@ JSScript* JS::CompileUtf8Path(JSContext* cx,
   return CompileUtf8File(cx, options, file.fp());
 }
 
-JSScript* JS::CompileUtf8PathDontInflate(
-    JSContext* cx, const ReadOnlyCompileOptions& optionsArg,
-    const char* filename) {
-  AutoFile file;
-  if (!file.open(cx, filename)) {
-    return nullptr;
-  }
-
-  CompileOptions options(cx, optionsArg);
-  options.setFileAndLine(filename, 1);
-  return CompileUtf8FileDontInflate(cx, options, file.fp());
-}
-
 JSScript* JS::CompileForNonSyntacticScope(
     JSContext* cx, const ReadOnlyCompileOptions& optionsArg,
     SourceText<char16_t>& srcBuf) {
@@ -184,14 +126,6 @@ JSScript* JS::CompileForNonSyntacticScope(
 }
 
 JSScript* JS::CompileForNonSyntacticScope(
-    JSContext* cx, const ReadOnlyCompileOptions& optionsArg,
-    SourceText<Utf8Unit>& srcBuf) {
-  CompileOptions options(cx, optionsArg);
-  options.setNonSyntacticScope(true);
-  return CompileUtf8Inflating(cx, options, srcBuf);
-}
-
-JSScript* JS::CompileForNonSyntacticScopeDontInflate(
     JSContext* cx, const ReadOnlyCompileOptions& optionsArg,
     SourceText<Utf8Unit>& srcBuf) {
   CompileOptions options(cx, optionsArg);
@@ -465,7 +399,6 @@ static bool ExecuteScript(JSContext* cx, HandleObjectVector envChain,
     if (!script) {
       return false;
     }
-    js::DebugAPI::onNewScript(cx, script);
   }
 
   return ExecuteScript(cx, env, script, rval);
@@ -506,8 +439,6 @@ JS_PUBLIC_API bool JS::CloneAndExecuteScript(JSContext* cx,
     if (!script) {
       return false;
     }
-
-    js::DebugAPI::onNewScript(cx, script);
   }
   return ExecuteScript(cx, globalLexical, script, rval.address());
 }
@@ -523,8 +454,6 @@ JS_PUBLIC_API bool JS::CloneAndExecuteScript(JSContext* cx,
     if (!script) {
       return false;
     }
-
-    js::DebugAPI::onNewScript(cx, script);
   }
   return ExecuteScript(cx, envChain, script, rval.address());
 }
@@ -569,29 +498,6 @@ JS_PUBLIC_API bool JS::Evaluate(JSContext* cx,
                                 const ReadOnlyCompileOptions& options,
                                 SourceText<Utf8Unit>& srcBuf,
                                 MutableHandle<Value> rval) {
-  RootedObject globalLexical(cx, &cx->global()->lexicalEnvironment());
-
-  size_t length = srcBuf.length();
-  auto chars = UniqueTwoByteChars(
-      UTF8CharsToNewTwoByteCharsZ(cx, UTF8Chars(srcBuf.get(), length), &length,
-                                  js::MallocArena)
-          .get());
-  if (!chars) {
-    return false;
-  }
-
-  SourceText<char16_t> inflatedSrc;
-  if (!inflatedSrc.init(cx, std::move(chars), length)) {
-    return false;
-  }
-
-  return EvaluateSourceBuffer(cx, ScopeKind::Global, globalLexical, options,
-                              inflatedSrc, rval);
-}
-
-JS_PUBLIC_API bool JS::EvaluateDontInflate(
-    JSContext* cx, const ReadOnlyCompileOptions& options,
-    SourceText<Utf8Unit>& srcBuf, MutableHandle<Value> rval) {
   RootedObject globalLexical(cx, &cx->global()->lexicalEnvironment());
   return EvaluateSourceBuffer(cx, ScopeKind::Global, globalLexical, options,
                               srcBuf, rval);
@@ -642,29 +548,4 @@ JS_PUBLIC_API bool JS::EvaluateUtf8Path(
   }
 
   return Evaluate(cx, options, srcBuf, rval);
-}
-
-JS_PUBLIC_API bool JS::EvaluateUtf8PathDontInflate(
-    JSContext* cx, const ReadOnlyCompileOptions& optionsArg,
-    const char* filename, MutableHandleValue rval) {
-  FileContents buffer(cx);
-  {
-    AutoFile file;
-    if (!file.open(cx, filename) || !file.readAll(cx, buffer)) {
-      return false;
-    }
-  }
-
-  CompileOptions options(cx, optionsArg);
-  options.setFileAndLine(filename, 1);
-
-  auto contents = reinterpret_cast<const char*>(buffer.begin());
-  size_t length = buffer.length();
-
-  JS::SourceText<Utf8Unit> srcBuf;
-  if (!srcBuf.init(cx, contents, length, JS::SourceOwnership::Borrowed)) {
-    return false;
-  }
-
-  return EvaluateDontInflate(cx, options, srcBuf, rval);
 }

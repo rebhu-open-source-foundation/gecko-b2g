@@ -55,6 +55,7 @@
 #include "nsThreadUtils.h"
 #include "GeckoProfiler.h"
 #include "nsIConsoleService.h"
+#include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/ContentBlocking.h"
@@ -6481,6 +6482,9 @@ nsHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+  Unused << mLoadInfo->SetHasStoragePermission(
+      AntiTrackingUtils::HasStoragePermissionInParent(this));
+
   static bool sRCWNInited = false;
   if (!sRCWNInited) {
     sRCWNInited = true;
@@ -10388,9 +10392,7 @@ nsresult nsHttpChannel::RedirectToInterceptedChannel() {
       InterceptedHttpChannel::CreateForInterception(
           mChannelCreationTime, mChannelCreationTimestamp, mAsyncOpenTime);
 
-  nsContentPolicyType type = mLoadInfo
-                                 ? mLoadInfo->GetExternalContentPolicyType()
-                                 : nsIContentPolicy::TYPE_OTHER;
+  nsContentPolicyType type = mLoadInfo->GetExternalContentPolicyType();
 
   nsresult rv = intercepted->Init(
       mURI, mCaps, static_cast<nsProxyInfo*>(mProxyInfo.get()),

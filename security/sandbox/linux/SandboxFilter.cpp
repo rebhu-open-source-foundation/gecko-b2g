@@ -74,6 +74,20 @@ using namespace sandbox::bpf_dsl;
 #define PR_SET_VMA 0x53564d41
 #endif
 
+#ifndef F_LINUX_SPECIFIC_BASE
+#  define F_LINUX_SPECIFIC_BASE 1024
+#else
+static_assert(F_LINUX_SPECIFIC_BASE == 1024);
+#endif
+
+#ifndef F_ADD_SEALS
+#  define F_ADD_SEALS (F_LINUX_SPECIFIC_BASE + 9)
+#  define F_GET_SEALS (F_LINUX_SPECIFIC_BASE + 10)
+#else
+static_assert(F_ADD_SEALS == (F_LINUX_SPECIFIC_BASE + 9));
+static_assert(F_GET_SEALS == (F_LINUX_SPECIFIC_BASE + 10));
+#endif
+
 // To avoid visual confusion between "ifdef ANDROID" and "ifndef ANDROID":
 #ifndef ANDROID
 #  define DESKTOP
@@ -1137,6 +1151,9 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 #ifdef F_SETLKW64
             .Case(F_SETLKW64, Allow())
 #endif
+            // Wayland client libraries use file seals
+            .Case(F_ADD_SEALS, Allow())
+            .Case(F_GET_SEALS, Allow())
             .Default(SandboxPolicyCommon::EvaluateSyscall(sysno));
       }
 
@@ -1298,6 +1315,23 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 
       case __NR_get_mempolicy:
         return Allow();
+
+        // Mesa's amdgpu driver uses kcmp with KCMP_FILE; see also bug
+        // 1624743.  The pid restriction should be sufficient on its
+        // own if we need to remove the type restriction in the future.
+      case __NR_kcmp: {
+        // The real KCMP_FILE is part of an anonymous enum in
+        // <linux/kcmp.h>, but we can't depend on having that header,
+        // and it's not a #define so the usual #ifndef approach
+        // doesn't work.
+        static const int kKcmpFile = 0;
+        const pid_t myPid = getpid();
+        Arg<pid_t> pid1(0), pid2(1);
+        Arg<int> type(2);
+        return If(AllOf(pid1 == myPid, pid2 == myPid, type == kKcmpFile),
+                  Allow())
+            .Else(InvalidSyscall());
+      }
 
 #endif  // DESKTOP
 

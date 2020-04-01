@@ -409,12 +409,6 @@ nsresult RHEntryToRHEntryInfo(nsIRedirectHistoryEntry* aRHEntry,
 
 nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
                                 Maybe<LoadInfoArgs>* aOptionalLoadInfoArgs) {
-  if (!aLoadInfo) {
-    // if there is no loadInfo, then there is nothing to serialize
-    *aOptionalLoadInfoArgs = Nothing();
-    return NS_OK;
-  }
-
   nsresult rv = NS_OK;
   Maybe<PrincipalInfo> loadingPrincipalInfo;
   if (aLoadInfo->LoadingPrincipal()) {
@@ -582,7 +576,8 @@ nsresult LoadInfoToLoadInfoArgs(nsILoadInfo* aLoadInfo,
       cspNonce, aLoadInfo->GetSkipContentSniffing(),
       aLoadInfo->GetHttpsOnlyStatus(),
       aLoadInfo->GetIsFromProcessingFrameAttributes(), cookieJarSettingsArgs,
-      aLoadInfo->GetRequestBlockingReason(), maybeCspToInheritInfo));
+      aLoadInfo->GetRequestBlockingReason(), maybeCspToInheritInfo,
+      aLoadInfo->GetHasStoragePermission()));
 
   return NS_OK;
 }
@@ -778,8 +773,8 @@ nsresult LoadInfoArgsToLoadInfo(
       loadInfoArgs.documentHasLoaded(),
       loadInfoArgs.allowListFutureDocumentsCreatedFromThisRedirectChain(),
       loadInfoArgs.cspNonce(), loadInfoArgs.skipContentSniffing(),
-      loadInfoArgs.httpsOnlyStatus(), loadInfoArgs.requestBlockingReason(),
-      loadingContext);
+      loadInfoArgs.httpsOnlyStatus(), loadInfoArgs.hasStoragePermission(),
+      loadInfoArgs.requestBlockingReason(), loadingContext);
 
   if (loadInfoArgs.isFromProcessingFrameAttributes()) {
     loadInfo->SetIsFromProcessingFrameAttributes();
@@ -791,20 +786,6 @@ nsresult LoadInfoArgsToLoadInfo(
 
 void LoadInfoToParentLoadInfoForwarder(
     nsILoadInfo* aLoadInfo, ParentLoadInfoForwarderArgs* aForwarderArgsOut) {
-  if (!aLoadInfo) {
-    *aForwarderArgsOut = ParentLoadInfoForwarderArgs(
-        false, false, Nothing(), nsILoadInfo::TAINTING_BASIC,
-        false,                                  // SkipContentSniffing
-        nsILoadInfo::HTTPS_ONLY_UNINITIALIZED,  // httpsOnlyStatus
-        false,  // serviceWorkerTaintingSynthesized
-        false,  // documentHasUserInteracted
-        false,  // documentHasLoaded
-        false,  // allowListFutureDocumentsCreatedFromThisRedirectChain
-        Maybe<CookieJarSettingsArgs>(),
-        nsILoadInfo::BLOCKING_REASON_NONE);  // requestBlockingReason
-    return;
-  }
-
   Maybe<IPCServiceWorkerDescriptor> ipcController;
   Maybe<ServiceWorkerDescriptor> controller(aLoadInfo->GetController());
   if (controller.isSome()) {
@@ -835,15 +816,12 @@ void LoadInfoToParentLoadInfoForwarder(
       aLoadInfo->GetDocumentHasUserInteracted(),
       aLoadInfo->GetDocumentHasLoaded(),
       aLoadInfo->GetAllowListFutureDocumentsCreatedFromThisRedirectChain(),
-      cookieJarSettingsArgs, aLoadInfo->GetRequestBlockingReason());
+      cookieJarSettingsArgs, aLoadInfo->GetRequestBlockingReason(),
+      aLoadInfo->GetHasStoragePermission());
 }
 
 nsresult MergeParentLoadInfoForwarder(
     ParentLoadInfoForwarderArgs const& aForwarderArgs, nsILoadInfo* aLoadInfo) {
-  if (!aLoadInfo) {
-    return NS_OK;
-  }
-
   nsresult rv;
 
   rv = aLoadInfo->SetAllowInsecureRedirectToDataURI(
@@ -895,17 +873,15 @@ nsresult MergeParentLoadInfoForwarder(
     }
   }
 
+  rv =
+      aLoadInfo->SetHasStoragePermission(aForwarderArgs.hasStoragePermission());
+  NS_ENSURE_SUCCESS(rv, rv);
+
   return NS_OK;
 }
 
 void LoadInfoToChildLoadInfoForwarder(
     nsILoadInfo* aLoadInfo, ChildLoadInfoForwarderArgs* aForwarderArgsOut) {
-  if (!aLoadInfo) {
-    *aForwarderArgsOut =
-        ChildLoadInfoForwarderArgs(Nothing(), Nothing(), Nothing(), 0);
-    return;
-  }
-
   Maybe<IPCClientInfo> ipcReserved;
   Maybe<ClientInfo> reserved(aLoadInfo->GetReservedClientInfo());
   if (reserved.isSome()) {
@@ -931,10 +907,6 @@ void LoadInfoToChildLoadInfoForwarder(
 
 nsresult MergeChildLoadInfoForwarder(
     const ChildLoadInfoForwarderArgs& aForwarderArgs, nsILoadInfo* aLoadInfo) {
-  if (!aLoadInfo) {
-    return NS_OK;
-  }
-
   Maybe<ClientInfo> reservedClientInfo;
   auto& ipcReserved = aForwarderArgs.reservedClientInfo();
   if (ipcReserved.isSome()) {

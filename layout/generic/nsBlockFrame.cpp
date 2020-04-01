@@ -2583,7 +2583,8 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowInput& aState) {
       // If the previous margin is dirty, reflow the current line
       line->MarkDirty();
       line->ClearPreviousMarginDirty();
-    } else if (line->BEnd() + deltaBCoord > aState.mBEndEdge) {
+    } else if (aState.ContentBSize() != NS_UNCONSTRAINEDSIZE &&
+               line->BEnd() + deltaBCoord > aState.ContentBEnd()) {
       // Lines that aren't dirty but get slid past our height constraint must
       // be reflowed.
       line->MarkDirty();
@@ -3010,48 +3011,53 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowInput& aState) {
   }
 
   // Handle an odd-ball case: a list-item with no lines
-  if (HasOutsideMarker() && mLines.empty()) {
-    ReflowOutput metrics(aState.mReflowInput);
-    nsIFrame* marker = GetOutsideMarker();
-    WritingMode wm = aState.mReflowInput.GetWritingMode();
-    ReflowOutsideMarker(
-        marker, aState, metrics,
-        aState.mReflowInput.ComputedPhysicalBorderPadding().top);
-    NS_ASSERTION(!MarkerIsEmpty() || metrics.BSize(wm) == 0,
-                 "empty ::marker frame took up space");
+  if (mLines.empty()) {
+    if (HasOutsideMarker()) {
+      ReflowOutput metrics(aState.mReflowInput);
+      nsIFrame* marker = GetOutsideMarker();
+      WritingMode wm = aState.mReflowInput.GetWritingMode();
+      ReflowOutsideMarker(
+          marker, aState, metrics,
+          aState.mReflowInput.ComputedPhysicalBorderPadding().top);
+      NS_ASSERTION(!MarkerIsEmpty() || metrics.BSize(wm) == 0,
+                   "empty ::marker frame took up space");
 
-    if (!MarkerIsEmpty()) {
-      // There are no lines so we have to fake up some y motion so that
-      // we end up with *some* height.
-      // (Note: if we're layout-contained, we have to be sure to leave our
-      // ReflowOutput's BlockStartAscent() (i.e. the baseline) untouched,
-      // because layout-contained frames have no baseline.)
-      if (!aState.mReflowInput.mStyleDisplay->IsContainLayout() &&
-          metrics.BlockStartAscent() == ReflowOutput::ASK_FOR_BASELINE) {
-        nscoord ascent;
-        WritingMode wm = aState.mReflowInput.GetWritingMode();
-        if (nsLayoutUtils::GetFirstLineBaseline(wm, marker, &ascent)) {
-          metrics.SetBlockStartAscent(ascent);
-        } else {
-          metrics.SetBlockStartAscent(metrics.BSize(wm));
+      if (!MarkerIsEmpty()) {
+        // There are no lines so we have to fake up some y motion so that
+        // we end up with *some* height.
+        // (Note: if we're layout-contained, we have to be sure to leave our
+        // ReflowOutput's BlockStartAscent() (i.e. the baseline) untouched,
+        // because layout-contained frames have no baseline.)
+        if (!aState.mReflowInput.mStyleDisplay->IsContainLayout() &&
+            metrics.BlockStartAscent() == ReflowOutput::ASK_FOR_BASELINE) {
+          nscoord ascent;
+          WritingMode wm = aState.mReflowInput.GetWritingMode();
+          if (nsLayoutUtils::GetFirstLineBaseline(wm, marker, &ascent)) {
+            metrics.SetBlockStartAscent(ascent);
+          } else {
+            metrics.SetBlockStartAscent(metrics.BSize(wm));
+          }
+        }
+
+        RefPtr<nsFontMetrics> fm =
+            nsLayoutUtils::GetInflatedFontMetricsForFrame(this);
+
+        nscoord minAscent = nsLayoutUtils::GetCenteredFontBaseline(
+            fm, aState.mMinLineHeight, wm.IsLineInverted());
+        nscoord minDescent = aState.mMinLineHeight - minAscent;
+
+        aState.mBCoord += std::max(minAscent, metrics.BlockStartAscent()) +
+                          std::max(minDescent, metrics.BSize(wm) -
+                                                   metrics.BlockStartAscent());
+
+        nscoord offset = minAscent - metrics.BlockStartAscent();
+        if (offset > 0) {
+          marker->SetRect(marker->GetRect() + nsPoint(0, offset));
         }
       }
-
-      RefPtr<nsFontMetrics> fm =
-          nsLayoutUtils::GetInflatedFontMetricsForFrame(this);
-
-      nscoord minAscent = nsLayoutUtils::GetCenteredFontBaseline(
-          fm, aState.mMinLineHeight, wm.IsLineInverted());
-      nscoord minDescent = aState.mMinLineHeight - minAscent;
-
-      aState.mBCoord +=
-          std::max(minAscent, metrics.BlockStartAscent()) +
-          std::max(minDescent, metrics.BSize(wm) - metrics.BlockStartAscent());
-
-      nscoord offset = minAscent - metrics.BlockStartAscent();
-      if (offset > 0) {
-        marker->SetRect(marker->GetRect() + nsPoint(0, offset));
-      }
+    } else if (!Style()->IsPseudoOrAnonBox() &&
+               StyleUI()->mUserModify != StyleUserModify::ReadOnly) {
+      aState.mBCoord += aState.mMinLineHeight;
     }
   }
 
@@ -4960,8 +4966,9 @@ bool nsBlockFrame::PlaceLine(BlockReflowInput& aState,
   }
 
   // See if the line fit (our first line always does).
-  if (mLines.front() != aLine && newBCoord > aState.mBEndEdge &&
-      aState.mBEndEdge != NS_UNCONSTRAINEDSIZE) {
+  if (mLines.front() != aLine &&
+      aState.ContentBSize() != NS_UNCONSTRAINEDSIZE &&
+      newBCoord > aState.ContentBEnd()) {
     NS_ASSERTION(aState.mCurrentLine == aLine, "oops");
     if (ShouldAvoidBreakInside(aState.mReflowInput)) {
       // All our content doesn't fit, start on the next page.

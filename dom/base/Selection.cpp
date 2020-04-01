@@ -149,12 +149,15 @@ class nsAutoScrollTimer final : public nsITimerCallback, public nsINamed {
  public:
   NS_DECL_ISUPPORTS
 
-  nsAutoScrollTimer()
-      : mFrameSelection(0),
-        mSelection(0),
+  nsAutoScrollTimer(nsFrameSelection* aFrameSelection, Selection* aSelection)
+      : mFrameSelection(aFrameSelection),
+        mSelection(aSelection),
         mPresContext(0),
         mPoint(0, 0),
-        mDelay(30) {}
+        mDelay(30) {
+    MOZ_ASSERT(mFrameSelection);
+    MOZ_ASSERT(mSelection);
+  }
 
   // aPoint is relative to aPresContext's root frame
   nsresult Start(nsPresContext* aPresContext, nsPoint& aPoint) {
@@ -188,21 +191,13 @@ class nsAutoScrollTimer final : public nsITimerCallback, public nsINamed {
     return NS_OK;
   }
 
-  nsresult Init(nsFrameSelection* aFrameSelection, Selection* aSelection) {
-    MOZ_ASSERT(aFrameSelection);
-
-    mFrameSelection = aFrameSelection;
-    mSelection = aSelection;
-    return NS_OK;
-  }
-
   nsresult SetDelay(uint32_t aDelay) {
     mDelay = aDelay;
     return NS_OK;
   }
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD Notify(nsITimer* timer) override {
-    if (mSelection && mPresContext) {
+    if (mPresContext) {
       AutoWeakFrame frame =
           mContent ? mPresContext->GetPrimaryFrameFor(mContent) : nullptr;
       if (!frame) {
@@ -238,8 +233,8 @@ class nsAutoScrollTimer final : public nsITimerCallback, public nsINamed {
   }
 
  private:
-  nsFrameSelection* mFrameSelection;
-  Selection* mSelection;
+  nsFrameSelection* const mFrameSelection;
+  Selection* const mSelection;
   nsPresContext* mPresContext;
   // relative to mPresContext's root frame
   nsPoint mPoint;
@@ -585,7 +580,9 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Selection)
   // we don't want to notify the listeners during JS GC (they could be
   // in JS!).
   tmp->mNotifyAutoCopy = false;
-  tmp->StopNotifyingAccessibleCaretEventHub();
+  if (tmp->mAccessibleCaretEventHub) {
+    tmp->StopNotifyingAccessibleCaretEventHub();
+  }
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSelectionChangeEventDispatcher)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSelectionListeners)
   tmp->RemoveAllRanges(IgnoreErrors());
@@ -825,6 +822,42 @@ static nsINode* DetermineSelectstartEventTarget(
   return target;
 }
 
+/**
+ * @return true, iff the default action should be executed.
+ */
+static bool MaybeDispatchSelectstartEvent(
+    const nsRange& aRange, const bool aSelectionEventsOnTextControlsEnabled,
+    Document* aDocument) {
+  nsCOMPtr<nsINode> selectstartEventTarget = DetermineSelectstartEventTarget(
+      aSelectionEventsOnTextControlsEnabled, aRange);
+
+  bool executeDefaultAction = true;
+
+  if (selectstartEventTarget) {
+    nsContentUtils::DispatchTrustedEvent(
+        aDocument, selectstartEventTarget, NS_LITERAL_STRING("selectstart"),
+        CanBubble::eYes, Cancelable::eYes, &executeDefaultAction);
+  }
+
+  return executeDefaultAction;
+}
+
+// static
+bool Selection::AreUserSelectedRangesNonEmpty(
+    const nsRange& aRange, nsTArray<RefPtr<nsRange>>& aTempRangesToAdd) {
+  MOZ_ASSERT(aTempRangesToAdd.IsEmpty());
+
+  RefPtr<nsRange> scratchRange = aRange.CloneRange();
+  UserSelectRangesToAdd(scratchRange, aTempRangesToAdd);
+  const bool newRangesNonEmpty =
+      aTempRangesToAdd.Length() > 1 ||
+      (aTempRangesToAdd.Length() == 1 && !aTempRangesToAdd[0]->Collapsed());
+
+  aTempRangesToAdd.ClearAndRetainStorage();
+
+  return newRangesNonEmpty;
+}
+
 nsresult Selection::AddRangesForUserSelectableNodes(
     nsRange* aRange, int32_t* aOutIndex,
     const DispatchSelectstartEvent aDispatchSelectstartEvent) {
@@ -849,53 +882,38 @@ nsresult Selection::AddRangesForUserSelectableNodes(
   if (aDispatchSelectstartEvent == DispatchSelectstartEvent::Maybe &&
       mSelectionType == SelectionType::eNormal && selectEventsEnabled &&
       IsCollapsed() && !IsBlockingSelectionChangeEvents()) {
+    // We consider a selection to be starting if we are currently collapsed,
+    // and the selection is becoming uncollapsed, and this is caused by a
+    // user initiated event.
+
     // First, we generate the ranges to add with a scratch range, which is a
     // clone of the original range passed in. We do this seperately, because
     // the selectstart event could have caused the world to change, and
     // required ranges to be re-generated
-    RefPtr<nsRange> scratchRange = aRange->CloneRange();
-    UserSelectRangesToAdd(scratchRange, rangesToAdd);
-    bool newRangesNonEmpty =
-        rangesToAdd.Length() > 1 ||
-        (rangesToAdd.Length() == 1 && !rangesToAdd[0]->Collapsed());
 
+    const bool newRangesNonEmpty =
+        AreUserSelectedRangesNonEmpty(*aRange, rangesToAdd);
     MOZ_ASSERT(!newRangesNonEmpty || nsContentUtils::IsSafeToRunScript());
     if (newRangesNonEmpty && nsContentUtils::IsSafeToRunScript()) {
-      // We consider a selection to be starting if we are currently collapsed,
-      // and the selection is becoming uncollapsed, and this is caused by a
-      // user initiated event.
-
       // The spec currently doesn't say that we should dispatch this event
       // on text controls, so for now we only support doing that under a
       // pref, disabled by default.
       // See https://github.com/w3c/selection-api/issues/53.
-      nsCOMPtr<nsINode> selectstartEventTarget =
-          DetermineSelectstartEventTarget(
-              nsFrameSelection::sSelectionEventsOnTextControlsEnabled, *aRange);
+      const bool executeDefaultAction = MaybeDispatchSelectstartEvent(
+          *aRange, nsFrameSelection::sSelectionEventsOnTextControlsEnabled,
+          doc);
 
-      if (selectstartEventTarget) {
-        bool defaultAction = true;
+      if (!executeDefaultAction) {
+        return NS_OK;
+      }
 
-        nsContentUtils::DispatchTrustedEvent(
-            GetDocument(), selectstartEventTarget,
-            NS_LITERAL_STRING("selectstart"), CanBubble::eYes, Cancelable::eYes,
-            &defaultAction);
-
-        if (!defaultAction) {
-          return NS_OK;
-        }
-
-        // As we just dispatched an event to the DOM, something could have
-        // changed under our feet. Re-generate the rangesToAdd array, and
-        // ensure that the range we are about to add is still valid.
-        if (!aRange->IsPositioned()) {
-          return NS_ERROR_UNEXPECTED;
-        }
+      // As we potentially dispatched an event to the DOM, something could have
+      // changed under our feet. Re-generate the rangesToAdd array, and
+      // ensure that the range we are about to add is still valid.
+      if (!aRange->IsPositioned()) {
+        return NS_ERROR_UNEXPECTED;
       }
     }
-
-    // The scratch ranges we generated may be invalid now, throw them out
-    rangesToAdd.ClearAndRetainStorage();
   }
 
   // Generate the ranges to add
@@ -1757,13 +1775,7 @@ nsresult Selection::StartAutoScrollTimer(nsIFrame* aFrame,
   }
 
   if (!mAutoScrollTimer) {
-    mAutoScrollTimer = new nsAutoScrollTimer();
-
-    result = mAutoScrollTimer->Init(mFrameSelection, this);
-
-    if (NS_FAILED(result)) {
-      return result;
-    }
+    mAutoScrollTimer = new nsAutoScrollTimer(mFrameSelection, this);
   }
 
   result = mAutoScrollTimer->SetDelay(aDelay);
@@ -1776,6 +1788,8 @@ nsresult Selection::StartAutoScrollTimer(nsIFrame* aFrame,
 }
 
 nsresult Selection::StopAutoScrollTimer() {
+  MOZ_ASSERT(mSelectionType == SelectionType::eNormal);
+
   if (mAutoScrollTimer) {
     return mAutoScrollTimer->Stop();
   }
@@ -2753,12 +2767,16 @@ bool Selection::ContainsPoint(const nsPoint& aPoint) {
 }
 
 void Selection::MaybeNotifyAccessibleCaretEventHub(PresShell* aPresShell) {
+  MOZ_ASSERT(mSelectionType == SelectionType::eNormal);
+
   if (!mAccessibleCaretEventHub && aPresShell) {
     mAccessibleCaretEventHub = aPresShell->GetAccessibleCaretEventHub();
   }
 }
 
 void Selection::StopNotifyingAccessibleCaretEventHub() {
+  MOZ_ASSERT(mSelectionType == SelectionType::eNormal);
+
   mAccessibleCaretEventHub = nullptr;
 }
 
@@ -2777,19 +2795,6 @@ PresShell* Selection::GetPresShell() const {
 Document* Selection::GetDocument() const {
   PresShell* presShell = GetPresShell();
   return presShell ? presShell->GetDocument() : nullptr;
-}
-
-nsPIDOMWindowOuter* Selection::GetWindow() const {
-  Document* document = GetDocument();
-  return document ? document->GetWindow() : nullptr;
-}
-
-HTMLEditor* Selection::GetHTMLEditor() const {
-  nsPresContext* presContext = GetPresContext();
-  if (!presContext) {
-    return nullptr;
-  }
-  return nsContentUtils::GetHTMLEditor(presContext);
 }
 
 nsIFrame* Selection::GetSelectionAnchorGeometry(SelectionRegion aRegion,
@@ -3018,10 +3023,10 @@ void Selection::RemoveSelectionListener(
   mSelectionListeners.RemoveElement(aListenerToRemove);  // Releases
 }
 
-Element* Selection::StyledRanges::GetCommonEditingHostForAllRanges() {
+Element* Selection::StyledRanges::GetCommonEditingHost() const {
   Element* editingHost = nullptr;
-  for (StyledRange& rangeData : mRanges) {
-    nsRange* range = rangeData.mRange;
+  for (const StyledRange& rangeData : mRanges) {
+    const nsRange* range = rangeData.mRange;
     MOZ_ASSERT(range);
     nsINode* commonAncestorNode = range->GetClosestCommonInclusiveAncestor();
     if (!commonAncestorNode || !commonAncestorNode->IsContent()) {
@@ -3056,6 +3061,49 @@ Element* Selection::StyledRanges::GetCommonEditingHostForAllRanges() {
   return editingHost;
 }
 
+void Selection::StyledRanges::MaybeFocusCommonEditingHost(
+    PresShell* aPresShell) const {
+  if (!aPresShell) {
+    return;
+  }
+
+  nsPresContext* presContext = aPresShell->GetPresContext();
+  if (!presContext) {
+    return;
+  }
+
+  Document* document = aPresShell->GetDocument();
+  if (!document) {
+    return;
+  }
+
+  nsPIDOMWindowOuter* window = document->GetWindow();
+  // If the document is in design mode or doesn't have contenteditable
+  // element, we don't need to move focus.
+  if (window && !document->HasFlag(NODE_IS_EDITABLE) &&
+      nsContentUtils::GetHTMLEditor(presContext)) {
+    RefPtr<Element> newEditingHost = GetCommonEditingHost();
+    nsFocusManager* fm = nsFocusManager::GetFocusManager();
+    nsCOMPtr<nsPIDOMWindowOuter> focusedWindow;
+    nsIContent* focusedContent = nsFocusManager::GetFocusedDescendant(
+        window, nsFocusManager::eOnlyCurrentWindow,
+        getter_AddRefs(focusedWindow));
+    nsCOMPtr<Element> focusedElement = do_QueryInterface(focusedContent);
+    // When all selected ranges are in an editing host, it should take focus.
+    // But otherwise, we shouldn't move focus since Chromium doesn't move
+    // focus but only selection range is updated.
+    if (newEditingHost && newEditingHost != focusedElement) {
+      MOZ_ASSERT(!newEditingHost->IsInNativeAnonymousSubtree());
+      // Note that don't steal focus from focused window if the window doesn't
+      // have focus.  Additionally, although when an element gets focus, we
+      // usually scroll to the element, but in this case, we shouldn't do it
+      // because Chrome does not do so.
+      fm->SetFocus(newEditingHost, nsIFocusManager::FLAG_NOSWITCHFRAME |
+                                       nsIFocusManager::FLAG_NOSCROLL);
+    }
+  }
+}
+
 nsresult Selection::NotifySelectionListeners(bool aCalledByJS) {
   AutoRestore<bool> calledFromJSRestorer(mCalledByJS);
   mCalledByJS = aCalledByJS;
@@ -3063,7 +3111,9 @@ nsresult Selection::NotifySelectionListeners(bool aCalledByJS) {
 }
 
 nsresult Selection::NotifySelectionListeners() {
-  if (!mFrameSelection) return NS_OK;  // nothing to do
+  if (!mFrameSelection) {
+    return NS_OK;  // nothing to do
+  }
 
   // Our internal code should not move focus with using this class while
   // this moves focus nor from selection listeners.
@@ -3076,33 +3126,7 @@ nsresult Selection::NotifySelectionListeners() {
   // browsers don't do it either.
   if (mSelectionType == SelectionType::eNormal &&
       calledByJSRestorer.SavedValue()) {
-    nsPIDOMWindowOuter* window = GetWindow();
-    Document* document = GetDocument();
-    // If the document is in design mode or doesn't have contenteditable
-    // element, we don't need to move focus.
-    if (window && document && !document->HasFlag(NODE_IS_EDITABLE) &&
-        GetHTMLEditor()) {
-      RefPtr<Element> newEditingHost =
-          mStyledRanges.GetCommonEditingHostForAllRanges();
-      nsFocusManager* fm = nsFocusManager::GetFocusManager();
-      nsCOMPtr<nsPIDOMWindowOuter> focusedWindow;
-      nsIContent* focusedContent = nsFocusManager::GetFocusedDescendant(
-          window, nsFocusManager::eOnlyCurrentWindow,
-          getter_AddRefs(focusedWindow));
-      nsCOMPtr<Element> focusedElement = do_QueryInterface(focusedContent);
-      // When all selected ranges are in an editing host, it should take focus.
-      // But otherwise, we shouldn't move focus since Chromium doesn't move
-      // focus but only selection range is updated.
-      if (newEditingHost && newEditingHost != focusedElement) {
-        MOZ_ASSERT(!newEditingHost->IsInNativeAnonymousSubtree());
-        // Note that don't steal focus from focused window if the window doesn't
-        // have focus.  Additionally, although when an element gets focus, we
-        // usually scroll to the element, but in this case, we shouldn't do it
-        // because Chrome does not do so.
-        fm->SetFocus(newEditingHost, nsIFocusManager::FLAG_NOSWITCHFRAME |
-                                         nsIFocusManager::FLAG_NOSCROLL);
-      }
-    }
+    mStyledRanges.MaybeFocusCommonEditingHost(GetPresShell());
   }
 
   RefPtr<nsFrameSelection> frameSelection = mFrameSelection;

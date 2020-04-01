@@ -44,10 +44,13 @@ var gNextLoaderID = 0;
  *        We use this in order to debug modules loaded in this shared system
  *        compartment. The debugger actor has to be running in a distinct
  *        compartment than the context it is debugging.
+ * @param hasJSMLifetime boolean
+ *        See base-loader.js for documentation of this option.
  */
 function DevToolsLoader({
   invisibleToDebugger = false,
   freshCompartment = false,
+  hasJSMLifetime = false,
 } = {}) {
   const paths = {
     // ⚠ DISCUSSION ON DEV-DEVELOPER-TOOLS REQUIRED BEFORE MODIFYING ⚠
@@ -79,10 +82,24 @@ function DevToolsLoader({
   }
 
   this.loader = new Loader({
+    hasJSMLifetime,
     paths,
     invisibleToDebugger,
     freshCompartment,
     sandboxName: "DevTools (Module loader)",
+    // Make sure `define` function exists. JSON Viewer needs modules in AMD
+    // format, as it currently uses RequireJS from a content document and
+    // can't access our usual loaders. So, any modules shared with the JSON
+    // Viewer should include a define wrapper:
+    //
+    //   // Make this available to both AMD and CJS environments
+    //   define(function(require, exports, module) {
+    //     ... code ...
+    //   });
+    //
+    // Bug 1248830 will work out a better plan here for our content module
+    // loading needs, especially as we head towards devtools.html.
+    supportAMDModules: true,
     requireHook: (id, require) => {
       if (id.startsWith("raw!") || id.startsWith("theme-loader!")) {
         return requireRawId(id, require);
@@ -155,6 +172,13 @@ DevToolsLoader.prototype = {
 
 // Export the standard instance of DevToolsLoader used by the tools.
 var loader = new DevToolsLoader({
+  /**
+   * This instance of the loader is a global singleton and is thus never
+   * destroyed, so we set this option to avoid a little bit of work when
+   * loading scripts. See base-loader.js for more information about this.
+   */
+  hasJSMLifetime: true,
+
   /**
    * Sets whether the compartments loaded by this instance should be invisible
    * to the debugger.  Invisibility is needed for loaders that support debugging

@@ -21,6 +21,20 @@
 namespace v8 {
 namespace internal {
 
+struct FrameData {
+  // Character position at the start of the input, stored as a
+  // negative offset from the end of the string (input_end_pointer_).
+  size_t inputStart;
+
+  // The backtrack_stack_pointer_ register points to the top of the stack.
+  // This points to the bottom of the backtrack stack.
+  void* backtrackStackBase;
+
+  // Copy of the input MatchPairs.
+  int32_t* matches;   // pointer to capture array
+  int32_t numMatches; // size of capture array
+};
+
 class SMRegExpMacroAssembler final : public NativeRegExpMacroAssembler {
  public:
   SMRegExpMacroAssembler(JSContext* cx, Isolate* isolate,
@@ -37,6 +51,7 @@ class SMRegExpMacroAssembler final : public NativeRegExpMacroAssembler {
   virtual void AdvanceCurrentPosition(int by);
   virtual void PopCurrentPosition();
   virtual void PushCurrentPosition();
+  virtual void SetCurrentPositionFromEnd(int by);
 
   virtual void Backtrack();
   virtual void Bind(Label* label);
@@ -57,7 +72,34 @@ class SMRegExpMacroAssembler final : public NativeRegExpMacroAssembler {
   virtual void CheckCharacterInRange(uc16 from, uc16 to, Label* on_in_range);
   virtual void CheckCharacterNotInRange(uc16 from, uc16 to,
                                         Label* on_not_in_range);
+  virtual void CheckAtStart(int cp_offset, Label* on_at_start);
+  virtual void CheckNotAtStart(int cp_offset, Label* on_not_at_start);
+  virtual void CheckPosition(int cp_offset, Label* on_outside_input);
+  virtual void CheckBitInTable(Handle<ByteArray> table, Label* on_bit_set);
+  virtual bool CheckSpecialCharacterClass(uc16 type, Label* on_no_match);
+  virtual void CheckNotBackReference(int start_reg, bool read_backward,
+                                     Label* on_no_match);
+  virtual void CheckNotBackReferenceIgnoreCase(int start_reg,
+                                               bool read_backward,
+                                               Label* on_no_match);
 
+  virtual void LoadCurrentCharacterImpl(int cp_offset, Label* on_end_of_input,
+                                        bool check_bounds, int characters,
+                                        int eats_at_least);
+
+  virtual void AdvanceRegister(int reg, int by);
+  virtual void IfRegisterGE(int reg, int comparand, Label* if_ge);
+  virtual void IfRegisterLT(int reg, int comparand, Label* if_lt);
+  virtual void IfRegisterEqPos(int reg, Label* if_eq);
+  virtual void PopRegister(int register_index);
+  virtual void PushRegister(int register_index,
+                            StackCheckFlag check_stack_limit);
+  virtual void ReadCurrentPositionFromRegister(int reg);
+  virtual void WriteCurrentPositionToRegister(int reg, int cp_offset);
+  virtual void ReadStackPointerFromRegister(int reg);
+  virtual void WriteStackPointerToRegister(int reg);
+  virtual void SetRegister(int register_index, int to);
+  virtual void ClearRegisters(int reg_from, int reg_to);
 
  private:
   // Push a register on the backtrack stack.
@@ -74,6 +116,10 @@ class SMRegExpMacroAssembler final : public NativeRegExpMacroAssembler {
                                   bool negate);
   void CheckCharacterInRangeImpl(uc16 from, uc16 to, Label* on_cond,
                                  js::jit::Assembler::Condition cond);
+  void CheckNotBackReferenceImpl(int start_reg, bool read_backward,
+                                 Label* on_no_match, bool ignore_case);
+
+  void LoadCurrentCharacterUnchecked(int cp_offset, int characters);
 
   void JumpOrBacktrack(Label* to);
 
@@ -87,9 +133,48 @@ class SMRegExpMacroAssembler final : public NativeRegExpMacroAssembler {
 
   void CheckBacktrackStackLimit();
 
+  static uint32_t CaseInsensitiveCompareStrings(const char16_t* substring1,
+                                                const char16_t* substring2,
+                                                size_t byteLength);
+  static uint32_t CaseInsensitiveCompareUCStrings(const char16_t* substring1,
+                                                  const char16_t* substring2,
+                                                  size_t byteLength);
+
   inline int char_size() { return static_cast<int>(mode_); }
   inline js::jit::Scale factor() {
     return mode_ == UC16 ? js::jit::TimesTwo : js::jit::TimesOne;
+  }
+
+  js::jit::Address inputStart() {
+    return js::jit::Address(masm_.getStackPointer(),
+                            offsetof(FrameData, inputStart));
+  }
+  js::jit::Address backtrackStackBase() {
+    return js::jit::Address(masm_.getStackPointer(),
+                            offsetof(FrameData, backtrackStackBase));
+  }
+  js::jit::Address matches() {
+    return js::jit::Address(masm_.getStackPointer(),
+                            offsetof(FrameData, matches));
+  }
+  js::jit::Address numMatches() {
+    return js::jit::Address(masm_.getStackPointer(),
+                            offsetof(FrameData, numMatches));
+  }
+
+  // The stack-pointer-relative location of a regexp register.
+  js::jit::Address register_location(int register_index) {
+    return js::jit::Address(masm_.getStackPointer(),
+                            register_offset(register_index));
+  }
+
+  int32_t register_offset(int register_index) {
+    MOZ_ASSERT(register_index >= 0 && register_index <= kMaxRegister);
+    if (num_registers_ <= register_index) {
+      num_registers_ = register_index + 1;
+    }
+    static_assert(alignof(uintptr_t) <= alignof(FrameData));
+    return sizeof(FrameData) + register_index * sizeof(uintptr_t*);
   }
 
   JSContext* cx_;
@@ -137,6 +222,20 @@ class SMRegExpMacroAssembler final : public NativeRegExpMacroAssembler {
   int num_registers_;
   int num_capture_registers_;
   js::jit::LiveGeneralRegisterSet savedRegisters_;
+
+ public:
+  using TableVector =
+      js::Vector<PseudoHandle<ByteArrayData>, 4, js::SystemAllocPolicy>;
+  TableVector& tables() { return tables_; }
+
+ private:
+  TableVector tables_;
+  void AddTable(PseudoHandle<ByteArrayData> table) {
+    js::AutoEnterOOMUnsafeRegion oomUnsafe;
+    if (!tables_.append(std::move(table))) {
+      oomUnsafe.crash("Irregexp table append");
+    }
+  }
 };
 
 }  // namespace internal

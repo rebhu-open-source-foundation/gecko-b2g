@@ -1389,7 +1389,7 @@
 # Is support for AudioWorklet enabled?
 - name: dom.audioworklet.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Is support for Navigator.getBattery enabled?
@@ -3185,7 +3185,7 @@
 
 - name: dom.worklet.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Enable content type normalization of XHR uploads via MIME Sniffing standard
@@ -7484,12 +7484,7 @@
   type: uint32_t
   value: 500
   mirror: always
-
-- name: network.predictor.cleaned-up
-  type: bool
-  value: false
-  mirror: never
-
+  
 # A testing flag.
 - name: network.predictor.doing-tests
   type: bool
@@ -8829,6 +8824,12 @@
 
 # Use VA-API for video playback on Wayland.
 - name: widget.wayland-dmabuf-vaapi.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Use smooth rendering for basic compositor.
+- name: widget.wayland-smooth-rendering
   type: RelaxedAtomicBool
   value: false
   mirror: always

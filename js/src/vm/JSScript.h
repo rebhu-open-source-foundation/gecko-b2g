@@ -1665,10 +1665,10 @@ class BaseScript : public gc::TenuredCell {
   // Object that determines what Realm this script is compiled for. In general
   // this refers to the realm's GlobalObject, but for a lazy-script we instead
   // refer to the associated function.
-  const GCPtrObject functionOrGlobal_;
+  const GCPtrObject functionOrGlobal_ = {};
 
   // The ScriptSourceObject for this script.
-  GCPtr<ScriptSourceObject*> sourceObject_ = {};
+  const GCPtr<ScriptSourceObject*> sourceObject_ = {};
 
   // Unshared variable-length data. This may be nullptr for lazy scripts of leaf
   // functions. Note that meaning of this data is different if the script is
@@ -1697,7 +1697,7 @@ class BaseScript : public gc::TenuredCell {
   //
   // Specific accessors for flag values are defined with
   // IMMUTABLE_FLAG_* macros below.
-  ImmutableScriptFlags immutableScriptFlags_;
+  ImmutableScriptFlags immutableFlags_;
   // Mutable flags typically store information about runtime or deoptimization
   // behavior of this script. This is only public for the JITs.
   //
@@ -1708,11 +1708,13 @@ class BaseScript : public gc::TenuredCell {
   ScriptWarmUpData warmUpData_ = {};
 
   BaseScript(uint8_t* stubEntry, JSObject* functionOrGlobal,
-             ScriptSourceObject* sourceObject, SourceExtent extent)
+             ScriptSourceObject* sourceObject, SourceExtent extent,
+             uint32_t immutableFlags)
       : jitCodeRaw_(stubEntry),
         functionOrGlobal_(functionOrGlobal),
         sourceObject_(sourceObject),
-        extent_(extent) {
+        extent_(extent),
+        immutableFlags_(immutableFlags) {
     MOZ_ASSERT(functionOrGlobal->compartment() == sourceObject->compartment());
     MOZ_ASSERT(extent_.toStringStart <= extent_.sourceStart);
     MOZ_ASSERT(extent_.sourceStart <= extent_.sourceEnd);
@@ -1724,7 +1726,8 @@ class BaseScript : public gc::TenuredCell {
   static BaseScript* CreateRawLazy(JSContext* cx, uint32_t ngcthings,
                                    HandleFunction fun,
                                    HandleScriptSourceObject sourceObject,
-                                   const SourceExtent& extent);
+                                   const SourceExtent& extent,
+                                   uint32_t immutableFlags);
 
   // Create a lazy BaseScript and initialize gc-things with provided
   // closedOverBindings and innerFunctions.
@@ -1733,7 +1736,7 @@ class BaseScript : public gc::TenuredCell {
       HandleFunction fun, HandleScriptSourceObject sourceObject,
       const frontend::AtomVector& closedOverBindings,
       const Vector<frontend::FunctionIndex>& innerFunctionIndexes,
-      const SourceExtent& extent);
+      const SourceExtent& extent, uint32_t immutableFlags);
 
   uint8_t* jitCodeRaw() const { return jitCodeRaw_; }
   bool isUsingInterpreterTrampoline(JSRuntime* rt) const;
@@ -1811,18 +1814,20 @@ class BaseScript : public gc::TenuredCell {
   uint32_t column() const { return extent_.column; }
 
  public:
-  ImmutableScriptFlags immutableFlags() const { return immutableScriptFlags_; }
+  ImmutableScriptFlags immutableFlags() const { return immutableFlags_; }
 
-  void setImmutableFlags(uint32_t flags) { immutableScriptFlags_ = flags; }
+  void addToImmutableFlags(const ImmutableScriptFlags& flags) {
+    immutableFlags_ |= flags;
+  }
 
   // ImmutableFlags accessors.
   MOZ_MUST_USE bool hasFlag(ImmutableFlags flag) const {
-    return immutableScriptFlags_.hasFlag(flag);
+    return immutableFlags_.hasFlag(flag);
   }
   void setFlag(ImmutableFlags flag, bool b = true) {
-    immutableScriptFlags_.setFlag(flag, b);
+    immutableFlags_.setFlag(flag, b);
   }
-  void clearFlag(ImmutableFlags flag) { immutableScriptFlags_.clearFlag(flag); }
+  void clearFlag(ImmutableFlags flag) { immutableFlags_.clearFlag(flag); }
 
   // MutableFlags accessors.
   MOZ_MUST_USE bool hasFlag(MutableFlags flag) const {
@@ -2057,7 +2062,7 @@ setterLevel:                                                                  \
   static size_t offsetOfImmutableFlags() {
     static_assert(offsetof(ImmutableScriptFlags, flags_) == 0,
                   "Required for JIT flag access");
-    return offsetof(BaseScript, immutableScriptFlags_);
+    return offsetof(BaseScript, immutableFlags_);
   }
   static constexpr size_t offsetOfMutableFlags() {
     return offsetof(BaseScript, mutableFlags_);
@@ -2143,7 +2148,7 @@ class JSScript : public js::BaseScript {
 
   static JSScript* New(JSContext* cx, js::HandleObject functionOrGlobal,
                        js::HandleScriptSourceObject sourceObject,
-                       const js::SourceExtent& extent);
+                       const js::SourceExtent& extent, uint32_t immutableFlags);
 
  public:
   static JSScript* Create(JSContext* cx, js::HandleObject functionOrGlobal,
@@ -2168,12 +2173,10 @@ class JSScript : public js::BaseScript {
                                       JS::Handle<JSScript*> script,
                                       uint32_t ngcthings);
 
- private:
-  void initFromFunctionBox(js::frontend::FunctionBox* funbox);
-
  public:
-  static bool fullyInitFromStencil(JSContext* cx, js::HandleScript script,
-                                   js::frontend::ScriptStencil& stencil);
+  static bool fullyInitFromStencil(
+      JSContext* cx, js::frontend::CompilationInfo& compilationInfo,
+      js::HandleScript script, js::frontend::ScriptStencil& stencil);
 
 #ifdef DEBUG
  private:
@@ -2339,6 +2342,10 @@ class JSScript : public js::BaseScript {
   static void argumentsOptimizationFailed(JSContext* cx,
                                           js::HandleScript script);
 
+  // Update the the arguments analysis flags based on the frontend
+  // derived information.
+  void resetArgsUsageAnalysis();
+
   /*
    * Arguments access (via JSOp::*Arg* opcodes) must access the canonical
    * location for the argument. If an arguments object exists AND it's mapped
@@ -2382,8 +2389,7 @@ class JSScript : public js::BaseScript {
 
   static JSLinearString* sourceData(JSContext* cx, JS::HandleScript script);
 
-  void setDefaultClassConstructorSpan(js::ScriptSourceObject* sourceObject,
-                                      uint32_t start, uint32_t end,
+  void setDefaultClassConstructorSpan(uint32_t start, uint32_t end,
                                       unsigned line, unsigned column);
 
 #ifdef MOZ_VTUNE
