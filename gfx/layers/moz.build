@@ -659,6 +659,10 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in includes
     ]
 
+    OS_LIBS += [
+        'sync',
+    ]
+
 
 if CONFIG['ENABLE_TESTS']:
     DIRS += ['apz/test/gtest']
