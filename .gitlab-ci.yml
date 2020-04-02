@@ -19,7 +19,6 @@ stages:
 build:desktop:
   before_script:
     - *global_setup
-    - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
   variables:
     <<: *global_variables
     DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
@@ -33,9 +32,30 @@ build:desktop:
     - ./mach build
     - ./mach package
   artifacts:
-    expire_in: 2 week
+    expire_in: 1 week
     paths:
       - "objdir-desktop-gecko/dist/b2g-*"
+
+build:desktop-koost:
+  before_script:
+    - *global_setup
+    - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
+  variables:
+    <<: *global_variables
+    DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
+    MOZ_OBJDIR: 'objdir-desktop-gecko-koost'
+    MOZCONFIG: 'mozconfig-b2g-desktop'
+  image: $DEFAULT_DESKTOP_DOCKER_IMAGE
+  stage: build
+  tags:
+    - gecko-dev
+  script:
+    - ./mach build
+    - ./mach package
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - "objdir-desktop-gecko-koost/dist/b2g-*"
 
 build:arm:
   before_script:
