@@ -449,7 +449,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/components/UpdatePrompt.js
 #endif
 @RESPATH@/components/DirectoryProvider.js
-@RESPATH@/components/ActivitiesGlue.js
 @RESPATH@/components/ProcessGlobal.js
 @RESPATH@/components/OMAContentHandler.js
 @RESPATH@/components/PaymentProviderStrategy.js
