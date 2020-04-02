@@ -241,7 +241,9 @@ static void SkipBinaryGuards(CacheIRReader& reader) {
     if (reader.matchOp(CacheOp::GuardToInt32) ||
         reader.matchOp(CacheOp::GuardType) ||
         reader.matchOp(CacheOp::TruncateDoubleToUInt32) ||
-        reader.matchOp(CacheOp::GuardToBoolean)) {
+        reader.matchOp(CacheOp::GuardToBoolean) ||
+        reader.matchOp(CacheOp::GuardAndGetNumberFromString) ||
+        reader.matchOp(CacheOp::GuardAndGetInt32FromNumber)) {
       reader.skip();  // Skip over operandId
       reader.skip();  // Skip over result/type.
       continue;
@@ -582,10 +584,7 @@ MIRType BaselineInspector::expectedBinaryArithSpecialization(jsbytecode* pc) {
   MIRType result;
   ICStub* stubs[2];
 
-  if (JSOp(*pc) == JSOp::Pos) {
-    // +x expanding to x*1, but no corresponding IC.
-    return MIRType::None;
-  }
+  MOZ_ASSERT(JSOp(*pc) != JSOp::Pos);
 
   const ICEntry& entry = icEntryFromPC(pc);
   ICFallbackStub* stub = entry.fallbackStub();

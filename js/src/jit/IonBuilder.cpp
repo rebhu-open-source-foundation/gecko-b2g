@@ -190,12 +190,15 @@ IonBuilder::IonBuilder(JSContext* analysisContext, MIRGenerator& mirGen,
 
 mozilla::GenericErrorResult<AbortReason> IonBuilder::abort(AbortReason r) {
   auto res = mirGen_.abort(r);
+  [[maybe_unused]] unsigned line, column;
 #ifdef DEBUG
-  JitSpew(JitSpew_IonAbort, "aborted @ %s:%d", script()->filename(),
-          PCToLineNumber(script(), pc));
+  line = PCToLineNumber(script(), pc, &column);
 #else
-  JitSpew(JitSpew_IonAbort, "aborted @ %s", script()->filename());
+  line = script()->lineno();
+  column = script()->column();
 #endif
+  JitSpew(JitSpew_IonAbort, "aborted @ %s:%u:%u", script()->filename(), line,
+          column);
   return res;
 }
 
@@ -207,12 +210,15 @@ mozilla::GenericErrorResult<AbortReason> IonBuilder::abort(AbortReason r,
   va_start(ap, message);
   auto res = mirGen_.abortFmt(r, message, ap);
   va_end(ap);
+  [[maybe_unused]] unsigned line, column;
 #ifdef DEBUG
-  JitSpew(JitSpew_IonAbort, "aborted @ %s:%d", script()->filename(),
-          PCToLineNumber(script(), pc));
+  line = PCToLineNumber(script(), pc, &column);
 #else
-  JitSpew(JitSpew_IonAbort, "aborted @ %s", script()->filename());
+  line = script()->lineno();
+  column = script()->column();
 #endif
+  JitSpew(JitSpew_IonAbort, "aborted @ %s:%u:%u", script()->filename(), line,
+          column);
   return res;
 }
 
@@ -3430,21 +3436,12 @@ AbortReasonOr<Ok> IonBuilder::jsop_bitnot() {
 
   if (!forceInlineCaches()) {
     MOZ_TRY(bitnotTrySpecialized(&emitted, input));
-    if (emitted) return Ok();
+    if (emitted) {
+      return Ok();
+    }
   }
 
-  MOZ_TRY(arithTryBinaryStub(&emitted, JSOp::BitNot, nullptr, input));
-  if (emitted) {
-    return Ok();
-  }
-
-  // Not possible to optimize. Do a slow vm call.
-  MBitNot* ins = MBitNot::New(alloc(), input);
-
-  current->add(ins);
-  current->push(ins);
-  MOZ_ASSERT(ins->isEffectful());
-  return resumeAfter(ins);
+  return arithUnaryBinaryCache(JSOp::BitNot, nullptr, input);
 }
 
 AbortReasonOr<MBinaryBitwiseInstruction*> IonBuilder::binaryBitOpEmit(
@@ -3540,14 +3537,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_bitop(JSOp op) {
     }
   }
 
-  MOZ_TRY(arithTryBinaryStub(&emitted, op, left, right));
-  if (emitted) {
-    return Ok();
-  }
-
-  // Not possible to optimize. Do a slow vm call.
-  MOZ_TRY(binaryBitOpEmit(op, MIRType::None, left, right));
-  return Ok();
+  return arithUnaryBinaryCache(op, left, right);
 }
 
 MDefinition::Opcode BinaryJSOpToMDefinition(JSOp op) {
@@ -3724,6 +3714,11 @@ AbortReasonOr<Ok> IonBuilder::binaryArithTrySpecializedOnBaselineInspector(
   // Try to emit a specialized binary instruction speculating the
   // type using the baseline caches.
 
+  // Anything complex - strings, symbols, and objects - are not specialized
+  if (!SimpleArithOperand(left) || !SimpleArithOperand(right)) {
+    return Ok();
+  }
+
   MIRType specialization = inspector->expectedBinaryArithSpecialization(pc);
   if (specialization == MIRType::None) {
     return Ok();
@@ -3736,20 +3731,10 @@ AbortReasonOr<Ok> IonBuilder::binaryArithTrySpecializedOnBaselineInspector(
   return Ok();
 }
 
-AbortReasonOr<Ok> IonBuilder::arithTryBinaryStub(bool* emitted, JSOp op,
-                                                 MDefinition* left,
-                                                 MDefinition* right) {
-  MOZ_ASSERT(*emitted == false);
-  JSOp actualOp = JSOp(*pc);
-
-  // The actual jsop 'jsop_pos' is not supported yet.
-  // There's no IC support for JSOp::Pow either.
-  if (actualOp == JSOp::Pos || actualOp == JSOp::Pow) {
-    return Ok();
-  }
-
+AbortReasonOr<Ok> IonBuilder::arithUnaryBinaryCache(JSOp op, MDefinition* left,
+                                                    MDefinition* right) {
   MInstruction* stub = nullptr;
-  switch (actualOp) {
+  switch (JSOp(*pc)) {
     case JSOp::Neg:
     case JSOp::BitNot:
       MOZ_ASSERT_IF(op == JSOp::Mul,
@@ -3782,10 +3767,21 @@ AbortReasonOr<Ok> IonBuilder::arithTryBinaryStub(bool* emitted, JSOp op,
   // is 'empty typed'.
   maybeMarkEmpty(stub);
 
-  MOZ_TRY(resumeAfter(stub));
+  return resumeAfter(stub);
+}
 
-  *emitted = true;
-  return Ok();
+MDefinition* IonBuilder::maybeConvertToNumber(MDefinition* def) {
+  // Try converting strings to numbers during IonBuilder MIR construction,
+  // because MIR foldsTo-folding runs off-main thread.
+  if (def->type() == MIRType::String && def->isConstant()) {
+    JSContext* cx = TlsContext.get();
+    double d;
+    if (StringToNumberPure(cx, def->toConstant()->toString(), &d)) {
+      def->setImplicitlyUsedUnchecked();
+      return constant(NumberValue(d));
+    }
+  }
+  return def;
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_binary_arith(JSOp op, MDefinition* left,
@@ -3796,6 +3792,11 @@ AbortReasonOr<Ok> IonBuilder::jsop_binary_arith(JSOp op, MDefinition* left,
     MOZ_TRY(binaryArithTryConcat(&emitted, op, left, right));
     if (emitted) {
       return Ok();
+    }
+
+    if (op != JSOp::Add) {
+      left = maybeConvertToNumber(left);
+      right = maybeConvertToNumber(right);
     }
 
     MOZ_TRY(binaryArithTrySpecialized(&emitted, op, left, right));
@@ -3810,23 +3811,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_binary_arith(JSOp op, MDefinition* left,
     }
   }
 
-  MOZ_TRY(arithTryBinaryStub(&emitted, op, left, right));
-  if (emitted) {
-    return Ok();
-  }
-
-  MDefinition::Opcode defOp = BinaryJSOpToMDefinition(op);
-  MBinaryArithInstruction* ins =
-      MBinaryArithInstruction::New(alloc(), defOp, left, right);
-
-  // Decrease type from 'any type' to 'empty type' when one of the operands
-  // is 'empty typed'.
-  maybeMarkEmpty(ins);
-
-  current->add(ins);
-  current->push(ins);
-  MOZ_ASSERT(ins->isEffectful());
-  return resumeAfter(ins);
+  return arithUnaryBinaryCache(op, left, right);
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_binary_arith(JSOp op) {
@@ -3849,11 +3834,6 @@ AbortReasonOr<Ok> IonBuilder::jsop_pow() {
     }
   }
 
-  MOZ_TRY(arithTryBinaryStub(&emitted, JSOp::Pow, base, exponent));
-  if (emitted) {
-    return Ok();
-  }
-
   // For now, use MIRType::None as a safe cover-all. See bug 1188079.
   MPow* pow = MPow::New(alloc(), base, exponent, MIRType::None);
   current->add(pow);
@@ -3871,12 +3851,21 @@ AbortReasonOr<Ok> IonBuilder::jsop_pos() {
     return Ok();
   }
 
-  // Compile +x as x * 1.
   MDefinition* value = current->pop();
   MConstant* one = MConstant::New(alloc(), Int32Value(1));
   current->add(one);
 
-  return jsop_binary_arith(JSOp::Mul, value, one);
+  // Compile +x as x * 1.
+  MBinaryArithInstruction* ins = MBinaryArithInstruction::New(
+      alloc(), MDefinition::Opcode::Mul, value, one);
+
+  // Decrease type from 'any type' to 'empty type' when one of the operands
+  // is 'empty typed'.
+  maybeMarkEmpty(ins);
+
+  current->add(ins);
+  current->push(ins);
+  return resumeAfter(ins);
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_neg() {

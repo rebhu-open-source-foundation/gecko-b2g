@@ -359,7 +359,8 @@ InputContextAction::Cause nsFocusManager::GetFocusMoveActionCause(
 
 NS_IMETHODIMP
 nsFocusManager::GetActiveWindow(mozIDOMWindowProxy** aWindow) {
-  // TODO mActiveWindow in content process
+  MOZ_ASSERT(XRE_IsParentProcess(),
+             "Must not be called outside the parent process.");
   NS_IF_ADDREF(*aWindow = mActiveWindow);
   return NS_OK;
 }
@@ -680,8 +681,9 @@ nsFocusManager::WindowRaised(mozIDOMWindowProxy* aWindow) {
   NS_ENSURE_TRUE(docShellAsItem, NS_OK);
 
   // set this as the active window
-  mActiveWindow = window;
-  if (!XRE_IsParentProcess()) {
+  if (XRE_IsParentProcess()) {
+    mActiveWindow = window;
+  } else {
     BrowsingContext* bc = window->GetBrowsingContext();
     if (bc == bc->Top()) {
       SetActiveBrowsingContextInContent(bc);
@@ -787,8 +789,9 @@ nsFocusManager::WindowLowered(mozIDOMWindowProxy* aWindow) {
   // window can be prevented until we return. Otherwise, focus can get into
   // an unusual state.
   mWindowBeingLowered = window;
-  mActiveWindow = nullptr;
-  if (!XRE_IsParentProcess()) {
+  if (XRE_IsParentProcess()) {
+    mActiveWindow = nullptr;
+  } else {
     BrowsingContext* bc = window->GetBrowsingContext();
     if (bc == bc->Top()) {
       SetActiveBrowsingContextInContent(nullptr);
@@ -1014,11 +1017,27 @@ nsFocusManager::WindowHidden(mozIDOMWindowProxy* aWindow) {
     // a leak. So if the active window is being destroyed, call WindowLowered
     // directly.
 
-    // TODO mActiveWindow in content process
-    if (mActiveWindow == mFocusedWindow || mActiveWindow == window)
-      WindowLowered(mActiveWindow);
-    else
-      ClearFocus(mActiveWindow);
+    if (XRE_IsParentProcess()) {
+      if (mActiveWindow == mFocusedWindow || mActiveWindow == window) {
+        WindowLowered(mActiveWindow);
+      } else {
+        ClearFocus(mActiveWindow);
+      }
+    } else {
+      BrowsingContext* active = GetActiveBrowsingContext();
+      if (active) {
+        nsPIDOMWindowOuter* activeWindow = active->GetDOMWindow();
+        if (activeWindow) {
+          if ((mFocusedWindow &&
+               mFocusedWindow->GetBrowsingContext() == active) ||
+              (window->GetBrowsingContext() == active)) {
+            WindowLowered(activeWindow);
+          } else {
+            ClearFocus(activeWindow);
+          }
+        }  // else do nothing when an out-of-process iframe is torn down
+      }
+    }
     return NS_OK;
   }
 

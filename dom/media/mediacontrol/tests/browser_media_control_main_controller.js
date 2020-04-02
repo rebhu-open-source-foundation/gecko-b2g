@@ -1,6 +1,13 @@
 /* eslint-disable no-undef */
 "use strict";
 
+// Import this in order to use `triggerPictureInPicture()`.
+/* import-globals-from ../../../../toolkit/components/pictureinpicture/tests/head.js */
+Services.scriptloader.loadSubScript(
+  "chrome://mochitests/content/browser/toolkit/components/pictureinpicture/tests/head.js",
+  this
+);
+
 const PAGE_NON_AUTOPLAY =
   "https://example.com/browser/dom/media/mediacontrol/tests/file_non_autoplay.html";
 
@@ -84,20 +91,69 @@ add_task(async function testDeterminingMainController() {
    * part3 : [tab2, tab1, tab0] -> [tab2, tab1] -> [tab2] -> []
    */
   info(`# [tab2, tab1, tab0] -> [tab2, tab1] -> [tab2] -> [] #`);
-  info(`remove tab0`);
-  await BrowserTestUtils.removeTab(tab0);
+  info(`remove tab0 and wait until main controller changes`);
+  await Promise.all([
+    waitUntilMainMediaControllerChanged(),
+    BrowserTestUtils.removeTab(tab0),
+  ]);
 
   info(`currrent metadata should be equal to tab1's metadata`);
   await isCurrentMetadataEqualTo(tab1.metadata);
 
-  info(`remove tab1`);
-  await BrowserTestUtils.removeTab(tab1);
+  info(`remove tab1 and wait until main controller changes`);
+  await Promise.all([
+    waitUntilMainMediaControllerChanged(),
+    BrowserTestUtils.removeTab(tab1),
+  ]);
 
   info(`currrent metadata should be equal to tab2's metadata`);
   await isCurrentMetadataEqualTo(tab2.metadata);
 
-  info(`remove tab2`);
-  await BrowserTestUtils.removeTab(tab2);
+  info(`remove tab2 and wait until main controller changes`);
+  await Promise.all([
+    waitUntilMainMediaControllerChanged(),
+    BrowserTestUtils.removeTab(tab2),
+  ]);
+  isCurrentMetadataEmpty();
+});
+
+add_task(async function testPIPControllerIsAlwaysMainController() {
+  info(`open two different tabs`);
+  const tab0 = await createTabAndLoad(PAGE_NON_AUTOPLAY);
+  const tab1 = await createTabAndLoad(PAGE_NON_AUTOPLAY);
+
+  info(`set different metadata for each tab`);
+  await setMediaMetadataForTabs([tab0, tab1]);
+
+  info(`start media for tab0, main controller should become tab0`);
+  await makeTabBecomeMainController(tab0);
+
+  info(`currrent metadata should be equal to tab0's metadata`);
+  await isCurrentMetadataEqualTo(tab0.metadata);
+
+  info(`trigger Picture-in-Picture mode for tab0`);
+  await triggerPictureInPicture(tab0.linkedBrowser, testVideoId);
+
+  info(`start media for tab1, main controller should still be tab0`);
+  await playMediaAndWaitUntilRegisteringController(tab1, testVideoId);
+
+  info(`currrent metadata should be equal to tab0's metadata`);
+  await isCurrentMetadataEqualTo(tab0.metadata);
+
+  info(`remove tab0 and wait until main controller changes`);
+  await Promise.all([
+    waitUntilMainMediaControllerChanged(),
+    BrowserTestUtils.removeTab(tab0),
+  ]);
+
+  info(`currrent metadata should be equal to tab1's metadata`);
+  await isCurrentMetadataEqualTo(tab1.metadata);
+
+  info(`remove tab1 and wait until main controller changes`);
+  await Promise.all([
+    waitUntilMainMediaControllerChanged(),
+    BrowserTestUtils.removeTab(tab1),
+  ]);
   isCurrentMetadataEmpty();
 });
 
@@ -149,4 +205,19 @@ function makeTabBecomeMainController(tab) {
     }
   );
   return Promise.all([playPromise, waitUntilMainMediaControllerChanged()]);
+}
+
+function playMediaAndWaitUntilRegisteringController(tab, elementId) {
+  const playPromise = SpecialPowers.spawn(
+    tab.linkedBrowser,
+    [elementId],
+    Id => {
+      const video = content.document.getElementById(Id);
+      if (!video) {
+        ok(false, `can't get the media element!`);
+      }
+      return video.play();
+    }
+  );
+  return Promise.all([waitUntilMediaControllerAmountChanged(), playPromise]);
 }

@@ -21,7 +21,7 @@
 #include "js/Value.h"          // JS::Value, JS::UndefinedHandleValue
 #include "vm/Interpreter.h"    // js::GetAndClearException
 #include "vm/JSContext.h"      // JSContext
-#include "vm/PromiseObject.h"  // js::PromiseObject
+#include "vm/PromiseObject.h"  // js::PromiseObject, js::PromiseResolvedWithUndefined
 #include "vm/Runtime.h"        // JSRuntime
 
 #include "builtin/Promise-inl.h" // js::SetSettledPromiseIsHandled
@@ -29,12 +29,13 @@
 #include "vm/List-inl.h"         // js::StoreNewListInFixedSlot
 #include "vm/Realm-inl.h"        // js::AutoRealm
 
-using js::ReadableStreamController;
-using js::UnwrapStreamFromReader;
-
 using JS::Handle;
 using JS::Rooted;
 using JS::Value;
+
+using js::PromiseObject;
+using js::ReadableStreamController;
+using js::UnwrapStreamFromReader;
 
 /*** 3.8. Readable stream reader abstract operations ************************/
 
@@ -94,8 +95,7 @@ MOZ_MUST_USE bool js::ReadableStreamReaderGenericInitialize(
     // Step 5: Otherwise, if stream.[[state]] is "closed",
     // Step a: Set reader.[[closedPromise]] to a promise resolved with
     //         undefined.
-    promise = PromiseObject::unforgeableResolveWithNonPromise(
-        cx, UndefinedHandleValue);
+    promise = PromiseResolvedWithUndefined(cx);
   } else {
     // Step 6: Otherwise,
     // Step a: Assert: stream.[[state]] is "errored".
@@ -226,7 +226,7 @@ MOZ_MUST_USE bool js::ReadableStreamReaderGenericRelease(
  * Streams spec, 3.8.7.
  *      ReadableStreamDefaultReaderRead ( reader [, forAuthorCode ] )
  */
-MOZ_MUST_USE JSObject* js::ReadableStreamDefaultReaderRead(
+MOZ_MUST_USE PromiseObject* js::ReadableStreamDefaultReaderRead(
     JSContext* cx, Handle<ReadableStreamDefaultReader*> unwrappedReader) {
   // Step 1: If forAuthorCode was not passed, set it to false (implicit).
 
@@ -251,7 +251,7 @@ MOZ_MUST_USE JSObject* js::ReadableStreamDefaultReaderRead(
     }
 
     Rooted<Value> iterResultVal(cx, JS::ObjectValue(*iterResult));
-    return PromiseObject::unforgeableResolve(cx, iterResultVal);
+    return PromiseObject::unforgeableResolveWithNonPromise(cx, iterResultVal);
   }
 
   // Step 6: If stream.[[state]] is "errored", return a promise rejected

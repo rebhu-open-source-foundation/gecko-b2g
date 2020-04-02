@@ -16,6 +16,7 @@ use std::ops::Range;
 use std::mem;
 use std::collections::HashMap;
 use time::precise_time_ns;
+use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 // local imports
 use crate::display_item as di;
 use crate::display_item_cache::*;
@@ -169,6 +170,12 @@ impl DisplayListWithCache {
 
     pub fn data(&self) -> &[u8] {
         self.display_list.data()
+    }
+}
+
+impl MallocSizeOf for DisplayListWithCache {
+    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+        self.display_list.data.size_of(ops) + self.cache.size_of(ops)
     }
 }
 
@@ -1189,11 +1196,13 @@ impl DisplayListBuilder {
     pub fn push_rect(
         &mut self,
         common: &di::CommonItemProperties,
+        bounds: LayoutRect,
         color: ColorF,
     ) {
         let item = di::DisplayItem::Rectangle(di::RectangleDisplayItem {
             common: *common,
             color: PropertyBinding::Value(color),
+            bounds,
         });
         self.push_item(&item);
     }
@@ -1201,11 +1210,13 @@ impl DisplayListBuilder {
     pub fn push_rect_with_animation(
         &mut self,
         common: &di::CommonItemProperties,
+        bounds: LayoutRect,
         color: PropertyBinding<ColorF>,
     ) {
         let item = di::DisplayItem::Rectangle(di::RectangleDisplayItem {
             common: *common,
             color,
+            bounds,
         });
         self.push_item(&item);
     }
@@ -1213,9 +1224,11 @@ impl DisplayListBuilder {
     pub fn push_clear_rect(
         &mut self,
         common: &di::CommonItemProperties,
+        bounds: LayoutRect,
     ) {
         let item = di::DisplayItem::ClearRectangle(di::ClearRectangleDisplayItem {
             common: *common,
+            bounds,
         });
         self.push_item(&item);
     }

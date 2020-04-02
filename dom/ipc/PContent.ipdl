@@ -397,6 +397,7 @@ struct JSWindowActorInfo
   nsCString[] observers;
   nsString[] matches;
   nsString[] remoteTypes;
+  nsString[] messageManagerGroups;
 };
 
 struct GMPAPITags
@@ -1713,6 +1714,13 @@ parent:
     */
     async NotifyMediaAudibleChanged(MaybeDiscardedBrowsingContext aContext,
                                     bool aAudible);
+
+   /**
+    * When media enabled or disabled the Picture-in-Picture mode, we have to
+    * update that to the media controller in the chrome process.
+    */
+    async NotifyPictureInPictureModeChanged(
+        MaybeDiscardedBrowsingContext aContext, bool aEnabled);
 
    /**
     * This method is used to update media session's status when it's being

@@ -76,7 +76,8 @@ class LoginManagerPrompter {
     aBrowser,
     aLogin,
     dismissed = false,
-    notifySaved = false
+    notifySaved = false,
+    autoFilledLoginGuid = ""
   ) {
     log.debug("promptToSavePassword");
     let inPrivateBrowsing = PrivateBrowsingUtils.isBrowserPrivate(aBrowser);
@@ -90,6 +91,7 @@ class LoginManagerPrompter {
       },
       {
         notifySaved,
+        autoFilledLoginGuid,
       }
     );
     Services.obs.notifyObservers(aLogin, "passwordmgr-prompt-save");
@@ -115,16 +117,26 @@ class LoginManagerPrompter {
    * @param {string} [options.autoSavedLoginGuid = ""]
    *        A string guid value for the auto-saved login to be removed if the changes
    *        match it to a different login
+   * @param {string} [options.autoFilledLoginGuid = ""]
+   *        A string guid value for the autofilled login
    */
   static _showLoginCaptureDoorhanger(
     browser,
     login,
     type,
     showOptions = {},
-    { notifySaved = false, messageStringID, autoSavedLoginGuid = "" } = {}
+    {
+      notifySaved = false,
+      messageStringID,
+      autoSavedLoginGuid = "",
+      autoFilledLoginGuid = "",
+    } = {}
   ) {
     log.debug(
       `_showLoginCaptureDoorhanger, got autoSavedLoginGuid: ${autoSavedLoginGuid}`
+    );
+    log.debug(
+      `_showLoginCaptureDoorhanger, got autoFilledLoginGuid: ${autoFilledLoginGuid}`
     );
 
     let saveMsgNames = {
@@ -163,12 +175,6 @@ class LoginManagerPrompter {
         ? "PWMGR_PROMPT_REMEMBER_ACTION"
         : "PWMGR_PROMPT_UPDATE_ACTION";
     let histogram = Services.telemetry.getHistogramById(histogramName);
-    histogram.add(PROMPT_DISPLAYED);
-    Services.obs.notifyObservers(
-      null,
-      "weave:telemetry:histogram",
-      histogramName
-    );
 
     let chromeDoc = browser.ownerDocument;
     let currentNotification;
@@ -456,6 +462,17 @@ class LoginManagerPrompter {
             switch (topic) {
               case "showing":
                 currentNotification = this;
+
+                // Record the first time this instance of the doorhanger is shown.
+                if (!this.timeShown) {
+                  histogram.add(PROMPT_DISPLAYED);
+                  Services.obs.notifyObservers(
+                    null,
+                    "weave:telemetry:histogram",
+                    histogramName
+                  );
+                }
+
                 chromeDoc
                   .getElementById("password-notification-password")
                   .removeAttribute("focused");
@@ -486,8 +503,11 @@ class LoginManagerPrompter {
                   toggleBtn.addEventListener("command", onVisibilityToggle);
                   toggleBtn.setAttribute("label", togglePasswordLabel);
                   toggleBtn.setAttribute("accesskey", togglePasswordAccessKey);
+
                   let hideToggle =
                     LoginHelper.isMasterPasswordSet() ||
+                    // Don't show the toggle when the login was autofilled
+                    !!autoFilledLoginGuid ||
                     // Dismissed-by-default prompts should still show the toggle.
                     (this.timeShown && this.wasDismissed) ||
                     // If we are only adding a username then the password is
@@ -571,7 +591,8 @@ class LoginManagerPrompter {
     aNewLogin,
     dismissed = false,
     notifySaved = false,
-    autoSavedLoginGuid = ""
+    autoSavedLoginGuid = "",
+    autoFilledLoginGuid = ""
   ) {
     let login = aOldLogin.clone();
     login.origin = aNewLogin.origin;
@@ -603,6 +624,7 @@ class LoginManagerPrompter {
         notifySaved,
         messageStringID,
         autoSavedLoginGuid,
+        autoFilledLoginGuid,
       }
     );
 

@@ -1581,8 +1581,6 @@ void nsDisplayListBuilder::ComputeDefaultRenderRootRect(
   LayoutDeviceIntRegion cutout;
   LayoutDeviceIntRect clientRect(LayoutDeviceIntPoint(), aClientSize);
   cutout.OrWith(clientRect);
-  cutout.SubOut(
-      RoundedToInt(mRenderRootRects[mozilla::wr::RenderRoot::Content]));
 
   mRenderRootRects[mozilla::wr::RenderRoot::Default] =
       LayoutDeviceRect(cutout.GetBounds());
@@ -3800,11 +3798,6 @@ bool nsDisplaySolidColor::CreateWebRenderCommands(
   // intersects multiple render roots
   if (aBuilder.GetRenderRoot() == wr::RenderRoot::Default) {
     for (auto renderRoot : wr::kRenderRoots) {
-      // Skip the popover render root, as it's intended to overlay the others
-      // and be at least partially transparent.
-      if (renderRoot == wr::RenderRoot::Popover) {
-        continue;
-      }
       if (aBuilder.HasSubBuilder(renderRoot)) {
         LayoutDeviceRect renderRootRect =
             aDisplayListBuilder->GetRenderRootRect(renderRoot);

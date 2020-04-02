@@ -246,6 +246,24 @@ void MediaController::UpdateActualPlaybackState() {
   }
 }
 
+void MediaController::SetIsInPictureInPictureMode(
+    bool aIsInPictureInPictureMode) {
+  if (mIsInPictureInPictureMode == aIsInPictureInPictureMode) {
+    return;
+  }
+  LOG("Set IsInPictureInPictureMode to %s",
+      aIsInPictureInPictureMode ? "true" : "false");
+  mIsInPictureInPictureMode = aIsInPictureInPictureMode;
+  if (RefPtr<MediaControlService> service = MediaControlService::GetService();
+      service && mIsInPictureInPictureMode) {
+    service->NotifyControllerBeingUsedInPictureInPictureMode(this);
+  }
+}
+
+bool MediaController::IsInPictureInPictureMode() const {
+  return mIsInPictureInPictureMode;
+}
+
 MediaSessionPlaybackState MediaController::GetState() const {
   return mActualPlaybackState;
 }

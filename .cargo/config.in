@@ -15,7 +15,12 @@ rev = "e3c3388e6632cf55e08d773b32e58b1cab9b2731"
 [source."https://github.com/mozilla/neqo"]
 git = "https://github.com/mozilla/neqo"
 replace-with = "vendored-sources"
-tag = "v0.2.2"
+tag = "v0.2.3"
+
+[source."https://github.com/mozilla/application-services"]
+git = "https://github.com/mozilla/application-services"
+replace-with = "vendored-sources"
+rev = "120e51dd5f2aab4194cf0f7e93b2a8923f4504bb"
 
 [source."https://github.com/mozilla-spidermonkey/jsparagus"]
 git = "https://github.com/mozilla-spidermonkey/jsparagus"
@@ -45,7 +50,7 @@ rev = "3541e3818fdc7c2a24f87e3459151a4ce955a67a"
 [source."https://github.com/djg/cubeb-pulse-rs"]
 git = "https://github.com/djg/cubeb-pulse-rs"
 replace-with = "vendored-sources"
-rev = "8069f8f4189982e0b38fa6dc8993dd4fab41f728"
+rev = "72f813a03cefbdf8e2c58c7410f3556c79429a06"
 
 [source."https://github.com/bytecodealliance/wasmtime"]
 git = "https://github.com/bytecodealliance/wasmtime"
@@ -75,7 +80,7 @@ rev = "5e870faf6f95d79d11efc813e56370ad124bbed5"
 [source."https://github.com/ChunMinChang/cubeb-coreaudio-rs"]
 git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs"
 replace-with = "vendored-sources"
-rev = "20daa86ae2829351d08c829f1ebad2755c583abf"
+rev = "432259ab53295ca98a2df0c0e6c73d132b273e97"
 
 [source.crates-io]
 replace-with = "vendored-sources"

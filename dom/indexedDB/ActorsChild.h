@@ -24,6 +24,7 @@
 #include "mozilla/dom/PBackgroundFileHandleChild.h"
 #include "mozilla/dom/PBackgroundFileRequestChild.h"
 #include "mozilla/dom/PBackgroundMutableFileChild.h"
+#include "mozilla/InitializedOnce.h"
 #include "mozilla/UniquePtr.h"
 #include "nsCOMPtr.h"
 #include "nsTArray.h"
@@ -144,6 +145,10 @@ class BackgroundFactoryChild final : public PBackgroundIDBFactoryChild {
   friend class mozilla::ipc::BackgroundChildImpl;
   friend IDBFactory;
 
+  // TODO: This long-lived raw pointer is very suspicious, in particular as it
+  // is used in BackgroundDatabaseChild::EnsureDOMObject to reacquire a strong
+  // reference. What ensures it is kept alive, and why can't we store a strong
+  // reference here?
   IDBFactory* mFactory;
 
   NS_DECL_OWNINGTHREAD
@@ -153,16 +158,17 @@ class BackgroundFactoryChild final : public PBackgroundIDBFactoryChild {
     NS_ASSERT_OWNINGTHREAD(BackgroundFactoryChild);
   }
 
-  IDBFactory* GetDOMObject() const {
+  IDBFactory& GetDOMObject() const {
     AssertIsOnOwningThread();
-    return mFactory;
+    MOZ_ASSERT(mFactory);
+    return *mFactory;
   }
 
   bool SendDeleteMe() = delete;
 
  private:
   // Only created by IDBFactory.
-  explicit BackgroundFactoryChild(IDBFactory* aFactory);
+  explicit BackgroundFactoryChild(IDBFactory& aFactory);
 
   // Only destroyed by mozilla::ipc::BackgroundChildImpl.
   ~BackgroundFactoryChild();
@@ -221,7 +227,7 @@ class BackgroundFactoryRequestChild final
   friend class PermissionRequestChild;
   friend class PermissionRequestParent;
 
-  const RefPtr<IDBFactory> mFactory;
+  const SafeRefPtr<IDBFactory> mFactory;
 
   // Normally when opening of a database is successful, we receive a database
   // actor in request response, so we can use it to call ReleaseDOMObject()
@@ -244,7 +250,7 @@ class BackgroundFactoryRequestChild final
 
  private:
   // Only created by IDBFactory.
-  BackgroundFactoryRequestChild(IDBFactory* aFactory,
+  BackgroundFactoryRequestChild(SafeRefPtr<IDBFactory> aFactory,
                                 IDBOpenDBRequest* aOpenRequest,
                                 bool aIsDeleteOp, uint64_t aRequestedVersion);
 
@@ -637,7 +643,7 @@ class BackgroundCursorChildBase : public PBackgroundIDBCursorChild {
  private:
   NS_DECL_OWNINGTHREAD
  protected:
-  InitializedOnceMustBeTrue<IDBRequest* const> mRequest;
+  InitializedOnceNotNull<IDBRequest* const> mRequest;
   IDBTransaction* mTransaction;
 
   // These are only set while a request is in progress.
@@ -682,7 +688,7 @@ class BackgroundCursorChild final : public BackgroundCursorChildBase {
   friend class BackgroundTransactionChild;
   friend class BackgroundVersionChangeTransactionChild;
 
-  InitializedOnceMustBeTrue<SourceType* const> mSource;
+  InitializedOnceNotNull<SourceType* const> mSource;
   IDBCursorImpl<CursorType>* mCursor;
 
   std::deque<CursorData<CursorType>> mCachedResponses, mDelayedResponses;

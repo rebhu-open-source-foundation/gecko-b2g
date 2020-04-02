@@ -17,7 +17,6 @@
 #include "IndexedDatabase.h"
 #include "IndexedDatabaseInlines.h"
 #include "IndexedDatabaseManager.h"
-#include "InitializedOnce.h"
 #include "js/StructuredClone.h"
 #include "js/Value.h"
 #include "jsapi.h"
@@ -30,6 +29,7 @@
 #include "mozilla/CycleCollectedJSRuntime.h"
 #include "mozilla/EndianUtils.h"
 #include "mozilla/ErrorNames.h"
+#include "mozilla/InitializedOnce.h"
 #include "mozilla/JSObjectHolder.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Maybe.h"
@@ -120,6 +120,7 @@
 #include "prsystem.h"
 #include "prtime.h"
 #include "ReportInternalError.h"
+#include "SafeRefPtr.h"
 #include "snappy/snappy.h"
 
 #define DISABLE_ASSERTS_FOR_FUZZING 0
@@ -419,7 +420,7 @@ struct FullDatabaseMetadata {
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FullDatabaseMetadata)
 
-  MOZ_MUST_USE RefPtr<FullDatabaseMetadata> Duplicate() const;
+  MOZ_MUST_USE SafeRefPtr<FullDatabaseMetadata> Duplicate() const;
 
  private:
   ~FullDatabaseMetadata() = default;
@@ -3413,7 +3414,7 @@ nsresult UpgradeSchemaFrom18_0To19_0(mozIStorageConnection* aConnection) {
 }
 
 class UpgradeFileIdsFunction final : public mozIStorageFunction {
-  RefPtr<FileManager> mFileManager;
+  SafeRefPtr<FileManager> mFileManager;
 
  public:
   UpgradeFileIdsFunction() { AssertIsOnIOThread(); }
@@ -4618,13 +4619,12 @@ nsresult CreateStorageConnection(nsIFile* aDBFile, nsIFile* aFMDirectory,
 nsCOMPtr<nsIFile> GetFileForPath(const nsAString& aPath) {
   MOZ_ASSERT(!aPath.IsEmpty());
 
-  nsCOMPtr<nsIFile> file;
-  if (NS_WARN_IF(
-          NS_FAILED(NS_NewLocalFile(aPath, false, getter_AddRefs(file))))) {
+  auto fileOrErr = QM_NewLocalFile(aPath);
+  if (NS_WARN_IF(fileOrErr.isErr())) {
     return nullptr;
   }
 
-  return file;
+  return fileOrErr.unwrap();
 }
 
 nsresult GetStorageConnection(nsIFile* aDatabaseFile, int64_t aDirectoryLockId,
@@ -4717,9 +4717,9 @@ class DatabaseConnection final {
   class UpdateRefcountFunction;
 
  private:
-  InitializedOnceMustBeTrue<const nsCOMPtr<mozIStorageConnection>>
+  InitializedOnceNotNull<const nsCOMPtr<mozIStorageConnection>>
       mStorageConnection;
-  InitializedOnceMustBeTrue<const RefPtr<FileManager>> mFileManager;
+  InitializedOnceNotNull<const SafeRefPtr<FileManager>> mFileManager;
   nsInterfaceHashtable<nsCStringHashKey, mozIStorageStatement>
       mCachedStatements;
   RefPtr<UpdateRefcountFunction> mUpdateRefcountFunction;
@@ -4741,13 +4741,15 @@ class DatabaseConnection final {
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DatabaseConnection)
 
-  mozIStorageConnection* GetStorageConnection() const {
-    if (mStorageConnection) {
-      AssertIsOnConnectionThread();
-      return mStorageConnection->get();
-    }
+  bool HasStorageConnection() const {
+    return static_cast<bool>(mStorageConnection);
+  }
 
-    return nullptr;
+  mozIStorageConnection& MutableStorageConnection() const {
+    AssertIsOnConnectionThread();
+    MOZ_ASSERT(mStorageConnection);
+
+    return **mStorageConnection;
   }
 
   UpdateRefcountFunction* GetUpdateRefcountFunction() const {
@@ -4794,8 +4796,8 @@ class DatabaseConnection final {
   void EnableQuotaChecks();
 
  private:
-  DatabaseConnection(mozIStorageConnection* aStorageConnection,
-                     FileManager* aFileManager);
+  DatabaseConnection(nsCOMPtr<mozIStorageConnection> aStorageConnection,
+                     SafeRefPtr<FileManager> aFileManager);
 
   ~DatabaseConnection();
 
@@ -4880,7 +4882,7 @@ class DatabaseConnection::UpdateRefcountFunction final
   enum class UpdateType { Increment, Decrement };
 
   DatabaseConnection* const mConnection;
-  FileManager* const mFileManager;
+  FileManager& mFileManager;
   nsClassHashtable<nsUint64HashKey, FileInfoEntry> mFileInfoEntries;
   nsDataHashtable<nsUint64HashKey, FileInfoEntry*> mSavepointEntriesIndex;
 
@@ -4895,7 +4897,7 @@ class DatabaseConnection::UpdateRefcountFunction final
   NS_DECL_MOZISTORAGEFUNCTION
 
   UpdateRefcountFunction(DatabaseConnection* aConnection,
-                         FileManager* aFileManager);
+                         FileManager& aFileManager);
 
   nsresult WillCommit();
 
@@ -4952,12 +4954,12 @@ class DatabaseConnection::UpdateRefcountFunction::DatabaseUpdateFunction final {
 };
 
 class DatabaseConnection::UpdateRefcountFunction::FileInfoEntry final {
-  RefPtr<FileInfo> mFileInfo;
+  SafeRefPtr<FileInfo> mFileInfo;
   int32_t mDelta;
   int32_t mSavepointDelta;
 
  public:
-  explicit FileInfoEntry(RefPtr<FileInfo> aFileInfo)
+  explicit FileInfoEntry(SafeRefPtr<FileInfo> aFileInfo)
       : mFileInfo(std::move(aFileInfo)), mDelta(0), mSavepointDelta(0) {
     MOZ_COUNT_CTOR(DatabaseConnection::UpdateRefcountFunction::FileInfoEntry);
   }
@@ -4975,7 +4977,7 @@ class DatabaseConnection::UpdateRefcountFunction::FileInfoEntry final {
     }
   }
   void DecBySavepointDelta() { mDelta -= mSavepointDelta; }
-  RefPtr<FileInfo> ReleaseFileInfo() { return std::move(mFileInfo); }
+  SafeRefPtr<FileInfo> ReleaseFileInfo() { return std::move(mFileInfo); }
   void MaybeUpdateDBRefs() {
     if (mDelta) {
       mFileInfo->UpdateDBRefs(mDelta);
@@ -5022,7 +5024,7 @@ class ConnectionPool final {
   };
 
   struct IdleDatabaseInfo final : public IdleResource {
-    InitializedOnceMustBeTrue<DatabaseInfo* const> mDatabaseInfo;
+    InitializedOnceNotNull<DatabaseInfo* const> mDatabaseInfo;
 
    public:
     explicit IdleDatabaseInfo(DatabaseInfo* aDatabaseInfo);
@@ -5172,7 +5174,7 @@ class ConnectionPool final {
     NS_ASSERT_OWNINGTHREAD(ConnectionPool);
   }
 
-  nsresult GetOrCreateConnection(const Database* aDatabase,
+  nsresult GetOrCreateConnection(const Database& aDatabase,
                                  RefPtr<DatabaseConnection>* aConnection);
 
   uint64_t Start(const nsID& aBackgroundChildLoggingId,
@@ -5585,7 +5587,7 @@ class DatabaseOperationBase : public Runnable,
                                           const nsCString& aLocale);
 
   static nsresult GetUniqueIndexTableForObjectStore(
-      TransactionBase* aTransaction, IndexOrObjectStoreId aObjectStoreId,
+      TransactionBase& aTransaction, IndexOrObjectStoreId aObjectStoreId,
       Maybe<UniqueIndexTable>& aMaybeUniqueIndexTable);
 
   static nsresult IndexDataValuesFromUpdateInfos(
@@ -5650,7 +5652,7 @@ class DatabaseOperationBase : public Runnable,
 };
 
 class MOZ_STACK_CLASS DatabaseOperationBase::AutoSetProgressHandler final {
-  mozIStorageConnection* mConnection;
+  Maybe<mozIStorageConnection&> mConnection;
 #ifdef DEBUG
   DatabaseOperationBase* mDEBUGDatabaseOp;
 #endif
@@ -5660,7 +5662,7 @@ class MOZ_STACK_CLASS DatabaseOperationBase::AutoSetProgressHandler final {
 
   ~AutoSetProgressHandler();
 
-  nsresult Register(mozIStorageConnection* aConnection,
+  nsresult Register(mozIStorageConnection& aConnection,
                     DatabaseOperationBase* aDatabaseOp);
 
   void Unregister();
@@ -5676,7 +5678,7 @@ class TransactionDatabaseOperationBase : public DatabaseOperationBase {
     Completed
   };
 
-  InitializedOnce<const OwningNonNull<TransactionBase>> mTransaction;
+  InitializedOnceNotNull<const SafeRefPtr<TransactionBase>> mTransaction;
   InternalState mInternalState = InternalState::Initial;
   bool mWaitingForContinue = false;
   const bool mTransactionIsAborted;
@@ -5730,7 +5732,7 @@ class TransactionDatabaseOperationBase : public DatabaseOperationBase {
   // May be overridden by subclasses if they need to perform work on the
   // background thread before being dispatched. Returning false will kill the
   // child actors and prevent dispatch.
-  virtual bool Init(TransactionBase* aTransaction);
+  virtual bool Init(TransactionBase& aTransaction);
 
   // This callback will be called on the background thread before releasing the
   // final reference to this request object. Subclasses may perform any
@@ -5739,9 +5741,9 @@ class TransactionDatabaseOperationBase : public DatabaseOperationBase {
 
  protected:
   explicit TransactionDatabaseOperationBase(
-      RefPtr<TransactionBase> aTransaction);
+      SafeRefPtr<TransactionBase> aTransaction);
 
-  TransactionDatabaseOperationBase(RefPtr<TransactionBase> aTransaction,
+  TransactionDatabaseOperationBase(SafeRefPtr<TransactionBase> aTransaction,
                                    uint64_t aLoggingSerialNumber);
 
   ~TransactionDatabaseOperationBase() override;
@@ -5890,8 +5892,8 @@ class Database final
 
  private:
   RefPtr<Factory> mFactory;
-  RefPtr<FullDatabaseMetadata> mMetadata;
-  RefPtr<FileManager> mFileManager;
+  SafeRefPtr<FullDatabaseMetadata> mMetadata;
+  SafeRefPtr<FileManager> mFileManager;
   RefPtr<DirectoryLock> mDirectoryLock;
   nsTHashtable<nsPtrHashKey<TransactionBase>> mTransactions;
   nsTHashtable<nsPtrHashKey<MutableFile>> mMutableFiles;
@@ -5924,8 +5926,8 @@ class Database final
   Database(RefPtr<Factory> aFactory, const PrincipalInfo& aPrincipalInfo,
            const Maybe<ContentParentId>& aOptionalContentParentId,
            const nsACString& aGroup, const nsACString& aOrigin,
-           uint32_t aTelemetryId, RefPtr<FullDatabaseMetadata> aMetadata,
-           RefPtr<FileManager> aFileManager,
+           uint32_t aTelemetryId, SafeRefPtr<FullDatabaseMetadata> aMetadata,
+           SafeRefPtr<FileManager> aFileManager,
            RefPtr<DirectoryLock> aDirectoryLock, bool aFileHandleDisabled,
            bool aChromeWriteAccessAllowed);
 
@@ -5965,11 +5967,21 @@ class Database final
 
   const nsString& FilePath() const { return mFilePath; }
 
-  FileManager* GetFileManager() const { return mFileManager; }
+  FileManager& GetFileManager() const { return *mFileManager; }
 
-  FullDatabaseMetadata* Metadata() const {
+  SafeRefPtr<FileManager> GetFileManagerPtr() const {
+    MOZ_ASSERT(mFileManager);
+    return mFileManager.clonePtr();
+  }
+
+  const FullDatabaseMetadata& Metadata() const {
     MOZ_ASSERT(mMetadata);
-    return mMetadata;
+    return *mMetadata;
+  }
+
+  SafeRefPtr<FullDatabaseMetadata> MetadataPtr() const {
+    MOZ_ASSERT(mMetadata);
+    return mMetadata.clonePtr();
   }
 
   PBackgroundParent* GetBackgroundParent() const {
@@ -5986,9 +5998,9 @@ class Database final
     return mFactory->GetLoggingInfo();
   }
 
-  bool RegisterTransaction(TransactionBase* aTransaction);
+  bool RegisterTransaction(TransactionBase& aTransaction);
 
-  void UnregisterTransaction(TransactionBase* aTransaction);
+  void UnregisterTransaction(TransactionBase& aTransaction);
 
   bool IsFileHandleDisabled() const { return mFileHandleDisabled; }
 
@@ -6006,7 +6018,7 @@ class Database final
 
   void SetActorAlive();
 
-  void MapBlob(const IPCBlob& aIPCBlob, RefPtr<FileInfo> aFileInfo);
+  void MapBlob(const IPCBlob& aIPCBlob, SafeRefPtr<FileInfo> aFileInfo);
 
   bool IsActorAlive() const {
     AssertIsOnBackgroundThread();
@@ -6056,7 +6068,7 @@ class Database final
                     mFactory.forget());
   }
 
-  MOZ_MUST_USE RefPtr<FileInfo> GetBlob(const IPCBlob& aID);
+  MOZ_MUST_USE SafeRefPtr<FileInfo> GetBlob(const IPCBlob& aID);
 
   void UnmapBlob(const nsID& aID);
 
@@ -6131,7 +6143,7 @@ class Database::StartTransactionOp final
   friend class Database;
 
  private:
-  explicit StartTransactionOp(RefPtr<TransactionBase> aTransaction)
+  explicit StartTransactionOp(SafeRefPtr<TransactionBase> aTransaction)
       : TransactionDatabaseOperationBase(std::move(aTransaction),
                                          /* aLoggingSerialNumber */ 0) {}
 
@@ -6150,10 +6162,11 @@ class Database::StartTransactionOp final
 
 class Database::UnmapBlobCallback final
     : public IPCBlobInputStreamParentCallback {
-  RefPtr<Database> mDatabase;
+  SafeRefPtr<Database> mDatabase;
 
  public:
-  explicit UnmapBlobCallback(Database* aDatabase) : mDatabase(aDatabase) {
+  explicit UnmapBlobCallback(SafeRefPtr<Database> aDatabase)
+      : mDatabase(std::move(aDatabase)) {
     AssertIsOnBackgroundThread();
   }
 
@@ -6163,7 +6176,7 @@ class Database::UnmapBlobCallback final
     AssertIsOnBackgroundThread();
     MOZ_ASSERT(mDatabase);
 
-    const RefPtr<Database> database = std::move(mDatabase);
+    const SafeRefPtr<Database> database = std::move(mDatabase);
     database->UnmapBlob(aID);
   }
 
@@ -6209,15 +6222,21 @@ class DatabaseFile final : public PBackgroundIDBDatabaseFileParent {
   // - Cleared on the connection thread once the file has successfully been
   //   written to disk.
   InitializedOnce<const RefPtr<BlobImpl>> mBlobImpl;
-  const RefPtr<FileInfo> mFileInfo;
+  const SafeRefPtr<FileInfo> mFileInfo;
 
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(mozilla::dom::indexedDB::DatabaseFile);
 
-  const RefPtr<FileInfo>& GetFileInfo() const {
+  const FileInfo& GetFileInfo() const {
     AssertIsOnBackgroundThread();
 
-    return mFileInfo;
+    return *mFileInfo;
+  }
+
+  SafeRefPtr<FileInfo> GetFileInfoPtr() const {
+    AssertIsOnBackgroundThread();
+
+    return mFileInfo.clonePtr();
   }
 
   /**
@@ -6238,20 +6257,20 @@ class DatabaseFile final : public PBackgroundIDBDatabaseFileParent {
     MOZ_ASSERT(!IsOnBackgroundThread());
 
     MOZ_ASSERT(*mBlobImpl);
-    mBlobImpl.reset();
+    mBlobImpl.destroy();
   }
 
  public:
   // Called when sending to the child.
-  explicit DatabaseFile(FileInfo* aFileInfo)
-      : mBlobImpl{nullptr}, mFileInfo(aFileInfo) {
+  explicit DatabaseFile(SafeRefPtr<FileInfo> aFileInfo)
+      : mBlobImpl{nullptr}, mFileInfo(std::move(aFileInfo)) {
     AssertIsOnBackgroundThread();
     MOZ_ASSERT(mFileInfo);
   }
 
   // Called when receiving from the child.
-  DatabaseFile(RefPtr<BlobImpl> aBlobImpl, FileInfo* aFileInfo)
-      : mBlobImpl(std::move(aBlobImpl)), mFileInfo(aFileInfo) {
+  DatabaseFile(RefPtr<BlobImpl> aBlobImpl, SafeRefPtr<FileInfo> aFileInfo)
+      : mBlobImpl(std::move(aBlobImpl)), mFileInfo(std::move(aFileInfo)) {
     AssertIsOnBackgroundThread();
     MOZ_ASSERT(*mBlobImpl);
     MOZ_ASSERT(mFileInfo);
@@ -6297,10 +6316,10 @@ class TransactionBase {
   typedef IDBTransaction::Mode Mode;
 
  private:
-  const RefPtr<Database> mDatabase;
+  const SafeRefPtr<Database> mDatabase;
   nsTArray<RefPtr<FullObjectStoreMetadata>>
       mModifiedAutoIncrementObjectStoreMetadataArray;
-  InitializedOnceMustBeTrue<const uint64_t, LazyInit::Allow> mTransactionId;
+  LazyInitializedOnceNotNull<const uint64_t> mTransactionId;
   const nsCString mDatabaseId;
   const int64_t mLoggingSerialNumber;
   uint64_t mActiveRequestCount;
@@ -6316,8 +6335,7 @@ class TransactionBase {
   FlippedOnce<false> mCommitOrAbortReceived;
   FlippedOnce<false> mCommittedOrAborted;
   FlippedOnce<false> mForceAborted;
-  InitializedOnce<const Maybe<int64_t>, LazyInit::Allow>
-      mLastRequestBeforeCommit;
+  LazyInitializedOnce<const Maybe<int64_t>> mLastRequestBeforeCommit;
   Maybe<int64_t> mLastFailedRequest;
 
  public:
@@ -6367,10 +6385,22 @@ class TransactionBase {
 
   Mode GetMode() const { return mMode; }
 
-  Database* GetDatabase() const {
+  const Database& GetDatabase() const {
     MOZ_ASSERT(mDatabase);
 
-    return mDatabase;
+    return *mDatabase;
+  }
+
+  Database& GetMutableDatabase() const {
+    MOZ_ASSERT(mDatabase);
+
+    return *mDatabase;
+  }
+
+  SafeRefPtr<Database> GetDatabasePtr() const {
+    MOZ_ASSERT(mDatabase);
+
+    return mDatabase.clonePtr();
   }
 
   DatabaseLoggingInfo* GetLoggingInfo() const {
@@ -6399,7 +6429,7 @@ class TransactionBase {
     AssertIsOnBackgroundThread();
     MOZ_ASSERT(!IsActorDestroyed());
 
-    return GetDatabase()->GetBackgroundParent();
+    return GetDatabase().GetBackgroundParent();
   }
 
   void NoteModifiedAutoIncrementObjectStore(FullObjectStoreMetadata* aMetadata);
@@ -6414,7 +6444,7 @@ class TransactionBase {
   void Invalidate();
 
  protected:
-  TransactionBase(Database* aDatabase, Mode aMode);
+  TransactionBase(SafeRefPtr<Database> aDatabase, Mode aMode);
 
   virtual ~TransactionBase();
 
@@ -6492,14 +6522,14 @@ class TransactionBase::CommitOp final : public DatabaseOperationBase,
                                         public ConnectionPool::FinishCallback {
   friend class TransactionBase;
 
-  RefPtr<TransactionBase> mTransaction;
+  SafeRefPtr<TransactionBase> mTransaction;
   nsresult mResultCode;  ///< TODO: There is also a mResultCode in
                          ///< DatabaseOperationBase. Is there a reason not to
                          ///< use that? At least a more specific name should be
                          ///< given to this one.
 
  private:
-  CommitOp(TransactionBase* aTransaction, nsresult aResultCode);
+  CommitOp(SafeRefPtr<TransactionBase> aTransaction, nsresult aResultCode);
 
   ~CommitOp() override = default;
 
@@ -6537,7 +6567,7 @@ class NormalTransaction final : public TransactionBase,
 
  private:
   // This constructor is only called by Database.
-  NormalTransaction(Database* aDatabase, TransactionBase::Mode aMode,
+  NormalTransaction(SafeRefPtr<Database> aDatabase, TransactionBase::Mode aMode,
                     nsTArray<RefPtr<FullObjectStoreMetadata>>& aObjectStores);
 
   // Reference counted.
@@ -6585,14 +6615,15 @@ class VersionChangeTransaction final
   friend class OpenDatabaseOp;
 
   RefPtr<OpenDatabaseOp> mOpenDatabaseOp;
-  RefPtr<FullDatabaseMetadata> mOldMetadata;
+  SafeRefPtr<FullDatabaseMetadata> mOldMetadata;
 
   FlippedOnce<false> mActorWasAlive;
 
- private:
+ public:
   // Only called by OpenDatabaseOp.
   explicit VersionChangeTransaction(OpenDatabaseOp* aOpenDatabaseOp);
 
+ private:
   // Reference counted.
   ~VersionChangeTransaction() override;
 
@@ -6663,13 +6694,13 @@ class VersionChangeTransaction final
 };
 
 class MutableFile : public BackgroundMutableFileParentBase {
-  const RefPtr<Database> mDatabase;
-  const RefPtr<FileInfo> mFileInfo;
+  const SafeRefPtr<Database> mDatabase;
+  const SafeRefPtr<FileInfo> mFileInfo;
 
  public:
-  static MOZ_MUST_USE RefPtr<MutableFile> Create(nsIFile* aFile,
-                                                 Database* aDatabase,
-                                                 RefPtr<FileInfo> aFileInfo);
+  static MOZ_MUST_USE RefPtr<MutableFile> Create(
+      nsIFile* aFile, SafeRefPtr<Database> aDatabase,
+      SafeRefPtr<FileInfo> aFileInfo);
 
   const Database& GetDatabase() const {
     AssertIsOnBackgroundThread();
@@ -6677,10 +6708,10 @@ class MutableFile : public BackgroundMutableFileParentBase {
     return *mDatabase;
   }
 
-  const RefPtr<FileInfo>& GetFileInfo() const {
+  SafeRefPtr<FileInfo> GetFileInfoPtr() const {
     AssertIsOnBackgroundThread();
 
-    return mFileInfo;
+    return mFileInfo.clonePtr();
   }
 
   void NoteActiveState() override;
@@ -6694,8 +6725,8 @@ class MutableFile : public BackgroundMutableFileParentBase {
   already_AddRefed<BlobImpl> CreateBlobImpl() override;
 
  private:
-  MutableFile(nsIFile* aFile, RefPtr<Database> aDatabase,
-              RefPtr<FileInfo> aFileInfo);
+  MutableFile(nsIFile* aFile, SafeRefPtr<Database> aDatabase,
+              SafeRefPtr<FileInfo> aFileInfo);
 
   ~MutableFile() override;
 
@@ -6715,12 +6746,15 @@ class FactoryOp
       public SupportsCheckedUnsafePtr<CheckIf<DiagnosticAssertEnabled>> {
  public:
   struct MaybeBlockedDatabaseInfo final {
-    RefPtr<Database> mDatabase;
+    SafeRefPtr<Database> mDatabase;
     bool mBlocked;
 
-    MOZ_IMPLICIT MaybeBlockedDatabaseInfo(Database* aDatabase)
-        : mDatabase(aDatabase), mBlocked(false) {
-      MOZ_ASSERT(aDatabase);
+    MaybeBlockedDatabaseInfo(MaybeBlockedDatabaseInfo&&) = default;
+    MaybeBlockedDatabaseInfo& operator=(MaybeBlockedDatabaseInfo&&) = default;
+
+    MOZ_IMPLICIT MaybeBlockedDatabaseInfo(SafeRefPtr<Database> aDatabase)
+        : mDatabase(std::move(aDatabase)), mBlocked(false) {
+      MOZ_ASSERT(mDatabase);
 
       MOZ_COUNT_CTOR(FactoryOp::MaybeBlockedDatabaseInfo);
     }
@@ -6729,11 +6763,13 @@ class FactoryOp
       MOZ_COUNT_DTOR(FactoryOp::MaybeBlockedDatabaseInfo);
     }
 
-    bool operator==(const MaybeBlockedDatabaseInfo& aOther) const {
-      return mDatabase == aOther.mDatabase;
+    bool operator==(const Database* aOther) const {
+      return mDatabase == aOther;
     }
 
-    Database* operator->() MOZ_NO_ADDREF_RELEASE_ON_RETURN { return mDatabase; }
+    Database* operator->() const& MOZ_NO_ADDREF_RELEASE_ON_RETURN {
+      return mDatabase.unsafeGetRawPtr();
+    }
   };
 
  protected:
@@ -6898,7 +6934,7 @@ class FactoryOp
   void FinishSendResults();
 
   nsresult SendVersionChangeMessages(DatabaseActorInfo* aDatabaseActorInfo,
-                                     Database* aOpeningDatabase,
+                                     Maybe<Database&> aOpeningDatabase,
                                      uint64_t aOldVersion,
                                      const Maybe<uint64_t>& aNewVersion);
 
@@ -6959,13 +6995,13 @@ class OpenDatabaseOp final : public FactoryOp {
 
   Maybe<ContentParentId> mOptionalContentParentId;
 
-  RefPtr<FullDatabaseMetadata> mMetadata;
+  SafeRefPtr<FullDatabaseMetadata> mMetadata;
 
   uint64_t mRequestedVersion;
-  RefPtr<FileManager> mFileManager;
+  SafeRefPtr<FileManager> mFileManager;
 
-  RefPtr<Database> mDatabase;
-  RefPtr<VersionChangeTransaction> mVersionChangeTransaction;
+  SafeRefPtr<Database> mDatabase;
+  SafeRefPtr<VersionChangeTransaction> mVersionChangeTransaction;
 
   // This is only set while a VersionChangeOp is live. It holds a strong
   // reference to its OpenDatabaseOp object so this is a weak pointer to avoid
@@ -6991,7 +7027,7 @@ class OpenDatabaseOp final : public FactoryOp {
 
   void MetadataToSpec(DatabaseSpec& aSpec);
 
-  void AssertMetadataConsistency(const FullDatabaseMetadata* aMetadata)
+  void AssertMetadataConsistency(const FullDatabaseMetadata& aMetadata)
 #ifdef DEBUG
       ;
 #else
@@ -7033,7 +7069,7 @@ class OpenDatabaseOp::VersionChangeOp final
  private:
   explicit VersionChangeOp(OpenDatabaseOp* aOpenDatabaseOp)
       : TransactionDatabaseOperationBase(
-            aOpenDatabaseOp->mVersionChangeTransaction,
+            aOpenDatabaseOp->mVersionChangeTransaction.clonePtr(),
             aOpenDatabaseOp->LoggingSerialNumber()),
         mOpenDatabaseOp(aOpenDatabaseOp),
         mRequestedVersion(aOpenDatabaseOp->mRequestedVersion),
@@ -7115,7 +7151,7 @@ class DeleteDatabaseOp::VersionChangeOp final : public DatabaseOperationBase {
 class DatabaseOp : public DatabaseOperationBase,
                    public PBackgroundIDBDatabaseRequestParent {
  protected:
-  RefPtr<Database> mDatabase;
+  SafeRefPtr<Database> mDatabase;
 
   enum class State {
     // Just created on the PBackground thread, dispatched to the main thread.
@@ -7144,7 +7180,7 @@ class DatabaseOp : public DatabaseOperationBase,
   }
 
  protected:
-  DatabaseOp(Database* aDatabase);
+  DatabaseOp(SafeRefPtr<Database> aDatabase);
 
   ~DatabaseOp() override {
     MOZ_ASSERT_IF(OperationMayProceed(),
@@ -7169,10 +7205,11 @@ class DatabaseOp : public DatabaseOperationBase,
 class CreateFileOp final : public DatabaseOp {
   const CreateFileParams mParams;
 
-  InitializedOnce<const RefPtr<FileInfo>, LazyInit::Allow> mFileInfo;
+  LazyInitializedOnce<const SafeRefPtr<FileInfo>> mFileInfo;
 
  public:
-  CreateFileOp(Database* aDatabase, const DatabaseRequestParams& aParams);
+  CreateFileOp(SafeRefPtr<Database> aDatabase,
+               const DatabaseRequestParams& aParams);
 
  private:
   ~CreateFileOp() override = default;
@@ -7190,7 +7227,7 @@ class VersionChangeTransactionOp : public TransactionDatabaseOperationBase {
 
  protected:
   explicit VersionChangeTransactionOp(
-      RefPtr<VersionChangeTransaction> aTransaction)
+      SafeRefPtr<VersionChangeTransaction> aTransaction)
       : TransactionDatabaseOperationBase(std::move(aTransaction)) {}
 
   ~VersionChangeTransactionOp() override = default;
@@ -7208,7 +7245,7 @@ class CreateObjectStoreOp final : public VersionChangeTransactionOp {
 
  private:
   // Only created by VersionChangeTransaction.
-  CreateObjectStoreOp(RefPtr<VersionChangeTransaction> aTransaction,
+  CreateObjectStoreOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                       const ObjectStoreMetadata& aMetadata)
       : VersionChangeTransactionOp(std::move(aTransaction)),
         mMetadata(aMetadata) {
@@ -7228,7 +7265,7 @@ class DeleteObjectStoreOp final : public VersionChangeTransactionOp {
 
  private:
   // Only created by VersionChangeTransaction.
-  DeleteObjectStoreOp(RefPtr<VersionChangeTransaction> aTransaction,
+  DeleteObjectStoreOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                       FullObjectStoreMetadata* const aMetadata,
                       const bool aIsLastObjectStore)
       : VersionChangeTransactionOp(std::move(aTransaction)),
@@ -7250,7 +7287,7 @@ class RenameObjectStoreOp final : public VersionChangeTransactionOp {
 
  private:
   // Only created by VersionChangeTransaction.
-  RenameObjectStoreOp(RefPtr<VersionChangeTransaction> aTransaction,
+  RenameObjectStoreOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                       FullObjectStoreMetadata* const aMetadata)
       : VersionChangeTransactionOp(std::move(aTransaction)),
         mId(aMetadata->mCommonMetadata.id()),
@@ -7270,13 +7307,13 @@ class CreateIndexOp final : public VersionChangeTransactionOp {
 
   const IndexMetadata mMetadata;
   Maybe<UniqueIndexTable> mMaybeUniqueIndexTable;
-  const RefPtr<FileManager> mFileManager;
+  const SafeRefPtr<FileManager> mFileManager;
   const nsCString mDatabaseId;
   const IndexOrObjectStoreId mObjectStoreId;
 
  private:
   // Only created by VersionChangeTransaction.
-  CreateIndexOp(RefPtr<VersionChangeTransaction> aTransaction,
+  CreateIndexOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                 IndexOrObjectStoreId aObjectStoreId,
                 const IndexMetadata& aMetadata);
 
@@ -7286,7 +7323,7 @@ class CreateIndexOp final : public VersionChangeTransactionOp {
 
   nsresult InsertDataFromObjectStoreInternal(DatabaseConnection* aConnection);
 
-  bool Init(TransactionBase* aTransaction) override;
+  bool Init(TransactionBase& aTransaction) override;
 
   nsresult DoDatabaseWork(DatabaseConnection* aConnection) override;
 };
@@ -7323,7 +7360,7 @@ class DeleteIndexOp final : public VersionChangeTransactionOp {
 
  private:
   // Only created by VersionChangeTransaction.
-  DeleteIndexOp(RefPtr<VersionChangeTransaction> aTransaction,
+  DeleteIndexOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                 IndexOrObjectStoreId aObjectStoreId,
                 IndexOrObjectStoreId aIndexId, const bool aUnique,
                 const bool aIsLastIndex);
@@ -7346,7 +7383,7 @@ class RenameIndexOp final : public VersionChangeTransactionOp {
 
  private:
   // Only created by VersionChangeTransaction.
-  RenameIndexOp(RefPtr<VersionChangeTransaction> aTransaction,
+  RenameIndexOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                 FullIndexMetadata* const aMetadata,
                 IndexOrObjectStoreId aObjectStoreId)
       : VersionChangeTransactionOp(std::move(aTransaction)),
@@ -7371,7 +7408,7 @@ class NormalTransactionOp : public TransactionDatabaseOperationBase,
   void Cleanup() override;
 
  protected:
-  explicit NormalTransactionOp(RefPtr<TransactionBase> aTransaction)
+  explicit NormalTransactionOp(SafeRefPtr<TransactionBase> aTransaction)
       : TransactionDatabaseOperationBase(std::move(aTransaction))
 #ifdef DEBUG
         ,
@@ -7416,7 +7453,7 @@ class ObjectStoreAddOrPutRequestOp final : public NormalTransactionOp {
   typedef mozilla::dom::quota::PersistenceType PersistenceType;
 
   class StoredFileInfo final {
-    InitializedOnceMustBeTrue<const RefPtr<FileInfo>> mFileInfo;
+    InitializedOnceNotNull<const SafeRefPtr<FileInfo>> mFileInfo;
     // Either nothing, a file actor or a non-Blob-backed inputstream to write to
     // disk.
     using FileActorOrInputStream =
@@ -7428,11 +7465,12 @@ class ObjectStoreAddOrPutRequestOp final : public NormalTransactionOp {
 
     void AssertInvariants() const;
 
-    explicit StoredFileInfo(RefPtr<FileInfo> aFileInfo);
+    explicit StoredFileInfo(SafeRefPtr<FileInfo> aFileInfo);
 
-    StoredFileInfo(RefPtr<FileInfo> aFileInfo, RefPtr<DatabaseFile> aFileActor);
+    StoredFileInfo(SafeRefPtr<FileInfo> aFileInfo,
+                   RefPtr<DatabaseFile> aFileActor);
 
-    StoredFileInfo(RefPtr<FileInfo> aFileInfo,
+    StoredFileInfo(SafeRefPtr<FileInfo> aFileInfo,
                    nsCOMPtr<nsIInputStream> aInputStream);
 
    public:
@@ -7450,11 +7488,11 @@ class ObjectStoreAddOrPutRequestOp final : public NormalTransactionOp {
     StoredFileInfo(StoredFileInfo&&) = default;
 #endif
 
-    static StoredFileInfo CreateForMutableFile(RefPtr<FileInfo> aFileInfo);
-    static StoredFileInfo CreateForBlob(RefPtr<FileInfo> aFileInfo,
+    static StoredFileInfo CreateForMutableFile(SafeRefPtr<FileInfo> aFileInfo);
+    static StoredFileInfo CreateForBlob(SafeRefPtr<FileInfo> aFileInfo,
                                         RefPtr<DatabaseFile> aFileActor);
     static StoredFileInfo CreateForStructuredClone(
-        RefPtr<FileInfo> aFileInfo, nsCOMPtr<nsIInputStream> aInputStream);
+        SafeRefPtr<FileInfo> aFileInfo, nsCOMPtr<nsIInputStream> aInputStream);
 
 #if defined(DEBUG) || defined(NS_BUILD_REFCNT_LOGGING)
     ~StoredFileInfo() {
@@ -7500,14 +7538,14 @@ class ObjectStoreAddOrPutRequestOp final : public NormalTransactionOp {
 
  private:
   // Only created by TransactionBase.
-  ObjectStoreAddOrPutRequestOp(RefPtr<TransactionBase> aTransaction,
+  ObjectStoreAddOrPutRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                                RequestParams&& aParams);
 
   ~ObjectStoreAddOrPutRequestOp() override = default;
 
   nsresult RemoveOldIndexDataValues(DatabaseConnection* aConnection);
 
-  bool Init(TransactionBase* aTransaction) override;
+  bool Init(TransactionBase& aTransaction) override;
 
   nsresult DoDatabaseWork(DatabaseConnection* aConnection) override;
 
@@ -7556,7 +7594,7 @@ void ObjectStoreAddOrPutRequestOp::StoredFileInfo::AssertInvariants() const {
 }
 
 ObjectStoreAddOrPutRequestOp::StoredFileInfo::StoredFileInfo(
-    RefPtr<FileInfo> aFileInfo)
+    SafeRefPtr<FileInfo> aFileInfo)
     : mFileInfo{std::move(aFileInfo)}, mFileActorOrInputStream {
   Nothing {}
 }
@@ -7571,7 +7609,7 @@ ObjectStoreAddOrPutRequestOp::StoredFileInfo::StoredFileInfo(
 }
 
 ObjectStoreAddOrPutRequestOp::StoredFileInfo::StoredFileInfo(
-    RefPtr<FileInfo> aFileInfo, RefPtr<DatabaseFile> aFileActor)
+    SafeRefPtr<FileInfo> aFileInfo, RefPtr<DatabaseFile> aFileActor)
     : mFileInfo{std::move(aFileInfo)}, mFileActorOrInputStream {
   std::move(aFileActor)
 }
@@ -7586,7 +7624,7 @@ ObjectStoreAddOrPutRequestOp::StoredFileInfo::StoredFileInfo(
 }
 
 ObjectStoreAddOrPutRequestOp::StoredFileInfo::StoredFileInfo(
-    RefPtr<FileInfo> aFileInfo, nsCOMPtr<nsIInputStream> aInputStream)
+    SafeRefPtr<FileInfo> aFileInfo, nsCOMPtr<nsIInputStream> aInputStream)
     : mFileInfo{std::move(aFileInfo)}, mFileActorOrInputStream {
   std::move(aInputStream)
 }
@@ -7602,19 +7640,19 @@ ObjectStoreAddOrPutRequestOp::StoredFileInfo::StoredFileInfo(
 
 ObjectStoreAddOrPutRequestOp::StoredFileInfo
 ObjectStoreAddOrPutRequestOp::StoredFileInfo::CreateForMutableFile(
-    RefPtr<FileInfo> aFileInfo) {
+    SafeRefPtr<FileInfo> aFileInfo) {
   return StoredFileInfo{std::move(aFileInfo)};
 }
 
 ObjectStoreAddOrPutRequestOp::StoredFileInfo
 ObjectStoreAddOrPutRequestOp::StoredFileInfo::CreateForBlob(
-    RefPtr<FileInfo> aFileInfo, RefPtr<DatabaseFile> aFileActor) {
+    SafeRefPtr<FileInfo> aFileInfo, RefPtr<DatabaseFile> aFileActor) {
   return {std::move(aFileInfo), std::move(aFileActor)};
 }
 
 ObjectStoreAddOrPutRequestOp::StoredFileInfo
 ObjectStoreAddOrPutRequestOp::StoredFileInfo::CreateForStructuredClone(
-    RefPtr<FileInfo> aFileInfo, nsCOMPtr<nsIInputStream> aInputStream) {
+    SafeRefPtr<FileInfo> aFileInfo, nsCOMPtr<nsIInputStream> aInputStream) {
   return {std::move(aFileInfo), std::move(aInputStream)};
 }
 
@@ -7668,9 +7706,9 @@ ObjectStoreAddOrPutRequestOp::StoredFileInfo::GetInputStream() {
       },
       [this](const nsCOMPtr<nsIInputStream>& inputStream) -> InputStreamResult {
         auto res = inputStream;
-        // reset() clears the inputStream parameter, so we needed to make a
+        // destroy() clears the inputStream parameter, so we needed to make a
         // copy before
-        mFileActorOrInputStream.reset();
+        mFileActorOrInputStream.destroy();
         AssertInvariants();
         return res;
       });
@@ -7728,7 +7766,7 @@ class ObjectStoreGetRequestOp final : public NormalTransactionOp {
   friend class TransactionBase;
 
   const IndexOrObjectStoreId mObjectStoreId;
-  RefPtr<Database> mDatabase;
+  SafeRefPtr<Database> mDatabase;
   const Maybe<SerializedKeyRange> mOptionalKeyRange;
   AutoTArray<StructuredCloneReadInfoParent, 1> mResponse;
   PBackgroundParent* mBackgroundParent;
@@ -7738,7 +7776,7 @@ class ObjectStoreGetRequestOp final : public NormalTransactionOp {
 
  private:
   // Only created by TransactionBase.
-  ObjectStoreGetRequestOp(RefPtr<TransactionBase> aTransaction,
+  ObjectStoreGetRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                           const RequestParams& aParams, bool aGetAll);
 
   ~ObjectStoreGetRequestOp() override = default;
@@ -7766,7 +7804,7 @@ class ObjectStoreGetKeyRequestOp final : public NormalTransactionOp {
 
  private:
   // Only created by TransactionBase.
-  ObjectStoreGetKeyRequestOp(RefPtr<TransactionBase> aTransaction,
+  ObjectStoreGetKeyRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                              const RequestParams& aParams, bool aGetAll);
 
   ~ObjectStoreGetKeyRequestOp() override = default;
@@ -7784,7 +7822,7 @@ class ObjectStoreDeleteRequestOp final : public NormalTransactionOp {
   bool mObjectStoreMayHaveIndexes;
 
  private:
-  ObjectStoreDeleteRequestOp(RefPtr<TransactionBase> aTransaction,
+  ObjectStoreDeleteRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                              const ObjectStoreDeleteParams& aParams);
 
   ~ObjectStoreDeleteRequestOp() override = default;
@@ -7805,7 +7843,7 @@ class ObjectStoreClearRequestOp final : public NormalTransactionOp {
   bool mObjectStoreMayHaveIndexes;
 
  private:
-  ObjectStoreClearRequestOp(RefPtr<TransactionBase> aTransaction,
+  ObjectStoreClearRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                             const ObjectStoreClearParams& aParams);
 
   ~ObjectStoreClearRequestOp() override = default;
@@ -7825,7 +7863,7 @@ class ObjectStoreCountRequestOp final : public NormalTransactionOp {
   ObjectStoreCountResponse mResponse;
 
  private:
-  ObjectStoreCountRequestOp(RefPtr<TransactionBase> aTransaction,
+  ObjectStoreCountRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                             const ObjectStoreCountParams& aParams)
       : NormalTransactionOp(std::move(aTransaction)), mParams(aParams) {}
 
@@ -7844,7 +7882,7 @@ class IndexRequestOpBase : public NormalTransactionOp {
   const RefPtr<FullIndexMetadata> mMetadata;
 
  protected:
-  IndexRequestOpBase(RefPtr<TransactionBase> aTransaction,
+  IndexRequestOpBase(SafeRefPtr<TransactionBase> aTransaction,
                      const RequestParams& aParams)
       : NormalTransactionOp(std::move(aTransaction)),
         mMetadata(IndexMetadataForParams(Transaction(), aParams)) {}
@@ -7859,7 +7897,7 @@ class IndexRequestOpBase : public NormalTransactionOp {
 class IndexGetRequestOp final : public IndexRequestOpBase {
   friend class TransactionBase;
 
-  RefPtr<Database> mDatabase;
+  SafeRefPtr<Database> mDatabase;
   const Maybe<SerializedKeyRange> mOptionalKeyRange;
   AutoTArray<StructuredCloneReadInfoParent, 1> mResponse;
   PBackgroundParent* mBackgroundParent;
@@ -7868,7 +7906,7 @@ class IndexGetRequestOp final : public IndexRequestOpBase {
 
  private:
   // Only created by TransactionBase.
-  IndexGetRequestOp(RefPtr<TransactionBase> aTransaction,
+  IndexGetRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                     const RequestParams& aParams, bool aGetAll);
 
   ~IndexGetRequestOp() override = default;
@@ -7888,7 +7926,7 @@ class IndexGetKeyRequestOp final : public IndexRequestOpBase {
 
  private:
   // Only created by TransactionBase.
-  IndexGetKeyRequestOp(RefPtr<TransactionBase> aTransaction,
+  IndexGetKeyRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                        const RequestParams& aParams, bool aGetAll);
 
   ~IndexGetKeyRequestOp() override = default;
@@ -7906,7 +7944,7 @@ class IndexCountRequestOp final : public IndexRequestOpBase {
 
  private:
   // Only created by TransactionBase.
-  IndexCountRequestOp(RefPtr<TransactionBase> aTransaction,
+  IndexCountRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                       const RequestParams& aParams)
       : IndexRequestOpBase(std::move(aTransaction), aParams),
         mParams(aParams.get_IndexCountParams()) {}
@@ -7966,17 +8004,17 @@ class CursorBase : public PBackgroundIDBCursorParent {
   friend class CommonOpenOpHelper;
 
  protected:
-  const RefPtr<TransactionBase> mTransaction;
+  const SafeRefPtr<TransactionBase> mTransaction;
 
   // This should only be touched on the PBackground thread to check whether
   // the objectStore has been deleted. Holding these saves a hash lookup for
   // every call to continue()/advance().
-  InitializedOnceMustBeTrue<const RefPtr<FullObjectStoreMetadata>>
+  InitializedOnceNotNull<const RefPtr<FullObjectStoreMetadata>>
       mObjectStoreMetadata;
 
   const IndexOrObjectStoreId mObjectStoreId;
 
-  InitializedOnce<const Key, LazyInit::Allow>
+  LazyInitializedOnce<const Key>
       mLocaleAwareRangeBound;  ///< If the cursor is based on a key range, the
                                ///< bound in the direction of iteration (e.g.
                                ///< the upper bound in case of mDirection ==
@@ -7995,7 +8033,7 @@ class CursorBase : public PBackgroundIDBCursorParent {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(mozilla::dom::indexedDB::CursorBase)
 
-  CursorBase(RefPtr<TransactionBase> aTransaction,
+  CursorBase(SafeRefPtr<TransactionBase> aTransaction,
              RefPtr<FullObjectStoreMetadata> aObjectStoreMetadata,
              Direction aDirection,
              ConstructFromTransactionBase aConstructionTag);
@@ -8012,7 +8050,7 @@ class IndexCursorBase : public CursorBase {
  public:
   bool IsLocaleAware() const { return !mLocale.IsEmpty(); }
 
-  IndexCursorBase(RefPtr<TransactionBase> aTransaction,
+  IndexCursorBase(SafeRefPtr<TransactionBase> aTransaction,
                   RefPtr<FullObjectStoreMetadata> aObjectStoreMetadata,
                   RefPtr<FullIndexMetadata> aIndexMetadata,
                   Direction aDirection,
@@ -8030,7 +8068,7 @@ class IndexCursorBase : public CursorBase {
   // This should only be touched on the PBackground thread to check whether
   // the index has been deleted. Holding these saves a hash lookup for every
   // call to continue()/advance().
-  InitializedOnceMustBeTrue<const RefPtr<FullIndexMetadata>> mIndexMetadata;
+  InitializedOnceNotNull<const RefPtr<FullIndexMetadata>> mIndexMetadata;
   const IndexOrObjectStoreId mIndexId;
   const bool mUniqueIndex;
   const nsCString
@@ -8090,8 +8128,8 @@ class ValueCursorBase {
 
  protected:
   explicit ValueCursorBase(TransactionBase* const aTransaction)
-      : mDatabase(aTransaction->GetDatabase()),
-        mFileManager(mDatabase->GetFileManager()),
+      : mDatabase(aTransaction->GetDatabasePtr()),
+        mFileManager(mDatabase->GetFileManagerPtr()),
         mBackgroundParent(aTransaction->GetBackgroundParent()) {
     MOZ_ASSERT(mDatabase);
     MOZ_ASSERT(mFileManager);
@@ -8101,10 +8139,10 @@ class ValueCursorBase {
 
   ~ValueCursorBase() { MOZ_ASSERT(!mBackgroundParent); }
 
-  const RefPtr<Database> mDatabase;
-  const RefPtr<FileManager> mFileManager;
+  const SafeRefPtr<Database> mDatabase;
+  const SafeRefPtr<FileManager> mFileManager;
 
-  InitializedOnceMustBeTrue<PBackgroundParent* const> mBackgroundParent;
+  InitializedOnceNotNull<PBackgroundParent* const> mBackgroundParent;
 };
 
 class KeyCursorBase {
@@ -8161,8 +8199,7 @@ class Cursor final
 
   CursorOpBase* mCurrentlyRunningOp = nullptr;
 
-  InitializedOnce<const typename Base::ContinueQueries, LazyInit::Allow>
-      mContinueQueries;
+  LazyInitializedOnce<const typename Base::ContinueQueries> mContinueQueries;
 
   // Only called by TransactionBase.
   bool Start(const OpenCursorParams& aParams) final;
@@ -8183,22 +8220,22 @@ class Cursor final
       const Key& aCurrentObjectStoreKey) override;
 
  public:
-  Cursor(RefPtr<TransactionBase> aTransaction,
+  Cursor(SafeRefPtr<TransactionBase> aTransaction,
          RefPtr<FullObjectStoreMetadata> aObjectStoreMetadata,
          RefPtr<FullIndexMetadata> aIndexMetadata,
          typename Base::Direction aDirection,
          typename Base::ConstructFromTransactionBase aConstructionTag)
       : Base{std::move(aTransaction), std::move(aObjectStoreMetadata),
              std::move(aIndexMetadata), aDirection, aConstructionTag},
-        KeyValueBase{mTransaction} {}
+        KeyValueBase{this->mTransaction.unsafeGetRawPtr()} {}
 
-  Cursor(RefPtr<TransactionBase> aTransaction,
+  Cursor(SafeRefPtr<TransactionBase> aTransaction,
          RefPtr<FullObjectStoreMetadata> aObjectStoreMetadata,
          typename Base::Direction aDirection,
          typename Base::ConstructFromTransactionBase aConstructionTag)
       : Base{std::move(aTransaction), std::move(aObjectStoreMetadata),
              aDirection, aConstructionTag},
-        KeyValueBase{mTransaction} {}
+        KeyValueBase{this->mTransaction.unsafeGetRawPtr()} {}
 
  private:
   void SetOptionalKeyRange(const Maybe<SerializedKeyRange>& aOptionalKeyRange,
@@ -8228,7 +8265,7 @@ class Cursor<CursorType>::CursorOpBase
 
  protected:
   explicit CursorOpBase(Cursor* aCursor)
-      : TransactionDatabaseOperationBase(aCursor->mTransaction),
+      : TransactionDatabaseOperationBase(aCursor->mTransaction.clonePtr()),
         mCursor(aCursor)
 #ifdef DEBUG
         ,
@@ -8475,12 +8512,13 @@ class Utils final : public PBackgroundIndexedDBUtilsParent {
 struct DatabaseActorInfo final {
   friend class mozilla::DefaultDelete<DatabaseActorInfo>;
 
-  RefPtr<FullDatabaseMetadata> mMetadata;
+  SafeRefPtr<FullDatabaseMetadata> mMetadata;
   nsTArray<CheckedUnsafePtr<Database>> mLiveDatabases;
   RefPtr<FactoryOp> mWaitingFactoryOp;
 
-  DatabaseActorInfo(FullDatabaseMetadata* aMetadata, Database* aDatabase)
-      : mMetadata(aMetadata) {
+  DatabaseActorInfo(SafeRefPtr<FullDatabaseMetadata> aMetadata,
+                    Database* aDatabase)
+      : mMetadata(std::move(aMetadata)) {
     MOZ_ASSERT(aDatabase);
 
     MOZ_COUNT_CTOR(DatabaseActorInfo);
@@ -8706,13 +8744,14 @@ class DeleteFilesRunnable final : public Runnable,
   };
 
   nsCOMPtr<nsIEventTarget> mOwningEventTarget;
-  RefPtr<FileManager> mFileManager;
+  SafeRefPtr<FileManager> mFileManager;
   RefPtr<DirectoryLock> mDirectoryLock;
   nsTArray<int64_t> mFileIds;
   State mState;
 
  public:
-  DeleteFilesRunnable(FileManager* aFileManager, nsTArray<int64_t>&& aFileIds);
+  DeleteFilesRunnable(SafeRefPtr<FileManager> aFileManager,
+                      nsTArray<int64_t>&& aFileIds);
 
   void RunImmediately();
 
@@ -9096,19 +9135,16 @@ class DEBUGThreadSlower final : public nsIThreadObserver {
 // Then, FileManager::Get(Journal)Directory and FileManager::GetFileForId might
 // eventually be made private.
 class MOZ_STACK_CLASS FileHelper final {
-  const RefPtr<FileManager> mFileManager;
+  const SafeRefPtr<FileManager> mFileManager;
 
-  InitializedOnceMustBeTrue<const nsCOMPtr<nsIFile>, LazyInit::Allow>
-      mFileDirectory;
-  InitializedOnceMustBeTrue<const nsCOMPtr<nsIFile>, LazyInit::Allow>
-      mJournalDirectory;
+  LazyInitializedOnceNotNull<const nsCOMPtr<nsIFile>> mFileDirectory;
+  LazyInitializedOnceNotNull<const nsCOMPtr<nsIFile>> mJournalDirectory;
 
   class ReadCallback;
-  InitializedOnceMustBeTrue<const RefPtr<ReadCallback>, LazyInit::Allow>
-      mReadCallback;
+  LazyInitializedOnceNotNull<const RefPtr<ReadCallback>> mReadCallback;
 
  public:
-  explicit FileHelper(RefPtr<FileManager>&& aFileManager)
+  explicit FileHelper(SafeRefPtr<FileManager>&& aFileManager)
       : mFileManager(std::move(aFileManager)) {
     MOZ_ASSERT(mFileManager);
   }
@@ -9178,7 +9214,7 @@ Result<StructuredCloneFileParent, nsresult> DeserializeStructuredCloneFile(
     return Err(rv);
   }
 
-  RefPtr<FileInfo> fileInfo = aFileManager.GetFileInfo(id);
+  SafeRefPtr<FileInfo> fileInfo = aFileManager.GetFileInfo(id);
   MOZ_ASSERT(fileInfo);
   // XXX In bug 1432133, for some reasons FileInfo object cannot be got. This
   // is just a short-term fix, and we are working on finding the real cause
@@ -9239,7 +9275,7 @@ bool GetBaseFilename(const nsAString& aFilename, const nsAString& aSuffix,
 
 mozilla::Result<nsTArray<SerializedStructuredCloneFile>, nsresult>
 SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
-                              Database* aDatabase,
+                              const SafeRefPtr<Database>& aDatabase,
                               const nsTArray<StructuredCloneFileParent>& aFiles,
                               bool aForPreprocess) {
   AssertIsOnBackgroundThread();
@@ -9252,9 +9288,8 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
     return result;
   }
 
-  FileManager* fileManager = aDatabase->GetFileManager();
-
-  nsCOMPtr<nsIFile> directory = fileManager->GetCheckedDirectory();
+  nsCOMPtr<nsIFile> directory =
+      aDatabase->GetFileManager().GetCheckedDirectory();
   if (NS_WARN_IF(!directory)) {
     IDB_REPORT_INTERNAL_ERR();
     return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
@@ -9306,8 +9341,8 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
         if (aDatabase->IsFileHandleDisabled()) {
           result.EmplaceBack(null_t(), StructuredCloneFileBase::eMutableFile);
         } else {
-          RefPtr<MutableFile> actor =
-              MutableFile::Create(nativeFile, aDatabase, file.FileInfoPtr());
+          RefPtr<MutableFile> actor = MutableFile::Create(
+              nativeFile, aDatabase.clonePtr(), file.FileInfoPtr());
           if (!actor) {
             IDB_REPORT_INTERNAL_ERR();
             return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
@@ -10169,8 +10204,7 @@ struct ValuePopulateResponseHelper {
   }
 
  private:
-  InitializedOnce<const StructuredCloneReadInfoParent,
-                  LazyInit::AllowResettable>
+  LazyInitializedOnceEarlyDestructible<const StructuredCloneReadInfoParent>
       mCloneInfo;
 };
 
@@ -10237,11 +10271,11 @@ nsresult DispatchAndReturnFileReferences(
       IndexedDatabaseManager* const mgr = IndexedDatabaseManager::Get();
       MOZ_ASSERT(mgr);
 
-      const RefPtr<FileManager> fileManager =
+      const SafeRefPtr<FileManager> fileManager =
           mgr->GetFileManager(aPersistenceType, aOrigin, aDatabaseName);
 
       if (fileManager) {
-        const RefPtr<FileInfo> fileInfo = fileManager->GetFileInfo(aFileId);
+        const SafeRefPtr<FileInfo> fileInfo = fileManager->GetFileInfo(aFileId);
 
         if (fileInfo) {
           fileInfo->GetReferences(aMemRefCnt, aDBRefCnt);
@@ -10712,9 +10746,10 @@ nsresult FileManager::AsyncDeleteFile(int64_t aFileId) {
  ******************************************************************************/
 
 DatabaseConnection::DatabaseConnection(
-    mozIStorageConnection* aStorageConnection, FileManager* aFileManager)
-    : mStorageConnection(aStorageConnection),
-      mFileManager(aFileManager),
+    nsCOMPtr<mozIStorageConnection> aStorageConnection,
+    SafeRefPtr<FileManager> aFileManager)
+    : mStorageConnection(std::move(aStorageConnection)),
+      mFileManager(std::move(aFileManager)),
       mInReadTransaction(false),
       mInWriteTransaction(false)
 #ifdef DEBUG
@@ -10723,8 +10758,8 @@ DatabaseConnection::DatabaseConnection(
 #endif
 {
   AssertIsOnConnectionThread();
-  MOZ_ASSERT(aStorageConnection);
-  MOZ_ASSERT(aFileManager);
+  MOZ_ASSERT(mStorageConnection);
+  MOZ_ASSERT(mFileManager);
 }
 
 DatabaseConnection::~DatabaseConnection() {
@@ -10839,7 +10874,7 @@ nsresult DatabaseConnection::BeginWriteTransaction() {
     MOZ_ASSERT(mFileManager);
 
     RefPtr<UpdateRefcountFunction> function =
-        new UpdateRefcountFunction(this, mFileManager->get());
+        new UpdateRefcountFunction(this, **mFileManager);
 
     rv = (*mStorageConnection)
              ->CreateFunction(NS_LITERAL_CSTRING("update_refcount"),
@@ -11311,9 +11346,9 @@ void DatabaseConnection::Close() {
   mCachedStatements.Clear();
 
   MOZ_ALWAYS_SUCCEEDS((*mStorageConnection)->Close());
-  mStorageConnection.reset();
+  mStorageConnection.destroy();
 
-  mFileManager.reset();
+  mFileManager.destroy();
 }
 
 nsresult DatabaseConnection::DisableQuotaChecks() {
@@ -11383,16 +11418,17 @@ nsresult DatabaseConnection::GetFileSize(const nsAString& aPath,
   MOZ_ASSERT(!aPath.IsEmpty());
   MOZ_ASSERT(aResult);
 
-  nsCOMPtr<nsIFile> file;
-  nsresult rv = NS_NewLocalFile(aPath, false, getter_AddRefs(file));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  auto fileOrErr = QM_NewLocalFile(aPath);
+  if (NS_WARN_IF(fileOrErr.isErr())) {
+    return fileOrErr.unwrapErr();
   }
+
+  nsCOMPtr<nsIFile> file = fileOrErr.unwrap();
 
   int64_t fileSize;
 
   bool exists;
-  rv = file->Exists(&exists);
+  nsresult rv = file->Exists(&exists);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -11509,7 +11545,7 @@ nsresult DatabaseConnection::AutoSavepoint::Start(
              aTransaction.GetMode() == IDBTransaction::Mode::Cleanup ||
              aTransaction.GetMode() == IDBTransaction::Mode::VersionChange);
 
-  DatabaseConnection* connection = aTransaction.GetDatabase()->GetConnection();
+  DatabaseConnection* connection = aTransaction.GetDatabase().GetConnection();
   MOZ_ASSERT(connection);
   connection->AssertIsOnConnectionThread();
 
@@ -11558,13 +11594,12 @@ nsresult DatabaseConnection::AutoSavepoint::Commit() {
 }
 
 DatabaseConnection::UpdateRefcountFunction::UpdateRefcountFunction(
-    DatabaseConnection* const aConnection, FileManager* const aFileManager)
+    DatabaseConnection* const aConnection, FileManager& aFileManager)
     : mConnection(aConnection),
       mFileManager(aFileManager),
       mInSavepoint(false) {
   MOZ_ASSERT(aConnection);
   aConnection->AssertIsOnConnectionThread();
-  MOZ_ASSERT(aFileManager);
 }
 
 nsresult DatabaseConnection::UpdateRefcountFunction::WillCommit() {
@@ -11715,7 +11750,7 @@ nsresult DatabaseConnection::UpdateRefcountFunction::ProcessValue(
     return rv;
   }
 
-  auto filesOrErr = DeserializeStructuredCloneFiles(*mFileManager, ids);
+  auto filesOrErr = DeserializeStructuredCloneFiles(mFileManager, ids);
   if (NS_WARN_IF(filesOrErr.isErr())) {
     return filesOrErr.unwrapErr();
   }
@@ -11755,7 +11790,7 @@ nsresult DatabaseConnection::UpdateRefcountFunction::CreateJournals() {
   AUTO_PROFILER_LABEL(
       "DatabaseConnection::UpdateRefcountFunction::CreateJournals", DOM);
 
-  nsCOMPtr<nsIFile> journalDirectory = mFileManager->GetJournalDirectory();
+  nsCOMPtr<nsIFile> journalDirectory = mFileManager.GetJournalDirectory();
   if (NS_WARN_IF(!journalDirectory)) {
     return NS_ERROR_FAILURE;
   }
@@ -11785,7 +11820,7 @@ nsresult DatabaseConnection::UpdateRefcountFunction::RemoveJournals(
   AUTO_PROFILER_LABEL(
       "DatabaseConnection::UpdateRefcountFunction::RemoveJournals", DOM);
 
-  nsCOMPtr<nsIFile> journalDirectory = mFileManager->GetJournalDirectory();
+  nsCOMPtr<nsIFile> journalDirectory = mFileManager.GetJournalDirectory();
   if (NS_WARN_IF(!journalDirectory)) {
     return NS_ERROR_FAILURE;
   }
@@ -11875,7 +11910,7 @@ nsresult DatabaseConnection::UpdateRefcountFunction::DatabaseUpdateFunction::
   MOZ_ASSERT(connection);
   connection->AssertIsOnConnectionThread();
 
-  MOZ_ASSERT(connection->GetStorageConnection());
+  MOZ_ASSERT(connection->HasStorageConnection());
 
   nsresult rv;
   if (!mUpdateStatement) {
@@ -11909,7 +11944,7 @@ nsresult DatabaseConnection::UpdateRefcountFunction::DatabaseUpdateFunction::
   }
 
   int32_t rows;
-  rv = connection->GetStorageConnection()->GetAffectedRows(&rows);
+  rv = connection->MutableStorageConnection().GetAffectedRows(&rows);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -12071,10 +12106,9 @@ void ConnectionPool::IdleTimerCallback(nsITimer* aTimer, void* aClosure) {
 }
 
 nsresult ConnectionPool::GetOrCreateConnection(
-    const Database* aDatabase, RefPtr<DatabaseConnection>* aConnection) {
+    const Database& aDatabase, RefPtr<DatabaseConnection>* aConnection) {
   MOZ_ASSERT(!NS_IsMainThread());
   MOZ_ASSERT(!IsOnBackgroundThread());
-  MOZ_ASSERT(aDatabase);
   MOZ_ASSERT(aConnection);
 
   AUTO_PROFILER_LABEL("ConnectionPool::GetOrCreateConnection", DOM);
@@ -12083,7 +12117,7 @@ nsresult ConnectionPool::GetOrCreateConnection(
   {
     MutexAutoLock lock(mDatabasesMutex);
 
-    dbInfo = mDatabases.Get(aDatabase->Id());
+    dbInfo = mDatabases.Get(aDatabase.Id());
   }
 
   MOZ_ASSERT(dbInfo);
@@ -12093,15 +12127,15 @@ nsresult ConnectionPool::GetOrCreateConnection(
     MOZ_ASSERT(!dbInfo->mDEBUGConnectionThread);
 
     nsCOMPtr<mozIStorageConnection> storageConnection;
-    nsresult rv = GetStorageConnection(
-        aDatabase->FilePath(), aDatabase->DirectoryLockId(),
-        aDatabase->TelemetryId(), &storageConnection);
+    nsresult rv =
+        GetStorageConnection(aDatabase.FilePath(), aDatabase.DirectoryLockId(),
+                             aDatabase.TelemetryId(), &storageConnection);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
 
-    connection =
-        new DatabaseConnection(storageConnection, aDatabase->GetFileManager());
+    connection = new DatabaseConnection(storageConnection,
+                                        aDatabase.GetFileManagerPtr());
 
     rv = connection->Init();
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -12112,7 +12146,7 @@ nsresult ConnectionPool::GetOrCreateConnection(
 
     IDB_DEBUG_LOG(("ConnectionPool created connection 0x%p for '%s'",
                    dbInfo->mConnection.get(),
-                   NS_ConvertUTF16toUTF8(aDatabase->FilePath()).get()));
+                   NS_ConvertUTF16toUTF8(aDatabase.FilePath()).get()));
 
 #ifdef DEBUG
     dbInfo->mDEBUGConnectionThread = PR_GetCurrentThread();
@@ -13347,12 +13381,12 @@ bool FullObjectStoreMetadata::HasLiveIndexes() const {
   });
 }
 
-RefPtr<FullDatabaseMetadata> FullDatabaseMetadata::Duplicate() const {
+SafeRefPtr<FullDatabaseMetadata> FullDatabaseMetadata::Duplicate() const {
   AssertIsOnBackgroundThread();
 
   // FullDatabaseMetadata contains two hash tables of pointers that we need to
   // duplicate so we can't just use the copy constructor.
-  auto newMetadata = MakeRefPtr<FullDatabaseMetadata>(mCommonMetadata);
+  auto newMetadata = MakeSafeRefPtr<FullDatabaseMetadata>(mCommonMetadata);
 
   newMetadata->mDatabaseId = mDatabaseId;
   newMetadata->mFilePath = mFilePath;
@@ -13700,8 +13734,8 @@ Database::Database(RefPtr<Factory> aFactory,
                    const Maybe<ContentParentId>& aOptionalContentParentId,
                    const nsACString& aGroup, const nsACString& aOrigin,
                    uint32_t aTelemetryId,
-                   RefPtr<FullDatabaseMetadata> aMetadata,
-                   RefPtr<FileManager> aFileManager,
+                   SafeRefPtr<FullDatabaseMetadata> aMetadata,
+                   SafeRefPtr<FileManager> aFileManager,
                    RefPtr<DirectoryLock> aDirectoryLock,
                    bool aFileHandleDisabled, bool aChromeWriteAccessAllowed)
     : mFactory(std::move(aFactory)),
@@ -13802,8 +13836,8 @@ nsresult Database::EnsureConnection() {
 
   AUTO_PROFILER_LABEL("Database::EnsureConnection", DOM);
 
-  if (!mConnection || !mConnection->GetStorageConnection()) {
-    nsresult rv = gConnectionPool->GetOrCreateConnection(this, &mConnection);
+  if (!mConnection || !mConnection->HasStorageConnection()) {
+    nsresult rv = gConnectionPool->GetOrCreateConnection(*this, &mConnection);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -13814,27 +13848,25 @@ nsresult Database::EnsureConnection() {
   return NS_OK;
 }
 
-bool Database::RegisterTransaction(TransactionBase* aTransaction) {
+bool Database::RegisterTransaction(TransactionBase& aTransaction) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aTransaction);
-  MOZ_ASSERT(!mTransactions.GetEntry(aTransaction));
+  MOZ_ASSERT(!mTransactions.GetEntry(&aTransaction));
   MOZ_ASSERT(mDirectoryLock);
   MOZ_ASSERT(!mInvalidated);
   MOZ_ASSERT(!mClosed);
 
-  if (NS_WARN_IF(!mTransactions.PutEntry(aTransaction, fallible))) {
+  if (NS_WARN_IF(!mTransactions.PutEntry(&aTransaction, fallible))) {
     return false;
   }
 
   return true;
 }
 
-void Database::UnregisterTransaction(TransactionBase* aTransaction) {
+void Database::UnregisterTransaction(TransactionBase& aTransaction) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aTransaction);
-  MOZ_ASSERT(mTransactions.GetEntry(aTransaction));
+  MOZ_ASSERT(mTransactions.GetEntry(&aTransaction));
 
-  mTransactions.RemoveEntry(aTransaction);
+  mTransactions.RemoveEntry(&aTransaction);
 
   MaybeCloseConnection();
 }
@@ -13905,7 +13937,8 @@ void Database::SetActorAlive() {
   AddRef();
 }
 
-void Database::MapBlob(const IPCBlob& aIPCBlob, RefPtr<FileInfo> aFileInfo) {
+void Database::MapBlob(const IPCBlob& aIPCBlob,
+                       SafeRefPtr<FileInfo> aFileInfo) {
   AssertIsOnBackgroundThread();
 
   const IPCBlobStream& stream = aIPCBlob.inputStream();
@@ -13915,9 +13948,10 @@ void Database::MapBlob(const IPCBlob& aIPCBlob, RefPtr<FileInfo> aFileInfo) {
       stream.get_PIPCBlobInputStreamParent());
 
   MOZ_ASSERT(!mMappedBlobs.GetWeak(actor->ID()));
-  mMappedBlobs.Put(actor->ID(), std::move(aFileInfo));
+  mMappedBlobs.Put(actor->ID(), AsRefPtr(std::move(aFileInfo)));
 
-  RefPtr<UnmapBlobCallback> callback = new UnmapBlobCallback(this);
+  RefPtr<UnmapBlobCallback> callback =
+      new UnmapBlobCallback(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}});
   actor->SetCallback(callback);
 }
 
@@ -13961,7 +13995,7 @@ void Database::Stringify(nsACString& aResult) const {
   aResult.AppendInt(mActorDestroyed);
 }
 
-RefPtr<FileInfo> Database::GetBlob(const IPCBlob& aIPCBlob) {
+SafeRefPtr<FileInfo> Database::GetBlob(const IPCBlob& aIPCBlob) {
   AssertIsOnBackgroundThread();
 
   const IPCBlobStream& stream = aIPCBlob.inputStream();
@@ -13982,7 +14016,7 @@ RefPtr<FileInfo> Database::GetBlob(const IPCBlob& aIPCBlob) {
     return nullptr;
   }
 
-  return fileInfo;
+  return SafeRefPtr{std::move(fileInfo)};
 }
 
 void Database::UnmapBlob(const nsID& aID) {
@@ -14131,17 +14165,18 @@ PBackgroundIDBDatabaseFileParent*
 Database::AllocPBackgroundIDBDatabaseFileParent(const IPCBlob& aIPCBlob) {
   AssertIsOnBackgroundThread();
 
-  RefPtr<FileInfo> fileInfo = GetBlob(aIPCBlob);
+  SafeRefPtr<FileInfo> fileInfo = GetBlob(aIPCBlob);
   RefPtr<DatabaseFile> actor;
 
   if (fileInfo) {
-    actor = new DatabaseFile(fileInfo);
+    actor = new DatabaseFile(std::move(fileInfo));
   } else {
     // This is a blob we haven't seen before.
     fileInfo = mFileManager->CreateFileInfo();
     MOZ_ASSERT(fileInfo);
 
-    actor = new DatabaseFile(IPCBlobUtils::Deserialize(aIPCBlob), fileInfo);
+    actor = new DatabaseFile(IPCBlobUtils::Deserialize(aIPCBlob),
+                             std::move(fileInfo));
   }
 
   MOZ_ASSERT(actor);
@@ -14185,7 +14220,8 @@ Database::AllocPBackgroundIDBDatabaseRequestParent(
 
   switch (aParams.type()) {
     case DatabaseRequestParams::TCreateFileParams: {
-      actor = new CreateFileOp(this, aParams);
+      actor = new CreateFileOp(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                               aParams);
 
       NotePendingCreateFileOp();
       break;
@@ -14302,7 +14338,8 @@ PBackgroundIDBTransactionParent* Database::AllocPBackgroundIDBTransactionParent(
   infallibleObjectStores.SwapElements(fallibleObjectStores);
 
   RefPtr<NormalTransaction> transaction =
-      new NormalTransaction(this, aMode, infallibleObjectStores);
+      new NormalTransaction(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                            aMode, infallibleObjectStores);
 
   MOZ_ASSERT(infallibleObjectStores.IsEmpty());
 
@@ -14333,7 +14370,8 @@ mozilla::ipc::IPCResult Database::RecvPBackgroundIDBTransactionConstructor(
 
   auto* transaction = static_cast<NormalTransaction*>(aActor);
 
-  RefPtr<StartTransactionOp> startOp = new StartTransactionOp(transaction);
+  RefPtr<StartTransactionOp> startOp = new StartTransactionOp(
+      SafeRefPtr{transaction, AcquireStrongRefFromRawPtr{}});
 
   uint64_t transactionId = startOp->StartOnConnectionPool(
       GetLoggingInfo()->Id(), mMetadata->mDatabaseId,
@@ -14342,7 +14380,7 @@ mozilla::ipc::IPCResult Database::RecvPBackgroundIDBTransactionConstructor(
 
   transaction->Init(transactionId);
 
-  if (NS_WARN_IF(!RegisterTransaction(transaction))) {
+  if (NS_WARN_IF(!RegisterTransaction(*transaction))) {
     IDB_REPORT_INTERNAL_ERR();
     transaction->Abort(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR, /* aForce */ false);
     return IPC_OK();
@@ -14502,17 +14540,17 @@ void Database::StartTransactionOp::Cleanup() {
  * TransactionBase
  ******************************************************************************/
 
-TransactionBase::TransactionBase(Database* aDatabase, Mode aMode)
-    : mDatabase(aDatabase),
-      mDatabaseId(aDatabase->Id()),
+TransactionBase::TransactionBase(SafeRefPtr<Database> aDatabase, Mode aMode)
+    : mDatabase(std::move(aDatabase)),
+      mDatabaseId(mDatabase->Id()),
       mLoggingSerialNumber(
-          aDatabase->GetLoggingInfo()->NextTransactionSN(aMode)),
+          mDatabase->GetLoggingInfo()->NextTransactionSN(aMode)),
       mActiveRequestCount(0),
       mInvalidatedOnAnyThread(false),
       mMode(aMode),
       mResultCode(NS_OK) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aDatabase);
+  MOZ_ASSERT(mDatabase);
   MOZ_ASSERT(mLoggingSerialNumber);
 }
 
@@ -14597,7 +14635,9 @@ void TransactionBase::CommitOrAbort() {
     mResultCode = NS_ERROR_DOM_INDEXEDDB_ABORT_ERR;
   }
 
-  RefPtr<CommitOp> commitOp = new CommitOp(this, ClampResultCode(mResultCode));
+  RefPtr<CommitOp> commitOp =
+      new CommitOp(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                   ClampResultCode(mResultCode));
 
   gConnectionPool->Finish(TransactionId(), commitOp);
 }
@@ -14612,8 +14652,8 @@ RefPtr<FullObjectStoreMetadata> TransactionBase::GetMetadataForObjectStoreId(
   }
 
   RefPtr<FullObjectStoreMetadata> metadata;
-  if (!mDatabase->Metadata()->mObjectStores.Get(aObjectStoreId,
-                                                getter_AddRefs(metadata)) ||
+  if (!mDatabase->Metadata().mObjectStores.Get(aObjectStoreId,
+                                               getter_AddRefs(metadata)) ||
       metadata->mDeleted) {
     return nullptr;
   }
@@ -15152,59 +15192,79 @@ PBackgroundIDBRequestParent* TransactionBase::AllocRequest(
   switch (aParams.type()) {
     case RequestParams::TObjectStoreAddParams:
     case RequestParams::TObjectStorePutParams:
-      actor = new ObjectStoreAddOrPutRequestOp(this, std::move(aParams));
+      actor = new ObjectStoreAddOrPutRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, std::move(aParams));
       break;
 
     case RequestParams::TObjectStoreGetParams:
-      actor = new ObjectStoreGetRequestOp(this, aParams, /* aGetAll */ false);
+      actor = new ObjectStoreGetRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aParams,
+          /* aGetAll */ false);
       break;
 
     case RequestParams::TObjectStoreGetAllParams:
-      actor = new ObjectStoreGetRequestOp(this, aParams, /* aGetAll */ true);
+      actor = new ObjectStoreGetRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aParams,
+          /* aGetAll */ true);
       break;
 
     case RequestParams::TObjectStoreGetKeyParams:
-      actor =
-          new ObjectStoreGetKeyRequestOp(this, aParams, /* aGetAll */ false);
+      actor = new ObjectStoreGetKeyRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aParams,
+          /* aGetAll */ false);
       break;
 
     case RequestParams::TObjectStoreGetAllKeysParams:
-      actor = new ObjectStoreGetKeyRequestOp(this, aParams, /* aGetAll */ true);
+      actor = new ObjectStoreGetKeyRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aParams,
+          /* aGetAll */ true);
       break;
 
     case RequestParams::TObjectStoreDeleteParams:
       actor = new ObjectStoreDeleteRequestOp(
-          this, aParams.get_ObjectStoreDeleteParams());
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+          aParams.get_ObjectStoreDeleteParams());
       break;
 
     case RequestParams::TObjectStoreClearParams:
       actor = new ObjectStoreClearRequestOp(
-          this, aParams.get_ObjectStoreClearParams());
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+          aParams.get_ObjectStoreClearParams());
       break;
 
     case RequestParams::TObjectStoreCountParams:
       actor = new ObjectStoreCountRequestOp(
-          this, aParams.get_ObjectStoreCountParams());
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+          aParams.get_ObjectStoreCountParams());
       break;
 
     case RequestParams::TIndexGetParams:
-      actor = new IndexGetRequestOp(this, aParams, /* aGetAll */ false);
+      actor =
+          new IndexGetRequestOp(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                                aParams, /* aGetAll */ false);
       break;
 
     case RequestParams::TIndexGetKeyParams:
-      actor = new IndexGetKeyRequestOp(this, aParams, /* aGetAll */ false);
+      actor = new IndexGetKeyRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aParams,
+          /* aGetAll */ false);
       break;
 
     case RequestParams::TIndexGetAllParams:
-      actor = new IndexGetRequestOp(this, aParams, /* aGetAll */ true);
+      actor =
+          new IndexGetRequestOp(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                                aParams, /* aGetAll */ true);
       break;
 
     case RequestParams::TIndexGetAllKeysParams:
-      actor = new IndexGetKeyRequestOp(this, aParams, /* aGetAll */ true);
+      actor = new IndexGetKeyRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aParams,
+          /* aGetAll */ true);
       break;
 
     case RequestParams::TIndexCountParams:
-      actor = new IndexCountRequestOp(this, aParams);
+      actor = new IndexCountRequestOp(
+          SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aParams);
       break;
 
     default:
@@ -15223,7 +15283,7 @@ bool TransactionBase::StartRequest(PBackgroundIDBRequestParent* aActor) {
 
   auto* op = static_cast<NormalTransactionOp*>(aActor);
 
-  if (NS_WARN_IF(!op->Init(this))) {
+  if (NS_WARN_IF(!op->Init(*this))) {
     op->Cleanup();
     return false;
   }
@@ -15295,23 +15355,27 @@ PBackgroundIDBCursorParent* TransactionBase::AllocCursor(
     case OpenCursorParams::TObjectStoreOpenCursorParams:
       MOZ_ASSERT(!indexMetadata);
       return MakeAndAddRef<Cursor<IDBCursorType::ObjectStore>>(
-                 this, std::move(objectStoreMetadata), direction,
+                 SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                 std::move(objectStoreMetadata), direction,
                  CursorBase::ConstructFromTransactionBase{})
           .take();
     case OpenCursorParams::TObjectStoreOpenKeyCursorParams:
       MOZ_ASSERT(!indexMetadata);
       return MakeAndAddRef<Cursor<IDBCursorType::ObjectStoreKey>>(
-                 this, std::move(objectStoreMetadata), direction,
+                 SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                 std::move(objectStoreMetadata), direction,
                  CursorBase::ConstructFromTransactionBase{})
           .take();
     case OpenCursorParams::TIndexOpenCursorParams:
       return MakeAndAddRef<Cursor<IDBCursorType::Index>>(
-                 this, std::move(objectStoreMetadata), std::move(indexMetadata),
+                 SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                 std::move(objectStoreMetadata), std::move(indexMetadata),
                  direction, CursorBase::ConstructFromTransactionBase{})
           .take();
     case OpenCursorParams::TIndexOpenKeyCursorParams:
       return MakeAndAddRef<Cursor<IDBCursorType::IndexKey>>(
-                 this, std::move(objectStoreMetadata), std::move(indexMetadata),
+                 SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                 std::move(objectStoreMetadata), std::move(indexMetadata),
                  direction, CursorBase::ConstructFromTransactionBase{})
           .take();
     default:
@@ -15349,9 +15413,9 @@ bool TransactionBase::DeallocCursor(PBackgroundIDBCursorParent* const aActor) {
  ******************************************************************************/
 
 NormalTransaction::NormalTransaction(
-    Database* aDatabase, TransactionBase::Mode aMode,
+    SafeRefPtr<Database> aDatabase, TransactionBase::Mode aMode,
     nsTArray<RefPtr<FullObjectStoreMetadata>>& aObjectStores)
-    : TransactionBase(aDatabase, aMode) {
+    : TransactionBase(std::move(aDatabase), aMode) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(!aObjectStores.IsEmpty());
 
@@ -15486,7 +15550,7 @@ bool NormalTransaction::DeallocPBackgroundIDBCursorParent(
 
 VersionChangeTransaction::VersionChangeTransaction(
     OpenDatabaseOp* aOpenDatabaseOp)
-    : TransactionBase(aOpenDatabaseOp->mDatabase,
+    : TransactionBase(aOpenDatabaseOp->mDatabase.clonePtr(),
                       IDBTransaction::Mode::VersionChange),
       mOpenDatabaseOp(aOpenDatabaseOp) {
   AssertIsOnBackgroundThread();
@@ -15525,27 +15589,25 @@ bool VersionChangeTransaction::CopyDatabaseMetadata() {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(!mOldMetadata);
 
-  const RefPtr<FullDatabaseMetadata> origMetadata = GetDatabase()->Metadata();
-  MOZ_ASSERT(origMetadata);
+  const auto& origMetadata = GetDatabase().Metadata();
 
-  RefPtr<FullDatabaseMetadata> newMetadata = origMetadata->Duplicate();
+  SafeRefPtr<FullDatabaseMetadata> newMetadata = origMetadata.Duplicate();
   if (NS_WARN_IF(!newMetadata)) {
     return false;
   }
 
   // Replace the live metadata with the new mutable copy.
   DatabaseActorInfo* info;
-  MOZ_ALWAYS_TRUE(
-      gLiveDatabaseHashtable->Get(origMetadata->mDatabaseId, &info));
+  MOZ_ALWAYS_TRUE(gLiveDatabaseHashtable->Get(origMetadata.mDatabaseId, &info));
   MOZ_ASSERT(!info->mLiveDatabases.IsEmpty());
-  MOZ_ASSERT(info->mMetadata == origMetadata);
+  MOZ_ASSERT(info->mMetadata == &origMetadata);
 
   mOldMetadata = std::move(info->mMetadata);
   info->mMetadata = std::move(newMetadata);
 
   // Replace metadata pointers for all live databases.
   for (const auto& liveDatabase : info->mLiveDatabases) {
-    liveDatabase->mMetadata = info->mMetadata;
+    liveDatabase->mMetadata = info->mMetadata.clonePtr();
   }
 
   return true;
@@ -15553,7 +15615,6 @@ bool VersionChangeTransaction::CopyDatabaseMetadata() {
 
 void VersionChangeTransaction::UpdateMetadata(nsresult aResult) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(GetDatabase());
   MOZ_ASSERT(mOpenDatabaseOp);
   MOZ_ASSERT(!!mActorWasAlive == !!mOpenDatabaseOp->mDatabase);
   MOZ_ASSERT_IF(mActorWasAlive, !mOpenDatabaseOp->mDatabaseId.IsEmpty());
@@ -15562,7 +15623,7 @@ void VersionChangeTransaction::UpdateMetadata(nsresult aResult) {
     return;
   }
 
-  RefPtr<FullDatabaseMetadata> oldMetadata = std::move(mOldMetadata);
+  SafeRefPtr<FullDatabaseMetadata> oldMetadata = std::move(mOldMetadata);
 
   DatabaseActorInfo* info;
   if (!gLiveDatabaseHashtable->Get(oldMetadata->mDatabaseId, &info)) {
@@ -15600,7 +15661,7 @@ void VersionChangeTransaction::UpdateMetadata(nsresult aResult) {
     info->mMetadata = std::move(oldMetadata);
 
     for (auto& liveDatabase : info->mLiveDatabases) {
-      liveDatabase->mMetadata = info->mMetadata;
+      liveDatabase->mMetadata = info->mMetadata.clonePtr();
     }
   }
 }
@@ -15692,8 +15753,8 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateObjectStore(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  const RefPtr<FullDatabaseMetadata> dbMetadata = GetDatabase()->Metadata();
-  MOZ_ASSERT(dbMetadata);
+  const SafeRefPtr<FullDatabaseMetadata> dbMetadata =
+      GetDatabase().MetadataPtr();
 
   if (NS_WARN_IF(aMetadata.id() != dbMetadata->mNextObjectStoreId)) {
     ASSERT_UNLESS_FUZZING();
@@ -15725,9 +15786,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateObjectStore(
 
   dbMetadata->mNextObjectStoreId++;
 
-  RefPtr<CreateObjectStoreOp> op = new CreateObjectStoreOp(this, aMetadata);
+  RefPtr<CreateObjectStoreOp> op = new CreateObjectStoreOp(
+      SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aMetadata);
 
-  if (NS_WARN_IF(!op->Init(this))) {
+  if (NS_WARN_IF(!op->Init(*this))) {
     op->Cleanup();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -15746,11 +15808,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteObjectStore(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  const RefPtr<FullDatabaseMetadata> dbMetadata = GetDatabase()->Metadata();
-  MOZ_ASSERT(dbMetadata);
-  MOZ_ASSERT(dbMetadata->mNextObjectStoreId > 0);
+  const auto& dbMetadata = GetDatabase().Metadata();
+  MOZ_ASSERT(dbMetadata.mNextObjectStoreId > 0);
 
-  if (NS_WARN_IF(aObjectStoreId >= dbMetadata->mNextObjectStoreId)) {
+  if (NS_WARN_IF(aObjectStoreId >= dbMetadata.mNextObjectStoreId)) {
     ASSERT_UNLESS_FUZZING();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -15772,7 +15833,7 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteObjectStore(
 
   DebugOnly<bool> foundTargetId = false;
   const bool isLastObjectStore = std::all_of(
-      dbMetadata->mObjectStores.begin(), dbMetadata->mObjectStores.end(),
+      dbMetadata.mObjectStores.begin(), dbMetadata.mObjectStores.end(),
       [&foundTargetId, aObjectStoreId](const auto& objectStoreEntry) -> bool {
         if (uint64_t(aObjectStoreId) == objectStoreEntry.GetKey()) {
           foundTargetId = true;
@@ -15784,9 +15845,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteObjectStore(
   MOZ_ASSERT_IF(isLastObjectStore, foundTargetId);
 
   RefPtr<DeleteObjectStoreOp> op =
-      new DeleteObjectStoreOp(this, foundMetadata, isLastObjectStore);
+      new DeleteObjectStoreOp(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                              foundMetadata, isLastObjectStore);
 
-  if (NS_WARN_IF(!op->Init(this))) {
+  if (NS_WARN_IF(!op->Init(*this))) {
     op->Cleanup();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -15805,13 +15867,14 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvRenameObjectStore(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  const RefPtr<FullDatabaseMetadata> dbMetadata = GetDatabase()->Metadata();
-  MOZ_ASSERT(dbMetadata);
-  MOZ_ASSERT(dbMetadata->mNextObjectStoreId > 0);
+  {
+    const auto& dbMetadata = GetDatabase().Metadata();
+    MOZ_ASSERT(dbMetadata.mNextObjectStoreId > 0);
 
-  if (NS_WARN_IF(aObjectStoreId >= dbMetadata->mNextObjectStoreId)) {
-    ASSERT_UNLESS_FUZZING();
-    return IPC_FAIL_NO_REASON(this);
+    if (NS_WARN_IF(aObjectStoreId >= dbMetadata.mNextObjectStoreId)) {
+      ASSERT_UNLESS_FUZZING();
+      return IPC_FAIL_NO_REASON(this);
+    }
   }
 
   RefPtr<FullObjectStoreMetadata> foundMetadata =
@@ -15829,10 +15892,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvRenameObjectStore(
 
   foundMetadata->mCommonMetadata.name() = aName;
 
-  RefPtr<RenameObjectStoreOp> renameOp =
-      new RenameObjectStoreOp(this, foundMetadata);
+  RefPtr<RenameObjectStoreOp> renameOp = new RenameObjectStoreOp(
+      SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, foundMetadata);
 
-  if (NS_WARN_IF(!renameOp->Init(this))) {
+  if (NS_WARN_IF(!renameOp->Init(*this))) {
     renameOp->Cleanup();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -15857,8 +15920,7 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateIndex(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  const RefPtr<FullDatabaseMetadata> dbMetadata = GetDatabase()->Metadata();
-  MOZ_ASSERT(dbMetadata);
+  const auto dbMetadata = GetDatabase().MetadataPtr();
 
   if (NS_WARN_IF(aMetadata.id() != dbMetadata->mNextIndexId)) {
     ASSERT_UNLESS_FUZZING();
@@ -15897,9 +15959,11 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateIndex(
 
   dbMetadata->mNextIndexId++;
 
-  RefPtr<CreateIndexOp> op = new CreateIndexOp(this, aObjectStoreId, aMetadata);
+  RefPtr<CreateIndexOp> op =
+      new CreateIndexOp(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                        aObjectStoreId, aMetadata);
 
-  if (NS_WARN_IF(!op->Init(this))) {
+  if (NS_WARN_IF(!op->Init(*this))) {
     op->Cleanup();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -15923,20 +15987,20 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteIndex(
     ASSERT_UNLESS_FUZZING();
     return IPC_FAIL_NO_REASON(this);
   }
+  {
+    const auto& dbMetadata = GetDatabase().Metadata();
+    MOZ_ASSERT(dbMetadata.mNextObjectStoreId > 0);
+    MOZ_ASSERT(dbMetadata.mNextIndexId > 0);
 
-  const RefPtr<FullDatabaseMetadata> dbMetadata = GetDatabase()->Metadata();
-  MOZ_ASSERT(dbMetadata);
-  MOZ_ASSERT(dbMetadata->mNextObjectStoreId > 0);
-  MOZ_ASSERT(dbMetadata->mNextIndexId > 0);
+    if (NS_WARN_IF(aObjectStoreId >= dbMetadata.mNextObjectStoreId)) {
+      ASSERT_UNLESS_FUZZING();
+      return IPC_FAIL_NO_REASON(this);
+    }
 
-  if (NS_WARN_IF(aObjectStoreId >= dbMetadata->mNextObjectStoreId)) {
-    ASSERT_UNLESS_FUZZING();
-    return IPC_FAIL_NO_REASON(this);
-  }
-
-  if (NS_WARN_IF(aIndexId >= dbMetadata->mNextIndexId)) {
-    ASSERT_UNLESS_FUZZING();
-    return IPC_FAIL_NO_REASON(this);
+    if (NS_WARN_IF(aIndexId >= dbMetadata.mNextIndexId)) {
+      ASSERT_UNLESS_FUZZING();
+      return IPC_FAIL_NO_REASON(this);
+    }
   }
 
   RefPtr<FullObjectStoreMetadata> foundObjectStoreMetadata =
@@ -15977,10 +16041,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvDeleteIndex(
   MOZ_ASSERT_IF(isLastIndex, foundTargetId);
 
   RefPtr<DeleteIndexOp> op = new DeleteIndexOp(
-      this, aObjectStoreId, aIndexId,
+      SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, aObjectStoreId, aIndexId,
       foundIndexMetadata->mCommonMetadata.unique(), isLastIndex);
 
-  if (NS_WARN_IF(!op->Init(this))) {
+  if (NS_WARN_IF(!op->Init(*this))) {
     op->Cleanup();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -16005,7 +16069,8 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvRenameIndex(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  const RefPtr<FullDatabaseMetadata> dbMetadata = GetDatabase()->Metadata();
+  const SafeRefPtr<FullDatabaseMetadata> dbMetadata =
+      GetDatabase().MetadataPtr();
   MOZ_ASSERT(dbMetadata);
   MOZ_ASSERT(dbMetadata->mNextObjectStoreId > 0);
   MOZ_ASSERT(dbMetadata->mNextIndexId > 0);
@@ -16044,9 +16109,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvRenameIndex(
   foundIndexMetadata->mCommonMetadata.name() = aName;
 
   RefPtr<RenameIndexOp> renameOp =
-      new RenameIndexOp(this, foundIndexMetadata, aObjectStoreId);
+      new RenameIndexOp(SafeRefPtr{this, AcquireStrongRefFromRawPtr{}},
+                        foundIndexMetadata, aObjectStoreId);
 
-  if (NS_WARN_IF(!renameOp->Init(this))) {
+  if (NS_WARN_IF(!renameOp->Init(*this))) {
     renameOp->Cleanup();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -16120,7 +16186,7 @@ bool VersionChangeTransaction::DeallocPBackgroundIDBCursorParent(
  * CursorBase
  ******************************************************************************/
 
-CursorBase::CursorBase(RefPtr<TransactionBase> aTransaction,
+CursorBase::CursorBase(SafeRefPtr<TransactionBase> aTransaction,
                        RefPtr<FullObjectStoreMetadata> aObjectStoreMetadata,
                        const Direction aDirection,
                        const ConstructFromTransactionBase /*aConstructionTag*/)
@@ -16280,7 +16346,7 @@ bool Cursor<CursorType>::Start(const OpenCursorParams& aParams) {
 
   const RefPtr<OpenOp> openOp = new OpenOp(this, optionalKeyRange);
 
-  if (NS_WARN_IF(!openOp->Init(mTransaction))) {
+  if (NS_WARN_IF(!openOp->Init(*mTransaction))) {
     openOp->Cleanup();
     return false;
   }
@@ -16382,11 +16448,11 @@ void Cursor<CursorType>::ActorDestroy(ActorDestroyReason aWhy) {
   }
 
   if constexpr (IsValueCursor) {
-    this->mBackgroundParent.reset();
+    this->mBackgroundParent.destroy();
   }
-  this->mObjectStoreMetadata.reset();
+  this->mObjectStoreMetadata.destroy();
   if constexpr (IsIndexCursor) {
-    this->mIndexMetadata.reset();
+    this->mIndexMetadata.destroy();
   }
 }
 
@@ -16470,7 +16536,7 @@ mozilla::ipc::IPCResult Cursor<CursorType>::RecvContinue(
 
   const RefPtr<ContinueOp> continueOp =
       new ContinueOp(this, aParams, positionOrError.unwrap());
-  if (NS_WARN_IF(!continueOp->Init(mTransaction))) {
+  if (NS_WARN_IF(!continueOp->Init(*mTransaction))) {
     continueOp->Cleanup();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -16597,8 +16663,10 @@ nsresult FileManager::Init(nsIFile* aDirectory,
     // 0, but the dbRefCnt is non-zero, which will keep the FileInfo object
     // alive.
     MOZ_ASSERT(dbRefCnt > 0);
-    mFileInfos.Put(id, new FileInfo(FileManagerGuard{}, this, id,
-                                    static_cast<nsrefcnt>(dbRefCnt)));
+    mFileInfos.Put(
+        id, new FileInfo(FileManagerGuard{},
+                         SafeRefPtr{this, AcquireStrongRefFromRawPtr{}}, id,
+                         static_cast<nsrefcnt>(dbRefCnt)));
 
     mLastFileId = std::max(id, mLastFileId);
   }
@@ -17325,7 +17393,7 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
     // If there is an unexpected directory in the idb directory, trying to
     // delete at first instead of breaking the whole initialization.
     if (NS_WARN_IF(!databaseFilenames.GetEntry(subdirNameBase)) &&
-        NS_WARN_IF(NS_FAILED(DeleteFilesNoQuota(directory, subdirName)))) {
+        NS_WARN_IF((NS_FAILED(DeleteFilesNoQuota(directory, subdirName))))) {
       REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetEntry);
       return NS_ERROR_UNEXPECTED;
     }
@@ -17476,12 +17544,13 @@ void QuotaClient::InvalidateLiveDatabasesMatching(const Condition& aCondition) {
   // we need to make a temporary list of the databases to invalidate to avoid
   // iterator invalidation.
 
-  nsTArray<RefPtr<Database>> databases;
+  nsTArray<SafeRefPtr<Database>> databases;
 
   for (const auto& liveDatabasesEntry : *gLiveDatabaseHashtable) {
     for (Database* database : liveDatabasesEntry.GetData()->mLiveDatabases) {
       if (aCondition(database)) {
-        databases.AppendElement(database);
+        databases.AppendElement(
+            SafeRefPtr{database, AcquireStrongRefFromRawPtr{}});
       }
     }
   }
@@ -17667,8 +17736,8 @@ void QuotaClient::DeleteTimerCallback(nsITimer* aTimer, void* aClosure) {
     const auto& value = pendingDeleteInfoEntry.GetData();
     MOZ_ASSERT(!value->IsEmpty());
 
-    RefPtr<DeleteFilesRunnable> runnable =
-        new DeleteFilesRunnable(key, std::move(*value));
+    RefPtr<DeleteFilesRunnable> runnable = new DeleteFilesRunnable(
+        SafeRefPtr{key, AcquireStrongRefFromRawPtr{}}, std::move(*value));
 
     MOZ_ASSERT(value->IsEmpty());
 
@@ -17914,11 +17983,11 @@ void QuotaClient::ProcessMaintenanceQueue() {
  * DeleteFilesRunnable
  ******************************************************************************/
 
-DeleteFilesRunnable::DeleteFilesRunnable(FileManager* aFileManager,
+DeleteFilesRunnable::DeleteFilesRunnable(SafeRefPtr<FileManager> aFileManager,
                                          nsTArray<int64_t>&& aFileIds)
     : Runnable("dom::indexeddb::DeleteFilesRunnable"),
       mOwningEventTarget(GetCurrentThreadEventTarget()),
-      mFileManager(aFileManager),
+      mFileManager(std::move(aFileManager)),
       mFileIds(std::move(aFileIds)),
       mState(State_Initial) {}
 
@@ -19301,8 +19370,8 @@ nsresult UpgradeFileIdsFunction::Init(nsIFile* aFMDirectory,
   // This file manager doesn't need real origin info, etc. The only purpose is
   // to store file ids without adding more complexity or code duplication.
   auto fileManager =
-      MakeRefPtr<FileManager>(PERSISTENCE_TYPE_INVALID, EmptyCString(),
-                              EmptyCString(), EmptyString(), false);
+      MakeSafeRefPtr<FileManager>(PERSISTENCE_TYPE_INVALID, EmptyCString(),
+                                  EmptyCString(), EmptyString(), false);
 
   nsresult rv = fileManager->Init(aFMDirectory, aConnection);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -19700,15 +19769,14 @@ void CommonOpenOpHelperBase::AppendConditionClause(
 
 // static
 nsresult DatabaseOperationBase::GetUniqueIndexTableForObjectStore(
-    TransactionBase* aTransaction, const IndexOrObjectStoreId aObjectStoreId,
+    TransactionBase& aTransaction, const IndexOrObjectStoreId aObjectStoreId,
     Maybe<UniqueIndexTable>& aMaybeUniqueIndexTable) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aTransaction);
   MOZ_ASSERT(aObjectStoreId);
   MOZ_ASSERT(aMaybeUniqueIndexTable.isNothing());
 
   const RefPtr<FullObjectStoreMetadata> objectStoreMetadata =
-      aTransaction->GetMetadataForObjectStoreId(aObjectStoreId);
+      aTransaction.GetMetadataForObjectStoreId(aObjectStoreId);
   MOZ_ASSERT(objectStoreMetadata);
 
   if (!objectStoreMetadata->mIndexes.Count()) {
@@ -20227,7 +20295,7 @@ DatabaseOperationBase::OnProgress(mozIStorageConnection* aConnection,
 }
 
 DatabaseOperationBase::AutoSetProgressHandler::AutoSetProgressHandler()
-    : mConnection(nullptr)
+    : mConnection(Nothing())
 #ifdef DEBUG
       ,
       mDEBUGDatabaseOp(nullptr)
@@ -20245,24 +20313,23 @@ DatabaseOperationBase::AutoSetProgressHandler::~AutoSetProgressHandler() {
 }
 
 nsresult DatabaseOperationBase::AutoSetProgressHandler::Register(
-    mozIStorageConnection* aConnection, DatabaseOperationBase* aDatabaseOp) {
+    mozIStorageConnection& aConnection, DatabaseOperationBase* aDatabaseOp) {
   MOZ_ASSERT(!IsOnBackgroundThread());
-  MOZ_ASSERT(aConnection);
   MOZ_ASSERT(aDatabaseOp);
   MOZ_ASSERT(!mConnection);
 
   nsCOMPtr<mozIStorageProgressHandler> oldProgressHandler;
 
   nsresult rv =
-      aConnection->SetProgressHandler(kStorageProgressGranularity, aDatabaseOp,
-                                      getter_AddRefs(oldProgressHandler));
+      aConnection.SetProgressHandler(kStorageProgressGranularity, aDatabaseOp,
+                                     getter_AddRefs(oldProgressHandler));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   MOZ_ASSERT(!oldProgressHandler);
 
-  mConnection = aConnection;
+  mConnection = SomeRef(aConnection);
 #ifdef DEBUG
   mDEBUGDatabaseOp = aDatabaseOp;
 #endif
@@ -20279,11 +20346,11 @@ void DatabaseOperationBase::AutoSetProgressHandler::Unregister() {
       mConnection->RemoveProgressHandler(getter_AddRefs(oldHandler)));
   MOZ_ASSERT(oldHandler == mDEBUGDatabaseOp);
 
-  mConnection = nullptr;
+  mConnection = Nothing();
 }
 
-MutableFile::MutableFile(nsIFile* aFile, RefPtr<Database> aDatabase,
-                         RefPtr<FileInfo> aFileInfo)
+MutableFile::MutableFile(nsIFile* aFile, SafeRefPtr<Database> aDatabase,
+                         SafeRefPtr<FileInfo> aFileInfo)
     : BackgroundMutableFileParentBase(FILE_HANDLE_STORAGE_IDB, aDatabase->Id(),
                                       IntString(aFileInfo->Id()), aFile),
       mDatabase(std::move(aDatabase)),
@@ -20295,12 +20362,13 @@ MutableFile::MutableFile(nsIFile* aFile, RefPtr<Database> aDatabase,
 
 MutableFile::~MutableFile() { mDatabase->UnregisterMutableFile(this); }
 
-RefPtr<MutableFile> MutableFile::Create(nsIFile* aFile, Database* aDatabase,
-                                        RefPtr<FileInfo> aFileInfo) {
+RefPtr<MutableFile> MutableFile::Create(nsIFile* aFile,
+                                        SafeRefPtr<Database> aDatabase,
+                                        SafeRefPtr<FileInfo> aFileInfo) {
   AssertIsOnBackgroundThread();
 
   RefPtr<MutableFile> newMutableFile =
-      new MutableFile(aFile, aDatabase, std::move(aFileInfo));
+      new MutableFile(aFile, aDatabase.clonePtr(), std::move(aFileInfo));
 
   if (!aDatabase->RegisterMutableFile(newMutableFile)) {
     return nullptr;
@@ -20907,7 +20975,7 @@ nsresult FactoryOp::CheckPermission(
 }
 
 nsresult FactoryOp::SendVersionChangeMessages(
-    DatabaseActorInfo* aDatabaseActorInfo, Database* aOpeningDatabase,
+    DatabaseActorInfo* aDatabaseActorInfo, Maybe<Database&> aOpeningDatabase,
     uint64_t aOldVersion, const Maybe<uint64_t>& aNewVersion) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(aDatabaseActorInfo);
@@ -20920,10 +20988,12 @@ nsresult FactoryOp::SendVersionChangeMessages(
   if (liveCount > expectedCount) {
     FallibleTArray<MaybeBlockedDatabaseInfo> maybeBlockedDatabases;
     for (const auto& database : aDatabaseActorInfo->mLiveDatabases) {
-      if ((!aOpeningDatabase || database != aOpeningDatabase) &&
+      if ((!aOpeningDatabase || database.get() != &aOpeningDatabase.ref()) &&
           !database->IsClosed() &&
-          NS_WARN_IF(
-              !maybeBlockedDatabases.AppendElement(database, fallible))) {
+          NS_WARN_IF(!maybeBlockedDatabases.AppendElement(
+              SafeRefPtr{static_cast<Database*>(database),
+                         AcquireStrongRefFromRawPtr{}},
+              fallible))) {
         return NS_ERROR_OUT_OF_MEMORY;
       }
     }
@@ -21239,7 +21309,7 @@ OpenDatabaseOp::OpenDatabaseOp(RefPtr<Factory> aFactory,
                                const CommonFactoryRequestParams& aParams)
     : FactoryOp(std::move(aFactory), std::move(aContentParent), aParams,
                 /* aDeleting */ false),
-      mMetadata(new FullDatabaseMetadata(aParams.metadata())),
+      mMetadata(MakeRefPtr<FullDatabaseMetadata>(aParams.metadata())),
       mRequestedVersion(aParams.metadata().version()),
       mVersionChangeOp(nullptr),
       mTelemetryId(0) {
@@ -21398,7 +21468,7 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
   }
 
   AutoSetProgressHandler asph;
-  rv = asph.Register(connection, this);
+  rv = asph.Register(*connection, this);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -21432,18 +21502,18 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
   IndexedDatabaseManager* mgr = IndexedDatabaseManager::Get();
   MOZ_ASSERT(mgr);
 
-  RefPtr<FileManager> fileManager =
+  SafeRefPtr<FileManager> fileManager =
       mgr->GetFileManager(persistenceType, mOrigin, databaseName);
   if (!fileManager) {
-    fileManager = new FileManager(persistenceType, mGroup, mOrigin,
-                                  databaseName, mEnforcingQuota);
+    fileManager = MakeSafeRefPtr<FileManager>(persistenceType, mGroup, mOrigin,
+                                              databaseName, mEnforcingQuota);
 
     rv = fileManager->Init(fmDirectory, connection);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
 
-    mgr->AddFileManager(fileManager);
+    mgr->AddFileManager(fileManager.clonePtr());
   }
 
   mFileManager = std::move(fileManager);
@@ -21942,24 +22012,24 @@ nsresult OpenDatabaseOp::BeginVersionChange() {
   DatabaseActorInfo* info;
   MOZ_ALWAYS_TRUE(gLiveDatabaseHashtable->Get(mDatabaseId, &info));
 
-  MOZ_ASSERT(info->mLiveDatabases.Contains(mDatabase));
+  MOZ_ASSERT(info->mLiveDatabases.Contains(mDatabase.unsafeGetRawPtr()));
   MOZ_ASSERT(!info->mWaitingFactoryOp);
   MOZ_ASSERT(info->mMetadata == mMetadata);
 
-  RefPtr<VersionChangeTransaction> transaction =
-      new VersionChangeTransaction(this);
+  auto transaction = MakeSafeRefPtr<VersionChangeTransaction>(this);
 
   if (NS_WARN_IF(!transaction->CopyDatabaseMetadata())) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
   MOZ_ASSERT(info->mMetadata != mMetadata);
-  mMetadata = info->mMetadata;
+  mMetadata = info->mMetadata.clonePtr();
 
   Maybe<uint64_t> newVersion = Some(mRequestedVersion);
 
-  nsresult rv = SendVersionChangeMessages(
-      info, mDatabase, mMetadata->mCommonMetadata.version(), newVersion);
+  nsresult rv = SendVersionChangeMessages(info, mDatabase.maybeDeref(),
+                                          mMetadata->mCommonMetadata.version(),
+                                          newVersion);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -21989,7 +22059,7 @@ void OpenDatabaseOp::NoteDatabaseClosed(Database* aDatabase) {
   if (mState != State::WaitingForOtherDatabasesToClose) {
     MOZ_ASSERT(mMaybeBlockedDatabases.IsEmpty());
     MOZ_ASSERT(
-        mRequestedVersion > aDatabase->Metadata()->mCommonMetadata.version(),
+        mRequestedVersion > aDatabase->Metadata().mCommonMetadata.version(),
         "Must only be closing databases for a previous version!");
     return;
   }
@@ -22068,7 +22138,7 @@ nsresult OpenDatabaseOp::DispatchToWorkThread() {
   const nsID& backgroundChildLoggingId =
       mVersionChangeTransaction->GetLoggingInfo()->Id();
 
-  if (NS_WARN_IF(!mDatabase->RegisterTransaction(mVersionChangeTransaction))) {
+  if (NS_WARN_IF(!mDatabase->RegisterTransaction(*mVersionChangeTransaction))) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
@@ -22105,7 +22175,7 @@ nsresult OpenDatabaseOp::SendUpgradeNeeded() {
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
 
-  const RefPtr<VersionChangeTransaction> transaction =
+  const SafeRefPtr<VersionChangeTransaction> transaction =
       std::move(mVersionChangeTransaction);
 
   nsresult rv = EnsureDatabaseActorIsAlive();
@@ -22117,8 +22187,9 @@ nsresult OpenDatabaseOp::SendUpgradeNeeded() {
   transaction->SetActorAlive();
 
   if (!mDatabase->SendPBackgroundIDBVersionChangeTransactionConstructor(
-          transaction, mMetadata->mCommonMetadata.version(), mRequestedVersion,
-          mMetadata->mNextObjectStoreId, mMetadata->mNextIndexId)) {
+          transaction.unsafeGetRawPtr(), mMetadata->mCommonMetadata.version(),
+          mRequestedVersion, mMetadata->mNextObjectStoreId,
+          mMetadata->mNextIndexId)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
@@ -22167,9 +22238,11 @@ void OpenDatabaseOp::SendResults() {
       if (NS_SUCCEEDED(rv)) {
         // We successfully opened a database so use its actor as the success
         // result for this request.
-        OpenDatabaseRequestResponse openResponse;
-        openResponse.databaseParent() = mDatabase;
-        response = openResponse;
+
+        // XXX OpenDatabaseRequestResponse stores a raw pointer, can this be
+        // avoided?
+        response =
+            OpenDatabaseRequestResponse{mDatabase.unsafeGetRawPtr(), nullptr};
       } else {
         response = ClampResultCode(rv);
 #ifdef DEBUG
@@ -22248,20 +22321,21 @@ void OpenDatabaseOp::EnsureDatabaseActor() {
 
   DatabaseActorInfo* info;
   if (gLiveDatabaseHashtable->Get(mDatabaseId, &info)) {
-    AssertMetadataConsistency(info->mMetadata);
-    mMetadata = info->mMetadata;
+    AssertMetadataConsistency(*info->mMetadata);
+    mMetadata = info->mMetadata.clonePtr();
   }
 
-  mDatabase = MakeRefPtr<Database>(
+  mDatabase = MakeSafeRefPtr<Database>(
       static_cast<Factory*>(Manager()), mCommonParams.principalInfo(),
-      mOptionalContentParentId, mGroup, mOrigin, mTelemetryId, mMetadata,
-      mFileManager, std::move(mDirectoryLock), mFileHandleDisabled,
-      mChromeWriteAccessAllowed);
+      mOptionalContentParentId, mGroup, mOrigin, mTelemetryId,
+      mMetadata.clonePtr(), mFileManager.clonePtr(), std::move(mDirectoryLock),
+      mFileHandleDisabled, mChromeWriteAccessAllowed);
 
   if (info) {
-    info->mLiveDatabases.AppendElement(mDatabase);
+    info->mLiveDatabases.AppendElement(mDatabase.unsafeGetRawPtr());
   } else {
-    info = new DatabaseActorInfo(mMetadata, mDatabase);
+    info = new DatabaseActorInfo(mMetadata.clonePtr(),
+                                 mDatabase.unsafeGetRawPtr());
     gLiveDatabaseHashtable->Put(mDatabaseId, info);
   }
 
@@ -22290,7 +22364,8 @@ nsresult OpenDatabaseOp::EnsureDatabaseActorIsAlive() {
   // Transfer ownership to IPDL.
   mDatabase->SetActorAlive();
 
-  if (!factory->SendPBackgroundIDBDatabaseConstructor(mDatabase, spec, this)) {
+  if (!factory->SendPBackgroundIDBDatabaseConstructor(
+          mDatabase.unsafeGetRawPtr(), spec, this)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
@@ -22328,41 +22403,39 @@ void OpenDatabaseOp::MetadataToSpec(DatabaseSpec& aSpec) {
 #ifdef DEBUG
 
 void OpenDatabaseOp::AssertMetadataConsistency(
-    const FullDatabaseMetadata* aMetadata) {
+    const FullDatabaseMetadata& aMetadata) {
   AssertIsOnBackgroundThread();
 
-  const FullDatabaseMetadata* thisDB = mMetadata;
-  const FullDatabaseMetadata* otherDB = aMetadata;
+  const FullDatabaseMetadata& thisDB = *mMetadata;
+  const FullDatabaseMetadata& otherDB = aMetadata;
 
-  MOZ_ASSERT(thisDB);
-  MOZ_ASSERT(otherDB);
-  MOZ_ASSERT(thisDB != otherDB);
+  MOZ_ASSERT(&thisDB != &otherDB);
 
-  MOZ_ASSERT(thisDB->mCommonMetadata.name() == otherDB->mCommonMetadata.name());
-  MOZ_ASSERT(thisDB->mCommonMetadata.version() ==
-             otherDB->mCommonMetadata.version());
-  MOZ_ASSERT(thisDB->mCommonMetadata.persistenceType() ==
-             otherDB->mCommonMetadata.persistenceType());
-  MOZ_ASSERT(thisDB->mDatabaseId == otherDB->mDatabaseId);
-  MOZ_ASSERT(thisDB->mFilePath == otherDB->mFilePath);
+  MOZ_ASSERT(thisDB.mCommonMetadata.name() == otherDB.mCommonMetadata.name());
+  MOZ_ASSERT(thisDB.mCommonMetadata.version() ==
+             otherDB.mCommonMetadata.version());
+  MOZ_ASSERT(thisDB.mCommonMetadata.persistenceType() ==
+             otherDB.mCommonMetadata.persistenceType());
+  MOZ_ASSERT(thisDB.mDatabaseId == otherDB.mDatabaseId);
+  MOZ_ASSERT(thisDB.mFilePath == otherDB.mFilePath);
 
   // |thisDB| reflects the latest objectStore and index ids that have committed
   // to disk. The in-memory metadata |otherDB| keeps track of objectStores and
   // indexes that were created and then removed as well, so the next ids for
   // |otherDB| may be higher than for |thisDB|.
-  MOZ_ASSERT(thisDB->mNextObjectStoreId <= otherDB->mNextObjectStoreId);
-  MOZ_ASSERT(thisDB->mNextIndexId <= otherDB->mNextIndexId);
+  MOZ_ASSERT(thisDB.mNextObjectStoreId <= otherDB.mNextObjectStoreId);
+  MOZ_ASSERT(thisDB.mNextIndexId <= otherDB.mNextIndexId);
 
-  MOZ_ASSERT(thisDB->mObjectStores.Count() == otherDB->mObjectStores.Count());
+  MOZ_ASSERT(thisDB.mObjectStores.Count() == otherDB.mObjectStores.Count());
 
-  for (const auto& objectStoreEntry : thisDB->mObjectStores) {
+  for (const auto& objectStoreEntry : thisDB.mObjectStores) {
     FullObjectStoreMetadata* thisObjectStore = objectStoreEntry.GetData();
     MOZ_ASSERT(thisObjectStore);
     MOZ_ASSERT(!thisObjectStore->mDeleted);
 
     auto* otherObjectStore =
         MetadataNameOrIdMatcher<FullObjectStoreMetadata>::Match(
-            otherDB->mObjectStores, thisObjectStore->mCommonMetadata.id());
+            otherDB.mObjectStores, thisObjectStore->mCommonMetadata.id());
     MOZ_ASSERT(otherObjectStore);
 
     MOZ_ASSERT(thisObjectStore != otherObjectStore);
@@ -22711,7 +22784,7 @@ nsresult DeleteDatabaseOp::BeginVersionChange() {
     MOZ_ASSERT(!info->mWaitingFactoryOp);
 
     nsresult rv =
-        SendVersionChangeMessages(info, nullptr, mPreviousVersion, Nothing());
+        SendVersionChangeMessages(info, Nothing(), mPreviousVersion, Nothing());
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -22903,20 +22976,25 @@ void DeleteDatabaseOp::VersionChangeOp::RunOnOwningThread() {
       if (info) {
         MOZ_ASSERT(!info->mLiveDatabases.IsEmpty());
 
-        FallibleTArray<Database*> liveDatabases;
-        if (NS_WARN_IF(!liveDatabases.AppendElements(info->mLiveDatabases,
-                                                     fallible))) {
+        nsTArray<SafeRefPtr<Database>> liveDatabases;
+        if (NS_WARN_IF(!liveDatabases.SetCapacity(info->mLiveDatabases.Length(),
+                                                  fallible))) {
           deleteOp->SetFailureCode(NS_ERROR_OUT_OF_MEMORY);
         } else {
+          std::transform(info->mLiveDatabases.cbegin(),
+                         info->mLiveDatabases.cend(),
+                         MakeBackInserter(liveDatabases),
+                         [](const auto& aDatabase) -> SafeRefPtr<Database> {
+                           return {aDatabase, AcquireStrongRefFromRawPtr{}};
+                         });
+
 #ifdef DEBUG
           // The code below should result in the deletion of |info|. Set to null
           // here to make sure we find invalid uses later.
           info = nullptr;
 #endif
-          // TODO: Why do we convert to RefPtr here? If this is really
-          // necessary, this is very error-prone, and provide the type of
-          // liveDatabases should be changed.
-          for (RefPtr<Database> database : liveDatabases) {
+
+          for (const auto& database : liveDatabases) {
             database->Invalidate();
           }
 
@@ -22959,7 +23037,7 @@ nsresult DeleteDatabaseOp::VersionChangeOp::Run() {
 }
 
 TransactionDatabaseOperationBase::TransactionDatabaseOperationBase(
-    RefPtr<TransactionBase> aTransaction)
+    SafeRefPtr<TransactionBase> aTransaction)
     : DatabaseOperationBase(aTransaction->GetLoggingInfo()->Id(),
                             aTransaction->GetLoggingInfo()->NextRequestSN()),
       mTransaction(std::move(aTransaction)),
@@ -22969,7 +23047,7 @@ TransactionDatabaseOperationBase::TransactionDatabaseOperationBase(
 }
 
 TransactionDatabaseOperationBase::TransactionDatabaseOperationBase(
-    RefPtr<TransactionBase> aTransaction, uint64_t aLoggingSerialNumber)
+    SafeRefPtr<TransactionBase> aTransaction, uint64_t aLoggingSerialNumber)
     : DatabaseOperationBase(aTransaction->GetLoggingInfo()->Id(),
                             aLoggingSerialNumber),
       mTransaction(std::move(aTransaction)),
@@ -23033,21 +23111,21 @@ void TransactionDatabaseOperationBase::RunOnConnectionThread() {
     IDB_REPORT_INTERNAL_ERR();
     OverrideFailureCode(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
   } else {
-    Database* database = (*mTransaction)->GetDatabase();
-    MOZ_ASSERT(database);
+    Database& database = (*mTransaction)->GetMutableDatabase();
 
     // Here we're actually going to perform the database operation.
-    nsresult rv = database->EnsureConnection();
+    nsresult rv = database.EnsureConnection();
     if (NS_WARN_IF(NS_FAILED(rv))) {
       SetFailureCode(rv);
     } else {
-      DatabaseConnection* connection = database->GetConnection();
+      DatabaseConnection* connection = database.GetConnection();
       MOZ_ASSERT(connection);
-      MOZ_ASSERT(connection->GetStorageConnection());
+
+      auto& storageConnection = connection->MutableStorageConnection();
 
       AutoSetProgressHandler autoProgress;
       if (mLoggingSerialNumber) {
-        rv = autoProgress.Register(connection->GetStorageConnection(), this);
+        rv = autoProgress.Register(storageConnection, this);
         if (NS_WARN_IF(NS_FAILED(rv))) {
           SetFailureCode(rv);
         }
@@ -23205,10 +23283,9 @@ void TransactionDatabaseOperationBase::SendPreprocessInfoOrResults(
   }
 }
 
-bool TransactionDatabaseOperationBase::Init(TransactionBase* aTransaction) {
+bool TransactionDatabaseOperationBase::Init(TransactionBase& aTransaction) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(mInternalState == InternalState::Initial);
-  MOZ_ASSERT(aTransaction);
 
   return true;
 }
@@ -23217,7 +23294,7 @@ void TransactionDatabaseOperationBase::Cleanup() {
   AssertIsOnOwningThread();
   MOZ_ASSERT(mInternalState == InternalState::SendingResults);
 
-  mTransaction.reset();
+  mTransaction.destroy();
 }
 
 NS_IMETHODIMP
@@ -23244,13 +23321,13 @@ TransactionDatabaseOperationBase::Run() {
   }
 }
 
-TransactionBase::CommitOp::CommitOp(TransactionBase* aTransaction,
+TransactionBase::CommitOp::CommitOp(SafeRefPtr<TransactionBase> aTransaction,
                                     nsresult aResultCode)
     : DatabaseOperationBase(aTransaction->GetLoggingInfo()->Id(),
                             aTransaction->GetLoggingInfo()->NextRequestSN()),
-      mTransaction(aTransaction),
+      mTransaction(std::move(aTransaction)),
       mResultCode(aResultCode) {
-  MOZ_ASSERT(aTransaction);
+  MOZ_ASSERT(mTransaction);
   MOZ_ASSERT(LoggingSerialNumber());
 }
 
@@ -23266,10 +23343,8 @@ nsresult TransactionBase::CommitOp::WriteAutoIncrementCounts() {
       mTransaction->mModifiedAutoIncrementObjectStoreMetadataArray;
 
   if (!metadataArray.IsEmpty()) {
-    Database* database = mTransaction->GetDatabase();
-    MOZ_ASSERT(database);
-
-    DatabaseConnection* connection = database->GetConnection();
+    DatabaseConnection* connection =
+        mTransaction->GetDatabase().GetConnection();
     MOZ_ASSERT(connection);
 
     DatabaseConnection::CachedStatement stmt;
@@ -23388,10 +23463,8 @@ TransactionBase::CommitOp::Run() {
 
   if (mTransaction->GetMode() != IDBTransaction::Mode::ReadOnly &&
       mTransaction->mHasBeenActiveOnConnectionThread) {
-    Database* database = mTransaction->GetDatabase();
-    MOZ_ASSERT(database);
-
-    if (DatabaseConnection* connection = database->GetConnection()) {
+    if (DatabaseConnection* connection =
+            mTransaction->GetDatabase().GetConnection()) {
       // May be null if the VersionChangeOp was canceled.
       DatabaseConnection::UpdateRefcountFunction* fileRefcountFunction =
           connection->GetUpdateRefcountFunction();
@@ -23481,10 +23554,7 @@ void TransactionBase::CommitOp::TransactionFinishedAfterUnblock() {
 
   mTransaction->SendCompleteNotification(ClampResultCode(mResultCode));
 
-  Database* database = mTransaction->GetDatabase();
-  MOZ_ASSERT(database);
-
-  database->UnregisterTransaction(mTransaction);
+  mTransaction->GetMutableDatabase().UnregisterTransaction(*mTransaction);
 
   mTransaction = nullptr;
 
@@ -23495,13 +23565,13 @@ void TransactionBase::CommitOp::TransactionFinishedAfterUnblock() {
 #endif
 }
 
-DatabaseOp::DatabaseOp(Database* aDatabase)
+DatabaseOp::DatabaseOp(SafeRefPtr<Database> aDatabase)
     : DatabaseOperationBase(aDatabase->GetLoggingInfo()->Id(),
                             aDatabase->GetLoggingInfo()->NextRequestSN()),
-      mDatabase(aDatabase),
+      mDatabase(std::move(aDatabase)),
       mState(State::Initial) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aDatabase);
+  MOZ_ASSERT(mDatabase);
 }
 
 nsresult DatabaseOp::SendToIOThread() {
@@ -23571,9 +23641,10 @@ void DatabaseOp::ActorDestroy(ActorDestroyReason aWhy) {
   NoteActorDestroyed();
 }
 
-CreateFileOp::CreateFileOp(Database* aDatabase,
+CreateFileOp::CreateFileOp(SafeRefPtr<Database> aDatabase,
                            const DatabaseRequestParams& aParams)
-    : DatabaseOp(aDatabase), mParams(aParams.get_CreateFileParams()) {
+    : DatabaseOp(std::move(aDatabase)),
+      mParams(aParams.get_CreateFileParams()) {
   MOZ_ASSERT(aParams.type() == DatabaseRequestParams::TCreateFileParams);
 }
 
@@ -23585,7 +23656,7 @@ nsresult CreateFileOp::CreateMutableFile(RefPtr<MutableFile>* aMutableFile) {
   }
 
   RefPtr<MutableFile> mutableFile =
-      MutableFile::Create(file, mDatabase, *mFileInfo);
+      MutableFile::Create(file, mDatabase.clonePtr(), mFileInfo->clonePtr());
   if (NS_WARN_IF(!mutableFile)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
@@ -23615,9 +23686,9 @@ nsresult CreateFileOp::DoDatabaseWork() {
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
 
-  FileManager* fileManager = mDatabase->GetFileManager();
+  FileManager& fileManager = mDatabase->GetFileManager();
 
-  mFileInfo.init(fileManager->CreateFileInfo());
+  mFileInfo.init(fileManager.CreateFileInfo());
   if (NS_WARN_IF(!*mFileInfo)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
@@ -23625,13 +23696,13 @@ nsresult CreateFileOp::DoDatabaseWork() {
 
   const int64_t fileId = (*mFileInfo)->Id();
 
-  const auto journalDirectory = fileManager->EnsureJournalDirectory();
+  const auto journalDirectory = fileManager.EnsureJournalDirectory();
   if (NS_WARN_IF(!journalDirectory)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
 
-  const auto journalFile = fileManager->GetFileForId(journalDirectory, fileId);
+  const auto journalFile = fileManager.GetFileForId(journalDirectory, fileId);
   if (NS_WARN_IF(!journalFile)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
@@ -23642,13 +23713,13 @@ nsresult CreateFileOp::DoDatabaseWork() {
     return rv;
   }
 
-  const auto fileDirectory = fileManager->GetDirectory();
+  const auto fileDirectory = fileManager.GetDirectory();
   if (NS_WARN_IF(!fileDirectory)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
 
-  const auto file = fileManager->GetFileForId(fileDirectory, fileId);
+  const auto file = fileManager.GetFileForId(fileDirectory, fileId);
   if (NS_WARN_IF(!file)) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
@@ -23821,7 +23892,7 @@ nsresult CreateObjectStoreOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   {
     int64_t id;
     MOZ_ALWAYS_SUCCEEDS(
-        aConnection->GetStorageConnection()->GetLastInsertRowID(&id));
+        aConnection->MutableStorageConnection().GetLastInsertRowID(&id));
     MOZ_ASSERT(mMetadata.id() == id);
   }
 #endif
@@ -23995,8 +24066,9 @@ nsresult DeleteObjectStoreOp::DoDatabaseWork(DatabaseConnection* aConnection) {
 #ifdef DEBUG
     {
       int32_t deletedRowCount;
-      MOZ_ALWAYS_SUCCEEDS(aConnection->GetStorageConnection()->GetAffectedRows(
-          &deletedRowCount));
+      MOZ_ALWAYS_SUCCEEDS(
+          aConnection->MutableStorageConnection().GetAffectedRows(
+              &deletedRowCount));
       MOZ_ASSERT(deletedRowCount == 1);
     }
 #endif
@@ -24086,12 +24158,12 @@ nsresult RenameObjectStoreOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   return NS_OK;
 }
 
-CreateIndexOp::CreateIndexOp(RefPtr<VersionChangeTransaction> aTransaction,
+CreateIndexOp::CreateIndexOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                              const IndexOrObjectStoreId aObjectStoreId,
                              const IndexMetadata& aMetadata)
     : VersionChangeTransactionOp(std::move(aTransaction)),
       mMetadata(aMetadata),
-      mFileManager(Transaction().GetDatabase()->GetFileManager()),
+      mFileManager(Transaction().GetDatabase().GetFileManagerPtr()),
       mDatabaseId(Transaction().DatabaseId()),
       mObjectStoreId(aObjectStoreId) {
   MOZ_ASSERT(aObjectStoreId);
@@ -24108,9 +24180,7 @@ nsresult CreateIndexOp::InsertDataFromObjectStore(
 
   AUTO_PROFILER_LABEL("CreateIndexOp::InsertDataFromObjectStore", DOM);
 
-  nsCOMPtr<mozIStorageConnection> storageConnection =
-      aConnection->GetStorageConnection();
-  MOZ_ASSERT(storageConnection);
+  auto& storageConnection = aConnection->MutableStorageConnection();
 
   RefPtr<UpdateIndexDataValuesFunction> updateFunction =
       new UpdateIndexDataValuesFunction(this, aConnection);
@@ -24118,14 +24188,14 @@ nsresult CreateIndexOp::InsertDataFromObjectStore(
   NS_NAMED_LITERAL_CSTRING(updateFunctionName, "update_index_data_values");
 
   nsresult rv =
-      storageConnection->CreateFunction(updateFunctionName, 4, updateFunction);
+      storageConnection.CreateFunction(updateFunctionName, 4, updateFunction);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   rv = InsertDataFromObjectStoreInternal(aConnection);
 
-  MOZ_ALWAYS_SUCCEEDS(storageConnection->RemoveFunction(updateFunctionName));
+  MOZ_ALWAYS_SUCCEEDS(storageConnection.RemoveFunction(updateFunctionName));
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -24140,8 +24210,7 @@ nsresult CreateIndexOp::InsertDataFromObjectStoreInternal(
   aConnection->AssertIsOnConnectionThread();
   MOZ_ASSERT(mMaybeUniqueIndexTable);
 
-  DebugOnly<void*> storageConnection = aConnection->GetStorageConnection();
-  MOZ_ASSERT(storageConnection);
+  MOZ_ASSERT(aConnection->HasStorageConnection());
 
   // The parameter names are not used, parameters are bound by index only
   // locally in the same function.
@@ -24165,9 +24234,8 @@ nsresult CreateIndexOp::InsertDataFromObjectStoreInternal(
   return NS_OK;
 }
 
-bool CreateIndexOp::Init(TransactionBase* aTransaction) {
+bool CreateIndexOp::Init(TransactionBase& aTransaction) {
   AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aTransaction);
 
   nsresult rv = GetUniqueIndexTableForObjectStore(aTransaction, mObjectStoreId,
                                                   mMaybeUniqueIndexTable);
@@ -24283,7 +24351,7 @@ nsresult CreateIndexOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   {
     int64_t id;
     MOZ_ALWAYS_SUCCEEDS(
-        aConnection->GetStorageConnection()->GetLastInsertRowID(&id));
+        aConnection->MutableStorageConnection().GetLastInsertRowID(&id));
     MOZ_ASSERT(mMetadata.id() == id);
   }
 #endif
@@ -24488,7 +24556,7 @@ CreateIndexOp::UpdateIndexDataValuesFunction::OnFunctionCall(
   return NS_OK;
 }
 
-DeleteIndexOp::DeleteIndexOp(RefPtr<VersionChangeTransaction> aTransaction,
+DeleteIndexOp::DeleteIndexOp(SafeRefPtr<VersionChangeTransaction> aTransaction,
                              const IndexOrObjectStoreId aObjectStoreId,
                              const IndexOrObjectStoreId aIndexId,
                              const bool aUnique, const bool aIsLastIndex)
@@ -24898,8 +24966,8 @@ nsresult DeleteIndexOp::DoDatabaseWork(DatabaseConnection* aConnection) {
 #ifdef DEBUG
   {
     int32_t deletedRowCount;
-    MOZ_ALWAYS_SUCCEEDS(
-        aConnection->GetStorageConnection()->GetAffectedRows(&deletedRowCount));
+    MOZ_ALWAYS_SUCCEEDS(aConnection->MutableStorageConnection().GetAffectedRows(
+        &deletedRowCount));
     MOZ_ASSERT(deletedRowCount == 1);
   }
 #endif
@@ -25166,15 +25234,15 @@ mozilla::ipc::IPCResult NormalTransactionOp::RecvContinue(
 }
 
 ObjectStoreAddOrPutRequestOp::ObjectStoreAddOrPutRequestOp(
-    RefPtr<TransactionBase> aTransaction, RequestParams&& aParams)
+    SafeRefPtr<TransactionBase> aTransaction, RequestParams&& aParams)
     : NormalTransactionOp(std::move(aTransaction)),
       mParams(
           std::move(aParams.type() == RequestParams::TObjectStoreAddParams
                         ? aParams.get_ObjectStoreAddParams().commonParams()
                         : aParams.get_ObjectStorePutParams().commonParams())),
-      mGroup(Transaction().GetDatabase()->Group()),
-      mOrigin(Transaction().GetDatabase()->Origin()),
-      mPersistenceType(Transaction().GetDatabase()->Type()),
+      mGroup(Transaction().GetDatabase().Group()),
+      mOrigin(Transaction().GetDatabase().Origin()),
+      mPersistenceType(Transaction().GetDatabase().Type()),
       mOverwrite(aParams.type() == RequestParams::TObjectStorePutParams),
       mObjectStoreMayHaveIndexes(false) {
   MOZ_ASSERT(aParams.type() == RequestParams::TObjectStoreAddParams ||
@@ -25254,7 +25322,7 @@ nsresult ObjectStoreAddOrPutRequestOp::RemoveOldIndexDataValues(
   return NS_OK;
 }
 
-bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase* aTransaction) {
+bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase& aTransaction) {
   AssertIsOnOwningThread();
 
   const nsTArray<IndexUpdateInfo>& indexUpdateInfos =
@@ -25314,7 +25382,7 @@ bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase* aTransaction) {
           MOZ_ASSERT(fileActor);
 
           mStoredFileInfos.EmplaceBack(StoredFileInfo::CreateForBlob(
-              fileActor->GetFileInfo(), fileActor));
+              fileActor->GetFileInfoPtr(), fileActor));
           break;
         }
 
@@ -25327,7 +25395,7 @@ bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase* aTransaction) {
           MOZ_ASSERT(mutableFileActor);
 
           mStoredFileInfos.EmplaceBack(StoredFileInfo::CreateForMutableFile(
-              mutableFileActor->GetFileInfo()));
+              mutableFileActor->GetFileInfoPtr()));
 
           break;
         }
@@ -25340,7 +25408,7 @@ bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase* aTransaction) {
 
   if (mDataOverThreshold) {
     mStoredFileInfos.EmplaceBack(StoredFileInfo::CreateForStructuredClone(
-        aTransaction->GetDatabase()->GetFileManager()->CreateFileInfo(),
+        aTransaction.GetDatabase().GetFileManager().CreateFileInfo(),
         MakeRefPtr<SCInputStream>(mParams.cloneInfo().data().data)));
   }
 
@@ -25351,7 +25419,7 @@ nsresult ObjectStoreAddOrPutRequestOp::DoDatabaseWork(
     DatabaseConnection* aConnection) {
   MOZ_ASSERT(aConnection);
   aConnection->AssertIsOnConnectionThread();
-  MOZ_ASSERT(aConnection->GetStorageConnection());
+  MOZ_ASSERT(aConnection->HasStorageConnection());
 
   AUTO_PROFILER_LABEL("ObjectStoreAddOrPutRequestOp::DoDatabaseWork", DOM);
 
@@ -25539,12 +25607,9 @@ nsresult ObjectStoreAddOrPutRequestOp::DoDatabaseWork(
 
       const auto inputStream = inputStreamOrErr.unwrap();
 
-      auto* const fileManager = Transaction().GetDatabase()->GetFileManager();
-      MOZ_ASSERT(fileManager);
-
       if (inputStream) {
         if (fileHelper.isNothing()) {
-          fileHelper.emplace(RefPtr{fileManager});
+          fileHelper.emplace(Transaction().GetDatabase().GetFileManagerPtr());
           rv = fileHelper->Init();
           if (NS_WARN_IF(NS_FAILED(rv))) {
             IDB_REPORT_INTERNAL_ERR();
@@ -25577,7 +25642,9 @@ nsresult ObjectStoreAddOrPutRequestOp::DoDatabaseWork(
         }
         if (NS_WARN_IF(NS_FAILED(rv))) {
           // Try to remove the file if the copy failed.
-          nsresult rv2 = fileManager->SyncDeleteFile(*file, *journalFile);
+          nsresult rv2 =
+              Transaction().GetDatabase().GetFileManager().SyncDeleteFile(
+                  *file, *journalFile);
           if (NS_WARN_IF(NS_FAILED(rv2))) {
             return rv;
           }
@@ -25730,13 +25797,13 @@ ObjectStoreAddOrPutRequestOp::SCInputStream::IsNonBlocking(bool* _retval) {
 }
 
 ObjectStoreGetRequestOp::ObjectStoreGetRequestOp(
-    RefPtr<TransactionBase> aTransaction, const RequestParams& aParams,
+    SafeRefPtr<TransactionBase> aTransaction, const RequestParams& aParams,
     bool aGetAll)
     : NormalTransactionOp(std::move(aTransaction)),
       mObjectStoreId(aGetAll
                          ? aParams.get_ObjectStoreGetAllParams().objectStoreId()
                          : aParams.get_ObjectStoreGetParams().objectStoreId()),
-      mDatabase(Transaction().GetDatabase()),
+      mDatabase(Transaction().GetDatabasePtr()),
       mOptionalKeyRange(
           aGetAll ? aParams.get_ObjectStoreGetAllParams().optionalKeyRange()
                   : Some(aParams.get_ObjectStoreGetParams().keyRange())),
@@ -25831,7 +25898,7 @@ nsresult ObjectStoreGetRequestOp::DoDatabaseWork(
   bool hasResult;
   while (NS_SUCCEEDED((rv = stmt->ExecuteStep(&hasResult))) && hasResult) {
     auto cloneInfoOrErr = GetStructuredCloneReadInfoFromStatement(
-        &*stmt, 1, 0, *mDatabase->GetFileManager());
+        &*stmt, 1, 0, mDatabase->GetFileManager());
     if (NS_WARN_IF(cloneInfoOrErr.isErr())) {
       return Err(cloneInfoOrErr.unwrapErr());
     }
@@ -25956,7 +26023,7 @@ void ObjectStoreGetRequestOp::GetResponse(RequestResponse& aResponse,
 }
 
 ObjectStoreGetKeyRequestOp::ObjectStoreGetKeyRequestOp(
-    RefPtr<TransactionBase> aTransaction, const RequestParams& aParams,
+    SafeRefPtr<TransactionBase> aTransaction, const RequestParams& aParams,
     bool aGetAll)
     : NormalTransactionOp(std::move(aTransaction)),
       mObjectStoreId(
@@ -26063,7 +26130,7 @@ void ObjectStoreGetKeyRequestOp::GetResponse(RequestResponse& aResponse,
 }
 
 ObjectStoreDeleteRequestOp::ObjectStoreDeleteRequestOp(
-    RefPtr<TransactionBase> aTransaction,
+    SafeRefPtr<TransactionBase> aTransaction,
     const ObjectStoreDeleteParams& aParams)
     : NormalTransactionOp(std::move(aTransaction)),
       mParams(aParams),
@@ -26145,7 +26212,8 @@ nsresult ObjectStoreDeleteRequestOp::DoDatabaseWork(
 }
 
 ObjectStoreClearRequestOp::ObjectStoreClearRequestOp(
-    RefPtr<TransactionBase> aTransaction, const ObjectStoreClearParams& aParams)
+    SafeRefPtr<TransactionBase> aTransaction,
+    const ObjectStoreClearParams& aParams)
     : NormalTransactionOp(std::move(aTransaction)),
       mParams(aParams),
       mObjectStoreMayHaveIndexes(false) {
@@ -26337,10 +26405,10 @@ RefPtr<FullIndexMetadata> IndexRequestOpBase::IndexMetadataForParams(
   return indexMetadata;
 }
 
-IndexGetRequestOp::IndexGetRequestOp(RefPtr<TransactionBase> aTransaction,
+IndexGetRequestOp::IndexGetRequestOp(SafeRefPtr<TransactionBase> aTransaction,
                                      const RequestParams& aParams, bool aGetAll)
     : IndexRequestOpBase(std::move(aTransaction), aParams),
-      mDatabase(Transaction().GetDatabase()),
+      mDatabase(Transaction().GetDatabasePtr()),
       mOptionalKeyRange(aGetAll
                             ? aParams.get_IndexGetAllParams().optionalKeyRange()
                             : Some(aParams.get_IndexGetParams().keyRange())),
@@ -26416,7 +26484,7 @@ nsresult IndexGetRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
   bool hasResult;
   while (NS_SUCCEEDED((rv = stmt->ExecuteStep(&hasResult))) && hasResult) {
     auto cloneInfoOrErr = GetStructuredCloneReadInfoFromStatement(
-        &*stmt, 1, 0, *mDatabase->GetFileManager());
+        &*stmt, 1, 0, mDatabase->GetFileManager());
     if (NS_WARN_IF(cloneInfoOrErr.isErr())) {
       return cloneInfoOrErr.unwrapErr();
     }
@@ -26514,9 +26582,9 @@ void IndexGetRequestOp::GetResponse(RequestResponse& aResponse,
   }
 }
 
-IndexGetKeyRequestOp::IndexGetKeyRequestOp(RefPtr<TransactionBase> aTransaction,
-                                           const RequestParams& aParams,
-                                           bool aGetAll)
+IndexGetKeyRequestOp::IndexGetKeyRequestOp(
+    SafeRefPtr<TransactionBase> aTransaction, const RequestParams& aParams,
+    bool aGetAll)
     : IndexRequestOpBase(std::move(aTransaction), aParams),
       mOptionalKeyRange(
           aGetAll ? aParams.get_IndexGetAllKeysParams().optionalKeyRange()

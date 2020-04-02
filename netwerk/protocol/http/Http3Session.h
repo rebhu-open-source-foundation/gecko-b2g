@@ -107,8 +107,8 @@ class Http3Session final : public nsAHttpTransaction,
                           bool justKidding);
 
   nsresult ProcessOutput();
-  nsresult ProcessInput();
-  nsresult ProcessEvents(uint32_t count, uint32_t* countWritten);
+  nsresult ProcessInput(uint32_t* aCountRead);
+  nsresult ProcessEvents(uint32_t count);
 
   nsresult ProcessSingleTransactionRead(Http3Stream* stream, uint32_t count,
                                         uint32_t* countWritten);
@@ -116,7 +116,7 @@ class Http3Session final : public nsAHttpTransaction,
                                   uint32_t* countWritten);
   nsresult ProcessTransactionRead(Http3Stream* stream, uint32_t count,
                                   uint32_t* countWritten);
-  nsresult ProcessSlowConsumers(uint32_t* countWritten);
+  nsresult ProcessSlowConsumers();
   void ConnectSlowConsumer(Http3Stream* stream);
 
   void SetupTimer(uint64_t aTimeout);
@@ -142,7 +142,7 @@ class Http3Session final : public nsAHttpTransaction,
 
   nsDeque mReadyForWrite;
   nsTArray<uint64_t> mReadyForWriteButBlocked;
-  nsDeque mSlowConsumersReadyForRead;
+  nsTArray<RefPtr<Http3Stream>> mSlowConsumersReadyForRead;
   nsDeque mQueuedStreams;
 
   enum State { INITIALIZING, CONNECTED, CLOSING, CLOSED } mState;

@@ -3547,7 +3547,7 @@ nsresult Document::InitReferrerInfo(nsIChannel* aChannel) {
         return NS_OK;
       }
 
-      MOZ_ASSERT(NodePrincipal()->GetIsNullPrincipal(),
+      MOZ_ASSERT(bc->IsInProcess() || NodePrincipal()->GetIsNullPrincipal(),
                  "srcdoc without null principal as toplevel!");
     }
   }
@@ -6786,9 +6786,12 @@ DocGroup* Document::GetDocGroupOrCreate() {
     nsresult rv = mozilla::dom::DocGroup::GetKey(NodePrincipal(), docGroupKey);
     if (NS_SUCCEEDED(rv)) {
       if (mDocumentContainer) {
-        TabGroup* tabgroup = mDocumentContainer->GetWindow()->MaybeTabGroup();
-        if (tabgroup) {
-          mDocGroup = tabgroup->AddDocument(docGroupKey, this);
+        nsPIDOMWindowOuter* window = mDocumentContainer->GetWindow();
+        if (window) {
+          TabGroup* tabgroup = window->MaybeTabGroup();
+          if (tabgroup) {
+            mDocGroup = tabgroup->AddDocument(docGroupKey, this);
+          }
         }
       }
     }
@@ -12021,7 +12024,11 @@ void Document::FlushPendingLinkUpdates() {
 
 already_AddRefed<Document> Document::CreateStaticClone(
     nsIDocShell* aCloneContainer) {
+  MOZ_ASSERT(!mCreatingStaticClone);
+  MOZ_ASSERT(!GetProperty(nsGkAtoms::adoptedsheetclones));
   mCreatingStaticClone = true;
+  SetProperty(nsGkAtoms::adoptedsheetclones, new AdoptedStyleSheetCloneCache(),
+              nsINode::DeleteProperty<AdoptedStyleSheetCloneCache>);
 
   // Make document use different container during cloning.
   RefPtr<nsDocShell> originalShell = mDocumentContainer.get();
@@ -12091,6 +12098,7 @@ already_AddRefed<Document> Document::CreateStaticClone(
       clonedDoc->mPreloadReferrerInfo = clonedDoc->mReferrerInfo;
     }
   }
+  RemoveProperty(nsGkAtoms::adoptedsheetclones);
   mCreatingStaticClone = false;
   return clonedDoc.forget();
 }

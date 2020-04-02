@@ -18,17 +18,19 @@
     --in-content-deemphasized-text: #737373;
   }
 }
-@supports not (-moz-bool-pref("browser.in-content.dark-mode")) {
-  :host {
-    --in-content-deemphasized-text: #737373;
-  }
-}
 
 .container {
   overflow: auto;
   padding: 40px;
   box-sizing: border-box;
   height: 100%;
+  min-width: 520px;
+}
+
+@media (max-width: 830px) {
+  .container {
+    padding-inline: 20px;
+  }
 }
 
 .column {
@@ -401,14 +403,12 @@ input[name="password"] {
   }
 }
 
-@supports -moz-bool-pref("browser.in-content.dark-mode") {
-  @media (prefers-color-scheme: dark) {
-    :host {
-      --reveal-checkbox-opacity: .8;
-      --reveal-checkbox-opacity-hover: 1;
-      --reveal-checkbox-opacity-active: .6;
-      --success-color: #86DE74;
-      --edit-delete-button-color: #cfcfd1;
-    }
+@media (prefers-color-scheme: dark) {
+  :host {
+    --reveal-checkbox-opacity: .8;
+    --reveal-checkbox-opacity-hover: 1;
+    --reveal-checkbox-opacity-active: .6;
+    --success-color: #86DE74;
+    --edit-delete-button-color: #cfcfd1;
   }
 }

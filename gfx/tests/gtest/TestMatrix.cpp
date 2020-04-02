@@ -10,12 +10,6 @@
 using namespace mozilla;
 using namespace mozilla::gfx;
 
-static Rect NudgedToInt(const Rect& aRect) {
-  Rect r(aRect);
-  r.NudgeToIntegers();
-  return r;
-}
-
 TEST(Matrix, TransformAndClipRect)
 {
   Rect c(100, 100, 100, 100);
@@ -35,29 +29,34 @@ TEST(Matrix, TransformAndClipRect)
   EXPECT_TRUE(m.TransformAndClipBounds(Rect(250, 50, 20, 100), c).IsEmpty());
   EXPECT_TRUE(m.TransformAndClipBounds(Rect(250, 150, 20, 100), c).IsEmpty());
 
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(50, 50, 100, 100), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(50, 50, 100, 100), c)
                   .IsEqualInterior(Rect(100, 100, 50, 50)));
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(150, 50, 100, 100), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(150, 50, 100, 100), c)
                   .IsEqualInterior(Rect(150, 100, 50, 50)));
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(150, 150, 100, 100), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(150, 150, 100, 100), c)
                   .IsEqualInterior(Rect(150, 150, 50, 50)));
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(50, 150, 100, 100), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(50, 150, 100, 100), c)
                   .IsEqualInterior(Rect(100, 150, 50, 50)));
 
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(110, 110, 80, 80), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(110, 110, 80, 80), c)
                   .IsEqualInterior(Rect(110, 110, 80, 80)));
 
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(50, 50, 200, 200), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(50, 50, 200, 200), c)
                   .IsEqualInterior(Rect(100, 100, 100, 100)));
 
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(50, 50, 200, 100), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(50, 50, 200, 100), c)
                   .IsEqualInterior(Rect(100, 100, 100, 50)));
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(50, 150, 200, 100), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(50, 150, 200, 100), c)
                   .IsEqualInterior(Rect(100, 150, 100, 50)));
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(50, 50, 100, 200), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(50, 50, 100, 200), c)
                   .IsEqualInterior(Rect(100, 100, 50, 100)));
-  EXPECT_TRUE(NudgedToInt(m.TransformAndClipBounds(Rect(150, 50, 100, 200), c))
+  EXPECT_TRUE(m.TransformAndClipBounds(Rect(150, 50, 100, 200), c)
                   .IsEqualInterior(Rect(150, 100, 50, 100)));
+
+  Matrix4x4 m2 = Matrix4x4::From2D(Matrix(22.68, 0, 0, 12, 16, 164));
+  EXPECT_TRUE(
+      m2.TransformAndClipBounds(Rect(0, 0, 100, 100), Rect(1024, 1024, 0, 0))
+          .IsEmpty());
 }
 
 TEST(Matrix4x4Flagged, Mult)
