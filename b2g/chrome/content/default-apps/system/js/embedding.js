@@ -44,10 +44,17 @@
       );
 
       // Need to return the new WebView here.
-      return null;
+      return this.createContentWindowInFrame(
+        aURI,
+        aParams,
+        aWhere,
+        aFlags,
+        aNextRemoteTabId,
+        aName
+      );
     },
 
-    // Called to open a window for window.open(url, "_blank")
+    // Open a new tab in all cases.
     createContentWindowInFrame(
       aURI,
       aParams,
