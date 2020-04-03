@@ -1052,7 +1052,7 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
                         HandleObject funOrMod, MutableHandleScript scriptp) {
   using ImmutableFlags = JSScript::ImmutableFlags;
 
-  /* NB: Keep this in sync with CopyScript. */
+  /* NB: Keep this in sync with CopyScriptImpl. */
 
   enum XDRScriptFlags {
     OwnSource = 1 << 0,
@@ -1198,18 +1198,16 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
 
     SourceExtent extent{sourceStart, sourceEnd, toStringStart,
                         toStringEnd, lineno,    column};
-    script = JSScript::New(cx, functionOrGlobal, sourceObject, extent,
-                           immutableFlags);
+
+    script = JSScript::Create(cx, functionOrGlobal, sourceObject, extent,
+                              ImmutableScriptFlags(immutableFlags));
     if (!script) {
       return xdr->fail(JS::TranscodeResult_Throw);
     }
     scriptp.set(script);
 
-    if (script->argumentsHasVarBinding()) {
-      // Call setArgumentsHasVarBinding to initialize the
-      // NeedsArgsAnalysis flag.
-      script->setArgumentsHasVarBinding();
-    }
+    // Reset the mutable flags to request arguments analysis as needed.
+    script->resetArgsUsageAnalysis();
 
     // Set the script in its function now so that inner scripts to be
     // decoded may iterate the static scope chain.
@@ -4063,7 +4061,6 @@ void JSScript::relazify(JSRuntime* rt) {
   clearFlag(ImmutableFlags::HasNonSyntacticScope);
   clearFlag(ImmutableFlags::FunctionHasExtraBodyVarScope);
   clearFlag(ImmutableFlags::NeedsFunctionEnvironmentObjects);
-  clearFlag(ImmutableFlags::AlwaysNeedsArgsObj);
 
   // We should not still be in any side-tables for the debugger or
   // code-coverage. The finalizer will not be able to clean them up once
@@ -4224,47 +4221,13 @@ void PrivateScriptData::trace(JSTracer* trc) {
   }
 }
 
-/* static */
-JSScript* JSScript::New(JSContext* cx, HandleObject functionOrGlobal,
-                        HandleScriptSourceObject sourceObject,
-                        const SourceExtent& extent, uint32_t immutableFlags) {
-  void* script = Allocate<BaseScript>(cx);
-  if (!script) {
-    return nullptr;
-  }
-
-#ifndef JS_CODEGEN_NONE
-  uint8_t* stubEntry = cx->runtime()->jitRuntime()->interpreterStub().value;
-#else
-  uint8_t* stubEntry = nullptr;
-#endif
-
-  return new (script) JSScript(stubEntry, functionOrGlobal, sourceObject,
-                               extent, immutableFlags);
-}
-
-/* static */
-JSScript* JSScript::Create(JSContext* cx, HandleObject functionOrGlobal,
-                           const ReadOnlyCompileOptions& options,
-                           HandleScriptSourceObject sourceObject,
-                           const SourceExtent& extent) {
-  return JSScript::Create(cx, functionOrGlobal, sourceObject,
-                          ImmutableScriptFlags::fromCompileOptions(options),
-                          extent);
-}
-
 /*static*/
 JSScript* JSScript::Create(JSContext* cx, js::HandleObject functionOrGlobal,
                            js::HandleScriptSourceObject sourceObject,
-                           js::ImmutableScriptFlags flags,
-                           SourceExtent extent) {
-  RootedScript script(
-      cx, JSScript::New(cx, functionOrGlobal, sourceObject, extent, flags));
-  if (!script) {
-    return nullptr;
-  }
-
-  return script;
+                           SourceExtent extent,
+                           js::ImmutableScriptFlags flags) {
+  return static_cast<JSScript*>(
+      BaseScript::New(cx, functionOrGlobal, sourceObject, extent, flags));
 }
 
 #ifdef MOZ_VTUNE
@@ -4430,12 +4393,10 @@ bool JSScript::fullyInitFromStencil(JSContext* cx,
 }
 
 void JSScript::resetArgsUsageAnalysis() {
-  bool alwaysNeedsArgsObj =
-      immutableFlags_.hasFlag(ImmutableFlags::AlwaysNeedsArgsObj);
-  MOZ_ASSERT_IF(alwaysNeedsArgsObj, argumentsHasVarBinding());
+  MOZ_ASSERT_IF(alwaysNeedsArgsObj(), argumentsHasVarBinding());
   if (argumentsHasVarBinding()) {
-    mutableFlags_.setFlag(MutableFlags::NeedsArgsObj, alwaysNeedsArgsObj);
-    mutableFlags_.setFlag(MutableFlags::NeedsArgsAnalysis, !alwaysNeedsArgsObj);
+    setFlag(MutableFlags::NeedsArgsObj, alwaysNeedsArgsObj());
+    setFlag(MutableFlags::NeedsArgsAnalysis, !alwaysNeedsArgsObj());
   }
 }
 
@@ -4908,10 +4869,10 @@ bool PrivateScriptData::Clone(JSContext* cx, HandleScript src, HandleScript dst,
   return true;
 }
 
-JSScript* js::detail::CopyScript(JSContext* cx, HandleScript src,
-                                 HandleObject functionOrGlobal,
-                                 HandleScriptSourceObject sourceObject,
-                                 MutableHandle<GCVector<Scope*>> scopes) {
+static JSScript* CopyScriptImpl(JSContext* cx, HandleScript src,
+                                HandleObject functionOrGlobal,
+                                HandleScriptSourceObject sourceObject,
+                                MutableHandle<GCVector<Scope*>> scopes) {
   if (src->treatAsRunOnce() && !src->isFunction()) {
     JS_ReportErrorASCII(cx, "No cloning toplevel run-once scripts");
     return nullptr;
@@ -4922,12 +4883,9 @@ JSScript* js::detail::CopyScript(JSContext* cx, HandleScript src,
   // Some embeddings are not careful to use ExposeObjectToActiveJS as needed.
   JS::AssertObjectIsNotGray(sourceObject);
 
-  // Create a new JSScript to fill in
-  SourceExtent extent{src->sourceStart(),   src->sourceEnd(),
-                      src->toStringStart(), src->toStringEnd(),
-                      src->lineno(),        src->column()};
-  RootedScript dst(cx, JSScript::New(cx, functionOrGlobal, sourceObject, extent,
-                                     src->immutableFlags()));
+  // Create a new JSScript to fill in.
+  RootedScript dst(cx, JSScript::Create(cx, functionOrGlobal, sourceObject,
+                                        src->extent(), src->immutableFlags()));
   if (!dst) {
     return nullptr;
   }
@@ -4935,9 +4893,8 @@ JSScript* js::detail::CopyScript(JSContext* cx, HandleScript src,
   dst->setFlag(JSScript::ImmutableFlags::HasNonSyntacticScope,
                scopes[0]->hasOnChain(ScopeKind::NonSyntactic));
 
-  if (src->argumentsHasVarBinding()) {
-    dst->setArgumentsHasVarBinding();
-  }
+  // Reset the mutable flags to request arguments analysis as needed.
+  dst->resetArgsUsageAnalysis();
 
   // Clone the PrivateScriptData into dst
   if (!PrivateScriptData::Clone(cx, src, dst, scopes)) {
@@ -4949,7 +4906,7 @@ JSScript* js::detail::CopyScript(JSContext* cx, HandleScript src,
   if (cx->zone() != src->zoneFromAnyThread()) {
     src->sharedData()->markForCrossZone(cx);
   }
-  dst->sharedData_ = src->sharedData();
+  dst->initSharedData(src->sharedData());
 
   return dst;
 }
@@ -4976,8 +4933,7 @@ JSScript* js::CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
   }
 
   RootedObject global(cx, cx->global());
-  RootedScript dst(cx,
-                   detail::CopyScript(cx, src, global, sourceObject, &scopes));
+  RootedScript dst(cx, CopyScriptImpl(cx, src, global, sourceObject, &scopes));
   if (!dst) {
     return nullptr;
   }
@@ -5029,7 +4985,7 @@ JSScript* js::CloneScriptIntoFunction(
 
   // Save flags in case we need to undo the early mutations.
   const FunctionFlags preservedFlags = fun->flags();
-  RootedScript dst(cx, detail::CopyScript(cx, src, fun, sourceObject, &scopes));
+  RootedScript dst(cx, CopyScriptImpl(cx, src, fun, sourceObject, &scopes));
   if (!dst) {
     fun->setFlags(preservedFlags);
     return nullptr;
@@ -5258,11 +5214,6 @@ Scope* JSScript::innermostScope(jsbytecode* pc) const {
   return bodyScope();
 }
 
-void BaseScript::setArgumentsHasVarBinding() {
-  setFlag(ImmutableFlags::ArgumentsHasVarBinding);
-  setFlag(MutableFlags::NeedsArgsAnalysis);
-}
-
 void JSScript::setNeedsArgsObj(bool needsArgsObj) {
   MOZ_ASSERT_IF(needsArgsObj, argumentsHasVarBinding());
   clearFlag(MutableFlags::NeedsArgsAnalysis);
@@ -5315,7 +5266,7 @@ void js::SetFrameArgumentsObject(JSContext* cx, AbstractFramePtr frame,
 /* static */
 void JSScript::argumentsOptimizationFailed(JSContext* cx, HandleScript script) {
   MOZ_ASSERT(script->isFunction());
-  MOZ_ASSERT(script->analyzedArgsUsage());
+  MOZ_ASSERT(!script->needsArgsAnalysis());
   MOZ_ASSERT(script->argumentsHasVarBinding());
 
   /*
@@ -5389,15 +5340,12 @@ bool JSScript::formalLivesInArgumentsObject(unsigned argSlot) {
 }
 
 /* static */
-BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
-                                      HandleFunction fun,
-                                      HandleScriptSourceObject sourceObject,
-                                      const SourceExtent& extent,
-                                      uint32_t immutableFlags) {
-  cx->check(fun);
-
-  void* res = Allocate<BaseScript>(cx);
-  if (!res) {
+BaseScript* BaseScript::New(JSContext* cx, HandleObject functionOrGlobal,
+                            HandleScriptSourceObject sourceObject,
+                            const SourceExtent& extent,
+                            uint32_t immutableFlags) {
+  void* script = Allocate<BaseScript>(cx);
+  if (!script) {
     return nullptr;
   }
 
@@ -5407,8 +5355,19 @@ BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
   uint8_t* stubEntry = nullptr;
 #endif
 
-  BaseScript* lazy = new (res)
-      BaseScript(stubEntry, fun, sourceObject, extent, immutableFlags);
+  return new (script) BaseScript(stubEntry, functionOrGlobal, sourceObject,
+                                 extent, immutableFlags);
+}
+
+/* static */
+BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
+                                      HandleFunction fun,
+                                      HandleScriptSourceObject sourceObject,
+                                      const SourceExtent& extent,
+                                      uint32_t immutableFlags) {
+  cx->check(fun);
+
+  BaseScript* lazy = New(cx, fun, sourceObject, extent, immutableFlags);
   if (!lazy) {
     return nullptr;
   }

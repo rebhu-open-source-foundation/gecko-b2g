@@ -11,10 +11,15 @@
 #include "mozilla/TextUtils.h"
 
 #include "frontend/TokenStream.h"
-#include "irregexp/RegExpParser.h"
+#ifndef ENABLE_NEW_REGEXP
+#  include "irregexp/RegExpParser.h"
+#endif
 #include "jit/InlinableNatives.h"
 #include "js/PropertySpec.h"
 #include "js/RegExpFlags.h"  // JS::RegExpFlag, JS::RegExpFlags
+#ifdef ENABLE_NEW_REGEXP
+#  include "new-regexp/RegExpAPI.h"
+#endif
 #include "util/StringBuffer.h"
 #include "util/Unicode.h"
 #include "vm/JSContext.h"
@@ -196,8 +201,12 @@ static bool CheckPatternSyntaxSlow(JSContext* cx, HandleAtom pattern,
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
   CompileOptions options(cx);
   frontend::TokenStream dummyTokenStream(cx, options, nullptr, 0, nullptr);
+#ifdef ENABLE_NEW_REGEXP
+  return irregexp::CheckPatternSyntax(cx, dummyTokenStream, pattern, flags);
+#else
   return irregexp::ParsePatternSyntax(dummyTokenStream, allocScope.alloc(),
                                       pattern, flags.unicode());
+#endif
 }
 
 static RegExpShared* CheckPatternSyntax(JSContext* cx, HandleAtom pattern,

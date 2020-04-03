@@ -5505,9 +5505,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
     RootedFunction fun(cx, funbox->function());
     RootedScript innerScript(
         cx, JSScript::Create(
-                cx, fun, compilationInfo.sourceObject,
-                ImmutableScriptFlags::fromCompileOptions(transitiveOptions),
-                funbox->extent));
+                cx, fun, compilationInfo.sourceObject, funbox->extent,
+                ImmutableScriptFlags::fromCompileOptions(transitiveOptions)));
     if (!innerScript) {
       return false;
     }
@@ -9486,7 +9485,7 @@ bool BytecodeEmitter::emitInitializeFunctionSpecialNames() {
       };
 
   // Do nothing if the function doesn't have an arguments binding.
-  if (funbox->argumentsHasLocalBinding()) {
+  if (funbox->argumentsHasVarBinding()) {
     if (!emitInitializeFunctionSpecialName(this, cx->names().arguments,
                                            JSOp::Arguments)) {
       //            [stack]

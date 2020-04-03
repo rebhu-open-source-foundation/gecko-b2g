@@ -643,7 +643,7 @@ void MDefinition::dumpLocation(GenericPrinter& out) const {
   while (rp) {
     JSScript* script = rp->block()->info().script();
     uint32_t lineno = PCToLineNumber(rp->block()->info().script(), rp->pc());
-    out.printf("  %s %s:%d\n", linkWord, script->filename(), lineno);
+    out.printf("  %s %s:%u\n", linkWord, script->filename(), lineno);
     rp = rp->caller();
     linkWord = "in";
   }
@@ -1077,10 +1077,10 @@ void MConstant::printOpcode(GenericPrinter& out) const {
       out.printf(toBoolean() ? "true" : "false");
       break;
     case MIRType::Int32:
-      out.printf("0x%x", toInt32());
+      out.printf("0x%x", uint32_t(toInt32()));
       break;
     case MIRType::Int64:
-      out.printf("0x%" PRIx64, toInt64());
+      out.printf("0x%" PRIx64, uint64_t(toInt64()));
       break;
     case MIRType::Double:
       out.printf("%.16g", toDouble());
@@ -3834,7 +3834,7 @@ void MResumePoint::dump(GenericPrinter& out) const {
   switch (mode()) {
     case MResumePoint::ResumeAt:
       if (instruction_) {
-        out.printf("At(%d)", instruction_->id());
+        out.printf("At(%u)", instruction_->id());
       } else {
         out.printf("At");
       }
@@ -5096,14 +5096,14 @@ MDefinition* MLoadSlot::foldsTo(TempAllocator& alloc) {
 #ifdef JS_JITSPEW
 void MLoadSlot::printOpcode(GenericPrinter& out) const {
   MDefinition::printOpcode(out);
-  out.printf(" %d", slot());
+  out.printf(" %u", slot());
 }
 
 void MStoreSlot::printOpcode(GenericPrinter& out) const {
   PrintOpcodeName(out, op());
   out.printf(" ");
   getOperand(0)->printName(out);
-  out.printf(" %d ", slot());
+  out.printf(" %u ", slot());
   getOperand(1)->printName(out);
 }
 #endif

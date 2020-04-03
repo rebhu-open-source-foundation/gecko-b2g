@@ -46,6 +46,9 @@
 #ifdef JS_SIMULATOR_ARM
 #  include "jit/arm/Simulator-arm.h"
 #endif
+#ifdef ENABLE_NEW_REGEXP
+#  include "new-regexp/RegExpAPI.h"
+#endif
 #include "util/DiagnosticAssertions.h"
 #include "util/DoubleToString.h"
 #include "util/NativeStack.h"
@@ -111,9 +114,17 @@ bool JSContext::init(ContextKind kind) {
   if (kind == ContextKind::MainThread) {
     TlsContext.set(this);
     currentThread_ = ThreadId::ThisThreadId();
+
+#ifdef ENABLE_NEW_REGEXP
+    isolate = irregexp::CreateIsolate(this);
+    if (!isolate) {
+      return false;
+    }
+#else
     if (!regexpStack.ref().init()) {
       return false;
     }
+#endif
 
     if (!fx.initInstance()) {
       return false;
@@ -852,7 +863,11 @@ JSContext::JSContext(JSRuntime* runtime, const JS::ContextOptions& options)
       defaultFreeOp_(this, runtime, true),
       freeUnusedMemory(false),
       jitActivation(this, nullptr),
+#ifdef ENABLE_NEW_REGEXP
+      isolate(this, nullptr),
+#else
       regexpStack(this),
+#endif
       activation_(this, nullptr),
       profilingActivation_(nullptr),
       nativeStackBase(GetNativeStackBase()),

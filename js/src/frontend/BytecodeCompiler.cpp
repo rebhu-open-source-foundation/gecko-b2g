@@ -465,8 +465,9 @@ static bool InternalCreateScript(CompilationInfo& compilationInfo,
                       compilationInfo.options.lineno,
                       compilationInfo.options.column};
   compilationInfo.script = JSScript::Create(
-      compilationInfo.cx, functionOrGlobal, compilationInfo.options,
-      compilationInfo.sourceObject, extent);
+      compilationInfo.cx, functionOrGlobal, compilationInfo.sourceObject,
+      extent,
+      ImmutableScriptFlags::fromCompileOptions(compilationInfo.options));
   return compilationInfo.script != nullptr;
 }
 
@@ -773,9 +774,10 @@ static JSScript* CompileGlobalBinASTScriptImpl(
   }
 
   SourceExtent extent(0, len, 0, len, 0, 0);
-  RootedScript script(cx,
-                      JSScript::Create(cx, cx->global(), options,
-                                       compilationInfo.sourceObject, extent));
+  RootedScript script(
+      cx,
+      JSScript::Create(cx, cx->global(), compilationInfo.sourceObject, extent,
+                       ImmutableScriptFlags::fromCompileOptions(options)));
 
   if (!script) {
     return nullptr;
@@ -935,8 +937,7 @@ static void CheckFlagsOnDelazification(uint32_t lazy, uint32_t nonLazy) {
   constexpr uint32_t NonLazyFlagsMask =
       uint32_t(BaseScript::ImmutableFlags::HasNonSyntacticScope) |
       uint32_t(BaseScript::ImmutableFlags::FunctionHasExtraBodyVarScope) |
-      uint32_t(BaseScript::ImmutableFlags::NeedsFunctionEnvironmentObjects) |
-      uint32_t(BaseScript::ImmutableFlags::AlwaysNeedsArgsObj);
+      uint32_t(BaseScript::ImmutableFlags::NeedsFunctionEnvironmentObjects);
 
   // These flags are computed for lazy scripts and may have a different
   // definition for non-lazy scripts.

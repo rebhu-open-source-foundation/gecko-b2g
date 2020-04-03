@@ -83,6 +83,8 @@
 #include "nsXPCOMCIDInternal.h"
 #include "nsXPCOMPrivate.h"
 #include "nsXULAppAPI.h"
+#include "nsIPropertyBag2.h"
+#include "nsIXULAppInfo.h"
 #include "other/CombinedStacks.h"
 #include "other/TelemetryIOInterposeObserver.h"
 #include "plstr.h"
@@ -1164,15 +1166,73 @@ TelemetryImpl::GetIsOfficialTelemetry(bool* ret) {
 // C functions with the "fog_" prefix.
 // See toolkit/components/glean/*.
 extern "C" {
-nsresult fog_init(const char* buildId, const char* appDisplayVersion, const char* channel);
+nsresult fog_init(
+    const nsACString* dataPath,
+    const nsACString* buildId,
+    const nsACString* appDisplayVersion,
+    const char* channel,
+    const nsACString* osVersion,
+    const nsACString* architecture
+);
 }
 
 static void internal_initGlean() {
+  nsAutoCString dataPath;
+  nsresult rv = Preferences::GetCString("telemetry.fog.temporary_and_just_for_testing.data_path", dataPath);
+
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't read data path preference. FOG will not be initialized");
+    return;
+  }
+
+  nsCOMPtr<nsIXULAppInfo> appInfo = do_GetService("@mozilla.org/xre/app-info;1");
+  if (!appInfo) {
+    NS_WARNING("Can't fetch app info. FOG will not be initialized.");
+    return;
+  }
+
+  nsAutoCString buildID;
+  rv = appInfo->GetAppBuildID(buildID);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't get build ID. FOG will not be initialized.");
+    return;
+  }
+
+  nsAutoCString appVersion;
+  rv = appInfo->GetVersion(appVersion);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't get app version. FOG will not be initialized.");
+    return;
+  }
+
+  nsCOMPtr<nsIPropertyBag2> infoService = do_GetService("@mozilla.org/system-info;1");
+  if (!appInfo) {
+    NS_WARNING("Can't fetch info service. FOG will not be initialized.");
+    return;
+  }
+
+  nsAutoCString osVersion;
+  rv = infoService->GetPropertyAsACString(NS_LITERAL_STRING("version"), osVersion);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't get OS version. FOG will not be initialized.");
+    return;
+  }
+
+  nsAutoCString architecture;
+  rv = infoService->GetPropertyAsACString(NS_LITERAL_STRING("arch"), architecture);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't get architecture. FOG will not be initialized.");
+    return;
+  }
+
   Unused << NS_WARN_IF(NS_FAILED(
         fog_init(
-          /* build id    */ "build-id",
-          /* app version */ "0.0a1",
-          /* channel     */ "nightly"
+          &dataPath,
+          &buildID,
+          &appVersion,
+          MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL),
+          &osVersion,
+          &architecture
         )
   ));
 }
@@ -1227,12 +1287,6 @@ already_AddRefed<nsITelemetry> TelemetryImpl::CreateTelemetryInstance() {
   // is Android but not Fennec.
   if (GetCurrentProduct() == SupportedProduct::Geckoview) {
     TelemetryGeckoViewPersistence::InitPersistence();
-  }
-#endif
-
-#if defined(MOZ_GLEAN)
-  if (XRE_IsParentProcess()) {
-    internal_initGlean();
   }
 #endif
 
@@ -1784,6 +1838,16 @@ TelemetryImpl::FlushBatchedChildTelemetry() {
 NS_IMETHODIMP
 TelemetryImpl::EarlyInit() {
   Unused << MemoryTelemetry::Get();
+
+#if defined(MOZ_GLEAN)
+  // Initialize FOG during early init, which gets called from
+  // TelemetryController.
+  // At that point we have a working preference store.
+  if (XRE_IsParentProcess()) {
+    internal_initGlean();
+  }
+#endif
+
   return NS_OK;
 }
 

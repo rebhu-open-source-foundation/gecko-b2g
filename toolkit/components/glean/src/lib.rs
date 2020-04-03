@@ -21,6 +21,7 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 
 use nserror::{nsresult, NS_OK};
+use nsstring::nsACString;
 
 use client_info::ClientInfo;
 use glean_core::Configuration;
@@ -35,33 +36,35 @@ mod core_metrics;
 /// Glean instance.
 #[no_mangle]
 pub unsafe extern "C" fn fog_init(
-    app_build: *const c_char,
-    app_display_version: *const c_char,
+    data_path: &nsACString,
+    app_build: &nsACString,
+    app_display_version: &nsACString,
     channel: *const c_char,
+    os_version: &nsACString,
+    architecture: &nsACString
 ) -> nsresult {
     log::debug!("Initializing FOG.");
 
-    let app_build = CStr::from_ptr(app_build);
-    let app_build = app_build.to_string_lossy().to_string();
-
-    let app_display_version = CStr::from_ptr(app_display_version);
-    let app_display_version = app_display_version.to_string_lossy().to_string();
+    let app_build = app_build.to_string();
+    let app_display_version = app_display_version.to_string();
 
     let channel = CStr::from_ptr(channel);
     let channel = Some(channel.to_string_lossy().to_string());
 
-    let os_version = String::from("unknown");
+    let os_version = os_version.to_string();
+    let architecture = architecture.to_string();
 
     let client_info = ClientInfo {
         app_build,
         app_display_version,
         channel,
         os_version,
+        architecture,
     };
     log::debug!("Client Info: {:#?}", client_info);
 
     let upload_enabled = static_prefs::pref!("datareporting.healthreport.uploadEnabled");
-    let data_path = "/tmp".to_string(); // need to pass in something
+    let data_path = data_path.to_string();
     let configuration = Configuration {
         upload_enabled,
         data_path,
@@ -71,6 +74,12 @@ pub unsafe extern "C" fn fog_init(
     };
 
     log::debug!("Configuration: {:#?}", configuration);
+
+    if configuration.data_path.len() > 0 {
+        if let Err(e) = api::initialize(configuration, client_info) {
+            log::error!("Failed to init FOG due to {:?}", e);
+        }
+    }
 
     NS_OK
 }

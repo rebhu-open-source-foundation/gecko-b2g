@@ -85,21 +85,6 @@ class ModuleSharedContext;
 class ScriptStencil;
 }  // namespace frontend
 
-namespace detail {
-
-// Do not call this directly! It is exposed for the friend declarations in
-// this file.
-JSScript* CopyScript(JSContext* cx, HandleScript src,
-                     HandleObject functionOrGlobal,
-                     HandleScriptSourceObject sourceObject,
-                     MutableHandle<GCVector<Scope*>> scopes);
-
-}  // namespace detail
-
-}  // namespace js
-
-namespace js {
-
 class ScriptCounts {
  public:
   typedef mozilla::Vector<PCCounts, 0, SystemAllocPolicy> PCCountsVector;
@@ -1797,6 +1782,11 @@ class BaseScript : public gc::TenuredCell {
   }
 
  public:
+  static BaseScript* New(JSContext* cx, js::HandleObject functionOrGlobal,
+                         js::HandleScriptSourceObject sourceObject,
+                         const js::SourceExtent& extent,
+                         uint32_t immutableFlags);
+
   // Create a lazy BaseScript without initializing any gc-things.
   static BaseScript* CreateRawLazy(JSContext* cx, uint32_t ngcthings,
                                    HandleFunction fun,
@@ -1961,8 +1951,6 @@ setterLevel:                                                                  \
   IMMUTABLE_FLAG_GETTER(isGenerator, IsGenerator)
   IMMUTABLE_FLAG_GETTER(isAsync, IsAsync)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(hasRest, HasRest)
-  // See FunctionBox::argumentsHasLocalBinding_ comment.
-  // N.B.: no setter -- custom logic in JSScript.
   IMMUTABLE_FLAG_GETTER(argumentsHasVarBinding, ArgumentsHasVarBinding)
   IMMUTABLE_FLAG_GETTER(isForEval, IsForEval)
   IMMUTABLE_FLAG_GETTER(isModule, IsModule)
@@ -1972,12 +1960,11 @@ setterLevel:                                                                  \
                                       ShouldDeclareArguments)
   IMMUTABLE_FLAG_GETTER(isFunction, IsFunction)
   IMMUTABLE_FLAG_GETTER_SETTER_PUBLIC(hasDirectEval, HasDirectEval)
+  IMMUTABLE_FLAG_GETTER(alwaysNeedsArgsObj, AlwaysNeedsArgsObj)
 
   MUTABLE_FLAG_GETTER_SETTER(hasRunOnce, HasRunOnce)
   MUTABLE_FLAG_GETTER_SETTER(hasBeenCloned, HasBeenCloned)
   MUTABLE_FLAG_GETTER_SETTER(hasScriptCounts, HasScriptCounts)
-  // Access the flag for whether this script has a DebugScript in its realm's
-  // map. This should only be used by the DebugScript class.
   MUTABLE_FLAG_GETTER_SETTER(hasDebugScript, HasDebugScript)
   MUTABLE_FLAG_GETTER_SETTER(allowRelazify, AllowRelazify)
   MUTABLE_FLAG_GETTER_SETTER(failedBoundsCheck, FailedBoundsCheck)
@@ -2028,8 +2015,6 @@ setterLevel:                                                                  \
     return hasModuleGoal() ? frontend::ParseGoal::Module
                            : frontend::ParseGoal::Script;
   }
-
-  void setArgumentsHasVarBinding();
 
   bool hasEnclosingScript() const { return warmUpData_.isEnclosingScript(); }
   BaseScript* enclosingScript() const {
@@ -2093,6 +2078,10 @@ setterLevel:                                                                  \
   }
 
   RuntimeScriptData* sharedData() const { return sharedData_; }
+  void initSharedData(RuntimeScriptData* data) {
+    MOZ_ASSERT(sharedData_ == nullptr);
+    sharedData_ = data;
+  }
   void freeSharedData() { sharedData_ = nullptr; }
 
   // NOTE: Script only has bytecode if JSScript::fullyInitFromStencil completes
@@ -2213,28 +2202,14 @@ class JSScript : public js::BaseScript {
       JSContext* cx, js::HandleScript script,
       const js::frontend::ScriptStencil& stencil);
 
-  friend JSScript* js::detail::CopyScript(
-      JSContext* cx, js::HandleScript src, js::HandleObject functionOrGlobal,
-      js::HandleScriptSourceObject sourceObject,
-      js::MutableHandle<JS::GCVector<js::Scope*>> scopes);
-
  private:
   using js::BaseScript::BaseScript;
 
-  static JSScript* New(JSContext* cx, js::HandleObject functionOrGlobal,
-                       js::HandleScriptSourceObject sourceObject,
-                       const js::SourceExtent& extent, uint32_t immutableFlags);
-
  public:
   static JSScript* Create(JSContext* cx, js::HandleObject functionOrGlobal,
-                          const JS::ReadOnlyCompileOptions& options,
                           js::HandleScriptSourceObject sourceObject,
-                          const js::SourceExtent& extent);
-
-  static JSScript* Create(JSContext* cx, js::HandleObject functionOrGlobal,
-                          js::HandleScriptSourceObject sourceObject,
-                          js::ImmutableScriptFlags flags,
-                          js::SourceExtent extent);
+                          js::SourceExtent extent,
+                          js::ImmutableScriptFlags flags);
 
   // NOTE: This should only be used while delazifying.
   static JSScript* CastFromLazy(js::BaseScript* lazy) {
@@ -2396,21 +2371,18 @@ class JSScript : public js::BaseScript {
   }
 
   /*
-   * As an optimization, even when argsHasLocalBinding, the function prologue
-   * may not need to create an arguments object. This is determined by
+   * As an optimization, even when argumentsHasVarBinding, the function
+   * prologue may not need to create an arguments object. This is determined by
    * needsArgsObj which is set by AnalyzeArgumentsUsage. When !needsArgsObj,
    * the prologue may simply write MagicValue(JS_OPTIMIZED_ARGUMENTS) to
-   * 'arguments's slot and any uses of 'arguments' will be guaranteed to
-   * handle this magic value. To avoid spurious arguments object creation, we
-   * maintain the invariant that needsArgsObj is only called after the script
-   * has been analyzed.
+   * 'arguments's slot and any uses of 'arguments' will be guaranteed to handle
+   * this magic value. To avoid spurious arguments object creation, we maintain
+   * the invariant that needsArgsObj is only called after the script has been
+   * analyzed.
    */
-  bool analyzedArgsUsage() const {
-    return !hasFlag(MutableFlags::NeedsArgsAnalysis);
-  }
   inline bool ensureHasAnalyzedArgsUsage(JSContext* cx);
   bool needsArgsObj() const {
-    MOZ_ASSERT(analyzedArgsUsage());
+    MOZ_ASSERT(!needsArgsAnalysis());
     return hasFlag(MutableFlags::NeedsArgsObj);
   }
   void setNeedsArgsObj(bool needsArgsObj);

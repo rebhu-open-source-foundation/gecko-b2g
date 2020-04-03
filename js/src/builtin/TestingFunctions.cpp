@@ -36,9 +36,11 @@
 #include "builtin/SelfHostingDefines.h"
 #ifdef DEBUG
 #  include "frontend/TokenStream.h"
-#  include "irregexp/RegExpAST.h"
-#  include "irregexp/RegExpEngine.h"
-#  include "irregexp/RegExpParser.h"
+#  ifndef ENABLE_NEW_REGEP
+#    include "irregexp/RegExpAST.h"
+#    include "irregexp/RegExpEngine.h"
+#    include "irregexp/RegExpParser.h"
+#  endif
 #endif
 #include "gc/Allocator.h"
 #include "gc/Zone.h"
@@ -2236,14 +2238,14 @@ bool RunIterativeFailureTest(JSContext* cx,
   for (unsigned thread = params.threadStart; thread <= params.threadEnd;
        thread++) {
     if (params.verbose) {
-      fprintf(stderr, "thread %d\n", thread);
+      fprintf(stderr, "thread %u\n", thread);
     }
 
     unsigned iteration = 1;
     bool failureWasSimulated;
     do {
       if (params.verbose) {
-        fprintf(stderr, "  iteration %d\n", iteration);
+        fprintf(stderr, "  iteration %u\n", iteration);
       }
 
       MOZ_ASSERT(!cx->isExceptionPending());
@@ -2307,7 +2309,7 @@ bool RunIterativeFailureTest(JSContext* cx,
     } while (failureWasSimulated);
 
     if (params.verbose) {
-      fprintf(stderr, "  finished after %d iterations\n", iteration - 1);
+      fprintf(stderr, "  finished after %u iterations\n", iteration - 1);
       if (!exception.isUndefined()) {
         RootedString str(cx, JS::ToString(cx, exception));
         if (!str) {
@@ -5019,7 +5021,7 @@ static bool GetModuleEnvironmentValue(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(ENABLE_NEW_REGEXP)
 static const char* AssertionTypeToString(
     irregexp::RegExpAssertion::AssertionType type) {
   switch (type) {
@@ -5431,7 +5433,7 @@ static bool DisRegExp(JSContext* cx, unsigned argc, Value* vp) {
   args.rval().setUndefined();
   return true;
 }
-#endif  // DEBUG
+#endif  // DEBUG && !ENABLE_NEW_REGEXP
 
 static bool GetTimeZone(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -7153,7 +7155,7 @@ gc::ZealModeHelpText),
 
 // clang-format off
 static const JSFunctionSpecWithHelp FuzzingUnsafeTestingFunctions[] = {
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(ENABLE_NEW_REGEXP)
     JS_FN_HELP("parseRegExp", ParseRegExp, 3, 0,
 "parseRegExp(pattern[, flags[, match_only])",
 "  Parses a RegExp pattern and returns a tree, potentially throwing."),

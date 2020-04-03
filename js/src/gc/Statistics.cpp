@@ -339,12 +339,12 @@ UniqueChars Statistics::formatCompactSummaryMessage() const {
   SprintfLiteral(buffer,
                  "Zones: %d of %d (-%d); Compartments: %d of %d (-%d); "
                  "HeapSize: %.3f MiB; "
-                 "HeapChange (abs): %+d (%d); ",
+                 "HeapChange (abs): %+d (%u); ",
                  zoneStats.collectedZoneCount, zoneStats.zoneCount,
                  zoneStats.sweptZoneCount, zoneStats.collectedCompartmentCount,
                  zoneStats.compartmentCount, zoneStats.sweptCompartmentCount,
                  double(preTotalHeapBytes) / bytesPerMiB,
-                 counts[COUNT_NEW_CHUNK] - counts[COUNT_DESTROY_CHUNK],
+                 int32_t(counts[COUNT_NEW_CHUNK] - counts[COUNT_DESTROY_CHUNK]),
                  counts[COUNT_NEW_CHUNK] + counts[COUNT_DESTROY_CHUNK]);
   if (!fragments.append(DuplicateString(buffer))) {
     return UniqueChars(nullptr);

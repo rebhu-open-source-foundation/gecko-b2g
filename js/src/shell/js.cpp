@@ -3059,7 +3059,7 @@ static MOZ_MUST_USE bool SrcNotes(JSContext* cx, HandleScript script,
 
       case SrcNoteType::ColSpan:
         colspan = SrcNote::ColSpan::getSpan(sn);
-        if (!sp->jsprintf("%d", colspan)) {
+        if (!sp->jsprintf("%u", colspan)) {
           return false;
         }
         break;
@@ -10635,7 +10635,10 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   if (op.getBoolOption("no-ti")) {
     jit::JitOptions.typeInference = false;
   }
-  if (op.getBoolOption("warp")) {
+  if (op.getBoolOption("no-warp")) {
+    MOZ_ASSERT(!jit::JitOptions.warpBuilder,
+               "WarpBuilder is disabled by default");
+  } else if (op.getBoolOption("warp")) {
     // WarpBuilder requires TI to be disabled.
     jit::JitOptions.typeInference = false;
     jit::JitOptions.warpBuilder = true;
@@ -11164,6 +11167,7 @@ int main(int argc, char** argv, char** envp) {
       !op.addBoolOption('\0', "no-ti", "Disable Type Inference") ||
       !op.addBoolOption('\0', "warp", "Use WarpBuilder as MIR builder") ||
 #endif
+      !op.addBoolOption('\0', "no-warp", "Disable WarpBuilder (default)") ||
       !op.addBoolOption('\0', "no-asmjs", "Disable asm.js compilation") ||
       !op.addStringOption(
           '\0', "wasm-compiler", "[option]",
