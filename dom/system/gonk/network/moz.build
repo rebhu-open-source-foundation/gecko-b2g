@@ -16,6 +16,10 @@ XPCOM_MANIFESTS += [
     'components.conf',
 ]
 
+EXPORTS += [
+    'NetworkWorker.h',
+]
+
 XPIDL_SOURCES += [
     'nsINat464XlatInfo.idl',
     'nsINetworkInterface.idl',

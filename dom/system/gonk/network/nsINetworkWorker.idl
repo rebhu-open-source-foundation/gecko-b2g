@@ -16,3 +16,9 @@ interface nsINetworkWorker : nsISupports {
   [implicit_jscontext]
   void postMessage(in jsval options);
 };
+
+%{C++
+#define NS_NETWORKWORKER_CID \
+  {0x6df093e1, 0x8127, 0x4fa7, {0x90, 0x13, 0xa3, 0xaa, 0xa7, 0x79, 0xbb, 0xdd}}
+#define NS_NETWORKWORKER_CONTRACTID "@mozilla.org/network/worker;1"
+%}

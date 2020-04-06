@@ -13,13 +13,6 @@
 #include "nsXULAppAPI.h"
 #include "nsAutoPtr.h"
 
-#define NS_NETWORKWORKER_CID                         \
-  {                                                  \
-    0x6df093e1, 0x8127, 0x4fa7, {                    \
-      0x90, 0x13, 0xa3, 0xaa, 0xa7, 0x79, 0xbb, 0xdd \
-    }                                                \
-  }
-
 using namespace mozilla;
 using namespace mozilla::dom;
 
@@ -166,20 +159,4 @@ void NetworkWorker::NotifyResult(NetworkResultOptions& aResult) {
   NS_DispatchToMainThread(runnable);
 }
 
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(NetworkWorker,
-                                         NetworkWorker::FactoryCreate)
-
 }  // namespace mozilla
-
-NS_DEFINE_NAMED_CID(NS_NETWORKWORKER_CID);
-
-static const mozilla::Module::CIDEntry kNetworkWorkerCIDs[] = {
-    {&kNS_NETWORKWORKER_CID, false, nullptr, NetworkWorkerConstructor},
-    {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kNetworkWorkerContracts[] = {
-    {"@mozilla.org/network/worker;1", &kNS_NETWORKWORKER_CID}, {nullptr}};
-
-extern const mozilla::Module kNetworkWorkerModule = {
-    mozilla::Module::kVersion, kNetworkWorkerCIDs, kNetworkWorkerContracts,
-    nullptr};

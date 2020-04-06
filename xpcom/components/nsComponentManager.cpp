@@ -362,7 +362,6 @@ extern const mozilla::Module kGaiaChromeModule;
 #if defined(MOZ_B2G_RIL)
 extern const mozilla::Module kRilWorkerServiceModule;
 #endif
-extern const mozilla::Module kNetworkWorkerModule;
 extern const mozilla::Module kAudioManagerModule;
 #ifdef HAS_KOOST_MODULES
 extern const mozilla::Module kDhcpServiceModule;
@@ -463,7 +462,6 @@ nsresult nsComponentManagerImpl::Init() {
 #if defined(MOZ_B2G_RIL)
   RegisterModule(&kRilWorkerServiceModule);
 #endif
-  RegisterModule(&kNetworkWorkerModule);
   RegisterModule(&kAudioManagerModule);
 #ifdef HAS_KOOST_MODULES
   RegisterModule(&kDhcpServiceModule);
