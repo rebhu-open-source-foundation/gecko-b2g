@@ -299,11 +299,14 @@ Result_t SupplicantStaManager::SetBtCoexistenceScanMode(bool aEnable) {
 
 // Helper function to find any iface of the desired type exposed.
 Result_t SupplicantStaManager::FindIfaceOfType(
-    android::sp<ISupplicant> aSupplicant,
     SupplicantNameSpace::IfaceType aDesired, ISupplicant::IfaceInfo* aInfo) {
+  if (mSupplicant == nullptr) {
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
   SupplicantStatus response;
   std::vector<ISupplicant::IfaceInfo> iface_infos;
-  aSupplicant->listInterfaces([&](const SupplicantStatus& status,
+  mSupplicant->listInterfaces([&](const SupplicantStatus& status,
                                   hidl_vec<ISupplicant::IfaceInfo> infos) {
     response = status;
     iface_infos = infos;
@@ -335,7 +338,8 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::GetSupplicantStaIface() {
     return nullptr;
   }
   ISupplicant::IfaceInfo info;
-  if (!FindIfaceOfType(mSupplicant, SupplicantNameSpace::IfaceType::STA, &info)) {
+  if (FindIfaceOfType(SupplicantNameSpace::IfaceType::STA, &info) !=
+      nsIWifiResult::SUCCESS) {
     return nullptr;
   }
 
@@ -371,10 +375,20 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::AddSupplicantStaIface() {
 
   SupplicantStatus response;
   ISupplicant::IfaceInfo info;
+  if (FindIfaceOfType(SupplicantNameSpace::IfaceType::STA, &info) ==
+      nsIWifiResult::SUCCESS) {
+    // STA interface already exist, remove it to add a new one
+    mSupplicant->removeInterface(
+        info, [&](const SupplicantStatus& status) { response = status; });
+
+    if (response.code != SupplicantStatusCode::SUCCESS) {
+      WIFI_LOGE(LOG_TAG, "Failed to remove exist STA interface");
+    }
+  }
+
   info.name = mStaInterfaceName;
   info.type = SupplicantNameSpace::IfaceType::STA;
   android::sp<ISupplicantStaIface> staIface;
-
   mSupplicant->addInterface(
       info, [&](const SupplicantStatus& status,
                 const android::sp<ISupplicantIface>& iface) {
@@ -523,7 +537,8 @@ android::sp<ISupplicantP2pIface> SupplicantStaManager::GetSupplicantP2pIface() {
     return nullptr;
   }
   ISupplicant::IfaceInfo info;
-  if (!FindIfaceOfType(mSupplicant, SupplicantNameSpace::IfaceType::P2P, &info)) {
+  if (FindIfaceOfType(SupplicantNameSpace::IfaceType::P2P, &info) !=
+      nsIWifiResult::SUCCESS) {
     return nullptr;
   }
   SupplicantStatus response;

@@ -307,8 +307,7 @@ class SupplicantStaManager
   android::sp<ISupplicantStaIface> GetSupplicantStaIface();
   android::sp<ISupplicantStaIface> AddSupplicantStaIface();
   android::sp<ISupplicantP2pIface> GetSupplicantP2pIface();
-  Result_t FindIfaceOfType(android::sp<ISupplicant> aSupplicant,
-                           SupplicantNameSpace::IfaceType aDesired,
+  Result_t FindIfaceOfType(SupplicantNameSpace::IfaceType aDesired,
                            ISupplicant::IfaceInfo* aInfo);
 
   void supplicantServiceDiedHandler(int32_t aCookie);

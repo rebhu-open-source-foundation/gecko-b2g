@@ -226,7 +226,12 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.startSoftap = function(config, callback) {
-    doSetCommand(WIFI_CMD_START_SOFTAP, "softapConfig", config, callback);
+    let msg = {
+      cmd: WIFI_CMD_START_SOFTAP,
+      iface: aInterface,
+      softapConfig: config,
+    };
+    aControlMessage(msg, callback);
   };
 
   command.stopSoftap = function(callback) {

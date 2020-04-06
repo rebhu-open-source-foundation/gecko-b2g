@@ -1799,7 +1799,7 @@ var WifiManager = (function() {
       debug("softap configuration -> " + uneval(configuration));
       manager.tetheringState = "INITIALIZING";
       wifiCommand.startSoftap(configuration, function(result) {
-        if (result != SUCCESS) {
+        if (result.status != SUCCESS) {
           callback(false);
           manager.tetheringState = "UNINITIALIZED";
           // TODO: clean up

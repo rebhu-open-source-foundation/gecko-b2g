@@ -184,6 +184,10 @@ Result_t SoftapManager::StartSoftap(const std::string& aInterfaceName,
   if (mHostapd == nullptr) {
     return InitHostapdInterface();
   }
+
+  // Remove running softap in hostapd
+  StopSoftap(aInterfaceName);
+
   IHostapd::IfaceParams ifaceParams;
   IHostapd::NetworkParams networkParams;
 
