@@ -133,9 +133,9 @@ void SystemMessageService::DoSubscribe(uint64_t aID,
                                        const nsACString& aOriginSuffix,
                                        nsISystemMessageListener* aListener) {
   SubscriberTable* table = mSubscribers.LookupOrAdd(aMessageName);
-  nsAutoPtr<SubscriberInfo> info(
+  UniquePtr<SubscriberInfo> info(
       new SubscriberInfo(aID, aScope, aOriginSuffix));
-  table->Put(aOrigin, info.forget());
+  table->Put(aOrigin, std::move(info));
   aListener->OnSubscribe(NS_OK);
 
   return;

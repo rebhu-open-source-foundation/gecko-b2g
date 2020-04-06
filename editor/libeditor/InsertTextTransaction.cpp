@@ -45,17 +45,16 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(InsertTextTransaction)
   NS_INTERFACE_MAP_ENTRY_CONCRETE(InsertTextTransaction)
 NS_INTERFACE_MAP_END_INHERITING(EditTransactionBase)
 
-MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
-InsertTextTransaction::DoTransaction() {
+NS_IMETHODIMP InsertTextTransaction::DoTransaction() {
   if (NS_WARN_IF(!mEditorBase) || NS_WARN_IF(!mTextNode)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  RefPtr<EditorBase> editorBase = mEditorBase;
-  RefPtr<Text> textNode = mTextNode;
+  OwningNonNull<EditorBase> editorBase = *mEditorBase;
+  OwningNonNull<Text> textNode = *mTextNode;
 
   ErrorResult error;
-  editorBase->DoInsertText(*textNode, mOffset, mStringToInsert, error);
+  editorBase->DoInsertText(textNode, mOffset, mStringToInsert, error);
   if (error.Failed()) {
     NS_WARNING("EditorBase::DoInsertText() failed");
     return error.StealNSResult();
@@ -76,21 +75,20 @@ InsertTextTransaction::DoTransaction() {
   }
   // XXX Other transactions do not do this but its callers do.
   //     Why do this transaction do this by itself?
-  editorBase->RangeUpdaterRef().SelAdjInsertText(*textNode, mOffset,
+  editorBase->RangeUpdaterRef().SelAdjInsertText(textNode, mOffset,
                                                  mStringToInsert);
 
   return NS_OK;
 }
 
-MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
-InsertTextTransaction::UndoTransaction() {
+NS_IMETHODIMP InsertTextTransaction::UndoTransaction() {
   if (NS_WARN_IF(!mEditorBase) || NS_WARN_IF(!mTextNode)) {
     return NS_ERROR_NOT_INITIALIZED;
   }
-  RefPtr<EditorBase> editorBase = mEditorBase;
-  RefPtr<Text> textNode = mTextNode;
+  OwningNonNull<EditorBase> editorBase = *mEditorBase;
+  OwningNonNull<Text> textNode = *mTextNode;
   ErrorResult error;
-  editorBase->DoDeleteText(*textNode, mOffset, mStringToInsert.Length(), error);
+  editorBase->DoDeleteText(textNode, mOffset, mStringToInsert.Length(), error);
   NS_WARNING_ASSERTION(!error.Failed(), "EditorBase::DoDeleteText() failed");
   return error.StealNSResult();
 }

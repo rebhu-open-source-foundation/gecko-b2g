@@ -97,9 +97,8 @@ bool DeleteTextTransaction::CanDoIt() const {
   return mEditorBase->IsModifiableNode(*mTextNode);
 }
 
-MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
-DeleteTextTransaction::DoTransaction() {
-  if (NS_WARN_IF(!mEditorBase) || NS_WARN_IF(!mTextNode)) {
+NS_IMETHODIMP DeleteTextTransaction::DoTransaction() {
+  if (NS_WARN_IF(!CanDoIt())) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -111,16 +110,16 @@ DeleteTextTransaction::DoTransaction() {
     return error.StealNSResult();
   }
 
-  RefPtr<EditorBase> editorBase = mEditorBase;
-  RefPtr<Text> textNode = mTextNode;
-  editorBase->DoDeleteText(*textNode, mOffset, mLengthToDelete, error);
+  OwningNonNull<EditorBase> editorBase = *mEditorBase;
+  OwningNonNull<Text> textNode = *mTextNode;
+  editorBase->DoDeleteText(textNode, mOffset, mLengthToDelete, error);
   if (error.Failed()) {
     NS_WARNING("EditorBase::DoDeleteText() failed");
     return error.StealNSResult();
   }
 
   DebugOnly<nsresult> rvIgnored =
-      editorBase->RangeUpdaterRef().SelAdjDeleteText(*textNode, mOffset,
+      editorBase->RangeUpdaterRef().SelAdjDeleteText(textNode, mOffset,
                                                      mLengthToDelete);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
                        "RangeUpdater::SelAdjDeleteText() failed, but ignored");
@@ -140,10 +139,9 @@ DeleteTextTransaction::DoTransaction() {
 
 // XXX: We may want to store the selection state and restore it properly.  Was
 //     it an insertion point or an extended selection?
-MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
-DeleteTextTransaction::UndoTransaction() {
-  if (NS_WARN_IF(!mTextNode) || NS_WARN_IF(!mEditorBase)) {
-    return NS_ERROR_NOT_INITIALIZED;
+NS_IMETHODIMP DeleteTextTransaction::UndoTransaction() {
+  if (NS_WARN_IF(!CanDoIt())) {
+    return NS_ERROR_NOT_AVAILABLE;
   }
   RefPtr<EditorBase> editorBase = mEditorBase;
   RefPtr<Text> textNode = mTextNode;

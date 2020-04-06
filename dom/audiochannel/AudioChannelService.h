@@ -7,7 +7,6 @@
 #ifndef mozilla_dom_audiochannelservice_h__
 #define mozilla_dom_audiochannelservice_h__
 
-#include "nsAutoPtr.h"
 #include "nsIObserver.h"
 #include "nsTObserverArray.h"
 #include "nsTArray.h"
@@ -16,6 +15,7 @@
 #include "nsAttrValue.h"
 #include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/Logging.h"
+#include "mozilla/UniquePtr.h"
 
 #include <functional>
 
@@ -345,13 +345,13 @@ class AudioChannelService final : public nsIObserver {
     bool mActiveContentOrNormalChannel;
   };
 
-  AudioChannelChildStatus* GetChildStatus(uint64_t aChildID) const;
+  UniquePtr<AudioChannelChildStatus> GetChildStatus(uint64_t aChildID) const;
 
   void RemoveChildStatus(uint64_t aChildID);
 
-  nsTObserverArray<nsAutoPtr<AudioChannelWindow>> mWindows;
+  nsTObserverArray<UniquePtr<AudioChannelWindow>> mWindows;
 
-  nsTObserverArray<nsAutoPtr<AudioChannelChildStatus>> mPlayingChildren;
+  nsTObserverArray<UniquePtr<AudioChannelChildStatus>> mPlayingChildren;
 
   // Raw pointers because BrowserParents must unregister themselves.
   nsTArray<BrowserParent*> mBrowserParents;

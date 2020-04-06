@@ -908,7 +908,7 @@ nsresult ContentChild::ProvideWindowCommon(
     bool* aWindowIsNew, BrowsingContext** aReturn) {
   *aReturn = nullptr;
 
-  nsAutoPtr<IPCTabContext> ipcContext;
+  UniquePtr<IPCTabContext> ipcContext;
   TabId openerTabId = TabId(0);
   nsAutoCString features(aFeatures);
   nsAutoString name(aName);
@@ -992,12 +992,12 @@ nsresult ContentChild::ProvideWindowCommon(
     openerTabId = aTabOpener->GetTabId();
     context.opener() = openerTabId;
     context.isMozBrowserElement() = aTabOpener->IsMozBrowserElement();
-    ipcContext = new IPCTabContext(context);
+    ipcContext = MakeUnique<IPCTabContext>(context);
   } else {
     // It's possible to not have a BrowserChild opener in the case
     // of ServiceWorker::OpenWindow.
     UnsafeIPCTabContext unsafeTabContext;
-    ipcContext = new IPCTabContext(unsafeTabContext);
+    ipcContext = MakeUnique<IPCTabContext>(unsafeTabContext);
   }
 
   MOZ_ASSERT(ipcContext);
@@ -1227,7 +1227,8 @@ nsresult ContentChild::ProvideWindowCommon(
       return rv;
     }
 
-    SendCreateWindow(aTabOpener, newChild, aChromeFlags, aCalledFromJS, aWidthSpecified, aURI, features, fullZoom,
+    SendCreateWindow(aTabOpener, newChild, aChromeFlags, aCalledFromJS,
+                     aWidthSpecified, aURI, features, fullZoom,
                      Principal(triggeringPrincipal), csp, referrerInfo,
                      std::move(resolve), std::move(reject));
   }
@@ -2624,7 +2625,7 @@ mozilla::ipc::IPCResult ContentChild::RecvNotifyAlertsObserver(
     const nsCString& aType, const nsString& aData) {
   for (uint32_t i = 0; i < mAlertObservers.Length();
        /*we mutate the array during the loop; ++i iff no mutation*/) {
-    AlertObserver* observer = mAlertObservers[i];
+    const auto& observer = mAlertObservers[i];
     if (observer->Observes(aData) && observer->Notify(aType)) {
       // if aType == alertfinished, this alert is done.  we can
       // remove the observer.

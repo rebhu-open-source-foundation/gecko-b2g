@@ -348,7 +348,7 @@ NS_IMETHODIMP HTMLEditor::NotifySelectionChanged(Document* aDocument,
 
   if (mTypeInState) {
     RefPtr<TypeInState> typeInState = mTypeInState;
-    typeInState->OnSelectionChange(*aSelection);
+    typeInState->OnSelectionChange(*aSelection, aReason);
 
     // We used a class which derived from nsISelectionListener to call
     // HTMLEditor::RefreshEditingUI().  The lifetime of the class was
@@ -2012,10 +2012,6 @@ NS_IMETHODIMP HTMLEditor::GetParagraphState(bool* aMixed,
   }
   if (!mInitSucceeded) {
     return NS_ERROR_NOT_INITIALIZED;
-  }
-
-  if (NS_WARN_IF(IsSelectionRangeContainerNotContent())) {
-    return NS_ERROR_FAILURE;
   }
 
   ErrorResult error;
@@ -5186,7 +5182,7 @@ void HTMLEditor::NotifyRootChanged() {
   // new root.  Otherwise, that is going to be done when this gets focus.
   nsCOMPtr<nsINode> node = GetFocusedNode();
   if (node) {
-    DebugOnly<nsresult> rvIgnored = InitializeSelection(node);
+    DebugOnly<nsresult> rvIgnored = InitializeSelection(*node);
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rvIgnored),
         "EditorBase::InitializeSelection() failed, but ignored");

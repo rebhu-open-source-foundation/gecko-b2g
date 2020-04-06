@@ -360,7 +360,7 @@ nsresult EditorBase::PostCreate() {
   // update nsTextStateManager and caret if we have focus
   nsCOMPtr<nsIContent> focusedContent = GetFocusedContent();
   if (focusedContent) {
-    DebugOnly<nsresult> rvIgnored = InitializeSelection(focusedContent);
+    DebugOnly<nsresult> rvIgnored = InitializeSelection(*focusedContent);
     NS_WARNING_ASSERTION(
         NS_SUCCEEDED(rvIgnored),
         "EditorBase::InitializeSelection() failed, but ignored");
@@ -1447,7 +1447,7 @@ already_AddRefed<Element> EditorBase::CreateNodeWithTransaction(
         NS_SUCCEEDED(rvIgnored),
         "Rangeupdater::SelAdjCreateNode() failed, but ignored");
   } else {
-    newElement = transaction->GetNewNode();
+    newElement = transaction->GetNewElement();
     MOZ_ASSERT(newElement);
 
     // If we succeeded to create and insert new element, we need to adjust
@@ -1667,32 +1667,33 @@ already_AddRefed<nsIContent> EditorBase::SplitNodeWithTransaction(
   NS_WARNING_ASSERTION(!aError.Failed(),
                        "EditorBase::DoTransactionInternal() failed");
 
-  nsCOMPtr<nsIContent> newContent = transaction->GetNewNode();
-  NS_WARNING_ASSERTION(newContent, "Failed to create a new left node");
+  nsCOMPtr<nsIContent> newLeftContent = transaction->GetNewLeftContent();
+  NS_WARNING_ASSERTION(newLeftContent, "Failed to create a new left node");
 
-  if (newContent) {
+  if (newLeftContent) {
     // XXX Some other transactions manage range updater by themselves.
     //     Why doesn't SplitNodeTransaction do it?
     DebugOnly<nsresult> rvIgnored = RangeUpdaterRef().SelAdjSplitNode(
-        *aStartOfRightNode.GetContainerAsContent(), *newContent);
+        *aStartOfRightNode.GetContainerAsContent(), *newLeftContent);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
                          "RangeUpdater::SelAdjSplitNode() failed, but ignored");
   }
-  if (AsHTMLEditor() && newContent) {
+  if (AsHTMLEditor() && newLeftContent) {
     TopLevelEditSubActionDataRef().DidSplitContent(
-        *this, *aStartOfRightNode.GetContainerAsContent(), *newContent);
+        *this, *aStartOfRightNode.GetContainerAsContent(), *newLeftContent);
   }
 
   if (mInlineSpellChecker) {
     RefPtr<mozInlineSpellChecker> spellChecker = mInlineSpellChecker;
-    spellChecker->DidSplitNode(aStartOfRightNode.GetContainer(), newContent);
+    spellChecker->DidSplitNode(aStartOfRightNode.GetContainer(),
+                               newLeftContent);
   }
 
   if (!mActionListeners.IsEmpty()) {
     AutoActionListenerArray listeners(mActionListeners);
     for (auto& listener : listeners) {
-      DebugOnly<nsresult> rvIgnored =
-          listener->DidSplitNode(aStartOfRightNode.GetContainer(), newContent);
+      DebugOnly<nsresult> rvIgnored = listener->DidSplitNode(
+          aStartOfRightNode.GetContainer(), newLeftContent);
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
           "nsIEditActionListener::DidSplitNode() failed, but ignored");
@@ -1703,7 +1704,7 @@ already_AddRefed<nsIContent> EditorBase::SplitNodeWithTransaction(
     return nullptr;
   }
 
-  return newContent.forget();
+  return newLeftContent.forget();
 }
 
 nsresult EditorBase::JoinNodesWithTransaction(nsINode& aLeftNode,
@@ -1736,8 +1737,8 @@ nsresult EditorBase::JoinNodesWithTransaction(nsINode& aLeftNode,
         *this, *aLeftNode.AsContent(), *aRightNode.AsContent());
   }
 
-  RefPtr<JoinNodeTransaction> transaction =
-      JoinNodeTransaction::MaybeCreate(*this, aLeftNode, aRightNode);
+  RefPtr<JoinNodeTransaction> transaction = JoinNodeTransaction::MaybeCreate(
+      *this, *aLeftNode.AsContent(), *aRightNode.AsContent());
   NS_WARNING_ASSERTION(
       transaction, "JoinNodeTransaction::MaybeCreate() failed, but ignored");
 
@@ -1825,7 +1826,7 @@ nsresult EditorBase::DeleteNodeWithTransaction(nsINode& aNode) {
   // FYI: DeleteNodeTransaction grabs aNode while it's alive.  So, it's safe
   //      to refer aNode even after calling DoTransaction().
   RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-      DeleteNodeTransaction::MaybeCreate(*this, aNode);
+      DeleteNodeTransaction::MaybeCreate(*this, *aNode.AsContent());
   NS_WARNING_ASSERTION(deleteNodeTransaction,
                        "DeleteNodeTransaction::MaybeCreate() failed");
   nsresult rv;
@@ -4797,49 +4798,50 @@ already_AddRefed<EditTransactionBase> EditorBase::CreateTxnForDeleteRange(
 
   // we're either deleting a node or chardata, need to dig into the next/prev
   // node to find out
-  nsCOMPtr<nsINode> selectedNode;
+  nsCOMPtr<nsIContent> selectedContent;
   if (aAction == ePrevious) {
-    selectedNode =
+    selectedContent =
         GetPreviousEditableNode(EditorRawDOMPoint(node, child, offset));
   } else if (aAction == eNext) {
-    selectedNode = GetNextEditableNode(EditorRawDOMPoint(node, child, offset));
+    selectedContent =
+        GetNextEditableNode(EditorRawDOMPoint(node, child, offset));
   }
 
-  while (selectedNode && selectedNode->IsCharacterData() &&
-         !selectedNode->Length()) {
+  while (selectedContent && selectedContent->IsCharacterData() &&
+         !selectedContent->Length()) {
     // Can't delete an empty chardata node (bug 762183)
     if (aAction == ePrevious) {
-      selectedNode = GetPreviousEditableNode(*selectedNode);
+      selectedContent = GetPreviousEditableNode(*selectedContent);
     } else if (aAction == eNext) {
-      selectedNode = GetNextEditableNode(*selectedNode);
+      selectedContent = GetNextEditableNode(*selectedContent);
     }
   }
 
-  if (NS_WARN_IF(!selectedNode)) {
+  if (NS_WARN_IF(!selectedContent)) {
     return nullptr;
   }
 
-  if (RefPtr<Text> selectedNodeAsText = Text::FromNode(selectedNode)) {
+  if (RefPtr<Text> selectedTextNode = Text::FromNode(selectedContent)) {
     if (NS_WARN_IF(aAction != ePrevious && aAction != eNext)) {
       return nullptr;
     }
     // we are deleting from a chardata node, so do a character deletion
     uint32_t position = 0;
     if (aAction == ePrevious) {
-      position = selectedNode->Length();
+      position = selectedTextNode->Length();
     }
     RefPtr<DeleteTextTransaction> deleteTextTransaction;
     if (aAction == ePrevious) {
       deleteTextTransaction =
           DeleteTextTransaction::MaybeCreateForPreviousCharacter(
-              *this, *selectedNodeAsText, position);
+              *this, *selectedTextNode, position);
       NS_WARNING_ASSERTION(
           deleteTextTransaction,
           "DeleteTextTransaction::MaybeCreateForPreviousCharacter() failed");
     } else {
       deleteTextTransaction =
           DeleteTextTransaction::MaybeCreateForNextCharacter(
-              *this, *selectedNodeAsText, position);
+              *this, *selectedTextNode, position);
       NS_WARNING_ASSERTION(
           deleteTextTransaction,
           "DeleteTextTransaction::MaybeCreateForNextCharacter() failed");
@@ -4849,16 +4851,18 @@ already_AddRefed<EditTransactionBase> EditorBase::CreateTxnForDeleteRange(
     }
     *aOffset = deleteTextTransaction->Offset();
     *aLength = deleteTextTransaction->LengthToDelete();
-    selectedNode.forget(aRemovingNode);
+    nsCOMPtr<nsINode> removingNode(selectedTextNode);
+    removingNode.forget(aRemovingNode);
     return deleteTextTransaction.forget();
   }
 
   RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-      DeleteNodeTransaction::MaybeCreate(*this, *selectedNode);
+      DeleteNodeTransaction::MaybeCreate(*this, *selectedContent);
   if (NS_WARN_IF(!deleteNodeTransaction)) {
     return nullptr;
   }
-  selectedNode.forget(aRemovingNode);
+  nsCOMPtr<nsINode> removingNode(selectedContent);
+  removingNode.forget(aRemovingNode);
   return deleteNodeTransaction.forget();
 }
 
@@ -5070,14 +5074,11 @@ void EditorBase::InitializeSelectionAncestorLimit(nsIContent& aAncestorLimit) {
   SelectionRefPtr()->SetAncestorLimiter(&aAncestorLimit);
 }
 
-nsresult EditorBase::InitializeSelection(EventTarget* aFocusEventTarget) {
+nsresult EditorBase::InitializeSelection(nsINode& aFocusEventTargetNode) {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  nsCOMPtr<nsINode> targetNode = do_QueryInterface(aFocusEventTarget);
-  if (NS_WARN_IF(!targetNode)) {
-    return NS_ERROR_INVALID_ARG;
-  }
-  nsCOMPtr<nsIContent> selectionRootContent = FindSelectionRoot(targetNode);
+  nsCOMPtr<nsIContent> selectionRootContent =
+      FindSelectionRoot(&aFocusEventTargetNode);
   if (!selectionRootContent) {
     return NS_OK;
   }
@@ -5109,7 +5110,8 @@ nsresult EditorBase::InitializeSelection(EventTarget* aFocusEventTarget) {
   // Also, make sure to always ignore it for designMode, since that effectively
   // overrides everything and we allow to edit stuff with
   // contenteditable="false" subtrees in such a document.
-  caret->SetIgnoreUserModify(targetNode->OwnerDoc()->HasFlag(NODE_IS_EDITABLE));
+  caret->SetIgnoreUserModify(
+      aFocusEventTargetNode.OwnerDoc()->HasFlag(NODE_IS_EDITABLE));
 
   // Init selection
   rvIgnored =
@@ -5144,15 +5146,16 @@ nsresult EditorBase::InitializeSelection(EventTarget* aFocusEventTarget) {
     EditorRawDOMPoint atStartOfFirstRange(firstRange->StartRef());
     EditorRawDOMPoint betterInsertionPoint =
         FindBetterInsertionPoint(atStartOfFirstRange);
-    Text* textNode = betterInsertionPoint.GetContainerAsText();
+    RefPtr<Text> textNode = betterInsertionPoint.GetContainerAsText();
     MOZ_ASSERT(textNode,
                "There must be text node if composition string is not empty");
     if (textNode) {
       MOZ_ASSERT(textNode->Length() >= mComposition->XPEndOffsetInTextNode(),
                  "The text node must be different from the old text node");
+      RefPtr<TextRangeArray> ranges = mComposition->GetRanges();
       DebugOnly<nsresult> rvIgnored = CompositionTransaction::SetIMESelection(
           *this, textNode, mComposition->XPOffsetInTextNode(),
-          mComposition->XPLengthInTextNode(), mComposition->GetRanges());
+          mComposition->XPLengthInTextNode(), ranges);
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
           "CompositionTransaction::SetIMESelection() failed, but ignored");
@@ -5211,7 +5214,7 @@ void EditorBase::ReinitializeSelection(Element& aElement) {
     return;
   }
 
-  OnFocus(&aElement);
+  OnFocus(aElement);
 
   // If previous focused editor turn on spellcheck and this editor doesn't
   // turn on it, spellcheck state is mismatched.  So we need to re-sync it.
@@ -5489,13 +5492,13 @@ bool EditorBase::IsAcceptableInputEvent(WidgetGUIEvent* aGUIEvent) {
   return IsActiveInDOMWindow();
 }
 
-void EditorBase::OnFocus(EventTarget* aFocusEventTarget) {
+void EditorBase::OnFocus(nsINode& aFocusEventTargetNode) {
   AutoEditActionDataSetter editActionData(*this, EditAction::eNotEditing);
   if (NS_WARN_IF(!editActionData.CanHandle())) {
     return;
   }
 
-  InitializeSelection(aFocusEventTarget);
+  InitializeSelection(aFocusEventTargetNode);
   mSpellCheckerDictionaryUpdated = false;
   if (mInlineSpellChecker && CanEnableSpellCheck()) {
     DebugOnly<nsresult> rvIgnored =

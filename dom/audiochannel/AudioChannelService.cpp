@@ -336,7 +336,7 @@ void AudioChannelService::RegisterAudioChannelAgent(AudioChannelAgent* aAgent,
   AudioChannelWindow* winData = GetWindowData(windowID);
   if (!winData) {
     winData = new AudioChannelWindow(windowID);
-    mWindows.AppendElement(winData);
+    mWindows.AppendElement(WrapUnique(winData));
   }
 
   // To make sure agent would be alive because AppendAgent() would trigger the
@@ -449,10 +449,10 @@ void AudioChannelService::AudioAudibleChanged(AudioChannelAgent* aAgent,
 }
 
 bool AudioChannelService::TelephonyChannelIsActive() {
-  nsTObserverArray<nsAutoPtr<AudioChannelWindow>>::ForwardIterator windowsIter(
+  nsTObserverArray<UniquePtr<AudioChannelWindow>>::ForwardIterator windowsIter(
       mWindows);
   while (windowsIter.HasMore()) {
-    AudioChannelWindow* next = windowsIter.GetNext();
+    auto& next = windowsIter.GetNext();
     uint32_t channel = static_cast<uint32_t>(AudioChannel::Telephony);
     if (next->mChannels[channel].mNumberOfAgents != 0 &&
         !next->mChannels[channel].mMuted) {
@@ -461,10 +461,10 @@ bool AudioChannelService::TelephonyChannelIsActive() {
   }
 
   if (XRE_IsParentProcess()) {
-    nsTObserverArray<nsAutoPtr<AudioChannelChildStatus>>::ForwardIterator
+    nsTObserverArray<UniquePtr<AudioChannelChildStatus>>::ForwardIterator
         childrenIter(mPlayingChildren);
     while (childrenIter.HasMore()) {
-      AudioChannelChildStatus* child = childrenIter.GetNext();
+      auto& child = childrenIter.GetNext();
       if (child->mActiveTelephonyChannel) {
         return true;
       }
@@ -478,10 +478,10 @@ bool AudioChannelService::ContentOrNormalChannelIsActive() {
   // This method is meant to be used just by the child to send status update.
   MOZ_ASSERT(!XRE_IsParentProcess());
 
-  nsTObserverArray<nsAutoPtr<AudioChannelWindow>>::ForwardIterator iter(
+  nsTObserverArray<UniquePtr<AudioChannelWindow>>::ForwardIterator iter(
       mWindows);
   while (iter.HasMore()) {
-    AudioChannelWindow* next = iter.GetNext();
+    auto& next = iter.GetNext();
     if (next->mChannels[(uint32_t)AudioChannel::Content].mNumberOfAgents > 0 ||
         next->mChannels[(uint32_t)AudioChannel::Normal].mNumberOfAgents > 0) {
       return true;
@@ -490,14 +490,14 @@ bool AudioChannelService::ContentOrNormalChannelIsActive() {
   return false;
 }
 
-AudioChannelService::AudioChannelChildStatus*
+UniquePtr<AudioChannelService::AudioChannelChildStatus>
 AudioChannelService::GetChildStatus(uint64_t aChildID) const {
-  nsTObserverArray<nsAutoPtr<AudioChannelChildStatus>>::ForwardIterator iter(
+  nsTObserverArray<UniquePtr<AudioChannelChildStatus>>::ForwardIterator iter(
       mPlayingChildren);
   while (iter.HasMore()) {
-    AudioChannelChildStatus* child = iter.GetNext();
+    auto& child = iter.GetNext();
     if (child->mChildID == aChildID) {
-      return child;
+      return std::move(child);
     }
   }
 
@@ -505,10 +505,10 @@ AudioChannelService::GetChildStatus(uint64_t aChildID) const {
 }
 
 void AudioChannelService::RemoveChildStatus(uint64_t aChildID) {
-  nsTObserverArray<nsAutoPtr<AudioChannelChildStatus>>::ForwardIterator iter(
+  nsTObserverArray<UniquePtr<AudioChannelChildStatus>>::ForwardIterator iter(
       mPlayingChildren);
   while (iter.HasMore()) {
-    nsAutoPtr<AudioChannelChildStatus>& child = iter.GetNext();
+    UniquePtr<AudioChannelChildStatus>& child = iter.GetNext();
     if (child->mChildID == aChildID) {
       mPlayingChildren.RemoveElement(child);
       break;
@@ -518,7 +518,7 @@ void AudioChannelService::RemoveChildStatus(uint64_t aChildID) {
 
 bool AudioChannelService::ProcessContentOrNormalChannelIsActive(
     uint64_t aChildID) {
-  AudioChannelChildStatus* child = GetChildStatus(aChildID);
+  auto child = GetChildStatus(aChildID);
   if (!child) {
     return false;
   }
@@ -527,10 +527,10 @@ bool AudioChannelService::ProcessContentOrNormalChannelIsActive(
 }
 
 bool AudioChannelService::AnyAudioChannelIsActive() {
-  nsTObserverArray<nsAutoPtr<AudioChannelWindow>>::ForwardIterator iter(
+  nsTObserverArray<UniquePtr<AudioChannelWindow>>::ForwardIterator iter(
       mWindows);
   while (iter.HasMore()) {
-    AudioChannelWindow* next = iter.GetNext();
+    auto& next = iter.GetNext();
     for (uint32_t i = 0; kMozAudioChannelAttributeTable[i].tag; ++i) {
       int16_t channel = kMozAudioChannelAttributeTable[i].value;
       if (next->mChannels[channel].mNumberOfAgents != 0) {
@@ -562,15 +562,15 @@ AudioChannelService::Observe(nsISupports* aSubject, const char* aTopic,
       return rv;
     }
 
-    nsAutoPtr<AudioChannelWindow> winData;
+    UniquePtr<AudioChannelWindow> winData;
     {
-      nsTObserverArray<nsAutoPtr<AudioChannelWindow>>::ForwardIterator iter(
+      nsTObserverArray<UniquePtr<AudioChannelWindow>>::ForwardIterator iter(
           mWindows);
       while (iter.HasMore()) {
-        nsAutoPtr<AudioChannelWindow>& next = iter.GetNext();
+        auto& next = iter.GetNext();
         if (next->mWindowID == outerID) {
           uint32_t pos = mWindows.IndexOf(next);
-          winData = next.forget();
+          winData = std::move(next);
           mWindows.RemoveElementAt(pos);
           break;
         }
@@ -790,7 +790,7 @@ AudioChannelService::GetOrCreateWindowData(nsPIDOMWindowOuter* aWindow) {
   AudioChannelWindow* winData = GetWindowData(aWindow->WindowID());
   if (!winData) {
     winData = new AudioChannelWindow(aWindow->WindowID());
-    mWindows.AppendElement(winData);
+    mWindows.AppendElement(WrapUnique(winData));
   }
 
   return winData;
@@ -798,10 +798,10 @@ AudioChannelService::GetOrCreateWindowData(nsPIDOMWindowOuter* aWindow) {
 
 AudioChannelService::AudioChannelWindow* AudioChannelService::GetWindowData(
     uint64_t aWindowID) const {
-  nsTObserverArray<nsAutoPtr<AudioChannelWindow>>::ForwardIterator iter(
+  nsTObserverArray<UniquePtr<AudioChannelWindow>>::ForwardIterator iter(
       mWindows);
   while (iter.HasMore()) {
-    AudioChannelWindow* next = iter.GetNext();
+    AudioChannelWindow* next = iter.GetNext().get();
     if (next->mWindowID == aWindowID) {
       return next;
     }
@@ -975,10 +975,10 @@ void AudioChannelService::ChildStatusReceived(uint64_t aChildID,
     return;
   }
 
-  AudioChannelChildStatus* data = GetChildStatus(aChildID);
+  auto data = GetChildStatus(aChildID);
   if (!data) {
-    data = new AudioChannelChildStatus(aChildID);
-    mPlayingChildren.AppendElement(data);
+    auto childStatus = new AudioChannelChildStatus(aChildID);
+    mPlayingChildren.AppendElement(std::move(childStatus));
   }
 
   data->mActiveTelephonyChannel = aTelephonyChannel;
