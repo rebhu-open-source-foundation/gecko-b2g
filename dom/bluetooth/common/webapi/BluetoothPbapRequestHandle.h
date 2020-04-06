@@ -14,29 +14,25 @@
 #include "mozilla/dom/BlobSet.h"
 
 namespace mozilla {
-  class ErrorResult;
-  namespace dom {
-    class Blob;
-    class DOMRequest;
-  }
-}
+class ErrorResult;
+namespace dom {
+class Blob;
+class DOMRequest;
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothPbapRequestHandle final : public nsISupports
-                                       , public nsWrapperCache
-{
-public:
+class BluetoothPbapRequestHandle final : public nsISupports,
+                                         public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothPbapRequestHandle)
 
-  static already_AddRefed<BluetoothPbapRequestHandle>
-    Create(nsPIDOMWindowInner* aOwner);
+  static already_AddRefed<BluetoothPbapRequestHandle> Create(
+      nsPIDOMWindowInner* aOwner);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -52,7 +48,7 @@ public:
                                                    uint16_t phonebookSize,
                                                    ErrorResult& aRv);
 
-private:
+ private:
   BluetoothPbapRequestHandle(nsPIDOMWindowInner* aOwner);
   ~BluetoothPbapRequestHandle();
 
@@ -61,4 +57,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluetoothpbaprequesthandle_h
+#endif  // mozilla_dom_bluetooth_bluetoothpbaprequesthandle_h

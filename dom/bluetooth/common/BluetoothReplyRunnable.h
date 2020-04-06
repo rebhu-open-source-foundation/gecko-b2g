@@ -18,32 +18,29 @@ namespace mozilla {
 namespace dom {
 class Promise;
 }
-}
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothReply;
 
-class BluetoothReplyRunnable : public Runnable
-{
-public:
+class BluetoothReplyRunnable : public Runnable {
+ public:
   NS_DECL_NSIRUNNABLE
 
-  BluetoothReplyRunnable(DOMRequest* aReq,
-                         Promise* aPromise = nullptr);
+  BluetoothReplyRunnable(DOMRequest* aReq, Promise* aPromise = nullptr);
 
   void SetReply(BluetoothReply* aReply);
 
   void SetError(const nsAString& aErrorString,
-                const enum BluetoothStatus aErrorStatus = STATUS_FAIL)
-  {
+                const enum BluetoothStatus aErrorStatus = STATUS_FAIL) {
     mErrorString = aErrorString;
     mErrorStatus = aErrorStatus;
   }
 
   virtual void ReleaseMembers();
 
-protected:
+ protected:
   virtual ~BluetoothReplyRunnable();
 
   virtual bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) = 0;
@@ -57,7 +54,7 @@ protected:
 
   RefPtr<Promise> mPromise;
 
-private:
+ private:
   virtual void ParseErrorStatus();
 
   nsresult FireReplySuccess(JS::Handle<JS::Value> aVal);
@@ -79,38 +76,32 @@ private:
   nsString mErrorString;
 };
 
-class BluetoothVoidReplyRunnable : public BluetoothReplyRunnable
-{
-public:
-  BluetoothVoidReplyRunnable(DOMRequest* aReq,
-                             Promise* aPromise = nullptr);
- ~BluetoothVoidReplyRunnable();
+class BluetoothVoidReplyRunnable : public BluetoothReplyRunnable {
+ public:
+  BluetoothVoidReplyRunnable(DOMRequest* aReq, Promise* aPromise = nullptr);
+  ~BluetoothVoidReplyRunnable();
 
-protected:
-  virtual bool
-  ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) override
-  {
+ protected:
+  virtual bool ParseSuccessfulReply(
+      JS::MutableHandle<JS::Value> aValue) override {
     aValue.setUndefined();
     return true;
   }
 };
 
-class BluetoothReplyTaskQueue : public Runnable
-{
-public:
+class BluetoothReplyTaskQueue : public Runnable {
+ public:
   NS_DECL_NSIRUNNABLE
 
-  class SubReplyRunnable : public BluetoothReplyRunnable
-  {
-  public:
-    SubReplyRunnable(DOMRequest* aReq,
-                     Promise* aPromise,
+  class SubReplyRunnable : public BluetoothReplyRunnable {
+   public:
+    SubReplyRunnable(DOMRequest* aReq, Promise* aPromise,
                      BluetoothReplyTaskQueue* aRootQueue);
     ~SubReplyRunnable();
 
     BluetoothReplyTaskQueue* GetRootQueue() const;
 
-  private:
+   private:
     virtual void OnSuccessFired() override;
     virtual void OnErrorFired() override;
 
@@ -118,25 +109,21 @@ public:
   };
   friend class BluetoothReplyTaskQueue::SubReplyRunnable;
 
-  class VoidSubReplyRunnable : public SubReplyRunnable
-  {
-  public:
-    VoidSubReplyRunnable(DOMRequest* aReq,
-                         Promise* aPromise,
+  class VoidSubReplyRunnable : public SubReplyRunnable {
+   public:
+    VoidSubReplyRunnable(DOMRequest* aReq, Promise* aPromise,
                          BluetoothReplyTaskQueue* aRootQueue);
     ~VoidSubReplyRunnable();
 
-  protected:
+   protected:
     virtual bool ParseSuccessfulReply(
-      JS::MutableHandle<JS::Value> aValue) override;
+        JS::MutableHandle<JS::Value> aValue) override;
   };
 
-  class SubTask
-  {
+  class SubTask {
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SubTask)
-  public:
-    SubTask(BluetoothReplyTaskQueue* aRootQueue,
-            SubReplyRunnable* aReply);
+   public:
+    SubTask(BluetoothReplyTaskQueue* aRootQueue, SubReplyRunnable* aReply);
 
     BluetoothReplyTaskQueue* GetRootQueue() const;
     SubReplyRunnable* GetReply() const;
@@ -165,10 +152,10 @@ public:
      */
     virtual bool Execute() = 0;
 
-  protected:
+   protected:
     virtual ~SubTask();
 
-  private:
+   private:
     RefPtr<BluetoothReplyTaskQueue> mRootQueue;
     RefPtr<SubReplyRunnable> mReply;
   };
@@ -177,13 +164,13 @@ public:
 
   void AppendTask(already_AddRefed<SubTask> aTask);
 
-protected:
+ protected:
   ~BluetoothReplyTaskQueue();
 
   void FireSuccessReply();
   void FireErrorReply();
 
-private:
+ private:
   void Clear();
 
   void OnSubReplySuccessFired(SubReplyRunnable* aSubReply);
@@ -198,4 +185,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothReplyRunnable_h
+#endif  // mozilla_dom_bluetooth_BluetoothReplyRunnable_h

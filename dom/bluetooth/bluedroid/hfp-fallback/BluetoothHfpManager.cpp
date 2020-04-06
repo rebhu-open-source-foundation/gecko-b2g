@@ -16,18 +16,16 @@ using namespace mozilla;
 USING_BLUETOOTH_NAMESPACE
 
 namespace {
-  StaticRefPtr<BluetoothHfpManager> sBluetoothHfpManager;
-  bool sInShutdown = false;
-} // namespace
+StaticRefPtr<BluetoothHfpManager> sBluetoothHfpManager;
+bool sInShutdown = false;
+}  // namespace
 
 /**
  * nsIObserver function
  */
 NS_IMETHODIMP
-BluetoothHfpManager::Observe(nsISupports* aSubject,
-                             const char* aTopic,
-                             const char16_t* aData)
-{
+BluetoothHfpManager::Observe(nsISupports* aSubject, const char* aTopic,
+                             const char16_t* aData) {
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     HandleShutdown();
   } else {
@@ -41,97 +39,64 @@ BluetoothHfpManager::Observe(nsISupports* aSubject,
 /**
  * BluetoothProfileManagerBase functions
  */
-void
-BluetoothHfpManager::Connect(const BluetoothAddress& aDeviceAddress,
-                             BluetoothProfileController* aController)
-{
+void BluetoothHfpManager::Connect(const BluetoothAddress& aDeviceAddress,
+                                  BluetoothProfileController* aController) {
   MOZ_ASSERT(aController);
 
   aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
 }
 
-void
-BluetoothHfpManager::Disconnect(BluetoothProfileController* aController)
-{
+void BluetoothHfpManager::Disconnect(BluetoothProfileController* aController) {
   MOZ_ASSERT(aController);
 
   aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
 }
 
-bool
-BluetoothHfpManager::IsConnected()
-{
-  return false;
-}
+bool BluetoothHfpManager::IsConnected() { return false; }
 
-void
-BluetoothHfpManager::OnConnect(const nsAString& aErrorStr)
-{
+void BluetoothHfpManager::OnConnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothHfpManager::OnDisconnect(const nsAString& aErrorStr)
-{
+void BluetoothHfpManager::OnDisconnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothHfpManager::GetAddress(BluetoothAddress& aDeviceAddress)
-{
+void BluetoothHfpManager::GetAddress(BluetoothAddress& aDeviceAddress) {
   aDeviceAddress.Clear();
 }
 
-void
-BluetoothHfpManager::OnGetServiceChannel(
-  const BluetoothAddress& aDeviceAddress,
-  const BluetoothUuid& aServiceUuid,
-  int aChannel)
-{
+void BluetoothHfpManager::OnGetServiceChannel(
+    const BluetoothAddress& aDeviceAddress, const BluetoothUuid& aServiceUuid,
+    int aChannel) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothHfpManager::OnUpdateSdpRecords(const BluetoothAddress& aDeviceAddress)
-{
+void BluetoothHfpManager::OnUpdateSdpRecords(
+    const BluetoothAddress& aDeviceAddress) {
   MOZ_ASSERT(false);
 }
 
 /**
  * BluetoothHfpManagerBase function
  */
-bool
-BluetoothHfpManager::IsScoConnected()
-{
+bool BluetoothHfpManager::IsScoConnected() { return false; }
+
+bool BluetoothHfpManager::IsNrecEnabled() { return false; }
+
+bool BluetoothHfpManager::ReplyToConnectionRequest(bool aAccept) {
+  MOZ_ASSERT(false,
+             "BluetoothHfpManager hasn't implemented this function yet.  ");
   return false;
 }
 
-bool
-BluetoothHfpManager::IsNrecEnabled()
-{
-  return false;
-}
-
-bool
-BluetoothHfpManager::ReplyToConnectionRequest(bool aAccept)
-{
-  MOZ_ASSERT(false, "BluetoothHfpManager hasn't implemented this function yet.  ");
-  return false;
-}
-
-bool
-BluetoothHfpManager::IsWbsEnabled()
-{
-  return false;
-}
+bool BluetoothHfpManager::IsWbsEnabled() { return false; }
 
 /**
  * Non-inherited functions
  */
 // static
-BluetoothHfpManager*
-BluetoothHfpManager::Get()
-{
+BluetoothHfpManager* BluetoothHfpManager::Get() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // If sBluetoothHfpManager already exists, exit early
@@ -150,9 +115,7 @@ BluetoothHfpManager::Get()
   return sBluetoothHfpManager;
 }
 
-bool
-BluetoothHfpManager::Init()
-{
+bool BluetoothHfpManager::Init() {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -167,9 +130,8 @@ BluetoothHfpManager::Init()
 }
 
 // static
-void
-BluetoothHfpManager::InitHfpInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothHfpManager::InitHfpInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -184,9 +146,8 @@ BluetoothHfpManager::InitHfpInterface(BluetoothProfileResultHandler* aRes)
 }
 
 // static
-void
-BluetoothHfpManager::DeinitHfpInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothHfpManager::DeinitHfpInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   sBluetoothHfpManager = nullptr;
@@ -202,17 +163,13 @@ BluetoothHfpManager::DeinitHfpInterface(BluetoothProfileResultHandler* aRes)
   }
 }
 
-void
-BluetoothHfpManager::HandleShutdown()
-{
+void BluetoothHfpManager::HandleShutdown() {
   MOZ_ASSERT(NS_IsMainThread());
   sInShutdown = true;
   sBluetoothHfpManager = nullptr;
 }
 
-bool
-BluetoothHfpManager::ConnectSco()
-{
+bool BluetoothHfpManager::ConnectSco() {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -223,9 +180,7 @@ BluetoothHfpManager::ConnectSco()
   return false;
 }
 
-void
-BluetoothHfpManager::HandleBackendError()
-{
+void BluetoothHfpManager::HandleBackendError() {
   /**
    * TODO:
    *   Reset connection state and audio state to DISCONNECTED to handle backend
@@ -234,9 +189,7 @@ BluetoothHfpManager::HandleBackendError()
    */
 }
 
-bool
-BluetoothHfpManager::DisconnectSco()
-{
+bool BluetoothHfpManager::DisconnectSco() {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -247,10 +200,6 @@ BluetoothHfpManager::DisconnectSco()
   return false;
 }
 
-void
-BluetoothHfpManager::Reset()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-}
+void BluetoothHfpManager::Reset() { MOZ_ASSERT(NS_IsMainThread()); }
 
 NS_IMPL_ISUPPORTS(BluetoothHfpManager, nsIObserver)

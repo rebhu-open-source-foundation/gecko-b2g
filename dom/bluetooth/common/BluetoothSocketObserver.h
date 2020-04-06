@@ -15,42 +15,42 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSocket;
 
-class BluetoothSocketObserver
-{
-public:
+class BluetoothSocketObserver {
+ public:
   virtual void ReceiveSocketData(
-    BluetoothSocket* aSocket,
-    UniquePtr<mozilla::ipc::UnixSocketBuffer>& aBuffer) = 0;
+      BluetoothSocket* aSocket,
+      UniquePtr<mozilla::ipc::UnixSocketBuffer>& aBuffer) = 0;
 
-   /**
-    * A callback function which would be called when a socket connection
-    * is established successfully. To be more specific, this would be called
-    * when socket state changes from CONNECTING/LISTENING to CONNECTED.
-    */
+  /**
+   * A callback function which would be called when a socket connection
+   * is established successfully. To be more specific, this would be called
+   * when socket state changes from CONNECTING/LISTENING to CONNECTED.
+   */
   virtual void OnSocketConnectSuccess(BluetoothSocket* aSocket) = 0;
 
-   /**
-    * A callback function which would be called when BluetoothSocket::Connect()
-    * fails.
-    */
+  /**
+   * A callback function which would be called when BluetoothSocket::Connect()
+   * fails.
+   */
   virtual void OnSocketConnectError(BluetoothSocket* aSocket) = 0;
 
-   /**
-    * A callback function which would be called when a socket connection
-    * is dropped. To be more specific, this would be called when socket state
-    * changes from CONNECTED/LISTENING to DISCONNECTED.
-    */
+  /**
+   * A callback function which would be called when a socket connection
+   * is dropped. To be more specific, this would be called when socket state
+   * changes from CONNECTED/LISTENING to DISCONNECTED.
+   */
   virtual void OnSocketDisconnect(BluetoothSocket* aSocket) = 0;
 };
 
-#define BT_DECL_SOCKET_OBSERVER                                             \
-public:                                                                     \
-  virtual void ReceiveSocketData(BluetoothSocket* aSocket,                  \
-    UniquePtr<mozilla::ipc::UnixSocketBuffer>& aMessage) override;          \
-  virtual void OnSocketConnectSuccess(BluetoothSocket* aSocket) override;   \
-  virtual void OnSocketConnectError(BluetoothSocket* aSocket) override;     \
+#define BT_DECL_SOCKET_OBSERVER                                           \
+ public:                                                                  \
+  virtual void ReceiveSocketData(                                         \
+      BluetoothSocket* aSocket,                                           \
+      UniquePtr<mozilla::ipc::UnixSocketBuffer>& aMessage) override;      \
+  virtual void OnSocketConnectSuccess(BluetoothSocket* aSocket) override; \
+  virtual void OnSocketConnectError(BluetoothSocket* aSocket) override;   \
   virtual void OnSocketDisconnect(BluetoothSocket* aSocket) override;
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothSocketObserver_h
+#endif  // mozilla_dom_bluetooth_BluetoothSocketObserver_h

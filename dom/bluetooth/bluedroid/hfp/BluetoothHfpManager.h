@@ -52,13 +52,13 @@ enum BluetoothCmeError {
 };
 
 enum PhoneType {
-  NONE, // no connection
+  NONE,  // no connection
   GSM,
   CDMA
 };
 
 class Call {
-public:
+ public:
   Call();
   void Set(const nsAString& aNumber, const bool aIsOutgoing);
   void Reset();
@@ -70,17 +70,16 @@ public:
   BluetoothHandsfreeCallAddressType mType;
 };
 
-class BluetoothHfpManager : public BluetoothHfpManagerBase
-                          , public BluetoothHandsfreeNotificationHandler
-                          , public hal::BatteryObserver
-{
+class BluetoothHfpManager : public BluetoothHfpManagerBase,
+                            public BluetoothHandsfreeNotificationHandler,
+                            public hal::BatteryObserver {
   enum {
     MODE_HEADSET = 0x00,
     MODE_NARROWBAND_SPEECH = 0x01,
     MODE_NARRAWBAND_WIDEBAND_SPEECH = 0x02
   };
 
-public:
+ public:
   BT_DECL_HFP_MGR_BASE
 
   static const int MAX_NUM_CLIENTS;
@@ -88,8 +87,7 @@ public:
   void OnConnectError();
   void OnDisconnectError();
 
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("HFP/HSP");
   }
 
@@ -129,8 +127,7 @@ public:
                               const BluetoothAddress& aBdAddress) override;
   void AnswerCallNotification(const BluetoothAddress& aBdAddress) override;
   void HangupCallNotification(const BluetoothAddress& aBdAddress) override;
-  void VolumeNotification(BluetoothHandsfreeVolumeType aType,
-                          int aVolume,
+  void VolumeNotification(BluetoothHandsfreeVolumeType aType, int aVolume,
                           const BluetoothAddress& aBdAddress) override;
   void DtmfNotification(char aDtmf,
                         const BluetoothAddress& aBdAddress) override;
@@ -151,10 +148,10 @@ public:
                              const BluetoothAddress& aBdAddress) override;
   void KeyPressedNotification(const BluetoothAddress& aBdAddress) override;
 
-protected:
+ protected:
   virtual ~BluetoothHfpManager();
 
-private:
+ private:
   class AtResponseResultHandler;
   class CindResponseResultHandler;
   class ConnectAudioResultHandler;
@@ -203,8 +200,8 @@ private:
   // CDMA-specific function
   uint16_t GetCdmaSecondCallSetupState();
   bool IsTransitionState(uint16_t aCallState, bool aIsConference);
-  BluetoothHandsfreeCallState
-    ConvertToBluetoothHandsfreeCallState(int aCallState) const;
+  BluetoothHandsfreeCallState ConvertToBluetoothHandsfreeCallState(
+      int aCallState) const;
 
   void UpdatePhoneCIND(uint32_t aCallIndex);
   void UpdateDeviceCIND();
@@ -243,4 +240,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothHfpManager_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothHfpManager_h

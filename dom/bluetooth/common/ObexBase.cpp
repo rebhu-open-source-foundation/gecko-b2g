@@ -15,10 +15,8 @@ BEGIN_BLUETOOTH_NAMESPACE
 /**
  * Append byte array and length to header
  */
-int
-AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, int aBufferSize,
-             const uint8_t* aData, int aLength)
-{
+int AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, int aBufferSize,
+                 const uint8_t* aData, int aLength) {
   int headerLength = aLength + 3;
   int writtenLength = (headerLength < aBufferSize) ? headerLength : aBufferSize;
 
@@ -32,9 +30,7 @@ AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, int aBufferSize,
 /**
  * Append 4-byte integer to header
  */
-int
-AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, int aValue)
-{
+int AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, int aValue) {
   aRetBuf[0] = aHeaderId;
   BigEndian::writeInt32(&aRetBuf[1], aValue);
 
@@ -45,66 +41,46 @@ AppendHeader(uint8_t aHeaderId, uint8_t* aRetBuf, int aValue)
 // Exposed functions
 //
 
-int
-AppendHeaderName(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aName,
-                 int aLength)
-{
-  return AppendHeader(ObexHeaderId::Name, aRetBuf, aBufferSize,
-                      aName, aLength);
+int AppendHeaderName(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aName,
+                     int aLength) {
+  return AppendHeader(ObexHeaderId::Name, aRetBuf, aBufferSize, aName, aLength);
 }
 
-int
-AppendHeaderBody(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aBody,
-                 int aLength)
-{
-  return AppendHeader(ObexHeaderId::Body, aRetBuf, aBufferSize,
-                      aBody, aLength);
+int AppendHeaderBody(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aBody,
+                     int aLength) {
+  return AppendHeader(ObexHeaderId::Body, aRetBuf, aBufferSize, aBody, aLength);
 }
 
-int
-AppendHeaderTarget(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aTarget,
-                   int aLength)
-{
-  return AppendHeader(ObexHeaderId::Target, aRetBuf, aBufferSize,
-                      aTarget, aLength);
+int AppendHeaderTarget(uint8_t* aRetBuf, int aBufferSize,
+                       const uint8_t* aTarget, int aLength) {
+  return AppendHeader(ObexHeaderId::Target, aRetBuf, aBufferSize, aTarget,
+                      aLength);
 }
 
-int
-AppendHeaderWho(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aWho,
-                int aLength)
-{
-  return AppendHeader(ObexHeaderId::Who, aRetBuf, aBufferSize,
-                      aWho, aLength);
+int AppendHeaderWho(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aWho,
+                    int aLength) {
+  return AppendHeader(ObexHeaderId::Who, aRetBuf, aBufferSize, aWho, aLength);
 }
 
-int
-AppendAuthResponse(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aDigest,
-                   int aLength)
-{
-  return AppendHeader(ObexHeaderId::AuthResponse, aRetBuf, aBufferSize,
-                      aDigest, aLength);
+int AppendAuthResponse(uint8_t* aRetBuf, int aBufferSize,
+                       const uint8_t* aDigest, int aLength) {
+  return AppendHeader(ObexHeaderId::AuthResponse, aRetBuf, aBufferSize, aDigest,
+                      aLength);
 }
 
-int
-AppendHeaderType(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aType,
-                 int aLength)
-{
-  return AppendHeader(ObexHeaderId::Type, aRetBuf, aBufferSize,
-                      aType, aLength);
+int AppendHeaderType(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aType,
+                     int aLength) {
+  return AppendHeader(ObexHeaderId::Type, aRetBuf, aBufferSize, aType, aLength);
 }
 
-int
-AppendHeaderAppParameters(uint8_t* aRetBuf, int aBufferSize,
-                          const uint8_t* aAppParameters, int aLength)
-{
+int AppendHeaderAppParameters(uint8_t* aRetBuf, int aBufferSize,
+                              const uint8_t* aAppParameters, int aLength) {
   return AppendHeader(ObexHeaderId::AppParameters, aRetBuf, aBufferSize,
                       aAppParameters, aLength);
 }
 
-int
-AppendAppParameter(uint8_t* aRetBuf, int aBufferSize, const uint8_t aTagId,
-                   const uint8_t* aValue, int aLength)
-{
+int AppendAppParameter(uint8_t* aRetBuf, int aBufferSize, const uint8_t aTagId,
+                       const uint8_t* aValue, int aLength) {
   // An application parameter is a [tag]-[length]-[value] triplet. The [tag] and
   // [length] fields are 1-byte length each.
 
@@ -121,21 +97,15 @@ AppendAppParameter(uint8_t* aRetBuf, int aBufferSize, const uint8_t aTagId,
   return aLength + 2;
 }
 
-int
-AppendHeaderLength(uint8_t* aRetBuf, int aObjectLength)
-{
+int AppendHeaderLength(uint8_t* aRetBuf, int aObjectLength) {
   return AppendHeader(ObexHeaderId::Length, aRetBuf, aObjectLength);
 }
 
-int
-AppendHeaderConnectionId(uint8_t* aRetBuf, int aConnectionId)
-{
+int AppendHeaderConnectionId(uint8_t* aRetBuf, int aConnectionId) {
   return AppendHeader(ObexHeaderId::ConnectionId, aRetBuf, aConnectionId);
 }
 
-int
-AppendHeaderEndOfBody(uint8_t* aRetBuf)
-{
+int AppendHeaderEndOfBody(uint8_t* aRetBuf) {
   aRetBuf[0] = ObexHeaderId::EndOfBody;
   aRetBuf[1] = 0x00;
   aRetBuf[2] = 0x03;
@@ -143,18 +113,13 @@ AppendHeaderEndOfBody(uint8_t* aRetBuf)
   return 3;
 }
 
-void
-SetObexPacketInfo(uint8_t* aRetBuf, uint8_t aOpcode, int aPacketLength)
-{
+void SetObexPacketInfo(uint8_t* aRetBuf, uint8_t aOpcode, int aPacketLength) {
   aRetBuf[0] = aOpcode;
   BigEndian::writeUint16(&aRetBuf[1], aPacketLength);
 }
 
-bool
-ParseHeaders(const uint8_t* aHeaderStart,
-             int aTotalLength,
-             ObexHeaderSet* aRetHandlerSet)
-{
+bool ParseHeaders(const uint8_t* aHeaderStart, int aTotalLength,
+                  ObexHeaderSet* aRetHandlerSet) {
   const uint8_t* ptr = aHeaderStart;
 
   while (ptr - aHeaderStart < aTotalLength) {
@@ -163,8 +128,7 @@ ParseHeaders(const uint8_t* aHeaderStart,
     uint16_t contentLength = 0;
 
     // Defined in 2.1 OBEX Headers, IrOBEX 1.2
-    switch (headerId >> 6)
-    {
+    switch (headerId >> 6) {
       case 0x00:
         // Null-terminated Unicode text, length prefixed with 2-byte
         // unsigned integer.

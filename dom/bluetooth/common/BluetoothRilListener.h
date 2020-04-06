@@ -17,62 +17,57 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothRilListener;
 
-class IccListener : public nsIIccListener
-{
-public:
+class IccListener : public nsIIccListener {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCLISTENER
 
-  IccListener() { }
+  IccListener() {}
 
   bool Listen(bool aStart);
-  void SetOwner(BluetoothRilListener *aOwner);
+  void SetOwner(BluetoothRilListener* aOwner);
 
-protected:
-  virtual ~IccListener() { }
+ protected:
+  virtual ~IccListener() {}
 
-private:
+ private:
   BluetoothRilListener* mOwner;
 };
 
-class MobileConnectionListener : public nsIMobileConnectionListener
-{
-public:
+class MobileConnectionListener : public nsIMobileConnectionListener {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILECONNECTIONLISTENER
 
-  MobileConnectionListener(uint32_t aClientId)
-  : mClientId(aClientId) { }
+  MobileConnectionListener(uint32_t aClientId) : mClientId(aClientId) {}
 
   bool Listen(bool aStart);
 
-protected:
-  virtual ~MobileConnectionListener() { }
+ protected:
+  virtual ~MobileConnectionListener() {}
 
-private:
+ private:
   uint32_t mClientId;
 };
 
-class TelephonyListener : public nsITelephonyListener
-{
-public:
+class TelephonyListener : public nsITelephonyListener {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITELEPHONYLISTENER
 
-  TelephonyListener() { }
+  TelephonyListener() {}
 
   bool Listen(bool aStart);
 
-protected:
-  virtual ~TelephonyListener() { }
+ protected:
+  virtual ~TelephonyListener() {}
 
-private:
+ private:
   nsresult HandleCallInfo(nsITelephonyCallInfo* aInfo, bool aSend);
 };
 
-class BluetoothRilListener
-{
-public:
+class BluetoothRilListener {
+ public:
   BluetoothRilListener();
   ~BluetoothRilListener();
 
@@ -105,7 +100,7 @@ public:
    */
   uint32_t mClientId;
 
-private:
+ private:
   /**
    * Start/Stop listening of mobile connection and icc info.
    *
@@ -134,4 +129,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothRilListener_h
+#endif  // mozilla_dom_bluetooth_BluetoothRilListener_h

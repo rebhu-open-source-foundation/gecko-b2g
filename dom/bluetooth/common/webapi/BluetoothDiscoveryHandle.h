@@ -18,36 +18,32 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothDevice;
 
-class BluetoothDiscoveryHandle final : public DOMEventTargetHelper
-{
-public:
+class BluetoothDiscoveryHandle final : public DOMEventTargetHelper {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
-  static already_AddRefed<BluetoothDiscoveryHandle>
-    Create(nsPIDOMWindowInner* aWindow);
+  static already_AddRefed<BluetoothDiscoveryHandle> Create(
+      nsPIDOMWindowInner* aWindow);
 
-  static already_AddRefed<BluetoothDiscoveryHandle>
-    Create(nsPIDOMWindowInner* aWindow,
-           const nsTArray<BluetoothUuid>& aServiceUuids,
-           const BluetoothUuid& aLeScanUuid);
+  static already_AddRefed<BluetoothDiscoveryHandle> Create(
+      nsPIDOMWindowInner* aWindow, const nsTArray<BluetoothUuid>& aServiceUuids,
+      const BluetoothUuid& aLeScanUuid);
 
   void DispatchDeviceEvent(BluetoothDevice* aDevice);
 
-  void DispatchLeDeviceEvent(BluetoothDevice* aLeDevice,
-                             int32_t aRssi,
+  void DispatchLeDeviceEvent(BluetoothDevice* aLeDevice, int32_t aRssi,
                              nsTArray<uint8_t>& aScanRecord);
 
   IMPL_EVENT_HANDLER(devicefound);
 
-  void GetLeScanUuid(BluetoothUuid& aLeScanUuid) const
-  {
+  void GetLeScanUuid(BluetoothUuid& aLeScanUuid) const {
     aLeScanUuid = mLeScanUuid;
   }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow);
 
   BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow,
@@ -76,4 +72,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothDiscoveryHandle_h
+#endif  // mozilla_dom_bluetooth_BluetoothDiscoveryHandle_h

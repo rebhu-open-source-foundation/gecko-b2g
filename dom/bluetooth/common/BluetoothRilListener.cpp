@@ -24,8 +24,7 @@ USING_BLUETOOTH_NAMESPACE
 NS_IMPL_ISUPPORTS(IccListener, nsIIccListener)
 
 NS_IMETHODIMP
-IccListener::NotifyIccInfoChanged()
-{
+IccListener::NotifyIccInfoChanged() {
   // mOwner would be set to nullptr only in the dtor of BluetoothRilListener
   NS_ENSURE_TRUE(mOwner, NS_ERROR_FAILURE);
 
@@ -38,36 +37,23 @@ IccListener::NotifyIccInfoChanged()
 }
 
 NS_IMETHODIMP
-IccListener::NotifyIsimInfoChanged()
-{
+IccListener::NotifyIsimInfoChanged() { return NS_OK; }
+
+NS_IMETHODIMP
+IccListener::NotifyStkCommand(nsIStkProactiveCmd* aStkProactiveCmd) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-IccListener::NotifyStkCommand(nsIStkProactiveCmd *aStkProactiveCmd)
-{
-  return NS_OK;
-}
+IccListener::NotifyStkSessionEnd() { return NS_OK; }
 
 NS_IMETHODIMP
-IccListener::NotifyStkSessionEnd()
-{
-  return NS_OK;
-}
+IccListener::NotifyCardStateChanged() { return NS_OK; }
 
-NS_IMETHODIMP
-IccListener::NotifyCardStateChanged()
-{
-  return NS_OK;
-}
-
-bool
-IccListener::Listen(bool aStart)
-{
+bool IccListener::Listen(bool aStart) {
   NS_ENSURE_TRUE(mOwner, false);
 
-  nsCOMPtr<nsIIccService> service =
-    do_GetService(ICC_SERVICE_CONTRACTID);
+  nsCOMPtr<nsIIccService> service = do_GetService(ICC_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(service, false);
 
   nsCOMPtr<nsIIcc> icc;
@@ -84,11 +70,7 @@ IccListener::Listen(bool aStart)
   return NS_SUCCEEDED(rv);
 }
 
-void
-IccListener::SetOwner(BluetoothRilListener *aOwner)
-{
-  mOwner = aOwner;
-}
+void IccListener::SetOwner(BluetoothRilListener* aOwner) { mOwner = aOwner; }
 
 /**
  *  MobileConnectionListener
@@ -96,8 +78,7 @@ IccListener::SetOwner(BluetoothRilListener *aOwner)
 NS_IMPL_ISUPPORTS(MobileConnectionListener, nsIMobileConnectionListener)
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyVoiceChanged()
-{
+MobileConnectionListener::NotifyVoiceChanged() {
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   NS_ENSURE_TRUE(hfp, NS_OK);
 
@@ -107,79 +88,54 @@ MobileConnectionListener::NotifyVoiceChanged()
 }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyDataChanged()
-{
+MobileConnectionListener::NotifyDataChanged() { return NS_OK; }
+
+NS_IMETHODIMP
+MobileConnectionListener::NotifyDataError(const nsAString& message) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyDataError(const nsAString & message)
-{
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-MobileConnectionListener::NotifyCFStateChanged(uint16_t action,
-                                               uint16_t reason,
+MobileConnectionListener::NotifyCFStateChanged(uint16_t action, uint16_t reason,
                                                const nsAString& number,
                                                uint16_t timeSeconds,
-                                               uint16_t serviceClass)
-{
+                                               uint16_t serviceClass) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
 MobileConnectionListener::NotifyEmergencyCbModeChanged(bool active,
-                                                       uint32_t timeoutMs)
-{
+                                                       uint32_t timeoutMs) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyOtaStatusChanged(const nsAString & status)
-{
+MobileConnectionListener::NotifyOtaStatusChanged(const nsAString& status) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyRadioStateChanged()
-{
+MobileConnectionListener::NotifyRadioStateChanged() { return NS_OK; }
+
+NS_IMETHODIMP
+MobileConnectionListener::NotifyClirModeChanged(uint32_t aMode) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyClirModeChanged(uint32_t aMode)
-{
-  return NS_OK;
-}
+MobileConnectionListener::NotifyLastKnownNetworkChanged() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyLastKnownNetworkChanged()
-{
-  return NS_OK;
-}
+MobileConnectionListener::NotifyLastKnownHomeNetworkChanged() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyLastKnownHomeNetworkChanged()
-{
-  return NS_OK;
-}
+MobileConnectionListener::NotifyNetworkSelectionModeChanged() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyNetworkSelectionModeChanged()
-{
-  return NS_OK;
-}
+MobileConnectionListener::NotifyDeviceIdentitiesChanged() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyDeviceIdentitiesChanged()
-{
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-MobileConnectionListener::NotifySignalStrengthChanged()
-{
+MobileConnectionListener::NotifySignalStrengthChanged() {
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   NS_ENSURE_TRUE(hfp, NS_OK);
 
@@ -188,16 +144,13 @@ MobileConnectionListener::NotifySignalStrengthChanged()
 }
 
 NS_IMETHODIMP
-MobileConnectionListener::NotifyModemRestart(const nsAString& aReason)
-{
+MobileConnectionListener::NotifyModemRestart(const nsAString& aReason) {
   return NS_OK;
 }
 
-bool
-MobileConnectionListener::Listen(bool aStart)
-{
+bool MobileConnectionListener::Listen(bool aStart) {
   nsCOMPtr<nsIMobileConnectionService> service =
-    do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(service, false);
 
   nsCOMPtr<nsIMobileConnection> connection;
@@ -222,9 +175,8 @@ NS_IMPL_ISUPPORTS(TelephonyListener, nsITelephonyListener)
 /**
  * @param aSend A boolean indicates whether we need to notify headset or not
  */
-nsresult
-TelephonyListener::HandleCallInfo(nsITelephonyCallInfo* aInfo, bool aSend)
-{
+nsresult TelephonyListener::HandleCallInfo(nsITelephonyCallInfo* aInfo,
+                                           bool aSend) {
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   NS_ENSURE_TRUE(hfp, NS_ERROR_FAILURE);
 
@@ -254,8 +206,7 @@ TelephonyListener::HandleCallInfo(nsITelephonyCallInfo* aInfo, bool aSend)
 
 NS_IMETHODIMP
 TelephonyListener::CallStateChanged(uint32_t aLength,
-                                    nsITelephonyCallInfo** aAllInfo)
-{
+                                    nsITelephonyCallInfo** aAllInfo) {
   for (uint32_t i = 0; i < aLength; ++i) {
     HandleCallInfo(aAllInfo[i], true);
   }
@@ -263,32 +214,23 @@ TelephonyListener::CallStateChanged(uint32_t aLength,
 }
 
 NS_IMETHODIMP
-TelephonyListener::EnumerateCallState(nsITelephonyCallInfo* aInfo)
-{
+TelephonyListener::EnumerateCallState(nsITelephonyCallInfo* aInfo) {
   return HandleCallInfo(aInfo, false);
 }
 
 NS_IMETHODIMP
-TelephonyListener::EnumerateCallStateComplete()
-{
-  return NS_OK;
-}
+TelephonyListener::EnumerateCallStateComplete() { return NS_OK; }
 
 NS_IMETHODIMP
-TelephonyListener::SupplementaryServiceNotification(uint32_t aServiceId,
-                                                    int32_t aNotificationType,
-                                                    int32_t aCode,
-                                                    int32_t aIndex,
-                                                    int32_t aType,
-                                                    const nsAString& aNumber)
-{
+TelephonyListener::SupplementaryServiceNotification(
+    uint32_t aServiceId, int32_t aNotificationType, int32_t aCode,
+    int32_t aIndex, int32_t aType, const nsAString& aNumber) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
 TelephonyListener::NotifyConferenceError(const nsAString& aName,
-                                         const nsAString& aMessage)
-{
+                                         const nsAString& aMessage) {
   BT_WARNING("%s", NS_ConvertUTF16toUTF8(aName).get());
   BT_WARNING("%s", NS_ConvertUTF16toUTF8(aMessage).get());
 
@@ -300,8 +242,7 @@ TelephonyListener::NotifyCdmaCallWaiting(uint32_t aServiceId,
                                          const nsAString& aNumber,
                                          uint16_t aNumberPresentation,
                                          const nsAString& aName,
-                                         uint16_t aNamePresentation)
-{
+                                         uint16_t aNamePresentation) {
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   NS_ENSURE_TRUE(hfp, NS_ERROR_FAILURE);
 
@@ -311,46 +252,40 @@ TelephonyListener::NotifyCdmaCallWaiting(uint32_t aServiceId,
 }
 
 NS_IMETHODIMP
-TelephonyListener::NotifyRingbackTone(bool playRingbackTone)
-{
+TelephonyListener::NotifyRingbackTone(bool playRingbackTone) { return NS_OK; }
+
+NS_IMETHODIMP
+TelephonyListener::NotifyTtyModeReceived(uint16_t mode) { return NS_OK; }
+
+NS_IMETHODIMP
+TelephonyListener::NotifyTelephonyCoverageLosing(uint16_t aType) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TelephonyListener::NotifyTtyModeReceived(uint16_t mode)
-{
+TelephonyListener::NotifyRttModifyRequestReceived(uint32_t aClientId,
+                                                  int32_t aCallIndex,
+                                                  uint16_t aRttMode) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TelephonyListener::NotifyTelephonyCoverageLosing(uint16_t aType)
-{
+TelephonyListener::NotifyRttModifyResponseReceived(uint32_t aClientId,
+                                                   int32_t aCallIndex,
+                                                   uint16_t aStatus) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TelephonyListener::NotifyRttModifyRequestReceived(uint32_t aClientId, int32_t aCallIndex, uint16_t aRttMode)
-{
+TelephonyListener::NotifyRttMessageReceived(uint32_t aClientId,
+                                            int32_t aCallIndex,
+                                            const nsAString& aMessage) {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-TelephonyListener::NotifyRttModifyResponseReceived(uint32_t aClientId, int32_t aCallIndex, uint16_t aStatus)
-{
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-TelephonyListener::NotifyRttMessageReceived(uint32_t aClientId, int32_t aCallIndex, const nsAString& aMessage)
-{
-  return NS_OK;
-}
-
-bool
-TelephonyListener::Listen(bool aStart)
-{
+bool TelephonyListener::Listen(bool aStart) {
   nsCOMPtr<nsITelephonyService> service =
-    do_GetService(TELEPHONY_SERVICE_CONTRACTID);
+      do_GetService(TELEPHONY_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(service, false);
 
   nsresult rv;
@@ -366,15 +301,13 @@ TelephonyListener::Listen(bool aStart)
 /**
  *  BluetoothRilListener
  */
-BluetoothRilListener::BluetoothRilListener()
-  : mClientId(0)
-{
+BluetoothRilListener::BluetoothRilListener() : mClientId(0) {
   mTelephonyListener = new TelephonyListener();
   mIccListener = new IccListener();
   mIccListener->SetOwner(this);
 
   nsCOMPtr<nsIMobileConnectionService> service =
-    do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE_VOID(service);
 
   // Query number of total clients (sim slots)
@@ -390,28 +323,23 @@ BluetoothRilListener::BluetoothRilListener()
   SelectClient();
 }
 
-BluetoothRilListener::~BluetoothRilListener()
-{
+BluetoothRilListener::~BluetoothRilListener() {
   mIccListener->SetOwner(nullptr);
 }
 
-bool
-BluetoothRilListener::Listen(bool aStart)
-{
+bool BluetoothRilListener::Listen(bool aStart) {
   NS_ENSURE_TRUE(ListenMobileConnAndIccInfo(aStart), false);
   NS_ENSURE_TRUE(mTelephonyListener->Listen(aStart), false);
 
   return true;
 }
 
-void
-BluetoothRilListener::SelectClient()
-{
+void BluetoothRilListener::SelectClient() {
   // Reset mClientId
   mClientId = mMobileConnListeners.Length();
 
   nsCOMPtr<nsIMobileConnectionService> service =
-    do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE_VOID(service);
 
   for (uint32_t i = 0; i < mMobileConnListeners.Length(); i++) {
@@ -439,9 +367,8 @@ BluetoothRilListener::SelectClient()
   }
 }
 
-void
-BluetoothRilListener::ServiceChanged(uint32_t aClientId, bool aRegistered)
-{
+void BluetoothRilListener::ServiceChanged(uint32_t aClientId,
+                                          bool aRegistered) {
   // Stop listening
   ListenMobileConnAndIccInfo(false);
 
@@ -465,22 +392,17 @@ BluetoothRilListener::ServiceChanged(uint32_t aClientId, bool aRegistered)
           (mClientId < mMobileConnListeners.Length()) ? mClientId : -1);
 }
 
-void
-BluetoothRilListener::EnumerateCalls()
-{
+void BluetoothRilListener::EnumerateCalls() {
   nsCOMPtr<nsITelephonyService> service =
-    do_GetService(TELEPHONY_SERVICE_CONTRACTID);
+      do_GetService(TELEPHONY_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE_VOID(service);
 
-  nsCOMPtr<nsITelephonyListener> listener(
-    do_QueryObject(mTelephonyListener));
+  nsCOMPtr<nsITelephonyListener> listener(do_QueryObject(mTelephonyListener));
 
   service->EnumerateCalls(listener);
 }
 
-bool
-BluetoothRilListener::ListenMobileConnAndIccInfo(bool aStart)
-{
+bool BluetoothRilListener::ListenMobileConnAndIccInfo(bool aStart) {
   /**
    * mClientId < number of total clients:
    *   The client with mClientId is available. Start/Stop listening

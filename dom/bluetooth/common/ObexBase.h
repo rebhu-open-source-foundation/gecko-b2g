@@ -124,11 +124,7 @@ enum ObexResponseCode {
   DatabaseLocked = 0xE1,
 };
 
-enum ObexDigestChallenge {
-  Nonce = 0x00,
-  Options = 0x01,
-  Realm = 0x02
-};
+enum ObexDigestChallenge { Nonce = 0x00, Options = 0x01, Realm = 0x02 };
 
 enum ObexDigestResponse {
   ReqDigest = 0x00,
@@ -136,45 +132,30 @@ enum ObexDigestResponse {
   NonceChallenged = 0x02
 };
 
-class ObexHeader
-{
-public:
+class ObexHeader {
+ public:
   ObexHeader(ObexHeaderId aId, int aDataLength, const uint8_t* aData)
-    : mId(aId)
-    , mDataLength(aDataLength)
-    , mData(nullptr)
-  {
+      : mId(aId), mDataLength(aDataLength), mData(nullptr) {
     mData.reset(new uint8_t[mDataLength]);
     memcpy(mData.get(), aData, aDataLength);
   }
 
-  ~ObexHeader()
-  {
-  }
+  ~ObexHeader() {}
 
   ObexHeaderId mId;
   int mDataLength;
   UniquePtr<uint8_t[]> mData;
 };
 
-class ObexHeaderSet
-{
-public:
-  ObexHeaderSet()
-  {
-  }
+class ObexHeaderSet {
+ public:
+  ObexHeaderSet() {}
 
-  ~ObexHeaderSet()
-  {
-  }
+  ~ObexHeaderSet() {}
 
-  void AddHeader(ObexHeader* aHeader)
-  {
-    mHeaders.AppendElement(aHeader);
-  }
+  void AddHeader(ObexHeader* aHeader) { mHeaders.AppendElement(aHeader); }
 
-  void GetName(nsString& aRetName) const
-  {
+  void GetName(nsString& aRetName) const {
     aRetName.Truncate();
 
     int length = mHeaders.Length();
@@ -200,8 +181,7 @@ public:
     }
   }
 
-  void GetContentType(nsString& aRetContentType) const
-  {
+  void GetContentType(nsString& aRetContentType) const {
     aRetContentType.Truncate();
 
     int length = mHeaders.Length();
@@ -216,8 +196,7 @@ public:
   }
 
   // @return file length, 0 means file length is unknown.
-  void GetLength(uint32_t* aRetLength) const
-  {
+  void GetLength(uint32_t* aRetLength) const {
     int length = mHeaders.Length();
     *aRetLength = 0;
 
@@ -230,8 +209,7 @@ public:
     }
   }
 
-  void GetBody(uint8_t** aRetBody, int* aRetBodyLength) const
-  {
+  void GetBody(uint8_t** aRetBody, int* aRetBodyLength) const {
     int length = mHeaders.Length();
     *aRetBody = nullptr;
     *aRetBodyLength = 0;
@@ -248,13 +226,12 @@ public:
     }
   }
 
-  uint32_t GetConnectionId() const
-  {
+  uint32_t GetConnectionId() const {
     int length = mHeaders.Length();
 
     for (int i = 0; i < length; ++i) {
       if (mHeaders[i]->mId == ObexHeaderId::ConnectionId) {
-        uint32_t* id = (uint32_t *) mHeaders[i]->mData.get();
+        uint32_t* id = (uint32_t*)mHeaders[i]->mData.get();
         return *id;
       }
     }
@@ -275,8 +252,8 @@ public:
    *
    * @return a boolean value to indicate whether the given paramter exists.
    */
-  bool GetAppParameter(uint8_t aTagId, uint8_t* aRetBuf, int aBufferSize) const
-  {
+  bool GetAppParameter(uint8_t aTagId, uint8_t* aRetBuf,
+                       int aBufferSize) const {
     int length = mHeaders.Length();
     memset(aRetBuf, 0, aBufferSize);
 
@@ -298,8 +275,8 @@ public:
           uint8_t paramLen = *(ptr + offset++);
 
           if (tagId == aTagId) {
-            memcpy(aRetBuf, ptr + offset, paramLen < aBufferSize ? paramLen
-                                                                 : aBufferSize);
+            memcpy(aRetBuf, ptr + offset,
+                   paramLen < aBufferSize ? paramLen : aBufferSize);
             return true;
           }
 
@@ -312,8 +289,7 @@ public:
     return false;
   }
 
-  const ObexHeader* GetHeader(ObexHeaderId aId) const
-  {
+  const ObexHeader* GetHeader(ObexHeaderId aId) const {
     for (int i = 0, length = mHeaders.Length(); i < length; ++i) {
       if (mHeaders[i]->mId == aId) {
         return mHeaders[i].get();
@@ -323,17 +299,11 @@ public:
     return nullptr;
   }
 
-  bool Has(ObexHeaderId aId) const
-  {
-    return !!GetHeader(aId);
-  }
+  bool Has(ObexHeaderId aId) const { return !!GetHeader(aId); }
 
-  void ClearHeaders()
-  {
-    mHeaders.Clear();
-  }
+  void ClearHeaders() { mHeaders.Clear(); }
 
-private:
+ private:
   nsTArray<UniquePtr<ObexHeader> > mHeaders;
 };
 
@@ -341,8 +311,8 @@ int AppendHeaderName(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aName,
                      int aLength);
 int AppendHeaderBody(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aBody,
                      int aLength);
-int AppendHeaderTarget(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aTarget,
-                       int aLength);
+int AppendHeaderTarget(uint8_t* aRetBuf, int aBufferSize,
+                       const uint8_t* aTarget, int aLength);
 int AppendHeaderWho(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aWho,
                     int aLength);
 int AppendHeaderType(uint8_t* aRetBuf, int aBufferSize, const uint8_t* aType,
@@ -361,10 +331,9 @@ void SetObexPacketInfo(uint8_t* aRetBuf, uint8_t aOpcode, int aPacketLength);
 /**
  * @return true when the message was parsed without any error, false otherwise.
  */
-bool ParseHeaders(const uint8_t* aHeaderStart,
-                  int aTotalLength,
+bool ParseHeaders(const uint8_t* aHeaderStart, int aTotalLength,
                   ObexHeaderSet* aRetHanderSet);
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_ObexBase_h
+#endif  // mozilla_dom_bluetooth_ObexBase_h

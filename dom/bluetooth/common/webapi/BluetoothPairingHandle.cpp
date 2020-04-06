@@ -31,11 +31,10 @@ BluetoothPairingHandle::BluetoothPairingHandle(nsPIDOMWindowInner* aOwner,
                                                const nsAString& aDeviceAddress,
                                                const nsAString& aType,
                                                const nsAString& aPasskey)
-  : mOwner(aOwner)
-  , mDeviceAddress(aDeviceAddress)
-  , mType(aType)
-  , mPasskey(aPasskey)
-{
+    : mOwner(aOwner),
+      mDeviceAddress(aDeviceAddress),
+      mType(aType),
+      mPasskey(aPasskey) {
   MOZ_ASSERT(aOwner && !aDeviceAddress.IsEmpty() && !aType.IsEmpty());
 
   if (aType.EqualsLiteral(PAIRING_REQ_TYPE_DISPLAYPASSKEY) ||
@@ -46,27 +45,21 @@ BluetoothPairingHandle::BluetoothPairingHandle(nsPIDOMWindowInner* aOwner,
   }
 }
 
-BluetoothPairingHandle::~BluetoothPairingHandle()
-{
-}
+BluetoothPairingHandle::~BluetoothPairingHandle() {}
 
-already_AddRefed<BluetoothPairingHandle>
-BluetoothPairingHandle::Create(nsPIDOMWindowInner* aOwner,
-                               const nsAString& aDeviceAddress,
-                               const nsAString& aType,
-                               const nsAString& aPasskey)
-{
+already_AddRefed<BluetoothPairingHandle> BluetoothPairingHandle::Create(
+    nsPIDOMWindowInner* aOwner, const nsAString& aDeviceAddress,
+    const nsAString& aType, const nsAString& aPasskey) {
   MOZ_ASSERT(aOwner && !aDeviceAddress.IsEmpty() && !aType.IsEmpty());
 
   RefPtr<BluetoothPairingHandle> handle =
-    new BluetoothPairingHandle(aOwner, aDeviceAddress, aType, aPasskey);
+      new BluetoothPairingHandle(aOwner, aDeviceAddress, aType, aPasskey);
 
   return handle.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothPairingHandle::SetPinCode(const nsAString& aPinCode, ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothPairingHandle::SetPinCode(
+    const nsAString& aPinCode, ErrorResult& aRv) {
   BT_LOGR("SSP type: %s", NS_ConvertUTF16toUTF8(mType).get());
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
@@ -78,19 +71,16 @@ BluetoothPairingHandle::SetPinCode(const nsAString& aPinCode, ErrorResult& aRv)
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
   BT_ENSURE_TRUE_REJECT(mType.EqualsLiteral(PAIRING_REQ_TYPE_ENTERPINCODE),
-                        promise,
-                        NS_ERROR_DOM_INVALID_STATE_ERR);
+                        promise, NS_ERROR_DOM_INVALID_STATE_ERR);
 
   BluetoothAddress deviceAddress;
-  BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(StringToAddress(mDeviceAddress,
-                                                     deviceAddress)),
-                        promise,
-                        NS_ERROR_DOM_INVALID_STATE_ERR);
+  BT_ENSURE_TRUE_REJECT(
+      NS_SUCCEEDED(StringToAddress(mDeviceAddress, deviceAddress)), promise,
+      NS_ERROR_DOM_INVALID_STATE_ERR);
 
   BluetoothPinCode pinCode;
   BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(StringToPinCode(aPinCode, pinCode)),
-                        promise,
-                        NS_ERROR_DOM_INVALID_STATE_ERR);
+                        promise, NS_ERROR_DOM_INVALID_STATE_ERR);
 
   BluetoothService* bs = BluetoothService::Get();
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
@@ -101,9 +91,7 @@ BluetoothPairingHandle::SetPinCode(const nsAString& aPinCode, ErrorResult& aRv)
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothPairingHandle::Accept(ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothPairingHandle::Accept(ErrorResult& aRv) {
   BT_LOGR("SSP type: %s", NS_ConvertUTF16toUTF8(mType).get());
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
@@ -115,22 +103,19 @@ BluetoothPairingHandle::Accept(ErrorResult& aRv)
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
   BT_ENSURE_TRUE_REJECT(mType.EqualsLiteral(PAIRING_REQ_TYPE_CONFIRMATION) ||
-                        mType.EqualsLiteral(PAIRING_REQ_TYPE_CONSENT),
-                        promise,
-                        NS_ERROR_DOM_INVALID_STATE_ERR);
+                            mType.EqualsLiteral(PAIRING_REQ_TYPE_CONSENT),
+                        promise, NS_ERROR_DOM_INVALID_STATE_ERR);
 
   BluetoothService* bs = BluetoothService::Get();
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
   BluetoothAddress deviceAddress;
-  BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(StringToAddress(mDeviceAddress,
-                                                     deviceAddress)),
-                        promise,
-                        NS_ERROR_DOM_INVALID_STATE_ERR);
+  BT_ENSURE_TRUE_REJECT(
+      NS_SUCCEEDED(StringToAddress(mDeviceAddress, deviceAddress)), promise,
+      NS_ERROR_DOM_INVALID_STATE_ERR);
 
   BluetoothSspVariant variant;
-  BT_ENSURE_TRUE_REJECT(GetSspVariant(variant),
-                        promise,
+  BT_ENSURE_TRUE_REJECT(GetSspVariant(variant), promise,
                         NS_ERROR_DOM_OPERATION_ERR);
 
   bs->SspReplyInternal(deviceAddress, variant, true /* aAccept */,
@@ -139,9 +124,7 @@ BluetoothPairingHandle::Accept(ErrorResult& aRv)
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothPairingHandle::Reject(ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothPairingHandle::Reject(ErrorResult& aRv) {
   BT_LOGR("SSP type: %s", NS_ConvertUTF16toUTF8(mType).get());
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
@@ -153,22 +136,19 @@ BluetoothPairingHandle::Reject(ErrorResult& aRv)
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
   BluetoothAddress deviceAddress;
-  BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(StringToAddress(mDeviceAddress,
-                                                     deviceAddress)),
-                        promise,
-                        NS_ERROR_DOM_INVALID_STATE_ERR);
+  BT_ENSURE_TRUE_REJECT(
+      NS_SUCCEEDED(StringToAddress(mDeviceAddress, deviceAddress)), promise,
+      NS_ERROR_DOM_INVALID_STATE_ERR);
 
   BluetoothService* bs = BluetoothService::Get();
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
-  if (mType.EqualsLiteral(PAIRING_REQ_TYPE_ENTERPINCODE)) { // Pin request
-    bs->PinReplyInternal(deviceAddress, false /* aAccept */,
-                         BluetoothPinCode(),
+  if (mType.EqualsLiteral(PAIRING_REQ_TYPE_ENTERPINCODE)) {  // Pin request
+    bs->PinReplyInternal(deviceAddress, false /* aAccept */, BluetoothPinCode(),
                          new BluetoothVoidReplyRunnable(nullptr, promise));
-  } else { // Ssp request
+  } else {  // Ssp request
     BluetoothSspVariant variant;
-    BT_ENSURE_TRUE_REJECT(GetSspVariant(variant),
-                          promise,
+    BT_ENSURE_TRUE_REJECT(GetSspVariant(variant), promise,
                           NS_ERROR_DOM_OPERATION_ERR);
 
     bs->SspReplyInternal(deviceAddress, variant, false /* aAccept */,
@@ -178,9 +158,7 @@ BluetoothPairingHandle::Reject(ErrorResult& aRv)
   return promise.forget();
 }
 
-bool
-BluetoothPairingHandle::GetSspVariant(BluetoothSspVariant& aVariant)
-{
+bool BluetoothPairingHandle::GetSspVariant(BluetoothSspVariant& aVariant) {
   if (mType.EqualsLiteral(PAIRING_REQ_TYPE_DISPLAYPASSKEY)) {
     aVariant = BluetoothSspVariant::SSP_VARIANT_PASSKEY_NOTIFICATION;
   } else if (mType.EqualsLiteral(PAIRING_REQ_TYPE_CONFIRMATION)) {
@@ -188,18 +166,15 @@ BluetoothPairingHandle::GetSspVariant(BluetoothSspVariant& aVariant)
   } else if (mType.EqualsLiteral(PAIRING_REQ_TYPE_CONSENT)) {
     aVariant = BluetoothSspVariant::SSP_VARIANT_CONSENT;
   } else {
-    BT_LOGR("Invalid SSP variant name: %s",
-            NS_ConvertUTF16toUTF8(mType).get());
-    aVariant = SSP_VARIANT_PASSKEY_CONFIRMATION; // silences compiler warning
+    BT_LOGR("Invalid SSP variant name: %s", NS_ConvertUTF16toUTF8(mType).get());
+    aVariant = SSP_VARIANT_PASSKEY_CONFIRMATION;  // silences compiler warning
     return false;
   }
 
   return true;
 }
 
-JSObject*
-BluetoothPairingHandle::WrapObject(JSContext* aCx,
-                                   JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothPairingHandle::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothPairingHandle_Binding::Wrap(aCx, this, aGivenProto);
 }

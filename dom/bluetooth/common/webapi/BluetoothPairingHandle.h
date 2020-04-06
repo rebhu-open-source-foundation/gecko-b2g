@@ -15,39 +15,29 @@ class ErrorResult;
 namespace dom {
 class Promise;
 }
-}
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothPairingHandle final : public nsISupports
-                                   , public nsWrapperCache
-{
-public:
+class BluetoothPairingHandle final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothPairingHandle)
 
-  static already_AddRefed<BluetoothPairingHandle>
-    Create(nsPIDOMWindowInner* aOwner,
-           const nsAString& aDeviceAddress,
-           const nsAString& aType,
-           const nsAString& aPasskey);
+  static already_AddRefed<BluetoothPairingHandle> Create(
+      nsPIDOMWindowInner* aOwner, const nsAString& aDeviceAddress,
+      const nsAString& aType, const nsAString& aPasskey);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  void GetPasskey(nsString& aPasskey) const
-  {
-    aPasskey = mPasskey;
-  }
+  void GetPasskey(nsString& aPasskey) const { aPasskey = mPasskey; }
 
   // Reply to the enterpincodereq pairing request
-  already_AddRefed<Promise>
-    SetPinCode(const nsAString& aPinCode, ErrorResult& aRv);
+  already_AddRefed<Promise> SetPinCode(const nsAString& aPinCode,
+                                       ErrorResult& aRv);
 
   // Accept the pairingconfirmationreq or pairingconsentreq pairing request
   already_AddRefed<Promise> Accept(ErrorResult& aRv);
@@ -55,11 +45,10 @@ public:
   // Reject the pairing request
   already_AddRefed<Promise> Reject(ErrorResult& aRv);
 
-private:
+ private:
   BluetoothPairingHandle(nsPIDOMWindowInner* aOwner,
                          const nsAString& aDeviceAddress,
-                         const nsAString& aType,
-                         const nsAString& aPasskey);
+                         const nsAString& aType, const nsAString& aPasskey);
   ~BluetoothPairingHandle();
 
   /**
@@ -79,4 +68,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothPairingHandle_h
+#endif  // mozilla_dom_bluetooth_BluetoothPairingHandle_h

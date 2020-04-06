@@ -20,10 +20,9 @@ BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothAdapter;
 class BluetoothValue;
 
-class BluetoothManager final : public DOMEventTargetHelper
-                             , public BluetoothSignalObserver
-{
-public:
+class BluetoothManager final : public DOMEventTargetHelper,
+                               public BluetoothSignalObserver {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothManager,
                                            DOMEventTargetHelper)
@@ -59,11 +58,9 @@ public:
   static already_AddRefed<BluetoothManager> Create(nsPIDOMWindowInner* aWindow);
   static bool CheckPermission(nsPIDOMWindowInner* aWindow);
 
-  void Notify(const BluetoothSignal& aData) override; // BluetoothSignalObserver
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return GetOwner();
-  }
+  void Notify(
+      const BluetoothSignal& aData) override;  // BluetoothSignalObserver
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -83,17 +80,14 @@ public:
    */
   static bool B2GGattClientEnabled(JSContext* cx, JSObject* aGlobal);
 
-private:
+ private:
   BluetoothManager(nsPIDOMWindowInner* aWindow);
   ~BluetoothManager();
 
   /**
    * Check whether default adapter exists.
    */
-  bool DefaultAdapterExists()
-  {
-    return (mDefaultAdapterIndex >= 0);
-  }
+  bool DefaultAdapterExists() { return (mDefaultAdapterIndex >= 0); }
 
   /**
    * Handle "AdapterAdded" bluetooth signal.
@@ -146,4 +140,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothManager_h
+#endif  // mozilla_dom_bluetooth_BluetoothManager_h

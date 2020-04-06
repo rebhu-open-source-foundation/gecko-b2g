@@ -14,15 +14,13 @@
 #include "BluetoothProfileManagerBase.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
-class BluetoothA2dpManager : public BluetoothProfileManagerBase
-                           , public BluetoothA2dpNotificationHandler
-{
-public:
+class BluetoothA2dpManager : public BluetoothProfileManagerBase,
+                             public BluetoothA2dpNotificationHandler {
+ public:
   static const int MAX_NUM_CLIENTS;
 
   BT_DECL_PROFILE_MGR_BASE
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("A2DP");
   }
 
@@ -46,10 +44,10 @@ public:
 
   void HandleBackendError();
 
-protected:
+ protected:
   virtual ~BluetoothA2dpManager();
 
-private:
+ private:
   class ConnectResultHandler;
   class DeinitProfileResultHandlerRunnable;
   class DisconnectResultHandler;

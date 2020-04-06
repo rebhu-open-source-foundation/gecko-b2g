@@ -38,31 +38,24 @@ NS_INTERFACE_MAP_END
 
 BluetoothConnectionHandle::BluetoothConnectionHandle(nsPIDOMWindowInner* aOwner,
                                                      uint16_t aServiceUuid)
-  : mOwner(aOwner)
-  , mServiceUuid(aServiceUuid)
-{
+    : mOwner(aOwner), mServiceUuid(aServiceUuid) {
   MOZ_ASSERT(aOwner);
 }
 
-BluetoothConnectionHandle::~BluetoothConnectionHandle()
-{
-}
+BluetoothConnectionHandle::~BluetoothConnectionHandle() {}
 
-already_AddRefed<BluetoothConnectionHandle>
-BluetoothConnectionHandle::Create(nsPIDOMWindowInner* aOwner,
-                                  uint16_t aServiceUuid)
-{
+already_AddRefed<BluetoothConnectionHandle> BluetoothConnectionHandle::Create(
+    nsPIDOMWindowInner* aOwner, uint16_t aServiceUuid) {
   MOZ_ASSERT(aOwner);
 
   RefPtr<BluetoothConnectionHandle> handle =
-    new BluetoothConnectionHandle(aOwner, aServiceUuid);
+      new BluetoothConnectionHandle(aOwner, aServiceUuid);
 
   return handle.forget();
 }
 
-already_AddRefed<DOMRequest>
-BluetoothConnectionHandle::Accept(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> BluetoothConnectionHandle::Accept(
+    ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> win = GetParentObject();
   if (!win) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -77,16 +70,15 @@ BluetoothConnectionHandle::Accept(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(win);
   RefPtr<BluetoothVoidReplyRunnable> result =
-    new BluetoothVoidReplyRunnable(request);
+      new BluetoothVoidReplyRunnable(request);
 
   bs->AcceptConnection(mServiceUuid, result);
 
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-BluetoothConnectionHandle::Reject(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> BluetoothConnectionHandle::Reject(
+    ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> win = GetParentObject();
   if (!win) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -101,16 +93,14 @@ BluetoothConnectionHandle::Reject(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(win);
   RefPtr<BluetoothVoidReplyRunnable> result =
-    new BluetoothVoidReplyRunnable(request);
+      new BluetoothVoidReplyRunnable(request);
 
   bs->RejectConnection(mServiceUuid, result);
 
   return request.forget();
 }
 
-JSObject*
-BluetoothConnectionHandle::WrapObject(JSContext* aCx,
-                                      JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothConnectionHandle::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothConnectionHandle_Binding::Wrap(aCx, this, aGivenProto);
 }

@@ -12,7 +12,6 @@
 #include "BluetoothUtils.h"
 #include "BluetoothUuidHelper.h"
 
-
 #include "mozilla/dom/BluetoothPbapParametersBinding.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/EndianUtils.h"
@@ -30,51 +29,39 @@ using namespace mozilla::dom;
 using namespace mozilla::ipc;
 
 namespace {
-  // UUID of PBAP PSE
-  static const BluetoothUuid kPbapPSE(PBAP_PSE);
+// UUID of PBAP PSE
+static const BluetoothUuid kPbapPSE(PBAP_PSE);
 
-  // UUID used in PBAP OBEX target header
-  static const BluetoothUuid kPbapObexTarget(0x79, 0x61, 0x35, 0xF0,
-                                             0xF0, 0xC5, 0x11, 0xD8,
-                                             0x09, 0x66, 0x08, 0x00,
-                                             0x20, 0x0C, 0x9A, 0x66);
+// UUID used in PBAP OBEX target header
+static const BluetoothUuid kPbapObexTarget(0x79, 0x61, 0x35, 0xF0, 0xF0, 0xC5,
+                                           0x11, 0xD8, 0x09, 0x66, 0x08, 0x00,
+                                           0x20, 0x0C, 0x9A, 0x66);
 
-  // App parameters to pull phonebook
-  static const AppParameterTag sPhonebookTags[] = {
-    AppParameterTag::Format,
-    AppParameterTag::PropertySelector,
-    AppParameterTag::MaxListCount,
-    AppParameterTag::ListStartOffset,
-    AppParameterTag::vCardSelector
-  };
+// App parameters to pull phonebook
+static const AppParameterTag sPhonebookTags[] = {
+    AppParameterTag::Format, AppParameterTag::PropertySelector,
+    AppParameterTag::MaxListCount, AppParameterTag::ListStartOffset,
+    AppParameterTag::vCardSelector};
 
-  // App parameters to pull vCard listing
-  static const AppParameterTag sVCardListingTags[] = {
-    AppParameterTag::Order,
-    AppParameterTag::SearchValue,
-    AppParameterTag::SearchProperty,
-    AppParameterTag::MaxListCount,
-    AppParameterTag::ListStartOffset,
-    AppParameterTag::vCardSelector
-  };
+// App parameters to pull vCard listing
+static const AppParameterTag sVCardListingTags[] = {
+    AppParameterTag::Order,           AppParameterTag::SearchValue,
+    AppParameterTag::SearchProperty,  AppParameterTag::MaxListCount,
+    AppParameterTag::ListStartOffset, AppParameterTag::vCardSelector};
 
-  // App parameters to pull vCard entry
-  static const AppParameterTag sVCardEntryTags[] = {
-    AppParameterTag::Format,
-    AppParameterTag::PropertySelector
-  };
+// App parameters to pull vCard entry
+static const AppParameterTag sVCardEntryTags[] = {
+    AppParameterTag::Format, AppParameterTag::PropertySelector};
 
-  StaticRefPtr<BluetoothPbapManager> sPbapManager;
-  static bool sInShutdown = false;
-}
+StaticRefPtr<BluetoothPbapManager> sPbapManager;
+static bool sInShutdown = false;
+}  // namespace
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 NS_IMETHODIMP
-BluetoothPbapManager::Observe(nsISupports* aSubject,
-                              const char* aTopic,
-                              const char16_t* aData)
-{
+BluetoothPbapManager::Observe(nsISupports* aSubject, const char* aTopic,
+                              const char16_t* aData) {
   MOZ_ASSERT(sPbapManager);
 
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
@@ -86,9 +73,7 @@ BluetoothPbapManager::Observe(nsISupports* aSubject,
   return NS_ERROR_UNEXPECTED;
 }
 
-void
-BluetoothPbapManager::HandleShutdown()
-{
+void BluetoothPbapManager::HandleShutdown() {
   MOZ_ASSERT(NS_IsMainThread());
 
   sInShutdown = true;
@@ -98,21 +83,18 @@ BluetoothPbapManager::HandleShutdown()
   sPbapManager = nullptr;
 }
 
-BluetoothPbapManager::BluetoothPbapManager() : mPhonebookSizeRequired(false)
-                                             , mNewMissedCallsRequired(false)
-                                             , mConnected(false)
-                                             , mPasswordReqNeeded(false)
-                                             , mRemoteMaxPacketLength(0)
-{
+BluetoothPbapManager::BluetoothPbapManager()
+    : mPhonebookSizeRequired(false),
+      mNewMissedCallsRequired(false),
+      mConnected(false),
+      mPasswordReqNeeded(false),
+      mRemoteMaxPacketLength(0) {
   mCurrentPath.AssignLiteral("");
 }
 
-BluetoothPbapManager::~BluetoothPbapManager()
-{ }
+BluetoothPbapManager::~BluetoothPbapManager() {}
 
-nsresult
-BluetoothPbapManager::Init()
-{
+nsresult BluetoothPbapManager::Init() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (NS_WARN_IF(!obs)) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -135,9 +117,7 @@ BluetoothPbapManager::Init()
   return NS_OK;
 }
 
-void
-BluetoothPbapManager::Uninit()
-{
+void BluetoothPbapManager::Uninit() {
   if (mServerSocket) {
     mServerSocket->SetObserver(nullptr);
 
@@ -161,14 +141,13 @@ BluetoothPbapManager::Uninit()
     return;
   }
 
-  NS_WARN_IF(NS_FAILED(
-    obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)));
+  NS_WARN_IF(
+      NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)));
 }
 
 // static
-void
-BluetoothPbapManager::InitPbapInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothPbapManager::InitPbapInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aRes) {
@@ -177,9 +156,8 @@ BluetoothPbapManager::InitPbapInterface(BluetoothProfileResultHandler* aRes)
 }
 
 // static
-void
-BluetoothPbapManager::DeinitPbapInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothPbapManager::DeinitPbapInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (sPbapManager) {
@@ -192,10 +170,8 @@ BluetoothPbapManager::DeinitPbapInterface(BluetoothProfileResultHandler* aRes)
   }
 }
 
-//static
-BluetoothPbapManager*
-BluetoothPbapManager::Get()
-{
+// static
+BluetoothPbapManager* BluetoothPbapManager::Get() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Exit early if sPbapManager already exists
@@ -218,9 +194,7 @@ BluetoothPbapManager::Get()
   return sPbapManager;
 }
 
-bool
-BluetoothPbapManager::Listen()
-{
+bool BluetoothPbapManager::Listen() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Fail to listen if |mSocket| already exists
@@ -242,10 +216,9 @@ BluetoothPbapManager::Listen()
   mServerSocket = new BluetoothSocket(this);
 
   nsresult rv = mServerSocket->Listen(
-    NS_LITERAL_STRING("OBEX Phonebook Access Server"),
-    kPbapPSE,
-    BluetoothSocketType::RFCOMM,
-    BluetoothReservedChannels::CHANNEL_PBAP_PSE, false, true);
+      NS_LITERAL_STRING("OBEX Phonebook Access Server"), kPbapPSE,
+      BluetoothSocketType::RFCOMM, BluetoothReservedChannels::CHANNEL_PBAP_PSE,
+      false, true);
 
   if (NS_FAILED(rv)) {
     mServerSocket = nullptr;
@@ -257,10 +230,8 @@ BluetoothPbapManager::Listen()
 }
 
 // Virtual function of class SocketConsumer
-void
-BluetoothPbapManager::ReceiveSocketData(BluetoothSocket* aSocket,
-                                        UniquePtr<UnixSocketBuffer>& aMessage)
-{
+void BluetoothPbapManager::ReceiveSocketData(
+    BluetoothSocket* aSocket, UniquePtr<UnixSocketBuffer>& aMessage) {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -417,9 +388,7 @@ BluetoothPbapManager::ReceiveSocketData(BluetoothSocket* aSocket,
   }
 }
 
-bool
-BluetoothPbapManager::CompareHeaderTarget(const ObexHeaderSet& aHeader)
-{
+bool BluetoothPbapManager::CompareHeaderTarget(const ObexHeaderSet& aHeader) {
   const ObexHeader* header = aHeader.GetHeader(ObexHeaderId::Target);
 
   if (!header) {
@@ -434,8 +403,8 @@ BluetoothPbapManager::CompareHeaderTarget(const ObexHeaderSet& aHeader)
 
   for (uint8_t i = 0; i < sizeof(BluetoothUuid); i++) {
     if (header->mData[i] != kPbapObexTarget.mUuid[i]) {
-      BT_LOGR("UUID mismatch: received target[%d]=0x%x != 0x%x",
-              i, header->mData[i], kPbapObexTarget.mUuid[i]);
+      BT_LOGR("UUID mismatch: received target[%d]=0x%x != 0x%x", i,
+              header->mData[i], kPbapObexTarget.mUuid[i]);
       return false;
     }
   }
@@ -443,9 +412,7 @@ BluetoothPbapManager::CompareHeaderTarget(const ObexHeaderSet& aHeader)
   return true;
 }
 
-ObexResponseCode
-BluetoothPbapManager::NotifyConnectionRequest()
-{
+ObexResponseCode BluetoothPbapManager::NotifyConnectionRequest() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Ensure bluetooth service is available
@@ -459,19 +426,16 @@ BluetoothPbapManager::NotifyConnectionRequest()
   AddressToString(mDeviceAddress, deviceAddressStr);
 
   bs->DistributeSignal(
-    BluetoothSignal(NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID),
-                    NS_LITERAL_STRING(KEY_PBAP),
-                    deviceAddressStr));
+      BluetoothSignal(NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID),
+                      NS_LITERAL_STRING(KEY_PBAP), deviceAddressStr));
 
   BT_LOGR("Notify front-end app of the PBAP connection request.");
 
   return ObexResponseCode::Success;
 }
 
-ObexResponseCode
-BluetoothPbapManager::SetPhoneBookPath(const ObexHeaderSet& aHeader,
-                                       uint8_t flags)
-{
+ObexResponseCode BluetoothPbapManager::SetPhoneBookPath(
+    const ObexHeaderSet& aHeader, uint8_t flags) {
   // Section 5.2 "SetPhoneBook Function", PBAP 1.2
   // flags bit 1 must be 1 and bit 2~7 be 0
   if ((flags >> 1) != 1) {
@@ -529,9 +493,8 @@ BluetoothPbapManager::SetPhoneBookPath(const ObexHeaderSet& aHeader,
   return ObexResponseCode::Success;
 }
 
-ObexResponseCode
-BluetoothPbapManager::NotifyPbapRequest(const ObexHeaderSet& aHeader)
-{
+ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
+    const ObexHeaderSet& aHeader) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Clean up the flag of last PBAP request
@@ -597,11 +560,10 @@ BluetoothPbapManager::NotifyPbapRequest(const ObexHeaderSet& aHeader)
       // H5OS curretly supports phonebook object with "vcf" format only
       BT_LOGR("Uhacceptable phonebook object name: %s",
               NS_ConvertUTF16toUTF8(name).get());
-       return ObexResponseCode::NotAcceptable;
+      return ObexResponseCode::NotAcceptable;
     }
   } else {
-    BT_LOGR("Unknown PBAP request type: %s",
-            NS_ConvertUTF16toUTF8(type).get());
+    BT_LOGR("Unknown PBAP request type: %s", NS_ConvertUTF16toUTF8(type).get());
     return ObexResponseCode::BadRequest;
   }
 
@@ -624,9 +586,7 @@ BluetoothPbapManager::NotifyPbapRequest(const ObexHeaderSet& aHeader)
   return ObexResponseCode::Success;
 }
 
-ObexResponseCode
-BluetoothPbapManager::NotifyPasswordRequest()
-{
+ObexResponseCode BluetoothPbapManager::NotifyPasswordRequest() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Ensure bluetooth service is available
@@ -640,18 +600,14 @@ BluetoothPbapManager::NotifyPasswordRequest()
   //       2) it's in authenticate challenge header
   nsTArray<BluetoothNamedValue> props;
   bs->DistributeSignal(NS_LITERAL_STRING(OBEX_PASSWORD_REQ_ID),
-                       NS_LITERAL_STRING(KEY_ADAPTER),
-                       props);
+                       NS_LITERAL_STRING(KEY_ADAPTER), props);
 
   return ObexResponseCode::Success;
 }
 
-void
-BluetoothPbapManager::AppendNamedValueByTagId(
-  const ObexHeaderSet& aHeader,
-  nsTArray<BluetoothNamedValue>& aValues,
-  const AppParameterTag aTagId)
-{
+void BluetoothPbapManager::AppendNamedValueByTagId(
+    const ObexHeaderSet& aHeader, nsTArray<BluetoothNamedValue>& aValues,
+    const AppParameterTag aTagId) {
   uint8_t buf[64];
   if (!aHeader.GetAppParameter(aTagId, buf, 64)) {
     return;
@@ -660,17 +616,17 @@ BluetoothPbapManager::AppendNamedValueByTagId(
   switch (aTagId) {
     case AppParameterTag::Order: {
       using namespace mozilla::dom::vCardOrderTypeValues;
-      uint32_t order =
-        buf[0] < ArrayLength(strings) ? static_cast<uint32_t>(buf[0])
-                                      : 0; // default: indexed
+      uint32_t order = buf[0] < ArrayLength(strings)
+                           ? static_cast<uint32_t>(buf[0])
+                           : 0;  // default: indexed
       AppendNamedValue(aValues, "order", order);
       break;
     }
     case AppParameterTag::SearchProperty: {
       using namespace mozilla::dom::vCardSearchKeyTypeValues;
-      uint32_t searchKey =
-        buf[0] < ArrayLength(strings) ? static_cast<uint32_t>(buf[0])
-                                      : 0; // default: name
+      uint32_t searchKey = buf[0] < ArrayLength(strings)
+                               ? static_cast<uint32_t>(buf[0])
+                               : 0;  // default: name
       AppendNamedValue(aValues, "searchKey", searchKey);
       break;
     }
@@ -679,7 +635,7 @@ BluetoothPbapManager::AppendNamedValueByTagId(
       // The UTF-8 character set shall be used for <text string>.
 
       // Store UTF-8 string with nsCString to follow MDN:Internal_strings
-      AppendNamedValue(aValues, "searchText", nsCString((char *) buf));
+      AppendNamedValue(aValues, "searchText", nsCString((char*)buf));
       break;
     case AppParameterTag::MaxListCount: {
       uint16_t maxListCount = BigEndian::readUint16(buf);
@@ -704,7 +660,7 @@ BluetoothPbapManager::AppendNamedValueByTagId(
       break;
     case AppParameterTag::vCardSelector: {
       bool hasSelectorOperator = aHeader.GetAppParameter(
-        AppParameterTag::vCardSelectorOperator, buf, 64);
+          AppParameterTag::vCardSelectorOperator, buf, 64);
       AppendNamedValue(aValues,
                        hasSelectorOperator && buf[0] ? "vCardSelector_AND"
                                                      : "vCardSelector_OR",
@@ -717,25 +673,21 @@ BluetoothPbapManager::AppendNamedValueByTagId(
   }
 }
 
-bool
-BluetoothPbapManager::IsLegalPath(const nsAString& aPath)
-{
-  static const char* sLegalPaths[] = {
-    "", // root
-    "telecom",
-    "telecom/pb",
-    "telecom/ich",
-    "telecom/och",
-    "telecom/mch",
-    "telecom/cch",
-    "SIM1",
-    "SIM1/telecom",
-    "SIM1/telecom/pb",
-    "SIM1/telecom/ich",
-    "SIM1/telecom/och",
-    "SIM1/telecom/mch",
-    "SIM1/telecom/cch"
-  };
+bool BluetoothPbapManager::IsLegalPath(const nsAString& aPath) {
+  static const char* sLegalPaths[] = {"",  // root
+                                      "telecom",
+                                      "telecom/pb",
+                                      "telecom/ich",
+                                      "telecom/och",
+                                      "telecom/mch",
+                                      "telecom/cch",
+                                      "SIM1",
+                                      "SIM1/telecom",
+                                      "SIM1/telecom/pb",
+                                      "SIM1/telecom/ich",
+                                      "SIM1/telecom/och",
+                                      "SIM1/telecom/mch",
+                                      "SIM1/telecom/cch"};
 
   NS_ConvertUTF16toUTF8 path(aPath);
   for (uint8_t i = 0; i < MOZ_ARRAY_LENGTH(sLegalPaths); i++) {
@@ -747,21 +699,12 @@ BluetoothPbapManager::IsLegalPath(const nsAString& aPath)
   return false;
 }
 
-bool
-BluetoothPbapManager::IsLegalPhonebookName(const nsAString& aName)
-{
+bool BluetoothPbapManager::IsLegalPhonebookName(const nsAString& aName) {
   static const char* sLegalNames[] = {
-    "telecom/pb.vcf",
-    "telecom/ich.vcf",
-    "telecom/och.vcf",
-    "telecom/mch.vcf",
-    "telecom/cch.vcf",
-    "SIM1/telecom/pb.vcf",
-    "SIM1/telecom/ich.vcf",
-    "SIM1/telecom/och.vcf",
-    "SIM1/telecom/mch.vcf",
-    "SIM1/telecom/cch.vcf"
-  };
+      "telecom/pb.vcf",       "telecom/ich.vcf",      "telecom/och.vcf",
+      "telecom/mch.vcf",      "telecom/cch.vcf",      "SIM1/telecom/pb.vcf",
+      "SIM1/telecom/ich.vcf", "SIM1/telecom/och.vcf", "SIM1/telecom/mch.vcf",
+      "SIM1/telecom/cch.vcf"};
 
   NS_ConvertUTF16toUTF8 name(aName);
   for (uint8_t i = 0; i < MOZ_ARRAY_LENGTH(sLegalNames); i++) {
@@ -773,16 +716,12 @@ BluetoothPbapManager::IsLegalPhonebookName(const nsAString& aName)
   return false;
 }
 
-void
-BluetoothPbapManager::AfterPbapConnected()
-{
+void BluetoothPbapManager::AfterPbapConnected() {
   mCurrentPath.AssignLiteral("");
   mConnected = true;
 }
 
-void
-BluetoothPbapManager::AfterPbapDisconnected()
-{
+void BluetoothPbapManager::AfterPbapDisconnected() {
   mConnected = false;
 
   mRemoteMaxPacketLength = 0;
@@ -795,15 +734,9 @@ BluetoothPbapManager::AfterPbapDisconnected()
   }
 }
 
-bool
-BluetoothPbapManager::IsConnected()
-{
-  return mConnected;
-}
+bool BluetoothPbapManager::IsConnected() { return mConnected; }
 
-void
-BluetoothPbapManager::GetAddress(BluetoothAddress& aDeviceAddress)
-{
+void BluetoothPbapManager::GetAddress(BluetoothAddress& aDeviceAddress) {
   if (!mSocket) {
     aDeviceAddress.Clear();
     return;
@@ -812,9 +745,7 @@ BluetoothPbapManager::GetAddress(BluetoothAddress& aDeviceAddress)
   return mSocket->GetAddress(aDeviceAddress);
 }
 
-bool
-BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword)
-{
+bool BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword) {
   if (mConnected) {
     return true;
   }
@@ -825,8 +756,8 @@ BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword)
   uint8_t res[kObexLeastMaxSize];
   int index = 7;
 
-  res[3] = 0x10; // version=1.0
-  res[4] = 0x00; // flag=0x00
+  res[3] = 0x10;  // version=1.0
+  res[4] = 0x00;  // flag=0x00
   res[5] = BluetoothPbapManager::MAX_PACKET_LENGTH >> 8;
   res[6] = (uint8_t)BluetoothPbapManager::MAX_PACKET_LENGTH;
 
@@ -850,19 +781,17 @@ BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword)
     memcpy(hashString.get(), mRemoteNonce, DIGEST_LENGTH);
     hashString[DIGEST_LENGTH] = ':';
     memcpy(&hashString[DIGEST_LENGTH + 1],
-           NS_ConvertUTF16toUTF8(aPassword).get(),
-           aPassword.Length());
+           NS_ConvertUTF16toUTF8(aPassword).get(), aPassword.Length());
     MD5Hash(hashString.get(), hashStringLength);
 
     // 2 tag-length-value triplets: <request-digest:16><nonce:16>
     uint8_t digestResponse[(DIGEST_LENGTH + 2) * 2];
     int offset = AppendAppParameter(digestResponse, sizeof(digestResponse),
-                                    ObexDigestResponse::ReqDigest,
-                                    mHashRes, DIGEST_LENGTH);
-    offset += AppendAppParameter(&digestResponse[offset],
-                                 sizeof(digestResponse) - offset,
-                                 ObexDigestResponse::NonceChallenged,
-                                 mRemoteNonce, DIGEST_LENGTH);
+                                    ObexDigestResponse::ReqDigest, mHashRes,
+                                    DIGEST_LENGTH);
+    offset += AppendAppParameter(
+        &digestResponse[offset], sizeof(digestResponse) - offset,
+        ObexDigestResponse::NonceChallenged, mRemoteNonce, DIGEST_LENGTH);
 
     index += AppendAuthResponse(&res[index], kObexLeastMaxSize - index,
                                 digestResponse, offset);
@@ -873,9 +802,7 @@ BluetoothPbapManager::ReplyToConnect(const nsAString& aPassword)
   return SendObexData(res, ObexResponseCode::Success, index);
 }
 
-nsresult
-BluetoothPbapManager::MD5Hash(char *buf, uint32_t len)
-{
+nsresult BluetoothPbapManager::MD5Hash(char* buf, uint32_t len) {
   nsresult rv;
 
   // Cache a reference to the nsICryptoHash instance since we'll be calling
@@ -904,9 +831,7 @@ BluetoothPbapManager::MD5Hash(char *buf, uint32_t len)
   return rv;
 }
 
-void
-BluetoothPbapManager::ReplyToDisconnectOrAbort()
-{
+void BluetoothPbapManager::ReplyToDisconnectOrAbort() {
   if (!mConnected) {
     return;
   }
@@ -920,9 +845,7 @@ BluetoothPbapManager::ReplyToDisconnectOrAbort()
   SendObexData(res, ObexResponseCode::Success, index);
 }
 
-void
-BluetoothPbapManager::ReplyToSetPath()
-{
+void BluetoothPbapManager::ReplyToSetPath() {
   if (!mConnected) {
     return;
   }
@@ -935,9 +858,8 @@ BluetoothPbapManager::ReplyToSetPath()
   SendObexData(res, ObexResponseCode::Success, index);
 }
 
-nsTArray<uint32_t>
-BluetoothPbapManager::PackPropertiesMask(uint8_t* aData, int aSize)
-{
+nsTArray<uint32_t> BluetoothPbapManager::PackPropertiesMask(uint8_t* aData,
+                                                            int aSize) {
   nsTArray<uint32_t> propSelector;
 
   // Table 5.1 "Property Mask", PBAP 1.2
@@ -960,9 +882,7 @@ BluetoothPbapManager::PackPropertiesMask(uint8_t* aData, int aSize)
   return propSelector;
 }
 
-void
-BluetoothPbapManager::ReplyToAuthChallenge(const nsAString& aPassword)
-{
+void BluetoothPbapManager::ReplyToAuthChallenge(const nsAString& aPassword) {
   mPasswordReqNeeded = false;
 
   // Cancel authentication
@@ -975,9 +895,7 @@ BluetoothPbapManager::ReplyToAuthChallenge(const nsAString& aPassword)
   AfterPbapConnected();
 }
 
-bool
-BluetoothPbapManager::ReplyToConnectionRequest(bool aAccept)
-{
+bool BluetoothPbapManager::ReplyToConnectionRequest(bool aAccept) {
   if (!aAccept) {
     return ReplyError(ObexResponseCode::Forbidden);
   }
@@ -1003,10 +921,8 @@ BluetoothPbapManager::ReplyToConnectionRequest(bool aAccept)
   return ret;
 }
 
-bool
-BluetoothPbapManager::ReplyToPullPhonebook(BlobImpl* aBlob,
-                                           uint16_t aPhonebookSize)
-{
+bool BluetoothPbapManager::ReplyToPullPhonebook(BlobImpl* aBlob,
+                                                uint16_t aPhonebookSize) {
   if (!mConnected) {
     return false;
   }
@@ -1025,10 +941,8 @@ BluetoothPbapManager::ReplyToPullPhonebook(BlobImpl* aBlob,
   return ReplyToGet(aPhonebookSize);
 }
 
-bool
-BluetoothPbapManager::ReplyToPullvCardListing(BlobImpl* aBlob,
-                                              uint16_t aPhonebookSize)
-{
+bool BluetoothPbapManager::ReplyToPullvCardListing(BlobImpl* aBlob,
+                                                   uint16_t aPhonebookSize) {
   if (!mConnected) {
     return false;
   }
@@ -1046,9 +960,7 @@ BluetoothPbapManager::ReplyToPullvCardListing(BlobImpl* aBlob,
   return ReplyToGet(aPhonebookSize);
 }
 
-bool
-BluetoothPbapManager::ReplyToPullvCardEntry(BlobImpl* aBlob)
-{
+bool BluetoothPbapManager::ReplyToPullvCardEntry(BlobImpl* aBlob) {
   if (!mConnected) {
     return false;
   }
@@ -1061,9 +973,7 @@ BluetoothPbapManager::ReplyToPullvCardEntry(BlobImpl* aBlob)
   return ReplyToGet();
 }
 
-bool
-BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
-{
+bool BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize) {
   MOZ_ASSERT(mRemoteMaxPacketLength >= kObexLeastMaxSize);
 
   if (!mConnected) {
@@ -1101,18 +1011,14 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
     uint8_t phonebookSize[2];
     BigEndian::writeUint16(&phonebookSize[0], aPhonebookSize);
 
-    AppendAppParameter(appParameters,
-                       sizeof(appParameters),
+    AppendAppParameter(appParameters, sizeof(appParameters),
                        static_cast<uint8_t>(AppParameterTag::PhonebookSize),
-                       phonebookSize,
-                       sizeof(phonebookSize));
+                       phonebookSize, sizeof(phonebookSize));
 
     mPhonebookSizeRequired = false;
 
-    index += AppendHeaderAppParameters(&res[index],
-                                       mRemoteMaxPacketLength,
-                                       appParameters,
-                                       sizeof(appParameters));
+    index += AppendHeaderAppParameters(&res[index], mRemoteMaxPacketLength,
+                                       appParameters, sizeof(appParameters));
 
     // ---- Part 3: [headerId:1][length:2][EndOfBody:0] ---- //
     opcode = ObexResponseCode::Success;
@@ -1139,17 +1045,13 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
       // it to |aPhonebookSize| to pretend no missed call has been dismissed.
       uint8_t dummyNewMissedCalls = aPhonebookSize;
 
-      AppendAppParameter(appParameters,
-                         sizeof(appParameters),
+      AppendAppParameter(appParameters, sizeof(appParameters),
                          static_cast<uint8_t>(AppParameterTag::NewMissedCalls),
-                         &dummyNewMissedCalls,
-                         sizeof(dummyNewMissedCalls));
+                         &dummyNewMissedCalls, sizeof(dummyNewMissedCalls));
       mNewMissedCallsRequired = false;
 
-      index += AppendHeaderAppParameters(&res[index],
-                                         mRemoteMaxPacketLength,
-                                         appParameters,
-                                         sizeof(appParameters));
+      index += AppendHeaderAppParameters(&res[index], mRemoteMaxPacketLength,
+                                         appParameters, sizeof(appParameters));
     }
 
     /*
@@ -1170,7 +1072,7 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
     } else {
       // Compute remaining packet size to append Body, excluding Body's header
       uint32_t remainingPacketSize =
-        mRemoteMaxPacketLength - kObexBodyHeaderSize - index;
+          mRemoteMaxPacketLength - kObexBodyHeaderSize - index;
 
       // Read vCard data from input stream
       uint32_t numRead = 0;
@@ -1188,8 +1090,7 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
       // ----  Part 3b: [headerId:1][length:2][Body:var] ---- //
       index += AppendHeaderBody(&res[index],
                                 remainingPacketSize + kObexBodyHeaderSize,
-                                reinterpret_cast<uint8_t*>(buf.get()),
-                                numRead);
+                                reinterpret_cast<uint8_t*>(buf.get()), numRead);
 
       opcode = ObexResponseCode::Continue;
     }
@@ -1198,9 +1099,7 @@ BluetoothPbapManager::ReplyToGet(uint16_t aPhonebookSize)
   return SendObexData(std::move(res), opcode, index);
 }
 
-bool
-BluetoothPbapManager::GetInputStreamFromBlob(BlobImpl* aBlob)
-{
+bool BluetoothPbapManager::GetInputStreamFromBlob(BlobImpl* aBlob) {
   // PBAP can only handle one OBEX BODY transfer at the same time.
   if (mVCardDataStream) {
     BT_LOGR("Shouldn't handle multiple PBAP responses simultaneously");
@@ -1219,9 +1118,7 @@ BluetoothPbapManager::GetInputStreamFromBlob(BlobImpl* aBlob)
   return true;
 }
 
-void
-BluetoothPbapManager::GetRemoteNonce(const ObexHeaderSet& aHeader)
-{
+void BluetoothPbapManager::GetRemoteNonce(const ObexHeaderSet& aHeader) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHeader.Has(ObexHeaderId::AuthChallenge));
 
@@ -1246,9 +1143,7 @@ BluetoothPbapManager::GetRemoteNonce(const ObexHeaderSet& aHeader)
   } while (offset < authHeader->mDataLength);
 }
 
-bool
-BluetoothPbapManager::ReplyError(uint8_t aError)
-{
+bool BluetoothPbapManager::ReplyError(uint8_t aError) {
   BT_LOGR("[0x%x]", aError);
 
   // Section 3.2 "Response Format", IrOBEX 1.2
@@ -1257,9 +1152,8 @@ BluetoothPbapManager::ReplyError(uint8_t aError)
   return SendObexData(res, aError, kObexBodyHeaderSize);
 }
 
-bool
-BluetoothPbapManager::SendObexData(uint8_t* aData, uint8_t aOpcode, int aSize)
-{
+bool BluetoothPbapManager::SendObexData(uint8_t* aData, uint8_t aOpcode,
+                                        int aSize) {
   if (!mSocket) {
     BT_LOGR("Failed to send PBAP obex data. aOpcode: [0x%x] ", aOpcode);
     return false;
@@ -1271,19 +1165,15 @@ BluetoothPbapManager::SendObexData(uint8_t* aData, uint8_t aOpcode, int aSize)
   return true;
 }
 
-bool
-BluetoothPbapManager::SendObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode,
-                                   int aSize)
-{
+bool BluetoothPbapManager::SendObexData(UniquePtr<uint8_t[]> aData,
+                                        uint8_t aOpcode, int aSize) {
   SetObexPacketInfo(aData.get(), aOpcode, aSize);
   mSocket->SendSocketData(new UnixSocketRawData(std::move(aData), aSize));
 
   return true;
 }
 
-void
-BluetoothPbapManager::OnSocketConnectSuccess(BluetoothSocket* aSocket)
-{
+void BluetoothPbapManager::OnSocketConnectSuccess(BluetoothSocket* aSocket) {
   MOZ_ASSERT(aSocket);
   MOZ_ASSERT(aSocket == mServerSocket);
   MOZ_ASSERT(!mSocket);
@@ -1298,25 +1188,20 @@ BluetoothPbapManager::OnSocketConnectSuccess(BluetoothSocket* aSocket)
   mSocket->GetAddress(mDeviceAddress);
 }
 
-void
-BluetoothPbapManager::OnSocketConnectError(BluetoothSocket* aSocket)
-{
+void BluetoothPbapManager::OnSocketConnectError(BluetoothSocket* aSocket) {
   if (mServerSocket &&
       mServerSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
     mServerSocket->Close();
   }
   mServerSocket = nullptr;
 
-  if (mSocket &&
-      mSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
+  if (mSocket && mSocket->GetConnectionStatus() != SOCKET_DISCONNECTED) {
     mSocket->Close();
   }
   mSocket = nullptr;
 }
 
-void
-BluetoothPbapManager::OnSocketDisconnect(BluetoothSocket* aSocket)
-{
+void BluetoothPbapManager::OnSocketDisconnect(BluetoothSocket* aSocket) {
   MOZ_ASSERT(aSocket);
 
   if (aSocket != mSocket) {
@@ -1327,14 +1212,12 @@ BluetoothPbapManager::OnSocketDisconnect(BluetoothSocket* aSocket)
   AfterPbapDisconnected();
   mDeviceAddress.Clear();
 
-  mSocket = nullptr; // should already be closed
+  mSocket = nullptr;  // should already be closed
 
   Listen();
 }
 
-void
-BluetoothPbapManager::Disconnect(BluetoothProfileController* aController)
-{
+void BluetoothPbapManager::Disconnect(BluetoothProfileController* aController) {
   if (!mSocket) {
     BT_LOGR("No ongoing connection to disconnect");
     return;
@@ -1345,45 +1228,30 @@ BluetoothPbapManager::Disconnect(BluetoothProfileController* aController)
 
 NS_IMPL_ISUPPORTS(BluetoothPbapManager, nsIObserver)
 
-void
-BluetoothPbapManager::Connect(const BluetoothAddress& aDeviceAddress,
-                              BluetoothProfileController* aController)
-{
+void BluetoothPbapManager::Connect(const BluetoothAddress& aDeviceAddress,
+                                   BluetoothProfileController* aController) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothPbapManager::OnGetServiceChannel(
-  const BluetoothAddress& aDeviceAddress,
-  const BluetoothUuid& aServiceUuid,
-  int aChannel)
-{
+void BluetoothPbapManager::OnGetServiceChannel(
+    const BluetoothAddress& aDeviceAddress, const BluetoothUuid& aServiceUuid,
+    int aChannel) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothPbapManager::OnUpdateSdpRecords(
-  const BluetoothAddress& aDeviceAddress)
-{
+void BluetoothPbapManager::OnUpdateSdpRecords(
+    const BluetoothAddress& aDeviceAddress) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothPbapManager::OnConnect(const nsAString& aErrorStr)
-{
+void BluetoothPbapManager::OnConnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothPbapManager::OnDisconnect(const nsAString& aErrorStr)
-{
+void BluetoothPbapManager::OnDisconnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothPbapManager::Reset()
-{
-  MOZ_ASSERT(false);
-}
+void BluetoothPbapManager::Reset() { MOZ_ASSERT(false); }
 
 END_BLUETOOTH_NAMESPACE

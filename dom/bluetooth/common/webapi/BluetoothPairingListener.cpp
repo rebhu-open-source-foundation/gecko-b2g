@@ -22,39 +22,31 @@ NS_IMPL_ADDREF_INHERITED(BluetoothPairingListener, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothPairingListener, DOMEventTargetHelper)
 
 BluetoothPairingListener::BluetoothPairingListener(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mHasListenedToSignal(false)
-{
+    : DOMEventTargetHelper(aWindow), mHasListenedToSignal(false) {
   MOZ_ASSERT(aWindow);
 
   TryListeningToBluetoothSignal();
 }
 
-already_AddRefed<BluetoothPairingListener>
-BluetoothPairingListener::Create(nsPIDOMWindowInner* aWindow)
-{
+already_AddRefed<BluetoothPairingListener> BluetoothPairingListener::Create(
+    nsPIDOMWindowInner* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
 
   RefPtr<BluetoothPairingListener> handle =
-    new BluetoothPairingListener(aWindow);
+      new BluetoothPairingListener(aWindow);
 
   return handle.forget();
 }
 
-BluetoothPairingListener::~BluetoothPairingListener()
-{
+BluetoothPairingListener::~BluetoothPairingListener() {
   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PAIRING_LISTENER),
                                    this);
 }
 
-void
-BluetoothPairingListener::DispatchPairingEvent(
-  const BluetoothRemoteName& aName,
-  const BluetoothAddress& aAddress,
-  const nsAString& aPasskey,
-  const nsAString& aType)
-{
+void BluetoothPairingListener::DispatchPairingEvent(
+    const BluetoothRemoteName& aName, const BluetoothAddress& aAddress,
+    const nsAString& aPasskey, const nsAString& aType) {
   MOZ_ASSERT(!aAddress.IsCleared());
   MOZ_ASSERT(!aName.IsCleared() && !aType.IsEmpty());
 
@@ -72,38 +64,35 @@ BluetoothPairingListener::DispatchPairingEvent(
   // Only allow certified bluetooth application to access BluetoothPairingHandle
   // if (IsBluetoothCertifiedApp()) {
   RefPtr<BluetoothPairingHandle> handle =
-    BluetoothPairingHandle::Create(GetOwner(), addressStr, aType, aPasskey);
+      BluetoothPairingHandle::Create(GetOwner(), addressStr, aType, aPasskey);
   init.mHandle = handle;
   // }
 
   RefPtr<BluetoothPairingEvent> event =
-    BluetoothPairingEvent::Constructor(this,
-                                       aType,
-                                       init);
+      BluetoothPairingEvent::Constructor(this, aType, init);
 
   DispatchTrustedEvent(event);
 }
 
-void
-BluetoothPairingListener::Notify(const BluetoothSignal& aData)
-{
+void BluetoothPairingListener::Notify(const BluetoothSignal& aData) {
   BT_LOGD("[A] %s", NS_ConvertUTF16toUTF8(aData.name()).get());
 
   nsTArray<BluetoothNamedValue> arr;
 
   BluetoothValue value = aData.value();
   if (aData.name().EqualsLiteral("PairingRequest")) {
-
     MOZ_ASSERT(value.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
 
     const nsTArray<BluetoothNamedValue>& arr =
-      value.get_ArrayOfBluetoothNamedValue();
+        value.get_ArrayOfBluetoothNamedValue();
 
     MOZ_ASSERT(arr.Length() == 4 &&
-               arr[0].value().type() == BluetoothValue::TBluetoothAddress && // address
-               arr[1].value().type() == BluetoothValue::TBluetoothRemoteName && // name
-               arr[2].value().type() == BluetoothValue::TnsString && // passkey
-               arr[3].value().type() == BluetoothValue::TnsString);  // type
+               arr[0].value().type() ==
+                   BluetoothValue::TBluetoothAddress &&  // address
+               arr[1].value().type() ==
+                   BluetoothValue::TBluetoothRemoteName &&            // name
+               arr[2].value().type() == BluetoothValue::TnsString &&  // passkey
+               arr[3].value().type() == BluetoothValue::TnsString);   // type
 
     BluetoothAddress address = arr[0].value().get_BluetoothAddress();
     const BluetoothRemoteName& name = arr[1].value().get_BluetoothRemoteName();
@@ -118,32 +107,24 @@ BluetoothPairingListener::Notify(const BluetoothSignal& aData)
   }
 }
 
-JSObject*
-BluetoothPairingListener::WrapObject(JSContext* aCx,
-                                     JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothPairingListener::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothPairingListener_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-BluetoothPairingListener::DisconnectFromOwner()
-{
+void BluetoothPairingListener::DisconnectFromOwner() {
   DOMEventTargetHelper::DisconnectFromOwner();
   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PAIRING_LISTENER),
                                    this);
 }
 
-void
-BluetoothPairingListener::EventListenerAdded(nsAtom* aType)
-{
+void BluetoothPairingListener::EventListenerAdded(nsAtom* aType) {
   DOMEventTargetHelper::EventListenerAdded(aType);
 
   TryListeningToBluetoothSignal();
 }
 
-void
-BluetoothPairingListener::TryListeningToBluetoothSignal()
-{
+void BluetoothPairingListener::TryListeningToBluetoothSignal() {
   if (mHasListenedToSignal) {
     // We've handled prior pending pairing requests
     return;
@@ -162,8 +143,7 @@ BluetoothPairingListener::TryListeningToBluetoothSignal()
   // }
 
   // Start listening to bluetooth signal to handle pairing requests
-  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PAIRING_LISTENER),
-                                 this);
+  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PAIRING_LISTENER), this);
 
   mHasListenedToSignal = true;
 }
@@ -196,8 +176,8 @@ BluetoothPairingListener::TryListeningToBluetoothSignal()
 //   nsresult rv = prefs->GetCharPref(PREF_BLUETOOTH_APP_ORIGIN,
 //                                    getter_Copies(prefOrigin));
 //   if (NS_FAILED(rv)) {
-//     BT_WARNING("Failed to get the pref value '" PREF_BLUETOOTH_APP_ORIGIN "'");
-//     return false;
+//     BT_WARNING("Failed to get the pref value '" PREF_BLUETOOTH_APP_ORIGIN
+//     "'"); return false;
 //   }
 
 //   nsAutoCString appOrigin;

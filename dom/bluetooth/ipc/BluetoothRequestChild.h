@@ -10,7 +10,6 @@
 
 #include "mozilla/dom/bluetooth/PBluetoothRequestChild.h"
 
-
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothChild;
@@ -20,25 +19,22 @@ class BluetoothReplyRunnable;
  * BluetoothRequestChild
  ******************************************************************************/
 
-class BluetoothRequestChild : public PBluetoothRequestChild
-{
+class BluetoothRequestChild : public PBluetoothRequestChild {
   friend class mozilla::dom::bluetooth::BluetoothChild;
 
   RefPtr<BluetoothReplyRunnable> mReplyRunnable;
 
-public:
+ public:
   BluetoothRequestChild(BluetoothReplyRunnable* aReplyRunnable);
 
-  mozilla::ipc::IPCResult
-  Recv__delete__(const BluetoothReply& aReply);
+  mozilla::ipc::IPCResult Recv__delete__(const BluetoothReply& aReply);
 
-protected:
+ protected:
   virtual ~BluetoothRequestChild();
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_ipc_BluetoothRequestChild_h
+#endif  // mozilla_dom_bluetooth_ipc_BluetoothRequestChild_h

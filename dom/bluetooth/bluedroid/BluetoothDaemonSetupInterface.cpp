@@ -18,24 +18,17 @@ using namespace mozilla::ipc;
 
 // Called to handle PDUs with Service field equal to 0x00, which
 // contains internal operations for setup and configuration.
-void
-BluetoothDaemonSetupModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                                      DaemonSocketPDU& aPDU,
-                                      DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonSetupModule::* const HandleRsp[])(
-    const DaemonSocketPDUHeader&,
-    DaemonSocketPDU&,
-    BluetoothSetupResultHandler*) = {
-    [OPCODE_ERROR] =
-      &BluetoothDaemonSetupModule::ErrorRsp,
-    [OPCODE_REGISTER_MODULE] =
-      &BluetoothDaemonSetupModule::RegisterModuleRsp,
-    [OPCODE_UNREGISTER_MODULE] =
-      &BluetoothDaemonSetupModule::UnregisterModuleRsp,
-    [OPCODE_CONFIGURATION] =
-      &BluetoothDaemonSetupModule::ConfigurationRsp
-  };
+void BluetoothDaemonSetupModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
+                                           DaemonSocketPDU& aPDU,
+                                           DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonSetupModule::*const HandleRsp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      BluetoothSetupResultHandler*) = {
+      [OPCODE_ERROR] = &BluetoothDaemonSetupModule::ErrorRsp,
+      [OPCODE_REGISTER_MODULE] = &BluetoothDaemonSetupModule::RegisterModuleRsp,
+      [OPCODE_UNREGISTER_MODULE] =
+          &BluetoothDaemonSetupModule::UnregisterModuleRsp,
+      [OPCODE_CONFIGURATION] = &BluetoothDaemonSetupModule::ConfigurationRsp};
 
   if (NS_WARN_IF(aHeader.mOpcode >= MOZ_ARRAY_LENGTH(HandleRsp)) ||
       NS_WARN_IF(!HandleRsp[aHeader.mOpcode])) {
@@ -43,10 +36,10 @@ BluetoothDaemonSetupModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
   }
 
   RefPtr<BluetoothSetupResultHandler> res =
-    static_cast<BluetoothSetupResultHandler*>(aRes);
+      static_cast<BluetoothSetupResultHandler*>(aRes);
 
   if (!aRes) {
-    return; // Return early if no result handler has been set
+    return;  // Return early if no result handler has been set
   }
 
   (this->*(HandleRsp[aHeader.mOpcode]))(aHeader, aPDU, res);
@@ -55,16 +48,13 @@ BluetoothDaemonSetupModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
 // Commands
 //
 
-nsresult
-BluetoothDaemonSetupModule::RegisterModuleCmd(
-  BluetoothSetupServiceId aId, uint8_t aMode, uint32_t aMaxNumClients,
-  BluetoothSetupResultHandler* aRes)
-{
+nsresult BluetoothDaemonSetupModule::RegisterModuleCmd(
+    BluetoothSetupServiceId aId, uint8_t aMode, uint32_t aMaxNumClients,
+    BluetoothSetupResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REGISTER_MODULE,
-                                0);
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REGISTER_MODULE, 0);
 
   nsresult rv = PackPDU(aId, aMode, aMaxNumClients, *pdu);
   if (NS_FAILED(rv)) {
@@ -79,15 +69,12 @@ BluetoothDaemonSetupModule::RegisterModuleCmd(
   return rv;
 }
 
-nsresult
-BluetoothDaemonSetupModule::UnregisterModuleCmd(
-  BluetoothSetupServiceId aId, BluetoothSetupResultHandler* aRes)
-{
+nsresult BluetoothDaemonSetupModule::UnregisterModuleCmd(
+    BluetoothSetupServiceId aId, BluetoothSetupResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_UNREGISTER_MODULE,
-                                0);
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_UNREGISTER_MODULE, 0);
 
   nsresult rv = PackPDU(aId, *pdu);
   if (NS_FAILED(rv)) {
@@ -101,19 +88,16 @@ BluetoothDaemonSetupModule::UnregisterModuleCmd(
   return rv;
 }
 
-nsresult
-BluetoothDaemonSetupModule::ConfigurationCmd(
-  const BluetoothConfigurationParameter* aParam, uint8_t aLen,
-  BluetoothSetupResultHandler* aRes)
-{
+nsresult BluetoothDaemonSetupModule::ConfigurationCmd(
+    const BluetoothConfigurationParameter* aParam, uint8_t aLen,
+    BluetoothSetupResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CONFIGURATION,
-                                0);
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CONFIGURATION, 0);
 
   nsresult rv = PackPDU(
-    aLen, PackArray<BluetoothConfigurationParameter>(aParam, aLen), *pdu);
+      aLen, PackArray<BluetoothConfigurationParameter>(aParam, aLen), *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -128,43 +112,32 @@ BluetoothDaemonSetupModule::ConfigurationCmd(
 // Responses
 //
 
-void
-BluetoothDaemonSetupModule::ErrorRsp(const DaemonSocketPDUHeader& aHeader,
-                                     DaemonSocketPDU& aPDU,
-                                     BluetoothSetupResultHandler* aRes)
-{
-  ErrorRunnable::Dispatch(
-    aRes, &BluetoothSetupResultHandler::OnError, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSetupModule::ErrorRsp(const DaemonSocketPDUHeader& aHeader,
+                                          DaemonSocketPDU& aPDU,
+                                          BluetoothSetupResultHandler* aRes) {
+  ErrorRunnable::Dispatch(aRes, &BluetoothSetupResultHandler::OnError,
+                          UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSetupModule::RegisterModuleRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  BluetoothSetupResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothSetupResultHandler::RegisterModule,
-    UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSetupModule::RegisterModuleRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothSetupResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothSetupResultHandler::RegisterModule,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSetupModule::UnregisterModuleRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  BluetoothSetupResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothSetupResultHandler::UnregisterModule,
-    UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSetupModule::UnregisterModuleRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothSetupResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothSetupResultHandler::UnregisterModule,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSetupModule::ConfigurationRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  BluetoothSetupResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothSetupResultHandler::Configuration,
-    UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSetupModule::ConfigurationRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothSetupResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothSetupResultHandler::Configuration,
+                           UnpackPDUInitOp(aPDU));
 }
 
 //
@@ -172,18 +145,14 @@ BluetoothDaemonSetupModule::ConfigurationRsp(
 //
 
 BluetoothDaemonSetupInterface::BluetoothDaemonSetupInterface(
-  BluetoothDaemonSetupModule* aModule)
-  : mModule(aModule)
-{ }
+    BluetoothDaemonSetupModule* aModule)
+    : mModule(aModule) {}
 
-BluetoothDaemonSetupInterface::~BluetoothDaemonSetupInterface()
-{ }
+BluetoothDaemonSetupInterface::~BluetoothDaemonSetupInterface() {}
 
-void
-BluetoothDaemonSetupInterface::RegisterModule(
-  BluetoothSetupServiceId aId, uint8_t aMode, uint32_t aMaxNumClients,
-  BluetoothSetupResultHandler* aRes)
-{
+void BluetoothDaemonSetupInterface::RegisterModule(
+    BluetoothSetupServiceId aId, uint8_t aMode, uint32_t aMaxNumClients,
+    BluetoothSetupResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->RegisterModuleCmd(aId, aMode, aMaxNumClients, aRes);
@@ -192,11 +161,8 @@ BluetoothDaemonSetupInterface::RegisterModule(
   }
 }
 
-void
-BluetoothDaemonSetupInterface::UnregisterModule(
-  BluetoothSetupServiceId aId,
-  BluetoothSetupResultHandler* aRes)
-{
+void BluetoothDaemonSetupInterface::UnregisterModule(
+    BluetoothSetupServiceId aId, BluetoothSetupResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->UnregisterModuleCmd(aId, aRes);
@@ -205,11 +171,9 @@ BluetoothDaemonSetupInterface::UnregisterModule(
   }
 }
 
-void
-BluetoothDaemonSetupInterface::Configuration(
-  const BluetoothConfigurationParameter* aParam, uint8_t aLen,
-  BluetoothSetupResultHandler* aRes)
-{
+void BluetoothDaemonSetupInterface::Configuration(
+    const BluetoothConfigurationParameter* aParam, uint8_t aLen,
+    BluetoothSetupResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->ConfigurationCmd(aParam, aLen, aRes);
@@ -218,20 +182,16 @@ BluetoothDaemonSetupInterface::Configuration(
   }
 }
 
-void
-BluetoothDaemonSetupInterface::DispatchError(
-  BluetoothSetupResultHandler* aRes, BluetoothStatus aStatus)
-{
-  DaemonResultRunnable1<BluetoothSetupResultHandler, void,
-                        BluetoothStatus, BluetoothStatus>::Dispatch(
-    aRes, &BluetoothSetupResultHandler::OnError,
-    ConstantInitOp1<BluetoothStatus>(aStatus));
+void BluetoothDaemonSetupInterface::DispatchError(
+    BluetoothSetupResultHandler* aRes, BluetoothStatus aStatus) {
+  DaemonResultRunnable1<
+      BluetoothSetupResultHandler, void, BluetoothStatus,
+      BluetoothStatus>::Dispatch(aRes, &BluetoothSetupResultHandler::OnError,
+                                 ConstantInitOp1<BluetoothStatus>(aStatus));
 }
 
-void
-BluetoothDaemonSetupInterface::DispatchError(
-  BluetoothSetupResultHandler* aRes, nsresult aRv)
-{
+void BluetoothDaemonSetupInterface::DispatchError(
+    BluetoothSetupResultHandler* aRes, nsresult aRv) {
   BluetoothStatus status;
 
   if (NS_WARN_IF(NS_FAILED(Convert(aRv, status)))) {

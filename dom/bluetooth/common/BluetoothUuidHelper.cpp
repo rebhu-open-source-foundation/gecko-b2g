@@ -16,9 +16,8 @@
 
 USING_BLUETOOTH_NAMESPACE
 
-BluetoothServiceClass
-BluetoothUuidHelper::GetBluetoothServiceClass(const nsAString& aUuidStr)
-{
+BluetoothServiceClass BluetoothUuidHelper::GetBluetoothServiceClass(
+    const nsAString& aUuidStr) {
   // An example of input UUID string: 0000110D-0000-1000-8000-00805F9B34FB
   MOZ_ASSERT(aUuidStr.Length() == 36);
 
@@ -37,9 +36,8 @@ BluetoothUuidHelper::GetBluetoothServiceClass(const nsAString& aUuidStr)
   return GetBluetoothServiceClass(integer);
 }
 
-BluetoothServiceClass
-BluetoothUuidHelper::GetBluetoothServiceClass(uint16_t aServiceUuid)
-{
+BluetoothServiceClass BluetoothUuidHelper::GetBluetoothServiceClass(
+    uint16_t aServiceUuid) {
   BluetoothServiceClass retValue = BluetoothServiceClass::UNKNOWN;
   switch (aServiceUuid) {
     case BluetoothServiceClass::A2DP:
@@ -62,9 +60,8 @@ BluetoothUuidHelper::GetBluetoothServiceClass(uint16_t aServiceUuid)
   return retValue;
 }
 
-BluetoothProfileManagerBase*
-BluetoothUuidHelper::GetBluetoothProfileManager(uint16_t aServiceUuid)
-{
+BluetoothProfileManagerBase* BluetoothUuidHelper::GetBluetoothProfileManager(
+    uint16_t aServiceUuid) {
   BluetoothProfileManagerBase* profile;
   BluetoothServiceClass serviceClass = GetBluetoothServiceClass(aServiceUuid);
   switch (serviceClass) {

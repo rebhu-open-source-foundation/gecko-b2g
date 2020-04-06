@@ -13,24 +13,21 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothProfileManagerBase;
 
-class BluetoothUuidHelper
-{
-public:
-
+class BluetoothUuidHelper {
+ public:
   /**
    * Convert a 128-bit uuid string to a value of BluetoothServiceClass
    *
    * @param aUuidStr  128-bit uuid string
    * @return  a value of BluetoothServiceClass
    */
-  static BluetoothServiceClass
-  GetBluetoothServiceClass(const nsAString& aUuidStr);
+  static BluetoothServiceClass GetBluetoothServiceClass(
+      const nsAString& aUuidStr);
 
-  static BluetoothServiceClass
-  GetBluetoothServiceClass(uint16_t aServiceUuid);
+  static BluetoothServiceClass GetBluetoothServiceClass(uint16_t aServiceUuid);
 
-  static BluetoothProfileManagerBase*
-  GetBluetoothProfileManager(uint16_t aServiceUuid);
+  static BluetoothProfileManagerBase* GetBluetoothProfileManager(
+      uint16_t aServiceUuid);
 };
 
 // TODO/qdot: Move these back into gonk and make the service handler deal with
@@ -40,15 +37,15 @@ public:
 // These were hardcoded into android
 enum BluetoothReservedChannels {
   CHANNEL_DIALUP_NETWORK = 1,
-  CHANNEL_HANDSFREE_AG   = 10,
-  CHANNEL_HEADSET_AG     = 11,
-  CHANNEL_OPUSH          = 12,
-  CHANNEL_SIM_ACCESS     = 15,
-  CHANNEL_PBAP_PSE       = 19,
-  CHANNEL_FTP            = 20,
-  CHANNEL_OPUSH_L2CAP    = 5255
+  CHANNEL_HANDSFREE_AG = 10,
+  CHANNEL_HEADSET_AG = 11,
+  CHANNEL_OPUSH = 12,
+  CHANNEL_SIM_ACCESS = 15,
+  CHANNEL_PBAP_PSE = 19,
+  CHANNEL_FTP = 20,
+  CHANNEL_OPUSH_L2CAP = 5255
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothUuidHelper_h
+#endif  // mozilla_dom_bluetooth_BluetoothUuidHelper_h

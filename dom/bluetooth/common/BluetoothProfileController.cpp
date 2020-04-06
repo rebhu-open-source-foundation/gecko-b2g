@@ -24,47 +24,39 @@ USING_BLUETOOTH_NAMESPACE
     nsCString name;                                  \
     mgr->GetName(name);                              \
     BT_LOGR("[%s] " msg, name.get(), ##__VA_ARGS__); \
-  } while(0)
+  } while (0)
 
 #define CONNECTION_TIMEOUT_MS 15000
 
-class CheckProfileStatusCallback : public nsITimerCallback
-{
-public:
+class CheckProfileStatusCallback : public nsITimerCallback {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
 
   CheckProfileStatusCallback(BluetoothProfileController* aController)
-    : mController(aController)
-  {
+      : mController(aController) {
     MOZ_ASSERT(aController);
   }
 
-private:
-  virtual ~CheckProfileStatusCallback()
-  {
-    mController = nullptr;
-  }
+ private:
+  virtual ~CheckProfileStatusCallback() { mController = nullptr; }
 
   RefPtr<BluetoothProfileController> mController;
 };
 
 BluetoothProfileController::BluetoothProfileController(
-                                   bool aConnect,
-                                   const BluetoothAddress& aDeviceAddress,
-                                   BluetoothReplyRunnable* aRunnable,
-                                   BluetoothProfileControllerCallback aCallback,
-                                   uint16_t aServiceUuid,
-                                   uint32_t aCod)
-  : mConnect(aConnect)
-  , mDeviceAddress(aDeviceAddress)
-  , mRunnable(aRunnable)
-  , mCallback(aCallback)
-  , mServiceUuid(aServiceUuid)
-  , mCurrentProfileFinished(false)
-  , mSuccess(false)
-  , mProfilesIndex(-1)
-{
+    bool aConnect, const BluetoothAddress& aDeviceAddress,
+    BluetoothReplyRunnable* aRunnable,
+    BluetoothProfileControllerCallback aCallback, uint16_t aServiceUuid,
+    uint32_t aCod)
+    : mConnect(aConnect),
+      mDeviceAddress(aDeviceAddress),
+      mRunnable(aRunnable),
+      mCallback(aCallback),
+      mServiceUuid(aServiceUuid),
+      mCurrentProfileFinished(false),
+      mSuccess(false),
+      mProfilesIndex(-1) {
   MOZ_ASSERT(!aDeviceAddress.IsCleared());
   MOZ_ASSERT(aRunnable);
   MOZ_ASSERT(aCallback);
@@ -83,14 +75,13 @@ BluetoothProfileController::BluetoothProfileController(
     SetupProfiles(false);
   } else {
     BluetoothServiceClass serviceClass =
-      BluetoothUuidHelper::GetBluetoothServiceClass(aServiceUuid);
+        BluetoothUuidHelper::GetBluetoothServiceClass(aServiceUuid);
     mTarget.service = serviceClass;
     SetupProfiles(true);
   }
 }
 
-BluetoothProfileController::~BluetoothProfileController()
-{
+BluetoothProfileController::~BluetoothProfileController() {
   mProfiles.Clear();
   mRunnable = nullptr;
   mCallback = nullptr;
@@ -100,10 +91,8 @@ BluetoothProfileController::~BluetoothProfileController()
   }
 }
 
-void
-BluetoothProfileController::AddProfileWithServiceClass(
-                                                   BluetoothServiceClass aClass)
-{
+void BluetoothProfileController::AddProfileWithServiceClass(
+    BluetoothServiceClass aClass) {
   BluetoothProfileManagerBase* profile;
   switch (aClass) {
     case BluetoothServiceClass::HANDSFREE:
@@ -128,10 +117,8 @@ BluetoothProfileController::AddProfileWithServiceClass(
   AddProfile(profile);
 }
 
-void
-BluetoothProfileController::AddProfile(BluetoothProfileManagerBase* aProfile,
-                                       bool aCheckConnected)
-{
+void BluetoothProfileController::AddProfile(
+    BluetoothProfileManagerBase* aProfile, bool aCheckConnected) {
   if (!aProfile) {
     DispatchReplyError(mRunnable, NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
     mCallback();
@@ -146,9 +133,7 @@ BluetoothProfileController::AddProfile(BluetoothProfileManagerBase* aProfile,
   mProfiles.AppendElement(aProfile);
 }
 
-void
-BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
-{
+void BluetoothProfileController::SetupProfiles(bool aAssignServiceClass) {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -188,7 +173,7 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
   if (isInvalid) {
     AddProfile(BluetoothHfpManager::Get());
     AddProfile(BluetoothA2dpManager::Get());
-    AddProfile(BluetoothAvrcpManager::Get()); // register after A2DP
+    AddProfile(BluetoothAvrcpManager::Get());  // register after A2DP
     AddProfile(BluetoothHidManager::Get());
     return;
   }
@@ -226,8 +211,7 @@ BluetoothProfileController::SetupProfiles(bool aAssignServiceClass)
 NS_IMPL_ISUPPORTS(CheckProfileStatusCallback, nsITimerCallback)
 
 NS_IMETHODIMP
-CheckProfileStatusCallback::Notify(nsITimer* aTimer)
-{
+CheckProfileStatusCallback::Notify(nsITimer* aTimer) {
   MOZ_ASSERT(mController);
   // Continue on the next profile since we haven't got the callback after
   // timeout.
@@ -236,9 +220,7 @@ CheckProfileStatusCallback::Notify(nsITimer* aTimer)
   return NS_OK;
 }
 
-void
-BluetoothProfileController::StartSession()
-{
+void BluetoothProfileController::StartSession() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mProfilesIndex == -1);
   MOZ_ASSERT(mTimer);
@@ -264,9 +246,7 @@ BluetoothProfileController::StartSession()
   Next();
 }
 
-void
-BluetoothProfileController::EndSession()
-{
+void BluetoothProfileController::EndSession() {
   MOZ_ASSERT(mRunnable && mCallback);
 
   BT_LOGR("mSuccess %d", mSuccess);
@@ -290,9 +270,7 @@ BluetoothProfileController::EndSession()
   mCallback();
 }
 
-void
-BluetoothProfileController::Next()
-{
+void BluetoothProfileController::Next() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mProfilesIndex < (int)mProfiles.Length());
   MOZ_ASSERT(mTimer);
@@ -318,16 +296,12 @@ BluetoothProfileController::Next()
   }
 }
 
-bool
-BluetoothProfileController::IsBtServiceAvailable() const
-{
+bool BluetoothProfileController::IsBtServiceAvailable() const {
   BluetoothService* bs = BluetoothService::Get();
   return (bs && bs->IsEnabled() && !bs->IsToggling());
 }
 
-void
-BluetoothProfileController::NotifyCompletion(const nsAString& aErrorStr)
-{
+void BluetoothProfileController::NotifyCompletion(const nsAString& aErrorStr) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mTimer);
   MOZ_ASSERT(mProfiles.Length() > 0);
@@ -349,9 +323,7 @@ BluetoothProfileController::NotifyCompletion(const nsAString& aErrorStr)
   Next();
 }
 
-void
-BluetoothProfileController::GiveupAndContinue()
-{
+void BluetoothProfileController::GiveupAndContinue() {
   MOZ_ASSERT(!mCurrentProfileFinished);
   MOZ_ASSERT(mProfilesIndex == -1);
 
@@ -366,4 +338,3 @@ BluetoothProfileController::GiveupAndContinue()
     EndSession();
   }
 }
-

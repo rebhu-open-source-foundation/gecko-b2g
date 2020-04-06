@@ -15,26 +15,22 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSignal;
 
-class BluetoothPairingListener final : public DOMEventTargetHelper
-                                     , public BluetoothSignalObserver
-{
-public:
+class BluetoothPairingListener final : public DOMEventTargetHelper,
+                                       public BluetoothSignalObserver {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
-  static already_AddRefed<BluetoothPairingListener>
-    Create(nsPIDOMWindowInner* aWindow);
+  static already_AddRefed<BluetoothPairingListener> Create(
+      nsPIDOMWindowInner* aWindow);
 
   void DispatchPairingEvent(const BluetoothRemoteName& aName,
                             const BluetoothAddress& aAddress,
-                            const nsAString& aPasskey,
-                            const nsAString& aType);
+                            const nsAString& aPasskey, const nsAString& aType);
 
-  void Notify(const BluetoothSignal& aParam) override; // BluetoothSignalObserver
+  void Notify(
+      const BluetoothSignal& aParam) override;  // BluetoothSignalObserver
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -46,7 +42,7 @@ public:
   IMPL_EVENT_HANDLER(pairingconfirmationreq);
   IMPL_EVENT_HANDLER(pairingconsentreq);
 
-private:
+ private:
   BluetoothPairingListener(nsPIDOMWindowInner* aWindow);
   ~BluetoothPairingListener();
 
@@ -76,4 +72,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothPairingListener_h
+#endif  // mozilla_dom_bluetooth_BluetoothPairingListener_h

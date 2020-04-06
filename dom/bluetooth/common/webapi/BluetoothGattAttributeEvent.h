@@ -17,13 +17,12 @@
 struct JSContext;
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothGattAttributeEvent final : public Event
-{
-public:
+class BluetoothGattAttributeEvent final : public Event {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(
-    BluetoothGattAttributeEvent, Event)
-protected:
+      BluetoothGattAttributeEvent, Event)
+ protected:
   virtual ~BluetoothGattAttributeEvent();
   explicit BluetoothGattAttributeEvent(EventTarget* aOwner);
 
@@ -34,27 +33,19 @@ protected:
   JS::Heap<JSObject*> mValue;
   bool mNeedResponse;
 
-public:
-  virtual
-  JSObject* WrapObjectInternal(JSContext* aCx,
-                               JS::Handle<JSObject*> aGivenProto) override;
+ public:
+  virtual JSObject* WrapObjectInternal(
+      JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<BluetoothGattAttributeEvent>
-  Constructor(EventTarget* aOwner,
-              const nsAString& aType,
-              const nsAString& aAddress,
-              int32_t aRequestId,
-              BluetoothGattCharacteristic* aCharacteristic,
-              BluetoothGattDescriptor* aDescriptor,
-              const nsTArray<uint8_t>* aValue,
-              bool aNeedResponse,
-              bool aBubbles,
-              bool aCancelable);
+  static already_AddRefed<BluetoothGattAttributeEvent> Constructor(
+      EventTarget* aOwner, const nsAString& aType, const nsAString& aAddress,
+      int32_t aRequestId, BluetoothGattCharacteristic* aCharacteristic,
+      BluetoothGattDescriptor* aDescriptor, const nsTArray<uint8_t>* aValue,
+      bool aNeedResponse, bool aBubbles, bool aCancelable);
 
-  static already_AddRefed<BluetoothGattAttributeEvent>
-  Constructor(const GlobalObject& aGlobal,
-              const nsAString& aType,
-              const BluetoothGattAttributeEventInit& aEventInitDict);
+  static already_AddRefed<BluetoothGattAttributeEvent> Constructor(
+      const GlobalObject& aGlobal, const nsAString& aType,
+      const BluetoothGattAttributeEventInit& aEventInitDict);
 
   void GetAddress(nsString& aRetVal) const;
 
@@ -64,17 +55,15 @@ public:
 
   BluetoothGattDescriptor* GetDescriptor() const;
 
-  void
-  GetValue(JSContext* cx,
-           JS::MutableHandle<JSObject*> aValue,
-           ErrorResult& aRv);
+  void GetValue(JSContext* cx, JS::MutableHandle<JSObject*> aValue,
+                ErrorResult& aRv);
 
   bool NeedResponse() const;
 
-private:
+ private:
   nsTArray<uint8_t> mRawValue;
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_BluetoothGattAttributeEvent_h
+#endif  // mozilla_dom_BluetoothGattAttributeEvent_h

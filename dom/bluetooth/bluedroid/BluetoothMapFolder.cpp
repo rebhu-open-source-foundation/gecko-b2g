@@ -9,14 +9,11 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-BluetoothMapFolder::~BluetoothMapFolder()
-{ }
+BluetoothMapFolder::~BluetoothMapFolder() {}
 
 BluetoothMapFolder::BluetoothMapFolder(const nsAString& aFolderName,
                                        BluetoothMapFolder* aParent)
-  : mName(aFolderName)
-  , mParent(aParent)
-{
+    : mName(aFolderName), mParent(aParent) {
   if (aParent) {
     aParent->GetPath(mPath);
     if (!mPath.IsEmpty()) {
@@ -28,45 +25,33 @@ BluetoothMapFolder::BluetoothMapFolder(const nsAString& aFolderName,
   }
 }
 
-BluetoothMapFolder*
-BluetoothMapFolder::AddSubFolder(const nsAString& aFolderName)
-{
+BluetoothMapFolder* BluetoothMapFolder::AddSubFolder(
+    const nsAString& aFolderName) {
   BluetoothMapFolder* folder = new BluetoothMapFolder(aFolderName, this);
   mSubFolders.Put(nsString(aFolderName), RefPtr{folder});
 
   return folder;
 }
 
-BluetoothMapFolder*
-BluetoothMapFolder::GetSubFolder(const nsAString& aFolderName)
-{
+BluetoothMapFolder* BluetoothMapFolder::GetSubFolder(
+    const nsAString& aFolderName) {
   BluetoothMapFolder* subfolder;
   mSubFolders.Get(aFolderName, &subfolder);
 
   return subfolder;
 }
 
-BluetoothMapFolder*
-BluetoothMapFolder::GetParentFolder()
-{
-  return mParent;
-}
+BluetoothMapFolder* BluetoothMapFolder::GetParentFolder() { return mParent; }
 
-int
-BluetoothMapFolder::GetSubFolderCount()
-{
-  return mSubFolders.Count();
-}
+int BluetoothMapFolder::GetSubFolderCount() { return mSubFolders.Count(); }
 
-void
-BluetoothMapFolder::GetFolderListingObjectCString(nsACString& aString,
-                                                  uint16_t aMaxListCount,
-                                                  uint16_t aStartOffset)
-{
+void BluetoothMapFolder::GetFolderListingObjectCString(nsACString& aString,
+                                                       uint16_t aMaxListCount,
+                                                       uint16_t aStartOffset) {
   const char* folderListingPrefix =
-    "<?xml version=\"1.0\"?>\n"
-    "<!DOCTYPE folder-listing SYSTEM \" obex-folder-listing.dtd\">\n"
-    "<folder-listing version=\"1.0\">\n";
+      "<?xml version=\"1.0\"?>\n"
+      "<!DOCTYPE folder-listing SYSTEM \" obex-folder-listing.dtd\">\n"
+      "<folder-listing version=\"1.0\">\n";
   const char* folderListingSuffix = "</folder-listing>";
 
   // Based on Element Specification, 9.1.1, IrObex 1.2
@@ -93,18 +78,11 @@ BluetoothMapFolder::GetFolderListingObjectCString(nsACString& aString,
   aString = folderListingObject;
 }
 
-void
-BluetoothMapFolder::GetPath(nsAString& aPath) const
-{
-  aPath = mPath;
-}
+void BluetoothMapFolder::GetPath(nsAString& aPath) const { aPath = mPath; }
 
-void
-BluetoothMapFolder::DumpFolderInfo()
-{
+void BluetoothMapFolder::DumpFolderInfo() {
   BT_LOGR("Folder name: %s, subfolder counts: %d, path: %s",
-          NS_ConvertUTF16toUTF8(mName).get(),
-          mSubFolders.Count(),
+          NS_ConvertUTF16toUTF8(mName).get(), mSubFolders.Count(),
           NS_ConvertUTF16toUTF8(mPath).get());
 }
 

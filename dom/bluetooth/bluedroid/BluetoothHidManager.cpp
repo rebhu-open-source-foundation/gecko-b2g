@@ -14,57 +14,48 @@
 using namespace mozilla;
 USING_BLUETOOTH_NAMESPACE
 
-#define ENSURE_HID_DEV_IS_CONNECTED                                           \
-  do {                                                                        \
-    if(!IsConnected()) {                                                      \
-      BT_LOGR("Device is not connected");                                     \
-      return;                                                                 \
-    }                                                                         \
-  } while(0)                                                                  \
+#define ENSURE_HID_DEV_IS_CONNECTED       \
+  do {                                    \
+    if (!IsConnected()) {                 \
+      BT_LOGR("Device is not connected"); \
+      return;                             \
+    }                                     \
+  } while (0)
 
-#define ENSURE_HID_INTF_IS_EXISTED                                            \
-  do {                                                                        \
-    if(!sBluetoothHidInterface) {                                             \
-      BT_LOGR("sBluetoothHidInterface is null");                              \
-      return;                                                                 \
-    }                                                                         \
-  } while(0)                                                                  \
+#define ENSURE_HID_INTF_IS_EXISTED               \
+  do {                                           \
+    if (!sBluetoothHidInterface) {               \
+      BT_LOGR("sBluetoothHidInterface is null"); \
+      return;                                    \
+    }                                            \
+  } while (0)
 
 namespace {
-  StaticRefPtr<BluetoothHidManager> sBluetoothHidManager;
-  static BluetoothHidInterface* sBluetoothHidInterface = nullptr;
-  bool sInShutdown = false;
-} // namesapce
+StaticRefPtr<BluetoothHidManager> sBluetoothHidManager;
+static BluetoothHidInterface* sBluetoothHidInterface = nullptr;
+bool sInShutdown = false;
+}  // namespace
 
 const int BluetoothHidManager::MAX_NUM_CLIENTS = 1;
 
-BluetoothHidManager::BluetoothHidManager()
-  : mHidConnected(false)
-{
-}
+BluetoothHidManager::BluetoothHidManager() : mHidConnected(false) {}
 
-void
-BluetoothHidManager::Reset()
-{
+void BluetoothHidManager::Reset() {
   mDeviceAddress.Clear();
   mController = nullptr;
   mHidConnected = false;
 }
 
 class BluetoothHidManager::RegisterModuleResultHandler final
-  : public BluetoothSetupResultHandler
-{
-public:
+    : public BluetoothSetupResultHandler {
+ public:
   RegisterModuleResultHandler(BluetoothHidInterface* aInterface,
                               BluetoothProfileResultHandler* aRes)
-    : mInterface(aInterface)
-    , mRes(aRes)
-  {
+      : mInterface(aInterface), mRes(aRes) {
     MOZ_ASSERT(mInterface);
   }
 
-  void OnError(BluetoothStatus aStatus) override
-  {
+  void OnError(BluetoothStatus aStatus) override {
     MOZ_ASSERT(NS_IsMainThread());
 
     BT_WARNING("BluetoothSetupInterface::RegisterModule failed for HID: %d",
@@ -77,8 +68,7 @@ public:
     }
   }
 
-  void RegisterModule() override
-  {
+  void RegisterModule() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     sBluetoothHidInterface = mInterface;
@@ -88,26 +78,21 @@ public:
     }
   }
 
-private:
+ private:
   BluetoothHidInterface* mInterface;
   RefPtr<BluetoothProfileResultHandler> mRes;
 };
 
 class BluetoothHidManager::InitProfileResultHandlerRunnable final
-  : public Runnable
-{
-public:
+    : public Runnable {
+ public:
   InitProfileResultHandlerRunnable(BluetoothProfileResultHandler* aRes,
                                    nsresult aRv)
-    : Runnable("InitProfileResultHandlerRunnable")
-    , mRes(aRes)
-    , mRv(aRv)
-  {
+      : Runnable("InitProfileResultHandlerRunnable"), mRes(aRes), mRv(aRv) {
     MOZ_ASSERT(mRes);
   }
 
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     if (NS_SUCCEEDED(mRv)) {
@@ -118,21 +103,19 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<BluetoothProfileResultHandler> mRes;
   nsresult mRv;
 };
 
 // static
-void
-BluetoothHidManager::InitHidInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothHidManager::InitHidInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (sBluetoothHidInterface) {
     BT_LOGR("Bluetooth HID interface is already initialized.");
-    RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_OK);
+    RefPtr<Runnable> r = new InitProfileResultHandlerRunnable(aRes, NS_OK);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch HID Init runnable");
     }
@@ -145,7 +128,7 @@ BluetoothHidManager::InitHidInterface(BluetoothProfileResultHandler* aRes)
     // If there's no backend interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch HID OnError runnable");
     }
@@ -158,7 +141,7 @@ BluetoothHidManager::InitHidInterface(BluetoothProfileResultHandler* aRes)
     // If there's no Setup interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch HID OnError runnable");
     }
@@ -171,7 +154,7 @@ BluetoothHidManager::InitHidInterface(BluetoothProfileResultHandler* aRes)
     // If there's no HID interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch HID OnError runnable");
     }
@@ -183,16 +166,13 @@ BluetoothHidManager::InitHidInterface(BluetoothProfileResultHandler* aRes)
   hidinterface->SetNotificationHandler(BluetoothHidManager::Get());
 
   setupInterface->RegisterModule(
-    SETUP_SERVICE_ID_HID, 0, MAX_NUM_CLIENTS,
-    new RegisterModuleResultHandler(hidinterface, aRes));
+      SETUP_SERVICE_ID_HID, 0, MAX_NUM_CLIENTS,
+      new RegisterModuleResultHandler(hidinterface, aRes));
 }
 
-BluetoothHidManager::~BluetoothHidManager()
-{ }
+BluetoothHidManager::~BluetoothHidManager() {}
 
-nsresult
-BluetoothHidManager::Init()
-{
+nsresult BluetoothHidManager::Init() {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -207,9 +187,7 @@ BluetoothHidManager::Init()
   return NS_OK;
 }
 
-void
-BluetoothHidManager::Uninit()
-{
+void BluetoothHidManager::Uninit() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
 
@@ -219,15 +197,12 @@ BluetoothHidManager::Uninit()
 }
 
 class BluetoothHidManager::UnregisterModuleResultHandler final
-  : public BluetoothSetupResultHandler
-{
-public:
+    : public BluetoothSetupResultHandler {
+ public:
   UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
-    : mRes(aRes)
-  { }
+      : mRes(aRes) {}
 
-  void OnError(BluetoothStatus aStatus) override
-  {
+  void OnError(BluetoothStatus aStatus) override {
     MOZ_ASSERT(NS_IsMainThread());
 
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for HID: %d",
@@ -244,8 +219,7 @@ public:
     }
   }
 
-  void UnregisterModule() override
-  {
+  void UnregisterModule() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     sBluetoothHidInterface->SetNotificationHandler(nullptr);
@@ -259,25 +233,20 @@ public:
     }
   }
 
-private:
+ private:
   RefPtr<BluetoothProfileResultHandler> mRes;
 };
 
 class BluetoothHidManager::DeinitProfileResultHandlerRunnable final
-  : public Runnable
-{
-public:
+    : public Runnable {
+ public:
   DeinitProfileResultHandlerRunnable(BluetoothProfileResultHandler* aRes,
                                      nsresult aRv)
-    : Runnable("DeinitProfileResultHandlerRunnable")
-    , mRes(aRes)
-    , mRv(aRv)
-  {
+      : Runnable("DeinitProfileResultHandlerRunnable"), mRes(aRes), mRv(aRv) {
     MOZ_ASSERT(mRes);
   }
 
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     if (NS_SUCCEEDED(mRv)) {
@@ -288,21 +257,19 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<BluetoothProfileResultHandler> mRes;
   nsresult mRv;
 };
 
 // static
-void
-BluetoothHidManager::DeinitHidInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothHidManager::DeinitHidInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!sBluetoothHidInterface) {
     BT_LOGR("Bluetooth Hid interface has not been initialized.");
-    RefPtr<Runnable> r =
-      new DeinitProfileResultHandlerRunnable(aRes, NS_OK);
+    RefPtr<Runnable> r = new DeinitProfileResultHandlerRunnable(aRes, NS_OK);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch HID Deinit runnable");
     }
@@ -315,7 +282,7 @@ BluetoothHidManager::DeinitHidInterface(BluetoothProfileResultHandler* aRes)
     // If there's no backend interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch HID OnError runnable");
     }
@@ -328,23 +295,20 @@ BluetoothHidManager::DeinitHidInterface(BluetoothProfileResultHandler* aRes)
     // If there's no Setup interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch HID OnError runnable");
     }
     return;
   }
 
-  setupInterface->UnregisterModule(
-    SETUP_SERVICE_ID_HID,
-    new UnregisterModuleResultHandler(aRes));
+  setupInterface->UnregisterModule(SETUP_SERVICE_ID_HID,
+                                   new UnregisterModuleResultHandler(aRes));
 }
 
 NS_IMETHODIMP
-BluetoothHidManager::Observe(nsISupports* aSubject,
-                            const char* aTopic,
-                            const char16_t* aData)
-{
+BluetoothHidManager::Observe(nsISupports* aSubject, const char* aTopic,
+                             const char16_t* aData) {
   MOZ_ASSERT(sBluetoothHidManager);
 
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
@@ -357,9 +321,7 @@ BluetoothHidManager::Observe(nsISupports* aSubject,
 }
 
 // static
-BluetoothHidManager*
-BluetoothHidManager::Get()
-{
+BluetoothHidManager* BluetoothHidManager::Get() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // If we already exist, exit early
@@ -379,9 +341,7 @@ BluetoothHidManager::Get()
   return sBluetoothHidManager;
 }
 
-void
-BluetoothHidManager::NotifyConnectionStateChanged(const nsAString& aType)
-{
+void BluetoothHidManager::NotifyConnectionStateChanged(const nsAString& aType) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Notify Gecko observers
@@ -397,26 +357,19 @@ BluetoothHidManager::NotifyConnectionStateChanged(const nsAString& aType)
   }
 
   // Dispatch an event of status change
-  DispatchStatusChangedEvent(
-    NS_LITERAL_STRING(HID_STATUS_CHANGED_ID), mDeviceAddress, IsConnected());
+  DispatchStatusChangedEvent(NS_LITERAL_STRING(HID_STATUS_CHANGED_ID),
+                             mDeviceAddress, IsConnected());
 }
 
-bool
-BluetoothHidManager::IsConnected()
-{
-  return mHidConnected;
-}
+bool BluetoothHidManager::IsConnected() { return mHidConnected; }
 
-bool
-BluetoothHidManager::ReplyToConnectionRequest(bool aAccept)
-{
-  MOZ_ASSERT(false, "BluetoothHidManager hasn't implemented this function yet.");
+bool BluetoothHidManager::ReplyToConnectionRequest(bool aAccept) {
+  MOZ_ASSERT(false,
+             "BluetoothHidManager hasn't implemented this function yet.");
   return false;
 }
 
-void
-BluetoothHidManager::OnConnectError()
-{
+void BluetoothHidManager::OnConnectError() {
   MOZ_ASSERT(NS_IsMainThread());
 
   mController->NotifyCompletion(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
@@ -424,45 +377,39 @@ BluetoothHidManager::OnConnectError()
 }
 
 class BluetoothHidManager::ConnectResultHandler final
-  : public BluetoothHidResultHandler
-{
-public:
+    : public BluetoothHidResultHandler {
+ public:
   ConnectResultHandler(BluetoothHidManager* aHidManager)
-    : mHidManager(aHidManager)
-  {
+      : mHidManager(aHidManager) {
     MOZ_ASSERT(mHidManager);
   }
 
-  void OnError(BluetoothStatus aStatus) override
-  {
-    BT_WARNING("BluetoothHidInterface::Connect failed: %d",
-               (int)aStatus);
+  void OnError(BluetoothStatus aStatus) override {
+    BT_WARNING("BluetoothHidInterface::Connect failed: %d", (int)aStatus);
     mHidManager->OnConnectError();
   }
 
-private:
+ private:
   BluetoothHidManager* mHidManager;
 };
 
-void
-BluetoothHidManager::Connect(const BluetoothAddress& aDeviceAddress,
-                             BluetoothProfileController* aController)
-{
+void BluetoothHidManager::Connect(const BluetoothAddress& aDeviceAddress,
+                                  BluetoothProfileController* aController) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!aDeviceAddress.IsCleared());
   MOZ_ASSERT(aController && !mController);
 
-  if(sInShutdown) {
+  if (sInShutdown) {
     aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
     return;
   }
 
-  if(IsConnected()) {
+  if (IsConnected()) {
     aController->NotifyCompletion(NS_LITERAL_STRING(ERR_ALREADY_CONNECTED));
     return;
   }
 
-  if(!sBluetoothHidInterface) {
+  if (!sBluetoothHidInterface) {
     BT_LOGR("sBluetoothHidInterface is null");
     aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
     return;
@@ -475,9 +422,7 @@ BluetoothHidManager::Connect(const BluetoothAddress& aDeviceAddress,
                                   new ConnectResultHandler(this));
 }
 
-void
-BluetoothHidManager::OnDisconnectError()
-{
+void BluetoothHidManager::OnDisconnectError() {
   MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_TRUE_VOID(mController);
 
@@ -487,36 +432,30 @@ BluetoothHidManager::OnDisconnectError()
 }
 
 class BluetoothHidManager::DisconnectResultHandler final
-  : public BluetoothHidResultHandler
-{
-public:
+    : public BluetoothHidResultHandler {
+ public:
   DisconnectResultHandler(BluetoothHidManager* aHidManager)
-    : mHidManager(aHidManager)
-  {
+      : mHidManager(aHidManager) {
     MOZ_ASSERT(mHidManager);
   }
 
-  void OnError(BluetoothStatus aStatus) override
-  {
-    BT_WARNING("BluetoothHidInterface::Disconnect failed: %d",
-               (int)aStatus);
+  void OnError(BluetoothStatus aStatus) override {
+    BT_WARNING("BluetoothHidInterface::Disconnect failed: %d", (int)aStatus);
     mHidManager->OnDisconnectError();
   }
 
-private:
+ private:
   BluetoothHidManager* mHidManager;
 };
 
-void
-BluetoothHidManager::Disconnect(BluetoothProfileController* aController)
-{
+void BluetoothHidManager::Disconnect(BluetoothProfileController* aController) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mController);
 
   if (!IsConnected()) {
     if (aController) {
       aController->NotifyCompletion(
-        NS_LITERAL_STRING(ERR_ALREADY_DISCONNECTED));
+          NS_LITERAL_STRING(ERR_ALREADY_DISCONNECTED));
     }
     return;
   }
@@ -527,7 +466,7 @@ BluetoothHidManager::Disconnect(BluetoothProfileController* aController)
     BT_LOGR("sBluetoothHidInterface is null");
     if (aController) {
       aController->NotifyCompletion(
-        NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+          NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
     }
     return;
   }
@@ -538,9 +477,7 @@ BluetoothHidManager::Disconnect(BluetoothProfileController* aController)
                                      new DisconnectResultHandler(this));
 }
 
-void
-BluetoothHidManager::OnConnect(const nsAString& aErrorStr)
-{
+void BluetoothHidManager::OnConnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -553,9 +490,7 @@ BluetoothHidManager::OnConnect(const nsAString& aErrorStr)
   mController = nullptr;
 }
 
-void
-BluetoothHidManager::OnDisconnect(const nsAString& aErrorStr)
-{
+void BluetoothHidManager::OnDisconnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -569,109 +504,89 @@ BluetoothHidManager::OnDisconnect(const nsAString& aErrorStr)
 }
 
 class BluetoothHidManager::VirtualUnplugResultHandler final
-  : public BluetoothHidResultHandler
-{
-public:
-  void OnError(BluetoothStatus aStatus) override
-  {
+    : public BluetoothHidResultHandler {
+ public:
+  void OnError(BluetoothStatus aStatus) override {
     BT_WARNING("BluetoothHidInterface::VirtualUnplug failed: %d", (int)aStatus);
   }
 };
 
-void
-BluetoothHidManager::VirtualUnplug()
-{
+void BluetoothHidManager::VirtualUnplug() {
   MOZ_ASSERT(NS_IsMainThread());
   ENSURE_HID_DEV_IS_CONNECTED;
   MOZ_ASSERT(!mDeviceAddress.IsCleared());
   ENSURE_HID_INTF_IS_EXISTED;
 
-  sBluetoothHidInterface->VirtualUnplug(
-    mDeviceAddress, new VirtualUnplugResultHandler());
+  sBluetoothHidInterface->VirtualUnplug(mDeviceAddress,
+                                        new VirtualUnplugResultHandler());
 }
 
 class BluetoothHidManager::GetReportResultHandler final
-  : public BluetoothHidResultHandler
-{
-public:
-  void OnError(BluetoothStatus aStatus) override
-  {
+    : public BluetoothHidResultHandler {
+ public:
+  void OnError(BluetoothStatus aStatus) override {
     BT_WARNING("BluetoothHidInterface::GetReport failed: %d", (int)aStatus);
   }
 };
 
-void
-BluetoothHidManager::GetReport(const BluetoothHidReportType& aReportType,
-                               const uint8_t aReportId,
-                               const uint16_t aBufSize)
-{
+void BluetoothHidManager::GetReport(const BluetoothHidReportType& aReportType,
+                                    const uint8_t aReportId,
+                                    const uint16_t aBufSize) {
   MOZ_ASSERT(NS_IsMainThread());
   ENSURE_HID_DEV_IS_CONNECTED;
   MOZ_ASSERT(!mDeviceAddress.IsCleared());
   ENSURE_HID_INTF_IS_EXISTED;
 
-  sBluetoothHidInterface->GetReport(
-    mDeviceAddress, aReportType, aReportId, aBufSize,
-    new GetReportResultHandler());
+  sBluetoothHidInterface->GetReport(mDeviceAddress, aReportType, aReportId,
+                                    aBufSize, new GetReportResultHandler());
 }
 
 class BluetoothHidManager::SetReportResultHandler final
-  : public BluetoothHidResultHandler
-{
-public:
-  void OnError(BluetoothStatus aStatus) override
-  {
+    : public BluetoothHidResultHandler {
+ public:
+  void OnError(BluetoothStatus aStatus) override {
     BT_WARNING("BluetoothHidInterface::SetReport failed: %d", (int)aStatus);
   }
 };
 
-void
-BluetoothHidManager::SetReport(const BluetoothHidReportType& aReportType,
-                               const BluetoothHidReport& aReport)
-{
+void BluetoothHidManager::SetReport(const BluetoothHidReportType& aReportType,
+                                    const BluetoothHidReport& aReport) {
   MOZ_ASSERT(NS_IsMainThread());
   ENSURE_HID_DEV_IS_CONNECTED;
   MOZ_ASSERT(!mDeviceAddress.IsCleared());
   ENSURE_HID_INTF_IS_EXISTED;
 
-  sBluetoothHidInterface->SetReport(
-    mDeviceAddress, aReportType, aReport, new SetReportResultHandler());
+  sBluetoothHidInterface->SetReport(mDeviceAddress, aReportType, aReport,
+                                    new SetReportResultHandler());
 }
 
 class BluetoothHidManager::SendDataResultHandler final
-  : public BluetoothHidResultHandler
-{
-public:
-  void OnError(BluetoothStatus aStatus) override
-  {
+    : public BluetoothHidResultHandler {
+ public:
+  void OnError(BluetoothStatus aStatus) override {
     BT_WARNING("BluetoothHidInterface::SendData failed: %d", (int)aStatus);
   }
 };
 
-void
-BluetoothHidManager::SendData(const uint16_t aDataLen, const uint8_t* aData)
-{
+void BluetoothHidManager::SendData(const uint16_t aDataLen,
+                                   const uint8_t* aData) {
   MOZ_ASSERT(NS_IsMainThread());
   ENSURE_HID_DEV_IS_CONNECTED;
   MOZ_ASSERT(!mDeviceAddress.IsCleared());
   ENSURE_HID_INTF_IS_EXISTED;
 
-  sBluetoothHidInterface->SendData(
-    mDeviceAddress, aDataLen, aData, new SendDataResultHandler());
+  sBluetoothHidInterface->SendData(mDeviceAddress, aDataLen, aData,
+                                   new SendDataResultHandler());
 }
 
-void
-BluetoothHidManager::HandleShutdown()
-{
+void BluetoothHidManager::HandleShutdown() {
   MOZ_ASSERT(NS_IsMainThread());
   sInShutdown = true;
   Disconnect(nullptr);
   sBluetoothHidManager = nullptr;
 }
 
-void
-BluetoothHidManager::HandleBackendError()
-{
+void BluetoothHidManager::HandleBackendError() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (mHidConnected) {
@@ -680,26 +595,19 @@ BluetoothHidManager::HandleBackendError()
   }
 }
 
-void
-BluetoothHidManager::GetAddress(BluetoothAddress& aDeviceAddress)
-{
+void BluetoothHidManager::GetAddress(BluetoothAddress& aDeviceAddress) {
   aDeviceAddress = mDeviceAddress;
 }
 
-void
-BluetoothHidManager::OnUpdateSdpRecords(
-  const BluetoothAddress& aDeviceAddress)
-{
+void BluetoothHidManager::OnUpdateSdpRecords(
+    const BluetoothAddress& aDeviceAddress) {
   // Bluedroid handles this part
   MOZ_ASSERT(false);
 }
 
-void
-BluetoothHidManager::OnGetServiceChannel(
-  const BluetoothAddress& aDeviceAddress,
-  const BluetoothUuid& aServiceUuid,
-  int aChannel)
-{
+void BluetoothHidManager::OnGetServiceChannel(
+    const BluetoothAddress& aDeviceAddress, const BluetoothUuid& aServiceUuid,
+    int aChannel) {
   // Bluedroid handles this part
   MOZ_ASSERT(false);
 }
@@ -723,10 +631,8 @@ BluetoothHidManager::OnGetServiceChannel(
  *   4. Either unpair from the remote device or the remote device is
  *      out of range in connected state
  */
-void
-BluetoothHidManager::ConnectionStateNotification(
-  const BluetoothAddress& aBdAddr, BluetoothHidConnectionState aState)
-{
+void BluetoothHidManager::ConnectionStateNotification(
+    const BluetoothAddress& aBdAddr, BluetoothHidConnectionState aState) {
   MOZ_ASSERT(NS_IsMainThread());
 
   BT_LOGR("[HID] state %d", aState);
@@ -735,12 +641,12 @@ BluetoothHidManager::ConnectionStateNotification(
     mHidConnected = true;
     mDeviceAddress = aBdAddr;
     NotifyConnectionStateChanged(
-      NS_LITERAL_STRING(BLUETOOTH_HID_STATUS_CHANGED_ID));
+        NS_LITERAL_STRING(BLUETOOTH_HID_STATUS_CHANGED_ID));
     OnConnect(EmptyString());
   } else if (aState == HID_CONNECTION_STATE_DISCONNECTED) {
     mHidConnected = false;
     NotifyConnectionStateChanged(
-      NS_LITERAL_STRING(BLUETOOTH_HID_STATUS_CHANGED_ID));
+        NS_LITERAL_STRING(BLUETOOTH_HID_STATUS_CHANGED_ID));
     OnDisconnect(EmptyString());
   }
 }

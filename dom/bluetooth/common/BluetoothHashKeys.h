@@ -18,44 +18,28 @@ BEGIN_BLUETOOTH_NAMESPACE
 /**
  * Implements a hash-table key for |BluetoothAddress|.
  */
-class BluetoothAddressHashKey : public PLDHashEntryHdr
-{
-public:
-  enum {
-    ALLOW_MEMMOVE = true
-  };
+class BluetoothAddressHashKey : public PLDHashEntryHdr {
+ public:
+  enum { ALLOW_MEMMOVE = true };
 
   typedef const BluetoothAddress& KeyType;
   typedef const BluetoothAddress* KeyTypePointer;
 
-  explicit BluetoothAddressHashKey(KeyTypePointer aKey)
-    : mValue(*aKey)
-  { }
+  explicit BluetoothAddressHashKey(KeyTypePointer aKey) : mValue(*aKey) {}
   BluetoothAddressHashKey(const BluetoothAddressHashKey& aToCopy)
-    : mValue(aToCopy.mValue)
-  { }
-  ~BluetoothAddressHashKey()
-  { }
-  KeyType GetKey() const
-  {
-    return mValue;
-  }
-  bool KeyEquals(KeyTypePointer aKey) const
-  {
-    return *aKey == mValue;
-  }
-  static KeyTypePointer KeyToPointer(KeyType aKey)
-  {
-    return &aKey;
-  }
-  static PLDHashNumber HashKey(KeyTypePointer aKey)
-  {
+      : mValue(aToCopy.mValue) {}
+  ~BluetoothAddressHashKey() {}
+  KeyType GetKey() const { return mValue; }
+  bool KeyEquals(KeyTypePointer aKey) const { return *aKey == mValue; }
+  static KeyTypePointer KeyToPointer(KeyType aKey) { return &aKey; }
+  static PLDHashNumber HashKey(KeyTypePointer aKey) {
     return HashBytes(aKey->mAddr, MOZ_ARRAY_LENGTH(aKey->mAddr));
   }
-private:
+
+ private:
   const BluetoothAddress mValue;
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothHashKeys_h
+#endif  // mozilla_dom_bluetooth_BluetoothHashKeys_h

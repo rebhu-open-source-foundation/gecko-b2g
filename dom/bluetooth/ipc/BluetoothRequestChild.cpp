@@ -11,7 +11,6 @@
 #include "BluetoothReplyRunnable.h"
 #include "nsThreadUtils.h"
 
-
 USING_BLUETOOTH_NAMESPACE
 
 /*******************************************************************************
@@ -19,27 +18,22 @@ USING_BLUETOOTH_NAMESPACE
  ******************************************************************************/
 
 BluetoothRequestChild::BluetoothRequestChild(
-                                         BluetoothReplyRunnable* aReplyRunnable)
-: mReplyRunnable(aReplyRunnable)
-{
+    BluetoothReplyRunnable* aReplyRunnable)
+    : mReplyRunnable(aReplyRunnable) {
   MOZ_COUNT_CTOR(BluetoothRequestChild);
   MOZ_ASSERT(aReplyRunnable);
 }
 
-BluetoothRequestChild::~BluetoothRequestChild()
-{
+BluetoothRequestChild::~BluetoothRequestChild() {
   MOZ_COUNT_DTOR(BluetoothRequestChild);
 }
 
-void
-BluetoothRequestChild::ActorDestroy(ActorDestroyReason aWhy)
-{
+void BluetoothRequestChild::ActorDestroy(ActorDestroyReason aWhy) {
   // Nothing needed here.
 }
 
-mozilla::ipc::IPCResult
-BluetoothRequestChild::Recv__delete__(const BluetoothReply& aReply)
-{
+mozilla::ipc::IPCResult BluetoothRequestChild::Recv__delete__(
+    const BluetoothReply& aReply) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mReplyRunnable);
 

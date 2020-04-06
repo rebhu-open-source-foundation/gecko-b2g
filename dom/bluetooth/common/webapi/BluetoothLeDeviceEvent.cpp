@@ -40,33 +40,25 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothLeDeviceEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 BluetoothLeDeviceEvent::BluetoothLeDeviceEvent(
-  mozilla::dom::EventTarget* aOwner)
-  : Event(aOwner, nullptr, nullptr)
-{
+    mozilla::dom::EventTarget* aOwner)
+    : Event(aOwner, nullptr, nullptr) {
   mozilla::HoldJSObjects(this);
 }
 
-BluetoothLeDeviceEvent::~BluetoothLeDeviceEvent()
-{
+BluetoothLeDeviceEvent::~BluetoothLeDeviceEvent() {
   mScanRecord = nullptr;
   mozilla::DropJSObjects(this);
 }
 
-JSObject*
-BluetoothLeDeviceEvent::WrapObjectInternal(JSContext* aCx,
-                                           JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothLeDeviceEvent::WrapObjectInternal(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothLeDeviceEvent_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-already_AddRefed<BluetoothLeDeviceEvent>
-BluetoothLeDeviceEvent::Constructor(
-  mozilla::dom::EventTarget* aOwner,
-  const nsAString& aType,
-  BluetoothDevice* const aDevice,
-  const int16_t aRssi,
-  const nsTArray<uint8_t>& aScanRecord)
-{
+already_AddRefed<BluetoothLeDeviceEvent> BluetoothLeDeviceEvent::Constructor(
+    mozilla::dom::EventTarget* aOwner, const nsAString& aType,
+    BluetoothDevice* const aDevice, const int16_t aRssi,
+    const nsTArray<uint8_t>& aScanRecord) {
   RefPtr<BluetoothLeDeviceEvent> e = new BluetoothLeDeviceEvent(aOwner);
   bool trusted = e->Init(aOwner);
   e->InitEvent(aType, false, false);
@@ -78,14 +70,11 @@ BluetoothLeDeviceEvent::Constructor(
   return e.forget();
 }
 
-already_AddRefed<BluetoothLeDeviceEvent>
-BluetoothLeDeviceEvent::Constructor(
-  const GlobalObject& aGlobal,
-  const nsAString& aType,
-  const BluetoothLeDeviceEventInit& aEventInitDict)
-{
+already_AddRefed<BluetoothLeDeviceEvent> BluetoothLeDeviceEvent::Constructor(
+    const GlobalObject& aGlobal, const nsAString& aType,
+    const BluetoothLeDeviceEventInit& aEventInitDict) {
   nsCOMPtr<mozilla::dom::EventTarget> owner =
-    do_QueryInterface(aGlobal.GetAsSupports());
+      do_QueryInterface(aGlobal.GetAsSupports());
 
   RefPtr<BluetoothLeDeviceEvent> e = new BluetoothLeDeviceEvent(owner);
   bool trusted = e->Init(owner);
@@ -96,8 +85,7 @@ BluetoothLeDeviceEvent::Constructor(
   if (!aEventInitDict.mScanRecord.IsNull()) {
     const auto& scanRecord = aEventInitDict.mScanRecord.Value();
     scanRecord.ComputeState();
-    e->mScanRecord = ArrayBuffer::Create(aGlobal.Context(),
-                                         scanRecord.Length(),
+    e->mScanRecord = ArrayBuffer::Create(aGlobal.Context(), scanRecord.Length(),
                                          scanRecord.Data());
     if (!e->mScanRecord) {
       return nullptr;
@@ -108,29 +96,14 @@ BluetoothLeDeviceEvent::Constructor(
   return e.forget();
 }
 
+BluetoothDevice* BluetoothLeDeviceEvent::GetDevice() const { return mDevice; }
 
-BluetoothDevice*
-BluetoothLeDeviceEvent::GetDevice() const
-{
-  return mDevice;
-}
+int16_t BluetoothLeDeviceEvent::Rssi() const { return mRssi; }
 
-int16_t
-BluetoothLeDeviceEvent::Rssi() const
-{
-  return mRssi;
-}
-
-void
-BluetoothLeDeviceEvent::GetScanRecord(
-  JSContext* cx,
-  JS::MutableHandle<JSObject*> aScanRecord,
-  ErrorResult& aRv)
-{
+void BluetoothLeDeviceEvent::GetScanRecord(
+    JSContext* cx, JS::MutableHandle<JSObject*> aScanRecord, ErrorResult& aRv) {
   if (!mScanRecord) {
-    mScanRecord = ArrayBuffer::Create(cx,
-                                      this,
-                                      mRawScanRecord.Length(),
+    mScanRecord = ArrayBuffer::Create(cx, this, mRawScanRecord.Length(),
                                       mRawScanRecord.Elements());
     if (!mScanRecord) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);

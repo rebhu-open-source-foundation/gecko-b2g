@@ -27,31 +27,31 @@ BEGIN_BLUETOOTH_NAMESPACE
  */
 
 // Bit 23 ~ Bit 13: Major service class
-#define GET_MAJOR_SERVICE_CLASS(cod) (((cod) & 0xffe000) >> 13)
+#define GET_MAJOR_SERVICE_CLASS(cod) (((cod)&0xffe000) >> 13)
 
 // Bit 12 ~ Bit 8: Major device class
-#define GET_MAJOR_DEVICE_CLASS(cod)  (((cod) & 0x1f00) >> 8)
+#define GET_MAJOR_DEVICE_CLASS(cod) (((cod)&0x1f00) >> 8)
 
 // Bit 7 ~ Bit 2: Minor device class
-#define GET_MINOR_DEVICE_CLASS(cod)  (((cod) & 0xfc) >> 2)
+#define GET_MINOR_DEVICE_CLASS(cod) (((cod)&0xfc) >> 2)
 
 // Audio: Major service class = 0x100 (Bit 21 is set)
-#define HAS_AUDIO(cod)               ((cod) & 0x200000)
+#define HAS_AUDIO(cod) ((cod)&0x200000)
 
 // Rendering: Major service class = 0x20 (Bit 18 is set)
-#define HAS_RENDERING(cod)           ((cod) & 0x40000)
+#define HAS_RENDERING(cod) ((cod)&0x40000)
 
 // Peripheral: Major device class = 0x5
-#define IS_PERIPHERAL(cod)           (GET_MAJOR_DEVICE_CLASS(cod) == 0x5)
+#define IS_PERIPHERAL(cod) (GET_MAJOR_DEVICE_CLASS(cod) == 0x5)
 
 // Remote Control: sub-field of minor device class, Bit 5 ~ Bit 2 = 0x3
-#define IS_REMOTE_CONTROL(cod)       ((GET_MINOR_DEVICE_CLASS(cod) & 0xf) == 0x3)
+#define IS_REMOTE_CONTROL(cod) ((GET_MINOR_DEVICE_CLASS(cod) & 0xf) == 0x3)
 
 // Keyboard: sub-field of minor device class (Bit 6)
-#define IS_KEYBOARD(cod)             ((GET_MINOR_DEVICE_CLASS(cod) & 0x10) >> 4)
+#define IS_KEYBOARD(cod) ((GET_MINOR_DEVICE_CLASS(cod) & 0x10) >> 4)
 
 // Pointing device: sub-field of minor device class (Bit 7)
-#define IS_POINTING_DEVICE(cod)      ((GET_MINOR_DEVICE_CLASS(cod) & 0x20) >> 5)
+#define IS_POINTING_DEVICE(cod) ((GET_MINOR_DEVICE_CLASS(cod) & 0x20) >> 5)
 
 /**
  * Check whether the value of CoD is invalid:
@@ -64,17 +64,16 @@ BEGIN_BLUETOOTH_NAMESPACE
  * and device type. As bluedroid stores CoD with uint32_t, the remaining 8 bits
  * (Bit 31 ~ Bit 24) should be unassigned.
  */
-#define IS_INVALID(cod)              ((cod) >> 24 || (cod) == 0x1f00)
+#define IS_INVALID(cod) ((cod) >> 24 || (cod) == 0x1f00)
 
 class BluetoothProfileManagerBase;
 class BluetoothReplyRunnable;
 typedef void (*BluetoothProfileControllerCallback)();
 
-class BluetoothProfileController final
-{
+class BluetoothProfileController final {
   ~BluetoothProfileController();
 
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(BluetoothProfileController)
   /**
    * @param aConnect:       If it's a connect request, the value should be set
@@ -96,8 +95,7 @@ public:
                              const BluetoothAddress& aDeviceAddress,
                              BluetoothReplyRunnable* aRunnable,
                              BluetoothProfileControllerCallback aCallback,
-                             uint16_t aServiceUuid,
-                             uint32_t aCod = 0);
+                             uint16_t aServiceUuid, uint32_t aCod = 0);
 
   /**
    * The controller starts connecting/disconnecting profiles one by one
@@ -131,7 +129,7 @@ public:
    */
   uint16_t GetServiceUuid() { return mServiceUuid; }
 
-private:
+ private:
   // Setup data member mProfiles
   void SetupProfiles(bool aAssignServiceClass);
 
@@ -170,4 +168,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothProfileController_h
+#endif  // mozilla_dom_bluetooth_BluetoothProfileController_h

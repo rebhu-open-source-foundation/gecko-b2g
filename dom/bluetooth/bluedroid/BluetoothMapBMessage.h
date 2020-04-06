@@ -29,7 +29,7 @@ enum BMsgParserState {
 };
 
 class VCard {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VCard)
   VCard();
 
@@ -40,7 +40,7 @@ public:
   void GetEmail(nsACString& aEmail);
   void Dump();
 
-private:
+ private:
   ~VCard();
 
   nsCString mName;
@@ -54,9 +54,8 @@ private:
  * with helpful information. The general encoding characteristics as defined for
  * vCards.
  */
-class BluetoothMapBMessage
-{
-public:
+class BluetoothMapBMessage {
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(BluetoothMapBMessage)
   // Parse OBEX body and return bMessage object.
   BluetoothMapBMessage(uint8_t* aObexBody, int aLength);
@@ -65,7 +64,7 @@ public:
   void GetBody(nsACString& aBody);
   void Dump();
 
-private:
+ private:
   ~BluetoothMapBMessage();
   void ProcessDecode(const char* aBody);
   void ParseBeginBmsg(const nsAutoCString& aCurrLine);
@@ -103,8 +102,8 @@ private:
   nsCString mLanguage;
 
   /* Length of the bmessage-body-content, starting with the "B" of the first
-   * occurrence of "BEGIN_BMSG" and ending with the <CRLF> of the last occurrence
-   * of "END:MSG"<CRLF>.
+   * occurrence of "BEGIN_BMSG" and ending with the <CRLF> of the last
+   * occurrence of "END:MSG"<CRLF>.
    */
   nsCString mBMsgLength;
   // mMessageBody represents bmessage-body-content
@@ -116,8 +115,8 @@ private:
   // Previous parser state
   enum BMsgParserState mUnwindState;
 
-  /* Current level of bmessage-envelope. The maximum level of <bmessage-envelope>
-   * encapsulation shall be 3.
+  /* Current level of bmessage-envelope. The maximum level of
+   * <bmessage-envelope> encapsulation shall be 3.
    */
   int mEnvelopeLevel;
 
@@ -131,4 +130,4 @@ private:
 };
 
 END_BLUETOOTH_NAMESPACE
-#endif //mozilla_dom_bluetooth_bluedroid_BluetoothMapBMessage_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothMapBMessage_h

@@ -13,15 +13,12 @@ using namespace mozilla::dom;
 USING_BLUETOOTH_NAMESPACE
 
 BluetoothGattReplyRunnable::BluetoothGattReplyRunnable(Promise* aPromise)
-  : BluetoothReplyRunnable(nullptr, aPromise)
-{
+    : BluetoothReplyRunnable(nullptr, aPromise) {
   MOZ_ASSERT(aPromise);
 }
 
-void
-BluetoothGattReplyRunnable::GattStatusToDOMStatus(
-  const BluetoothGattStatus aGattStatus, nsresult& aDOMStatus)
-{
+void BluetoothGattReplyRunnable::GattStatusToDOMStatus(
+    const BluetoothGattStatus aGattStatus, nsresult& aDOMStatus) {
   /**
    * https://webbluetoothcg.github.io/web-bluetooth/#error-handling
    *
@@ -32,8 +29,7 @@ BluetoothGattReplyRunnable::GattStatusToDOMStatus(
 
   // Error Code Mapping
   if ((aGattStatus >= GATT_STATUS_BEGIN_OF_APPLICATION_ERROR) &&
-      (aGattStatus <= GATT_STATUS_END_OF_APPLICATION_ERROR) &&
-      IsWrite()) {
+      (aGattStatus <= GATT_STATUS_END_OF_APPLICATION_ERROR) && IsWrite()) {
     aDOMStatus = NS_ERROR_DOM_INVALID_MODIFICATION_ERR;
     return;
   }
@@ -93,23 +89,20 @@ BluetoothGattReplyRunnable::GattStatusToDOMStatus(
   }
 }
 
-nsresult
-BluetoothGattReplyRunnable::FireErrorString()
-{
+nsresult BluetoothGattReplyRunnable::FireErrorString() {
   MOZ_ASSERT(mReply);
 
-  if (!mPromise ||
-      mReply->type() != BluetoothReply::TBluetoothReplyError ||
+  if (!mPromise || mReply->type() != BluetoothReply::TBluetoothReplyError ||
       mReply->get_BluetoothReplyError().errorStatus().type() !=
-        BluetoothErrorStatus::TBluetoothGattStatus) {
+          BluetoothErrorStatus::TBluetoothGattStatus) {
     return BluetoothReplyRunnable::FireErrorString();
   }
 
   nsresult domStatus = NS_OK;
 
   GattStatusToDOMStatus(
-    mReply->get_BluetoothReplyError().errorStatus().get_BluetoothGattStatus(),
-    domStatus);
+      mReply->get_BluetoothReplyError().errorStatus().get_BluetoothGattStatus(),
+      domStatus);
   nsresult rv = NS_ERROR_GENERATE_FAILURE(NS_ERROR_MODULE_DOM, domStatus);
   mPromise->MaybeReject(rv);
 

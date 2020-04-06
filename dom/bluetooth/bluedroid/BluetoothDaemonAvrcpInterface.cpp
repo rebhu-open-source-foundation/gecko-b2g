@@ -17,26 +17,21 @@ using namespace mozilla::ipc;
 //
 
 BluetoothAvrcpNotificationHandler*
-  BluetoothDaemonAvrcpModule::sNotificationHandler;
+    BluetoothDaemonAvrcpModule::sNotificationHandler;
 
-void
-BluetoothDaemonAvrcpModule::SetNotificationHandler(
-  BluetoothAvrcpNotificationHandler* aNotificationHandler)
-{
+void BluetoothDaemonAvrcpModule::SetNotificationHandler(
+    BluetoothAvrcpNotificationHandler* aNotificationHandler) {
   sNotificationHandler = aNotificationHandler;
 }
 
-void
-BluetoothDaemonAvrcpModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                                      DaemonSocketPDU& aPDU,
-                                      DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonAvrcpModule::* const HandleOp[])(
-    const DaemonSocketPDUHeader&, DaemonSocketPDU&,
-    DaemonSocketResultHandler*) = {
-    [0] = &BluetoothDaemonAvrcpModule::HandleRsp,
-    [1] = &BluetoothDaemonAvrcpModule::HandleNtf
-  };
+void BluetoothDaemonAvrcpModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
+                                           DaemonSocketPDU& aPDU,
+                                           DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonAvrcpModule::*const HandleOp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      DaemonSocketResultHandler*) = {
+      [0] = &BluetoothDaemonAvrcpModule::HandleRsp,
+      [1] = &BluetoothDaemonAvrcpModule::HandleNtf};
 
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -48,18 +43,16 @@ BluetoothDaemonAvrcpModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
 // Commands
 //
 
-nsresult
-BluetoothDaemonAvrcpModule::GetPlayStatusRspCmd(
-  ControlPlayStatus aPlayStatus, uint32_t aSongLen, uint32_t aSongPos,
-  BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::GetPlayStatusRspCmd(
+    ControlPlayStatus aPlayStatus, uint32_t aSongLen, uint32_t aSongPos,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PLAY_STATUS_RSP,
-                                1 + // Play status
-                                4 + // Duration
-                                4); // Position
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PLAY_STATUS_RSP,
+                                  1 +      // Play status
+                                      4 +  // Duration
+                                      4);  // Position
 
   nsresult rv = PackPDU(aPlayStatus, aSongLen, aSongPos, *pdu);
   if (NS_FAILED(rv)) {
@@ -73,21 +66,19 @@ BluetoothDaemonAvrcpModule::GetPlayStatusRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::ListPlayerAppAttrRspCmd(
-  int aNumAttr, const BluetoothAvrcpPlayerAttribute* aPAttrs,
-  BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::ListPlayerAppAttrRspCmd(
+    int aNumAttr, const BluetoothAvrcpPlayerAttribute* aPAttrs,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_LIST_PLAYER_APP_ATTR_RSP,
-                                1 + // # Attributes
-                                aNumAttr); // Player attributes
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_LIST_PLAYER_APP_ATTR_RSP,
+                                  1 +             // # Attributes
+                                      aNumAttr);  // Player attributes
 
   nsresult rv = PackPDU(
-    PackConversion<int, uint8_t>(aNumAttr),
-    PackArray<BluetoothAvrcpPlayerAttribute>(aPAttrs, aNumAttr), *pdu);
+      PackConversion<int, uint8_t>(aNumAttr),
+      PackArray<BluetoothAvrcpPlayerAttribute>(aPAttrs, aNumAttr), *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -99,16 +90,14 @@ BluetoothDaemonAvrcpModule::ListPlayerAppAttrRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::ListPlayerAppValueRspCmd(
-  int aNumVal, uint8_t* aPVals, BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::ListPlayerAppValueRspCmd(
+    int aNumVal, uint8_t* aPVals, BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_LIST_PLAYER_APP_VALUE_RSP,
-                                1 + // # Values
-                                aNumVal); // Player values
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_LIST_PLAYER_APP_VALUE_RSP,
+                                  1 +            // # Values
+                                      aNumVal);  // Player values
 
   nsresult rv = PackPDU(PackConversion<int, uint8_t>(aNumVal),
                         PackArray<uint8_t>(aPVals, aNumVal), *pdu);
@@ -123,21 +112,19 @@ BluetoothDaemonAvrcpModule::ListPlayerAppValueRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::GetPlayerAppValueRspCmd(
-  uint8_t aNumAttrs, const uint8_t* aIds, const uint8_t* aValues,
-  BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::GetPlayerAppValueRspCmd(
+    uint8_t aNumAttrs, const uint8_t* aIds, const uint8_t* aValues,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PLAYER_APP_VALUE_RSP,
-                                1 + // # Pairs
-                                2 * aNumAttrs); // Attribute-value pairs
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PLAYER_APP_VALUE_RSP,
+                                  1 +                  // # Pairs
+                                      2 * aNumAttrs);  // Attribute-value pairs
 
   nsresult rv = PackPDU(
-    aNumAttrs,
-    BluetoothAvrcpAttributeValuePairs(aIds, aValues, aNumAttrs), *pdu);
+      aNumAttrs, BluetoothAvrcpAttributeValuePairs(aIds, aValues, aNumAttrs),
+      *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -149,20 +136,18 @@ BluetoothDaemonAvrcpModule::GetPlayerAppValueRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::GetPlayerAppAttrTextRspCmd(
-  int aNumAttr, const uint8_t* aIds, const char** aTexts,
-  BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::GetPlayerAppAttrTextRspCmd(
+    int aNumAttr, const uint8_t* aIds, const char** aTexts,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PLAYER_APP_ATTR_TEXT_RSP,
-                                0); // Dynamically allocated
+  UniquePtr<DaemonSocketPDU> pdu = MakeUnique<DaemonSocketPDU>(
+      SERVICE_ID, OPCODE_GET_PLAYER_APP_ATTR_TEXT_RSP,
+      0);  // Dynamically allocated
 
-  nsresult rv = PackPDU(
-    PackConversion<int, uint8_t>(aNumAttr),
-    BluetoothAvrcpAttributeTextPairs(aIds, aTexts, aNumAttr), *pdu);
+  nsresult rv =
+      PackPDU(PackConversion<int, uint8_t>(aNumAttr),
+              BluetoothAvrcpAttributeTextPairs(aIds, aTexts, aNumAttr), *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -174,20 +159,18 @@ BluetoothDaemonAvrcpModule::GetPlayerAppAttrTextRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::GetPlayerAppValueTextRspCmd(
-  int aNumVal, const uint8_t* aIds, const char** aTexts,
-  BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::GetPlayerAppValueTextRspCmd(
+    int aNumVal, const uint8_t* aIds, const char** aTexts,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PLAYER_APP_VALUE_TEXT_RSP,
-                                0); // Dynamically allocated
+  UniquePtr<DaemonSocketPDU> pdu = MakeUnique<DaemonSocketPDU>(
+      SERVICE_ID, OPCODE_GET_PLAYER_APP_VALUE_TEXT_RSP,
+      0);  // Dynamically allocated
 
-  nsresult rv = PackPDU(
-    PackConversion<int, uint8_t>(aNumVal),
-    BluetoothAvrcpAttributeTextPairs(aIds, aTexts, aNumVal), *pdu);
+  nsresult rv =
+      PackPDU(PackConversion<int, uint8_t>(aNumVal),
+              BluetoothAvrcpAttributeTextPairs(aIds, aTexts, aNumVal), *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -199,20 +182,18 @@ BluetoothDaemonAvrcpModule::GetPlayerAppValueTextRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::GetElementAttrRspCmd(
-  uint8_t aNumAttr, const BluetoothAvrcpElementAttribute* aAttr,
-  BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::GetElementAttrRspCmd(
+    uint8_t aNumAttr, const BluetoothAvrcpElementAttribute* aAttr,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_ELEMENT_ATTR_RSP,
-                                0); // Dynamically allocated
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_ELEMENT_ATTR_RSP,
+                                  0);  // Dynamically allocated
 
-  nsresult rv = PackPDU(
-    aNumAttr,
-    PackArray<BluetoothAvrcpElementAttribute>(aAttr, aNumAttr), *pdu);
+  nsresult rv =
+      PackPDU(aNumAttr,
+              PackArray<BluetoothAvrcpElementAttribute>(aAttr, aNumAttr), *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -224,15 +205,13 @@ BluetoothDaemonAvrcpModule::GetElementAttrRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::SetPlayerAppValueRspCmd(
-  BluetoothAvrcpStatus aRspStatus, BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::SetPlayerAppValueRspCmd(
+    BluetoothAvrcpStatus aRspStatus, BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_PLAYER_APP_VALUE_RSP,
-                                1); // Status code
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_PLAYER_APP_VALUE_RSP,
+                                  1);  // Status code
 
   nsresult rv = PackPDU(aRspStatus, *pdu);
   if (NS_FAILED(rv)) {
@@ -246,20 +225,18 @@ BluetoothDaemonAvrcpModule::SetPlayerAppValueRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::RegisterNotificationRspCmd(
-  BluetoothAvrcpEvent aEvent, BluetoothAvrcpNotification aType,
-  const BluetoothAvrcpNotificationParam& aParam,
-  BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::RegisterNotificationRspCmd(
+    BluetoothAvrcpEvent aEvent, BluetoothAvrcpNotification aType,
+    const BluetoothAvrcpNotificationParam& aParam,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REGISTER_NOTIFICATION_RSP,
-                                1 + // Event
-                                1 + // Type
-                                1 + // Data length
-                                256); // Maximum data length
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REGISTER_NOTIFICATION_RSP,
+                                  1 +        // Event
+                                      1 +    // Type
+                                      1 +    // Data length
+                                      256);  // Maximum data length
 
   BluetoothAvrcpEventParamPair data(aEvent, aParam);
   nsresult rv = PackPDU(aEvent, aType, static_cast<uint8_t>(data.GetLength()),
@@ -275,15 +252,13 @@ BluetoothDaemonAvrcpModule::RegisterNotificationRspCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonAvrcpModule::SetVolumeCmd(uint8_t aVolume,
-                                         BluetoothAvrcpResultHandler* aRes)
-{
+nsresult BluetoothDaemonAvrcpModule::SetVolumeCmd(
+    uint8_t aVolume, BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_VOLUME,
-                                1); // Volume
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_VOLUME,
+                                  1);  // Volume
 
   nsresult rv = PackPDU(aVolume, *pdu);
   if (NS_FAILED(rv)) {
@@ -300,149 +275,119 @@ BluetoothDaemonAvrcpModule::SetVolumeCmd(uint8_t aVolume,
 // Responses
 //
 
-void
-BluetoothDaemonAvrcpModule::ErrorRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ErrorRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::OnError, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonAvrcpModule::ErrorRsp(const DaemonSocketPDUHeader& aHeader,
+                                          DaemonSocketPDU& aPDU,
+                                          BluetoothAvrcpResultHandler* aRes) {
+  ErrorRunnable::Dispatch(aRes, &BluetoothAvrcpResultHandler::OnError,
+                          UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::GetPlayStatusRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpModule::GetPlayStatusRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothAvrcpResultHandler::GetPlayStatusRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonAvrcpModule::ListPlayerAppAttrRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothAvrcpResultHandler::ListPlayerAppAttrRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonAvrcpModule::ListPlayerAppValueRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothAvrcpResultHandler::ListPlayerAppValueRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonAvrcpModule::GetPlayerAppValueRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothAvrcpResultHandler::GetPlayerAppValueRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonAvrcpModule::GetPlayerAppAttrTextRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
   ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::GetPlayStatusRsp,
-    UnpackPDUInitOp(aPDU));
+      aRes, &BluetoothAvrcpResultHandler::GetPlayerAppAttrTextRsp,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::ListPlayerAppAttrRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpModule::GetPlayerAppValueTextRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
   ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::ListPlayerAppAttrRsp,
-    UnpackPDUInitOp(aPDU));
+      aRes, &BluetoothAvrcpResultHandler::GetPlayerAppValueTextRsp,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::ListPlayerAppValueRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpModule::GetElementAttrRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothAvrcpResultHandler::GetElementAttrRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonAvrcpModule::SetPlayerAppValueRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothAvrcpResultHandler::SetPlayerAppValueRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonAvrcpModule::RegisterNotificationRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
   ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::ListPlayerAppValueRsp,
-    UnpackPDUInitOp(aPDU));
+      aRes, &BluetoothAvrcpResultHandler::RegisterNotificationRsp,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::GetPlayerAppValueRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::GetPlayerAppValueRsp,
-    UnpackPDUInitOp(aPDU));
+void BluetoothDaemonAvrcpModule::SetVolumeRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothAvrcpResultHandler::SetVolume,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::GetPlayerAppAttrTextRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::GetPlayerAppAttrTextRsp,
-    UnpackPDUInitOp(aPDU));
-}
+void BluetoothDaemonAvrcpModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
+                                           DaemonSocketPDU& aPDU,
+                                           DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonAvrcpModule::*const HandleRsp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      BluetoothAvrcpResultHandler*) = {
+      [OPCODE_ERROR] = &BluetoothDaemonAvrcpModule::ErrorRsp,
+      [OPCODE_GET_PLAY_STATUS_RSP] =
+          &BluetoothDaemonAvrcpModule::GetPlayStatusRspRsp,
+      [OPCODE_LIST_PLAYER_APP_ATTR_RSP] =
+          &BluetoothDaemonAvrcpModule::ListPlayerAppAttrRspRsp,
+      [OPCODE_LIST_PLAYER_APP_VALUE_RSP] =
+          &BluetoothDaemonAvrcpModule::ListPlayerAppValueRspRsp,
+      [OPCODE_GET_PLAYER_APP_VALUE_RSP] =
+          &BluetoothDaemonAvrcpModule::GetPlayerAppValueRspRsp,
+      [OPCODE_GET_PLAYER_APP_ATTR_TEXT_RSP] =
+          &BluetoothDaemonAvrcpModule::GetPlayerAppAttrTextRspRsp,
+      [OPCODE_GET_PLAYER_APP_VALUE_TEXT_RSP] =
+          &BluetoothDaemonAvrcpModule::GetPlayerAppValueTextRspRsp,
+      [OPCODE_GET_ELEMENT_ATTR_RSP] =
+          &BluetoothDaemonAvrcpModule::GetElementAttrRspRsp,
+      [OPCODE_SET_PLAYER_APP_VALUE_RSP] =
+          &BluetoothDaemonAvrcpModule::SetPlayerAppValueRspRsp,
+      [OPCODE_REGISTER_NOTIFICATION_RSP] =
+          &BluetoothDaemonAvrcpModule::RegisterNotificationRspRsp,
+      [OPCODE_SET_VOLUME] = &BluetoothDaemonAvrcpModule::SetVolumeRsp};
 
-void
-BluetoothDaemonAvrcpModule::GetPlayerAppValueTextRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::GetPlayerAppValueTextRsp,
-    UnpackPDUInitOp(aPDU));
-}
-
-void
-BluetoothDaemonAvrcpModule::GetElementAttrRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::GetElementAttrRsp,
-    UnpackPDUInitOp(aPDU));
-}
-
-void
-BluetoothDaemonAvrcpModule::SetPlayerAppValueRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::SetPlayerAppValueRsp,
-    UnpackPDUInitOp(aPDU));
-}
-
-void
-BluetoothDaemonAvrcpModule::RegisterNotificationRspRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::RegisterNotificationRsp,
-    UnpackPDUInitOp(aPDU));
-}
-
-void
-BluetoothDaemonAvrcpModule::SetVolumeRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothAvrcpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::SetVolume,
-    UnpackPDUInitOp(aPDU));
-}
-
-void
-BluetoothDaemonAvrcpModule::HandleRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonAvrcpModule::* const HandleRsp[])(
-    const DaemonSocketPDUHeader&,
-    DaemonSocketPDU&,
-    BluetoothAvrcpResultHandler*) = {
-    [OPCODE_ERROR] =
-      &BluetoothDaemonAvrcpModule::ErrorRsp,
-    [OPCODE_GET_PLAY_STATUS_RSP] =
-      &BluetoothDaemonAvrcpModule::GetPlayStatusRspRsp,
-    [OPCODE_LIST_PLAYER_APP_ATTR_RSP] =
-      &BluetoothDaemonAvrcpModule::ListPlayerAppAttrRspRsp,
-    [OPCODE_LIST_PLAYER_APP_VALUE_RSP] =
-      &BluetoothDaemonAvrcpModule::ListPlayerAppValueRspRsp,
-    [OPCODE_GET_PLAYER_APP_VALUE_RSP] =
-      &BluetoothDaemonAvrcpModule::GetPlayerAppValueRspRsp,
-    [OPCODE_GET_PLAYER_APP_ATTR_TEXT_RSP] =
-      &BluetoothDaemonAvrcpModule::GetPlayerAppAttrTextRspRsp,
-    [OPCODE_GET_PLAYER_APP_VALUE_TEXT_RSP] =
-      &BluetoothDaemonAvrcpModule::GetPlayerAppValueTextRspRsp,
-    [OPCODE_GET_ELEMENT_ATTR_RSP]=
-      &BluetoothDaemonAvrcpModule::GetElementAttrRspRsp,
-    [OPCODE_SET_PLAYER_APP_VALUE_RSP] =
-      &BluetoothDaemonAvrcpModule::SetPlayerAppValueRspRsp,
-    [OPCODE_REGISTER_NOTIFICATION_RSP] =
-      &BluetoothDaemonAvrcpModule::RegisterNotificationRspRsp,
-    [OPCODE_SET_VOLUME] =
-      &BluetoothDaemonAvrcpModule::SetVolumeRsp
-  };
-
-  MOZ_ASSERT(!NS_IsMainThread()); // I/O thread
+  MOZ_ASSERT(!NS_IsMainThread());  // I/O thread
 
   if (NS_WARN_IF(!(aHeader.mOpcode < MOZ_ARRAY_LENGTH(HandleRsp))) ||
       NS_WARN_IF(!HandleRsp[aHeader.mOpcode])) {
@@ -450,10 +395,10 @@ BluetoothDaemonAvrcpModule::HandleRsp(
   }
 
   RefPtr<BluetoothAvrcpResultHandler> res =
-    static_cast<BluetoothAvrcpResultHandler*>(aRes);
+      static_cast<BluetoothAvrcpResultHandler*>(aRes);
 
   if (!res) {
-    return; // Return early if no result handler has been set for response
+    return;  // Return early if no result handler has been set for response
   }
 
   (this->*(HandleRsp[aHeader.mOpcode]))(aHeader, aPDU, res);
@@ -463,13 +408,11 @@ BluetoothDaemonAvrcpModule::HandleRsp(
 //
 
 // Returns the current notification handler to a notification runnable
-class BluetoothDaemonAvrcpModule::NotificationHandlerWrapper final
-{
-public:
+class BluetoothDaemonAvrcpModule::NotificationHandlerWrapper final {
+ public:
   typedef BluetoothAvrcpNotificationHandler ObjectType;
 
-  static ObjectType* GetInstance()
-  {
+  static ObjectType* GetInstance() {
     MOZ_ASSERT(NS_IsMainThread());
 
     return sNotificationHandler;
@@ -478,16 +421,11 @@ public:
 
 // Init operator class for RemoteFeatureNotification
 class BluetoothDaemonAvrcpModule::RemoteFeatureInitOp final
-  : private PDUInitOp
-{
-public:
-  RemoteFeatureInitOp(DaemonSocketPDU& aPDU)
-    : PDUInitOp(aPDU)
-  { }
+    : private PDUInitOp {
+ public:
+  RemoteFeatureInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
-  nsresult
-  operator () (BluetoothAddress& aArg1, unsigned long& aArg2) const
-  {
+  nsresult operator()(BluetoothAddress& aArg1, unsigned long& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
 
     /* Read address */
@@ -498,8 +436,8 @@ public:
 
     /* Read feature */
     rv = UnpackPDU(
-      pdu,
-      UnpackConversion<BluetoothAvrcpRemoteFeatureBits, unsigned long>(aArg2));
+        pdu, UnpackConversion<BluetoothAvrcpRemoteFeatureBits, unsigned long>(
+                 aArg2));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -508,55 +446,42 @@ public:
   }
 };
 
-void
-BluetoothDaemonAvrcpModule::RemoteFeatureNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::RemoteFeatureNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   RemoteFeatureNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::RemoteFeatureNotification,
-    RemoteFeatureInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::RemoteFeatureNotification,
+      RemoteFeatureInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::GetPlayStatusNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::GetPlayStatusNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   GetPlayStatusNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::GetPlayStatusNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::GetPlayStatusNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::ListPlayerAppAttrNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::ListPlayerAppAttrNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   ListPlayerAppAttrNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::ListPlayerAppAttrNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::ListPlayerAppAttrNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::ListPlayerAppValuesNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::ListPlayerAppValuesNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   ListPlayerAppValuesNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::ListPlayerAppValuesNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::ListPlayerAppValuesNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
 // Init operator class for GetPlayerAppValueNotification
 class BluetoothDaemonAvrcpModule::GetPlayerAppValueInitOp final
-  : private PDUInitOp
-{
-public:
-  GetPlayerAppValueInitOp(DaemonSocketPDU& aPDU)
-    : PDUInitOp(aPDU)
-  { }
+    : private PDUInitOp {
+ public:
+  GetPlayerAppValueInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
-  nsresult
-  operator () (uint8_t& aArg1,
-               UniquePtr<BluetoothAvrcpPlayerAttribute[]>& aArg2) const
-  {
+  nsresult operator()(uint8_t& aArg1,
+                      UniquePtr<BluetoothAvrcpPlayerAttribute[]>& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
 
     /* Read number of attributes */
@@ -566,8 +491,8 @@ public:
     }
 
     /* Read attributes */
-    rv = UnpackPDU(
-      pdu, UnpackArray<BluetoothAvrcpPlayerAttribute>(aArg2, aArg1));
+    rv = UnpackPDU(pdu,
+                   UnpackArray<BluetoothAvrcpPlayerAttribute>(aArg2, aArg1));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -576,28 +501,21 @@ public:
   }
 };
 
-void
-BluetoothDaemonAvrcpModule::GetPlayerAppValueNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::GetPlayerAppValueNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   GetPlayerAppValueNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::GetPlayerAppValueNotification,
-    GetPlayerAppValueInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::GetPlayerAppValueNotification,
+      GetPlayerAppValueInitOp(aPDU));
 }
 
 // Init operator class for GetPlayerAppAttrsTextNotification
 class BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextInitOp final
-  : private PDUInitOp
-{
-public:
-  GetPlayerAppAttrsTextInitOp(DaemonSocketPDU& aPDU)
-    : PDUInitOp(aPDU)
-  { }
+    : private PDUInitOp {
+ public:
+  GetPlayerAppAttrsTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
-  nsresult
-  operator () (uint8_t& aArg1,
-               UniquePtr<BluetoothAvrcpPlayerAttribute[]>& aArg2) const
-  {
+  nsresult operator()(uint8_t& aArg1,
+                      UniquePtr<BluetoothAvrcpPlayerAttribute[]>& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
 
     /* Read number of attributes */
@@ -607,8 +525,8 @@ public:
     }
 
     /* Read attributes */
-    rv = UnpackPDU(
-      pdu, UnpackArray<BluetoothAvrcpPlayerAttribute>(aArg2, aArg1));
+    rv = UnpackPDU(pdu,
+                   UnpackArray<BluetoothAvrcpPlayerAttribute>(aArg2, aArg1));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -617,28 +535,21 @@ public:
   }
 };
 
-void
-BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   GetPlayerAppAttrsTextNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::GetPlayerAppAttrsTextNotification,
-    GetPlayerAppAttrsTextInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::GetPlayerAppAttrsTextNotification,
+      GetPlayerAppAttrsTextInitOp(aPDU));
 }
 
 // Init operator class for GetPlayerAppValuesTextNotification
 class BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextInitOp final
-  : private PDUInitOp
-{
-public:
-  GetPlayerAppValuesTextInitOp(DaemonSocketPDU& aPDU)
-    : PDUInitOp(aPDU)
-  { }
+    : private PDUInitOp {
+ public:
+  GetPlayerAppValuesTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
-  nsresult
-  operator () (uint8_t& aArg1, uint8_t& aArg2,
-               UniquePtr<uint8_t[]>& aArg3) const
-  {
+  nsresult operator()(uint8_t& aArg1, uint8_t& aArg2,
+                      UniquePtr<uint8_t[]>& aArg3) const {
     DaemonSocketPDU& pdu = GetPDU();
 
     /* Read attribute */
@@ -663,37 +574,28 @@ public:
   }
 };
 
-void
-BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   GetPlayerAppValuesTextNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::GetPlayerAppValuesTextNotification,
-    GetPlayerAppValuesTextInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::GetPlayerAppValuesTextNotification,
+      GetPlayerAppValuesTextInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::SetPlayerAppValueNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::SetPlayerAppValueNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   SetPlayerAppValueNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::SetPlayerAppValueNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::SetPlayerAppValueNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
 // Init operator class for GetElementAttrNotification
 class BluetoothDaemonAvrcpModule::GetElementAttrInitOp final
-  : private PDUInitOp
-{
-public:
-  GetElementAttrInitOp(DaemonSocketPDU& aPDU)
-    : PDUInitOp(aPDU)
-  { }
+    : private PDUInitOp {
+ public:
+  GetElementAttrInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
-  nsresult
-  operator () (uint8_t& aArg1,
-               UniquePtr<BluetoothAvrcpMediaAttribute[]>& aArg2) const
-  {
+  nsresult operator()(uint8_t& aArg1,
+                      UniquePtr<BluetoothAvrcpMediaAttribute[]>& aArg2) const {
     DaemonSocketPDU& pdu = GetPDU();
 
     /* Read number of attributes */
@@ -703,8 +605,8 @@ public:
     }
 
     /* Read attributes */
-    rv = UnpackPDU(
-      pdu, UnpackArray<BluetoothAvrcpMediaAttribute>(aArg2, aArg1));
+    rv =
+        UnpackPDU(pdu, UnpackArray<BluetoothAvrcpMediaAttribute>(aArg2, aArg1));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -713,62 +615,51 @@ public:
   }
 };
 
-void
-BluetoothDaemonAvrcpModule::GetElementAttrNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::GetElementAttrNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   GetElementAttrNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::GetElementAttrNotification,
-    GetElementAttrInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::GetElementAttrNotification,
+      GetElementAttrInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::RegisterNotificationNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::RegisterNotificationNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   RegisterNotificationNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::RegisterNotificationNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::RegisterNotificationNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::VolumeChangeNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::VolumeChangeNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   VolumeChangeNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::VolumeChangeNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::VolumeChangeNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::PassthroughCmdNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonAvrcpModule::PassthroughCmdNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   PassthroughCmdNotification::Dispatch(
-    &BluetoothAvrcpNotificationHandler::PassthroughCmdNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothAvrcpNotificationHandler::PassthroughCmdNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonAvrcpModule::HandleNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonAvrcpModule::* const HandleNtf[])(
-    const DaemonSocketPDUHeader&, DaemonSocketPDU&) = {
-    [0] = &BluetoothDaemonAvrcpModule::RemoteFeatureNtf,
-    [1] = &BluetoothDaemonAvrcpModule::GetPlayStatusNtf,
-    [2] = &BluetoothDaemonAvrcpModule::ListPlayerAppAttrNtf,
-    [3] = &BluetoothDaemonAvrcpModule::ListPlayerAppValuesNtf,
-    [4] = &BluetoothDaemonAvrcpModule::GetPlayerAppValueNtf,
-    [5] = &BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextNtf,
-    [6] = &BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextNtf,
-    [7] = &BluetoothDaemonAvrcpModule::SetPlayerAppValueNtf,
-    [8] = &BluetoothDaemonAvrcpModule::GetElementAttrNtf,
-    [9] = &BluetoothDaemonAvrcpModule::RegisterNotificationNtf,
-    [10] = &BluetoothDaemonAvrcpModule::VolumeChangeNtf,
-    [11] = &BluetoothDaemonAvrcpModule::PassthroughCmdNtf
-  };
+void BluetoothDaemonAvrcpModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
+                                           DaemonSocketPDU& aPDU,
+                                           DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonAvrcpModule::*const HandleNtf[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&) = {
+      [0] = &BluetoothDaemonAvrcpModule::RemoteFeatureNtf,
+      [1] = &BluetoothDaemonAvrcpModule::GetPlayStatusNtf,
+      [2] = &BluetoothDaemonAvrcpModule::ListPlayerAppAttrNtf,
+      [3] = &BluetoothDaemonAvrcpModule::ListPlayerAppValuesNtf,
+      [4] = &BluetoothDaemonAvrcpModule::GetPlayerAppValueNtf,
+      [5] = &BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextNtf,
+      [6] = &BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextNtf,
+      [7] = &BluetoothDaemonAvrcpModule::SetPlayerAppValueNtf,
+      [8] = &BluetoothDaemonAvrcpModule::GetElementAttrNtf,
+      [9] = &BluetoothDaemonAvrcpModule::RegisterNotificationNtf,
+      [10] = &BluetoothDaemonAvrcpModule::VolumeChangeNtf,
+      [11] = &BluetoothDaemonAvrcpModule::PassthroughCmdNtf};
 
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -787,41 +678,33 @@ BluetoothDaemonAvrcpModule::HandleNtf(
 //
 
 BluetoothDaemonAvrcpInterface::BluetoothDaemonAvrcpInterface(
-  BluetoothDaemonAvrcpModule* aModule)
-  : mModule(aModule)
-{ }
+    BluetoothDaemonAvrcpModule* aModule)
+    : mModule(aModule) {}
 
-BluetoothDaemonAvrcpInterface::~BluetoothDaemonAvrcpInterface()
-{ }
+BluetoothDaemonAvrcpInterface::~BluetoothDaemonAvrcpInterface() {}
 
-void
-BluetoothDaemonAvrcpInterface::SetNotificationHandler(
-  BluetoothAvrcpNotificationHandler* aNotificationHandler)
-{
+void BluetoothDaemonAvrcpInterface::SetNotificationHandler(
+    BluetoothAvrcpNotificationHandler* aNotificationHandler) {
   MOZ_ASSERT(mModule);
 
   mModule->SetNotificationHandler(aNotificationHandler);
 }
 
-void
-BluetoothDaemonAvrcpInterface::GetPlayStatusRsp(
-  ControlPlayStatus aPlayStatus, uint32_t aSongLen, uint32_t aSongPos,
-  BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::GetPlayStatusRsp(
+    ControlPlayStatus aPlayStatus, uint32_t aSongLen, uint32_t aSongPos,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->GetPlayStatusRspCmd(aPlayStatus, aSongLen,
-                                             aSongPos, aRes);
+  nsresult rv =
+      mModule->GetPlayStatusRspCmd(aPlayStatus, aSongLen, aSongPos, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::ListPlayerAppAttrRsp(
-  int aNumAttr, const BluetoothAvrcpPlayerAttribute* aPAttrs,
-  BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::ListPlayerAppAttrRsp(
+    int aNumAttr, const BluetoothAvrcpPlayerAttribute* aPAttrs,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->ListPlayerAppAttrRspCmd(aNumAttr, aPAttrs, aRes);
@@ -830,10 +713,8 @@ BluetoothDaemonAvrcpInterface::ListPlayerAppAttrRsp(
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::ListPlayerAppValueRsp(
-  int aNumVal, uint8_t* aPVals, BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::ListPlayerAppValueRsp(
+    int aNumVal, uint8_t* aPVals, BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->ListPlayerAppValueRspCmd(aNumVal, aPVals, aRes);
@@ -842,53 +723,45 @@ BluetoothDaemonAvrcpInterface::ListPlayerAppValueRsp(
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::GetPlayerAppValueRsp(
-  uint8_t aNumAttrs, const uint8_t* aIds, const uint8_t* aValues,
-  BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::GetPlayerAppValueRsp(
+    uint8_t aNumAttrs, const uint8_t* aIds, const uint8_t* aValues,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->GetPlayerAppValueRspCmd(aNumAttrs, aIds,
-                                                 aValues, aRes);
+  nsresult rv =
+      mModule->GetPlayerAppValueRspCmd(aNumAttrs, aIds, aValues, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::GetPlayerAppAttrTextRsp(
-  int aNumAttr, const uint8_t* aIds, const char** aTexts,
-  BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::GetPlayerAppAttrTextRsp(
+    int aNumAttr, const uint8_t* aIds, const char** aTexts,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->GetPlayerAppAttrTextRspCmd(aNumAttr, aIds,
-                                                    aTexts, aRes);
+  nsresult rv =
+      mModule->GetPlayerAppAttrTextRspCmd(aNumAttr, aIds, aTexts, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::GetPlayerAppValueTextRsp(
-  int aNumVal, const uint8_t* aIds, const char** aTexts,
-  BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::GetPlayerAppValueTextRsp(
+    int aNumVal, const uint8_t* aIds, const char** aTexts,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->GetPlayerAppValueTextRspCmd(aNumVal, aIds,
-                                                     aTexts, aRes);
+  nsresult rv =
+      mModule->GetPlayerAppValueTextRspCmd(aNumVal, aIds, aTexts, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::GetElementAttrRsp(
-  uint8_t aNumAttr, const BluetoothAvrcpElementAttribute* aAttr,
-  BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::GetElementAttrRsp(
+    uint8_t aNumAttr, const BluetoothAvrcpElementAttribute* aAttr,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->GetElementAttrRspCmd(aNumAttr, aAttr, aRes);
@@ -897,10 +770,8 @@ BluetoothDaemonAvrcpInterface::GetElementAttrRsp(
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::SetPlayerAppValueRsp(
-  BluetoothAvrcpStatus aRspStatus, BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::SetPlayerAppValueRsp(
+    BluetoothAvrcpStatus aRspStatus, BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->SetPlayerAppValueRspCmd(aRspStatus, aRes);
@@ -909,26 +780,21 @@ BluetoothDaemonAvrcpInterface::SetPlayerAppValueRsp(
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::RegisterNotificationRsp(
-  BluetoothAvrcpEvent aEvent,
-  BluetoothAvrcpNotification aType,
-  const BluetoothAvrcpNotificationParam& aParam,
-  BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::RegisterNotificationRsp(
+    BluetoothAvrcpEvent aEvent, BluetoothAvrcpNotification aType,
+    const BluetoothAvrcpNotificationParam& aParam,
+    BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->RegisterNotificationRspCmd(aEvent, aType,
-                                                    aParam, aRes);
+  nsresult rv =
+      mModule->RegisterNotificationRspCmd(aEvent, aType, aParam, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::SetVolume(
-  uint8_t aVolume, BluetoothAvrcpResultHandler* aRes)
-{
+void BluetoothDaemonAvrcpInterface::SetVolume(
+    uint8_t aVolume, BluetoothAvrcpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->SetVolumeCmd(aVolume, aRes);
@@ -937,20 +803,16 @@ BluetoothDaemonAvrcpInterface::SetVolume(
   }
 }
 
-void
-BluetoothDaemonAvrcpInterface::DispatchError(
-  BluetoothAvrcpResultHandler* aRes, BluetoothStatus aStatus)
-{
-  DaemonResultRunnable1<BluetoothAvrcpResultHandler, void,
-                        BluetoothStatus, BluetoothStatus>::Dispatch(
-    aRes, &BluetoothAvrcpResultHandler::OnError,
-    ConstantInitOp1<BluetoothStatus>(aStatus));
+void BluetoothDaemonAvrcpInterface::DispatchError(
+    BluetoothAvrcpResultHandler* aRes, BluetoothStatus aStatus) {
+  DaemonResultRunnable1<
+      BluetoothAvrcpResultHandler, void, BluetoothStatus,
+      BluetoothStatus>::Dispatch(aRes, &BluetoothAvrcpResultHandler::OnError,
+                                 ConstantInitOp1<BluetoothStatus>(aStatus));
 }
 
-void
-BluetoothDaemonAvrcpInterface::DispatchError(
-  BluetoothAvrcpResultHandler* aRes, nsresult aRv)
-{
+void BluetoothDaemonAvrcpInterface::DispatchError(
+    BluetoothAvrcpResultHandler* aRes, nsresult aRv) {
   BluetoothStatus status;
 
   if (NS_WARN_IF(NS_FAILED(Convert(aRv, status)))) {

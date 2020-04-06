@@ -46,38 +46,27 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothGattAttributeEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 BluetoothGattAttributeEvent::BluetoothGattAttributeEvent(EventTarget* aOwner)
-  : Event(aOwner, nullptr, nullptr)
-{
+    : Event(aOwner, nullptr, nullptr) {
   mozilla::HoldJSObjects(this);
 }
 
-BluetoothGattAttributeEvent::~BluetoothGattAttributeEvent()
-{
+BluetoothGattAttributeEvent::~BluetoothGattAttributeEvent() {
   mozilla::DropJSObjects(this);
 }
 
-JSObject*
-BluetoothGattAttributeEvent::WrapObjectInternal(
-  JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothGattAttributeEvent::WrapObjectInternal(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothGattAttributeEvent_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 already_AddRefed<BluetoothGattAttributeEvent>
 BluetoothGattAttributeEvent::Constructor(
-  EventTarget* aOwner,
-  const nsAString& aType,
-  const nsAString& aAddress,
-  int32_t aRequestId,
-  BluetoothGattCharacteristic* aCharacteristic,
-  BluetoothGattDescriptor* aDescriptor,
-  const nsTArray<uint8_t>* aValue,
-  bool aNeedResponse,
-  bool aBubbles,
-  bool aCancelable)
-{
+    EventTarget* aOwner, const nsAString& aType, const nsAString& aAddress,
+    int32_t aRequestId, BluetoothGattCharacteristic* aCharacteristic,
+    BluetoothGattDescriptor* aDescriptor, const nsTArray<uint8_t>* aValue,
+    bool aNeedResponse, bool aBubbles, bool aCancelable) {
   RefPtr<BluetoothGattAttributeEvent> e =
-    new BluetoothGattAttributeEvent(aOwner);
+      new BluetoothGattAttributeEvent(aOwner);
   bool trusted = e->Init(aOwner);
 
   e->InitEvent(aType, aBubbles, aCancelable);
@@ -98,25 +87,21 @@ BluetoothGattAttributeEvent::Constructor(
 
 already_AddRefed<BluetoothGattAttributeEvent>
 BluetoothGattAttributeEvent::Constructor(
-  const GlobalObject& aGlobal,
-  const nsAString& aType,
-  const BluetoothGattAttributeEventInit& aEventInitDict)
-{
+    const GlobalObject& aGlobal, const nsAString& aType,
+    const BluetoothGattAttributeEventInit& aEventInitDict) {
   nsCOMPtr<EventTarget> owner = do_QueryInterface(aGlobal.GetAsSupports());
 
-  RefPtr<BluetoothGattAttributeEvent> e =
-    Constructor(owner, aType, aEventInitDict.mAddress,
-                aEventInitDict.mRequestId, aEventInitDict.mCharacteristic,
-                aEventInitDict.mDescriptor, nullptr,
-                aEventInitDict.mNeedResponse, aEventInitDict.mBubbles,
-                aEventInitDict.mCancelable);
+  RefPtr<BluetoothGattAttributeEvent> e = Constructor(
+      owner, aType, aEventInitDict.mAddress, aEventInitDict.mRequestId,
+      aEventInitDict.mCharacteristic, aEventInitDict.mDescriptor, nullptr,
+      aEventInitDict.mNeedResponse, aEventInitDict.mBubbles,
+      aEventInitDict.mCancelable);
 
   if (!aEventInitDict.mValue.IsNull()) {
     const auto& value = aEventInitDict.mValue.Value();
     value.ComputeState();
-    e->mValue = ArrayBuffer::Create(aGlobal.Context(),
-                                    value.Length(),
-                                    value.Data());
+    e->mValue =
+        ArrayBuffer::Create(aGlobal.Context(), value.Length(), value.Data());
     if (!e->mValue) {
       return nullptr;
     }
@@ -125,37 +110,27 @@ BluetoothGattAttributeEvent::Constructor(
   return e.forget();
 }
 
-void
-BluetoothGattAttributeEvent::GetAddress(nsString& aRetVal) const
-{
+void BluetoothGattAttributeEvent::GetAddress(nsString& aRetVal) const {
   aRetVal = mAddress;
 }
 
-int32_t
-BluetoothGattAttributeEvent::RequestId() const
-{
-  return mRequestId;
-}
+int32_t BluetoothGattAttributeEvent::RequestId() const { return mRequestId; }
 
-BluetoothGattCharacteristic*
-BluetoothGattAttributeEvent::GetCharacteristic() const
-{
+BluetoothGattCharacteristic* BluetoothGattAttributeEvent::GetCharacteristic()
+    const {
   return mCharacteristic;
 }
 
-BluetoothGattDescriptor*
-BluetoothGattAttributeEvent::GetDescriptor() const
-{
+BluetoothGattDescriptor* BluetoothGattAttributeEvent::GetDescriptor() const {
   return mDescriptor;
 }
 
-void
-BluetoothGattAttributeEvent::GetValue(
-  JSContext* cx, JS::MutableHandle<JSObject*> aValue, ErrorResult& aRv)
-{
+void BluetoothGattAttributeEvent::GetValue(JSContext* cx,
+                                           JS::MutableHandle<JSObject*> aValue,
+                                           ErrorResult& aRv) {
   if (!mValue) {
-    mValue = ArrayBuffer::Create(
-      cx, this, mRawValue.Length(), mRawValue.Elements());
+    mValue =
+        ArrayBuffer::Create(cx, this, mRawValue.Length(), mRawValue.Elements());
 
     if (!mValue) {
       aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
@@ -171,8 +146,4 @@ BluetoothGattAttributeEvent::GetValue(
   return;
 }
 
-bool
-BluetoothGattAttributeEvent::NeedResponse() const
-{
-  return mNeedResponse;
-}
+bool BluetoothGattAttributeEvent::NeedResponse() const { return mNeedResponse; }

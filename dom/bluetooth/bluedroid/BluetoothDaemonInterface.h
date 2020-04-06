@@ -18,8 +18,8 @@ namespace ipc {
 class DaemonSocket;
 class ListenSocket;
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -35,11 +35,10 @@ class BluetoothDaemonSocketInterface;
 class BluetoothDaemonHidInterface;
 
 class BluetoothDaemonInterface final
-  : public BluetoothInterface
-  , public mozilla::ipc::DaemonSocketConsumer
-  , public mozilla::ipc::ListenSocketConsumer
-{
-public:
+    : public BluetoothInterface,
+      public mozilla::ipc::DaemonSocketConsumer,
+      public mozilla::ipc::ListenSocketConsumer {
+ public:
   class CleanupResultHandler;
   class InitResultHandler;
 
@@ -64,12 +63,8 @@ public:
   BluetoothHidInterface* GetBluetoothHidInterface() override;
   BluetoothSdpInterface* GetBluetoothSdpInterface() override;
 
-protected:
-  enum Channel {
-    LISTEN_SOCKET,
-    CMD_CHANNEL,
-    NTF_CHANNEL
-  };
+ protected:
+  enum Channel { LISTEN_SOCKET, CMD_CHANNEL, NTF_CHANNEL };
 
   BluetoothDaemonInterface();
   ~BluetoothDaemonInterface();
@@ -81,7 +76,7 @@ protected:
   void OnConnectError(int aIndex) override;
   void OnDisconnect(int aIndex) override;
 
-private:
+ private:
   void DispatchError(BluetoothResultHandler* aRes, BluetoothStatus aStatus);
   void DispatchError(BluetoothResultHandler* aRes, nsresult aRv);
 
@@ -108,4 +103,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonInterface_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonInterface_h

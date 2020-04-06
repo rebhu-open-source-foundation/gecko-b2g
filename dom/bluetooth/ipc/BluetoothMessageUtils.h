@@ -13,19 +13,17 @@
 namespace IPC {
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothAddress>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothAddress> {
   typedef mozilla::dom::bluetooth::BluetoothAddress paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     for (size_t i = 0; i < MOZ_ARRAY_LENGTH(aParam.mAddr); ++i) {
       WriteParam(aMsg, aParam.mAddr[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     for (size_t i = 0; i < MOZ_ARRAY_LENGTH(aResult->mAddr); ++i) {
       if (!ReadParam(aMsg, aIter, aResult->mAddr + i)) {
         return false;
@@ -37,19 +35,16 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothAddress>
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothObjectType>
-  : public ContiguousEnumSerializer<
-             mozilla::dom::bluetooth::BluetoothObjectType,
-             mozilla::dom::bluetooth::TYPE_MANAGER,
-             mozilla::dom::bluetooth::NUM_TYPE>
-{ };
+    : public ContiguousEnumSerializer<
+          mozilla::dom::bluetooth::BluetoothObjectType,
+          mozilla::dom::bluetooth::TYPE_MANAGER,
+          mozilla::dom::bluetooth::NUM_TYPE> {};
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothPinCode>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothPinCode> {
   typedef mozilla::dom::bluetooth::BluetoothPinCode paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     auto length = aParam.mLength;
     if (length > MOZ_ARRAY_LENGTH(aParam.mPinCode)) {
       length = MOZ_ARRAY_LENGTH(aParam.mPinCode);
@@ -61,8 +56,8 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothPinCode>
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &aResult->mLength)) {
       return false;
     }
@@ -85,20 +80,18 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothPinCode>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothRemoteName>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothRemoteName> {
   typedef mozilla::dom::bluetooth::BluetoothRemoteName paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, aParam.mLength);
     for (size_t i = 0; i < aParam.mLength; ++i) {
       WriteParam(aMsg, aParam.mName[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &aResult->mLength)) {
       return false;
     }
@@ -116,50 +109,43 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothRemoteName>
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothSspVariant>
-  : public ContiguousEnumSerializer<
-             mozilla::dom::bluetooth::BluetoothSspVariant,
-             mozilla::dom::bluetooth::SSP_VARIANT_PASSKEY_CONFIRMATION,
-             mozilla::dom::bluetooth::NUM_SSP_VARIANT>
-{ };
+    : public ContiguousEnumSerializer<
+          mozilla::dom::bluetooth::BluetoothSspVariant,
+          mozilla::dom::bluetooth::SSP_VARIANT_PASSKEY_CONFIRMATION,
+          mozilla::dom::bluetooth::NUM_SSP_VARIANT> {};
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothStatus>
-  : public ContiguousEnumSerializer<
-             mozilla::dom::bluetooth::BluetoothStatus,
-             mozilla::dom::bluetooth::STATUS_SUCCESS,
-             mozilla::dom::bluetooth::NUM_STATUS>
-{ };
+    : public ContiguousEnumSerializer<mozilla::dom::bluetooth::BluetoothStatus,
+                                      mozilla::dom::bluetooth::STATUS_SUCCESS,
+                                      mozilla::dom::bluetooth::NUM_STATUS> {};
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattWriteType>
-  : public ContiguousEnumSerializer<
-             mozilla::dom::bluetooth::BluetoothGattWriteType,
-             mozilla::dom::bluetooth::GATT_WRITE_TYPE_NO_RESPONSE,
-             mozilla::dom::bluetooth::GATT_WRITE_TYPE_END_GUARD>
-{ };
+    : public ContiguousEnumSerializer<
+          mozilla::dom::bluetooth::BluetoothGattWriteType,
+          mozilla::dom::bluetooth::GATT_WRITE_TYPE_NO_RESPONSE,
+          mozilla::dom::bluetooth::GATT_WRITE_TYPE_END_GUARD> {};
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAuthReq>
-  : public ContiguousEnumSerializer<
-             mozilla::dom::bluetooth::BluetoothGattAuthReq,
-             mozilla::dom::bluetooth::GATT_AUTH_REQ_NONE,
-             mozilla::dom::bluetooth::GATT_AUTH_REQ_END_GUARD>
-{ };
+    : public ContiguousEnumSerializer<
+          mozilla::dom::bluetooth::BluetoothGattAuthReq,
+          mozilla::dom::bluetooth::GATT_AUTH_REQ_NONE,
+          mozilla::dom::bluetooth::GATT_AUTH_REQ_END_GUARD> {};
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothUuid>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothUuid> {
   typedef mozilla::dom::bluetooth::BluetoothUuid paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     for (uint8_t i = 0; i < 16; i++) {
       WriteParam(aMsg, aParam.mUuid[i]);
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     for (uint8_t i = 0; i < 16; i++) {
       if (!ReadParam(aMsg, aIter, &(aResult->mUuid[i]))) {
         return false;
@@ -171,18 +157,16 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothUuid>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattId>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattId> {
   typedef mozilla::dom::bluetooth::BluetoothGattId paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, aParam.mUuid);
     WriteParam(aMsg, aParam.mInstanceId);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &(aResult->mUuid)) ||
         !ReadParam(aMsg, aIter, &(aResult->mInstanceId))) {
       return false;
@@ -193,18 +177,16 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattId>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattServiceId>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattServiceId> {
   typedef mozilla::dom::bluetooth::BluetoothGattServiceId paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, aParam.mId);
     WriteParam(aMsg, aParam.mIsPrimary);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &(aResult->mId)) ||
         !ReadParam(aMsg, aIter, &(aResult->mIsPrimary))) {
       return false;
@@ -215,19 +197,17 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattServiceId>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattCharAttribute>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattCharAttribute> {
   typedef mozilla::dom::bluetooth::BluetoothGattCharAttribute paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, aParam.mId);
     WriteParam(aMsg, aParam.mProperties);
     WriteParam(aMsg, aParam.mWriteType);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &(aResult->mId)) ||
         !ReadParam(aMsg, aIter, &(aResult->mProperties)) ||
         !ReadParam(aMsg, aIter, &(aResult->mWriteType))) {
@@ -239,17 +219,15 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattCharAttribute>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothAttributeHandle>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothAttributeHandle> {
   typedef mozilla::dom::bluetooth::BluetoothAttributeHandle paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, aParam.mHandle);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &(aResult->mHandle))) {
       return false;
     }
@@ -259,12 +237,10 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothAttributeHandle>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse> {
   typedef mozilla::dom::bluetooth::BluetoothGattResponse paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     auto length = aParam.mLength;
     if (length > MOZ_ARRAY_LENGTH(aParam.mValue)) {
       length = MOZ_ARRAY_LENGTH(aParam.mValue);
@@ -279,8 +255,8 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse>
     }
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &(aResult->mHandle)) ||
         !ReadParam(aMsg, aIter, &(aResult->mOffset)) ||
         !ReadParam(aMsg, aIter, &(aResult->mLength)) ||
@@ -303,24 +279,22 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::ControlPlayStatus>
-{
+struct ParamTraits<mozilla::dom::bluetooth::ControlPlayStatus> {
   typedef mozilla::dom::bluetooth::ControlPlayStatus paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, static_cast<uint8_t>(aParam));
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     uint8_t value;
     if (!ReadParam(aMsg, aIter, &value)) {
       return false;
     }
 
     mozilla::dom::bluetooth::ControlPlayStatus result =
-      static_cast<mozilla::dom::bluetooth::ControlPlayStatus>(value);
+        static_cast<mozilla::dom::bluetooth::ControlPlayStatus>(value);
 
     switch (result) {
       case mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_STOPPED:
@@ -338,12 +312,10 @@ struct ParamTraits<mozilla::dom::bluetooth::ControlPlayStatus>
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAdvertisingData>
-{
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAdvertisingData> {
   typedef mozilla::dom::bluetooth::BluetoothGattAdvertisingData paramType;
 
-  static void Write(Message* aMsg, const paramType& aParam)
-  {
+  static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, aParam.mAppearance);
     WriteParam(aMsg, aParam.mIncludeDevName);
     WriteParam(aMsg, aParam.mIncludeTxPower);
@@ -352,8 +324,8 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAdvertisingData>
     WriteParam(aMsg, aParam.mServiceUuids);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &(aResult->mAppearance)) ||
         !ReadParam(aMsg, aIter, &(aResult->mIncludeDevName)) ||
         !ReadParam(aMsg, aIter, &(aResult->mIncludeTxPower)) ||
@@ -369,12 +341,11 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAdvertisingData>
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattStatus>
-  : public ContiguousEnumSerializer<
-             mozilla::dom::bluetooth::BluetoothGattStatus,
-             mozilla::dom::bluetooth::GATT_STATUS_SUCCESS,
-             mozilla::dom::bluetooth::GATT_STATUS_END_OF_ERROR>
-{ };
+    : public ContiguousEnumSerializer<
+          mozilla::dom::bluetooth::BluetoothGattStatus,
+          mozilla::dom::bluetooth::GATT_STATUS_SUCCESS,
+          mozilla::dom::bluetooth::GATT_STATUS_END_OF_ERROR> {};
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_dom_bluetooth_ipc_BluetoothMessageUtils_h
+#endif  // mozilla_dom_bluetooth_ipc_BluetoothMessageUtils_h

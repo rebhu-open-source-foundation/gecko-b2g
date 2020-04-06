@@ -14,15 +14,14 @@ namespace {
 
 BluetoothServiceChildProcess* sBluetoothService;
 
-} // namespace
+}  // namespace
 
 /*******************************************************************************
  * BluetoothChild
  ******************************************************************************/
 
 BluetoothChild::BluetoothChild(BluetoothServiceChildProcess* aBluetoothService)
-: mShutdownState(Running)
-{
+    : mShutdownState(Running) {
   MOZ_COUNT_CTOR(BluetoothChild);
   MOZ_ASSERT(!sBluetoothService);
   MOZ_ASSERT(aBluetoothService);
@@ -30,8 +29,7 @@ BluetoothChild::BluetoothChild(BluetoothServiceChildProcess* aBluetoothService)
   sBluetoothService = aBluetoothService;
 }
 
-BluetoothChild::~BluetoothChild()
-{
+BluetoothChild::~BluetoothChild() {
   MOZ_COUNT_DTOR(BluetoothChild);
   MOZ_ASSERT(sBluetoothService);
   MOZ_ASSERT(mShutdownState == Dead);
@@ -39,9 +37,7 @@ BluetoothChild::~BluetoothChild()
   sBluetoothService = nullptr;
 }
 
-void
-BluetoothChild::BeginShutdown()
-{
+void BluetoothChild::BeginShutdown() {
   // Only do something here if we haven't yet begun the shutdown sequence.
   if (mShutdownState == Running) {
     SendStopNotifying();
@@ -49,9 +45,7 @@ BluetoothChild::BeginShutdown()
   }
 }
 
-void
-BluetoothChild::ActorDestroy(ActorDestroyReason aWhy)
-{
+void BluetoothChild::ActorDestroy(ActorDestroyReason aWhy) {
   MOZ_ASSERT(sBluetoothService);
 
   sBluetoothService->NoteDeadActor();
@@ -61,9 +55,7 @@ BluetoothChild::ActorDestroy(ActorDestroyReason aWhy)
 #endif
 }
 
-bool
-BluetoothChild::RecvNotify(const BluetoothSignal& aSignal)
-{
+bool BluetoothChild::RecvNotify(const BluetoothSignal& aSignal) {
   MOZ_ASSERT(sBluetoothService);
 
   if (sBluetoothService) {
@@ -72,9 +64,7 @@ BluetoothChild::RecvNotify(const BluetoothSignal& aSignal)
   return true;
 }
 
-bool
-BluetoothChild::RecvEnabled(const bool& aEnabled)
-{
+bool BluetoothChild::RecvEnabled(const bool& aEnabled) {
   MOZ_ASSERT(sBluetoothService);
 
   if (sBluetoothService) {
@@ -83,9 +73,7 @@ BluetoothChild::RecvEnabled(const bool& aEnabled)
   return true;
 }
 
-bool
-BluetoothChild::RecvBeginShutdown()
-{
+bool BluetoothChild::RecvBeginShutdown() {
   if (mShutdownState != Running && mShutdownState != SentStopNotifying) {
     MOZ_ASSERT(false, "Bad state!");
     return false;
@@ -97,9 +85,7 @@ BluetoothChild::RecvBeginShutdown()
   return true;
 }
 
-bool
-BluetoothChild::RecvNotificationsStopped()
-{
+bool BluetoothChild::RecvNotificationsStopped() {
   if (mShutdownState != SentStopNotifying) {
     MOZ_ASSERT(false, "Bad state!");
     return false;
@@ -109,15 +95,13 @@ BluetoothChild::RecvNotificationsStopped()
   return true;
 }
 
-PBluetoothRequestChild*
-BluetoothChild::AllocPBluetoothRequestChild(const Request& aRequest)
-{
+PBluetoothRequestChild* BluetoothChild::AllocPBluetoothRequestChild(
+    const Request& aRequest) {
   MOZ_CRASH("Caller is supposed to manually construct a request!");
 }
 
-bool
-BluetoothChild::DeallocPBluetoothRequestChild(PBluetoothRequestChild* aActor)
-{
+bool BluetoothChild::DeallocPBluetoothRequestChild(
+    PBluetoothRequestChild* aActor) {
   delete aActor;
   return true;
 }

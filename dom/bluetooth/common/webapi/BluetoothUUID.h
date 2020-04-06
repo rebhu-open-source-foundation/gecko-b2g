@@ -21,17 +21,12 @@ namespace dom {
 
 class StringOrUnsignedLong;
 
-class BluetoothUUID final : public nsISupports
-                          , public nsWrapperCache
-{
-public:
+class BluetoothUUID final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothUUID)
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -43,8 +38,8 @@ public:
   static void HandleShutdown();
 
   static void GetService(const GlobalObject& aGlobal,
-                         const StringOrUnsignedLong& aName,
-                         nsAString& aReturn, ErrorResult& aRv);
+                         const StringOrUnsignedLong& aName, nsAString& aReturn,
+                         ErrorResult& aRv);
   static void GetCharacteristic(const GlobalObject& aGlobal,
                                 const StringOrUnsignedLong& aName,
                                 nsAString& aReturn, ErrorResult& aRv);
@@ -55,7 +50,7 @@ public:
   static void CanonicalUUID(const GlobalObject& aGlobal, uint32_t aAlias,
                             nsAString& aReturn);
 
-private:
+ private:
   BluetoothUUID(nsPIDOMWindowInner* aOwner);
   ~BluetoothUUID();
 
@@ -63,11 +58,7 @@ private:
   static void InitCharacteristicTable();
   static void InitDescriptorTable();
 
-  enum GattAttribute {
-    SERVICE,
-    CHARACTERISTIC,
-    DESCRIPTOR
-  };
+  enum GattAttribute { SERVICE, CHARACTERISTIC, DESCRIPTOR };
 
   /**
    * Convert an UUID string or 16-bit/32-bit UUID alias to a 128-bit UUID based
@@ -110,17 +101,19 @@ private:
   static nsDataHashtable<nsStringHashKey, uint32_t>* sUUIDServiceTable;
 
   /**
-   * Hash Table of characteristics for mapping characteristic names to its UUID's prefix.
+   * Hash Table of characteristics for mapping characteristic names to its
+   * UUID's prefix.
    */
   static nsDataHashtable<nsStringHashKey, uint32_t>* sUUIDCharacteristicTable;
 
   /**
-   * Hash Table of descriptors for mapping descriptor names to its UUID's prefix.
+   * Hash Table of descriptors for mapping descriptor names to its UUID's
+   * prefix.
    */
   static nsDataHashtable<nsStringHashKey, uint32_t>* sUUIDDescriptorTable;
 };
 
-} // dom
-} // mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_BluetoothUUID_h
+#endif  // mozilla_dom_BluetoothUUID_h

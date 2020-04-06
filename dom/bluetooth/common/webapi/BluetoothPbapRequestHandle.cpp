@@ -25,31 +25,26 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothPbapRequestHandle)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-BluetoothPbapRequestHandle::BluetoothPbapRequestHandle(nsPIDOMWindowInner* aOwner)
-  : mOwner(aOwner)
-{
+BluetoothPbapRequestHandle::BluetoothPbapRequestHandle(
+    nsPIDOMWindowInner* aOwner)
+    : mOwner(aOwner) {
   MOZ_ASSERT(aOwner);
 }
 
-BluetoothPbapRequestHandle::~BluetoothPbapRequestHandle()
-{
-}
+BluetoothPbapRequestHandle::~BluetoothPbapRequestHandle() {}
 
-already_AddRefed<BluetoothPbapRequestHandle>
-BluetoothPbapRequestHandle::Create(nsPIDOMWindowInner* aOwner)
-{
+already_AddRefed<BluetoothPbapRequestHandle> BluetoothPbapRequestHandle::Create(
+    nsPIDOMWindowInner* aOwner) {
   MOZ_ASSERT(aOwner);
 
   RefPtr<BluetoothPbapRequestHandle> handle =
-    new BluetoothPbapRequestHandle(aOwner);
+      new BluetoothPbapRequestHandle(aOwner);
 
   return handle.forget();
 }
 
-already_AddRefed<DOMRequest>
-BluetoothPbapRequestHandle::ReplyTovCardPulling(Blob& aBlob,
-                                                ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> BluetoothPbapRequestHandle::ReplyTovCardPulling(
+    Blob& aBlob, ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> win = GetParentObject();
   if (!win) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -58,7 +53,7 @@ BluetoothPbapRequestHandle::ReplyTovCardPulling(Blob& aBlob,
 
   RefPtr<DOMRequest> request = new DOMRequest(win);
   RefPtr<BluetoothVoidReplyRunnable> result =
-    new BluetoothVoidReplyRunnable(request);
+      new BluetoothVoidReplyRunnable(request);
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -73,8 +68,7 @@ BluetoothPbapRequestHandle::ReplyTovCardPulling(Blob& aBlob,
 already_AddRefed<DOMRequest>
 BluetoothPbapRequestHandle::ReplyToPhonebookPulling(Blob& aBlob,
                                                     uint16_t phonebookSize,
-                                                    ErrorResult& aRv)
-{
+                                                    ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> win = GetParentObject();
   if (!win) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -83,7 +77,7 @@ BluetoothPbapRequestHandle::ReplyToPhonebookPulling(Blob& aBlob,
 
   RefPtr<DOMRequest> request = new DOMRequest(win);
   RefPtr<BluetoothVoidReplyRunnable> result =
-    new BluetoothVoidReplyRunnable(request);
+      new BluetoothVoidReplyRunnable(request);
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -95,11 +89,8 @@ BluetoothPbapRequestHandle::ReplyToPhonebookPulling(Blob& aBlob,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-BluetoothPbapRequestHandle::ReplyTovCardListing(Blob& aBlob,
-                                                uint16_t phonebookSize,
-                                                ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> BluetoothPbapRequestHandle::ReplyTovCardListing(
+    Blob& aBlob, uint16_t phonebookSize, ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> win = GetParentObject();
   if (!win) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -108,7 +99,7 @@ BluetoothPbapRequestHandle::ReplyTovCardListing(Blob& aBlob,
 
   RefPtr<DOMRequest> request = new DOMRequest(win);
   RefPtr<BluetoothVoidReplyRunnable> result =
-    new BluetoothVoidReplyRunnable(request);
+      new BluetoothVoidReplyRunnable(request);
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -120,9 +111,7 @@ BluetoothPbapRequestHandle::ReplyTovCardListing(Blob& aBlob,
   return request.forget();
 }
 
-JSObject*
-BluetoothPbapRequestHandle::WrapObject(JSContext* aCx,
-                                   JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothPbapRequestHandle::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothPbapRequestHandle_Binding::Wrap(aCx, this, aGivenProto);
 }

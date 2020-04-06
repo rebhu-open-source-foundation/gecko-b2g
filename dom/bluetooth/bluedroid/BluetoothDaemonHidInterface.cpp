@@ -16,27 +16,21 @@ using namespace mozilla::ipc;
 // Hid module
 //
 
-BluetoothHidNotificationHandler*
-  BluetoothDaemonHidModule::sNotificationHandler;
+BluetoothHidNotificationHandler* BluetoothDaemonHidModule::sNotificationHandler;
 
-void
-BluetoothDaemonHidModule::SetNotificationHandler(
-  BluetoothHidNotificationHandler* aNotificationHandler)
-{
+void BluetoothDaemonHidModule::SetNotificationHandler(
+    BluetoothHidNotificationHandler* aNotificationHandler) {
   sNotificationHandler = aNotificationHandler;
 }
 
-void
-BluetoothDaemonHidModule::HandleSvc(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonHidModule::* const HandleOp[])(
-    const DaemonSocketPDUHeader&, DaemonSocketPDU&,
-    DaemonSocketResultHandler*) = {
-    [0] = &BluetoothDaemonHidModule::HandleRsp,
-    [1] = &BluetoothDaemonHidModule::HandleNtf
-  };
+void BluetoothDaemonHidModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
+                                         DaemonSocketPDU& aPDU,
+                                         DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonHidModule::*const HandleOp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      DaemonSocketResultHandler*) = {
+      [0] = &BluetoothDaemonHidModule::HandleRsp,
+      [1] = &BluetoothDaemonHidModule::HandleNtf};
 
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -49,15 +43,13 @@ BluetoothDaemonHidModule::HandleSvc(
 // Commands
 //
 
-nsresult
-BluetoothDaemonHidModule::ConnectCmd(
-  const BluetoothAddress& aRemoteAddr, BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::ConnectCmd(
+    const BluetoothAddress& aRemoteAddr, BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CONNECT,
-                                6); // Address
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CONNECT,
+                                  6);  // Address
 
   nsresult rv = PackPDU(aRemoteAddr, *pdu);
   if (NS_FAILED(rv)) {
@@ -71,15 +63,13 @@ BluetoothDaemonHidModule::ConnectCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::DisconnectCmd(
-  const BluetoothAddress& aRemoteAddr, BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::DisconnectCmd(
+    const BluetoothAddress& aRemoteAddr, BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_DISCONNECT,
-                                6); // Address
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_DISCONNECT,
+                                  6);  // Address
 
   nsresult rv = PackPDU(aRemoteAddr, *pdu);
   if (NS_FAILED(rv)) {
@@ -93,15 +83,13 @@ BluetoothDaemonHidModule::DisconnectCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::VirtualUnplugCmd(
-  const BluetoothAddress& aRemoteAddr, BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::VirtualUnplugCmd(
+    const BluetoothAddress& aRemoteAddr, BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_VIRTUAL_UNPLUG,
-                                6); // Address
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_VIRTUAL_UNPLUG,
+                                  6);  // Address
 
   nsresult rv = PackPDU(aRemoteAddr, *pdu);
   if (NS_FAILED(rv)) {
@@ -115,18 +103,16 @@ BluetoothDaemonHidModule::VirtualUnplugCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::SetInfoCmd(
-  const BluetoothAddress& aRemoteAddr,
-  const BluetoothHidInfoParam& aHidInfoParam,
-  BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::SetInfoCmd(
+    const BluetoothAddress& aRemoteAddr,
+    const BluetoothHidInfoParam& aHidInfoParam,
+    BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_INFO,
-                                6 + // Address
-                                897); // Info
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_INFO,
+                                  6 +        // Address
+                                      897);  // Info
 
   nsresult rv = PackPDU(aRemoteAddr, aHidInfoParam, *pdu);
   if (NS_FAILED(rv)) {
@@ -140,18 +126,16 @@ BluetoothDaemonHidModule::SetInfoCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::GetProtocolCmd(
-  const BluetoothAddress& aRemoteAddr,
-  BluetoothHidProtocolMode aHidProtocolMode,
-  BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::GetProtocolCmd(
+    const BluetoothAddress& aRemoteAddr,
+    BluetoothHidProtocolMode aHidProtocolMode,
+    BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PROTOCOL,
-                                6 + // Address
-                                1); // Protocol Mode
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_PROTOCOL,
+                                  6 +      // Address
+                                      1);  // Protocol Mode
 
   nsresult rv = PackPDU(aRemoteAddr, aHidProtocolMode, *pdu);
   if (NS_FAILED(rv)) {
@@ -165,18 +149,16 @@ BluetoothDaemonHidModule::GetProtocolCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::SetProtocolCmd(
-  const BluetoothAddress& aRemoteAddr,
-  BluetoothHidProtocolMode aHidProtocolMode,
-  BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::SetProtocolCmd(
+    const BluetoothAddress& aRemoteAddr,
+    BluetoothHidProtocolMode aHidProtocolMode,
+    BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_PROTOCOL,
-                                6 + // Remote Address
-                                1); // Protocol Mode
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_PROTOCOL,
+                                  6 +      // Remote Address
+                                      1);  // Protocol Mode
 
   nsresult rv = PackPDU(aRemoteAddr, aHidProtocolMode, *pdu);
   if (NS_FAILED(rv)) {
@@ -190,19 +172,17 @@ BluetoothDaemonHidModule::SetProtocolCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::GetReportCmd(
-  const BluetoothAddress& aRemoteAddr, BluetoothHidReportType aType,
-  uint8_t aReportId, uint16_t aBuffSize, BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::GetReportCmd(
+    const BluetoothAddress& aRemoteAddr, BluetoothHidReportType aType,
+    uint8_t aReportId, uint16_t aBuffSize, BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_REPORT,
-                                6 + // Address
-                                1 + // Report Type
-                                1 + // Report ID
-                                2); // Buffer Size
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_REPORT,
+                                  6 +      // Address
+                                      1 +  // Report Type
+                                      1 +  // Report ID
+                                      2);  // Buffer Size
 
   nsresult rv = PackPDU(aRemoteAddr, aType, aReportId, aBuffSize, *pdu);
   if (NS_FAILED(rv)) {
@@ -216,19 +196,17 @@ BluetoothDaemonHidModule::GetReportCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::SetReportCmd(
-  const BluetoothAddress& aRemoteAddr, BluetoothHidReportType aType,
-  const BluetoothHidReport& aReport, BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::SetReportCmd(
+    const BluetoothAddress& aRemoteAddr, BluetoothHidReportType aType,
+    const BluetoothHidReport& aReport, BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_REPORT,
-                                6 + // Address
-                                1 + // Type
-                                2 + // Length
-                                0); // Dynamically allocated
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_REPORT,
+                                  6 +      // Address
+                                      1 +  // Type
+                                      2 +  // Length
+                                      0);  // Dynamically allocated
 
   nsresult rv = PackPDU(aRemoteAddr, aType, aReport, *pdu);
 
@@ -243,21 +221,19 @@ BluetoothDaemonHidModule::SetReportCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonHidModule::SendDataCmd(
-  const BluetoothAddress& aRemoteAddr, uint16_t aDataLen, const uint8_t* aData,
-  BluetoothHidResultHandler* aRes)
-{
+nsresult BluetoothDaemonHidModule::SendDataCmd(
+    const BluetoothAddress& aRemoteAddr, uint16_t aDataLen,
+    const uint8_t* aData, BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SEND_DATA,
-                                6 + // Address
-                                2 + // Length
-                                0); // Dynamically allocated
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SEND_DATA,
+                                  6 +      // Address
+                                      2 +  // Length
+                                      0);  // Dynamically allocated
 
-  nsresult rv = PackPDU(aRemoteAddr, aDataLen,
-                        PackArray<uint8_t>(aData, aDataLen), *pdu);
+  nsresult rv =
+      PackPDU(aRemoteAddr, aDataLen, PackArray<uint8_t>(aData, aDataLen), *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -272,118 +248,94 @@ BluetoothDaemonHidModule::SendDataCmd(
 // Responses
 //
 
-void
-BluetoothDaemonHidModule::ErrorRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ErrorRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::OnError, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::ErrorRsp(const DaemonSocketPDUHeader& aHeader,
+                                        DaemonSocketPDU& aPDU,
+                                        BluetoothHidResultHandler* aRes) {
+  ErrorRunnable::Dispatch(aRes, &BluetoothHidResultHandler::OnError,
+                          UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::ConnectRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::Connect, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::ConnectRsp(const DaemonSocketPDUHeader& aHeader,
+                                          DaemonSocketPDU& aPDU,
+                                          BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::Connect,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::DisconnectRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::Disconnect, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::DisconnectRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::Disconnect,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::VirtualUnplugRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::VirtualUnplug, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::VirtualUnplugRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::VirtualUnplug,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::SetInfoRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::SetInfo, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::SetInfoRsp(const DaemonSocketPDUHeader& aHeader,
+                                          DaemonSocketPDU& aPDU,
+                                          BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::SetInfo,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::GetProtocolRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::GetProtocol, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::GetProtocolRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::GetProtocol,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::SetProtocolRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::SetProtocol, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::SetProtocolRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::SetProtocol,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::GetReportRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::GetReport, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::GetReportRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::GetReport,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::SetReportRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::SetReport, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::SetReportRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::SetReport,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::SendDataRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothHidResultHandler::SendData, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonHidModule::SendDataRsp(const DaemonSocketPDUHeader& aHeader,
+                                           DaemonSocketPDU& aPDU,
+                                           BluetoothHidResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothHidResultHandler::SendData,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::HandleRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonHidModule::* const HandleRsp[])(
-    const DaemonSocketPDUHeader&,
-    DaemonSocketPDU&,
-    BluetoothHidResultHandler*) = {
-    [OPCODE_ERROR] = &BluetoothDaemonHidModule::ErrorRsp,
-    [OPCODE_CONNECT] = &BluetoothDaemonHidModule::ConnectRsp,
-    [OPCODE_DISCONNECT] = &BluetoothDaemonHidModule::DisconnectRsp,
-    [OPCODE_VIRTUAL_UNPLUG] = &BluetoothDaemonHidModule::VirtualUnplugRsp,
-    [OPCODE_SET_INFO] = &BluetoothDaemonHidModule::SetInfoRsp,
-    [OPCODE_GET_PROTOCOL] = &BluetoothDaemonHidModule::GetProtocolRsp,
-    [OPCODE_SET_PROTOCOL] = &BluetoothDaemonHidModule::SetProtocolRsp,
-    [OPCODE_GET_REPORT] = &BluetoothDaemonHidModule::GetReportRsp,
-    [OPCODE_SET_REPORT] = &BluetoothDaemonHidModule::SetReportRsp,
-    [OPCODE_SEND_DATA] = &BluetoothDaemonHidModule::SendDataRsp
-  };
+void BluetoothDaemonHidModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
+                                         DaemonSocketPDU& aPDU,
+                                         DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonHidModule::*const HandleRsp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      BluetoothHidResultHandler*) = {
+      [OPCODE_ERROR] = &BluetoothDaemonHidModule::ErrorRsp,
+      [OPCODE_CONNECT] = &BluetoothDaemonHidModule::ConnectRsp,
+      [OPCODE_DISCONNECT] = &BluetoothDaemonHidModule::DisconnectRsp,
+      [OPCODE_VIRTUAL_UNPLUG] = &BluetoothDaemonHidModule::VirtualUnplugRsp,
+      [OPCODE_SET_INFO] = &BluetoothDaemonHidModule::SetInfoRsp,
+      [OPCODE_GET_PROTOCOL] = &BluetoothDaemonHidModule::GetProtocolRsp,
+      [OPCODE_SET_PROTOCOL] = &BluetoothDaemonHidModule::SetProtocolRsp,
+      [OPCODE_GET_REPORT] = &BluetoothDaemonHidModule::GetReportRsp,
+      [OPCODE_SET_REPORT] = &BluetoothDaemonHidModule::SetReportRsp,
+      [OPCODE_SEND_DATA] = &BluetoothDaemonHidModule::SendDataRsp};
 
-  MOZ_ASSERT(!NS_IsMainThread()); // I/O thread
+  MOZ_ASSERT(!NS_IsMainThread());  // I/O thread
 
   if (NS_WARN_IF(!(aHeader.mOpcode < MOZ_ARRAY_LENGTH(HandleRsp))) ||
       NS_WARN_IF(!HandleRsp[aHeader.mOpcode])) {
@@ -391,10 +343,10 @@ BluetoothDaemonHidModule::HandleRsp(
   }
 
   RefPtr<BluetoothHidResultHandler> res =
-    static_cast<BluetoothHidResultHandler*>(aRes);
+      static_cast<BluetoothHidResultHandler*>(aRes);
 
   if (!res) {
-    return; // Return early if no result handler has been set for response
+    return;  // Return early if no result handler has been set for response
   }
 
   (this->*(HandleRsp[aHeader.mOpcode]))(aHeader, aPDU, res);
@@ -404,97 +356,78 @@ BluetoothDaemonHidModule::HandleRsp(
 //
 
 // Returns the current notification handler to a notification runnable
-class BluetoothDaemonHidModule::NotificationHandlerWrapper final
-{
-public:
+class BluetoothDaemonHidModule::NotificationHandlerWrapper final {
+ public:
   typedef BluetoothHidNotificationHandler ObjectType;
 
-  static ObjectType* GetInstance()
-  {
+  static ObjectType* GetInstance() {
     MOZ_ASSERT(NS_IsMainThread());
 
     return sNotificationHandler;
   }
 };
 
-void
-BluetoothDaemonHidModule::ConnectionStateNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonHidModule::ConnectionStateNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   ConnectionStateNotification::Dispatch(
-    &BluetoothHidNotificationHandler::ConnectionStateNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothHidNotificationHandler::ConnectionStateNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::HidInfoNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonHidModule::HidInfoNtf(const DaemonSocketPDUHeader& aHeader,
+                                          DaemonSocketPDU& aPDU) {
   HidInfoNotification::Dispatch(
-    &BluetoothHidNotificationHandler::HidInfoNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothHidNotificationHandler::HidInfoNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::ProtocolModeNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonHidModule::ProtocolModeNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   ProtocolModeNotification::Dispatch(
-    &BluetoothHidNotificationHandler::ProtocolModeNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothHidNotificationHandler::ProtocolModeNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::IdleTimeNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonHidModule::IdleTimeNtf(const DaemonSocketPDUHeader& aHeader,
+                                           DaemonSocketPDU& aPDU) {
   IdleTimeNotification::Dispatch(
-    &BluetoothHidNotificationHandler::IdleTimeNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothHidNotificationHandler::IdleTimeNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::GetReportNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonHidModule::GetReportNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   GetReportNotification::Dispatch(
-    &BluetoothHidNotificationHandler::GetReportNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothHidNotificationHandler::GetReportNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::VirtualUnplugNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonHidModule::VirtualUnplugNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   VirtualUnplugNotification::Dispatch(
-    &BluetoothHidNotificationHandler::VirtualUnplugNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothHidNotificationHandler::VirtualUnplugNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::HandshakeNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonHidModule::HandshakeNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   HandshakeNotification::Dispatch(
-    &BluetoothHidNotificationHandler::HandshakeNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothHidNotificationHandler::HandshakeNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonHidModule::HandleNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonHidModule::* const HandleNtf[])(
-    const DaemonSocketPDUHeader&, DaemonSocketPDU&) = {
+void BluetoothDaemonHidModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
+                                         DaemonSocketPDU& aPDU,
+                                         DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonHidModule::*const HandleNtf[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&) = {
       [0] = &BluetoothDaemonHidModule::ConnectionStateNtf,
       [1] = &BluetoothDaemonHidModule::HidInfoNtf,
       [2] = &BluetoothDaemonHidModule::ProtocolModeNtf,
       [3] = &BluetoothDaemonHidModule::IdleTimeNtf,
       [4] = &BluetoothDaemonHidModule::GetReportNtf,
       [5] = &BluetoothDaemonHidModule::VirtualUnplugNtf,
-      [6] = &BluetoothDaemonHidModule::HandshakeNtf
-  };
+      [6] = &BluetoothDaemonHidModule::HandshakeNtf};
 
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -513,17 +446,13 @@ BluetoothDaemonHidModule::HandleNtf(
 //
 
 BluetoothDaemonHidInterface::BluetoothDaemonHidInterface(
-  BluetoothDaemonHidModule* aModule)
-  : mModule(aModule)
-{ }
+    BluetoothDaemonHidModule* aModule)
+    : mModule(aModule) {}
 
-BluetoothDaemonHidInterface::~BluetoothDaemonHidInterface()
-{ }
+BluetoothDaemonHidInterface::~BluetoothDaemonHidInterface() {}
 
-void
-BluetoothDaemonHidInterface::SetNotificationHandler(
-  BluetoothHidNotificationHandler* aNotificationHandler)
-{
+void BluetoothDaemonHidInterface::SetNotificationHandler(
+    BluetoothHidNotificationHandler* aNotificationHandler) {
   MOZ_ASSERT(mModule);
 
   mModule->SetNotificationHandler(aNotificationHandler);
@@ -531,10 +460,8 @@ BluetoothDaemonHidInterface::SetNotificationHandler(
 
 /* Connect / Disconnect */
 
-void
-BluetoothDaemonHidInterface::Connect(
-  const BluetoothAddress& aBdAddr, BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::Connect(const BluetoothAddress& aBdAddr,
+                                          BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->ConnectCmd(aBdAddr, aRes);
@@ -543,10 +470,8 @@ BluetoothDaemonHidInterface::Connect(
   }
 }
 
-void
-BluetoothDaemonHidInterface::Disconnect(
-  const BluetoothAddress& aBdAddr, BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::Disconnect(const BluetoothAddress& aBdAddr,
+                                             BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->DisconnectCmd(aBdAddr, aRes);
@@ -557,10 +482,8 @@ BluetoothDaemonHidInterface::Disconnect(
 
 /* Virtual Unplug */
 
-void
-BluetoothDaemonHidInterface::VirtualUnplug(
-  const BluetoothAddress& aBdAddr, BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::VirtualUnplug(
+    const BluetoothAddress& aBdAddr, BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->VirtualUnplugCmd(aBdAddr, aRes);
@@ -572,12 +495,9 @@ BluetoothDaemonHidInterface::VirtualUnplug(
 
 /* Set Info */
 
-void
-BluetoothDaemonHidInterface::SetInfo(
-  const BluetoothAddress& aBdAddr,
-  const BluetoothHidInfoParam& aHidInfoParam,
-  BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::SetInfo(
+    const BluetoothAddress& aBdAddr, const BluetoothHidInfoParam& aHidInfoParam,
+    BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->SetInfoCmd(aBdAddr, aHidInfoParam, aRes);
@@ -589,11 +509,9 @@ BluetoothDaemonHidInterface::SetInfo(
 
 /* Protocol */
 
-void
-BluetoothDaemonHidInterface::GetProtocol(
-  const BluetoothAddress& aBdAddr,
-  BluetoothHidProtocolMode aHidProtocolMode, BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::GetProtocol(
+    const BluetoothAddress& aBdAddr, BluetoothHidProtocolMode aHidProtocolMode,
+    BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->GetProtocolCmd(aBdAddr, aHidProtocolMode, aRes);
@@ -603,11 +521,9 @@ BluetoothDaemonHidInterface::GetProtocol(
   }
 }
 
-void
-BluetoothDaemonHidInterface::SetProtocol(
-  const BluetoothAddress& aBdAddr,
-  BluetoothHidProtocolMode aHidProtocolMode, BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::SetProtocol(
+    const BluetoothAddress& aBdAddr, BluetoothHidProtocolMode aHidProtocolMode,
+    BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->SetProtocolCmd(aBdAddr, aHidProtocolMode, aRes);
@@ -619,30 +535,28 @@ BluetoothDaemonHidInterface::SetProtocol(
 
 /* Report */
 
-void
-BluetoothDaemonHidInterface::GetReport(
-  const BluetoothAddress& aBdAddr, BluetoothHidReportType aType,
-  uint8_t aReportId, uint16_t aBuffSize, BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::GetReport(const BluetoothAddress& aBdAddr,
+                                            BluetoothHidReportType aType,
+                                            uint8_t aReportId,
+                                            uint16_t aBuffSize,
+                                            BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->GetReportCmd(
-    aBdAddr, aType, aReportId, aBuffSize, aRes);
+  nsresult rv =
+      mModule->GetReportCmd(aBdAddr, aType, aReportId, aBuffSize, aRes);
 
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
 }
 
-void
-BluetoothDaemonHidInterface::SetReport(
-  const BluetoothAddress& aBdAddr, BluetoothHidReportType aType,
-  const BluetoothHidReport& aReport, BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::SetReport(const BluetoothAddress& aBdAddr,
+                                            BluetoothHidReportType aType,
+                                            const BluetoothHidReport& aReport,
+                                            BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->SetReportCmd(
-    aBdAddr, aType, aReport, aRes);
+  nsresult rv = mModule->SetReportCmd(aBdAddr, aType, aReport, aRes);
 
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
@@ -651,11 +565,10 @@ BluetoothDaemonHidInterface::SetReport(
 
 /* Send Data */
 
-void
-BluetoothDaemonHidInterface::SendData(
-  const BluetoothAddress& aBdAddr, uint16_t aDataLen, const uint8_t* aData,
-  BluetoothHidResultHandler* aRes)
-{
+void BluetoothDaemonHidInterface::SendData(const BluetoothAddress& aBdAddr,
+                                           uint16_t aDataLen,
+                                           const uint8_t* aData,
+                                           BluetoothHidResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->SendDataCmd(aBdAddr, aDataLen, aData, aRes);
@@ -665,20 +578,16 @@ BluetoothDaemonHidInterface::SendData(
   }
 }
 
-void
-BluetoothDaemonHidInterface::DispatchError(
-  BluetoothHidResultHandler* aRes, BluetoothStatus aStatus)
-{
-  DaemonResultRunnable1<BluetoothHidResultHandler, void,
-                        BluetoothStatus, BluetoothStatus>::Dispatch(
-    aRes, &BluetoothHidResultHandler::OnError,
-    ConstantInitOp1<BluetoothStatus>(aStatus));
+void BluetoothDaemonHidInterface::DispatchError(BluetoothHidResultHandler* aRes,
+                                                BluetoothStatus aStatus) {
+  DaemonResultRunnable1<
+      BluetoothHidResultHandler, void, BluetoothStatus,
+      BluetoothStatus>::Dispatch(aRes, &BluetoothHidResultHandler::OnError,
+                                 ConstantInitOp1<BluetoothStatus>(aStatus));
 }
 
-void
-BluetoothDaemonHidInterface::DispatchError(
-  BluetoothHidResultHandler* aRes, nsresult aRv)
-{
+void BluetoothDaemonHidInterface::DispatchError(BluetoothHidResultHandler* aRes,
+                                                nsresult aRv) {
   BluetoothStatus status;
 
   if (NS_WARN_IF(NS_FAILED(Convert(aRv, status)))) {

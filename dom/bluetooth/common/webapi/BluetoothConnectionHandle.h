@@ -25,33 +25,26 @@
 #include "nsWrapperCache.h"
 
 namespace mozilla {
-  class ErrorResult;
-  namespace dom {
-    class DOMRequest;
-  }
+class ErrorResult;
+namespace dom {
+class DOMRequest;
 }
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothConnectionHandle final : public nsISupports
-                                      , public nsWrapperCache
-{
-public:
+class BluetoothConnectionHandle final : public nsISupports,
+                                        public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothConnectionHandle)
 
-  static already_AddRefed<BluetoothConnectionHandle>
-    Create(nsPIDOMWindowInner* aOwner, uint16_t aServiceUuid);
+  static already_AddRefed<BluetoothConnectionHandle> Create(
+      nsPIDOMWindowInner* aOwner, uint16_t aServiceUuid);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
-  uint16_t GetServiceUuid() const
-  {
-    return mServiceUuid;
-  }
+  uint16_t GetServiceUuid() const { return mServiceUuid; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -62,14 +55,14 @@ public:
   // Reject bluetooth profile connection request
   already_AddRefed<DOMRequest> Reject(ErrorResult& aRv);
 
-private:
+ private:
   BluetoothConnectionHandle(nsPIDOMWindowInner* aOwner, uint16_t aServiceUuid);
   ~BluetoothConnectionHandle();
 
   nsCOMPtr<nsPIDOMWindowInner> mOwner;
-  uint16_t                mServiceUuid;
+  uint16_t mServiceUuid;
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothConnectionHandle
+#endif  // mozilla_dom_bluetooth_BluetoothConnectionHandle

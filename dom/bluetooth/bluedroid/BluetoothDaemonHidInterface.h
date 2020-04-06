@@ -17,12 +17,9 @@ using mozilla::ipc::DaemonSocketPDU;
 using mozilla::ipc::DaemonSocketPDUHeader;
 using mozilla::ipc::DaemonSocketResultHandler;
 
-class BluetoothDaemonHidModule
-{
-public:
-  enum {
-    SERVICE_ID = 0x03
-  };
+class BluetoothDaemonHidModule {
+ public:
+  enum { SERVICE_ID = 0x03 };
 
   enum {
     OPCODE_ERROR = 0x00,
@@ -41,7 +38,7 @@ public:
                         DaemonSocketResultHandler* aRes) = 0;
 
   void SetNotificationHandler(
-    BluetoothHidNotificationHandler* aNotificationHandler);
+      BluetoothHidNotificationHandler* aNotificationHandler);
 
   //
   // Commands
@@ -59,10 +56,9 @@ public:
 
   /* Set Info */
 
-  nsresult SetInfoCmd(
-    const BluetoothAddress& aBdAddr,
-    const BluetoothHidInfoParam& aHidInfoParam,
-    BluetoothHidResultHandler* aRes);
+  nsresult SetInfoCmd(const BluetoothAddress& aBdAddr,
+                      const BluetoothHidInfoParam& aHidInfoParam,
+                      BluetoothHidResultHandler* aRes);
 
   /* Protocol */
 
@@ -76,10 +72,8 @@ public:
   /* Report */
 
   nsresult GetReportCmd(const BluetoothAddress& aBdAddr,
-                        BluetoothHidReportType aType,
-                        uint8_t aReportId,
-                        uint16_t aBuffSize,
-                        BluetoothHidResultHandler* aRes);
+                        BluetoothHidReportType aType, uint8_t aReportId,
+                        uint16_t aBuffSize, BluetoothHidResultHandler* aRes);
   nsresult SetReportCmd(const BluetoothAddress& aBdAddr,
                         BluetoothHidReportType aType,
                         const BluetoothHidReport& aReport,
@@ -87,69 +81,55 @@ public:
 
   /* Send Data */
 
-  nsresult SendDataCmd(const BluetoothAddress& aBdAddr,
-                       uint16_t aDataLen, const uint8_t* aData,
-                       BluetoothHidResultHandler* aRes);
+  nsresult SendDataCmd(const BluetoothAddress& aBdAddr, uint16_t aDataLen,
+                       const uint8_t* aData, BluetoothHidResultHandler* aRes);
 
-protected:
-  void HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+ protected:
+  void HandleSvc(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
   //
   // Responses
   //
 
-  typedef mozilla::ipc::DaemonResultRunnable0<
-    BluetoothHidResultHandler, void>
-    ResultRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable0<BluetoothHidResultHandler, void>
+      ResultRunnable;
 
-  typedef mozilla::ipc::DaemonResultRunnable1<
-    BluetoothHidResultHandler, void, BluetoothStatus, BluetoothStatus>
-    ErrorRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable1<BluetoothHidResultHandler, void,
+                                              BluetoothStatus, BluetoothStatus>
+      ErrorRunnable;
 
-  void ErrorRsp(const DaemonSocketPDUHeader& aHeader,
-                DaemonSocketPDU& aPDU,
+  void ErrorRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                 BluetoothHidResultHandler* aRes);
 
-  void ConnectRsp(const DaemonSocketPDUHeader& aHeader,
-                  DaemonSocketPDU& aPDU,
+  void ConnectRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                   BluetoothHidResultHandler* aRes);
 
   void DisconnectRsp(const DaemonSocketPDUHeader& aHeader,
-                     DaemonSocketPDU& aPDU,
-                     BluetoothHidResultHandler* aRes);
+                     DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes);
 
   void VirtualUnplugRsp(const DaemonSocketPDUHeader& aHeader,
-                        DaemonSocketPDU& aPDU,
-                        BluetoothHidResultHandler* aRes);
+                        DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes);
 
-  void SetInfoRsp(const DaemonSocketPDUHeader& aHeader,
-                  DaemonSocketPDU& aPDU,
+  void SetInfoRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                   BluetoothHidResultHandler* aRes);
 
   void GetProtocolRsp(const DaemonSocketPDUHeader& aHeader,
-                      DaemonSocketPDU& aPDU,
-                      BluetoothHidResultHandler* aRes);
+                      DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes);
 
   void SetProtocolRsp(const DaemonSocketPDUHeader& aHeader,
-                      DaemonSocketPDU& aPDU,
-                      BluetoothHidResultHandler* aRes);
+                      DaemonSocketPDU& aPDU, BluetoothHidResultHandler* aRes);
 
-  void GetReportRsp(const DaemonSocketPDUHeader& aHeader,
-                    DaemonSocketPDU& aPDU,
+  void GetReportRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                     BluetoothHidResultHandler* aRes);
 
-  void SetReportRsp(const DaemonSocketPDUHeader& aHeader,
-                    DaemonSocketPDU& aPDU,
+  void SetReportRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                     BluetoothHidResultHandler* aRes);
 
-  void SendDataRsp(const DaemonSocketPDUHeader& aHeader,
-                   DaemonSocketPDU& aPDU,
+  void SendDataRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                    BluetoothHidResultHandler* aRes);
 
-  void HandleRsp(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+  void HandleRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
   //
@@ -159,59 +139,52 @@ protected:
   class NotificationHandlerWrapper;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, BluetoothHidConnectionState,
-    const BluetoothAddress&, BluetoothHidConnectionState>
-    ConnectionStateNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress,
+      BluetoothHidConnectionState, const BluetoothAddress&,
+      BluetoothHidConnectionState>
+      ConnectionStateNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, BluetoothHidInfoParam,
-    const BluetoothAddress&, const BluetoothHidInfoParam&>
-    HidInfoNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress, BluetoothHidInfoParam,
+      const BluetoothAddress&, const BluetoothHidInfoParam&>
+      HidInfoNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable3<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, BluetoothHidStatus, BluetoothHidProtocolMode,
-    const BluetoothAddress&, BluetoothHidStatus, BluetoothHidProtocolMode>
-    ProtocolModeNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress, BluetoothHidStatus,
+      BluetoothHidProtocolMode, const BluetoothAddress&, BluetoothHidStatus,
+      BluetoothHidProtocolMode>
+      ProtocolModeNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable3<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, BluetoothHidStatus, uint16_t,
-    const BluetoothAddress&, BluetoothHidStatus, uint16_t>
-    IdleTimeNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress, BluetoothHidStatus,
+      uint16_t, const BluetoothAddress&, BluetoothHidStatus, uint16_t>
+      IdleTimeNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable3<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, BluetoothHidStatus, BluetoothHidReport,
-    const BluetoothAddress&, BluetoothHidStatus,
-    const BluetoothHidReport&>
-    GetReportNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress, BluetoothHidStatus,
+      BluetoothHidReport, const BluetoothAddress&, BluetoothHidStatus,
+      const BluetoothHidReport&>
+      GetReportNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, BluetoothHidStatus,
-    const BluetoothAddress&, BluetoothHidStatus>
-    VirtualUnplugNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress, BluetoothHidStatus,
+      const BluetoothAddress&, BluetoothHidStatus>
+      VirtualUnplugNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, BluetoothHidStatus,
-    const BluetoothAddress&, BluetoothHidStatus>
-    HandshakeNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress, BluetoothHidStatus,
+      const BluetoothAddress&, BluetoothHidStatus>
+      HandshakeNotification;
 
   void ConnectionStateNtf(const DaemonSocketPDUHeader& aHeader,
                           DaemonSocketPDU& aPDU);
 
-  void HidInfoNtf(const DaemonSocketPDUHeader& aHeader,
-                  DaemonSocketPDU& aPDU);
+  void HidInfoNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU);
 
   void ProtocolModeNtf(const DaemonSocketPDUHeader& aHeader,
                        DaemonSocketPDU& aPDU);
 
-  void IdleTimeNtf(const DaemonSocketPDUHeader& aHeader,
-                   DaemonSocketPDU& aPDU);
+  void IdleTimeNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU);
 
   void GetReportNtf(const DaemonSocketPDUHeader& aHeader,
                     DaemonSocketPDU& aPDU);
@@ -222,22 +195,19 @@ protected:
   void HandshakeNtf(const DaemonSocketPDUHeader& aHeader,
                     DaemonSocketPDU& aPDU);
 
-  void HandleNtf(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+  void HandleNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
   static BluetoothHidNotificationHandler* sNotificationHandler;
 };
 
-class BluetoothDaemonHidInterface final
-  : public BluetoothHidInterface
-{
-public:
+class BluetoothDaemonHidInterface final : public BluetoothHidInterface {
+ public:
   BluetoothDaemonHidInterface(BluetoothDaemonHidModule* aModule);
   ~BluetoothDaemonHidInterface();
 
   void SetNotificationHandler(
-    BluetoothHidNotificationHandler* aNotificationHandler) override;
+      BluetoothHidNotificationHandler* aNotificationHandler) override;
 
   /* Connect / Disconnect */
 
@@ -253,10 +223,9 @@ public:
 
   /* Set Info */
 
-  void SetInfo(
-    const BluetoothAddress& aBdAddr,
-    const BluetoothHidInfoParam& aHidInfoParam,
-    BluetoothHidResultHandler* aRes) override;
+  void SetInfo(const BluetoothAddress& aBdAddr,
+               const BluetoothHidInfoParam& aHidInfoParam,
+               BluetoothHidResultHandler* aRes) override;
 
   /* Protocol */
 
@@ -270,24 +239,20 @@ public:
 
   /* Report */
 
-  void GetReport(const BluetoothAddress& aBdAddr,
-                 BluetoothHidReportType aType,
+  void GetReport(const BluetoothAddress& aBdAddr, BluetoothHidReportType aType,
                  uint8_t aReportId, uint16_t aBuffSize,
                  BluetoothHidResultHandler* aRes) override;
-  void SetReport(const BluetoothAddress& aBdAddr,
-                 BluetoothHidReportType aType,
+  void SetReport(const BluetoothAddress& aBdAddr, BluetoothHidReportType aType,
                  const BluetoothHidReport& aReport,
                  BluetoothHidResultHandler* aRes) override;
 
   /* Send Data */
 
-  void SendData(const BluetoothAddress& aBdAddr,
-                uint16_t aDataLen, const uint8_t* aData,
-                BluetoothHidResultHandler* aRes) override;
+  void SendData(const BluetoothAddress& aBdAddr, uint16_t aDataLen,
+                const uint8_t* aData, BluetoothHidResultHandler* aRes) override;
 
-private:
-  void DispatchError(BluetoothHidResultHandler* aRes,
-                     BluetoothStatus aStatus);
+ private:
+  void DispatchError(BluetoothHidResultHandler* aRes, BluetoothStatus aStatus);
   void DispatchError(BluetoothHidResultHandler* aRes, nsresult aRv);
 
   BluetoothDaemonHidModule* mModule;
@@ -295,4 +260,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonHidInterface_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonHidInterface_h

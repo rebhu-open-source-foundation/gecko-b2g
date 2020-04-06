@@ -20,7 +20,7 @@ namespace mozilla {
 namespace dom {
 struct GattPermissions;
 }
-}
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -28,28 +28,24 @@ class BluetoothGattCharacteristic;
 class BluetoothSignal;
 class BluetoothValue;
 
-class BluetoothGattDescriptor final : public nsISupports
-                                    , public nsWrapperCache
-                                    , public BluetoothSignalObserver
-{
+class BluetoothGattDescriptor final : public nsISupports,
+                                      public nsWrapperCache,
+                                      public BluetoothSignalObserver {
   friend class BluetoothGattServer;
   friend class BluetoothGattCharacteristic;
-public:
+
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothGattDescriptor)
 
   /****************************************************************************
    * Attribute Getters
    ***************************************************************************/
-  BluetoothGattCharacteristic* Characteristic() const
-  {
+  BluetoothGattCharacteristic* Characteristic() const {
     return mCharacteristic;
   }
 
-  void GetUuid(nsString& aUuidStr) const
-  {
-    aUuidStr = mUuidStr;
-  }
+  void GetUuid(nsString& aUuidStr) const { aUuidStr = mUuidStr; }
 
   void GetValue(JSContext* cx, JS::MutableHandle<JSObject*> aValue) const;
 
@@ -59,40 +55,28 @@ public:
    * Methods (Web API Implementation)
    ***************************************************************************/
   already_AddRefed<Promise> ReadValue(ErrorResult& aRv);
-  already_AddRefed<Promise> WriteValue(
-    const ArrayBuffer& aValue, ErrorResult& aRv);
+  already_AddRefed<Promise> WriteValue(const ArrayBuffer& aValue,
+                                       ErrorResult& aRv);
 
   /****************************************************************************
    * Others
    ***************************************************************************/
-  void Notify(const BluetoothSignal& aData) override; // BluetoothSignalObserver
+  void Notify(
+      const BluetoothSignal& aData) override;  // BluetoothSignalObserver
 
-  const BluetoothAttributeHandle& GetDescriptorHandle() const
-  {
+  const BluetoothAttributeHandle& GetDescriptorHandle() const {
     return mDescriptorHandle;
   }
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-     return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   void GetUuid(BluetoothUuid& aUuid) const;
 
-  BluetoothGattAttrPerm GetPermissions() const
-  {
-    return mPermissions;
-  }
+  BluetoothGattAttrPerm GetPermissions() const { return mPermissions; }
 
-  uint16_t GetHandleCount() const
-  {
-    return sHandleCount;
-  }
+  uint16_t GetHandleCount() const { return sHandleCount; }
 
-  const nsTArray<uint8_t>& GetValue() const
-  {
-    return mValue;
-  }
+  const nsTArray<uint8_t>& GetValue() const { return mValue; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -109,7 +93,7 @@ public:
                           const GattPermissions& aPermissions,
                           const ArrayBuffer& aValue);
 
-private:
+ private:
   ~BluetoothGattDescriptor();
 
   /**
@@ -133,7 +117,8 @@ private:
    *
    * @param aDescriptorHandle [in] The handle value of this GATT descriptor.
    */
-  void AssignDescriptorHandle(const BluetoothAttributeHandle& aDescriptorHandle);
+  void AssignDescriptorHandle(
+      const BluetoothAttributeHandle& aDescriptorHandle);
 
   /**
    * Examine whether this GATT descriptor can react with the Bluetooth backend.
@@ -141,10 +126,7 @@ private:
    * @return true if this descriptor can react with the Bluetooth backend;
    *         false if this descriptor cannot react with the Bluetooth backend.
    */
-  bool IsActivated() const
-  {
-    return mActive;
-  }
+  bool IsActivated() const { return mActive; }
 
   /****************************************************************************
    * Variables
@@ -220,14 +202,13 @@ END_BLUETOOTH_NAMESPACE
  * including IndexOf() and Contains();
  */
 template <>
-class nsDefaultComparator <
-  RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>,
-  mozilla::dom::bluetooth::BluetoothUuid> {
-public:
+class nsDefaultComparator<
+    RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>,
+    mozilla::dom::bluetooth::BluetoothUuid> {
+ public:
   bool Equals(
-    const RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>& aDesc,
-    const mozilla::dom::bluetooth::BluetoothUuid& aUuid) const
-  {
+      const RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>& aDesc,
+      const mozilla::dom::bluetooth::BluetoothUuid& aUuid) const {
     mozilla::dom::bluetooth::BluetoothUuid uuid;
     aDesc->GetUuid(uuid);
     return uuid == aUuid;
@@ -243,16 +224,15 @@ public:
  * properly, including IndexOf() and Contains();
  */
 template <>
-class nsDefaultComparator <
-  RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>,
-  mozilla::dom::bluetooth::BluetoothAttributeHandle> {
-public:
+class nsDefaultComparator<
+    RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>,
+    mozilla::dom::bluetooth::BluetoothAttributeHandle> {
+ public:
   bool Equals(
-    const RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>& aDesc,
-    const mozilla::dom::bluetooth::BluetoothAttributeHandle& aHandle) const
-  {
+      const RefPtr<mozilla::dom::bluetooth::BluetoothGattDescriptor>& aDesc,
+      const mozilla::dom::bluetooth::BluetoothAttributeHandle& aHandle) const {
     return aDesc->GetDescriptorHandle() == aHandle;
   }
 };
 
-#endif // mozilla_dom_bluetooth_BluetoothGattDescriptor_h
+#endif  // mozilla_dom_bluetooth_BluetoothGattDescriptor_h

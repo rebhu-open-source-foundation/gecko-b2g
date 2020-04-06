@@ -14,29 +14,25 @@
 #include "nsWrapperCache.h"
 
 namespace mozilla {
-  class ErrorResult;
-  namespace dom {
-    class Blob;
-    class Promise;
-  }
-}
+class ErrorResult;
+namespace dom {
+class Blob;
+class Promise;
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothMapRequestHandle final : public nsISupports
-                                      , public nsWrapperCache
-{
-public:
+class BluetoothMapRequestHandle final : public nsISupports,
+                                        public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothMapRequestHandle)
 
-  static already_AddRefed<BluetoothMapRequestHandle>
-    Create(nsPIDOMWindowInner* aOwner);
+  static already_AddRefed<BluetoothMapRequestHandle> Create(
+      nsPIDOMWindowInner* aOwner);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -48,7 +44,8 @@ public:
    * @param aRv            [out] Error result to set in case of error.
    */
   already_AddRefed<Promise> ReplyToFolderListing(uint8_t aMasId,
-    const nsAString& aFolderlists, ErrorResult& aRv);
+                                                 const nsAString& aFolderlists,
+                                                 ErrorResult& aRv);
 
   /**
    * Reply to messages listing
@@ -63,9 +60,10 @@ public:
    *                             corresponding folder fulfilling.
    * @param aRv            [out] Error result to set in case of error.
    */
-  already_AddRefed<Promise> ReplyToMessagesListing(
-    uint8_t aMasId, Blob& aBlob, bool aNewMessage, const nsAString& aTimestamp,
-    int aSize, ErrorResult& aRv);
+  already_AddRefed<Promise> ReplyToMessagesListing(uint8_t aMasId, Blob& aBlob,
+                                                   bool aNewMessage,
+                                                   const nsAString& aTimestamp,
+                                                   int aSize, ErrorResult& aRv);
 
   /**
    * Reply to get-message request
@@ -84,7 +82,8 @@ public:
    * @param aStatus        [in]  MAP set message result.
    * @param aRv            [out] Error result to set in case of error.
    */
-  already_AddRefed<Promise> ReplyToSetMessageStatus(uint8_t aMasId, bool aStatus,
+  already_AddRefed<Promise> ReplyToSetMessageStatus(uint8_t aMasId,
+                                                    bool aStatus,
                                                     ErrorResult& aRv);
 
   /**
@@ -95,8 +94,9 @@ public:
    * @param aStatus        [in]  MAP send message result.
    * @param aRv            [out] Error result to set in case of error.
    */
-  already_AddRefed<Promise> ReplyToSendMessage(
-    uint8_t aMasId, const nsAString& aHandleId, bool aStatus, ErrorResult& aRv);
+  already_AddRefed<Promise> ReplyToSendMessage(uint8_t aMasId,
+                                               const nsAString& aHandleId,
+                                               bool aStatus, ErrorResult& aRv);
 
   /**
    * Reply to message update request
@@ -108,7 +108,7 @@ public:
   already_AddRefed<Promise> ReplyToMessageUpdate(uint8_t aMasId, bool aStatus,
                                                  ErrorResult& aRv);
 
-private:
+ private:
   BluetoothMapRequestHandle(nsPIDOMWindowInner* aOwner);
   ~BluetoothMapRequestHandle();
 
@@ -117,4 +117,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothMapRequestHandle_h
+#endif  // mozilla_dom_bluetooth_BluetoothMapRequestHandle_h

@@ -9,20 +9,17 @@
 #include "mozilla/dom/BluetoothUUID.h"
 #include "mozilla/dom/UnionTypes.h" /* StringOrUnsignedLong */
 
-
 using namespace mozilla;
 using namespace mozilla::dom;
 
 bool BluetoothUUID::sInShutdown = false;
 // static
-nsDataHashtable<nsStringHashKey, uint32_t>*
-  BluetoothUUID::sUUIDServiceTable;
+nsDataHashtable<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDServiceTable;
 // static
 nsDataHashtable<nsStringHashKey, uint32_t>*
-  BluetoothUUID::sUUIDCharacteristicTable;
+    BluetoothUUID::sUUIDCharacteristicTable;
 // static
-nsDataHashtable<nsStringHashKey, uint32_t>*
-  BluetoothUUID::sUUIDDescriptorTable;
+nsDataHashtable<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDDescriptorTable;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(BluetoothUUID, mOwner)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(BluetoothUUID)
@@ -32,26 +29,19 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothUUID)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-BluetoothUUID::BluetoothUUID(nsPIDOMWindowInner* aOwner)
-  : mOwner(aOwner)
-{
+BluetoothUUID::BluetoothUUID(nsPIDOMWindowInner* aOwner) : mOwner(aOwner) {
   MOZ_ASSERT(aOwner);
 }
 
-BluetoothUUID::~BluetoothUUID()
-{
-}
+BluetoothUUID::~BluetoothUUID() {}
 
-JSObject*
-BluetoothUUID::WrapObject(JSContext* aCx,
-                          JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothUUID::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto) {
   return BluetoothUUID_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-//static
-void BluetoothUUID::HandleShutdown()
-{
+// static
+void BluetoothUUID::HandleShutdown() {
   sInShutdown = true;
   delete sUUIDServiceTable;
   delete sUUIDCharacteristicTable;
@@ -62,9 +52,7 @@ void BluetoothUUID::HandleShutdown()
 }
 
 // static
-void
-BluetoothUUID::InitServiceTable()
-{
+void BluetoothUUID::InitServiceTable() {
   size_t length = sizeof(ServiceTable) / sizeof(BluetoothGattUUIDName);
   for (size_t i = 0; i < length; ++i) {
     sUUIDServiceTable->Put(NS_ConvertUTF8toUTF16(ServiceTable[i].name),
@@ -73,21 +61,17 @@ BluetoothUUID::InitServiceTable()
 }
 
 // static
-void
-BluetoothUUID::InitCharacteristicTable()
-{
+void BluetoothUUID::InitCharacteristicTable() {
   size_t length = sizeof(CharacteristicTable) / sizeof(BluetoothGattUUIDName);
   for (size_t i = 0; i < length; ++i) {
-    sUUIDCharacteristicTable->Put(NS_ConvertUTF8toUTF16(
-                                    CharacteristicTable[i].name),
-                                  CharacteristicTable[i].uuid);
+    sUUIDCharacteristicTable->Put(
+        NS_ConvertUTF8toUTF16(CharacteristicTable[i].name),
+        CharacteristicTable[i].uuid);
   }
 }
 
 // static
-void
-BluetoothUUID::InitDescriptorTable()
-{
+void BluetoothUUID::InitDescriptorTable() {
   size_t length = sizeof(DescriptorTable) / sizeof(BluetoothGattUUIDName);
   for (size_t i = 0; i < length; ++i) {
     sUUIDDescriptorTable->Put(NS_ConvertUTF8toUTF16(DescriptorTable[i].name),
@@ -98,8 +82,7 @@ BluetoothUUID::InitDescriptorTable()
 /**
  * Check whether the UUID(aString) is valid or not
  */
-bool IsValidUUID(const nsAString& aString)
-{
+bool IsValidUUID(const nsAString& aString) {
   size_t length = aString.Length();
   if (length != 36) {
     return false;
@@ -122,12 +105,10 @@ bool IsValidUUID(const nsAString& aString)
 }
 
 // static
-void
-BluetoothUUID::ResolveUUIDName(const GlobalObject& aGlobal,
-                               const StringOrUnsignedLong& aName,
-                               GattAttribute aAttr, nsAString& aReturn,
-                               ErrorResult& aRv)
-{
+void BluetoothUUID::ResolveUUIDName(const GlobalObject& aGlobal,
+                                    const StringOrUnsignedLong& aName,
+                                    GattAttribute aAttr, nsAString& aReturn,
+                                    ErrorResult& aRv) {
   aReturn.Truncate();
 
   if (aName.IsUnsignedLong()) {
@@ -146,23 +127,23 @@ BluetoothUUID::ResolveUUIDName(const GlobalObject& aGlobal,
     } else {
       // Syntax error, assign aReturn the error message
       aRv.ThrowNotSupportedError(NS_LITERAL_CSTRING(
-        "Invalid name: It can be a 32-bit UUID alias, 128-bit valid UUID "
-        "(lower-case hex characters) or known Service/Characteristic/Descriptor"
-        " name."));
-      return ;
+          "Invalid name: It can be a 32-bit UUID alias, 128-bit valid UUID "
+          "(lower-case hex characters) or known "
+          "Service/Characteristic/Descriptor"
+          " name."));
+      return;
     }
   } else {
-    MOZ_ASSERT(false, "Invalid name: It can be a 32-bit UUID alias, 128-bit "
-                      "valid UUID (lower-case hex characters) or known "
-                      "Service/Characteristic/Descriptor name.");
+    MOZ_ASSERT(false,
+               "Invalid name: It can be a 32-bit UUID alias, 128-bit "
+               "valid UUID (lower-case hex characters) or known "
+               "Service/Characteristic/Descriptor name.");
   }
 }
 
 // static
-bool
-BluetoothUUID::GetTable(GattAttribute aAttr, const nsAString& aString,
-                        uint32_t& aAlias)
-{
+bool BluetoothUUID::GetTable(GattAttribute aAttr, const nsAString& aString,
+                             uint32_t& aAlias) {
   // If we're in shutdown, don't create a new instance.
   NS_ENSURE_FALSE(sInShutdown, false);
 
@@ -193,37 +174,29 @@ BluetoothUUID::GetTable(GattAttribute aAttr, const nsAString& aString,
 }
 
 // static
-void
-BluetoothUUID::GetService(const GlobalObject& aGlobal,
-                          const StringOrUnsignedLong& aName,
-                          nsAString& aReturn, ErrorResult& aRv)
-{
+void BluetoothUUID::GetService(const GlobalObject& aGlobal,
+                               const StringOrUnsignedLong& aName,
+                               nsAString& aReturn, ErrorResult& aRv) {
   ResolveUUIDName(aGlobal, aName, SERVICE, aReturn, aRv);
 }
 
 // static
-void
-BluetoothUUID::GetCharacteristic(const GlobalObject& aGlobal,
-                                 const StringOrUnsignedLong& aName,
-                                 nsAString& aReturn, ErrorResult& aRv)
-{
+void BluetoothUUID::GetCharacteristic(const GlobalObject& aGlobal,
+                                      const StringOrUnsignedLong& aName,
+                                      nsAString& aReturn, ErrorResult& aRv) {
   ResolveUUIDName(aGlobal, aName, CHARACTERISTIC, aReturn, aRv);
 }
 
 // static
-void
-BluetoothUUID::GetDescriptor(const GlobalObject& aGlobal,
-                             const StringOrUnsignedLong& aName,
-                             nsAString& aReturn, ErrorResult& aRv)
-{
+void BluetoothUUID::GetDescriptor(const GlobalObject& aGlobal,
+                                  const StringOrUnsignedLong& aName,
+                                  nsAString& aReturn, ErrorResult& aRv) {
   ResolveUUIDName(aGlobal, aName, DESCRIPTOR, aReturn, aRv);
 }
 
 // static
-void
-BluetoothUUID::CanonicalUUID(const GlobalObject& aGlobal, uint32_t aAlias,
-                             nsAString& aReturn)
-{
+void BluetoothUUID::CanonicalUUID(const GlobalObject& aGlobal, uint32_t aAlias,
+                                  nsAString& aReturn) {
   char uuidStr[37];
 
   // Convert to 128-bit UUID: alias + "-0000-1000-8000-00805f9b34fb".

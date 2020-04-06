@@ -27,29 +27,23 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothObexAuthHandle)
 NS_INTERFACE_MAP_END
 
 BluetoothObexAuthHandle::BluetoothObexAuthHandle(nsPIDOMWindowInner* aOwner)
-  : mOwner(aOwner)
-{
+    : mOwner(aOwner) {
   MOZ_ASSERT(aOwner);
 }
 
-BluetoothObexAuthHandle::~BluetoothObexAuthHandle()
-{
-}
+BluetoothObexAuthHandle::~BluetoothObexAuthHandle() {}
 
-already_AddRefed<BluetoothObexAuthHandle>
-BluetoothObexAuthHandle::Create(nsPIDOMWindowInner* aOwner)
-{
+already_AddRefed<BluetoothObexAuthHandle> BluetoothObexAuthHandle::Create(
+    nsPIDOMWindowInner* aOwner) {
   MOZ_ASSERT(aOwner);
 
-  RefPtr<BluetoothObexAuthHandle> handle =
-    new BluetoothObexAuthHandle(aOwner);
+  RefPtr<BluetoothObexAuthHandle> handle = new BluetoothObexAuthHandle(aOwner);
 
   return handle.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothObexAuthHandle::SetPassword(const nsAString& aPassword, ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothObexAuthHandle::SetPassword(
+    const nsAString& aPassword, ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -68,9 +62,7 @@ BluetoothObexAuthHandle::SetPassword(const nsAString& aPassword, ErrorResult& aR
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothObexAuthHandle::Reject(ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothObexAuthHandle::Reject(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -88,9 +80,7 @@ BluetoothObexAuthHandle::Reject(ErrorResult& aRv)
   return promise.forget();
 }
 
-JSObject*
-BluetoothObexAuthHandle::WrapObject(JSContext* aCx,
-                                    JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothObexAuthHandle::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothObexAuthHandle_Binding::Wrap(aCx, this, aGivenProto);
 }

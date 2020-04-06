@@ -15,43 +15,37 @@ namespace mozilla {
 namespace dom {
 class Promise;
 }
-}
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothReply;
 
-class BluetoothGattReplyRunnable : public BluetoothReplyRunnable
-{
-public:
+class BluetoothGattReplyRunnable : public BluetoothReplyRunnable {
+ public:
   BluetoothGattReplyRunnable(Promise* aPromise);
 
-protected:
+ protected:
   virtual ~BluetoothGattReplyRunnable() {}
 
-private:
+ private:
   virtual nsresult FireErrorString() override;
 
   void GattStatusToDOMStatus(const BluetoothGattStatus aGattStatus,
                              nsresult& aDOMStatus);
 
-  virtual bool IsWrite()
-  {
-    return false;
-  }
+  virtual bool IsWrite() { return false; }
 };
 
-class BluetoothGattVoidReplyRunnable : public BluetoothGattReplyRunnable
-{
-public:
+class BluetoothGattVoidReplyRunnable : public BluetoothGattReplyRunnable {
+ public:
   BluetoothGattVoidReplyRunnable(Promise* aPromise)
-    : BluetoothGattReplyRunnable(aPromise) {}
+      : BluetoothGattReplyRunnable(aPromise) {}
   ~BluetoothGattVoidReplyRunnable() {}
 
-protected:
-  virtual bool
-  ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) override
-  {
+ protected:
+  virtual bool ParseSuccessfulReply(
+      JS::MutableHandle<JS::Value> aValue) override {
     aValue.setUndefined();
     return true;
   }
@@ -59,4 +53,4 @@ protected:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothGattReplyRunnable_h
+#endif  // mozilla_dom_bluetooth_BluetoothGattReplyRunnable_h

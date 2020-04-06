@@ -19,37 +19,29 @@ USING_BLUETOOTH_NAMESPACE
 
 BluetoothReplyRunnable::BluetoothReplyRunnable(DOMRequest* aReq,
                                                Promise* aPromise)
-  : Runnable("BluetoothReplyRunnable")
-  , mPromise(aPromise)
-  , mDOMRequest(aReq)
-  , mErrorStatus(STATUS_FAIL)
-{}
+    : Runnable("BluetoothReplyRunnable"),
+      mPromise(aPromise),
+      mDOMRequest(aReq),
+      mErrorStatus(STATUS_FAIL) {}
 
-void
-BluetoothReplyRunnable::SetReply(BluetoothReply* aReply)
-{
+void BluetoothReplyRunnable::SetReply(BluetoothReply* aReply) {
   mReply.reset(aReply);
 }
 
-void
-BluetoothReplyRunnable::ReleaseMembers()
-{
+void BluetoothReplyRunnable::ReleaseMembers() {
   mDOMRequest = nullptr;
   mPromise = nullptr;
 }
 
-BluetoothReplyRunnable::~BluetoothReplyRunnable()
-{}
+BluetoothReplyRunnable::~BluetoothReplyRunnable() {}
 
-nsresult
-BluetoothReplyRunnable::FireReplySuccess(JS::Handle<JS::Value> aVal)
-{
+nsresult BluetoothReplyRunnable::FireReplySuccess(JS::Handle<JS::Value> aVal) {
   MOZ_ASSERT(mReply->type() == BluetoothReply::TBluetoothReplySuccess);
 
   // DOMRequest
   if (mDOMRequest) {
     nsCOMPtr<nsIDOMRequestService> rs =
-      do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
+        do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
     NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
     return rs->FireSuccessAsync(mDOMRequest, aVal);
@@ -64,13 +56,11 @@ BluetoothReplyRunnable::FireReplySuccess(JS::Handle<JS::Value> aVal)
   return NS_OK;
 }
 
-nsresult
-BluetoothReplyRunnable::FireErrorString()
-{
+nsresult BluetoothReplyRunnable::FireErrorString() {
   // DOMRequest
   if (mDOMRequest) {
     nsCOMPtr<nsIDOMRequestService> rs =
-      do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
+        do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
     NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
     return rs->FireErrorAsync(mDOMRequest, mErrorString);
@@ -79,7 +69,7 @@ BluetoothReplyRunnable::FireErrorString()
   // Promise
   if (mPromise) {
     nsresult rv =
-      NS_ERROR_GENERATE_FAILURE(NS_ERROR_MODULE_DOM_BLUETOOTH, mErrorStatus);
+        NS_ERROR_GENERATE_FAILURE(NS_ERROR_MODULE_DOM_BLUETOOTH, mErrorStatus);
     mPromise->MaybeReject(rv);
   }
 
@@ -88,8 +78,7 @@ BluetoothReplyRunnable::FireErrorString()
 }
 
 NS_IMETHODIMP
-BluetoothReplyRunnable::Run()
-{
+BluetoothReplyRunnable::Run() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mReply);
 
@@ -120,25 +109,19 @@ BluetoothReplyRunnable::Run()
   return rv;
 }
 
-void
-BluetoothReplyRunnable::OnSuccessFired()
-{}
+void BluetoothReplyRunnable::OnSuccessFired() {}
 
-void
-BluetoothReplyRunnable::OnErrorFired()
-{}
+void BluetoothReplyRunnable::OnErrorFired() {}
 
-void
-BluetoothReplyRunnable::ParseErrorStatus()
-{
+void BluetoothReplyRunnable::ParseErrorStatus() {
   MOZ_ASSERT(mReply);
   MOZ_ASSERT(mReply->type() == BluetoothReply::TBluetoothReplyError);
 
   if (mReply->get_BluetoothReplyError().errorStatus().type() ==
       BluetoothErrorStatus::TBluetoothStatus) {
     SetError(
-      mReply->get_BluetoothReplyError().errorString(),
-      mReply->get_BluetoothReplyError().errorStatus().get_BluetoothStatus());
+        mReply->get_BluetoothReplyError().errorString(),
+        mReply->get_BluetoothReplyError().errorStatus().get_BluetoothStatus());
   } else {
     SetError(mReply->get_BluetoothReplyError().errorString(), STATUS_FAIL);
   }
@@ -146,99 +129,67 @@ BluetoothReplyRunnable::ParseErrorStatus()
 
 BluetoothVoidReplyRunnable::BluetoothVoidReplyRunnable(DOMRequest* aReq,
                                                        Promise* aPromise)
-  : BluetoothReplyRunnable(aReq, aPromise)
-{}
+    : BluetoothReplyRunnable(aReq, aPromise) {}
 
-BluetoothVoidReplyRunnable::~BluetoothVoidReplyRunnable()
-{}
+BluetoothVoidReplyRunnable::~BluetoothVoidReplyRunnable() {}
 
 BluetoothReplyTaskQueue::SubReplyRunnable::SubReplyRunnable(
-  DOMRequest* aReq,
-  Promise* aPromise,
-  BluetoothReplyTaskQueue* aRootQueue)
-  : BluetoothReplyRunnable(aReq, aPromise)
-  , mRootQueue(aRootQueue)
-{}
+    DOMRequest* aReq, Promise* aPromise, BluetoothReplyTaskQueue* aRootQueue)
+    : BluetoothReplyRunnable(aReq, aPromise), mRootQueue(aRootQueue) {}
 
-BluetoothReplyTaskQueue::SubReplyRunnable::~SubReplyRunnable()
-{}
+BluetoothReplyTaskQueue::SubReplyRunnable::~SubReplyRunnable() {}
 
 BluetoothReplyTaskQueue*
-BluetoothReplyTaskQueue::SubReplyRunnable::GetRootQueue() const
-{
+BluetoothReplyTaskQueue::SubReplyRunnable::GetRootQueue() const {
   return mRootQueue;
 }
 
-void
-BluetoothReplyTaskQueue::SubReplyRunnable::OnSuccessFired()
-{
+void BluetoothReplyTaskQueue::SubReplyRunnable::OnSuccessFired() {
   mRootQueue->OnSubReplySuccessFired(this);
 }
 
-void
-BluetoothReplyTaskQueue::SubReplyRunnable::OnErrorFired()
-{
+void BluetoothReplyTaskQueue::SubReplyRunnable::OnErrorFired() {
   mRootQueue->OnSubReplyErrorFired(this);
 }
 
 BluetoothReplyTaskQueue::VoidSubReplyRunnable::VoidSubReplyRunnable(
-  DOMRequest* aReq,
-  Promise* aPromise,
-  BluetoothReplyTaskQueue* aRootQueue)
-  : BluetoothReplyTaskQueue::SubReplyRunnable(aReq, aPromise, aRootQueue)
-{}
+    DOMRequest* aReq, Promise* aPromise, BluetoothReplyTaskQueue* aRootQueue)
+    : BluetoothReplyTaskQueue::SubReplyRunnable(aReq, aPromise, aRootQueue) {}
 
-BluetoothReplyTaskQueue::VoidSubReplyRunnable::~VoidSubReplyRunnable()
-{}
+BluetoothReplyTaskQueue::VoidSubReplyRunnable::~VoidSubReplyRunnable() {}
 
-bool
-BluetoothReplyTaskQueue::VoidSubReplyRunnable::ParseSuccessfulReply(
-  JS::MutableHandle<JS::Value> aValue)
-{
+bool BluetoothReplyTaskQueue::VoidSubReplyRunnable::ParseSuccessfulReply(
+    JS::MutableHandle<JS::Value> aValue) {
   aValue.setUndefined();
   return true;
 }
 
-BluetoothReplyTaskQueue::SubTask::SubTask(
-  BluetoothReplyTaskQueue* aRootQueue,
-  SubReplyRunnable* aReply)
-  : mRootQueue(aRootQueue)
-  , mReply(aReply)
-{
+BluetoothReplyTaskQueue::SubTask::SubTask(BluetoothReplyTaskQueue* aRootQueue,
+                                          SubReplyRunnable* aReply)
+    : mRootQueue(aRootQueue), mReply(aReply) {
   if (!mReply) {
     mReply = new VoidSubReplyRunnable(nullptr, nullptr, mRootQueue);
   }
 }
 
-BluetoothReplyTaskQueue::SubTask::~SubTask()
-{}
+BluetoothReplyTaskQueue::SubTask::~SubTask() {}
 
-BluetoothReplyTaskQueue*
-BluetoothReplyTaskQueue::SubTask::GetRootQueue() const
-{
+BluetoothReplyTaskQueue* BluetoothReplyTaskQueue::SubTask::GetRootQueue()
+    const {
   return mRootQueue;
 }
 
 BluetoothReplyTaskQueue::SubReplyRunnable*
-BluetoothReplyTaskQueue::SubTask::GetReply() const
-{
+BluetoothReplyTaskQueue::SubTask::GetReply() const {
   return mReply;
 }
 
-BluetoothReplyTaskQueue::BluetoothReplyTaskQueue(
-  BluetoothReplyRunnable* aReply)
-  : Runnable("BluetoothReplyTaskQueue")
-  , mReply(aReply)
-{}
+BluetoothReplyTaskQueue::BluetoothReplyTaskQueue(BluetoothReplyRunnable* aReply)
+    : Runnable("BluetoothReplyTaskQueue"), mReply(aReply) {}
 
-BluetoothReplyTaskQueue::~BluetoothReplyTaskQueue()
-{
-  Clear();
-}
+BluetoothReplyTaskQueue::~BluetoothReplyTaskQueue() { Clear(); }
 
-void
-BluetoothReplyTaskQueue::AppendTask(already_AddRefed<SubTask> aTask)
-{
+void BluetoothReplyTaskQueue::AppendTask(already_AddRefed<SubTask> aTask) {
   MOZ_ASSERT(NS_IsMainThread());
 
   RefPtr<SubTask> task(aTask);
@@ -249,8 +200,7 @@ BluetoothReplyTaskQueue::AppendTask(already_AddRefed<SubTask> aTask)
 }
 
 NS_IMETHODIMP
-BluetoothReplyTaskQueue::Run()
-{
+BluetoothReplyTaskQueue::Run() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!mTasks.IsEmpty()) {
@@ -267,9 +217,8 @@ BluetoothReplyTaskQueue::Run()
   return NS_OK;
 }
 
-void
-BluetoothReplyTaskQueue::OnSubReplySuccessFired(SubReplyRunnable* aSubReply)
-{
+void BluetoothReplyTaskQueue::OnSubReplySuccessFired(
+    SubReplyRunnable* aSubReply) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aSubReply);
 
@@ -282,18 +231,15 @@ BluetoothReplyTaskQueue::OnSubReplySuccessFired(SubReplyRunnable* aSubReply)
   }
 }
 
-void
-BluetoothReplyTaskQueue::OnSubReplyErrorFired(SubReplyRunnable* aSubReply)
-{
+void BluetoothReplyTaskQueue::OnSubReplyErrorFired(
+    SubReplyRunnable* aSubReply) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aSubReply);
 
   FireErrorReply();
 }
 
-void
-BluetoothReplyTaskQueue::FireSuccessReply()
-{
+void BluetoothReplyTaskQueue::FireSuccessReply() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (mReply) {
@@ -303,9 +249,7 @@ BluetoothReplyTaskQueue::FireSuccessReply()
   Clear();
 }
 
-void
-BluetoothReplyTaskQueue::FireErrorReply()
-{
+void BluetoothReplyTaskQueue::FireErrorReply() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (mReply) {
@@ -315,17 +259,11 @@ BluetoothReplyTaskQueue::FireErrorReply()
   Clear();
 }
 
-void
-BluetoothReplyTaskQueue::OnSuccessFired()
-{}
+void BluetoothReplyTaskQueue::OnSuccessFired() {}
 
-void
-BluetoothReplyTaskQueue::OnErrorFired()
-{}
+void BluetoothReplyTaskQueue::OnErrorFired() {}
 
-void
-BluetoothReplyTaskQueue::Clear()
-{
+void BluetoothReplyTaskQueue::Clear() {
   MOZ_ASSERT(NS_IsMainThread());
 
   mReply = nullptr;

@@ -24,31 +24,31 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 struct Map {
   enum AppParametersTagId {
-    MaxListCount                  = 0x1,
-    StartOffset                   = 0x2,
-    FilterMessageType             = 0x3,
-    FilterPeriodBegin             = 0x4,
-    FilterPeriodEnd               = 0x5,
-    FilterReadStatus              = 0x6,
-    FilterRecipient               = 0x7,
-    FilterOriginator              = 0x8,
-    FilterPriority                = 0x9,
-    Attachment                    = 0x0A,
-    Transparent                   = 0x0B,
-    Retry                         = 0x0C,
-    NewMessage                    = 0x0D,
-    NotificationStatus            = 0x0E,
-    MASInstanceId                 = 0x0F,
-    ParameterMask                 = 0x10,
-    FolderListingSize             = 0x11,
-    MessagesListingSize           = 0x12,
-    SubjectLength                 = 0x13,
-    Charset                       = 0x14,
-    FractionRequest               = 0x15,
-    FractionDeliver               = 0x16,
-    StatusIndicator               = 0x17,
-    StatusValue                   = 0x18,
-    MSETime                       = 0x19
+    MaxListCount = 0x1,
+    StartOffset = 0x2,
+    FilterMessageType = 0x3,
+    FilterPeriodBegin = 0x4,
+    FilterPeriodEnd = 0x5,
+    FilterReadStatus = 0x6,
+    FilterRecipient = 0x7,
+    FilterOriginator = 0x8,
+    FilterPriority = 0x9,
+    Attachment = 0x0A,
+    Transparent = 0x0B,
+    Retry = 0x0C,
+    NewMessage = 0x0D,
+    NotificationStatus = 0x0E,
+    MASInstanceId = 0x0F,
+    ParameterMask = 0x10,
+    FolderListingSize = 0x11,
+    MessagesListingSize = 0x12,
+    SubjectLength = 0x13,
+    Charset = 0x14,
+    FractionRequest = 0x15,
+    FractionDeliver = 0x16,
+    StatusIndicator = 0x17,
+    StatusValue = 0x18,
+    MSETime = 0x19
   };
 };
 
@@ -61,15 +61,13 @@ class ObexHeaderSet;
  * MAS server and MNS client to exchange SMS/MMS message.
  */
 
-class BluetoothMapSmsManager : public BluetoothSocketObserver
-                             , public BluetoothProfileManagerBase
-                             , public BluetoothSdpNotificationHandler
-{
-public:
+class BluetoothMapSmsManager : public BluetoothSocketObserver,
+                               public BluetoothProfileManagerBase,
+                               public BluetoothSdpNotificationHandler {
+ public:
   BT_DECL_PROFILE_MGR_BASE
   BT_DECL_SOCKET_OBSERVER
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("MapSms");
   }
 
@@ -112,9 +110,8 @@ public:
    * @return true if the response packet has been packed correctly and started
    *         to be sent to the remote device; false otherwise.
    */
-  bool ReplyToMessagesListing(
-    uint8_t aMasId, BlobImpl* aBlob, bool aNewMessage,
-    const nsAString& aTimestamp, int aSize);
+  bool ReplyToMessagesListing(uint8_t aMasId, BlobImpl* aBlob, bool aNewMessage,
+                              const nsAString& aTimestamp, int aSize);
 
   /**
    * Reply bMessage to the *in-process* 'getmessage' request.
@@ -148,8 +145,8 @@ public:
    * @return true if the response packet has been packed correctly and started
    *         to be sent to the remote device; false otherwise.
    */
-  bool ReplyToSendMessage(
-    uint8_t aMasId, const nsAString& aHandleId , bool aStatus);
+  bool ReplyToSendMessage(uint8_t aMasId, const nsAString& aHandleId,
+                          bool aStatus);
 
   /**
    * Reply to the *in-process* 'messageupdate' request.
@@ -162,25 +159,24 @@ public:
    */
   bool ReplyToMessageUpdate(uint8_t aMasId, bool aStatus);
 
- /**
-  * SendEvent to MCE device. MSE shall use the SendEvent function to notify the
-  * MCE on events affecting the messages listings within the MSE's folders
-  * structure. The MSE shall notify the MCE of the sending status of these
-  * messages using the SendEvent function.
-  *
-  * @param aMasId [in]          MAS id
-  * @param aBlob [in]           a blob containing the MAP-event-report objects
-  *
-  * @return true if the blob has started to be sent to the remote device; false
-  * otherwise.
-  */
- bool SendMessageEvent(uint8_t aMasId, BlobImpl* aBlob);
+  /**
+   * SendEvent to MCE device. MSE shall use the SendEvent function to notify the
+   * MCE on events affecting the messages listings within the MSE's folders
+   * structure. The MSE shall notify the MCE of the sending status of these
+   * messages using the SendEvent function.
+   *
+   * @param aMasId [in]          MAS id
+   * @param aBlob [in]           a blob containing the MAP-event-report objects
+   *
+   * @return true if the blob has started to be sent to the remote device; false
+   * otherwise.
+   */
+  bool SendMessageEvent(uint8_t aMasId, BlobImpl* aBlob);
 
-
-protected:
+ protected:
   virtual ~BluetoothMapSmsManager();
 
-private:
+ private:
   class CreateSdpRecordResultHandler;
   class RemoveSdpRecordResultHandler;
   class InitProfileResultHandlerRunnable;
@@ -203,7 +199,8 @@ private:
    * packet. If the operation requires multiple response packets to complete
    * after the Final bit is set in the request.
    */
-  bool ReplyToGetWithHeaderBody(UniquePtr<uint8_t[]> aResponse, unsigned int aIndex);
+  bool ReplyToGetWithHeaderBody(UniquePtr<uint8_t[]> aResponse,
+                                unsigned int aIndex);
   /*
    * This function sends multiple response packets, in case of a PUT operation
    * returning an object larger than one response packet.
@@ -223,8 +220,8 @@ private:
   void HandleSmsMmsPushMessage(const ObexHeaderSet& aHeader);
 
   void AppendBtNamedValueByTagId(const ObexHeaderSet& aHeader,
-    nsTArray<BluetoothNamedValue>& aValues,
-    const Map::AppParametersTagId aTagId);
+                                 nsTArray<BluetoothNamedValue>& aValues,
+                                 const Map::AppParametersTagId aTagId);
   bool SendMasObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
   bool SendMasObexData(UniquePtr<uint8_t[]> aData, uint8_t aOpcode, int aSize);
   void SendMnsObexData(uint8_t* aData, uint8_t aOpcode, int aSize);
@@ -251,20 +248,21 @@ private:
    * a packet may be devided into several parts and BluetoothMapSmsManager
    * should be in charge of assembling.
    *
-   * @param aOpCode  [in] the opCode of the PUT packet (usually is Put/PutFinal).
+   * @param aOpCode  [in] the opCode of the PUT packet (usually is
+   * Put/PutFinal).
    * @param aMessage [in] the content of the PUT packet.
    *
    * @return true if a packet has been fully received.
    *         false if the received length exceeds/not reaches the expected
    *         length.
    */
-  bool ComposePacket(uint8_t aOpCode,
-                     mozilla::ipc::UnixSocketBuffer* aMessage);
+  bool ComposePacket(uint8_t aOpCode, mozilla::ipc::UnixSocketBuffer* aMessage);
 
   /**
    * Parse the headers from the full PUT packet.
    *
-   * @param aOpCode  [in] the opCode of the PUT packet (usually is Put/PutFinal).
+   * @param aOpCode  [in] the opCode of the PUT packet (usually is
+   * Put/PutFinal).
    * @param aMessage [in] the content of the PUT packet.
    * @param aPktHeaders [out] the headers of the PUT packet.
    *
@@ -310,8 +308,8 @@ private:
   RefPtr<BluetoothSocket> mMasSocket;
 
   // Server socket. Once an inbound connection is established, it will hand
-  // over the ownership to mMasSocket, and get a new server socket while Listen()
-  // is called.
+  // over the ownership to mMasSocket, and get a new server socket while
+  // Listen() is called.
   RefPtr<BluetoothSocket> mMasServerSocket;
 
   // Message notification service client socket
@@ -334,4 +332,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif //mozilla_dom_bluetooth_bluedroid_BluetoothMapSmsManager_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothMapSmsManager_h

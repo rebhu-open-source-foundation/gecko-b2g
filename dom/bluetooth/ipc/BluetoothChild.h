@@ -16,9 +16,9 @@ namespace bluetooth {
 
 class BluetoothServiceChildProcess;
 
-} // namespace bluetooth
-} // namespace dom
-} // namespace mozilla
+}  // namespace bluetooth
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -26,12 +26,10 @@ BEGIN_BLUETOOTH_NAMESPACE
  * BluetoothChild
  ******************************************************************************/
 
-class BluetoothChild : public PBluetoothChild
-{
+class BluetoothChild : public PBluetoothChild {
   friend class mozilla::dom::bluetooth::BluetoothServiceChildProcess;
 
-  enum ShutdownState
-  {
+  enum ShutdownState {
     Running = 0,
     SentStopNotifying,
     ReceivedNotificationsStopped,
@@ -40,36 +38,29 @@ class BluetoothChild : public PBluetoothChild
 
   ShutdownState mShutdownState;
 
-public:
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy);
+ public:
+  virtual void ActorDestroy(ActorDestroyReason aWhy);
 
-  virtual bool
-  RecvNotify(const BluetoothSignal& aSignal);
+  virtual bool RecvNotify(const BluetoothSignal& aSignal);
 
-  virtual bool
-  RecvEnabled(const bool& aEnabled);
+  virtual bool RecvEnabled(const bool& aEnabled);
 
-  virtual bool
-  RecvBeginShutdown();
+  virtual bool RecvBeginShutdown();
 
-  virtual bool
-  RecvNotificationsStopped();
+  virtual bool RecvNotificationsStopped();
 
-  virtual PBluetoothRequestChild*
-  AllocPBluetoothRequestChild(const Request& aRequest);
+  virtual PBluetoothRequestChild* AllocPBluetoothRequestChild(
+      const Request& aRequest);
 
-  virtual bool
-  DeallocPBluetoothRequestChild(PBluetoothRequestChild* aActor);
+  virtual bool DeallocPBluetoothRequestChild(PBluetoothRequestChild* aActor);
 
-protected:
+ protected:
   BluetoothChild(BluetoothServiceChildProcess* aBluetoothService);
   virtual ~BluetoothChild();
 
-  void
-  BeginShutdown();
+  void BeginShutdown();
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_ipc_BluetoothChild_h
+#endif  // mozilla_dom_bluetooth_ipc_BluetoothChild_h

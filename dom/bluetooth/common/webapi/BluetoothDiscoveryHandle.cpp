@@ -22,78 +22,63 @@ NS_IMPL_ADDREF_INHERITED(BluetoothDiscoveryHandle, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothDiscoveryHandle, DOMEventTargetHelper)
 
 BluetoothDiscoveryHandle::BluetoothDiscoveryHandle(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-{
+    : DOMEventTargetHelper(aWindow) {
   MOZ_ASSERT(aWindow);
 }
 
 BluetoothDiscoveryHandle::BluetoothDiscoveryHandle(
-  nsPIDOMWindowInner* aWindow,
-  const nsTArray<BluetoothUuid>& aServiceUuids,
-  const BluetoothUuid& aLeScanUuid)
-  : DOMEventTargetHelper(aWindow)
-  , mLeScanUuid(aLeScanUuid)
-  , mServiceUuids(aServiceUuids)
-{
+    nsPIDOMWindowInner* aWindow, const nsTArray<BluetoothUuid>& aServiceUuids,
+    const BluetoothUuid& aLeScanUuid)
+    : DOMEventTargetHelper(aWindow),
+      mLeScanUuid(aLeScanUuid),
+      mServiceUuids(aServiceUuids) {
   MOZ_ASSERT(aWindow);
 }
 
-BluetoothDiscoveryHandle::~BluetoothDiscoveryHandle()
-{
-}
+BluetoothDiscoveryHandle::~BluetoothDiscoveryHandle() {}
 
 // static
-already_AddRefed<BluetoothDiscoveryHandle>
-BluetoothDiscoveryHandle::Create(nsPIDOMWindowInner* aWindow)
-{
+already_AddRefed<BluetoothDiscoveryHandle> BluetoothDiscoveryHandle::Create(
+    nsPIDOMWindowInner* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
 
   RefPtr<BluetoothDiscoveryHandle> handle =
-    new BluetoothDiscoveryHandle(aWindow);
+      new BluetoothDiscoveryHandle(aWindow);
   return handle.forget();
 }
 
-already_AddRefed<BluetoothDiscoveryHandle>
-BluetoothDiscoveryHandle::Create(
-  nsPIDOMWindowInner* aWindow,
-  const nsTArray<BluetoothUuid>& aServiceUuids,
-  const BluetoothUuid& aLeScanUuid)
-{
+already_AddRefed<BluetoothDiscoveryHandle> BluetoothDiscoveryHandle::Create(
+    nsPIDOMWindowInner* aWindow, const nsTArray<BluetoothUuid>& aServiceUuids,
+    const BluetoothUuid& aLeScanUuid) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
 
   RefPtr<BluetoothDiscoveryHandle> handle =
-    new BluetoothDiscoveryHandle(aWindow, aServiceUuids, aLeScanUuid);
+      new BluetoothDiscoveryHandle(aWindow, aServiceUuids, aLeScanUuid);
   return handle.forget();
 }
 
-void
-BluetoothDiscoveryHandle::DispatchDeviceEvent(BluetoothDevice* aDevice)
-{
+void BluetoothDiscoveryHandle::DispatchDeviceEvent(BluetoothDevice* aDevice) {
   MOZ_ASSERT(aDevice);
 
   BluetoothDeviceEventInit init;
   init.mDevice = aDevice;
 
-  RefPtr<BluetoothDeviceEvent> event =
-    BluetoothDeviceEvent::Constructor(this,
-                                      NS_LITERAL_STRING("devicefound"),
-                                      init);
+  RefPtr<BluetoothDeviceEvent> event = BluetoothDeviceEvent::Constructor(
+      this, NS_LITERAL_STRING("devicefound"), init);
   DispatchTrustedEvent(event);
 }
 
-void
-BluetoothDiscoveryHandle::DispatchLeDeviceEvent(BluetoothDevice* aLeDevice,
-  int32_t aRssi, nsTArray<uint8_t>& aScanRecord)
-{
+void BluetoothDiscoveryHandle::DispatchLeDeviceEvent(
+    BluetoothDevice* aLeDevice, int32_t aRssi, nsTArray<uint8_t>& aScanRecord) {
   MOZ_ASSERT(aLeDevice);
 
   nsTArray<BluetoothUuid> remoteUuids;
   aLeDevice->GetUuids(remoteUuids);
 
   bool hasUuidsFilter = !mServiceUuids.IsEmpty();
-  bool noAdvertisingUuid  = remoteUuids.IsEmpty();
+  bool noAdvertisingUuid = remoteUuids.IsEmpty();
   // If an LE device doesn't advertise its service UUIDs, it can't possibly pass
   // the UUIDs filter.
   if (hasUuidsFilter && noAdvertisingUuid) {
@@ -116,19 +101,13 @@ BluetoothDiscoveryHandle::DispatchLeDeviceEvent(BluetoothDevice* aLeDevice,
   //  - the service UUID in the scan record matches one of the given UUIDs.
   //  - the given UUIDs is empty.
   if (matched || mServiceUuids.IsEmpty()) {
-    RefPtr<BluetoothLeDeviceEvent> event =
-      BluetoothLeDeviceEvent::Constructor(this,
-                                          NS_LITERAL_STRING("devicefound"),
-                                          aLeDevice,
-                                          aRssi,
-                                          aScanRecord);
+    RefPtr<BluetoothLeDeviceEvent> event = BluetoothLeDeviceEvent::Constructor(
+        this, NS_LITERAL_STRING("devicefound"), aLeDevice, aRssi, aScanRecord);
     DispatchTrustedEvent(event);
   }
 }
 
-JSObject*
-BluetoothDiscoveryHandle::WrapObject(JSContext* aCx,
-                                     JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothDiscoveryHandle::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothDiscoveryHandle_Binding::Wrap(aCx, this, aGivenProto);
 }

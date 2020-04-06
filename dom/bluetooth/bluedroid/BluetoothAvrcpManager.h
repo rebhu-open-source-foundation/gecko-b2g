@@ -13,15 +13,13 @@
 #include "BluetoothProfileManagerBase.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
-class BluetoothAvrcpManager : public BluetoothProfileManagerBase
-                            , public BluetoothAvrcpNotificationHandler
-{
-public:
+class BluetoothAvrcpManager : public BluetoothProfileManagerBase,
+                              public BluetoothAvrcpNotificationHandler {
+ public:
   static const int MAX_NUM_CLIENTS;
 
   BT_DECL_PROFILE_MGR_BASE
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("AVRCP");
   }
 
@@ -38,14 +36,10 @@ public:
   static void DeinitAvrcpInterface(BluetoothProfileResultHandler* aRes);
 
   void SetConnected(bool aConnected);
-  void UpdateMetaData(const nsAString& aTitle,
-                      const nsAString& aArtist,
-                      const nsAString& aAlbum,
-                      uint64_t aMediaNumber,
-                      uint64_t aTotalMediaCount,
-                      uint32_t aDuration);
-  void UpdatePlayStatus(uint32_t aDuration,
-                        uint32_t aPosition,
+  void UpdateMetaData(const nsAString& aTitle, const nsAString& aArtist,
+                      const nsAString& aAlbum, uint64_t aMediaNumber,
+                      uint64_t aTotalMediaCount, uint32_t aDuration);
+  void UpdatePlayStatus(uint32_t aDuration, uint32_t aPosition,
                         ControlPlayStatus aPlayStatus);
   void UpdateRegisterNotification(BluetoothAvrcpEvent aEvent, uint32_t aParam);
   void GetAlbum(nsAString& aAlbum);
@@ -58,10 +52,10 @@ public:
   void GetArtist(nsAString& aArtist);
   void HandleBackendError();
 
-protected:
+ protected:
   virtual ~BluetoothAvrcpManager();
 
-private:
+ private:
   class ConnectRunnable;
   class DeinitProfileResultHandlerRunnable;
   class DisconnectRunnable;
@@ -81,31 +75,28 @@ private:
   void ListPlayerAppAttrNotification() override;
 
   void ListPlayerAppValuesNotification(
-    BluetoothAvrcpPlayerAttribute aAttrId) override;
+      BluetoothAvrcpPlayerAttribute aAttrId) override;
 
   void GetPlayerAppValueNotification(
-    uint8_t aNumAttrs,
-    const BluetoothAvrcpPlayerAttribute* aAttrs) override;
+      uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs) override;
 
   void GetPlayerAppAttrsTextNotification(
-    uint8_t aNumAttrs,
-    const BluetoothAvrcpPlayerAttribute* aAttrs) override;
+      uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs) override;
 
-  void GetPlayerAppValuesTextNotification(
-    uint8_t aAttrId, uint8_t aNumVals, const uint8_t* aValues) override;
+  void GetPlayerAppValuesTextNotification(uint8_t aAttrId, uint8_t aNumVals,
+                                          const uint8_t* aValues) override;
 
   void SetPlayerAppValueNotification(
-    const BluetoothAvrcpPlayerSettings& aSettings) override;
+      const BluetoothAvrcpPlayerSettings& aSettings) override;
 
   void GetElementAttrNotification(
-    uint8_t aNumAttrs,
-    const BluetoothAvrcpMediaAttribute* aAttrs) override;
+      uint8_t aNumAttrs, const BluetoothAvrcpMediaAttribute* aAttrs) override;
 
-  void RegisterNotificationNotification(
-    BluetoothAvrcpEvent aEvent, uint32_t aParam) override;
+  void RegisterNotificationNotification(BluetoothAvrcpEvent aEvent,
+                                        uint32_t aParam) override;
 
-  void RemoteFeatureNotification(
-    const BluetoothAddress& aBdAddr, unsigned long aFeatures) override;
+  void RemoteFeatureNotification(const BluetoothAddress& aBdAddr,
+                                 unsigned long aFeatures) override;
 
   void VolumeChangeNotification(uint8_t aVolume, uint8_t aCType) override;
 
@@ -148,4 +139,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothAvrcpManager_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothAvrcpManager_h

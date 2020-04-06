@@ -23,8 +23,8 @@ class Blob;
 class DOMRequest;
 struct MediaMetaData;
 struct MediaPlayStatus;
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -36,10 +36,9 @@ class BluetoothPairingListener;
 class BluetoothSignal;
 class BluetoothValue;
 
-class BluetoothAdapter : public DOMEventTargetHelper
-                       , public BluetoothSignalObserver
-{
-public:
+class BluetoothAdapter : public DOMEventTargetHelper,
+                         public BluetoothSignalObserver {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothAdapter,
                                            DOMEventTargetHelper)
@@ -47,38 +46,17 @@ public:
   /****************************************************************************
    * Attribute Getters
    ***************************************************************************/
-  BluetoothAdapterState State() const
-  {
-    return mState;
-  }
+  BluetoothAdapterState State() const { return mState; }
 
-  void GetAddress(nsString& aAddress) const
-  {
-    aAddress = mAddress;
-  }
+  void GetAddress(nsString& aAddress) const { aAddress = mAddress; }
 
-  void
-  GetName(nsString& aName) const
-  {
-    aName = mName;
-  }
+  void GetName(nsString& aName) const { aName = mName; }
 
-  bool
-  Discovering() const
-  {
-    return mDiscovering;
-  }
+  bool Discovering() const { return mDiscovering; }
 
-  bool
-  Discoverable() const
-  {
-    return mDiscoverable;
-  }
+  bool Discoverable() const { return mDiscoverable; }
 
-  BluetoothPairingListener* GetPairingReqs() const
-  {
-    return mPairingReqs;
-  }
+  BluetoothPairingListener* GetPairingReqs() const { return mPairingReqs; }
 
   BluetoothGattServer* GetGattServer();
 
@@ -124,10 +102,10 @@ public:
   already_AddRefed<Promise> StartDiscovery(ErrorResult& aRv);
   already_AddRefed<Promise> StopDiscovery(ErrorResult& aRv);
 
-  already_AddRefed<Promise> StartLeScan(
-    const nsTArray<nsString>& aServiceUuids, ErrorResult& aRv);
+  already_AddRefed<Promise> StartLeScan(const nsTArray<nsString>& aServiceUuids,
+                                        ErrorResult& aRv);
   already_AddRefed<Promise> StopLeScan(
-    BluetoothDiscoveryHandle& aDiscoveryHandle, ErrorResult& aRv);
+      BluetoothDiscoveryHandle& aDiscoveryHandle, ErrorResult& aRv);
 
   already_AddRefed<Promise> Pair(const nsAString& aDeviceAddress,
                                  ErrorResult& aRv);
@@ -142,27 +120,22 @@ public:
   void GetPairedDevices(nsTArray<RefPtr<BluetoothDevice> >& aDevices);
 
   // Connection related methods
-  already_AddRefed<DOMRequest>
-    Connect(BluetoothDevice& aDevice,
-            const Optional<short unsigned int>& aServiceUuid,
-            ErrorResult& aRv);
-  already_AddRefed<DOMRequest>
-    Disconnect(BluetoothDevice& aDevice,
-               const Optional<short unsigned int>& aServiceUuid,
-               ErrorResult& aRv);
+  already_AddRefed<DOMRequest> Connect(
+      BluetoothDevice& aDevice,
+      const Optional<short unsigned int>& aServiceUuid, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> Disconnect(
+      BluetoothDevice& aDevice,
+      const Optional<short unsigned int>& aServiceUuid, ErrorResult& aRv);
   already_AddRefed<DOMRequest> GetConnectedDevices(uint16_t aServiceUuid,
                                                    ErrorResult& aRv);
 
   // OPP file transfer related methods
   already_AddRefed<DOMRequest> SendFile(const nsAString& aDeviceAddress,
-                                        Blob& aBlob,
-                                        ErrorResult& aRv);
+                                        Blob& aBlob, ErrorResult& aRv);
   already_AddRefed<DOMRequest> StopSendingFile(const nsAString& aDeviceAddress,
                                                ErrorResult& aRv);
-  already_AddRefed<DOMRequest>
-    ConfirmReceivingFile(const nsAString& aDeviceAddress,
-                         bool aConfirmation,
-                         ErrorResult& aRv);
+  already_AddRefed<DOMRequest> ConfirmReceivingFile(
+      const nsAString& aDeviceAddress, bool aConfirmation, ErrorResult& aRv);
 
   // SCO related methods
   already_AddRefed<DOMRequest> ConnectSco(ErrorResult& aRv);
@@ -175,11 +148,10 @@ public:
   already_AddRefed<DOMRequest> ToggleCalls(ErrorResult& aRv);
 
   // AVRCP related methods
-  already_AddRefed<DOMRequest>
-    SendMediaMetaData(const MediaMetaData& aMediaMetaData, ErrorResult& aRv);
-  already_AddRefed<DOMRequest>
-    SendMediaPlayStatus(const MediaPlayStatus& aMediaPlayStatus,
-                        ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SendMediaMetaData(
+      const MediaMetaData& aMediaMetaData, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SendMediaPlayStatus(
+      const MediaPlayStatus& aMediaPlayStatus, ErrorResult& aRv);
 
   // MAP SendEvent method
   already_AddRefed<Promise> SendMessageEvent(uint8_t aMasId, Blob& aBlob,
@@ -188,21 +160,19 @@ public:
   /****************************************************************************
    * Others
    ***************************************************************************/
-  static already_AddRefed<BluetoothAdapter>
-    Create(nsPIDOMWindowInner* aOwner, const BluetoothValue& aValue);
+  static already_AddRefed<BluetoothAdapter> Create(
+      nsPIDOMWindowInner* aOwner, const BluetoothValue& aValue);
 
-  void Notify(const BluetoothSignal& aParam) override; // BluetoothSignalObserver
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-     return GetOwner();
-  }
+  void Notify(
+      const BluetoothSignal& aParam) override;  // BluetoothSignalObserver
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
   virtual void DisconnectFromOwner() override;
 
   void GetPairedDeviceProperties(
-    const nsTArray<BluetoothAddress>& aDeviceAddresses);
+      const nsTArray<BluetoothAddress>& aDeviceAddresses);
 
   virtual void EventListenerAdded(nsAtom* aType) override;
 
@@ -254,7 +224,7 @@ public:
    */
   void RemoveLeScanHandle(const BluetoothUuid& aScanUuid);
 
-private:
+ private:
   BluetoothAdapter(nsPIDOMWindowInner* aOwner, const BluetoothValue& aValue);
   ~BluetoothAdapter();
 
@@ -286,8 +256,8 @@ private:
    * @param aRv            [out] Error result to set in case of error.
    */
   already_AddRefed<Promise> PairUnpair(bool aPair,
-                            const nsAString& aDeviceAddress,
-                            ErrorResult& aRv);
+                                       const nsAString& aDeviceAddress,
+                                       ErrorResult& aRv);
 
   /**
    * Retrieve properties of paired devices.
@@ -296,7 +266,7 @@ private:
    */
   void GetPairedDeviceProperties(const nsTArray<nsString>& aDeviceAddresses);
 
-   /**
+  /**
    * Handle PBAP_CONNECTION_REQ_ID bluetooth signal.
    *
    * @param aValue [in] Properties array of the profile connection request.
@@ -414,7 +384,7 @@ private:
    *                    The name of BluetoothValue must be 'propSelector',
    *                    'vCardSelector_OR' or 'vCardSelector_AND'.
    */
-  Sequence<vCardProperties> getVCardProperties(const BluetoothValue &aValue);
+  Sequence<vCardProperties> getVCardProperties(const BluetoothValue& aValue);
 
   /**
    * Handle MAP_CONNECTION_REQ_ID bluetooth signal.
@@ -424,7 +394,7 @@ private:
    */
   void HandleMapConnectionReq(const BluetoothValue& aValue);
 
-   /**
+  /**
    * Handle "MapFolderListing" bluetooth signal.
    *
    * @param aValue [in] Properties array of the MAP request.
@@ -500,7 +470,7 @@ private:
    * @param aValue [in] a BluetoothValue with 'TArrayOfuint32_t' type
    *                    The name of BluetoothValue must be 'parameterMask'.
    */
-  Sequence<ParameterMask> GetParameterMask(const BluetoothValue &aValue);
+  Sequence<ParameterMask> GetParameterMask(const BluetoothValue& aValue);
 
   /**
    * Fire BluetoothAttributeEvent to trigger onattributechanged event handler.
@@ -533,8 +503,8 @@ private:
    *
    * @return the adapter attribute converted from |aString|
    */
-  BluetoothAdapterAttribute
-    ConvertStringToAdapterAttribute(const nsAString& aString);
+  BluetoothAdapterAttribute ConvertStringToAdapterAttribute(
+      const nsAString& aString);
 
   /**
    * Check whether value of given adapter property has changed.
@@ -642,4 +612,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothAdapter_h
+#endif  // mozilla_dom_bluetooth_BluetoothAdapter_h

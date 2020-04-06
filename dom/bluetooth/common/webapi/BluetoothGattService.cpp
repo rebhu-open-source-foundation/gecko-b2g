@@ -17,10 +17,8 @@ using namespace mozilla::dom;
 
 USING_BLUETOOTH_NAMESPACE
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(BluetoothGattService,
-                                      mOwner,
-                                      mIncludedServices,
-                                      mCharacteristics)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(BluetoothGattService, mOwner,
+                                      mIncludedServices, mCharacteristics)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(BluetoothGattService)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(BluetoothGattService)
@@ -33,14 +31,13 @@ const uint16_t BluetoothGattService::sHandleCount = 1;
 
 // Constructor of BluetoothGattService in ATT client role
 BluetoothGattService::BluetoothGattService(
-  nsPIDOMWindowInner* aOwner, const nsAString& aAppUuid,
-  const BluetoothGattServiceId& aServiceId)
-  : mOwner(aOwner)
-  , mAppUuid(aAppUuid)
-  , mServiceId(aServiceId)
-  , mAttRole(ATT_CLIENT_ROLE)
-  , mActive(true)
-{
+    nsPIDOMWindowInner* aOwner, const nsAString& aAppUuid,
+    const BluetoothGattServiceId& aServiceId)
+    : mOwner(aOwner),
+      mAppUuid(aAppUuid),
+      mServiceId(aServiceId),
+      mAttRole(ATT_CLIENT_ROLE),
+      mActive(true) {
   MOZ_ASSERT(aOwner);
   MOZ_ASSERT(!mAppUuid.IsEmpty());
 
@@ -49,73 +46,59 @@ BluetoothGattService::BluetoothGattService(
 
 // Constructor of BluetoothGattService in ATT server role
 BluetoothGattService::BluetoothGattService(
-  nsPIDOMWindowInner* aOwner,
-  const BluetoothGattServiceInit& aInit)
-  : mOwner(aOwner)
-  , mUuidStr(aInit.mUuid)
-  , mAttRole(ATT_SERVER_ROLE)
-  , mActive(false)
-{
+    nsPIDOMWindowInner* aOwner, const BluetoothGattServiceInit& aInit)
+    : mOwner(aOwner),
+      mUuidStr(aInit.mUuid),
+      mAttRole(ATT_SERVER_ROLE),
+      mActive(false) {
   memset(&mServiceId, 0, sizeof(mServiceId));
   StringToUuid(aInit.mUuid, mServiceId.mId.mUuid);
   mServiceId.mIsPrimary = aInit.mIsPrimary;
 }
 
-BluetoothGattService::~BluetoothGattService()
-{
-}
+BluetoothGattService::~BluetoothGattService() {}
 
-void
-BluetoothGattService::AssignIncludedServices(
-  const nsTArray<BluetoothGattServiceId>& aServiceIds)
-{
+void BluetoothGattService::AssignIncludedServices(
+    const nsTArray<BluetoothGattServiceId>& aServiceIds) {
   mIncludedServices.Clear();
   for (uint32_t i = 0; i < aServiceIds.Length(); i++) {
-    mIncludedServices.AppendElement(new BluetoothGattService(
-      GetParentObject(), mAppUuid, aServiceIds[i]));
+    mIncludedServices.AppendElement(
+        new BluetoothGattService(GetParentObject(), mAppUuid, aServiceIds[i]));
   }
 
   BluetoothGattService_Binding::ClearCachedIncludedServicesValue(this);
 }
 
-void
-BluetoothGattService::AssignCharacteristics(
-  const nsTArray<BluetoothGattCharAttribute>& aCharacteristics)
-{
+void BluetoothGattService::AssignCharacteristics(
+    const nsTArray<BluetoothGattCharAttribute>& aCharacteristics) {
   mCharacteristics.Clear();
   for (uint32_t i = 0; i < aCharacteristics.Length(); i++) {
     mCharacteristics.AppendElement(new BluetoothGattCharacteristic(
-      GetParentObject(), this, aCharacteristics[i]));
+        GetParentObject(), this, aCharacteristics[i]));
   }
 
   BluetoothGattService_Binding::ClearCachedCharacteristicsValue(this);
 }
 
-void
-BluetoothGattService::AssignDescriptors(
-  const BluetoothGattId& aCharacteristicId,
-  const nsTArray<BluetoothGattId>& aDescriptorIds)
-{
+void BluetoothGattService::AssignDescriptors(
+    const BluetoothGattId& aCharacteristicId,
+    const nsTArray<BluetoothGattId>& aDescriptorIds) {
   size_t index = mCharacteristics.IndexOf(aCharacteristicId);
   NS_ENSURE_TRUE_VOID(index != mCharacteristics.NoIndex);
 
   RefPtr<BluetoothGattCharacteristic> characteristic =
-    mCharacteristics.ElementAt(index);
+      mCharacteristics.ElementAt(index);
   characteristic->AssignDescriptors(aDescriptorIds);
 }
 
-void
-BluetoothGattService::AssignAppUuid(const nsAString& aAppUuid)
-{
+void BluetoothGattService::AssignAppUuid(const nsAString& aAppUuid) {
   MOZ_ASSERT(mAttRole == ATT_SERVER_ROLE);
 
   mAppUuid = aAppUuid;
 }
 
-void
-BluetoothGattService::AssignServiceHandle(
-  const BluetoothAttributeHandle& aServiceHandle)
-{
+void BluetoothGattService::AssignServiceHandle(
+    const BluetoothAttributeHandle& aServiceHandle) {
   MOZ_ASSERT(mAttRole == ATT_SERVER_ROLE);
   MOZ_ASSERT(!mActive);
   MOZ_ASSERT(!mServiceHandle.mHandle);
@@ -124,11 +107,9 @@ BluetoothGattService::AssignServiceHandle(
   mActive = true;
 }
 
-void
-BluetoothGattService::AssignCharacteristicHandle(
-  const BluetoothUuid& aCharacteristicUuid,
-  const BluetoothAttributeHandle& aCharacteristicHandle)
-{
+void BluetoothGattService::AssignCharacteristicHandle(
+    const BluetoothUuid& aCharacteristicUuid,
+    const BluetoothAttributeHandle& aCharacteristicHandle) {
   MOZ_ASSERT(mAttRole == ATT_SERVER_ROLE);
   MOZ_ASSERT(mActive);
 
@@ -137,12 +118,10 @@ BluetoothGattService::AssignCharacteristicHandle(
   mCharacteristics[index]->AssignCharacteristicHandle(aCharacteristicHandle);
 }
 
-void
-BluetoothGattService::AssignDescriptorHandle(
-  const BluetoothUuid& aDescriptorUuid,
-  const BluetoothAttributeHandle& aCharacteristicHandle,
-  const BluetoothAttributeHandle& aDescriptorHandle)
-{
+void BluetoothGattService::AssignDescriptorHandle(
+    const BluetoothUuid& aDescriptorUuid,
+    const BluetoothAttributeHandle& aCharacteristicHandle,
+    const BluetoothAttributeHandle& aDescriptorHandle) {
   MOZ_ASSERT(mAttRole == ATT_SERVER_ROLE);
   MOZ_ASSERT(mActive);
 
@@ -152,9 +131,7 @@ BluetoothGattService::AssignDescriptorHandle(
                                                   aDescriptorHandle);
 }
 
-uint16_t
-BluetoothGattService::GetHandleCount() const
-{
+uint16_t BluetoothGattService::GetHandleCount() const {
   uint16_t count = sHandleCount;
   for (size_t i = 0; i < mCharacteristics.Length(); ++i) {
     count += mCharacteristics[i]->GetHandleCount();
@@ -162,38 +139,31 @@ BluetoothGattService::GetHandleCount() const
   return count;
 }
 
-JSObject*
-BluetoothGattService::WrapObject(JSContext* aContext,
-                                 JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothGattService::WrapObject(JSContext* aContext,
+                                           JS::Handle<JSObject*> aGivenProto) {
   return BluetoothGattService_Binding::Wrap(aContext, this, aGivenProto);
 }
 
-already_AddRefed<BluetoothGattService>
-BluetoothGattService::Constructor(const GlobalObject& aGlobal,
-                                  const BluetoothGattServiceInit& aInit,
-                                  ErrorResult& aRv)
-{
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+already_AddRefed<BluetoothGattService> BluetoothGattService::Constructor(
+    const GlobalObject& aGlobal, const BluetoothGattServiceInit& aInit,
+    ErrorResult& aRv) {
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
-  RefPtr<BluetoothGattService> service = new BluetoothGattService(window,
-                                                                    aInit);
+  RefPtr<BluetoothGattService> service =
+      new BluetoothGattService(window, aInit);
 
   return service.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothGattService::AddCharacteristic(
-  const nsAString& aCharacteristicUuid,
-  const GattPermissions& aPermissions,
-  const GattCharacteristicProperties& aProperties,
-  const ArrayBuffer& aValue,
-  ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothGattService::AddCharacteristic(
+    const nsAString& aCharacteristicUuid, const GattPermissions& aPermissions,
+    const GattCharacteristicProperties& aProperties, const ArrayBuffer& aValue,
+    ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -203,8 +173,7 @@ BluetoothGattService::AddCharacteristic(
   RefPtr<Promise> promise = Promise::Create(global, aRv);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
-  BT_ENSURE_TRUE_REJECT(mAttRole == ATT_SERVER_ROLE,
-                        promise,
+  BT_ENSURE_TRUE_REJECT(mAttRole == ATT_SERVER_ROLE, promise,
                         NS_ERROR_UNEXPECTED);
 
   /* The service should not be actively acting with the Bluetooth backend.
@@ -212,12 +181,9 @@ BluetoothGattService::AddCharacteristic(
   BT_ENSURE_TRUE_REJECT(!mActive, promise, NS_ERROR_UNEXPECTED);
 
   RefPtr<BluetoothGattCharacteristic> characteristic =
-    new BluetoothGattCharacteristic(GetParentObject(),
-                                    this,
-                                    aCharacteristicUuid,
-                                    aPermissions,
-                                    aProperties,
-                                    aValue);
+      new BluetoothGattCharacteristic(GetParentObject(), this,
+                                      aCharacteristicUuid, aPermissions,
+                                      aProperties, aValue);
 
   mCharacteristics.AppendElement(characteristic);
   promise->MaybeResolve(characteristic);
@@ -225,10 +191,8 @@ BluetoothGattService::AddCharacteristic(
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothGattService::AddIncludedService(BluetoothGattService& aIncludedService,
-                                         ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothGattService::AddIncludedService(
+    BluetoothGattService& aIncludedService, ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -238,8 +202,7 @@ BluetoothGattService::AddIncludedService(BluetoothGattService& aIncludedService,
   RefPtr<Promise> promise = Promise::Create(global, aRv);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
-  BT_ENSURE_TRUE_REJECT(mAttRole == ATT_SERVER_ROLE,
-                        promise,
+  BT_ENSURE_TRUE_REJECT(mAttRole == ATT_SERVER_ROLE, promise,
                         NS_ERROR_UNEXPECTED);
 
   /* The service should not be actively acting with the Bluetooth backend.
@@ -248,9 +211,7 @@ BluetoothGattService::AddIncludedService(BluetoothGattService& aIncludedService,
 
   /* The included service itself should be actively acting with the Bluetooth
    * backend. Otherwise, that service cannot be included by any services. */
-  BT_ENSURE_TRUE_REJECT(aIncludedService.mActive,
-                        promise,
-                        NS_ERROR_UNEXPECTED);
+  BT_ENSURE_TRUE_REJECT(aIncludedService.mActive, promise, NS_ERROR_UNEXPECTED);
 
   mIncludedServices.AppendElement(&aIncludedService);
   promise->MaybeResolve(JS::UndefinedHandleValue);

@@ -19,41 +19,30 @@ class BluetoothSocketObserver;
 class BluetoothSocketResultHandler;
 class DroidSocketImpl;
 
-class BluetoothSocket final : public mozilla::ipc::DataSocket
-{
-public:
+class BluetoothSocket final : public mozilla::ipc::DataSocket {
+ public:
   BluetoothSocket(BluetoothSocketObserver* aObserver);
   ~BluetoothSocket();
 
   void SetObserver(BluetoothSocketObserver* aObserver);
 
   nsresult Connect(const BluetoothAddress& aDeviceAddress,
-                   const BluetoothUuid& aServiceUuid,
-                   BluetoothSocketType aType,
-                   int aChannel,
-                   bool aAuth, bool aEncrypt,
-                   MessageLoop* aConsumerLoop,
-                   MessageLoop* aIOLoop);
+                   const BluetoothUuid& aServiceUuid, BluetoothSocketType aType,
+                   int aChannel, bool aAuth, bool aEncrypt,
+                   MessageLoop* aConsumerLoop, MessageLoop* aIOLoop);
 
   nsresult Connect(const BluetoothAddress& aDeviceAddress,
-                   const BluetoothUuid& aServiceUuid,
-                   BluetoothSocketType aType,
-                   int aChannel,
-                   bool aAuth, bool aEncrypt);
+                   const BluetoothUuid& aServiceUuid, BluetoothSocketType aType,
+                   int aChannel, bool aAuth, bool aEncrypt);
 
   nsresult Listen(const nsAString& aServiceName,
-                  const BluetoothUuid& aServiceUuid,
-                  BluetoothSocketType aType,
-                  int aChannel,
-                  bool aAuth, bool aEncrypt,
-                  MessageLoop* aConsumerLoop,
-                  MessageLoop* aIOLoop);
+                  const BluetoothUuid& aServiceUuid, BluetoothSocketType aType,
+                  int aChannel, bool aAuth, bool aEncrypt,
+                  MessageLoop* aConsumerLoop, MessageLoop* aIOLoop);
 
   nsresult Listen(const nsAString& aServiceName,
-                  const BluetoothUuid& aServiceUuid,
-                  BluetoothSocketType aType,
-                  int aChannel,
-                  bool aAuth, bool aEncrypt);
+                  const BluetoothUuid& aServiceUuid, BluetoothSocketType aType,
+                  int aChannel, bool aAuth, bool aEncrypt);
 
   nsresult Accept(int aListenFd, BluetoothSocketResultHandler* aRes);
 
@@ -65,13 +54,11 @@ public:
    */
   void ReceiveSocketData(UniquePtr<mozilla::ipc::UnixSocketBuffer>& aBuffer);
 
-  inline void GetAddress(BluetoothAddress& aDeviceAddress)
-  {
+  inline void GetAddress(BluetoothAddress& aDeviceAddress) {
     aDeviceAddress = mDeviceAddress;
   }
 
-  inline void SetAddress(const BluetoothAddress& aDeviceAddress)
-  {
+  inline void SetAddress(const BluetoothAddress& aDeviceAddress) {
     mDeviceAddress = aDeviceAddress;
   }
 
@@ -89,12 +76,11 @@ public:
   void OnConnectError() override;
   void OnDisconnect() override;
 
-private:
+ private:
   nsresult LoadSocketInterface();
   void Cleanup();
 
-  inline void SetCurrentResultHandler(BluetoothSocketResultHandler* aRes)
-  {
+  inline void SetCurrentResultHandler(BluetoothSocketResultHandler* aRes) {
     mCurrentRes = aRes;
   }
 
@@ -107,4 +93,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothSocket_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothSocket_h

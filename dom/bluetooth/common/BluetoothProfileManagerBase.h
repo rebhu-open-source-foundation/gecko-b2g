@@ -12,15 +12,15 @@
  *
  * These error messages would be sent to Gaia as an argument of onError event.
  */
-#define ERR_ALREADY_CONNECTED           "AlreadyConnectedError"
-#define ERR_ALREADY_DISCONNECTED        "AlreadyDisconnectedError"
-#define ERR_CONNECTION_FAILED           "ConnectionFailedError"
-#define ERR_DISCONNECTION_FAILED        "DisconnectionFailedError"
-#define ERR_NO_AVAILABLE_RESOURCE       "NoAvailableResourceError"
-#define ERR_REACHED_CONNECTION_LIMIT    "ReachedConnectionLimitError"
-#define ERR_SERVICE_CHANNEL_NOT_FOUND   "DeviceChannelRetrievalError"
-#define ERR_UNKNOWN_PROFILE             "UnknownProfileError"
-#define ERR_OPERATION_TIMEOUT           "OperationTimeout"
+#define ERR_ALREADY_CONNECTED "AlreadyConnectedError"
+#define ERR_ALREADY_DISCONNECTED "AlreadyDisconnectedError"
+#define ERR_CONNECTION_FAILED "ConnectionFailedError"
+#define ERR_DISCONNECTION_FAILED "DisconnectionFailedError"
+#define ERR_NO_AVAILABLE_RESOURCE "NoAvailableResourceError"
+#define ERR_REACHED_CONNECTION_LIMIT "ReachedConnectionLimitError"
+#define ERR_SERVICE_CHANNEL_NOT_FOUND "DeviceChannelRetrievalError"
+#define ERR_UNKNOWN_PROFILE "UnknownProfileError"
+#define ERR_OPERATION_TIMEOUT "OperationTimeout"
 
 #include "BluetoothCommon.h"
 #include "nsIObserver.h"
@@ -28,22 +28,20 @@
 BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothProfileController;
 
-class BluetoothProfileResultHandler
-{
-public:
+class BluetoothProfileResultHandler {
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(BluetoothProfileResultHandler);
 
-  virtual void OnError(nsresult aResult) { }
-  virtual void Init() { }
-  virtual void Deinit() { }
+  virtual void OnError(nsresult aResult) {}
+  virtual void Init() {}
+  virtual void Deinit() {}
 
-protected:
-  virtual ~BluetoothProfileResultHandler() { }
+ protected:
+  virtual ~BluetoothProfileResultHandler() {}
 };
 
-class BluetoothProfileManagerBase : public nsIObserver
-{
-public:
+class BluetoothProfileManagerBase : public nsIObserver {
+ public:
   virtual void OnGetServiceChannel(const BluetoothAddress& aDeviceAddress,
                                    const BluetoothUuid& aServiceUuid,
                                    int aChannel) = 0;
@@ -96,14 +94,14 @@ public:
 };
 
 #define BT_DECL_PROFILE_MGR_BASE                                             \
-public:                                                                      \
+ public:                                                                     \
   NS_DECL_ISUPPORTS                                                          \
   NS_DECL_NSIOBSERVER                                                        \
   virtual void OnGetServiceChannel(const BluetoothAddress& aDeviceAddress,   \
                                    const BluetoothUuid& aServiceUuid,        \
                                    int aChannel) override;                   \
-  virtual void OnUpdateSdpRecords(                                           \
-    const BluetoothAddress& aDeviceAddress) override;                        \
+  virtual void OnUpdateSdpRecords(const BluetoothAddress& aDeviceAddress)    \
+      override;                                                              \
   virtual void GetAddress(BluetoothAddress& aDeviceAddress) override;        \
   virtual bool IsConnected() override;                                       \
   virtual bool ReplyToConnectionRequest(bool aAccept) override;              \

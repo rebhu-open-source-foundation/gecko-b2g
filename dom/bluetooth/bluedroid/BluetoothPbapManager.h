@@ -17,7 +17,6 @@
 #include "nsICryptoHash.h"
 #include "ObexBase.h"
 
-
 class nsICryptoHash;
 class nsIInputStream;
 
@@ -27,36 +26,34 @@ BEGIN_BLUETOOTH_NAMESPACE
  * Defined in section 6.2.1 "Application Parameters Header", PBAP ver 1.2
  */
 enum AppParameterTag {
-  Order                   = 0x01,
-  SearchValue             = 0x02,
-  SearchProperty          = 0x03,
-  MaxListCount            = 0x04,
-  ListStartOffset         = 0x05,
-  PropertySelector        = 0x06,
-  Format                  = 0x07,
-  PhonebookSize           = 0x08,
-  NewMissedCalls          = 0x09,
+  Order = 0x01,
+  SearchValue = 0x02,
+  SearchProperty = 0x03,
+  MaxListCount = 0x04,
+  ListStartOffset = 0x05,
+  PropertySelector = 0x06,
+  Format = 0x07,
+  PhonebookSize = 0x08,
+  NewMissedCalls = 0x09,
   // ----- enumerators below are supported since PBAP 1.2 ----- //
-  PrimaryVersionCounter   = 0x0A,
+  PrimaryVersionCounter = 0x0A,
   SecondaryVersionCounter = 0x0B,
-  vCardSelector           = 0x0C,
-  DatabaseIdentifier      = 0x0D,
-  vCardSelectorOperator   = 0x0E,
-  ResetNewMissedCalls     = 0x0F,
-  PbapSupportedFeatures   = 0x10
+  vCardSelector = 0x0C,
+  DatabaseIdentifier = 0x0D,
+  vCardSelectorOperator = 0x0E,
+  ResetNewMissedCalls = 0x0F,
+  PbapSupportedFeatures = 0x10
 };
 
 class BluetoothSocket;
 class ObexHeaderSet;
 
-class BluetoothPbapManager : public BluetoothSocketObserver
-                           , public BluetoothProfileManagerBase
-{
-public:
+class BluetoothPbapManager : public BluetoothSocketObserver,
+                             public BluetoothProfileManagerBase {
+ public:
   BT_DECL_PROFILE_MGR_BASE
   BT_DECL_SOCKET_OBSERVER
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("PBAP");
   }
 
@@ -111,10 +108,10 @@ public:
    */
   bool ReplyToPullvCardEntry(BlobImpl* aBlob);
 
-protected:
+ protected:
   virtual ~BluetoothPbapManager();
 
-private:
+ private:
   BluetoothPbapManager();
 
   nsresult Init();
@@ -147,7 +144,7 @@ private:
 
   void AfterPbapConnected();
   void AfterPbapDisconnected();
-  nsresult MD5Hash(char *buf, uint32_t len); // mHashRes stores the result
+  nsresult MD5Hash(char* buf, uint32_t len);  // mHashRes stores the result
 
   /**
    * The nonce for OBEX authentication procedure.
@@ -161,7 +158,6 @@ private:
    * Whether phonebook size is required for OBEX response
    */
   bool mPhonebookSizeRequired;
-
 
   /**
    * Whether 'NewMissedCalls' is required for the OBEX response
@@ -209,4 +205,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothPbapManager_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothPbapManager_h

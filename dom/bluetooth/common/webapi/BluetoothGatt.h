@@ -18,30 +18,25 @@ namespace mozilla {
 namespace dom {
 class Promise;
 }
-}
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSignal;
 class BluetoothValue;
 
-class BluetoothGatt final : public DOMEventTargetHelper
-                          , public BluetoothSignalObserver
-{
-public:
+class BluetoothGatt final : public DOMEventTargetHelper,
+                            public BluetoothSignalObserver {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothGatt, DOMEventTargetHelper)
 
   /****************************************************************************
    * Attribute Getters
    ***************************************************************************/
-  BluetoothConnectionState ConnectionState() const
-  {
-    return mConnectionState;
-  }
+  BluetoothConnectionState ConnectionState() const { return mConnectionState; }
 
-  void GetServices(nsTArray<RefPtr<BluetoothGattService>>& aServices) const
-  {
+  void GetServices(nsTArray<RefPtr<BluetoothGattService>>& aServices) const {
     aServices = mServices;
   }
 
@@ -62,21 +57,18 @@ public:
   /****************************************************************************
    * Others
    ***************************************************************************/
-  void Notify(const BluetoothSignal& aParam) override; // BluetoothSignalObserver
+  void Notify(
+      const BluetoothSignal& aParam) override;  // BluetoothSignalObserver
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-     return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
   virtual void DisconnectFromOwner() override;
 
-  BluetoothGatt(nsPIDOMWindowInner* aOwner,
-                const nsAString& aDeviceAddr);
+  BluetoothGatt(nsPIDOMWindowInner* aOwner, const nsAString& aDeviceAddr);
 
-private:
+ private:
   ~BluetoothGatt();
 
   /**
@@ -191,4 +183,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothGatt_h
+#endif  // mozilla_dom_bluetooth_BluetoothGatt_h

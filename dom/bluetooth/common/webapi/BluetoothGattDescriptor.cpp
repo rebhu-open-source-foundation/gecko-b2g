@@ -57,16 +57,14 @@ const uint16_t BluetoothGattDescriptor::sHandleCount = 1;
 
 // Constructor of BluetoothGattDescriptor in ATT client role
 BluetoothGattDescriptor::BluetoothGattDescriptor(
-  nsPIDOMWindowInner* aOwner,
-  BluetoothGattCharacteristic* aCharacteristic,
-  const BluetoothGattId& aDescriptorId)
-  : mOwner(aOwner)
-  , mCharacteristic(aCharacteristic)
-  , mDescriptorId(aDescriptorId)
-  , mPermissions(BLUETOOTH_EMPTY_GATT_ATTR_PERM)
-  , mAttRole(ATT_CLIENT_ROLE)
-  , mActive(true)
-{
+    nsPIDOMWindowInner* aOwner, BluetoothGattCharacteristic* aCharacteristic,
+    const BluetoothGattId& aDescriptorId)
+    : mOwner(aOwner),
+      mCharacteristic(aCharacteristic),
+      mDescriptorId(aDescriptorId),
+      mPermissions(BLUETOOTH_EMPTY_GATT_ATTR_PERM),
+      mAttRole(ATT_CLIENT_ROLE),
+      mActive(true) {
   MOZ_ASSERT(aOwner);
   MOZ_ASSERT(aCharacteristic);
 
@@ -80,18 +78,15 @@ BluetoothGattDescriptor::BluetoothGattDescriptor(
 
 // Constructor of BluetoothGattDescriptor in ATT server role
 BluetoothGattDescriptor::BluetoothGattDescriptor(
-  nsPIDOMWindowInner* aOwner,
-  BluetoothGattCharacteristic* aCharacteristic,
-  const nsAString& aDescriptorUuid,
-  const GattPermissions& aPermissions,
-  const ArrayBuffer& aValue)
-  : mOwner(aOwner)
-  , mCharacteristic(aCharacteristic)
-  , mUuidStr(aDescriptorUuid)
-  , mPermissions(BLUETOOTH_EMPTY_GATT_ATTR_PERM)
-  , mAttRole(ATT_SERVER_ROLE)
-  , mActive(false)
-{
+    nsPIDOMWindowInner* aOwner, BluetoothGattCharacteristic* aCharacteristic,
+    const nsAString& aDescriptorUuid, const GattPermissions& aPermissions,
+    const ArrayBuffer& aValue)
+    : mOwner(aOwner),
+      mCharacteristic(aCharacteristic),
+      mUuidStr(aDescriptorUuid),
+      mPermissions(BLUETOOTH_EMPTY_GATT_ATTR_PERM),
+      mAttRole(ATT_SERVER_ROLE),
+      mActive(false) {
   MOZ_ASSERT(aOwner);
   MOZ_ASSERT(aCharacteristic);
 
@@ -107,26 +102,21 @@ BluetoothGattDescriptor::BluetoothGattDescriptor(
   mValue.AppendElements(aValue.Data(), aValue.Length());
 }
 
-BluetoothGattDescriptor::~BluetoothGattDescriptor()
-{
+BluetoothGattDescriptor::~BluetoothGattDescriptor() {
   nsString path;
   GeneratePathFromGattId(mDescriptorId, path);
   UnregisterBluetoothSignalHandler(path, this);
 }
 
-void
-BluetoothGattDescriptor::HandleDescriptorValueUpdated(
-  const BluetoothValue& aValue)
-{
+void BluetoothGattDescriptor::HandleDescriptorValueUpdated(
+    const BluetoothValue& aValue) {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfuint8_t);
 
   mValue = aValue.get_ArrayOfuint8_t();
 }
 
-void
-BluetoothGattDescriptor::AssignDescriptorHandle(
-  const BluetoothAttributeHandle& aDescriptorHandle)
-{
+void BluetoothGattDescriptor::AssignDescriptorHandle(
+    const BluetoothAttributeHandle& aDescriptorHandle) {
   MOZ_ASSERT(mAttRole == ATT_SERVER_ROLE);
   MOZ_ASSERT(!mActive);
   MOZ_ASSERT(!mDescriptorHandle.mHandle);
@@ -135,9 +125,7 @@ BluetoothGattDescriptor::AssignDescriptorHandle(
   mActive = true;
 }
 
-void
-BluetoothGattDescriptor::Notify(const BluetoothSignal& aData)
-{
+void BluetoothGattDescriptor::Notify(const BluetoothSignal& aData) {
   BT_LOGD("[D] %s", NS_ConvertUTF16toUTF8(aData.name()).get());
   NS_ENSURE_TRUE_VOID(mSignalRegistered);
 
@@ -150,48 +138,36 @@ BluetoothGattDescriptor::Notify(const BluetoothSignal& aData)
   }
 }
 
-void
-BluetoothGattDescriptor::GetUuid(BluetoothUuid& aUuid) const
-{
+void BluetoothGattDescriptor::GetUuid(BluetoothUuid& aUuid) const {
   aUuid = mDescriptorId.mUuid;
 }
 
-JSObject*
-BluetoothGattDescriptor::WrapObject(JSContext* aContext,
-                                    JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothGattDescriptor::WrapObject(
+    JSContext* aContext, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothGattDescriptor_Binding::Wrap(aContext, this, aGivenProto);
 }
 
-void
-BluetoothGattDescriptor::GetValue(JSContext* cx,
-                                  JS::MutableHandle<JSObject*> aValue) const
-{
+void BluetoothGattDescriptor::GetValue(
+    JSContext* cx, JS::MutableHandle<JSObject*> aValue) const {
   aValue.set(mValue.IsEmpty()
-             ? nullptr
-             : ArrayBuffer::Create(cx, mValue.Length(), mValue.Elements()));
+                 ? nullptr
+                 : ArrayBuffer::Create(cx, mValue.Length(), mValue.Elements()));
 }
 
-void
-BluetoothGattDescriptor::GetPermissions(GattPermissions& aPermissions) const
-{
+void BluetoothGattDescriptor::GetPermissions(
+    GattPermissions& aPermissions) const {
   GattPermissionsToDictionary(mPermissions, aPermissions);
 }
 
-class ReadValueTask final : public BluetoothReplyRunnable
-{
-public:
+class ReadValueTask final : public BluetoothReplyRunnable {
+ public:
   ReadValueTask(BluetoothGattDescriptor* aDescriptor, Promise* aPromise)
-    : BluetoothReplyRunnable(nullptr, aPromise)
-    , mDescriptor(aDescriptor)
-  {
+      : BluetoothReplyRunnable(nullptr, aPromise), mDescriptor(aDescriptor) {
     MOZ_ASSERT(aDescriptor);
     MOZ_ASSERT(aPromise);
   }
 
-  bool
-  ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue)
-  {
+  bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) {
     aValue.setUndefined();
 
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
@@ -209,20 +185,16 @@ public:
     return true;
   }
 
-  void
-  ReleaseMembers()
-  {
+  void ReleaseMembers() {
     BluetoothReplyRunnable::ReleaseMembers();
     mDescriptor = nullptr;
   }
 
-private:
+ private:
   RefPtr<BluetoothGattDescriptor> mDescriptor;
 };
 
-already_AddRefed<Promise>
-BluetoothGattDescriptor::ReadValue(ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothGattDescriptor::ReadValue(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -234,9 +206,8 @@ BluetoothGattDescriptor::ReadValue(ErrorResult& aRv)
 
   BluetoothUuid appUuid;
   BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(StringToUuid(
-                        mCharacteristic->Service()->GetAppUuid(), appUuid)),
-                        promise,
-                        NS_ERROR_DOM_OPERATION_ERR);
+                            mCharacteristic->Service()->GetAppUuid(), appUuid)),
+                        promise, NS_ERROR_DOM_OPERATION_ERR);
 
   if (mAttRole == ATT_SERVER_ROLE) {
     promise->MaybeResolve(mValue);
@@ -247,19 +218,15 @@ BluetoothGattDescriptor::ReadValue(ErrorResult& aRv)
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
   bs->GattClientReadDescriptorValueInternal(
-    appUuid,
-    mCharacteristic->Service()->GetServiceId(),
-    mCharacteristic->GetCharacteristicId(),
-    mDescriptorId,
-    new ReadValueTask(this, promise));
+      appUuid, mCharacteristic->Service()->GetServiceId(),
+      mCharacteristic->GetCharacteristicId(), mDescriptorId,
+      new ReadValueTask(this, promise));
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothGattDescriptor::WriteValue(
-  const ArrayBuffer& aValue, ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothGattDescriptor::WriteValue(
+    const ArrayBuffer& aValue, ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -271,9 +238,8 @@ BluetoothGattDescriptor::WriteValue(
 
   BluetoothUuid appUuid;
   BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(StringToUuid(
-                        mCharacteristic->Service()->GetAppUuid(), appUuid)),
-                        promise,
-                        NS_ERROR_DOM_OPERATION_ERR);
+                            mCharacteristic->Service()->GetAppUuid(), appUuid)),
+                        promise, NS_ERROR_DOM_OPERATION_ERR);
 
   aValue.ComputeState();
 
@@ -292,12 +258,9 @@ BluetoothGattDescriptor::WriteValue(
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
   bs->GattClientWriteDescriptorValueInternal(
-    appUuid,
-    mCharacteristic->Service()->GetServiceId(),
-    mCharacteristic->GetCharacteristicId(),
-    mDescriptorId,
-    value,
-    new BluetoothVoidReplyRunnable(nullptr, promise));
+      appUuid, mCharacteristic->Service()->GetServiceId(),
+      mCharacteristic->GetCharacteristicId(), mDescriptorId, value,
+      new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();
 }

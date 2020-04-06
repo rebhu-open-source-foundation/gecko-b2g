@@ -32,61 +32,49 @@ NS_INTERFACE_MAP_END
  */
 
 // Bit 23 ~ Bit 13: Major service class
-#define GET_MAJOR_SERVICE_CLASS(cod) (((cod) & 0xffe000) >> 13)
+#define GET_MAJOR_SERVICE_CLASS(cod) (((cod)&0xffe000) >> 13)
 
 // Bit 12 ~ Bit 8: Major device class
-#define GET_MAJOR_DEVICE_CLASS(cod)  (((cod) & 0x1f00) >> 8)
+#define GET_MAJOR_DEVICE_CLASS(cod) (((cod)&0x1f00) >> 8)
 
 // Bit 7 ~ Bit 2: Minor device class
-#define GET_MINOR_DEVICE_CLASS(cod)  (((cod) & 0xfc) >> 2)
+#define GET_MINOR_DEVICE_CLASS(cod) (((cod)&0xfc) >> 2)
 
 BluetoothClassOfDevice::BluetoothClassOfDevice(nsPIDOMWindowInner* aOwner)
-  : mOwnerWindow(aOwner)
-{
+    : mOwnerWindow(aOwner) {
   MOZ_ASSERT(aOwner);
 
   Reset();
 }
 
-BluetoothClassOfDevice::~BluetoothClassOfDevice()
-{}
+BluetoothClassOfDevice::~BluetoothClassOfDevice() {}
 
-void
-BluetoothClassOfDevice::Reset()
-{
+void BluetoothClassOfDevice::Reset() {
   mMajorServiceClass = 0;
-  mMajorDeviceClass = 0x1F; // UNCATEGORIZED
+  mMajorDeviceClass = 0x1F;  // UNCATEGORIZED
   mMinorDeviceClass = 0;
 }
 
-bool
-BluetoothClassOfDevice::Equals(const uint32_t aValue)
-{
+bool BluetoothClassOfDevice::Equals(const uint32_t aValue) {
   return (mMajorServiceClass == GET_MAJOR_SERVICE_CLASS(aValue) &&
           mMajorDeviceClass == GET_MAJOR_DEVICE_CLASS(aValue) &&
           mMinorDeviceClass == GET_MINOR_DEVICE_CLASS(aValue));
 }
 
-uint32_t
-BluetoothClassOfDevice::ToUint32()
-{
-  return (mMajorServiceClass & 0x7ff) << 13 |
-         (mMajorDeviceClass & 0x1f) << 8 |
+uint32_t BluetoothClassOfDevice::ToUint32() {
+  return (mMajorServiceClass & 0x7ff) << 13 | (mMajorDeviceClass & 0x1f) << 8 |
          (mMinorDeviceClass & 0x3f) << 2;
 }
 
-void
-BluetoothClassOfDevice::Update(const uint32_t aValue)
-{
+void BluetoothClassOfDevice::Update(const uint32_t aValue) {
   mMajorServiceClass = GET_MAJOR_SERVICE_CLASS(aValue);
   mMajorDeviceClass = GET_MAJOR_DEVICE_CLASS(aValue);
   mMinorDeviceClass = GET_MINOR_DEVICE_CLASS(aValue);
 }
 
 // static
-already_AddRefed<BluetoothClassOfDevice>
-BluetoothClassOfDevice::Create(nsPIDOMWindowInner* aOwner)
-{
+already_AddRefed<BluetoothClassOfDevice> BluetoothClassOfDevice::Create(
+    nsPIDOMWindowInner* aOwner) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aOwner);
 
@@ -94,9 +82,7 @@ BluetoothClassOfDevice::Create(nsPIDOMWindowInner* aOwner)
   return cod.forget();
 }
 
-JSObject*
-BluetoothClassOfDevice::WrapObject(JSContext* aCx,
-                                   JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothClassOfDevice::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothClassOfDevice_Binding::Wrap(aCx, this, aGivenProto);
 }

@@ -19,25 +19,21 @@ class nsIOutputStream;
 class nsIInputStream;
 class nsIVolumeMountLock;
 
-
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSocket;
 class ObexHeaderSet;
 
-class BluetoothOppManager : public BluetoothSocketObserver
-                          , public BluetoothProfileManagerBase
-{
+class BluetoothOppManager : public BluetoothSocketObserver,
+                            public BluetoothProfileManagerBase {
   class CloseSocketTask;
   class ReadFileTask;
   class SendSocketDataTask;
 
-  class SendFileBatch final
-  {
-  public:
+  class SendFileBatch final {
+   public:
     SendFileBatch(const BluetoothAddress& aDeviceAddress, BlobImpl* aBlob)
-      : mDeviceAddress(aDeviceAddress)
-    {
+        : mDeviceAddress(aDeviceAddress) {
       mBlobs.AppendElement(aBlob);
     }
 
@@ -45,12 +41,10 @@ class BluetoothOppManager : public BluetoothSocketObserver
     nsTArray<RefPtr<BlobImpl>> mBlobs;
   };
 
-public:
-
+ public:
   BT_DECL_PROFILE_MGR_BASE
   BT_DECL_SOCKET_OBSERVER
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("OPP");
   }
 
@@ -79,10 +73,10 @@ public:
   bool ExtractBlobHeaders();
   void CheckPutFinal(uint32_t aNumRead);
 
-protected:
+ protected:
   virtual ~BluetoothOppManager();
 
-private:
+ private:
   BluetoothOppManager();
   nsresult Init();
   void Uninit();
@@ -129,8 +123,7 @@ private:
    *         false if the received length exceeds/not reaches the expected
    *         length.
    */
-  bool ComposePacket(uint8_t aOpCode,
-                     mozilla::ipc::UnixSocketBuffer* aMessage);
+  bool ComposePacket(uint8_t aOpCode, mozilla::ipc::UnixSocketBuffer* aMessage);
 
   /**
    * OBEX session status.
@@ -245,4 +238,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothOppManager_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothOppManager_h

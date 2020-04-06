@@ -16,36 +16,32 @@ class ErrorResult;
 namespace dom {
 class Promise;
 }
-}
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothObexAuthHandle final : public nsISupports
-                                    , public nsWrapperCache
-{
-public:
+class BluetoothObexAuthHandle final : public nsISupports,
+                                      public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothObexAuthHandle)
 
-  static already_AddRefed<BluetoothObexAuthHandle>
-    Create(nsPIDOMWindowInner* aOwner);
+  static already_AddRefed<BluetoothObexAuthHandle> Create(
+      nsPIDOMWindowInner* aOwner);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
   // Set password to the OBEX authentication request
-  already_AddRefed<Promise>
-    SetPassword(const nsAString& aPassword, ErrorResult& aRv);
+  already_AddRefed<Promise> SetPassword(const nsAString& aPassword,
+                                        ErrorResult& aRv);
 
   // Reject the OBEX authentication request
   already_AddRefed<Promise> Reject(ErrorResult& aRv);
 
-private:
+ private:
   BluetoothObexAuthHandle(nsPIDOMWindowInner* aOwner);
   ~BluetoothObexAuthHandle();
 
@@ -54,4 +50,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothObexAuthHandle_h
+#endif  // mozilla_dom_bluetooth_BluetoothObexAuthHandle_h

@@ -17,24 +17,17 @@ using mozilla::ipc::DaemonSocketPDU;
 using mozilla::ipc::DaemonSocketPDUHeader;
 using mozilla::ipc::DaemonSocketResultHandler;
 
-class BluetoothDaemonA2dpModule
-{
-public:
-  enum {
-    SERVICE_ID = 0x06
-  };
+class BluetoothDaemonA2dpModule {
+ public:
+  enum { SERVICE_ID = 0x06 };
 
-  enum {
-    OPCODE_ERROR = 0x00,
-    OPCODE_CONNECT = 0x01,
-    OPCODE_DISCONNECT = 0x02
-  };
+  enum { OPCODE_ERROR = 0x00, OPCODE_CONNECT = 0x01, OPCODE_DISCONNECT = 0x02 };
 
   virtual nsresult Send(DaemonSocketPDU* aPDU,
                         DaemonSocketResultHandler* aRes) = 0;
 
   void SetNotificationHandler(
-    BluetoothA2dpNotificationHandler* aNotificationHandler);
+      BluetoothA2dpNotificationHandler* aNotificationHandler);
 
   //
   // Commands
@@ -45,36 +38,31 @@ public:
   nsresult DisconnectCmd(const BluetoothAddress& aBdAddr,
                          BluetoothA2dpResultHandler* aRes);
 
-protected:
-  void HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU, DaemonSocketResultHandler* aRes);
+ protected:
+  void HandleSvc(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+                 DaemonSocketResultHandler* aRes);
 
   //
   // Responses
   //
 
-  typedef mozilla::ipc::DaemonResultRunnable0<
-    BluetoothA2dpResultHandler, void>
-    ResultRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable0<BluetoothA2dpResultHandler, void>
+      ResultRunnable;
 
-  typedef mozilla::ipc::DaemonResultRunnable1<
-    BluetoothA2dpResultHandler, void, BluetoothStatus, BluetoothStatus>
-    ErrorRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable1<BluetoothA2dpResultHandler, void,
+                                              BluetoothStatus, BluetoothStatus>
+      ErrorRunnable;
 
-  void ErrorRsp(const DaemonSocketPDUHeader& aHeader,
-                DaemonSocketPDU& aPDU,
+  void ErrorRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                 BluetoothA2dpResultHandler* aRes);
 
-  void ConnectRsp(const DaemonSocketPDUHeader& aHeader,
-                  DaemonSocketPDU& aPDU,
+  void ConnectRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                   BluetoothA2dpResultHandler* aRes);
 
   void DisconnectRsp(const DaemonSocketPDUHeader& aHeader,
-                     DaemonSocketPDU& aPDU,
-                     BluetoothA2dpResultHandler* aRes);
+                     DaemonSocketPDU& aPDU, BluetoothA2dpResultHandler* aRes);
 
-  void HandleRsp(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+  void HandleRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
   //
@@ -84,22 +72,19 @@ protected:
   class NotificationHandlerWrapper;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-    NotificationHandlerWrapper, void,
-    BluetoothA2dpConnectionState, BluetoothAddress,
-    BluetoothA2dpConnectionState, const BluetoothAddress&>
-    ConnectionStateNotification;
+      NotificationHandlerWrapper, void, BluetoothA2dpConnectionState,
+      BluetoothAddress, BluetoothA2dpConnectionState, const BluetoothAddress&>
+      ConnectionStateNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-    NotificationHandlerWrapper, void,
-    BluetoothA2dpAudioState, BluetoothAddress,
-    BluetoothA2dpAudioState, const BluetoothAddress&>
-    AudioStateNotification;
+      NotificationHandlerWrapper, void, BluetoothA2dpAudioState,
+      BluetoothAddress, BluetoothA2dpAudioState, const BluetoothAddress&>
+      AudioStateNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable4<
-    NotificationHandlerWrapper, void,
-    BluetoothAddress, uint32_t, uint32_t, uint32_t,
-    const BluetoothAddress&, uint32_t, uint32_t, uint32_t>
-    AudioConfigNotification;
+      NotificationHandlerWrapper, void, BluetoothAddress, uint32_t, uint32_t,
+      uint32_t, const BluetoothAddress&, uint32_t, uint32_t, uint32_t>
+      AudioConfigNotification;
 
   void ConnectionStateNtf(const DaemonSocketPDUHeader& aHeader,
                           DaemonSocketPDU& aPDU);
@@ -110,22 +95,19 @@ protected:
   void AudioConfigNtf(const DaemonSocketPDUHeader& aHeader,
                       DaemonSocketPDU& aPDU);
 
-  void HandleNtf(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+  void HandleNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
   static BluetoothA2dpNotificationHandler* sNotificationHandler;
 };
 
-class BluetoothDaemonA2dpInterface final
-  : public BluetoothA2dpInterface
-{
-public:
+class BluetoothDaemonA2dpInterface final : public BluetoothA2dpInterface {
+ public:
   BluetoothDaemonA2dpInterface(BluetoothDaemonA2dpModule* aModule);
   ~BluetoothDaemonA2dpInterface();
 
   void SetNotificationHandler(
-    BluetoothA2dpNotificationHandler* aNotificationHandler) override;
+      BluetoothA2dpNotificationHandler* aNotificationHandler) override;
 
   /* Connect / Disconnect */
 
@@ -134,9 +116,8 @@ public:
   void Disconnect(const BluetoothAddress& aBdAddr,
                   BluetoothA2dpResultHandler* aRes) override;
 
-private:
-  void DispatchError(BluetoothA2dpResultHandler* aRes,
-                     BluetoothStatus aStatus);
+ private:
+  void DispatchError(BluetoothA2dpResultHandler* aRes, BluetoothStatus aStatus);
   void DispatchError(BluetoothA2dpResultHandler* aRes, nsresult aRv);
 
   BluetoothDaemonA2dpModule* mModule;
@@ -144,4 +125,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonA2dpInterface_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonA2dpInterface_h

@@ -50,17 +50,12 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(BluetoothManager, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothManager, DOMEventTargetHelper)
 
-class GetAdaptersTask : public BluetoothReplyRunnable
-{
+class GetAdaptersTask : public BluetoothReplyRunnable {
  public:
   GetAdaptersTask(BluetoothManager* aManager)
-    : BluetoothReplyRunnable(nullptr)
-    , mManager(aManager)
-  { }
+      : BluetoothReplyRunnable(nullptr), mManager(aManager) {}
 
-  bool
-  ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) override
-  {
+  bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) override {
     /**
      * Unwrap BluetoothReply.BluetoothReplySuccess.BluetoothValue =
      *   BluetoothNamedValue[]
@@ -75,12 +70,13 @@ class GetAdaptersTask : public BluetoothReplyRunnable
 
     // Extract the array of all adapters' properties
     const BluetoothValue& adaptersProperties =
-      mReply->get_BluetoothReplySuccess().value();
+        mReply->get_BluetoothReplySuccess().value();
     NS_ENSURE_TRUE(adaptersProperties.type() ==
-                   BluetoothValue::TArrayOfBluetoothNamedValue, false);
+                       BluetoothValue::TArrayOfBluetoothNamedValue,
+                   false);
 
     const nsTArray<BluetoothNamedValue>& adaptersPropertiesArray =
-      adaptersProperties.get_ArrayOfBluetoothNamedValue();
+        adaptersProperties.get_ArrayOfBluetoothNamedValue();
 
     // Append a BluetoothAdapter into adapters array for each properties array
     uint32_t numAdapters = adaptersPropertiesArray.Length();
@@ -95,21 +91,17 @@ class GetAdaptersTask : public BluetoothReplyRunnable
     return true;
   }
 
-  virtual void
-  ReleaseMembers() override
-  {
+  virtual void ReleaseMembers() override {
     BluetoothReplyRunnable::ReleaseMembers();
     mManager = nullptr;
   }
 
-private:
+ private:
   RefPtr<BluetoothManager> mManager;
 };
 
-BluetoothManager::BluetoothManager(nsPIDOMWindowInner *aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mDefaultAdapterIndex(-1)
-{
+BluetoothManager::BluetoothManager(nsPIDOMWindowInner* aWindow)
+    : DOMEventTargetHelper(aWindow), mDefaultAdapterIndex(-1) {
   MOZ_ASSERT(aWindow);
 
   RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MANAGER), this);
@@ -122,37 +114,30 @@ BluetoothManager::BluetoothManager(nsPIDOMWindowInner *aWindow)
   NS_ENSURE_SUCCESS_VOID(bs->GetAdaptersInternal(result));
 }
 
-BluetoothManager::~BluetoothManager()
-{
+BluetoothManager::~BluetoothManager() {
   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MANAGER), this);
 }
 
-void
-BluetoothManager::DisconnectFromOwner()
-{
+void BluetoothManager::DisconnectFromOwner() {
   DOMEventTargetHelper::DisconnectFromOwner();
   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MANAGER), this);
 }
 
-BluetoothAdapter*
-BluetoothManager::GetDefaultAdapter()
-{
+BluetoothAdapter* BluetoothManager::GetDefaultAdapter() {
   if (!DefaultAdapterExists()) {
     return nullptr;
   }
   return mAdapters[mDefaultAdapterIndex];
 }
 
-void
-BluetoothManager::AppendAdapter(const BluetoothValue& aValue)
-{
+void BluetoothManager::AppendAdapter(const BluetoothValue& aValue) {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
 
   // Create a new BluetoothAdapter and append it to adapters array
   const nsTArray<BluetoothNamedValue>& values =
-    aValue.get_ArrayOfBluetoothNamedValue();
+      aValue.get_ArrayOfBluetoothNamedValue();
   RefPtr<BluetoothAdapter> adapter =
-    BluetoothAdapter::Create(GetOwner(), values);
+      BluetoothAdapter::Create(GetOwner(), values);
 
   mAdapters.AppendElement(adapter);
 
@@ -163,16 +148,14 @@ BluetoothManager::AppendAdapter(const BluetoothValue& aValue)
   }
 }
 
-void
-BluetoothManager::GetAdapters(nsTArray<RefPtr<BluetoothAdapter> >& aAdapters)
-{
+void BluetoothManager::GetAdapters(
+    nsTArray<RefPtr<BluetoothAdapter> >& aAdapters) {
   aAdapters = mAdapters;
 }
 
 // static
-already_AddRefed<BluetoothManager>
-BluetoothManager::Create(nsPIDOMWindowInner* aWindow)
-{
+already_AddRefed<BluetoothManager> BluetoothManager::Create(
+    nsPIDOMWindowInner* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
 
@@ -180,9 +163,7 @@ BluetoothManager::Create(nsPIDOMWindowInner* aWindow)
   return manager.forget();
 }
 
-void
-BluetoothManager::HandleAdapterAdded(const BluetoothValue& aValue)
-{
+void BluetoothManager::HandleAdapterAdded(const BluetoothValue& aValue) {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
 
   AppendAdapter(aValue);
@@ -193,9 +174,7 @@ BluetoothManager::HandleAdapterAdded(const BluetoothValue& aValue)
   DispatchAdapterEvent(NS_LITERAL_STRING("adapteradded"), init);
 }
 
-void
-BluetoothManager::HandleAdapterRemoved(const BluetoothValue& aValue)
-{
+void BluetoothManager::HandleAdapterRemoved(const BluetoothValue& aValue) {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TBluetoothAddress);
   MOZ_ASSERT(DefaultAdapterExists());
 
@@ -224,9 +203,7 @@ BluetoothManager::HandleAdapterRemoved(const BluetoothValue& aValue)
   }
 }
 
-void
-BluetoothManager::ReselectDefaultAdapter()
-{
+void BluetoothManager::ReselectDefaultAdapter() {
   // Select the first of existing/remaining adapters as default adapter
   mDefaultAdapterIndex = mAdapters.IsEmpty() ? -1 : 0;
 
@@ -234,38 +211,30 @@ BluetoothManager::ReselectDefaultAdapter()
   DispatchAttributeEvent();
 }
 
-void
-BluetoothManager::DispatchAdapterEvent(const nsAString& aType,
-                                       const BluetoothAdapterEventInit& aInit)
-{
+void BluetoothManager::DispatchAdapterEvent(
+    const nsAString& aType, const BluetoothAdapterEventInit& aInit) {
   RefPtr<BluetoothAdapterEvent> event =
-    BluetoothAdapterEvent::Constructor(this, aType, aInit);
+      BluetoothAdapterEvent::Constructor(this, aType, aInit);
   DispatchTrustedEvent(event);
 }
 
-void
-BluetoothManager::DispatchAttributeEvent()
-{
+void BluetoothManager::DispatchAttributeEvent() {
   MOZ_ASSERT(NS_IsMainThread());
 
   Sequence<nsString> types;
-  BT_APPEND_ENUM_STRING_FALLIBLE(types,
-                                 BluetoothManagerAttribute,
+  BT_APPEND_ENUM_STRING_FALLIBLE(types, BluetoothManagerAttribute,
                                  BluetoothManagerAttribute::DefaultAdapter);
 
   // Notify application of default adapter change
   BluetoothAttributeEventInit init;
   init.mAttrs = types;
-  RefPtr<BluetoothAttributeEvent> event =
-    BluetoothAttributeEvent::Constructor(
+  RefPtr<BluetoothAttributeEvent> event = BluetoothAttributeEvent::Constructor(
       this, NS_LITERAL_STRING(ATTRIBUTE_CHANGED_ID), init);
 
   DispatchTrustedEvent(event);
 }
 
-void
-BluetoothManager::Notify(const BluetoothSignal& aData)
-{
+void BluetoothManager::Notify(const BluetoothSignal& aData) {
   BT_LOGD("[M] %s", NS_ConvertUTF16toUTF8(aData.name()).get());
   NS_ENSURE_TRUE_VOID(mSignalRegistered);
 
@@ -279,15 +248,12 @@ BluetoothManager::Notify(const BluetoothSignal& aData)
   }
 }
 
-JSObject*
-BluetoothManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothManager::WrapObject(JSContext* aCx,
+                                       JS::Handle<JSObject*> aGivenProto) {
   return BluetoothManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // static
-bool
-BluetoothManager::B2GGattClientEnabled(JSContext* cx, JSObject* aGlobal)
-{
+bool BluetoothManager::B2GGattClientEnabled(JSContext* cx, JSObject* aGlobal) {
   return !Preferences::GetBool("dom.bluetooth.webbluetooth.enabled");
 }

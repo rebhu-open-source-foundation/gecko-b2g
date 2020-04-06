@@ -16,20 +16,17 @@ BEGIN_BLUETOOTH_NAMESPACE
 // |BluetoothAddress|
 //
 
-const BluetoothAddress& BluetoothAddress::ANY()
-{
+const BluetoothAddress& BluetoothAddress::ANY() {
   static const BluetoothAddress sAddress(0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
   return sAddress;
 }
 
-const BluetoothAddress& BluetoothAddress::ALL()
-{
+const BluetoothAddress& BluetoothAddress::ALL() {
   static const BluetoothAddress sAddress(0xff, 0xff, 0xff, 0xff, 0xff, 0xff);
   return sAddress;
 }
 
-const BluetoothAddress& BluetoothAddress::LOCAL()
-{
+const BluetoothAddress& BluetoothAddress::LOCAL() {
   static const BluetoothAddress sAddress(0x00, 0x00, 0x00, 0xff, 0xff, 0xff);
   return sAddress;
 }
@@ -38,12 +35,10 @@ const BluetoothAddress& BluetoothAddress::LOCAL()
 // |BluetoothUuid|
 //
 
-const BluetoothUuid& BluetoothUuid::ZERO()
-{
-  static const BluetoothUuid sUuid(0x00, 0x00, 0x00, 0x00,
-                                   0x00, 0x00, 0x00, 0x00,
-                                   0x00, 0x00, 0x00, 0x00,
-                                   0x00, 0x00, 0x00, 0x00);
+const BluetoothUuid& BluetoothUuid::ZERO() {
+  static const BluetoothUuid sUuid(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00);
   return sUuid;
 }
 
@@ -56,12 +51,10 @@ const BluetoothUuid& BluetoothUuid::ZERO()
  * the Bluetooth Base UUID and has the value 00000000-0000-1000-8000-
  * 00805F9B34FB, from the Bluetooth Assigned Numbers document.
  */
-const BluetoothUuid& BluetoothUuid::BASE()
-{
-  static const BluetoothUuid sUuid(0x00, 0x00, 0x00, 0x00,
-                                   0x00, 0x00, 0x10, 0x00,
-                                   0x80, 0x00, 0x00, 0x80,
-                                   0x5f, 0x9b, 0x34, 0xfb);
+const BluetoothUuid& BluetoothUuid::BASE() {
+  static const BluetoothUuid sUuid(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+                                   0x00, 0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b,
+                                   0x34, 0xfb);
   return sUuid;
 }
 

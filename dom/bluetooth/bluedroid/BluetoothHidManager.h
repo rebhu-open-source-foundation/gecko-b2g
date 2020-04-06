@@ -14,10 +14,9 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothHidManager : public BluetoothProfileManagerBase
-                          , public BluetoothHidNotificationHandler
-{
-public:
+class BluetoothHidManager : public BluetoothProfileManagerBase,
+                            public BluetoothHidNotificationHandler {
+ public:
   BT_DECL_PROFILE_MGR_BASE
 
   static const int MAX_NUM_CLIENTS;
@@ -25,8 +24,7 @@ public:
   void OnConnectError();
   void OnDisconnectError();
 
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("HID");
   }
 
@@ -36,17 +34,16 @@ public:
 
   void HandleBackendError();
   void GetReport(const BluetoothHidReportType& aReportType,
-                 const uint8_t aReportId,
-                 const uint16_t aBufSize);
+                 const uint8_t aReportId, const uint16_t aBufSize);
   void SendData(const uint16_t aDataLen, const uint8_t* aData);
   void SetReport(const BluetoothHidReportType& aReportType,
                  const BluetoothHidReport& aReport);
   void VirtualUnplug();
 
-protected:
+ protected:
   virtual ~BluetoothHidManager();
 
-private:
+ private:
   class DeinitProfileResultHandlerRunnable;
   class InitProfileResultHandlerRunnable;
   class RegisterModuleResultHandler;
@@ -69,9 +66,8 @@ private:
   // Bluetooth notifications
   //
 
-  void ConnectionStateNotification(
-    const BluetoothAddress& aBdAddr,
-    BluetoothHidConnectionState aState) override;
+  void ConnectionStateNotification(const BluetoothAddress& aBdAddr,
+                                   BluetoothHidConnectionState aState) override;
 
   bool mHidConnected;
   BluetoothAddress mDeviceAddress;
@@ -80,4 +76,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothHidManager_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothHidManager_h

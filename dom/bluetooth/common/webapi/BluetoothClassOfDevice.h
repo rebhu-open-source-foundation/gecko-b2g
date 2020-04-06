@@ -18,30 +18,19 @@ struct JSContext;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothClassOfDevice final : public nsISupports
-                                   , public nsWrapperCache
-{
-public:
+class BluetoothClassOfDevice final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BluetoothClassOfDevice)
 
-  static already_AddRefed<BluetoothClassOfDevice>
-    Create(nsPIDOMWindowInner* aOwner);
+  static already_AddRefed<BluetoothClassOfDevice> Create(
+      nsPIDOMWindowInner* aOwner);
 
-  uint16_t MajorServiceClass() const
-  {
-    return mMajorServiceClass;
-  }
+  uint16_t MajorServiceClass() const { return mMajorServiceClass; }
 
-  uint8_t MajorDeviceClass() const
-  {
-    return mMajorDeviceClass;
-  }
+  uint8_t MajorDeviceClass() const { return mMajorDeviceClass; }
 
-  uint8_t MinorDeviceClass() const
-  {
-    return mMinorDeviceClass;
-  }
+  uint8_t MinorDeviceClass() const { return mMinorDeviceClass; }
 
   /**
    * Compare whether CoD equals to CoD value.
@@ -65,14 +54,11 @@ public:
    */
   void Update(const uint32_t aValue);
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-    return mOwnerWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwnerWindow; }
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   BluetoothClassOfDevice(nsPIDOMWindowInner* aOwner);
   ~BluetoothClassOfDevice();
 
@@ -90,4 +76,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothClassOfDevice_h
+#endif  // mozilla_dom_bluetooth_BluetoothClassOfDevice_h

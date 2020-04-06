@@ -17,12 +17,9 @@ using mozilla::ipc::DaemonSocketPDU;
 using mozilla::ipc::DaemonSocketPDUHeader;
 using mozilla::ipc::DaemonSocketResultHandler;
 
-class BluetoothDaemonSetupModule
-{
-public:
-  enum {
-    SERVICE_ID = 0x00
-  };
+class BluetoothDaemonSetupModule {
+ public:
+  enum { SERVICE_ID = 0x00 };
 
   enum {
     OPCODE_ERROR = 0x00,
@@ -47,49 +44,39 @@ public:
   nsresult ConfigurationCmd(const BluetoothConfigurationParameter* aParam,
                             uint8_t aLen, BluetoothSetupResultHandler* aRes);
 
-protected:
+ protected:
+  void HandleSvc(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+                 DaemonSocketResultHandler* aRes);
 
-  void HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU, DaemonSocketResultHandler* aRes);
-
-private:
-
+ private:
   // Responses
   //
 
-  typedef mozilla::ipc::DaemonResultRunnable0<
-    BluetoothSetupResultHandler, void>
-    ResultRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable0<BluetoothSetupResultHandler, void>
+      ResultRunnable;
 
-  typedef mozilla::ipc::DaemonResultRunnable1<
-    BluetoothSetupResultHandler, void, BluetoothStatus, BluetoothStatus>
-    ErrorRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable1<BluetoothSetupResultHandler, void,
+                                              BluetoothStatus, BluetoothStatus>
+      ErrorRunnable;
 
-  void
-  ErrorRsp(const DaemonSocketPDUHeader& aHeader,
-           DaemonSocketPDU& aPDU,
-           BluetoothSetupResultHandler* aRes);
+  void ErrorRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+                BluetoothSetupResultHandler* aRes);
 
-  void
-  RegisterModuleRsp(const DaemonSocketPDUHeader& aHeader,
-                    DaemonSocketPDU& aPDU,
-                    BluetoothSetupResultHandler* aRes);
+  void RegisterModuleRsp(const DaemonSocketPDUHeader& aHeader,
+                         DaemonSocketPDU& aPDU,
+                         BluetoothSetupResultHandler* aRes);
 
-  void
-  UnregisterModuleRsp(const DaemonSocketPDUHeader& aHeader,
-                      DaemonSocketPDU& aPDU,
-                      BluetoothSetupResultHandler* aRes);
+  void UnregisterModuleRsp(const DaemonSocketPDUHeader& aHeader,
+                           DaemonSocketPDU& aPDU,
+                           BluetoothSetupResultHandler* aRes);
 
-  void
-  ConfigurationRsp(const DaemonSocketPDUHeader& aHeader,
-                   DaemonSocketPDU& aPDU,
-                   BluetoothSetupResultHandler* aRes);
+  void ConfigurationRsp(const DaemonSocketPDUHeader& aHeader,
+                        DaemonSocketPDU& aPDU,
+                        BluetoothSetupResultHandler* aRes);
 };
 
-class BluetoothDaemonSetupInterface final
-  : public BluetoothSetupInterface
-{
-public:
+class BluetoothDaemonSetupInterface final : public BluetoothSetupInterface {
+ public:
   BluetoothDaemonSetupInterface(BluetoothDaemonSetupModule* aModule);
   ~BluetoothDaemonSetupInterface();
 
@@ -101,10 +88,9 @@ public:
                         BluetoothSetupResultHandler* aRes) override;
 
   void Configuration(const BluetoothConfigurationParameter* aParam,
-                     uint8_t aLen,
-                     BluetoothSetupResultHandler* aRes) override;
+                     uint8_t aLen, BluetoothSetupResultHandler* aRes) override;
 
-private:
+ private:
   void DispatchError(BluetoothSetupResultHandler* aRes,
                      BluetoothStatus aStatus);
   void DispatchError(BluetoothSetupResultHandler* aRes, nsresult aRv);
@@ -114,4 +100,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonSetupInterface_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothDaemonSetupInterface_h

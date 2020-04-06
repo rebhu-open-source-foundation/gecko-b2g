@@ -26,30 +26,24 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothMapRequestHandle)
 NS_INTERFACE_MAP_END
 
 BluetoothMapRequestHandle::BluetoothMapRequestHandle(nsPIDOMWindowInner* aOwner)
-  : mOwner(aOwner)
-{
+    : mOwner(aOwner) {
   MOZ_ASSERT(aOwner);
 }
 
-BluetoothMapRequestHandle::~BluetoothMapRequestHandle()
-{
-}
+BluetoothMapRequestHandle::~BluetoothMapRequestHandle() {}
 
-already_AddRefed<BluetoothMapRequestHandle>
-BluetoothMapRequestHandle::Create(nsPIDOMWindowInner* aOwner)
-{
+already_AddRefed<BluetoothMapRequestHandle> BluetoothMapRequestHandle::Create(
+    nsPIDOMWindowInner* aOwner) {
   MOZ_ASSERT(aOwner);
 
   RefPtr<BluetoothMapRequestHandle> handle =
-    new BluetoothMapRequestHandle(aOwner);
+      new BluetoothMapRequestHandle(aOwner);
 
   return handle.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothMapRequestHandle::ReplyToFolderListing(uint8_t aMasId,
-  const nsAString& aFolderlists, ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothMapRequestHandle::ReplyToFolderListing(
+    uint8_t aMasId, const nsAString& aFolderlists, ErrorResult& aRv) {
   BT_LOGR("ReplyToFolderListing with the list %s",
           NS_ConvertUTF16toUTF8(aFolderlists).get());
 
@@ -69,19 +63,14 @@ BluetoothMapRequestHandle::ReplyToFolderListing(uint8_t aMasId,
   }
 
   bs->ReplyToMapFolderListing(aMasId, aFolderlists,
-    new BluetoothVoidReplyRunnable(nullptr, promise));
+                              new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothMapRequestHandle::ReplyToMessagesListing(uint8_t aMasId,
-                                                  Blob& aBlob,
-                                                  bool aNewMessage,
-                                                  const nsAString& aTimestamp,
-                                                  int aSize,
-                                                  ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothMapRequestHandle::ReplyToMessagesListing(
+    uint8_t aMasId, Blob& aBlob, bool aNewMessage, const nsAString& aTimestamp,
+    int aSize, ErrorResult& aRv) {
   BT_LOGR("ReplyToMessagesListing with %d messages.", aSize);
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
@@ -99,16 +88,15 @@ BluetoothMapRequestHandle::ReplyToMessagesListing(uint8_t aMasId,
     return nullptr;
   }
 
-  bs->ReplyToMapMessagesListing(aMasId, aBlob.Impl(), aNewMessage, aTimestamp,
-    aSize, new BluetoothVoidReplyRunnable(nullptr, promise));
+  bs->ReplyToMapMessagesListing(
+      aMasId, aBlob.Impl(), aNewMessage, aTimestamp, aSize,
+      new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothMapRequestHandle::ReplyToGetMessage(uint8_t aMasId, Blob& aBlob,
-                                             ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothMapRequestHandle::ReplyToGetMessage(
+    uint8_t aMasId, Blob& aBlob, ErrorResult& aRv) {
   BT_LOGD("ReplyToGetMessage with a message blob.");
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
@@ -127,16 +115,13 @@ BluetoothMapRequestHandle::ReplyToGetMessage(uint8_t aMasId, Blob& aBlob,
   }
 
   bs->ReplyToMapGetMessage(aMasId, aBlob.Impl(),
-    new BluetoothVoidReplyRunnable(nullptr, promise));
+                           new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothMapRequestHandle::ReplyToSetMessageStatus(uint8_t aMasId,
-                                                   bool aStatus,
-                                                   ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothMapRequestHandle::ReplyToSetMessageStatus(
+    uint8_t aMasId, bool aStatus, ErrorResult& aRv) {
   BT_LOGR("ReplyToSetMessageStatus with status %d.", aStatus);
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
@@ -154,18 +139,15 @@ BluetoothMapRequestHandle::ReplyToSetMessageStatus(uint8_t aMasId,
     return nullptr;
   }
 
-  bs->ReplyToMapSetMessageStatus(aMasId, aStatus,
-    new BluetoothVoidReplyRunnable(nullptr, promise));
+  bs->ReplyToMapSetMessageStatus(
+      aMasId, aStatus, new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothMapRequestHandle::ReplyToSendMessage(uint8_t aMasId,
-                                              const nsAString& aHandleId,
-                                              bool aStatus,
-                                              ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothMapRequestHandle::ReplyToSendMessage(
+    uint8_t aMasId, const nsAString& aHandleId, bool aStatus,
+    ErrorResult& aRv) {
   BT_LOGR("ReplyToSendMessage with status %d.", aStatus);
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
@@ -184,16 +166,13 @@ BluetoothMapRequestHandle::ReplyToSendMessage(uint8_t aMasId,
   }
 
   bs->ReplyToMapSendMessage(aMasId, aHandleId, aStatus,
-    new BluetoothVoidReplyRunnable(nullptr, promise));
+                            new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-BluetoothMapRequestHandle::ReplyToMessageUpdate(uint8_t aMasId,
-                                                bool aStatus,
-                                                ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothMapRequestHandle::ReplyToMessageUpdate(
+    uint8_t aMasId, bool aStatus, ErrorResult& aRv) {
   BT_LOGR("ReplyToMessageUpdate with status %d.", aStatus);
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
@@ -212,14 +191,12 @@ BluetoothMapRequestHandle::ReplyToMessageUpdate(uint8_t aMasId,
   }
 
   bs->ReplyToMapMessageUpdate(aMasId, aStatus,
-    new BluetoothVoidReplyRunnable(nullptr, promise));
+                              new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();
 }
 
-JSObject*
-BluetoothMapRequestHandle::WrapObject(JSContext* aCx,
-                                      JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothMapRequestHandle::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return BluetoothMapRequestHandle_Binding::Wrap(aCx, this, aGivenProto);
 }

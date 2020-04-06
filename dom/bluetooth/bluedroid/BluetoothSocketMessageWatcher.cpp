@@ -21,49 +21,39 @@ BEGIN_BLUETOOTH_NAMESPACE
 /* |SocketMessageWatcherWrapper| wraps SocketMessageWatcher to keep it from
  * being released by hash table's Remove() method.
  */
-class SocketMessageWatcherWrapper
-{
-public:
+class SocketMessageWatcherWrapper {
+ public:
   SocketMessageWatcherWrapper(SocketMessageWatcher* aSocketMessageWatcher)
-    : mSocketMessageWatcher(aSocketMessageWatcher)
-  {
+      : mSocketMessageWatcher(aSocketMessageWatcher) {
     MOZ_ASSERT(mSocketMessageWatcher);
   }
 
-  SocketMessageWatcher* GetSocketMessageWatcher()
-  {
+  SocketMessageWatcher* GetSocketMessageWatcher() {
     return mSocketMessageWatcher;
   }
 
-private:
+ private:
   SocketMessageWatcher* mSocketMessageWatcher;
 };
 
 /* |sWatcherHashTable| maps result handlers to corresponding watchers */
 static nsClassHashtable<nsRefPtrHashKey<BluetoothSocketResultHandler>,
                         SocketMessageWatcherWrapper>
-  sWatcherHashtable;
+    sWatcherHashtable;
 
 //
 // SocketMessageWatcher
 //
 
-SocketMessageWatcher::SocketMessageWatcher(
-  int aFd, BluetoothSocketResultHandler* aRes)
-  : mFd(aFd)
-  , mClientFd(-1)
-  , mLen(0)
-  , mRes(aRes)
-{
+SocketMessageWatcher::SocketMessageWatcher(int aFd,
+                                           BluetoothSocketResultHandler* aRes)
+    : mFd(aFd), mClientFd(-1), mLen(0), mRes(aRes) {
   MOZ_ASSERT(mRes);
 }
 
-SocketMessageWatcher::~SocketMessageWatcher()
-{ }
+SocketMessageWatcher::~SocketMessageWatcher() {}
 
-void
-SocketMessageWatcher::OnFileCanReadWithoutBlocking(int aFd)
-{
+void SocketMessageWatcher::OnFileCanReadWithoutBlocking(int aFd) {
   BluetoothStatus status;
 
   switch (mLen) {
@@ -85,92 +75,56 @@ SocketMessageWatcher::OnFileCanReadWithoutBlocking(int aFd)
   }
 }
 
-void
-SocketMessageWatcher::OnFileCanWriteWithoutBlocking(int aFd)
-{ }
+void SocketMessageWatcher::OnFileCanWriteWithoutBlocking(int aFd) {}
 
-void
-SocketMessageWatcher::Watch()
-{
+void SocketMessageWatcher::Watch() {
   // add this watcher and its result handler to hash table
   sWatcherHashtable.Put(mRes, new SocketMessageWatcherWrapper(this));
 
   MessageLoopForIO::current()->WatchFileDescriptor(
-    mFd,
-    true,
-    MessageLoopForIO::WATCH_READ,
-    &mWatcher,
-    this);
+      mFd, true, MessageLoopForIO::WATCH_READ, &mWatcher, this);
 }
 
-void
-SocketMessageWatcher::StopWatching()
-{
+void SocketMessageWatcher::StopWatching() {
   mWatcher.StopWatchingFileDescriptor();
 
   // remove this watcher and its result handler from hash table
   sWatcherHashtable.Remove(mRes);
 }
 
-bool
-SocketMessageWatcher::IsComplete() const
-{
+bool SocketMessageWatcher::IsComplete() const {
   return mLen == (MSG1_SIZE + MSG2_SIZE);
 }
 
-int
-SocketMessageWatcher::GetFd() const
-{
-  return mFd;
-}
+int SocketMessageWatcher::GetFd() const { return mFd; }
 
-int32_t
-SocketMessageWatcher::GetChannel1() const
-{
+int32_t SocketMessageWatcher::GetChannel1() const {
   return ReadInt32(OFF_CHANNEL1);
 }
 
-int32_t
-SocketMessageWatcher::GetSize() const
-{
-  return ReadInt16(OFF_SIZE);
-}
+int32_t SocketMessageWatcher::GetSize() const { return ReadInt16(OFF_SIZE); }
 
-BluetoothAddress
-SocketMessageWatcher::GetBdAddress() const
-{
+BluetoothAddress SocketMessageWatcher::GetBdAddress() const {
   BluetoothAddress bdAddress;
   ReadBdAddress(OFF_BDADDRESS, bdAddress);
   return bdAddress;
 }
 
-int32_t
-SocketMessageWatcher::GetChannel2() const
-{
+int32_t SocketMessageWatcher::GetChannel2() const {
   return ReadInt32(OFF_CHANNEL2);
 }
 
-int32_t
-SocketMessageWatcher::GetConnectionStatus() const
-{
+int32_t SocketMessageWatcher::GetConnectionStatus() const {
   return ReadInt32(OFF_STATUS);
 }
 
-int
-SocketMessageWatcher::GetClientFd() const
-{
-  return mClientFd;
-}
+int SocketMessageWatcher::GetClientFd() const { return mClientFd; }
 
-BluetoothSocketResultHandler*
-SocketMessageWatcher::GetResultHandler() const
-{
+BluetoothSocketResultHandler* SocketMessageWatcher::GetResultHandler() const {
   return mRes;
 }
 
-BluetoothStatus
-SocketMessageWatcher::RecvMsg1()
-{
+BluetoothStatus SocketMessageWatcher::RecvMsg1() {
   struct iovec iv;
   memset(&iv, 0, sizeof(iv));
   iv.iov_base = mBuf;
@@ -191,13 +145,11 @@ SocketMessageWatcher::RecvMsg1()
   return STATUS_SUCCESS;
 }
 
-#define CMSGHDR_CONTAINS_FD(_cmsghdr) \
-    ( ((_cmsghdr)->cmsg_level == SOL_SOCKET) && \
-      ((_cmsghdr)->cmsg_type == SCM_RIGHTS) )
+#define CMSGHDR_CONTAINS_FD(_cmsghdr)        \
+  (((_cmsghdr)->cmsg_level == SOL_SOCKET) && \
+   ((_cmsghdr)->cmsg_type == SCM_RIGHTS))
 
-BluetoothStatus
-SocketMessageWatcher::RecvMsg2()
-{
+BluetoothStatus SocketMessageWatcher::RecvMsg2() {
   struct iovec iv;
   memset(&iv, 0, sizeof(iv));
   iv.iov_base = mBuf + MSG1_SIZE;
@@ -222,7 +174,7 @@ SocketMessageWatcher::RecvMsg2()
     return STATUS_FAIL;
   }
 
-  struct cmsghdr *cmsgptr = CMSG_FIRSTHDR(&msg);
+  struct cmsghdr* cmsgptr = CMSG_FIRSTHDR(&msg);
 
   // Extract client fd from message header
   for (; cmsgptr; cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
@@ -240,30 +192,21 @@ SocketMessageWatcher::RecvMsg2()
   return STATUS_SUCCESS;
 }
 
-int16_t
-SocketMessageWatcher::ReadInt16(unsigned long aOffset) const
-{
+int16_t SocketMessageWatcher::ReadInt16(unsigned long aOffset) const {
   /* little-endian buffer */
   return LittleEndian::readInt16(&mBuf[aOffset]);
 }
 
-int32_t
-SocketMessageWatcher::ReadInt32(unsigned long aOffset) const
-{
+int32_t SocketMessageWatcher::ReadInt32(unsigned long aOffset) const {
   /* little-endian buffer */
   return LittleEndian::readInt32(&mBuf[aOffset]);
 }
 
-void
-SocketMessageWatcher::ReadBdAddress(unsigned long aOffset,
-                                    BluetoothAddress& aBdAddress) const
-{
-  aBdAddress = BluetoothAddress(mBuf[aOffset + 0],
-                                mBuf[aOffset + 1],
-                                mBuf[aOffset + 2],
-                                mBuf[aOffset + 3],
-                                mBuf[aOffset + 4],
-                                mBuf[aOffset + 5]);
+void SocketMessageWatcher::ReadBdAddress(unsigned long aOffset,
+                                         BluetoothAddress& aBdAddress) const {
+  aBdAddress =
+      BluetoothAddress(mBuf[aOffset + 0], mBuf[aOffset + 1], mBuf[aOffset + 2],
+                       mBuf[aOffset + 3], mBuf[aOffset + 4], mBuf[aOffset + 5]);
 }
 
 //
@@ -271,16 +214,12 @@ SocketMessageWatcher::ReadBdAddress(unsigned long aOffset,
 //
 
 SocketMessageWatcherTask::SocketMessageWatcherTask(
-  SocketMessageWatcher* aWatcher)
-  : Runnable("SocketMessageWatcherTask")
-  , mWatcher(aWatcher)
-{
+    SocketMessageWatcher* aWatcher)
+    : Runnable("SocketMessageWatcherTask"), mWatcher(aWatcher) {
   MOZ_ASSERT(mWatcher);
 }
 
-nsresult
-SocketMessageWatcherTask::Run()
-{
+nsresult SocketMessageWatcherTask::Run() {
   mWatcher->Watch();
   return NS_OK;
 }
@@ -290,16 +229,12 @@ SocketMessageWatcherTask::Run()
 //
 
 DeleteSocketMessageWatcherTask::DeleteSocketMessageWatcherTask(
-  BluetoothSocketResultHandler* aRes)
-  : Runnable("DeleteSocketMessageWatcherTask")
-  , mRes(aRes)
-{
+    BluetoothSocketResultHandler* aRes)
+    : Runnable("DeleteSocketMessageWatcherTask"), mRes(aRes) {
   MOZ_ASSERT(mRes);
 }
 
-nsresult
-DeleteSocketMessageWatcherTask::Run()
-{
+nsresult DeleteSocketMessageWatcherTask::Run() {
   // look up hash table for the watcher corresponding to |mRes|
   SocketMessageWatcherWrapper* wrapper = sWatcherHashtable.Get(mRes);
   if (!wrapper) {

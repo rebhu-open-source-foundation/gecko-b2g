@@ -28,9 +28,8 @@ class BluetoothSocketResultHandler;
  * socket file descriptor for the connection. The client
  * uses the original file descriptor.
  */
-class SocketMessageWatcher : public MessageLoopForIO::Watcher
-{
-public:
+class SocketMessageWatcher : public MessageLoopForIO::Watcher {
+ public:
   static const unsigned char MSG1_SIZE = 4;
   static const unsigned char MSG2_SIZE = 16;
 
@@ -52,26 +51,26 @@ public:
 
   bool IsComplete() const;
 
-  int              GetFd() const;
-  int32_t          GetChannel1() const;
-  int32_t          GetSize() const;
+  int GetFd() const;
+  int32_t GetChannel1() const;
+  int32_t GetSize() const;
   BluetoothAddress GetBdAddress() const;
-  int32_t          GetChannel2() const;
-  int32_t          GetConnectionStatus() const;
-  int              GetClientFd() const;
+  int32_t GetChannel2() const;
+  int32_t GetConnectionStatus() const;
+  int GetClientFd() const;
 
   BluetoothSocketResultHandler* GetResultHandler() const;
 
-protected:
+ protected:
   SocketMessageWatcher(int aFd, BluetoothSocketResultHandler* aRes);
 
-private:
+ private:
   BluetoothStatus RecvMsg1();
   BluetoothStatus RecvMsg2();
 
   int16_t ReadInt16(unsigned long aOffset) const;
   int32_t ReadInt32(unsigned long aOffset) const;
-  void    ReadBdAddress(unsigned long aOffset, BluetoothAddress& aBdAddress) const;
+  void ReadBdAddress(unsigned long aOffset, BluetoothAddress& aBdAddress) const;
 
   MessageLoopForIO::FileDescriptorWatcher mWatcher;
   int mFd;
@@ -84,31 +83,29 @@ private:
 /* |SocketMessageWatcherTask| starts a SocketMessageWatcher
  * on the I/O task
  */
-class SocketMessageWatcherTask final : public Runnable
-{
-public:
+class SocketMessageWatcherTask final : public Runnable {
+ public:
   SocketMessageWatcherTask(SocketMessageWatcher* aWatcher);
 
   NS_IMETHOD Run() override;
 
-private:
+ private:
   SocketMessageWatcher* mWatcher;
 };
 
 /* |DeleteSocketMessageWatcherTask| deletes a watching SocketMessageWatcher
  * on the I/O task
  */
-class DeleteSocketMessageWatcherTask final : public Runnable
-{
-public:
+class DeleteSocketMessageWatcherTask final : public Runnable {
+ public:
   DeleteSocketMessageWatcherTask(BluetoothSocketResultHandler* aRes);
 
   NS_IMETHOD Run() override;
 
-private:
+ private:
   BluetoothSocketResultHandler* mRes;
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothSocketMessageWatcher_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothSocketMessageWatcher_h

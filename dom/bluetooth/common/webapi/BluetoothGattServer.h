@@ -21,17 +21,16 @@ namespace mozilla {
 namespace dom {
 class Promise;
 struct BluetoothAdvertisingData;
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothSignal;
 
-class BluetoothGattServer final : public DOMEventTargetHelper
-                                , public BluetoothSignalObserver
-{
-public:
+class BluetoothGattServer final : public DOMEventTargetHelper,
+                                  public BluetoothSignalObserver {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(BluetoothGattServer,
                                            DOMEventTargetHelper)
@@ -39,9 +38,7 @@ public:
   /****************************************************************************
    * Attribute Getters
    ***************************************************************************/
-  void GetServices(
-    nsTArray<RefPtr<BluetoothGattService>>& aServices) const
-  {
+  void GetServices(nsTArray<RefPtr<BluetoothGattService>>& aServices) const {
     aServices = mServices;
   }
 
@@ -55,13 +52,13 @@ public:
   /****************************************************************************
    * Methods (Web API Implementation)
    ***************************************************************************/
-  already_AddRefed<Promise> Connect(
-    const nsAString& aAddress, ErrorResult& aRv);
-  already_AddRefed<Promise> Disconnect(
-    const nsAString& aAddress, ErrorResult& aRv);
+  already_AddRefed<Promise> Connect(const nsAString& aAddress,
+                                    ErrorResult& aRv);
+  already_AddRefed<Promise> Disconnect(const nsAString& aAddress,
+                                       ErrorResult& aRv);
 
   already_AddRefed<Promise> StartAdvertising(
-    const BluetoothAdvertisingData& aAdvData, ErrorResult& aRv);
+      const BluetoothAdvertisingData& aAdvData, ErrorResult& aRv);
   already_AddRefed<Promise> StopAdvertising(ErrorResult& aRv);
 
   already_AddRefed<Promise> AddService(BluetoothGattService& aService,
@@ -70,25 +67,20 @@ public:
                                           ErrorResult& aRv);
 
   already_AddRefed<Promise> NotifyCharacteristicChanged(
-    const nsAString& aAddress,
-    BluetoothGattCharacteristic& aCharacteristic,
-    bool aConfirm,
-    ErrorResult& aRv);
+      const nsAString& aAddress, BluetoothGattCharacteristic& aCharacteristic,
+      bool aConfirm, ErrorResult& aRv);
 
   already_AddRefed<Promise> SendResponse(const nsAString& aAddress,
-                                         uint16_t aStatus,
-                                         int32_t aRequestId,
+                                         uint16_t aStatus, int32_t aRequestId,
                                          ErrorResult& aRv);
 
   /****************************************************************************
    * Others
    ***************************************************************************/
-  void Notify(const BluetoothSignal& aData) override; // BluetoothSignalObserver
+  void Notify(
+      const BluetoothSignal& aData) override;  // BluetoothSignalObserver
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-     return mOwner;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mOwner; }
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
@@ -102,7 +94,7 @@ public:
    */
   void Invalidate();
 
-private:
+ private:
   ~BluetoothGattServer();
 
   class StartAdvertisingTask;
@@ -129,18 +121,16 @@ private:
   friend class AddServiceTask;
   friend class RemoveServiceTask;
 
-  struct RequestData
-  {
+  struct RequestData {
     // default constructor is needed by std::map<int32_t, RequestData>
     RequestData() {}
 
     RequestData(const BluetoothAttributeHandle& aHandle,
                 BluetoothGattCharacteristic* aCharacteristic,
                 BluetoothGattDescriptor* aDescriptor)
-    : mHandle(aHandle)
-    , mCharacteristic(aCharacteristic)
-    , mDescriptor(aDescriptor)
-    { }
+        : mHandle(aHandle),
+          mCharacteristic(aCharacteristic),
+          mDescriptor(aDescriptor) {}
 
     BluetoothAttributeHandle mHandle;
     RefPtr<BluetoothGattCharacteristic> mCharacteristic;
@@ -197,4 +187,4 @@ private:
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothGattServer_h
+#endif  // mozilla_dom_bluetooth_BluetoothGattServer_h

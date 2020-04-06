@@ -15,8 +15,8 @@ namespace dom {
 class GattPermissions;
 class GattCharacteristicProperties;
 class BluetoothAdvertisingData;
-}
-}
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -30,9 +30,9 @@ class BluetoothValue;
 enum BluetoothProfileEndian {
   ENDIAN_BIG,
   ENDIAN_LITTLE,
-  ENDIAN_SDP      = ENDIAN_BIG,     // SDP uses big endian
-  ENDIAN_GAP      = ENDIAN_LITTLE,  // GAP uses little endian
-  ENDIAN_GATT     = ENDIAN_LITTLE,  // GATT uses little endian
+  ENDIAN_SDP = ENDIAN_BIG,      // SDP uses big endian
+  ENDIAN_GAP = ENDIAN_LITTLE,   // GAP uses little endian
+  ENDIAN_GATT = ENDIAN_LITTLE,  // GATT uses little endian
 };
 
 /*
@@ -52,59 +52,52 @@ enum BluetoothUuidType {
 // Address/String conversion
 //
 
-void
-AddressToString(const BluetoothAddress& aAddress, nsAString& aString);
+void AddressToString(const BluetoothAddress& aAddress, nsAString& aString);
 
-nsresult
-StringToAddress(const nsAString& aString, BluetoothAddress& aAddress);
+nsresult StringToAddress(const nsAString& aString, BluetoothAddress& aAddress);
 
 //
 // Pin code/string conversion
 //
 
-nsresult
-PinCodeToString(const BluetoothPinCode& aPinCode, nsAString& aString);
+nsresult PinCodeToString(const BluetoothPinCode& aPinCode, nsAString& aString);
 
-nsresult
-StringToPinCode(const nsAString& aString, BluetoothPinCode& aPinCode);
+nsresult StringToPinCode(const nsAString& aString, BluetoothPinCode& aPinCode);
 
 //
 // Play status/string conversion
 //
 
-nsresult
-StringToControlPlayStatus(const nsAString& aString,
-                          ControlPlayStatus& aPlayStatus);
+nsresult StringToControlPlayStatus(const nsAString& aString,
+                                   ControlPlayStatus& aPlayStatus);
 
 //
 // Property type/string conversion
 //
 
-nsresult
-StringToPropertyType(const nsAString& aString, BluetoothPropertyType& aType);
+nsresult StringToPropertyType(const nsAString& aString,
+                              BluetoothPropertyType& aType);
 
 //
 // Property conversion
 //
 
-nsresult
-NamedValueToProperty(const BluetoothNamedValue& aIn,
-                     BluetoothProperty& aProperty);
+nsresult NamedValueToProperty(const BluetoothNamedValue& aIn,
+                              BluetoothProperty& aProperty);
 
 //
 // Remote name/string conversion
 //
 
-void
-RemoteNameToString(const BluetoothRemoteName& aRemoteName, nsAString& aString);
+void RemoteNameToString(const BluetoothRemoteName& aRemoteName,
+                        nsAString& aString);
 
 //
 // Service name/string conversion
 //
 
-nsresult
-StringToServiceName(const nsAString& aString,
-                    BluetoothServiceName& aServiceName);
+nsresult StringToServiceName(const nsAString& aString,
+                             BluetoothServiceName& aServiceName);
 
 //
 // BluetoothUuid <-> uuid string conversion
@@ -116,8 +109,7 @@ StringToServiceName(const nsAString& aString,
  * Note: This utility function is used by gecko internal only to convert
  * BluetoothUuid created by bluetooth stack to uuid string representation.
  */
-void
-UuidToString(const BluetoothUuid& aUuid, nsAString& aString);
+void UuidToString(const BluetoothUuid& aUuid, nsAString& aString);
 
 /**
  * Convert xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx uuid string to BluetoothUuid object.
@@ -125,8 +117,7 @@ UuidToString(const BluetoothUuid& aUuid, nsAString& aString);
  * Note: This utility function is used by gecko internal only to convert uuid
  * string created by gecko back to BluetoothUuid representation.
  */
-nsresult
-StringToUuid(const nsAString& aString, BluetoothUuid& aUuid);
+nsresult StringToUuid(const nsAString& aString, BluetoothUuid& aUuid);
 
 /**
  * Convert continuous bytes from nsTArray to BluetoothUuid object.
@@ -136,12 +127,10 @@ StringToUuid(const nsAString& aString, BluetoothUuid& aUuid);
  * @param aEndian [in] The endianness of UUID value.
  * @param aUuid [out] The BluetoothUuid object.
  */
-nsresult
-BytesToUuid(const nsTArray<uint8_t>& aArray,
-            nsTArray<uint8_t>::index_type aOffset,
-            BluetoothUuidType aType,
-            BluetoothProfileEndian aEndian,
-            BluetoothUuid& aUuid);
+nsresult BytesToUuid(const nsTArray<uint8_t>& aArray,
+                     nsTArray<uint8_t>::index_type aOffset,
+                     BluetoothUuidType aType, BluetoothProfileEndian aEndian,
+                     BluetoothUuid& aUuid);
 
 /**
  * Convert BluetoothUuid object to nsTArray with continuous bytes.
@@ -151,28 +140,23 @@ BytesToUuid(const nsTArray<uint8_t>& aArray,
  * @param aArray [out] The byte array.
  * @param aOffset [in] The offset of continuous bytes of UUID value.
  */
-nsresult
-UuidToBytes(const BluetoothUuid& aUuid,
-            BluetoothUuidType aType,
-            BluetoothProfileEndian aEndian,
-            nsTArray<uint8_t>& aArray,
-            nsTArray<uint8_t>::index_type aOffset);
+nsresult UuidToBytes(const BluetoothUuid& aUuid, BluetoothUuidType aType,
+                     BluetoothProfileEndian aEndian, nsTArray<uint8_t>& aArray,
+                     nsTArray<uint8_t>::index_type aOffset);
 
 /**
  * Generate a random uuid.
  *
  * @param aUuid [out] The generated uuid.
  */
-nsresult
-GenerateUuid(BluetoothUuid &aUuid);
+nsresult GenerateUuid(BluetoothUuid& aUuid);
 
 /**
  * Generate a random uuid.
  *
  * @param aUuidString [out] String to store the generated uuid.
  */
-nsresult
-GenerateUuid(nsAString &aUuidString);
+nsresult GenerateUuid(nsAString& aUuidString);
 
 /**
  * Convert BluetoothGattAttrPerm bit masks to GattPermissions object.
@@ -180,9 +164,8 @@ GenerateUuid(nsAString &aUuidString);
  * @param aBits [in] BluetoothGattAttrPerm bit masks.
  * @param aPermissions [out] GattPermissions object.
  */
-void
-GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
-                            GattPermissions& aPermissions);
+void GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
+                                 GattPermissions& aPermissions);
 
 /**
  * Convert GattPermissions object to BluetoothGattAttrPerm bit masks.
@@ -190,9 +173,8 @@ GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
  * @param aPermissions [in] GattPermissions object.
  * @param aBits [out] BluetoothGattAttrPerm bit masks.
  */
-void
-GattPermissionsToBits(const GattPermissions& aPermissions,
-                      BluetoothGattAttrPerm& aBits);
+void GattPermissionsToBits(const GattPermissions& aPermissions,
+                           BluetoothGattAttrPerm& aBits);
 
 /**
  * Convert BluetoothGattCharProp bit masks to GattCharacteristicProperties
@@ -201,9 +183,8 @@ GattPermissionsToBits(const GattPermissions& aPermissions,
  * @param aBits [in] BluetoothGattCharProp bit masks.
  * @param aProperties [out] GattCharacteristicProperties object.
  */
-void
-GattPropertiesToDictionary(BluetoothGattCharProp aBits,
-                           GattCharacteristicProperties& aProperties);
+void GattPropertiesToDictionary(BluetoothGattCharProp aBits,
+                                GattCharacteristicProperties& aProperties);
 
 /**
  * Convert GattCharacteristicProperties object to BluetoothGattCharProp bit
@@ -212,9 +193,8 @@ GattPropertiesToDictionary(BluetoothGattCharProp aBits,
  * @param aProperties [in] GattCharacteristicProperties object.
  * @param aBits [out] BluetoothGattCharProp bit masks.
  */
-void
-GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
-                     BluetoothGattCharProp& aBits);
+void GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
+                          BluetoothGattCharProp& aBits);
 
 //
 // Generate bluetooth signal path from GattId
@@ -226,9 +206,7 @@ GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
  * @param aId   [in] GattId value to convert.
  * @param aPath [out] Bluetooth signal path generated from aId.
  */
-void
-GeneratePathFromGattId(const BluetoothGattId& aId,
-                       nsAString& aPath);
+void GeneratePathFromGattId(const BluetoothGattId& aId, nsAString& aPath);
 
 /**
  * Convert BluetoothAdvertisingData object used by applications to
@@ -238,10 +216,9 @@ GeneratePathFromGattId(const BluetoothGattId& aId,
  * @param aGattAdData [out] Target BluetoothGattAdvertisingData.
  * @return NS_OK on success, NS_ERROR_ILLEGAL_VALUE otherwise.
  */
-nsresult
-AdvertisingDataToGattAdvertisingData(
-  const BluetoothAdvertisingData& aAdvData,
-  BluetoothGattAdvertisingData& aGattAdvData);
+nsresult AdvertisingDataToGattAdvertisingData(
+    const BluetoothAdvertisingData& aAdvData,
+    BluetoothGattAdvertisingData& aGattAdvData);
 
 //
 // Register/Unregister bluetooth signal handlers
@@ -254,9 +231,8 @@ AdvertisingDataToGattAdvertisingData(
  * @param aHandler The message handler object to be added into the observer
  *                 list. Note that this function doesn't take references to it.
  */
-void
-RegisterBluetoothSignalHandler(const nsAString& aPath,
-                               BluetoothSignalObserver* aHandler);
+void RegisterBluetoothSignalHandler(const nsAString& aPath,
+                                    BluetoothSignalObserver* aHandler);
 
 /**
  * Register the Bluetooth signal handler.
@@ -265,9 +241,8 @@ RegisterBluetoothSignalHandler(const nsAString& aPath,
  * @param aHandler The message handler object to be added into the observer
  *                 list. Note that this function doesn't take references to it.
  */
-void
-RegisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
-                               BluetoothSignalObserver* aHandler);
+void RegisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
+                                    BluetoothSignalObserver* aHandler);
 
 /**
  * Register the Bluetooth signal handler.
@@ -276,9 +251,8 @@ RegisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
  * @param aHandler The message handler object to be added into the observer
  *                 list. Note that this function doesn't take references to it.
  */
-void
-RegisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
-                               BluetoothSignalObserver* aHandler);
+void RegisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
+                                    BluetoothSignalObserver* aHandler);
 
 /**
  * Unregister the Bluetooth signal handler.
@@ -287,9 +261,8 @@ RegisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
  * @param aHandler The message handler object to be removed from the observer
  *                 list. Note that this function doesn't take references to it.
  */
-void
-UnregisterBluetoothSignalHandler(const nsAString& aPath,
-                                 BluetoothSignalObserver* aHandler);
+void UnregisterBluetoothSignalHandler(const nsAString& aPath,
+                                      BluetoothSignalObserver* aHandler);
 
 /**
  * Unregister the Bluetooth signal handler.
@@ -298,9 +271,8 @@ UnregisterBluetoothSignalHandler(const nsAString& aPath,
  * @param aHandler The message handler object to be removed from the observer
  *                 list. Note that this function doesn't take references to it.
  */
-void
-UnregisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
-                                 BluetoothSignalObserver* aHandler);
+void UnregisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
+                                      BluetoothSignalObserver* aHandler);
 
 /**
  * Unregister the Bluetooth signal handler.
@@ -309,21 +281,18 @@ UnregisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
  * @param aHandler The message handler object to be removed from the observer
  *                 list. Note that this function doesn't take references to it.
  */
-void
-UnregisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
-                                 BluetoothSignalObserver* aHandler);
+void UnregisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
+                                      BluetoothSignalObserver* aHandler);
 
 //
 // Broadcast system message
 //
 
-bool
-BroadcastSystemMessage(const nsAString& aType,
-                       const BluetoothValue& aData);
+bool BroadcastSystemMessage(const nsAString& aType,
+                            const BluetoothValue& aData);
 
-bool
-BroadcastSystemMessage(const nsAString& aType,
-                       const nsTArray<BluetoothNamedValue>& aData);
+bool BroadcastSystemMessage(const nsAString& aType,
+                            const nsTArray<BluetoothNamedValue>& aData);
 
 //
 // Dispatch bluetooth reply to main thread
@@ -334,8 +303,7 @@ BroadcastSystemMessage(const nsAString& aType,
  *
  * @param aRunnable  the runnable to reply bluetooth request.
  */
-void
-DispatchReplySuccess(BluetoothReplyRunnable* aRunnable);
+void DispatchReplySuccess(BluetoothReplyRunnable* aRunnable);
 
 /**
  * Dispatch successful bluetooth reply with value to reply request.
@@ -343,9 +311,8 @@ DispatchReplySuccess(BluetoothReplyRunnable* aRunnable);
  * @param aRunnable  the runnable to reply bluetooth request.
  * @param aValue     the BluetoothValue to reply successful request.
  */
-void
-DispatchReplySuccess(BluetoothReplyRunnable* aRunnable,
-                     const BluetoothValue& aValue);
+void DispatchReplySuccess(BluetoothReplyRunnable* aRunnable,
+                          const BluetoothValue& aValue);
 
 /**
  * Dispatch failed bluetooth reply with error string.
@@ -360,9 +327,8 @@ DispatchReplySuccess(BluetoothReplyRunnable* aRunnable,
  * @param aRunnable  the runnable to reply bluetooth request.
  * @param aErrorStr  the error string to reply failed request.
  */
-void
-DispatchReplyError(BluetoothReplyRunnable* aRunnable,
-                   const nsAString& aErrorStr);
+void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
+                        const nsAString& aErrorStr);
 
 /**
  * Dispatch failed bluetooth reply with error status.
@@ -375,9 +341,8 @@ DispatchReplyError(BluetoothReplyRunnable* aRunnable,
  * @param aRunnable  the runnable to reply bluetooth request.
  * @param aStatus    the error status to reply failed request.
  */
-void
-DispatchReplyError(BluetoothReplyRunnable* aRunnable,
-                   const enum BluetoothStatus aStatus);
+void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
+                        const enum BluetoothStatus aStatus);
 
 /**
  * Dispatch failed bluetooth reply with error bluetooth gatt status and
@@ -389,14 +354,12 @@ DispatchReplyError(BluetoothReplyRunnable* aRunnable,
  * @param aRunnable   the runnable to reply bluetooth request.
  * @param aGattStatus the bluettoh gatt error status to reply failed request.
  */
-void
-DispatchReplyError(BluetoothReplyRunnable* aRunnable,
-                   const enum BluetoothGattStatus aGattStatus);
+void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
+                        const enum BluetoothGattStatus aGattStatus);
 
-void
-DispatchStatusChangedEvent(const nsAString& aType,
-                           const BluetoothAddress& aDeviceAddress,
-                           bool aStatus);
+void DispatchStatusChangedEvent(const nsAString& aType,
+                                const BluetoothAddress& aDeviceAddress,
+                                bool aStatus);
 
 //
 // BluetoothNamedValue manipulation
@@ -406,17 +369,16 @@ DispatchStatusChangedEvent(const nsAString& aType,
  * Wrap literal name and value into a BluetoothNamedValue and
  * append it to the array.
  */
-void AppendNamedValue(nsTArray<BluetoothNamedValue>& aArray,
-                      const char* aName, const BluetoothValue& aValue);
+void AppendNamedValue(nsTArray<BluetoothNamedValue>& aArray, const char* aName,
+                      const BluetoothValue& aValue);
 
 /**
  * Wrap literal name and value into a BluetoothNamedValue and
  * insert it to the array.
  */
-void InsertNamedValue(nsTArray<BluetoothNamedValue>& aArray,
-                      uint8_t aIndex, const char* aName,
-                      const BluetoothValue& aValue);
+void InsertNamedValue(nsTArray<BluetoothNamedValue>& aArray, uint8_t aIndex,
+                      const char* aName, const BluetoothValue& aValue);
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_BluetoothUtils_h
+#endif  // mozilla_dom_bluetooth_BluetoothUtils_h

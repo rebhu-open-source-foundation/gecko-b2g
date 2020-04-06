@@ -23,28 +23,26 @@
 using namespace mozilla;
 USING_BLUETOOTH_NAMESPACE
 // AVRC_ID op code follows bluedroid avrc_defs.h
-#define AVRC_ID_REWIND  0x48
+#define AVRC_ID_REWIND 0x48
 #define AVRC_ID_FAST_FOR 0x49
-#define AVRC_KEY_PRESS_STATE  1
-#define AVRC_KEY_RELEASE_STATE  0
+#define AVRC_KEY_PRESS_STATE 1
+#define AVRC_KEY_RELEASE_STATE 0
 // bluedroid bt_rc.h
 #define AVRC_MAX_ATTR_STR_LEN 255
 
 namespace {
-  StaticRefPtr<BluetoothAvrcpManager> sBluetoothAvrcpManager;
-  bool sInShutdown = false;
-  static BluetoothAvrcpInterface* sBtAvrcpInterface;
-} // namespace
+StaticRefPtr<BluetoothAvrcpManager> sBluetoothAvrcpManager;
+bool sInShutdown = false;
+static BluetoothAvrcpInterface* sBtAvrcpInterface;
+}  // namespace
 
 const int BluetoothAvrcpManager::MAX_NUM_CLIENTS = 1;
 
 /*
  * This function maps attribute id and returns corresponding values
  */
-static void
-ConvertAttributeString(BluetoothAvrcpMediaAttribute aAttrId,
-                       nsAString& aAttrStr)
-{
+static void ConvertAttributeString(BluetoothAvrcpMediaAttribute aAttrId,
+                                   nsAString& aAttrStr) {
   BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
   NS_ENSURE_TRUE_VOID(avrcp);
 
@@ -90,10 +88,8 @@ ConvertAttributeString(BluetoothAvrcpMediaAttribute aAttrId,
 }
 
 NS_IMETHODIMP
-BluetoothAvrcpManager::Observe(nsISupports* aSubject,
-                               const char* aTopic,
-                               const char16_t* aData)
-{
+BluetoothAvrcpManager::Observe(nsISupports* aSubject, const char* aTopic,
+                               const char16_t* aData) {
   MOZ_ASSERT(sBluetoothAvrcpManager);
 
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
@@ -105,14 +101,9 @@ BluetoothAvrcpManager::Observe(nsISupports* aSubject,
   return NS_ERROR_UNEXPECTED;
 }
 
-BluetoothAvrcpManager::BluetoothAvrcpManager()
-{
-  Reset();
-}
+BluetoothAvrcpManager::BluetoothAvrcpManager() { Reset(); }
 
-void
-BluetoothAvrcpManager::Reset()
-{
+void BluetoothAvrcpManager::Reset() {
   mAvrcpConnected = false;
   mDuration = 0;
   mMediaNumber = 0;
@@ -122,19 +113,15 @@ BluetoothAvrcpManager::Reset()
 }
 
 class BluetoothAvrcpManager::RegisterModuleResultHandler final
-  : public BluetoothSetupResultHandler
-{
-public:
+    : public BluetoothSetupResultHandler {
+ public:
   RegisterModuleResultHandler(BluetoothAvrcpInterface* aInterface,
                               BluetoothProfileResultHandler* aRes)
-    : mInterface(aInterface)
-    , mRes(aRes)
-  {
+      : mInterface(aInterface), mRes(aRes) {
     MOZ_ASSERT(mInterface);
   }
 
-  void OnError(BluetoothStatus aStatus) override
-  {
+  void OnError(BluetoothStatus aStatus) override {
     MOZ_ASSERT(NS_IsMainThread());
 
     BT_WARNING("BluetoothSetupInterface::RegisterModule failed for AVRCP: %d",
@@ -155,8 +142,7 @@ public:
     }
   }
 
-  void RegisterModule() override
-  {
+  void RegisterModule() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     sBtAvrcpInterface = mInterface;
@@ -166,26 +152,21 @@ public:
     }
   }
 
-private:
+ private:
   BluetoothAvrcpInterface* mInterface;
   RefPtr<BluetoothProfileResultHandler> mRes;
 };
 
 class BluetoothAvrcpManager::InitProfileResultHandlerRunnable final
-  : public Runnable
-{
-public:
+    : public Runnable {
+ public:
   InitProfileResultHandlerRunnable(BluetoothProfileResultHandler* aRes,
                                    nsresult aRv)
-    : Runnable("InitProfileResultHandlerRunnable")
-    , mRes(aRes)
-    , mRv(aRv)
-  {
+      : Runnable("InitProfileResultHandlerRunnable"), mRes(aRes), mRv(aRv) {
     MOZ_ASSERT(mRes);
   }
 
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     if (NS_SUCCEEDED(mRv)) {
@@ -196,7 +177,7 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<BluetoothProfileResultHandler> mRes;
   nsresult mRv;
 };
@@ -205,15 +186,13 @@ private:
  * This function will be only called when Bluetooth is turning on.
  */
 // static
-void
-BluetoothAvrcpManager::InitAvrcpInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothAvrcpManager::InitAvrcpInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (sBtAvrcpInterface) {
     BT_LOGR("Bluetooth AVRCP interface is already initalized.");
-    RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_OK);
+    RefPtr<Runnable> r = new InitProfileResultHandlerRunnable(aRes, NS_OK);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch AVRCP Init runnable");
     }
@@ -226,7 +205,7 @@ BluetoothAvrcpManager::InitAvrcpInterface(BluetoothProfileResultHandler* aRes)
     // If there's no Bluetooth interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch AVRCP OnError runnable");
     }
@@ -239,7 +218,7 @@ BluetoothAvrcpManager::InitAvrcpInterface(BluetoothProfileResultHandler* aRes)
     // If there's no Setup interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch AVRCP OnError runnable");
     }
@@ -252,7 +231,7 @@ BluetoothAvrcpManager::InitAvrcpInterface(BluetoothProfileResultHandler* aRes)
     // If there's no AVRCP interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new InitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch AVRCP OnError runnable");
     }
@@ -264,16 +243,13 @@ BluetoothAvrcpManager::InitAvrcpInterface(BluetoothProfileResultHandler* aRes)
   avrcpInterface->SetNotificationHandler(BluetoothAvrcpManager::Get());
 
   setupInterface->RegisterModule(
-    SETUP_SERVICE_ID_AVRCP, 0, MAX_NUM_CLIENTS,
-    new RegisterModuleResultHandler(avrcpInterface, aRes));
+      SETUP_SERVICE_ID_AVRCP, 0, MAX_NUM_CLIENTS,
+      new RegisterModuleResultHandler(avrcpInterface, aRes));
 }
 
-BluetoothAvrcpManager::~BluetoothAvrcpManager()
-{ }
+BluetoothAvrcpManager::~BluetoothAvrcpManager() {}
 
-nsresult
-BluetoothAvrcpManager::Init()
-{
+nsresult BluetoothAvrcpManager::Init() {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -288,9 +264,7 @@ BluetoothAvrcpManager::Init()
   return NS_OK;
 }
 
-void
-BluetoothAvrcpManager::Uninit()
-{
+void BluetoothAvrcpManager::Uninit() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
   if (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID))) {
@@ -302,10 +276,8 @@ BluetoothAvrcpManager::Uninit()
  * Static functions
  */
 
-//static
-BluetoothAvrcpManager*
-BluetoothAvrcpManager::Get()
-{
+// static
+BluetoothAvrcpManager* BluetoothAvrcpManager::Get() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // If sBluetoothAvrcpManager already exists, exit early
@@ -326,15 +298,12 @@ BluetoothAvrcpManager::Get()
 }
 
 class BluetoothAvrcpManager::UnregisterModuleResultHandler final
-  : public BluetoothSetupResultHandler
-{
-public:
+    : public BluetoothSetupResultHandler {
+ public:
   UnregisterModuleResultHandler(BluetoothProfileResultHandler* aRes)
-    : mRes(aRes)
-  { }
+      : mRes(aRes) {}
 
-  void OnError(BluetoothStatus aStatus) override
-  {
+  void OnError(BluetoothStatus aStatus) override {
     MOZ_ASSERT(NS_IsMainThread());
 
     BT_WARNING("BluetoothSetupInterface::UnregisterModule failed for AVRCP: %d",
@@ -351,8 +320,7 @@ public:
     }
   }
 
-  void UnregisterModule() override
-  {
+  void UnregisterModule() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     sBtAvrcpInterface->SetNotificationHandler(nullptr);
@@ -366,25 +334,20 @@ public:
     }
   }
 
-private:
+ private:
   RefPtr<BluetoothProfileResultHandler> mRes;
 };
 
 class BluetoothAvrcpManager::DeinitProfileResultHandlerRunnable final
-  : public Runnable
-{
-public:
+    : public Runnable {
+ public:
   DeinitProfileResultHandlerRunnable(BluetoothProfileResultHandler* aRes,
                                      nsresult aRv)
-    : Runnable("DeinitProfileResultHandlerRunnable")
-    , mRes(aRes)
-    , mRv(aRv)
-  {
+      : Runnable("DeinitProfileResultHandlerRunnable"), mRes(aRes), mRv(aRv) {
     MOZ_ASSERT(mRes);
   }
 
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     if (NS_SUCCEEDED(mRv)) {
@@ -395,21 +358,19 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   RefPtr<BluetoothProfileResultHandler> mRes;
   nsresult mRv;
 };
 
 // static
-void
-BluetoothAvrcpManager::DeinitAvrcpInterface(BluetoothProfileResultHandler* aRes)
-{
+void BluetoothAvrcpManager::DeinitAvrcpInterface(
+    BluetoothProfileResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!sBtAvrcpInterface) {
     BT_LOGR("Bluetooth AVRCP interface has not been initalized.");
-    RefPtr<Runnable> r =
-      new DeinitProfileResultHandlerRunnable(aRes, NS_OK);
+    RefPtr<Runnable> r = new DeinitProfileResultHandlerRunnable(aRes, NS_OK);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch AVRCP Deinit runnable");
     }
@@ -422,7 +383,7 @@ BluetoothAvrcpManager::DeinitAvrcpInterface(BluetoothProfileResultHandler* aRes)
     // If there's no backend interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch AVRCP OnError runnable");
     }
@@ -435,49 +396,41 @@ BluetoothAvrcpManager::DeinitAvrcpInterface(BluetoothProfileResultHandler* aRes)
     // If there's no Setup interface, we dispatch a runnable
     // that calls the profile result handler.
     RefPtr<Runnable> r =
-      new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
+        new DeinitProfileResultHandlerRunnable(aRes, NS_ERROR_FAILURE);
     if (NS_FAILED(NS_DispatchToMainThread(r))) {
       BT_LOGR("Failed to dispatch AVRCP OnError runnable");
     }
     return;
   }
 
-  setupInterface->UnregisterModule(
-    SETUP_SERVICE_ID_AVRCP,
-    new UnregisterModuleResultHandler(aRes));
+  setupInterface->UnregisterModule(SETUP_SERVICE_ID_AVRCP,
+                                   new UnregisterModuleResultHandler(aRes));
 }
 
-void
-BluetoothAvrcpManager::HandleShutdown()
-{
+void BluetoothAvrcpManager::HandleShutdown() {
   MOZ_ASSERT(NS_IsMainThread());
   sInShutdown = true;
   Disconnect(nullptr);
   sBluetoothAvrcpManager = nullptr;
 }
 
-class BluetoothAvrcpManager::ConnectRunnable final : public Runnable
-{
-public:
+class BluetoothAvrcpManager::ConnectRunnable final : public Runnable {
+ public:
   ConnectRunnable(BluetoothAvrcpManager* aManager)
-    : Runnable("ConnectRunnable")
-    , mManager(aManager)
-  {
+      : Runnable("ConnectRunnable"), mManager(aManager) {
     MOZ_ASSERT(mManager);
   }
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     mManager->OnConnect(EmptyString());
     return NS_OK;
   }
-private:
+
+ private:
   BluetoothAvrcpManager* mManager;
 };
 
-void
-BluetoothAvrcpManager::Connect(const BluetoothAddress& aDeviceAddress,
-                               BluetoothProfileController* aController)
-{
+void BluetoothAvrcpManager::Connect(const BluetoothAddress& aDeviceAddress,
+                                    BluetoothProfileController* aController) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!aDeviceAddress.IsCleared());
   MOZ_ASSERT(aController);
@@ -490,27 +443,23 @@ BluetoothAvrcpManager::Connect(const BluetoothAddress& aDeviceAddress,
   NS_DispatchToMainThread(new ConnectRunnable(this));
 }
 
-class BluetoothAvrcpManager::DisconnectRunnable final : public Runnable
-{
-public:
+class BluetoothAvrcpManager::DisconnectRunnable final : public Runnable {
+ public:
   DisconnectRunnable(BluetoothAvrcpManager* aManager)
-    : Runnable("DisconnectRunnable")
-    , mManager(aManager)
-  {
+      : Runnable("DisconnectRunnable"), mManager(aManager) {
     MOZ_ASSERT(mManager);
   }
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     mManager->OnDisconnect(EmptyString());
     return NS_OK;
   }
-private:
+
+ private:
   BluetoothAvrcpManager* mManager;
 };
 
-void
-BluetoothAvrcpManager::Disconnect(BluetoothProfileController* aController)
-{
+void BluetoothAvrcpManager::Disconnect(
+    BluetoothProfileController* aController) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mController);
 
@@ -521,9 +470,7 @@ BluetoothAvrcpManager::Disconnect(BluetoothProfileController* aController)
   NS_DispatchToMainThread(new DisconnectRunnable(this));
 }
 
-void
-BluetoothAvrcpManager::OnConnect(const nsAString& aErrorStr)
-{
+void BluetoothAvrcpManager::OnConnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -536,9 +483,7 @@ BluetoothAvrcpManager::OnConnect(const nsAString& aErrorStr)
   controller->NotifyCompletion(aErrorStr);
 }
 
-void
-BluetoothAvrcpManager::OnDisconnect(const nsAString& aErrorStr)
-{
+void BluetoothAvrcpManager::OnDisconnect(const nsAString& aErrorStr) {
   MOZ_ASSERT(NS_IsMainThread());
 
   /**
@@ -553,37 +498,24 @@ BluetoothAvrcpManager::OnDisconnect(const nsAString& aErrorStr)
   Reset();
 }
 
-void
-BluetoothAvrcpManager::OnGetServiceChannel(
-  const BluetoothAddress& aDeviceAddress,
-  const BluetoothUuid& aServiceUuid,
-  int aChannel)
-{ }
+void BluetoothAvrcpManager::OnGetServiceChannel(
+    const BluetoothAddress& aDeviceAddress, const BluetoothUuid& aServiceUuid,
+    int aChannel) {}
 
-void
-BluetoothAvrcpManager::OnUpdateSdpRecords(
-  const BluetoothAddress& aDeviceAddress)
-{ }
+void BluetoothAvrcpManager::OnUpdateSdpRecords(
+    const BluetoothAddress& aDeviceAddress) {}
 
-void
-BluetoothAvrcpManager::GetAddress(BluetoothAddress& aDeviceAddress)
-{
+void BluetoothAvrcpManager::GetAddress(BluetoothAddress& aDeviceAddress) {
   aDeviceAddress = mDeviceAddress;
 }
 
-bool
-BluetoothAvrcpManager::IsConnected()
-{
-  return mAvrcpConnected;
-}
+bool BluetoothAvrcpManager::IsConnected() { return mAvrcpConnected; }
 
 /*
  * In bluedroid stack case, there is no interface to know exactly
  * avrcp connection status. All connection are managed by bluedroid stack.
  */
-void
-BluetoothAvrcpManager::SetConnected(bool aConnected)
-{
+void BluetoothAvrcpManager::SetConnected(bool aConnected) {
   mAvrcpConnected = aConnected;
   if (!aConnected) {
     Reset();
@@ -594,14 +526,9 @@ BluetoothAvrcpManager::SetConnected(bool aConnected)
  * This function only updates meta data in BluetoothAvrcpManager. Send
  * "Get Element Attributes response" in AvrcpGetElementAttrCallback
  */
-void
-BluetoothAvrcpManager::UpdateMetaData(const nsAString& aTitle,
-                                      const nsAString& aArtist,
-                                      const nsAString& aAlbum,
-                                      uint64_t aMediaNumber,
-                                      uint64_t aTotalMediaCount,
-                                      uint32_t aDuration)
-{
+void BluetoothAvrcpManager::UpdateMetaData(
+    const nsAString& aTitle, const nsAString& aArtist, const nsAString& aAlbum,
+    uint64_t aMediaNumber, uint64_t aTotalMediaCount, uint32_t aDuration) {
   MOZ_ASSERT(NS_IsMainThread());
 
   NS_ENSURE_TRUE_VOID(sBtAvrcpInterface);
@@ -618,16 +545,14 @@ BluetoothAvrcpManager::UpdateMetaData(const nsAString& aTitle,
       param.mTrack[i] = (aMediaNumber >> (56 - 8 * i));
     }
     mTrackChangedNotifyType = AVRCP_NTF_CHANGED;
-    sBtAvrcpInterface->RegisterNotificationRsp(AVRCP_EVENT_TRACK_CHANGE,
-                                               AVRCP_NTF_CHANGED,
-                                               param, nullptr);
+    sBtAvrcpInterface->RegisterNotificationRsp(
+        AVRCP_EVENT_TRACK_CHANGE, AVRCP_NTF_CHANGED, param, nullptr);
     if (mPlayPosChangedNotifyType == AVRCP_NTF_INTERIM) {
       param.mSongPos = mPosition;
       // EVENT_PLAYBACK_POS_CHANGED shall be notified if changed current track
       mPlayPosChangedNotifyType = AVRCP_NTF_CHANGED;
-      sBtAvrcpInterface->RegisterNotificationRsp(AVRCP_EVENT_PLAY_POS_CHANGED,
-                                                 AVRCP_NTF_CHANGED,
-                                                 param, nullptr);
+      sBtAvrcpInterface->RegisterNotificationRsp(
+          AVRCP_EVENT_PLAY_POS_CHANGED, AVRCP_NTF_CHANGED, param, nullptr);
     }
   }
 
@@ -643,26 +568,23 @@ BluetoothAvrcpManager::UpdateMetaData(const nsAString& aTitle,
  * This function is to reply AvrcpGetPlayStatusCallback (play-status-request)
  * from media player application (Gaia side)
  */
-void
-BluetoothAvrcpManager::UpdatePlayStatus(uint32_t aDuration,
-                                        uint32_t aPosition,
-                                        ControlPlayStatus aPlayStatus)
-{
+void BluetoothAvrcpManager::UpdatePlayStatus(uint32_t aDuration,
+                                             uint32_t aPosition,
+                                             ControlPlayStatus aPlayStatus) {
   MOZ_ASSERT(NS_IsMainThread());
 
   NS_ENSURE_TRUE_VOID(sBtAvrcpInterface);
   // always update playstatus first
-  sBtAvrcpInterface->GetPlayStatusRsp(aPlayStatus, aDuration,
-                                      aPosition, nullptr);
+  sBtAvrcpInterface->GetPlayStatusRsp(aPlayStatus, aDuration, aPosition,
+                                      nullptr);
   // when play status changed, send both play status and position
   if (mPlayStatus != aPlayStatus &&
       mPlayStatusChangedNotifyType == AVRCP_NTF_INTERIM) {
     BluetoothAvrcpNotificationParam param;
     param.mPlayStatus = aPlayStatus;
     mPlayStatusChangedNotifyType = AVRCP_NTF_CHANGED;
-    sBtAvrcpInterface->RegisterNotificationRsp(AVRCP_EVENT_PLAY_STATUS_CHANGED,
-                                               AVRCP_NTF_CHANGED,
-                                               param, nullptr);
+    sBtAvrcpInterface->RegisterNotificationRsp(
+        AVRCP_EVENT_PLAY_STATUS_CHANGED, AVRCP_NTF_CHANGED, param, nullptr);
   }
 
   if (mPosition != aPosition &&
@@ -670,9 +592,8 @@ BluetoothAvrcpManager::UpdatePlayStatus(uint32_t aDuration,
     BluetoothAvrcpNotificationParam param;
     param.mSongPos = aPosition;
     mPlayPosChangedNotifyType = AVRCP_NTF_CHANGED;
-    sBtAvrcpInterface->RegisterNotificationRsp(AVRCP_EVENT_PLAY_POS_CHANGED,
-                                               AVRCP_NTF_CHANGED,
-                                               param, nullptr);
+    sBtAvrcpInterface->RegisterNotificationRsp(
+        AVRCP_EVENT_PLAY_POS_CHANGED, AVRCP_NTF_CHANGED, param, nullptr);
   }
 
   mDuration = aDuration;
@@ -687,10 +608,8 @@ BluetoothAvrcpManager::UpdatePlayStatus(uint32_t aDuration,
  *
  * aParam is only valid when position changed
  */
-void
-BluetoothAvrcpManager::UpdateRegisterNotification(BluetoothAvrcpEvent aEvent,
-                                                  uint32_t aParam)
-{
+void BluetoothAvrcpManager::UpdateRegisterNotification(
+    BluetoothAvrcpEvent aEvent, uint32_t aParam) {
   MOZ_ASSERT(NS_IsMainThread());
 
   NS_ENSURE_TRUE_VOID(sBtAvrcpInterface);
@@ -745,55 +664,31 @@ BluetoothAvrcpManager::UpdateRegisterNotification(BluetoothAvrcpEvent aEvent,
       break;
   }
 
-  sBtAvrcpInterface->RegisterNotificationRsp(aEvent, AVRCP_NTF_INTERIM,
-                                             param, nullptr);
+  sBtAvrcpInterface->RegisterNotificationRsp(aEvent, AVRCP_NTF_INTERIM, param,
+                                             nullptr);
 }
 
-void
-BluetoothAvrcpManager::GetAlbum(nsAString& aAlbum)
-{
+void BluetoothAvrcpManager::GetAlbum(nsAString& aAlbum) {
   aAlbum.Assign(mAlbum);
 }
 
-uint32_t
-BluetoothAvrcpManager::GetDuration()
-{
-  return mDuration;
-}
+uint32_t BluetoothAvrcpManager::GetDuration() { return mDuration; }
 
-ControlPlayStatus
-BluetoothAvrcpManager::GetPlayStatus()
-{
-  return mPlayStatus;
-}
+ControlPlayStatus BluetoothAvrcpManager::GetPlayStatus() { return mPlayStatus; }
 
-uint32_t
-BluetoothAvrcpManager::GetPosition()
-{
-  return mPosition;
-}
+uint32_t BluetoothAvrcpManager::GetPosition() { return mPosition; }
 
-uint64_t
-BluetoothAvrcpManager::GetMediaNumber()
-{
-  return mMediaNumber;
-}
+uint64_t BluetoothAvrcpManager::GetMediaNumber() { return mMediaNumber; }
 
-uint64_t
-BluetoothAvrcpManager::GetTotalMediaNumber()
-{
+uint64_t BluetoothAvrcpManager::GetTotalMediaNumber() {
   return mTotalMediaCount;
 }
 
-void
-BluetoothAvrcpManager::GetTitle(nsAString& aTitle)
-{
+void BluetoothAvrcpManager::GetTitle(nsAString& aTitle) {
   aTitle.Assign(mTitle);
 }
 
-void
-BluetoothAvrcpManager::GetArtist(nsAString& aArtist)
-{
+void BluetoothAvrcpManager::GetArtist(nsAString& aArtist) {
   aArtist.Assign(mArtist);
 }
 
@@ -801,9 +696,7 @@ BluetoothAvrcpManager::GetArtist(nsAString& aArtist)
  * Notifications
  */
 
-void
-BluetoothAvrcpManager::GetPlayStatusNotification()
-{
+void BluetoothAvrcpManager::GetPlayStatusNotification() {
   MOZ_ASSERT(NS_IsMainThread());
 
   BluetoothService* bs = BluetoothService::Get();
@@ -819,54 +712,42 @@ BluetoothAvrcpManager::GetPlayStatusNotification()
  * currently does not support player-application-setting related
  * functionality.
  */
-void
-BluetoothAvrcpManager::ListPlayerAppAttrNotification()
-{
+void BluetoothAvrcpManager::ListPlayerAppAttrNotification() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP application-setting-related functions
 }
 
-void
-BluetoothAvrcpManager::ListPlayerAppValuesNotification(
-  BluetoothAvrcpPlayerAttribute aAttrId)
-{
+void BluetoothAvrcpManager::ListPlayerAppValuesNotification(
+    BluetoothAvrcpPlayerAttribute aAttrId) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP application-setting-related functions
 }
 
-void
-BluetoothAvrcpManager::GetPlayerAppValueNotification(
-  uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs)
-{
+void BluetoothAvrcpManager::GetPlayerAppValueNotification(
+    uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP application-setting-related functions
 }
 
-void
-BluetoothAvrcpManager::GetPlayerAppAttrsTextNotification(
-  uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs)
-{
+void BluetoothAvrcpManager::GetPlayerAppAttrsTextNotification(
+    uint8_t aNumAttrs, const BluetoothAvrcpPlayerAttribute* aAttrs) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP application-setting-related functions
 }
 
-void
-BluetoothAvrcpManager::GetPlayerAppValuesTextNotification(
-  uint8_t aAttrId, uint8_t aNumVals, const uint8_t* aValues)
-{
+void BluetoothAvrcpManager::GetPlayerAppValuesTextNotification(
+    uint8_t aAttrId, uint8_t aNumVals, const uint8_t* aValues) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP application-setting-related functions
 }
 
-void
-BluetoothAvrcpManager::SetPlayerAppValueNotification(
-  const BluetoothAvrcpPlayerSettings& aSettings)
-{
+void BluetoothAvrcpManager::SetPlayerAppValueNotification(
+    const BluetoothAvrcpPlayerSettings& aSettings) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP application-setting-related functions
@@ -877,10 +758,8 @@ BluetoothAvrcpManager::SetPlayerAppValueNotification(
  * meta-data information, but instead uses |GetElementAttrNotifications|
  * and |GetElementAttrRsp| request them.
  */
-void
-BluetoothAvrcpManager::GetElementAttrNotification(
-  uint8_t aNumAttrs, const BluetoothAvrcpMediaAttribute* aAttrs)
-{
+void BluetoothAvrcpManager::GetElementAttrNotification(
+    uint8_t aNumAttrs, const BluetoothAvrcpMediaAttribute* aAttrs) {
   MOZ_ASSERT(NS_IsMainThread());
 
   auto attrs = MakeUnique<BluetoothAvrcpElementAttribute[]>(aNumAttrs);
@@ -888,18 +767,16 @@ BluetoothAvrcpManager::GetElementAttrNotification(
   for (uint8_t i = 0; i < aNumAttrs; ++i) {
     attrs[i].mId = aAttrs[i];
     ConvertAttributeString(
-      static_cast<BluetoothAvrcpMediaAttribute>(attrs[i].mId),
-      attrs[i].mValue);
+        static_cast<BluetoothAvrcpMediaAttribute>(attrs[i].mId),
+        attrs[i].mValue);
   }
 
   MOZ_ASSERT(sBtAvrcpInterface);
   sBtAvrcpInterface->GetElementAttrRsp(aNumAttrs, attrs.get(), nullptr);
 }
 
-void
-BluetoothAvrcpManager::RegisterNotificationNotification(
-  BluetoothAvrcpEvent aEvent, uint32_t aParam)
-{
+void BluetoothAvrcpManager::RegisterNotificationNotification(
+    BluetoothAvrcpEvent aEvent, uint32_t aParam) {
   MOZ_ASSERT(NS_IsMainThread());
 
   BluetoothAvrcpManager* avrcp = BluetoothAvrcpManager::Get();
@@ -915,10 +792,8 @@ BluetoothAvrcpManager::RegisterNotificationNotification(
  * volume feature). If Browsing bit is set, AVRCP 1.4 Browse feature will be
  * supported.
  */
-void
-BluetoothAvrcpManager::RemoteFeatureNotification(
-  const BluetoothAddress& aBdAddr, unsigned long aFeatures)
-{
+void BluetoothAvrcpManager::RemoteFeatureNotification(
+    const BluetoothAddress& aBdAddr, unsigned long aFeatures) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP 1.4 absolute volume/browse
@@ -927,19 +802,15 @@ BluetoothAvrcpManager::RemoteFeatureNotification(
 /* This method is used to get notifications about volume changes on the
  * remote car kit (if it supports AVRCP 1.4), not notification from phone.
  */
-void
-BluetoothAvrcpManager::VolumeChangeNotification(uint8_t aVolume,
-                                                uint8_t aCType)
-{
+void BluetoothAvrcpManager::VolumeChangeNotification(uint8_t aVolume,
+                                                     uint8_t aCType) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // TODO: Support AVRCP 1.4 absolute volume/browse
 }
 
-void
-BluetoothAvrcpManager::PassthroughCmdNotification(uint8_t aId,
-                                                  uint8_t aKeyState)
-{
+void BluetoothAvrcpManager::PassthroughCmdNotification(uint8_t aId,
+                                                       uint8_t aKeyState) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Fast-forward and rewind key events won't be generated from bluedroid
@@ -973,12 +844,10 @@ BluetoothAvrcpManager::PassthroughCmdNotification(uint8_t aId,
   BroadcastSystemMessage(type, BluetoothValue(name));
 }
 
-bool
-BluetoothAvrcpManager::ReplyToConnectionRequest(bool aAccept)
-{
-  MOZ_ASSERT(false, "BluetoothAvrcpManager hasn't implemented this function yet.");
+bool BluetoothAvrcpManager::ReplyToConnectionRequest(bool aAccept) {
+  MOZ_ASSERT(false,
+             "BluetoothAvrcpManager hasn't implemented this function yet.");
   return false;
 }
 
 NS_IMPL_ISUPPORTS(BluetoothAvrcpManager, nsIObserver)
-

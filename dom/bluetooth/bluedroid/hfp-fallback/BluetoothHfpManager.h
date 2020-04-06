@@ -19,12 +19,10 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothHfpManager : public BluetoothHfpManagerBase
-{
-public:
+class BluetoothHfpManager : public BluetoothHfpManagerBase {
+ public:
   BT_DECL_HFP_MGR_BASE
-  virtual void GetName(nsACString& aName) override
-  {
+  virtual void GetName(nsACString& aName) override {
     aName.AssignLiteral("Fallback HFP/HSP");
   }
 
@@ -37,15 +35,15 @@ public:
   // Handle unexpected backend crash
   void HandleBackendError();
 
-protected:
-  virtual ~BluetoothHfpManager() { }
+ protected:
+  virtual ~BluetoothHfpManager() {}
 
-private:
-  BluetoothHfpManager() { }
+ private:
+  BluetoothHfpManager() {}
   bool Init();
   void HandleShutdown();
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_bluedroid_BluetoothHfpManager_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothHfpManager_h

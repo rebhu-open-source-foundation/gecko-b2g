@@ -16,28 +16,21 @@ using namespace mozilla::ipc;
 // SDP module
 //
 
-BluetoothSdpNotificationHandler*
-  BluetoothDaemonSdpModule::sNotificationHandler;
+BluetoothSdpNotificationHandler* BluetoothDaemonSdpModule::sNotificationHandler;
 
-
-void
-BluetoothDaemonSdpModule::SetNotificationHandler(
-  BluetoothSdpNotificationHandler* aNotificationHandler)
-{
+void BluetoothDaemonSdpModule::SetNotificationHandler(
+    BluetoothSdpNotificationHandler* aNotificationHandler) {
   sNotificationHandler = aNotificationHandler;
 }
 
-void
-BluetoothDaemonSdpModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                                    DaemonSocketPDU& aPDU,
-                                    DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonSdpModule::* const HandleOp[])(
-    const DaemonSocketPDUHeader&, DaemonSocketPDU&,
-    DaemonSocketResultHandler*) = {
-    [0] = &BluetoothDaemonSdpModule::HandleRsp,
-    [1] = &BluetoothDaemonSdpModule::HandleNtf
-  };
+void BluetoothDaemonSdpModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
+                                         DaemonSocketPDU& aPDU,
+                                         DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonSdpModule::*const HandleOp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      DaemonSocketResultHandler*) = {
+      [0] = &BluetoothDaemonSdpModule::HandleRsp,
+      [1] = &BluetoothDaemonSdpModule::HandleNtf};
 
   MOZ_ASSERT(!NS_IsMainThread());
   // negate twice to map bit to 0/1
@@ -49,16 +42,14 @@ BluetoothDaemonSdpModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
 // Commands
 //
 
-nsresult
-BluetoothDaemonSdpModule::SdpSearchCmd(
-  const BluetoothAddress& aRemoteAddr, const BluetoothUuid& aUuid,
-  BluetoothSdpResultHandler* aRes)
-{
+nsresult BluetoothDaemonSdpModule::SdpSearchCmd(
+    const BluetoothAddress& aRemoteAddr, const BluetoothUuid& aUuid,
+    BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SDP_SEARCH,
-                                6 + 16); // address + UUID
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SDP_SEARCH,
+                                  6 + 16);  // address + UUID
 
   nsresult rv;
   rv = PackPDU(aRemoteAddr, *pdu);
@@ -79,16 +70,14 @@ BluetoothDaemonSdpModule::SdpSearchCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonSdpModule::CreateSdpRecordCmd(
-  const BluetoothSdpRecord& aRecord, int& aRecordHandle,
-  BluetoothSdpResultHandler* aRes)
-{
+nsresult BluetoothDaemonSdpModule::CreateSdpRecordCmd(
+    const BluetoothSdpRecord& aRecord, int& aRecordHandle,
+    BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CREATE_SDP_RECORD,
-                                44); // Bluetooth SDP record
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CREATE_SDP_RECORD,
+                                  44);  // Bluetooth SDP record
 
   nsresult rv = PackPDU(aRecord, *pdu);
   if (NS_FAILED(rv)) {
@@ -104,15 +93,13 @@ BluetoothDaemonSdpModule::CreateSdpRecordCmd(
   return NS_OK;
 }
 
-nsresult
-BluetoothDaemonSdpModule::RemoveSdpRecordCmd(
-  int aSdpHandle, BluetoothSdpResultHandler* aRes)
-{
+nsresult BluetoothDaemonSdpModule::RemoveSdpRecordCmd(
+    int aSdpHandle, BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REMOVE_SDP_RECORD,
-                                4); // SDP handle
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REMOVE_SDP_RECORD,
+                                  4);  // SDP handle
 
   nsresult rv = PackPDU(aSdpHandle, *pdu);
   if (NS_FAILED(rv)) {
@@ -130,58 +117,48 @@ BluetoothDaemonSdpModule::RemoveSdpRecordCmd(
 // Responses
 //
 
-void
-BluetoothDaemonSdpModule::ErrorRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, BluetoothSdpResultHandler* aRes)
-{
-  ErrorRunnable::Dispatch(
-    aRes, &BluetoothSdpResultHandler::OnError, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSdpModule::ErrorRsp(const DaemonSocketPDUHeader& aHeader,
+                                        DaemonSocketPDU& aPDU,
+                                        BluetoothSdpResultHandler* aRes) {
+  ErrorRunnable::Dispatch(aRes, &BluetoothSdpResultHandler::OnError,
+                          UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSdpModule::SdpSearchRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  BluetoothSdpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothSdpResultHandler::SdpSearch, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSdpModule::SdpSearchRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothSdpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothSdpResultHandler::SdpSearch,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSdpModule::CreateSdpRecordRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  BluetoothSdpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothSdpResultHandler::CreateSdpRecord, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSdpModule::CreateSdpRecordRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothSdpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothSdpResultHandler::CreateSdpRecord,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSdpModule::RemoveSdpRecordRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  BluetoothSdpResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes, &BluetoothSdpResultHandler::RemoveSdpRecord, UnpackPDUInitOp(aPDU));
+void BluetoothDaemonSdpModule::RemoveSdpRecordRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothSdpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothSdpResultHandler::RemoveSdpRecord,
+                           UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSdpModule::HandleRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonSdpModule::* const HandleRsp[])(
-    const DaemonSocketPDUHeader&,
-    DaemonSocketPDU&,
-    BluetoothSdpResultHandler*) = {
-    [OPCODE_ERROR] = &BluetoothDaemonSdpModule::ErrorRsp,
-    [OPCODE_SDP_SEARCH] = &BluetoothDaemonSdpModule::SdpSearchRsp,
-    [OPCODE_CREATE_SDP_RECORD] = &BluetoothDaemonSdpModule::CreateSdpRecordRsp,
-    [OPCODE_REMOVE_SDP_RECORD] = &BluetoothDaemonSdpModule::RemoveSdpRecordRsp
-  };
+void BluetoothDaemonSdpModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
+                                         DaemonSocketPDU& aPDU,
+                                         DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonSdpModule::*const HandleRsp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      BluetoothSdpResultHandler*) = {
+      [OPCODE_ERROR] = &BluetoothDaemonSdpModule::ErrorRsp,
+      [OPCODE_SDP_SEARCH] = &BluetoothDaemonSdpModule::SdpSearchRsp,
+      [OPCODE_CREATE_SDP_RECORD] =
+          &BluetoothDaemonSdpModule::CreateSdpRecordRsp,
+      [OPCODE_REMOVE_SDP_RECORD] =
+          &BluetoothDaemonSdpModule::RemoveSdpRecordRsp};
 
-  MOZ_ASSERT(!NS_IsMainThread()); // I/O thread
+  MOZ_ASSERT(!NS_IsMainThread());  // I/O thread
 
   if (NS_WARN_IF(!(aHeader.mOpcode < MOZ_ARRAY_LENGTH(HandleRsp))) ||
       NS_WARN_IF(!HandleRsp[aHeader.mOpcode])) {
@@ -189,10 +166,10 @@ BluetoothDaemonSdpModule::HandleRsp(
   }
 
   RefPtr<BluetoothSdpResultHandler> res =
-    static_cast<BluetoothSdpResultHandler*>(aRes);
+      static_cast<BluetoothSdpResultHandler*>(aRes);
 
   if (!res) {
-    return; // Return early if no result handler has been set for response
+    return;  // Return early if no result handler has been set for response
   }
 
   (this->*(HandleRsp[aHeader.mOpcode]))(aHeader, aPDU, res);
@@ -202,37 +179,30 @@ BluetoothDaemonSdpModule::HandleRsp(
 //
 
 // Returns the current notification handler to a notification runnable
-class BluetoothDaemonSdpModule::NotificationHandlerWrapper final
-{
-public:
+class BluetoothDaemonSdpModule::NotificationHandlerWrapper final {
+ public:
   typedef BluetoothSdpNotificationHandler ObjectType;
 
-  static ObjectType* GetInstance()
-  {
+  static ObjectType* GetInstance() {
     MOZ_ASSERT(NS_IsMainThread());
 
     return sNotificationHandler;
   }
 };
 
-void
-BluetoothDaemonSdpModule::SdpSearchNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU)
-{
+void BluetoothDaemonSdpModule::SdpSearchNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   SdpSearchNotification::Dispatch(
-    &BluetoothSdpNotificationHandler::SdpSearchNotification,
-    UnpackPDUInitOp(aPDU));
+      &BluetoothSdpNotificationHandler::SdpSearchNotification,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-BluetoothDaemonSdpModule::HandleNtf(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
-  static void (BluetoothDaemonSdpModule::* const HandleNtf[])(
-    const DaemonSocketPDUHeader&, DaemonSocketPDU&) = {
-    [0] = &BluetoothDaemonSdpModule::SdpSearchNtf
-  };
+void BluetoothDaemonSdpModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
+                                         DaemonSocketPDU& aPDU,
+                                         DaemonSocketResultHandler* aRes) {
+  static void (BluetoothDaemonSdpModule::*const HandleNtf[])(
+      const DaemonSocketPDUHeader&,
+      DaemonSocketPDU&) = {[0] = &BluetoothDaemonSdpModule::SdpSearchNtf};
 
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -246,25 +216,18 @@ BluetoothDaemonSdpModule::HandleNtf(
   (this->*(HandleNtf[index]))(aHeader, aPDU);
 }
 
-
 //
 // SDP interface
 //
 
 BluetoothDaemonSdpInterface::BluetoothDaemonSdpInterface(
-  BluetoothDaemonSdpModule* aModule)
-  : mModule(aModule)
-{
-}
+    BluetoothDaemonSdpModule* aModule)
+    : mModule(aModule) {}
 
-BluetoothDaemonSdpInterface::~BluetoothDaemonSdpInterface()
-{
-}
+BluetoothDaemonSdpInterface::~BluetoothDaemonSdpInterface() {}
 
-void
-BluetoothDaemonSdpInterface::SetNotificationHandler(
-  BluetoothSdpNotificationHandler* aNotificationHandler)
-{
+void BluetoothDaemonSdpInterface::SetNotificationHandler(
+    BluetoothSdpNotificationHandler* aNotificationHandler) {
   MOZ_ASSERT(mModule);
 
   mModule->SetNotificationHandler(aNotificationHandler);
@@ -272,11 +235,9 @@ BluetoothDaemonSdpInterface::SetNotificationHandler(
 
 /* SdpSearch / CreateSdpRecord / RemoveSdpRecord */
 
-void
-BluetoothDaemonSdpInterface::SdpSearch(
-  const BluetoothAddress& aBdAddr, const BluetoothUuid& aUuid,
-  BluetoothSdpResultHandler* aRes)
-{
+void BluetoothDaemonSdpInterface::SdpSearch(const BluetoothAddress& aBdAddr,
+                                            const BluetoothUuid& aUuid,
+                                            BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->SdpSearchCmd(aBdAddr, aUuid, aRes);
@@ -285,11 +246,9 @@ BluetoothDaemonSdpInterface::SdpSearch(
   }
 }
 
-void
-BluetoothDaemonSdpInterface::CreateSdpRecord(
-  const BluetoothSdpRecord& aRecord, int& aRecordHandle,
-  BluetoothSdpResultHandler* aRes)
-{
+void BluetoothDaemonSdpInterface::CreateSdpRecord(
+    const BluetoothSdpRecord& aRecord, int& aRecordHandle,
+    BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->CreateSdpRecordCmd(aRecord, aRecordHandle, aRes);
@@ -298,10 +257,8 @@ BluetoothDaemonSdpInterface::CreateSdpRecord(
   }
 }
 
-void
-BluetoothDaemonSdpInterface::RemoveSdpRecord(
-  int aSdpHandle, BluetoothSdpResultHandler* aRes)
-{
+void BluetoothDaemonSdpInterface::RemoveSdpRecord(
+    int aSdpHandle, BluetoothSdpResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->RemoveSdpRecordCmd(aSdpHandle, aRes);
@@ -310,20 +267,16 @@ BluetoothDaemonSdpInterface::RemoveSdpRecord(
   }
 }
 
-void
-BluetoothDaemonSdpInterface::DispatchError(
-  BluetoothSdpResultHandler* aRes, BluetoothStatus aStatus)
-{
-  DaemonResultRunnable1<BluetoothSdpResultHandler, void,
-                        BluetoothStatus, BluetoothStatus>::Dispatch(
-    aRes, &BluetoothSdpResultHandler::OnError,
-    ConstantInitOp1<BluetoothStatus>(aStatus));
+void BluetoothDaemonSdpInterface::DispatchError(BluetoothSdpResultHandler* aRes,
+                                                BluetoothStatus aStatus) {
+  DaemonResultRunnable1<
+      BluetoothSdpResultHandler, void, BluetoothStatus,
+      BluetoothStatus>::Dispatch(aRes, &BluetoothSdpResultHandler::OnError,
+                                 ConstantInitOp1<BluetoothStatus>(aStatus));
 }
 
-void
-BluetoothDaemonSdpInterface::DispatchError(
-  BluetoothSdpResultHandler* aRes, nsresult aRv)
-{
+void BluetoothDaemonSdpInterface::DispatchError(BluetoothSdpResultHandler* aRes,
+                                                nsresult aRv) {
   BluetoothStatus status;
 
   if (NS_WARN_IF(NS_FAILED(Convert(aRv, status)))) {

@@ -20,22 +20,16 @@
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-void
-AddressToString(const BluetoothAddress& aAddress, nsAString& aString)
-{
+void AddressToString(const BluetoothAddress& aAddress, nsAString& aString) {
   char str[BLUETOOTH_ADDRESS_LENGTH + 1];
 
-  int res = snprintf(str, sizeof(str), "%02x:%02x:%02x:%02x:%02x:%02x",
-                     static_cast<int>(aAddress.mAddr[0]),
-                     static_cast<int>(aAddress.mAddr[1]),
-                     static_cast<int>(aAddress.mAddr[2]),
-                     static_cast<int>(aAddress.mAddr[3]),
-                     static_cast<int>(aAddress.mAddr[4]),
-                     static_cast<int>(aAddress.mAddr[5]));
+  int res = snprintf(
+      str, sizeof(str), "%02x:%02x:%02x:%02x:%02x:%02x",
+      static_cast<int>(aAddress.mAddr[0]), static_cast<int>(aAddress.mAddr[1]),
+      static_cast<int>(aAddress.mAddr[2]), static_cast<int>(aAddress.mAddr[3]),
+      static_cast<int>(aAddress.mAddr[4]), static_cast<int>(aAddress.mAddr[5]));
 
-  if ((res == EOF) ||
-      (res < 0) ||
-      (static_cast<size_t>(res) >= sizeof(str))) {
+  if ((res == EOF) || (res < 0) || (static_cast<size_t>(res) >= sizeof(str))) {
     /* Conversion should have succeeded or (a) we're out of memory, or
      * (b) our code is massively broken. We should crash in both cases.
      */
@@ -45,41 +39,30 @@ AddressToString(const BluetoothAddress& aAddress, nsAString& aString)
   aString = NS_ConvertUTF8toUTF16(str);
 }
 
-nsresult
-StringToAddress(const nsAString& aString, BluetoothAddress& aAddress)
-{
+nsresult StringToAddress(const nsAString& aString, BluetoothAddress& aAddress) {
   int res = sscanf(NS_ConvertUTF16toUTF8(aString).get(),
                    "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                   &aAddress.mAddr[0],
-                   &aAddress.mAddr[1],
-                   &aAddress.mAddr[2],
-                   &aAddress.mAddr[3],
-                   &aAddress.mAddr[4],
-                   &aAddress.mAddr[5]);
+                   &aAddress.mAddr[0], &aAddress.mAddr[1], &aAddress.mAddr[2],
+                   &aAddress.mAddr[3], &aAddress.mAddr[4], &aAddress.mAddr[5]);
   if (res < static_cast<ssize_t>(MOZ_ARRAY_LENGTH(aAddress.mAddr))) {
     return NS_ERROR_ILLEGAL_VALUE;
   }
   return NS_OK;
 }
 
-nsresult
-PinCodeToString(const BluetoothPinCode& aPinCode, nsAString& aString)
-{
+nsresult PinCodeToString(const BluetoothPinCode& aPinCode, nsAString& aString) {
   if (aPinCode.mLength > sizeof(aPinCode.mPinCode)) {
     BT_LOGR("Pin-code string too long");
     return NS_ERROR_ILLEGAL_VALUE;
   }
 
-  aString = NS_ConvertUTF8toUTF16(
-    nsCString(reinterpret_cast<const char*>(aPinCode.mPinCode),
-              aPinCode.mLength));
+  aString = NS_ConvertUTF8toUTF16(nsCString(
+      reinterpret_cast<const char*>(aPinCode.mPinCode), aPinCode.mLength));
 
   return NS_OK;
 }
 
-nsresult
-StringToPinCode(const nsAString& aString, BluetoothPinCode& aPinCode)
-{
+nsresult StringToPinCode(const nsAString& aString, BluetoothPinCode& aPinCode) {
   NS_ConvertUTF16toUTF8 stringUTF8(aString);
 
   auto len = stringUTF8.Length();
@@ -98,10 +81,8 @@ StringToPinCode(const nsAString& aString, BluetoothPinCode& aPinCode)
   return NS_OK;
 }
 
-nsresult
-StringToControlPlayStatus(const nsAString& aString,
-                          ControlPlayStatus& aPlayStatus)
-{
+nsresult StringToControlPlayStatus(const nsAString& aString,
+                                   ControlPlayStatus& aPlayStatus) {
   if (aString.EqualsLiteral("STOPPED")) {
     aPlayStatus = ControlPlayStatus::PLAYSTATUS_STOPPED;
   } else if (aString.EqualsLiteral("PLAYING")) {
@@ -123,9 +104,8 @@ StringToControlPlayStatus(const nsAString& aString,
   return NS_OK;
 }
 
-nsresult
-StringToPropertyType(const nsAString& aString, BluetoothPropertyType& aType)
-{
+nsresult StringToPropertyType(const nsAString& aString,
+                              BluetoothPropertyType& aType) {
   if (aString.EqualsLiteral("Name")) {
     aType = PROPERTY_BDNAME;
   } else if (aString.EqualsLiteral("Discoverable")) {
@@ -134,16 +114,14 @@ StringToPropertyType(const nsAString& aString, BluetoothPropertyType& aType)
     aType = PROPERTY_ADAPTER_DISCOVERY_TIMEOUT;
   } else {
     BT_LOGR("Invalid property name: %s", NS_ConvertUTF16toUTF8(aString).get());
-    aType = PROPERTY_UNKNOWN; // silences compiler warning
+    aType = PROPERTY_UNKNOWN;  // silences compiler warning
     return NS_ERROR_ILLEGAL_VALUE;
   }
   return NS_OK;
 }
 
-nsresult
-NamedValueToProperty(const BluetoothNamedValue& aValue,
-                     BluetoothProperty& aProperty)
-{
+nsresult NamedValueToProperty(const BluetoothNamedValue& aValue,
+                              BluetoothProperty& aProperty) {
   nsresult rv = StringToPropertyType(aValue.name(), aProperty.mType);
   if (NS_FAILED(rv)) {
     return rv;
@@ -189,9 +167,8 @@ NamedValueToProperty(const BluetoothNamedValue& aValue,
   return NS_OK;
 }
 
-void
-RemoteNameToString(const BluetoothRemoteName& aRemoteName, nsAString& aString)
-{
+void RemoteNameToString(const BluetoothRemoteName& aRemoteName,
+                        nsAString& aString) {
   MOZ_ASSERT(aRemoteName.mLength <= sizeof(aRemoteName.mName));
 
   auto name = reinterpret_cast<const char*>(aRemoteName.mName);
@@ -202,10 +179,8 @@ RemoteNameToString(const BluetoothRemoteName& aRemoteName, nsAString& aString)
   aString = NS_ConvertUTF8toUTF16(name, aRemoteName.mLength);
 }
 
-nsresult
-StringToServiceName(const nsAString& aString,
-                    BluetoothServiceName& aServiceName)
-{
+nsresult StringToServiceName(const nsAString& aString,
+                             BluetoothServiceName& aServiceName) {
   NS_ConvertUTF16toUTF8 serviceNameUTF8(aString);
 
   auto len = serviceNameUTF8.Length();
@@ -223,9 +198,7 @@ StringToServiceName(const nsAString& aString,
   return NS_OK;
 }
 
-void
-UuidToString(const BluetoothUuid& aUuid, nsAString& aString)
-{
+void UuidToString(const BluetoothUuid& aUuid, nsAString& aString) {
   char uuidStr[37];
   uint32_t uuid0, uuid4;
   uint16_t uuid1, uuid2, uuid3, uuid5;
@@ -237,25 +210,21 @@ UuidToString(const BluetoothUuid& aUuid, nsAString& aString)
   memcpy(&uuid4, &aUuid.mUuid[10], sizeof(uint32_t));
   memcpy(&uuid5, &aUuid.mUuid[14], sizeof(uint16_t));
 
-  snprintf(uuidStr, sizeof(uuidStr),
-           "%.8x-%.4x-%.4x-%.4x-%.8x%.4x",
-           ntohl(uuid0), ntohs(uuid1),
-           ntohs(uuid2), ntohs(uuid3),
-           ntohl(uuid4), ntohs(uuid5));
+  snprintf(uuidStr, sizeof(uuidStr), "%.8x-%.4x-%.4x-%.4x-%.8x%.4x",
+           ntohl(uuid0), ntohs(uuid1), ntohs(uuid2), ntohs(uuid3), ntohl(uuid4),
+           ntohs(uuid5));
 
   aString.Truncate();
   aString.AssignLiteral(uuidStr);
 }
 
-nsresult
-StringToUuid(const nsAString& aString, BluetoothUuid& aUuid)
-{
+nsresult StringToUuid(const nsAString& aString, BluetoothUuid& aUuid) {
   uint32_t uuid0, uuid4;
   uint16_t uuid1, uuid2, uuid3, uuid5;
 
   auto res = sscanf(NS_ConvertUTF16toUTF8(aString).get(),
-                    "%08x-%04hx-%04hx-%04hx-%08x%04hx",
-                    &uuid0, &uuid1, &uuid2, &uuid3, &uuid4, &uuid5);
+                    "%08x-%04hx-%04hx-%04hx-%08x%04hx", &uuid0, &uuid1, &uuid2,
+                    &uuid3, &uuid4, &uuid5);
   if (res == EOF || res < 6) {
     return NS_ERROR_ILLEGAL_VALUE;
   }
@@ -277,15 +246,11 @@ StringToUuid(const nsAString& aString, BluetoothUuid& aUuid)
   return NS_OK;
 }
 
-nsresult
-BytesToUuid(const nsTArray<uint8_t>& aArray,
-            nsTArray<uint8_t>::index_type aOffset,
-            BluetoothUuidType aType,
-            BluetoothProfileEndian aEndian,
-            BluetoothUuid& aUuid)
-{
-  MOZ_ASSERT(aType == UUID_16_BIT ||
-             aType == UUID_32_BIT ||
+nsresult BytesToUuid(const nsTArray<uint8_t>& aArray,
+                     nsTArray<uint8_t>::index_type aOffset,
+                     BluetoothUuidType aType, BluetoothProfileEndian aEndian,
+                     BluetoothUuid& aUuid) {
+  MOZ_ASSERT(aType == UUID_16_BIT || aType == UUID_32_BIT ||
              aType == UUID_128_BIT);
   MOZ_ASSERT(aEndian == ENDIAN_BIG || aEndian == ENDIAN_LITTLE);
 
@@ -293,7 +258,7 @@ BytesToUuid(const nsTArray<uint8_t>& aArray,
   size_t length = 0;
 
   if (aType == UUID_16_BIT) {
-    length =  sizeof(uint16_t);
+    length = sizeof(uint16_t);
   } else if (aType == UUID_32_BIT) {
     length = sizeof(uint32_t);
   } else {
@@ -319,15 +284,10 @@ BytesToUuid(const nsTArray<uint8_t>& aArray,
   return NS_OK;
 }
 
-nsresult
-UuidToBytes(const BluetoothUuid& aUuid,
-            BluetoothUuidType aType,
-            BluetoothProfileEndian aEndian,
-            nsTArray<uint8_t>& aArray,
-            nsTArray<uint8_t>::index_type aOffset)
-{
-  MOZ_ASSERT(aType == UUID_16_BIT ||
-             aType == UUID_32_BIT ||
+nsresult UuidToBytes(const BluetoothUuid& aUuid, BluetoothUuidType aType,
+                     BluetoothProfileEndian aEndian, nsTArray<uint8_t>& aArray,
+                     nsTArray<uint8_t>::index_type aOffset) {
+  MOZ_ASSERT(aType == UUID_16_BIT || aType == UUID_32_BIT ||
              aType == UUID_128_BIT);
   MOZ_ASSERT(aEndian == ENDIAN_BIG || aEndian == ENDIAN_LITTLE);
 
@@ -335,7 +295,7 @@ UuidToBytes(const BluetoothUuid& aUuid,
   size_t length = 0;
 
   if (aType == UUID_16_BIT) {
-    length =  sizeof(uint16_t);
+    length = sizeof(uint16_t);
   } else if (aType == UUID_32_BIT) {
     length = sizeof(uint32_t);
   } else {
@@ -357,12 +317,10 @@ UuidToBytes(const BluetoothUuid& aUuid,
   return NS_OK;
 }
 
-nsresult
-GenerateUuid(BluetoothUuid &aUuid)
-{
+nsresult GenerateUuid(BluetoothUuid& aUuid) {
   nsresult rv;
   nsCOMPtr<nsIUUIDGenerator> uuidGenerator =
-    do_GetService("@mozilla.org/uuid-generator;1", &rv);
+      do_GetService("@mozilla.org/uuid-generator;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsID uuid;
@@ -370,19 +328,16 @@ GenerateUuid(BluetoothUuid &aUuid)
   NS_ENSURE_SUCCESS(rv, rv);
 
   aUuid = BluetoothUuid(uuid.m0 >> 24, uuid.m0 >> 16, uuid.m0 >> 8, uuid.m0,
-                        uuid.m1 >> 8, uuid.m1,
-                        uuid.m2 >> 8, uuid.m2,
+                        uuid.m1 >> 8, uuid.m1, uuid.m2 >> 8, uuid.m2,
                         uuid.m3[0], uuid.m3[1], uuid.m3[2], uuid.m3[3],
                         uuid.m3[4], uuid.m3[5], uuid.m3[6], uuid.m3[7]);
   return NS_OK;
 }
 
-nsresult
-GenerateUuid(nsAString &aUuidString)
-{
+nsresult GenerateUuid(nsAString& aUuidString) {
   nsresult rv;
   nsCOMPtr<nsIUUIDGenerator> uuidGenerator =
-    do_GetService("@mozilla.org/uuid-generator;1", &rv);
+      do_GetService("@mozilla.org/uuid-generator;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsID uuid;
@@ -400,26 +355,22 @@ GenerateUuid(nsAString &aUuidString)
   return NS_OK;
 }
 
-void
-GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
-                            GattPermissions& aPermissions)
-{
+void GattPermissionsToDictionary(BluetoothGattAttrPerm aBits,
+                                 GattPermissions& aPermissions) {
   aPermissions.mRead = aBits & GATT_ATTR_PERM_BIT_READ;
   aPermissions.mReadEncrypted = aBits & GATT_ATTR_PERM_BIT_READ_ENCRYPTED;
   aPermissions.mReadEncryptedMITM =
-    aBits & GATT_ATTR_PERM_BIT_READ_ENCRYPTED_MITM;
+      aBits & GATT_ATTR_PERM_BIT_READ_ENCRYPTED_MITM;
   aPermissions.mWrite = aBits & GATT_ATTR_PERM_BIT_WRITE;
   aPermissions.mWriteEncrypted = aBits & GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED;
   aPermissions.mWriteEncryptedMITM =
-    aBits & GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED_MITM;
+      aBits & GATT_ATTR_PERM_BIT_WRITE_ENCRYPTED_MITM;
   aPermissions.mWriteSigned = aBits & GATT_ATTR_PERM_BIT_WRITE_SIGNED;
   aPermissions.mWriteSignedMITM = aBits & GATT_ATTR_PERM_BIT_WRITE_SIGNED_MITM;
 }
 
-void
-GattPermissionsToBits(const GattPermissions& aPermissions,
-                      BluetoothGattAttrPerm& aBits)
-{
+void GattPermissionsToBits(const GattPermissions& aPermissions,
+                           BluetoothGattAttrPerm& aBits) {
   aBits = BLUETOOTH_EMPTY_GATT_ATTR_PERM;
 
   if (aPermissions.mRead) {
@@ -448,10 +399,8 @@ GattPermissionsToBits(const GattPermissions& aPermissions,
   }
 }
 
-void
-GattPropertiesToDictionary(BluetoothGattCharProp aBits,
-                           GattCharacteristicProperties& aProperties)
-{
+void GattPropertiesToDictionary(BluetoothGattCharProp aBits,
+                                GattCharacteristicProperties& aProperties) {
   aProperties.mBroadcast = aBits & GATT_CHAR_PROP_BIT_BROADCAST;
   aProperties.mRead = aBits & GATT_CHAR_PROP_BIT_READ;
   aProperties.mWriteNoResponse = aBits & GATT_CHAR_PROP_BIT_WRITE_NO_RESPONSE;
@@ -462,10 +411,8 @@ GattPropertiesToDictionary(BluetoothGattCharProp aBits,
   aProperties.mExtendedProps = aBits & GATT_CHAR_PROP_BIT_EXTENDED_PROPERTIES;
 }
 
-void
-GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
-                     BluetoothGattCharProp& aBits)
-{
+void GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
+                          BluetoothGattCharProp& aBits) {
   aBits = BLUETOOTH_EMPTY_GATT_CHAR_PROP;
 
   if (aProperties.mBroadcast) {
@@ -494,11 +441,9 @@ GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
   }
 }
 
-nsresult
-AdvertisingDataToGattAdvertisingData(
-  const BluetoothAdvertisingData& aAdvData,
-  BluetoothGattAdvertisingData& aGattAdvData)
-{
+nsresult AdvertisingDataToGattAdvertisingData(
+    const BluetoothAdvertisingData& aAdvData,
+    BluetoothGattAdvertisingData& aGattAdvData) {
   aGattAdvData.mAppearance = aAdvData.mAppearance;
   aGattAdvData.mIncludeDevName = aAdvData.mIncludeDevName;
   aGattAdvData.mIncludeTxPower = aAdvData.mIncludeTxPower;
@@ -564,10 +509,7 @@ AdvertisingDataToGattAdvertisingData(
   return NS_OK;
 }
 
-void
-GeneratePathFromGattId(const BluetoothGattId& aId,
-                       nsAString& aPath)
-{
+void GeneratePathFromGattId(const BluetoothGattId& aId, nsAString& aPath) {
   nsString uuidStr;
   UuidToString(aId.mUuid, uuidStr);
 
@@ -576,10 +518,8 @@ GeneratePathFromGattId(const BluetoothGattId& aId,
   aPath.AppendInt(aId.mInstanceId);
 }
 
-void
-RegisterBluetoothSignalHandler(const nsAString& aPath,
-                               BluetoothSignalObserver* aHandler)
-{
+void RegisterBluetoothSignalHandler(const nsAString& aPath,
+                                    BluetoothSignalObserver* aHandler) {
   MOZ_ASSERT(!aPath.IsEmpty());
   MOZ_ASSERT(aHandler);
 
@@ -590,30 +530,24 @@ RegisterBluetoothSignalHandler(const nsAString& aPath,
   aHandler->SetSignalRegistered(true);
 }
 
-void
-RegisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
-                               BluetoothSignalObserver* aHandler)
-{
+void RegisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
+                                    BluetoothSignalObserver* aHandler) {
   nsAutoString path;
   AddressToString(aAddress, path);
 
   RegisterBluetoothSignalHandler(path, aHandler);
 }
 
-void
-RegisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
-                               BluetoothSignalObserver* aHandler)
-{
+void RegisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
+                                    BluetoothSignalObserver* aHandler) {
   nsAutoString path;
   UuidToString(aUuid, path);
 
   RegisterBluetoothSignalHandler(path, aHandler);
 }
 
-void
-UnregisterBluetoothSignalHandler(const nsAString& aPath,
-                                 BluetoothSignalObserver* aHandler)
-{
+void UnregisterBluetoothSignalHandler(const nsAString& aPath,
+                                      BluetoothSignalObserver* aHandler) {
   MOZ_ASSERT(!aPath.IsEmpty());
   MOZ_ASSERT(aHandler);
 
@@ -624,20 +558,16 @@ UnregisterBluetoothSignalHandler(const nsAString& aPath,
   aHandler->SetSignalRegistered(false);
 }
 
-void
-UnregisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
-                                 BluetoothSignalObserver* aHandler)
-{
+void UnregisterBluetoothSignalHandler(const BluetoothAddress& aAddress,
+                                      BluetoothSignalObserver* aHandler) {
   nsAutoString path;
   AddressToString(aAddress, path);
 
   UnregisterBluetoothSignalHandler(path, aHandler);
 }
 
-void
-UnregisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
-                                 BluetoothSignalObserver* aHandler)
-{
+void UnregisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
+                                      BluetoothSignalObserver* aHandler) {
   nsAutoString path;
   UuidToString(aUuid, path);
 
@@ -708,10 +638,8 @@ UnregisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
 //   return true;
 // }
 
-bool
-BroadcastSystemMessage(const nsAString& aType,
-                       const BluetoothValue& aData)
-{
+bool BroadcastSystemMessage(const nsAString& aType,
+                            const BluetoothValue& aData) {
   // TODO: replace system message on KaiNext
 
   // mozilla::AutoSafeJSContext cx;
@@ -753,10 +681,8 @@ BroadcastSystemMessage(const nsAString& aType,
   return true;
 }
 
-bool
-BroadcastSystemMessage(const nsAString& aType,
-                       const nsTArray<BluetoothNamedValue>& aData)
-{
+bool BroadcastSystemMessage(const nsAString& aType,
+                            const nsTArray<BluetoothNamedValue>& aData) {
   // TODO: replace system message on KaiNext
 
   // mozilla::AutoSafeJSContext cx;
@@ -787,74 +713,62 @@ BroadcastSystemMessage(const nsAString& aType,
   return true;
 }
 
-void
-DispatchReplySuccess(BluetoothReplyRunnable* aRunnable)
-{
+void DispatchReplySuccess(BluetoothReplyRunnable* aRunnable) {
   DispatchReplySuccess(aRunnable, BluetoothValue(true));
 }
 
-void
-DispatchReplySuccess(BluetoothReplyRunnable* aRunnable,
-                     const BluetoothValue& aValue)
-{
+void DispatchReplySuccess(BluetoothReplyRunnable* aRunnable,
+                          const BluetoothValue& aValue) {
   MOZ_ASSERT(aRunnable);
   MOZ_ASSERT(aValue.type() != BluetoothValue::T__None);
 
   BluetoothReply* reply = new BluetoothReply(BluetoothReplySuccess(aValue));
 
-  aRunnable->SetReply(reply); // runnable will delete reply after Run()
+  aRunnable->SetReply(reply);  // runnable will delete reply after Run()
   NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
-void
-DispatchReplyError(BluetoothReplyRunnable* aRunnable,
-                   const nsAString& aErrorStr)
-{
+void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
+                        const nsAString& aErrorStr) {
   MOZ_ASSERT(aRunnable);
   MOZ_ASSERT(!aErrorStr.IsEmpty());
 
   // Reply will be deleted by the runnable after running on main thread
   BluetoothReply* reply =
-    new BluetoothReply(BluetoothReplyError(STATUS_FAIL, nsString(aErrorStr)));
+      new BluetoothReply(BluetoothReplyError(STATUS_FAIL, nsString(aErrorStr)));
 
   aRunnable->SetReply(reply);
   NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
-void
-DispatchReplyError(BluetoothReplyRunnable* aRunnable,
-                   const enum BluetoothStatus aStatus)
-{
+void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
+                        const enum BluetoothStatus aStatus) {
   MOZ_ASSERT(aRunnable);
   MOZ_ASSERT(aStatus != STATUS_SUCCESS);
 
   // Reply will be deleted by the runnable after running on main thread
   BluetoothReply* reply =
-    new BluetoothReply(BluetoothReplyError(aStatus, EmptyString()));
+      new BluetoothReply(BluetoothReplyError(aStatus, EmptyString()));
 
   aRunnable->SetReply(reply);
   NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
-void
-DispatchReplyError(BluetoothReplyRunnable* aRunnable,
-                   const enum BluetoothGattStatus aGattStatus)
-{
+void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
+                        const enum BluetoothGattStatus aGattStatus) {
   MOZ_ASSERT(aRunnable);
 
   // Reply will be deleted by the runnable after running on main thread
   BluetoothReply* reply =
-    new BluetoothReply(BluetoothReplyError(aGattStatus, EmptyString()));
+      new BluetoothReply(BluetoothReplyError(aGattStatus, EmptyString()));
 
   aRunnable->SetReply(reply);
   NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
-void
-DispatchStatusChangedEvent(const nsAString& aType,
-                           const BluetoothAddress& aAddress,
-                           bool aStatus)
-{
+void DispatchStatusChangedEvent(const nsAString& aType,
+                                const BluetoothAddress& aAddress,
+                                bool aStatus) {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsTArray<BluetoothNamedValue> data;
@@ -867,21 +781,16 @@ DispatchStatusChangedEvent(const nsAString& aType,
   bs->DistributeSignal(aType, NS_LITERAL_STRING(KEY_ADAPTER), data);
 }
 
-void
-AppendNamedValue(nsTArray<BluetoothNamedValue>& aArray,
-                 const char* aName, const BluetoothValue& aValue)
-{
+void AppendNamedValue(nsTArray<BluetoothNamedValue>& aArray, const char* aName,
+                      const BluetoothValue& aValue) {
   nsString name;
   name.AssignASCII(aName);
 
   aArray.AppendElement(BluetoothNamedValue(name, aValue));
 }
 
-void
-InsertNamedValue(nsTArray<BluetoothNamedValue>& aArray,
-                 uint8_t aIndex, const char* aName,
-                 const BluetoothValue& aValue)
-{
+void InsertNamedValue(nsTArray<BluetoothNamedValue>& aArray, uint8_t aIndex,
+                      const char* aName, const BluetoothValue& aValue) {
   nsString name;
   name.AssignASCII(aName);
 

@@ -50,20 +50,15 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(BluetoothDevice, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothDevice, DOMEventTargetHelper)
 
-class FetchUuidsTask final : public BluetoothReplyRunnable
-{
-public:
-  FetchUuidsTask(Promise* aPromise,
-                 BluetoothDevice* aDevice)
-    : BluetoothReplyRunnable(nullptr, aPromise)
-    , mDevice(aDevice)
-  {
+class FetchUuidsTask final : public BluetoothReplyRunnable {
+ public:
+  FetchUuidsTask(Promise* aPromise, BluetoothDevice* aDevice)
+      : BluetoothReplyRunnable(nullptr, aPromise), mDevice(aDevice) {
     MOZ_ASSERT(aPromise);
     MOZ_ASSERT(aDevice);
   }
 
-  bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) override
-  {
+  bool ParseSuccessfulReply(JS::MutableHandle<JS::Value> aValue) override {
     aValue.setUndefined();
 
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
@@ -91,28 +86,26 @@ public:
     return true;
   }
 
-  virtual void ReleaseMembers() override
-  {
+  virtual void ReleaseMembers() override {
     BluetoothReplyRunnable::ReleaseMembers();
     mDevice = nullptr;
   }
 
-private:
+ private:
   RefPtr<BluetoothDevice> mDevice;
 };
 
 BluetoothDevice::BluetoothDevice(nsPIDOMWindowInner* aWindow,
                                  const BluetoothValue& aValue)
-  : DOMEventTargetHelper(aWindow)
-  , mPaired(false)
-  , mType(BluetoothDeviceType::Unknown)
-{
+    : DOMEventTargetHelper(aWindow),
+      mPaired(false),
+      mType(BluetoothDeviceType::Unknown) {
   MOZ_ASSERT(aWindow);
 
   mCod = BluetoothClassOfDevice::Create(aWindow);
 
   const nsTArray<BluetoothNamedValue>& values =
-    aValue.get_ArrayOfBluetoothNamedValue();
+      aValue.get_ArrayOfBluetoothNamedValue();
   for (uint32_t i = 0; i < values.Length(); ++i) {
     SetPropertyByValue(values[i]);
   }
@@ -120,14 +113,11 @@ BluetoothDevice::BluetoothDevice(nsPIDOMWindowInner* aWindow,
   RegisterBluetoothSignalHandler(mAddress, this);
 }
 
-BluetoothDevice::~BluetoothDevice()
-{
+BluetoothDevice::~BluetoothDevice() {
   UnregisterBluetoothSignalHandler(mAddress, this);
 }
 
-void
-BluetoothDevice::GetUuids(nsTArray<nsString>& aUuids) const
-{
+void BluetoothDevice::GetUuids(nsTArray<nsString>& aUuids) const {
   aUuids.Clear();
   for (size_t i = 0; i < mUuids.Length(); ++i) {
     nsAutoString uuidStr;
@@ -136,20 +126,17 @@ BluetoothDevice::GetUuids(nsTArray<nsString>& aUuids) const
   }
 }
 
-void
-BluetoothDevice::DisconnectFromOwner()
-{
+void BluetoothDevice::DisconnectFromOwner() {
   DOMEventTargetHelper::DisconnectFromOwner();
   UnregisterBluetoothSignalHandler(mAddress, this);
 }
 
-BluetoothDeviceType
-BluetoothDevice::ConvertUint32ToDeviceType(const uint32_t aValue)
-{
+BluetoothDeviceType BluetoothDevice::ConvertUint32ToDeviceType(
+    const uint32_t aValue) {
   static const BluetoothDeviceType sDeviceType[] = {
-    [TYPE_OF_DEVICE_BREDR] = BluetoothDeviceType::Classic,
-    [TYPE_OF_DEVICE_BLE] = BluetoothDeviceType::Le,
-    [TYPE_OF_DEVICE_DUAL] = BluetoothDeviceType::Dual,
+      [TYPE_OF_DEVICE_BREDR] = BluetoothDeviceType::Classic,
+      [TYPE_OF_DEVICE_BLE] = BluetoothDeviceType::Le,
+      [TYPE_OF_DEVICE_DUAL] = BluetoothDeviceType::Dual,
   };
 
   BluetoothTypeOfDevice type = static_cast<BluetoothTypeOfDevice>(aValue);
@@ -159,16 +146,14 @@ BluetoothDevice::ConvertUint32ToDeviceType(const uint32_t aValue)
   return sDeviceType[type];
 }
 
-void
-BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
-{
+void BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue) {
   const nsString& name = aValue.name();
   const BluetoothValue& value = aValue.value();
   if (name.EqualsLiteral("Name")) {
     RemoteNameToString(value.get_BluetoothRemoteName(), mName);
   } else if (name.EqualsLiteral("Address")) {
     if (value.get_BluetoothAddress().IsCleared()) {
-      mAddress.Truncate(); // Reset to empty string
+      mAddress.Truncate();  // Reset to empty string
     } else {
       AddressToString(value.get_BluetoothAddress(), mAddress);
     }
@@ -181,7 +166,7 @@ BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
     const nsTArray<BluetoothUuid>& uuids = value.get_ArrayOfBluetoothUuid();
     mUuids.Clear();
     for (uint32_t index = 0; index < uuids.Length(); ++index) {
-      if (!mUuids.Contains(uuids[index])) { // filter out duplicate UUIDs
+      if (!mUuids.Contains(uuids[index])) {  // filter out duplicate UUIDs
         mUuids.InsertElementSorted(uuids[index]);
       }
     }
@@ -200,9 +185,7 @@ BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
   }
 }
 
-already_AddRefed<Promise>
-BluetoothDevice::FetchUuids(ErrorResult& aRv)
-{
+already_AddRefed<Promise> BluetoothDevice::FetchUuids(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -217,21 +200,17 @@ BluetoothDevice::FetchUuids(ErrorResult& aRv)
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
   BluetoothAddress address;
   BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(StringToAddress(mAddress, address)),
-                        promise,
-                        NS_ERROR_DOM_INVALID_STATE_ERR);
-  BT_ENSURE_TRUE_REJECT(
-    NS_SUCCEEDED(
-      bs->FetchUuidsInternal(address, new FetchUuidsTask(promise, this))),
-    promise, NS_ERROR_DOM_OPERATION_ERR);
+                        promise, NS_ERROR_DOM_INVALID_STATE_ERR);
+  BT_ENSURE_TRUE_REJECT(NS_SUCCEEDED(bs->FetchUuidsInternal(
+                            address, new FetchUuidsTask(promise, this))),
+                        promise, NS_ERROR_DOM_OPERATION_ERR);
 
   return promise.forget();
 }
 
 // static
-already_AddRefed<BluetoothDevice>
-BluetoothDevice::Create(nsPIDOMWindowInner* aWindow,
-                        const BluetoothValue& aValue)
-{
+already_AddRefed<BluetoothDevice> BluetoothDevice::Create(
+    nsPIDOMWindowInner* aWindow, const BluetoothValue& aValue) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
 
@@ -239,9 +218,7 @@ BluetoothDevice::Create(nsPIDOMWindowInner* aWindow,
   return device.forget();
 }
 
-void
-BluetoothDevice::Notify(const BluetoothSignal& aData)
-{
+void BluetoothDevice::Notify(const BluetoothSignal& aData) {
   BT_LOGD("[D] %s", NS_ConvertUTF16toUTF8(aData.name()).get());
   NS_ENSURE_TRUE_VOID(mSignalRegistered);
 
@@ -254,11 +231,9 @@ BluetoothDevice::Notify(const BluetoothSignal& aData)
   }
 }
 
-BluetoothDeviceAttribute
-BluetoothDevice::ConvertStringToDeviceAttribute(const nsAString& aString)
-{
-  using namespace
-    mozilla::dom::BluetoothDeviceAttributeValues;
+BluetoothDeviceAttribute BluetoothDevice::ConvertStringToDeviceAttribute(
+    const nsAString& aString) {
+  using namespace mozilla::dom::BluetoothDeviceAttributeValues;
 
   for (size_t index = 0; index < ArrayLength(strings) - 1; index++) {
     if (aString.LowerCaseEqualsASCII(strings[index].value,
@@ -270,20 +245,18 @@ BluetoothDevice::ConvertStringToDeviceAttribute(const nsAString& aString)
   return BluetoothDeviceAttribute::Unknown;
 }
 
-bool
-BluetoothDevice::IsDeviceAttributeChanged(BluetoothDeviceAttribute aType,
-                                          const BluetoothValue& aValue)
-{
+bool BluetoothDevice::IsDeviceAttributeChanged(BluetoothDeviceAttribute aType,
+                                               const BluetoothValue& aValue) {
   switch (aType) {
     case BluetoothDeviceAttribute::Cod:
       MOZ_ASSERT(aValue.type() == BluetoothValue::Tuint32_t);
       return !mCod->Equals(aValue.get_uint32_t());
     case BluetoothDeviceAttribute::Name: {
-        MOZ_ASSERT(aValue.type() == BluetoothValue::TBluetoothRemoteName);
-        nsAutoString remoteNameStr;
-        RemoteNameToString(aValue.get_BluetoothRemoteName(), remoteNameStr);
-        return !mName.Equals(remoteNameStr);
-      }
+      MOZ_ASSERT(aValue.type() == BluetoothValue::TBluetoothRemoteName);
+      nsAutoString remoteNameStr;
+      RemoteNameToString(aValue.get_BluetoothRemoteName(), remoteNameStr);
+      return !mName.Equals(remoteNameStr);
+    }
     case BluetoothDeviceAttribute::Paired:
       MOZ_ASSERT(aValue.type() == BluetoothValue::Tbool);
       return mPaired != aValue.get_bool();
@@ -293,7 +266,8 @@ BluetoothDevice::IsDeviceAttributeChanged(BluetoothDeviceAttribute aType,
       nsTArray<BluetoothUuid> sortedUuids;
       // Construct a sorted UUID set
       for (size_t index = 0; index < uuids.Length(); ++index) {
-        if (!sortedUuids.Contains(uuids[index])) { // filter out duplicate uuids
+        if (!sortedUuids.Contains(
+                uuids[index])) {  // filter out duplicate uuids
           sortedUuids.InsertElementSorted(uuids[index]);
         }
       }
@@ -305,18 +279,16 @@ BluetoothDevice::IsDeviceAttributeChanged(BluetoothDeviceAttribute aType,
   }
 }
 
-void
-BluetoothDevice::HandlePropertyChanged(const BluetoothValue& aValue)
-{
+void BluetoothDevice::HandlePropertyChanged(const BluetoothValue& aValue) {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
 
   const nsTArray<BluetoothNamedValue>& arr =
-    aValue.get_ArrayOfBluetoothNamedValue();
+      aValue.get_ArrayOfBluetoothNamedValue();
 
   Sequence<nsString> types;
   for (uint32_t i = 0, propCount = arr.Length(); i < propCount; ++i) {
     BluetoothDeviceAttribute type =
-      ConvertStringToDeviceAttribute(arr[i].name());
+        ConvertStringToDeviceAttribute(arr[i].name());
 
     // Non-BluetoothDeviceAttribute properties
     if (type == BluetoothDeviceAttribute::Unknown) {
@@ -339,26 +311,21 @@ BluetoothDevice::HandlePropertyChanged(const BluetoothValue& aValue)
   DispatchAttributeEvent(types);
 }
 
-void
-BluetoothDevice::DispatchAttributeEvent(const Sequence<nsString>& aTypes)
-{
+void BluetoothDevice::DispatchAttributeEvent(const Sequence<nsString>& aTypes) {
   MOZ_ASSERT(!aTypes.IsEmpty());
 
   BluetoothAttributeEventInit init;
   init.mAttrs = aTypes;
-  RefPtr<BluetoothAttributeEvent> event =
-    BluetoothAttributeEvent::Constructor(
+  RefPtr<BluetoothAttributeEvent> event = BluetoothAttributeEvent::Constructor(
       this, NS_LITERAL_STRING(ATTRIBUTE_CHANGED_ID), init);
 
   DispatchTrustedEvent(event);
 }
 
-BluetoothGatt*
-BluetoothDevice::GetGatt()
-{
-  NS_ENSURE_TRUE(mType == BluetoothDeviceType::Le ||
-                 mType == BluetoothDeviceType::Dual,
-                 nullptr);
+BluetoothGatt* BluetoothDevice::GetGatt() {
+  NS_ENSURE_TRUE(
+      mType == BluetoothDeviceType::Le || mType == BluetoothDeviceType::Dual,
+      nullptr);
   if (!mGatt) {
     mGatt = new BluetoothGatt(GetOwner(), mAddress);
   }
@@ -366,9 +333,8 @@ BluetoothDevice::GetGatt()
   return mGatt;
 }
 
-void
-BluetoothDevice::UpdatePropertiesFromAdvData(const nsTArray<uint8_t>& aAdvData)
-{
+void BluetoothDevice::UpdatePropertiesFromAdvData(
+    const nsTArray<uint8_t>& aAdvData) {
   // According to BT Core Spec. Vol 3 - Ch 11, advertisement data consists of a
   // significant part and a non-significant part.
   // The significant part contains a sequence of AD structures. Each AD
@@ -393,7 +359,7 @@ BluetoothDevice::UpdatePropertiesFromAdvData(const nsTArray<uint8_t>& aAdvData)
 
     // Update UUIDs and name of BluetoothDevice.
     BluetoothGapDataType type =
-      static_cast<BluetoothGapDataType>(aAdvData[offset++]);
+        static_cast<BluetoothGapDataType>(aAdvData[offset++]);
     switch (type) {
       case GAP_INCOMPLETE_UUID16:
       case GAP_COMPLETE_UUID16:
@@ -408,15 +374,15 @@ BluetoothDevice::UpdatePropertiesFromAdvData(const nsTArray<uint8_t>& aAdvData)
           size_t length = 0;
           if (type == GAP_INCOMPLETE_UUID16 || type == GAP_COMPLETE_UUID16) {
             length = 2;
-            if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_16_BIT,
-                                      ENDIAN_GAP, uuid))) {
+            if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_16_BIT, ENDIAN_GAP,
+                                      uuid))) {
               break;
             }
           } else if (type == GAP_INCOMPLETE_UUID32 ||
                      type == GAP_COMPLETE_UUID32) {
             length = 4;
-            if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_32_BIT,
-                                      ENDIAN_GAP, uuid))) {
+            if (NS_FAILED(BytesToUuid(aAdvData, offset, UUID_32_BIT, ENDIAN_GAP,
+                                      uuid))) {
               break;
             }
           } else if (type == GAP_INCOMPLETE_UUID128 ||
@@ -456,9 +422,7 @@ BluetoothDevice::UpdatePropertiesFromAdvData(const nsTArray<uint8_t>& aAdvData)
   }
 }
 
-JSObject*
-BluetoothDevice::WrapObject(JSContext* aContext,
-                            JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* BluetoothDevice::WrapObject(JSContext* aContext,
+                                      JS::Handle<JSObject*> aGivenProto) {
   return BluetoothDevice_Binding::Wrap(aContext, this, aGivenProto);
 }

@@ -14,9 +14,8 @@
 BEGIN_BLUETOOTH_NAMESPACE
 
 /* This class maps MAP virtual folder structures */
-class BluetoothMapFolder
-{
-public:
+class BluetoothMapFolder {
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(BluetoothMapFolder)
 
   BluetoothMapFolder(const nsAString& aFolderName, BluetoothMapFolder* aParent);
@@ -26,11 +25,13 @@ public:
   BluetoothMapFolder* GetParentFolder();
   int GetSubFolderCount();
   // Format folder listing object string
-  void GetFolderListingObjectCString(nsACString& aString, uint16_t aMaxListCount,
+  void GetFolderListingObjectCString(nsACString& aString,
+                                     uint16_t aMaxListCount,
                                      uint16_t aStartOffset);
   void GetPath(nsAString& aPath) const;
   void DumpFolderInfo();
-private:
+
+ private:
   ~BluetoothMapFolder();
   nsString mName;
   nsString mPath;
@@ -39,4 +40,4 @@ private:
 };
 
 END_BLUETOOTH_NAMESPACE
-#endif //mozilla_dom_bluetooth_bluedroid_BluetoothMapFolder_h
+#endif  // mozilla_dom_bluetooth_bluedroid_BluetoothMapFolder_h

@@ -11,23 +11,21 @@
 BEGIN_BLUETOOTH_NAMESPACE
 
 namespace {
-  static const char kMapCrlf[] = "\r\n";
+static const char kMapCrlf[] = "\r\n";
 }
 
 BluetoothMapBMessage::BluetoothMapBMessage(uint8_t* aObexBody, int aLength)
-  : mReadStatus(false)
-  , mPartId(0)
-  , mState(BMSG_PARSING_STATE_INVALID)
-  , mUnwindState(BMSG_PARSING_STATE_INVALID)
-  , mEnvelopeLevel(0)
-{
-  const nsCString body = nsCString(reinterpret_cast<const char*>(aObexBody),
-                                   aLength);
+    : mReadStatus(false),
+      mPartId(0),
+      mState(BMSG_PARSING_STATE_INVALID),
+      mUnwindState(BMSG_PARSING_STATE_INVALID),
+      mEnvelopeLevel(0) {
+  const nsCString body =
+      nsCString(reinterpret_cast<const char*>(aObexBody), aLength);
   ProcessDecode(body.get());
 }
 
-BluetoothMapBMessage::~BluetoothMapBMessage()
-{}
+BluetoothMapBMessage::~BluetoothMapBMessage() {}
 
 /**
  * Read one line by one line.
@@ -37,14 +35,12 @@ BluetoothMapBMessage::~BluetoothMapBMessage()
  *        line.
  * @param aLine [out] The next line read.
  */
-static int
-ReadLine(const char* & aNextLineStart, nsACString& aLine)
-{
+static int ReadLine(const char*& aNextLineStart, nsACString& aLine) {
   aLine.Truncate();
   for (;;) {
     const char* eol = PL_strpbrk(aNextLineStart, kMapCrlf);
 
-    if (!eol) { // Reached end of file before newline
+    if (!eol) {  // Reached end of file before newline
       eol = aNextLineStart + strlen(aNextLineStart);
     }
 
@@ -66,10 +62,8 @@ ReadLine(const char* & aNextLineStart, nsACString& aLine)
   }
 }
 
-static bool
-ExtractParameter(const nsAutoCString& aCurrLine,
-                 const char* aPattern, nsACString& aParam)
-{
+static bool ExtractParameter(const nsAutoCString& aCurrLine,
+                             const char* aPattern, nsACString& aParam) {
   aParam.Truncate();
   if (aCurrLine.Find(aPattern, false, 0, PL_strlen(aPattern)) == kNotFound) {
     return false;
@@ -103,26 +97,22 @@ ExtractParameter(const nsAutoCString& aCurrLine,
  * BEGIN_BMSG->VERSION->STATUS->TYPE->FOLDER->ORIGINATOR->VCARD->ENVELOPE->
  * VCARD->RECIPIENT->BODY->BMSG
  */
-void
-BluetoothMapBMessage::ProcessDecode(const char* aBuf)
-{
+void BluetoothMapBMessage::ProcessDecode(const char* aBuf) {
   mState = BMSG_PARSING_STATE_BEGIN_BMSG;
 
-  static void (BluetoothMapBMessage::* const ParserActions[])(const
-    nsAutoCString&) = {
-    nullptr, /* BMSG_PARSING_STATE_INVALID */
-    &BluetoothMapBMessage::ParseBeginBmsg,
-    &BluetoothMapBMessage::ParseVersion,
-    &BluetoothMapBMessage::ParseStatus,
-    &BluetoothMapBMessage::ParseType,
-    &BluetoothMapBMessage::ParseFolder,
-    &BluetoothMapBMessage::ParseOriginator,
-    &BluetoothMapBMessage::ParseVCard,
-    &BluetoothMapBMessage::ParseEnvelope,
-    &BluetoothMapBMessage::ParseRecipient,
-    &BluetoothMapBMessage::ParseBody,
-    &BluetoothMapBMessage::ParseBMsg
-  };
+  static void (BluetoothMapBMessage::*const ParserActions[])(
+      const nsAutoCString&) = {nullptr, /* BMSG_PARSING_STATE_INVALID */
+                               &BluetoothMapBMessage::ParseBeginBmsg,
+                               &BluetoothMapBMessage::ParseVersion,
+                               &BluetoothMapBMessage::ParseStatus,
+                               &BluetoothMapBMessage::ParseType,
+                               &BluetoothMapBMessage::ParseFolder,
+                               &BluetoothMapBMessage::ParseOriginator,
+                               &BluetoothMapBMessage::ParseVCard,
+                               &BluetoothMapBMessage::ParseEnvelope,
+                               &BluetoothMapBMessage::ParseRecipient,
+                               &BluetoothMapBMessage::ParseBody,
+                               &BluetoothMapBMessage::ParseBMsg};
 
   for (;;) {
     nsAutoCString curLine;
@@ -131,8 +121,8 @@ BluetoothMapBMessage::ProcessDecode(const char* aBuf)
       return;
     }
     if (curLine.EqualsLiteral("END:BBODY") ||
-      curLine.EqualsLiteral("END:BENV") ||
-      curLine.EqualsLiteral("END:BMSG")) {
+        curLine.EqualsLiteral("END:BENV") ||
+        curLine.EqualsLiteral("END:BMSG")) {
       // End of the bMessage, exit
       return;
     }
@@ -144,17 +134,13 @@ BluetoothMapBMessage::ProcessDecode(const char* aBuf)
   }
 }
 
-void
-BluetoothMapBMessage::ParseBeginBmsg(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseBeginBmsg(const nsAutoCString& aCurrLine) {
   if (aCurrLine.EqualsLiteral("BEGIN:BMSG")) {
     mState = BMSG_PARSING_STATE_VERSION;
   }
 }
 
-void
-BluetoothMapBMessage::ParseVersion(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseVersion(const nsAutoCString& aCurrLine) {
   nsCString version;
   if (ExtractParameter(aCurrLine, "VERSION:", version)) {
     /* The value for this property shall be "VERSION:1.0",
@@ -166,9 +152,7 @@ BluetoothMapBMessage::ParseVersion(const nsAutoCString& aCurrLine)
   }
 }
 
-void
-BluetoothMapBMessage::ParseStatus(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseStatus(const nsAutoCString& aCurrLine) {
   nsCString status;
   if (ExtractParameter(aCurrLine, "STATUS:", status)) {
     // only READ or UNREAD status
@@ -177,9 +161,7 @@ BluetoothMapBMessage::ParseStatus(const nsAutoCString& aCurrLine)
   }
 }
 
-void
-BluetoothMapBMessage::ParseType(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseType(const nsAutoCString& aCurrLine) {
   nsCString type;
   if (ExtractParameter(aCurrLine, "TYPE:", type)) {
     mType = type;
@@ -187,9 +169,7 @@ BluetoothMapBMessage::ParseType(const nsAutoCString& aCurrLine)
   }
 }
 
-void
-BluetoothMapBMessage::ParseFolder(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseFolder(const nsAutoCString& aCurrLine) {
   nsCString folder;
   if (ExtractParameter(aCurrLine, "FOLDER:", folder)) {
     mFolderName = folder;
@@ -198,9 +178,7 @@ BluetoothMapBMessage::ParseFolder(const nsAutoCString& aCurrLine)
   mState = BMSG_PARSING_STATE_ORIGINATOR;
 }
 
-void
-BluetoothMapBMessage::ParseOriginator(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseOriginator(const nsAutoCString& aCurrLine) {
   if (aCurrLine.EqualsLiteral("BEGIN:VCARD")) {
     mOriginators.AppendElement(new VCard());
 
@@ -212,9 +190,7 @@ BluetoothMapBMessage::ParseOriginator(const nsAutoCString& aCurrLine)
   }
 }
 
-void
-BluetoothMapBMessage::ParseVCard(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseVCard(const nsAutoCString& aCurrLine) {
   if (aCurrLine.EqualsLiteral("END:VCARD")) {
     mState = mUnwindState;
     return;
@@ -229,11 +205,9 @@ BluetoothMapBMessage::ParseVCard(const nsAutoCString& aCurrLine)
   }
 }
 
-void
-BluetoothMapBMessage::ParseEnvelope(const nsAutoCString& aCurrLine)
-{
-  if(!aCurrLine.EqualsLiteral("BEGIN:VCARD") &&
-     !aCurrLine.EqualsLiteral("BEGIN:BENV")) {
+void BluetoothMapBMessage::ParseEnvelope(const nsAutoCString& aCurrLine) {
+  if (!aCurrLine.EqualsLiteral("BEGIN:VCARD") &&
+      !aCurrLine.EqualsLiteral("BEGIN:BENV")) {
     mState = BMSG_PARSING_STATE_BEGIN_BODY;
     return;
   }
@@ -251,9 +225,7 @@ BluetoothMapBMessage::ParseEnvelope(const nsAutoCString& aCurrLine)
   mUnwindState = BMSG_PARSING_STATE_RECIPIENT;
 }
 
-void
-BluetoothMapBMessage::ParseRecipient(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseRecipient(const nsAutoCString& aCurrLine) {
   /* After parsing vCard, check whether it's bMessage BODY or VCARD.
    * bmessage-recipient may appear more than once.
    */
@@ -278,9 +250,7 @@ BluetoothMapBMessage::ParseRecipient(const nsAutoCString& aCurrLine)
  * "END:BBODY"<CRLF>
  * }
  */
-void
-BluetoothMapBMessage::ParseBody(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseBody(const nsAutoCString& aCurrLine) {
   nsCString param;
   if (ExtractParameter(aCurrLine, "PARTID::", param)) {
     nsresult rv;
@@ -311,9 +281,7 @@ BluetoothMapBMessage::ParseBody(const nsAutoCString& aCurrLine)
  * "END:MSG"<CRLF>
  * }
  */
-void
-BluetoothMapBMessage::ParseBMsg(const nsAutoCString& aCurrLine)
-{
+void BluetoothMapBMessage::ParseBMsg(const nsAutoCString& aCurrLine) {
   /* TODO: Support binary message content
    * For SMS: currently only UTF-8 is supported for textual content.
    */
@@ -336,46 +304,33 @@ BluetoothMapBMessage::ParseBMsg(const nsAutoCString& aCurrLine)
   mBMsgBody.AppendLiteral(kMapCrlf);
 }
 
-void
-BluetoothMapBMessage::GetRecipients(nsTArray<RefPtr<VCard>>& aRecipients)
-{
+void BluetoothMapBMessage::GetRecipients(nsTArray<RefPtr<VCard>>& aRecipients) {
   aRecipients = mRecipients;
 }
 
-void
-BluetoothMapBMessage::GetOriginators(nsTArray<RefPtr<VCard>>& aOriginators)
-{
+void BluetoothMapBMessage::GetOriginators(
+    nsTArray<RefPtr<VCard>>& aOriginators) {
   aOriginators = mOriginators;
 }
 
-void
-BluetoothMapBMessage::GetBody(nsACString& aBody)
-{
-  aBody = mBMsgBody;
-}
+void BluetoothMapBMessage::GetBody(nsACString& aBody) { aBody = mBMsgBody; }
 
-void
-BluetoothMapBMessage::Dump()
-{
+void BluetoothMapBMessage::Dump() {
   BT_LOGR("Dump: message body %s", mBMsgBody.get());
-  BT_LOGR("Dump: read status %s", mReadStatus? "true" : "false");
+  BT_LOGR("Dump: read status %s", mReadStatus ? "true" : "false");
   BT_LOGR("Dump: folder %s", mFolderName.get());
   BT_LOGR("Dump encoding %s", mEncoding.get());
-  BT_LOGR("Dump charset: %s" , mCharset.get());
+  BT_LOGR("Dump charset: %s", mCharset.get());
   BT_LOGR("Dump language: %s", mLanguage.get());
   BT_LOGR("Dump length: %s", mBMsgLength.get());
   BT_LOGR("Dump type: %s ", mType.get());
 }
 
-VCard::VCard()
-{}
+VCard::VCard() {}
 
-VCard::~VCard()
-{}
+VCard::~VCard() {}
 
-void
-VCard::Parse(const nsAutoCString& aCurrLine)
-{
+void VCard::Parse(const nsAutoCString& aCurrLine) {
   nsCString param;
   if (ExtractParameter(aCurrLine, "N:", param)) {
     mName = param;
@@ -388,33 +343,17 @@ VCard::Parse(const nsAutoCString& aCurrLine)
   }
 }
 
-void
-VCard::GetTelephone(nsACString& aTelephone)
-{
-  aTelephone = mTelephone;
-}
+void VCard::GetTelephone(nsACString& aTelephone) { aTelephone = mTelephone; }
 
-void
-VCard::GetName(nsACString& aName)
-{
-  aName = mName;
-}
+void VCard::GetName(nsACString& aName) { aName = mName; }
 
-void
-VCard::GetFormattedName(nsACString& aFormattedName)
-{
+void VCard::GetFormattedName(nsACString& aFormattedName) {
   aFormattedName = mFormattedName;
 }
 
-void
-VCard::GetEmail(nsACString& aEmail)
-{
-  aEmail = mEmail;
-}
+void VCard::GetEmail(nsACString& aEmail) { aEmail = mEmail; }
 
-void
-VCard::Dump()
-{
+void VCard::Dump() {
   BT_LOGR("Dump: Name %s", mName.get());
   BT_LOGR("Dump: FormattedName %s", mFormattedName.get());
   BT_LOGR("Dump: Telephone %s", mTelephone.get());

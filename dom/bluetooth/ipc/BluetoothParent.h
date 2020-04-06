@@ -16,8 +16,8 @@ namespace dom {
 
 class ContentParent;
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -27,13 +27,11 @@ class BluetoothService;
  * BluetoothParent
  ******************************************************************************/
 
-class BluetoothParent : public PBluetoothParent
-                      , public BluetoothSignalObserver
-{
+class BluetoothParent : public PBluetoothParent,
+                        public BluetoothSignalObserver {
   friend class mozilla::dom::ContentParent;
 
-  enum ShutdownState
-  {
+  enum ShutdownState {
     Running = 0,
     SentBeginShutdown,
     ReceivedStopNotifying,
@@ -46,47 +44,37 @@ class BluetoothParent : public PBluetoothParent
   bool mReceivedStopNotifying;
   bool mSentBeginShutdown;
 
-public:
-  void
-  BeginShutdown();
+ public:
+  void BeginShutdown();
 
-  bool
-  InitWithService(BluetoothService* aService);
+  bool InitWithService(BluetoothService* aService);
 
-  virtual bool
-  RecvRegisterSignalHandler(const nsString& aNode);
+  virtual bool RecvRegisterSignalHandler(const nsString& aNode);
 
-  virtual bool
-  RecvUnregisterSignalHandler(const nsString& aNode);
+  virtual bool RecvUnregisterSignalHandler(const nsString& aNode);
 
-  virtual bool
-  RecvStopNotifying();
+  virtual bool RecvStopNotifying();
 
-  virtual mozilla::ipc::IPCResult
-  RecvPBluetoothRequestConstructor(PBluetoothRequestParent* aActor,
-                                   const Request& aRequest) override;
+  virtual mozilla::ipc::IPCResult RecvPBluetoothRequestConstructor(
+      PBluetoothRequestParent* aActor, const Request& aRequest) override;
 
-  virtual PBluetoothRequestParent*
-  AllocPBluetoothRequestParent(const Request& aRequest);
+  virtual PBluetoothRequestParent* AllocPBluetoothRequestParent(
+      const Request& aRequest);
 
-  virtual bool
-  DeallocPBluetoothRequestParent(PBluetoothRequestParent* aActor);
+  virtual bool DeallocPBluetoothRequestParent(PBluetoothRequestParent* aActor);
 
-protected:
+ protected:
   BluetoothParent();
   virtual ~BluetoothParent();
 
-  virtual void
-  Notify(const BluetoothSignal& aSignal) override;
+  virtual void Notify(const BluetoothSignal& aSignal) override;
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
-  void
-  UnregisterAllSignalHandlers();
+ private:
+  void UnregisterAllSignalHandlers();
 };
 
 END_BLUETOOTH_NAMESPACE
 
-#endif // mozilla_dom_bluetooth_ipc_BluetoothParent_h
+#endif  // mozilla_dom_bluetooth_ipc_BluetoothParent_h
