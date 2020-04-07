@@ -716,7 +716,7 @@ class BluetoothGattManager::StartLeScanResultHandler final
   StartLeScanResultHandler(BluetoothGattClient* aClient) : mClient(aClient) {}
 
   void Scan() override {
-    MOZ_ASSERT(mClient > 0);
+    MOZ_ASSERT(mClient);
 
     DispatchReplySuccess(mClient->mStartLeScanRunnable,
                          BluetoothValue(mClient->mAppUuid));
