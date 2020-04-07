@@ -150,6 +150,8 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = StopSoftAp();
   } else if (aOptions.mCmd == nsIWifiCommand::GET_AP_IFACE) {
     aResult->mStatus = GetSoftApInterfaceName(aResult->mApInterface);
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_SOFTAP_STATION_NUMBER) {
+    aResult->mStatus = GetSoftapStations(aResult->mNumStations);
   } else {
     WIFI_LOGE(LOG_TAG, "ExecuteCommand: Unknown command %d", aOptions.mCmd);
     return false;
@@ -615,4 +617,8 @@ Result_t WifiNative::StopHostapd() {
 void WifiNative::SupplicantDeathHandler::OnDeath() {
   // supplicant died, start to clean up.
   WIFI_LOGE(LOG_TAG, "Supplicant DIED: ##############################");
+}
+
+Result_t WifiNative::GetSoftapStations(uint32_t& aNumStations) {
+  return s_WificondControl->GetSoftapStations(aNumStations);
 }

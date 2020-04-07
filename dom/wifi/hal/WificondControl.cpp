@@ -319,3 +319,13 @@ Result_t WificondControl::SignalPoll() {
   }
   return nsIWifiResult::SUCCESS;
 }
+
+Result_t WificondControl::GetSoftapStations(uint32_t& aNumStations) {
+  if (mApInterface == nullptr) {
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+  int32_t stations;
+  mApInterface->getNumberOfAssociatedStations(&stations);
+  aNumStations = (stations < 0) ? 0 : stations;
+  return CHECK_SUCCESS(stations >= 0);
+}

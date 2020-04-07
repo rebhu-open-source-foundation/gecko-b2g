@@ -939,7 +939,7 @@ var WifiManager = (function() {
   // Handle events sent to us by the event worker.
   function handleEvent(event) {
     let eventData = event.name;
-    debug("Event coming in: " + uneval(event));
+    debug("Event coming in: " + eventData);
     //    if (eventData.indexOf("CTRL-EVENT-") !== 0 && eventData.indexOf("WPS") !== 0) {
     //      if (eventData.indexOf("CTRL-REQ-") == 0) {
     //        const REQUEST_PREFIX_STR = "CTRL-REQ-";
@@ -1275,6 +1275,8 @@ var WifiManager = (function() {
           });
         });
       }
+    } else if (eventData.indexOf("HOTSPOT_CLIENT_CHANGED") === 0) {
+      notify("stationinfoupdate", { station: event.numStations });
     } else if (eventData.indexOf("WPS-TIMEOUT") === 0) {
       manager.wpsStarted = false;
       notifyStateChange({ state: "WPS_TIMEOUT", BSSID: null, id: -1 });

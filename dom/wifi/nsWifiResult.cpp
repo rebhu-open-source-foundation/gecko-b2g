@@ -90,6 +90,12 @@ nsWifiResult::GetDebugLevel(uint32_t* aDebugLevel) {
 }
 
 NS_IMETHODIMP
+nsWifiResult::GetNumStations(uint32_t* aNumStations) {
+  *aNumStations = mNumStations;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiResult::GetChannels(nsTArray<int32_t>& aChannels) {
   aChannels = mChannels;
   return NS_OK;

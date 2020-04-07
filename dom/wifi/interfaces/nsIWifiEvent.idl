@@ -14,5 +14,6 @@ interface nsIWifiEvent : nsISupports
   readonly attribute AString bssid;
   readonly attribute boolean locallyGenerated;
   readonly attribute unsigned long reason;
+  readonly attribute unsigned long numStations;
   readonly attribute nsIStateChanged stateChanged;
 };

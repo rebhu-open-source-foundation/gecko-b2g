@@ -30,6 +30,7 @@ interface nsIWifiResult : nsISupports
   readonly attribute unsigned long capabilities;
   readonly attribute unsigned long staCapabilities;
   readonly attribute unsigned long debugLevel;
+  readonly attribute unsigned long numStations;
 
   /**
    * Query supported channel list

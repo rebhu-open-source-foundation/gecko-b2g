@@ -54,6 +54,7 @@ class WificondControl : virtual public android::RefBase {
                               std::vector<int32_t>& aChannels);
 
   Result_t SignalPoll();
+  Result_t GetSoftapStations(uint32_t& aNumStations);
 
  private:
   class WificondDeathRecipient : public android::IBinder::DeathRecipient {

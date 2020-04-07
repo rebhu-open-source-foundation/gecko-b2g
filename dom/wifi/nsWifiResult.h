@@ -36,6 +36,7 @@ class nsWifiResult final : public nsIWifiResult {
   uint32_t mCapabilities;
   uint32_t mStaCapabilities;
   uint32_t mDebugLevel;
+  uint32_t mNumStations;
   nsTArray<int32_t> mChannels;
   nsTArray<RefPtr<nsScanResult>> mScanResults;
 

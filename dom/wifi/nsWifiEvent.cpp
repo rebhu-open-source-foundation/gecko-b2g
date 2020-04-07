@@ -51,6 +51,12 @@ nsWifiEvent::GetReason(uint32_t* aReason) {
 }
 
 NS_IMETHODIMP
+nsWifiEvent::GetNumStations(uint32_t* aNumStations) {
+  *aNumStations = mNumStations;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiEvent::GetStateChanged(nsIStateChanged** aStateChanged) {
   RefPtr<nsIStateChanged> stateChanged(mStateChanged);
   stateChanged.forget(aStateChanged);

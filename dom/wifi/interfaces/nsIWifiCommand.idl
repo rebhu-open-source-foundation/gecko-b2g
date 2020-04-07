@@ -59,4 +59,5 @@ interface nsIWifiCommand: nsISupports
   const unsigned long STOP_SOFTAP                 = 0x4001;
   const unsigned long GET_AP_IFACE                = 0x4002;
   const unsigned long SET_SOFTAP_COUNTRY_CODE     = 0x4003;
+  const unsigned long GET_SOFTAP_STATION_NUMBER   = 0x4004;
 };

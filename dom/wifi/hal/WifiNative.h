@@ -73,6 +73,7 @@ class WifiNative {
   Result_t StopSoftAp();
   Result_t StartAndConnectHostapd();
   Result_t StopHostapd();
+  Result_t GetSoftapStations(uint32_t& aNumStations);
 
   class SupplicantDeathHandler : virtual public SupplicantDeathEventHandler {
     virtual void OnDeath() override;

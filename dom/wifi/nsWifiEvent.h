@@ -28,6 +28,7 @@ class nsWifiEvent final : public nsIWifiEvent {
   nsString mBssid;
   bool mLocallyGenerated;
   uint32_t mReason;
+  uint32_t mNumStations;
   RefPtr<nsIStateChanged> mStateChanged;
 
  private:
