@@ -735,6 +735,8 @@ void AudioManager::ReleaseWakeLock() {
   mWakeLock = nullptr;
 }
 
+static StaticRefPtr<AudioManager> sAudioManager;
+
 AudioManager::AudioManager()
     : mPhoneState(PHONE_STATE_CURRENT),
       mIsVolumeInited(false),
@@ -879,8 +881,6 @@ AudioManager::~AudioManager() {
   }
 #endif
 }
-
-static StaticRefPtr<AudioManager> sAudioManager;
 
 already_AddRefed<AudioManager> AudioManager::GetInstance() {
   // Avoid createing AudioManager from content process.
