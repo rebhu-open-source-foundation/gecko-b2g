@@ -1152,7 +1152,7 @@ void MediaTrackGraphImpl::RunMessagesInQueue() {
         mFrontMessageQueue[i].mMessages;
 
     for (uint32_t j = 0; j < messages.Length(); ++j) {
-      TRACE_AUDIO_CALLBACK();
+      TRACE();
       messages[j]->Run();
     }
   }
@@ -1160,7 +1160,7 @@ void MediaTrackGraphImpl::RunMessagesInQueue() {
 }
 
 void MediaTrackGraphImpl::UpdateGraph(GraphTime aEndBlockingDecisions) {
-  TRACE_AUDIO_CALLBACK();
+  TRACE();
   MOZ_ASSERT(OnGraphThread());
   MOZ_ASSERT(aEndBlockingDecisions >= mProcessedTime);
   // The next state computed time can be the same as the previous: it
@@ -1252,7 +1252,7 @@ void MediaTrackGraphImpl::UpdateGraph(GraphTime aEndBlockingDecisions) {
 }
 
 void MediaTrackGraphImpl::Process(AudioMixer* aMixer) {
-  TRACE_AUDIO_CALLBACK();
+  TRACE();
   MOZ_ASSERT(OnGraphThread());
   // Play track contents.
   bool allBlockedForever = true;
@@ -1372,7 +1372,7 @@ auto MediaTrackGraphImpl::OneIterationImpl(GraphTime aStateEnd,
                                            GraphTime aIterationEnd,
                                            AudioMixer* aMixer)
     -> IterationResult {
-  TRACE_AUDIO_CALLBACK();
+  TRACE();
 
   mIterationEndTime = aIterationEnd;
 
@@ -1395,7 +1395,7 @@ auto MediaTrackGraphImpl::OneIterationImpl(GraphTime aStateEnd,
   // Process MessagePort events.
   // These require a single thread, which has an nsThread with an event queue.
   if (mGraphRunner || !mRealtime) {
-    TRACE_AUDIO_CALLBACK_COMMENT("MessagePort events");
+    TRACE_COMMENT("MessagePort events");
     NS_ProcessPendingEvents(nullptr);
   }
 
@@ -2492,7 +2492,7 @@ void SourceMediaTrack::SetPullingEnabled(bool aEnabled) {
 }
 
 bool SourceMediaTrack::PullNewData(GraphTime aDesiredUpToTime) {
-  TRACE_AUDIO_CALLBACK_COMMENT("SourceMediaTrack %p", this);
+  TRACE_COMMENT("SourceMediaTrack %p", this);
   TrackTime t;
   TrackTime current;
   {

@@ -32,7 +32,7 @@ TRRLoadInfo::GetLoadingPrincipal(nsIPrincipal** aLoadingPrincipal) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-nsIPrincipal* TRRLoadInfo::LoadingPrincipal() { return nullptr; }
+nsIPrincipal* TRRLoadInfo::VirtualGetLoadingPrincipal() { return nullptr; }
 
 NS_IMETHODIMP
 TRRLoadInfo::GetTriggeringPrincipal(nsIPrincipal** aTriggeringPrincipal) {
@@ -610,6 +610,18 @@ NS_IMETHODIMP
 TRRLoadInfo::GetInternalContentPolicyType(nsContentPolicyType* aResult) {
   *aResult = mInternalContentPolicyType;
   return NS_OK;
+}
+
+NS_IMETHODIMP
+TRRLoadInfo::GetAllowDeprecatedSystemRequests(
+    bool* aAllowDeprecatedSystemRequests) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+TRRLoadInfo::SetAllowDeprecatedSystemRequests(
+    bool aAllowDeprecatedSystemRequests) {
+  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 }  // namespace net

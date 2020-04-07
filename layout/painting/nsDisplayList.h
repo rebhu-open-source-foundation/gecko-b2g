@@ -49,6 +49,7 @@
 #include "nsAutoLayoutPhase.h"
 #include "nsDisplayItemTypes.h"
 #include "RetainedDisplayListHelpers.h"
+#include "Units.h"
 
 #include <stdint.h>
 #include "nsTHashtable.h"
@@ -77,6 +78,7 @@ class TransformReferenceBox;
 namespace mozilla {
 class FrameLayerBuilder;
 class PresShell;
+class StickyScrollContainer;
 namespace layers {
 struct FrameMetrics;
 class RenderRootStateManager;
@@ -925,17 +927,6 @@ class nsDisplayListBuilder {
    */
   void SubtractFromVisibleRegion(nsRegion* aVisibleRegion,
                                  const nsRegion& aRegion);
-
-  void ExpandRenderRootRect(LayoutDeviceRect aRect,
-                            mozilla::wr::RenderRoot aRenderRoot) {
-    mRenderRootRects[aRenderRoot] = mRenderRootRects[aRenderRoot].Union(aRect);
-  }
-
-  void ComputeDefaultRenderRootRect(LayoutDeviceIntSize aClientSize);
-
-  LayoutDeviceRect GetRenderRootRect(mozilla::wr::RenderRoot aRenderRoot) {
-    return mRenderRootRects[aRenderRoot];
-  }
 
   /**
    * Mark the frames in aFrames to be displayed if they intersect aDirtyRect
@@ -1916,8 +1907,6 @@ class nsDisplayListBuilder {
   const nsIFrame* mCurrentReferenceFrame;
   // The offset from mCurrentFrame to mCurrentReferenceFrame.
   nsPoint mCurrentOffsetToReferenceFrame;
-
-  mozilla::wr::RenderRootArray<LayoutDeviceRect> mRenderRootRects;
 
   RefPtr<AnimatedGeometryRoot> mRootAGR;
   RefPtr<AnimatedGeometryRoot> mCurrentAGR;
@@ -6098,9 +6087,11 @@ class nsDisplayOwnLayer : public nsDisplayWrapList {
   nsDisplayOwnLayerFlags GetFlags() { return mFlags; }
   bool IsScrollThumbLayer() const;
   bool IsScrollbarContainer() const;
-  bool IsRootScrollbarContainerWithDynamicToolbar() const;
+  bool IsRootScrollbarContainer() const;
   bool IsZoomingLayer() const;
   bool IsFixedPositionLayer() const;
+  bool IsStickyPositionLayer() const;
+  bool HasDynamicToolbar() const;
 
  protected:
   nsDisplayOwnLayerFlags mFlags;
@@ -6235,10 +6226,22 @@ class nsDisplayStickyPosition : public nsDisplayOwnLayer {
       mozilla::layers::RenderRootStateManager* aManager,
       nsDisplayListBuilder* aDisplayListBuilder) override;
 
+  bool UpdateScrollData(
+      mozilla::layers::WebRenderScrollData* aData,
+      mozilla::layers::WebRenderLayerScrollData* aLayerData) override;
+
   const ActiveScrolledRoot* GetContainerASR() const { return mContainerASR; }
 
  private:
   NS_DISPLAY_ALLOW_CLONING()
+
+  void CalculateLayerScrollRanges(
+      mozilla::StickyScrollContainer* aStickyScrollContainer,
+      float aAppUnitsPerDevPixel, float aScaleX, float aScaleY,
+      mozilla::LayerRectAbsolute& aStickyOuter,
+      mozilla::LayerRectAbsolute& aStickyInner);
+
+  mozilla::StickyScrollContainer* GetStickyScrollContainer();
 
   // This stores the ASR that this sticky container item would have assuming it
   // has no fixed descendants. This may be the same as the ASR returned by

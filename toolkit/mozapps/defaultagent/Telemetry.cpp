@@ -31,8 +31,8 @@
 
 // This is almost the complete URL, just needs a UUID appended.
 #define TELEMETRY_PING_URL                                              \
-  TELEMETRY_BASE_URL "/" TELEMETRY_NAMESPACE "/" TELEMETRY_PING_VERSION \
-                     "/" TELEMETRY_PING_DOCTYPE "/"
+  TELEMETRY_BASE_URL "/" TELEMETRY_NAMESPACE "/" TELEMETRY_PING_DOCTYPE \
+                     "/" TELEMETRY_PING_VERSION "/"
 
 #if !defined(RRF_SUBKEY_WOW6464KEY)
 #  define RRF_SUBKEY_WOW6464KEY 0x00010000
@@ -309,7 +309,7 @@ static mozilla::WindowsError SendPing(std::string defaultBrowser,
   // Fill in the ping JSON object.
   Json::Value ping;
   ping["build_channel"] = MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL);
-  ping["version"] = MOZILLA_VERSION;
+  ping["build_version"] = MOZILLA_VERSION;
   ping["default_browser"] = defaultBrowser;
   ping["previous_default_browser"] = previousDefaultBrowser;
   ping["os_version"] = osVersion;

@@ -328,10 +328,10 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * overscroll to the next APZC. Note that because of scroll grabbing, the
    * first APZC to scroll may not be the one that is receiving the touch events.
    *
-   * |aAPZC| is the APZC that received the touch events triggering the scroll
+   * |aPrev| is the APZC that received the touch events triggering the scroll
    *   (in the case of an initial scroll), or the last APZC to scroll (in the
    *   case of overscroll)
-   * |aStartPoint| and |aEndPoint| are in |aAPZC|'s transformed screen
+   * |aStartPoint| and |aEndPoint| are in |aPrev|'s transformed screen
    *   coordinates (i.e. the same coordinates in which touch points are given to
    *   APZCs). The amount of (over)scroll is represented by two points rather
    *   than a displacement because with certain 3D transforms, the same
@@ -347,6 +347,12 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * scroll each APZC consumes. This is to allow the sending APZC to go into
    * an overscrolled state if no APZC further up in the handoff chain accepted
    * the entire scroll.
+   *
+   * The function will return true if the entire scroll was consumed, and
+   * false otherwise. As this function also modifies aStartPoint and aEndPoint,
+   * when scroll is consumed, it should always the case that this function
+   * returns true if and only if IsZero(aStartPoint - aEndPoint), using the
+   * modified aStartPoint and aEndPoint after the function returns.
    *
    * The way this method works is best illustrated with an example.
    * Consider three nested APZCs, A, B, and C, with C being the innermost one.
@@ -376,7 +382,7 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * Note: this should be used for panning only. For handing off overscroll for
    *       a fling, use DispatchFling().
    */
-  void DispatchScroll(AsyncPanZoomController* aApzc,
+  bool DispatchScroll(AsyncPanZoomController* aPrev,
                       ParentLayerPoint& aStartPoint,
                       ParentLayerPoint& aEndPoint,
                       OverscrollHandoffState& aOverscrollHandoffState);
@@ -766,6 +772,9 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
       const MutexAutoLock& aProofOfMapLock,
       ClippedCompositionBoundsMap& aDestMap, ScrollableLayerGuid aGuid);
 
+  ScreenMargin GetCompositorFixedLayerMargins(
+      const MutexAutoLock& aProofOfMapLock) const;
+
  protected:
   /* The input queue where input events are held until we know enough to
    * figure out where they're going. Protected so gtests can access it.
@@ -816,8 +825,8 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    */
   bool mUsingAsyncZoomContainer;
 
-  /** A lock that protects mApzcMap, mScrollThumbInfo, mRootScrollbarInfo, and
-   * mFixedPositionInfo.
+  /** A lock that protects mApzcMap, mScrollThumbInfo, mRootScrollbarInfo,
+   * mFixedPositionInfo, and mStickyPositionInfo.
    */
   mutable mozilla::Mutex mMapLock;
 
@@ -932,6 +941,32 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * modifying mFixedPositionInfo.
    */
   std::vector<FixedPositionInfo> mFixedPositionInfo;
+
+  /**
+   * A helper structure to store all the information needed to compute the
+   * async transform for a sticky position element on the sampler thread.
+   */
+  struct StickyPositionInfo {
+    uint64_t mStickyPositionAnimationId;
+    SideBits mFixedPosSides;
+
+    StickyPositionInfo(const uint64_t& aStickyPositionAnimationId,
+                       const SideBits aFixedPosSides)
+        : mStickyPositionAnimationId(aStickyPositionAnimationId),
+          mFixedPosSides(aFixedPosSides) {}
+  };
+  /**
+   * If this APZCTreeManager is being used with WebRender, this vector gets
+   * populated during a layers update. It holds a package of information needed
+   * to compute and set the async transforms on sticky position content. This
+   * information is extracted from the HitTestingTreeNodes for the WebRender
+   * case because accessing the HitTestingTreeNodes requires holding the tree
+   * lock which we cannot do on the WR sampler thread. mStickyPositionInfo,
+   * however, can be accessed while just holding the mMapLock which is safe to
+   * do on the sampler thread. mMapLock must be acquired while accessing or
+   * modifying mStickyPositionInfo.
+   */
+  std::vector<StickyPositionInfo> mStickyPositionInfo;
 
   /* Holds the zoom constraints for scrollable layers, as determined by the
    * the main-thread gecko code. This can only be accessed on the updater

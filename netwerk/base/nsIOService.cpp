@@ -1853,7 +1853,7 @@ IOServiceProxyCallback::OnProxyAvailable(nsICancelable* request,
   if (!speculativeHandler) return NS_OK;
 
   nsCOMPtr<nsILoadInfo> loadInfo = channel->LoadInfo();
-  nsCOMPtr<nsIPrincipal> principal = loadInfo->LoadingPrincipal();
+  nsCOMPtr<nsIPrincipal> principal = loadInfo->GetLoadingPrincipal();
 
   nsLoadFlags loadFlags = 0;
   channel->GetLoadFlags(&loadFlags);
@@ -1951,6 +1951,14 @@ bool nsIOService::BlockToplevelDataUriNavigations() {
 
 NS_IMETHODIMP
 nsIOService::NotImplemented() { return NS_ERROR_NOT_IMPLEMENTED; }
+
+NS_IMETHODIMP
+nsIOService::GetSocketProcessLaunched(bool* aResult) {
+  NS_ENSURE_ARG_POINTER(aResult);
+
+  *aResult = SocketProcessReady();
+  return NS_OK;
+}
 
 }  // namespace net
 }  // namespace mozilla

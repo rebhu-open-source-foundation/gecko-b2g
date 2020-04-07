@@ -2640,7 +2640,16 @@ nsEventStatus AsyncPanZoomController::OnPan(const PanGestureInput& aEvent,
   ParentLayerPoint endPoint =
       aEvent.mLocalPanStartPoint - logicalPanDisplacement;
   RecordScrollPayload(aEvent.mTimeStamp);
-  CallDispatchScroll(startPoint, endPoint, handoffState);
+  bool consumed = CallDispatchScroll(startPoint, endPoint, handoffState);
+
+  if (!consumed && !aFingersOnTouchpad) {
+    // If there is unconsumed scroll and we're in the momentum part of the
+    // pan gesture, terminate the momentum scroll. This prevents momentum
+    // scroll events from unexpectedly causing scrolling later if somehow
+    // the APZC becomes scrollable again in this direction (e.g. if the user
+    // uses some other input method to scroll in the opposite direction).
+    mState = NOTHING;
+  }
 
   return nsEventStatus_eConsumeNoDefault;
 }
@@ -3264,12 +3273,14 @@ bool AsyncPanZoomController::AttemptScroll(
     // Note: "+ overscroll" rather than "- overscroll" because "overscroll"
     // is what's left of "displacement", and "displacement" is "start - end".
     ++aOverscrollHandoffState.mChainIndex;
-    CallDispatchScroll(aStartPoint, aEndPoint, aOverscrollHandoffState);
-
-    overscroll = aStartPoint - aEndPoint;
-    if (IsZero(overscroll)) {
+    bool consumed =
+        CallDispatchScroll(aStartPoint, aEndPoint, aOverscrollHandoffState);
+    if (consumed) {
       return true;
     }
+
+    overscroll = aStartPoint - aEndPoint;
+    MOZ_ASSERT(!IsZero(overscroll));
   }
 
   // If there is no APZC later in the handoff chain that accepted the
@@ -3501,7 +3512,7 @@ void AsyncPanZoomController::StartOverscrollAnimation(
   StartAnimation(new OverscrollAnimation(*this, aVelocity));
 }
 
-void AsyncPanZoomController::CallDispatchScroll(
+bool AsyncPanZoomController::CallDispatchScroll(
     ParentLayerPoint& aStartPoint, ParentLayerPoint& aEndPoint,
     OverscrollHandoffState& aOverscrollHandoffState) {
   // Make a local copy of the tree manager pointer and check if it's not
@@ -3509,7 +3520,7 @@ void AsyncPanZoomController::CallDispatchScroll(
   // Destroy(), which nulls out mTreeManager, could be called concurrently.
   APZCTreeManager* treeManagerLocal = GetApzcTreeManager();
   if (!treeManagerLocal) {
-    return;
+    return false;
   }
 
   // Obey overscroll-behavior.
@@ -3524,12 +3535,12 @@ void AsyncPanZoomController::CallDispatchScroll(
     }
     if (aStartPoint == endPoint) {
       // Handoff not allowed in either direction - don't even bother.
-      return;
+      return false;
     }
   }
 
-  treeManagerLocal->DispatchScroll(this, aStartPoint, endPoint,
-                                   aOverscrollHandoffState);
+  return treeManagerLocal->DispatchScroll(this, aStartPoint, endPoint,
+                                          aOverscrollHandoffState);
 }
 
 void AsyncPanZoomController::RecordScrollPayload(const TimeStamp& aTimeStamp) {

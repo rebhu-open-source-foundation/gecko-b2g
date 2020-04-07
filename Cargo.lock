@@ -119,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "audioipc"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "audio_thread_priority",
  "bincode",
@@ -689,7 +689,7 @@ dependencies = [
 [[package]]
 name = "coreaudio-sys-utils"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=432259ab53295ca98a2df0c0e6c73d132b273e97#432259ab53295ca98a2df0c0e6c73d132b273e97"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=ea9e5aa3e6014f219cf5fa0690bc4b06916f0b09#ea9e5aa3e6014f219cf5fa0690bc4b06916f0b09"
 dependencies = [
  "core-foundation-sys",
  "coreaudio-sys",
@@ -715,22 +715,22 @@ dependencies = [
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.60.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c#5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
+version = "0.62.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=6a68130d5b0296379fae0b8de5fbb8a1499b67a5#6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
 dependencies = [
- "cranelift-entity 0.60.0",
+ "cranelift-entity 0.62.0",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.60.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c#5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
+version = "0.62.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=6a68130d5b0296379fae0b8de5fbb8a1499b67a5#6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
  "cranelift-codegen-meta",
  "cranelift-codegen-shared",
- "cranelift-entity 0.60.0",
+ "cranelift-entity 0.62.0",
  "log",
  "smallvec 1.2.0",
  "target-lexicon 0.10.0",
@@ -739,17 +739,17 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.60.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c#5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
+version = "0.62.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=6a68130d5b0296379fae0b8de5fbb8a1499b67a5#6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
 dependencies = [
  "cranelift-codegen-shared",
- "cranelift-entity 0.60.0",
+ "cranelift-entity 0.62.0",
 ]
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.60.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c#5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
+version = "0.62.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=6a68130d5b0296379fae0b8de5fbb8a1499b67a5#6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
 
 [[package]]
 name = "cranelift-entity"
@@ -758,13 +758,13 @@ source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=5e870faf6f9
 
 [[package]]
 name = "cranelift-entity"
-version = "0.60.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c#5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
+version = "0.62.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=6a68130d5b0296379fae0b8de5fbb8a1499b67a5#6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.60.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c#5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
+version = "0.62.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=6a68130d5b0296379fae0b8de5fbb8a1499b67a5#6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -774,11 +774,11 @@ dependencies = [
 
 [[package]]
 name = "cranelift-wasm"
-version = "0.60.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c#5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
+version = "0.62.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=6a68130d5b0296379fae0b8de5fbb8a1499b67a5#6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
 dependencies = [
  "cranelift-codegen",
- "cranelift-entity 0.60.0",
+ "cranelift-entity 0.62.0",
  "cranelift-frontend",
  "log",
  "thiserror",
@@ -926,7 +926,7 @@ dependencies = [
 [[package]]
 name = "cubeb-coreaudio"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=432259ab53295ca98a2df0c0e6c73d132b273e97#432259ab53295ca98a2df0c0e6c73d132b273e97"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=ea9e5aa3e6014f219cf5fa0690bc4b06916f0b09#ea9e5aa3e6014f219cf5fa0690bc4b06916f0b09"
 dependencies = [
  "atomic",
  "audio-mixer",
@@ -2558,7 +2558,8 @@ dependencies = [
 [[package]]
 name = "mio-named-pipes"
 version = "0.1.6"
-source = "git+https://github.com/alexcrichton/mio-named-pipes#2072ae0de5b3632dbb065fcd9c8be6c6a2fc39ae"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5e374eff525ce1c5b7687c4cef63943e7686524a387933ad27ca7ec43779cb3"
 dependencies = [
  "log",
  "mio",
@@ -3670,13 +3671,14 @@ checksum = "8a654c5bda722c699be6b0fe4c0d90de218928da5b724c3e467fc48865c37263"
 
 [[package]]
 name = "rust_cascade"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ea6999b1c6f2bd14e0208f7f3ffbd2774a9a98078148afc7251e789da930595"
+checksum = "9a5b9bba8f5b985e4923dadd273a987f83669083f3355d65c699e02b9d3d854d"
 dependencies = [
  "byteorder",
  "digest",
  "murmurhash3",
+ "sha2",
 ]
 
 [[package]]

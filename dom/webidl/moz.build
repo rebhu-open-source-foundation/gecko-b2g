@@ -355,6 +355,12 @@ with Files("WebGPU*"):
 with Files("Webrtc*"):
     BUG_COMPONENT = ("Core", "WebRTC")
 
+with Files("WebXR.webidl"):
+    BUG_COMPONENT = ("Core", "WebVR")
+
+with Files("XR*"):
+    BUG_COMPONENT = ("Core", "WebVR")
+
 with Files("WheelEvent.webidl"):
     BUG_COMPONENT = ("Core", "DOM: UI Events & Focus Handling")
 
@@ -1001,6 +1007,7 @@ WEBIDL_FILES = [
     'WebGLRenderingContext.webidl',
     'WebGPU.webidl',
     'WebSocket.webidl',
+    'WebXR.webidl',
     'WheelEvent.webidl',
     'WidevineCDMManifest.webidl',
     'WifiCapabilities.webidl',
@@ -1188,6 +1195,10 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'WifiScanResultEvent.webidl',
     'WifiStationInfoEvent.webidl',
     'WifiStatusChangeEvent.webidl',
+    'XRInputSourceEvent.webidl',
+    'XRInputSourcesChangeEvent.webidl',
+    'XRReferenceSpaceEvent.webidl',
+    'XRSessionEvent.webidl',
 ]
 
 if CONFIG['MOZ_WEBRTC']:

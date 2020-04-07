@@ -649,7 +649,8 @@ static const uint64_t kCacheInitialized = ((uint64_t)0x1) << 63;
           GetNativeFromGeckoAccessible(proxy->OuterDocOfRemoteBrowser()->RootAccessible()));
     }
 
-    LayoutDeviceIntPoint p = LayoutDeviceIntPoint(geckoRect.X(), geckoRect.Y());
+    LayoutDeviceIntPoint p = LayoutDeviceIntPoint(geckoRect.X() + (geckoRect.Width() / 2),
+                                                  geckoRect.Y() + (geckoRect.Height() / 2));
     nsIWidget* widget = [objOrView widget];
     // XXX: NSRightMouseDown is depreciated in 10.12, should be
     // changed to NSEventTypeRightMouseDown after refactoring.
@@ -1269,8 +1270,10 @@ struct RoleDescrComparator {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
   // make room for new children
-  [mChildren release];
-  mChildren = nil;
+  if (mChildren) {
+    [mChildren release];
+    mChildren = nil;
+  }
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }

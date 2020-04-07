@@ -8,6 +8,7 @@
 
 #include "frontend/AbstractScopePtr.h"
 #include "frontend/ModuleSharedContext.h"
+#include "wasm/AsmJS.h"
 
 #include "frontend/ParseContext-inl.h"
 #include "vm/EnvironmentObject-inl.h"
@@ -145,6 +146,7 @@ FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
       usesThis(false),
       usesReturn(false),
       hasExprBody_(false),
+      isAsmJSModule_(false),
       nargs_(0),
       explicitName_(explicitName),
       flags_(flags) {
@@ -167,22 +169,7 @@ bool FunctionBox::hasFunction() const {
 
 void FunctionBox::initFromLazyFunction(JSFunction* fun) {
   BaseScript* lazy = fun->baseScript();
-  if (lazy->isDerivedClassConstructor()) {
-    setDerivedClassConstructor();
-  }
-  if (lazy->needsHomeObject()) {
-    setNeedsHomeObject();
-  }
-  if (lazy->bindingsAccessedDynamically()) {
-    setBindingsAccessedDynamically();
-  }
-  if (lazy->hasDirectEval()) {
-    setHasDirectEval();
-  }
-  if (lazy->hasModuleGoal()) {
-    setHasModuleGoal();
-  }
-
+  immutableFlags_ = lazy->immutableFlags();
   extent = lazy->extent();
 }
 
@@ -284,6 +271,12 @@ void FunctionBox::setEnclosingScopeForInnerLazyFunction(
   // in FunctionBox::finish.
   MOZ_ASSERT(!enclosingScope_);
   enclosingScope_ = enclosingScope;
+}
+
+void FunctionBox::setAsmJSModule(JSFunction* function) {
+  MOZ_ASSERT(IsAsmJSModule(function));
+  isAsmJSModule_ = true;
+  clobberFunction(function);
 }
 
 void FunctionBox::finish() {

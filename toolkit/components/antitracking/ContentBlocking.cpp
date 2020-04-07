@@ -378,8 +378,7 @@ ContentBlocking::AllowAccessFor(
         topOuterWindow->GetCurrentInnerWindow()->GetExtantDoc()->GetChannel();
 
     ContentBlockingNotifier::OnEvent(
-        topOuterWindow, channel,
-        parentInnerWindow->GetExtantDoc()->GetChannel(), false,
+        channel, parentInnerWindow->GetExtantDoc()->GetChannel(), false,
         CookieJarSettings::IsRejectThirdPartyWithExceptions(behavior)
             ? nsIWebProgressListener::STATE_COOKIES_BLOCKED_FOREIGN
             : nsIWebProgressListener::STATE_COOKIES_BLOCKED_TRACKER,
@@ -759,7 +758,7 @@ bool ContentBlocking::ShouldAllowAccessFor(nsIChannel* aChannel, nsIURI* aURI,
     LOG(
         ("Our loadInfo lacks a top-level principal, use the loadInfo's loading "
          "principal instead"));
-    toplevelPrincipal = loadInfo->LoadingPrincipal();
+    toplevelPrincipal = loadInfo->GetLoadingPrincipal();
   }
 
   nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aChannel);

@@ -879,7 +879,7 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
 
   MOZ_ASSERT(ThreadRunning());
   TRACE_AUDIO_CALLBACK_BUDGET(aFrames, mSampleRate);
-  TRACE_AUDIO_CALLBACK();
+  TRACE();
 
 #ifdef DEBUG
   AutoInCallback aic(this);
