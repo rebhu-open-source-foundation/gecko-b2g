@@ -7,6 +7,7 @@
 #ifndef nsFrameLoaderOwner_h_
 #define nsFrameLoaderOwner_h_
 
+#include <functional>
 #include "nsISupports.h"
 
 class nsFrameLoader;
