@@ -1760,38 +1760,109 @@ void BluetoothDaemonGattModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
                                           DaemonSocketResultHandler* aRes) {
   static void (BluetoothDaemonGattModule::*const HandleNtf[])(
       const DaemonSocketPDUHeader&, DaemonSocketPDU&) = {
+      // ----- GATT client, [0] - [47] -----
       [0] = &BluetoothDaemonGattModule::ClientRegisterNtf,
-      [1] = &BluetoothDaemonGattModule::ClientScanResultNtf,
-      [2] = &BluetoothDaemonGattModule::ClientConnectNtf,
-      [3] = &BluetoothDaemonGattModule::ClientDisconnectNtf,
-      [4] = &BluetoothDaemonGattModule::ClientSearchCompleteNtf,
-      [5] = &BluetoothDaemonGattModule::ClientSearchResultNtf,
-      [6] = &BluetoothDaemonGattModule::ClientGetCharacteristicNtf,
-      [7] = &BluetoothDaemonGattModule::ClientGetDescriptorNtf,
-      [8] = &BluetoothDaemonGattModule::ClientGetIncludedServiceNtf,
-      [9] = &BluetoothDaemonGattModule::ClientRegisterNotificationNtf,
-      [10] = &BluetoothDaemonGattModule::ClientNotifyNtf,
-      [11] = &BluetoothDaemonGattModule::ClientReadCharacteristicNtf,
-      [12] = &BluetoothDaemonGattModule::ClientWriteCharacteristicNtf,
-      [13] = &BluetoothDaemonGattModule::ClientReadDescriptorNtf,
-      [14] = &BluetoothDaemonGattModule::ClientWriteDescriptorNtf,
-      [15] = &BluetoothDaemonGattModule::ClientExecuteWriteNtf,
-      [16] = &BluetoothDaemonGattModule::ClientReadRemoteRssiNtf,
-      [17] = &BluetoothDaemonGattModule::ClientListenNtf,
-      [18] = &BluetoothDaemonGattModule::ServerRegisterNtf,
-      [19] = &BluetoothDaemonGattModule::ServerConnectionNtf,
-      [20] = &BluetoothDaemonGattModule::ServerServiceAddedNtf,
-      [21] = &BluetoothDaemonGattModule::ServerIncludedServiceAddedNtf,
-      [22] = &BluetoothDaemonGattModule::ServerCharacteristicAddedNtf,
-      [23] = &BluetoothDaemonGattModule::ServerDescriptorAddedNtf,
-      [24] = &BluetoothDaemonGattModule::ServerServiceStartedNtf,
-      [25] = &BluetoothDaemonGattModule::ServerServiceStoppedNtf,
-      [26] = &BluetoothDaemonGattModule::ServerServiceDeletedNtf,
-      [27] = &BluetoothDaemonGattModule::ServerRequestReadNtf,
-      [28] = &BluetoothDaemonGattModule::ServerRequestWriteNtf,
-      [29] = &BluetoothDaemonGattModule::ServerRequestExecuteWriteNtf,
-      [30] = &BluetoothDaemonGattModule::ServerResponseConfirmationNtf};
+      [1] = &BluetoothDaemonGattModule::ClientConnectNtf,
+      [2] = &BluetoothDaemonGattModule::ClientDisconnectNtf,
+      [3] = &BluetoothDaemonGattModule::ClientSearchCompleteNtf,
+      // TODO: srvc_id, char_id -> handle
+      [4] = &BluetoothDaemonGattModule::ClientRegisterNotificationNtf,
+      [5] = &BluetoothDaemonGattModule::ClientNotifyNtf,
+      [6] = &BluetoothDaemonGattModule::ClientReadCharacteristicNtf,
+      // TODO: btgatt_write_params_t -> handle
+      [7] = &BluetoothDaemonGattModule::ClientWriteCharacteristicNtf,
+      [8] = &BluetoothDaemonGattModule::ClientReadDescriptorNtf,
+      // TODO: btgatt_write_params_t -> handle
+      [9] = &BluetoothDaemonGattModule::ClientWriteDescriptorNtf,
+      [10] = &BluetoothDaemonGattModule::ClientExecuteWriteNtf,
+      [11] = &BluetoothDaemonGattModule::ClientReadRemoteRssiNtf,
 
+      // TODO: Replace ClientScanResultNtf by LE scanner
+      // [1] = &BluetoothDaemonGattModule::ClientScanResultNtf,
+
+      // TODO: Replace the following NTFs by OPCODE_CLIENT_GET_GATT_DB_NTF
+      // [5] = &BluetoothDaemonGattModule::ClientSearchResultNtf,
+      // [6] = &BluetoothDaemonGattModule::ClientGetCharacteristicNtf,
+      // [7] = &BluetoothDaemonGattModule::ClientGetDescriptorNtf,
+      // [8] = &BluetoothDaemonGattModule::ClientGetIncludedServiceNtf,
+
+      // TODO: Replace ClientListenNtf by LE advertiser
+      // [17] = &BluetoothDaemonGattModule::ClientListenNtf,
+
+      // TODO: Support the following NTF as new feature
+      //   [12] OPCODE_CLIENT_CONFIGURE_MTU_NTF    (0x8d)
+      //   [13] OPCODE_CLIENT_CONGESTION_NTF       (0x8e)
+      //   [14] OPCODE_CLIENT_GET_GATT_DB_NTF      (0x8f)
+      //   [15] OPCODE_CLIENT_SERVICES_REMOVED_NTF (0x90)
+      //   [16] OPCODE_CLIENT_SERVICES_ADDED_NTF   (0x91)
+      //   [17] OPCODE_CLIENT_PHY_UPDATED_NTF      (0x92)
+      //   [18] OPCODE_CLIENT_CONN_UPDATED_NTF     (0x93)
+
+      // ----- GATT server, [48] - [95] -----
+      [48] = &BluetoothDaemonGattModule::ServerRegisterNtf,
+      [49] = &BluetoothDaemonGattModule::ServerConnectionNtf,
+      // TODO: btgatt_srvc_id_t, srvc_handle -> vector<btgatt_db_element_t>
+      [50] = &BluetoothDaemonGattModule::ServerServiceStoppedNtf,
+      [51] = &BluetoothDaemonGattModule::ServerServiceDeletedNtf,
+      // TODO: replace it by OPCODE_SERVER_REQUEST_READ_CHARACTERISTIC_NTF
+      [52] = &BluetoothDaemonGattModule::ServerRequestReadNtf,
+      // TODO: replace it by OPCODE_SERVER_REQUEST_READ_DESCRIPTOR_NTF
+      [53] = &BluetoothDaemonGattModule::ServerRequestReadNtf,
+      // TODO: replace it by OPCODE_SERVER_REQUEST_WRITE_CHARACTERISTIC_NTF
+      [54] = &BluetoothDaemonGattModule::ServerRequestWriteNtf,
+      // TODO: replace it by OPCODE_SERVER_REQUEST_WRITE_DESCRIPTOR_NTF
+      [55] = &BluetoothDaemonGattModule::ServerRequestWriteNtf,
+
+      // TODO: Replace the following NTFs by OPCODE_SERVER_SERVICE_ADDED_NTF
+      // [21] = &BluetoothDaemonGattModule::ServerIncludedServiceAddedNtf,
+      // [22] = &BluetoothDaemonGattModule::ServerCharacteristicAddedNtf,
+      // [23] = &BluetoothDaemonGattModule::ServerDescriptorAddedNtf,
+      // [24] = &BluetoothDaemonGattModule::ServerServiceStartedNtf,
+
+      // TODO: Support the following NTF as new feature
+      //   [56] OPCODE_SERVER_REQUEST_EXEC_WRITE_NTF    (0xaa)
+      //   [57] OPCODE_SERVER_RESPONSE_CONFIRMATION_NTF (0xab)
+      //   [58] OPCODE_SERVER_INDICATION_SENT_NTF       (0xac)
+      //   [59] OPCODE_SERVER_CONGESTION_NTF            (0xad)
+      //   [60] OPCODE_SERVER_MTU_CHANGED_NTF           (0xae)
+      //   [61] OPCODE_SERVER_PHY_UPDATED_NTF           (0xaf)
+      //   [62] OPCODE_SERVER_CONN_UPDATED_NTF          (0xb0)
+
+      // ----- LE scanner, [96] - [143] -----
+      // TODO: Support the following NTF as new feature
+      //   [96]  OPCODE_SCANNER_REGISTER_SCANNER_NTF         (0xc1)
+      //   [97]  OPCODE_SCANNER_SCAN_FILTER_PARAM_SETUP_NTF  (0xc2)
+      //   [98]  OPCODE_SCANNER_SCAN_FILTER_ADD_NTF          (0xc3)
+      //   [99]  OPCODE_SCANNER_SCAN_FILTER_CLEAR_NTF        (0xc4)
+      //   [100] OPCODE_SCANNER_SCAN_FILTER_ENABLE_NTF       (0xc5)
+      //   [101] OPCODE_SCANNER_SET_SCAN_PARAMETERS_NTF      (0xc6)
+      //   [102] OPCODE_SCANNER_BATCHSCAN_CONFIG_STORAGE_NTF (0xc7)
+      //   [103] OPCODE_SCANNER_BATCHSCAN_ENABLE_NTF         (0xc8)
+      //   [104] OPCODE_SCANNER_BATCHSCAN_DISABLE_NTF        (0xc9)
+      //   [105] OPCODE_SCANNER_START_SYNC_NTF               (0xca)
+      //   [106] OPCODE_SCANNER_START_SYNC_REPORT_NTF        (0xcb)
+      //   [107] OPCODE_SCANNER_START_SYNC_LOST_NTF          (0xcc)
+      //   [108] OPCODE_SCANNER_SCAN_RESULT_NTF              (0xcd)
+      //   [109] OPCODE_SCANNER_BATCHSCAN_REPORTS_NTF        (0xce)
+      //   [110] OPCODE_SCANNER_BATCHSCAN_THRESHOLD_NTF      (0xcf)
+      //   [111] OPCODE_SCANNER_TRACK_ADV_EVENT_NTF          (0xd0)
+
+      // ----- LE advertiser, [144] - [191] -----
+      // TODO: Support the following NTF as new feature
+      //   [144] OPCODE_ADVERTISER_REGISTER_ADVERTISER_NTF                (0xe1)
+      //   [145] OPCODE_ADVERTISER_GET_OWN_ADDRESS_NTF                    (0xe2)
+      //   [146] OPCODE_ADVERTISER_SET_PARAMETERS_NTF                     (0xe3)
+      //   [147] OPCODE_ADVERTISER_SET_DATA_NTF                           (0xe4)
+      //   [148] OPCODE_ADVERTISER_ENABLE_NTF                             (0xe5)
+      //   [149] OPCODE_ADVERTISER_ENABLE_TIMEOUT_NTF                     (0xe6)
+      //   [150] OPCODE_ADVERTISER_START_ADVERTISING_NTF                  (0xe7)
+      //   [151] OPCODE_ADVERTISER_START_ADVERTISING_TIMEOUT_NTF          (0xe8)
+      //   [152] OPCODE_ADVERTISER_START_ADVERTISING_SET_NTF              (0xe9)
+      //   [153] OPCODE_ADVERTISER_START_ADVERTISING_SET_TIMEOUT_NTF      (0xea)
+      //   [154] OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_PARAMETERS_NTF(0xeb)
+      //   [155] OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_DATA_NTF      (0xec)
+      //   [156] OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_ENABLE_NTF    (0xed)
+  };
   MOZ_ASSERT(!NS_IsMainThread());
 
   uint8_t index = aHeader.mOpcode - 0x81;
