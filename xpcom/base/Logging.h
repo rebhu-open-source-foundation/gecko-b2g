@@ -25,7 +25,7 @@
 // devices, we've chosen to leave logging enabled on desktop, but disabled on
 // Android.  Given that logging can still be useful for development purposes,
 // however, we leave logging enabled on Android developer builds.
-#if !defined(ANDROID) || !defined(RELEASE_OR_BETA)
+#if !defined(ANDROID) || !defined(RELEASE_OR_BETA) || defined(MOZ_B2G)
 #  define MOZ_LOGGING_ENABLED 1
 #else
 #  define MOZ_LOGGING_ENABLED 0
