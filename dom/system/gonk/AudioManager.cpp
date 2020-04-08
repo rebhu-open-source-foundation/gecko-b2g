@@ -38,8 +38,8 @@
 #include "mozilla/dom/ScriptSettings.h"
 #include "base/message_loop.h"
 
-//#include "BluetoothCommon.h"  //TODO: FIXME
-//#include "BluetoothHfpManagerBase.h" //TODO: FIXME
+#include "BluetoothCommon.h"
+#include "BluetoothHfpManagerBase.h"
 
 #include "nsJSUtils.h"
 #include "nsThreadUtils.h"
@@ -62,7 +62,7 @@ using namespace mozilla::dom;
 using namespace mozilla::dom::gonk;
 // using namespace android;
 using namespace mozilla;
-// using namespace mozilla::dom::bluetooth;  //TODO: FIXME
+using namespace mozilla::dom::bluetooth;
 
 #undef LOG
 #define LOG(args...) \
@@ -255,8 +255,7 @@ void AudioManager::HandleAudioFlingerDied() {
   MaybeUpdateVolumeSettingToDatabase(true);
 }
 
-// class VolumeInitCallback final : public nsISettingsServiceCallback //TODO
-// FIXME
+// class VolumeInitCallback final : public nsISettingsServiceCallback //TODO FIXME
 // {
 // public:
 //   NS_DECL_ISUPPORTS
@@ -469,124 +468,124 @@ void AudioManager::SetAllDeviceConnectionStates() {
 void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
                                                 const char* aTopic,
                                                 const nsCString aAddress){
-#ifdef MOZ_B2G_BT  // TODO FIXME
-// bool isConnected = false;
-// if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
-//   BluetoothHfpManagerBase* hfp =
-//     static_cast<BluetoothHfpManagerBase*>(aSubject);
-//   isConnected = hfp->IsScoConnected();
-// } else {
-//   BluetoothProfileManagerBase* profile =
-//     static_cast<BluetoothProfileManagerBase*>(aSubject);
-//   isConnected = profile->IsConnected();
-// }
+#ifdef MOZ_B2G_BT
+bool isConnected = false;
+if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
+  BluetoothHfpManagerBase* hfp =
+    static_cast<BluetoothHfpManagerBase*>(aSubject);
+  isConnected = hfp->IsScoConnected();
+} else {
+  BluetoothProfileManagerBase* profile =
+    static_cast<BluetoothProfileManagerBase*>(aSubject);
+  isConnected = profile->IsConnected();
+}
 
-// if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
-//   if (isConnected) {
-//     BluetoothHfpManagerBase* hfp =
-//       static_cast<BluetoothHfpManagerBase*>(aSubject);
-//     int btSampleRate = hfp->IsWbsEnabled() ? kBtWideBandSampleRate
-//                                            : kBtSampleRate;
-//     String8 cmd;
-//     cmd.appendFormat("bt_samplerate=%d", btSampleRate);
-//     android::AudioSystem::setParameters(0, cmd);
-//     SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
-//     nsIAudioManager::FORCE_BT_SCO);
-//   } else {
-//     int32_t force;
-//     GetForceForUse(nsIAudioManager::USE_COMMUNICATION, &force);
-//     if (force == nsIAudioManager::FORCE_BT_SCO) {
-//       SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
-//       nsIAudioManager::FORCE_NONE);
-//     }
-//   }
-// } else if (!strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED_ID)) {
-//   if (!isConnected && mA2dpSwitchDone) {
-//     RefPtr<AudioManager> self = this;
-//     nsCOMPtr<nsIRunnable> runnable =
-//       NS_NewRunnableFunction("AudioManager::HandleBluetoothStatusChanged",
-//       [self, isConnected, aAddress]() {
-//         if (self->mA2dpSwitchDone) {
-//           return;
-//         }
-//         self->UpdateDeviceConnectionState(isConnected,
-//                                           AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
-//                                           aAddress);
+if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
+  if (isConnected) {
+    BluetoothHfpManagerBase* hfp =
+      static_cast<BluetoothHfpManagerBase*>(aSubject);
+    int btSampleRate = hfp->IsWbsEnabled() ? kBtWideBandSampleRate
+                                           : kBtSampleRate;
+    android::String8 cmd;
+    cmd.appendFormat("bt_samplerate=%d", btSampleRate);
+    android::AudioSystem::setParameters(0, cmd);
+    SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
+    nsIAudioManager::FORCE_BT_SCO);
+  } else {
+    int32_t force;
+    GetForceForUse(nsIAudioManager::USE_COMMUNICATION, &force);
+    if (force == nsIAudioManager::FORCE_BT_SCO) {
+      SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
+      nsIAudioManager::FORCE_NONE);
+    }
+  }
+} else if (!strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED_ID)) {
+  if (!isConnected && mA2dpSwitchDone) {
+    RefPtr<AudioManager> self = this;
+    nsCOMPtr<nsIRunnable> runnable =
+      NS_NewRunnableFunction("AudioManager::HandleBluetoothStatusChanged",
+      [self, isConnected, aAddress]() {
+        if (self->mA2dpSwitchDone) {
+          return;
+        }
+        self->UpdateDeviceConnectionState(isConnected,
+                                          AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
+                                          aAddress);
 
-//         String8 cmd("bluetooth_enabled=false");
-//         android::AudioSystem::setParameters(0, cmd);
-//         cmd.setTo("A2dpSuspended=true");
-//         android::AudioSystem::setParameters(0, cmd);
-//         self->mA2dpSwitchDone = true;
-//       });
-//     MessageLoop::current()->PostDelayedTask(runnable.forget(), 1000);
+        android::String8 cmd("bluetooth_enabled=false");
+        android::AudioSystem::setParameters(0, cmd);
+        cmd.setTo("A2dpSuspended=true");
+        android::AudioSystem::setParameters(0, cmd);
+        self->mA2dpSwitchDone = true;
+      });
+    MessageLoop::current()->PostDelayedTask(runnable.forget(), 1000);
 
-//     mA2dpSwitchDone = false;
-//   } else {
-//     UpdateDeviceConnectionState(isConnected,
-//                                 AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
-//                                 aAddress);
-//     String8 cmd("bluetooth_enabled=true");
-//     android::AudioSystem::setParameters(0, cmd);
-//     cmd.setTo("A2dpSuspended=false");
-//     android::AudioSystem::setParameters(0, cmd);
-//     mA2dpSwitchDone = true;
-//     if (android::AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
-//     AUDIO_POLICY_FORCE_NO_BT_A2DP) {
-//       SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NONE);
-//     }
-//   }
-//   mBluetoothA2dpEnabled = isConnected;
-// } else if (!strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
-//   UpdateDeviceConnectionState(isConnected,
-//                               AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
-//                               aAddress);
-//   UpdateDeviceConnectionState(isConnected,
-//                               AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
-//                               aAddress);
-// } else if (!strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID)) {
-//   String8 cmd;
-//   BluetoothHfpManagerBase* hfp =
-//     static_cast<BluetoothHfpManagerBase*>(aSubject);
-//   if (hfp->IsNrecEnabled()) {
-//     // TODO: (Bug 880785) Replace <unknown> with remote Bluetooth device name
-//     cmd.setTo("bt_headset_name=<unknown>;bt_headset_nrec=on");
-//     android::AudioSystem::setParameters(0, cmd);
-//   } else {
-//     cmd.setTo("bt_headset_name=<unknown>;bt_headset_nrec=off");
-//     android::AudioSystem::setParameters(0, cmd);
-//   }
-// } else if (!strcmp(aTopic, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID)) {
-//   String8 cmd;
-//   BluetoothHfpManagerBase* hfp =
-//     static_cast<BluetoothHfpManagerBase*>(aSubject);
-//   if (hfp->IsWbsEnabled()) {
-//     cmd.setTo("bt_wbs=on");
-//     android::AudioSystem::setParameters(0, cmd);
-//   } else {
-//     cmd.setTo("bt_wbs=off");
-//     android::AudioSystem::setParameters(0, cmd);
-//   }
-// }
+    mA2dpSwitchDone = false;
+  } else {
+    UpdateDeviceConnectionState(isConnected,
+                                AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
+                                aAddress);
+    android::String8 cmd("bluetooth_enabled=true");
+    android::AudioSystem::setParameters(0, cmd);
+    cmd.setTo("A2dpSuspended=false");
+    android::AudioSystem::setParameters(0, cmd);
+    mA2dpSwitchDone = true;
+    if (android::AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
+    AUDIO_POLICY_FORCE_NO_BT_A2DP) {
+      SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NONE);
+    }
+  }
+  mBluetoothA2dpEnabled = isConnected;
+} else if (!strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
+  UpdateDeviceConnectionState(isConnected,
+                              AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
+                              aAddress);
+  UpdateDeviceConnectionState(isConnected,
+                              AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
+                              aAddress);
+} else if (!strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID)) {
+  android::String8 cmd;
+  BluetoothHfpManagerBase* hfp =
+    static_cast<BluetoothHfpManagerBase*>(aSubject);
+  if (hfp->IsNrecEnabled()) {
+    // TODO: (Bug 880785) Replace <unknown> with remote Bluetooth device name
+    cmd.setTo("bt_headset_name=<unknown>;bt_headset_nrec=on");
+    android::AudioSystem::setParameters(0, cmd);
+  } else {
+    cmd.setTo("bt_headset_name=<unknown>;bt_headset_nrec=off");
+    android::AudioSystem::setParameters(0, cmd);
+  }
+} else if (!strcmp(aTopic, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID)) {
+  android::String8 cmd;
+  BluetoothHfpManagerBase* hfp =
+    static_cast<BluetoothHfpManagerBase*>(aSubject);
+  if (hfp->IsWbsEnabled()) {
+    cmd.setTo("bt_wbs=on");
+    android::AudioSystem::setParameters(0, cmd);
+  } else {
+    cmd.setTo("bt_wbs=off");
+    android::AudioSystem::setParameters(0, cmd);
+  }
+}
 #endif
 }
 
 nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
                                const char16_t* aData) {
-  // if ((strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID) == 0) ||  //TODO FIXME
-  //     (strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED_ID) == 0) ||
-  //     (strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID) == 0) ||
-  //     (strcmp(aTopic, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID) == 0) ||
-  //     (strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED_ID) == 0)) {
-  //   nsCString address = NS_ConvertUTF16toUTF8(nsDependentString(aData));
-  //   if (address.IsEmpty()) {
-  //     NS_WARNING(nsPrintfCString("Invalid address of %s", aTopic).get());
-  //     return NS_ERROR_FAILURE;
-  //   }
+  if ((strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED_ID) == 0) ||
+      (strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED_ID) == 0) ||
+      (strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID) == 0) ||
+      (strcmp(aTopic, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID) == 0) ||
+      (strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED_ID) == 0)) {
+    nsCString address = NS_ConvertUTF16toUTF8(nsDependentString(aData));
+    if (address.IsEmpty()) {
+      NS_WARNING(nsPrintfCString("Invalid address of %s", aTopic).get());
+      return NS_ERROR_FAILURE;
+    }
 
-  //   HandleBluetoothStatusChanged(aSubject, aTopic, address);
-  //   return NS_OK;
-  // }
+    HandleBluetoothStatusChanged(aSubject, aTopic, address);
+    return NS_OK;
+  }
 
   // To process the volume control on each volume categories according to
   // change of settings
@@ -615,7 +614,7 @@ nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
 #ifdef PRODUCT_MANUFACTURER_MTK
   // Notify screen state to audio HAL in order to save power when screen is off.
   else if (!strcmp(aTopic, SCREEN_STATE_CHANGED)) {
-    String8 cmd;
+    android::String8 cmd;
     if (NS_LITERAL_STRING("on").Equals(aData)) {
       cmd.setTo("screen_state=on");
     } else {
@@ -742,8 +741,8 @@ AudioManager::AudioManager()
       mIsVolumeInited(false),
       mSwitchDone(true),
       mBluetoothA2dpEnabled(false)
-#ifdef MOZ_B2G_BT  // TODO FIXME
-// , mA2dpSwitchDone(true)
+#ifdef MOZ_B2G_BT
+      , mA2dpSwitchDone(true)
 #endif
       ,
       mObserver(new HeadphoneSwitchObserver())
@@ -796,29 +795,29 @@ AudioManager::AudioManager()
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
-  // if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_SCO_STATUS_CHANGED_ID,
-  // false))) { //TODO: FIXME
-  //   NS_WARNING("Failed to add bluetooth sco status changed observer!");
-  // }
-  // if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID,
-  // false))) {
-  //   NS_WARNING("Failed to add bluetooth a2dp status changed observer!");
-  // }
-  // if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_STATUS_CHANGED_ID,
-  // false))) {
-  //   NS_WARNING("Failed to add bluetooth hfp status changed observer!");
-  // }
-  // if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID,
-  // false))) {
-  //   NS_WARNING("Failed to add bluetooth hfp NREC status changed observer!");
-  // }
-  // if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID,
-  // false))) {
-  //   NS_WARNING("Failed to add bluetooth hfp WBS status changed observer!");
-  // }
-  // if (NS_FAILED(obs->AddObserver(this, MOZ_SETTINGS_CHANGE_ID, false))) {
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_SCO_STATUS_CHANGED_ID,
+  false))) {
+    NS_WARNING("Failed to add bluetooth sco status changed observer!");
+  }
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID,
+  false))) {
+    NS_WARNING("Failed to add bluetooth a2dp status changed observer!");
+  }
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_STATUS_CHANGED_ID,
+  false))) {
+    NS_WARNING("Failed to add bluetooth hfp status changed observer!");
+  }
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID,
+  false))) {
+    NS_WARNING("Failed to add bluetooth hfp NREC status changed observer!");
+  }
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID,
+  false))) {
+    NS_WARNING("Failed to add bluetooth hfp WBS status changed observer!");
+  }
+  // if (NS_FAILED(obs->AddObserver(this, MOZ_SETTINGS_CHANGE_ID, false))) { //TODO FIXME
   //  NS_WARNING("Failed to add mozsettings-changed observer!");
-  //}
+  // }
 #ifdef PRODUCT_MANUFACTURER_MTK
   if (NS_FAILED(obs->AddObserver(this, SCREEN_STATE_CHANGED, false))) {
     NS_WARNING("Failed to add screen-state-changed observer!");
@@ -850,28 +849,26 @@ AudioManager::~AudioManager() {
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
-  // if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_SCO_STATUS_CHANGED_ID)))
-  // {//TODO: FIXME
-  //   NS_WARNING("Failed to remove bluetooth sco status changed observer!");
-  // }
-  // if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID)))
-  // {
-  //   NS_WARNING("Failed to remove bluetooth a2dp status changed observer!");
-  // }
-  // if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_HFP_STATUS_CHANGED_ID)))
-  // {
-  //   NS_WARNING("Failed to remove bluetooth hfp status changed observer!");
-  // }
-  // if (NS_FAILED(obs->RemoveObserver(this,
-  // BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID))) {
-  //   NS_WARNING("Failed to remove bluetooth hfp NREC status changed
-  //   observer!");
-  // }
-  // if (NS_FAILED(obs->RemoveObserver(this,
-  // BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID))) {
-  //   NS_WARNING("Failed to remove bluetooth hfp WBS status changed
-  //   observer!");
-  // }
+  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_SCO_STATUS_CHANGED_ID)))
+  {
+    NS_WARNING("Failed to remove bluetooth sco status changed observer!");
+  }
+  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED_ID)))
+  {
+    NS_WARNING("Failed to remove bluetooth a2dp status changed observer!");
+  }
+  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_HFP_STATUS_CHANGED_ID)))
+  {
+    NS_WARNING("Failed to remove bluetooth hfp status changed observer!");
+  }
+  if (NS_FAILED(obs->RemoveObserver(this,
+  BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID))) {
+    NS_WARNING("Failed to remove bluetooth hfp NREC status changed observer!");
+  }
+  if (NS_FAILED(obs->RemoveObserver(this,
+  BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID))) {
+    NS_WARNING("Failed to remove bluetooth hfp WBS status changed observer!");
+  }
   if (NS_FAILED(obs->RemoveObserver(this, MOZ_SETTINGS_CHANGE_ID))) {
     NS_WARNING("Failed to remove mozsettings-changed observer!");
   }
@@ -1053,7 +1050,7 @@ void AudioManager::SetVendorFmVolumeIndex(bool aMute) {
   uint32_t device = GetDeviceForSprdFm();
   uint32_t volIndex =
       aMute ? 0 : mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
-  String8 cmd;
+  android::String8 cmd;
   cmd.appendFormat("FM_Volume=%d", volIndex);
   LOG("At %d, cmd %s", __LINE__, cmd.string());
   SetAudioSystemParameters(0, cmd);
@@ -1253,8 +1250,8 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
     return;
   }
 
-  // nsCOMPtr<nsISettingsServiceLock> lock = GetSettingServiceLock(); //TODO:
-  // FIXME if (NS_WARN_IF(!lock)) {
+  // nsCOMPtr<nsISettingsServiceLock> lock = GetSettingServiceLock(); //TODO FIXME
+  // if (NS_WARN_IF(!lock)) {
   //   return;
   // }
 

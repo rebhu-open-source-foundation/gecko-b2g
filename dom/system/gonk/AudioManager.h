@@ -117,8 +117,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   bool mSwitchDone;
 
   bool mBluetoothA2dpEnabled;
-#ifdef MOZ_B2G_BT  // TODO FIXME
-  // bool mA2dpSwitchDone;
+#ifdef MOZ_B2G_BT
+  bool mA2dpSwitchDone;
 #endif
   nsTArray<UniquePtr<VolumeStreamState> > mStreamStates;
   uint32_t mLastChannelVolume[AUDIO_STREAM_CNT];
