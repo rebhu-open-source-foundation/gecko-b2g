@@ -442,7 +442,7 @@ pref("dom.phonenumber.substringmatching.CL", 8);
 pref("dom.phonenumber.substringmatching.PE", 7);
 
 // WebAlarms
-pref("dom.mozAlarms.enabled", true);
+pref("dom.alarm.enabled", true);
 
 // NetworkStats
 #ifdef MOZ_WIDGET_GONK

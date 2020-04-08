@@ -21,21 +21,25 @@ namespace dom {
 namespace alarm {
 
 typedef Observer<void_t> AlarmObserver;
-typedef Observer<hal::SystemTimezoneChangeInformation> SystemTimezoneChangeObserver;
-typedef Observer<int64_t> SystemClockChangeObserver;
+// TODO: hal timezone change
+#ifdef HAL_TIMEZONE_CHANGE
+typedef Observer<hal::SystemTimezoneChangeInformation>
+    SystemTimezoneChangeObserver;
 
 class AlarmHalService : public nsIAlarmHalService,
                         public AlarmObserver,
-                        public SystemTimezoneChangeObserver,
-                        public SystemClockChangeObserver
+                        public SystemTimezoneChangeObserver
+#else
+class AlarmHalService : public nsIAlarmHalService,
+                        public AlarmObserver
+#endif
+
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIALARMHALSERVICE
 
-  AlarmHalService()
-    : mAlarmEnabled(false)
-  {}
+  AlarmHalService() : mAlarmEnabled(false) {}
 
   void Init();
 
@@ -44,25 +48,28 @@ public:
   // Implementing hal::AlarmObserver
   void Notify(const void_t& aVoid) override;
 
+// TODO: hal timezone change
+#ifdef HAL_TIMEZONE_CHANGE
   // Implementing hal::SystemTimezoneChangeObserver
-  void Notify(const hal::SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo) override;
+  void Notify(const hal::SystemTimezoneChangeInformation&
+                  aSystemTimezoneChangeInfo) override;
+#endif
 
-  // Implementing hal::SystemClockChangeObserver
-  void Notify(const int64_t& aClockDeltaMS) override;
-
-private:
+ private:
   virtual ~AlarmHalService();
 
   bool mAlarmEnabled;
   static StaticRefPtr<AlarmHalService> sSingleton;
 
   nsCOMPtr<nsIAlarmFiredCb> mAlarmFiredCb;
+// TODO: hal timezone change
+#ifdef HAL_TIMEZONE_CHANGE
   nsCOMPtr<nsITimezoneChangedCb> mTimezoneChangedCb;
-  nsCOMPtr<nsISystemClockChangedCb> mSystemClockChangedCb;
+#endif
 };
 
-} // namespace alarm
-} // namespace dom
-} // namespace mozilla
+}  // namespace alarm
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_alarm_AlarmHalService_h
+#endif  // mozilla_dom_alarm_AlarmHalService_h

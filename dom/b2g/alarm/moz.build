@@ -19,13 +19,17 @@ SOURCES += [
 ]
 
 EXTRA_COMPONENTS += [
-    'AlarmsManager.js',
-    'AlarmsManager.manifest',
+    'AlarmManager.js',
+    'AlarmManager.manifest',
 ]
 
 EXTRA_JS_MODULES += [
     'AlarmDB.jsm',
     'AlarmService.jsm',
+]
+
+XPCOM_MANIFESTS += [
+    'components.conf',
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')

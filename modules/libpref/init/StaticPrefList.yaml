@@ -1303,6 +1303,12 @@
 # Prefs starting with "dom."
 #---------------------------------------------------------------------------
 
+# Whether Alarm API is exposed to the web.
+- name: dom.alarm.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether window.mozPaintCount is exposed to the web.
 - name: dom.mozPaintCount.enabled
   type: bool

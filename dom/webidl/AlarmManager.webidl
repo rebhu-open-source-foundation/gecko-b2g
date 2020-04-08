@@ -6,14 +6,12 @@
  * https://wiki.mozilla.org/WebAPI/AlarmAPI
  */
 
-[NavigatorProperty="mozAlarms",
- JSImplementation="@mozilla.org/alarmsManager;1",
- Pref="dom.mozAlarms.enabled",
+[JSImplementation="@mozilla.org/alarmsManager;1",
+ Pref="dom.alarm.enabled",
+ Exposed=Window,
  ChromeOnly]
 interface AlarmsManager {
   DOMRequest getAll();
-  [UnsafeInPrerendering]
   DOMRequest add(any date, DOMString respectTimezone, optional any data);
-  [UnsafeInPrerendering]
   void remove(unsigned long id);
 };

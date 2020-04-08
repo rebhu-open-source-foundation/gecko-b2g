@@ -14,31 +14,30 @@ using namespace hal;
 
 NS_IMPL_ISUPPORTS(AlarmHalService, nsIAlarmHalService)
 
-void
-AlarmHalService::Init()
-{
+void AlarmHalService::Init() {
   mAlarmEnabled = RegisterTheOneAlarmObserver(this);
   if (!mAlarmEnabled) {
     return;
   }
+// TODO: hal timezone change
+#ifdef HAL_TIMEZONE_CHANGE
   RegisterSystemTimezoneChangeObserver(this);
-  RegisterSystemClockChangeObserver(this);
+#endif
 }
 
-/* virtual */ AlarmHalService::~AlarmHalService()
-{
+/* virtual */ AlarmHalService::~AlarmHalService() {
   if (mAlarmEnabled) {
     UnregisterTheOneAlarmObserver();
+// TODO: hal timezone change
+#ifdef HAL_TIMEZONE_CHANGE
     UnregisterSystemTimezoneChangeObserver(this);
-    UnregisterSystemClockChangeObserver(this);
+#endif
   }
 }
 
 /* static */ StaticRefPtr<AlarmHalService> AlarmHalService::sSingleton;
 
-/* static */ already_AddRefed<AlarmHalService>
-AlarmHalService::GetInstance()
-{
+/* static */ already_AddRefed<AlarmHalService> AlarmHalService::GetInstance() {
   if (!sSingleton) {
     sSingleton = new AlarmHalService();
     sSingleton->Init();
@@ -50,8 +49,8 @@ AlarmHalService::GetInstance()
 }
 
 NS_IMETHODIMP
-AlarmHalService::SetAlarm(int32_t aSeconds, int32_t aNanoseconds, bool* aStatus)
-{
+AlarmHalService::SetAlarm(int32_t aSeconds, int32_t aNanoseconds,
+                          bool* aStatus) {
   if (!mAlarmEnabled) {
     return NS_ERROR_FAILURE;
   }
@@ -66,56 +65,40 @@ AlarmHalService::SetAlarm(int32_t aSeconds, int32_t aNanoseconds, bool* aStatus)
 }
 
 NS_IMETHODIMP
-AlarmHalService::SetAlarmFiredCb(nsIAlarmFiredCb* aAlarmFiredCb)
-{
+AlarmHalService::SetAlarmFiredCb(nsIAlarmFiredCb* aAlarmFiredCb) {
   mAlarmFiredCb = aAlarmFiredCb;
   return NS_OK;
 }
 
+// TODO: hal timezone change
+#ifdef HAL_TIMEZONE_CHANGE
 NS_IMETHODIMP
-AlarmHalService::SetTimezoneChangedCb(nsITimezoneChangedCb* aTimeZoneChangedCb)
-{
+AlarmHalService::SetTimezoneChangedCb(
+    nsITimezoneChangedCb* aTimeZoneChangedCb) {
   mTimezoneChangedCb = aTimeZoneChangedCb;
   return NS_OK;
 }
+#endif
 
-NS_IMETHODIMP
-AlarmHalService::SetSystemClockChangedCb(
-    nsISystemClockChangedCb* aSystemClockChangedCb)
-{
-  mSystemClockChangedCb = aSystemClockChangedCb;
-  return NS_OK;
-}
-
-void
-AlarmHalService::Notify(const void_t& aVoid)
-{
+void AlarmHalService::Notify(const void_t& aVoid) {
   if (!mAlarmFiredCb) {
     return;
   }
   mAlarmFiredCb->OnAlarmFired();
 }
 
-void
-AlarmHalService::Notify(
-  const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo)
-{
+// TODO: hal timezone change
+#ifdef HAL_TIMEZONE_CHANGE
+void AlarmHalService::Notify(
+    const SystemTimezoneChangeInformation& aSystemTimezoneChangeInfo) {
   if (!mTimezoneChangedCb) {
     return;
   }
   mTimezoneChangedCb->OnTimezoneChanged(
-    aSystemTimezoneChangeInfo.newTimezoneOffsetMinutes());
+      aSystemTimezoneChangeInfo.newTimezoneOffsetMinutes());
 }
 
-void
-AlarmHalService::Notify(const int64_t& aClockDeltaMS)
-{
-  if (!mSystemClockChangedCb) {
-    return;
-  }
-  mSystemClockChangedCb->OnSystemClockChanged(aClockDeltaMS);
-}
-
-} // namespace alarm
-} // namespace dom
-} // namespace mozilla
+#endif
+}  // namespace alarm
+}  // namespace dom
+}  // namespace mozilla

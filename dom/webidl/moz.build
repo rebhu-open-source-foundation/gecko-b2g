@@ -1239,7 +1239,7 @@ if CONFIG['ACCESSIBILITY']:
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] != 'android':
     WEBIDL_FILES += [
-        'AlarmsManager.webidl',
+        'AlarmManager.webidl',
     ]
 
 if CONFIG['MOZ_B2G_BT']:

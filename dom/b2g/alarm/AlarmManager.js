@@ -9,19 +9,25 @@ const DEBUG = false;
 const REQUEST_CPU_LOCK_TIMEOUT = 10 * 1000; // 10 seconds.
 
 function debug(aStr) {
-  if (DEBUG)
+  if (DEBUG) {
     dump("AlarmsManager: " + aStr + "\n");
+  }
 }
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { DOMRequestIpcHelper } = ChromeUtils.import(
+  "resource://gre/modules/DOMRequestHelper.jsm"
+);
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/DOMRequestHelper.jsm");
-
-XPCOMUtils.defineLazyServiceGetter(this, "gPowerManagerService",
-                                   "@mozilla.org/power/powermanagerservice;1",
-                                   "nsIPowerManagerService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gPowerManagerService",
+  "@mozilla.org/power/powermanagerservice;1",
+  "nsIPowerManagerService"
+);
 
 function AlarmsManager() {
   debug("Constructor");
@@ -33,24 +39,26 @@ function AlarmsManager() {
 AlarmsManager.prototype = {
   __proto__: DOMRequestIpcHelper.prototype,
 
-  contractID : "@mozilla.org/alarmsManager;1",
+  contractID: "@mozilla.org/alarmsManager;1",
 
-  classID : Components.ID("{fea1e884-9b05-11e1-9b64-87a7016c3860}"),
+  classID: Components.ID("{fea1e884-9b05-11e1-9b64-87a7016c3860}"),
 
-  QueryInterface : XPCOMUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer,
-                                          Ci.nsISupportsWeakReference,
-                                          Ci.nsIObserver]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIDOMGlobalPropertyInitializer,
+    Ci.nsISupportsWeakReference,
+    Ci.nsIObserver,
+  ]),
 
   add: function add(aDate, aRespectTimezone, aData) {
     debug("add()");
 
     if (!this._manifestURL) {
       debug("Cannot add alarms for non-installed apps.");
-      throw Components.results.NS_ERROR_FAILURE;
+      throw Cr.NS_ERROR_FAILURE;
     }
 
     if (!aDate) {
-      throw Components.results.NS_ERROR_INVALID_ARG;
+      throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     let isIgnoreTimezone = true;
@@ -65,8 +73,7 @@ AlarmsManager.prototype = {
         break;
 
       default:
-        throw Components.results.NS_ERROR_INVALID_ARG;
-        break;
+        throw Cr.NS_ERROR_INVALID_ARG;
     }
 
     let data = aData;
@@ -81,30 +88,34 @@ AlarmsManager.prototype = {
     let request = this.createRequest();
     let requestId = this.getRequestId(request);
     this._lockCpuForRequest(requestId);
-    this._cpmm.sendAsyncMessage("AlarmsManager:Add",
-                                { requestId: requestId,
-                                  date: aDate,
-                                  ignoreTimezone: isIgnoreTimezone,
-                                  data: data,
-                                  pageURL: this._pageURL,
-                                  manifestURL: this._manifestURL });
+    this._cpmm.sendAsyncMessage("AlarmsManager:Add", {
+      requestId,
+      date: aDate,
+      ignoreTimezone: isIgnoreTimezone,
+      data,
+      pageURL: this._pageURL,
+      manifestURL: this._manifestURL,
+    });
     return request;
   },
 
   remove: function remove(aId) {
     debug("remove()");
 
-    this._cpmm.sendAsyncMessage("AlarmsManager:Remove",
-                                { id: aId, manifestURL: this._manifestURL });
+    this._cpmm.sendAsyncMessage("AlarmsManager:Remove", {
+      id: aId,
+      manifestURL: this._manifestURL,
+    });
   },
 
   getAll: function getAll() {
     debug("getAll()");
 
     let request = this.createRequest();
-    this._cpmm.sendAsyncMessage("AlarmsManager:GetAll",
-                                { requestId: this.getRequestId(request),
-                                  manifestURL: this._manifestURL });
+    this._cpmm.sendAsyncMessage("AlarmsManager:GetAll", {
+      requestId: this.getRequestId(request),
+      manifestURL: this._manifestURL,
+    });
     return request;
   },
 
@@ -129,16 +140,21 @@ AlarmsManager.prototype = {
         // We don't need to expose everything to the web content.
         let alarms = [];
         json.alarms.forEach(function trimAlarmInfo(aAlarm) {
-          let alarm = { "id": aAlarm.id,
-                        "date": aAlarm.date,
-                        "respectTimezone": aAlarm.ignoreTimezone ?
-                                             "ignoreTimezone" : "honorTimezone",
-                        "data": aAlarm.data };
+          let alarm = {
+            id: aAlarm.id,
+            date: aAlarm.date,
+            respectTimezone: aAlarm.ignoreTimezone
+              ? "ignoreTimezone"
+              : "honorTimezone",
+            data: aAlarm.data,
+          };
           alarms.push(alarm);
         });
 
-        Services.DOMRequest.fireSuccess(request,
-                                        Cu.cloneInto(alarms, this._window));
+        Services.DOMRequest.fireSuccess(
+          request,
+          Cu.cloneInto(alarms, this._window)
+        );
         break;
 
       case "AlarmsManager:Add:Return:KO":
@@ -156,27 +172,31 @@ AlarmsManager.prototype = {
     }
 
     this.removeRequest(json.requestId);
-   },
+  },
 
   // nsIDOMGlobalPropertyInitializer implementation
   init: function init(aWindow) {
     debug("init()");
 
-    this._cpmm = Cc["@mozilla.org/childprocessmessagemanager;1"]
-                   .getService(Ci.nsISyncMessageSender);
+    this._cpmm = Services.cpmm;
 
     // Add the valid messages to be listened.
-    this.initDOMRequestHelper(aWindow, ["AlarmsManager:Add:Return:OK",
-                                        "AlarmsManager:Add:Return:KO",
-                                        "AlarmsManager:GetAll:Return:OK",
-                                        "AlarmsManager:GetAll:Return:KO"]);
+    this.initDOMRequestHelper(aWindow, [
+      "AlarmsManager:Add:Return:OK",
+      "AlarmsManager:Add:Return:KO",
+      "AlarmsManager:GetAll:Return:OK",
+      "AlarmsManager:GetAll:Return:KO",
+    ]);
 
+    /* TODO: AppsService
     // Get the manifest URL if this is an installed app
     let appsService = Cc["@mozilla.org/AppsService;1"]
                         .getService(Ci.nsIAppsService);
+    this._manifestURL = appsService.getManifestURLByLocalId(principal.appId);
+    */
     let principal = aWindow.document.nodePrincipal;
     this._pageURL = principal.URI.spec;
-    this._manifestURL = appsService.getManifestURLByLocalId(principal.appId);
+    this._manifestURL = this._pageURL;
     this._window = aWindow;
   },
 
@@ -185,43 +205,54 @@ AlarmsManager.prototype = {
     debug("uninit()");
   },
 
-  _lockCpuForRequest: function (aRequestId) {
+  _lockCpuForRequest(aRequestId) {
     if (this._cpuLockDict.has(aRequestId)) {
-      debug('Cpu wakelock for request ' + aRequestId + ' has been acquired. ' +
-            'You may call this function repeatedly or requestId is collision.');
+      debug(
+        "Cpu wakelock for request " +
+          aRequestId +
+          " has been acquired. " +
+          "You may call this function repeatedly or requestId is collision."
+      );
       return;
     }
 
     // Acquire a lock for given request and save for lookup lately.
-    debug('Acquire cpu lock for request ' + aRequestId);
+    debug("Acquire cpu lock for request " + aRequestId);
     let cpuLockInfo = {
       cpuLock: gPowerManagerService.newWakeLock("cpu"),
-      timer: Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
+      timer: Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer),
     };
     this._cpuLockDict.set(aRequestId, cpuLockInfo);
 
     // Start a timer to prevent from non-responding request.
-    cpuLockInfo.timer.initWithCallback(() => {
-      debug('Request timeout! Release the cpu lock');
-      this._unlockCpuForRequest(aRequestId);
-    }, REQUEST_CPU_LOCK_TIMEOUT, Ci.nsITimer.TYPE_ONE_SHOT);
+    cpuLockInfo.timer.initWithCallback(
+      () => {
+        debug("Request timeout! Release the cpu lock");
+        this._unlockCpuForRequest(aRequestId);
+      },
+      REQUEST_CPU_LOCK_TIMEOUT,
+      Ci.nsITimer.TYPE_ONE_SHOT
+    );
   },
 
-  _unlockCpuForRequest: function(aRequestId) {
+  _unlockCpuForRequest(aRequestId) {
     let cpuLockInfo = this._cpuLockDict.get(aRequestId);
     if (!cpuLockInfo) {
-      debug('The cpu lock for requestId ' + aRequestId + ' is either invalid ' +
-            'or has been released.');
+      debug(
+        "The cpu lock for requestId " +
+          aRequestId +
+          " is either invalid " +
+          "or has been released."
+      );
       return;
     }
 
     // Release the cpu lock and cancel the timer.
-    debug('Release the cpu lock for ' + aRequestId);
+    debug("Release the cpu lock for " + aRequestId);
     cpuLockInfo.cpuLock.unlock();
     cpuLockInfo.timer.cancel();
     this._cpuLockDict.delete(aRequestId);
   },
+};
 
-}
-
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([AlarmsManager])
+this.NSGetFactory = XPCOMUtils.generateNSGetFactory([AlarmsManager]);
