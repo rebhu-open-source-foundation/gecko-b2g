@@ -9,7 +9,7 @@
 #include "mozilla/net/DNSRequestChild.h"
 #include "mozilla/net/NeckoChild.h"
 #include "mozilla/net/SocketProcessChild.h"
-#include "mozilla/SystemGroup.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/Unused.h"
 #include "nsIDNSRecord.h"
 #include "nsIDNSByTypeRecord.h"
@@ -41,7 +41,6 @@ class ChildDNSRecord : public nsIDNSRecord {
   nsCString mCanonicalName;
   nsTArray<NetAddr> mAddresses;
   uint32_t mCurrent;  // addr iterator
-  uint32_t mLength;   // number of addrs
   uint16_t mFlags;
 };
 
@@ -53,11 +52,7 @@ ChildDNSRecord::ChildDNSRecord(const DNSRecord& reply, uint16_t flags)
 
   // A shame IPDL gives us no way to grab ownership of array: so copy it.
   const nsTArray<NetAddr>& addrs = reply.addrs();
-  uint32_t i = 0;
-  mLength = addrs.Length();
-  for (; i < mLength; i++) {
-    mAddresses.AppendElement(addrs[i]);
-  }
+  mAddresses = addrs;
 }
 
 //-----------------------------------------------------------------------------
@@ -94,7 +89,7 @@ ChildDNSRecord::GetTrrFetchDurationNetworkOnly(double* aTime) {
 
 NS_IMETHODIMP
 ChildDNSRecord::GetNextAddr(uint16_t port, NetAddr* addr) {
-  if (mCurrent >= mLength) {
+  if (mCurrent >= mAddresses.Length()) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -145,7 +140,7 @@ ChildDNSRecord::GetNextAddrAsString(nsACString& result) {
 
 NS_IMETHODIMP
 ChildDNSRecord::HasMore(bool* result) {
-  *result = mCurrent < mLength;
+  *result = mCurrent < mAddresses.Length();
   return NS_OK;
 }
 
@@ -165,6 +160,7 @@ ChildDNSRecord::ReportUnusable(uint16_t aPort) {
 class ChildDNSByTypeRecord : public nsIDNSByTypeRecord {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
+  NS_FORWARD_SAFE_NSIDNSRECORD(((nsIDNSRecord*)nullptr))
   NS_DECL_NSIDNSBYTYPERECORD
 
   explicit ChildDNSByTypeRecord(const nsTArray<nsCString>& reply);
@@ -175,7 +171,7 @@ class ChildDNSByTypeRecord : public nsIDNSByTypeRecord {
   nsTArray<nsCString> mRecords;
 };
 
-NS_IMPL_ISUPPORTS(ChildDNSByTypeRecord, nsIDNSByTypeRecord)
+NS_IMPL_ISUPPORTS(ChildDNSByTypeRecord, nsIDNSByTypeRecord, nsIDNSRecord)
 
 ChildDNSByTypeRecord::ChildDNSByTypeRecord(const nsTArray<nsCString>& reply) {
   mRecords = reply;
@@ -243,7 +239,7 @@ DNSRequestChild::DNSRequestChild(
 void DNSRequestChild::StartRequest() {
   // we can only do IPDL on the main thread
   if (!NS_IsMainThread()) {
-    SystemGroup::Dispatch(
+    SchedulerGroup::Dispatch(
         TaskCategory::Other,
         NewRunnableMethod("net::DNSRequestChild::StartRequest", this,
                           &DNSRequestChild::StartRequest));
@@ -251,10 +247,6 @@ void DNSRequestChild::StartRequest() {
   }
 
   if (XRE_IsContentProcess()) {
-    nsCOMPtr<nsIEventTarget> systemGroupEventTarget =
-        SystemGroup::EventTargetFor(TaskCategory::Other);
-    gNeckoChild->SetEventTargetForActor(this, systemGroupEventTarget);
-
     mozilla::dom::ContentChild* cc =
         static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
     if (cc->IsShuttingDown()) {
@@ -283,12 +275,6 @@ void DNSRequestChild::CallOnLookupComplete() {
   mListener->OnLookupComplete(this, mResultRecord, mResultStatus);
 }
 
-void DNSRequestChild::CallOnLookupByTypeComplete() {
-  MOZ_ASSERT(mListener);
-  MOZ_ASSERT(mType != nsIDNSService::RESOLVE_TYPE_DEFAULT);
-  mListener->OnLookupByTypeComplete(this, mResultByTypeRecords, mResultStatus);
-}
-
 mozilla::ipc::IPCResult DNSRequestChild::RecvLookupCompleted(
     const DNSRequestResponse& reply) {
   MOZ_ASSERT(mListener);
@@ -304,8 +290,7 @@ mozilla::ipc::IPCResult DNSRequestChild::RecvLookupCompleted(
     }
     case DNSRequestResponse::TArrayOfnsCString: {
       MOZ_ASSERT(mType != nsIDNSService::RESOLVE_TYPE_DEFAULT);
-      mResultByTypeRecords =
-          new ChildDNSByTypeRecord(reply.get_ArrayOfnsCString());
+      mResultRecord = new ChildDNSByTypeRecord(reply.get_ArrayOfnsCString());
       break;
     }
     default:
@@ -323,23 +308,12 @@ mozilla::ipc::IPCResult DNSRequestChild::RecvLookupCompleted(
   }
 
   if (targetIsMain) {
-    if (mType == nsIDNSService::RESOLVE_TYPE_DEFAULT) {
-      CallOnLookupComplete();
-    } else {
-      CallOnLookupByTypeComplete();
-    }
+    CallOnLookupComplete();
   } else {
-    if (mType == nsIDNSService::RESOLVE_TYPE_DEFAULT) {
-      nsCOMPtr<nsIRunnable> event =
-          NewRunnableMethod("net::DNSRequestChild::CallOnLookupComplete", this,
-                            &DNSRequestChild::CallOnLookupComplete);
-      mTarget->Dispatch(event, NS_DISPATCH_NORMAL);
-    } else {
-      nsCOMPtr<nsIRunnable> event =
-          NewRunnableMethod("net::DNSRequestChild::CallOnLookupByTypeComplete",
-                            this, &DNSRequestChild::CallOnLookupByTypeComplete);
-      mTarget->Dispatch(event, NS_DISPATCH_NORMAL);
-    }
+    nsCOMPtr<nsIRunnable> event =
+        NewRunnableMethod("net::DNSRequestChild::CallOnLookupComplete", this,
+                          &DNSRequestChild::CallOnLookupComplete);
+    mTarget->Dispatch(event, NS_DISPATCH_NORMAL);
   }
 
   Unused << Send__delete__(this);
@@ -369,7 +343,7 @@ DNSRequestChild::Cancel(nsresult reason) {
   if (CanSend()) {
     // We can only do IPDL on the main thread
     nsCOMPtr<nsIRunnable> runnable = new CancelDNSRequestEvent(this, reason);
-    SystemGroup::Dispatch(TaskCategory::Other, runnable.forget());
+    SchedulerGroup::Dispatch(TaskCategory::Other, runnable.forget());
   }
   return NS_OK;
 }

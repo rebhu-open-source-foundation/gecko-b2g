@@ -2635,9 +2635,6 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
     case JS_TELEMETRY_GC_RESET_REASON:
       Telemetry::Accumulate(Telemetry::GC_RESET_REASON, sample);
       break;
-    case JS_TELEMETRY_GC_INCREMENTAL_DISABLED:
-      Telemetry::Accumulate(Telemetry::GC_INCREMENTAL_DISABLED, sample);
-      break;
     case JS_TELEMETRY_GC_NON_INCREMENTAL:
       Telemetry::Accumulate(Telemetry::GC_NON_INCREMENTAL, sample);
       break;
@@ -2660,7 +2657,6 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
       Telemetry::Accumulate(Telemetry::GC_MINOR_US, sample);
       break;
     case JS_TELEMETRY_GC_NURSERY_BYTES:
-      Telemetry::Accumulate(Telemetry::GC_NURSERY_BYTES, sample);
       Telemetry::Accumulate(Telemetry::GC_NURSERY_BYTES_2, sample);
       break;
     case JS_TELEMETRY_GC_PRETENURE_COUNT:

@@ -143,7 +143,7 @@ static float GetSampleRateForAudioContext(bool aIsOffline, float aSampleRate) {
     return aSampleRate;
   } else {
     float rate = static_cast<float>(CubebUtils::PreferredSampleRate());
-    if (nsRFPService::IsResistFingerprintingEnabled()) {
+    if (StaticPrefs::privacy_resistFingerprinting()) {
       return 44100.f;
     }
     return rate;
@@ -558,7 +558,7 @@ double AudioContext::OutputLatency() {
   // When reduceFingerprinting is enabled, return a latency figure that is
   // fixed, but plausible for the platform.
   double latency_s = 0.0;
-  if (nsRFPService::IsResistFingerprintingEnabled()) {
+  if (StaticPrefs::privacy_resistFingerprinting()) {
 #ifdef XP_MACOSX
     latency_s = 512. / mSampleRate;
 #elif MOZ_WIDGET_ANDROID
@@ -689,7 +689,7 @@ void AudioContext::UnregisterActiveNode(AudioNode* aNode) {
 }
 
 uint32_t AudioContext::MaxChannelCount() const {
-  if (nsRFPService::IsResistFingerprintingEnabled()) {
+  if (StaticPrefs::privacy_resistFingerprinting()) {
     return 2;
   }
   return std::min<uint32_t>(
@@ -730,11 +730,14 @@ double AudioContext::CurrentTime() {
     return rawTime;
   }
 
+  MOZ_ASSERT(GetParentObject()->AsGlobal());
   // The value of a MediaTrack's CurrentTime will always advance forward; it
   // will never reset (even if one rewinds a video.) Therefore we can use a
   // single Random Seed initialized at the same time as the object.
-  return nsRFPService::ReduceTimePrecisionAsSecs(rawTime,
-                                                 GetRandomTimelineSeed());
+  return nsRFPService::ReduceTimePrecisionAsSecs(
+      rawTime, GetRandomTimelineSeed(),
+      /* aIsSystemPrincipal */ false,
+      GetParentObject()->AsGlobal()->CrossOriginIsolated());
 }
 
 nsISerialEventTarget* AudioContext::GetMainThread() const {

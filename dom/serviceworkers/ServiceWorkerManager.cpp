@@ -29,7 +29,6 @@
 #include "mozilla/LoadContext.h"
 #include "mozilla/Result.h"
 #include "mozilla/ResultExtensions.h"
-#include "mozilla/SystemGroup.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ClientHandle.h"
@@ -532,7 +531,7 @@ RefPtr<GenericErrorResultPromise> ServiceWorkerManager::StartControllingClient(
     // Always check to see if we failed to actually control the client.  In
     // that case removed the client from our list of controlled clients.
     return promise->Then(
-        SystemGroup::EventTargetFor(TaskCategory::Other), __func__,
+        GetMainThreadSerialEventTarget(), __func__,
         [](bool) {
           // do nothing on success
           return GenericErrorResultPromise::CreateAndResolve(true, __func__);
@@ -545,7 +544,7 @@ RefPtr<GenericErrorResultPromise> ServiceWorkerManager::StartControllingClient(
   }
 
   RefPtr<ClientHandle> clientHandle = ClientManager::CreateHandle(
-      aClientInfo, SystemGroup::EventTargetFor(TaskCategory::Other));
+      aClientInfo, GetMainThreadSerialEventTarget());
 
   if (aControlClientHandle) {
     promise = clientHandle->Control(active);
@@ -560,7 +559,7 @@ RefPtr<GenericErrorResultPromise> ServiceWorkerManager::StartControllingClient(
   });
 
   clientHandle->OnDetach()->Then(
-      SystemGroup::EventTargetFor(TaskCategory::Other), __func__,
+      GetMainThreadSerialEventTarget(), __func__,
       [self, aClientInfo] { self->StopControllingClient(aClientInfo); });
 
   Telemetry::Accumulate(Telemetry::SERVICE_WORKER_CONTROLLED_DOCUMENTS, 1);
@@ -568,7 +567,7 @@ RefPtr<GenericErrorResultPromise> ServiceWorkerManager::StartControllingClient(
   // Always check to see if we failed to actually control the client.  In
   // that case removed the client from our list of controlled clients.
   return promise->Then(
-      SystemGroup::EventTargetFor(TaskCategory::Other), __func__,
+      GetMainThreadSerialEventTarget(), __func__,
       [](bool) {
         // do nothing on success
         return GenericErrorResultPromise::CreateAndResolve(true, __func__);
@@ -1313,8 +1312,7 @@ RefPtr<ServiceWorkerRegistrationPromise> ServiceWorkerManager::WhenReady(
                                                               __func__);
   }
 
-  nsCOMPtr<nsISerialEventTarget> target =
-      SystemGroup::EventTargetFor(TaskCategory::Other);
+  nsCOMPtr<nsISerialEventTarget> target = GetMainThreadSerialEventTarget();
 
   RefPtr<ClientHandle> handle =
       ClientManager::CreateHandle(aClientInfo, target);
@@ -2262,7 +2260,7 @@ void ServiceWorkerManager::DispatchFetchEvent(nsIInterceptedChannel* aChannel,
 
           nsCOMPtr<nsISerialEventTarget> target =
               reservedClient ? reservedClient->EventTarget()
-                             : SystemGroup::EventTargetFor(TaskCategory::Other);
+                             : GetMainThreadSerialEventTarget();
 
           reservedClient.reset();
           reservedClient = ClientManager::CreateSource(ClientType::Window,
@@ -2721,7 +2719,7 @@ void ServiceWorkerManager::UpdateClientControllers(
     // If we fail to control the client, then automatically remove it
     // from our list of controlled clients.
     p->Then(
-        SystemGroup::EventTargetFor(TaskCategory::Other), __func__,
+        GetMainThreadSerialEventTarget(), __func__,
         [](bool) {
           // do nothing on success
         },
@@ -3189,12 +3187,8 @@ void ServiceWorkerManager::ScheduleUpdateTimer(nsIPrincipal* aPrincipal,
 
   const uint32_t UPDATE_DELAY_MS = 1000;
 
-  // Label with SystemGroup because UpdateTimerCallback only sends an IPC
-  // message (PServiceWorkerUpdaterConstructor) without touching any web
-  // contents.
-  rv = NS_NewTimerWithCallback(
-      getter_AddRefs(timer), callback, UPDATE_DELAY_MS, nsITimer::TYPE_ONE_SHOT,
-      SystemGroup::EventTargetFor(TaskCategory::Other));
+  rv = NS_NewTimerWithCallback(getter_AddRefs(timer), callback, UPDATE_DELAY_MS,
+                               nsITimer::TYPE_ONE_SHOT);
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     data->mUpdateTimers.Remove(aScope);  // another lookup, but very rare

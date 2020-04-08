@@ -27,14 +27,14 @@ class nsOpenURIInFrameParams final : public nsIOpenURIInFrameParams {
   NS_DECL_NSIOPENURIINFRAMEPARAMS
 
   explicit nsOpenURIInFrameParams(
-      const mozilla::OriginAttributes& aOriginAttributes,
+      nsIOpenWindowInfo* aOpenWindowInfo,
       mozilla::dom::Element* aOpener,
       const nsCString& aFeatures);
 
  private:
   ~nsOpenURIInFrameParams();
 
-  mozilla::OriginAttributes mOpenerOriginAttributes;
+  nsCOMPtr<nsIOpenWindowInfo> mOpenWindowInfo;
   RefPtr<mozilla::dom::Element> mOpenerBrowser;
   nsCOMPtr<nsIReferrerInfo> mReferrerInfo;
   nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;

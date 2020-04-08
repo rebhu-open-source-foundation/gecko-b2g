@@ -75,6 +75,7 @@ struct AutoCacheNativeKeyCommands;
 namespace dom {
 
 class BrowserChild;
+class BrowsingContext;
 class TabGroup;
 class ClonedMessageData;
 class CoalescedMouseData;
@@ -183,18 +184,19 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   /**
    * Create a new BrowserChild object.
    */
-  BrowserChild(ContentChild* aManager, const TabId& aTabId, TabGroup* aTabGroup,
-               const TabContext& aContext, BrowsingContext* aBrowsingContext,
-               uint32_t aChromeFlags, bool aIsTopLevel);
+  BrowserChild(ContentChild* aManager, const TabId& aTabId,
+               const TabContext& aContext,
+               dom::BrowsingContext* aBrowsingContext, uint32_t aChromeFlags,
+               bool aIsTopLevel);
 
   nsresult Init(mozIDOMWindowProxy* aParent,
                 WindowGlobalChild* aInitialWindowChild);
 
   /** Return a BrowserChild with the given attributes. */
   static already_AddRefed<BrowserChild> Create(
-      ContentChild* aManager, const TabId& aTabId, const TabId& aSameTabGroupAs,
-      const TabContext& aContext, BrowsingContext* aBrowsingContext,
-      uint32_t aChromeFlags, bool aIsTopLevel);
+      ContentChild* aManager, const TabId& aTabId, const TabContext& aContext,
+      BrowsingContext* aBrowsingContext, uint32_t aChromeFlags,
+      bool aIsTopLevel);
 
   // Let managees query if it is safe to send messages.
   bool IsDestroyed() const { return mDestroyed; }
@@ -648,7 +650,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   bool StopAwaitingLargeAlloc();
   bool IsAwaitingLargeAlloc();
 
-  mozilla::dom::TabGroup* TabGroup();
+  BrowsingContext* GetBrowsingContext() const { return mBrowsingContext; }
 
 #if defined(ACCESSIBILITY)
   void SetTopLevelDocAccessibleChild(PDocAccessibleChild* aTopLevelChild) {
@@ -765,9 +767,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   mozilla::ipc::IPCResult RecvAllowScriptsToClose();
 
-  mozilla::ipc::IPCResult RecvSetOriginAttributes(
-      const OriginAttributes& aOriginAttributes);
-
   mozilla::ipc::IPCResult RecvSetWidgetNativeData(
       const WindowsHandle& aWidgetNativeData);
 
@@ -791,9 +790,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   //
   // You should call this after calling TabContext::SetTabContext().  We also
   // call this during Init().
-  //
-  // @param aIsPreallocated  true if this is called for Preallocated Tab.
-  void NotifyTabContextUpdated(bool aIsPreallocated);
+  void NotifyTabContextUpdated();
 
   // Update the frameType on our docshell.
   void UpdateFrameType();
@@ -860,7 +857,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   TextureFactoryIdentifier mTextureFactoryIdentifier;
   RefPtr<nsWebBrowser> mWebBrowser;
   nsCOMPtr<nsIWebNavigation> mWebNav;
-  RefPtr<mozilla::dom::TabGroup> mTabGroup;
   RefPtr<PuppetWidget> mPuppetWidget;
   nsCOMPtr<nsIURI> mLastURI;
   RefPtr<ContentChild> mManager;

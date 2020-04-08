@@ -50,6 +50,7 @@
 #include "mozilla/AutoRestore.h"
 #include "mozilla/MainThreadIdlePeriod.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/StaticPrefs_javascript.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/dom/BrowsingContext.h"
@@ -61,7 +62,6 @@
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/SerializedStackHolder.h"
 #include "mozilla/CycleCollectedJSRuntime.h"
-#include "mozilla/SystemGroup.h"
 #include "nsRefreshDriver.h"
 #include "nsJSPrincipals.h"
 
@@ -1672,8 +1672,7 @@ void nsJSContext::BeginCycleCollectionCallback() {
   sICCRunner = IdleTaskRunner::Create(
       ICCRunnerFired, "BeginCycleCollectionCallback::ICCRunnerFired",
       kICCIntersliceDelay.ToMilliseconds(),
-      kIdleICCSliceBudget.ToMilliseconds(), true, [] { return sShuttingDown; },
-      TaskCategory::GarbageCollection);
+      kIdleICCSliceBudget.ToMilliseconds(), true, [] { return sShuttingDown; });
 }
 
 // static
@@ -1793,7 +1792,7 @@ void GCTimerFired(nsITimer* aTimer, void* aClosure) {
       "GCTimerFired::InterSliceGCRunnerFired",
       StaticPrefs::javascript_options_gc_delay_interslice(),
       sActiveIntersliceGCBudget.ToMilliseconds(), true,
-      [] { return sShuttingDown; }, TaskCategory::GarbageCollection);
+      [] { return sShuttingDown; });
 }
 
 // static
@@ -2105,8 +2104,7 @@ void nsJSContext::PokeGC(JS::GCReason aReason, JSObject* aObj,
       aDelay ? aDelay
              : (first ? StaticPrefs::javascript_options_gc_delay_first()
                       : StaticPrefs::javascript_options_gc_delay()),
-      nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY, "GCTimerFired",
-      SystemGroup::EventTargetFor(TaskCategory::GarbageCollection));
+      nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY, "GCTimerFired");
 
   first = false;
 }
@@ -2120,8 +2118,7 @@ void nsJSContext::PokeShrinkingGC() {
   NS_NewTimerWithFuncCallback(
       &sShrinkingGCTimer, ShrinkingGCTimerFired, nullptr,
       StaticPrefs::javascript_options_compact_on_user_inactive_delay(),
-      nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY, "ShrinkingGCTimerFired",
-      SystemGroup::EventTargetFor(TaskCategory::GarbageCollection));
+      nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY, "ShrinkingGCTimerFired");
 }
 
 // static
@@ -2158,7 +2155,7 @@ void nsJSContext::MaybePokeCC() {
         CCRunnerFired, "MaybePokeCC::CCRunnerFired",
         kCCSkippableDelay.ToMilliseconds(),
         kForgetSkippableSliceDuration.ToMilliseconds(), true,
-        [] { return sShuttingDown; }, TaskCategory::GarbageCollection);
+        [] { return sShuttingDown; });
   }
 }
 
@@ -2278,8 +2275,8 @@ static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
           json.Adopt(aDesc.formatJSONTelemetry(aCx, PR_Now()));
           RefPtr<NotifyGCEndRunnable> notify =
               new NotifyGCEndRunnable(std::move(json));
-          SystemGroup::Dispatch(TaskCategory::GarbageCollection,
-                                notify.forget());
+          SchedulerGroup::Dispatch(TaskCategory::GarbageCollection,
+                                   notify.forget());
         }
       }
 
@@ -2302,8 +2299,7 @@ static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
           NS_NewTimerWithFuncCallback(
               &sFullGCTimer, FullGCTimerFired, nullptr,
               StaticPrefs::javascript_options_gc_delay_full(),
-              nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY, "FullGCTimerFired",
-              SystemGroup::EventTargetFor(TaskCategory::GarbageCollection));
+              nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY, "FullGCTimerFired");
         }
       } else {
         nsJSContext::KillFullGCTimer();
@@ -2342,7 +2338,7 @@ static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
             "DOMGCSliceCallback::InterSliceGCRunnerFired",
             StaticPrefs::javascript_options_gc_delay_interslice(),
             sActiveIntersliceGCBudget.ToMilliseconds(), true,
-            [] { return sShuttingDown; }, TaskCategory::GarbageCollection);
+            [] { return sShuttingDown; });
       }
 
       if (ShouldTriggerCC(nsCycleCollector_suspectedCount())) {

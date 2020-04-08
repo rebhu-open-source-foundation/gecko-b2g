@@ -3406,6 +3406,11 @@ AbortReasonOr<Ok> IonBuilder::visitTableSwitch() {
 
 void IonBuilder::pushConstant(const Value& v) { current->push(constant(v)); }
 
+static inline bool SimpleBitOpOperand(MDefinition* op) {
+  return !op->mightBeType(MIRType::Object) &&
+         !op->mightBeType(MIRType::Symbol) && !op->mightBeType(MIRType::BigInt);
+}
+
 AbortReasonOr<Ok> IonBuilder::bitnotTrySpecialized(bool* emitted,
                                                    MDefinition* input) {
   MOZ_ASSERT(*emitted == false);
@@ -3413,14 +3418,11 @@ AbortReasonOr<Ok> IonBuilder::bitnotTrySpecialized(bool* emitted,
   // Try to emit a specialized bitnot instruction based on the input type
   // of the operand.
 
-  if (input->mightBeType(MIRType::Object) ||
-      input->mightBeType(MIRType::Symbol) ||
-      input->mightBeType(MIRType::BigInt)) {
+  if (!SimpleBitOpOperand(input)) {
     return Ok();
   }
 
   MBitNot* ins = MBitNot::New(alloc(), input);
-  ins->setSpecialization(MIRType::Int32);
 
   current->add(ins);
   current->push(ins);
@@ -3444,65 +3446,6 @@ AbortReasonOr<Ok> IonBuilder::jsop_bitnot() {
   return arithUnaryBinaryCache(JSOp::BitNot, nullptr, input);
 }
 
-AbortReasonOr<MBinaryBitwiseInstruction*> IonBuilder::binaryBitOpEmit(
-    JSOp op, MIRType specialization, MDefinition* left, MDefinition* right) {
-  MOZ_ASSERT(specialization == MIRType::Int32 ||
-             specialization == MIRType::None);
-
-  MBinaryBitwiseInstruction* ins;
-  switch (op) {
-    case JSOp::BitAnd:
-      ins = MBitAnd::New(alloc(), left, right);
-      break;
-
-    case JSOp::BitOr:
-      ins = MBitOr::New(alloc(), left, right);
-      break;
-
-    case JSOp::BitXor:
-      ins = MBitXor::New(alloc(), left, right);
-      break;
-
-    case JSOp::Lsh:
-      ins = MLsh::New(alloc(), left, right);
-      break;
-
-    case JSOp::Rsh:
-      ins = MRsh::New(alloc(), left, right);
-      break;
-
-    case JSOp::Ursh:
-      ins = MUrsh::New(alloc(), left, right);
-      break;
-
-    default:
-      MOZ_CRASH("unexpected bitop");
-  }
-
-  current->add(ins);
-  ins->infer(inspector, pc);
-
-  // The expected specialization should match the inferred specialization.
-  MOZ_ASSERT_IF(specialization == MIRType::None,
-                ins->specialization() == MIRType::None);
-  MOZ_ASSERT_IF(
-      specialization == MIRType::Int32,
-      ins->specialization() == MIRType::Int32 ||
-          (op == JSOp::Ursh && ins->specialization() == MIRType::Double));
-
-  current->push(ins);
-  if (ins->isEffectful()) {
-    MOZ_TRY(resumeAfter(ins));
-  }
-
-  return ins;
-}
-
-static inline bool SimpleBitOpOperand(MDefinition* op) {
-  return !op->mightBeType(MIRType::Object) &&
-         !op->mightBeType(MIRType::Symbol) && !op->mightBeType(MIRType::BigInt);
-}
-
 AbortReasonOr<Ok> IonBuilder::binaryBitOpTrySpecialized(bool* emitted, JSOp op,
                                                         MDefinition* left,
                                                         MDefinition* right) {
@@ -3516,8 +3459,46 @@ AbortReasonOr<Ok> IonBuilder::binaryBitOpTrySpecialized(bool* emitted, JSOp op,
     return Ok();
   }
 
-  MIRType specialization = MIRType::Int32;
-  MOZ_TRY(binaryBitOpEmit(op, specialization, left, right));
+  MBinaryBitwiseInstruction* ins;
+  switch (op) {
+    case JSOp::BitAnd:
+      ins = MBitAnd::New(alloc(), left, right, MIRType::Int32);
+      break;
+
+    case JSOp::BitOr:
+      ins = MBitOr::New(alloc(), left, right, MIRType::Int32);
+      break;
+
+    case JSOp::BitXor:
+      ins = MBitXor::New(alloc(), left, right, MIRType::Int32);
+      break;
+
+    case JSOp::Lsh:
+      ins = MLsh::New(alloc(), left, right, MIRType::Int32);
+      break;
+
+    case JSOp::Rsh:
+      ins = MRsh::New(alloc(), left, right, MIRType::Int32);
+      break;
+
+    case JSOp::Ursh: {
+      MIRType specialization = MIRType::Int32;
+      if (inspector->hasSeenDoubleResult(pc)) {
+        specialization = MIRType::Double;
+      }
+      ins = MUrsh::New(alloc(), left, right, specialization);
+      break;
+    }
+
+    default:
+      MOZ_CRASH("unexpected bitop");
+  }
+
+  current->add(ins);
+  current->push(ins);
+  if (ins->isEffectful()) {
+    MOZ_TRY(resumeAfter(ins));
+  }
 
   *emitted = true;
   return Ok();
@@ -3656,8 +3637,7 @@ AbortReasonOr<MBinaryArithInstruction*> IonBuilder::binaryArithEmitSpecialized(
     MDefinition::Opcode op, MIRType specialization, MDefinition* left,
     MDefinition* right) {
   MBinaryArithInstruction* ins =
-      MBinaryArithInstruction::New(alloc(), op, left, right);
-  ins->setSpecialization(specialization);
+      MBinaryArithInstruction::New(alloc(), op, left, right, specialization);
 
   if (op == MDefinition::Opcode::Add || op == MDefinition::Opcode::Mul) {
     ins->setCommutative();
@@ -3735,11 +3715,13 @@ AbortReasonOr<Ok> IonBuilder::arithUnaryBinaryCache(JSOp op, MDefinition* left,
                                                     MDefinition* right) {
   MInstruction* stub = nullptr;
   switch (JSOp(*pc)) {
+    case JSOp::Pos:
     case JSOp::Neg:
     case JSOp::BitNot:
       MOZ_ASSERT_IF(op == JSOp::Mul,
                     left->maybeConstantValue() &&
-                        left->maybeConstantValue()->toInt32() == -1);
+                        (left->maybeConstantValue()->toInt32() == -1 ||
+                         left->maybeConstantValue()->toInt32() == 1));
       MOZ_ASSERT_IF(op != JSOp::Mul, !left);
       stub = MUnaryCache::New(alloc(), right);
       break;
@@ -3851,21 +3833,12 @@ AbortReasonOr<Ok> IonBuilder::jsop_pos() {
     return Ok();
   }
 
+  // Compile +x as 1 * x.
   MDefinition* value = current->pop();
   MConstant* one = MConstant::New(alloc(), Int32Value(1));
   current->add(one);
 
-  // Compile +x as x * 1.
-  MBinaryArithInstruction* ins = MBinaryArithInstruction::New(
-      alloc(), MDefinition::Opcode::Mul, value, one);
-
-  // Decrease type from 'any type' to 'empty type' when one of the operands
-  // is 'empty typed'.
-  maybeMarkEmpty(ins);
-
-  current->add(ins);
-  current->push(ins);
-  return resumeAfter(ins);
+  return jsop_binary_arith(JSOp::Mul, one, value);
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_neg() {
@@ -3961,6 +3934,11 @@ AbortReasonOr<Ok> IonBuilder::unaryArithTrySpecializedOnBaselineInspector(
 
   // Try to emit a specialized binary instruction speculating the
   // type using the baseline caches.
+
+  // Anything complex - strings, symbols, and objects - are not specialized
+  if (!SimpleArithOperand(value)) {
+    return Ok();
+  }
 
   MIRType specialization = inspector->expectedBinaryArithSpecialization(pc);
   if (specialization == MIRType::None) {
@@ -6985,7 +6963,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_initelem_inc() {
   MDefinition* id = current->pop();
   MDefinition* obj = current->peek(-1);
 
-  MAdd* nextId = MAdd::New(alloc(), id, constantInt(1), MIRType::Int32);
+  MAdd* nextId = MAdd::New(alloc(), id, constantInt(1), MDefinition::Truncate);
   current->add(nextId);
   current->push(nextId);
 

@@ -488,8 +488,8 @@ WorkerDispatcher.prototype = {
   start(url, win = window) {
     this.worker = new win.Worker(url);
 
-    this.worker.onerror = () => {
-      console.error(`Error in worker ${url}`);
+    this.worker.onerror = err => {
+      console.error(`Error in worker ${url}`, err.message);
     };
   },
 
@@ -3857,9 +3857,9 @@ function hasOriginalURL(url) {
 }
 
 function _resolveSourceMapURL(source) {
-  const {
+  let {
     url = "",
-    sourceMapURL = ""
+    sourceMapURL
   } = source;
 
   if (!url) {
@@ -3870,13 +3870,21 @@ function _resolveSourceMapURL(source) {
     };
   }
 
-  const resolvedURL = new URL(sourceMapURL, url);
-  const resolvedString = resolvedURL.toString();
-  let baseURL = resolvedString; // When the sourceMap is a data: URL, fall back to using the
-  // source's URL, if possible.
+  sourceMapURL = sourceMapURL || "";
+  let resolvedString;
+  let baseURL; // When the sourceMap is a data: URL, fall back to using the source's URL,
+  // if possible. We don't use `new URL` here because it will be _very_ slow
+  // for large inlined source-maps, and we don't actually need to parse them.
 
-  if (resolvedURL.protocol == "data:") {
+  if (sourceMapURL.startsWith("data:")) {
+    resolvedString = sourceMapURL;
     baseURL = url;
+  } else {
+    resolvedString = new URL(sourceMapURL, // If the URL is a data: URL, the sourceMapURL needs to be absolute, so
+    // we might as well pass `undefined` to avoid parsing a potentially
+    // very large data: URL for no reason.
+    url.startsWith("data:") ? undefined : url).toString();
+    baseURL = resolvedString;
   }
 
   return {
@@ -4858,8 +4866,44 @@ module.exports = {
 
 module.exports = 
 (() => {
-  importScripts("resource://devtools/client/shared/vendor/whatwg-url.js");
-  return { URL }
+  let factory;
+  function define(...args) {
+    if (factory) {
+      throw new Error("expected a single define call");
+    }
+
+    if (
+      args.length !== 2 ||
+      !Array.isArray(args[0]) ||
+      args[0].length !== 0 ||
+      typeof args[1] !== "function"
+    ) {
+      throw new Error("whatwg-url had unexpected factory arguments.");
+    }
+
+    factory = args[1];
+  }
+  define.amd = true;
+
+  const existingDefine = Object.getOwnPropertyDescriptor(globalThis, "define");
+  globalThis.define = define;
+  let err;
+  try {
+    importScripts("resource://devtools/client/shared/vendor/whatwg-url.js");
+
+    if (!factory) {
+      throw new Error("Failed to load whatwg-url factory");
+    }
+  } finally {
+    if (existingDefine) {
+      Object.defineProperty(globalThis, "define", existingDefine);
+    } else {
+      delete globalThis.define;
+    }
+
+  }
+
+  return factory();
 })()
 ;
 

@@ -32,13 +32,13 @@
 #include "mozilla/Omnijar.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/ResultExtensions.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPrefsAll.h"
 #include "mozilla/SyncRunnable.h"
-#include "mozilla/SystemGroup.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/URLPreloader.h"
@@ -3079,7 +3079,7 @@ class PWRunnable : public Runnable {
       // ref counted pointer off main thread.
       nsresult rvCopy = rv;
       nsCOMPtr<nsIFile> fileCopy(mFile);
-      SystemGroup::Dispatch(
+      SchedulerGroup::Dispatch(
           TaskCategory::Other,
           NS_NewRunnableFunction("Preferences::WriterRunnable",
                                  [fileCopy, rvCopy] {
@@ -5307,8 +5307,7 @@ void MaybeInitOncePrefs() {
     RefPtr<Runnable> runnable = NS_NewRunnableFunction(
         "Preferences::MaybeInitOncePrefs", [&]() { InitOncePrefs(); });
     // This logic needs to run on the main thread
-    SyncRunnable::DispatchToThread(
-        SystemGroup::EventTargetFor(TaskCategory::Other), runnable);
+    SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(), runnable);
   }
   sOncePrefRead = true;
 }

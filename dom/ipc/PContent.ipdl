@@ -589,7 +589,7 @@ parent:
 child:
     async ConstructBrowser(ManagedEndpoint<PBrowserChild> browserEp,
                            ManagedEndpoint<PWindowGlobalChild> windowEp,
-                           TabId tabId, TabId sameTabGroupAs,
+                           TabId tabId,
                            IPCTabContext context,
                            WindowGlobalInit windowInit,
                            uint32_t chromeFlags, ContentParentId cpId,
@@ -1490,7 +1490,7 @@ parent:
      * until it has mapped the font-list memory.
      */
     sync GetFontListShmBlock(uint32_t aGeneration, uint32_t aIndex)
-        returns (Handle aHandle);
+        returns (SharedMemoryHandle aHandle);
 
     /**
      * Ask the parent to initialize a given font family, so that face metadata
@@ -1587,6 +1587,7 @@ parent:
     sync GetHyphDict(nsIURI aURI) returns (Handle aHandle, uint32_t aSize);
 
     async CreateWindow(nullable PBrowser aThisTab,
+                       MaybeDiscardedBrowsingContext aParent,
                        PBrowser aNewTab,
                        uint32_t aChromeFlags,
                        bool aCalledFromJS,
@@ -1596,11 +1597,13 @@ parent:
                        float aFullZoom,
                        Principal aTriggeringPrincipal,
                        nsIContentSecurityPolicy aCsp,
-                       nsIReferrerInfo aReferrerInfo)
+                       nsIReferrerInfo aReferrerInfo,
+                       OriginAttributes aOriginAttributes)
         returns (CreatedWindowInfo window);
 
     async CreateWindowInDifferentProcess(
       PBrowser aThisTab,
+      MaybeDiscardedBrowsingContext aParent,
       uint32_t aChromeFlags,
       bool aCalledFromJS,
       bool aWidthSpecified,
@@ -1610,7 +1613,8 @@ parent:
       nsString aName,
       nsIPrincipal aTriggeringPrincipal,
       nsIContentSecurityPolicy aCsp,
-      nsIReferrerInfo aReferrerInfo);
+      nsIReferrerInfo aReferrerInfo,
+      OriginAttributes aOriginAttributes);
 
     sync GetDeviceStorageLocation(nsString type)
         returns (nsString path);
@@ -1700,9 +1704,9 @@ parent:
 
     /*
      * A 3rd party tracking origin (aTrackingOrigin) has received the permission
-     * granted to have access to aGrantedOrigin when loaded by aParentPrincipal.
+     * granted to have access to aGrantedOrigin when loaded by aParentWindowId.
      */
-    async FirstPartyStorageAccessGrantedForOrigin(Principal aParentPrincipal,
+    async FirstPartyStorageAccessGrantedForOrigin(uint64_t aParentWindowId,
                                                   Principal aTrackingPrincipal,
                                                   nsCString aTrackingOrigin,
                                                   int aAllowMode)

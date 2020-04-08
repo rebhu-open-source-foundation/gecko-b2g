@@ -179,8 +179,8 @@ WorkerDebugger::~WorkerDebugger() {
 
   if (!NS_IsMainThread()) {
     for (size_t index = 0; index < mListeners.Length(); ++index) {
-      NS_ReleaseOnMainThreadSystemGroup("WorkerDebugger::mListeners",
-                                        mListeners[index].forget());
+      NS_ReleaseOnMainThread("WorkerDebugger::mListeners",
+                             mListeners[index].forget());
     }
   }
 }
@@ -529,8 +529,7 @@ RefPtr<PerformanceInfoPromise> WorkerDebugger::ReportPerformanceInfo() {
   // We need to keep a ref on workerPrivate, passed to the promise,
   // to make sure it's still aloive when collecting the info.
   RefPtr<WorkerPrivate> workerRef = mWorkerPrivate;
-  RefPtr<AbstractThread> mainThread =
-      SystemGroup::AbstractMainThreadFor(TaskCategory::Performance);
+  RefPtr<AbstractThread> mainThread = AbstractThread::MainThread();
 
   return CollectMemoryInfo(top, mainThread)
       ->Then(

@@ -242,9 +242,9 @@ extern const uint32_t ArgLengths[];
   _(GuardFrameHasNoArgumentsObject, None)                                      \
   _(GuardNoDenseElements, Id)                                                  \
   _(GuardAndGetIndexFromString, Id, Id)                                        \
+  _(GuardAndGetInt32FromString, Id, Id)                                        \
   _(GuardAndGetNumberFromString, Id, Id)                                       \
   _(GuardAndGetNumberFromBoolean, Id, Id)                                      \
-  _(GuardAndGetInt32FromNumber, Id, Id)                                        \
   _(GuardAndGetIterator, Id, Id, Field, Field)                                 \
   _(GuardHasGetterSetter, Id, Field)                                           \
   _(GuardGroupHasUnanalyzedNewScript, Field)                                   \
@@ -335,6 +335,8 @@ extern const uint32_t ArgLengths[];
   _(LoadEnvironmentFixedSlotResult, Id, Field)                                 \
   _(LoadEnvironmentDynamicSlotResult, Id, Field)                               \
   _(LoadObjectResult, Id)                                                      \
+  _(LoadInt32Result, Id)                                                       \
+  _(LoadDoubleResult, Id)                                                      \
   _(CallScriptedGetterResult, Id, Field, Byte)                                 \
   _(CallScriptedGetterByValueResult, Id, Field, Byte)                          \
   _(CallNativeGetterResult, Id, Field)                                         \
@@ -1116,6 +1118,13 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
     return res;
   }
 
+  Int32OperandId guardAndGetInt32FromString(StringOperandId str) {
+    Int32OperandId res(nextOperandId_++);
+    writeOpWithOperandId(CacheOp::GuardAndGetInt32FromString, str);
+    writeOperandId(res);
+    return res;
+  }
+
   NumberOperandId guardAndGetNumberFromString(StringOperandId str) {
     NumberOperandId res(nextOperandId_++);
     writeOpWithOperandId(CacheOp::GuardAndGetNumberFromString, str);
@@ -1126,13 +1135,6 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   NumberOperandId guardAndGetNumberFromBoolean(Int32OperandId boolean) {
     NumberOperandId res(nextOperandId_++);
     writeOpWithOperandId(CacheOp::GuardAndGetNumberFromBoolean, boolean);
-    writeOperandId(res);
-    return res;
-  }
-
-  Int32OperandId guardAndGetInt32FromNumber(NumberOperandId number) {
-    Int32OperandId res(nextOperandId_++);
-    writeOpWithOperandId(CacheOp::GuardAndGetInt32FromNumber, number);
     writeOperandId(res);
     return res;
   }
@@ -1957,6 +1959,14 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
 
   void loadObjectResult(ObjOperandId obj) {
     writeOpWithOperandId(CacheOp::LoadObjectResult, obj);
+  }
+
+  void loadInt32Result(Int32OperandId val) {
+    writeOpWithOperandId(CacheOp::LoadInt32Result, val);
+  }
+
+  void loadDoubleResult(NumberOperandId val) {
+    writeOpWithOperandId(CacheOp::LoadDoubleResult, val);
   }
 
   void loadInstanceOfObjectResult(ValOperandId lhs, ObjOperandId protoId,
@@ -2849,6 +2859,8 @@ class MOZ_RAII UnaryArithIRGenerator : public IRGenerator {
   AttachDecision tryAttachInt32();
   AttachDecision tryAttachNumber();
   AttachDecision tryAttachBigInt();
+  AttachDecision tryAttachStringInt32();
+  AttachDecision tryAttachStringNumber();
 
   void trackAttached(const char* name);
 

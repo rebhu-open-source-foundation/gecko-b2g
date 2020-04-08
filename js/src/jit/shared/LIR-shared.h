@@ -2069,19 +2069,6 @@ class LBitNotI : public LInstructionHelper<1, 1, 0> {
   LBitNotI() : LInstructionHelper(classOpcode) {}
 };
 
-// Call a VM function to perform a BitNot operation.
-class LBitNotV : public LCallInstructionHelper<BOX_PIECES, BOX_PIECES, 0> {
- public:
-  LIR_HEADER(BitNotV)
-
-  static const size_t Input = 0;
-
-  explicit LBitNotV(const LBoxAllocation& input)
-      : LCallInstructionHelper(classOpcode) {
-    setBoxOperand(Input, input);
-  }
-};
-
 // Binary bitwise operation, taking two 32-bit integers as inputs and returning
 // a 32-bit integer result as an output.
 class LBitOpI : public LInstructionHelper<1, 2, 0> {
@@ -2711,27 +2698,6 @@ class LModD : public LBinaryMath<1> {
   }
   const LDefinition* temp() { return getTemp(0); }
   MMod* mir() const { return mir_->toMod(); }
-};
-
-// Call a VM function to perform a binary operation.
-class LBinaryV : public LCallInstructionHelper<BOX_PIECES, 2 * BOX_PIECES, 0> {
-  JSOp jsop_;
-
- public:
-  LIR_HEADER(BinaryV)
-
-  LBinaryV(JSOp jsop, const LBoxAllocation& lhs, const LBoxAllocation& rhs)
-      : LCallInstructionHelper(classOpcode), jsop_(jsop) {
-    setBoxOperand(LhsInput, lhs);
-    setBoxOperand(RhsInput, rhs);
-  }
-
-  JSOp jsop() const { return jsop_; }
-
-  const char* extraName() const { return CodeName(jsop_); }
-
-  static const size_t LhsInput = 0;
-  static const size_t RhsInput = BOX_PIECES;
 };
 
 // Adds two string, returning a string.
@@ -5541,20 +5507,6 @@ class LToNumeric : public LInstructionHelper<BOX_PIECES, BOX_PIECES, 0> {
   static const size_t Input = 0;
 
   const MToNumeric* mir() const { return mir_->toToNumeric(); }
-};
-
-class LToNumber : public LInstructionHelper<BOX_PIECES, BOX_PIECES, 0> {
- public:
-  LIR_HEADER(ToNumber)
-
-  explicit LToNumber(const LBoxAllocation& input)
-      : LInstructionHelper(classOpcode) {
-    setBoxOperand(Input, input);
-  }
-
-  static const size_t Input = 0;
-
-  const MToNumber* mir() const { return mir_->toToNumber(); }
 };
 
 // Guard that a value is in a TypeSet.

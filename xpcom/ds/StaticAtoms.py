@@ -2405,6 +2405,7 @@ STATIC_ATOMS = [
 
     # Contextual Identity / Containers
     Atom("usercontextid", "usercontextid"),
+    Atom("geckoViewSessionContextId", "geckoViewSessionContextId"),
 
     # B2G Bluetooth
     Atom("ona2dpstatuschanged", "ona2dpstatuschanged"),

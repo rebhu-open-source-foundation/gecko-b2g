@@ -14,9 +14,11 @@
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/Tuple.h"
 #include "mozilla/Unused.h"
 
 #include <type_traits>
+#include <utility>
 
 #include "jslibmath.h"
 #include "jsmath.h"
@@ -387,41 +389,27 @@ void CodeGenerator::callVM(LInstruction* ins, const Register* dynStack) {
 //   ArgList(ToRegister(lir->lhs()), ToRegister(lir->rhs()))
 
 template <typename... ArgTypes>
-class ArgSeq;
+class ArgSeq {
+  mozilla::Tuple<std::remove_reference_t<ArgTypes>...> args_;
 
-template <>
-class ArgSeq<> {
- public:
-  ArgSeq() = default;
-
-  inline void generate(CodeGenerator* codegen) const {}
-
-#ifdef DEBUG
-  static constexpr size_t numArgs = 0;
-#endif
-};
-
-template <typename HeadType, typename... TailTypes>
-class ArgSeq<HeadType, TailTypes...> : public ArgSeq<TailTypes...> {
- private:
-  using RawHeadType = std::remove_reference_t<HeadType>;
-  RawHeadType head_;
+  template <std::size_t... ISeq>
+  inline void generate(CodeGenerator* codegen,
+                       std::index_sequence<ISeq...>) const {
+    // Arguments are pushed in reverse order, from last argument to first
+    // argument.
+    (codegen->pushArg(mozilla::Get<sizeof...(ISeq) - 1 - ISeq>(args_)), ...);
+  }
 
  public:
-  template <typename ProvidedHead, typename... ProvidedTail>
-  explicit ArgSeq(ProvidedHead&& head, ProvidedTail&&... tail)
-      : ArgSeq<TailTypes...>(std::forward<ProvidedTail>(tail)...),
-        head_(std::forward<ProvidedHead>(head)) {}
+  explicit ArgSeq(ArgTypes&&... args)
+      : args_(std::forward<ArgTypes>(args)...) {}
 
-  // Arguments are pushed in reverse order, from last argument to first
-  // argument.
   inline void generate(CodeGenerator* codegen) const {
-    this->ArgSeq<TailTypes...>::generate(codegen);
-    codegen->pushArg(head_);
+    generate(codegen, std::index_sequence_for<ArgTypes...>{});
   }
 
 #ifdef DEBUG
-  static constexpr size_t numArgs = sizeof...(TailTypes) + 1;
+  static constexpr size_t numArgs = sizeof...(ArgTypes);
 #endif
 };
 
@@ -4421,19 +4409,6 @@ void CodeGenerator::visitToNumeric(LToNumeric* lir) {
   masm.bind(ool->rejoin());
 }
 
-void CodeGenerator::visitToNumber(LToNumber* lir) {
-  ValueOperand operand = ToValue(lir, LToNumber::Input);
-  ValueOperand output = ToOutValue(lir);
-
-  using Fn = bool (*)(JSContext*, HandleValue, MutableHandleValue);
-  OutOfLineCode* ool =
-      oolCallVM<Fn, DoToNumber>(lir, ArgList(operand), StoreValueTo(output));
-
-  masm.branchTestNumber(Assembler::NotEqual, operand, ool->entry());
-  masm.moveValue(operand, output);
-  masm.bind(ool->rejoin());
-}
-
 void CodeGenerator::visitTypeBarrierV(LTypeBarrierV* lir) {
   ValueOperand operand = ToValue(lir, LTypeBarrierV::Input);
   Register unboxScratch = ToTempRegisterOrInvalid(lir->unboxTemp());
@@ -8230,62 +8205,6 @@ void CodeGenerator::visitModD(LModD* ins) {
   }
 }
 
-void CodeGenerator::visitBinaryV(LBinaryV* lir) {
-  pushArg(ToValue(lir, LBinaryV::RhsInput));
-  pushArg(ToValue(lir, LBinaryV::LhsInput));
-
-  using Fn = bool (*)(JSContext*, MutableHandleValue, MutableHandleValue,
-                      MutableHandleValue);
-  switch (lir->jsop()) {
-    case JSOp::Add:
-      callVM<Fn, js::AddValues>(lir);
-      break;
-
-    case JSOp::Sub:
-      callVM<Fn, js::SubValues>(lir);
-      break;
-
-    case JSOp::Mul:
-      callVM<Fn, js::MulValues>(lir);
-      break;
-
-    case JSOp::Div:
-      callVM<Fn, js::DivValues>(lir);
-      break;
-
-    case JSOp::Mod:
-      callVM<Fn, js::ModValues>(lir);
-      break;
-
-    case JSOp::BitAnd:
-      callVM<Fn, js::BitAnd>(lir);
-      break;
-
-    case JSOp::BitOr:
-      callVM<Fn, js::BitOr>(lir);
-      break;
-
-    case JSOp::BitXor:
-      callVM<Fn, js::BitXor>(lir);
-      break;
-
-    case JSOp::Lsh:
-      callVM<Fn, js::BitLsh>(lir);
-      break;
-
-    case JSOp::Rsh:
-      callVM<Fn, js::BitRsh>(lir);
-      break;
-
-    case JSOp::Ursh:
-      callVM<Fn, js::UrshValues>(lir);
-      break;
-
-    default:
-      MOZ_CRASH("Unexpected binary op");
-  }
-}
-
 void CodeGenerator::emitCompareS(LInstruction* lir, JSOp op, Register left,
                                  Register right, Register output) {
   MOZ_ASSERT(lir->isCompareS() || lir->isCompareStrictS());
@@ -8361,8 +8280,8 @@ void CodeGenerator::visitCompareS(LCompareS* lir) {
 }
 
 void CodeGenerator::visitCompareVM(LCompareVM* lir) {
-  pushArg(ToValue(lir, LBinaryV::RhsInput));
-  pushArg(ToValue(lir, LBinaryV::LhsInput));
+  pushArg(ToValue(lir, LCompareVM::RhsInput));
+  pushArg(ToValue(lir, LCompareVM::LhsInput));
 
   using Fn =
       bool (*)(JSContext*, MutableHandleValue, MutableHandleValue, bool*);
@@ -11410,13 +11329,6 @@ void CodeGenerator::visitThrow(LThrow* lir) {
 
   using Fn = bool (*)(JSContext*, HandleValue);
   callVM<Fn, js::ThrowOperation>(lir);
-}
-
-void CodeGenerator::visitBitNotV(LBitNotV* lir) {
-  pushArg(ToValue(lir, LBitNotV::Input));
-
-  using Fn = bool (*)(JSContext*, MutableHandleValue, MutableHandleValue);
-  callVM<Fn, BitNot>(lir);
 }
 
 class OutOfLineTypeOfV : public OutOfLineCodeBase<CodeGenerator> {

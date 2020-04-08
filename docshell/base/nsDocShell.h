@@ -430,7 +430,7 @@ class nsDocShell final : public nsDocLoader,
   }
 
   const mozilla::OriginAttributes& GetOriginAttributes() {
-    return mOriginAttributes;
+    return mBrowsingContext->OriginAttributesRef();
   }
 
   // Determine whether this docshell corresponds to the given history entry,
@@ -528,6 +528,8 @@ class nsDocShell final : public nsDocLoader,
    */
   static void ExtractLastVisit(nsIChannel* aChannel, nsIURI** aURI,
                                uint32_t* aChannelRedirectFlags);
+
+  bool HasContentViewer() const { return !!mContentViewer; }
 
   static uint32_t ComputeURILoaderFlags(
       mozilla::dom::BrowsingContext* aBrowsingContext, uint32_t aLoadType);
@@ -987,10 +989,6 @@ class nsDocShell final : public nsDocLoader,
   // Convenience method for getting our parent docshell. Can return null
   already_AddRefed<nsDocShell> GetInProcessParentDocshell();
 
-  // Helper assertion to enforce that mInPrivateBrowsing is in sync with
-  // OriginAttributes.mPrivateBrowsingId
-  void AssertOriginAttributesMatchPrivateBrowsing();
-
   // Internal implementation of nsIDocShell::FirePageHideNotification.
   // If aSkipCheckingDynEntries is true, it will not try to remove dynamic
   // subframe entries. This is to avoid redundant RemoveDynEntries calls in all
@@ -998,9 +996,8 @@ class nsDocShell final : public nsDocLoader,
   void FirePageHideNotificationInternal(bool aIsUnload,
                                         bool aSkipCheckingDynEntries);
 
-  // Dispatch a runnable to the TabGroup associated to this docshell.
-  nsresult DispatchToTabGroup(mozilla::TaskCategory aCategory,
-                              already_AddRefed<nsIRunnable>&& aRunnable);
+  nsresult Dispatch(mozilla::TaskCategory aCategory,
+                    already_AddRefed<nsIRunnable>&& aRunnable);
 
   void SetupReferrerInfoFromChannel(nsIChannel* aChannel);
   void SetReferrerInfo(nsIReferrerInfo* aReferrerInfo);
@@ -1095,6 +1092,9 @@ class nsDocShell final : public nsDocLoader,
   nsresult HandleSameDocumentNavigation(nsDocShellLoadState* aLoadState,
                                         SameDocumentNavigationState& aState);
 
+  // Called when the Private Browsing state of a nsDocShell changes.
+  void NotifyPrivateBrowsingChanged();
+
  private:  // data members
   static nsIURIFixup* sURIFixup;
 
@@ -1106,11 +1106,9 @@ class nsDocShell final : public nsDocLoader,
   nsID mHistoryID;
   nsString mTitle;
   nsCString mOriginalUriString;
-  nsWeakPtr mOpener;
   nsTObserverArray<nsWeakPtr> mPrivacyObservers;
   nsTObserverArray<nsWeakPtr> mReflowObservers;
   nsTObserverArray<nsWeakPtr> mScrollObservers;
-  mozilla::OriginAttributes mOriginAttributes;
   mozilla::UniquePtr<mozilla::dom::ClientSource> mInitialClientSource;
   nsCOMPtr<nsINetworkInterceptController> mInterceptController;
   RefPtr<nsDOMNavigationTiming> mTiming;
@@ -1241,13 +1239,6 @@ class nsDocShell final : public nsDocLoader,
   // Are we a regular frame, a browser frame, or an app frame?
   FrameType mFrameType;
 
-  // This represents the state of private browsing in the docshell.
-  // Currently treated as a binary value: 1 - in private mode, 0 - not private
-  // mode On content docshells mPrivateBrowsingId ==
-  // mOriginAttributes.mPrivateBrowsingId On chrome docshells this value will be
-  // set, but not have the corresponding origin attribute set.
-  uint32_t mPrivateBrowsingId;
-
   // This represents the CSS display-mode we are currently using. This is mostly
   // used for media queries.
   DisplayMode mDisplayMode;
@@ -1307,13 +1298,9 @@ class nsDocShell final : public nsDocLoader,
   bool mDisableMetaRefreshWhenInactive : 1;
   bool mIsAppTab : 1;
   bool mUseGlobalHistory : 1;
-  bool mUseRemoteTabs : 1;
-  bool mUseRemoteSubframes : 1;
-  bool mUseTrackingProtection : 1;
   bool mDeviceSizeIsPageSize : 1;
   bool mWindowDraggingAllowed : 1;
   bool mInFrameSwap : 1;
-  bool mInheritPrivateBrowsingId : 1;
 
   // Because scriptability depends on the mAllowJavascript values of our
   // ancestors, we cache the effective scriptability and recompute it when

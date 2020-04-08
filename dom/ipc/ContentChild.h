@@ -43,6 +43,7 @@ class nsIURIClassifierCallback;
 struct LookAndFeelInt;
 class nsDocShellLoadState;
 class nsFrameLoader;
+class nsIOpenWindowInfo;
 
 namespace mozilla {
 class RemoteSpellcheckEngineChild;
@@ -109,7 +110,7 @@ class ContentChild final
   };
 
   nsresult ProvideWindowCommon(BrowserChild* aTabOpener,
-                               mozIDOMWindowProxy* aParent, bool aIframeMoz,
+                               nsIOpenWindowInfo* aOpenWindowInfo,
                                uint32_t aChromeFlags, bool aCalledFromJS,
                                bool aWidthSpecified, nsIURI* aURI,
                                const nsAString& aName,
@@ -559,10 +560,9 @@ class ContentChild final
   mozilla::ipc::IPCResult RecvConstructBrowser(
       ManagedEndpoint<PBrowserChild>&& aBrowserEp,
       ManagedEndpoint<PWindowGlobalChild>&& aWindowEp, const TabId& aTabId,
-      const TabId& aSameTabGroupAs, const IPCTabContext& aContext,
-      const WindowGlobalInit& aWindowInit, const uint32_t& aChromeFlags,
-      const ContentParentId& aCpID, const bool& aIsForBrowser,
-      const bool& aIsTopLevel);
+      const IPCTabContext& aContext, const WindowGlobalInit& aWindowInit,
+      const uint32_t& aChromeFlags, const ContentParentId& aCpID,
+      const bool& aIsForBrowser, const bool& aIsTopLevel);
 
   FORWARD_SHMEM_ALLOCATOR_TO(PContentChild)
 
@@ -787,6 +787,9 @@ class ContentChild final
 
   bool DeallocPIccChild(PIccChild* aActor);
   // MOZ_B2G_RIL_END
+  const nsTArray<RefPtr<BrowsingContextGroup>>& BrowsingContextGroups() const {
+    return mBrowsingContextGroupHolder;
+  }
 
  private:
   static void ForceKillTimerCallback(nsITimer* aTimer, void* aClosure);
@@ -800,9 +803,6 @@ class ContentChild final
   virtual void ActorDestroy(ActorDestroyReason why) override;
 
   virtual void ProcessingError(Result aCode, const char* aReason) override;
-
-  virtual already_AddRefed<nsIEventTarget> GetSpecificMessageEventTarget(
-      const Message& aMsg) override;
 
   virtual void OnChannelReceivedMessage(const Message& aMsg) override;
 

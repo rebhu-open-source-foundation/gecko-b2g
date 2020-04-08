@@ -32,7 +32,6 @@
 #include "ipc/nsGUIEventIPC.h"
 #include "js/JSON.h"
 #include "mozilla/AsyncEventDispatcher.h"
-#include "mozilla/BrowserElementParent.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/EventListenerManager.h"
@@ -117,6 +116,7 @@
 #include "nsIWebProgress.h"
 #include "nsLayoutUtils.h"
 #include "nsNetUtil.h"
+#include "nsIOpenWindowInfo.h"
 #include "nsPIDOMWindow.h"
 #include "nsPIWindowRoot.h"
 #include "nsPointerHashKeys.h"
@@ -323,24 +323,20 @@ already_AddRefed<BrowserChild> BrowserChild::FindBrowserChild(
 
 /*static*/
 already_AddRefed<BrowserChild> BrowserChild::Create(
-    ContentChild* aManager, const TabId& aTabId, const TabId& aSameTabGroupAs,
-    const TabContext& aContext, BrowsingContext* aBrowsingContext,
-    uint32_t aChromeFlags, bool aIsTopLevel) {
-  RefPtr<BrowserChild> groupChild = FindBrowserChild(aSameTabGroupAs);
-  dom::TabGroup* group = groupChild ? groupChild->TabGroup() : nullptr;
-  RefPtr<BrowserChild> iframe =
-      new BrowserChild(aManager, aTabId, group, aContext, aBrowsingContext,
-                       aChromeFlags, aIsTopLevel);
+    ContentChild* aManager, const TabId& aTabId, const TabContext& aContext,
+    BrowsingContext* aBrowsingContext, uint32_t aChromeFlags,
+    bool aIsTopLevel) {
+  RefPtr<BrowserChild> iframe = new BrowserChild(
+      aManager, aTabId, aContext, aBrowsingContext, aChromeFlags, aIsTopLevel);
   return iframe.forget();
 }
 
 BrowserChild::BrowserChild(ContentChild* aManager, const TabId& aTabId,
-                           dom::TabGroup* aTabGroup, const TabContext& aContext,
+                           const TabContext& aContext,
                            BrowsingContext* aBrowsingContext,
                            uint32_t aChromeFlags, bool aIsTopLevel)
     : TabContext(aContext),
       mBrowserChildMessageManager(nullptr),
-      mTabGroup(aTabGroup),
       mManager(aManager),
       mBrowsingContext(aBrowsingContext),
       mChromeFlags(aChromeFlags),
@@ -558,7 +554,6 @@ bool BrowserChild::DoUpdateZoomConstraints(
 
 nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
                             WindowGlobalChild* aInitialWindowChild) {
-  MOZ_DIAGNOSTIC_ASSERT(mTabGroup);
   MOZ_ASSERT_IF(aInitialWindowChild,
                 aInitialWindowChild->BrowsingContext() == mBrowsingContext);
 
@@ -581,7 +576,7 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
   NS_ASSERTION(mWebNav, "nsWebBrowser doesn't implement nsIWebNavigation?");
 
   // Set the tab context attributes then pass to docShell
-  NotifyTabContextUpdated(false);
+  NotifyTabContextUpdated();
 
   // IPC uses a WebBrowser object for which DNS prefetching is turned off
   // by default. But here we really want it, so enable it explicitly
@@ -592,10 +587,6 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
 
   mStatusFilter = new nsBrowserStatusFilter();
 
-  RefPtr<nsIEventTarget> eventTarget =
-      TabGroup()->EventTargetFor(TaskCategory::Network);
-
-  mStatusFilter->SetTarget(eventTarget);
   nsresult rv =
       mStatusFilter->AddProgressListener(this, nsIWebProgress::NOTIFY_ALL);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -609,13 +600,17 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
 
   docShell->SetAffectPrivateSessionLifetime(
       mChromeFlags & nsIWebBrowserChrome::CHROME_PRIVATE_LIFETIME);
+
+#ifdef DEBUG
   nsCOMPtr<nsILoadContext> loadContext = do_GetInterface(WebNavigation());
   MOZ_ASSERT(loadContext);
-  loadContext->SetPrivateBrowsing(OriginAttributesRef().mPrivateBrowsingId > 0);
-  loadContext->SetRemoteTabs(mChromeFlags &
-                             nsIWebBrowserChrome::CHROME_REMOTE_WINDOW);
-  loadContext->SetRemoteSubframes(mChromeFlags &
-                                  nsIWebBrowserChrome::CHROME_FISSION_WINDOW);
+  MOZ_ASSERT(loadContext->UsePrivateBrowsing() ==
+             (OriginAttributesRef().mPrivateBrowsingId > 0));
+  MOZ_ASSERT(loadContext->UseRemoteTabs() ==
+             !!(mChromeFlags & nsIWebBrowserChrome::CHROME_REMOTE_WINDOW));
+  MOZ_ASSERT(loadContext->UseRemoteSubframes() ==
+             !!(mChromeFlags & nsIWebBrowserChrome::CHROME_FISSION_WINDOW));
+#endif  // defined(DEBUG)
 
   // Few lines before, baseWindow->Create() will end up creating a new
   // window root in nsGlobalWindow::SetDocShell.
@@ -668,7 +663,7 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
   return NS_OK;
 }
 
-void BrowserChild::NotifyTabContextUpdated(bool aIsPreallocated) {
+void BrowserChild::NotifyTabContextUpdated() {
   nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
   MOZ_ASSERT(docShell);
 
@@ -677,10 +672,6 @@ void BrowserChild::NotifyTabContextUpdated(bool aIsPreallocated) {
   }
 
   UpdateFrameType();
-
-  if (aIsPreallocated) {
-    nsDocShell::Cast(docShell)->SetOriginAttributes(OriginAttributesRef());
-  }
 
   // Set SANDBOXED_AUXILIARY_NAVIGATION flag if this is a receiver page.
   if (!PresentationURL().IsEmpty()) {
@@ -952,51 +943,40 @@ BrowserChild::GetInterface(const nsIID& aIID, void** aSink) {
 }
 
 NS_IMETHODIMP
-BrowserChild::ProvideWindow(mozIDOMWindowProxy* aParent, uint32_t aChromeFlags,
-                            bool aCalledFromJS, bool aWidthSpecified,
-                            nsIURI* aURI, const nsAString& aName,
-                            const nsACString& aFeatures, bool aForceNoOpener,
-                            bool aForceNoReferrer,
+BrowserChild::ProvideWindow(nsIOpenWindowInfo* aOpenWindowInfo,
+                            uint32_t aChromeFlags, bool aCalledFromJS,
+                            bool aWidthSpecified, nsIURI* aURI,
+                            const nsAString& aName, const nsACString& aFeatures,
+                            bool aForceNoOpener, bool aForceNoReferrer,
                             nsDocShellLoadState* aLoadState, bool* aWindowIsNew,
                             BrowsingContext** aReturn) {
   *aReturn = nullptr;
 
-  // If aParent is inside an <iframe mozbrowser> and this isn't a request to
-  // open a modal-type window, we're going to create a new <iframe mozbrowser>
-  // and return its window here.
-  nsCOMPtr<nsIDocShell> docshell = do_GetInterface(aParent);
-  bool iframeMoz =
-      (docshell && docshell->GetIsInMozBrowser() &&
-       !(aChromeFlags & (nsIWebBrowserChrome::CHROME_MODAL |
-                         nsIWebBrowserChrome::CHROME_OPENAS_DIALOG |
-                         nsIWebBrowserChrome::CHROME_OPENAS_CHROME)));
+  RefPtr<BrowsingContext> parent = aOpenWindowInfo->GetParent();
 
-  if (!iframeMoz) {
-    int32_t openLocation = nsWindowWatcher::GetWindowOpenLocation(
-        nsPIDOMWindowOuter::From(aParent), aChromeFlags, aCalledFromJS,
-        aWidthSpecified);
+  int32_t openLocation = nsWindowWatcher::GetWindowOpenLocation(
+      parent->GetDOMWindow(), aChromeFlags, aCalledFromJS, aWidthSpecified);
 
-    // If it turns out we're opening in the current browser, just hand over the
-    // current browser's docshell.
-    if (openLocation == nsIBrowserDOMWindow::OPEN_CURRENTWINDOW) {
-      nsCOMPtr<nsIWebBrowser> browser = do_GetInterface(WebNavigation());
-      *aWindowIsNew = false;
+  // If it turns out we're opening in the current browser, just hand over the
+  // current browser's docshell.
+  if (openLocation == nsIBrowserDOMWindow::OPEN_CURRENTWINDOW) {
+    nsCOMPtr<nsIWebBrowser> browser = do_GetInterface(WebNavigation());
+    *aWindowIsNew = false;
 
-      nsCOMPtr<mozIDOMWindowProxy> win;
-      MOZ_TRY(browser->GetContentDOMWindow(getter_AddRefs(win)));
+    nsCOMPtr<mozIDOMWindowProxy> win;
+    MOZ_TRY(browser->GetContentDOMWindow(getter_AddRefs(win)));
 
-      RefPtr<BrowsingContext> bc(
-          nsPIDOMWindowOuter::From(win)->GetBrowsingContext());
-      bc.forget(aReturn);
-      return NS_OK;
-    }
+    RefPtr<BrowsingContext> bc(
+        nsPIDOMWindowOuter::From(win)->GetBrowsingContext());
+    bc.forget(aReturn);
+    return NS_OK;
   }
 
   // Note that ProvideWindowCommon may return NS_ERROR_ABORT if the
   // open window call was canceled.  It's important that we pass this error
   // code back to our caller.
   ContentChild* cc = ContentChild::GetSingleton();
-  return cc->ProvideWindowCommon(this, aParent, iframeMoz, aChromeFlags,
+  return cc->ProvideWindowCommon(this, aOpenWindowInfo, aChromeFlags,
                                  aCalledFromJS, aWidthSpecified, aURI, aName,
                                  aFeatures, aForceNoOpener, aForceNoReferrer,
                                  aLoadState, aWindowIsNew, aReturn);
@@ -1004,13 +984,6 @@ BrowserChild::ProvideWindow(mozIDOMWindowProxy* aParent, uint32_t aChromeFlags,
 
 void BrowserChild::DestroyWindow() {
   mBrowsingContext = nullptr;
-
-  // TabGroups contain circular references to their event queues that they break
-  // when the last window leaves. If we never attached a window to our TabGroup,
-  // though, it will never see a window leave, and will therefore never break
-  // its circular references. If it hasn't had a window attached by now, it
-  // never will, so have it destroy itself now if it's empty.
-  mTabGroup->MaybeDestroy();
 
   if (mStatusFilter) {
     if (nsCOMPtr<nsIWebProgress> webProgress =
@@ -1198,27 +1171,8 @@ void BrowserChild::ApplyParentShowInfo(const ParentShowInfo& aInfo) {
     mDidSetRealShowInfo = true;
   }
 
-  nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
-  if (docShell) {
+  if (nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation())) {
     docShell->SetFullscreenAllowed(aInfo.fullscreenAllowed());
-    if (aInfo.isPrivate()) {
-      nsCOMPtr<nsILoadContext> context = do_GetInterface(docShell);
-      // No need to re-set private browsing mode.
-      if (!context->UsePrivateBrowsing()) {
-        if (docShell->GetHasLoadedNonBlankURI()) {
-          nsContentUtils::ReportToConsoleNonLocalized(
-              NS_LITERAL_STRING("We should not switch to Private Browsing "
-                                "after loading a document."),
-              nsIScriptError::warningFlag,
-              NS_LITERAL_CSTRING("mozprivatebrowsing"), nullptr);
-        } else {
-          OriginAttributes attrs(
-              nsDocShell::Cast(docShell)->GetOriginAttributes());
-          attrs.SyncAttributesWithPrivateBrowsing(true);
-          nsDocShell::Cast(docShell)->SetOriginAttributes(attrs);
-        }
-      }
-    }
   }
   mIsTransparent = aInfo.isTransparent();
 }
@@ -2974,9 +2928,6 @@ void BrowserChild::InitAPZState() {
   RefPtr<GeckoContentController> contentController =
       new ContentProcessController(this);
   APZChild* apzChild = new APZChild(contentController);
-  cbc->SetEventTargetForActor(apzChild,
-                              TabGroup()->EventTargetFor(TaskCategory::Other));
-  MOZ_ASSERT(apzChild->GetActorEventTarget());
   cbc->SendPAPZConstructor(apzChild, mLayersId);
 }
 
@@ -3508,14 +3459,6 @@ mozilla::ipc::IPCResult BrowserChild::RecvAllowScriptsToClose() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult BrowserChild::RecvSetOriginAttributes(
-    const OriginAttributes& aOriginAttributes) {
-  nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
-  nsDocShell::Cast(docShell)->SetOriginAttributes(aOriginAttributes);
-
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult BrowserChild::RecvSetWidgetNativeData(
     const WindowsHandle& aWidgetNativeData) {
   mWidgetNativeData = aWidgetNativeData;
@@ -3756,8 +3699,6 @@ NS_IMETHODIMP BrowserChild::BeginSendingWebProgressEventsToParent() {
   mShouldSendWebProgressEventsToParent = true;
   return NS_OK;
 }
-
-mozilla::dom::TabGroup* BrowserChild::TabGroup() { return mTabGroup; }
 
 nsresult BrowserChild::GetHasSiblings(bool* aHasSiblings) {
   *aHasSiblings = mHasSiblings;
@@ -4320,24 +4261,15 @@ uint64_t BrowserChildMessageManager::ChromeOuterWindowID() {
 
 nsresult BrowserChildMessageManager::Dispatch(
     TaskCategory aCategory, already_AddRefed<nsIRunnable>&& aRunnable) {
-  if (mBrowserChild && mBrowserChild->TabGroup()) {
-    return mBrowserChild->TabGroup()->Dispatch(aCategory, std::move(aRunnable));
-  }
   return DispatcherTrait::Dispatch(aCategory, std::move(aRunnable));
 }
 
 nsISerialEventTarget* BrowserChildMessageManager::EventTargetFor(
     TaskCategory aCategory) const {
-  if (mBrowserChild && mBrowserChild->TabGroup()) {
-    return mBrowserChild->TabGroup()->EventTargetFor(aCategory);
-  }
   return DispatcherTrait::EventTargetFor(aCategory);
 }
 
 AbstractThread* BrowserChildMessageManager::AbstractMainThreadFor(
     TaskCategory aCategory) {
-  if (mBrowserChild && mBrowserChild->TabGroup()) {
-    return mBrowserChild->TabGroup()->AbstractMainThreadFor(aCategory);
-  }
   return DispatcherTrait::AbstractMainThreadFor(aCategory);
 }

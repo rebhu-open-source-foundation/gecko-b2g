@@ -97,7 +97,7 @@ nsresult FileSystemUtils::DispatchRunnable(
 
   nsCOMPtr<nsIEventTarget> target;
   if (!aGlobal) {
-    target = SystemGroup::EventTargetFor(TaskCategory::Other);
+    target = GetMainThreadSerialEventTarget();
   } else {
     target = aGlobal->EventTargetFor(TaskCategory::Other);
   }

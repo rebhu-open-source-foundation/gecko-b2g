@@ -8,6 +8,7 @@
 #define mozilla_dom_BrowsingContextGroup_h
 
 #include "mozilla/dom/BrowsingContext.h"
+#include "nsRefPtrHashtable.h"
 #include "nsHashKeys.h"
 #include "nsTArray.h"
 #include "nsTHashtable.h"
@@ -23,9 +24,7 @@ class BrowsingContext;
 class ContentParent;
 
 // A BrowsingContextGroup represents the Unit of Related Browsing Contexts in
-// the standard. This object currently serves roughly the same purpose as the
-// TabGroup class which already exists, and at some point will likely merge with
-// it.
+// the standard.
 //
 // A BrowsingContext may not hold references to other BrowsingContext objects
 // which are not in the same BrowsingContextGroup.
@@ -117,6 +116,25 @@ class BrowsingContextGroup final : public nsWrapperCache {
 
   static BrowsingContextGroup* GetChromeGroup();
 
+  void GetDocGroups(nsTArray<DocGroup*>& aDocGroups);
+
+  // Called by Document when a Document needs to be added to a DocGroup.
+  already_AddRefed<DocGroup> AddDocument(const nsACString& aKey,
+                                         Document* aDocument);
+
+  // Called by Document when a Document needs to be removed to a DocGroup.
+  void RemoveDocument(const nsACString& aKey, Document* aDocument);
+
+  auto DocGroups() const { return mDocGroups.ConstIter(); }
+
+  mozilla::ThrottledEventQueue* GetTimerEventQueue() const {
+    return mTimerEventQueue;
+  }
+
+  mozilla::ThrottledEventQueue* GetWorkerEventQueue() const {
+    return mWorkerEventQueue;
+  }
+
  private:
   friend class CanonicalBrowsingContext;
 
@@ -132,6 +150,12 @@ class BrowsingContextGroup final : public nsWrapperCache {
   // The set of toplevel browsing contexts in the current BrowsingContextGroup.
   BrowsingContext::Children mToplevels;
 
+  // DocGroups are thread-safe, and not able to be cycle collected,
+  // but we still keep strong pointers. When all Documents are removed
+  // from DocGroup (by the BrowsingContextGroup), the DocGroup is
+  // removed from here.
+  nsRefPtrHashtable<nsCStringHashKey, DocGroup> mDocGroups;
+
   ContentParents mSubscribers;
 
   // Map of cached contexts that need to stay alive due to bfcache.
@@ -140,6 +164,9 @@ class BrowsingContextGroup final : public nsWrapperCache {
   // A queue to store postMessage events during page load, the queue will be
   // flushed once the page is loaded
   RefPtr<mozilla::ThrottledEventQueue> mPostMessageEventQueue;
+
+  RefPtr<mozilla::ThrottledEventQueue> mTimerEventQueue;
+  RefPtr<mozilla::ThrottledEventQueue> mWorkerEventQueue;
 };
 
 }  // namespace dom

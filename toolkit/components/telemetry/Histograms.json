@@ -816,14 +816,6 @@
     "description": "Reason for cancelling an ongoing GC (see js::gc::AbortReason)",
     "bug_numbers": [1308116]
   },
-  "GC_INCREMENTAL_DISABLED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "never",
-    "kind": "boolean",
-    "description": "Is incremental GC permanently disabled?"
-  },
   "GC_NON_INCREMENTAL": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -889,17 +881,6 @@
     "high": 1000000,
     "n_buckets": 100,
     "description": "Time spent running JS minor GC (us)"
-  },
-  "GC_NURSERY_BYTES": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "72",
-    "kind": "linear",
-    "high": 16777216,
-    "n_buckets": 16,
-    "bug_numbers": [1259347],
-    "description": "Size of the GC nursery (bytes)"
   },
   "GC_NURSERY_BYTES_2": {
     "record_in_processes": ["main", "content"],

@@ -16,8 +16,8 @@
 #include "mozilla/LoadInfo.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/SystemGroup.h"
 #include "mozilla/ResultExtensions.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/URLPreloader.h"
 #include "nsIRunnable.h"
 #include "nsITimedChannel.h"
@@ -2365,7 +2365,7 @@ nsresult Loader::PostLoadEvent(nsIURI* aURI, StyleSheet* aSheet,
   } else if (mDocGroup) {
     rv = mDocGroup->Dispatch(TaskCategory::Other, runnable.forget());
   } else {
-    rv = SystemGroup::Dispatch(TaskCategory::Other, runnable.forget());
+    rv = SchedulerGroup::Dispatch(TaskCategory::Other, runnable.forget());
   }
 
   if (NS_FAILED(rv)) {
@@ -2549,7 +2549,7 @@ already_AddRefed<nsISerialEventTarget> Loader::DispatchTarget() {
   } else if (mDocGroup) {
     target = mDocGroup->EventTargetFor(TaskCategory::Other);
   } else {
-    target = SystemGroup::EventTargetFor(TaskCategory::Other);
+    target = GetMainThreadSerialEventTarget();
   }
 
   return target.forget();

@@ -2532,69 +2532,6 @@ MDefinition* MBinaryBitwiseInstruction::foldUnnecessaryBitop() {
   return this;
 }
 
-void MBinaryBitwiseInstruction::infer(BaselineInspector*, jsbytecode*) {
-  if (getOperand(0)->mightBeType(MIRType::Object) ||
-      getOperand(0)->mightBeType(MIRType::Symbol) ||
-      getOperand(0)->mightBeType(MIRType::BigInt) ||
-      getOperand(1)->mightBeType(MIRType::Object) ||
-      getOperand(1)->mightBeType(MIRType::Symbol) ||
-      getOperand(1)->mightBeType(MIRType::BigInt)) {
-    specialization_ = MIRType::None;
-    setResultType(MIRType::Value);
-  } else {
-    specializeAs(MIRType::Int32);
-  }
-}
-
-void MBinaryBitwiseInstruction::specializeAs(MIRType type) {
-  MOZ_ASSERT(type == MIRType::Int32 || type == MIRType::Int64);
-  MOZ_ASSERT(this->type() == MIRType::Value || this->type() == type);
-
-  specialization_ = type;
-  setResultType(type);
-
-  if (isBitOr() || isBitAnd() || isBitXor()) {
-    setCommutative();
-  }
-}
-
-void MShiftInstruction::infer(BaselineInspector*, jsbytecode*) {
-  if (getOperand(0)->mightBeType(MIRType::Object) ||
-      getOperand(1)->mightBeType(MIRType::Object) ||
-      getOperand(0)->mightBeType(MIRType::Symbol) ||
-      getOperand(1)->mightBeType(MIRType::Symbol) ||
-      getOperand(0)->mightBeType(MIRType::BigInt) ||
-      getOperand(1)->mightBeType(MIRType::BigInt)) {
-    specialization_ = MIRType::None;
-    setResultType(MIRType::Value);
-  } else {
-    specialization_ = MIRType::Int32;
-    setResultType(MIRType::Int32);
-  }
-}
-
-void MUrsh::infer(BaselineInspector* inspector, jsbytecode* pc) {
-  if (getOperand(0)->mightBeType(MIRType::Object) ||
-      getOperand(1)->mightBeType(MIRType::Object) ||
-      getOperand(0)->mightBeType(MIRType::Symbol) ||
-      getOperand(1)->mightBeType(MIRType::Symbol) ||
-      getOperand(0)->mightBeType(MIRType::BigInt) ||
-      getOperand(1)->mightBeType(MIRType::BigInt)) {
-    specialization_ = MIRType::None;
-    setResultType(MIRType::Value);
-    return;
-  }
-
-  if (inspector->hasSeenDoubleResult(pc)) {
-    specialization_ = MIRType::Double;
-    setResultType(MIRType::Double);
-    return;
-  }
-
-  specialization_ = MIRType::Int32;
-  setResultType(MIRType::Int32);
-}
-
 static inline bool CanProduceNegativeZero(MDefinition* def) {
   // Test if this instruction can produce negative zero even when bailing out
   // and changing types.
@@ -2787,18 +2724,19 @@ void MBinaryArithInstruction::printOpcode(GenericPrinter& out) const {
 MBinaryArithInstruction* MBinaryArithInstruction::New(TempAllocator& alloc,
                                                       Opcode op,
                                                       MDefinition* left,
-                                                      MDefinition* right) {
+                                                      MDefinition* right,
+                                                      MIRType specialization) {
   switch (op) {
     case Opcode::Add:
-      return MAdd::New(alloc, left, right);
+      return MAdd::New(alloc, left, right, specialization);
     case Opcode::Sub:
-      return MSub::New(alloc, left, right);
+      return MSub::New(alloc, left, right, specialization);
     case Opcode::Mul:
-      return MMul::New(alloc, left, right);
+      return MMul::New(alloc, left, right, specialization);
     case Opcode::Div:
-      return MDiv::New(alloc, left, right);
+      return MDiv::New(alloc, left, right, specialization);
     case Opcode::Mod:
-      return MMod::New(alloc, left, right);
+      return MMod::New(alloc, left, right, specialization);
     default:
       MOZ_CRASH("unexpected binary opcode");
   }
@@ -2848,9 +2786,7 @@ MDefinition* MRsh::foldsTo(TempAllocator& alloc) {
 }
 
 MDefinition* MBinaryArithInstruction::foldsTo(TempAllocator& alloc) {
-  if (specialization_ == MIRType::None) {
-    return this;
-  }
+  MOZ_ASSERT(IsNumberType(specialization_));
 
   if (specialization_ == MIRType::Int64) {
     return this;
@@ -2932,11 +2868,10 @@ bool MFilterTypeSet::canConsumeFloat32(MUse* operand) const {
 }
 
 void MBinaryArithInstruction::trySpecializeFloat32(TempAllocator& alloc) {
+  MOZ_ASSERT(IsNumberType(specialization_));
+
   // Do not use Float32 if we can use int32.
   if (specialization_ == MIRType::Int32) {
-    return;
-  }
-  if (specialization_ == MIRType::None) {
     return;
   }
 
@@ -3155,9 +3090,7 @@ void MAbs::trySpecializeFloat32(TempAllocator& alloc) {
 }
 
 MDefinition* MDiv::foldsTo(TempAllocator& alloc) {
-  if (specialization_ == MIRType::None) {
-    return this;
-  }
+  MOZ_ASSERT(IsNumberType(specialization_));
 
   if (specialization_ == MIRType::Int64) {
     return this;
@@ -3221,9 +3154,7 @@ void MDiv::analyzeEdgeCasesBackward() {
 bool MDiv::fallible() const { return !isTruncated(); }
 
 MDefinition* MMod::foldsTo(TempAllocator& alloc) {
-  if (specialization_ == MIRType::None) {
-    return this;
-  }
+  MOZ_ASSERT(IsNumberType(specialization_));
 
   if (specialization_ == MIRType::Int64) {
     return this;
@@ -3569,17 +3500,8 @@ void MCompare::cacheOperandMightEmulateUndefined(
   markNoOperandEmulatesUndefined();
 }
 
-MBitNot* MBitNot::NewInt32(TempAllocator& alloc, MDefinition* input) {
-  MBitNot* ins = new (alloc) MBitNot(input);
-  ins->specialization_ = MIRType::Int32;
-  ins->setResultType(MIRType::Int32);
-  return ins;
-}
-
 MDefinition* MBitNot::foldsTo(TempAllocator& alloc) {
-  if (specialization_ != MIRType::Int32) {
-    return this;
-  }
+  MOZ_ASSERT(specialization_ == MIRType::Int32);
 
   MDefinition* input = getOperand(0);
 
@@ -3588,8 +3510,8 @@ MDefinition* MBitNot::foldsTo(TempAllocator& alloc) {
     return MConstant::New(alloc, v);
   }
 
-  if (input->isBitNot() &&
-      input->toBitNot()->specialization_ == MIRType::Int32) {
+  if (input->isBitNot()) {
+    MOZ_ASSERT(input->toBitNot()->specialization_ == MIRType::Int32);
     MOZ_ASSERT(input->toBitNot()->getOperand(0)->type() == MIRType::Int32);
     return MTruncateToInt32::New(alloc,
                                  input->toBitNot()->input());  // ~~x => x | 0
@@ -3655,72 +3577,9 @@ void MTypeOf::cacheInputMaybeCallableOrEmulatesUndefined(
   }
 }
 
-MBitAnd* MBitAnd::New(TempAllocator& alloc, MDefinition* left,
-                      MDefinition* right) {
-  return new (alloc) MBitAnd(left, right, MIRType::Int32);
-}
-
-MBitAnd* MBitAnd::New(TempAllocator& alloc, MDefinition* left,
+MUrsh* MUrsh::NewWasm(TempAllocator& alloc, MDefinition* left,
                       MDefinition* right, MIRType type) {
-  MBitAnd* ins = new (alloc) MBitAnd(left, right, type);
-  ins->specializeAs(type);
-  return ins;
-}
-
-MBitOr* MBitOr::New(TempAllocator& alloc, MDefinition* left,
-                    MDefinition* right) {
-  return new (alloc) MBitOr(left, right, MIRType::Int32);
-}
-
-MBitOr* MBitOr::New(TempAllocator& alloc, MDefinition* left, MDefinition* right,
-                    MIRType type) {
-  MBitOr* ins = new (alloc) MBitOr(left, right, type);
-  ins->specializeAs(type);
-  return ins;
-}
-
-MBitXor* MBitXor::New(TempAllocator& alloc, MDefinition* left,
-                      MDefinition* right) {
-  return new (alloc) MBitXor(left, right, MIRType::Int32);
-}
-
-MBitXor* MBitXor::New(TempAllocator& alloc, MDefinition* left,
-                      MDefinition* right, MIRType type) {
-  MBitXor* ins = new (alloc) MBitXor(left, right, type);
-  ins->specializeAs(type);
-  return ins;
-}
-
-MLsh* MLsh::New(TempAllocator& alloc, MDefinition* left, MDefinition* right) {
-  return new (alloc) MLsh(left, right, MIRType::Int32);
-}
-
-MLsh* MLsh::New(TempAllocator& alloc, MDefinition* left, MDefinition* right,
-                MIRType type) {
-  MLsh* ins = new (alloc) MLsh(left, right, type);
-  ins->specializeAs(type);
-  return ins;
-}
-
-MRsh* MRsh::New(TempAllocator& alloc, MDefinition* left, MDefinition* right) {
-  return new (alloc) MRsh(left, right, MIRType::Int32);
-}
-
-MRsh* MRsh::New(TempAllocator& alloc, MDefinition* left, MDefinition* right,
-                MIRType type) {
-  MRsh* ins = new (alloc) MRsh(left, right, type);
-  ins->specializeAs(type);
-  return ins;
-}
-
-MUrsh* MUrsh::New(TempAllocator& alloc, MDefinition* left, MDefinition* right) {
-  return new (alloc) MUrsh(left, right, MIRType::Int32);
-}
-
-MUrsh* MUrsh::New(TempAllocator& alloc, MDefinition* left, MDefinition* right,
-                  MIRType type) {
   MUrsh* ins = new (alloc) MUrsh(left, right, type);
-  ins->specializeAs(type);
 
   // Since Ion has no UInt32 type, we use Int32 and we have a special
   // exception to the type rules: we can return values in

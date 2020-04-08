@@ -229,11 +229,11 @@ class nsUrlClassifierDBService::FeatureHolder final {
 
   ~FeatureHolder() {
     for (FeatureData& featureData : mFeatureData) {
-      NS_ReleaseOnMainThreadSystemGroup("FeatureHolder:mFeatureData",
-                                        featureData.mFeature.forget());
+      NS_ReleaseOnMainThread("FeatureHolder:mFeatureData",
+                             featureData.mFeature.forget());
     }
 
-    NS_ReleaseOnMainThreadSystemGroup("FeatureHolder:mURI", mURI.forget());
+    NS_ReleaseOnMainThread("FeatureHolder:mURI", mURI.forget());
   }
 
   TableData* GetOrCreateTableData(const nsACString& aTable) {
@@ -1038,15 +1038,16 @@ nsresult nsUrlClassifierDBServiceWorker::CacheResultToTableUpdate(
 
     if (result->miss) {
       return tuV2->NewMissPrefix(result->prefix);
-    }
-    LOG(("CacheCompletion hash %X, Addchunk %d", result->completion.ToUint32(),
-         result->addChunk));
+    } else {
+      LOG(("CacheCompletion hash %X, Addchunk %d",
+           result->completion.ToUint32(), result->addChunk));
 
-    nsresult rv = tuV2->NewAddComplete(result->addChunk, result->completion);
-    if (NS_FAILED(rv)) {
-      return rv;
+      nsresult rv = tuV2->NewAddComplete(result->addChunk, result->completion);
+      if (NS_FAILED(rv)) {
+        return rv;
+      }
+      return tuV2->NewAddChunk(result->addChunk);
     }
-    return tuV2->NewAddChunk(result->addChunk);
   }
 
   RefPtr<TableUpdateV4> tuV4 = TableUpdate::Cast<TableUpdateV4>(aUpdate);
@@ -1187,8 +1188,8 @@ NS_IMPL_ISUPPORTS(nsUrlClassifierLookupCallback, nsIUrlClassifierLookupCallback,
 
 nsUrlClassifierLookupCallback::~nsUrlClassifierLookupCallback() {
   if (mCallback) {
-    NS_ReleaseOnMainThreadSystemGroup(
-        "nsUrlClassifierLookupCallback::mCallback", mCallback.forget());
+    NS_ReleaseOnMainThread("nsUrlClassifierLookupCallback::mCallback",
+                           mCallback.forget());
   }
 }
 
@@ -1719,14 +1720,8 @@ nsUrlClassifierDBService::Classify(nsIPrincipal* aPrincipal,
 
     if (aEventTarget) {
       content->SetEventTargetForActor(actor, aEventTarget);
-    } else {
-      // In the case null event target we should use systemgroup event target
-      NS_WARNING(
-          ("Null event target, we should use SystemGroup to do labelling"));
-      nsCOMPtr<nsIEventTarget> systemGroupEventTarget =
-          mozilla::SystemGroup::EventTargetFor(mozilla::TaskCategory::Other);
-      content->SetEventTargetForActor(actor, systemGroupEventTarget);
     }
+
     if (!content->SendPURLClassifierConstructor(
             actor, IPC::Principal(aPrincipal), aResult)) {
       *aResult = false;
@@ -2439,11 +2434,6 @@ nsUrlClassifierDBService::AsyncClassifyLocalWithFeatures(
     }
 
     auto actor = new URLClassifierLocalChild();
-
-    // TODO: Bug 1353701 - Supports custom event target for labelling.
-    nsCOMPtr<nsIEventTarget> systemGroupEventTarget =
-        mozilla::SystemGroup::EventTargetFor(mozilla::TaskCategory::Other);
-    content->SetEventTargetForActor(actor, systemGroupEventTarget);
 
     nsTArray<IPCURLClassifierFeature> ipcFeatures;
     for (nsIUrlClassifierFeature* feature : aFeatures) {
