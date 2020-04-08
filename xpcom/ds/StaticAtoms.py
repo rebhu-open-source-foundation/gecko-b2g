@@ -1912,6 +1912,9 @@ STATIC_ATOMS = [
     Atom("onmozinterruptbegin", "onmozinterruptbegin"),
     Atom("onmozinterruptend", "onmozinterruptend"),
 
+    # SpeakerManager event
+    Atom("onspeakerforcedchange", "onspeakerforcedchange"),
+
     # MediaDevices device change event
     Atom("ondevicechange", "ondevicechange"),
 
