@@ -499,6 +499,9 @@ void SandboxEarlyInit() {
   }
 }
 
+// Android/b2g uses the Linux sandbox but not glibc, and shm_open is not
+// available in bionic.
+#if !defined(ANDROID)
 static void RunGlibcLazyInitializers() {
   // Make glibc's lazy initialization of shm_open() run before sandboxing
   int fd = shm_open("/dummy", O_RDONLY, 0);
@@ -506,6 +509,7 @@ static void RunGlibcLazyInitializers() {
     close(fd);  // In the unlikely case we actually opened something
   }
 }
+#endif
 
 static void SandboxLateInit() {
 #ifdef NIGHTLY_BUILD
@@ -524,7 +528,9 @@ static void SandboxLateInit() {
     }
   }
 
+#if !defined(ANDROID)
   RunGlibcLazyInitializers();
+#endif
 }
 
 // Common code for sandbox startup.
