@@ -142,7 +142,7 @@ XPCOMUtils.defineLazyScriptGetter(
 );
 XPCOMUtils.defineLazyScriptGetter(
   this,
-  ["gExtensionsNotifications", "gXPInstallObserver"],
+  ["BrowserAddonUI", "gExtensionsNotifications", "gXPInstallObserver"],
   "chrome://browser/content/browser-addons.js"
 );
 XPCOMUtils.defineLazyScriptGetter(
@@ -2099,15 +2099,9 @@ var gBrowserInit = {
       this._firstBrowserPaintDeferred.resolve = resolve;
     });
 
-    // To prevent flickering of the urlbar-history-dropmarker in the general
-    // case, the urlbar has the 'focused' attribute set by default.
-    // If we are not fully sure the urlbar will be focused in this window,
-    // we should remove the attribute before first paint.
-    let shouldRemoveFocusedAttribute = true;
     this._callWithURIToLoad(uriToLoad => {
       if (isBlankPageURL(uriToLoad) || uriToLoad == "about:privatebrowsing") {
         gURLBar.select();
-        shouldRemoveFocusedAttribute = false;
         return;
       }
 
@@ -2129,16 +2123,6 @@ var gBrowserInit = {
         gBrowser.selectedBrowser.focus();
       }
     });
-    // Delay removing the attribute using requestAnimationFrame to avoid
-    // invalidating styles multiple times in a row if uriToLoadPromise
-    // resolves before first paint.
-    if (shouldRemoveFocusedAttribute) {
-      window.requestAnimationFrame(() => {
-        if (shouldRemoveFocusedAttribute) {
-          gURLBar.removeAttribute("focused");
-        }
-      });
-    }
   },
 
   _handleURIToLoad() {
@@ -7122,52 +7106,6 @@ function UpdateCurrentCharset(target) {
   }
 }
 
-function promptRemoveExtension(addon) {
-  let { name } = addon;
-  let brand = document
-    .getElementById("bundle_brand")
-    .getString("brandShorterName");
-  let { getFormattedString, getString } = gNavigatorBundle;
-  let title = getFormattedString("webext.remove.confirmation.title", [name]);
-  let message = getFormattedString("webext.remove.confirmation.message", [
-    name,
-    brand,
-  ]);
-  let btnTitle = getString("webext.remove.confirmation.button");
-  let {
-    BUTTON_TITLE_IS_STRING: titleString,
-    BUTTON_TITLE_CANCEL: titleCancel,
-    BUTTON_POS_0,
-    BUTTON_POS_1,
-    confirmEx,
-  } = Services.prompt;
-  let btnFlags = BUTTON_POS_0 * titleString + BUTTON_POS_1 * titleCancel;
-  let checkboxState = { value: false };
-  let checkboxMessage = null;
-
-  // Enable abuse report checkbox in the remove extension dialog,
-  // if enabled by the about:config prefs and the addon type
-  // is currently supported.
-  if (gAddonAbuseReportEnabled && ["extension", "theme"].includes(addon.type)) {
-    checkboxMessage = getFormattedString(
-      "webext.remove.abuseReportCheckbox.message",
-      [document.getElementById("bundle_brand").getString("vendorShortName")]
-    );
-  }
-  const result = confirmEx(
-    null,
-    title,
-    message,
-    btnFlags,
-    btnTitle,
-    null,
-    null,
-    checkboxMessage,
-    checkboxState
-  );
-  return { remove: result === 0, report: checkboxState.value };
-}
-
 var ToolbarContextMenu = {
   updateDownloadsAutoHide(popup) {
     let checkbox = document.getElementById(
@@ -7234,25 +7172,8 @@ var ToolbarContextMenu = {
 
   async removeExtensionForContextAction(popup) {
     let id = this._getExtensionId(popup);
-    let addon = id && (await AddonManager.getAddonByID(id));
-    if (!addon || !(addon.permissions & AddonManager.PERM_CAN_UNINSTALL)) {
-      return;
-    }
-    let { remove, report } = promptRemoveExtension(addon);
-    AMTelemetry.recordActionEvent({
-      object: "browserAction",
-      action: "uninstall",
-      value: remove ? "accepted" : "cancelled",
-      extra: { addonId: addon.id },
-    });
-    if (remove) {
-      // Leave the extension in pending uninstall if we are also
-      // reporting the add-on.
-      await addon.uninstall(report);
-      if (report) {
-        this.reportExtensionForContextAction(popup, "uninstall");
-      }
-    }
+
+    await BrowserAddonUI.removeAddon(id, "browserAction");
   },
 
   async reportExtensionForContextAction(popup, reportEntryPoint) {
@@ -7261,11 +7182,8 @@ var ToolbarContextMenu = {
     if (!addon) {
       return;
     }
-    const win = await BrowserOpenAddonsMgr("addons://list/extension");
-    win.openAbuseReport({
-      addonId: addon.id,
-      reportEntryPoint,
-    });
+
+    await BrowserAddonUI.reportAddon(addon.id, reportEntryPoint);
   },
 
   openAboutAddonsForContextAction(popup) {

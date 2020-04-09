@@ -15,7 +15,7 @@ rev = "e3c3388e6632cf55e08d773b32e58b1cab9b2731"
 [source."https://github.com/mozilla/neqo"]
 git = "https://github.com/mozilla/neqo"
 replace-with = "vendored-sources"
-tag = "v0.2.3"
+tag = "v0.2.4"
 
 [source."https://github.com/mozilla/application-services"]
 git = "https://github.com/mozilla/application-services"
@@ -55,7 +55,7 @@ rev = "72f813a03cefbdf8e2c58c7410f3556c79429a06"
 [source."https://github.com/bytecodealliance/wasmtime"]
 git = "https://github.com/bytecodealliance/wasmtime"
 replace-with = "vendored-sources"
-rev = "6a68130d5b0296379fae0b8de5fbb8a1499b67a5"
+rev = "5cfcbeb59d477e028c6fb312f1cf63aa711fcc3c"
 
 [source."https://github.com/badboy/failure"]
 git = "https://github.com/badboy/failure"

@@ -510,8 +510,7 @@ menuitem.bookmark-item {
 }
 
 @media (-moz-windows-default-theme: 0) {
-  #urlbar:not(.megabar):not(:-moz-lwtheme):not([focused="true"]),
-  #urlbar.megabar:not(:-moz-lwtheme):not([focused="true"]) > #urlbar-background,
+  #urlbar:not(:-moz-lwtheme):not([focused="true"]) > #urlbar-background,
   #searchbar:not(:-moz-lwtheme):not(:focus-within) {
     border-color: ThreeDShadow;
   }
@@ -665,7 +664,7 @@ notification[value="translation"] {
 
   notification[value="translation"] button,
   notification[value="translation"] menulist,
-  notification[value="translation"] menulist > .menulist-label-box {
+  notification[value="translation"] menulist::part(label-box) {
     margin-inline: 1ch;
   }
 
@@ -689,10 +688,10 @@ notification[value="translation"] {
   }
 
   notification[value="translation"] button[type="menu"] > .button-box > .button-menu-dropmarker,
-  notification[value="translation"] menulist > .menulist-dropmarker {
+  notification[value="translation"] menulist::part(dropmarker) {
     list-style-image: url(chrome://global/skin/icons/arrow-dropdown-16.svg);
   }
-  notification[value="translation"] menulist > .menulist-dropmarker::part(icon) {
+  notification[value="translation"] menulist::part(dropmarker-icon) {
     width: 11px;
     height: 11px;
   }

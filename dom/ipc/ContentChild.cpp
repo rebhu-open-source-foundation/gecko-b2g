@@ -67,6 +67,7 @@
 #include "mozilla/dom/WorkerDebuggerManager.h"
 #include "mozilla/dom/bluetooth/PBluetoothChild.h"
 #include "mozilla/dom/ipc/SharedMap.h"
+#include "mozilla/extensions/StreamFilterParent.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/hal_sandbox/PHalChild.h"
@@ -3815,6 +3816,7 @@ mozilla::ipc::IPCResult ContentChild::RecvAddDynamicScalars(
 
 mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
     RedirectToRealChannelArgs&& aArgs,
+    nsTArray<Endpoint<extensions::PStreamFilterParent>>&& aEndpoints,
     CrossProcessRedirectResolver&& aResolve) {
   nsCOMPtr<nsILoadInfo> loadInfo;
   nsresult rv = mozilla::ipc::LoadInfoArgsToLoadInfo(aArgs.loadInfo(),
@@ -3908,7 +3910,7 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
   // The listener will call completeRedirectSetup or asyncOpen on the channel.
   processListener->OnChannelReady(
       loadState, aArgs.redirectIdentifier(), std::move(aArgs.redirects()),
-      aArgs.timing().refOr(nullptr), std::move(resolve));
+      std::move(aEndpoints), aArgs.timing().refOr(nullptr), std::move(resolve));
   scopeExit.release();
 
   // scopeExit will call CrossProcessRedirectFinished(rv) here

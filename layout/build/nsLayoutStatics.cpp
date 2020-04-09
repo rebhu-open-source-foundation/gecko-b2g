@@ -75,7 +75,6 @@
 #  include "nsXULPrototypeCache.h"
 #  include "nsXULTooltipListener.h"
 
-#  include "nsMenuBarListener.h"
 #endif
 
 #include "mozilla/dom/UIDirectionManager.h"
@@ -250,10 +249,6 @@ nsresult nsLayoutStatics::Initialize() {
   ProcessPriorityManager::Init();
 
   nsPermissionManager::Startup();
-
-#ifdef MOZ_XUL
-  nsMenuBarListener::InitializeStatics();
-#endif
 
   UIDirectionManager::Initialize();
 

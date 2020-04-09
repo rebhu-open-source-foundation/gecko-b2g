@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/XRSession.h"
 
+#include "mozilla/dom/XRSessionEvent.h"
 #include "mozilla/dom/DocumentInlines.h"
 #include "XRSystem.h"
 #include "XRRenderState.h"
@@ -77,24 +78,27 @@ already_AddRefed<XRSession> XRSession::CreateInlineSession(
     return nullptr;
   }
 
-  RefPtr<XRSession> session = new XRSession(aWindow, aXRSystem, driver, nullptr,
-                                            aEnabledReferenceSpaceTypes);
+  RefPtr<XRSession> session =
+      new XRSession(aWindow, aXRSystem, driver, nullptr, gfx::kVRGroupContent,
+                    aEnabledReferenceSpaceTypes);
   driver->AddRefreshObserver(session, FlushType::Display);
   return session.forget();
 }
 
 already_AddRefed<XRSession> XRSession::CreateImmersiveSession(
     nsPIDOMWindowInner* aWindow, XRSystem* aXRSystem,
-    gfx::VRDisplayClient* aClient,
+    gfx::VRDisplayClient* aClient, uint32_t aPresentationGroup,
     const nsTArray<XRReferenceSpaceType>& aEnabledReferenceSpaceTypes) {
-  RefPtr<XRSession> session = new XRSession(
-      aWindow, aXRSystem, nullptr, aClient, aEnabledReferenceSpaceTypes);
+  RefPtr<XRSession> session =
+      new XRSession(aWindow, aXRSystem, nullptr, aClient, aPresentationGroup,
+                    aEnabledReferenceSpaceTypes);
   return session.forget();
 }
 
 XRSession::XRSession(
     nsPIDOMWindowInner* aWindow, XRSystem* aXRSystem,
     nsRefreshDriver* aRefreshDriver, gfx::VRDisplayClient* aClient,
+    uint32_t aPresentationGroup,
     const nsTArray<XRReferenceSpaceType>& aEnabledReferenceSpaceTypes)
     : DOMEventTargetHelper(aWindow),
       mXRSystem(aXRSystem),
@@ -108,13 +112,17 @@ XRSession::XRSession(
     aClient->SessionStarted(this);
   }
   mActiveRenderState = new XRRenderState(aWindow, this);
-  // TODO (Bug 1611310): Implement XRInputSource and populate mInputSources
-  mInputSources = new XRInputSourceArray(aWindow);
   mStartTimeStamp = TimeStamp::Now();
   if (IsImmersive()) {
     mDisplayPresentation =
-        mDisplayClient->BeginPresentation({}, gfx::kVRGroupContent);
+        mDisplayClient->BeginPresentation({}, aPresentationGroup);
   }
+  if (mDisplayClient) {
+    mDisplayClient->SetXRAPIMode(gfx::VRAPIMode::WebXR);
+  }
+  // TODO: Handle XR input sources are no longer available cases.
+  // https://immersive-web.github.io/webxr/#dom-xrsession-inputsources
+  mInputSources = new XRInputSourceArray(aWindow);
 }
 
 XRSession::~XRSession() { MOZ_ASSERT(mShutdown); }
@@ -244,8 +252,7 @@ void XRSession::ApplyPendingRenderState() {
   if (baseLayer) {
     if (!IsImmersive() && baseLayer->mCompositionDisabled) {
       mActiveRenderState->SetCompositionDisabled(true);
-      mActiveRenderState->SetOutputCanvas(
-          baseLayer->GetCanvas());
+      mActiveRenderState->SetOutputCanvas(baseLayer->GetCanvas());
     } else {
       mActiveRenderState->SetCompositionDisabled(false);
       mActiveRenderState->SetOutputCanvas(nullptr);
@@ -395,6 +402,9 @@ void XRSession::Shutdown() {
 }
 
 void XRSession::ExitPresentInternal() {
+  if (mInputSources) {
+    mInputSources->Clear(this);
+  }
   if (mDisplayClient) {
     mDisplayClient->SessionEnded(this);
   }
@@ -406,7 +416,16 @@ void XRSession::ExitPresentInternal() {
   mDisplayPresentation = nullptr;
   if (!mEnded) {
     mEnded = true;
-    DispatchTrustedEvent(NS_LITERAL_STRING("end"));
+
+    XRSessionEventInit init;
+    init.mBubbles = false;
+    init.mCancelable = false;
+    init.mSession = this;
+    RefPtr<XRSessionEvent> event = XRSessionEvent::Constructor(this,
+      NS_LITERAL_STRING("end"), init);
+
+    event->SetTrusted(true);
+    this->DispatchEvent(*event);
   }
 }
 

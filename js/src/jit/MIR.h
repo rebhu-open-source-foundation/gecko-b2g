@@ -3561,8 +3561,11 @@ class MCreateThis : public MBinaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, getCallee), (1, getNewTarget))
 
-  // Although creation of |this| modifies global state, it is safely repeatable.
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  // Performs a property read from |newTarget| iff |newTarget| is a JSFunction
+  // with an own |.prototype| property.
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::Any);
+  }
   bool possiblyCalls() const override { return true; }
 };
 
@@ -5065,14 +5068,9 @@ class MHypot : public MVariadicInstruction, public AllDoublePolicy::Data {
 class MPow : public MBinaryInstruction, public PowPolicy::Data {
   MPow(MDefinition* input, MDefinition* power, MIRType powerType)
       : MBinaryInstruction(classOpcode, input, power) {
-    MOZ_ASSERT(powerType == MIRType::Double || powerType == MIRType::Int32 ||
-               powerType == MIRType::None);
+    MOZ_ASSERT(powerType == MIRType::Double || powerType == MIRType::Int32);
     specialization_ = powerType;
-    if (powerType == MIRType::None) {
-      setResultType(MIRType::Value);
-    } else {
-      setResultType(MIRType::Double);
-    }
+    setResultType(MIRType::Double);
     setMovable();
   }
 
@@ -5089,18 +5087,11 @@ class MPow : public MBinaryInstruction, public PowPolicy::Data {
   bool congruentTo(const MDefinition* ins) const override {
     return congruentIfOperandsEqual(ins);
   }
-  AliasSet getAliasSet() const override {
-    if (specialization_ == MIRType::None) {
-      return AliasSet::Store(AliasSet::Any);
-    }
-    return AliasSet::None();
-  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
   bool possiblyCalls() const override { return true; }
   MOZ_MUST_USE bool writeRecoverData(
       CompactBufferWriter& writer) const override;
-  bool canRecoverOnBailout() const override {
-    return specialization_ != MIRType::None;
-  }
+  bool canRecoverOnBailout() const override { return true; }
 
   MDefinition* foldsTo(TempAllocator& alloc) override;
 
