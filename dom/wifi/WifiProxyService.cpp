@@ -121,7 +121,7 @@ already_AddRefed<WifiProxyService> WifiProxyService::FactoryCreate() {
     gWifiProxyService = new WifiProxyService();
     ClearOnShutdown(&gWifiProxyService);
 
-    gWifiNative = MakeUnique<WifiNative>(WifiProxyService::NotifyEvent);
+    gWifiNative = MakeUnique<WifiNative>();
     ClearOnShutdown(&gWifiNative);
   }
 
@@ -143,6 +143,7 @@ WifiProxyService::Start(nsIWifiEventListener* aListener,
     return NS_ERROR_FAILURE;
   }
 
+  gWifiNative->RegisterEventCallback(this);
   mListener = aListener;
   return NS_OK;
 }
@@ -150,6 +151,8 @@ WifiProxyService::Start(nsIWifiEventListener* aListener,
 NS_IMETHODIMP
 WifiProxyService::Shutdown() {
   MOZ_ASSERT(NS_IsMainThread());
+
+  gWifiNative->UnregisterEventCallback();
 
   if (mControlThread) {
     mControlThread->Shutdown();
@@ -184,9 +187,9 @@ WifiProxyService::SendCommand(JS::Handle<JS::Value> aOptions,
   return NS_OK;
 }
 
-void WifiProxyService::NotifyEvent(nsWifiEvent* aEvent,
-                                   const nsACString& iface) {
-  nsCOMPtr<nsIRunnable> runnable = new WifiEventDispatcher(aEvent, iface);
+void WifiProxyService::Notify(nsWifiEvent* aEvent,
+                              const nsACString& aInterface) {
+  nsCOMPtr<nsIRunnable> runnable = new WifiEventDispatcher(aEvent, aInterface);
   NS_DispatchToMainThread(runnable);
 }
 

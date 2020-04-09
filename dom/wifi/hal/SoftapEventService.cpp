@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#define LOG_TAG "SoftapEventCallback"
+#define LOG_TAG "SoftapEventService"
 
 #include "WifiCommon.h"
-#include "SoftapEventCallback.h"
+#include "SoftapEventService.h"
 
 #include <binder/IBinder.h>
 #include <binder/IServiceManager.h>
@@ -32,7 +32,6 @@ SoftapEventService* SoftapEventService::CreateService(
   s_Instance = new SoftapEventService(aInterfaceName);
   ClearOnShutdown(&s_Instance);
 
-  android::sp<::android::IServiceManager> sm = defaultServiceManager();
   android::sp<::android::ProcessState> ps(::android::ProcessState::self());
   if (android::defaultServiceManager()->addService(
           android::String16(SoftapEventService::GetServiceName()),
@@ -43,14 +42,15 @@ SoftapEventService* SoftapEventService::CreateService(
     return nullptr;
   }
   ps->startThreadPool();
+  ps->giveThreadPoolName();
   return s_Instance;
 }
 
-void SoftapEventService::RegisterEventCallback(EventCallback aCallback) {
-  mEventCallback = aCallback;
+void SoftapEventService::RegisterEventCallback(WifiEventCallback* aCallback) {
+  mCallback = aCallback;
 }
 
-void SoftapEventService::UnregisterEventCallback() { mEventCallback = nullptr; }
+void SoftapEventService::UnregisterEventCallback() { mCallback = nullptr; }
 
 /**
  * Implement IApInterfaceEventCallback
@@ -66,8 +66,8 @@ android::binder::Status SoftapEventService::onNumAssociatedStationsChanged(
   }
   event->mNumStations = (numStations < 0) ? 0 : numStations;
 
-  if (mEventCallback) {
-    mEventCallback(event, iface);
+  if (mCallback) {
+    mCallback->Notify(event, iface);
   }
   return android::binder::Status::ok();
 }

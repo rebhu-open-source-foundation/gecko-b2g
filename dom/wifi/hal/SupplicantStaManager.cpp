@@ -71,13 +71,11 @@ void SupplicantStaManager::SupplicantDeathRecipient::serviceDied(
   }
 }
 
-void SupplicantStaManager::RegisterEventCallback(EventCallback aCallback) {
-  mEventCallback = aCallback;
+void SupplicantStaManager::RegisterEventCallback(WifiEventCallback* aCallback) {
+  mCallback = aCallback;
 }
 
-void SupplicantStaManager::UnregisterEventCallback() {
-  mEventCallback = nullptr;
-}
+void SupplicantStaManager::UnregisterEventCallback() { mCallback = nullptr; }
 
 Result_t SupplicantStaManager::InitInterface() {
   if (mSupplicant != nullptr) {
@@ -626,8 +624,8 @@ Return<void> SupplicantStaManager::onTerminating() {
   nsCString iface(mStaInterfaceName);
   RefPtr<nsWifiEvent> event =
       new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_TERMINATING));
-  if (mEventCallback) {
-    mEventCallback(event, iface);
+  if (mCallback) {
+    mCallback->Notify(event, iface);
   }
   return android::hardware::Void();
 }
@@ -665,8 +663,8 @@ Return<void> SupplicantStaManager::onStateChanged(
       (uint32_t)newState, id, NS_ConvertUTF8toUTF16(bssid_str.c_str()),
       NS_ConvertUTF8toUTF16(ssid_str.c_str()));
   event->updateStateChanged(stateChanged);
-  if (mEventCallback) {
-    mEventCallback(event, iface);
+  if (mCallback) {
+    mCallback->Notify(event, iface);
   }
   return android::hardware::Void();
 }
@@ -719,8 +717,8 @@ Return<void> SupplicantStaManager::onDisconnected(
   event->mLocallyGenerated = locallyGenerated;
   event->mReason = (uint32_t)reasonCode;
 
-  if (mEventCallback) {
-    mEventCallback(event, iface);
+  if (mCallback) {
+    mCallback->Notify(event, iface);
   }
   return android::hardware::Void();
 }

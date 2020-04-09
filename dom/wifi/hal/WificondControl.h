@@ -17,11 +17,8 @@ using ::android::net::wifi::IApInterface;
 using ::android::net::wifi::IClientInterface;
 using ::android::net::wifi::IWificond;
 using ::android::net::wifi::IWifiScannerImpl;
-using ::com::android::server::wifi::wificond::ChannelSettings;
-using ::com::android::server::wifi::wificond::HiddenNetwork;
-using ::com::android::server::wifi::wificond::NativeScanResult;
-using ::com::android::server::wifi::wificond::PnoSettings;
-using ::com::android::server::wifi::wificond::SingleScanSettings;
+
+namespace Wificond = ::com::android::server::wifi::wificond;
 
 class WificondControl : virtual public android::RefBase {
  public:
@@ -40,16 +37,20 @@ class WificondControl : virtual public android::RefBase {
 
   Result_t SetupClientIface(
       const std::string& aIfaceName,
-      const android::sp<android::net::wifi::IScanEvent>& aScanCallback);
+      const android::sp<android::net::wifi::IScanEvent>& aScanCallback,
+      const android::sp<android::net::wifi::IPnoScanEvent>& aPnoScanCallback);
   Result_t SetupApIface(
       const std::string& aIfaceName,
       const android::sp<android::net::wifi::IApInterfaceEventCallback>& aApCallback);
   Result_t StartSoftap(ConfigurationOptions* aConfig);
   Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
   Result_t StopSingleScan();
-  Result_t StartPnoScan();
+  Result_t StartPnoScan(PnoScanSettingsOptions* aPnoScanSettings);
   Result_t StopPnoScan();
-  Result_t GetScanResults(std::vector<NativeScanResult>& aScanResults);
+  Result_t GetScanResults(
+      std::vector<Wificond::NativeScanResult>& aScanResults);
+  Result_t GetPnoScanResults(
+      std::vector<Wificond::NativeScanResult>& aPnoScanResults);
   Result_t GetChannelsForBand(uint32_t aBandMask,
                               std::vector<int32_t>& aChannels);
 

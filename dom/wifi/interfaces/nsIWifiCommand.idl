@@ -7,7 +7,7 @@
 
 interface nsIWifiConfiguration;
 
-[scriptable, uuid(57fc03b6-8593-4fb3-b49a-67df714e2f95)]
+[scriptable, uuid(f7781930-c3e7-49c6-9d94-f68d47b29464)]
 interface nsIWifiCommand: nsISupports
 {
   // module configuration
@@ -40,10 +40,9 @@ interface nsIWifiCommand: nsISupports
   const unsigned long START_PNO_SCAN              = 0x2002;
   const unsigned long STOP_PNO_SCAN               = 0x2003;
   const unsigned long GET_SCAN_RESULTS            = 0x2004;
-  const unsigned long GET_PNO_SCAN_RESULTS        = 0x2005;
-  const unsigned long SIGNAL_POLL                 = 0x2006;
-  const unsigned long GET_TX_PACKET_COUNTERS      = 0x2007;
-  const unsigned long GET_CHANNELS_FOR_BAND       = 0x2008;
+  const unsigned long SIGNAL_POLL                 = 0x2005;
+  const unsigned long GET_TX_PACKET_COUNTERS      = 0x2006;
+  const unsigned long GET_CHANNELS_FOR_BAND       = 0x2007;
 
   // network connection
   const unsigned long CONNECT                     = 0x3000;

@@ -127,10 +127,10 @@ interface nsISupplicantDebugLevel : nsISupports
   readonly attribute boolean showKeys;
 };
 
-[scriptable, uuid(639f72f2-265a-44bb-96db-169552ee8f9f)]
+[scriptable, uuid(e0a33a58-53c9-4582-b9f0-5be688852975)]
 interface nsIScanSettings : nsISupports
 {
-  // scan type
+  // scan accuracy
   const long SCAN_TYPE_LOW_SPAN      = 0;
   const long SCAN_TYPE_LOW_POWER     = 1;
   const long SCAN_TYPE_HIGH_ACCURACY = 2;
@@ -139,6 +139,10 @@ interface nsIScanSettings : nsISupports
   const long BAND_2_4_GHZ   = 0x1;
   const long BAND_5_GHZ     = 0x2;
   const long BAND_5_GHZ_DFS = 0x4;
+
+  // scan type
+  const long USE_SINGLE_SCAN = 0;
+  const long USE_PNO_SCAN = 1;
 };
 
 [scriptable, uuid(e4bec643-5d02-432a-8edf-182dee5917ab)]

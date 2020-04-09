@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef SupplicantEventCallback_H
-#define SupplicantEventCallback_H
+#ifndef WifiEventCallback_H
+#define WifiEventCallback_H
 
 #include "WifiCommon.h"
 
@@ -14,4 +14,10 @@ struct SupplicantDeathEventHandler : public virtual android::RefBase {
   virtual void OnDeath() = 0;
 };
 
-#endif /* SupplicantEventCallback_H */
+struct WifiEventCallback : public virtual android::RefBase {
+  // When receive callback from hal, call this function to notify
+  // framework through WifiProxyService.
+  virtual void Notify(nsWifiEvent* aEvent, const nsACString& aInterface) = 0;
+};
+
+#endif /* WifiEventCallback_H */

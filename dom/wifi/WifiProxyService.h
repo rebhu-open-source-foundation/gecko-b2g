@@ -14,19 +14,22 @@
 #include "nsTArray.h"
 #include "nsWifiResult.h"
 #include "nsWifiEvent.h"
+#include "WifiEventCallback.h"
 
 namespace mozilla {
 
-class WifiProxyService final : public nsIWifiProxyService {
+class WifiProxyService final : public nsIWifiProxyService,
+                               public WifiEventCallback {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIWIFIPROXYSERVICE
 
-  static void NotifyEvent(nsWifiEvent* aEvent, const nsACString& iface);
   static already_AddRefed<WifiProxyService> FactoryCreate();
 
   nsIWifiEventListener* GetListener() { return mListener; }
 
+  void Notify(nsWifiEvent* aEvent,
+              const nsACString& aInterface) override;
  private:
   WifiProxyService();
   ~WifiProxyService();

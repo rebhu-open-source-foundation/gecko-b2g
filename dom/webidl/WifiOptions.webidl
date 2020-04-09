@@ -16,11 +16,13 @@ dictionary WifiCommandOptions
   DOMString      softapCountryCode = "";
   unsigned short btCoexistenceMode = 0;
   unsigned long  bandMask = 0;
+  unsigned long  scanType = 0;
 
   WifiConfiguration    config = {};
   SoftapConfiguration  softapConfig = {};
   SupplicantDebugLevel debugLevel = {};
   ScanSettings         scanSettings = {};
+  PnoScanSettings      pnoScanSettings = {};
 };
 
 /**
@@ -117,4 +119,27 @@ dictionary ScanSettings
   unsigned long       scanType;
   sequence<long>      channels;
   sequence<DOMString> hiddenNetworks;
+};
+
+/**
+ * The dictionary holds the parameters for pno scan settings.
+ */
+[GenerateInit]
+dictionary PnoScanSettings
+{
+  long                 interval;
+  long                 min2gRssi;
+  long                 min5gRssi;
+  sequence<PnoNetwork> pnoNetworks;
+};
+
+/**
+ * The dictionary holds the parameters for pno network.
+ */
+[GenerateInit]
+dictionary PnoNetwork
+{
+  boolean        isHidden;
+  DOMString      ssid;
+  sequence<long> frequencies;
 };

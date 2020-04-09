@@ -7,11 +7,13 @@
 #ifndef WifiNative_h
 #define WifiNative_h
 
+#include "WifiEventCallback.h"
 #include "WifiHalManager.h"
 #include "WificondControl.h"
+#include "ScanEventService.h"
+#include "SoftapEventService.h"
 #include "SoftapManager.h"
 #include "SupplicantStaManager.h"
-#include "SupplicantEventCallback.h"
 #include "nsString.h"
 #include "nsWifiElement.h"
 #include "nsIWifiCommand.h"
@@ -19,10 +21,13 @@
 
 class WifiNative {
  public:
-  WifiNative(EventCallback aCallback);
+  WifiNative();
 
   bool ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
                       const nsCString& aInterface);
+
+  void RegisterEventCallback(WifiEventCallback* aCallback);
+  void UnregisterEventCallback();
 
  private:
   Result_t InitHal();
@@ -55,10 +60,12 @@ class WifiNative {
 
   Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
   Result_t StopSingleScan();
-  Result_t StartPnoScan();
+  Result_t StartPnoScan(PnoScanSettingsOptions* aPnoScanSettings);
   Result_t StopPnoScan();
-  Result_t GetScanResults(std::vector<NativeScanResult>& aScanResults);
-  Result_t GetPnoScanResults(std::vector<NativeScanResult>& aScanResults);
+  Result_t GetScanResults(
+      std::vector<Wificond::NativeScanResult>& aScanResults);
+  Result_t GetPnoScanResults(
+      std::vector<Wificond::NativeScanResult>& aPnoScanResults);
   Result_t GetChannelsForBand(uint32_t aBandMask,
                               std::vector<int32_t>& aChannels);
 
@@ -83,11 +90,13 @@ class WifiNative {
   static WificondControl* s_WificondControl;
   static SupplicantStaManager* s_SupplicantStaManager;
   static SoftapManager* s_SoftapManager;
+  static WifiEventCallback* s_Callback;
 
   std::string mStaInterfaceName;
   std::string mApInterfaceName;
-
-  EventCallback mEventCallback;
+  android::sp<ScanEventService> mScanEventService;
+  android::sp<PnoScanEventService> mPnoScanEventService;
+  android::sp<SoftapEventService> mSoftapEventService;
 };
 
 #endif  // WifiNative_h

@@ -7,7 +7,6 @@
 #define LOG_TAG "WifiNative"
 
 #include "WifiNative.h"
-#include "WificondEventService.h"
 #include <cutils/properties.h>
 #include <string.h>
 #include "js/CharacterEncoding.h"
@@ -22,15 +21,16 @@ WifiHal* WifiNative::s_WifiHal = nullptr;
 WificondControl* WifiNative::s_WificondControl = nullptr;
 SoftapManager* WifiNative::s_SoftapManager = nullptr;
 SupplicantStaManager* WifiNative::s_SupplicantStaManager = nullptr;
+WifiEventCallback* WifiNative::s_Callback = nullptr;
 
-WifiNative::WifiNative(EventCallback aCallback) {
+WifiNative::WifiNative()
+    : mScanEventService(nullptr),
+      mPnoScanEventService(nullptr),
+      mSoftapEventService(nullptr) {
   s_WifiHal = WifiHal::Get();
   s_WificondControl = WificondControl::Get();
   s_SoftapManager = SoftapManager::Get();
   s_SupplicantStaManager = SupplicantStaManager::Get();
-
-  mEventCallback = aCallback;
-  s_SupplicantStaManager->RegisterEventCallback(mEventCallback);
 }
 
 bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
@@ -82,12 +82,19 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_SINGLE_SCAN) {
     aResult->mStatus = StopSingleScan();
   } else if (aOptions.mCmd == nsIWifiCommand::START_PNO_SCAN) {
-    aResult->mStatus = StartPnoScan();
+    aResult->mStatus = StartPnoScan(&aOptions.mPnoScanSettings);
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_PNO_SCAN) {
     aResult->mStatus = StopPnoScan();
   } else if (aOptions.mCmd == nsIWifiCommand::GET_SCAN_RESULTS) {
-    std::vector<NativeScanResult> nativeScanResults;
-    aResult->mStatus = GetScanResults(nativeScanResults);
+    std::vector<Wificond::NativeScanResult> nativeScanResults;
+
+    if (aOptions.mScanType == nsIScanSettings::USE_SINGLE_SCAN) {
+      aResult->mStatus = GetScanResults(nativeScanResults);
+    } else if (aOptions.mScanType == nsIScanSettings::USE_PNO_SCAN) {
+      aResult->mStatus = GetPnoScanResults(nativeScanResults);
+    } else {
+      WIFI_LOGE(LOG_TAG, "Invalid scan type: %d", aOptions.mScanType);
+    }
 
     if (nativeScanResults.empty()) {
       WIFI_LOGD(LOG_TAG, "No scan result available");
@@ -119,9 +126,6 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
       scanResults.AppendElement(scanResult);
     }
     aResult->updateScanResults(scanResults);
-  } else if (aOptions.mCmd == nsIWifiCommand::GET_PNO_SCAN_RESULTS) {
-    std::vector<NativeScanResult> nativeScanResults;
-    aResult->mStatus = GetPnoScanResults(nativeScanResults);
   } else if (aOptions.mCmd == nsIWifiCommand::GET_CHANNELS_FOR_BAND) {
     std::vector<int32_t> channels;
     aResult->mStatus = GetChannelsForBand(aOptions.mBandMask, channels);
@@ -160,6 +164,20 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
             aResult->mStatus);
 
   return true;
+}
+
+void WifiNative::RegisterEventCallback(WifiEventCallback* aCallback) {
+  s_Callback = aCallback;
+  if (s_SupplicantStaManager) {
+    s_SupplicantStaManager->RegisterEventCallback(s_Callback);
+  }
+}
+
+void WifiNative::UnregisterEventCallback() {
+  if (s_SupplicantStaManager) {
+    s_SupplicantStaManager->UnregisterEventCallback();
+  }
+  s_Callback = nullptr;
 }
 
 Result_t WifiNative::InitHal() {
@@ -227,13 +245,21 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
   s_WifiHal->ConfigChipAndCreateIface(wifiNameSpace::IfaceType::STA,
                                       mStaInterfaceName);
 
-  WificondEventService* eventService =
-      WificondEventService::CreateService(mStaInterfaceName);
-  if (eventService == nullptr) {
+  // here create scan and pno scan event service,
+  // which implement scan callback from wificond
+  mScanEventService = ScanEventService::CreateService(mStaInterfaceName);
+  if (mScanEventService == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to create scan event service");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  eventService->RegisterEventCallback(mEventCallback);
+  mScanEventService->RegisterEventCallback(s_Callback);
+
+  mPnoScanEventService = PnoScanEventService::CreateService(mStaInterfaceName);
+  if (mPnoScanEventService == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Failed to create pno scan event service");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  mPnoScanEventService->RegisterEventCallback(s_Callback);
 
   result = StartSupplicant();
   if (result != nsIWifiResult::SUCCESS) {
@@ -247,7 +273,10 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
 
   result = s_WificondControl->SetupClientIface(
       mStaInterfaceName,
-      android::interface_cast<android::net::wifi::IScanEvent>(eventService));
+      android::interface_cast<android::net::wifi::IScanEvent>(
+          mScanEventService),
+      android::interface_cast<android::net::wifi::IPnoScanEvent>(
+          mPnoScanEventService));
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to setup iface in wificond");
     s_WificondControl->TearDownClientInterface(mStaInterfaceName);
@@ -279,6 +308,13 @@ Result_t WifiNative::StopWifi() {
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop supplicant");
     return result;
+  }
+
+  if (mScanEventService) {
+    mScanEventService->UnregisterEventCallback();
+  }
+  if (mPnoScanEventService) {
+    mPnoScanEventService->UnregisterEventCallback();
   }
 
   // teardown wificond interfaces.
@@ -422,18 +458,22 @@ Result_t WifiNative::StopSingleScan() {
   return s_WificondControl->StopSingleScan();
 }
 
-Result_t WifiNative::StartPnoScan() { return nsIWifiResult::SUCCESS; }
+Result_t WifiNative::StartPnoScan(PnoScanSettingsOptions* aPnoScanSettings) {
+  return s_WificondControl->StartPnoScan(aPnoScanSettings);
+}
 
-Result_t WifiNative::StopPnoScan() { return nsIWifiResult::SUCCESS; }
+Result_t WifiNative::StopPnoScan() {
+  return s_WificondControl->StopPnoScan();
+}
 
 Result_t WifiNative::GetScanResults(
-    std::vector<NativeScanResult>& aScanResults) {
+    std::vector<Wificond::NativeScanResult>& aScanResults) {
   return s_WificondControl->GetScanResults(aScanResults);
 }
 
 Result_t WifiNative::GetPnoScanResults(
-    std::vector<NativeScanResult>& aScanResults) {
-  return nsIWifiResult::SUCCESS;
+    std::vector<Wificond::NativeScanResult>& aPnoScanResults) {
+  return s_WificondControl->GetPnoScanResults(aPnoScanResults);
 }
 
 Result_t WifiNative::GetChannelsForBand(uint32_t aBandMask,
@@ -511,18 +551,17 @@ Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
     WIFI_LOGE(LOG_TAG, "Failed to create AP interface");
     return result;
   }
-  SoftapEventService* eventService =
-      SoftapEventService::CreateService(mApInterfaceName);
-  if (eventService == nullptr) {
+  mSoftapEventService = SoftapEventService::CreateService(mApInterfaceName);
+  if (mSoftapEventService == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to create softap event service");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  eventService->RegisterEventCallback(mEventCallback);
+  mSoftapEventService->RegisterEventCallback(s_Callback);
 
   result = s_WificondControl->SetupApIface(
       mApInterfaceName,
       android::interface_cast<android::net::wifi::IApInterfaceEventCallback>(
-          eventService));
+          mSoftapEventService));
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to setup softap iface in wificond");
     s_WificondControl->TearDownSoftapInterface(mApInterfaceName);
@@ -565,6 +604,9 @@ Result_t WifiNative::StopSoftAp() {
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop softap");
     return result;
+  }
+  if (mSoftapEventService) {
+    mSoftapEventService->UnregisterEventCallback();
   }
   result = s_WificondControl->TearDownSoftapInterface(mApInterfaceName);
   if (result != nsIWifiResult::SUCCESS) {

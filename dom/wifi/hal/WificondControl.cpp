@@ -23,6 +23,7 @@ using ::android::IBinder;
 using ::android::interface_cast;
 using ::android::String16;
 using ::android::net::wifi::IApInterfaceEventCallback;
+using ::android::net::wifi::IPnoScanEvent;
 using ::android::net::wifi::IScanEvent;
 
 static const char* CTL_START_PROPERTY = "ctl.start";
@@ -183,7 +184,8 @@ Result_t WificondControl::StopSupplicant() {
 
 Result_t WificondControl::SetupClientIface(
     const std::string& aIfaceName,
-    const android::sp<IScanEvent>& aScanCallback) {
+    const android::sp<IScanEvent>& aScanCallback,
+    const android::sp<IPnoScanEvent>& aPnoScanCallback) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
   // retrieve wificond handle
@@ -199,10 +201,11 @@ Result_t WificondControl::SetupClientIface(
     WIFI_LOGE(LOG_TAG, "Failed to get WificondScannerImpl");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  if (mScanner->subscribeScanEvents(aScanCallback).isOk()) {
-    WIFI_LOGD(LOG_TAG, "subscribe scan event success");
-  } else {
+  if (!mScanner->subscribeScanEvents(aScanCallback).isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
+  }
+  if (!mScanner->subscribePnoScanEvents(aPnoScanCallback).isOk()) {
+    WIFI_LOGE(LOG_TAG, "subscribe pno scan event failed");
   }
   return nsIWifiResult::SUCCESS;
 }
@@ -231,20 +234,20 @@ Result_t WificondControl::StartSingleScan(ScanSettingsOptions* aScanSettings) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
-  SingleScanSettings settings;
+  Wificond::SingleScanSettings settings;
   settings.scan_type_ = aScanSettings->mScanType;
 
-  std::vector<ChannelSettings> channels;
+  std::vector<Wificond::ChannelSettings> channels;
   for (auto& freq : aScanSettings->mChannels) {
-    ChannelSettings channel;
+    Wificond::ChannelSettings channel;
     channel.frequency_ = freq;
     channels.push_back(channel);
   }
 
-  std::vector<HiddenNetwork> hiddenNetworks;
+  std::vector<Wificond::HiddenNetwork> hiddenNetworks;
   if (!aScanSettings->mHiddenNetworks.IsEmpty()) {
     for (auto& net : aScanSettings->mHiddenNetworks) {
-      HiddenNetwork hidden;
+      Wificond::HiddenNetwork hidden;
       std::string ssid_str = NS_ConvertUTF16toUTF8(net).get();
       std::vector<uint8_t> ssid(ssid_str.begin(), ssid_str.end());
       hidden.ssid_ = ssid;
@@ -267,12 +270,54 @@ Result_t WificondControl::StopSingleScan() {
   return CHECK_SUCCESS(mScanner->abortScan().isOk());
 }
 
-Result_t WificondControl::StartPnoScan() { return nsIWifiResult::SUCCESS; }
+Result_t WificondControl::StartPnoScan(
+    PnoScanSettingsOptions* aPnoScanSettings) {
+  if (mScanner == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
 
-Result_t WificondControl::StopPnoScan() { return nsIWifiResult::SUCCESS; }
+  Wificond::PnoSettings settings;
+  settings.interval_ms_ = aPnoScanSettings->mInterval;
+  settings.min_2g_rssi_ = aPnoScanSettings->mMin2gRssi;
+  settings.min_5g_rssi_ = aPnoScanSettings->mMin5gRssi;
+
+  std::vector<Wificond::PnoNetwork> pnoNetworks;
+  if (!aPnoScanSettings->mPnoNetworks.IsEmpty()) {
+    for (auto& pno : aPnoScanSettings->mPnoNetworks) {
+      Wificond::PnoNetwork network;
+      network.is_hidden_ = pno.mIsHidden;
+
+      std::string ssid_str = NS_ConvertUTF16toUTF8(pno.mSsid).get();
+      Dequote(ssid_str);
+      std::vector<uint8_t> ssid(ssid_str.begin(), ssid_str.end());
+      network.ssid_ = ssid;
+
+      for (int32_t freq : pno.mFrequencies) {
+        network.frequencies_.push_back(freq);
+      }
+      pnoNetworks.push_back(network);
+    }
+  }
+  settings.pno_networks_ = pnoNetworks;
+
+  bool success = false;
+  mScanner->startPnoScan(settings, &success);
+  return CHECK_SUCCESS(success);
+}
+
+Result_t WificondControl::StopPnoScan() {
+  if (mScanner == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+  bool success = false;
+  mScanner->stopPnoScan(&success);
+  return CHECK_SUCCESS(success);
+}
 
 Result_t WificondControl::GetScanResults(
-    std::vector<NativeScanResult>& aScanResults) {
+    std::vector<Wificond::NativeScanResult>& aScanResults) {
   if (mScanner == nullptr) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
@@ -280,6 +325,20 @@ Result_t WificondControl::GetScanResults(
 
   if (!mScanner->getScanResults(&aScanResults).isOk()) {
     WIFI_LOGE(LOG_TAG, "Get scan results failed");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  return nsIWifiResult::SUCCESS;
+}
+
+Result_t WificondControl::GetPnoScanResults(
+    std::vector<Wificond::NativeScanResult>& aPnoScanResults) {
+  if (mScanner == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
+  if (!mScanner->getPnoScanResults(&aPnoScanResults).isOk()) {
+    WIFI_LOGE(LOG_TAG, "Get pno scan results failed");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   return nsIWifiResult::SUCCESS;

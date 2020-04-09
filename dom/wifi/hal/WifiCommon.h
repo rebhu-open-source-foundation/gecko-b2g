@@ -45,9 +45,6 @@
 
 typedef uint32_t Result_t;
 
-typedef void (*EventCallback)(nsWifiEvent* aEvent,
-                              const nsACString& aInterface);
-
 #define COPY_SEQUENCE_FIELD(prop, type)                \
   if (aOther.prop.WasPassed()) {                       \
     mozilla::dom::Sequence<type> const& currentValue = \
@@ -186,14 +183,55 @@ struct ScanSettingsOptions {
  public:
   ScanSettingsOptions() = default;
 
-  ScanSettingsOptions(const mozilla::dom::ScanSettings& aOther){
-  COPY_OPT_FIELD(mScanType, 2)
-  COPY_SEQUENCE_FIELD(mChannels, int32_t)
-  COPY_SEQUENCE_FIELD(mHiddenNetworks, nsString)}
+  ScanSettingsOptions(const mozilla::dom::ScanSettings& aOther) {
+    COPY_OPT_FIELD(mScanType, 2)
+    COPY_SEQUENCE_FIELD(mChannels, int32_t)
+    COPY_SEQUENCE_FIELD(mHiddenNetworks, nsString)
+  }
 
   uint32_t mScanType;
   nsTArray<int32_t> mChannels;
   nsTArray<nsString> mHiddenNetworks;
+};
+
+struct PnoNetworkOptions {
+ public:
+  PnoNetworkOptions() = default;
+
+  PnoNetworkOptions(const mozilla::dom::PnoNetwork& aOther) {
+    COPY_OPT_FIELD(mIsHidden, false)
+    COPY_OPT_FIELD(mSsid, EmptyString())
+    COPY_SEQUENCE_FIELD(mFrequencies, int32_t)
+  }
+
+  bool mIsHidden;
+  nsString mSsid;
+  nsTArray<int32_t> mFrequencies;
+};
+
+struct PnoScanSettingsOptions {
+ public:
+  PnoScanSettingsOptions() = default;
+
+  PnoScanSettingsOptions(const mozilla::dom::PnoScanSettings& aOther) {
+    COPY_OPT_FIELD(mInterval, 0)
+    COPY_OPT_FIELD(mMin2gRssi, 0)
+    COPY_OPT_FIELD(mMin5gRssi, 0)
+
+    if (aOther.mPnoNetworks.WasPassed()) {
+      mozilla::dom::Sequence<mozilla::dom::PnoNetwork> const& currentValue =
+          aOther.mPnoNetworks.InternalValue();
+      for (size_t i = 0; i < currentValue.Length(); i++) {
+        PnoNetworkOptions pnoNetwork(currentValue[i]);
+        mPnoNetworks.AppendElement(pnoNetwork);
+      }
+    }
+  }
+
+  int32_t mInterval;
+  int32_t mMin2gRssi;
+  int32_t mMin5gRssi;
+  nsTArray<PnoNetworkOptions> mPnoNetworks;
 };
 
 // Needed to add a copy constructor to WifiCommandOptions.
@@ -207,14 +245,17 @@ struct CommandOptions {
     COPY_FIELD(mSoftapCountryCode)
     COPY_FIELD(mBtCoexistenceMode)
     COPY_FIELD(mBandMask)
+    COPY_FIELD(mScanType)
     ConfigurationOptions config(aOther.mConfig);
     SoftapConfigurationOptions softapConfig(aOther.mSoftapConfig);
     SupplicantDebugLevelOptions debugLevel(aOther.mDebugLevel);
     ScanSettingsOptions scanSettings(aOther.mScanSettings);
+    PnoScanSettingsOptions pnoScanSettings(aOther.mPnoScanSettings);
     mConfig = config;
     mSoftapConfig = softapConfig;
     mDebugLevel = debugLevel;
     mScanSettings = scanSettings;
+    mPnoScanSettings = pnoScanSettings;
   }
 
   // All the fields, not Optional<> anymore to get copy constructors.
@@ -226,10 +267,13 @@ struct CommandOptions {
   nsString mSoftapCountryCode;
   uint8_t mBtCoexistenceMode;
   uint32_t mBandMask;
+  uint32_t mScanType;
+
   ConfigurationOptions mConfig;
   SoftapConfigurationOptions mSoftapConfig;
   SupplicantDebugLevelOptions mDebugLevel;
   ScanSettingsOptions mScanSettings;
+  PnoScanSettingsOptions mPnoScanSettings;
 };
 
 #undef COPY_OPT_FIELD

@@ -41,7 +41,6 @@ const WIFI_CMD_STOP_SINGLE_SCAN = Ci.nsIWifiCommand.STOP_SINGLE_SCAN;
 const WIFI_CMD_START_PNO_SCAN = Ci.nsIWifiCommand.START_PNO_SCAN;
 const WIFI_CMD_STOP_PNO_SCAN = Ci.nsIWifiCommand.STOP_PNO_SCAN;
 const WIFI_CMD_GET_SCAN_RESULTS = Ci.nsIWifiCommand.GET_SCAN_RESULTS;
-const WIFI_CMD_GET_PNO_SCAN_RESULTS = Ci.nsIWifiCommand.GET_PNO_SCAN_RESULTS;
 const WIFI_CMD_SIGNAL_POLL = Ci.nsIWifiCommand.SIGNAL_POLL;
 const WIFI_CMD_GET_TX_PACKET_COUNTERS = Ci.nsIWifiCommand.GET_TX_PACKET_COUNTERS;
 const WIFI_CMD_GET_CHANNELS_FOR_BAND = Ci.nsIWifiCommand.GET_CHANNELS_FOR_BAND;
@@ -77,197 +76,174 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   // General commands.
   //-------------------------------------------------
   command.initialize = function(callback) {
-    voidControlMessage(WIFI_CMD_INITIALIZE, callback);
+    doCommand(WIFI_CMD_INITIALIZE, callback);
   };
 
   command.getSupportFeatures = function(callback) {
-    doGetCommand(WIFI_CMD_GET_CAPABILITIES, callback);
+    doCommand(WIFI_CMD_GET_CAPABILITIES, callback);
   };
 
   command.getDriverModuleVersion = function(callback) {
-    doGetCommand(WIFI_CMD_GET_MODULE_VERSION, callback);
-  };
-
-  // FIXME: the function will be removed
-  command.setNetworkVariable = function(netId, name, value, callback) {
-    callback(true);
+    doCommand(WIFI_CMD_GET_MODULE_VERSION, callback);
   };
 
   command.getDebugLevel = function(callback) {
-    doGetCommand(WIFI_CMD_GET_DEBUG_LEVEL, callback);
+    doCommand(WIFI_CMD_GET_DEBUG_LEVEL, callback);
   };
 
   command.setDebugLevel = function(level, callback) {
-    doSetCommand(WIFI_CMD_SET_DEBUG_LEVEL, "debugLevel", level, callback);
+    doCommandWithParams(WIFI_CMD_SET_DEBUG_LEVEL, "debugLevel", level, callback);
   };
 
   command.setLowLatencyMode = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_LOW_LATENCY_MODE, "enabled", enable, callback);
+    doCommandWithParams(WIFI_CMD_SET_LOW_LATENCY_MODE, "enabled", enable, callback);
   };
 
   command.setStaHigherPriority = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_CONCURRENCY_PRIORITY, "enabled", enable, callback);
+    doCommandWithParams(WIFI_CMD_SET_CONCURRENCY_PRIORITY, "enabled", enable, callback);
   };
 
   command.startWifi = function(callback) {
-    doGetCommand(WIFI_CMD_START_WIFI, callback);
+    doCommand(WIFI_CMD_START_WIFI, callback);
   };
 
   command.stopWifi = function(callback) {
-    voidControlMessage(WIFI_CMD_STOP_WIFI, callback);
+    doCommand(WIFI_CMD_STOP_WIFI, callback);
   };
 
   command.getMacAddress = function(callback) {
-    doGetCommand(WIFI_CMD_GET_MAC_ADDRESS, callback);
+    doCommand(WIFI_CMD_GET_MAC_ADDRESS, callback);
   };
 
   command.getStaInterface = function(callback) {
-    doGetCommand(WIFI_CMD_GET_STA_IFACE, callback);
+    doCommand(WIFI_CMD_GET_STA_IFACE, callback);
   };
 
   command.getStaCapabilities = function(callback) {
-    doGetCommand(WIFI_CMD_GET_STA_CAPABILITIES, callback);
+    doCommand(WIFI_CMD_GET_STA_CAPABILITIES, callback);
   };
 
   command.setPowerSave = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_POWER_SAVE, "enabled", enable, callback);
+    doCommandWithParams(WIFI_CMD_SET_POWER_SAVE, "enabled", enable, callback);
   };
 
   command.setSuspendMode = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_SUSPEND_MODE, "enabled", enable, callback);
+    doCommandWithParams(WIFI_CMD_SET_SUSPEND_MODE, "enabled", enable, callback);
   };
 
   command.setExternalSim = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_EXTERNAL_SIM, "enabled", enable, callback);
+    doCommandWithParams(WIFI_CMD_SET_EXTERNAL_SIM, "enabled", enable, callback);
   };
 
   command.enableAutoReconnect = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_AUTO_RECONNECT, "enabled", enable, callback);
+    doCommandWithParams(WIFI_CMD_SET_AUTO_RECONNECT, "enabled", enable, callback);
   };
 
   command.setCountryCode = function(code, callback) {
-    doSetCommand(WIFI_CMD_SET_COUNTRY_CODE, "countryCode", code, callback);
+    doCommandWithParams(WIFI_CMD_SET_COUNTRY_CODE, "countryCode", code, callback);
   };
 
   command.setBluetoothCoexistenceMode = function(mode, callback) {
-    doSetCommand(WIFI_CMD_SET_BT_COEXIST_MODE, "btCoexistenceMode", mode, callback);
+    doCommandWithParams(WIFI_CMD_SET_BT_COEXIST_MODE, "btCoexistenceMode", mode, callback);
   };
 
   command.setBluetoothCoexistenceScanMode = function(enable, callback) {
-    doSetCommand(WIFI_CMD_SET_BT_COEXIST_SCAN_MODE, "enabled", enable, callback);
+    doCommandWithParams(WIFI_CMD_SET_BT_COEXIST_SCAN_MODE, "enabled", enable, callback);
   };
 
   command.startScan = function(settings, callback) {
-    doSetCommand(WIFI_CMD_START_SINGLE_SCAN, "scanSettings", settings, callback);
+    doCommandWithParams(WIFI_CMD_START_SINGLE_SCAN, "scanSettings", settings, callback);
   };
 
   command.stopScan = function(callback) {
-    voidControlMessage(WIFI_CMD_STOP_SINGLE_SCAN, callback);
+    doCommand(WIFI_CMD_STOP_SINGLE_SCAN, callback);
   };
 
-  command.startPnoScan = function(callback) {
-    voidControlMessage(WIFI_CMD_START_PNO_SCAN, callback);
+  command.startPnoScan = function(settings, callback) {
+    doCommandWithParams(WIFI_CMD_START_PNO_SCAN, "pnoScanSettings", settings, callback);
   };
 
   command.stopPnoScan = function(callback) {
-    voidControlMessage(WIFI_CMD_STOP_PNO_SCAN, callback);
+    doCommand(WIFI_CMD_STOP_PNO_SCAN, callback);
   };
 
-  command.getScanResults = function(callback) {
-    doGetCommand(WIFI_CMD_GET_SCAN_RESULTS, callback);
-  };
-
-  command.getPnoScanResults = function(callback) {
-    doGetCommand(WIFI_CMD_GET_PNO_SCAN_RESULTS, callback);
+  command.getScanResults = function(type, callback) {
+    doCommandWithParams(WIFI_CMD_GET_SCAN_RESULTS, "scanType", type, callback);
   };
 
   command.signalPoll = function(callback) {
-    doGetCommand(WIFI_CMD_SIGNAL_POLL, callback);
+    doCommand(WIFI_CMD_SIGNAL_POLL, callback);
   };
 
   command.getPacketCounters = function(callback) {
-    doGetCommand(WIFI_CMD_GET_TX_PACKET_COUNTERS, callback);
+    doCommand(WIFI_CMD_GET_TX_PACKET_COUNTERS, callback);
   };
 
   command.getChannelsForBand = function(band, callback) {
-    let msg = {
-      cmd: WIFI_CMD_GET_CHANNELS_FOR_BAND,
-      iface: aInterface,
-      bandMask: band,
-    };
-    aControlMessage(msg, callback);
+    doCommandWithParams(WIFI_CMD_GET_CHANNELS_FOR_BAND, "bandMask", band, callback);
   };
 
   command.connect = function(config, callback) {
-    doSetCommand(WIFI_CMD_CONNECT, "config", config, callback);
+    doCommandWithParams(WIFI_CMD_CONNECT, "config", config, callback);
   };
 
   command.reconnect = function(callback) {
-    voidControlMessage(WIFI_CMD_RECONNECT, callback);
+    doCommand(WIFI_CMD_RECONNECT, callback);
   };
 
   command.reassociate = function(callback) {
-    voidControlMessage(WIFI_CMD_REASSOCIATE, callback);
+    doCommand(WIFI_CMD_REASSOCIATE, callback);
   };
 
   command.disconnect = function(callback) {
-    voidControlMessage(WIFI_CMD_DISCONNECT, callback);
+    doCommand(WIFI_CMD_DISCONNECT, callback);
   };
 
   command.removeNetworks = function(callback) {
-    voidControlMessage(WIFI_CMD_REMOVE_NETWORKS, callback);
+    doCommand(WIFI_CMD_REMOVE_NETWORKS, callback);
   };
 
   command.startRssiMonitoring = function(callback) {
-    voidControlMessage(WIFI_CMD_START_RSSI_MONITORING, callback);
+    doCommand(WIFI_CMD_START_RSSI_MONITORING, callback);
   };
 
   command.stopRssiMonitoring = function(callback) {
-    voidControlMessage(WIFI_CMD_STOP_RSSI_MONITORING, callback);
+    doCommand(WIFI_CMD_STOP_RSSI_MONITORING, callback);
   };
 
   command.startSoftap = function(config, callback) {
-    let msg = {
-      cmd: WIFI_CMD_START_SOFTAP,
-      iface: aInterface,
-      softapConfig: config,
-    };
-    aControlMessage(msg, callback);
+    doCommandWithParams(WIFI_CMD_START_SOFTAP, "softapConfig", config, callback);
   };
 
   command.stopSoftap = function(callback) {
-    voidControlMessage(WIFI_CMD_STOP_SOFTAP, callback);
+    doCommand(WIFI_CMD_STOP_SOFTAP, callback);
   };
 
   command.getSoftapInterface = function(callback) {
-    doGetCommand(WIFI_CMD_GET_AP_IFACE, callback);
+    doCommand(WIFI_CMD_GET_AP_IFACE, callback);
   };
 
-  command.getSoftapInterface = function(callback) {
-    doGetCommand(WIFI_CMD_GET_SOFTAP_STATION_NUMBER, callback);
+  command.getSoftapStations = function(callback) {
+    doCommand(WIFI_CMD_GET_SOFTAP_STATION_NUMBER, callback);
   };
 
   //----------------------------------------------------------
   // Private stuff.
   //----------------------------------------------------------
 
-  function voidControlMessage(cmd, callback) {
-    aControlMessage({ cmd, iface: aInterface }, function(result) {
-      callback(result.status);
-    });
-  }
-
-  function doGetCommand(cmd, callback) {
+  function doCommand(cmd, callback) {
     aControlMessage({ cmd, iface: aInterface }, function(result) {
       callback(result);
     });
   }
 
-  function doSetCommand(cmd, item, data, callback) {
+  function doCommandWithParams(cmd, item, data, callback) {
     let msg = { cmd, iface: aInterface };
-    msg[item] = data;
+    if (item.trim().length > 0) {
+      msg[item] = data;
+    }
     aControlMessage(msg, function(result) {
-      callback(result.status);
+      callback(result);
     });
   }
 

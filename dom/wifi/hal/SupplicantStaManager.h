@@ -8,8 +8,8 @@
 #define SupplicantStaManager_H
 
 #include "WifiCommon.h"
+#include "WifiEventCallback.h"
 #include "SupplicantStaNetwork.h"
-#include "SupplicantEventCallback.h"
 
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceNotification.h>
@@ -48,7 +48,7 @@ class SupplicantStaManager
  public:
   static SupplicantStaManager* Get();
   static void CleanUp();
-  void RegisterEventCallback(EventCallback aCallback);
+  void RegisterEventCallback(WifiEventCallback* aCallback);
   void UnregisterEventCallback();
 
   // HIDL initialization
@@ -314,7 +314,6 @@ class SupplicantStaManager
 
   static SupplicantStaManager* s_Instance;
   static mozilla::Mutex s_Lock;
-  EventCallback mEventCallback;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;
   android::sp<ISupplicant> mSupplicant;
@@ -322,6 +321,7 @@ class SupplicantStaManager
   android::sp<ServiceManagerDeathRecipient> mServiceManagerDeathRecipient;
   android::sp<SupplicantDeathRecipient> mSupplicantDeathRecipient;
   android::sp<SupplicantDeathEventHandler> mDeathEventHandler;
+  android::sp<WifiEventCallback> mCallback;
 
   int32_t mDeathRecipientCookie;
   std::string mStaInterfaceName;

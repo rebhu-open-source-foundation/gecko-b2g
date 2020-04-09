@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef SoftapEventCallback_H
-#define SoftapEventCallback_H
+#ifndef SoftapEventService_H
+#define SoftapEventService_H
 
 #include <android/net/wifi/BnApInterfaceEventCallback.h>
 #include <binder/BinderService.h>
@@ -19,10 +19,10 @@ class SoftapEventService
         mSoftapInterfaceName(aInterfaceName) {}
   virtual ~SoftapEventService() = default;
 
-  static char const* GetServiceName() { return "softap_event"; }
+  static char const* GetServiceName() { return "softap.event"; }
   static SoftapEventService* CreateService(const std::string& aInterfaceName);
 
-  void RegisterEventCallback(EventCallback aCallback);
+  void RegisterEventCallback(WifiEventCallback* aCallback);
   void UnregisterEventCallback();
 
   // IApInterfaceEventCallback
@@ -35,7 +35,7 @@ class SoftapEventService
   static SoftapEventService* s_Instance;
   std::string mSoftapInterfaceName;
 
-  EventCallback mEventCallback;
+  android::sp<WifiEventCallback> mCallback;
 };
 
-#endif  // SoftapEventCallback_H
+#endif  // SoftapEventService_H

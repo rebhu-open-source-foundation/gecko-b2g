@@ -12,7 +12,7 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-this.EXPORTED_SYMBOLS = ["WifiScanSettings"];
+this.EXPORTED_SYMBOLS = ["WifiScanSettings", "WifiPnoSettings"];
 
 /**
  * Describes WiFi scan settings.
@@ -48,4 +48,30 @@ this.WifiScanSettings = (function() {
   wifiScanSettings.hiddenNetworks = hiddenNetworks;
 
   return wifiScanSettings;
+})();
+
+/**
+ * Describes WiFi pno scan settings.
+ */
+this.WifiPnoSettings = (function() {
+  var wifiPnoSettings = {};
+
+  const DEFAULT_PNO_INTERVAL_MS = 20 * 1000;
+  const DEFAULT_MIN_2G_RSSI = -73;
+  const DEFAULT_MIN_5G_RSSI = -70;
+
+  var interval = DEFAULT_PNO_INTERVAL_MS;
+  var min2gRssi = DEFAULT_MIN_2G_RSSI;
+  var min5gRssi = DEFAULT_MIN_5G_RSSI;
+  var pnoNetworks = [];
+
+  var pnoSettings = Object.create(null);
+
+  wifiPnoSettings.pnoSettings = pnoSettings;
+  wifiPnoSettings.interval = interval;
+  wifiPnoSettings.min2gRssi = min2gRssi;
+  wifiPnoSettings.min5gRssi = min5gRssi;
+  wifiPnoSettings.pnoNetworks = pnoNetworks;
+
+  return wifiPnoSettings;
 })();

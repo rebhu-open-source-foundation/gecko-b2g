@@ -37,7 +37,7 @@ const { WifiNetworkSelector } = ChromeUtils.import(
 const { WifiConfigManager } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigManager.jsm"
 );
-const { WifiScanSettings } = ChromeUtils.import(
+const { WifiScanSettings, WifiPnoSettings } = ChromeUtils.import(
   "resource://gre/modules/WifiScanSettings.jsm"
 );
 const { FileUtils } = ChromeUtils.import(
@@ -124,6 +124,9 @@ const LEVEL_DEBUG = Ci.nsISupplicantDebugLevel.DEBUG;
 const LEVEL_INFO = Ci.nsISupplicantDebugLevel.INOF;
 const LEVEL_WARNING = Ci.nsISupplicantDebugLevel.WARNING;
 const LEVEL_ERROR = Ci.nsISupplicantDebugLevel.ERROR;
+
+const USE_SINGLE_SCAN = Ci.nsIScanSettings.USE_SINGLE_SCAN;
+const USE_PNO_SCAN = Ci.nsIScanSettings.USE_PNO_SCAN;
 
 const WIFIWORKER_CONTRACTID = "@mozilla.org/wifi/worker;1";
 const WIFIWORKER_CID = Components.ID("{a14e8977-d259-433a-a88d-58dd44657e5b}");
@@ -432,7 +435,7 @@ var WifiManager = (function() {
   // Commands to the control worker.
   function halInitialize(callback) {
     wifiCommand.initialize(function(result) {
-      callback(result);
+      callback(result.status == SUCCESS);
     });
   }
 
@@ -460,18 +463,53 @@ var WifiManager = (function() {
     }
   }
 
-  /* PNO(Preferred Network Offload): device will search user known networks if device disconnected and screen off.
-   * It will only work in wlan FW without waking system up.
-   * If wlan FW scan match ssid, it will report to supplicant and wakeup system to reconnect the network.*/
+  // PNO (Preferred Network Offload):
+  // device will search known networks if device disconnected and screen off.
+  // It will only work in wlan FW without waking system up.
+  // Once matched network found, it will wakeup system to start reconnect.
   var pnoEnabled = false;
   var schedulePnoFailed = false;
   function enableBackgroundScan(enable, callback) {
     pnoEnabled = enable;
-    wifiCommand.setBackgroundScan(enable, function(result) {
-      if (callback) {
-        callback(result);
+    if (enable) {
+      let pnoSettings = WifiPnoSettings.pnoSettings;
+      pnoSettings.interval = WifiPnoSettings.interval;
+      pnoSettings.min2gRssi = WifiPnoSettings.min2gRssi;
+      pnoSettings.min5gRssi = WifiPnoSettings.min5gRssi;
+
+      let network = {};
+      let configuredNetworks = WifiConfigManager.configuredNetworks;
+      for (let networkKey in configuredNetworks) {
+        // TODO: memory size in firmware is limited,
+        //       so we should optimize the pno list.
+        let config = configuredNetworks[networkKey];
+        network.ssid = config.ssid;
+        network.isHidden = (config.scanSsid) ? true : false;
+
+        // TODO: temporarily add all 2G channels in list,
+        //       should confirm where to update the frequencies
+        // network.frequencies = [config.frequency];
+        network.frequencies =
+          [ 2412, 2417, 2422, 2427, 2432, 2437,
+            2442, 2447, 2452, 2457, 2462 ];
+
+        WifiPnoSettings.pnoNetworks.push(network);
       }
-    });
+      pnoSettings.pnoNetworks = WifiPnoSettings.pnoNetworks;
+
+      if (pnoSettings.pnoNetworks.length == 0) {
+        debug("Empty PNO network list");
+        return callback(false);
+      }
+
+      wifiCommand.startPnoScan(pnoSettings, function(result) {
+        callback(result.status == SUCCESS);
+      });
+    } else {
+      wifiCommand.stopPnoScan(function(result) {
+        callback(result.status == SUCCESS);
+      });
+    }
   }
 
   function updateChannels(callback) {
@@ -479,8 +517,7 @@ var WifiManager = (function() {
       let channels = result.getChannels();
       if (channels.length > 0) {
         WifiScanSettings.channels = channels;
-        callback(true);
-        return;
+        return callback(true);
       }
       callback(false);
     });
@@ -502,7 +539,7 @@ var WifiManager = (function() {
       manager.handlePreWifiScan();
       wifiCommand.startScan(scanSettings, function(result) {
         if (callback) {
-          callback(result == SUCCESS);
+          callback(result.status == SUCCESS);
         }
       });
     });
@@ -872,12 +909,12 @@ var WifiManager = (function() {
       return;
     }
     setSuspendOptimizationsMode(POWER_MODE_DHCP, true, function(ok) {
-      manager.setPowerSave(true, function(ok) {
+      manager.setPowerSave(true, function(result) {
         // TODO: gPowerManagerService is not defined
         // Release wakelock during doing DHCP
         // releaseWifiWakeLock();
         manager.inObtainingIpState = false;
-        callback(true);
+        callback(result.status == SUCCESS);
       });
     });
   }
@@ -1231,7 +1268,13 @@ var WifiManager = (function() {
       if (manager.linkDebouncing) {
         manager.setAutoRoam(lastNetwork, function() {});
       }
-      notify("scanresultsavailable");
+      notify("scanresultsavailable", { type: USE_SINGLE_SCAN });
+    } else if (eventData.indexOf("SCAN_RESULT_FAILED") === 0) {
+      debug("Receive single scan failure");
+    } else if (eventData.indexOf("PNO_SCAN_FOUND") === 0) {
+      notify("scanresultsavailable", { type: USE_PNO_SCAN });
+    } else if (eventData.indexOf("PNO_SCAN_FAILED") === 0) {
+      debug("Receive PNO scan failure");
     } else if (eventData.indexOf("CTRL-EVENT-EAP") === 0) {
       if (event.indexOf("CTRL-EVENT-EAP-STARTED") !== -1) {
           notifyStateChange({ state: "AUTHENTICATING" });
@@ -1352,7 +1395,7 @@ var WifiManager = (function() {
       requestOptimizationMode &= ~reason;
       if (!requestOptimizationMode) {
         wifiCommand.setSuspendMode(enable, function (result) {
-          callback(result == SUCCESS);
+          callback(result.status == SUCCESS);
         });
       } else {
         callback(true);
@@ -1360,7 +1403,7 @@ var WifiManager = (function() {
     } else {
       requestOptimizationMode |= reason;
       wifiCommand.setSuspendMode(enable, function (result) {
-          callback(result == SUCCESS);
+          callback(result.status == SUCCESS);
       });
     }
   }
@@ -1770,7 +1813,7 @@ var WifiManager = (function() {
       gNetworkService.disableInterface(manager.ifname, function(ok) {
         wifiCommand.stopWifi(function(result) {
           notify("supplicantlost", { success: true });
-          callback(result == SUCCESS);
+          callback(result.status == SUCCESS);
         });
       });
 
@@ -1840,11 +1883,11 @@ var WifiManager = (function() {
           );
           // Unload wifi driver even if we fail to control wifi tethering.
           wifiCommand.stopSoftap(function(result) {
-            if (result != SUCCESS) {
+            if (result.status != SUCCESS) {
               debug("Fail to stop softap");
             }
             manager.tetheringState = "UNINITIALIZED";
-            callback(result == SUCCESS);
+            callback(result.status == SUCCESS);
           });
         }
       );
@@ -1896,8 +1939,8 @@ var WifiManager = (function() {
     notify("supplicantconnection");
 
     // WPA supplicant already connected.
-    manager.enableAutoReconnect(true, function(ok) {});
-    manager.setPowerSave(true, function(ok) {});
+    manager.enableAutoReconnect(true, function() {});
+    manager.setPowerSave(true, function() {});
     // FIXME: window.navigator.mozPower is undefined
     // let window = Services.wm.getMostRecentWindow("navigator:browser");
     // if (window !== null) {
@@ -1959,14 +2002,14 @@ var WifiManager = (function() {
 
   manager.setAutoRoam = function(candidate, callback) {
     // set target bssid
-    wifiCommand.setNetworkVariable(
-      candidate.netId,
-      "bssid",
-      manager.linkDebouncing ? "any" : candidate.bssid,
-      function(ok) {
-        wifiCommand.reassociate(callback);
-      }
-    );
+    // wifiCommand.setNetworkVariable(
+    //   candidate.netId,
+    //   "bssid",
+    //   manager.linkDebouncing ? "any" : candidate.bssid,
+    //   function(ok) {
+    //     wifiCommand.reassociate(callback);
+    //   }
+    // );
   };
 
   manager.setAutoConnect = function(candidate, callback) {
@@ -1975,11 +2018,11 @@ var WifiManager = (function() {
     if (candidate.networkKey in configuredNetworks) {
       configuredNetworks[candidate.networkKey].bssid = candidate.bssid;
     }
-    manager.connect(configuredNetworks[candidate.networkKey], function(ok) {});
+    manager.connect(configuredNetworks[candidate.networkKey], function() {});
   };
 
   manager.clearCurrentConfigBSSID = function(netId, callback) {
-    wifiCommand.setNetworkVariable(netId, "bssid", "any", callback);
+    // wifiCommand.setNetworkVariable(netId, "bssid", "any", callback);
   };
 
   manager.saveNetwork = function(config, callback) {
@@ -1992,12 +2035,16 @@ var WifiManager = (function() {
 
   manager.removeNetworks = function(callback) {
     delete manager.connectingNetwork[manager.ifname];
-    wifiCommand.removeNetworks(callback);
+    wifiCommand.removeNetworks(function(result) {
+      callback(result.status == SUCCESS);
+    });
   };
 
   manager.connect = function(config, callback) {
     manager.connectingNetwork[manager.ifname] = config;
-    wifiCommand.connect(config, callback);
+    wifiCommand.connect(config, function(result) {
+      callback(result.status == SUCCESS);
+    });
   };
 
   manager.enableNetwork = function(netId, callback) {
@@ -2705,7 +2752,7 @@ function WifiWorker() {
     // Set current country code
     self.lastKnownCountryCode = self.pickWifiCountryCode();
     if (self.lastKnownCountryCode !== "") {
-      WifiManager.setCountryCode(self.lastKnownCountryCode, function(ok) {});
+      WifiManager.setCountryCode(self.lastKnownCountryCode, function() {});
     }
     // wifi enabled and reset open network notification.
     OpenNetworkNotifier.clearPendingNotification();
@@ -2722,7 +2769,7 @@ function WifiWorker() {
     });
 
     // Use external processing for SIM/USIM operations.
-    WifiManager.setExternalSim(true, function(ok) {});
+    WifiManager.setExternalSim(true, function() {});
   };
 
   WifiManager.onsupplicantlost = function() {
@@ -2964,7 +3011,7 @@ function WifiWorker() {
   };
 
   WifiManager.onscanresultsavailable = function() {
-    WifiManager.getScanResults(function(data) {
+    WifiManager.getScanResults(this.type, function(data) {
       let scanResults = data.getScanResults();
       // Check any open network and notify to user.
       // TODO: uncomplete
@@ -4263,13 +4310,12 @@ WifiWorker.prototype = {
         WifiConfigManager.setAndEnableLastSelectedConfiguration(
           privnet.netId,
           function() {
-            WifiManager.removeNetworks(function(result) {
-              if (result != SUCCESS) {
+            WifiManager.removeNetworks(function(ok) {
+              if (!ok) {
                 this._sendMessage(message, false, "Failed to remove networks", msg);
                 return;
               }
-              WifiManager.connect(privnet, function (result) {
-                let ok = result == SUCCESS;
+              WifiManager.connect(privnet, function (ok) {
                 self._sendMessage(message, ok, ok, msg);
               });
             });

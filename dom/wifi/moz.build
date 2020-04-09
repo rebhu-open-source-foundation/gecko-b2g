@@ -47,6 +47,8 @@ if not CONFIG['DISABLE_WIFI']:
   ]
 
   EXPORTS += [
+      'hal/WifiCommon.h',
+      'hal/WifiEventCallback.h',
       'nsWifiElement.h',
       'nsWifiEvent.h',
       'nsWifiResult.h',
@@ -55,13 +57,13 @@ if not CONFIG['DISABLE_WIFI']:
 
   if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
       UNIFIED_SOURCES = [
-          'hal/SoftapEventCallback.cpp',
+          'hal/ScanEventService.cpp',
+          'hal/SoftapEventService.cpp',
           'hal/SoftapManager.cpp',
           'hal/SupplicantStaManager.cpp',
           'hal/SupplicantStaNetwork.cpp',
           'hal/WifiCommon.cpp',
           'hal/WificondControl.cpp',
-          'hal/WificondEventService.cpp',
           'hal/WifiHalManager.cpp',
           'hal/WifiNative.cpp',
           'nsWifiElement.cpp',
