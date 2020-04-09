@@ -23,42 +23,158 @@ class BluetoothDaemonGattModule {
 
   enum {
     OPCODE_ERROR = 0x00,
-    OPCODE_CLIENT_REGISTER = 0x01,
-    OPCODE_CLIENT_UNREGISTER = 0x02,
-    OPCODE_CLIENT_SCAN = 0x03,
-    OPCODE_CLIENT_CONNECT = 0x04,
-    OPCODE_CLIENT_DISCONNECT = 0x05,
-    OPCODE_CLIENT_LISTEN = 0x06,
-    OPCODE_CLIENT_REFRESH = 0x07,
-    OPCODE_CLIENT_SEARCH_SERVICE = 0x08,
-    OPCODE_CLIENT_GET_INCLUDED_SERVICE = 0x09,
-    OPCODE_CLIENT_GET_CHARACTERISTIC = 0x0a,
-    OPCODE_CLIENT_GET_DESCRIPTOR = 0x0b,
-    OPCODE_CLIENT_READ_CHARACTERISTIC = 0x0c,
-    OPCODE_CLIENT_WRITE_CHARACTERISTIC = 0x0d,
-    OPCODE_CLIENT_READ_DESCRIPTOR = 0x0e,
-    OPCODE_CLIENT_WRITE_DESCRIPTOR = 0x0f,
-    OPCODE_CLIENT_EXECUTE_WRITE = 0x10,
-    OPCODE_CLIENT_REGISTER_NOTIFICATION = 0x11,
-    OPCODE_CLIENT_DEREGISTER_NOTIFICATION = 0x12,
-    OPCODE_CLIENT_READ_REMOTE_RSSI = 0x13,
-    OPCODE_CLIENT_GET_DEVICE_TYPE = 0x14,
-    OPCODE_CLIENT_SET_ADV_DATA = 0x15,
+
+    // TODO: Relace the following withdrawal opcodes with new opcodes
+    // replaced by OPCODE_SCANNER_SCAN
+    OPCODE_CLIENT_SCAN = OPCODE_ERROR,
+
+    // replaced by OPCODE_ADVERTISER_ENABLE
+    OPCODE_CLIENT_LISTEN = OPCODE_ERROR,
+
+    // replaced by OPCODE_CLIENT_GET_GATT_DB
+    // (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_srvc_id_t
+    // *start_incl_srvc_id);
+    OPCODE_CLIENT_GET_INCLUDED_SERVICE = OPCODE_ERROR,
+    // (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_gatt_id_t
+    // *start_char_id);
+    OPCODE_CLIENT_GET_CHARACTERISTIC = OPCODE_ERROR,
+    // (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_gatt_id_t *char_id,
+    // btgatt_gatt_id_t *start_descr_id);
+    OPCODE_CLIENT_GET_DESCRIPTOR = OPCODE_ERROR,
+
+    // replaced by OPCODE_ADVERTISER_SET_DATA
+    // (int client_if, bool set_scan_rsp, bool include_name,
+    //  bool include_txpower, int min_interval, int max_interval,
+    //  int appearance, uint16_t manufacturer_len, char *manufacturer_data,
+    //  uint16_t service_data_len, char *service_data,
+    //  uint16_t service_uuid_len, char *service_uuid);
+    OPCODE_CLIENT_SET_ADV_DATA = OPCODE_ERROR,
+
+    // replaced by OPCODE_SERVER_ADD_SERVICE
+    // (int server_if, int service_handle, int included_handle);
+    OPCODE_SERVER_ADD_INCLUDED_SERVICE = OPCODE_ERROR,
+    // (int server_if, int service_handle, bt_uuid_t *uuid, int properties, int
+    // permissions);
+    OPCODE_SERVER_ADD_CHARACTERISTIC = OPCODE_ERROR,
+    // (int server_if, int service_handle, bt_uuid_t *uuid, int permissions);
+    OPCODE_SERVER_ADD_DESCRIPTOR = OPCODE_ERROR,
+    // (int server_if, int service_handle, int transport);
+    OPCODE_SERVER_START_SERVICE = OPCODE_ERROR,
+
+    // ----- GATT client, 0x01 - 0x20 -----
+    OPCODE_CLIENT_REGISTER_CLIENT = 0x01,
+    OPCODE_CLIENT_UNREGISTER_CLIENT = 0x02,
+    // TODO: supports new args (..., bool opportunistic, int initiating_phys)
+    OPCODE_CLIENT_CONNECT = 0x03,
+    OPCODE_CLIENT_DISCONNECT = 0x04,
+    OPCODE_CLIENT_REFRESH = 0x05,
+    OPCODE_CLIENT_SEARCH_SERVICE = 0x06,
+    // TODO: (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_gatt_id_t *char_id,
+    // int auth_req)
+    //    -> (int conn_id, const bluetooth::Uuid &uuid, uint16_t s_handle,
+    //    uint16_t e_handle, int auth_req)
+    OPCODE_CLIENT_READ_CHARACTERISTIC = 0x08,
+    // TODO: (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_gatt_id_t *char_id,
+    // int write_type, int len, int auth_req, char *p_value)
+    //    -> (int conn_id, uint16_t handle, int write_type, int auth_req,
+    //    std::vector<uint8_t> value)
+    OPCODE_CLIENT_WRITE_CHARACTERISTIC = 0x0a,
+    // TODO: (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_gatt_id_t *char_id,
+    // btgatt_gatt_id_t *descr_id, int auth_req)
+    //    -> (int conn_id, uint16_t handle, int auth_req)
+    OPCODE_CLIENT_READ_DESCRIPTOR = 0x0b,
+    // TODO: (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_gatt_id_t *char_id,
+    // btgatt_gatt_id_t *descr_id, int write_type, int len, int auth_req, char
+    // *p_value)
+    //    -> (int conn_id, uint16_t handle, int auth_req, std::vector<uint8_t>
+    //    value)
+    OPCODE_CLIENT_WRITE_DESCRIPTOR = 0x0c,
+    OPCODE_CLIENT_EXECUTE_WRITE = 0x0d,
+    // TODO: (int client_if, const bt_bdaddr_t *bd_addr, btgatt_srvc_id_t
+    // *srvc_id, btgatt_gatt_id_t *char_id)
+    //    -> (int client_if, const RawAddress &bd_addr, uint16_t handle)
+    OPCODE_CLIENT_REGISTER_FOR_NOTIFICATION = 0x0e,
+    // TODO: (int client_if, const bt_bdaddr_t *bd_addr, btgatt_srvc_id_t
+    // *srvc_id, btgatt_gatt_id_t *char_id)
+    //    -> (int client_if, const RawAddress &bd_addr, uint16_t handle)
+    OPCODE_CLIENT_DEREGISTER_FOR_NOTIFICATION = 0x0f,
+    OPCODE_CLIENT_READ_REMOTE_RSSI = 0x10,
+    OPCODE_CLIENT_GET_DEVICE_TYPE = 0x11,
+    // TODO: (int command, btgatt_test_params_t *params)
+    //    -> (int command, const btgatt_test_params_t &params)
     OPCODE_CLIENT_TEST_COMMAND = 0x16,
-    OPCODE_SERVER_REGISTER = 0x17,
-    OPCODE_SERVER_UNREGISTER = 0x18,
-    OPCODE_SERVER_CONNECT_PERIPHERAL = 0x19,
-    OPCODE_SERVER_DISCONNECT_PERIPHERAL = 0x1a,
-    OPCODE_SERVER_ADD_SERVICE = 0x1b,
-    OPCODE_SERVER_ADD_INCLUDED_SERVICE = 0x1c,
-    OPCODE_SERVER_ADD_CHARACTERISTIC = 0x1d,
-    OPCODE_SERVER_ADD_DESCRIPTOR = 0x1e,
-    OPCODE_SERVER_START_SERVICE = 0x1f,
-    OPCODE_SERVER_STOP_SERVICE = 0x20,
-    OPCODE_SERVER_DELETE_SERVICE = 0x21,
-    OPCODE_SERVER_SEND_INDICATION = 0x22,
-    OPCODE_SERVER_SEND_RESPONSE = 0x23
-    // TODO: Add L support
+    // TODO: Support GET_GATT_DB for getting characteristic anddescriptor
+    OPCODE_CLIENT_GET_GATT_DB = 0x17,
+
+    // TODO: Support the following commands as new feature
+    OPCODE_CLIENT_BTIF_GATTC_DISCOVER_SERVICE_BY_UUID = 0x07,
+    OPCODE_CLIENT_READ_USING_CHARACTERISTIC_UUID = 0x09,
+    OPCODE_CLIENT_CONFIGURE_MTU = 0x12,
+    OPCODE_CLIENT_CONN_PARAMETER_UPDATE = 0x13,
+    OPCODE_CLIENT_SET_PREFERRED_PHY = 0x14,
+    OPCODE_CLIENT_READ_PHY = 0x15,
+
+    // ----- GATT server, 0x21 - 0x40 -----
+    OPCODE_SERVER_REGISTER_SERVER = 0x21,
+    OPCODE_SERVER_UNREGISTER_SERVER = 0x22,
+    OPCODE_SERVER_CONNECT = 0x23,
+    OPCODE_SERVER_DISCONNECT = 0x24,
+    // TODO: (int server_if, btgatt_srvc_id_t *srvc_id, int num_handles)
+    //    -> (int server_if, std::vector<btgatt_db_element_t> service)
+    OPCODE_SERVER_ADD_SERVICE = 0x25,
+    OPCODE_SERVER_STOP_SERVICE = 0x26,
+    OPCODE_SERVER_DELETE_SERVICE = 0x27,
+    // TODO: (int server_if, int attribute_handle, int conn_id, int len, int
+    // confirm, char *p_value);
+    //    -> (int server_if, int attribute_handle, int conn_id, int confirm,
+    //    std::vector<uint8_t> value)
+    OPCODE_SERVER_SEND_INDICATION = 0x28,
+
+    // TODO: (int conn_id, int trans_id, int status, btgatt_response_t
+    // *response)
+    //    -> (int conn_id, int trans_id, int status, const btgatt_response_t
+    //    &response)
+    OPCODE_SERVER_SEND_RESPONSE = 0x29,
+
+    // TODO: Support the following commands as new feature
+    // OPCODE_SERVER_SET_PREFERRED_PHY = 0x2a,
+    // OPCODE_SERVER_READ_PHY = 0x2b,
+
+    // ----- LE scanner, 0x41 - 0x60 -----
+    // TODO: Support LE scanner
+    OPCODE_SCANNER_REGISTER_SCANNER = 0x41,
+    OPCODE_SCANNER_UNREGISTER = 0x42,
+    OPCODE_SCANNER_SCAN = 0x43,  // was OPCODE_CLIENT_SCAN
+
+    // TODO: Support the following commands as new feature
+    // OPCODE_SCANNER_SCAN_FILTER_PARAMS_SETUP = 0x44,
+    // OPCODE_SCANNER_SCAN_FILTER_ADD_REMOVE = 0x45,
+    // OPCODE_SCANNER_SCAN_FILTER_CLEAR = 0x46,
+    // OPCODE_SCANNER_SCAN_FILTER_ENABLE = 0x47,
+    // OPCODE_SCANNER_SET_SCAN_PARAMETERS = 0x48,
+    // OPCODE_SCANNER_CONFIGURE_BATCHSCAN = 0x49,
+    // OPCODE_SCANNER_ENABLE_BATCHSCAN = 0x4a,
+    // OPCODE_SCANNER_DISABLE_BATCHSCAN = 0x4b,
+    // OPCODE_SCANNER_READ_BATCHSCAN_REPORTS = 0x4c,
+    // OPCODE_SCANNER_START_SYNC = 0x4d,
+    // OPCODE_SCANNER_STOP_SYNC = 0x4e,
+
+    // ----- LE advertiser, 0x61 - 0x80 -----
+    // TODO: Support LE advertiser
+    OPCODE_ADVERTISER_REGISTER_ADVERTISER = 0x61,
+    OPCODE_ADVERTISER_UNREGISTER = 0x62,
+    OPCODE_ADVERTISER_SET_DATA = 0x65,
+    OPCODE_ADVERTISER_ENABLE = 0x66,  // similar with OPCODE_CLIENT_LISTEN
+
+    // TODO: Support the following commands as new feature
+    // OPCODE_ADVERTISER_GET_OWN_ADDRESS = 0x63,
+    // OPCODE_ADVERTISER_SET_PARAMETERS = 0x64,
+    // OPCODE_ADVERTISER_START_ADVERTISING = 0x67,
+    // OPCODE_ADVERTISER_START_ADVERTISING_SET = 0x68,
+    // OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_PARAMETERS = 0x69,
+    // OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_DATA = 0x6a,
+    // OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_ENABLE = 0x6b,
+
   };
 
   virtual nsresult Send(DaemonSocketPDU* aPDU,
@@ -72,10 +188,11 @@ class BluetoothDaemonGattModule {
   //
 
   /* Register / Unregister */
-  nsresult ClientRegisterCmd(const BluetoothUuid& aUuid,
-                             BluetoothGattResultHandler* aRes);
+  nsresult ClientRegisterClientCmd(const BluetoothUuid& aUuid,
+                                   BluetoothGattResultHandler* aRes);
 
-  nsresult ClientUnregisterCmd(int aClientIf, BluetoothGattResultHandler* aRes);
+  nsresult ClientUnregisterClientCmd(int aClientIf,
+                                     BluetoothGattResultHandler* aRes);
 
   /* Start / Stop LE Scan */
   nsresult ClientScanCmd(int aClientIf, bool aStart,
@@ -155,12 +272,12 @@ class BluetoothDaemonGattModule {
                                  BluetoothGattResultHandler* aRes);
 
   /* Register / Deregister Characteristic Notifications or Indications */
-  nsresult ClientRegisterNotificationCmd(
+  nsresult ClientRegisterForNotificationCmd(
       int aClientIf, const BluetoothAddress& aBdAddr,
       const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId,
       BluetoothGattResultHandler* aRes);
 
-  nsresult ClientDeregisterNotificationCmd(
+  nsresult ClientDeregisterForNotificationCmd(
       int aClientIf, const BluetoothAddress& aBdAddr,
       const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId,
       BluetoothGattResultHandler* aRes);
@@ -187,22 +304,19 @@ class BluetoothDaemonGattModule {
                                 BluetoothGattResultHandler* aRes);
 
   /* Register / Unregister */
-  nsresult ServerRegisterCmd(const BluetoothUuid& aUuid,
-                             BluetoothGattResultHandler* aRes);
+  nsresult ServerRegisterServerCmd(const BluetoothUuid& aUuid,
+                                   BluetoothGattResultHandler* aRes);
 
-  nsresult ServerUnregisterCmd(int aServerIf, BluetoothGattResultHandler* aRes);
+  nsresult ServerUnregisterServerCmd(int aServerIf,
+                                     BluetoothGattResultHandler* aRes);
 
   /* Connect / Disconnect */
-  nsresult ServerConnectPeripheralCmd(int aServerIf,
-                                      const BluetoothAddress& aBdAddr,
-                                      bool aIsDirect,
-                                      BluetoothTransport aTransport,
-                                      BluetoothGattResultHandler* aRes);
+  nsresult ServerConnectCmd(int aServerIf, const BluetoothAddress& aBdAddr,
+                            bool aIsDirect, BluetoothTransport aTransport,
+                            BluetoothGattResultHandler* aRes);
 
-  nsresult ServerDisconnectPeripheralCmd(int aServerIf,
-                                         const BluetoothAddress& aBdAddr,
-                                         int aConnId,
-                                         BluetoothGattResultHandler* aRes);
+  nsresult ServerDisconnectCmd(int aServerIf, const BluetoothAddress& aBdAddr,
+                               int aConnId, BluetoothGattResultHandler* aRes);
 
   /* Add a services / a characteristic / a descriptor */
   nsresult ServerAddServiceCmd(int aServerIf,
@@ -274,13 +388,13 @@ class BluetoothDaemonGattModule {
   void ErrorRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                 BluetoothGattResultHandler* aRes);
 
-  void ClientRegisterRsp(const DaemonSocketPDUHeader& aHeader,
-                         DaemonSocketPDU& aPDU,
-                         BluetoothGattResultHandler* aRes);
+  void ClientRegisterClientRsp(const DaemonSocketPDUHeader& aHeader,
+                               DaemonSocketPDU& aPDU,
+                               BluetoothGattResultHandler* aRes);
 
-  void ClientUnregisterRsp(const DaemonSocketPDUHeader& aHeader,
-                           DaemonSocketPDU& aPDU,
-                           BluetoothGattResultHandler* aRes);
+  void ClientUnregisterClientRsp(const DaemonSocketPDUHeader& aHeader,
+                                 DaemonSocketPDU& aPDU,
+                                 BluetoothGattResultHandler* aRes);
 
   void ClientScanRsp(const DaemonSocketPDUHeader& aHeader,
                      DaemonSocketPDU& aPDU, BluetoothGattResultHandler* aRes);
@@ -336,13 +450,13 @@ class BluetoothDaemonGattModule {
                              DaemonSocketPDU& aPDU,
                              BluetoothGattResultHandler* aRes);
 
-  void ClientRegisterNotificationRsp(const DaemonSocketPDUHeader& aHeader,
-                                     DaemonSocketPDU& aPDU,
-                                     BluetoothGattResultHandler* aRes);
+  void ClientRegisterForNotificationRsp(const DaemonSocketPDUHeader& aHeader,
+                                        DaemonSocketPDU& aPDU,
+                                        BluetoothGattResultHandler* aRes);
 
-  void ClientDeregisterNotificationRsp(const DaemonSocketPDUHeader& aHeader,
-                                       DaemonSocketPDU& aPDU,
-                                       BluetoothGattResultHandler* aRes);
+  void ClientDeregisterForNotificationRsp(const DaemonSocketPDUHeader& aHeader,
+                                          DaemonSocketPDU& aPDU,
+                                          BluetoothGattResultHandler* aRes);
 
   void ClientReadRemoteRssiRsp(const DaemonSocketPDUHeader& aHeader,
                                DaemonSocketPDU& aPDU,
@@ -360,21 +474,21 @@ class BluetoothDaemonGattModule {
                             DaemonSocketPDU& aPDU,
                             BluetoothGattResultHandler* aRes);
 
-  void ServerRegisterRsp(const DaemonSocketPDUHeader& aHeader,
-                         DaemonSocketPDU& aPDU,
-                         BluetoothGattResultHandler* aRes);
+  void ServerRegisterServerRsp(const DaemonSocketPDUHeader& aHeader,
+                               DaemonSocketPDU& aPDU,
+                               BluetoothGattResultHandler* aRes);
 
-  void ServerUnregisterRsp(const DaemonSocketPDUHeader& aHeader,
+  void ServerUnregisterServerRsp(const DaemonSocketPDUHeader& aHeader,
+                                 DaemonSocketPDU& aPDU,
+                                 BluetoothGattResultHandler* aRes);
+
+  void ServerConnectRsp(const DaemonSocketPDUHeader& aHeader,
+                        DaemonSocketPDU& aPDU,
+                        BluetoothGattResultHandler* aRes);
+
+  void ServerDisconnectRsp(const DaemonSocketPDUHeader& aHeader,
                            DaemonSocketPDU& aPDU,
                            BluetoothGattResultHandler* aRes);
-
-  void ServerConnectPeripheralRsp(const DaemonSocketPDUHeader& aHeader,
-                                  DaemonSocketPDU& aPDU,
-                                  BluetoothGattResultHandler* aRes);
-
-  void ServerDisconnectPeripheralRsp(const DaemonSocketPDUHeader& aHeader,
-                                     DaemonSocketPDU& aPDU,
-                                     BluetoothGattResultHandler* aRes);
 
   void ServerAddServiceRsp(const DaemonSocketPDUHeader& aHeader,
                            DaemonSocketPDU& aPDU,
@@ -426,7 +540,7 @@ class BluetoothDaemonGattModule {
   typedef mozilla::ipc::DaemonNotificationRunnable3<
       NotificationHandlerWrapper, void, BluetoothGattStatus, int, BluetoothUuid,
       BluetoothGattStatus, int, const BluetoothUuid&>
-      ClientRegisterNotification;
+      ClientRegisterForNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable3<
       NotificationHandlerWrapper, void, BluetoothAddress, int,
@@ -477,7 +591,7 @@ class BluetoothDaemonGattModule {
       NotificationHandlerWrapper, void, int, int, BluetoothGattStatus,
       BluetoothGattServiceId, BluetoothGattId, int, int, BluetoothGattStatus,
       const BluetoothGattServiceId&, const BluetoothGattId&>
-      ClientRegisterNotificationNotification;
+      ClientRegisterForNotificationNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
       NotificationHandlerWrapper, void, int, BluetoothGattNotifyParam, int,
@@ -605,8 +719,8 @@ class BluetoothDaemonGattModule {
   class ServerCharacteristicAddedInitOp;
   class ServerDescriptorAddedInitOp;
 
-  void ClientRegisterNtf(const DaemonSocketPDUHeader& aHeader,
-                         DaemonSocketPDU& aPDU);
+  void ClientRegisterClientNtf(const DaemonSocketPDUHeader& aHeader,
+                               DaemonSocketPDU& aPDU);
 
   void ClientScanResultNtf(const DaemonSocketPDUHeader& aHeader,
                            DaemonSocketPDU& aPDU);
@@ -632,8 +746,8 @@ class BluetoothDaemonGattModule {
   void ClientGetIncludedServiceNtf(const DaemonSocketPDUHeader& aHeader,
                                    DaemonSocketPDU& aPDU);
 
-  void ClientRegisterNotificationNtf(const DaemonSocketPDUHeader& aHeader,
-                                     DaemonSocketPDU& aPDU);
+  void ClientRegisterForNotificationNtf(const DaemonSocketPDUHeader& aHeader,
+                                        DaemonSocketPDU& aPDU);
 
   void ClientNotifyNtf(const DaemonSocketPDUHeader& aHeader,
                        DaemonSocketPDU& aPDU);
@@ -659,8 +773,8 @@ class BluetoothDaemonGattModule {
   void ClientListenNtf(const DaemonSocketPDUHeader& aHeader,
                        DaemonSocketPDU& aPDU);
 
-  void ServerRegisterNtf(const DaemonSocketPDUHeader& aHeader,
-                         DaemonSocketPDU& aPDU);
+  void ServerRegisterServerNtf(const DaemonSocketPDUHeader& aHeader,
+                               DaemonSocketPDU& aPDU);
 
   void ServerConnectionNtf(const DaemonSocketPDUHeader& aHeader,
                            DaemonSocketPDU& aPDU);
