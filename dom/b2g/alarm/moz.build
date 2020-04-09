@@ -5,7 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-    'nsIAlarmHalService.idl',
+    'interfaces/nsIAlarmHalService.idl',
+    'interfaces/nsIAlarmProxy.idl',
 ]
 
 XPIDL_MODULE = 'dom_alarm'
@@ -23,13 +24,9 @@ SOURCES += [
     'AlarmManager.cpp',
 ]
 
-EXTRA_COMPONENTS += [
-    'AlarmManager.js',
-    'AlarmManager.manifest',
-]
-
 EXTRA_JS_MODULES += [
     'AlarmDB.jsm',
+    'AlarmProxy.jsm',
     'AlarmService.jsm',
 ]
 

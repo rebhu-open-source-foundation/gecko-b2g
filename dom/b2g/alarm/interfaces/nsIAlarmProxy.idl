@@ -1,0 +1,34 @@
+/* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ * LIMITED or its affiliate company and may be registered in some jurisdictions.
+ * All other trademarks are the property of their respective owners.
+ */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(065684e1-157d-465c-9705-a6f60ddbe456), function]
+interface nsIAlarmAddCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onAdd(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(cb0f4c89-d219-4245-9a9f-54d4ce3e4ac6), function]
+interface nsIAlarmGetAllCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onGetAll(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(fea1e884-9b05-11e1-9b64-87a7016c3860)]
+interface nsIAlarmProxy : nsISupports
+{
+  void init(in nsISupports owner);
+  void getAll(in nsISupports owner, in nsIAlarmGetAllCallback callback);
+  void add(in nsISupports owner,
+           in jsval options,
+           in nsIAlarmAddCallback callback);
+  void remove(in int32_t id);
+};

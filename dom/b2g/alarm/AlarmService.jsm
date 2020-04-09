@@ -80,11 +80,7 @@ this.AlarmService = {
     */
 
     // Add the messages to be listened to.
-    this._messages = [
-      "AlarmsManager:GetAll",
-      "AlarmsManager:Add",
-      "AlarmsManager:Remove",
-    ];
+    this._messages = ["Alarm:GetAll", "Alarm:Add", "Alarm:Remove"];
     this._messages.forEach(
       function addMessage(msgName) {
         Services.ppmm.addMessageListener(msgName, this);
@@ -145,7 +141,7 @@ this.AlarmService = {
     let mm = aMessage.target;
 
     switch (aMessage.name) {
-      case "AlarmsManager:GetAll":
+      case "Alarm:GetAll":
         this._db.getAll(
           json.manifestURL,
           function getAllSuccessCb(aAlarms) {
@@ -168,7 +164,7 @@ this.AlarmService = {
         );
         break;
 
-      case "AlarmsManager:Add":
+      case "Alarm:Add":
         // Prepare a record for the new alarm to be added.
         let newAlarm = {
           date: json.date,
@@ -188,7 +184,7 @@ this.AlarmService = {
         );
         break;
 
-      case "AlarmsManager:Remove":
+      case "Alarm:Remove":
         this.remove(json.id, json.manifestURL);
         break;
 
@@ -229,8 +225,15 @@ this.AlarmService = {
         throw Cr.NS_ERROR_NOT_IMPLEMENTED;
     }
 
+    debug(
+      "sendAsyncMessage " +
+        "Alarm:" +
+        aMessageName +
+        ":Return:" +
+        (aSuccess ? "OK" : "KO")
+    );
     aMessageManager.sendAsyncMessage(
-      "AlarmsManager:" + aMessageName + ":Return:" + (aSuccess ? "OK" : "KO"),
+      "Alarm:" + aMessageName + ":Return:" + (aSuccess ? "OK" : "KO"),
       json
     );
   },
@@ -272,9 +275,7 @@ this.AlarmService = {
     let alarm = {
       id: aAlarm.id,
       date: aAlarm.date,
-      respectTimezone: aAlarm.ignoreTimezone
-        ? "ignoreTimezone"
-        : "honorTimezone",
+      ignoreTimezone: aAlarm.ignoreTimezone,
       data: aAlarm.data,
     };
 
@@ -489,7 +490,7 @@ this.AlarmService = {
    */
 
   add(aNewAlarm, aAlarmFiredCb, aSuccessCb, aErrorCb) {
-    debug("add(" + aNewAlarm.date + ")");
+    debug("add " + JSON.stringify(aNewAlarm));
 
     aSuccessCb = aSuccessCb || function() {};
     aErrorCb = aErrorCb || function() {};
@@ -530,6 +531,7 @@ this.AlarmService = {
   },
 
   processNewAlarm(aNewAlarm, aNewId, aAlarmFiredCb, aSuccessCb) {
+    debug("processNewAlarm " + JSON.stringify(aNewAlarm) + " " + aNewId);
     aNewAlarm.id = aNewId;
 
     // Now that the alarm has been added to the database, we can tack on
@@ -540,6 +542,7 @@ this.AlarmService = {
     // notify this alarm
     let newAlarmTime = this._getAlarmTime(aNewAlarm);
     if (newAlarmTime < Date.now()) {
+      debug("The new alarm already expired.");
       aSuccessCb(aNewId);
       this._removeAlarmFromDb(aNewAlarm.id, null);
       this._notifyAlarmObserver(aNewAlarm);
@@ -548,6 +551,7 @@ this.AlarmService = {
 
     // If there is no alarm being set in system, set the new alarm.
     if (this._currentAlarm == null) {
+      debug("No alarm, set a new alarm.");
       this._currentAlarm = aNewAlarm;
       this._debugCurrentAlarm();
       aSuccessCb(aNewId);
