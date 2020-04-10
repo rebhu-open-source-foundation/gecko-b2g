@@ -29,18 +29,16 @@ NS_IMPL_ADDREF_INHERITED(SpeakerManager, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(SpeakerManager, DOMEventTargetHelper)
 
 SpeakerManager::SpeakerManager(SpeakerPolicy aPolicy)
-  : mForcespeaker(false)
-  , mVisible(false)
-  , mAudioChannelActive(false)
-  , mIsSystemApp(false)
-  , mSystemAppId(nsIScriptSecurityManager::NO_APP_ID)
-  , mPolicy(aPolicy)
-{
-}
+    : mForcespeaker(false),
+      mVisible(false),
+      mAudioChannelActive(false),
+      mIsSystemApp(false),
+      mSystemAppId(nsIScriptSecurityManager::NO_APP_ID),
+      mPolicy(aPolicy) {}
 
-SpeakerManager::~SpeakerManager()
-{
-  SpeakerManagerService *service = SpeakerManagerService::GetOrCreateSpeakerManagerService();
+SpeakerManager::~SpeakerManager() {
+  SpeakerManagerService* service =
+      SpeakerManagerService::GetOrCreateSpeakerManagerService();
   MOZ_ASSERT(service);
 
   service->ForceSpeaker(false, false, false, WindowID());
@@ -48,40 +46,29 @@ SpeakerManager::~SpeakerManager()
   nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE_VOID(target);
 
-  target->RemoveSystemEventListener(NS_LITERAL_STRING("visibilitychange"),
-                                    this,
+  target->RemoveSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
                                     /* useCapture = */ true);
 }
 
-bool
-SpeakerManager::Speakerforced()
-{
-  SpeakerManagerService *service = SpeakerManagerService::GetOrCreateSpeakerManagerService();
+bool SpeakerManager::Speakerforced() {
+  SpeakerManagerService* service =
+      SpeakerManagerService::GetOrCreateSpeakerManagerService();
   MOZ_ASSERT(service);
   return service->GetSpeakerStatus();
-
 }
 
-bool
-SpeakerManager::Forcespeaker()
-{
-  return mForcespeaker;
-}
+bool SpeakerManager::Forcespeaker() { return mForcespeaker; }
 
-void
-SpeakerManager::SetForcespeaker(bool aEnable)
-{
+void SpeakerManager::SetForcespeaker(bool aEnable) {
   if (mForcespeaker != aEnable) {
     MOZ_LOG(SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
-           ("SpeakerManager, SetForcespeaker, enable %d", aEnable));
+            ("SpeakerManager, SetForcespeaker, enable %d", aEnable));
     mForcespeaker = aEnable;
     UpdateStatus();
   }
 }
 
-void
-SpeakerManager::DispatchSimpleEvent(const nsAString& aStr)
-{
+void SpeakerManager::DispatchSimpleEvent(const nsAString& aStr) {
   MOZ_ASSERT(NS_IsMainThread(), "Not running on main thread");
   nsresult rv = CheckInnerWindowCorrectness();
   if (NS_FAILED(rv)) {
@@ -99,9 +86,7 @@ SpeakerManager::DispatchSimpleEvent(const nsAString& aStr)
   }
 }
 
-static nsresult
-GetAppId(nsPIDOMWindowInner* aWindow, uint32_t* aAppId)
-{
+static nsresult GetAppId(nsPIDOMWindowInner* aWindow, uint32_t* aAppId) {
   *aAppId = nsIScriptSecurityManager::NO_APP_ID;
 
   nsCOMPtr<nsIDocument> doc = aWindow->GetExtantDoc();
@@ -114,26 +99,23 @@ GetAppId(nsPIDOMWindowInner* aWindow, uint32_t* aAppId)
   return NS_OK;
 }
 
-static nsresult
-GetSystemAppId(uint32_t* aSystemAppId)
-{
+static nsresult GetSystemAppId(uint32_t* aSystemAppId) {
   *aSystemAppId = nsIScriptSecurityManager::NO_APP_ID;
 
   nsCOMPtr<nsIAppsService> appsService = do_GetService(APPS_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(appsService, NS_ERROR_FAILURE);
 
   nsAdoptingString systemAppManifest =
-    mozilla::Preferences::GetString("b2g.system_manifest_url");
+      mozilla::Preferences::GetString("b2g.system_manifest_url");
   NS_ENSURE_TRUE(systemAppManifest, NS_ERROR_FAILURE);
 
-  nsresult rv = appsService->GetAppLocalIdByManifestURL(systemAppManifest, aSystemAppId);
+  nsresult rv =
+      appsService->GetAppLocalIdByManifestURL(systemAppManifest, aSystemAppId);
   NS_ENSURE_SUCCESS(rv, rv);
   return NS_OK;
 }
 
-nsresult
-SpeakerManager::FindCorrectWindow(nsPIDOMWindowInner* aWindow)
-{
+nsresult SpeakerManager::FindCorrectWindow(nsPIDOMWindowInner* aWindow) {
   MOZ_ASSERT(aWindow->IsInnerWindow());
 
   mWindow = aWindow->GetScriptableTop();
@@ -173,9 +155,7 @@ SpeakerManager::FindCorrectWindow(nsPIDOMWindowInner* aWindow)
   return FindCorrectWindow(parent);
 }
 
-nsresult
-SpeakerManager::Init(nsPIDOMWindowInner* aWindow)
-{
+nsresult SpeakerManager::Init(nsPIDOMWindowInner* aWindow) {
   BindToOwner(aWindow);
 
   nsCOMPtr<nsIDocShell> docshell = do_GetInterface(GetOwner());
@@ -185,8 +165,7 @@ SpeakerManager::Init(nsPIDOMWindowInner* aWindow)
   nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE(target, NS_ERROR_FAILURE);
 
-  target->AddSystemEventListener(NS_LITERAL_STRING("visibilitychange"),
-                                 this,
+  target->AddSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
                                  /* useCapture = */ true,
                                  /* wantsUntrusted = */ false);
 
@@ -203,9 +182,9 @@ SpeakerManager::Init(nsPIDOMWindowInner* aWindow)
     return rv;
   }
 
-  // System APP uses SpeakerManager to query speakerforced status, and its window
-  // may always be visible. Therefore force its policy to be "Query", so it won't
-  // compete with other APPs.
+  // System APP uses SpeakerManager to query speakerforced status, and its
+  // window may always be visible. Therefore force its policy to be "Query", so
+  // it won't compete with other APPs.
   if (appId == mSystemAppId) {
     mIsSystemApp = true;
     mPolicy = SpeakerPolicy::Query;
@@ -217,41 +196,42 @@ SpeakerManager::Init(nsPIDOMWindowInner* aWindow)
   }
 
   MOZ_LOG(SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
-         ("SpeakerManager, Init, window ID %llu, policy %d, is system APP %d",
-          WindowID(), mPolicy, mIsSystemApp));
+          ("SpeakerManager, Init, window ID %llu, policy %d, is system APP %d",
+           WindowID(), mPolicy, mIsSystemApp));
 
-  SpeakerManagerService *service = SpeakerManagerService::GetOrCreateSpeakerManagerService();
+  SpeakerManagerService* service =
+      SpeakerManagerService::GetOrCreateSpeakerManagerService();
   MOZ_ASSERT(service);
   rv = service->RegisterSpeakerManager(this);
   NS_WARN_IF(NS_FAILED(rv));
 
-  // APP may want to keep its forceSpeaker setting same as current global forceSpeaker
-  // state, so sync |mForcespeaker| with the global state by default. This can prevent
-  // the global state from being disabled and enabled again if APP wants to enable
-  // forceSpeaker, and the global state is already on.
+  // APP may want to keep its forceSpeaker setting same as current global
+  // forceSpeaker state, so sync |mForcespeaker| with the global state by
+  // default. This can prevent the global state from being disabled and enabled
+  // again if APP wants to enable forceSpeaker, and the global state is already
+  // on.
   mForcespeaker = Speakerforced();
   UpdateStatus();
   return NS_OK;
 }
 
-nsPIDOMWindowInner*
-SpeakerManager::GetParentObject() const
-{
+nsPIDOMWindowInner* SpeakerManager::GetParentObject() const {
   return GetOwner();
 }
 
-/* static */ already_AddRefed<SpeakerManager>
-SpeakerManager::Constructor(const GlobalObject& aGlobal,
-                            const Optional<SpeakerPolicy>& aPolicy,
-                            ErrorResult& aRv)
-{
-  nsCOMPtr<nsIScriptGlobalObject> sgo = do_QueryInterface(aGlobal.GetAsSupports());
+/* static */
+already_AddRefed<SpeakerManager> SpeakerManager::Constructor(
+    const GlobalObject& aGlobal, const Optional<SpeakerPolicy>& aPolicy,
+    ErrorResult& aRv) {
+  nsCOMPtr<nsIScriptGlobalObject> sgo =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!sgo) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
-  nsCOMPtr<nsPIDOMWindowInner> ownerWindow = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> ownerWindow =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!ownerWindow) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -261,9 +241,8 @@ SpeakerManager::Constructor(const GlobalObject& aGlobal,
   NS_ENSURE_TRUE(permMgr, nullptr);
 
   uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  nsresult rv =
-    permMgr->TestPermissionFromWindow(ownerWindow, "speaker-control",
-                                      &permission);
+  nsresult rv = permMgr->TestPermissionFromWindow(
+      ownerWindow, "speaker-control", &permission);
   NS_ENSURE_SUCCESS(rv, nullptr);
 
   if (permission != nsIPermissionManager::ALLOW_ACTION) {
@@ -271,7 +250,8 @@ SpeakerManager::Constructor(const GlobalObject& aGlobal,
     return nullptr;
   }
 
-  // If APP did not specify a policy, set default value as Foreground_or_playing.
+  // If APP did not specify a policy, set default value as
+  // Foreground_or_playing.
   SpeakerPolicy policy = SpeakerPolicy::Foreground_or_playing;
   if (aPolicy.WasPassed()) {
     policy = aPolicy.Value();
@@ -286,15 +266,13 @@ SpeakerManager::Constructor(const GlobalObject& aGlobal,
   return object.forget();
 }
 
-JSObject*
-SpeakerManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* SpeakerManager::WrapObject(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto) {
   return MozSpeakerManagerBinding::Wrap(aCx, this, aGivenProto);
 }
 
 NS_IMETHODIMP
-SpeakerManager::HandleEvent(nsIDOMEvent* aEvent)
-{
+SpeakerManager::HandleEvent(nsIDOMEvent* aEvent) {
   nsAutoString type;
   aEvent->GetType(type);
 
@@ -309,26 +287,23 @@ SpeakerManager::HandleEvent(nsIDOMEvent* aEvent)
   docshell->GetIsActive(&visible);
   if (mVisible != visible) {
     MOZ_LOG(SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
-           ("SpeakerManager, HandleEvent, visible %d", visible));
+            ("SpeakerManager, HandleEvent, visible %d", visible));
     mVisible = visible;
     UpdateStatus();
   }
   return NS_OK;
 }
 
-void
-SpeakerManager::SetAudioChannelActive(bool isActive)
-{
+void SpeakerManager::SetAudioChannelActive(bool isActive) {
   if (mAudioChannelActive != isActive) {
     MOZ_LOG(SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
-           ("SpeakerManager, SetAudioChannelActive, active %d", isActive));
+            ("SpeakerManager, SetAudioChannelActive, active %d", isActive));
     mAudioChannelActive = isActive;
     UpdateStatus();
   }
 }
 
-void SpeakerManager::UpdateStatus()
-{
+void SpeakerManager::UpdateStatus() {
   bool visible = mVisible;
   switch (mPolicy) {
     case SpeakerPolicy::Foreground_or_playing:
@@ -343,10 +318,12 @@ void SpeakerManager::UpdateStatus()
       return;
   }
 
-  SpeakerManagerService *service = SpeakerManagerService::GetOrCreateSpeakerManagerService();
+  SpeakerManagerService* service =
+      SpeakerManagerService::GetOrCreateSpeakerManagerService();
   MOZ_ASSERT(service);
-  service->ForceSpeaker(mForcespeaker, visible, mAudioChannelActive, WindowID());
+  service->ForceSpeaker(mForcespeaker, visible, mAudioChannelActive,
+                        WindowID());
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

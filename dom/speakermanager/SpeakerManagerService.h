@@ -18,9 +18,8 @@
 namespace mozilla {
 namespace dom {
 
-class SpeakerManagerService : public nsIObserver
-{
-public:
+class SpeakerManagerService : public nsIObserver {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
   /*
@@ -38,46 +37,42 @@ public:
   virtual bool GetSpeakerStatus();
   virtual void SetAudioChannelActive(bool aIsActive);
   // Child ID of chrome process should be 0.
-  virtual void ForceSpeaker(bool aEnable,
-                            bool aVisible,
-                            bool aAudioChannelActive,
-                            uint64_t aWindowID,
+  virtual void ForceSpeaker(bool aEnable, bool aVisible,
+                            bool aAudioChannelActive, uint64_t aWindowID,
                             uint64_t aChildID = 0);
 
-  // Register the SpeakerManager to service for notify the speakerforcedchange event
-  nsresult RegisterSpeakerManager(SpeakerManager* aSpeakerManager)
-  {
-    // One APP can only have one SpeakerManager, so return error if it already exists.
+  // Register the SpeakerManager to service for notify the speakerforcedchange
+  // event
+  nsresult RegisterSpeakerManager(SpeakerManager* aSpeakerManager) {
+    // One APP can only have one SpeakerManager, so return error if it already
+    // exists.
     if (mRegisteredSpeakerManagers.Contains(aSpeakerManager->WindowID())) {
       return NS_ERROR_FAILURE;
     }
-    mRegisteredSpeakerManagers.Put(aSpeakerManager->WindowID(), aSpeakerManager);
+    mRegisteredSpeakerManagers.Put(aSpeakerManager->WindowID(),
+                                   aSpeakerManager);
     return NS_OK;
   }
-  nsresult UnRegisterSpeakerManager(SpeakerManager* aSpeakerManager)
-  {
+  nsresult UnRegisterSpeakerManager(SpeakerManager* aSpeakerManager) {
     mRegisteredSpeakerManagers.Remove(aSpeakerManager->WindowID());
     return NS_OK;
   }
 
-protected:
-  struct SpeakerManagerData final
-  {
-    SpeakerManagerData(uint64_t aChildID, uint64_t aWindowID, bool aForceSpeaker)
-      : mChildID(aChildID)
-      , mWindowID(aWindowID)
-      , mForceSpeaker(aForceSpeaker)
-    {
-    }
+ protected:
+  struct SpeakerManagerData final {
+    SpeakerManagerData(uint64_t aChildID, uint64_t aWindowID,
+                       bool aForceSpeaker)
+        : mChildID(aChildID),
+          mWindowID(aWindowID),
+          mForceSpeaker(aForceSpeaker) {}
 
     uint64_t mChildID;
     uint64_t mWindowID;
     bool mForceSpeaker;
   };
 
-  class SpeakerManagerList : protected nsTArray<SpeakerManagerData>
-  {
-  public:
+  class SpeakerManagerList : protected nsTArray<SpeakerManagerData> {
+   public:
     void InsertData(const SpeakerManagerData& aData);
     void RemoveData(const SpeakerManagerData& aData);
     void RemoveChild(uint64_t aChildID);
@@ -101,7 +96,8 @@ protected:
    */
   static void Shutdown();
   // Hash map between window ID and registered SpeakerManager
-  nsDataHashtable<nsUint64HashKey, RefPtr<SpeakerManager>> mRegisteredSpeakerManagers;
+  nsDataHashtable<nsUint64HashKey, RefPtr<SpeakerManager>>
+      mRegisteredSpeakerManagers;
   // The Speaker status assign by UA
   bool mOrgSpeakerStatus;
 
@@ -113,7 +109,7 @@ protected:
   friend class ContentChild;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif

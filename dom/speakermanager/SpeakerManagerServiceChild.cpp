@@ -20,10 +20,9 @@ using namespace mozilla::dom;
 
 StaticRefPtr<SpeakerManagerServiceChild> gSpeakerManagerServiceChild;
 
-// static
+/* static */
 SpeakerManagerService*
-SpeakerManagerServiceChild::GetOrCreateSpeakerManagerService()
-{
+SpeakerManagerServiceChild::GetOrCreateSpeakerManagerService() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // If we already exist, exit early
@@ -39,33 +38,27 @@ SpeakerManagerServiceChild::GetOrCreateSpeakerManagerService()
   return gSpeakerManagerServiceChild;
 }
 
-// static
-SpeakerManagerService*
-SpeakerManagerServiceChild::GetSpeakerManagerService()
-{
+/* static */
+SpeakerManagerService* SpeakerManagerServiceChild::GetSpeakerManagerService() {
   MOZ_ASSERT(NS_IsMainThread());
 
   return gSpeakerManagerServiceChild;
 }
 
-void
-SpeakerManagerServiceChild::ForceSpeaker(bool aEnable,
-                                         bool aVisible,
-                                         bool aChannelActive,
-                                         uint64_t aWindowID,
-                                         uint64_t aChildID)
-{
+void SpeakerManagerServiceChild::ForceSpeaker(bool aEnable, bool aVisible,
+                                              bool aChannelActive,
+                                              uint64_t aWindowID,
+                                              uint64_t aChildID) {
   mOrgSpeakerStatus = aEnable;
-  ContentChild *cc = ContentChild::GetSingleton();
+  ContentChild* cc = ContentChild::GetSingleton();
   if (cc) {
-    cc->SendSpeakerManagerForceSpeaker(aEnable, aVisible, aChannelActive, aWindowID);
+    cc->SendSpeakerManagerForceSpeaker(aEnable, aVisible, aChannelActive,
+                                       aWindowID);
   }
 }
 
-bool
-SpeakerManagerServiceChild::GetSpeakerStatus()
-{
-  ContentChild *cc = ContentChild::GetSingleton();
+bool SpeakerManagerServiceChild::GetSpeakerStatus() {
+  ContentChild* cc = ContentChild::GetSingleton();
   bool status = false;
   if (cc) {
     cc->SendSpeakerManagerGetSpeakerStatus(&status);
@@ -78,48 +71,44 @@ SpeakerManagerServiceChild::GetSpeakerStatus()
   return status;
 }
 
-void
-SpeakerManagerServiceChild::Shutdown()
-{
+void SpeakerManagerServiceChild::Shutdown() {
   if (gSpeakerManagerServiceChild) {
     gSpeakerManagerServiceChild = nullptr;
   }
 }
 
-void
-SpeakerManagerServiceChild::SetAudioChannelActive(bool aIsActive)
-{
+void SpeakerManagerServiceChild::SetAudioChannelActive(bool aIsActive) {
   // Content process and switch to background with no audio and speaker forced.
   // Then disable speaker
-  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done(); iter.Next()) {
+  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done();
+       iter.Next()) {
     RefPtr<SpeakerManager> sm = iter.Data();
     sm->SetAudioChannelActive(aIsActive);
   }
 }
 
-SpeakerManagerServiceChild::SpeakerManagerServiceChild()
-{
+SpeakerManagerServiceChild::SpeakerManagerServiceChild() {
   MOZ_ASSERT(NS_IsMainThread());
-  RefPtr<AudioChannelService> audioChannelService = AudioChannelService::GetOrCreate();
+  RefPtr<AudioChannelService> audioChannelService =
+      AudioChannelService::GetOrCreate();
   if (audioChannelService) {
     audioChannelService->RegisterSpeakerManager(this);
   }
   MOZ_COUNT_CTOR(SpeakerManagerServiceChild);
 }
 
-SpeakerManagerServiceChild::~SpeakerManagerServiceChild()
-{
-  RefPtr<AudioChannelService> audioChannelService = AudioChannelService::GetOrCreate();
+SpeakerManagerServiceChild::~SpeakerManagerServiceChild() {
+  RefPtr<AudioChannelService> audioChannelService =
+      AudioChannelService::GetOrCreate();
   if (audioChannelService) {
     audioChannelService->UnregisterSpeakerManager(this);
   }
   MOZ_COUNT_DTOR(SpeakerManagerServiceChild);
 }
 
-void
-SpeakerManagerServiceChild::Notify()
-{
-  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done(); iter.Next()) {
+void SpeakerManagerServiceChild::Notify() {
+  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done();
+       iter.Next()) {
     RefPtr<SpeakerManager> sm = iter.Data();
     sm->DispatchSimpleEvent(NS_LITERAL_STRING("speakerforcedchange"));
   }

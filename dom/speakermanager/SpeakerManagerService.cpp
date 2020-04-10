@@ -24,10 +24,9 @@ using namespace mozilla::dom;
 
 StaticRefPtr<SpeakerManagerService> gSpeakerManagerService;
 
-// static
+/* static */
 SpeakerManagerService*
-SpeakerManagerService::GetOrCreateSpeakerManagerService()
-{
+SpeakerManagerService::GetOrCreateSpeakerManagerService() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!XRE_IsParentProcess()) {
@@ -47,9 +46,7 @@ SpeakerManagerService::GetOrCreateSpeakerManagerService()
   return gSpeakerManagerService;
 }
 
-SpeakerManagerService*
-SpeakerManagerService::GetSpeakerManagerService()
-{
+SpeakerManagerService* SpeakerManagerService::GetSpeakerManagerService() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!XRE_IsParentProcess()) {
@@ -59,19 +56,16 @@ SpeakerManagerService::GetSpeakerManagerService()
   return gSpeakerManagerService;
 }
 
-/* static */ PRLogModuleInfo*
-SpeakerManagerService::GetSpeakerManagerLog()
-{
-  static PRLogModuleInfo *gSpeakerManagerLog;
+/* static */
+PRLogModuleInfo* SpeakerManagerService::GetSpeakerManagerLog() {
+  static PRLogModuleInfo* gSpeakerManagerLog;
   if (!gSpeakerManagerLog) {
     gSpeakerManagerLog = PR_NewLogModule("SpeakerManager");
   }
   return gSpeakerManagerLog;
 }
 
-void
-SpeakerManagerService::Shutdown()
-{
+void SpeakerManagerService::Shutdown() {
   if (!XRE_IsParentProcess()) {
     return SpeakerManagerServiceChild::Shutdown();
   }
@@ -83,13 +77,12 @@ SpeakerManagerService::Shutdown()
 
 NS_IMPL_ISUPPORTS(SpeakerManagerService, nsIObserver)
 
-void
-SpeakerManagerService::SpeakerManagerList::InsertData(const SpeakerManagerData& aData)
-{
+void SpeakerManagerService::SpeakerManagerList::InsertData(
+    const SpeakerManagerData& aData) {
   for (auto& data : *this) {
-    // If the data of same child/window ID already exists, just update its mForceSpeaker.
-    if (data.mChildID == aData.mChildID &&
-        data.mWindowID == aData.mWindowID) {
+    // If the data of same child/window ID already exists, just update its
+    // mForceSpeaker.
+    if (data.mChildID == aData.mChildID && data.mWindowID == aData.mWindowID) {
       data.mForceSpeaker = aData.mForceSpeaker;
       return;
     }
@@ -98,14 +91,12 @@ SpeakerManagerService::SpeakerManagerList::InsertData(const SpeakerManagerData& 
   AppendElement(aData);
 }
 
-void
-SpeakerManagerService::SpeakerManagerList::RemoveData(const SpeakerManagerData& aData)
-{
+void SpeakerManagerService::SpeakerManagerList::RemoveData(
+    const SpeakerManagerData& aData) {
   size_type i = 0;
   for (; i < Length(); ++i) {
     SpeakerManagerData& data = ElementAt(i);
-    if (data.mChildID == aData.mChildID &&
-        data.mWindowID == aData.mWindowID) {
+    if (data.mChildID == aData.mChildID && data.mWindowID == aData.mWindowID) {
       break;
     }
   }
@@ -114,9 +105,7 @@ SpeakerManagerService::SpeakerManagerList::RemoveData(const SpeakerManagerData& 
   }
 }
 
-void
-SpeakerManagerService::SpeakerManagerList::RemoveChild(uint64_t aChildID)
-{
+void SpeakerManagerService::SpeakerManagerList::RemoveChild(uint64_t aChildID) {
   SpeakerManagerList temp;
   for (auto& data : *this) {
     if (data.mChildID != aChildID) {
@@ -126,16 +115,14 @@ SpeakerManagerService::SpeakerManagerList::RemoveChild(uint64_t aChildID)
   SwapElements(temp);
 }
 
-void
-SpeakerManagerService::UpdateSpeakerStatus()
-{
+void SpeakerManagerService::UpdateSpeakerStatus() {
   bool forceSpeaker = false;
   // Rule 1 - if foreground APP created SpeakerManager, always respect its
   //          forceSpeaker setting.
   if (!mVisibleSpeakerManagers.IsEmpty()) {
     forceSpeaker = mVisibleSpeakerManagers.LastElement().mForceSpeaker;
-  // Rule 2 - if foreground APP did not create SpeakerManager, always respect
-  //          the setting of the APP with active audio channel.
+    // Rule 2 - if foreground APP did not create SpeakerManager, always respect
+    //          the setting of the APP with active audio channel.
   } else if (!mActiveSpeakerManagers.IsEmpty()) {
     forceSpeaker = mActiveSpeakerManagers.LastElement().mForceSpeaker;
   }
@@ -147,16 +134,14 @@ SpeakerManagerService::UpdateSpeakerStatus()
   }
 }
 
-void
-SpeakerManagerService::ForceSpeaker(bool aEnable,
-                                    bool aVisible,
-                                    bool aAudioChannelActive,
-                                    uint64_t aWindowID,
-                                    uint64_t aChildID)
-{
+void SpeakerManagerService::ForceSpeaker(bool aEnable, bool aVisible,
+                                         bool aAudioChannelActive,
+                                         uint64_t aWindowID,
+                                         uint64_t aChildID) {
   MOZ_LOG(GetSpeakerManagerLog(), LogLevel::Debug,
-         ("SpeakerManagerService, ForceSpeaker, enable %d, visible %d, active %d, child %llu, "
-          "window %llu", aEnable, aVisible, aAudioChannelActive, aChildID, aWindowID));
+          ("SpeakerManagerService, ForceSpeaker, enable %d, visible %d, active "
+           "%d, child %llu, window %llu",
+           aEnable, aVisible, aAudioChannelActive, aChildID, aWindowID));
 
   SpeakerManagerData data(aChildID, aWindowID, aEnable);
 
@@ -178,18 +163,20 @@ SpeakerManagerService::ForceSpeaker(bool aEnable,
   Notify();
 }
 
-void
-SpeakerManagerService::TurnOnSpeaker(bool aOn)
-{
-  nsCOMPtr<nsIAudioManager> audioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
+void SpeakerManagerService::TurnOnSpeaker(bool aOn) {
+  nsCOMPtr<nsIAudioManager> audioManager =
+      do_GetService(NS_AUDIOMANAGER_CONTRACTID);
   NS_ENSURE_TRUE_VOID(audioManager);
   int32_t phoneState;
   audioManager->GetPhoneState(&phoneState);
-  int32_t forceuse = (phoneState == nsIAudioManager::PHONE_STATE_IN_CALL ||
-                      phoneState == nsIAudioManager::PHONE_STATE_IN_COMMUNICATION)
-                        ? nsIAudioManager::USE_COMMUNICATION : nsIAudioManager::USE_MEDIA;
+  int32_t forceuse =
+      (phoneState == nsIAudioManager::PHONE_STATE_IN_CALL ||
+       phoneState == nsIAudioManager::PHONE_STATE_IN_COMMUNICATION)
+          ? nsIAudioManager::USE_COMMUNICATION
+          : nsIAudioManager::USE_MEDIA;
   MOZ_LOG(GetSpeakerManagerLog(), LogLevel::Debug,
-         ("SpeakerManagerService, TurnOnSpeaker, forceuse %d, enable %d", forceuse, aOn));
+          ("SpeakerManagerService, TurnOnSpeaker, forceuse %d, enable %d",
+           forceuse, aOn));
   if (aOn) {
     audioManager->SetForceForUse(forceuse, nsIAudioManager::FORCE_SPEAKER);
   } else {
@@ -197,24 +184,21 @@ SpeakerManagerService::TurnOnSpeaker(bool aOn)
   }
 }
 
-bool
-SpeakerManagerService::GetSpeakerStatus()
-{
+bool SpeakerManagerService::GetSpeakerStatus() {
   char propQemu[PROPERTY_VALUE_MAX];
   property_get("ro.kernel.qemu", propQemu, "");
   if (!strncmp(propQemu, "1", 1)) {
     return mOrgSpeakerStatus;
   }
-  nsCOMPtr<nsIAudioManager> audioManager = do_GetService(NS_AUDIOMANAGER_CONTRACTID);
+  nsCOMPtr<nsIAudioManager> audioManager =
+      do_GetService(NS_AUDIOMANAGER_CONTRACTID);
   NS_ENSURE_TRUE(audioManager, false);
   int32_t usage;
   audioManager->GetForceForUse(nsIAudioManager::USE_MEDIA, &usage);
   return usage == nsIAudioManager::FORCE_SPEAKER;
 }
 
-void
-SpeakerManagerService::Notify()
-{
+void SpeakerManagerService::Notify() {
   // Parent Notify to all the child processes.
   nsTArray<ContentParent*> children;
   ContentParent::GetAll(children);
@@ -222,39 +206,38 @@ SpeakerManagerService::Notify()
     Unused << children[i]->SendSpeakerManagerNotify();
   }
 
-  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done(); iter.Next()) {
+  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done();
+       iter.Next()) {
     RefPtr<SpeakerManager> sm = iter.Data();
     sm->DispatchSimpleEvent(NS_LITERAL_STRING("speakerforcedchange"));
   }
 }
 
-void
-SpeakerManagerService::SetAudioChannelActive(bool aIsActive)
-{
-  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done(); iter.Next()) {
+void SpeakerManagerService::SetAudioChannelActive(bool aIsActive) {
+  for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done();
+       iter.Next()) {
     RefPtr<SpeakerManager> sm = iter.Data();
     sm->SetAudioChannelActive(aIsActive);
   }
 }
 
 NS_IMETHODIMP
-SpeakerManagerService::Observe(nsISupports* aSubject,
-                               const char* aTopic,
-                               const char16_t* aData)
-{
+SpeakerManagerService::Observe(nsISupports* aSubject, const char* aTopic,
+                               const char16_t* aData) {
   if (!strcmp(aTopic, "ipc:content-shutdown")) {
     nsCOMPtr<nsIPropertyBag2> props = do_QueryInterface(aSubject);
     if (!props) {
-      NS_WARNING("ipc:content-shutdown message without property bag as subject");
+      NS_WARNING(
+          "ipc:content-shutdown message without property bag as subject");
       return NS_OK;
     }
 
     uint64_t childID = 0;
-    nsresult rv = props->GetPropertyAsUint64(NS_LITERAL_STRING("childID"),
-                                             &childID);
+    nsresult rv =
+        props->GetPropertyAsUint64(NS_LITERAL_STRING("childID"), &childID);
     if (NS_SUCCEEDED(rv)) {
       MOZ_LOG(GetSpeakerManagerLog(), LogLevel::Debug,
-             ("SpeakerManagerService, Observe, remove child %llu", childID));
+              ("SpeakerManagerService, Observe, remove child %llu", childID));
       mVisibleSpeakerManagers.RemoveChild(childID);
       mActiveSpeakerManagers.RemoveChild(childID);
       UpdateSpeakerStatus();
@@ -265,7 +248,7 @@ SpeakerManagerService::Observe(nsISupports* aSubject,
     // Note that we need to do this before xpcom-shutdown, since the
     // AudioChannelService cannot be used past that point.
     RefPtr<AudioChannelService> audioChannelService =
-      AudioChannelService::GetOrCreate();
+        AudioChannelService::GetOrCreate();
     if (audioChannelService) {
       audioChannelService->UnregisterSpeakerManager(this);
     }
@@ -281,9 +264,7 @@ SpeakerManagerService::Observe(nsISupports* aSubject,
   return NS_OK;
 }
 
-SpeakerManagerService::SpeakerManagerService()
-  : mOrgSpeakerStatus(false)
-{
+SpeakerManagerService::SpeakerManagerService() : mOrgSpeakerStatus(false) {
   MOZ_COUNT_CTOR(SpeakerManagerService);
   if (XRE_IsParentProcess()) {
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
@@ -293,13 +274,12 @@ SpeakerManagerService::SpeakerManagerService()
     }
   }
   RefPtr<AudioChannelService> audioChannelService =
-    AudioChannelService::GetOrCreate();
+      AudioChannelService::GetOrCreate();
   if (audioChannelService) {
     audioChannelService->RegisterSpeakerManager(this);
   }
 }
 
-SpeakerManagerService::~SpeakerManagerService()
-{
+SpeakerManagerService::~SpeakerManagerService() {
   MOZ_COUNT_DTOR(SpeakerManagerService);
 }

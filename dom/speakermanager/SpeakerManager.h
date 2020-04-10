@@ -15,32 +15,32 @@ namespace dom {
 /* This class is used for UA to control devices's speaker status.
  * After UA set the speaker status, the UA should handle the
  * forcespeakerchange event and change the speaker status in UI.
- * The device's speaker status would set back to normal when UA close the application.
+ * The device's speaker status would set back to normal when UA close the
+ * application.
  */
-class SpeakerManager final
-  : public DOMEventTargetHelper
-  , public nsIDOMEventListener
-{
+class SpeakerManager final : public DOMEventTargetHelper,
+                             public nsIDOMEventListener {
   friend class SpeakerManagerService;
   friend class SpeakerManagerServiceChild;
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMEVENTLISTENER
 
-public:
+ public:
   nsresult Init(nsPIDOMWindowInner* aWindow);
 
   nsPIDOMWindowInner* GetParentObject() const;
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
   /**
    * WebIDL Interface
    */
   // Get this api's force speaker setting.
   bool Forcespeaker();
-  // Force acoustic sound go through speaker. Don't force to speaker if application
-  // stay in the background and re-force when application
-  // go to foreground
+  // Force acoustic sound go through speaker. Don't force to speaker if
+  // application stay in the background and re-force when application go to
+  // foreground
   void SetForcespeaker(bool aEnable);
   // Get the device's speaker forced setting.
   bool Speakerforced();
@@ -51,17 +51,16 @@ public:
 
   IMPL_EVENT_HANDLER(speakerforcedchange)
 
-  static already_AddRefed<SpeakerManager>
-  Constructor(const GlobalObject& aGlobal,
-              const Optional<SpeakerPolicy>& aPolicy,
-              ErrorResult& aRv);
+  static already_AddRefed<SpeakerManager> Constructor(
+      const GlobalObject& aGlobal, const Optional<SpeakerPolicy>& aPolicy,
+      ErrorResult& aRv);
 
-protected:
+ protected:
   SpeakerManager(SpeakerPolicy aPolicy);
   ~SpeakerManager();
   void DispatchSimpleEvent(const nsAString& aStr);
-  // Borrowed from AudioChannelAgent. This function finds the top window controlled by
-  // system APP, and stores it in mWindow.
+  // Borrowed from AudioChannelAgent. This function finds the top window
+  // controlled by system APP, and stores it in mWindow.
   nsresult FindCorrectWindow(nsPIDOMWindowInner* aWindow);
 
   void UpdateStatus();
@@ -76,7 +75,7 @@ protected:
   SpeakerPolicy mPolicy;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SpeakerManager_h
+#endif  // mozilla_dom_SpeakerManager_h

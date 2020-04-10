@@ -16,9 +16,8 @@ namespace dom {
 /* This class is used to do the IPC to enable/disable speaker status
    Also handle the application speaker competition problem
 */
-class SpeakerManagerServiceChild : public SpeakerManagerService
-{
-public:
+class SpeakerManagerServiceChild : public SpeakerManagerService {
+ public:
   /*
    * Return null or instance which has been created.
    */
@@ -29,21 +28,18 @@ public:
    */
   static SpeakerManagerService* GetOrCreateSpeakerManagerService();
   static void Shutdown();
-  virtual void ForceSpeaker(bool aEnable,
-                            bool aVisible,
-                            bool aChannelActive,
-                            uint64_t aWindowID,
-                            uint64_t aChildID = 0) override;
+  virtual void ForceSpeaker(bool aEnable, bool aVisible, bool aChannelActive,
+                            uint64_t aWindowID, uint64_t aChildID = 0) override;
   virtual bool GetSpeakerStatus() override;
   virtual void SetAudioChannelActive(bool aIsActive) override;
   virtual void Notify() override;
-protected:
+
+ protected:
   SpeakerManagerServiceChild();
   virtual ~SpeakerManagerServiceChild();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif
-
