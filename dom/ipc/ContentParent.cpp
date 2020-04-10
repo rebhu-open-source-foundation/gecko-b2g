@@ -284,6 +284,7 @@
 #  include "nsIVolume.h"
 #  include "nsVolumeService.h"
 #  include "nsIVolumeService.h"
+#  include "SpeakerManagerService.h"
 using namespace mozilla::system;
 #  include "nsISystemWorkerManager.h"
 #  include "SystemWorkerManager.h"
@@ -3023,6 +3024,41 @@ mozilla::ipc::IPCResult ContentParent::RecvAudioChannelServiceStatus(
   service->ChildStatusReceived(mChildID, aTelephonyChannel,
                                aContentOrNormalChannel, aAnyChannel);
   return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvSpeakerManagerGetSpeakerStatus(
+    bool* aValue) {
+#ifdef MOZ_WIDGET_GONK
+  *aValue = false;
+  RefPtr<SpeakerManagerService> service =
+      SpeakerManagerService::GetOrCreateSpeakerManagerService();
+  MOZ_ASSERT(service);
+  *aValue = service->GetSpeakerStatus();
+  return IPC_OK();
+#else
+  NS_WARNING(
+      "ContentParent::RecvSpeakerManagerGetSpeakerStatus shouldn't be called "
+      "when MOZ_WIDGET_GONK is not defined");
+  return IPC_FAIL_NO_REASON(this);
+#endif
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvSpeakerManagerForceSpeaker(
+    const bool& aEnable, const bool& aVisible, const bool& aAudioChannelActive,
+    const uint64_t& aWindowID) {
+#ifdef MOZ_WIDGET_GONK
+  RefPtr<SpeakerManagerService> service =
+      SpeakerManagerService::GetOrCreateSpeakerManagerService();
+  MOZ_ASSERT(service);
+  service->ForceSpeaker(aEnable, aVisible, aAudioChannelActive, aWindowID,
+                        mChildID);
+  return IPC_OK();
+#else
+  NS_WARNING(
+      "ContentParent::RecvSpeakerManagerForceSpeaker shouldn't be called when "
+      "MOZ_WIDGET_GONK is not defined");
+  return IPC_FAIL_NO_REASON(this);
+#endif
 }
 
 // We want ContentParent to show up in CC logs for debugging purposes, but we

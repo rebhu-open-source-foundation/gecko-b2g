@@ -228,6 +228,7 @@
 #if defined(MOZ_WIDGET_GONK)
 #  include "nsVolume.h"
 #  include "nsVolumeService.h"
+#  include "SpeakerManagerService.h"
 #endif
 
 #ifdef XP_WIN
@@ -1668,6 +1669,23 @@ mozilla::ipc::IPCResult ContentChild::RecvAudioDefaultDeviceChange() {
   audio::AudioNotificationReceiver::NotifyDefaultDeviceChanged();
 #endif
   return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvSpeakerManagerNotify() {
+#ifdef MOZ_WIDGET_GONK
+  // Only notify the process which has the SpeakerManager instance.
+  RefPtr<SpeakerManagerService> service =
+      SpeakerManagerService::GetSpeakerManagerService();
+  if (service) {
+    service->Notify();
+  }
+  return IPC_OK();
+#else
+  NS_WARNING(
+      "ContentChild::RecvSpeakerManagerNotify shouldn't be called when "
+      "MOZ_WIDGET_GONK is not defined");
+  return IPC_FAIL_NO_REASON(this);
+#endif
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvReinitRenderingForDeviceReset() {

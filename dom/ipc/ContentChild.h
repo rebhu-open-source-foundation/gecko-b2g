@@ -203,6 +203,8 @@ class ContentChild final
 
   mozilla::ipc::IPCResult RecvAudioDefaultDeviceChange();
 
+  mozilla::ipc::IPCResult RecvSpeakerManagerNotify();
+
   mozilla::ipc::IPCResult RecvReinitRenderingForDeviceReset();
 
   mozilla::ipc::IPCResult RecvSetProcessSandbox(

@@ -1210,6 +1210,12 @@ class ContentParent final
       const bool& aTelephonyChannel, const bool& aContentOrNormalChannel,
       const bool& aAnyChannel);
 
+  mozilla::ipc::IPCResult RecvSpeakerManagerGetSpeakerStatus(bool* aValue);
+
+  mozilla::ipc::IPCResult RecvSpeakerManagerForceSpeaker(
+      const bool& aEnable, const bool& aVisible,
+      const bool& aAudioChannelActive, const uint64_t& aWindowID);
+
   mozilla::ipc::IPCResult RecvAddIdleObserver(const uint64_t& observerId,
                                               const uint32_t& aIdleTimeInS);
 
