@@ -949,6 +949,33 @@ class LitVal {
  public:
   LitVal() : type_(), u{} {}
 
+  explicit LitVal(ValType type) : type_(type) {
+    switch (type.kind()) {
+      case ValType::Kind::I32: {
+        u.i32_ = 0;
+        break;
+      }
+      case ValType::Kind::I64: {
+        u.i64_ = 0;
+        break;
+      }
+      case ValType::Kind::F32: {
+        u.f32_ = 0;
+        break;
+      }
+      case ValType::Kind::F64: {
+        u.f64_ = 0;
+        break;
+      }
+      case ValType::Kind::Ref: {
+        u.ref_ = AnyRef::null();
+        break;
+      }
+      default:
+        MOZ_CRASH();
+    }
+  }
+
   explicit LitVal(uint32_t i32) : type_(ValType::I32) { u.i32_ = i32; }
   explicit LitVal(uint64_t i64) : type_(ValType::I64) { u.i64_ = i64; }
 
@@ -995,6 +1022,7 @@ class LitVal {
 class MOZ_NON_PARAM Val : public LitVal {
  public:
   Val() : LitVal() {}
+  explicit Val(ValType type) : LitVal(type) {}
   explicit Val(const LitVal& val);
   explicit Val(uint32_t i32) : LitVal(i32) {}
   explicit Val(uint64_t i64) : LitVal(i64) {}
@@ -1281,7 +1309,7 @@ typedef Vector<StructType, 0, SystemAllocPolicy> StructTypeVector;
 
 class InitExpr {
  public:
-  enum class Kind { Constant, GetGlobal };
+  enum class Kind { Constant, GetGlobal, RefFunc };
 
  private:
   // Note: all this private data is currently (de)serialized via memcpy().
@@ -1292,18 +1320,33 @@ class InitExpr {
       uint32_t index_;
       ValType type_;
     } global;
+    uint32_t refFuncIndex_;
     U() : global{} {}
   } u;
 
  public:
   InitExpr() = default;
 
-  explicit InitExpr(LitVal val) : kind_(Kind::Constant) { u.val_ = val; }
+  static InitExpr fromConstant(LitVal val) {
+    InitExpr expr;
+    expr.kind_ = Kind::Constant;
+    expr.u.val_ = val;
+    return expr;
+  }
 
-  explicit InitExpr(uint32_t globalIndex, ValType type)
-      : kind_(Kind::GetGlobal) {
-    u.global.index_ = globalIndex;
-    u.global.type_ = type;
+  static InitExpr fromGetGlobal(uint32_t globalIndex, ValType type) {
+    InitExpr expr;
+    expr.kind_ = Kind::GetGlobal;
+    expr.u.global.index_ = globalIndex;
+    expr.u.global.type_ = type;
+    return expr;
+  }
+
+  static InitExpr fromRefFunc(uint32_t refFuncIndex) {
+    InitExpr expr;
+    expr.kind_ = Kind::RefFunc;
+    expr.u.refFuncIndex_ = refFuncIndex;
+    return expr;
   }
 
   Kind kind() const { return kind_; }
@@ -1319,12 +1362,19 @@ class InitExpr {
     return u.global.index_;
   }
 
+  uint32_t refFuncIndex() const {
+    MOZ_ASSERT(kind() == Kind::RefFunc);
+    return u.refFuncIndex_;
+  }
+
   ValType type() const {
     switch (kind()) {
       case Kind::Constant:
         return u.val_.type();
       case Kind::GetGlobal:
         return u.global.type_;
+      case Kind::RefFunc:
+        return ValType(RefType::func());
     }
     MOZ_CRASH("unexpected initExpr type");
   }
@@ -2278,7 +2328,7 @@ enum class SymbolicAddress {
   TableInit,
   TableSet,
   TableSize,
-  FuncRef,
+  RefFunc,
   PreBarrierFiltering,
   PostBarrier,
   PostBarrierFiltering,

@@ -67,25 +67,6 @@ linux64-clang-9:
             - linux64-gcc-7
             - wasi-sysroot
 
-linux64-clang-9-cross:
-    description: "Clang 9 toolchain with patches to cross-compile to windows"
-    treeherder:
-        symbol: TL(clang9-cross)
-    run:
-        using: toolchain-script
-        script: build-clang.sh
-        arguments:
-            - 'build/build-clang/clang-linux64-cross.json'
-        resources:
-            - 'build/build-clang/clang-linux64-cross.json'
-        toolchain-artifact: public/build/clang.tar.xz
-    fetches:
-        fetch:
-            - clang-9
-        toolchain:
-            - linux64-binutils
-            - linux64-gcc-7
-
 linux64-clang-9-mingw-x86:
     description: "MinGW-Clang Trunk x86 toolchain build"
     treeherder:
@@ -227,6 +208,27 @@ linux64-clang-9-win-cross:
         win64-clang-cl:
             - artifact: clang.tar.bz2
               extract: false
+
+
+linux64-clang-10:
+    description: "Clang 10 toolchain build"
+    treeherder:
+        symbol: TL(clang10)
+    run:
+        using: toolchain-script
+        script: build-clang.sh
+        arguments:
+            - 'build/build-clang/clang-10-linux64.json'
+        resources:
+            - 'build/build-clang/clang-10-linux64.json'
+        toolchain-artifact: public/build/clang.tar.xz
+    fetches:
+        fetch:
+            - clang-10
+        toolchain:
+            - linux64-binutils
+            - linux64-gcc-7
+            - wasi-sysroot
 
 macosx64-clang:
     description: "Clang toolchain build"

@@ -4938,30 +4938,6 @@ JS_PUBLIC_API void JS_ClearPendingException(JSContext* cx) {
   cx->clearPendingException();
 }
 
-JS_PUBLIC_API void JS::SetPendingExceptionAndStack(JSContext* cx,
-                                                   HandleValue value,
-                                                   HandleObject stack) {
-  AssertHeapIsIdle();
-  CHECK_THREAD(cx);
-  // We don't check the compartments of `value` and `stack` here,
-  // because we're not doing anything with them other than storing
-  // them, and stored exception values can be in an abitrary
-  // compartment while stored stack values are always the unwrapped
-  // object anyway.
-
-  RootedSavedFrame nstack(cx);
-  if (stack) {
-    nstack = &UncheckedUnwrap(stack)->as<SavedFrame>();
-  }
-  cx->setPendingException(value, nstack);
-}
-
-JS_PUBLIC_API JSObject* JS::GetPendingExceptionStack(JSContext* cx) {
-  AssertHeapIsIdle();
-  CHECK_THREAD(cx);
-  return cx->getPendingExceptionStack();
-}
-
 JS::AutoSaveExceptionState::AutoSaveExceptionState(JSContext* cx)
     : context(cx),
       wasPropagatingForcedReturn(cx->propagatingForcedReturn_),

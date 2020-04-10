@@ -1033,7 +1033,7 @@ bool Instance::initElems(uint32_t tableIndex, const ElemSegment& seg,
       table.setNull(dstOffset + i);
     } else if (!table.isFunction()) {
       // Note, fnref must be rooted if we do anything more than just store it.
-      void* fnref = Instance::funcRef(this, funcIndex);
+      void* fnref = Instance::refFunc(this, funcIndex);
       if (fnref == AnyRef::invalid().forCompiledCode()) {
         return false;  // OOM, which has already been reported.
       }
@@ -1231,8 +1231,8 @@ bool Instance::initElems(uint32_t tableIndex, const ElemSegment& seg,
   return table.length();
 }
 
-/* static */ void* Instance::funcRef(Instance* instance, uint32_t funcIndex) {
-  MOZ_ASSERT(SASigFuncRef.failureMode == FailureMode::FailOnInvalidRef);
+/* static */ void* Instance::refFunc(Instance* instance, uint32_t funcIndex) {
+  MOZ_ASSERT(SASigRefFunc.failureMode == FailureMode::FailOnInvalidRef);
   JSContext* cx = TlsContext.get();
 
   Tier tier = instance->code().bestTier();
@@ -1433,9 +1433,6 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
                    SharedCode code, UniqueTlsData tlsDataIn,
                    HandleWasmMemoryObject memory, SharedTableVector&& tables,
                    StructTypeDescrVector&& structTypeDescrs,
-                   const JSFunctionVector& funcImports,
-                   const ValVector& globalImportValues,
-                   const WasmGlobalObjectVector& globalObjs,
                    UniqueDebugState maybeDebug)
     : realm_(cx->realm()),
       object_(object),
@@ -1450,7 +1447,13 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
       memory_(memory),
       tables_(std::move(tables)),
       maybeDebug_(std::move(maybeDebug)),
-      structTypeDescrs_(std::move(structTypeDescrs)) {
+      structTypeDescrs_(std::move(structTypeDescrs)) {}
+
+bool Instance::init(JSContext* cx, const JSFunctionVector& funcImports,
+                    const ValVector& globalImportValues,
+                    const WasmGlobalObjectVector& globalObjs,
+                    const DataSegmentVector& dataSegments,
+                    const ElemSegmentVector& elemSegments) {
   MOZ_ASSERT(!!maybeDebug_ == metadata().debugEnabled);
   MOZ_ASSERT(structTypeDescrs_.length() == structTypes().length());
 
@@ -1462,8 +1465,8 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
   MOZ_ASSERT(tables_.length() == metadata().tables.length());
 
   tlsData()->memoryBase =
-      memory ? memory->buffer().dataPointerEither().unwrap() : nullptr;
-  tlsData()->boundsCheckLimit = memory ? memory->boundsCheckLimit() : 0;
+      memory_ ? memory_->buffer().dataPointerEither().unwrap() : nullptr;
+  tlsData()->boundsCheckLimit = memory_ ? memory_->boundsCheckLimit() : 0;
   tlsData()->instance = this;
   tlsData()->realm = realm_;
   tlsData()->cx = cx;
@@ -1473,6 +1476,7 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
   tlsData()->addressOfNeedsIncrementalBarrier =
       (uint8_t*)cx->compartment()->zone()->addressOfNeedsIncrementalBarrier();
 
+  // Initialize function imports in the tls data
   Tier callerTier = code_->bestTier();
   for (size_t i = 0; i < metadata(callerTier).funcImports.length(); i++) {
     JSFunction* f = funcImports[i];
@@ -1504,6 +1508,7 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
     }
   }
 
+  // Initialize tables in the tls data
   for (size_t i = 0; i < tables_.length(); i++) {
     const TableDesc& td = metadata().tables[i];
     TableTls& table = tableTls(td);
@@ -1511,6 +1516,7 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
     table.functionBase = tables_[i]->functionBase();
   }
 
+  // Initialize globals in the tls data
   for (size_t i = 0; i < metadata().globals.length(); i++) {
     const GlobalDesc& global = metadata().globals[i];
 
@@ -1532,13 +1538,11 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
       }
       case GlobalKind::Variable: {
         const InitExpr& init = global.initExpr();
+
+        RootedVal val(cx);
         switch (init.kind()) {
           case InitExpr::Kind::Constant: {
-            if (global.isIndirect()) {
-              *(void**)globalAddr = globalObjs[i]->cell();
-            } else {
-              CopyValPostBarriered(globalAddr, Val(init.val()));
-            }
+            val = Val(init.val());
             break;
           }
           case InitExpr::Kind::GetGlobal: {
@@ -1548,16 +1552,26 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
             // the source global should never be indirect.
             MOZ_ASSERT(!imported.isIndirect());
 
-            RootedVal dest(cx, globalImportValues[imported.importIndex()]);
-            if (global.isIndirect()) {
-              void* address = globalObjs[i]->cell();
-              *(void**)globalAddr = address;
-              CopyValPostBarriered((uint8_t*)address, dest.get());
-            } else {
-              CopyValPostBarriered(globalAddr, dest.get());
-            }
+            val = globalImportValues[imported.importIndex()];
             break;
           }
+          case InitExpr::Kind::RefFunc: {
+            void* fnref = Instance::refFunc(this, init.refFuncIndex());
+            if (fnref == AnyRef::invalid().forCompiledCode()) {
+              return false;  // OOM, which has already been reported.
+            }
+            val =
+                Val(ValType(RefType::func()), FuncRef::fromCompiledCode(fnref));
+            break;
+          }
+        }
+
+        if (global.isIndirect()) {
+          void* address = globalObjs[i]->cell();
+          *(void**)globalAddr = address;
+          CopyValPostBarriered((uint8_t*)address, val.get());
+        } else {
+          CopyValPostBarriered(globalAddr, val.get());
         }
         break;
       }
@@ -1566,21 +1580,21 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
       }
     }
   }
-}
 
-bool Instance::init(JSContext* cx, const DataSegmentVector& dataSegments,
-                    const ElemSegmentVector& elemSegments) {
+  // Add observer if our memory base may grow
   if (memory_ && memory_->movingGrowable() &&
       !memory_->addMovingGrowObserver(cx, object_)) {
     return false;
   }
 
+  // Add observers if our tables may grow
   for (const SharedTable& table : tables_) {
     if (table->movingGrowable() && !table->addMovingGrowObserver(cx, object_)) {
       return false;
     }
   }
 
+  // Allocate in the global function type set for structural signature checks
   if (!metadata().funcTypeIds.empty()) {
     ExclusiveData<FuncTypeIdSet>::Guard lockedFuncTypeIdSet =
         funcTypeIdSet.lock();
@@ -1595,6 +1609,7 @@ bool Instance::init(JSContext* cx, const DataSegmentVector& dataSegments,
     }
   }
 
+  // Take references to the passive data segments
   if (!passiveDataSegments_.resize(dataSegments.length())) {
     return false;
   }
@@ -1604,6 +1619,7 @@ bool Instance::init(JSContext* cx, const DataSegmentVector& dataSegments,
     }
   }
 
+  // Take references to the passive element segments
   if (!passiveElemSegments_.resize(elemSegments.length())) {
     return false;
   }

@@ -47,6 +47,7 @@ namespace gc {
 
 class Arena;
 enum class AllocKind : uint8_t;
+class CellHeaderWithLengthAndFlags;
 struct Chunk;
 class StoreBuffer;
 class TenuredCell;
@@ -124,12 +125,17 @@ class CellHeader {
   // or JSObject/JSString (0).
   static constexpr uintptr_t BIGINT_BIT = Bit(2);
 
- protected:
+  bool isForwarded() const { return header_ & FORWARD_BIT; }
+  bool isString() const { return header_ & JSSTRING_BIT; }
+  bool isBigInt() const { return header_ & BIGINT_BIT; }
+
   uintptr_t flags() const { return header_ & RESERVED_MASK; }
 
+ protected:
   // NOTE: This word can also be used for temporary storage, see
   // setTemporaryGCUnsafeData.
   uintptr_t header_;
+  friend class CellHeaderWithLengthAndFlags;
 };
 
 // [SMDOC] GC Cell
@@ -181,20 +187,17 @@ struct alignas(gc::CellAlignBytes) Cell {
   static MOZ_ALWAYS_INLINE bool needWriteBarrierPre(JS::Zone* zone);
 
   inline bool isForwarded() const {
-    uintptr_t firstWord = *reinterpret_cast<const uintptr_t*>(this);
-    return firstWord & CellHeader::FORWARD_BIT;
+    return reinterpret_cast<const CellHeader*>(this)->isForwarded();
   }
 
   inline bool nurseryCellIsString() const {
     MOZ_ASSERT(!isTenured());
-    uintptr_t firstWord = *reinterpret_cast<const uintptr_t*>(this);
-    return firstWord & CellHeader::JSSTRING_BIT;
+    return reinterpret_cast<const CellHeader*>(this)->isString();
   }
 
   inline bool nurseryCellIsBigInt() const {
     MOZ_ASSERT(!isTenured());
-    uintptr_t firstWord = *reinterpret_cast<const uintptr_t*>(this);
-    return firstWord & CellHeader::BIGINT_BIT;
+    return reinterpret_cast<const CellHeader*>(this)->isBigInt();
   }
 
   template <class T>
@@ -561,48 +564,57 @@ bool TenuredCell::isAligned() const {
 // The low bits of the flags word (see CellFlagBitsReservedForGC) are reserved
 // for GC. Derived classes must ensure they don't use these flags for non-GC
 // purposes.
-class CellHeaderWithLengthAndFlags : public CellHeader {
+class CellHeaderWithLengthAndFlags {
+  // Use composition rather than inheritance so this ends up a standard layout
+  // type.
+  CellHeader header_;
+
 #if JS_BITS_PER_WORD == 32
   // Additional storage for length if |header_| is too small to fit both.
   uint32_t length_;
 #endif
+
+  uintptr_t& header() { return header_.header_; }
+  const uintptr_t& header() const { return header_.header_; }
 
  public:
   uint32_t lengthField() const {
 #if JS_BITS_PER_WORD == 32
     return length_;
 #else
-    return uint32_t(header_ >> 32);
+    return uint32_t(header() >> 32);
 #endif
   }
 
-  uint32_t flagsField() const { return uint32_t(header_); }
+  uint32_t flagsField() const { return uint32_t(header()); }
 
-  void setFlagBit(uint32_t flag) { header_ |= uintptr_t(flag); }
-  void clearFlagBit(uint32_t flag) { header_ &= ~uintptr_t(flag); }
-  void toggleFlagBit(uint32_t flag) { header_ ^= uintptr_t(flag); }
+  void setFlagBit(uint32_t flag) { header() |= uintptr_t(flag); }
+  void clearFlagBit(uint32_t flag) { header() &= ~uintptr_t(flag); }
+  void toggleFlagBit(uint32_t flag) { header() ^= uintptr_t(flag); }
 
   void setLengthAndFlags(uint32_t len, uint32_t flags) {
 #if JS_BITS_PER_WORD == 32
-    header_ = flags;
+    header() = flags;
     length_ = len;
 #else
-    header_ = (uint64_t(len) << 32) | uint64_t(flags);
+    header() = (uint64_t(len) << 32) | uint64_t(flags);
 #endif
   }
 
   // Sub classes can store temporary data in the flags word. This is not GC safe
   // and users must ensure flags/length are never checked (including by asserts)
   // while this data is stored. Use of this method is strongly discouraged!
-  void setTemporaryGCUnsafeData(uintptr_t data) { header_ = data; }
+  void setTemporaryGCUnsafeData(uintptr_t data) { header() = data; }
 
   // To get back the data, values to safely re-initialize clobbered flags
   // must be provided.
   uintptr_t unsetTemporaryGCUnsafeData(uint32_t len, uint32_t flags) {
-    uintptr_t data = header_;
+    uintptr_t data = header();
     setLengthAndFlags(len, flags);
     return data;
   }
+
+  const js::gc::CellHeader& cellHeader() const { return header_; }
 
   // Returns the offset of header_. JIT code should use offsetOfFlags
   // below.
@@ -642,10 +654,10 @@ class CellHeaderWithLengthAndFlags : public CellHeader {
 // The low bits of the word (see CellFlagBitsReservedForGC) are reserved for GC.
 template <class PtrT>
 class CellHeaderWithNonGCPointer : public CellHeader {
-  static_assert(!std::is_pointer<PtrT>::value,
+  static_assert(!std::is_pointer_v<PtrT>,
                 "PtrT should be the type of the referent, not of the pointer");
   static_assert(
-      !std::is_base_of<Cell, PtrT>::value,
+      !std::is_base_of_v<Cell, PtrT>,
       "Don't use CellHeaderWithNonGCPointer for pointers to GC things");
 
  public:
@@ -692,10 +704,10 @@ class CellHeaderWithTenuredGCPointer : public CellHeader {
     // These static asserts are not in class scope because the PtrT may not be
     // defined when this class template is instantiated.
     static_assert(
-        !std::is_pointer<PtrT>::value,
+        !std::is_pointer_v<PtrT>,
         "PtrT should be the type of the referent, not of the pointer");
     static_assert(
-        std::is_base_of<Cell, PtrT>::value,
+        std::is_base_of_v<Cell, PtrT>,
         "Only use CellHeaderWithTenuredGCPointer for pointers to GC things");
   }
 

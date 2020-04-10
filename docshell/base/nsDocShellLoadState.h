@@ -34,6 +34,10 @@ class DocShellLoadStateInit;
  * call.
  */
 class nsDocShellLoadState final {
+  using BrowsingContext = mozilla::dom::BrowsingContext;
+  template <typename T>
+  using MaybeDiscarded = mozilla::dom::MaybeDiscarded<T>;
+
  public:
   NS_INLINE_DECL_REFCOUNTING(nsDocShellLoadState);
 
@@ -141,9 +145,11 @@ class nsDocShellLoadState final {
 
   void SetSrcdocData(const nsAString& aSrcdocData);
 
-  nsIDocShell* SourceDocShell() const;
+  const MaybeDiscarded<BrowsingContext>& SourceBrowsingContext() const {
+    return mSourceBrowsingContext;
+  }
 
-  void SetSourceDocShell(nsIDocShell* aSourceDocShell);
+  void SetSourceBrowsingContext(BrowsingContext* aSourceBrowsingContext);
 
   nsIURI* BaseURI() const;
 
@@ -338,7 +344,7 @@ class nsDocShellLoadState final {
   nsString mSrcdocData;
 
   // When set, this is the Source Browsing Context for the navigation.
-  nsCOMPtr<nsIDocShell> mSourceDocShell;
+  MaybeDiscarded<BrowsingContext> mSourceBrowsingContext;
 
   // Used for srcdoc loads to give view-source knowledge of the load's base URI
   // as this information isn't embedded in the load's URI.

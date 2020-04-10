@@ -479,8 +479,7 @@ static bool EmplaceEmitter(CompilationInfo& compilationInfo,
       compilationInfo.options.selfHostingMode ? BytecodeEmitter::SelfHosting
                                               : BytecodeEmitter::Normal;
   emitter.emplace(/* parent = */ nullptr, parser, sharedContext,
-                  compilationInfo.script,
-                  /* lazyScript = */ nullptr, compilationInfo.options.lineno,
+                  compilationInfo.script, compilationInfo.options.lineno,
                   compilationInfo.options.column, compilationInfo, emitterMode);
   return emitter->init();
 }
@@ -802,7 +801,7 @@ static JSScript* CompileGlobalBinASTScriptImpl(
 
   compilationInfo.sourceObject->source()->setBinASTSourceMetadata(metadata);
 
-  BytecodeEmitter bce(nullptr, &parser, &globalsc, script, nullptr, 0, 0,
+  BytecodeEmitter bce(nullptr, &parser, &globalsc, script, 0, 0,
                       compilationInfo);
 
   if (!bce.init()) {
@@ -939,27 +938,11 @@ static void CheckFlagsOnDelazification(uint32_t lazy, uint32_t nonLazy) {
       uint32_t(BaseScript::ImmutableFlags::FunctionHasExtraBodyVarScope) |
       uint32_t(BaseScript::ImmutableFlags::NeedsFunctionEnvironmentObjects);
 
-  // These flags are computed for lazy scripts and may have a different
-  // definition for non-lazy scripts.
-  //
-  //  TreatAsRunOnce:     Some conditions depend on parent context and are
-  //                      computed during lazy parsing, while other conditions
-  //                      need to full parse.
-  constexpr uint32_t CustomFlagsMask =
-      uint32_t(BaseScript::ImmutableFlags::TreatAsRunOnce);
-
   // These flags are expected to match between lazy and full parsing.
-  constexpr uint32_t MatchedFlagsMask = ~(NonLazyFlagsMask | CustomFlagsMask);
+  constexpr uint32_t MatchedFlagsMask = ~NonLazyFlagsMask;
 
   MOZ_ASSERT((lazy & NonLazyFlagsMask) == 0);
   MOZ_ASSERT((lazy & MatchedFlagsMask) == (nonLazy & MatchedFlagsMask));
-
-  // The TreatAsRunOnce conditions are stricter for compiled scripts than for
-  // lazy scripts. A compiled script should only have set it if the lazy script
-  // had it. As a result, during relazification we can inherit the compiled
-  // value as the new lazy value.
-  MOZ_ASSERT_IF(nonLazy & uint32_t(BaseScript::ImmutableFlags::TreatAsRunOnce),
-                lazy & uint32_t(BaseScript::ImmutableFlags::TreatAsRunOnce));
 #endif  // DEBUG
 }
 
@@ -1035,7 +1018,7 @@ static bool CompileLazyFunctionImpl(JSContext* cx, Handle<BaseScript*> lazy,
   }
 
   BytecodeEmitter bce(/* parent = */ nullptr, &parser, pn->funbox(), script,
-                      lazy, lazy->lineno(), lazy->column(), compilationInfo,
+                      lazy->lineno(), lazy->column(), compilationInfo,
                       BytecodeEmitter::LazyFunction, fieldInitializers);
   if (!bce.init(pn->pn_pos)) {
     return false;
@@ -1104,8 +1087,8 @@ static bool CompileLazyBinASTFunctionImpl(JSContext* cx,
 
   FunctionNode* pn = parsed.unwrap();
 
-  BytecodeEmitter bce(nullptr, &parser, pn->funbox(), script, lazy,
-                      lazy->lineno(), lazy->column(), compilationInfo,
+  BytecodeEmitter bce(nullptr, &parser, pn->funbox(), script, lazy->lineno(),
+                      lazy->column(), compilationInfo,
                       BytecodeEmitter::LazyFunction);
 
   if (!bce.init(pn->pn_pos)) {

@@ -4340,7 +4340,6 @@ class MToObjectOrNull : public MUnaryInstruction, public BoxInputsPolicy::Data {
 class MBitNot : public MUnaryInstruction, public BitwisePolicy::Data {
  protected:
   explicit MBitNot(MDefinition* input) : MUnaryInstruction(classOpcode, input) {
-    specialization_ = MIRType::Int32;
     setResultType(MIRType::Int32);
     setMovable();
   }
@@ -4447,7 +4446,6 @@ class MBinaryBitwiseInstruction : public MBinaryInstruction,
         maskMatchesRightRange(false) {
     MOZ_ASSERT(type == MIRType::Int32 || type == MIRType::Int64 ||
                (isUrsh() && type == MIRType::Double));
-    specialization_ = type;
     setResultType(type);
     setMovable();
   }
@@ -4743,7 +4741,6 @@ class MBinaryArithInstruction : public MBinaryInstruction,
         implicitTruncate_(NoTruncate),
         mustPreserveNaN_(false) {
     MOZ_ASSERT(IsNumberType(type));
-    specialization_ = type;
     setResultType(type);
     setMovable();
   }
@@ -4766,7 +4763,6 @@ class MBinaryArithInstruction : public MBinaryInstruction,
 
   void setSpecialization(MIRType type) {
     MOZ_ASSERT(IsNumberType(type));
-    specialization_ = type;
     setResultType(type);
   }
 
@@ -4796,7 +4792,6 @@ class MMinMax : public MBinaryInstruction, public ArithPolicy::Data {
     MOZ_ASSERT(IsNumberType(type));
     setResultType(type);
     setMovable();
-    specialization_ = type;
   }
 
  public:
@@ -4839,7 +4834,6 @@ class MAbs : public MUnaryInstruction, public ArithPolicy::Data {
     MOZ_ASSERT(IsNumberType(type));
     setResultType(type);
     setMovable();
-    specialization_ = type;
   }
 
  public:
@@ -4878,7 +4872,6 @@ class MClz : public MUnaryInstruction, public BitwisePolicy::Data {
       : MUnaryInstruction(classOpcode, num), operandIsNeverZero_(false) {
     MOZ_ASSERT(IsIntType(type));
     MOZ_ASSERT(IsNumberType(num->type()));
-    specialization_ = type;
     setResultType(type);
     setMovable();
   }
@@ -4908,7 +4901,6 @@ class MCtz : public MUnaryInstruction, public BitwisePolicy::Data {
       : MUnaryInstruction(classOpcode, num), operandIsNeverZero_(false) {
     MOZ_ASSERT(IsIntType(type));
     MOZ_ASSERT(IsNumberType(num->type()));
-    specialization_ = type;
     setResultType(type);
     setMovable();
   }
@@ -4936,7 +4928,6 @@ class MPopcnt : public MUnaryInstruction, public BitwisePolicy::Data {
       : MUnaryInstruction(classOpcode, num) {
     MOZ_ASSERT(IsNumberType(num->type()));
     MOZ_ASSERT(IsIntType(type));
-    specialization_ = type;
     setResultType(type);
     setMovable();
   }
@@ -5628,20 +5619,18 @@ class MMod : public MBinaryArithInstruction {
   double getIdentity() override { MOZ_CRASH("not used"); }
 
   bool canBeNegativeDividend() const {
-    MOZ_ASSERT(specialization_ == MIRType::Int32 ||
-               specialization_ == MIRType::Int64);
+    MOZ_ASSERT(type() == MIRType::Int32 || type() == MIRType::Int64);
     MOZ_ASSERT(!unsigned_);
     return canBeNegativeDividend_;
   }
 
   bool canBeDivideByZero() const {
-    MOZ_ASSERT(specialization_ == MIRType::Int32 ||
-               specialization_ == MIRType::Int64);
+    MOZ_ASSERT(type() == MIRType::Int32 || type() == MIRType::Int64);
     return canBeDivideByZero_;
   }
 
   bool canBePowerOfTwoDivisor() const {
-    MOZ_ASSERT(specialization_ == MIRType::Int32);
+    MOZ_ASSERT(type() == MIRType::Int32);
     return canBePowerOfTwoDivisor_;
   }
 

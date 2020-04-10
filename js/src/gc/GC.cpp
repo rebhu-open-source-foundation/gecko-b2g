@@ -313,6 +313,17 @@ static_assert(mozilla::ArrayLength(slotsToThingKind) ==
 FOR_EACH_ALLOCKIND(CHECK_THING_SIZE);
 #undef CHECK_THING_SIZE
 
+// GC things must be standard-layout classes so we can access the cell header by
+// casting the thing pointer to a CellHeader*. This checks the property for the
+// least derived thing type.
+#define CHECK_THING_LAYOUT(_1, traceKind, _2, _3, _4, _5, _6)         \
+  static_assert(                                                      \
+      std::is_standard_layout<                                        \
+          MapTraceKindToType<JS::TraceKind::traceKind>::Type>::value, \
+      "The class for " #traceKind " must by a standard layout type.");
+FOR_EACH_ALLOCKIND(CHECK_THING_LAYOUT)
+#undef CHECK_THING_LAYOUT
+
 template <typename T>
 struct ArenaLayout {
   static constexpr size_t thingSize() { return sizeof(T); }
@@ -1905,8 +1916,7 @@ static void RelocateCell(Zone* zone, TenuredCell* src, AllocKind thingKind,
 #endif
 
   // Mark source cell as forwarded and leave a pointer to the destination.
-  RelocationOverlay* overlay = RelocationOverlay::fromCell(src);
-  overlay->forwardTo(dst);
+  RelocationOverlay::forwardCell(src, dst);
 }
 
 static void RelocateArena(Arena* arena, SliceBudget& sliceBudget) {
@@ -4970,8 +4980,8 @@ void GCRuntime::startTask(GCParallelTask& task, gcstats::PhaseKind phase,
                           AutoLockHelperThreadState& lock) {
   if (!CanUseExtraThreads()) {
     AutoUnlockHelperThreadState unlock(lock);
-    gcstats::AutoPhase ap(stats(), phase);
     task.runFromMainThread();
+    stats().recordParallelPhase(phase, task.duration());
     return;
   }
 
@@ -4987,18 +4997,15 @@ void GCRuntime::joinTask(GCParallelTask& task, gcstats::PhaseKind phase,
     return;
   }
 
-  // If the task was dispatched but has not yet started then cancel the task and
-  // run it from the main thread. This stops us from blocking here when the
-  // helper threads are busy with other tasks.
   if (task.isDispatched(lock)) {
+    // If the task was dispatched but has not yet started then cancel the task
+    // and run it from the main thread. This stops us from blocking here when
+    // the helper threads are busy with other tasks.
     task.cancelDispatchedTask(lock);
     AutoUnlockHelperThreadState unlock(lock);
-    gcstats::AutoPhase ap(stats(), phase);
     task.runFromMainThread();
-    return;
-  }
-
-  {
+  } else {
+    // Otherwise wait for the task to complete.
     gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::JOIN_PARALLEL_TASKS);
     task.joinRunningOrFinishedTask(lock);
   }

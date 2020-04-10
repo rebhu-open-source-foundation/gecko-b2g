@@ -8,6 +8,7 @@
 
 #include "AudioParamMap.h"
 #include "js/Array.h"  // JS::{Get,Set}ArrayLength, JS::NewArrayLength
+#include "js/Exception.h"
 #include "mozilla/dom/AudioWorkletNodeBinding.h"
 #include "mozilla/dom/AudioParamMapBinding.h"
 #include "mozilla/dom/RootedDictionary.h"
@@ -197,26 +198,23 @@ void WorkletNodeEngine::SendProcessorError(AudioNodeTrack* aTrack,
   ReleaseJSResources();
   // The processor errored out while getting a context, try to tell the node
   // anyways.
-  if (!aCx) {
+  if (!aCx || !JS_IsExceptionPending(aCx)) {
     ProcessorErrorDetails details;
     details.mMessage.Assign(u"Unknown processor error");
     SendErrorToMainThread(aTrack, details);
     return;
   }
 
-  js::ErrorReport jsReport(aCx);
-  JS::Rooted<JS::Value> exn(aCx);
-  JS::Rooted<JSObject*> exnStack(aCx);
-  if (JS_GetPendingException(aCx, &exn)) {
-    exnStack.set(JS::GetPendingExceptionStack(aCx));
-    JS_ClearPendingException(aCx);
-    if (!jsReport.init(aCx, exn, js::ErrorReport::WithSideEffects)) {
+  JS::ExceptionStack exnStack(aCx);
+  if (JS::StealPendingExceptionStack(aCx, &exnStack)) {
+    js::ErrorReport jsReport(aCx);
+    if (!jsReport.init(aCx, exnStack, js::ErrorReport::WithSideEffects)) {
       ProcessorErrorDetails details;
       details.mMessage.Assign(u"Unknown processor error");
       SendErrorToMainThread(aTrack, details);
       // Set the exception and stack back to have it in the console with a stack
       // trace.
-      JS::SetPendingExceptionAndStack(aCx, exn, exnStack);
+      JS::SetPendingExceptionStack(aCx, exnStack);
       return;
     }
 
@@ -235,7 +233,7 @@ void WorkletNodeEngine::SendProcessorError(AudioNodeTrack* aTrack,
 
     // Set the exception and stack back to have it in the console with a stack
     // trace.
-    JS::SetPendingExceptionAndStack(aCx, exn, exnStack);
+    JS::SetPendingExceptionStack(aCx, exnStack);
   } else {
     NS_WARNING("No exception, but processor errored out?");
   }
