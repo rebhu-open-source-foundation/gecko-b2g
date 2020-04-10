@@ -59,10 +59,6 @@ class SpeakerManager final : public DOMEventTargetHelper,
   SpeakerManager(SpeakerPolicy aPolicy);
   ~SpeakerManager();
   void DispatchSimpleEvent(const nsAString& aStr);
-  // Borrowed from AudioChannelAgent. This function finds the top window
-  // controlled by system APP, and stores it in mWindow.
-  nsresult FindCorrectWindow(nsPIDOMWindowInner* aWindow);
-
   void UpdateStatus();
 
   nsCOMPtr<nsPIDOMWindowOuter> mWindow;
@@ -70,8 +66,6 @@ class SpeakerManager final : public DOMEventTargetHelper,
   bool mForcespeaker;
   bool mVisible;
   bool mAudioChannelActive;
-  bool mIsSystemApp;
-  uint32_t mSystemAppId;
   SpeakerPolicy mPolicy;
 };
 

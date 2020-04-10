@@ -12,7 +12,6 @@
 #include "mozilla/dom/Event.h"
 
 #include "AudioChannelService.h"
-#include "nsIAppsService.h"
 #include "nsIDocShell.h"
 #include "nsIDOMClassInfo.h"
 #include "nsIDOMEventListener.h"
@@ -32,8 +31,6 @@ SpeakerManager::SpeakerManager(SpeakerPolicy aPolicy)
     : mForcespeaker(false),
       mVisible(false),
       mAudioChannelActive(false),
-      mIsSystemApp(false),
-      mSystemAppId(nsIScriptSecurityManager::NO_APP_ID),
       mPolicy(aPolicy) {}
 
 SpeakerManager::~SpeakerManager() {
@@ -86,75 +83,6 @@ void SpeakerManager::DispatchSimpleEvent(const nsAString& aStr) {
   }
 }
 
-static nsresult GetAppId(nsPIDOMWindowInner* aWindow, uint32_t* aAppId) {
-  *aAppId = nsIScriptSecurityManager::NO_APP_ID;
-
-  nsCOMPtr<nsIDocument> doc = aWindow->GetExtantDoc();
-  NS_ENSURE_TRUE(doc, NS_ERROR_FAILURE);
-
-  nsCOMPtr<nsIPrincipal> principal = doc->NodePrincipal();
-
-  nsresult rv = principal->GetAppId(aAppId);
-  NS_ENSURE_SUCCESS(rv, rv);
-  return NS_OK;
-}
-
-static nsresult GetSystemAppId(uint32_t* aSystemAppId) {
-  *aSystemAppId = nsIScriptSecurityManager::NO_APP_ID;
-
-  nsCOMPtr<nsIAppsService> appsService = do_GetService(APPS_SERVICE_CONTRACTID);
-  NS_ENSURE_TRUE(appsService, NS_ERROR_FAILURE);
-
-  nsAdoptingString systemAppManifest =
-      mozilla::Preferences::GetString("b2g.system_manifest_url");
-  NS_ENSURE_TRUE(systemAppManifest, NS_ERROR_FAILURE);
-
-  nsresult rv =
-      appsService->GetAppLocalIdByManifestURL(systemAppManifest, aSystemAppId);
-  NS_ENSURE_SUCCESS(rv, rv);
-  return NS_OK;
-}
-
-nsresult SpeakerManager::FindCorrectWindow(nsPIDOMWindowInner* aWindow) {
-  MOZ_ASSERT(aWindow->IsInnerWindow());
-
-  mWindow = aWindow->GetScriptableTop();
-  if (NS_WARN_IF(!mWindow)) {
-    return NS_OK;
-  }
-
-  // From here we do an hack for nested iframes.
-  // The system app doesn't have access to the nested iframe objects so it
-  // cannot control the volume of the agents running in nested apps. What we do
-  // here is to assign those Agents to the top scriptable window of the parent
-  // iframe (what is controlled by the system app).
-  // For doing this we go recursively back into the chain of windows until we
-  // find apps that are not the system one.
-  nsCOMPtr<nsPIDOMWindowOuter> outerParent = mWindow->GetParent();
-  if (!outerParent || outerParent == mWindow) {
-    return NS_OK;
-  }
-
-  nsCOMPtr<nsPIDOMWindowInner> parent = outerParent->GetCurrentInnerWindow();
-  if (!parent) {
-    return NS_OK;
-  }
-
-  uint32_t appId;
-  nsresult rv = GetAppId(parent, &appId);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (appId == nsIScriptSecurityManager::NO_APP_ID ||
-      appId == nsIScriptSecurityManager::UNKNOWN_APP_ID ||
-      appId == mSystemAppId) {
-    return NS_OK;
-  }
-
-  return FindCorrectWindow(parent);
-}
-
 nsresult SpeakerManager::Init(nsPIDOMWindowInner* aWindow) {
   BindToOwner(aWindow);
 
@@ -169,40 +97,16 @@ nsresult SpeakerManager::Init(nsPIDOMWindowInner* aWindow) {
                                  /* useCapture = */ true,
                                  /* wantsUntrusted = */ false);
 
-  // Cache System APP ID
-  nsresult rv = GetSystemAppId(&mSystemAppId);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  mWindow = AudioChannelService::GetTopAppWindow(aWindow->GetOuterWindow());
 
-  // Get our APP ID
-  uint32_t appId;
-  rv = GetAppId(aWindow, &appId);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  // System APP uses SpeakerManager to query speakerforced status, and its
-  // window may always be visible. Therefore force its policy to be "Query", so
-  // it won't compete with other APPs.
-  if (appId == mSystemAppId) {
-    mIsSystemApp = true;
-    mPolicy = SpeakerPolicy::Query;
-  }
-
-  rv = FindCorrectWindow(aWindow);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  MOZ_LOG(SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
-          ("SpeakerManager, Init, window ID %llu, policy %d, is system APP %d",
-           WindowID(), mPolicy, mIsSystemApp));
+  MOZ_LOG(
+      SpeakerManagerService::GetSpeakerManagerLog(), LogLevel::Debug,
+      ("SpeakerManager, Init, window ID %llu, policy %d", WindowID(), mPolicy));
 
   SpeakerManagerService* service =
       SpeakerManagerService::GetOrCreateSpeakerManagerService();
   MOZ_ASSERT(service);
-  rv = service->RegisterSpeakerManager(this);
+  nsresult rv = service->RegisterSpeakerManager(this);
   NS_WARN_IF(NS_FAILED(rv));
 
   // APP may want to keep its forceSpeaker setting same as current global
