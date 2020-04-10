@@ -8,7 +8,7 @@
 #include "SpeakerManagerServiceChild.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
-#include "mozilla/unused.h"
+#include "mozilla/Unused.h"
 #include "mozilla/dom/ContentParent.h"
 #include "nsIPropertyBag2.h"
 #include "nsThreadUtils.h"
@@ -57,11 +57,8 @@ SpeakerManagerService* SpeakerManagerService::GetSpeakerManagerService() {
 }
 
 /* static */
-PRLogModuleInfo* SpeakerManagerService::GetSpeakerManagerLog() {
-  static PRLogModuleInfo* gSpeakerManagerLog;
-  if (!gSpeakerManagerLog) {
-    gSpeakerManagerLog = PR_NewLogModule("SpeakerManager");
-  }
+LogModule* SpeakerManagerService::GetSpeakerManagerLog() {
+  static LazyLogModule gSpeakerManagerLog("SpeakerManager");
   return gSpeakerManagerLog;
 }
 

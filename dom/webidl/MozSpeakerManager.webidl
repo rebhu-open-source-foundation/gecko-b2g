@@ -29,8 +29,11 @@ enum SpeakerPolicy {
  * Allow application can control acoustic sound output through speaker.
  * Reference https://wiki.mozilla.org/WebAPI/SpeakerManager
  */
-[Constructor(optional SpeakerPolicy policy)]
+[Exposed=Window]
 interface MozSpeakerManager : EventTarget {
+  [Throws]
+  constructor(optional SpeakerPolicy policy);
+
   /* query the speaker status */
   readonly attribute boolean speakerforced;
   /* force device device's acoustic sound output through speaker */

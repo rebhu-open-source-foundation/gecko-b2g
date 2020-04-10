@@ -32,7 +32,7 @@ class SpeakerManagerService : public nsIObserver {
    */
   static SpeakerManagerService* GetOrCreateSpeakerManagerService();
 
-  static PRLogModuleInfo* GetSpeakerManagerLog();
+  static LogModule* GetSpeakerManagerLog();
 
   virtual bool GetSpeakerStatus();
   virtual void SetAudioChannelActive(bool aIsActive);

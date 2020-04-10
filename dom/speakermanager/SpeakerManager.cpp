@@ -13,7 +13,6 @@
 
 #include "AudioChannelService.h"
 #include "nsIDocShell.h"
-#include "nsIDOMClassInfo.h"
 #include "nsIDOMEventListener.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIPermissionManager.h"
@@ -67,8 +66,7 @@ void SpeakerManager::SetForcespeaker(bool aEnable) {
 
 void SpeakerManager::DispatchSimpleEvent(const nsAString& aStr) {
   MOZ_ASSERT(NS_IsMainThread(), "Not running on main thread");
-  nsresult rv = CheckInnerWindowCorrectness();
-  if (NS_FAILED(rv)) {
+  if (NS_FAILED(CheckCurrentGlobalCorrectness())) {
     return;
   }
 
@@ -76,8 +74,9 @@ void SpeakerManager::DispatchSimpleEvent(const nsAString& aStr) {
   event->InitEvent(aStr, false, false);
   event->SetTrusted(true);
 
-  rv = DispatchDOMEvent(nullptr, event, nullptr, nullptr);
-  if (NS_FAILED(rv)) {
+  ErrorResult rv;
+  DispatchEvent(*event, rv);
+  if (rv.Failed()) {
     NS_ERROR("Failed to dispatch the event!!!");
     return;
   }
@@ -90,7 +89,7 @@ nsresult SpeakerManager::Init(nsPIDOMWindowInner* aWindow) {
   NS_ENSURE_TRUE(docshell, NS_ERROR_FAILURE);
   docshell->GetIsActive(&mVisible);
 
-  nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(GetOwner());
+  nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE(target, NS_ERROR_FAILURE);
 
   target->AddSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
@@ -141,6 +140,7 @@ already_AddRefed<SpeakerManager> SpeakerManager::Constructor(
     return nullptr;
   }
 
+  /* FIXME
   nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
   NS_ENSURE_TRUE(permMgr, nullptr);
 
@@ -153,6 +153,7 @@ already_AddRefed<SpeakerManager> SpeakerManager::Constructor(
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
     return nullptr;
   }
+  */
 
   // If APP did not specify a policy, set default value as
   // Foreground_or_playing.
@@ -162,7 +163,7 @@ already_AddRefed<SpeakerManager> SpeakerManager::Constructor(
   }
 
   RefPtr<SpeakerManager> object = new SpeakerManager(policy);
-  rv = object->Init(ownerWindow);
+  nsresult rv = object->Init(ownerWindow);
   if (NS_FAILED(rv)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -172,11 +173,11 @@ already_AddRefed<SpeakerManager> SpeakerManager::Constructor(
 
 JSObject* SpeakerManager::WrapObject(JSContext* aCx,
                                      JS::Handle<JSObject*> aGivenProto) {
-  return MozSpeakerManagerBinding::Wrap(aCx, this, aGivenProto);
+  return MozSpeakerManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 NS_IMETHODIMP
-SpeakerManager::HandleEvent(nsIDOMEvent* aEvent) {
+SpeakerManager::HandleEvent(Event* aEvent) {
   nsAutoString type;
   aEvent->GetType(type);
 

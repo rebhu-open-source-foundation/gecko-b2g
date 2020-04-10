@@ -1219,6 +1219,9 @@ if CONFIG['MOZ_WEBSPEECH']:
     ]
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    WEBIDL_FILES += [
+        'MozSpeakerManager.webidl',
+    ]
     GENERATED_EVENTS_WEBIDL_FILES += [
         #'VideoCallCameraCapabilitiesChangeEvent.webidl',
         #'VideoCallPeerDimensionsEvent.webidl',
@@ -1227,6 +1230,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         #'VideoCallSessionModifyRequestEvent.webidl',
         #'VideoCallSessionModifyResponseEvent.webidl',
     ]
+
 if CONFIG['MOZ_BUILD_APP'] in ['browser', 'comm/mail', 'mobile/android', 'xulrunner']:
     WEBIDL_FILES += [
         'External.webidl',
