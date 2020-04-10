@@ -27,6 +27,10 @@
 
 #include "mozilla/Preferences.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "SpeakerManagerService.h"
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 
@@ -269,6 +273,9 @@ void AudioChannelService::Shutdown() {
     gAudioChannelService->mWindows.Clear();
     gAudioChannelService->mPlayingChildren.Clear();
     gAudioChannelService->mBrowserParents.Clear();
+#ifdef MOZ_WIDGET_GONK
+    gAudioChannelService->mSpeakerManagerServices.Clear();
+#endif
 
     gAudioChannelService = nullptr;
   }
@@ -363,6 +370,13 @@ void AudioChannelService::UnregisterAudioChannelAgent(
   RefPtr<AudioChannelAgent> kungFuDeathGrip(aAgent);
   winData->RemoveAgent(aAgent);
 
+#ifdef MOZ_WIDGET_GONK
+  bool active = AnyAudioChannelIsActive(false);
+  for (auto* service : mSpeakerManagerServices) {
+    service->SetAudioChannelActive(active);
+  }
+#endif
+
   MaybeSendStatusUpdate();
 }
 
@@ -453,9 +467,7 @@ bool AudioChannelService::TelephonyChannelIsActive() {
       mWindows);
   while (windowsIter.HasMore()) {
     auto& next = windowsIter.GetNext();
-    uint32_t channel = static_cast<uint32_t>(AudioChannel::Telephony);
-    if (next->mChannels[channel].mNumberOfAgents != 0 &&
-        !next->mChannels[channel].mMuted) {
+    if (next->IsChannelActive(AudioChannel::Telephony)) {
       return true;
     }
   }
@@ -482,8 +494,8 @@ bool AudioChannelService::ContentOrNormalChannelIsActive() {
       mWindows);
   while (iter.HasMore()) {
     auto& next = iter.GetNext();
-    if (next->mChannels[(uint32_t)AudioChannel::Content].mNumberOfAgents > 0 ||
-        next->mChannels[(uint32_t)AudioChannel::Normal].mNumberOfAgents > 0) {
+    if (next->IsChannelActive(AudioChannel::Content) ||
+        next->IsChannelActive(AudioChannel::Normal)) {
       return true;
     }
   }
@@ -526,20 +538,21 @@ bool AudioChannelService::ProcessContentOrNormalChannelIsActive(
   return child->mActiveContentOrNormalChannel;
 }
 
-bool AudioChannelService::AnyAudioChannelIsActive() {
+bool AudioChannelService::AnyAudioChannelIsActive(bool aCheckChild) {
   nsTObserverArray<UniquePtr<AudioChannelWindow>>::ForwardIterator iter(
       mWindows);
   while (iter.HasMore()) {
     auto& next = iter.GetNext();
     for (uint32_t i = 0; kMozAudioChannelAttributeTable[i].tag; ++i) {
-      int16_t channel = kMozAudioChannelAttributeTable[i].value;
-      if (next->mChannels[channel].mNumberOfAgents != 0) {
+      AudioChannel channel =
+          static_cast<AudioChannel>(kMozAudioChannelAttributeTable[i].value);
+      if (next->IsChannelActive(channel)) {
         return true;
       }
     }
   }
 
-  if (XRE_IsParentProcess()) {
+  if (XRE_IsParentProcess() && aCheckChild) {
     return !mPlayingChildren.IsEmpty();
   }
 
@@ -587,6 +600,13 @@ AudioChannelService::Observe(nsISupports* aSubject, const char* aTopic,
                                    winData->mChannels[channel].mMuted);
       }
     }
+
+#ifdef MOZ_WIDGET_GONK
+    bool active = AnyAudioChannelIsActive(false);
+    for (auto* service : mSpeakerManagerServices) {
+      service->SetAudioChannelActive(active);
+    }
+#endif
   } else if (!strcmp(aTopic, "ipc:content-shutdown")) {
     nsCOMPtr<nsIPropertyBag2> props = do_QueryInterface(aSubject);
     if (!props) {
@@ -648,12 +668,36 @@ void AudioChannelService::RefreshAgentsVolume(nsPIDOMWindowOuter* aWindow,
 void AudioChannelService::RefreshAgentsSuspend(nsPIDOMWindowOuter* aWindow,
                                                AudioChannel aChannel,
                                                nsSuspendedTypes aSuspend) {
+#ifdef MOZ_WIDGET_GONK
+  // If our audio channel activity is switched from inactive to active,
+  // we need to refresh SpeakerManagers before AudioChannelAgents are
+  // unmuted. Otherwise it may leaves a gap of the sound coming from
+  // inccorrect output device.
+  bool active = AnyAudioChannelIsActive(false);
+  if (active) {
+    for (auto* service : mSpeakerManagerServices) {
+      service->SetAudioChannelActive(active);
+    }
+  }
+#endif
+
   auto func = [aChannel, aSuspend](AudioChannelAgent* agent) {
     if (agent->AudioChannelType() == static_cast<int32_t>(aChannel)) {
       agent->WindowSuspendChanged(aSuspend);
     }
   };
   RefreshAgents(aWindow, func);
+
+#ifdef MOZ_WIDGET_GONK
+  // On the contrary, if our audio channel activity is switched from
+  // active to inactive, we need to refresh SpeakerManagers after
+  // AudioChannelAgents are muted.
+  if (!active) {
+    for (auto* service : mSpeakerManagerServices) {
+      service->SetAudioChannelActive(active);
+    }
+  }
+#endif
 }
 
 void AudioChannelService::RefreshAgentsVolumeAndPropagate(
@@ -860,6 +904,7 @@ bool AudioChannelService::SetAudioChannelSuspend(nsPIDOMWindowOuter* aWindow,
            aWindow, static_cast<uint32_t>(aChannel), aSuspend));
 
   GetChannelConfig(aWindow, aChannel)->mSuspend = aSuspend;
+  MaybeSendStatusUpdate();
   RefreshAgentsSuspendAndPropagate(aWindow, aChannel, aSuspend);
   return true;
 }
@@ -1045,6 +1090,14 @@ void AudioChannelService::AudioChannelWindow::NotifyMediaBlockStop(
                                            u"activeMediaBlockStop");
         }));
   }
+}
+
+bool AudioChannelService::AudioChannelWindow::IsChannelActive(
+    AudioChannel aChannel) {
+  uint32_t channel = static_cast<uint32_t>(aChannel);
+  MOZ_ASSERT(channel < NUMBER_OF_AUDIO_CHANNELS);
+  return mChannels[channel].mNumberOfAgents != 0 &&
+         mChannels[channel].mSuspend == nsISuspendedTypes::NONE_SUSPENDED;
 }
 
 void AudioChannelService::AudioChannelWindow::AppendAgentAndIncreaseAgentsNum(

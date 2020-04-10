@@ -26,6 +26,10 @@ struct PRLogModuleInfo;
 namespace mozilla {
 namespace dom {
 
+#ifdef MOZ_WIDGET_GONK
+class SpeakerManagerService;
+#endif
+
 class BrowserParent;
 
 #define NUMBER_OF_AUDIO_CHANNELS (uint32_t) AudioChannel::EndGuard_
@@ -51,8 +55,6 @@ class AudioPlaybackConfig {
   uint32_t mSuspend;
   bool mCapturedAudio = false;
 };
-
-#define NUMBER_OF_AUDIO_CHANNELS (uint32_t)AudioChannel::EndGuard_
 
 class AudioChannelService final : public nsIObserver {
  public:
@@ -210,7 +212,7 @@ class AudioChannelService final : public nsIObserver {
    */
   virtual void SetDefaultVolumeControlChannel(int32_t aChannel, bool aVisible);
 
-  bool AnyAudioChannelIsActive();
+  bool AnyAudioChannelIsActive(bool aCheckChild = true);
 
   void RefreshAgentsVolume(nsPIDOMWindowOuter* aWindow, AudioChannel aChannel,
                            float aVolume, bool aMuted);
@@ -231,6 +233,18 @@ class AudioChannelService final : public nsIObserver {
   // just for a particular innerWindow.
   void SetWindowAudioCaptured(nsPIDOMWindowOuter* aWindow,
                               uint64_t aInnerWindowID, bool aCapture);
+
+#ifdef MOZ_WIDGET_GONK
+  void RegisterSpeakerManager(SpeakerManagerService* aService) {
+    if (!mSpeakerManagerServices.Contains(aService)) {
+      mSpeakerManagerServices.AppendElement(aService);
+    }
+  }
+
+  void UnregisterSpeakerManager(SpeakerManagerService* aService) {
+    mSpeakerManagerServices.RemoveElement(aService);
+  }
+#endif
 
   static const nsAttrValue::EnumTable* GetAudioChannelTable();
   static AudioChannel GetAudioChannel(const nsAString& aString);
@@ -293,6 +307,8 @@ class AudioChannelService final : public nsIObserver {
 
     void NotifyMediaBlockStop(nsPIDOMWindowOuter* aWindow);
 
+    bool IsChannelActive(AudioChannel aChannel);
+
     uint64_t mWindowID;
     bool mIsAudioCaptured;
     AudioChannelConfig mChannels[NUMBER_OF_AUDIO_CHANNELS];
@@ -352,6 +368,10 @@ class AudioChannelService final : public nsIObserver {
   nsTObserverArray<UniquePtr<AudioChannelWindow>> mWindows;
 
   nsTObserverArray<UniquePtr<AudioChannelChildStatus>> mPlayingChildren;
+
+#ifdef MOZ_WIDGET_GONK
+  nsTArray<SpeakerManagerService*> mSpeakerManagerServices;
+#endif
 
   // Raw pointers because BrowserParents must unregister themselves.
   nsTArray<BrowserParent*> mBrowserParents;
