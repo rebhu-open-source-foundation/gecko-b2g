@@ -1199,6 +1199,8 @@ void CycleCollectedJSRuntime::TraceNativeGrayRoots(JSTracer* aTracer) {
 
 #ifdef CHECK_SINGLE_ZONE_JS_HOLDERS
   bool checkSingleZoneHolders = ShouldCheckSingleZoneHolders();
+#else
+  bool checkSingleZoneHolders = false;
 #endif
 
   mJSHolders.ForEach([aTracer, checkSingleZoneHolders](
