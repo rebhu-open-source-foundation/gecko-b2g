@@ -22,10 +22,10 @@
 
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/BrowserParent.h"
+#include "mozilla/PermissionDelegateHandler.h"
 #include "mozilla/SyncRunnable.h"
 #include "nsIPermissionManager.h"
 #include "nsThreadUtils.h"
-#include "PermissionDelegateHandler.h"
 
 #include <binder/PermissionController.h>
 
