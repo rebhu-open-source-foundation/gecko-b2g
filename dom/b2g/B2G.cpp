@@ -29,6 +29,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAlarmManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
@@ -54,6 +55,19 @@ void B2G::Shutdown() {}
 
 JSObject* B2G::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
   return B2G_Binding::Wrap(cx, this, aGivenProto);
+}
+
+AlarmManager* B2G::GetAlarmManager(ErrorResult& aRv) {
+  if (!mAlarmManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mAlarmManager = new AlarmManager(GetParentObject());
+  }
+
+  return mAlarmManager;
 }
 
 TetheringManager* B2G::GetTetheringManager(ErrorResult& aRv) {

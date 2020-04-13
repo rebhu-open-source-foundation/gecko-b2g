@@ -11,6 +11,11 @@ interface B2G {
 };
 
 partial interface B2G {
+  [Throws, Exposed=(Window,Worker), Pref="dom.alarm.enabled"]
+  readonly attribute AlarmManager alarmManager;
+};
+
+partial interface B2G {
   [Throws, Exposed=Window]
   readonly attribute TetheringManager tetheringManager;
 };

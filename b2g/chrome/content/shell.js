@@ -12,6 +12,7 @@ const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
 ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
+ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 
 const isGonk = AppConstants.platform === "gonk";
