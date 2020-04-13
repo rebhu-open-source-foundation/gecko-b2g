@@ -40,9 +40,9 @@
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/StaticPrefs_security.h"
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/widget/nsWindow.h"
-#endif /* ANDROID */
+#endif /* MOZ_WIDGET_ANDROID */
 
 mozilla::LazyLogModule gDocumentChannelLog("DocumentChannel");
 #define LOG(fmt) MOZ_LOG(gDocumentChannelLog, mozilla::LogLevel::Verbose, fmt)
@@ -449,7 +449,7 @@ bool DocumentLoadListener::Open(
                                         browsingContext);
   openInfo->Prepare();
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
   RefPtr<MozPromise<bool, bool, false>> promise;
   if (aLoadState->LoadType() != LOAD_ERROR_PAGE &&
       !(aLoadState->HasLoadFlags(
@@ -488,7 +488,7 @@ bool DocumentLoadListener::Open(
           }
         });
   } else
-#endif /* ANDROID */
+#endif /* MOZ_WIDGET_ANDROID */
   {
     *aRv = mChannel->AsyncOpen(openInfo);
     if (NS_FAILED(*aRv)) {
@@ -1305,7 +1305,7 @@ DocumentLoadListener::AsyncOnChannelRedirect(
   }
   NS_ENSURE_SUCCESS(rv, rv);
 
-#ifdef ANDROID
+#ifdef MOZ_WIDGET_ANDROID
   nsCOMPtr<nsIURI> uriBeingLoaded =
       AntiTrackingUtils::MaybeGetDocumentURIBeingLoaded(mChannel);
   RefPtr<CanonicalBrowsingContext> bc =
@@ -1338,7 +1338,7 @@ DocumentLoadListener::AsyncOnChannelRedirect(
           }
         });
   } else
-#endif /* ANDROID */
+#endif /* MOZ_WIDGET_ANDROID */
   {
     aCallback->OnRedirectVerifyCallback(NS_OK);
   }
