@@ -128,7 +128,6 @@ class nsIGlobalObject;
 class nsIAppWindow;
 class nsXULPrototypeDocument;
 class nsXULPrototypeElement;
-class PermissionDelegateHandler;
 class nsIPermissionDelegateHandler;
 struct nsFont;
 struct StyleUseCounters;
@@ -145,6 +144,7 @@ class FullscreenExit;
 class FullscreenRequest;
 struct LangGroupFontPrefs;
 class PendingAnimationTracker;
+class PermissionDelegateHandler;
 class PresShell;
 class ServoStyleSet;
 enum class StyleOrigin : uint8_t;
@@ -3734,7 +3734,7 @@ class Document : public nsINode,
  private:
   bool IsErrorPage() const;
 
-  void InitializeLocalization(nsTArray<nsString>& aResourceIds);
+  void InitializeLocalization(Sequence<nsString>& aResourceIds);
 
   // Takes the bits from mStyleUseCounters if appropriate, and sets them in
   // mUseCounters.
@@ -3760,7 +3760,7 @@ class Document : public nsINode,
 
   FlashClassification DocumentFlashClassificationInternal();
 
-  nsTArray<nsString> mL10nResources;
+  Sequence<nsString> mL10nResources;
 
   // The application cache that this document is associated with, if
   // any.  This can change during the lifetime of the document.

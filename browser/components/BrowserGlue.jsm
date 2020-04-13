@@ -565,6 +565,7 @@ XPCOMUtils.defineLazyGetter(
 // lazy module getters
 
 XPCOMUtils.defineLazyModuleGetters(this, {
+  AboutCertViewerHandler: "resource://gre/modules/AboutCertViewerHandler.jsm",
   AboutPrivateBrowsingHandler:
     "resource:///modules/aboutpages/AboutPrivateBrowsingHandler.jsm",
   AboutProtectionsHandler:
@@ -1679,6 +1680,8 @@ BrowserGlue.prototype = {
 
     NewTabUtils.init();
 
+    AboutCertViewerHandler.init();
+
     AboutPrivateBrowsingHandler.init();
 
     AboutProtectionsHandler.init();
@@ -1928,6 +1931,7 @@ BrowserGlue.prototype = {
     SearchTelemetry.uninit();
     PageThumbs.uninit();
     NewTabUtils.uninit();
+    AboutCertViewerHandler.uninit();
     AboutPrivateBrowsingHandler.uninit();
     AboutProtectionsHandler.uninit();
 

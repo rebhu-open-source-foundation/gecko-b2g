@@ -526,6 +526,7 @@ pref("media.videocontrols.picture-in-picture.video-toggle.min-video-secs", 45);
   pref("media.getusermedia.noise", 1); // kModerate
   pref("media.getusermedia.agc_enabled", true);
   pref("media.getusermedia.agc", 1); // kAdaptiveDigital
+  pref("media.getusermedia.hpf_enabled", true);
   // full_duplex: enable cubeb full-duplex capture/playback
   pref("media.navigator.audio.full_duplex", true);
 #endif // MOZ_WEBRTC
@@ -1478,11 +1479,7 @@ pref("network.http.spdy.websockets", true);
 pref("network.http.spdy.enable-hpack-dump", false);
 
 // Http3 parameters
-#ifdef NIGHTLY_BUILD
-  pref("network.http.http3.enabled", true);
-#else
-  pref("network.http.http3.enabled", false);
-#endif
+pref("network.http.http3.enabled", false);
 
 // Http3 qpack table size.
 pref("network.http.http3.default-qpack-table-size", 0);

@@ -54,7 +54,8 @@ bool DocumentChannelParent::Init(const DocumentChannelCreationArgs& aArgs) {
   if (!mParent->Open(loadState, loadInfo, aArgs.loadFlags(), aArgs.cacheKey(),
                      aArgs.channelId(), aArgs.asyncOpenTime(),
                      aArgs.timing().refOr(nullptr), std::move(clientInfo),
-                     aArgs.outerWindowId(), &rv)) {
+                     aArgs.outerWindowId(), aArgs.hasValidTransientUserAction(),
+                     &rv)) {
     return SendFailedAsyncOpen(rv);
   }
 
@@ -73,19 +74,6 @@ DocumentChannelParent::RedirectToRealChannel(
   RedirectToRealChannelArgs args;
   mParent->SerializeRedirectData(args, false, aRedirectFlags, aLoadFlags);
   return SendRedirectToRealChannel(args, std::move(aStreamFilterEndpoints));
-}
-
-void DocumentChannelParent::CSPViolation(
-    nsCSPContext* aContext, bool aIsCspToInherit, nsIURI* aBlockedURI,
-    nsCSPContext::BlockedContentSource aBlockedContentSource,
-    nsIURI* aOriginalURI, const nsAString& aViolatedDirective,
-    uint32_t aViolatedPolicyIndex, const nsAString& aObserverSubject) {
-  CSPInfo cspInfo;
-  Unused << NS_WARN_IF(NS_FAILED(CSPToCSPInfo(aContext, &cspInfo)));
-  Unused << SendCSPViolation(
-      cspInfo, aIsCspToInherit, aBlockedURI, aBlockedContentSource,
-      aOriginalURI, PromiseFlatString(aViolatedDirective), aViolatedPolicyIndex,
-      PromiseFlatString(aObserverSubject));
 }
 
 }  // namespace net

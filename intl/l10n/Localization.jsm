@@ -212,19 +212,29 @@ function maybeReportErrorToGecko(error) {
 class Localization {
   /**
    * @param {Array<String>} resourceIds         - List of resource IDs
-   * @param {Function}      generateBundles     - Function that returns an async
-   *                                              generator over FluentBundles
-   * @param {Function}      generateBundlesSync - Function that returns a sync
-   *                                              generator over FluentBundles
    *
    * @returns {Localization}
    */
-  constructor(resourceIds = [], sync = false, generateBundles = defaultGenerateBundles, generateBundlesSync = defaultGenerateBundlesSync) {
-    this.isSync = sync;
+  constructor(resourceIds = []) {
     this.resourceIds = resourceIds;
+    this.generateBundles = defaultGenerateBundles;
+    this.generateBundlesSync = defaultGenerateBundlesSync;
+  }
+
+  setGenerateBundles(generateBundles) {
     this.generateBundles = generateBundles;
+  }
+
+  setGenerateBundlesSync(generateBundlesSync) {
     this.generateBundlesSync = generateBundlesSync;
-    this.onChange(true);
+  }
+
+  setIsSync(isSync) {
+    this.isSync = isSync;
+  }
+
+  init(eager = false) {
+    this.onChange(eager);
   }
 
   cached(iterable) {
@@ -261,11 +271,11 @@ class Localization {
    *
    * @param   {Array<Object>}         keys    - Translation keys to format.
    * @param   {Function}              method  - Formatting function.
-   * @returns {Promise<Array<string|Object>>}
+   * @returns {Promise<Array<string?|Object?>>}
    * @private
    */
   async formatWithFallback(keys, method) {
-    const translations = new Array(keys.length);
+    const translations = new Array(keys.length).fill(null);
     let hasAtLeastOneBundle = false;
 
     for await (const bundle of this.bundles) {
@@ -304,7 +314,7 @@ class Localization {
     if (!this.isSync) {
       throw new Error("Can't use sync formatWithFallback when state is async.");
     }
-    const translations = new Array(keys.length);
+    const translations = new Array(keys.length).fill(null);
     let hasAtLeastOneBundle = false;
 
     for (const bundle of this.bundles) {
@@ -351,7 +361,7 @@ class Localization {
    * Returns a Promise resolving to an array of the translation messages.
    *
    * @param   {Array<Object>} keys
-   * @returns {Promise<Array<{value: string, attributes: Object}>>}
+   * @returns {Promise<Array<{value: string, attributes: Object}?>>}
    * @private
    */
   formatMessages(keys) {
@@ -364,7 +374,7 @@ class Localization {
    * Returns an array of the translation messages.
    *
    * @param   {Array<Object>} keys
-   * @returns {Array<{value: string, attributes: Object}>}
+   * @returns {Array<{value: string, attributes: Object}?>}
    * @private
    */
   formatMessagesSync(keys) {
@@ -388,7 +398,7 @@ class Localization {
    * Returns a Promise resolving to an array of the translation strings.
    *
    * @param   {Array<Object>} keys
-   * @returns {Promise<Array<string>>}
+   * @returns {Promise<Array<string?>>}
    */
   formatValues(keys) {
     return this.formatWithFallback(keys, valueFromBundle);
@@ -400,7 +410,7 @@ class Localization {
    * Returns an array of the translation strings.
    *
    * @param   {Array<Object>} keys
-   * @returns {Array<string>}
+   * @returns {Array<string?>}
    * @private
    */
   formatValuesSync(keys) {
@@ -427,7 +437,7 @@ class Localization {
    *
    * @param   {string}  id     - Identifier of the translation to format
    * @param   {Object}  [args] - Optional external arguments
-   * @returns {Promise<string>}
+   * @returns {Promise<string?>}
    */
   async formatValue(id, args) {
     const [val] = await this.formatValues([{id, args}]);
@@ -440,7 +450,7 @@ class Localization {
    * Returns a translation string.
    *
    * @param   {Array<Object>} keys
-   * @returns {string>}
+   * @returns {string?}
    * @private
    */
   formatValueSync(id, args) {
@@ -500,11 +510,6 @@ class Localization {
       this.bundles.touchNext(prefetchCount);
     }
   }
-
-  setIsSync(isSync) {
-    this.isSync = isSync;
-    this.onChange();
-  }
 }
 
 Localization.prototype.QueryInterface = ChromeUtils.generateQI([
@@ -523,7 +528,7 @@ Localization.prototype.QueryInterface = ChromeUtils.generateQI([
  * @param   {Array<Error>} errors
  * @param   {Object} message
  * @param   {Object} args
- * @returns {string|null}
+ * @returns {string?}
  * @private
  */
 function valueFromBundle(bundle, errors, message, args) {
@@ -609,7 +614,7 @@ function keysFromBundle(method, bundle, keys, translations) {
   const missingIds = new Set();
 
   keys.forEach(({id, args}, i) => {
-    if (translations[i] !== undefined) {
+    if (translations[i] !== null) {
       return;
     }
 
@@ -634,13 +639,9 @@ function keysFromBundle(method, bundle, keys, translations) {
  * Helper function which allows us to construct a new
  * Localization from Localization.
  */
-var getLocalization = (resourceIds, sync = false) => {
-  return new Localization(resourceIds, sync);
-};
-
-var getLocalizationWithCustomGenerateMessages = (resourceIds, generateMessages) => {
-  return new Localization(resourceIds, false, generateMessages);
+var getLocalization = (resourceIds) => {
+  return new Localization(resourceIds);
 };
 
 this.Localization = Localization;
-var EXPORTED_SYMBOLS = ["Localization", "getLocalization", "getLocalizationWithCustomGenerateMessages"];
+var EXPORTED_SYMBOLS = ["Localization", "getLocalization"];

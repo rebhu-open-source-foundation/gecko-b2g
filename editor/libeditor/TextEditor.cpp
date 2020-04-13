@@ -139,11 +139,18 @@ nsresult TextEditor::Init(Document& aDoc, Element* aRoot,
     return NS_ERROR_FAILURE;
   }
 
+  // We set mInitSucceeded here rather than at the end of the function,
+  // since InitEditorContentAndSelection() can perform some transactions
+  // and can warn if mInitSucceeded is still false.
+  MOZ_ASSERT(!mInitSucceeded, "TextEditor::Init() shouldn't be nested");
+  mInitSucceeded = true;
+
   rv = InitEditorContentAndSelection();
   if (NS_FAILED(rv)) {
     NS_WARNING("TextEditor::InitEditorContentAndSelection() failed");
     // XXX Sholdn't we expose `NS_ERROR_EDITOR_DESTROYED` even though this
     //     is a public method?
+    mInitSucceeded = false;
     return EditorBase::ToGenericNSResult(rv);
   }
 
@@ -151,8 +158,6 @@ nsresult TextEditor::Init(Document& aDoc, Element* aRoot,
   // we're initializing the editor.
   ClearUndoRedo();
   EnableUndoRedo();
-  MOZ_ASSERT(!mInitSucceeded, "TextEditor::Init() shouldn't be nested");
-  mInitSucceeded = true;
   return NS_OK;
 }
 
@@ -1427,7 +1432,7 @@ void TextEditor::OnCompositionEnd(
   NotifyEditorObservers(eNotifyEditorObserversOfEnd);
 }
 
-already_AddRefed<Element> TextEditor::GetInputEventTargetElement() {
+already_AddRefed<Element> TextEditor::GetInputEventTargetElement() const {
   nsCOMPtr<Element> target = do_QueryInterface(mEventTarget);
   return target.forget();
 }
@@ -2130,7 +2135,7 @@ nsresult TextEditor::SelectEntireDocument() {
   return error.StealNSResult();
 }
 
-EventTarget* TextEditor::GetDOMEventTarget() { return mEventTarget; }
+EventTarget* TextEditor::GetDOMEventTarget() const { return mEventTarget; }
 
 nsresult TextEditor::SetAttributeOrEquivalent(Element* aElement,
                                               nsAtom* aAttribute,

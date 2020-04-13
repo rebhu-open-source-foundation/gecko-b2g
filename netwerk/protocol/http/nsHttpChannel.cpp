@@ -5136,7 +5136,8 @@ nsresult nsHttpChannel::OpenCacheInputStream(nsICacheEntry* cacheEntry,
 
   bool foundAltData = false;
   bool deliverAltData = true;
-  if (!altDataType.IsEmpty() && !mPreferredCachedAltDataTypes.IsEmpty() &&
+  if (!mDisableAltDataCache && !altDataType.IsEmpty() &&
+      !mPreferredCachedAltDataTypes.IsEmpty() &&
       altDataFromChild == mAltDataForChild) {
     for (auto& pref : mPreferredCachedAltDataTypes) {
       if (pref.type() == altDataType &&
@@ -7029,6 +7030,10 @@ auto nsHttpChannel::AttachStreamFilter(base::ProcessId aChildProcessId)
 
   if (RefPtr<DocumentLoadListener> docParent = do_QueryObject(parentChannel)) {
     return docParent->AttachStreamFilter(aChildProcessId);
+  }
+
+  if (!ProcessId()) {
+    return ChildEndpointPromise::CreateAndReject(false, __func__);
   }
 
   mozilla::ipc::Endpoint<extensions::PStreamFilterParent> parent;

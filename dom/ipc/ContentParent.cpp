@@ -274,7 +274,7 @@
 #  include "gfxAndroidPlatform.h"
 #endif
 
-#include "nsPermissionManager.h"
+#include "mozilla/PermissionManager.h"
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "AndroidBridge.h"
@@ -876,9 +876,8 @@ already_AddRefed<ContentParent> ContentParent::MinTabSelect(
 
   for (uint32_t i = 0; i < maxSelectable; i++) {
     ContentParent* p = aContentParents[i];
-    MOZ_DIAGNOSTIC_ASSERT(!p->IsDead());
-    MOZ_DIAGNOSTIC_ASSERT(!p->mShutdownPending);
-    if (p->mOpener == aOpener) {
+    NS_ASSERTION(!p->IsDead(), "Dead contentparent in sBrowserContentParents?");
+    if (!p->mShutdownPending && p->mOpener == aOpener) {
       uint32_t tabCount = cpm->GetBrowserParentCountByProcessId(p->ChildID());
       if (tabCount < min) {
         candidate = p;
@@ -898,9 +897,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
   uint32_t numberOfParents = aContentParents.Length();
   nsTArray<RefPtr<nsIContentProcessInfo>> infos(numberOfParents);
   for (auto* cp : aContentParents) {
-    if (cp->mScriptableHelper) {
-      infos.AppendElement(cp->mScriptableHelper);
-    }
+    infos.AppendElement(cp->mScriptableHelper);
   }
 
   if (aPreferUsed && numberOfParents) {
@@ -941,7 +938,6 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
       (p = PreallocatedProcessManager::Take()) && !p->mShutdownPending) {
     // For pre-allocated process we have not set the opener yet.
     p->mOpener = aOpener;
-    MOZ_DIAGNOSTIC_ASSERT(p->mScriptableHelper);
     aContentParents.AppendElement(p);
     p->mActivateTS = TimeStamp::Now();
     return p.forget();
@@ -1575,7 +1571,6 @@ void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
       // Stop sending input events with input priority when shutting down.
       SetInputPriorityEventEnabled(false);
       if (SendShutdown()) {
-        RemoveFromList();
         mShutdownPending = true;
         // Start the force-kill timer if we haven't already.
         StartForceKillTimer();
@@ -1678,9 +1673,7 @@ void ContentParent::RemoveFromList() {
 }
 
 void ContentParent::MarkAsDead() {
-  if (!mShutdownPending) {
-    RemoveFromList();
-  }
+  RemoveFromList();
 
 #ifdef MOZ_WIDGET_ANDROID
   if (mLifecycleState == LifecycleState::ALIVE) {
@@ -5961,7 +5954,7 @@ nsresult ContentParent::TransmitPermissionsForPrincipal(
     nsIPrincipal* aPrincipal) {
   // Create the key, and send it down to the content process.
   nsTArray<std::pair<nsCString, nsCString>> pairs =
-      nsPermissionManager::GetAllKeysForPrincipal(aPrincipal);
+      PermissionManager::GetAllKeysForPrincipal(aPrincipal);
   MOZ_ASSERT(pairs.Length() >= 1);
   for (auto& pair : pairs) {
     EnsurePermissionsByKey(pair.first, pair.second);
@@ -6011,7 +6004,7 @@ void ContentParent::EnsurePermissionsByKey(const nsCString& aKey,
   // by this call to GetPermissionManager, and we've added the key to
   // mActivePermissionKeys, then the permission manager will send down a
   // SendAddPermission before receiving the SendSetPermissionsWithKey message.
-  RefPtr<nsPermissionManager> permManager = nsPermissionManager::GetInstance();
+  RefPtr<PermissionManager> permManager = PermissionManager::GetInstance();
   if (!permManager) {
     return;
   }

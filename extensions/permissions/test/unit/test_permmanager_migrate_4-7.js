@@ -20,6 +20,11 @@ add_task(async function test() {
   let profile = do_get_profile();
   Services.prefs.setCharPref("permissions.manager.defaultsUrl", "");
 
+  // We need to execute a pm method to be sure that the DB is fully
+  // initialized.
+  var pm = Services.perms;
+  Assert.equal(pm.all.length, 0, "No cookies");
+
   let db = Services.storage.openDatabase(GetPermissionsFile(profile));
   db.schemaVersion = 4;
   db.executeSimpleSQL("DROP TABLE moz_perms");
@@ -195,7 +200,7 @@ add_task(async function test() {
   // This will force the permission-manager to reload the data.
   Services.obs.notifyObservers(null, "testonly-reload-permissions-from-disk");
 
-  // Force initialization of the nsPermissionManager
+  // Force initialization of the PermissionManager
   for (let permission of Services.perms.all) {
     let isExpected = false;
 

@@ -91,7 +91,7 @@
 #include "nsINSSErrorsService.h"
 #include "nsISocketProvider.h"
 #include "nsISiteSecurityService.h"
-#include "PermissionDelegateHandler.h"
+#include "mozilla/PermissionDelegateHandler.h"
 
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/BasicEvents.h"
@@ -174,9 +174,9 @@
 #include "nsIAuthPrompt.h"
 #include "nsIAuthPrompt2.h"
 
+#include "mozilla/PermissionManager.h"
 #include "nsIScriptSecurityManager.h"
 #include "nsIPermission.h"
-#include "nsPermissionManager.h"
 #include "nsIPrincipal.h"
 #include "nsIPrivateBrowsingChannel.h"
 #include "ExpandedPrincipal.h"
@@ -3865,7 +3865,7 @@ bool Document::GetAllowPlugins() {
   return true;
 }
 
-void Document::InitializeLocalization(nsTArray<nsString>& aResourceIds) {
+void Document::InitializeLocalization(Sequence<nsString>& aResourceIds) {
   MOZ_ASSERT(!mDocumentL10n, "mDocumentL10n should not be initialized yet");
 
   RefPtr<DocumentL10n> l10n = new DocumentL10n(this);
@@ -3899,14 +3899,18 @@ void Document::LocalizationLinkAdded(Element* aLinkElement) {
   // If the link is added after the DocumentL10n instance
   // has been initialized, just pass the resource ID to it.
   if (mDocumentL10n) {
-    AutoTArray<nsString, 1> resourceIds;
-    resourceIds.AppendElement(href);
+    Sequence<nsString> resourceIds;
+    if (NS_WARN_IF(!resourceIds.AppendElement(href, fallible))) {
+      return;
+    }
     mDocumentL10n->AddResourceIds(resourceIds, false);
   } else if (mReadyState >= READYSTATE_INTERACTIVE) {
     // Otherwise, if the document has already been parsed
     // we need to lazily initialize the localization.
-    AutoTArray<nsString, 1> resourceIds;
-    resourceIds.AppendElement(href);
+    Sequence<nsString> resourceIds;
+    if (NS_WARN_IF(!resourceIds.AppendElement(href, fallible))) {
+      return;
+    }
     InitializeLocalization(resourceIds);
     mDocumentL10n->TriggerInitialDocumentTranslation();
   } else {
@@ -3914,7 +3918,9 @@ void Document::LocalizationLinkAdded(Element* aLinkElement) {
     // In that case, add it to the pending list. This list
     // will be resolved once the end of l10n resource
     // container is reached.
-    mL10nResources.AppendElement(href);
+    if (NS_WARN_IF(!mL10nResources.AppendElement(href, fallible))) {
+      return;
+    }
 
     if (!mPendingInitialTranslation) {
       // Our initial translation is going to block layout start.  Make sure we
@@ -6823,7 +6829,8 @@ void Document::SetScopeObject(nsIGlobalObject* aGlobal) {
     if (!window) {
       return;
     }
-    BrowsingContextGroup* browsingContextGroup = window->GetBrowsingContextGroup();
+    BrowsingContextGroup* browsingContextGroup =
+        window->GetBrowsingContextGroup();
 
     // We should already have the principal, and now that we have been added
     // to a window, we should be able to join a DocGroup!
@@ -15892,7 +15899,7 @@ bool Document::AutomaticStorageAccessCanBeGranted(nsIPrincipal* aPrincipal) {
   nsAutoCString prefix;
   AntiTrackingUtils::CreateStoragePermissionKey(aPrincipal, prefix);
 
-  nsPermissionManager* permManager = nsPermissionManager::GetInstance();
+  PermissionManager* permManager = PermissionManager::GetInstance();
   if (NS_WARN_IF(!permManager)) {
     return false;
   }

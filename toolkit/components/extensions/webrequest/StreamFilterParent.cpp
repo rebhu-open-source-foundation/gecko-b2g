@@ -124,6 +124,10 @@ auto StreamFilterParent::Create(dom::ContentParent* aContentParent,
     return ChildEndpointPromise::CreateAndReject(false, __func__);
   }
 
+  // Disable alt-data for extension stream listeners.
+  nsCOMPtr<nsIHttpChannelInternal> internal(do_QueryObject(channel));
+  internal->DisableAltDataCache();
+
   return chan->AttachStreamFilter(aContentParent ? aContentParent->OtherPid()
                                                  : base::GetCurrentProcId());
 }
@@ -310,15 +314,15 @@ void StreamFilterParent::FinishDisconnect() {
     self->FlushBufferedData();
 
     RunOnMainThread(FUNC, [=] {
-      if (self->mLoadGroup) {
+      if (self->mLoadGroup && !self->mDisconnected) {
         Unused << self->mLoadGroup->RemoveRequest(self, nullptr, NS_OK);
       }
+      self->mDisconnected = true;
     });
 
     RunOnActorThread(FUNC, [=] {
       if (self->mState != State::Closed) {
         self->mState = State::Disconnected;
-        self->mDisconnected = true;
       }
     });
   });
@@ -487,6 +491,24 @@ StreamFilterParent::OnStartRequest(nsIRequest* aRequest) {
     }
   }
 
+  // Check if alterate cached data is being sent, if so we receive un-decoded
+  // data and we must disconnect the filter and send an error to the extension.
+  if (!mDisconnected) {
+    RefPtr<net::HttpBaseChannel> chan = do_QueryObject(aRequest);
+    if (chan && chan->IsDeliveringAltData()) {
+      mDisconnected = true;
+
+      RefPtr<StreamFilterParent> self(this);
+      RunOnActorThread(FUNC, [=] {
+        if (self->IPCActive()) {
+          self->mState = State::Disconnected;
+          CheckResult(self->SendError(
+              NS_LITERAL_CSTRING("Channel is delivering cached alt-data")));
+        }
+      });
+    }
+  }
+
   if (!mDisconnected) {
     Unused << mChannel->GetLoadGroup(getter_AddRefs(mLoadGroup));
     if (mLoadGroup) {
@@ -537,7 +559,11 @@ StreamFilterParent::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
   RunOnActorThread(FUNC, [=] {
     if (self->IPCActive()) {
       self->CheckResult(self->SendStopRequest(aStatusCode));
-    } else {
+    } else if (self->mState != State::Disconnecting) {
+      // If we're currently disconnecting, then we'll emit a stop
+      // request at the end of that process. Otherwise we need to
+      // manually emit one here, since we won't be getting a response
+      // from the child.
       RunOnMainThread(FUNC, [=] {
         if (!self->mSentStop) {
           self->EmitStopRequest(aStatusCode);

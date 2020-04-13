@@ -963,11 +963,7 @@
 # If set, use DocumentChannel with nsDocShell in place of HttpChannel.
 - name: browser.tabs.documentchannel
   type: bool
-#if defined(ANDROID)
-  value: false  # See bug 1589982.
-#else
   value: true
-#endif
   mirror: always
 
 - name: browser.tabs.remote.desktopbehavior
@@ -3738,7 +3734,7 @@
 # See eCMSMode in gfx/thebes/gfxPlatform.h.
 - name: gfx.color_management.mode
   type: RelaxedAtomicInt32
-  value: 2
+  value: 1
   mirror: always
 
 # The zero default here should match QCMS_INTENT_DEFAULT from qcms.h
@@ -4003,7 +3999,7 @@
 
 - name: gfx.omta.background-color
   type: bool
-  value: @IS_NOT_RELEASE_OR_BETA@
+  value: true
   mirror: always
 
 - name: gfx.partialpresent.force
@@ -7799,12 +7795,12 @@
   mirror: always
 
 - name: permissions.isolateBy.userContext
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
 - name: permissions.isolateBy.privateBrowsing
-  type: bool
+  type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 

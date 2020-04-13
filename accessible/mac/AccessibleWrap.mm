@@ -107,6 +107,7 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
     case nsIAccessibleEvent::EVENT_DOCUMENT_LOAD_COMPLETE:
     case nsIAccessibleEvent::EVENT_MENUPOPUP_START:
     case nsIAccessibleEvent::EVENT_MENUPOPUP_END:
+    case nsIAccessibleEvent::EVENT_REORDER:
       if (Accessible* accessible = aEvent->GetAccessible()) {
         accessible->GetNativeInterface((void**)&nativeAcc);
         if (!nativeAcc) {
@@ -145,27 +146,12 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
   }
 
   if (nativeAcc) {
-    [nativeAcc firePlatformEvent:eventType];
+    [nativeAcc handleAccessibleEvent:eventType];
   }
 
   return NS_OK;
 
   NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
-}
-
-bool AccessibleWrap::InsertChildAt(uint32_t aIdx, Accessible* aAccessible) {
-  bool inserted = Accessible::InsertChildAt(aIdx, aAccessible);
-  if (inserted && mNativeObject) [mNativeObject appendChild:aAccessible];
-
-  return inserted;
-}
-
-bool AccessibleWrap::RemoveChild(Accessible* aAccessible) {
-  bool removed = Accessible::RemoveChild(aAccessible);
-
-  if (removed && mNativeObject) [mNativeObject invalidateChildren];
-
-  return removed;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
