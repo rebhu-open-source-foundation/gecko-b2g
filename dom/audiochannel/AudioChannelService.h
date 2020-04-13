@@ -345,7 +345,7 @@ class AudioChannelService final : public nsIObserver {
     bool mActiveContentOrNormalChannel;
   };
 
-  UniquePtr<AudioChannelChildStatus> GetChildStatus(uint64_t aChildID) const;
+  AudioChannelChildStatus* GetChildStatus(uint64_t aChildID) const;
 
   void RemoveChildStatus(uint64_t aChildID);
 

@@ -490,14 +490,14 @@ bool AudioChannelService::ContentOrNormalChannelIsActive() {
   return false;
 }
 
-UniquePtr<AudioChannelService::AudioChannelChildStatus>
+AudioChannelService::AudioChannelChildStatus*
 AudioChannelService::GetChildStatus(uint64_t aChildID) const {
   nsTObserverArray<UniquePtr<AudioChannelChildStatus>>::ForwardIterator iter(
       mPlayingChildren);
   while (iter.HasMore()) {
     auto& child = iter.GetNext();
     if (child->mChildID == aChildID) {
-      return std::move(child);
+      return child.get();
     }
   }
 
@@ -518,7 +518,7 @@ void AudioChannelService::RemoveChildStatus(uint64_t aChildID) {
 
 bool AudioChannelService::ProcessContentOrNormalChannelIsActive(
     uint64_t aChildID) {
-  auto child = GetChildStatus(aChildID);
+  AudioChannelChildStatus* child = GetChildStatus(aChildID);
   if (!child) {
     return false;
   }
@@ -975,10 +975,10 @@ void AudioChannelService::ChildStatusReceived(uint64_t aChildID,
     return;
   }
 
-  auto data = GetChildStatus(aChildID);
+  AudioChannelChildStatus* data = GetChildStatus(aChildID);
   if (!data) {
-    auto childStatus = new AudioChannelChildStatus(aChildID);
-    mPlayingChildren.AppendElement(std::move(childStatus));
+    data = new AudioChannelChildStatus(aChildID);
+    mPlayingChildren.AppendElement(WrapUnique(data));
   }
 
   data->mActiveTelephonyChannel = aTelephonyChannel;
