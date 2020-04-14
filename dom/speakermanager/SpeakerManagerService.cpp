@@ -5,19 +5,20 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "SpeakerManagerService.h"
-#include "SpeakerManagerServiceChild.h"
-#include "mozilla/Services.h"
+
+#include "AudioChannelService.h"
+#include "mozilla/dom/ContentParent.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/Unused.h"
-#include "mozilla/dom/ContentParent.h"
+#include "nsIAudioManager.h"
 #include "nsIPropertyBag2.h"
 #include "nsThreadUtils.h"
 #include "nsServiceManagerUtils.h"
-#include "AudioChannelService.h"
+#include "SpeakerManagerServiceChild.h"
+
 #include <cutils/properties.h>
 
 #define NS_AUDIOMANAGER_CONTRACTID "@mozilla.org/telephony/audiomanager;1"
-#include "nsIAudioManager.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;

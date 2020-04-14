@@ -5,14 +5,12 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "SpeakerManagerServiceChild.h"
-#include "mozilla/Services.h"
-#include "mozilla/StaticPtr.h"
-#include "mozilla/Unused.h"
-#include "mozilla/dom/ContentChild.h"
-#include "mozilla/dom/ContentParent.h"
-#include "nsIObserverService.h"
-#include "nsThreadUtils.h"
+
 #include "AudioChannelService.h"
+#include "mozilla/dom/ContentChild.h"
+#include "mozilla/StaticPtr.h"
+#include "nsThreadUtils.h"
+
 #include <cutils/properties.h>
 
 using namespace mozilla;

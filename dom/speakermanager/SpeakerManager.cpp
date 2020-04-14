@@ -6,16 +6,11 @@
 
 #include "SpeakerManager.h"
 
-#include "mozilla/Preferences.h"
-#include "mozilla/Services.h"
-
-#include "mozilla/dom/Event.h"
-
 #include "AudioChannelService.h"
+#include "mozilla/dom/Event.h"
 #include "nsIDocShell.h"
 #include "nsIDOMEventListener.h"
 #include "nsIInterfaceRequestorUtils.h"
-#include "nsIPermissionManager.h"
 #include "SpeakerManagerService.h"
 
 namespace mozilla {

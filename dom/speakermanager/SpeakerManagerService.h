@@ -7,13 +7,10 @@
 #ifndef mozilla_dom_SpeakerManagerService_h__
 #define mozilla_dom_SpeakerManagerService_h__
 
-#include "nsAutoPtr.h"
+#include "nsDataHashtable.h"
 #include "nsIObserver.h"
 #include "nsTArray.h"
 #include "SpeakerManager.h"
-#include "nsIAudioManager.h"
-#include "nsCheapSets.h"
-#include "nsHashKeys.h"
 
 namespace mozilla {
 namespace dom {

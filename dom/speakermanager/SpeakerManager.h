@@ -7,8 +7,8 @@
 #ifndef mozilla_dom_SpeakerManager_h
 #define mozilla_dom_SpeakerManager_h
 
-#include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/dom/MozSpeakerManagerBinding.h"
+#include "mozilla/DOMEventTargetHelper.h"
 
 namespace mozilla {
 namespace dom {
