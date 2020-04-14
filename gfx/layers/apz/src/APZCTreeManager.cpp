@@ -153,6 +153,11 @@ struct APZCTreeManager::TreeBuildingState {
   std::vector<FixedPositionInfo> mFixedPositionInfo;
   std::vector<RootScrollbarInfo> mRootScrollbarInfo;
   std::vector<StickyPositionInfo> mStickyPositionInfo;
+
+  // As we recurse down through reflayers in the tree, this picks up the
+  // cumulative EventRegionsOverride flags from the reflayers, and is used to
+  // apply them to descendant layers.
+  std::stack<EventRegionsOverride> mOverrideFlags;
 };
 
 class APZCTreeManager::CheckerboardFlushObserver : public nsIObserver {
@@ -420,6 +425,7 @@ APZCTreeManager::UpdateHitTestingTreeImpl(const ScrollNode& aRoot,
     seenLayersIds.insert(mRootLayersId);
     ancestorTransforms.push(AncestorTransform());
     state.mParentHasPerspective.push(false);
+    state.mOverrideFlags.push(EventRegionsOverride::NoOverride);
 
     mApzcTreeLog << "[start]\n";
     mTreeLock.AssertCurrentThreadIn();
@@ -524,6 +530,21 @@ APZCTreeManager::UpdateHitTestingTreeImpl(const ScrollNode& aRoot,
           if (Maybe<LayersId> newLayersId = aLayerMetrics.GetReferentId()) {
             layersId = *newLayersId;
             seenLayersIds.insert(layersId);
+
+            // Propagate any event region override flags down into all
+            // descendant nodes from the reflayer that has the flag. This is an
+            // optimization to avoid having to walk up the tree to check the
+            // override flags. Note that we don't keep the flags on the reflayer
+            // itself, because the semantics of the flags are that they apply
+            // to all content in the layer subtree being referenced. This
+            // matters with the WR hit-test codepath, because this reflayer may
+            // be just one of many nodes associated with a particular APZC, and
+            // calling GetTargetNode with a guid may return any one of the
+            // nodes. If different nodes have different flags on them that can
+            // make the WR hit-test result incorrect, but being strict about
+            // only putting the flags on descendant layers avoids this problem.
+            state.mOverrideFlags.push(state.mOverrideFlags.top() |
+                                      aLayerMetrics.GetEventRegionsOverride());
           }
 
           indents.push(gfx::TreeAutoIndent<LOG_DEFAULT>(mApzcTreeLog));
@@ -533,6 +554,9 @@ APZCTreeManager::UpdateHitTestingTreeImpl(const ScrollNode& aRoot,
         [&](ScrollNode aLayerMetrics) {
           if (aLayerMetrics.IsAsyncZoomContainer()) {
             --asyncZoomContainerNestingDepth;
+          }
+          if (aLayerMetrics.GetReferentId()) {
+            state.mOverrideFlags.pop();
           }
 
           next = parent;
@@ -1053,24 +1077,6 @@ already_AddRefed<HitTestingTreeNode> APZCTreeManager::RecycleOrCreateNode(
   return node.forget();
 }
 
-template <class ScrollNode>
-static EventRegionsOverride GetEventRegionsOverride(HitTestingTreeNode* aParent,
-                                                    const ScrollNode& aLayer) {
-  // Make it so that if the flag is set on the layer tree, it automatically
-  // propagates to all the nodes in the corresponding subtree rooted at that
-  // layer in the hit-test tree. This saves having to walk up the tree every
-  // we want to see if a hit-test node is affected by this flag.
-  EventRegionsOverride result = aLayer.GetEventRegionsOverride();
-  if (result != EventRegionsOverride::NoOverride) {
-    // Overrides should only ever get set for ref layers.
-    MOZ_ASSERT(aLayer.GetReferentId());
-  }
-  if (aParent) {
-    result |= aParent->GetEventRegionsOverride();
-  }
-  return result;
-}
-
 void APZCTreeManager::StartScrollbarDrag(const ScrollableLayerGuid& aGuid,
                                          const AsyncDragMetrics& aDragMetrics) {
   APZThreadUtils::AssertOnControllerThread();
@@ -1142,14 +1148,14 @@ void APZCTreeManager::NotifyAutoscrollRejected(
 }
 
 template <class ScrollNode>
-void SetHitTestData(HitTestingTreeNode* aNode, HitTestingTreeNode* aParent,
-                    const ScrollNode& aLayer,
-                    const Maybe<ParentLayerIntRegion>& aClipRegion) {
-  aNode->SetHitTestData(
-      GetEventRegions(aLayer), aLayer.GetVisibleRegion(),
-      aLayer.GetRemoteDocumentSize(), aLayer.GetTransformTyped(), aClipRegion,
-      GetEventRegionsOverride(aParent, aLayer), aLayer.IsBackfaceHidden(),
-      !!aLayer.IsAsyncZoomContainer());
+void SetHitTestData(HitTestingTreeNode* aNode, const ScrollNode& aLayer,
+                    const Maybe<ParentLayerIntRegion>& aClipRegion,
+                    const EventRegionsOverride& aOverrideFlags) {
+  aNode->SetHitTestData(GetEventRegions(aLayer), aLayer.GetVisibleRegion(),
+                        aLayer.GetRemoteDocumentSize(),
+                        aLayer.GetTransformTyped(), aClipRegion, aOverrideFlags,
+                        aLayer.IsBackfaceHidden(),
+                        !!aLayer.IsAsyncZoomContainer());
 }
 
 template <class ScrollNode>
@@ -1191,10 +1197,11 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
     // when those properties change.
     node = RecycleOrCreateNode(aProofOfTreeLock, aState, nullptr, aLayersId);
     AttachNodeToTree(node, aParent, aNextSibling);
-    SetHitTestData(node, aParent, aLayer,
+    SetHitTestData(node, aLayer,
                    (!parentHasPerspective && aLayer.GetClipRect())
                        ? Some(ParentLayerIntRegion(*aLayer.GetClipRect()))
-                       : Nothing());
+                       : Nothing(),
+                   aState.mOverrideFlags.top());
     node->SetScrollbarData(aLayer.GetScrollbarAnimationId(),
                            aLayer.GetScrollbarData());
     node->SetFixedPosData(aLayer.GetFixedPositionScrollContainerId(),
@@ -1319,7 +1326,7 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
 
     Maybe<ParentLayerIntRegion> clipRegion =
         parentHasPerspective ? Nothing() : ComputeClipRegion(aLayer);
-    SetHitTestData(node, aParent, aLayer, clipRegion);
+    SetHitTestData(node, aLayer, clipRegion, aState.mOverrideFlags.top());
     apzc->SetAncestorTransform(aAncestorTransform);
 
     PrintAPZCInfo(aLayer, apzc);
@@ -1419,7 +1426,7 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
 
     Maybe<ParentLayerIntRegion> clipRegion =
         parentHasPerspective ? Nothing() : ComputeClipRegion(aLayer);
-    SetHitTestData(node, aParent, aLayer, clipRegion);
+    SetHitTestData(node, aLayer, clipRegion, aState.mOverrideFlags.top());
   }
 
   // Note: if layer properties must be propagated to nodes, RecvUpdate in
@@ -2848,37 +2855,73 @@ APZCTreeManager::HitTestResult APZCTreeManager::GetAPZCAtPointWR(
     return hit;
   }
 
-  wr::WrPipelineId pipelineId;
-  ScrollableLayerGuid::ViewID scrollId;
-  gfx::CompositorHitTestInfo hitInfo;
-  SideBits sideBits = SideBits::eNone;
   APZCTM_LOG("Hit-testing point %s with WR\n",
              Stringify(aHitTestPoint).c_str());
-  bool hitSomething = wr->HitTest(wr::ToWorldPoint(aHitTestPoint), pipelineId,
-                                  scrollId, hitInfo, sideBits);
-  if (!hitSomething) {
+  std::vector<wr::WrHitResult> results =
+      wr->HitTest(wr::ToWorldPoint(aHitTestPoint));
+
+  Maybe<wr::WrHitResult> chosenResult;
+  for (const wr::WrHitResult& result : results) {
+    ScrollableLayerGuid guid{result.mLayersId, 0, result.mScrollId};
+    APZCTM_LOG("Examining result with guid %s hit info 0x%d... ",
+               Stringify(guid).c_str(), result.mHitInfo.serialize());
+    if (result.mHitInfo == CompositorHitTestInvisibleToHit) {
+      MOZ_ASSERT(false);
+      APZCTM_LOG("skipping due to invisibility.\n");
+      continue;
+    }
+    RefPtr<HitTestingTreeNode> node =
+        GetTargetNode(guid, &GuidComparatorIgnoringPresShell);
+    if (!node) {
+      APZCTM_LOG("no corresponding node found, falling back to root.\n");
+      // We can enter here during normal codepaths for cases where the
+      // nsDisplayCompositorHitTestInfo item emitted a scrollId of
+      // NULL_SCROLL_ID to the webrender display list. The semantics of that
+      // is to fall back to the root APZC for the layers id, so that's what
+      // we do here.
+      // If we enter this codepath and scrollId is not NULL_SCROLL_ID, then
+      // that's more likely to be due to a race condition between rebuilding
+      // the APZ tree and updating the WR scene/hit-test information, resulting
+      // in WR giving us a hit result for a scene that is not active in APZ.
+      // Such a scenario would need debugging and fixing.
+      MOZ_ASSERT(result.mScrollId == ScrollableLayerGuid::NULL_SCROLL_ID);
+      node = FindRootNodeForLayersId(result.mLayersId);
+      if (!node) {
+        // Should never happen, but handle gracefully in release builds just
+        // in case.
+        MOZ_ASSERT(false);
+        chosenResult = Some(result);
+        break;
+      }
+    }
+    MOZ_ASSERT(node->GetApzc());  // any node returned must have an APZC
+    EventRegionsOverride flags = node->GetEventRegionsOverride();
+    if (flags & EventRegionsOverride::ForceEmptyHitRegion) {
+      // This result is inside a subtree that is invisible to hit-testing.
+      APZCTM_LOG("skipping due to FEHR subtree.\n");
+      continue;
+    }
+
+    APZCTM_LOG("selecting as chosen result.\n");
+    chosenResult = Some(result);
+    hit.mTargetApzc = node->GetApzc();
+    if (flags & EventRegionsOverride::ForceDispatchToContent) {
+      chosenResult->mHitInfo += CompositorHitTestFlags::eApzAwareListeners;
+    }
+    break;
+  }
+  if (!chosenResult) {
     return hit;
   }
 
-  hit.mLayersId = wr::AsLayersId(pipelineId);
-  ScrollableLayerGuid guid{hit.mLayersId, 0, scrollId};
-  if (RefPtr<HitTestingTreeNode> node =
-          GetTargetNode(guid, &GuidComparatorIgnoringPresShell)) {
-    MOZ_ASSERT(node->GetApzc());  // any node returned must have an APZC
-    hit.mTargetApzc = node->GetApzc();
-    EventRegionsOverride flags = node->GetEventRegionsOverride();
-    if (flags & EventRegionsOverride::ForceDispatchToContent) {
-      hitInfo += CompositorHitTestFlags::eApzAwareListeners;
-    }
-  }
+  MOZ_ASSERT(hit.mTargetApzc);
+  hit.mLayersId = chosenResult->mLayersId;
+  ScrollableLayerGuid::ViewID scrollId = chosenResult->mScrollId;
+  gfx::CompositorHitTestInfo hitInfo = chosenResult->mHitInfo;
+  SideBits sideBits = chosenResult->mSideBits;
+
   APZCTM_LOG("Successfully matched APZC %p (hit result 0x%x)\n",
              hit.mTargetApzc.get(), hitInfo.serialize());
-  if (!hit.mTargetApzc) {
-    // It falls back to the root
-    MOZ_ASSERT(scrollId == ScrollableLayerGuid::NULL_SCROLL_ID);
-    hit.mTargetApzc = FindRootApzcForLayersId(hit.mLayersId);
-    MOZ_ASSERT(hit.mTargetApzc);
-  }
 
   const bool isScrollbar =
       hitInfo.contains(gfx::CompositorHitTestFlags::eScrollbar);
@@ -3117,7 +3160,7 @@ APZCTreeManager::HitTestResult APZCTreeManager::GetAPZCAtPoint(
   return hit;
 }
 
-AsyncPanZoomController* APZCTreeManager::FindRootApzcForLayersId(
+HitTestingTreeNode* APZCTreeManager::FindRootNodeForLayersId(
     LayersId aLayersId) const {
   mTreeLock.AssertCurrentThreadIn();
 
@@ -3127,6 +3170,14 @@ AsyncPanZoomController* APZCTreeManager::FindRootApzcForLayersId(
         return apzc && apzc->GetLayersId() == aLayersId &&
                apzc->IsRootForLayersId();
       });
+  return resultNode;
+}
+
+AsyncPanZoomController* APZCTreeManager::FindRootApzcForLayersId(
+    LayersId aLayersId) const {
+  mTreeLock.AssertCurrentThreadIn();
+
+  HitTestingTreeNode* resultNode = FindRootNodeForLayersId(aLayersId);
   return resultNode ? resultNode->GetApzc() : nullptr;
 }
 

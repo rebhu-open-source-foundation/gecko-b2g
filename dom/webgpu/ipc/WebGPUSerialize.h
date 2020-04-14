@@ -62,11 +62,10 @@ DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::dom::GPUSamplerDescriptor,
                                   mAddressModeU, mAddressModeV, mAddressModeW,
                                   mMagFilter, mMinFilter, mMipmapFilter,
                                   mLodMinClamp, mLodMaxClamp, mCompare);
+
 DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::webgpu::ffi::WGPUExtent3d, width,
                                   height, depth);
-DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::webgpu::ffi::WGPUTextureDescriptor,
-                                  size, array_layer_count, mip_level_count,
-                                  sample_count, dimension, format, usage);
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::webgpu::ffi::WGPUOrigin3d, x, y, z);
 DEFINE_IPC_SERIALIZER_WITH_FIELDS(
     mozilla::webgpu::ffi::WGPUTextureViewDescriptor, format, dimension, aspect,
     base_mip_level, level_count, base_array_layer, array_layer_count);
@@ -88,6 +87,12 @@ DEFINE_IPC_SERIALIZER_WITH_FIELDS(
 DEFINE_IPC_SERIALIZER_WITH_FIELDS(
     mozilla::webgpu::ffi::WGPUVertexAttributeDescriptor, offset, format,
     shader_location);
+
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::webgpu::ffi::WGPUBufferCopyView,
+                                  buffer, offset, bytes_per_row,
+                                  rows_per_image);
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::webgpu::ffi::WGPUTextureCopyView,
+                                  texture, mip_level, array_layer, origin);
 
 DEFINE_IPC_SERIALIZER_WITH_FIELDS(
     mozilla::webgpu::ffi::WGPUBindGroupLayoutEntry, binding, visibility, ty,
@@ -117,6 +122,10 @@ DEFINE_IPC_SERIALIZER_WITH_FIELDS(
     mFragmentStage, mPrimitiveTopology, mRasterizationState, mColorStates,
     mDepthStencilState, mVertexState, mSampleCount, mSampleMask,
     mAlphaToCoverageEnabled);
+DEFINE_IPC_SERIALIZER_WITH_FIELDS(mozilla::webgpu::SerialTextureDescriptor,
+                                  mLabel, mSize, mArrayLayerCount,
+                                  mMipLevelCount, mSampleCount, mDimension,
+                                  mFormat, mUsage);
 
 #undef DEFINE_IPC_SERIALIZER_FFI_ENUM
 #undef DEFINE_IPC_SERIALIZER_DOM_ENUM

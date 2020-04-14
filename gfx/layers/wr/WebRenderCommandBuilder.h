@@ -31,48 +31,6 @@ class WebRenderFallbackData;
 class WebRenderParentCommand;
 class WebRenderUserData;
 
-class WebRenderScrollDataCollection {
- public:
-  WebRenderScrollDataCollection() = default;
-
-  std::vector<WebRenderLayerScrollData>& operator[](
-      wr::RenderRoot aRenderRoot) {
-    return mInternalScrollDatas[aRenderRoot];
-  }
-
-  bool IsEmpty() const {
-    for (auto renderRoot : wr::kRenderRoots) {
-      if (!mInternalScrollDatas[renderRoot].empty()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  void AppendRoot(Maybe<ScrollMetadata>& aRootMetadata,
-                  wr::RenderRootArray<WebRenderScrollData>& aScrollDatas);
-
-  void AppendScrollData(const wr::DisplayListBuilder& aBuilder,
-                        WebRenderLayerManager* aManager, nsDisplayItem* aItem,
-                        size_t aLayerCountBeforeRecursing,
-                        const ActiveScrolledRoot* aStopAtAsr,
-                        const Maybe<gfx::Matrix4x4>& aAncestorTransform);
-
-  size_t GetLayerCount(wr::RenderRoot aRenderRoot) const;
-
-  void Clear() {
-    for (auto renderRoot : wr::kRenderRoots) {
-      mInternalScrollDatas[renderRoot].clear();
-      mSeenRenderRoot[renderRoot] = false;
-    }
-  }
-
- private:
-  wr::RenderRootArray<std::vector<WebRenderLayerScrollData>>
-      mInternalScrollDatas;
-  wr::RenderRootArray<bool> mSeenRenderRoot;
-};
-
 class WebRenderCommandBuilder final {
   typedef nsTHashtable<nsRefPtrHashKey<WebRenderUserData>>
       WebRenderUserDataRefTable;
@@ -151,16 +109,9 @@ class WebRenderCommandBuilder final {
   void ClearCachedResources();
 
   bool ShouldDumpDisplayList(nsDisplayListBuilder* aBuilder);
-  wr::usize GetBuilderDumpIndex(wr::RenderRoot aRenderRoot) const {
-    return mBuilderDumpIndex[aRenderRoot];
-  }
+  wr::usize GetBuilderDumpIndex() const { return mBuilderDumpIndex; }
 
   bool GetContainsSVGGroup() { return mContainsSVGGroup; }
-
-  const StackingContextHelper& GetRootStackingContextHelper(
-      wr::RenderRoot aRenderRoot) const {
-    return *(*mRootStackingContexts)[aRenderRoot];
-  }
 
   // Those are data that we kept between transactions. We used to cache some
   // data in the layer. But in layers free mode, we don't have layer which
@@ -226,9 +177,7 @@ class WebRenderCommandBuilder final {
                                const StackingContextHelper& aSc,
                                nsDisplayListBuilder* aDisplayListBuilder);
 
-  wr::RenderRootArray<Maybe<StackingContextHelper>>* mRootStackingContexts;
-  wr::RenderRootArray<ClipManager> mClipManagers;
-  ClipManager* mCurrentClipManager;
+  ClipManager mClipManager;
 
   // We use this as a temporary data structure while building the mScrollData
   // inside a layers-free transaction.
@@ -247,7 +196,7 @@ class WebRenderCommandBuilder final {
   // Store of WebRenderLocalCanvasData objects for use in empty transactions
   LocalCanvasDataSet mLastLocalCanvasDatas;
 
-  wr::RenderRootArray<wr::usize> mBuilderDumpIndex;
+  wr::usize mBuilderDumpIndex;
   wr::usize mDumpIndent;
 
  public:

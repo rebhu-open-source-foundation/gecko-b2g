@@ -4102,6 +4102,23 @@
   mirror: once
   do_not_use_directly: true
 
+#ifdef XP_WIN
+- name: gfx.webrender.force-angle
+  type: bool
+  value: true
+  mirror: once
+#endif
+
+# WebRender is not enabled when there is no GPU process on window when
+# WebRender uses ANGLE. It is for avoiding that WebGL and WebRender use ANGLE
+# at once. But there is a case that we want to enable WebRender for testing.
+#if defined(NIGHTLY_BUILD) && defined(XP_WIN)
+- name: gfx.webrender.enabled-no-gpu-process-with-angle-win
+  type: bool
+  value: false
+  mirror: once
+#endif
+
 - name: gfx.webrender.blob-images
   type: RelaxedAtomicBool
   value: true
@@ -5450,7 +5467,7 @@
 # Are implicit tracks in computed grid templates serialized?
 - name: layout.css.serialize-grid-implicit-tracks
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
 # Set the number of device pixels per CSS pixel. A value <= 0 means choose
@@ -6278,7 +6295,7 @@
 #if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
   value: true
 #elif defined(XP_WIN) && !defined(_ARM64_)
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
 #else
   value: false
 #endif

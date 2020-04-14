@@ -131,9 +131,13 @@ install -D -m644 -t "${appdir}/lib/firefox/browser/defaults/preferences" default
 install -D -m755 launch-script.sh "${appdir}/bin/firefox"
 
 flatpak build-finish build                                      \
-        --share=ipc --socket=x11                                \
+        --share=ipc                                             \
+        --socket=wayland                                        \
+        --socket=fallback-x11                                   \
+        --require-version=1.0.0                                 \
         --share=network                                         \
         --socket=pulseaudio                                     \
+        --socket=pcsc                                           \
         --persist=.mozilla                                      \
         --filesystem=xdg-download:rw                            \
         --device=all                                            \
@@ -143,6 +147,8 @@ flatpak build-finish build                                      \
         --talk-name=org.gnome.SessionManager                    \
         --talk-name=org.freedesktop.ScreenSaver                 \
         --talk-name="org.gtk.vfs.*"                             \
+        --talk-name=org.freedesktop.Notifications               \
+        --talk-name=org.mpris.MediaPlayer2.org.mozilla.firefox  \
         --command=firefox
 
 flatpak build-export --disable-sandbox --no-update-summary --exclude='/share/runtime/langpack/*/*' repo build "$FLATPAK_BRANCH"

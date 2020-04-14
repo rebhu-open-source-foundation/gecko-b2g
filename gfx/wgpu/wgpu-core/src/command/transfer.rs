@@ -7,12 +7,10 @@ use crate::{
     device::{all_buffer_stages, all_image_stages},
     hub::{GfxBackend, Global, GlobalIdentityHandlerFactory, Token},
     id::{BufferId, CommandEncoderId, TextureId},
-    Extent3d,
-    Origin3d,
 };
 
-use wgt::{BufferAddress, BufferUsage, TextureUsage};
 use hal::command::CommandBuffer as _;
+use wgt::{BufferAddress, BufferUsage, Extent3d, Origin3d, TextureUsage};
 
 use std::iter;
 
@@ -49,8 +47,8 @@ impl TextureCopyView {
         {
             hal::image::SubresourceRange {
                 aspects,
-                levels: level .. level + 1,
-                layers: layer .. layer + 1,
+                levels: level..level + 1,
+                layers: layer..layer + 1,
             }
         }
     }
@@ -65,7 +63,7 @@ impl TextureCopyView {
             hal::image::SubresourceLayers {
                 aspects,
                 level: self.mip_level as hal::image::Level,
-                layers: layer .. layer + 1,
+                layers: layer..layer + 1,
             }
         }
     }
@@ -115,7 +113,7 @@ impl<G: GlobalIdentityHandlerFactory> Global<G> {
         let cmb_raw = cmb.raw.last_mut().unwrap();
         unsafe {
             cmb_raw.pipeline_barrier(
-                all_buffer_stages() .. all_buffer_stages(),
+                all_buffer_stages()..all_buffer_stages(),
                 hal::memory::Dependencies::empty(),
                 barriers,
             );
@@ -174,7 +172,7 @@ impl<G: GlobalIdentityHandlerFactory> Global<G> {
         let stages = all_buffer_stages() | all_image_stages();
         unsafe {
             cmb_raw.pipeline_barrier(
-                stages .. stages,
+                stages..stages,
                 hal::memory::Dependencies::empty(),
                 src_barriers.chain(dst_barriers),
             );
@@ -238,7 +236,7 @@ impl<G: GlobalIdentityHandlerFactory> Global<G> {
         let stages = all_buffer_stages() | all_image_stages();
         unsafe {
             cmb_raw.pipeline_barrier(
-                stages .. stages,
+                stages..stages,
                 hal::memory::Dependencies::empty(),
                 src_barriers.chain(dst_barrier),
             );
@@ -299,7 +297,7 @@ impl<G: GlobalIdentityHandlerFactory> Global<G> {
         let cmb_raw = cmb.raw.last_mut().unwrap();
         unsafe {
             cmb_raw.pipeline_barrier(
-                all_image_stages() .. all_image_stages(),
+                all_image_stages()..all_image_stages(),
                 hal::memory::Dependencies::empty(),
                 barriers,
             );

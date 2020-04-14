@@ -38,8 +38,9 @@ class WebGPUParent final : public PWebGPUParent {
   ipc::IPCResult RecvBufferMapRead(RawId aSelfId, Shmem&& shmem,
                                    BufferMapReadResolver&& resolver);
   ipc::IPCResult RecvBufferDestroy(RawId aSelfId);
-  ipc::IPCResult RecvDeviceCreateTexture(
-      RawId aSelfId, const ffi::WGPUTextureDescriptor& aDesc, RawId aNewId);
+  ipc::IPCResult RecvDeviceCreateTexture(RawId aSelfId,
+                                         const SerialTextureDescriptor& aDesc,
+                                         RawId aNewId);
   ipc::IPCResult RecvTextureCreateView(
       RawId aSelfId, const ffi::WGPUTextureViewDescriptor& aDesc, RawId aNewId);
   ipc::IPCResult RecvTextureDestroy(RawId aSelfId);
@@ -55,6 +56,15 @@ class WebGPUParent final : public PWebGPUParent {
       RawId aSelfId, RawId aSourceId, BufferAddress aSourceOffset,
       RawId aDestinationId, BufferAddress aDestinationOffset,
       BufferAddress aSize);
+  ipc::IPCResult RecvCommandEncoderCopyBufferToTexture(
+      RawId aSelfId, WGPUBufferCopyView aSource,
+      WGPUTextureCopyView aDestination, WGPUExtent3d aCopySize);
+  ipc::IPCResult RecvCommandEncoderCopyTextureToBuffer(
+      RawId aSelfId, WGPUTextureCopyView aSource,
+      WGPUBufferCopyView aDestination, WGPUExtent3d aCopySize);
+  ipc::IPCResult RecvCommandEncoderCopyTextureToTexture(
+      RawId aSelfId, WGPUTextureCopyView aSource,
+      WGPUTextureCopyView aDestination, WGPUExtent3d aCopySize);
   ipc::IPCResult RecvCommandEncoderRunComputePass(RawId aSelfId, Shmem&& shmem);
   ipc::IPCResult RecvCommandEncoderRunRenderPass(RawId aSelfId, Shmem&& shmem);
   ipc::IPCResult RecvCommandEncoderFinish(

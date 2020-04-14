@@ -251,8 +251,16 @@ ipc::IPCResult WebGPUParent::RecvBufferDestroy(RawId aSelfId) {
 }
 
 ipc::IPCResult WebGPUParent::RecvDeviceCreateTexture(
-    RawId aSelfId, const ffi::WGPUTextureDescriptor& aDesc, RawId aNewId) {
-  ffi::wgpu_server_device_create_texture(mContext, aSelfId, &aDesc, aNewId);
+    RawId aSelfId, const SerialTextureDescriptor& aDesc, RawId aNewId) {
+  ffi::WGPUTextureDescriptor desc = {};
+  desc.size = aDesc.mSize;
+  desc.array_layer_count = aDesc.mArrayLayerCount;
+  desc.mip_level_count = aDesc.mMipLevelCount;
+  desc.sample_count = aDesc.mSampleCount;
+  desc.dimension = aDesc.mDimension;
+  desc.format = aDesc.mFormat;
+  desc.usage = aDesc.mUsage;
+  ffi::wgpu_server_device_create_texture(mContext, aSelfId, &desc, aNewId);
   return IPC_OK();
 }
 
@@ -286,7 +294,7 @@ ipc::IPCResult WebGPUParent::RecvDeviceCreateSampler(
   ffi::WGPUCompareFunction compare;
   if (aDesc.mCompare.WasPassed()) {
     compare = ffi::WGPUCompareFunction(aDesc.mCompare.Value());
-    desc.compare = &compare;
+    desc.compare = compare;
   }
 
   ffi::wgpu_server_device_create_sampler(mContext, aSelfId, &desc, aNewId);
@@ -314,6 +322,28 @@ ipc::IPCResult WebGPUParent::RecvCommandEncoderCopyBufferToBuffer(
   ffi::wgpu_server_encoder_copy_buffer_to_buffer(mContext, aSelfId, aSourceId,
                                                  aSourceOffset, aDestinationId,
                                                  aDestinationOffset, aSize);
+  return IPC_OK();
+}
+
+ipc::IPCResult WebGPUParent::RecvCommandEncoderCopyBufferToTexture(
+    RawId aSelfId, WGPUBufferCopyView aSource, WGPUTextureCopyView aDestination,
+    WGPUExtent3d aCopySize) {
+  ffi::wgpu_server_encoder_copy_buffer_to_texture(mContext, aSelfId, &aSource,
+                                                  &aDestination, aCopySize);
+  return IPC_OK();
+}
+ipc::IPCResult WebGPUParent::RecvCommandEncoderCopyTextureToBuffer(
+    RawId aSelfId, WGPUTextureCopyView aSource, WGPUBufferCopyView aDestination,
+    WGPUExtent3d aCopySize) {
+  ffi::wgpu_server_encoder_copy_texture_to_buffer(mContext, aSelfId, &aSource,
+                                                  &aDestination, aCopySize);
+  return IPC_OK();
+}
+ipc::IPCResult WebGPUParent::RecvCommandEncoderCopyTextureToTexture(
+    RawId aSelfId, WGPUTextureCopyView aSource,
+    WGPUTextureCopyView aDestination, WGPUExtent3d aCopySize) {
+  ffi::wgpu_server_encoder_copy_texture_to_texture(mContext, aSelfId, &aSource,
+                                                   &aDestination, aCopySize);
   return IPC_OK();
 }
 
@@ -605,6 +635,7 @@ ipc::IPCResult WebGPUParent::RecvSwapChainPresent(
   data->mBuffersLock.Lock();
   if (!data->mAvailableBufferIds.empty()) {
     bufferId = data->mAvailableBufferIds.back();
+    wgpu_server_buffer_unmap(mContext, bufferId);
     data->mAvailableBufferIds.pop_back();
   } else if (!data->mUnassignedBufferIds.empty()) {
     bufferId = data->mUnassignedBufferIds.back();
@@ -612,10 +643,9 @@ ipc::IPCResult WebGPUParent::RecvSwapChainPresent(
 
     ffi::WGPUBufferUsage usage =
         WGPUBufferUsage_COPY_DST | WGPUBufferUsage_MAP_READ;
-    const ffi::WGPUBufferDescriptor desc = {
-        bufferSize,
-        usage,
-    };
+    ffi::WGPUBufferDescriptor desc = {};
+    desc.size = bufferSize;
+    desc.usage = usage;
     ffi::wgpu_server_device_create_buffer(mContext, data->mDeviceId, &desc,
                                           bufferId);
   } else {

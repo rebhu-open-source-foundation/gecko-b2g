@@ -67,7 +67,7 @@ class WebRenderBridgeChild final : public PWebRenderBridgeChild,
   void AddWebRenderParentCommand(const WebRenderParentCommand& aCmd,
                                  wr::RenderRoot aRenderRoot);
   bool HasWebRenderParentCommands(wr::RenderRoot aRenderRoot) {
-    return !mParentCommands[aRenderRoot].IsEmpty();
+    return !mParentCommands.IsEmpty();
   }
 
   void UpdateResources(wr::IpcResourceUpdateQueue& aResources,
@@ -240,7 +240,7 @@ class WebRenderBridgeChild final : public PWebRenderBridgeChild,
   bool AddOpDestroy(const OpDestroy& aOp);
 
   nsTArray<OpDestroy> mDestroyedActors;
-  wr::RenderRootArray<nsTArray<WebRenderParentCommand>> mParentCommands;
+  nsTArray<WebRenderParentCommand> mParentCommands;
   nsDataHashtable<nsUint64HashKey, CompositableClient*> mCompositables;
   bool mIsInTransaction;
   bool mIsInClearCachedResources;
@@ -255,13 +255,11 @@ class WebRenderBridgeChild final : public PWebRenderBridgeChild,
   // SendClearCachedResources since that call.
   bool mSentDisplayList;
 
-  wr::RenderRootArray<uint32_t> mFontKeysDeleted;
-  wr::RenderRootArray<nsDataHashtable<UnscaledFontHashKey, wr::FontKey>>
-      mFontKeys;
+  uint32_t mFontKeysDeleted;
+  nsDataHashtable<UnscaledFontHashKey, wr::FontKey> mFontKeys;
 
-  wr::RenderRootArray<uint32_t> mFontInstanceKeysDeleted;
-  wr::RenderRootArray<nsDataHashtable<ScaledFontHashKey, wr::FontInstanceKey>>
-      mFontInstanceKeys;
+  uint32_t mFontInstanceKeysDeleted;
+  nsDataHashtable<ScaledFontHashKey, wr::FontInstanceKey> mFontInstanceKeys;
 
   UniquePtr<ActiveResourceTracker> mActiveResourceTracker;
 

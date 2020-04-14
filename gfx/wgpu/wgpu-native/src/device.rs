@@ -4,8 +4,8 @@
 
 use crate::GLOBAL;
 
-use wgt::{BackendBit, DeviceDescriptor, Limits, RequestAdapterOptions};
 use core::{gfx_select, hub::Token, id};
+use wgt::{BackendBit, DeviceDescriptor, Limits};
 
 use std::{marker::PhantomData, slice};
 
@@ -13,7 +13,7 @@ use std::{marker::PhantomData, slice};
 use objc::{msg_send, runtime::Object, sel, sel_impl};
 
 pub type RequestAdapterCallback =
-    unsafe extern "C" fn(id: id::AdapterId, userdata: *mut std::ffi::c_void);
+    unsafe extern "C" fn(id: Option<id::AdapterId>, userdata: *mut std::ffi::c_void);
 
 pub fn wgpu_create_surface(raw_handle: raw_window_handle::RawWindowHandle) -> id::SurfaceId {
     use raw_window_handle::RawWindowHandle as Rwh;
@@ -30,13 +30,12 @@ pub fn wgpu_create_surface(raw_handle: raw_window_handle::RawWindowHandle) -> id
         },
         #[cfg(target_os = "macos")]
         Rwh::MacOS(h) => {
-            let ns_view =
-                if h.ns_view.is_null() {
-                    let ns_window = h.ns_window as *mut Object;
-                    unsafe { msg_send![ns_window, contentView] }
-                } else {
-                    h.ns_view
-                };
+            let ns_view = if h.ns_view.is_null() {
+                let ns_window = h.ns_window as *mut Object;
+                unsafe { msg_send![ns_window, contentView] }
+            } else {
+                h.ns_view
+            };
             core::instance::Surface {
                 #[cfg(feature = "vulkan-portability")]
                 vulkan: instance
@@ -47,7 +46,7 @@ pub fn wgpu_create_surface(raw_handle: raw_window_handle::RawWindowHandle) -> id
                     .metal
                     .create_surface_from_nsview(ns_view, cfg!(debug_assertions)),
             }
-        },
+        }
         #[cfg(all(unix, not(target_os = "ios"), not(target_os = "macos")))]
         Rwh::Xlib(h) => core::instance::Surface {
             vulkan: instance
@@ -105,7 +104,8 @@ pub extern "C" fn wgpu_create_surface_from_wayland(
 ) -> id::SurfaceId {
     use raw_window_handle::unix::WaylandHandle;
     wgpu_create_surface(raw_window_handle::RawWindowHandle::Wayland(WaylandHandle {
-        surface, display,
+        surface,
+        display,
         ..WaylandHandle::empty()
     }))
 }
@@ -153,7 +153,7 @@ pub fn wgpu_enumerate_adapters(mask: BackendBit) -> Vec<id::AdapterId> {
 /// This function is unsafe as it calls an unsafe extern callback.
 #[no_mangle]
 pub unsafe extern "C" fn wgpu_request_adapter_async(
-    desc: Option<&RequestAdapterOptions>,
+    desc: Option<&core::instance::RequestAdapterOptions>,
     mask: BackendBit,
     callback: RequestAdapterCallback,
     userdata: *mut std::ffi::c_void,
@@ -162,10 +162,7 @@ pub unsafe extern "C" fn wgpu_request_adapter_async(
         &desc.cloned().unwrap_or_default(),
         core::instance::AdapterInputs::Mask(mask, || PhantomData),
     );
-    callback(
-        id.unwrap_or(id::AdapterId::ERROR),
-        userdata,
-    );
+    callback(id, userdata);
 }
 
 #[no_mangle]
@@ -187,10 +184,7 @@ pub extern "C" fn wgpu_adapter_destroy(adapter_id: id::AdapterId) {
 }
 
 #[no_mangle]
-pub extern "C" fn wgpu_device_get_limits(
-    _device_id: id::DeviceId,
-    limits: &mut Limits,
-) {
+pub extern "C" fn wgpu_device_get_limits(_device_id: id::DeviceId, limits: &mut Limits) {
     *limits = Limits::default(); // TODO
 }
 
@@ -212,7 +206,8 @@ pub unsafe extern "C" fn wgpu_device_create_buffer_mapped(
     desc: &wgt::BufferDescriptor,
     mapped_ptr_out: *mut *mut u8,
 ) -> id::BufferId {
-    let (id, ptr) = gfx_select!(device_id => GLOBAL.device_create_buffer_mapped(device_id, desc, PhantomData));
+    let (id, ptr) =
+        gfx_select!(device_id => GLOBAL.device_create_buffer_mapped(device_id, desc, PhantomData));
     *mapped_ptr_out = ptr;
     id
 }
@@ -225,7 +220,7 @@ pub extern "C" fn wgpu_buffer_destroy(buffer_id: id::BufferId) {
 #[no_mangle]
 pub extern "C" fn wgpu_device_create_texture(
     device_id: id::DeviceId,
-    desc: &core::resource::TextureDescriptor,
+    desc: &wgt::TextureDescriptor,
 ) -> id::TextureId {
     gfx_select!(device_id => GLOBAL.device_create_texture(device_id, desc, PhantomData))
 }
@@ -238,7 +233,7 @@ pub extern "C" fn wgpu_texture_destroy(texture_id: id::TextureId) {
 #[no_mangle]
 pub extern "C" fn wgpu_texture_create_view(
     texture_id: id::TextureId,
-    desc: Option<&core::resource::TextureViewDescriptor>,
+    desc: Option<&wgt::TextureViewDescriptor>,
 ) -> id::TextureViewId {
     gfx_select!(texture_id => GLOBAL.texture_create_view(texture_id, desc, PhantomData))
 }
@@ -251,7 +246,7 @@ pub extern "C" fn wgpu_texture_view_destroy(texture_view_id: id::TextureViewId) 
 #[no_mangle]
 pub extern "C" fn wgpu_device_create_sampler(
     device_id: id::DeviceId,
-    desc: &core::resource::SamplerDescriptor,
+    desc: &wgt::SamplerDescriptor,
 ) -> id::SamplerId {
     gfx_select!(device_id => GLOBAL.device_create_sampler(device_id, desc, PhantomData))
 }
@@ -332,8 +327,7 @@ pub unsafe extern "C" fn wgpu_queue_submit(
     command_buffers: *const id::CommandBufferId,
     command_buffers_length: usize,
 ) {
-    let command_buffer_ids =
-        slice::from_raw_parts(command_buffers, command_buffers_length);
+    let command_buffer_ids = slice::from_raw_parts(command_buffers, command_buffers_length);
     gfx_select!(queue_id => GLOBAL.queue_submit(queue_id, command_buffer_ids))
 }
 
@@ -380,11 +374,8 @@ pub extern "C" fn wgpu_buffer_map_read_async(
     callback: core::device::BufferMapReadCallback,
     userdata: *mut u8,
 ) {
-    let operation = core::resource::BufferMapOperation::Read(
-        Box::new(move |status, data| unsafe {
-            callback(status, data, userdata)
-        }),
-    );
+    let operation = core::resource::BufferMapOperation::Read { callback, userdata };
+
     gfx_select!(buffer_id => GLOBAL.buffer_map_async(buffer_id, wgt::BufferUsage::MAP_READ, start .. start + size, operation))
 }
 
@@ -396,11 +387,8 @@ pub extern "C" fn wgpu_buffer_map_write_async(
     callback: core::device::BufferMapWriteCallback,
     userdata: *mut u8,
 ) {
-    let operation = core::resource::BufferMapOperation::Write(
-        Box::new(move |status, data| unsafe {
-            callback(status, data, userdata)
-        }),
-    );
+    let operation = core::resource::BufferMapOperation::Write { callback, userdata };
+
     gfx_select!(buffer_id => GLOBAL.buffer_map_async(buffer_id, wgt::BufferUsage::MAP_WRITE, start .. start + size, operation))
 }
 
@@ -414,9 +402,7 @@ pub extern "C" fn wgpu_swap_chain_get_next_texture(
     swap_chain_id: id::SwapChainId,
 ) -> core::swap_chain::SwapChainOutput {
     gfx_select!(swap_chain_id => GLOBAL.swap_chain_get_next_texture(swap_chain_id, PhantomData))
-        .unwrap_or(core::swap_chain::SwapChainOutput {
-            view_id: id::TextureViewId::ERROR,
-        })
+        .unwrap_or(core::swap_chain::SwapChainOutput { view_id: None })
 }
 
 #[no_mangle]

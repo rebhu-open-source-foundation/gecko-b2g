@@ -601,6 +601,31 @@ nsNSSComponent::GetEnterpriseIntermediates(
   return CommonGetEnterpriseCerts(enterpriseIntermediates, false);
 }
 
+NS_IMETHODIMP
+nsNSSComponent::AddEnterpriseIntermediate(
+    const nsTArray<uint8_t>& intermediateBytes) {
+  nsresult rv = BlockUntilLoadableCertsLoaded();
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  EnterpriseCert intermediate;
+  rv = intermediate.Init(intermediateBytes.Elements(),
+                         intermediateBytes.Length(), false);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  {
+    MutexAutoLock nsNSSComponentLock(mMutex);
+    if (!mEnterpriseCerts.append(std::move(intermediate))) {
+      return NS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+
+  UpdateCertVerifierWithEnterpriseRoots();
+  return NS_OK;
+}
+
 class LoadLoadableCertsTask final : public Runnable {
  public:
   LoadLoadableCertsTask(nsNSSComponent* nssComponent,
@@ -645,6 +670,9 @@ nsresult LoadLoadableCertsTask::Dispatch() {
 
 NS_IMETHODIMP
 LoadLoadableCertsTask::Run() {
+  Telemetry::AutoScalarTimer<Telemetry::ScalarID::NETWORKING_LOADING_CERTS_TASK>
+      timer;
+
   nsresult loadLoadableRootsResult = LoadLoadableRoots();
   if (NS_WARN_IF(NS_FAILED(loadLoadableRootsResult))) {
     MOZ_LOG(gPIPNSSLog, LogLevel::Error, ("LoadLoadableRoots failed"));
@@ -2078,6 +2106,9 @@ nsresult nsNSSComponent::Init() {
   if (!XRE_IsParentProcess()) {
     return NS_ERROR_NOT_AVAILABLE;
   }
+
+  Telemetry::AutoScalarTimer<Telemetry::ScalarID::NETWORKING_NSS_INITIALIZATION>
+      timer;
 
   MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("Beginning NSS initialization\n"));
 

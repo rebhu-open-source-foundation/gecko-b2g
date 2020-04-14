@@ -1362,8 +1362,8 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
 
   GP("DoGroupingForDisplayList\n");
 
-  mCurrentClipManager->BeginList(aSc);
-  Grouper g(*mCurrentClipManager);
+  mClipManager.BeginList(aSc);
+  Grouper g(mClipManager);
 
   int32_t appUnitsPerDevPixel =
       aWrappingItem->Frame()->PresContext()->AppUnitsPerDevPixel();
@@ -1471,15 +1471,14 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
   group.mScrollId = scrollId;
   g.ConstructGroups(aDisplayListBuilder, this, aBuilder, aResources, &group,
                     aList, aSc);
-  mCurrentClipManager->EndList(aSc);
+  mClipManager.EndList(aSc);
 }
 
 WebRenderCommandBuilder::WebRenderCommandBuilder(
     WebRenderLayerManager* aManager)
     : mManager(aManager),
-      mRootStackingContexts(nullptr),
-      mCurrentClipManager(nullptr),
       mLastAsr(nullptr),
+      mBuilderDumpIndex(0),
       mDumpIndent(0),
       mDoGrouping(false),
       mContainsSVGGroup(false) {}
@@ -1520,10 +1519,8 @@ void WebRenderCommandBuilder::BuildWebRenderCommands(
 
   aScrollData = WebRenderScrollData(mManager);
   MOZ_ASSERT(mLayerScrollData.empty());
-  for (auto renderRoot : wr::kRenderRoots) {
-    mClipManagers[renderRoot].BeginBuild(mManager, aBuilder);
-    mBuilderDumpIndex[renderRoot] = 0;
-  }
+  mClipManager.BeginBuild(mManager, aBuilder);
+  mBuilderDumpIndex = 0;
   mLastCanvasDatas.Clear();
   mLastLocalCanvasDatas.Clear();
   mLastAsr = nullptr;
@@ -1536,33 +1533,22 @@ void WebRenderCommandBuilder::BuildWebRenderCommands(
     bool isTopLevelContent =
         presContext->Document()->IsTopLevelContentDocument();
 
-    wr::RenderRootArray<Maybe<StackingContextHelper>> pageRootScs;
-    for (auto renderRoot : wr::kRenderRoots) {
-      wr::StackingContextParams params;
-      // Just making this explicit - we assume that we do not want any
-      // filters traversing a RenderRoot boundary
-      if (renderRoot == wr::RenderRoot::Default) {
-        params.mFilters = std::move(aFilters.filters);
-        params.mFilterDatas = std::move(aFilters.filter_datas);
-      }
-      params.cache_tiles = isTopLevelContent;
-      params.clip =
-          wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
-      pageRootScs[renderRoot].emplace(rootScs[renderRoot], nullptr, nullptr,
-                                      nullptr, aBuilder, params);
-    }
+    wr::StackingContextParams params;
+    params.mFilters = std::move(aFilters.filters);
+    params.mFilterDatas = std::move(aFilters.filter_datas);
+    params.cache_tiles = isTopLevelContent;
+    params.clip =
+        wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
+
+    StackingContextHelper pageRootSc(rootScs[wr::RenderRoot::Default], nullptr,
+                                     nullptr, nullptr, aBuilder, params);
     if (ShouldDumpDisplayList(aDisplayListBuilder)) {
-      mBuilderDumpIndex[aBuilder.GetRenderRoot()] = aBuilder.Dump(
-          mDumpIndent + 1, Some(mBuilderDumpIndex[aBuilder.GetRenderRoot()]),
-          Nothing());
+      mBuilderDumpIndex =
+          aBuilder.Dump(mDumpIndent + 1, Some(mBuilderDumpIndex), Nothing());
     }
-    MOZ_ASSERT(mRootStackingContexts == nullptr);
-    AutoRestore<wr::RenderRootArray<Maybe<StackingContextHelper>>*> rootScs(
-        mRootStackingContexts);
-    mRootStackingContexts = &pageRootScs;
-    CreateWebRenderCommandsFromDisplayList(
-        aDisplayList, nullptr, aDisplayListBuilder,
-        *pageRootScs[wr::RenderRoot::Default], aBuilder, aResourceUpdates);
+    CreateWebRenderCommandsFromDisplayList(aDisplayList, nullptr,
+                                           aDisplayListBuilder, pageRootSc,
+                                           aBuilder, aResourceUpdates);
   }
 
   // Make a "root" layer data that has everything else as descendants
@@ -1600,10 +1586,7 @@ void WebRenderCommandBuilder::BuildWebRenderCommands(
     aScrollData.AddLayerData(*it);
   }
   mLayerScrollData.clear();
-
-  for (auto renderRoot : wr::kRenderRoots) {
-    mClipManagers[renderRoot].EndBuild();
-  }
+  mClipManager.EndBuild();
 
   // Remove the user data those are not displayed on the screen and
   // also reset the data to unused for next transaction.
@@ -1650,8 +1633,6 @@ void WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
     nsDisplayList* aDisplayList, nsDisplayItem* aWrappingItem,
     nsDisplayListBuilder* aDisplayListBuilder, const StackingContextHelper& aSc,
     wr::DisplayListBuilder& aBuilder, wr::IpcResourceUpdateQueue& aResources) {
-  AutoRestore<ClipManager*> prevClipManager(mCurrentClipManager);
-  mCurrentClipManager = &mClipManagers[aBuilder.GetRenderRoot()];
   if (mDoGrouping) {
     MOZ_RELEASE_ASSERT(
         aWrappingItem,
@@ -1667,13 +1648,12 @@ void WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
   if (dumpEnabled) {
     // If we're inside a nested display list, print the WR DL items from the
     // wrapper item before we start processing the nested items.
-    mBuilderDumpIndex[aBuilder.GetRenderRoot()] = aBuilder.Dump(
-        mDumpIndent + 1, Some(mBuilderDumpIndex[aBuilder.GetRenderRoot()]),
-        Nothing());
+    mBuilderDumpIndex =
+        aBuilder.Dump(mDumpIndent + 1, Some(mBuilderDumpIndex), Nothing());
   }
 
   mDumpIndent++;
-  mCurrentClipManager->BeginList(aSc);
+  mClipManager.BeginList(aSc);
 
   bool apzEnabled = mManager->AsyncPanZoomEnabled();
 
@@ -1725,7 +1705,7 @@ void WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
 
     // This is where we emulate the clip/scroll stack that was previously
     // implemented on the WR display list side.
-    auto spaceAndClipChain = mCurrentClipManager->SwitchItem(item);
+    auto spaceAndClipChain = mClipManager.SwitchItem(item);
     wr::SpaceAndClipChainHelper saccHelper(aBuilder, spaceAndClipChain);
 
     {  // scope restoreDoGrouping
@@ -1750,9 +1730,8 @@ void WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
                               aDisplayListBuilder);
 
       if (dumpEnabled) {
-        mBuilderDumpIndex[aBuilder.GetRenderRoot()] = aBuilder.Dump(
-            mDumpIndent + 1, Some(mBuilderDumpIndex[aBuilder.GetRenderRoot()]),
-            Nothing());
+        mBuilderDumpIndex =
+            aBuilder.Dump(mDumpIndent + 1, Some(mBuilderDumpIndex), Nothing());
       }
     }
 
@@ -1821,17 +1800,17 @@ void WebRenderCommandBuilder::CreateWebRenderCommandsFromDisplayList(
   }
 
   mDumpIndent--;
-  mCurrentClipManager->EndList(aSc);
+  mClipManager.EndList(aSc);
 }
 
 void WebRenderCommandBuilder::PushOverrideForASR(
     const ActiveScrolledRoot* aASR, const wr::WrSpatialId& aSpatialId) {
-  mCurrentClipManager->PushOverrideForASR(aASR, aSpatialId);
+  mClipManager.PushOverrideForASR(aASR, aSpatialId);
 }
 
 void WebRenderCommandBuilder::PopOverrideForASR(
     const ActiveScrolledRoot* aASR) {
-  mCurrentClipManager->PopOverrideForASR(aASR);
+  mClipManager.PopOverrideForASR(aASR);
 }
 
 Maybe<wr::ImageKey> WebRenderCommandBuilder::CreateImageKey(
@@ -2514,7 +2493,7 @@ Maybe<wr::ImageMask> WebRenderCommandBuilder::BuildWrMaskImage(
                            .PreScale(scale.width, scale.height));
 
     bool maskPainted = false;
-    bool paintFinished =
+    bool maskIsComplete =
         aMaskItem->PaintMask(aDisplayListBuilder, context, &maskPainted);
     if (!maskPainted) {
       return Nothing();
@@ -2545,7 +2524,7 @@ Maybe<wr::ImageMask> WebRenderCommandBuilder::BuildWrMaskImage(
         recorder, maskData->mExternalSurfaces,
         mManager->GetRenderRootStateManager(aBuilder.GetRenderRoot()),
         aResources);
-    if (paintFinished) {
+    if (maskIsComplete) {
       maskData->mItemRect = itemRect;
       maskData->mMaskOffset = maskOffset;
       maskData->mScale = scale;

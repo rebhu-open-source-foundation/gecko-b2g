@@ -4,18 +4,14 @@
 
 use crate::GLOBAL;
 
-pub use core::command::{
-    compute_ffi::*,
-    render_ffi::*,
-};
+pub use core::command::{compute_ffi::*, render_ffi::*};
 
 use core::{gfx_select, id};
-
 
 #[no_mangle]
 pub extern "C" fn wgpu_command_encoder_finish(
     encoder_id: id::CommandEncoderId,
-    desc: Option<&core::command::CommandBufferDescriptor>,
+    desc: Option<&wgt::CommandBufferDescriptor>,
 ) -> id::CommandBufferId {
     let desc = &desc.cloned().unwrap_or_default();
     gfx_select!(encoder_id => GLOBAL.command_encoder_finish(encoder_id, desc))
@@ -43,7 +39,7 @@ pub extern "C" fn wgpu_command_encoder_copy_buffer_to_texture(
     command_encoder_id: id::CommandEncoderId,
     source: &core::command::BufferCopyView,
     destination: &core::command::TextureCopyView,
-    copy_size: core::Extent3d,
+    copy_size: wgt::Extent3d,
 ) {
     gfx_select!(command_encoder_id => GLOBAL.command_encoder_copy_buffer_to_texture(
         command_encoder_id,
@@ -57,7 +53,7 @@ pub extern "C" fn wgpu_command_encoder_copy_texture_to_buffer(
     command_encoder_id: id::CommandEncoderId,
     source: &core::command::TextureCopyView,
     destination: &core::command::BufferCopyView,
-    copy_size: core::Extent3d,
+    copy_size: wgt::Extent3d,
 ) {
     gfx_select!(command_encoder_id => GLOBAL.command_encoder_copy_texture_to_buffer(
         command_encoder_id,
@@ -71,7 +67,7 @@ pub extern "C" fn wgpu_command_encoder_copy_texture_to_texture(
     command_encoder_id: id::CommandEncoderId,
     source: &core::command::TextureCopyView,
     destination: &core::command::TextureCopyView,
-    copy_size: core::Extent3d,
+    copy_size: wgt::Extent3d,
 ) {
     gfx_select!(command_encoder_id => GLOBAL.command_encoder_copy_texture_to_texture(
         command_encoder_id,
@@ -79,7 +75,6 @@ pub extern "C" fn wgpu_command_encoder_copy_texture_to_texture(
         destination,
         copy_size))
 }
-
 
 /// # Safety
 ///

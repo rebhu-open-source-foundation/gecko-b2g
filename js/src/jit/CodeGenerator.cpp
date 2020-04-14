@@ -9659,8 +9659,8 @@ void CodeGenerator::visitStoreElementV(LStoreElementV* lir) {
 
 template <typename T>
 void CodeGenerator::emitStoreElementHoleT(T* lir) {
-  static_assert(std::is_same<T, LStoreElementHoleT>::value ||
-                    std::is_same<T, LFallibleStoreElementT>::value,
+  static_assert(std::is_same_v<T, LStoreElementHoleT> ||
+                    std::is_same_v<T, LFallibleStoreElementT>,
                 "emitStoreElementHoleT called with unexpected argument type");
 
   OutOfLineStoreElementHole* ool =
@@ -9678,7 +9678,7 @@ void CodeGenerator::emitStoreElementHoleT(T* lir) {
     emitPreBarrier(elements, lir->index(), 0);
   }
 
-  if (std::is_same<T, LFallibleStoreElementT>::value) {
+  if (std::is_same_v<T, LFallibleStoreElementT>) {
     // If the object might be non-extensible, check for frozen elements and
     // holes.
     Address flags(elements, ObjectElements::offsetOfFlags());
@@ -9704,8 +9704,8 @@ void CodeGenerator::visitStoreElementHoleT(LStoreElementHoleT* lir) {
 
 template <typename T>
 void CodeGenerator::emitStoreElementHoleV(T* lir) {
-  static_assert(std::is_same<T, LStoreElementHoleV>::value ||
-                    std::is_same<T, LFallibleStoreElementV>::value,
+  static_assert(std::is_same_v<T, LStoreElementHoleV> ||
+                    std::is_same_v<T, LFallibleStoreElementV>,
                 "emitStoreElementHoleV called with unexpected parameter type");
 
   OutOfLineStoreElementHole* ool =
@@ -9720,7 +9720,7 @@ void CodeGenerator::emitStoreElementHoleV(T* lir) {
   Address initLength(elements, ObjectElements::offsetOfInitializedLength());
   masm.spectreBoundsCheck32(index, initLength, spectreTemp, ool->entry());
 
-  if (std::is_same<T, LFallibleStoreElementV>::value) {
+  if (std::is_same_v<T, LFallibleStoreElementV>) {
     // If the object might be non-extensible, check for frozen elements and
     // holes.
     Address flags(elements, ObjectElements::offsetOfFlags());
@@ -14000,7 +14000,7 @@ void CodeGenerator::visitWasmAnyRefFromJSObject(LWasmAnyRefFromJSObject* lir) {
   }
 }
 
-static_assert(!std::is_polymorphic<CodeGenerator>::value,
+static_assert(!std::is_polymorphic_v<CodeGenerator>,
               "CodeGenerator should not have any virtual methods");
 
 }  // namespace jit
