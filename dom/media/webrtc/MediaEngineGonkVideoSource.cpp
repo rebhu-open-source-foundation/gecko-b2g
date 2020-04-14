@@ -678,6 +678,9 @@ static uint32_t ConvertPixelFormatToFOURCC(android::PixelFormat aFormat) {
     case HAL_PIXEL_FORMAT_RGBA_8888:
       return libyuv::FOURCC_BGRA;
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+#ifdef PRODUCT_MANUFACTURER_QUALCOMM
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+#endif
       return libyuv::FOURCC_NV21;
     case HAL_PIXEL_FORMAT_YV12:
       return libyuv::FOURCC_YV12;
@@ -692,6 +695,9 @@ static uint32_t ConvertPixelFormatToFOURCC(android::PixelFormat aFormat) {
 static bool IsYUVFormat(android::PixelFormat aFormat) {
   switch (aFormat) {
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+#ifdef PRODUCT_MANUFACTURER_QUALCOMM
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+#endif
     case HAL_PIXEL_FORMAT_YV12:
       return true;
     default:
@@ -708,6 +714,9 @@ static int ConvertYUVToI420(android_ycbcr& aSrcYUV, android_ycbcr& aDstYUV,
                             android::PixelFormat aSrcFormat, int aRotation) {
   switch (aSrcFormat) {
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+#ifdef PRODUCT_MANUFACTURER_QUALCOMM
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+#endif
       // NV21, but call NV12 rotate API with destination U plane and V plane
       // swapped. Note that for this format, |aSrcYUV.cr| is the starting
       // address of source UV plane, and |aSrcYUV.cr| + 1 == |aSrcYUV.cb|.
