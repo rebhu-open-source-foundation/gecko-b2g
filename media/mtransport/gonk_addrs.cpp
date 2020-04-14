@@ -121,8 +121,7 @@ GetInterfaces(std::vector<NetworkInterface>* aInterfaces)
 } // anonymous namespace
 
 int
-nr_stun_get_addrs(nr_local_addr aAddrs[], int aMaxAddrs,
-                  int aDropLoopback, int aDropLinkLocal, int* aCount)
+nr_stun_get_addrs(nr_local_addr aAddrs[], int aMaxAddrs, int* aCount)
 {
   nsresult rv;
   int r;
@@ -155,12 +154,7 @@ nr_stun_get_addrs(nr_local_addr aAddrs[], int aMaxAddrs,
     }
     if (n >= aMaxAddrs) break;
   }
-
   *aCount = n;
-  r = nr_stun_remove_duplicate_addrs(aAddrs, aDropLoopback, aDropLinkLocal, aCount);
-  if (r != 0) {
-    return r;
-  }
 
   for (int i = 0; i < *aCount; ++i) {
     char typestr[100];
