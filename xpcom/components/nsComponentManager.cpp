@@ -366,9 +366,6 @@ extern const mozilla::Module kAudioManagerModule;
 #ifdef HAS_KOOST_MODULES
 extern const mozilla::Module kDhcpServiceModule;
 #endif
-#ifndef DISABLE_WIFI
-extern const mozilla::Module kWifiProxyServiceModule;
-#endif
 #endif
 
 static nsTArray<const mozilla::Module*>* sExtraStaticModules;
@@ -465,9 +462,6 @@ nsresult nsComponentManagerImpl::Init() {
   RegisterModule(&kAudioManagerModule);
 #ifdef HAS_KOOST_MODULES
   RegisterModule(&kDhcpServiceModule);
-#endif
-#ifndef DISABLE_WIFI
-  RegisterModule(&kWifiProxyServiceModule);
 #endif
 #endif
 

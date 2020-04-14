@@ -20,7 +20,6 @@ if not CONFIG['DISABLE_WIFI']:
   EXTRA_COMPONENTS += [
       'DOMWifiP2pManager.js',
       'DOMWifiP2pManager.manifest',
-      'WifiWorker.manifest',
   ]
 
   EXTRA_JS_MODULES += [
@@ -45,6 +44,13 @@ if not CONFIG['DISABLE_WIFI']:
 
   XPCOM_MANIFESTS += [
       'components.conf',
+  ]
+
+  EXPORTS += [
+      'nsWifiElement.h',
+      'nsWifiEvent.h',
+      'nsWifiResult.h',
+      'WifiProxyService.h',
   ]
 
   if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':

@@ -7,6 +7,7 @@
 #ifndef nsWifiResult_H
 #define nsWifiResult_H
 
+#include "nsWifiElement.h"
 #include "nsISupports.h"
 #include "nsCOMPtr.h"
 #include "nsTArray.h"

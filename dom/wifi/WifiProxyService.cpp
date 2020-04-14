@@ -18,13 +18,6 @@
 using namespace mozilla::tasktracer;
 #endif
 
-#define NS_WIFIPROXYSERVICE_CID                      \
-  {                                                  \
-    0xc6c9be7e, 0x744f, 0x4222, {                    \
-      0xb2, 0x03, 0xcd, 0x55, 0xdf, 0xc8, 0xbc, 0x12 \
-    }                                                \
-  }
-
 using namespace mozilla;
 using namespace mozilla::dom;
 
@@ -198,19 +191,3 @@ void WifiProxyService::NotifyEvent(nsWifiEvent* aEvent,
 }
 
 }  // namespace mozilla
-
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(WifiProxyService,
-                                         WifiProxyService::FactoryCreate)
-
-NS_DEFINE_NAMED_CID(NS_WIFIPROXYSERVICE_CID);
-
-static const mozilla::Module::CIDEntry kWifiProxyServiceCIDs[] = {
-    {&kNS_WIFIPROXYSERVICE_CID, false, nullptr, WifiProxyServiceConstructor},
-    {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kWifiProxyServiceContracts[] = {
-    {"@mozilla.org/wifi/service;1", &kNS_WIFIPROXYSERVICE_CID}, {nullptr}};
-
-extern const mozilla::Module kWifiProxyServiceModule = {
-    mozilla::Module::kVersion, kWifiProxyServiceCIDs,
-    kWifiProxyServiceContracts, nullptr};

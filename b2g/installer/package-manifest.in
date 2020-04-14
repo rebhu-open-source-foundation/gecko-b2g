@@ -156,7 +156,6 @@
 #ifndef DISABLE_WIFI
 @RESPATH@/components/DOMWifiP2pManager.js
 @RESPATH@/components/DOMWifiP2pManager.manifest
-@RESPATH@/components/WifiWorker.manifest
 #endif // DISABLE_WIFI
 @RESPATH@/components/EthernetManager.js
 @RESPATH@/components/EthernetManager.manifest
