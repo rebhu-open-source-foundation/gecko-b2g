@@ -278,9 +278,6 @@
 @RESPATH@/components/Payment.manifest
 #endif
 
-@RESPATH@/components/DownloadsAPI.js
-@RESPATH@/components/DownloadsAPI.manifest
-
 #ifdef MOZ_DEBUG
 @RESPATH@/components/TestInterfaceJS.js
 @RESPATH@/components/TestInterfaceJS.manifest
@@ -458,7 +455,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/components/B2GAboutRedirector.js
 @RESPATH@/components/FilePicker.js
 @RESPATH@/components/HelperAppDialog.js
-@RESPATH@/components/DownloadsUI.js
 #ifdef MOZ_PRESENTATION
 @RESPATH@/components/B2GPresentationDevicePrompt.js
 @RESPATH@/components/PresentationRequestUIGlue.js
