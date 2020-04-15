@@ -1296,13 +1296,13 @@ bool RNewIterator::recover(JSContext* cx, SnapshotIterator& iter) const {
   JSObject* resultObject = nullptr;
   switch (MNewIterator::Type(type_)) {
     case MNewIterator::ArrayIterator:
-      resultObject = NewArrayIteratorObject(cx);
+      resultObject = NewArrayIterator(cx);
       break;
     case MNewIterator::StringIterator:
-      resultObject = NewStringIteratorObject(cx);
+      resultObject = NewStringIterator(cx);
       break;
     case MNewIterator::RegExpStringIterator:
-      resultObject = NewRegExpStringIteratorObject(cx);
+      resultObject = NewRegExpStringIterator(cx);
       break;
   }
 

@@ -885,10 +885,10 @@ static bool NewObjectIsCachable(JSContext* cx, NewObjectKind newKind,
          clasp->isNative();
 }
 
-JSObject* js::NewObjectWithClassProtoCommon(JSContext* cx, const JSClass* clasp,
-                                            HandleObject protoArg,
-                                            gc::AllocKind allocKind,
-                                            NewObjectKind newKind) {
+JSObject* js::NewObjectWithClassProto(JSContext* cx, const JSClass* clasp,
+                                      HandleObject protoArg,
+                                      gc::AllocKind allocKind,
+                                      NewObjectKind newKind) {
   if (protoArg) {
     return NewObjectWithGivenTaggedProto(cx, clasp, AsTaggedProto(protoArg),
                                          allocKind, newKind);
@@ -1147,7 +1147,7 @@ JSObject* js::CreateThisForFunctionWithProto(
 
     res = CreateThisForFunctionWithGroup(cx, group, newKind);
   } else {
-    res = NewBuiltinClassInstance<PlainObject>(cx, newKind);
+    res = NewBuiltinClassInstanceWithKind<PlainObject>(cx, newKind);
   }
 
   if (res) {
@@ -1378,9 +1378,6 @@ JSObject* js::CloneObject(JSContext* cx, HandleObject obj,
           obj->as<NativeObject>().getPrivate());
     }
   } else {
-    ProxyOptions options;
-    options.setClass(obj->getClass());
-
     auto* handler = GetProxyHandler(obj);
 
     // Same as above, require tenure allocation of the clone. This means for
@@ -1391,7 +1388,8 @@ JSObject* js::CloneObject(JSContext* cx, HandleObject obj,
       return nullptr;
     }
 
-    clone = ProxyObject::New(cx, handler, JS::NullHandleValue, proto, options);
+    clone = ProxyObject::New(cx, handler, JS::NullHandleValue, proto,
+                             obj->getClass());
     if (!clone) {
       return nullptr;
     }
@@ -1450,10 +1448,10 @@ static bool GetScriptPlainObjectProperties(
   return true;
 }
 
-static bool DeepCloneValue(JSContext* cx, Value* vp, NewObjectKind newKind) {
+static bool DeepCloneValue(JSContext* cx, Value* vp) {
   if (vp->isObject()) {
     RootedObject obj(cx, &vp->toObject());
-    obj = DeepCloneObjectLiteral(cx, obj, newKind);
+    obj = DeepCloneObjectLiteral(cx, obj);
     if (!obj) {
       return false;
     }
@@ -1464,13 +1462,11 @@ static bool DeepCloneValue(JSContext* cx, Value* vp, NewObjectKind newKind) {
   return true;
 }
 
-JSObject* js::DeepCloneObjectLiteral(JSContext* cx, HandleObject obj,
-                                     NewObjectKind newKind) {
+JSObject* js::DeepCloneObjectLiteral(JSContext* cx, HandleObject obj) {
   /* NB: Keep this in sync with XDRObjectLiteral. */
   MOZ_ASSERT_IF(obj->isSingleton(),
                 cx->realm()->behaviors().getSingletonsAsTemplates());
   MOZ_ASSERT(obj->is<PlainObject>() || obj->is<ArrayObject>());
-  MOZ_ASSERT(newKind != SingletonObject);
 
   if (obj->is<ArrayObject>()) {
     Rooted<GCVector<Value>> values(cx, GCVector<Value>(cx));
@@ -1480,7 +1476,7 @@ JSObject* js::DeepCloneObjectLiteral(JSContext* cx, HandleObject obj,
 
     // Deep clone any elements.
     for (uint32_t i = 0; i < values.length(); ++i) {
-      if (!DeepCloneValue(cx, values[i].address(), newKind)) {
+      if (!DeepCloneValue(cx, values[i].address())) {
         return nullptr;
       }
     }
@@ -1492,7 +1488,7 @@ JSObject* js::DeepCloneObjectLiteral(JSContext* cx, HandleObject obj,
     }
 
     return ObjectGroup::newArrayObject(cx, values.begin(), values.length(),
-                                       newKind, arrayKind);
+                                       TenuredObject, arrayKind);
   }
 
   Rooted<IdValueVector> properties(cx, IdValueVector(cx));
@@ -1502,15 +1498,12 @@ JSObject* js::DeepCloneObjectLiteral(JSContext* cx, HandleObject obj,
 
   for (size_t i = 0; i < properties.length(); i++) {
     cx->markId(properties[i].get().id);
-    if (!DeepCloneValue(cx, &properties[i].get().value, newKind)) {
+    if (!DeepCloneValue(cx, &properties[i].get().value)) {
       return nullptr;
     }
   }
 
-  if (obj->isSingleton()) {
-    newKind = SingletonObject;
-  }
-
+  NewObjectKind newKind = obj->isSingleton() ? SingletonObject : TenuredObject;
   return ObjectGroup::newPlainObject(cx, properties.begin(),
                                      properties.length(), newKind);
 }
@@ -2246,6 +2239,44 @@ static bool SetProto(JSContext* cx, HandleObject obj,
   // new group of the object, so we need to treat all such type sets as
   // unknown.
   MarkObjectGroupUnknownProperties(cx, oldGroup);
+
+  return true;
+}
+
+bool js::SetPrototypeForClonedFunction(JSContext* cx, HandleFunction fun,
+                                       HandleObject proto) {
+  // This function must only be called from |CloneFunctionObjectIfNotSingleton|!
+
+  // |CanReuseFunctionForClone| ensures |fun| is a singleton function. |fun|
+  // must also be extensible and have a mutable prototype for its prototype
+  // to be modifiable, so assert both conditions, too.
+  MOZ_ASSERT(fun->isSingleton());
+  MOZ_ASSERT(!fun->staticPrototypeIsImmutable());
+  MOZ_ASSERT(fun->isExtensible());
+  MOZ_ASSERT(proto);
+
+  if (proto == fun->staticPrototype()) {
+    return true;
+  }
+
+  // Regenerate object shape (and possibly prototype shape) to invalidate JIT
+  // code that is affected by a prototype mutation.
+  if (!ReshapeForProtoMutation(cx, fun)) {
+    return false;
+  }
+
+  if (!JSObject::setDelegate(cx, proto)) {
+    return false;
+  }
+
+  // Directly splice the prototype instead of calling |js::SetPrototype| to
+  // ensure we don't mark the function as having "unknown properties". This
+  // is safe to do, because the singleton function hasn't yet been exposed
+  // to scripts.
+  Rooted<TaggedProto> tagged(cx, TaggedProto(proto));
+  if (!JSObject::splicePrototype(cx, fun, tagged)) {
+    return false;
+  }
 
   return true;
 }

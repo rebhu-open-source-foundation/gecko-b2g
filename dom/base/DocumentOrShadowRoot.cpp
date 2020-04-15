@@ -315,7 +315,7 @@ Element* DocumentOrShadowRoot::GetFullscreenElement() {
     return nullptr;
   }
 
-  Element* element = AsNode().OwnerDoc()->FullscreenStackTop();
+  Element* element = AsNode().OwnerDoc()->GetUnretargetedFullScreenElement();
   NS_ASSERTION(!element || element->State().HasState(NS_EVENT_STATE_FULLSCREEN),
                "Fullscreen element should have fullscreen styles applied");
 
@@ -812,6 +812,11 @@ void DocumentOrShadowRoot::Traverse(DocumentOrShadowRoot* tmp,
 
 void DocumentOrShadowRoot::Unlink(DocumentOrShadowRoot* tmp) {
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDOMStyleSheets);
+  for (StyleSheet* sheet : tmp->mStyleSheets) {
+    sheet->ClearAssociatedDocumentOrShadowRoot();
+    tmp->RemoveSheetFromStylesIfApplicable(*sheet);
+  }
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mStyleSheets);
   for (RefPtr<StyleSheet>& sheet : tmp->mAdoptedStyleSheets) {
     sheet->RemoveAdopter(*tmp);
   }

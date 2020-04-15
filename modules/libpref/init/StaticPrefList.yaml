@@ -2542,7 +2542,7 @@
 
 - name: dom.arena_allocator.enabled
   type: bool
-  value: false
+  value: true
   mirror: once
 
 - name: dom.serviceWorkers.enabled
@@ -3728,7 +3728,11 @@
 
 - name: gfx.canvas.remote
   type: RelaxedAtomicBool
+#if defined(XP_WIN) && defined(NIGHTLY_BUILD)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 - name: gfx.color_management.enablev4

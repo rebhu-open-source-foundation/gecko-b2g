@@ -721,15 +721,7 @@ interface nsIDocShell : nsIDocShellTreeItem
    *
    * @deprecated: Use `BrowsingContext::GetParent()` in the future.
    */
-  nsIDocShell getSameTypeParentIgnoreBrowserBoundaries();
-
-  /**
-   * Like nsIDocShellTreeItem::GetSameTypeRootTreeItem, except this ignores
-   * <iframe mozbrowser> boundaries.
-   *
-   * @deprecated: Use `BrowsingContext::Top()` in the future.
-   */
-  nsIDocShell getSameTypeRootTreeItemIgnoreBrowserBoundaries();
+  nsIDocShell getSameTypeInProcessParentIgnoreBrowserBoundaries();
 
   /**
    * True iff asynchronous panning and zooming is enabled for this

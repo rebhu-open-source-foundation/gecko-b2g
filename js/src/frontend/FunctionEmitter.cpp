@@ -731,8 +731,7 @@ bool FunctionScriptEmitter::emitEndBody() {
   return true;
 }
 
-bool FunctionScriptEmitter::initScript(
-    const FieldInitializers& fieldInitializers) {
+bool FunctionScriptEmitter::initScript() {
   MOZ_ASSERT(state_ == State::EndBody);
 
   js::UniquePtr<ImmutableScriptData> immutableScriptData =
@@ -746,8 +745,6 @@ bool FunctionScriptEmitter::initScript(
                                       bce_->script, stencil)) {
     return false;
   }
-
-  bce_->script->setFieldInitializers(fieldInitializers);
 
 #ifdef DEBUG
   state_ = State::End;

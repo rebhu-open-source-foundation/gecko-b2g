@@ -16,16 +16,6 @@
 using namespace js;
 using namespace js::jit;
 
-// List of supported ops. Eventually we should use the full CacheIR ops list
-// instead.
-#define WARP_CACHE_IR_OPS(_)          \
-  _(GuardShape)                       \
-  _(LoadEnclosingEnvironment)         \
-  _(LoadDynamicSlotResult)            \
-  _(LoadEnvironmentFixedSlotResult)   \
-  _(LoadEnvironmentDynamicSlotResult) \
-  _(TypeMonitorResult)
-
 // The CacheIR transpiler generates MIR from Baseline CacheIR.
 class MOZ_RAII WarpCacheIRTranspiler {
   TempAllocator& alloc_;
@@ -68,6 +58,8 @@ class MOZ_RAII WarpCacheIRTranspiler {
   int32_t int32StubField(uint32_t offset) {
     return static_cast<int32_t>(readStubWord(offset));
   }
+
+  bool transpileGuardTo(MIRType type);
 
 #define DEFINE_OP(op, ...) MOZ_MUST_USE bool transpile_##op();
   WARP_CACHE_IR_OPS(DEFINE_OP)
@@ -112,6 +104,27 @@ bool WarpCacheIRTranspiler::transpile(const MDefinitionStackVector& inputs) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::transpile_GuardClass() {
+  ObjOperandId objId = reader.objOperandId();
+  MDefinition* def = getOperand(objId);
+  GuardClassKind classKind = reader.guardClassKind();
+
+  const JSClass* classp = nullptr;
+  switch (classKind) {
+    case GuardClassKind::Array:
+      classp = &ArrayObject::class_;
+      break;
+    default:
+      MOZ_CRASH("not yet supported");
+  }
+
+  auto* ins = MGuardToClass::New(alloc(), def, classp);
+  current->add(ins);
+
+  setOperand(objId, ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::transpile_GuardShape() {
   ObjOperandId objId = reader.objOperandId();
   MDefinition* def = getOperand(objId);
@@ -122,6 +135,29 @@ bool WarpCacheIRTranspiler::transpile_GuardShape() {
 
   setOperand(objId, ins);
   return true;
+}
+
+bool WarpCacheIRTranspiler::transpileGuardTo(MIRType type) {
+  ValOperandId inputId = reader.valOperandId();
+
+  MDefinition* def = getOperand(inputId);
+  if (def->type() == type) {
+    return true;
+  }
+
+  auto* ins = MUnbox::New(alloc(), def, type, MUnbox::Fallible);
+  current->add(ins);
+
+  setOperand(inputId, ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::transpile_GuardToObject() {
+  return transpileGuardTo(MIRType::Object);
+}
+
+bool WarpCacheIRTranspiler::transpile_GuardToString() {
+  return transpileGuardTo(MIRType::String);
 }
 
 bool WarpCacheIRTranspiler::transpile_LoadEnclosingEnvironment() {
@@ -146,6 +182,20 @@ bool WarpCacheIRTranspiler::transpile_LoadDynamicSlotResult() {
   current->add(slots);
 
   auto* load = MLoadSlot::New(alloc(), slots, slotIndex);
+  current->add(load);
+
+  setResult(load);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::transpile_LoadFixedSlotResult() {
+  ObjOperandId objId = reader.objOperandId();
+  int32_t offset = int32StubField(reader.stubOffset());
+
+  MDefinition* obj = getOperand(objId);
+  uint32_t slotIndex = NativeObject::getFixedSlotIndexFromOffset(offset);
+
+  auto* load = MLoadFixedSlot::New(alloc(), obj, slotIndex);
   current->add(load);
 
   setResult(load);
@@ -189,8 +239,37 @@ bool WarpCacheIRTranspiler::transpile_LoadEnvironmentDynamicSlotResult() {
   return true;
 }
 
+bool WarpCacheIRTranspiler::transpile_LoadInt32ArrayLengthResult() {
+  ObjOperandId objId = reader.objOperandId();
+  MDefinition* obj = getOperand(objId);
+
+  auto* elements = MElements::New(alloc(), obj);
+  current->add(elements);
+
+  auto* length = MArrayLength::New(alloc(), elements);
+  current->add(length);
+
+  setResult(length);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::transpile_LoadStringLengthResult() {
+  StringOperandId strId = reader.stringOperandId();
+  MDefinition* str = getOperand(strId);
+
+  auto* length = MStringLength::New(alloc(), str);
+  current->add(length);
+
+  setResult(length);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::transpile_TypeMonitorResult() {
   MOZ_ASSERT(output_.result, "Didn't set result MDefinition");
+  return true;
+}
+
+bool WarpCacheIRTranspiler::transpile_ReturnFromIC() {
   return true;
 }
 

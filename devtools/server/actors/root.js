@@ -249,8 +249,7 @@ exports.RootActor = protocol.ActorClassWithSpec(rootSpec, {
 
   /**
    * Gets the "root" form, which lists all the global actors that affect the entire
-   * browser.  This can replace usages of `listTabs` that only wanted the global actors
-   * and didn't actually care about tabs.
+   * browser.
    */
   getRoot: function() {
     // Create global actors
@@ -271,12 +270,6 @@ exports.RootActor = protocol.ActorClassWithSpec(rootSpec, {
   /**
    * Handles the listTabs request. The actors will survive until at least
    * the next listTabs request.
-   *
-   * ⚠ WARNING ⚠ This can be a very expensive operation, especially if there are many
-   * open tabs.  It will cause us to visit every tab, load a frame script, start a
-   * devtools server, and read some data.  With lazy tab support (bug 906076), this
-   * would trigger any lazy tabs to be loaded, greatly increasing resource usage.  Avoid
-   * this method whenever possible.
    */
   listTabs: async function() {
     const tabList = this._parameters.tabList;
@@ -296,21 +289,11 @@ exports.RootActor = protocol.ActorClassWithSpec(rootSpec, {
     // pool with the one we build here, thus retiring any actors that didn't get listed
     // again, and preparing any new actors to receive packets.
     const newActorPool = new Pool(this.conn, "listTabs-tab-descriptors");
-    let selected;
 
     const tabDescriptorActors = await tabList.getList();
     for (const tabDescriptorActor of tabDescriptorActors) {
-      if (tabDescriptorActor.selected) {
-        const index = tabDescriptorActors.findIndex(
-          descriptor => descriptor === tabDescriptorActor
-        );
-        selected = index;
-      }
       newActorPool.manage(tabDescriptorActor);
     }
-
-    // Start with the root reply, which includes the global actors for the whole browser.
-    const reply = this.getRoot();
 
     // Drop the old actorID -> actor map. Actors that still mattered were added to the
     // new map; others will go away.
@@ -319,15 +302,7 @@ exports.RootActor = protocol.ActorClassWithSpec(rootSpec, {
     }
     this._tabDescriptorActorPool = newActorPool;
 
-    // We'll extend the reply here to also mention all the tabs.
-    Object.assign(reply, {
-      selected: selected || 0,
-      tabs: [...this._tabDescriptorActorPool.poolChildren()].map(descriptor =>
-        descriptor.form()
-      ),
-    });
-
-    return reply;
+    return tabDescriptorActors;
   },
 
   getTab: async function({ outerWindowID, tabId }) {
@@ -362,7 +337,7 @@ exports.RootActor = protocol.ActorClassWithSpec(rootSpec, {
     descriptorActor.parentID = this.actorID;
     this._tabDescriptorActorPool.manage(descriptorActor);
 
-    return descriptorActor.form();
+    return descriptorActor;
   },
 
   getWindow: function({ outerWindowID }) {
@@ -578,7 +553,7 @@ exports.RootActor = protocol.ActorClassWithSpec(rootSpec, {
       processDescriptor = new ProcessDescriptorActor(this.conn, options);
       this._processDescriptorActorPool.manage(processDescriptor);
     }
-    return { processDescriptor };
+    return processDescriptor;
   },
 
   /**

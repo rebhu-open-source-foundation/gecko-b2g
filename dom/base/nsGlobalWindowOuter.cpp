@@ -1295,12 +1295,11 @@ static JSObject* NewOuterWindowProxy(JSContext* cx,
 
   js::WrapperOptions options;
   options.setClass(&OuterWindowProxyClass);
-  options.setSingleton(true);
   JSObject* obj =
-      js::Wrapper::New(cx, global,
-                       isChrome ? &nsChromeOuterWindowProxy::singleton
-                                : &nsOuterWindowProxy::singleton,
-                       options);
+      js::Wrapper::NewSingleton(cx, global,
+                                isChrome ? &nsChromeOuterWindowProxy::singleton
+                                         : &nsOuterWindowProxy::singleton,
+                                options);
   MOZ_ASSERT_IF(obj, js::IsWindowProxy(obj));
   return obj;
 }
@@ -3177,7 +3176,8 @@ already_AddRefed<nsPIDOMWindowOuter> nsGlobalWindowOuter::GetInProcessParent() {
   }
 
   nsCOMPtr<nsIDocShell> parent;
-  mDocShell->GetSameTypeParentIgnoreBrowserBoundaries(getter_AddRefs(parent));
+  mDocShell->GetSameTypeInProcessParentIgnoreBrowserBoundaries(
+      getter_AddRefs(parent));
 
   if (parent) {
     nsCOMPtr<nsPIDOMWindowOuter> win = parent->GetWindow();

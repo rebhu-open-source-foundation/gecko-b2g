@@ -800,7 +800,7 @@ bool js::intrinsic_NewArrayIterator(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 0);
 
-  JSObject* obj = NewArrayIteratorObject(cx);
+  JSObject* obj = NewArrayIterator(cx);
   if (!obj) {
     return false;
   }
@@ -890,7 +890,7 @@ bool js::intrinsic_NewStringIterator(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 0);
 
-  JSObject* obj = NewStringIteratorObject(cx);
+  JSObject* obj = NewStringIterator(cx);
   if (!obj) {
     return false;
   }
@@ -904,7 +904,7 @@ bool js::intrinsic_NewRegExpStringIterator(JSContext* cx, unsigned argc,
   CallArgs args = CallArgsFromVp(argc, vp);
   MOZ_ASSERT(args.length() == 0);
 
-  JSObject* obj = NewRegExpStringIteratorObject(cx);
+  JSObject* obj = NewRegExpStringIterator(cx);
   if (!obj) {
     return false;
   }
@@ -2954,7 +2954,7 @@ static JSObject* CloneObject(JSContext* cx,
     }
     clone = StringObject::create(cx, str);
   } else if (selfHostedObject->is<ArrayObject>()) {
-    clone = NewDenseEmptyArray(cx, nullptr, TenuredObject);
+    clone = NewTenuredDenseEmptyArray(cx, nullptr);
   } else {
     MOZ_ASSERT(selfHostedObject->isNative());
     clone = NewObjectWithGivenProto(

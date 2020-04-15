@@ -99,18 +99,17 @@ static bool ParseNodeRequiresSpecialLineNumberNotes(ParseNode* pn) {
          kind == ParseNodeKind::Function;
 }
 
-BytecodeEmitter::BytecodeEmitter(
-    BytecodeEmitter* parent, SharedContext* sc, HandleScript script,
-    uint32_t line, uint32_t column, CompilationInfo& compilationInfo,
-    EmitterMode emitterMode,
-    FieldInitializers fieldInitializers /* = FieldInitializers::Invalid() */)
+BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, SharedContext* sc,
+                                 HandleScript script, uint32_t line,
+                                 uint32_t column,
+                                 CompilationInfo& compilationInfo,
+                                 EmitterMode emitterMode)
     : sc(sc),
       cx(sc->cx_),
       parent(parent),
       script(cx, script),
       bytecodeSection_(cx, line),
       perScriptData_(cx, compilationInfo),
-      fieldInitializers_(fieldInitializers),
       compilationInfo(compilationInfo),
       firstLine(line),
       firstColumn(column),
@@ -126,10 +125,9 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent,
                                  HandleScript script, uint32_t line,
                                  uint32_t column,
                                  CompilationInfo& compilationInfo,
-                                 EmitterMode emitterMode,
-                                 FieldInitializers fieldInitializers)
+                                 EmitterMode emitterMode)
     : BytecodeEmitter(parent, sc, script, line, column, compilationInfo,
-                      emitterMode, fieldInitializers) {
+                      emitterMode) {
   parser = handle;
   instrumentationKinds = parser->options().instrumentationKinds;
 }
@@ -139,10 +137,9 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent,
                                  HandleScript script, uint32_t line,
                                  uint32_t column,
                                  CompilationInfo& compilationInfo,
-                                 EmitterMode emitterMode,
-                                 FieldInitializers fieldInitializers)
+                                 EmitterMode emitterMode)
     : BytecodeEmitter(parent, sc, script, line, column, compilationInfo,
-                      emitterMode, fieldInitializers) {
+                      emitterMode) {
   ep_.emplace(parser);
   this->parser = ep_.ptr();
   instrumentationKinds = this->parser->options().instrumentationKinds;
@@ -2479,8 +2476,6 @@ bool BytecodeEmitter::emitFunctionScript(FunctionNode* funNode,
   AutoFrontendTraceLog traceLog(cx, TraceLogger_BytecodeEmission,
                                 parser->errorReporter(), funbox);
 
-  MOZ_ASSERT(fieldInitializers_.valid == funbox->isClassConstructor());
-
   setScriptStartOffsetIfUnset(paramsBody->pn_pos.begin);
 
   //                [stack]
@@ -2518,7 +2513,7 @@ bool BytecodeEmitter::emitFunctionScript(FunctionNode* funNode,
     }
   }
 
-  if (!fse.initScript(getFieldInitializers())) {
+  if (!fse.initScript()) {
     return false;
   }
 
@@ -5469,24 +5464,21 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
   }
 
   if (funbox->isInterpreted()) {
-    if (!funbox->emitBytecode) {
-      if (!fe.emitLazy()) {
-        //          [stack] FUN?
+    // Compute the field initializers data and update funbox.
+    // NOTE: For a lazy function, this will be applied to any existing function
+    //       in FunctionBox::finish().
+    if (classContentsIfConstructor) {
+      funbox->fieldInitializers = setupFieldInitializers(
+          classContentsIfConstructor, FieldPlacement::Instance);
+      if (!funbox->fieldInitializers) {
+        ReportAllocationOverflow(cx);
         return false;
       }
+    }
 
-      if (classContentsIfConstructor) {
-        mozilla::Maybe<FieldInitializers> fieldInitializers =
-            setupFieldInitializers(classContentsIfConstructor,
-                                   FieldPlacement::Instance);
-        if (!fieldInitializers) {
-          ReportAllocationOverflow(cx);
-          return false;
-        }
-        funbox->setFieldInitializers(*fieldInitializers);
-      }
-
-      return true;
+    if (!funbox->emitBytecode) {
+      return fe.emitLazy();
+      //            [stack] FUN?
     }
 
     if (!fe.prepareForNonLazy()) {
@@ -5514,22 +5506,9 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
       nestedMode = BytecodeEmitter::Normal;
     }
 
-    mozilla::Maybe<FieldInitializers> fieldInitializers;
-    if (classContentsIfConstructor) {
-      fieldInitializers = setupFieldInitializers(classContentsIfConstructor,
-                                                 FieldPlacement::Instance);
-      if (!fieldInitializers) {
-        ReportAllocationOverflow(cx);
-        return false;
-      }
-    } else {
-      // The BCE requires passing some value even if not used.
-      fieldInitializers = Some(FieldInitializers::Invalid());
-    }
-
     BytecodeEmitter bce2(this, parser, funbox, innerScript,
                          funbox->extent.lineno, funbox->extent.column,
-                         compilationInfo, nestedMode, *fieldInitializers);
+                         compilationInfo, nestedMode);
     if (!bce2.init(funNode->pn_pos)) {
       return false;
     }
@@ -8842,12 +8821,10 @@ bool BytecodeEmitter::emitCreateFieldInitializers(ClassEmitter& ce,
 const FieldInitializers& BytecodeEmitter::findFieldInitializersForCall() {
   for (BytecodeEmitter* current = this; current; current = current->parent) {
     if (current->sc->isFunctionBox()) {
-      FunctionBox* box = current->sc->asFunctionBox();
-      if (box->isClassConstructor()) {
-        const FieldInitializers& fieldInitializers =
-            current->getFieldInitializers();
-        MOZ_ASSERT(fieldInitializers.valid);
-        return fieldInitializers;
+      FunctionBox* funbox = current->sc->asFunctionBox();
+      if (funbox->isClassConstructor()) {
+        MOZ_ASSERT(funbox->fieldInitializers->valid);
+        return *funbox->fieldInitializers;
       }
     }
   }

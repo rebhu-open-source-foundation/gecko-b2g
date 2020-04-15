@@ -4204,6 +4204,10 @@ bool PrivateScriptData::InitFromStencil(
     }
   }
 
+  if (stencil.fieldInitializers) {
+    script->setFieldInitializers(*stencil.fieldInitializers);
+  }
+
   return true;
 }
 
@@ -4794,7 +4798,7 @@ static JSObject* CloneScriptObject(JSContext* cx, PrivateScriptData* srcData,
                                          sourceObject);
   }
 
-  return DeepCloneObjectLiteral(cx, obj, TenuredObject);
+  return DeepCloneObjectLiteral(cx, obj);
 }
 
 /* static */

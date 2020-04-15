@@ -12,6 +12,7 @@
 #include "vm/Realm.h"
 
 #include "gc/ObjectKind-inl.h"
+#include "gc/WeakMap-inl.h"
 #include "vm/JSObject-inl.h"
 #include "vm/TypeInference-inl.h"
 
@@ -45,13 +46,28 @@ static gc::AllocKind GetProxyGCObjectKind(const JSClass* clasp,
   return kind;
 }
 
+void ProxyObject::init(const BaseProxyHandler* handler, HandleValue priv,
+                       JSContext* cx) {
+  setInlineValueArray();
+
+  detail::ProxyValueArray* values = detail::GetProxyDataLayout(this)->values();
+  values->init(numReservedSlots());
+
+  data.handler = handler;
+
+  if (IsCrossCompartmentWrapper(this)) {
+    MOZ_ASSERT(cx->global() == &cx->compartment()->globalForNewCCW());
+    setCrossCompartmentPrivate(priv);
+  } else {
+    setSameCompartmentPrivate(priv);
+  }
+}
+
 /* static */
 ProxyObject* ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler,
                               HandleValue priv, TaggedProto proto_,
-                              const ProxyOptions& options) {
+                              const JSClass* clasp) {
   Rooted<TaggedProto> proto(cx, proto_);
-
-  const JSClass* clasp = options.clasp();
 
 #ifdef DEBUG
   MOZ_ASSERT(isValidProxyClass(clasp));
@@ -71,7 +87,7 @@ ProxyObject* ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler,
    * because we want to be able to keep track of them in typesets in useful
    * ways.
    */
-  if (proto.isObject() && !options.singleton() && !clasp->isDOMClass()) {
+  if (proto.isObject() && !clasp->isDOMClass()) {
     ObjectGroupRealm& realm = ObjectGroupRealm::getForNewObject(cx);
     RootedObject protoObj(cx, proto.toObject());
     if (!JSObject::setNewGroupUnknown(cx, realm, clasp, protoObj)) {
@@ -82,12 +98,8 @@ ProxyObject* ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler,
   // Ensure that the wrapper has the same lifetime assumptions as the
   // wrappee. Prefer to allocate in the nursery, when possible.
   NewObjectKind newKind = NurseryAllocatedProxy;
-  if (options.singleton()) {
-    MOZ_ASSERT(priv.isNull() ||
-               (priv.isGCThing() && priv.toGCThing()->isTenured()));
-    newKind = SingletonObject;
-  } else if ((priv.isGCThing() && priv.toGCThing()->isTenured()) ||
-             !handler->canNurseryAllocate()) {
+  if ((priv.isGCThing() && priv.toGCThing()->isTenured()) ||
+      !handler->canNurseryAllocate()) {
     newKind = TenuredObject;
   }
 
@@ -100,32 +112,93 @@ ProxyObject* ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler,
   JS_TRY_VAR_OR_RETURN_NULL(cx, proxy,
                             create(cx, clasp, proto, allocKind, newKind));
 
-  proxy->setInlineValueArray();
+  proxy->init(handler, priv, cx);
 
-  detail::ProxyValueArray* values = detail::GetProxyDataLayout(proxy)->values();
-  values->init(proxy->numReservedSlots());
-
-  proxy->data.handler = handler;
-  if (IsCrossCompartmentWrapper(proxy)) {
-    MOZ_ASSERT(cx->global() == &cx->compartment()->globalForNewCCW());
-    proxy->setCrossCompartmentPrivate(priv);
-  } else {
-    proxy->setSameCompartmentPrivate(priv);
-  }
-
-  if (newKind == SingletonObject) {
-    Rooted<ProxyObject*> rootedProxy(cx, proxy);
-    if (!JSObject::setSingleton(cx, rootedProxy)) {
-      return nullptr;
-    }
-    return rootedProxy;
-  }
-
-  /* Don't track types of properties of non-DOM and non-singleton proxies. */
+  // Don't track types of properties of non-DOM and non-singleton proxies.
   if (!clasp->isDOMClass()) {
     MarkObjectGroupUnknownProperties(cx, proxy->group());
   }
 
+  return proxy;
+}
+
+/* static */
+ProxyObject* ProxyObject::NewSingleton(JSContext* cx,
+                                       const BaseProxyHandler* handler,
+                                       HandleValue priv, TaggedProto proto_,
+                                       const JSClass* clasp) {
+  Rooted<TaggedProto> proto(cx, proto_);
+
+  MOZ_ASSERT(clasp->isProxy());
+  MOZ_ASSERT(isValidProxyClass(clasp));
+  MOZ_ASSERT(clasp->shouldDelayMetadataBuilder());
+  MOZ_ASSERT_IF(proto.isObject(),
+                cx->compartment() == proto.toObject()->compartment());
+  MOZ_ASSERT(clasp->hasFinalize());
+
+#ifdef DEBUG
+  if (priv.isGCThing()) {
+    JS::AssertCellIsNotGray(priv.toGCThing());
+  }
+#endif
+
+  gc::AllocKind allocKind = GetProxyGCObjectKind(clasp, handler, priv);
+
+  AutoSetNewObjectMetadata metadata(cx);
+  Rooted<ProxyObject*> proxy(cx);
+  {
+    Realm* realm = cx->realm();
+
+    // We're creating a singleton, so go straight to getting a singleton group,
+    // from the singleton group cache (or creating it freshly if needed).
+    RootedObjectGroup group(cx, ObjectGroup::lazySingletonGroup(
+                                    cx, ObjectGroupRealm::getForNewObject(cx),
+                                    realm, clasp, proto));
+    if (!group) {
+      return nullptr;
+    }
+
+    MOZ_ASSERT(group->realm() == realm);
+    MOZ_ASSERT(group->singleton());
+    MOZ_ASSERT(!IsAboutToBeFinalizedUnbarriered(group.address()));
+
+    // Also retrieve an empty shape.  Unlike for non-singleton proxies, this
+    // shape lookup is not cached in |realm->newProxyCache|.  We could cache it
+    // there, but distinguishing group/shape for singleton and non-singleton
+    // proxies would increase contention on the cache (and might end up evicting
+    // non-singleton cases where performance really matters).  Assume that
+    // singleton proxies are rare, and don't bother caching their shapes/groups.
+    RootedShape shape(
+        cx, EmptyShape::getInitialShape(cx, clasp, proto, /* nfixed = */ 0));
+    if (!shape) {
+      return nullptr;
+    }
+
+    MOZ_ASSERT(shape->zone() == cx->zone());
+    MOZ_ASSERT(!IsAboutToBeFinalizedUnbarriered(shape.address()));
+
+    gc::InitialHeap heap = gc::TenuredHeap;
+    debugCheckNewObject(group, shape, allocKind, heap);
+
+    JSObject* obj =
+        AllocateObject(cx, allocKind, /* nDynamicSlots = */ 0, heap, clasp);
+    if (!obj) {
+      return nullptr;
+    }
+
+    proxy = static_cast<ProxyObject*>(obj);
+    proxy->initGroup(group);
+    proxy->initShape(shape);
+
+    MOZ_ASSERT(clasp->shouldDelayMetadataBuilder());
+    realm->setObjectPendingMetadata(cx, proxy);
+
+    js::gc::gcTracer.traceCreateObject(proxy);
+  }
+
+  proxy->init(handler, priv, cx);
+
+  MOZ_ASSERT(proxy->isSingleton());
   return proxy;
 }
 
@@ -151,6 +224,15 @@ inline void ProxyObject::setPrivate(const Value& priv) {
 }
 
 void ProxyObject::nuke() {
+  // Notify the zone that a delegate is no longer a delegate. Be careful not to
+  // expose this pointer, because it has already been removed from the wrapper
+  // map yet we have assertions during tracing that will verify that it is
+  // still present.
+  JSObject* delegate = UncheckedUnwrapWithoutExpose(this);
+  if (delegate != this) {
+    delegate->zone()->delegatePreWriteBarrier(this, delegate);
+  }
+
   // Clear the target reference and replaced it with a value that encodes
   // various information about the original target.
   setSameCompartmentPrivate(DeadProxyTargetValue(this));

@@ -11,24 +11,6 @@ const {
 } = require("devtools/shared/protocol");
 
 loader.lazyRequireGetter(this, "getFront", "devtools/shared/protocol", true);
-loader.lazyRequireGetter(
-  this,
-  "TabDescriptorFront",
-  "devtools/client/fronts/descriptors/tab",
-  true
-);
-loader.lazyRequireGetter(
-  this,
-  "BrowsingContextTargetFront",
-  "devtools/client/fronts/targets/browsing-context",
-  true
-);
-loader.lazyRequireGetter(
-  this,
-  "LocalTabTargetFront",
-  "devtools/client/fronts/targets/local-tab",
-  true
-);
 
 class RootFront extends FrontClassWithSpec(rootSpec) {
   constructor(client, targetFront, parentFront) {
@@ -213,49 +195,6 @@ class RootFront extends FrontClassWithSpec(rootSpec) {
   }
 
   /**
-   * Retrieve the target descriptor for the provided id.
-   *
-   * @return {ProcessDescriptorFront} the process descriptor front for the
-   *         provided id.
-   */
-  async getProcess(id) {
-    const { form, processDescriptor } = await super.getProcess(id);
-    // Backward compatibility: FF74 or older servers will return the
-    // process descriptor as the "form" property of the response.
-    // Once FF75 is merged to release we can always expect `processDescriptor`
-    // to be defined.
-    return processDescriptor || form;
-  }
-
-  /**
-   * Override default listTabs request in order to return a list of
-   * BrowsingContextTargetFronts while updating their selected state.
-   *
-   * Backward compatibility: favicons is only useful for FF75 or older.
-   * It can be removed when Firefox 76 hits the release channel.
-   */
-  async listTabs({ favicons } = {}) {
-    const { selected, tabs } = await super.listTabs({ favicons });
-    const targets = [];
-    for (const i in tabs) {
-      if (!this.actorID) {
-        console.error("The root front was destroyed while processing listTabs");
-        return [];
-      }
-
-      try {
-        const form = tabs[i];
-        const target = await this._createTargetFrontForTabForm(form);
-        target.setIsSelected(i == selected);
-        targets.push(target);
-      } catch (e) {
-        console.error("Failed to get the target for tab descriptor", e);
-      }
-    }
-    return targets;
-  }
-
-  /**
    * Fetch the target actor for the currently selected tab, or for a specific
    * tab given as first parameter.
    *
@@ -294,52 +233,8 @@ class RootFront extends FrontClassWithSpec(rootSpec) {
       }
     }
 
-    const form = await super.getTab(packet);
-    return this._createTargetFrontForTabForm(form, filter);
-  }
-
-  async _createTargetFrontForTabForm(form, filter = {}) {
-    let front = this.actor(form.actor);
-    if (front) {
-      if (!form.actor.includes("tabDescriptor")) {
-        // Backwards compatibility for servers FF74 and older.
-        front.form(form);
-        return front;
-      }
-
-      return front.getTarget();
-    }
-
-    if (!form.actor.includes("tabDescriptor")) {
-      // Backwards compatibility for servers FF74 and older.
-
-      // Instanciate a specialized class for a local tab as it needs some more
-      // client side integration with the Firefox frontend.
-      // But ignore the fake `tab` object we receive, where there is only a
-      // `linkedBrowser` attribute, but this isn't a real <tab> element.
-      // devtools/client/framework/test/browser_toolbox_target.js is passing such
-      // a fake tab.
-      if (filter?.tab?.tagName == "tab") {
-        front = new LocalTabTargetFront(this._client, null, this, filter.tab);
-      } else {
-        front = new BrowsingContextTargetFront(this._client, null, this);
-      }
-      // As these fronts aren't instantiated by protocol.js, we have to set their actor ID
-      // manually like that:
-      front.actorID = form.actor;
-      front.form(form);
-      this.manage(front);
-      return front;
-    }
-
-    const descriptorFront = new TabDescriptorFront(this._client, null, this);
-    // As these fronts aren't instantiated by protocol.js, we have to set their actor ID
-    // manually like that:
-    descriptorFront.actorID = form.actor;
-    descriptorFront.form(form);
-    this.manage(descriptorFront);
-    front = await descriptorFront.getTarget(filter);
-    return front;
+    const descriptorFront = await super.getTab(packet);
+    return descriptorFront.getTarget(filter);
   }
 
   /**

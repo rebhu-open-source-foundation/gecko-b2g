@@ -14,6 +14,12 @@ NS_IMPL_CYCLE_COLLECTION(WebGPUChild)
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WebGPUChild, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WebGPUChild, Release)
 
+static ffi::WGPUCompareFunction ConvertCompareFunction(
+    const dom::GPUCompareFunction& aCompare) {
+  // Value of 0 = Undefined is reserved on the C side for "null" semantics.
+  return ffi::WGPUCompareFunction(static_cast<uint8_t>(aCompare) + 1);
+}
+
 static ffi::WGPUClient* initialize() {
   ffi::WGPUInfrastructure infra = ffi::wgpu_client_new();
   return infra.client;
@@ -78,12 +84,22 @@ UniquePtr<ffi::WGPUTextureViewDescriptor> WebGPUChild::GetDefaultViewDescriptor(
     const dom::GPUTextureDescriptor& aDesc) {
   ffi::WGPUTextureViewDescriptor desc = {};
   desc.format = ffi::WGPUTextureFormat(aDesc.mFormat);
+  // compute depth
+  uint32_t depth = 0;
+  if (aDesc.mSize.IsUnsignedLongSequence()) {
+    const auto& seq = aDesc.mSize.GetAsUnsignedLongSequence();
+    depth = seq.Length() > 2 ? seq[2] : 1;
+  } else {
+    depth = aDesc.mSize.GetAsGPUExtent3DDict().mDepth;
+  }
+  // compute dimension
   switch (aDesc.mDimension) {
     case dom::GPUTextureDimension::_1d:
       desc.dimension = ffi::WGPUTextureViewDimension_D1;
       break;
     case dom::GPUTextureDimension::_2d:
-      desc.dimension = ffi::WGPUTextureViewDimension_D2;
+      desc.dimension = depth > 1 ? ffi::WGPUTextureViewDimension_D2Array
+                                 : ffi::WGPUTextureViewDimension_D2;
       break;
     case dom::GPUTextureDimension::_3d:
       desc.dimension = ffi::WGPUTextureViewDimension_D3;
@@ -91,8 +107,8 @@ UniquePtr<ffi::WGPUTextureViewDescriptor> WebGPUChild::GetDefaultViewDescriptor(
     default:
       MOZ_CRASH("Unexpected texture dimension");
   }
+  // compute level count
   desc.level_count = aDesc.mMipLevelCount;
-  desc.array_layer_count = aDesc.mArrayLayerCount;
   return UniquePtr<ffi::WGPUTextureViewDescriptor>(
       new ffi::WGPUTextureViewDescriptor(desc));
 }
@@ -113,7 +129,6 @@ RawId WebGPUChild::DeviceCreateTexture(RawId aSelfId,
   } else {
     MOZ_CRASH("Unexpected union");
   }
-  desc.mArrayLayerCount = aDesc.mArrayLayerCount;
   desc.mMipLevelCount = aDesc.mMipLevelCount;
   desc.mSampleCount = aDesc.mSampleCount;
   desc.mDimension = ffi::WGPUTextureDimension(aDesc.mDimension);
@@ -158,8 +173,23 @@ RawId WebGPUChild::TextureCreateView(
 
 RawId WebGPUChild::DeviceCreateSampler(RawId aSelfId,
                                        const dom::GPUSamplerDescriptor& aDesc) {
+  ffi::WGPUSamplerDescriptor desc = {};
+  desc.address_mode_u = ffi::WGPUAddressMode(aDesc.mAddressModeU);
+  desc.address_mode_v = ffi::WGPUAddressMode(aDesc.mAddressModeV);
+  desc.address_mode_w = ffi::WGPUAddressMode(aDesc.mAddressModeW);
+  desc.mag_filter = ffi::WGPUFilterMode(aDesc.mMagFilter);
+  desc.min_filter = ffi::WGPUFilterMode(aDesc.mMinFilter);
+  desc.mipmap_filter = ffi::WGPUFilterMode(aDesc.mMipmapFilter);
+  desc.lod_min_clamp = aDesc.mLodMinClamp;
+  desc.lod_max_clamp = aDesc.mLodMaxClamp;
+  ffi::WGPUCompareFunction compare;
+  if (aDesc.mCompare.WasPassed()) {
+    compare = ConvertCompareFunction(aDesc.mCompare.Value());
+    desc.compare = compare;
+  }
+
   RawId id = ffi::wgpu_client_make_sampler_id(mClient, aSelfId);
-  if (!SendDeviceCreateSampler(aSelfId, aDesc, id)) {
+  if (!SendDeviceCreateSampler(aSelfId, desc, id)) {
     MOZ_CRASH("IPC failure");
   }
   return id;
@@ -335,7 +365,7 @@ static ffi::WGPUColorStateDescriptor ConvertColorDescriptor(
 static ffi::WGPUStencilStateFaceDescriptor ConvertStencilFaceDescriptor(
     const dom::GPUStencilStateFaceDescriptor& aDesc) {
   ffi::WGPUStencilStateFaceDescriptor desc = {};
-  desc.compare = ffi::WGPUCompareFunction(aDesc.mCompare);
+  desc.compare = ConvertCompareFunction(aDesc.mCompare);
   desc.fail_op = ffi::WGPUStencilOperation(aDesc.mFailOp);
   desc.depth_fail_op = ffi::WGPUStencilOperation(aDesc.mDepthFailOp);
   desc.pass_op = ffi::WGPUStencilOperation(aDesc.mPassOp);
@@ -347,7 +377,7 @@ static ffi::WGPUDepthStencilStateDescriptor ConvertDepthStencilDescriptor(
   ffi::WGPUDepthStencilStateDescriptor desc = {};
   desc.format = ffi::WGPUTextureFormat(aDesc.mFormat);
   desc.depth_write_enabled = aDesc.mDepthWriteEnabled;
-  desc.depth_compare = ffi::WGPUCompareFunction(aDesc.mDepthCompare);
+  desc.depth_compare = ConvertCompareFunction(aDesc.mDepthCompare);
   desc.stencil_front = ConvertStencilFaceDescriptor(aDesc.mStencilFront);
   desc.stencil_back = ConvertStencilFaceDescriptor(aDesc.mStencilBack);
   desc.stencil_read_mask = aDesc.mStencilReadMask;
