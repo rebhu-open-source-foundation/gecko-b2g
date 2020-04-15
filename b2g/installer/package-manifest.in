@@ -417,7 +417,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/Throbber-small.gif
 #endif
 #endif
-@RESPATH@/crashreporter-override.ini
 #endif
 
 [b2g]
@@ -440,7 +439,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/components/marionette.js
 #endif
 @RESPATH@/components/AlertsService.js
-@RESPATH@/components/ContentPermissionPrompt.js
 #ifdef MOZ_UPDATER
 @RESPATH@/components/UpdatePrompt.js
 #endif
