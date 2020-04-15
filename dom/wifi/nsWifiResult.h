@@ -15,6 +15,7 @@
 #include "nsIWifiResult.h"
 
 class nsScanResult;
+class nsLinkLayerStats;
 
 class nsWifiResult final : public nsIWifiResult {
  public:
@@ -25,6 +26,8 @@ class nsWifiResult final : public nsIWifiResult {
 
   void updateScanResults(nsTArray<RefPtr<nsScanResult>>& aScanResults);
   void updateChannels(nsTArray<int32_t>& aChannels);
+  void updateSignalPoll(nsTArray<int32_t>& aSignalPoll);
+  void updateLinkLayerStats(nsLinkLayerStats* aLinkLayerStats);
 
   uint32_t mId;
   uint32_t mStatus;
@@ -39,7 +42,9 @@ class nsWifiResult final : public nsIWifiResult {
   uint32_t mDebugLevel;
   uint32_t mNumStations;
   nsTArray<int32_t> mChannels;
+  nsTArray<int32_t> mSignalPoll;
   nsTArray<RefPtr<nsScanResult>> mScanResults;
+  RefPtr<nsILinkLayerStats> mLinkLayerStats;
 
  private:
   ~nsWifiResult(){};

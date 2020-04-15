@@ -1079,11 +1079,15 @@ var WifiManager = (function() {
       wifiInfo.setSupplicantState(fields.state);
 
       if (manager.isConnectState(fields.state)) {
+        if (wifiInfo.ssid != fields.ssid && fields.ssid.length > 0) {
+          wifiInfo.setSSID(fields.ssid);
+        }
+
         if (
-          wifiInfo.bssid != fields.BSSID &&
-          fields.BSSID !== "00:00:00:00:00:00"
+          wifiInfo.bssid != fields.bssid &&
+          fields.bssid !== "00:00:00:00:00:00"
         ) {
-          wifiInfo.setBSSID(fields.BSSID);
+          wifiInfo.setBSSID(fields.bssid);
         }
 
         if (manager.connectingNetwork[manager.ifname] &&
@@ -1722,6 +1726,7 @@ var WifiManager = (function() {
     return dhcpInfo;
   };
   manager.getConnectionInfo = wifiCommand.getConnectionInfo;
+  manager.getLinkLayerStats = wifiCommand.getLinkLayerStats;
   manager.setScanInterval = wifiCommand.setScanInterval;
   manager.enableAutoReconnect = wifiCommand.enableAutoReconnect;
   manager.autoScanMode = wifiCommand.autoScanMode;
@@ -3566,48 +3571,64 @@ WifiWorker.prototype = {
 
     var self = this;
     function getConnectionInformation() {
-      // WifiManager.getConnectionInfo(function(connInfo) {
-      //   // See comments in WifiConfigUtils.calculateSignal for information about this.
-      //   if (!connInfo) {
-      //     self._lastConnectionInfo = null;
-      //     return;
-      //   }
-      //   let { rssi, linkspeed, frequency } = connInfo;
-      //   if (rssi > 0)
-      //     rssi -= 256;
-      //   if (rssi <= WifiConfigUtils.MIN_RSSI)
-      //     rssi = WifiConfigUtils.MIN_RSSI;
-      //   else if (rssi >= WifiConfigUtils.MAX_RSSI)
-      //     rssi = WifiConfigUtils.MAX_RSSI;
-      //   if (shouldBroadcastRSSIForIMS(rssi, wifiInfo.rssi)) {
-      //     self.deliverListenerEvent("notifyRssiChanged", [rssi]);
-      //   }
-      //   wifiInfo.setRssi(rssi);
-      //   wifiInfo.setLinkSpeed(linkspeed);
-      //   wifiInfo.setFrequency(frequency);
-      //   let info = { signalStrength: rssi,
-      //                relSignalStrength: WifiConfigUtils.calculateSignal(rssi),
-      //                linkSpeed: linkspeed,
-      //                ipAddress: self.ipAddress };
-      //   let last = self._lastConnectionInfo;
-      //   // Only fire the event if the link speed changed or the signal
-      //   // strength changed by more than 10%.
-      //   function tensPlace(percent) {
-      //     return (percent / 10) | 0;
-      //   }
-      //   if (last && last.linkSpeed === info.linkSpeed &&
-      //       last.ipAddress === info.ipAddress &&
-      //       tensPlace(last.relSignalStrength) === tensPlace(info.relSignalStrength)) {
-      //     return;
-      //   }
-      //   self._lastConnectionInfo = info;
-      //   if (WifiManager.linkDebouncing) {
-      //     debug("linkDebouncing, don't fire connection info update");
-      //     return;
-      //   }
-      //   debug("Firing connectioninfoupdate: " + uneval(info));
-      //   self._fireEvent("connectioninfoupdate", info);
-      // });
+      WifiManager.getConnectionInfo(function(result) {
+        if (result.status != SUCCESS) {
+          debug("Failed to get connection information");
+          return;
+        }
+
+        let connInfo = result.signalPoll();
+        // See comments in WifiConfigUtils.calculateSignal for information about this.
+        if (connInfo.length == 0) {
+          self._lastConnectionInfo = null;
+          return;
+        }
+        let [ rssi, linkSpeed, frequency, rxLinkSpeed ] =
+            [ connInfo[0], connInfo[1], connInfo[2], connInfo[3] ];
+
+        if (rssi > 0)
+          rssi -= 256;
+        if (rssi <= WifiConfigUtils.MIN_RSSI)
+          rssi = WifiConfigUtils.MIN_RSSI;
+        else if (rssi >= WifiConfigUtils.MAX_RSSI)
+          rssi = WifiConfigUtils.MAX_RSSI;
+
+        if (shouldBroadcastRSSIForIMS(rssi, wifiInfo.rssi)) {
+          self.deliverListenerEvent("notifyRssiChanged", [rssi]);
+        }
+        wifiInfo.setRssi(rssi);
+
+        if (linkSpeed > 0) {
+          wifiInfo.setLinkSpeed(linkSpeed);
+        }
+        if (frequency > 0) {
+          wifiInfo.setFrequency(frequency);
+        }
+        let info = {
+          signalStrength: rssi,
+          relSignalStrength: WifiConfigUtils.calculateSignal(rssi),
+          linkSpeed: linkSpeed,
+          ipAddress: self.ipAddress
+        };
+        let last = self._lastConnectionInfo;
+        // Only fire the event if the link speed changed or the signal
+        // strength changed by more than 10%.
+        function tensPlace(percent) {
+          return (percent / 10) | 0;
+        }
+        if (last && last.linkSpeed === info.linkSpeed &&
+            last.ipAddress === info.ipAddress &&
+            tensPlace(last.relSignalStrength) === tensPlace(info.relSignalStrength)) {
+          return;
+        }
+        self._lastConnectionInfo = info;
+        if (WifiManager.linkDebouncing) {
+          debug("linkDebouncing, don't fire connection info update");
+          return;
+        }
+        debug("Firing connectioninfoupdate: " + uneval(info));
+        self._fireEvent("connectioninfoupdate", info);
+      });
     }
 
     // Prime our _lastConnectionInfo immediately and fire the event at the

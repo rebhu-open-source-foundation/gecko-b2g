@@ -355,6 +355,28 @@ Result_t WifiHal::GetStaCapabilities(uint32_t& aStaCapabilities) {
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
+Result_t WifiHal::EnableLinkLayerStats() {
+  WifiStatus response;
+  bool debugEnabled = false;
+  HIDL_SET(mStaIface, enableLinkLayerStatsCollection, WifiStatus, response,
+           debugEnabled);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
+}
+
+Result_t WifiHal::GetLinkLayerStats(wifiNameSpace::StaLinkLayerStats& aStats) {
+  if (!mStaIface.get()) {
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+  WifiStatus response;
+  mStaIface->getLinkLayerStats(
+      [&](const WifiStatus& status,
+          const wifiNameSpace::StaLinkLayerStats& stats) {
+        response = status;
+        aStats = stats;
+      });
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
+}
+
 Result_t WifiHal::SetSoftapCountryCode(std::string aCountryCode) {
   if (aCountryCode.length() != 2) {
     WIFI_LOGE(LOG_TAG, "Invalid country code: %s", aCountryCode.c_str());

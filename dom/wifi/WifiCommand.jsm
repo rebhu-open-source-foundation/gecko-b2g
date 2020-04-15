@@ -36,13 +36,13 @@ const WIFI_CMD_SET_AUTO_RECONNECT = Ci.nsIWifiCommand.SET_AUTO_RECONNECT;
 const WIFI_CMD_SET_COUNTRY_CODE = Ci.nsIWifiCommand.SET_COUNTRY_CODE;
 const WIFI_CMD_SET_BT_COEXIST_MODE = Ci.nsIWifiCommand.SET_BT_COEXIST_MODE;
 const WIFI_CMD_SET_BT_COEXIST_SCAN_MODE = Ci.nsIWifiCommand.SET_BT_COEXIST_SCAN_MODE;
+const WIFI_CMD_GET_LINK_LAYER_STATS = Ci.nsIWifiCommand.GET_LINK_LAYER_STATS;
+const WIFI_CMD_SIGNAL_POLL = Ci.nsIWifiCommand.SIGNAL_POLL;
 const WIFI_CMD_START_SINGLE_SCAN = Ci.nsIWifiCommand.START_SINGLE_SCAN;
 const WIFI_CMD_STOP_SINGLE_SCAN = Ci.nsIWifiCommand.STOP_SINGLE_SCAN;
 const WIFI_CMD_START_PNO_SCAN = Ci.nsIWifiCommand.START_PNO_SCAN;
 const WIFI_CMD_STOP_PNO_SCAN = Ci.nsIWifiCommand.STOP_PNO_SCAN;
 const WIFI_CMD_GET_SCAN_RESULTS = Ci.nsIWifiCommand.GET_SCAN_RESULTS;
-const WIFI_CMD_SIGNAL_POLL = Ci.nsIWifiCommand.SIGNAL_POLL;
-const WIFI_CMD_GET_TX_PACKET_COUNTERS = Ci.nsIWifiCommand.GET_TX_PACKET_COUNTERS;
 const WIFI_CMD_GET_CHANNELS_FOR_BAND = Ci.nsIWifiCommand.GET_CHANNELS_FOR_BAND;
 const WIFI_CMD_CONNECT = Ci.nsIWifiCommand.CONNECT;
 const WIFI_CMD_RECONNECT = Ci.nsIWifiCommand.RECONNECT;
@@ -151,6 +151,14 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     doCommandWithParams(WIFI_CMD_SET_BT_COEXIST_SCAN_MODE, "enabled", enable, callback);
   };
 
+  command.getLinkLayerStats = function(callback) {
+    doCommand(WIFI_CMD_GET_LINK_LAYER_STATS, callback);
+  };
+
+  command.getConnectionInfo = function(callback) {
+    doCommand(WIFI_CMD_SIGNAL_POLL, callback);
+  };
+
   command.startScan = function(settings, callback) {
     doCommandWithParams(WIFI_CMD_START_SINGLE_SCAN, "scanSettings", settings, callback);
   };
@@ -169,14 +177,6 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
 
   command.getScanResults = function(type, callback) {
     doCommandWithParams(WIFI_CMD_GET_SCAN_RESULTS, "scanType", type, callback);
-  };
-
-  command.signalPoll = function(callback) {
-    doCommand(WIFI_CMD_SIGNAL_POLL, callback);
-  };
-
-  command.getPacketCounters = function(callback) {
-    doCommand(WIFI_CMD_GET_TX_PACKET_COUNTERS, callback);
   };
 
   command.getChannelsForBand = function(band, callback) {

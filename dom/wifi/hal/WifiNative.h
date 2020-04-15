@@ -57,6 +57,8 @@ class WifiNative {
   Result_t SetCountryCode(const nsAString& aCountryCode);
   Result_t SetBtCoexistenceMode(uint8_t aMode);
   Result_t SetBtCoexistenceScanMode(bool aEnable);
+  Result_t SignalPoll(std::vector<int32_t>& aPollResult);
+  Result_t GetLinkLayerStats(wifiNameSpace::StaLinkLayerStats& aStats);
 
   Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
   Result_t StopSingleScan();

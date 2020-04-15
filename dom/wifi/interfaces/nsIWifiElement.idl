@@ -4,18 +4,18 @@
 
 #include "nsISupports.idl"
 
-[scriptable, uuid(ee6eaa67-55bf-46f6-a8c8-cc904691492b)]
+[scriptable, uuid(391e476b-8620-4abf-8701-7b058dc78fc2)]
 interface nsIWifiConfiguration: nsISupports
 {
-  // ParamSizeLimits
-  const long SSID_MAX_LEN_IN_BYTES = 32; // 32
-  const long PSK_PASSPHRASE_MIN_LEN_IN_BYTES = 8; // 8
-  const long PSK_PASSPHRASE_MAX_LEN_IN_BYTES = 63; // 63
-  const long WEP_KEYS_MAX_NUM = 4; // 4
-  const long WEP40_KEY_LEN_IN_BYTES = 5; // 5
-  const long WEP104_KEY_LEN_IN_BYTES = 13; // 13
+  /** ParamSizeLimits */
+  const long SSID_MAX_LEN_IN_BYTES = 32;
+  const long PSK_PASSPHRASE_MIN_LEN_IN_BYTES = 8;
+  const long PSK_PASSPHRASE_MAX_LEN_IN_BYTES = 63;
+  const long WEP_KEYS_MAX_NUM = 4;
+  const long WEP40_KEY_LEN_IN_BYTES = 5;
+  const long WEP104_KEY_LEN_IN_BYTES = 13;
 
-  // KeyMgmtMask
+  /** KeyMgmtMask */
   const long KEYMGMT_WPA_EAP   = (1 << 0);
   const long KEYMGMT_WPA_PSK   = (1 << 1);
   const long KEYMGMT_NONE      = (1 << 2);
@@ -24,29 +24,29 @@ interface nsIWifiConfiguration: nsISupports
   const long KEYMGMT_FT_PSK    = (1 << 6);
   const long KEYMGMT_OSEN      = (1 << 15);
 
-  // ProtoMask
+  /** ProtoMask */
   const long PROTO_WPA  = (1 << 0);
   const long PROTO_RSN  = (1 << 1);
   const long PROTO_OSEN = (1 << 3);
 
-  // AuthAlgMask
+  /** AuthAlgMask */
   const long AUTHALG_OPEN   = (1 << 0);
   const long AUTHALG_SHARED = (1 << 1);
   const long AUTHALG_LEAP   = (1 << 2);
 
-  // GroupCipherMask
+  /** GroupCipherMask */
   const long GROUPCIPHER_WEP40        = (1 << 1);
   const long GROUPCIPHER_WEP104       = (1 << 2);
   const long GROUPCIPHER_TKIP         = (1 << 3);
   const long GROUPCIPHER_CCMP         = (1 << 4);
   const long GROUPCIPHER_GTK_NOT_USED = (1 << 14);
 
-  // PairwiseCipherMask
+  /** PairwiseCipherMask */
   const long PAIRWISECIPHER_NONE = (1 << 0);
   const long PAIRWISECIPHER_TKIP = (1 << 3);
   const long PAIRWISECIPHER_CCMP = (1 << 4);
 
-  // EapMethod
+  /** EapMethod */
   const long EAP_PEAP           = 0;
   const long EAP_TLS            = 1;
   const long EAP_TTLS           = 2;
@@ -56,7 +56,7 @@ interface nsIWifiConfiguration: nsISupports
   const long EAP_AKA_PRIME      = 6;
   const long EAP_WFA_UNAUTH_TLS = 7;
 
-  // EapPhase2Method
+  /** EapPhase2Method */
   const long PHASE2_NONE      = 0;
   const long PHASE2_PAP       = 1;
   const long PHASE2_MSPAP     = 2;
@@ -101,12 +101,12 @@ interface nsIWifiConfiguration: nsISupports
 [scriptable, uuid(2677465d-1061-483d-9d59-107339bb9b2b)]
 interface nsISoftapConfiguration: nsISupports
 {
-  // AP band
+  /** AP band */
   const long AP_BAND_24GHZ = 0;
   const long AP_BAND_5GHZ  = 1;
   const long AP_BAND_ANY   = 2;
 
-  // encryption type
+  /** Encryption type */
   const long SECURITY_NONE = 0;
   const long SECURITY_WPA  = 1;
   const long SECURITY_WPA2 = 2;
@@ -130,17 +130,17 @@ interface nsISupplicantDebugLevel : nsISupports
 [scriptable, uuid(e0a33a58-53c9-4582-b9f0-5be688852975)]
 interface nsIScanSettings : nsISupports
 {
-  // scan accuracy
+  /** Scan accuracy */
   const long SCAN_TYPE_LOW_SPAN      = 0;
   const long SCAN_TYPE_LOW_POWER     = 1;
   const long SCAN_TYPE_HIGH_ACCURACY = 2;
 
-  // band
+  /** Band */
   const long BAND_2_4_GHZ   = 0x1;
   const long BAND_5_GHZ     = 0x2;
   const long BAND_5_GHZ_DFS = 0x4;
 
-  // scan type
+  /** Scan type */
   const long USE_SINGLE_SCAN = 0;
   const long USE_PNO_SCAN = 1;
 };
@@ -148,45 +148,49 @@ interface nsIScanSettings : nsISupports
 [scriptable, uuid(e4bec643-5d02-432a-8edf-182dee5917ab)]
 interface nsIScanResult : nsISupports
 {
-  // SSID of the BSS.
+  /** SSID of the BSS */
   readonly attribute AString ssid;
-  // BSSID of the BSS.
+  /** BSSID of the BSS */
   readonly attribute AString bssid;
-  // Frequency in MHz.
+  /** Frequency in MHz */
   readonly attribute unsigned long frequency;
-  // TSF of the received probe response/beacon.
+  /** TSF of the received probe response/beacon */
   readonly attribute unsigned long tsf;
-  // This is a bit mask describing the capabilities of a BSS.
-  // See IEEE Std 802.11: 8.4.1.4
-  // Bit 0 - ESS
-  // Bit 1 - IBSS
-  // Bit 2 - CF Pollable
-  // Bit 3 - CF-Poll Request
-  // Bit 4 - Privacy
-  // Bit 5 - Short Preamble
-  // Bit 6 - PBCC
-  // Bit 7 - Channel Agility
-  // Bit 8 - Spectrum Mgmt
-  // Bit 9 - QoS
-  // Bit 10 - Short Slot Time
-  // Bit 11 - APSD
-  // Bit 12 - Radio Measurement
-  // Bit 13 - DSSS-OFDM
-  // Bit 14 - Delayed Block Ack
-  // Bit 15 - Immediate Block Ack
+  /**
+   * This is a bit mask describing the capabilities of a BSS.
+   * See IEEE Std 802.11: 8.4.1.4
+   * Bit 0 - ESS
+   * Bit 1 - IBSS
+   * Bit 2 - CF Pollable
+   * Bit 3 - CF-Poll Request
+   * Bit 4 - Privacy
+   * Bit 5 - Short Preamble
+   * Bit 6 - PBCC
+   * Bit 7 - Channel Agility
+   * Bit 8 - Spectrum Mgmt
+   * Bit 9 - QoS
+   * Bit 10 - Short Slot Time
+   * Bit 11 - APSD
+   * Bit 12 - Radio Measurement
+   * Bit 13 - DSSS-OFDM
+   * Bit 14 - Delayed Block Ack
+   * Bit 15 - Immediate Block Ack
+   */
   readonly attribute unsigned long capability;
-  // Signal strength of probe response/beacon in (100 * dBm).
+  /** Signal strength of probe response/beacon in (100 * dBm) */
   readonly attribute long signal;
   readonly attribute boolean associated;
-  // Binary array containing the raw information elements
-  // from the probe response/beacon.
+  /**
+   * Binary array containing the raw information elements
+   * from the probe response/beacon.
+   */
   Array<uint8_t> getInfoElement();
 };
 
 [scriptable, uuid(29980f77-f5a2-4ab7-8bff-68772c60e370)]
 interface nsIStateChanged : nsISupports
 {
-  // State
+  /** Supplicant state */
   const long STATE_DISCONNECTED      = 0;
   const long STATE_IFACE_DISABLED    = 1;
   const long STATE_INACTIVE          = 2;
@@ -202,4 +206,91 @@ interface nsIStateChanged : nsISupports
   readonly attribute unsigned long id;
   readonly attribute AString bssid;
   readonly attribute AString ssid;
+};
+
+[scriptable, uuid(442ef797-8de0-4ad0-a11a-a89b7d1725e9)]
+interface nsILinkLayerPacketStats : nsISupports
+{
+  /**
+   * Number of received unicast data packets.
+   */
+  readonly attribute unsigned long long rxMpdu;
+  /**
+   * Number of successfully transmitted unicast data pkts (ACK rcvd).
+   */
+  readonly attribute unsigned long long txMpdu;
+  /**
+   * Number of transmitted unicast data pkt losses (no ACK).
+   */
+  readonly attribute unsigned long long lostMpdu;
+  /**
+   * Number of transmitted unicast data retry pkts.
+   */
+  readonly attribute unsigned long long retries;
+};
+
+[scriptable, uuid(035e3253-9e89-42a3-b847-beb04f8c05d1)]
+interface nsILinkLayerRadioStats : nsISupports
+{
+  /**
+   * Time for which the radio is awake.
+   */
+  readonly attribute unsigned long onTimeInMs;
+  /**
+   * Total time for which the radio is in active transmission.
+   */
+  readonly attribute unsigned long txTimeInMs;
+  /**
+   * Time for which the radio is in active receive.
+   */
+  readonly attribute unsigned long rxTimeInMs;
+  /**
+   *  Total time for which the radio is awake due to scan.
+   */
+  readonly attribute unsigned long onTimeInMsForScan;
+  /**
+   * Time for which the radio is in active tranmission per tx level.
+   */
+  Array<uint32_t> getTxTimeInMsPerLevel();
+};
+
+[scriptable, uuid(f5c75e8e-17ea-40a5-997b-3394c59ab7ac)]
+interface nsILinkLayerStats : nsISupports
+{
+  /**
+   * Number beacons received from the connected AP.
+   */
+  readonly attribute unsigned long beaconRx;
+  /**
+   * Access Point Beacon and Management frames RSSI (averaged).
+   */
+  readonly attribute long avgRssiMgmt;
+  /**
+   * WME Best Effort Access Category packet counters.
+   */
+  readonly attribute nsILinkLayerPacketStats wmeBePktStats;
+  /**
+   * WME Background Access Category packet counters.
+   */
+  readonly attribute nsILinkLayerPacketStats wmeBkPktStats;
+  /**
+   * WME Video Access Category packet counters.
+   */
+  readonly attribute nsILinkLayerPacketStats wmeViPktStats;
+  /**
+   * WME Voice Access Category packet counters.
+   */
+  readonly attribute nsILinkLayerPacketStats wmeVoPktStats;
+  /**
+   * TimeStamp for each stats sample.
+   * This is the absolute milliseconds from boot when these stats were
+   * sampled.
+   */
+  readonly attribute unsigned long long timeStampMs;
+  /**
+   * Query link layer radio stats for current connected access point
+   *
+   * Invoke the function to get the return value for GET_LINK_LAYER_STATS.
+   */
+  Array<nsILinkLayerRadioStats> getLinkLayerRadioStats();
 };

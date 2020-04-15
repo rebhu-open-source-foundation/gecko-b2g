@@ -365,15 +365,15 @@ Result_t WificondControl::GetChannelsForBand(uint32_t aBandMask,
   return nsIWifiResult::SUCCESS;
 }
 
-Result_t WificondControl::SignalPoll() {
+Result_t WificondControl::SignalPoll(std::vector<int32_t>& aPollResult) {
   if (mClientInterface == nullptr) {
     WIFI_LOGE(LOG_TAG, "Invalid wifi client interface");
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
-  std::vector<int32_t> signal;
-  if (!mClientInterface->signalPoll(&signal).isOk()) {
-    WIFI_LOGE(LOG_TAG, "Failed to get signal strength");
+  if (!mClientInterface->signalPoll(&aPollResult).isOk() ||
+      aPollResult.size() == 0) {
+    WIFI_LOGE(LOG_TAG, "Failed to get signal poll results");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   return nsIWifiResult::SUCCESS;

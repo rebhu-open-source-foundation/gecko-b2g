@@ -29,6 +29,14 @@ void nsWifiResult::updateChannels(nsTArray<int32_t>& aChannels) {
   mChannels = aChannels;
 }
 
+void nsWifiResult::updateSignalPoll(nsTArray<int32_t>& aSignalPoll) {
+  mSignalPoll = aSignalPoll;
+}
+
+void nsWifiResult::updateLinkLayerStats(nsLinkLayerStats* aLinkLayerStats) {
+  mLinkLayerStats = aLinkLayerStats;
+}
+
 NS_IMETHODIMP
 nsWifiResult::GetId(uint32_t* aId) {
   *aId = mId;
@@ -102,10 +110,23 @@ nsWifiResult::GetChannels(nsTArray<int32_t>& aChannels) {
 }
 
 NS_IMETHODIMP
+nsWifiResult::SignalPoll(nsTArray<int32_t>& aSignalPoll) {
+  aSignalPoll = mSignalPoll;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiResult::GetScanResults(nsTArray<RefPtr<nsIScanResult>>& aScanResults) {
   for (uint32_t i = 0; i < mScanResults.Length(); i++) {
     aScanResults.AppendElement(mScanResults[i]);
   }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetLinkLayerStats(nsILinkLayerStats** aLinkLayerStats) {
+  RefPtr<nsILinkLayerStats> stats(mLinkLayerStats);
+  stats.forget(aLinkLayerStats);
   return NS_OK;
 }
 

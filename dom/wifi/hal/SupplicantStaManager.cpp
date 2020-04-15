@@ -621,6 +621,7 @@ Return<void> SupplicantStaManager::onInterfaceRemoved(
 Return<void> SupplicantStaManager::onTerminating() {
   MutexAutoLock lock(s_Lock);
   WIFI_LOGD(LOG_TAG, "SupplicantCallback.onTerminating()");
+
   nsCString iface(mStaInterfaceName);
   RefPtr<nsWifiEvent> event =
       new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_TERMINATING));

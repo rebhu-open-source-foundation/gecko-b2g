@@ -7,10 +7,10 @@
 
 interface nsIScanResult;
 
-[scriptable, uuid(cc3b1857-8bac-4c5c-917f-8cf72f71a392)]
+[scriptable, uuid(3489f412-1b19-4c6f-8cf2-703ac5c2aed8)]
 interface nsIWifiResult : nsISupports
 {
-  /* status code */
+  /** Status code */
   const unsigned long SUCCESS = 0;
   const unsigned long ERROR_COMMAND_FAILED = 1;
   const unsigned long ERROR_INVALID_INTERFACE = 2;
@@ -32,12 +32,21 @@ interface nsIWifiResult : nsISupports
   readonly attribute unsigned long debugLevel;
   readonly attribute unsigned long numStations;
 
+  /** Station link layer statistics */
+  readonly attribute nsILinkLayerStats linkLayerStats;
+
   /**
    * Query supported channel list
    *
    * Invoke the function to get the return value for GET_CHANNELS_FOR_BAND.
    */
   Array<int32_t> getChannels();
+  /**
+   * Query signal information from current connected access point
+   *
+   * Invoke the function to get the return value for SIGNAL_POLL.
+   */
+  Array<int32_t> signalPoll();
   /**
    * Query single scan results
    *

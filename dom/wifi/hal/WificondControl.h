@@ -54,7 +54,7 @@ class WificondControl : virtual public android::RefBase {
   Result_t GetChannelsForBand(uint32_t aBandMask,
                               std::vector<int32_t>& aChannels);
 
-  Result_t SignalPoll();
+  Result_t SignalPoll(std::vector<int32_t>& aPollResult);
   Result_t GetSoftapStations(uint32_t& aNumStations);
 
  private:

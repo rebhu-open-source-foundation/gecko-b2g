@@ -103,4 +103,67 @@ class nsStateChanged final : public nsIStateChanged {
   nsString mSsid;
 };
 
+class nsLinkLayerPacketStats final : public nsILinkLayerPacketStats {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSILINKLAYERPACKETSTATS
+  nsLinkLayerPacketStats(uint64_t aRxMpdu, uint64_t aTxMpdu, uint64_t aLostMpdu,
+                         uint64_t aRetries);
+
+ private:
+  ~nsLinkLayerPacketStats(){};
+
+  uint64_t mRxMpdu;
+  uint64_t mTxMpdu;
+  uint64_t mLostMpdu;
+  uint64_t mRetries;
+};
+
+class nsLinkLayerRadioStats final : public nsILinkLayerRadioStats {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSILINKLAYERRADIOSTATS
+  nsLinkLayerRadioStats(uint32_t aOnTimeInMs, uint32_t aTxTimeInMs,
+                        uint32_t aRxTimeInMs, uint32_t aOnTimeInMsForScan,
+                        const nsTArray<uint32_t>& aTxTimeInMsPerLevel);
+
+ private:
+  ~nsLinkLayerRadioStats(){};
+
+  uint32_t mOnTimeInMs;
+  uint32_t mTxTimeInMs;
+  uint32_t mRxTimeInMs;
+  uint32_t mOnTimeInMsForScan;
+  nsTArray<uint32_t> mTxTimeInMsPerLevel;
+};
+
+class nsLinkLayerStats final : public nsILinkLayerStats {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSILINKLAYERSTATS
+  nsLinkLayerStats(uint32_t aBeaconRx, int32_t aAvgRssiMgmt,
+                   uint64_t aTimeStampMs);
+
+  void updatePacketStats(nsLinkLayerPacketStats* aWmeBePktStats,
+                         nsLinkLayerPacketStats* aWmeBkPktStats,
+                         nsLinkLayerPacketStats* aWmeViPktStats,
+                         nsLinkLayerPacketStats* aWmeVoPktStats);
+
+  void updateRadioStats(
+      nsTArray<RefPtr<nsLinkLayerRadioStats>>& aLinkLayerRadioStats);
+
+  RefPtr<nsILinkLayerPacketStats> mWmeBePktStats;
+  RefPtr<nsILinkLayerPacketStats> mWmeBkPktStats;
+  RefPtr<nsILinkLayerPacketStats> mWmeViPktStats;
+  RefPtr<nsILinkLayerPacketStats> mWmeVoPktStats;
+  nsTArray<RefPtr<nsLinkLayerRadioStats>> mLinkLayerRadioStats;
+
+ private:
+  ~nsLinkLayerStats(){};
+
+  uint32_t mBeaconRx;
+  int32_t mAvgRssiMgmt;
+  uint64_t mTimeStampMs;
+};
+
 #endif  // nsWifiElement_H

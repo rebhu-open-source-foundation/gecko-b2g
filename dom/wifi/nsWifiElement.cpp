@@ -318,3 +318,172 @@ nsStateChanged::GetBssid(nsAString& aBssid) {
 }
 
 NS_IMPL_ISUPPORTS(nsStateChanged, nsIStateChanged);
+
+/**
+ * nsLinkLayerPacketStats
+ */
+nsLinkLayerPacketStats::nsLinkLayerPacketStats(uint64_t aRxMpdu,
+                                               uint64_t aTxMpdu,
+                                               uint64_t aLostMpdu,
+                                               uint64_t aRetries) {
+  mRxMpdu = aRxMpdu;
+  mTxMpdu = aTxMpdu;
+  mLostMpdu = aLostMpdu;
+  mRetries = aRetries;
+}
+
+NS_IMETHODIMP
+nsLinkLayerPacketStats::GetRxMpdu(uint64_t* aRxMpdu) {
+  *aRxMpdu = mRxMpdu;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerPacketStats::GetTxMpdu(uint64_t* aTxMpdu) {
+  *aTxMpdu = mTxMpdu;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerPacketStats::GetLostMpdu(uint64_t* aLostMpdu) {
+  *aLostMpdu = mLostMpdu;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerPacketStats::GetRetries(uint64_t* aRetries) {
+  *aRetries = mRetries;
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(nsLinkLayerPacketStats, nsILinkLayerPacketStats);
+
+/**
+ * nsLinkLayerRadioStats
+ */
+nsLinkLayerRadioStats::nsLinkLayerRadioStats(
+    uint32_t aOnTimeInMs, uint32_t aTxTimeInMs, uint32_t aRxTimeInMs,
+    uint32_t aOnTimeInMsForScan,
+    const nsTArray<uint32_t>& aTxTimeInMsPerLevel) {
+  mOnTimeInMs = aOnTimeInMs;
+  mTxTimeInMs = aTxTimeInMs;
+  mRxTimeInMs = aRxTimeInMs;
+  mOnTimeInMsForScan = aOnTimeInMsForScan;
+  mTxTimeInMsPerLevel = aTxTimeInMsPerLevel;
+}
+
+NS_IMETHODIMP
+nsLinkLayerRadioStats::GetOnTimeInMs(uint32_t* aOnTimeInMs) {
+  *aOnTimeInMs = mOnTimeInMs;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerRadioStats::GetTxTimeInMs(uint32_t* aTxTimeInMs) {
+  *aTxTimeInMs = mTxTimeInMs;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerRadioStats::GetRxTimeInMs(uint32_t* aRxTimeInMs) {
+  *aRxTimeInMs = mRxTimeInMs;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerRadioStats::GetOnTimeInMsForScan(uint32_t* aOnTimeInMsForScan) {
+  *aOnTimeInMsForScan = mOnTimeInMsForScan;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerRadioStats::GetTxTimeInMsPerLevel(
+    nsTArray<uint32_t>& aTxTimeInMsPerLevel) {
+  aTxTimeInMsPerLevel = mTxTimeInMsPerLevel;
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(nsLinkLayerRadioStats, nsILinkLayerRadioStats);
+
+/**
+ * nsLinkLayerStats
+ */
+nsLinkLayerStats::nsLinkLayerStats(uint32_t aBeaconRx, int32_t aAvgRssiMgmt,
+                                   uint64_t aTimeStampMs) {
+  mBeaconRx = aBeaconRx;
+  mAvgRssiMgmt = aAvgRssiMgmt;
+  mTimeStampMs = aTimeStampMs;
+}
+
+void nsLinkLayerStats::updatePacketStats(
+    nsLinkLayerPacketStats* aWmeBePktStats,
+    nsLinkLayerPacketStats* aWmeBkPktStats,
+    nsLinkLayerPacketStats* aWmeViPktStats,
+    nsLinkLayerPacketStats* aWmeVoPktStats) {
+  mWmeBePktStats = aWmeBePktStats;
+  mWmeBkPktStats = aWmeBkPktStats;
+  mWmeViPktStats = aWmeViPktStats;
+  mWmeVoPktStats = aWmeVoPktStats;
+}
+
+void nsLinkLayerStats::updateRadioStats(
+    nsTArray<RefPtr<nsLinkLayerRadioStats>>& aLinkLayerRadioStats) {
+  mLinkLayerRadioStats = aLinkLayerRadioStats;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetBeaconRx(uint32_t* aBeaconRx) {
+  *aBeaconRx = mBeaconRx;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetAvgRssiMgmt(int32_t* aAvgRssiMgmt) {
+  *aAvgRssiMgmt = mAvgRssiMgmt;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetTimeStampMs(uint64_t* aTimeStampMs) {
+  *aTimeStampMs = mTimeStampMs;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetWmeBePktStats(nsILinkLayerPacketStats** aWmeBePktStats) {
+  RefPtr<nsILinkLayerPacketStats> stats(mWmeBePktStats);
+  stats.forget(aWmeBePktStats);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetWmeBkPktStats(nsILinkLayerPacketStats** aWmeBkPktStats) {
+  RefPtr<nsILinkLayerPacketStats> stats(mWmeBkPktStats);
+  stats.forget(aWmeBkPktStats);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetWmeViPktStats(nsILinkLayerPacketStats** aWmeViPktStats) {
+  RefPtr<nsILinkLayerPacketStats> stats(mWmeViPktStats);
+  stats.forget(aWmeViPktStats);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetWmeVoPktStats(nsILinkLayerPacketStats** aWmeVoPktStats) {
+  RefPtr<nsILinkLayerPacketStats> stats(mWmeVoPktStats);
+  stats.forget(aWmeVoPktStats);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsLinkLayerStats::GetLinkLayerRadioStats(
+    nsTArray<RefPtr<nsILinkLayerRadioStats>>& aLinkLayerRadioStats) {
+  for (size_t i = 0; i < mLinkLayerRadioStats.Length(); i++) {
+    aLinkLayerRadioStats.AppendElement(mLinkLayerRadioStats[i]);
+  }
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(nsLinkLayerStats, nsILinkLayerStats);

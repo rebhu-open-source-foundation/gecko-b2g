@@ -71,7 +71,10 @@ class WifiHal
   Result_t ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
                                     std::string& aIfaceName);
   Result_t GetStaCapabilities(uint32_t& aStaCapabilities);
+  Result_t EnableLinkLayerStats();
+  Result_t GetLinkLayerStats(wifiNameSpace::StaLinkLayerStats& aStats);
   Result_t SetSoftapCountryCode(std::string aCountryCode);
+
   std::string GetInterfaceName(const wifiNameSpace::IfaceType& aType);
 
   // IServiceNotification::onRegistration

@@ -77,6 +77,61 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = SetBtCoexistenceMode(aOptions.mBtCoexistenceMode);
   } else if (aOptions.mCmd == nsIWifiCommand::SET_BT_COEXIST_SCAN_MODE) {
     aResult->mStatus = SetBtCoexistenceScanMode(aOptions.mEnabled);
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_LINK_LAYER_STATS) {
+    wifiNameSpace::StaLinkLayerStats stats;
+    aResult->mStatus = GetLinkLayerStats(stats);
+
+    RefPtr<nsLinkLayerStats> linkLayerStats = new nsLinkLayerStats(
+        stats.iface.beaconRx, stats.iface.avgRssiMgmt, stats.timeStampInMs);
+
+    RefPtr<nsLinkLayerPacketStats> wmeBePktStats = new nsLinkLayerPacketStats(
+        stats.iface.wmeBePktStats.rxMpdu, stats.iface.wmeBePktStats.txMpdu,
+        stats.iface.wmeBePktStats.lostMpdu, stats.iface.wmeBePktStats.retries);
+
+    RefPtr<nsLinkLayerPacketStats> wmeBkPktStats = new nsLinkLayerPacketStats(
+        stats.iface.wmeBkPktStats.rxMpdu, stats.iface.wmeBkPktStats.txMpdu,
+        stats.iface.wmeBkPktStats.lostMpdu, stats.iface.wmeBkPktStats.retries);
+
+    RefPtr<nsLinkLayerPacketStats> wmeViPktStats = new nsLinkLayerPacketStats(
+        stats.iface.wmeViPktStats.rxMpdu, stats.iface.wmeViPktStats.txMpdu,
+        stats.iface.wmeViPktStats.lostMpdu, stats.iface.wmeViPktStats.retries);
+
+    RefPtr<nsLinkLayerPacketStats> wmeVoPktStats = new nsLinkLayerPacketStats(
+        stats.iface.wmeVoPktStats.rxMpdu, stats.iface.wmeVoPktStats.txMpdu,
+        stats.iface.wmeVoPktStats.lostMpdu, stats.iface.wmeVoPktStats.retries);
+
+    size_t numRadio = stats.radios.size();
+    nsTArray<RefPtr<nsLinkLayerRadioStats>> radios(numRadio);
+
+    for (auto& radio : stats.radios) {
+      size_t numTxTime = radio.txTimeInMsPerLevel.size();
+      nsTArray<uint32_t> txTimeInMsPerLevel(numTxTime);
+
+      for (auto& txTime : radio.txTimeInMsPerLevel) {
+        txTimeInMsPerLevel.AppendElement(txTime);
+      }
+      RefPtr<nsLinkLayerRadioStats> radioStats = new nsLinkLayerRadioStats(
+          radio.onTimeInMs, radio.txTimeInMs, radio.rxTimeInMs,
+          radio.onTimeInMsForScan, txTimeInMsPerLevel);
+      radios.AppendElement(radioStats);
+    }
+
+    linkLayerStats->updatePacketStats(wmeBePktStats, wmeBkPktStats,
+                                      wmeViPktStats, wmeVoPktStats);
+    linkLayerStats->updateRadioStats(radios);
+    aResult->updateLinkLayerStats(linkLayerStats);
+  } else if (aOptions.mCmd == nsIWifiCommand::SIGNAL_POLL) {
+    std::vector<int32_t> pollResult;
+    aResult->mStatus = SignalPoll(pollResult);
+
+    size_t num = pollResult.size();
+    if (num > 0) {
+      nsTArray<int32_t> pollArray(num);
+      for (int32_t& element : pollResult) {
+        pollArray.AppendElement(element);
+      }
+      aResult->updateSignalPoll(pollArray);
+    }
   } else if (aOptions.mCmd == nsIWifiCommand::START_SINGLE_SCAN) {
     aResult->mStatus = StartSingleScan(&aOptions.mScanSettings);
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_SINGLE_SCAN) {
@@ -242,8 +297,14 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
   }
 
   WIFI_LOGD(LOG_TAG, "module loaded, try to configure...");
-  s_WifiHal->ConfigChipAndCreateIface(wifiNameSpace::IfaceType::STA,
-                                      mStaInterfaceName);
+  result = s_WifiHal->ConfigChipAndCreateIface(wifiNameSpace::IfaceType::STA,
+                                               mStaInterfaceName);
+  if (result != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to create sta interface");
+    return result;
+  } else {
+    s_WifiHal->EnableLinkLayerStats();
+  }
 
   // here create scan and pno scan event service,
   // which implement scan callback from wificond
@@ -443,6 +504,15 @@ Result_t WifiNative::SetBtCoexistenceMode(uint8_t aMode) {
 
 Result_t WifiNative::SetBtCoexistenceScanMode(bool aEnable) {
   return s_SupplicantStaManager->SetBtCoexistenceScanMode(aEnable);
+}
+
+Result_t WifiNative::SignalPoll(std::vector<int32_t>& aPollResult) {
+  return s_WificondControl->SignalPoll(aPollResult);
+}
+
+Result_t WifiNative::GetLinkLayerStats(
+    wifiNameSpace::StaLinkLayerStats& aStats) {
+  return s_WifiHal->GetLinkLayerStats(aStats);
 }
 
 Result_t WifiNative::SetCountryCode(const nsAString& aCountryCode) {

@@ -7,10 +7,10 @@
 
 interface nsIWifiConfiguration;
 
-[scriptable, uuid(f7781930-c3e7-49c6-9d94-f68d47b29464)]
+[scriptable, uuid(10725208-151e-4c4c-a055-a067b8462f2a)]
 interface nsIWifiCommand: nsISupports
 {
-  // module configuration
+  /** Module configuration */
   const unsigned long INITIALIZE                  = 0x0;
   const unsigned long GET_CAPABILITIES            = 0x1;
   const unsigned long GET_MODULE_VERSION          = 0x2;
@@ -20,7 +20,7 @@ interface nsIWifiCommand: nsISupports
   const unsigned long SET_CONCURRENCY_PRIORITY    = 0x6;
   const unsigned long GET_HOST_WAKE_REASON        = 0x7;
 
-  // client
+  /** Client mode */
   const unsigned long START_WIFI                  = 0x1000;
   const unsigned long STOP_WIFI                   = 0x1001;
   const unsigned long GET_MAC_ADDRESS             = 0x1002;
@@ -33,18 +33,18 @@ interface nsIWifiCommand: nsISupports
   const unsigned long SET_COUNTRY_CODE            = 0x1009;
   const unsigned long SET_BT_COEXIST_MODE         = 0x100a;
   const unsigned long SET_BT_COEXIST_SCAN_MODE    = 0x100b;
+  const unsigned long GET_LINK_LAYER_STATS        = 0x100c;
+  const unsigned long SIGNAL_POLL                 = 0x100d;
 
-  // scan
+  /** Scan */
   const unsigned long START_SINGLE_SCAN           = 0x2000;
   const unsigned long STOP_SINGLE_SCAN            = 0x2001;
   const unsigned long START_PNO_SCAN              = 0x2002;
   const unsigned long STOP_PNO_SCAN               = 0x2003;
   const unsigned long GET_SCAN_RESULTS            = 0x2004;
-  const unsigned long SIGNAL_POLL                 = 0x2005;
-  const unsigned long GET_TX_PACKET_COUNTERS      = 0x2006;
-  const unsigned long GET_CHANNELS_FOR_BAND       = 0x2007;
+  const unsigned long GET_CHANNELS_FOR_BAND       = 0x2005;
 
-  // network connection
+  /** Connection */
   const unsigned long CONNECT                     = 0x3000;
   const unsigned long RECONNECT                   = 0x3001;
   const unsigned long REASSOCIATE                 = 0x3002;
@@ -53,7 +53,7 @@ interface nsIWifiCommand: nsISupports
   const unsigned long START_RSSI_MONITORING       = 0x3005;
   const unsigned long STOP_RSSI_MONITORING        = 0x3006;
 
-  // softap
+  /** Softap mode */
   const unsigned long START_SOFTAP                = 0x4000;
   const unsigned long STOP_SOFTAP                 = 0x4001;
   const unsigned long GET_AP_IFACE                = 0x4002;
