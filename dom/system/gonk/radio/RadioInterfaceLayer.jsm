@@ -1072,8 +1072,7 @@ RadioInterface.prototype = {
       }
       this.sendRilRequest("getBasebandVersion", null);
 
-      //Cameron TODO
-      //this.updateCellBroadcastConfig();
+      this.updateCellBroadcastConfig();
 
       if (libcutils.property_get("ro.moz.ril.data_reg_on_demand", "false") === "true" &&
         !this._attachDataRegistration.result) {
@@ -1089,7 +1088,6 @@ RadioInterface.prototype = {
     }
 
     this.radioState = newState;
-    console.log("Cameron update  this.radioState=" + this.radioState);
 
     // If the radio is up and on, so let's query the card state.
     // On older RILs only if the card is actually ready, though.
@@ -1102,18 +1100,6 @@ RadioInterface.prototype = {
 
     this.sendRilRequest("getICCStatus", null);
   },
-
-  /*updateCellBroadcastConfig: function() {
-    let activate = !this.cellBroadcastDisabled &&
-                   (this.mergedCellBroadcastConfig != null) &&
-                   (this.mergedCellBroadcastConfig.length > 0);
-    if (activate) {
-      this.setSmsBroadcastConfig(this.mergedCellBroadcastConfig);
-    } else {
-      // It's unnecessary to set config first if we're deactivating.
-      this.setSmsBroadcastActivation(false);
-    }
-  },*/
 
   _mergeCellBroadcastConfigs: function(list, from, to) {
     if (!list) {
@@ -1273,6 +1259,10 @@ RadioInterface.prototype = {
   setCellBroadcastDisabled: function(options) {
     this.cellBroadcastDisabled = options.disabled;
 
+    // Return the response and let ril handle the rest thing.
+    options.errorMsg = RIL.ERROR_SUCCESS;
+    this.handleRilResponse(options);
+
     // If |this.mergedCellBroadcastConfig| is null, either we haven't finished
     // reading required SIM files, or no any channel is ever configured.  In
     // the former case, we'll call |this.updateCellBroadcastConfig()| later
@@ -1297,15 +1287,17 @@ RadioInterface.prototype = {
 
     try {
       let str = getSearchListStr(options.searchList);
+      this.debug("setCellBroadcastSearchList  str: " + str);
       this.cellBroadcastConfigs.MMI = this._convertCellBroadcastSearchList(str);
+      options.errorMsg = RIL.ERROR_SUCCESS;
     } catch (e) {
       if (DEBUG) {
         this.debug("Invalid Cell Broadcast search list: " + e);
       }
-      options.errorMsg = GECKO_ERROR_UNSPECIFIED_ERROR;
+      options.errorMsg = RIL.GECKO_ERROR_UNSPECIFIED_ERROR;
     }
 
-    this.sendChromeMessage(options);
+    this.handleRilResponse(options);
     if (options.errorMsg) {
       return;
     }
@@ -1313,25 +1305,101 @@ RadioInterface.prototype = {
     this._mergeAllCellBroadcastConfigs();
   },
 
+    /**
+   * Convert Cell Broadcast settings string into search list.
+   */
+  _convertCellBroadcastSearchList: function(searchListStr) {
+    let parts = searchListStr && searchListStr.split(",");
+    if (!parts) {
+      return null;
+    }
+
+    let list = null;
+    let result, from, to;
+    for (let range of parts) {
+      // Match "12" or "12-34". The result will be ["12", "12", null] or
+      // ["12-34", "12", "34"].
+      result = range.match(/^(\d+)(?:-(\d+))?$/);
+      if (!result) {
+        throw "Invalid format";
+      }
+
+      from = parseInt(result[1], 10);
+      to = (result[2]) ? parseInt(result[2], 10) + 1 : from + 1;
+      if (!RIL.CB_NON_MMI_SETTABLE_RANGES &&
+          !this._checkCellBroadcastMMISettable(from, to)) {
+        throw "Invalid range";
+      }
+
+      if (list == null) {
+        list = [];
+      }
+      list.push(from);
+      list.push(to);
+    }
+
+    return list;
+  },
+
+    /**
+   * Check whether search list from settings is settable by MMI, that is,
+   * whether the range is bounded in any entries of CB_NON_MMI_SETTABLE_RANGES.
+   */
+  _checkCellBroadcastMMISettable: function(from, to) {
+    if ((to <= from) || (from >= 65536) || (from < 0)) {
+      return false;
+    }
+
+    if (!this._isCdma) {
+      // GSM not settable ranges.
+      for (let i = 0, f, t; i < RIL.CB_NON_MMI_SETTABLE_RANGES.length;) {
+        f = RIL.CB_NON_MMI_SETTABLE_RANGES[i++];
+        t = RIL.CB_NON_MMI_SETTABLE_RANGES[i++];
+        if ((from < t) && (to > f)) {
+          // Have overlap.
+          return false;
+        }
+      }
+    }
+
+    return true;
+  },
+
   updateCellBroadcastConfig: function() {
     let activate = !this.cellBroadcastDisabled &&
                    (this.mergedCellBroadcastConfig != null) &&
                    (this.mergedCellBroadcastConfig.length > 0);
     if (activate) {
-      // Cameron mark first.
-      //this.setSmsBroadcastConfig(this.mergedCellBroadcastConfig);
+      this.setSmsBroadcastConfig(this.mergedCellBroadcastConfig);
     } else {
       // It's unnecessary to set config first if we're deactivating.
-      // Cameron mark first.
-      //this.setSmsBroadcastActivation(false);
+      this.setSmsBroadcastActivation(false);
+    }
+  },
+
+  setSmsBroadcastActivation: function(activate) {
+    let parcelType = this._isCdma ? RIL.REQUEST_CDMA_SMS_BROADCAST_ACTIVATION :
+                                    RIL.REQUEST_GSM_SMS_BROADCAST_ACTIVATION;
+
+    if (this._isCdma) {
+      // TODO complete the CDMA part.
+    } else {
+      this.sendRilRequest("setGsmBroadcastActivation"
+                          , {activate: activate}
+                          , null);
     }
   },
 
   setSmsBroadcastConfig: function(config) {
     if (this._isCdma) {
-      this.setCdmaSmsBroadcastConfig(config);
+      // TODO mark the CDMA feature.
+      /*this.sendRilRequest("setCdmaSmsBroadcastConfig"
+                          , {config: config}
+                          , null);*/
     } else {
-      this.setGsmSmsBroadcastConfig(config);
+      this.sendRilRequest("setGsmBroadcastConfig"
+                          , {config: config}
+                          , null);
     }
   },
 
@@ -2488,13 +2556,32 @@ RadioInterface.prototype = {
         break;
       case "acknowledgeCdmaSms":
         break;
-      case "setGsmSmsBroadcastConfig":
+      case "setCellBroadcastDisabled":
+        // This is not a ril reponse.
+        result = response;
         break;
-      case "setSmsBroadcastActivation":
+      case "setCellBroadcastSearchList":
+        // This is not a ril reponse.
+        result = response;
+        break;
+      case "setGsmBroadcastActivation":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GSM_BROADCAST_ACTIVATION");
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GSM_BROADCAST_ACTIVATION error = " + response.errorMsg);
+        }
+        break;
+      case "setGsmBroadcastConfig":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GSM_SET_BROADCAST_CONFIG");
+          this.setSmsBroadcastActivation(true);
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GSM_SET_BROADCAST_CONFIG error = " + response.errorMsg);
+        }
         break;
       case "setCdmaSmsBroadcastConfig":
-        break;
-      case "setSmsBroadcastActivation":
         break;
       case "getCdmaSubscription":
         break;
@@ -4045,13 +4132,15 @@ RadioInterface.prototype = {
         break;
       case "acknowledgeCdmaSms":
         break;
-      case "setGsmSmsBroadcastConfig":
+      case "setGsmBroadcastConfig":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GSM_SET_BROADCAST_CONFIG config = " + message.config);
+        this.rilworker.setGsmBroadcastConfig(message.rilMessageToken, message.config);
         break;
-      case "setSmsBroadcastActivation":
+      case "setGsmBroadcastActivation":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GSM_BROADCAST_ACTIVATION activate = " + message.activate);
+        this.rilworker.setGsmBroadcastActivation(message.rilMessageToken, message.activate);
         break;
       case "setCdmaSmsBroadcastConfig":
-        break;
-      case "setSmsBroadcastActivation":
         break;
       case "getCdmaSubscription":
         break;
@@ -4125,10 +4214,12 @@ RadioInterface.prototype = {
         }
         break;
       case "setCellBroadcastDisabled":
-        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GSM_BROADCAST_ACTIVATION disabled = " + message.disabled);
+        // This is not a ril request.
+        this.setCellBroadcastDisabled(message);
         break;
       case "setCellBroadcastSearchList":
-        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GSM_SET_BROADCAST_CONFIG searchList = " + message.searchList);
+        // This is not a ril request.
+        this.setCellBroadcastSearchList(message);
         break;
       default:
     }

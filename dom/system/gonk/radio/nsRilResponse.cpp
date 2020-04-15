@@ -1120,6 +1120,7 @@ Return<void> nsRilResponse::setGsmBroadcastConfigResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  defaultResponse(rspInfo, NS_LITERAL_STRING("setGsmBroadcastConfig"));
   return Void();
 }
 
@@ -1128,6 +1129,7 @@ Return<void> nsRilResponse::setGsmBroadcastActivationResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  defaultResponse(rspInfo, NS_LITERAL_STRING("setGsmBroadcastActivation"));
   return Void();
 }
 

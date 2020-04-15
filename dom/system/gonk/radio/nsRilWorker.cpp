@@ -973,12 +973,35 @@ NS_IMETHODIMP nsRilWorker::ReportStkServiceIsRunning(int32_t serial) {
 NS_IMETHODIMP nsRilWorker::SetGsmBroadcastActivation(int32_t serial,
                                                      bool activate) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_GSM_BROADCAST_ACTIVATION ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->setGsmBroadcastActivation(serial, activate);
   return NS_OK;
 }
 
 NS_IMETHODIMP nsRilWorker::SetGsmBroadcastConfig(
     int32_t serial, const nsTArray<int32_t>& ranges) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_GSM_SET_BROADCAST_CONFIG ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+
+  std::vector<GsmBroadcastSmsConfigInfo> broadcastInfo;
+  for (uint32_t i = 0; i < ranges.Length();) {
+    GsmBroadcastSmsConfigInfo info;
+    // convert [from, to) to [from, to - 1]
+    info.fromServiceId = ranges[i++];
+    info.toServiceId = ranges[i++]-1;
+    info.fromCodeScheme = 0x00;
+    info.toCodeScheme = 0xFF;
+    info.selected = 1;
+    broadcastInfo.push_back(info);
+  }
+
+  mRadioProxy->setGsmBroadcastConfig(serial, broadcastInfo);
   return NS_OK;
 }
 
