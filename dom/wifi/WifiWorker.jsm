@@ -219,6 +219,7 @@ const INVALID_RSSI = -127;
 const INVALID_NETWORK_ID = -1;
 
 const WIFI_ASSOCIATED_SCAN_INTERVAL = 20 * 1000;
+const WIFI_MAX_SCAN_CACHED_TIME = 60 * 1000;
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
@@ -1275,6 +1276,7 @@ var WifiManager = (function() {
       notify("scanresultsavailable", { type: USE_SINGLE_SCAN });
     } else if (eventData.indexOf("SCAN_RESULT_FAILED") === 0) {
       debug("Receive single scan failure");
+      manager.cachedScanResults = [];
     } else if (eventData.indexOf("PNO_SCAN_FOUND") === 0) {
       notify("scanresultsavailable", { type: USE_PNO_SCAN });
     } else if (eventData.indexOf("PNO_SCAN_FAILED") === 0) {
@@ -1436,6 +1438,8 @@ var WifiManager = (function() {
   manager.loopDetectionCount = 0;
   manager.numRil = numRil;
   manager.connectingNetwork = Object.create(null);
+  manager.cachedScanResults = [];
+  manager.cachedScanTime = 0;
 
   manager.__defineGetter__("enabled", function() {
     switch (manager.state) {
@@ -3024,6 +3028,7 @@ function WifiWorker() {
       //  OpenNetworkNotifier.handleScanResults(r);
       //}
 
+      WifiManager.cachedScanResults = [];
       if (scanResults.length <= 0 && self.wantScanResults.length !== 0) {
         self.wantScanResults.forEach(function(callback) {
           callback(null);
@@ -3125,6 +3130,8 @@ function WifiWorker() {
           network.relSignalStrength = signal;
         }
         self.networksArray.push(network);
+        WifiManager.cachedScanResults.push(network);
+        WifiManager.cachedScanTime = Date.now();
       }
 
       WifiManager.currentConfigChannels = [];
@@ -3836,9 +3843,23 @@ WifiWorker.prototype = {
           return;
         }
 
+        sent = true;
+        // if last results are available, return the cached scan results.
+        if (WifiManager.cachedScanTime > 0 &&
+            Date.now() - WifiManager.cachedScanTime < WIFI_MAX_SCAN_CACHED_TIME) {
+          this._sendMessage(
+            message,
+            WifiManager.cachedScanResults.length > 0,
+            WifiManager.cachedScanResults,
+            msg
+          );
+          return;
+        } else {
+          WifiManager.cachedScanTime = 0;
+          WifiManager.cachedScanResults = [];
+        }
         // Otherwise, let the client know that it failed, it's responsible for
         // trying again in a few seconds.
-        sent = true;
         this._sendMessage(message, false, "ScanFailed", msg);
       }.bind(this)
     );
