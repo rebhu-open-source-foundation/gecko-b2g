@@ -1716,11 +1716,6 @@ class Document : public nsINode,
   }
 
   /**
-   * Remove a stylesheet from the document
-   */
-  void RemoveStyleSheet(StyleSheet&);
-
-  /**
    * Notify the document that the applicable state of the sheet changed
    * and that observers should be notified and style sets updated
    */
@@ -1845,6 +1840,14 @@ class Document : public nsINode,
   uint64_t InnerWindowID() const {
     nsPIDOMWindowInner* window = GetInnerWindow();
     return window ? window->WindowID() : 0;
+  }
+
+  /**
+   * Return WindowGlobalChild that is associated with the inner window.
+   */
+  WindowGlobalChild* GetWindowGlobalChild() {
+    return GetInnerWindow() ? GetInnerWindow()->GetWindowGlobalChild()
+                            : nullptr;
   }
 
   bool IsTopLevelWindowInactive() const;

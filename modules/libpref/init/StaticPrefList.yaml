@@ -1380,7 +1380,7 @@
 # Is support for AudioWorklet enabled?
 - name: dom.audioworklet.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Is support for Navigator.getBattery enabled?
@@ -2472,7 +2472,7 @@
 # This pref enables the featurePolicy header support.
 - name: dom.security.featurePolicy.header.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: dom.security.respect_document_nosniff
@@ -2485,10 +2485,10 @@
   value: false
   mirror: always
 
-# Expose the 'policy' attribute in document and HTMLIFrameElement
+# Expose the 'featurePolicy' attribute in document and HTMLIFrameElement
 - name: dom.security.featurePolicy.webidl.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # For testing purposes only: Flipping this pref to true allows
@@ -2525,6 +2525,14 @@
 # If true, all content requests will get upgraded to HTTPS://
 # (some Firefox functionality requests, like OCSP will not be affected)
 - name: dom.security.https_only_mode
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# WARNING: Don't ever update that pref manually! It is only used
+# for telemetry purposes and allows to reason about retention of
+# the pref dom.security.https_only_mode from above.
+- name: dom.security.https_only_mode_ever_enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -3213,7 +3221,7 @@
 
 - name: dom.worklet.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Enable content type normalization of XHR uploads via MIME Sniffing standard
@@ -4457,7 +4465,7 @@
 # APIs on HTMLImageElement.
 - name: image.honor_orientation_metadata.natural_size
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # The threshold for inferring that changes to an <img> element's |src|

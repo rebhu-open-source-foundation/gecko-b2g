@@ -440,10 +440,8 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
                  pointToInsert.Offset()) == pointToInsert.GetChild());
 
   // Loop over the node list and paste the nodes:
-  nsCOMPtr<nsINode> parentBlock =
-      IsBlockNode(pointToInsert.GetContainer())
-          ? pointToInsert.GetContainer()
-          : GetBlockNodeParent(pointToInsert.GetContainer());
+  RefPtr<Element> blockElement =
+      HTMLEditor::GetBlock(*pointToInsert.GetContainer());
   EditorDOMPoint lastInsertedPoint;
   nsCOMPtr<nsIContent> insertedContextParentContent;
   for (OwningNonNull<nsIContent>& content : arrayOfTopMostChildContents) {
@@ -562,7 +560,7 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
     }
     // If pasting into a `<pre>` element and current node is a `<pre>` element,
     // move only its children.
-    else if (parentBlock && HTMLEditUtils::IsPre(parentBlock) &&
+    else if (blockElement && HTMLEditUtils::IsPre(blockElement) &&
              HTMLEditUtils::IsPre(content)) {
       // Check for pre's going into pre's.
       for (nsCOMPtr<nsIContent> firstChild = content->GetFirstChild();
@@ -692,7 +690,7 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
 
   // If the container is a text node or a container element except `<table>`
   // element, put caret a end of it.
-  if (EditorBase::IsTextNode(containerContent) ||
+  if (containerContent->IsText() ||
       (IsContainer(containerContent) &&
        !HTMLEditUtils::IsTable(containerContent))) {
     pointToPutCaret.SetToEndOf(containerContent);

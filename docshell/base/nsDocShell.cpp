@@ -398,7 +398,6 @@ nsDocShell::nsDocShell(BrowsingContext* aBrowsingContext,
       mHasLoadedNonBlankURI(false),
       mBlankTiming(false),
       mTitleValidForCurrentURI(false),
-      mIsFrame(false),
       mWillChangeProcess(false),
       mWatchedByDevtools(false),
       mIsNavigating(false) {
@@ -2077,7 +2076,7 @@ void nsDocShell::TriggerParentCheckDocShellIsEmpty() {
       !GetBrowsingContext()->GetParent()->IsInProcess()) {
     if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
       mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
-          /*aFireLoadAtEmbeddingElement*/ false);
+          EmbedderElementEventType::NoEvent);
     }
   }
 }
@@ -3331,6 +3330,44 @@ nsDocShell::LoadURIFromScript(const nsAString& aURI,
   return LoadURI(aURI, loadURIOptions);
 }
 
+void nsDocShell::UnblockEmbedderLoadEventForFailure(bool aFireFrameErrorEvent) {
+  // If we're not in a content frame, or are at a BrowsingContext tree boundary,
+  // such as the content-chrome boundary, don't fire the error event.
+  if (mBrowsingContext->IsTopContent() || mBrowsingContext->IsChrome()) {
+    return;
+  }
+
+  // If embedder is same-process, then unblocking the load event is already
+  // handled by nsDocLoader. Fire the error event on our embedder element if
+  // requested.
+  //
+  // XXX: Bug 1440212 is looking into potentially changing this behaviour to act
+  // more like the remote case when in-process.
+  RefPtr<Element> element = mBrowsingContext->GetEmbedderElement();
+  if (element) {
+    if (aFireFrameErrorEvent) {
+      if (RefPtr<nsFrameLoaderOwner> flo = do_QueryObject(element)) {
+        if (RefPtr<nsFrameLoader> fl = flo->GetFrameLoader()) {
+          fl->FireErrorEvent();
+        }
+      }
+    }
+    return;
+  }
+
+  // If we have a cross-process parent document, we must notify it that we no
+  // longer block its load event.  This is necessary for OOP sub-documents
+  // because error documents do not result in a call to
+  // SendMaybeFireEmbedderLoadEvents via any of the normal call paths.
+  // (Obviously, we must do this before any of the returns below.)
+  RefPtr<BrowserChild> browserChild = BrowserChild::GetFrom(this);
+  if (browserChild) {
+    mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
+        aFireFrameErrorEvent ? EmbedderElementEventType::ErrorEvent
+                             : EmbedderElementEventType::NoEvent);
+  }
+}
+
 NS_IMETHODIMP
 nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
                              const char16_t* aURL, nsIChannel* aFailedChannel,
@@ -3338,18 +3375,6 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
   MOZ_LOG(gDocShellLeakLog, LogLevel::Debug,
           ("DOCSHELL %p DisplayLoadError %s\n", this,
            aURI ? aURI->GetSpecOrDefault().get() : ""));
-  // If we have a cross-process parent document, we must notify it that we no
-  // longer block its load event.  This is necessary for OOP sub-documents
-  // because error documents do not result in a call to
-  // SendMaybeFireEmbedderLoadEvents via any of the normal call paths.
-  // (Obviously, we must do this before any of the returns below.)
-  if (GetBrowsingContext()->IsContentSubframe() &&
-      !GetBrowsingContext()->GetParent()->IsInProcess()) {
-    if (BrowserChild* browserChild = BrowserChild::GetFrom(this)) {
-      mozilla::Unused << browserChild->SendMaybeFireEmbedderLoadEvents(
-          /*aFireLoadAtEmbeddingElement*/ false);
-    }
-  }
 
   *aDisplayedErrorPage = false;
   // Get prompt and string bundle services
@@ -3912,6 +3937,9 @@ nsresult nsDocShell::LoadErrorPage(nsIURI* aErrorURI, nsIURI* aFailedURI,
   loadState->SetLoadType(LOAD_ERROR_PAGE);
   loadState->SetFirstParty(true);
   loadState->SetSourceBrowsingContext(mBrowsingContext);
+  loadState->SetHasValidUserGestureActivation(
+      mBrowsingContext &&
+      mBrowsingContext->HasValidTransientUserGestureActivation());
 
   return InternalLoad(loadState, nullptr, nullptr);
 }
@@ -4016,6 +4044,9 @@ nsDocShell::Reload(uint32_t aReloadFlags) {
     loadState->SetSrcdocData(srcdoc);
     loadState->SetSourceBrowsingContext(mBrowsingContext);
     loadState->SetBaseURI(baseURI);
+    loadState->SetHasValidUserGestureActivation(
+        mBrowsingContext &&
+        mBrowsingContext->HasValidTransientUserGestureActivation());
     rv = InternalLoad(loadState, nullptr, nullptr);
   }
 
@@ -5090,6 +5121,8 @@ nsDocShell::ForceRefreshURI(nsIURI* aURI, nsIPrincipal* aPrincipal,
   loadState->SetTriggeringPrincipal(principal);
   if (doc) {
     loadState->SetCsp(doc->GetCsp());
+    loadState->SetHasValidUserGestureActivation(
+        doc->HasValidTransientUserGestureActivation());
   }
 
   loadState->SetPrincipalIsExplicit(true);
@@ -5978,6 +6011,7 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
         aStatus == NS_ERROR_FILE_ACCESS_DENIED ||
         aStatus == NS_ERROR_CORRUPTED_CONTENT ||
         aStatus == NS_ERROR_INVALID_CONTENT_ENCODING) {
+      UnblockEmbedderLoadEventForFailure();
       DisplayLoadError(aStatus, url, nullptr, aChannel);
       return NS_OK;
     }
@@ -5988,6 +6022,8 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
     // document. (document of parent window of blocked document)
     if (!isTopFrame &&
         UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(aStatus)) {
+      UnblockEmbedderLoadEventForFailure();
+
       // frameElement is our nsIContent to be annotated
       RefPtr<Element> frameElement;
       nsPIDOMWindowOuter* thisWindow = GetWindow();
@@ -6014,7 +6050,6 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
       }
 
       parentDoc->AddBlockedNodeByClassifier(frameElement);
-
       return NS_OK;
     }
 
@@ -6188,6 +6223,16 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
 
     // Well, fixup didn't work :-(
     // It is time to throw an error dialog box, and be done with it...
+
+    // If we got CONTENT_BLOCKED from EndPageLoad, then we need to fire
+    // the error event to our embedder, since tests are relying on this.
+    // The error event is usually fired by the caller of InternalLoad, but
+    // this particular error can happen asynchronously.
+    // Bug 1629201 is filed for having much clearer decision making around
+    // which cases need error events.
+    bool fireFrameErrorEvent = (aStatus == NS_ERROR_CONTENT_BLOCKED_SHOW_ALT ||
+                                aStatus == NS_ERROR_CONTENT_BLOCKED);
+    UnblockEmbedderLoadEventForFailure(fireFrameErrorEvent);
 
     // Errors to be shown only on top-level frames
     if ((aStatus == NS_ERROR_UNKNOWN_HOST ||
@@ -8236,6 +8281,9 @@ nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState,
       loadState->SetForceAllowDataURI(
           aLoadState->HasLoadFlags(INTERNAL_LOAD_FLAGS_FORCE_ALLOW_DATA_URI));
 
+      loadState->SetHasValidUserGestureActivation(
+          aLoadState->HasValidUserGestureActivation());
+
       rv = win->Open(NS_ConvertUTF8toUTF16(spec),
                      aLoadState->Target(),  // window name
                      EmptyString(),         // Features
@@ -8993,6 +9041,7 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
 
   if (NS_FAILED(rv)) {
     nsCOMPtr<nsIChannel> chan(do_QueryInterface(req));
+    UnblockEmbedderLoadEventForFailure();
     if (DisplayLoadError(rv, aLoadState->URI(), nullptr, chan) &&
         aLoadState->HasLoadFlags(LOAD_FLAGS_ERROR_LOAD_CHANGES_RV)) {
       return NS_ERROR_LOAD_SHOWED_ERRORPAGE;
@@ -9635,11 +9684,17 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
           "subframes should have the same docshell type as their parent");
 #endif
     } else {
-      // If this isn't a top-level load and mScriptGlobal's frame element is
-      // null, then the element got removed from the DOM while we were trying
-      // to load this resource. This docshell is scheduled for destruction
-      // already, so bail out here.
-      return NS_OK;
+      if (mIsBeingDestroyed) {
+        // If this isn't a top-level load and mScriptGlobal's frame element is
+        // null, then the element got removed from the DOM while we were trying
+        // to load this resource. This docshell is scheduled for destruction
+        // already, so bail out here.
+        return NS_OK;
+      }
+      // If we are not being destroyed and we do not have access to the loading
+      // node, then we are a remote subframe. Set the loading principal
+      // to be a null principal and then set it correctly in the parent.
+      loadingPrincipal = NullPrincipal::Create(GetOriginAttributes(), nullptr);
     }
   }
 
@@ -9697,6 +9752,13 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
     securityFlags |= nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL;
   }
 
+  // Must never have a parent for TYPE_DOCUMENT loads
+  MOZ_ASSERT_IF(contentPolicyType == nsIContentPolicy::TYPE_DOCUMENT,
+                !mBrowsingContext->GetParent());
+  // Subdocuments must have a parent
+  MOZ_ASSERT_IF(contentPolicyType == nsIContentPolicy::TYPE_SUBDOCUMENT,
+                mBrowsingContext->GetParent());
+
   RefPtr<LoadInfo> loadInfo =
       (contentPolicyType == nsIContentPolicy::TYPE_DOCUMENT)
           ? new LoadInfo(loadingWindow, aLoadState->TriggeringPrincipal(),
@@ -9706,6 +9768,15 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
                          Maybe<mozilla::dom::ClientInfo>(),
                          Maybe<mozilla::dom::ServiceWorkerDescriptor>(),
                          sandboxFlags);
+
+  // in case this docshell load was triggered by a valid transient user gesture,
+  // or also the load originates from external, then we pass that information on
+  // to the loadinfo, which allows e.g. setting Sec-Fetch-User request headers.
+  if (mBrowsingContext->HasValidTransientUserGestureActivation() ||
+      aLoadState->HasValidUserGestureActivation() ||
+      aLoadState->HasLoadFlags(LOAD_FLAGS_FROM_EXTERNAL)) {
+    loadInfo->SetHasValidUserGestureActivation(true);
+  }
 
   /* Get the cache Key from SH */
   uint32_t cacheKey = 0;
@@ -11630,8 +11701,6 @@ nsresult nsDocShell::EnsureFind() {
   return NS_OK;
 }
 
-bool nsDocShell::IsFrame() { return mIsFrame; }
-
 NS_IMETHODIMP
 nsDocShell::IsBeingDestroyed(bool* aDoomed) {
   NS_ENSURE_ARG(aDoomed);
@@ -12154,6 +12223,9 @@ nsresult nsDocShell::OnLinkClickSync(
   loadState->SetFirstParty(true);
   loadState->SetSourceBrowsingContext(mBrowsingContext);
   loadState->SetIsFormSubmission(aContent->IsHTMLElement(nsGkAtoms::form));
+  loadState->SetHasValidUserGestureActivation(
+      mBrowsingContext &&
+      mBrowsingContext->HasValidTransientUserGestureActivation());
   nsresult rv = InternalLoad(loadState, aDocShell, aRequest);
 
   if (NS_SUCCEEDED(rv)) {

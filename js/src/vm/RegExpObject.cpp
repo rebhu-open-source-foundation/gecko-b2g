@@ -27,6 +27,7 @@
 #include "js/RegExpFlags.h"  // JS::RegExpFlags
 #include "js/StableStringChars.h"
 #ifdef ENABLE_NEW_REGEXP
+#  include "new-regexp/regexp-stack.h"
 #  include "new-regexp/RegExpAPI.h"
 #endif
 #include "util/StringBuffer.h"
@@ -575,7 +576,7 @@ JSLinearString* RegExpObject::toString(JSContext* cx) const {
 /* static */
 bool RegExpShared::dumpBytecode(JSContext* cx, MutableHandleRegExpShared re,
                                 HandleLinearString input) {
-  if (!RegExpShared::compileIfNecessary(cx, re, input, ForceByteCode)) {
+  if (!RegExpShared::compileIfNecessary(cx, re, input, CodeKind::Bytecode)) {
     return false;
   }
 
@@ -946,7 +947,7 @@ bool js::StringHasRegExpMetaChars(JSLinearString* str) {
 /* RegExpShared */
 
 RegExpShared::RegExpShared(JSAtom* source, RegExpFlags flags)
-    : headerAndSource(source), parenCount(0), flags(flags) {}
+    : headerAndSource(source), pairCount_(0), flags(flags) {}
 
 void RegExpShared::traceChildren(JSTracer* trc) {
   // Discard code to avoid holding onto ExecutablePools.
@@ -991,32 +992,38 @@ void RegExpShared::finalize(JSFreeOp* fop) {
 
 /* static */
 bool RegExpShared::compile(JSContext* cx, MutableHandleRegExpShared re,
-                           HandleLinearString input, ForceByteCodeEnum force) {
+                           HandleLinearString input,
+                           RegExpShared::CodeKind codeKind) {
   TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
   AutoTraceLog logCompile(logger, TraceLogger_IrregexpCompile);
 
   RootedAtom pattern(cx, re->getSource());
-  return compile(cx, re, pattern, input, force);
+  return compile(cx, re, pattern, input, codeKind);
 }
 
 #ifdef ENABLE_NEW_REGEXP
 bool RegExpShared::compile(JSContext* cx, MutableHandleRegExpShared re,
                            HandleAtom pattern, HandleLinearString input,
-                           ForceByteCodeEnum force) {
+                           RegExpShared::CodeKind code) {
   MOZ_CRASH("TODO");
 }
 /* static */
 bool RegExpShared::compileIfNecessary(JSContext* cx,
                                       MutableHandleRegExpShared re,
                                       HandleLinearString input,
-                                      ForceByteCodeEnum force) {
+                                      RegExpShared::CodeKind codeKind) {
   bool needsCompile = false;
   if (re->kind() == RegExpShared::Kind::Unparsed) {
     needsCompile = true;
   }
-
-  // TODO: tier-up from interpreter to generated code
-
+  if (re->kind() == RegExpShared::Kind::RegExp) {
+    if (codeKind == RegExpShared::CodeKind::Any && re->markedForTierUp()) {
+      codeKind = RegExpShared::CodeKind::Jitcode;
+    }
+    if (!re->isCompiled(input->hasLatin1Chars(), codeKind)) {
+      needsCompile = true;
+    }
+  }
   if (needsCompile) {
     return irregexp::CompilePattern(cx, re, input);
   }
@@ -1033,7 +1040,7 @@ RegExpRunStatus RegExpShared::execute(JSContext* cx,
   // TODO: Add tracelogger support
 
   /* Compile the code at point-of-use. */
-  if (!compileIfNecessary(cx, re, input, DontForceByteCode)) {
+  if (!compileIfNecessary(cx, re, input, RegExpShared::CodeKind::Any)) {
     return RegExpRunStatus_Error;
   }
 
@@ -1050,14 +1057,85 @@ RegExpRunStatus RegExpShared::execute(JSContext* cx,
     return RegExpShared::executeAtom(cx, re, input, start, matches);
   }
 
-  MOZ_CRASH("TODO");
+  // Reset the Irregexp backtrack stack if it grows during execution.
+  irregexp::RegExpStackScope stackScope(cx->isolate);
+
+  /*
+   * Ensure sufficient memory for output vector.
+   * No need to initialize it. The RegExp engine fills them in on a match.
+   */
+  if (!matches->allocOrExpandArray(re->pairCount())) {
+    ReportOutOfMemory(cx);
+    return RegExpRunStatus_Error;
+  }
+
+  uint32_t interruptRetries = 0;
+  const uint32_t maxInterruptRetries = 4;
+  do {
+    RegExpRunStatus result = irregexp::Execute(cx, re, input, start, matches);
+
+    if (result == RegExpRunStatus_Error) {
+      /* Execute can return RegExpRunStatus_Error:
+       *
+       *  1. If the native stack overflowed
+       *  2. If the backtrack stack overflowed
+       *  3. If an interrupt was requested during execution.
+       *
+       * In the first two cases, we want to throw an error. In the
+       * third case, we want to handle the interrupt and try again.
+       * We cap the number of times we will retry.
+       */
+      if (cx->hasAnyPendingInterrupt()) {
+        if (!CheckForInterrupt(cx)) {
+          return RegExpRunStatus_Error;
+        }
+        if (interruptRetries++ < maxInterruptRetries) {
+          continue;
+        }
+      }
+      // If we have run out of retries, this regexp takes too long to execute.
+      ReportOverRecursed(cx);
+      return RegExpRunStatus_Error;
+    }
+
+    MOZ_ASSERT(result == RegExpRunStatus_Success ||
+               result == RegExpRunStatus_Success_NotFound);
+
+    return result;
+  } while (true);
+
+  MOZ_CRASH("Unreachable");
 }
 
 void RegExpShared::useAtomMatch(HandleAtom pattern) {
   MOZ_ASSERT(kind() == RegExpShared::Kind::Unparsed);
   kind_ = RegExpShared::Kind::Atom;
   patternAtom_ = pattern;
-  parenCount = 0;
+  pairCount_ = 1;
+}
+
+void RegExpShared::useRegExpMatch(size_t pairCount) {
+  MOZ_ASSERT(kind() == RegExpShared::Kind::Unparsed);
+  kind_ = RegExpShared::Kind::RegExp;
+  pairCount_ = pairCount;
+  ticks_ = 10;  // TODO: add a jit option to control this threshold
+}
+
+void RegExpShared::tierUpTick() {
+  MOZ_ASSERT(kind() == RegExpShared::Kind::RegExp);
+  if (ticks_ > 0) {
+    ticks_--;
+  }
+}
+
+bool RegExpShared::markedForTierUp() {
+  if (!IsNativeRegExpEnabled()) {
+    return false;
+  }
+  if (kind() == RegExpShared::Kind::Atom) {
+    return false;
+  }
+  return ticks_ == 0;
 }
 
 #else   // !ENABLE_NEW_REGEXP
@@ -1065,7 +1143,7 @@ void RegExpShared::useAtomMatch(HandleAtom pattern) {
 /* static */
 bool RegExpShared::compile(JSContext* cx, MutableHandleRegExpShared re,
                            HandleAtom pattern, HandleLinearString input,
-                           ForceByteCodeEnum force) {
+                           RegExpShared::CodeKind codeKind) {
   if (!re->ignoreCase() && !StringHasRegExpMetaChars(pattern)) {
     re->canStringMatch = true;
   }
@@ -1082,14 +1160,15 @@ bool RegExpShared::compile(JSContext* cx, MutableHandleRegExpShared re,
     return false;
   }
 
-  re->parenCount = data.capture_count;
+  // Add one to account for the whole-match capture.
+  re->pairCount_ = data.capture_count + 1;
 
+  bool forceBytecode = codeKind == RegExpShared::CodeKind::Bytecode;
   JitCodeTables tables;
   irregexp::RegExpCode code = irregexp::CompilePattern(
       cx, allocScope.alloc(), re, &data, input, false /* global() */,
-      re->ignoreCase(), input->hasLatin1Chars(),
-      /*match_only = */ false, force == ForceByteCode, re->sticky(),
-      re->unicode(), tables);
+      re->ignoreCase(), input->hasLatin1Chars(), /*match_only = */ false,
+      forceBytecode, re->sticky(), re->unicode(), tables);
   if (code.empty()) {
     return false;
   }
@@ -1123,11 +1202,11 @@ bool RegExpShared::compile(JSContext* cx, MutableHandleRegExpShared re,
 bool RegExpShared::compileIfNecessary(JSContext* cx,
                                       MutableHandleRegExpShared re,
                                       HandleLinearString input,
-                                      ForceByteCodeEnum force) {
-  if (re->isCompiled(input->hasLatin1Chars(), force)) {
+                                      RegExpShared::CodeKind codeKind) {
+  if (re->isCompiled(input->hasLatin1Chars(), codeKind)) {
     return true;
   }
-  return compile(cx, re, input, force);
+  return compile(cx, re, input, codeKind);
 }
 
 /* static */
@@ -1139,7 +1218,7 @@ RegExpRunStatus RegExpShared::execute(JSContext* cx,
   TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
 
   /* Compile the code at point-of-use. */
-  if (!compileIfNecessary(cx, re, input, DontForceByteCode)) {
+  if (!compileIfNecessary(cx, re, input, RegExpShared::CodeKind::Any)) {
     return RegExpRunStatus_Error;
   }
 
@@ -1205,7 +1284,7 @@ RegExpRunStatus RegExpShared::execute(JSContext* cx,
   } while (false);
 
   // Compile bytecode for the RegExp if necessary.
-  if (!compileIfNecessary(cx, re, input, ForceByteCode)) {
+  if (!compileIfNecessary(cx, re, input, RegExpShared::CodeKind::Bytecode)) {
     return RegExpRunStatus_Error;
   }
 

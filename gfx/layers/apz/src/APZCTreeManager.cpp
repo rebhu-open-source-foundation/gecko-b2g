@@ -487,15 +487,11 @@ APZCTreeManager::UpdateHitTestingTreeImpl(const ScrollNode& aRoot,
 
           // GetFixedPositionAnimationId is only set when webrender is enabled.
           if (node->GetFixedPositionAnimationId().isSome()) {
-            state.mFixedPositionInfo.emplace_back(
-                *(node->GetFixedPositionAnimationId()),
-                node->GetFixedPosSides());
+            state.mFixedPositionInfo.emplace_back(node);
           }
           // GetStickyPositionAnimationId is only set when webrender is enabled.
           if (node->GetStickyPositionAnimationId().isSome()) {
-            state.mStickyPositionInfo.emplace_back(
-                *(node->GetStickyPositionAnimationId()),
-                node->GetFixedPosSides());
+            state.mStickyPositionInfo.emplace_back(node);
           }
           if (apzc && node->IsPrimaryHolder()) {
             state.mScrollTargets[apzc->GetGuid()] = node;
@@ -854,6 +850,11 @@ void APZCTreeManager::SampleForWebRender(
   }
 
   for (const FixedPositionInfo& info : mFixedPositionInfo) {
+    MOZ_ASSERT(info.mFixedPositionAnimationId.isSome());
+    if (!IsFixedToRootContent(info, lock)) {
+      continue;
+    }
+
     ScreenPoint translation =
         AsyncCompositionManager::ComputeFixedMarginsOffset(
             GetCompositorFixedLayerMargins(lock), info.mFixedPosSides,
@@ -864,13 +865,19 @@ void APZCTreeManager::SampleForWebRender(
             translation, PixelCastJustification::ScreenIsParentLayerForRoot));
 
     transforms.AppendElement(
-        wr::ToWrTransformProperty(info.mFixedPositionAnimationId, transform));
+        wr::ToWrTransformProperty(*info.mFixedPositionAnimationId, transform));
   }
 
   for (const StickyPositionInfo& info : mStickyPositionInfo) {
+    MOZ_ASSERT(info.mStickyPositionAnimationId.isSome());
+    SideBits sides = SidesStuckToRootContent(info, lock);
+    if (sides == SideBits::eNone) {
+      continue;
+    }
+
     ScreenPoint translation =
         AsyncCompositionManager::ComputeFixedMarginsOffset(
-            GetCompositorFixedLayerMargins(lock), info.mFixedPosSides,
+            GetCompositorFixedLayerMargins(lock), sides,
             // For sticky layers, we don't need to factor
             // mGeckoFixedLayerMargins because Gecko doesn't shift the
             // position of sticky elements for dynamic toolbar movements.
@@ -881,7 +888,7 @@ void APZCTreeManager::SampleForWebRender(
             translation, PixelCastJustification::ScreenIsParentLayerForRoot));
 
     transforms.AppendElement(
-        wr::ToWrTransformProperty(info.mStickyPositionAnimationId, transform));
+        wr::ToWrTransformProperty(*info.mStickyPositionAnimationId, transform));
   }
 
   aTxn.AppendTransformProperties(transforms);
@@ -3509,46 +3516,73 @@ already_AddRefed<AsyncPanZoomController> APZCTreeManager::CommonAncestor(
 
 bool APZCTreeManager::IsFixedToRootContent(
     const HitTestingTreeNode* aNode) const {
-  mTreeLock.AssertCurrentThreadIn();
-  ScrollableLayerGuid::ViewID fixedTarget = aNode->GetFixedPosTarget();
+  MutexAutoLock lock(mMapLock);
+  return IsFixedToRootContent(FixedPositionInfo(aNode), lock);
+}
+
+bool APZCTreeManager::IsFixedToRootContent(
+    const FixedPositionInfo& aFixedInfo,
+    const MutexAutoLock& aProofOfMapLock) const {
+  ScrollableLayerGuid::ViewID fixedTarget = aFixedInfo.mFixedPosTarget;
   if (fixedTarget == ScrollableLayerGuid::NULL_SCROLL_ID) {
     return false;
   }
-  RefPtr<AsyncPanZoomController> targetApzc =
-      GetTargetAPZC(aNode->GetLayersId(), fixedTarget);
+  auto it =
+      mApzcMap.find(ScrollableLayerGuid(aFixedInfo.mLayersId, 0, fixedTarget));
+  if (it == mApzcMap.end()) {
+    return false;
+  }
+  RefPtr<AsyncPanZoomController> targetApzc = it->second.apzc;
   return targetApzc && targetApzc->IsRootContent();
 }
 
-bool APZCTreeManager::IsStuckToRootContentAtBottom(
+SideBits APZCTreeManager::SidesStuckToRootContent(
     const HitTestingTreeNode* aNode) const {
-  mTreeLock.AssertCurrentThreadIn();
-  ScrollableLayerGuid::ViewID stickyTarget = aNode->GetStickyPosTarget();
+  MutexAutoLock lock(mMapLock);
+  return SidesStuckToRootContent(StickyPositionInfo(aNode), lock);
+}
+
+SideBits APZCTreeManager::SidesStuckToRootContent(
+    const StickyPositionInfo& aStickyInfo,
+    const MutexAutoLock& aProofOfMapLock) const {
+  SideBits result = SideBits::eNone;
+
+  ScrollableLayerGuid::ViewID stickyTarget = aStickyInfo.mStickyPosTarget;
   if (stickyTarget == ScrollableLayerGuid::NULL_SCROLL_ID) {
-    return false;
+    return result;
   }
 
   // We support the dynamic toolbar at top and bottom.
-  if ((aNode->GetFixedPosSides() & SideBits::eTopBottom) == SideBits::eNone) {
-    return false;
+  if ((aStickyInfo.mFixedPosSides & SideBits::eTopBottom) == SideBits::eNone) {
+    return result;
   }
 
-  RefPtr<AsyncPanZoomController> stickyTargetApzc =
-      GetTargetAPZC(aNode->GetLayersId(), stickyTarget);
+  auto it = mApzcMap.find(
+      ScrollableLayerGuid(aStickyInfo.mLayersId, 0, stickyTarget));
+  if (it == mApzcMap.end()) {
+    return result;
+  }
+  RefPtr<AsyncPanZoomController> stickyTargetApzc = it->second.apzc;
   if (!stickyTargetApzc || !stickyTargetApzc->IsRootContent()) {
-    return false;
+    return result;
   }
 
-  // These inner/outer ranges include the scroll offset at the last paint so we
-  // don't need to care the scroll offset itself here, we just need the
-  // translation from the last scroll offset.
   ParentLayerPoint translation =
       stickyTargetApzc
           ->GetCurrentAsyncTransform(
               AsyncPanZoomController::eForHitTesting,
               AsyncTransformComponents{AsyncTransformComponent::eLayout})
           .mTranslation;
-  return apz::IsStuckAtBottom(translation.y, aNode->GetStickyScrollRangeInner(),
-                              aNode->GetStickyScrollRangeOuter());
+
+  if (apz::IsStuckAtTop(translation.y, aStickyInfo.mStickyScrollRangeInner,
+                        aStickyInfo.mStickyScrollRangeOuter)) {
+    result |= SideBits::eTop;
+  }
+  if (apz::IsStuckAtBottom(translation.y, aStickyInfo.mStickyScrollRangeInner,
+                           aStickyInfo.mStickyScrollRangeOuter)) {
+    result |= SideBits::eBottom;
+  }
+  return result;
 }
 
 LayerToParentLayerMatrix4x4 APZCTreeManager::ComputeTransformForNode(
@@ -3630,14 +3664,15 @@ LayerToParentLayerMatrix4x4 APZCTreeManager::ComputeTransformForNode(
     return aNode->GetTransform() *
            CompleteAsyncTransform(
                AsyncTransformComponentMatrix::Translation(translation));
-  } else if (IsStuckToRootContentAtBottom(aNode)) {
+  }
+  SideBits sides = SidesStuckToRootContent(aNode);
+  if (sides != SideBits::eNone) {
     ParentLayerPoint translation;
     {
       MutexAutoLock mapLock(mMapLock);
       translation = ViewAs<ParentLayerPixel>(
           AsyncCompositionManager::ComputeFixedMarginsOffset(
-              GetCompositorFixedLayerMargins(mapLock),
-              aNode->GetFixedPosSides() & SideBits::eTopBottom,
+              GetCompositorFixedLayerMargins(mapLock), sides,
               // For sticky layers, we don't need to factor
               // mGeckoFixedLayerMargins because Gecko doesn't shift the
               // position of sticky elements for dynamic toolbar movements.
@@ -3976,6 +4011,24 @@ APZCTreeManager::GetAndroidDynamicToolbarAnimator() {
   return mToolbarAnimator;
 }
 #endif  // defined(MOZ_WIDGET_ANDROID)
+
+APZCTreeManager::FixedPositionInfo::FixedPositionInfo(
+    const HitTestingTreeNode* aNode) {
+  mFixedPositionAnimationId = aNode->GetFixedPositionAnimationId();
+  mFixedPosSides = aNode->GetFixedPosSides();
+  mFixedPosTarget = aNode->GetFixedPosTarget();
+  mLayersId = aNode->GetLayersId();
+}
+
+APZCTreeManager::StickyPositionInfo::StickyPositionInfo(
+    const HitTestingTreeNode* aNode) {
+  mStickyPositionAnimationId = aNode->GetStickyPositionAnimationId();
+  mFixedPosSides = aNode->GetFixedPosSides();
+  mStickyPosTarget = aNode->GetStickyPosTarget();
+  mLayersId = aNode->GetLayersId();
+  mStickyScrollRangeInner = aNode->GetStickyScrollRangeInner();
+  mStickyScrollRangeOuter = aNode->GetStickyScrollRangeOuter();
+}
 
 }  // namespace layers
 }  // namespace mozilla

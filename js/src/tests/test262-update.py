@@ -51,6 +51,7 @@ RELEASE_OR_BETA = set([
     "Promise.any",
     "AggregateError",
     "String.prototype.replaceAll",
+    "logical-assignment-operators",
 ])
 
 

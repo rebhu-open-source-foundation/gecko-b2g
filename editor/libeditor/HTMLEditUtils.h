@@ -14,11 +14,62 @@ class nsAtom;
 
 namespace mozilla {
 
+enum class EditAction;
+
 class HTMLEditUtils final {
   using Element = dom::Element;
   using Selection = dom::Selection;
 
  public:
+  /**
+   * IsSimplyEditableNode() returns true when aNode is simply editable.
+   * This does NOT means that aNode can be removed from current parent nor
+   * aNode's data is editable.
+   */
+  static bool IsSimplyEditableNode(const nsINode& aNode) {
+    return aNode.IsEditable();
+  }
+
+  /**
+   * IsRemovableFromParentNode() returns true when aContent is editable, has a
+   * parent node and the parent node is also editable.
+   */
+  static bool IsRemovableFromParentNode(const nsIContent& aContent) {
+    return aContent.IsEditable() && aContent.GetParentNode() &&
+           aContent.GetParentNode()->IsEditable();
+  }
+
+  /**
+   * CanContentsBeJoined() returns true if aLeftContent and aRightContent can be
+   * joined.  At least, Node.nodeName must be same when this returns true.
+   */
+  enum class StyleDifference {
+    // Ignore style information so that callers may join different styled
+    // contents.
+    Ignore,
+    // Compare style information when the contents are any elements.
+    CompareIfElements,
+    // Compare style information only when the contents are <span> elements.
+    CompareIfSpanElements,
+  };
+  static bool CanContentsBeJoined(const nsIContent& aLeftContent,
+                                  const nsIContent& aRightContent,
+                                  StyleDifference aStyleDifference);
+
+  /**
+   * IsBlockElement() returns true if aContent is an element and it should
+   * be treated as a block.  (This does not refer style information.)
+   */
+  static bool IsBlockElement(const nsIContent& aContent);
+  /**
+   * IsInlineElement() returns true if aElement is an element node but
+   * shouldn't be treated as a block or aElement is not an element.
+   * XXX This looks odd.  For example, how about a comment node?
+   */
+  static bool IsInlineElement(const nsIContent& aContent) {
+    return !IsBlockElement(aContent);
+  }
+
   static bool IsInlineStyle(nsINode* aNode);
   /**
    * IsRemovableInlineStyleElement() returns true if aElement is an inline

@@ -34,6 +34,13 @@ bool ReadRemoteEvent(const IPC::Message* aMsg, PickleIterator* aIter,
 
 typedef CrashReporter::ThreadId NativeThreadId;
 
+enum class EmbedderElementEventType {
+  NoEvent,
+  LoadEvent,
+  ErrorEvent,
+  EndGuard_,
+};
+
 }  // namespace dom
 }  // namespace mozilla
 
@@ -158,6 +165,13 @@ struct ParamTraits<mozilla::ScrollAxis> {
     return true;
   }
 };
+
+template <>
+struct ParamTraits<mozilla::dom::EmbedderElementEventType>
+    : public ContiguousEnumSerializer<
+          mozilla::dom::EmbedderElementEventType,
+          mozilla::dom::EmbedderElementEventType::NoEvent,
+          mozilla::dom::EmbedderElementEventType::EndGuard_> {};
 
 }  // namespace IPC
 

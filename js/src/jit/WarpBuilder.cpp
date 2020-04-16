@@ -1749,7 +1749,7 @@ MConstant* WarpBuilder::globalLexicalEnvConstant() {
 
 bool WarpBuilder::buildGetNameOp(BytecodeLocation loc, MDefinition* env) {
   if (auto* snapshot = getOpSnapshot<WarpCacheIR>(loc)) {
-    return buildCacheIR(loc, snapshot, env);
+    return buildCacheIR(loc, snapshot, {env});
   }
 
   MGetNameCache* ins = MGetNameCache::New(alloc(), env);
@@ -1823,7 +1823,7 @@ bool WarpBuilder::build_GetProp(BytecodeLocation loc) {
   MDefinition* val = current->pop();
 
   if (auto* snapshot = getOpSnapshot<WarpCacheIR>(loc)) {
-    return buildCacheIR(loc, snapshot, val);
+    return buildCacheIR(loc, snapshot, {val});
   }
 
   MConstant* id = constant(StringValue(name));
@@ -1841,6 +1841,11 @@ bool WarpBuilder::build_Length(BytecodeLocation loc) {
 bool WarpBuilder::build_GetElem(BytecodeLocation loc) {
   MDefinition* id = current->pop();
   MDefinition* val = current->pop();
+
+  if (auto* snapshot = getOpSnapshot<WarpCacheIR>(loc)) {
+    return buildCacheIR(loc, snapshot, {val, id});
+  }
+
   return buildGetPropOp(loc, val, id);
 }
 
@@ -2792,12 +2797,14 @@ bool WarpBuilder::build_ThrowSetConst(BytecodeLocation loc) {
 
 bool WarpBuilder::buildCacheIR(BytecodeLocation loc,
                                const WarpCacheIR* snapshot,
-                               MDefinition* input) {
-  MDefinitionStackVector inputs;
-  MOZ_ALWAYS_TRUE(inputs.append(input));  // Can't fail due to inline capacity.
+                               std::initializer_list<MDefinition*> inputs) {
+  MDefinitionStackVector inputs_;
+  if (!inputs_.append(inputs.begin(), inputs.end())) {
+    return false;
+  }
 
   TranspilerOutput output;
-  if (!TranspileCacheIRToMIR(mirGen_, current, snapshot, inputs, output)) {
+  if (!TranspileCacheIRToMIR(mirGen_, current, snapshot, inputs_, output)) {
     return false;
   }
 

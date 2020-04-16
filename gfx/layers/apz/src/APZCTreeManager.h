@@ -667,9 +667,27 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
       AsyncPanZoomController* aApzc1, AsyncPanZoomController* aApzc2) const;
   already_AddRefed<AsyncPanZoomController> CommonAncestor(
       AsyncPanZoomController* aApzc1, AsyncPanZoomController* aApzc2) const;
+
+  struct FixedPositionInfo;
+  struct StickyPositionInfo;
+
+  // Returns true if |aNode| is a fixed layer that is fixed to the root content
+  // APZC.
+  // The map lock is required within these functions; if the map lock is already
+  // being held by the caller, the second overload should be used. If the map
+  // lock is not being held at the call site, the first overload should be used.
   bool IsFixedToRootContent(const HitTestingTreeNode* aNode) const;
-  // Returns true that |aNode| is stuck to the root content at bottom.
-  bool IsStuckToRootContentAtBottom(const HitTestingTreeNode* aNode) const;
+  bool IsFixedToRootContent(const FixedPositionInfo& aFixedInfo,
+                            const MutexAutoLock& aProofOfMapLock) const;
+
+  // Returns the vertical sides of |aNode| that are stuck to the root content.
+  // The map lock is required within these functions; if the map lock is already
+  // being held by the caller, the second overload should be used. If the map
+  // lock is not being held at the call site, the first overload should be used.
+  SideBits SidesStuckToRootContent(const HitTestingTreeNode* aNode) const;
+  SideBits SidesStuckToRootContent(const StickyPositionInfo& aStickyInfo,
+                                   const MutexAutoLock& aProofOfMapLock) const;
+
   /**
    * Perform hit testing for a touch-start event.
    *
@@ -922,13 +940,12 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * async transform for a fixed position element on the sampler thread.
    */
   struct FixedPositionInfo {
-    uint64_t mFixedPositionAnimationId;
+    Maybe<uint64_t> mFixedPositionAnimationId;
     SideBits mFixedPosSides;
+    ScrollableLayerGuid::ViewID mFixedPosTarget;
+    LayersId mLayersId;
 
-    FixedPositionInfo(const uint64_t& aFixedPositionAnimationId,
-                      const SideBits aFixedPosSides)
-        : mFixedPositionAnimationId(aFixedPositionAnimationId),
-          mFixedPosSides(aFixedPosSides) {}
+    explicit FixedPositionInfo(const HitTestingTreeNode* aNode);
   };
   /**
    * If this APZCTreeManager is being used with WebRender, this vector gets
@@ -948,13 +965,14 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * async transform for a sticky position element on the sampler thread.
    */
   struct StickyPositionInfo {
-    uint64_t mStickyPositionAnimationId;
+    Maybe<uint64_t> mStickyPositionAnimationId;
     SideBits mFixedPosSides;
+    ScrollableLayerGuid::ViewID mStickyPosTarget;
+    LayersId mLayersId;
+    LayerRectAbsolute mStickyScrollRangeInner;
+    LayerRectAbsolute mStickyScrollRangeOuter;
 
-    StickyPositionInfo(const uint64_t& aStickyPositionAnimationId,
-                       const SideBits aFixedPosSides)
-        : mStickyPositionAnimationId(aStickyPositionAnimationId),
-          mFixedPosSides(aFixedPosSides) {}
+    explicit StickyPositionInfo(const HitTestingTreeNode* aNode);
   };
   /**
    * If this APZCTreeManager is being used with WebRender, this vector gets

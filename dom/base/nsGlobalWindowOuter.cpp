@@ -1750,10 +1750,11 @@ void nsGlobalWindowOuter::SetInitialPrincipalToSubject(
   // We should never create windows with an expanded principal.
   // If we have a system principal, make sure we're not using it for a content
   // docshell.
-  // NOTE: Please keep this logic in sync with AppWindow::Initialize().
+  // NOTE: Please keep this logic in sync with
+  // nsAppShellService::JustCreateTopWindow
   if (nsContentUtils::IsExpandedPrincipal(newWindowPrincipal) ||
       (newWindowPrincipal->IsSystemPrincipal() &&
-       GetDocShell()->ItemType() != nsIDocShellTreeItem::typeChrome)) {
+       GetBrowsingContext()->IsContent())) {
     newWindowPrincipal = nullptr;
   }
 
@@ -2414,6 +2415,21 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
   // for our BrowsingContext if it isn't already.
   WindowGlobalChild* wgc = mInnerWindow->GetWindowGlobalChild();
   wgc->SetDocumentURI(aDocument->GetDocumentURI());
+
+  wgc->SetDocumentPrincipal(aDocument->NodePrincipal());
+
+  wgc->SendUpdateDocumentCspSettings(
+      aDocument->GetBlockAllMixedContent(false),
+      aDocument->GetUpgradeInsecureRequests(false));
+  wgc->SendUpdateSandboxFlags(aDocument->GetSandboxFlags());
+  net::CookieJarSettingsArgs csArgs;
+  net::CookieJarSettings::Cast(aDocument->CookieJarSettings())
+      ->Serialize(csArgs);
+  if (!wgc->SendUpdateCookieJarSettings(csArgs)) {
+    NS_WARNING(
+        "Failed to update document's cookie jar settings on the "
+        "WindowGlobalParent");
+  }
 
   RefPtr<BrowsingContext> bc = GetBrowsingContext();
   bc->SetCurrentInnerWindowId(mInnerWindow->WindowID());

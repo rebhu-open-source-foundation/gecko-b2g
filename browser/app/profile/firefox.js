@@ -200,8 +200,6 @@ pref("browser.fixup.domainwhitelist.localhost", true);
   pref("general.autoScroll", true);
 #endif
 
-pref("browser.stopReloadAnimation.enabled", true);
-
 // UI density of the browser chrome. This mostly affects toolbarbutton
 // and urlbar spacing. The possible values are 0=normal, 1=compact, 2=touch.
 pref("browser.uidensity", 0);
@@ -289,8 +287,6 @@ pref("browser.urlbar.maxCharsForSearchSuggestions", 20);
 
 pref("browser.urlbar.formatting.enabled", true);
 pref("browser.urlbar.trimURLs", true);
-
-pref("browser.urlbar.oneOffSearches", true);
 
 // If changed to true, copying the entire URL from the location bar will put the
 // human readable (percent-decoded) URL on the clipboard.
@@ -1034,7 +1030,7 @@ pref("dom.ipc.shims.enabledWarnings", false);
   // For information on what the level number means, see
   // SetSecurityLevelForGPUProcess() in
   // security/sandbox/win/src/sandboxbroker/sandboxBroker.cpp
-  pref("security.sandbox.gpu.level", 0);
+  pref("security.sandbox.gpu.level", 1);
 
   // Controls whether we disable win32k for the processes.
   // true means that win32k system calls are not permitted.

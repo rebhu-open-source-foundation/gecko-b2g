@@ -5,6 +5,7 @@
 
 #include "JoinNodeTransaction.h"
 
+#include "HTMLEditUtils.h"
 #include "mozilla/EditorBase.h"  // for EditorBase
 #include "mozilla/dom/Text.h"
 #include "nsAString.h"
@@ -49,7 +50,8 @@ bool JoinNodeTransaction::CanDoIt() const {
       NS_WARN_IF(!mEditorBase) || !mLeftContent->GetParentNode()) {
     return false;
   }
-  return mEditorBase->IsModifiableNode(*mLeftContent->GetParentNode());
+  return mEditorBase->IsTextEditor() ||
+         HTMLEditUtils::IsRemovableFromParentNode(*mLeftContent);
 }
 
 // After DoTransaction() and RedoTransaction(), the left node is removed from
@@ -61,7 +63,7 @@ NS_IMETHODIMP JoinNodeTransaction::DoTransaction() {
   }
 
   // Get the parent node
-  nsCOMPtr<nsINode> leftContentParent = mLeftContent->GetParentNode();
+  nsINode* leftContentParent = mLeftContent->GetParentNode();
   if (NS_WARN_IF(!leftContentParent)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -78,9 +80,9 @@ NS_IMETHODIMP JoinNodeTransaction::DoTransaction() {
   mOffset = mLeftContent->Length();
 
   OwningNonNull<EditorBase> editorBase = *mEditorBase;
-  OwningNonNull<nsINode> leftNode = *mLeftContent;
-  OwningNonNull<nsINode> rightNode = *mRightContent;
-  nsresult rv = editorBase->DoJoinNodes(rightNode, leftNode, leftContentParent);
+  OwningNonNull<nsIContent> leftContent = *mLeftContent;
+  OwningNonNull<nsIContent> rightContent = *mRightContent;
+  nsresult rv = editorBase->DoJoinNodes(rightContent, leftContent);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "EditorBase::DoJoinNodes() failed");
   return rv;
 }

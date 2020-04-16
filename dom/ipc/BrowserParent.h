@@ -793,7 +793,7 @@ class BrowserParent final : public PBrowserParent,
       const nsTArray<RefPtr<nsIURI>>&& aURIs);
 
   mozilla::ipc::IPCResult RecvMaybeFireEmbedderLoadEvents(
-      bool aFireLoadAtEmbeddingElement);
+      EmbedderElementEventType aFireEventAtEmbeddingElement);
 
  private:
   void SuppressDisplayport(bool aEnabled);

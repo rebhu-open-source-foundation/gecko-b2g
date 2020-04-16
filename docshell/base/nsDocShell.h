@@ -360,8 +360,6 @@ class nsDocShell final : public nsDocLoader,
   void SetInFrameSwap(bool aInSwap) { mInFrameSwap = aInSwap; }
   bool InFrameSwap();
 
-  void SetIsFrame() { mIsFrame = true; };
-
   const mozilla::Encoding* GetForcedCharset() { return mForcedCharset; }
 
   mozilla::HTMLEditor* GetHTMLEditorInternal();
@@ -1002,7 +1000,7 @@ class nsDocShell final : public nsDocLoader,
   void RecomputeCanExecuteScripts();
   void ClearFrameHistory(nsISHEntry* aEntry);
   void UpdateGlobalHistoryTitle(nsIURI* aURI);
-  bool IsFrame();
+  bool IsFrame() { return mBrowsingContext->GetParent(); }
   bool CanSetOriginAttributes();
   bool ShouldBlockLoadingForBackButton();
   bool ShouldDiscardLayoutState(nsIHttpChannel* aChannel);
@@ -1062,6 +1060,15 @@ class nsDocShell final : public nsDocLoader,
   // this docshell.
   uint32_t DetermineContentType();
 
+  // If this is an iframe, and the embedder is OOP, then notifes the
+  // embedder that loading has finished and we shouldn't be blocking
+  // load of the embedder. Only called when we fail to load, as we wait
+  // for the load event of our Document before notifying success.
+  //
+  // If aFireFrameErrorEvent is true, then fires an error event at the
+  // embedder element, for both in-process and OOP embedders.
+  void UnblockEmbedderLoadEventForFailure(bool aFireFrameErrorEvent = false);
+
   struct SameDocumentNavigationState {
     nsAutoCString mCurrentHash;
     nsAutoCString mNewHash;
@@ -1086,11 +1093,6 @@ class nsDocShell final : public nsDocLoader,
   void NotifyPrivateBrowsingChanged();
 
  private:  // data members
-#ifdef DEBUG
-           // We're counting the number of |nsDocShells| to help find leaks
-  static unsigned long gNumberOfDocShells;
-#endif /* DEBUG */
-
   nsID mHistoryID;
   nsString mTitle;
   nsCString mOriginalUriString;
@@ -1133,6 +1135,9 @@ class nsDocShell final : public nsDocLoader,
   nsCOMPtr<nsIReferrerInfo> mReferrerInfo;
 
 #ifdef DEBUG
+  // We're counting the number of |nsDocShells| to help find leaks
+  static unsigned long gNumberOfDocShells;
+
   nsCOMPtr<nsIURI> mLastOpenedURI;
 #endif
 
@@ -1332,8 +1337,6 @@ class nsDocShell final : public nsDocLoader,
 
   // This flag indicates when the title is valid for the current URI.
   bool mTitleValidForCurrentURI : 1;
-
-  bool mIsFrame : 1;
 
   // If mWillChangeProcess is set to true, then when the docshell is destroyed,
   // we prepare the browsing context to change process.

@@ -1403,7 +1403,7 @@ var gKeywordURIFixup = {
     // As fixupInfo comes from a serialized message, its URI properties are
     // strings that we need to recreate nsIURIs from.
     this.check(browser, {
-      fixedURI: makeURI(fixupInfo.fixedURI),
+      fixedURI: fixupInfo.fixedURI ? makeURI(fixupInfo.fixedURI) : null,
       keywordProviderName: fixupInfo.keywordProviderName,
       preferredURI: makeURI(fixupInfo.preferredURI),
     });
@@ -1484,6 +1484,8 @@ function _loadURI(browser, uri, params = {}) {
     params || {};
   let loadFlags =
     params.loadFlags || params.flags || Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
+  let hasValidUserGestureActivation =
+    document.hasValidTransientUserGestureActivation;
 
   if (!triggeringPrincipal) {
     throw new Error("Must load with a triggering Principal");
@@ -1525,6 +1527,7 @@ function _loadURI(browser, uri, params = {}) {
     loadFlags,
     referrerInfo,
     postData,
+    hasValidUserGestureActivation,
   };
   try {
     if (!mustChangeProcess) {
@@ -2249,10 +2252,6 @@ var gBrowserInit = {
     scheduleIdleTask(() => {
       // Initialize the all tabs menu
       gTabsPanel.init();
-    });
-
-    scheduleIdleTask(() => {
-      CombinedStopReload.startAnimationPrefMonitoring();
     });
 
     scheduleIdleTask(() => {
@@ -5629,9 +5628,9 @@ var CombinedStopReload = {
     this.stopReloadContainer = this.reload.parentNode;
     this.timeWhenSwitchedToStop = 0;
 
-    if (this._shouldStartPrefMonitoring) {
-      this.startAnimationPrefMonitoring();
-    }
+    this.stopReloadContainer.addEventListener("animationend", this);
+    this.stopReloadContainer.addEventListener("animationcancel", this);
+
     return true;
   },
 
@@ -5642,7 +5641,6 @@ var CombinedStopReload = {
       return;
     }
 
-    Services.prefs.removeObserver("toolkit.cosmeticAnimations.enabled", this);
     this._cancelTransition();
     this.stop.removeEventListener("click", this);
     this.stopReloadContainer.removeEventListener("animationend", this);
@@ -5674,31 +5672,6 @@ var CombinedStopReload = {
     }
   },
 
-  observe(subject, topic, data) {
-    if (topic == "nsPref:changed") {
-      this.animate = Services.prefs.getBoolPref(
-        "toolkit.cosmeticAnimations.enabled"
-      );
-    }
-  },
-
-  startAnimationPrefMonitoring() {
-    // CombinedStopReload may have been uninitialized before the idleCallback is executed.
-    if (this._destroyed) {
-      return;
-    }
-    if (!this.ensureInitialized()) {
-      this._shouldStartPrefMonitoring = true;
-      return;
-    }
-    this.animate =
-      Services.prefs.getBoolPref("toolkit.cosmeticAnimations.enabled") &&
-      Services.prefs.getBoolPref("browser.stopReloadAnimation.enabled");
-    Services.prefs.addObserver("toolkit.cosmeticAnimations.enabled", this);
-    this.stopReloadContainer.addEventListener("animationend", this);
-    this.stopReloadContainer.addEventListener("animationcancel", this);
-  },
-
   onTabSwitch() {
     // Reset the time in the event of a tabswitch since the stored time
     // would have been associated with the previous tab, so the animation will
@@ -5727,7 +5700,7 @@ var CombinedStopReload = {
       aWebProgress.isLoadingDocument &&
       !gBrowser.tabAnimationsInProgress &&
       this.stopReloadContainer.closest("#nav-bar-customization-target") &&
-      this.animate;
+      window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
 
     this._cancelTransition();
     if (shouldAnimate) {
@@ -5751,7 +5724,7 @@ var CombinedStopReload = {
       !gBrowser.tabAnimationsInProgress &&
       this._loadTimeExceedsMinimumForAnimation() &&
       this.stopReloadContainer.closest("#nav-bar-customization-target") &&
-      this.animate;
+      window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
 
     if (shouldAnimate) {
       BrowserUtils.setToolbarButtonHeightProperty(this.stopReloadContainer);

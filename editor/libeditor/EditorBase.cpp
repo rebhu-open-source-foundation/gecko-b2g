@@ -19,6 +19,7 @@
 #include "DeleteTextTransaction.h"            // for DeleteTextTransaction
 #include "EditAggregateTransaction.h"         // for EditAggregateTransaction
 #include "EditorEventListener.h"              // for EditorEventListener
+#include "HTMLEditUtils.h"                    // for HTMLEditUtils
 #include "InsertNodeTransaction.h"            // for InsertNodeTransaction
 #include "InsertTextTransaction.h"            // for InsertTextTransaction
 #include "JoinNodeTransaction.h"              // for JoinNodeTransaction
@@ -638,11 +639,13 @@ bool EditorBase::IsSelectionEditable() {
     return false;
   }
 
-  if (!mIsHTMLEditorClass) {
+  if (IsTextEditor()) {
     // XXX we just check that the anchor node is editable at the moment
     //     we should check that all nodes in the selection are editable
     nsCOMPtr<nsINode> anchorNode = SelectionRefPtr()->GetAnchorNode();
-    return anchorNode && IsEditable(anchorNode);
+    return anchorNode && anchorNode->IsContent() &&
+           EditorUtils::IsEditableContent(*anchorNode->AsContent(),
+                                          GetEditorType());
   }
 
   nsINode* anchorNode = SelectionRefPtr()->GetAnchorNode();
@@ -1639,8 +1642,7 @@ already_AddRefed<nsIContent> EditorBase::SplitNodeWithTransaction(
     const EditorDOMPoint& aStartOfRightNode, ErrorResult& aError) {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  if (NS_WARN_IF(!aStartOfRightNode.IsSet()) ||
-      NS_WARN_IF(!aStartOfRightNode.GetContainerAsContent())) {
+  if (NS_WARN_IF(!aStartOfRightNode.IsInContentNode())) {
     aError.Throw(NS_ERROR_INVALID_ARG);
     return nullptr;
   }
@@ -1787,7 +1789,7 @@ nsresult EditorBase::JoinNodesWithTransaction(nsINode& aLeftNode,
 }
 
 NS_IMETHODIMP EditorBase::DeleteNode(nsINode* aNode) {
-  if (NS_WARN_IF(!aNode)) {
+  if (NS_WARN_IF(!aNode) || NS_WARN_IF(!aNode->IsContent())) {
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -1799,15 +1801,14 @@ NS_IMETHODIMP EditorBase::DeleteNode(nsINode* aNode) {
     return EditorBase::ToGenericNSResult(rv);
   }
 
-  rv = DeleteNodeWithTransaction(*aNode);
+  rv = DeleteNodeWithTransaction(MOZ_KnownLive(*aNode->AsContent()));
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "EditorBase::DeleteNodeWithTransaction() failed");
   return EditorBase::ToGenericNSResult(rv);
 }
 
-nsresult EditorBase::DeleteNodeWithTransaction(nsINode& aNode) {
+nsresult EditorBase::DeleteNodeWithTransaction(nsIContent& aContent) {
   MOZ_ASSERT(IsEditActionDataAvailable());
-  MOZ_ASSERT(aNode.IsContent());
 
   IgnoredErrorResult ignoredError;
   AutoEditSubActionNotifier startToHandleEditSubAction(
@@ -1820,13 +1821,13 @@ nsresult EditorBase::DeleteNodeWithTransaction(nsINode& aNode) {
       "TextEditor::OnStartToHandleTopLevelEditSubAction() failed, but ignored");
 
   if (AsHTMLEditor()) {
-    TopLevelEditSubActionDataRef().WillDeleteContent(*this, *aNode.AsContent());
+    TopLevelEditSubActionDataRef().WillDeleteContent(*this, aContent);
   }
 
-  // FYI: DeleteNodeTransaction grabs aNode while it's alive.  So, it's safe
-  //      to refer aNode even after calling DoTransaction().
+  // FYI: DeleteNodeTransaction grabs aContent while it's alive.  So, it's safe
+  //      to refer aContent even after calling DoTransaction().
   RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-      DeleteNodeTransaction::MaybeCreate(*this, *aNode.AsContent());
+      DeleteNodeTransaction::MaybeCreate(*this, aContent);
   NS_WARNING_ASSERTION(deleteNodeTransaction,
                        "DeleteNodeTransaction::MaybeCreate() failed");
   nsresult rv;
@@ -1837,7 +1838,7 @@ nsresult EditorBase::DeleteNodeWithTransaction(nsINode& aNode) {
 
     if (mTextServicesDocument && NS_SUCCEEDED(rv)) {
       RefPtr<TextServicesDocument> textServicesDocument = mTextServicesDocument;
-      textServicesDocument->DidDeleteNode(&aNode);
+      textServicesDocument->DidDeleteNode(&aContent);
     }
   } else {
     rv = NS_ERROR_FAILURE;
@@ -1846,7 +1847,7 @@ nsresult EditorBase::DeleteNodeWithTransaction(nsINode& aNode) {
   if (!mActionListeners.IsEmpty()) {
     AutoActionListenerArray listeners(mActionListeners);
     for (auto& listener : listeners) {
-      DebugOnly<nsresult> rvIgnored = listener->DidDeleteNode(&aNode, rv);
+      DebugOnly<nsresult> rvIgnored = listener->DidDeleteNode(&aContent, rv);
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
           "nsIEditActionListener::DidDeleteNode() failed, but ignored");
@@ -3094,12 +3095,13 @@ nsresult EditorBase::InsertTextIntoTextNodeWithTransaction(
 nsINode* EditorBase::GetFirstEditableNode(nsINode* aRoot) {
   MOZ_ASSERT(aRoot);
 
-  nsIContent* node = GetLeftmostChild(aRoot);
-  if (node && !IsEditable(node)) {
-    node = GetNextEditableNode(*node);
+  EditorType editorType = GetEditorType();
+  nsIContent* content = GetLeftmostChild(aRoot);
+  if (content && !EditorUtils::IsEditableContent(*content, editorType)) {
+    content = GetNextEditableNode(*content);
   }
 
-  return (node != aRoot) ? node : nullptr;
+  return (content != aRoot) ? content : nullptr;
 }
 
 nsresult EditorBase::NotifyDocumentListeners(
@@ -3539,23 +3541,22 @@ void EditorBase::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
   }
 }
 
-nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
-                                 nsINode* aParent) {
+nsresult EditorBase::DoJoinNodes(nsIContent& aContentToKeep,
+                                 nsIContent& aContentToJoin) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_DIAGNOSTIC_ASSERT(AsHTMLEditor());
 
-  MOZ_ASSERT(aNodeToKeep);
-  MOZ_ASSERT(aNodeToJoin);
-  MOZ_ASSERT(aParent);
+  uint32_t firstNodeLength = aContentToJoin.Length();
 
-  uint32_t firstNodeLength = aNodeToJoin->Length();
-
-  int32_t joinOffset;
-  GetNodeLocation(aNodeToJoin, &joinOffset);
-  int32_t keepOffset;
-  nsINode* parent = GetNodeLocation(aNodeToKeep, &keepOffset);
+  EditorRawDOMPoint atNodeToJoin(&aContentToJoin);
+  EditorRawDOMPoint atNodeToKeep(&aContentToKeep);
 
   // Remember all selection points.
+  // XXX Do we need to restore all types of selections by ourselves?  Normal
+  //     selection should be modified later as result of handling edit action.
+  //     IME selections shouldn't be there when nodes are joined.  Spellcheck
+  //     selections should be recreated with newer text.  URL selections
+  //     shouldn't be there because of used only by the URL bar.
   AutoTArray<SavedRange, 10> savedRanges;
   for (SelectionType selectionType : kPresentSelectionTypes) {
     SavedRange range;
@@ -3581,15 +3582,17 @@ nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
       // in the one that is going away instead.  This simplifies later selection
       // adjustment logic at end of this method.
       if (range.mStartContainer) {
-        if (range.mStartContainer == parent &&
-            joinOffset < range.mStartOffset &&
-            range.mStartOffset <= keepOffset) {
-          range.mStartContainer = aNodeToJoin;
+        if (range.mStartContainer == atNodeToKeep.GetContainer() &&
+            atNodeToJoin.Offset() < static_cast<uint32_t>(range.mStartOffset) &&
+            static_cast<uint32_t>(range.mStartOffset) <=
+                atNodeToKeep.Offset()) {
+          range.mStartContainer = &aContentToJoin;
           range.mStartOffset = firstNodeLength;
         }
-        if (range.mEndContainer == parent && joinOffset < range.mEndOffset &&
-            range.mEndOffset <= keepOffset) {
-          range.mEndContainer = aNodeToJoin;
+        if (range.mEndContainer == atNodeToKeep.GetContainer() &&
+            atNodeToJoin.Offset() < static_cast<uint32_t>(range.mEndOffset) &&
+            static_cast<uint32_t>(range.mEndOffset) <= atNodeToKeep.Offset()) {
+          range.mEndContainer = &aContentToJoin;
           range.mEndOffset = firstNodeLength;
         }
       }
@@ -3600,35 +3603,41 @@ nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
 
   // OK, ready to do join now.
   // If it's a text node, just shuffle around some text.
-  if (IsTextNode(aNodeToKeep) && IsTextNode(aNodeToJoin)) {
+  if (aContentToKeep.IsText() && aContentToJoin.IsText()) {
     nsAutoString rightText;
     nsAutoString leftText;
-    aNodeToKeep->GetAsText()->GetData(rightText);
-    aNodeToJoin->GetAsText()->GetData(leftText);
+    aContentToKeep.AsText()->GetData(rightText);
+    aContentToJoin.AsText()->GetData(leftText);
     leftText += rightText;
-    // XXX This call may destroy us.
     IgnoredErrorResult ignoredError;
-    DoSetText(MOZ_KnownLive(*aNodeToKeep->GetAsText()), leftText, ignoredError);
+    DoSetText(MOZ_KnownLive(*aContentToKeep.AsText()), leftText, ignoredError);
+    if (NS_WARN_IF(Destroyed())) {
+      return NS_ERROR_EDITOR_DESTROYED;
+    }
     NS_WARNING_ASSERTION(!ignoredError.Failed(),
                          "EditorBase::DoSetText() failed, but ignored");
   } else {
     // Otherwise it's an interior node, so shuffle around the children.
-    nsCOMPtr<nsINodeList> childNodes = aNodeToJoin->ChildNodes();
+    nsCOMPtr<nsINodeList> childNodes = aContentToJoin.ChildNodes();
     MOZ_ASSERT(childNodes);
 
-    // Remember the first child in aNodeToKeep, we'll insert all the children of
-    // aNodeToJoin in front of it GetFirstChild returns nullptr firstNode if
-    // aNodeToKeep has no children, that's OK.
-    nsCOMPtr<nsIContent> firstNode = aNodeToKeep->GetFirstChild();
+    // Remember the first child in aContentToKeep, we'll insert all the children
+    // of aContentToJoin in front of it GetFirstChild returns nullptr firstNode
+    // if aContentToKeep has no children, that's OK.
+    nsCOMPtr<nsIContent> firstNode = aContentToKeep.GetFirstChild();
 
     // Have to go through the list backwards to keep deletes from interfering
     // with iteration.
     for (uint32_t i = childNodes->Length(); i; --i) {
       nsCOMPtr<nsIContent> childNode = childNodes->Item(i - 1);
       if (childNode) {
-        // prepend children of aNodeToJoin
+        // prepend children of aContentToJoin
         ErrorResult error;
-        aNodeToKeep->InsertBefore(*childNode, firstNode, error);
+        aContentToKeep.InsertBefore(*childNode, firstNode, error);
+        if (NS_WARN_IF(Destroyed())) {
+          error.SuppressException();
+          return NS_ERROR_EDITOR_DESTROYED;
+        }
         if (error.Failed()) {
           NS_WARNING("nsINode::InsertBefore() failed");
           return error.StealNSResult();
@@ -3639,9 +3648,10 @@ nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
   }
 
   // Delete the extra node.
-  ErrorResult error;
-  aParent->RemoveChild(*aNodeToJoin, error);
-  NS_WARNING_ASSERTION(!error.Failed(), "nsINode::RemoveChild() failed");
+  aContentToJoin.Remove();
+  if (NS_WARN_IF(Destroyed())) {
+    return NS_ERROR_EDITOR_DESTROYED;
+  }
 
   bool allowedTransactionsToChangeSelection =
       AllowsTransactionsToChangeSelection();
@@ -3655,6 +3665,10 @@ nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
     if (range.mSelection != previousSelection) {
       ErrorResult error;
       range.mSelection->RemoveAllRanges(error);
+      if (NS_WARN_IF(Destroyed())) {
+        error.SuppressException();
+        return NS_ERROR_EDITOR_DESTROYED;
+      }
       if (error.Failed()) {
         NS_WARNING("Selection::RemoveAllRanges() failed");
         return error.StealNSResult();
@@ -3670,16 +3684,16 @@ nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
     }
 
     // Check to see if we joined nodes where selection starts.
-    if (range.mStartContainer == aNodeToJoin) {
-      range.mStartContainer = aNodeToKeep;
-    } else if (range.mStartContainer == aNodeToKeep) {
+    if (range.mStartContainer == &aContentToJoin) {
+      range.mStartContainer = &aContentToKeep;
+    } else if (range.mStartContainer == &aContentToKeep) {
       range.mStartOffset += firstNodeLength;
     }
 
     // Check to see if we joined nodes where selection ends.
-    if (range.mEndContainer == aNodeToJoin) {
-      range.mEndContainer = aNodeToKeep;
-    } else if (range.mEndContainer == aNodeToKeep) {
+    if (range.mEndContainer == &aContentToJoin) {
+      range.mEndContainer = &aContentToKeep;
+    } else if (range.mEndContainer == &aContentToKeep) {
       range.mEndOffset += firstNodeLength;
     }
 
@@ -3697,6 +3711,10 @@ nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
     // static analyzer.
     MOZ_KnownLive(range.mSelection)
         ->AddRangeAndSelectFramesAndNotifyListeners(*newRange, error);
+    if (NS_WARN_IF(Destroyed())) {
+      error.SuppressException();
+      return NS_ERROR_EDITOR_DESTROYED;
+    }
     if (NS_WARN_IF(error.Failed())) {
       return error.StealNSResult();
     }
@@ -3705,53 +3723,15 @@ nsresult EditorBase::DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
   if (allowedTransactionsToChangeSelection) {
     // Editor wants us to set selection at join point.
     DebugOnly<nsresult> rvIgnored = SelectionRefPtr()->Collapse(
-        aNodeToKeep, AssertedCast<int32_t>(firstNodeLength));
+        &aContentToKeep, AssertedCast<int32_t>(firstNodeLength));
+    if (NS_WARN_IF(Destroyed())) {
+      return NS_ERROR_EDITOR_DESTROYED;
+    }
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
                          "Selection::Collapse() failed, but ignored");
   }
 
-  return error.StealNSResult();
-}
-
-// static
-int32_t EditorBase::GetChildOffset(nsINode* aChild, nsINode* aParent) {
-  MOZ_ASSERT(aChild);
-  MOZ_ASSERT(aParent);
-
-  // nsINode::ComputeIndexOf() is expensive.  So, if we can return index
-  // without calling it, we should do that.
-
-  // If there is no previous siblings, it means that it's the first child.
-  if (aParent->GetFirstChild() == aChild) {
-    MOZ_ASSERT(aParent->ComputeIndexOf(aChild) == 0);
-    return 0;
-  }
-
-  // If there is no next siblings, it means that it's the last child.
-  if (aParent->GetLastChild() == aChild) {
-    int32_t lastChildIndex = static_cast<int32_t>(aParent->Length() - 1);
-    MOZ_ASSERT(aParent->ComputeIndexOf(aChild) == lastChildIndex);
-    return lastChildIndex;
-  }
-
-  int32_t index = aParent->ComputeIndexOf(aChild);
-  MOZ_ASSERT(index != -1);
-  return index;
-}
-
-// static
-nsINode* EditorBase::GetNodeLocation(nsINode* aChild, int32_t* aOffset) {
-  MOZ_ASSERT(aChild);
-  MOZ_ASSERT(aOffset);
-
-  nsINode* parent = aChild->GetParentNode();
-  if (parent) {
-    *aOffset = GetChildOffset(aChild, parent);
-    MOZ_ASSERT(*aOffset != -1);
-  } else {
-    *aOffset = -1;
-  }
-  return parent;
+  return NS_OK;
 }
 
 nsIContent* EditorBase::GetPreviousNodeInternal(nsINode& aNode,
@@ -3778,7 +3758,8 @@ nsIContent* EditorBase::GetPreviousNodeInternal(const EditorRawDOMPoint& aPoint,
   // If we are at the beginning of the node, or it is a text node, then just
   // look before it.
   if (aPoint.IsStartOfContainer() || aPoint.IsInTextNode()) {
-    if (aNoBlockCrossing && IsBlockNode(aPoint.GetContainer())) {
+    if (aNoBlockCrossing && aPoint.IsInContentNode() &&
+        HTMLEditUtils::IsBlockElement(*aPoint.ContainerAsContent())) {
       // If we aren't allowed to cross blocks, don't look before this block.
       return nullptr;
     }
@@ -3794,19 +3775,20 @@ nsIContent* EditorBase::GetPreviousNodeInternal(const EditorRawDOMPoint& aPoint,
 
   // unless there isn't one, in which case we are at the end of the node
   // and want the deep-right child.
-  nsIContent* rightMostNode =
+  nsIContent* rightMostContent =
       GetRightmostChild(aPoint.GetContainer(), aNoBlockCrossing);
-  if (!rightMostNode) {
+  if (!rightMostContent) {
     return nullptr;
   }
 
-  if ((!aFindEditableNode || IsEditable(rightMostNode)) &&
-      (aFindAnyDataNode || IsElementOrText(*rightMostNode))) {
-    return rightMostNode;
+  if ((!aFindEditableNode ||
+       EditorUtils::IsEditableContent(*rightMostContent, GetEditorType())) &&
+      (aFindAnyDataNode || EditorUtils::IsElementOrText(*rightMostContent))) {
+    return rightMostContent;
   }
 
   // restart the search from the non-editable node we just found
-  return GetPreviousNodeInternal(*rightMostNode, aFindEditableNode,
+  return GetPreviousNodeInternal(*rightMostContent, aFindEditableNode,
                                  aFindAnyDataNode, aNoBlockCrossing);
 }
 
@@ -3835,41 +3817,42 @@ nsIContent* EditorBase::GetNextNodeInternal(const EditorRawDOMPoint& aPoint,
 
   // if the container is a text node, use its location instead
   if (point.IsInTextNode()) {
-    point.Set(point.GetContainer());
-    bool advanced = point.AdvanceOffset();
-    if (NS_WARN_IF(!advanced)) {
+    point.SetAfter(point.GetContainer());
+    if (NS_WARN_IF(!point.IsSet())) {
       return nullptr;
     }
   }
 
   if (point.GetChild()) {
-    if (aNoBlockCrossing && IsBlockNode(point.GetChild())) {
+    if (aNoBlockCrossing && HTMLEditUtils::IsBlockElement(*point.GetChild())) {
       return point.GetChild();
     }
 
-    nsIContent* leftMostNode =
+    nsIContent* leftMostContent =
         GetLeftmostChild(point.GetChild(), aNoBlockCrossing);
-    if (!leftMostNode) {
+    if (!leftMostContent) {
       return point.GetChild();
     }
 
-    if (!IsDescendantOfEditorRoot(leftMostNode)) {
+    if (!IsDescendantOfEditorRoot(leftMostContent)) {
       return nullptr;
     }
 
-    if ((!aFindEditableNode || IsEditable(leftMostNode)) &&
-        (aFindAnyDataNode || IsElementOrText(*leftMostNode))) {
-      return leftMostNode;
+    if ((!aFindEditableNode ||
+         EditorUtils::IsEditableContent(*leftMostContent, GetEditorType())) &&
+        (aFindAnyDataNode || EditorUtils::IsElementOrText(*leftMostContent))) {
+      return leftMostContent;
     }
 
     // restart the search from the non-editable node we just found
-    return GetNextNodeInternal(*leftMostNode, aFindEditableNode,
+    return GetNextNodeInternal(*leftMostContent, aFindEditableNode,
                                aFindAnyDataNode, aNoBlockCrossing);
   }
 
   // unless there isn't one, in which case we are at the end of the node
   // and want the next one.
-  if (aNoBlockCrossing && IsBlockNode(point.GetContainer())) {
+  if (aNoBlockCrossing && point.IsInContentNode() &&
+      HTMLEditUtils::IsBlockElement(*point.ContainerAsContent())) {
     // don't cross out of parent block
     return nullptr;
   }
@@ -3892,7 +3875,7 @@ nsIContent* EditorBase::FindNextLeafNode(nsINode* aCurrentNode, bool aGoForward,
     nsIContent* sibling =
         aGoForward ? cur->GetNextSibling() : cur->GetPreviousSibling();
     if (sibling) {
-      if (bNoBlockCrossing && IsBlockNode(sibling)) {
+      if (bNoBlockCrossing && HTMLEditUtils::IsBlockElement(*sibling)) {
         // don't look inside prevsib, since it is a block
         return sibling;
       }
@@ -3915,7 +3898,9 @@ nsIContent* EditorBase::FindNextLeafNode(nsINode* aCurrentNode, bool aGoForward,
                  "We started with a proper descendant of root, and should stop "
                  "if we ever hit the root, so we better have a descendant of "
                  "root now!");
-    if (IsEditorRoot(parent) || (bNoBlockCrossing && IsBlockNode(parent))) {
+    if (IsEditorRoot(parent) ||
+        (bNoBlockCrossing && parent->IsContent() &&
+         HTMLEditUtils::IsBlockElement(*parent->AsContent()))) {
       return nullptr;
     }
 
@@ -3937,15 +3922,16 @@ nsIContent* EditorBase::FindNode(nsINode* aCurrentNode, bool aGoForward,
     return nullptr;
   }
 
-  nsCOMPtr<nsIContent> candidate =
+  nsIContent* candidate =
       FindNextLeafNode(aCurrentNode, aGoForward, bNoBlockCrossing);
 
   if (!candidate) {
     return nullptr;
   }
 
-  if ((!aEditableNode || IsEditable(candidate)) &&
-      (aFindAnyDataNode || IsElementOrText(*candidate))) {
+  if ((!aEditableNode ||
+       EditorUtils::IsEditableContent(*candidate, GetEditorType())) &&
+      (aFindAnyDataNode || EditorUtils::IsElementOrText(*candidate))) {
     return candidate;
   }
 
@@ -3958,19 +3944,19 @@ nsIContent* EditorBase::GetRightmostChild(nsINode* aCurrentNode,
   if (NS_WARN_IF(!aCurrentNode)) {
     return nullptr;
   }
-  nsIContent* cur = aCurrentNode->GetLastChild();
-  if (!cur) {
+  nsIContent* content = aCurrentNode->GetLastChild();
+  if (!content) {
     return nullptr;
   }
   for (;;) {
-    if (bNoBlockCrossing && IsBlockNode(cur)) {
-      return cur;
+    if (bNoBlockCrossing && HTMLEditUtils::IsBlockElement(*content)) {
+      return content;
     }
-    nsIContent* next = cur->GetLastChild();
-    if (!next) {
-      return cur;
+    nsIContent* nextContent = content->GetLastChild();
+    if (!nextContent) {
+      return content;
     }
-    cur = next;
+    content = nextContent;
   }
 
   MOZ_ASSERT_UNREACHABLE("What part of for(;;) do you not understand?");
@@ -3982,31 +3968,23 @@ nsIContent* EditorBase::GetLeftmostChild(nsINode* aCurrentNode,
   if (NS_WARN_IF(!aCurrentNode)) {
     return nullptr;
   }
-  nsIContent* cur = aCurrentNode->GetFirstChild();
-  if (!cur) {
+  nsIContent* content = aCurrentNode->GetFirstChild();
+  if (!content) {
     return nullptr;
   }
   for (;;) {
-    if (bNoBlockCrossing && IsBlockNode(cur)) {
-      return cur;
+    if (bNoBlockCrossing && HTMLEditUtils::IsBlockElement(*content)) {
+      return content;
     }
-    nsIContent* next = cur->GetFirstChild();
+    nsIContent* next = content->GetFirstChild();
     if (!next) {
-      return cur;
+      return content;
     }
-    cur = next;
+    content = next;
   }
 
   MOZ_ASSERT_UNREACHABLE("What part of for(;;) do you not understand?");
   return nullptr;
-}
-
-bool EditorBase::IsBlockNode(nsINode* aNode) const {
-  // stub to be overridden in HTMLEditor.
-  // screwing around with the class hierarchy here in order
-  // to not duplicate the code in GetNextNode/GetPrevNode
-  // across both EditorBase/HTMLEditor.
-  return false;
 }
 
 bool EditorBase::CanContain(nsINode& aParent, nsIContent& aChild) const {
@@ -4088,9 +4066,10 @@ bool EditorBase::IsContainer(nsINode* aNode) const {
 uint32_t EditorBase::CountEditableChildren(nsINode* aNode) {
   MOZ_ASSERT(aNode);
   uint32_t count = 0;
+  EditorType editorType = GetEditorType();
   for (nsIContent* child = aNode->GetFirstChild(); child;
        child = child->GetNextSibling()) {
-    if (IsEditable(child)) {
+    if (EditorUtils::IsEditableContent(*child, editorType)) {
       ++count;
     }
   }
@@ -4135,27 +4114,6 @@ NS_IMETHODIMP EditorBase::ResetModificationCount() {
       NS_SUCCEEDED(rvIgnored),
       "EditorBase::NotifyDocumentListeners() failed, but ignored");
   return NS_OK;
-}
-
-// static
-bool EditorBase::AreNodesSameType(nsIContent& aNode1,
-                                  nsIContent& aNode2) const {
-  if (aNode1.NodeInfo()->NameAtom() != aNode2.NodeInfo()->NameAtom()) {
-    return false;
-  }
-  if (!AsHTMLEditor() || !AsHTMLEditor()->IsCSSEnabled()) {
-    return true;
-  }
-  // If this is an HTMLEditor in CSS mode and they are <span> elements,
-  // let's check their styles.
-  if (!aNode1.IsHTMLElement(nsGkAtoms::span)) {
-    return true;
-  }
-  if (!aNode1.IsElement() || !aNode2.IsElement()) {
-    return false;
-  }
-  return CSSEditUtils::ElementsSameStyle(aNode1.AsElement(),
-                                         aNode2.AsElement());
 }
 
 // static
@@ -4335,67 +4293,6 @@ SplitNodeResult EditorBase::SplitNodeDeepWithTransaction(
   return SplitNodeResult(NS_ERROR_FAILURE);
 }
 
-EditorDOMPoint EditorBase::JoinNodesDeepWithTransaction(
-    nsIContent& aLeftNode, nsIContent& aRightNode) {
-  // While the rightmost children and their descendants of the left node match
-  // the leftmost children and their descendants of the right node, join them
-  // up.
-
-  nsCOMPtr<nsIContent> leftNodeToJoin = &aLeftNode;
-  nsCOMPtr<nsIContent> rightNodeToJoin = &aRightNode;
-  nsCOMPtr<nsINode> parentNode = aRightNode.GetParentNode();
-
-  EditorDOMPoint ret;
-  while (leftNodeToJoin && rightNodeToJoin && parentNode &&
-         AreNodesSameType(*leftNodeToJoin, *rightNodeToJoin)) {
-    uint32_t length = leftNodeToJoin->Length();
-
-    // Do the join
-    nsresult rv = JoinNodesWithTransaction(*leftNodeToJoin, *rightNodeToJoin);
-    if (NS_FAILED(rv)) {
-      NS_WARNING("EditorBase::JoinNodesWithTransaction() failed");
-      return EditorDOMPoint();
-    }
-
-    ret.Set(rightNodeToJoin, length);
-
-    if (parentNode->GetAsText()) {
-      // We've joined all the way down to text nodes, we're done!
-      return ret;
-    }
-
-    // Get new left and right nodes, and begin anew
-    parentNode = rightNodeToJoin;
-    rightNodeToJoin = parentNode->GetChildAt_Deprecated(length);
-    if (rightNodeToJoin) {
-      leftNodeToJoin = rightNodeToJoin->GetPreviousSibling();
-    } else {
-      leftNodeToJoin = nullptr;
-    }
-
-    // Skip over non-editable nodes
-    while (leftNodeToJoin && !IsEditable(leftNodeToJoin)) {
-      leftNodeToJoin = leftNodeToJoin->GetPreviousSibling();
-    }
-    if (!leftNodeToJoin) {
-      return ret;
-    }
-
-    while (rightNodeToJoin && !IsEditable(rightNodeToJoin)) {
-      rightNodeToJoin = rightNodeToJoin->GetNextSibling();
-    }
-    if (!rightNodeToJoin) {
-      return ret;
-    }
-  }
-
-  if (NS_WARN_IF(!ret.IsSet())) {
-    return EditorDOMPoint();
-  }
-
-  return ret;
-}
-
 nsresult EditorBase::EnsureNoPaddingBRElementForEmptyEditor() {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
@@ -4444,18 +4341,22 @@ nsresult EditorBase::MaybeCreatePaddingBRElementForEmptyEditor() {
   // Now we've got the body element. Iterate over the body element's children,
   // looking for editable content. If no editable content is found, insert the
   // padding <br> element.
-  bool isRootEditable = IsEditable(rootElement);
+  EditorType editorType = GetEditorType();
+  bool isRootEditable =
+      EditorUtils::IsEditableContent(*rootElement, editorType);
   for (nsIContent* rootChild = rootElement->GetFirstChild(); rootChild;
        rootChild = rootChild->GetNextSibling()) {
-    if (EditorBase::IsPaddingBRElementForEmptyEditor(*rootChild) ||
-        !isRootEditable || IsEditable(rootChild) || IsBlockNode(rootChild)) {
+    if (EditorUtils::IsPaddingBRElementForEmptyEditor(*rootChild) ||
+        !isRootEditable ||
+        EditorUtils::IsEditableContent(*rootChild, editorType) ||
+        HTMLEditUtils::IsBlockElement(*rootChild)) {
       return NS_OK;
     }
   }
 
   // Skip adding the padding <br> element for empty editor if body
   // is read-only.
-  if (!IsModifiableNode(*rootElement)) {
+  if (IsHTMLEditor() && !HTMLEditUtils::IsSimplyEditableNode(*rootElement)) {
     return NS_OK;
   }
 
@@ -4882,19 +4783,18 @@ nsresult EditorBase::CreateRange(nsINode* aStartContainer, int32_t aStartOffset,
 nsresult EditorBase::AppendNodeToSelectionAsRange(nsINode* aNode) {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  if (NS_WARN_IF(!aNode)) {
+  if (NS_WARN_IF(!aNode) && NS_WARN_IF(!aNode->IsContent())) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  nsCOMPtr<nsINode> parentNode = aNode->GetParentNode();
-  if (NS_WARN_IF(!parentNode)) {
+  EditorRawDOMPoint atContent(aNode->AsContent());
+  if (NS_WARN_IF(!atContent.IsSet())) {
     return NS_ERROR_FAILURE;
   }
 
-  int32_t offset = GetChildOffset(aNode, parentNode);
-
   RefPtr<nsRange> range;
-  nsresult rv = CreateRange(parentNode, offset, parentNode, offset + 1,
+  nsresult rv = CreateRange(atContent.GetContainer(), atContent.Offset(),
+                            atContent.GetContainer(), atContent.Offset() + 1,
                             getter_AddRefs(range));
   if (NS_FAILED(rv)) {
     NS_WARNING("EditorBase::CreateRange() failed");
@@ -5381,10 +5281,6 @@ nsresult EditorBase::SetTextDirectionTo(TextDirection aTextDirection) {
   }
 
   return NS_OK;
-}
-
-bool EditorBase::IsModifiableNode(const nsINode& aNode) const {
-  return !AsHTMLEditor() || aNode.IsEditable();
 }
 
 nsIContent* EditorBase::GetFocusedContent() const {
@@ -6020,7 +5916,7 @@ EditorBase::AutoEditActionDataSetter::AutoEditActionDataSetter(
 
     mEditAction = aEditAction;
     mDirectionOfTopLevelEditSubAction = eNone;
-    if (mEditorBase.mIsHTMLEditorClass) {
+    if (mEditorBase.IsHTMLEditor()) {
       mTopLevelEditSubActionData.mSelectedRange =
           mEditorBase.AsHTMLEditor()
               ->GetSelectedRangeItemForTopLevelEditSubAction();

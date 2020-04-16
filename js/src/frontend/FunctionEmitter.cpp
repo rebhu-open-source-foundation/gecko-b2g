@@ -38,15 +38,6 @@ FunctionEmitter::FunctionEmitter(BytecodeEmitter* bce, FunctionBox* funbox,
       syntaxKind_(syntaxKind),
       isHoisted_(isHoisted) {}
 
-bool FunctionEmitter::interpretedCommon() {
-  // Mark as singletons any function which will only be executed once, or
-  // which is inner to a lambda we only expect to run once. In the latter
-  // case, if the lambda runs multiple times then CloneFunctionObject will
-  // make a deep clone of its contents.
-  bool singleton = bce_->checkRunOnceContext();
-  return funbox_->setTypeForScriptedFunction(bce_->cx, singleton);
-}
-
 bool FunctionEmitter::prepareForNonLazy() {
   MOZ_ASSERT(state_ == State::Start);
 
@@ -57,10 +48,6 @@ bool FunctionEmitter::prepareForNonLazy() {
   //                [stack]
 
   funbox_->wasEmitted = true;
-
-  if (!interpretedCommon()) {
-    return false;
-  }
 
   MOZ_ASSERT_IF(bce_->sc->strict(), funbox_->strictScript);
 
@@ -97,17 +84,9 @@ bool FunctionEmitter::emitLazy() {
 
   funbox_->wasEmitted = true;
 
-  if (!interpretedCommon()) {
-    return false;
-  }
-
-  bool isRunOnceLambda = bce_->emittingRunOnceLambda &&
-                         !funbox_->shouldSuppressRunOnce();
-
   // Prepare to update the inner lazy script now that it's parent is fully
   // compiled. These updates will be applied in FunctionBox::finish().
   funbox_->setEnclosingScopeForInnerLazyFunction(bce_->innermostScope());
-  funbox_->setTreatAsRunOnce(isRunOnceLambda);
 
   if (!emitFunction()) {
     //              [stack] FUN?
@@ -382,15 +361,6 @@ bool FunctionScriptEmitter::prepareForParameters() {
     if (!namedLambdaEmitterScope_->enterNamedLambda(bce_, funbox_)) {
       return false;
     }
-  }
-
-  /*
-   * Mark the script so that initializers created within it may be given more
-   * precise types.
-   */
-  if (bce_->isRunOnceLambda()) {
-    bce_->script->setTreatAsRunOnce();
-    MOZ_ASSERT(!bce_->script->hasRunOnce());
   }
 
   if (bodyEnd_) {

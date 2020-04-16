@@ -565,7 +565,7 @@ void* js::Nursery::allocateBuffer(Zone* zone, size_t nbytes) {
   }
 
   void* buffer = zone->pod_malloc<uint8_t>(nbytes);
-  if (buffer && !registerMallocedBuffer(buffer)) {
+  if (buffer && !registerMallocedBuffer(buffer, nbytes)) {
     js_free(buffer);
     return nullptr;
   }
@@ -607,7 +607,7 @@ void* js::Nursery::allocateZeroedBuffer(
   }
 
   void* buffer = zone->pod_arena_calloc<uint8_t>(arena, nbytes);
-  if (buffer && !registerMallocedBuffer(buffer)) {
+  if (buffer && !registerMallocedBuffer(buffer, nbytes)) {
     js_free(buffer);
     return nullptr;
   }
@@ -625,18 +625,23 @@ void* js::Nursery::allocateZeroedBuffer(
   return allocateZeroedBuffer(obj->zone(), nbytes, arena);
 }
 
-void* js::Nursery::reallocateBuffer(JSObject* obj, void* oldBuffer,
+void* js::Nursery::reallocateBuffer(Zone* zone, Cell* cell, void* oldBuffer,
                                     size_t oldBytes, size_t newBytes) {
-  if (!IsInsideNursery(obj)) {
-    return obj->zone()->pod_realloc<uint8_t>((uint8_t*)oldBuffer, oldBytes,
-                                             newBytes);
+  if (!IsInsideNursery(cell)) {
+    return zone->pod_realloc<uint8_t>((uint8_t*)oldBuffer, oldBytes, newBytes);
   }
 
   if (!isInside(oldBuffer)) {
-    void* newBuffer = obj->zone()->pod_realloc<uint8_t>((uint8_t*)oldBuffer,
-                                                        oldBytes, newBytes);
-    if (newBuffer && oldBuffer != newBuffer) {
-      MOZ_ALWAYS_TRUE(mallocedBuffers.rekeyAs(oldBuffer, newBuffer, newBuffer));
+    MOZ_ASSERT(mallocedBufferBytes >= oldBytes);
+    void* newBuffer =
+        zone->pod_realloc<uint8_t>((uint8_t*)oldBuffer, oldBytes, newBytes);
+    if (newBuffer) {
+      if (oldBuffer != newBuffer) {
+        MOZ_ALWAYS_TRUE(
+            mallocedBuffers.rekeyAs(oldBuffer, newBuffer, newBuffer));
+      }
+      mallocedBufferBytes -= oldBytes;
+      mallocedBufferBytes += newBytes;
     }
     return newBuffer;
   }
@@ -646,7 +651,7 @@ void* js::Nursery::reallocateBuffer(JSObject* obj, void* oldBuffer,
     return oldBuffer;
   }
 
-  void* newBuffer = allocateBuffer(obj->zone(), newBytes);
+  void* newBuffer = allocateBuffer(zone, newBytes);
   if (newBuffer) {
     PodCopy((uint8_t*)newBuffer, (uint8_t*)oldBuffer, oldBytes);
   }
@@ -663,37 +668,9 @@ void* js::Nursery::allocateBuffer(JS::BigInt* bi, size_t nbytes) {
   return allocateBuffer(bi->zone(), nbytes);
 }
 
-void* js::Nursery::reallocateBuffer(JS::BigInt* bi, void* oldDigits,
-                                    size_t oldBytes, size_t newBytes) {
-  if (!IsInsideNursery(bi)) {
-    return bi->zone()->pod_realloc<uint8_t>((uint8_t*)oldDigits, oldBytes,
-                                            newBytes);
-  }
-
-  if (!isInside(oldDigits)) {
-    void* newDigits = bi->zone()->pod_realloc<uint8_t>((uint8_t*)oldDigits,
-                                                       oldBytes, newBytes);
-    if (newDigits && oldDigits != newDigits) {
-      MOZ_ALWAYS_TRUE(mallocedBuffers.rekeyAs(oldDigits, newDigits, newDigits));
-    }
-    return newDigits;
-  }
-
-  // The nursery cannot make use of the returned digits data.
-  if (newBytes < oldBytes) {
-    return oldDigits;
-  }
-
-  void* newDigits = allocateBuffer(bi->zone(), newBytes);
-  if (newDigits) {
-    PodCopy((uint8_t*)newDigits, (uint8_t*)oldDigits, oldBytes);
-  }
-  return newDigits;
-}
-
-void js::Nursery::freeBuffer(void* buffer) {
+void js::Nursery::freeBuffer(void* buffer, size_t nbytes) {
   if (!isInside(buffer)) {
-    removeMallocedBuffer(buffer);
+    removeMallocedBuffer(buffer, nbytes);
     js_free(buffer);
   }
 }
@@ -1152,6 +1129,7 @@ void js::Nursery::doCollection(JS::GCReason reason,
   // Sweep.
   startProfile(ProfileKey::FreeMallocedBuffers);
   gc->queueBuffersForFreeAfterMinorGC(mallocedBuffers);
+  mallocedBufferBytes = 0;
   endProfile(ProfileKey::FreeMallocedBuffers);
 
   startProfile(ProfileKey::ClearNursery);
@@ -1289,9 +1267,19 @@ float js::Nursery::doPretenuring(JSRuntime* rt, JS::GCReason reason,
   return promotionRate;
 }
 
-bool js::Nursery::registerMallocedBuffer(void* buffer) {
+bool js::Nursery::registerMallocedBuffer(void* buffer, size_t nbytes) {
   MOZ_ASSERT(buffer);
-  return mallocedBuffers.putNew(buffer);
+  MOZ_ASSERT(nbytes > 0);
+  if (!mallocedBuffers.putNew(buffer)) {
+    return false;
+  }
+
+  mallocedBufferBytes += nbytes;
+  if (MOZ_UNLIKELY(mallocedBufferBytes > capacity() * 8)) {
+    requestMinorGC(JS::GCReason::NURSERY_MALLOC_BUFFERS);
+  }
+
+  return true;
 }
 
 void js::Nursery::sweep(JSTracer* trc) {

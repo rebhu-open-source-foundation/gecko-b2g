@@ -876,8 +876,9 @@ already_AddRefed<ContentParent> ContentParent::MinTabSelect(
 
   for (uint32_t i = 0; i < maxSelectable; i++) {
     ContentParent* p = aContentParents[i];
-    NS_ASSERTION(!p->IsDead(), "Dead contentparent in sBrowserContentParents?");
-    if (!p->mShutdownPending && p->mOpener == aOpener) {
+    MOZ_DIAGNOSTIC_ASSERT(!p->IsDead());
+    MOZ_DIAGNOSTIC_ASSERT(!p->mShutdownPending);
+    if (p->mOpener == aOpener) {
       uint32_t tabCount = cpm->GetBrowserParentCountByProcessId(p->ChildID());
       if (tabCount < min) {
         candidate = p;
@@ -938,6 +939,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
       (p = PreallocatedProcessManager::Take()) && !p->mShutdownPending) {
     // For pre-allocated process we have not set the opener yet.
     p->mOpener = aOpener;
+    MOZ_DIAGNOSTIC_ASSERT(p->mScriptableHelper);
     aContentParents.AppendElement(p);
     p->mActivateTS = TimeStamp::Now();
     return p.forget();
@@ -1571,6 +1573,7 @@ void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
       // Stop sending input events with input priority when shutting down.
       SetInputPriorityEventEnabled(false);
       if (SendShutdown()) {
+        RemoveFromList();
         mShutdownPending = true;
         // Start the force-kill timer if we haven't already.
         StartForceKillTimer();
@@ -1673,7 +1676,9 @@ void ContentParent::RemoveFromList() {
 }
 
 void ContentParent::MarkAsDead() {
-  RemoveFromList();
+  if (!mShutdownPending) {
+    RemoveFromList();
+  }
 
 #ifdef MOZ_WIDGET_ANDROID
   if (mLifecycleState == LifecycleState::ALIVE) {
@@ -4681,6 +4686,32 @@ mozilla::ipc::IPCResult ContentParent::RecvKeywordToURI(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentParent::RecvGetFixupURIInfo(
+    const nsCString& aURIString, const uint32_t& aFixupFlags,
+    nsString* aProviderName, RefPtr<nsIInputStream>* aPostData,
+    RefPtr<nsIURI>* aFixedURI, RefPtr<nsIURI>* aPreferredURI) {
+  *aPostData = nullptr;
+  *aFixedURI = nullptr;
+  *aPreferredURI = nullptr;
+  nsCOMPtr<nsIURIFixup> fixup = components::URIFixup::Service();
+  if (!fixup) {
+    return IPC_OK();
+  }
+  nsCOMPtr<nsIURIFixupInfo> info;
+  if (NS_FAILED(fixup->GetFixupURIInfo(aURIString, aFixupFlags,
+                                       getter_AddRefs(*aPostData),
+                                       getter_AddRefs(info)))) {
+    return IPC_OK();
+  }
+  info->GetKeywordProviderName(*aProviderName);
+  nsCOMPtr<nsIURI> uri;
+  info->GetFixedURI(getter_AddRefs(uri));
+  *aFixedURI = uri;
+  info->GetPreferredURI(getter_AddRefs(uri));
+  *aPreferredURI = uri;
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult ContentParent::RecvNotifyKeywordSearchLoading(
     const nsString& aProvider, const nsString& aKeyword) {
   nsCOMPtr<nsISearchService> searchSvc =
@@ -5916,7 +5947,7 @@ nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
   NS_ENSURE_SUCCESS(rv, rv);
 
   RefPtr<BrowsingContext> browsingContext;
-  rv = loadInfo->GetBrowsingContext(getter_AddRefs(browsingContext));
+  rv = loadInfo->GetTargetBrowsingContext(getter_AddRefs(browsingContext));
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (browsingContext && !browsingContext->IsDiscarded()) {

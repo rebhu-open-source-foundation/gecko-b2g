@@ -154,6 +154,8 @@ class EditorBase : public nsIEditor,
   typedef dom::Selection Selection;
   typedef dom::Text Text;
 
+  enum class EditorType { Text, HTML };
+
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(EditorBase, nsIEditor)
 
@@ -168,6 +170,9 @@ class EditorBase : public nsIEditor,
    * interfaces is done after the construction of the editor class.
    */
   EditorBase();
+
+  bool IsTextEditor() const { return !mIsHTMLEditorClass; }
+  bool IsHTMLEditor() const { return mIsHTMLEditorClass; }
 
   /**
    * Init is to tell the implementation of nsIEditor to begin its services
@@ -214,7 +219,7 @@ class EditorBase : public nsIEditor,
   // @return true, iff at least one of NS_EVENT_BITS_MUTATION_* is set.
   bool MaybeHasMutationEventListeners(
       uint32_t aMutationEventType = 0xFFFFFFFF) const {
-    if (!mIsHTMLEditorClass) {
+    if (IsTextEditor()) {
       // DOM mutation event listeners cannot catch the changes of
       // <input type="text"> nor <textarea>.
       return false;
@@ -1410,11 +1415,11 @@ class EditorBase : public nsIEditor,
   SetTextNodeWithoutTransaction(const nsAString& aString, Text& aTextNode);
 
   /**
-   * DeleteNodeWithTransaction() removes aNode from the DOM tree.
+   * DeleteNodeWithTransaction() removes aContent from the DOM tree.
    *
-   * @param aNode       The node which will be removed form the DOM tree.
+   * @param aContent    The node which will be removed form the DOM tree.
    */
-  MOZ_CAN_RUN_SCRIPT nsresult DeleteNodeWithTransaction(nsINode& aNode);
+  MOZ_CAN_RUN_SCRIPT nsresult DeleteNodeWithTransaction(nsIContent& aContent);
 
   /**
    * InsertNodeWithTransaction() inserts aContentToInsert before the child
@@ -1860,20 +1865,18 @@ class EditorBase : public nsIEditor,
                                       ErrorResult& aError);
 
   /**
-   * DoJoinNodes() merges contents in aNodeToJoin to aNodeToKeep and remove
-   * aNodeToJoin from the DOM tree.  aNodeToJoin and aNodeToKeep must have
-   * same parent, aParent.  Additionally, if one of aNodeToJoin or aNodeToKeep
-   * is a text node, the other must be a text node.
+   * DoJoinNodes() merges contents in aContentToJoin to aContentToKeep and
+   * remove aContentToJoin from the DOM tree.  aContentToJoin and aContentToKeep
+   * must have same parent, aParent.  Additionally, if one of aContentToJoin or
+   * aContentToKeep is a text node, the other must be a text node.
    *
-   * @param aNodeToKeep   The node that will remain after the join.
-   * @param aNodeToJoin   The node that will be joined with aNodeToKeep.
-   *                      There is no requirement that the two nodes be of the
-   *                      same type.
-   * @param aParent       The parent of aNodeToKeep
+   * @param aContentToKeep  The node that will remain after the join.
+   * @param aContentToJoin  The node that will be joined with aContentToKeep.
+   *                        There is no requirement that the two nodes be of the
+   *                        same type.
    */
-  MOZ_CAN_RUN_SCRIPT nsresult DoJoinNodes(nsINode* aNodeToKeep,
-                                          nsINode* aNodeToJoin,
-                                          nsINode* aParent);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DoJoinNodes(nsIContent& aContentToKeep, nsIContent& aContentToJoin);
 
   /**
    * SplitNodeDeepWithTransaction() splits aMostAncestorToSplit deeply.
@@ -1898,21 +1901,6 @@ class EditorBase : public nsIEditor,
                                SplitAtEdges aSplitAtEdges);
 
   /**
-   * JoinNodesDeepWithTransaction() joins aLeftNode and aRightNode "deeply".
-   * First, they are joined simply, then, new right node is assumed as the
-   * child at length of the left node before joined and new left node is
-   * assumed as its previous sibling.  Then, they will be joined again.
-   * And then, these steps are repeated.
-   *
-   * @param aLeftNode   The node which will be removed form the tree.
-   * @param aRightNode  The node which will be inserted the contents of
-   *                    aLeftNode.
-   * @return            The point of the first child of the last right node.
-   */
-  MOZ_CAN_RUN_SCRIPT EditorDOMPoint
-  JoinNodesDeepWithTransaction(nsIContent& aLeftNode, nsIContent& aRightNode);
-
-  /**
    * EnsureNoPaddingBRElementForEmptyEditor() removes padding <br> element
    * for empty editor if there is.
    */
@@ -1935,14 +1923,6 @@ class EditorBase : public nsIEditor,
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult MarkElementDirty(Element& aElement);
 
   MOZ_CAN_RUN_SCRIPT nsresult DoTransactionInternal(nsITransaction* aTxn);
-
-  virtual bool IsBlockNode(nsINode* aNode) const;
-
-  /**
-   * Set outOffset to the offset of aChild in the parent.
-   * Returns the parent of aChild.
-   */
-  static nsINode* GetNodeLocation(nsINode* aChild, int32_t* aOffset);
 
   /**
    * Get the previous node.
@@ -2100,54 +2080,6 @@ class EditorBase : public nsIEditor,
   virtual bool IsContainer(nsINode* aNode) const;
 
   /**
-   * returns true if aNode is an editable node.
-   */
-  bool IsEditable(nsINode* aNode) const {
-    if (NS_WARN_IF(!aNode)) {
-      return false;
-    }
-
-    if (!aNode->IsContent() || !IsModifiableNode(*aNode) ||
-        EditorBase::IsPaddingBRElementForEmptyEditor(*aNode)) {
-      return false;
-    }
-
-    switch (aNode->NodeType()) {
-      case nsINode::ELEMENT_NODE:
-        // In HTML editors, if we're dealing with an element, then ask it
-        // whether it's editable.
-        return mIsHTMLEditorClass ? aNode->IsEditable() : true;
-      case nsINode::TEXT_NODE:
-        // Text nodes are considered to be editable by both typed of editors.
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * Returns true if aNode is a usual element node (not padding <br> element
-   * for empty editor) or a text node.  In other words, returns true if aNode
-   * is a usual element node or visible data node.
-   */
-  bool IsElementOrText(const nsINode& aNode) const {
-    if (aNode.IsText()) {
-      return true;
-    }
-    return aNode.IsElement() &&
-           !EditorBase::IsPaddingBRElementForEmptyEditor(aNode);
-  }
-
-  /**
-   * Returns true if aNode is a <br> element and it's marked as padding for
-   * empty editor.
-   */
-  static bool IsPaddingBRElementForEmptyEditor(const nsINode& aNode) {
-    const dom::HTMLBRElement* brElement = dom::HTMLBRElement::FromNode(&aNode);
-    return brElement && brElement->IsPaddingForEmptyEditor();
-  }
-
-  /**
    * Returns true if aNode is a <br> element and it's marked as padding for
    * empty last line.
    */
@@ -2170,23 +2102,6 @@ class EditorBase : public nsIEditor,
    * Returns true when inserting text should be a part of current composition.
    */
   bool ShouldHandleIMEComposition() const;
-
-  /**
-   * AreNodesSameType() returns true if aNode1 and aNode2 are same type.
-   * If the instance is TextEditor, only their names are checked.
-   * If the instance is HTMLEditor in CSS mode and both of them are <span>
-   * element, their styles are also checked.
-   */
-  bool AreNodesSameType(nsIContent& aNode1, nsIContent& aNode2) const;
-
-  static bool IsTextNode(nsINode* aNode) {
-    return aNode->NodeType() == nsINode::TEXT_NODE;
-  }
-
-  /**
-   * IsModifiableNode() checks whether the node is editable or not.
-   */
-  bool IsModifiableNode(const nsINode& aNode) const;
 
   /**
    * GetNodeAtRangeOffsetPoint() returns the node at this position in a range,
@@ -2370,6 +2285,10 @@ class EditorBase : public nsIEditor,
    * for someone to derive from the EditorBase later? I don't believe so.
    */
   virtual ~EditorBase();
+
+  MOZ_ALWAYS_INLINE EditorType GetEditorType() const {
+    return mIsHTMLEditorClass ? EditorType::HTML : EditorType::Text;
+  }
 
   int32_t WrapWidth() const { return mWrapColumn; }
 
@@ -2555,15 +2474,6 @@ class EditorBase : public nsIEditor,
    *                            call SetAncestorLimit() with this node.
    */
   virtual void InitializeSelectionAncestorLimit(nsIContent& aAncestorLimit);
-
-  /**
-   * Return the offset of aChild in aParent.  Asserts fatally if parent or
-   * child is null, or parent is not child's parent.
-   * FYI: aChild must not be being removed from aParent.  In such case, these
-   *      methods may return wrong index if aChild doesn't have previous
-   *      sibling or next sibling.
-   */
-  static int32_t GetChildOffset(nsINode* aChild, nsINode* aParent);
 
   /**
    * Creates a range with just the supplied node and appends that to the

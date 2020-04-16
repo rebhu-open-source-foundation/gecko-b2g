@@ -9,7 +9,9 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/ComposerCommandsUpdater.h"
 #include "mozilla/CSSEditUtils.h"
+#include "mozilla/EditorUtils.h"
 #include "mozilla/ManualNAC.h"
+#include "mozilla/Result.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/TextEditor.h"
 #include "mozilla/UniquePtr.h"
@@ -685,13 +687,13 @@ class HTMLEditor final : public TextEditor,
       EDirection aAction, EStripWrappers aStripWrappers) override;
 
   /**
-   * DeleteNodeWithTransaction() removes aNode from the DOM tree if it's
+   * DeleteNodeWithTransaction() removes aContent from the DOM tree if it's
    * modifiable.  Note that this is not an override of same method of
    * EditorBase.
    *
-   * @param aNode       The node to be removed from the DOM tree.
+   * @param aContent    The node to be removed from the DOM tree.
    */
-  MOZ_CAN_RUN_SCRIPT nsresult DeleteNodeWithTransaction(nsINode& aNode);
+  MOZ_CAN_RUN_SCRIPT nsresult DeleteNodeWithTransaction(nsIContent& aContent);
 
   /**
    * DeleteTextWithTransaction() removes text in the range from aTextNode if
@@ -759,7 +761,6 @@ class HTMLEditor final : public TextEditor,
   RemoveBlockContainerWithTransaction(Element& aElement);
 
   virtual Element* GetEditorRoot() const override;
-  using EditorBase::IsEditable;
   MOZ_CAN_RUN_SCRIPT virtual nsresult RemoveAttributeOrEquivalent(
       Element* aElement, nsAtom* aAttribute,
       bool aSuppressTransaction) override;
@@ -859,21 +860,6 @@ class HTMLEditor final : public TextEditor,
                                          int32_t* outOffset = 0);
 
   /**
-   * NodeIsBlockStatic() returns true if aElement is an element node and
-   * should be treated as a block.
-   */
-  static bool NodeIsBlockStatic(const nsINode& aElement);
-
-  /**
-   * NodeIsInlineStatic() returns true if aElement is an element node but
-   * shouldn't be treated as a block or aElement is not an element.
-   * XXX This looks odd.  For example, how about a comment node?
-   */
-  static bool NodeIsInlineStatic(const nsINode& aElement) {
-    return !NodeIsBlockStatic(aElement);
-  }
-
-  /**
    * extracts an element from the normal flow of the document and
    * positions it, and puts it back in the normal flow.
    * @param aElement [IN] the element
@@ -892,9 +878,6 @@ class HTMLEditor final : public TextEditor,
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult RelativeChangeElementZIndex(
       Element& aElement, int32_t aChange, int32_t* aReturn);
-
-  virtual bool IsBlockNode(nsINode* aNode) const override;
-  using EditorBase::IsBlockNode;
 
   /**
    * returns true if aParentTag can contain a child of type aChildTag.
@@ -1690,14 +1673,7 @@ class HTMLEditor final : public TextEditor,
    * IsEmptyInlineNode() returns true if aContent is an inline node and it does
    * not have meaningful content.
    */
-  bool IsEmptyInlineNode(nsIContent& aContent) const {
-    MOZ_ASSERT(IsEditActionDataAvailable());
-
-    if (!HTMLEditor::NodeIsInlineStatic(aContent) || !IsContainer(&aContent)) {
-      return false;
-    }
-    return IsEmptyNode(aContent);
-  }
+  bool IsEmptyInlineNode(nsIContent& aContent) const;
 
   /**
    * IsEmptyOneHardLine() returns true if aArrayOfContents does not represent
@@ -1710,8 +1686,8 @@ class HTMLEditor final : public TextEditor,
     }
 
     bool brElementHasFound = false;
-    for (auto& content : aArrayOfContents) {
-      if (!IsEditable(content)) {
+    for (OwningNonNull<nsIContent>& content : aArrayOfContents) {
+      if (!EditorUtils::IsEditableContent(content, EditorType::HTML)) {
         continue;
       }
       if (content->IsHTMLElement(nsGkAtoms::br)) {
@@ -2040,11 +2016,11 @@ class HTMLEditor final : public TextEditor,
       SelectAllOfCurrentList aSelectAllOfCurrentList);
 
   /**
-   * If aNode is a text node that contains only collapsed whitespace or empty
+   * If aContent is a text node that contains only collapsed whitespace or empty
    * and editable.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  DeleteNodeIfInvisibleAndEditableTextNode(nsINode& aNode);
+  DeleteNodeIfInvisibleAndEditableTextNode(nsIContent& aContent);
 
   /**
    * If aPoint follows invisible `<br>` element, returns the invisible `<br>`
@@ -2127,6 +2103,23 @@ class HTMLEditor final : public TextEditor,
       const EditorDOMPoint& aPointInHardLine,
       const EditorDOMPoint& aPointToInsert,
       MoveToEndOfContainer aMoveToEndOfContainer = MoveToEndOfContainer::No);
+
+  /**
+   * JoinNodesDeepWithTransaction() joins aLeftNode and aRightNode "deeply".
+   * First, they are joined simply, then, new right node is assumed as the
+   * child at length of the left node before joined and new left node is
+   * assumed as its previous sibling.  Then, they will be joined again.
+   * And then, these steps are repeated.
+   *
+   * @param aLeftContent    The node which will be removed form the tree.
+   * @param aRightContent   The node which will be inserted the contents of
+   *                        aRightContent.
+   * @return                The point of the first child of the last right node.
+   *                        The result is always set if this succeeded.
+   */
+  MOZ_CAN_RUN_SCRIPT Result<EditorDOMPoint, nsresult>
+  JoinNodesDeepWithTransaction(nsIContent& aLeftContent,
+                               nsIContent& aRightContent);
 
   /**
    * TryToJoinBlocksWithTransaction() tries to join two block elements.  The
@@ -4390,7 +4383,7 @@ class HTMLEditor final : public TextEditor,
    * any visible characters.
    */
   bool IsEmptyTextNode(nsINode& aNode) const {
-    return EditorBase::IsTextNode(&aNode) && IsEmptyNode(aNode);
+    return aNode.IsText() && IsEmptyNode(aNode);
   }
 
   MOZ_CAN_RUN_SCRIPT bool IsSimpleModifiableNode(nsIContent* aContent,
@@ -4700,6 +4693,8 @@ class MOZ_STACK_CLASS ParagraphStateAtSelection final {
   bool IsMixed() const { return mIsMixed; }
 
  private:
+  using EditorType = EditorBase::EditorType;
+
   /**
    * AppendDescendantFormatNodesAndFirstInlineNode() appends descendant
    * format blocks and first inline child node in aNonFormatBlockElement to
@@ -4733,13 +4728,13 @@ class MOZ_STACK_CLASS ParagraphStateAtSelection final {
 }  // namespace mozilla
 
 mozilla::HTMLEditor* nsIEditor::AsHTMLEditor() {
-  return static_cast<mozilla::EditorBase*>(this)->mIsHTMLEditorClass
+  return static_cast<mozilla::EditorBase*>(this)->IsHTMLEditor()
              ? static_cast<mozilla::HTMLEditor*>(this)
              : nullptr;
 }
 
 const mozilla::HTMLEditor* nsIEditor::AsHTMLEditor() const {
-  return static_cast<const mozilla::EditorBase*>(this)->mIsHTMLEditorClass
+  return static_cast<const mozilla::EditorBase*>(this)->IsHTMLEditor()
              ? static_cast<const mozilla::HTMLEditor*>(this)
              : nullptr;
 }
