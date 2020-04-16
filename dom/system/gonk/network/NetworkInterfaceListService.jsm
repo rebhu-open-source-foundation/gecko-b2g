@@ -12,12 +12,9 @@ const NETWORKLISTSERVICE_CID = Components.ID(
   "{3780be6e-7012-4e53-ade6-15212fb88a0d}"
 );
 
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "cpmm",
-  "@mozilla.org/childprocessmessagemanager;1",
-  "nsISyncMessageSender"
-);
+XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
+  return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
+});
 
 function NetworkInterfaceListService() {}
 
