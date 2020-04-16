@@ -3992,6 +3992,12 @@ RadioInterface.prototype = {
         console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CANCEL_USSD ussd = " + message.ussd);
         this.rilworker.cancelPendingUssd(message.rilMessageToken);
         break;
+      case "setCallBarring":
+        this.processSetCallBarring(message);
+        break;
+      case "queryCallBarringStatus":
+        this.processQueryCallBarringStatus(message);
+        break;
       case "getCLIR":
         console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_CLIR");
         this.rilworker.getClir(message.rilMessageToken);
@@ -4282,6 +4288,44 @@ RadioInterface.prototype = {
   processExplicitCallTransfer: function(message) {
     if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_EXPLICIT_CALL_TRANSFER");
     this.rilworker.explicitCallTransfer(message.rilMessageToken);
+  },
+
+    /**
+   * Queries current call barring rules.
+   *
+   * @param program
+   *        One of CALL_BARRING_PROGRAM_* constants.
+   * @param serviceClass
+   *        One of ICC_SERVICE_CLASS_* constants.
+   */
+  processQueryCallBarringStatus: function(message) {
+    message.facility = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[message.program];
+    message.password = ""; // For query no need to provide it.
+
+    // For some operators, querying specific serviceClass doesn't work. We use
+    // serviceClass 0 instead, and then process the response to extract the
+    // answer for queryServiceClass.
+    message.queryServiceClass = message.serviceClass;
+    message.serviceClass = 0;
+
+    this.queryICCFacilityLock(message);
+  },
+
+  /**
+   * Configures call barring rule.
+   *
+   * @param program
+   *        One of CALL_BARRING_PROGRAM_* constants.
+   * @param enabled
+   *        Enable or disable the call barring.
+   * @param password
+   *        Barring password.
+   * @param serviceClass
+   *        One of ICC_SERVICE_CLASS_* constants.
+   */
+  processSetCallBarring: function(message) {
+    message.facility = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[message.program];
+    this.setICCFacilityLock(message);
   },
 
   /**
