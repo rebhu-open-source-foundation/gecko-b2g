@@ -54,6 +54,7 @@ class ListItemElementSelectionState;
 class MoveNodeResult;
 class ParagraphStateAtSelection;
 class ResizerSelectionListener;
+class Runnable;
 class SplitRangeOffFromNodeResult;
 class SplitRangeOffResult;
 class WSRunObject;
@@ -771,21 +772,6 @@ class HTMLEditor final : public TextEditor,
   using EditorBase::SetAttributeOrEquivalent;
 
   /**
-   * GetBlockNodeParent() returns parent or nearest ancestor of aNode if
-   * there is a block parent.  If aAncestorLimiter is not nullptr,
-   * this stops looking for the result.
-   */
-  static Element* GetBlockNodeParent(nsINode* aNode,
-                                     nsINode* aAncestorLimiter = nullptr);
-
-  /**
-   * GetBlock() returns aNode itself, or parent or nearest ancestor of aNode
-   * if there is a block parent.  If aAncestorLimiter is not nullptr,
-   * this stops looking for the result.
-   */
-  static Element* GetBlock(nsINode& aNode, nsINode* aAncestorLimiter = nullptr);
-
-  /**
    * Returns container element of ranges in Selection.  If Selection is
    * collapsed, returns focus container node (or its parent element).
    * If Selection selects only one element node, returns the element node.
@@ -878,17 +864,6 @@ class HTMLEditor final : public TextEditor,
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult RelativeChangeElementZIndex(
       Element& aElement, int32_t aChange, int32_t* aReturn);
-
-  /**
-   * returns true if aParentTag can contain a child of type aChildTag.
-   */
-  virtual bool TagCanContainTag(nsAtom& aParentTag,
-                                nsAtom& aChildTag) const override;
-
-  /**
-   * Returns true if aNode is a container.
-   */
-  virtual bool IsContainer(nsINode* aNode) const override;
 
   /**
    * Join together any adjacent editable text nodes in the range.
@@ -1305,12 +1280,6 @@ class HTMLEditor final : public TextEditor,
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT EditActionResult
   SplitMailCiteElements(const EditorDOMPoint& aPointToSplit);
-
-  /**
-   * CanContainParagraph() returns true if aElement can have a <p> element as
-   * its child or its descendant.
-   */
-  bool CanContainParagraph(Element& aElement) const;
 
   /**
    * InsertBRElement() inserts a <br> element into aInsertToBreak.
@@ -3887,8 +3856,6 @@ class HTMLEditor final : public TextEditor,
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult SetSelectionAtDocumentStart();
 
-  static Element* GetEnclosingTable(nsINode* aNode);
-
   // Methods for handling plaintext quotations
   MOZ_CAN_RUN_SCRIPT nsresult PasteAsPlaintextQuotation(int32_t aSelectionType);
 
@@ -4475,6 +4442,9 @@ class HTMLEditor final : public TextEditor,
   mutable RefPtr<RangeItem> mSelectedRangeForTopLevelEditSubAction;
   // Used by TopLevelEditSubActionData::mChangedRange.
   mutable RefPtr<nsRange> mChangedRangeForTopLevelEditSubAction;
+
+  RefPtr<Runnable> mPendingRootElementUpdatedRunner;
+  RefPtr<Runnable> mPendingDocumentModifiedRunner;
 
   bool mCRInParagraphCreatesParagraph;
 

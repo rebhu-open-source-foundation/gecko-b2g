@@ -69,9 +69,6 @@ class SmooshScriptStencil : public ScriptStencil {
         compilationInfo_(compilationInfo) {}
 
   MOZ_MUST_USE bool init(JSContext* cx) {
-    lineno = result_.lineno;
-    column = result_.column;
-
     natoms = result_.atoms.len;
 
     ngcthings = result_.gcthings.len;
@@ -425,12 +422,7 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
     return nullptr;
   }
 
-  SourceExtent extent(/* sourceStart = */ 0,
-                      /* sourceEnd = */ length,
-                      /* toStringStart = */ 0,
-                      /* toStringEnd = */ length,
-                      /* lineno = */ 1,
-                      /* column = */ 0);
+  SourceExtent extent = SourceExtent::makeGlobalExtent(length);
   RootedScript script(
       cx, JSScript::Create(cx, cx->global(), sso, extent,
                            ImmutableScriptFlags::fromCompileOptions(options)));

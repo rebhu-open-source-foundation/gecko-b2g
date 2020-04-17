@@ -390,7 +390,7 @@ nsresult HTMLEditor::SetInlinePropertyOnTextNode(
     Text& aText, uint32_t aStartOffset, uint32_t aEndOffset, nsAtom& aProperty,
     nsAtom* aAttribute, const nsAString& aValue) {
   if (!aText.GetParentNode() ||
-      !CanContainTag(*aText.GetParentNode(), aProperty)) {
+      !HTMLEditUtils::CanNodeContain(*aText.GetParentNode(), aProperty)) {
     return NS_OK;
   }
 
@@ -494,7 +494,7 @@ nsresult HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aContent,
                                                  const nsAString& aValue) {
   // If this is an element that can't be contained in a span, we have to
   // recurse to its children.
-  if (!TagCanContain(*nsGkAtoms::span, aContent)) {
+  if (!HTMLEditUtils::CanNodeContain(*nsGkAtoms::span, aContent)) {
     if (aContent.HasChildren()) {
       nsTArray<OwningNonNull<nsIContent>> arrayOfNodes;
 
@@ -889,7 +889,9 @@ EditResult HTMLEditor::ClearStyleAt(const EditorDOMPoint& aPoint,
   RefPtr<HTMLBRElement> brElement;
   // But don't try to split non-containers like `<br>`, `<hr>` and `<img>`
   // element.
-  if (!IsContainer(atStartOfNextNode.GetContainer())) {
+  if (!atStartOfNextNode.IsInContentNode() ||
+      !HTMLEditUtils::IsContainerNode(
+          *atStartOfNextNode.ContainerAsContent())) {
     // If it's a `<br>` element, let's move it into new node later.
     brElement = HTMLBRElement::FromNode(atStartOfNextNode.GetContainer());
     if (!atStartOfNextNode.GetContainerParentAsContent()) {
@@ -2111,7 +2113,7 @@ nsresult HTMLEditor::RelativeFontChange(FontSize aDir) {
       }
       selectedNode = *selectedNode->GetParentNode();
     }
-    if (!CanContainTag(selectedNode, atom)) {
+    if (!HTMLEditUtils::CanNodeContain(selectedNode, atom)) {
       return NS_OK;
     }
 
@@ -2237,7 +2239,8 @@ nsresult HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
   }
 
   if (!aTextNode.GetParentNode() ||
-      !CanContainTag(*aTextNode.GetParentNode(), *nsGkAtoms::big)) {
+      !HTMLEditUtils::CanNodeContain(*aTextNode.GetParentNode(),
+                                     *nsGkAtoms::big)) {
     return NS_OK;
   }
 
@@ -2394,7 +2397,7 @@ nsresult HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
   }
 
   // can it be put inside a "big" or "small"?
-  if (TagCanContain(*atom, *aNode)) {
+  if (HTMLEditUtils::CanNodeContain(*atom, *aNode)) {
     // first populate any nested font tags that have the size attr set
     nsresult rv = RelativeFontChangeHelper(aSizeChange, aNode);
     if (NS_FAILED(rv)) {

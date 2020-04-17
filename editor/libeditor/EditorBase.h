@@ -2055,14 +2055,6 @@ class EditorBase : public nsIEditor,
                                bool bNoBlockCrossing = false) const;
 
   /**
-   * Returns true if aParent can contain a child of type aTag.
-   */
-  bool CanContain(nsINode& aParent, nsIContent& aChild) const;
-  bool CanContainTag(nsINode& aParent, nsAtom& aTag) const;
-  bool TagCanContain(nsAtom& aParentTag, nsIContent& aChild) const;
-  virtual bool TagCanContainTag(nsAtom& aParentTag, nsAtom& aChildTag) const;
-
-  /**
    * Returns true if aNode is our root node.
    */
   bool IsRoot(nsINode* inNode) const;
@@ -2073,20 +2065,6 @@ class EditorBase : public nsIEditor,
    */
   bool IsDescendantOfRoot(nsINode* inNode) const;
   bool IsDescendantOfEditorRoot(nsINode* aNode) const;
-
-  /**
-   * Returns true if aNode is a container.
-   */
-  virtual bool IsContainer(nsINode* aNode) const;
-
-  /**
-   * Returns true if aNode is a <br> element and it's marked as padding for
-   * empty last line.
-   */
-  static bool IsPaddingBRElementForEmptyLastLine(const nsINode& aNode) {
-    const dom::HTMLBRElement* brElement = dom::HTMLBRElement::FromNode(&aNode);
-    return brElement && brElement->IsPaddingForEmptyLastLine();
-  }
 
   /**
    * Counts number of editable child nodes.

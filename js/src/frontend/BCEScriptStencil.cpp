@@ -21,9 +21,6 @@ BCEScriptStencil::BCEScriptStencil(
 }
 
 void BCEScriptStencil::init() {
-  lineno = bce_.firstLine;
-  column = bce_.firstColumn;
-
   natoms = bce_.perScriptData().atomIndices()->count();
 
   ngcthings = bce_.perScriptData().gcThingList().length();
@@ -50,8 +47,6 @@ void BCEScriptStencil::init() {
     // FunctionBox.
     immutableFlags.setFlag(ImmutableFlags::HasMappedArgsObj,
                            funbox->hasMappedArgsObj());
-    immutableFlags.setFlag(ImmutableFlags::FunctionHasExtraBodyVarScope,
-                           funbox->hasExtraBodyVarScope());
   } /* isFunctionBox */
 }
 

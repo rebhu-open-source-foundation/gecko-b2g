@@ -7,8 +7,10 @@
 #define HTMLEditUtils_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/dom/AncestorIterator.h"
 #include "mozilla/dom/Element.h"
 #include "nsGkAtoms.h"
+#include "nsHTMLTags.h"
 
 class nsAtom;
 
@@ -96,8 +98,92 @@ class HTMLEditUtils final {
   static bool IsMailCite(nsINode* aNode);
   static bool IsFormWidget(nsINode* aNode);
   static bool SupportsAlignAttr(nsINode& aNode);
-  static bool CanContain(int32_t aParent, int32_t aChild);
-  static bool IsContainer(int32_t aTag);
+
+  static bool CanNodeContain(const nsINode& aParent, const nsIContent& aChild) {
+    switch (aParent.NodeType()) {
+      case nsINode::ELEMENT_NODE:
+      case nsINode::DOCUMENT_FRAGMENT_NODE:
+        return HTMLEditUtils::CanNodeContain(*aParent.NodeInfo()->NameAtom(),
+                                             aChild);
+    }
+    return false;
+  }
+
+  static bool CanNodeContain(const nsINode& aParent, nsAtom& aChildNodeName) {
+    switch (aParent.NodeType()) {
+      case nsINode::ELEMENT_NODE:
+      case nsINode::DOCUMENT_FRAGMENT_NODE:
+        return HTMLEditUtils::CanNodeContain(*aParent.NodeInfo()->NameAtom(),
+                                             aChildNodeName);
+    }
+    return false;
+  }
+
+  static bool CanNodeContain(nsAtom& aParentNodeName,
+                             const nsIContent& aChild) {
+    switch (aChild.NodeType()) {
+      case nsINode::TEXT_NODE:
+      case nsINode::ELEMENT_NODE:
+      case nsINode::DOCUMENT_FRAGMENT_NODE:
+        return HTMLEditUtils::CanNodeContain(aParentNodeName,
+                                             *aChild.NodeInfo()->NameAtom());
+    }
+    return false;
+  }
+
+  // XXX Only this overload does not check the node type.  Therefore, only this
+  //     treat Document, Comment, CDATASection, etc.
+  static bool CanNodeContain(nsAtom& aParentNodeName, nsAtom& aChildNodeName) {
+    nsHTMLTag childTagEnum;
+    // XXX Should this handle #cdata-section too?
+    if (&aChildNodeName == nsGkAtoms::textTagName) {
+      childTagEnum = eHTMLTag_text;
+    } else {
+      childTagEnum = nsHTMLTags::AtomTagToId(&aChildNodeName);
+    }
+
+    nsHTMLTag parentTagEnum = nsHTMLTags::AtomTagToId(&aParentNodeName);
+    return HTMLEditUtils::CanNodeContain(parentTagEnum, childTagEnum);
+  }
+
+  /**
+   * CanElementContainParagraph() returns true if aElement can have a <p>
+   * element as its child or its descendant.
+   */
+  static bool CanElementContainParagraph(const Element& aElement) {
+    if (HTMLEditUtils::CanNodeContain(aElement, *nsGkAtoms::p)) {
+      return true;
+    }
+
+    // Even if the element cannot have a <p> element as a child, it can contain
+    // <p> element as a descendant if it's one of the following elements.
+    if (aElement.IsAnyOfHTMLElements(nsGkAtoms::ol, nsGkAtoms::ul,
+                                     nsGkAtoms::dl, nsGkAtoms::table,
+                                     nsGkAtoms::thead, nsGkAtoms::tbody,
+                                     nsGkAtoms::tfoot, nsGkAtoms::tr)) {
+      return true;
+    }
+
+    // XXX Otherwise, Chromium checks the CSS box is a block, but we don't do it
+    //     for now.
+    return false;
+  }
+
+  /**
+   * IsContainerNode() returns true if aContent is a container node.
+   */
+  static bool IsContainerNode(const nsIContent& aContent) {
+    nsHTMLTag tagEnum;
+    // XXX Should this handle #cdata-section too?
+    if (aContent.IsText()) {
+      tagEnum = eHTMLTag_text;
+    } else {
+      // XXX Why don't we use nsHTMLTags::AtomTagToId?  Are there some
+      //     difference?
+      tagEnum = nsHTMLTags::StringTagToId(aContent.NodeName());
+    }
+    return HTMLEditUtils::IsContainerNode(tagEnum);
+  }
 
   /**
    * See execCommand spec:
@@ -107,6 +193,79 @@ class HTMLEditUtils final {
   static bool IsNonListSingleLineContainer(nsINode& aNode);
   static bool IsSingleLineContainer(nsINode& aNode);
 
+  /**
+   * GetAncestorBlockElement() returns parent or nearest ancestor of aContent
+   * which is a block element.  If aAncestorLimiter is not nullptr,
+   * this stops looking for the result when it meets the limiter.
+   */
+  static Element* GetAncestorBlockElement(
+      const nsIContent& aContent, const nsINode* aAncestorLimiter = nullptr) {
+    MOZ_ASSERT(
+        !aAncestorLimiter || aContent.IsInclusiveDescendantOf(aAncestorLimiter),
+        "aContent isn't in aAncestorLimiter");
+
+    // The caller has already reached the limiter.
+    if (&aContent == aAncestorLimiter) {
+      return nullptr;
+    }
+
+    if (!aContent.GetParent()) {
+      return nullptr;
+    }
+
+    for (Element* element : dom::InclusiveAncestorsOfType<Element>(
+             const_cast<nsIContent&>(*aContent.GetParent()))) {
+      if (HTMLEditUtils::IsBlockElement(*element)) {
+        return element;
+      }
+      // Now, we have reached the limiter, there is no block in its ancestors.
+      if (element == aAncestorLimiter) {
+        return nullptr;
+      }
+    }
+
+    return nullptr;
+  }
+
+  /**
+   * GetInclusiveAncestorBlockElement() returns aContent itself, or parent or
+   * nearest ancestor of aContent which is a block element.  If aAncestorLimiter
+   * is not nullptr, this stops looking for the result when it meets the
+   * limiter.
+   */
+  static Element* GetInclusiveAncestorBlockElement(
+      const nsIContent& aContent, const nsINode* aAncestorLimiter = nullptr) {
+    MOZ_ASSERT(
+        !aAncestorLimiter || aContent.IsInclusiveDescendantOf(aAncestorLimiter),
+        "aContent isn't in aAncestorLimiter");
+
+    if (!aContent.IsContent()) {
+      return nullptr;
+    }
+
+    if (HTMLEditUtils::IsBlockElement(aContent)) {
+      return const_cast<Element*>(aContent.AsElement());
+    }
+    return GetAncestorBlockElement(aContent, aAncestorLimiter);
+  }
+
+  /**
+   * GetClosestAncestorTableElement() returns the nearest inclusive ancestor
+   * <table> element of aContent.
+   */
+  static Element* GetClosestAncestorTableElement(const nsIContent& aContent) {
+    if (!aContent.GetParent()) {
+      return nullptr;
+    }
+    for (Element* element : dom::InclusiveAncestorsOfType<Element>(
+             const_cast<nsIContent&>(aContent))) {
+      if (HTMLEditUtils::IsTable(element)) {
+        return element;
+      }
+    }
+    return nullptr;
+  }
+
   static EditAction GetEditActionForInsert(const nsAtom& aTagName);
   static EditAction GetEditActionForRemoveList(const nsAtom& aTagName);
   static EditAction GetEditActionForInsert(const Element& aElement);
@@ -114,6 +273,10 @@ class HTMLEditUtils final {
                                                const nsAtom* aAttribute,
                                                bool aToSetStyle);
   static EditAction GetEditActionForAlignment(const nsAString& aAlignType);
+
+ private:
+  static bool CanNodeContain(nsHTMLTag aParentTagId, nsHTMLTag aChildTagId);
+  static bool IsContainerNode(nsHTMLTag aTagId);
 };
 
 /**

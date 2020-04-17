@@ -64,6 +64,7 @@
 #include "vm/JSFunction.h"
 #include "vm/JSObject.h"
 #include "vm/Opcodes.h"
+#include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/SelfHosting.h"
 #include "vm/Shape.h"
 #include "vm/SharedImmutableStringsCache.h"
@@ -4059,7 +4060,6 @@ void JSScript::relazify(JSRuntime* rt) {
   //
   // NOTE: Keep in sync with CheckFlagsOnDelazification.
   clearFlag(ImmutableFlags::HasNonSyntacticScope);
-  clearFlag(ImmutableFlags::FunctionHasExtraBodyVarScope);
   clearFlag(ImmutableFlags::NeedsFunctionEnvironmentObjects);
 
   // We should not still be in any side-tables for the debugger or
@@ -4333,8 +4333,6 @@ bool JSScript::fullyInitFromStencil(JSContext* cx,
   /* The counts of indexed things must be checked during code generation. */
   MOZ_ASSERT(stencil.natoms <= INDEX_LIMIT);
   MOZ_ASSERT(stencil.ngcthings <= INDEX_LIMIT);
-  MOZ_ASSERT(script->extent_.lineno == stencil.lineno);
-  MOZ_ASSERT(script->extent_.column == stencil.column);
 
   script->addToImmutableFlags(stencil.immutableFlags);
 

@@ -1147,15 +1147,16 @@ nsresult EditorBase::CollapseSelectionToEnd() {
     return NS_ERROR_NULL_POINTER;
   }
 
-  nsINode* node = rootElement;
-  nsINode* child = node->GetLastChild();
-  while (child && IsContainer(child)) {
-    node = child;
-    child = node->GetLastChild();
+  nsIContent* lastContent = rootElement;
+  for (nsIContent* child = lastContent->GetLastChild();
+       child && (IsTextEditor() || HTMLEditUtils::IsContainerNode(*child));
+       child = child->GetLastChild()) {
+    lastContent = child;
   }
 
-  uint32_t length = node->Length();
-  nsresult rv = SelectionRefPtr()->Collapse(node, static_cast<int32_t>(length));
+  uint32_t length = lastContent->Length();
+  nsresult rv =
+      SelectionRefPtr()->Collapse(lastContent, static_cast<int32_t>(length));
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Selection::Collapse() failed");
   return rv;
 }
@@ -2753,7 +2754,7 @@ nsresult EditorBase::ScrollSelectionFocusIntoView() {
 
 EditorRawDOMPoint EditorBase::FindBetterInsertionPoint(
     const EditorRawDOMPoint& aPoint) {
-  if (NS_WARN_IF(!aPoint.IsSet())) {
+  if (NS_WARN_IF(!aPoint.IsInContentNode())) {
     return aPoint;
   }
 
@@ -2817,7 +2818,8 @@ EditorRawDOMPoint EditorBase::FindBetterInsertionPoint(
   // Sometimes, aNode is the padding <br> element itself.  In that case, we'll
   // adjust the insertion point to the previous text node, if one exists, or
   // to the parent anonymous DIV.
-  if (EditorBase::IsPaddingBRElementForEmptyLastLine(*aPoint.GetContainer()) &&
+  if (EditorUtils::IsPaddingBRElementForEmptyLastLine(
+          *aPoint.ContainerAsContent()) &&
       aPoint.IsStartOfContainer()) {
     nsIContent* previousSibling = aPoint.GetContainer()->GetPreviousSibling();
     if (previousSibling && previousSibling->IsText()) {
@@ -2827,10 +2829,10 @@ EditorRawDOMPoint EditorBase::FindBetterInsertionPoint(
       return EditorRawDOMPoint(previousSibling, previousSibling->Length());
     }
 
-    nsINode* parentOfContainer = aPoint.GetContainer()->GetParentNode();
+    nsINode* parentOfContainer = aPoint.GetContainerParent();
     if (parentOfContainer && parentOfContainer == rootElement) {
-      return EditorRawDOMPoint(parentOfContainer,
-                               aPoint.GetContainerAsContent(), 0);
+      return EditorRawDOMPoint(parentOfContainer, aPoint.ContainerAsContent(),
+                               0);
     }
   }
 
@@ -3987,38 +3989,6 @@ nsIContent* EditorBase::GetLeftmostChild(nsINode* aCurrentNode,
   return nullptr;
 }
 
-bool EditorBase::CanContain(nsINode& aParent, nsIContent& aChild) const {
-  switch (aParent.NodeType()) {
-    case nsINode::ELEMENT_NODE:
-    case nsINode::DOCUMENT_FRAGMENT_NODE:
-      return TagCanContain(*aParent.NodeInfo()->NameAtom(), aChild);
-  }
-  return false;
-}
-
-bool EditorBase::CanContainTag(nsINode& aParent, nsAtom& aChildTag) const {
-  switch (aParent.NodeType()) {
-    case nsINode::ELEMENT_NODE:
-    case nsINode::DOCUMENT_FRAGMENT_NODE:
-      return TagCanContainTag(*aParent.NodeInfo()->NameAtom(), aChildTag);
-  }
-  return false;
-}
-
-bool EditorBase::TagCanContain(nsAtom& aParentTag, nsIContent& aChild) const {
-  switch (aChild.NodeType()) {
-    case nsINode::TEXT_NODE:
-    case nsINode::ELEMENT_NODE:
-    case nsINode::DOCUMENT_FRAGMENT_NODE:
-      return TagCanContainTag(aParentTag, *aChild.NodeInfo()->NameAtom());
-  }
-  return false;
-}
-
-bool EditorBase::TagCanContainTag(nsAtom& aParentTag, nsAtom& aChildTag) const {
-  return true;
-}
-
 bool EditorBase::IsRoot(nsINode* inNode) const {
   if (NS_WARN_IF(!inNode)) {
     return false;
@@ -4057,10 +4027,6 @@ bool EditorBase::IsDescendantOfEditorRoot(nsINode* aNode) const {
   }
 
   return aNode->IsInclusiveDescendantOf(root);
-}
-
-bool EditorBase::IsContainer(nsINode* aNode) const {
-  return aNode ? true : false;
 }
 
 uint32_t EditorBase::CountEditableChildren(nsINode* aNode) {

@@ -24,6 +24,7 @@
 #include "js/Conversions.h"
 #include "util/Text.h"
 #include "util/Unicode.h"
+#include "vm/PlainObject.h"  // js::PlainObject
 #include "wasm/WasmCode.h"
 
 #include "builtin/Boolean-inl.h"
@@ -1519,7 +1520,8 @@ WrappedFunction::WrappedFunction(JSFunction* fun)
       isConstructor_(fun->isConstructor()),
       isClassConstructor_(fun->isClassConstructor()),
       isSelfHostedBuiltin_(fun->isSelfHostedBuiltin()),
-      isExtended_(fun->isExtended()) {}
+      isExtended_(fun->isExtended()),
+      hasJitInfo_(fun->hasJitInfo()) {}
 
 MCall* MCall::New(TempAllocator& alloc, JSFunction* target, size_t maxArgc,
                   size_t numActualArgs, bool construct, bool ignoresReturnValue,

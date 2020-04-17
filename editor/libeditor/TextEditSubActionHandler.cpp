@@ -233,13 +233,7 @@ EditActionResult TextEditor::InsertLineFeedCharacterAtSelection() {
     return EditActionIgnored(NS_ERROR_FAILURE);
   }
   MOZ_ASSERT(pointToInsert.IsSetAndValid());
-
-  // Don't put text in places that can't have it.
-  if (!pointToInsert.IsInTextNode() &&
-      !CanContainTag(*pointToInsert.GetContainer(), *nsGkAtoms::textTagName)) {
-    NS_WARNING("Insertion point couldn't have text nodes");
-    return EditActionIgnored(NS_ERROR_FAILURE);
-  }
+  MOZ_ASSERT(!pointToInsert.IsContainerHTMLElement(nsGkAtoms::br));
 
   RefPtr<Document> document = GetDocument();
   if (NS_WARN_IF(!document)) {
@@ -336,8 +330,10 @@ nsresult TextEditor::EnsureCaretNotAtEndOfTextNode() {
     return NS_OK;
   }
 
-  nsINode* nextNode = selectionStartPoint.GetContainer()->GetNextSibling();
-  if (!nextNode || !EditorBase::IsPaddingBRElementForEmptyLastLine(*nextNode)) {
+  nsIContent* nextContent =
+      selectionStartPoint.GetContainer()->GetNextSibling();
+  if (!nextContent ||
+      !EditorUtils::IsPaddingBRElementForEmptyLastLine(*nextContent)) {
     return NS_OK;
   }
 
@@ -433,6 +429,7 @@ void TextEditor::HandleNewLinesInStringForSingleLineEditor(
 EditActionResult TextEditor::HandleInsertText(
     EditSubAction aEditSubAction, const nsAString& aInsertionString) {
   MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(IsTextEditor());
   MOZ_ASSERT(aEditSubAction == EditSubAction::eInsertText ||
              aEditSubAction == EditSubAction::eInsertTextComingFromIME);
 
@@ -530,14 +527,7 @@ EditActionResult TextEditor::HandleInsertText(
   if (NS_WARN_IF(!atStartOfSelection.IsSetAndValid())) {
     return EditActionHandled(NS_ERROR_FAILURE);
   }
-
-  // don't put text in places that can't have it
-  if (!atStartOfSelection.IsInTextNode() &&
-      !CanContainTag(*atStartOfSelection.GetContainer(),
-                     *nsGkAtoms::textTagName)) {
-    NS_WARNING("Selection start container couldn't have text nodes");
-    return EditActionHandled(NS_ERROR_FAILURE);
-  }
+  MOZ_ASSERT(!atStartOfSelection.IsContainerHTMLElement(nsGkAtoms::br));
 
   RefPtr<Document> document = GetDocument();
   if (NS_WARN_IF(!document)) {
@@ -666,11 +656,11 @@ EditActionResult TextEditor::SetTextWithoutTransaction(
     }
     if (firstChild->IsText()) {
       if (!firstChild->GetNextSibling() ||
-          !EditorBase::IsPaddingBRElementForEmptyLastLine(
+          !EditorUtils::IsPaddingBRElementForEmptyLastLine(
               *firstChild->GetNextSibling())) {
         return EditActionIgnored();
       }
-    } else if (!EditorBase::IsPaddingBRElementForEmptyLastLine(*firstChild)) {
+    } else if (!EditorUtils::IsPaddingBRElementForEmptyLastLine(*firstChild)) {
       return EditActionIgnored();
     }
   }
@@ -887,7 +877,7 @@ EditActionResult TextEditor::ComputeValueFromTextNodeAndPaddingBRElement(
   if (NS_WARN_IF(isInput && firstChildExceptText) ||
       NS_WARN_IF(isTextarea && !firstChildExceptText) ||
       NS_WARN_IF(isTextarea &&
-                 !EditorBase::IsPaddingBRElementForEmptyLastLine(
+                 !EditorUtils::IsPaddingBRElementForEmptyLastLine(
                      *firstChildExceptText) &&
                  !firstChildExceptText->IsXULElement(nsGkAtoms::scrollbar))) {
     return EditActionIgnored();

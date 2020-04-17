@@ -441,7 +441,10 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
 
   // Loop over the node list and paste the nodes:
   RefPtr<Element> blockElement =
-      HTMLEditor::GetBlock(*pointToInsert.GetContainer());
+      pointToInsert.IsInContentNode()
+          ? HTMLEditUtils::GetInclusiveAncestorBlockElement(
+                *pointToInsert.ContainerAsContent())
+          : nullptr;
   EditorDOMPoint lastInsertedPoint;
   nsCOMPtr<nsIContent> insertedContextParentContent;
   for (OwningNonNull<nsIContent>& content : arrayOfTopMostChildContents) {
@@ -691,7 +694,7 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
   // If the container is a text node or a container element except `<table>`
   // element, put caret a end of it.
   if (containerContent->IsText() ||
-      (IsContainer(containerContent) &&
+      (HTMLEditUtils::IsContainerNode(*containerContent) &&
        !HTMLEditUtils::IsTable(containerContent))) {
     pointToPutCaret.SetToEndOf(containerContent);
   }

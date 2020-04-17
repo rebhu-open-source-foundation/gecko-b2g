@@ -79,6 +79,7 @@
 #include "vm/Iteration.h"
 #include "vm/JSContext.h"
 #include "vm/JSObject.h"
+#include "vm/PlainObject.h"    // js::PlainObject
 #include "vm/PromiseObject.h"  // js::PromiseObject, js::PromiseSlot_*
 #include "vm/ProxyObject.h"
 #include "vm/SavedStacks.h"
@@ -5288,7 +5289,7 @@ static bool ParseRegExp(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   CompileOptions options(cx);
-  frontend::TokenStream dummyTokenStream(cx, options, nullptr, 0, nullptr);
+  frontend::DummyTokenStream dummyTokenStream(cx, options);
 
   // Data lifetime is controlled by LifoAllocScope.
   LifoAllocScope allocScope(&cx->tempLifoAlloc());

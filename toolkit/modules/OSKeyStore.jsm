@@ -93,7 +93,7 @@ var OSKeyStore = {
           "oskeystore-testonly-reauth",
           "pass"
         );
-        break;
+        return { authenticated: true, auth_details: "success" };
       case "cancel":
         Services.obs.notifyObservers(
           null,
@@ -145,9 +145,9 @@ var OSKeyStore = {
    *                                  the key storage. If we start creating keys on macOS by running
    *                                  this code we'll potentially have to do extra work to cleanup
    *                                  the mess later.
-   * @returns {Promise<boolean>}      True if it's logged in or no password is set
-   *                                  and false if it's still not logged in (prompt
-   *                                  canceled or other error).
+   * @returns {Promise<Object>}       Object with the following properties:
+   *                                    authenticated: {boolean} Set to true if the user successfully authenticated.
+   *                                    auth_details: {String?} Details of the authentication result.
    */
   async ensureLoggedIn(
     reauth = false,
@@ -195,23 +195,34 @@ var OSKeyStore = {
         unlockPromise = osReauthenticator
           .asyncReauthenticateUser(reauth, dialogCaption, parentWindow)
           .then(reauthResult => {
-            if (typeof reauthResult == "boolean" && !reauthResult) {
+            if (typeof reauthResult[0] == "boolean" && !reauthResult[0]) {
               throw new Components.Exception(
                 "User canceled OS reauth entry",
                 Cr.NS_ERROR_FAILURE
               );
             }
+            let result = {
+              authenticated: true,
+              auth_details: "success",
+            };
+            if (reauthResult.length == 2 && reauthResult[1]) {
+              result.auth_details += "_no_password";
+            }
+            return result;
           });
       } else {
         log.debug("ensureLoggedIn: Skipping reauth on unsupported platforms");
-        unlockPromise = Promise.resolve();
+        unlockPromise = Promise.resolve({
+          authenticated: true,
+          auth_details: "success_unsupported_platform",
+        });
       }
     } else {
-      unlockPromise = Promise.resolve();
+      unlockPromise = Promise.resolve({ authenticated: true });
     }
 
     if (generateKeyIfNotAvailable) {
-      unlockPromise = unlockPromise.then(async () => {
+      unlockPromise = unlockPromise.then(async reauthResult => {
         if (!(await nativeOSKeyStore.asyncSecretAvailable(this.STORE_LABEL))) {
           log.debug(
             "ensureLoggedIn: Secret unavailable, attempt to generate new secret."
@@ -227,23 +238,24 @@ var OSKeyStore = {
               recoveryPhrase.length
           );
         }
+        return reauthResult;
       });
     }
 
     unlockPromise = unlockPromise.then(
-      () => {
+      reauthResult => {
         log.debug("ensureLoggedIn: Logged in");
         this._pendingUnlockPromise = null;
         this._isLocked = false;
 
-        return true;
+        return reauthResult;
       },
       err => {
         log.debug("ensureLoggedIn: Not logged in", err);
         this._pendingUnlockPromise = null;
         this._isLocked = true;
 
-        return false;
+        return { authenticated: false, auth_details: "fail" };
       }
     );
 
@@ -267,7 +279,7 @@ var OSKeyStore = {
    * @returns {Promise<string>}           resolves to the decrypted string, or rejects otherwise.
    */
   async decrypt(cipherText, reauth = false) {
-    if (!(await this.ensureLoggedIn(reauth))) {
+    if (!(await this.ensureLoggedIn(reauth)).authenticated) {
       throw Components.Exception(
         "User canceled OS unlock entry",
         Cr.NS_ERROR_ABORT
@@ -287,7 +299,7 @@ var OSKeyStore = {
    * @returns {Promise<string>} resolves to the encrypted string (with algorithm), otherwise rejects.
    */
   async encrypt(plainText) {
-    if (!(await this.ensureLoggedIn())) {
+    if (!(await this.ensureLoggedIn()).authenticated) {
       throw Components.Exception(
         "User canceled OS unlock entry",
         Cr.NS_ERROR_ABORT

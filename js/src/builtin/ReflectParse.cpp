@@ -26,6 +26,7 @@
 #include "vm/JSAtom.h"
 #include "vm/JSObject.h"
 #include "vm/ModuleBuilder.h"  // js::ModuleBuilder
+#include "vm/PlainObject.h"    // js::PlainObject
 #include "vm/RegExpObject.h"
 
 #include "vm/JSObject-inl.h"
@@ -3745,8 +3746,11 @@ static bool reflect_parse(JSContext* cx, uint32_t argc, Value* vp) {
 
     ModuleBuilder builder(cx, &parser);
 
+    uint32_t len = chars.length();
+    SourceExtent extent = SourceExtent::makeGlobalExtent(len, options);
     ModuleSharedContext modulesc(cx, module, compilationInfo,
-                                 &cx->global()->emptyGlobalScope(), builder);
+                                 &cx->global()->emptyGlobalScope(), builder,
+                                 extent);
     pn = parser.moduleBody(&modulesc);
     if (!pn) {
       return false;

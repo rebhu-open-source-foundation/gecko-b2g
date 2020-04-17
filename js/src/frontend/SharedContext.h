@@ -117,6 +117,8 @@ class SharedContext {
   bool strictScript : 1;
   bool localStrict : 1;
 
+  SourceExtent extent;
+
  protected:
   bool allowNewTarget_ : 1;
   bool allowSuperProperty_ : 1;
@@ -139,13 +141,14 @@ class SharedContext {
 
  public:
   SharedContext(JSContext* cx, Kind kind, CompilationInfo& compilationInfo,
-                Directives directives)
+                Directives directives, SourceExtent extent)
       : cx_(cx),
         kind_(kind),
         compilationInfo_(compilationInfo),
         thisBinding_(ThisBinding::Global),
         strictScript(directives.strict()),
         localStrict(false),
+        extent(extent),
         allowNewTarget_(false),
         allowSuperProperty_(false),
         allowSuperCall_(false),
@@ -241,7 +244,6 @@ class SharedContext {
     immutableFlags_.setFlag(ImmutableFlags::TreatAsRunOnce, flag);
   }
 
-
   ImmutableScriptFlags immutableFlags() { return immutableFlags_; }
 
   inline bool allBindingsClosedOver();
@@ -261,8 +263,9 @@ class MOZ_STACK_CLASS GlobalSharedContext : public SharedContext {
   Rooted<GlobalScope::Data*> bindings;
 
   GlobalSharedContext(JSContext* cx, ScopeKind scopeKind,
-                      CompilationInfo& compilationInfo, Directives directives)
-      : SharedContext(cx, Kind::Global, compilationInfo, directives),
+                      CompilationInfo& compilationInfo, Directives directives,
+                      SourceExtent extent)
+      : SharedContext(cx, Kind::Global, compilationInfo, directives, extent),
         scopeKind_(scopeKind),
         bindings(cx) {
     MOZ_ASSERT(scopeKind == ScopeKind::Global ||
@@ -288,7 +291,7 @@ class MOZ_STACK_CLASS EvalSharedContext : public SharedContext {
 
   EvalSharedContext(JSContext* cx, JSObject* enclosingEnv,
                     CompilationInfo& compilationInfo, Scope* enclosingScope,
-                    Directives directives);
+                    Directives directives, SourceExtent extent);
 
   Scope* compilationEnclosingScope() const override { return enclosingScope_; }
 };
@@ -340,7 +343,7 @@ class FunctionBox : public SharedContext {
                                      bool allowSuperProperty);
 
  public:
-  FunctionBox(JSContext* cx, FunctionBox* traceListHead, uint32_t toStringStart,
+  FunctionBox(JSContext* cx, FunctionBox* traceListHead, SourceExtent extent,
               CompilationInfo& compilationInfo, Directives directives,
               GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
               JSAtom* explicitName, FunctionFlags flags, size_t index);
@@ -349,8 +352,6 @@ class FunctionBox : public SharedContext {
   FunctionNode* functionNode;
 
   mozilla::Maybe<FieldInitializers> fieldInitializers;
-
-  SourceExtent extent;
 
   uint16_t length;
 
@@ -460,12 +461,6 @@ class FunctionBox : public SharedContext {
     return hasExtensibleScope() || isGenerator() || isAsync();
   }
 
-  bool hasExtraBodyVarScope() const {
-    return hasParameterExprs &&
-           (extraVarScopeBindings_ ||
-            needsExtraBodyVarEnvironmentRegardlessOfBindings());
-  }
-
   bool needsExtraBodyVarEnvironmentRegardlessOfBindings() const {
     MOZ_ASSERT(hasParameterExprs);
     return hasExtensibleScope();
@@ -522,6 +517,10 @@ class FunctionBox : public SharedContext {
     hasExprBody_ = true;
   }
 
+  bool functionHasExtraBodyVarScope() {
+    return immutableFlags_.hasFlag(
+        ImmutableFlags::FunctionHasExtraBodyVarScope);
+  }
   bool hasExtensibleScope() const {
     return immutableFlags_.hasFlag(ImmutableFlags::FunHasExtensibleScope);
   }
@@ -583,6 +582,9 @@ class FunctionBox : public SharedContext {
     MOZ_ASSERT_IF(!hasFunction(),
                   functionCreationData().get().flags.isClassConstructor());
     immutableFlags_.setFlag(ImmutableFlags::IsDerivedClassConstructor);
+  }
+  void setFunctionHasExtraBodyVarScope() {
+    immutableFlags_.setFlag(ImmutableFlags::FunctionHasExtraBodyVarScope);
   }
 
   bool hasSimpleParameterList() const {
