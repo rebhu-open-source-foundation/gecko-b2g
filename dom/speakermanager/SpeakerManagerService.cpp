@@ -263,7 +263,6 @@ SpeakerManagerService::Observe(nsISupports* aSubject, const char* aTopic,
 }
 
 SpeakerManagerService::SpeakerManagerService() : mOrgSpeakerStatus(false) {
-  MOZ_COUNT_CTOR(SpeakerManagerService);
   if (XRE_IsParentProcess()) {
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
     if (obs) {
@@ -279,5 +278,4 @@ SpeakerManagerService::SpeakerManagerService() : mOrgSpeakerStatus(false) {
 }
 
 SpeakerManagerService::~SpeakerManagerService() {
-  MOZ_COUNT_DTOR(SpeakerManagerService);
 }

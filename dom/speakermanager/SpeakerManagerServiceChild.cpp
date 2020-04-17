@@ -92,7 +92,6 @@ SpeakerManagerServiceChild::SpeakerManagerServiceChild() {
   if (audioChannelService) {
     audioChannelService->RegisterSpeakerManager(this);
   }
-  MOZ_COUNT_CTOR(SpeakerManagerServiceChild);
 }
 
 SpeakerManagerServiceChild::~SpeakerManagerServiceChild() {
@@ -101,7 +100,6 @@ SpeakerManagerServiceChild::~SpeakerManagerServiceChild() {
   if (audioChannelService) {
     audioChannelService->UnregisterSpeakerManager(this);
   }
-  MOZ_COUNT_DTOR(SpeakerManagerServiceChild);
 }
 
 void SpeakerManagerServiceChild::Notify() {
