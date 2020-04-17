@@ -19,13 +19,6 @@ class WeakSetObject : public NativeObject
     static JSObject* initClass(JSContext* cx, JSObject* obj);
     static const Class class_;
 
-    ObjectValueMap* getMap() { return static_cast<ObjectValueMap*>(getPrivate()); }
-
-    size_t sizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) {
-      ObjectValueMap* map = getMap();
-      return map ? map->sizeOfIncludingThis(aMallocSizeOf) : 0;
-    }
-
   private:
     static const JSPropertySpec properties[];
     static const JSFunctionSpec methods[];

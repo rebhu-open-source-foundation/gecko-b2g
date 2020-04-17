@@ -129,11 +129,6 @@ WeakMapBase::restoreMarkedWeakMaps(WeakMapSet& markedWeakMaps)
     }
 }
 
-size_t
-ObjectValueMap::sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
-  return mallocSizeOf(this) + sizeOfExcludingThis(mallocSizeOf);
-}
-
 bool
 ObjectValueMap::findZoneEdges()
 {

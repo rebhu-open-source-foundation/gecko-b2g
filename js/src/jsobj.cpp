@@ -41,8 +41,6 @@
 #include "builtin/Eval.h"
 #include "builtin/Object.h"
 #include "builtin/SymbolObject.h"
-#include "builtin/WeakMapObject.h"
-#include "builtin/WeakSetObject.h"
 #include "frontend/BytecodeCompiler.h"
 #include "gc/Marking.h"
 #include "gc/Policy.h"
@@ -3766,10 +3764,6 @@ JSObject::addSizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf, JS::ClassIn
         ArrayBufferObject::addSizeOfExcludingThis(this, mallocSizeOf, info);
     } else if (is<SharedArrayBufferObject>()) {
         SharedArrayBufferObject::addSizeOfExcludingThis(this, mallocSizeOf, info);
-    } else if (is<WeakMapObject>()) {
-        info->objectsMallocHeapMisc += as<WeakMapObject>().sizeOfExcludingThis(mallocSizeOf);
-    } else if (is<WeakSetObject>()) {
-        info->objectsMallocHeapMisc += as<WeakSetObject>().sizeOfExcludingThis(mallocSizeOf);
     } else if (is<WasmModuleObject>()) {
         as<WasmModuleObject>().addSizeOfMisc(mallocSizeOf, &info->objectsNonHeapCodeAsmJS,
                                              &info->objectsMallocHeapMisc);
