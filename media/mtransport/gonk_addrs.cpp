@@ -29,27 +29,25 @@ struct NetworkInterface {
   int type;
 };
 
-nsresult
-GetInterfaces(std::vector<NetworkInterface>* aInterfaces)
-{
+nsresult GetInterfaces(std::vector<NetworkInterface>* aInterfaces) {
   MOZ_ASSERT(aInterfaces);
 
   // Obtain network interfaces from network manager.
   nsresult rv;
   nsCOMPtr<nsINetworkInterfaceListService> listService =
-    do_GetService("@mozilla.org/network/interface-list-service;1", &rv);
+      do_GetService("@mozilla.org/network/interface-list-service;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   int32_t flags =
-    nsINetworkInterfaceListService::LIST_NOT_INCLUDE_SUPL_INTERFACES |
-    nsINetworkInterfaceListService::LIST_NOT_INCLUDE_MMS_INTERFACES |
-    nsINetworkInterfaceListService::LIST_NOT_INCLUDE_IMS_INTERFACES |
-    nsINetworkInterfaceListService::LIST_NOT_INCLUDE_DUN_INTERFACES |
-    nsINetworkInterfaceListService::LIST_NOT_INCLUDE_FOTA_INTERFACES;
+      nsINetworkInterfaceListService::LIST_NOT_INCLUDE_SUPL_INTERFACES |
+      nsINetworkInterfaceListService::LIST_NOT_INCLUDE_MMS_INTERFACES |
+      nsINetworkInterfaceListService::LIST_NOT_INCLUDE_IMS_INTERFACES |
+      nsINetworkInterfaceListService::LIST_NOT_INCLUDE_DUN_INTERFACES |
+      nsINetworkInterfaceListService::LIST_NOT_INCLUDE_FOTA_INTERFACES;
   nsCOMPtr<nsINetworkInterfaceList> networkList;
-  NS_ENSURE_SUCCESS(listService->GetDataInterfaceList(flags,
-                                                      getter_AddRefs(networkList)),
-                    NS_ERROR_FAILURE);
+  NS_ENSURE_SUCCESS(
+      listService->GetDataInterfaceList(flags, getter_AddRefs(networkList)),
+      NS_ERROR_FAILURE);
 
   // Translate nsINetworkInterfaceList to NetworkInterface.
   int32_t listLength;
@@ -63,8 +61,8 @@ GetInterfaces(std::vector<NetworkInterface>* aInterfaces)
       continue;
     }
 
-    char16_t **ips = nullptr;
-    uint32_t *prefixs = nullptr;
+    char16_t** ips = nullptr;
+    uint32_t* prefixs = nullptr;
     uint32_t count = 0;
     NetworkInterface interface;
 
@@ -74,7 +72,8 @@ GetInterfaces(std::vector<NetworkInterface>* aInterfaces)
 
     for (uint32_t j = 0; j < count; j++) {
       NS_ConvertUTF16toUTF8 ip(ips[j]);
-      sockaddr_storage addr; // guaranteed to be large enough to hold any socket address type
+      sockaddr_storage addr;  // guaranteed to be large enough to hold any
+                              // socket address type
       memset(&addr, 0, sizeof(addr));
       sockaddr_in* addr4 = reinterpret_cast<sockaddr_in*>(&addr);
       sockaddr_in6* addr6 = reinterpret_cast<sockaddr_in6*>(&addr);
@@ -118,11 +117,9 @@ GetInterfaces(std::vector<NetworkInterface>* aInterfaces)
   }
   return NS_OK;
 }
-} // anonymous namespace
+}  // anonymous namespace
 
-int
-nr_stun_get_addrs(nr_local_addr aAddrs[], int aMaxAddrs, int* aCount)
-{
+int nr_stun_get_addrs(nr_local_addr aAddrs[], int aMaxAddrs, int* aCount) {
   nsresult rv;
   int r;
 
@@ -130,9 +127,8 @@ nr_stun_get_addrs(nr_local_addr aAddrs[], int aMaxAddrs, int* aCount)
   std::vector<NetworkInterface> interfaces;
   nsCOMPtr<nsIThread> mainThread = do_GetMainThread();
   mozilla::SyncRunnable::DispatchToThread(
-    mainThread.get(),
-    mozilla::WrapRunnableNMRet(&rv, &GetInterfaces, &interfaces),
-    false);
+      mainThread.get(),
+      mozilla::WrapRunnableNMRet(&rv, &GetInterfaces, &interfaces), false);
   if (NS_FAILED(rv)) {
     return R_FAILED;
   }
@@ -159,8 +155,8 @@ nr_stun_get_addrs(nr_local_addr aAddrs[], int aMaxAddrs, int* aCount)
   for (int i = 0; i < *aCount; ++i) {
     char typestr[100];
     nr_local_addr_fmt_info_string(aAddrs + i, typestr, sizeof(typestr));
-    r_log(NR_LOG_STUN, LOG_DEBUG, "Address %d: %s on %s, type: %s\n",
-          i, aAddrs[i].addr.as_string, aAddrs[i].addr.ifname, typestr);
+    r_log(NR_LOG_STUN, LOG_DEBUG, "Address %d: %s on %s, type: %s\n", i,
+          aAddrs[i].addr.as_string, aAddrs[i].addr.ifname, typestr);
   }
 
   return 0;
