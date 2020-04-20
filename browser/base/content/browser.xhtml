@@ -981,10 +981,7 @@
                 </box>
                 <image id="remote-control-icon"
                        tooltiptext="&urlbar.remoteControlNotificationAnchor.tooltip;"/>
-                <hbox id="identity-icon-labels">
-                  <label id="identity-icon-label" class="plain" flex="1"/>
-                  <label id="identity-icon-country-label" class="plain"/>
-                </hbox>
+                <label id="identity-icon-label" class="plain" crop="center"/>
               </box>
               <box id="urlbar-label-box" align="center">
                 <label id="urlbar-label-switchtab" class="urlbar-label" value="&urlbar.switchToTab.label;"/>
@@ -1158,20 +1155,15 @@
       <hbox id="window-controls" hidden="true" pack="end" skipintoolbarset="true"
             style="-moz-box-ordinal-group: 1000;">
         <toolbarbutton id="minimize-button"
-                       tooltiptext="&fullScreenMinimize.tooltip;"
+                       data-l10n-id="browser-window-minimize-button"
                        oncommand="window.minimize();"/>
 
         <toolbarbutton id="restore-button"
-#ifdef XP_MACOSX
-# Prior to 10.7 there wasn't a native fullscreen button so we use #restore-button
-# to exit fullscreen and want it to behave like other toolbar buttons.
-                       class="toolbarbutton-1"
-#endif
-                       tooltiptext="&fullScreenRestore.tooltip;"
+                       data-l10n-id="browser-window-restore-button"
                        oncommand="BrowserFullScreen();"/>
 
         <toolbarbutton id="close-button"
-                       tooltiptext="&fullScreenClose.tooltip;"
+                       data-l10n-id="browser-window-close-button"
                        oncommand="BrowserTryToCloseWindow();"/>
       </hbox>
 

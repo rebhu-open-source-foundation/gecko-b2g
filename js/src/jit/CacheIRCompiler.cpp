@@ -1820,9 +1820,8 @@ bool CacheIRCompiler::emitGuardType() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardClass() {
+bool CacheIRCompiler::emitGuardClass(ObjOperandId objId, GuardClassKind kind) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  ObjOperandId objId = reader.objOperandId();
   Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
@@ -1832,7 +1831,7 @@ bool CacheIRCompiler::emitGuardClass() {
   }
 
   const JSClass* clasp = nullptr;
-  switch (reader.guardClassKind()) {
+  switch (kind) {
     case GuardClassKind::Array:
       clasp = &ArrayObject::class_;
       break;
@@ -1862,9 +1861,9 @@ bool CacheIRCompiler::emitGuardClass() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIsExtensible() {
+bool CacheIRCompiler::emitGuardIsExtensible(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
+  Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -1890,10 +1889,10 @@ bool CacheIRCompiler::emitGuardIsExtensible() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardSpecificNativeFunction() {
+bool CacheIRCompiler::emitGuardSpecificNativeFunction(ObjOperandId objId,
+                                                      JSNative native) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  JSNative nativeFunc = reinterpret_cast<JSNative>(reader.pointer());
+  Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -1909,7 +1908,7 @@ bool CacheIRCompiler::emitGuardSpecificNativeFunction() {
   // Ensure function native matches.
   masm.branchPtr(Assembler::NotEqual,
                  Address(obj, JSFunction::offsetOfNativeOrEnv()),
-                 ImmPtr(nativeFunc), failure->label());
+                 ImmPtr(native), failure->label());
   return true;
 }
 
@@ -1941,9 +1940,9 @@ bool CacheIRCompiler::emitGuardFunctionPrototype() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIsNativeObject() {
+bool CacheIRCompiler::emitGuardIsNativeObject(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
+  Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -1955,9 +1954,9 @@ bool CacheIRCompiler::emitGuardIsNativeObject() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIsProxy() {
+bool CacheIRCompiler::emitGuardIsProxy(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
+  Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -1969,9 +1968,9 @@ bool CacheIRCompiler::emitGuardIsProxy() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardNotDOMProxy() {
+bool CacheIRCompiler::emitGuardNotDOMProxy(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
+  Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -1985,24 +1984,24 @@ bool CacheIRCompiler::emitGuardNotDOMProxy() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardSpecificInt32Immediate() {
+bool CacheIRCompiler::emitGuardSpecificInt32Immediate(Int32OperandId integerId,
+                                                      int32_t expected) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register reg = allocator.useRegister(masm, reader.int32OperandId());
-  int32_t ival = reader.int32Immediate();
+  Register reg = allocator.useRegister(masm, integerId);
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
     return false;
   }
 
-  masm.branch32(Assembler::NotEqual, reg, Imm32(ival), failure->label());
+  masm.branch32(Assembler::NotEqual, reg, Imm32(expected), failure->label());
   return true;
 }
 
-bool CacheIRCompiler::emitGuardMagicValue() {
+bool CacheIRCompiler::emitGuardMagicValue(ValOperandId valId,
+                                          JSWhyMagic magic) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  ValueOperand val = allocator.useValueRegister(masm, reader.valOperandId());
-  JSWhyMagic magic = reader.whyMagic();
+  ValueOperand val = allocator.useValueRegister(masm, valId);
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
@@ -2013,9 +2012,9 @@ bool CacheIRCompiler::emitGuardMagicValue() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardNoDenseElements() {
+bool CacheIRCompiler::emitGuardNoDenseElements(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
+  Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -2499,11 +2498,12 @@ bool CacheIRCompiler::emitInt32SubResult(Int32OperandId lhsId,
   return true;
 }
 
-bool CacheIRCompiler::emitInt32MulResult() {
+bool CacheIRCompiler::emitInt32MulResult(Int32OperandId lhsId,
+                                         Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
   AutoScratchRegister scratch(allocator, masm);
   AutoScratchRegisterMaybeOutput scratch2(allocator, masm, output);
 
@@ -2529,11 +2529,12 @@ bool CacheIRCompiler::emitInt32MulResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitInt32DivResult() {
+bool CacheIRCompiler::emitInt32DivResult(Int32OperandId lhsId,
+                                         Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
   AutoScratchRegister rem(allocator, masm);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
@@ -2564,11 +2565,12 @@ bool CacheIRCompiler::emitInt32DivResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitInt32ModResult() {
+bool CacheIRCompiler::emitInt32ModResult(Int32OperandId lhsId,
+                                         Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
   FailurePath* failure;
@@ -2631,11 +2633,12 @@ class MOZ_RAII AutoScratchRegisterMaybeOutputType {
   operator Register() const { return scratchReg_; }
 };
 
-bool CacheIRCompiler::emitInt32PowResult() {
+bool CacheIRCompiler::emitInt32PowResult(Int32OperandId lhsId,
+                                         Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  Register base = allocator.useRegister(masm, reader.int32OperandId());
-  Register power = allocator.useRegister(masm, reader.int32OperandId());
+  Register base = allocator.useRegister(masm, lhsId);
+  Register power = allocator.useRegister(masm, rhsId);
   AutoScratchRegisterMaybeOutput scratch1(allocator, masm, output);
   AutoScratchRegisterMaybeOutputType scratch2(allocator, masm, output);
   AutoScratchRegister scratch3(allocator, masm);
@@ -2651,13 +2654,14 @@ bool CacheIRCompiler::emitInt32PowResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitInt32BitOrResult() {
+bool CacheIRCompiler::emitInt32BitOrResult(Int32OperandId lhsId,
+                                           Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
 
   masm.mov(rhs, scratch);
   masm.or32(lhs, scratch);
@@ -2665,13 +2669,14 @@ bool CacheIRCompiler::emitInt32BitOrResult() {
 
   return true;
 }
-bool CacheIRCompiler::emitInt32BitXorResult() {
+bool CacheIRCompiler::emitInt32BitXorResult(Int32OperandId lhsId,
+                                            Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
 
   masm.mov(rhs, scratch);
   masm.xor32(lhs, scratch);
@@ -2679,13 +2684,14 @@ bool CacheIRCompiler::emitInt32BitXorResult() {
 
   return true;
 }
-bool CacheIRCompiler::emitInt32BitAndResult() {
+bool CacheIRCompiler::emitInt32BitAndResult(Int32OperandId lhsId,
+                                            Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
 
   masm.mov(rhs, scratch);
   masm.and32(lhs, scratch);
@@ -2693,11 +2699,12 @@ bool CacheIRCompiler::emitInt32BitAndResult() {
 
   return true;
 }
-bool CacheIRCompiler::emitInt32LeftShiftResult() {
+bool CacheIRCompiler::emitInt32LeftShiftResult(Int32OperandId lhsId,
+                                               Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
   masm.mov(lhs, scratch);
@@ -2709,11 +2716,12 @@ bool CacheIRCompiler::emitInt32LeftShiftResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitInt32RightShiftResult() {
+bool CacheIRCompiler::emitInt32RightShiftResult(Int32OperandId lhsId,
+                                                Int32OperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
   masm.mov(lhs, scratch);
@@ -2725,13 +2733,14 @@ bool CacheIRCompiler::emitInt32RightShiftResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitInt32URightShiftResult() {
+bool CacheIRCompiler::emitInt32URightShiftResult(Int32OperandId lhsId,
+                                                 Int32OperandId rhsId,
+                                                 bool allowDouble) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
 
-  Register lhs = allocator.useRegister(masm, reader.int32OperandId());
-  Register rhs = allocator.useRegister(masm, reader.int32OperandId());
-  bool allowDouble = reader.readBool();
+  Register lhs = allocator.useRegister(masm, lhsId);
+  Register rhs = allocator.useRegister(masm, rhsId);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
   FailurePath* failure;
@@ -2817,10 +2826,10 @@ bool CacheIRCompiler::emitInt32DecResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitInt32NotResult() {
+bool CacheIRCompiler::emitInt32NotResult(Int32OperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
-  Register val = allocator.useRegister(masm, reader.int32OperandId());
+  Register val = allocator.useRegister(masm, inputId);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
   masm.mov(val, scratch);
@@ -3210,9 +3219,9 @@ bool CacheIRCompiler::emitLoadDenseElementResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIndexIsNonNegative() {
+bool CacheIRCompiler::emitGuardIndexIsNonNegative(Int32OperandId indexId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register index = allocator.useRegister(masm, reader.int32OperandId());
+  Register index = allocator.useRegister(masm, indexId);
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
@@ -3223,10 +3232,11 @@ bool CacheIRCompiler::emitGuardIndexIsNonNegative() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIndexGreaterThanDenseInitLength() {
+bool CacheIRCompiler::emitGuardIndexGreaterThanDenseInitLength(
+    ObjOperandId objId, Int32OperandId indexId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  Register index = allocator.useRegister(masm, reader.int32OperandId());
+  Register obj = allocator.useRegister(masm, objId);
+  Register index = allocator.useRegister(masm, indexId);
   AutoScratchRegister scratch(allocator, masm);
   AutoSpectreBoundsScratchRegister spectreScratch(allocator, masm);
 
@@ -3248,10 +3258,11 @@ bool CacheIRCompiler::emitGuardIndexGreaterThanDenseInitLength() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIndexGreaterThanArrayLength() {
+bool CacheIRCompiler::emitGuardIndexGreaterThanArrayLength(
+    ObjOperandId objId, Int32OperandId indexId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  Register index = allocator.useRegister(masm, reader.int32OperandId());
+  Register obj = allocator.useRegister(masm, objId);
+  Register index = allocator.useRegister(masm, indexId);
   AutoScratchRegister scratch(allocator, masm);
   AutoSpectreBoundsScratchRegister spectreScratch(allocator, masm);
 
@@ -3272,10 +3283,11 @@ bool CacheIRCompiler::emitGuardIndexGreaterThanArrayLength() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIndexIsValidUpdateOrAdd() {
+bool CacheIRCompiler::emitGuardIndexIsValidUpdateOrAdd(ObjOperandId objId,
+                                                       Int32OperandId indexId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  Register index = allocator.useRegister(masm, reader.int32OperandId());
+  Register obj = allocator.useRegister(masm, objId);
+  Register index = allocator.useRegister(masm, indexId);
   AutoScratchRegister scratch(allocator, masm);
   AutoSpectreBoundsScratchRegister spectreScratch(allocator, masm);
 
@@ -3400,7 +3412,7 @@ bool CacheIRCompiler::emitGuardNoAllocationMetadataBuilder() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardObjectGroupNotPretenured() {
+bool CacheIRCompiler::emitGuardObjectGroupNotPretenured(uint32_t groupOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoScratchRegister scratch(allocator, masm);
 
@@ -3409,29 +3421,29 @@ bool CacheIRCompiler::emitGuardObjectGroupNotPretenured() {
     return false;
   }
 
-  StubFieldOffset group(reader.stubOffset(), StubField::Type::ObjectGroup);
+  StubFieldOffset group(groupOffset, StubField::Type::ObjectGroup);
   emitLoadStubField(group, scratch);
 
   masm.branchIfPretenuredGroup(scratch, failure->label());
   return true;
 }
 
-bool CacheIRCompiler::emitGuardFunctionHasJitEntry() {
-  Register fun = allocator.useRegister(masm, reader.objOperandId());
-  bool isConstructing = reader.readBool();
+bool CacheIRCompiler::emitGuardFunctionHasJitEntry(ObjOperandId funId,
+                                                   bool constructing) {
+  Register fun = allocator.useRegister(masm, funId);
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
     return false;
   }
 
-  masm.branchIfFunctionHasNoJitEntry(fun, isConstructing, failure->label());
+  masm.branchIfFunctionHasNoJitEntry(fun, constructing, failure->label());
   return true;
 }
 
-bool CacheIRCompiler::emitGuardFunctionIsNative() {
+bool CacheIRCompiler::emitGuardFunctionIsNative(ObjOperandId funId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
+  Register obj = allocator.useRegister(masm, funId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -3444,9 +3456,9 @@ bool CacheIRCompiler::emitGuardFunctionIsNative() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardFunctionIsConstructor() {
+bool CacheIRCompiler::emitGuardFunctionIsConstructor(ObjOperandId funId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register funcReg = allocator.useRegister(masm, reader.objOperandId());
+  Register funcReg = allocator.useRegister(masm, funId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -3460,8 +3472,8 @@ bool CacheIRCompiler::emitGuardFunctionIsConstructor() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardNotClassConstructor() {
-  Register fun = allocator.useRegister(masm, reader.objOperandId());
+bool CacheIRCompiler::emitGuardNotClassConstructor(ObjOperandId funId) {
+  Register fun = allocator.useRegister(masm, funId);
   AutoScratchRegister scratch(allocator, masm);
 
   FailurePath* failure;
@@ -3605,9 +3617,8 @@ bool CacheIRCompiler::emitLoadDenseElementHoleExistsResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitArrayJoinResult() {
+bool CacheIRCompiler::emitArrayJoinResult(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  ObjOperandId objId = reader.objOperandId();
 
   AutoOutputRegister output(*this);
   Register obj = allocator.useRegister(masm, objId);
@@ -5047,13 +5058,14 @@ bool CacheIRCompiler::emitWrapResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult() {
+bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult(ObjOperandId objId,
+                                                           ValOperandId idId,
+                                                           bool handleMissing) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
 
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  ValueOperand idVal = allocator.useValueRegister(masm, reader.valOperandId());
-  bool handleMissing = reader.readBool();
+  Register obj = allocator.useRegister(masm, objId);
+  ValueOperand idVal = allocator.useValueRegister(masm, idId);
 
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
@@ -5109,13 +5121,14 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitMegamorphicHasPropResult() {
+bool CacheIRCompiler::emitMegamorphicHasPropResult(ObjOperandId objId,
+                                                   ValOperandId idId,
+                                                   bool hasOwn) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
 
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  ValueOperand idVal = allocator.useValueRegister(masm, reader.valOperandId());
-  bool hasOwn = reader.readBool();
+  Register obj = allocator.useRegister(masm, objId);
+  ValueOperand idVal = allocator.useValueRegister(masm, idId);
 
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
@@ -5319,13 +5332,14 @@ bool CacheIRCompiler::emitLoadInstanceOfObjectResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitMegamorphicLoadSlotResult() {
+bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
+                                                    uint32_t nameOffset,
+                                                    bool handleMissing) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
 
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  StubFieldOffset name(reader.stubOffset(), StubField::Type::String);
-  bool handleMissing = reader.readBool();
+  Register obj = allocator.useRegister(masm, objId);
+  StubFieldOffset name(nameOffset, StubField::Type::String);
 
   AutoScratchRegisterMaybeOutput scratch1(allocator, masm, output);
   AutoScratchRegister scratch2(allocator, masm);
@@ -5377,12 +5391,14 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotResult() {
   return true;
 }
 
-bool CacheIRCompiler::emitMegamorphicStoreSlot() {
+bool CacheIRCompiler::emitMegamorphicStoreSlot(ObjOperandId objId,
+                                               uint32_t nameOffset,
+                                               ValOperandId rhsId,
+                                               bool needsTypeBarrier) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  Register obj = allocator.useRegister(masm, reader.objOperandId());
-  StubFieldOffset name(reader.stubOffset(), StubField::Type::String);
-  ValueOperand val = allocator.useValueRegister(masm, reader.valOperandId());
-  bool needsTypeBarrier = reader.readBool();
+  Register obj = allocator.useRegister(masm, objId);
+  StubFieldOffset name(nameOffset, StubField::Type::String);
+  ValueOperand val = allocator.useValueRegister(masm, rhsId);
 
   AutoScratchRegister scratch1(allocator, masm);
   AutoScratchRegister scratch2(allocator, masm);
@@ -5426,9 +5442,10 @@ bool CacheIRCompiler::emitMegamorphicStoreSlot() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardGroupHasUnanalyzedNewScript() {
+bool CacheIRCompiler::emitGuardGroupHasUnanalyzedNewScript(
+    uint32_t groupOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  StubFieldOffset group(reader.stubOffset(), StubField::Type::ObjectGroup);
+  StubFieldOffset group(groupOffset, StubField::Type::ObjectGroup);
   AutoScratchRegister scratch1(allocator, masm);
   AutoScratchRegister scratch2(allocator, masm);
 

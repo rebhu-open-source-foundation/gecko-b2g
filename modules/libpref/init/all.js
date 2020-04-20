@@ -243,9 +243,6 @@ pref("browser.download.forbid_open_with", false);
 // WebAlarms
 pref("dom.alarm.enabled", false);
 
-// Insecure registerProtocolHandler is disabled by default
-pref("dom.registerProtocolHandler.insecure.enabled", false);
-
 // Whether or not indexedDB experimental features are enabled.
 pref("dom.indexedDB.experimental", false);
 // Enable indexedDB logging.
@@ -1208,9 +1205,6 @@ pref("javascript.options.mem.gc_allocation_threshold_mb", 27);
 
 // JSGC_NON_INCREMENTAL_FACTOR
 pref("javascript.options.mem.gc_non_incremental_factor", 112);
-
-// JSGC_AVOID_INTERRUPT_FACTOR
-pref("javascript.options.mem.gc_avoid_interrupt_factor", 100);
 
 // JSGC_MIN_EMPTY_CHUNK_COUNT
 pref("javascript.options.mem.gc_min_empty_chunk_count", 1);

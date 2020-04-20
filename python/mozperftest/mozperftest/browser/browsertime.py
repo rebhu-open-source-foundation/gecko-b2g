@@ -64,8 +64,14 @@ host_fetches = {
 
 
 class BrowsertimeRunner(NodeRunner):
-    def __init__(self, mach_cmd):
-        super(BrowsertimeRunner, self).__init__(mach_cmd)
+    name = "browsertime (%s)" % NodeRunner.name
+
+    arguments = {
+        "--cycles": {"type": int, "default": 1, "help": "Number of full cycles"}
+    }
+
+    def __init__(self, env, mach_cmd):
+        super(BrowsertimeRunner, self).__init__(env, mach_cmd)
         self.topsrcdir = mach_cmd.topsrcdir
         self._mach_context = mach_cmd._mach_context
         self.virtualenv_manager = mach_cmd.virtualenv_manager
@@ -415,11 +421,21 @@ class BrowsertimeRunner(NodeRunner):
         return profile
 
     def __call__(self, metadata):
+        cycles = self.get_arg("cycles", 1)
+        for cycle in range(1, cycles + 1):
+            metadata.run_hook("before_cycle", cycle=cycle)
+            try:
+                metadata = self._one_cycle(metadata)
+            finally:
+                metadata.run_hook("after_cycle", cycle=cycle)
+        return metadata
+
+    def _one_cycle(self, metadata):
         # keep the object around
         # see https://bugzilla.mozilla.org/show_bug.cgi?id=1625118
         profile = self.get_profile(metadata)
-        test_script = metadata.get_arg("tests")[0]
-        output = metadata.get_arg("output")
+        test_script = self.get_arg("tests")[0]
+        output = self.get_arg("output")
         if output is not None:
             p = pathlib.Path(output)
             p = p / "browsertime-results"
@@ -436,13 +452,15 @@ class BrowsertimeRunner(NodeRunner):
             result_dir,
             "--firefox.profileTemplate",
             profile.profile,
-            "-vvv",
             "--iterations",
             "1",
             test_script,
         ]
 
-        extra_options = metadata.get_arg("extra_options")
+        if self.get_arg("verbose"):
+            args += ["-vvv"]
+
+        extra_options = self.get_arg("extra_options")
         if extra_options:
             for option in extra_options.split(","):
                 option = option.strip()

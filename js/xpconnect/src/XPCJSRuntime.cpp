@@ -197,7 +197,6 @@ CompartmentPrivate::CompartmentPrivate(
       wantXrays(false),
       allowWaivers(true),
       isWebExtensionContentScript(false),
-      allowCPOWs(false),
       isUAWidgetCompartment(false),
       hasExclusiveExpandos(false),
       wasShutdown(false),
@@ -391,6 +390,11 @@ static bool PrincipalImmuneToScriptPolicy(nsIPrincipal* aPrincipal) {
 
   // WebExtension principals get a free pass.
   if (principal->AddonPolicy()) {
+    return true;
+  }
+
+  // pdf.js is a special-case too.
+  if (nsContentUtils::IsPDFJS(principal)) {
     return true;
   }
 

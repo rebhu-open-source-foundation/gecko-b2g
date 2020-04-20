@@ -9,27 +9,23 @@
 
 #include "mozilla/Span.h"  // mozilla::Span
 
-#include <stdint.h>  // int32_t
-
 #include "frontend/Stencil.h"  // ScriptStencil
 #include "gc/Barrier.h"        // GCPtrAtom
 #include "js/HeapAPI.h"        // JS::GCCellPtr
-#include "vm/JSScript.h"       // JSTryNote, ScopeNote
+#include "js/TypeDecls.h"      // JSContext
+#include "js/UniquePtr.h"      // js::UniquePtr
+#include "vm/SharedStencil.h"  // js::ImmutableScriptData
 
-struct JSContext;
-
-namespace js {
-
-namespace frontend {
+namespace js::frontend {
 
 struct BytecodeEmitter;
 
 class BCEScriptStencil : public ScriptStencil {
   BytecodeEmitter& bce_;
 
-  bool getNeedsFunctionEnvironmentObjects() const;
+  bool getNeedsFunctionEnvironmentObjects(BytecodeEmitter& bce) const;
 
-  void init();
+  void init(BytecodeEmitter& bce);
 
  public:
   BCEScriptStencil(BytecodeEmitter& bce,
@@ -41,7 +37,6 @@ class BCEScriptStencil : public ScriptStencil {
   virtual void finishInnerFunctions() const;
 };
 
-} /* namespace frontend */
-} /* namespace js */
+} /* namespace js::frontend */
 
 #endif /* frontend_BCEScriptStencil_h */

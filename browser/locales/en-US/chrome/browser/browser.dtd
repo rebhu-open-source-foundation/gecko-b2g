@@ -52,10 +52,6 @@ this container is a toolbar. This avoids double-speaking. -->
 
 <!ENTITY fullScreenCmd.label "Full Screen">
 
-<!ENTITY fullScreenMinimize.tooltip "Minimize">
-<!ENTITY fullScreenRestore.tooltip "Restore">
-<!ENTITY fullScreenClose.tooltip "Close">
-
 <!ENTITY pictureInPictureHideToggle.label "Hide Picture-in-Picture Toggle">
 <!ENTITY pictureInPictureHideToggle.accesskey "H">
 
@@ -344,12 +340,6 @@ this container is a toolbar. This avoids double-speaking. -->
 <!ENTITY syncBrand.shortName.label    "Sync">
 
 <!ENTITY customizeMode.autoHideDownloadsButton.label "Auto-hide">
-
-<!ENTITY getUserMedia.selectCamera.label "Camera to share:">
-<!ENTITY getUserMedia.selectCamera.accesskey "C">
-<!ENTITY getUserMedia.selectMicrophone.label "Microphone to share:">
-<!ENTITY getUserMedia.selectMicrophone.accesskey "M">
-<!ENTITY getUserMedia.allWindowsShared.message "All visible windows on your screen will be shared.">
 
 <!ENTITY contentBlocking.trackingProtection4.label "Tracking Content">
 

@@ -45,7 +45,7 @@ class JSWindowActor : public nsISupports, public nsWrapperCache {
   enum class Type { Parent, Child };
   enum class CallbackFunction { WillDestroy, DidDestroy, ActorCreated };
 
-  const nsString& Name() const { return mName; }
+  const nsCString& Name() const { return mName; }
 
   void SendAsyncMessage(JSContext* aCx, const nsAString& aMessageName,
                         JS::Handle<JS::Value> aObj, ErrorResult& aRv);
@@ -79,7 +79,7 @@ class JSWindowActor : public nsISupports, public nsWrapperCache {
 
   virtual ~JSWindowActor() = default;
 
-  void SetName(const nsAString& aName);
+  void SetName(const nsACString& aName);
 
   void StartDestroy();
 
@@ -130,7 +130,7 @@ class JSWindowActor : public nsISupports, public nsWrapperCache {
   };
 
   nsCOMPtr<nsISupports> mWrappedJS;
-  nsString mName;
+  nsCString mName;
   nsRefPtrHashtable<nsUint64HashKey, Promise> mPendingQueries;
   uint64_t mNextQueryId;
 };

@@ -131,8 +131,7 @@ typedef enum JSGCParamKey {
    *                 following parameters.
    *                 See computeZoneHeapGrowthFactorForHeapSize() in GC.cpp
    *   ThresholdFactor: 1.0 for incremental collections or
-   *                    JSGC_NON_INCREMENTAL_FACTOR or
-   *                    JSGC_AVOID_INTERRUPT_FACTOR for non-incremental
+   *                    JSGC_NON_INCREMENTAL_FACTOR for non-incremental
    *                    collections.
    *
    * The RHS of the equation above is calculated and sets
@@ -254,15 +253,6 @@ typedef enum JSGCParamKey {
    * Pref: None
    */
   JSGC_NON_INCREMENTAL_FACTOR = 25,
-
-  /**
-   * Percentage for how far over a trigger threshold we go before triggering an
-   * incremental collection that would reset an in-progress collection.
-   *
-   * Default: AvoidInterruptFactor
-   * Pref: None
-   */
-  JSGC_AVOID_INTERRUPT_FACTOR = 26,
 
   /**
    * Attempt to run a minor GC in the idle time if the free space falls
@@ -454,7 +444,7 @@ namespace JS {
   D(DELAYED_ATOMS_GC, 12)                   \
   D(SHARED_MEMORY_LIMIT, 13)                \
   D(IDLE_TIME_COLLECTION, 14)               \
-  D(INCREMENTAL_TOO_SLOW, 15)               \
+  D(UNUSED_1, 15)                           \
   D(ABORT_GC, 16)                           \
   D(FULL_WHOLE_CELL_BUFFER, 17)             \
   D(FULL_GENERIC_BUFFER, 18)                \

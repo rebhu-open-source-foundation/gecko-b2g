@@ -1553,6 +1553,7 @@ STATIC_ATOMS = [
     Atom("text_rendering", "text-rendering"),
     Atom("textLength", "textLength"),
     Atom("textPath", "textPath"),
+    Atom("transform_origin", "transform-origin"),
     Atom("tref", "tref"),
     Atom("tspan", "tspan"),
     Atom("turbulence", "turbulence"),

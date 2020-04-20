@@ -1605,7 +1605,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowOuter)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocShell)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowsingContext)
 
-  tmp->TraverseHostObjectURIs(cb);
+  tmp->TraverseObjectsInGlobal(cb);
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChromeFields.mBrowserDOMWindow)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
@@ -1649,7 +1649,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowOuter)
     tmp->mBrowsingContext = nullptr;
   }
 
-  tmp->UnlinkHostObjectURIs();
+  tmp->UnlinkObjectsInGlobal();
 
   if (tmp->IsChromeWindow()) {
     NS_IMPL_CYCLE_COLLECTION_UNLINK(mChromeFields.mBrowserDOMWindow)
@@ -2515,6 +2515,10 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
     newInnerWindow->GetWindowGlobalChild()
         ->WindowContext()
         ->SetCookieJarSettings(Some(cookieJarSettings));
+
+    newInnerWindow->GetWindowGlobalChild()
+        ->WindowContext()
+        ->SetHasStoragePermission(aDocument->HasStoragePermission());
   }
 
   mHasStorageAccess = false;
@@ -2548,10 +2552,6 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
           ContentBlocking::ShouldAllowAccessFor(newInnerWindow, uri, nullptr);
     }
   }
-
-  newInnerWindow->GetWindowGlobalChild()
-      ->WindowContext()
-      ->SetHasStoragePermission(aDocument->HasStoragePermission());
 
   return NS_OK;
 }

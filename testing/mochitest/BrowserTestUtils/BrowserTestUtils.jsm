@@ -68,10 +68,6 @@ let registrar = Components.manager.QueryInterface(Ci.nsIComponentRegistrar);
 let selectorFactory = XPCOMUtils._getFactory(NewProcessSelector);
 registrar.registerFactory(OUR_PROCESSSELECTOR_CID, "", null, selectorFactory);
 
-// For now, we'll allow tests to use CPOWs in this module for
-// some cases.
-Cu.permitCPOWsInScope(this);
-
 const kAboutPageRegistrationContentScript =
   "chrome://mochikit/content/tests/BrowserTestUtils/content-about-page-utils.js";
 
@@ -1632,6 +1628,8 @@ var BrowserTestUtils = {
    *        An object with any of the following fields:
    *          crashType: "CRASH_INVALID_POINTER_DEREF" | "CRASH_OOM"
    *            The type of crash. If unspecified, default to "CRASH_INVALID_POINTER_DEREF"
+   *          asyncCrash: bool
+   *            If specified and `true`, cause the crash asynchronously.
    *
    * @returns (Promise)
    * @resolves An Object with key-value pairs representing the data from the
@@ -1779,6 +1777,7 @@ var BrowserTestUtils = {
       "BrowserTestUtils:CrashFrame",
       {
         crashType: options.crashType || "",
+        asyncCrash: options.asyncCrash || false,
       }
     );
 

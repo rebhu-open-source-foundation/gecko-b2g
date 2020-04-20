@@ -385,9 +385,6 @@ bool GlobalObject::resolveConstructor(JSContext* cx,
                    "shouldn't be defining SharedArrayBuffer if shared memory "
                    "is disabled");
 
-        fprintf(stderr, "defineSharedArrayBufferConstructor: %d\n",
-                static_cast<int>(options.defineSharedArrayBufferConstructor()));
-
         shouldReallyDefine = options.defineSharedArrayBufferConstructor();
       }
 
@@ -459,8 +456,8 @@ const JSClass GlobalObject::OffThreadPlaceholderObject::class_ = {
 /* static */ GlobalObject::OffThreadPlaceholderObject*
 GlobalObject::OffThreadPlaceholderObject::New(JSContext* cx, unsigned slot) {
   Rooted<OffThreadPlaceholderObject*> placeholder(cx);
-  placeholder = NewObjectWithGivenTaggedProto<OffThreadPlaceholderObject>(
-      cx, AsTaggedProto(nullptr));
+  placeholder =
+      NewObjectWithGivenProto<OffThreadPlaceholderObject>(cx, nullptr);
   if (!placeholder) {
     return nullptr;
   }

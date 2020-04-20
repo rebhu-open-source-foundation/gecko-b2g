@@ -148,6 +148,7 @@
 
 - name: GuardProto
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     proto: ObjectField
@@ -155,6 +156,7 @@
 # Guard per GuardClassKind.
 - name: GuardClass
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
     kind: GuardClassKindImm
@@ -162,41 +164,48 @@
 # Guard on an arbitrary JSClass.
 - name: GuardAnyClass
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
-    clasp: RawWordField
+    clasp: RawPointerField
 
 # Add a reference to a global in the compartment to keep it alive.
 - name: GuardCompartment
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     global: ObjectField
-    compartment: RawWordField
+    compartment: RawPointerField
 
 - name: GuardIsExtensible
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
 
 - name: GuardIsNativeObject
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
 
 - name: GuardIsProxy
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
 
 - name: GuardHasProxyHandler
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
-    handler: RawWordField
+    handler: RawPointerField
 
 - name: GuardNotDOMProxy
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
 
@@ -214,34 +223,40 @@
 
 - name: GuardSpecificSymbol
   shared: false
+  gen_boilerplate: true
   operands:
     sym: SymId
     expected: SymbolField
 
 - name: GuardSpecificInt32Immediate
   shared: true
+  gen_boilerplate: true
   operands:
     integer: Int32Id
     expected: Int32Imm
 
 - name: GuardSpecificNativeFunction
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
     native: JSNativeImm
 
 - name: GuardMagicValue
   shared: true
+  gen_boilerplate: true
   operands:
     val: ValId
     magic: JSWhyMagicImm
 
 - name: GuardFrameHasNoArgumentsObject
   shared: false
+  gen_boilerplate: true
   operands:
 
 - name: GuardNoDenseElements
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
 
@@ -274,39 +289,45 @@
   operands:
     obj: ObjId
     iter: ObjectField
-    enumeratorsAddr: RawWordField
+    enumeratorsAddr: RawPointerField
     result: ObjId
 
 - name: GuardHasGetterSetter
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     shape: ShapeField
 
 - name: GuardGroupHasUnanalyzedNewScript
   shared: true
+  gen_boilerplate: true
   operands:
     group: GroupField
 
 - name: GuardIndexIsNonNegative
   shared: true
+  gen_boilerplate: true
   operands:
     index: Int32Id
 
 - name: GuardIndexGreaterThanArrayLength
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
     index: Int32Id
 
 - name: GuardIndexIsValidUpdateOrAdd
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
     index: Int32Id
 
 - name: GuardIndexGreaterThanDenseInitLength
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
     index: Int32Id
@@ -334,36 +355,43 @@
 
 - name: GuardNoAllocationMetadataBuilder
   shared: true
+  gen_boilerplate: true
   operands:
 
 - name: GuardObjectGroupNotPretenured
   shared: true
+  gen_boilerplate: true
   operands:
     group: GroupField
 
 - name: GuardFunctionHasJitEntry
   shared: true
+  gen_boilerplate: true
   operands:
     fun: ObjId
     constructing: BoolImm
 
 - name: GuardFunctionIsNative
   shared: true
+  gen_boilerplate: true
   operands:
     fun: ObjId
 
 - name: GuardFunctionIsConstructor
   shared: true
+  gen_boilerplate: true
   operands:
     fun: ObjId
 
 - name: GuardNotClassConstructor
   shared: true
+  gen_boilerplate: true
   operands:
     fun: ObjId
 
 - name: GuardFunApply
   shared: false
+  gen_boilerplate: true
   operands:
     argc: Int32Id
     flags: CallFlagsImm
@@ -419,13 +447,15 @@
 
 - name: MegamorphicLoadSlotResult
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
-    name: StringField
+    name: PropertyNameField
     handleMissing: BoolImm
 
 - name: MegamorphicLoadSlotByValueResult
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
     id: ValId
@@ -433,14 +463,16 @@
 
 - name: MegamorphicStoreSlot
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
-    name: StringField
+    name: PropertyNameField
     rhs: ValId
     needsTypeBarrier: BoolImm
 
 - name: MegamorphicSetElement
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     id: ValId
@@ -449,6 +481,7 @@
 
 - name: MegamorphicHasPropResult
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
     id: ValId
@@ -465,7 +498,7 @@
   shared: false
   operands:
     obj: ObjId
-    expandoAndGeneration: RawWordField
+    expandoAndGeneration: RawPointerField
     generation: DOMExpandoGenerationField
     result: ValId
 
@@ -477,12 +510,14 @@
 
 - name: GuardDOMExpandoMissingOrGuardShape
   shared: false
+  gen_boilerplate: true
   operands:
     expando: ValId
     shape: ShapeField
 
 - name: StoreFixedSlot
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     offset: RawWordField
@@ -490,6 +525,7 @@
 
 - name: StoreDynamicSlot
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     offset: RawWordField
@@ -497,37 +533,41 @@
 
 - name: AddAndStoreFixedSlot
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     offset: RawWordField
     rhs: ValId
     changeGroup: BoolImm
     newGroup: GroupField
-    newShape): ShapeField
+    newShape: ShapeField
 
 - name: AddAndStoreDynamicSlot
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     offset: RawWordField
     rhs: ValId
     changeGroup: BoolImm
     newGroup: GroupField
-    newShape): ShapeField
+    newShape: ShapeField
 
 - name: AllocateAndStoreDynamicSlot
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     offset: RawWordField
     rhs: ValId
     changeGroup: BoolImm
     newGroup: GroupField
-    newShape): ShapeField
+    newShape: ShapeField
     numNewSlots: RawWordField
 
 - name: StoreTypedObjectReferenceProperty
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     offset: RawWordField
@@ -546,6 +586,7 @@
 
 - name: StoreDenseElement
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     index: Int32Id
@@ -553,6 +594,7 @@
 
 - name: StoreDenseElementHole
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     index: Int32Id
@@ -561,12 +603,14 @@
 
 - name: ArrayPush
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     rhs: ValId
 
 - name: ArrayJoinResult
   shared: true
+  gen_boilerplate: true
   operands:
     obj: ObjId
 
@@ -582,6 +626,7 @@
 
 - name: CallNativeSetter
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     setter: ObjectField
@@ -589,6 +634,7 @@
 
 - name: CallScriptedSetter
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     setter: ObjectField
@@ -597,6 +643,7 @@
 
 - name: CallSetArrayLength
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     strict: BoolImm
@@ -604,14 +651,16 @@
 
 - name: CallProxySet
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
-    rhs: ValId
     id: IdField
+    rhs: ValId
     strict: BoolImm
 
 - name: CallProxySetByValue
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     id: ValId
@@ -620,6 +669,7 @@
 
 - name: CallAddOrUpdateSparseElementHelper
   shared: false
+  gen_boilerplate: true
   operands:
     obj: ObjId
     id: Int32Id
@@ -646,6 +696,7 @@
 
 - name: CallScriptedFunction
   shared: false
+  gen_boilerplate: true
   operands:
     callee: ObjId
     argc: Int32Id
@@ -658,7 +709,7 @@
     argc: Int32Id
     flags: CallFlagsImm
 #ifdef JS_SIMULATOR
-    rawTarget: RawWordField
+    rawTarget: RawPointerField
 #else
     ignoresReturnValue: BoolImm
 #endif
@@ -669,7 +720,7 @@
     callee: ObjId
     argc: Int32Id
     flags: CallFlagsImm
-    target: RawWordField
+    target: RawPointerField
 
 # Meta ops generate no code, but contain data for BaselineInspector.
 - name: MetaTwoByte
@@ -953,24 +1004,28 @@
 
 - name: Int32MulResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32DivResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32ModResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32PowResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
@@ -1013,36 +1068,42 @@
 
 - name: Int32BitOrResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32BitXorResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32BitAndResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32LeftShiftResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32RightShiftResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32URightShiftResult
   shared: true
+  gen_boilerplate: true
   operands:
     lhs: Int32Id
     rhs: Int32Id
@@ -1050,6 +1111,7 @@
 
 - name: Int32NotResult
   shared: true
+  gen_boilerplate: true
   operands:
     input: Int32Id
 

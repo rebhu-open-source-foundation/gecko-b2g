@@ -94,6 +94,25 @@ let ACTORS = {
     matches: ["about:logins", "about:logins?*"],
   },
 
+  AboutWelcome: {
+    parent: {
+      moduleURI: "resource:///actors/AboutWelcomeParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutWelcomeChild.jsm",
+      events: {
+        // This is added so the actor instantiates immediately and makes
+        // methods available to the page js on load.
+        DOMWindowCreated: {},
+      },
+    },
+    matches: ["about:welcome"],
+
+    // See Bug 1618306
+    // Remove this preference check when we turn on separate about:welcome for all users.
+    enablePreference: "browser.aboutwelcome.enabled",
+  },
+
   BlockedSite: {
     parent: {
       moduleURI: "resource:///actors/BlockedSiteParent.jsm",
@@ -384,6 +403,20 @@ let ACTORS = {
     allFrames: true,
   },
 
+  Translation: {
+    parent: {
+      moduleURI: "resource:///modules/translation/TranslationParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///modules/translation/TranslationChild.jsm",
+      events: {
+        pageshow: {},
+        load: { mozSystemGroup: true },
+      },
+    },
+    enablePreference: "browser.translation.detectLanguage",
+  },
+
   UITour: {
     parent: {
       moduleURI: "resource:///modules/UITourParent.jsm",
@@ -431,51 +464,6 @@ let LEGACY_ACTORS = {
     },
   },
 };
-
-// See Bug 1618306
-// This should be moved to BrowserGlue.jsm and this file should be deleted
-// when we turn on separate about:welcome for all users.
-const ACTOR_CONFIG = {
-  parent: {
-    moduleURI: "resource:///actors/AboutWelcomeParent.jsm",
-  },
-  child: {
-    moduleURI: "resource:///actors/AboutWelcomeChild.jsm",
-    events: {
-      // This is added so the actor instantiates immediately and makes
-      // methods available to the page js on load.
-      DOMWindowCreated: {},
-    },
-  },
-  matches: ["about:welcome"],
-};
-
-const AboutWelcomeActorHelper = {
-  register() {
-    ChromeUtils.registerWindowActor("AboutWelcome", ACTOR_CONFIG);
-  },
-  unregister() {
-    ChromeUtils.unregisterWindowActor("AboutWelcome");
-  },
-};
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  this,
-  "isSeparateAboutWelcome",
-  "browser.aboutwelcome.enabled",
-  false,
-  (prefName, prevValue, isEnabled) => {
-    if (isEnabled) {
-      AboutWelcomeActorHelper.register();
-    } else {
-      AboutWelcomeActorHelper.unregister();
-    }
-  }
-);
-
-if (isSeparateAboutWelcome) {
-  AboutWelcomeActorHelper.register();
-}
 
 (function earlyBlankFirstPaint() {
   if (
@@ -2283,6 +2271,36 @@ BrowserGlue.prototype = {
         condition: AppConstants.ENABLE_REMOTE_AGENT,
         task: () => {
           Services.obs.notifyObservers(null, "remote-startup-requested");
+        },
+      },
+
+      // Temporary for Delegated Credentials Study:
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=1628012
+      {
+        condition: !Cu.isInAutomation && AppConstants.NIGHTLY_BUILD,
+        task: () => {
+          let env = Cc["@mozilla.org/process/environment;1"].getService(
+            Ci.nsIEnvironment
+          );
+
+          // Disable under xpcshell-test.
+          if (!env.exists("XPCSHELL_TEST_PROFILE_DIR")) {
+            let { DelegatedCredsExperiment } = ChromeUtils.import(
+              "resource:///modules/DelegatedCredsExperiment.jsm"
+            );
+
+            let currentDate = new Date();
+            let expiryDate = new Date("2020-05-01 0:00:00");
+            if (currentDate < expiryDate) {
+              Services.tm.idleDispatchToMainThread(() => {
+                DelegatedCredsExperiment.runTest();
+              });
+            } else {
+              Services.tm.idleDispatchToMainThread(() => {
+                DelegatedCredsExperiment.uninstall();
+              });
+            }
+          }
         },
       },
 
@@ -4793,6 +4811,9 @@ var AboutHomeStartupCache = {
   // should load.
   SEND_STREAMS_MESSAGE: "AboutHomeStartupCache:InputStreams",
 
+  STATE_RESPONSE_MESSAGE: "AboutHomeStartupCache:State:Response",
+  STATE_REQUEST_MESSAGE: "AboutHomeStartupCache:State:Request",
+
   // A reference to the nsICacheEntry to read from and write to.
   _cacheEntry: null,
 
@@ -4835,6 +4856,7 @@ var AboutHomeStartupCache = {
 
     Services.obs.addObserver(this, "ipc:content-created");
     Services.ppmm.addMessageListener(this.POPULATE_MESSAGE, this);
+    Services.ppmm.addMessageListener(this.STATE_REQUEST_MESSAGE, this);
 
     this.log = Log.repository.getLogger(this.LOG_NAME);
     this.log.manageLevelFromPref(this.LOG_LEVEL_PREF);
@@ -4864,6 +4886,7 @@ var AboutHomeStartupCache = {
 
     Services.obs.removeObserver(this, "ipc:content-created");
     Services.ppmm.removeMessageListener(this.POPULATE_MESSAGE, this);
+    Services.ppmm.removeMessageListener(this.STATE_REQUEST_MESSAGE, this);
     this._pagePipe = null;
     this._scriptPipe = null;
     this._initted = false;
@@ -5108,9 +5131,18 @@ var AboutHomeStartupCache = {
       return;
     }
 
-    if (message.name == this.POPULATE_MESSAGE) {
-      let { pageInputStream, scriptInputStream } = message.data;
-      this.populateCache(pageInputStream, scriptInputStream);
+    switch (message.name) {
+      case this.POPULATE_MESSAGE: {
+        let { pageInputStream, scriptInputStream } = message.data;
+        this.populateCache(pageInputStream, scriptInputStream);
+        break;
+      }
+      case this.STATE_REQUEST_MESSAGE: {
+        this.log.trace("Parent got request for Activity Stream state object.");
+        let state = AboutNewTab.activityStream.store.getState();
+        message.target.sendAsyncMessage(this.STATE_RESPONSE_MESSAGE, { state });
+        break;
+      }
     }
   },
 

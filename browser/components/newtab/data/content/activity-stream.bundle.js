@@ -1,4 +1,5 @@
 /*! THIS FILE IS AUTO-GENERATED: webpack.system-addon.config.js */
+var NewtabRenderUtils =
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
@@ -91,7 +92,10 @@
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* WEBPACK VAR INJECTION */(function(global) {/* harmony import */ var common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
+/* WEBPACK VAR INJECTION */(function(global) {/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "NewTab", function() { return NewTab; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "renderWithoutState", function() { return renderWithoutState; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "renderCache", function() { return renderCache; });
+/* harmony import */ var common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
 /* harmony import */ var content_src_components_Base_Base__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(3);
 /* harmony import */ var content_src_lib_detect_user_session_start__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(73);
 /* harmony import */ var content_src_lib_init_store__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(6);
@@ -113,42 +117,58 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-const store = Object(content_src_lib_init_store__WEBPACK_IMPORTED_MODULE_3__["initStore"])(common_Reducers_jsm__WEBPACK_IMPORTED_MODULE_7__["reducers"]);
-new content_src_lib_detect_user_session_start__WEBPACK_IMPORTED_MODULE_2__["DetectUserSessionStart"](store).sendEventOrAddListener(); // If this document has already gone into the background by the time we've reached
-// here, we can deprioritize requesting the initial state until the event loop
-// frees up. If, however, the visibility changes, we then send the request.
-
-let didRequest = false;
-let requestIdleCallbackId = 0;
-
-function doRequest() {
-  if (!didRequest) {
-    if (requestIdleCallbackId) {
-      cancelIdleCallback(requestIdleCallbackId);
-    }
-
-    didRequest = true;
-    store.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].AlsoToMain({
-      type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].NEW_TAB_STATE_REQUEST
-    }));
-  }
-}
-
-if (document.hidden) {
-  requestIdleCallbackId = requestIdleCallback(doRequest);
-  addEventListener("visibilitychange", doRequest, {
-    once: true
-  });
-} else {
-  doRequest();
-}
-
-react_dom__WEBPACK_IMPORTED_MODULE_6___default.a.hydrate(react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement(react_redux__WEBPACK_IMPORTED_MODULE_4__["Provider"], {
+const NewTab = ({
+  store,
+  isFirstrun
+}) => react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement(react_redux__WEBPACK_IMPORTED_MODULE_4__["Provider"], {
   store: store
 }, react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement(content_src_components_Base_Base__WEBPACK_IMPORTED_MODULE_1__["Base"], {
-  isFirstrun: global.document.location.href === "about:welcome",
-  strings: global.gActivityStreamStrings
-})), document.getElementById("root"));
+  isFirstrun: isFirstrun
+}));
+function renderWithoutState() {
+  const store = Object(content_src_lib_init_store__WEBPACK_IMPORTED_MODULE_3__["initStore"])(common_Reducers_jsm__WEBPACK_IMPORTED_MODULE_7__["reducers"]);
+  new content_src_lib_detect_user_session_start__WEBPACK_IMPORTED_MODULE_2__["DetectUserSessionStart"](store).sendEventOrAddListener(); // If this document has already gone into the background by the time we've reached
+  // here, we can deprioritize requesting the initial state until the event loop
+  // frees up. If, however, the visibility changes, we then send the request.
+
+  let didRequest = false;
+  let requestIdleCallbackId = 0;
+
+  function doRequest() {
+    if (!didRequest) {
+      if (requestIdleCallbackId) {
+        cancelIdleCallback(requestIdleCallbackId);
+      }
+
+      didRequest = true;
+      store.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].AlsoToMain({
+        type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].NEW_TAB_STATE_REQUEST
+      }));
+    }
+  }
+
+  if (document.hidden) {
+    requestIdleCallbackId = requestIdleCallback(doRequest);
+    addEventListener("visibilitychange", doRequest, {
+      once: true
+    });
+  } else {
+    doRequest();
+  }
+
+  react_dom__WEBPACK_IMPORTED_MODULE_6___default.a.hydrate(react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement(NewTab, {
+    store: store,
+    isFirstrun: global.document.location.href === "about:welcome"
+  }), document.getElementById("root"));
+}
+function renderCache(initialState) {
+  const store = Object(content_src_lib_init_store__WEBPACK_IMPORTED_MODULE_3__["initStore"])(common_Reducers_jsm__WEBPACK_IMPORTED_MODULE_7__["reducers"], initialState);
+  new content_src_lib_detect_user_session_start__WEBPACK_IMPORTED_MODULE_2__["DetectUserSessionStart"](store).sendEventOrAddListener();
+  react_dom__WEBPACK_IMPORTED_MODULE_6___default.a.hydrate(react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement(NewTab, {
+    store: store,
+    isFirstrun: global.document.location.href === "about:welcome"
+  }), document.getElementById("root"));
+}
 /* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(1)))
 
 /***/ }),
@@ -2718,7 +2738,7 @@ const rehydrationMiddleware = ({
   getState.didRehydrate = false;
   getState.didRequestInitialState = false;
   return next => action => {
-    if (getState.didRehydrate) {
+    if (getState.didRehydrate || window.__FROM_STARTUP_CACHE__) {
       return next(action);
     }
 
@@ -2792,8 +2812,8 @@ const queueEarlyMessageMiddleware = ({
  * @return {object}          A redux store
  */
 
-function initStore(reducers) {
-  const store = Object(redux__WEBPACK_IMPORTED_MODULE_1__["createStore"])(mergeStateReducer(Object(redux__WEBPACK_IMPORTED_MODULE_1__["combineReducers"])(reducers)), global.RPMAddMessageListener && Object(redux__WEBPACK_IMPORTED_MODULE_1__["applyMiddleware"])(rehydrationMiddleware, queueEarlyMessageMiddleware, messageMiddleware));
+function initStore(reducers, initialState) {
+  const store = Object(redux__WEBPACK_IMPORTED_MODULE_1__["createStore"])(mergeStateReducer(Object(redux__WEBPACK_IMPORTED_MODULE_1__["combineReducers"])(reducers)), initialState, global.RPMAddMessageListener && Object(redux__WEBPACK_IMPORTED_MODULE_1__["applyMiddleware"])(rehydrationMiddleware, queueEarlyMessageMiddleware, messageMiddleware));
 
   if (global.RPMAddMessageListener) {
     global.RPMAddMessageListener(INCOMING_MESSAGE_NAME, msg => {
@@ -4662,6 +4682,7 @@ CardGrid.defaultProps = {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "DefaultMeta", function() { return DefaultMeta; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "CTAButtonMeta", function() { return CTAButtonMeta; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "_DSCard", function() { return _DSCard; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "DSCard", function() { return DSCard; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "PlaceholderDSCard", function() { return PlaceholderDSCard; });
 /* harmony import */ var common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
@@ -4673,9 +4694,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _SafeAnchor_SafeAnchor__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(36);
 /* harmony import */ var _DSContextFooter_DSContextFooter_jsx__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(37);
 /* harmony import */ var _FluentOrText_FluentOrText_jsx__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(40);
+/* harmony import */ var react_redux__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(23);
+/* harmony import */ var react_redux__WEBPACK_IMPORTED_MODULE_8___default = /*#__PURE__*/__webpack_require__.n(react_redux__WEBPACK_IMPORTED_MODULE_8__);
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 
 
 
@@ -4750,7 +4774,7 @@ const CTAButtonMeta = ({
   display_engagement_labels: display_engagement_labels,
   engagement: engagement
 }));
-class DSCard extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent {
+class _DSCard extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent {
   constructor(props) {
     super(props);
     this.onLinkClick = this.onLinkClick.bind(this);
@@ -4761,7 +4785,12 @@ class DSCard extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent 
 
     this.state = {
       isSeen: false
-    };
+    }; // If this is for the about:home startup cache, then we always want
+    // to render the DSCard, regardless of whether or not its been seen.
+
+    if (props.App.isForStartupCache) {
+      this.state.isSeen = true;
+    }
   }
 
   onLinkClick(event) {
@@ -4906,10 +4935,13 @@ class DSCard extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent 
   }
 
 }
-DSCard.defaultProps = {
+_DSCard.defaultProps = {
   windowObj: window // Added to support unit tests
 
 };
+const DSCard = Object(react_redux__WEBPACK_IMPORTED_MODULE_8__["connect"])(state => ({
+  App: state.App
+}))(_DSCard);
 const PlaceholderDSCard = props => react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement(DSCard, {
   placeholder: true
 });
