@@ -1,0 +1,46 @@
+
+#include "nsISupports.idl"
+#include "nsISidl.idl"
+
+// A setting record.
+// TODO: don't use a string for the value, but jsval or nsISupports
+[scriptable, uuid(d08a124d-9094-42ee-899a-383e00ca46e6)]
+interface nsISettingInfo : nsISupports {
+  attribute AString name;
+  attribute AString value;
+};
+
+// A callback returning a single setting.
+[scriptable, uuid(292e5ce6-fd62-4ae6-803b-b001596614f0)]
+interface nsISettingsGetResponse : nsISupports
+{
+  void resolve(in AString setting);
+  void reject();
+};
+
+// The Observer callback.
+[scriptable, uuid(f975387d-a5d9-4797-97a6-2755a245293c)]
+interface nsISettingsObserver : nsISupports {
+  void observe(in nsISettingInfo setting);
+};
+
+[scriptable, uuid(943b4eb6-9f2f-4e5e-802b-3847c5ad5521)]
+interface nsISettingsManager : nsISidlEventTarget
+{
+  const short CHANGE_EVENT = 0;
+
+  // Clears the settings database.
+  void clear(in nsISidlDefaultResponse callback);
+
+  // Sets the value of a set of settings.
+  void set(in Array<nsISettingInfo> settings, in nsISidlDefaultResponse callback);
+
+  // Get the value of a setting.
+  void get(in AString name, in nsISettingsGetResponse callback);
+
+  // Adds an observer that will be notified when this setting changes.
+  void addObserver(in AString name, in nsISettingsObserver observer, in nsISidlDefaultResponse callback);
+
+  // Removes an observer used to track changes of a setting.
+  void removeObserver(in AString name, in nsISettingsObserver observer, in nsISidlDefaultResponse callback);
+};

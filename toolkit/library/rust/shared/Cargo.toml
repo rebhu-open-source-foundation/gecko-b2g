@@ -70,6 +70,9 @@ firefox-accounts-bridge = { path = "../../../../services/fxaccounts/rust-bridge/
 viaduct = { git = "https://github.com/mozilla/application-services", rev = "57a07e89e9ac92756b60b67c4a6ee06975b86288"}
 webext_storage_bridge = { path = "../../../components/extensions/storage/webext_storage_bridge" }
 
+# Gecko <-> SIDL integration
+gecko_sidl = { path = "../../../../b2g/sidl/gecko_sidl" }
+
 [build-dependencies]
 rustc_version = "0.2"
 

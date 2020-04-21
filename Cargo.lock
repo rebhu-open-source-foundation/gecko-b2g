@@ -1657,6 +1657,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "gecko_sidl"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "byteorder",
+ "cstr",
+ "log",
+ "moz_task",
+ "nserror",
+ "nsstring",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thin-vec",
+ "thiserror",
+ "xpcom",
+]
+
+[[package]]
 name = "geckodriver"
 version = "0.26.0"
 dependencies = [
@@ -1912,6 +1931,7 @@ dependencies = [
  "fluent-langneg-ffi",
  "fog",
  "gecko_logger",
+ "gecko_sidl",
  "geckoservo",
  "gkrust_utils",
  "jsrust_shared",

@@ -84,6 +84,9 @@ extern crate remote;
 
 extern crate gecko_logger;
 
+// Gecko <-> SIDL integration
+extern crate gecko_sidl;
+
 use std::ffi::CStr;
 use std::os::raw::c_char;
 

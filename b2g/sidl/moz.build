@@ -1,0 +1,16 @@
+
+DIRS += ['interfaces']
+
+EXPORTS.sidl += [
+    "SettingsManager.h"
+]
+
+SOURCES += [
+    "SettingsManager.cpp"
+]
+
+XPCOM_MANIFESTS += [
+    'components.conf',
+]
+
+FINAL_LIBRARY = 'xul'

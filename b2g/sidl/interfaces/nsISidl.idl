@@ -1,0 +1,27 @@
+#include "nsISupports.idl"
+
+// A default callback with no success or error types.
+[scriptable, uuid(1dca95e2-e467-4e28-b38f-7ea0bf78bd61)]
+interface nsISidlDefaultResponse : nsISupports
+{
+  void resolve();
+  void reject();
+};
+
+// The generic event listener. All events are dispatched
+// to this kind of listener, and the `data` field can be
+// QI'd to the actual type of the event data.
+[scriptable, uuid(e4ce3adf-c7c5-4054-90d6-368b94d40302)]
+interface nsISidlEventListener : nsISupports
+{
+  void handleEvent(in nsISupports data);
+};
+
+// Methods implemented by SIDL interfaces that can emit
+// events.
+[scriptable, uuid(d9958901-9874-43a2-bed5-72a7e7f9d7db)]
+interface nsISidlEventTarget : nsISupports
+{
+  void addEventListener(in long event, in nsISidlEventListener handler);
+  void removeEventListener(in long event, in nsISidlEventListener handler);
+};

@@ -1,0 +1,7 @@
+
+XPIDL_SOURCES += [
+    'nsISettings.idl',
+    'nsISidl.idl',
+]
+
+XPIDL_MODULE = 'sidl'

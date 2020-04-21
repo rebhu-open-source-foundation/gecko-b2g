@@ -10,7 +10,8 @@ DIRS += [
     'app',
     'chrome',
     'components',
-    'locales'
+    'locales',
+    'sidl',
     ]
 
 if CONFIG['GAIADIR']:
