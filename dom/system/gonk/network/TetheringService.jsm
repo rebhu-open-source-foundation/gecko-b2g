@@ -299,8 +299,11 @@ TetheringService.prototype = {
   // Flag to notify restart USB tethering
   _usbTetheringRequestRestart: false,
 
-  // The state of tethering.
-  state: Ci.nsITetheringService.TETHERING_STATE_INACTIVE,
+  // The state of USB tethering.
+  usbState: Ci.nsITetheringService.TETHERING_STATE_INACTIVE,
+
+  // The state of WIFI tethering.
+  wifiState: Ci.nsITetheringService.TETHERING_STATE_INACTIVE,
 
   // Flag to check if we can modify the Services.io.offline.
   _manageOfflineStatus: true,
@@ -856,18 +859,9 @@ TetheringService.prototype = {
     // Change the tethering state to WIFI if there is no error.
     if (aEnable && !aError) {
       this._wifiTetheringAction = TETHERING_STATE_ACTIVE;
-      this.state = Ci.nsITetheringService.TETHERING_STATE_WIFI;
+      this.wifiState = Ci.nsITetheringService.TETHERING_STATE_ACTIVE;
     } else {
-      // If wifi thethering is disable, or any error happens,
-      // then consider the following statements.
-
-      // Check whether the state is USB now or not. If no then just change
-      // it to INACTIVE, if yes then just keep it.
-      // It means that don't let the disable or error of WIFI affect
-      // the original active state.
-      if (this.state != Ci.nsITetheringService.TETHERING_STATE_USB) {
-        this.state = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
-      }
+      this.wifiState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
 
       // Disconnect dun on error or when wifi tethering is disabled.
       if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
@@ -877,11 +871,13 @@ TetheringService.prototype = {
     }
 
     this.checkPendingEvent();
-    this._fireEvent("tetheringstatuschange", { tetheringState: this.state });
+    this._fireEvent("tetheringstatuschange", { wifiTetheringState: this.wifiState,
+                                               usbTetheringState: this.usbState });
     if (this._manageOfflineStatus) {
       Services.io.offline =
         !this.isAnyConnected() &&
-        this.state === Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
+        (this.wifiState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
+        this.usbState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE);
     }
 
     let resetSettings = aError;
@@ -1048,22 +1044,14 @@ TetheringService.prototype = {
       */
       this._usbTetheringRequestRestart = false;
       this._usbTetheringAction = TETHERING_STATE_IDLE;
-      // If the thethering state is WIFI now, then just keep it,
-      // if not, just change the state to INACTIVE.
-      // It means that don't let the error of USB affect the original active state.
-      if (this.state != Ci.nsITetheringService.TETHERING_STATE_WIFI) {
-        this.state = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
-      }
+      this.usbState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
     } else {
       if (aEnable) {
         this._usbTetheringAction = TETHERING_STATE_ACTIVE;
-        this.state = Ci.nsITetheringService.TETHERING_STATE_USB;
+        this.usbState = Ci.nsITetheringService.TETHERING_STATE_ACTIVE;
       } else {
         this._usbTetheringAction = TETHERING_STATE_IDLE;
-        // If the state is now WIFI, don't let the disable of USB affect it.
-        if (this.state != Ci.nsITetheringService.TETHERING_STATE_WIFI) {
-          this.state = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
-        }
+        this.usbState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
         if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
           this.handleDunConnection(false);
         }
@@ -1079,12 +1067,14 @@ TetheringService.prototype = {
       }
 
       this.checkPendingEvent();
-      this._fireEvent("tetheringstatuschange", { tetheringState: this.state });
+      this._fireEvent("tetheringstatuschange", { usbTetheringState: this.usbState,
+                                                 wifiTetheringState: this.wifiState });
 
       if (this._manageOfflineStatus) {
         Services.io.offline =
           !this.isAnyConnected() &&
-          this.state === Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
+          (this.usbState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
+          this.wifiState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE);
       }
     }
 
@@ -1579,7 +1569,8 @@ TetheringService.prototype = {
         if ((i = this._domManagers.indexOf(message.manager)) === -1) {
           this._domManagers.push(message.manager);
         }
-        return { tetheringState: this.state };
+        return { wifiTetheringState: this.wifiState,
+                 usbTetheringState: this.usbState };
     }
   },
 };

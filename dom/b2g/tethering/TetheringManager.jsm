@@ -52,9 +52,11 @@ TetheringManager.prototype = {
     this.initDOMRequestHelper(aWindow, messages);
     var state = cpmm.sendSyncMessage("TetheringService:getStatus")[0];
     if (state) {
-      this._tetheringState = state.tetheringState;
+      this._wifiTetheringState = state.wifiTetheringState;
+      this._usbTetheringState = state.usbTetheringState;
     } else {
-      this._tetheringState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
+      this._wifiTetheringState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
+      this._usbTetheringState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
     }
   },
 
@@ -81,7 +83,8 @@ TetheringManager.prototype = {
             return;
           }
         }
-        this._tetheringState = msg.tetheringState;
+        this._wifiTetheringState = msg.wifiTetheringState;
+        this._usbTetheringState = msg.usbTetheringState;
         this._fireTetheringStatusChangeEvent(msg);
         break;
     }
@@ -132,8 +135,12 @@ TetheringManager.prototype = {
     }
   },
 
-  get tetheringState() {
-    return this._tetheringState;
+  get wifiTetheringState() {
+    return this._wifiTetheringState;
+  },
+
+  get usbTetheringState() {
+    return this._usbTetheringState;
   },
 
   _fireTetheringStatusChangeEvent: function onTetheringStatusChangeEvent(info) {

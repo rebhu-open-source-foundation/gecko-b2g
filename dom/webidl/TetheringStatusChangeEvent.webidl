@@ -8,12 +8,18 @@ interface TetheringStatusChangeEvent : Event
 {
   constructor(DOMString type, optional TetheringStatusChangeEventInit eventInitDict = {});
   /**
-   * Device tethering state.
+   * wifi tethering state. One of the TETHERING_STATE_* constants.
    */
-  readonly attribute long tetheringState;
+  readonly attribute long wifiTetheringState;
+
+  /**
+   * usb tethering state. One of the TETHERING_STATE_* constants.
+   */
+  readonly attribute long usbTetheringState;
 };
 
 dictionary TetheringStatusChangeEventInit : EventInit
 {
-  long tetheringState = 0;
+  long wifiTetheringState = 0;
+  long usbTetheringState = 0;
 };

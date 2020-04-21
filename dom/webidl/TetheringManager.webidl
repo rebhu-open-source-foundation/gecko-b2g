@@ -38,9 +38,7 @@ interface TetheringManager : EventTarget {
 
   const unsigned long TETHERING_STATE_INACTIVE = 0;
 
-  const unsigned long TETHERING_STATE_WIFI     = 1;
-
-  const unsigned long TETHERING_STATE_USB      = 2;
+  const unsigned long TETHERING_STATE_ACTIVE   = 1;
 
   /**
    * Enable/Disable tethering.
@@ -63,9 +61,14 @@ interface TetheringManager : EventTarget {
                                    optional TetheringConfiguration config = {});
 
   /**
-   * Returns tethering state.
+   * Returns wifi tethering state. One of the TETHERING_STATE_* constants.
    */
-  readonly attribute long tetheringState;
+  readonly attribute long wifiTetheringState;
+
+  /**
+   * Returns usb tethering state. One of the TETHERING_STATE_* constants.
+   */
+  readonly attribute long usbTetheringState;
 
   /**
    * An event listener that is called with notification about the tethering

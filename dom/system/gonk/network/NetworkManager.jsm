@@ -2225,8 +2225,10 @@ NetworkManager.prototype = {
         if (this._manageOfflineStatus) {
           Services.io.offline =
             !anyConnected &&
-            gTetheringService.state ===
-              Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
+            (gTetheringService.wifiState ===
+              Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
+	      gTetheringService.usbState ===
+	        Ci.nsITetheringService.TETHERING_STATE_INACTIVE);
         }
         return Promise.resolve();
       });

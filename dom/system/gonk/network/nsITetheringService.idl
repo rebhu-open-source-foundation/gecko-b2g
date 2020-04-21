@@ -12,13 +12,17 @@ interface nsIWifiTetheringCallback;
 interface nsITetheringService : nsISupports
 {
   const long TETHERING_STATE_INACTIVE = 0;
-  const long TETHERING_STATE_WIFI     = 1;
-  const long TETHERING_STATE_USB      = 2;
+  const long TETHERING_STATE_ACTIVE   = 1;
 
   /**
-   * Current tethering state. One of the TETHERING_STATE_* constants.
+   * Current wifi tethering state. One of the TETHERING_STATE_* constants.
    */
-  readonly attribute long state;
+  readonly attribute long wifiState;
+
+  /**
+   * Current usb tethering state. One of the TETHERING_STATE_* constants.
+   */
+  readonly attribute long usbState;
 
   /**
    * Handle external interface change for Tethering.
