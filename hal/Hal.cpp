@@ -146,8 +146,7 @@ void CancelVibrate(WindowIdentifier&& id) {
   }
 }
 
-void SetScreenBrightness(double aBrightness)
-{
+void SetScreenBrightness(double aBrightness) {
 #ifdef MOZ_WIDGET_GONK
   AssertMainThread();
   PROXY_IF_SANDBOXED(SetScreenBrightness(clamped(aBrightness, 0.0, 1.0)));
@@ -300,7 +299,6 @@ static SensorObserverList* GetSensorObservers(SensorType sensor_type) {
   StaticAutoPtr<name_##ObserversManager> s##name_##Observers;    \
                                                                  \
   static name_##ObserversManager* name_##Observers() {           \
-                                                                 \
     if (!s##name_##Observers) {                                  \
       s##name_##Observers = new name_##ObserversManager();       \
     }                                                            \
@@ -327,9 +325,9 @@ void NotifyBatteryChange(const BatteryInformation& aInfo) {
   BatteryObservers()->BroadcastCachedInformation();
 }
 
-class FlashlightObserversManager : public ObserversManager<FlashlightInformation>
-{
-protected:
+class FlashlightObserversManager
+    : public ObserversManager<FlashlightInformation> {
+ protected:
   void EnableNotifications() {
     PROXY_IF_SANDBOXED(EnableFlashlightNotifications());
   }
@@ -341,56 +339,42 @@ protected:
 
 static FlashlightObserversManager sFlashlightObservers;
 
-void
-RegisterFlashlightObserver(FlashlightObserver* aObserver)
-{
+void RegisterFlashlightObserver(FlashlightObserver* aObserver) {
   AssertMainThread();
   sFlashlightObservers.AddObserver(aObserver);
 }
 
-void
-UnregisterFlashlightObserver(FlashlightObserver* aObserver)
-{
+void UnregisterFlashlightObserver(FlashlightObserver* aObserver) {
   AssertMainThread();
   sFlashlightObservers.RemoveObserver(aObserver);
 }
 
-void
-UpdateFlashlightState(const FlashlightInformation& aFlashlightState)
-{
+void UpdateFlashlightState(const FlashlightInformation& aFlashlightState) {
   AssertMainThread();
   sFlashlightObservers.BroadcastInformation(aFlashlightState);
 }
 
-void
-RequestCurrentFlashlightState()
-{
+void RequestCurrentFlashlightState() {
   AssertMainThread();
   PROXY_IF_SANDBOXED(RequestCurrentFlashlightState());
 }
 
-bool
-GetFlashlightEnabled()
-{
+bool GetFlashlightEnabled() {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(GetFlashlightEnabled(), true);
 }
 
-void
-SetFlashlightEnabled(bool aEnabled)
-{
+void SetFlashlightEnabled(bool aEnabled) {
   AssertMainThread();
   PROXY_IF_SANDBOXED(SetFlashlightEnabled(aEnabled));
 }
 
-bool GetScreenEnabled()
-{
+bool GetScreenEnabled() {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(GetScreenEnabled(), false);
 }
 
-void SetScreenEnabled(bool aEnabled)
-{
+void SetScreenEnabled(bool aEnabled) {
   AssertMainThread();
   PROXY_IF_SANDBOXED(SetScreenEnabled(aEnabled));
 }
@@ -439,8 +423,7 @@ void NotifyNetworkChange(const NetworkInformation& aInfo) {
   NetworkObservers()->BroadcastCachedInformation();
 }
 
-void SetNetworkType(int32_t aType)
-{
+void SetNetworkType(int32_t aType) {
   AssertMainThread();
   PROXY_IF_SANDBOXED(SetNetworkType(aType));
 }
@@ -512,11 +495,13 @@ void DisableSwitchNotifications(SwitchDevice aDevice) {
 SwitchState GetCurrentSwitchState(SwitchDevice aDevice) {
 #ifdef MOZ_WIDGET_GONK
   AssertMainThread();
-  RETURN_PROXY_IF_SANDBOXED(GetCurrentSwitchState(aDevice), SWITCH_STATE_UNKNOWN);
+  RETURN_PROXY_IF_SANDBOXED(GetCurrentSwitchState(aDevice),
+                            SWITCH_STATE_UNKNOWN);
 #endif
 }
 
-void NotifySwitchStateFromInputDevice(SwitchDevice aDevice, SwitchState aState) {
+void NotifySwitchStateFromInputDevice(SwitchDevice aDevice,
+                                      SwitchState aState) {
 #ifdef MOZ_WIDGET_GONK
   AssertMainThread();
   PROXY_IF_SANDBOXED(NotifySwitchStateFromInputDevice(aDevice, aState));
@@ -525,7 +510,7 @@ void NotifySwitchStateFromInputDevice(SwitchDevice aDevice, SwitchState aState) 
 
 typedef mozilla::ObserverList<SwitchEvent> SwitchObserverList;
 
-static SwitchObserverList *sSwitchObserverLists = nullptr;
+static SwitchObserverList* sSwitchObserverLists = nullptr;
 
 static SwitchObserverList& GetSwitchObserverList(SwitchDevice aDevice) {
   MOZ_ASSERT(0 <= aDevice && aDevice < NUM_SWITCH_DEVICE);
@@ -537,16 +522,15 @@ static SwitchObserverList& GetSwitchObserverList(SwitchDevice aDevice) {
 
 static void ReleaseObserversIfNeeded() {
   for (int i = 0; i < NUM_SWITCH_DEVICE; i++) {
-    if (sSwitchObserverLists[i].Length() != 0)
-      return;
+    if (sSwitchObserverLists[i].Length() != 0) return;
   }
 
-  //The length of every list is 0, no observer in the list.
-  delete [] sSwitchObserverLists;
+  // The length of every list is 0, no observer in the list.
+  delete[] sSwitchObserverLists;
   sSwitchObserverLists = nullptr;
 }
 
-void RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver) {
+void RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver* aObserver) {
   AssertMainThread();
   SwitchObserverList& observer = GetSwitchObserverList(aDevice);
   observer.AddObserver(aObserver);
@@ -555,7 +539,7 @@ void RegisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver) {
   }
 }
 
-void UnregisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver) {
+void UnregisterSwitchObserver(SwitchDevice aDevice, SwitchObserver* aObserver) {
   AssertMainThread();
 
   if (!sSwitchObserverLists) {
@@ -574,8 +558,7 @@ void UnregisterSwitchObserver(SwitchDevice aDevice, SwitchObserver *aObserver) {
 void NotifySwitchChange(const SwitchEvent& aEvent) {
   // When callback this notification, main thread may call unregister function
   // first. We should check if this pointer is valid.
-  if (!sSwitchObserverLists)
-    return;
+  if (!sSwitchObserverLists) return;
 
   SwitchObserverList& observer = GetSwitchObserverList(aEvent.device());
   observer.Broadcast(aEvent);
@@ -620,11 +603,7 @@ void SetProcessPriority(int aPid, ProcessPriority aPriority) {
   PROXY_IF_SANDBOXED(SetProcessPriority(aPid, aPriority));
 }
 
-uint32_t
-GetTotalSystemMemory()
-{
-  return hal_impl::GetTotalSystemMemory();
-}
+uint32_t GetTotalSystemMemory() { return hal_impl::GetTotalSystemMemory(); }
 
 // From HalTypes.h.
 const char* ProcessPriorityToString(ProcessPriority aPriority) {

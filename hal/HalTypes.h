@@ -34,8 +34,8 @@ enum SwitchState {
   SWITCH_STATE_UNKNOWN = -1,
   SWITCH_STATE_ON,
   SWITCH_STATE_OFF,
-  SWITCH_STATE_HEADSET,          // Headphone with microphone
-  SWITCH_STATE_HEADPHONE,        // without microphone
+  SWITCH_STATE_HEADSET,    // Headphone with microphone
+  SWITCH_STATE_HEADPHONE,  // without microphone
   SWITCH_STATE_LINEOUT,
   NUM_SWITCH_STATE
 };
@@ -98,23 +98,19 @@ struct ParamTraits<mozilla::hal::WakeLockControl>
  * Serializer for SwitchState
  */
 template <>
-struct ParamTraits<mozilla::hal::SwitchState>:
-  public ContiguousEnumSerializer<
-           mozilla::hal::SwitchState,
-           mozilla::hal::SWITCH_STATE_UNKNOWN,
-           mozilla::hal::NUM_SWITCH_STATE> {
-};
+struct ParamTraits<mozilla::hal::SwitchState>
+    : public ContiguousEnumSerializer<mozilla::hal::SwitchState,
+                                      mozilla::hal::SWITCH_STATE_UNKNOWN,
+                                      mozilla::hal::NUM_SWITCH_STATE> {};
 
 /**
  * Serializer for SwitchDevice
  */
 template <>
-struct ParamTraits<mozilla::hal::SwitchDevice>:
-  public ContiguousEnumSerializer<
-           mozilla::hal::SwitchDevice,
-           mozilla::hal::SWITCH_DEVICE_UNKNOWN,
-           mozilla::hal::NUM_SWITCH_DEVICE> {
-};
+struct ParamTraits<mozilla::hal::SwitchDevice>
+    : public ContiguousEnumSerializer<mozilla::hal::SwitchDevice,
+                                      mozilla::hal::SWITCH_DEVICE_UNKNOWN,
+                                      mozilla::hal::NUM_SWITCH_DEVICE> {};
 
 template <>
 struct ParamTraits<mozilla::hal::ProcessPriority>
