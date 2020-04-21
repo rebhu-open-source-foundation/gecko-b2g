@@ -422,6 +422,111 @@ void StopSystemService(const char* aSvcName);
 bool SystemServiceIsRunning(const char* aSvcName);
 bool SystemServiceIsStopped(const char* aSvcName);
 
+/**
+ * Register an observer for the FM radio.
+ */
+void RegisterFMRadioObserver(hal::FMRadioObserver* aRadioObserver);
+
+/**
+ * Unregister the observer for the FM radio.
+ */
+void UnregisterFMRadioObserver(hal::FMRadioObserver* aRadioObserver);
+
+/**
+ * Register an observer for the FM radio.
+ */
+void RegisterFMRadioRDSObserver(hal::FMRadioRDSObserver* aRDSObserver);
+
+/**
+ * Unregister the observer for the FM radio.
+ */
+void UnregisterFMRadioRDSObserver(hal::FMRadioRDSObserver* aRDSObserver);
+
+/**
+ * Notify observers that a call to EnableFMRadio, DisableFMRadio, or FMRadioSeek
+ * has completed, and indicate what the call returned.
+ */
+void NotifyFMRadioStatus(const hal::FMRadioOperationInformation& aRadioState);
+
+/**
+ * Notify observers of new RDS data
+ * This can be called on any thread.
+ */
+void NotifyFMRadioRDSGroup(const hal::FMRadioRDSGroup& aRDSGroup);
+
+/**
+ * Enable the FM radio and configure it according to the settings in aInfo.
+ */
+void EnableFMRadio(const hal::FMRadioSettings& aInfo);
+
+/**
+ * Disable the FM radio.
+ */
+void DisableFMRadio();
+
+#if defined(PRODUCT_MANUFACTURER_SPRD) || defined(PRODUCT_MANUFACTURER_MTK)
+/**
+ * Update FM Internal Antenna state
+ */
+void SetFMRadioAntenna(const int32_t aStatus);
+#endif
+
+/**
+ * Seek to an available FM radio station.
+ *
+ * This can be called off main thread, but all calls must be completed
+ * before calling DisableFMRadio.
+ */
+void FMRadioSeek(const hal::FMRadioSeekDirection& aDirection);
+
+/**
+ * Get the current FM radio settings.
+ */
+void GetFMRadioSettings(hal::FMRadioSettings* aInfo);
+
+/**
+ * Set the FM radio's frequency.
+ *
+ * This can be called off main thread, but all calls must be completed
+ * before calling DisableFMRadio.
+ */
+void SetFMRadioFrequency(const uint32_t frequency);
+
+/**
+ * Get the FM radio's frequency.
+ */
+uint32_t GetFMRadioFrequency();
+
+/**
+ * Get FM radio power state
+ */
+bool IsFMRadioOn();
+
+/**
+ * Get FM radio signal strength
+ */
+uint32_t GetFMRadioSignalStrength();
+
+/**
+ * Cancel FM radio seeking
+ */
+void CancelFMRadioSeek();
+
+/**
+ * Get FM radio band settings by country.
+ */
+hal::FMRadioSettings GetFMBandSettings(hal::FMRadioCountry aCountry);
+
+/**
+ * Enable RDS data reception
+ */
+bool EnableRDS(uint32_t aMask);
+
+/**
+ * Disable RDS data reception
+ */
+void DisableRDS();
+
 }  // namespace MOZ_HAL_NAMESPACE
 }  // namespace mozilla
 
