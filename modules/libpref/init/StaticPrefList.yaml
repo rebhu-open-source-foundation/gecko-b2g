@@ -1301,7 +1301,7 @@
 
 # Whether Alarm API is exposed to the web.
 - name: dom.alarm.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
