@@ -569,18 +569,6 @@ class nsDocShell final : public nsDocLoader,
     return uint32_t(aTimeUsec / PR_USEC_PER_SEC);
   }
 
-  static const nsCString FrameTypeToString(uint32_t aFrameType) {
-    switch (aFrameType) {
-      case FRAME_TYPE_BROWSER:
-        return NS_LITERAL_CSTRING("browser");
-      case FRAME_TYPE_REGULAR:
-        return NS_LITERAL_CSTRING("regular");
-      default:
-        NS_ERROR("Unknown frame type");
-        return EmptyCString();
-    }
-  }
-
   virtual ~nsDocShell();
 
   //
@@ -1009,7 +997,6 @@ class nsDocShell final : public nsDocLoader,
   bool IsPrintingOrPP(bool aDisplayErrorDialog = true);
   bool IsNavigationAllowed(bool aDisplayPrintErrorDialog = true,
                            bool aCheckIfUnloadFired = true);
-  uint32_t GetInheritedFrameType();
   nsIScrollableFrame* GetRootScrollFrame();
   nsIChannel* GetCurrentDocChannel();
   nsresult EnsureScriptEnvironment();
@@ -1033,12 +1020,6 @@ class nsDocShell final : public nsDocLoader,
   nsPoint GetCurScrollPos();
 
   already_AddRefed<mozilla::dom::ChildSHistory> GetRootSessionHistory();
-
-  inline bool UseErrorPages() {
-    return (mObserveErrorPages
-                ? mozilla::StaticPrefs::browser_xul_error_pages_enabled()
-                : mUseErrorPages);
-  }
 
   bool CSSErrorReportingEnabled() const { return mCSSErrorReportingEnabled; }
 
@@ -1229,9 +1210,6 @@ class nsDocShell final : public nsDocLoader,
   uint32_t mDefaultLoadFlags;
   uint32_t mFailedLoadType;
 
-  // Are we a regular frame, a browser frame, or an app frame?
-  FrameType mFrameType;
-
   // This represents the CSS display-mode we are currently using. This is mostly
   // used for media queries.
   DisplayMode mDisplayMode;
@@ -1283,7 +1261,6 @@ class nsDocShell final : public nsDocLoader,
   bool mAllowDNSPrefetch : 1;
   bool mAllowWindowControl : 1;
   bool mUseErrorPages : 1;
-  bool mObserveErrorPages : 1;
   bool mCSSErrorReportingEnabled : 1;
   bool mAllowAuth : 1;
   bool mAllowKeywordFixup : 1;
@@ -1348,6 +1325,10 @@ class nsDocShell final : public nsDocLoader,
   // This flag indicates whether or not the DocShell is currently executing an
   // nsIWebNavigation navigation method.
   bool mIsNavigating : 1;
+
+  // This flag indicates whether the media in this docshell should be suspended
+  // when the docshell is inactive.
+  bool mSuspendMediaWhenInactive : 1;
 };
 
 #endif /* nsDocShell_h__ */

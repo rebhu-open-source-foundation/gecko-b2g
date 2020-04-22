@@ -97,9 +97,11 @@ either Raptor or browsertime."""
         conditioned_profile_scenario='settled',
         extra_prefs={},
         project="mozilla-central",
+        verbose=False,
         **kwargs
     ):
         self._dirs_to_remove = []
+        self.verbose = verbose
 
         # Override the magic --host HOST_IP with the value of the environment variable.
         if host == "HOST_IP":
@@ -130,7 +132,8 @@ either Raptor or browsertime."""
             "disable_perf_tuning": disable_perf_tuning,
             "conditioned_profile_scenario": conditioned_profile_scenario,
             "extra_prefs": extra_prefs,
-            "project": project
+            "project": project,
+            "verbose": verbose
         }
 
         self.firefox_android_apps = FIREFOX_ANDROID_APPS
@@ -138,13 +141,10 @@ either Raptor or browsertime."""
         # - win10-aarch64 : no support for geckodriver see 1582757
         # - fennec_aurora: no conditioned profiles created see 1606199
         # - reference browser: no conditioned profiles created see 1606767
-        # - crashes for fennec68 and fenix, to be fixed, see 1626729
         self.using_condprof = not (
              (self.config["platform"] == "win" and self.config["processor"] == "aarch64")
              or self.config["binary"] == "org.mozilla.fennec_aurora"
              or self.config["binary"] == "org.mozilla.reference.browser.raptor"
-             or self.config["binary"] == "org.mozilla.firefox"
-             or self.config["binary"].startswith("org.mozilla.fenix")
              or self.config["no_conditioned_profile"]
         )
         if self.using_condprof:

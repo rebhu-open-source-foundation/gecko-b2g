@@ -657,7 +657,6 @@ class MOZ_RAII CacheIRCompiler {
   IonCacheIRCompiler* asIon();
 
   JSContext* cx_;
-  CacheIRReader reader;
   const CacheIRWriter& writer_;
   StackMacroAssembler masm;
 
@@ -684,28 +683,10 @@ class MOZ_RAII CacheIRCompiler {
 
   StubFieldPolicy stubFieldPolicy_;
 
-#ifdef DEBUG
-  const uint8_t* currentVerificationPosition_;
-
-  // Verify that the number of bytes consumed by the compiler matches
-  // up with the opcode signature in CACHE_IR_OPS.
-  void assertAllArgumentsConsumed() {
-    CacheOp prevOp = CacheOp(*currentVerificationPosition_);
-    uint32_t expectedLength = 1 + CacheIROpFormat::ArgLengths[uint8_t(prevOp)];
-
-    const uint8_t* newPosition = reader.currentPosition();
-    MOZ_ASSERT(newPosition > currentVerificationPosition_);
-    uint32_t actualLength = newPosition - currentVerificationPosition_;
-    MOZ_ASSERT(actualLength == expectedLength);
-    currentVerificationPosition_ = newPosition;
-  };
-#endif
-
   CacheIRCompiler(JSContext* cx, const CacheIRWriter& writer,
                   uint32_t stubDataOffset, Mode mode, StubFieldPolicy policy)
       : preparedForVMCall_(false),
         cx_(cx),
-        reader(writer),
         writer_(writer),
         allocator(writer_),
         liveFloatRegs_(FloatRegisterSet::All()),
@@ -713,9 +694,6 @@ class MOZ_RAII CacheIRCompiler {
         stubDataOffset_(stubDataOffset),
         stubFieldPolicy_(policy) {
     MOZ_ASSERT(!writer.failed());
-#ifdef DEBUG
-    currentVerificationPosition_ = reader.currentPosition();
-#endif
   }
 
   MOZ_MUST_USE bool addFailurePath(FailurePath** failure);
@@ -765,7 +743,8 @@ class MOZ_RAII CacheIRCompiler {
     emitPostBarrierShared(obj, val, scratch, index);
   }
 
-  bool emitComparePointerResultShared(bool symbol);
+  bool emitComparePointerResultShared(JSOp op, TypedOperandId lhsId,
+                                      TypedOperandId rhsId);
 
   bool emitCompareBigIntInt32ResultShared(Register bigInt, Register int32,
                                           Register scratch1, Register scratch2,
@@ -773,16 +752,13 @@ class MOZ_RAII CacheIRCompiler {
                                           const AutoOutputRegister& output);
 
   template <typename Fn, Fn fn>
-  MOZ_MUST_USE bool emitBigIntBinaryOperationShared();
+  MOZ_MUST_USE bool emitBigIntBinaryOperationShared(BigIntOperandId lhsId,
+                                                    BigIntOperandId rhsId);
 
   template <typename Fn, Fn fn>
-  MOZ_MUST_USE bool emitBigIntUnaryOperationShared();
+  MOZ_MUST_USE bool emitBigIntUnaryOperationShared(BigIntOperandId inputId);
 
-  bool emitDoubleIncDecResult(bool isInc);
-
-#define DEFINE_SHARED_OP(op) MOZ_MUST_USE bool emit##op();
-  CACHE_IR_SHARED_OPS(DEFINE_SHARED_OP)
-#undef DEFINE_SHARED_OP
+  bool emitDoubleIncDecResult(bool isInc, NumberOperandId inputId);
 
   CACHE_IR_COMPILER_SHARED_GENERATED
 

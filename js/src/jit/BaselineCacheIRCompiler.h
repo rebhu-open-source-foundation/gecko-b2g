@@ -69,13 +69,17 @@ class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler {
   void updateReturnValue();
 
   enum class NativeCallType { Native, ClassHook };
-  bool emitCallNativeShared(NativeCallType callType);
+  bool emitCallNativeShared(NativeCallType callType, ObjOperandId calleeId,
+                            Int32OperandId argcId, CallFlags flags,
+                            mozilla::Maybe<bool> ignoresReturnValue,
+                            mozilla::Maybe<uint32_t> targetOffset);
 
   MOZ_MUST_USE bool emitCallScriptedGetterResultShared(
-      TypedOrValueRegister receiver);
+      TypedOrValueRegister receiver, uint32_t getterOffset, bool sameRealm);
 
   template <typename T, typename CallVM>
   MOZ_MUST_USE bool emitCallNativeGetterResultShared(T receiver,
+                                                     uint32_t getterOffset,
                                                      const CallVM& emitCallVM);
 
  public:
@@ -97,10 +101,6 @@ class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler {
   Address stubAddress(uint32_t offset) const;
 
  private:
-#define DEFINE_OP(op) MOZ_MUST_USE bool emit##op();
-  CACHE_IR_UNSHARED_OPS(DEFINE_OP)
-#undef DEFINE_OP
-
   CACHE_IR_COMPILER_UNSHARED_GENERATED
 };
 

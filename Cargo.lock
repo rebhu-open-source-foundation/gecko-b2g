@@ -405,6 +405,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8380105befe91099e6f69206164072c05bc92427ff6aa8a5171388317346dd75"
 
 [[package]]
+name = "build-parallel"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b5f8b148c1884e660514fb1205f36b595e96df4daac5ad526a23db44937de77"
+dependencies = [
+ "crossbeam-utils 0.7.0",
+ "jobserver",
+ "num_cpus",
+]
+
+[[package]]
 name = "bumpalo"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -679,7 +690,7 @@ dependencies = [
 [[package]]
 name = "coreaudio-sys-utils"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=0f62d389cc04cc3707368eda14fe1904ee8d7981#0f62d389cc04cc3707368eda14fe1904ee8d7981"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=6156e941e5f46a641d2da10ca53a9ad318c10722#6156e941e5f46a641d2da10ca53a9ad318c10722"
 dependencies = [
  "core-foundation-sys",
  "coreaudio-sys",
@@ -916,7 +927,7 @@ dependencies = [
 [[package]]
 name = "cubeb-coreaudio"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=0f62d389cc04cc3707368eda14fe1904ee8d7981#0f62d389cc04cc3707368eda14fe1904ee8d7981"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=6156e941e5f46a641d2da10ca53a9ad318c10722#6156e941e5f46a641d2da10ca53a9ad318c10722"
 dependencies = [
  "atomic",
  "audio-mixer",
@@ -933,7 +944,7 @@ dependencies = [
 [[package]]
 name = "cubeb-pulse"
 version = "0.3.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=72f813a03cefbdf8e2c58c7410f3556c79429a06#72f813a03cefbdf8e2c58c7410f3556c79429a06"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5#8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5"
 dependencies = [
  "cubeb-backend",
  "pulse",
@@ -1806,6 +1817,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "glslopt"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91cc19a37d1c89655d9bd58c56b58c00ed4ff5402d7cedde141af7d018e119c3"
+dependencies = [
+ "bindgen",
+ "cc",
+]
+
+[[package]]
 name = "goblin"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2072,6 +2093,15 @@ name = "itoa"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
+
+[[package]]
+name = "jobserver"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c71313ebb9439f74b00d9d2dcec36440beaf57a6aa0623068441dd7cd81a7f2"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "js"
@@ -3380,7 +3410,7 @@ dependencies = [
 [[package]]
 name = "pulse"
 version = "0.3.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=72f813a03cefbdf8e2c58c7410f3556c79429a06#72f813a03cefbdf8e2c58c7410f3556c79429a06"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5#8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5"
 dependencies = [
  "bitflags",
  "pulse-ffi",
@@ -3389,7 +3419,7 @@ dependencies = [
 [[package]]
 name = "pulse-ffi"
 version = "0.1.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=72f813a03cefbdf8e2c58c7410f3556c79429a06#72f813a03cefbdf8e2c58c7410f3556c79429a06"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5#8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5"
 dependencies = [
  "libc",
 ]
@@ -4757,11 +4787,19 @@ dependencies = [
 name = "updateagent"
 version = "0.1.0"
 dependencies = [
+ "bits_client",
+ "cfg-if",
  "chrono",
  "comedy",
  "failure",
  "log",
+ "percent-encoding",
+ "prefs_parser",
+ "raw-cpuid",
+ "rust-ini",
  "winapi 0.3.7",
+ "wio",
+ "xml-rs",
 ]
 
 [[package]]
@@ -4914,6 +4952,7 @@ dependencies = [
  "base64",
  "bincode",
  "bitflags",
+ "build-parallel",
  "byteorder",
  "cfg-if",
  "core-foundation",
@@ -4925,6 +4964,7 @@ dependencies = [
  "freetype",
  "fxhash",
  "gleam",
+ "glslopt",
  "image",
  "lazy_static",
  "libc",
@@ -4997,6 +5037,7 @@ name = "webrender_build"
 version = "0.0.1"
 dependencies = [
  "bitflags",
+ "lazy_static",
  "serde",
 ]
 

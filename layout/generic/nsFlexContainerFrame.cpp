@@ -4357,10 +4357,15 @@ void nsFlexContainerFrame::Reflow(nsPresContext* aPresContext,
       availableSizeForItems, borderPadding, consumedBSize, flexContainerAscent,
       lines, placeholders, axisTracker, hasLineClampEllipsis);
 
-  ComputeFinalSize(aReflowOutput, aReflowInput, aStatus, contentBoxSize,
-                   borderPadding, consumedBSize, mayNeedNextInFlow,
-                   maxBlockEndEdgeOfChildren, areChildrenComplete,
-                   flexContainerAscent, lines, axisTracker);
+  PopulateReflowOutput(aReflowOutput, aReflowInput, aStatus, contentBoxSize,
+                       borderPadding, consumedBSize, mayNeedNextInFlow,
+                       maxBlockEndEdgeOfChildren, areChildrenComplete,
+                       flexContainerAscent, lines, axisTracker);
+
+  FinishReflowWithAbsoluteFrames(PresContext(), aReflowOutput, aReflowInput,
+                                 aStatus);
+
+  NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aReflowOutput)
 
   // Finally update our line and item measurements in our containerInfo.
   if (MOZ_UNLIKELY(containerInfo)) {
@@ -5056,7 +5061,7 @@ std::tuple<nscoord, bool> nsFlexContainerFrame::ReflowChildren(
   return {maxBlockEndEdgeOfChildren, true};
 }
 
-void nsFlexContainerFrame::ComputeFinalSize(
+void nsFlexContainerFrame::PopulateReflowOutput(
     ReflowOutput& aReflowOutput, const ReflowInput& aReflowInput,
     nsReflowStatus& aStatus, const LogicalSize& aContentBoxSize,
     const LogicalMargin& aBorderPadding, const nscoord aConsumedBSize,
@@ -5065,10 +5070,9 @@ void nsFlexContainerFrame::ComputeFinalSize(
     nsTArray<FlexLine>& aLines, const FlexboxAxisTracker& aAxisTracker) {
   const WritingMode flexWM = aReflowInput.GetWritingMode();
 
-  // Compute flex container's reflow-output measurements (in its own
-  // writing-mode).
-  LogicalSize reflowOutputInFlexWM(flexWM);
-  reflowOutputInFlexWM.ISize(flexWM) =
+  // Compute flex container's desired size (in its own writing-mode).
+  LogicalSize desiredSizeInFlexWM(flexWM);
+  desiredSizeInFlexWM.ISize(flexWM) =
       aContentBoxSize.ISize(flexWM) + aBorderPadding.IStartEnd(flexWM);
 
   // Unconditionally skip adding block-end border and padding for now. We add it
@@ -5089,11 +5093,11 @@ void nsFlexContainerFrame::ComputeFinalSize(
 
     if (aMaxBlockEndEdgeOfChildren <= availableBSizeMinusBEndBP) {
       // Consume all the available block-size.
-      reflowOutputInFlexWM.BSize(flexWM) = availableBSizeMinusBEndBP;
+      desiredSizeInFlexWM.BSize(flexWM) = availableBSizeMinusBEndBP;
     } else {
       // This case happens if we have some tall unbreakable children exceeding
       // the available block-size.
-      reflowOutputInFlexWM.BSize(flexWM) = std::min(
+      desiredSizeInFlexWM.BSize(flexWM) = std::min(
           effectiveContentBSizeWithBStartBP, aMaxBlockEndEdgeOfChildren);
 
       if (aMaxBlockEndEdgeOfChildren >= effectiveContentBSizeWithBStartBP) {
@@ -5118,7 +5122,7 @@ void nsFlexContainerFrame::ComputeFinalSize(
   } else {
     // Our own effective content-box block-size can fit within the available
     // block-size.
-    reflowOutputInFlexWM.BSize(flexWM) = effectiveContentBSizeWithBStartBP;
+    desiredSizeInFlexWM.BSize(flexWM) = effectiveContentBSizeWithBStartBP;
   }
 
   if (aFlexContainerAscent == nscoord_MIN) {
@@ -5135,7 +5139,7 @@ void nsFlexContainerFrame::ComputeFinalSize(
     // XXXdholbert This only makes sense if parent's writing mode is
     // horizontal (& even then, really we should be using the BSize in terms
     // of the parent's writing mode, not ours). Clean up in bug 1155322.
-    aFlexContainerAscent = reflowOutputInFlexWM.BSize(flexWM);
+    aFlexContainerAscent = desiredSizeInFlexWM.BSize(flexWM);
   }
 
   if (HasAnyStateBits(NS_STATE_FLEX_SYNTHESIZE_BASELINE)) {
@@ -5157,11 +5161,11 @@ void nsFlexContainerFrame::ComputeFinalSize(
   // to push us over the available block-size without requesting a continuation,
   // for consistency with the behavior of "display:block" elements.
   const nscoord effectiveContentBSizeWithBStartEndBP =
-      reflowOutputInFlexWM.BSize(flexWM) + blockEndContainerBP;
+      desiredSizeInFlexWM.BSize(flexWM) + blockEndContainerBP;
 
   if (aReflowInput.AvailableBSize() != NS_UNCONSTRAINEDSIZE &&
       effectiveContentBSizeWithBStartEndBP > aReflowInput.AvailableBSize() &&
-      reflowOutputInFlexWM.BSize(flexWM) != 0 &&
+      desiredSizeInFlexWM.BSize(flexWM) != 0 &&
       aReflowInput.ComputedBSize() != NS_UNCONSTRAINEDSIZE) {
     // We couldn't fit with the block-end border and padding included, so we'll
     // need a continuation.
@@ -5176,7 +5180,7 @@ void nsFlexContainerFrame::ComputeFinalSize(
   // The variable "blockEndContainerBP" now accurately reflects how much (if
   // any) block-end border and padding we want for this frame, so we can proceed
   // to add it in.
-  reflowOutputInFlexWM.BSize(flexWM) += blockEndContainerBP;
+  desiredSizeInFlexWM.BSize(flexWM) += blockEndContainerBP;
 
   if (aStatus.IsComplete() && !aAreChildrenComplete) {
     aStatus.SetOverflowIncomplete();
@@ -5190,23 +5194,17 @@ void nsFlexContainerFrame::ComputeFinalSize(
     // XXX we fall back to a mirrored first baseline here for now, but this
     // should probably use the last baseline of the last item or something.
     mLastBaselineFromLastReflow =
-        reflowOutputInFlexWM.BSize(flexWM) - aFlexContainerAscent;
+        desiredSizeInFlexWM.BSize(flexWM) - aFlexContainerAscent;
   }
 
-  // Convert flex container's final reflow-output measurements to parent's WM,
-  // for outparam.
-  aReflowOutput.SetSize(flexWM, reflowOutputInFlexWM);
+  // Convert flex container's final desired size to parent's WM, for outparam.
+  aReflowOutput.SetSize(flexWM, desiredSizeInFlexWM);
 
   // Overflow area = union(my overflow area, kids' overflow areas)
   aReflowOutput.SetOverflowAreasToDesiredBounds();
   for (nsIFrame* childFrame : mFrames) {
     ConsiderChildOverflow(aReflowOutput.mOverflowAreas, childFrame);
   }
-
-  FinishReflowWithAbsoluteFrames(PresContext(), aReflowOutput, aReflowInput,
-                                 aStatus);
-
-  NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aReflowOutput)
 }
 
 void nsFlexContainerFrame::MoveFlexItemToFinalPosition(

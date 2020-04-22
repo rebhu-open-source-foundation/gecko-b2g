@@ -18,7 +18,9 @@ SYSTEM, BROWSER, METRICS = 0, 1, 2
 class MachEnvironment:
     def __init__(self, mach_cmd, flavor="script", **kwargs):
         self._mach_cmd = mach_cmd
-        self._mach_args = kwargs
+        self._mach_args = dict(
+            [(self._normalize(key), value) for key, value in kwargs.items()]
+        )
         self.layers = []
         # XXX do something with flavors, etc
         if flavor != "script":
@@ -35,13 +37,18 @@ class MachEnvironment:
         finally:
             self.unfreeze()
 
+    def _normalize(self, name):
+        if name.startswith("--"):
+            name = name[2:]
+        return name.replace("-", "_")
+
     def set_arg(self, name, value):
         """Sets the argument"""
         # see if we want to restrict to existing keys
-        self._mach_args[name] = value
+        self._mach_args[self._normalize(name)] = value
 
     def get_arg(self, name, default=None):
-        return self._mach_args.get(name, default)
+        return self._mach_args.get(self._normalize(name), default)
 
     def get_layer(self, name):
         for layer in self.layers:

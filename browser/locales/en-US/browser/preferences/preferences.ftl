@@ -285,6 +285,11 @@ translate-exceptions =
     .label = Exceptions…
     .accesskey = x
 
+# Variables: 
+#    $localeName (string) - Localized name of the locale to be used.
+use-system-locale = 
+   .label = Use your operating system settings for “{ $localeName }” to format dates, times, numbers, and measurements.
+
 check-user-spelling =
     .label = Check your spelling as you type
     .accesskey = t
@@ -883,7 +888,9 @@ privacy-header = Browser Privacy
 
 ## Privacy Section - Logins and Passwords
 
-logins-header = Logins and Passwords
+# The search keyword isn't shown to users but is used to find relevant settings in about:preferences.
+pane-privacy-logins-and-passwords-header = Logins and Passwords
+    .searchkeywords = { -lockwise-brand-short-name }
 
 # Checkbox to control whether UI is shown to users to save or fill logins/passwords.
 forms-ask-to-save-logins =

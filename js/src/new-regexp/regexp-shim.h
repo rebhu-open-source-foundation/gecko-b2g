@@ -88,19 +88,7 @@ static constexpr inline T Max(T t1, T t2) {
 #  define V8PRIuPTRDIFF "tu"
 #endif
 
-// Origin:
-// https://github.com/v8/v8/blob/855591a54d160303349a5f0a32fab15825c708d1/src/base/macros.h#L27-L38
-// The arraysize(arr) macro returns the # of elements in an array arr.
-// The expression is a compile-time constant, and therefore can be
-// used in defining new arrays, for example.  If you use arraysize on
-// a pointer by mistake, you will get a compile-time error.
-#define arraysize(array) (sizeof(ArraySizeHelper(array)))
-
-// This template function declaration is used in defining arraysize.
-// Note that the function doesn't need an implementation, as we only
-// use its type.
-template <typename T, size_t N>
-char (&ArraySizeHelper(T (&array)[N]))[N];
+#define arraysize mozilla::ArrayLength
 
 // Explicitly declare the assignment operator as deleted.
 #define DISALLOW_ASSIGN(TypeName) TypeName& operator=(const TypeName&) = delete
@@ -498,43 +486,50 @@ class Object {
  public:
   // The default object constructor in V8 stores a nullptr,
   // which has its low bit clear and is interpreted as Smi(0).
-  constexpr Object() : value_(JS::Int32Value(0)) {}
+  constexpr Object() : asBits_(JS::Int32Value(0).asRawBits()) {}
 
-  // Conversions to/from SpiderMonkey types
-  constexpr Object(JS::Value value) : value_(value) {}
-  operator JS::Value() const { return value_; }
+  Object(const JS::Value& value) {
+    setValue(value);
+  }
 
   // Used in regexp-interpreter.cc to check the return value of
   // isolate->stack_guard()->HandleInterrupts(). We want to handle
   // interrupts in the caller, so we always return false from
   // HandleInterrupts and true here.
   inline bool IsException(Isolate*) const {
-    MOZ_ASSERT(!value_.toBoolean());
+    MOZ_ASSERT(!value().toBoolean());
     return true;
   }
 
+  JS::Value value() const {
+    return JS::Value::fromRawBits(asBits_);
+  }
+
  protected:
-  JS::Value value_;
-};
+  void setValue(const JS::Value& val) {
+    asBits_ = val.asRawBits();
+  }
+  uint64_t asBits_;
+} JS_HAZ_GC_POINTER;
 
 class Smi : public Object {
  public:
   static Smi FromInt(int32_t value) {
     Smi smi;
-    smi.value_ = JS::Int32Value(value);
+    smi.setValue(JS::Int32Value(value));
     return smi;
   }
   static inline int32_t ToInt(const Object object) {
-    return JS::Value(object).toInt32();
+    return object.value().toInt32();
   }
 };
 
-// V8::HeapObject ~= JSObject
+// V8::HeapObject ~= GC thing
 class HeapObject : public Object {
  public:
   inline static HeapObject cast(Object object) {
     HeapObject h;
-    h.value_ = JS::Value(object);
+    h.setValue(object.value());
     return h;
   }
 };
@@ -567,7 +562,7 @@ inline uint8_t* ByteArrayData::data() {
 // A fixed-size array of bytes.
 class ByteArray : public HeapObject {
   ByteArrayData* inner() const {
-    return static_cast<ByteArrayData*>(value_.toPrivate());
+    return static_cast<ByteArrayData*>(value().toPrivate());
   }
 public:
   PseudoHandle<ByteArrayData> takeOwnership(Isolate* isolate);
@@ -584,7 +579,7 @@ public:
 
   static ByteArray cast(Object object) {
     ByteArray b;
-    b.value_ = JS::Value(object);
+    b.setValue(object.value());
     return b;
   }
 };
@@ -633,7 +628,7 @@ class MOZ_NONHEAP_CLASS Handle {
  public:
   Handle() : location_(nullptr) {}
   Handle(T object, Isolate* isolate);
-  Handle(JS::Value value, Isolate* isolate);
+  Handle(const JS::Value& value, Isolate* isolate);
 
   // Constructor for handling automatic up casting.
   template <typename S,
@@ -735,14 +730,7 @@ inline Handle<T> handle(T object, Isolate* isolate) {
 
 // RAII Guard classes
 
-class DisallowHeapAllocation {
- public:
-  DisallowHeapAllocation() {}
-  operator const JS::AutoAssertNoGC&() const { return no_gc_; }
-
- private:
-  const JS::AutoAssertNoGC no_gc_;
-};
+using DisallowHeapAllocation = JS::AutoAssertNoGC;
 
 // V8 uses this inside DisallowHeapAllocation regions to turn
 // allocation back on before throwing a stack overflow exception or
@@ -763,11 +751,11 @@ class AllowHeapAllocation {
 // https://github.com/v8/v8/blob/84f3877c15bc7f8956d21614da4311337525a3c8/src/objects/string.h#L83-L474
 class String : public HeapObject {
  private:
-  JSString* str() const { return value_.toString(); }
+  JSString* str() const { return value().toString(); }
 
  public:
   String() = default;
-  String(JSString* str) { value_ = JS::StringValue(str); }
+  String(JSString* str) { setValue(JS::StringValue(str)); }
 
   operator JSString*() const { return str(); }
 
@@ -812,7 +800,8 @@ class String : public HeapObject {
 
   inline static String cast(Object object) {
     String s;
-    s.value_ = JS::StringValue(JS::Value(object).toString());
+    MOZ_ASSERT(object.value().isString());
+    s.setValue(object.value());
     return s;
   }
 
@@ -891,7 +880,7 @@ class MOZ_STACK_CLASS FlatStringReader {
 class JSRegExp : public HeapObject {
  public:
   JSRegExp() : HeapObject() {}
-  JSRegExp(js::RegExpShared* re) { value_ = JS::PrivateGCThingValue(re); }
+  JSRegExp(js::RegExpShared* re) { setValue(JS::PrivateGCThingValue(re)); }
 
   // ******************************************************
   // Methods that are called from inside the implementation
@@ -910,8 +899,9 @@ class JSRegExp : public HeapObject {
 
   static JSRegExp cast(Object object) {
     JSRegExp regexp;
-    MOZ_ASSERT(JS::Value(object).toGCThing()->is<js::RegExpShared>());
-    regexp.value_ = JS::PrivateGCThingValue(JS::Value(object).toGCThing());
+    js::gc::Cell* regexpShared = object.value().toGCThing();
+    MOZ_ASSERT(regexpShared->is<js::RegExpShared>());
+    regexp.setValue(JS::PrivateGCThingValue(regexpShared));
     return regexp;
   }
 
@@ -941,7 +931,7 @@ class JSRegExp : public HeapObject {
 
 private:
  js::RegExpShared* inner() const {
-   return value_.toGCThing()->as<js::RegExpShared>();
+   return value().toGCThing()->as<js::RegExpShared>();
  }
 };
 
@@ -1036,7 +1026,7 @@ public:
 
   //********** Handle code **********//
 
-  JS::Value* getHandleLocation(JS::Value value);
+  JS::Value* getHandleLocation(const JS::Value& value);
 
  private:
 
@@ -1075,7 +1065,18 @@ class StackLimitCheck {
   StackLimitCheck(Isolate* isolate) : cx_(isolate->cx()) {}
 
   // Use this to check for stack-overflows in C++ code.
-  bool HasOverflowed() { return !CheckRecursionLimitDontReport(cx_); }
+  bool HasOverflowed() {
+    bool overflowed = !CheckRecursionLimitDontReport(cx_);
+#ifdef JS_MORE_DETERMINISTIC
+    if (overflowed) {
+      // We don't report overrecursion here, but we throw an exception later
+      // and this still affects differential testing. Mimic ReportOverRecursed
+      // (the fuzzers check for this particular string).
+      fprintf(stderr, "ReportOverRecursed called\n");
+    }
+#endif
+    return overflowed;
+  }
 
   // Use this to check for interrupt request in C++ code.
   bool InterruptRequested() {
@@ -1097,12 +1098,13 @@ class Code : public HeapObject {
 
   static Code cast(Object object) {
     Code c;
-    MOZ_ASSERT(JS::Value(object).toGCThing()->is<js::jit::JitCode>());
-    c.value_ = JS::PrivateGCThingValue(JS::Value(object).toGCThing());
+    js::gc::Cell* jitCode = object.value().toGCThing();
+    MOZ_ASSERT(jitCode->is<js::jit::JitCode>());
+    c.setValue(JS::PrivateGCThingValue(jitCode));
     return c;
   }
   js::jit::JitCode* inner() {
-    return value_.toGCThing()->as<js::jit::JitCode>();
+    return value().toGCThing()->as<js::jit::JitCode>();
   }
 };
 
@@ -1142,20 +1144,54 @@ class Label {
   friend class SMRegExpMacroAssembler;
 };
 
-// TODO: Map flags to jitoptions
-extern bool FLAG_correctness_fuzzer_suppressions;
-extern bool FLAG_enable_regexp_unaligned_accesses;
-extern bool FLAG_harmony_regexp_sequence;
-extern bool FLAG_regexp_interpret_all;
-extern bool FLAG_regexp_mode_modifiers;
-extern bool FLAG_regexp_optimization;
-extern bool FLAG_regexp_peephole_optimization;
-extern bool FLAG_regexp_possessive_quantifier;
-extern bool FLAG_regexp_tier_up;
-extern bool FLAG_trace_regexp_assembler;
-extern bool FLAG_trace_regexp_bytecodes;
-extern bool FLAG_trace_regexp_parser;
-extern bool FLAG_trace_regexp_peephole_optimization;
+//**************************************************
+// Constant Flags
+//**************************************************
+
+// V8 uses this for differential fuzzing to handle stack overflows.
+// We address the same problem in StackLimitCheck::HasOverflowed.
+const bool FLAG_correctness_fuzzer_suppressions = false;
+
+// Instead of using a flag for this, we provide an implementation of
+// CanReadUnaligned in SMRegExpMacroAssembler.
+const bool FLAG_enable_regexp_unaligned_accesses = false;
+
+// This is used to guard a prototype implementation of sequence properties.
+// See: https://github.com/tc39/proposal-regexp-unicode-sequence-properties
+// TODO: Expose this behind a pref once it is past stage 2?
+const bool FLAG_harmony_regexp_sequence = false;
+
+// This is only used in a helper function in regex.h that we never call.
+const bool FLAG_regexp_interpret_all = false;
+
+// This is used to guard a prototype implementation of mode modifiers,
+// which can modify the regexp flags on the fly inside the pattern.
+// As far as I can tell, there isn't even a TC39 proposal for this.
+const bool FLAG_regexp_mode_modifiers = false;
+
+// This is used to guard an old prototype implementation of possessive
+// quantifiers, which never got past the point of adding parser support.
+const bool FLAG_regexp_possessive_quantifier = false;
+
+// These affect the default level of optimization. We can still turn
+// optimization off on a case-by-case basis in CompilePattern - for
+// example, if a regexp is too long - so we might as well turn these
+// flags on unconditionally.
+const bool FLAG_regexp_optimization = true;
+const bool FLAG_regexp_peephole_optimization = true;
+
+// This is used to control whether regexps tier up from interpreted to
+// compiled. We control this with --no-native-regexp and
+// --regexp-warmup-threshold.
+const bool FLAG_regexp_tier_up = true;
+
+//**************************************************
+// Debugging Flags
+//**************************************************
+
+#define FLAG_trace_regexp_bytecodes js::jit::JitOptions.traceRegExpInterpreter
+#define FLAG_trace_regexp_parser js::jit::JitOptions.traceRegExpParser
+#define FLAG_trace_regexp_peephole_optimization js::jit::JitOptions.traceRegExpPeephole
 
 #define V8_USE_COMPUTED_GOTO 1
 #define COMPILING_IRREGEXP_FOR_EXTERNAL_EMBEDDER

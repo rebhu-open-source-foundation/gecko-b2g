@@ -15,11 +15,9 @@
 #include "mozilla/dom/PBrowserOrId.h"
 #include "mozilla/dom/PContentChild.h"
 #include "mozilla/dom/RemoteBrowser.h"
-#include "mozilla/dom/CPOWManagerGetter.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/ipc/InputStreamUtils.h"
 #include "mozilla/ipc/Shmem.h"
-#include "mozilla/jsipc/CrossProcessObjectWrappers.h"
 #include "nsHashKeys.h"
 #include "nsIContentChild.h"
 #include "nsIObserver.h"
@@ -79,7 +77,6 @@ class ContentChild final
     : public PContentChild,
       public nsIContentChild,
       public nsIWindowProvider,
-      public CPOWManagerGetter,
       public mozilla::ipc::IShmemAllocator,
       public mozilla::ipc::ChildToParentStreamActorManager {
   typedef mozilla::dom::ClonedMessageData ClonedMessageData;
@@ -257,8 +254,6 @@ class ContentChild final
       PScriptCacheChild*, const FileDescOrError& cacheFile,
       const bool& wantCacheData) override;
 
-  jsipc::CPOWManager* GetCPOWManager() override;
-
   PMobileConnectionChild* SendPMobileConnectionConstructor(
       PMobileConnectionChild* aActor, const uint32_t& aClientId);
 
@@ -273,6 +268,7 @@ class ContentChild final
       PImsRegistrationChild* aActor, const uint32_t& aServiceId);
   PImsRegistrationChild* AllocPImsRegistrationChild(const uint32_t& aServiceId);
   bool DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
+
   PNeckoChild* AllocPNeckoChild();
 
   bool DeallocPNeckoChild(PNeckoChild*);
@@ -383,8 +379,6 @@ class ContentChild final
   mozilla::ipc::IPCResult RecvLoadProcessScript(const nsString& aURL);
 
   mozilla::ipc::IPCResult RecvAsyncMessage(const nsString& aMsg,
-                                           nsTArray<CpowEntry>&& aCpows,
-                                           const IPC::Principal& aPrincipal,
                                            const ClonedMessageData& aData);
 
   mozilla::ipc::IPCResult RecvRegisterStringBundles(

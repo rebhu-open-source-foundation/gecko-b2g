@@ -719,8 +719,8 @@ toolbar:not(#TabsToolbar) > #personal-bookmarks {
   min-width: 280px;
 }
 
-#identity-icon-label {
-  max-width: 10em;
+#identity-box {
+  max-width: calc(30px + 10em);
 }
 
 @media (max-width: 770px) {
@@ -733,8 +733,8 @@ toolbar:not(#TabsToolbar) > #personal-bookmarks {
   :root[customizing] #urlbar-container {
     min-width: 245px;
   }
-  #identity-icon-label {
-    max-width: 50px;
+  #identity-box {
+    max-width: 80px;
   }
   /* Contenxtual identity labels are user-customizable and can be very long,
      so we only show the colored icon when the window gets small. */
@@ -760,8 +760,8 @@ toolbar:not(#TabsToolbar) > #personal-bookmarks {
   #nav-bar[downloadsbuttonshown] #urlbar-container {
     min-width: 225px;
   }
-  #identity-icon-label {
-    max-width: 40px;
+  #identity-box {
+    max-width: 70px;
   }
   #urlbar-zoom-button {
     display: none;
@@ -1019,10 +1019,13 @@ toolbarpaletteitem[place="palette"] > #downloads-button[indicator] > .toolbarbut
   -moz-appearance: none;
   background: transparent;
   border: none;
+  -moz-font-smoothing-background-color: unset;
+
   /* The popup inherits -moz-image-region from the button, must reset it */
   -moz-image-region: auto;
 }
 
+/* Keep in sync with xul.css */
 @supports -moz-bool-pref("xul.panel-animations.enabled") {
 %ifdef MOZ_WIDGET_COCOA
   /* On Mac, use the properties "-moz-window-transform" and "-moz-window-opacity"

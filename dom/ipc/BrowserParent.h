@@ -51,10 +51,6 @@ namespace a11y {
 class DocAccessibleParent;
 }
 
-namespace jsipc {
-class CpowHolder;
-}  // namespace jsipc
-
 namespace layers {
 struct TextureFactoryIdentifier;
 }  // namespace layers
@@ -347,17 +343,9 @@ class BrowserParent final : public PBrowserParent,
 
   mozilla::ipc::IPCResult RecvSyncMessage(
       const nsString& aMessage, const ClonedMessageData& aData,
-      nsTArray<CpowEntry>&& aCpows, nsIPrincipal* aPrincipal,
-      nsTArray<ipc::StructuredCloneData>* aRetVal);
-
-  mozilla::ipc::IPCResult RecvRpcMessage(
-      const nsString& aMessage, const ClonedMessageData& aData,
-      nsTArray<CpowEntry>&& aCpows, nsIPrincipal* aPrincipal,
       nsTArray<ipc::StructuredCloneData>* aRetVal);
 
   mozilla::ipc::IPCResult RecvAsyncMessage(const nsString& aMessage,
-                                           nsTArray<CpowEntry>&& aCpows,
-                                           nsIPrincipal* aPrincipal,
                                            const ClonedMessageData& aData);
 
   mozilla::ipc::IPCResult RecvNotifyIMEFocus(
@@ -723,6 +711,9 @@ class BrowserParent final : public PBrowserParent,
   bool GetDocShellIsActive();
   void SetDocShellIsActive(bool aDocShellIsActive);
 
+  bool GetSuspendMediaWhenInactive() const;
+  void SetSuspendMediaWhenInactive(bool aSuspendMediaWhenInactive);
+
   bool GetHasPresented();
   bool GetHasLayers();
   bool GetRenderLayers();
@@ -753,7 +744,6 @@ class BrowserParent final : public PBrowserParent,
 
   bool ReceiveMessage(
       const nsString& aMessage, bool aSync, ipc::StructuredCloneData* aData,
-      mozilla::jsipc::CpowHolder* aCpows, nsIPrincipal* aPrincipal,
       nsTArray<ipc::StructuredCloneData>* aJSONRetVal = nullptr);
 
   mozilla::ipc::IPCResult RecvAsyncAuthPrompt(const nsCString& aUri,
@@ -1013,6 +1003,10 @@ class BrowserParent final : public PBrowserParent,
   // (for something that isn't the initial about:blank) and then start
   // allowing future events.
   bool mSuspendedProgressEvents : 1;
+
+  // True if the media in the remote docshell should be suspended when the
+  // remote docshell is inactive.
+  bool mSuspendMediaWhenInactive : 1;
 };
 
 struct MOZ_STACK_CLASS BrowserParent::AutoUseNewTab final {

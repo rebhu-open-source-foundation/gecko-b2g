@@ -52,11 +52,6 @@ class AbstractThread : public nsISerialEventTarget {
   static already_AddRefed<AbstractThread> CreateXPCOMThreadWrapper(
       nsIThread* aThread, bool aRequireTailDispatch);
 
-  // Returns an AbstractThread wrapper of a non-nsIThread EventTarget on the
-  // main thread.
-  static already_AddRefed<AbstractThread> CreateEventTargetWrapper(
-      nsIEventTarget* aEventTarget, bool aRequireTailDispatch);
-
   NS_DECL_THREADSAFE_ISUPPORTS
 
   // We don't use NS_DECL_NSIEVENTTARGET so that we can remove the default
@@ -116,19 +111,6 @@ class AbstractThread : public nsISerialEventTarget {
   void DispatchStateChange(already_AddRefed<nsIRunnable> aRunnable);
 
   static void DispatchDirectTask(already_AddRefed<nsIRunnable> aRunnable);
-
-  struct AutoEnter {
-    explicit AutoEnter(AbstractThread* aThread) {
-      MOZ_ASSERT(aThread);
-      mLastCurrentThread = sCurrentThreadTLS.get();
-      sCurrentThreadTLS.set(aThread);
-    }
-
-    ~AutoEnter() { sCurrentThreadTLS.set(mLastCurrentThread); }
-
-   private:
-    AbstractThread* mLastCurrentThread = nullptr;
-  };
 
  protected:
   virtual ~AbstractThread() = default;

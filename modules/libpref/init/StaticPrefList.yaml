@@ -901,6 +901,18 @@
   value: @IS_NOT_MOZILLA_OFFICIAL@
   mirror: always
 
+# Image document's automatic image sizing.
+- name: browser.enable_automatic_image_resizing
+  type: bool
+  value: true
+  mirror: always
+
+# Image document's click-to-resize.
+- name: browser.enable_click_image_resizing
+  type: bool
+  value: @IS_NOT_ANDROID@
+  mirror: always
+
 # Render animations and videos as a solid color
 - name: browser.measurement.render_anims_and_video_solid
   type: RelaxedAtomicBool
@@ -1022,12 +1034,6 @@
   type: String
   value: "#551A8B"
   mirror: never
-
-# Enable xul error pages.
-- name: browser.xul.error_pages.enabled
-  type: bool
-  value: true
-  mirror: always
 
 #---------------------------------------------------------------------------
 # Prefs starting with "canvas."
@@ -4256,6 +4262,11 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: once
 
+- name: gfx.webrender.use-optimized-shaders
+  type: bool
+  value: true
+  mirror: once
+
 #ifdef NIGHTLY_BUILD
   # Keep this pref hidden on non-nightly builds to avoid people accidentally
   # turning it on.
@@ -7145,6 +7156,12 @@
   value: false
   mirror: always
 
+# Turn on this pref can enable test-only events for media element.
+- name: media.testing-only-events
+  type: bool
+  value: false
+  mirror: always
+
 - name: media.useAudioChannelService.testing
   type: bool
   value: false
@@ -8217,6 +8234,17 @@
 - name: privacy.dynamic_firstparty.limitForeign
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+#---------------------------------------------------------------------------
+# Prefs starting with "prompts."
+#---------------------------------------------------------------------------
+
+# The prompt type to use for the insecure form submit warning.
+# See nsIPromptService::MODAL_TYPE fields for possible values.
+- name: prompts.modalType.insecureFormSubmit
+  type: int32_t
+  value: 2
   mirror: always
 
 #---------------------------------------------------------------------------

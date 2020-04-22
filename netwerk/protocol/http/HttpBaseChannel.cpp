@@ -2128,11 +2128,7 @@ HttpBaseChannel::SetCookie(const nsACString& aCookieHeader) {
   nsICookieService* cs = gHttpHandler->GetCookieService();
   NS_ENSURE_TRUE(cs, NS_ERROR_FAILURE);
 
-  nsAutoCString date;
-  // empty date is not an error
-  Unused << mResponseHead->GetHeader(nsHttp::Date, date);
-  nsresult rv =
-      cs->SetCookieStringFromHttp(mURI, nullptr, aCookieHeader, date, this);
+  nsresult rv = cs->SetCookieStringFromHttp(mURI, aCookieHeader, this);
   if (NS_SUCCEEDED(rv)) {
     NotifySetCookie(aCookieHeader);
   }
@@ -3042,7 +3038,7 @@ void HttpBaseChannel::AddCookiesToRequest() {
   if (useCookieService) {
     nsICookieService* cs = gHttpHandler->GetCookieService();
     if (cs) {
-      cs->GetCookieStringFromHttp(mURI, nullptr, this, cookie);
+      cs->GetCookieStringFromHttp(mURI, this, cookie);
     }
 
     if (cookie.IsEmpty()) {
@@ -4411,24 +4407,17 @@ void HttpBaseChannel::SetIPv4Disabled() { mCaps |= NS_HTTP_DISABLE_IPV4; }
 
 void HttpBaseChannel::SetIPv6Disabled() { mCaps |= NS_HTTP_DISABLE_IPV6; }
 
-nsresult HttpBaseChannel::GetResponseEmbedderPolicy(
-    nsILoadInfo::CrossOriginEmbedderPolicy* aResponseEmbedderPolicy) {
+NS_IMETHODIMP HttpBaseChannel::GetResponseEmbedderPolicy(
+    nsILoadInfo::CrossOriginEmbedderPolicy* aOutPolicy) {
   if (!mResponseHead) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-
-  nsILoadInfo::CrossOriginEmbedderPolicy policy =
-      nsILoadInfo::EMBEDDER_POLICY_NULL;
 
   nsAutoCString content;
   Unused << mResponseHead->GetHeader(nsHttp::Cross_Origin_Embedder_Policy,
                                      content);
 
-  if (content.EqualsLiteral("require-corp")) {
-    policy = nsILoadInfo::EMBEDDER_POLICY_REQUIRE_CORP;
-  }
-
-  *aResponseEmbedderPolicy = policy;
+  *aOutPolicy = NS_GetCrossOriginEmbedderPolicyFromHeader(content);
   return NS_OK;
 }
 

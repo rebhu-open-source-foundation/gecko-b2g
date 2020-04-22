@@ -113,7 +113,6 @@ static nsresult ReauthenticateUserWindows(const nsAString& aMessageText,
 
   // Is used in next iteration if the previous login failed.
   DWORD err = 0;
-  uint8_t numAttempts = 3;
   std::unique_ptr<char[]> userTokenInfo = GetUserTokenInfo();
 
   // CredUI prompt.
@@ -126,9 +125,7 @@ static nsresult ReauthenticateUserWindows(const nsAString& aMessageText,
   credui.pszCaptionText = captionText.get();
   credui.hbmBanner = nullptr;  // ignored
 
-  while (!reauthenticated && numAttempts > 0) {
-    --numAttempts;
-
+  while (!reauthenticated) {
     HANDLE lsa;
     // Get authentication handle for future user authentications.
     // https://docs.microsoft.com/en-us/windows/desktop/api/ntsecapi/nf-ntsecapi-lsaconnectuntrusted
@@ -203,9 +200,9 @@ static nsresult ReauthenticateUserWindows(const nsAString& aMessageText,
       MOZ_LOG(gCredentialManagerSecretLog, LogLevel::Debug,
               ("User logged in successfully."));
     } else {
-      MOZ_LOG(
-          gCredentialManagerSecretLog, LogLevel::Debug,
-          ("Login failed with %lx (%lx).", sts, LsaNtStatusToWinError(sts)));
+      err = LsaNtStatusToWinError(sts);
+      MOZ_LOG(gCredentialManagerSecretLog, LogLevel::Debug,
+              ("Login failed with %lx (%lx).", sts, err));
       continue;
     }
 
@@ -225,6 +222,8 @@ static nsresult ReauthenticateUserWindows(const nsAString& aMessageText,
               ("Login successfully (correct user)."));
       reauthenticated = true;
       break;
+    } else {
+      err = ERROR_LOGON_FAILURE;
     }
   }
   return NS_OK;

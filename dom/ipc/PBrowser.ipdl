@@ -184,8 +184,7 @@ nested(upto inside_cpow) sync refcounted protocol PBrowser
     manages PBrowserBridge;
 
 both:
-    async AsyncMessage(nsString aMessage, CpowEntry[] aCpows,
-                       nsIPrincipal aPrincipal, ClonedMessageData aData);
+    async AsyncMessage(nsString aMessage, ClonedMessageData aData);
 
 parent:
 #ifdef ACCESSIBILITY
@@ -255,12 +254,7 @@ parent:
 
     async Event(RemoteDOMEvent aEvent);
 
-    sync SyncMessage(nsString aMessage, ClonedMessageData aData,
-                     CpowEntry[] aCpows, nsIPrincipal aPrincipal)
-      returns (StructuredCloneData[] retval);
-
-    nested(inside_sync) sync RpcMessage(nsString aMessage, ClonedMessageData aData,
-                                        CpowEntry[] aCpows, nsIPrincipal aPrincipal)
+    sync SyncMessage(nsString aMessage, ClonedMessageData aData)
       returns (StructuredCloneData[] retval);
 
     /**
@@ -876,6 +870,15 @@ child:
      *        Whether layer trees should be preserved for inactive docshells.
      */
     async SetDocShellIsActive(bool aIsActive);
+
+    /**
+     * Update docshell's flag which is used to determine if the media in that
+     * docshell should be suspended when the docshell is inactive.
+     *
+     * @param aSuspendMediaWhenInactive
+     *        If the media should be suspended when docshell is inactive.
+     */
+    async SetSuspendMediaWhenInactive(bool aSuspendMediaWhenInactive);
 
     /**
      * If aEnabled is true, tells the child to paint and upload layers to

@@ -8,6 +8,7 @@
 
 #include "mozilla/dom/MessageEvent.h"
 #include "mozilla/dom/MessageEventBinding.h"
+#include "mozilla/AbstractThread.h"
 #include "mozilla/PerformanceUtils.h"
 #include "nsProxyRelease.h"
 #include "nsQueryObject.h"
@@ -81,10 +82,6 @@ class CompileDebuggerScriptRunnable final : public WorkerDebuggerRunnable {
         aWorkerPrivate->CreateDebuggerGlobalScope(aCx);
     if (!globalScope) {
       NS_WARNING("Failed to make global!");
-      return false;
-    }
-
-    if (NS_WARN_IF(!aWorkerPrivate->EnsureClientSource())) {
       return false;
     }
 

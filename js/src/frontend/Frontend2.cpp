@@ -62,16 +62,14 @@ class SmooshScriptStencil : public ScriptStencil {
 
  public:
   SmooshScriptStencil(const SmooshResult& result,
-                      CompilationInfo& compilationInfo,
-                      UniquePtr<ImmutableScriptData> immutableScriptData)
-      : ScriptStencil(compilationInfo.cx, std::move(immutableScriptData)),
+                      CompilationInfo& compilationInfo)
+      : ScriptStencil(compilationInfo.cx),
         result_(result),
         compilationInfo_(compilationInfo) {}
 
-  MOZ_MUST_USE bool init(JSContext* cx) {
+  MOZ_MUST_USE bool init(JSContext* cx,
+                         UniquePtr<ImmutableScriptData> immutableData) {
     natoms = result_.atoms.len;
-
-    ngcthings = result_.gcthings.len;
 
     immutableFlags.setFlag(ImmutableFlags::Strict, result_.strict);
     immutableFlags.setFlag(ImmutableFlags::BindingsAccessedDynamically,
@@ -86,6 +84,8 @@ class SmooshScriptStencil : public ScriptStencil {
                            result_.needs_function_environment_objects);
     immutableFlags.setFlag(ImmutableFlags::HasModuleGoal,
                            result_.has_module_goal);
+
+    immutableScriptData = std::move(immutableData);
 
     if (!createAtoms(cx)) {
       return false;
@@ -102,10 +102,9 @@ class SmooshScriptStencil : public ScriptStencil {
     return true;
   }
 
-  virtual bool finishGCThings(JSContext* cx,
-                              mozilla::Span<JS::GCCellPtr> output) const {
-    MOZ_ASSERT(output.Length() == ngcthings);
-
+  virtual bool finishGCThings(
+      JSContext* cx, mozilla::Span<JS::GCCellPtr> output) const override {
+    uint32_t ngcthings = output.Length();
     for (size_t i = 0; i < ngcthings; i++) {
       SmooshGCThing& item = result_.gcthings.data[i];
 
@@ -145,7 +144,7 @@ class SmooshScriptStencil : public ScriptStencil {
     return true;
   }
 
-  virtual void initAtomMap(GCPtrAtom* atoms) const {
+  virtual void initAtomMap(GCPtrAtom* atoms) const override {
     for (uint32_t i = 0; i < natoms; i++) {
       size_t index = result_.atoms.data[i];
       atoms[i] = allAtoms_[index];
@@ -178,7 +177,7 @@ class SmooshScriptStencil : public ScriptStencil {
   }
 
  public:
-  virtual void finishInnerFunctions() const {}
+  virtual void finishInnerFunctions() const override {}
 
  private:
   // Fill `compilationInfo_.scopeCreationData` with scope data, where
@@ -460,9 +459,8 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
     return nullptr;
   }
 
-  SmooshScriptStencil stencil(smoosh, compilationInfo,
-                              std::move(immutableScriptData));
-  if (!stencil.init(cx)) {
+  SmooshScriptStencil stencil(smoosh, compilationInfo);
+  if (!stencil.init(cx, std::move(immutableScriptData))) {
     return nullptr;
   }
 

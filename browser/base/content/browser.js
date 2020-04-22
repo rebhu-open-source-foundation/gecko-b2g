@@ -1324,13 +1324,14 @@ var gKeywordURIFixup = {
           return;
         }
 
+        let displayHostName = "http://" + hostName + "/";
         let message = gNavigatorBundle.getFormattedString(
           "keywordURIFixup.message",
-          [hostName]
+          [displayHostName]
         );
         let yesMessage = gNavigatorBundle.getFormattedString(
           "keywordURIFixup.goTo",
-          [hostName]
+          [displayHostName]
         );
 
         let buttons = [
@@ -3141,13 +3142,8 @@ function readFromClipboard() {
 /**
  * Open the View Source dialog.
  *
- * @param aArgsOrDocument
- *        Either an object or a Document. Passing a Document is deprecated,
- *        and is not supported with e10s. This function will throw if
- *        aArgsOrDocument is a CPOW.
- *
- *        If aArgsOrDocument is an object, that object can take the
- *        following properties:
+ * @param args
+ *        An object with the following properties:
  *
  *        URL (required):
  *          A string URL for the page we'd like to view the source of.
@@ -3162,27 +3158,7 @@ function readFromClipboard() {
  *        lineNumber (optional):
  *          The line number to focus on once the source is loaded.
  */
-async function BrowserViewSourceOfDocument(aArgsOrDocument) {
-  let args;
-
-  if (aArgsOrDocument instanceof Document) {
-    let doc = aArgsOrDocument;
-    // Deprecated API - callers should pass args object instead.
-    if (Cu.isCrossProcessWrapper(doc)) {
-      throw new Error(
-        "BrowserViewSourceOfDocument cannot accept a CPOW as a document."
-      );
-    }
-
-    let win = doc.defaultView;
-    let browser = win.docShell.chromeEventHandler;
-    let outerWindowID = win.windowUtils.outerWindowID;
-    let URL = browser.currentURI.spec;
-    args = { browser, outerWindowID, URL };
-  } else {
-    args = aArgsOrDocument;
-  }
-
+async function BrowserViewSourceOfDocument(args) {
   // Check if external view source is enabled.  If so, try it.  If it fails,
   // fallback to internal view source.
   if (Services.prefs.getBoolPref("view_source.editor.external")) {
@@ -3357,28 +3333,6 @@ function UpdateUrlbarSearchSplitterState() {
     urlbar.parentNode.insertBefore(splitter, ibefore);
   } else if (splitter) {
     splitter.remove();
-  }
-
-  if (!ibefore && urlbar.hasAttribute("width")) {
-    urlbar.parentNode
-      .querySelectorAll("toolbarspring")
-      .forEach(n => n.removeAttribute("width"));
-    urlbar.removeAttribute("width");
-    Services.xulStore.removeValue(
-      document.documentURI,
-      "urlbar-container",
-      "width"
-    );
-    let searchbarNode =
-      searchbar || gNavToolbox.palette.querySelector("#search-container");
-    if (searchbarNode) {
-      searchbarNode.removeAttribute("width");
-    }
-    Services.xulStore.removeValue(
-      document.documentURI,
-      "search-container",
-      "width"
-    );
   }
 }
 

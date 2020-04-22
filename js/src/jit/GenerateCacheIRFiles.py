@@ -65,31 +65,43 @@ operand_writer_info = {
     'StrId': ('StringOperandId', 'writeOperandId'),
     'SymId': ('SymbolOperandId', 'writeOperandId'),
     'Int32Id': ('Int32OperandId', 'writeOperandId'),
+    'NumId': ('NumberOperandId', 'writeOperandId'),
+    'BigIntId': ('BigIntOperandId', 'writeOperandId'),
+    'ValTagId': ('ValueTagOperandId', 'writeOperandId'),
+    'RawId': ('OperandId', 'writeOperandId'),
 
     'ShapeField': ('Shape*', 'writeShapeField'),
     'GroupField': ('ObjectGroup*', 'writeGroupField'),
     'ObjectField': ('JSObject*', 'writeObjectField'),
     'StringField': ('JSString*', 'writeStringField'),
+    'AtomField': ('JSAtom*', 'writeStringField'),
     'PropertyNameField': ('PropertyName*', 'writeStringField'),
     'SymbolField': ('JS::Symbol*', 'writeSymbolField'),
     'RawWordField': ('uintptr_t', 'writeRawWordField'),
     'RawPointerField': ('const void*', 'writeRawPointerField'),
     'IdField': ('jsid', 'writeIdField'),
+    'ValueField': ('const Value&', 'writeValueField'),
+    'DOMExpandoGenerationField': ('uint64_t', 'writeDOMExpandoGenerationField'),
 
     'JSOpImm': ('JSOp', 'writeJSOpImm'),
     'BoolImm': ('bool', 'writeBoolImm'),
+    'ByteImm': ('uint32_t', 'writeByteImm'),  # uint32_t to enable fits-in-byte asserts.
     'GuardClassKindImm': ('GuardClassKind', 'writeGuardClassKindImm'),
+    'ValueTypeImm': ('ValueType', 'writeValueTypeImm'),
     'JSWhyMagicImm': ('JSWhyMagic', 'writeJSWhyMagicImm'),
     'CallFlagsImm': ('CallFlags', 'writeCallFlagsImm'),
     'TypedThingLayoutImm': ('TypedThingLayout', 'writeTypedThingLayoutImm'),
     'ReferenceTypeImm': ('ReferenceType', 'writeReferenceTypeImm'),
     'ScalarTypeImm': ('Scalar::Type', 'writeScalarTypeImm'),
+    'MetaTwoByteKindImm': ('MetaTwoByteKind', 'writeMetaTwoByteKindImm'),
     'Int32Imm': ('int32_t', 'writeInt32Imm'),
+    'UInt32Imm': ('uint32_t', 'writeUInt32Imm'),
     'JSNativeImm': ('JSNative', 'writeJSNativeImm'),
+    'StaticStringImm': ('const char*', 'writeStaticStringImm'),
 }
 
 
-def gen_writer_method(name, operands):
+def gen_writer_method(name, operands, custom_writer):
     """Generates a CacheIRWRiter method for a single opcode."""
 
     # Generate a single method that writes the opcode and each operand.
@@ -103,19 +115,34 @@ def gen_writer_method(name, operands):
 
     # Method names start with a lowercase letter.
     method_name = name[0].lower() + name[1:]
+    if custom_writer:
+        method_name += '_'
 
     args_sig = []
+    ret_type = 'void'
     operands_code = ''
     if operands:
         for opnd_name, opnd_type in six.iteritems(operands):
             argtype, write_method = operand_writer_info[opnd_type]
-            args_sig.append('{} {}'.format(argtype, opnd_name))
-            operands_code += '  {}({});\\\n'.format(write_method, opnd_name)
+            if opnd_name == 'result':
+                ret_type = argtype
+                operands_code += '  {} result(newOperandId());\\\n'.format(argtype)
+                operands_code += '  writeOperandId(result);\\\n'
+            else:
+                args_sig.append('{} {}'.format(argtype, opnd_name))
+                operands_code += '  {}({});\\\n'.format(write_method, opnd_name)
 
-    code = 'void {}({}) {{\\\n'.format(method_name, ', '.join(args_sig))
+    code = ''
+    if custom_writer:
+        code += 'private:\\\n'
+    code += '{} {}({}) {{\\\n'.format(ret_type, method_name, ', '.join(args_sig))
     code += '  writeOp(CacheOp::{});\\\n'.format(name)
     code += operands_code
+    if ret_type != 'void':
+        code += '  return result;\\\n'
     code += '}'
+    if custom_writer:
+        code += '\\\npublic:'
     return code
 
 
@@ -128,27 +155,39 @@ operand_compiler_info = {
     'StrId': ('StringOperandId', 'Id', 'reader.stringOperandId()'),
     'SymId': ('SymbolOperandId', 'Id', 'reader.symbolOperandId()'),
     'Int32Id': ('Int32OperandId', 'Id', 'reader.int32OperandId()'),
+    'NumId': ('NumberOperandId', 'Id', 'reader.numberOperandId()'),
+    'BigIntId': ('BigIntOperandId', 'Id', 'reader.bigIntOperandId()'),
+    'ValTagId': ('ValueTagOperandId', 'Id', 'reader.valueTagOperandId()'),
+    'RawId': ('uint32_t', 'Id', 'reader.rawOperandId()'),
 
     'ShapeField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'GroupField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'ObjectField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'StringField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
+    'AtomField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'PropertyNameField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'SymbolField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'RawWordField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'RawPointerField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
     'IdField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
+    'ValueField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
+    'DOMExpandoGenerationField': ('uint32_t', 'Offset', 'reader.stubOffset()'),
 
     'JSOpImm': ('JSOp', '', 'reader.jsop()'),
     'BoolImm': ('bool', '', 'reader.readBool()'),
+    'ByteImm': ('uint8_t', '', 'reader.readByte()'),
     'GuardClassKindImm': ('GuardClassKind', '', 'reader.guardClassKind()'),
+    'ValueTypeImm': ('ValueType', '', 'reader.valueType()'),
     'JSWhyMagicImm': ('JSWhyMagic', '', 'reader.whyMagic()'),
     'CallFlagsImm': ('CallFlags', '', 'reader.callFlags()'),
     'TypedThingLayoutImm': ('TypedThingLayout', '', 'reader.typedThingLayout()'),
     'ReferenceTypeImm': ('ReferenceType', '', 'reader.referenceTypeDescrType()'),
     'ScalarTypeImm': ('Scalar::Type', '', 'reader.scalarType()'),
+    'MetaTwoByteKindImm': ('MetaTwoByteKind', '', 'reader.metaKind<MetaTwoByteKind>()'),
     'Int32Imm': ('int32_t', '', 'reader.int32Immediate()'),
+    'UInt32Imm': ('uint32_t', '', 'reader.uint32Immediate()'),
     'JSNativeImm': ('JSNative', '', 'reinterpret_cast<JSNative>(reader.pointer())'),
+    'StaticStringImm': ('const char*', '', 'reinterpret_cast<char*>(reader.pointer())'),
 }
 
 
@@ -157,15 +196,11 @@ def gen_compiler_method(name, operands):
 
     method_name = 'emit' + name
 
-    # If there are no operands, just generate a `bool emitFoo();` signature.`
-    if not operands:
-        return 'MOZ_MUST_USE bool {}();\\\n'.format(method_name)
-
-    # If there are operands we generate the signature of the method that needs
-    # to be implemented and a separate function forwarding to it. For example:
+    # We generate the signature of the method that needs to be implemented and a
+    # separate function forwarding to it. For example:
     #
     #   MOZ_MUST_USE bool emitGuardShape(ObjOperandId objId, uint32_t shapeOffset);
-    #   MOZ_MUST_USE bool emitGuardShape() {
+    #   MOZ_MUST_USE bool emitGuardShape(CacheIRReader& reader) {
     #     ObjOperandId objId = reader.objOperandId();
     #     uint32_t shapeOffset = reader.stubOffset();
     #     return emitGuardShape(objId, shapeOffset);
@@ -173,18 +208,19 @@ def gen_compiler_method(name, operands):
     args_names = []
     args_sig = []
     operands_code = ''
-    for opnd_name, opnd_type in six.iteritems(operands):
-        vartype, suffix, readexpr = operand_compiler_info[opnd_type]
-        varname = opnd_name + suffix
-        args_names.append(varname)
-        args_sig.append('{} {}'.format(vartype, varname))
-        operands_code += '  {} {} = {};\\\n'.format(vartype, varname, readexpr)
+    if operands:
+        for opnd_name, opnd_type in six.iteritems(operands):
+            vartype, suffix, readexpr = operand_compiler_info[opnd_type]
+            varname = opnd_name + suffix
+            args_names.append(varname)
+            args_sig.append('{} {}'.format(vartype, varname))
+            operands_code += '  {} {} = {};\\\n'.format(vartype, varname, readexpr)
 
     # Generate signature.
     code = 'MOZ_MUST_USE bool {}({});\\\n'.format(method_name, ', '.join(args_sig))
 
     # Generate the method forwarding to it.
-    code += 'MOZ_MUST_USE bool {}() {{\\\n'.format(method_name)
+    code += 'MOZ_MUST_USE bool {}(CacheIRReader& reader) {{\\\n'.format(method_name)
     code += operands_code
     code += '  return {}({});\\\n'.format(method_name, ', '.join(args_names))
     code += '}\\\n'
@@ -222,12 +258,13 @@ def generate_cacheirops_header(c_out, yaml_path):
         'NumId': 'Id',
         'BigIntId': 'Id',
         'ValTagId': 'Id',
-        'AnyId': 'Id',
+        'RawId': 'Id',
 
         'ShapeField': 'Field',
         'GroupField': 'Field',
         'ObjectField': 'Field',
         'StringField': 'Field',
+        'AtomField': 'Field',
         'PropertyNameField': 'Field',
         'SymbolField': 'Field',
         'RawWordField': 'Field',
@@ -260,11 +297,6 @@ def generate_cacheirops_header(c_out, yaml_path):
     # CACHE_IR_OPS items.
     ops_items = []
 
-    # CACHE_IR_SHARED_OPS and CACHE_IR_UNSHARED_OPS items. These will go away
-    # when all ops have generated boilerplate.
-    ops_shared = []
-    ops_unshared = []
-
     # Generated CacheIRWriter methods.
     writer_methods = []
 
@@ -281,7 +313,8 @@ def generate_cacheirops_header(c_out, yaml_path):
         shared = op['shared']
         assert isinstance(shared, bool)
 
-        gen_boilerplate = op.get('gen_boilerplate', False)
+        custom_writer = op.get('custom_writer', False)
+        assert isinstance(custom_writer, bool)
 
         if operands:
             operands_str = ', '.join([mapping[v] for v in operands.values()])
@@ -289,28 +322,14 @@ def generate_cacheirops_header(c_out, yaml_path):
             operands_str = 'None'
         ops_items.append('_({}, {})'.format(name, operands_str))
 
-        if gen_boilerplate:
-            writer_methods.append(gen_writer_method(name, operands))
-            if shared:
-                compiler_shared_methods.append(gen_compiler_method(name, operands))
-            else:
-                compiler_unshared_methods.append(gen_compiler_method(name, operands))
+        writer_methods.append(gen_writer_method(name, operands, custom_writer))
+        if shared:
+            compiler_shared_methods.append(gen_compiler_method(name, operands))
         else:
-            if shared:
-                ops_shared.append('_({})'.format(name))
-            else:
-                ops_unshared.append('_({})'.format(name))
+            compiler_unshared_methods.append(gen_compiler_method(name, operands))
 
     contents = '#define CACHE_IR_OPS(_)\\\n'
     contents += '\\\n'.join(ops_items)
-    contents += '\n\n'
-
-    contents += '#define CACHE_IR_SHARED_OPS(_)\\\n'
-    contents += '\\\n'.join(ops_shared)
-    contents += '\n\n'
-
-    contents += '#define CACHE_IR_UNSHARED_OPS(_)\\\n'
-    contents += '\\\n'.join(ops_unshared)
     contents += '\n\n'
 
     contents += '#define CACHE_IR_WRITER_GENERATED \\\n'

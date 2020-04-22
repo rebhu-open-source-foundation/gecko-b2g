@@ -67,7 +67,26 @@ class BrowsertimeRunner(NodeRunner):
     name = "browsertime (%s)" % NodeRunner.name
 
     arguments = {
-        "--cycles": {"type": int, "default": 1, "help": "Number of full cycles"}
+        "--browser-cycles": {
+            "type": int,
+            "default": 1,
+            "help": "Number of full cycles",
+        },
+        "--browser-binary": {
+            "type": str,
+            "default": None,
+            "help": "Path to the desktop browser, or Android app name.",
+        },
+        "--browsertime-clobber": {
+            "action": "store_true",
+            "default": False,
+            "help": "Force-update the installation.",
+        },
+        "--browsertime-install-url": {
+            "type": str,
+            "default": None,
+            "help": "Use this URL as the install url.",
+        },
     }
 
     def __init__(self, env, mach_cmd):
@@ -75,7 +94,6 @@ class BrowsertimeRunner(NodeRunner):
         self.topsrcdir = mach_cmd.topsrcdir
         self._mach_context = mach_cmd._mach_context
         self.virtualenv_manager = mach_cmd.virtualenv_manager
-        self.proxy = None
         self._created_dirs = []
 
     @property
@@ -192,10 +210,12 @@ class BrowsertimeRunner(NodeRunner):
         site_packages = os.path.abspath(req.satisfied_by.location)
         return not site_packages.startswith(venv_site_lib)
 
-    def setup(self, should_clobber=False, new_upstream_url=""):
+    def setup(self):
         """Install browsertime and visualmetrics.py prerequisites and the Node.js package.
         """
         super(BrowsertimeRunner, self).setup()
+        should_clobber = self.get_arg("browsertime-clobber")
+        install_url = self.get_arg("browsertime-install-url")
 
         # installing Python deps on the fly
         for dep in ("Pillow==%s" % PILLOW_VERSION, "pyssim==%s" % PYSSIM_VERSION):
@@ -210,7 +230,7 @@ class BrowsertimeRunner(NodeRunner):
         sys.path.append(mozpath.join(self.topsrcdir, "tools", "lint", "eslint"))
         import setup_helper
 
-        if not new_upstream_url:
+        if install_url is None:
             self.setup_prerequisites()
 
         # preparing ~/.mozbuild/browsertime
@@ -222,18 +242,18 @@ class BrowsertimeRunner(NodeRunner):
 
         package_json_path = mozpath.join(self.state_path, "package.json")
 
-        if new_upstream_url:
+        if install_url is not None:
             self.info(
                 "Updating browsertime node module version in {package_json_path} "
-                "to {new_upstream_url}",
-                new_upstream_url=new_upstream_url,
+                "to {install_url}",
+                install_url=install_url,
                 package_json_path=package_json_path,
             )
 
-            if not re.search("/tarball/[a-f0-9]{40}$", new_upstream_url):
+            if not re.search("/tarball/[a-f0-9]{40}$", install_url):
                 raise ValueError(
                     "New upstream URL does not end with /tarball/[a-f0-9]{40}: '{}'".format(
-                        new_upstream_url
+                        install_url
                     )
                 )
 
@@ -242,10 +262,8 @@ class BrowsertimeRunner(NodeRunner):
                     f.read(), object_pairs_hook=collections.OrderedDict
                 )
 
-            existing_body["devDependencies"]["browsertime"] = new_upstream_url
-
+            existing_body["devDependencies"]["browsertime"] = install_url
             updated_body = json.dumps(existing_body)
-
             with open(package_json_path, "w") as f:
                 f.write(updated_body)
 
@@ -268,9 +286,9 @@ class BrowsertimeRunner(NodeRunner):
         setup_helper.package_setup(
             self.state_path,
             "browsertime",
-            should_update=new_upstream_url != "",
+            should_update=install_url is not None,
             should_clobber=should_clobber,
-            no_optional=new_upstream_url or AUTOMATION,
+            no_optional=install_url or AUTOMATION,
         )
 
     def append_env(self, append_path=True):
@@ -409,19 +427,28 @@ class BrowsertimeRunner(NodeRunner):
 
         return extra_args
 
-    def get_profile(self, metadata):
-        # XXX we'll use conditioned profiles
-        from mozprofile import create_profile
+    def browsertime_android(self, metadata):
+        app_name = self.get_arg("android-app-name")
 
-        profile = create_profile(app="firefox")
-        prefs = metadata.get_browser_prefs()
-        profile.set_preferences(prefs)
-        self.info("Created profile at %s" % profile.profile)
-        self._created_dirs.append(profile.profile)
-        return profile
+        args_list = [
+            # "--browser", "firefox",
+            "--android",
+            # Work around a `selenium-webdriver` issue where Browsertime
+            # fails to find a Firefox binary even though we're going to
+            # actually do things on an Android device.
+            # "--firefox.binaryPath", self.mach_cmd.get_binary_path(),
+            "--firefox.android.package",
+            app_name,
+        ]
+        activity = self.get_arg("android-activity")
+        if activity is not None:
+            args_list += ["--firefox.android.activity", activity]
+
+        return args_list
 
     def __call__(self, metadata):
-        cycles = self.get_arg("cycles", 1)
+        self.setup()
+        cycles = self.get_arg("browser-cycles", 1)
         for cycle in range(1, cycles + 1):
             metadata.run_hook("before_cycle", cycle=cycle)
             try:
@@ -431,9 +458,7 @@ class BrowsertimeRunner(NodeRunner):
         return metadata
 
     def _one_cycle(self, metadata):
-        # keep the object around
-        # see https://bugzilla.mozilla.org/show_bug.cgi?id=1625118
-        profile = self.get_profile(metadata)
+        profile = self.get_arg("profile-directory")
         test_script = self.get_arg("tests")[0]
         output = self.get_arg("output")
         if output is not None:
@@ -451,7 +476,7 @@ class BrowsertimeRunner(NodeRunner):
             "--resultDir",
             result_dir,
             "--firefox.profileTemplate",
-            profile.profile,
+            profile,
             "--iterations",
             "1",
             test_script,
@@ -473,14 +498,12 @@ class BrowsertimeRunner(NodeRunner):
                 args += ["--" + name, value]
 
         firefox_args = ["--firefox.developer"]
+        if self.get_arg("android"):
+            args.extend(self.browsertime_android(metadata))
+
         extra = self.extra_default_args(args=firefox_args)
         command = [self.browsertime_js] + extra + args
         self.info("Running browsertime with this command %s" % " ".join(command))
         self.node(command)
         metadata.set_result(result_dir)
         return metadata
-
-    def teardown(self):
-        for dir in self._created_dirs:
-            if os.path.exists(dir):
-                shutil.rmtree(dir)

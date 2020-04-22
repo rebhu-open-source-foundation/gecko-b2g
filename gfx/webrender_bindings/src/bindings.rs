@@ -34,8 +34,8 @@ use rayon;
 use swgl_bindings::SwCompositor;
 use tracy_rs::register_thread_with_profiler;
 use webrender::{
-    api::units::*, api::*, set_profiler_hooks, ApiRecordingReceiver, AsyncPropertySampler, AsyncScreenshotHandle,
-    BinaryRecorder, Compositor, CompositorCapabilities, CompositorConfig, DebugFlags, Device, FastHashMap,
+    api::units::*, api::*, set_profiler_hooks, AsyncPropertySampler, AsyncScreenshotHandle,
+    Compositor, CompositorCapabilities, CompositorConfig, DebugFlags, Device, FastHashMap,
     NativeSurfaceId, NativeSurfaceInfo, NativeTileId, PipelineInfo, ProfilerHooks, RecordedFrameHandle, Renderer,
     RendererOptions, RendererStats, SceneBuilderHooks, ShaderPrecacheFlags, Shaders, ThreadListener, UploadMethod,
     VertexUsageHint, WrShaders,
@@ -503,13 +503,8 @@ extern "C" {
     fn is_in_main_thread() -> bool;
     fn is_glcontext_gles(glcontext_ptr: *mut c_void) -> bool;
     fn is_glcontext_angle(glcontext_ptr: *mut c_void) -> bool;
-    // Enables binary recording that can be used with `wrench replay`
-    // Outputs a wr-record-*.bin file for each window that is shown
-    // Note: wrench will panic if external images are used, they can
-    // be disabled in WebRenderBridgeParent::ProcessWebRenderCommands
-    // by commenting out the path that adds an external image ID
-    fn gfx_use_wrench() -> bool;
     fn gfx_wr_resource_path_override() -> *const c_char;
+    fn gfx_wr_use_optimized_shaders() -> bool;
     // TODO: make gfx_critical_error() work.
     // We still have problem to pass the error message from render/render_backend
     // thread to main thread now.
@@ -1142,6 +1137,8 @@ fn wr_device_new(gl_context: *mut c_void, pc: Option<&mut WrProgramCache>) -> De
         }
     };
 
+    let use_optimized_shaders = unsafe { gfx_wr_use_optimized_shaders() };
+
     let cached_programs = match pc {
         Some(cached_programs) => Some(Rc::clone(cached_programs.rc_get())),
         None => None,
@@ -1150,6 +1147,7 @@ fn wr_device_new(gl_context: *mut c_void, pc: Option<&mut WrProgramCache>) -> De
     Device::new(
         gl,
         resource_override_path,
+        use_optimized_shaders,
         upload_method,
         cached_programs,
         false,
@@ -1320,13 +1318,6 @@ pub extern "C" fn wr_window_new(
 ) -> bool {
     assert!(unsafe { is_in_render_thread() });
 
-    let recorder: Option<Box<dyn ApiRecordingReceiver>> = if unsafe { gfx_use_wrench() } {
-        let name = format!("wr-record-{}.bin", window_id.0);
-        Some(Box::new(BinaryRecorder::new(&PathBuf::from(name))))
-    } else {
-        None
-    };
-
     let native_gl = if unsafe { is_glcontext_gles(gl_context) } {
         unsafe { gl::GlesFns::load_with(|symbol| get_proc_address(gl_context, symbol)) }
     } else {
@@ -1406,7 +1397,6 @@ pub extern "C" fn wr_window_new(
         enable_subpixel_aa: cfg!(not(target_os = "android")),
         support_low_priority_transactions,
         allow_texture_swizzling,
-        recorder: recorder,
         blob_image_handler: Some(Box::new(Moz2dBlobImageHandler::new(
             workers.clone(),
             workers_low_priority.clone(),
@@ -1427,6 +1417,7 @@ pub extern "C" fn wr_window_new(
                 }
             }
         },
+        use_optimized_shaders: unsafe { gfx_wr_use_optimized_shaders() },
         renderer_id: Some(window_id.0),
         upload_method,
         scene_builder_hooks: Some(Box::new(APZCallbacks::new(window_id))),
@@ -2003,9 +1994,8 @@ pub extern "C" fn wr_resource_updates_add_raw_font(
     txn.add_raw_font(key, bytes.flush_into_vec(), index);
 }
 
-#[no_mangle]
-pub extern "C" fn wr_api_capture(dh: &mut DocumentHandle, path: *const c_char, bits_raw: u32) {
-    use std::fs::{create_dir_all, File};
+fn generate_capture_path(path: *const c_char) -> Option<PathBuf> {
+    use std::fs::{File, create_dir_all};
     use std::io::Write;
 
     let cstr = unsafe { CStr::from_ptr(path) };
@@ -2053,12 +2043,34 @@ pub extern "C" fn wr_api_capture(dh: &mut DocumentHandle, path: *const c_char, b
         }
         Err(e) => {
             warn!("Unable to create path '{:?}' for capture: {:?}", path, e);
-            return;
+            return None
         }
     }
 
-    let bits = CaptureBits::from_bits(bits_raw as _).unwrap();
-    dh.api.save_capture(path, bits);
+    Some(path)
+}
+
+#[no_mangle]
+pub extern "C" fn wr_api_capture(dh: &mut DocumentHandle, path: *const c_char, bits_raw: u32) {
+    if let Some(path) = generate_capture_path(path) {
+        let bits = CaptureBits::from_bits(bits_raw as _).unwrap();
+        dh.api.save_capture(path, bits);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wr_api_start_capture_sequence(dh: &mut DocumentHandle, path: *const c_char, bits_raw: u32) {
+    if let Some(path) = generate_capture_path(path) {
+        let bits = CaptureBits::from_bits(bits_raw as _).unwrap();
+        dh.api.start_capture_sequence(path, bits);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wr_api_stop_capture_sequence(dh: &mut DocumentHandle) {
+    let border = "--------------------------\n";
+    warn!("{} Stop capturing WR state\n{}", &border, &border);
+    dh.api.stop_capture_sequence();
 }
 
 #[no_mangle]

@@ -83,7 +83,6 @@
 #include "mozilla/dom/SessionStoreListener.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/gfx/CrossProcessPaint.h"
-#include "mozilla/jsipc/CrossProcessObjectWrappers.h"
 #include "nsGenericHTMLFrameElement.h"
 #include "GeckoProfiler.h"
 
@@ -236,25 +235,30 @@ static void GetFrameName(Element* aOwnerContent, nsAString& aFrameName) {
 // manner, they are no longer handled by typeContent and typeChrome. Instead,
 // the actual BrowsingContext tree is broken at these edges.
 static bool IsTopContent(BrowsingContext* aParent, Element* aOwner) {
+  if (XRE_IsContentProcess()) {
+    return false;
+  }
+
+  // If we have a (deprecated) mozbrowser element, we want to start a new
+  // BrowsingContext tree regardless of whether the parent is chrome or content.
   nsCOMPtr<nsIMozBrowserFrame> mozbrowser = aOwner->GetAsMozBrowserFrame();
+  if (mozbrowser && mozbrowser->GetReallyIsBrowser()) {
+    return true;
+  }
 
   if (aParent->IsContent()) {
     // If we're already in content, we may still want to create a new
-    // BrowsingContext tree if our element is either:
-    //  a) a real <iframe mozbrowser> frame, or
-    //  b) a xul browser element with a `remote="true"` marker.
-    return (mozbrowser && mozbrowser->GetReallyIsBrowser()) ||
-           (aOwner->IsXULElement() &&
-            aOwner->AttrValueIs(kNameSpaceID_None, nsGkAtoms::remote,
-                                nsGkAtoms::_true, eCaseMatters));
+    // BrowsingContext tree if our element is a xul browser element with a
+    // `remote="true"` marker.
+    return aOwner->IsXULElement() &&
+           aOwner->AttrValueIs(kNameSpaceID_None, nsGkAtoms::remote,
+                               nsGkAtoms::_true, eCaseMatters);
   }
 
-  // If we're in a chrome context, we want to start a new tree if:
-  //  a) we have any mozbrowser frame (even if disabled), or
-  //  b) we are an element with a `type="content"` marker.
-  return (mozbrowser && mozbrowser->GetMozbrowser()) ||
-         (aOwner->AttrValueIs(kNameSpaceID_None, TypeAttrName(aOwner),
-                              nsGkAtoms::content, eIgnoreCase));
+  // If we're in a chrome context, we want to start a new tree if we are an
+  // element with a `type="content"` marker.
+  return aOwner->AttrValueIs(kNameSpaceID_None, TypeAttrName(aOwner),
+                             nsGkAtoms::content, eIgnoreCase);
 }
 
 static already_AddRefed<BrowsingContext> CreateBrowsingContext(
@@ -303,19 +307,8 @@ static already_AddRefed<BrowsingContext> CreateBrowsingContext(
   // for the BrowsingContext, and cause no end of trouble.
   if (IsTopContent(parentContext, aOwner)) {
     // Create toplevel content without a parent & as Type::Content.
-    RefPtr<BrowsingContext> bc = BrowsingContext::CreateDetached(
-        nullptr, opener, frameName, BrowsingContext::Type::Content);
-
-    // If this is a mozbrowser frame, pretend it's windowless so that it gets
-    // ownership of its BrowsingContext even though it's a top-level content
-    // frame. This is horrible, but will fortunately go away soon.
-    if (nsCOMPtr<nsIMozBrowserFrame> mozbrowser =
-            aOwner->GetAsMozBrowserFrame()) {
-      if (mozbrowser->GetReallyIsBrowser()) {
-        bc->SetWindowless();
-      }
-    }
-    return bc.forget();
+    return BrowsingContext::CreateDetached(nullptr, opener, frameName,
+                                           BrowsingContext::Type::Content);
   }
 
   MOZ_ASSERT(!aOpenWindowInfo,
@@ -2150,13 +2143,9 @@ nsresult nsFrameLoader::MaybeCreateDocShell() {
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  if (OwnerIsMozBrowserFrame()) {
-    docShell->SetFrameType(nsIDocShell::FRAME_TYPE_BROWSER);
-  }
-
   // Apply sandbox flags even if our owner is not an iframe, as this copies
   // flags from our owning content's owning document.
-  // Note: ApplySandboxFlags should be called after docShell->SetFrameType
+  // Note: ApplySandboxFlags should be called after docShell->SetIsFrame
   // because we need to get the correct presentation URL in ApplySandboxFlags.
   uint32_t sandboxFlags = 0;
   HTMLIFrameElement* iframe = HTMLIFrameElement::FromNode(mOwnerContent);
@@ -2171,10 +2160,6 @@ nsresult nsFrameLoader::MaybeCreateDocShell() {
     if (mOwnerContent->GetAttr(kNameSpaceID_None, nsGkAtoms::name, name)) {
       docShell->SetName(name);
     }
-    docShell->SetFullscreenAllowed(
-        mOwnerContent->HasAttr(kNameSpaceID_None, nsGkAtoms::allowfullscreen) ||
-        mOwnerContent->HasAttr(kNameSpaceID_None,
-                               nsGkAtoms::mozallowfullscreen));
   }
 
   // Typically there will be a window, however for some cases such as printing
@@ -2182,8 +2167,7 @@ nsresult nsFrameLoader::MaybeCreateDocShell() {
   // that the window exists to ensure we don't try to gather ancestors for
   // those cases.
   nsCOMPtr<nsPIDOMWindowOuter> win = doc->GetWindow();
-  if (!docShell->GetIsMozBrowser() &&
-      parentDocShell->ItemType() == docShell->ItemType() &&
+  if (parentDocShell->ItemType() == docShell->ItemType() &&
       !doc->IsStaticDocument() && win) {
     // Propagate through the ancestor principals.
     nsTArray<nsCOMPtr<nsIPrincipal>> ancestorPrincipals;
@@ -2797,10 +2781,8 @@ bool nsFrameLoader::DoLoadMessageManagerScript(const nsAString& aURL,
 class nsAsyncMessageToChild : public nsSameProcessAsyncMessageBase,
                               public Runnable {
  public:
-  nsAsyncMessageToChild(JS::RootingContext* aRootingCx,
-                        JS::Handle<JSObject*> aCpows,
-                        nsFrameLoader* aFrameLoader)
-      : nsSameProcessAsyncMessageBase(aRootingCx, aCpows),
+  explicit nsAsyncMessageToChild(nsFrameLoader* aFrameLoader)
+      : nsSameProcessAsyncMessageBase(),
         mozilla::Runnable("nsAsyncMessageToChild"),
         mFrameLoader(aFrameLoader) {}
 
@@ -2821,11 +2803,8 @@ class nsAsyncMessageToChild : public nsSameProcessAsyncMessageBase,
   RefPtr<nsFrameLoader> mFrameLoader;
 };
 
-nsresult nsFrameLoader::DoSendAsyncMessage(JSContext* aCx,
-                                           const nsAString& aMessage,
-                                           StructuredCloneData& aData,
-                                           JS::Handle<JSObject*> aCpows,
-                                           nsIPrincipal* aPrincipal) {
+nsresult nsFrameLoader::DoSendAsyncMessage(const nsAString& aMessage,
+                                           StructuredCloneData& aData) {
   auto* browserParent = GetBrowserParent();
   if (browserParent) {
     ClonedMessageData data;
@@ -2834,13 +2813,7 @@ nsresult nsFrameLoader::DoSendAsyncMessage(JSContext* aCx,
       MOZ_CRASH();
       return NS_ERROR_DOM_DATA_CLONE_ERR;
     }
-    nsTArray<mozilla::jsipc::CpowEntry> cpows;
-    jsipc::CPOWManager* mgr = cp->GetCPOWManager();
-    if (aCpows && (!mgr || !mgr->Wrap(aCx, aCpows, &cpows))) {
-      return NS_ERROR_UNEXPECTED;
-    }
-    if (browserParent->SendAsyncMessage(nsString(aMessage), cpows, aPrincipal,
-                                        data)) {
+    if (browserParent->SendAsyncMessage(nsString(aMessage), data)) {
       return NS_OK;
     } else {
       return NS_ERROR_UNEXPECTED;
@@ -2848,10 +2821,8 @@ nsresult nsFrameLoader::DoSendAsyncMessage(JSContext* aCx,
   }
 
   if (mChildMessageManager) {
-    JS::RootingContext* rcx = JS::RootingContext::get(aCx);
-    RefPtr<nsAsyncMessageToChild> ev =
-        new nsAsyncMessageToChild(rcx, aCpows, this);
-    nsresult rv = ev->Init(aMessage, aData, aPrincipal);
+    RefPtr<nsAsyncMessageToChild> ev = new nsAsyncMessageToChild(this);
+    nsresult rv = ev->Init(aMessage, aData);
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -2947,19 +2918,6 @@ nsresult nsFrameLoader::ReallyLoadFrameScripts() {
 
 already_AddRefed<Element> nsFrameLoader::GetOwnerElement() {
   return do_AddRef(mOwnerContent);
-}
-
-void nsFrameLoader::InitializeFromBrowserParent(BrowserParent* aBrowserParent) {
-  MOZ_ASSERT(!mRemoteBrowser);
-  mIsRemoteFrame = true;
-  mRemoteBrowser = new BrowserHost(aBrowserParent);
-  mPendingBrowsingContext = aBrowserParent->GetBrowsingContext();
-  mChildID = aBrowserParent ? aBrowserParent->Manager()->ChildID() : 0;
-  MaybeUpdatePrimaryBrowserParent(eBrowserParentChanged);
-  ReallyLoadFrameScripts();
-  InitializeBrowserAPI();
-  aBrowserParent->InitRendering();
-  ShowRemoteFrame(ScreenIntSize(0, 0));
 }
 
 void nsFrameLoader::SetDetachedSubdocFrame(nsIFrame* aDetachedFrame,
@@ -3351,9 +3309,9 @@ nsresult nsFrameLoader::GetNewTabContext(MutableTabContext* aTabContext,
 
   uint32_t maxTouchPoints = BrowserParent::GetMaxTouchPoints(mOwnerContent);
 
-  bool tabContextUpdated = aTabContext->SetTabContext(
-      OwnerIsMozBrowserFrame(), chromeOuterWindowID, showFocusRings, attrs,
-      presentationURLStr, maxTouchPoints);
+  bool tabContextUpdated =
+      aTabContext->SetTabContext(chromeOuterWindowID, showFocusRings, attrs,
+                                 presentationURLStr, maxTouchPoints);
   NS_ENSURE_STATE(tabContextUpdated);
 
   return NS_OK;

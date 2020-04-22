@@ -24,17 +24,16 @@ class BCEScriptStencil : public ScriptStencil {
   BytecodeEmitter& bce_;
 
   bool getNeedsFunctionEnvironmentObjects(BytecodeEmitter& bce) const;
-
-  void init(BytecodeEmitter& bce);
+  void init(BytecodeEmitter& bce, UniquePtr<ImmutableScriptData> immutableData);
 
  public:
   BCEScriptStencil(BytecodeEmitter& bce,
-                   UniquePtr<ImmutableScriptData> immutableScriptData);
+                   UniquePtr<ImmutableScriptData> immutableData);
 
-  virtual bool finishGCThings(JSContext* cx,
-                              mozilla::Span<JS::GCCellPtr> output) const;
-  virtual void initAtomMap(GCPtrAtom* atoms) const;
-  virtual void finishInnerFunctions() const;
+  virtual bool finishGCThings(
+      JSContext* cx, mozilla::Span<JS::GCCellPtr> output) const override;
+  virtual void initAtomMap(GCPtrAtom* atoms) const override;
+  virtual void finishInnerFunctions() const override;
 };
 
 } /* namespace js::frontend */

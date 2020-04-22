@@ -1722,7 +1722,7 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
   LazyScriptCreationData data(cx_);
   if (!data.init(cx_, pc_->closedOverBindingsForLazy(),
                  std::move(pc_->innerFunctionIndexesForLazy),
-                 options().forceStrictMode(), pc_->sc()->strict())) {
+                 options().forceStrictMode())) {
     return false;
   }
 
@@ -1782,7 +1782,6 @@ bool LazyScriptCreationData::create(JSContext* cx,
 
   // Compute the flags that frontend doesn't directly compute.
   immutableFlags.setFlag(ImmutableFlags::ForceStrict, forceStrict);
-  immutableFlags.setFlag(ImmutableFlags::Strict, strict);
   immutableFlags.setFlag(ImmutableFlags::HasMappedArgsObj,
                          funbox->hasMappedArgsObj());
 
@@ -2025,14 +2024,12 @@ FunctionCreationData::FunctionCreationData(HandleAtom atom,
                                            FunctionAsyncKind asyncKind,
                                            bool isSelfHosting /* = false */,
                                            bool inFunctionBox /* = false */)
-    : atom(atom),
-      kind(kind),
-      generatorKind(generatorKind),
-      asyncKind(asyncKind),
-      isSelfHosting(isSelfHosting) {
+    : atom(atom) {
   bool isExtendedUnclonedSelfHostedFunctionName =
       isSelfHosting && atom && IsExtendedUnclonedSelfHostedFunctionName(atom);
   MOZ_ASSERT_IF(isExtendedUnclonedSelfHostedFunctionName, !inFunctionBox);
+
+  gc::AllocKind allocKind = gc::AllocKind::FUNCTION;
 
   switch (kind) {
     case FunctionSyntaxKind::Expression:
@@ -2072,6 +2069,22 @@ FunctionCreationData::FunctionCreationData(HandleAtom atom,
                    ? FunctionFlags::INTERPRETED_NORMAL
                    : FunctionFlags::INTERPRETED_GENERATOR_OR_ASYNC);
   }
+
+  if (isSelfHosting) {
+    flags.setIsSelfHostedBuiltin();
+  }
+
+  if (allocKind == gc::AllocKind::FUNCTION_EXTENDED) {
+    flags.setIsExtended();
+  }
+
+  if (generatorKind == GeneratorKind::Generator) {
+    immutableFlags.setFlag(ImmutableScriptFlagsEnum::IsGenerator);
+  }
+
+  if (asyncKind == FunctionAsyncKind::AsyncFunction) {
+    immutableFlags.setFlag(ImmutableScriptFlagsEnum::IsAsync);
+  }
 }
 
 HandleAtom FunctionCreationData::getAtom(JSContext* cx) const {
@@ -2087,18 +2100,25 @@ JSFunction* AllocNewFunction(JSContext* cx,
   const FunctionCreationData& data = dataHandle.get();
 
   RootedObject proto(cx);
-  if (!GetFunctionPrototype(cx, data.generatorKind, data.asyncKind, &proto)) {
+  GeneratorKind generatorKind =
+      data.immutableFlags.hasFlag(ImmutableScriptFlagsEnum::IsGenerator)
+          ? GeneratorKind::Generator
+          : GeneratorKind::NotGenerator;
+  FunctionAsyncKind asyncKind =
+      data.immutableFlags.hasFlag(ImmutableScriptFlagsEnum::IsAsync)
+          ? FunctionAsyncKind::AsyncFunction
+          : FunctionAsyncKind::SyncFunction;
+  if (!GetFunctionPrototype(cx, generatorKind, asyncKind, &proto)) {
     return nullptr;
   }
+  gc::AllocKind allocKind = data.flags.isExtended()
+                                ? gc::AllocKind::FUNCTION_EXTENDED
+                                : gc::AllocKind::FUNCTION;
   RootedFunction fun(cx, NewFunctionWithProto(cx, nullptr, 0, data.flags,
                                               nullptr, data.getAtom(cx), proto,
-                                              data.allocKind, TenuredObject));
+                                              allocKind, TenuredObject));
   if (!fun) {
     return nullptr;
-  }
-
-  if (data.isSelfHosting) {
-    fun->setIsSelfHostedBuiltin();
   }
 
   return fun;
@@ -3538,7 +3558,7 @@ bool GeneralParser<ParseHandler, Unit>::maybeParseDirective(
           error(JSMSG_DEPRECATED_OCTAL);
           return false;
         }
-        pc_->sc()->strictScript = true;
+        pc_->sc()->setStrictScript();
       }
     } else if (directive == cx_->names().useAsm) {
       if (pc_->isFunctionBox()) {

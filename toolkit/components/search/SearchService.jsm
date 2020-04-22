@@ -1685,6 +1685,7 @@ SearchService.prototype = {
       }
       // Reset search default expiration on major releases
       if (
+        !gModernConfig &&
         json.appVersion != Services.appinfo.version &&
         gGeoSpecificDefaultsEnabled &&
         json.metaData
@@ -2589,13 +2590,14 @@ SearchService.prototype = {
       return [];
     }
     if (extension.startupReason == "ADDON_UPGRADE") {
-      let engines = await Services.search.getEnginesByExtensionID(extension.id);
+      let engines = await this.getEnginesByExtensionID(extension.id);
       for (let engine of engines) {
-        let params = await this.getEngineParams(
-          extension,
-          extension.manifest,
-          SearchUtils.DEFAULT_TAG
-        );
+        let manifest = extension.manifest;
+        let locale = engine._locale || SearchUtils.DEFAULT_TAG;
+        if (locale != SearchUtils.DEFAULT_TAG) {
+          manifest = await extension.getLocalizedManifest(locale);
+        }
+        let params = await this.getEngineParams(extension, manifest, locale);
         engine._updateFromMetadata(params);
       }
       return engines;
@@ -2659,7 +2661,7 @@ SearchService.prototype = {
         : SearchUtils.DEFAULT_TAG;
 
     let manifest = policy.extension.manifest;
-    if (locale != "default") {
+    if (locale != SearchUtils.DEFAULT_TAG) {
       manifest = await policy.extension.getLocalizedManifest(locale);
     }
 

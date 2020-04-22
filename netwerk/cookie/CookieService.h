@@ -8,7 +8,6 @@
 
 #include "nsICookieService.h"
 #include "nsICookieManager.h"
-#include "nsICookiePermission.h"
 #include "nsIObserver.h"
 #include "nsWeakReference.h"
 
@@ -127,15 +126,6 @@ class CookieService final : public nsICookieService,
 
   void EnsureReadComplete(bool aInitDBConn);
   nsresult NormalizeHost(nsCString& aHost);
-  nsresult GetCookieStringCommon(nsIURI* aHostURI, nsIChannel* aChannel,
-                                 bool aHttpBound, nsACString& aCookie);
-  void GetCookieStringInternal(
-      nsIURI* aHostURI, nsIChannel* aChannel, bool aIsForeign,
-      bool aIsThirdPartyTrackingResource,
-      bool aIsThirdPartySocialTrackingResource,
-      bool aFirstPartyStorageAccessGranted, uint32_t aRejectedReason,
-      bool aIsSafeTopLevelNav, bool aIsSameSiteForeign, bool aHttpBound,
-      const OriginAttributes& aOriginAttrs, nsACString& aCookie);
   nsresult SetCookieStringCommon(nsIURI* aHostURI,
                                  const nsACString& aCookieHeader,
                                  nsIChannel* aChannel, bool aFromHttp);
@@ -194,7 +184,6 @@ class CookieService final : public nsICookieService,
                                   const nsTArray<nsString>& aParams);
 
   // cached members.
-  nsCOMPtr<nsICookiePermission> mPermissionService;
   nsCOMPtr<mozIThirdPartyUtil> mThirdPartyUtil;
   nsCOMPtr<nsIEffectiveTLDService> mTLDService;
   nsCOMPtr<nsIIDNService> mIDNService;
