@@ -31,6 +31,12 @@ fn main() {
     env::remove_var(format!("CFLAGS_{}", target.replace("-", "_")));
     env::remove_var(format!("CXXFLAGS_{}", target.replace("-", "_")));
 
+    // On Gonk we set these flags and they end up being used here for
+    // host compilation, which doesn't work.
+    env::remove_var("CFLAGS");
+    env::remove_var("CPPFLAGS");
+    env::remove_var("CXXFLAGS");
+
     // Gecko has set this to override --target= to help windows cross builds,
     // but causes errors building this as a build dependency.
     env::remove_var("BINDGEN_EXTRA_CLANG_ARGS");
