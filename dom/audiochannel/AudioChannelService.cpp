@@ -296,6 +296,13 @@ already_AddRefed<nsPIDOMWindowOuter> AudioChannelService::GetTopAppWindow(
   MOZ_ASSERT(aBrowserParent);
 
   nsCOMPtr<nsPIDOMWindowOuter> parent = aBrowserParent->GetParentWindowOuter();
+  if (!parent) {
+    MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Warning,
+            ("AudioChannelService, GetTopAppWindow, BrowserParent %p has no "
+             "parent window. Is it managed by system app?\n",
+             aBrowserParent));
+    return nullptr;
+  }
 
   // If this BrowserParent is owned by chrome doc, return nullptr.
   if (IsChromeWindow(parent)) {
