@@ -34,7 +34,7 @@ XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
 });
 
 function debug(str) {
-  //dump("=*= AlertsHelper.jsm : " + str + "\n");
+  dump("=*= AlertsHelper.jsm : " + str + "\n");
 }
 
 const kNotificationIconSize = 128;
@@ -250,6 +250,11 @@ var AlertsHelper = {
                              uid, dir, lang, dataObj, manifestURL, timestamp,
                              behavior, requireInteraction, actions,
                              serviceWorkerRegistrationID) {
+    if (!this._embedderNotifications || !this._embedderNotifications.showNotification) {
+      debug(`No embedder support for 'showNotification()'`);
+      return;
+    }
+
     this._embedderNotifications.showNotification({
       type: kDesktopNotification,
       id: uid,
