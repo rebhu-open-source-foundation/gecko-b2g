@@ -338,13 +338,6 @@ already_AddRefed<DOMSVGLength> DOMSVGLengthList::RemoveItem(
   return result.forget();
 }
 
-void DOMSVGLengthList::IndexedSetter(uint32_t index, DOMSVGLength& newValue,
-    ErrorResult& error) {
-  // Need to take a ref to the return value so it does not leak.
-  RefPtr<DOMSVGLength> ignored = ReplaceItem(newValue, index, error);
-  Unused << ignored;
-}
-
 already_AddRefed<DOMSVGLength> DOMSVGLengthList::GetItemAt(uint32_t aIndex) {
   MOZ_ASSERT(aIndex < mItems.Length());
 
