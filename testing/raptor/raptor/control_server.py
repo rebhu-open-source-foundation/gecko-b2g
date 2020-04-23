@@ -214,11 +214,12 @@ def MakeCustomHandlerClass(
             elif data["type"] == "webext_raptor-page-timeout":
                 LOG.info("received " + data["type"] + ": " + str(data["data"]))
 
-                if len(data["data"]) == 2:
+                if len(data["data"]) == 3:
                     data["data"].append("")
                 # pageload test has timed out; record it as a failure
                 self.results_handler.add_page_timeout(
-                    str(data["data"][0]), str(data["data"][1]), dict(data["data"][2])
+                    str(data["data"][0]), str(data["data"][1]), str(data["data"][2]),
+                    dict(data["data"][3])
                 )
             elif data["type"] == "webext_shutdownBrowser":
                 LOG.info("received request to shutdown the browser")
@@ -315,6 +316,7 @@ class RaptorControlServer:
         self.results_handler = results_handler
         self.browser_proc = None
         self._finished = False
+        self._is_shutting_down = False
         self._runtime_error = None
         self.device = None
         self.app_name = None
@@ -410,6 +412,7 @@ class RaptorControlServer:
         """Wait timeout seconds for the process to exit. If it hasn't
         exited by then, kill it.
         """
+        self._is_shutting_down = True
         if self.device is not None:
             self.device.stop_application(self.app_name)
         else:
@@ -417,6 +420,7 @@ class RaptorControlServer:
             if self.browser_proc.poll() is None:
                 self.browser_proc.kill()
         self._finished = True
+        self._is_shutting_down = False
 
     def submit_supporting_data(self, supporting_data):
         """

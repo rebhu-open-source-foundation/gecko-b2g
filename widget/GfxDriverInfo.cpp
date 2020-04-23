@@ -486,6 +486,11 @@ const GfxDeviceFamily* GfxDriverInfo::GetDeviceFamily(DeviceFamily id) {
       APPEND_DEVICE(0x0a1a);
       APPEND_DEVICE(0x0a1b);
       APPEND_DEVICE(0x0a1e);
+
+      // Gen7 gt2
+      APPEND_DEVICE(0x0162);
+      APPEND_DEVICE(0x0166);
+      APPEND_DEVICE(0x016a);
 #endif
       [[fallthrough]];
     case DeviceFamily::IntelModernRolloutWebRender:
@@ -508,8 +513,18 @@ const GfxDeviceFamily* GfxDriverInfo::GetDeviceFamily(DeviceFamily id) {
       APPEND_DEVICE(0x193b);
       APPEND_DEVICE(0x193d);
 
-      // kabylake gt2+
-      APPEND_DEVICE(0x5912);
+      // kabylake
+      APPEND_DEVICE(0x5902);
+      APPEND_DEVICE(0x5906);
+      APPEND_DEVICE(0x5908);
+      APPEND_DEVICE(0x5908);
+      APPEND_DEVICE(0x590a);
+      APPEND_DEVICE(0x590b);
+      APPEND_DEVICE(0x590e);
+      APPEND_DEVICE(0x5908);
+      APPEND_DEVICE(0x5908);
+      APPEND_DEVICE(0x5915);
+      APPEND_DEVICE(0x5917);
       APPEND_DEVICE(0x5916);
       APPEND_DEVICE(0x5917);
       APPEND_DEVICE(0x591a);

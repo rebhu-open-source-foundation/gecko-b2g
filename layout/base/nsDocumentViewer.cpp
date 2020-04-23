@@ -2737,14 +2737,6 @@ nsDocumentViewer::GetTextZoom(float* aTextZoom) {
 }
 
 NS_IMETHODIMP
-nsDocumentViewer::GetEffectiveTextZoom(float* aEffectiveTextZoom) {
-  NS_ENSURE_ARG_POINTER(aEffectiveTextZoom);
-  nsPresContext* pc = GetPresContext();
-  *aEffectiveTextZoom = pc ? pc->EffectiveTextZoom() : 1.0f;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
 nsDocumentViewer::SetFullZoom(float aFullZoom) {
 #ifdef NS_PRINT_PREVIEW
   if (GetIsPrintPreview()) {
@@ -2825,18 +2817,8 @@ nsDocumentViewer::GetFullZoom(float* aFullZoom) {
 }
 
 NS_IMETHODIMP
-nsDocumentViewer::GetDeviceFullZoom(float* aDeviceFullZoom) {
+nsDocumentViewer::GetDeviceFullZoomForTest(float* aDeviceFullZoom) {
   NS_ENSURE_ARG_POINTER(aDeviceFullZoom);
-#ifdef NS_PRINT_PREVIEW
-  if (GetIsPrintPreview()) {
-    // Print Preview overrides all zoom; if specified, we use the print preview
-    // zoom, no matter what.
-    *aDeviceFullZoom = mPrintPreviewZoom;
-    return NS_OK;
-  }
-#endif
-  // If not in print preview, ask the prescontext for the device zoom, if a
-  // prescontext is available.
   nsPresContext* pc = GetPresContext();
   *aDeviceFullZoom = pc ? pc->GetDeviceFullZoom() : mPageZoom;
   return NS_OK;

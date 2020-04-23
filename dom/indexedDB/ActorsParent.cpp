@@ -422,81 +422,34 @@ struct FullDatabaseMetadata {
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FullDatabaseMetadata)
 
-  MOZ_MUST_USE SafeRefPtr<FullDatabaseMetadata> Duplicate() const;
+  [[nodiscard]] SafeRefPtr<FullDatabaseMetadata> Duplicate() const;
 
  private:
   ~FullDatabaseMetadata() = default;
 };
 
-template <class MetadataType>
-class MOZ_STACK_CLASS MetadataNameOrIdMatcher final {
-  typedef MetadataNameOrIdMatcher<MetadataType> SelfType;
+template <class Enumerable>
+auto MatchMetadataNameOrId(const Enumerable& aEnumerable,
+                           IndexOrObjectStoreId aId,
+                           Maybe<const nsAString&> aName = Nothing()) {
+  AssertIsOnBackgroundThread();
+  MOZ_ASSERT(aId);
 
-  const int64_t mId;
-  const nsString mName;
-  RefPtr<MetadataType> mMetadata;
-  bool mCheckName;
+  const auto it = std::find_if(
+      aEnumerable.cbegin(), aEnumerable.cend(),
+      [aId, aName](const auto& entry) {
+        MOZ_ASSERT(entry.GetKey() != 0);
 
- public:
-  template <class Enumerable>
-  static MetadataType* Match(const Enumerable& aEnumerable, uint64_t aId,
-                             const nsAString& aName) {
-    AssertIsOnBackgroundThread();
-    MOZ_ASSERT(aId);
+        const auto& value = entry.GetData();
+        MOZ_ASSERT(value);
 
-    SelfType closure(aId, aName);
-    MatchHelper(aEnumerable, &closure);
+        return !value->mDeleted &&
+               (aId == value->mCommonMetadata.id() ||
+                (aName && *aName == value->mCommonMetadata.name()));
+      });
 
-    return closure.mMetadata;
-  }
-
-  template <class Enumerable>
-  static MetadataType* Match(const Enumerable& aEnumerable, uint64_t aId) {
-    AssertIsOnBackgroundThread();
-    MOZ_ASSERT(aId);
-
-    SelfType closure(aId);
-    MatchHelper(aEnumerable, &closure);
-
-    return closure.mMetadata;
-  }
-
- private:
-  MetadataNameOrIdMatcher(const int64_t& aId, const nsAString& aName)
-      : mId(aId), mName(aName), mMetadata(nullptr), mCheckName(true) {
-    AssertIsOnBackgroundThread();
-    MOZ_ASSERT(aId);
-  }
-
-  explicit MetadataNameOrIdMatcher(const int64_t& aId)
-      : mId(aId), mMetadata(nullptr), mCheckName(false) {
-    AssertIsOnBackgroundThread();
-    MOZ_ASSERT(aId);
-  }
-
-  template <class Enumerable>
-  static void MatchHelper(const Enumerable& aEnumerable, SelfType* aClosure) {
-    AssertIsOnBackgroundThread();
-    MOZ_ASSERT(aClosure);
-
-    for (auto iter = aEnumerable.ConstIter(); !iter.Done(); iter.Next()) {
-#ifdef DEBUG
-      const uint64_t key = iter.Key();
-#endif
-      MetadataType* value = iter.UserData();
-      MOZ_ASSERT(key != 0);
-      MOZ_ASSERT(value);
-
-      if (!value->mDeleted &&
-          (aClosure->mId == value->mCommonMetadata.id() ||
-           (aClosure->mCheckName &&
-            aClosure->mName == value->mCommonMetadata.name()))) {
-        aClosure->mMetadata = value;
-        break;
-      }
-    }
-  }
-};
+  return it != aEnumerable.cend() ? SomeRef(*it->GetData()) : Nothing();
+}
 
 struct IndexDataValue final {
   IndexOrObjectStoreId mIndexId;
@@ -5790,7 +5743,7 @@ class Factory final : public PBackgroundIDBFactoryParent {
 #endif
 
  public:
-  static MOZ_MUST_USE RefPtr<Factory> Create(const LoggingInfo& aLoggingInfo);
+  [[nodiscard]] static RefPtr<Factory> Create(const LoggingInfo& aLoggingInfo);
 
   DatabaseLoggingInfo* GetLoggingInfo() const {
     AssertIsOnBackgroundThread();
@@ -6059,7 +6012,7 @@ class Database final
                     mFactory.forget());
   }
 
-  MOZ_MUST_USE SafeRefPtr<FileInfo> GetBlob(const IPCBlob& aID);
+  [[nodiscard]] SafeRefPtr<FileInfo> GetBlob(const IPCBlob& aID);
 
   void UnmapBlob(const nsID& aID);
 
@@ -6235,7 +6188,7 @@ class DatabaseFile final : public PBackgroundIDBDatabaseFileParent {
    * been written to disk), then return an input stream. Otherwise, if mBlobImpl
    * is null (because the contents have been written to disk), returns null.
    */
-  MOZ_MUST_USE nsCOMPtr<nsIInputStream> GetInputStream(ErrorResult& rv) const;
+  [[nodiscard]] nsCOMPtr<nsIInputStream> GetInputStream(ErrorResult& rv) const;
 
   /**
    * To be called upon successful copying of the stream GetInputStream()
@@ -6409,10 +6362,10 @@ class TransactionBase {
     return NS_FAILED(mResultCode);
   }
 
-  MOZ_MUST_USE RefPtr<FullObjectStoreMetadata> GetMetadataForObjectStoreId(
+  [[nodiscard]] RefPtr<FullObjectStoreMetadata> GetMetadataForObjectStoreId(
       IndexOrObjectStoreId aObjectStoreId) const;
 
-  MOZ_MUST_USE RefPtr<FullIndexMetadata> GetMetadataForIndexId(
+  [[nodiscard]] RefPtr<FullIndexMetadata> GetMetadataForIndexId(
       FullObjectStoreMetadata* const aObjectStoreMetadata,
       IndexOrObjectStoreId aIndexId) const;
 
@@ -6689,7 +6642,7 @@ class MutableFile : public BackgroundMutableFileParentBase {
   const SafeRefPtr<FileInfo> mFileInfo;
 
  public:
-  static MOZ_MUST_USE RefPtr<MutableFile> Create(
+  [[nodiscard]] static RefPtr<MutableFile> Create(
       nsIFile* aFile, SafeRefPtr<Database> aDatabase,
       SafeRefPtr<FileInfo> aFileInfo);
 
@@ -9145,9 +9098,9 @@ class MOZ_STACK_CLASS FileHelper final {
 
   nsresult Init();
 
-  MOZ_MUST_USE nsCOMPtr<nsIFile> GetFile(const FileInfo& aFileInfo);
+  [[nodiscard]] nsCOMPtr<nsIFile> GetFile(const FileInfo& aFileInfo);
 
-  MOZ_MUST_USE nsCOMPtr<nsIFile> GetJournalFile(const FileInfo& aFileInfo);
+  [[nodiscard]] nsCOMPtr<nsIFile> GetJournalFile(const FileInfo& aFileInfo);
 
   nsresult CreateFileFromStream(nsIFile& aFile, nsIFile& aJournalFile,
                                 nsIInputStream& aInputStream, bool aCompress);
@@ -13772,18 +13725,15 @@ bool Database::InvalidateAll(const nsTHashtable<nsPtrHashKey<T>>& aTable) {
     return true;
   }
 
-  nsTArray<RefPtr<T>> elementsToInvalidate;
-  if (NS_WARN_IF(!elementsToInvalidate.SetCapacity(count, fallible))) {
+  const auto elementsToInvalidateOrErr = TransformIntoNewArray(
+      aTable, [](const auto& entry) { return entry.GetKey(); }, fallible);
+  if (elementsToInvalidateOrErr.isErr()) {
     return false;
-  }
-
-  for (auto iter = aTable.ConstIter(); !iter.Done(); iter.Next()) {
-    elementsToInvalidate.AppendElement(iter.Get()->GetKey());
   }
 
   IDB_REPORT_INTERNAL_ERR();
 
-  for (const auto& elementToInvalidate : elementsToInvalidate) {
+  for (const auto& elementToInvalidate : elementsToInvalidateOrErr.inspect()) {
     MOZ_ASSERT(elementToInvalidate);
 
     elementToInvalidate->Invalidate();
@@ -15743,10 +15693,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateObjectStore(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  auto* foundMetadata = MetadataNameOrIdMatcher<FullObjectStoreMetadata>::Match(
-      dbMetadata->mObjectStores, aMetadata.id(), aMetadata.name());
-
-  if (NS_WARN_IF(foundMetadata)) {
+  if (NS_WARN_IF(
+          MatchMetadataNameOrId(dbMetadata->mObjectStores, aMetadata.id(),
+                                SomeRef<const nsAString&>(aMetadata.name()))
+              .isSome())) {
     ASSERT_UNLESS_FUZZING();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -15917,11 +15867,10 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateIndex(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  RefPtr<FullIndexMetadata> foundIndexMetadata =
-      MetadataNameOrIdMatcher<FullIndexMetadata>::Match(
-          foundObjectStoreMetadata->mIndexes, aMetadata.id(), aMetadata.name());
-
-  if (NS_WARN_IF(foundIndexMetadata)) {
+  if (NS_WARN_IF(MatchMetadataNameOrId(
+                     foundObjectStoreMetadata->mIndexes, aMetadata.id(),
+                     SomeRef<const nsAString&>(aMetadata.name()))
+                     .isSome())) {
     ASSERT_UNLESS_FUZZING();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -17382,9 +17331,12 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
 
   const auto sqliteSuffix = kSQLiteSuffix;
 
-  for (auto iter = databaseFilenames.ConstIter(); !iter.Done() && !aCanceled;
-       iter.Next()) {
-    auto& databaseFilename = iter.Get()->GetKey();
+  for (const auto& databaseEntry : databaseFilenames) {
+    if (aCanceled) {
+      break;
+    }
+
+    const auto& databaseFilename = databaseEntry.GetKey();
 
     nsCOMPtr<nsIFile> fmDirectory;
     rv = directory->Clone(getter_AddRefs(fmDirectory));
@@ -22424,12 +22376,11 @@ void OpenDatabaseOp::AssertMetadataConsistency(
     MOZ_ASSERT(thisObjectStore);
     MOZ_ASSERT(!thisObjectStore->mDeleted);
 
-    auto* otherObjectStore =
-        MetadataNameOrIdMatcher<FullObjectStoreMetadata>::Match(
-            otherDB.mObjectStores, thisObjectStore->mCommonMetadata.id());
+    auto otherObjectStore = MatchMetadataNameOrId(
+        otherDB.mObjectStores, thisObjectStore->mCommonMetadata.id());
     MOZ_ASSERT(otherObjectStore);
 
-    MOZ_ASSERT(thisObjectStore != otherObjectStore);
+    MOZ_ASSERT(thisObjectStore != &otherObjectStore.ref());
 
     MOZ_ASSERT(thisObjectStore->mCommonMetadata.id() ==
                otherObjectStore->mCommonMetadata.id());
@@ -22459,11 +22410,11 @@ void OpenDatabaseOp::AssertMetadataConsistency(
       MOZ_ASSERT(thisIndex);
       MOZ_ASSERT(!thisIndex->mDeleted);
 
-      auto* otherIndex = MetadataNameOrIdMatcher<FullIndexMetadata>::Match(
-          otherObjectStore->mIndexes, thisIndex->mCommonMetadata.id());
+      auto otherIndex = MatchMetadataNameOrId(otherObjectStore->mIndexes,
+                                              thisIndex->mCommonMetadata.id());
       MOZ_ASSERT(otherIndex);
 
-      MOZ_ASSERT(thisIndex != otherIndex);
+      MOZ_ASSERT(thisIndex != &otherIndex.ref());
 
       MOZ_ASSERT(thisIndex->mCommonMetadata.id() ==
                  otherIndex->mCommonMetadata.id());

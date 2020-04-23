@@ -184,6 +184,11 @@
   value: false
   mirror: always
 
+- name: accessibility.ARIAReflection.enabled
+  type: bool
+  value: false
+  mirror: always
+
 #ifdef ANDROID
   #---------------------------------------------------------------------------
   # Prefs starting with "android."
@@ -1004,13 +1009,6 @@
 #else
   value: false # Blocked by DocumentChannel, see Bug 1589982.
 #endif
-  mirror: always
-
-# The percentage of the screen that needs to be scrolled before toolbar
-# manipulation is allowed.
-- name: browser.ui.scroll-toolbar-threshold
-  type: RelaxedAtomicInt32
-  value: 10
   mirror: always
 
 # When true, zooming will be enabled on all sites, even ones that declare
@@ -3195,6 +3193,11 @@
 - name: dom.window.open.noreferrer.enabled
   type: bool
   value: true
+  mirror: always
+
+- name: dom.window.content.untrusted.enabled
+  type: bool
+  value: @IS_NOT_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.worker.canceling.timeoutMilliseconds
@@ -8041,6 +8044,11 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+- name: privacy.trackingprotection.testing.report_blocked_node
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Whether to spoof user locale to English (used as part of Resist
 # Fingerprinting).
 # 0 - will prompt
@@ -8859,20 +8867,12 @@
 
 - name: webgl.max-contexts
   type: RelaxedAtomicUint32
-#ifdef ANDROID
-  value: 16
-#else
-  value: 32
-#endif
+  value: 1000
   mirror: always
 
 - name: webgl.max-contexts-per-principal
   type: RelaxedAtomicUint32
-#ifdef ANDROID
-  value: 8
-#else
-  value: 16
-#endif
+  value: 300
   mirror: always
 
 - name: webgl.max-warnings-per-context

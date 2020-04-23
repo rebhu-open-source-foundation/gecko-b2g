@@ -28,12 +28,17 @@ fn escape_include_path(path: &Path) -> String {
     full_name
 }
 
-fn write_unoptimized_shaders(glsl_files: Vec<PathBuf>, shader_file: &mut File) -> Result<(), std::io::Error> {
+fn write_unoptimized_shaders(mut glsl_files: Vec<PathBuf>, shader_file: &mut File) -> Result<(), std::io::Error> {
     writeln!(
         shader_file,
         "  pub static ref UNOPTIMIZED_SHADERS: HashMap<&'static str, SourceWithDigest> = {{"
     )?;
     writeln!(shader_file, "    let mut shaders = HashMap::new();")?;
+
+    // Sort the file list so that the shaders.rs file is filled
+    // deterministically.
+    glsl_files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
     for glsl in glsl_files {
         // Compute the shader name.
         assert!(glsl.is_file());
@@ -96,8 +101,17 @@ fn write_optimized_shaders(shader_dir: &Path, shader_file: &mut File, out_dir: &
     )?;
     writeln!(shader_file, "    let mut shaders = HashMap::new();")?;
 
+    // The full set of optimized shaders can be quite large, so only optimize
+    // for the GL version we expect to be used on the target platform. If a different GL
+    // version is used we will simply fall back to the unoptimized shaders.
+    let shader_versions = if cfg!(target_os = "android") || cfg!(target_os = "windows") {
+        [ShaderVersion::Gles]
+    } else {
+        [ShaderVersion::Gl]
+    };
+
     let mut shaders = Vec::default();
-    for &gl_version in &[ShaderVersion::Gl, ShaderVersion::Gles] {
+    for &gl_version in &shader_versions {
         let mut flags = ShaderFeatureFlags::all();
         if gl_version != ShaderVersion::Gl {
             flags.remove(ShaderFeatureFlags::GL);
@@ -189,25 +203,33 @@ fn write_optimized_shaders(shader_dir: &Path, shader_file: &mut File, out_dir: &
     }, &shaders);
 
     match outputs {
-        Ok(outputs) => for shader in outputs {
-            writeln!(
-                shader_file,
-                "    shaders.insert(({}, \"{}\"), OptimizedSourceWithDigest {{",
-                shader.gl_version.variant_name(),
-                shader.full_shader_name,
-            )?;
-            writeln!(
-                shader_file,
-                "        vert_source: include_str!(\"{}\"),",
-                escape_include_path(&shader.vert_file_path),
-            )?;
-            writeln!(
-                shader_file,
-                "        frag_source: include_str!(\"{}\"),",
-                escape_include_path(&shader.frag_file_path),
-            )?;
-            writeln!(shader_file, "        digest: \"{}\",", shader.digest)?;
-            writeln!(shader_file, "    }});")?;
+        Ok(mut outputs) => {
+            // Sort the shader list so that the shaders.rs file is filled
+            // deterministically.
+            outputs.sort_by(|a, b| {
+                (a.gl_version, a.full_shader_name.clone()).cmp(&(b.gl_version, b.full_shader_name.clone()))
+            });
+
+            for shader in outputs {
+                writeln!(
+                    shader_file,
+                    "    shaders.insert(({}, \"{}\"), OptimizedSourceWithDigest {{",
+                    shader.gl_version.variant_name(),
+                    shader.full_shader_name,
+                )?;
+                writeln!(
+                    shader_file,
+                    "        vert_source: include_str!(\"{}\"),",
+                    escape_include_path(&shader.vert_file_path),
+                )?;
+                writeln!(
+                    shader_file,
+                    "        frag_source: include_str!(\"{}\"),",
+                    escape_include_path(&shader.frag_file_path),
+                )?;
+                writeln!(shader_file, "        digest: \"{}\",", shader.digest)?;
+                writeln!(shader_file, "    }});")?;
+            }
         }
         Err(err) => match err {
             build_parallel::Error::BuildError(err) => {
@@ -240,10 +262,6 @@ fn main() -> Result<(), std::io::Error> {
             glsl_files.push(path.to_owned());
         }
     }
-
-    // Sort the file list so that the shaders.rs file is filled
-    // deterministically.
-    glsl_files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
     let mut shader_file = File::create(shaders_file_path)?;
 

@@ -30,11 +30,6 @@ class Options:
             "help": "Test to run. Can be a single test file or a directory of tests "
             "(to run recursively). If omitted, the entire suite is run.",
         },
-        "--extra-options": {
-            "type": str,
-            "default": "",
-            "help": "Extra options passed through",
-        },
         "--output": {
             "type": str,
             "default": "artifacts",
@@ -49,7 +44,22 @@ class Options:
 
 
 for layer in system_layers() + browser_layers() + metrics_layers():
+    if layer.activated:
+        # add an option to deactivate it
+        option_name = "--no-%s" % layer.name
+        option_help = "Deactivates the %s layer" % layer.name
+    else:
+        option_name = "--%s" % layer.name
+        option_help = "Activates the %s layer" % layer.name
+
+    Options.args[option_name] = {
+        "action": "store_true",
+        "default": False,
+        "help": option_help,
+    }
+
     for option, value in layer.arguments.items():
+        option = "--%s-%s" % (layer.name, option.replace("_", "-"))
         if option in Options.args:
             raise KeyError("%s option already defined!" % option)
         Options.args[option] = value
