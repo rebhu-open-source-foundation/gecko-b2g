@@ -380,7 +380,6 @@ GENERATED_WEBIDL_FILES = [
 PREPROCESSED_WEBIDL_FILES = [
     'Animation.webidl',
     'B2G.webidl',
-    'Navigator.webidl',
     'Node.webidl',
     'Telephony.webidl',
     'TelephonyCall.webidl',
@@ -751,6 +750,7 @@ WEBIDL_FILES = [
     'MutationObserver.webidl',
     'NamedNodeMap.webidl',
     'NativeOSFileInternals.webidl',
+    'Navigator.webidl',
     'NetDashboard.webidl',
     'NetErrorInfo.webidl',
     'NetworkInformation.webidl',

@@ -91,3 +91,11 @@ partial interface B2G {
   [Throws, Pref="dom.downloads.enabled", Exposed=Window]
   readonly attribute DownloadManager downloadManager;
 };
+
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+[Exposed=Window]
+partial interface B2G {
+  [Throws]
+  readonly attribute AudioChannelManager audioChannelManager;
+};
+#endif // MOZ_AUDIO_CHANNEL_MANAGER

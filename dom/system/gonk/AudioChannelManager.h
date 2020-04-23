@@ -32,7 +32,7 @@ class AudioChannelManager final : public DOMEventTargetHelper,
 
   void Notify(const hal::SwitchEvent& aEvent);
 
-  void Init(nsPIDOMWindowInner* aWindow);
+  void Init(nsIGlobalObject* aGlobal);
 
   /**
    * WebIDL Interface

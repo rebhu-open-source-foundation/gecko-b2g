@@ -47,6 +47,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #ifndef DISABLE_WIFI
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWifiManager)
 #endif
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAudioChannelManager)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -273,6 +276,20 @@ DownloadManager* B2G::GetDownloadManager(ErrorResult& aRv) {
   }
   return mDownloadManager;
 }
+
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+system::AudioChannelManager* B2G::GetAudioChannelManager(ErrorResult& aRv) {
+  if (!mAudioChannelManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mAudioChannelManager = new system::AudioChannelManager();
+    mAudioChannelManager->Init(mOwner);
+  }
+  return mAudioChannelManager;
+}
+#endif
 
 }  // namespace dom
 }  // namespace mozilla

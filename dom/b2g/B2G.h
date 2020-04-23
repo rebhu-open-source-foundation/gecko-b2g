@@ -32,6 +32,9 @@
 #ifndef DISABLE_WIFI
 #  include "mozilla/dom/WifiManagerBinding.h"
 #endif
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+#  include "AudioChannelManager.h"
+#endif
 
 #include "mozilla/dom/DownloadManagerBinding.h"
 
@@ -77,6 +80,10 @@ class B2G final : public nsISupports, public nsWrapperCache {
 
   DownloadManager* GetDownloadManager(ErrorResult& aRv);
 
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+  system::AudioChannelManager* GetAudioChannelManager(ErrorResult& aRv);
+#endif  // MOZ_AUDIO_CHANNEL_MANAGER
+
   // Shutting down.
   void Shutdown();
 
@@ -105,6 +112,9 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #endif
 
   RefPtr<DownloadManager> mDownloadManager;
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+  RefPtr<system::AudioChannelManager> mAudioChannelManager;
+#endif
 };
 
 }  // namespace dom

@@ -86,10 +86,6 @@
 #include "MediaManager.h"
 #include "DOMCameraManager.h"
 
-#ifdef MOZ_AUDIO_CHANNEL_MANAGER
-#  include "AudioChannelManager.h"
-#endif
-
 #include "nsJSUtils.h"
 
 #include "mozilla/dom/NavigatorBinding.h"
@@ -156,9 +152,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStorageManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCredentials)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCameraManager)
-#ifdef MOZ_AUDIO_CHANNEL_MANAGER
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAudioChannelManager)
-#endif
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaDevices)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mServiceWorkerContainer)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaCapabilities)
@@ -219,12 +212,6 @@ void Navigator::Invalidate() {
 
   mCameraManager = nullptr;
   mMediaDevices = nullptr;
-
-#ifdef MOZ_AUDIO_CHANNEL_MANAGER
-  if (mAudioChannelManager) {
-    mAudioChannelManager = nullptr;
-  }
-#endif
 
   uint32_t len = mDeviceStorageStores.Length();
   for (uint32_t i = 0; i < len; ++i) {
@@ -1933,22 +1920,6 @@ void Navigator::OnNavigation() {
     mCameraManager->OnNavigation(mWindow->WindowID());
   }
 }
-
-#ifdef MOZ_AUDIO_CHANNEL_MANAGER
-system::AudioChannelManager* Navigator::GetMozAudioChannelManager(
-    ErrorResult& aRv) {
-  if (!mAudioChannelManager) {
-    if (!mWindow) {
-      aRv.Throw(NS_ERROR_UNEXPECTED);
-      return nullptr;
-    }
-    mAudioChannelManager = new system::AudioChannelManager();
-    mAudioChannelManager->Init(mWindow);
-  }
-
-  return mAudioChannelManager;
-}
-#endif
 
 JSObject* Navigator::WrapObject(JSContext* cx,
                                 JS::Handle<JSObject*> aGivenProto) {

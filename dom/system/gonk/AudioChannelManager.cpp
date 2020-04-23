@@ -37,8 +37,8 @@ AudioChannelManager::~AudioChannelManager() {
                                     /* useCapture = */ true);
 }
 
-void AudioChannelManager::Init(nsPIDOMWindowInner* aWindow) {
-  BindToOwner(aWindow);
+void AudioChannelManager::Init(nsIGlobalObject* aGlobal) {
+  BindToOwner(aGlobal);
 
   nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE_VOID(target);
