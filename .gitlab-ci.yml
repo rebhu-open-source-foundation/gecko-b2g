@@ -74,6 +74,7 @@ build:arm:
     TARGET_ARCH_VARIANT: armv8-a
     TARGET_CPU_VARIANT: cortex-a53
     ANDROID_NDK: '~/.mozbuild/android-ndk-r20b-canary'
+    PRODUCT_MANUFACTURER: QUALCOMM
   image: $DEFAULT_ARM_DOCKER_IMAGE
   stage: build
   tags:

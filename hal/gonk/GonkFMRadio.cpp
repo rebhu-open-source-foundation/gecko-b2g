@@ -102,7 +102,7 @@ class RadioUpdate : public Runnable {
 
  public:
   RadioUpdate(hal::FMRadioOperation op, hal::FMRadioOperationStatus status)
-      : mOp(op), mStatus(status) {}
+      : Runnable("hal::RadioUpdate"), mOp(op), mStatus(status) {}
 
   NS_IMETHOD Run() override {
     hal::FMRadioOperationInformation info;

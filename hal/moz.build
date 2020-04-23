@@ -52,7 +52,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     UNIFIED_SOURCES += [
         # TODO: FIXME 'gonk/GonkDiskSpaceWatcher.cpp',
-        # TODO: FIXME 'gonk/GonkFMRadio.cpp',
         # TODO: FIXME 'gonk/GonkSensor.cpp',
         # TODO: FIXME 'gonk/GonkSensorsHelpers.cpp',
         # TODO: FIXME 'gonk/GonkSensorsInterface.cpp',
@@ -86,6 +85,31 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
             'system/media/camera/include',
         ]
     ]
+
+    if CONFIG['PRODUCT_MANUFACTURER_MTK'] :
+        UNIFIED_SOURCES += [
+            'gonk/mtk_fm/GonkFMRadio.cpp',
+        ]
+        SOURCES += [
+           'gonk/mtk_fm/common.cpp',
+           'gonk/mtk_fm/fmr_core.cpp',
+           'gonk/mtk_fm/fmr_err.cpp',
+        ]
+    elif CONFIG['PRODUCT_MANUFACTURER_SPRD'] :
+        UNIFIED_SOURCES += [
+            'gonk/sprd_fm/GonkFMRadio.cpp'
+        ]
+
+        SOURCES += [
+            'gonk/sprd_fm/common.cpp',
+            'gonk/sprd_fm/fmr_core.cpp',
+            'gonk/sprd_fm/fmr_err.cpp'
+        ]
+    else:
+        UNIFIED_SOURCES += [
+            'gonk/GonkFMRadio.cpp',
+        ]
+
 elif CONFIG['OS_TARGET'] == 'Linux':
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',

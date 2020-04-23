@@ -217,57 +217,57 @@ bool SystemServiceIsStopped(const char* aSvcName) {
 }
 
 void EnableFMRadio(const hal::FMRadioSettings& aSettings) {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
 void DisableFMRadio() {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
 #if defined(PRODUCT_MANUFACTURER_SPRD) || defined(PRODUCT_MANUFACTURER_MTK)
 void SetFMRadioAntenna(const int32_t aStatus) {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 #endif
 
 void FMRadioSeek(const hal::FMRadioSeekDirection& aDirection) {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
 void GetFMRadioSettings(FMRadioSettings* aSettings) {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
 void SetFMRadioFrequency(const uint32_t aFrequency) {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
 uint32_t GetFMRadioFrequency() {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
   return 0;
 }
 
 bool IsFMRadioOn() {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
   return false;
 }
 
 uint32_t GetFMRadioSignalStrength() {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
   return 0;
 }
 
 void CancelFMRadioSeek() {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
 bool EnableRDS(uint32_t aMask) {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
   return false;
 }
 
 void DisableRDS() {
-  NS_RUNTIMEABORT("FM radio cannot be called from sandboxed contexts.");
+  MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
 class HalParent : public PHalParent,

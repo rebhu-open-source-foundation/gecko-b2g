@@ -82,13 +82,13 @@ static int setControl(uint32_t id, int32_t value) {
   return ioctl(sRadioFD, VIDIOC_S_CTRL, &control);
 }
 
-class RadioUpdate : public nsRunnable {
+class RadioUpdate : public Runnable {
   hal::FMRadioOperation mOp;
   hal::FMRadioOperationStatus mStatus;
 
  public:
   RadioUpdate(hal::FMRadioOperation op, hal::FMRadioOperationStatus status)
-      : mOp(op), mStatus(status) {
+      : Runnable("hal::RadioUpdate"), mOp(op), mStatus(status) {
     HAL_LOG("op %d,status %d", op, status);
   }
 
