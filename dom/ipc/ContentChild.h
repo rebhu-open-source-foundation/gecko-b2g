@@ -275,6 +275,10 @@ class ContentChild final : public PContentChild,
 
   bool DeallocPBluetoothChild(PBluetoothChild* aActor);
 
+  PFMRadioChild* AllocPFMRadioChild();
+
+  bool DeallocPFMRadioChild(PFMRadioChild* aActor);
+
   PBenchmarkStorageChild* AllocPBenchmarkStorageChild();
 
   bool DeallocPBenchmarkStorageChild(PBenchmarkStorageChild* aActor);

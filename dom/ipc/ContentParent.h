@@ -979,6 +979,10 @@ class ContentParent final
   virtual mozilla::ipc::IPCResult RecvPBluetoothConstructor(
       PBluetoothParent* aActor) override;
 
+  PFMRadioParent* AllocPFMRadioParent();
+
+  bool DeallocPFMRadioParent(PFMRadioParent* aActor);
+
   PBenchmarkStorageParent* AllocPBenchmarkStorageParent();
 
   bool DeallocPBenchmarkStorageParent(PBenchmarkStorageParent* aActor);

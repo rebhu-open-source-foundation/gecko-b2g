@@ -115,6 +115,7 @@
 #include "mozilla/dom/PContentPermissionRequestParent.h"
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
 #include "mozilla/dom/devicestorage/DeviceStorageRequestParent.h"
+#include "mozilla/dom/PFMRadioParent.h"
 #include "mozilla/dom/PPresentationParent.h"
 #include "mozilla/dom/ParentProcessMessageManager.h"
 #include "mozilla/dom/Permissions.h"
@@ -305,6 +306,10 @@ using namespace mozilla::system;
 #ifdef MOZ_B2G_BT
 #  include "BluetoothParent.h"
 #  include "BluetoothService.h"
+#endif
+
+#ifdef MOZ_B2G_FM
+#  include "mozilla/dom/FMRadioParent.h"
 #endif
 
 #include "mozilla/RemoteSpellCheckEngineParent.h"
@@ -4026,6 +4031,28 @@ mozilla::ipc::IPCResult ContentParent::RecvPBluetoothConstructor(
 #else
   MOZ_CRASH("No support for bluetooth on this platform!");
   return IPC_FAIL_NO_REASON(this);
+#endif
+}
+
+PFMRadioParent* ContentParent::AllocPFMRadioParent() {
+#ifdef MOZ_B2G_FM
+  if (!AssertAppProcessPermission(this, "fmradio")) {
+    return nullptr;
+  }
+  return new FMRadioParent();
+#else
+  NS_WARNING("No support for FMRadio on this platform!");
+  return nullptr;
+#endif
+}
+
+bool ContentParent::DeallocPFMRadioParent(PFMRadioParent* aActor) {
+#ifdef MOZ_B2G_FM
+  delete aActor;
+  return true;
+#else
+  NS_WARNING("No support for FMRadio on this platform!");
+  return false;
 #endif
 }
 
