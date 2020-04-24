@@ -41,7 +41,6 @@
 #include "nsDependentSubstring.h"
 #include "nsError.h"
 #include "nsGkAtoms.h"
-#include "nsIAbsorbingTransaction.h"
 #include "nsIClipboard.h"
 #include "nsIContent.h"
 #include "nsIDocumentEncoder.h"
@@ -1395,10 +1394,15 @@ void TextEditor::OnCompositionEnd(
   // commit the IME transaction..we can get at it via the transaction mgr.
   // Note that this means IME won't work without an undo stack!
   if (mTransactionManager) {
-    nsCOMPtr<nsITransaction> txn = mTransactionManager->PeekUndoStack();
-    nsCOMPtr<nsIAbsorbingTransaction> plcTxn = do_QueryInterface(txn);
-    if (plcTxn) {
-      plcTxn->Commit();
+    if (nsCOMPtr<nsITransaction> transaction =
+            mTransactionManager->PeekUndoStack()) {
+      if (RefPtr<EditTransactionBase> transactionBase =
+              transaction->GetAsEditTransactionBase()) {
+        if (PlaceholderTransaction* placeholderTransaction =
+                transactionBase->GetAsPlaceholderTransaction()) {
+          placeholderTransaction->Commit();
+        }
+      }
     }
   }
 

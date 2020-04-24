@@ -57,6 +57,7 @@
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
 #include "vm/EqualityOperations.h"  // js::SameValue
+#include "vm/FunctionFlags.h"       // js::FunctionFlags
 #include "vm/MatchPairs.h"
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/RegExpObject.h"
@@ -14241,6 +14242,9 @@ void CodeGenerator::visitIonToWasmCall(LIonToWasmCall* lir) {
   emitIonToWasmCallBase(lir);
 }
 void CodeGenerator::visitIonToWasmCallV(LIonToWasmCallV* lir) {
+  emitIonToWasmCallBase(lir);
+}
+void CodeGenerator::visitIonToWasmCallI64(LIonToWasmCallI64* lir) {
   emitIonToWasmCallBase(lir);
 }
 

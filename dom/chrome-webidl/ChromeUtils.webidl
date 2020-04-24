@@ -718,6 +718,7 @@ enum PopupBlockerState {
 
 // Keep this in sync with MediaControlKeysEvent in MediaControlKeysEvent.h!
 enum MediaControlKeysTestEvent {
+  "focus",
   "play",
   "pause",
   "playPause",

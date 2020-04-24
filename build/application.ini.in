@@ -50,9 +50,7 @@ Enabled=1
 ServerURL=https://crash-reports.mozilla.com/submit?id=@MOZ_APP_ID@&version=@MOZ_APP_VERSION@&buildid=@MOZ_BUILDID@
 #endif
 
-[AppUpdate]
 #if MOZ_UPDATER
-URL=https://aus5.mozilla.org/update/6/%PRODUCT%/%VERSION%/%BUILD_ID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%SYSTEM_CAPABILITIES%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/update.xml
-#else
-URL=""
+[AppUpdate]
+URL=https://@MOZ_APPUPDATE_HOST@/update/6/%PRODUCT%/%VERSION%/%BUILD_ID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%SYSTEM_CAPABILITIES%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/update.xml
 #endif

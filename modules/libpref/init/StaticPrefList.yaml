@@ -571,6 +571,11 @@
   value: 150
   mirror: always
 
+- name: apz.windows.force_disable_direct_manipulation
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: apz.x_skate_highmem_adjust
   type: AtomicFloat
   value: 0.0f
@@ -977,6 +982,11 @@
 - name: browser.tabs.documentchannel
   type: bool
   value: true
+  mirror: always
+
+- name: browser.tabs.documentchannel.ppdc
+  type: bool
+  value: false
   mirror: always
 
 - name: browser.tabs.remote.desktopbehavior
@@ -2340,7 +2350,7 @@
   # See bug 1626846 for setting this to false by default.
 -   name: dom.quotaManager.useDOSDevicePathSyntax
     type: RelaxedAtomicBool
-    value: false
+    value: true
     mirror: always
     do_not_use_directly: true
 #endif
@@ -5553,12 +5563,6 @@
   mirror: always
   rust: true
 
-# Is support for CSS contain enabled?
-- name: layout.css.contain.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Should stray control characters be rendered visibly?
 - name: layout.css.control-characters.visible
   type: RelaxedAtomicBool
@@ -6155,7 +6159,7 @@
 # Is support for :is() and :where() enabled?
 - name: layout.css.is-where-selectors.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
