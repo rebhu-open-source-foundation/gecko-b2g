@@ -66,7 +66,7 @@ interface nsIWifiConfiguration: nsISupports
   const long PHASE2_AKA       = 6;
   const long PHASE2_AKA_PRIME = 7;
 
-
+  readonly attribute long    netId;
   readonly attribute AString ssid;
   readonly attribute AString bssid;
   readonly attribute AString keyManagement;
@@ -122,8 +122,20 @@ interface nsISupplicantDebugLevel : nsISupports
   const long LOG_WARNING   = 4;
   const long LOG_ERROR     = 5;
 
+  /**
+   * Contains the possible debug level in supplicant.
+   * Only log messages with a level greater than the set level will be logged.
+   */
   readonly attribute unsigned long logLevel;
+
+  /**
+   * Determines whether to show timestamps in log or not.
+   */
   readonly attribute boolean showTimeStamp;
+
+  /**
+   * Determines whether to show key value in log or not.
+   */
   readonly attribute boolean showKeys;
 };
 
@@ -150,12 +162,16 @@ interface nsIScanResult : nsISupports
 {
   /** SSID of the BSS */
   readonly attribute AString ssid;
+
   /** BSSID of the BSS */
   readonly attribute AString bssid;
+
   /** Frequency in MHz */
   readonly attribute unsigned long frequency;
+
   /** TSF of the received probe response/beacon */
   readonly attribute unsigned long tsf;
+
   /**
    * This is a bit mask describing the capabilities of a BSS.
    * See IEEE Std 802.11: 8.4.1.4
@@ -177,9 +193,13 @@ interface nsIScanResult : nsISupports
    * Bit 15 - Immediate Block Ack
    */
   readonly attribute unsigned long capability;
+
   /** Signal strength of probe response/beacon in (100 * dBm) */
   readonly attribute long signal;
+
+  /** Whether the network is associated */
   readonly attribute boolean associated;
+
   /**
    * Binary array containing the raw information elements
    * from the probe response/beacon.
@@ -202,9 +222,25 @@ interface nsIStateChanged : nsISupports
   const long STATE_GROUP_HANDSHAKE   = 8;
   const long STATE_COMPLETED         = 9;
 
+  /**
+   * Current state in supplicant.
+   * Possible values: STATE_*.
+   */
   readonly attribute unsigned long state;
+
+  /**
+   * The network id in supplicant that holding the new state.
+   */
   readonly attribute unsigned long id;
+
+  /**
+   * Bssid of the changed network.
+   */
   readonly attribute AString bssid;
+
+  /**
+   * Ssid of the changed network.
+   */
   readonly attribute AString ssid;
 };
 
@@ -215,14 +251,17 @@ interface nsILinkLayerPacketStats : nsISupports
    * Number of received unicast data packets.
    */
   readonly attribute unsigned long long rxMpdu;
+
   /**
    * Number of successfully transmitted unicast data pkts (ACK rcvd).
    */
   readonly attribute unsigned long long txMpdu;
+
   /**
    * Number of transmitted unicast data pkt losses (no ACK).
    */
   readonly attribute unsigned long long lostMpdu;
+
   /**
    * Number of transmitted unicast data retry pkts.
    */
@@ -236,18 +275,22 @@ interface nsILinkLayerRadioStats : nsISupports
    * Time for which the radio is awake.
    */
   readonly attribute unsigned long onTimeInMs;
+
   /**
    * Total time for which the radio is in active transmission.
    */
   readonly attribute unsigned long txTimeInMs;
+
   /**
    * Time for which the radio is in active receive.
    */
   readonly attribute unsigned long rxTimeInMs;
+
   /**
    *  Total time for which the radio is awake due to scan.
    */
   readonly attribute unsigned long onTimeInMsForScan;
+
   /**
    * Time for which the radio is in active tranmission per tx level.
    */
@@ -261,32 +304,39 @@ interface nsILinkLayerStats : nsISupports
    * Number beacons received from the connected AP.
    */
   readonly attribute unsigned long beaconRx;
+
   /**
    * Access Point Beacon and Management frames RSSI (averaged).
    */
   readonly attribute long avgRssiMgmt;
+
   /**
    * WME Best Effort Access Category packet counters.
    */
   readonly attribute nsILinkLayerPacketStats wmeBePktStats;
+
   /**
    * WME Background Access Category packet counters.
    */
   readonly attribute nsILinkLayerPacketStats wmeBkPktStats;
+
   /**
    * WME Video Access Category packet counters.
    */
   readonly attribute nsILinkLayerPacketStats wmeViPktStats;
+
   /**
    * WME Voice Access Category packet counters.
    */
   readonly attribute nsILinkLayerPacketStats wmeVoPktStats;
+
   /**
    * TimeStamp for each stats sample.
    * This is the absolute milliseconds from boot when these stats were
    * sampled.
    */
   readonly attribute unsigned long long timeStampMs;
+
   /**
    * Query link layer radio stats for current connected access point
    *

@@ -21,7 +21,7 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFICONFIGURATION
   nsWifiConfiguration(
-      const nsAString& aSsid, const nsAString& aBssid,
+      int32_t aNetId, const nsAString& aSsid, const nsAString& aBssid,
       const nsAString& aKeyManagement, const nsAString& aPsk,
       const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid,
       bool aPmf, int32_t aProto, int32_t aAuthAlg, int32_t aGroupCipher,
@@ -36,6 +36,7 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
  private:
   ~nsWifiConfiguration(){};
 
+  int32_t mNetId;
   nsString mSsid;
   nsString mBssid;
   nsString mKeyManagement;

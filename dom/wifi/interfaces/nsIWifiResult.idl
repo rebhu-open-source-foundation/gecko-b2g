@@ -19,20 +19,174 @@ interface nsIWifiResult : nsISupports
   const unsigned long ERROR_TIMEOUT = 5;
   const unsigned long ERROR_UNKNOWN = 6;
 
+  /**
+   * If set indicates that the APF APIs are supported.
+   * APF (Android Packet Filter) is a BPF like packet filtering
+   * bytecode executed by the firmware.
+   */
+  const unsigned long FEATURE_APF = (1 << 0);
+  /**
+   * If set indicates that the Background Scan APIs are supported.
+   * Background scan allow the host to send a number of buckets down to the
+   * firmware. Each bucket contains a set of channels, a period, and some
+   * parameters about how and when to report results.
+   */
+  const unsigned long FEATURE_BACKGROUND_SCAN = (1 << 1);
+  /**
+   * If set indicates that the link layer stats APIs are supported.
+   */
+  const unsigned long FEATURE_LINK_LAYER_STATS = (1 << 2);
+  /**
+   * If set indicates that the RSSI monitor APIs are supported.
+   */
+  const unsigned long FEATURE_RSSI_MONITOR = (1 << 3);
+  /**
+   * If set indicates that the roaming API's are supported.
+   */
+  const unsigned long FEATURE_CONTROL_ROAMING = (1 << 4);
+  /**
+   * If set indicates support for Probe IE white listing.
+   */
+  const unsigned long FEATURE_PROBE_IE_WHITELIST = (1 << 5);
+  /**
+   * If set indicates support for MAC & Probe Sequence Number randomization.
+   */
+  const unsigned long FEATURE_SCAN_RAND = (1 << 6);
+  /**
+   * Support for 5 GHz Band.
+   */
+  const unsigned long FEATURE_STA_5G = (1 << 7);
+  /**
+   * Support for GAS/ANQP queries.
+   */
+  const unsigned long FEATURE_HOTSPOT = (1 << 8);
+  /**
+   * Support for Preferred Network Offload.
+   */
+  const unsigned long FEATURE_PNO = (1 << 9);
+  /**
+   * Support for Tunneled Direct Link Setup.
+   */
+  const unsigned long FEATURE_TDLS = (1 << 10);
+  /**
+   * Support for Tunneled Direct Link Setup off channel.
+   */
+  const unsigned long FEATURE_TDLS_OFFCHANNEL = (1 << 11);
+  /**
+   * Support for neighbour discovery offload.
+   */
+  const unsigned long FEATURE_ND_OFFLOAD = (1 << 12);
+  /**
+   * Support for keep alive packet offload.
+   */
+  const unsigned long FEATURE_KEEP_ALIVE = (1 << 13);
+  /**
+   * Support for tracking connection packets' fate.
+   */
+  const unsigned long FEATURE_DEBUG_PACKET_FATE = (1 << 14);
+  /**
+   * Memory dump of Firmware.
+   */
+  const unsigned long FEATURE_DEBUG_MEMORY_FIRMWARE_DUMP = (1 << 15);
+  /**
+   * Memory dump of Driver.
+   */
+  const unsigned long FEATURE_DEBUG_MEMORY_DRIVER_DUMP = (1 << 16);
+  /**
+   * Connectivity events reported via debug ring buffer.
+   */
+  const unsigned long FEATURE_DEBUG_RING_BUFFER_CONNECT_EVENT = (1 << 17);
+  /**
+   * Power events reported via debug ring buffer.
+   */
+  const unsigned long FEATURE_DEBUG_RING_BUFFER_POWER_EVENT = (1 << 18);
+  /**
+   * Wakelock events reported via debug ring buffer.
+   */
+  const unsigned long FEATURE_DEBUG_RING_BUFFER_WAKELOCK_EVENT = (1 << 19);
+  /**
+   * Vendor data reported via debug ring buffer.
+   * This mostly contains firmware event logs.
+   */
+  const unsigned long FEATURE_DEBUG_RING_BUFFER_VENDOR_DATA = (1 << 20);
+  /**
+   * Host wake reasons stats collection.
+   */
+  const unsigned long FEATURE_DEBUG_HOST_WAKE_REASON_STATS = (1 << 21);
+  /**
+   * Error alerts.
+   */
+  const unsigned long FEATURE_DEBUG_ERROR_ALERTS = (1 << 22);
+
+  /**
+   * The integer value to specify each command.
+   */
   readonly attribute unsigned long id;
+
+  /**
+   * The status code for each command result.
+   *
+   * Possible values:
+   *   SUCCESS,
+   *   ERROR_COMMAND_FAILED,
+   *   ERROR_INVALID_INTERFACE,
+   *   ERROR_INVALID_ARGS,
+   *   ERROR_NOT_SUPPORTED,
+   *   ERROR_TIMEOUT,
+   *   ERROR_UNKNOWN.
+   */
   readonly attribute unsigned long status;
 
+  /**
+   * Information about the version of the driver and firmware running this chip.
+   *
+   * The information in these ASCII strings are vendor specific and does not
+   * need to follow any particular format. It may be dumped as part of the bug
+   * report.
+   */
   readonly attribute AString driverVersion;
+
   readonly attribute AString firmwareVersion;
+
+  /**
+   * MAC address of the device.
+   */
   readonly attribute AString macAddress;
+
+  /**
+   * Name of the network interface, e.g., wlan0.
+   */
   readonly attribute AString staInterface;
+
   readonly attribute AString apInterface;
-  readonly attribute unsigned long capabilities;
-  readonly attribute unsigned long staCapabilities;
+
+  /**
+   * Contain the features supported by this device.
+   *
+   * Its value should be a bit mask format as bellow, and the corresponding
+   * features are defined as FEATURE_*.
+   *
+   * | Chip capabilities | STA capabilites |
+   *           8                  15
+   */
+  readonly attribute unsigned long supportedFeatures;
+
+  /**
+   * Debug level from supplicant, and the value is defined in
+   * nsISupplicantDebugLevel.
+   *
+   * Possible values: LOG_*.
+   */
   readonly attribute unsigned long debugLevel;
+
+  /**
+   * Number of connected clients on softAP.
+   */
   readonly attribute unsigned long numStations;
 
-  /** Station link layer statistics */
+  /**
+   * Station link layer statistics
+   */
   readonly attribute nsILinkLayerStats linkLayerStats;
 
   /**
@@ -41,12 +195,14 @@ interface nsIWifiResult : nsISupports
    * Invoke the function to get the return value for GET_CHANNELS_FOR_BAND.
    */
   Array<int32_t> getChannels();
+
   /**
    * Query signal information from current connected access point
    *
    * Invoke the function to get the return value for SIGNAL_POLL.
    */
   Array<int32_t> signalPoll();
+
   /**
    * Query single scan results
    *

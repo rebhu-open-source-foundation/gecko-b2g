@@ -25,9 +25,10 @@ var gDebug = false;
 const INVALID_TIME_STAMP = -1;
 
 function BssidBlacklistStatus() {}
+
 BssidBlacklistStatus.prototype = {
-  // How many times it is requested to be blacklisted (association rejection
-  // trigger this)
+  // How many times it is requested to be blacklisted
+  // (association rejection trigger this)
   counter: 0,
   isBlacklisted: false,
   blacklistedTimeStamp: INVALID_TIME_STAMP,
@@ -41,13 +42,14 @@ this.WifiNetworkSelector = (function() {
   // Minimum time gap between last successful Network Selection and
   // new selection attempt usable only when current state is connected state.
   const MINIMUM_NETWORK_SELECTION_INTERVAL = 10 * 1000;
+  const MINIMUM_LAST_USER_SELECTION_INTERVAL = 30 * 1000;
 
   const RSSI_THRESHOLD_GOOD_24G = -60;
   const RSSI_THRESHOLD_LOW_24G = -73;
-  const RSSI_THRESHOLD_BAD_24G = -85;
+  const RSSI_THRESHOLD_BAD_24G = -83;
   const RSSI_THRESHOLD_GOOD_5G = -57;
   const RSSI_THRESHOLD_LOW_5G = -70;
-  const RSSI_THRESHOLD_BAD_5G = -82;
+  const RSSI_THRESHOLD_BAD_5G = -80;
 
   const RSSI_SCORE_OFFSET = 85;
   const RSSI_SCORE_SLOPE = 4;
@@ -67,6 +69,8 @@ this.WifiNetworkSelector = (function() {
   const BSSID_BLACKLIST_THRESHOLD = 3;
   const BSSID_BLACKLIST_EXPIRE_TIME = 30 * 60 * 1000;
 
+  const REASON_AP_UNABLE_TO_HANDLE_NEW_STA = 17;
+
   var lastNetworkSelectionTimeStamp = INVALID_TIME_STAMP;
   var enableAutoJoinWhenAssociated = true;
   var bssidBlacklist = new Map();
@@ -76,6 +80,8 @@ this.WifiNetworkSelector = (function() {
   wifiNetworkSelector.RSSI_THRESHOLD_LOW_5G = RSSI_THRESHOLD_LOW_5G;
 
   // WifiNetworkSelector functions
+  wifiNetworkSelector.bssidBlacklist = bssidBlacklist;
+  wifiNetworkSelector.updateBssidBlacklist = updateBssidBlacklist;
   wifiNetworkSelector.selectNetwork = selectNetwork;
   wifiNetworkSelector.trackBssid = trackBssid;
   wifiNetworkSelector.setDebug = setDebug;
@@ -94,7 +100,7 @@ this.WifiNetworkSelector = (function() {
     scanResults,
     configuredNetworks,
     isLinkDebouncing,
-    wifiWorkerState,
+    wifiState,
     wifiInfo,
     callback
   ) {
@@ -106,80 +112,43 @@ this.WifiNetworkSelector = (function() {
     }
 
     // Shall we start network selection at all?
-    if (
-      !isNetworkSelectionNeeded(isLinkDebouncing, wifiWorkerState, wifiInfo)
-    ) {
+    if (!isNetworkSelectionNeeded(isLinkDebouncing, wifiState, wifiInfo)) {
       return callback(null);
     }
 
-    var lastUserSelectedNetwork = WifiConfigManager.getLastSelectedConfiguration();
+    var lastUserSelectedNetwork = WifiConfigManager.getLastSelectedNetwork();
     var lastUserSelectedNetworkTimeStamp = WifiConfigManager.getLastSelectedTimeStamp();
     var highestScore = 0;
     var scanResultCandidate = null;
 
     updateSavedNetworkSelectionStatus(configuredNetworks);
-    updateBssidBlacklist();
+
+    var filteredResults = filterScanResults(
+      scanResults,
+      wifiState,
+      wifiInfo.bssid
+    );
 
     // iterate all scan results and find the best candidate with the highest score
-    for (let i in scanResults) {
-      // skip not saved network
-      if (!scanResults[i].known) {
-        continue;
-      }
-
-      // skip bad scan result
-      if (scanResults[i].ssid === null || scanResults[i].ssid == "") {
-        debug("skip bad scan result");
-        continue;
-      }
-
-      var scanId = scanResults[i].ssid + ":" + scanResults[i].bssid;
-      debug("scanId = " + scanId);
-
-      // check whether this BSSID is blocked or not
-      let status = bssidBlacklist.get(scanResults[i].bssid);
-      if (typeof status !== "undefined" && status.isBlacklisted) {
-        debug(scanId + " is in blacklist.");
-        continue;
-      }
-
-      // skip scan result with too weak signals
-      if (
-        (scanResults[i].is24G &&
-          scanResults[i].signalStrength < RSSI_THRESHOLD_BAD_24G) ||
-        (scanResults[i].is5G &&
-          scanResults[i].signalStrength < RSSI_THRESHOLD_BAD_5G)
-      ) {
-        debug(
-          scanId +
-            "(" +
-            (scanResults[i].is24G ? "2.4GHz" : "5GHz") +
-            ")" +
-            scanResults[i].signalStrength +
-            " / "
-        );
-        continue;
-      }
-
+    for (let i in filteredResults) {
+      let result = filteredResults[i];
       // If network disabled, it didn't need to calculate bssid score.
-      if (
-        configuredNetworks[scanResults[i].networkKey].networkSelectionStatus
-      ) {
+      if (configuredNetworks[result.networkKey].networkSelectionStatus) {
         continue;
       }
       var score = calculateBssidScore(
-        scanResults[i],
+        result,
         lastUserSelectedNetwork == null
           ? false
-          : lastUserSelectedNetwork == scanResults[i].netId,
-        wifiInfo.networkId == scanResults[i].netId,
-        wifiInfo.bssid == null ? false : wifiInfo.bssid == scanResults[i].bssid,
+          : lastUserSelectedNetwork == result.netId,
+        wifiInfo.networkId == result.netId,
+        wifiInfo.bssid == null ? false : wifiInfo.bssid == result.bssid,
         lastUserSelectedNetworkTimeStamp
       );
 
       if (score > highestScore) {
         highestScore = score;
-        scanResultCandidate = scanResults[i];
+        scanResultCandidate = result;
       }
     }
 
@@ -262,19 +231,14 @@ this.WifiNetworkSelector = (function() {
     return score;
   }
 
-  function isNetworkSelectionNeeded(
-    isLinkDebouncing,
-    wifiWorkerState,
-    wifiInfo
-  ) {
+  function isNetworkSelectionNeeded(isLinkDebouncing, wifiState, wifiInfo) {
     // Do not trigger Network Selection during link debouncing procedure
     if (isLinkDebouncing) {
       debug("Need not Network Selection during link debouncing");
       return false;
     }
 
-    if (wifiWorkerState == "connected" || wifiWorkerState == "associated") {
-      // FIXME: wifiInfo should not be null
+    if (wifiState == "connected" || wifiState == "associated") {
       if (!wifiInfo) {
         return false;
       }
@@ -304,19 +268,15 @@ this.WifiNetworkSelector = (function() {
       }
 
       if (isCurrentNetworkSufficient(wifiInfo)) {
-        debug(
-          "Current connected network already sufficient. Skip network selection."
-        );
+        debug("Current network already sufficient. Skip network selection.");
         return false;
       }
       debug("Current connected network is not sufficient.");
       return true;
-    } else if (wifiWorkerState == "disconnected") {
+    } else if (wifiState == "disconnected") {
       return true;
     }
-    debug(
-      "WifiWorker is neither connected or disconnected.  Skip network selection"
-    );
+    debug("Wifi is neither connected or disconnected. Skip network selection");
     return false;
   }
 
@@ -339,49 +299,130 @@ this.WifiNetworkSelector = (function() {
       return false;
     }
 
-    //TODO: 1. 2.4GHz networks is not qualified whenever 5GHz is available.
-    //      2. Tx/Rx Success rate shall be considered.
+    // current network is recently user-selected.
+    let lastNetwork = WifiConfigManager.getLastSelectedNetwork();
+    let lastTimeStamp = WifiConfigManager.getLastSelectedTimeStamp();
+    if (
+      lastNetwork == wifiInfo.networkId &&
+      Date.now() - lastTimeStamp < MINIMUM_LAST_USER_SELECTION_INTERVAL
+    ) {
+      return true;
+    }
 
-    // let currentRssi = wifiInfo.rssi;
-    // let hasQualifiedRssi =
-    //   (wifiInfo.is24G && currentRssi > RSSI_THRESHOLD_LOW_24G) ||
-    //   (wifiInfo.is5G && currentRssi > RSSI_THRESHOLD_LOW_5G);
+    // TODO: 1. 2.4GHz networks is not qualified whenever 5GHz is available.
+    //       2. Tx/Rx Success rate shall be considered.
+    let currentRssi = wifiInfo.rssi;
+    let hasQualifiedRssi =
+      (wifiInfo.is24G && currentRssi > RSSI_THRESHOLD_LOW_24G) ||
+      (wifiInfo.is5G && currentRssi > RSSI_THRESHOLD_LOW_5G);
 
-    // if (!hasQualifiedRssi) {
-    //   debug(
-    //     "Current network RSSI[" +
-    //       currentRssi +
-    //       "]-acceptable but not qualified."
-    //   );
-    //   return false;
-    // }
-
+    if (!hasQualifiedRssi) {
+      debug(
+        "Current network RSSI[" +
+          currentRssi +
+          "]-acceptable but not qualified."
+      );
+      return false;
+    }
     return true;
   }
 
-  function trackBssid(bssid, enable) {
-    debug("trackBssid: " + (enable ? "enable " : "disable ") + bssid);
-    if (enable) {
-      bssidBlacklist.delete(bssid);
-    } else {
-      let status = bssidBlacklist.get(bssid);
-      if (typeof status == "undefined") {
-        // first time
-        let newStatus = new BssidBlacklistStatus();
-        newStatus.counter++;
-        bssidBlacklist.set(bssid, newStatus);
-      } else if (!status.isBlacklisted) {
-        status.counter++;
-        if (status.counter >= BSSID_BLACKLIST_THRESHOLD) {
-          status.isBlacklisted = true;
-          status.blacklistedTimeStamp = Date.now();
-        }
+  function filterScanResults(scanResults, wifiState, currentBssid) {
+    let filteredResults = [];
+    let resultsContainCurrentBssid = false;
+
+    for (let i in scanResults) {
+      // skip not saved network
+      if (!scanResults[i].known) {
+        continue;
       }
+
+      // skip bad scan result
+      if (scanResults[i].ssid === null || scanResults[i].ssid == "") {
+        debug("skip bad scan result");
+        continue;
+      }
+
+      if (scanResults[i].bssid.includes(currentBssid)) {
+        resultsContainCurrentBssid = true;
+      }
+
+      var scanId = scanResults[i].ssid + ":" + scanResults[i].bssid;
+      debug("scanId = " + scanId);
+
+      // check whether this BSSID is blocked or not
+      let status = bssidBlacklist.get(scanResults[i].bssid);
+      if (typeof status !== "undefined" && status.isBlacklisted) {
+        debug(scanId + " is in blacklist.");
+        continue;
+      }
+
+      let isWeak24G =
+        scanResults[i].is24G &&
+        scanResults[i].signalStrength < RSSI_THRESHOLD_BAD_24G;
+      let isWeak5G =
+        scanResults[i].is5G &&
+        scanResults[i].signalStrength < RSSI_THRESHOLD_BAD_5G;
+      // skip scan result with too weak signals
+      if (isWeak24G || isWeak5G) {
+        debug(
+          scanId +
+            "(" +
+            (scanResults[i].is24G ? "2.4GHz" : "5GHz") +
+            ")" +
+            scanResults[i].signalStrength +
+            " / "
+        );
+        continue;
+      }
+      // save the result for ongoing network selection
+      filteredResults.push(scanResults[i]);
     }
+
+    let isConnected = wifiState == "connected" || wifiState == "associated";
+    // If wifi is connected but its bssid is not in scan list,
+    // we should assume that the scan is triggered without
+    // all channles included. So we just skip these results.
+    if (isConnected && !resultsContainCurrentBssid) {
+      return [];
+    }
+
+    return filteredResults;
   }
 
-  function updateBssidBlacklist() {
+  function trackBssid(bssid, enable, reason) {
+    debug("trackBssid: " + (enable ? "enable " : "disable ") + bssid);
+    if (!bssid.length) {
+      return false;
+    }
+
+    if (enable) {
+      return bssidBlacklist.delete(bssid);
+    }
+
+    let status = bssidBlacklist.get(bssid);
+    if (typeof status == "undefined") {
+      // first time
+      status = new BssidBlacklistStatus();
+      bssidBlacklist.set(bssid, status);
+    }
+    status.counter++;
+    status.blacklistedTimeStamp = Date.now();
+    if (!status.isBlacklisted) {
+      if (
+        status.counter >= BSSID_BLACKLIST_THRESHOLD ||
+        reason == REASON_AP_UNABLE_TO_HANDLE_NEW_STA
+      ) {
+        status.isBlacklisted = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function updateBssidBlacklist(callback) {
     let iter = bssidBlacklist[Symbol.iterator]();
+    let updated = false;
     for (let [bssid, status] of iter) {
       debug(
         "BSSID black list: BSSID=" +
@@ -389,15 +430,15 @@ this.WifiNetworkSelector = (function() {
           " isBlacklisted=" +
           status.isBlacklisted
       );
-      if (status.isBlacklisted) {
-        if (
-          Date.now() - status.blacklistedTimeStamp >=
-          BSSID_BLACKLIST_EXPIRE_TIME
-        ) {
-          bssidBlacklist.delete(bssid);
-        }
+      if (
+        status.isBlacklisted &&
+        Date.now() - status.blacklistedTimeStamp >= BSSID_BLACKLIST_EXPIRE_TIME
+      ) {
+        bssidBlacklist.delete(bssid);
+        updated = true;
       }
     }
+    callback(updated);
   }
 
   function updateSavedNetworkSelectionStatus(configuredNetworks) {

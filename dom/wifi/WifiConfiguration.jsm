@@ -166,7 +166,7 @@ this.WifiConfigUtils = (function() {
 
   function parseCapabilities(ies, beaconCap) {
     if (!ies || !beaconCap) {
-      return;
+      return {};
     }
     let flags = {
       protocol: [],
@@ -188,7 +188,7 @@ this.WifiConfigUtils = (function() {
         parseVsaElement(ies[i].bytes, flags);
       }
     }
-    flags.isWEP = (flags.protocol.length == 0 && privacy);
+    flags.isWEP = flags.protocol.length == 0 && privacy;
     return flags;
   }
 
@@ -362,15 +362,15 @@ this.WifiConfigUtils = (function() {
 
     for (let i = 0; i < flags.protocol.length; i++) {
       if (flags.protocol[i] == PROTOCOL_WPA) {
-          encryptType.isWPA = true;
+        encryptType.isWPA = true;
       } else if (flags.protocol[i] == PROTOCOL_RSN) {
-          encryptType.isRSN = true;
+        encryptType.isRSN = true;
       }
       for (let j = 0; j < flags.keyManagement[i].length; j++) {
         if (flags.keyManagement[i][j] == KEY_MGMT_PSK) {
-            encryptType.isPSK = true;
+          encryptType.isPSK = true;
         } else if (flags.keyManagement[i][j] == KEY_MGMT_EAP) {
-            encryptType.isEAP = true;
+          encryptType.isEAP = true;
         }
       }
     }
@@ -484,8 +484,7 @@ this.WifiConfigUtils = (function() {
       } else if (security === "WAPI-CERT") {
         encryption = "WAPI-CERT";
       }
-    } else if ("keyMgmt" in network ||
-               "keyManagement" in network) {
+    } else if ("keyMgmt" in network || "keyManagement" in network) {
       // configure network object, represents a network
       // object structure
       // {
@@ -500,17 +499,13 @@ this.WifiConfigUtils = (function() {
       //                     "OPEN_SHARED" for WEP
       //   other keys
       // }
-      var keyMgmt = network.keyMgmt ?
-        network.keyMgmt :
-        network.keyManagement;
+      var keyMgmt = network.keyMgmt ? network.keyMgmt : network.keyManagement;
       var auth_alg = network.auth_alg;
-      ssid = network.keyMgmt ?
-        dequote(network.ssid) :
-        network.ssid;
+      ssid = network.keyMgmt ? dequote(network.ssid) : network.ssid;
 
       if (keyMgmt == "WPA-PSK") {
         encryption = "WPA-PSK";
-      } else if (keyMgmt.indexOf("WPA-EAP") != -1) {
+      } else if (keyMgmt.includes("WPA-EAP")) {
         encryption = "WPA-EAP";
       } else if (keyMgmt == "WAPI-PSK") {
         encryption = "WAPI-PSK";
@@ -630,4 +625,3 @@ ScanResult.prototype = {
     return freq > 4900 && freq < 5900;
   },
 };
-

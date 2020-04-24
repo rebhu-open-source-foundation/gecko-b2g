@@ -10,10 +10,70 @@ interface nsIStateChanged;
 [scriptable, uuid(3f97bbaf-ec6f-4cc4-a9b0-f6e67aa78dc4)]
 interface nsIWifiEvent : nsISupports
 {
+  /* Connection failure reason code */
+  const unsigned long AUTH_FAILURE_UNKNOWN = 0;
+  const unsigned long AUTH_FAILURE_NONE = 1;
+  const unsigned long AUTH_FAILURE_TIMEOUT = 2;
+  const unsigned long AUTH_FAILURE_WRONG_KEY = 3;
+  const unsigned long AUTH_FAILURE_EAP_FAILURE = 4;
+
+  /* Error code for EAP or EAP Method as per RFC-4186 10.18 */
+  const unsigned long ERROR_CODE_NONE = -1;
+  const unsigned long ERROR_EAP_SIM_GENERAL_FAILURE_AFTER_AUTH = 0;
+  const unsigned long ERROR_EAP_SIM_TEMPORARILY_DENIED = 1026;
+  const unsigned long ERROR_EAP_SIM_NOT_SUBSCRIBED = 1031;
+  const unsigned long ERROR_EAP_SIM_GENERAL_FAILURE_BEFORE_AUTH = 16384;
+  const unsigned long ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT = 16385;
+
+  /**
+   * Number of the event sent from hal.
+   */
   readonly attribute AString name;
+
+  /**
+   * Contain the network bssid as event parameter.
+   */
   readonly attribute AString bssid;
+
+  /**
+   * Wether the onDisconnected event from supplicant is generated locally.
+   */
   readonly attribute boolean locallyGenerated;
+
+  /**
+   * Contain the reason code from supplicant, or the authentication failure
+   * defined in this idl.
+   *
+   * Possible values: AUTH_FAILURE_*.
+   */
   readonly attribute unsigned long reason;
+
+  /**
+   * 802.11 code to indicate the association reject reason.
+   * Refer to section 8.4.1.9 of IEEE 802.11 spec.
+   */
+  readonly attribute unsigned long statusCode;
+
+  /**
+   * Indicate the number of connected clients on hotspot.
+   * Refer to onNumAssociatedStationsChanged event.
+   */
   readonly attribute unsigned long numStations;
+
+  /**
+   * Error code for EAP or EAP Method.
+   * Possible values: ERROR_EAP_SIM_*.
+   */
+  readonly attribute long errorCode;
+
+  /**
+   * Whether failure is due to timeout rather  response from the AP.
+   * Refer to onAssociationRejected.
+   */
+  readonly attribute boolean timeout;
+
+  /**
+   * Indicate supplicant state change event.
+   */
   readonly attribute nsIStateChanged stateChanged;
 };

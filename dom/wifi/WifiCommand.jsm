@@ -17,7 +17,7 @@ const { libcutils } = ChromeUtils.import(
 const DEBUG = false;
 
 const WIFI_CMD_INITIALIZE = Ci.nsIWifiCommand.INITIALIZE;
-const WIFI_CMD_GET_CAPABILITIES = Ci.nsIWifiCommand.GET_CAPABILITIES;
+const WIFI_CMD_GET_SUPPORTED_FEATURES = Ci.nsIWifiCommand.GET_SUPPORTED_FEATURES;
 const WIFI_CMD_GET_MODULE_VERSION = Ci.nsIWifiCommand.GET_MODULE_VERSION;
 const WIFI_CMD_GET_DEBUG_LEVEL = Ci.nsIWifiCommand.GET_DEBUG_LEVEL;
 const WIFI_CMD_SET_DEBUG_LEVEL = Ci.nsIWifiCommand.SET_DEBUG_LEVEL;
@@ -28,7 +28,6 @@ const WIFI_CMD_START_WIFI = Ci.nsIWifiCommand.START_WIFI;
 const WIFI_CMD_STOP_WIFI = Ci.nsIWifiCommand.STOP_WIFI;
 const WIFI_CMD_GET_MAC_ADDRESS = Ci.nsIWifiCommand.GET_MAC_ADDRESS;
 const WIFI_CMD_GET_STA_IFACE = Ci.nsIWifiCommand.GET_STA_IFACE;
-const WIFI_CMD_GET_STA_CAPABILITIES = Ci.nsIWifiCommand.GET_STA_CAPABILITIES;
 const WIFI_CMD_SET_POWER_SAVE = Ci.nsIWifiCommand.SET_POWER_SAVE;
 const WIFI_CMD_SET_SUSPEND_MODE = Ci.nsIWifiCommand.SET_SUSPEND_MODE;
 const WIFI_CMD_SET_EXTERNAL_SIM = Ci.nsIWifiCommand.SET_EXTERNAL_SIM;
@@ -38,6 +37,8 @@ const WIFI_CMD_SET_BT_COEXIST_MODE = Ci.nsIWifiCommand.SET_BT_COEXIST_MODE;
 const WIFI_CMD_SET_BT_COEXIST_SCAN_MODE = Ci.nsIWifiCommand.SET_BT_COEXIST_SCAN_MODE;
 const WIFI_CMD_GET_LINK_LAYER_STATS = Ci.nsIWifiCommand.GET_LINK_LAYER_STATS;
 const WIFI_CMD_SIGNAL_POLL = Ci.nsIWifiCommand.SIGNAL_POLL;
+const WIFI_CMD_SET_FIRMWARE_ROAMING = Ci.nsIWifiCommand.SET_FIRMWARE_ROAMING;
+const WIFI_CMD_CONFIG_FIRMWARE_ROAMING = Ci.nsIWifiCommand.CONFIG_FIRMWARE_ROAMING;
 const WIFI_CMD_START_SINGLE_SCAN = Ci.nsIWifiCommand.START_SINGLE_SCAN;
 const WIFI_CMD_STOP_SINGLE_SCAN = Ci.nsIWifiCommand.STOP_SINGLE_SCAN;
 const WIFI_CMD_START_PNO_SCAN = Ci.nsIWifiCommand.START_PNO_SCAN;
@@ -48,7 +49,9 @@ const WIFI_CMD_CONNECT = Ci.nsIWifiCommand.CONNECT;
 const WIFI_CMD_RECONNECT = Ci.nsIWifiCommand.RECONNECT;
 const WIFI_CMD_REASSOCIATE = Ci.nsIWifiCommand.REASSOCIATE;
 const WIFI_CMD_DISCONNECT = Ci.nsIWifiCommand.DISCONNECT;
+const WIFI_CMD_DISABLE_NETWORK = Ci.nsIWifiCommand.DISABLE_NETWORK;
 const WIFI_CMD_REMOVE_NETWORKS = Ci.nsIWifiCommand.REMOVE_NETWORKS;
+const WIFI_CMD_START_ROAMING = Ci.nsIWifiCommand.START_ROAMING;
 const WIFI_CMD_START_RSSI_MONITORING = Ci.nsIWifiCommand.START_RSSI_MONITORING;
 const WIFI_CMD_STOP_RSSI_MONITORING = Ci.nsIWifiCommand.STOP_RSSI_MONITORING;
 const WIFI_CMD_START_SOFTAP = Ci.nsIWifiCommand.START_SOFTAP;
@@ -79,8 +82,8 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     doCommand(WIFI_CMD_INITIALIZE, callback);
   };
 
-  command.getSupportFeatures = function(callback) {
-    doCommand(WIFI_CMD_GET_CAPABILITIES, callback);
+  command.getSupportedFeatures = function(callback) {
+    doCommand(WIFI_CMD_GET_SUPPORTED_FEATURES, callback);
   };
 
   command.getDriverModuleVersion = function(callback) {
@@ -119,10 +122,6 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     doCommand(WIFI_CMD_GET_STA_IFACE, callback);
   };
 
-  command.getStaCapabilities = function(callback) {
-    doCommand(WIFI_CMD_GET_STA_CAPABILITIES, callback);
-  };
-
   command.setPowerSave = function(enable, callback) {
     doCommandWithParams(WIFI_CMD_SET_POWER_SAVE, "enabled", enable, callback);
   };
@@ -157,6 +156,14 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
 
   command.getConnectionInfo = function(callback) {
     doCommand(WIFI_CMD_SIGNAL_POLL, callback);
+  };
+
+  command.setFirmwareRoaming = function(enable, callback) {
+    doCommandWithParams(WIFI_CMD_SET_FIRMWARE_ROAMING, "enabled", enable, callback);
+  };
+
+  command.configureFirmwareRoaming = function(config , callback) {
+    doCommandWithParams(WIFI_CMD_CONFIG_FIRMWARE_ROAMING, "roamingConfig", config, callback);
   };
 
   command.startScan = function(settings, callback) {
@@ -199,8 +206,16 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     doCommand(WIFI_CMD_DISCONNECT, callback);
   };
 
+  command.disableNetwork = function(callback) {
+    doCommand(WIFI_CMD_DISABLE_NETWORK, callback);
+  };
+
   command.removeNetworks = function(callback) {
     doCommand(WIFI_CMD_REMOVE_NETWORKS, callback);
+  };
+
+  command.startToRoam = function(config, callback) {
+    doCommandWithParams(WIFI_CMD_START_ROAMING, "config", config, callback);
   };
 
   command.startRssiMonitoring = function(callback) {

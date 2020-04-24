@@ -85,7 +85,11 @@ class SupplicantStaManager
   Result_t Reconnect();
   Result_t Reassociate();
   Result_t Disconnect();
+  Result_t EnableNetwork();
+  Result_t DisableNetwork();
   Result_t RemoveNetworks();
+  Result_t RoamToNetwork(ConfigurationOptions* aConfig);
+
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetNetwork(uint32_t aNetId);
 
@@ -320,7 +324,20 @@ class SupplicantStaManager
   Result_t FindIfaceOfType(SupplicantNameSpace::IfaceType aDesired,
                            ISupplicant::IfaceInfo* aInfo);
 
-  void supplicantServiceDiedHandler(int32_t aCookie);
+  bool CompareConfiguration(const NetworkConfiguration& aOld,
+                            const NetworkConfiguration& aNew);
+  void NotifyTerminating();
+  void NotifyStateChanged(uint32_t aState, const std::string& aSsid,
+                          const std::string& aBssid);
+  void NotifyConnected(const std::string& aSsid, const std::string& aBssid);
+  void NotifyDisconnected(const std::string& aBssid, bool aLocallyGenerated,
+                          uint32_t aReason);
+  void NotifyAuthenticationFailure(uint32_t aReason, int32_t aErrorCode);
+  void NotifyAssociationReject(const std::string& aBssid, uint32_t aStatusCode,
+                               bool aTimeout);
+  void NotifyTargetBssid(const std::string& aBssid);
+  void NotifyAssociatedBssid(const std::string& aBssid);
+  void SupplicantServiceDiedHandler(int32_t aCookie);
 
   static SupplicantStaManager* s_Instance;
   static mozilla::Mutex s_Lock;
@@ -333,8 +350,13 @@ class SupplicantStaManager
   android::sp<SupplicantDeathEventHandler> mDeathEventHandler;
   android::sp<WifiEventCallback> mCallback;
 
+  bool mFourwayHandshake;
   int32_t mDeathRecipientCookie;
-  std::string mStaInterfaceName;
+  std::string mInterfaceName;
+
+  // For current connecting network.
+  std::unordered_map<std::string, NetworkConfiguration> mCurrentConfiguration;
+  std::unordered_map<std::string, android::sp<SupplicantStaNetwork>> mCurrentNetwork;
 
   DISALLOW_COPY_AND_ASSIGN(SupplicantStaManager);
 };

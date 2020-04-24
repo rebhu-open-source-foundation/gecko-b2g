@@ -23,6 +23,7 @@ dictionary WifiCommandOptions
   SupplicantDebugLevel debugLevel = {};
   ScanSettings         scanSettings = {};
   PnoScanSettings      pnoScanSettings = {};
+  RoamingConfiguration roamingConfig = {};
 };
 
 /**
@@ -46,6 +47,7 @@ dictionary WifiCertServiceResultOptions
 [GenerateInit]
 dictionary WifiConfiguration
 {
+  long      netId;
   DOMString ssid;
   DOMString bssid;
   DOMString keyMgmt;
@@ -142,4 +144,20 @@ dictionary PnoNetwork
   boolean        isHidden;
   DOMString      ssid;
   sequence<long> frequencies;
+};
+
+/**
+ * The dictionary holds the parameters for firmware roaming.
+ */
+[GenerateInit]
+dictionary RoamingConfiguration
+{
+  /**
+   * List of BSSID's that are blacklisted for roaming.
+   */
+  sequence<DOMString> bssidBlacklist;
+  /**
+   * List of SSID's that are whitelisted for roaming.
+   */
+  sequence<DOMString> ssidWhitelist;
 };

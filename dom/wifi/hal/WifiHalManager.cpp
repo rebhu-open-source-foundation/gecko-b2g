@@ -10,6 +10,11 @@
 #include "WifiHalManager.h"
 #include <mozilla/ClearOnShutdown.h>
 
+using ChipCapabilityMask =
+    ::android::hardware::wifi::V1_0::IWifiChip::ChipCapabilityMask;
+using StaIfaceCapabilityMask =
+    ::android::hardware::wifi::V1_0::IWifiStaIface::StaIfaceCapabilityMask;
+
 static const char WIFI_INTERFACE_NAME[] = "android.hardware.wifi@1.0::IWifi";
 
 WifiHal* WifiHal::s_Instance = nullptr;
@@ -23,7 +28,8 @@ WifiHal::WifiHal()
       mApIface(nullptr),
       mDeathRecipient(nullptr),
       mServiceManager(nullptr),
-      mServiceManagerDeathRecipient(nullptr) {
+      mServiceManagerDeathRecipient(nullptr),
+      mCapabilities(0) {
   InitServiceManager();
 }
 
@@ -73,19 +79,19 @@ Result_t WifiHal::StartWifiModule() {
 
   int32_t triedCount = 0;
   while (triedCount <= START_HAL_RETRY_TIMES) {
-    WifiStatus status;
-    mWifi->start([&status](const WifiStatus &s) {
-      status = s;
+    WifiStatus response;
+    mWifi->start([&](const WifiStatus& status) {
+      response = status;
       WIFI_LOGD(LOG_TAG, "start wifi: %d", status.code);
     });
 
-    if (status.code == WifiStatusCode::SUCCESS) {
+    if (response.code == WifiStatusCode::SUCCESS) {
       if (triedCount != 0) {
         WIFI_LOGD(LOG_TAG, "start IWifi succeeded after trying %d times",
                   triedCount);
       }
       return nsIWifiResult::SUCCESS;
-    } else if (status.code == WifiStatusCode::ERROR_NOT_AVAILABLE) {
+    } else if (response.code == WifiStatusCode::ERROR_NOT_AVAILABLE) {
       WIFI_LOGD(LOG_TAG, "Cannot start IWifi: Retrying...");
       usleep(300);
       triedCount++;
@@ -104,17 +110,13 @@ Result_t WifiHal::StopWifiModule() {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
-  WifiStatus status;
-  mWifi->stop([&status](const WifiStatus &s) {
-    status = s;
+  WifiStatus response;
+  mWifi->stop([&](const WifiStatus& status) {
+    response = status;
     WIFI_LOGD(LOG_TAG, "stop wifi: %d", status.code);
   });
 
-  if (status.code != WifiStatusCode::SUCCESS) {
-    WIFI_LOGE(LOG_TAG, "Cannot stop IWifi: %d", status.code);
-    return nsIWifiResult::ERROR_COMMAND_FAILED;
-  }
-  return nsIWifiResult::SUCCESS;
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
 Result_t WifiHal::TearDownInterface(const wifiNameSpace::IfaceType& aType) {
@@ -195,12 +197,13 @@ Result_t WifiHal::InitWifiInterface() {
       }
     }
 
-    WifiStatus status;
-    mWifi->registerEventCallback(this, [&status](const WifiStatus &s) { status = s; });
+    WifiStatus response;
+    mWifi->registerEventCallback(
+        this, [&](const WifiStatus& status) { response = status; });
 
-    if (status.code != WifiStatusCode::SUCCESS) {
+    if (response.code != WifiStatusCode::SUCCESS) {
       WIFI_LOGE(LOG_TAG, "registerEventCallback failed: %d, reason: %s",
-                status.code, status.description.c_str());
+                response.code, response.description.c_str());
       mWifi = nullptr;
       return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
@@ -214,18 +217,14 @@ Result_t WifiHal::InitWifiInterface() {
   return nsIWifiResult::SUCCESS;
 }
 
-Result_t WifiHal::GetCapabilities(uint32_t& aCapabilities) {
-  if (!mWifiChip.get()) {
-    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+Result_t WifiHal::GetSupportedFeatures(uint32_t& aSupportedFeatures) {
+  if (mWifi == nullptr || !mWifi->isStarted()) {
+    // should not get capabilities while Wi-Fi is stopped
+    aSupportedFeatures = 0;
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-  WifiStatus response;
-  mWifiChip->getCapabilities(
-      [&](const WifiStatus& status,
-          hidl_bitfield<IWifiChip::ChipCapabilityMask> capabilities) {
-        response = status;
-        aCapabilities = capabilities;
-      });
-  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
+  aSupportedFeatures = mCapabilities;
+  return nsIWifiResult::SUCCESS;
 }
 
 Result_t WifiHal::GetDriverModuleInfo(nsAString& aDriverVersion,
@@ -336,23 +335,12 @@ Result_t WifiHal::ConfigChipAndCreateIface(
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
+  // interface is ready, update module capabilities
+  GetVendorCapabilities();
+
   mIfaceNameMap[aType] = aIfaceName;
   WIFI_LOGD(LOG_TAG, "chip configure completed");
   return nsIWifiResult::SUCCESS;
-}
-
-Result_t WifiHal::GetStaCapabilities(uint32_t& aStaCapabilities) {
-  if (!mStaIface.get()) {
-    return nsIWifiResult::ERROR_INVALID_INTERFACE;
-  }
-  WifiStatus response;
-  mStaIface->getCapabilities(
-      [&](const WifiStatus& status,
-          hidl_bitfield<IWifiStaIface::StaIfaceCapabilityMask> capabilities) {
-        response = status;
-        aStaCapabilities = capabilities;
-      });
-  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
 Result_t WifiHal::EnableLinkLayerStats() {
@@ -388,6 +376,89 @@ Result_t WifiHal::SetSoftapCountryCode(std::string aCountryCode) {
 
   WifiStatus response;
   HIDL_SET(mApIface, setCountryCode, WifiStatus, response, countryCode);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
+}
+
+Result_t WifiHal::SetFirmwareRoaming(bool aEnable) {
+  if (mStaIface == nullptr) {
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
+  WifiStatus response;
+  StaRoamingState state =
+      aEnable ? StaRoamingState::ENABLED : StaRoamingState::DISABLED;
+  HIDL_SET(mStaIface, setRoamingState, WifiStatus, response, state);
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
+}
+
+Result_t WifiHal::ConfigureFirmwareRoaming(
+    RoamingConfigurationOptions* mRoamingConfig) {
+  // make sure firmware roaming is supported
+  if ((mCapabilities & nsIWifiResult::FEATURE_CONTROL_ROAMING) == 0) {
+    WIFI_LOGE(LOG_TAG, "Firmware roaming is not supported");
+    return nsIWifiResult::ERROR_NOT_SUPPORTED;
+  }
+
+  if (mStaIface == nullptr) {
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
+  // check firmware roaming capabilities
+  WifiStatus response;
+  StaRoamingCapabilities roamingCaps;
+  mStaIface->getRoamingCapabilities(
+      [&](const WifiStatus& status, const StaRoamingCapabilities& caps) {
+        response = status;
+        roamingCaps = caps;
+      });
+
+  if (response.code != WifiStatusCode::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to get roaming capabilities");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  if (roamingCaps.maxBlacklistSize < 0 || roamingCaps.maxWhitelistSize < 0) {
+    WIFI_LOGE(LOG_TAG, "Invalid size of roaming capabilities");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  // set the black and white list to firmware
+  StaRoamingConfig roamingConfig;
+  size_t blackListSize = 0;
+  size_t whiteListSize = 0;
+  std::vector<hidl_array<uint8_t, 6>> bssidBlackList;
+  std::vector<hidl_array<uint8_t, 32>> ssidWhiteList;
+  if (!mRoamingConfig->mBssidBlacklist.IsEmpty()) {
+    for (auto& item : mRoamingConfig->mBssidBlacklist) {
+      if (blackListSize++ > roamingCaps.maxBlacklistSize) {
+        break;
+      }
+      std::string bssid_str = NS_ConvertUTF16toUTF8(item).get();
+      hidl_array<uint8_t, 6> bssid;
+      ConvertMacToByteArray(bssid_str, bssid);
+      bssidBlackList.push_back(bssid);
+    }
+  }
+
+  if (!mRoamingConfig->mSsidWhitelist.IsEmpty()) {
+    for (auto& item : mRoamingConfig->mSsidWhitelist) {
+      if (whiteListSize++ > roamingCaps.maxWhitelistSize) {
+        break;
+      }
+      std::string ssid_str = NS_ConvertUTF16toUTF8(item).get();
+      Dequote(ssid_str);
+      hidl_array<uint8_t, 32> ssid;
+      for (size_t i = 0; i < ssid.size(); i++) {
+        ssid[i] = ssid_str.at(i);
+      }
+      ssidWhiteList.push_back(ssid);
+    }
+  }
+
+  roamingConfig.bssidBlacklist = bssidBlackList;
+  roamingConfig.ssidWhitelist = ssidWhiteList;
+
+  HIDL_SET(mStaIface, configureRoaming, WifiStatus, response, roamingConfig);
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
@@ -454,6 +525,36 @@ Result_t WifiHal::RemoveInterfaceInternal(
       WIFI_LOGE(LOG_TAG, "Invalid interface type");
       return nsIWifiResult::ERROR_INVALID_ARGS;
   }
+  return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
+}
+
+Result_t WifiHal::GetVendorCapabilities() {
+  uint32_t chipCapas = 0;
+  uint32_t staCapas = 0;
+
+  WifiStatus response;
+  if (mWifiChip != nullptr) {
+    mWifiChip->getCapabilities(
+        [&](const WifiStatus& status,
+            hidl_bitfield<ChipCapabilityMask> capabilities) {
+          response = status;
+          chipCapas = capabilities;
+        });
+
+    if (mStaIface != nullptr) {
+      mStaIface->getCapabilities(
+          [&](const WifiStatus& status,
+              hidl_bitfield<StaIfaceCapabilityMask> capabilities) {
+            response = status;
+            staCapas = capabilities;
+          });
+    }
+  }
+
+  WIFI_LOGD(LOG_TAG, "get supported features [%x][%x]", chipCapas, staCapas);
+  // merge capabilities mask
+  mCapabilities = staCapas | (chipCapas << 15);
+
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 

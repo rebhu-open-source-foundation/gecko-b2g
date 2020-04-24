@@ -80,14 +80,8 @@ nsWifiResult::GetApInterface(nsAString& aApInterface) {
 }
 
 NS_IMETHODIMP
-nsWifiResult::GetCapabilities(uint32_t* aCapabilities) {
-  *aCapabilities = mCapabilities;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsWifiResult::GetStaCapabilities(uint32_t* aStaCapabilities) {
-  *aStaCapabilities = mStaCapabilities;
+nsWifiResult::GetSupportedFeatures(uint32_t* aSupportedFeatures) {
+  *aSupportedFeatures = mSupportedFeatures;
   return NS_OK;
 }
 

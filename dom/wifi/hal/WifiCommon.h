@@ -45,6 +45,8 @@
 
 typedef uint32_t Result_t;
 
+#define INVALID_NETWORK_ID -1
+
 #define COPY_SEQUENCE_FIELD(prop, type)                \
   if (aOther.prop.WasPassed()) {                       \
     mozilla::dom::Sequence<type> const& currentValue = \
@@ -69,6 +71,7 @@ struct ConfigurationOptions {
   ConfigurationOptions() = default;
 
   explicit ConfigurationOptions(const mozilla::dom::WifiConfiguration& aOther) {
+    COPY_OPT_FIELD(mNetId, INVALID_NETWORK_ID)
     COPY_OPT_FIELD(mSsid, EmptyString())
     COPY_OPT_FIELD(mBssid, EmptyString())
     COPY_OPT_FIELD(mKeyMgmt, EmptyString())
@@ -101,6 +104,7 @@ struct ConfigurationOptions {
     COPY_OPT_FIELD(mProactiveKeyCaching, false)
   }
 
+  int32_t  mNetId;
   nsString mSsid;
   nsString mBssid;
   nsString mKeyMgmt;
@@ -261,6 +265,26 @@ struct PnoScanSettingsOptions {
   nsTArray<PnoNetworkOptions> mPnoNetworks;
 };
 
+struct RoamingConfigurationOptions {
+ public:
+  RoamingConfigurationOptions() = default;
+
+  RoamingConfigurationOptions(const mozilla::dom::RoamingConfiguration& aOther) {
+    COPY_SEQUENCE_FIELD(mBssidBlacklist, nsString)
+    COPY_SEQUENCE_FIELD(mSsidWhitelist, nsString)
+  }
+
+  RoamingConfigurationOptions Clone() const {
+    auto other = RoamingConfigurationOptions();
+    other.mBssidBlacklist = mBssidBlacklist.Clone();
+    other.mSsidWhitelist = mSsidWhitelist.Clone();
+    return other;
+  }
+
+  nsTArray<nsString> mBssidBlacklist;
+  nsTArray<nsString> mSsidWhitelist;
+};
+
 // Needed to add a copy constructor to WifiCommandOptions.
 struct CommandOptions {
  public:
@@ -279,6 +303,7 @@ struct CommandOptions {
     mDebugLevel = SupplicantDebugLevelOptions(aOther.mDebugLevel);
     mScanSettings = ScanSettingsOptions(aOther.mScanSettings);
     mPnoScanSettings = PnoScanSettingsOptions(aOther.mPnoScanSettings);
+    mRoamingConfig = RoamingConfigurationOptions(aOther.mRoamingConfig);
   }
 
   CommandOptions(const CommandOptions& aOther) {
@@ -296,6 +321,7 @@ struct CommandOptions {
     mDebugLevel = SupplicantDebugLevelOptions(aOther.mDebugLevel);
     mScanSettings = aOther.mScanSettings.Clone();
     mPnoScanSettings = aOther.mPnoScanSettings.Clone();
+    mRoamingConfig = aOther.mRoamingConfig.Clone();
   }
 
   // All the fields, not Optional<> anymore to get copy constructors.
@@ -314,6 +340,7 @@ struct CommandOptions {
   SupplicantDebugLevelOptions mDebugLevel;
   ScanSettingsOptions mScanSettings;
   PnoScanSettingsOptions mPnoScanSettings;
+  RoamingConfigurationOptions mRoamingConfig;
 };
 
 #undef COPY_OPT_FIELD

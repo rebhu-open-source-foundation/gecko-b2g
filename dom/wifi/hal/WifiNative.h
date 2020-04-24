@@ -32,7 +32,7 @@ class WifiNative {
  private:
   Result_t InitHal();
   Result_t DeinitHal();
-  Result_t GetCapabilities(uint32_t& aCapabilities);
+  Result_t GetSupportedFeatures(uint32_t& aSupportedFeatures);
   Result_t GetDriverModuleInfo(nsAString& aDriverVersion,
                                nsAString& aFirmwareVersion);
   Result_t SetLowLatencyMode(bool aEnable);
@@ -47,7 +47,6 @@ class WifiNative {
 
   Result_t StartSupplicant();
   Result_t StopSupplicant();
-  Result_t GetStaCapabilities(uint32_t& aStaCapabilities);
   Result_t GetDebugLevel(uint32_t& aDebugLevel);
   Result_t SetDebugLevel(SupplicantDebugLevelOptions* aLevel);
   Result_t SetPowerSave(bool aEnable);
@@ -59,6 +58,9 @@ class WifiNative {
   Result_t SetBtCoexistenceScanMode(bool aEnable);
   Result_t SignalPoll(std::vector<int32_t>& aPollResult);
   Result_t GetLinkLayerStats(wifiNameSpace::StaLinkLayerStats& aStats);
+  Result_t SetFirmwareRoaming(bool aEnable);
+  Result_t ConfigureFirmwareRoaming(
+      RoamingConfigurationOptions* aRoamingConfig);
 
   Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
   Result_t StopSingleScan();
@@ -75,7 +77,10 @@ class WifiNative {
   Result_t Reconnect();
   Result_t Reassociate();
   Result_t Disconnect();
+  Result_t EnableNetwork();
+  Result_t DisableNetwork();
   Result_t RemoveNetworks();
+  Result_t StartRoaming(ConfigurationOptions* aConfig);
 
   Result_t StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
                        nsAString& aIfaceName);

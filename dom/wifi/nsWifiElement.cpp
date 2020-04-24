@@ -10,7 +10,7 @@
  * nsWifiConfiguration
  */
 nsWifiConfiguration::nsWifiConfiguration(
-    const nsAString& aSsid, const nsAString& aBssid,
+    int32_t aNetId, const nsAString& aSsid, const nsAString& aBssid,
     const nsAString& aKeyManagement, const nsAString& aPsk,
     const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
     int32_t aProto, int32_t aAuthAlg, int32_t aGroupCipher,
@@ -21,6 +21,7 @@ nsWifiConfiguration::nsWifiConfiguration(
     const nsAString& aSubjectMatch, const nsAString& aEngineId, bool aEngine,
     const nsAString& aPrivateKeyId, const nsAString& aAltSubjectMatch,
     const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching) {
+  mNetId = aNetId;
   mSsid = aSsid;
   mBssid = aBssid;
   mKeyManagement = aKeyManagement;
@@ -47,6 +48,12 @@ nsWifiConfiguration::nsWifiConfiguration(
   mAltSubjectMatch = aAltSubjectMatch;
   mDomainSuffixMatch = aDomainSuffixMatch;
   mProactiveKeyCaching = aProactiveKeyCaching;
+}
+
+NS_IMETHODIMP
+nsWifiConfiguration::GetNetId(int32_t* aNetId) {
+  *aNetId = mNetId;
+  return NS_OK;
 }
 
 NS_IMETHODIMP

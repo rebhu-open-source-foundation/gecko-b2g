@@ -51,8 +51,26 @@ nsWifiEvent::GetReason(uint32_t* aReason) {
 }
 
 NS_IMETHODIMP
+nsWifiEvent::GetStatusCode(uint32_t* aStatusCode) {
+  *aStatusCode = mStatusCode;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiEvent::GetNumStations(uint32_t* aNumStations) {
   *aNumStations = mNumStations;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetErrorCode(int32_t* aErrorCode) {
+  *aErrorCode = mErrorCode;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetTimeout(bool* aTimeout) {
+  *aTimeout = mTimeout;
   return NS_OK;
 }
 

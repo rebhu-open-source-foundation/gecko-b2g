@@ -28,6 +28,7 @@
 
 #define START_HAL_RETRY_TIMES 3
 
+using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_bitfield;
 using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_string;
@@ -40,6 +41,9 @@ using ::android::hardware::wifi::V1_0::IWifiChip;
 using ::android::hardware::wifi::V1_0::IWifiIface;
 using ::android::hardware::wifi::V1_0::IWifiP2pIface;
 using ::android::hardware::wifi::V1_0::IWifiStaIface;
+using ::android::hardware::wifi::V1_0::StaRoamingCapabilities;
+using ::android::hardware::wifi::V1_0::StaRoamingConfig;
+using ::android::hardware::wifi::V1_0::StaRoamingState;
 using ::android::hardware::wifi::V1_0::StaScanData;
 using ::android::hardware::wifi::V1_0::StaScanResult;
 using ::android::hardware::wifi::V1_0::WifiDebugRingBufferStatus;
@@ -61,7 +65,7 @@ class WifiHal
 
   Result_t InitHalInterface();
   Result_t TearDownInterface(const wifiNameSpace::IfaceType& aType);
-  Result_t GetCapabilities(uint32_t& aCapabilities);
+  Result_t GetSupportedFeatures(uint32_t& aSupportedFeatures);
   Result_t GetDriverModuleInfo(nsAString& aDriverVersion,
                                nsAString& aFirmwareVersion);
   Result_t SetLowLatencyMode(bool aEnable);
@@ -70,10 +74,12 @@ class WifiHal
   Result_t StopWifiModule();
   Result_t ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
                                     std::string& aIfaceName);
-  Result_t GetStaCapabilities(uint32_t& aStaCapabilities);
   Result_t EnableLinkLayerStats();
   Result_t GetLinkLayerStats(wifiNameSpace::StaLinkLayerStats& aStats);
   Result_t SetSoftapCountryCode(std::string aCountryCode);
+  Result_t SetFirmwareRoaming(bool aEnable);
+  Result_t ConfigureFirmwareRoaming(
+      RoamingConfigurationOptions* mRoamingConfig);
 
   std::string GetInterfaceName(const wifiNameSpace::IfaceType& aType);
 
@@ -258,6 +264,7 @@ class WifiHal
   virtual ~WifiHal() {}
   Result_t InitServiceManager();
   Result_t InitWifiInterface();
+  Result_t GetVendorCapabilities();
   Result_t ConfigChipByType(const android::sp<IWifiChip>& aChip,
                             const wifiNameSpace::IfaceType& aType);
   Result_t RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType);
@@ -271,10 +278,12 @@ class WifiHal
   android::sp<IWifi> mWifi;
   android::sp<IWifiChip> mWifiChip;
   android::sp<WifiServiceDeathRecipient> mDeathRecipient;
-  std::unordered_map<wifiNameSpace::IfaceType, std::string> mIfaceNameMap;
   android::sp<IWifiStaIface> mStaIface;
   android::sp<IWifiP2pIface> mP2pIface;
   android::sp<IWifiApIface> mApIface;
+
+  std::unordered_map<wifiNameSpace::IfaceType, std::string> mIfaceNameMap;
+  uint32_t mCapabilities;
 
   DISALLOW_COPY_AND_ASSIGN(WifiHal);
 };

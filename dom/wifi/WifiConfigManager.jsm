@@ -22,8 +22,6 @@ var gDebug = false;
 this.WifiConfigManager = (function() {
   var configManager = {};
 
-  const WIFI_CONFIG_PATH = "/data/misc/wifi/wifi_config.json";
-
   const INVALID_NETWORK_ID = -1;
   const INVALID_TIME_STAMP = -1;
 
@@ -37,7 +35,8 @@ this.WifiConfigManager = (function() {
   const DISABLED_AUTHENTICATION_NO_CREDENTIALS = 7;
   const DISABLED_NO_INTERNET = 8;
   const DISABLED_BY_WIFI_MANAGER = 9;
-  const NETWORK_SELECTION_DISABLED_MAX = 10;
+  const DISABLED_BY_WRONG_PASSWORD = 10;
+  const NETWORK_SELECTION_DISABLED_MAX = 11;
 
   const NETWORK_SELECTION_ENABLED = 0;
   const NETWORK_SELECTION_TEMPORARY_DISABLED = 1;
@@ -54,6 +53,7 @@ this.WifiConfigManager = (function() {
     1, //  threshold for DISABLED_AUTHENTICATION_NO_CREDENTIALS
     1, //  threshold for DISABLED_NO_INTERNET
     1, //  threshold for DISABLED_BY_WIFI_MANAGER
+    1, //  threshold for DISABLED_BY_WRONG_PASSWORD
   ];
   var NETWORK_SELECTION_DISABLE_TIMEOUT = [
     Number.MAX_VALUE, // threshold for NETWORK_SELECTION_ENABLE
@@ -66,6 +66,7 @@ this.WifiConfigManager = (function() {
     Number.MAX_VALUE, // threshold for DISABLED_AUTHENTICATION_NO_CREDENTIALS
     Number.MAX_VALUE, // threshold for DISABLED_NO_INTERNET
     Number.MAX_VALUE, // threshold for DISABLED_BY_WIFI_MANAGER
+    Number.MAX_VALUE, // threshold for DISABLED_BY_WRONG_PASSWORD
   ];
   var QUALITY_NETWORK_SELECTION_DISABLE_REASON = [
     "NETWORK_SELECTION_ENABLE",
@@ -78,13 +79,17 @@ this.WifiConfigManager = (function() {
     "NETWORK_SELECTION_DISABLED_AUTHENTICATION_NO_CREDENTIALS",
     "NETWORK_SELECTION_DISABLED_NO_INTERNET",
     "NETWORK_SELECTION_DISABLED_BY_WIFI_MANAGER",
+    "NETWORK_SELECTION_DISABLED_BY_WRONG_PASSWORD",
   ];
-  var lastUserSelectedNetwork = null;
+  var lastUserSelectedNetworkId = INVALID_NETWORK_ID;
   var lastUserSelectedNetworkTimeStamp = 0;
   var configuredNetworks = Object.create(null);
 
   // The network ID to be assigned on a new added network
-  var useNetworkId = 0
+  var useNetworkId = 0;
+
+  // Set in wpa_supplicant "bssid" field if no specific AP restricted
+  const SUPPLICANT_BSSID_ANY = "00:00:00:00:00:00";
 
   // WifiConfigManager parameters
   configManager.configuredNetworks = configuredNetworks;
@@ -98,22 +103,26 @@ this.WifiConfigManager = (function() {
   configManager.DISABLED_AUTHENTICATION_NO_CREDENTIALS = DISABLED_AUTHENTICATION_NO_CREDENTIALS;
   configManager.DISABLED_NO_INTERNET = DISABLED_NO_INTERNET;
   configManager.DISABLED_BY_WIFI_MANAGER = DISABLED_BY_WIFI_MANAGER;
+  configManager.DISABLED_BY_WRONG_PASSWORD = DISABLED_BY_WRONG_PASSWORD;
   configManager.NETWORK_SELECTION_ENABLED = NETWORK_SELECTION_ENABLED;
   configManager.QUALITY_NETWORK_SELECTION_DISABLE_REASON = QUALITY_NETWORK_SELECTION_DISABLE_REASON;
 
   // WifiConfigManager functions
   configManager.updateNetworkSelectionStatus = updateNetworkSelectionStatus;
-  configManager.updateNetworkSelectionStatusForAuthFail = updateNetworkSelectionStatusForAuthFail;
   configManager.tryEnableQualifiedNetwork = tryEnableQualifiedNetwork;
-  configManager.isLastSelectedConfiguration = isLastSelectedConfiguration;
-  configManager.setAndEnableLastSelectedConfiguration = setAndEnableLastSelectedConfiguration;
-  configManager.getLastSelectedConfiguration = getLastSelectedConfiguration;
+  configManager.isLastSelectedNetwork = isLastSelectedNetwork;
+  configManager.clearLastSelectedNetwork = clearLastSelectedNetwork;
+  configManager.updateLastSelectedNetwork = updateLastSelectedNetwork;
+  configManager.getLastSelectedNetwork = getLastSelectedNetwork;
   configManager.getLastSelectedTimeStamp = getLastSelectedTimeStamp;
   configManager.clearDisableReasonCounter = clearDisableReasonCounter;
+  configManager.setEverConnected = setEverConnected;
   configManager.getNetworkConfiguration = getNetworkConfiguration;
+  configManager.fetchNetworkConfiguration = fetchNetworkConfiguration;
   configManager.getHiddenNetworks = getHiddenNetworks;
   configManager.addOrUpdateNetwork = addOrUpdateNetwork;
   configManager.removeNetwork = removeNetwork;
+  configManager.clearCurrentConfigBssid = clearCurrentConfigBssid;
   configManager.loadFromStore = loadFromStore;
   configManager.saveToStore = saveToStore;
   configManager.setDebug = setDebug;
@@ -141,10 +150,16 @@ this.WifiConfigManager = (function() {
       return callback(false);
     }
 
+    if (!configuredNetworks[networkKey].networkSeclectionDisableCounter) {
+      configuredNetworks[networkKey].networkSeclectionDisableCounter = Array(
+        NETWORK_SELECTION_DISABLED_MAX
+      ).fill(0);
+    }
+
     if (reason == NETWORK_SELECTION_ENABLE) {
       updateNetworkStatus(configuredNetworks[networkKey], reason, callback);
       debug("Enable network:" + uneval(configuredNetworks[networkKey]));
-      return;
+      return callback(false);
     }
     incrementDisableReasonCounter(configuredNetworks[networkKey], reason);
     debug(
@@ -161,43 +176,11 @@ this.WifiConfigManager = (function() {
       configuredNetworks[networkKey].networkSeclectionDisableCounter[reason] >=
       NETWORK_SELECTION_DISABLE_THRESHOLD[reason]
     ) {
-      updateNetworkStatus(configuredNetworks[networkKey], reason, callback);
-      return;
+      updateNetworkStatus(configuredNetworks[networkKey], reason, function(doDisable) {
+        return callback(doDisable);
+      });
     }
     return callback(false);
-  }
-
-  function updateNetworkSelectionStatusForAuthFail(netId, reason, callback) {
-    var found = false;
-    for (var networkKey in configuredNetworks) {
-      if (configuredNetworks[networkKey].netId == netId) {
-        found = true;
-        continue;
-      }
-    }
-    if (!found) {
-      debug("netId:" + netId + " not found in configuredNetworks");
-      return callback(false);
-    }
-
-    if (!configuredNetworks[networkKey].networkSeclectionDisableCounter) {
-      configuredNetworks[networkKey].networkSeclectionDisableCounter = Array(
-        NETWORK_SELECTION_DISABLED_MAX
-      ).fill(0);
-    }
-    configuredNetworks[networkKey].networkSeclectionDisableCounter[reason] =
-      NETWORK_SELECTION_DISABLE_THRESHOLD[reason];
-    debug(
-      "Network:" +
-        configuredNetworks[networkKey].ssid +
-        "disable counter of " +
-        QUALITY_NETWORK_SELECTION_DISABLE_REASON[reason] +
-        " is: " +
-        configuredNetworks[networkKey].networkSeclectionDisableCounter[reason] +
-        " and threshold is: " +
-        NETWORK_SELECTION_DISABLE_THRESHOLD[reason]
-    );
-    updateNetworkStatus(configuredNetworks[networkKey], reason, callback);
   }
 
   function updateNetworkStatus(config, reason, callback) {
@@ -218,37 +201,37 @@ this.WifiConfigManager = (function() {
       config.networkSeclectionDisableCounter = Array(
         NETWORK_SELECTION_DISABLED_MAX
       ).fill(0);
-      callback(false);
-    } else {
-      if (isNetworkPermanentlyDisabled(config)) {
-        debug("Do nothing. Alreay permanent disabled!");
-        return callback(false);
-      } else if (
-        isNetworkTemporaryDisabled(config) &&
-        reason < DISABLED_TLS_VERSION_MISMATCH
-      ) {
-        debug("Do nothing. Already temporarily disabled!");
-        return callback(false);
-      }
-      callback(true);
-      if (reason < DISABLED_TLS_VERSION_MISMATCH) {
-        config.networkSelectionStatus = NETWORK_SELECTION_TEMPORARY_DISABLED;
-      } else {
-        config.networkSelectionStatus = NETWORK_SELECTION_PERMANENTLY_DISABLED;
-      }
-      config.disableTime = Date.now();
-      config.networkSelectionDisableReason = reason;
-      debug(
-        "Network:" +
-          config.ssid +
-          "Configure new status:" +
-          config.networkSelectionStatus +
-          " with reason:" +
-          config.networkSelectionDisableReason +
-          " at: " +
-          config.disableTime
-      );
+      return callback(false);
     }
+
+    if (isNetworkPermanentlyDisabled(config)) {
+      debug("Do nothing. Alreay permanent disabled!");
+      return callback(false);
+    } else if (
+      isNetworkTemporaryDisabled(config) &&
+      reason < DISABLED_TLS_VERSION_MISMATCH
+    ) {
+      debug("Do nothing. Already temporarily disabled!");
+      return callback(false);
+    }
+    if (reason < DISABLED_TLS_VERSION_MISMATCH) {
+      config.networkSelectionStatus = NETWORK_SELECTION_TEMPORARY_DISABLED;
+    } else {
+      config.networkSelectionStatus = NETWORK_SELECTION_PERMANENTLY_DISABLED;
+    }
+    config.disableTime = Date.now();
+    config.networkSelectionDisableReason = reason;
+    debug(
+      "Network:" +
+        config.ssid +
+        "Configure new status:" +
+        config.networkSelectionStatus +
+        " with reason:" +
+        config.networkSelectionDisableReason +
+        " at: " +
+        config.disableTime
+    );
+    return callback(true);
   }
 
   function clearDisableReasonCounter(networkKey) {
@@ -280,35 +263,28 @@ this.WifiConfigManager = (function() {
       : config.networkSelectionStatus == NETWORK_SELECTION_TEMPORARY_DISABLED;
   }
 
-  function isNetworkEnabled(config) {
-    return config.networkSelectionStatus == null
-      ? true
-      : config.networkSelectionStatus == NETWORK_SELECTION_ENABLED;
-  }
-
   function getLastSelectedTimeStamp() {
     return lastUserSelectedNetworkTimeStamp;
   }
 
-  function getLastSelectedConfiguration() {
-    return lastUserSelectedNetwork;
+  function getLastSelectedNetwork() {
+    return lastUserSelectedNetworkId;
   }
 
-  function setAndEnableLastSelectedConfiguration(netId, callback) {
-    debug("setAndEnableLastSelectedConfiguration " + netId);
-    if (netId === INVALID_NETWORK_ID) {
-      lastUserSelectedNetwork = null;
-      lastUserSelectedNetworkTimeStamp = 0;
-      callback(false);
-    } else {
-      lastUserSelectedNetwork = netId;
-      lastUserSelectedNetworkTimeStamp = Date.now();
-      updateNetworkSelectionStatus(netId, NETWORK_SELECTION_ENABLE, callback);
-    }
+  function clearLastSelectedNetwork() {
+    lastUserSelectedNetworkId = INVALID_NETWORK_ID;
+    lastUserSelectedNetworkTimeStamp = INVALID_TIME_STAMP;
   }
 
-  function isLastSelectedConfiguration(netId) {
-    return lastUserSelectedNetwork == netId;
+  function updateLastSelectedNetwork(netId, callback) {
+    debug("updateLastSelectedNetwork " + netId);
+    lastUserSelectedNetworkId = netId;
+    lastUserSelectedNetworkTimeStamp = Date.now();
+    updateNetworkSelectionStatus(netId, NETWORK_SELECTION_ENABLE, callback);
+  }
+
+  function isLastSelectedNetwork(netId) {
+    return lastUserSelectedNetworkId == netId;
   }
 
   function tryEnableQualifiedNetwork(configuredNetworks) {
@@ -323,30 +299,52 @@ this.WifiConfigManager = (function() {
               configuredNetworks[i].networkSelectionDisableReason
             ]
         ) {
-          configuredNetworks[i].networkSelectionStatus = NETWORK_SELECTION_ENABLED;
-          configuredNetworks[i].networkSelectionDisableReason = NETWORK_SELECTION_ENABLE;
-          configuredNetworks[i].disableTime = INVALID_TIME_STAMP;
-          configuredNetworks[i].networkSeclectionDisableCounter = Array(
-            NETWORK_SELECTION_DISABLED_MAX
-          ).fill(0);
+          updateNetworkSelectionStatus(
+            configuredNetworks[i].netId,
+            NETWORK_SELECTION_ENABLE,
+            function() {}
+          );
         }
       }
     }
   }
 
-  function getNetworkConfiguration(config, callback) {
+  function setEverConnected(config, everConnected) {
     let networkKey = WifiConfigUtils.getNetworkKey(config);
     if (networkKey in configuredNetworks) {
-      return callback(configuredNetworks[networkKey]);
+      configuredNetworks[networkKey].hasEverConnected = everConnected;
+    }
+  }
+
+  function getNetworkConfiguration(netId, callback) {
+    if (netId === INVALID_NETWORK_ID) {
+      return callback(null);
     }
     // incoming config may not have entire security field
     // also check id in configured networks
     for (let net in configuredNetworks) {
-      if (config.netId == configuredNetworks[net].netId) {
+      if (netId == configuredNetworks[net].netId) {
         return callback(configuredNetworks[net]);
       }
     }
-    callback(null);
+    return callback(null);
+  }
+
+  function fetchNetworkConfiguration(config, callback) {
+    getNetworkConfiguration(config.netId, function(network) {
+      // must make sure the netId is in configuredNetworks.
+      if (network == null) {
+        return callback(null);
+      }
+
+      for (let field in network) {
+        if (config[field]) {
+          continue;
+        }
+        config[field] = network[field];
+      }
+      return callback(config);
+    });
   }
 
   function getHiddenNetworks() {
@@ -385,9 +383,8 @@ this.WifiConfigManager = (function() {
       configuredNetworks[networkKey] = config;
     }
 
-    saveToStore(configuredNetworks, function() {
-      callback(true);
-    });
+    saveToStore(configuredNetworks, function() {});
+    return callback(true);
   }
 
   function removeNetwork(networkId, callback) {
@@ -405,6 +402,23 @@ this.WifiConfigManager = (function() {
     }
     debug("Network " + networkId + " is not in the list");
     return callback(false);
+  }
+
+  function clearCurrentConfigBssid(netId, callback) {
+    getNetworkConfiguration(netId, function(network) {
+      if (network == null) {
+        return callback(false);
+      }
+      let networkKey = WifiConfigUtils.getNetworkKey(network);
+
+      if (networkKey in configuredNetworks) {
+        configuredNetworks[networkKey].bssid = SUPPLICANT_BSSID_ANY;
+        saveToStore(configuredNetworks, function() {
+          return callback(true);
+        });
+      }
+      return callback(false);
+    });
   }
 
   function loadFromStore() {

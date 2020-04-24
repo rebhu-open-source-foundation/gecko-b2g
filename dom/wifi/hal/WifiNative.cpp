@@ -43,8 +43,8 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
   } else if (aOptions.mCmd == nsIWifiCommand::GET_MODULE_VERSION) {
     aResult->mStatus =
         GetDriverModuleInfo(aResult->mDriverVersion, aResult->mFirmwareVersion);
-  } else if (aOptions.mCmd == nsIWifiCommand::GET_CAPABILITIES) {
-    aResult->mStatus = GetCapabilities(aResult->mCapabilities);
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_SUPPORTED_FEATURES) {
+    aResult->mStatus = GetSupportedFeatures(aResult->mSupportedFeatures);
   } else if (aOptions.mCmd == nsIWifiCommand::SET_LOW_LATENCY_MODE) {
     aResult->mStatus = SetLowLatencyMode(aOptions.mEnabled);
   } else if (aOptions.mCmd == nsIWifiCommand::SET_CONCURRENCY_PRIORITY) {
@@ -57,8 +57,6 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = GetMacAddress(aResult->mMacAddress);
   } else if (aOptions.mCmd == nsIWifiCommand::GET_STA_IFACE) {
     aResult->mStatus = GetClientInterfaceName(aResult->mStaInterface);
-  } else if (aOptions.mCmd == nsIWifiCommand::GET_STA_CAPABILITIES) {
-    aResult->mStatus = GetStaCapabilities(aResult->mStaCapabilities);
   } else if (aOptions.mCmd == nsIWifiCommand::GET_DEBUG_LEVEL) {
     aResult->mStatus = GetDebugLevel(aResult->mDebugLevel);
   } else if (aOptions.mCmd == nsIWifiCommand::SET_DEBUG_LEVEL) {
@@ -132,6 +130,10 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
       }
       aResult->updateSignalPoll(pollArray);
     }
+  } else if (aOptions.mCmd == nsIWifiCommand::SET_FIRMWARE_ROAMING) {
+    aResult->mStatus = SetFirmwareRoaming(aOptions.mEnabled);
+  } else if (aOptions.mCmd == nsIWifiCommand::CONFIG_FIRMWARE_ROAMING) {
+    aResult->mStatus = ConfigureFirmwareRoaming(&aOptions.mRoamingConfig);
   } else if (aOptions.mCmd == nsIWifiCommand::START_SINGLE_SCAN) {
     aResult->mStatus = StartSingleScan(&aOptions.mScanSettings);
   } else if (aOptions.mCmd == nsIWifiCommand::STOP_SINGLE_SCAN) {
@@ -200,8 +202,14 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = Reassociate();
   } else if (aOptions.mCmd == nsIWifiCommand::DISCONNECT) {
     aResult->mStatus = Disconnect();
+  } else if (aOptions.mCmd == nsIWifiCommand::ENABLE_NETWORK) {
+    aResult->mStatus = EnableNetwork();
+  } else if (aOptions.mCmd == nsIWifiCommand::DISABLE_NETWORK) {
+    aResult->mStatus = DisableNetwork();
   } else if (aOptions.mCmd == nsIWifiCommand::REMOVE_NETWORKS) {
     aResult->mStatus = RemoveNetworks();
+  } else if (aOptions.mCmd == nsIWifiCommand::START_ROAMING) {
+    aResult->mStatus = StartRoaming(&aOptions.mConfig);
   } else if (aOptions.mCmd == nsIWifiCommand::START_SOFTAP) {
     aResult->mStatus =
         StartSoftAp(&aOptions.mSoftapConfig, aResult->mApInterface);
@@ -261,8 +269,8 @@ Result_t WifiNative::InitHal() {
 
 Result_t WifiNative::DeinitHal() { return nsIWifiResult::SUCCESS; }
 
-Result_t WifiNative::GetCapabilities(uint32_t& aCapabilities) {
-  return s_WifiHal->GetCapabilities(aCapabilities);
+Result_t WifiNative::GetSupportedFeatures(uint32_t& aSupportedFeatures) {
+  return s_WifiHal->GetSupportedFeatures(aSupportedFeatures);
 }
 
 Result_t WifiNative::GetDriverModuleInfo(nsAString& aDriverVersion,
@@ -470,10 +478,6 @@ Result_t WifiNative::GetSoftApInterfaceName(nsAString& aIfaceName) {
   return CHECK_SUCCESS(aIfaceName.Length() > 0);
 }
 
-Result_t WifiNative::GetStaCapabilities(uint32_t& aStaCapabilities) {
-  return s_WifiHal->GetStaCapabilities(aStaCapabilities);
-}
-
 Result_t WifiNative::GetDebugLevel(uint32_t& aLevel) {
   return s_SupplicantStaManager->GetSupplicantDebugLevel(aLevel);
 }
@@ -518,6 +522,15 @@ Result_t WifiNative::GetLinkLayerStats(
 Result_t WifiNative::SetCountryCode(const nsAString& aCountryCode) {
   std::string countryCode = NS_ConvertUTF16toUTF8(aCountryCode).get();
   return s_SupplicantStaManager->SetCountryCode(countryCode);
+}
+
+Result_t WifiNative::SetFirmwareRoaming(bool aEnable) {
+  return s_WifiHal->SetFirmwareRoaming(aEnable);
+}
+
+Result_t WifiNative::ConfigureFirmwareRoaming(
+    RoamingConfigurationOptions* aRoamingConfig) {
+  return s_WifiHal->ConfigureFirmwareRoaming(aRoamingConfig);
 }
 
 Result_t WifiNative::StartSingleScan(ScanSettingsOptions* aScanSettings) {
@@ -583,11 +596,30 @@ Result_t WifiNative::Disconnect() {
   return s_SupplicantStaManager->Disconnect();
 }
 
+Result_t WifiNative::EnableNetwork() {
+  return s_SupplicantStaManager->EnableNetwork();
+}
+
+Result_t WifiNative::DisableNetwork() {
+  return s_SupplicantStaManager->DisableNetwork();
+}
+
 /**
  * To remove all configured networks in supplicant
  */
 Result_t WifiNative::RemoveNetworks() {
   return s_SupplicantStaManager->RemoveNetworks();
+}
+
+Result_t WifiNative::StartRoaming(ConfigurationOptions* aConfig) {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = s_SupplicantStaManager->RoamToNetwork(aConfig);
+  if (result != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Roam to %s failed",
+              NS_ConvertUTF16toUTF8(aConfig->mSsid).get());
+  }
+  return result;
 }
 
 /**

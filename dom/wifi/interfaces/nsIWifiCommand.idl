@@ -7,12 +7,15 @@
 
 interface nsIWifiConfiguration;
 
+/**
+ * The interface define all possible actions to control wifi hal.
+ */
 [scriptable, uuid(10725208-151e-4c4c-a055-a067b8462f2a)]
 interface nsIWifiCommand: nsISupports
 {
   /** Module configuration */
   const unsigned long INITIALIZE                  = 0x0;
-  const unsigned long GET_CAPABILITIES            = 0x1;
+  const unsigned long GET_SUPPORTED_FEATURES      = 0x1;
   const unsigned long GET_MODULE_VERSION          = 0x2;
   const unsigned long GET_DEBUG_LEVEL             = 0x3;
   const unsigned long SET_DEBUG_LEVEL             = 0x4;
@@ -25,16 +28,17 @@ interface nsIWifiCommand: nsISupports
   const unsigned long STOP_WIFI                   = 0x1001;
   const unsigned long GET_MAC_ADDRESS             = 0x1002;
   const unsigned long GET_STA_IFACE               = 0x1003;
-  const unsigned long GET_STA_CAPABILITIES        = 0x1004;
-  const unsigned long SET_POWER_SAVE              = 0x1005;
-  const unsigned long SET_SUSPEND_MODE            = 0x1006;
-  const unsigned long SET_EXTERNAL_SIM            = 0x1007;
-  const unsigned long SET_AUTO_RECONNECT          = 0x1008;
-  const unsigned long SET_COUNTRY_CODE            = 0x1009;
-  const unsigned long SET_BT_COEXIST_MODE         = 0x100a;
-  const unsigned long SET_BT_COEXIST_SCAN_MODE    = 0x100b;
-  const unsigned long GET_LINK_LAYER_STATS        = 0x100c;
-  const unsigned long SIGNAL_POLL                 = 0x100d;
+  const unsigned long SET_POWER_SAVE              = 0x1004;
+  const unsigned long SET_SUSPEND_MODE            = 0x1005;
+  const unsigned long SET_EXTERNAL_SIM            = 0x1006;
+  const unsigned long SET_AUTO_RECONNECT          = 0x1007;
+  const unsigned long SET_COUNTRY_CODE            = 0x1008;
+  const unsigned long SET_BT_COEXIST_MODE         = 0x1009;
+  const unsigned long SET_BT_COEXIST_SCAN_MODE    = 0x100a;
+  const unsigned long GET_LINK_LAYER_STATS        = 0x100b;
+  const unsigned long SIGNAL_POLL                 = 0x100c;
+  const unsigned long SET_FIRMWARE_ROAMING        = 0x100d;
+  const unsigned long CONFIG_FIRMWARE_ROAMING     = 0x100e;
 
   /** Scan */
   const unsigned long START_SINGLE_SCAN           = 0x2000;
@@ -49,9 +53,12 @@ interface nsIWifiCommand: nsISupports
   const unsigned long RECONNECT                   = 0x3001;
   const unsigned long REASSOCIATE                 = 0x3002;
   const unsigned long DISCONNECT                  = 0x3003;
-  const unsigned long REMOVE_NETWORKS             = 0x3004;
-  const unsigned long START_RSSI_MONITORING       = 0x3005;
-  const unsigned long STOP_RSSI_MONITORING        = 0x3006;
+  const unsigned long ENABLE_NETWORK              = 0x3004;
+  const unsigned long DISABLE_NETWORK             = 0x3005;
+  const unsigned long REMOVE_NETWORKS             = 0x3006;
+  const unsigned long START_ROAMING               = 0x3007;
+  const unsigned long START_RSSI_MONITORING       = 0x3008;
+  const unsigned long STOP_RSSI_MONITORING        = 0x3009;
 
   /** Softap mode */
   const unsigned long START_SOFTAP                = 0x4000;
