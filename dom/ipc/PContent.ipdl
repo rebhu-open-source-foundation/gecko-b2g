@@ -14,7 +14,9 @@ include protocol PExternalHelperApp;
 include protocol PHandlerService;
 include protocol PDeviceStorageRequest;
 include protocol PFileDescriptorSet;
+#ifdef MOZ_B2G_FM
 include protocol PFMRadio;
+#endif
 include protocol PHal;
 include protocol PHeapSnapshotTempFileHelper;
 include protocol PProcessHangMonitor;
@@ -309,6 +311,7 @@ struct DeviceStorageLocationInfo {
   nsString appsstorage;
 };
 
+#ifdef MOZ_B2G_FM
 struct FMRadioRequestEnableParams
 {
   double frequency;
@@ -342,6 +345,7 @@ union FMRadioRequestParams
   FMRadioRequestSeekParams;
   FMRadioRequestCancelSeekParams;
 };
+#endif
 
 // Note: Any changes to this structure should also be changed in
 // FileSystemUpdate below.
@@ -568,7 +572,9 @@ nested(upto inside_cpow) sync protocol PContent
     manages PDeviceStorageRequest;
     manages PExternalHelperApp;
     manages PFileDescriptorSet;
+#ifdef MOZ_B2G_FM
     manages PFMRadio;
+#endif
     manages PHal;
     manages PHandlerService;
     manages PHeapSnapshotTempFileHelper;
@@ -1207,7 +1213,9 @@ parent:
 
     async PBluetooth();
 
+#ifdef MOZ_B2G_FM
     async PFMRadio();
+#endif
 
     async PWebrtcGlobal();
 

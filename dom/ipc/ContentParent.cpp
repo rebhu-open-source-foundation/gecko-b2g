@@ -115,7 +115,6 @@
 #include "mozilla/dom/PContentPermissionRequestParent.h"
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
 #include "mozilla/dom/devicestorage/DeviceStorageRequestParent.h"
-#include "mozilla/dom/PFMRadioParent.h"
 #include "mozilla/dom/PPresentationParent.h"
 #include "mozilla/dom/ParentProcessMessageManager.h"
 #include "mozilla/dom/Permissions.h"
@@ -4034,27 +4033,19 @@ mozilla::ipc::IPCResult ContentParent::RecvPBluetoothConstructor(
 #endif
 }
 
-PFMRadioParent* ContentParent::AllocPFMRadioParent() {
 #ifdef MOZ_B2G_FM
+PFMRadioParent* ContentParent::AllocPFMRadioParent() {
   if (!AssertAppProcessPermission(this, "fmradio")) {
     return nullptr;
   }
   return new FMRadioParent();
-#else
-  NS_WARNING("No support for FMRadio on this platform!");
-  return nullptr;
-#endif
 }
 
 bool ContentParent::DeallocPFMRadioParent(PFMRadioParent* aActor) {
-#ifdef MOZ_B2G_FM
   delete aActor;
   return true;
-#else
-  NS_WARNING("No support for FMRadio on this platform!");
-  return false;
-#endif
 }
+#endif
 
 PBenchmarkStorageParent* ContentParent::AllocPBenchmarkStorageParent() {
   return new BenchmarkStorageParent;

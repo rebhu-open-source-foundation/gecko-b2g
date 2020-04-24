@@ -212,6 +212,7 @@ def old_configure_options(*options):
     '--datadir',
     '--enable-b2g-bt',
     '--enable-b2g-camera',
+    '--enable-b2g-fm',
     '--enable-b2g-ril',
     '--enable-cpp-rtti',
     '--enable-crashreporter',
