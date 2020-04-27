@@ -1795,7 +1795,7 @@ MobileConnectionProvider.prototype = {
     }.bind(this));
   },
 
-  getDeviceIdentities: function(aCallback) {
+  getIdentities: function(aCallback) {
     let deviceId = new MobileDeviceIdentities();
     deviceId.imei = this._imei;
     deviceId.imeisv = this._imeisv;
