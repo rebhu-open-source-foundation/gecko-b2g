@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //[Pref="camera.control.face_detection.enabled",
-[Exposed=(Window, Worker), Func="Navigator::HasCameraSupport", LegacyEventInit]
+[Exposed=(Window, Worker), Func="B2G::HasCameraSupport", LegacyEventInit]
 interface CameraFacesDetectedEvent : Event
 {
   constructor(DOMString type, optional CameraFacesDetectedEventInit eventInitDict = {});

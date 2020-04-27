@@ -29,6 +29,9 @@
 #ifdef MOZ_B2G_BT
 #  include "mozilla/dom/bluetooth/BluetoothManager.h"
 #endif
+#ifdef MOZ_B2G_CAMERA
+#  include "DOMCameraManager.h"
+#endif
 #ifndef DISABLE_WIFI
 #  include "mozilla/dom/WifiManagerBinding.h"
 #endif
@@ -73,9 +76,13 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_B2G_BT
   bluetooth::BluetoothManager* GetBluetooth(ErrorResult& aRv);
 #endif
+#ifdef MOZ_B2G_CAMERA
+  nsDOMCameraManager* GetCameras(ErrorResult& aRv);
+#endif
 #ifndef DISABLE_WIFI
   WifiManager* GetWifiManager(ErrorResult& aRv);
 #endif
+  static bool HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal);
   static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
 
   DownloadManager* GetDownloadManager(ErrorResult& aRv);
@@ -106,6 +113,9 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #endif
 #ifdef MOZ_B2G_BT
   RefPtr<bluetooth::BluetoothManager> mBluetooth;
+#endif
+#ifdef MOZ_B2G_CAMERA
+  RefPtr<nsDOMCameraManager> mCameraManager;
 #endif
 #ifndef DISABLE_WIFI
   RefPtr<WifiManager> mWifiManager;

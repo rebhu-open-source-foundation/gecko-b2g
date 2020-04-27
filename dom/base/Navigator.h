@@ -191,7 +191,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<LegacyMozTCPSocket> MozTCPSocket();
   network::Connection* GetConnection(ErrorResult& aRv);
-  nsDOMCameraManager* GetMozCameras(ErrorResult& aRv);
   MediaDevices* GetMediaDevices(ErrorResult& aRv);
 
   void GetGamepads(nsTArray<RefPtr<Gamepad>>& aGamepads, ErrorResult& aRv);
@@ -245,8 +244,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   AddonManager* GetMozAddonManager(ErrorResult& aRv);
 
   // WebIDL helper methods
-  static bool HasCameraSupport(JSContext* /* unused */,
-                               JSObject* aGlobal);
 #ifdef MOZ_NFC
   static bool HasNFCSupport(JSContext* /* unused */, JSObject* aGlobal);
 #endif // MOZ_NFC
@@ -310,7 +307,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 // FIXME
 //  RefPtr<MobileConnectionArray> mMobileConnections;
 #endif
-  RefPtr<nsDOMCameraManager> mCameraManager;
   RefPtr<MediaDevices> mMediaDevices;
   nsTArray<nsWeakPtr> mDeviceStorageStores;
   RefPtr<ServiceWorkerContainer> mServiceWorkerContainer;

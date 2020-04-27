@@ -10,7 +10,7 @@
 #include "nsProxyRelease.h"
 #include "mozilla/dom/CameraManagerBinding.h"
 #include "mozilla/dom/CameraCapabilitiesBinding.h"
-#include "Navigator.h"
+#include "B2G.h"
 #include "CameraCommon.h"
 #include "ICameraControl.h"
 #include "CameraControlListener.h"
@@ -306,7 +306,7 @@ NS_INTERFACE_MAP_END
 bool
 CameraCapabilities::HasSupport(JSContext* aCx, JSObject* aGlobal)
 {
-  return Navigator::HasCameraSupport(aCx, aGlobal);
+  return B2G::HasCameraSupport(aCx, aGlobal);
 }
 
 CameraCapabilities::CameraCapabilities(nsPIDOMWindowInner* aWindow,

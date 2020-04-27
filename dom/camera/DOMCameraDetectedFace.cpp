@@ -3,7 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "DOMCameraDetectedFace.h"
-#include "Navigator.h"
+#include "B2G.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -22,7 +22,7 @@ NS_INTERFACE_MAP_END
 bool
 DOMCameraDetectedFace::HasSupport(JSContext* aCx, JSObject* aGlobal)
 {
-  return Navigator::HasCameraSupport(aCx, aGlobal);
+  return B2G::HasCameraSupport(aCx, aGlobal);
 }
 
 JSObject*

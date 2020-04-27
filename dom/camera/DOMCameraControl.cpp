@@ -20,7 +20,7 @@
 #include "nsIObserverService.h"
 #include "nsIDOMEventListener.h"
 #include "nsIScriptSecurityManager.h"
-#include "Navigator.h"
+#include "B2G.h"
 #include "nsXULAppAPI.h"
 #include "DOMCameraManager.h"
 #include "DOMCameraCapabilities.h"
@@ -118,7 +118,7 @@ NS_IMPL_CYCLE_COLLECTION_INHERITED(nsDOMCameraControl, DOMMediaStream,
 bool
 nsDOMCameraControl::HasSupport(JSContext* aCx, JSObject* aGlobal)
 {
-  return Navigator::HasCameraSupport(aCx, aGlobal);
+  return B2G::HasCameraSupport(aCx, aGlobal);
 }
 
 static nsresult

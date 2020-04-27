@@ -5,7 +5,7 @@
 #include "DOMCameraManager.h"
 #include "nsDebug.h"
 #include "jsapi.h"
-#include "Navigator.h"
+#include "B2G.h"
 #include "nsPIDOMWindow.h"
 #include "mozilla/Services.h"
 #include "nsContentPermissionHelper.h"
@@ -77,7 +77,7 @@ nsDOMCameraManager::GetListOfCameras(nsTArray<nsString>& aList, ErrorResult& aRv
 bool
 nsDOMCameraManager::HasSupport(JSContext* aCx, JSObject* aGlobal)
 {
-  return Navigator::HasCameraSupport(aCx, aGlobal);
+  return B2G::HasCameraSupport(aCx, aGlobal);
 }
 
 /* static */

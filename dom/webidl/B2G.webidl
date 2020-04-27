@@ -80,6 +80,14 @@ partial interface B2G {
 };
 #endif // MOZ_B2G_BT
 
+#ifdef MOZ_B2G_CAMERA
+// nsIDOMB2GCamera
+partial interface B2G {
+  [Throws, Func="B2G::HasCameraSupport"]
+  readonly attribute CameraManager cameras;
+};
+#endif // MOZ_B2G_CAMERA
+
 #ifndef DISABLE_WIFI
 partial interface B2G {
   [Throws, Func="B2G::HasWifiManagerSupport", Exposed=Window]

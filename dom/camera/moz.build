@@ -107,7 +107,7 @@ else:
     ]
 
 LOCAL_INCLUDES += [
-    '../base',
+    '../b2g',
     '../file',
     '/media/libyuv/libyuv/include',
 ]
