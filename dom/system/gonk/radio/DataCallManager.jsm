@@ -352,7 +352,9 @@ DataCallManager.prototype = {
 
     let ddsHandler = this._connectionHandlers[this._dataDefaultClientId];
 
-    this.debug("newIccid=" + ddsHandler.newIccid + ", oldIccid=" + ddsHandler.oldIccid);
+    if (DEBUG){
+      this.debug("newIccid=" + ddsHandler.newIccid + ", oldIccid=" + ddsHandler.oldIccid);
+    }
     if (ddsHandler.newIccid && ddsHandler.oldIccid && (ddsHandler.newIccid === ddsHandler.oldIccid)) {
       let lock = gSettingsService.createLock();
       lock.get("ril.data.apnSettings", this);
@@ -414,7 +416,9 @@ DataCallManager.prototype = {
             let whiteList = gCustomizationInfo.getCustomizedValue(clientId, "mobileSettingWhiteList", []);
             if (whiteList.length > 0) {
               handler.mobileWhiteList = whiteList;
-              this.debug("mobileWhiteList[" + clientId + "]:" + JSON.stringify(handler.mobileWhiteList));
+              if (DEBUG) {
+                this.debug("mobileWhiteList[" + clientId + "]:" + JSON.stringify(handler.mobileWhiteList));
+              }
             }
 
             // Config the setting whitelist value.
@@ -497,7 +501,9 @@ DataCallManager.prototype = {
         let newIccid = ddsHandler.newIccid;
         let oldIccid = ddsHandler.oldIccid;
 
-        this.debug("oldIccid=" + oldIccid + ", newIccid=" + newIccid);
+        if (DEBUG){
+          this.debug("oldIccid=" + oldIccid + ", newIccid=" + newIccid);
+        }
         if (oldIccid && newIccid && (oldIccid === newIccid)) {
           let lock = gSettingsService.createLock();
           lock.get("ril.data.apnSettings", this);
