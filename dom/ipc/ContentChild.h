@@ -794,9 +794,6 @@ class ContentChild final
 
   bool DeallocPIccChild(PIccChild* aActor);
   // MOZ_B2G_RIL_END
-  const nsTArray<RefPtr<BrowsingContextGroup>>& BrowsingContextGroups() const {
-    return mBrowsingContextGroupHolder;
-  }
 
  private:
   static void ForceKillTimerCallback(nsITimer* aTimer, void* aClosure);
@@ -813,22 +810,15 @@ class ContentChild final
 
   virtual void OnChannelReceivedMessage(const Message& aMsg) override;
 
-  mozilla::ipc::IPCResult RecvAttachBrowsingContext(
-      BrowsingContext::IPCInitializer&& aInit);
+  mozilla::ipc::IPCResult RecvCreateBrowsingContext(
+      uint64_t aGroupId, BrowsingContext::IPCInitializer&& aInit);
 
-  mozilla::ipc::IPCResult RecvDetachBrowsingContext(
-      uint64_t aContextId, DetachBrowsingContextResolver&& aResolve);
-
-  mozilla::ipc::IPCResult RecvCacheBrowsingContextChildren(
-      const MaybeDiscarded<BrowsingContext>& aContext);
-
-  mozilla::ipc::IPCResult RecvRestoreBrowsingContextChildren(
+  mozilla::ipc::IPCResult RecvDiscardBrowsingContext(
       const MaybeDiscarded<BrowsingContext>& aContext,
-      const nsTArray<MaybeDiscarded<BrowsingContext>>& aChildren);
+      DiscardBrowsingContextResolver&& aResolve);
 
   mozilla::ipc::IPCResult RecvRegisterBrowsingContextGroup(
-      nsTArray<BrowsingContext::IPCInitializer>&& aInits,
-      nsTArray<WindowContext::IPCInitializer>&& aWindowInits);
+      uint64_t aGroupId, nsTArray<SyncedContextInitializer>&& aInits);
 
   mozilla::ipc::IPCResult RecvWindowClose(
       const MaybeDiscarded<BrowsingContext>& aContext, bool aTrustedCaller);
@@ -885,7 +875,8 @@ class ContentChild final
 
   mozilla::ipc::IPCResult RecvLoadURI(
       const MaybeDiscarded<BrowsingContext>& aContext,
-      nsDocShellLoadState* aLoadState, bool aSetNavigating);
+      nsDocShellLoadState* aLoadState, bool aSetNavigating,
+      LoadURIResolver&& aResolve);
 
   mozilla::ipc::IPCResult RecvInternalLoad(
       const MaybeDiscarded<BrowsingContext>& aContext,
@@ -981,8 +972,6 @@ class ContentChild final
 #endif
 
   uint32_t mNetworkLinkType = 0;
-
-  nsTArray<RefPtr<BrowsingContextGroup>> mBrowsingContextGroupHolder;
 
   // See `BrowsingContext::mEpochs` for an explanation of this field.
   uint64_t mBrowsingContextFieldEpoch = 0;

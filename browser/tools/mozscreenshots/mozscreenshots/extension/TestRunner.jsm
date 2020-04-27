@@ -41,7 +41,7 @@ var TestRunner = {
   currentComboIndex: 0,
   _lastCombo: null,
   _libDir: null,
-  croppingPadding: 10,
+  croppingPadding: 0,
   mochitestScope: null,
 
   init(extensionPath) {
@@ -140,6 +140,9 @@ var TestRunner = {
     Services.prefs.setIntPref("ui.prefersReducedMotion", 1);
 
     let browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
+
+    // Prevent the mouse cursor from causing hover styles or tooltips to appear.
+    browserWindow.windowUtils.disableNonTestMouseEvents(true);
 
     // When being automated through Marionette, Firefox shows a prominent indication
     // in the urlbar and identity block. We don't want this to show when testing browser UI.
@@ -252,6 +255,7 @@ var TestRunner = {
     browserWindow.restore();
     Services.prefs.clearUserPref("ui.caretBlinkTime");
     Services.prefs.clearUserPref("ui.prefersReducedMotion");
+    browserWindow.windowUtils.disableNonTestMouseEvents(false);
   },
 
   // helpers
@@ -285,40 +289,51 @@ var TestRunner = {
     const rects = [];
     // Grab bounding boxes and find the union
     for (let selector of selectors) {
-      let element;
+      let elements;
       // Check for function to find anonymous content
       if (typeof selector == "function") {
-        element = selector();
+        elements = [selector()];
       } else {
-        element = browserWindow.document.querySelector(selector);
+        elements = browserWindow.document.querySelectorAll(selector);
       }
 
-      if (!element) {
+      if (!elements.length) {
         throw new Error(`No element for '${selector}' found.`);
       }
 
-      // Calculate box region, convert to Rect
-      let elementRect = element.getBoundingClientRect();
-      // ownerGlobal doesn't exist in content privileged windows.
-      // eslint-disable-next-line mozilla/use-ownerGlobal
-      let win = element.ownerDocument.defaultView;
-      let rect = new Rect(
-        (win.mozInnerScreenX + elementRect.left) * scale,
-        (win.mozInnerScreenY + elementRect.top) * scale,
-        elementRect.width * scale,
-        elementRect.height * scale
-      );
-      rect.inflateFixed(this.croppingPadding * scale);
-      rect.left = Math.max(rect.left, windowLeft);
-      rect.top = Math.max(rect.top, windowTop);
-      rect.right = Math.min(rect.right, windowLeft + windowWidth);
-      rect.bottom = Math.min(rect.bottom, windowTop + windowHeight);
-      rects.push(rect);
+      for (let element of elements) {
+        // Calculate box region, convert to Rect
+        let elementRect = element.getBoundingClientRect();
+        // ownerGlobal doesn't exist in content privileged windows.
+        // eslint-disable-next-line mozilla/use-ownerGlobal
+        let win = element.ownerDocument.defaultView;
+        let rect = new Rect(
+          (win.mozInnerScreenX + elementRect.left) * scale,
+          (win.mozInnerScreenY + elementRect.top) * scale,
+          elementRect.width * scale,
+          elementRect.height * scale
+        );
+        rect.inflateFixed(this.croppingPadding * scale);
+        rect.left = Math.max(rect.left, windowLeft);
+        rect.top = Math.max(rect.top, windowTop);
+        rect.right = Math.min(rect.right, windowLeft + windowWidth);
+        rect.bottom = Math.min(rect.bottom, windowTop + windowHeight);
 
-      if (!bounds) {
-        bounds = rect;
-      } else {
-        bounds = bounds.union(rect);
+        if (rect.width === 0 && rect.height === 0) {
+          this.mochitestScope.todo(
+            false,
+            `Selector '${selector}' gave a 0x0 rect`
+          );
+          continue;
+        }
+
+        rects.push(rect);
+
+        if (!bounds) {
+          bounds = rect;
+        } else {
+          bounds = bounds.union(rect);
+        }
       }
     }
 

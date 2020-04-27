@@ -314,7 +314,7 @@ class GCRuntime {
   // Check whether to trigger a zone GC after allocating GC cells. During an
   // incremental GC, optionally count |nbytes| towards the threshold for
   // performing the next slice.
-  void maybeAllocTriggerZoneGC(Zone* zone, size_t nbytes = 0);
+  void maybeAllocTriggerZoneGC(Zone* zone);
   // Check whether to trigger a zone GC after malloc memory.
   void maybeMallocTriggerZoneGC(Zone* zone);
   bool maybeMallocTriggerZoneGC(Zone* zone, const HeapSize& heap,
@@ -351,6 +351,32 @@ class GCRuntime {
   void shrinkBuffers();
   void onOutOfMallocMemory();
   void onOutOfMallocMemory(const AutoLockGC& lock);
+
+  Nursery& nursery() { return nursery_.ref(); }
+  gc::StoreBuffer& storeBuffer() { return storeBuffer_.ref(); }
+
+  void minorGC(JS::GCReason reason,
+               gcstats::PhaseKind phase = gcstats::PhaseKind::MINOR_GC)
+      JS_HAZ_GC_CALL;
+  void evictNursery(JS::GCReason reason = JS::GCReason::EVICT_NURSERY) {
+    minorGC(reason, gcstats::PhaseKind::EVICT_NURSERY);
+  }
+
+  void* addressOfNurseryPosition() {
+    return nursery_.refNoCheck().addressOfPosition();
+  }
+  const void* addressOfNurseryCurrentEnd() {
+    return nursery_.refNoCheck().addressOfCurrentEnd();
+  }
+  const void* addressOfStringNurseryCurrentEnd() {
+    return nursery_.refNoCheck().addressOfCurrentStringEnd();
+  }
+  const void* addressOfBigIntNurseryCurrentEnd() {
+    return nursery_.refNoCheck().addressOfCurrentBigIntEnd();
+  }
+  uint32_t* addressOfNurseryAllocCount() {
+    return stats().addressOfAllocsSinceMinorGCNursery();
+  }
 
 #ifdef JS_GC_ZEAL
   const uint32_t* addressOfZealModeBits() { return &zealModeBits.refNoCheck(); }
@@ -678,6 +704,7 @@ class GCRuntime {
                         JS::GCReason reason, AutoGCSession& session);
   MOZ_MUST_USE bool shouldCollectNurseryForSlice(bool nonincrementalByAPI,
                                                  SliceBudget& budget);
+  void collectNursery(JS::GCReason reason, gcstats::PhaseKind phase);
 
   friend class AutoCallGCCallbacks;
   void maybeCallGCCallback(JSGCStatus status, JS::GCReason reason);
@@ -1170,33 +1197,6 @@ class GCRuntime {
  private:
   MainThreadData<Nursery> nursery_;
   MainThreadData<gc::StoreBuffer> storeBuffer_;
-
- public:
-  Nursery& nursery() { return nursery_.ref(); }
-  gc::StoreBuffer& storeBuffer() { return storeBuffer_.ref(); }
-
-  void* addressOfNurseryPosition() {
-    return nursery_.refNoCheck().addressOfPosition();
-  }
-  const void* addressOfNurseryCurrentEnd() {
-    return nursery_.refNoCheck().addressOfCurrentEnd();
-  }
-  const void* addressOfStringNurseryCurrentEnd() {
-    return nursery_.refNoCheck().addressOfCurrentStringEnd();
-  }
-  const void* addressOfBigIntNurseryCurrentEnd() {
-    return nursery_.refNoCheck().addressOfCurrentBigIntEnd();
-  }
-  uint32_t* addressOfNurseryAllocCount() {
-    return stats().addressOfAllocsSinceMinorGCNursery();
-  }
-
-  void minorGC(JS::GCReason reason,
-               gcstats::PhaseKind phase = gcstats::PhaseKind::MINOR_GC)
-      JS_HAZ_GC_CALL;
-  void evictNursery(JS::GCReason reason = JS::GCReason::EVICT_NURSERY) {
-    minorGC(reason, gcstats::PhaseKind::EVICT_NURSERY);
-  }
 
   mozilla::TimeStamp lastLastDitchTime;
 

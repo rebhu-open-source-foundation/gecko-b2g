@@ -82,15 +82,6 @@ NeckoParent::NeckoParent() : mSocketProcessBridgeInited(false) {
   // normal init (during 1st Http channel request) isn't early enough.
   nsCOMPtr<nsIProtocolHandler> proto =
       do_GetService("@mozilla.org/network/protocol;1?name=http");
-
-  // only register once--we will have multiple NeckoParents if there are
-  // multiple child processes.
-  static bool registeredBool = false;
-  if (!registeredBool) {
-    Preferences::AddBoolVarCache(&NeckoCommonInternal::gSecurityDisabled,
-                                 "network.disable.ipc.security");
-    registeredBool = true;
-  }
 }
 
 static PBOverrideStatus PBOverrideStatusFromLoadContext(
@@ -254,7 +245,7 @@ const char* NeckoParent::CreateChannelLoadContext(
         break;
       }
       case PBrowserOrId::TTabId: {
-        aResult = new LoadContext(aSerialized, aBrowser.get_TabId(), attrs);
+        aResult = new LoadContext(aSerialized, nullptr, attrs);
         break;
       }
       default:
@@ -409,43 +400,15 @@ mozilla::ipc::IPCResult NeckoParent::RecvPFTPChannelConstructor(
 
 already_AddRefed<PDocumentChannelParent>
 NeckoParent::AllocPDocumentChannelParent(
-    PBrowserParent* aBrowser, const MaybeDiscarded<BrowsingContext>& aContext,
-    const SerializedLoadContext& aSerialized,
+    const MaybeDiscarded<BrowsingContext>& aContext,
     const DocumentChannelCreationArgs& args) {
-  // We still create the actor even if the BrowsingContext isn't available,
-  // so that we can send the reject message using it from
-  // RecvPDocumentChannelConstructor
-  CanonicalBrowsingContext* context = nullptr;
-  if (!aContext.IsNullOrDiscarded()) {
-    context = aContext.get_canonical();
-  }
-
-  nsCOMPtr<nsIPrincipal> requestingPrincipal;
-  // We only have the requesting principal in case of TYPE_SUBDOCUMENT.
-  // If we don't have an embedder window global, then it is probably a race and
-  // we will deal with that later in the code path.
-  if (context && !aContext.IsDiscarded() && context->GetParent()) {
-    if (RefPtr<WindowGlobalParent> embedderWGP =
-            context->GetParentWindowGlobal()) {
-      requestingPrincipal = embedderWGP->DocumentPrincipal();
-    }
-  }
-
-  nsCOMPtr<nsILoadContext> loadContext;
-  const char* error = CreateChannelLoadContext(
-      aBrowser, Manager(), aSerialized, requestingPrincipal, loadContext);
-  if (error) {
-    return nullptr;
-  }
-  RefPtr<DocumentChannelParent> p =
-      new DocumentChannelParent(context, loadContext);
+  RefPtr<DocumentChannelParent> p = new DocumentChannelParent();
   return p.forget();
 }
 
 mozilla::ipc::IPCResult NeckoParent::RecvPDocumentChannelConstructor(
-    PDocumentChannelParent* aActor, PBrowserParent* aBrowser,
+    PDocumentChannelParent* aActor,
     const MaybeDiscarded<BrowsingContext>& aContext,
-    const SerializedLoadContext& aSerialized,
     const DocumentChannelCreationArgs& aArgs) {
   DocumentChannelParent* p = static_cast<DocumentChannelParent*>(aActor);
 
@@ -454,7 +417,7 @@ mozilla::ipc::IPCResult NeckoParent::RecvPDocumentChannelConstructor(
     return IPC_OK();
   }
 
-  if (!p->Init(aArgs)) {
+  if (!p->Init(aContext.get_canonical(), aArgs)) {
     return IPC_FAIL_NO_REASON(this);
   }
   return IPC_OK();

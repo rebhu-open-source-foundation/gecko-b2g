@@ -989,6 +989,13 @@
   value: false
   mirror: always
 
+# If set, use DocumentChannel to directly initiate loads from
+# parent-process BrowsingContexts
+- name: browser.tabs.documentchannel.parent-initiated
+  type: bool
+  value: false 
+  mirror: always
+
 - name: browser.tabs.remote.desktopbehavior
   type: bool
   value: false
@@ -3207,7 +3214,7 @@
 
 - name: dom.window.content.untrusted.enabled
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: dom.worker.canceling.timeoutMilliseconds
@@ -3329,6 +3336,12 @@
   value: false
   mirror: always
 - name: editor.positioning.enabled_by_default
+  type: bool
+  value: false
+  mirror: always
+
+# Whether user pastes should be truncated.
+- name: editor.truncate_user_pastes
   type: bool
   value: false
   mirror: always
@@ -4278,6 +4291,23 @@
 - name: gfx.webrender.use-optimized-shaders
   type: bool
   value: true
+  mirror: once
+
+# When gl debug message is a high severity message, forwward it to gfx critical
+# note.
+- name: gfx.webrender.gl-debug-message-critical-note
+  type: bool
+#if defined(XP_WIN) && defined(NIGHTLY_BUILD)
+  value: true
+#else
+  value: false
+#endif
+  mirror: once
+
+# Enable printing gl debug messages
+- name: gfx.webrender.gl-debug-message-print
+  type: bool
+  value: false
   mirror: once
 
 #ifdef NIGHTLY_BUILD

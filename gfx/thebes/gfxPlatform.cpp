@@ -2952,9 +2952,9 @@ static FeatureState& WebRenderHardwareQualificationStatus(
     bool hasBattery = false;
     gfxInfo->GetHasBattery(&hasBattery);
     if (hasBattery && !gfxConfig::IsEnabled(Feature::WEBRENDER_COMPOSITOR)) {
-      featureWebRenderQualified.Disable(FeatureStatus::Blocked,
-        "Battery Intel requires os compositor",
-        NS_LITERAL_CSTRING("INTEL_BATTERY_REQUIRES_DCOMP"));
+      featureWebRenderQualified.Disable(
+          FeatureStatus::Blocked, "Battery Intel requires os compositor",
+          NS_LITERAL_CSTRING("INTEL_BATTERY_REQUIRES_DCOMP"));
     }
   }
 #endif
@@ -3091,7 +3091,8 @@ void gfxPlatform::InitWebRenderConfig() {
   }
 
   if (StaticPrefs::gfx_webrender_use_optimized_shaders_AtStartup()) {
-    gfxVars::SetUseWebRenderOptimizedShaders(gfxConfig::IsEnabled(Feature::WEBRENDER));
+    gfxVars::SetUseWebRenderOptimizedShaders(
+        gfxConfig::IsEnabled(Feature::WEBRENDER));
   }
 
   if (Preferences::GetBool("gfx.webrender.software", false)) {

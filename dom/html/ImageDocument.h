@@ -31,8 +31,7 @@ class ImageDocument final : public MediaDocument,
   nsresult Init() override;
 
   nsresult StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
-                             nsILoadGroup* aLoadGroup,
-                             nsISupports* aContainer,
+                             nsILoadGroup* aLoadGroup, nsISupports* aContainer,
                              nsIStreamListener** aDocListener,
                              bool aReset = true,
                              nsIContentSink* aSink = nullptr) override;
@@ -93,9 +92,7 @@ class ImageDocument final : public MediaDocument,
 
   void ResetZoomLevel();
   float GetZoomLevel();
-#if defined(MOZ_WIDGET_ANDROID)
   float GetResolution();
-#endif
 
   void UpdateSizeFromLayout();
 
@@ -131,9 +128,7 @@ class ImageDocument final : public MediaDocument,
   bool mHasCustomTitle;
 
   float mOriginalZoomLevel;
-#if defined(MOZ_WIDGET_ANDROID)
   float mOriginalResolution;
-#endif
 };
 
 }  // namespace dom
