@@ -66,7 +66,7 @@ static PRTime GetTimestamp() { return PR_Now() / 1000; }
 static TraceInfo* AllocTraceInfo(int aTid) {
   sMutex.AssertCurrentThreadOwns();
   MOZ_ASSERT(sTraceInfos);
-  auto* info = sTraceInfos->AppendElement(MakeUnique<TraceInfo>(aTid));
+  auto info = sTraceInfos->AppendElement(MakeUnique<TraceInfo>(aTid));
 
   return info->get();
 }
