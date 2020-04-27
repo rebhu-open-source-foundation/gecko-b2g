@@ -90,7 +90,6 @@
 #include "mozilla/dom/BrowsingContextGroup.h"
 #include "mozilla/dom/CancelContentJSOptionsBinding.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
-#include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
 #include "mozilla/dom/ClientManager.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/ContentMediaController.h"
@@ -103,16 +102,12 @@
 #include "mozilla/dom/GeolocationBinding.h"
 #include "mozilla/dom/GeolocationPositionError.h"
 #include "mozilla/dom/GetFilesHelper.h"
-#include "mozilla/dom/icc/IccParent.h"
 #include "mozilla/dom/IPCBlobInputStreamParent.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/JSWindowActorService.h"
 #include "mozilla/dom/LocalStorageCommon.h"
 #include "mozilla/dom/MediaController.h"
 #include "mozilla/dom/MemoryReportRequest.h"
-#include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
-#include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
-// #include "mozilla/dom/mobilemessage/SmsParent.h"
 #include "mozilla/dom/MediaSessionUtils.h"
 #include "mozilla/dom/Notification.h"
 #include "mozilla/dom/PContentPermissionRequestParent.h"
@@ -131,8 +126,6 @@
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/StorageIPC.h"
-#include "mozilla/dom/subsidylock/SubsidyLockParent.h"
-#include "mozilla/dom/telephony/TelephonyParent.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/WindowGlobalParent.h"
@@ -142,7 +135,6 @@
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/quota/QuotaManagerService.h"
-#include "mozilla/dom/voicemail/VoicemailParent.h"
 #include "mozilla/embedding/printingui/PrintingParent.h"
 #include "mozilla/extensions/StreamFilterParent.h"
 #include "mozilla/gfx/GPUProcessManager.h"
@@ -255,6 +247,17 @@
 #include "xpcpublic.h"
 #include "nsOpenWindowInfo.h"
 
+#ifdef MOZ_B2G_RIL
+#include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
+#include "mozilla/dom/icc/IccParent.h"
+#include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
+#include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
+// #include "mozilla/dom/mobilemessage/SmsParent.h"
+#include "mozilla/dom/subsidylock/SubsidyLockParent.h"
+#include "mozilla/dom/telephony/TelephonyParent.h"
+#include "mozilla/dom/voicemail/VoicemailParent.h"
+#endif // MOZ_B2G_RIL
+
 #ifdef MOZ_WEBRTC
 #  include "signaling/src/peerconnection/WebrtcGlobalParent.h"
 #endif
@@ -356,17 +359,20 @@ static NS_DEFINE_CID(kCClipboardCID, NS_CLIPBOARD_CID);
 
 using base::KillProcess;
 
-using namespace CrashReporter;
-using namespace mozilla::dom::bluetooth;
-using namespace mozilla::dom::cellbroadcast;
-using namespace mozilla::dom::devicestorage;
+#ifdef MOZ_B2G_RIL
 using namespace mozilla::dom::icc;
-using namespace mozilla::dom::power;
+using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::mobileconnection;
 // using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
 using namespace mozilla::dom::subsidylock;
+#endif // MOZ_B2G_RIL
+
+using namespace CrashReporter;
+using namespace mozilla::dom::bluetooth;
+using namespace mozilla::dom::devicestorage;
+using namespace mozilla::dom::power;
 using namespace mozilla::media;
 using namespace mozilla::embedding;
 using namespace mozilla::gfx;
@@ -3712,23 +3718,16 @@ bool ContentParent::DeallocPTestShellParent(PTestShellParent* shell) {
   return true;
 }
 
+#ifdef MOZ_B2G_RIL
 PMobileConnectionParent* ContentParent::AllocPMobileConnectionParent(
     const uint32_t& aClientId) {
-#ifdef MOZ_B2G_RIL
   return new mozilla::dom::mobileconnection::MobileConnectionParent(aClientId);
-#else
-  MOZ_CRASH("No support for mobileconnection on this platform!");
-#endif
 }
 
 bool ContentParent::DeallocPMobileConnectionParent(
     PMobileConnectionParent* aActor) {
-#ifdef MOZ_B2G_RIL
   delete aActor;
   return true;
-#else
-  MOZ_CRASH("No support for mobileconnection on this platform!");
-#endif
 }
 
 PImsRegServiceFinderParent* ContentParent::AllocPImsRegServiceFinderParent() {
@@ -3761,6 +3760,103 @@ bool ContentParent::DeallocPImsRegistrationParent(
   delete aActor;
   return true;
 }
+
+PTelephonyParent* ContentParent::AllocPTelephonyParent() {
+  // if (!AssertAppProcessPermission(this, "telephony")) {
+  //  return nullptr;
+  //}
+
+  return new mozilla::dom::telephony::TelephonyParent();
+}
+
+bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
+  delete aActor;
+  return true;
+}
+
+PVoicemailParent*
+ContentParent::AllocPVoicemailParent()
+{
+  /*if (!AssertAppProcessPermission(this, "voicemail")) {
+    return nullptr;
+  }*/
+
+  return new mozilla::dom::voicemail::VoicemailParent();
+}
+
+mozilla::ipc::IPCResult
+ContentParent::RecvPVoicemailConstructor(PVoicemailParent* aActor)
+{
+  return static_cast<VoicemailParent*>(aActor)->Init();
+}
+
+bool
+ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor)
+{
+  delete aActor;
+  return true;
+}
+
+PIccParent* ContentParent::AllocPIccParent(const uint32_t& aServiceId) {
+  // if (!AssertAppProcessPermission(this, "mobileconnection")) {
+  //   return nullptr;
+  // }
+  return new mozilla::dom::icc::IccParent(aServiceId);
+}
+
+bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
+  delete aActor;
+  return true;
+}
+
+PSubsidyLockParent* ContentParent::AllocPSubsidyLockParent(
+    const uint32_t& aClientId) {
+  return new SubsidyLockParent(aClientId);
+}
+
+bool ContentParent::DeallocPSubsidyLockParent(PSubsidyLockParent* aActor) {
+  delete aActor;
+  return true;
+}
+
+PCellBroadcastParent* ContentParent::AllocPCellBroadcastParent() {
+  // if (!AssertAppProcessPermission(this, "cellbroadcast")) {
+  //   return nullptr;
+  // }
+
+  return new mozilla::dom::cellbroadcast::CellBroadcastParent();
+}
+
+bool ContentParent::DeallocPCellBroadcastParent(PCellBroadcastParent* aActor) {
+  delete aActor;
+  return true;
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvPCellBroadcastConstructor(
+    PCellBroadcastParent* aActor) {
+  return static_cast<CellBroadcastParent*>(aActor)->Init();
+}
+
+// PSmsParent*
+// ContentParent::AllocPSmsParent()
+// {
+//   if (!AssertAppProcessPermission(this, "sms")) {
+//     return nullptr;
+//   }
+
+//   SmsParent* parent = new SmsParent();
+//   parent->AddRef();
+//   return parent;
+// }
+
+// bool
+// ContentParent::DeallocPSmsParent(PSmsParent* aSms)
+// {
+//   static_cast<SmsParent*>(aSms)->Release();
+//   return true;
+// }
+
+#endif // MOZ_B2G_RIL
 
 PScriptCacheParent* ContentParent::AllocPScriptCacheParent(
     const FileDescOrError& cacheFile, const bool& wantCacheData) {
@@ -3874,40 +3970,6 @@ ContentParent::AllocPExternalHelperAppParent(
       uri, aContentLength, aWasFileChannel, aContentDisposition,
       aContentDispositionHint, aContentDispositionFilename);
   return parent.forget();
-}
-
-PTelephonyParent* ContentParent::AllocPTelephonyParent() {
-  // if (!AssertAppProcessPermission(this, "telephony")) {
-  //  return nullptr;
-  //}
-  return new mozilla::dom::telephony::TelephonyParent();
-}
-
-bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
-  delete aActor;
-  return true;
-}
-
-PVoicemailParent*
-ContentParent::AllocPVoicemailParent()
-{
-  /*if (!AssertAppProcessPermission(this, "voicemail")) {
-    return nullptr;
-  }*/
-  return new mozilla::dom::voicemail::VoicemailParent();
-}
-
-mozilla::ipc::IPCResult
-ContentParent::RecvPVoicemailConstructor(PVoicemailParent* aActor)
-{
-  return static_cast<VoicemailParent*>(aActor)->Init();
-}
-
-bool
-ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor)
-{
-  delete aActor;
-  return true;
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPExternalHelperAppConstructor(
@@ -4024,75 +4086,6 @@ mozilla::ipc::IPCResult ContentParent::RecvPSpeechSynthesisConstructor(
   return IPC_OK();
 }
 #endif
-
-// MOZ_B2G_RIL
-PIccParent* ContentParent::AllocPIccParent(const uint32_t& aServiceId) {
-  // if (!AssertAppProcessPermission(this, "mobileconnection")) {
-  //   return nullptr;
-  // }
-  return new mozilla::dom::icc::IccParent(aServiceId);
-}
-
-bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
-  // IccParent is refcounted, must not be freed manually.
-  delete aActor;
-  return true;
-}
-
-PSubsidyLockParent* ContentParent::AllocPSubsidyLockParent(
-    const uint32_t& aClientId) {
-#ifdef MOZ_B2G_RIL
-  return new mozilla::dom::subsidylock::SubsidyLockParent(aClientId);
-#else
-  MOZ_CRASH("No support for subsidylock on this platform!");
-#endif
-}
-
-bool ContentParent::DeallocPSubsidyLockParent(PSubsidyLockParent* aActor) {
-#ifdef MOZ_B2G_RIL
-  delete aActor;
-  return true;
-#else
-  MOZ_CRASH("No support for subsidylock on this platform!");
-#endif
-}
-
-PCellBroadcastParent* ContentParent::AllocPCellBroadcastParent() {
-  // if (!AssertAppProcessPermission(this, "cellbroadcast")) {
-  //   return nullptr;
-  // }
-  return new mozilla::dom::cellbroadcast::CellBroadcastParent();
-}
-
-bool ContentParent::DeallocPCellBroadcastParent(PCellBroadcastParent* aActor) {
-  delete aActor;
-  return true;
-}
-
-mozilla::ipc::IPCResult ContentParent::RecvPCellBroadcastConstructor(
-    PCellBroadcastParent* aActor) {
-  return static_cast<CellBroadcastParent*>(aActor)->Init();
-}
-
-// PSmsParent*
-// ContentParent::AllocPSmsParent()
-// {
-//   if (!AssertAppProcessPermission(this, "sms")) {
-//     return nullptr;
-//   }
-
-//   SmsParent* parent = new SmsParent();
-//   parent->AddRef();
-//   return parent;
-// }
-
-// bool
-// ContentParent::DeallocPSmsParent(PSmsParent* aSms)
-// {
-//   static_cast<SmsParent*>(aSms)->Release();
-//   return true;
-// }
-// MOZ_B2G_RIL_END
 
 PSystemMessageServiceParent* ContentParent::AllocPSystemMessageServiceParent() {
   RefPtr<SystemMessageServiceParent> actor = new SystemMessageServiceParent();

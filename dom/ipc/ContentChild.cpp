@@ -260,16 +260,21 @@
 #endif
 
 #include "mozilla/dom/File.h"
+#ifdef MOZ_B2G_RIL
 #include "mozilla/dom/cellbroadcast/CellBroadcastChild.h"
 #include "mozilla/dom/icc/IccChild.h"
 #include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
 #include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
 //#include "mozilla/dom/mobilemessage/SmsChild.h"
+#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
+#include "mozilla/dom/telephony/TelephonyChild.h"
+#include "mozilla/dom/voicemail/VoicemailChild.h"
+#endif // MOZ_B2G_RIL
+
 #include "mozilla/dom/devicestorage/DeviceStorageRequestChild.h"
 #include "mozilla/dom/MediaControlKeysEvent.h"
 #include "mozilla/dom/PPresentationChild.h"
 #include "mozilla/dom/PresentationIPCService.h"
-#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
 #include "mozilla/ipc/IPCStreamAlloc.h"
 #include "mozilla/ipc/IPCStreamDestination.h"
 #include "mozilla/ipc/IPCStreamSource.h"
@@ -286,10 +291,8 @@
 #include "nsDeviceStorage.h"
 #include "DomainPolicy.h"
 #include "mozilla/dom/ipc/StructuredCloneData.h"
-#include "mozilla/dom/telephony/TelephonyChild.h"
 #include "mozilla/dom/TabContext.h"
 #include "mozilla/ipc/CrashReporterClient.h"
-#include "mozilla/dom/voicemail/VoicemailChild.h"
 #include "mozilla/net/NeckoMessageUtils.h"
 #include "mozilla/widget/PuppetBidiKeyboard.h"
 #include "mozilla/RemoteSpellCheckEngineChild.h"
@@ -316,8 +319,8 @@ using namespace mozilla::docshell;
 using namespace mozilla::dom::bluetooth;
 using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::ipc;
-// MOZ_B2G_RIL
-//#if define(MOZ_B2G_RIL)
+
+#if defined(MOZ_B2G_RIL)
 using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::icc;
 using namespace mozilla::dom::mobileconnection;
@@ -325,8 +328,8 @@ using namespace mozilla::dom::mobileconnection;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
 using namespace mozilla::dom::subsidylock;
-//#endif
-// MOZ_B2G_RIL_END
+#endif // MOZ_B2G_RIL
+
 using namespace mozilla::media;
 using namespace mozilla::embedding;
 using namespace mozilla::gmp;
@@ -1997,37 +2000,28 @@ bool ContentChild::DeallocPHeapSnapshotTempFileHelperChild(
   delete aHeapSnapshotHelper;
   return true;
 }
+
+#ifdef MOZ_B2G_RIL
 PMobileConnectionChild* ContentChild::SendPMobileConnectionConstructor(
     PMobileConnectionChild* aActor, const uint32_t& aClientId) {
-#ifdef MOZ_B2G_RIL
+
   // Add an extra ref for IPDL. Will be released in
   // ContentChild::DeallocPMobileConnectionChild().
   static_cast<MobileConnectionChild*>(aActor)->AddRef();
   return PContentChild::SendPMobileConnectionConstructor(aActor, aClientId);
-#else
-  MOZ_CRASH("No support for mobileconnection on this platform!");
-#endif
 }
 
 PMobileConnectionChild* ContentChild::AllocPMobileConnectionChild(
     const uint32_t& aClientId) {
-#ifdef MOZ_B2G_RIL
   MOZ_CRASH("No one should be allocating PMobileConnectionChild actors");
   return nullptr;
-#else
-  MOZ_CRASH("No support for mobileconnection on this platform!");
-#endif
 }
 
 bool ContentChild::DeallocPMobileConnectionChild(
     PMobileConnectionChild* aActor) {
-#ifdef MOZ_B2G_RIL
   // MobileConnectionChild is refcounted, must not be freed manually.
   static_cast<MobileConnectionChild*>(aActor)->Release();
   return true;
-#else
-  MOZ_CRASH("No support for mobileconnection on this platform!");
-#endif
 }
 
 PImsRegServiceFinderChild* ContentChild::AllocPImsRegServiceFinderChild() {
@@ -2060,6 +2054,7 @@ bool ContentChild::DeallocPImsRegistrationChild(PImsRegistrationChild* aActor) {
   static_cast<ImsRegistrationChild*>(aActor)->Release();
   return true;
 }
+#endif // MOZ_B2G_RIL
 
 PTestShellChild* ContentChild::AllocPTestShellChild() {
   return new TestShellChild();
@@ -2115,7 +2110,7 @@ bool ContentChild::DeallocPDeviceStorageRequestChild(
   return true;
 }
 
-// MOZ_B2G_RIL
+#ifdef MOZ_B2G_RIL
 PCellBroadcastChild* ContentChild::AllocPCellBroadcastChild() {
   MOZ_CRASH("No one should be allocating PCellBroadcastChild actors");
 }
@@ -2164,37 +2159,24 @@ PSubsidyLockChild*
 ContentChild::SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
                                           const uint32_t& aClientId)
 {
-#ifdef MOZ_B2G_RIL
   // Add an extra ref for IPDL. Will be released in
   // ContentChild::DeallocPSubsidyLockChild().
   static_cast<SubsidyLockChild*>(aActor)->AddRef();
   return PContentChild::SendPSubsidyLockConstructor(aActor, aClientId);
-#else
-  MOZ_CRASH("No support for subsidylock on this platform!");
-#endif
 }
 
 PSubsidyLockChild*
 ContentChild::AllocPSubsidyLockChild(const uint32_t& aClientId)
 {
-#ifdef MOZ_B2G_RIL
   MOZ_CRASH("No one should be allocating PSubsidyLockChild actors");
   return nullptr;
-#else
-  MOZ_CRASH("No support for subsidylock on this platform!");
-#endif
 }
 
 bool
 ContentChild::DeallocPSubsidyLockChild(PSubsidyLockChild* aActor)
 {
-#ifdef MOZ_B2G_RIL
   // SubsidyLockChild is refcounted, must not be freed manually.
   static_cast<SubsidyLockChild*>(aActor)->Release();
-  return true;
-#else
-  MOZ_CRASH("No support for subsidylock on this platform!");
-#endif
 }
 
 PVoicemailChild*
@@ -2239,7 +2221,7 @@ bool ContentChild::DeallocPIccChild(PIccChild* aActor) {
   static_cast<IccChild*>(aActor)->Release();
   return true;
 }
-// MOZ_B2G_RIL_END
+#endif // MOZ_B2G_RIL_END
 
 PNeckoChild* ContentChild::AllocPNeckoChild() { return new NeckoChild(); }
 

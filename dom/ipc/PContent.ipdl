@@ -21,10 +21,7 @@ include protocol PSharedBufferManager;
 include protocol PImageBridge;
 include protocol PIPCBlobInputStream;
 include protocol PLoginReputation;
-include protocol PImsRegServiceFinder;
-include protocol PImsRegistration;
 include protocol PMedia;
-include protocol PMobileConnection;
 include protocol PNecko;
 include protocol PStreamFilter;
 include protocol PGMPContent;
@@ -38,13 +35,18 @@ include protocol POfflineCacheUpdate;
 #ifdef MOZ_WEBSPEECH
 include protocol PSpeechSynthesis;
 #endif
+#ifdef MOZ_B2G_RIL
+include protocol PMobileConnection;
+include protocol PImsRegServiceFinder;
+include protocol PImsRegistration;
 include protocol PCellBroadcast;
 include protocol PIcc;
 //include protocol PSms;
 include protocol PSubsidyLock;
 include protocol PTelephony;
-include protocol PTestShell;
 include protocol PVoicemail;
+#endif
+include protocol PTestShell;
 include protocol PJavaScript;
 include protocol PRemoteSpellcheckEngine;
 include protocol PWebBrowserPersistDocument;
@@ -518,10 +520,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PHandlerService;
     manages PHeapSnapshotTempFileHelper;
     manages PIPCBlobInputStream;
-    manages PImsRegServiceFinder;
-    manages PImsRegistration;
     manages PMedia;
-    manages PMobileConnection;
     manages PNecko;
     manages POfflineCacheUpdate;
     manages PPrinting;
@@ -530,14 +529,18 @@ nested(upto inside_cpow) sync protocol PContent
 #ifdef MOZ_WEBSPEECH
     manages PSpeechSynthesis;
 #endif
+#ifdef MOZ_B2G_RIL
+    manages PMobileConnection;
+    manages PImsRegServiceFinder;
+    manages PImsRegistration;
     manages PCellBroadcast;
     manages PIcc;
     //manages PSms;
     manages PSubsidyLock;
     manages PTelephony;
-    //manages PVoicemail;
-    manages PTestShell;
     manages PVoicemail;
+#endif
+    manages PTestShell;
     manages PJavaScript;
     manages PRemoteSpellcheckEngine;
     manages PWebBrowserPersistDocument;
@@ -1109,12 +1112,6 @@ parent:
 
     async PHeapSnapshotTempFileHelper();
 
-    async PImsRegServiceFinder();
-
-    async PImsRegistration(uint32_t aServiceId);
-
-    async PMobileConnection(uint32_t clientId);
-
     async PNecko();
 
     async PPrinting();
@@ -1124,6 +1121,13 @@ parent:
 #ifdef MOZ_WEBSPEECH
     async PSpeechSynthesis();
 #endif
+
+#ifdef MOZ_B2G_RIL
+    async PImsRegServiceFinder();
+
+    async PImsRegistration(uint32_t aServiceId);
+
+    async PMobileConnection(uint32_t clientId);
 
     async PIcc(uint32_t serviceId);
 
@@ -1136,6 +1140,7 @@ parent:
     async PTelephony();
 
     async PVoicemail();
+#endif
 
     async PMedia();
 

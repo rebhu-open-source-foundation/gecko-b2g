@@ -254,20 +254,6 @@ class ContentChild final
       PScriptCacheChild*, const FileDescOrError& cacheFile,
       const bool& wantCacheData) override;
 
-  PMobileConnectionChild* SendPMobileConnectionConstructor(
-      PMobileConnectionChild* aActor, const uint32_t& aClientId);
-
-  PMobileConnectionChild* AllocPMobileConnectionChild(
-      const uint32_t& aClientId);
-
-  bool DeallocPMobileConnectionChild(PMobileConnectionChild* aActor);
-  PImsRegServiceFinderChild* AllocPImsRegServiceFinderChild();
-  bool DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*);
-
-  PImsRegistrationChild* SendPImsRegistrationConstructor(
-      PImsRegistrationChild* aActor, const uint32_t& aServiceId);
-  PImsRegistrationChild* AllocPImsRegistrationChild(const uint32_t& aServiceId);
-  bool DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
 
   PNeckoChild* AllocPNeckoChild();
 
@@ -276,12 +262,6 @@ class ContentChild final
   PPrintingChild* AllocPPrintingChild();
 
   bool DeallocPPrintingChild(PPrintingChild*);
-
-  PVoicemailChild* AllocPVoicemailChild();
-
-  PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
-
-  bool DeallocPVoicemailChild(PVoicemailChild*);
 
   PChildToParentStreamChild* AllocPChildToParentStreamChild();
   bool DeallocPChildToParentStreamChild(PChildToParentStreamChild*);
@@ -765,7 +745,28 @@ class ContentChild final
   PFileDescriptorSetChild* SendPFileDescriptorSetConstructor(
       const FileDescriptor& aFD) override;
 
-  // MOZ_B2G_RIL
+#ifdef MOZ_B2G_RIL
+  PVoicemailChild* AllocPVoicemailChild();
+
+  PVoicemailChild* SendPVoicemailConstructor(PVoicemailChild* aActor);
+
+  bool DeallocPVoicemailChild(PVoicemailChild*);
+
+  PMobileConnectionChild* SendPMobileConnectionConstructor(
+      PMobileConnectionChild* aActor, const uint32_t& aClientId);
+
+  PMobileConnectionChild* AllocPMobileConnectionChild(
+      const uint32_t& aClientId);
+
+  bool DeallocPMobileConnectionChild(PMobileConnectionChild* aActor);
+  PImsRegServiceFinderChild* AllocPImsRegServiceFinderChild();
+  bool DeallocPImsRegServiceFinderChild(PImsRegServiceFinderChild*);
+
+  PImsRegistrationChild* SendPImsRegistrationConstructor(
+      PImsRegistrationChild* aActor, const uint32_t& aServiceId);
+  PImsRegistrationChild* AllocPImsRegistrationChild(const uint32_t& aServiceId);
+  bool DeallocPImsRegistrationChild(PImsRegistrationChild* aActor);
+
   PCellBroadcastChild* AllocPCellBroadcastChild();
 
   PCellBroadcastChild* SendPCellBroadcastConstructor(
@@ -793,7 +794,7 @@ class ContentChild final
   PIccChild* AllocPIccChild(const uint32_t& aClientId);
 
   bool DeallocPIccChild(PIccChild* aActor);
-  // MOZ_B2G_RIL_END
+  #endif // MOZ_B2G_RIL
 
  private:
   static void ForceKillTimerCallback(nsITimer* aTimer, void* aClosure);

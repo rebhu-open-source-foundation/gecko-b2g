@@ -925,6 +925,7 @@ class ContentParent final
 
   bool DeallocPScriptCacheParent(PScriptCacheParent* shell);
 
+#ifdef MOZ_B2G_RIL
   PMobileConnectionParent* AllocPMobileConnectionParent(
       const uint32_t& aClientId);
 
@@ -938,6 +939,7 @@ class ContentParent final
       const uint32_t& aClientId);
 
   bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
+#endif
 
   bool DeallocPNeckoParent(PNeckoParent* necko);
 
@@ -961,16 +963,6 @@ class ContentParent final
       const bool& aShouldCloseWindow) override;
 
   already_AddRefed<PHandlerServiceParent> AllocPHandlerServiceParent();
-
-  virtual PTelephonyParent* AllocPTelephonyParent();
-
-  virtual bool DeallocPTelephonyParent(PTelephonyParent*);
-
-  virtual PVoicemailParent* AllocPVoicemailParent();
-
-  virtual mozilla::ipc::IPCResult RecvPVoicemailConstructor(PVoicemailParent* aActor) override;
-
-  virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
 
   PMediaParent* AllocPMediaParent();
 
@@ -1016,7 +1008,17 @@ class ContentParent final
   bool DeallocPWebBrowserPersistDocumentParent(
       PWebBrowserPersistDocumentParent* aActor);
 
-  // MOZ_B2G_RIL
+#ifdef MOZ_B2G_RIL
+  virtual PTelephonyParent* AllocPTelephonyParent();
+
+  virtual bool DeallocPTelephonyParent(PTelephonyParent*);
+
+  virtual PVoicemailParent* AllocPVoicemailParent();
+
+  virtual mozilla::ipc::IPCResult RecvPVoicemailConstructor(PVoicemailParent* aActor) override;
+
+  virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
+
   PIccParent* AllocPIccParent(const uint32_t& aServiceId);
 
   bool DeallocPIccParent(PIccParent* aActor);
@@ -1031,12 +1033,12 @@ class ContentParent final
   virtual bool DeallocPCellBroadcastParent(PCellBroadcastParent*);
 
   virtual mozilla::ipc::IPCResult RecvPCellBroadcastConstructor(
-      PCellBroadcastParent* aActor);
+      PCellBroadcastParent* aActor) override;
 
   //   virtual PSmsParent* AllocPSmsParent();
 
   //   virtual bool DeallocPSmsParent(PSmsParent*);
-  // MOZ_B2G_RIL_END
+  #endif // MOZ_B2G_RIL
 
   mozilla::ipc::IPCResult RecvGetGfxVars(nsTArray<GfxVarUpdate>* aVars);
 
