@@ -308,6 +308,9 @@
 ; [Default Preferences]
 ; All the pref files must be part of base to prevent migration bugs
 @RESPATH@/@PREF_DIR@/b2g.js
+#ifdef HAS_KOOST_MODULES
+@RESPATH@/@PREF_DIR@/koost.js
+#endif
 @RESPATH@/greprefs.js
 @RESPATH@/defaults/autoconfig/prefcalls.js
 
