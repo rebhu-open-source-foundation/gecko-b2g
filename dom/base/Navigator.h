@@ -24,7 +24,6 @@ class nsPluginArray;
 class nsMimeTypeArray;
 class nsPIDOMWindowInner;
 class nsIDOMNavigatorSystemMessages;
-class nsDOMCameraManager;
 class nsDOMDeviceStorage;
 class nsIPrincipal;
 class nsIURI;
@@ -38,7 +37,6 @@ class Geolocation;
 class systemMessageCallback;
 class MediaDevices;
 struct MediaStreamConstraints;
-class WakeLock;
 class ArrayBufferOrArrayBufferViewOrBlobOrFormDataOrUSVStringOrURLSearchParams;
 class ServiceWorkerContainer;
 class DOMRequest;
@@ -186,8 +184,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<nsDOMDeviceStorage> GetDeviceStorageByNameAndType(
       const nsAString& aName, const nsAString& aType, ErrorResult& aRv);
-  already_AddRefed<WakeLock> RequestWakeLock(const nsAString &aTopic,
-                                             ErrorResult& aRv);
 
   already_AddRefed<LegacyMozTCPSocket> MozTCPSocket();
   network::Connection* GetConnection(ErrorResult& aRv);
@@ -249,8 +245,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 #endif // MOZ_NFC
   static bool HasUserMediaSupport(JSContext* /* unused */,
                                   JSObject* /* unused */);
-  static bool HasWakeLockSupport(JSContext* /* unused*/,
-                                 JSObject* /*unused */);
   static bool HasShareSupport(JSContext* /* unused */, JSObject* /* unused */);
 
   nsPIDOMWindowInner* GetParentObject() const { return GetWindow(); }

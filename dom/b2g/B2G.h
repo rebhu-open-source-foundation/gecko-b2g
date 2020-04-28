@@ -41,6 +41,9 @@
 
 #include "mozilla/dom/DownloadManagerBinding.h"
 
+#include "mozilla/dom/WakeLock.h"
+#include "mozilla/dom/power/PowerManagerService.h"
+
 namespace mozilla {
 namespace dom {
 
@@ -90,6 +93,12 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   system::AudioChannelManager* GetAudioChannelManager(ErrorResult& aRv);
 #endif  // MOZ_AUDIO_CHANNEL_MANAGER
+
+  static
+  bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
+
+  already_AddRefed<WakeLock>
+  RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv);
 
   // Shutting down.
   void Shutdown();

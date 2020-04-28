@@ -322,5 +322,33 @@ system::AudioChannelManager* B2G::GetAudioChannelManager(ErrorResult& aRv) {
 }
 #endif
 
+/* static */
+bool B2G::HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */)
+{
+  nsCOMPtr<nsIPowerManagerService> pmService =
+    do_GetService(POWERMANAGERSERVICE_CONTRACTID);
+  // No service means no wake lock support
+  return !!pmService;
+}
+
+already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv) {
+  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  if (!innerWindow) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  RefPtr<power::PowerManagerService> pmService =
+    power::PowerManagerService::GetInstance();
+  // Maybe it went away for some reason... Or maybe we're just called
+  // from our XPCOM method.
+  if (!pmService) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  return pmService->NewWakeLock(aTopic, innerWindow, aRv);
+}
+
 }  // namespace dom
 }  // namespace mozilla

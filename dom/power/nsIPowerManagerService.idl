@@ -25,7 +25,7 @@ interface nsIPowerManagerService : nsISupports
   AString           getWakeLockState(in AString aTopic);
 
   /**
-   * Return a wake lock (MozWakeLock) object of aTopic associated with aWindow.
+   * Return a wake lock (WakeLock) object of aTopic associated with aWindow.
    * A wake lock without associated window, e.g. used in chrome, is
    * always considered invisible.
    */

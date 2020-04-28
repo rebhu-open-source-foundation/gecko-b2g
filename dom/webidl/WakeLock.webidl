@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-[Pref="dom.wakelock.enabled", Func="Navigator::HasWakeLockSupport", Exposed=(Window)]
-interface MozWakeLock
+[Pref="dom.wakelock.enabled", Func="B2G::HasWakeLockSupport", Exposed=(Window)]
+interface WakeLock
 {
     readonly attribute DOMString topic;
 

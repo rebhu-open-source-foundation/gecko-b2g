@@ -42,8 +42,6 @@
 #include "mozilla/dom/GamepadServiceTest.h"
 #include "mozilla/dom/MediaCapabilities.h"
 #include "mozilla/dom/MediaSession.h"
-#include "mozilla/dom/WakeLock.h"
-#include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/MIDIAccessManager.h"
 #include "mozilla/dom/MIDIOptionsBinding.h"
 #include "mozilla/dom/Permissions.h"
@@ -1601,24 +1599,6 @@ Promise* Navigator::Share(const ShareData& aData, ErrorResult& aRv) {
   return mSharePromise;
 }
 
-already_AddRefed<WakeLock> Navigator::RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv) {
-  if (!mWindow) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return nullptr;
-  }
-
-  RefPtr<power::PowerManagerService> pmService =
-    power::PowerManagerService::GetInstance();
-  // Maybe it went away for some reason... Or maybe we're just called
-  // from our XPCOM method.
-  if (!pmService) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return nullptr;
-  }
-
-  return pmService->NewWakeLock(aTopic, mWindow, aRv);
-}
-
 already_AddRefed<LegacyMozTCPSocket> Navigator::MozTCPSocket() {
   RefPtr<LegacyMozTCPSocket> socket = new LegacyMozTCPSocket(GetWindow());
   return socket.forget();
@@ -2266,15 +2246,6 @@ webgpu::Instance* Navigator::Gpu() {
 /* static */
 bool Navigator::Webdriver() {
   return Preferences::GetBool("marionette.enabled", false);
-}
-
-/* static */
-bool Navigator::HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */)
-{
-  nsCOMPtr<nsIPowerManagerService> pmService =
-    do_GetService(POWERMANAGERSERVICE_CONTRACTID);
-  // No service means no wake lock support
-  return !!pmService;
 }
 
 }  // namespace dom
