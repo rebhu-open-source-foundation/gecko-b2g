@@ -1010,7 +1010,8 @@ class ContentParent final
       PSystemMessageServiceParent* aActor) override;
 
   PWebBrowserPersistDocumentParent* AllocPWebBrowserPersistDocumentParent(
-      PBrowserParent* aBrowser, const uint64_t& aOuterWindowID);
+      PBrowserParent* aBrowser,
+      const MaybeDiscarded<BrowsingContext>& aContext);
 
   bool DeallocPWebBrowserPersistDocumentParent(
       PWebBrowserPersistDocumentParent* aActor);
@@ -1339,12 +1340,13 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvStoreUserInteractionAsPermission(
       const Principal& aPrincipal);
 
-  mozilla::ipc::IPCResult RecvNotifyMediaStateChanged(
+  mozilla::ipc::IPCResult RecvNotifyMediaPlaybackChanged(
       const MaybeDiscarded<BrowsingContext>& aContext,
-      ControlledMediaState aState);
+      MediaPlaybackState aState);
 
   mozilla::ipc::IPCResult RecvNotifyMediaAudibleChanged(
-      const MaybeDiscarded<BrowsingContext>& aContext, bool aAudible);
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      MediaAudibleState aState);
 
   mozilla::ipc::IPCResult RecvNotifyPictureInPictureModeChanged(
       const MaybeDiscarded<BrowsingContext>& aContext, bool aEnabled);
@@ -1376,6 +1378,9 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvUpdateSHEntriesInBC(
       PSHEntryParent* aNewLSHE, PSHEntryParent* aNewOSHE,
       const MaybeDiscarded<BrowsingContext>& aMaybeContext);
+
+  mozilla::ipc::IPCResult RecvAbortOtherOrientationPendingPromises(
+      const MaybeDiscarded<BrowsingContext>& aContext);
 
   // Notify the ContentChild to enable the input event prioritization when
   // initializing.

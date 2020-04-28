@@ -341,7 +341,6 @@ nsDocShell::nsDocShell(BrowsingContext* aBrowsingContext,
       mTreeOwner(nullptr),
       mScrollbarPref(ScrollbarPreference::Auto),
       mCharsetReloadState(eCharsetReloadInit),
-      mOrientationLock(hal::eScreenOrientation_None),
       mParentCharsetSource(0),
       mFrameMargins(-1, -1),
       mItemType(aBrowsingContext->IsContent() ? typeContent : typeChrome),
@@ -351,7 +350,6 @@ nsDocShell::nsDocShell(BrowsingContext* aBrowsingContext,
       mBusyFlags(BUSY_FLAGS_NONE),
       mAppType(nsIDocShell::APP_TYPE_UNKNOWN),
       mLoadType(0),
-      mDefaultLoadFlags(nsIRequest::LOAD_NORMAL),
       mFailedLoadType(0),
       mDisplayMode(nsIDocShell::DISPLAY_MODE_BROWSER),
       mJSRunToCompletionDepth(0),
@@ -520,6 +518,9 @@ already_AddRefed<nsDocShell> nsDocShell::Create(
 
   // Make |ds| the primary DocShell for the given context.
   aBrowsingContext->SetDocShell(ds);
+
+  // Set |ds| default load flags on load group.
+  ds->SetLoadGroupDefaultLoadFlags(aBrowsingContext->GetDefaultLoadFlags());
 
   return ds.forget();
 }
@@ -725,11 +726,13 @@ nsDocShell::LoadURI(nsDocShellLoadState* aLoadState, bool aSetNavigating) {
     return NS_OK;  // JS may not handle returning of an error code
   }
 
+  nsLoadFlags defaultLoadFlags = mBrowsingContext->GetDefaultLoadFlags();
   if (aLoadState->LoadFlags() & LOAD_FLAGS_FORCE_TRR) {
-    mDefaultLoadFlags |= nsIRequest::LOAD_TRR_ONLY_MODE;
+    defaultLoadFlags |= nsIRequest::LOAD_TRR_ONLY_MODE;
   } else if (aLoadState->LoadFlags() & LOAD_FLAGS_DISABLE_TRR) {
-    mDefaultLoadFlags |= nsIRequest::LOAD_TRR_DISABLED_MODE;
+    defaultLoadFlags |= nsIRequest::LOAD_TRR_DISABLED_MODE;
   }
+  mBrowsingContext->SetDefaultLoadFlags(defaultLoadFlags);
 
   if (!StartupTimeline::HasRecord(StartupTimeline::FIRST_LOAD_URI) &&
       mItemType == typeContent && !NS_IsAboutBlank(aLoadState->URI())) {
@@ -1846,14 +1849,6 @@ nsDocShell::GetFullscreenAllowed(bool* aFullscreenAllowed) {
   return parent->GetFullscreenAllowed(aFullscreenAllowed);
 }
 
-hal::ScreenOrientation nsDocShell::OrientationLock() {
-  return mOrientationLock;
-}
-
-void nsDocShell::SetOrientationLock(hal::ScreenOrientation aOrientationLock) {
-  mOrientationLock = aOrientationLock;
-}
-
 NS_IMETHODIMP
 nsDocShell::GetMayEnableCharacterEncodingMenu(
     bool* aMayEnableCharacterEncodingMenu) {
@@ -2576,10 +2571,6 @@ nsresult nsDocShell::SetDocLoaderParent(nsDocLoader* aParent) {
     SetAllowDNSPrefetch(mAllowDNSPrefetch && value);
     SetAffectPrivateSessionLifetime(
         parentAsDocShell->GetAffectPrivateSessionLifetime());
-    uint32_t flags;
-    if (NS_SUCCEEDED(parentAsDocShell->GetDefaultLoadFlags(&flags))) {
-      SetDefaultLoadFlags(flags);
-    }
 
     SetTouchEventsOverride(parentAsDocShell->GetTouchEventsOverride());
 
@@ -3077,6 +3068,16 @@ NS_IMETHODIMP nsDocShell::SynchronizeLayoutHistoryState() {
     mOSHE->SynchronizeLayoutHistoryState();
   }
   return NS_OK;
+}
+
+void nsDocShell::SetLoadGroupDefaultLoadFlags(nsLoadFlags aLoadFlags) {
+  if (mLoadGroup) {
+    mLoadGroup->SetDefaultLoadFlags(aLoadFlags);
+  } else {
+    NS_WARNING(
+        "nsDocShell::SetLoadGroupDefaultLoadFlags has no loadGroup to "
+        "propagate the mode to");
+  }
 }
 
 nsIScriptGlobalObject* nsDocShell::GetScriptGlobalObject() {
@@ -4670,7 +4671,7 @@ nsDocShell::SetIsActive(bool aIsActive) {
       if (aIsActive) {
         if (mBrowsingContext->IsTop()) {
           // We only care about the top-level browsing context.
-          uint16_t orientation = OrientationLock();
+          uint16_t orientation = mBrowsingContext->GetOrientationLock();
           ScreenOrientation::UpdateActiveOrientationLock(orientation);
         }
       }
@@ -4737,34 +4738,19 @@ nsDocShell::GetIsAppTab(bool* aIsAppTab) {
 
 NS_IMETHODIMP
 nsDocShell::SetDefaultLoadFlags(uint32_t aDefaultLoadFlags) {
-  mDefaultLoadFlags = aDefaultLoadFlags;
-
-  // Tell the load group to set these flags all requests in the group
-  if (mLoadGroup) {
-    mLoadGroup->SetDefaultLoadFlags(aDefaultLoadFlags);
+  if (!mWillChangeProcess) {
+    mBrowsingContext->SetDefaultLoadFlags(aDefaultLoadFlags);
   } else {
-    NS_WARNING(
-        "nsDocShell::SetDefaultLoadFlags has no loadGroup to propagate the "
-        "flags to");
-  }
-
-  // Recursively tell all of our children.  We *do not* skip
-  // <iframe mozbrowser> children - if someone sticks custom flags in this
-  // docShell then they too get the same flags.
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> docshell = do_QueryObject(iter.GetNext());
-    if (!docshell) {
-      continue;
-    }
-    docshell->SetDefaultLoadFlags(aDefaultLoadFlags);
+    // Bug 1623565: DevTools tries to clean up defaultLoadFlags on
+    // shutdown. Sorry DevTools, your DocShell is in another process.
+    NS_WARNING("nsDocShell::SetDefaultLoadFlags called on Zombie DocShell");
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
 nsDocShell::GetDefaultLoadFlags(uint32_t* aDefaultLoadFlags) {
-  *aDefaultLoadFlags = mDefaultLoadFlags;
+  *aDefaultLoadFlags = mBrowsingContext->GetDefaultLoadFlags();
   return NS_OK;
 }
 
@@ -4802,43 +4788,41 @@ nsDocShell::GetMixedContentChannel(nsIChannel** aMixedContentChannel) {
 }
 
 NS_IMETHODIMP
-nsDocShell::GetAllowMixedContentAndConnectionData(
-    bool* aRootHasSecureConnection, bool* aAllowMixedContent,
-    bool* aIsRootDocShell) {
-  *aRootHasSecureConnection = true;
+nsDocShell::GetAllowMixedContentAndConnectionData(bool* aAllowMixedContent) {
   *aAllowMixedContent = false;
-  *aIsRootDocShell = false;
 
-  nsCOMPtr<nsIDocShellTreeItem> sameTypeRoot;
-  GetInProcessSameTypeRootTreeItem(getter_AddRefs(sameTypeRoot));
-  NS_ASSERTION(
-      sameTypeRoot,
-      "No document shell root tree item from document shell tree item!");
-  *aIsRootDocShell =
-      sameTypeRoot.get() == static_cast<nsIDocShellTreeItem*>(this);
+  // If there is a rootDocShell and calling GetMixedContentChannel() on that
+  // rootShell returns a non null mixedContentChannel indicates that the
+  // document has Mixed Active Content that was initially blocked from loading,
+  // but the user has choosen to override the block and allow the content to
+  // load.
+  // mMixedContentChannel is set to the document's channel when the user allows
+  // mixed content. The MixedContentBlocker content policy checks if the
+  // document's root channel matches the mMixedContentChannel.
 
-  // now get the document from sameTypeRoot
-  RefPtr<Document> rootDoc = sameTypeRoot->GetDocument();
-  if (rootDoc) {
-    nsCOMPtr<nsIPrincipal> rootPrincipal = rootDoc->NodePrincipal();
-
-    // For things with system principal (e.g. scratchpad) there is no uri
-    // aRootHasSecureConnection should be false.
-    nsCOMPtr<nsIURI> rootUri = rootPrincipal->GetURI();
-    if (rootPrincipal->IsSystemPrincipal() || !rootUri ||
-        !SchemeIsHTTPS(rootUri)) {
-      *aRootHasSecureConnection = false;
-    }
-
-    // Check the root doc's channel against the root docShell's
-    // mMixedContentChannel to see if they are the same. If they are the same,
-    // the user has overriden the block.
-    nsCOMPtr<nsIDocShell> rootDocShell = do_QueryInterface(sameTypeRoot);
-    nsCOMPtr<nsIChannel> mixedChannel;
-    rootDocShell->GetMixedContentChannel(getter_AddRefs(mixedChannel));
-    *aAllowMixedContent =
-        mixedChannel && (mixedChannel == rootDoc->GetChannel());
+  nsCOMPtr<nsIDocShell> rootShell = mBrowsingContext->Top()->GetDocShell();
+  // XXX Fission: Cross origin iframes can not access the top-level docshell.
+  // Bug 1632160: Remove GetAllowMixedContentAndConnectionData from
+  // nsIDocShell and expose similar functionality on BrowsingContext
+  if (!rootShell) {
+    return NS_OK;
   }
+
+  nsCOMPtr<nsIChannel> mixedChannel;
+  rootShell->GetMixedContentChannel(getter_AddRefs(mixedChannel));
+  if (!mixedChannel) {
+    return NS_OK;
+  }
+
+  RefPtr<Document> rootDoc = rootShell->GetDocument();
+  if (!rootDoc) {
+    return NS_OK;
+  }
+
+  // Check the root doc's channel against the root docShell's
+  // mMixedContentChannel to see if they are the same. If they are the same,
+  // the user has overriden the block.
+  *aAllowMixedContent = (mixedChannel == rootDoc->GetChannel());
 
   return NS_OK;
 }
@@ -7305,9 +7289,6 @@ nsresult nsDocShell::RestoreFromHistory() {
     bool allowContentRetargetingOnChildren =
         childShell->GetAllowContentRetargetingOnChildren();
 
-    uint32_t defaultLoadFlags;
-    childShell->GetDefaultLoadFlags(&defaultLoadFlags);
-
     // this.AddChild(child) calls child.SetDocLoaderParent(this), meaning that
     // the child inherits our state. Among other things, this means that the
     // child inherits our mPrivateBrowsingId, which is what we want.
@@ -7322,7 +7303,6 @@ nsresult nsDocShell::RestoreFromHistory() {
     childShell->SetAllowContentRetargeting(allowContentRetargeting);
     childShell->SetAllowContentRetargetingOnChildren(
         allowContentRetargetingOnChildren);
-    childShell->SetDefaultLoadFlags(defaultLoadFlags);
 
     rv = childShell->BeginRestore(nullptr, false);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -8864,13 +8844,9 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
   // lock the orientation of the document to the document's default
   // orientation. We don't explicitly check for a top-level browsing context
   // here because orientation is only set on top-level browsing contexts.
-  if (OrientationLock() != hal::eScreenOrientation_None) {
-#ifdef DEBUG
-    nsCOMPtr<nsIDocShellTreeItem> parent;
-    GetInProcessSameTypeParent(getter_AddRefs(parent));
-    MOZ_ASSERT(!parent);
-#endif
-    SetOrientationLock(hal::eScreenOrientation_None);
+  if (mBrowsingContext->GetOrientationLock() != hal::eScreenOrientation_None) {
+    MOZ_ASSERT(mBrowsingContext->IsTop());
+    mBrowsingContext->SetOrientationLock(hal::eScreenOrientation_None);
     if (mBrowsingContext->GetIsActive()) {
       ScreenOrientation::UpdateActiveOrientationLock(
           hal::eScreenOrientation_None);
@@ -9157,6 +9133,11 @@ static bool IsConsideredSameOriginForUIR(nsIPrincipal* aTriggeringPrincipal,
     nsCOMPtr<nsIInputStreamChannel> isc = do_QueryInterface(channel);
     MOZ_ASSERT(isc);
     isc->SetBaseURI(aBaseURI);
+  }
+
+  if (aLoadFlags != nsIRequest::LOAD_NORMAL) {
+    nsresult rv = channel->SetLoadFlags(aLoadFlags);
+    NS_ENSURE_SUCCESS(rv, rv);
   }
 
   channel.forget(aChannel);
@@ -9670,29 +9651,11 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
     inheritPrincipal = inheritAttrs && !isURIUniqueOrigin;
   }
 
-  nsLoadFlags loadFlags = mDefaultLoadFlags;
+  uint32_t sandboxFlags = mBrowsingContext->GetSandboxFlags();
   nsSecurityFlags securityFlags =
       nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL;
-  uint32_t sandboxFlags = mBrowsingContext->GetSandboxFlags();
-
-  if (aLoadState->FirstParty()) {
-    // tag first party URL loads
-    loadFlags |= nsIChannel::LOAD_INITIAL_DOCUMENT_URI;
-  }
 
   if (mLoadType == LOAD_ERROR_PAGE) {
-    // Error pages are LOAD_BACKGROUND, unless it's an
-    // XFO error for which we want an error page to load
-    // but additionally want the onload() event to fire.
-    bool isXFOError = false;
-    if (mFailedChannel) {
-      nsresult status;
-      mFailedChannel->GetStatus(&status);
-      isXFOError = status == NS_ERROR_XFO_VIOLATION;
-    }
-    if (!isXFOError) {
-      loadFlags |= nsIChannel::LOAD_BACKGROUND;
-    }
     securityFlags |= nsILoadInfo::SEC_LOAD_ERROR_PAGE;
   }
 
@@ -9734,10 +9697,22 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
     cacheKey = mOSHE->GetCacheKey();
   }
 
+  bool uriModified = mLSHE ? mLSHE->GetURIWasModified() : false;
+  bool isXFOError = false;
+  if (mFailedChannel) {
+    nsresult status;
+    mFailedChannel->GetStatus(&status);
+    isXFOError = status == NS_ERROR_XFO_VIOLATION;
+  }
+
+  nsLoadFlags loadFlags = aLoadState->CalculateChannelLoadFlags(
+      mBrowsingContext, Some(uriModified), Some(isXFOError));
+
   nsCOMPtr<nsIChannel> channel;
   if (DocumentChannel::CanUseDocumentChannel(aLoadState)) {
     channel = DocumentChannel::CreateDocumentChannel(aLoadState, loadInfo,
-                                                     loadFlags, this, cacheKey);
+                                                     loadFlags, this, cacheKey,
+                                                     uriModified, isXFOError);
     MOZ_ASSERT(channel);
   } else if (!CreateAndConfigureRealChannelForLoadState(
                  mBrowsingContext, aLoadState, loadInfo, this, this,
@@ -9775,9 +9750,40 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
     mContentTypeHint.Truncate();
   }
 
-  rv = DoChannelLoad(
-      channel, uriLoader,
-      aLoadState->HasLoadFlags(INTERNAL_LOAD_FLAGS_BYPASS_CLASSIFIER));
+  if (mLoadType == LOAD_NORMAL_ALLOW_MIXED_CONTENT ||
+      mLoadType == LOAD_RELOAD_ALLOW_MIXED_CONTENT) {
+    rv = SetMixedContentChannel(channel);
+    NS_ENSURE_SUCCESS(rv, rv);
+  } else if (mMixedContentChannel) {
+    /*
+     * If the user "Disables Protection on This Page", we call
+     * SetMixedContentChannel for the first time, otherwise
+     * mMixedContentChannel is still null.
+     * Later, if the new channel passes a same orign check, we remember the
+     * users decision by calling SetMixedContentChannel using the new channel.
+     * This way, the user does not have to click the disable protection button
+     * over and over for browsing the same site.
+     */
+    rv = nsContentUtils::CheckSameOrigin(mMixedContentChannel, channel);
+    if (NS_FAILED(rv) || NS_FAILED(SetMixedContentChannel(channel))) {
+      SetMixedContentChannel(nullptr);
+    }
+  }
+
+  // Load attributes depend on load type...
+  if (mLoadType == LOAD_RELOAD_CHARSET_CHANGE) {
+    // Use SetAllowStaleCacheContent (not LOAD_FROM_CACHE flag) since we
+    // only want to force cache load for this channel, not the whole
+    // loadGroup.
+    nsCOMPtr<nsICacheInfoChannel> cachingChannel = do_QueryInterface(channel);
+    if (cachingChannel) {
+      cachingChannel->SetAllowStaleCacheContent(true);
+    }
+  }
+
+  uint32_t openFlags =
+      nsDocShell::ComputeURILoaderFlags(mBrowsingContext, mLoadType);
+  rv = OpenInitializedChannel(channel, uriLoader, openFlags);
 
   //
   // If the channel load failed, we failed and nsIWebProgress just ain't
@@ -9861,105 +9867,6 @@ static nsresult AppendSegmentToString(nsIInputStream* aIn, void* aClosure,
 
   MOZ_ASSERT_UNREACHABLE("oops");
   return NS_ERROR_UNEXPECTED;
-}
-
-nsresult nsDocShell::DoChannelLoad(nsIChannel* aChannel,
-                                   nsIURILoader* aURILoader,
-                                   bool aBypassClassifier) {
-  // Mark the channel as being a document URI and allow content sniffing...
-  nsLoadFlags loadFlags = 0;
-  (void)aChannel->GetLoadFlags(&loadFlags);
-  loadFlags |=
-      nsIChannel::LOAD_DOCUMENT_URI | nsIChannel::LOAD_CALL_CONTENT_SNIFFERS;
-
-  uint32_t sandboxFlags = mBrowsingContext->GetSandboxFlags();
-  if (SandboxFlagsImplyCookies(sandboxFlags)) {
-    loadFlags |= nsIRequest::LOAD_DOCUMENT_NEEDS_COOKIE;
-  }
-
-  // Load attributes depend on load type...
-  switch (mLoadType) {
-    case LOAD_HISTORY: {
-      // Only send VALIDATE_NEVER if mLSHE's URI was never changed via
-      // push/replaceState (bug 669671).
-      bool uriModified = false;
-      if (mLSHE) {
-        uriModified = mLSHE->GetURIWasModified();
-      }
-
-      if (!uriModified) {
-        loadFlags |= nsIRequest::VALIDATE_NEVER;
-      }
-      break;
-    }
-
-    case LOAD_RELOAD_CHARSET_CHANGE_BYPASS_PROXY_AND_CACHE:
-    case LOAD_RELOAD_CHARSET_CHANGE_BYPASS_CACHE:
-      loadFlags |=
-          nsIRequest::LOAD_BYPASS_CACHE | nsIRequest::LOAD_FRESH_CONNECTION;
-      [[fallthrough]];
-
-    case LOAD_RELOAD_CHARSET_CHANGE: {
-      // Use SetAllowStaleCacheContent (not LOAD_FROM_CACHE flag) since we
-      // only want to force cache load for this channel, not the whole
-      // loadGroup.
-      nsCOMPtr<nsICacheInfoChannel> cachingChannel =
-          do_QueryInterface(aChannel);
-      if (cachingChannel) {
-        cachingChannel->SetAllowStaleCacheContent(true);
-      }
-      break;
-    }
-
-    case LOAD_RELOAD_NORMAL:
-    case LOAD_REFRESH:
-      loadFlags |= nsIRequest::VALIDATE_ALWAYS;
-      break;
-
-    case LOAD_NORMAL_BYPASS_CACHE:
-    case LOAD_NORMAL_BYPASS_PROXY:
-    case LOAD_NORMAL_BYPASS_PROXY_AND_CACHE:
-    case LOAD_NORMAL_ALLOW_MIXED_CONTENT:
-    case LOAD_RELOAD_BYPASS_CACHE:
-    case LOAD_RELOAD_BYPASS_PROXY:
-    case LOAD_RELOAD_BYPASS_PROXY_AND_CACHE:
-    case LOAD_RELOAD_ALLOW_MIXED_CONTENT:
-    case LOAD_REPLACE_BYPASS_CACHE:
-      loadFlags |=
-          nsIRequest::LOAD_BYPASS_CACHE | nsIRequest::LOAD_FRESH_CONNECTION;
-      break;
-
-    case LOAD_NORMAL:
-    case LOAD_LINK:
-      // Set cache checking flags
-      switch (Preferences::GetInt("browser.cache.check_doc_frequency", -1)) {
-        case 0:
-          loadFlags |= nsIRequest::VALIDATE_ONCE_PER_SESSION;
-          break;
-        case 1:
-          loadFlags |= nsIRequest::VALIDATE_ALWAYS;
-          break;
-        case 2:
-          loadFlags |= nsIRequest::VALIDATE_NEVER;
-          break;
-      }
-      break;
-  }
-
-  if (aBypassClassifier) {
-    loadFlags |= nsIChannel::LOAD_BYPASS_URL_CLASSIFIER;
-  }
-
-  // If the user pressed shift-reload, then do not allow ServiceWorker
-  // interception to occur. See step 12.1 of the SW HandleFetch algorithm.
-  if (IsForceReloading()) {
-    loadFlags |= nsIChannel::LOAD_BYPASS_SERVICE_WORKER;
-  }
-
-  (void)aChannel->SetLoadFlags(loadFlags);
-  uint32_t openFlags = ComputeURILoaderFlags(mBrowsingContext, mLoadType);
-
-  return OpenInitializedChannel(aChannel, aURILoader, openFlags);
 }
 
 /* static */ uint32_t nsDocShell::ComputeURILoaderFlags(

@@ -8,6 +8,7 @@
 #define mozilla_dom_BrowsingContext_h
 
 #include "GVAutoplayRequestUtils.h"
+#include "mozilla/HalScreenConfiguration.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
@@ -122,13 +123,19 @@ class WindowProxyHolder;
   /* ScreenOrientation-related APIs */                                       \
   FIELD(CurrentOrientationAngle, float)                                      \
   FIELD(CurrentOrientationType, mozilla::dom::OrientationType)               \
+  FIELD(OrientationLock, mozilla::hal::ScreenOrientation)                    \
   FIELD(UserAgentOverride, nsString)                                         \
   FIELD(EmbedderElementType, Maybe<nsString>)                                \
   FIELD(MessageManagerGroup, nsString)                                       \
   FIELD(MaxTouchPointsOverride, uint8_t)                                     \
   FIELD(FullZoom, float)                                                     \
   FIELD(WatchedByDevtools, bool)                                             \
-  FIELD(TextZoom, float)
+  FIELD(TextZoom, float)                                                     \
+  /* See nsIRequest for possible flags. */                                   \
+  FIELD(DefaultLoadFlags, uint32_t)                                          \
+  /* Mixed-Content: If the corresponding documentURI is https,               \
+   * then this flag is true. */                                              \
+  FIELD(IsSecure, bool)
 
 // BrowsingContext, in this context, is the cross process replicated
 // environment in which information about documents is stored. In
@@ -202,6 +209,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // closed.
   bool IsInProcess() const { return mIsInProcess; }
 
+  bool CanHaveRemoteOuterProxies() const {
+    return !mIsInProcess || mDanglingRemoteOuterProxies;
+  }
+
   // Has this BrowsingContext been discarded. A discarded browsing context has
   // been destroyed, and may not be available on the other side of an IPC
   // message.
@@ -215,6 +226,12 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   nsIDocShell* GetDocShell() const { return mDocShell; }
   void SetDocShell(nsIDocShell* aDocShell);
   void ClearDocShell() { mDocShell = nullptr; }
+
+  // Get the Document for this BrowsingContext if it is in-process, or
+  // null if it's not.
+  Document* GetDocument() const {
+    return mDocShell ? mDocShell->GetDocument() : nullptr;
+  }
 
   // This cleans up remote outer window proxies that might have been left behind
   // when the browsing context went from being remote to local. It does this by
@@ -280,6 +297,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool IsTop() const { return !GetParent(); }
 
   bool IsTopContent() const { return IsContent() && !GetParent(); }
+
+  bool IsInSubtreeOf(BrowsingContext* aContext);
 
   bool IsContentSubframe() const { return IsContent() && GetParent(); }
   uint64_t Id() const { return mBrowsingContextId; }
@@ -685,6 +704,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void DidSet(FieldIndex<IDX_UserAgentOverride>);
   bool CanSet(FieldIndex<IDX_UserAgentOverride>, const nsString& aUserAgent,
               ContentParent* aSource);
+  bool CanSet(FieldIndex<IDX_OrientationLock>,
+              const mozilla::hal::ScreenOrientation& aOrientationLock,
+              ContentParent* aSource);
 
   bool CanSet(FieldIndex<IDX_EmbedderElementType>,
               const Maybe<nsString>& aInitiatorType, ContentParent* aSource);
@@ -701,6 +723,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
               ContentParent* aSource);
   bool CanSet(FieldIndex<IDX_WatchedByDevtools>, const bool& aWatchedByDevtools,
               ContentParent* aSource);
+
+  bool CanSet(FieldIndex<IDX_DefaultLoadFlags>,
+              const uint32_t& aDefaultLoadFlags, ContentParent* aSource);
+  void DidSet(FieldIndex<IDX_DefaultLoadFlags>);
 
   template <size_t I, typename T>
   bool CanSet(FieldIndex<I>, const T&, ContentParent*) {

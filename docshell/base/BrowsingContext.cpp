@@ -98,6 +98,16 @@ BrowsingContext* BrowsingContext::GetParent() const {
   return mParentWindow ? mParentWindow->GetBrowsingContext() : nullptr;
 }
 
+bool BrowsingContext::IsInSubtreeOf(BrowsingContext* aContext) {
+  BrowsingContext* bc = this;
+  do {
+    if (bc == aContext) {
+      return true;
+    }
+  } while ((bc = bc->GetParent()));
+  return false;
+}
+
 BrowsingContext* BrowsingContext::Top() {
   BrowsingContext* bc = this;
   while (bc->mParentWindow) {
@@ -281,6 +291,13 @@ already_AddRefed<BrowsingContext> BrowsingContext::CreateDetached(
 
   const bool allowPlugins = inherit ? inherit->GetAllowPlugins() : true;
   context->mFields.SetWithoutSyncing<IDX_AllowPlugins>(allowPlugins);
+
+  const auto defaultLoadFlags =
+      inherit ? inherit->GetDefaultLoadFlags() : nsIRequest::LOAD_NORMAL;
+  context->mFields.SetWithoutSyncing<IDX_DefaultLoadFlags>(defaultLoadFlags);
+
+  context->mFields.SetWithoutSyncing<IDX_OrientationLock>(
+      mozilla::hal::eScreenOrientation_None);
 
   return context.forget();
 }
@@ -1865,6 +1882,29 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_WatchedByDevtools>,
   return CheckOnlyOwningProcessCanSet(aSource);
 }
 
+bool BrowsingContext::CanSet(FieldIndex<IDX_DefaultLoadFlags>,
+                             const uint32_t& aDefaultLoadFlags,
+                             ContentParent* aSource) {
+  // Bug 1623565 - Are these flags only used by the debugger, which makes it
+  // possible that this field can only be settable by the parent process?
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
+void BrowsingContext::DidSet(FieldIndex<IDX_DefaultLoadFlags>) {
+  auto loadFlags = GetDefaultLoadFlags();
+  if (GetDocShell()) {
+    nsDocShell::Cast(GetDocShell())->SetLoadGroupDefaultLoadFlags(loadFlags);
+  }
+
+  if (XRE_IsParentProcess()) {
+    PreOrderWalk([&](BrowsingContext* aContext) {
+      if (aContext != this) {
+        aContext->SetDefaultLoadFlags(loadFlags);
+      }
+    });
+  }
+}
+
 bool BrowsingContext::CanSet(FieldIndex<IDX_UserAgentOverride>,
                              const nsString& aUserAgent,
                              ContentParent* aSource) {
@@ -1967,6 +2007,13 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_MessageManagerGroup>,
                              ContentParent* aSource) {
   // Should only be set in the parent process on toplevel.
   return XRE_IsParentProcess() && !aSource && IsTopContent();
+}
+
+bool BrowsingContext::CanSet(
+    FieldIndex<IDX_OrientationLock>,
+    const mozilla::hal::ScreenOrientation& aOrientationLock,
+    ContentParent* aSource) {
+  return IsTop();
 }
 
 bool BrowsingContext::IsLoading() {

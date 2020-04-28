@@ -4,13 +4,12 @@
 
 "use strict";
 
-const Services = require("Services");
-
 module.exports = async function({
   targetList,
   targetType,
   targetFront,
   isTopLevel,
+  isFissionEnabledOnContentToolbox,
   onAvailable,
 }) {
   // Allow the top level target unconditionnally.
@@ -19,9 +18,7 @@ module.exports = async function({
   // messages via the process targets
   // Also ignore workers as they are not supported yet. (see bug 1592584)
   const isContentToolbox = targetList.targetFront.isLocalTab;
-  const listenForFrames =
-    isContentToolbox &&
-    Services.prefs.getBoolPref("devtools.contenttoolbox.fission");
+  const listenForFrames = isContentToolbox && isFissionEnabledOnContentToolbox;
   const isAllowed =
     isTopLevel ||
     targetType === targetList.TYPES.PROCESS ||

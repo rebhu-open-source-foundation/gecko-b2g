@@ -626,6 +626,24 @@ class EditorBase : public nsIEditor,
   MOZ_CAN_RUN_SCRIPT nsresult InsertTextAsAction(
       const nsAString& aStringToInsert, nsIPrincipal* aPrincipal = nullptr);
 
+  /**
+   * DeleteSelectionAsAction() removes selection content or content around
+   * caret with transactions.  This should be used for handling it as an
+   * edit action.  If you'd like to remove selection for preparing to insert
+   * something, you probably should use DeleteSelectionAsSubAction().
+   *
+   * @param aDirectionAndAmount How much range should be removed.
+   * @param aStripWrappers      Whether the parent blocks should be removed
+   *                            when they become empty.
+   * @param aPrincipal          Set subject principal if it may be called by
+   *                            JS.  If set to nullptr, will be treated as
+   *                            called by system.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteSelectionAsAction(nsIEditor::EDirection aDirectionAndAmount,
+                          nsIEditor::EStripWrappers aStripWrappers,
+                          nsIPrincipal* aPrincipal = nullptr);
+
  protected:  // May be used by friends.
   class AutoEditActionDataSetter;
 
@@ -1750,39 +1768,6 @@ class EditorBase : public nsIEditor,
       nsAtom& aTag, const EditorDOMPoint& aPointToInsert);
 
   /**
-   * Create an aggregate transaction for delete selection.  The result may
-   * include DeleteNodeTransactions and/or DeleteTextTransactions as its
-   * children.
-   *
-   * @param aAction             The action caused removing the selection.
-   * @param aRemovingNode       The node to be removed.
-   * @param aOffset             The start offset of the range in aRemovingNode.
-   * @param aLength             The length of the range in aRemovingNode.
-   * @return                    If it can remove the selection, returns an
-   *                            aggregate transaction which has some
-   *                            DeleteNodeTransactions and/or
-   *                            DeleteTextTransactions as its children.
-   */
-  already_AddRefed<EditAggregateTransaction> CreateTxnForDeleteSelection(
-      EDirection aAction, nsINode** aNode, int32_t* aOffset, int32_t* aLength);
-
-  /**
-   * Create a transaction for removing the nodes and/or text in aRange.
-   *
-   * @param aRangeToDelete      The range to be removed.
-   * @param aAction             The action caused removing the range.
-   * @param aRemovingNode       The node to be removed.
-   * @param aOffset             The start offset of the range in aRemovingNode.
-   * @param aLength             The length of the range in aRemovingNode.
-   * @return                    The transaction to remove the range.  Its type
-   *                            is DeleteNodeTransaction or
-   *                            DeleteTextTransaction.
-   */
-  already_AddRefed<EditTransactionBase> CreateTxnForDeleteRange(
-      nsRange* aRangeToDelete, EDirection aAction, nsINode** aRemovingNode,
-      int32_t* aOffset, int32_t* aLength);
-
-  /**
    * DeleteTextWithTransaction() removes text in the range from aTextNode.
    *
    * @param aTextNode           The text node which should be modified.
@@ -2190,6 +2175,35 @@ class EditorBase : public nsIEditor,
    */
   void UndefineCaretBidiLevel() const;
 
+  /**
+   * DeleteSelectionAsSubAction() removes selection content or content around
+   * caret with transactions.  This should be used for handling it as an
+   * edit sub-action.
+   *
+   * @param aDirectionAndAmount How much range should be removed.
+   * @param aStripWrappers      Whether the parent blocks should be removed
+   *                            when they become empty.  If this instance is
+   *                            a TextEditor, Must be nsIEditor::eNoStrip.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteSelectionAsSubAction(nsIEditor::EDirection aDirectionAndAmount,
+                             nsIEditor::EStripWrappers aStripWrappers);
+
+  /**
+   * This method handles "delete selection" commands.
+   * NOTE: Don't call this method recursively from the helper methods since
+   *       when nobody handled it without canceling and returing an error,
+   *       this falls it back to `DeleteSelectionWithTransaction()`.
+   *
+   * @param aDirectionAndAmount Direction of the deletion.
+   * @param aStripWrappers      Must be nsIEditor::eNoStrip if this is a
+   *                            TextEditor instance.  Otherwise,
+   *                            nsIEditor::eStrip is also valid.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT virtual EditActionResult
+  HandleDeleteSelection(nsIEditor::EDirection aDirectionAndAmount,
+                        nsIEditor::EStripWrappers aStripWrappers) = 0;
+
  protected:  // Called by helper classes.
   /**
    * OnStartToHandleTopLevelEditSubAction() is called when
@@ -2496,6 +2510,97 @@ class EditorBase : public nsIEditor,
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult InsertLineBreakAsSubAction();
 
+  /**
+   * HowToHandleCollapsedRange indicates how collapsed range should be treated.
+   */
+  enum class HowToHandleCollapsedRange {
+    // Ignore collapsed range.
+    Ignore,
+    // Extend collapsed range for removing previous content.
+    ExtendBackward,
+    // Extend collapsed range for removing next content.
+    ExtendForward,
+  };
+
+  static HowToHandleCollapsedRange HowToHandleCollapsedRangeFor(
+      nsIEditor::EDirection aDirectionAndAmount) {
+    switch (aDirectionAndAmount) {
+      case nsIEditor::eNone:
+        return HowToHandleCollapsedRange::Ignore;
+      case nsIEditor::ePrevious:
+        return HowToHandleCollapsedRange::ExtendBackward;
+      case nsIEditor::eNext:
+        return HowToHandleCollapsedRange::ExtendForward;
+      case nsIEditor::ePreviousWord:
+      case nsIEditor::eNextWord:
+      case nsIEditor::eToBeginningOfLine:
+      case nsIEditor::eToEndOfLine:
+        // If the amount is word or line,`ExtendSelectionForDelete()`
+        // must have already been extended collapsed ranges before.
+        return HowToHandleCollapsedRange::Ignore;
+    }
+    MOZ_ASSERT_UNREACHABLE("Invalid nsIEditor::EDirection value");
+    return HowToHandleCollapsedRange::Ignore;
+  }
+
+  /**
+   * Extends the selection for given deletion operation
+   * If done, also update aDirectionAndAmount to what's actually left to do
+   * after the extension.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  ExtendSelectionForDelete(nsIEditor::EDirection* aDirectionAndAmount);
+
+  /**
+   * DeleteSelectionWithTransaction() removes selected content or content
+   * around caret with transactions and remove empty inclusive ancestor
+   * inline elements of collapsed selection after removing the contents.
+   *
+   * @param aDirectionAndAmount How much range should be removed.
+   * @param aStripWrappers      Whether the parent blocks should be removed
+   *                            when they become empty.
+   *                            Note that this must be `nsIEditor::eNoStrip`
+   *                            if this is a TextEditor because anyway it'll
+   *                            be ignored.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteSelectionWithTransaction(nsIEditor::EDirection aDirectionAndAmount,
+                                 nsIEditor::EStripWrappers aStripWrappers);
+
+  /**
+   * Create an aggregate transaction for delete selection.  The result may
+   * include DeleteNodeTransactions and/or DeleteTextTransactions as its
+   * children.
+   *
+   * @param aHowToHandleCollapsedRange
+   *                            How to handle collapsed ranges.
+   * @return                    If it can remove the selection, returns an
+   *                            aggregate transaction which has some
+   *                            DeleteNodeTransactions and/or
+   *                            DeleteTextTransactions as its children.
+   */
+  already_AddRefed<EditAggregateTransaction>
+  CreateTransactionForDeleteSelection(
+      HowToHandleCollapsedRange aHowToHandleCollapsedRange);
+
+  /**
+   * Create a transaction for removing the nodes and/or text around
+   * aRangeToDelete.
+   *
+   * @param aCollapsedRange     The range to be removed.  This must be
+   *                            collapsed.
+   * @param aHowToHandleCollapsedRange
+   *                            How to handle aCollapsedRange.  Must
+   *                            be HowToHandleCollapsedRange::ExtendBackward or
+   *                            HowToHandleCollapsedRange::ExtendForward.
+   * @return                    The transaction to remove content around the
+   *                            range.  Its type is DeleteNodeTransaction or
+   *                            DeleteTextTransaction.
+   */
+  already_AddRefed<EditTransactionBase> CreateTransactionForCollapsedRange(
+      nsRange& aCollapsedRange,
+      HowToHandleCollapsedRange aHowToHandleCollapsedRange);
+
  private:
   nsCOMPtr<nsISelectionController> mSelectionController;
   RefPtr<Document> mDocument;
@@ -2745,6 +2850,7 @@ class EditorBase : public nsIEditor,
 
   int32_t mWrapColumn;
   int32_t mNewlineHandling;
+  int32_t mCaretStyle;
 
   // -1 = not initialized
   int8_t mDocDirtyState;

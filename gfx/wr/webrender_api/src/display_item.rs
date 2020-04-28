@@ -136,6 +136,8 @@ pub enum DisplayItem {
     BackdropFilter(BackdropFilterDisplayItem),
 
     // Clips
+    RectClip(RectClipDisplayItem),
+    RoundedRectClip(RoundedRectClipDisplayItem),
     ImageMaskClip(ImageMaskClipDisplayItem),
     Clip(ClipDisplayItem),
     ClipChain(ClipChainItem),
@@ -186,6 +188,8 @@ pub enum DebugDisplayItem {
     BackdropFilter(BackdropFilterDisplayItem),
 
     ImageMaskClip(ImageMaskClipDisplayItem),
+    RoundedRectClip(RoundedRectClipDisplayItem),
+    RectClip(RectClipDisplayItem),
     Clip(ClipDisplayItem, Vec<ComplexClipRegion>),
     ClipChain(ClipChainItem, Vec<ClipId>),
 
@@ -210,6 +214,20 @@ pub struct ImageMaskClipDisplayItem {
     pub id: ClipId,
     pub parent_space_and_clip: SpaceAndClipInfo,
     pub image_mask: ImageMask,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
+pub struct RectClipDisplayItem {
+    pub id: ClipId,
+    pub parent_space_and_clip: SpaceAndClipInfo,
+    pub clip_rect: LayoutRect,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
+pub struct RoundedRectClipDisplayItem {
+    pub id: ClipId,
+    pub parent_space_and_clip: SpaceAndClipInfo,
+    pub clip: ComplexClipRegion,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, PeekPoke)]
@@ -1473,6 +1491,8 @@ impl DisplayItem {
             DisplayItem::BoxShadow(..) => "box_shadow",
             DisplayItem::ClearRectangle(..) => "clear_rectangle",
             DisplayItem::HitTest(..) => "hit_test",
+            DisplayItem::RectClip(..) => "rect_clip",
+            DisplayItem::RoundedRectClip(..) => "rounded_rect_clip",
             DisplayItem::ImageMaskClip(..) => "image_mask_clip",
             DisplayItem::Clip(..) => "clip",
             DisplayItem::ClipChain(..) => "clip_chain",

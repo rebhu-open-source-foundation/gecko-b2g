@@ -57,6 +57,7 @@
 #include "mozilla/dom/PostMessageEvent.h"
 #include "mozilla/dom/PushNotifier.h"
 #include "mozilla/dom/RemoteWorkerService.h"
+#include "mozilla/dom/ScreenOrientation.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/SystemMessageServiceChild.h"
 #include "mozilla/dom/SystemMessageService.h"
@@ -3343,25 +3344,23 @@ bool ContentChild::DeallocPContentPermissionRequestChild(
 
 PWebBrowserPersistDocumentChild*
 ContentChild::AllocPWebBrowserPersistDocumentChild(
-    PBrowserChild* aBrowser, const uint64_t& aOuterWindowID) {
+    PBrowserChild* aBrowser, const MaybeDiscarded<BrowsingContext>& aContext) {
   return new WebBrowserPersistDocumentChild();
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvPWebBrowserPersistDocumentConstructor(
     PWebBrowserPersistDocumentChild* aActor, PBrowserChild* aBrowser,
-    const uint64_t& aOuterWindowID) {
+    const MaybeDiscarded<BrowsingContext>& aContext) {
   if (NS_WARN_IF(!aBrowser)) {
     return IPC_FAIL_NO_REASON(this);
   }
-  nsCOMPtr<Document> rootDoc =
-      static_cast<BrowserChild*>(aBrowser)->GetTopLevelDocument();
-  nsCOMPtr<Document> foundDoc;
-  if (aOuterWindowID) {
-    foundDoc = nsContentUtils::GetSubdocumentWithOuterWindowId(rootDoc,
-                                                               aOuterWindowID);
-  } else {
-    foundDoc = rootDoc;
+
+  if (aContext.IsNullOrDiscarded()) {
+    aActor->SendInitFailure(NS_ERROR_NO_CONTENT);
+    return IPC_OK();
   }
+
+  nsCOMPtr<Document> foundDoc = aContext.get()->GetDocument();
 
   if (!foundDoc) {
     aActor->SendInitFailure(NS_ERROR_NO_CONTENT);
@@ -4256,6 +4255,18 @@ mozilla::ipc::IPCResult ContentChild::RecvSetActiveBrowsingContext(
   if (fm) {
     fm->SetActiveBrowsingContextFromOtherProcess(aContext.get());
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvAbortOrientationPendingPromises(
+    const MaybeDiscarded<BrowsingContext>& aContext) {
+  if (aContext.IsNullOrDiscarded()) {
+    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+            ("ChildIPC: Trying to send a message to dead or detached context"));
+    return IPC_OK();
+  }
+
+  dom::ScreenOrientation::AbortInProcessOrientationPromises(aContext.get());
   return IPC_OK();
 }
 

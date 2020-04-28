@@ -389,7 +389,7 @@ class nsSourceErrorEventRunner : public nsMediaEvent {
  * after successfully calling `Start()`.
  */
 class HTMLMediaElement::MediaControlEventListener final
-    : public MediaControlKeysEventListener {
+    : public ContentControlKeyEventReceiver {
  public:
   NS_INLINE_DECL_REFCOUNTING(MediaControlEventListener, override)
 
@@ -415,7 +415,7 @@ class HTMLMediaElement::MediaControlEventListener final
       return false;
     }
 
-    NotifyMediaStateChanged(ControlledMediaState::eStarted);
+    NotifyPlaybackStateChanged(MediaPlaybackState::eStarted);
     return true;
   }
 
@@ -425,14 +425,14 @@ class HTMLMediaElement::MediaControlEventListener final
       // We have already been stopped, do not notify stop twice.
       return;
     }
-    NotifyMediaStateChanged(ControlledMediaState::eStopped);
+    NotifyPlaybackStateChanged(MediaPlaybackState::eStopped);
 
     // Remove ourselves from media agent, which would stop receiving event.
-    mControlAgent->RemoveListener(this);
+    mControlAgent->RemoveReceiver(this);
     mControlAgent = nullptr;
   }
 
-  bool IsStarted() const { return mState != ControlledMediaState::eStopped; }
+  bool IsStarted() const { return mState != MediaPlaybackState::eStopped; }
 
   /**
    * Following methods should only be used after starting listener.
@@ -440,14 +440,14 @@ class HTMLMediaElement::MediaControlEventListener final
   void NotifyMediaStartedPlaying() {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
-    if (mState == ControlledMediaState::eStarted ||
-        mState == ControlledMediaState::ePaused) {
-      NotifyMediaStateChanged(ControlledMediaState::ePlayed);
+    if (mState == MediaPlaybackState::eStarted ||
+        mState == MediaPlaybackState::ePaused) {
+      NotifyPlaybackStateChanged(MediaPlaybackState::ePlayed);
       // If media is `inaudible` in the beginning, then we don't need to notify
       // the state, because notifying `inaudible` should always come after
       // notifying `audible`.
       if (mIsOwnerAudible) {
-        NotifyAudibleStateChanged(true);
+        NotifyAudibleStateChanged(MediaAudibleState::eAudible);
       }
     }
   }
@@ -455,11 +455,11 @@ class HTMLMediaElement::MediaControlEventListener final
   void NotifyMediaStoppedPlaying() {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
-    if (mState == ControlledMediaState::ePlayed) {
-      NotifyMediaStateChanged(ControlledMediaState::ePaused);
+    if (mState == MediaPlaybackState::ePlayed) {
+      NotifyPlaybackStateChanged(MediaPlaybackState::ePaused);
       // As media are going to be paused, so no sound is possible to be heard.
       if (mIsOwnerAudible) {
-        NotifyAudibleStateChanged(false);
+        NotifyAudibleStateChanged(MediaAudibleState::eInaudible);
       }
     }
   }
@@ -476,8 +476,10 @@ class HTMLMediaElement::MediaControlEventListener final
     // If media hasn't started playing, it doesn't make sense to update media
     // audible state. Therefore, in that case we would noitfy the audible state
     // when media starts playing.
-    if (mState == ControlledMediaState::ePlayed) {
-      NotifyAudibleStateChanged(mIsOwnerAudible);
+    if (mState == MediaPlaybackState::ePlayed) {
+      NotifyAudibleStateChanged(mIsOwnerAudible
+                                    ? MediaAudibleState::eAudible
+                                    : MediaAudibleState::eInaudible);
     }
   }
 
@@ -492,10 +494,10 @@ class HTMLMediaElement::MediaControlEventListener final
         this, mIsPictureInPictureEnabled);
   }
 
-  void OnKeyPressed(MediaControlKeysEvent aEvent) override {
+  void HandleEvent(MediaControlKeysEvent aEvent) override {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
-    MEDIACONTROL_LOG("OnKeyPressed '%s'", ToMediaControlKeysEventStr(aEvent));
+    MEDIACONTROL_LOG("HandleEvent '%s'", ToMediaControlKeysEventStr(aEvent));
     if (aEvent == MediaControlKeysEvent::ePlay && Owner()->Paused()) {
       Owner()->Play();
     } else if ((aEvent == MediaControlKeysEvent::ePause ||
@@ -505,21 +507,21 @@ class HTMLMediaElement::MediaControlEventListener final
     }
   }
 
+  BrowsingContext* GetBrowsingContext() const override {
+    nsPIDOMWindowInner* window = Owner()->OwnerDoc()->GetInnerWindow();
+    return window ? window->GetBrowsingContext() : nullptr;
+  }
+
  private:
   ~MediaControlEventListener() = default;
 
   bool InitMediaAgent() {
     MOZ_ASSERT(NS_IsMainThread());
-    nsPIDOMWindowInner* window = Owner()->OwnerDoc()->GetInnerWindow();
-    if (!window) {
-      return false;
-    }
-
-    mControlAgent = ContentMediaAgent::Get(window->GetBrowsingContext());
+    mControlAgent = ContentMediaAgent::Get(GetBrowsingContext());
     if (!mControlAgent) {
       return false;
     }
-    mControlAgent->AddListener(this);
+    mControlAgent->AddReceiver(this);
     return true;
   }
 
@@ -528,24 +530,24 @@ class HTMLMediaElement::MediaControlEventListener final
     return mElement.get();
   }
 
-  void NotifyMediaStateChanged(ControlledMediaState aState) {
+  void NotifyPlaybackStateChanged(MediaPlaybackState aState) {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(mControlAgent);
     MEDIACONTROL_LOG("NotifyMediaState from state='%s' to state='%s'",
-                     ToControlledMediaStateStr(mState),
-                     ToControlledMediaStateStr(aState));
+                     ToMediaPlaybackStateStr(mState),
+                     ToMediaPlaybackStateStr(aState));
     MOZ_ASSERT(mState != aState, "Should not notify same state again!");
     mState = aState;
-    mControlAgent->NotifyMediaStateChanged(this, mState);
+    mControlAgent->NotifyPlaybackStateChanged(this, mState);
   }
 
-  void NotifyAudibleStateChanged(bool aIsOwnerAudible) {
+  void NotifyAudibleStateChanged(MediaAudibleState aState) {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
-    mControlAgent->NotifyAudibleStateChanged(this, aIsOwnerAudible);
+    mControlAgent->NotifyAudibleStateChanged(this, aState);
   }
 
-  ControlledMediaState mState = ControlledMediaState::eStopped;
+  MediaPlaybackState mState = MediaPlaybackState::eStopped;
   WeakPtr<HTMLMediaElement> mElement;
   RefPtr<ContentMediaAgent> mControlAgent;
   bool mIsPictureInPictureEnabled = false;

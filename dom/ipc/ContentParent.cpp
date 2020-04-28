@@ -5061,7 +5061,7 @@ bool ContentParent::DeallocPContentPermissionRequestParent(
 
 PWebBrowserPersistDocumentParent*
 ContentParent::AllocPWebBrowserPersistDocumentParent(
-    PBrowserParent* aBrowser, const uint64_t& aOuterWindowID) {
+    PBrowserParent* aBrowser, const MaybeDiscarded<BrowsingContext>& aContext) {
   return new WebBrowserPersistDocumentParent();
 }
 
@@ -6329,27 +6329,27 @@ mozilla::ipc::IPCResult ContentParent::RecvStoreUserInteractionAsPermission(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaStateChanged(
+mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaPlaybackChanged(
     const MaybeDiscarded<BrowsingContext>& aContext,
-    ControlledMediaState aState) {
+    MediaPlaybackState aState) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
   if (RefPtr<MediaController> controller =
           aContext.get_canonical()->GetMediaController()) {
-    controller->NotifyMediaStateChanged(aState);
+    controller->NotifyMediaPlaybackChanged(aState);
   }
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaAudibleChanged(
-    const MaybeDiscarded<BrowsingContext>& aContext, bool aAudible) {
+    const MaybeDiscarded<BrowsingContext>& aContext, MediaAudibleState aState) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
   if (RefPtr<MediaController> controller =
           aContext.get_canonical()->GetMediaController()) {
-    controller->NotifyMediaAudibleChanged(aAudible);
+    controller->NotifyMediaAudibleChanged(aState);
   }
   return IPC_OK();
 }
@@ -6392,6 +6392,21 @@ mozilla::ipc::IPCResult ContentParent::RecvUpdateSHEntriesInBC(
   nsISHEntry* lshe = newLSHEparent ? newLSHEparent->mEntry.get() : nullptr;
   nsISHEntry* oshe = newOSHEparent ? newOSHEparent->mEntry.get() : nullptr;
   aContext->UpdateSHEntries(lshe, oshe);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvAbortOtherOrientationPendingPromises(
+    const MaybeDiscarded<BrowsingContext>& aContext) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  CanonicalBrowsingContext* context = aContext.get_canonical();
+
+  context->Group()->EachOtherParent(this, [&](ContentParent* aParent) {
+    Unused << aParent->SendAbortOrientationPendingPromises(context);
+  });
+
   return IPC_OK();
 }
 

@@ -732,11 +732,8 @@ interface nsIDocShell : nsIDocShellTreeItem
   /**
    * Checks whether the channel associated with the root docShell is equal to
    * mMixedContentChannel. If they are the same, allowMixedContent is set to true.
-   * Checks if the root document has a secure connection. If it is, sets
-   * rootHasSecureConnection to true. If the docShell is the root doc shell,
-   * isRootDocShell is set to true.
    */
-  void GetAllowMixedContentAndConnectionData(out boolean rootHasSecureConnection, out boolean allowMixedContent, out boolean isRootDocShell);
+  void GetAllowMixedContentAndConnectionData(out boolean allowMixedContent);
 
 
   /**
@@ -759,9 +756,6 @@ interface nsIDocShell : nsIDocShellTreeItem
    * exception.
    */
   [infallible] readonly attribute boolean fullscreenAllowed;
-
-  [notxpcom] uint32_t orientationLock();
-  [notxpcom] void setOrientationLock(in uint32_t orientationLock);
 
   [noscript, infallible] attribute boolean affectPrivateSessionLifetime;
 

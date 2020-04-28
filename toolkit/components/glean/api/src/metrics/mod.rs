@@ -9,6 +9,14 @@
 // version mismatch).
 pub use glean_core::{CommonMetricData, Lifetime};
 
+mod boolean;
+mod counter;
 mod string;
+mod string_list;
+mod uuid;
 
-pub use string::StringMetric;
+pub use self::boolean::BooleanMetric;
+pub use self::counter::CounterMetric;
+pub use self::string::StringMetric;
+pub use self::string_list::StringListMetric;
+pub use self::uuid::UuidMetric;

@@ -15,7 +15,6 @@ const TYPE_CA = 1;
 const TYPE_USER = 2;
 const TYPE_EMAIL = 4;
 const TYPE_SERVER = 8;
-const TYPE_ANY = 0xffff;
 
 var AboutCertViewerHandler = {
   _inited: false,
@@ -28,16 +27,15 @@ var AboutCertViewerHandler = {
       [TYPE_USER]: [],
       [TYPE_EMAIL]: [],
       [TYPE_SERVER]: [],
-      [TYPE_ANY]: [],
     };
     let certdb = Cc["@mozilla.org/security/x509certdb;1"].getService(
       Ci.nsIX509CertDB
     );
     let certcache = certdb.getCerts();
     for (let cert of certcache) {
-      for (let certType of Object.keys(certs)) {
+      for (let certType of Object.keys(certs).map(Number)) {
         if (certType & cert.certType) {
-          certs[cert.certType].push({
+          certs[certType].push({
             displayName: cert.displayName,
             derb64: cert.getBase64DERString(),
           });

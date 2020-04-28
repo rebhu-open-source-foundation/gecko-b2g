@@ -110,9 +110,9 @@ dependencies = [
 
 [[package]]
 name = "audio_thread_priority"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "407b1b70ad4072a4ff430679b331450166b56631091d6ba46a885cf427392055"
+checksum = "f8fba1500e466a39dd3faa5aed20a50dfe0aa1b905264a453bbe9f49508994cc"
 dependencies = [
  "cfg-if",
  "dbus",
@@ -985,7 +985,7 @@ dependencies = [
 [[package]]
 name = "cubeb-pulse"
 version = "0.3.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5#8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=5eb38163103b0dae86de81cdaf46070bdeedc0d1#5eb38163103b0dae86de81cdaf46070bdeedc0d1"
 dependencies = [
  "cubeb-backend",
  "pulse",
@@ -1165,15 +1165,16 @@ dependencies = [
 
 [[package]]
 name = "dwrote"
-version = "0.9.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bd1369e02db5e9b842a9b67bce8a2fcc043beafb2ae8a799dd482d46ea1ff0d"
+checksum = "439a1c2ba5611ad3ed731280541d36d2e9c4ac5e7fb818a27b604bdc5a6aa65b"
 dependencies = [
  "lazy_static",
  "libc",
  "serde",
  "serde_derive",
  "winapi 0.3.7",
+ "wio",
 ]
 
 [[package]]
@@ -1237,6 +1238,14 @@ name = "error-chain"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff511d5dc435d703f4971bc399647c9bc38e20cb41452e3b9feb4765419ed3f3"
+
+[[package]]
+name = "error-support"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=c17198fa5a88295f2cca722586c539280e10201c#c17198fa5a88295f2cca722586c539280e10201c"
+dependencies = [
+ "failure",
+]
 
 [[package]]
 name = "euclid"
@@ -1818,6 +1827,7 @@ dependencies = [
  "fog",
  "geckoservo",
  "gkrust_utils",
+ "golden_gate",
  "jsrust_shared",
  "kvstore",
  "lmdb-rkv-sys",
@@ -1840,9 +1850,10 @@ dependencies = [
  "shift_or_euc_c",
  "static_prefs",
  "storage",
- "sync15-traits",
  "unic-langid",
  "unic-langid-ffi",
+ "webext-storage",
+ "webext_storage_bridge",
  "webrender_bindings",
  "wgpu_bindings",
  "xpcom",
@@ -1885,6 +1896,7 @@ dependencies = [
  "log",
  "once_cell",
  "tempfile",
+ "uuid",
 ]
 
 [[package]]
@@ -1947,6 +1959,23 @@ dependencies = [
  "log",
  "plain",
  "scroll",
+]
+
+[[package]]
+name = "golden_gate"
+version = "0.1.0"
+dependencies = [
+ "atomic_refcell",
+ "cstr",
+ "interrupt-support",
+ "log",
+ "moz_task",
+ "nserror",
+ "nsstring",
+ "storage_variant",
+ "sync15-traits",
+ "thin-vec",
+ "xpcom",
 ]
 
 [[package]]
@@ -2147,6 +2176,11 @@ checksum = "1cdb29978cc5797bd8dcc8e5bf7de604891df2a8dc576973d71a281e916db2ff"
 dependencies = [
  "adler32",
 ]
+
+[[package]]
+name = "interrupt-support"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=c17198fa5a88295f2cca722586c539280e10201c#c17198fa5a88295f2cca722586c539280e10201c"
 
 [[package]]
 name = "intl-memoizer"
@@ -2395,6 +2429,7 @@ version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e704a02bcaecd4a08b93a23f6be59d0bd79cd161e0963e9499165a0a35df7bd"
 dependencies = [
+ "cc",
  "pkg-config",
  "vcpkg",
 ]
@@ -3078,6 +3113,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "nss_build_common"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=c17198fa5a88295f2cca722586c539280e10201c#c17198fa5a88295f2cca722586c539280e10201c"
+
+[[package]]
 name = "nsstring"
 version = "0.1.0"
 dependencies = [
@@ -3541,7 +3581,7 @@ dependencies = [
 [[package]]
 name = "pulse"
 version = "0.3.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5#8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=5eb38163103b0dae86de81cdaf46070bdeedc0d1#5eb38163103b0dae86de81cdaf46070bdeedc0d1"
 dependencies = [
  "bitflags",
  "pulse-ffi",
@@ -3550,7 +3590,7 @@ dependencies = [
 [[package]]
 name = "pulse-ffi"
 version = "0.1.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5#8375ed3cd2fb85add5800fa2eb6ec7bfc8e6bbf5"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=5eb38163103b0dae86de81cdaf46070bdeedc0d1#5eb38163103b0dae86de81cdaf46070bdeedc0d1"
 dependencies = [
  "libc",
 ]
@@ -4203,6 +4243,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sql-support"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=c17198fa5a88295f2cca722586c539280e10201c#c17198fa5a88295f2cca722586c539280e10201c"
+dependencies = [
+ "ffi-support",
+ "interrupt-support",
+ "lazy_static",
+ "log",
+ "rusqlite",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4390,18 +4442,22 @@ dependencies = [
 [[package]]
 name = "sync-guid"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=120e51dd5f2aab4194cf0f7e93b2a8923f4504bb#120e51dd5f2aab4194cf0f7e93b2a8923f4504bb"
+source = "git+https://github.com/mozilla/application-services?rev=c17198fa5a88295f2cca722586c539280e10201c#c17198fa5a88295f2cca722586c539280e10201c"
 dependencies = [
+ "base64 0.12.0",
+ "rand",
+ "rusqlite",
  "serde",
 ]
 
 [[package]]
 name = "sync15-traits"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=120e51dd5f2aab4194cf0f7e93b2a8923f4504bb#120e51dd5f2aab4194cf0f7e93b2a8923f4504bb"
+source = "git+https://github.com/mozilla/application-services?rev=c17198fa5a88295f2cca722586c539280e10201c#c17198fa5a88295f2cca722586c539280e10201c"
 dependencies = [
  "failure",
  "ffi-support",
+ "interrupt-support",
  "log",
  "serde",
  "serde_json",
@@ -4974,6 +5030,7 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]
@@ -5106,6 +5163,43 @@ dependencies = [
  "unicode-segmentation",
  "url",
  "warp",
+]
+
+[[package]]
+name = "webext-storage"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=c17198fa5a88295f2cca722586c539280e10201c#c17198fa5a88295f2cca722586c539280e10201c"
+dependencies = [
+ "error-support",
+ "failure",
+ "interrupt-support",
+ "lazy_static",
+ "log",
+ "nss_build_common",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "url",
+]
+
+[[package]]
+name = "webext_storage_bridge"
+version = "0.1.0"
+dependencies = [
+ "atomic_refcell",
+ "cstr",
+ "moz_task",
+ "nserror",
+ "nsstring",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "storage_variant",
+ "webext-storage",
+ "xpcom",
 ]
 
 [[package]]

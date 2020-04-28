@@ -229,11 +229,11 @@ class ContentChild final
       const FileDescriptor& aGCLog, const FileDescriptor& aCCLog) override;
 
   PWebBrowserPersistDocumentChild* AllocPWebBrowserPersistDocumentChild(
-      PBrowserChild* aBrowser, const uint64_t& aOuterWindowID);
+      PBrowserChild* aBrowser, const MaybeDiscarded<BrowsingContext>& aContext);
 
   virtual mozilla::ipc::IPCResult RecvPWebBrowserPersistDocumentConstructor(
       PWebBrowserPersistDocumentChild* aActor, PBrowserChild* aBrowser,
-      const uint64_t& aOuterWindowID) override;
+      const MaybeDiscarded<BrowsingContext>& aContext) override;
 
   bool DeallocPWebBrowserPersistDocumentChild(
       PWebBrowserPersistDocumentChild* aActor);
@@ -833,6 +833,8 @@ class ContentChild final
   mozilla::ipc::IPCResult RecvSetFocusedBrowsingContext(
       const MaybeDiscarded<BrowsingContext>& aContext);
   mozilla::ipc::IPCResult RecvSetActiveBrowsingContext(
+      const MaybeDiscarded<BrowsingContext>& aContext);
+  mozilla::ipc::IPCResult RecvAbortOrientationPendingPromises(
       const MaybeDiscarded<BrowsingContext>& aContext);
   mozilla::ipc::IPCResult RecvUnsetActiveBrowsingContext(
       const MaybeDiscarded<BrowsingContext>& aContext);

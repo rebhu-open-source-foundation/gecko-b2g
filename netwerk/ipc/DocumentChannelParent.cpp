@@ -9,6 +9,7 @@
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/ClientInfo.h"
+#include "mozilla/dom/ContentParent.h"
 
 extern mozilla::LazyLogModule gDocumentChannelLog;
 #define LOG(fmt) MOZ_LOG(gDocumentChannelLog, mozilla::LogLevel::Verbose, fmt)
@@ -47,10 +48,11 @@ bool DocumentChannelParent::Init(dom::CanonicalBrowsingContext* aContext,
   }
 
   nsresult rv = NS_ERROR_UNEXPECTED;
-  if (!mParent->Open(loadState, aArgs.loadFlags(), aArgs.cacheKey(),
-                     Some(aArgs.channelId()), aArgs.asyncOpenTime(),
-                     aArgs.timing().refOr(nullptr), std::move(clientInfo),
-                     aArgs.outerWindowId(), aArgs.hasValidTransientUserAction(),
+  if (!mParent->Open(loadState, aArgs.cacheKey(), Some(aArgs.channelId()),
+                     aArgs.asyncOpenTime(), aArgs.timing().refOr(nullptr),
+                     std::move(clientInfo), aArgs.outerWindowId(),
+                     aArgs.hasValidTransientUserAction(),
+                     Some(aArgs.uriModified()), Some(aArgs.isXFOError()),
                      &rv)) {
     return SendFailedAsyncOpen(rv);
   }
@@ -68,7 +70,9 @@ DocumentChannelParent::RedirectToRealChannel(
         CreateAndReject(ResponseRejectReason::ChannelClosed, __func__);
   }
   RedirectToRealChannelArgs args;
-  mParent->SerializeRedirectData(args, false, aRedirectFlags, aLoadFlags);
+  mParent->SerializeRedirectData(
+      args, false, aRedirectFlags, aLoadFlags,
+      static_cast<ContentParent*>(Manager()->Manager()));
   return SendRedirectToRealChannel(args, std::move(aStreamFilterEndpoints));
 }
 

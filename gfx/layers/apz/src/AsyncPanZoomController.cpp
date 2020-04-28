@@ -321,13 +321,6 @@ typedef PlatformSpecificStateBase
  * NOTE: Should not be set to anything
  * other than 0.0 for Android except for tests to disable flings.
  *
- * \li\b apz.frame_delay.enabled
- * If this is set to true, changes to the async scroll offset and async zoom
- * will not be immediately reflected in GetCurrentAsyncTransform() when called
- * with |AsyncTransformConsumer::eForCompositing|. Rather, the transform will
- * reflect the value of the async scroll offset and async zoom at the last time
- * SampleCompositedAsyncTransform() was called.
- *
  * \li\b apz.keyboard.enabled
  * Determines whether scrolling with the keyboard will be allowed to be handled
  * by APZ.
@@ -865,6 +858,9 @@ AsyncPanZoomController::AsyncPanZoomController(
   if (aGestures == USE_GESTURE_DETECTOR) {
     mGestureEventListener = new GestureEventListener(this);
   }
+  // Put one default-constructed sampled state in the queue.
+  RecursiveMutexAutoLock lock(mRecursiveMutex);
+  mSampledState.emplace_back();
 }
 
 AsyncPanZoomController::~AsyncPanZoomController() { MOZ_ASSERT(IsDestroyed()); }
@@ -3156,12 +3152,8 @@ void AsyncPanZoomController::UpdateWithTouchAtDevicePoint(
 }
 
 Maybe<CompositionPayload> AsyncPanZoomController::NotifyScrollSampling() {
-  if (StaticPrefs::apz_frame_delay_enabled()) {
-    return std::move(mCompositedScrollPayload);
-  }
-  // If frame.delay disabled, the triggering events are those
-  // from the most recent frame
-  return std::move(mScrollPayload);
+  RecursiveMutexAutoLock lock(mRecursiveMutex);
+  return mSampledState.front().TakeScrollPayload();
 }
 
 bool AsyncPanZoomController::AttemptScroll(
@@ -3653,19 +3645,6 @@ void AsyncPanZoomController::ClampAndSetScrollOffset(const CSSPoint& aOffset) {
   Metrics().RecalculateLayoutViewportOffset();
 }
 
-void AsyncPanZoomController::ClampCompositedScrollOffset() {
-  mCompositedScrollOffset =
-      Metrics().CalculateScrollRange().ClampPoint(mCompositedScrollOffset);
-  RecalculateCompositedLayoutViewport();
-}
-
-void AsyncPanZoomController::RecalculateCompositedLayoutViewport() {
-  FrameMetrics::KeepLayoutViewportEnclosingVisualViewport(
-      CSSRect(mCompositedScrollOffset,
-              Metrics().CalculateCompositedSizeInCssPixels()),
-      Metrics().GetScrollableRect(), mCompositedLayoutViewport);
-}
-
 void AsyncPanZoomController::ScrollBy(const CSSPoint& aOffset) {
   SetScrollOffset(Metrics().GetScrollOffset() + aOffset);
 }
@@ -3991,19 +3970,26 @@ bool AsyncPanZoomController::UpdateAnimation(
     nsTArray<RefPtr<Runnable>>* aOutDeferredTasks) {
   AssertOnSamplerThread();
 
-  // This function may get called multiple with the same sample time, for two
-  // reasons: (1) there may be multiple layers with this APZC, and each layer
-  // invokes this function during composition, and (2) we might composite
-  // multiple times at the same timestamp.
+  // This function may get called multiple with the same sample time, if we
+  // composite multiple times at the same timestamp.
   // However we only want to do one animation step per composition so we need
   // to deduplicate these calls first.
   if (mLastSampleTime == aSampleTime) {
     return (mAnimation != nullptr);
   }
 
-  // Sample the composited async transform once per composite. Note that we
-  // call this after the |mLastSampleTime == aSampleTime| check, to ensure
-  // it's only called once per APZC on each composite.
+  // We're at a new timestamp, so advance to the next sample in the deque, if
+  // there is one. That one will be used for all the code that reads the
+  // eForCompositing transforms in this vsync interval.
+  AdvanceToNextSample();
+
+  // And then create a new sample, which will be used in the *next* vsync
+  // interval. We do the sample at this point and not later in order to try
+  // and enforce one frame delay between computing the async transform and
+  // compositing it to the screen. This one-frame delay gives code running on
+  // the main thread a chance to try and respond to the scroll position change,
+  // so that e.g. a main-thread animation can stay in sync with user-driven
+  // scrolling or a compositor animation.
   bool needComposite = SampleCompositedAsyncTransform(aProofOfLock);
 
   TimeDuration sampleTimeDelta = aSampleTime - mLastSampleTime;
@@ -4098,7 +4084,7 @@ CSSRect AsyncPanZoomController::GetCurrentAsyncLayoutViewport(
   AutoApplyAsyncTestAttributes testAttributeApplier(this, lock);
   MOZ_ASSERT(Metrics().IsRootContent(),
              "Only the root content APZC has a layout viewport");
-  return GetEffectiveLayoutViewport(aMode);
+  return GetEffectiveLayoutViewport(aMode, lock);
 }
 
 ParentLayerPoint AsyncPanZoomController::GetCurrentAsyncScrollOffset(
@@ -4106,7 +4092,7 @@ ParentLayerPoint AsyncPanZoomController::GetCurrentAsyncScrollOffset(
   RecursiveMutexAutoLock lock(mRecursiveMutex);
   AutoApplyAsyncTestAttributes testAttributeApplier(this, lock);
 
-  return GetEffectiveScrollOffset(aMode) * GetEffectiveZoom(aMode);
+  return GetEffectiveScrollOffset(aMode, lock) * GetEffectiveZoom(aMode, lock);
 }
 
 CSSPoint AsyncPanZoomController::GetCurrentAsyncScrollOffsetInCssPixels(
@@ -4114,7 +4100,7 @@ CSSPoint AsyncPanZoomController::GetCurrentAsyncScrollOffsetInCssPixels(
   RecursiveMutexAutoLock lock(mRecursiveMutex);
   AutoApplyAsyncTestAttributes testAttributeApplier(this, lock);
 
-  return GetEffectiveScrollOffset(aMode);
+  return GetEffectiveScrollOffset(aMode, lock);
 }
 
 AsyncTransform AsyncPanZoomController::GetCurrentAsyncTransform(
@@ -4124,7 +4110,7 @@ AsyncTransform AsyncPanZoomController::GetCurrentAsyncTransform(
 
   CSSToParentLayerScale2D effectiveZoom;
   if (aComponents.contains(AsyncTransformComponent::eVisual)) {
-    effectiveZoom = GetEffectiveZoom(aMode);
+    effectiveZoom = GetEffectiveZoom(aMode, lock);
   } else {
     effectiveZoom =
         Metrics().LayersPixelsPerCSSPixel() * LayerToParentLayerScale(1.0f);
@@ -4142,8 +4128,9 @@ AsyncTransform AsyncPanZoomController::GetCurrentAsyncTransform(
                  mLastContentPaintMetrics.GetLayoutViewport().TopLeft());
     }
 
-    CSSPoint currentVisualOffset = GetEffectiveScrollOffset(aMode) -
-                                   GetEffectiveLayoutViewport(aMode).TopLeft();
+    CSSPoint currentVisualOffset =
+        GetEffectiveScrollOffset(aMode, lock) -
+        GetEffectiveLayoutViewport(aMode, lock).TopLeft();
 
     translation += currentVisualOffset * effectiveZoom;
   }
@@ -4154,7 +4141,8 @@ AsyncTransform AsyncPanZoomController::GetCurrentAsyncTransform(
           mLastContentPaintMetrics.GetLayoutViewport().TopLeft();
     }
 
-    CSSPoint currentLayoutOffset = GetEffectiveLayoutViewport(aMode).TopLeft();
+    CSSPoint currentLayoutOffset =
+        GetEffectiveLayoutViewport(aMode, lock).TopLeft();
 
     translation +=
         (currentLayoutOffset - lastPaintLayoutOffset) * effectiveZoom;
@@ -4175,7 +4163,7 @@ LayoutDeviceToParentLayerScale AsyncPanZoomController::GetCurrentPinchZoomScale(
     AsyncTransformConsumer aMode) const {
   RecursiveMutexAutoLock lock(mRecursiveMutex);
   AutoApplyAsyncTestAttributes testAttributeApplier(this, lock);
-  CSSToParentLayerScale2D scale = GetEffectiveZoom(aMode);
+  CSSToParentLayerScale2D scale = GetEffectiveZoom(aMode, lock);
   // Note that in general the zoom might have different x- and y-scales.
   // However, this function in particular is only used on the WebRender codepath
   // for which the scales should always be the same.
@@ -4183,53 +4171,64 @@ LayoutDeviceToParentLayerScale AsyncPanZoomController::GetCurrentPinchZoomScale(
 }
 
 CSSRect AsyncPanZoomController::GetEffectiveLayoutViewport(
-    AsyncTransformConsumer aMode) const {
+    AsyncTransformConsumer aMode,
+    const RecursiveMutexAutoLock& aProofOfLock) const {
   if (aMode == eForCompositing && mScrollMetadata.IsApzForceDisabled()) {
     return mLastContentPaintMetrics.GetLayoutViewport();
   }
-  if (aMode == eForCompositing && StaticPrefs::apz_frame_delay_enabled()) {
-    return mCompositedLayoutViewport;
+  if (aMode == eForCompositing) {
+    return mSampledState.front().GetLayoutViewport();
   }
   return Metrics().GetLayoutViewport();
 }
 
 CSSPoint AsyncPanZoomController::GetEffectiveScrollOffset(
-    AsyncTransformConsumer aMode) const {
+    AsyncTransformConsumer aMode,
+    const RecursiveMutexAutoLock& aProofOfLock) const {
   if (aMode == eForCompositing && mScrollMetadata.IsApzForceDisabled()) {
     return mLastContentPaintMetrics.GetVisualViewportOffset();
   }
-  if (aMode == eForCompositing && StaticPrefs::apz_frame_delay_enabled()) {
-    return mCompositedScrollOffset;
+  if (aMode == eForCompositing) {
+    return mSampledState.front().GetScrollOffset();
   }
   return Metrics().GetScrollOffset();
 }
 
 CSSToParentLayerScale2D AsyncPanZoomController::GetEffectiveZoom(
-    AsyncTransformConsumer aMode) const {
+    AsyncTransformConsumer aMode,
+    const RecursiveMutexAutoLock& aProofOfLock) const {
   if (aMode == eForCompositing && mScrollMetadata.IsApzForceDisabled()) {
     return mLastContentPaintMetrics.GetZoom();
   }
-  if (aMode == eForCompositing && StaticPrefs::apz_frame_delay_enabled()) {
-    return mCompositedZoom;
+  if (aMode == eForCompositing) {
+    return mSampledState.front().GetZoom();
   }
   return Metrics().GetZoom();
 }
 
+void AsyncPanZoomController::AdvanceToNextSample() {
+  AssertOnSamplerThread();
+  RecursiveMutexAutoLock lock(mRecursiveMutex);
+  // Always keep at least one state in mSampledState.
+  if (mSampledState.size() > 1) {
+    mSampledState.pop_front();
+  }
+}
+
 bool AsyncPanZoomController::SampleCompositedAsyncTransform(
     const RecursiveMutexAutoLock& aProofOfLock) {
-  if (!mCompositedLayoutViewport.IsEqualEdges(Metrics().GetLayoutViewport()) ||
-      mCompositedScrollOffset != Metrics().GetScrollOffset() ||
-      mCompositedZoom != Metrics().GetZoom()) {
-    mCompositedLayoutViewport = Metrics().GetLayoutViewport();
-    mCompositedScrollOffset = Metrics().GetScrollOffset();
-    mCompositedZoom = Metrics().GetZoom();
+  MOZ_ASSERT(mSampledState.size() <= 2);
+  bool sampleChanged = (mSampledState.back() != SampledAPZCState(Metrics()));
+  mSampledState.emplace_back(Metrics(), std::move(mScrollPayload));
+  return sampleChanged;
+}
 
-    // If frame.delay enabled, we pass along the scroll events from
-    // frame before since they were what moved the items on the layer
-    mCompositedScrollPayload = std::move(mScrollPayload);
-    return true;
-  }
-  return false;
+void AsyncPanZoomController::ResampleCompositedAsyncTransform(
+    const RecursiveMutexAutoLock& aProofOfLock) {
+  // This only gets called during testing situations, so the fact that this
+  // drops the scroll payload from mSampledState.front() is not really a
+  // problem.
+  mSampledState.front() = SampledAPZCState(Metrics());
 }
 
 void AsyncPanZoomController::ApplyAsyncTestAttributes(
@@ -4237,9 +4236,16 @@ void AsyncPanZoomController::ApplyAsyncTestAttributes(
   if (mTestAttributeAppliers == 0) {
     if (mTestAsyncScrollOffset != CSSPoint() ||
         mTestAsyncZoom != LayerToParentLayerScale()) {
+      // TODO Currently we update Metrics() and resample, which will cause
+      // the very latest user input to get immediately captured in the sample,
+      // and may defeat our attempt at "frame delay" (i.e. delaying the user
+      // input from affecting composition by one frame).
+      // Instead, maybe we should just apply the mTest* stuff directly to
+      // mSampledState.front(). We can even save/restore that SampledAPZCState
+      // instance in the AutoApplyAsyncTestAttributes instead of Metrics().
       Metrics().ZoomBy(mTestAsyncZoom.scale);
       ScrollBy(mTestAsyncScrollOffset);
-      SampleCompositedAsyncTransform(aProofOfLock);
+      ResampleCompositedAsyncTransform(aProofOfLock);
     }
   }
   ++mTestAttributeAppliers;
@@ -4254,7 +4260,7 @@ void AsyncPanZoomController::UnapplyAsyncTestAttributes(
     if (mTestAsyncScrollOffset != CSSPoint() ||
         mTestAsyncZoom != LayerToParentLayerScale()) {
       Metrics() = aPrevFrameMetrics;
-      SampleCompositedAsyncTransform(aProofOfLock);
+      ResampleCompositedAsyncTransform(aProofOfLock);
     }
   }
 }
@@ -4285,8 +4291,8 @@ Matrix4x4 AsyncPanZoomController::GetTransformToLastDispatchedPaint() const {
 CSSRect AsyncPanZoomController::GetVisibleRect(
     const RecursiveMutexAutoLock& aProofOfLock) const {
   AutoApplyAsyncTestAttributes testAttributeApplier(this, aProofOfLock);
-  CSSPoint currentScrollOffset =
-      GetEffectiveScrollOffset(AsyncPanZoomController::eForCompositing);
+  CSSPoint currentScrollOffset = GetEffectiveScrollOffset(
+      AsyncPanZoomController::eForCompositing, aProofOfLock);
   CSSRect visible = CSSRect(currentScrollOffset,
                             Metrics().CalculateCompositedSizeInCssPixels());
   return visible;
@@ -4556,9 +4562,10 @@ void AsyncPanZoomController::NotifyLayersUpdated(
     mExpectedGeckoMetrics = aLayerMetrics;
     ShareCompositorFrameMetrics();
 
-    mCompositedLayoutViewport = Metrics().GetLayoutViewport();
-    mCompositedScrollOffset = Metrics().GetScrollOffset();
-    mCompositedZoom = Metrics().GetZoom();
+    for (auto& sampledState : mSampledState) {
+      sampledState.UpdateScrollProperties(Metrics());
+      sampledState.UpdateZoomProperties(Metrics());
+    }
 
     if (Metrics().GetDisplayPortMargins() != ScreenMargin()) {
       // A non-zero display port margin here indicates a displayport has
@@ -4596,16 +4603,17 @@ void AsyncPanZoomController::NotifyLayersUpdated(
         needContentRepaint = true;
       }
       Metrics().ZoomBy(totalResolutionChange / presShellResolutionChange);
-      mCompositedZoom.xScale *=
-          (totalResolutionChange / presShellResolutionChange).width;
-      mCompositedZoom.yScale *=
-          (totalResolutionChange / presShellResolutionChange).height;
+      for (auto& sampledState : mSampledState) {
+        sampledState.ZoomBy(totalResolutionChange / presShellResolutionChange);
+      }
     } else {
       // Take the new zoom as either device scale or composition width or
       // viewport size got changed (e.g. due to orientation change, or content
       // changing the meta-viewport tag).
       Metrics().SetZoom(aLayerMetrics.GetZoom());
-      mCompositedZoom = aLayerMetrics.GetZoom();
+      for (auto& sampledState : mSampledState) {
+        sampledState.UpdateZoomProperties(aLayerMetrics);
+      }
       Metrics().SetDevPixelsPerCSSPixel(
           aLayerMetrics.GetDevPixelsPerCSSPixel());
     }
@@ -4680,8 +4688,9 @@ void AsyncPanZoomController::NotifyLayersUpdated(
       }
       Metrics().RecalculateLayoutViewportOffset();
 
-      mCompositedLayoutViewport = Metrics().GetLayoutViewport();
-      mCompositedScrollOffset = Metrics().GetScrollOffset();
+      for (auto& sampledState : mSampledState) {
+        sampledState.UpdateScrollProperties(Metrics());
+      }
       mExpectedGeckoMetrics = aLayerMetrics;
 
       // If an animation is underway, tell it about the scroll offset update.
@@ -4710,7 +4719,9 @@ void AsyncPanZoomController::NotifyLayersUpdated(
       // scrollable rect or composition bounds may have changed in a way that
       // makes our local scroll offset out of bounds, so re-clamp it.
       ClampAndSetScrollOffset(Metrics().GetScrollOffset());
-      ClampCompositedScrollOffset();
+      for (auto& sampledState : mSampledState) {
+        sampledState.ClampScrollOffset(Metrics());
+      }
     }
   }
 
@@ -4746,8 +4757,9 @@ void AsyncPanZoomController::NotifyLayersUpdated(
     // The rest of this branch largely follows the code in the
     // |if (scrollOffsetUpdated)| branch above.
     Metrics().RecalculateLayoutViewportOffset();
-    mCompositedLayoutViewport = Metrics().GetLayoutViewport();
-    mCompositedScrollOffset = Metrics().GetScrollOffset();
+    for (auto& sampledState : mSampledState) {
+      sampledState.UpdateScrollProperties(Metrics());
+    }
     mExpectedGeckoMetrics = aLayerMetrics;
     if (ShouldCancelAnimationForScrollUpdate(Nothing())) {
       CancelAnimation();

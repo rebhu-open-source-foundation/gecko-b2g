@@ -15,7 +15,7 @@ import time
 import mozcrash
 from cpu import start_android_cpu_profiler
 from logger.logger import RaptorLogger
-from mozdevice import ADBDevice
+from mozdevice import ADBDevice, ADBProcessError
 from performance_tuning import tune_performance
 from perftest import PerftestAndroid
 from power import (
@@ -39,9 +39,7 @@ class WebExtensionAndroid(PerftestAndroid, WebExtension):
 
         self.config.update({"activity": activity, "intent": intent})
 
-        self.remote_test_root = os.path.abspath(
-            os.path.join(os.sep, "sdcard", "raptor")
-        )
+        self.remote_test_root = "/data/local/tmp/tests/raptor"
         self.remote_profile = os.path.join(self.remote_test_root, "profile")
         self.os_baseline_data = None
         self.power_test_time = None
@@ -59,8 +57,8 @@ class WebExtensionAndroid(PerftestAndroid, WebExtension):
             disable_charging(self.device)
 
         LOG.info("creating remote root folder for raptor: %s" % self.remote_test_root)
-        self.device.rm(self.remote_test_root, force=True, recursive=True)
-        self.device.mkdir(self.remote_test_root)
+        self.device.rm(self.remote_test_root, force=True, recursive=True, root=True)
+        self.device.mkdir(self.remote_test_root, parents=True, root=True)
         self.device.chmod(self.remote_test_root, recursive=True, root=True)
 
         self.clear_app_data()
@@ -110,21 +108,28 @@ class WebExtensionAndroid(PerftestAndroid, WebExtension):
             raise
 
     def log_android_device_temperature(self):
+        # retrieve and log the android device temperature
         try:
-            # retrieve and log the android device temperature
+            # use sort since cat gives I/O Error on Pixel 2 - 10.
             thermal_zone0 = self.device.shell_output(
-                "cat sys/class/thermal/thermal_zone0/temp"
+                "sort /sys/class/thermal/thermal_zone0/temp"
             )
-            thermal_zone0 = float(thermal_zone0)
+            try:
+                thermal_zone0 = "%.3f" % (float(thermal_zone0) / 1000)
+            except ValueError:
+                thermal_zone0 = "Unknown"
+        except ADBProcessError:
+            thermal_zone0 = 'Unknown'
+        try:
             zone_type = self.device.shell_output(
-                "cat sys/class/thermal/thermal_zone0/type"
+                "cat /sys/class/thermal/thermal_zone0/type"
             )
-            LOG.info(
-                "(thermal_zone0) device temperature: %.3f zone type: %s"
-                % (thermal_zone0 / 1000, zone_type)
-            )
-        except Exception as exc:
-            LOG.warning("Unexpected error: {} - {}".format(exc.__class__.__name__, exc))
+        except ADBProcessError:
+            zone_type = 'Unknown'
+        LOG.info(
+            "(thermal_zone0) device temperature: %s zone type: %s"
+            % (thermal_zone0, zone_type)
+        )
 
     def launch_firefox_android_app(self, test_name):
         LOG.info("starting %s" % self.config["app"])
@@ -410,7 +415,9 @@ class WebExtensionAndroid(PerftestAndroid, WebExtension):
 
     def clean_up(self):
         LOG.info("removing test folder for raptor: %s" % self.remote_test_root)
-        self.device.rm(self.remote_test_root, force=True, recursive=True)
+        # We must use root=True since the browser will have created files in
+        # the profile.
+        self.device.rm(self.remote_test_root, force=True, recursive=True, root=True)
 
         if self.config['power_test']:
             enable_charging(self.device)

@@ -3593,6 +3593,14 @@ void Document::SetDocumentURI(nsIURI* aURI) {
   if (inner && inner->GetWindowGlobalChild()) {
     inner->GetWindowGlobalChild()->SetDocumentURI(mDocumentURI);
   }
+
+  auto* browsingContext = GetBrowsingContext();
+  if (browsingContext) {
+    nsCOMPtr<nsIURI> innerDocURI = NS_GetInnermostURI(mDocumentURI);
+    if (innerDocURI) {
+      browsingContext->SetIsSecure(innerDocURI->SchemeIs("https"));
+    }
+  }
 }
 
 static void GetFormattedTimeString(PRTime aTime,
@@ -13876,7 +13884,7 @@ class PointerLockRequest final : public Runnable {
 static const char* GetPointerLockError(Element* aElement, Element* aCurrentLock,
                                        bool aNoFocusCheck = false) {
   // Check if pointer lock pref is enabled
-  if (!Preferences::GetBool("full-screen-api.pointer-lock.enabled")) {
+  if (!StaticPrefs::full_screen_api_pointer_lock_enabled()) {
     return "PointerLockDeniedDisabled";
   }
 

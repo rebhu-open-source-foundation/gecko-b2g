@@ -16,6 +16,8 @@
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/DOMException.h"
 #include "mozilla/dom/DOMStringList.h"
+#include "mozilla/dom/DOMStringList.h"
+#include "mozilla/dom/Event.h"
 #include "mozilla/dom/FileReader.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/WorkerRef.h"
@@ -120,10 +122,10 @@ nsresult HTMLEditor::LoadHTML(const nsAString& aInputString) {
 
   // Delete Selection, but only if it isn't collapsed, see bug #106269
   if (!SelectionRefPtr()->IsCollapsed()) {
-    rv = DeleteSelectionAsSubAction(eNone, eStrip);
+    nsresult rv = DeleteSelectionAsSubAction(eNone, eStrip);
     if (NS_FAILED(rv)) {
       NS_WARNING(
-          "TextEditor::DeleteSelectionAsSubAction(eNone, eStrip) failed");
+          "EditorBase::DeleteSelectionAsSubAction(eNone, eStrip) failed");
       return rv;
     }
   }
@@ -281,7 +283,7 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
       nsresult rv = DeleteSelectionAsSubAction(eNone, eStrip);
       if (NS_FAILED(rv)) {
         NS_WARNING(
-            "TextEditor::DeleteSelectionAsSubAction(eNone, eStrip) failed");
+            "EditorBase::DeleteSelectionAsSubAction(eNone, eStrip) failed");
         return rv;
       }
     }

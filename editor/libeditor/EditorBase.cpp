@@ -20,6 +20,7 @@
 #include "EditAggregateTransaction.h"         // for EditAggregateTransaction
 #include "EditTransactionBase.h"              // for EditTransactionBase
 #include "EditorEventListener.h"              // for EditorEventListener
+#include "gfxFontUtils.h"                     // for gfxFontUtils
 #include "HTMLEditUtils.h"                    // for HTMLEditUtils
 #include "InsertNodeTransaction.h"            // for InsertNodeTransaction
 #include "InsertTextTransaction.h"            // for InsertTextTransaction
@@ -37,6 +38,7 @@
 #include "mozilla/EditorUtils.h"              // for various helper classes.
 #include "mozilla/EditTransactionBase.h"      // for EditTransactionBase
 #include "mozilla/FlushType.h"                // for FlushType::Frames
+#include "mozilla/HTMLEditor.h"               // for HTMLEditor
 #include "mozilla/IMEContentObserver.h"       // for IMEContentObserver
 #include "mozilla/IMEStateManager.h"          // for IMEStateManager
 #include "mozilla/InputEventOptions.h"        // for InputEventOptions
@@ -46,14 +48,17 @@
 #include "mozilla/mozSpellChecker.h"        // for mozSpellChecker
 #include "mozilla/Preferences.h"            // for Preferences
 #include "mozilla/PresShell.h"              // for PresShell
-#include "mozilla/RangeBoundary.h"      // for RawRangeBoundary, RangeBoundary
-#include "mozilla/Services.h"           // for GetObserverService
-#include "mozilla/ServoCSSParser.h"     // for ServoCSSParser
-#include "mozilla/StaticPrefs_bidi.h"   // for StaticPrefs::bidi_*
-#include "mozilla/StaticPrefs_dom.h"    // for StaticPrefs::dom_*
-#include "mozilla/TextComposition.h"    // for TextComposition
-#include "mozilla/TextInputListener.h"  // for TextInputListener
+#include "mozilla/RangeBoundary.h"       // for RawRangeBoundary, RangeBoundary
+#include "mozilla/Services.h"            // for GetObserverService
+#include "mozilla/ServoCSSParser.h"      // for ServoCSSParser
+#include "mozilla/StaticPrefs_bidi.h"    // for StaticPrefs::bidi_*
+#include "mozilla/StaticPrefs_dom.h"     // for StaticPrefs::dom_*
+#include "mozilla/StaticPrefs_editor.h"  // for StaticPrefs::editor_*
+#include "mozilla/StaticPrefs_layout.h"  // for StaticPrefs::layout_*
+#include "mozilla/TextComposition.h"     // for TextComposition
+#include "mozilla/TextInputListener.h"   // for TextInputListener
 #include "mozilla/TextServicesDocument.h"  // for TextServicesDocument
+#include "mozilla/TextEditor.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/TransactionManager.h"  // for TransactionManager
 #include "mozilla/Tuple.h"
@@ -140,7 +145,8 @@ EditorBase::EditorBase()
       mUpdateCount(0),
       mPlaceholderBatch(0),
       mWrapColumn(0),
-      mNewlineHandling(nsIEditor::eNewlinesPasteToFirst),
+      mNewlineHandling(StaticPrefs::editor_singleLine_pasteNewlines()),
+      mCaretStyle(StaticPrefs::layout_selection_caret_style()),
       mDocDirtyState(-1),
       mSpellcheckCheckboxState(eTriUnset),
       mInitSucceeded(false),
@@ -151,7 +157,17 @@ EditorBase::EditorBase()
       mIsInEditSubAction(false),
       mHidingCaret(false),
       mSpellCheckerDictionaryUpdated(true),
-      mIsHTMLEditorClass(false) {}
+      mIsHTMLEditorClass(false) {
+#ifdef XP_WIN
+  if (!mCaretStyle) {
+    mCaretStyle = 1;
+  }
+#endif  // #ifdef XP_WIN
+  if (mNewlineHandling < nsIEditor::eNewlinesPasteIntact ||
+      mNewlineHandling > nsIEditor::eNewlinesStripSurroundingWhitespace) {
+    mNewlineHandling = nsIEditor::eNewlinesPasteToFirst;
+  }
+}
 
 EditorBase::~EditorBase() {
   MOZ_ASSERT(!IsInitialized() || mDidPreDestroy,
@@ -722,7 +738,10 @@ NS_IMETHODIMP EditorBase::GetSelectionController(
 
 NS_IMETHODIMP EditorBase::DeleteSelection(EDirection aAction,
                                           EStripWrappers aStripWrappers) {
-  return NS_ERROR_NOT_IMPLEMENTED;
+  nsresult rv = DeleteSelectionAsAction(aAction, aStripWrappers);
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                       "EditorBase::DeleteSelectionAsAction() failed");
+  return rv;
 }
 
 NS_IMETHODIMP EditorBase::GetSelection(Selection** aSelection) {
@@ -2244,7 +2263,7 @@ void EditorBase::NotifyEditorObservers(
         //       NS_ERROR_OUT_OF_MEMORY.  If so and if
         //       TextControlState::SetValue() setting value with us, we should
         //       return the result to TextEditor::ReplaceTextAsAction(),
-        //       TextEditor::DeleteSelectionAsAction() and
+        //       EditorBase::DeleteSelectionAsAction() and
         //       TextEditor::InsertTextAsAction().  However, it requires a lot
         //       of changes in editor classes, but it's not so important since
         //       editor does not use fallible allocation.  Therefore, normally,
@@ -4461,23 +4480,24 @@ void EditorBase::DoAfterRedoTransaction() {
 }
 
 already_AddRefed<EditAggregateTransaction>
-EditorBase::CreateTxnForDeleteSelection(EDirection aAction,
-                                        nsINode** aRemovingNode,
-                                        int32_t* aOffset, int32_t* aLength) {
+EditorBase::CreateTransactionForDeleteSelection(
+    HowToHandleCollapsedRange aHowToHandleCollapsedRange) {
   MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(SelectionRefPtr()->RangeCount());
 
   // Check whether the selection is collapsed and we should do nothing:
-  if (NS_WARN_IF(SelectionRefPtr()->IsCollapsed() && aAction == eNone)) {
+  if (NS_WARN_IF(SelectionRefPtr()->IsCollapsed() &&
+                 aHowToHandleCollapsedRange ==
+                     HowToHandleCollapsedRange::Ignore)) {
     return nullptr;
   }
 
   // allocate the out-param transaction
   RefPtr<EditAggregateTransaction> aggregateTransaction =
       EditAggregateTransaction::Create();
-
   for (uint32_t rangeIdx = 0; rangeIdx < SelectionRefPtr()->RangeCount();
        ++rangeIdx) {
-    RefPtr<nsRange> range = SelectionRefPtr()->GetRangeAt(rangeIdx);
+    nsRange* range = SelectionRefPtr()->GetRangeAt(rangeIdx);
     if (NS_WARN_IF(!range)) {
       return nullptr;
     }
@@ -4493,28 +4513,28 @@ EditorBase::CreateTxnForDeleteSelection(EDirection aAction,
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
           "EditAggregationTransaction::AppendChild() failed, but ignored");
-    } else if (aAction != eNone) {
-      // we have an insertion point.  delete the thing in front of it or
-      // behind it, depending on aAction
-      // XXX Odd, when there are two or more ranges, this returns the last
-      //     range information with aRemovingNode, aOffset and aLength.
-      RefPtr<EditTransactionBase> deleteRangeTransaction =
-          CreateTxnForDeleteRange(range, aAction, aRemovingNode, aOffset,
-                                  aLength);
-      NS_WARNING_ASSERTION(deleteRangeTransaction,
-                           "EditorBase::CreateTxnForDeleteRange() failed");
-      // XXX When there are two or more ranges and at least one of them is
-      //     not editable, deleteRangeTransaction may be nullptr.
-      //     In such case, should we stop removing other ranges too?
-      if (!deleteRangeTransaction) {
-        return nullptr;
-      }
-      DebugOnly<nsresult> rvIgnored =
-          aggregateTransaction->AppendChild(deleteRangeTransaction);
-      NS_WARNING_ASSERTION(
-          NS_SUCCEEDED(rvIgnored),
-          "EditAggregationTransaction::AppendChild() failed, but ignored");
+      continue;
     }
+
+    if (aHowToHandleCollapsedRange == HowToHandleCollapsedRange::Ignore) {
+      continue;
+    }
+
+    // Let's extend the collapsed range to delete content around it.
+    RefPtr<EditTransactionBase> deleteNodeOrTextTransaction =
+        CreateTransactionForCollapsedRange(*range, aHowToHandleCollapsedRange);
+    // XXX When there are two or more ranges and at least one of them is
+    //     not editable, deleteNodeOrTextTransaction may be nullptr.
+    //     In such case, should we stop removing other ranges too?
+    if (!deleteNodeOrTextTransaction) {
+      NS_WARNING("EditorBase::CreateTransactionForCollapsedRange() failed");
+      return nullptr;
+    }
+    DebugOnly<nsresult> rvIgnored =
+        aggregateTransaction->AppendChild(deleteNodeOrTextTransaction);
+    NS_WARNING_ASSERTION(
+        NS_SUCCEEDED(rvIgnored),
+        "EditAggregationTransaction::AppendChild() failed, but ignored");
   }
 
   return aggregateTransaction.forget();
@@ -4522,213 +4542,701 @@ EditorBase::CreateTxnForDeleteSelection(EDirection aAction,
 
 // XXX: currently, this doesn't handle edge conditions because GetNext/GetPrior
 // are not implemented
-already_AddRefed<EditTransactionBase> EditorBase::CreateTxnForDeleteRange(
-    nsRange* aRangeToDelete, EDirection aAction, nsINode** aRemovingNode,
-    int32_t* aOffset, int32_t* aLength) {
-  MOZ_ASSERT(aAction != eNone);
+already_AddRefed<EditTransactionBase>
+EditorBase::CreateTransactionForCollapsedRange(
+    nsRange& aCollapsedRange,
+    HowToHandleCollapsedRange aHowToHandleCollapsedRange) {
+  MOZ_ASSERT(aCollapsedRange.Collapsed());
+  MOZ_ASSERT(
+      aHowToHandleCollapsedRange == HowToHandleCollapsedRange::ExtendBackward ||
+      aHowToHandleCollapsedRange == HowToHandleCollapsedRange::ExtendForward);
 
-  // get the node and offset of the insertion point
-  nsCOMPtr<nsINode> node = aRangeToDelete->GetStartContainer();
-  if (NS_WARN_IF(!node)) {
+  EditorRawDOMPoint point(aCollapsedRange.StartRef());
+  if (NS_WARN_IF(!point.IsSet())) {
     return nullptr;
   }
 
-  nsIContent* child = aRangeToDelete->GetChildAtStartOffset();
-  int32_t offset = aRangeToDelete->StartOffset();
-
-  // determine if the insertion point is at the beginning, middle, or end of
-  // the node
-
-  uint32_t count = node->Length();
-
-  bool isFirst = !offset;
-  bool isLast = (count == (uint32_t)offset);
-
-  // XXX: if isFirst && isLast, then we'll need to delete the node
+  // XXX: if the container of point is empty, then we'll need to delete the node
   //      as well as the 1 child
 
   // build a transaction for deleting the appropriate data
   // XXX: this has to come from rule section
-  if (aAction == ePrevious && isFirst) {
-    // we're backspacing from the beginning of the node.  Delete the first
-    // thing to our left
-    nsCOMPtr<nsIContent> priorNode = GetPreviousEditableNode(*node);
-    if (NS_WARN_IF(!priorNode)) {
+  if (aHowToHandleCollapsedRange == HowToHandleCollapsedRange::ExtendBackward &&
+      point.IsStartOfContainer()) {
+    // We're backspacing from the beginning of a node.  Delete the last thing
+    // of previous editable content.
+    nsIContent* previousEditableContent =
+        GetPreviousEditableNode(*point.GetContainer());
+    if (!previousEditableContent) {
+      NS_WARNING("There was no editable content before the collapsed range");
       return nullptr;
     }
 
-    // there is a priorNode, so delete its last child (if chardata, delete the
-    // last char). if it has no children, delete it
-    if (RefPtr<Text> priorNodeAsText = Text::FromNode(priorNode)) {
-      uint32_t length = priorNode->Length();
-      // Bail out for empty chardata XXX: Do we want to do something else?
+    // There is an editable content, so delete its last child (if a text node,
+    // delete the last char).  If it has no children, delete it.
+    if (previousEditableContent->IsText()) {
+      uint32_t length = previousEditableContent->Length();
+      // Bail out for empty text node.
+      // XXX Do we want to do something else?
+      // XXX If other browsers delete empty text node, we should follow it.
       if (NS_WARN_IF(!length)) {
+        NS_WARNING("Previous editable content was an empty text node");
         return nullptr;
       }
       RefPtr<DeleteTextTransaction> deleteTextTransaction =
           DeleteTextTransaction::MaybeCreateForPreviousCharacter(
-              *this, *priorNodeAsText, length);
+              *this, *previousEditableContent->AsText(), length);
       if (!deleteTextTransaction) {
         NS_WARNING(
             "DeleteTextTransaction::MaybeCreateForPreviousCharacter() failed");
         return nullptr;
       }
-      *aOffset = deleteTextTransaction->Offset();
-      *aLength = deleteTextTransaction->LengthToDelete();
-      priorNode.forget(aRemovingNode);
       return deleteTextTransaction.forget();
     }
 
-    // priorNode is not chardata, so tell its parent to delete it
     RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-        DeleteNodeTransaction::MaybeCreate(*this, *priorNode);
+        DeleteNodeTransaction::MaybeCreate(*this, *previousEditableContent);
     if (!deleteNodeTransaction) {
       NS_WARNING("DeleteNodeTransaction::MaybeCreate() failed");
       return nullptr;
     }
-    priorNode.forget(aRemovingNode);
     return deleteNodeTransaction.forget();
   }
 
-  if (aAction == eNext && isLast) {
-    // we're deleting from the end of the node.  Delete the first thing to our
-    // right
-    nsCOMPtr<nsIContent> nextNode = GetNextEditableNode(*node);
-    if (NS_WARN_IF(!nextNode)) {
+  if (aHowToHandleCollapsedRange == HowToHandleCollapsedRange::ExtendForward &&
+      point.IsEndOfContainer()) {
+    // We're deleting from the end of a node.  Delete the first thing of
+    // next editable content.
+    nsIContent* nextEditableContent =
+        GetNextEditableNode(*point.GetContainer());
+    if (!nextEditableContent) {
+      NS_WARNING("There was no editable content after the collapsed range");
       return nullptr;
     }
 
-    // there is a nextNode, so delete its first child (if chardata, delete the
-    // first char). if it has no children, delete it
-    if (RefPtr<Text> nextNodeAsText = Text::FromNode(nextNode)) {
-      uint32_t length = nextNode->Length();
-      // Bail out for empty chardata XXX: Do we want to do something else?
-      if (NS_WARN_IF(!length)) {
+    // There is an editable content, so delete its first child (if a text node,
+    // delete the first char).  If it has no children, delete it.
+    if (nextEditableContent->IsText()) {
+      uint32_t length = nextEditableContent->Length();
+      // Bail out for empty text node.
+      // XXX Do we want to do something else?
+      // XXX If other browsers delete empty text node, we should follow it.
+      if (!length) {
+        NS_WARNING("Next editable content was an empty text node");
         return nullptr;
       }
       RefPtr<DeleteTextTransaction> deleteTextTransaction =
           DeleteTextTransaction::MaybeCreateForNextCharacter(
-              *this, *nextNodeAsText, 0);
+              *this, *nextEditableContent->AsText(), 0);
       if (!deleteTextTransaction) {
         NS_WARNING(
             "DeleteTextTransaction::MaybeCreateForNextCharacter() failed");
         return nullptr;
       }
-      *aOffset = deleteTextTransaction->Offset();
-      *aLength = deleteTextTransaction->LengthToDelete();
-      nextNode.forget(aRemovingNode);
       return deleteTextTransaction.forget();
     }
 
-    // nextNode is not chardata, so tell its parent to delete it
     RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-        DeleteNodeTransaction::MaybeCreate(*this, *nextNode);
+        DeleteNodeTransaction::MaybeCreate(*this, *nextEditableContent);
     if (!deleteNodeTransaction) {
       NS_WARNING("DeleteNodeTransaction::MaybeCreate() failed");
       return nullptr;
     }
-    nextNode.forget(aRemovingNode);
     return deleteNodeTransaction.forget();
   }
 
-  if (RefPtr<Text> nodeAsText = Text::FromNode(node)) {
-    if (NS_WARN_IF(aAction != ePrevious && aAction != eNext)) {
-      return nullptr;
-    }
-    // We have chardata, so delete a char at the proper offset
-    RefPtr<DeleteTextTransaction> deleteTextTransaction;
-    if (aAction == ePrevious) {
-      deleteTextTransaction =
+  if (point.IsInTextNode()) {
+    if (aHowToHandleCollapsedRange ==
+        HowToHandleCollapsedRange::ExtendBackward) {
+      RefPtr<DeleteTextTransaction> deleteTextTransaction =
           DeleteTextTransaction::MaybeCreateForPreviousCharacter(
-              *this, *nodeAsText, offset);
+              *this, *point.ContainerAsText(), point.Offset());
       NS_WARNING_ASSERTION(
           deleteTextTransaction,
           "DeleteTextTransaction::MaybeCreateForPreviousCharacter() failed");
-    } else {
-      deleteTextTransaction =
-          DeleteTextTransaction::MaybeCreateForNextCharacter(*this, *nodeAsText,
-                                                             offset);
-      NS_WARNING_ASSERTION(
-          deleteTextTransaction,
-          "DeleteTextTransaction::MaybeCreateForNextCharacter() failed");
+      return deleteTextTransaction.forget();
     }
-    if (!deleteTextTransaction) {
-      return nullptr;
-    }
-    *aOffset = deleteTextTransaction->Offset();
-    *aLength = deleteTextTransaction->LengthToDelete();
-    node.forget(aRemovingNode);
+    RefPtr<DeleteTextTransaction> deleteTextTransaction =
+        DeleteTextTransaction::MaybeCreateForNextCharacter(
+            *this, *point.ContainerAsText(), point.Offset());
+    NS_WARNING_ASSERTION(
+        deleteTextTransaction,
+        "DeleteTextTransaction::MaybeCreateForNextCharacter() failed");
     return deleteTextTransaction.forget();
   }
 
-  // we're either deleting a node or chardata, need to dig into the next/prev
-  // node to find out
-  nsCOMPtr<nsIContent> selectedContent;
-  if (aAction == ePrevious) {
-    selectedContent =
-        GetPreviousEditableNode(EditorRawDOMPoint(node, child, offset));
-  } else if (aAction == eNext) {
-    selectedContent =
-        GetNextEditableNode(EditorRawDOMPoint(node, child, offset));
+  nsIContent* editableContent =
+      aHowToHandleCollapsedRange == HowToHandleCollapsedRange::ExtendBackward
+          ? GetPreviousEditableNode(point)
+          : GetNextEditableNode(point);
+  if (!editableContent) {
+    NS_WARNING("There was no editable content around the collapsed range");
+    return nullptr;
   }
-
-  while (selectedContent && selectedContent->IsCharacterData() &&
-         !selectedContent->Length()) {
-    // Can't delete an empty chardata node (bug 762183)
-    if (aAction == ePrevious) {
-      selectedContent = GetPreviousEditableNode(*selectedContent);
-    } else if (aAction == eNext) {
-      selectedContent = GetNextEditableNode(*selectedContent);
-    }
+  while (editableContent && editableContent->IsCharacterData() &&
+         !editableContent->Length()) {
+    // Can't delete an empty text node (bug 762183)
+    editableContent =
+        aHowToHandleCollapsedRange == HowToHandleCollapsedRange::ExtendBackward
+            ? GetPreviousEditableNode(*editableContent)
+            : GetNextEditableNode(*editableContent);
   }
-
-  if (NS_WARN_IF(!selectedContent)) {
+  if (NS_WARN_IF(!editableContent)) {
+    NS_WARNING(
+        "There was no editable content which is not empty around the collapsed "
+        "range");
     return nullptr;
   }
 
-  if (RefPtr<Text> selectedTextNode = Text::FromNode(selectedContent)) {
-    if (NS_WARN_IF(aAction != ePrevious && aAction != eNext)) {
-      return nullptr;
-    }
-    // we are deleting from a chardata node, so do a character deletion
-    uint32_t position = 0;
-    if (aAction == ePrevious) {
-      position = selectedTextNode->Length();
-    }
-    RefPtr<DeleteTextTransaction> deleteTextTransaction;
-    if (aAction == ePrevious) {
-      deleteTextTransaction =
+  if (editableContent->IsText()) {
+    if (aHowToHandleCollapsedRange ==
+        HowToHandleCollapsedRange::ExtendBackward) {
+      RefPtr<DeleteTextTransaction> deleteTextTransaction =
           DeleteTextTransaction::MaybeCreateForPreviousCharacter(
-              *this, *selectedTextNode, position);
+              *this, *editableContent->AsText(), editableContent->Length());
       NS_WARNING_ASSERTION(
           deleteTextTransaction,
           "DeleteTextTransaction::MaybeCreateForPreviousCharacter() failed");
-    } else {
-      deleteTextTransaction =
-          DeleteTextTransaction::MaybeCreateForNextCharacter(
-              *this, *selectedTextNode, position);
-      NS_WARNING_ASSERTION(
-          deleteTextTransaction,
-          "DeleteTextTransaction::MaybeCreateForNextCharacter() failed");
+      return deleteTextTransaction.forget();
     }
-    if (!deleteTextTransaction) {
-      return nullptr;
-    }
-    *aOffset = deleteTextTransaction->Offset();
-    *aLength = deleteTextTransaction->LengthToDelete();
-    nsCOMPtr<nsINode> removingNode(selectedTextNode);
-    removingNode.forget(aRemovingNode);
+
+    RefPtr<DeleteTextTransaction> deleteTextTransaction =
+        DeleteTextTransaction::MaybeCreateForNextCharacter(
+            *this, *editableContent->AsText(), 0);
+    NS_WARNING_ASSERTION(
+        deleteTextTransaction,
+        "DeleteTextTransaction::MaybeCreateForNextCharacter() failed");
     return deleteTextTransaction.forget();
   }
 
   RefPtr<DeleteNodeTransaction> deleteNodeTransaction =
-      DeleteNodeTransaction::MaybeCreate(*this, *selectedContent);
-  if (NS_WARN_IF(!deleteNodeTransaction)) {
-    return nullptr;
-  }
-  nsCOMPtr<nsINode> removingNode(selectedContent);
-  removingNode.forget(aRemovingNode);
+      DeleteNodeTransaction::MaybeCreate(*this, *editableContent);
+  NS_WARNING_ASSERTION(deleteNodeTransaction,
+                       "DeleteNodeTransaction::MaybeCreate() failed");
   return deleteNodeTransaction.forget();
+}
+
+nsresult EditorBase::DeleteSelectionAsAction(
+    nsIEditor::EDirection aDirectionAndAmount,
+    nsIEditor::EStripWrappers aStripWrappers, nsIPrincipal* aPrincipal) {
+  MOZ_ASSERT(aStripWrappers == eStrip || aStripWrappers == eNoStrip);
+  // Showing this assertion is fine if this method is called by outside via
+  // mutation event listener or something.  Otherwise, this is called by
+  // wrong method.
+  NS_ASSERTION(
+      !mPlaceholderBatch,
+      "Should be called only when this is the only edit action of the "
+      "operation unless mutation event listener nests some operations");
+
+  // If we're a TextEditor instance, we don't need to treat parent elements
+  // so that we can ignore aStripWrappers for skipping unnecessary cost.
+  if (IsTextEditor()) {
+    aStripWrappers = nsIEditor::eNoStrip;
+  }
+
+  EditAction editAction = EditAction::eDeleteSelection;
+  switch (aDirectionAndAmount) {
+    case nsIEditor::ePrevious:
+      editAction = EditAction::eDeleteBackward;
+      break;
+    case nsIEditor::eNext:
+      editAction = EditAction::eDeleteForward;
+      break;
+    case nsIEditor::ePreviousWord:
+      editAction = EditAction::eDeleteWordBackward;
+      break;
+    case nsIEditor::eNextWord:
+      editAction = EditAction::eDeleteWordForward;
+      break;
+    case nsIEditor::eToBeginningOfLine:
+      editAction = EditAction::eDeleteToBeginningOfSoftLine;
+      break;
+    case nsIEditor::eToEndOfLine:
+      editAction = EditAction::eDeleteToEndOfSoftLine;
+      break;
+  }
+
+  AutoEditActionDataSetter editActionData(*this, editAction, aPrincipal);
+  if (NS_WARN_IF(!editActionData.CanHandle())) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  // If there is an existing selection when an extended delete is requested,
+  // platforms that use "caret-style" caret positioning collapse the
+  // selection to the  start and then create a new selection.
+  // Platforms that use "selection-style" caret positioning just delete the
+  // existing selection without extending it.
+  if (!SelectionRefPtr()->IsCollapsed()) {
+    switch (aDirectionAndAmount) {
+      case eNextWord:
+      case ePreviousWord:
+      case eToBeginningOfLine:
+      case eToEndOfLine: {
+        if (mCaretStyle != 1) {
+          aDirectionAndAmount = eNone;
+          break;
+        }
+        ErrorResult error;
+        SelectionRefPtr()->CollapseToStart(error);
+        if (NS_WARN_IF(Destroyed())) {
+          error.SuppressException();
+          return EditorBase::ToGenericNSResult(NS_ERROR_EDITOR_DESTROYED);
+        }
+        if (error.Failed()) {
+          NS_WARNING("Selection::CollapseToStart() failed");
+          editActionData.Abort();
+          return EditorBase::ToGenericNSResult(error.StealNSResult());
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  // If Selection is still NOT collapsed, it does not important removing
+  // range of the operation since we'll remove the selected content.  However,
+  // information of direction (backward or forward) may be important for
+  // web apps.  E.g., web apps may want to mark selected range as "deleted"
+  // and move caret before or after the range.  Therefore, we should forget
+  // only the range information but keep range information.  See discussion
+  // of the spec issue for the detail:
+  // https://github.com/w3c/input-events/issues/82
+  if (!SelectionRefPtr()->IsCollapsed()) {
+    switch (editAction) {
+      case EditAction::eDeleteWordBackward:
+      case EditAction::eDeleteToBeginningOfSoftLine:
+        editActionData.UpdateEditAction(EditAction::eDeleteBackward);
+        break;
+      case EditAction::eDeleteWordForward:
+      case EditAction::eDeleteToEndOfSoftLine:
+        editActionData.UpdateEditAction(EditAction::eDeleteForward);
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (EditorUtils::IsFrameSelectionRequiredToExtendSelection(
+          aDirectionAndAmount, *SelectionRefPtr())) {
+    // Although ExtendSelectionForDelete will use nsFrameSelection, if it
+    // still has dirty frame, nsFrameSelection doesn't extend selection
+    // since we block script.
+    if (RefPtr<PresShell> presShell = GetPresShell()) {
+      presShell->FlushPendingNotifications(FlushType::Layout);
+      if (NS_WARN_IF(Destroyed())) {
+        editActionData.Abort();
+        return EditorBase::ToGenericNSResult(NS_ERROR_EDITOR_DESTROYED);
+      }
+    }
+  }
+
+  // TODO: If we're an HTMLEditor instance, we need to compute delete ranges
+  //       here.  However, it means that we need to pick computation codes
+  //       which are in `HandleDeleteSelection()`, its helper methods and
+  //       `WSRunObject` so that we need to redesign `HandleDeleteSelection()`
+  //       in bug 1618457.
+
+  nsresult rv = editActionData.MaybeDispatchBeforeInputEvent();
+  if (NS_FAILED(rv)) {
+    NS_WARNING_ASSERTION(rv == NS_ERROR_EDITOR_ACTION_CANCELED,
+                         "MaybeDispatchBeforeInputEvent() failed");
+    return EditorBase::ToGenericNSResult(rv);
+  }
+
+  // delete placeholder txns merge.
+  AutoPlaceholderBatch treatAsOneTransaction(*this, *nsGkAtoms::DeleteTxnName);
+  rv = DeleteSelectionAsSubAction(aDirectionAndAmount, aStripWrappers);
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                       "EditorBase::DeleteSelectionAsSubAction() failed");
+  return EditorBase::ToGenericNSResult(rv);
+}
+
+nsresult EditorBase::DeleteSelectionAsSubAction(
+    nsIEditor::EDirection aDirectionAndAmount,
+    nsIEditor::EStripWrappers aStripWrappers) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(mPlaceholderBatch);
+  MOZ_ASSERT(aStripWrappers == eStrip || aStripWrappers == eNoStrip);
+  NS_ASSERTION(IsHTMLEditor() || aStripWrappers == nsIEditor::eNoStrip,
+               "TextEditor does not support strip wrappers");
+
+  if (NS_WARN_IF(!mInitSucceeded)) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  IgnoredErrorResult ignoredError;
+  AutoEditSubActionNotifier startToHandleEditSubAction(
+      *this, EditSubAction::eDeleteSelectedContent, aDirectionAndAmount,
+      ignoredError);
+  if (NS_WARN_IF(ignoredError.ErrorCodeIs(NS_ERROR_EDITOR_DESTROYED))) {
+    return ignoredError.StealNSResult();
+  }
+  NS_WARNING_ASSERTION(
+      !ignoredError.Failed(),
+      "TextEditor::OnStartToHandleTopLevelEditSubAction() failed, but ignored");
+
+  EditActionResult result =
+      HandleDeleteSelection(aDirectionAndAmount, aStripWrappers);
+  if (result.Failed() || result.Canceled()) {
+    NS_WARNING_ASSERTION(result.Succeeded(),
+                         "TextEditor::HandleDeleteSelection() failed");
+    return result.Rv();
+  }
+
+  // XXX This is odd.  We just tries to remove empty text node here but we
+  //     refer `Selection`.  It may be modified by mutation event listeners
+  //     so that we should remove the empty text node when we make it empty.
+  EditorDOMPoint atNewStartOfSelection(
+      EditorBase::GetStartPoint(*SelectionRefPtr()));
+  if (NS_WARN_IF(!atNewStartOfSelection.IsSet())) {
+    // XXX And also it seems that we don't need to return error here.
+    //     Why don't we just ignore?  `Selection::RemoveAllRanges()` may
+    //     have been called by mutation event listeners.
+    return NS_ERROR_FAILURE;
+  }
+  if (atNewStartOfSelection.IsInTextNode() &&
+      !atNewStartOfSelection.GetContainer()->Length()) {
+    nsresult rv = DeleteNodeWithTransaction(
+        MOZ_KnownLive(*atNewStartOfSelection.ContainerAsText()));
+    if (NS_FAILED(rv)) {
+      NS_WARNING("EditorBase::DeleteNodeWithTransaction() failed");
+      return rv;
+    }
+  }
+
+  // XXX I don't think that this is necessary in anonymous `<div>` element of
+  //     TextEditor since there should be at most one text node and at most
+  //     one padding `<br>` element so that `<br>` element won't be before
+  //     caret.
+  if (!TopLevelEditSubActionDataRef().mDidExplicitlySetInterLine) {
+    // We prevent the caret from sticking on the left of previous `<br>`
+    // element (i.e. the end of previous line) after this deletion. Bug 92124.
+    ErrorResult error;
+    SelectionRefPtr()->SetInterlinePosition(true, error);
+    if (error.Failed()) {
+      NS_WARNING("Selection::SetInterlinePosition(true) failed");
+      return error.StealNSResult();
+    }
+  }
+
+  return NS_OK;
+}
+
+nsresult EditorBase::ExtendSelectionForDelete(
+    nsIEditor::EDirection* aDirectionAndAmount) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+
+  if (!EditorUtils::IsFrameSelectionRequiredToExtendSelection(
+          *aDirectionAndAmount, *SelectionRefPtr())) {
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsISelectionController> selectionController =
+      GetSelectionController();
+  if (NS_WARN_IF(!selectionController)) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  switch (*aDirectionAndAmount) {
+    case eNextWord: {
+      nsresult rv = selectionController->WordExtendForDelete(true);
+      if (NS_WARN_IF(Destroyed())) {
+        return NS_ERROR_EDITOR_DESTROYED;
+      }
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "nsISelectionController::WordExtendForDelete(true) failed");
+      // DeleteSelectionWithTransaction() doesn't handle these actions
+      // because it's inside batching, so don't confuse it:
+      *aDirectionAndAmount = eNone;
+      return rv;
+    }
+    case ePreviousWord: {
+      nsresult rv = selectionController->WordExtendForDelete(false);
+      if (NS_WARN_IF(Destroyed())) {
+        return NS_ERROR_EDITOR_DESTROYED;
+      }
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "nsISelectionController::WordExtendForDelete(false) failed");
+      *aDirectionAndAmount = eNone;
+      return rv;
+    }
+    case eNext: {
+      nsresult rv = selectionController->CharacterExtendForDelete();
+      if (NS_WARN_IF(Destroyed())) {
+        return NS_ERROR_EDITOR_DESTROYED;
+      }
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "nsISelectionController::CharacterExtendForDelete() failed");
+      // Don't set aDirectionAndAmount to eNone (see Bug 502259)
+      return rv;
+    }
+    case ePrevious: {
+      // Only extend the selection where the selection is after a UTF-16
+      // surrogate pair or a variation selector.
+      // For other cases we don't want to do that, in order
+      // to make sure that pressing backspace will only delete the last
+      // typed character.
+      EditorRawDOMPoint atStartOfSelection =
+          EditorBase::GetStartPoint(*SelectionRefPtr());
+      if (NS_WARN_IF(!atStartOfSelection.IsSet())) {
+        return NS_ERROR_FAILURE;
+      }
+
+      // node might be anonymous DIV, so we find better text node
+      EditorRawDOMPoint insertionPoint =
+          FindBetterInsertionPoint(atStartOfSelection);
+      if (!insertionPoint.IsSet()) {
+        NS_WARNING(
+            "EditorBase::FindBetterInsertionPoint() failed, but ignored");
+        return NS_OK;
+      }
+
+      if (insertionPoint.IsInTextNode()) {
+        const nsTextFragment* data =
+            &insertionPoint.GetContainerAsText()->TextFragment();
+        uint32_t offset = insertionPoint.Offset();
+        if ((offset > 1 &&
+             data->IsLowSurrogateFollowingHighSurrogateAt(offset - 1)) ||
+            (offset > 0 &&
+             gfxFontUtils::IsVarSelector(data->CharAt(offset - 1)))) {
+          nsresult rv = selectionController->CharacterExtendForBackspace();
+          if (NS_WARN_IF(Destroyed())) {
+            return NS_ERROR_EDITOR_DESTROYED;
+          }
+          NS_WARNING_ASSERTION(
+              NS_SUCCEEDED(rv),
+              "nsISelectionController::CharacterExtendForBackspace() failed");
+          return rv;
+        }
+      }
+      return NS_OK;
+    }
+    case eToBeginningOfLine: {
+      // Select to beginning
+      nsresult rv = selectionController->IntraLineMove(false, true);
+      if (NS_WARN_IF(Destroyed())) {
+        return NS_ERROR_EDITOR_DESTROYED;
+      }
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "nsISelectionController::IntraLineMove(false, true) failed");
+      *aDirectionAndAmount = eNone;
+      return rv;
+    }
+    case eToEndOfLine: {
+      nsresult rv = selectionController->IntraLineMove(true, true);
+      if (NS_WARN_IF(Destroyed())) {
+        return NS_ERROR_EDITOR_DESTROYED;
+      }
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rv),
+          "nsISelectionController::IntraLineMove(true, true) failed");
+      *aDirectionAndAmount = eNext;
+      return rv;
+    }
+    default:
+      return NS_OK;
+  }
+}
+
+nsresult EditorBase::DeleteSelectionWithTransaction(
+    nsIEditor::EDirection aDirectionAndAmount,
+    nsIEditor::EStripWrappers aStripWrappers) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(aStripWrappers == eStrip || aStripWrappers == eNoStrip);
+
+  if (NS_WARN_IF(Destroyed())) {
+    return NS_ERROR_EDITOR_DESTROYED;
+  }
+
+  if (NS_WARN_IF(!SelectionRefPtr()->RangeCount()) ||
+      NS_WARN_IF(
+          SelectionRefPtr()->IsCollapsed() &&
+          EditorBase::HowToHandleCollapsedRangeFor(aDirectionAndAmount) ==
+              HowToHandleCollapsedRange::Ignore)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  RefPtr<EditAggregateTransaction> deleteSelectionTransaction =
+      CreateTransactionForDeleteSelection(
+          EditorBase::HowToHandleCollapsedRangeFor(aDirectionAndAmount));
+  if (!deleteSelectionTransaction) {
+    NS_WARNING("EditorBase::CreateTransactionForDeleteSelection() failed");
+    return NS_ERROR_FAILURE;
+  }
+
+  // XXX This is odd, this assumes that there are no multiple collapsed
+  //     ranges in `Selection`, but it's possible scenario.
+  // XXX This loop looks slow, but it's rarely so because of multiple
+  //     selection is not used so many times.
+  nsCOMPtr<nsIContent> deleteContent;
+  uint32_t deleteCharOffset = 0;
+  for (const OwningNonNull<EditTransactionBase>& transactionBase :
+       Reversed(deleteSelectionTransaction->ChildTransactions())) {
+    if (DeleteTextTransaction* deleteTextTransaction =
+            transactionBase->GetAsDeleteTextTransaction()) {
+      deleteContent = deleteTextTransaction->GetText();
+      deleteCharOffset = deleteTextTransaction->Offset();
+      break;
+    }
+    if (DeleteNodeTransaction* deleteNodeTransaction =
+            transactionBase->GetAsDeleteNodeTransaction()) {
+      deleteContent = deleteNodeTransaction->GetContent();
+      break;
+    }
+  }
+
+  RefPtr<CharacterData> deleteCharData =
+      CharacterData::FromNodeOrNull(deleteContent);
+  IgnoredErrorResult ignoredError;
+  AutoEditSubActionNotifier startToHandleEditSubAction(
+      *this, EditSubAction::eDeleteSelectedContent, aDirectionAndAmount,
+      ignoredError);
+  if (NS_WARN_IF(ignoredError.ErrorCodeIs(NS_ERROR_EDITOR_DESTROYED))) {
+    return ignoredError.StealNSResult();
+  }
+  NS_WARNING_ASSERTION(
+      !ignoredError.Failed(),
+      "TextEditor::OnStartToHandleTopLevelEditSubAction() failed, but ignored");
+
+  if (IsHTMLEditor()) {
+    if (!deleteContent) {
+      // XXX We may remove multiple ranges in the following.  Therefore,
+      //     this must have a bug since we only add the first range into
+      //     the changed range.
+      TopLevelEditSubActionDataRef().WillDeleteRange(
+          *this, EditorBase::GetStartPoint(*SelectionRefPtr()),
+          EditorBase::GetEndPoint(*SelectionRefPtr()));
+    } else if (!deleteCharData) {
+      TopLevelEditSubActionDataRef().WillDeleteContent(*this, *deleteContent);
+    }
+  }
+
+  // Notify nsIEditActionListener::WillDelete[Selection|Text]
+  if (!mActionListeners.IsEmpty()) {
+    if (!deleteContent) {
+      AutoActionListenerArray listeners(mActionListeners);
+      for (auto& listener : listeners) {
+        DebugOnly<nsresult> rvIgnored =
+            listener->WillDeleteSelection(SelectionRefPtr());
+        NS_WARNING_ASSERTION(
+            NS_SUCCEEDED(rvIgnored),
+            "nsIEditActionListener::WillDeleteSelection() failed, but ignored");
+        MOZ_DIAGNOSTIC_ASSERT(!Destroyed(),
+                              "nsIEditActionListener::WillDeleteSelection() "
+                              "must not destroy the editor");
+      }
+    } else if (deleteCharData) {
+      AutoActionListenerArray listeners(mActionListeners);
+      for (auto& listener : listeners) {
+        // XXX Why don't we notify listeners of actual length?
+        DebugOnly<nsresult> rvIgnored =
+            listener->WillDeleteText(deleteCharData, deleteCharOffset, 1);
+        NS_WARNING_ASSERTION(
+            NS_SUCCEEDED(rvIgnored),
+            "nsIEditActionListener::WillDeleteText() failed, but ignored");
+        MOZ_DIAGNOSTIC_ASSERT(!Destroyed(),
+                              "nsIEditActionListener::WillDeleteText() must "
+                              "not destroy the editor");
+      }
+    }
+  }
+
+  // Delete the specified amount
+  nsresult rv = DoTransactionInternal(deleteSelectionTransaction);
+  // I'm not sure whether we should keep notifying edit action listeners or
+  // stop doing it.  For now, just keep traditional behavior.
+  bool destroyedByTransaction = Destroyed();
+  NS_WARNING_ASSERTION(destroyedByTransaction || NS_SUCCEEDED(rv),
+                       "EditorBase::DoTransactionInternal() failed");
+
+  if (IsHTMLEditor() && deleteCharData) {
+    MOZ_ASSERT(deleteContent);
+    TopLevelEditSubActionDataRef().DidDeleteText(
+        *this, EditorRawDOMPoint(deleteContent));
+  }
+
+  if (mTextServicesDocument && NS_SUCCEEDED(rv) && deleteContent &&
+      !deleteCharData) {
+    RefPtr<TextServicesDocument> textServicesDocument = mTextServicesDocument;
+    textServicesDocument->DidDeleteNode(deleteContent);
+    MOZ_ASSERT(
+        destroyedByTransaction || !Destroyed(),
+        "TextServicesDocument::DidDeleteNode() must not destroy the editor");
+  }
+
+  // Notify nsIEditActionListener::DidDelete[Selection|Text|Node]
+  AutoActionListenerArray listeners(mActionListeners);
+  if (!deleteContent) {
+    for (auto& listener : mActionListeners) {
+      DebugOnly<nsresult> rvIgnored =
+          listener->DidDeleteSelection(SelectionRefPtr());
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rvIgnored),
+          "nsIEditActionListener::DidDeleteSelection() failed, but ignored");
+      MOZ_DIAGNOSTIC_ASSERT(destroyedByTransaction || !Destroyed(),
+                            "nsIEditActionListener::DidDeleteSelection() must "
+                            "not destroy the editor");
+    }
+  } else if (deleteCharData) {
+    for (auto& listener : mActionListeners) {
+      // XXX Why don't we notify listeners of actual length?
+      DebugOnly<nsresult> rvIgnored =
+          listener->DidDeleteText(deleteCharData, deleteCharOffset, 1, rv);
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rvIgnored),
+          "nsIEditActionListener::DidDeleteText() failed, but ignored");
+      MOZ_DIAGNOSTIC_ASSERT(
+          destroyedByTransaction || !Destroyed(),
+          "nsIEditActionListener::DidDeleteText() must not destroy the editor");
+    }
+  } else {
+    for (auto& listener : mActionListeners) {
+      DebugOnly<nsresult> rvIgnored =
+          listener->DidDeleteNode(deleteContent, rv);
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rvIgnored),
+          "nsIEditActionListener::DidDeleteNode() failed, but ignored");
+      MOZ_DIAGNOSTIC_ASSERT(
+          destroyedByTransaction || !Destroyed(),
+          "nsIEditActionListener::DidDeleteNode() must not destroy the editor");
+    }
+  }
+
+  if (NS_WARN_IF(destroyedByTransaction)) {
+    return NS_ERROR_EDITOR_DESTROYED;
+  }
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  if (!IsHTMLEditor() || aStripWrappers == nsIEditor::eNoStrip) {
+    return NS_OK;
+  }
+
+  if (!SelectionRefPtr()->IsCollapsed()) {
+    NS_WARNING("Selection was changed by mutation event listeners");
+    return NS_OK;
+  }
+
+  nsINode* anchorNode = SelectionRefPtr()->GetAnchorNode();
+  if (NS_WARN_IF(!anchorNode) || NS_WARN_IF(!anchorNode->IsContent()) ||
+      NS_WARN_IF(!HTMLEditUtils::IsSimplyEditableNode(*anchorNode)) ||
+      anchorNode->Length() > 0) {
+    return NS_OK;
+  }
+
+  OwningNonNull<nsIContent> anchorContent = *anchorNode->AsContent();
+  rv = MOZ_KnownLive(AsHTMLEditor())
+           ->RemoveEmptyInclusiveAncestorInlineElements(anchorContent);
+  NS_WARNING_ASSERTION(
+      NS_SUCCEEDED(rv),
+      "HTMLEditor::RemoveEmptyInclusiveAncestorInlineElements() failed");
+  return rv;
 }
 
 nsresult EditorBase::CreateRange(nsINode* aStartContainer, int32_t aStartOffset,

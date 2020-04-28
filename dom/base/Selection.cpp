@@ -729,8 +729,9 @@ int32_t Selection::StyledRanges::FindInsertionPoint(
 //    difference to aOutput. It is assumed that the caller has checked that
 //    aRange and aSubtract do indeed overlap
 
-nsresult Selection::SubtractRange(StyledRange& aRange, nsRange& aSubtract,
-                                  nsTArray<StyledRange>* aOutput) {
+// static
+nsresult Selection::StyledRanges::SubtractRange(
+    StyledRange& aRange, nsRange& aSubtract, nsTArray<StyledRange>* aOutput) {
   nsRange* range = aRange.mRange;
 
   if (NS_WARN_IF(!range->IsPositioned())) {
@@ -1454,7 +1455,7 @@ nsresult Selection::SelectFrames(nsPresContext* aPresContext, nsRange* aRange,
   }
   MOZ_ASSERT(aRange && aRange->IsPositioned());
 
-  if (mFrameSelection->GetTableCellSelection()) {
+  if (mFrameSelection->IsInTableSelectionMode()) {
     nsINode* node = aRange->GetClosestCommonInclusiveAncestor();
     nsIFrame* frame = node->IsContent()
                           ? node->AsContent()->GetPrimaryFrame()
