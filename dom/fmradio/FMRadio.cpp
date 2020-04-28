@@ -15,7 +15,6 @@
 #include "mozilla/dom/FMRadioService.h"
 #include "mozilla/dom/TypedArray.h"
 #include "DOMRequest.h"
-#include "nsDOMClassInfo.h"
 #include "nsIDocShell.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIAudioManager.h"
@@ -41,7 +40,7 @@ class FMRadioRequest final : public FMRadioReplyRunnable, public DOMRequest {
     // |nsISupportsWeakReference| which both inherits from nsISupports, so
     // |nsISupports| is an ambiguous base of |FMRadio|, we have to cast
     // |aFMRadio| to one of the base classes.
-    mFMRadio = do_GetWeakReference(static_cast<nsIDOMEventTarget*>(aFMRadio));
+    mFMRadio = do_GetWeakReference(static_cast<EventTarget*>(aFMRadio));
   }
 
   FMRadioRequest(nsPIDOMWindowInner* aWindow, FMRadio* aFMRadio,
@@ -51,7 +50,7 @@ class FMRadioRequest final : public FMRadioReplyRunnable, public DOMRequest {
                    aType <= FMRadioRequestArgs::T__Last,
                "Wrong FMRadioRequestArgs in FMRadioRequest");
 
-    mFMRadio = do_GetWeakReference(static_cast<nsIDOMEventTarget*>(aFMRadio));
+    mFMRadio = do_GetWeakReference(static_cast<EventTarget*>(aFMRadio));
     mType = aType;
   }
 
@@ -59,13 +58,12 @@ class FMRadioRequest final : public FMRadioReplyRunnable, public DOMRequest {
   Run() {
     MOZ_ASSERT(NS_IsMainThread(), "Wrong thread!");
 
-    nsCOMPtr<nsIDOMEventTarget> target = do_QueryReferent(mFMRadio);
+    nsCOMPtr<EventTarget> target = do_QueryReferent(mFMRadio);
     if (!target) {
       return NS_OK;
     }
 
-    FMRadio* fmRadio =
-        static_cast<FMRadio*>(static_cast<nsIDOMEventTarget*>(target));
+    FMRadio* fmRadio = static_cast<FMRadio*>(static_cast<EventTarget*>(target));
 
     if (fmRadio->mIsShutdown) {
       return NS_OK;
@@ -112,16 +110,15 @@ void FMRadio::Init(nsPIDOMWindowInner* aWindow) {
 
   mHasInternalAntenna = Preferences::GetBool(DOM_FM_ANTENNA_INTERNAL_PREF,
                                              /* default = */ false);
-  nsCOMPtr<nsIAudioChannelAgent> audioChannelAgent =
-      do_CreateInstance("@mozilla.org/audiochannelagent;1");
-  NS_ENSURE_TRUE_VOID(audioChannelAgent);
 
-  audioChannelAgent->InitWithWeakCallback(
+  mAudioChannelAgent = new AudioChannelAgent();
+  nsresult rv = mAudioChannelAgent->InitWithWeakCallback(
       GetOwner(), nsIAudioChannelAgent::AUDIO_AGENT_CHANNEL_CONTENT, this);
-
-  // Once all necessary resources are got successfully, we just enabled
-  // mAudioChannelAgent.
-  mAudioChannelAgent = audioChannelAgent;
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    mAudioChannelAgent = nullptr;
+    LOG("FMRadio::Init, Fail to initialize the audio channel agent");
+    return;
+  }
 }
 
 void FMRadio::Shutdown() {
@@ -132,7 +129,7 @@ void FMRadio::Shutdown() {
 
 JSObject* FMRadio::WrapObject(JSContext* aCx,
                               JS::Handle<JSObject*> aGivenProto) {
-  return FMRadioBinding::Wrap(aCx, this, aGivenProto);
+  return FMRadio_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 void FMRadio::Notify(const FMRadioEventType& aType) {
@@ -351,12 +348,9 @@ already_AddRefed<DOMRequest> FMRadio::DisableRDS() {
 
 void FMRadio::EnableAudioChannelAgent() {
   NS_ENSURE_TRUE_VOID(mAudioChannelAgent);
-
-  float volume = 0.0;
-  bool muted = true;
-  mAudioChannelAgent->NotifyStartedPlaying(&volume, &muted);
-  WindowVolumeChanged(volume, muted);
-
+  mAudioChannelAgent->NotifyStartedPlaying(
+      AudioChannelService::AudibleState::eAudible);
+  mAudioChannelAgent->PullInitialUpdate();
   mAudioChannelAgentEnabled = true;
 }
 
@@ -369,8 +363,13 @@ void FMRadio::DisableAudioChannelAgent() {
 }
 
 NS_IMETHODIMP FMRadio::WindowVolumeChanged(float aVolume, bool aMuted) {
-  IFMRadioService::Singleton()->EnableAudio(!aMuted);
   // TODO: what about the volume?
+  return NS_OK;
+}
+
+NS_IMETHODIMP FMRadio::WindowSuspendChanged(SuspendTypes aSuspend) {
+  IFMRadioService::Singleton()->EnableAudio(aSuspend ==
+                                            nsISuspendedTypes::NONE_SUSPENDED);
   return NS_OK;
 }
 
@@ -378,7 +377,7 @@ NS_IMETHODIMP FMRadio::WindowAudioCaptureChanged(bool aCapture) {
   return NS_OK;
 }
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(FMRadio)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FMRadio)
   NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
   NS_INTERFACE_MAP_ENTRY(nsIAudioChannelAgentCallback)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)

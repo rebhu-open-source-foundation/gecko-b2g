@@ -9,17 +9,16 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "nsIAudioManager.h"
 #include "AudioManager.h"
-#include "nsDOMClassInfo.h"
 #include "nsContentUtils.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/dom/FMRadioChild.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "nsIObserverService.h"
-#include "nsISettingsService.h"
+//#include "nsISettingsService.h"  // FIXME
 #include "nsJSUtils.h"
 #include "mozilla/dom/BindingUtils.h"
-#include "mozilla/dom/SettingChangeNotificationBinding.h"
+//#include "mozilla/dom/SettingChangeNotificationBinding.h"  // FIXME
 #include "mozilla/DebugOnly.h"
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/power/PowerManagerService.h"
@@ -140,12 +139,14 @@ FMRadioService::FMRadioService()
       break;
   }
 
+#if 0  // FIXME
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
 
   if (obs && NS_FAILED(obs->AddObserver(this, MOZSETTINGS_CHANGED_ID,
                                         /* useWeak */ false))) {
     NS_WARNING("Failed to add settings change observer!");
   }
+#endif
 
   hal::RegisterFMRadioObserver(this);
   hal::RegisterFMRadioRDSObserver(this);
@@ -179,6 +180,7 @@ void FMRadioService::EnableFMRadio() {
   }
 }
 
+#if 0  // FIXME
 /**
  * Read the airplane-mode setting, if the airplane-mode is not enabled, we
  * enable the FM radio.
@@ -207,6 +209,7 @@ class ReadAirplaneModeSettingTask final : public nsISettingsServiceCallback {
     fmRadioService->mAirplaneModeEnabled = aResult.toBoolean();
     if (!fmRadioService->mAirplaneModeEnabled) {
       NS_DispatchToMainThread(NS_NewRunnableFunction(
+          "ReadAirplaneModeSettingTask::Handle",
           [fmRadioService]() -> void { fmRadioService->EnableFMRadio(); }));
     } else {
       // Airplane mode is enabled, set the state back to Disabled.
@@ -237,6 +240,7 @@ class ReadAirplaneModeSettingTask final : public nsISettingsServiceCallback {
 };
 
 NS_IMPL_ISUPPORTS(ReadAirplaneModeSettingTask, nsISettingsServiceCallback)
+#endif
 
 void FMRadioService::DisableFMRadio() {
   if (mTuneThread) {
@@ -253,6 +257,7 @@ void FMRadioService::DispatchFMRadioEventToMainThread(
     enum FMRadioEventType aType) {
   RefPtr<FMRadioService> self = this;
   NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "FMRadioService::DispatchFMRadioEventToMainThread",
       [self, aType]() -> void { self->NotifyFMRadioEvent(aType); }));
 }
 
@@ -456,6 +461,7 @@ void FMRadioService::Enable(double aFrequencyInMHz,
   // Cache the frequency value, and set it after the FM radio HW is enabled
   mPendingFrequencyInKHz = roundedFrequency;
 
+#if 0  // FIXME
   if (!mHasReadAirplaneModeSetting) {
     nsCOMPtr<nsISettingsService> settings =
         do_GetService("@mozilla.org/settingsService;1");
@@ -481,10 +487,11 @@ void FMRadioService::Enable(double aFrequencyInMHz,
 
     return;
   }
+#endif
 
   RefPtr<FMRadioService> self = this;
-  NS_DispatchToMainThread(
-      NS_NewRunnableFunction([self]() -> void { self->EnableFMRadio(); }));
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "FMRadioService::Enable", [self]() -> void { self->EnableFMRadio(); }));
 }
 
 void FMRadioService::Disable(FMRadioReplyRunnable* aReplyRunnable) {
@@ -563,7 +570,8 @@ void FMRadioService::DoDisable() {
   // EnableFMRadio and hal::SetFMRadioFrequency.
   RefPtr<FMRadioService> self = this;
   NS_DispatchToMainThread(
-      NS_NewRunnableFunction([self]() -> void { self->DisableFMRadio(); }));
+      NS_NewRunnableFunction("FMRadioService::DoDisable",
+                             [self]() -> void { self->DisableFMRadio(); }));
 }
 
 void FMRadioService::SetFrequency(double aFrequencyInMHz,
@@ -606,10 +614,12 @@ void FMRadioService::SetFrequency(double aFrequencyInMHz,
     return;
   }
 
-  mTuneThread->Dispatch(NS_NewRunnableFunction([roundedFrequency]() -> void {
-                          hal::SetFMRadioFrequency(roundedFrequency);
-                        }),
-                        nsIThread::DISPATCH_NORMAL);
+  mTuneThread->Dispatch(
+      NS_NewRunnableFunction("FMRadioService::SetFrequency",
+                             [roundedFrequency]() -> void {
+                               hal::SetFMRadioFrequency(roundedFrequency);
+                             }),
+      nsIThread::DISPATCH_NORMAL);
 
   aReplyRunnable->SetReply(SuccessResponse());
   NS_DispatchToMainThread(aReplyRunnable);
@@ -648,17 +658,19 @@ void FMRadioService::Seek(hal::FMRadioSeekDirection aDirection,
   SetState(Seeking);
   mPendingRequest = aReplyRunnable;
 
-  mTuneThread->Dispatch(NS_NewRunnableFunction([aDirection]() -> void {
-                          switch (aDirection) {
-                            case hal::FM_RADIO_SEEK_DIRECTION_UP:
-                            case hal::FM_RADIO_SEEK_DIRECTION_DOWN:
-                              hal::FMRadioSeek(aDirection);
-                              break;
-                            default:
-                              MOZ_CRASH();
-                          }
-                        }),
-                        nsIThread::DISPATCH_NORMAL);
+  mTuneThread->Dispatch(
+      NS_NewRunnableFunction("FMRadioService::Seek",
+                             [aDirection]() -> void {
+                               switch (aDirection) {
+                                 case hal::FM_RADIO_SEEK_DIRECTION_UP:
+                                 case hal::FM_RADIO_SEEK_DIRECTION_DOWN:
+                                   hal::FMRadioSeek(aDirection);
+                                   break;
+                                 default:
+                                   MOZ_CRASH();
+                               }
+                             }),
+      nsIThread::DISPATCH_NORMAL);
 }
 
 void FMRadioService::CancelSeek(FMRadioReplyRunnable* aReplyRunnable) {
@@ -737,6 +749,7 @@ FMRadioService::Observe(nsISupports* aSubject, const char* aTopic,
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(sFMRadioService);
 
+#if 0  // FIXME
   if (strcmp(aTopic, MOZSETTINGS_CHANGED_ID) != 0) {
     return NS_OK;
   }
@@ -762,6 +775,7 @@ FMRadioService::Observe(nsISupports* aSubject, const char* aTopic,
   if (mAirplaneModeEnabled) {
     Disable(nullptr);
   }
+#endif
 
   return NS_OK;
 }
@@ -1379,7 +1393,7 @@ void FMRadioService::WakeLockRelease() {
   if (mWakeLock) {
     ErrorResult rv;
     mWakeLock->Unlock(rv);
-    NS_WARN_IF_FALSE(!rv.Failed(), "Failed to unlock the wakelock.");
+    NS_WARN_IF(rv.Failed());
     mWakeLock = nullptr;
   }
 }

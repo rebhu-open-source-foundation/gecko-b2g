@@ -20,7 +20,7 @@ class FMRadioRequestChild final : public PFMRadioRequestChild {
   FMRadioRequestChild(FMRadioReplyRunnable* aReplyRunnable);
   ~FMRadioRequestChild();
 
-  virtual bool Recv__delete__(const FMRadioResponseType& aResponse) override;
+  mozilla::ipc::IPCResult Recv__delete__(const FMRadioResponseType& aResponse);
 
  private:
   RefPtr<FMRadioReplyRunnable> mReplyRunnable;

@@ -22,20 +22,19 @@ class FMRadioParent final : public PFMRadioParent, public FMRadioEventObserver {
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool RecvGetStatusInfo(StatusInfo* aStatusInfo) override;
+  mozilla::ipc::IPCResult RecvGetStatusInfo(StatusInfo* aStatusInfo);
 
-  virtual PFMRadioRequestParent* AllocPFMRadioRequestParent(
-      const FMRadioRequestArgs& aArgs) override;
+  PFMRadioRequestParent* AllocPFMRadioRequestParent(
+      const FMRadioRequestArgs& aArgs);
 
-  virtual bool DeallocPFMRadioRequestParent(
-      PFMRadioRequestParent* aActor) override;
+  bool DeallocPFMRadioRequestParent(PFMRadioRequestParent* aActor);
 
   /* FMRadioEventObserver */
   virtual void Notify(const FMRadioEventType& aType) override;
 
-  virtual bool RecvEnableAudio(const bool& aAudioEnabled) override;
+  mozilla::ipc::IPCResult RecvEnableAudio(const bool& aAudioEnabled);
 
-  virtual bool RecvSetRDSGroupMask(const uint32_t& aRDSGroupMask) override;
+  mozilla::ipc::IPCResult RecvSetRDSGroupMask(const uint32_t& aRDSGroupMask);
 };
 
 END_FMRADIO_NAMESPACE

@@ -19,11 +19,11 @@ FMRadioRequestChild::~FMRadioRequestChild() {
   MOZ_COUNT_DTOR(FMRadioRequestChild);
 }
 
-bool FMRadioRequestChild::Recv__delete__(const FMRadioResponseType& aType) {
+mozilla::ipc::IPCResult FMRadioRequestChild::Recv__delete__(
+    const FMRadioResponseType& aType) {
   mReplyRunnable->SetReply(aType);
   NS_DispatchToMainThread(mReplyRunnable);
-
-  return true;
+  return IPC_OK();
 }
 
 END_FMRADIO_NAMESPACE

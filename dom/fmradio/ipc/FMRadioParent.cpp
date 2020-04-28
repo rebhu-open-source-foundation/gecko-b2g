@@ -5,7 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FMRadioParent.h"
-#include "mozilla/unused.h"
+#include "mozilla/Unused.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/DebugOnly.h"
 #include "FMRadioRequestParent.h"
@@ -29,7 +29,8 @@ void FMRadioParent::ActorDestroy(ActorDestroyReason aWhy) {
   // Implement me! Bug 1005146
 }
 
-bool FMRadioParent::RecvGetStatusInfo(StatusInfo* aStatusInfo) {
+mozilla::ipc::IPCResult FMRadioParent::RecvGetStatusInfo(
+    StatusInfo* aStatusInfo) {
   aStatusInfo->enabled() = IFMRadioService::Singleton()->IsEnabled();
   aStatusInfo->frequency() = IFMRadioService::Singleton()->GetFrequency();
   aStatusInfo->upperBound() =
@@ -37,7 +38,7 @@ bool FMRadioParent::RecvGetStatusInfo(StatusInfo* aStatusInfo) {
   aStatusInfo->lowerBound() =
       IFMRadioService::Singleton()->GetFrequencyLowerBound();
   aStatusInfo->channelWidth() = IFMRadioService::Singleton()->GetChannelWidth();
-  return true;
+  return IPC_OK();
 }
 
 PFMRadioRequestParent* FMRadioParent::AllocPFMRadioRequestParent(
@@ -131,19 +132,21 @@ void FMRadioParent::Notify(const FMRadioEventType& aType) {
       break;
     }
     default:
-      NS_RUNTIMEABORT("not reached");
+      MOZ_CRASH("not reached");
       break;
   }
 }
 
-bool FMRadioParent::RecvEnableAudio(const bool& aAudioEnabled) {
+mozilla::ipc::IPCResult FMRadioParent::RecvEnableAudio(
+    const bool& aAudioEnabled) {
   IFMRadioService::Singleton()->EnableAudio(aAudioEnabled);
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioParent::RecvSetRDSGroupMask(const uint32_t& aRDSGroupMask) {
+mozilla::ipc::IPCResult FMRadioParent::RecvSetRDSGroupMask(
+    const uint32_t& aRDSGroupMask) {
   IFMRadioService::Singleton()->SetRDSGroupMask(aRDSGroupMask);
-  return true;
+  return IPC_OK();
 }
 
 END_FMRADIO_NAMESPACE

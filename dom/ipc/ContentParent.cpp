@@ -4035,9 +4035,11 @@ mozilla::ipc::IPCResult ContentParent::RecvPBluetoothConstructor(
 
 #ifdef MOZ_B2G_FM
 PFMRadioParent* ContentParent::AllocPFMRadioParent() {
+  /* FIXME
   if (!AssertAppProcessPermission(this, "fmradio")) {
     return nullptr;
   }
+  */
   return new FMRadioParent();
 }
 

@@ -118,3 +118,4 @@ ac_add_options --with-binder-b2g-connectivity-so="$SYS_LIB/binder_b2g_connectivi
 ac_add_options --enable-forkserver
 
 ac_add_options --enable-b2g-ril
+ac_add_options --enable-b2g-fm

@@ -61,32 +61,30 @@ class FMRadioChild final : public IFMRadioService, public PFMRadioChild {
   virtual void EnableAudio(bool aAudioEnabled) override;
 
   /* PFMRadioChild */
-  virtual bool Recv__delete__() override;
+  mozilla::ipc::IPCResult RecvNotifyFrequencyChanged(const double& aFrequency);
 
-  virtual bool RecvNotifyFrequencyChanged(const double& aFrequency) override;
+  mozilla::ipc::IPCResult RecvNotifyEnabledChanged(const bool& aEnabled,
+                                                   const double& aFrequency);
 
-  virtual bool RecvNotifyEnabledChanged(const bool& aEnabled,
-                                        const double& aFrequency) override;
+  mozilla::ipc::IPCResult RecvNotifyRDSEnabledChanged(const bool& aEnabled);
 
-  virtual bool RecvNotifyRDSEnabledChanged(const bool& aEnabled) override;
+  mozilla::ipc::IPCResult RecvNotifyPIChanged(const bool& aValid,
+                                              const uint16_t& aCode);
 
-  virtual bool RecvNotifyPIChanged(const bool& aValid,
-                                   const uint16_t& aCode) override;
+  mozilla::ipc::IPCResult RecvNotifyPTYChanged(const bool& aValid,
+                                               const uint8_t& aPTY);
 
-  virtual bool RecvNotifyPTYChanged(const bool& aValid,
-                                    const uint8_t& aPTY) override;
+  mozilla::ipc::IPCResult RecvNotifyPSChanged(const nsString& aPSName);
 
-  virtual bool RecvNotifyPSChanged(const nsString& aPSName) override;
+  mozilla::ipc::IPCResult RecvNotifyRadiotextChanged(
+      const nsString& aRadiotext);
 
-  virtual bool RecvNotifyRadiotextChanged(const nsString& aRadiotext) override;
+  mozilla::ipc::IPCResult RecvNotifyNewRDSGroup(const uint64_t& aGroup);
 
-  virtual bool RecvNotifyNewRDSGroup(const uint64_t& aGroup) override;
+  PFMRadioRequestChild* AllocPFMRadioRequestChild(
+      const FMRadioRequestArgs& aArgs);
 
-  virtual PFMRadioRequestChild* AllocPFMRadioRequestChild(
-      const FMRadioRequestArgs& aArgs) override;
-
-  virtual bool DeallocPFMRadioRequestChild(
-      PFMRadioRequestChild* aActor) override;
+  bool DeallocPFMRadioRequestChild(PFMRadioRequestChild* aActor);
 
  private:
   FMRadioChild();

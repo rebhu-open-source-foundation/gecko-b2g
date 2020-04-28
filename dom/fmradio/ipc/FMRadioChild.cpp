@@ -129,7 +129,8 @@ void FMRadioChild::SendRequest(FMRadioReplyRunnable* aReplyRunnable,
   SendPFMRadioRequestConstructor(childRequest, aArgs);
 }
 
-bool FMRadioChild::RecvNotifyFrequencyChanged(const double& aFrequency) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyFrequencyChanged(
+    const double& aFrequency) {
   mFrequency = aFrequency;
   NotifyFMRadioEvent(FrequencyChanged);
 
@@ -152,11 +153,11 @@ bool FMRadioChild::RecvNotifyFrequencyChanged(const double& aFrequency) {
     NotifyFMRadioEvent(RadiotextChanged);
   }
   mRDSGroupSet = false;
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioChild::RecvNotifyEnabledChanged(const bool& aEnabled,
-                                            const double& aFrequency) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyEnabledChanged(
+    const bool& aEnabled, const double& aFrequency) {
   mEnabled = aEnabled;
   mFrequency = aFrequency;
   if (!mEnabled) {
@@ -169,64 +170,66 @@ bool FMRadioChild::RecvNotifyEnabledChanged(const bool& aEnabled,
     mRadiotextSet = false;
   }
   NotifyFMRadioEvent(EnabledChanged);
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioChild::RecvNotifyRDSEnabledChanged(const bool& aEnabled) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyRDSEnabledChanged(
+    const bool& aEnabled) {
   mRDSEnabled = aEnabled;
   NotifyFMRadioEvent(RDSEnabledChanged);
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioChild::RecvNotifyPIChanged(const bool& aValid,
-                                       const uint16_t& aCode) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyPIChanged(
+    const bool& aValid, const uint16_t& aCode) {
   if (aValid) {
     mPI.SetValue(aCode);
   } else {
     mPI.SetNull();
   }
   NotifyFMRadioEvent(PIChanged);
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioChild::RecvNotifyPTYChanged(const bool& aValid,
-                                        const uint8_t& aPTY) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyPTYChanged(
+    const bool& aValid, const uint8_t& aPTY) {
   if (aValid) {
     mPTY.SetValue(aPTY);
   } else {
     mPTY.SetNull();
   }
   NotifyFMRadioEvent(PTYChanged);
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioChild::RecvNotifyPSChanged(const nsString& aPSName) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyPSChanged(
+    const nsString& aPSName) {
   mPSNameSet = true;
   mPSName = aPSName;
   NotifyFMRadioEvent(PSChanged);
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioChild::RecvNotifyRadiotextChanged(const nsString& aRadiotext) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyRadiotextChanged(
+    const nsString& aRadiotext) {
   mRadiotextSet = true;
   mRadiotext = aRadiotext;
   NotifyFMRadioEvent(RadiotextChanged);
-  return true;
+  return IPC_OK();
 }
 
-bool FMRadioChild::RecvNotifyNewRDSGroup(const uint64_t& aGroup) {
+mozilla::ipc::IPCResult FMRadioChild::RecvNotifyNewRDSGroup(
+    const uint64_t& aGroup) {
   uint16_t grouptype = (aGroup >> 43) & 0x1F;
   if (!(mRDSGroupMask & (1 << grouptype))) {
-    return true;
+    return IPC_OK();
   }
 
   mRDSGroupSet = true;
   mRDSGroup = aGroup;
   NotifyFMRadioEvent(NewRDSGroup);
-  return true;
+  return IPC_OK();
 }
-
-bool FMRadioChild::Recv__delete__() { return true; }
 
 PFMRadioRequestChild* FMRadioChild::AllocPFMRadioRequestChild(
     const FMRadioRequestArgs& aArgs) {

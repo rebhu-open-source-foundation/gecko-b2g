@@ -30,8 +30,6 @@ class FMRadio final : public DOMEventTargetHelper,
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIAUDIOCHANNELAGENTCALLBACK
 
-  NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
-
   void Init(nsPIDOMWindowInner* aWindow);
   void Shutdown();
 
@@ -109,7 +107,7 @@ class FMRadio final : public DOMEventTargetHelper,
   bool mHasInternalAntenna;
   bool mIsShutdown;
 
-  nsCOMPtr<nsIAudioChannelAgent> mAudioChannelAgent;
+  RefPtr<AudioChannelAgent> mAudioChannelAgent;
 };
 
 END_FMRADIO_NAMESPACE

@@ -22,9 +22,10 @@ BEGIN_FMRADIO_NAMESPACE
 
 class WakeLock;
 
-class FMRadioReplyRunnable : public nsRunnable {
+class FMRadioReplyRunnable : public Runnable {
  public:
-  FMRadioReplyRunnable() : mResponseType(SuccessResponse()) {}
+  FMRadioReplyRunnable()
+      : Runnable("FMRadioReplyRunnable"), mResponseType(SuccessResponse()) {}
   virtual ~FMRadioReplyRunnable() {}
 
   void SetReply(const FMRadioResponseType& aResponseType) {
