@@ -1995,8 +1995,10 @@ set_define('MOZ_GLEAN', True, when=glean)
 
 @depends(milestone)
 def new_webext_storage(milestone):
-    if milestone.is_nightly:
-        return True
+    return True
+    # We are not building b2g as a nightly even when tracking trunk.
+    # if milestone.is_nightly:
+    #  return True
 
 set_config('MOZ_NEW_WEBEXT_STORAGE', True, when=new_webext_storage)
 set_define('MOZ_NEW_WEBEXT_STORAGE', True, when=new_webext_storage)
