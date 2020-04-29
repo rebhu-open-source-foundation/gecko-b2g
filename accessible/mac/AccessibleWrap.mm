@@ -182,9 +182,7 @@ Class a11y::GetTypeFromRole(roles::Role aRole) {
   switch (aRole) {
     case roles::COMBOBOX:
     case roles::PUSHBUTTON:
-    case roles::SPLITBUTTON: {
       return [mozButtonAccessible class];
-    }
 
     case roles::PAGETAB:
       return [mozTabAccessible class];
@@ -194,8 +192,9 @@ Class a11y::GetTypeFromRole(roles::Role aRole) {
     case roles::RADIOBUTTON:
       return [mozCheckboxAccessible class];
 
+    case roles::SPINBUTTON:
     case roles::SLIDER:
-      return [mozSliderAccessible class];
+      return [mozIncrementableAccessible class];
 
     case roles::HEADING:
       return [mozHeadingAccessible class];
@@ -204,7 +203,6 @@ Class a11y::GetTypeFromRole(roles::Role aRole) {
       return [mozTabGroupAccessible class];
 
     case roles::ENTRY:
-    case roles::STATICTEXT:
     case roles::CAPTION:
     case roles::ACCEL_LABEL:
     case roles::PASSWORD_TEXT:
@@ -212,6 +210,7 @@ Class a11y::GetTypeFromRole(roles::Role aRole) {
       return [mozTextAccessible class];
 
     case roles::TEXT_LEAF:
+    case roles::STATICTEXT:
       return [mozTextLeafAccessible class];
 
     case roles::LINK:

@@ -27,6 +27,19 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
+/* static */ already_AddRefed<nsPIDOMWindowInner>
+AntiTrackingUtils::GetInnerWindow(BrowsingContext* aBrowsingContext) {
+  MOZ_ASSERT(aBrowsingContext);
+
+  nsCOMPtr<nsPIDOMWindowOuter> outer = aBrowsingContext->GetDOMWindow();
+  if (!outer) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsPIDOMWindowInner> inner = outer->GetCurrentInnerWindow();
+  return inner.forget();
+}
+
 /* static */ already_AddRefed<nsPIDOMWindowOuter>
 AntiTrackingUtils::GetTopWindow(nsPIDOMWindowInner* aWindow) {
   Document* document = aWindow->GetExtantDoc();
@@ -73,7 +86,7 @@ already_AddRefed<nsIURI> AntiTrackingUtils::MaybeGetDocumentURIBeingLoaded(
 
 // static
 void AntiTrackingUtils::CreateStoragePermissionKey(
-    const nsCString& aTrackingOrigin, nsACString& aPermissionKey) {
+    const nsACString& aTrackingOrigin, nsACString& aPermissionKey) {
   MOZ_ASSERT(aPermissionKey.IsEmpty());
 
   static const nsLiteralCString prefix =
@@ -419,7 +432,6 @@ bool AntiTrackingUtils::GetPrincipalAndTrackingOrigin(
     BrowsingContext* aBrowsingContext, nsIPrincipal** aPrincipal,
     nsACString& aTrackingOrigin) {
   MOZ_ASSERT(aBrowsingContext);
-  MOZ_ASSERT(aPrincipal);
 
   // Passing an out-of-process browsing context in child processes to
   // this API won't get any result, so just assert.
@@ -437,7 +449,9 @@ bool AntiTrackingUtils::GetPrincipalAndTrackingOrigin(
     return false;
   }
 
-  principal.forget(aPrincipal);
+  if (aPrincipal) {
+    principal.forget(aPrincipal);
+  }
 
   return true;
 };
@@ -456,4 +470,23 @@ bool AntiTrackingUtils::IsFirstLevelSubContext(
   // We can know if it is first-level sub context by checking whether the
   // parent is the top.
   return parentBC->IsTopContent();
+}
+
+/* static */
+uint32_t AntiTrackingUtils::GetCookieBehavior(
+    BrowsingContext* aBrowsingContext) {
+  MOZ_ASSERT(aBrowsingContext);
+
+  RefPtr<dom::WindowContext> win = aBrowsingContext->GetCurrentWindowContext();
+  if (!win) {
+    return nsICookieService::BEHAVIOR_REJECT;
+  }
+
+  Maybe<net::CookieJarSettingsArgs> cookieJarSetting =
+      win->GetCookieJarSettings();
+  if (cookieJarSetting.isNothing()) {
+    return nsICookieService::BEHAVIOR_REJECT;
+  }
+
+  return cookieJarSetting->cookieBehavior();
 }

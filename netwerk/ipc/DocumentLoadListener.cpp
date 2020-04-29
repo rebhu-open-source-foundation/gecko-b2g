@@ -700,6 +700,8 @@ void DocumentLoadListener::Cancel(const nsresult& aStatusCode) {
       ("DocumentLoadListener Cancel [this=%p, "
        "aStatusCode=%" PRIx32 " ]",
        this, static_cast<uint32_t>(aStatusCode)));
+  mCancelled = true;
+
   if (mDoingProcessSwitch) {
     // If we've already initiated process-switching
     // then we can no longer be cancelled and we'll
@@ -1181,6 +1183,7 @@ bool DocumentLoadListener::MaybeTriggerProcessSwitch() {
   // loaded within a browser tab.
   // FIXME: Ideally we won't do this in the future.
   nsCOMPtr<nsIBrowser> browser;
+  bool isPreloadSwitch = false;
   if (!browsingContext->GetParent()) {
     Element* browserElement = browsingContext->GetEmbedderElement();
     if (!browserElement) {
@@ -1197,6 +1200,25 @@ bool DocumentLoadListener::MaybeTriggerProcessSwitch() {
         !loadedInTab) {
       LOG(("Process Switch Abort: browser is not loaded in a tab"));
       return false;
+    }
+
+    // Leaving about:newtab from a used to be preloaded browser should run the
+    // process selecting algorithm again.
+    nsAutoString isPreloadBrowserStr;
+    if (browserElement->GetAttr(kNameSpaceID_None, nsGkAtoms::preloadedState,
+                                isPreloadBrowserStr)) {
+      if (isPreloadBrowserStr.EqualsLiteral("consumed")) {
+        nsCOMPtr<nsIURI> originalURI;
+        if (NS_SUCCEEDED(
+                mChannel->GetOriginalURI(getter_AddRefs(originalURI)))) {
+          if (!originalURI->GetSpecOrDefault().EqualsLiteral("about:newtab")) {
+            LOG(("Process Switch: leaving preloaded browser"));
+            isPreloadSwitch = true;
+            browserElement->UnsetAttr(kNameSpaceID_None,
+                                      nsGkAtoms::preloadedState, true);
+          }
+        }
+      }
     }
   }
 
@@ -1278,7 +1300,8 @@ bool DocumentLoadListener::MaybeTriggerProcessSwitch() {
   }
 
   // Check if a process switch is needed.
-  if (currentProcess->GetRemoteType() == remoteType && !isCOOPSwitch) {
+  if (currentProcess->GetRemoteType() == remoteType && !isCOOPSwitch &&
+      !isPreloadSwitch) {
     LOG(("Process Switch Abort: type (%s) is compatible",
          NS_ConvertUTF16toUTF8(remoteType).get()));
     return false;
@@ -1410,8 +1433,13 @@ DocumentLoadListener::RedirectToRealChannel(
 
   return EnsureBridge()->Then(
       GetCurrentThreadSerialEventTarget(), __func__,
-      [endpoints = std::move(aStreamFilterEndpoints), aRedirectFlags,
+      [self = RefPtr<DocumentLoadListener>(this),
+       endpoints = std::move(aStreamFilterEndpoints), aRedirectFlags,
        aLoadFlags](ADocumentChannelBridge* aBridge) mutable {
+        if (self->mCancelled) {
+          return PDocumentChannelParent::RedirectToRealChannelPromise::
+              CreateAndResolve(NS_BINDING_ABORTED, __func__);
+        }
         return aBridge->RedirectToRealChannel(std::move(endpoints),
                                               aRedirectFlags, aLoadFlags);
       },

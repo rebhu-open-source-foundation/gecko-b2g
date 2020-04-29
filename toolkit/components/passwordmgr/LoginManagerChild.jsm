@@ -622,6 +622,7 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
     return resultPromise.then(result => {
       return {
         form,
+        importable: result.importable,
         loginsFound: LoginHelper.vanillaObjectsToLogins(result.logins),
         recipes: result.recipes,
       };
@@ -977,7 +978,7 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
     });
   }
 
-  loginsFound({ form, loginsFound, recipes }) {
+  loginsFound({ form, importable, loginsFound, recipes }) {
     let doc = form.ownerDocument;
     let autofillForm =
       LoginHelper.autofillForms &&
@@ -986,7 +987,7 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
     let formOrigin = LoginHelper.getLoginOrigin(doc.documentURI);
     LoginRecipesContent.cacheRecipes(formOrigin, doc.defaultView, recipes);
 
-    this._fillForm(form, loginsFound, recipes, { autofillForm });
+    this._fillForm(form, loginsFound, recipes, { autofillForm, importable });
   }
 
   /**
@@ -1604,6 +1605,19 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
         dismissedPrompt = true;
       }
 
+      let docState = this.stateForDocument(doc);
+      let fieldsModified = this._formHasModifiedFields(form);
+      if (!fieldsModified && LoginHelper.userInputRequiredToCapture) {
+        if (targetField) {
+          throw new Error("No user input on targetField");
+        }
+        // we know no fields in this form had user modifications, so don't prompt
+        log(
+          `(${logMessagePrefix} ignored -- submitting values that are not changed by the user)`
+        );
+        return;
+      }
+
       if (
         this._compareAndUpdatePreviouslySentValues(
           form.rootElement,
@@ -1614,19 +1628,6 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
       ) {
         log(
           `(${logMessagePrefix} ignored -- already submitted with the same username and password)`
-        );
-        return;
-      }
-
-      let docState = this.stateForDocument(doc);
-      let fieldsModified = this._formHasModifiedFields(form);
-      if (!fieldsModified && LoginHelper.userInputRequiredToCapture) {
-        if (targetField) {
-          throw new Error("No user input on targetField");
-        }
-        // we know no fields in this form had user modifications, so don't prompt
-        log(
-          `(${logMessagePrefix} ignored -- submitting values that are not changed by the user)`
         );
         return;
       }
@@ -1952,6 +1953,7 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
     {
       inputElement = null,
       autofillForm = false,
+      importable = null,
       clobberUsername = false,
       clobberPassword = false,
       userTriggered = false,
@@ -1996,6 +1998,7 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
       // the insecure form warning.
       if (
         !foundLogins.length &&
+        !importable?.browsers &&
         (InsecurePasswordUtils.isFormSecure(form) ||
           !LoginHelper.showInsecureFieldWarning)
       ) {

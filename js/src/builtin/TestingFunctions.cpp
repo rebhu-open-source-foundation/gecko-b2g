@@ -566,8 +566,6 @@ static bool MinorGC(JSContext* cx, unsigned argc, Value* vp) {
   _("highFrequencyHeapGrowthMax", JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX, true) \
   _("highFrequencyHeapGrowthMin", JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN, true) \
   _("lowFrequencyHeapGrowth", JSGC_LOW_FREQUENCY_HEAP_GROWTH, true)          \
-  _("dynamicHeapGrowth", JSGC_DYNAMIC_HEAP_GROWTH, true)                     \
-  _("dynamicMarkSlice", JSGC_DYNAMIC_MARK_SLICE, true)                       \
   _("allocationThreshold", JSGC_ALLOCATION_THRESHOLD, true)                  \
   _("nonIncrementalFactor", JSGC_NON_INCREMENTAL_FACTOR, true)               \
   _("minEmptyChunkCount", JSGC_MIN_EMPTY_CHUNK_COUNT, true)                  \
@@ -2942,7 +2940,14 @@ static bool testingFunc_bailAfter(JSContext* cx, unsigned argc, Value* vp) {
 
 #ifdef DEBUG
   if (auto* jitRuntime = cx->runtime()->jitRuntime()) {
-    jitRuntime->setIonBailAfter(args[0].toInt32());
+    uint32_t bailAfter = args[0].toInt32();
+    bool enableBailAfter = bailAfter > 0;
+    if (jitRuntime->ionBailAfterEnabled() != enableBailAfter) {
+      // Force JIT code to be recompiled with (or without) instrumentation.
+      ReleaseAllJITCode(cx->defaultFreeOp());
+      jitRuntime->setIonBailAfterEnabled(enableBailAfter);
+    }
+    jitRuntime->setIonBailAfterCounter(bailAfter);
   }
 #endif
 

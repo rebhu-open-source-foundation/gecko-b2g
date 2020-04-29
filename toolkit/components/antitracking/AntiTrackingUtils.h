@@ -24,6 +24,9 @@ class BrowsingContext;
 
 class AntiTrackingUtils final {
  public:
+  static already_AddRefed<nsPIDOMWindowInner> GetInnerWindow(
+      dom::BrowsingContext* aBrowsingContext);
+
   static already_AddRefed<nsPIDOMWindowOuter> GetTopWindow(
       nsPIDOMWindowInner* aWindow);
 
@@ -31,7 +34,7 @@ class AntiTrackingUtils final {
   static already_AddRefed<nsIURI> MaybeGetDocumentURIBeingLoaded(
       nsIChannel* aChannel);
 
-  static void CreateStoragePermissionKey(const nsCString& aTrackingOrigin,
+  static void CreateStoragePermissionKey(const nsACString& aTrackingOrigin,
                                          nsACString& aPermissionKey);
 
   // Given a principal, returns the storage permission key that will be used for
@@ -83,6 +86,10 @@ class AntiTrackingUtils final {
   // Retruns true if the given browsingContext is a first-level sub context,
   // i.e. a first-level iframe.
   static bool IsFirstLevelSubContext(dom::BrowsingContext* aBrowsingContext);
+
+  // Retruns the cookie behavior of the given browsingContext,
+  // return BEHAVIOR_REJECT when fail.
+  static uint32_t GetCookieBehavior(dom::BrowsingContext* aBrowsingContext);
 };
 
 }  // namespace mozilla

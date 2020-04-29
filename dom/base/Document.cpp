@@ -85,6 +85,7 @@
 #include "ChildIterator.h"
 #include "nsSerializationHelper.h"
 #include "nsICertOverrideService.h"
+#include "nsXULElement.h"
 #include "nsIX509Cert.h"
 #include "nsIX509CertValidity.h"
 #include "nsITransportSecurityInfo.h"
@@ -1362,7 +1363,6 @@ Document::Document(const char* aContentType)
       mSavedResolution(1.0f),
       mSavedResolutionBeforeMVM(1.0f),
       mPendingInitialTranslation(false),
-      mHasStoragePermission(false),
       mGeneration(0),
       mCachedTabSizeGeneration(0),
       mNextFormNumber(0),
@@ -3184,8 +3184,6 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
 
   rv = loadInfo->GetCookieJarSettings(getter_AddRefs(mCookieJarSettings));
   NS_ENSURE_SUCCESS(rv, rv);
-
-  mHasStoragePermission = loadInfo->GetHasStoragePermission();
 
   return NS_OK;
 }
@@ -16151,6 +16149,23 @@ nsICookieJarSettings* Document::CookieJarSettings() {
   }
 
   return mCookieJarSettings;
+}
+
+bool Document::HasStoragePermission() {
+  // The HasStoragePermission flag in LoadInfo remains fixed when
+  // it is set in the parent process, so we need to check the cache
+  // to see if the permission is granted afterwards.
+  nsPIDOMWindowInner* inner = GetInnerWindow();
+  if (ContentBlocking::HasStorageAccessGranted(inner)) {
+    return true;
+  }
+
+  if (!mChannel) {
+    return false;
+  }
+
+  nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
+  return loadInfo->GetHasStoragePermission();
 }
 
 nsIPrincipal* Document::EffectiveStoragePrincipal() const {

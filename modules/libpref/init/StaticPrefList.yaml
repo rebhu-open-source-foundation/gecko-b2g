@@ -673,7 +673,11 @@
 
 - name: browser.cache.offline.storage.enable
   type: bool
+#ifdef EARLY_BETA_OR_EARLIER
   value: false
+#else
+  value: true
+#endif
   mirror: always
 
 - name: browser.cache.disk.enable
@@ -999,7 +1003,7 @@
 # parent-process BrowsingContexts
 - name: browser.tabs.documentchannel.parent-initiated
   type: bool
-  value: false 
+  value: true 
   mirror: always
 
 - name: browser.tabs.remote.desktopbehavior
@@ -2553,6 +2557,20 @@
 # If true, all content requests will get upgraded to HTTPS://
 # (some Firefox functionality requests, like OCSP will not be affected)
 - name: dom.security.https_only_mode
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# If true and HTTPS-only mode is enabled, requests
+# to local IP addresses are also upgraded
+- name: dom.security.https_only_mode.upgrade_local
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# If true and HTTPS-only mode is enabled, requests
+# to .onion hosts are also upgraded
+- name: dom.security.https_only_mode.upgrade_onion
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -4315,7 +4333,7 @@
 
 - name: gfx.webrender.enable-item-cache
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: once
 
 - name: gfx.webrender.use-optimized-shaders
@@ -6113,9 +6131,12 @@
   value: true
   mirror: once
 
+# On Android, don't synth mouse move events after scrolling, as they cause
+# unexpected user-visible behaviour. Can remove this after bug 1633450 is
+# satisfactorily resolved.
 - name: layout.reflow.synthMouseMove
   type: bool
-  value: true
+  value: @IS_NOT_ANDROID@
   mirror: always
 
 # This pref is to be set by test code only.

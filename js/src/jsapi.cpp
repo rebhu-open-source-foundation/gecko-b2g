@@ -3020,7 +3020,7 @@ static bool DefineSelfHostedProperty(JSContext* cx, HandleObject obj,
 
     RootedValue setterValue(cx);
     if (!GlobalObject::getSelfHostedFunction(cx, cx->global(), setterNameName,
-                                             name, 0, &setterValue)) {
+                                             name, 1, &setterValue)) {
       return false;
     }
     MOZ_ASSERT(setterValue.isObject() &&
@@ -5867,6 +5867,23 @@ JS_PUBLIC_API bool JS::CopyAsyncStack(JSContext* cx,
 }
 
 JS_PUBLIC_API Zone* JS::GetObjectZone(JSObject* obj) { return obj->zone(); }
+
+JS_PUBLIC_API Zone* JS::GetNurseryGCThingZone(GCCellPtr thing) {
+  MOZ_ASSERT(!thing.asCell()->isTenured());
+  if (thing.is<JSObject>()) {
+    return thing.as<JSObject>().zone();
+  }
+
+  if (thing.is<JSString>()) {
+    return Nursery::getStringZone(&thing.as<JSString>());
+  }
+
+  if (thing.is<BigInt>()) {
+    return Nursery::getBigIntZone(&thing.as<BigInt>());
+  }
+
+  MOZ_CRASH("Unexpected GC thing kind");
+}
 
 JS_PUBLIC_API Zone* JS::GetNurseryStringZone(JSString* str) {
   MOZ_ASSERT(!str->isTenured());

@@ -792,10 +792,7 @@
     },
 
     getTabFromAudioEvent(aEvent) {
-      if (
-        !Services.prefs.getBoolPref("browser.tabs.showAudioPlayingIcon") ||
-        !aEvent.isTrusted
-      ) {
+      if (!aEvent.isTrusted) {
         return null;
       }
 
@@ -2443,6 +2440,7 @@
 
       // Remove potentially stale attributes.
       let attributesToRemove = [
+        "activemedia-blocked",
         "busy",
         "pendingicon",
         "progress",

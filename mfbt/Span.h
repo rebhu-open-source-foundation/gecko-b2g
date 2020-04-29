@@ -177,11 +177,7 @@ class span_iterator {
     return ret -= n;
   }
 
-  constexpr span_iterator& operator-=(difference_type n)
-
-  {
-    return *this += -n;
-  }
+  constexpr span_iterator& operator-=(difference_type n) { return *this += -n; }
 
   constexpr difference_type operator-(const span_iterator& rhs) const {
     MOZ_RELEASE_ASSERT(span_ == rhs.span_);
@@ -393,6 +389,17 @@ class Span {
    */
   constexpr Span(pointer aStartPtr, pointer aEndPtr)
       : storage_(aStartPtr, std::distance(aStartPtr, aEndPtr)) {}
+
+  /**
+   * Constructor for pair of Span iterators.
+   */
+  template <typename OtherElementType, size_t OtherExtent, bool IsConst>
+  constexpr Span(
+      span_details::span_iterator<Span<OtherElementType, OtherExtent>, IsConst>
+          aBegin,
+      span_details::span_iterator<Span<OtherElementType, OtherExtent>, IsConst>
+          aEnd)
+      : storage_(aBegin == aEnd ? nullptr : &*aBegin, aEnd - aBegin) {}
 
   /**
    * Constructor for C array.
@@ -732,8 +739,19 @@ class Span {
   storage_type<span_details::extent_type<Extent>> storage_;
 };
 
+template <typename T, size_t OtherExtent, bool IsConst>
+Span(span_details::span_iterator<Span<T, OtherExtent>, IsConst> aBegin,
+     span_details::span_iterator<Span<T, OtherExtent>, IsConst> aEnd)
+    -> Span<std::conditional_t<IsConst, std::add_const_t<T>, T>>;
+
 template <typename T, size_t Extent>
 Span(T (&aArr)[Extent]) -> Span<T, Extent>;
+
+template <class Container>
+Span(Container&) -> Span<typename Container::value_type>;
+
+template <class Container>
+Span(const Container&) -> Span<const typename Container::value_type>;
 
 // [Span.comparison], Span comparison operators
 template <class ElementType, size_t FirstExtent, size_t SecondExtent>

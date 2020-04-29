@@ -36,7 +36,6 @@ UNIFIED_SOURCES += [
     'InputChannelThrottleQueueChild.cpp',
     'InputChannelThrottleQueueParent.cpp',
     'NeckoChild.cpp',
-    'NeckoCommon.cpp',
     'NeckoParent.cpp',
     'NeckoTargetHolder.cpp',
     'ParentProcessDocumentChannel.cpp',
@@ -85,6 +84,7 @@ LOCAL_INCLUDES += [
     '/modules/libjar',
     '/netwerk/base',
     '/netwerk/protocol/http',
+    '/security/manager/ssl',
     '/xpcom/threads'
 ]
 

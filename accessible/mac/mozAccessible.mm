@@ -33,6 +33,7 @@
 using namespace mozilla;
 using namespace mozilla::a11y;
 
+#define NSAccessibilityRequiredAttribute @"AXRequired"
 #define NSAccessibilityARIACurrentAttribute @"AXARIACurrent"
 #define NSAccessibilityDOMIdentifierAttribute @"AXDOMIdentifier"
 #define NSAccessibilityHasPopupAttribute @"AXHasPopup"
@@ -211,6 +212,7 @@ static inline NSMutableArray* ConvertToNSArray(nsTArray<ProxyAccessible*>& aArra
                         NSAccessibilityHelpAttribute, NSAccessibilityTitleUIElementAttribute,
                         NSAccessibilityTopLevelUIElementAttribute, NSAccessibilityHasPopupAttribute,
                         NSAccessibilityARIACurrentAttribute, NSAccessibilitySelectedAttribute,
+                        NSAccessibilityRequiredAttribute,
 #if DEBUG
                         @"AXMozDescription",
 #endif
@@ -394,6 +396,10 @@ static const uint64_t kCacheInitialized = ((uint64_t)0x1) << 63;
     else
       proxy->DOMNodeID(id);
     return nsCocoaUtils::ToNSString(id);
+  }
+
+  if ([attribute isEqualToString:NSAccessibilityRequiredAttribute]) {
+    return [NSNumber numberWithBool:[self stateWithMask:states::REQUIRED] != 0];
   }
 
   switch (mRole) {
@@ -601,6 +607,13 @@ static const uint64_t kCacheInitialized = ((uint64_t)0x1) << 63;
   return NSAccessibilityActionDescription(action);
 }
 
+- (BOOL)providesLabelNotTitle {
+  // These accessible types are the exception to the rule of label vs. title:
+  // They may be named explicitly, but they still provide a label not a title.
+  return mRole == roles::GROUPING || mRole == roles::RADIO_GROUP || mRole == roles::FIGURE ||
+         mRole == roles::GRAPHIC;
+}
+
 - (NSString*)accessibilityLabel {
   AccessibleWrap* accWrap = [self getGeckoAccessible];
   ProxyAccessible* proxy = [self getProxyAccessible];
@@ -613,7 +626,7 @@ static const uint64_t kCacheInitialized = ((uint64_t)0x1) << 63;
   /* If our accessible is:
    * 1. Named by invisible text, or
    * 2. Has more than one labeling relation, or
-   * 3. Is a grouping
+   * 3. Is a special role defined in providesLabelNotTitle
    *   ... return its name as a label (AXDescription).
    */
   if (accWrap) {
@@ -622,7 +635,7 @@ static const uint64_t kCacheInitialized = ((uint64_t)0x1) << 63;
       return nil;
     }
 
-    if (mRole != roles::GROUPING && mRole != roles::RADIO_GROUP) {
+    if (![self providesLabelNotTitle]) {
       Relation rel = accWrap->RelationByType(RelationType::LABELLED_BY);
       if (rel.Next() && !rel.Next()) {
         return nil;
@@ -634,7 +647,7 @@ static const uint64_t kCacheInitialized = ((uint64_t)0x1) << 63;
       return nil;
     }
 
-    if (mRole != roles::GROUPING && mRole != roles::RADIO_GROUP) {
+    if (![self providesLabelNotTitle]) {
       nsTArray<ProxyAccessible*> rels = proxy->RelationByType(RelationType::LABELLED_BY);
       if (rels.Length() == 1) {
         return nil;
@@ -1128,8 +1141,8 @@ struct RoleDescrComparator {
 - (NSString*)title {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NIL;
 
-  // If this is a grouping we provide the name in the label (AXDescription).
-  if (mRole == roles::GROUPING || mRole == roles::RADIO_GROUP) {
+  // In some special cases we provide the name in the label (AXDescription).
+  if ([self providesLabelNotTitle]) {
     return nil;
   }
 

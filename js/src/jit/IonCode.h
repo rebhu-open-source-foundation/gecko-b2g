@@ -17,6 +17,7 @@
 #include "jit/IonOptimizationLevels.h"
 #include "jit/IonTypes.h"
 #include "js/UbiNode.h"
+#include "util/TrailingArray.h"
 #include "vm/TraceLogging.h"
 
 namespace js {
@@ -146,99 +147,92 @@ class JitCode : public gc::TenuredCell {
 class SnapshotWriter;
 class RecoverWriter;
 class SafepointWriter;
+class CodegenSafepointIndex;
 class SafepointIndex;
 class OsiIndex;
 class IonIC;
 
-// An IonScript attaches Ion-generated information to a JSScript.
-struct IonScript {
+// An IonScript attaches Ion-generated information to a JSScript. The header
+// structure is followed by several arrays of data. These trailing arrays have a
+// layout based on offsets (bytes from 'this') stored in the IonScript header.
+//
+//    <IonScript itself>
+//    --
+//    PreBarrieredValue[]   constantTable()
+//    uint8_t[]             runtimeData()
+//    OsiIndex[]            osiIndex()
+//    SafepointIndex[]      safepointIndex()
+//    SnapshotOffset[]      bailoutTable()
+//    uint32_t[]            icIndex()
+//    --
+//    uint8_t[]             safepoints()
+//    uint8_t[]             snapshots()
+//    uint8_t[]             snapshotsRVATable()
+//    uint8_t[]             recovers()
+//
+// Note: These are arranged in order of descending alignment requirements to
+// avoid the need for padding. The `runtimeData` uses uint64_t alignement due to
+// its use of mozilla::AlignedStorage2.
+struct alignas(8) IonScript final : public TrailingArray {
  private:
+  // Offset (in bytes) from `this` to the start of each trailing array. Each
+  // array ends where following one begins. There is no implicit padding (except
+  // possible at very end).
+  Offset constantTableOffset_ = 0;  // JS::Value aligned
+  Offset runtimeDataOffset_ = 0;    // uint64_t aligned
+  Offset osiIndexOffset_ = 0;
+  Offset safepointIndexOffset_ = 0;
+  Offset bailoutTableOffset_ = 0;
+  Offset icIndexOffset_ = 0;
+  Offset safepointsOffset_ = 0;
+  Offset snapshotsOffset_ = 0;
+  Offset rvaTableOffset_ = 0;
+  Offset recoversOffset_ = 0;
+  Offset allocBytes_ = 0;
+
   // Code pointer containing the actual method.
-  HeapPtrJitCode method_;
+  HeapPtrJitCode method_ = nullptr;
 
   // Entrypoint for OSR, or nullptr.
-  jsbytecode* osrPc_;
+  jsbytecode* osrPc_ = nullptr;
 
   // Offset to OSR entrypoint from method_->raw(), or 0.
-  uint32_t osrEntryOffset_;
+  uint32_t osrEntryOffset_ = 0;
 
   // Offset to entrypoint skipping type arg check from method_->raw().
-  uint32_t skipArgCheckEntryOffset_;
+  uint32_t skipArgCheckEntryOffset_ = 0;
 
   // Offset of the invalidation epilogue (which pushes this IonScript
   // and calls the invalidation thunk).
-  uint32_t invalidateEpilogueOffset_;
+  uint32_t invalidateEpilogueOffset_ = 0;
 
   // The offset immediately after the IonScript immediate.
   // NOTE: technically a constant delta from
   // |invalidateEpilogueOffset_|, so we could hard-code this
   // per-platform if we want.
-  uint32_t invalidateEpilogueDataOffset_;
+  uint32_t invalidateEpilogueDataOffset_ = 0;
 
   // Number of times this script bailed out without invalidation.
-  uint32_t numBailouts_;
+  uint32_t numBailouts_ = 0;
 
   // Flag set if IonScript was compiled with profiling enabled.
-  bool hasProfilingInstrumentation_;
+  bool hasProfilingInstrumentation_ = false;
 
   // Flag for if this script is getting recompiled.
-  uint32_t recompiling_;
-
-  // Any kind of data needed by the runtime, these can be either cache
-  // information or profiling info.
-  uint32_t runtimeData_;
-  uint32_t runtimeSize_;
-
-  // State for polymorphic caches in the compiled code. All caches are stored
-  // in the runtimeData buffer and indexed by the icIndex which gives a
-  // relative offset in the runtimeData array.
-  uint32_t icIndex_;
-  uint32_t icEntries_;
-
-  // Map code displacement to safepoint / OSI-patch-delta.
-  uint32_t safepointIndexOffset_;
-  uint32_t safepointIndexEntries_;
-
-  // Offset to and length of the safepoint table in bytes.
-  uint32_t safepointsStart_;
-  uint32_t safepointsSize_;
+  uint32_t recompiling_ = 0;
 
   // Number of bytes this function reserves on the stack.
-  uint32_t frameSlots_;
+  uint32_t frameSlots_ = 0;
 
   // Number of bytes used passed in as formal arguments or |this|.
-  uint32_t argumentSlots_;
+  uint32_t argumentSlots_ = 0;
 
   // Frame size is the value that can be added to the StackPointer along
   // with the frame prefix to get a valid JitFrameLayout.
-  uint32_t frameSize_;
-
-  // Table mapping bailout IDs to snapshot offsets.
-  uint32_t bailoutTable_;
-  uint32_t bailoutEntries_;
-
-  // Map OSI-point displacement to snapshot.
-  uint32_t osiIndexOffset_;
-  uint32_t osiIndexEntries_;
-
-  // Offset from the start of the code buffer to its snapshot buffer.
-  uint32_t snapshots_;
-  uint32_t snapshotsListSize_;
-  uint32_t snapshotsRVATableSize_;
-
-  // List of instructions needed to recover stack frames.
-  uint32_t recovers_;
-  uint32_t recoversSize_;
-
-  // Constant table for constants stored in snapshots.
-  uint32_t constantTable_;
-  uint32_t constantEntries_;
-
-  // The size of this allocation.
-  uint32_t allocBytes_ = 0;
+  uint32_t frameSize_ = 0;
 
   // Number of references from invalidation records.
-  uint32_t invalidationCount_;
+  uint32_t invalidationCount_ = 0;
 
   // Identifier of the compilation which produced this code.
   IonCompilationId compilationId_;
@@ -248,10 +242,12 @@ struct IonScript {
 
   // Number of times we tried to enter this script via OSR but failed due to
   // a LOOPENTRY pc other than osrPc_.
-  uint32_t osrPcMismatchCounter_;
+  uint32_t osrPcMismatchCounter_ = 0;
 
   // TraceLogger events that are baked into the IonScript.
   TraceLoggerEventVector traceLoggerEvents_;
+
+  // End of fields.
 
  private:
   inline uint8_t* bottomBuffer() { return reinterpret_cast<uint8_t*>(this); }
@@ -259,38 +255,138 @@ struct IonScript {
     return reinterpret_cast<const uint8_t*>(this);
   }
 
+  // Layout helpers
+  Offset constantTableOffset() const { return constantTableOffset_; }
+  Offset runtimeDataOffset() const { return runtimeDataOffset_; }
+  Offset osiIndexOffset() const { return osiIndexOffset_; }
+  Offset safepointIndexOffset() const { return safepointIndexOffset_; }
+  Offset bailoutTableOffset() const { return bailoutTableOffset_; }
+  Offset icIndexOffset() const { return icIndexOffset_; }
+  Offset safepointsOffset() const { return safepointsOffset_; }
+  Offset snapshotsOffset() const { return snapshotsOffset_; }
+  Offset rvaTableOffset() const { return rvaTableOffset_; }
+  Offset recoversOffset() const { return recoversOffset_; }
+  Offset endOffset() const { return allocBytes_; }
+
+  // Hardcode size of incomplete types. These are verified in Ion.cpp.
+  static constexpr size_t SizeOf_OsiIndex = 2 * sizeof(uint32_t);
+  static constexpr size_t SizeOf_SafepointIndex = 2 * sizeof(uint32_t);
+  static constexpr size_t SizeOf_SnapshotOffset = sizeof(uint32_t);
+
  public:
-  SnapshotOffset* bailoutTable() {
-    return (SnapshotOffset*)&bottomBuffer()[bailoutTable_];
-  }
+  //
+  // Table of constants referenced in snapshots. (JS::Value alignment)
+  //
   PreBarrieredValue* constants() {
     // Nursery constants are manually barriered in CodeGenerator::link() so a
     // post barrier is not required..
-    return (PreBarrieredValue*)&bottomBuffer()[constantTable_];
+    return offsetToPointer<PreBarrieredValue>(constantTableOffset());
+  }
+  size_t numConstants() const {
+    return numElements<PreBarrieredValue>(constantTableOffset(),
+                                          runtimeDataOffset());
+  }
+
+  //
+  // IonIC data structures. (uint64_t alignment)
+  //
+  uint8_t* runtimeData() {
+    return offsetToPointer<uint8_t>(runtimeDataOffset());
+  }
+  size_t runtimeSize() const {
+    return numElements<uint8_t>(runtimeDataOffset(), osiIndexOffset());
+  }
+
+  //
+  // Map OSI-point displacement to snapshot.
+  //
+  OsiIndex* osiIndices() { return offsetToPointer<OsiIndex>(osiIndexOffset()); }
+  const OsiIndex* osiIndices() const {
+    return offsetToPointer<OsiIndex>(osiIndexOffset());
+  }
+  size_t numOsiIndices() const {
+    return numElements<SizeOf_OsiIndex>(osiIndexOffset(),
+                                        safepointIndexOffset());
+  }
+
+  //
+  // Map code displacement to safepoint / OSI-patch-delta.
+  //
+  SafepointIndex* safepointIndices() {
+    return offsetToPointer<SafepointIndex>(safepointIndexOffset());
   }
   const SafepointIndex* safepointIndices() const {
-    return const_cast<IonScript*>(this)->safepointIndices();
+    return offsetToPointer<SafepointIndex>(safepointIndexOffset());
   }
-  SafepointIndex* safepointIndices() {
-    return (SafepointIndex*)&bottomBuffer()[safepointIndexOffset_];
+  size_t numSafepointIndices() const {
+    return numElements<SizeOf_SafepointIndex>(safepointIndexOffset(),
+                                              bailoutTableOffset());
   }
-  const OsiIndex* osiIndices() const {
-    return const_cast<IonScript*>(this)->osiIndices();
+
+  //
+  // Table mapping bailout IDs to snapshot offsets.
+  //
+  SnapshotOffset* bailoutTable() {
+    return offsetToPointer<SnapshotOffset>(bailoutTableOffset());
   }
-  OsiIndex* osiIndices() { return (OsiIndex*)&bottomBuffer()[osiIndexOffset_]; }
-  uint32_t* icIndex() { return (uint32_t*)&bottomBuffer()[icIndex_]; }
-  uint8_t* runtimeData() { return &bottomBuffer()[runtimeData_]; }
+  size_t numBailoutEntries() const {
+    return numElements<SizeOf_SnapshotOffset>(bailoutTableOffset(),
+                                              icIndexOffset());
+  }
+
+  //
+  // Offset into `runtimeData` for each (variable-length) IonIC.
+  //
+  uint32_t* icIndex() { return offsetToPointer<uint32_t>(icIndexOffset()); }
+  size_t numICs() const {
+    return numElements<uint32_t>(icIndexOffset(), safepointsOffset());
+  }
+
+  //
+  // Safepoint table as a CompactBuffer.
+  //
+  const uint8_t* safepoints() const {
+    return offsetToPointer<uint8_t>(safepointsOffset());
+  }
+  size_t safepointsSize() const {
+    return numElements<uint8_t>(safepointsOffset(), snapshotsOffset());
+  }
+
+  //
+  // Snapshot and RValueAllocation tables as CompactBuffers.
+  //
+  const uint8_t* snapshots() const {
+    return offsetToPointer<uint8_t>(snapshotsOffset());
+  }
+  size_t snapshotsListSize() const {
+    return numElements<uint8_t>(snapshotsOffset(), rvaTableOffset());
+  }
+  size_t snapshotsRVATableSize() const {
+    return numElements<uint8_t>(rvaTableOffset(), recoversOffset());
+  }
+
+  //
+  // Recover instruction table as a CompactBuffer.
+  //
+  const uint8_t* recovers() const {
+    return offsetToPointer<uint8_t>(recoversOffset());
+  }
+  size_t recoversSize() const {
+    return numElements<uint8_t>(recoversOffset(), endOffset());
+  }
+
+ private:
+  IonScript(IonCompilationId compilationId, uint32_t frameSlots,
+            uint32_t argumentSlots, uint32_t frameSize,
+            OptimizationLevel optimizationLevel);
 
  public:
-  // Do not call directly, use IonScript::New. This is public for cx->new_.
-  explicit IonScript(IonCompilationId compilationId);
-
   static IonScript* New(JSContext* cx, IonCompilationId compilationId,
                         uint32_t frameSlots, uint32_t argumentSlots,
                         uint32_t frameSize, size_t snapshotsListSize,
                         size_t snapshotsRVATableSize, size_t recoversSize,
                         size_t bailoutEntries, size_t constants,
-                        size_t safepointIndexEntries, size_t osiIndexEntries,
+                        size_t safepointIndices, size_t osiIndices,
                         size_t icEntries, size_t runtimeSize,
                         size_t safepointsSize,
                         OptimizationLevel optimizationLevel);
@@ -374,19 +470,6 @@ struct IonScript {
     MOZ_ASSERT(event.hasTextId());
     return traceLoggerEvents_.append(std::move(event));
   }
-  const uint8_t* snapshots() const {
-    return reinterpret_cast<const uint8_t*>(this) + snapshots_;
-  }
-  size_t snapshotsListSize() const { return snapshotsListSize_; }
-  size_t snapshotsRVATableSize() const { return snapshotsRVATableSize_; }
-  const uint8_t* recovers() const {
-    return reinterpret_cast<const uint8_t*>(this) + recovers_;
-  }
-  size_t recoversSize() const { return recoversSize_; }
-  const uint8_t* safepoints() const {
-    return reinterpret_cast<const uint8_t*>(this) + safepointsStart_;
-  }
-  size_t safepointsSize() const { return safepointsSize_; }
   size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
     return mallocSizeOf(this);
   }
@@ -394,12 +477,11 @@ struct IonScript {
     MOZ_ASSERT(index < numConstants());
     return constants()[index];
   }
-  size_t numConstants() const { return constantEntries_; }
   uint32_t frameSlots() const { return frameSlots_; }
   uint32_t argumentSlots() const { return argumentSlots_; }
   uint32_t frameSize() const { return frameSize_; }
   SnapshotOffset bailoutToSnapshot(uint32_t bailoutId) {
-    MOZ_ASSERT(bailoutId < bailoutEntries_);
+    MOZ_ASSERT(bailoutId < numBailoutEntries());
     return bailoutTable()[bailoutId];
   }
   const SafepointIndex* getSafepointIndex(uint32_t disp) const;
@@ -411,25 +493,23 @@ struct IonScript {
   const OsiIndex* getOsiIndex(uint8_t* retAddr) const;
 
   IonIC& getICFromIndex(uint32_t index) {
-    MOZ_ASSERT(index < icEntries_);
+    MOZ_ASSERT(index < numICs());
     uint32_t offset = icIndex()[index];
     return getIC(offset);
   }
   inline IonIC& getIC(uint32_t offset) {
-    MOZ_ASSERT(offset < runtimeSize_);
-    return *(IonIC*)&runtimeData()[offset];
+    MOZ_ASSERT(offset < runtimeSize());
+    return *reinterpret_cast<IonIC*>(runtimeData() + offset);
   }
-  size_t numICs() const { return icEntries_; }
-  size_t runtimeSize() const { return runtimeSize_; }
   void purgeICs(Zone* zone);
   void copySnapshots(const SnapshotWriter* writer);
   void copyRecovers(const RecoverWriter* writer);
   void copyBailoutTable(const SnapshotOffset* table);
   void copyConstants(const Value* vp);
-  void copySafepointIndices(const SafepointIndex* firstSafepointIndex);
-  void copyOsiIndices(const OsiIndex* firstOsiIndex);
+  void copySafepointIndices(const CodegenSafepointIndex* si);
+  void copyOsiIndices(const OsiIndex* oi);
   void copyRuntimeData(const uint8_t* data);
-  void copyICEntries(const uint32_t* caches);
+  void copyICEntries(const uint32_t* icEntries);
   void copySafepoints(const SafepointWriter* writer);
 
   bool invalidated() const { return invalidationCount_ != 0; }

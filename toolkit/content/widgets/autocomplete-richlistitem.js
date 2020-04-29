@@ -603,12 +603,7 @@
           "resource://gre/modules/LoginHelper.jsm"
         );
 
-        // ac-label gets populated from getCommentAt despite the attribute name.
-        // The "comment" is used to populate additional visible text.
-        let { formHostname } = JSON.parse(this.getAttribute("ac-label"));
-
         LoginHelper.openPasswordManager(this.ownerGlobal, {
-          filterString: formHostname,
           entryPoint: "autocomplete",
         });
       }
@@ -735,6 +730,74 @@
     }
   }
 
+  class MozAutocompleteImportableLoginsRichlistitem extends MozAutocompleteTwoLineRichlistitem {
+    constructor() {
+      super();
+      MozXULElement.insertFTLIfNeeded("toolkit/main-window/autocomplete.ftl");
+
+      ChromeUtils.defineModuleGetter(
+        this,
+        "MigrationUtils",
+        "resource:///modules/MigrationUtils.jsm"
+      );
+
+      this.addEventListener("click", event => {
+        // Handle clicks on the info icon to show support article.
+        if (event.target.classList.contains("ac-info-icon")) {
+          window.openTrustedLinkIn(
+            Services.urlFormatter.formatURLPref("app.support.baseURL") +
+              "password-import",
+            "tab",
+            {
+              relatedToCurrent: true,
+            }
+          );
+          return;
+        }
+
+        if (event.button != 0) {
+          return;
+        }
+
+        // Open the migration wizard pre-selecting the appropriate browser.
+        this.MigrationUtils.showMigrationWizard(window, [
+          this.MigrationUtils.MIGRATION_ENTRYPOINT_PASSWORDS,
+          this.getAttribute("ac-value"),
+        ]);
+      });
+    }
+
+    static get markup() {
+      return `
+      <div xmlns="http://www.w3.org/1999/xhtml"
+           xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+           class="two-line-wrapper">
+        <xul:image class="ac-site-icon" />
+        <div class="labels-wrapper">
+          <div class="label-row line1-label" data-l10n-name="line1" />
+          <div class="label-row line2-label" data-l10n-name="line2" />
+        </div>
+        <xul:image class="ac-info-icon"
+                   data-l10n-id="autocomplete-import-logins-info" />
+      </div>
+    `;
+    }
+
+    _adjustAcItem() {
+      document.l10n.setAttributes(
+        this.querySelector(".labels-wrapper"),
+        "autocomplete-import-logins",
+        {
+          browser: this.MigrationUtils.getBrowserName(
+            this.getAttribute("ac-value")
+          ),
+          host: this.getAttribute("ac-label").replace(/^www\./, ""),
+        }
+      );
+      super._adjustAcItem();
+    }
+  }
+
   customElements.define(
     "autocomplete-richlistitem",
     MozElements.MozAutocompleteRichlistitem,
@@ -778,6 +841,14 @@
   customElements.define(
     "autocomplete-generated-password-richlistitem",
     MozAutocompleteGeneratedPasswordRichlistitem,
+    {
+      extends: "richlistitem",
+    }
+  );
+
+  customElements.define(
+    "autocomplete-importable-logins-richlistitem",
+    MozAutocompleteImportableLoginsRichlistitem,
     {
       extends: "richlistitem",
     }

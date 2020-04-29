@@ -10,6 +10,7 @@
 
 #include "vm/JSScript-inl.h"
 
+#include "mozilla/CheckedInt.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
@@ -723,54 +724,18 @@ XDRResult js::PrivateScriptData::XDR(XDRState<mode>* xdr, HandleScript script,
   return Ok();
 }
 
-/* static */ size_t ImmutableScriptData::AllocationSize(
-    uint32_t codeLength, uint32_t noteLength, uint32_t numResumeOffsets,
-    uint32_t numScopeNotes, uint32_t numTryNotes) {
-  size_t size = sizeof(ImmutableScriptData);
-
-  size += sizeof(Flags);
-  size += codeLength * sizeof(jsbytecode);
-  size += noteLength * sizeof(SrcNote);
-
-#ifdef DEBUG
-  // The compact arrays need to maintain uint32_t alignment. This should have
-  // been done by padding out source notes.
-  MOZ_ASSERT(size % sizeof(uint32_t) == 0,
-             "Source notes should have been padded already");
-#endif
-
-  unsigned numOptionalArrays = unsigned(numResumeOffsets > 0) +
-                               unsigned(numScopeNotes > 0) +
-                               unsigned(numTryNotes > 0);
-  size += numOptionalArrays * sizeof(Offset);
-
-  size += numResumeOffsets * sizeof(uint32_t);
-  size += numScopeNotes * sizeof(ScopeNote);
-  size += numTryNotes * sizeof(TryNote);
-
-  return size;
-}
-
-// Placement-new elements of an array. This should optimize away for types with
-// trivial default initiation.
-template <typename T>
-void ImmutableScriptData::initElements(size_t offset, size_t length) {
-  uintptr_t base = reinterpret_cast<uintptr_t>(this);
-  DefaultInitializeElements<T>(reinterpret_cast<void*>(base + offset), length);
-}
-
 // Initialize the optional arrays in the trailing allocation. This is a set of
 // offsets that delimit each optional array followed by the arrays themselves.
 // See comment before 'ImmutableScriptData' for more details.
-void ImmutableScriptData::initOptionalArrays(size_t* pcursor,
-                                             ImmutableScriptData::Flags* flags,
+void ImmutableScriptData::initOptionalArrays(Offset* pcursor,
                                              uint32_t numResumeOffsets,
                                              uint32_t numScopeNotes,
                                              uint32_t numTryNotes) {
-  size_t cursor = (*pcursor);
+  Offset cursor = (*pcursor);
 
   // The byte arrays must have already been padded.
-  MOZ_ASSERT(cursor % sizeof(uint32_t) == 0);
+  MOZ_ASSERT(isAlignedOffset<CodeNoteAlign>(cursor),
+             "Bytecode and source notes should be padded to keep alignment");
 
   // Each non-empty optional array needs will need an offset to its end.
   unsigned numOptionalArrays = unsigned(numResumeOffsets > 0) +
@@ -778,8 +743,6 @@ void ImmutableScriptData::initOptionalArrays(size_t* pcursor,
                                unsigned(numTryNotes > 0);
 
   // Default-initialize the optional-offsets.
-  static_assert(alignof(ImmutableScriptData) >= alignof(Offset),
-                "Incompatible alignment");
   initElements<Offset>(cursor, numOptionalArrays);
   cursor += numOptionalArrays * sizeof(Offset);
 
@@ -796,35 +759,29 @@ void ImmutableScriptData::initOptionalArrays(size_t* pcursor,
   // Default-initialize optional 'resumeOffsets'.
   MOZ_ASSERT(resumeOffsetsOffset() == cursor);
   if (numResumeOffsets > 0) {
-    static_assert(sizeof(Offset) >= alignof(uint32_t),
-                  "Incompatible alignment");
     initElements<uint32_t>(cursor, numResumeOffsets);
     cursor += numResumeOffsets * sizeof(uint32_t);
     setOptionalOffset(++offsetIndex, cursor);
   }
-  flags->resumeOffsetsEndIndex = offsetIndex;
+  flagsRef().resumeOffsetsEndIndex = offsetIndex;
 
   // Default-initialize optional 'scopeNotes'.
   MOZ_ASSERT(scopeNotesOffset() == cursor);
   if (numScopeNotes > 0) {
-    static_assert(sizeof(uint32_t) >= alignof(ScopeNote),
-                  "Incompatible alignment");
     initElements<ScopeNote>(cursor, numScopeNotes);
     cursor += numScopeNotes * sizeof(ScopeNote);
     setOptionalOffset(++offsetIndex, cursor);
   }
-  flags->scopeNotesEndIndex = offsetIndex;
+  flagsRef().scopeNotesEndIndex = offsetIndex;
 
   // Default-initialize optional 'tryNotes'
   MOZ_ASSERT(tryNotesOffset() == cursor);
   if (numTryNotes > 0) {
-    static_assert(sizeof(ScopeNote) >= alignof(TryNote),
-                  "Incompatible alignment");
     initElements<TryNote>(cursor, numTryNotes);
     cursor += numTryNotes * sizeof(TryNote);
     setOptionalOffset(++offsetIndex, cursor);
   }
-  flags->tryNotesEndIndex = offsetIndex;
+  flagsRef().tryNotesEndIndex = offsetIndex;
 
   MOZ_ASSERT(endOffset() == cursor);
   (*pcursor) = cursor;
@@ -837,42 +794,36 @@ ImmutableScriptData::ImmutableScriptData(uint32_t codeLength,
                                          uint32_t numTryNotes)
     : codeLength_(codeLength) {
   // Variable-length data begins immediately after ImmutableScriptData itself.
-  size_t cursor = sizeof(*this);
+  Offset cursor = sizeof(ImmutableScriptData);
 
   // The following arrays are byte-aligned with additional padding to ensure
   // that together they maintain uint32_t-alignment.
   {
-    MOZ_ASSERT(cursor % CodeNoteAlign == 0);
+    MOZ_ASSERT(isAlignedOffset<CodeNoteAlign>(cursor));
 
     // Zero-initialize 'flags'
-    static_assert(CodeNoteAlign >= alignof(Flags), "Incompatible alignment");
+    MOZ_ASSERT(isAlignedOffset<Flags>(cursor));
     new (offsetToPointer<void>(cursor)) Flags{};
     cursor += sizeof(Flags);
 
-    static_assert(alignof(Flags) >= alignof(jsbytecode),
-                  "Incompatible alignment");
     initElements<jsbytecode>(cursor, codeLength);
     cursor += codeLength * sizeof(jsbytecode);
 
-    static_assert(alignof(jsbytecode) >= alignof(SrcNote),
-                  "Incompatible alignment");
     initElements<SrcNote>(cursor, noteLength);
     cursor += noteLength * sizeof(SrcNote);
 
-    MOZ_ASSERT(cursor % CodeNoteAlign == 0);
+    MOZ_ASSERT(isAlignedOffset<CodeNoteAlign>(cursor));
   }
 
   // Initialization for remaining arrays.
-  initOptionalArrays(&cursor, &flagsRef(), numResumeOffsets, numScopeNotes,
-                     numTryNotes);
+  initOptionalArrays(&cursor, numResumeOffsets, numScopeNotes, numTryNotes);
 
   // Check that we correctly recompute the expected values.
   MOZ_ASSERT(this->codeLength() == codeLength);
   MOZ_ASSERT(this->noteLength() == noteLength);
 
   // Sanity check
-  MOZ_ASSERT(AllocationSize(codeLength, noteLength, numResumeOffsets,
-                            numScopeNotes, numTryNotes) == cursor);
+  MOZ_ASSERT(endOffset() == cursor);
 }
 
 template <XDRMode mode>
@@ -947,30 +898,11 @@ static XDRResult XDRImmutableScriptData(XDRState<mode>* xdr,
   return Ok();
 }
 
-/* static */ size_t RuntimeScriptData::AllocationSize(uint32_t natoms) {
-  size_t size = sizeof(RuntimeScriptData);
-
-  size += natoms * sizeof(GCPtrAtom);
-
-  return size;
-}
-
-// Placement-new elements of an array. This should optimize away for types with
-// trivial default initiation.
-template <typename T>
-void RuntimeScriptData::initElements(size_t offset, size_t length) {
-  uintptr_t base = reinterpret_cast<uintptr_t>(this);
-  DefaultInitializeElements<T>(reinterpret_cast<void*>(base + offset), length);
-}
-
 RuntimeScriptData::RuntimeScriptData(uint32_t natoms) : natoms_(natoms) {
   // Variable-length data begins immediately after RuntimeScriptData itself.
-  size_t cursor = sizeof(*this);
+  Offset cursor = sizeof(RuntimeScriptData);
 
   // Default-initialize trailing arrays.
-
-  static_assert(alignof(RuntimeScriptData) >= alignof(GCPtrAtom),
-                "Incompatible alignment");
   initElements<GCPtrAtom>(cursor, natoms);
   cursor += natoms * sizeof(GCPtrAtom);
 
@@ -978,7 +910,7 @@ RuntimeScriptData::RuntimeScriptData(uint32_t natoms) : natoms_(natoms) {
   MOZ_ASSERT(this->natoms() == natoms);
 
   // Sanity check
-  MOZ_ASSERT(AllocationSize(natoms) == cursor);
+  MOZ_ASSERT(endOffset() == cursor);
 }
 
 template <XDRMode mode>
@@ -3976,12 +3908,27 @@ bool ScriptSource::setSourceMapURL(JSContext* cx, UniqueTwoByteChars&& url) {
 js::UniquePtr<ImmutableScriptData> js::ImmutableScriptData::new_(
     JSContext* cx, uint32_t codeLength, uint32_t noteLength,
     uint32_t numResumeOffsets, uint32_t numScopeNotes, uint32_t numTryNotes) {
-  // Compute size including trailing arrays
-  size_t size = AllocationSize(codeLength, noteLength, numResumeOffsets,
-                               numScopeNotes, numTryNotes);
+  // Take a count of which optional arrays will be used and need offset info.
+  unsigned numOptionalArrays = unsigned(numResumeOffsets > 0) +
+                               unsigned(numScopeNotes > 0) +
+                               unsigned(numTryNotes > 0);
 
-  // Allocate contiguous raw buffer
-  void* raw = cx->pod_malloc<uint8_t>(size);
+  // Compute size including trailing arrays.
+  CheckedInt<Offset> size = sizeof(ImmutableScriptData);
+  size += sizeof(Flags);
+  size += CheckedInt<Offset>(codeLength) * sizeof(jsbytecode);
+  size += CheckedInt<Offset>(noteLength) * sizeof(SrcNote);
+  size += CheckedInt<Offset>(numOptionalArrays) * sizeof(Offset);
+  size += CheckedInt<Offset>(numResumeOffsets) * sizeof(uint32_t);
+  size += CheckedInt<Offset>(numScopeNotes) * sizeof(ScopeNote);
+  size += CheckedInt<Offset>(numTryNotes) * sizeof(TryNote);
+  if (!size.isValid()) {
+    ReportAllocationOverflow(cx);
+    return nullptr;
+  }
+
+  // Allocate contiguous raw buffer.
+  void* raw = cx->pod_malloc<uint8_t>(size.value());
   MOZ_ASSERT(uintptr_t(raw) % alignof(ImmutableScriptData) == 0);
   if (!raw) {
     return nullptr;
@@ -3991,15 +3938,27 @@ js::UniquePtr<ImmutableScriptData> js::ImmutableScriptData::new_(
   // GCPtrs are put into a safe state.
   UniquePtr<ImmutableScriptData> result(new (raw) ImmutableScriptData(
       codeLength, noteLength, numResumeOffsets, numScopeNotes, numTryNotes));
+  if (!result) {
+    return nullptr;
+  }
+
+  // Sanity check
+  MOZ_ASSERT(result->endOffset() == size.value());
+
   return result;
 }
 
 RuntimeScriptData* js::RuntimeScriptData::new_(JSContext* cx, uint32_t natoms) {
-  // Compute size including trailing arrays
-  size_t size = AllocationSize(natoms);
+  // Compute size including trailing arrays.
+  CheckedInt<Offset> size = sizeof(RuntimeScriptData);
+  size += CheckedInt<Offset>(natoms) * sizeof(GCPtrAtom);
+  if (!size.isValid()) {
+    ReportAllocationOverflow(cx);
+    return nullptr;
+  }
 
   // Allocate contiguous raw buffer
-  void* raw = cx->pod_malloc<uint8_t>(size);
+  void* raw = cx->pod_malloc<uint8_t>(size.value());
   MOZ_ASSERT(uintptr_t(raw) % alignof(RuntimeScriptData) == 0);
   if (!raw) {
     return nullptr;
@@ -4007,7 +3966,12 @@ RuntimeScriptData* js::RuntimeScriptData::new_(JSContext* cx, uint32_t natoms) {
 
   // Constuct the RuntimeScriptData. Trailing arrays are uninitialized but
   // GCPtrs are put into a safe state.
-  return new (raw) RuntimeScriptData(natoms);
+  RuntimeScriptData* result = new (raw) RuntimeScriptData(natoms);
+
+  // Sanity check
+  MOZ_ASSERT(result->endOffset() == size.value());
+
+  return result;
 }
 
 bool JSScript::createScriptData(JSContext* cx, uint32_t natoms) {
@@ -4042,12 +4006,6 @@ void JSScript::relazify(JSRuntime* rt) {
   //       script we compiled from had a nullptr PrivateScriptData.
   swapData(scriptData);
   freeSharedData();
-
-  // Clear flags that are only set by the BytecodeEmitter. This ensures that
-  // CheckFlagsOnDelazification is still valid on next compile.
-  //
-  // NOTE: Keep in sync with CheckFlagsOnDelazification.
-  clearFlag(ImmutableFlags::HasNonSyntacticScope);
 
   // We should not still be in any side-tables for the debugger or
   // code-coverage. The finalizer will not be able to clean them up once
@@ -4117,26 +4075,7 @@ void js::SweepScriptData(JSRuntime* rt) {
   }
 }
 
-/* static */
-size_t PrivateScriptData::AllocationSize(uint32_t ngcthings) {
-  size_t size = sizeof(PrivateScriptData);
-
-  size += ngcthings * sizeof(JS::GCCellPtr);
-
-  return size;
-}
-
-inline size_t PrivateScriptData::allocationSize() const {
-  return AllocationSize(ngcthings);
-}
-
-// Placement-new elements of an array. This should optimize away for types with
-// trivial default initiation.
-template <typename T>
-void PrivateScriptData::initElements(size_t offset, size_t length) {
-  void* raw = offsetToPointer<void>(offset);
-  DefaultInitializeElements<T>(raw, length);
-}
+inline size_t PrivateScriptData::allocationSize() const { return endOffset(); }
 
 // Initialize and placement-new the trailing arrays.
 PrivateScriptData::PrivateScriptData(uint32_t ngcthings)
@@ -4144,25 +4083,30 @@ PrivateScriptData::PrivateScriptData(uint32_t ngcthings)
   // Variable-length data begins immediately after PrivateScriptData itself.
   // NOTE: Alignment is computed using cursor/offset so the alignment of
   // PrivateScriptData must be stricter than any trailing array type.
-  size_t cursor = sizeof(*this);
+  Offset cursor = sizeof(PrivateScriptData);
 
   // Layout and initialize the gcthings array.
   {
-    static_assert(alignof(PrivateScriptData) >= alignof(JS::GCCellPtr),
-                  "Incompatible alignment");
     initElements<JS::GCCellPtr>(cursor, ngcthings);
-
     cursor += ngcthings * sizeof(JS::GCCellPtr);
   }
 
-  // Sanity check
-  MOZ_ASSERT(AllocationSize(ngcthings) == cursor);
+  // Sanity check.
+  MOZ_ASSERT(endOffset() == cursor);
 }
 
 /* static */
 PrivateScriptData* PrivateScriptData::new_(JSContext* cx, uint32_t ngcthings) {
+  // Compute size including trailing arrays.
+  CheckedInt<Offset> size = sizeof(PrivateScriptData);
+  size += CheckedInt<Offset>(ngcthings) * sizeof(JS::GCCellPtr);
+  if (!size.isValid()) {
+    ReportAllocationOverflow(cx);
+    return nullptr;
+  }
+
   // Allocate contiguous raw buffer for the trailing arrays.
-  void* raw = cx->pod_malloc<uint8_t>(AllocationSize(ngcthings));
+  void* raw = cx->pod_malloc<uint8_t>(size.value());
   MOZ_ASSERT(uintptr_t(raw) % alignof(PrivateScriptData) == 0);
   if (!raw) {
     return nullptr;
@@ -4170,7 +4114,15 @@ PrivateScriptData* PrivateScriptData::new_(JSContext* cx, uint32_t ngcthings) {
 
   // Constuct the PrivateScriptData. Trailing arrays are uninitialized but
   // GCPtrs are put into a safe state.
-  return new (raw) PrivateScriptData(ngcthings);
+  PrivateScriptData* result = new (raw) PrivateScriptData(ngcthings);
+  if (!result) {
+    return nullptr;
+  }
+
+  // Sanity check.
+  MOZ_ASSERT(result->endOffset() == size.value());
+
+  return result;
 }
 
 /* static */
@@ -4873,15 +4825,16 @@ static JSScript* CopyScriptImpl(JSContext* cx, HandleScript src,
   // Some embeddings are not careful to use ExposeObjectToActiveJS as needed.
   JS::AssertObjectIsNotGray(sourceObject);
 
+  ImmutableScriptFlags flags = src->immutableFlags();
+  flags.setFlag(JSScript::ImmutableFlags::HasNonSyntacticScope,
+                scopes[0]->hasOnChain(ScopeKind::NonSyntactic));
+
   // Create a new JSScript to fill in.
   RootedScript dst(cx, JSScript::Create(cx, functionOrGlobal, sourceObject,
-                                        src->extent(), src->immutableFlags()));
+                                        src->extent(), flags));
   if (!dst) {
     return nullptr;
   }
-
-  dst->setFlag(JSScript::ImmutableFlags::HasNonSyntacticScope,
-               scopes[0]->hasOnChain(ScopeKind::NonSyntactic));
 
   // Reset the mutable flags to request arguments analysis as needed.
   dst->resetArgsUsageAnalysis();
