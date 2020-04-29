@@ -103,8 +103,8 @@ FMRadio::FMRadio()
 
 FMRadio::~FMRadio() {}
 
-void FMRadio::Init(nsPIDOMWindowInner* aWindow) {
-  BindToOwner(aWindow);
+void FMRadio::Init(nsIGlobalObject* aGlobal) {
+  BindToOwner(aGlobal);
 
   IFMRadioService::Singleton()->AddObserver(this);
 

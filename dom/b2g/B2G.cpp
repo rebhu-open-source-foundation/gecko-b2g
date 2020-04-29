@@ -54,6 +54,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAudioChannelManager)
 #endif
+#ifdef MOZ_B2G_FM
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFMRadio)
+#endif
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -350,6 +353,20 @@ system::AudioChannelManager* B2G::GetAudioChannelManager(ErrorResult& aRv) {
     mAudioChannelManager->Init(mOwner);
   }
   return mAudioChannelManager;
+}
+#endif
+
+#ifdef MOZ_B2G_FM
+FMRadio* B2G::GetFmRadio(ErrorResult& aRv) {
+  if (!mFMRadio) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mFMRadio = new FMRadio();
+    mFMRadio->Init(mOwner);
+  }
+  return mFMRadio;
 }
 #endif
 

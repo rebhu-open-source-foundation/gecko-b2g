@@ -114,6 +114,14 @@ partial interface B2G {
 };
 #endif // MOZ_AUDIO_CHANNEL_MANAGER
 
+#ifdef MOZ_B2G_FM
+[Exposed=Window]
+partial interface B2G {
+  [Throws]
+  readonly attribute FMRadio fmRadio;
+};
+#endif // MOZ_B2G_FM
+
 partial interface B2G {
   /**
    * Request a wake lock for a resource.

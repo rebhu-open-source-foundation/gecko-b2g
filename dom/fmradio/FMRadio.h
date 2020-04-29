@@ -30,7 +30,7 @@ class FMRadio final : public DOMEventTargetHelper,
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIAUDIOCHANNELAGENTCALLBACK
 
-  void Init(nsPIDOMWindowInner* aWindow);
+  void Init(nsIGlobalObject* aGlobal);
   void Shutdown();
 
   /* FMRadioEventObserver */

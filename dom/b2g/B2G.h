@@ -39,6 +39,9 @@
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
 #  include "AudioChannelManager.h"
 #endif
+#ifdef MOZ_B2G_FM
+#  include "mozilla/dom/FMRadio.h"
+#endif
 
 #include "mozilla/dom/DownloadManagerBinding.h"
 
@@ -94,7 +97,10 @@ class B2G final : public nsISupports, public nsWrapperCache {
 
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   system::AudioChannelManager* GetAudioChannelManager(ErrorResult& aRv);
-#endif  // MOZ_AUDIO_CHANNEL_MANAGER
+#endif
+#ifdef MOZ_B2G_FM
+  FMRadio* GetFmRadio(ErrorResult& aRv);
+#endif
 
   static
   bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
@@ -136,6 +142,9 @@ class B2G final : public nsISupports, public nsWrapperCache {
   RefPtr<DownloadManager> mDownloadManager;
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   RefPtr<system::AudioChannelManager> mAudioChannelManager;
+#endif
+#ifdef MOZ_B2G_FM
+  RefPtr<FMRadio> mFMRadio;
 #endif
 };
 
