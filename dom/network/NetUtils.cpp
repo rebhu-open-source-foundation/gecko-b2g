@@ -59,7 +59,7 @@ DEFINE_DLFUNC(ifc_remove_host_routes, int32_t, const char*)
 DEFINE_DLFUNC(ifc_remove_default_route, int32_t, const char*)
 DEFINE_DLFUNC(dhcp_stop, int32_t, const char*)
 
-NetUtils::NetUtils() { mDhcpUtils = new DhcpUtils(); }
+NetUtils::NetUtils() { mDhcpUtils.reset(new DhcpUtils()); }
 
 int32_t NetUtils::do_ifc_enable(const char* ifname) {
   USE_DLFUNC(ifc_enable)

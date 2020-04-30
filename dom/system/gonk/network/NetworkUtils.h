@@ -11,7 +11,6 @@
 #include "mozilla/FileUtils.h"
 #include "nsTArray.h"
 #include "NetIdManager.h"
-#include "nsAutoPtr.h"
 
 class NetworkParams;
 class CommandChain;
@@ -428,7 +427,7 @@ class NetworkUtils final {
   /*
    * Utility class to access libnetutils.
    */
-  nsAutoPtr<NetUtils> mNetUtils;
+  mozilla::UniquePtr<NetUtils> mNetUtils;
 
   NetIdManager mNetIdManager;
 };

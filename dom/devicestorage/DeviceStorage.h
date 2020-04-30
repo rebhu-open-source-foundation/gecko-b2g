@@ -7,12 +7,11 @@
 #ifndef DeviceStorage_h
 #define DeviceStorage_h
 
-#include "nsAutoPtr.h"
 #include "nsIFile.h"
 #include "nsIPrincipal.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/RefPtr.h"
-#include "mozilla/StaticPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/DOMRequest.h"
 #include "mozilla/dom/Directory.h"
 #include "nsWeakReference.h"
@@ -361,7 +360,7 @@ class nsDOMDeviceStorage final : public mozilla::DOMEventTargetHelper,
   uint64_t mInnerWindowID;
   RefPtr<DeviceStorageFileSystem> mFileSystem;
   RefPtr<DeviceStorageRequestManager> mManager;
-  nsAutoPtr<mozilla::ipc::PrincipalInfo> mPrincipalInfo;
+  mozilla::UniquePtr<mozilla::ipc::PrincipalInfo> mPrincipalInfo;
   nsCOMPtr<nsIThread> mOwningThread;
 };
 

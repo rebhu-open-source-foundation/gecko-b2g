@@ -2384,8 +2384,8 @@ nsresult nsDOMDeviceStorage::Init(nsPIDOMWindowInner* aWindow,
     return rv;
   }
 
-  mPrincipalInfo = new PrincipalInfo();
-  rv = PrincipalToPrincipalInfo(principal, mPrincipalInfo);
+  mPrincipalInfo.reset(new PrincipalInfo());
+  rv = PrincipalToPrincipalInfo(principal, mPrincipalInfo.get());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }

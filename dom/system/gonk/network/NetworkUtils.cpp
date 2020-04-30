@@ -1431,7 +1431,7 @@ void NetworkUtils::updateUpStreamSuccess(CommandChain* aChain,
 
 NetworkUtils::NetworkUtils(MessageCallback aCallback)
     : mMessageCallback(aCallback) {
-  mNetUtils = new NetUtils();
+  mNetUtils.reset(new NetUtils());
 
   nsresult rv =
       NS_NewNamedThread("NetworkUtils", getter_AddRefs(gNetworkUtilsThread));

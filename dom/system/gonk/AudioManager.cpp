@@ -775,13 +775,13 @@ AudioManager::AudioManager()
   }
   UpdateCachedActiveDevicesForStreams();
 
-  RegisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver);
+  RegisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
   // Initialize headhone/heaset status
   UpdateHeadsetConnectionState(
       hal::GetCurrentSwitchState(hal::SWITCH_HEADPHONES));
   NotifyHeadphonesStatus(hal::GetCurrentSwitchState(hal::SWITCH_HEADPHONES));
 
-  RegisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver);
+  RegisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver.get());
   // Initialize lineout status
   UpdateHeadsetConnectionState(hal::GetCurrentSwitchState(hal::SWITCH_LINEOUT));
   NotifyHeadphonesStatus(hal::GetCurrentSwitchState(hal::SWITCH_LINEOUT));
@@ -844,8 +844,8 @@ AudioManager::~AudioManager() {
 
   android::AudioSystem::setErrorCallback(nullptr);
   android::AudioSystem::removeAudioPortCallback(nullptr);
-  hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver);
-  hal::UnregisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver);
+  hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
+  hal::UnregisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver.get());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);

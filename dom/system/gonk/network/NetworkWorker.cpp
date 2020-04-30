@@ -8,10 +8,10 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/ModuleUtils.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/UniquePtr.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "nsXULAppAPI.h"
-#include "nsAutoPtr.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -22,7 +22,7 @@ namespace mozilla {
 StaticRefPtr<NetworkWorker> gNetworkWorker;
 
 // The singleton networkutils class, that can be used on any thread.
-static nsAutoPtr<NetworkUtils> gNetworkUtils;
+static UniquePtr<NetworkUtils> gNetworkUtils;
 
 // Runnable used dispatch command result on the main thread.
 class NetworkResultDispatcher : public Runnable {
@@ -68,7 +68,7 @@ already_AddRefed<NetworkWorker> NetworkWorker::FactoryCreate() {
     gNetworkWorker = new NetworkWorker();
     ClearOnShutdown(&gNetworkWorker);
 
-    gNetworkUtils = new NetworkUtils(NetworkWorker::NotifyResult);
+    gNetworkUtils.reset(new NetworkUtils(NetworkWorker::NotifyResult));
     ClearOnShutdown(&gNetworkUtils);
   }
 

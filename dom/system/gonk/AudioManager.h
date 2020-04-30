@@ -19,7 +19,6 @@
 #include "mozilla/HalTypes.h"
 #include "mozilla/Observer.h"
 #include "mozilla/UniquePtr.h"
-#include "nsAutoPtr.h"
 #include "nsDataHashtable.h"
 #include "nsIAudioManager.h"
 #include "nsIObserver.h"
@@ -143,7 +142,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   static uint32_t SelectDeviceFromDevices(uint32_t aOutDevices);
 
  private:
-  nsAutoPtr<mozilla::hal::SwitchObserver> mObserver;
+  UniquePtr<mozilla::hal::SwitchObserver> mObserver;
 #ifdef MOZ_B2G_RIL
   bool mMuteCallToRIL;
   // mIsMicMuted is only used for toggling mute call to RIL.

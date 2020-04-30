@@ -12,9 +12,9 @@
 #ifndef NetUtils_h
 #define NetUtils_h
 
+#include <mozilla/UniquePtr.h>
 #include "arpa/inet.h"
 #include "DhcpUtils.h"
-#include "nsAutoPtr.h"
 
 // Copied from ifc.h
 #define RESET_IPV4_ADDRESSES 0x01
@@ -49,7 +49,7 @@ class NetUtils {
 
   static int32_t SdkVersion();
 
-  nsAutoPtr<DhcpUtils> mDhcpUtils;
+  mozilla::UniquePtr<DhcpUtils> mDhcpUtils;
 };
 
 // Defines a function type with the right arguments and return type.

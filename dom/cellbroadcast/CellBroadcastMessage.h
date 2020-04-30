@@ -8,7 +8,6 @@
 #define mozilla_dom_cellbroadcast_CellBroadcastMessage_h
 
 #include "mozilla/dom/CellBroadcastMessageBinding.h"
-#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
 #include "nsWrapperCache.h"
