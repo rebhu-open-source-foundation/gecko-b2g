@@ -4,7 +4,7 @@
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozMobileCellInfo
+interface MobileCellInfo
 {
   /**
    * Mobile Location Area Code (LAC) for GSM/WCDMA networks.

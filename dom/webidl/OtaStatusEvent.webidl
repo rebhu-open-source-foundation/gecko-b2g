@@ -6,9 +6,9 @@
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozOtaStatusEvent : Event
+interface OtaStatusEvent : Event
 {
-  constructor(DOMString type, optional MozOtaStatusEventInit eventInitDict={});
+  constructor(DOMString type, optional OtaStatusEventInit eventInitDict={});
 
   /**
    * One of the following values:
@@ -29,7 +29,7 @@ interface MozOtaStatusEvent : Event
   readonly attribute DOMString status;
 };
 
-dictionary MozOtaStatusEventInit : EventInit
+dictionary OtaStatusEventInit : EventInit
 {
   DOMString status = "";
 };

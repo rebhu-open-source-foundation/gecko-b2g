@@ -8,7 +8,7 @@
 #define mozilla_dom_MobileDeviceIdentities_h
 
 #include "mozilla/DOMEventTargetHelper.h"
-#include "mozilla/dom/MozMobileConnectionDeviceIdsBinding.h"
+#include "mozilla/dom/MobileConnectionDeviceIdsBinding.h"
 #include "nsIMobileDeviceIdentities.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
@@ -38,15 +38,15 @@ class MobileDeviceIdentities final : public nsIMobileDeviceIdentities {
   nsString mMeid;
 };
 
-class MozMobileDeviceIdentities final : public nsWrapperCache, nsISupports
+class DOMMobileDeviceIdentities final : public nsWrapperCache, nsISupports
 {
 public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MozMobileDeviceIdentities)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMMobileDeviceIdentities)
 
-  explicit MozMobileDeviceIdentities(nsPIDOMWindowInner* aWindow);
+  explicit DOMMobileDeviceIdentities(nsPIDOMWindowInner* aWindow);
 
-  MozMobileDeviceIdentities(const nsAString& aImei, const nsAString& aImeisv,
+  DOMMobileDeviceIdentities(const nsAString& aImei, const nsAString& aImeisv,
                          const nsAString& aEsn, const nsAString& aMeid);
 
   void Update(nsIMobileDeviceIdentities* aIdentities);
@@ -59,7 +59,7 @@ public:
 
   virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
-  // MozMobileConnectionDeviceIds WebIDL interface
+  // DOMMobileConnectionDeviceIds WebIDL interface
   void GetImei(nsAString& aImei) const {
     mIdentities->GetImei(aImei);
   }
@@ -79,7 +79,7 @@ public:
   MobileDeviceIdentities* GetIdentities() const { return mIdentities; }
 
 private:
-  ~MozMobileDeviceIdentities() { mIdentities = nullptr; }
+  ~DOMMobileDeviceIdentities() { mIdentities = nullptr; }
 
 private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;

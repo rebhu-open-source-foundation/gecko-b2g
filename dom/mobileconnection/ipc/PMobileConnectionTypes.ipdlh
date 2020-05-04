@@ -7,7 +7,7 @@
 using nsMobileConnectionInfo from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 using nsMobileNetworkInfo from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 using struct mozilla::void_t from "ipc/IPCMessageUtils.h";
-using struct IPC::MozCallForwardingOptions from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
+using struct IPC::CallForwardingOptions from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 using nsMobileCallForwardingOptions from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 using nsMobileDeviceIdentities from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";
 using nsMobileSignalStrength from "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h";

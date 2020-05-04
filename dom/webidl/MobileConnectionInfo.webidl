@@ -10,7 +10,7 @@ enum MobileConnectionType {"gsm", "gprs", "edge", "umts", "hsdpa", "hsupa",
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozMobileConnectionInfo
+interface MobileConnectionInfo
 {
   /**
    * State of the connection.
@@ -43,7 +43,7 @@ interface MozMobileConnectionInfo
   /**
    * Network operator information.
    */
-  readonly attribute MozMobileNetworkInfo? network;
+  readonly attribute DOMMobileNetworkInfo? network;
 
   /**
    * Type of connection.
@@ -53,5 +53,5 @@ interface MozMobileConnectionInfo
   /**
    * Cell location information.
    */
-  readonly attribute MozMobileCellInfo? cell;
+  readonly attribute MobileCellInfo? cell;
 };

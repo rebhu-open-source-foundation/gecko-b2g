@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/MobileCellInfo.h"
-#include "mozilla/dom/MozMobileCellInfoBinding.h"
+#include "mozilla/dom/MobileCellInfoBinding.h"
 
 using namespace mozilla::dom;
 
@@ -83,7 +83,7 @@ MobileCellInfo::Update(nsIMobileCellInfo* aInfo)
 JSObject*
 MobileCellInfo::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozMobileCellInfo_Binding::Wrap(aCx, this, aGivenProto);
+  return MobileCellInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // nsIMobileCellInfo

@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_Icc_h
 #define mozilla_dom_Icc_h
 
-#include "mozilla/dom/MozIccBinding.h"
+#include "mozilla/dom/IccBinding.h"
 #include "mozilla/DOMEventTargetHelper.h"
 
 class nsIIcc;
@@ -19,7 +19,7 @@ namespace mozilla {
 namespace dom {
 
 class DOMRequest;
-class OwningMozIccInfoOrMozGsmIccInfoOrMozCdmaIccInfo;
+class OwningIccInfoOrGsmIccInfoOrCdmaIccInfo;
 // class mozContact;
 class Promise;
 
@@ -60,9 +60,9 @@ public:
   virtual JSObject*
   WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
-  // MozIcc WebIDL
+  // Icc WebIDL
   void
-  GetIccInfo(Nullable<OwningMozIccInfoOrMozGsmIccInfoOrMozCdmaIccInfo>& aIccInfo) const;
+  GetIccInfo(Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo>& aIccInfo) const;
 
   Nullable<IccCardState>
   GetCardState() const;
@@ -123,7 +123,7 @@ public:
 private:
   // Put definition of the destructor in Icc.cpp to ensure forward declaration
   // of nsIIccProvider, nsIIcc for the auto-generated .cpp file (i.e.,
-  // MozIccManagerBinding.cpp) that includes this header.
+  // IccManagerBinding.cpp) that includes this header.
   ~Icc();
 
   bool mLive;
@@ -131,7 +131,7 @@ private:
   // mHandler will be released at Shutdown(), so there is no need to join cycle
   // collection.
   nsCOMPtr<nsIIcc> mHandler;
-  Nullable<OwningMozIccInfoOrMozGsmIccInfoOrMozCdmaIccInfo> mIccInfo;
+  Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo> mIccInfo;
 };
 
 } // namespace dom

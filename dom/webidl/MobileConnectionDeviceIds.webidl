@@ -4,7 +4,7 @@
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozMobileConnectionDeviceIds
+interface DOMMobileConnectionDeviceIds
 {
   /**
    * IMEI (International Mobile Equipment Identity).

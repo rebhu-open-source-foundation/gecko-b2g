@@ -6,7 +6,7 @@
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozMobileConnectionArray {
-  getter MozMobileConnection? item(unsigned long index);
+interface MobileConnectionArray {
+  getter MobileConnection? item(unsigned long index);
   readonly attribute unsigned long length;
 };

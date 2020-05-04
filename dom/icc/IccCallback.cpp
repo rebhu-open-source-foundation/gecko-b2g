@@ -8,7 +8,7 @@
 
 // #include "mozilla/dom/ContactsBinding.h"
 #include "mozilla/dom/IccCardLockError.h"
-#include "mozilla/dom/MozIccBinding.h"
+#include "mozilla/dom/IccBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "nsIIccContact.h"
@@ -192,7 +192,7 @@ NS_IMETHODIMP
 IccCallback::NotifyGetCardLockRetryCount(int32_t aCount)
 {
   // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
-  // getCardLockRetryCount in MozIcc.webidl without a wrapper object.
+  // getCardLockRetryCount in Icc.webidl without a wrapper object.
   IccCardLockRetryCount result;
   result.mRetryCount = aCount;
 

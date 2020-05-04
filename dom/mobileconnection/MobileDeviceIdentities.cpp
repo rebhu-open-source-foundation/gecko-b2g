@@ -11,30 +11,30 @@ namespace dom {
 
 NS_IMPL_ISUPPORTS(MobileDeviceIdentities, nsIMobileDeviceIdentities)
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MozMobileDeviceIdentities, mWindow)
-NS_IMPL_CYCLE_COLLECTING_ADDREF(MozMobileDeviceIdentities)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(MozMobileDeviceIdentities)
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MozMobileDeviceIdentities)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DOMMobileDeviceIdentities, mWindow)
+NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMMobileDeviceIdentities)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMMobileDeviceIdentities)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMMobileDeviceIdentities)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-MozMobileDeviceIdentities::MozMobileDeviceIdentities(nsPIDOMWindowInner* aWindow)
+DOMMobileDeviceIdentities::DOMMobileDeviceIdentities(nsPIDOMWindowInner* aWindow)
   : mWindow(aWindow)
 {
 }
 
-MozMobileDeviceIdentities::MozMobileDeviceIdentities(const nsAString& aImei,
+DOMMobileDeviceIdentities::DOMMobileDeviceIdentities(const nsAString& aImei,
                                                      const nsAString& aImeisv,
                                                      const nsAString& aEsn,
                                                      const nsAString& aMeid)
 {
   mIdentities = new MobileDeviceIdentities(aImei, aImeisv, aEsn, aMeid);
-  // The parent object is nullptr when MozMobileDeviceIdentities is created by this
+  // The parent object is nullptr when DOMMobileDeviceIdentities is created by this
   // way, and it won't be exposed to web content.
 }
 
-void MozMobileDeviceIdentities::Update(nsIMobileDeviceIdentities* aIdentities) {
+void DOMMobileDeviceIdentities::Update(nsIMobileDeviceIdentities* aIdentities) {
   if (!aIdentities) {
     return;
   }
@@ -56,9 +56,9 @@ void MozMobileDeviceIdentities::Update(nsIMobileDeviceIdentities* aIdentities) {
 }
 
 JSObject*
-MozMobileDeviceIdentities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+DOMMobileDeviceIdentities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozMobileConnectionDeviceIds_Binding::Wrap(aCx, this, aGivenProto);
+  return DOMMobileConnectionDeviceIds_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 MobileDeviceIdentities::MobileDeviceIdentities(const nsAString& aImei,

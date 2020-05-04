@@ -12,7 +12,7 @@
 #include "mozilla/dom/MobileConnectionInfo.h"
 #include "mozilla/dom/MobileNetworkInfo.h"
 #include "mozilla/dom/MobileSignalStrength.h"
-#include "mozilla/dom/MozMobileConnectionBinding.h"
+#include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIIccService.h"
@@ -108,7 +108,7 @@ public:
   GetNetworks(ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
-  SelectNetwork(MozMobileNetworkInfo& aNetwork, ErrorResult& aRv);
+  SelectNetwork(DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
   SelectNetworkAutomatically(ErrorResult& aRv);
@@ -132,20 +132,20 @@ public:
   GetVoicePrivacyMode(ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
-  SetCallForwardingOption(const MozCallForwardingOptions& aOptions,
+  SetCallForwardingOption(const CallForwardingOptions& aOptions,
                           ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
   GetCallForwardingOption(uint16_t aReason, uint16_t aServiceClass, ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
-  SetCallBarringOption(const MozCallBarringOptions& aOptions, ErrorResult& aRv);
+  SetCallBarringOption(const CallBarringOptions& aOptions, ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
-  GetCallBarringOption(const MozCallBarringOptions& aOptions, ErrorResult& aRv);
+  GetCallBarringOption(const CallBarringOptions& aOptions, ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
-  ChangeCallBarringPassword(const MozCallBarringOptions& aOptions,
+  ChangeCallBarringPassword(const CallBarringOptions& aOptions,
                             ErrorResult& aRv);
 
   already_AddRefed<DOMRequest>
@@ -212,10 +212,10 @@ private:
   IsValidPassword(const nsAString& aPassword);
 
   bool
-  IsValidCallBarringOptions(const MozCallBarringOptions& aOptions, bool isSetting);
+  IsValidCallBarringOptions(const CallBarringOptions& aOptions, bool isSetting);
 
   bool
-  IsValidCallForwardingOptions(const MozCallForwardingOptions& aOptions);
+  IsValidCallForwardingOptions(const CallForwardingOptions& aOptions);
 
   bool
   IsValidCallForwardingService(int32_t aServiceClass);

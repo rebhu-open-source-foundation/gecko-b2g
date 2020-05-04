@@ -201,8 +201,8 @@ void IccInfo::GetIccInfo(nsIIccInfo** aIccInfo) const {
 JSObject* IccInfo::WrapObject(JSContext* aCx,
                               JS::Handle<JSObject*> aGivenProto) {
   // FIXME
-  // return MozIccInfo_Binding::Wrap(aCx, this, aGivenProto);
-  return MozIccInfo_Binding::GetConstructorObject(aCx);
+  // return IccInfo_Binding::Wrap(aCx, this, aGivenProto);
+  return IccInfo_Binding::GetConstructorObject(aCx);
 }
 
 Nullable<IccType> IccInfo::GetIccType() const {
@@ -284,7 +284,7 @@ void GsmIccInfo::Update(GsmIccInfo* aInfo) {
 
 JSObject* GsmIccInfo::WrapObject(JSContext* aCx,
                                  JS::Handle<JSObject*> aGivenProto) {
-  return MozGsmIccInfo_Binding::Wrap(aCx, this, aGivenProto);
+  return GsmIccInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 void GsmIccInfo::GetMsisdn(nsAString& aMsisdn) const {
@@ -314,7 +314,7 @@ CdmaIccInfo::CdmaIccInfo(const IccInfoData& aData) : IccInfo(aData) {
 
 JSObject* CdmaIccInfo::WrapObject(JSContext* aCx,
                                   JS::Handle<JSObject*> aGivenProto) {
-  return MozCdmaIccInfo_Binding::Wrap(aCx, this, aGivenProto);
+  return CdmaIccInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 void CdmaIccInfo::GetMdn(nsAString& aMdn) const {

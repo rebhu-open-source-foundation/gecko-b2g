@@ -9,7 +9,7 @@
 //#include "mozilla/AppProcessChecker.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/mobileconnection/MobileConnectionIPCSerializer.h"
-#include "mozilla/dom/MozMobileConnectionBinding.h"
+#include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "nsIVariant.h"
 #include "nsJSUtils.h"

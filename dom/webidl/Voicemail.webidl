@@ -8,14 +8,14 @@
  Exposed=Window]
 // CheckAnyPermissions="voicemail",
 // AvailableIn="CertifiedApps"]
-interface MozVoicemail : EventTarget
+interface Voicemail : EventTarget
 {
   /**
    * The current voicemail status of a specified service, or null when the
    * status is unknown.
    */
   [Throws]
-  MozVoicemailStatus getStatus(optional unsigned long serviceId);
+  VoicemailStatus getStatus(optional unsigned long serviceId);
 
   /**
    * The voicemail box dialing number of a specified service, or null if one

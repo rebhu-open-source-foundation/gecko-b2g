@@ -7,7 +7,7 @@
  Exposed=Window]
 // CheckAnyPermissions="mobileconnection",
 // AvailableIn="CertifiedApps"]
-interface MozIccManager : EventTarget
+interface IccManager : EventTarget
 {
   /**
    * STK menu presentation types.
@@ -260,9 +260,9 @@ interface MozIccManager : EventTarget
    * @param iccId
    *        The identifier of the ICC.
    *
-   * @return see MozIcc.webidl for the detail.
+   * @return see Icc.webidl for the detail.
    */
-  MozIcc? getIccById(DOMString iccId);
+  Icc? getIccById(DOMString iccId);
 
   /**
    * 'oniccdetected' event is notified whenever a new ICC is detected.

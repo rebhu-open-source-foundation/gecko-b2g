@@ -10,18 +10,18 @@ using namespace mozilla::dom;
 
 NS_IMPL_ISUPPORTS(MobileNetworkInfo, nsIMobileNetworkInfo)
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MozMobileNetworkInfo, mWindow)
-NS_IMPL_CYCLE_COLLECTING_ADDREF(MozMobileNetworkInfo)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(MozMobileNetworkInfo)
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MozMobileNetworkInfo)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DOMMobileNetworkInfo, mWindow)
+NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMMobileNetworkInfo)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMMobileNetworkInfo)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMMobileNetworkInfo)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-MozMobileNetworkInfo::MozMobileNetworkInfo(nsPIDOMWindowInner* aWindow)
+DOMMobileNetworkInfo::DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow)
     : mWindow(aWindow) {}
 
-MozMobileNetworkInfo::MozMobileNetworkInfo(const nsAString& aShortName,
+DOMMobileNetworkInfo::DOMMobileNetworkInfo(const nsAString& aShortName,
                                            const nsAString& aLongName,
                                            const nsAString& aMcc,
                                            const nsAString& aMnc,
@@ -31,7 +31,7 @@ MozMobileNetworkInfo::MozMobileNetworkInfo(const nsAString& aShortName,
   // And it won't be exposed to web content.
 }
 
-void MozMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
+void DOMMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   if (!aInfo) {
     return;
   }
@@ -53,9 +53,9 @@ void MozMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   }
 }
 
-JSObject* MozMobileNetworkInfo::WrapObject(JSContext* aCx,
+JSObject* DOMMobileNetworkInfo::WrapObject(JSContext* aCx,
                                            JS::Handle<JSObject*> aGivenProto) {
-  return MozMobileNetworkInfo_Binding::Wrap(aCx, this, aGivenProto);
+  return DOMMobileNetworkInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 MobileNetworkInfo::MobileNetworkInfo(const nsAString& aShortName,

@@ -137,7 +137,7 @@ child:
    * Notify STK proactive command issue by selected UICC.
    *
    * @param aStkProactiveCmd
-   *        a MozStkCommand instance serialized in JSON.
+   *        a StkCommand instance serialized in JSON.
    */
   async NotifyStkCommand(nsString aStkProactiveCmd);
 
@@ -161,9 +161,9 @@ parent:
    * Send STK response to the selected UICC.
    *
    * @param aCommand
-   *        a MozStkCommand instance serialized in JSON.
+   *        a StkCommand instance serialized in JSON.
    * @param aResponse
-   *        a MozStkResponse instance serialized in JSON.
+   *        a StkResponse instance serialized in JSON.
    */
   async StkResponse(nsString aCommand, nsString aResponse);
 
@@ -181,7 +181,7 @@ parent:
    * Send STK Event Download to the selected UICC.
    *
    * @param aEvent
-   *        a MozStkXxxEvent instance serialized in JSON.
+   *        a StkXxxEvent instance serialized in JSON.
    */
   async StkEventDownload(nsString aEvent);
 

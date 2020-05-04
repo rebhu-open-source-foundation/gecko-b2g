@@ -12,9 +12,9 @@
 #include "mozilla/dom/CFStateChangeEvent.h"
 #include "mozilla/dom/DataErrorEvent.h"
 #include "mozilla/dom/ImsRegHandler.h"
-#include "mozilla/dom/MozClirModeEvent.h"
-#include "mozilla/dom/MozEmergencyCbModeEvent.h"
-#include "mozilla/dom/MozOtaStatusEvent.h"
+#include "mozilla/dom/ClirModeEvent.h"
+#include "mozilla/dom/EmergencyCbModeEvent.h"
+#include "mozilla/dom/OtaStatusEvent.h"
 #include "mozilla/dom/ModemRestartEvent.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/Preferences.h"
@@ -211,7 +211,7 @@ MobileConnection::DisconnectFromOwner()
 JSObject*
 MobileConnection::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozMobileConnection_Binding::Wrap(aCx, this, aGivenProto);
+  return MobileConnection_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 bool
@@ -327,7 +327,7 @@ MobileConnection::IsValidCallBarringProgram(int32_t aProgram)
 }
 
 bool
-MobileConnection::IsValidCallBarringOptions(const MozCallBarringOptions& aOptions,
+MobileConnection::IsValidCallBarringOptions(const CallBarringOptions& aOptions,
                                            bool isSetting)
 {
   if (aOptions.mServiceClass.IsNull() || aOptions.mProgram.IsNull() ||
@@ -345,7 +345,7 @@ MobileConnection::IsValidCallBarringOptions(const MozCallBarringOptions& aOption
 }
 
 bool
-MobileConnection::IsValidCallForwardingOptions(const MozCallForwardingOptions& aOptions)
+MobileConnection::IsValidCallForwardingOptions(const CallForwardingOptions& aOptions)
 {
   if (aOptions.mReason.IsNull() || aOptions.mAction.IsNull() ||
       aOptions.mServiceClass.IsNull() ||
@@ -648,7 +648,7 @@ MobileConnection::GetNetworks(ErrorResult& aRv)
 }
 
 already_AddRefed<DOMRequest>
-MobileConnection::SelectNetwork(MozMobileNetworkInfo& aNetwork, ErrorResult& aRv)
+MobileConnection::SelectNetwork(DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv)
 {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -856,7 +856,7 @@ MobileConnection::GetCallForwardingOption(uint16_t aReason, uint16_t aServiceCla
 }
 
 already_AddRefed<DOMRequest>
-MobileConnection::SetCallForwardingOption(const MozCallForwardingOptions& aOptions,
+MobileConnection::SetCallForwardingOption(const CallForwardingOptions& aOptions,
                                           ErrorResult& aRv)
 {
   if (!mMobileConnection) {
@@ -909,7 +909,7 @@ MobileConnection::SetCallForwardingOption(const MozCallForwardingOptions& aOptio
 }
 
 already_AddRefed<DOMRequest>
-MobileConnection::GetCallBarringOption(const MozCallBarringOptions& aOptions,
+MobileConnection::GetCallBarringOption(const CallBarringOptions& aOptions,
                                        ErrorResult& aRv)
 {
   if (!mMobileConnection) {
@@ -952,7 +952,7 @@ MobileConnection::GetCallBarringOption(const MozCallBarringOptions& aOptions,
 }
 
 already_AddRefed<DOMRequest>
-MobileConnection::SetCallBarringOption(const MozCallBarringOptions& aOptions,
+MobileConnection::SetCallBarringOption(const CallBarringOptions& aOptions,
                                        ErrorResult& aRv)
 {
   if (!mMobileConnection) {
@@ -988,7 +988,7 @@ MobileConnection::SetCallBarringOption(const MozCallBarringOptions& aOptions,
 }
 
 already_AddRefed<DOMRequest>
-MobileConnection::ChangeCallBarringPassword(const MozCallBarringOptions& aOptions,
+MobileConnection::ChangeCallBarringPassword(const CallBarringOptions& aOptions,
                                             ErrorResult& aRv)
 {
   if (!mMobileConnection) {
@@ -1233,14 +1233,14 @@ MobileConnection::NotifyEmergencyCbModeChanged(bool aActive,
     return NS_OK;
   }
 
-  MozEmergencyCbModeEventInit init;
+  EmergencyCbModeEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
   init.mActive = aActive;
   init.mTimeoutMs = aTimeoutMs;
 
-  RefPtr<MozEmergencyCbModeEvent> event =
-    MozEmergencyCbModeEvent::Constructor(this, NS_LITERAL_STRING("emergencycbmodechange"), init);
+  RefPtr<EmergencyCbModeEvent> event =
+    EmergencyCbModeEvent::Constructor(this, NS_LITERAL_STRING("emergencycbmodechange"), init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1251,13 +1251,13 @@ MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus)
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
-  MozOtaStatusEventInit init;
+  OtaStatusEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
   init.mStatus = aStatus;
 
-  RefPtr<MozOtaStatusEvent> event =
-    MozOtaStatusEvent::Constructor(this, NS_LITERAL_STRING("otastatuschange"), init);
+  RefPtr<OtaStatusEvent> event =
+    OtaStatusEvent::Constructor(this, NS_LITERAL_STRING("otastatuschange"), init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1279,13 +1279,13 @@ MobileConnection::NotifyClirModeChanged(uint32_t aMode)
     return NS_OK;
   }
 
-  MozClirModeEventInit init;
+  ClirModeEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
   init.mMode = aMode;
 
-  RefPtr<MozClirModeEvent> event =
-    MozClirModeEvent::Constructor(this, NS_LITERAL_STRING("clirmodechange"), init);
+  RefPtr<ClirModeEvent> event =
+    ClirModeEvent::Constructor(this, NS_LITERAL_STRING("clirmodechange"), init);
 
   return DispatchTrustedEvent(event);
 }

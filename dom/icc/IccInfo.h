@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_IccInfo_h
 #define mozilla_dom_IccInfo_h
 
-#include "MozIccInfoBinding.h"
+#include "IccInfoBinding.h"
 #include "nsIIccInfo.h"
 #include "nsWrapperCache.h"
 
@@ -136,7 +136,7 @@ class GsmIccInfo final : public IccInfo {
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  // MozCdmaIccInfo WebIDL
+  // CdmaIccInfo WebIDL
   void GetMsisdn(nsAString& aMsisdn) const;
 
  private:
@@ -157,7 +157,7 @@ class CdmaIccInfo final : public IccInfo {
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  // MozCdmaIccInfo WebIDL
+  // CdmaIccInfo WebIDL
   void GetMdn(nsAString& aMdn) const;
 
   int32_t PrlVersion() const;

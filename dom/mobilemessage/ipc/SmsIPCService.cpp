@@ -9,7 +9,7 @@
 #include "nsXULAppAPI.h"
 #include "mozilla/dom/mobilemessage/SmsChild.h"
 #include "nsJSUtils.h"
-#include "mozilla/dom/MozMobileMessageManagerBinding.h"
+#include "mozilla/dom/MobileMessageManagerBinding.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/Preferences.h"
 #include "nsString.h"

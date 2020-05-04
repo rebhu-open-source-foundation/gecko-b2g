@@ -8,7 +8,7 @@
  Exposed=Window]
 // CheckAnyPermissions="voicemail",
 // AvailableIn="CertifiedApps"]
-interface MozVoicemailStatus
+interface VoicemailStatus
 {
   readonly attribute unsigned long serviceId;
 

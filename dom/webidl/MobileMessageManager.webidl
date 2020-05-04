@@ -116,7 +116,7 @@ dictionary SmscAddress {
  Exposed=Window]
  //CheckAnyPermissions="sms",
  //AvailableIn="CertifiedApps"]
-interface MozMobileMessageManager : EventTarget
+interface MobileMessageManager : EventTarget
 {
   [Throws]
   DOMRequest getSegmentInfoForText(DOMString text);

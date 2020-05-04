@@ -81,7 +81,7 @@ MobileConnectionInfo::MobileConnectionInfo(const nsAString& aState,
 
   // Update mNetworkInfo
   if (aNetworkInfo) {
-    mNetworkInfo = new MozMobileNetworkInfo(mWindow);
+    mNetworkInfo = new DOMMobileNetworkInfo(mWindow);
     mNetworkInfo->Update(aNetworkInfo);
   }
 
@@ -118,7 +118,7 @@ MobileConnectionInfo::Update(nsIMobileConnectionInfo* aInfo)
   aInfo->GetNetwork(getter_AddRefs(networkInfo));
   if (networkInfo) {
     if (!mNetworkInfo) {
-      mNetworkInfo = new MozMobileNetworkInfo(mWindow);
+      mNetworkInfo = new DOMMobileNetworkInfo(mWindow);
     }
     mNetworkInfo->Update(networkInfo);
   } else {
@@ -141,7 +141,7 @@ MobileConnectionInfo::Update(nsIMobileConnectionInfo* aInfo)
 JSObject*
 MobileConnectionInfo::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozMobileConnectionInfo_Binding::Wrap(aCx, this, aGivenProto);
+  return MobileConnectionInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // nsIMobileConnectionInfo

@@ -6,9 +6,9 @@
 
 #include "mozilla/dom/Voicemail.h"
 
-#include "mozilla/dom/MozVoicemailBinding.h"
-#include "mozilla/dom/MozVoicemailEvent.h"
-#include "mozilla/dom/MozVoicemailStatusBinding.h"
+#include "mozilla/dom/VoicemailBinding.h"
+#include "mozilla/dom/VoicemailEvent.h"
+#include "mozilla/dom/VoicemailStatusBinding.h"
 
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
@@ -115,7 +115,7 @@ Voicemail::Shutdown()
 JSObject*
 Voicemail::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozVoicemail_Binding::Wrap(aCx, this, aGivenProto);
+  return Voicemail_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 already_AddRefed<nsIVoicemailProvider>
@@ -159,7 +159,7 @@ Voicemail::GetOrCreateStatus(uint32_t aServiceId,
   return res.forget();
 }
 
-// MozVoicemail WebIDL
+// Voicemail WebIDL
 
 already_AddRefed<VoicemailStatus>
 Voicemail::GetStatus(const Optional<uint32_t>& aServiceId,
@@ -231,13 +231,13 @@ Voicemail::NotifyStatusChanged(nsIVoicemailProvider* aProvider)
     return NS_ERROR_UNEXPECTED;
   }
 
-  MozVoicemailEventInit init;
+  VoicemailEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;
   init.mStatus = GetOrCreateStatus(serviceId, aProvider);
 
-  RefPtr<MozVoicemailEvent> event =
-    MozVoicemailEvent::Constructor(this, NS_LITERAL_STRING("statuschanged"), init);
+  RefPtr<VoicemailEvent> event =
+    VoicemailEvent::Constructor(this, NS_LITERAL_STRING("statuschanged"), init);
   return DispatchTrustedEvent(event);
 }
 

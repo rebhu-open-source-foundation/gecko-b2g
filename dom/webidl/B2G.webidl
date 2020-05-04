@@ -24,7 +24,7 @@ partial interface B2G {
 [Exposed=Window]
 partial interface B2G {
   [Throws, Pref="dom.mobileconnection.enabled"]
-  readonly attribute MozMobileConnectionArray mobileConnections;
+  readonly attribute MobileConnectionArray mobileConnections;
 };
 
 [Exposed=Window]
@@ -36,7 +36,7 @@ partial interface B2G {
 [Exposed=Window]
 partial interface B2G {
   [Throws, Pref="dom.icc.enabled"]
-  readonly attribute MozIccManager? iccManager;
+  readonly attribute IccManager? iccManager;
 };
 
 [Exposed=Window]
@@ -54,7 +54,7 @@ partial interface B2G {
 [Exposed=Window]
 partial interface B2G {
   [Throws, Pref="dom.voicemail.enabled"]
-  readonly attribute MozVoicemail voicemail;
+  readonly attribute Voicemail voicemail;
 };
 
 [Exposed=Window]

@@ -8,13 +8,13 @@
  Exposed=Window]
 // CheckAnyPermissions="voicemail",
 // AvailableIn="CertifiedApps"]
-interface MozVoicemailEvent : Event
+interface VoicemailEvent : Event
 {
-  constructor(DOMString type, optional MozVoicemailEventInit eventInitDict = {});
-  readonly attribute MozVoicemailStatus? status;
+  constructor(DOMString type, optional VoicemailEventInit eventInitDict = {});
+  readonly attribute VoicemailStatus? status;
 };
 
-dictionary MozVoicemailEventInit : EventInit
+dictionary VoicemailEventInit : EventInit
 {
-  MozVoicemailStatus? status = null;
+  VoicemailStatus? status = null;
 };

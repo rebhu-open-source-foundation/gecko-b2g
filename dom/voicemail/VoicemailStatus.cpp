@@ -6,7 +6,7 @@
 
 #include "mozilla/dom/VoicemailStatus.h"
 
-#include "mozilla/dom/MozVoicemailStatusBinding.h"
+#include "mozilla/dom/VoicemailStatusBinding.h"
 #include "nsIVoicemailService.h"
 #include "nsPIDOMWindow.h"
 
@@ -36,7 +36,7 @@ VoicemailStatus::VoicemailStatus(nsISupports* aParent,
 JSObject*
 VoicemailStatus::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozVoicemailStatus_Binding::Wrap(aCx, this, aGivenProto);
+  return VoicemailStatus_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 uint32_t

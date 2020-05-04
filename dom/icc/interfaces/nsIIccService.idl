@@ -173,7 +173,7 @@ interface nsIIcc : nsISupports
   /**
    * Card State Constants
    *
-   * Note: MUST be matched with enum IccCardState in MozIcc.webidl!
+   * Note: MUST be matched with enum IccCardState in Icc.webidl!
    */
   const unsigned long CARD_STATE_UNKNOWN = 0;
   const unsigned long CARD_STATE_READY = 1;
@@ -211,7 +211,7 @@ interface nsIIcc : nsISupports
   /**
    * Card Lock Constants
    *
-   * Note: MUST be matched with enum IccLockType in MozIcc.webidl!
+   * Note: MUST be matched with enum IccLockType in Icc.webidl!
    */
   const unsigned long CARD_LOCK_TYPE_PIN = 0;
   const unsigned long CARD_LOCK_TYPE_PIN2 = 1;
@@ -242,7 +242,7 @@ interface nsIIcc : nsISupports
   /**
    * Contact Type Constants
    *
-   * Note: MUST be matched with enum IccContactType in MozIcc.webidl!
+   * Note: MUST be matched with enum IccContactType in Icc.webidl!
    */
   const unsigned long CARD_CONTACT_TYPE_ADN = 0;
   const unsigned long CARD_CONTACT_TYPE_FDN = 1;
@@ -251,7 +251,7 @@ interface nsIIcc : nsISupports
   /**
    * MVNO Type Constants
    *
-   * Note: MUST be matched with enum IccMvnoType in MozIcc.webidl!
+   * Note: MUST be matched with enum IccMvnoType in Icc.webidl!
    */
   const unsigned long CARD_MVNO_TYPE_IMSI = 0;
   const unsigned long CARD_MVNO_TYPE_SPN = 1;
@@ -260,14 +260,14 @@ interface nsIIcc : nsISupports
   /**
    * Card Service Constants
    *
-   * Note: MUST be matched with enum IccService in MozIcc.webidl!
+   * Note: MUST be matched with enum IccService in Icc.webidl!
    */
   const unsigned long CARD_SERVICE_FDN = 0;
 
   /**
    * Icc Contact Type Constants
    *
-   * Note: MUST be matched with enum IccContactType in MozIcc.webidl!
+   * Note: MUST be matched with enum IccContactType in Icc.webidl!
    */
   const unsigned long CONTACT_TYPE_ADN = 0;
   const unsigned long CONTACT_TYPE_FDN = 1;
@@ -276,7 +276,7 @@ interface nsIIcc : nsISupports
   /**
    * UICC application types.
    *
-   * Note: MUST be matched with enum IccAppType in MozIcc.webidl!
+   * Note: MUST be matched with enum IccAppType in Icc.webidl!
    */
   const unsigned long APPTYPE_UNKNOWN = 0;
   const unsigned long APPTYPE_SIM = 1;

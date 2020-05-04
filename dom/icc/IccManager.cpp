@@ -5,7 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "IccManager.h"
-#include "mozilla/dom/MozIccManagerBinding.h"
+#include "mozilla/dom/IccManagerBinding.h"
 #include "Icc.h"
 #include "IccListener.h"
 #include "mozilla/AsyncEventDispatcher.h"
@@ -58,7 +58,7 @@ IccManager::~IccManager()
 JSObject*
 IccManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozIccManager_Binding::Wrap(aCx, this, aGivenProto);
+  return IccManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 void
@@ -74,7 +74,7 @@ IccManager::Shutdown()
 nsresult
 IccManager::NotifyIccAdd(const nsAString& aIccId)
 {
-  MozIccManager_Binding::ClearCachedIccIdsValue(this);
+  IccManager_Binding::ClearCachedIccIdsValue(this);
 
   IccChangeEventInit init;
   init.mBubbles = false;
@@ -94,7 +94,7 @@ IccManager::NotifyIccAdd(const nsAString& aIccId)
 nsresult
 IccManager::NotifyIccRemove(const nsAString& aIccId)
 {
-  MozIccManager_Binding::ClearCachedIccIdsValue(this);
+  IccManager_Binding::ClearCachedIccIdsValue(this);
 
   IccChangeEventInit init;
   init.mBubbles = false;
@@ -111,7 +111,7 @@ IccManager::NotifyIccRemove(const nsAString& aIccId)
   return asyncDispatcher->PostDOMEvent();
 }
 
-// MozIccManager
+// IccManager
 
 void
 IccManager::GetIccIds(nsTArray<nsString>& aIccIds)

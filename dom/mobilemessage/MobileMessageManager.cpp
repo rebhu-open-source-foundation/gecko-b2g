@@ -18,7 +18,7 @@
 #include "mozilla/dom/mobilemessage/Constants.h" // For kSms*ObserverTopic
 #include "mozilla/dom/MozMessageDeletedEvent.h"
 #include "mozilla/dom/MozMmsEvent.h"
-#include "mozilla/dom/MozMobileMessageManagerBinding.h"
+#include "mozilla/dom/MobileMessageManagerBinding.h"
 #include "mozilla/dom/MozSmsEvent.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ToJSValue.h"

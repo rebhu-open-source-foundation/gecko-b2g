@@ -7,7 +7,7 @@
 #include "MobileConnectionCallback.h"
 
 #include "mozilla/dom/MobileNetworkInfo.h"
-#include "mozilla/dom/MozMobileConnectionBinding.h"
+#include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "nsJSUtils.h"
 #include "nsServiceManagerUtils.h"
@@ -86,10 +86,10 @@ MobileConnectionCallback::NotifyGetNetworksSuccess(uint32_t aCount,
                                                    nsIMobileNetworkInfo** aNetworks)
 {
 
-  nsTArray<RefPtr<MozMobileNetworkInfo>> results;
+  nsTArray<RefPtr<DOMMobileNetworkInfo>> results;
   for (uint32_t i = 0; i < aCount; i++)
   {
-    RefPtr<MozMobileNetworkInfo> networkInfo = new MozMobileNetworkInfo(mWindow);
+    RefPtr<DOMMobileNetworkInfo> networkInfo = new DOMMobileNetworkInfo(mWindow);
     networkInfo->Update(aNetworks[i]);
     results.AppendElement(networkInfo);
   }
@@ -114,10 +114,10 @@ NS_IMETHODIMP
 MobileConnectionCallback::NotifyGetCallForwardingSuccess(uint32_t aCount,
                                                          nsIMobileCallForwardingOptions** aResults)
 {
-  nsTArray<MozCallForwardingOptions> results;
+  nsTArray<CallForwardingOptions> results;
   for (uint32_t i = 0; i < aCount; i++)
   {
-    MozCallForwardingOptions result;
+    CallForwardingOptions result;
     int16_t pShort;
     nsString pString;
     bool pBool;
@@ -172,7 +172,7 @@ MobileConnectionCallback::NotifyGetCallBarringSuccess(uint16_t aProgram,
                                                       bool aEnabled,
                                                       uint16_t aServiceClass)
 {
-  MozCallBarringOptions result;
+  CallBarringOptions result;
   result.mProgram.SetValue(aProgram);
   result.mEnabled.SetValue(aEnabled);
   result.mServiceClass.SetValue(aServiceClass);
@@ -203,7 +203,7 @@ MobileConnectionCallback::NotifyGetCallWaitingSuccess(uint16_t aServiceClass)
 NS_IMETHODIMP
 MobileConnectionCallback::NotifyGetClirStatusSuccess(uint16_t aN, uint16_t aM)
 {
-  MozClirStatus result;
+  ClirStatus result;
   result.mN = aN;
   result.mM = aM;
 
@@ -253,19 +253,19 @@ MobileConnectionCallback::NotifyGetDeviceIdentitiesRequestSuccess(
   nsString pString;
   MobileDeviceIds result;
 
-  RefPtr<MozMobileDeviceIdentities> mozDeviceIdentities = new MozMobileDeviceIdentities(mWindow);
-  mozDeviceIdentities->Update(aResult);
+  RefPtr<DOMMobileDeviceIdentities> DeviceIdentities = new DOMMobileDeviceIdentities(mWindow);
+  DeviceIdentities->Update(aResult);
 
-  mozDeviceIdentities->GetIdentities()->GetImei(pString);
+  DeviceIdentities->GetIdentities()->GetImei(pString);
   result.mImei = pString;
 
-  mozDeviceIdentities->GetIdentities()->GetImeisv(pString);
+  DeviceIdentities->GetIdentities()->GetImeisv(pString);
   result.mImeisv = pString;
 
-  mozDeviceIdentities->GetIdentities()->GetEsn(pString);
+  DeviceIdentities->GetIdentities()->GetEsn(pString);
   result.mEsn = pString;
 
-  mozDeviceIdentities->GetIdentities()->GetMeid(pString);
+  DeviceIdentities->GetIdentities()->GetMeid(pString);
   result.mMeid = pString;
 
   AutoJSAPI jsapi;

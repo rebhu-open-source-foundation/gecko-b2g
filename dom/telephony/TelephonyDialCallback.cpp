@@ -5,8 +5,6 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "TelephonyDialCallback.h"
-
-//#include "mozilla/dom/MozMobileConnectionBinding.h"
 #include "nsIMobileCallForwardingOptions.h"
 #include "nsIMobileConnectionService.h"
 

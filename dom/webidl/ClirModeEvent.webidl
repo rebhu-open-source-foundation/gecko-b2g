@@ -6,18 +6,18 @@
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozClirModeEvent : Event
+interface ClirModeEvent : Event
 {
-  constructor(DOMString type, optional MozClirModeEventInit eventInitDict={});
+  constructor(DOMString type, optional ClirModeEventInit eventInitDict={});
   /**
    * Indicates the mode of the calling line id restriction (CLIR).
    *
-   * @see MozMobileConnection.CLIR_* values.
+   * @see MobileConnection.CLIR_* values.
    */
   readonly attribute unsigned long mode;
 };
 
-dictionary MozClirModeEventInit : EventInit
+dictionary ClirModeEventInit : EventInit
 {
   unsigned long mode = 0;
 };

@@ -8,7 +8,7 @@
 
 #include "mozilla/Preferences.h"
 #include "mozilla/dom/CallEvent.h"
-//#include "mozilla/dom/MozMobileConnectionBinding.h"
+//#include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/TelephonyBinding.h"
 //#include "mozilla/dom/RingbackToneEvent.h"

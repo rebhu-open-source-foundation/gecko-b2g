@@ -35,7 +35,7 @@ enum MobileRoamingMode {"home", "affiliated", "any"};
 
 [Pref="dom.mobileconnection.enabled",
 Exposed=Window]
-interface MozMobileConnection : EventTarget
+interface MobileConnection : EventTarget
 {
   /**
    * Call forwarding service class.
@@ -109,13 +109,13 @@ interface MozMobileConnection : EventTarget
    * Information about the voice connection.
    */
   //[CheckAnyPermissions="mobileconnection"]
-  readonly attribute MozMobileConnectionInfo voice;
+  readonly attribute MobileConnectionInfo voice;
 
   /**
    * Information about the data connection.
    */
   //[CheckAnyPermissions="mobileconnection"]
-  readonly attribute MozMobileConnectionInfo data;
+  readonly attribute MobileConnectionInfo data;
 
   /**
    * Integrated Circuit Card Identifier of the SIM this mobile connection
@@ -182,7 +182,7 @@ interface MozMobileConnection : EventTarget
    * @return a DOMRequest.
    *
    * If successful, the request's onsuccess will be called. And the request's
-   * result will be an array of MozMobileNetworkInfo.
+   * result will be an array of DOMMobileNetworkInfo.
    *
    * Otherwise, the request's onerror will be called, and the request's error
    * will be either 'RadioNotAvailable', 'RequestNotSupported', or
@@ -206,7 +206,7 @@ interface MozMobileConnection : EventTarget
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
   [Throws] //CheckAnyPermissions="mobileconnection"]
-  DOMRequest selectNetwork(MozMobileNetworkInfo network);
+  DOMRequest selectNetwork(DOMMobileNetworkInfo network);
 
   /**
    * Tell the radio to automatically select a network.
@@ -332,7 +332,7 @@ interface MozMobileConnection : EventTarget
    *
    * @param options
    *        An object containing the call forward rule to set.
-   * @see MozCallForwardingOptions for the detail of options.
+   * @see CallForwardingOptions for the detail of options.
    *
    * @return a DOMRequest
    *
@@ -343,24 +343,24 @@ interface MozMobileConnection : EventTarget
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
   [Throws]  //CheckAnyPermissions="mobileconnection"]
-  DOMRequest setCallForwardingOption(optional MozCallForwardingOptions options={});
+  DOMRequest setCallForwardingOption(optional CallForwardingOptions options={});
 
   /**
    * Queries current call forward options.
    *
    * @param serviceClass
    *        Indicates the service for the call forward status want to query.
-   *        It should be combination of the MozMobileConnection.ICC_SERVICE_CLASS_*
+   *        It should be combination of the MobileConnection.ICC_SERVICE_CLASS_*
    *        For example:
-   *        Voice call - MozMobileConnection.ICC_SERVICE_CLASS_VOICE
-   *        Video call - MozMobileConnection.ICC_SERVICE_CLASS_PACKET |
-   *                     MozMobileConnection.ICC_SERVICE_CLASS_DATA_SYNC
+   *        Voice call - MobileConnection.ICC_SERVICE_CLASS_VOICE
+   *        Video call - MobileConnection.ICC_SERVICE_CLASS_PACKET |
+   *                     MobileConnection.ICC_SERVICE_CLASS_DATA_SYNC
    *
    * @return a DOMRequest
    *
    * If successful, the request's onsuccess will be called. And the request's
-   * result will be a MozCallForwardingOptions object.
-   * @see MozCallForwardingOptions for the detail of result.
+   * result will be a CallForwardingOptions object.
+   * @see CallForwardingOptions for the detail of result.
    *
    * Otherwise, the request's onerror will be called, and the request's error
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
@@ -374,7 +374,7 @@ interface MozMobileConnection : EventTarget
    *
    * @param options
    *        An object containing the call barring rule to set.
-   * @see MozCallBarringOptions for the detail of options.
+   * @see CallBarringOptions for the detail of options.
    *
    * @return a DOMRequest
    *
@@ -386,7 +386,7 @@ interface MozMobileConnection : EventTarget
    * 'IncorrectPassword'.
    */
   [Throws] //CheckAnyPermissions="mobileconnection"]
-  DOMRequest setCallBarringOption(optional MozCallBarringOptions options={});
+  DOMRequest setCallBarringOption(optional CallBarringOptions options={});
 
   /**
    * Queries current call barring status.
@@ -394,21 +394,21 @@ interface MozMobileConnection : EventTarget
    * @param options
    *        An object containing the call barring rule to query. No need to
    *        specify 'enabled' property.
-   * @see MozCallBarringOptions for the detail of options.
+   * @see CallBarringOptions for the detail of options.
    *
    * @return a DOMRequest
    *
    * If successful, the request's onsuccess will be called. And the request's
-   * result will be an object of MozCallBarringOptions with correct 'enabled'
+   * result will be an object of CallBarringOptions with correct 'enabled'
    * property indicating the status of this rule.
-   * @see MozCallBarringOptions for the detail of result.
+   * @see CallBarringOptions for the detail of result.
    *
    * Otherwise, the request's onerror will be called, and the request's error
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
   [Throws] //CheckAnyPermissions="mobileconnection"]
-  DOMRequest getCallBarringOption(optional MozCallBarringOptions options={});
+  DOMRequest getCallBarringOption(optional CallBarringOptions options={});
 
   /**
    * Change call barring facility password.
@@ -417,7 +417,7 @@ interface MozMobileConnection : EventTarget
    *        An object containing information about pin and newPin, and,
    *        this object must have both "pin" and "newPin" attributes
    *        to change the call barring facility password.
-   * @see MozCallBarringOptions for the detail of options.
+   * @see CallBarringOptions for the detail of options.
    *
    * Example:
    *
@@ -433,7 +433,7 @@ interface MozMobileConnection : EventTarget
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
   [Throws] //CheckAnyPermissions="mobileconnection"]
-  DOMRequest changeCallBarringPassword(optional MozCallBarringOptions options={});
+  DOMRequest changeCallBarringPassword(optional CallBarringOptions options={});
 
   /**
    * Configures call waiting options.
@@ -472,7 +472,7 @@ interface MozMobileConnection : EventTarget
    * the called party when originating a call.
    *
    * @param mode
-   *        It shall be one of the MozMobileConnection.CLIR_* values.
+   *        It shall be one of the MobileConnection.CLIR_* values.
    *
    * @return a DOMRequest
    *
@@ -492,7 +492,7 @@ interface MozMobileConnection : EventTarget
    *
    * If successful, the request's onsuccess will be called. And the request's
    * result will be an object containing containing CLIR 'n' and 'm' parameter.
-   * @see MozClirStatus for the detail of result.
+   * @see ClirStatus for the detail of result.
    *
    * Otherwise, the request's onerror will be called, and the request's error
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
@@ -608,7 +608,7 @@ interface MozMobileConnection : EventTarget
 };
 
 [GenerateConversionToJS]
-dictionary MozCallForwardingOptions
+dictionary CallForwardingOptions
 {
   /**
    * Call forwarding rule status.
@@ -625,13 +625,13 @@ dictionary MozCallForwardingOptions
 
   /**
    * Indicates what to do with the rule. It shall be one of the
-   * MozMobileConnection.CALL_FORWARD_ACTION_* values.
+   * MobileConnection.CALL_FORWARD_ACTION_* values.
    */
   unsigned short? action = null;
 
   /**
    * Indicates the reason the call is being forwarded. It shall be one of the
-   * MozMobileConnection.CALL_FORWARD_REASON_* values.
+   * MobileConnection.CALL_FORWARD_REASON_* values.
    */
   unsigned short? reason = null;
 
@@ -648,20 +648,20 @@ dictionary MozCallForwardingOptions
 
   /**
    * Service for which the call forward is set up. It should be combination of
-   * MozMobileConnection.ICC_SERVICE_CLASS_*. For example:
-   * Voice call - MozMobileConnection.ICC_SERVICE_CLASS_VOICE
-   * Video call - MozMobileConnection.ICC_SERVICE_CLASS_PACKET |
-   *              MozMobileConnection.ICC_SERVICE_CLASS_DATA_SYNC
+   * MobileConnection.ICC_SERVICE_CLASS_*. For example:
+   * Voice call - MobileConnection.ICC_SERVICE_CLASS_VOICE
+   * Video call - MobileConnection.ICC_SERVICE_CLASS_PACKET |
+   *              MobileConnection.ICC_SERVICE_CLASS_DATA_SYNC
    */
   unsigned short? serviceClass = null;
 };
 
 [GenerateConversionToJS]
-dictionary MozCallBarringOptions
+dictionary CallBarringOptions
 {
   /**
    * Indicates the program the call is being barred. It shall be one of the
-   * MozMobileConnection.CALL_BARRING_PROGRAM_* values.
+   * MobileConnection.CALL_BARRING_PROGRAM_* values.
    */
   unsigned short? program = null;
 
@@ -677,7 +677,7 @@ dictionary MozCallBarringOptions
 
   /**
    * Service for which the call barring is set up. It shall be one of the
-   * MozMobileConnection.ICC_SERVICE_CLASS_* values.
+   * MobileConnection.ICC_SERVICE_CLASS_* values.
    */
   unsigned short? serviceClass = null;
 
@@ -700,7 +700,7 @@ dictionary MozCallBarringOptions
 };
 
 [GenerateConversionToJS]
-dictionary MozMMIResult
+dictionary MMIResult
 {
   /**
    * Indicate whether the result is successful or not.
@@ -727,10 +727,10 @@ dictionary MozMMIResult
    * Some MMI requests like call forwarding or PIN/PIN2/PUK/PUK2 related
    * requests provide extra information along with the status message, this
    * information can be a number, an array of string keys or an array of
-   * MozCallForwardingOptions.
+   * CallForwardingOptions.
    *
    * And it should be
-   * (unsigned short or sequence<DOMString> or sequence<MozCallForwardingOptions>)
+   * (unsigned short or sequence<DOMString> or sequence<CallForwardingOptions>)
    * But we cannot yet use sequences as union member types (please see bug 767924)
    * ,so we use object here.
    */
@@ -738,12 +738,12 @@ dictionary MozMMIResult
 };
 
 [GenerateConversionToJS]
-dictionary MozClirStatus
+dictionary ClirStatus
 {
   /**
    * CLIR parameter 'n': parameter sets the adjustment for outgoing calls.
    *
-   * It shall be one of the MozMobileConnection.CLIR_* values.
+   * It shall be one of the MobileConnection.CLIR_* values.
    */
   unsigned short n = 0;
 

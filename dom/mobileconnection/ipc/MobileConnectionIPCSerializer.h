@@ -14,7 +14,7 @@
 #include "mozilla/dom/MobileConnectionInfo.h"
 #include "mozilla/dom/MobileNetworkInfo.h"
 #include "mozilla/dom/MobileSignalStrength.h"
-#include "mozilla/dom/MozMobileConnectionBinding.h"
+#include "mozilla/dom/MobileConnectionBinding.h"
 
 using mozilla::AutoJSContext;
 using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
@@ -33,9 +33,9 @@ typedef nsIMobileSignalStrength* nsMobileSignalStrength;
 
 namespace IPC {
 
-struct MozCallForwardingOptions
-    : public mozilla::dom::MozCallForwardingOptions {
-  bool operator==(const MozCallForwardingOptions& aOther) const {
+struct CallForwardingOptions
+    : public mozilla::dom::CallForwardingOptions {
+  bool operator==(const CallForwardingOptions& aOther) const {
     return  // Compare mActive
         ((!mActive.IsNull() && !aOther.mActive.IsNull()) ||
          (mActive.IsNull() && aOther.mActive.IsNull() &&
@@ -426,13 +426,13 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
 };
 
 /**
- * MozCallForwardingOptions Serialize/De-serialize.
+ * CallForwardingOptions Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<MozCallForwardingOptions> {
-  typedef MozCallForwardingOptions paramType;
+struct ParamTraits<CallForwardingOptions> {
+  typedef CallForwardingOptions paramType;
 
-  // Function to serialize a MozCallForwardingOptions.
+  // Function to serialize a CallForwardingOptions.
   static void Write(Message* aMsg, const paramType& aParam) {
     /*
         bool wasPassed = false;
@@ -502,7 +502,7 @@ struct ParamTraits<MozCallForwardingOptions> {
        */
   }
 
-  // Function to de-serialize a MozCallForwardingOptions.
+  // Function to de-serialize a CallForwardingOptions.
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
     return false;

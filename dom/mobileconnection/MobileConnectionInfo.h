@@ -9,7 +9,7 @@
 
 #include "mozilla/dom/MobileCellInfo.h"
 #include "mozilla/dom/MobileNetworkInfo.h"
-#include "mozilla/dom/MozMobileConnectionInfoBinding.h"
+#include "mozilla/dom/MobileConnectionInfoBinding.h"
 #include "nsIMobileConnectionInfo.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
@@ -76,7 +76,7 @@ public:
     return mType;
   }
 
-  MozMobileNetworkInfo*
+  DOMMobileNetworkInfo*
   GetNetwork() const
   {
     return mNetworkInfo;
@@ -96,7 +96,7 @@ private:
   bool mEmergencyCallsOnly;
   bool mRoaming;
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  RefPtr<MozMobileNetworkInfo> mNetworkInfo;
+  RefPtr<DOMMobileNetworkInfo> mNetworkInfo;
   RefPtr<MobileCellInfo> mCellInfo;
   Nullable<MobileConnectionState> mState;
   Nullable<MobileConnectionType> mType;

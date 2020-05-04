@@ -6,10 +6,10 @@
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozEmergencyCbModeEvent : Event
+interface EmergencyCbModeEvent : Event
 {
 
-  constructor(DOMString type, optional MozEmergencyCbModeEventInit eventInitDict={});
+  constructor(DOMString type, optional EmergencyCbModeEventInit eventInitDict={});
 
   /**
    * Whether the mode is activated.
@@ -22,7 +22,7 @@ interface MozEmergencyCbModeEvent : Event
   readonly attribute unsigned long timeoutMs;
 };
 
-dictionary MozEmergencyCbModeEventInit : EventInit
+dictionary EmergencyCbModeEventInit : EventInit
 {
   boolean active = false;
   unsigned long timeoutMs = 0;

@@ -16,15 +16,15 @@ interface nsIStkTimer;
 
 /**
  * This StkCmdFactory provides series factory methods to create objects defined
- * in nsIStkProactiveCmd.idl and MozStkCommandEvent.webidl.
+ * in nsIStkProactiveCmd.idl and StkCommandEvent.webidl.
  */
 [scriptable, uuid(743536c4-006f-11e5-a3f7-bf7a7fd59b9b)]
 interface nsIStkCmdFactory : nsISupports
 {
   /**
    * @param  aCommandDetails
-   *         A JS object which complies with 'dictionary MozStkCommand'
-   *         in MozStkCommandEvent.webidl
+   *         A JS object which complies with 'dictionary StkCommand'
+   *         in StkCommandEvent.webidl
    *
    * @return a nsIStkProactiveCmd instance.
    */
@@ -34,8 +34,8 @@ interface nsIStkCmdFactory : nsISupports
    * @param  aStkProactiveCmd
    *         a nsIStkProactiveCmd instance.
    *
-   * @return a JS object which complies with 'dictionary MozStkCommand'
-   *         in MozStkCommandEvent.webidl
+   * @return a JS object which complies with 'dictionary StkCommand'
+   *         in StkCommandEvent.webidl
    */
   jsval createCommandMessage(in nsIStkProactiveCmd aStkProactiveCmd);
 
@@ -43,14 +43,14 @@ interface nsIStkCmdFactory : nsISupports
    * @param  aStkProactiveCmd
    *         a nsIStkProactiveCmd instance.
    *
-   * @return a JSON string which complies with 'dictionary MozStkCommand'
-   *         in MozStkCommandEvent.webidl
+   * @return a JSON string which complies with 'dictionary StkCommand'
+   *         in StkCommandEvent.webidl
    */
   AString deflateCommand(in nsIStkProactiveCmd aStkProactiveCmd);
 
   /**
-   * @param  a JSON string which complies with 'dictionary MozStkCommand'
-   *         in MozStkCommandEvent.webidl
+   * @param  a JSON string which complies with 'dictionary StkCommand'
+   *         in StkCommandEvent.webidl
    *
    * @return a nsIStkProactiveCmd instance.
    */
@@ -58,8 +58,8 @@ interface nsIStkCmdFactory : nsISupports
 
   /**
    * @param aResponseMessage
-   *        A JS object which complies with 'dictionary MozStkResponse'
-   *        in MozStkCommandEvent.webidl
+   *        A JS object which complies with 'dictionary StkResponse'
+   *        in StkCommandEvent.webidl
    *
    * @return a nsIStkTerminalResponse instance.
    */
@@ -69,8 +69,8 @@ interface nsIStkCmdFactory : nsISupports
    * @param  aStkTerminalResponse
    *         a nsIStkTerminalResponse instance.
    *
-   * @return a JS object which complies with 'dictionary MozStkResponse'
-   *         in MozStkCommandEvent.webidl
+   * @return a JS object which complies with 'dictionary StkResponse'
+   *         in StkCommandEvent.webidl
    */
   jsval createResponseMessage(in nsIStkTerminalResponse aStkTerminalResponse);
 
@@ -78,14 +78,14 @@ interface nsIStkCmdFactory : nsISupports
    * @param  aStkTerminalResponse
    *         a nsIStkTerminalResponse instance.
    *
-   * @return a JSON string which complies with 'dictionary MozStkResponse'
-   *         in MozStkCommandEvent.webidl
+   * @return a JSON string which complies with 'dictionary StkResponse'
+   *         in StkCommandEvent.webidl
    */
   AString deflateResponse(in nsIStkTerminalResponse aStkTerminalResponse);
 
   /**
-   * @param  a JSON string which complies with 'dictionary MozStkResponse'
-   *         in MozStkCommandEvent.webidl
+   * @param  a JSON string which complies with 'dictionary StkResponse'
+   *         in StkCommandEvent.webidl
    *
    * @return a nsIStkTerminalResponse instance.
    */
@@ -93,8 +93,8 @@ interface nsIStkCmdFactory : nsISupports
 
   /**
    * @param aEventMessage
-   *        A JS object which complies with 'dictionary MozStkXxxEvent'
-   *        in MozStkCommandEvent.webidl
+   *        A JS object which complies with 'dictionary StkXxxEvent'
+   *        in StkCommandEvent.webidl
    *
    * @return a nsIStkDownloadEvent instance.
    */
@@ -104,8 +104,8 @@ interface nsIStkCmdFactory : nsISupports
    * @param  aStkDownloadEvent
    *         a nsIStkDownloadEvent instance.
    *
-   * @return a JS object which complies with 'dictionary MozStkXxxEvent'
-   *         in MozStkCommandEvent.webidl
+   * @return a JS object which complies with 'dictionary StkXxxEvent'
+   *         in StkCommandEvent.webidl
    */
   jsval createEventMessage(in nsIStkDownloadEvent aStkDownloadEvent);
 
@@ -113,14 +113,14 @@ interface nsIStkCmdFactory : nsISupports
    * @param  aStkDownloadEvent
    *         a nsIStkDownloadEvent instance.
    *
-   * @return a JSON string which complies with 'dictionary MozStkXxxEvent'
-   *         in MozStkCommandEvent.webidl
+   * @return a JSON string which complies with 'dictionary StkXxxEvent'
+   *         in StkCommandEvent.webidl
    */
   AString deflateDownloadEvent(in nsIStkDownloadEvent aStkDownloadEvent);
 
   /**
-   * @param  a JSON string which complies with 'dictionary MozStkXxxEvent'
-   *         in MozStkCommandEvent.webidl
+   * @param  a JSON string which complies with 'dictionary StkXxxEvent'
+   *         in StkCommandEvent.webidl
    *
    * @return a nsIStkDownloadEvent instance.
    */
@@ -128,8 +128,8 @@ interface nsIStkCmdFactory : nsISupports
 
   /**
    * @param aStkTimerMessage
-   *        a JS object which complies with 'dictionary MozStkTimer'
-   *        in MozStkCommandEvent.webidl
+   *        a JS object which complies with 'dictionary StkTimer'
+   *        in StkCommandEvent.webidl
    *
    * @return an instance of nsIStkTimer with the same timerId and timerValue
    *         from aStkTimerMessage.

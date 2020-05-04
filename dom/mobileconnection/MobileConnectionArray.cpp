@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/MobileConnectionArray.h"
-#include "mozilla/dom/MozMobileConnectionArrayBinding.h"
+#include "mozilla/dom/MobileConnectionArrayBinding.h"
 #include "mozilla/Preferences.h"
 #include "nsServiceManagerUtils.h"
 
@@ -61,7 +61,7 @@ MobileConnectionArray::GetParentObject() const
 JSObject*
 MobileConnectionArray::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozMobileConnectionArray_Binding::Wrap(aCx, this, aGivenProto);
+  return MobileConnectionArray_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 MobileConnection*

@@ -6,7 +6,7 @@ enum MobileNetworkState {"available", "connected", "forbidden"};
 
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
-interface MozMobileNetworkInfo
+interface DOMMobileNetworkInfo
 {
   /**
    * Short name of the network operator.

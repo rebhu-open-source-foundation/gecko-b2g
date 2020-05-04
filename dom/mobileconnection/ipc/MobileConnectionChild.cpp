@@ -7,7 +7,7 @@
 #include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
 
 #include "MobileConnectionCallback.h"
-#include "mozilla/dom/MozMobileConnectionBinding.h"
+#include "mozilla/dom/MobileConnectionBinding.h"
 #include "nsComponentManagerUtils.h"
 
 using namespace mozilla::dom;

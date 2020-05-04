@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_MobileNetworkInfo_h
 #define mozilla_dom_MobileNetworkInfo_h
 
-#include "mozilla/dom/MozMobileNetworkInfoBinding.h"
+#include "mozilla/dom/MobileNetworkInfoBinding.h"
 #include "nsIMobileNetworkInfo.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
@@ -37,14 +37,14 @@ class MobileNetworkInfo final : public nsIMobileNetworkInfo {
   nsString mState;
 };
 
-class MozMobileNetworkInfo final : public nsWrapperCache, nsISupports {
+class DOMMobileNetworkInfo final : public nsWrapperCache, nsISupports {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MozMobileNetworkInfo)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMMobileNetworkInfo)
 
-  explicit MozMobileNetworkInfo(nsPIDOMWindowInner* aWindow);
+  explicit DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow);
 
-  MozMobileNetworkInfo(const nsAString& aShortName, const nsAString& aLongName,
+  DOMMobileNetworkInfo(const nsAString& aShortName, const nsAString& aLongName,
                        const nsAString& aMcc, const nsAString& aMnc,
                        const nsAString& aState);
 
@@ -60,7 +60,7 @@ class MozMobileNetworkInfo final : public nsWrapperCache, nsISupports {
   virtual JSObject*
   WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 
-  // MozMobileNetworkInfo WebIDL interface
+  // DOMMobileNetworkInfo WebIDL interface
   Nullable<MobileNetworkState> GetState() const {
     uint32_t i = 0;
     for (const EnumEntry* entry = MobileNetworkStateValues::strings;
@@ -90,7 +90,7 @@ class MozMobileNetworkInfo final : public nsWrapperCache, nsISupports {
   MobileNetworkInfo* GetNetwork() const { return mInfo; }
 
  private:
-  ~MozMobileNetworkInfo() { mInfo = nullptr; }
+  ~DOMMobileNetworkInfo() { mInfo = nullptr; }
 
  private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;

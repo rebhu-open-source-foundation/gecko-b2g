@@ -11,7 +11,7 @@
 // #include "mozilla/dom/ContactsBinding.h"
 #include "mozilla/dom/DOMRequest.h"
 #include "mozilla/dom/IccInfo.h"
-#include "mozilla/dom/MozStkCommandEvent.h"
+#include "mozilla/dom/StkCommandEvent.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "nsIIccInfo.h"
@@ -118,13 +118,13 @@ Icc::NotifyStkEvent(const nsAString& aName, nsIStkProactiveCmd* aStkProactiveCmd
     cmdFactory->CreateCommandMessage(aStkProactiveCmd, &value);
     NS_ENSURE_TRUE(value.isObject(), NS_ERROR_UNEXPECTED);
 
-    RootedDictionary<MozStkCommandEventInit> init(cx);
+    RootedDictionary<StkCommandEventInit> init(cx);
     init.mBubbles = false;
     init.mCancelable = false;
     init.mCommand = value;
 
-    RefPtr<MozStkCommandEvent> event =
-      MozStkCommandEvent::Constructor(this, aName, init);
+    RefPtr<StkCommandEvent> event =
+      StkCommandEvent::Constructor(this, aName, init);
 
     return DispatchTrustedEvent(event);
   */
@@ -141,26 +141,26 @@ Icc::UpdateIccInfo(nsIIccInfo* aIccInfo)
 
   nsCOMPtr<nsIGsmIccInfo> gsmIccInfo(do_QueryInterface(aIccInfo));
   if (gsmIccInfo) {
-    if (mIccInfo.IsNull() || !mIccInfo.Value().IsMozGsmIccInfo()) {
-      mIccInfo.SetValue().SetAsMozGsmIccInfo() = new GsmIccInfo(GetOwner());
+    if (mIccInfo.IsNull() || !mIccInfo.Value().IsGsmIccInfo()) {
+      mIccInfo.SetValue().SetAsGsmIccInfo() = new GsmIccInfo(GetOwner());
     }
-    mIccInfo.Value().GetAsMozGsmIccInfo().get()->Update(gsmIccInfo);
+    mIccInfo.Value().GetAsGsmIccInfo().get()->Update(gsmIccInfo);
     return;
   }
 
   nsCOMPtr<nsICdmaIccInfo> cdmaIccInfo(do_QueryInterface(aIccInfo));
   if (cdmaIccInfo) {
-    if (mIccInfo.IsNull() || !mIccInfo.Value().IsMozCdmaIccInfo()) {
-      mIccInfo.SetValue().SetAsMozCdmaIccInfo() = new CdmaIccInfo(GetOwner());
+    if (mIccInfo.IsNull() || !mIccInfo.Value().IsCdmaIccInfo()) {
+      mIccInfo.SetValue().SetAsCdmaIccInfo() = new CdmaIccInfo(GetOwner());
     }
-    mIccInfo.Value().GetAsMozCdmaIccInfo().get()->Update(cdmaIccInfo);
+    mIccInfo.Value().GetAsCdmaIccInfo().get()->Update(cdmaIccInfo);
     return;
   }
 
-  if (mIccInfo.IsNull() || !mIccInfo.Value().IsMozIccInfo()) {
-    mIccInfo.SetValue().SetAsMozIccInfo() = new IccInfo(GetOwner());
+  if (mIccInfo.IsNull() || !mIccInfo.Value().IsIccInfo()) {
+    mIccInfo.SetValue().SetAsIccInfo() = new IccInfo(GetOwner());
   }
-  mIccInfo.Value().GetAsMozIccInfo().get()->Update(aIccInfo);
+  mIccInfo.Value().GetAsIccInfo().get()->Update(aIccInfo);
 }
 
 // WrapperCache
@@ -168,13 +168,13 @@ Icc::UpdateIccInfo(nsIIccInfo* aIccInfo)
 JSObject*
 Icc::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return MozIcc_Binding::Wrap(aCx, this, aGivenProto);
+  return Icc_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-// MozIcc WebIDL
+// Icc WebIDL
 
 void
-Icc::GetIccInfo(Nullable<OwningMozIccInfoOrMozGsmIccInfoOrMozCdmaIccInfo>& aIccInfo) const
+Icc::GetIccInfo(Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo>& aIccInfo) const
 {
   aIccInfo = mIccInfo;
 }
@@ -326,7 +326,7 @@ Icc::GetCardLock(IccLockType aLockType, ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
-  // getCardLockRetryCount in MozIcc.webidl without a wrapper object.
+  // getCardLockRetryCount in Icc.webidl without a wrapper object.
   RefPtr<IccCallback> requestCallback =
     new IccCallback(GetOwner(), request, true);
   nsresult rv = mHandler->GetCardLockEnabled(static_cast<uint32_t>(aLockType),

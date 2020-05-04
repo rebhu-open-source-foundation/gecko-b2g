@@ -167,7 +167,7 @@ dictionary IccAuthResponse
  Exposed=Window]
 // CheckAnyPermissions="mobileconnection",
 // AvailableIn="CertifiedApps"]
-interface MozIcc : EventTarget
+interface Icc : EventTarget
 {
   // Integrated Circuit Card Information.
 
@@ -175,10 +175,10 @@ interface MozIcc : EventTarget
    * Information stored in the device's ICC.
    *
    * Once the ICC becomes undetectable, iccinfochange event will be notified.
-   * Also, the attribute is set to null and this MozIcc object becomes invalid.
+   * Also, the attribute is set to null and this Icc object becomes invalid.
    * Calling asynchronous functions raises exception then.
    */
-  readonly attribute (MozIccInfo or MozGsmIccInfo or MozCdmaIccInfo)? iccInfo;
+  readonly attribute (IccInfo or GsmIccInfo or CdmaIccInfo)? iccInfo;
 
   /**
    * The 'iccinfochange' event is notified whenever the icc info object
@@ -192,7 +192,7 @@ interface MozIcc : EventTarget
    * Indicates the state of the device's ICC.
    *
    * Once the ICC becomes undetectable, cardstatechange event will be notified.
-   * Also, the attribute is set to null and this MozIcc object becomes invalid.
+   * Also, the attribute is set to null and this Icc object becomes invalid.
    * Calling asynchronous functions raises exception then.
    */
   readonly attribute IccCardState? cardState;
@@ -210,10 +210,10 @@ interface MozIcc : EventTarget
    * Command.
    *
    * @param command
-   *        Command received from ICC. See MozStkCommand.
+   *        Command received from ICC. See StkCommand.
    * @param response
    *        The response that will be sent to ICC.
-   *        @see MozStkResponse for the detail of response.
+   *        @see StkResponse for the detail of response.
    */
   [Throws]
   void sendStkResponse(any command, any response);
@@ -238,7 +238,7 @@ interface MozIcc : EventTarget
    *        timerId: Identifier of the timer that has expired.
    *        timerValue: Different between the time when this command is issued
    *                    and when the timer was initially started.
-   *        @see MozStkTimer
+   *        @see StkTimer
    */
   [Throws]
   void sendStkTimerExpiration(any timer);
@@ -249,11 +249,11 @@ interface MozIcc : EventTarget
    *
    * @param event
    *        one of events below:
-   *        - MozStkLocationEvent
-   *        - MozStkCallEvent
-   *        - MozStkLanguageSelectionEvent
-   *        - MozStkGeneralEvent
-   *        - MozStkBrowserTerminationEvent
+   *        - StkLocationEvent
+   *        - StkCallEvent
+   *        - StkLanguageSelectionEvent
+   *        - StkGeneralEvent
+   *        - StkBrowserTerminationEvent
    */
   [Throws]
   void sendStkEventDownload(any event);

@@ -6,14 +6,14 @@
 
 [Pref="dom.sms.enabled",
  Exposed=Window]
-// Constructor(DOMString type, optional MozMmsEventInit eventInitDict)]
-interface MozMmsEvent : Event
+// Constructor(DOMString type, optional MmsEventInit eventInitDict)]
+interface MmsEvent : Event
 {
-  constructor(DOMString type, optional MozMmsEventInit eventInitDict={});
+  constructor(DOMString type, optional MmsEventInit eventInitDict={});
   readonly attribute MmsMessage? message;
 };
 
-dictionary MozMmsEventInit : EventInit
+dictionary MmsEventInit : EventInit
 {
   MmsMessage? message = null;
 };
