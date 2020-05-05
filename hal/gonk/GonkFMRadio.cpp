@@ -85,7 +85,6 @@ static bool sRDSEnabled;
 static pthread_t sRadioThread;
 static pthread_t sRDSThread;
 static hal::FMRadioSettings sRadioSettings;
-static int sMsmFMVersion;
 static bool sMsmFMMode;
 static bool sRDSSupported;
 
@@ -117,15 +116,12 @@ class RadioUpdate : public Runnable {
 /* Runs on the radio thread */
 static void initMsmFMRadio(hal::FMRadioSettings& aInfo) {
   mozilla::ScopedClose fd(sRadioFD);
-  char version[64];
-  int rc;
-  snprintf(version, sizeof(version), "%d", sMsmFMVersion);
-  property_set("hw.fm.version", version);
 
   /* Set the mode for soc downloader */
-  property_set("hw.fm.mode", "normal");
-  /* start fm_dl service */
-  property_set("ctl.start", "fm_dl");
+  property_set("vendor.hw.fm.mode", "normal");
+  /* Need to clear the hw.fm.init firstly */
+  property_set("vendor.hw.fm.init", "0");
+  property_set("ctl.start", "vendor.fm");
 
   /*
    * Fix bug 800263. Wait until the FM radio chips initialization is done
@@ -136,13 +132,13 @@ static void initMsmFMRadio(hal::FMRadioSettings& aInfo) {
   for (int i = 0; i < 4; ++i) {
     sleep(1);
     char value[PROPERTY_VALUE_MAX];
-    property_get("hw.fm.init", value, "0");
+    property_get("vendor.hw.fm.init", value, "0");
     if (!strcmp(value, "1")) {
       break;
     }
   }
 
-  rc = setControl(V4L2_CID_PRIVATE_TAVARUA_STATE, FM_RECV);
+  int rc = setControl(V4L2_CID_PRIVATE_TAVARUA_STATE, FM_RECV);
   if (rc < 0) {
     HAL_LOG("Unable to turn on radio |%s|", strerror(errno));
     return;
@@ -207,35 +203,15 @@ static void initMsmFMRadio(hal::FMRadioSettings& aInfo) {
     return;
   }
 
-  // Some devices do not support analog audio routing. This should be
-  // indicated by the 'ro.moz.fm.noAnalog' property at build time.
   char propval[PROPERTY_VALUE_MAX];
-  property_get("ro.moz.fm.noAnalog", propval, "");
-  bool noAnalog = !strcmp(propval, "true");
+  property_get("ro.fm.analogpath.supported", propval, "");
+  bool supportAnalog = !strcmp(propval, "true");
 
   rc = setControl(V4L2_CID_PRIVATE_TAVARUA_SET_AUDIO_PATH,
-                  noAnalog ? FM_DIGITAL_PATH : FM_ANALOG_PATH);
+                  supportAnalog ? FM_ANALOG_PATH : FM_DIGITAL_PATH);
   if (rc < 0) {
     HAL_LOG("Unable to set audio path");
     return;
-  }
-
-  if (!noAnalog) {
-    /* Set the mode for soc downloader */
-    property_set("hw.fm.mode", "config_dac");
-    /* Use analog mode FM */
-    property_set("hw.fm.isAnalog", "true");
-    /* start fm_dl service */
-    property_set("ctl.start", "fm_dl");
-
-    for (int i = 0; i < 4; ++i) {
-      sleep(1);
-      char value[PROPERTY_VALUE_MAX];
-      property_get("hw.fm.init", value, "0");
-      if (!strcmp(value, "1")) {
-        break;
-      }
-    }
   }
 
   fd.forget();
@@ -345,7 +321,6 @@ void EnableFMRadio(const hal::FMRadioSettings& aInfo) {
 
   if (sMsmFMMode) {
     sRadioFD = fd.forget();
-    sMsmFMVersion = cap.version;
     if (pthread_create(&sRadioThread, nullptr, runMsmFMRadio, nullptr)) {
       HAL_LOG("Couldn't create radio thread");
       hal::NotifyFMRadioStatus(info);
