@@ -330,4 +330,15 @@ def wificond_so(value):
 
 set_config('ANDROID_WIFICOND_SO', wificond_so)
 
+# B2G Connectivity AIDL Binder Support
+# ==============================================================
+option('--with-binder-b2g-connectivity-so', nargs=1,
+       help='Assign the path of binder_b2g_connectivity_interface-cpp.so')
+
+@depends_if('--with-binder-b2g-connectivity-so')
+def binder_b2g_connectivity_so(value):
+    return value[0]
+
+set_config('BINDER_B2G_CONNECTIVITY_SO', binder_b2g_connectivity_so)
+
 include('common.configure')

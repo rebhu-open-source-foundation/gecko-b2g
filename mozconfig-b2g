@@ -113,6 +113,7 @@ ac_add_options --with-supplicant-1.0-so="$SYS_LIB/android.hardware.wifi.supplica
 ac_add_options --with-supplicant-1.1-so="$SYS_LIB/android.hardware.wifi.supplicant@1.1.so"
 ac_add_options --with-supplicant-1.2-so="$SYS_LIB/android.hardware.wifi.supplicant@1.2.so"
 ac_add_options --with-wificond-so="$SYS_LIB/libwificond_ipc_shared.so"
+ac_add_options --with-binder-b2g-connectivity-so="$SYS_LIB/binder_b2g_connectivity_interface-cpp.so"
 
 ac_add_options --enable-forkserver
 
