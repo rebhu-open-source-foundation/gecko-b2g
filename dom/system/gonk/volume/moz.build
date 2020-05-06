@@ -34,12 +34,20 @@ UNIFIED_SOURCES += [
     'nsVolumeMountLock.cpp',
     'nsVolumeService.cpp',
     'nsVolumeStat.cpp',
+    'VoldProxy.cpp',
     'Volume.cpp',
     'VolumeCommand.cpp',
     'VolumeManager.cpp',
     'VolumeServiceIOThread.cpp',
     'VolumeServiceTest.cpp',
 ]
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    LOCAL_INCLUDES += [
+        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+                'out/soong/.intermediates/system/vold/libvold_binder/android_%s_core_static/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
+        ]
+    ]
 
 include('/ipc/chromium/chromium-config.mozbuild')
 

@@ -15,6 +15,7 @@
 #include "nsString.h"
 #include "nsTArray.h"
 
+#include "VoldProxy.h"
 #include "Volume.h"
 #include "VolumeCommand.h"
 
@@ -33,7 +34,7 @@ class VolumeInfo final {
   NS_INLINE_DECL_REFCOUNTING(VolumeInfo)
 
   VolumeInfo(const nsACString& aId, int aType, const nsACString& aDiskId,
-             int aState);
+             const nsACString& aPartGuid);
 
   const nsACString& getFsLabel() const { return mFsLabel; }
   const nsACString& getFsType() const { return mFsType; }
@@ -52,9 +53,20 @@ class VolumeInfo final {
   void setMountPoint(const nsACString& aMountPoint) {
     mMountPoint = aMountPoint;
   }
-  void setState(int aState) { mState = aState; }
+  void setState(int aState) { mState = State(aState); }
   void setUuid(const nsACString& aUuid) { mUuid = aUuid; }
 
+  // from system/vold/model/VolumeBase.h
+  enum class Type {
+    kPublic = 0,
+    kPrivate,
+    kEmulated,
+    kAsec,
+    kObb,
+    kStub,
+  };
+
+  // from system/vold/model/VolumeBase.h
   enum MountFlags {
     /* Flag that volume is primary external storage */
     kPrimary = 1 << 0,
@@ -62,24 +74,28 @@ class VolumeInfo final {
     kVisible = 1 << 1,
   };
 
-  enum STATE {
-    STATE_UNMOUNTED = 0,
-    STATE_CHECKING,
-    STATE_MOUNTED,
-    STATE_MOUNTED_READ_ONLY,
-    STATE_FORMATTING,
-    STATE_EJECTING,
-    STATE_UNMOUNTABLE,
-    STATE_REMOVED,
-    STATE_BAD_REMOVAL
+  // from system/vold/model/VolumeBase.h
+  enum class State {
+    kUnmounted = 0,
+    kChecking,
+    kMounted,
+    kMountedReadOnly,
+    kFormatting,
+    kEjecting,
+    kUnmountable,
+    kRemoved,
+    kBadRemoval,
   };
 
  private:
   ~VolumeInfo() {}
+  friend class VoldListener;
+
   const nsCString mId;
   int mType;
   const nsCString mDiskId;
-  int mState;
+  const nsCString mPartGuid;
+  State mState;
 
   nsCString mFsLabel;
   nsCString mFsType;
@@ -189,6 +205,8 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
 
   static void PostCommand(VolumeCommand* aCommand);
 
+  static nsTArray<RefPtr<VolumeInfo>>& GetVolumeInfoArray();
+
  protected:
   virtual void OnLineRead(int aFd, nsDependentCSubstring& aMessage);
   virtual void OnFileCanWriteWithoutBlocking(int aFd);
@@ -197,8 +215,9 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   static void DefaultConfig();
 
  private:
-  bool OpenSocket();
+  bool InitVold();
 
+  friend class VoldProxy;  // Calls SetState
   friend class VolumeResetCallback;
 
   static void SetState(STATE aNewState);

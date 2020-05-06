@@ -31,8 +31,12 @@ VolumeManager::STATE VolumeManager::mState = VolumeManager::UNINITIALIZED;
 VolumeManager::StateObserverList VolumeManager::mStateObserverList;
 
 VolumeInfo::VolumeInfo(const nsACString& aId, int aType,
-                       const nsACString& aDiskId, int aState)
-    : mId(aId), mType(aType), mDiskId(aDiskId), mState(aState) {
+                       const nsACString& aDiskId, const nsACString& aPartGuid)
+    : mId(aId),
+      mType(aType),
+      mDiskId(aDiskId),
+      mPartGuid(aPartGuid),
+      mState(State::kUnmounted) {
   // LOG("create VolumeInfo Id=%s, diskId=%s state = %d, type = %d", mId.Data(),
   // mDiskId.Data(), mState, mType);
 }
@@ -296,40 +300,27 @@ class VolumeResetCallback : public VolumeResponseCallback {
   }
 };
 
-bool VolumeManager::OpenSocket() {
+bool VolumeManager::InitVold() {
   SetState(STARTING);
-  if ((mSocket.rwget() = socket_local_client(
-           "vold", ANDROID_SOCKET_NAMESPACE_RESERVED, SOCK_STREAM)) < 0) {
-    ERR("Error connecting to vold: (%s) - will retry", strerror(errno));
-    return false;
-  }
-  // add FD_CLOEXEC flag
-  int flags = fcntl(mSocket.get(), F_GETFD);
-  if (flags == -1) {
-    return false;
-  }
-  flags |= FD_CLOEXEC;
-  if (fcntl(mSocket.get(), F_SETFD, flags) == -1) {
-    return false;
-  }
-  // set non-blocking
-  if (fcntl(mSocket.get(), F_SETFL, O_NONBLOCK) == -1) {
-    return false;
-  }
-  if (!MessageLoopForIO::current()->WatchFileDescriptor(
-          mSocket.get(), true, MessageLoopForIO::WATCH_READ, &mReadWatcher,
-          this)) {
+
+  if (!VoldProxy::Init()) {
     return false;
   }
 
-  LOG("Connected to vold");
-  PostCommand(new VolumeResetCommand(new VolumeResetCallback));
-  VolumeCommand* mVolumeCommand =
-      new VolumeCommand(NS_LITERAL_CSTRING("volume user_added 0 0"), NULL);
-  PostCommand(mVolumeCommand);
-  mVolumeCommand =
-      new VolumeCommand(NS_LITERAL_CSTRING("volume user_started 0"), NULL);
-  PostCommand(mVolumeCommand);
+  if (!VoldProxy::Reset()) {
+    return false;
+  }
+
+  DefaultConfig();
+  InitConfig();
+  Dump("READY");
+  SetState(VolumeManager::VOLUMES_READY);
+
+  if (!VoldProxy::OnUserAdded(0, 0) || !VoldProxy::OnUserStarted(0) ||
+      !VoldProxy::OnSecureKeyguardStateChanged(false)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -352,6 +343,10 @@ void VolumeManager::PostCommand(VolumeCommand* aCommand) {
     sVolumeManager->mCommandPending = true;
     sVolumeManager->WriteCommandData();
   }
+}
+
+nsTArray<RefPtr<VolumeInfo>>& VolumeManager::GetVolumeInfoArray() {
+  return sVolumeManager->mVolumeInfoArray;
 }
 
 /***************************************************************************
@@ -428,8 +423,8 @@ void VolumeManager::Start() {
     return;
   }
   SetState(STARTING);
-  if (!sVolumeManager->OpenSocket()) {
-    // Socket open failed, try again in a second.
+  if (!sVolumeManager->InitVold()) {
+    // Initialize vold failed, try again in a second.
     MessageLoopForIO::current()->PostDelayedTask(
         NewRunnableFunction("VolumeManagerStartRunnable", VolumeManager::Start),
         1000);

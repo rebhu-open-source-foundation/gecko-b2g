@@ -104,6 +104,7 @@ def Libxul(name, output_category=None):
             CONFIG['ANDROID_NETD_AIDL_SO'],
             CONFIG['ANDROID_NETD_EVENT_SO'],
             CONFIG['ANDROID_RADIO_SO'],
+            CONFIG['ANDROID_VOLD_SO'],
             CONFIG['ANDROID_VIBRATOR_SO'],
             CONFIG['ANDROID_WIFI_1_0_SO'],
             CONFIG['ANDROID_WIFI_1_1_SO'],

@@ -490,5 +490,22 @@ void Volume::HandleVoldResponse(int aResponseCode,
 
 }
 
+void Volume::HandleVolumeStateChanged(int32_t aState) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
+
+  DBG("%s with state is %d\n", __func__, aState);
+  VolumeInfo::State newState = static_cast<VolumeInfo::State>(aState);
+  if (newState == VolumeInfo::State::kMounted) {
+    SetState(nsIVolume::STATE_MOUNTED);
+  } else if (newState == VolumeInfo::State::kEjecting) {
+    SetState(nsIVolume::STATE_UNMOUNTING);
+  } else if (newState == VolumeInfo::State::kFormatting) {
+    SetState(nsIVolume::STATE_FORMATTING);
+  } else if (newState == VolumeInfo::State::kUnmounted) {
+    SetState(nsIVolume::STATE_IDLE);
+  }
+}
+
 }  // namespace system
 }  // namespace mozilla

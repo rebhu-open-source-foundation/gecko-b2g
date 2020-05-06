@@ -1299,6 +1299,8 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'android/net/BnNetdUnsolicitedEventListener.h',
         'android/net/IDnsResolver.h',
         'android/net/INetd.h',
+        'android/os/BnVoldListener.h',
+        'android/os/IVold.h',
         'b2g/connectivity/BnConnectivity.h',
         'b2g/connectivity/BpConnectivity.h',
         'b2g/connectivity/BnConnectivityEventListener.h',

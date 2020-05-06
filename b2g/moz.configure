@@ -208,6 +208,16 @@ def radio_so(value):
 
 set_config('ANDROID_RADIO_SO', radio_so)
  
+# Volume Support
+# ==============================================================
+option('--with-vold-so', nargs=1,
+ help='Assign the path')
+
+@depends_if('--with-vold-so')
+def vold_so(value):
+ return value[0]
+
+set_config('ANDROID_VOLD_SO', vold_so)
 
 # Vibrator Support
 # ==============================================================

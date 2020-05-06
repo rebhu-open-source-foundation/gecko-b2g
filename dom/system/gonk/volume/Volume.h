@@ -108,6 +108,7 @@ class Volume final {
   friend class nsVolume;            // Calls UpdateMountLock
   friend class VolumeManager;       // Calls HandleVoldResponse
   friend class VolumeListCallback;  // Calls SetMountPoint, SetState
+  friend class VoldListener;        // Calls HandleVolumeStateChanged
 
   // The StartXxx functions will queue up a command to the VolumeManager.
   // You can queue up as many commands as you like, and aCallback will
@@ -135,6 +136,7 @@ class Volume final {
 
   void HandleVoldResponse(int aResponseCode,
                           nsCWhitespaceTokenizer& aTokenizer);
+  void HandleVolumeStateChanged(int32_t aState);
 
   static void UpdateMountLock(const nsACString& aVolumeName,
                               const int32_t& aMountGeneration,
