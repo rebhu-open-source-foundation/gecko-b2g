@@ -29,11 +29,6 @@ interface nsIWifiConfiguration: nsISupports
   const long PROTO_RSN  = (1 << 1);
   const long PROTO_OSEN = (1 << 3);
 
-  /** AuthAlgMask */
-  const long AUTHALG_OPEN   = (1 << 0);
-  const long AUTHALG_SHARED = (1 << 1);
-  const long AUTHALG_LEAP   = (1 << 2);
-
   /** GroupCipherMask */
   const long GROUPCIPHER_WEP40        = (1 << 1);
   const long GROUPCIPHER_WEP104       = (1 << 2);
@@ -75,9 +70,8 @@ interface nsIWifiConfiguration: nsISupports
   readonly attribute long    wepTxKeyIndex;
   readonly attribute boolean scanSsid;
   readonly attribute boolean pmf;
-
   readonly attribute long    proto;
-  readonly attribute long    authAlg;
+  readonly attribute AString authAlg;
   readonly attribute long    groupCipher;
   readonly attribute long    pairwiseCipher;
 

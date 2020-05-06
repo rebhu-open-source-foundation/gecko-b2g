@@ -50,6 +50,21 @@ int32_t ConvertMacToByteArray(const std::string& mac, T& out) {
   return pos;
 }
 
+template <typename T>
+int32_t ConvertHexStringToBytes(const std::string& in, T& out) {
+  if (in.empty()) return -1;
+  if (in.size() % 2 != 0) return -1;
+
+  std::string::const_iterator it = in.cbegin();
+  while (it != in.cend()) {
+    int32_t number = (HexToNum(*it) << 4) | (HexToNum(*(it + 1)));
+    if (number < 0) return -1;
+    out.push_back(number);
+    it += 2;
+  }
+  return out.size();
+}
+
 void Dequote(std::string& s) {
   if (s.front() != '"' || s.back() != '"') {
     return;

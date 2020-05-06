@@ -22,6 +22,9 @@ using ::android::hardware::wifi::supplicant::V1_0::ISupplicantStaNetworkCallback
 using ::android::hardware::wifi::supplicant::V1_0::SupplicantStatus;
 using ::android::hardware::wifi::supplicant::V1_0::SupplicantStatusCode;
 
+constexpr uint32_t max_wep_key_num =
+    (ISupplicantStaNetwork::ParamSizeLimits::WEP_KEYS_MAX_NUM | 0x0);
+
 #define COPY_FIELD_STRING(configure, field)                \
   if (!configure->field.IsEmpty()) {                       \
     field = NS_ConvertUTF16toUTF8(configure->field).get(); \
@@ -79,6 +82,7 @@ class NetworkConfiguration {
     COPY_FIELD_STRING(aConfig, mWepKey1)
     COPY_FIELD_STRING(aConfig, mWepKey2)
     COPY_FIELD_STRING(aConfig, mWepKey3)
+    COPY_FIELD_STRING(aConfig, mAuthAlg)
     COPY_FIELD_STRING(aConfig, mIdentity)
     COPY_FIELD_STRING(aConfig, mAnonymousId)
     COPY_FIELD_STRING(aConfig, mPassword)
@@ -96,7 +100,6 @@ class NetworkConfiguration {
     mScanSsid = aConfig->mScanSsid;
     mPmf = aConfig->mPmf;
     mProto = aConfig->mProto;
-    mAuthAlg = aConfig->mAuthAlg;
     mGroupCipher = aConfig->mGroupCipher;
     mPairwiseCipher = aConfig->mPairwiseCipher;
     mEap = aConfig->mEap;
@@ -120,7 +123,7 @@ class NetworkConfiguration {
   bool        mScanSsid;
   bool        mPmf;
   int32_t     mProto;
-  int32_t     mAuthAlg;
+  std::string mAuthAlg;
   int32_t     mGroupCipher;
   int32_t     mPairwiseCipher;
   int32_t     mEap;
@@ -191,6 +194,10 @@ class SupplicantStaNetwork
   SupplicantStatusCode SetBssid(const std::string& aBssid);
   SupplicantStatusCode SetKeyMgmt(uint32_t aKeyMgmtMask);
   SupplicantStatusCode SetPsk(const std::string& aPsk);
+  SupplicantStatusCode SetWepKey(
+      const std::array<std::string, max_wep_key_num>& aWepKeys,
+      int32_t aKeyIndex);
+  SupplicantStatusCode SetAuthAlg(const std::string& aAuthAlg);
 
   SupplicantStatusCode GetSsid(std::string& aSsid);
   SupplicantStatusCode GetBssid(std::string& aBssid);
@@ -198,6 +205,7 @@ class SupplicantStaNetwork
 
   uint32_t ConvertKeyMgmtToMask(const std::string& aKeyMgmt) const;
   std::string ConvertMaskToKeyMgmt(uint32_t aMask) const;
+  std::string StatusCodeToString(const SupplicantStatusCode& aCode);
 
   static mozilla::Mutex s_Lock;
 

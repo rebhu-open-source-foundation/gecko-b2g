@@ -84,7 +84,7 @@ struct ConfigurationOptions {
     COPY_OPT_FIELD(mScanSsid, false)
     COPY_OPT_FIELD(mPmf, false)
     COPY_OPT_FIELD(mProto, 0)
-    COPY_OPT_FIELD(mAuthAlg, 0)
+    COPY_OPT_FIELD(mAuthAlg, EmptyString())
     COPY_OPT_FIELD(mGroupCipher, 0)
     COPY_OPT_FIELD(mPairwiseCipher, 0)
     COPY_OPT_FIELD(mEap, 0)
@@ -117,7 +117,7 @@ struct ConfigurationOptions {
   bool     mScanSsid;
   bool     mPmf;
   int32_t  mProto;
-  int32_t  mAuthAlg;
+  nsString mAuthAlg;
   int32_t  mGroupCipher;
   int32_t  mPairwiseCipher;
   int32_t  mEap;
@@ -351,6 +351,9 @@ std::string ConvertMacToString(const T& mac);
 
 template <typename T>
 int32_t ConvertMacToByteArray(const std::string& mac, T& out);
+
+template <typename T>
+int32_t ConvertHexStringToBytes(const std::string& in, T& out);
 
 void Dequote(std::string& s);
 

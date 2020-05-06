@@ -103,10 +103,6 @@ const PROTO_WPA = Ci.nsIWifiConfiguration.PROTO_WPA;
 const PROTO_RSN = Ci.nsIWifiConfiguration.PROTO_RSN;
 const PROTO_OSEN = Ci.nsIWifiConfiguration.PROTO_OSEN;
 
-const AUTHALG_OPEN = Ci.nsIWifiConfiguration.AUTHALG_OPEN;
-const AUTHALG_SHARED = Ci.nsIWifiConfiguration.AUTHALG_SHARED;
-const AUTHALG_LEAP = Ci.nsIWifiConfiguration.AUTHALG_LEAP;
-
 const GROUPCIPHER_WEP40 = Ci.nsIWifiConfiguration.GROUPCIPHER_WEP40;
 const GROUPCIPHER_WEP104 = Ci.nsIWifiConfiguration.GROUPCIPHER_WEP104;
 const GROUPCIPHER_TKIP = Ci.nsIWifiConfiguration.GROUPCIPHER_TKIP;
@@ -1031,7 +1027,9 @@ var WifiManager = (function() {
           function(network) {
             if (network && network.netId !== INVALID_NETWORK_ID) {
               wifiInfo.setNetworkId(network.netId);
-              wifiInfo.setSecurity(network.keyMgmt);
+              WifiConfigUtils.getSecurityByKeyMgmt(network, function(security) {
+                wifiInfo.setSecurity(security);
+              });
             }
         });
       } else if (manager.isConnectState(manager.state)) {
@@ -1246,6 +1244,7 @@ var WifiManager = (function() {
         if (WifiNetworkSelector.trackBssid(bssid, false, event.statusCode)) {
           manager.setFirmwareRoamingConfiguration();
         }
+
         WifiConfigManager.updateNetworkSelectionStatus(
           manager.targetNetworkId,
           WifiConfigManager.DISABLED_ASSOCIATION_REJECTION,
@@ -2533,7 +2532,7 @@ function WifiWorker() {
         "wepKey" + net.keyIndex
       ] = isWepHexKey(net.wep) ? net.wep : quote(net.wep);
       configured.wepTxKeyIndex = net.wepTxKeyIndex = net.keyIndex;
-      configured.authAlg = net.authAlg = (AUTHALG_OPEN | AUTHALG_SHARED);
+      configured.authAlg = net.authAlg = "OPEN SHARED";
     }
 
     function hasValidProperty(name) {

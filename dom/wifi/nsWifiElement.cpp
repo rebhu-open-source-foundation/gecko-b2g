@@ -13,7 +13,7 @@ nsWifiConfiguration::nsWifiConfiguration(
     int32_t aNetId, const nsAString& aSsid, const nsAString& aBssid,
     const nsAString& aKeyManagement, const nsAString& aPsk,
     const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
-    int32_t aProto, int32_t aAuthAlg, int32_t aGroupCipher,
+    int32_t aProto, const nsAString& aAuthAlg, int32_t aGroupCipher,
     int32_t aPairwiseCipher, int32_t aEap, int32_t aEapPhase2,
     const nsAString& aIdentity, const nsAString& aAnonymousId,
     const nsAString& aPassword, const nsAString& aClientCert,
@@ -111,8 +111,8 @@ nsWifiConfiguration::GetProto(int32_t* aProto) {
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetAuthAlg(int32_t* aAuthAlg) {
-  *aAuthAlg = mAuthAlg;
+nsWifiConfiguration::GetAuthAlg(nsAString& aAuthAlg) {
+  aAuthAlg = mAuthAlg;
   return NS_OK;
 }
 

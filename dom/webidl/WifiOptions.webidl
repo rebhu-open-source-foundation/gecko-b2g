@@ -60,7 +60,7 @@ dictionary WifiConfiguration
   boolean   scanSsid;
   boolean   pmf;
   long      proto;
-  long      authAlg;
+  DOMString authAlg;
   long      groupCipher;
   long      pairwiseCipher;
 

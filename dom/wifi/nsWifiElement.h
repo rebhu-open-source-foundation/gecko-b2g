@@ -24,14 +24,15 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
       int32_t aNetId, const nsAString& aSsid, const nsAString& aBssid,
       const nsAString& aKeyManagement, const nsAString& aPsk,
       const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid,
-      bool aPmf, int32_t aProto, int32_t aAuthAlg, int32_t aGroupCipher,
-      int32_t aPairwiseCipher, int32_t aEap, int32_t aEapPhase2,
-      const nsAString& aIdentity, const nsAString& aAnonymousId,
-      const nsAString& aPassword, const nsAString& aClientCert,
-      const nsAString& aCaCert, const nsAString& aCaPath,
-      const nsAString& aSubjectMatch, const nsAString& aEngineId, bool aEngine,
-      const nsAString& aPrivateKeyId, const nsAString& aAltSubjectMatch,
-      const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching);
+      bool aPmf, int32_t aProto, const nsAString& aAuthAlg,
+      int32_t aGroupCipher, int32_t aPairwiseCipher, int32_t aEap,
+      int32_t aEapPhase2, const nsAString& aIdentity,
+      const nsAString& aAnonymousId, const nsAString& aPassword,
+      const nsAString& aClientCert, const nsAString& aCaCert,
+      const nsAString& aCaPath, const nsAString& aSubjectMatch,
+      const nsAString& aEngineId, bool aEngine, const nsAString& aPrivateKeyId,
+      const nsAString& aAltSubjectMatch, const nsAString& aDomainSuffixMatch,
+      bool aProactiveKeyCaching);
 
  private:
   ~nsWifiConfiguration(){};
@@ -46,7 +47,7 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
   bool mScanSsid;
   bool mPmf;
   int32_t mProto;
-  int32_t mAuthAlg;
+  nsString mAuthAlg;
   int32_t mGroupCipher;
   int32_t mPairwiseCipher;
   int32_t mEap;

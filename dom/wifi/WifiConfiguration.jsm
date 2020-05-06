@@ -114,6 +114,7 @@ this.WifiConfigUtils = (function() {
   // WifiConfigUtils functions
   wifiConfigUtils.getMode = getMode;
   wifiConfigUtils.getSecurity = getSecurity;
+  wifiConfigUtils.getSecurityByKeyMgmt = getSecurityByKeyMgmt;
   wifiConfigUtils.getKeyMgmt = getKeyMgmt;
   wifiConfigUtils.calculateSignal = calculateSignal;
   wifiConfigUtils.getNetworkKey = getNetworkKey;
@@ -384,6 +385,16 @@ this.WifiConfigUtils = (function() {
     return MODE_ESS;
   }
 
+  function isWepEncryption(network) {
+    if (network.keyMgmt == "WEP") {
+      return true;
+    }
+    if (network.keyMgmt == "NONE" && network.authAlg == "OPEN SHARED") {
+      return true;
+    }
+    return false;
+  }
+
   function getSecurity(flags) {
     var types = [];
     if (!flags) {
@@ -405,6 +416,27 @@ this.WifiConfigUtils = (function() {
       types.push("WEP");
     }
     return types;
+  }
+
+  function getSecurityByKeyMgmt(network, callback) {
+    let keyMgmt = network.keyMgmt;
+
+    if (keyMgmt == null) {
+      return callback("OPEN");
+    }
+
+    if (keyMgmt == "WPA-PSK") {
+      return callback("WPA-PSK");
+    } else if (keyMgmt.includes("WPA-EAP")) {
+      return callback("WPA-EAP");
+    } else if (keyMgmt == "WAPI-PSK") {
+      return callback("WAPI-PSK");
+    } else if (keyMgmt == "WAPI-CERT") {
+      return callback("WAPI-CERT");
+    } else if (isWepEncryption(network)) {
+      return callback("WEP");
+    }
+    return callback("OPEN");
   }
 
   function getKeyMgmt(flags) {
@@ -489,18 +521,17 @@ this.WifiConfigUtils = (function() {
       // object structure
       // {
       //   .ssid           : SSID of network, quoted
-      //   .keyMgmt       : Encryption type
+      //   .keyMgmt        : Encryption type
       //                     "WPA-PSK" for WPA-PSK
       //                     "WPA-EAP" for WPA-EAP
       //                     "NONE" for WEP/OPEN
       //                     "WAPI-PSK" for WAPI-PSK
       //                     "WAPI-CERT" for WAPI-CERT
-      //   .auth_alg       : Encryption algorithm(WEP mode only)
+      //   .authAlg        : Encryption algorithm(WEP mode only)
       //                     "OPEN_SHARED" for WEP
       //   other keys
       // }
       var keyMgmt = network.keyMgmt ? network.keyMgmt : network.keyManagement;
-      var auth_alg = network.auth_alg;
       ssid = network.keyMgmt ? dequote(network.ssid) : network.ssid;
 
       if (keyMgmt == "WPA-PSK") {
@@ -511,7 +542,7 @@ this.WifiConfigUtils = (function() {
         encryption = "WAPI-PSK";
       } else if (keyMgmt == "WAPI-CERT") {
         encryption = "WAPI-CERT";
-      } else if (keyMgmt == "NONE" && auth_alg === "OPEN SHARED") {
+      } else if (isWepEncryption(network)) {
         encryption = "WEP";
       }
     }
