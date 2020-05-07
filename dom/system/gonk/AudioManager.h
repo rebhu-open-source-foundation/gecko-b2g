@@ -92,17 +92,17 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
    private:
     AudioManager& mManager;
     const int32_t mStreamType;
-    uint32_t mLastDevices;
-    uint32_t mDevicesWithVolumeChange;
-    bool mIsDevicesChanged;
-    bool mIsDeviceSpecificVolume;
+    uint32_t mLastDevices = 0;
+    uint32_t mDevicesWithVolumeChange = 0;
+    bool mIsDevicesChanged = true;
+    bool mIsDeviceSpecificVolume = true;
     nsDataHashtable<nsUint32HashKey, uint32_t> mVolumeIndexes;
   };
 
  protected:
-  int32_t mPhoneState;
+  int32_t mPhoneState = PHONE_STATE_CURRENT;
 
-  bool mIsVolumeInited;
+  bool mIsVolumeInited = false;
 
   // A bitwise variable for volume update of audio output devices,
   // clear it after store the value into database.
@@ -113,11 +113,11 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
   nsDataHashtable<nsUint32HashKey, uint32_t> mAudioDeviceTableIdMaps;
 
-  bool mSwitchDone;
+  bool mSwitchDone = true;
 
-  bool mBluetoothA2dpEnabled;
+  bool mBluetoothA2dpEnabled = false;
 #ifdef MOZ_B2G_BT
-  bool mA2dpSwitchDone;
+  bool mA2dpSwitchDone = true;
 #endif
   nsTArray<UniquePtr<VolumeStreamState> > mStreamStates;
   uint32_t mLastChannelVolume[AUDIO_STREAM_CNT];
@@ -144,9 +144,9 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
  private:
   UniquePtr<mozilla::hal::SwitchObserver> mObserver;
 #ifdef MOZ_B2G_RIL
-  bool mMuteCallToRIL;
+  bool mMuteCallToRIL = false;
   // mIsMicMuted is only used for toggling mute call to RIL.
-  bool mIsMicMuted;
+  bool mIsMicMuted = false;
 #endif
 
   void HandleBluetoothStatusChanged(nsISupports* aSubject, const char* aTopic,

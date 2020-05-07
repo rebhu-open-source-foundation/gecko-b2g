@@ -733,22 +733,7 @@ void AudioManager::ReleaseWakeLock() {
 
 static StaticRefPtr<AudioManager> sAudioManager;
 
-AudioManager::AudioManager()
-    : mPhoneState(PHONE_STATE_CURRENT),
-      mIsVolumeInited(false),
-      mSwitchDone(true),
-      mBluetoothA2dpEnabled(false)
-#ifdef MOZ_B2G_BT
-      ,
-      mA2dpSwitchDone(true)
-#endif
-      ,
-      mObserver(new HeadphoneSwitchObserver())
-#ifdef MOZ_B2G_RIL
-      ,
-      mMuteCallToRIL(false)
-#endif
-{
+AudioManager::AudioManager() : mObserver(new HeadphoneSwitchObserver()) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sAudioManager);
 
@@ -1393,12 +1378,7 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
 
 AudioManager::VolumeStreamState::VolumeStreamState(AudioManager& aManager,
                                                    int32_t aStreamType)
-    : mManager(aManager),
-      mStreamType(aStreamType),
-      mLastDevices(0),
-      mDevicesWithVolumeChange(0),
-      mIsDevicesChanged(true),
-      mIsDeviceSpecificVolume(true) {
+    : mManager(aManager), mStreamType(aStreamType) {
   switch (mStreamType) {
     case AUDIO_STREAM_SYSTEM:
     case AUDIO_STREAM_RING:
