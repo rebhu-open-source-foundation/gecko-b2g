@@ -99,6 +99,16 @@ void DisableSystemTimezoneChangeNotifications();
  * messages to hal_sandbox.
  */
 bool HalChildDestroyed();
+
+/**
+ * Enable flashlight state change notifications from the backend.
+ */
+void EnableFlashlightNotifications();
+
+/**
+ * Disable flashlight state change notifications from the backend.
+ */
+void DisableFlashlightNotifications();
 }  // namespace MOZ_HAL_NAMESPACE
 }  // namespace mozilla
 

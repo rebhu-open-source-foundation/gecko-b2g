@@ -15,6 +15,12 @@ partial interface B2G {
   readonly attribute AlarmManager alarmManager;
 };
 
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.flashlight.enabled"]
+  Promise<FlashlightManager> getFlashlightManager();
+};
+
 partial interface B2G {
   [Throws, Exposed=Window]
   readonly attribute TetheringManager tetheringManager;

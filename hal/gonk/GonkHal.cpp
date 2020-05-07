@@ -32,6 +32,10 @@
 
 #include "mozilla/DebugOnly.h"
 
+#include "android/hardware/BnCameraServiceListener.h"
+#include "android/hardware/ICameraService.h"
+#include "android/hardware/ICameraServiceListener.h"
+#include "binder/IServiceManager.h"
 #include "android/log.h"
 #include "cutils/properties.h"
 #include "hardware/hardware.h"
@@ -1289,6 +1293,144 @@ SetAlarm(int32_t aSeconds, int32_t aNanoseconds)
   }
 
   return true;
+}
+
+using namespace android;
+using namespace android::hardware;
+typedef binder::Status Status;
+
+class FlashlightStateEvent : public Runnable {
+ public:
+  FlashlightStateEvent(hal::FlashlightInformation info)
+    : mozilla::Runnable("FlashlightStateEvent"),
+      mInfo(info) {
+  }
+
+  NS_IMETHOD
+  Run() override {
+    hal::UpdateFlashlightState(mInfo);
+    return NS_OK;
+  }
+
+ private:
+  hal::FlashlightInformation mInfo;
+};
+
+class FlashlightListener : public BnCameraServiceListener {
+  mutable android::Mutex mLock;
+  bool mFlashlightEnabled = false;
+
+public:
+  Status onStatusChanged(int32_t status,
+    const String16& cameraId) override {
+    // do nothing
+    return Status::ok();
+  }
+
+  Status onTorchStatusChanged(int32_t status,
+    const String16& cameraId) override {
+    AutoMutex l(mLock);
+    bool flashlightEnabled =
+      (status == ICameraServiceListener::TORCH_STATUS_AVAILABLE_ON)? true : false;
+
+    if (mFlashlightEnabled != flashlightEnabled) {
+      hal::FlashlightInformation flashlightInfo;
+      flashlightInfo.enabled() = mFlashlightEnabled = flashlightEnabled;
+      RefPtr<FlashlightStateEvent> runnable = new FlashlightStateEvent(flashlightInfo);
+      NS_DispatchToMainThread(runnable);
+    }
+
+    return Status::ok();
+  }
+
+  Status onCameraAccessPrioritiesChanged() override {
+    // do nothing
+    return Status::ok();
+  }
+
+  bool getFlashlightEnabled() const {
+    AutoMutex l(mLock);
+    return mFlashlightEnabled;
+  };
+};
+
+sp<IBinder> gBinder = nullptr;
+sp<hardware::ICameraService> gCameraService = nullptr;
+sp<FlashlightListener> gFlashlightListener = nullptr;
+
+static bool
+initCameraService() {
+  Status res;
+  sp<IServiceManager> sm = defaultServiceManager();
+  do {
+    gBinder = sm->getService(String16("media.camera"));
+    if (gBinder != 0) {
+      break;
+    }
+    HAL_ERR("CameraService not published, waiting...");
+    usleep(500000);
+  } while(true);
+
+  gCameraService = interface_cast<hardware::ICameraService>(gBinder);
+  gFlashlightListener = new FlashlightListener();
+  std::vector<hardware::CameraStatus> statuses;
+  res = gCameraService->addListener(gFlashlightListener, &statuses);
+  return res.isOk()? true : false;
+}
+
+bool
+GetFlashlightEnabled()
+{
+  if (gFlashlightListener) {
+    return gFlashlightListener->getFlashlightEnabled();
+  } else {
+    HAL_ERR("gFlashlightListener is not initialized yet!");
+    return false;
+  }
+}
+
+void
+SetFlashlightEnabled(bool aEnabled)
+{
+  if(gCameraService) {
+    Status res;
+    res = gCameraService->setTorchMode(String16("0"), aEnabled, gBinder);
+    if (!res.isOk()) {
+      HAL_ERR("Failed to get setTorchMode, early return!");
+    }
+  } else {
+    HAL_ERR("CameraService haven't initialized yet, return directly!");
+  }
+}
+
+void
+RequestCurrentFlashlightState()
+{
+  hal::FlashlightInformation flashlightInfo;
+  flashlightInfo.enabled() = GetFlashlightEnabled();
+  hal::UpdateFlashlightState(flashlightInfo);
+}
+
+void
+EnableFlashlightNotifications()
+{
+  if (!gCameraService) {
+    if (!initCameraService()) {
+      HAL_ERR("Failed to init CameraService, operation failed!");
+      return;
+    }
+  }
+}
+
+void
+DisableFlashlightNotifications()
+{
+  if (gCameraService) {
+    gCameraService->removeListener(gFlashlightListener);
+    gBinder = nullptr;
+    gCameraService = nullptr;
+    gFlashlightListener = nullptr;
+  }
 }
 
 #if 0  // TODO: FIXME

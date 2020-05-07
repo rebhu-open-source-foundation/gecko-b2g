@@ -30,6 +30,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAlarmManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlashlightManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
@@ -57,7 +58,17 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
 
-void B2G::Shutdown() {}
+void B2G::Shutdown() {
+
+  if (mFlashlightManager) {
+    mFlashlightManager->Shutdown();
+    mFlashlightManager = nullptr;
+  }
+
+#ifdef MOZ_B2G_CAMERA
+  mCameraManager = nullptr;
+#endif
+}
 
 JSObject* B2G::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
   return B2G_Binding::Wrap(cx, this, aGivenProto);
@@ -74,6 +85,26 @@ AlarmManager* B2G::GetAlarmManager(ErrorResult& aRv) {
   }
 
   return mAlarmManager;
+}
+
+already_AddRefed<Promise> B2G::GetFlashlightManager(ErrorResult& aRv) {
+  if (!mFlashlightManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    if (!innerWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mFlashlightManager = new FlashlightManager(innerWindow);
+    mFlashlightManager->Init();
+  }
+
+  RefPtr<Promise> p = mFlashlightManager->GetPromise(aRv);
+  return p.forget();
 }
 
 TetheringManager* B2G::GetTetheringManager(ErrorResult& aRv) {

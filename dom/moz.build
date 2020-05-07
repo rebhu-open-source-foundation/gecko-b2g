@@ -55,6 +55,7 @@ DIRS += [
     'file',
     'filehandle',
     'filesystem',
+    'flashlightmanager',
     'flex',
     'gamepad',
     'geolocation',

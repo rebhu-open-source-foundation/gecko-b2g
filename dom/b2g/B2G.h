@@ -11,6 +11,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 #include "mozilla/dom/AlarmManager.h"
+#include "mozilla/dom/FlashlightManager.h"
 #include "mozilla/dom/TetheringManagerBinding.h"
 
 #ifdef MOZ_B2G_RIL
@@ -61,6 +62,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
 
   AlarmManager* GetAlarmManager(ErrorResult& aRv);
+  already_AddRefed<Promise> GetFlashlightManager(ErrorResult& aRv);
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
 
 #ifdef MOZ_B2G_RIL
@@ -106,6 +108,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
  private:
   ~B2G();
   RefPtr<AlarmManager> mAlarmManager;
+  RefPtr<FlashlightManager> mFlashlightManager;
   RefPtr<TetheringManager> mTetheringManager;
 #ifdef MOZ_B2G_RIL
   RefPtr<CellBroadcast> mCellBroadcast;

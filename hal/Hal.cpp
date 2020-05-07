@@ -325,6 +325,62 @@ void NotifyBatteryChange(const BatteryInformation& aInfo) {
   BatteryObservers()->BroadcastCachedInformation();
 }
 
+class FlashlightObserversManager : public ObserversManager<FlashlightInformation>
+{
+protected:
+  void EnableNotifications() {
+    PROXY_IF_SANDBOXED(EnableFlashlightNotifications());
+  }
+
+  void DisableNotifications() {
+    PROXY_IF_SANDBOXED(DisableFlashlightNotifications());
+  }
+};
+
+static FlashlightObserversManager sFlashlightObservers;
+
+void
+RegisterFlashlightObserver(FlashlightObserver* aObserver)
+{
+  AssertMainThread();
+  sFlashlightObservers.AddObserver(aObserver);
+}
+
+void
+UnregisterFlashlightObserver(FlashlightObserver* aObserver)
+{
+  AssertMainThread();
+  sFlashlightObservers.RemoveObserver(aObserver);
+}
+
+void
+UpdateFlashlightState(const FlashlightInformation& aFlashlightState)
+{
+  AssertMainThread();
+  sFlashlightObservers.BroadcastInformation(aFlashlightState);
+}
+
+void
+RequestCurrentFlashlightState()
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(RequestCurrentFlashlightState());
+}
+
+bool
+GetFlashlightEnabled()
+{
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(GetFlashlightEnabled(), true);
+}
+
+void
+SetFlashlightEnabled(bool aEnabled)
+{
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(SetFlashlightEnabled(aEnabled));
+}
+
 bool GetScreenEnabled()
 {
   AssertMainThread();

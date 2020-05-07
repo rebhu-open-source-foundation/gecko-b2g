@@ -42,6 +42,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
     UNIFIED_SOURCES += [
         'android/AndroidProcessPriority.cpp',
         'fallback/FallbackAlarm.cpp',
+        'fallback/FallbackFlashlightManager.cpp',
         'android/AndroidSensor.cpp',
     ]
     # AndroidHal.cpp cannot be built in unified mode because it relies on HalImpl.h.
@@ -70,9 +71,25 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     SOURCES += [
         'gonk/GonkHal.cpp',
     ]
+    LOCAL_INCLUDES += [
+        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+            'frameworks/av/camera/include/camera',
+            'out/soong/.intermediates/frameworks/av/camera/libcamera_client/android_%s_core_shared/gen/aidl' % CONFIG['TARGET_ARCH_NAME'],
+            'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen',
+            'out/soong/.intermediates/hardware/interfaces/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen',
+            'system/libhidl/transport/token/1.0/utils/include',
+            'system/media/camera/include',
+        ]
+    ]
 elif CONFIG['OS_TARGET'] == 'Linux':
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
+        'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
@@ -91,6 +108,7 @@ elif CONFIG['OS_TARGET'] == 'Linux':
 elif CONFIG['OS_TARGET'] == 'WINNT':
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
+        'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
@@ -106,6 +124,7 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     UNIFIED_SOURCES += [
         'cocoa/CocoaBattery.cpp',
         'fallback/FallbackAlarm.cpp',
+        'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
@@ -115,6 +134,7 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
 elif CONFIG['OS_TARGET'] in ('OpenBSD', 'NetBSD', 'FreeBSD', 'DragonFly'):
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
+        'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
@@ -133,6 +153,7 @@ elif CONFIG['OS_TARGET'] in ('OpenBSD', 'NetBSD', 'FreeBSD', 'DragonFly'):
 else:
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
+        'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackBattery.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',

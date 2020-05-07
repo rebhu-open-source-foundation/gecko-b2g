@@ -1688,6 +1688,12 @@
   value: false
   mirror: always
 
+# Enable flashlight manager
+- name: dom.flashlight.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Enable formData event
 - name: dom.formdata.event.enabled
   type: bool

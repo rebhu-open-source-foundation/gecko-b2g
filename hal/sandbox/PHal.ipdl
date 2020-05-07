@@ -59,6 +59,10 @@ struct ScreenConfiguration {
   uint32_t pixelDepth;
 };
 
+struct FlashlightInformation {
+  bool enabled;
+};
+
 } // namespace hal
 
 namespace hal_sandbox {
@@ -72,10 +76,16 @@ child:
     async NotifyWakeLockChange(WakeLockInformation aWakeLockInfo);
     async NotifyScreenConfigurationChange(ScreenConfiguration aScreenOrientation);
     async NotifySwitchChange(SwitchEvent aEvent);
+    async NotifyFlashlightState(FlashlightInformation aFlashlightInfo);
 
 parent:
     async Vibrate(uint32_t[] pattern, uint64_t[] id, PBrowser browser);
     async CancelVibrate(uint64_t[] id, PBrowser browser);
+
+    async EnableFlashlightNotifications();
+    async DisableFlashlightNotifications();
+    async GetFlashlightEnabled();
+    async SetFlashlightEnabled(bool enabled);
 
     async EnableBatteryNotifications();
     async DisableBatteryNotifications();

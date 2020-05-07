@@ -1075,6 +1075,7 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'binder/IUidObserver.h',
         'binder/Parcel.h',
         'binder/ProcessState.h',
+        'binder/Status.h',
         'camera/Camera.h',
         'camera/CameraParameters.h',
         'ColorConverter.h',
@@ -1239,6 +1240,8 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     system_headers += [
         'android/hardware/gnss/1.0/IGnss.h',
+        'android/hardware/BnCameraServiceListener.h',
+        'android/hardware/ICameraService.h',
         'android/hardware/radio/1.0/types.h',
         'android/hardware/radio/1.0/IRadio.h',
         'android/hardware/radio/1.0/IRadioIndication.h',

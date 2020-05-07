@@ -10,6 +10,7 @@
 #include "base/basictypes.h"
 #include "base/platform_thread.h"
 #include "nsTArray.h"
+#include "mozilla/dom/FlashlightManager.h"
 #include "mozilla/hal_sandbox/PHal.h"
 #include "mozilla/HalBatteryInformation.h"
 #include "mozilla/HalNetworkInformation.h"
@@ -116,6 +117,40 @@ void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo);
  * @param aBatteryInfo The new battery information.
  */
 void NotifyBatteryChange(const hal::BatteryInformation& aBatteryInfo);
+
+/**
+ * Inform the flashlightmanager backend there is a new flashlight observer.
+ * @param aFlashlightObserver The observer that should be added.
+ */
+void RegisterFlashlightObserver(mozilla::dom::FlashlightObserver* aFlashlightObserver);
+
+/**
+ * Inform the flashlightmanager backend a flashlight observer unregistered.
+ * @param aFlashlightObserver The observer that should be removed.
+ */
+void UnregisterFlashlightObserver(mozilla::dom::FlashlightObserver* aFlashlightObserver);
+
+/**
+ * Request the current Flashlight state. If the request is made by content process,
+ * result will be returned asynchronously.
+ */
+void RequestCurrentFlashlightState();
+
+/**
+ * Update the Flashlight state in each Flashlight observers.
+ * @param aFlashlightState The new state of Flashlight.
+ */
+void UpdateFlashlightState(const hal::FlashlightInformation& aFlashlightInfo);
+
+/**
+ * Get the flashlight state which is enabled or not
+ */
+bool GetFlashlightEnabled();
+
+/**
+ * Enable or disable flashlight.
+ */
+void SetFlashlightEnabled(bool aEnabled);
 
 /**
  * Determine whether the device's screen is currently enabled.
