@@ -273,6 +273,8 @@ void AudioManager::HandleAudioFlingerDied() {
   // Enable volume change notification
   mIsVolumeInited = true;
   MaybeUpdateVolumeSettingToDatabase(true);
+
+  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
 }
 
 // TODO FIXME
